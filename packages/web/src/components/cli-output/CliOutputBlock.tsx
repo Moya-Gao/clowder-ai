@@ -170,6 +170,55 @@ function ToolRow({
   );
 }
 
+/* ── Collapsible tools section (tools collapse independently, stdout stays visible) ── */
+
+function ToolsSection({
+  toolUses,
+  toolResults,
+  lastToolId,
+  onUserInteract,
+}: {
+  toolUses: CliEvent[];
+  toolResults: CliEvent[];
+  lastToolId: string | undefined;
+  onUserInteract: () => void;
+}) {
+  const [toolsExpanded, setToolsExpanded] = useState(true);
+  const toolSummary = `${toolUses.length} tool${toolUses.length > 1 ? 's' : ''}`;
+
+  return (
+    <div className="py-1">
+      <button
+        type="button"
+        data-testid="tools-section-toggle"
+        className="w-full flex items-center gap-1.5 px-3 py-1 text-[10px] text-gray-400 hover:text-gray-300 transition-colors"
+        onClick={() => {
+          setToolsExpanded((v) => !v);
+          onUserInteract();
+        }}
+      >
+        <ChevronIcon expanded={toolsExpanded} />
+        <span>{toolSummary}</span>
+      </button>
+      {toolsExpanded && (
+        <div className="space-y-0.5">
+          {toolUses.map((e, i) => {
+            const result = toolResults[i];
+            return (
+              <ToolRow
+                key={e.id}
+                event={{ ...e, detail: result?.detail ?? e.detail }}
+                isActive={e.id === lastToolId}
+                onUserInteract={onUserInteract}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main component ── */
 
 interface CliOutputBlockProps {
@@ -229,12 +278,12 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
   };
 
   return (
-    <div className="mt-2 mb-1 rounded-lg overflow-hidden border border-gray-700/50">
-      {/* Summary / header bar */}
+    <div className="mt-2 mb-1 rounded-lg overflow-hidden border border-white/10">
+      {/* Summary / header bar — dark breed-tinted (black overlay lets breed color bleed through) */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-[#1e1f2e] text-gray-300 hover:bg-[#252638] transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-black/80 text-gray-300 hover:bg-black/75 transition-colors"
       >
         <ChevronIcon expanded={expanded} />
         <span className="font-medium">{summary}</span>
@@ -250,32 +299,25 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
         </span>
       </button>
 
-      {/* Expanded body — dark terminal substrate */}
+      {/* Expanded body — dark breed-tinted substrate */}
       {expanded && (
-        <div data-testid="cli-output-body" className="bg-[#1a1b26] text-gray-100 text-xs">
-          {/* Tool rows — index-based result matching for duplicate labels */}
+        <div data-testid="cli-output-body" className="bg-black/75 text-gray-200 text-xs">
+          {/* Collapsible tools section */}
           {toolUses.length > 0 && (
-            <div className="py-1 space-y-0.5">
-              {toolUses.map((e, i) => {
-                const result = toolResults[i];
-                return (
-                  <ToolRow
-                    key={e.id}
-                    event={{ ...e, detail: result?.detail ?? e.detail }}
-                    isActive={e.id === lastToolId}
-                    onUserInteract={() => {
-                      userInteracted.current = true;
-                    }}
-                  />
-                );
-              })}
-            </div>
+            <ToolsSection
+              toolUses={toolUses}
+              toolResults={toolResults}
+              lastToolId={lastToolId}
+              onUserInteract={() => {
+                userInteracted.current = true;
+              }}
+            />
           )}
 
-          {/* stdout section */}
+          {/* stdout section — always visible when block is expanded */}
           {textEvents.length > 0 && (
             <>
-              {toolUses.length > 0 && <div className="border-t border-gray-700/50 mx-3 my-1" />}
+              {toolUses.length > 0 && <div className="border-t border-white/10 mx-3 my-1" />}
               <div className="px-3 py-2 font-mono text-xs text-gray-400 whitespace-pre-wrap">
                 {textEvents.map((e) => e.content).join('\n')}
               </div>

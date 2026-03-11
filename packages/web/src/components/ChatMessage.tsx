@@ -304,7 +304,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             borderColor: catStyle.borderColor,
           } : undefined}
         >
-          {/* F097: Content first (conclusion on top), then CLI block, then Thinking */}
+          {/* F097: Content first, then Thinking (reasoning before execution), then CLI output */}
           {/* 1. Content — callback messages or non-stream text shown as normal content */}
           {!isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
@@ -313,7 +313,11 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           ) : !hasCliBlock && message.isStreaming ? (
             <span className="text-xs text-gray-500">思考中...</span>
           ) : null}
-          {/* 2. CLI Output Block — tools + stream content merged */}
+          {/* 2. 🧠 Thinking — reasoning happens before tool execution (AC-A3) */}
+          {message.thinking && (
+            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={uiThinkingExpandedByDefault} expandInExport={false} />
+          )}
+          {/* 3. CLI Output Block — tools + stream content merged */}
           {hasCliBlock && (
             <CliOutputBlock
               events={cliEvents}
@@ -321,10 +325,6 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               thinkingMode={currentThread?.thinkingMode}
               defaultExpanded={uiThinkingExpandedByDefault}
             />
-          )}
-          {/* 3. 🧠 Thinking — independent, never inside CLI block (AC-A3) */}
-          {message.thinking && (
-            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={uiThinkingExpandedByDefault} expandInExport={false} />
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
             <RichBlocks blocks={message.extra.rich.blocks} catId={message.catId} messageId={message.id} />
