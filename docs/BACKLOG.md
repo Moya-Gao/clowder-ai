@@ -16,7 +16,6 @@ created: 2026-02-26
 |----|------|--------|-------|------|
 | F010 | 手机端猫猫 | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
 | F014 | SVG 猫猫状态动画 | in-progress | 三猫 | [F014](features/F014-svg-cat-animation.md) |
-| F021 | Signal Hunter 集成 | done | 三猫 | [F021](features/F021-signal-study-mode.md) |
 | F036 | Logo 一笔画动画（Stroke Drawing Animation） | in-progress | 三猫 | [F036](features/F036-logo-stroke-animation.md) |
 | F037 | Agent Swarm 协同模式 | in-progress | 三猫 | [F037](features/F037-agent-swarm.md) |
 | F038 | Skills 梳理 + 按需发现机制 | in-progress | 三猫 | [F038](features/F038-skills-discovery.md) |
@@ -33,18 +32,18 @@ created: 2026-02-26
 | F066 | Voice Pipeline Upgrade — Phase 4: TTS 韧性增强 | in-progress | 布偶猫 | [F066](features/F066-voice-pipeline-upgrade.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | [F069](features/F069-thread-read-state.md) |
+| F071 | UX Debt Batch — 前端小修小补合集 | spec | 布偶猫 | [F071](features/F071-ux-debt-batch.md) |
 | F074 | Mount Directory Support — 挂载/共享目录支持 | spec | 布偶猫 | [F074](features/F074-mount-directory-support.md) |
 | F075 | 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | spec | 布偶猫 | [F075](features/F075-cat-leaderboard.md) |
 | F076 | Mission Hub 跨项目作战面板 — 派遣进展 + 回流摘要 + 决策中枢 | phase-2-done | 布偶猫 | [F076](features/F076-mission-hub-cross-project.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | [F077](features/F077-multi-user-secure-collab.md) |
+| F081 | Bubble/Thread State Write-Path Audit（附录） | in-progress | 布偶猫 | [F081](features/F081-write-path-audit.md) |
 | F085 | Hyperfocus Brake — Phase 5 UX 增强 | in-progress | 布偶猫 | [F085](features/F085-hyperfocus-brake.md) |
 | F087 | CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | spec | 布偶猫 | [F087](features/F087-cvo-bootcamp.md) |
 | F088 | Multi-Platform Chat Gateway — 飞书/Telegram 多平台网关 | phase5-6-done | 布偶猫 | [F088](features/F088-multi-platform-chat-gateway.md) |
 | F089 | Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性 | spec | 布偶猫 | [F089](features/F089-hub-terminal-tmux.md) |
 | F090 | Pixel Cat Brawl — 像素猫猫大作战：即时格斗 demo game | phase-1-done | 布偶猫 | [F090](features/F090-pixel-cat-brawl.md) |
-| F091 | Signal Study Mode — 信号学习伴侣 | done | 布偶猫 | [F091](features/F091-signal-study-mode.md) |
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | [F092](features/F092-voice-companion-experience.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | [F093](features/F093-cats-and-u-world-engine.md) |
-| F094 | Feature 文档债务清理 — 全量迁移到黄金模板标准 | spec | 布偶猫 | [F094](features/F094-feature-doc-debt-cleanup.md) |
 | F095 | Thread Sidebar 导航体验升级 | spec | 布偶猫 | [F095](features/F095-sidebar-collapse-memory.md) |
 | F096 | Interactive Rich Blocks — 可交互富文本组件 | spec | 布偶猫 | [F096](features/F096-interactive-rich-blocks.md) |

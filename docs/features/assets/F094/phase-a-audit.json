@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-11T08:30:25.762Z",
+  "generatedAt": "2026-03-11T09:44:00.021Z",
   "generatedDate": "2026-03-11",
-  "featuresDir": "/Users/lysander/projects/relay-station/cat-cafe-F094-phase-b-doc-fixes/docs/features",
+  "featuresDir": "/Users/lysander/projects/relay-station/cat-cafe-F094-phase-c-backlog-align/docs/features",
   "featuresDirRelative": "docs/features",
   "checks": [
     {
@@ -58,9 +58,9 @@
     }
   ],
   "summary": {
-    "totalDocs": 97,
+    "totalDocs": 99,
     "tierCounts": {
-      "green": 97,
+      "green": 99,
       "yellow": 0,
       "red": 0
     },
@@ -1054,6 +1054,26 @@
     {
       "file": "F094-feature-doc-debt-cleanup.md",
       "featureId": "F094",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F095-sidebar-collapse-memory.md",
+      "featureId": "F095",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F096-interactive-rich-blocks.md",
+      "featureId": "F096",
       "frontmatterDocKind": "spec",
       "scorePercent": 100,
       "passedChecks": 13,

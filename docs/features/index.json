@@ -123,7 +123,7 @@
     {
       "id": "F021",
       "name": "Signal Hunter 集成",
-      "status": "in-progress | **Owner**: 三猫",
+      "status": "done | **Owner**: 三猫",
       "file": "F021-signal-study-mode.md"
     },
     {
@@ -351,7 +351,7 @@
     {
       "id": "F058",
       "name": "Mission Control 增强（F049++）",
-      "status": "in-progress (Phase I) | **Owner**: 布偶猫",
+      "status": "in-progress (Phase J ✅, AC-I6 遗留) | **Owner**: 布偶猫",
       "file": "F058-mission-control-enhancements.md"
     },
     {
@@ -405,7 +405,7 @@
     {
       "id": "F066",
       "name": "Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列",
-      "status": "in-progress (Phase 4 enhancement) | **Owner**: 布偶猫 (Opus 4.6)",
+      "status": "phase4-done | **Owner**: 布偶猫 (Opus 4.6)",
       "file": "F066-voice-pipeline-upgrade.md"
     },
     {
@@ -537,7 +537,7 @@
     {
       "id": "F087",
       "name": "猫猫训练营（CVO Bootcamp）",
-      "status": "discussion | **Owner**: 布偶猫",
+      "status": "spec | **Owner**: 布偶猫",
       "file": "F087-cvo-bootcamp.md"
     },
     {
@@ -579,9 +579,21 @@
     {
       "id": "F094",
       "name": "Feature 文档债务清理 — 全量迁移到黄金模板标准",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-11",
       "file": "F094-feature-doc-debt-cleanup.md"
+    },
+    {
+      "id": "F095",
+      "name": "Thread Sidebar 分组折叠状态记忆",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F095-sidebar-collapse-memory.md"
+    },
+    {
+      "id": "F096",
+      "name": "Interactive Rich Blocks — 可交互富文本组件",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F096-interactive-rich-blocks.md"
     }
   ],
-  "generated_at": "2026-03-11T08:30:25.837Z"
+  "generated_at": "2026-03-11T09:44:00.090Z"
 }

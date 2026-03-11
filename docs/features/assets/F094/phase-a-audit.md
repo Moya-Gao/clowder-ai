@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F094 Phase A 审计报告（模板合规度）
 
-- 生成时间：2026-03-11T08:30:25.762Z
+- 生成时间：2026-03-11T09:44:00.021Z
 - 审计范围：`docs/features/F*.md`
 - 分档规则：Green >= 80%，Yellow 50%-79.99%，Red < 50%
 - 机器明细：`phase-a-audit.json`
@@ -17,7 +17,7 @@ created: 2026-03-11
 
 | 总文档数 | Green | Yellow | Red | 平均分 |
 | --- | --- | --- | --- | --- |
-| 97 | 97 | 0 | 0 | 100% |
+| 99 | 99 | 0 | 0 | 100% |
 
 ## 缺失项频次（Top）
 
@@ -32,7 +32,7 @@ created: 2026-03-11
 
 ## 分档清单
 
-### GREEN (97)
+### GREEN (99)
 
 | Feature | 文件 | 分数 | 缺失项数 |
 | --- | --- | --- | --- |
@@ -133,6 +133,8 @@ created: 2026-03-11
 | F092 | `F092-voice-companion-experience.md` | 100% | 0 |
 | F093 | `F093-cats-and-u-world-engine.md` | 100% | 0 |
 | F094 | `F094-feature-doc-debt-cleanup.md` | 100% | 0 |
+| F095 | `F095-sidebar-collapse-memory.md` | 100% | 0 |
+| F096 | `F096-interactive-rich-blocks.md` | 100% | 0 |
 
 ### YELLOW (0)
 

@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F094: Feature 文档债务清理 — 全量迁移到黄金模板标准
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-11
 
 ## Why
 
@@ -24,7 +24,7 @@ created: 2026-03-10
 - **最高频缺失项（当前）**：无（13 项检查全部清零）
 - **重复 Feature ID**：F055、F061、F081 各有 2 份文档（待铲屎官拍板去留）
 - **TEMPLATE.md 过时**：不反映实际最佳实践（已有 `feature-doc-template.md` 取代）
-- **BACKLOG.md 脱节仍存在**：`check:features` 仍有 2 条（F071/F081 缺失）
+- **BACKLOG.md 脱节**：已清零（`PASS check-feature-truth`）
 
 **Mission Hub Dashboard parser（F058）依赖统一格式**：Phase 标题、AC 编号、Status 行、Dependencies 段——格式不统一就无法自动提取进度。
 
@@ -105,9 +105,9 @@ created: 2026-03-10
 - [x] AC-B4: Phase 标题和 AC 编号符合 parser 格式
 
 ### Phase C（BACKLOG 对齐 + 验证）
-- [ ] AC-C1: BACKLOG.md 与 feat 文档状态一致
-- [ ] AC-C2: lint 脚本可检查 feat 文档模板合规度
-- [ ] AC-C3: 全量通过 lint（0 error）
+- [x] AC-C1: BACKLOG.md 与 feat 文档状态一致
+- [x] AC-C2: lint 脚本可检查 feat 文档模板合规度
+- [x] AC-C3: 全量通过 lint（0 error）
 
 ## 需求点 Checklist
 
@@ -117,8 +117,8 @@ created: 2026-03-10
 | R2 | 模板标准升级 | AC-A2 | ✅ Phase A 完成 |
 | R3 | 活跃 feat 文档迁移（Red 7 + Yellow 批量） | AC-B1, AC-B3, AC-B4 | ✅ Phase B 完成（97/97 全绿） |
 | R4 | 已完成 feat 文档迁移 | AC-B2, AC-B3 | ✅ Phase B 完成 |
-| R5 | BACKLOG 状态对齐 | AC-C1 | ⬜ Phase C 待执行 |
-| R6 | 自动化验证 | AC-C2, AC-C3 | ⬜ Phase C 待执行 |
+| R5 | BACKLOG 状态对齐 | AC-C1 | ✅ Phase C 完成 |
+| R6 | 自动化验证 | AC-C2, AC-C3 | ✅ Phase C 完成 |
 
 ## Dependencies
 
@@ -203,7 +203,7 @@ created: 2026-03-10
 
 ### 技术决策
 - **不解决的问题**：F055/F081 重复 ID 暂时只标注，等铲屎官拍板后单独处理（不污染主迁移批次）
-- **检查失败处理**：`check:features` 当前剩余 2 条 `backlog-missing`（F071/F081）属于 Phase C 范畴，不阻塞 Phase B
+- **检查失败处理**：Phase C 已完成 BACKLOG 对齐，`check:features` 已全量通过
 
 ## Open Questions
 
@@ -236,7 +236,7 @@ created: 2026-03-10
 | 2026-03-11 | Phase B 第七批完成：Yellow 收官 11 份迁移（F076/F077/F078/F079/F080/F082/F083/F086/F088/F089/F091） | 缅因猫砚砚 |
 | 2026-03-11 | Phase B 收口加固：6 份 green 文档补齐严格模板项（F081/F084/F085/F087/F090/F092） | 缅因猫砚砚 |
 | 2026-03-11 | Phase B merged (PR #359) — 97/97 green, 云端 review 3 轮通过 | 布偶猫 |
-| 待定 | Phase C BACKLOG 对齐 + lint 验证 | 待派遣 |
+| 2026-03-11 | Phase C 完成：BACKLOG 对齐（移除 done 的 F021/F091，补回 active 的 F071/F081）+ `check:features` 通过 | 缅因猫砚砚 |
 
 ## Review Gate
 
