@@ -37,6 +37,10 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
   - 打招呼、表达情感、庆祝、鼓励
   - 只填 \`text\`，系统会自动合成语音
   - 不要每条消息都发语音，只在你觉得"说出来比打字更好"时用
+- **interactive**（用户可交互选择/确认）
+  - 让用户选方案（select/multi-select）、选卡片（card-grid）、确认操作（confirm）
+  - \`interactiveType\` + \`options\`(id+label) 必填，\`title\`/\`description\`/\`maxSelect\`/\`allowRandom\`/\`messageTemplate\` 可选
+  - 用户选择后 block 自动 disabled，选择结果持久化（刷新不丢）
 
 **何时不用**（保持纯文本）：
 - 日常聊天、闲聊、打招呼
@@ -51,7 +55,8 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
 - diff: \`filePath\` + \`diff\` 必填，\`languageHint\` 可选
 - checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选
 - media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选
-- audio: \`text\` 必填（你想说的话，简短口语化，1-2 句）`;
+- audio: \`text\` 必填（你想说的话，简短口语化，1-2 句）
+- interactive: \`interactiveType\` (select/multi-select/card-grid/confirm) + \`options\` (id+label) 必填`;
 
 /**
  * Condensed rich block reference for injection into system prompts.

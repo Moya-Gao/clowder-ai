@@ -429,7 +429,7 @@ refs:
     path: "refs/mcp-callbacks.md"
     source: "using-mcp-callbacks"
   rich-blocks:
-    description: "Rich block 创建指南（card/diff/checklist/media/audio）"
+    description: "Rich block 创建指南（card/diff/checklist/media/audio/interactive）"
     path: "refs/rich-blocks.md"
     source: "using-rich-blocks"
   pr-template:

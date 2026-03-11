@@ -1,8 +1,8 @@
 ---
 name: rich-messaging
 description: >
-  富媒体消息发送：语音、图片、卡片、清单、代码 diff。
-  Use when: 发语音、发图、发卡片、展示结构化信息、庆祝、给我听听、给我看看。
+  富媒体消息发送：语音、图片、卡片、清单、代码 diff、交互选择。
+  Use when: 发语音、发图、发卡片、展示结构化信息、庆祝、给我听听、给我看看、让用户选、确认操作。
   Not for: 纯文字聊天、技术讨论、日常回复。
   Output: rich block 附着在消息上。
 triggers:
@@ -26,18 +26,22 @@ triggers:
   - "给我听听"
   - "给我看看"
   - "show me"
+  - "让我选"
+  - "选一个"
+  - "确认一下"
+  - "interactive"
 ---
 
 # Rich Messaging
 
-你可以发送富媒体消息——语音、图片、卡片、清单、代码 diff。不只是打字！
+你可以发送富媒体消息——语音、图片、卡片、清单、代码 diff、交互选择。不只是打字！
 
 ## 首次使用
 
 **每个 session 首次发 rich block 前，先调 `get_rich_block_rules` 获取完整字段规格。**
 本 skill 只给决策指引和最小示例，细则在 MCP 工具里。
 
-## 五种 Rich Block 一览
+## 六种 Rich Block 一览
 
 | Kind | 什么时候用 | 关键字段 |
 |------|-----------|---------|
@@ -46,6 +50,7 @@ triggers:
 | **checklist** | 待办、验证步骤、行动项 | `items` |
 | **diff** | 代码修改建议、重构对比 | `filePath` + `diff` |
 | **media_gallery** | 截图、设计稿、多图对比 | `items` (url) |
+| **interactive** | 让用户选方案、勾选项、确认操作 | `interactiveType` + `options` (id+label) |
 
 ## 最小工作示例
 
@@ -78,6 +83,15 @@ triggers:
 ```json
 {"id": "mg1", "kind": "media_gallery", "v": 1, "items": [{"url": "https://example.com/screenshot.png", "alt": "截图"}]}
 ```
+
+### 交互选择（interactive）
+
+```json
+{"id": "int1", "kind": "interactive", "v": 1, "interactiveType": "select", "title": "选一个方案", "options": [{"id": "a", "label": "方案 A", "emoji": "🅰️"}, {"id": "b", "label": "方案 B", "emoji": "🅱️"}]}
+```
+
+4 种 interactiveType：`select`（单选）、`multi-select`（多选）、`card-grid`（卡片网格）、`confirm`（确认/取消）。
+用户选择后 block 自动 disabled + 结果持久化。详见 `refs/rich-blocks.md`。
 
 ## 发送方式
 

@@ -313,7 +313,7 @@ export async function handleListTasks(input: {
   });
 }
 
-/** F22: Create a rich block (card, diff, checklist, media gallery) in the current message */
+/** F22+F96: Create a rich block (card, diff, checklist, media_gallery, audio, interactive) in the current message */
 export const createRichBlockInputSchema = {
   block: z
     .string()
@@ -634,8 +634,8 @@ export const callbackTools = [
   {
     name: 'cat_cafe_create_rich_block',
     description:
-      'Create a rich block (card, diff, checklist, or media gallery) attached to the current message. ' +
-      'The block will be rendered as an interactive component below the message text.',
+      'Create a rich block (card, diff, checklist, media_gallery, audio, or interactive) attached to the current message. ' +
+      'Use card for status/decisions, diff for code changes, checklist for todos, media_gallery for images, audio for voice messages, interactive for user selection/confirmation.',
     inputSchema: createRichBlockInputSchema,
     handler: handleCreateRichBlock,
   },
