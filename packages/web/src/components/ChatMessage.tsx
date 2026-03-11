@@ -328,7 +328,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           ) : !isStreamOrigin && hasTextContent ? (
             <MarkdownContent content={message.content} className={catStyle?.font} />
           ) : !hasCliBlock && message.isStreaming ? (
-            <span className="text-xs text-gray-500">思考中...</span>
+            <span className="text-xs text-gray-500">Thinking...</span>
           ) : null}
           {/* 2. 🧠 Thinking — reasoning happens before tool execution (AC-A3) */}
           {message.thinking && (
@@ -354,7 +354,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
             <RichBlocks blocks={message.extra.rich.blocks} catId={message.catId} messageId={message.id} />
           )}
-          {message.isStreaming && (
+          {message.isStreaming && !isStreamOrigin && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
           )}
         </div>
