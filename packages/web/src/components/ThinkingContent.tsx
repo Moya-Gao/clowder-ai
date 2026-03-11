@@ -16,13 +16,19 @@ function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: strin
   );
 }
 
-/** Brain SVG — from Pencil design (🧠 thinking icon) */
+/** Brain SVG — official lucide brain icon */
 function BrainIcon() {
   return (
     <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" style={{ color: '#94A3B8' }}>
-      <path d="M9.5 2a3.5 3.5 0 0 0-3.2 2.1A3.5 3.5 0 0 0 4 7.5a3.5 3.5 0 0 0 .7 2.1A4 4 0 0 0 4 12a4 4 0 0 0 1.5 3.1A3.5 3.5 0 0 0 9 18.5a3.5 3.5 0 0 0 3-1.7" />
-      <path d="M14.5 2a3.5 3.5 0 0 1 3.2 2.1A3.5 3.5 0 0 1 20 7.5a3.5 3.5 0 0 1-.7 2.1A4 4 0 0 1 20 12a4 4 0 0 1-1.5 3.1 3.5 3.5 0 0 1-3.5 3.4 3.5 3.5 0 0 1-3-1.7" />
-      <path d="M12 2v20" />
+      <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
+      <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
+      <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
+      <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" />
+      <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" />
+      <path d="M3.477 10.896a4 4 0 0 1 .585-.396" />
+      <path d="M19.938 10.5a4 4 0 0 1 .585.396" />
+      <path d="M6 18a4 4 0 0 1-1.967-.516" />
+      <path d="M19.967 17.484A4 4 0 0 1 18 18" />
     </svg>
   );
 }

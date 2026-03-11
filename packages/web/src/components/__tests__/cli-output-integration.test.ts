@@ -41,7 +41,7 @@ afterEach(() => {
 const getCatById = () => undefined;
 
 describe('ChatMessage CLI Output integration', () => {
-  it('renders "CLI 输出" instead of "💭 心里话" for stream messages with tools', () => {
+  it('renders "CLI Output" instead of "💭 心里话" for stream messages with tools', () => {
     const msg = {
       id: 'msg-1',
       type: 'assistant' as const,
@@ -56,7 +56,7 @@ describe('ChatMessage CLI Output integration', () => {
       root.render(React.createElement(ChatMessage, { message: msg, getCatById }));
     });
     const text = container.textContent ?? '';
-    expect(text).toContain('CLI 输出');
+    expect(text).toContain('CLI Output');
     expect(text).not.toContain('💭 心里话');
   });
 
@@ -79,7 +79,7 @@ describe('ChatMessage CLI Output integration', () => {
     // Thinking should be independent
     expect(buttons.some((b) => b.textContent?.includes('Thinking'))).toBe(true);
     // CLI block should also exist
-    expect(container.textContent).toContain('CLI 输出');
+    expect(container.textContent).toContain('CLI Output');
   });
 
   it('callback origin: content text shown ABOVE CLI block', () => {
@@ -98,7 +98,7 @@ describe('ChatMessage CLI Output integration', () => {
     });
     const text = container.textContent ?? '';
     const answerIdx = text.indexOf('Here is the answer');
-    const cliIdx = text.indexOf('CLI 输出');
+    const cliIdx = text.indexOf('CLI Output');
     expect(answerIdx).toBeGreaterThanOrEqual(0);
     expect(cliIdx).toBeGreaterThan(answerIdx);
   });
@@ -116,6 +116,6 @@ describe('ChatMessage CLI Output integration', () => {
     act(() => {
       root.render(React.createElement(ChatMessage, { message: msg, getCatById }));
     });
-    expect(container.textContent).toContain('CLI 输出');
+    expect(container.textContent).toContain('CLI Output');
   });
 });

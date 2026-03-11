@@ -66,11 +66,11 @@ function LoaderIcon({ color }: { color?: string }) {
 
 function PawPrint() {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="#64748B" className="flex-shrink-0">
-      <path d="M12 15C15 15 17.5 17 17.5 19.5C17.5 21 16 22.5 12 22.5C8 22.5 6.5 21 6.5 19.5C6.5 17 9 15 12 15Z" />
-      <ellipse cx="6" cy="11.5" rx="2.5" ry="3" />
-      <ellipse cx="12" cy="10" rx="3" ry="3.5" />
-      <ellipse cx="18" cy="11.5" rx="2.5" ry="3" />
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+      <circle cx="11" cy="4" r="2" />
+      <circle cx="18" cy="8" r="2" />
+      <circle cx="20" cy="16" r="2" />
+      <path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z" />
     </svg>
   );
 }
