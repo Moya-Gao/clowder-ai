@@ -85,3 +85,9 @@ body {
   50% { opacity: 0.75; box-shadow: 0 0 8px rgba(245, 158, 11, 0.3); }
 }
 .animate-pulse-subtle { animation: pulse-subtle 2s ease-in-out infinite; }
+
+/* F097: Dark-theme table overrides for CLI output + Thinking bubbles */
+.cli-output-md thead { background: rgba(255, 255, 255, 0.06); }
+.cli-output-md th { border-color: rgba(255, 255, 255, 0.12); color: #CBD5E1; }
+.cli-output-md td { border-color: rgba(255, 255, 255, 0.08); color: #94A3B8; }
+.cli-output-md code { background: rgba(255, 255, 255, 0.08); color: #E2E8F0; }

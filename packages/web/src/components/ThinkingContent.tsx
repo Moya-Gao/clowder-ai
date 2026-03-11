@@ -97,7 +97,7 @@ export function ThinkingContent({
       {expanded && (
         <div style={{ backgroundColor: surfaceInner }}>
           <div style={{ height: 1, backgroundColor: DIVIDER }} />
-          <div style={{ padding: '8px 12px 10px 12px', color: '#CBD5E1' }} className="text-xs leading-relaxed">
+          <div style={{ padding: '8px 12px 10px 12px', color: '#CBD5E1' }} className="text-xs leading-relaxed cli-output-md">
             <MarkdownContent content={content} className={className} />
           </div>
         </div>
