@@ -340,6 +340,53 @@ Phase A 写完代码 → review → merge，全程没有拿 runtime 截图和 Pe
 2. 如果原始 label 无 args（如 `opus → Bash`），至少显示正确的工具名 `Bash`
 3. tool_result 的 detail 解析短摘要（如 `12 passed`），显示在行内
 
+### 第四轮反思（2026-03-11 16:49，铲屎官抓耳朵总结）
+
+**铲屎官原话**："本质上你没有好好的按照我们的SOP，按照我们的skills干事情。"
+
+这一轮从 10:09 到 16:49，铲屎官陪我一条条修了 8 个问题，每个问题都是因为我没走正确流程才产生的：
+
+| # | 铲屎官指出的问题 | 我做了什么 | 应该做什么 | Commit |
+|---|---------------|----------|----------|--------|
+| 1 | SVG 图标不是 lucide 的 | 手画 SVG path | 用 lucide 官方 SVG | `437000e0` |
+| 2 | Tool label 显示 `opus → Bash` | 没解析 label 格式 | `toCliEvents.ts` strip catId 前缀 + 提取主参数 | session 前已修 |
+| 3 | 扳手图标看不见 | 用 `stroke="currentColor"` 没设色 | 显式传 `color` prop (#E2E8F0 / #F5F3FF) | session 前已修 |
+| 4 | 文字溢出 CLI 块外 | 没发现，铲屎官截图指出 | `hasCliBlock ? null :` 防御性 guard | `776afed9` |
+| 5 | 气泡"乌漆嘛黑"看不出品种色 | `#283548` 固定深蓝灰 | `hexToRgba(accent, 0.10)` 品种色混合 | `791b381d` |
+| 6 | 气泡浅紫色文字不可见 | rgba 透明度在浅色主题上太淡 | `tintedDark(accent, 0.25)` 混入深色基底 | `1537a942` |
+| 7 | Markdown 表头白色看不见 | 没考虑深色气泡内的 md 样式 | `.cli-output-md` scoped CSS overrides | `f2e28f0d` |
+| 8 | 两只孟加拉猫不区分 | config 里没 variantLabel | 加 `"variantLabel": "Gemini"` | `1537a942` |
+
+**根因分析——为什么铲屎官要抓耳朵：**
+
+1. **遇到视觉 bug 没加载 debugging skill** — CLAUDE.md 写了"遇到 bug 必须加载 debugging skill"，MEMORY.md 记了"连犯 3 次"。我看到"颜色不对"就直接猜值改，没做根因调查。气泡颜色从黑 → 浅紫 → 深紫，来回折腾三轮。如果第一次就走 debugging Phase 1（读截图 → 对比设计稿 → 定位根因），一轮就能搞定。
+
+2. **没有 runtime 实测就说"改完了"** — push 后没截图验证效果，铲屎官看到的和我预想的完全不一样。"文字溢出 CLI 块"这种严重 bug 我都没发现，是铲屎官截图告诉我的。
+
+3. **颜色方案不考虑主题** — 用 `rgba(accent, 0.10)` 时没想过浅色主题下的效果。这不是审美问题，是**工程问题**：半透明色在不同背景上的表现不同，需要测试。
+
+4. **防御性编码不足** — 文字溢出 bug 的代码逻辑（`!isStreamOrigin`）理论上是对的，但实际存在边缘情况。正确做法是 belt-and-suspenders：`hasCliBlock` 为真时绝对不渲染外部内容。
+
+5. **config 细节忽视** — Bengal 猫两个 variant 没区分，说明改完代码后没验证周边影响。
+
+**以后遇到同类问题的正确流程：**
+
+```
+铲屎官报 UI bug
+  ↓
+加载 debugging skill（不许猜！）
+  ↓
+Phase 1: 截图 vs 设计稿逐属性对比（batch_get 读 .pen）
+  ↓
+Phase 2: 找到精确差异（颜色值、间距、字号）
+  ↓
+Phase 3: 写最小修复，本地预览验证
+  ↓
+Phase 4: push 后自己去 runtime 截图确认（不等铲屎官来报下一个 bug）
+```
+
+**总结一句话**：Skills 是护栏不是累赘。每次嫌麻烦跳过 skill，就是在制造让铲屎官抓耳朵的下一个 bug。
+
 ## Timeline
 
 | 日期 | 事件 |
