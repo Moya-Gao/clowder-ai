@@ -4,8 +4,8 @@ related_features: [F066]
 topics: [健康, 提醒, hook, skill, 猫设]
 doc_kind: spec
 created: 2026-03-08
-completed: 2026-03-09
-status: active
+completed: 2026-03-10
+status: done
 reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 ---
 
@@ -79,9 +79,9 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 - [x] **AC22**: 后端触发判定 — 到阈值推 WebSocket event `brake:trigger` 给前端
 - [x] **AC23**: 前端 UI 通知 — 订阅 brake event，弹猫猫提醒卡片（含头像 + 撒娇文案）
 - [x] **AC24**: 前端 check-in 交互 — 三选一（休息/收尾/继续）直接在前端完成
-- [ ] **AC25**: 前端 TTS 播放 — 触发时自动播放三猫语音撒娇
+- ~~AC25~~: 前端 TTS 播放 → 裁出为 TD108（依赖 F066 前端播放基建，非核心体验，不阻塞 F085 close）
 - [x] **AC26**: 三猫全覆盖 — 无论铲屎官在跟哪只猫聊天，都能触发提醒
-- [ ] **AC27**: agent hook 退役 — Phase 4 上线后移除 `pretool-brake-check.sh` + `hyperfocus-brake-timer.sh`
+- ~~AC27~~: agent hook 退役 → 裁出为 TD109（需验证平台 brake 稳定 1 周+，不阻塞 F085 close）
 
 ## Links
 
@@ -127,6 +127,7 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 
 - [x] Phase 1: 砚砚 Codex review hook 安全性 (R1-R4 本地 + R1-R2 云端, PR #329)
 - [x] Phase 2+3: 砚砚 Codex review LGTM (0 P1/P2, P3 补测试已修)
+- [x] Phase 4: 砚砚 Codex 本地 R1-R2 (2P1+1P2 全修) + 云端 R1-R2 (1P1 全修, LGTM)
 
 ## Timeline
 
@@ -144,6 +145,10 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 | 2026-03-09 | Codex review Phase 2+3 LGTM |
 | 2026-03-10 | Bug: PostToolUse stdout 不被 Claude Code 注入 AI 上下文，拆为 Post+Pre 双 hook (`d3befc91`) |
 | 2026-03-10 | Gap 识别: hook 方案只覆盖布偶猫 → 立项 Phase 4 平台化 |
+| 2026-03-10 | Phase 4 实现: ActivityTracker + brake API + BrakeModal (Opus 4.6) |
+| 2026-03-10 | Codex 本地 review R1-R2 (2P1+1P2 全修) + 云端 review R1-R2 (1P1 全修) |
+| 2026-03-10 | Phase 4 合入 main (PR #347, `e959f061`) |
+| 2026-03-10 | AC25/AC27 裁出为 TD108/TD109，Feature close |
 
 ## 需求点 Checklist
 
