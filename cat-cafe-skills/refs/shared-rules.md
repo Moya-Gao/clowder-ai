@@ -127,9 +127,9 @@ commit body 补一行 `Why:` 说明决策理由。
 
 ## 6. 技术债务与 P3 处置
 
-- 发现新债务 → 登记 BACKLOG.md
+- 发现新债务 → 登记 `docs/TECH-DEBT.md`（不是 BACKLOG！）
 - P1/P2 当轮修完，不推延
-- P3 当场决定修或不修，不记 BACKLOG
+- P3 当场决定修或不修，不记 TECH-DEBT
 - 铲屎官硬规则：能修就修，不修就放下
 
 ## 7. Review 必须有立场（反顺从规则）
