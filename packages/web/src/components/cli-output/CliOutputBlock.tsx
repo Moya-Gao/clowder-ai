@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CliEvent, CliStatus } from '@/stores/chat-types';
 import { MarkdownContent } from '@/components/MarkdownContent';
+import type { CliEvent, CliStatus } from '@/stores/chat-types';
 
 /* ── Inline SVG icons (Lucide-style, F056 compliant — no emoji) ── */
 
@@ -57,7 +57,7 @@ function CheckIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="flex-shrink-0 text-green-400"
+      className="flex-shrink-0 text-cyan-400"
     >
       <polyline points="20 6 9 17 4 12" />
     </svg>
@@ -148,25 +148,29 @@ function ToolRow({
   event,
   isActive,
   onUserInteract,
-}: { event: CliEvent; isActive: boolean; onUserInteract?: () => void }) {
+}: {
+  event: CliEvent;
+  isActive: boolean;
+  onUserInteract?: () => void;
+}) {
   const [rowExpanded, setRowExpanded] = useState(false);
   const hasResult = event.detail != null;
   return (
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
-      className={`w-full text-left cursor-pointer px-3 py-1 font-mono text-xs ${isActive ? 'bg-white/5 border-l-2 border-purple-400' : ''}`}
+      className={`w-full text-left cursor-pointer px-2 py-[5px] rounded font-mono text-[11px] ${isActive ? 'bg-white/5 border-l-2 border-purple-400' : ''}`}
       onClick={() => {
         setRowExpanded((v) => !v);
         onUserInteract?.();
       }}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         {isActive ? <LoaderIcon /> : hasResult ? <CheckIcon /> : <WrenchIcon />}
-        <span className="text-gray-200">{event.label}</span>
+        <span className="text-slate-200 font-medium">{event.label}</span>
         {hasResult && !rowExpanded && <ChevronIcon expanded={false} />}
       </div>
-      {rowExpanded && hasResult && <div className="mt-1 pl-5 text-gray-500 whitespace-pre-wrap">{event.detail}</div>}
+      {rowExpanded && hasResult && <div className="mt-1 pl-5 text-slate-500 whitespace-pre-wrap">{event.detail}</div>}
     </button>
   );
 }
@@ -192,7 +196,7 @@ function ToolsSection({
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-3 py-1 text-[10px] text-gray-400 hover:text-gray-300 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1 text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
         onClick={() => {
           setToolsExpanded((v) => !v);
           onUserInteract();
@@ -240,7 +244,6 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
   // Streaming → always expanded (unless user pinned collapsed, which doesn't make sense for streaming)
   // Done + no user interaction → allow auto-collapse
   if (forceExpanded && !expanded) {
-    // biome-ignore lint/correctness/noSelfAssign: sync state with force
     setExpanded(true);
   }
 
@@ -279,16 +282,18 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
   };
 
   return (
-    <div className="mt-2 mb-1 rounded-lg overflow-hidden border border-white/10">
-      {/* Summary / header bar — dark breed-tinted (black overlay lets breed color bleed through) */}
+    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden bg-slate-800">
+      {/* Summary / header bar — slate-800 matching Pencil design */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-black/80 text-gray-300 hover:bg-black/75 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono bg-slate-800 text-slate-400 hover:bg-slate-700/50 transition-colors"
       >
-        <ChevronIcon expanded={expanded} />
+        <span className="text-violet-600">
+          <ChevronIcon expanded={expanded} />
+        </span>
         <span className="font-medium">{summary}</span>
-        <span className="ml-auto flex items-center gap-1 text-[10px] text-gray-500">
+        <span className="ml-auto flex items-center gap-1 text-[10px] text-slate-500">
           {thinkingMode === 'debug' ? (
             <>
               <PawPrint />
@@ -300,9 +305,10 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
         </span>
       </button>
 
-      {/* Expanded body — dark breed-tinted substrate */}
+      {/* Expanded body */}
       {expanded && (
-        <div data-testid="cli-output-body" className="bg-black/75 text-gray-200 text-xs">
+        <div data-testid="cli-output-body" className="bg-slate-800 text-slate-200 text-xs">
+          <div className="h-px bg-slate-700" />
           {/* Collapsible tools section */}
           {toolUses.length > 0 && (
             <ToolsSection
@@ -319,13 +325,12 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
           {textEvents.length > 0 && (
             <>
               {toolUses.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1 text-[10px] text-gray-600">
-                  <span className="flex-1 border-t border-white/10" />
-                  <span>stdout</span>
-                  <span className="flex-1 border-t border-white/10" />
-                </div>
+                <>
+                  <div className="h-px bg-slate-700 mx-0" />
+                  <div className="px-3 pt-2 pb-1 font-mono text-[10px] text-slate-600">─── stdout ───</div>
+                </>
               )}
-              <div className="px-3 py-2 text-xs text-gray-300 cli-output-md">
+              <div className="px-3 py-2 font-mono text-[11px] text-slate-300 leading-relaxed cli-output-md">
                 <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
               </div>
             </>
