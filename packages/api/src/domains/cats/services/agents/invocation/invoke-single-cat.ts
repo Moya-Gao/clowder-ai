@@ -835,6 +835,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     let allowSessionRetry = Boolean(sessionId);
     let allowTransientRetry = true;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const attemptStartedAt = Date.now();
       const options: AgentServiceOptions = {
         ...(sessionId ? { sessionId } : {}),
         ...baseOptions,
@@ -954,6 +955,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
 
       if (shouldRetryWithoutSession && attempt + 1 < maxAttempts) {
+        if (catId === 'gemini') {
+          console.info('[diag/gemini-startup] retrying invoke', {
+            catId,
+            threadId,
+            invocationId,
+            reason: 'missing_session',
+            attempt: attempt + 1,
+            retryAttempt: attempt + 2,
+            elapsedMs: Date.now() - attemptStartedAt,
+            hadSessionId: Boolean(options.sessionId),
+          });
+        }
         try {
           await sessionManager.delete(userId, catId, threadId);
         } catch {
@@ -970,6 +983,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         continue;
       }
       if (shouldRetryOnTransientCliExit && attempt + 1 < maxAttempts) {
+        if (catId === 'gemini') {
+          console.info('[diag/gemini-startup] retrying invoke', {
+            catId,
+            threadId,
+            invocationId,
+            reason: 'transient_cli_exit',
+            attempt: attempt + 1,
+            retryAttempt: attempt + 2,
+            elapsedMs: Date.now() - attemptStartedAt,
+            hadSessionId: Boolean(options.sessionId),
+          });
+        }
         allowTransientRetry = false;
         continue;
       }

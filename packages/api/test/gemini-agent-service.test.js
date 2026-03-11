@@ -98,7 +98,11 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
   test('passes correct CLI args', async () => {
     const proc = createMockProcess();
     const spawnFn = createMockSpawnFn(proc);
-    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+    const service = new GeminiAgentService({
+      spawnFn,
+      adapter: 'gemini-cli',
+      model: 'gemini-test-model',
+    });
 
     const promise = collect(service.invoke('test prompt'));
     emitGeminiEvents(proc, [
@@ -107,17 +111,26 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     await promise;
 
     const args = spawnFn.mock.calls[0].arguments[1];
-    assert.equal(args[0], '-p');
-    assert.equal(args[1], 'test prompt');
-    assert.ok(args.includes('-o'));
-    assert.ok(args.includes('stream-json'));
+    const modelIdx = args.indexOf('--model');
+    assert.ok(modelIdx >= 0, 'fresh invoke should include --model');
+    assert.equal(args[modelIdx + 1], 'gemini-test-model');
+    const promptIdx = args.indexOf('-p');
+    assert.ok(promptIdx >= 0, 'fresh invoke should include -p');
+    assert.equal(args[promptIdx + 1], 'test prompt');
+    const outputIdx = args.indexOf('-o');
+    assert.ok(outputIdx >= 0, 'fresh invoke should include -o');
+    assert.equal(args[outputIdx + 1], 'stream-json');
     assert.ok(args.includes('-y'));
   });
 
   test('passes --resume when sessionId is provided', async () => {
     const proc = createMockProcess();
     const spawnFn = createMockSpawnFn(proc);
-    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+    const service = new GeminiAgentService({
+      spawnFn,
+      adapter: 'gemini-cli',
+      model: 'gemini-test-model',
+    });
 
     const promise = collect(service.invoke('resume prompt', { sessionId: 'sid-uuid-1234' }));
     emitGeminiEvents(proc, [
@@ -128,8 +141,12 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     const args = spawnFn.mock.calls[0].arguments[1];
     assert.equal(args[0], '--resume');
     assert.equal(args[1], 'sid-uuid-1234');
-    assert.ok(args.includes('-p'));
-    assert.ok(args.includes('resume prompt'));
+    const modelIdx = args.indexOf('--model');
+    assert.ok(modelIdx >= 0, 'resume invoke should include --model');
+    assert.equal(args[modelIdx + 1], 'gemini-test-model');
+    const promptIdx = args.indexOf('-p');
+    assert.ok(promptIdx >= 0, 'resume invoke should include -p');
+    assert.equal(args[promptIdx + 1], 'resume prompt');
   });
 
   test('keeps --resume when callback env is present', async () => {

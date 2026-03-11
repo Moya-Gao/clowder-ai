@@ -341,6 +341,25 @@ describe('writeGeminiMcpConfig', () => {
       CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
     });
   });
+
+  it('drops project-level pencil entry so Gemini only relies on shared home pencil server', async () => {
+    const file = join(dir, '.gemini', 'settings.json');
+    await mkdir(join(dir, '.gemini'), { recursive: true });
+    await writeFile(file, JSON.stringify({
+      mcpServers: {
+        pencil: { command: '/old/pencil', args: ['--app', 'antigravity'] },
+      },
+    }));
+
+    await writeGeminiMcpConfig(file, [
+      { name: 'pencil', command: '/new/pencil', args: ['--app', 'antigravity'], enabled: true, source: 'external' },
+      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const data = JSON.parse(await readFile(file, 'utf-8'));
+    assert.equal(data.mcpServers.pencil, undefined, 'project Gemini config should not contain pencil');
+    assert.ok(data.mcpServers['cat-cafe'], 'cat-cafe server should still be written');
+  });
 });
 
 // ────────── P1-2 Regression: Preserve user's non-managed MCP servers ──────────

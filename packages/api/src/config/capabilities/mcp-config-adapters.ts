@@ -36,6 +36,13 @@ function ensureGeminiCatCafeEnv(
   };
 }
 
+function shouldSkipGeminiProjectServer(name: string): boolean {
+  // Gemini CLI already discovers the shared home-level pencil server.
+  // Keeping a project-level pencil entry creates duplicate startup work and
+  // can pin stale Antigravity extension paths.
+  return name === 'pencil';
+}
+
 // ────────── Readers ──────────
 
 /** Read Claude .mcp.json → McpServerDescriptor[] */
@@ -177,8 +184,15 @@ export async function writeGeminiMcpConfig(
       ? { ...(existing['mcpServers'] as Record<string, unknown>) }
       : {};
 
+  // Project-level Gemini config should not shadow the shared home-level pencil MCP.
+  delete existingMcp['pencil'];
+
   // Update/add managed entries; remove disabled managed; preserve user's own
   for (const s of servers) {
+    if (shouldSkipGeminiProjectServer(s.name)) {
+      delete existingMcp[s.name];
+      continue;
+    }
     if (s.enabled) {
       const entry: Record<string, unknown> = { command: s.command, args: s.args };
       const env = ensureGeminiCatCafeEnv(s.name, s.env);
