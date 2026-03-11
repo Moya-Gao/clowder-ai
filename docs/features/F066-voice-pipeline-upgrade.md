@@ -8,10 +8,11 @@ created: 2026-03-05
 
 # F066: Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列
 
-> **Status**: done
+> **Status**: in-progress (Phase 4 enhancement)
 > **Owner**: 布偶猫 (Opus 4.6)
 > **Created**: 2026-03-05
-> **Closed**: 2026-03-09 — 本地 TTS 语音基础设施落地完成（Qwen3-TTS Base clone + E 型统一方案）
+> **Phase 1 Closed**: 2026-03-09 — 本地 TTS 语音基础设施落地完成（Qwen3-TTS Base clone + E 型统一方案）
+> **Phase 4 Started**: 2026-03-10 — TTS 合成韧性增强（重试 + 前端重试按钮 + 错误详情）
 > **未来方向**: 流式分句（Phase 2）+ 播放队列（Phase 3）拆分为独立 Feature
 
 ## Why
@@ -93,11 +94,33 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
    - 用户说话时猫停嘴（interrupt，需 VAD 信号）
    - 播放暂停/跳过控制
 
+### Phase 4: TTS 合成韧性增强 — Resilience Enhancement（P1）
+
+TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致合成失败。Phase 1 的 graceful degradation（🔇 warning card）保底有效但体验差。三项增强：
+
+1. **后端重试（Retry with Backoff）**
+   - `VoiceBlockSynthesizer.synthesize()` 合成失败后自动重试 1 次（间隔 2s）
+   - 仅对可重试错误重试：`ECONNREFUSED` / `ETIMEDOUT` / HTTP 5xx
+   - 不重试：4xx（参数错误）/ 文本为空等确定性错误
+   - 日志标记 `[TTS-RETRY]` 便于排查
+
+2. **前端重试按钮**
+   - 🔇 warning card 新增 "重新合成" 按钮（action button）
+   - 点击后调用 `/api/tts/resynthesize` 端点，传入原始 text + voiceConfig
+   - 成功后替换 card 为正常 audio block
+
+3. **具体错误信息**
+   - 🔇 card 的 bodyMarkdown 追加错误分类：`连接被拒绝` / `合成超时` / `服务错误(500)` / `未知错误`
+   - 帮助铲屎官/用户快速判断是否需要手动干预（重启 TTS 服务 vs 等待 vs 检查配置）
+
 ## Acceptance Criteria
 
 - [x] AC-1: TTS 合成完全在本地 Apple Silicon 完成，不依赖外部云服务 ✅ Qwen3-TTS 1.7B Base clone via mlx-audio
 - [x] AC-2: 现有语音消息功能（F034）不受影响——微信风格语音条、缓存、降级全部正常 ✅ PR #333 回归测试通过
 - [x] AC-3: 中文合成质量主观评估不低于 edge-tts（铲屎官试听确认）✅ 铲屎官："牛逼！是我要的了！"
+- [ ] AC-8: (Phase 4) TTS 瞬时失败（ECONNREFUSED/timeout/5xx）自动重试 1 次，无需用户干预
+- [ ] AC-9: (Phase 4) 🔇 warning card 显示具体错误分类（连接拒绝/超时/服务错误）
+- [ ] AC-10: (Phase 4) 🔇 warning card 提供"重新合成"按钮，点击后可重新触发 TTS 合成
 - [ ] AC-4: (Phase 2) LLM 流式输出到首次发声延迟 < 2 秒 → 拆分至未来 Feature
 - [ ] AC-5: (Phase 2) 长文本（>100 字）合成延迟比全文合成降低 50%+ → 拆分至未来 Feature
 - [ ] AC-6: (Phase 3) 双猫对话稿可按 queue 模式交替播放 → 拆分至未来 Feature
@@ -112,6 +135,9 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 | R3 | F021++ 播客需要流式合成（AIRI 调研启发） | AC-4, AC-5 | test: 首次发声延迟测量 | [ ] 拆分 |
 | R4 | 双猫交替对话播放（AIRI Intent 系统启发） | AC-6 | test: queue 行为验证 | [ ] 拆分 |
 | R5 | 用户可控制播放 | AC-7 | manual: 暂停/跳过操作 | [ ] 拆分 |
+| R6 | TTS 合成失败自动重试 1 次（瞬时故障容错） | AC-8 | test: mock ECONNREFUSED → 验证重试 + 成功 | [ ] |
+| R7 | 🔇 card 显示具体错误信息（连接拒绝/超时/500） | AC-9 | test: 各类错误 → 验证 card 文案 | [ ] |
+| R8 | 🔇 card 提供"重新合成"按钮 | AC-10 | manual: 点击按钮 → 验证语音生成 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -204,6 +230,8 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 | 2026-03-09 | 三猫语音实测聊天 — clone 模式端到端验证通过 |
 | 2026-03-09 | 发现长文本 clone timeout bug（30s→35.6s）→ hotfix e57d81ae（120s clone timeout）|
 | 2026-03-09 | 缅因猫 GPT-5.4 + 布偶猫愿景守护 → **Phase 1 closed** |
+| 2026-03-10 | 演示中发现 TTS 合成瞬时失败（🔇 warning card），铲屎官确认三项韧性增强有价值 |
+| 2026-03-10 | **Phase 4 kickoff** — TTS Resilience Enhancement（重试 + 重新合成按钮 + 错误详情）|
 
 ## Voice Audition Progress (2026-03-09)
 

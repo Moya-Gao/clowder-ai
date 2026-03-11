@@ -30,6 +30,7 @@ created: 2026-02-26
 | F058 | Mission Control 增强（F049++） | in-progress | 布偶猫 | [F058](features/F058-mission-control-enhancements.md) |
 | F059 | Cat Café 开源计划 — 3/30 目标 | in-progress | 布偶猫 | [F059](features/F059-open-source-plan.md) |
 | F061 | Antigravity 接入 — 孟加拉猫（混血家族） | in-progress | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
+| F066 | Voice Pipeline Upgrade — Phase 4: TTS 韧性增强 | in-progress | 布偶猫 | [F066](features/F066-voice-pipeline-upgrade.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | [F069](features/F069-thread-read-state.md) |
 | F074 | Mount Directory Support — 挂载/共享目录支持 | spec | 布偶猫 | [F074](features/F074-mount-directory-support.md) |
