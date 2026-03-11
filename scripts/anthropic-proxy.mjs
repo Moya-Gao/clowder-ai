@@ -51,6 +51,99 @@ function loadUpstreams() {
   }
 }
 
+// --- SSE normalization for non-standard upstream responses ---
+// Known quirks (felix-2 gateway):
+// 1. message_start.usage.input_tokens = 0 (should be real count)
+// 2. message_delta.usage.input_tokens = real count (non-standard, Anthropic only puts output_tokens here)
+// 3. Extra fields: usage.cache_creation (nested), usage.inference_geo, usage.service_tier
+// 4. Extra field: message.output
+//
+// Fix strategy: rewrite SSE events inline to normalize usage fields.
+// For input_tokens: we can't fix message_start (arrives before real data),
+// so we strip the bogus input_tokens from message_delta and instead
+// emit a proxy_usage_patch event that downstream parsers can pick up.
+
+const USAGE_STRIP_KEYS = ['cache_creation', 'inference_geo', 'service_tier'];
+
+function normalizeUsage(usage) {
+  if (!usage || typeof usage !== 'object') return usage;
+  const cleaned = { ...usage };
+  for (const key of USAGE_STRIP_KEYS) {
+    delete cleaned[key];
+  }
+  return cleaned;
+}
+
+/**
+ * Parse and rewrite SSE events in a chunk. Returns the rewritten chunk.
+ * Also tracks message_start input_tokens to detect the 0-value quirk.
+ */
+function rewriteSSEChunk(text, state) {
+  // SSE events are separated by double newlines.
+  // A chunk may contain partial events; accumulate in state.buffer.
+  const input = (state.buffer || '') + text;
+  const parts = input.split('\n\n');
+  // Last part may be incomplete — save it
+  state.buffer = parts.pop() || '';
+
+  let output = '';
+  for (const part of parts) {
+    if (!part.trim()) { output += '\n\n'; continue; }
+
+    const eventMatch = part.match(/^event:\s*(.+)/m);
+    const dataMatch = part.match(/^data:\s*(.+)/m);
+    const eventType = eventMatch?.[1]?.trim();
+    const rawData = dataMatch?.[1];
+
+    if (!rawData || !eventType) {
+      output += part + '\n\n';
+      continue;
+    }
+
+    let data;
+    try { data = JSON.parse(rawData); } catch {
+      output += part + '\n\n';
+      continue;
+    }
+
+    if (eventType === 'message_start') {
+      const msg = data.message;
+      if (msg) {
+        delete msg.output; // non-standard
+        if (msg.usage) msg.usage = normalizeUsage(msg.usage);
+        // Track if input_tokens was 0 (broken upstream)
+        state.messageStartInputZero = (msg.usage?.input_tokens === 0);
+      }
+      output += `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+    } else if (eventType === 'message_delta') {
+      // Capture real input_tokens from delta (non-standard but present in some gateways)
+      const deltaInputTokens = data.usage?.input_tokens;
+      if (data.usage) data.usage = normalizeUsage(data.usage);
+      output += `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+      // If message_start had input_tokens:0 and delta has the real value,
+      // emit a correction event that our NDJSON parser can pick up.
+      if (state.messageStartInputZero && typeof deltaInputTokens === 'number' && deltaInputTokens > 0) {
+        const correction = {
+          type: 'message_start',
+          message: {
+            usage: {
+              input_tokens: deltaInputTokens,
+              cache_read_input_tokens: data.usage?.cache_read_input_tokens ?? 0,
+              cache_creation_input_tokens: data.usage?.cache_creation_input_tokens ?? 0,
+            },
+          },
+        };
+        output += `event: message_start\ndata: ${JSON.stringify(correction)}\n\n`;
+        state.messageStartInputZero = false;
+      }
+    } else {
+      // Pass through other events unchanged
+      output += part + '\n\n';
+    }
+  }
+  return output;
+}
+
 let requestCounter = 0;
 
 const server = createServer(async (req, res) => {
@@ -143,19 +236,30 @@ const server = createServer(async (req, res) => {
 
     const reader = upstream.body.getReader();
     let totalBytes = 0;
+    const sseState = {};  // SSE rewrite state (buffer, tracking)
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        const raw = Buffer.from(value).toString('utf-8');
         totalBytes += value.length;
-        res.write(value);
 
-        if (DEBUG && isSSE) {
-          const text = Buffer.from(value).toString('utf-8');
-          const events = text.match(/event:\s*(\S+)/g);
-          if (events) console.log(`[proxy #${reqId}] SSE events: ${events.join(', ')}`);
+        if (isSSE) {
+          const rewritten = rewriteSSEChunk(raw, sseState);
+          if (rewritten) res.write(rewritten);
+
+          if (DEBUG) {
+            const events = raw.match(/event:\s*(\S+)/g);
+            if (events) console.log(`[proxy #${reqId}] SSE events: ${events.join(', ')}`);
+          }
+        } else {
+          res.write(value);
         }
+      }
+      // Flush any remaining buffer
+      if (isSSE && sseState.buffer?.trim()) {
+        res.write(sseState.buffer + '\n\n');
       }
     } catch (streamErr) {
       if (DEBUG) console.error(`[proxy #${reqId}] stream error:`, streamErr.message);

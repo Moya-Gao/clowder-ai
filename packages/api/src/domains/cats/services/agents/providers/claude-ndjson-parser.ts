@@ -57,6 +57,26 @@ export function transformClaudeEvent(
       return null;
     }
 
+    // Fallback: some gateways report input_tokens:0 in message_start but
+    // include the real value in message_delta.usage. If lastTurnInputTokens
+    // is still unset, pick it up from the delta event.
+    if (s['type'] === 'message_delta') {
+      if (streamState.lastTurnInputTokens == null) {
+        const deltaUsage = (s['usage'] ?? (s['delta'] as Record<string, unknown> | undefined)?.['usage']) as
+          Record<string, unknown> | undefined;
+        if (deltaUsage) {
+          const raw = typeof deltaUsage['input_tokens'] === 'number' ? deltaUsage['input_tokens'] : 0;
+          const cacheRead = typeof deltaUsage['cache_read_input_tokens'] === 'number' ? deltaUsage['cache_read_input_tokens'] : 0;
+          const cacheCreate = typeof deltaUsage['cache_creation_input_tokens'] === 'number' ? deltaUsage['cache_creation_input_tokens'] : 0;
+          const total = raw + cacheRead + cacheCreate;
+          if (total > 0) {
+            streamState.lastTurnInputTokens = total;
+          }
+        }
+      }
+      return null;
+    }
+
     if (s['type'] === 'message_stop') {
       streamState.currentMessageId = undefined;
       return null;
