@@ -85,7 +85,11 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  const targetUrl = new URL(restPath, targetBase);
+  // NB: Do NOT use `new URL(restPath, targetBase)` — when restPath is absolute
+  // (starts with "/"), the URL constructor discards the base URL's path component.
+  // e.g. new URL("/v1/messages", "https://example.com/prefix") → "https://example.com/v1/messages"
+  // We need: "https://example.com/prefix/v1/messages"
+  const targetUrl = new URL(targetBase + restPath);
 
   if (DEBUG) {
     console.log(`[proxy #${reqId}] ${req.method} ${path} → [${slug}] ${targetUrl.href}`);

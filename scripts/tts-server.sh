@@ -10,7 +10,7 @@
 #
 # Env vars:
 #   TTS_PROVIDER  — "mlx-audio" (default), "qwen3-clone", or "edge-tts"
-#   TTS_PORT      — server port (default: 9877)
+#   TTS_PORT      — server port (default: 9879)
 #
 # Requires (mlx-audio): pip install mlx-audio "misaki[zh]" fastapi uvicorn
 # Requires (edge-tts):  pip install edge-tts fastapi uvicorn
@@ -20,7 +20,7 @@ set -euo pipefail
 
 VENV_DIR="${HOME}/.cat-cafe/tts-venv"
 MODEL="${1:-mlx-community/Kokoro-82M-bf16}"
-PORT="${TTS_PORT:-9877}"
+PORT="${TTS_PORT:-9879}"
 PROVIDER="${TTS_PROVIDER:-mlx-audio}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

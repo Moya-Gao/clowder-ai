@@ -13,11 +13,11 @@ Usage:
   python scripts/tts-api.py                                     # default: mlx-audio (Kokoro-82M)
   TTS_PROVIDER=qwen3-clone python scripts/tts-api.py            # Qwen3-TTS Base clone
   TTS_PROVIDER=edge-tts python scripts/tts-api.py               # edge-tts fallback
-  python scripts/tts-api.py --port 9877
+  python scripts/tts-api.py --port 9879
 
 Env vars:
   TTS_PROVIDER  — "mlx-audio" (default), "qwen3-clone", or "edge-tts"
-  TTS_PORT      — server port (default: 9877)
+  TTS_PORT      — server port (default: 9879)
 
 Requires (qwen3-clone/mlx-audio): pip install mlx-audio "misaki[zh]"
 Requires (edge-tts):               pip install edge-tts
@@ -437,7 +437,7 @@ def main():
         help="HuggingFace model repo (default: mlx-community/Kokoro-82M-bf16)",
     )
     parser.add_argument(
-        "--port", type=int, default=9877, help="Server port (default: 9877)"
+        "--port", type=int, default=9879, help="Server port (default: 9879)"
     )
     args = parser.parse_args()
 

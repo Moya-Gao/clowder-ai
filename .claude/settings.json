@@ -30,15 +30,6 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-subagent-model.sh"
-          }
-        ]
-      },
-      {
         "matcher": "Bash",
         "hooks": [
           {

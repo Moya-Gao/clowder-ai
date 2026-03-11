@@ -159,7 +159,7 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'GEMINI_ADAPTER', defaultValue: 'gemini-cli', description: '暹罗猫适配器 (gemini-cli/antigravity)', category: 'gemini', sensitive: false },
 
   // --- tts ---
-  { name: 'TTS_URL', defaultValue: 'http://localhost:9877', description: 'TTS 服务地址 (Qwen3-TTS)', category: 'tts', sensitive: false },
+  { name: 'TTS_URL', defaultValue: 'http://localhost:9879', description: 'TTS 服务地址 (Qwen3-TTS)', category: 'tts', sensitive: false },
   { name: 'TTS_CACHE_DIR', defaultValue: './data/tts-cache', description: 'TTS 音频缓存目录', category: 'tts', sensitive: false },
   { name: 'GENSHIN_VOICE_DIR', defaultValue: '~/projects/.../genshin', description: 'GPT-SoVITS 角色模型目录', category: 'tts', sensitive: false },
 
