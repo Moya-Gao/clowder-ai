@@ -265,6 +265,54 @@ Phase A 写完代码 → review → merge，全程没有拿 runtime 截图和 Pe
 | `825456b5` | tools 折叠按钮更醒目 + 折叠态提示 | #1 (部分) |
 | `8200075e` | tools 执行完自动折叠成 1 行 + streaming 时展开 | #1 (核心) |
 
+### 第二轮反思（2026-03-11 09:45，被铲屎官骂醒）
+
+**铲屎官原话**："你把你的反思写过写到你的f97 md里...你先告诉我不要改了 先反思"
+
+**核心问题：有 Pencil skill + batch_get 数据，写出来的代码还是和设计稿不一样。**
+
+我用了 `pencil-to-code` skill，调了 `batch_get` 读到了 QAaoQ 和 7Nv1q 的完整节点树，每个节点的 `fill`、`iconFontFamily`、`iconFontName`、`fontSize`、`fontWeight`、`padding`、`cornerRadius`、`stroke` 全有。但写代码时：
+
+1. **SVG 不是 lucide 的** — 设计稿用 `iconFontFamily: "lucide"`, `iconFontName: "wrench"/"check"/"paw-print"/"loader"/"chevron-right"`。我应该直接用 lucide 官方 SVG（npm 有 `lucide-react`，或者从 lucide.dev 复制精确 path）。我却自己手画了 SVG path，猫爪画得和设计稿完全不同。
+
+2. **Active tool 颜色没精确对齐** — 设计稿 streaming active tool row：
+   - `fill: "#7C3AED20"` → bg 是 violet-600 at 12% opacity
+   - `stroke.fill: "#7C3AED"`, `stroke.thickness.left: 2` → 2px 紫色左边线
+   - Spinner: `fill: "#C084FC"` (violet-400)
+   - Tool name: `fill: "#F5F3FF"` (violet-50), `fontWeight: "600"`
+   - Detail text: `fill: "#C084FC"` (violet-400)
+
+   我用了 `lighten()` 动态计算，计算结果不是这些值。应该：ragdoll 直接用精确值，其他品种按比例映射。
+
+3. **猫爪图标不一样** — 设计稿是 lucide `paw-print`，我手画了一个完全不同的猫爪 SVG。
+
+4. **反复改来改去没对齐设计稿** — 从深色 → 浅色透明 → 深色 → 浅色 → 深色，改了 8 个 commit，每次都是"凭感觉近似"而不是"读设计稿属性 → 1:1 写代码"。
+
+**根因**：读了数据但没逐属性对照。`batch_get` 返回了 JSON，我应该把每个节点的属性直接映射成 React style props / Tailwind classes，而不是"看了一眼 JSON 然后关掉凭印象写"。
+
+**正确做法**（下次执行时遵守）：
+1. `batch_get` 获取完整节点树
+2. 逐节点提取属性，写成 design token 表
+3. 代码里每个 style 属性 = token 表里的值，不允许"近似"
+4. 先 1:1 还原视觉，再叠加交互逻辑（折叠/auto-collapse）
+5. SVG 用 lucide 官方 path，不自己画
+
+### 铲屎官要的调整（和设计稿的差异）
+
+设计稿是基础，在设计稿基础上铲屎官要求的调整：
+
+1. **Thinking 布局** — 设计稿里 Thinking 是轻量 disclosure row（无背景色块）。铲屎官要求：**Thinking 和 CLI 保持一致的深色面板**，有 🧠 Brain SVG。
+2. **Tools 三层折叠** — 设计稿是静态展开的。铲屎官要求：tools 区可整体折叠成 1 行 + 单个 tool 可展开看细节。
+3. **深色浅 10-20%** — 设计稿 `#1E293B`，铲屎官要浅 10-20%（约 `#283548`）。
+4. **标签英文** — 设计稿用中文（"CLI 输出"/"已完成"），铲屎官要英文（"CLI Output"/"done"）。
+5. **品种色 accent** — 设计稿 hardcode 紫色（`#7C3AED`），需要改成 breedColor 动态传入。
+
+**不该改的**（设计稿的巧思必须保留）：
+- 全部 SVG 图标（lucide wrench/check/loader/paw-print/chevron）
+- Active tool 高亮样式（bg + left border + 亮色文字 + spinner）
+- 颜色 token 全部精确值（#22D3EE check、#E2E8F0 tool name、#64748B detail、#4ADE80 success、#CBD5E1 stdout 等）
+- 布局间距（padding、gap、cornerRadius 等）
+
 ## Timeline
 
 | 日期 | 事件 |
