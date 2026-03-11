@@ -10,8 +10,8 @@ import type {
 import { SignalSourceConfigSchema } from '@cat-cafe/shared';
 import { parse as parseYaml } from 'yaml';
 import { DEFAULT_SIGNAL_SOURCES } from '../../domains/signals/config/default-sources.js';
-import type { LegacyArticle } from './legacy-article-parser.js';
 import { asRecord, exists, normalizeUrl, pickString, slugify } from './shared.js';
+import type { LegacyArticle } from './legacy-article-parser.js';
 
 export interface LegacySourceMigration {
   readonly sources: readonly SignalSource[];

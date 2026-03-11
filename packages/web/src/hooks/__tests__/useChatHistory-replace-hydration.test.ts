@@ -1,9 +1,10 @@
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useChatHistory } from '../useChatHistory';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { useChatHistory } from '../useChatHistory';
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
@@ -14,7 +15,10 @@ function HookHost({ threadId }: { threadId: string }) {
   return null;
 }
 
-function makeThreadBState(cachedAssistantTs: number, overrides?: Partial<ReturnType<typeof buildThreadBState>>) {
+function makeThreadBState(
+  cachedAssistantTs: number,
+  overrides?: Partial<ReturnType<typeof buildThreadBState>>,
+) {
   return {
     ...buildThreadBState(cachedAssistantTs),
     ...overrides,
@@ -23,15 +27,13 @@ function makeThreadBState(cachedAssistantTs: number, overrides?: Partial<ReturnT
 
 function buildThreadBState(cachedAssistantTs: number) {
   return {
-    messages: [
-      {
-        id: 'b1',
-        type: 'assistant' as const,
-        catId: 'opus',
-        content: 'cached assistant',
-        timestamp: cachedAssistantTs,
-      },
-    ],
+    messages: [{
+      id: 'b1',
+      type: 'assistant' as const,
+      catId: 'opus',
+      content: 'cached assistant',
+      timestamp: cachedAssistantTs,
+    }],
     isLoading: true,
     isLoadingHistory: false,
     hasMore: true,
@@ -133,10 +135,9 @@ describe('useChatHistory replace hydration', () => {
     let resolveJson: ((value: unknown) => void) | null = null;
     apiFetchMock.mockResolvedValue({
       ok: true,
-      json: () =>
-        new Promise((resolve) => {
-          resolveJson = resolve;
-        }),
+      json: () => new Promise((resolve) => {
+        resolveJson = resolve;
+      }),
     } as Response);
     return {
       waitUntilPending: async () => {
@@ -188,11 +189,9 @@ describe('useChatHistory replace hydration', () => {
   it('keeps a richer local stream bubble instead of a stale draft duplicate', async () => {
     const history = installDeferredHistoryResponse();
     const cachedAssistantTs = Date.now() - 1000;
-    mountReplaceHydrationThread(
-      makeThreadBState(cachedAssistantTs, {
-        catInvocations: { opus: { invocationId: 'inv-1', startedAt: cachedAssistantTs } },
-      }),
-    );
+    mountReplaceHydrationThread(makeThreadBState(cachedAssistantTs, {
+      catInvocations: { opus: { invocationId: 'inv-1', startedAt: cachedAssistantTs } },
+    }));
 
     act(() => {
       useChatStore.getState().addMessage({
@@ -213,14 +212,7 @@ describe('useChatHistory replace hydration', () => {
     await history.resolve({
       messages: [
         { id: 'b1', catId: 'opus', content: 'cached assistant', timestamp: cachedAssistantTs },
-        {
-          id: 'draft-inv-1',
-          catId: 'opus',
-          content: 'stale draft',
-          origin: 'stream',
-          timestamp: Date.now(),
-          isDraft: true,
-        },
+        { id: 'draft-inv-1', catId: 'opus', content: 'stale draft', origin: 'stream', timestamp: Date.now(), isDraft: true },
       ],
       hasMore: false,
     });
@@ -232,11 +224,9 @@ describe('useChatHistory replace hydration', () => {
   it('prefers a richer server stream message over a local placeholder for the same invocation', async () => {
     const history = installDeferredHistoryResponse();
     const cachedAssistantTs = Date.now() - 1000;
-    mountReplaceHydrationThread(
-      makeThreadBState(cachedAssistantTs, {
-        catInvocations: { opus: { invocationId: 'inv-1', startedAt: cachedAssistantTs } },
-      }),
-    );
+    mountReplaceHydrationThread(makeThreadBState(cachedAssistantTs, {
+      catInvocations: { opus: { invocationId: 'inv-1', startedAt: cachedAssistantTs } },
+    }));
 
     act(() => {
       useChatStore.getState().addMessage({

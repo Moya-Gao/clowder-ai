@@ -327,13 +327,13 @@ l-14 -79 -117 -47 c-211 -85 -370 -185 -513 -322 -172 -164 -282 -336 -354
     document.getElementById('anim-wipe').addEventListener('click', () => setAnimation('anim-wipe'));
     document.getElementById('anim-up').addEventListener('click', () => setAnimation('anim-up'));
 
-    document.getElementById('slower-btn').addEventListener('click', () => {
+    document.getElementById('slower-btn').addEventListener('click', function() {
       duration = Math.min(duration + 1, 10);
       updateSpeedDisplay();
       playAnimation();
     });
 
-    document.getElementById('faster-btn').addEventListener('click', () => {
+    document.getElementById('faster-btn').addEventListener('click', function() {
       duration = Math.max(duration - 1, 1);
       updateSpeedDisplay();
       playAnimation();

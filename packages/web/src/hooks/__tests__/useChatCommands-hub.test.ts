@@ -5,9 +5,10 @@
  * Uses React.createElement + createRoot to render the hook (project convention),
  * avoiding @testing-library/react dependency.
  */
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
 
 // Mock apiFetch — /config set needs it

@@ -6,9 +6,9 @@
  * formatMessage() 也被 export route 复用 (聊天记录导出)。
  */
 
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
-import { estimateTokens } from '../../../../utils/token-counter.js';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { StoredMessage } from '../stores/ports/MessageStore.js';
+import { estimateTokens } from '../../../../utils/token-counter.js';
 
 export interface ContextAssemblerOptions {
   /** Maximum number of recent messages to include (default: 20) */
@@ -81,7 +81,10 @@ function truncateHeadTail(content: string, limit: number): string {
  *
  * @returns `[HH:MM 角色名] 内容`
  */
-export function formatMessage(msg: StoredMessage, options?: { truncate?: number }): string {
+export function formatMessage(
+  msg: StoredMessage,
+  options?: { truncate?: number },
+): string {
   const time = formatTime(msg.timestamp);
   const sender = msg.source ? msg.source.label : getSenderName(msg.catId);
   // F52: Annotate cross-thread messages with source thread
@@ -98,10 +101,13 @@ export function formatMessage(msg: StoredMessage, options?: { truncate?: number 
 /**
  * Assemble recent thread history into a context string for prompt prepend.
  */
-export function assembleContext(messages: StoredMessage[], options?: ContextAssemblerOptions): AssembledContext {
+export function assembleContext(
+  messages: StoredMessage[],
+  options?: ContextAssemblerOptions,
+): AssembledContext {
   const maxMessages = options?.maxMessages ?? DEFAULT_MAX_MESSAGES;
-  const maxContentLength =
-    options?.maxContentLength ?? (Number(process.env['MAX_CONTEXT_MSG_CHARS']) || DEFAULT_MAX_CONTENT_LENGTH);
+  const maxContentLength = options?.maxContentLength
+    ?? (Number(process.env['MAX_CONTEXT_MSG_CHARS']) || DEFAULT_MAX_CONTENT_LENGTH);
   // F8: token-based budget (maxTotalTokens preferred, maxTotalChars fallback for compat)
   const maxTotalTokens = options?.maxTotalTokens ?? options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_TOKENS;
 
@@ -110,7 +116,9 @@ export function assembleContext(messages: StoredMessage[], options?: ContextAsse
   }
 
   // Take the most recent N messages (messages are already chronological from store)
-  const recent = messages.length > maxMessages ? messages.slice(-maxMessages) : messages;
+  const recent = messages.length > maxMessages
+    ? messages.slice(-maxMessages)
+    : messages;
 
   // Format all messages, then apply token budget from most-recent backward
   const formatted = recent.map((m) => formatMessage(m, { truncate: maxContentLength }));

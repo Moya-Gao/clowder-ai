@@ -109,16 +109,14 @@ describe('useAgentMessages placeholder recovery', () => {
   });
 
   it('reuses an existing streaming bubble when thinking arrives after active refs were lost', () => {
-    storeState.messages = [
-      {
-        id: 'msg-live-1',
-        type: 'assistant',
-        catId: 'opus',
-        content: 'partial reply',
-        isStreaming: true,
-        timestamp: Date.now(),
-      },
-    ];
+    storeState.messages = [{
+      id: 'msg-live-1',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'partial reply',
+      isStreaming: true,
+      timestamp: Date.now(),
+    }];
 
     act(() => {
       root.render(React.createElement(Harness));
@@ -137,16 +135,14 @@ describe('useAgentMessages placeholder recovery', () => {
   });
 
   it('reuses an existing streaming bubble when rich_block arrives after active refs were lost', () => {
-    storeState.messages = [
-      {
-        id: 'msg-live-2',
-        type: 'assistant',
-        catId: 'opus',
-        content: 'partial reply',
-        isStreaming: true,
-        timestamp: Date.now(),
-      },
-    ];
+    storeState.messages = [{
+      id: 'msg-live-2',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'partial reply',
+      isStreaming: true,
+      timestamp: Date.now(),
+    }];
 
     act(() => {
       root.render(React.createElement(Harness));
@@ -187,18 +183,16 @@ describe('useAgentMessages placeholder recovery', () => {
     expect(localBubble?.id).toBeTruthy();
 
     // Hydration replaces the optimistic/local bubble with the persisted server message.
-    storeState.messages = [
-      {
-        id: 'msg-server-1',
-        type: 'assistant',
-        catId: 'opus',
-        content: 'hello',
-        origin: 'stream',
-        extra: { stream: { invocationId: 'inv-live-1' } },
-        isStreaming: false,
-        timestamp: Date.now(),
-      },
-    ];
+    storeState.messages = [{
+      id: 'msg-server-1',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'hello',
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-live-1' } },
+      isStreaming: false,
+      timestamp: Date.now(),
+    }];
     mockAppendToMessage.mockClear();
     mockSetStreaming.mockClear();
 

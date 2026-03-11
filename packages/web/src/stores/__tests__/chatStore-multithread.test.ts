@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatMessage } from '../chat-types';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useChatStore } from '../chatStore';
+import type { ChatMessage } from '../chat-types';
 
 function makeMsg(id: string, content = 'hello'): ChatMessage {
   return { id, type: 'user', content, timestamp: Date.now() };

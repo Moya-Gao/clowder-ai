@@ -15,14 +15,7 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 const searchHits = [
-  {
-    score: 1.0,
-    sessionId: 's1',
-    seq: 3,
-    kind: 'event' as const,
-    snippet: 'found the bug in handler',
-    pointer: { eventNo: 42 },
-  },
+  { score: 1.0, sessionId: 's1', seq: 3, kind: 'event' as const, snippet: 'found the bug in handler', pointer: { eventNo: 42 } },
   { score: 0.8, sessionId: 's2', seq: 1, kind: 'digest' as const, snippet: 'review passed all checks', pointer: {} },
 ];
 

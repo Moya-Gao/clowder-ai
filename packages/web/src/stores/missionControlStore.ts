@@ -1,5 +1,5 @@
-import type { BacklogItem, ThreadPhase } from '@cat-cafe/shared';
 import { create } from 'zustand';
+import type { BacklogItem, ThreadPhase } from '@cat-cafe/shared';
 
 interface MissionControlState {
   items: BacklogItem[];

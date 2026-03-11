@@ -64,7 +64,7 @@ describe('signals routes', () => {
 
     const store = new ArticleStoreService({ paths });
     const now = new Date();
-    const old = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const old = new Date(now.getTime() - (2 * 24 * 60 * 60 * 1000));
     today = toIsoDay(now);
 
     firstArticle = await store.store({

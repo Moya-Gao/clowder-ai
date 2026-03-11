@@ -4,8 +4,8 @@
  */
 
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
+import * as os from 'node:os';
 
 export function expandHomeDir(inputPath: string): string {
   if (inputPath === '~') {
@@ -47,7 +47,10 @@ export function isWithinPath(targetPath: string, baseDir: string): boolean {
     return normalizedTarget.startsWith(normalizedBase);
   }
 
-  return normalizedTarget === normalizedBase || normalizedTarget.startsWith(normalizedBase + path.sep);
+  return (
+    normalizedTarget === normalizedBase ||
+    normalizedTarget.startsWith(normalizedBase + path.sep)
+  );
 }
 
 export function findDeepestExistingPath(targetPath: string): string | null {
@@ -66,3 +69,4 @@ export function findDeepestExistingPath(targetPath: string): string | null {
     current = parent;
   }
 }
+

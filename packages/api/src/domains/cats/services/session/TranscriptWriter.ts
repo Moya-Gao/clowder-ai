@@ -76,7 +76,11 @@ export class TranscriptWriter {
   }
 
   /** Append a raw event to the in-memory buffer for a session. */
-  appendEvent(session: TranscriptSessionInfo, event: Record<string, unknown>, invocationId?: string): void {
+  appendEvent(
+    session: TranscriptSessionInfo,
+    event: Record<string, unknown>,
+    invocationId?: string,
+  ): void {
     let buf = this.buffers.get(session.sessionId);
     if (!buf) {
       buf = [];
@@ -104,7 +108,10 @@ export class TranscriptWriter {
    * Flush buffered events to disk + generate index + extractive digest.
    * Clears the buffer after successful write.
    */
-  async flush(session: TranscriptSessionInfo, sealTimestamps?: { createdAt: number; sealedAt: number }): Promise<void> {
+  async flush(
+    session: TranscriptSessionInfo,
+    sealTimestamps?: { createdAt: number; sealedAt: number },
+  ): Promise<void> {
     const buf = this.buffers.get(session.sessionId);
     if (!buf || buf.length === 0) {
       return;
@@ -140,7 +147,11 @@ export class TranscriptWriter {
       byteOffset += Buffer.byteLength(line, 'utf-8') + 1; // +1 for newline
     }
 
-    await writeFile(join(sessionDir, 'events.jsonl'), jsonlLines.join('\n') + '\n', 'utf-8');
+    await writeFile(
+      join(sessionDir, 'events.jsonl'),
+      jsonlLines.join('\n') + '\n',
+      'utf-8',
+    );
 
     // 2. Write index.json
     const index = {
@@ -149,12 +160,20 @@ export class TranscriptWriter {
       stride: this.indexStride,
       offsets,
     };
-    await writeFile(join(sessionDir, 'index.json'), JSON.stringify(index, null, 2), 'utf-8');
+    await writeFile(
+      join(sessionDir, 'index.json'),
+      JSON.stringify(index, null, 2),
+      'utf-8',
+    );
 
     // 3. Write digest.extractive.json (if seal timestamps provided)
     if (sealTimestamps) {
       const digest = this.generateExtractiveDigest(session, sealTimestamps);
-      await writeFile(join(sessionDir, 'digest.extractive.json'), JSON.stringify(digest, null, 2), 'utf-8');
+      await writeFile(
+        join(sessionDir, 'digest.extractive.json'),
+        JSON.stringify(digest, null, 2),
+        'utf-8',
+      );
     }
 
     // Clear buffer
@@ -205,7 +224,9 @@ export class TranscriptWriter {
       // raw NDJSON uses type='tool_result'+is_error+content
       if (evtType === 'tool_result' && evt['is_error']) {
         const evtContent = evt['content'];
-        const message = typeof evtContent === 'string' ? evtContent : JSON.stringify(evtContent);
+        const message = typeof evtContent === 'string'
+          ? evtContent
+          : JSON.stringify(evtContent);
         errors.push({
           at: entry.timestamp,
           ...(entry.invocationId !== undefined ? { invocationId: entry.invocationId } : {}),
@@ -228,11 +249,9 @@ export class TranscriptWriter {
       catId: session.catId,
       seq: session.seq,
       time: sealTimestamps,
-      invocations: [
-        {
-          toolNames: [...toolNames],
-        },
-      ],
+      invocations: [{
+        toolNames: [...toolNames],
+      }],
       filesTouched: [...filePaths.entries()].map(([path, ops]) => ({
         path,
         ops: [...ops],
@@ -245,30 +264,45 @@ export class TranscriptWriter {
    * Write handoff digest to a session directory.
    * F065 Phase C: static so it can be called from SessionSealer without instance state.
    */
-  static async writeHandoffDigest(sessionDir: string, meta: HandoffDigestMeta, body: string): Promise<void> {
-    const frontmatter = ['---', `v: ${meta.v}`, `model: ${meta.model}`, `generatedAt: ${meta.generatedAt}`, '---'].join(
-      '\n',
-    );
+  static async writeHandoffDigest(
+    sessionDir: string,
+    meta: HandoffDigestMeta,
+    body: string,
+  ): Promise<void> {
+    const frontmatter = [
+      '---',
+      `v: ${meta.v}`,
+      `model: ${meta.model}`,
+      `generatedAt: ${meta.generatedAt}`,
+      '---',
+    ].join('\n');
 
-    await writeFile(join(sessionDir, 'digest.handoff.md'), `${frontmatter}\n\n${body}\n`, 'utf-8');
+    await writeFile(
+      join(sessionDir, 'digest.handoff.md'),
+      `${frontmatter}\n\n${body}\n`,
+      'utf-8',
+    );
   }
 
   /** Map tool name to file operation type. */
   private toolNameToOp(name: string): string | null {
     switch (name.toLowerCase()) {
-      case 'write':
-        return 'create';
-      case 'edit':
-        return 'edit';
-      case 'delete':
-        return 'delete';
-      default:
-        return null;
+      case 'write': return 'create';
+      case 'edit': return 'edit';
+      case 'delete': return 'delete';
+      default: return null;
     }
   }
 
   /** Compute session directory path. */
   private sessionDir(session: TranscriptSessionInfo): string {
-    return join(this.dataDir, 'threads', session.threadId, session.catId, 'sessions', session.sessionId);
+    return join(
+      this.dataDir,
+      'threads',
+      session.threadId,
+      session.catId,
+      'sessions',
+      session.sessionId,
+    );
   }
 }

@@ -31,3 +31,4 @@ describe('ContextHealthBar family variant colors', () => {
     expect(html).toContain('background-color:#B39DDB');
   });
 });
+

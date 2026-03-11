@@ -43,6 +43,8 @@ export const useToastStore = create<ToastState>((set) => ({
 
   markExiting: (id) =>
     set((state) => ({
-      toasts: state.toasts.map((t) => (t.id === id ? { ...t, exiting: true } : t)),
+      toasts: state.toasts.map((t) =>
+        t.id === id ? { ...t, exiting: true } : t
+      ),
     })),
 }));

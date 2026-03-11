@@ -3,13 +3,13 @@
  * POST /api/invocations/:id/retry — 实际执行 retry 全路径
  */
 
-import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import Fastify from 'fastify';
-import { InvocationTracker } from '../dist/domains/cats/services/agents/invocation/InvocationTracker.js';
+import { invocationsRoutes } from '../dist/routes/invocations.js';
 import { InvocationRecordStore } from '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js';
 import { MessageStore } from '../dist/domains/cats/services/stores/ports/MessageStore.js';
-import { invocationsRoutes } from '../dist/routes/invocations.js';
+import { InvocationTracker } from '../dist/domains/cats/services/agents/invocation/InvocationTracker.js';
 
 /** Stub AgentRouter: routeExecution yields one text message then returns */
 function createMockRouter(options = {}) {
@@ -33,15 +33,9 @@ function createMockRouter(options = {}) {
 function createMockSocketManager() {
   const messages = [];
   return {
-    broadcastAgentMessage(msg, threadId) {
-      messages.push({ type: 'agent', msg, threadId });
-    },
-    broadcastToRoom(room, event, data) {
-      messages.push({ type: 'room', room, event, data });
-    },
-    getMessages() {
-      return messages;
-    },
+    broadcastAgentMessage(msg, threadId) { messages.push({ type: 'agent', msg, threadId }); },
+    broadcastToRoom(room, event, data) { messages.push({ type: 'room', room, event, data }); },
+    getMessages() { return messages; },
   };
 }
 

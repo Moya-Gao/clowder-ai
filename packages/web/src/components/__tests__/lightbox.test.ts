@@ -8,9 +8,10 @@
  * 4. Clicking inner content does NOT close (stopPropagation)
  * 5. Renders caption when provided
  */
-import React, { act } from 'react';
+import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { Lightbox } from '@/components/Lightbox';
 
 let container: HTMLDivElement;
@@ -39,14 +40,12 @@ afterEach(() => {
 function renderLightbox(props: Partial<React.ComponentProps<typeof Lightbox>> = {}) {
   const onClose = props.onClose ?? vi.fn();
   act(() => {
-    root.render(
-      React.createElement(Lightbox, {
-        url: '/test-image.png',
-        alt: 'test image',
-        onClose,
-        ...props,
-      }),
-    );
+    root.render(React.createElement(Lightbox, {
+      url: '/test-image.png',
+      alt: 'test image',
+      onClose,
+      ...props,
+    }));
   });
   return { onClose };
 }

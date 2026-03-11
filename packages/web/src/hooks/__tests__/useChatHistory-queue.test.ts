@@ -2,12 +2,13 @@
  * F39 Bug 1: useChatHistory fetches queue state on mount/thread-switch
  * so that F5 refresh restores QueuePanel correctly.
  */
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useChatHistory } from '../useChatHistory';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { useChatHistory } from '../useChatHistory';
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
@@ -73,19 +74,7 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
 
   it('fetches GET /api/threads/:threadId/queue on mount', async () => {
     const queueEntries = [
-      {
-        id: 'q1',
-        threadId: 'thread-q',
-        userId: 'u1',
-        content: 'queued msg',
-        messageId: 'm1',
-        mergedMessageIds: [],
-        source: 'user',
-        targetCats: ['opus'],
-        intent: 'execute',
-        status: 'queued',
-        createdAt: Date.now(),
-      },
+      { id: 'q1', threadId: 'thread-q', userId: 'u1', content: 'queued msg', messageId: 'm1', mergedMessageIds: [], source: 'user', targetCats: ['opus'], intent: 'execute', status: 'queued', createdAt: Date.now() },
     ];
 
     apiFetchMock.mockImplementation((url: string) => {
@@ -93,9 +82,7 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
         return Promise.resolve(new Response(JSON.stringify({ queue: queueEntries, paused: false }), { status: 200 }));
       }
       // Other fetches (messages, tasks, task-progress) return empty
-      return Promise.resolve(
-        new Response(JSON.stringify({ messages: [], hasMore: false, tasks: [] }), { status: 200 }),
-      );
+      return Promise.resolve(new Response(JSON.stringify({ messages: [], hasMore: false, tasks: [] }), { status: 200 }));
     });
 
     await act(async () => {
@@ -103,7 +90,9 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
     });
 
     // Verify queue endpoint was called
-    const queueCalls = apiFetchMock.mock.calls.filter(([url]) => typeof url === 'string' && url.includes('/queue'));
+    const queueCalls = apiFetchMock.mock.calls.filter(
+      ([url]) => typeof url === 'string' && url.includes('/queue'),
+    );
     expect(queueCalls.length).toBeGreaterThanOrEqual(1);
     expect(queueCalls[0][0]).toContain('/api/threads/thread-q/queue');
 
@@ -115,30 +104,14 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
 
   it('sets queuePaused when API reports paused=true', async () => {
     const queueEntries = [
-      {
-        id: 'q2',
-        threadId: 'thread-q',
-        userId: 'u1',
-        content: 'paused msg',
-        messageId: null,
-        mergedMessageIds: [],
-        source: 'user',
-        targetCats: ['opus'],
-        intent: 'execute',
-        status: 'queued',
-        createdAt: Date.now(),
-      },
+      { id: 'q2', threadId: 'thread-q', userId: 'u1', content: 'paused msg', messageId: null, mergedMessageIds: [], source: 'user', targetCats: ['opus'], intent: 'execute', status: 'queued', createdAt: Date.now() },
     ];
 
     apiFetchMock.mockImplementation((url: string) => {
       if (typeof url === 'string' && url.includes('/queue')) {
-        return Promise.resolve(
-          new Response(JSON.stringify({ queue: queueEntries, paused: true, pauseReason: 'failed' }), { status: 200 }),
-        );
+        return Promise.resolve(new Response(JSON.stringify({ queue: queueEntries, paused: true, pauseReason: 'failed' }), { status: 200 }));
       }
-      return Promise.resolve(
-        new Response(JSON.stringify({ messages: [], hasMore: false, tasks: [] }), { status: 200 }),
-      );
+      return Promise.resolve(new Response(JSON.stringify({ messages: [], hasMore: false, tasks: [] }), { status: 200 }));
     });
 
     await act(async () => {
@@ -155,19 +128,7 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
     // Pre-populate store with stale queue data (simulates previous session)
     useChatStore.setState({
       queue: [
-        {
-          id: 'q-stale',
-          threadId: 'thread-q',
-          userId: 'u1',
-          content: 'stale entry',
-          messageId: null,
-          mergedMessageIds: [],
-          source: 'user' as const,
-          targetCats: ['opus'],
-          intent: 'execute',
-          status: 'queued' as const,
-          createdAt: Date.now(),
-        },
+        { id: 'q-stale', threadId: 'thread-q', userId: 'u1', content: 'stale entry', messageId: null, mergedMessageIds: [], source: 'user' as const, targetCats: ['opus'], intent: 'execute', status: 'queued' as const, createdAt: Date.now() },
       ],
       queuePaused: true,
       queuePauseReason: 'failed',
@@ -177,9 +138,7 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
       if (typeof url === 'string' && url.includes('/queue')) {
         return Promise.resolve(new Response(JSON.stringify({ queue: [], paused: false }), { status: 200 }));
       }
-      return Promise.resolve(
-        new Response(JSON.stringify({ messages: [], hasMore: false, tasks: [] }), { status: 200 }),
-      );
+      return Promise.resolve(new Response(JSON.stringify({ messages: [], hasMore: false, tasks: [] }), { status: 200 }));
     });
 
     await act(async () => {

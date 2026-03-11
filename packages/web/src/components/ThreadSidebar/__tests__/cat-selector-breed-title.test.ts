@@ -5,9 +5,10 @@
  * When a variant overrides displayName, the group heading should still read
  * "布偶猫家族" (from breedDisplayName), NOT "宪宪专用猫家族" (from variant displayName).
  */
-import React, { act } from 'react';
+import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import type { CatData } from '@/hooks/useCatData';
 
 // ── Build multi-variant data where first variant overrides displayName ──

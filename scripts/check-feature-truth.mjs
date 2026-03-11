@@ -67,11 +67,15 @@ function generateFreshIndex(outputPath) {
     throw new Error(`Missing generator script: ${generatorPath}`);
   }
 
-  execFileSync('node', [generatorPath, '--output', outputPath], {
-    cwd: repoRoot,
-    encoding: 'utf-8',
-    stdio: 'pipe',
-  });
+  execFileSync(
+    'node',
+    [generatorPath, '--output', outputPath],
+    {
+      cwd: repoRoot,
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    },
+  );
 }
 
 function deepEqualFeatures(a, b) {
@@ -101,7 +105,9 @@ function main() {
     const generatedFeatures = Array.isArray(generatedIndex.features) ? generatedIndex.features : [];
 
     if (!deepEqualFeatures(currentFeatures, generatedFeatures)) {
-      errors.push('[index-sync] docs/features/index.json is stale. Run: node scripts/generate-feature-index.mjs');
+      errors.push(
+        '[index-sync] docs/features/index.json is stale. Run: node scripts/generate-feature-index.mjs',
+      );
     }
 
     const backlogIds = parseBacklogFeatureIds(backlogMarkdown);
@@ -132,7 +138,9 @@ function main() {
       process.exit(1);
     }
 
-    console.log(`PASS check-feature-truth: features=${generatedFeatures.length} backlog_active=${backlogIds.size}`);
+    console.log(
+      `PASS check-feature-truth: features=${generatedFeatures.length} backlog_active=${backlogIds.size}`,
+    );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

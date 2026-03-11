@@ -6,19 +6,25 @@
  * Phase 5.0: Evidence-first search.
  */
 
-import { join } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { join } from 'node:path';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
+import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
+import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import {
   shouldFailClosedForFreshness,
   triggerP0ReimportIfNeeded,
 } from '../domains/cats/services/hindsight-import/p0-freshness-guard.js';
 import { getP0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
-import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
-import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
+import {
+  memoryToResult,
+  normalizeTags,
+  searchDocs,
+  shouldDegradeToDocs,
+  validateAnchors,
+} from './evidence-helpers.js';
 import type { EvidenceResult } from './evidence-helpers.js';
-import { memoryToResult, normalizeTags, searchDocs, shouldDegradeToDocs, validateAnchors } from './evidence-helpers.js';
 
 /** Accepted query parameters */
 const searchSchema = z.object({
@@ -66,14 +72,12 @@ export interface EvidenceRoutesOptions {
 export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
   const repoRoot = process.cwd();
   const freshnessProvider = opts.freshnessProvider ?? (() => getP0Freshness(process.cwd()));
-  const reimportTriggerProvider =
-    opts.reimportTriggerProvider ??
-    ((freshness: EvidenceFreshness) =>
-      triggerP0ReimportIfNeeded({
-        freshness,
-        repoRoot,
-        auditLog: getEventAuditLog(),
-      }));
+  const reimportTriggerProvider = opts.reimportTriggerProvider
+    ?? ((freshness: EvidenceFreshness) => triggerP0ReimportIfNeeded({
+      freshness,
+      repoRoot,
+      auditLog: getEventAuditLog(),
+    }));
 
   app.get('/api/evidence/search', async (request, reply) => {
     const parseResult = searchSchema.safeParse(request.query);

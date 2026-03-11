@@ -2,8 +2,8 @@
  * TaskExtractor tests
  */
 
-import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { extractTasks, toCreateTaskInputs } from '../dist/domains/cats/services/orchestration/TaskExtractor.js';
 
 // Mock AgentService that returns valid JSON
@@ -94,13 +94,11 @@ describe('extractTasks', () => {
   });
 
   it('respects maxMessages option', async () => {
-    const manyMessages = Array(100)
-      .fill(null)
-      .map((_, i) => ({
-        id: `msg-${i}`,
-        content: `Message ${i}`,
-        catId: null,
-      }));
+    const manyMessages = Array(100).fill(null).map((_, i) => ({
+      id: `msg-${i}`,
+      content: `Message ${i}`,
+      catId: null,
+    }));
 
     const result = await extractTasks(manyMessages, mockServiceWithJSON, {
       threadId: 'thread-1',
@@ -147,8 +145,7 @@ describe('sourceIndex normalization (#33)', () => {
       },
     };
     const result = await extractTasks(messagesWithIds, mockService, {
-      threadId: 't1',
-      userId: 'u1',
+      threadId: 't1', userId: 'u1',
     });
     assert.equal(result.tasks[0].sourceMessageId, 'msg-bbb');
   });
@@ -161,8 +158,7 @@ describe('sourceIndex normalization (#33)', () => {
       },
     };
     const result = await extractTasks(messagesWithIds, mockService, {
-      threadId: 't1',
-      userId: 'u1',
+      threadId: 't1', userId: 'u1',
     });
     assert.equal(result.tasks[0].sourceMessageId, 'msg-bbb');
   });
@@ -175,8 +171,7 @@ describe('sourceIndex normalization (#33)', () => {
       },
     };
     const result = await extractTasks(messagesWithIds, mockService, {
-      threadId: 't1',
-      userId: 'u1',
+      threadId: 't1', userId: 'u1',
     });
     assert.equal(result.tasks[0].sourceMessageId, 'msg-ccc');
   });
@@ -189,8 +184,7 @@ describe('sourceIndex normalization (#33)', () => {
       },
     };
     const result = await extractTasks(messagesWithIds, mockService, {
-      threadId: 't1',
-      userId: 'u1',
+      threadId: 't1', userId: 'u1',
     });
     assert.equal(result.tasks[0].sourceMessageId, undefined);
   });
@@ -198,17 +192,12 @@ describe('sourceIndex normalization (#33)', () => {
   it('validates ownerCatId to known cats only', async () => {
     const mockService = {
       async *invoke() {
-        yield {
-          type: 'text',
-          content:
-            '[{"title": "Task1", "why": "T", "ownerCatId": "opus"}, {"title": "Task2", "why": "T", "ownerCatId": "unknown"}, {"title": "Task3", "why": "T", "ownerCatId": 123}]',
-        };
+        yield { type: 'text', content: '[{"title": "Task1", "why": "T", "ownerCatId": "opus"}, {"title": "Task2", "why": "T", "ownerCatId": "unknown"}, {"title": "Task3", "why": "T", "ownerCatId": 123}]' };
         yield { type: 'done', catId: 'opus' };
       },
     };
     const result = await extractTasks(messagesWithIds, mockService, {
-      threadId: 't1',
-      userId: 'u1',
+      threadId: 't1', userId: 'u1',
     });
     assert.equal(result.tasks[0].ownerCatId, 'opus');
     assert.equal(result.tasks[1].ownerCatId, undefined);
@@ -224,7 +213,7 @@ describe('Pattern extraction fallback', () => {
       userId: 'user-1',
     });
 
-    assert.ok(result.tasks.some((t) => t.title.includes('fix the bug')));
+    assert.ok(result.tasks.some(t => t.title.includes('fix the bug')));
   });
 
   it('extracts checkbox patterns', async () => {
@@ -234,7 +223,7 @@ describe('Pattern extraction fallback', () => {
       userId: 'user-1',
     });
 
-    assert.ok(result.tasks.some((t) => t.title.includes('implement feature')));
+    assert.ok(result.tasks.some(t => t.title.includes('implement feature')));
   });
 
   it('extracts #task patterns', async () => {
@@ -244,6 +233,6 @@ describe('Pattern extraction fallback', () => {
       userId: 'user-1',
     });
 
-    assert.ok(result.tasks.some((t) => t.title.includes('review the code')));
+    assert.ok(result.tasks.some(t => t.title.includes('review the code')));
   });
 });

@@ -494,37 +494,15 @@ export async function handleUpdateWorkflow(input: {
 // ============ Multi-Mention (F086) ============
 
 export const multiMentionInputSchema = {
-  targets: z
-    .array(z.string().min(1))
-    .min(1)
-    .max(3)
-    .describe('Cat IDs to invoke in parallel (max 3). Example: ["codex","gemini"]'),
+  targets: z.array(z.string().min(1)).min(1).max(3).describe('Cat IDs to invoke in parallel (max 3). Example: ["codex","gemini"]'),
   question: z.string().min(1).max(5000).describe('The question or request for the target cats'),
   callbackTo: z.string().min(1).describe('Cat ID to route all responses back to (required, usually yourself)'),
   context: z.string().max(5000).optional().describe('Additional context to include for the targets'),
-  idempotencyKey: z
-    .string()
-    .min(1)
-    .max(200)
-    .optional()
-    .describe('Idempotency key to prevent duplicate dispatches within the same thread'),
+  idempotencyKey: z.string().min(1).max(200).optional().describe('Idempotency key to prevent duplicate dispatches within the same thread'),
   timeoutMinutes: z.number().int().min(3).max(20).optional().describe('Timeout in minutes (default 8, range 3-20)'),
-  searchEvidenceRefs: z
-    .array(z.string())
-    .optional()
-    .describe(
-      'References to searches you performed before calling this tool (required unless overrideReason provided). Enforces "先搜后问" principle.',
-    ),
-  overrideReason: z
-    .string()
-    .min(1)
-    .max(500)
-    .optional()
-    .describe('Why you are skipping search evidence (required if searchEvidenceRefs omitted)'),
-  triggerType: z
-    .enum(['high-impact', 'cross-domain', 'uncertain', 'info-gap', 'recon'])
-    .optional()
-    .describe('Which meta-thinking trigger motivated this call'),
+  searchEvidenceRefs: z.array(z.string()).optional().describe('References to searches you performed before calling this tool (required unless overrideReason provided). Enforces "先搜后问" principle.'),
+  overrideReason: z.string().min(1).max(500).optional().describe('Why you are skipping search evidence (required if searchEvidenceRefs omitted)'),
+  triggerType: z.enum(['high-impact', 'cross-domain', 'uncertain', 'info-gap', 'recon']).optional().describe('Which meta-thinking trigger motivated this call'),
 };
 
 export async function handleMultiMention(input: {
@@ -542,8 +520,8 @@ export async function handleMultiMention(input: {
   if (!input.searchEvidenceRefs?.length && !input.overrideReason) {
     return errorResult(
       'multi_mention requires searchEvidenceRefs (what did you search first?) ' +
-        'or overrideReason (why are you skipping search?). ' +
-        'This enforces the "先搜后问" principle — search before asking.',
+      'or overrideReason (why are you skipping search?). ' +
+      'This enforces the "先搜后问" principle — search before asking.',
     );
   }
 

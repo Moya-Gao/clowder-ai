@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const { parseFetchSignalsArgs, formatFetchSignalsSummary, toFetchSignalsExitCode } = await import(
-  '../dist/scripts/fetch-signals.js'
-);
+const { parseFetchSignalsArgs, formatFetchSignalsSummary, toFetchSignalsExitCode } = await import('../dist/scripts/fetch-signals.js');
 
 describe('fetch-signals script args', () => {
   it('parses --dry-run and --source flags', () => {

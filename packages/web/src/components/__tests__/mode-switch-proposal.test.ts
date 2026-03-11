@@ -11,10 +11,11 @@
  * 5. Thread switch → setPendingModeSwitchProposal(null) called
  */
 
-import React, { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import { beforeAll, beforeEach, afterEach, afterAll, describe, expect, it, vi } from 'vitest';
 import { ChatContainer } from '@/components/ChatContainer';
 
 const mockSetPendingModeSwitchProposal = vi.fn();
@@ -186,9 +187,7 @@ describe('ChatContainer mode switch proposal — interaction (R6)', () => {
   });
 
   afterEach(() => {
-    act(() => {
-      root.unmount();
-    });
+    act(() => { root.unmount(); });
     container.remove();
     pendingProposal = null;
   });
@@ -211,13 +210,11 @@ describe('ChatContainer mode switch proposal — interaction (R6)', () => {
 
     // Find the confirm button by its text content
     const buttons = container.querySelectorAll('button');
-    const confirmBtn = Array.from(buttons).find((b) => b.textContent === '确认切换');
+    const confirmBtn = Array.from(buttons).find(b => b.textContent === '确认切换');
     expect(confirmBtn).toBeTruthy();
 
     // Click confirm — should NOT call handleSend because threadId mismatch
-    act(() => {
-      confirmBtn!.click();
-    });
+    act(() => { confirmBtn!.click(); });
 
     expect(mockHandleSend).not.toHaveBeenCalled();
     // Should still clear the proposal

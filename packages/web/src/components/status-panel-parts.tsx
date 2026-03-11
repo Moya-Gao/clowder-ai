@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useElapsedTime } from '@/hooks/useElapsedTime';
 import type { CatInvocationInfo } from '@/stores/chat-types';
-import { formatDuration, truncateId } from './status-helpers';
+import { truncateId, formatDuration } from './status-helpers';
+import { useElapsedTime } from '@/hooks/useElapsedTime';
 
 export function CatInvocationTime({ invocation }: { invocation: CatInvocationInfo }) {
   const elapsed = useElapsedTime(invocation.startedAt && !invocation.durationMs ? invocation.startedAt : undefined);
@@ -19,11 +19,7 @@ export function CatInvocationTime({ invocation }: { invocation: CatInvocationInf
   return null;
 }
 
-export function CollapsibleIds({
-  sessionId,
-  invocationId,
-  onCopy,
-}: {
+export function CollapsibleIds({ sessionId, invocationId, onCopy }: {
   sessionId?: string;
   invocationId?: string;
   onCopy: (v: string) => void;

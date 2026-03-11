@@ -1,17 +1,12 @@
 import type { CatId, SessionRecord } from '@cat-cafe/shared';
-import type { AppendMessageInput, IMessageStore } from '../stores/ports/MessageStore.js';
+import type { IMessageStore, AppendMessageInput } from '../stores/ports/MessageStore.js';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { TranscriptEvent, TranscriptReader } from './TranscriptReader.js';
 
 export interface HistoryImportResult {
   status: 'ok' | 'skipped' | 'failed';
   importedCount: number;
-  reason?:
-    | 'history_import_unavailable'
-    | 'no_transcript_found'
-    | 'no_importable_messages'
-    | 'no_new_messages'
-    | 'import_failed';
+  reason?: 'history_import_unavailable' | 'no_transcript_found' | 'no_importable_messages' | 'no_new_messages' | 'import_failed';
 }
 
 interface BackfillBoundSessionHistoryOptions {

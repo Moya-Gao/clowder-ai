@@ -9,8 +9,8 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
+import { PushSubKeys, hashEndpoint } from '../redis-keys/push-keys.js';
 import type { IPushSubscriptionStore, PushSubscriptionRecord } from '../ports/PushSubscriptionStore.js';
-import { hashEndpoint, PushSubKeys } from '../redis-keys/push-keys.js';
 
 const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
@@ -124,9 +124,7 @@ export class RedisPushSubscriptionStore implements IPushSubscriptionStore {
           cleanup.srem(sourceSetKey, eh);
         }
       }
-      cleanup.exec().catch(() => {
-        /* best-effort cleanup */
-      });
+      cleanup.exec().catch(() => { /* best-effort cleanup */ });
     }
 
     return records;
@@ -134,16 +132,11 @@ export class RedisPushSubscriptionStore implements IPushSubscriptionStore {
 
   private serialize(record: PushSubscriptionRecord): string[] {
     const fields: string[] = [
-      'endpoint',
-      record.endpoint,
-      'p256dh',
-      record.keys.p256dh,
-      'auth',
-      record.keys.auth,
-      'userId',
-      record.userId,
-      'createdAt',
-      String(record.createdAt),
+      'endpoint', record.endpoint,
+      'p256dh', record.keys.p256dh,
+      'auth', record.keys.auth,
+      'userId', record.userId,
+      'createdAt', String(record.createdAt),
     ];
     if (record.userAgent) fields.push('userAgent', record.userAgent);
     return fields;

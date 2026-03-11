@@ -1,12 +1,14 @@
+import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, it, mock } from 'node:test';
 
 describe('WhisperSttProvider', () => {
   it('sends audio file to Whisper API and returns transcript', async () => {
-    const { WhisperSttProvider } = await import('../dist/infrastructure/connectors/media/WhisperSttProvider.js');
+    const { WhisperSttProvider } = await import(
+      '../dist/infrastructure/connectors/media/WhisperSttProvider.js'
+    );
 
     const tempDir = await mkdtemp(path.join(tmpdir(), 'whisper-test-'));
     const audioPath = path.join(tempDir, 'test.wav');
@@ -40,7 +42,9 @@ describe('WhisperSttProvider', () => {
   });
 
   it('throws on non-ok response', async () => {
-    const { WhisperSttProvider } = await import('../dist/infrastructure/connectors/media/WhisperSttProvider.js');
+    const { WhisperSttProvider } = await import(
+      '../dist/infrastructure/connectors/media/WhisperSttProvider.js'
+    );
 
     const tempDir = await mkdtemp(path.join(tmpdir(), 'whisper-test-'));
     const audioPath = path.join(tempDir, 'test.wav');
@@ -51,13 +55,18 @@ describe('WhisperSttProvider', () => {
       _fetchFn: async () => ({ ok: false, status: 500, text: async () => 'internal error', json: async () => ({}) }),
     });
 
-    await assert.rejects(() => provider.transcribe({ audioPath }), /STT request failed.*500/);
+    await assert.rejects(
+      () => provider.transcribe({ audioPath }),
+      /STT request failed.*500/,
+    );
 
     await rm(tempDir, { recursive: true });
   });
 
   it('passes language parameter when provided', async () => {
-    const { WhisperSttProvider } = await import('../dist/infrastructure/connectors/media/WhisperSttProvider.js');
+    const { WhisperSttProvider } = await import(
+      '../dist/infrastructure/connectors/media/WhisperSttProvider.js'
+    );
 
     const tempDir = await mkdtemp(path.join(tmpdir(), 'whisper-test-'));
     const audioPath = path.join(tempDir, 'test.ogg');

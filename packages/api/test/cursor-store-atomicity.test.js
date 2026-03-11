@@ -10,15 +10,17 @@
  * without requiring actual Redis.
  */
 
+import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { beforeEach, describe, test } from 'node:test';
 
 /** @type {typeof import('../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js').DeliveryCursorStore} */
 let DeliveryCursorStoreClass;
 
 describe('DeliveryCursorStore atomicity & fallback', () => {
   beforeEach(async () => {
-    const mod = await import('../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js');
+    const mod = await import(
+      '../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js'
+    );
     DeliveryCursorStoreClass = mod.DeliveryCursorStore;
   });
 
@@ -45,18 +47,10 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
-        async getMentionAckCursor() {
-          return null;
-        },
-        async setMentionAckCursor() {
-          return true;
-        },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteDeliveryCursor() { return 0; },
+        async getMentionAckCursor() { return null; },
+        async setMentionAckCursor() { return true; },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -71,11 +65,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
 
       // Step 3: Cursor must be msg-010 (the in-memory high), NOT msg-001
       const cursor = await store.getCursor('u1', 'opus', 't1');
-      assert.equal(
-        cursor,
-        'msg-010',
-        'cursor must not regress: in-memory had msg-010, Redis recovery ack of msg-001 should be clamped',
-      );
+      assert.equal(cursor, 'msg-010',
+        'cursor must not regress: in-memory had msg-010, Redis recovery ack of msg-001 should be clamped');
     });
 
     test('mention-ack cursor: Redis down → in-memory high → Redis up (empty) → ack low → cursor stays high', async () => {
@@ -83,15 +74,9 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       const redisStore = {};
 
       const mockSessionStore = {
-        async getDeliveryCursor() {
-          return null;
-        },
-        async setDeliveryCursor() {
-          return true;
-        },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
+        async getDeliveryCursor() { return null; },
+        async setDeliveryCursor() { return true; },
+        async deleteDeliveryCursor() { return 0; },
         async getMentionAckCursor(_u, _c, _t) {
           if (!redisWorking) throw new Error('Redis connection lost');
           return redisStore[`${_u}:${_c}:${_t}`] ?? null;
@@ -104,9 +89,7 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -121,7 +104,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
 
       // Step 3: Must stay at msg-020
       const cursor = await store.getMentionAckCursor('u1', 'opus', 't1');
-      assert.equal(cursor, 'msg-020', 'mention-ack cursor must not regress from msg-020 to msg-005');
+      assert.equal(cursor, 'msg-020',
+        'mention-ack cursor must not regress from msg-020 to msg-005');
     });
 
     test('delivery cursor: CAS noop syncs Redis high value to memory (prevents fallback regression)', async () => {
@@ -144,18 +128,10 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
-        async getMentionAckCursor() {
-          return null;
-        },
-        async setMentionAckCursor() {
-          return true;
-        },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteDeliveryCursor() { return 0; },
+        async getMentionAckCursor() { return null; },
+        async setMentionAckCursor() { return true; },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -170,11 +146,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       // Step 3: Redis goes DOWN — fallback to in-memory
       redisWorking = false;
       const cursor = await store.getCursor('u1', 'opus', 't1');
-      assert.equal(
-        cursor,
-        'msg-010',
-        'CAS noop must sync Redis high value to memory; fallback must not regress to msg-001',
-      );
+      assert.equal(cursor, 'msg-010',
+        'CAS noop must sync Redis high value to memory; fallback must not regress to msg-001');
     });
 
     test('mention-ack cursor: CAS noop syncs Redis high value to memory (prevents fallback regression)', async () => {
@@ -182,15 +155,9 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       const redisStore = {};
 
       const mockSessionStore = {
-        async getDeliveryCursor() {
-          return null;
-        },
-        async setDeliveryCursor() {
-          return true;
-        },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
+        async getDeliveryCursor() { return null; },
+        async setDeliveryCursor() { return true; },
+        async deleteDeliveryCursor() { return 0; },
         async getMentionAckCursor(_u, _c, _t) {
           if (!redisWorking) throw new Error('Redis connection lost');
           return redisStore[`${_u}:${_c}:${_t}`] ?? null;
@@ -203,9 +170,7 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -219,11 +184,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       // Step 3: Redis DOWN → fallback must be msg-020
       redisWorking = false;
       const cursor = await store.getMentionAckCursor('u1', 'opus', 't1');
-      assert.equal(
-        cursor,
-        'msg-020',
-        'CAS noop must sync Redis high value to memory; fallback must not regress to msg-005',
-      );
+      assert.equal(cursor, 'msg-020',
+        'CAS noop must sync Redis high value to memory; fallback must not regress to msg-005');
     });
 
     test('delivery cursor: CAS noop + GET throws → memory stays unchanged (no regression)', async () => {
@@ -248,18 +210,10 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
-        async getMentionAckCursor() {
-          return null;
-        },
-        async setMentionAckCursor() {
-          return true;
-        },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteDeliveryCursor() { return 0; },
+        async getMentionAckCursor() { return null; },
+        async setMentionAckCursor() { return true; },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -275,7 +229,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       // Step 3: Redis goes DOWN — fallback to in-memory
       redisWorking = false;
       const cursor = await store.getCursor('u1', 'opus', 't1');
-      assert.equal(cursor, 'msg-010', 'CAS noop + GET failure must not pollute memory; fallback must stay at msg-010');
+      assert.equal(cursor, 'msg-010',
+        'CAS noop + GET failure must not pollute memory; fallback must stay at msg-010');
     });
 
     test('mention-ack cursor: CAS noop + GET throws → memory stays unchanged (no regression)', async () => {
@@ -284,15 +239,9 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       const redisStore = {};
 
       const mockSessionStore = {
-        async getDeliveryCursor() {
-          return null;
-        },
-        async setDeliveryCursor() {
-          return true;
-        },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
+        async getDeliveryCursor() { return null; },
+        async setDeliveryCursor() { return true; },
+        async deleteDeliveryCursor() { return 0; },
         async getMentionAckCursor(_u, _c, _t) {
           if (!redisWorking) throw new Error('Redis connection lost');
           if (getThrows) throw new Error('Redis transient failure on GET');
@@ -306,9 +255,7 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -324,7 +271,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       // Step 3: Redis DOWN → fallback must be msg-020
       redisWorking = false;
       const cursor = await store.getMentionAckCursor('u1', 'opus', 't1');
-      assert.equal(cursor, 'msg-020', 'CAS noop + GET failure must not pollute memory; fallback must stay at msg-020');
+      assert.equal(cursor, 'msg-020',
+        'CAS noop + GET failure must not pollute memory; fallback must stay at msg-020');
     });
 
     test('delivery cursor: Redis stale value does not regress high memory cursor', async () => {
@@ -346,18 +294,10 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
-        async getMentionAckCursor() {
-          return null;
-        },
-        async setMentionAckCursor() {
-          return true;
-        },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteDeliveryCursor() { return 0; },
+        async getMentionAckCursor() { return null; },
+        async setMentionAckCursor() { return true; },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -372,7 +312,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       // Step 3: Redis recovers — still has msg-005 (stale)
       redisWorking = true;
       const cursor = await store.getCursor('u1', 'opus', 't1');
-      assert.equal(cursor, 'msg-010', 'getCursor must return max(redis=msg-005, memory=msg-010) = msg-010');
+      assert.equal(cursor, 'msg-010',
+        'getCursor must return max(redis=msg-005, memory=msg-010) = msg-010');
     });
 
     test('mention-ack cursor: Redis stale value does not regress high memory cursor', async () => {
@@ -380,15 +321,9 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       const redisStore = {};
 
       const mockSessionStore = {
-        async getDeliveryCursor() {
-          return null;
-        },
-        async setDeliveryCursor() {
-          return true;
-        },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
+        async getDeliveryCursor() { return null; },
+        async setDeliveryCursor() { return true; },
+        async deleteDeliveryCursor() { return 0; },
         async getMentionAckCursor(_u, _c, _t) {
           if (!redisWorking) throw new Error('Redis connection lost');
           return redisStore[`${_u}:${_c}:${_t}`] ?? null;
@@ -401,9 +336,7 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -418,7 +351,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       // Step 3: Redis recovers — still has msg-005 (stale)
       redisWorking = true;
       const cursor = await store.getMentionAckCursor('u1', 'opus', 't1');
-      assert.equal(cursor, 'msg-010', 'getMentionAckCursor must return max(redis=msg-005, memory=msg-010) = msg-010');
+      assert.equal(cursor, 'msg-010',
+        'getMentionAckCursor must return max(redis=msg-005, memory=msg-010) = msg-010');
     });
 
     test('delivery cursor: sequential acks always advance (normal path)', async () => {
@@ -434,18 +368,10 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
-        async getMentionAckCursor() {
-          return null;
-        },
-        async setMentionAckCursor() {
-          return true;
-        },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteDeliveryCursor() { return 0; },
+        async getMentionAckCursor() { return null; },
+        async setMentionAckCursor() { return true; },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -479,18 +405,10 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
-        async getMentionAckCursor() {
-          return null;
-        },
-        async setMentionAckCursor() {
-          return true;
-        },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteDeliveryCursor() { return 0; },
+        async getMentionAckCursor() { return null; },
+        async setMentionAckCursor() { return true; },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -504,11 +422,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
 
       // Step 3: Read should find the in-memory cursor, NOT return undefined
       const cursor = await store.getCursor('u1', 'opus', 't1');
-      assert.equal(
-        cursor,
-        'msg-010',
-        'After Redis recovery, getCursor must fall back to in-memory value when Redis returns null',
-      );
+      assert.equal(cursor, 'msg-010',
+        'After Redis recovery, getCursor must fall back to in-memory value when Redis returns null');
     });
 
     test('mention-ack cursor: Redis write fails → in-memory fallback → Redis recovers → still reads in-memory value', async () => {
@@ -516,15 +431,9 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
       const redisStore = {};
 
       const mockSessionStore = {
-        async getDeliveryCursor() {
-          return null;
-        },
-        async setDeliveryCursor() {
-          return true;
-        },
-        async deleteDeliveryCursor() {
-          return 0;
-        },
+        async getDeliveryCursor() { return null; },
+        async setDeliveryCursor() { return true; },
+        async deleteDeliveryCursor() { return 0; },
         async getMentionAckCursor(_u, _c, _t) {
           if (!redisWorking) throw new Error('Redis connection lost');
           return redisStore[`${_u}:${_c}:${_t}`] ?? null;
@@ -537,9 +446,7 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
           redisStore[key] = messageId;
           return true;
         },
-        async deleteMentionAckCursor() {
-          return 0;
-        },
+        async deleteMentionAckCursor() { return 0; },
       };
 
       const store = new DeliveryCursorStoreClass(mockSessionStore);
@@ -553,11 +460,8 @@ describe('DeliveryCursorStore atomicity & fallback', () => {
 
       // Step 3: Read should find in-memory cursor
       const cursor = await store.getMentionAckCursor('u1', 'opus', 't1');
-      assert.equal(
-        cursor,
-        'msg-020',
-        'After Redis recovery, getMentionAckCursor must fall back to in-memory value when Redis returns null',
-      );
+      assert.equal(cursor, 'msg-020',
+        'After Redis recovery, getMentionAckCursor must fall back to in-memory value when Redis returns null');
     });
   });
 });

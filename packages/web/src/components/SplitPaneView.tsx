@@ -1,22 +1,16 @@
 'use client';
 
 import { useCallback } from 'react';
-import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
-import type { DeliveryMode } from '@/stores/chat-types';
-import { type Thread, useChatStore } from '@/stores/chatStore';
+import { useChatStore, type Thread } from '@/stores/chatStore';
+import { SplitPaneCell, SplitPanePlaceholder } from './SplitPaneCell';
+import { MiniThreadSidebar } from './MiniThreadSidebar';
 import { ChatInput } from './ChatInput';
 import { PawIcon } from './icons/PawIcon';
-import { MiniThreadSidebar } from './MiniThreadSidebar';
-import { SplitPaneCell, SplitPanePlaceholder } from './SplitPaneCell';
+import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
+import type { DeliveryMode } from '@/stores/chat-types';
 
 interface SplitPaneViewProps {
-  onSend: (
-    content: string,
-    images?: File[],
-    overrideThreadId?: string,
-    whisper?: WhisperOptions,
-    deliveryMode?: DeliveryMode,
-  ) => void;
+  onSend: (content: string, images?: File[], overrideThreadId?: string, whisper?: WhisperOptions, deliveryMode?: DeliveryMode) => void;
   onStop: (overrideThreadId?: string) => void;
   uploadStatus?: UploadStatus;
   uploadError?: string | null;
@@ -30,9 +24,21 @@ const PANE_COUNT = 4;
  * Split-pane mode: 2x2 grid of mini chat views + mini sidebar + shared input.
  * The shared input bar sends to the currently selected pane (splitPaneTargetId).
  */
-export function SplitPaneView({ onSend, onStop, uploadStatus, uploadError, onZoomToThread }: SplitPaneViewProps) {
-  const { threads, splitPaneThreadIds, splitPaneTargetId, setSplitPaneTarget, setSplitPaneThreadIds, getThreadState } =
-    useChatStore();
+export function SplitPaneView({
+  onSend,
+  onStop,
+  uploadStatus,
+  uploadError,
+  onZoomToThread,
+}: SplitPaneViewProps) {
+  const {
+    threads,
+    splitPaneThreadIds,
+    splitPaneTargetId,
+    setSplitPaneTarget,
+    setSplitPaneThreadIds,
+    getThreadState,
+  } = useChatStore();
 
   const threadMap = new Map<string, Thread>();
   for (const t of threads) threadMap.set(t.id, t);
@@ -43,9 +49,15 @@ export function SplitPaneView({ onSend, onStop, uploadStatus, uploadError, onZoo
     paneSlots.push(splitPaneThreadIds[i] ?? null);
   }
 
-  const handleSelectPane = useCallback((threadId: string) => setSplitPaneTarget(threadId), [setSplitPaneTarget]);
+  const handleSelectPane = useCallback(
+    (threadId: string) => setSplitPaneTarget(threadId),
+    [setSplitPaneTarget]
+  );
 
-  const handleDoubleClick = useCallback((threadId: string) => onZoomToThread(threadId), [onZoomToThread]);
+  const handleDoubleClick = useCallback(
+    (threadId: string) => onZoomToThread(threadId),
+    [onZoomToThread]
+  );
 
   /** Assign a thread from the mini sidebar to the next empty pane (or replace selected if full) */
   const handleAssignToPane = useCallback(
@@ -66,7 +78,7 @@ export function SplitPaneView({ onSend, onStop, uploadStatus, uploadError, onZoo
       setSplitPaneThreadIds(next.filter(Boolean));
       setSplitPaneTarget(threadId);
     },
-    [splitPaneThreadIds, splitPaneTargetId, paneSlots, setSplitPaneThreadIds, setSplitPaneTarget],
+    [splitPaneThreadIds, splitPaneTargetId, paneSlots, setSplitPaneThreadIds, setSplitPaneTarget]
   );
 
   const targetThreadState = splitPaneTargetId ? getThreadState(splitPaneTargetId) : null;
@@ -109,47 +121,45 @@ export function SplitPaneView({ onSend, onStop, uploadStatus, uploadError, onZoo
         <div className="flex flex-col flex-1 min-w-0">
           {/* 2x2 grid */}
           <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-2 p-2 min-h-0">
-            {paneSlots.map((tid, i) => {
-              if (!tid) {
-                return <SplitPanePlaceholder key={`empty-${i}`} index={i} />;
-              }
-              const thread = threadMap.get(tid);
-              return (
-                <SplitPaneCell
-                  key={tid}
-                  threadId={tid}
-                  threadTitle={thread?.title ?? '未命名对话'}
-                  threadState={getThreadState(tid)}
-                  isSelected={splitPaneTargetId === tid}
-                  onSelect={handleSelectPane}
-                  onDoubleClick={handleDoubleClick}
-                />
-              );
-            })}
-          </div>
+          {paneSlots.map((tid, i) => {
+            if (!tid) {
+              return <SplitPanePlaceholder key={`empty-${i}`} index={i} />;
+            }
+            const thread = threadMap.get(tid);
+            return (
+              <SplitPaneCell
+                key={tid}
+                threadId={tid}
+                threadTitle={thread?.title ?? '未命名对话'}
+                threadState={getThreadState(tid)}
+                isSelected={splitPaneTargetId === tid}
+                onSelect={handleSelectPane}
+                onDoubleClick={handleDoubleClick}
+              />
+            );
+          })}
+        </div>
 
-          {/* Shared input bar */}
-          <div className="border-t border-owner-light bg-white px-3 py-2">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] text-gray-400">
-                {splitPaneTargetId
-                  ? `发往: ${threadMap.get(splitPaneTargetId)?.title ?? splitPaneTargetId}`
-                  : '请选择一个窗格'}
-              </span>
-            </div>
-            <ChatInput
-              key={splitPaneTargetId ?? 'no-target'}
-              threadId={splitPaneTargetId ?? undefined}
-              onSend={(content, images, whisper, deliveryMode) =>
-                onSend(content, images, splitPaneTargetId ?? undefined, whisper, deliveryMode)
-              }
-              onStop={() => onStop(splitPaneTargetId ?? undefined)}
-              disabled={!splitPaneTargetId}
-              hasActiveInvocation={isTargetActiveInvocation}
-              uploadStatus={uploadStatus}
-              uploadError={uploadError}
-            />
+        {/* Shared input bar */}
+        <div className="border-t border-owner-light bg-white px-3 py-2">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] text-gray-400">
+              {splitPaneTargetId
+                ? `发往: ${threadMap.get(splitPaneTargetId)?.title ?? splitPaneTargetId}`
+                : '请选择一个窗格'}
+            </span>
           </div>
+          <ChatInput
+            key={splitPaneTargetId ?? 'no-target'}
+            threadId={splitPaneTargetId ?? undefined}
+            onSend={(content, images, whisper, deliveryMode) => onSend(content, images, splitPaneTargetId ?? undefined, whisper, deliveryMode)}
+            onStop={() => onStop(splitPaneTargetId ?? undefined)}
+            disabled={!splitPaneTargetId}
+            hasActiveInvocation={isTargetActiveInvocation}
+            uploadStatus={uploadStatus}
+            uploadError={uploadError}
+          />
+        </div>
         </div>
       </div>
     </div>

@@ -1,9 +1,9 @@
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import test from 'node:test';
+import { tmpdir } from 'node:os';
 
 import {
   collectP0ImportSources,
@@ -57,15 +57,7 @@ test('collectP0ImportSources includes tracked discussion docs only when frontmat
 
   execFileSync(
     'git',
-    [
-      'add',
-      'CLAUDE.md',
-      'AGENTS.md',
-      'docs/lessons-learned.md',
-      'docs/decisions/001-alpha.md',
-      'docs/discussions/included.md',
-      'docs/discussions/ignored.md',
-    ],
+    ['add', 'CLAUDE.md', 'AGENTS.md', 'docs/lessons-learned.md', 'docs/decisions/001-alpha.md', 'docs/discussions/included.md', 'docs/discussions/ignored.md'],
     { cwd: repoRoot },
   );
 

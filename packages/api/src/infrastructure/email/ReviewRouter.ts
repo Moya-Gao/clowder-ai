@@ -12,22 +12,14 @@
 
 import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import type { IMessageStore } from '../../domains/cats/services/stores/ports/MessageStore.js';
-import type { IThreadStore, Thread } from '../../domains/cats/services/stores/ports/ThreadStore.js';
-import type { GithubReviewEvent } from './GithubReviewWatcher.js';
-import type { IProcessedEmailStore } from './ProcessedEmailStore.js';
 import type { IPrTrackingStore } from './PrTrackingStore.js';
+import type { IProcessedEmailStore } from './ProcessedEmailStore.js';
+import type { GithubReviewEvent } from './GithubReviewWatcher.js';
+import type { IThreadStore, Thread } from '../../domains/cats/services/stores/ports/ThreadStore.js';
+import type { IMessageStore } from '../../domains/cats/services/stores/ports/MessageStore.js';
 
 export type RouteResult =
-  | {
-      kind: 'routed';
-      threadId: string;
-      catId: string;
-      userId: string;
-      source: 'registry' | 'fallback';
-      messageId: string;
-      content: string;
-    }
+  | { kind: 'routed'; threadId: string; catId: string; userId: string; source: 'registry' | 'fallback'; messageId: string; content: string }
   | { kind: 'triage'; threadId: string; reason: string }
   | { kind: 'skipped'; reason: string };
 
@@ -95,7 +87,10 @@ export class ReviewRouter {
     // --- PR-level atomic dedup (check+mark in one call; Cloud Codex P1-2) ---
     // Covers both sequential re-poll (PR already invoked within window) and
     // concurrent race (two events for same PR dispatched simultaneously).
-    const prAlreadyClaimed = await processedEmailStore.checkAndMarkPrInvoked(event.repository, event.prNumber);
+    const prAlreadyClaimed = await processedEmailStore.checkAndMarkPrInvoked(
+      event.repository,
+      event.prNumber,
+    );
     if (prAlreadyClaimed) {
       await processedEmailStore.markProcessed(event.emailUid);
       return {
@@ -267,15 +262,12 @@ export class ReviewRouter {
     this.emitConnectorMessage(threadId, stored);
   }
 
-  private emitConnectorMessage(
-    threadId: string,
-    message: {
-      id: string;
-      content: string;
-      timestamp: number;
-      source?: ConnectorSource;
-    },
-  ): void {
+  private emitConnectorMessage(threadId: string, message: {
+    id: string;
+    content: string;
+    timestamp: number;
+    source?: ConnectorSource;
+  }): void {
     this.opts.socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
       threadId,
       message: {
@@ -293,7 +285,10 @@ export class ReviewRouter {
     if (cached) return cached;
 
     const userId = this.resolveUserId();
-    const thread = (await this.opts.threadStore.create(userId, `${catId} Review Inbox`)) as Thread;
+    const thread = (await this.opts.threadStore.create(
+      userId,
+      `${catId} Review Inbox`,
+    )) as Thread;
 
     reviewInboxThreads.set(catId, thread.id);
     return thread.id;
@@ -308,7 +303,10 @@ export class ReviewRouter {
     if (cached) return cached;
 
     const userId = this.resolveUserId();
-    const thread = (await this.opts.threadStore.create(userId, 'Review Triage (未匹配)')) as Thread;
+    const thread = (await this.opts.threadStore.create(
+      userId,
+      'Review Triage (未匹配)',
+    )) as Thread;
 
     reviewInboxThreads.set('__triage__', thread.id);
     return thread.id;

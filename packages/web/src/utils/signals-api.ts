@@ -1,4 +1,4 @@
-import type { SignalArticle, SignalArticleStatus, SignalSource, SignalTier, StudyMeta } from '@cat-cafe/shared';
+import type { SignalArticle, SignalSource, SignalTier, SignalArticleStatus, StudyMeta } from '@cat-cafe/shared';
 import { apiFetch } from '@/utils/api-client';
 
 export interface SignalArticleDetail extends SignalArticle {
@@ -117,10 +117,7 @@ export async function fetchSignalArticle(articleId: string): Promise<SignalArtic
   return data.article;
 }
 
-export async function updateSignalArticle(
-  articleId: string,
-  input: SignalArticleUpdateInput,
-): Promise<SignalArticleDetail> {
+export async function updateSignalArticle(articleId: string, input: SignalArticleUpdateInput): Promise<SignalArticleDetail> {
   const response = await apiFetch(`/api/signals/articles/${encodeURIComponent(articleId)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -252,10 +249,7 @@ export async function createCollection(name: string, articleIds?: readonly strin
   return data.collection;
 }
 
-export async function updateCollection(
-  id: string,
-  patch: { name?: string; articleIds?: readonly string[] },
-): Promise<StudyCollection> {
+export async function updateCollection(id: string, patch: { name?: string; articleIds?: readonly string[] }): Promise<StudyCollection> {
   const response = await apiFetch(`/api/signals/collections/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -296,10 +290,7 @@ export async function fetchPodcastScript(
   return (await response.json()) as { artifact: import('@cat-cafe/shared').StudyArtifact; script: PodcastScript };
 }
 
-export async function generatePodcast(
-  articleId: string,
-  mode: 'essence' | 'deep' = 'essence',
-): Promise<{ artifact: import('@cat-cafe/shared').StudyArtifact }> {
+export async function generatePodcast(articleId: string, mode: 'essence' | 'deep' = 'essence'): Promise<{ artifact: import('@cat-cafe/shared').StudyArtifact }> {
   const response = await apiFetch(`/api/signals/articles/${encodeURIComponent(articleId)}/podcast`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

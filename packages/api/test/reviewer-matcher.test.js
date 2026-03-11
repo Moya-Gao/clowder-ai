@@ -3,35 +3,17 @@
  * F032: Dynamic reviewer selection
  */
 
+import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it, mock } from 'node:test';
 
 // Mock cat-config-loader before importing reviewer-matcher
 const mockRoster = {
-  opus: { family: 'ragdoll', roles: ['architect', 'peer-reviewer'], lead: true, available: true, evaluation: 'test' },
-  'opus-45': {
-    family: 'ragdoll',
-    roles: ['architect', 'peer-reviewer'],
-    lead: false,
-    available: true,
-    evaluation: 'test',
-  },
-  sonnet: { family: 'ragdoll', roles: ['assistant'], lead: false, available: true, evaluation: 'test' },
-  codex: {
-    family: 'maine-coon',
-    roles: ['peer-reviewer', 'security'],
-    lead: true,
-    available: true,
-    evaluation: 'test',
-  },
-  gpt52: {
-    family: 'maine-coon',
-    roles: ['peer-reviewer', 'thinker'],
-    lead: false,
-    available: true,
-    evaluation: 'test',
-  },
-  gemini: { family: 'siamese', roles: ['designer'], lead: true, available: true, evaluation: 'test' },
+  'opus': { family: 'ragdoll', roles: ['architect', 'peer-reviewer'], lead: true, available: true, evaluation: 'test' },
+  'opus-45': { family: 'ragdoll', roles: ['architect', 'peer-reviewer'], lead: false, available: true, evaluation: 'test' },
+  'sonnet': { family: 'ragdoll', roles: ['assistant'], lead: false, available: true, evaluation: 'test' },
+  'codex': { family: 'maine-coon', roles: ['peer-reviewer', 'security'], lead: true, available: true, evaluation: 'test' },
+  'gpt52': { family: 'maine-coon', roles: ['peer-reviewer', 'thinker'], lead: false, available: true, evaluation: 'test' },
+  'gemini': { family: 'siamese', roles: ['designer'], lead: true, available: true, evaluation: 'test' },
 };
 
 const mockPolicy = {
@@ -61,7 +43,7 @@ describe('reviewer-matcher', () => {
       // Should be codex or gpt52 (maine-coon family, has peer-reviewer role)
       assert.ok(
         result.reviewer === 'codex' || result.reviewer === 'gpt52',
-        `Expected codex or gpt52, got ${result.reviewer}`,
+        `Expected codex or gpt52, got ${result.reviewer}`
       );
       assert.equal(result.isDegraded, false);
     });
@@ -73,7 +55,7 @@ describe('reviewer-matcher', () => {
       // Should be opus or opus-45 (ragdoll family, has peer-reviewer role)
       assert.ok(
         result.reviewer === 'opus' || result.reviewer === 'opus-45',
-        `Expected opus or opus-45, got ${result.reviewer}`,
+        `Expected opus or opus-45, got ${result.reviewer}`
       );
       assert.equal(result.isDegraded, false);
     });

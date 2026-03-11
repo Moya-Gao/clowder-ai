@@ -1,7 +1,12 @@
 /**
  * F076: SliceStore — in-memory store for Stage 4 slice planning
  */
-import type { CreateSliceInput, Slice, SliceType, UpdateSliceInput } from '@cat-cafe/shared';
+import type {
+  CreateSliceInput,
+  Slice,
+  SliceType,
+  UpdateSliceInput,
+} from '@cat-cafe/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export class SliceStore {
@@ -34,7 +39,9 @@ export class SliceStore {
   }
 
   listByProject(projectId: string): Slice[] {
-    return [...this.slices.values()].filter((s) => s.projectId === projectId).sort((a, b) => a.order - b.order);
+    return [...this.slices.values()]
+      .filter((s) => s.projectId === projectId)
+      .sort((a, b) => a.order - b.order);
   }
 
   getById(id: string): Slice | undefined {
@@ -66,6 +73,8 @@ export class SliceStore {
   }
 
   listByType(projectId: string, sliceType: SliceType): Slice[] {
-    return this.listByProject(projectId).filter((s) => s.sliceType === sliceType);
+    return this.listByProject(projectId).filter(
+      (s) => s.sliceType === sliceType,
+    );
   }
 }

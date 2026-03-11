@@ -59,7 +59,9 @@ export class InvocationQueue {
    * 预留队列位。容量检查在此完成。
    * 同源同目标的连续消息自动合并。
    */
-  enqueue(input: Omit<QueueEntry, 'id' | 'status' | 'createdAt' | 'mergedMessageIds' | 'messageId'>): EnqueueResult {
+  enqueue(
+    input: Omit<QueueEntry, 'id' | 'status' | 'createdAt' | 'mergedMessageIds' | 'messageId'>,
+  ): EnqueueResult {
     const key = this.scopeKey(input.threadId, input.userId);
     const q = this.getOrCreate(key);
 

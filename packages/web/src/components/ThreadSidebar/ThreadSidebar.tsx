@@ -449,8 +449,12 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
                         onToggle={() => toggleGroup(subKey)}
                         projectPath={sub.projectPath}
                         governanceStatus={sub.projectPath ? govHealth[sub.projectPath] : undefined}
-                        onToggleProjectPin={sub.projectPath ? () => toggleProjectPin(sub.projectPath!) : undefined}
-                        isProjectPinned={sub.projectPath ? pinnedProjects.has(sub.projectPath) : undefined}
+                        onToggleProjectPin={
+                          sub.projectPath ? () => toggleProjectPin(sub.projectPath!) : undefined
+                        }
+                        isProjectPinned={
+                          sub.projectPath ? pinnedProjects.has(sub.projectPath) : undefined
+                        }
                       >
                         {sub.threads.map((t) => (
                           <ThreadItem

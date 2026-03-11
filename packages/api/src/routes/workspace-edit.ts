@@ -23,33 +23,14 @@ import {
 
 /** Extensions allowed for text editing (whitelist approach). */
 const EDITABLE_EXTENSIONS = new Set([
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.json',
-  '.md',
-  '.css',
-  '.html',
-  '.yaml',
-  '.yml',
-  '.toml',
-  '.sh',
-  '.py',
-  '.txt',
+  '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.css', '.html',
+  '.yaml', '.yml', '.toml', '.sh', '.py', '.txt',
 ]);
 
 /** Dotfiles (no extension) that are safe to edit. */
 const EDITABLE_DOTFILES = new Set([
-  '.gitignore',
-  '.npmrc',
-  '.eslintrc',
-  '.prettierrc',
-  '.editorconfig',
-  '.env.example',
-  '.nvmrc',
-  '.dockerignore',
-  '.prettierignore',
+  '.gitignore', '.npmrc', '.eslintrc', '.prettierrc', '.editorconfig',
+  '.env.example', '.nvmrc', '.dockerignore', '.prettierignore',
 ]);
 
 function isEditable(filepath: string): boolean {

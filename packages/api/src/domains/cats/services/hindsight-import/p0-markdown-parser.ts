@@ -87,7 +87,7 @@ function normalizeHeadingForMatch(value: string): string {
     .trim()
     .toLowerCase()
     .replace(/[，。；：！？（）【】《》、]/g, ' ')
-    .replace(/[`~!@#$%^&*()+={}[\]|\\:;"'<>,.?/]/g, ' ')
+    .replace(/[`~!@#$%^&*()+={}\[\]|\\:;"'<>,.?/]/g, ' ')
     .replace(/\s+/g, ' ');
 }
 
@@ -102,7 +102,11 @@ function matchesHeadingAllowlist(heading: string, matcher: HeadingAllowlistMatch
   return matcher.test(heading) || matcher.test(normalizeHeadingForMatch(heading));
 }
 
-function shouldIncludeSection(heading: string, sectionBody: string, options?: SplitByLevel2HeadingsOptions): boolean {
+function shouldIncludeSection(
+  heading: string,
+  sectionBody: string,
+  options?: SplitByLevel2HeadingsOptions,
+): boolean {
   if (!sectionBody) return false;
 
   const allowlist = options?.headingAllowlist;
@@ -118,7 +122,10 @@ function shouldIncludeSection(heading: string, sectionBody: string, options?: Sp
   return true;
 }
 
-export function splitByLevel2Headings(content: string, options?: SplitByLevel2HeadingsOptions): MarkdownSection[] {
+export function splitByLevel2Headings(
+  content: string,
+  options?: SplitByLevel2HeadingsOptions,
+): MarkdownSection[] {
   const lines = content.split(/\r?\n/);
   const sections: MarkdownSection[] = [];
   let currentHeading: string | null = null;
@@ -145,11 +152,7 @@ export function splitByLevel2Headings(content: string, options?: SplitByLevel2He
   flush();
   if (sections.length > 0) return sections;
 
-  const fallbackHeading =
-    lines
-      .find((line) => /^#\s+/.test(line))
-      ?.replace(/^#\s+/, '')
-      .trim() ?? 'document';
+  const fallbackHeading = lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, '').trim() ?? 'document';
   const fallbackContent = content.trim();
   if (!shouldIncludeSection(fallbackHeading, fallbackContent, options)) return [];
   return [{ heading: fallbackHeading, content: fallbackContent }];

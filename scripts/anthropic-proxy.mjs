@@ -20,10 +20,11 @@
  * Config:  ANTHROPIC_PROXY_PORT (default 9877), ANTHROPIC_PROXY_DEBUG=1
  */
 
-import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath, URL } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { URL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
@@ -37,10 +38,8 @@ function getArg(name) {
 
 const PORT = parseInt(getArg('port') || process.env.ANTHROPIC_PROXY_PORT || '9877', 10);
 const DEBUG = args.includes('--debug') || process.env.ANTHROPIC_PROXY_DEBUG === '1';
-const UPSTREAMS_PATH =
-  getArg('upstreams') ||
-  process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH ||
-  resolve(PROJECT_ROOT, '.cat-cafe', 'proxy-upstreams.json');
+const UPSTREAMS_PATH = getArg('upstreams') || process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH
+  || resolve(PROJECT_ROOT, '.cat-cafe', 'proxy-upstreams.json');
 
 /** Load upstream mapping from config file. Re-read on each request for hot-reload. */
 function loadUpstreams() {
@@ -90,10 +89,7 @@ function rewriteSSEChunk(text, state) {
 
   let output = '';
   for (const part of parts) {
-    if (!part.trim()) {
-      output += '\n\n';
-      continue;
-    }
+    if (!part.trim()) { output += '\n\n'; continue; }
 
     const eventMatch = part.match(/^event:\s*(.+)/m);
     const dataMatch = part.match(/^data:\s*(.+)/m);
@@ -106,9 +102,7 @@ function rewriteSSEChunk(text, state) {
     }
 
     let data;
-    try {
-      data = JSON.parse(rawData);
-    } catch {
+    try { data = JSON.parse(rawData); } catch {
       output += part + '\n\n';
       continue;
     }
@@ -119,7 +113,7 @@ function rewriteSSEChunk(text, state) {
         delete msg.output; // non-standard
         if (msg.usage) msg.usage = normalizeUsage(msg.usage);
         // Track if input_tokens was 0 (broken upstream)
-        state.messageStartInputZero = msg.usage?.input_tokens === 0;
+        state.messageStartInputZero = (msg.usage?.input_tokens === 0);
       }
       output += `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
     } else if (eventType === 'message_delta') {
@@ -161,12 +155,10 @@ const server = createServer(async (req, res) => {
   const match = path.match(/^\/([a-zA-Z0-9_-]+)(\/.*)?$/);
   if (!match) {
     res.writeHead(400, { 'content-type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        type: 'error',
-        error: { type: 'proxy_error', message: `Invalid path: ${path}. Expected /<upstream-slug>/...` },
-      }),
-    );
+    res.end(JSON.stringify({
+      type: 'error',
+      error: { type: 'proxy_error', message: `Invalid path: ${path}. Expected /<upstream-slug>/...` },
+    }));
     return;
   }
 
@@ -178,15 +170,13 @@ const server = createServer(async (req, res) => {
 
   if (!targetBase) {
     res.writeHead(404, { 'content-type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        type: 'error',
-        error: {
-          type: 'proxy_error',
-          message: `Unknown upstream "${slug}". Known: [${Object.keys(upstreams).join(', ')}]`,
-        },
-      }),
-    );
+    res.end(JSON.stringify({
+      type: 'error',
+      error: {
+        type: 'proxy_error',
+        message: `Unknown upstream "${slug}". Known: [${Object.keys(upstreams).join(', ')}]`,
+      },
+    }));
     return;
   }
 
@@ -210,12 +200,8 @@ const server = createServer(async (req, res) => {
   if (DEBUG && body.length > 0) {
     try {
       const parsed = JSON.parse(body.toString('utf-8'));
-      console.log(
-        `[proxy #${reqId}] model=${parsed.model}, stream=${parsed.stream}, thinking=${JSON.stringify(parsed.thinking)}`,
-      );
-    } catch {
-      /* not JSON */
-    }
+      console.log(`[proxy #${reqId}] model=${parsed.model}, stream=${parsed.stream}, thinking=${JSON.stringify(parsed.thinking)}`);
+    } catch { /* not JSON */ }
   }
 
   // Forward headers (strip hop-by-hop)
@@ -251,7 +237,7 @@ const server = createServer(async (req, res) => {
 
     const reader = upstream.body.getReader();
     let totalBytes = 0;
-    const sseState = {}; // SSE rewrite state (buffer, tracking)
+    const sseState = {};  // SSE rewrite state (buffer, tracking)
     // P1 fix: Use TextDecoder in streaming mode to handle multi-byte UTF-8
     // characters split across chunk boundaries (e.g. CJK, emoji).
     const textDecoder = new TextDecoder('utf-8');
@@ -278,7 +264,7 @@ const server = createServer(async (req, res) => {
       }
       // Flush TextDecoder (any remaining bytes from incomplete multi-byte sequence)
       if (isSSE) {
-        const flushed = textDecoder.decode(); // no args = flush
+        const flushed = textDecoder.decode();  // no args = flush
         if (flushed) {
           const rewritten = rewriteSSEChunk(flushed, sseState);
           if (rewritten) res.write(rewritten);
@@ -292,8 +278,7 @@ const server = createServer(async (req, res) => {
       if (DEBUG) console.error(`[proxy #${reqId}] stream error:`, streamErr.message);
     } finally {
       res.end();
-      if (DEBUG)
-        console.log(`[proxy #${reqId}] done, ${totalBytes} bytes${isSSE ? ' (SSE)' : ''}, status=${upstream.status}`);
+      if (DEBUG) console.log(`[proxy #${reqId}] done, ${totalBytes} bytes${isSSE ? ' (SSE)' : ''}, status=${upstream.status}`);
     }
   } catch (err) {
     console.error(`[proxy #${reqId}] upstream error:`, err.message);

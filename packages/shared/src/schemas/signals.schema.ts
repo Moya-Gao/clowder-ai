@@ -29,7 +29,9 @@ export const SignalSourceScheduleSchema = z.object({
 });
 
 export const SignalSourceSchema = z.object({
-  id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/, 'source id must be a safe slug (letters, numbers, "_" or "-")'),
+  id: z
+    .string()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/, 'source id must be a safe slug (letters, numbers, "_" or "-")'),
   name: z.string().min(1),
   url: z.string().url(),
   tier: SignalTierSchema,

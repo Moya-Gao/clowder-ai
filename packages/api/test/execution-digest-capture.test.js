@@ -1,7 +1,6 @@
 // @ts-check
-
-import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
 
 /** @type {import('../dist/config/governance/execution-digest-capture.js').CaptureContext} */
 const ctx = {
@@ -22,7 +21,9 @@ const missionPack = {
 
 describe('captureExecutionDigest', () => {
   test('completed dispatch → status=completed, all doneWhen met', async () => {
-    const { captureExecutionDigest } = await import('../dist/config/governance/execution-digest-capture.js');
+    const { captureExecutionDigest } = await import(
+      '../dist/config/governance/execution-digest-capture.js'
+    );
     const result = captureExecutionDigest(
       missionPack,
       { summary: 'Fixed auth', filesChanged: ['src/auth.ts'], blocked: false, hadError: false },
@@ -39,7 +40,9 @@ describe('captureExecutionDigest', () => {
   });
 
   test('blocked dispatch → status=blocked, doneWhen not met', async () => {
-    const { captureExecutionDigest } = await import('../dist/config/governance/execution-digest-capture.js');
+    const { captureExecutionDigest } = await import(
+      '../dist/config/governance/execution-digest-capture.js'
+    );
     const result = captureExecutionDigest(
       missionPack,
       { summary: 'Stuck on config', filesChanged: [], blocked: true, hadError: false },
@@ -51,7 +54,9 @@ describe('captureExecutionDigest', () => {
   });
 
   test('error dispatch → status=partial', async () => {
-    const { captureExecutionDigest } = await import('../dist/config/governance/execution-digest-capture.js');
+    const { captureExecutionDigest } = await import(
+      '../dist/config/governance/execution-digest-capture.js'
+    );
     const result = captureExecutionDigest(
       missionPack,
       { summary: 'Partial work done', filesChanged: ['a.ts'], blocked: false, hadError: true },
@@ -62,7 +67,9 @@ describe('captureExecutionDigest', () => {
   });
 
   test('empty summary falls back to default', async () => {
-    const { captureExecutionDigest } = await import('../dist/config/governance/execution-digest-capture.js');
+    const { captureExecutionDigest } = await import(
+      '../dist/config/governance/execution-digest-capture.js'
+    );
     const result = captureExecutionDigest(
       missionPack,
       { summary: '', filesChanged: [], blocked: false, hadError: false },
@@ -72,7 +79,9 @@ describe('captureExecutionDigest', () => {
   });
 
   test('empty doneWhen → empty results array', async () => {
-    const { captureExecutionDigest } = await import('../dist/config/governance/execution-digest-capture.js');
+    const { captureExecutionDigest } = await import(
+      '../dist/config/governance/execution-digest-capture.js'
+    );
     const result = captureExecutionDigest(
       { ...missionPack, doneWhen: [] },
       { summary: 'Done', filesChanged: [], blocked: false, hadError: false },

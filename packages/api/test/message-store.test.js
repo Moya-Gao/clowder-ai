@@ -3,12 +3,14 @@
  * 测试内存消息存储
  */
 
+import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
 
 describe('MessageStore', () => {
   test('append() stores message and returns with id', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     const result = store.append({
@@ -27,7 +29,9 @@ describe('MessageStore', () => {
   });
 
   test('getRecent() returns last N messages', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
 
@@ -49,7 +53,9 @@ describe('MessageStore', () => {
   });
 
   test('getMentionsFor() returns messages mentioning a specific cat', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
 
@@ -85,7 +91,9 @@ describe('MessageStore', () => {
   });
 
   test('truncates when exceeding maxMessages', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore({ maxMessages: 5 });
 
@@ -106,7 +114,9 @@ describe('MessageStore', () => {
   });
 
   test('getRecent() filters by userId when provided', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     store.append({ userId: 'user-1', catId: null, content: 'A from user-1', mentions: [], timestamp: 1 });
@@ -128,7 +138,9 @@ describe('MessageStore', () => {
   });
 
   test('getMentionsFor() filters by userId when provided', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     store.append({ userId: 'user-1', catId: null, content: '@opus from user-1', mentions: ['opus'], timestamp: 1 });
@@ -144,33 +156,14 @@ describe('MessageStore', () => {
   });
 
   test('getMentionsFor() filters by threadId when provided', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
-    store.append({
-      userId: 'user-1',
-      catId: null,
-      content: '@opus in thread-A',
-      mentions: ['opus'],
-      timestamp: 1,
-      threadId: 'thread-A',
-    });
-    store.append({
-      userId: 'user-1',
-      catId: null,
-      content: '@opus in thread-B',
-      mentions: ['opus'],
-      timestamp: 2,
-      threadId: 'thread-B',
-    });
-    store.append({
-      userId: 'user-1',
-      catId: null,
-      content: '@opus in thread-A again',
-      mentions: ['opus'],
-      timestamp: 3,
-      threadId: 'thread-A',
-    });
+    store.append({ userId: 'user-1', catId: null, content: '@opus in thread-A', mentions: ['opus'], timestamp: 1, threadId: 'thread-A' });
+    store.append({ userId: 'user-1', catId: null, content: '@opus in thread-B', mentions: ['opus'], timestamp: 2, threadId: 'thread-B' });
+    store.append({ userId: 'user-1', catId: null, content: '@opus in thread-A again', mentions: ['opus'], timestamp: 3, threadId: 'thread-A' });
 
     // With threadId: only thread-A mentions
     const threadA = store.getMentionsFor('opus', 10, undefined, 'thread-A');
@@ -189,33 +182,14 @@ describe('MessageStore', () => {
   });
 
   test('getMentionsFor() combines userId and threadId filters', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
-    store.append({
-      userId: 'user-1',
-      catId: null,
-      content: '@opus u1-tA',
-      mentions: ['opus'],
-      timestamp: 1,
-      threadId: 'thread-A',
-    });
-    store.append({
-      userId: 'user-2',
-      catId: null,
-      content: '@opus u2-tA',
-      mentions: ['opus'],
-      timestamp: 2,
-      threadId: 'thread-A',
-    });
-    store.append({
-      userId: 'user-1',
-      catId: null,
-      content: '@opus u1-tB',
-      mentions: ['opus'],
-      timestamp: 3,
-      threadId: 'thread-B',
-    });
+    store.append({ userId: 'user-1', catId: null, content: '@opus u1-tA', mentions: ['opus'], timestamp: 1, threadId: 'thread-A' });
+    store.append({ userId: 'user-2', catId: null, content: '@opus u2-tA', mentions: ['opus'], timestamp: 2, threadId: 'thread-A' });
+    store.append({ userId: 'user-1', catId: null, content: '@opus u1-tB', mentions: ['opus'], timestamp: 3, threadId: 'thread-B' });
 
     // userId + threadId: only user-1 in thread-A
     const filtered = store.getMentionsFor('opus', 10, 'user-1', 'thread-A');
@@ -224,7 +198,9 @@ describe('MessageStore', () => {
   });
 
   test('getBefore() returns messages before timestamp', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     store.append({ userId: 'u', catId: null, content: 'old', mentions: [], timestamp: 100 });
@@ -238,7 +214,9 @@ describe('MessageStore', () => {
   });
 
   test('getBefore() filters by userId', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     store.append({ userId: 'alice', catId: null, content: 'alice old', mentions: [], timestamp: 100 });
@@ -251,7 +229,9 @@ describe('MessageStore', () => {
   });
 
   test('empty store returns empty arrays', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     assert.deepEqual(store.getRecent(), []);
@@ -266,32 +246,28 @@ describe('MessageStore', () => {
 
     const store = new MessageStore();
     const msg = store.append({
-      userId: 'u1',
-      catId: null,
-      content: 'hi',
-      mentions: [],
-      timestamp: 1,
+      userId: 'u1', catId: null, content: 'hi', mentions: [], timestamp: 1,
     });
     assert.equal(msg.threadId, DEFAULT_THREAD_ID);
   });
 
   test('append() preserves explicit threadId', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     const msg = store.append({
-      userId: 'u1',
-      catId: null,
-      content: 'hi',
-      mentions: [],
-      timestamp: 1,
+      userId: 'u1', catId: null, content: 'hi', mentions: [], timestamp: 1,
       threadId: 'thread-abc',
     });
     assert.equal(msg.threadId, 'thread-abc');
   });
 
   test('append() with same idempotencyKey returns existing message', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     const first = store.append({
@@ -320,7 +296,9 @@ describe('MessageStore', () => {
   });
 
   test('getByThread() returns messages for a specific thread', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     store.append({ userId: 'u', catId: null, content: 'A', mentions: [], timestamp: 1, threadId: 'th-1' });
@@ -343,7 +321,9 @@ describe('MessageStore', () => {
   });
 
   test('getByThreadBefore() paginates within a thread', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     store.append({ userId: 'u', catId: null, content: 'A', mentions: [], timestamp: 100, threadId: 'th-1' });
@@ -358,7 +338,9 @@ describe('MessageStore', () => {
   });
 
   test('append() preserves contentBlocks', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     const blocks = [
@@ -366,18 +348,16 @@ describe('MessageStore', () => {
       { type: 'image', url: '/uploads/test.png' },
     ];
     const msg = store.append({
-      userId: 'u',
-      catId: null,
-      content: 'hello',
-      mentions: [],
-      timestamp: 1,
+      userId: 'u', catId: null, content: 'hello', mentions: [], timestamp: 1,
       contentBlocks: blocks,
     });
     assert.deepEqual(msg.contentBlocks, blocks);
   });
 
   test('append() preserves toolEvents', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     const toolEvents = [
@@ -385,11 +365,7 @@ describe('MessageStore', () => {
       { id: 'toolr-1', type: 'tool_result', label: 'opus ← result', detail: 'file content...', timestamp: 1001 },
     ];
     const msg = store.append({
-      userId: 'u',
-      catId: 'opus',
-      content: 'done',
-      mentions: [],
-      timestamp: 1,
+      userId: 'u', catId: 'opus', content: 'done', mentions: [], timestamp: 1,
       toolEvents,
     });
     assert.deepEqual(msg.toolEvents, toolEvents);
@@ -401,15 +377,13 @@ describe('MessageStore', () => {
   });
 
   test('hardDelete() clears toolEvents', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     const msg = store.append({
-      userId: 'u',
-      catId: 'opus',
-      content: 'hi',
-      mentions: [],
-      timestamp: 1,
+      userId: 'u', catId: 'opus', content: 'hi', mentions: [], timestamp: 1,
       toolEvents: [{ id: 't1', type: 'tool_use', label: 'test', timestamp: 1 }],
     });
     assert.ok(msg.toolEvents);
@@ -420,15 +394,13 @@ describe('MessageStore', () => {
   });
 
   test('hardDelete() clears thinking (F045 security)', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
 
     const store = new MessageStore();
     const msg = store.append({
-      userId: 'u',
-      catId: 'opus',
-      content: 'response',
-      mentions: [],
-      timestamp: 1,
+      userId: 'u', catId: 'opus', content: 'response', mentions: [], timestamp: 1,
       thinking: 'secret reasoning that must not survive hard delete',
     });
     assert.equal(msg.thinking, 'secret reasoning that must not survive hard delete');

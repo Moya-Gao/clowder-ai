@@ -1,7 +1,6 @@
 // @ts-check
-
+import { describe, test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { beforeEach, describe, test } from 'node:test';
 
 function makeInput(overrides = {}) {
   return {

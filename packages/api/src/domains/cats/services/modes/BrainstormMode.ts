@@ -10,14 +10,14 @@
  * 设计文档：docs/plans/2026-02-10-f11-mode-system-design.md §3
  */
 
-import type { BrainstormConfig, BrainstormState, CatId, ModeConfig, ModeState } from '@cat-cafe/shared';
+import type { CatId, ModeConfig, ModeState, BrainstormConfig, BrainstormState } from '@cat-cafe/shared';
 import { isBrainstormConfig, isBrainstormState } from '@cat-cafe/shared';
-import { detectUserMention } from '../../../../routes/user-mention.js';
-import { routeParallel } from '../agents/routing/route-parallel.js';
 import { routeSerial } from '../agents/routing/route-serial.js';
+import { routeParallel } from '../agents/routing/route-parallel.js';
+import { detectUserMention } from '../../../../routes/user-mention.js';
+import type { ModeHandler, ModeExecutionContext } from './mode-types.js';
 import type { AgentMessage } from '../types.js';
 import { buildBrainstormPrompt, buildModeSwitchInstruction } from './mode-prompts.js';
-import type { ModeExecutionContext, ModeHandler } from './mode-types.js';
 
 export class BrainstormMode implements ModeHandler {
   /**
@@ -26,7 +26,11 @@ export class BrainstormMode implements ModeHandler {
    */
   private pauseInfo = new Map<string, CatId[]>();
 
-  async *execute(ctx: ModeExecutionContext, config: ModeConfig, state: ModeState): AsyncIterable<AgentMessage> {
+  async *execute(
+    ctx: ModeExecutionContext,
+    config: ModeConfig,
+    state: ModeState,
+  ): AsyncIterable<AgentMessage> {
     if (!isBrainstormConfig(config)) throw new Error('BrainstormMode requires BrainstormConfig');
     if (!isBrainstormState(state)) throw new Error('BrainstormMode requires BrainstormState');
 
@@ -42,27 +46,34 @@ export class BrainstormMode implements ModeHandler {
 
     if (!state.roundOneComplete) {
       // Round 1: parallel independent thinking
-      yield* routeParallel(ctx.strategyDeps, participants, ctx.message, ctx.userId, ctx.threadId, {
-        ...ctx.routeOptions,
-        promptTags: ['brainstorm-round1'],
-        modeSystemPromptByCat: modePromptByCat,
-      });
+      yield* routeParallel(
+        ctx.strategyDeps,
+        participants,
+        ctx.message,
+        ctx.userId,
+        ctx.threadId,
+        { ...ctx.routeOptions, promptTags: ['brainstorm-round1'], modeSystemPromptByCat: modePromptByCat },
+      );
     } else {
       // Round 2+: serial discussion with A2A
       // If resuming from @铲屎官 pause, only route remaining speakers
-      const serialCats =
-        state.pausedForUser && state.remainingSpeakers?.length ? (state.remainingSpeakers as CatId[]) : speakingOrder;
+      const serialCats = (state.pausedForUser && state.remainingSpeakers?.length)
+        ? state.remainingSpeakers as CatId[]
+        : speakingOrder;
 
       // Track which cats completed, for computing remaining on break
       const completedCats = new Set<string>();
       let mentionedUser = false;
       let mentionCatId: CatId | undefined;
 
-      for await (const msg of routeSerial(ctx.strategyDeps, serialCats, ctx.message, ctx.userId, ctx.threadId, {
-        ...ctx.routeOptions,
-        promptTags: ['brainstorm-discussion'],
-        modeSystemPromptByCat: modePromptByCat,
-      })) {
+      for await (const msg of routeSerial(
+        ctx.strategyDeps,
+        serialCats,
+        ctx.message,
+        ctx.userId,
+        ctx.threadId,
+        { ...ctx.routeOptions, promptTags: ['brainstorm-discussion'], modeSystemPromptByCat: modePromptByCat },
+      )) {
         if (msg.type === 'text' && msg.content) {
           if (msg.content.includes('@铲屎官') || msg.content.includes('@user') || detectUserMention(msg.content)) {
             mentionedUser = true;
@@ -74,7 +85,7 @@ export class BrainstormMode implements ModeHandler {
         if (msg.type === 'done') {
           completedCats.add(msg.catId);
           if (mentionedUser) {
-            const remaining = serialCats.filter((c) => !completedCats.has(c));
+            const remaining = serialCats.filter(c => !completedCats.has(c));
             // Only store pauseInfo when there are actual remaining speakers.
             // Empty remaining = last cat triggered pause → round is complete,
             // getNextState will do normal increment instead of preserving round.
@@ -90,7 +101,7 @@ export class BrainstormMode implements ModeHandler {
       if (mentionedUser) {
         yield {
           type: 'system_info' as const,
-          catId: mentionCatId ?? (serialCats[0] as CatId),
+          catId: mentionCatId ?? serialCats[0] as CatId,
           content: '猫猫请求铲屎官回应。请输入您的想法后继续讨论。',
           timestamp: Date.now(),
         } as AgentMessage;

@@ -5,13 +5,13 @@
  * POST /api/projects/pick-directory - 打开系统原生文件选择器
  */
 
-import { execFile } from 'node:child_process';
-import { readdir, realpath, stat } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { basename, dirname, resolve } from 'node:path';
-import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
-import { getAllowedRoots, isUnderAllowedRoot, validateProjectPath } from '../utils/project-path.js';
+import { readdir, realpath, stat } from 'node:fs/promises';
+import { resolve, basename, dirname } from 'node:path';
+import { homedir } from 'node:os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { validateProjectPath, isUnderAllowedRoot, getAllowedRoots } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 const execFileAsync = promisify(execFile);
@@ -27,7 +27,9 @@ export type PickDirectoryResult =
  */
 export async function execPickDirectory(): Promise<PickDirectoryResult> {
   try {
-    const { stdout } = await execFileAsync('osascript', ['-e', 'POSIX path of (choose folder)'], { timeout: 120_000 });
+    const { stdout } = await execFileAsync('osascript', [
+      '-e', 'POSIX path of (choose folder)',
+    ], { timeout: 120_000 });
     const picked = stdout.trim().replace(/\/$/, '');
     if (!picked) return { status: 'cancelled' };
     const s = await stat(picked);
@@ -135,7 +137,9 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
             path: childReal,
             isDirectory: isDir,
           });
-        } catch {}
+        } catch {
+          continue;
+        }
       }
 
       // Sort: directories first, then alphabetically within each group
@@ -179,7 +183,9 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
             const childReal = await realpath(childPath);
             if (!isUnderAllowedRoot(childReal)) continue;
             dirs.push({ name: entry.name, path: childReal, isDirectory: true });
-          } catch {}
+          } catch {
+            continue; // broken symlink or permission error
+          }
         }
       }
 

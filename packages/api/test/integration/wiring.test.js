@@ -13,21 +13,33 @@
  * 不需要真实 CLI，总是运行。
  */
 
+import { test, mock, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { beforeEach, describe, mock, test } from 'node:test';
+import { EventEmitter } from 'node:events';
 import Fastify from 'fastify';
 import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
 
 // --- Imports (from dist) ---
 
-const { ClaudeAgentService } = await import('../../dist/domains/cats/services/ClaudeAgentService.js');
-const { CodexAgentService } = await import('../../dist/domains/cats/services/CodexAgentService.js');
-const { GeminiAgentService } = await import('../../dist/domains/cats/services/GeminiAgentService.js');
-const { AgentRouter } = await import('../../dist/domains/cats/services/AgentRouter.js');
-const { InvocationRegistry } = await import('../../dist/domains/cats/services/InvocationRegistry.js');
-const { MessageStore } = await import('../../dist/domains/cats/services/MessageStore.js');
+const { ClaudeAgentService } = await import(
+  '../../dist/domains/cats/services/ClaudeAgentService.js'
+);
+const { CodexAgentService } = await import(
+  '../../dist/domains/cats/services/CodexAgentService.js'
+);
+const { GeminiAgentService } = await import(
+  '../../dist/domains/cats/services/GeminiAgentService.js'
+);
+const { AgentRouter } = await import(
+  '../../dist/domains/cats/services/AgentRouter.js'
+);
+const { InvocationRegistry } = await import(
+  '../../dist/domains/cats/services/InvocationRegistry.js'
+);
+const { MessageStore } = await import(
+  '../../dist/domains/cats/services/MessageStore.js'
+);
 const { callbacksRoutes } = await import('../../dist/routes/callbacks.js');
 
 // --- Helpers ---
@@ -127,12 +139,8 @@ function createTrackingSpawnFn(eventsFn) {
 function createMockSocketManager() {
   const messages = [];
   return {
-    broadcastAgentMessage(msg) {
-      messages.push(msg);
-    },
-    getMessages() {
-      return messages;
-    },
+    broadcastAgentMessage(msg) { messages.push(msg); },
+    getMessages() { return messages; },
   };
 }
 
@@ -152,19 +160,23 @@ describe('AgentRouter + Services wiring', () => {
   // --- callbackEnv 传递验证 ---
 
   test('passes callbackEnv to Claude service', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('sess-1', 'hi'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('sess-1', 'hi')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('user-1', 'hello'));
 
@@ -177,19 +189,23 @@ describe('AgentRouter + Services wiring', () => {
   });
 
   test('passes callbackEnv to Codex service', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'hi'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'hi')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('user-1', '@codex hello'));
 
@@ -200,19 +216,23 @@ describe('AgentRouter + Services wiring', () => {
   });
 
   test('passes callbackEnv to Gemini service', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'hi'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'hi')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('user-1', '@gemini hello'));
 
@@ -225,19 +245,23 @@ describe('AgentRouter + Services wiring', () => {
   // --- InvocationRegistry 接线验证 ---
 
   test('creates unique invocation per cat in multi-mention', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'opus reply'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'codex reply'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'opus reply')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'codex reply')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('user-1', '@opus @codex hello'));
 
@@ -251,19 +275,23 @@ describe('AgentRouter + Services wiring', () => {
   });
 
   test('invocation tokens are verifiable after route()', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'hi'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'hi')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('user-1', 'hello'));
 
@@ -277,19 +305,23 @@ describe('AgentRouter + Services wiring', () => {
   // --- MessageStore 接线验证 ---
 
   test('stores user message in MessageStore', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'reply'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'reply')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('user-1', 'hello world'));
 
@@ -301,19 +333,23 @@ describe('AgentRouter + Services wiring', () => {
   });
 
   test('stores cat response in MessageStore', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'opus says hi'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'opus says hi')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('user-1', 'hello'));
 
@@ -331,18 +367,20 @@ describe('AgentRouter + Services wiring', () => {
       callCount++;
       return claudeEvents(`sess-${callCount}`, `reply ${callCount}`);
     });
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
     );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     // First call
     await collect(router.route('user-1', 'first'));
@@ -361,19 +399,23 @@ describe('AgentRouter + Services wiring', () => {
   // --- Multi-cat chaining ---
 
   test('passes previous cat response to next cat prompt', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'cat1 reply'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'codex ack'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'cat1 reply')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'codex ack')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('user-1', '#execute @opus @codex hello'));
 
@@ -381,23 +423,30 @@ describe('AgentRouter + Services wiring', () => {
     const codexArgs = codexSpawn._calls[0].args;
     // The prompt is the last positional arg for fresh codex calls
     const prompt = codexArgs[codexArgs.length - 1];
-    assert.ok(prompt.includes('cat1 reply'), `codex prompt should contain opus reply, got: ${prompt}`);
+    assert.ok(
+      prompt.includes('cat1 reply'),
+      `codex prompt should contain opus reply, got: ${prompt}`
+    );
   });
 
   test('yields isFinal=true only on last cat done (#execute serial)', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'opus reply'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'codex reply'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'opus reply')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'codex reply')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     const msgs = await collect(router.route('user-1', '#execute @opus @codex hello'));
 
@@ -433,19 +482,23 @@ describe('MCP callback end-to-end flow', () => {
   }
 
   test('callback POST succeeds with invocation from route()', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'reply'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'reply')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     // 1. route() creates invocation and passes callbackEnv to spawn
     await collect(router.route('user-1', 'hello'));
@@ -478,24 +531,28 @@ describe('MCP callback end-to-end flow', () => {
     const broadcasted = socketManager.getMessages();
     assert.ok(
       broadcasted.some((m) => m.content === 'Callback message from cat!'),
-      'should broadcast via socket',
+      'should broadcast via socket'
     );
   });
 
   test('callback GET pending-mentions returns mentions from route()', async () => {
-    const claudeSpawn = createTrackingSpawnFn(() => claudeEvents('s-1', 'reply'));
-    const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'hi'));
-    const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
-
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
-        geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
-        registry,
-        messageStore,
-      }),
+    const claudeSpawn = createTrackingSpawnFn(() =>
+      claudeEvents('s-1', 'reply')
     );
+    const codexSpawn = createTrackingSpawnFn(() =>
+      codexEvents('t-1', 'hi')
+    );
+    const geminiSpawn = createTrackingSpawnFn(() =>
+      geminiEvents('g-1', 'hi')
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
+      codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+      geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
+      registry,
+      messageStore,
+    }));
 
     // 1. route('@opus help') stores user message with opus mention
     await collect(router.route('user-1', '@opus help'));
@@ -515,7 +572,7 @@ describe('MCP callback end-to-end flow', () => {
     assert.ok(body.mentions.length >= 1, 'should find opus mention');
     assert.ok(
       body.mentions.some((m) => m.message.includes('@opus help')),
-      'mention content should match',
+      'mention content should match'
     );
   });
 });

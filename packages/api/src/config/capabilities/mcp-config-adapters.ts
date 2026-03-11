@@ -8,10 +8,10 @@
  * Gemini:  .gemini/settings.json — { mcpServers: { name: { command, args, env, cwd } } }
  */
 
-import type { McpServerDescriptor } from '@cat-cafe/shared';
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
+import type { McpServerDescriptor } from '@cat-cafe/shared';
 
 const GEMINI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
   CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
@@ -25,7 +25,10 @@ function isCatCafeServer(name: string): boolean {
   return name === 'cat-cafe' || name.startsWith('cat-cafe-');
 }
 
-function ensureGeminiCatCafeEnv(name: string, env?: Record<string, string>): Record<string, string> | undefined {
+function ensureGeminiCatCafeEnv(
+  name: string,
+  env?: Record<string, string>,
+): Record<string, string> | undefined {
   if (!isCatCafeServer(name)) return env;
   return {
     ...GEMINI_CAT_CAFE_ENV_PLACEHOLDERS,
@@ -53,8 +56,8 @@ export async function readClaudeMcpConfig(filePath: string): Promise<McpServerDe
   const servers = data['mcpServers'];
   if (!servers || typeof servers !== 'object') return [];
 
-  return Object.entries(servers as Record<string, Record<string, unknown>>).map(([name, cfg]) =>
-    toDescriptor(name, cfg, true),
+  return Object.entries(servers as Record<string, Record<string, unknown>>).map(
+    ([name, cfg]) => toDescriptor(name, cfg, true),
   );
 }
 
@@ -73,8 +76,8 @@ export async function readCodexMcpConfig(filePath: string): Promise<McpServerDes
   const mcpServers = data['mcp_servers'];
   if (!mcpServers || typeof mcpServers !== 'object') return [];
 
-  return Object.entries(mcpServers as Record<string, Record<string, unknown>>).map(([name, cfg]) =>
-    toDescriptor(name, cfg, cfg['enabled'] !== false),
+  return Object.entries(mcpServers as Record<string, Record<string, unknown>>).map(
+    ([name, cfg]) => toDescriptor(name, cfg, cfg['enabled'] !== false),
   );
 }
 
@@ -89,15 +92,18 @@ export async function readGeminiMcpConfig(filePath: string): Promise<McpServerDe
   const servers = data['mcpServers'];
   if (!servers || typeof servers !== 'object') return [];
 
-  return Object.entries(servers as Record<string, Record<string, unknown>>).map(([name, cfg]) =>
-    toDescriptor(name, cfg, true),
+  return Object.entries(servers as Record<string, Record<string, unknown>>).map(
+    ([name, cfg]) => toDescriptor(name, cfg, true),
   );
 }
 
 // ────────── Writers ──────────
 
 /** Write McpServerDescriptor[] → Claude .mcp.json (merge: preserves user's non-managed servers) */
-export async function writeClaudeMcpConfig(filePath: string, servers: McpServerDescriptor[]): Promise<void> {
+export async function writeClaudeMcpConfig(
+  filePath: string,
+  servers: McpServerDescriptor[],
+): Promise<void> {
   // Read existing to preserve user's own MCP servers
   const raw = await safeReadFile(filePath);
   const existing = raw ? safeJsonParse(raw) : null;
@@ -125,7 +131,10 @@ export async function writeClaudeMcpConfig(filePath: string, servers: McpServerD
 }
 
 /** Write McpServerDescriptor[] → Codex .codex/config.toml (merge: preserves user's non-managed servers) */
-export async function writeCodexMcpConfig(filePath: string, servers: McpServerDescriptor[]): Promise<void> {
+export async function writeCodexMcpConfig(
+  filePath: string,
+  servers: McpServerDescriptor[],
+): Promise<void> {
   // Read existing config to preserve non-MCP sections AND user's MCP servers
   const raw = await safeReadFile(filePath);
   let existing: Record<string, unknown> = {};
@@ -138,10 +147,10 @@ export async function writeCodexMcpConfig(filePath: string, servers: McpServerDe
   }
 
   // Get existing MCP servers (user's + old managed)
-  const existingMcp: Record<string, Record<string, unknown>> = existing['mcp_servers'] &&
-  typeof existing['mcp_servers'] === 'object'
-    ? { ...(existing['mcp_servers'] as Record<string, Record<string, unknown>>) }
-    : {};
+  const existingMcp: Record<string, Record<string, unknown>> =
+    existing['mcp_servers'] && typeof existing['mcp_servers'] === 'object'
+      ? { ...(existing['mcp_servers'] as Record<string, Record<string, unknown>>) }
+      : {};
 
   // Update/add only managed entries; preserve user's own servers
   for (const s of servers) {
@@ -157,7 +166,10 @@ export async function writeCodexMcpConfig(filePath: string, servers: McpServerDe
 }
 
 /** Write McpServerDescriptor[] → Gemini .gemini/settings.json (merge: preserves user's non-managed servers) */
-export async function writeGeminiMcpConfig(filePath: string, servers: McpServerDescriptor[]): Promise<void> {
+export async function writeGeminiMcpConfig(
+  filePath: string,
+  servers: McpServerDescriptor[],
+): Promise<void> {
   // Read existing config to preserve non-MCP sections AND user's MCP servers
   const raw = await safeReadFile(filePath);
   let existing: Record<string, unknown> = {};
@@ -243,7 +255,11 @@ function toStringRecord(val: unknown): Record<string, string> | undefined {
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function toDescriptor(name: string, cfg: Record<string, unknown>, enabled: boolean): McpServerDescriptor {
+function toDescriptor(
+  name: string,
+  cfg: Record<string, unknown>,
+  enabled: boolean,
+): McpServerDescriptor {
   const desc: McpServerDescriptor = {
     name,
     command: typeof cfg['command'] === 'string' ? cfg['command'] : '',

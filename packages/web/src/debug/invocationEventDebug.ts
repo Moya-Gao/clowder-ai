@@ -1,14 +1,15 @@
 import {
   clearPersistedDebugFlag,
   clearStorageKey,
-  type DebugStorageEntry,
-  type DebugStorageKind,
   getDebugStorages,
   isRecord,
   parseBooleanString,
   persistDebugConfig,
   safeReadStorage,
+  type DebugStorageEntry,
+  type DebugStorageKind,
 } from './invocationEventDebug.storage';
+import { EVENT_KEYS } from './invocationEventDebug.types';
 import type {
   AllowedEventKey,
   DebugConfigureInput,
@@ -19,7 +20,6 @@ import type {
   DebugWindowApi,
   StoredDebugEvent,
 } from './invocationEventDebug.types';
-import { EVENT_KEYS } from './invocationEventDebug.types';
 
 const DEFAULT_SIZE = 200;
 const MIN_SIZE = 50;
@@ -105,15 +105,8 @@ function sanitizeEvent(input: DebugEventInput): StoredDebugEvent {
       continue;
     }
 
-    if (
-      (key === 'threadId' ||
-        key === 'action' ||
-        key === 'mode' ||
-        key === 'reason' ||
-        key === 'routeThreadId' ||
-        key === 'storeThreadId') &&
-      typeof value === 'string'
-    ) {
+    if ((key === 'threadId' || key === 'action' || key === 'mode' || key === 'reason'
+      || key === 'routeThreadId' || key === 'storeThreadId') && typeof value === 'string') {
       out[key] = value;
       continue;
     }
@@ -179,16 +172,12 @@ export function configureDebug(input: DebugConfigureInput): DebugStatus {
     const normalizedTtl = normalizeTtlMs(input.ttlMs);
     refreshTtl(normalizedTtl);
     if (expiresAt !== null) {
-      persistDebugConfig(
-        STORAGE_KEY,
-        {
-          enabled: true,
-          size: maxSize,
-          ttlMs: normalizedTtl,
-          expiresAt,
-        },
-        persistScope,
-      );
+      persistDebugConfig(STORAGE_KEY, {
+        enabled: true,
+        size: maxSize,
+        ttlMs: normalizedTtl,
+        expiresAt,
+      }, persistScope);
     }
   }
 

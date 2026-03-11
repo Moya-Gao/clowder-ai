@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { useVoiceSettingsStore } from '@/stores/voiceSettingsStore';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { correctTranscription, mergeTermEntries, type TermEntry } from '@/utils/transcription-corrector';
+import { useVoiceSettingsStore } from '@/stores/voiceSettingsStore';
 
 const WHISPER_URL = process.env.NEXT_PUBLIC_WHISPER_URL || 'http://localhost:9876';
 const LLM_POSTPROCESS_URL = process.env.NEXT_PUBLIC_LLM_POSTPROCESS_URL || 'http://localhost:9878';
@@ -21,7 +21,11 @@ const STREAM_INTERVAL_MS = 3000;
 
 export type VoiceState = 'idle' | 'recording' | 'transcribing';
 
-function buildFormData(blob: Blob, prompt: string, language: string): FormData {
+function buildFormData(
+  blob: Blob,
+  prompt: string,
+  language: string,
+): FormData {
   const formData = new FormData();
   formData.append('file', blob, 'recording.webm');
   formData.append('initial_prompt', prompt);
@@ -29,7 +33,11 @@ function buildFormData(blob: Blob, prompt: string, language: string): FormData {
   return formData;
 }
 
-async function transcribeBlob(blob: Blob, prompt: string, language: string): Promise<string> {
+async function transcribeBlob(
+  blob: Blob,
+  prompt: string,
+  language: string,
+): Promise<string> {
   const res = await fetch(`${WHISPER_URL}/v1/audio/transcriptions`, {
     method: 'POST',
     body: buildFormData(blob, prompt, language),
@@ -93,14 +101,8 @@ export function useVoiceInput() {
   const entriesRef = useRef(mergedEntries);
 
   const clearTimers = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (streamTimerRef.current) {
-      clearInterval(streamTimerRef.current);
-      streamTimerRef.current = null;
-    }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    if (streamTimerRef.current) { clearInterval(streamTimerRef.current); streamTimerRef.current = null; }
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -122,7 +124,9 @@ export function useVoiceInput() {
       let recorder: MediaRecorder;
       try {
         const preferredMime = 'audio/webm;codecs=opus';
-        const mimeType = MediaRecorder.isTypeSupported(preferredMime) ? preferredMime : undefined;
+        const mimeType = MediaRecorder.isTypeSupported(preferredMime)
+          ? preferredMime
+          : undefined;
         recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       } catch (recErr) {
         stream.getTracks().forEach((t) => t.stop());
@@ -206,12 +210,7 @@ export function useVoiceInput() {
   }, []);
 
   return {
-    state,
-    transcript,
-    partialTranscript,
-    error,
-    duration,
-    startRecording,
-    stopRecording,
+    state, transcript, partialTranscript, error, duration,
+    startRecording, stopRecording,
   };
 }

@@ -21,10 +21,7 @@ const SOURCE_STYLES: Record<SourceTag, { bg: string; text: string }> = {
 export function BucketBadge({ bucket }: { bucket: TriageBucket }) {
   const style = BUCKET_STYLES[bucket];
   return (
-    <span
-      data-testid="bucket-badge"
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${style.bg} ${style.text}`}
-    >
+    <span data-testid="bucket-badge" className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${style.bg} ${style.text}`}>
       {style.label}
     </span>
   );
@@ -33,10 +30,7 @@ export function BucketBadge({ bucket }: { bucket: TriageBucket }) {
 export function SourceBadge({ tag }: { tag: SourceTag }) {
   const style = SOURCE_STYLES[tag];
   return (
-    <span
-      data-testid="source-badge"
-      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${style.bg} ${style.text}`}
-    >
+    <span data-testid="source-badge" className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${style.bg} ${style.text}`}>
       {tag}
     </span>
   );

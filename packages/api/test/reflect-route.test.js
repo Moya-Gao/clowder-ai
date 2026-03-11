@@ -3,11 +3,11 @@
  * POST /api/reflect — Hindsight LLM reflection
  */
 
-import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import Fastify from 'fastify';
-import { HindsightError } from '../dist/domains/cats/services/orchestration/HindsightClient.js';
 import { reflectRoutes } from '../dist/routes/reflect.js';
+import { HindsightError } from '../dist/domains/cats/services/orchestration/HindsightClient.js';
 
 function createMockClient(overrides = {}) {
   return {

@@ -3,7 +3,7 @@
  * Verifies that hasActiveInvocation is preserved across thread switches
  * and correctly toggled by setHasActiveInvocation.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useChatStore } from '../chatStore';
 
 describe('chatStore hasActiveInvocation', () => {

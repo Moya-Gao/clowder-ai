@@ -44,7 +44,11 @@ interface CleanupSnapshot {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const GOVERNANCE_ID_PREFIXES = ['adr:', 'phase:', 'll:', 'path:docs/decisions/', 'path:docs/discussions/'];
-const GOVERNANCE_ID_EXACT = new Set(['path:CLAUDE.md', 'path:AGENTS.md', 'path:docs/lessons-learned.md']);
+const GOVERNANCE_ID_EXACT = new Set([
+  'path:CLAUDE.md',
+  'path:AGENTS.md',
+  'path:docs/lessons-learned.md',
+]);
 
 function usage(): void {
   console.log(
@@ -153,7 +157,11 @@ function tryReadDocumentId(value: unknown): string | null {
 
   if (!isRecord(value)) return null;
 
-  const candidate = value['document_id'] ?? value['documentId'] ?? value['id'] ?? value['doc_id'] ?? value['docId'];
+  const candidate = value['document_id']
+    ?? value['documentId']
+    ?? value['id']
+    ?? value['doc_id']
+    ?? value['docId'];
   if (typeof candidate !== 'string') return null;
   const trimmed = candidate.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -273,11 +281,7 @@ function runSelfTest(): void {
   assert(candidates.includes(sampleUuidA), 'candidate A missing');
   assert(candidates.includes(sampleUuidB), 'candidate B missing');
 
-  const rendered = renderPathTemplate(
-    '/v1/default/banks/{bankId}/documents/{documentId}',
-    'cat-cafe-shared',
-    sampleUuidA,
-  );
+  const rendered = renderPathTemplate('/v1/default/banks/{bankId}/documents/{documentId}', 'cat-cafe-shared', sampleUuidA);
   assert(rendered.includes('cat-cafe-shared'), 'renderPathTemplate should include bankId');
   assert(rendered.includes(sampleUuidA), 'renderPathTemplate should include documentId');
 

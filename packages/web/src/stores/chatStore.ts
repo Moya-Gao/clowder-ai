@@ -483,15 +483,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   workspaceEditToken: null,
   workspaceEditTokenExpiry: null,
   setRightPanelMode: (mode) => set({ rightPanelMode: mode }),
-  setWorkspaceWorktreeId: (id) =>
-    set({
-      workspaceWorktreeId: id,
-      workspaceOpenTabs: [],
-      workspaceOpenFilePath: null,
-      workspaceOpenFileLine: null,
-      workspaceEditToken: null,
-      workspaceEditTokenExpiry: null,
-    }),
+  setWorkspaceWorktreeId: (id) => set({ workspaceWorktreeId: id, workspaceOpenTabs: [], workspaceOpenFilePath: null, workspaceOpenFileLine: null, workspaceEditToken: null, workspaceEditTokenExpiry: null }),
   setWorkspaceOpenFile: (path, line, targetWorktreeId) => {
     if (path) {
       // Switch worktree if a different one is specified
@@ -642,7 +634,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...m.extra,
             rich: {
               ...m.extra.rich,
-              blocks: m.extra.rich.blocks.map((b) => (b.id === blockId ? { ...b, ...patch } : b)),
+              blocks: m.extra.rich.blocks.map((b) =>
+                b.id === blockId ? { ...b, ...patch } : b,
+              ),
             },
           },
         };
@@ -702,12 +696,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: state.messages.map((m) =>
         m.id === messageId
           ? {
-              ...m,
-              extra: {
-                ...m.extra,
-                stream: { ...m.extra?.stream, invocationId },
-              },
-            }
+            ...m,
+            extra: {
+              ...m.extra,
+              stream: { ...m.extra?.stream, invocationId },
+            },
+          }
           : m,
       ),
     })),

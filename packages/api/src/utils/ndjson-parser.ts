@@ -45,7 +45,9 @@ export async function* parseNDJSON(stream: Readable): AsyncGenerator<unknown> {
 /**
  * Type guard for NDJSON parse error objects
  */
-export function isParseError(value: unknown): value is ParseError {
+export function isParseError(
+  value: unknown
+): value is ParseError {
   return (
     typeof value === 'object' &&
     value !== null &&

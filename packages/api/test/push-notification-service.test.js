@@ -1,7 +1,6 @@
 // @ts-check
-
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it } from 'node:test';
 import { PushSubscriptionStore } from '../dist/domains/cats/services/stores/ports/PushSubscriptionStore.js';
 
 describe('PushNotificationService (store layer)', () => {

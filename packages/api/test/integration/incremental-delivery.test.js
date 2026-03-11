@@ -3,13 +3,19 @@
  * 验证每猫每线程只接收“未发送过”的增量消息，不重复、不漏发。
  */
 
+import { test, describe, mock, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { beforeEach, describe, mock, test } from 'node:test';
 import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
 
-const { AgentRouter } = await import('../../dist/domains/cats/services/agents/routing/AgentRouter.js');
-const { MessageStore } = await import('../../dist/domains/cats/services/stores/ports/MessageStore.js');
-const { InvocationRegistry } = await import('../../dist/domains/cats/services/agents/invocation/InvocationRegistry.js');
+const { AgentRouter } = await import(
+  '../../dist/domains/cats/services/agents/routing/AgentRouter.js'
+);
+const { MessageStore } = await import(
+  '../../dist/domains/cats/services/stores/ports/MessageStore.js'
+);
+const { InvocationRegistry } = await import(
+  '../../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
+);
 
 async function collect(iterable) {
   const items = [];
@@ -40,7 +46,9 @@ function extractDeliveredIds(prompt) {
   return ids;
 }
 
-const { getCatContextBudget } = await import('../../dist/config/cat-budgets.js');
+const { getCatContextBudget } = await import(
+  '../../dist/config/cat-budgets.js'
+);
 
 describe('Incremental Delivery', () => {
   let messageStore;
@@ -54,15 +62,13 @@ describe('Incremental Delivery', () => {
   test('same cat across rounds: delivered message IDs must not overlap', async () => {
     const opus = createCapturingService('opus', 'opus-reply');
 
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: opus,
-        codexService: createCapturingService('codex', 'codex-reply'),
-        geminiService: createCapturingService('gemini', 'gemini-reply'),
-        registry,
-        messageStore,
-      }),
-    );
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: opus,
+      codexService: createCapturingService('codex', 'codex-reply'),
+      geminiService: createCapturingService('gemini', 'gemini-reply'),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('u1', '@opus round-1', 'thread-inc-1'));
     await collect(router.route('u1', '@opus round-2', 'thread-inc-1'));
@@ -84,15 +90,13 @@ describe('Incremental Delivery', () => {
     const opus = createCapturingService('opus', 'opus-reply');
     const codex = createCapturingService('codex', 'codex-reply');
 
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: opus,
-        codexService: codex,
-        geminiService: createCapturingService('gemini', 'gemini-reply'),
-        registry,
-        messageStore,
-      }),
-    );
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: opus,
+      codexService: codex,
+      geminiService: createCapturingService('gemini', 'gemini-reply'),
+      registry,
+      messageStore,
+    }));
 
     await collect(router.route('u2', '@opus alpha', 'thread-inc-2'));
     await collect(router.route('u2', '@codex beta', 'thread-inc-2'));
@@ -121,15 +125,13 @@ describe('Incremental Delivery', () => {
 
     const codex = createCapturingService('codex', 'codex-reply');
 
-    const router = new AgentRouter(
-      await migrateRouterOpts({
-        claudeService: createCapturingService('opus', 'opus-reply'),
-        codexService: codex,
-        geminiService: createCapturingService('gemini', 'gemini-reply'),
-        registry,
-        messageStore,
-      }),
-    );
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createCapturingService('opus', 'opus-reply'),
+      codexService: codex,
+      geminiService: createCapturingService('gemini', 'gemini-reply'),
+      registry,
+      messageStore,
+    }));
 
     // Round 1: long user message goes to opus (codex hasn't seen it yet)
     await collect(router.route('u3', longUserMsg, 'thread-inc-91'));

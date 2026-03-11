@@ -107,7 +107,9 @@ export class PushNotificationService {
     }
 
     const body = JSON.stringify(payload);
-    const results = await Promise.allSettled(subs.map((sub) => this.sendOne(sub, body)));
+    const results = await Promise.allSettled(
+      subs.map((sub) => this.sendOne(sub, body)),
+    );
 
     const summary: PushDeliverySummary = {
       attempted: subs.length,

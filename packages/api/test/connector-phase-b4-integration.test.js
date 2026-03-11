@@ -11,7 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { beforeEach, describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import { ConnectorCommandLayer } from '../dist/infrastructure/connectors/ConnectorCommandLayer.js';
 import { ConnectorRouter } from '../dist/infrastructure/connectors/ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from '../dist/infrastructure/connectors/ConnectorThreadBindingStore.js';
@@ -50,9 +50,7 @@ function mockStreamableAdapter(connectorId) {
     connectorId,
     sent,
     edits,
-    async sendReply(chatId, content) {
-      sent.push({ chatId, content, type: 'reply' });
-    },
+    async sendReply(chatId, content) { sent.push({ chatId, content, type: 'reply' }); },
     async sendPlaceholder(chatId, text) {
       const msgId = `pmsg-${sent.length + 1}`;
       sent.push({ chatId, text, type: 'placeholder', msgId });
@@ -90,17 +88,9 @@ describe('F088 Phase B+4 Integration', () => {
     router = new ConnectorRouter({
       bindingStore,
       dedup: new InboundMessageDedup(),
-      messageStore: {
-        async append(input) {
-          return { id: `msg-${Date.now()}` };
-        },
-      },
+      messageStore: { async append(input) { return { id: `msg-${Date.now()}` }; } },
       threadStore,
-      invokeTrigger: {
-        trigger(...args) {
-          triggerCalls.push(args);
-        },
-      },
+      invokeTrigger: { trigger(...args) { triggerCalls.push(args); } },
       socketManager: { broadcastToRoom() {} },
       defaultUserId: 'owner-1',
       defaultCatId: 'opus',
@@ -149,10 +139,7 @@ describe('F088 Phase B+4 Integration', () => {
       const r5 = await router.route('feishu', 'chat-a', `/use ${firstThreadId}`, 'cmd-5');
       assert.equal(r5.kind, 'command');
       assert.ok(adapter.sent[4].content.includes('已切换到'), `Expected "已切换到" in: ${adapter.sent[4].content}`);
-      assert.ok(
-        adapter.sent[4].content.includes('My First Thread'),
-        `Expected "My First Thread" in: ${adapter.sent[4].content}`,
-      );
+      assert.ok(adapter.sent[4].content.includes('My First Thread'), `Expected "My First Thread" in: ${adapter.sent[4].content}`);
 
       // 7. /where confirms we're back on first thread
       const r6 = await router.route('feishu', 'chat-a', '/where', 'cmd-6');
@@ -187,8 +174,8 @@ describe('F088 Phase B+4 Integration', () => {
         bindingStore,
         adapters: streamableAdapters,
         log: noopLog(),
-        updateIntervalMs: 50, // fast for test
-        minDeltaChars: 10, // low threshold for test
+        updateIntervalMs: 50,    // fast for test
+        minDeltaChars: 10,       // low threshold for test
       });
 
       // 1. Stream start: sends placeholder
@@ -202,7 +189,7 @@ describe('F088 Phase B+4 Integration', () => {
       assert.equal(adapter.edits.length, 0); // skipped — too soon + too short
 
       // 3. Wait for rate limit window, then send longer chunk
-      await new Promise((r) => setTimeout(r, 60));
+      await new Promise(r => setTimeout(r, 60));
       await streamingHook.onStreamChunk('thread-stream-1', 'Hello, this is a longer message from the cat');
       assert.equal(adapter.edits.length, 1);
       assert.ok(adapter.edits[0].text.includes('▌')); // cursor indicator

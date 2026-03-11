@@ -9,5 +9,7 @@ export function makeCatActor(catId: string): BacklogAuditActor {
 }
 
 export function makeCreatorActor(input: CreateBacklogItemInput): BacklogAuditActor {
-  return input.createdBy === 'user' ? makeUserActor(input.userId) : makeCatActor(input.createdBy);
+  return input.createdBy === 'user'
+    ? makeUserActor(input.userId)
+    : makeCatActor(input.createdBy);
 }

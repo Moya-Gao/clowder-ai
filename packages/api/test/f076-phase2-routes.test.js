@@ -576,14 +576,7 @@ describe('F076 Phase 2: Slice Routes', () => {
       method: 'POST',
       url: `/api/external-projects/${projectId}/slices`,
       headers: H,
-      payload: {
-        name: 'P1-Slice',
-        sliceType: 'value',
-        description: '',
-        actor: '',
-        workflow: '',
-        verifiableOutcome: '',
-      },
+      payload: { name: 'P1-Slice', sliceType: 'value', description: '', actor: '', workflow: '', verifiableOutcome: '' },
     });
     const slice1Id = s1Res.json().slice.id;
 
@@ -592,14 +585,7 @@ describe('F076 Phase 2: Slice Routes', () => {
       method: 'POST',
       url: `/api/external-projects/${project2Id}/slices`,
       headers: H,
-      payload: {
-        name: 'P2-Slice',
-        sliceType: 'value',
-        description: '',
-        actor: '',
-        workflow: '',
-        verifiableOutcome: '',
-      },
+      payload: { name: 'P2-Slice', sliceType: 'value', description: '', actor: '', workflow: '', verifiableOutcome: '' },
     });
     const slice2Id = s2Res.json().slice.id;
 

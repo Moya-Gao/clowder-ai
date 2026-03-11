@@ -1,5 +1,5 @@
-import type { FeatureDocDetail } from '@cat-cafe/shared';
 import { useEffect, useState } from 'react';
+import type { FeatureDocDetail } from '@cat-cafe/shared';
 import { apiFetch } from '../utils/api-client';
 
 export function useFeatureDocDetail(featureId: string | null): {
@@ -38,9 +38,7 @@ export function useFeatureDocDetail(featureId: string | null): {
         }
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [featureId]);
 
   return { detail, loading, error };

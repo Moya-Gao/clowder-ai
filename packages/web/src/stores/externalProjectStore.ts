@@ -1,3 +1,4 @@
+import { create } from 'zustand';
 import type {
   DispatchExecutionDigest,
   ExternalProject,
@@ -7,7 +8,6 @@ import type {
   ResolutionItem,
   Slice,
 } from '@cat-cafe/shared';
-import { create } from 'zustand';
 
 interface ExternalProjectState {
   projects: ExternalProject[];

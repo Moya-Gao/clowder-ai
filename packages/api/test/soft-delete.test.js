@@ -5,8 +5,8 @@
  * Cursor path (getByThreadAfter) must NOT filter deleted messages.
  */
 
-import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { MessageStore } from '../dist/domains/cats/services/stores/ports/MessageStore.js';
 import { messageActionsRoutes } from '../dist/routes/message-actions.js';
@@ -15,28 +15,22 @@ function createMockSocketManager() {
   const events = [];
   return {
     broadcastAgentMessage() {},
-    broadcastToRoom(room, event, data) {
-      events.push({ room, event, data });
-    },
-    getEvents() {
-      return events;
-    },
+    broadcastToRoom(room, event, data) { events.push({ room, event, data }); },
+    getEvents() { return events; },
   };
 }
 
 function seedMessages(store) {
   const msgs = [];
   for (let i = 0; i < 5; i++) {
-    msgs.push(
-      store.append({
-        userId: 'user-1',
-        catId: null,
-        content: `message ${i}`,
-        mentions: ['opus'],
-        timestamp: 1000 + i,
-        threadId: 'thread-sd',
-      }),
-    );
+    msgs.push(store.append({
+      userId: 'user-1',
+      catId: null,
+      content: `message ${i}`,
+      mentions: ['opus'],
+      timestamp: 1000 + i,
+      threadId: 'thread-sd',
+    }));
   }
   return msgs;
 }
@@ -100,7 +94,7 @@ describe('Read path filtering (skip soft-deleted)', () => {
 
     const result = store.getByThread('thread-sd');
     assert.equal(result.length, 3);
-    const ids = result.map((m) => m.id);
+    const ids = result.map(m => m.id);
     assert.ok(!ids.includes(msgs[1].id));
     assert.ok(!ids.includes(msgs[3].id));
   });
@@ -113,7 +107,7 @@ describe('Read path filtering (skip soft-deleted)', () => {
 
     const result = store.getRecent(10);
     assert.equal(result.length, 4);
-    assert.ok(!result.some((m) => m.id === msgs[4].id));
+    assert.ok(!result.some(m => m.id === msgs[4].id));
   });
 
   it('getMentionsFor skips deleted messages', () => {
@@ -124,7 +118,7 @@ describe('Read path filtering (skip soft-deleted)', () => {
 
     const result = store.getMentionsFor('opus');
     assert.equal(result.length, 4);
-    assert.ok(!result.some((m) => m.id === msgs[0].id));
+    assert.ok(!result.some(m => m.id === msgs[0].id));
   });
 
   it('getBefore skips deleted messages', () => {
@@ -136,7 +130,7 @@ describe('Read path filtering (skip soft-deleted)', () => {
     // Get messages before timestamp 1005 (all 5), should return 4 (minus deleted)
     const result = store.getBefore(1005);
     assert.equal(result.length, 4);
-    assert.ok(!result.some((m) => m.id === msgs[2].id));
+    assert.ok(!result.some(m => m.id === msgs[2].id));
   });
 
   it('getByThreadBefore skips deleted messages', () => {
@@ -147,7 +141,7 @@ describe('Read path filtering (skip soft-deleted)', () => {
 
     const result = store.getByThreadBefore('thread-sd', 1005);
     assert.equal(result.length, 4);
-    assert.ok(!result.some((m) => m.id === msgs[1].id));
+    assert.ok(!result.some(m => m.id === msgs[1].id));
   });
 
   it('getByThreadAfter does NOT skip deleted (cursor path)', () => {
@@ -159,7 +153,7 @@ describe('Read path filtering (skip soft-deleted)', () => {
     // After msg[0], should return msgs 1-4 including deleted msg[2]
     const result = store.getByThreadAfter('thread-sd', msgs[0].id);
     assert.equal(result.length, 4);
-    assert.ok(result.some((m) => m.id === msgs[2].id));
+    assert.ok(result.some(m => m.id === msgs[2].id));
   });
 
   it('getById still returns deleted messages', () => {
@@ -204,7 +198,7 @@ describe('DELETE /api/messages/:id (soft delete)', () => {
 
     // Verify WebSocket broadcast
     const events = socketManager.getEvents();
-    assert.ok(events.some((e) => e.event === 'message_deleted' && e.data.messageId === msgs[2].id));
+    assert.ok(events.some(e => e.event === 'message_deleted' && e.data.messageId === msgs[2].id));
 
     await app.close();
   });
@@ -259,7 +253,7 @@ describe('PATCH /api/messages/:id/restore', () => {
 
     // Verify WebSocket broadcast
     const events = socketManager.getEvents();
-    assert.ok(events.some((e) => e.event === 'message_restored'));
+    assert.ok(events.some(e => e.event === 'message_restored'));
 
     await app.close();
   });
@@ -317,7 +311,7 @@ describe('MessageStore.hardDelete()', () => {
     store.hardDelete(msgs[3].id, 'user-1');
     const result = store.getByThread('thread-sd');
     assert.equal(result.length, 4);
-    assert.ok(!result.some((m) => m.id === msgs[3].id));
+    assert.ok(!result.some(m => m.id === msgs[3].id));
   });
 
   it('tombstone is visible in getByThreadAfter (cursor path)', () => {
@@ -327,7 +321,7 @@ describe('MessageStore.hardDelete()', () => {
     store.hardDelete(msgs[2].id, 'user-1');
     const result = store.getByThreadAfter('thread-sd', msgs[0].id);
     assert.equal(result.length, 4);
-    const tombstone = result.find((m) => m.id === msgs[2].id);
+    const tombstone = result.find(m => m.id === msgs[2].id);
     assert.ok(tombstone);
     assert.equal(tombstone._tombstone, true);
   });
@@ -350,15 +344,7 @@ describe('DELETE /api/messages/:id mode=hard', () => {
 
     const threadStore = {
       async get(id) {
-        if (id === 'thread-sd')
-          return {
-            id,
-            title: 'Test Thread',
-            createdBy: 'user-1',
-            participants: [],
-            lastActiveAt: Date.now(),
-            createdAt: Date.now(),
-          };
+        if (id === 'thread-sd') return { id, title: 'Test Thread', createdBy: 'user-1', participants: [], lastActiveAt: Date.now(), createdAt: Date.now() };
         return null;
       },
     };
@@ -384,7 +370,7 @@ describe('DELETE /api/messages/:id mode=hard', () => {
 
     // Verify WebSocket broadcast
     const events = socketManager.getEvents();
-    assert.ok(events.some((e) => e.event === 'message_hard_deleted'));
+    assert.ok(events.some(e => e.event === 'message_hard_deleted'));
 
     await app.close();
   });
@@ -417,15 +403,7 @@ describe('DELETE /api/messages/:id mode=hard', () => {
 
     const threadStore = {
       async get(id) {
-        if (id === 'thread-sd')
-          return {
-            id,
-            title: 'Real Title',
-            createdBy: 'user-1',
-            participants: [],
-            lastActiveAt: Date.now(),
-            createdAt: Date.now(),
-          };
+        if (id === 'thread-sd') return { id, title: 'Real Title', createdBy: 'user-1', participants: [], lastActiveAt: Date.now(), createdAt: Date.now() };
         return null;
       },
     };
@@ -474,27 +452,15 @@ describe('DELETE /api/messages/:id mode=hard', () => {
 
 function createMockThreadStore(threads = {}) {
   return {
-    async get(id) {
-      return threads[id] ?? null;
-    },
-    create() {
-      return null;
-    },
-    list() {
-      return [];
-    },
-    listByProject() {
-      return [];
-    },
+    async get(id) { return threads[id] ?? null; },
+    create() { return null; },
+    list() { return []; },
+    listByProject() { return []; },
     addParticipants() {},
-    getParticipants() {
-      return [];
-    },
+    getParticipants() { return []; },
     updateTitle() {},
     updateLastActive() {},
-    delete() {
-      return true;
-    },
+    delete() { return true; },
   };
 }
 
@@ -527,12 +493,8 @@ describe('Authorization: DELETE /api/messages/:id', () => {
     const socketManager = createMockSocketManager();
     // Add a message from a different user
     const catMsg = messageStore.append({
-      userId: 'cat-opus',
-      catId: 'opus',
-      content: 'cat reply',
-      mentions: [],
-      timestamp: 2000,
-      threadId: 'thread-sd',
+      userId: 'cat-opus', catId: 'opus', content: 'cat reply',
+      mentions: [], timestamp: 2000, threadId: 'thread-sd',
     });
     const threadStore = createMockThreadStore({
       'thread-sd': { id: 'thread-sd', title: 'T', createdBy: 'user-1', participants: [] },

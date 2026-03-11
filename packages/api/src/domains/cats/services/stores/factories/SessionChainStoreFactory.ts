@@ -9,7 +9,9 @@ import { RedisSessionChainStore } from '../redis/RedisSessionChainStore.js';
 
 export type AnySessionChainStore = SessionChainStore | RedisSessionChainStore;
 
-export function createSessionChainStore(redis?: RedisClient): AnySessionChainStore {
+export function createSessionChainStore(
+  redis?: RedisClient,
+): AnySessionChainStore {
   if (redis) {
     return new RedisSessionChainStore(redis);
   }

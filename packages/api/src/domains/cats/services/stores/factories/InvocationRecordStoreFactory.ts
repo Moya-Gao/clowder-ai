@@ -10,7 +10,9 @@ import { RedisInvocationRecordStore } from '../redis/RedisInvocationRecordStore.
 
 export type AnyInvocationRecordStore = InvocationRecordStore | RedisInvocationRecordStore;
 
-export function createInvocationRecordStore(redis?: RedisClient): AnyInvocationRecordStore {
+export function createInvocationRecordStore(
+  redis?: RedisClient,
+): AnyInvocationRecordStore {
   if (redis) {
     return new RedisInvocationRecordStore(redis);
   }

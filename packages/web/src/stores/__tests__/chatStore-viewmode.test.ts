@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useChatStore } from '../chatStore';
 
 describe('chatStore viewMode + split pane state', () => {

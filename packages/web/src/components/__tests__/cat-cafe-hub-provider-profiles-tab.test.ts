@@ -1,5 +1,6 @@
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '@/utils/api-client';
@@ -103,15 +104,13 @@ describe('CatCafeHub provider profiles tab', () => {
   it('renders ragdoll rescue section after tab data loads', async () => {
     mockApiFetch.mockImplementation((path: string) => {
       if (path.startsWith('/api/provider-profiles')) {
-        return Promise.resolve(
-          jsonResponse({
-            projectPath: '/tmp/project',
-            anthropic: {
-              activeProfileId: null,
-              profiles: [],
-            },
-          }),
-        );
+        return Promise.resolve(jsonResponse({
+          projectPath: '/tmp/project',
+          anthropic: {
+            activeProfileId: null,
+            profiles: [],
+          },
+        }));
       }
       if (path === '/api/claude-rescue/sessions') {
         return Promise.resolve(jsonResponse({ sessions: [] }));

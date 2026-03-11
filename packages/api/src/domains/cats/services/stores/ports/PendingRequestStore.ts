@@ -20,12 +20,7 @@ export interface CreatePendingInput {
 export interface IPendingRequestStore {
   create(input: CreatePendingInput): PendingRequestRecord | Promise<PendingRequestRecord>;
   get(requestId: string): PendingRequestRecord | null | Promise<PendingRequestRecord | null>;
-  respond(
-    requestId: string,
-    decision: 'granted' | 'denied',
-    scope: RespondScope,
-    reason?: string,
-  ): PendingRequestRecord | null | Promise<PendingRequestRecord | null>;
+  respond(requestId: string, decision: 'granted' | 'denied', scope: RespondScope, reason?: string): PendingRequestRecord | null | Promise<PendingRequestRecord | null>;
   listWaiting(threadId?: string): PendingRequestRecord[] | Promise<PendingRequestRecord[]>;
 }
 
@@ -79,7 +74,7 @@ export class PendingRequestStore implements IPendingRequestStore {
     requestId: string,
     decision: 'granted' | 'denied',
     scope: RespondScope,
-    reason?: string,
+    reason?: string
   ): PendingRequestRecord | null {
     const existing = this.records.get(requestId);
     if (!existing || existing.status !== 'waiting') return null;

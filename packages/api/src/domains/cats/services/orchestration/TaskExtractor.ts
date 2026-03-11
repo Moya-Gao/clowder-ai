@@ -4,10 +4,10 @@
  * Part of 4-A feature for Phase 4.0.
  */
 
-import { type CatId, type CreateTaskInput, catRegistry } from '@cat-cafe/shared';
-import { getAllCatIdsFromConfig } from '../../../../config/cat-config-loader.js';
+import { catRegistry, type CatId, type CreateTaskInput } from '@cat-cafe/shared';
 import type { StoredMessage } from '../stores/ports/MessageStore.js';
 import type { AgentService } from '../types.js';
+import { getAllCatIdsFromConfig } from '../../../../config/cat-config-loader.js';
 
 /** Get all valid catIds dynamically from the registry */
 function getValidCatIds(): readonly string[] {
@@ -41,13 +41,11 @@ export interface ExtractionResult {
 
 /** Format messages for LLM context */
 function formatMessagesForExtraction(messages: StoredMessage[]): string {
-  return messages
-    .map((m, i) => {
-      const speaker = m.catId ? `[${m.catId}]` : '[User]';
-      const idLabel = `(msg-${i})`;
-      return `${idLabel} ${speaker}: ${m.content}`;
-    })
-    .join('\n\n');
+  return messages.map((m, i) => {
+    const speaker = m.catId ? `[${m.catId}]` : '[User]';
+    const idLabel = `(msg-${i})`;
+    return `${idLabel} ${speaker}: ${m.content}`;
+  }).join('\n\n');
 }
 
 /**
@@ -88,9 +86,8 @@ function parseExtractedTasks(response: string, messages: StoredMessage[]): Extra
     }>;
 
     return parsed
-      .filter(
-        (item): item is { title: string; why: string; ownerCatId?: unknown; sourceIndex?: unknown } =>
-          typeof item.title === 'string' && typeof item.why === 'string',
+      .filter((item): item is { title: string; why: string; ownerCatId?: unknown; sourceIndex?: unknown } =>
+        typeof item.title === 'string' && typeof item.why === 'string'
       )
       .map((item) => {
         const task: ExtractedTask = {
@@ -117,10 +114,10 @@ function parseExtractedTasks(response: string, messages: StoredMessage[]): Extra
 function extractByPatterns(messages: StoredMessage[]): ExtractedTask[] {
   const tasks: ExtractedTask[] = [];
   const patterns = [
-    /- \[ \] (.+)/g, // Markdown checkbox
-    /TODO:?\s*(.+)/gi, // TODO: or TODO
-    /#task\s+(.+)/gi, // #task tag
-    /Action Item:?\s*(.+)/gi, // Action item
+    /- \[ \] (.+)/g,           // Markdown checkbox
+    /TODO:?\s*(.+)/gi,         // TODO: or TODO
+    /#task\s+(.+)/gi,          // #task tag
+    /Action Item:?\s*(.+)/gi,  // Action item
   ];
 
   for (const msg of messages) {
@@ -150,9 +147,7 @@ function buildExtractionPrompt(contextText: string): string {
 For each task, provide:
 - title: A concise, actionable title (max 100 chars)
 - why: Brief explanation of why this task is needed (max 200 chars)
-- ownerCatId: If someone is clearly assigned, use one of: ${getValidCatIds()
-    .map((id) => `"${id}"`)
-    .join(', ')}. Otherwise null.
+- ownerCatId: If someone is clearly assigned, use one of: ${getValidCatIds().map(id => `"${id}"`).join(', ')}. Otherwise null.
 - sourceIndex: The message index (msg-N) that originated this task
 
 Return a JSON array. Example:

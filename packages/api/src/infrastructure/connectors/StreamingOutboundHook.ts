@@ -28,7 +28,8 @@ export class StreamingOutboundHook {
   private readonly minDeltaChars: number;
 
   constructor(private readonly opts: StreamingOutboundHookOptions) {
-    this.updateIntervalMs = opts.updateIntervalMs ?? DEFAULT_UPDATE_INTERVAL_MS;
+    this.updateIntervalMs =
+      opts.updateIntervalMs ?? DEFAULT_UPDATE_INTERVAL_MS;
     this.minDeltaChars = opts.minDeltaChars ?? DEFAULT_MIN_DELTA_CHARS;
   }
 
@@ -41,8 +42,13 @@ export class StreamingOutboundHook {
       if (!adapter?.sendPlaceholder) continue;
       try {
         const catEntry = catId ? catRegistry.tryGet(catId) : undefined;
-        const prefix = catEntry ? `[${catEntry.config.displayName}🐱] ` : '';
-        const msgId = await adapter.sendPlaceholder(binding.externalChatId, `${prefix}🤔 思考中...`);
+        const prefix = catEntry
+          ? `[${catEntry.config.displayName}🐱] `
+          : '';
+        const msgId = await adapter.sendPlaceholder(
+          binding.externalChatId,
+          `${prefix}🤔 思考中...`,
+        );
         if (msgId) {
           sessions.push({
             connectorId: binding.connectorId,
@@ -53,7 +59,10 @@ export class StreamingOutboundHook {
           });
         }
       } catch (err) {
-        this.opts.log.warn({ err, connectorId: binding.connectorId }, '[StreamingOutbound] sendPlaceholder failed');
+        this.opts.log.warn(
+          { err, connectorId: binding.connectorId },
+          '[StreamingOutbound] sendPlaceholder failed',
+        );
       }
     }
 
@@ -62,7 +71,10 @@ export class StreamingOutboundHook {
     }
   }
 
-  async onStreamChunk(threadId: string, accumulatedText: string): Promise<void> {
+  async onStreamChunk(
+    threadId: string,
+    accumulatedText: string,
+  ): Promise<void> {
     const sessions = this.sessions.get(threadId);
     if (!sessions) return;
     const now = Date.now();
@@ -70,16 +82,24 @@ export class StreamingOutboundHook {
     for (const session of sessions) {
       const elapsed = now - session.lastUpdateAt;
       const delta = accumulatedText.length - session.lastContentLength;
-      if (elapsed < this.updateIntervalMs || delta < this.minDeltaChars) continue;
+      if (elapsed < this.updateIntervalMs || delta < this.minDeltaChars)
+        continue;
 
       const adapter = this.opts.adapters.get(session.connectorId);
       if (!adapter?.editMessage || !session.platformMessageId) continue;
       try {
-        await adapter.editMessage(session.externalChatId, session.platformMessageId, `${accumulatedText} ▌`);
+        await adapter.editMessage(
+          session.externalChatId,
+          session.platformMessageId,
+          `${accumulatedText} ▌`,
+        );
         session.lastUpdateAt = now;
         session.lastContentLength = accumulatedText.length;
       } catch (err) {
-        this.opts.log.warn({ err }, '[StreamingOutbound] editMessage chunk failed');
+        this.opts.log.warn(
+          { err },
+          '[StreamingOutbound] editMessage chunk failed',
+        );
       }
     }
   }
@@ -93,9 +113,16 @@ export class StreamingOutboundHook {
       const adapter = this.opts.adapters.get(session.connectorId);
       if (!adapter?.editMessage || !session.platformMessageId) continue;
       try {
-        await adapter.editMessage(session.externalChatId, session.platformMessageId, finalText);
+        await adapter.editMessage(
+          session.externalChatId,
+          session.platformMessageId,
+          finalText,
+        );
       } catch (err) {
-        this.opts.log.warn({ err }, '[StreamingOutbound] final editMessage failed');
+        this.opts.log.warn(
+          { err },
+          '[StreamingOutbound] final editMessage failed',
+        );
       }
     }
   }

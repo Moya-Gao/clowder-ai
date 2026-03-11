@@ -7,9 +7,9 @@
  * 本测试守住"注册层"，修复前会 Red，修复后 Green。
  */
 
+import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { describe, test } from 'node:test';
 
 const EXPECTED_TOOLS = [
   // Callback tools (chat + task + ack)
@@ -121,7 +121,10 @@ describe('MCP Server Tool Registration', () => {
     const registeredNames = Object.keys(server._registeredTools);
 
     for (const name of EXPECTED_TOOLS) {
-      assert.ok(registeredNames.includes(name), `Tool "${name}" is NOT registered on the MCP server`);
+      assert.ok(
+        registeredNames.includes(name),
+        `Tool "${name}" is NOT registered on the MCP server`,
+      );
     }
   });
 
@@ -164,7 +167,10 @@ describe('MCP Server Tool Registration', () => {
     const sourcePath = new URL('../src/index.ts', import.meta.url);
     const source = readFileSync(sourcePath, 'utf-8');
     const lineCount = source.split('\n').length;
-    assert.ok(lineCount <= 350, `mcp-server/src/index.ts exceeds 350 lines: ${lineCount}`);
+    assert.ok(
+      lineCount <= 350,
+      `mcp-server/src/index.ts exceeds 350 lines: ${lineCount}`,
+    );
   });
 
   test('createCollabServer registers only collab tool surface', async () => {
@@ -172,7 +178,10 @@ describe('MCP Server Tool Registration', () => {
     const server = createCollabServer();
     const registered = Object.keys(server._registeredTools);
 
-    assert.deepEqual([...registered].sort(), [...EXPECTED_COLLAB_TOOLS].sort());
+    assert.deepEqual(
+      [...registered].sort(),
+      [...EXPECTED_COLLAB_TOOLS].sort(),
+    );
   });
 
   test('createMemoryServer registers only memory tool surface', async () => {
@@ -180,7 +189,10 @@ describe('MCP Server Tool Registration', () => {
     const server = createMemoryServer();
     const registered = Object.keys(server._registeredTools);
 
-    assert.deepEqual([...registered].sort(), [...EXPECTED_MEMORY_TOOLS].sort());
+    assert.deepEqual(
+      [...registered].sort(),
+      [...EXPECTED_MEMORY_TOOLS].sort(),
+    );
   });
 
   test('createSignalsServer registers only signals tool surface', async () => {
@@ -188,6 +200,9 @@ describe('MCP Server Tool Registration', () => {
     const server = createSignalsServer();
     const registered = Object.keys(server._registeredTools);
 
-    assert.deepEqual([...registered].sort(), [...EXPECTED_SIGNAL_TOOLS].sort());
+    assert.deepEqual(
+      [...registered].sort(),
+      [...EXPECTED_SIGNAL_TOOLS].sort(),
+    );
   });
 });

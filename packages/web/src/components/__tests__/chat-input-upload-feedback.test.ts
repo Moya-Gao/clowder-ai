@@ -1,6 +1,7 @@
-import React, { act } from 'react';
+import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { ChatInput } from '@/components/ChatInput';
 
 vi.mock('@/components/icons/SendIcon', () => ({

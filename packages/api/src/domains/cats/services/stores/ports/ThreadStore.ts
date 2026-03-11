@@ -6,8 +6,9 @@
  * Phase 3.3 可扩展 Redis 版本。
  */
 
-import type { CatId, ThreadPhase } from '@cat-cafe/shared';
 import { generateThreadId } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
+import type { ThreadPhase } from '@cat-cafe/shared';
 
 /** Default thread ID for the lobby (backwards-compatible single-thread mode) */
 export const DEFAULT_THREAD_ID = 'default';
@@ -121,9 +122,9 @@ export interface VotingStateV1 {
   v: 1;
   question: string;
   options: string[];
-  votes: Record<string, string>; // catId/userId -> option
+  votes: Record<string, string>;  // catId/userId -> option
   anonymous: boolean;
-  deadline: number; // timestamp
+  deadline: number;  // timestamp
   createdBy: string;
   status: 'active' | 'closed';
   /** Phase 2: designated voters (catIds). When set, auto-close when all voted. */
@@ -372,7 +373,11 @@ export class ThreadStore implements IThreadStore {
     if (thread) thread.backlogItemId = backlogItemId;
   }
 
-  setMentionRoutingFeedback(threadId: string, catId: CatId, feedback: ThreadMentionRoutingFeedback): void {
+  setMentionRoutingFeedback(
+    threadId: string,
+    catId: CatId,
+    feedback: ThreadMentionRoutingFeedback,
+  ): void {
     const key = this.mentionRoutingFeedbackKey(threadId, catId);
     const sourceMessage = feedback.sourceMessageId ? { sourceMessageId: feedback.sourceMessageId } : {};
     this.mentionRoutingFeedback.set(key, {
@@ -382,7 +387,10 @@ export class ThreadStore implements IThreadStore {
     });
   }
 
-  consumeMentionRoutingFeedback(threadId: string, catId: CatId): ThreadMentionRoutingFeedback | null {
+  consumeMentionRoutingFeedback(
+    threadId: string,
+    catId: CatId,
+  ): ThreadMentionRoutingFeedback | null {
     const key = this.mentionRoutingFeedbackKey(threadId, catId);
     const feedback = this.mentionRoutingFeedback.get(key);
     if (!feedback) return null;

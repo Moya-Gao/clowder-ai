@@ -14,7 +14,12 @@ interface PathCompletionMenuProps {
   onSelect: (entry: PathEntry) => void;
 }
 
-export function PathCompletionMenu({ entries, selectedIdx, onSelectIdx, onSelect }: PathCompletionMenuProps) {
+export function PathCompletionMenu({
+  entries,
+  selectedIdx,
+  onSelectIdx,
+  onSelect,
+}: PathCompletionMenuProps) {
   if (entries.length === 0) return null;
 
   return (
@@ -38,7 +43,9 @@ export function PathCompletionMenu({ entries, selectedIdx, onSelectIdx, onSelect
             <span className="text-base w-5 text-center shrink-0">
               {entry.isDirectory ? '\uD83D\uDCC1' : '\uD83D\uDCC4'}
             </span>
-            <span className="truncate font-mono text-xs text-gray-700">{entry.name}</span>
+            <span className="truncate font-mono text-xs text-gray-700">
+              {entry.name}
+            </span>
           </button>
         ))}
       </div>

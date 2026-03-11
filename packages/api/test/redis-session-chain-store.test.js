@@ -4,9 +4,12 @@
  * 有 Redis → 测全量；无 Redis → skip
  */
 
+import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { after, before, beforeEach, describe, it } from 'node:test';
-import { assertRedisIsolationOrThrow, cleanupPrefixedRedisKeys } from './helpers/redis-test-helpers.js';
+import {
+  assertRedisIsolationOrThrow,
+  cleanupPrefixedRedisKeys,
+} from './helpers/redis-test-helpers.js';
 
 const REDIS_URL = process.env['REDIS_URL'];
 
@@ -17,7 +20,12 @@ describe('RedisSessionChainStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : fa
   let store;
   let connected = false;
 
-  const SESSION_PATTERNS = ['session:*', 'session-chain:*', 'session-active:*', 'session-cli:*'];
+  const SESSION_PATTERNS = [
+    'session:*',
+    'session-chain:*',
+    'session-active:*',
+    'session-cli:*',
+  ];
 
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisSessionChainStore');

@@ -1,6 +1,6 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { MarkdownContent } from '@/components/MarkdownContent';
 
 Object.assign(globalThis as Record<string, unknown>, { React });

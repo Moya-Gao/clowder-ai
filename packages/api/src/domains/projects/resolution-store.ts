@@ -1,7 +1,11 @@
 /**
  * F076: ResolutionStore — in-memory store for Stage 3 clarification queue
  */
-import type { AnswerResolutionInput, CreateResolutionInput, ResolutionItem } from '@cat-cafe/shared';
+import type {
+  AnswerResolutionInput,
+  CreateResolutionInput,
+  ResolutionItem,
+} from '@cat-cafe/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export class ResolutionStore {
@@ -28,11 +32,15 @@ export class ResolutionStore {
   }
 
   listByProject(projectId: string): ResolutionItem[] {
-    return [...this.items.values()].filter((r) => r.projectId === projectId).sort((a, b) => b.createdAt - a.createdAt);
+    return [...this.items.values()]
+      .filter((r) => r.projectId === projectId)
+      .sort((a, b) => b.createdAt - a.createdAt);
   }
 
   listByCard(cardId: string): ResolutionItem[] {
-    return [...this.items.values()].filter((r) => r.cardId === cardId).sort((a, b) => b.createdAt - a.createdAt);
+    return [...this.items.values()]
+      .filter((r) => r.cardId === cardId)
+      .sort((a, b) => b.createdAt - a.createdAt);
   }
 
   getById(id: string): ResolutionItem | undefined {

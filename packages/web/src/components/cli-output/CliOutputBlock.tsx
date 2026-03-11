@@ -2,7 +2,6 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CliEvent, CliStatus } from '@/stores/chat-types';
-import { MarkdownContent } from '@/components/MarkdownContent';
 
 /* ── Inline SVG icons (Lucide-style, F056 compliant — no emoji) ── */
 
@@ -318,15 +317,9 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
           {/* stdout section — always visible when block is expanded */}
           {textEvents.length > 0 && (
             <>
-              {toolUses.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1 text-[10px] text-gray-600">
-                  <span className="flex-1 border-t border-white/10" />
-                  <span>stdout</span>
-                  <span className="flex-1 border-t border-white/10" />
-                </div>
-              )}
-              <div className="px-3 py-2 text-xs text-gray-300 cli-output-md">
-                <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
+              {toolUses.length > 0 && <div className="border-t border-white/10 mx-3 my-1" />}
+              <div className="px-3 py-2 font-mono text-xs text-gray-400 whitespace-pre-wrap">
+                {textEvents.map((e) => e.content).join('\n')}
               </div>
             </>
           )}

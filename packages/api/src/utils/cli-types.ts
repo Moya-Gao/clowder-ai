@@ -31,7 +31,10 @@ export interface CliSpawnOptions {
  *
  * Returns null to skip the event (e.g., system hooks, turn.started).
  */
-export type CliTransformer = (event: unknown, catId: CatId) => AgentMessage | AgentMessage[] | null;
+export type CliTransformer = (
+  event: unknown,
+  catId: CatId
+) => AgentMessage | AgentMessage[] | null;
 
 /**
  * Interface for child process (for dependency injection in tests)
@@ -41,10 +44,16 @@ export interface ChildProcessLike {
   readonly stderr: Readable | null;
   readonly pid?: number | undefined;
   kill(signal?: NodeJS.Signals): boolean;
-  on(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
+  on(
+    event: 'exit',
+    listener: (code: number | null, signal: NodeJS.Signals | null) => void
+  ): this;
   on(event: 'error', listener: (err: Error) => void): this;
   on(event: string, listener: (...args: unknown[]) => void): this;
-  once(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
+  once(
+    event: 'exit',
+    listener: (code: number | null, signal: NodeJS.Signals | null) => void
+  ): this;
   once(event: 'error', listener: (err: Error) => void): this;
   once(event: string, listener: (...args: unknown[]) => void): this;
 }
@@ -59,5 +68,5 @@ export type SpawnFn = (
     cwd?: string | undefined;
     env?: NodeJS.ProcessEnv | undefined;
     stdio: ['ignore', 'pipe', 'pipe'];
-  },
+  }
 ) => ChildProcessLike;

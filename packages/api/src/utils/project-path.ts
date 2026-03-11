@@ -7,8 +7,9 @@
  */
 
 import { realpath, stat } from 'node:fs/promises';
-import { homedir, platform } from 'node:os';
-import { relative, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { platform } from 'node:os';
+import { resolve, relative } from 'node:path';
 
 /**
  * Allowed root directories for project paths.

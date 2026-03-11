@@ -3,8 +3,8 @@
  * 投票系统 API 测试
  */
 
+import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
 
 /**
  * Minimal Fastify test harness (same pattern as modes routes tests).
@@ -12,7 +12,9 @@ import { describe, test } from 'node:test';
  */
 async function buildApp() {
   const { default: Fastify } = await import('fastify');
-  const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+  const { ThreadStore } = await import(
+    '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+  );
   const { voteRoutes } = await import('../dist/routes/votes.js');
 
   const threadStore = new ThreadStore();

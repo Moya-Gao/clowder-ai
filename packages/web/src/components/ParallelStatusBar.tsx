@@ -1,12 +1,12 @@
 'use client';
 
-import { formatCatName, useCatData } from '@/hooks/useCatData';
-import { useElapsedTime } from '@/hooks/useElapsedTime';
-import { hexToRgba } from '@/lib/color-utils';
-import type { TokenUsage } from '@/stores/chat-types';
-import type { CatInvocationInfo } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
-import { formatCost, formatDuration, formatTokenCount } from './status-helpers';
+import { useElapsedTime } from '@/hooks/useElapsedTime';
+import { useCatData, formatCatName } from '@/hooks/useCatData';
+import { hexToRgba } from '@/lib/color-utils';
+import { formatDuration, formatTokenCount, formatCost } from './status-helpers';
+import type { CatInvocationInfo } from '@/stores/chatStore';
+import type { TokenUsage } from '@/stores/chat-types';
 
 function StatusDot({ status }: { status: string }) {
   switch (status) {
@@ -23,11 +23,7 @@ function StatusDot({ status }: { status: string }) {
   }
 }
 
-function CatStatusCard({
-  catId,
-  status,
-  invocation,
-}: {
+function CatStatusCard({ catId, status, invocation }: {
   catId: string;
   status: string;
   invocation?: { startedAt?: number; durationMs?: number };
@@ -57,22 +53,23 @@ function CatStatusCard({
       <span className="text-xs font-medium" style={{ color: cat?.color.primary ?? '#4b5563' }}>
         {cat ? formatCatName(cat) : catId}
       </span>
-      {timeDisplay && <span className="text-xs text-gray-500 ml-0.5">{timeDisplay}</span>}
+      {timeDisplay && (
+        <span className="text-xs text-gray-500 ml-0.5">{timeDisplay}</span>
+      )}
     </div>
   );
 }
 
 /** Aggregate token usage across cat invocations, optionally filtered to specific cats */
-export function aggregateUsage(
-  invocations: Record<string, CatInvocationInfo>,
-  filterCatIds?: string[],
-): TokenUsage | null {
+export function aggregateUsage(invocations: Record<string, CatInvocationInfo>, filterCatIds?: string[]): TokenUsage | null {
   let inputTokens = 0;
   let outputTokens = 0;
   let costUsd = 0;
   let count = 0;
 
-  const entries = filterCatIds ? filterCatIds.map((id) => invocations[id]).filter(Boolean) : Object.values(invocations);
+  const entries = filterCatIds
+    ? filterCatIds.map((id) => invocations[id]).filter(Boolean)
+    : Object.values(invocations);
 
   for (const inv of entries) {
     const u = inv.usage;
@@ -128,19 +125,13 @@ export function ParallelStatusBar({ onStop }: { onStop?: () => void }) {
       {agg && (
         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500" data-testid="parallel-usage-summary">
           {agg.inputTokens != null && (
-            <span>
-              In: <span className="font-medium text-gray-600">{formatTokenCount(agg.inputTokens)}</span>
-            </span>
+            <span>In: <span className="font-medium text-gray-600">{formatTokenCount(agg.inputTokens)}</span></span>
           )}
           {agg.outputTokens != null && (
-            <span>
-              Out: <span className="font-medium text-gray-600">{formatTokenCount(agg.outputTokens)}</span>
-            </span>
+            <span>Out: <span className="font-medium text-gray-600">{formatTokenCount(agg.outputTokens)}</span></span>
           )}
           {agg.costUsd != null && (
-            <span>
-              Cost: <span className="font-medium text-amber-600">{formatCost(agg.costUsd)}</span>
-            </span>
+            <span>Cost: <span className="font-medium text-amber-600">{formatCost(agg.costUsd)}</span></span>
           )}
         </div>
       )}

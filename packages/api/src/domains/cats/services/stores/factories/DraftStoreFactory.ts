@@ -4,8 +4,8 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import type { IDraftStore } from '../ports/DraftStore.js';
 import { DraftStore } from '../ports/DraftStore.js';
+import type { IDraftStore } from '../ports/DraftStore.js';
 import { RedisDraftStore } from '../redis/RedisDraftStore.js';
 
 function resolveDraftTtlSeconds(): number | undefined {
@@ -22,7 +22,10 @@ function resolveDraftTtlSeconds(): number | undefined {
 export function createDraftStore(redis?: RedisClient): IDraftStore {
   if (redis) {
     const ttlSeconds = resolveDraftTtlSeconds();
-    return new RedisDraftStore(redis, ttlSeconds !== undefined ? { ttlSeconds } : undefined);
+    return new RedisDraftStore(
+      redis,
+      ttlSeconds !== undefined ? { ttlSeconds } : undefined,
+    );
   }
   return new DraftStore();
 }

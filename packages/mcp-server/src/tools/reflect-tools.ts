@@ -15,7 +15,9 @@ export const reflectInputSchema = {
   query: z.string().trim().min(1).describe('Question to reflect on using project knowledge'),
 };
 
-export async function handleReflect(input: { query: string }): Promise<ToolResult> {
+export async function handleReflect(input: {
+  query: string;
+}): Promise<ToolResult> {
   const url = `${API_URL}/api/reflect`;
 
   try {
@@ -38,7 +40,7 @@ export async function handleReflect(input: { query: string }): Promise<ToolResul
 
     if (data.degraded) {
       return successResult(
-        `[DEGRADED] Hindsight unavailable (${data.degradeReason ?? 'unknown'}). Cannot generate reflection.`,
+        `[DEGRADED] Hindsight unavailable (${data.degradeReason ?? 'unknown'}). Cannot generate reflection.`
       );
     }
 

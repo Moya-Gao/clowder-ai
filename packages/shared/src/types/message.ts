@@ -63,7 +63,12 @@ export interface ToolResultContent {
 /**
  * Message content - union of all content types
  */
-export type MessageContent = TextContent | ImageContent | CodeContent | ToolCallContent | ToolResultContent;
+export type MessageContent =
+  | TextContent
+  | ImageContent
+  | CodeContent
+  | ToolCallContent
+  | ToolResultContent;
 
 /**
  * Message status

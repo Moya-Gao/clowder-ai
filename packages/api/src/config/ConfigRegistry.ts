@@ -6,13 +6,13 @@
  * 安全：Redis URL 不暴露，只显示连接状态。
  */
 
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
-import { getAllCatBudgets } from './cat-budgets.js';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import { getCatModel } from './cat-models.js';
+import { getAllCatBudgets } from './cat-budgets.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from './codex-cli.js';
-import type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
 import { parseHindsightRuntimeConfig } from './hindsight-runtime-config.js';
 import { parseBoolean, parseEnum, parseIntInRange } from './parse-utils.js';
+import type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
 
 export type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
 
@@ -51,8 +51,12 @@ export function collectConfigSnapshot(): ConfigSnapshot {
 
   // CLI (from cli-spawn.ts defaults, configurable via CLI_TIMEOUT_MS, 0 = disable)
   const rawCliTimeout = env['CLI_TIMEOUT_MS'];
-  const parsedCliTimeout = rawCliTimeout != null && rawCliTimeout.trim() !== '' ? Number(rawCliTimeout) : NaN;
-  const timeoutMs = Number.isFinite(parsedCliTimeout) && parsedCliTimeout >= 0 ? parsedCliTimeout : 1_800_000;
+  const parsedCliTimeout = rawCliTimeout != null && rawCliTimeout.trim() !== ''
+    ? Number(rawCliTimeout)
+    : NaN;
+  const timeoutMs = Number.isFinite(parsedCliTimeout) && parsedCliTimeout >= 0
+    ? parsedCliTimeout
+    : 1_800_000;
   const killGraceMs = 3_000;
   const codexSandboxMode = getCodexSandboxMode(env);
   const codexApprovalPolicy = getCodexApprovalPolicy(env);
@@ -75,7 +79,9 @@ export function collectConfigSnapshot(): ConfigSnapshot {
 
   // Cats (with env override support) — prefer registry, fallback to CAT_CONFIGS
   const cats: ConfigSnapshot['cats'] = {};
-  const allConfigs = catRegistry.getAllIds().length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
+  const allConfigs = catRegistry.getAllIds().length > 0
+    ? catRegistry.getAllConfigs()
+    : CAT_CONFIGS;
   for (const [id, config] of Object.entries(allConfigs)) {
     cats[id] = {
       displayName: config.displayName,
@@ -131,11 +137,7 @@ export function collectConfigSnapshot(): ConfigSnapshot {
       reflect: hindsightRuntime.reflect,
       freshnessGuard: hindsightRuntime.freshnessGuard,
       engine: {
-        reflect: parseEnum<HindsightEngine>(
-          env['HINDSIGHT_ENGINE_REFLECT'],
-          ['codex_oauth', 'hindsight_native'],
-          'codex_oauth',
-        ),
+        reflect: parseEnum<HindsightEngine>(env['HINDSIGHT_ENGINE_REFLECT'], ['codex_oauth', 'hindsight_native'], 'codex_oauth'),
         retainExtraction: parseEnum<HindsightEngine>(
           env['HINDSIGHT_ENGINE_RETAIN_EXTRACTION'],
           ['codex_oauth', 'hindsight_native'],

@@ -3,12 +3,11 @@
  *
  * GET /api/workspace/worktrees?repoRoot=  — list worktrees for a specific repo
  */
-
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { after, before, describe, it } from 'node:test';
+import { execFileSync } from 'node:child_process';
 import Fastify from 'fastify';
 
 // Both repos share basename "myproject" to test worktreeId collision

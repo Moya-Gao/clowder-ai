@@ -28,7 +28,10 @@ export class RedisTaskProgressStore implements TaskProgressStore {
     }
   }
 
-  async setSnapshot(snapshot: TaskProgressSnapshot, options?: { ttlSeconds?: number }): Promise<void> {
+  async setSnapshot(
+    snapshot: TaskProgressSnapshot,
+    options?: { ttlSeconds?: number },
+  ): Promise<void> {
     const key = threadKey(snapshot.threadId);
     await this.redis.hset(key, snapshot.catId, JSON.stringify(snapshot));
     const ttl = options?.ttlSeconds ?? this.defaultTtlSeconds;

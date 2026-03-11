@@ -45,9 +45,7 @@ function simulateBackgroundMessage(msg: {
     bgStreamRefs: testBgStreamRefs,
     nextBgSeq: () => testBgSeq++,
     addToast: (toast) => useToastStore.getState().addToast(toast),
-    clearDoneTimeout: (threadId) => {
-      clearDoneTimeoutCalls.push(threadId);
-    },
+    clearDoneTimeout: (threadId) => { clearDoneTimeoutCalls.push(threadId); },
   });
 }
 

@@ -69,15 +69,24 @@
     "duplicateFeatureIds": [
       {
         "featureId": "F055",
-        "files": ["F055-a2a-mcp-structured-routing.md", "F055-plan-board.md"]
+        "files": [
+          "F055-a2a-mcp-structured-routing.md",
+          "F055-plan-board.md"
+        ]
       },
       {
         "featureId": "F061",
-        "files": ["F061-antigravity-bengal-cat.md", "F061-cdp-integration-retrospective.md"]
+        "files": [
+          "F061-antigravity-bengal-cat.md",
+          "F061-cdp-integration-retrospective.md"
+        ]
       },
       {
         "featureId": "F081",
-        "files": ["F081-bubble-continuity-observability.md", "F081-write-path-audit.md"]
+        "files": [
+          "F081-bubble-continuity-observability.md",
+          "F081-write-path-audit.md"
+        ]
       }
     ]
   },

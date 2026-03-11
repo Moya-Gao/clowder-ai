@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from '@/components/chat-input-upload-state';
+import { describe, it, expect } from 'vitest';
+import {
+  deriveImageLifecycleStatus,
+  isImageLifecycleBlockingSend,
+} from '@/components/chat-input-upload-state';
 
 describe('chat-input upload lifecycle state', () => {
   it('prioritizes preparing over uploadStatus from hook', () => {

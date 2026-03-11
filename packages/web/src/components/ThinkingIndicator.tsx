@@ -1,7 +1,7 @@
 'use client';
 
-import { useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
+import { useCatData } from '@/hooks/useCatData';
 
 /**
  * Single-cat thinking indicator.
@@ -26,8 +26,7 @@ export function ThinkingIndicator() {
       <div className="flex items-center gap-2">
         <span className="text-sm animate-pulse">🐾</span>
         <span className="text-sm text-gray-500">
-          {name}
-          {status === 'streaming' ? '回复中...' : '思考中...'}
+          {name}{status === 'streaming' ? '回复中...' : '思考中...'}
         </span>
       </div>
     </div>

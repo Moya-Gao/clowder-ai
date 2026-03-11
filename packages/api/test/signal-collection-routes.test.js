@@ -5,10 +5,10 @@
  * to verify that sync failures don't leave collection in dirty state.
  */
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import { tmpdir } from 'node:os';
 import Fastify from 'fastify';
 
 const { signalCollectionRoutes } = await import('../dist/routes/signal-collection-routes.js');
@@ -41,19 +41,21 @@ describe('Collection routes atomicity (real Fastify inject)', () => {
 
     // Patch getArticleById to return a fake article so syncStudyMetaCollections
     // actually reaches addCollection (otherwise it short-circuits on null).
-    SignalArticleQueryService.prototype.getArticleById = async (id) => ({
-      id,
-      url: 'https://example.com',
-      title: 'Fake Article',
-      source: 'test',
-      tier: 3,
-      publishedAt: new Date().toISOString(),
-      fetchedAt: new Date().toISOString(),
-      status: 'inbox',
-      tags: [],
-      filePath: join(tmpDir, 'library', `${id}.md`),
-      content: '# Fake',
-    });
+    SignalArticleQueryService.prototype.getArticleById = async function (id) {
+      return {
+        id,
+        url: 'https://example.com',
+        title: 'Fake Article',
+        source: 'test',
+        tier: 3,
+        publishedAt: new Date().toISOString(),
+        fetchedAt: new Date().toISOString(),
+        status: 'inbox',
+        tags: [],
+        filePath: join(tmpDir, 'library', `${id}.md`),
+        content: '# Fake',
+      };
+    };
 
     app = Fastify();
     await app.register(signalCollectionRoutes);
@@ -71,7 +73,7 @@ describe('Collection routes atomicity (real Fastify inject)', () => {
 
   it('POST with articleIds: sync failure leaves collection with empty articleIds', async () => {
     // Monkey-patch addCollection to throw
-    StudyMetaService.prototype.addCollection = async () => {
+    StudyMetaService.prototype.addCollection = async function () {
       throw new Error('simulated disk failure');
     };
 
@@ -135,7 +137,7 @@ describe('Collection routes atomicity (real Fastify inject)', () => {
     const colId = createRes.json().collection.id;
 
     // Now patch: add articleIds but make sync fail
-    StudyMetaService.prototype.addCollection = async () => {
+    StudyMetaService.prototype.addCollection = async function () {
       throw new Error('simulated permission error');
     };
 

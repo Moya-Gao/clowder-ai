@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useVoiceSessionStore } from '../voiceSessionStore';
 
 beforeEach(() => {

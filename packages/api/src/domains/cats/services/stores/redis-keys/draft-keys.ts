@@ -7,8 +7,10 @@
 
 export const DraftKeys = {
   /** Hash with draft details: draft:{userId}:{threadId}:{invocationId} */
-  detail: (userId: string, threadId: string, invocationId: string) => `draft:${userId}:${threadId}:${invocationId}`,
+  detail: (userId: string, threadId: string, invocationId: string) =>
+    `draft:${userId}:${threadId}:${invocationId}`,
 
   /** Per-user+thread draft index set: drafts:idx:{userId}:{threadId} */
-  index: (userId: string, threadId: string) => `drafts:idx:${userId}:${threadId}`,
+  index: (userId: string, threadId: string) =>
+    `drafts:idx:${userId}:${threadId}`,
 } as const;

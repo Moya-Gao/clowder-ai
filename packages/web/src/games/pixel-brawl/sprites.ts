@@ -5,7 +5,10 @@ export interface SpriteConfig {
   path: string;
   frameWidth: number;
   frameHeight: number;
-  animations: Record<string, { start: number; end: number; frameRate: number; repeat: number }>;
+  animations: Record<
+    string,
+    { start: number; end: number; frameRate: number; repeat: number }
+  >;
 }
 
 /**

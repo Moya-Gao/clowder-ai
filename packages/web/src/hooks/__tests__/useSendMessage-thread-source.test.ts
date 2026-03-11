@@ -1,6 +1,7 @@
-import React, { act, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 
 const mockApiFetch = vi.fn();
 const mockAddMessage = vi.fn();
@@ -177,9 +178,8 @@ describe('useSendMessage thread source', () => {
       );
     });
 
-    const systemCall = mockAddMessageToThread.mock.calls.find(
-      ([, msg]) =>
-        typeof msg === 'object' && msg !== null && 'type' in msg && (msg as { type?: string }).type === 'system',
+    const systemCall = mockAddMessageToThread.mock.calls.find(([, msg]) =>
+      typeof msg === 'object' && msg !== null && 'type' in msg && (msg as { type?: string }).type === 'system',
     );
     expect(systemCall?.[0]).toBe('thread-target');
     expect(systemCall?.[1]).toMatchObject({
@@ -269,7 +269,9 @@ describe('useSendMessage thread source', () => {
       });
 
       const payload = JSON.parse(String(mockApiFetch.mock.calls[0]?.[1]?.body));
-      expect(payload.idempotencyKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(payload.idempotencyKey).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
     } finally {
       Object.defineProperty(globalThis, 'crypto', {
         configurable: true,
@@ -294,9 +296,8 @@ describe('useSendMessage thread source', () => {
       );
     });
 
-    const optimisticUserCall = mockAddMessageToThread.mock.calls.find(
-      ([, msg]) =>
-        typeof msg === 'object' && msg !== null && 'type' in msg && (msg as { type?: string }).type === 'user',
+    const optimisticUserCall = mockAddMessageToThread.mock.calls.find(([, msg]) =>
+      typeof msg === 'object' && msg !== null && 'type' in msg && (msg as { type?: string }).type === 'user',
     );
     const optimisticMessage = optimisticUserCall?.[1] as { id: string };
     expect(optimisticUserCall?.[0]).toBe('thread-target');

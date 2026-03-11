@@ -1,7 +1,8 @@
-import type { SignalArticleStatus } from '@cat-cafe/shared';
-import React, { act } from 'react';
+import React from 'react';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SignalArticleStatus } from '@cat-cafe/shared';
 import { SignalArticleDetail } from '@/components/signals/SignalArticleDetail';
 
 describe('SignalArticleDetail', () => {
@@ -30,12 +31,11 @@ describe('SignalArticleDetail', () => {
   });
 
   it('renders original link + discuss entry + markdown + tag editing', async () => {
-    const onStatusChange = vi
-      .fn<(articleId: string, status: SignalArticleStatus) => Promise<void>>()
-      .mockResolvedValue(undefined);
-    const onTagsChange = vi
-      .fn<(articleId: string, tags: readonly string[]) => Promise<void>>()
-      .mockResolvedValue(undefined);
+    const onStatusChange = vi.fn<(
+      articleId: string,
+      status: SignalArticleStatus,
+    ) => Promise<void>>().mockResolvedValue(undefined);
+    const onTagsChange = vi.fn<(articleId: string, tags: readonly string[]) => Promise<void>>().mockResolvedValue(undefined);
 
     await act(async () => {
       root.render(
@@ -71,9 +71,7 @@ describe('SignalArticleDetail', () => {
     const strongText = container.querySelector('strong');
     expect(strongText?.textContent).toContain('重点内容');
 
-    const tagBadge = Array.from(container.querySelectorAll('span')).find((item) =>
-      item.textContent?.includes('existing'),
-    );
+    const tagBadge = Array.from(container.querySelectorAll('span')).find((item) => item.textContent?.includes('existing'));
     expect(tagBadge).toBeTruthy();
 
     const tagInput = container.querySelector('input[placeholder="添加标签"]') as HTMLInputElement | null;
@@ -85,9 +83,7 @@ describe('SignalArticleDetail', () => {
     tagInput.dispatchEvent(new Event('input', { bubbles: true }));
     tagInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-    const addButton = Array.from(container.querySelectorAll('button')).find((item) =>
-      item.textContent?.includes('添加标签'),
-    );
+    const addButton = Array.from(container.querySelectorAll('button')).find((item) => item.textContent?.includes('添加标签'));
     expect(addButton).not.toBeNull();
     if (!addButton) {
       return;
@@ -101,12 +97,11 @@ describe('SignalArticleDetail', () => {
   });
 
   it('does not add tag on Enter during IME composition', async () => {
-    const onStatusChange = vi
-      .fn<(articleId: string, status: SignalArticleStatus) => Promise<void>>()
-      .mockResolvedValue(undefined);
-    const onTagsChange = vi
-      .fn<(articleId: string, tags: readonly string[]) => Promise<void>>()
-      .mockResolvedValue(undefined);
+    const onStatusChange = vi.fn<(
+      articleId: string,
+      status: SignalArticleStatus,
+    ) => Promise<void>>().mockResolvedValue(undefined);
+    const onTagsChange = vi.fn<(articleId: string, tags: readonly string[]) => Promise<void>>().mockResolvedValue(undefined);
 
     await act(async () => {
       root.render(

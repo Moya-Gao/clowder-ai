@@ -9,16 +9,16 @@
  * R2 fixes: text accumulation for @mode:, auto-end broadcast, thread permission
  */
 
-import type { ModeConfig, ModeName } from '@cat-cafe/shared';
+import type { ModeName, ModeConfig } from '@cat-cafe/shared';
 import { isBrainstormConfig, isDebateConfig } from '@cat-cafe/shared';
+import type { IModeStore } from '../stores/ports/ModeStore.js';
+import { createInitialState } from '../stores/ports/ModeStore.js';
+import type { AgentMessage } from '../types.js';
+import type { ModeHandler, ModeExecutionContext } from '../modes/mode-types.js';
 import type { SocketManager } from '../../../../infrastructure/websocket/index.js';
 import { BrainstormMode } from '../modes/BrainstormMode.js';
 import { DebateMode } from '../modes/DebateMode.js';
 import { DevLoopMode } from '../modes/DevLoopMode.js';
-import type { ModeExecutionContext, ModeHandler } from '../modes/mode-types.js';
-import type { IModeStore } from '../stores/ports/ModeStore.js';
-import { createInitialState } from '../stores/ports/ModeStore.js';
-import type { AgentMessage } from '../types.js';
 
 const VALID_MODE_NAMES: ReadonlySet<string> = new Set<ModeName>(['brainstorm', 'debate', 'dev-loop']);
 
@@ -26,7 +26,10 @@ const VALID_MODE_NAMES: ReadonlySet<string> = new Set<ModeName>(['brainstorm', '
  * Try to derive config for the proposed mode from the current mode's config.
  * Returns null if auto-derivation is not possible (e.g., → dev-loop needs requirement).
  */
-function deriveAutoSwitchConfig(currentConfig: ModeConfig, proposedMode: string): ModeConfig | null {
+function deriveAutoSwitchConfig(
+  currentConfig: ModeConfig,
+  proposedMode: string,
+): ModeConfig | null {
   if (proposedMode === 'debate' && isBrainstormConfig(currentConfig)) {
     if (currentConfig.participants.length >= 2) {
       return {
@@ -161,7 +164,9 @@ export class ModeOrchestrator {
               await this.modeStore.endMode(ctx.threadId, `auto-switch to ${proposedMode}`);
             }
             const initialState = createInitialState(proposedMode as ModeName);
-            await this.modeStore.startMode(ctx.threadId, proposedMode as ModeName, newConfig, catId, initialState);
+            await this.modeStore.startMode(
+              ctx.threadId, proposedMode as ModeName, newConfig, catId, initialState,
+            );
             // Broadcast with action:'started' + full mode object (frontend contract)
             const newMode = await this.modeStore.getMode(ctx.threadId);
             this.socketManager?.broadcastToRoom(`thread:${ctx.threadId}`, 'mode_changed', {

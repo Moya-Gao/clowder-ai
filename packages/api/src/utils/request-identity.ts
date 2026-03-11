@@ -24,7 +24,10 @@ function nonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOptions): string | null {
+export function resolveUserId(
+  request: FastifyRequest,
+  options?: ResolveUserIdOptions,
+): string | null {
   const fromHeader = nonEmptyString(request.headers['x-cat-cafe-user']);
   if (fromHeader) return fromHeader;
 

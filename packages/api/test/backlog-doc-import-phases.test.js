@@ -1,5 +1,5 @@
-import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
 const { parseFeatureDocPhases, parseFeatureDocRisks } = await import('../dist/routes/backlog-doc-import.js');
 

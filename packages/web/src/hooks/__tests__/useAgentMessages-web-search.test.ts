@@ -134,8 +134,9 @@ describe('useAgentMessages system_info web_search', () => {
     );
 
     const systemJsonCalls = mockAddMessage.mock.calls.filter(
-      (call) => call[0]?.type === 'system' && String(call[0]?.content).includes('"web_search"'),
+      (call) => call[0]?.type === 'system' && String(call[0]?.content).includes('\"web_search\"'),
     );
     expect(systemJsonCalls).toHaveLength(0);
   });
 });
+

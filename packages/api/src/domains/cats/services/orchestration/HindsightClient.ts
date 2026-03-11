@@ -116,7 +116,9 @@ export class HindsightClient implements IHindsightClient {
     } catch (err) {
       const msg = (err as Error).message ?? String(err);
       const lower = msg.toLowerCase();
-      const code = lower.includes('timeout') || lower.includes('aborted') ? 'TIMEOUT' : 'CONNECTION_FAILED';
+      const code = lower.includes('timeout') || lower.includes('aborted')
+        ? 'TIMEOUT'
+        : 'CONNECTION_FAILED';
       throw new HindsightError(code, `Cannot reach Hindsight at ${this.baseUrl}: ${msg}`);
     }
 
@@ -156,13 +158,22 @@ export class HindsightClient implements IHindsightClient {
     } catch (err) {
       const msg = (err as Error).message ?? String(err);
       const lower = msg.toLowerCase();
-      const code = lower.includes('timeout') || lower.includes('aborted') ? 'TIMEOUT' : 'CONNECTION_FAILED';
-      throw new HindsightError(code, `Cannot reach Hindsight at ${this.baseUrl}: ${msg}`);
+      const code = lower.includes('timeout') || lower.includes('aborted')
+        ? 'TIMEOUT'
+        : 'CONNECTION_FAILED';
+      throw new HindsightError(
+        code,
+        `Cannot reach Hindsight at ${this.baseUrl}: ${msg}`,
+      );
     }
 
     if (!res.ok) {
       const text = await this.readBodyAsText(res);
-      throw new HindsightError('API_ERROR', `Hindsight ${path} returned ${res.status}: ${text}`, res.status);
+      throw new HindsightError(
+        'API_ERROR',
+        `Hindsight ${path} returned ${res.status}: ${text}`,
+        res.status,
+      );
     }
 
     if (res.status === 204) return {};
@@ -176,7 +187,11 @@ export class HindsightClient implements IHindsightClient {
       if (typeof (res as { json?: () => Promise<unknown> }).json === 'function') {
         return (await (res as { json: () => Promise<Record<string, unknown>> }).json()) ?? {};
       }
-      throw new HindsightError('INVALID_RESPONSE', `Hindsight ${path} returned non-JSON response`, res.status);
+      throw new HindsightError(
+        'INVALID_RESPONSE',
+        `Hindsight ${path} returned non-JSON response`,
+        res.status,
+      );
     }
   }
 

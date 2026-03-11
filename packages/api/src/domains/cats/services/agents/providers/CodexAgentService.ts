@@ -15,26 +15,35 @@
  *   turn.started / turn.completed / 其余 item 事件 → 跳过
  */
 
+import { createCatId, type CatId } from '@cat-cafe/shared';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type CatId, createCatId } from '@cat-cafe/shared';
+import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
+import { formatCliExitError } from '../../../../../utils/cli-format.js';
+import type { SpawnFn } from '../../../../../utils/cli-types.js';
+import { extractImagePaths } from '../providers/image-paths.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
-import { formatCliExitError } from '../../../../../utils/cli-format.js';
-import { isCliError, isCliTimeout, spawnCli } from '../../../../../utils/cli-spawn.js';
-import type { SpawnFn } from '../../../../../utils/cli-types.js';
-import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
+import { getEventAuditLog, AuditEventTypes } from '../../orchestration/EventAuditLog.js';
 import { CliRawArchive } from '../../session/CliRawArchive.js';
-import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
-import type { AuditLogSink, RawArchiveSink } from '../providers/codex-audit-hooks.js';
-import { extractCommandExecutionLifecycle, sanitizeRawEvent } from '../providers/codex-audit-hooks.js';
-import { type CodexStreamState, transformCodexEvent } from '../providers/codex-event-transform.js';
+import { transformCodexEvent, type CodexStreamState } from '../providers/codex-event-transform.js';
 import {
-  type CodexSessionContextSnapshotResolver,
   createCodexSessionContextSnapshotResolver,
+  type CodexSessionContextSnapshotResolver,
 } from '../providers/codex-session-context-snapshot.js';
-import { extractImagePaths } from '../providers/image-paths.js';
+import {
+  extractCommandExecutionLifecycle,
+  sanitizeRawEvent,
+} from '../providers/codex-audit-hooks.js';
+import type { AuditLogSink, RawArchiveSink } from '../providers/codex-audit-hooks.js';
+import type {
+  AgentMessage,
+  AgentService,
+  AgentServiceOptions,
+  MessageMetadata,
+  TokenUsage,
+} from '../../types.js';
 
 /**
  * Options for constructing CodexAgentService (dependency injection)
@@ -81,7 +90,10 @@ function applyAuthMode(env: Record<string, string>): Record<string, string | nul
 const MAX_RECENT_STREAM_ERRORS = 5;
 const MAX_STREAM_ERROR_LENGTH = 240;
 
-function collectCodexStreamError(event: unknown, recentErrors: string[]): void {
+function collectCodexStreamError(
+  event: unknown,
+  recentErrors: string[],
+): void {
   if (typeof event !== 'object' || event === null) return;
   const record = event as Record<string, unknown>;
   if (record['type'] !== 'error') return;
@@ -135,7 +147,10 @@ function toTomlString(value: string): string {
  * Ensure Codex subprocess always receives cat-cafe MCP server config
  * based on the current thread working directory.
  */
-function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
+function buildCatCafeMcpConfigArgs(
+  workingDirectory?: string,
+  callbackEnv?: Record<string, string>,
+): string[] {
   const candidateRoots: string[] = [];
   if (workingDirectory) candidateRoots.push(workingDirectory);
   candidateRoots.push(process.cwd());
@@ -201,9 +216,14 @@ export class CodexAgentService implements AgentService {
     this.contextSnapshotResolver = options?.contextSnapshotResolver ?? createCodexSessionContextSnapshotResolver();
   }
 
-  async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
+  async *invoke(
+    prompt: string,
+    options?: AgentServiceOptions
+  ): AsyncIterable<AgentMessage> {
     // Codex CLI has no system prompt flag; prepend identity to prompt text
-    const effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
+    let effectivePrompt = options?.systemPrompt
+      ? `${options.systemPrompt}\n\n${prompt}`
+      : prompt;
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     const imageArgs = imagePaths.flatMap((path) => ['--image', path]);
 
@@ -221,29 +241,13 @@ export class CodexAgentService implements AgentService {
 
     const args: string[] = options?.sessionId
       ? [
-          'exec',
-          'resume',
-          options.sessionId,
-          '--json',
-          ...modelArgs,
-          ...approvalArgs,
-          ...catCafeMcpArgs,
-          ...imageArgs,
-          ...promptArgs,
-        ]
+        'exec', 'resume', options.sessionId, '--json',
+        ...modelArgs, ...approvalArgs, ...catCafeMcpArgs, ...imageArgs, ...promptArgs,
+      ]
       : [
-          'exec',
-          '--json',
-          ...modelArgs,
-          '--sandbox',
-          sandboxMode,
-          '--add-dir',
-          '.git',
-          ...approvalArgs,
-          ...catCafeMcpArgs,
-          ...imageArgs,
-          ...promptArgs,
-        ];
+        'exec', '--json', ...modelArgs, '--sandbox', sandboxMode, '--add-dir', '.git',
+        ...approvalArgs, ...catCafeMcpArgs, ...imageArgs, ...promptArgs,
+      ];
 
     const metadata: MessageMetadata = { provider: 'openai', model: this.model };
     const auditContext = options?.auditContext;
@@ -258,7 +262,9 @@ export class CodexAgentService implements AgentService {
       const cliOpts = {
         command: 'codex' as const,
         args,
-        ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
+        ...(options?.workingDirectory
+          ? { cwd: options.workingDirectory }
+          : {}),
         env: codexEnv,
         ...(options?.signal ? { signal: options.signal } : {}),
       };
@@ -327,30 +333,29 @@ export class CodexAgentService implements AgentService {
         if (auditContext) {
           const lifecycle = extractCommandExecutionLifecycle(event);
           if (lifecycle) {
-            const type =
-              lifecycle.phase === 'started' ? AuditEventTypes.CLI_TOOL_STARTED : AuditEventTypes.CLI_TOOL_COMPLETED;
+            const type = lifecycle.phase === 'started'
+              ? AuditEventTypes.CLI_TOOL_STARTED
+              : AuditEventTypes.CLI_TOOL_COMPLETED;
 
-            this.auditLog
-              .append({
-                type,
+            this.auditLog.append({
+              type,
+              threadId: auditContext.threadId,
+              data: {
+                invocationId: auditContext.invocationId,
+                userId: auditContext.userId,
+                catId: auditContext.catId,
+                tool: 'command_execution',
+                command: lifecycle.command,
+                ...(lifecycle.status ? { status: lifecycle.status } : {}),
+                ...(lifecycle.exitCode !== undefined ? { exitCode: lifecycle.exitCode } : {}),
+              },
+            }).catch((err) => {
+              console.warn('[audit] Codex CLI tool lifecycle write failed', {
                 threadId: auditContext.threadId,
-                data: {
-                  invocationId: auditContext.invocationId,
-                  userId: auditContext.userId,
-                  catId: auditContext.catId,
-                  tool: 'command_execution',
-                  command: lifecycle.command,
-                  ...(lifecycle.status ? { status: lifecycle.status } : {}),
-                  ...(lifecycle.exitCode !== undefined ? { exitCode: lifecycle.exitCode } : {}),
-                },
-              })
-              .catch((err) => {
-                console.warn('[audit] Codex CLI tool lifecycle write failed', {
-                  threadId: auditContext.threadId,
-                  invocationId: auditContext.invocationId,
-                  err,
-                });
+                invocationId: auditContext.invocationId,
+                err,
               });
+            });
           }
         }
 

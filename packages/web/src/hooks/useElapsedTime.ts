@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * Hook to track elapsed time from a start timestamp.

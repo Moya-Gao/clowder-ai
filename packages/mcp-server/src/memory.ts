@@ -1,16 +1,15 @@
 #!/usr/bin/env node
-
 /**
  * Cat Café MCP Server — Memory Surface
  * 只暴露记忆与回溯工具（evidence/reflect/session chain）。
  */
 
-import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { registerMemoryToolset } from './server-toolsets.js';
 import { initCatCafeDir } from './utils/path-validator.js';
+import { registerMemoryToolset } from './server-toolsets.js';
 
 function createBaseServer(name: string): McpServer {
   return new McpServer({
@@ -34,7 +33,8 @@ async function main(): Promise<void> {
   console.error('[cat-cafe-memory] MCP Server running on stdio');
 }
 
-const isEntryPoint = process.argv[1] && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
+const isEntryPoint = process.argv[1]
+  && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
 if (isEntryPoint) {
   main().catch((err) => {
     console.error('[cat-cafe-memory] Fatal error:', err);

@@ -228,9 +228,7 @@ describe('ConnectorRouter', () => {
       // Replace adapter with one that has sendFormattedReply
       const envelopeCalls = [];
       const formattedAdapter = {
-        async sendReply() {
-          throw new Error('should not be called');
-        },
+        async sendReply() { throw new Error('should not be called'); },
         async sendFormattedReply(externalChatId, envelope) {
           envelopeCalls.push({ externalChatId, envelope });
         },

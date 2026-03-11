@@ -1,16 +1,11 @@
-import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { createHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
+import { buildImportItemsFromMarkdown, buildP0RetainOptions, collectP0ImportSources, readGitHeadCommit } from '../domains/cats/services/hindsight-import/p0-importer.js';
 import { assertUniqueP0DocumentIds } from '../domains/cats/services/hindsight-import/p0-contract.js';
-import {
-  buildImportItemsFromMarkdown,
-  buildP0RetainOptions,
-  collectP0ImportSources,
-  readGitHeadCommit,
-} from '../domains/cats/services/hindsight-import/p0-importer.js';
 import { writeP0SyncWatermark } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
-import { createHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
 
 interface CliArgs {
   dryRun: boolean;
@@ -35,7 +30,8 @@ function parseArgs(argv: string[]): CliArgs {
     else if (arg === '--source') {
       const value = argv[i + 1];
       if (value) args.source = value;
-    } else if (arg === '--author') args.author = argv[i + 1] ?? args.author;
+    }
+    else if (arg === '--author') args.author = argv[i + 1] ?? args.author;
     else if (arg === '--bank') args.bank = argv[i + 1] ?? args.bank;
 
     if (arg === '--source' || arg === '--author' || arg === '--bank') i += 1;
@@ -140,9 +136,7 @@ async function main(): Promise<void> {
         sourcePaths: discussionSources,
       },
     });
-    console.log(
-      `[audit] discussion exceptions imported: sources=${discussionSources.length} chunks=${discussionChunkCount}`,
-    );
+    console.log(`[audit] discussion exceptions imported: sources=${discussionSources.length} chunks=${discussionChunkCount}`);
   }
 
   console.log(`[done] sources=${sourcePaths.length} chunks=${totalItems} dryRun=${args.dryRun}`);

@@ -19,7 +19,7 @@ const DEFAULT_FILE_CACHE_MAX = 100;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
+    ? value as Record<string, unknown>
     : null;
 }
 
@@ -40,7 +40,9 @@ export interface CodexSessionContextSnapshot {
   totalOutputTokens?: number;
 }
 
-export type CodexSessionContextSnapshotResolver = (sessionId: string) => Promise<CodexSessionContextSnapshot | null>;
+export type CodexSessionContextSnapshotResolver = (
+  sessionId: string,
+) => Promise<CodexSessionContextSnapshot | null>;
 
 interface CandidateSnapshot {
   snapshot: CodexSessionContextSnapshot;
@@ -117,8 +119,7 @@ interface ResolverOptions {
 export function createCodexSessionContextSnapshotResolver(
   options?: ResolverOptions,
 ): CodexSessionContextSnapshotResolver {
-  const sessionsRoot =
-    options?.sessionsRoot ?? join(process.env['CODEX_HOME'] ?? join(homedir(), '.codex'), 'sessions');
+  const sessionsRoot = options?.sessionsRoot ?? join(process.env['CODEX_HOME'] ?? join(homedir(), '.codex'), 'sessions');
   const tailBytes = options?.tailBytes ?? DEFAULT_TAIL_BYTES;
   const maxCacheEntries = Math.max(1, options?.maxCacheEntries ?? DEFAULT_FILE_CACHE_MAX);
   const fileCache = options?.fileCache ?? new Map<string, string>();

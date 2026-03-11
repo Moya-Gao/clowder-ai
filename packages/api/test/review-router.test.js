@@ -1,10 +1,9 @@
 // @ts-check
-
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
-import { beforeEach, describe, it } from 'node:test';
-import { MemoryProcessedEmailStore } from '../dist/infrastructure/email/ProcessedEmailStore.js';
-import { MemoryPrTrackingStore } from '../dist/infrastructure/email/PrTrackingStore.js';
 import { ReviewRouter } from '../dist/infrastructure/email/ReviewRouter.js';
+import { MemoryPrTrackingStore } from '../dist/infrastructure/email/PrTrackingStore.js';
+import { MemoryProcessedEmailStore } from '../dist/infrastructure/email/ProcessedEmailStore.js';
 
 // ─── Lightweight mocks ─────────────────────────────────────────────
 
@@ -28,28 +27,18 @@ function mockThreadStore() {
       threads.set(thread.id, thread);
       return thread;
     },
-    get(id) {
-      return threads.get(id) ?? null;
-    },
-    list() {
-      return [];
-    },
-    listByProject() {
-      return [];
-    },
+    get(id) { return threads.get(id) ?? null; },
+    list() { return []; },
+    listByProject() { return []; },
     addParticipants() {},
-    getParticipants() {
-      return [];
-    },
+    getParticipants() { return []; },
     updateTitle() {},
     updatePin() {},
     updateFavorite() {},
     updateThinkingMode() {},
     updatePreferredCats() {},
     updateLastActive() {},
-    delete() {
-      return false;
-    },
+    delete() { return false; },
   };
 }
 
@@ -91,15 +80,7 @@ function mockSocketManager() {
 
 function noopLog() {
   const noop = () => {};
-  return /** @type {any} */ ({
-    info: noop,
-    warn: noop,
-    error: noop,
-    debug: noop,
-    trace: noop,
-    fatal: noop,
-    child: () => noopLog(),
-  });
+  return /** @type {any} */ ({ info: noop, warn: noop, error: noop, debug: noop, trace: noop, fatal: noop, child: () => noopLog() });
 }
 
 // ─── Helper to create review events ────────────────────────────────
@@ -265,13 +246,11 @@ describe('ReviewRouter', () => {
     it('triages when no tracking and no cat tag', async () => {
       const router = createRouter();
 
-      const result = await router.route(
-        makeEvent({
-          catTag: undefined,
-          catId: '',
-          title: 'Some PR without cat tag (#42)',
-        }),
-      );
+      const result = await router.route(makeEvent({
+        catTag: undefined,
+        catId: '',
+        title: 'Some PR without cat tag (#42)',
+      }));
 
       assert.strictEqual(result.kind, 'triage');
       if (result.kind === 'triage') {
@@ -286,12 +265,10 @@ describe('ReviewRouter', () => {
     it('uses configured triageThreadId when provided', async () => {
       const router = createRouter({ triageThreadId: 'triage-fixed' });
 
-      const result = await router.route(
-        makeEvent({
-          catTag: undefined,
-          catId: '',
-        }),
-      );
+      const result = await router.route(makeEvent({
+        catTag: undefined,
+        catId: '',
+      }));
 
       assert.strictEqual(result.kind, 'triage');
       if (result.kind === 'triage') {
@@ -353,12 +330,10 @@ describe('ReviewRouter', () => {
         userId: 'user-1',
       });
 
-      const result = await router.route(
-        makeEvent({
-          catTag: '布偶猫',
-          catId: 'opus',
-        }),
-      );
+      const result = await router.route(makeEvent({
+        catTag: '布偶猫',
+        catId: 'opus',
+      }));
 
       assert.strictEqual(result.kind, 'routed');
       if (result.kind === 'routed') {
@@ -381,13 +356,11 @@ describe('ReviewRouter', () => {
         userId: 'user-1',
       });
 
-      const result = await router.route(
-        makeEvent({
-          catTag: undefined,
-          catId: undefined,
-          title: 'feat(audit): add timestamps (#42)',
-        }),
-      );
+      const result = await router.route(makeEvent({
+        catTag: undefined,
+        catId: undefined,
+        title: 'feat(audit): add timestamps (#42)',
+      }));
 
       assert.strictEqual(result.kind, 'routed');
       if (result.kind === 'routed') {
@@ -543,10 +516,13 @@ describe('ReviewRouter', () => {
       const e1 = makeEvent({ emailUid: 2001 });
       const e2 = makeEvent({ emailUid: 2002 });
 
-      const [r1, r2] = await Promise.all([router.route(e1), router.route(e2)]);
+      const [r1, r2] = await Promise.all([
+        router.route(e1),
+        router.route(e2),
+      ]);
 
-      const routed = [r1, r2].filter((r) => r.kind === 'routed');
-      const skipped = [r1, r2].filter((r) => r.kind === 'skipped');
+      const routed = [r1, r2].filter(r => r.kind === 'routed');
+      const skipped = [r1, r2].filter(r => r.kind === 'skipped');
 
       assert.strictEqual(routed.length, 1, 'exactly one should be routed');
       assert.strictEqual(skipped.length, 1, 'exactly one should be skipped by PR dedup');

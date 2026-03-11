@@ -1,9 +1,10 @@
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useChatHistory } from '../useChatHistory';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { useChatHistory } from '../useChatHistory';
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
@@ -74,7 +75,9 @@ describe('useChatHistory author precedence (cross-thread)', () => {
         return Promise.resolve(
           new Response(
             JSON.stringify({
-              messages: [{ id: 'm1', type: 'user', catId: 'gpt52', content: 'cross-post', timestamp: ts }],
+              messages: [
+                { id: 'm1', type: 'user', catId: 'gpt52', content: 'cross-post', timestamp: ts },
+              ],
               hasMore: false,
             }),
             { status: 200 },
@@ -108,3 +111,4 @@ describe('useChatHistory author precedence (cross-thread)', () => {
     });
   });
 });
+

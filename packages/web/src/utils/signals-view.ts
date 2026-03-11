@@ -1,4 +1,10 @@
-import type { SignalArticle, SignalArticleStatus, SignalCategory, SignalSource, SignalTier } from '@cat-cafe/shared';
+import type {
+  SignalArticle,
+  SignalArticleStatus,
+  SignalCategory,
+  SignalSource,
+  SignalTier,
+} from '@cat-cafe/shared';
 
 export type SignalArticleStatusFilter = SignalArticleStatus | 'all';
 export type SignalArticleTierFilter = `${SignalTier}` | 'all';
@@ -39,7 +45,9 @@ export function filterSignalArticles(
       if (query.length === 0) {
         return true;
       }
-      const haystack = [item.title, item.source, item.url, item.summary ?? '', ...item.tags].join(' ').toLowerCase();
+      const haystack = [item.title, item.source, item.url, item.summary ?? '', ...item.tags]
+        .join(' ')
+        .toLowerCase();
       return haystack.includes(query);
     })
     .sort((left, right) => Date.parse(right.fetchedAt) - Date.parse(left.fetchedAt));

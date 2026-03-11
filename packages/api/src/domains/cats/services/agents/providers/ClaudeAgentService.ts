@@ -15,17 +15,22 @@
  *   result/success → 跳过 (done 在循环后 yield)
  */
 
+import { createCatId, type CatId } from '@cat-cafe/shared';
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
-import { type CatId, createCatId } from '@cat-cafe/shared';
-import { getCatModel } from '../../../../../config/cat-models.js';
+import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
-import { isCliError, isCliTimeout, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
-import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
-import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
-import { extractClaudeUsage, isResultErrorEvent, transformClaudeEvent } from './claude-ndjson-parser.js';
+import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
+import { getCatModel } from '../../../../../config/cat-models.js';
+import type {
+  AgentMessage,
+  AgentService,
+  AgentServiceOptions,
+  MessageMetadata,
+} from '../../types.js';
+import { transformClaudeEvent, isResultErrorEvent, extractClaudeUsage } from './claude-ndjson-parser.js';
 
 const PERMISSION_MODE = 'bypassPermissions';
 
@@ -49,7 +54,9 @@ function formatThinkingSignatureRescueError(sessionId: string | undefined): stri
   ].join(' ');
 }
 
-function buildClaudeEnvOverrides(callbackEnv?: Record<string, string>): Record<string, string | null> | undefined {
+function buildClaudeEnvOverrides(
+  callbackEnv?: Record<string, string>,
+): Record<string, string | null> | undefined {
   if (!callbackEnv) return undefined;
   const env: Record<string, string | null> = { ...callbackEnv };
   const mode = callbackEnv[ANTHROPIC_PROFILE_MODE_KEY];
@@ -124,7 +131,10 @@ export class ClaudeAgentService implements AgentService {
     }
   }
 
-  async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
+  async *invoke(
+    prompt: string,
+    options?: AgentServiceOptions
+  ): AsyncIterable<AgentMessage> {
     let effectivePrompt = prompt;
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     const imageAccessDirs = collectImageAccessDirectories(imagePaths);
@@ -134,19 +144,14 @@ export class ClaudeAgentService implements AgentService {
     // Profile-level model override (e.g. "opus[1m]") takes precedence over constructor model
     const effectiveModel = options?.callbackEnv?.[ANTHROPIC_MODEL_OVERRIDE_KEY]?.trim() || this.model;
     const args: string[] = [
-      '-p',
-      effectivePrompt,
-      '--output-format',
-      'stream-json',
+      '-p', effectivePrompt,
+      '--output-format', 'stream-json',
       '--include-partial-messages',
       '--verbose',
-      '--model',
-      effectiveModel,
-      '--permission-mode',
-      PERMISSION_MODE,
+      '--model', effectiveModel,
+      '--permission-mode', PERMISSION_MODE,
       // Skip global user settings to prevent config pollution across sessions
-      '--setting-sources',
-      'project,local',
+      '--setting-sources', 'project,local',
       // Enable Chrome MCP integration (built-in, requires Chrome + extension running)
       '--chrome',
     ];
@@ -165,17 +170,14 @@ export class ClaudeAgentService implements AgentService {
 
     // Add MCP server config when callback env is present
     if (options?.callbackEnv && this.mcpServerPath) {
-      args.push(
-        '--mcp-config',
-        JSON.stringify({
-          mcpServers: {
-            'cat-cafe': {
-              command: 'node',
-              args: [this.mcpServerPath],
-            },
+      args.push('--mcp-config', JSON.stringify({
+        mcpServers: {
+          'cat-cafe': {
+            command: 'node',
+            args: [this.mcpServerPath],
           },
-        }),
-      );
+        },
+      }));
     }
 
     const metadata: MessageMetadata = { provider: 'anthropic', model: effectiveModel };
@@ -213,10 +215,9 @@ export class ClaudeAgentService implements AgentService {
         }
         if (isCliError(event)) {
           if (sawResultError) continue;
-          const error =
-            event.reasonCode === 'invalid_thinking_signature'
-              ? formatThinkingSignatureRescueError(options?.sessionId)
-              : formatCliExitError('Claude CLI', event);
+          const error = event.reasonCode === 'invalid_thinking_signature'
+            ? formatThinkingSignatureRescueError(options?.sessionId)
+            : formatCliExitError('Claude CLI', event);
           yield {
             type: 'error',
             catId: this.catId,

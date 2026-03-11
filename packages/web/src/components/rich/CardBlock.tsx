@@ -1,7 +1,7 @@
 'use client';
 
-import { MarkdownContent } from '@/components/MarkdownContent';
 import type { RichCardBlock } from '@/stores/chat-types';
+import { MarkdownContent } from '@/components/MarkdownContent';
 
 const TONE_STYLES: Record<string, string> = {
   info: 'border-l-blue-400 bg-blue-50 dark:bg-blue-950/30',
@@ -25,7 +25,8 @@ export function CardBlock({ block }: { block: RichCardBlock }) {
         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
           {block.fields.map((f, i) => (
             <div key={i} className="text-xs">
-              <span className="text-gray-500">{f.label}:</span> <span className="font-mono break-all">{f.value}</span>
+              <span className="text-gray-500">{f.label}:</span>{' '}
+              <span className="font-mono break-all">{f.value}</span>
             </div>
           ))}
         </div>

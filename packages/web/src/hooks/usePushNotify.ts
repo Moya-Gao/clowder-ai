@@ -8,7 +8,7 @@
  * - 从后端获取 VAPID 公钥
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/utils/api-client';
 
 /** Convert base64url VAPID key to Uint8Array for pushManager.subscribe */
@@ -72,7 +72,8 @@ export interface PushStatusPayload {
   errorHints: string[];
 }
 
-const DEV_PWA_HINT = '开发模式下若无法订阅系统通知，请用 ENABLE_PWA_IN_DEV=1 启动，或改用 build+start 进行推送验证。';
+const DEV_PWA_HINT =
+  '开发模式下若无法订阅系统通知，请用 ENABLE_PWA_IN_DEV=1 启动，或改用 build+start 进行推送验证。';
 
 function isDevelopmentMode(): boolean {
   return process.env.NODE_ENV === 'development';
@@ -122,7 +123,9 @@ export function usePushNotify(): UsePushNotifyReturn {
         if (!reg) {
           setIsSubscribed(false);
           setEnvironmentHint(
-            isDevelopmentMode() ? DEV_PWA_HINT : 'Service Worker 未注册，系统通知暂不可用。请刷新页面后重试。',
+            isDevelopmentMode()
+              ? DEV_PWA_HINT
+              : 'Service Worker 未注册，系统通知暂不可用。请刷新页面后重试。',
           );
           return;
         }
@@ -131,7 +134,9 @@ export function usePushNotify(): UsePushNotifyReturn {
         setEnvironmentHint(null);
       } catch {
         setEnvironmentHint(
-          isDevelopmentMode() ? DEV_PWA_HINT : 'Service Worker 尚未就绪，系统通知暂不可用。请稍后重试。',
+          isDevelopmentMode()
+            ? DEV_PWA_HINT
+            : 'Service Worker 尚未就绪，系统通知暂不可用。请稍后重试。',
         );
       }
     };
@@ -172,7 +177,11 @@ export function usePushNotify(): UsePushNotifyReturn {
 
       const reg = await navigator.serviceWorker.getRegistration();
       if (!reg) {
-        throw new Error(isDevelopmentMode() ? DEV_PWA_HINT : 'Service Worker 未注册，暂无法订阅系统通知。');
+        throw new Error(
+          isDevelopmentMode()
+            ? DEV_PWA_HINT
+            : 'Service Worker 未注册，暂无法订阅系统通知。',
+        );
       }
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -227,7 +236,9 @@ export function usePushNotify(): UsePushNotifyReturn {
       if (!reg) {
         setIsSubscribed(false);
         setEnvironmentHint(
-          isDevelopmentMode() ? DEV_PWA_HINT : 'Service Worker 未注册，当前设备没有可取消的系统通知订阅。',
+          isDevelopmentMode()
+            ? DEV_PWA_HINT
+            : 'Service Worker 未注册，当前设备没有可取消的系统通知订阅。',
         );
         return;
       }

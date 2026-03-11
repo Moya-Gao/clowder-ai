@@ -7,8 +7,8 @@
  */
 
 import type { CatId, ModeConfig, ModeState } from '@cat-cafe/shared';
-import type { RouteOptions, RouteStrategyDeps } from '../agents/routing/route-helpers.js';
 import type { AgentMessage } from '../types.js';
+import type { RouteStrategyDeps, RouteOptions } from '../agents/routing/route-helpers.js';
 
 /** Context passed to each mode handler invocation */
 export interface ModeExecutionContext {
@@ -29,7 +29,11 @@ export interface ModeExecutionContext {
 /** Interface every mode handler must implement */
 export interface ModeHandler {
   /** Execute one round of this mode, yielding agent messages */
-  execute(ctx: ModeExecutionContext, config: ModeConfig, state: ModeState): AsyncIterable<AgentMessage>;
+  execute(
+    ctx: ModeExecutionContext,
+    config: ModeConfig,
+    state: ModeState,
+  ): AsyncIterable<AgentMessage>;
 
   /** Compute next state after execution completes.
    *  threadId is provided so stateful handlers can look up per-thread execution results. */

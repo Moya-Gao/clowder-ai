@@ -15,7 +15,8 @@ function ensureFontsLoaded(): Promise<void> {
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap';
+  link.href =
+    'https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap';
   document.head.appendChild(link);
   return document.fonts.ready.then(() => {});
 }
@@ -34,7 +35,9 @@ export default function PixelBrawlPage() {
     await ensureFontsLoaded();
 
     const Phaser = (await import('phaser')).default;
-    const { BattleScene } = await import('@/games/pixel-brawl/scenes/BattleScene');
+    const { BattleScene } = await import(
+      '@/games/pixel-brawl/scenes/BattleScene'
+    );
 
     gameRef.current = new Phaser.Game({
       type: Phaser.CANVAS,
@@ -96,7 +99,9 @@ export default function PixelBrawlPage() {
           >
             PIXEL BRAWL
           </h1>
-          <p style={{ fontSize: '12px', color: '#3A4658', margin: 0 }}>Cat Caf&eacute; Fighting Demo</p>
+          <p style={{ fontSize: '12px', color: '#3A4658', margin: 0 }}>
+            Cat Caf&eacute; Fighting Demo
+          </p>
           <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
             <button
               type="button"

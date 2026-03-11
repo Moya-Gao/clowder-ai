@@ -5,9 +5,10 @@
  * whisper target list and can be toggled. This prevents re-coupling
  * whisper targets to the mention-filtered catOptions in future refactors.
  */
-import React, { act } from 'react';
+import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { ChatInput } from '@/components/ChatInput';
 
 // ── Mocks ──
@@ -28,26 +29,18 @@ vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
     cats: [
       {
-        id: 'opus',
-        displayName: '布偶猫',
+        id: 'opus', displayName: '布偶猫',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
         mentionPatterns: ['布偶', '布偶猫', 'opus'],
-        provider: 'anthropic',
-        defaultModel: 'opus',
-        avatar: '/a.png',
-        roleDescription: 'dev',
-        personality: 'kind',
+        provider: 'anthropic', defaultModel: 'opus',
+        avatar: '/a.png', roleDescription: 'dev', personality: 'kind',
       },
       {
-        id: 'opus-fast',
-        displayName: '布偶猫(快)',
+        id: 'opus-fast', displayName: '布偶猫(快)',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
         mentionPatterns: [],
-        provider: 'anthropic',
-        defaultModel: 'opus-fast',
-        avatar: '/a.png',
-        roleDescription: '快速变体',
-        personality: 'kind',
+        provider: 'anthropic', defaultModel: 'opus-fast',
+        avatar: '/a.png', roleDescription: '快速变体', personality: 'kind',
       },
     ],
     isLoading: false,
@@ -95,7 +88,8 @@ describe('ChatInput whisper targets with empty mentionPatterns', () => {
     expect(container.textContent).toContain('悄悄话发给');
 
     // Collect whisper target button texts (rounded-full pill buttons)
-    const targetButtons = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-full'));
+    const targetButtons = [...container.querySelectorAll('button')]
+      .filter((b) => b.className.includes('rounded-full'));
     const targetNames = targetButtons.map((b) => b.textContent);
 
     // Both cats should be available as whisper targets
@@ -113,7 +107,8 @@ describe('ChatInput whisper targets with empty mentionPatterns', () => {
     act(() => whisperBtn!.click());
 
     // Find the opus-fast target button and click to deselect
-    const targetButtons = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-full'));
+    const targetButtons = [...container.querySelectorAll('button')]
+      .filter((b) => b.className.includes('rounded-full'));
     const fastBtn = targetButtons.find((b) => b.textContent === '布偶猫(快)');
     expect(fastBtn).toBeDefined();
 

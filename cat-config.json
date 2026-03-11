@@ -171,8 +171,8 @@
             "maxContentLengthPerMsg": 10000
           }
         }
-      ]
-    },
+  ]
+},
     {
       "id": "maine-coon",
       "catId": "codex",
@@ -215,18 +215,7 @@
           "catId": "gpt52",
           "variantLabel": "GPT-5.4",
           "displayName": "缅因猫",
-          "mentionPatterns": [
-            "@gpt52",
-            "@gpt",
-            "@gpt-52",
-            "@gpt5.2",
-            "@gpt-5.2",
-            "@gpt54",
-            "@gpt-54",
-            "@gpt5.4",
-            "@gpt-5.4",
-            "@缅因gpt52"
-          ],
+          "mentionPatterns": ["@gpt52", "@gpt", "@gpt-52", "@gpt5.2", "@gpt-5.2", "@gpt54", "@gpt-54", "@gpt5.4", "@gpt-5.4", "@缅因gpt52"],
           "provider": "openai",
           "defaultModel": "gpt-5.4",
           "mcpSupport": true,

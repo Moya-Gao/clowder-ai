@@ -133,7 +133,7 @@ function toMarkdown(threadId, threadMeta, participants, messages) {
   lines.push('', '---', '');
 
   for (const m of messages) {
-    const speaker = m.catId ? (catLabel(m.catId) ?? m.catId) : userLabel(m.userId);
+    const speaker = m.catId ? catLabel(m.catId) ?? m.catId : userLabel(m.userId);
     lines.push(`[${fmtTime(m.timestamp)} ${speaker}] ${m.content}`.trimEnd());
     const model = m.metadata?.model ?? m.metadata?.providerModel;
     if (m.catId && model) {
@@ -204,9 +204,7 @@ async function main() {
 
   console.log(`[thread-export] redis=${args.redisUrl}`);
   console.log(`[thread-export] outDir=${args.outDir}`);
-  console.log(
-    `[thread-export] threads=${threadIds.length} exported=${exported} updated=${updated} mode=${args.dryRun ? 'dry-run' : 'write'}`,
-  );
+  console.log(`[thread-export] threads=${threadIds.length} exported=${exported} updated=${updated} mode=${args.dryRun ? 'dry-run' : 'write'}`);
   await redis.quit();
 }
 

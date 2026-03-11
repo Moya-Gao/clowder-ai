@@ -125,12 +125,10 @@ function extractTextContent(evtData: Record<string, unknown>): string | undefine
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     const textParts = content
-      .filter(
-        (c): c is { type: string; text: string } =>
-          typeof c === 'object' &&
-          c !== null &&
-          (c as Record<string, unknown>)['type'] === 'text' &&
-          typeof (c as Record<string, unknown>)['text'] === 'string',
+      .filter((c): c is { type: string; text: string } =>
+        typeof c === 'object' && c !== null
+        && (c as Record<string, unknown>)['type'] === 'text'
+        && typeof (c as Record<string, unknown>)['text'] === 'string',
       )
       .map((c) => c.text);
     return textParts.length > 0 ? textParts.join('\n') : undefined;

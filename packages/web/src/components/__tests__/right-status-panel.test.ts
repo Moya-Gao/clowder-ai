@@ -121,7 +121,9 @@ describe('RightStatusPanel', () => {
         codex: {
           startedAt: Date.now() - 120000,
           taskProgress: {
-            tasks: [{ id: 'c-1', subject: 'Review PR', status: 'in_progress', activeForm: 'Reviewing PR' }],
+            tasks: [
+              { id: 'c-1', subject: 'Review PR', status: 'in_progress', activeForm: 'Reviewing PR' },
+            ],
             lastUpdate: Date.now(),
             snapshotStatus: 'running',
           },
@@ -154,7 +156,9 @@ describe('RightStatusPanel', () => {
         codex: {
           startedAt: Date.now() - 120000,
           taskProgress: {
-            tasks: [{ id: 'c-1', subject: 'Review PR', status: 'completed' }],
+            tasks: [
+              { id: 'c-1', subject: 'Review PR', status: 'completed' },
+            ],
             lastUpdate: Date.now(),
             snapshotStatus: 'completed',
           },
@@ -187,7 +191,9 @@ describe('RightStatusPanel', () => {
         codex: {
           startedAt: Date.now() - 120000,
           taskProgress: {
-            tasks: [{ id: 'c-1', subject: 'Review PR', status: 'in_progress', activeForm: 'Reviewing PR' }],
+            tasks: [
+              { id: 'c-1', subject: 'Review PR', status: 'in_progress', activeForm: 'Reviewing PR' },
+            ],
             lastUpdate: Date.now(),
             snapshotStatus: 'interrupted',
           },

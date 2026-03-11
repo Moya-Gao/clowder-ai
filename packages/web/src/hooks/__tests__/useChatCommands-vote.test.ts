@@ -2,18 +2,22 @@
  * F079: useChatCommands /vote tests
  */
 
-import React, { act } from 'react';
+import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { useChatCommands } from '../useChatCommands';
 
 const mocks = vi.hoisted(() => {
   const mockAddMessage = vi.fn();
   const mockApiFetch = vi.fn();
   const mockSetShowVoteModal = vi.fn();
-  const useChatStoreMock = Object.assign(() => ({ addMessage: mockAddMessage }), {
-    getState: () => ({ currentThreadId: 'thread-1', setShowVoteModal: mockSetShowVoteModal }),
-  });
+  const useChatStoreMock = Object.assign(
+    () => ({ addMessage: mockAddMessage }),
+    {
+      getState: () => ({ currentThreadId: 'thread-1', setShowVoteModal: mockSetShowVoteModal }),
+    },
+  );
 
   return { mockAddMessage, mockApiFetch, mockSetShowVoteModal, useChatStoreMock };
 });
@@ -79,13 +83,7 @@ describe('useChatCommands /vote', () => {
   async function setupProcessCommand(): Promise<(input: string) => Promise<boolean>> {
     let processCommand: ((input: string) => Promise<boolean>) | null = null;
     await act(async () => {
-      root.render(
-        React.createElement(Harness, {
-          onReady: (fn) => {
-            processCommand = fn;
-          },
-        }),
-      );
+      root.render(React.createElement(Harness, { onReady: (fn) => { processCommand = fn; } }));
     });
     if (!processCommand) throw new Error('processCommand not initialized');
     return processCommand;
@@ -108,7 +106,9 @@ describe('useChatCommands /vote', () => {
   it('/vote with args opens vote modal (Phase 2)', async () => {
     const processCommand = await setupProcessCommand();
 
-    const result = await act(async () => processCommand('/vote 谁最绿茶? opus codex'));
+    const result = await act(async () =>
+      processCommand('/vote 谁最绿茶? opus codex'),
+    );
 
     expect(result).toBe(true);
     expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);
@@ -134,7 +134,9 @@ describe('useChatCommands /vote', () => {
       }),
     });
 
-    const result = await act(async () => processCommand('/vote status'));
+    const result = await act(async () =>
+      processCommand('/vote status'),
+    );
 
     expect(result).toBe(true);
     const msg = getLatestSystemMessage();
@@ -145,7 +147,9 @@ describe('useChatCommands /vote', () => {
   it('/vote (empty) opens VoteConfigModal (P1-1 fix)', async () => {
     const processCommand = await setupProcessCommand();
 
-    const result = await act(async () => processCommand('/vote'));
+    const result = await act(async () =>
+      processCommand('/vote'),
+    );
 
     expect(result).toBe(true);
     // Should open modal, NOT query status API
@@ -166,7 +170,9 @@ describe('useChatCommands /vote', () => {
       }),
     });
 
-    const result = await act(async () => processCommand('/vote cast opus'));
+    const result = await act(async () =>
+      processCommand('/vote cast opus'),
+    );
 
     expect(result).toBe(true);
     expect(mocks.mockApiFetch).toHaveBeenCalledWith(
@@ -197,7 +203,9 @@ describe('useChatCommands /vote', () => {
       }),
     });
 
-    const result = await act(async () => processCommand('/vote end'));
+    const result = await act(async () =>
+      processCommand('/vote end'),
+    );
 
     expect(result).toBe(true);
     const msg = getLatestSystemMessage();
@@ -216,15 +224,17 @@ describe('useChatCommands /vote', () => {
         result: {
           question: '谁最绿茶?',
           options: ['opus', 'codex'],
-          votes: {}, // stripped by backend for anonymous
-          tally: { opus: 2, codex: 1 }, // backend provides tally
+          votes: {},  // stripped by backend for anonymous
+          tally: { opus: 2, codex: 1 },  // backend provides tally
           anonymous: true,
           status: 'closed',
         },
       }),
     });
 
-    const result = await act(async () => processCommand('/vote end'));
+    const result = await act(async () =>
+      processCommand('/vote end'),
+    );
 
     expect(result).toBe(true);
     const msg = getLatestSystemMessage();
@@ -237,7 +247,9 @@ describe('useChatCommands /vote', () => {
   it('/vote with few args still opens modal (Phase 2)', async () => {
     const processCommand = await setupProcessCommand();
 
-    const result = await act(async () => processCommand('/vote 问题?'));
+    const result = await act(async () =>
+      processCommand('/vote 问题?'),
+    );
 
     expect(result).toBe(true);
     expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);
@@ -246,7 +258,9 @@ describe('useChatCommands /vote', () => {
   it('/vote with --anonymous flag opens modal (Phase 2)', async () => {
     const processCommand = await setupProcessCommand();
 
-    await act(async () => processCommand('/vote 谁最绿茶? opus codex --anonymous'));
+    await act(async () =>
+      processCommand('/vote 谁最绿茶? opus codex --anonymous'),
+    );
 
     expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);
     expect(mocks.mockApiFetch).not.toHaveBeenCalled();
@@ -262,8 +276,8 @@ describe('useChatCommands /vote', () => {
         vote: {
           question: '谁最绿茶?',
           options: ['opus', 'codex'],
-          votes: {}, // stripped
-          voteCount: 3, // backend provides count
+          votes: {},  // stripped
+          voteCount: 3,  // backend provides count
           anonymous: true,
           deadline: Date.now() + 60000,
           status: 'active',
@@ -271,7 +285,9 @@ describe('useChatCommands /vote', () => {
       }),
     });
 
-    await act(async () => processCommand('/vote status'));
+    await act(async () =>
+      processCommand('/vote status'),
+    );
 
     const msg = getLatestSystemMessage();
     expect(msg?.content).toContain('已投: 3 票');
@@ -281,7 +297,9 @@ describe('useChatCommands /vote', () => {
   it('/vote with start-like args opens modal (409 handled in modal now)', async () => {
     const processCommand = await setupProcessCommand();
 
-    await act(async () => processCommand('/vote 谁最绿茶? opus codex'));
+    await act(async () =>
+      processCommand('/vote 谁最绿茶? opus codex'),
+    );
 
     // Phase 2: modal handles API calls, so no 409 test here
     expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);

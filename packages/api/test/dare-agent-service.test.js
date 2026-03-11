@@ -1,7 +1,7 @@
+import { describe, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { describe, mock, test } from 'node:test';
+import { EventEmitter } from 'node:events';
 import { DareAgentService } from '../dist/domains/cats/services/agents/providers/DareAgentService.js';
 
 // ── Mock helpers (same pattern as codex-agent-service.test.js) ──
@@ -21,14 +21,8 @@ function createMockProcess(exitCode = 0) {
       });
       return true;
     }),
-    on: (event, listener) => {
-      emitter.on(event, listener);
-      return proc;
-    },
-    once: (event, listener) => {
-      emitter.once(event, listener);
-      return proc;
-    },
+    on: (event, listener) => { emitter.on(event, listener); return proc; },
+    once: (event, listener) => { emitter.once(event, listener); return proc; },
     _emitter: emitter,
   };
   return proc;
@@ -52,48 +46,28 @@ async function collect(iterable) {
 
 const SESSION_STARTED = {
   schema_version: 'client-headless-event-envelope.v1',
-  ts: 1709500000.0,
-  session_id: 'dare-sess-1',
-  run_id: 'run-1',
-  seq: 1,
-  event: 'session.started',
-  data: { mode: 'chat', entrypoint: 'run' },
+  ts: 1709500000.0, session_id: 'dare-sess-1', run_id: 'run-1', seq: 1,
+  event: 'session.started', data: { mode: 'chat', entrypoint: 'run' },
 };
 const TOOL_INVOKE = {
   schema_version: 'client-headless-event-envelope.v1',
-  ts: 1709500001.0,
-  session_id: 'dare-sess-1',
-  run_id: 'run-1',
-  seq: 2,
-  event: 'tool.invoke',
-  data: { tool_name: 'read_file', tool_call_id: 'tc-1' },
+  ts: 1709500001.0, session_id: 'dare-sess-1', run_id: 'run-1', seq: 2,
+  event: 'tool.invoke', data: { tool_name: 'read_file', tool_call_id: 'tc-1' },
 };
 const TOOL_RESULT = {
   schema_version: 'client-headless-event-envelope.v1',
-  ts: 1709500002.0,
-  session_id: 'dare-sess-1',
-  run_id: 'run-1',
-  seq: 3,
-  event: 'tool.result',
-  data: { tool_name: 'read_file', tool_call_id: 'tc-1', success: true },
+  ts: 1709500002.0, session_id: 'dare-sess-1', run_id: 'run-1', seq: 3,
+  event: 'tool.result', data: { tool_name: 'read_file', tool_call_id: 'tc-1', success: true },
 };
 const TASK_COMPLETED = {
   schema_version: 'client-headless-event-envelope.v1',
-  ts: 1709500003.0,
-  session_id: 'dare-sess-1',
-  run_id: 'run-1',
-  seq: 4,
-  event: 'task.completed',
-  data: { task: 'say hello', rendered_output: 'Hello from DARE!' },
+  ts: 1709500003.0, session_id: 'dare-sess-1', run_id: 'run-1', seq: 4,
+  event: 'task.completed', data: { task: 'say hello', rendered_output: 'Hello from DARE!' },
 };
 const TASK_FAILED = {
   schema_version: 'client-headless-event-envelope.v1',
-  ts: 1709500003.0,
-  session_id: 'dare-sess-1',
-  run_id: 'run-1',
-  seq: 4,
-  event: 'task.failed',
-  data: { task: 'do thing', error: 'Approval timed out' },
+  ts: 1709500003.0, session_id: 'dare-sess-1', run_id: 'run-1', seq: 4,
+  event: 'task.failed', data: { task: 'do thing', error: 'Approval timed out' },
 };
 
 describe('DareAgentService', () => {
@@ -147,10 +121,8 @@ describe('DareAgentService', () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new DareAgentService({
-      catId: 'dare',
-      spawnFn,
-      adapter: 'openrouter',
-      model: 'zhipu/glm-4.7',
+      catId: 'dare', spawnFn,
+      adapter: 'openrouter', model: 'zhipu/glm-4.7',
     });
     const promise = collect(service.invoke('Test'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -170,10 +142,7 @@ describe('DareAgentService', () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new DareAgentService({
-      catId: 'dare',
-      spawnFn,
-      darePath: '/opt/dare',
-      model: 'test/model',
+      catId: 'dare', spawnFn, darePath: '/opt/dare', model: 'test/model',
     });
     const promise = collect(service.invoke('Test', { workingDirectory: '/tmp/project' }));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -193,10 +162,7 @@ describe('DareAgentService', () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new DareAgentService({
-      catId: 'dare',
-      spawnFn,
-      darePath: '/opt/dare',
-      model: 'test/model',
+      catId: 'dare', spawnFn, darePath: '/opt/dare', model: 'test/model',
     });
     const promise = collect(service.invoke('Test'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -212,9 +178,7 @@ describe('DareAgentService', () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new DareAgentService({
-      catId: 'dare',
-      spawnFn,
-      model: 'zhipu/glm-4.7',
+      catId: 'dare', spawnFn, model: 'zhipu/glm-4.7',
     });
     const promise = collect(service.invoke('Test'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -274,10 +238,7 @@ describe('DareAgentService', () => {
     process.env['OPENROUTER_API_KEY'] = 'sk-test-secret-key';
     try {
       const service = new DareAgentService({
-        catId: 'dare',
-        spawnFn,
-        adapter: 'openrouter',
-        model: 'test/model',
+        catId: 'dare', spawnFn, adapter: 'openrouter', model: 'test/model',
       });
       const promise = collect(service.invoke('Test'));
       emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);

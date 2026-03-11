@@ -3,9 +3,9 @@
  * Per-cat TTS voice configuration — mirrors cat-budgets.test.js pattern
  */
 
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { afterEach, beforeEach, describe, it } from 'node:test';
-import { clearVoiceCache, getAllCatVoices, getCatVoice } from '../dist/config/cat-voices.js';
+import { getCatVoice, getAllCatVoices, clearVoiceCache } from '../dist/config/cat-voices.js';
 
 describe('getCatVoice', () => {
   beforeEach(() => {

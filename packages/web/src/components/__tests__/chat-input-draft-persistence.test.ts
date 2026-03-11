@@ -6,9 +6,10 @@
  * 2. Different threads maintain independent drafts
  * 3. Sending a message clears the draft
  */
-import React, { act } from 'react';
+import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { ChatInput, threadDrafts } from '@/components/ChatInput';
 
 // ── Mocks ──
@@ -27,15 +28,10 @@ vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
     cats: [
       {
-        id: 'opus',
-        displayName: '布偶猫',
+        id: 'opus', displayName: '布偶猫',
         color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
-        mentionPatterns: ['布偶猫'],
-        provider: 'anthropic',
-        defaultModel: 'opus',
-        avatar: '/a.png',
-        roleDescription: 'dev',
-        personality: 'kind',
+        mentionPatterns: ['布偶猫'], provider: 'anthropic', defaultModel: 'opus',
+        avatar: '/a.png', roleDescription: 'dev', personality: 'kind',
       },
     ],
     isLoading: false,
@@ -71,7 +67,9 @@ function getTextarea(): HTMLTextAreaElement {
 
 function typeInto(textarea: HTMLTextAreaElement, value: string) {
   // React controlled components need nativeInputValueSetter + input event
-  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype, 'value',
+  )!.set!;
   nativeSetter.call(textarea, value);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -84,9 +82,7 @@ describe('ChatInput draft persistence', () => {
     act(() => {
       root.render(React.createElement(ChatInput, { threadId: 'thread-A', onSend }));
     });
-    act(() => {
-      typeInto(getTextarea(), 'hello from A');
-    });
+    act(() => { typeInto(getTextarea(), 'hello from A'); });
     expect(getTextarea().value).toBe('hello from A');
 
     // Unmount
@@ -109,9 +105,7 @@ describe('ChatInput draft persistence', () => {
     act(() => {
       root.render(React.createElement(ChatInput, { threadId: 'thread-A', onSend }));
     });
-    act(() => {
-      typeInto(getTextarea(), 'draft A');
-    });
+    act(() => { typeInto(getTextarea(), 'draft A'); });
     act(() => root.unmount());
 
     // Type in thread-B
@@ -119,9 +113,7 @@ describe('ChatInput draft persistence', () => {
     act(() => {
       root.render(React.createElement(ChatInput, { threadId: 'thread-B', onSend }));
     });
-    act(() => {
-      typeInto(getTextarea(), 'draft B');
-    });
+    act(() => { typeInto(getTextarea(), 'draft B'); });
     act(() => root.unmount());
 
     // Switch back to thread-A — should see "draft A", not "draft B"
@@ -139,14 +131,14 @@ describe('ChatInput draft persistence', () => {
     act(() => {
       root.render(React.createElement(ChatInput, { threadId: 'thread-C', onSend }));
     });
-    act(() => {
-      typeInto(getTextarea(), 'will be sent');
-    });
+    act(() => { typeInto(getTextarea(), 'will be sent'); });
 
     // Press Enter to send
     const textarea = getTextarea();
     act(() => {
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      );
     });
     expect(onSend).toHaveBeenCalledWith('will be sent', undefined, undefined, undefined);
 
@@ -165,9 +157,7 @@ describe('ChatInput draft persistence', () => {
     act(() => {
       root.render(React.createElement(ChatInput, { onSend }));
     });
-    act(() => {
-      typeInto(getTextarea(), 'no thread');
-    });
+    act(() => { typeInto(getTextarea(), 'no thread'); });
 
     // Map should remain empty — no threadId means no persistence
     expect(threadDrafts.size).toBe(0);

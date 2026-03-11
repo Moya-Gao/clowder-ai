@@ -1,16 +1,16 @@
 // F073 P2: WorkflowSopPanel unit tests
-
-import type { WorkflowSop } from '@cat-cafe/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React, { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { WorkflowSop } from '@cat-cafe/shared';
 import { WorkflowSopPanel } from '../mission-control/WorkflowSopPanel';
 import { mockResponse } from './mission-control-page.test-helpers';
 
 // ── Mocks ──
 vi.mock('next/link', () => ({
   __esModule: true,
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => createElement('a', { href }, children),
+  default: ({ children, href }: { children: React.ReactNode; href: string }) =>
+    createElement('a', { href }, children),
 }));
 
 const apiFetchMock = vi.hoisted(() => vi.fn());

@@ -5,8 +5,8 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import type { IThreadStore } from '../ports/ThreadStore.js';
 import { ThreadStore } from '../ports/ThreadStore.js';
+import type { IThreadStore } from '../ports/ThreadStore.js';
 import { RedisThreadStore } from '../redis/RedisThreadStore.js';
 
 function resolveThreadTtlSeconds(): number | undefined {
@@ -23,7 +23,10 @@ function resolveThreadTtlSeconds(): number | undefined {
 export function createThreadStore(redis?: RedisClient): IThreadStore {
   if (redis) {
     const ttlSeconds = resolveThreadTtlSeconds();
-    return new RedisThreadStore(redis, ttlSeconds !== undefined ? { ttlSeconds } : undefined);
+    return new RedisThreadStore(
+      redis,
+      ttlSeconds !== undefined ? { ttlSeconds } : undefined,
+    );
   }
   return new ThreadStore();
 }

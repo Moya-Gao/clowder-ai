@@ -4,8 +4,8 @@
  * Tests store-level removeMessage + socket event routing logic.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
-import { type ChatMessage, useChatStore } from '@/stores/chatStore';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useChatStore, type ChatMessage } from '@/stores/chatStore';
 
 function makMsg(id: string, type: 'user' | 'assistant' = 'user'): ChatMessage {
   return { id, type, content: `msg-${id}`, timestamp: Date.now() };

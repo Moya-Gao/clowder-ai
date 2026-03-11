@@ -44,7 +44,9 @@ const MOCK_QUOTA_RESPONSE: QuotaResponse = {
   },
   antigravity: {
     platform: 'antigravity',
-    usageItems: [{ label: 'Codeium', usedPercent: 98, percentKind: 'remaining', poolId: 'codeium-main' }],
+    usageItems: [
+      { label: 'Codeium', usedPercent: 98, percentKind: 'remaining', poolId: 'codeium-main' },
+    ],
     lastChecked: '2026-03-02T16:42:00Z',
   },
   fetchedAt: '2026-03-02T16:45:00Z',

@@ -1,16 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
-  collapseAllGroups,
-  expandAllGroups,
-  findGroupKeyForThread,
   initCollapsedSet,
   readCollapsedGroups,
-  resolveCollapse,
-  STORAGE_KEY,
-  type StorageLike,
+  writeCollapsedGroups,
   shouldCollapse,
   shouldCollapseBeforeInit,
-  writeCollapsedGroups,
+  resolveCollapse,
+  expandAllGroups,
+  collapseAllGroups,
+  findGroupKeyForThread,
+  STORAGE_KEY,
+  type StorageLike,
 } from '../ThreadSidebar/collapse-state';
 
 /** In-memory storage mock (no jsdom dependency). */

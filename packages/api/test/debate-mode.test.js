@@ -6,11 +6,11 @@
  * - State machine: currentRound + nextSpeaker
  */
 
-import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { ModeStore, createInitialState } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 import { DebateMode } from '../dist/domains/cats/services/modes/DebateMode.js';
 import { ModeOrchestrator } from '../dist/domains/cats/services/orchestration/ModeOrchestrator.js';
-import { createInitialState, ModeStore } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 
 describe('DebateMode', () => {
   describe('getNextState', () => {

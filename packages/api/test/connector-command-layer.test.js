@@ -190,7 +190,9 @@ describe('ConnectorCommandLayer', () => {
   });
 
   it('/threads omits contextThreadId when no binding exists', async () => {
-    const threadStore = stubThreadStore([{ id: 'thread-aaa111', title: '飞书Bug' }]);
+    const threadStore = stubThreadStore([
+      { id: 'thread-aaa111', title: '飞书Bug' },
+    ]);
     const layer = new ConnectorCommandLayer({
       bindingStore: stubStore(),
       threadStore,
@@ -299,11 +301,7 @@ describe('ConnectorCommandLayer', () => {
     const store = {
       ...stubStore(),
       bind: async (cId, eCId, tId, uId) => ({
-        connectorId: cId,
-        externalChatId: eCId,
-        threadId: tId,
-        userId: uId,
-        createdAt: Date.now(),
+        connectorId: cId, externalChatId: eCId, threadId: tId, userId: uId, createdAt: Date.now(),
       }),
     };
     const threadStore = stubThreadStore([
@@ -351,11 +349,7 @@ describe('ConnectorCommandLayer', () => {
     const store = {
       ...stubStore(),
       bind: async (cId, eCId, tId, uId) => ({
-        connectorId: cId,
-        externalChatId: eCId,
-        threadId: tId,
-        userId: uId,
-        createdAt: Date.now(),
+        connectorId: cId, externalChatId: eCId, threadId: tId, userId: uId, createdAt: Date.now(),
       }),
     };
     const threadStore = stubThreadStore([
@@ -375,7 +369,9 @@ describe('ConnectorCommandLayer', () => {
   });
 
   it('/use 99 returns error for out-of-range index', async () => {
-    const threadStore = stubThreadStore([{ id: 'thread-only', title: '唯一' }]);
+    const threadStore = stubThreadStore([
+      { id: 'thread-only', title: '唯一' },
+    ]);
     const layer = new ConnectorCommandLayer({
       bindingStore: stubStore(),
       threadStore,
@@ -390,11 +386,7 @@ describe('ConnectorCommandLayer', () => {
     const store = {
       ...stubStore(),
       bind: async (cId, eCId, tId, uId) => ({
-        connectorId: cId,
-        externalChatId: eCId,
-        threadId: tId,
-        userId: uId,
-        createdAt: Date.now(),
+        connectorId: cId, externalChatId: eCId, threadId: tId, userId: uId, createdAt: Date.now(),
       }),
     };
     const threadStore = stubThreadStore([
@@ -416,11 +408,7 @@ describe('ConnectorCommandLayer', () => {
     const store = {
       ...stubStore(),
       bind: async (cId, eCId, tId, uId) => ({
-        connectorId: cId,
-        externalChatId: eCId,
-        threadId: tId,
-        userId: uId,
-        createdAt: Date.now(),
+        connectorId: cId, externalChatId: eCId, threadId: tId, userId: uId, createdAt: Date.now(),
       }),
     };
     const threadStore = stubThreadStore([
@@ -442,11 +430,7 @@ describe('ConnectorCommandLayer', () => {
     const store = {
       ...stubStore(),
       bind: async (cId, eCId, tId, uId) => ({
-        connectorId: cId,
-        externalChatId: eCId,
-        threadId: tId,
-        userId: uId,
-        createdAt: Date.now(),
+        connectorId: cId, externalChatId: eCId, threadId: tId, userId: uId, createdAt: Date.now(),
       }),
     };
     const threadStore = stubThreadStore([
@@ -467,14 +451,12 @@ describe('ConnectorCommandLayer', () => {
     const store = {
       ...stubStore(),
       bind: async (cId, eCId, tId, uId) => ({
-        connectorId: cId,
-        externalChatId: eCId,
-        threadId: tId,
-        userId: uId,
-        createdAt: Date.now(),
+        connectorId: cId, externalChatId: eCId, threadId: tId, userId: uId, createdAt: Date.now(),
       }),
     };
-    const threadStore = stubThreadStore([{ id: 'thread-aaa', title: 'F088相关', backlogItemId: 'bl-1' }]);
+    const threadStore = stubThreadStore([
+      { id: 'thread-aaa', title: 'F088相关', backlogItemId: 'bl-1' },
+    ]);
     // No backlogStore provided
     const layer = new ConnectorCommandLayer({
       bindingStore: store,
@@ -513,7 +495,9 @@ describe('ConnectorCommandLayer', () => {
   });
 
   it('/threads omits feat badges when backlogStore unavailable', async () => {
-    const threadStore = stubThreadStore([{ id: 'thread-aaa', title: '飞书Bug', backlogItemId: 'bl-1' }]);
+    const threadStore = stubThreadStore([
+      { id: 'thread-aaa', title: '飞书Bug', backlogItemId: 'bl-1' },
+    ]);
     // No backlogStore
     const layer = new ConnectorCommandLayer({
       bindingStore: stubStore(),
@@ -561,7 +545,9 @@ describe('ConnectorCommandLayer', () => {
   });
 
   it('/threads shows all feat badges for multi-feat thread (P1 fix)', async () => {
-    const threadStore = stubThreadStore([{ id: 'thread-multi', title: '多feat讨论', backlogItemId: 'bl-multi' }]);
+    const threadStore = stubThreadStore([
+      { id: 'thread-multi', title: '多feat讨论', backlogItemId: 'bl-multi' },
+    ]);
     const backlogStore = {
       get: async (itemId) => {
         if (itemId === 'bl-multi') return { tags: ['feature:f066', 'feature:f088'] };

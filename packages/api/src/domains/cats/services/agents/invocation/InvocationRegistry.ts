@@ -58,7 +58,11 @@ export class InvocationRegistry {
    * Create a new invocation and return the auth credentials.
    * The caller should pass these as env vars to the CLI subprocess.
    */
-  create(userId: string, catId: CatId, threadId: string = 'default'): { invocationId: string; callbackToken: string } {
+  create(
+    userId: string,
+    catId: CatId,
+    threadId: string = 'default'
+  ): { invocationId: string; callbackToken: string } {
     this.cleanup();
 
     // Evict oldest if at capacity
@@ -95,7 +99,10 @@ export class InvocationRegistry {
    * Verify invocationId + callbackToken binding.
    * Returns the record if valid, null if invalid or expired.
    */
-  verify(invocationId: string, callbackToken: string): InvocationRecord | null {
+  verify(
+    invocationId: string,
+    callbackToken: string
+  ): InvocationRecord | null {
     const record = this.records.get(invocationId);
     if (!record) return null;
 

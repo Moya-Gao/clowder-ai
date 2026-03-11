@@ -1,6 +1,7 @@
-import React, { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import React from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 
 const pushSpy = vi.fn();
 
@@ -89,8 +90,8 @@ describe('ChatMessage Postmark v2 source pill', () => {
       root.render(React.createElement(ChatMessage, { message: message as never, getCatById: getCatById as never }));
     });
 
-    const pill = Array.from(container.querySelectorAll('a')).find(
-      (a) => (a.textContent ?? '').includes('mm72eyvc') && (a.textContent ?? '').includes('F052 跨线程调度测试'),
+    const pill = Array.from(container.querySelectorAll('a')).find((a) =>
+      (a.textContent ?? '').includes('mm72eyvc') && (a.textContent ?? '').includes('F052 跨线程调度测试'),
     );
     expect(pill).toBeTruthy();
     expect(pill?.textContent).toContain('📮');
@@ -108,3 +109,4 @@ describe('ChatMessage Postmark v2 source pill', () => {
     expect(pushSpy).toHaveBeenCalledWith(`/thread/${sourceThreadId}`);
   });
 });
+

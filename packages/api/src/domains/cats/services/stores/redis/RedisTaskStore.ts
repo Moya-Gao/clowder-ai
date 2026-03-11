@@ -9,7 +9,8 @@
  * TTL 默认 30 天。
  */
 
-import type { CatId, CreateTaskInput, TaskItem, UpdateTaskInput } from '@cat-cafe/shared';
+import type { TaskItem, CreateTaskInput, UpdateTaskInput } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
 import type { ITaskStore } from '../ports/TaskStore.js';

@@ -298,7 +298,12 @@ export async function rescueClaudeThinkingSessions(
 
   const rescuedCount = results.filter((result) => result.status === 'repaired').length;
   const skippedCount = results.filter((result) => result.status !== 'repaired').length;
-  const status = rescuedCount > 0 ? (skippedCount > 0 ? 'partial' : 'ok') : 'noop';
+  const status =
+    rescuedCount > 0
+      ? skippedCount > 0
+        ? 'partial'
+        : 'ok'
+      : 'noop';
 
   return {
     status,

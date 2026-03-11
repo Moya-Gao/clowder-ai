@@ -17,7 +17,9 @@ function makeMsg(id: string, type: 'user' | 'assistant' | 'system', catId?: stri
 const nullRef = { current: null };
 
 function render(messages: ChatMessageData[]): string {
-  return renderToStaticMarkup(React.createElement(MessageNavigator, { messages, scrollContainerRef: nullRef }));
+  return renderToStaticMarkup(
+    React.createElement(MessageNavigator, { messages, scrollContainerRef: nullRef }),
+  );
 }
 
 describe('MessageNavigator', () => {
@@ -56,7 +58,11 @@ describe('MessageNavigator', () => {
   });
 
   it('applies cat-specific dot colors', () => {
-    const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'opus'), makeMsg('m3', 'assistant', 'codex')];
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'assistant', 'opus'),
+      makeMsg('m3', 'assistant', 'codex'),
+    ];
     const html = render(msgs);
 
     expect(html).toContain('bg-owner-primary');
@@ -65,7 +71,11 @@ describe('MessageNavigator', () => {
   });
 
   it('tolerates variant catIds before /api/cats loads', () => {
-    const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'opus-45'), makeMsg('m3', 'assistant', 'spark')];
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'assistant', 'opus-45'),
+      makeMsg('m3', 'assistant', 'spark'),
+    ];
     const html = render(msgs);
 
     // base colors come from shared fallback CAT_CONFIGS (opus/codex)
@@ -95,7 +105,11 @@ describe('MessageNavigator', () => {
   });
 
   it('treats messages with catId as assistant even when type is user', () => {
-    const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'user', 'gpt52'), makeMsg('m3', 'assistant', 'codex')];
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'user', 'gpt52'),
+      makeMsg('m3', 'assistant', 'codex'),
+    ];
     const html = render(msgs);
 
     expect(html).toContain('跳转到 缅因猫（gpt52） 的消息');
@@ -105,7 +119,11 @@ describe('MessageNavigator', () => {
   });
 
   it('applies dare fallback color and labels before /api/cats loads', () => {
-    const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'dare'), makeMsg('m3', 'assistant', 'dare-agent')];
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'assistant', 'dare'),
+      makeMsg('m3', 'assistant', 'dare-agent'),
+    ];
     const html = render(msgs);
 
     expect(html).toContain('#D4A76A');
@@ -114,7 +132,11 @@ describe('MessageNavigator', () => {
   });
 
   it('includes accessibility labels', () => {
-    const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'codex'), makeMsg('m3', 'assistant', 'opus')];
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'assistant', 'codex'),
+      makeMsg('m3', 'assistant', 'opus'),
+    ];
     const html = render(msgs);
 
     expect(html).toContain('跳转到 铲屎官 的消息');
@@ -135,7 +157,11 @@ describe('MessageNavigator', () => {
   });
 
   it('renders viewport indicator track', () => {
-    const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'opus'), makeMsg('m3', 'assistant', 'codex')];
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'assistant', 'opus'),
+      makeMsg('m3', 'assistant', 'codex'),
+    ];
     const html = render(msgs);
 
     // Track rail (thin line) and viewport indicator should be present

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { BucketBadge, SourceBadge } from '../mission-control/TriageBadge';
 

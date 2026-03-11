@@ -1,7 +1,7 @@
 import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MiniThreadSidebar } from '@/components/MiniThreadSidebar';
 
 beforeAll(() => {
@@ -81,8 +81,12 @@ describe('MiniThreadSidebar resize cleanup', () => {
     act(() => root.unmount());
 
     // Check that cleanup removed the exact same listener references
-    const removedMove = removeSpy.mock.calls.some(([type, fn]) => type === 'mousemove' && fn === moveListener);
-    const removedUp = removeSpy.mock.calls.some(([type, fn]) => type === 'mouseup' && fn === upListener);
+    const removedMove = removeSpy.mock.calls.some(
+      ([type, fn]) => type === 'mousemove' && fn === moveListener
+    );
+    const removedUp = removeSpy.mock.calls.some(
+      ([type, fn]) => type === 'mouseup' && fn === upListener
+    );
 
     expect(removedMove).toBe(true);
     expect(removedUp).toBe(true);

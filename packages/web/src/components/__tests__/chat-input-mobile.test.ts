@@ -1,6 +1,7 @@
-import React, { act } from 'react';
+import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { ChatInput } from '@/components/ChatInput';
 
 vi.mock('@/components/icons/SendIcon', () => ({
@@ -43,9 +44,7 @@ afterEach(() => {
 
 function render(props: Partial<React.ComponentProps<typeof ChatInput>> = {}) {
   const defaults = { onSend: vi.fn(), disabled: false };
-  act(() => {
-    root.render(React.createElement(ChatInput, { ...defaults, ...props }));
-  });
+  act(() => { root.render(React.createElement(ChatInput, { ...defaults, ...props })); });
   return defaults;
 }
 
@@ -61,9 +60,7 @@ describe('ChatInput mobile toolbar', () => {
   it('expands toolbar on + click and shows attach/whisper/mode buttons', () => {
     render();
     const plusBtn = container.querySelector('button[aria-label="展开工具栏"]') as HTMLButtonElement;
-    act(() => {
-      plusBtn.click();
-    });
+    act(() => { plusBtn.click(); });
     // MobileInputToolbar should now be visible
     expect(container.textContent).toContain('附件');
     expect(container.textContent).toContain('悄悄话');
@@ -74,14 +71,10 @@ describe('ChatInput mobile toolbar', () => {
     render();
     const plusBtn = container.querySelector('button[aria-label="展开工具栏"]') as HTMLButtonElement;
     // Open
-    act(() => {
-      plusBtn.click();
-    });
+    act(() => { plusBtn.click(); });
     expect(container.textContent).toContain('附件');
     // Close
-    act(() => {
-      plusBtn.click();
-    });
+    act(() => { plusBtn.click(); });
     // MobileInputToolbar should be gone
     expect(container.textContent).not.toContain('附件');
   });
@@ -90,9 +83,7 @@ describe('ChatInput mobile toolbar', () => {
     render();
     const plusBtn = container.querySelector('button[aria-label="展开工具栏"]') as HTMLButtonElement;
     expect(plusBtn.className).not.toContain('rotate-45');
-    act(() => {
-      plusBtn.click();
-    });
+    act(() => { plusBtn.click(); });
     expect(plusBtn.className).toContain('rotate-45');
   });
 });

@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { CliEvent } from '@/stores/chat-types';
 
 // Stub MarkdownContent (heavy dep)
-vi.mock('@/components/MarkdownContent', () => ({
+vi.mock('../MarkdownContent', () => ({
   MarkdownContent: ({ content }: { content: string }) => React.createElement('div', { 'data-testid': 'md' }, content),
 }));
 

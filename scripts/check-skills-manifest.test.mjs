@@ -1,9 +1,9 @@
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
 
 const SCRIPT = resolve(process.cwd(), 'scripts/check-skills-manifest.mjs');
 
@@ -48,8 +48,16 @@ function writeBaseFixture(root) {
     'utf-8',
   );
 
-  writeFileSync(join(skillsDir, 'skill-a', 'SKILL.md'), '# skill-a\n\nno hardcoded handles\n', 'utf-8');
-  writeFileSync(join(skillsDir, 'skill-b', 'SKILL.md'), '# skill-b\n\nno hardcoded handles\n', 'utf-8');
+  writeFileSync(
+    join(skillsDir, 'skill-a', 'SKILL.md'),
+    '# skill-a\n\nno hardcoded handles\n',
+    'utf-8',
+  );
+  writeFileSync(
+    join(skillsDir, 'skill-b', 'SKILL.md'),
+    '# skill-b\n\nno hardcoded handles\n',
+    'utf-8',
+  );
 }
 
 function runChecker(root) {
@@ -90,7 +98,10 @@ describe('check-skills-manifest.mjs', () => {
     ].join('\n');
     writeFileSync(manifestPath, broken, 'utf-8');
 
-    assert.throws(() => runChecker(sandboxRoot), /output|failed|error/i);
+    assert.throws(
+      () => runChecker(sandboxRoot),
+      /output|failed|error/i,
+    );
   });
 
   it('fails when next points to a missing skill', () => {
@@ -106,14 +117,20 @@ describe('check-skills-manifest.mjs', () => {
     ].join('\n');
     writeFileSync(manifestPath, broken, 'utf-8');
 
-    assert.throws(() => runChecker(sandboxRoot), /next|missing|failed|error/i);
+    assert.throws(
+      () => runChecker(sandboxRoot),
+      /next|missing|failed|error/i,
+    );
   });
 
   it('fails when SKILL.md contains hardcoded cat handle', () => {
     const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
     writeFileSync(skillPath, '# skill-a\n\n请 @codex review\n', 'utf-8');
 
-    assert.throws(() => runChecker(sandboxRoot), /hardcoded|@codex|failed|error/i);
+    assert.throws(
+      () => runChecker(sandboxRoot),
+      /hardcoded|@codex|failed|error/i,
+    );
   });
 
   it('fails when filesystem has SKILL.md that is missing from manifest', () => {
@@ -125,6 +142,9 @@ describe('check-skills-manifest.mjs', () => {
       'utf-8',
     );
 
-    assert.throws(() => runChecker(sandboxRoot), /manifest|skill-z|failed|error/i);
+    assert.throws(
+      () => runChecker(sandboxRoot),
+      /manifest|skill-z|failed|error/i,
+    );
   });
 });

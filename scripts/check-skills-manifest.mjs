@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -93,7 +93,7 @@ function lintManifestStructure(skillsMap) {
         errors.push(`[manifest] skills.${skillName}.next contains non-string target`);
         continue;
       }
-      if (!Object.hasOwn(skillsMap, targetName)) {
+      if (!Object.prototype.hasOwnProperty.call(skillsMap, targetName)) {
         errors.push(`[manifest] skills.${skillName}.next -> "${targetName}" does not exist`);
       }
     }
@@ -109,8 +109,10 @@ function lintManifestStructure(skillsMap) {
     const skillName = entry.name;
     const skillDocPath = join(skillsRoot, skillName, 'SKILL.md');
     if (!existsSync(skillDocPath)) continue;
-    if (Object.hasOwn(skillsMap, skillName)) continue;
-    errors.push(`[manifest] filesystem skill "${skillName}" has SKILL.md but is missing in manifest.yaml`);
+    if (Object.prototype.hasOwnProperty.call(skillsMap, skillName)) continue;
+    errors.push(
+      `[manifest] filesystem skill "${skillName}" has SKILL.md but is missing in manifest.yaml`,
+    );
   }
 
   return errors;
@@ -150,7 +152,10 @@ function lintManifest() {
   const skillsMap = parsed.skills;
   const handles = loadRosterHandles();
 
-  const errors = [...lintManifestStructure(skillsMap), ...lintHardcodedHandles(skillsMap, handles)];
+  const errors = [
+    ...lintManifestStructure(skillsMap),
+    ...lintHardcodedHandles(skillsMap, handles),
+  ];
 
   return {
     skillCount: Object.keys(skillsMap).length,

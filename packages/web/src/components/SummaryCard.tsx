@@ -1,7 +1,7 @@
 'use client';
 
-import { useCatData } from '@/hooks/useCatData';
 import { CatAvatar } from './CatAvatar';
+import { useCatData } from '@/hooks/useCatData';
 
 interface SummaryCardProps {
   topic: string;

@@ -8,13 +8,16 @@
  * 4) Idempotency key race on invocation create
  */
 
+import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { after, before, beforeEach, describe, it } from 'node:test';
-import { DeliveryCursorStore } from '../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import { InvocationRecordStore } from '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js';
-import { MessageStore } from '../dist/domains/cats/services/stores/ports/MessageStore.js';
 import { ThreadStore } from '../dist/domains/cats/services/stores/ports/ThreadStore.js';
-import { assertRedisIsolationOrThrow, cleanupPrefixedRedisKeys } from './helpers/redis-test-helpers.js';
+import { MessageStore } from '../dist/domains/cats/services/stores/ports/MessageStore.js';
+import { DeliveryCursorStore } from '../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js';
+import {
+  assertRedisIsolationOrThrow,
+  cleanupPrefixedRedisKeys,
+} from './helpers/redis-test-helpers.js';
 
 const REDIS_URL = process.env['REDIS_URL'];
 
@@ -34,8 +37,12 @@ describe('Concurrent fault drills - in-memory stores', () => {
     const { invocationId } = store.create(invocationCreateInput('mem-cas-race'));
 
     const results = await Promise.all([
-      Promise.resolve().then(() => store.update(invocationId, { status: 'running', expectedStatus: 'queued' })),
-      Promise.resolve().then(() => store.update(invocationId, { status: 'canceled', expectedStatus: 'queued' })),
+      Promise.resolve().then(() =>
+        store.update(invocationId, { status: 'running', expectedStatus: 'queued' })
+      ),
+      Promise.resolve().then(() =>
+        store.update(invocationId, { status: 'canceled', expectedStatus: 'queued' })
+      ),
     ]);
 
     const winners = results.filter((r) => r !== null);
@@ -93,17 +100,16 @@ describe('Concurrent fault drills - in-memory stores', () => {
         threadId,
       });
     });
-    const ackPromise = Promise.resolve().then(() => deliveryCursorStore.ackCursor(userId, catId, threadId, base.id));
+    const ackPromise = Promise.resolve().then(() =>
+      deliveryCursorStore.ackCursor(userId, catId, threadId, base.id),
+    );
 
     const [newMsg] = await Promise.all([appendPromise, ackPromise]);
     const cursor = await deliveryCursorStore.getCursor(userId, catId, threadId);
     assert.equal(cursor, base.id);
 
     const firstWindow = messageStore.getByThreadAfter(threadId, cursor, undefined, userId);
-    assert.deepEqual(
-      firstWindow.map((m) => m.id),
-      [newMsg.id],
-    );
+    assert.deepEqual(firstWindow.map((m) => m.id), [newMsg.id]);
 
     await deliveryCursorStore.ackCursor(userId, catId, threadId, newMsg.id);
     const secondCursor = await deliveryCursorStore.getCursor(userId, catId, threadId);
@@ -263,17 +269,16 @@ describe('Concurrent fault drills - Redis stores', { skip: !REDIS_URL ? 'REDIS_U
         threadId,
       });
     });
-    const ackPromise = Promise.resolve().then(() => deliveryCursorStore.ackCursor(userId, catId, threadId, base.id));
+    const ackPromise = Promise.resolve().then(() =>
+      deliveryCursorStore.ackCursor(userId, catId, threadId, base.id),
+    );
 
     const [newMsg] = await Promise.all([appendPromise, ackPromise]);
     const cursor = await deliveryCursorStore.getCursor(userId, catId, threadId);
     assert.equal(cursor, base.id);
 
     const firstWindow = await messageStore.getByThreadAfter(threadId, cursor, undefined, userId);
-    assert.deepEqual(
-      firstWindow.map((m) => m.id),
-      [newMsg.id],
-    );
+    assert.deepEqual(firstWindow.map((m) => m.id), [newMsg.id]);
 
     await deliveryCursorStore.ackCursor(userId, catId, threadId, newMsg.id);
     const secondCursor = await deliveryCursorStore.getCursor(userId, catId, threadId);
@@ -289,7 +294,9 @@ describe('Concurrent fault drills - Redis stores', { skip: !REDIS_URL ? 'REDIS_U
     const idempotencyKey = 'redis-idemp-race';
 
     const results = await Promise.all(
-      Array.from({ length: N }, () => store.create(invocationCreateInput(idempotencyKey))),
+      Array.from({ length: N }, () =>
+        store.create(invocationCreateInput(idempotencyKey)),
+      ),
     );
 
     const created = results.filter((r) => r.outcome === 'created');

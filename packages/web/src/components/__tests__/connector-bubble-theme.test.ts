@@ -3,11 +3,12 @@
  * - GitHub Review notifications should be visually distinct from generic connector bubbles.
  */
 
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { ChatMessage } from '@/stores/chat-types';
 import { ConnectorBubble } from '../ConnectorBubble';
+import type { ChatMessage } from '@/stores/chat-types';
 
 describe('ConnectorBubble theme', () => {
   let container: HTMLDivElement;
@@ -72,20 +73,18 @@ describe('ConnectorBubble theme', () => {
       extra: {
         rich: {
           v: 1 as const,
-          blocks: [
-            {
-              id: 'vote-1',
-              kind: 'card' as const,
-              v: 1 as const,
-              title: '投票结果: 谁最坏？',
-              bodyMarkdown: '实名投票 · 2 票',
-              tone: 'info' as const,
-              fields: [
-                { label: 'opus', value: '1 票 (50%)' },
-                { label: 'codex', value: '1 票 (50%)' },
-              ],
-            },
-          ],
+          blocks: [{
+            id: 'vote-1',
+            kind: 'card' as const,
+            v: 1 as const,
+            title: '投票结果: 谁最坏？',
+            bodyMarkdown: '实名投票 · 2 票',
+            tone: 'info' as const,
+            fields: [
+              { label: 'opus', value: '1 票 (50%)' },
+              { label: 'codex', value: '1 票 (50%)' },
+            ],
+          }],
         },
       },
     };
@@ -125,3 +124,4 @@ describe('ConnectorBubble theme', () => {
     expect(html).not.toContain('bg-blue-100');
   });
 });
+

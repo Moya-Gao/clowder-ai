@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  collapseAllGroups,
-  expandAllGroups,
-  findGroupKeyForThread,
   initCollapsedSet,
-  resolveCollapse,
-  type StorageLike,
   writeCollapsedGroups,
+  resolveCollapse,
+  expandAllGroups,
+  collapseAllGroups,
+  findGroupKeyForThread,
+  type StorageLike,
 } from './collapse-state';
 import type { ThreadGroup } from './thread-utils';
 
@@ -27,7 +27,11 @@ export interface UseCollapseStateOptions {
   currentThreadId: string | undefined;
 }
 
-export function useCollapseState({ threadGroups, searchQuery, currentThreadId }: UseCollapseStateOptions) {
+export function useCollapseState({
+  threadGroups,
+  searchQuery,
+  currentThreadId,
+}: UseCollapseStateOptions) {
   const initialized = useRef(false);
   const allKnownKeys = useRef<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -71,7 +75,8 @@ export function useCollapseState({ threadGroups, searchQuery, currentThreadId }:
   }, [currentThreadId, threadGroups]);
 
   const isCollapsed = useCallback(
-    (groupKey: string): boolean => resolveCollapse(groupKey, collapsed, searchQuery, initialized.current),
+    (groupKey: string): boolean =>
+      resolveCollapse(groupKey, collapsed, searchQuery, initialized.current),
     [collapsed, searchQuery],
   );
 

@@ -35,25 +35,22 @@ export function ExportButton({ threadId }: { threadId: string }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
 
-  const handleExport = useCallback(
-    async (format: ExportFormat) => {
-      setMenuOpen(false);
-      setLoading(true);
-      try {
-        if (format === 'png') {
-          await exportImage(threadId);
-        } else {
-          await exportText(threadId, format);
-        }
-      } catch (error) {
-        console.error('导出失败:', error);
-        alert(`导出失败：${error instanceof Error ? error.message : '未知错误'}`);
-      } finally {
-        setLoading(false);
+  const handleExport = useCallback(async (format: ExportFormat) => {
+    setMenuOpen(false);
+    setLoading(true);
+    try {
+      if (format === 'png') {
+        await exportImage(threadId);
+      } else {
+        await exportText(threadId, format);
       }
-    },
-    [threadId],
-  );
+    } catch (error) {
+      console.error('导出失败:', error);
+      alert(`导出失败：${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [threadId]);
 
   return (
     <div ref={containerRef} className="relative">
@@ -65,13 +62,7 @@ export function ExportButton({ threadId }: { threadId: string }) {
         aria-label="导出对话"
       >
         {loading ? (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            className="w-5 h-5 animate-spin text-gray-500"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
+          <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 animate-spin text-gray-500" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
             <path d="M12 2a10 10 0 019.8 8" />
           </svg>
@@ -103,7 +94,7 @@ async function exportImage(threadId: string): Promise<void> {
     method: 'POST',
   });
   if (!res.ok) {
-    const data = (await res.json()) as { error?: string; message?: string };
+    const data = await res.json() as { error?: string; message?: string };
     throw new Error(data.message || data.error || '导出失败');
   }
   const blob = await res.blob();
@@ -113,7 +104,7 @@ async function exportImage(threadId: string): Promise<void> {
 async function exportText(threadId: string, format: 'md' | 'txt'): Promise<void> {
   const res = await apiFetch(`/api/export/thread/${threadId}?format=${format}`);
   if (!res.ok) {
-    const data = (await res.json()) as { error?: string; message?: string };
+    const data = await res.json() as { error?: string; message?: string };
     throw new Error(data.message || data.error || '导出失败');
   }
   const text = await res.text();

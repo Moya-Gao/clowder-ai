@@ -1,6 +1,7 @@
-import React, { act } from 'react';
+import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 
 vi.mock('@/hooks/useVoiceInput', () => ({
   useVoiceInput: () => ({
@@ -46,9 +47,7 @@ describe('Stop event payload regression', () => {
   });
 
   afterEach(() => {
-    act(() => {
-      root.unmount();
-    });
+    act(() => { root.unmount(); });
     container.remove();
   });
 
@@ -56,16 +55,14 @@ describe('Stop event payload regression', () => {
     const onStop = vi.fn();
 
     act(() => {
-      root.render(
-        React.createElement(ChatInputActionButton, {
-          onTranscript: vi.fn(),
-          onSend: vi.fn(),
-          onStop,
-          disabled: true,
-          hasActiveInvocation: true,
-          hasText: false,
-        }),
-      );
+      root.render(React.createElement(ChatInputActionButton, {
+        onTranscript: vi.fn(),
+        onSend: vi.fn(),
+        onStop,
+        disabled: true,
+        hasActiveInvocation: true,
+        hasText: false,
+      }));
     });
 
     const stopBtn = container.querySelector('button[aria-label="Stop generation"]');

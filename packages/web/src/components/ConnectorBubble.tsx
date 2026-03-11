@@ -1,10 +1,10 @@
 'use client';
 
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
-import { API_URL } from '@/utils/api-client';
-import { BallotIcon } from './icons/VoteIcons';
 import { MarkdownContent } from './MarkdownContent';
 import { RichBlocks } from './rich/RichBlocks';
+import { API_URL } from '@/utils/api-client';
+import { BallotIcon } from './icons/VoteIcons';
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -17,7 +17,9 @@ function renderContentBlocks(blocks: MessageContent[]) {
       return <MarkdownContent key={i} content={block.text} />;
     }
     if (block.type === 'image') {
-      const src = block.url.startsWith('/uploads/') ? `${API_URL}${block.url}` : block.url;
+      const src = block.url.startsWith('/uploads/')
+        ? `${API_URL}${block.url}`
+        : block.url;
       const isSafeUrl = src.startsWith('/') || src.startsWith('http://') || src.startsWith('https://');
       return (
         <img
@@ -113,11 +115,15 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
           )}
           <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
         </div>
-        <div
-          className={`${theme.bubble} rounded-2xl rounded-bl-sm px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden`}
-        >
-          {hasBlocks ? renderContentBlocks(message.contentBlocks!) : <MarkdownContent content={message.content} />}
-          {richBlocks && richBlocks.length > 0 && <RichBlocks blocks={richBlocks} />}
+        <div className={`${theme.bubble} rounded-2xl rounded-bl-sm px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden`}>
+          {hasBlocks ? (
+            renderContentBlocks(message.contentBlocks!)
+          ) : (
+            <MarkdownContent content={message.content} />
+          )}
+          {richBlocks && richBlocks.length > 0 && (
+            <RichBlocks blocks={richBlocks} />
+          )}
         </div>
       </div>
     </div>
