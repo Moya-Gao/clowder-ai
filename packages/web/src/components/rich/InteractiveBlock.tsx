@@ -327,13 +327,13 @@ function ConfirmInteraction({
         type="button"
         disabled={disabled}
         onClick={() => handleClick('__confirm__')}
-        className={`px-4 py-1.5 rounded-lg text-sm transition-colors
+        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors border
           ${
             selectedId === '__confirm__'
-              ? 'bg-blue-500 text-white'
+              ? 'bg-blue-500 border-blue-500 text-white'
               : disabled
-                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'
+                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
+                : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-400 cursor-pointer'
           }`}
       >
         {confirmOpt.emoji && `${confirmOpt.emoji} `}
@@ -343,13 +343,13 @@ function ConfirmInteraction({
         type="button"
         disabled={disabled}
         onClick={() => handleClick('__cancel__')}
-        className={`px-4 py-1.5 rounded-lg text-sm transition-colors
+        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors border
           ${
             selectedId === '__cancel__'
-              ? 'bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200'
+              ? 'bg-blue-500 border-blue-500 text-white'
               : disabled
-                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 cursor-pointer'
+                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
+                : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-400 cursor-pointer'
           }`}
       >
         {cancelOpt.emoji && `${cancelOpt.emoji} `}
