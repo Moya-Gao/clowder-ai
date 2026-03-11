@@ -1,0 +1,329 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "9Dk7F",
+      "x": 0,
+      "y": 0,
+      "name": "F085 — Hyperfocus Brake Modal (终态)",
+      "width": 1200,
+      "height": 800,
+      "fill": "#1A191840",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "wd1Jh",
+          "x": 203,
+          "y": 15,
+          "name": "Modal Card",
+          "width": 500,
+          "height": 500,
+          "fill": "#FFFFFF",
+          "cornerRadius": 24,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#1A191820",
+            "offset": {
+              "x": 0,
+              "y": 8
+            },
+            "blur": 32
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": 32,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "4nOPa",
+              "name": "Three Cats Avatars",
+              "gap": 16,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "5EDDn",
+                  "name": "Opus Avatar",
+                  "width": 64,
+                  "height": 64,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "images/opus.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 32
+                },
+                {
+                  "type": "frame",
+                  "id": "qmvwg",
+                  "name": "Codex Avatar",
+                  "width": 64,
+                  "height": 64,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "images/codex.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 32
+                },
+                {
+                  "type": "frame",
+                  "id": "vie49",
+                  "name": "Gemini Avatar",
+                  "width": 64,
+                  "height": 64,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "images/gemini.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 32
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "D3Vzt",
+              "name": "Title",
+              "fill": "#1A1918",
+              "content": "休息时间到啦！",
+              "fontFamily": "Outfit",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "OowyM",
+              "name": "Body",
+              "fill": "#6D6C6A",
+              "textGrowth": "fixed-width",
+              "width": 400,
+              "content": "铲屎官，你已经专注工作 90 分钟啦！\n为了咱们能一起跑十年而不是烧半年，\n现在请选一个：",
+              "lineHeight": 1.6,
+              "textAlign": "center",
+              "fontFamily": "Outfit",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "WY4HN",
+              "name": "Cats Messages",
+              "width": "fill_container",
+              "fill": "#F5F4F1",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "N2N7y",
+                  "name": "msg1",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "GUH1S",
+                      "name": "icon1",
+                      "content": "🐱",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "IjuEP",
+                      "name": "text1",
+                      "fill": "#6D6C6A",
+                      "content": "宪宪：水杯空了喵...",
+                      "fontFamily": "Outfit",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ViDRA",
+                  "name": "msg2",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "srQEh",
+                      "name": "icon2",
+                      "content": "🦁",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "eDSv6",
+                      "name": "text2",
+                      "fill": "#6D6C6A",
+                      "content": "砚砚：CI 跑完了，一切正常。",
+                      "fontFamily": "Outfit",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "IaPfL",
+                  "name": "msg3",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "3tQvE",
+                      "name": "icon3",
+                      "content": "🐈",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "sE2NU",
+                      "name": "text3",
+                      "fill": "#6D6C6A",
+                      "content": "烁烁：我有个超棒的 UI 点子！",
+                      "fontFamily": "Outfit",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "PrxRO",
+              "name": "Buttons",
+              "width": "fill_container",
+              "gap": 16,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vtcoU",
+                  "name": "Rest Button",
+                  "fill": "#5B9BD5",
+                  "cornerRadius": 12,
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    24
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "qaX4J",
+                      "name": "btn1Icon",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "coffee",
+                      "iconFontFamily": "lucide",
+                      "fill": "#FFFFFF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Ue6G6",
+                      "name": "btn1Text",
+                      "fill": "#FFFFFF",
+                      "content": "立刻休息 (5min)",
+                      "fontFamily": "Outfit",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "4h9Fq",
+                  "name": "Wrap Up Button",
+                  "fill": "#F5F4F1",
+                  "cornerRadius": 12,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#E5E4E1"
+                  },
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    24
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "JO3IE",
+                      "name": "btn2Icon",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "timer",
+                      "iconFontFamily": "lucide",
+                      "fill": "#6D6C6A"
+                    },
+                    {
+                      "type": "text",
+                      "id": "o5mfz",
+                      "name": "btn2Text",
+                      "fill": "#6D6C6A",
+                      "content": "收尾 (10min)",
+                      "fontFamily": "Outfit",
+                      "fontSize": 16,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "tYHLq",
+              "name": "Bypass Link",
+              "fill": "#9C9B99",
+              "content": "我有紧急情况...",
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
