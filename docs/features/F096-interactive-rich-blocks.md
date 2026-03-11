@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F096: Interactive Rich Blocks — 可交互富文本组件
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: Phase C in progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -57,6 +57,7 @@ interface RichInteractiveBlock extends RichBlockBase {
   messageTemplate?: string;    // 自定义发送消息模板，{selection} 占位符
   disabled?: boolean;          // 已交互后禁用
   selectedIds?: string[];      // 已选择的 option IDs（回显用）
+  groupId?: string;            // Phase C: 同 groupId 的 block 统一提交
 }
 
 interface InteractiveOption {
@@ -109,6 +110,15 @@ interface InteractiveOption {
 - [x] AC-B1: 非交互客户端降级为纯文本展示（option 列表 + "请输入编号选择"）
 - [x] AC-B2: Rich Block Rules 文档更新，猫猫知道怎么用 interactive block
 
+### Phase C（表单组：多 block 统一提交）
+
+- [ ] AC-C1: `RichInteractiveBlock` 新增可选 `groupId` 字段，同 groupId 的 block 归为一组
+- [ ] AC-C2: 同组 block 选择后不立刻发消息，只更新本地选中状态
+- [ ] AC-C3: 同组最后一个 block 下方显示"全部提交"按钮（所有 block 都有选择后才可点）
+- [ ] AC-C4: 提交时汇总所有 block 的选择，发一条合并消息
+- [ ] AC-C5: 提交后同组所有 block 同时变 disabled + 持久化
+- [ ] AC-C6: 无 `groupId` 的 block 保持现有行为（独立提交）
+
 ## Dependencies
 
 - **Evolved from**: F022（Rich Block 基础架构）
@@ -139,6 +149,7 @@ interface InteractiveOption {
 | KD-3 | 交互后 block 变 disabled | 防止重复操作，保留选择记录 | 2026-03-11 |
 | KD-4 | 持久化到 `message.extra.rich`（PATCH endpoint） | 终态基座，刷新不丢状态（P1：每步产物是终态） | 2026-03-11 |
 | KD-5 | 随机选择用闪烁高亮减速动画（CSS + setInterval） | 有期待感，纯前端实现无需额外库 | 2026-03-11 |
+| KD-6 | 同组 block 用 `groupId` 统一提交，无 groupId 保持独立 | 铲屎官反馈：一次发 N 个问题应全选完一起提交 | 2026-03-11 |
 
 ## Timeline
 
@@ -148,6 +159,7 @@ interface InteractiveOption {
 | 2026-03-11 | F096 立项，从 F087 Design Gate 讨论中提取为独立 Feature |
 | 2026-03-11 | Phase A+B merged (PR #365) — codex 3轮 review + cloud 3轮 review |
 | 2026-03-11 | UX bugfix `78a8511f` — select 加确认步骤 + 消息带 block title 上下文 |
+| 2026-03-11 | Phase C 立项 — 表单组（groupId 统一提交） |
 
 ## Review Gate
 
@@ -171,6 +183,7 @@ interface InteractiveOption {
 | R2 | "别的地方还能用" — 通用组件 | AC-A1~A6 | 多场景 test | [x] |
 | R3 | F087 训练营选任务需要 card-grid | AC-A2, AC-A7 | F087 集成测试 | [x] |
 | R4 | 随机抽功能 | AC-A7 | manual + screenshot | [x] |
+| R5 | "都选完一起提交" — 多 block 统一提交 | AC-C1~C6 | test + manual | [ ] |
 
 ## Post-ship Bugs / Lessons
 
