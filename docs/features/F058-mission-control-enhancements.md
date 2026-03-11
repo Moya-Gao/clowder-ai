@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F058: Mission Control 增强（F049++）
 
-> **Status**: in-progress (Phase J)
+> **Status**: in-progress (Phase J ✅, AC-I6 遗留)
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F049（Mission Control MVP 已合入）
@@ -250,11 +250,11 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [ ] AC-I6: 历史 feature docs 批量迁移完成（parser 需要的字段补齐）— 遗留，铲屎官确认可延后
 
 ### Phase J（依赖全景 DAG 拓扑图）
-- [ ] AC-J1: 依赖全景 tab 使用 DAG 拓扑布局（非平铺网格），节点有层级方向
-- [ ] AC-J2: 三种依赖类型用不同颜色/线型的箭头连线（演化=蓝实线/阻塞=红虚线/关联=灰点线）
-- [ ] AC-J3: 已完成节点半透明（opacity-50），不抢活跃节点视觉焦点
-- [ ] AC-J4: 所有节点约束在屏幕宽度内（KD-5），fitView 自适应
-- [ ] AC-J5: 节点可交互（hover 高亮关联边，点击弹出详情）
+- [x] AC-J1: 依赖全景 tab 使用 DAG 拓扑布局（非平铺网格），节点有层级方向
+- [x] AC-J2: 三种依赖类型用不同颜色/线型的箭头连线（演化=蓝实线/阻塞=红虚线/关联=灰点线）
+- [x] AC-J3: 已完成节点半透明（opacity-50），不抢活跃节点视觉焦点
+- [x] AC-J4: 所有节点约束在屏幕宽度内（KD-5），fitView 自适应
+- [x] AC-J5: 节点可交互（hover 高亮关联边，点击弹出详情）
 
 ## 需求点 Checklist
 
@@ -280,7 +280,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | R18 | "feat互相依赖有点bug 看不到有向图" | AC-I5 | 依赖图有数据 | [x] |
 | R19 | "skills/feat 从现在要统一模板" | AC-I1, AC-I2 | 模板存在 + 立项自动使用 | [x] |
 | R20 | "历史的做一次迁移" | AC-I6 | 批量迁移完成 | [ ] 遗留 |
-| R21 | "依赖全景 tab 不是愿景里的样子！不是 DAG 拓扑！" | AC-J1~J5 | DAG 拓扑图 + 箭头连线 + fitView | [ ] |
+| R21 | "依赖全景 tab 不是愿景里的样子！不是 DAG 拓扑！" | AC-J1~J5 | DAG 拓扑图 + 箭头连线 + fitView | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -356,6 +356,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-10 | Phase I 讨论：铲屎官看两个 UX 方案 → 拍板"行内多级展开" + 要求统一 feature doc 模板 |
 | 2026-03-10 | 模板 `cat-cafe-skills/refs/feature-doc-template.md` 创建，记录 KD-6~8 |
 | 2026-03-10 | 🔴 铲屎官实测发现依赖全景 tab 还是平铺卡片网格，不是 DAG 拓扑。KD-2 被 KD-4/KD-5 推翻。追加 Phase J |
+| 2026-03-11 | Phase J 合入 main (PR #360) — React Flow + dagre DAG 拓扑图，三种边类型，节点点击详情面板。砚砚 R1+R2 + 云端 R1+R2 全过 |
 
 ## Phase H 讨论记录（2026-03-06 四猫 UX 需求分析）
 
