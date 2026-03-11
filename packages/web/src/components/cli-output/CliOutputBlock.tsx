@@ -6,16 +6,15 @@ import type { CliEvent, CliStatus } from '@/stores/chat-types';
 
 /* ── Helpers ── */
 
-/** Convert hex to rgba with given opacity */
-function breedBg(hex: string | undefined, opacity: number): string {
-  if (!hex) return `rgba(148, 130, 180, ${opacity})`; // muted purple fallback
+/** Convert hex to rgba */
+function hexToRgba(hex: string, opacity: number): string {
   const r = Number.parseInt(hex.slice(1, 3), 16);
   const g = Number.parseInt(hex.slice(3, 5), 16);
   const b = Number.parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-/* ── Inline SVG icons (Lucide-style, F056 compliant — no emoji) ── */
+/* ── Inline SVG icons (Lucide-style, F056 compliant) ── */
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
@@ -47,7 +46,7 @@ function WrenchIcon() {
 
 function CheckIcon() {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-emerald-600">
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-cyan-400">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -66,11 +65,16 @@ function PawPrint() {
 
 function LoaderIcon() {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 animate-spin opacity-60">
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 animate-spin opacity-80">
       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </svg>
   );
 }
+
+/* ── Dark surface colors — design-aligned, ~15% lighter than #1E293B ── */
+const SURFACE = '#283548';
+const SURFACE_INNER = '#243040';
+const DIVIDER = '#334155';
 
 /* ── Status helpers ── */
 
@@ -102,18 +106,16 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
     const last = [...events].reverse().find((e) => e.kind === 'tool_use');
     return `CLI Output · ${statusLabel}${last ? ` · ${last.label}...` : ''}`;
   }
-
   if (toolCount > 0) {
     return `CLI Output · ${statusLabel} · ${toolCount} tool${toolCount > 1 ? 's' : ''}${duration}`;
   }
-
   const lineCount = events
     .filter((e) => e.kind === 'text')
     .reduce((n, e) => n + (e.content?.split('\n').length ?? 0), 0);
   return `CLI Output · ${statusLabel} · ${lineCount} line${lineCount !== 1 ? 's' : ''}${duration}`;
 }
 
-/* ── Tool row (individually collapsible — AC-A2) ── */
+/* ── Tool row (individually collapsible) ── */
 
 function ToolRow({
   event,
@@ -128,12 +130,17 @@ function ToolRow({
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
   const hasResult = event.detail != null;
+  // Active tool gets breed-tinted highlight background
+  const activeBg = isActive && accentColor ? hexToRgba(accentColor, 0.2) : undefined;
   return (
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
       className={`w-full text-left cursor-pointer px-2 py-[5px] rounded font-mono text-[11px] ${isActive ? 'border-l-2' : ''}`}
-      style={isActive ? { borderLeftColor: accentColor || '#94A3B8', backgroundColor: 'rgba(0,0,0,0.03)' } : undefined}
+      style={{
+        borderLeftColor: isActive ? (accentColor || '#94A3B8') : undefined,
+        backgroundColor: activeBg,
+      }}
       onClick={() => {
         setRowExpanded((v) => !v);
         onUserInteract?.();
@@ -141,7 +148,7 @@ function ToolRow({
     >
       <div className="flex items-center gap-2">
         {isActive ? <LoaderIcon /> : hasResult ? <CheckIcon /> : <WrenchIcon />}
-        <span className="text-slate-800 font-medium">{event.label}</span>
+        <span className="text-slate-200 font-medium">{event.label}</span>
         {hasResult && !rowExpanded && <ChevronIcon expanded={false} />}
       </div>
       {rowExpanded && hasResult && <div className="mt-1 pl-5 text-slate-500 whitespace-pre-wrap">{event.detail}</div>}
@@ -189,7 +196,7 @@ function ToolsSection({
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-600 hover:text-slate-800 transition-colors rounded"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-300 transition-colors rounded"
         onClick={() => {
           toolsUserInteracted.current = true;
           setToolsExpanded((v) => !v);
@@ -282,15 +289,13 @@ export function CliOutputBlock({
   const accent = breedColor || '#94A3B8';
 
   return (
-    <div
-      className="mt-2 mb-1 rounded-[10px] overflow-hidden"
-      style={{ backgroundColor: breedBg(breedColor, 0.12) }}
-    >
-      {/* Header — breed-tinted, slightly deeper */}
+    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden" style={{ backgroundColor: SURFACE }}>
+      {/* Header */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-700 hover:text-slate-900 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors"
+        style={{ backgroundColor: SURFACE }}
       >
         <span style={{ color: accent }}>
           <ChevronIcon expanded={expanded} />
@@ -308,14 +313,10 @@ export function CliOutputBlock({
         </span>
       </button>
 
-      {/* Expanded body — slightly lighter inner area */}
+      {/* Expanded body — slightly lighter inner surface */}
       {expanded && (
-        <div
-          data-testid="cli-output-body"
-          className="text-xs"
-          style={{ backgroundColor: breedBg(breedColor, 0.06) }}
-        >
-          <div className="h-px" style={{ backgroundColor: breedBg(breedColor, 0.15) }} />
+        <div data-testid="cli-output-body" className="text-slate-200 text-xs" style={{ backgroundColor: SURFACE_INNER }}>
+          <div className="h-px" style={{ backgroundColor: DIVIDER }} />
           {toolUses.length > 0 && (
             <ToolsSection
               toolUses={toolUses}
@@ -333,11 +334,11 @@ export function CliOutputBlock({
             <>
               {toolUses.length > 0 && (
                 <>
-                  <div className="h-px mx-0" style={{ backgroundColor: breedBg(breedColor, 0.15) }} />
-                  <div className="px-3 pt-2 pb-1 font-mono text-[10px] text-slate-500">─── stdout ───</div>
+                  <div className="h-px mx-0" style={{ backgroundColor: DIVIDER }} />
+                  <div className="px-3 pt-2 pb-1 font-mono text-[10px] text-slate-600">─── stdout ───</div>
                 </>
               )}
-              <div className="px-3 py-2 font-mono text-[11px] text-slate-800 leading-relaxed cli-output-md">
+              <div className="px-3 py-2 font-mono text-[11px] text-slate-300 leading-relaxed cli-output-md">
                 <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
               </div>
             </>
