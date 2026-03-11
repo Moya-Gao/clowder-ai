@@ -25,54 +25,98 @@ created: 2026-03-11
 
 ### Phase A: CLI Output Block 重构
 
-将现有的 `ToolEventsPanel` + `ThinkingContent`（origin='stream'）合并为统一的 **CLI Output Block**，采用类似 Claude Code / Codex CLI 的嵌套折叠交互。
+将现有的 `ToolEventsPanel` + `ThinkingContent`（origin='stream'）合并为统一的 **CLI Output Block**，新组件 `CliOutputBlock.tsx`。
+
+**⚠️ 硬边界（Design Gate 讨论确认）**：
+1. **不做时序穿插** — `ToolEvent` 只有 `timestamp/label/detail`，`message.content` 是整块 stdout，没有分段事件流。Phase A 分两区：上方 tool list + 下方 stdout block，不假装穿插
+2. **不合并 callback + stream** — 现在这两者是独立 message，callback 没有 `invocationId` 关联键。Phase A 保持两条 message 各自渲染
+3. **可见性不复用 whisper** — `whisper` 是消息级，CLI 可见性是 thread 级 `thinkingMode`，层级不同不能混
 
 **布局变化**：
 
 ```
-Before:                          After:
-┌─ ChatMessage ─────────┐      ┌─ ChatMessage ─────────┐
-│ [8个工具调用 ▼]       │      │ 正文回复（面向用户）   │
-│ [💭 心里话 ▶]         │      │                        │
-│ [🧠 Thinking ▶]       │      │ ┌─ CLI 输出 ▼ ────────┐│
-│ 正文回复               │      │ │ 🔧 Read index.ts  ▶ ││
-│                        │      │ │ 💬 "看完了，测试.." ││
-└────────────────────────┘      │ │ 🔧 Bash: pnpm test▶ ││
-                                │ │ 💬 "全部通过"       ││
-                                │ └────────────────────┘│
-                                │ [🧠 Thinking ▶]       │
-                                └────────────────────────┘
+Before:                              After:
+┌─ ChatMessage ─────────────┐      ┌─ ChatMessage ──────────────────────┐
+│ [8个工具调用 ▼]           │      │ 正文回复（面向用户的最终输出）      │
+│ [💭 心里话 ▶]             │      │                                    │
+│ [🧠 Thinking ▶]           │      │ ┌─ CLI 输出 · 已完成 · 6 tools ─▼─┐│
+│ 正文回复                   │      │ │ bg-gray-850 monospace            ││
+│                            │      │ │ 🔧 Read  src/index.ts       [▶] ││
+└────────────────────────────┘      │ │ 🔧 Bash  pnpm test  ✅ 12p [▶] ││
+                                    │ │ 🔧 Edit  ChatMessage.tsx    [▶] ││
+                                    │ │ ─── stdout ──────────────────── ││
+                                    │ │ Let me check the structure...   ││
+                                    │ │ Tests pass. Refactoring...      ││
+                                    │ │              共享给其他猫 👁     ││
+                                    │ └──────────────────────────────────┘│
+                                    │ [🧠 Thinking ▶ Reviewing the...]  │
+                                    └────────────────────────────────────┘
+
+折叠态：
+┌─ ChatMessage ──────────────────────────────────────┐
+│ 正文回复                                            │
+│ [CLI 输出 · 已完成 · 6 tools · 2m15s  👁 ▶]       │
+└────────────────────────────────────────────────────┘
 ```
 
+**视觉风格**（Opus + GPT-5.4 共识）：
+- **外层 bubble**：保留猫种气质（ragdoll 紫调、maine-coon 绿调等）
+- **内层 CLI block**：深色 terminal substrate（`bg-gray-800/900 text-gray-100`）
+- **品种色**：仅用于 header pill / active border / focus ring
+- **CLI 文本**：monospace / plain-text，不走 markdown 渲染
+- **A2A**：共享 chevron + 动画 + summary row 交互语法，但保留独立视觉皮肤（不伪装 terminal）
+
+**摘要行规范**：
+
+| 状态 | 文案 |
+|------|------|
+| `进行中` | `CLI 输出 · 进行中 · {lastToolName}...` |
+| `已完成`（有 tools） | `CLI 输出 · 已完成 · {N} tools · {duration}` |
+| `已完成`（无 tools） | `CLI 输出 · 已完成 · {N} lines · {duration}` |
+| `失败` | `CLI 输出 · 失败 · {lastToolName}` |
+| `已中断` | `CLI 输出 · 已中断 · {N} tools` |
+
+**状态枚举**：`进行中 | 已完成 | 失败 | 已中断`（摘要行、active row 高亮、auto-collapse 条件共用）
+
+**可见性 chip**：
+- 来源：thread `thinkingMode`（不是 `message.whisper`）
+- 文案：`共享给其他猫 👁` / `不共享给其他猫 🔒`
+- 位置：header / collapsed summary 行（收起后也必须可见），不放 panel 内右下角
+- 若消息本身是 whisper → 单独挂 `悄悄话` badge，不与可见性 chip 合并
+
 **交互行为**：
-- **正在执行时**：CLI Output Block 自动展开，最新 tool call 高亮
-- **执行完毕时**：自动收起为一行摘要 `CLI 输出 · 8 calls · 2m15s`
-- **下一条消息到达时**：上一条的 CLI Output 自动折叠
+- **正在执行时**（`进行中`）：CLI Output Block 自动展开，最新 tool call 高亮
+- **执行完毕 / 下一条消息到达**：只自动收起"系统展开且用户没手动操作过"的 block
+- **用户手动展开过**：不受 auto-collapse 影响（`userInteracted` flag）
 - **每个 tool call**：独立可折叠，展开显示输入/输出详情
-- **🧠 Thinking**：保持独立折叠区块（这是推理，不是 CLI 输出）
+- **🧠 Thinking**：保持独立折叠区块，不混入 CLI Output Block
+- **`?export=true`**：全部展开（复用现有 `expandInExport` 逻辑）
 
-**可见性标签**：CLI Output 标题栏显示 `👁 全猫可见` / `🔒 仅铲屎官`（复用 `message.whisper` 字段）
+**Rename scope**：Phase A 只改 runtime chat UI（`ChatMessage.tsx` 及新建 `CliOutputBlock.tsx`）；`story-export`、课件、archive 里的"心里话"先不改，避免 scope 膨胀。
 
-### Phase B: 动画与过渡
+### Phase B: 消息聚合 + 时序穿插（可选，铲屎官确认后再做）
 
-- 折叠/展开动画（height transition + opacity fade）
-- Tool call 执行中的 loading spinner
-- 自动滚动：新 tool output 时 auto-scroll 到最新行
+- **ChatContainer invocation cluster**：callback + stream 合并为一张卡（需要在 callback message 补 `invocationId` 关联键）
+- **真时序穿插**：后端补统一 `cliEvents[]` 数据模型，前端按时间轴渲染 tool + text 交替
+- **折叠/展开动画**：height transition + opacity fade（≤300ms）
 
 ## Acceptance Criteria
 
 ### Phase A（CLI Output Block）
-- [ ] AC-A1: `💭 心里话`（origin='stream'）重命名为 `CLI 输出`，嵌入 CLI Output Block
-- [ ] AC-A2: `ToolEventsPanel` 的 tool events 嵌入 CLI Output Block，每个 tool 可独立折叠
+- [ ] AC-A1: `💭 心里话`（origin='stream'）重命名为 `CLI 输出`，嵌入 CliOutputBlock
+- [ ] AC-A2: `ToolEventsPanel` 的 tool events 嵌入 CliOutputBlock，每个 tool 可独立折叠
 - [ ] AC-A3: `🧠 Thinking` 保持独立，不混入 CLI Output Block
-- [ ] AC-A4: CLI Output Block 在消息完成后自动折叠为摘要行
-- [ ] AC-A5: 下一条消息到达时，上一条的 CLI Output 自动折叠
-- [ ] AC-A6: 可见性标签在 CLI Output 标题栏正确显示
+- [ ] AC-A4: 摘要行按状态枚举显示（进行中/已完成/失败/已中断），含 tool count 或 line count + duration
+- [ ] AC-A5: 可见性 chip 在 header/summary 行正确显示（来源 thinkingMode，不是 whisper）
+- [ ] AC-A6: 自动收起仅作用于"系统展开且用户未手动操作"的 block
+- [ ] AC-A7: `?export=true` 时全部展开；用户手动展开过的 block 不受 auto-collapse 影响
+- [ ] AC-A8: 内层 CLI block 用深色 terminal substrate + monospace，外层保留品种配色
+- [ ] AC-A9: Rename scope 限于 runtime chat UI，不改 story-export/课件/archive
 
-### Phase B（动画与过渡）
-- [ ] AC-B1: 折叠/展开有平滑动画（≤300ms）
-- [ ] AC-B2: 执行中的 tool call 显示 loading 状态
-- [ ] AC-B3: 新 tool output 时自动滚动到最新
+### Phase B（消息聚合 + 时序穿插，可选）
+- [ ] AC-B1: callback + stream 合并为同一张卡（ChatContainer cluster）
+- [ ] AC-B2: 后端 `cliEvents[]` 数据模型支持真时序穿插
+- [ ] AC-B3: 折叠/展开有平滑动画（≤300ms）
 
 ## Dependencies
 
@@ -83,16 +127,18 @@ Before:                          After:
 
 | 风险 | 缓解 |
 |------|------|
-| 折叠逻辑与 streaming 冲突 | streaming 时强制展开，完成后才允许折叠 |
-| 现有 export 模式被破坏 | export=true 时全部展开（复用现有 expandInExport 逻辑） |
+| 折叠逻辑与 streaming 冲突 | streaming 时强制展开（`进行中`状态），完成后才允许折叠 |
+| 现有 export 模式被破坏 | AC-A7: `?export=true` 全展开 |
+| scope 膨胀（顺手改 archive/export） | AC-A9: Phase A 只改 runtime chat UI |
+| tool count 双算 | 摘要行 deduplicate `tool_use`，只计唯一 tool 数 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | CLI 输出的终端风格用黑底还是保持当前配色？ | ⬜ 待讨论 |
-| OQ-2 | A2ACollapsible 是否也需要重构为类似风格？ | ⬜ 待讨论 |
-| OQ-3 | 摘要行显示什么信息？（tool count / duration / 状态） | ⬜ 待讨论 |
+| ~~OQ-1~~ | ~~CLI 输出的终端风格用黑底还是保持当前配色？~~ | ✅ 深色 substrate + 品种色 accent（KD-4） |
+| ~~OQ-2~~ | ~~A2ACollapsible 是否也需要重构为类似风格？~~ | ✅ 共享交互语法，保留独立视觉（KD-5） |
+| ~~OQ-3~~ | ~~摘要行显示什么信息？~~ | ✅ 按状态枚举 + tool/line count + duration（KD-6） |
 
 ## Key Decisions
 
@@ -101,12 +147,18 @@ Before:                          After:
 | KD-1 | 💭心里话 → CLI 输出 | "心里话"误导，实际是 CLI stdout | 2026-03-11 |
 | KD-2 | 🧠Thinking 保持独立 | Thinking 是推理过程，不是 CLI 输出 | 2026-03-11 |
 | KD-3 | 纯前端改造，不改后端数据结构 | toolEvents/origin/thinking 数据已足够 | 2026-03-11 |
+| KD-4 | 深色 terminal substrate + 品种色 accent | 内层"执行日志"一眼成立，外层保留猫种气质 | 2026-03-11 |
+| KD-5 | A2A 共享交互语法，保留独立视觉 | A2A 是"内部讨论"不是"执行日志"，语义不同 | 2026-03-11 |
+| KD-6 | 摘要行状态枚举：进行中/已完成/失败/已中断 | 统一摘要、高亮、auto-collapse 的状态源 | 2026-03-11 |
+| KD-7 | 可见性来源 thinkingMode 不是 whisper | whisper 消息级 vs thinkingMode thread 级，层级不同 | 2026-03-11 |
+| KD-8 | Phase A 不做时序穿插，不合并 callback+stream | 后端数据模型不支持，Phase B 再补 | 2026-03-11 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-03-11 | 立项，铲屎官提需求 |
+| 2026-03-11 | Design Gate 讨论（Opus + GPT-5.4），收敛方案 |
 
 ## Review Gate
 
@@ -119,3 +171,4 @@ Before:                          After:
 | **Feature** | `docs/features/F009-tool-use-tool-result.md` | tool 事件显示基础 |
 | **Feature** | `docs/features/F081-bubble-continuity-observability.md` | 气泡连续性 |
 | **Component** | `packages/web/src/components/ChatMessage.tsx` | 主要改造目标 |
+| **Design Discussion** | Thread `thread_mmlwht283o7j3tyk` 2026-03-11 | Opus + GPT-5.4 讨论记录 |
