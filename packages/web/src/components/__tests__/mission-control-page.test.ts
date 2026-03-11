@@ -1,5 +1,4 @@
-import React from 'react';
-import { act } from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MissionControlPage } from '@/components/mission-control/MissionControlPage';
@@ -7,10 +6,10 @@ import { useMissionControlStore } from '@/stores/missionControlStore';
 import {
   createMissionControlMockBackend,
   flush,
-  mockResponse,
-  setNativeValue,
   type MissionControlMockBackend,
   type MutableBacklogItem,
+  mockResponse,
+  setNativeValue,
 } from './mission-control-page.test-helpers';
 
 const mockApiFetch = vi.hoisted(() => vi.fn());
@@ -283,7 +282,12 @@ describe('MissionControlPage', () => {
 
     // Switch to threads tab
     const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
-    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
+    if (threadsTab) {
+      await act(async () => {
+        threadsTab.click();
+      });
+      await flush(act);
+    }
 
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
@@ -324,7 +328,12 @@ describe('MissionControlPage', () => {
 
     // Switch to threads tab
     const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
-    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
+    if (threadsTab) {
+      await act(async () => {
+        threadsTab.click();
+      });
+      await flush(act);
+    }
 
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
@@ -426,7 +435,12 @@ describe('MissionControlPage', () => {
 
     // Switch to threads tab
     const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
-    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
+    if (threadsTab) {
+      await act(async () => {
+        threadsTab.click();
+      });
+      await flush(act);
+    }
 
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
@@ -1302,6 +1316,166 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
     expect(container.textContent).toContain('暂无 Feature 依赖数据');
   });
 
+  it('shows related edge even when only one side declares it (single-side dedup)', async () => {
+    const now = Date.now();
+    // F070 declares related: [F069], but F069 does NOT declare related: [F070]
+    // Edge should still appear (P1-2 fix)
+    backend.setItems([
+      {
+        id: 'rel-1',
+        userId: 'u',
+        title: '[F070] Feature A',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f070'],
+        status: 'open',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+        dependencies: { related: ['F069'] },
+      },
+      {
+        id: 'rel-2',
+        userId: 'u',
+        title: '[F069] Feature B',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f069'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const depsTab = container.querySelector('[data-testid="mc-tab-dependencies"]') as HTMLButtonElement;
+    await act(async () => {
+      depsTab.click();
+    });
+
+    // Both nodes should be present — proves single-side related declaration doesn't prevent rendering
+    expect(container.querySelector('[data-testid="mc-dep-node-F070"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="mc-dep-node-F069"]')).not.toBeNull();
+    // Click F070 to see its detail panel — should show the related dependency
+    const node = container.querySelector('[data-testid="mc-dep-node-F070"]') as HTMLElement;
+    await act(async () => {
+      node.click();
+    });
+    const detail = container.querySelector('[data-testid="mc-dep-node-detail"]');
+    expect(detail).not.toBeNull();
+    expect(detail?.textContent).toContain('F069');
+  });
+
+  it('shows node detail panel when a node is clicked (AC-J5)', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'click-1',
+        userId: 'u',
+        title: '[F070] Clickable Feature',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f070'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+        dependencies: { evolvedFrom: ['F049'] },
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const depsTab = container.querySelector('[data-testid="mc-tab-dependencies"]') as HTMLButtonElement;
+    await act(async () => {
+      depsTab.click();
+    });
+
+    // Detail panel should not be visible initially
+    expect(container.querySelector('[data-testid="mc-dep-node-detail"]')).toBeNull();
+
+    // Click the node
+    const node = container.querySelector('[data-testid="mc-dep-node-F070"]') as HTMLElement;
+    expect(node).not.toBeNull();
+    await act(async () => {
+      node.click();
+    });
+
+    // Detail panel should appear with feature info
+    const detail = container.querySelector('[data-testid="mc-dep-node-detail"]');
+    expect(detail).not.toBeNull();
+    expect(detail?.textContent).toContain('F070');
+    expect(detail?.textContent).toContain('Clickable Feature');
+    expect(detail?.textContent).toContain('F049');
+  });
+
+  it('closes node detail panel when selected feature disappears from data', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'vanish-1',
+        userId: 'u',
+        title: '[F070] Will Vanish',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f070'],
+        status: 'open',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+      },
+      {
+        id: 'vanish-2',
+        userId: 'u',
+        title: '[F069] Stays',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f069'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const depsTab = container.querySelector('[data-testid="mc-tab-dependencies"]') as HTMLButtonElement;
+    await act(async () => {
+      depsTab.click();
+    });
+
+    // Click F070 to open detail
+    const node = container.querySelector('[data-testid="mc-dep-node-F070"]') as HTMLElement;
+    await act(async () => {
+      node.click();
+    });
+    expect(container.querySelector('[data-testid="mc-dep-node-detail"]')?.textContent).toContain('F070');
+
+    // Close detail by clicking close button
+    const closeBtn = container.querySelector('[data-testid="mc-dep-node-detail"] button') as HTMLElement;
+    await act(async () => {
+      closeBtn.click();
+    });
+    expect(container.querySelector('[data-testid="mc-dep-node-detail"]')).toBeNull();
+  });
+
   it('referrer-based back button links to referrer thread when ?from= present', async () => {
     // Set up window.location.search with ?from=thread-abc
     const originalSearch = window.location.search;
@@ -1343,9 +1517,7 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
         dispatchedAt: now - 5_000,
         dispatchedThreadId: 'thread-unlinked',
         dispatchedThreadPhase: 'coding',
-        audit: [
-          { id: 'a-tm', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 },
-        ],
+        audit: [{ id: 'a-tm', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 }],
       } satisfies MutableBacklogItem,
     ]);
     // Thread has F099 in title but NO backlogItemId → should match via title
@@ -1367,7 +1539,12 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
 
     // Switch to threads tab
     const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
-    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
+    if (threadsTab) {
+      await act(async () => {
+        threadsTab.click();
+      });
+      await flush(act);
+    }
 
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
@@ -1394,9 +1571,7 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
         dispatchedAt: now - 5_000,
         dispatchedThreadId: 'thread-direct',
         dispatchedThreadPhase: 'coding',
-        audit: [
-          { id: 'a-dp', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 },
-        ],
+        audit: [{ id: 'a-dp', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 }],
       } satisfies MutableBacklogItem,
     ]);
     backend.setThreads([
@@ -1425,7 +1600,12 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
 
     // Switch to threads tab
     const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
-    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
+    if (threadsTab) {
+      await act(async () => {
+        threadsTab.click();
+      });
+      await flush(act);
+    }
 
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
@@ -1454,7 +1634,12 @@ describe('Feature progress panel', () => {
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => backend.handleRequest(path, init));
     // Wire native fetch to the mock backend so useFeatureDocDetail (which uses fetch) is intercepted
     vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
-      const path = typeof input === 'string' ? input : input instanceof URL ? input.pathname + input.search : (input as Request).url;
+      const path =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.pathname + input.search
+            : (input as Request).url;
       return backend.handleRequest(path, init);
     });
     useMissionControlStore.setState({
@@ -1496,9 +1681,7 @@ describe('Feature progress panel', () => {
         dispatchedAt: now - 4_000,
         dispatchedThreadId: 'thread-fp-1',
         dispatchedThreadPhase: 'coding',
-        audit: [
-          { id: 'a-fp-1', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 4_000 },
-        ],
+        audit: [{ id: 'a-fp-1', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 4_000 }],
       } satisfies MutableBacklogItem,
     ]);
 
@@ -1548,9 +1731,7 @@ describe('Feature progress panel', () => {
         dispatchedAt: now - 4_000,
         dispatchedThreadId: 'thread-fp-2',
         dispatchedThreadPhase: 'coding',
-        audit: [
-          { id: 'a-fp-2', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 4_000 },
-        ],
+        audit: [{ id: 'a-fp-2', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 4_000 }],
       } satisfies MutableBacklogItem,
     ]);
 
