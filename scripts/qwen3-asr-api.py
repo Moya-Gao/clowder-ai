@@ -80,10 +80,10 @@ def _do_transcribe(audio_path: str, language: str, initial_prompt: str = "") -> 
     if not audio_path.endswith(".wav"):
         wav_path = _convert_to_wav(audio_path)
 
+    # mlx-audio writes {output_path}.txt — put it in /tmp/ alongside the audio
+    output_path = wav_path.rsplit(".", 1)[0] + "_asr"
     try:
-        # output_path → /dev/null: mlx-audio always writes {output_path}.txt to disk;
-        # we only need the return value, so discard the file write.
-        kwargs = dict(model=_model, audio=wav_path, output_path="/dev/null", verbose=False)
+        kwargs = dict(model=_model, audio=wav_path, output_path=output_path, verbose=False)
         if initial_prompt:
             kwargs["context"] = initial_prompt
         result = generate_transcription(**kwargs)
@@ -91,6 +91,7 @@ def _do_transcribe(audio_path: str, language: str, initial_prompt: str = "") -> 
     finally:
         if wav_path != audio_path:
             Path(wav_path).unlink(missing_ok=True)
+        Path(f"{output_path}.txt").unlink(missing_ok=True)
 
 
 @app.post("/v1/audio/transcriptions")
