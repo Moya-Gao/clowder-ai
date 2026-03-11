@@ -30,7 +30,7 @@ function CommandGroup({ category, label }: { category: CommandCategory; label: s
 }
 
 export function HubCommandsTab() {
-  const categoryOrder: CommandCategory[] = ['general', 'memory', 'knowledge', 'mode', 'task'];
+  const categoryOrder: CommandCategory[] = ['general', 'memory', 'knowledge', 'mode', 'task', 'vote', 'connector'];
 
   return (
     <>

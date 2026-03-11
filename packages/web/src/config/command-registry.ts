@@ -8,7 +8,7 @@
  * That's it — the "命令速查" tab picks it up automatically.
  */
 
-export type CommandCategory = 'general' | 'memory' | 'knowledge' | 'mode' | 'task';
+export type CommandCategory = 'general' | 'memory' | 'knowledge' | 'mode' | 'task' | 'vote' | 'connector';
 
 export interface CommandDefinition {
   /** The command string, e.g. '/help' */
@@ -27,6 +27,8 @@ export const COMMAND_CATEGORIES: Record<CommandCategory, string> = {
   knowledge: '知识库',
   mode: '模式',
   task: '任务',
+  vote: '投票',
+  connector: '跨平台',
 };
 
 export const COMMANDS: CommandDefinition[] = [
@@ -58,4 +60,16 @@ export const COMMANDS: CommandDefinition[] = [
 
   // --- task ---
   { name: '/tasks extract', usage: '/tasks extract [N]', description: '从对话中提取任务', category: 'task' },
+
+  // --- vote (F079) ---
+  { name: '/vote', usage: '/vote', description: '打开投票配置面板', category: 'vote' },
+  { name: '/vote status', usage: '/vote status', description: '查看当前投票状态', category: 'vote' },
+  { name: '/vote cast', usage: '/vote cast <选项>', description: '投票给指定选项', category: 'vote' },
+  { name: '/vote end', usage: '/vote end', description: '结束当前投票并显示结果', category: 'vote' },
+
+  // --- connector (F088, Telegram/飞书等跨平台命令) ---
+  { name: '/where', usage: '/where', description: '查看当前绑定的 thread', category: 'connector' },
+  { name: '/new', usage: '/new [标题]', description: '创建新 thread 并切换', category: 'connector' },
+  { name: '/threads', usage: '/threads', description: '列出最近的 threads', category: 'connector' },
+  { name: '/use', usage: '/use <F号|序号|关键词>', description: '切换到指定 thread', category: 'connector' },
 ];

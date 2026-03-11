@@ -8,11 +8,11 @@ created: 2026-03-05
 
 # F066: Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列
 
-> **Status**: in-progress (Phase 4 enhancement)
+> **Status**: phase4-done
 > **Owner**: 布偶猫 (Opus 4.6)
 > **Created**: 2026-03-05
 > **Phase 1 Closed**: 2026-03-09 — 本地 TTS 语音基础设施落地完成（Qwen3-TTS Base clone + E 型统一方案）
-> **Phase 4 Started**: 2026-03-10 — TTS 合成韧性增强（重试 + 前端重试按钮 + 错误详情）
+> **Phase 4 Closed**: 2026-03-11 — TTS 韧性增强合入（PR #356, 缅因猫 R2 + 云端 Codex 双关放行）
 > **未来方向**: 流式分句（Phase 2）+ 播放队列（Phase 3）拆分为独立 Feature
 
 ## Why
@@ -118,9 +118,9 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 - [x] AC-1: TTS 合成完全在本地 Apple Silicon 完成，不依赖外部云服务 ✅ Qwen3-TTS 1.7B Base clone via mlx-audio
 - [x] AC-2: 现有语音消息功能（F034）不受影响——微信风格语音条、缓存、降级全部正常 ✅ PR #333 回归测试通过
 - [x] AC-3: 中文合成质量主观评估不低于 edge-tts（铲屎官试听确认）✅ 铲屎官："牛逼！是我要的了！"
-- [ ] AC-8: (Phase 4) TTS 瞬时失败（ECONNREFUSED/timeout/5xx）自动重试 1 次，无需用户干预
-- [ ] AC-9: (Phase 4) 🔇 warning card 显示具体错误分类（连接拒绝/超时/服务错误）
-- [ ] AC-10: (Phase 4) 🔇 warning card 提供"重新合成"按钮，点击后可重新触发 TTS 合成
+- [x] AC-8: (Phase 4) TTS 瞬时失败（ECONNREFUSED/timeout/5xx）自动重试 1 次，无需用户干预 ✅ PR #356
+- [x] AC-9: (Phase 4) 🔇 warning card 显示具体错误分类（连接拒绝/超时/服务错误） ✅ PR #356
+- [x] AC-10: (Phase 4) 🔇 warning card 提供"重新合成"按钮，点击后可重新触发 TTS 合成 ✅ PR #356
 - [ ] AC-4: (Phase 2) LLM 流式输出到首次发声延迟 < 2 秒 → 拆分至未来 Feature
 - [ ] AC-5: (Phase 2) 长文本（>100 字）合成延迟比全文合成降低 50%+ → 拆分至未来 Feature
 - [ ] AC-6: (Phase 3) 双猫对话稿可按 queue 模式交替播放 → 拆分至未来 Feature
@@ -135,9 +135,9 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 | R3 | F021++ 播客需要流式合成（AIRI 调研启发） | AC-4, AC-5 | test: 首次发声延迟测量 | [ ] 拆分 |
 | R4 | 双猫交替对话播放（AIRI Intent 系统启发） | AC-6 | test: queue 行为验证 | [ ] 拆分 |
 | R5 | 用户可控制播放 | AC-7 | manual: 暂停/跳过操作 | [ ] 拆分 |
-| R6 | TTS 合成失败自动重试 1 次（瞬时故障容错） | AC-8 | test: mock ECONNREFUSED → 验证重试 + 成功 | [ ] |
-| R7 | 🔇 card 显示具体错误信息（连接拒绝/超时/500） | AC-9 | test: 各类错误 → 验证 card 文案 | [ ] |
-| R8 | 🔇 card 提供"重新合成"按钮 | AC-10 | manual: 点击按钮 → 验证语音生成 | [ ] |
+| R6 | TTS 合成失败自动重试 1 次（瞬时故障容错） | AC-8 | test: mock ECONNREFUSED → 验证重试 + 成功 | [x] |
+| R7 | 🔇 card 显示具体错误信息（连接拒绝/超时/500） | AC-9 | test: 各类错误 → 验证 card 文案 | [x] |
+| R8 | 🔇 card 提供"重新合成"按钮 | AC-10 | manual: 点击按钮 → 验证语音生成 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -232,6 +232,9 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 | 2026-03-09 | 缅因猫 GPT-5.4 + 布偶猫愿景守护 → **Phase 1 closed** |
 | 2026-03-10 | 演示中发现 TTS 合成瞬时失败（🔇 warning card），铲屎官确认三项韧性增强有价值 |
 | 2026-03-10 | **Phase 4 kickoff** — TTS Resilience Enhancement（重试 + 重新合成按钮 + 错误详情）|
+| 2026-03-11 | 缅因猫 GPT-5.4 本地 R2 放行（2 P1 修复确认, 27/27 pass）|
+| 2026-03-11 | 云端 Codex review 放行（"Didn't find any major issues. Nice work!"）|
+| 2026-03-11 | PR #356 squash merged → **Phase 4 closed** |
 
 ## Voice Audition Progress (2026-03-09)
 
