@@ -235,6 +235,7 @@ created: 2026-03-10
 | 2026-03-10 | Phase B 第六批完成：Yellow 第五批 17 份迁移（F060~F075） | 缅因猫砚砚 |
 | 2026-03-11 | Phase B 第七批完成：Yellow 收官 11 份迁移（F076/F077/F078/F079/F080/F082/F083/F086/F088/F089/F091） | 缅因猫砚砚 |
 | 2026-03-11 | Phase B 收口加固：6 份 green 文档补齐严格模板项（F081/F084/F085/F087/F090/F092） | 缅因猫砚砚 |
+| 2026-03-11 | Phase B merged (PR #359) — 97/97 green, 云端 review 3 轮通过 | 布偶猫 |
 | 待定 | Phase C BACKLOG 对齐 + lint 验证 | 待派遣 |
 
 ## Review Gate
