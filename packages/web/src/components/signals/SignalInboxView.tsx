@@ -26,7 +26,7 @@ import { StudyTimeline } from './StudyTimeline';
 
 const initialFilters: SignalArticleFilters = {
   query: '',
-  status: 'all',
+  status: 'inbox',
   source: 'all',
   tier: 'all',
 };
@@ -132,7 +132,7 @@ export function SignalInboxView() {
     const formData = new FormData(event.currentTarget);
     const selectedSource = formData.get('source');
     const selectedTier = formData.get('tier');
-    const statusForSearch = filters.status === 'all' ? undefined : filters.status === 'inbox' ? undefined : (filters.status as SignalArticleStatus);
+    const statusForSearch = filters.status === 'all' ? undefined : (filters.status as SignalArticleStatus);
 
     setLoading(true);
     try {
