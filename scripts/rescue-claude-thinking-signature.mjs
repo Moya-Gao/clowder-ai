@@ -233,12 +233,12 @@ async function main() {
 
   for (const result of results) {
     const suffix = result.backupPath ? ` backup=${result.backupPath}` : '';
-    console.log(
-      `${result.status}: ${result.sessionId} removed=${result.removedCount ?? 0}${suffix}`,
-    );
+    console.log(`${result.status}: ${result.sessionId} removed=${result.removedCount ?? 0}${suffix}`);
   }
 
-  const repairedCount = results.filter((result) => result.status === 'repaired' || result.status === 'would_repair').length;
+  const repairedCount = results.filter(
+    (result) => result.status === 'repaired' || result.status === 'would_repair',
+  ).length;
   const missingCount = results.filter((result) => result.status === 'missing').length;
   if (missingCount > 0) process.exitCode = 1;
   else if (repairedCount === 0) process.exitCode = 0;

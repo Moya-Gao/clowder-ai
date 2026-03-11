@@ -1,7 +1,7 @@
 import React from 'react';
-import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatInput } from '@/components/ChatInput';
 
 vi.mock('@/components/icons/SendIcon', () => ({
@@ -49,13 +49,13 @@ describe('ChatInput dev-loop option', () => {
 
     // Click mode button to show menu
     const modeBtn = container.querySelector('button[aria-label="Mode"]') as HTMLButtonElement;
-    act(() => { modeBtn.click(); });
+    act(() => {
+      modeBtn.click();
+    });
 
     // Find the dev-loop option in the menu
     const buttons = container.querySelectorAll('button');
-    const devLoopBtn = Array.from(buttons).find((b) =>
-      b.textContent?.includes('\u5F00\u53D1\u81EA\u95ED\u73AF')
-    );
+    const devLoopBtn = Array.from(buttons).find((b) => b.textContent?.includes('\u5F00\u53D1\u81EA\u95ED\u73AF'));
     expect(devLoopBtn).toBeTruthy();
     expect(devLoopBtn?.textContent).toContain('dev-loop');
   });
@@ -68,13 +68,13 @@ describe('ChatInput dev-loop option', () => {
 
     // Click mode button
     const modeBtn = container.querySelector('button[aria-label="Mode"]') as HTMLButtonElement;
-    act(() => { modeBtn.click(); });
+    act(() => {
+      modeBtn.click();
+    });
 
     // Click dev-loop option
     const buttons = container.querySelectorAll('button');
-    const devLoopBtn = Array.from(buttons).find((b) =>
-      b.textContent?.includes('\u5F00\u53D1\u81EA\u95ED\u73AF')
-    );
+    const devLoopBtn = Array.from(buttons).find((b) => b.textContent?.includes('\u5F00\u53D1\u81EA\u95ED\u73AF'));
     act(() => {
       devLoopBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     });

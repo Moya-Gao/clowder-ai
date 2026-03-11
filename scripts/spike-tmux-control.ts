@@ -14,7 +14,11 @@ const exec = promisify(execFile);
 const SOCKET = 'catcafe-spike-test';
 
 async function cleanUp() {
-  try { await exec('tmux', ['-L', SOCKET, 'kill-server']); } catch { /* ok */ }
+  try {
+    await exec('tmux', ['-L', SOCKET, 'kill-server']);
+  } catch {
+    /* ok */
+  }
 }
 
 // ─── Test 1: CLI Mode ───────────────────────────────────────────
@@ -30,8 +34,12 @@ async function testCliMode() {
   // 1b. List panes
   console.log('1b. Listing panes...');
   const { stdout: panes } = await exec('tmux', [
-    '-L', SOCKET, 'list-panes', '-a',
-    '-F', '#{pane_id} #{pane_pid} #{pane_width} #{pane_height}'
+    '-L',
+    SOCKET,
+    'list-panes',
+    '-a',
+    '-F',
+    '#{pane_id} #{pane_pid} #{pane_width} #{pane_height}',
   ]);
   console.log(`  ✅ Panes: ${panes.trim()}`);
 
@@ -39,10 +47,20 @@ async function testCliMode() {
   console.log('1c. Creating new window...');
   await exec('tmux', ['-L', SOCKET, 'new-window', '-t', 'main']);
   const { stdout: panes2 } = await exec('tmux', [
-    '-L', SOCKET, 'list-panes', '-a',
-    '-F', '#{window_index}:#{pane_index} #{pane_id} #{pane_pid}'
+    '-L',
+    SOCKET,
+    'list-panes',
+    '-a',
+    '-F',
+    '#{window_index}:#{pane_index} #{pane_id} #{pane_pid}',
   ]);
-  console.log(`  ✅ Windows/panes:\n${panes2.trim().split('\n').map(l => '    ' + l).join('\n')}`);
+  console.log(
+    `  ✅ Windows/panes:\n${panes2
+      .trim()
+      .split('\n')
+      .map((l) => '    ' + l)
+      .join('\n')}`,
+  );
 
   // 1d. Resize
   console.log('1d. Resizing pane...');
@@ -54,7 +72,7 @@ async function testCliMode() {
   console.log('1e. Sending keys to pane...');
   await exec('tmux', ['-L', SOCKET, 'send-keys', '-t', firstPaneId.trim(), 'echo hello-from-spike', 'Enter']);
   // Wait a beat for output
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise((r) => setTimeout(r, 500));
   const { stdout: captured } = await exec('tmux', ['-L', SOCKET, 'capture-pane', '-t', firstPaneId.trim(), '-p']);
   const hasHello = captured.includes('hello-from-spike');
   console.log(`  ${hasHello ? '✅' : '❌'} Captured output contains "hello-from-spike": ${hasHello}`);
@@ -125,7 +143,9 @@ async function testControlMode() {
     proc.on('close', (code) => {
       console.log(`\n  Control mode process exited with code ${code}`);
       const allOk = results.length >= 3; // At least 3 commands parsed
-      console.log(`  Control Mode: ${allOk ? 'PASS ✅' : 'PARTIAL ⚠️'} (${results.length}/${commands.length} commands parsed)`);
+      console.log(
+        `  Control Mode: ${allOk ? 'PASS ✅' : 'PARTIAL ⚠️'} (${results.length}/${commands.length} commands parsed)`,
+      );
       cleanUp().then(resolve);
     });
 

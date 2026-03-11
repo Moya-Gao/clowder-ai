@@ -1,13 +1,11 @@
-import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { homedir } from 'node:os';
-import { mkdtempSync, mkdirSync, symlinkSync, rmSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { after, before, describe, it } from 'node:test';
 
-const { validateProjectPath, isUnderAllowedRoot, getAllowedRoots } = await import(
-  '../dist/utils/project-path.js'
-);
+const { validateProjectPath, isUnderAllowedRoot, getAllowedRoots } = await import('../dist/utils/project-path.js');
 
 describe('isUnderAllowedRoot', () => {
   it('accepts path under home directory', () => {

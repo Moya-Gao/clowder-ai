@@ -1,12 +1,22 @@
 import './helpers/setup-cat-registry.js';
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync, mkdtempSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdtempSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, it } from 'node:test';
 
-const { loadCatConfig, getDefaultVariant, toFlatConfigs, toAllCatConfigs, findBreedByMention, isSessionChainEnabled, getMissionHubSelfClaimScope, getDefaultCatId, buildCatIdToBreedIndex, _resetCachedConfig } =
-  await import('../dist/config/cat-config-loader.js');
+const {
+  loadCatConfig,
+  getDefaultVariant,
+  toFlatConfigs,
+  toAllCatConfigs,
+  findBreedByMention,
+  isSessionChainEnabled,
+  getMissionHubSelfClaimScope,
+  getDefaultCatId,
+  buildCatIdToBreedIndex,
+  _resetCachedConfig,
+} = await import('../dist/config/cat-config-loader.js');
 
 /** Create a temp JSON file with given content, return path */
 function writeTempConfig(data) {
@@ -87,10 +97,7 @@ describe('cat-config-loader', () => {
     });
 
     it('throws clear error when file not found', () => {
-      assert.throws(
-        () => loadCatConfig('/nonexistent/cat-config.json'),
-        /Failed to read cat config/,
-      );
+      assert.throws(() => loadCatConfig('/nonexistent/cat-config.json'), /Failed to read cat config/);
     });
 
     it('rejects empty variants array', () => {
@@ -126,13 +133,15 @@ describe('cat-config-loader', () => {
         mentionPatterns: ['@dare'],
         roleDescription: '确定性执行与审计引擎',
         defaultVariantId: 'dare-default',
-        variants: [{
-          id: 'dare-default',
-          provider: 'dare',
-          defaultModel: 'zhipu/glm-4.7',
-          mcpSupport: false,
-          cli: { command: 'python', outputFormat: 'headless-json' },
-        }],
+        variants: [
+          {
+            id: 'dare-default',
+            provider: 'dare',
+            defaultModel: 'zhipu/glm-4.7',
+            mcpSupport: false,
+            cli: { command: 'python', outputFormat: 'headless-json' },
+          },
+        ],
       });
       const path = writeTempConfig(config);
       const loaded = loadCatConfig(path);
@@ -486,10 +495,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     // Make second variant use same catId as default (no catId override → inherits breed)
     delete cfg.breeds[0].variants[1].catId;
     cfg.breeds[0].variants[1].mentionPatterns = ['@opus', '@布偶猫4.5'];
-    assert.throws(
-      () => toAllCatConfigs(loadCatConfig(writeTempConfig(cfg))),
-      /Duplicate catId "opus"/,
-    );
+    assert.throws(() => toAllCatConfigs(loadCatConfig(writeTempConfig(cfg))), /Duplicate catId "opus"/);
   });
 
   it('toFlatConfigs is an alias for toAllCatConfigs', () => {
@@ -653,9 +659,9 @@ describe('F32-b P4c: personality fallback to default variant', () => {
 describe('F32-b P4c: Sonnet variant in project config', () => {
   it('project cat-config.json loads with Sonnet variant', () => {
     const config = loadCatConfig();
-    const ragdoll = config.breeds.find(b => b.id === 'ragdoll');
+    const ragdoll = config.breeds.find((b) => b.id === 'ragdoll');
     assert.ok(ragdoll, 'ragdoll breed exists');
-    const sonnetVariant = ragdoll.variants.find(v => v.id === 'opus-sonnet');
+    const sonnetVariant = ragdoll.variants.find((v) => v.id === 'opus-sonnet');
     assert.ok(sonnetVariant, 'opus-sonnet variant exists');
     assert.equal(sonnetVariant.catId, 'sonnet');
     assert.equal(sonnetVariant.variantLabel, 'Sonnet');

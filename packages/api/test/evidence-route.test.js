@@ -3,11 +3,11 @@
  * Covers: normal return, default tagsMatch, degraded fallback, limit validation.
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import Fastify from 'fastify';
-import { join, dirname } from 'node:path';
+import { dirname, join } from 'node:path';
+import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import Fastify from 'fastify';
 import { evidenceRoutes } from '../dist/routes/evidence.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -70,13 +70,9 @@ describe('GET /api/evidence/search', () => {
   });
 
   it('falls back to freshness=unknown when freshness provider throws', async () => {
-    await setup(
-      { recall: async () => [] },
-      undefined,
-      async () => {
-        throw new Error('freshness provider failure');
-      },
-    );
+    await setup({ recall: async () => [] }, undefined, async () => {
+      throw new Error('freshness provider failure');
+    });
 
     const res = await app.inject({
       method: 'GET',
@@ -96,7 +92,13 @@ describe('GET /api/evidence/search', () => {
       {
         recall: async () => {
           recallCalls += 1;
-          return [{ content: 'stale hindsight result', metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md' }, score: 0.95 }];
+          return [
+            {
+              content: 'stale hindsight result',
+              metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md' },
+              score: 0.95,
+            },
+          ];
         },
       },
       docsRoot,
@@ -164,20 +166,23 @@ describe('GET /api/evidence/search', () => {
 
   it('returns results from Hindsight', async () => {
     const docsRoot = join(__dirname, '..', '..', '..', 'docs');
-    await setup({
-      recall: async () => [
-        {
-          content: 'ADR-005 decided single bank strategy for Hindsight integration',
-          metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md', author: 'opus' },
-          score: 0.92,
-        },
-        {
-          content: 'Phase 4 completed with 460 tests',
-          metadata: { anchor: 'docs/phases/phase-4.0-direction.md' },
-          score: 0.75,
-        },
-      ],
-    }, docsRoot);
+    await setup(
+      {
+        recall: async () => [
+          {
+            content: 'ADR-005 decided single bank strategy for Hindsight integration',
+            metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md', author: 'opus' },
+            score: 0.92,
+          },
+          {
+            content: 'Phase 4 completed with 460 tests',
+            metadata: { anchor: 'docs/phases/phase-4.0-direction.md' },
+            score: 0.75,
+          },
+        ],
+      },
+      docsRoot,
+    );
 
     const res = await app.inject({
       method: 'GET',
@@ -309,7 +314,11 @@ describe('GET /api/evidence/search', () => {
     // Use project docs/ as fallback
     const docsRoot = join(__dirname, '..', '..', '..', 'docs');
     await setup(
-      { recall: async () => { throw new Error('ECONNREFUSED'); } },
+      {
+        recall: async () => {
+          throw new Error('ECONNREFUSED');
+        },
+      },
       docsRoot,
     );
 
@@ -336,7 +345,13 @@ describe('GET /api/evidence/search', () => {
       {
         recall: async () => {
           recallCalls += 1;
-          return [{ content: 'unexpected hindsight result', metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md' }, score: 0.95 }];
+          return [
+            {
+              content: 'unexpected hindsight result',
+              metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md' },
+              score: 0.95,
+            },
+          ];
         },
       },
       docsRoot,
@@ -549,7 +564,11 @@ describe('GET /api/evidence/search', () => {
   it('degraded search classifies source types correctly', async () => {
     const docsRoot = join(__dirname, '..', '..', '..', 'docs');
     await setup(
-      { recall: async () => { throw new Error('ECONNREFUSED'); } },
+      {
+        recall: async () => {
+          throw new Error('ECONNREFUSED');
+        },
+      },
       docsRoot,
     );
 

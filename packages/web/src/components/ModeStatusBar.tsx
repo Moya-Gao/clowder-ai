@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
@@ -86,12 +86,9 @@ export function ModeStatusBar() {
 
   const info = MODE_LABELS[currentMode.name] ?? { icon: '\u{1F504}', label: currentMode.name };
   const cfg = currentMode.config as Record<string, unknown>;
-  const topic = currentMode.name === 'dev-loop'
-    ? String(cfg.requirement ?? '...')
-    : String(cfg.topic ?? '...');
-  const devLoopPhase = currentMode.name === 'dev-loop' && currentMode.state
-    ? (currentMode.state as Record<string, unknown>)
-    : null;
+  const topic = currentMode.name === 'dev-loop' ? String(cfg.requirement ?? '...') : String(cfg.topic ?? '...');
+  const devLoopPhase =
+    currentMode.name === 'dev-loop' && currentMode.state ? (currentMode.state as Record<string, unknown>) : null;
 
   return (
     <div className="flex items-center gap-2 px-4 py-1.5 bg-indigo-50 dark:bg-indigo-950 border-b border-indigo-200 dark:border-indigo-800 text-sm text-indigo-700 dark:text-indigo-300">

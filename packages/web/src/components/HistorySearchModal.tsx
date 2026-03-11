@@ -69,9 +69,7 @@ export function HistorySearchModal({ onSelect, onClose }: HistorySearchModalProp
         </button>
       </div>
       <div className="max-h-48 overflow-y-auto">
-        {results.length === 0 && (
-          <div className="px-3 py-2 text-xs text-gray-400">No matches</div>
-        )}
+        {results.length === 0 && <div className="px-3 py-2 text-xs text-gray-400">No matches</div>}
         {results.map((entry, i) => (
           <button
             key={`${i}-${entry}`}

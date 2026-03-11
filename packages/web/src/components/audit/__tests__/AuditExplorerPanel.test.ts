@@ -128,7 +128,9 @@ describe('AuditExplorerPanel', () => {
     await act(async () => {
       root.render(React.createElement(AuditExplorerPanel, { threadId: 't1', externalSessionId: 's1' }));
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
 
     // Session viewer should be showing
     const closeBtn = container.querySelector('[data-testid="session-viewer-close"]');
@@ -138,7 +140,9 @@ describe('AuditExplorerPanel', () => {
     await act(async () => {
       root.render(React.createElement(AuditExplorerPanel, { threadId: 't2', externalSessionId: null }));
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
 
     // Session viewer should be gone — should show placeholder text
     const closeBtnAfter = container.querySelector('[data-testid="session-viewer-close"]');

@@ -48,14 +48,34 @@ export const COMMANDS: CommandDefinition[] = [
   { name: '/reflect', usage: '/reflect <query>', description: 'AI 反思项目知识', category: 'knowledge' },
   { name: '/signals', usage: '/signals [inbox]', description: '查看今日 Signal inbox', category: 'knowledge' },
   { name: '/signals search', usage: '/signals search <query>', description: '搜索 Signal 文章', category: 'knowledge' },
-  { name: '/signals sources', usage: '/signals sources [sourceId on|off]', description: '查看/切换信源启用状态', category: 'knowledge' },
+  {
+    name: '/signals sources',
+    usage: '/signals sources [sourceId on|off]',
+    description: '查看/切换信源启用状态',
+    category: 'knowledge',
+  },
   { name: '/signals stats', usage: '/signals stats', description: '查看 Signal 统计信息', category: 'knowledge' },
 
   // --- mode ---
   { name: '/mode', usage: '/mode', description: '查看当前模式状态', category: 'mode' },
-  { name: '/mode brainstorm', usage: '/mode brainstorm <议题> @猫A @猫B', description: '启动头脑风暴模式', category: 'mode' },
-  { name: '/mode debate', usage: '/mode debate <议题> @猫A @猫B [轮数]', description: '启动辩论模式', category: 'mode' },
-  { name: '/mode dev-loop', usage: '/mode dev-loop @开发猫 @review猫 <需求>', description: '启动开发自闭环模式', category: 'mode' },
+  {
+    name: '/mode brainstorm',
+    usage: '/mode brainstorm <议题> @猫A @猫B',
+    description: '启动头脑风暴模式',
+    category: 'mode',
+  },
+  {
+    name: '/mode debate',
+    usage: '/mode debate <议题> @猫A @猫B [轮数]',
+    description: '启动辩论模式',
+    category: 'mode',
+  },
+  {
+    name: '/mode dev-loop',
+    usage: '/mode dev-loop @开发猫 @review猫 <需求>',
+    description: '启动开发自闭环模式',
+    category: 'mode',
+  },
   { name: '/mode end', usage: '/mode end [outcome]', description: '结束当前模式', category: 'mode' },
 
   // --- task ---

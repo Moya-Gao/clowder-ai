@@ -1,5 +1,5 @@
-import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { StudyArtifact } from '@cat-cafe/shared';
 import { StudyMetaService } from './study-meta-service.js';
 
@@ -84,12 +84,7 @@ export async function generatePodcastScript(request: PodcastRequest): Promise<St
     if (!artifact) throw new Error('Artifact not found after creation');
     return { ...artifact, filePath: scriptPath };
   } catch (error) {
-    await studyMeta.updateArtifactState(
-      request.articleId,
-      request.articleFilePath,
-      artifactId,
-      'failed',
-    );
+    await studyMeta.updateArtifactState(request.articleId, request.articleFilePath, artifactId, 'failed');
     throw error;
   }
 }

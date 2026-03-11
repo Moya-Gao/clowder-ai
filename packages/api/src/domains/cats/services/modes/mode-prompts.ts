@@ -6,13 +6,15 @@
  */
 
 import type {
+  BrainstormConfig,
+  BrainstormState,
   CatId,
-  BrainstormConfig, BrainstormState,
-  DebateConfig, DebateState,
+  DebateConfig,
+  DebateState,
   DevLoopConfig,
 } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import type { ReviewResult } from './dev-loop-parser.js';
-import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 
 function catDisplayName(catId: CatId): string {
   const entry = catRegistry.tryGet(catId as string);
@@ -21,15 +23,9 @@ function catDisplayName(catId: CatId): string {
 }
 
 /** Build brainstorm-specific prompt section */
-export function buildBrainstormPrompt(
-  config: BrainstormConfig,
-  state: BrainstormState,
-  catId: CatId,
-): string {
+export function buildBrainstormPrompt(config: BrainstormConfig, state: BrainstormState, catId: CatId): string {
   const lines: string[] = [];
-  const otherNames = config.participants
-    .filter((p) => p !== catId)
-    .map((p) => catDisplayName(p as CatId));
+  const otherNames = config.participants.filter((p) => p !== catId).map((p) => catDisplayName(p as CatId));
 
   lines.push(`## 🧠 头脑风暴模式`);
   lines.push(`议题：${config.topic}`);
@@ -59,17 +55,11 @@ export function buildBrainstormPrompt(
 }
 
 /** Build debate-specific prompt section */
-export function buildDebatePrompt(
-  config: DebateConfig,
-  state: DebateState,
-  catId: CatId,
-): string {
+export function buildDebatePrompt(config: DebateConfig, state: DebateState, catId: CatId): string {
   const lines: string[] = [];
   const maxRounds = config.rounds ?? 3;
   const isPositive = catId === config.catA;
-  const opponentName = catDisplayName(
-    (isPositive ? config.catB : config.catA) as CatId,
-  );
+  const opponentName = catDisplayName((isPositive ? config.catB : config.catA) as CatId);
 
   lines.push(`## ⚔️ 辩论模式`);
   lines.push(`议题：${config.topic}`);
@@ -93,10 +83,7 @@ export function buildDebatePrompt(
  * 开发阶段 system prompt
  * iteration=0 → 首次开发；>0 → 修复
  */
-export function buildDevLoopDevPrompt(
-  config: DevLoopConfig,
-  iteration: number,
-): string {
+export function buildDevLoopDevPrompt(config: DevLoopConfig, iteration: number): string {
   const lines: string[] = [];
   lines.push(`## 🔄 开发自闭环模式`);
   lines.push(`需求：${config.requirement}`);
@@ -143,10 +130,7 @@ export function buildDevLoopReviewPrompt(config: DevLoopConfig): string {
  * 修复阶段 system prompt
  * 包含 review 发现的 P1/P2 问题列表
  */
-export function buildDevLoopFixPrompt(
-  config: DevLoopConfig,
-  result: ReviewResult,
-): string {
+export function buildDevLoopFixPrompt(config: DevLoopConfig, result: ReviewResult): string {
   const lines: string[] = [];
   lines.push(`## 🔄 开发自闭环模式 — 修复`);
   lines.push(`需求：${config.requirement}`);

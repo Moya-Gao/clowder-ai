@@ -2,7 +2,7 @@
  * F8: ParallelStatusBar aggregateUsage tests.
  * Verifies cross-cat token usage aggregation.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { aggregateUsage } from '../ParallelStatusBar';
 
 describe('F8: aggregateUsage', () => {

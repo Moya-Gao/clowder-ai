@@ -6,11 +6,11 @@
  * ModeOrchestrator: dispatch + state update + auto-end + mode switch detection
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ModeStore, createInitialState } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
+import { describe, it } from 'node:test';
 import { BrainstormMode } from '../dist/domains/cats/services/modes/BrainstormMode.js';
 import { ModeOrchestrator } from '../dist/domains/cats/services/orchestration/ModeOrchestrator.js';
+import { createInitialState, ModeStore } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 
 // ── Stub handler that records calls ──
 
@@ -28,8 +28,12 @@ function createStubHandler() {
       }
       return { roundOneComplete: true, currentRound: state.currentRound + 1 };
     },
-    shouldAutoEnd() { return false; },
-    getCalls() { return calls; },
+    shouldAutoEnd() {
+      return false;
+    },
+    getCalls() {
+      return calls;
+    },
   };
 }
 
@@ -152,13 +156,13 @@ describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
     assert.ok(!invokedCats.includes('codex'), 'codex should NOT execute after @铲屎官 break');
 
     // Opus was invoked, codex was not (mid-chain break)
-    const opusText = messages.filter(m => m.type === 'text' && m.catId === 'opus');
-    const codexText = messages.filter(m => m.type === 'text' && m.catId === 'codex');
+    const opusText = messages.filter((m) => m.type === 'text' && m.catId === 'opus');
+    const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
     assert.ok(opusText.length > 0, 'opus text present');
     assert.equal(codexText.length, 0, 'codex text absent — mid-chain break');
 
     // Pause notification exists with expected content
-    const pauseMsg = messages.find(m => m.type === 'system_info' && m.content?.includes('铲屎官'));
+    const pauseMsg = messages.find((m) => m.type === 'system_info' && m.content?.includes('铲屎官'));
     assert.ok(pauseMsg, 'should have pause notification mentioning 铲屎官');
   });
 
@@ -197,7 +201,9 @@ describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
     };
 
     // Execute — opus @铲屎官 → break
-    for await (const _msg of handler.execute(ctx, config, state)) { /* consume */ }
+    for await (const _msg of handler.execute(ctx, config, state)) {
+      /* consume */
+    }
 
     assert.ok(invokedCats.includes('opus'), 'opus invoked');
     assert.ok(!invokedCats.includes('codex'), 'codex NOT invoked');
@@ -213,7 +219,9 @@ describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
     invokedCats.length = 0; // reset
     const ctx2 = { ...ctx, message: '铲屎官说选方案 B', threadId };
 
-    for await (const _msg of handler.execute(ctx2, config, nextState)) { /* consume */ }
+    for await (const _msg of handler.execute(ctx2, config, nextState)) {
+      /* consume */
+    }
 
     // Now codex + gemini should be invoked, opus should NOT
     assert.ok(!invokedCats.includes('opus'), 'opus NOT re-invoked on resume');
@@ -261,7 +269,9 @@ describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
     };
 
     // Execute — both cats speak, LAST cat (codex) @铲屎官 → break
-    for await (const _msg of handler.execute(ctx, config, state)) { /* consume */ }
+    for await (const _msg of handler.execute(ctx, config, state)) {
+      /* consume */
+    }
 
     assert.ok(invokedCats.includes('opus'), 'opus invoked');
     assert.ok(invokedCats.includes('codex'), 'codex invoked (last cat)');
@@ -278,7 +288,9 @@ describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
     invokedCats.length = 0;
     const ctx2 = { ...ctx, message: '铲屎官说选方案 A', threadId };
 
-    for await (const _msg of handler.execute(ctx2, config, nextState)) { /* consume */ }
+    for await (const _msg of handler.execute(ctx2, config, nextState)) {
+      /* consume */
+    }
 
     // Both cats should be invoked for round 3 (not replaying round 2)
     assert.ok(invokedCats.includes('opus'), 'opus invoked in round 3');
@@ -331,7 +343,7 @@ describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
     assert.ok(invokedCats.includes('codex'), 'codex should have been invoked');
 
     // No @铲屎官 pause notification (pipeline may emit other system_info)
-    const pauseMsg = messages.find(m => m.type === 'system_info' && m.content?.includes('铲屎官'));
+    const pauseMsg = messages.find((m) => m.type === 'system_info' && m.content?.includes('铲屎官'));
     assert.equal(pauseMsg, undefined, 'no @铲屎官 pause notification');
   });
 });
@@ -401,18 +413,24 @@ describe('ModeOrchestrator', () => {
     };
 
     // Round 1
-    for await (const _ of orchestrator.execute(ctx)) { /* consume */ }
+    for await (const _ of orchestrator.execute(ctx)) {
+      /* consume */
+    }
     let mode = modeStore.getMode('thread-2');
     assert.equal(mode.state.roundOneComplete, true);
     assert.equal(mode.state.currentRound, 2);
 
     // Round 2
-    for await (const _ of orchestrator.execute(ctx)) { /* consume */ }
+    for await (const _ of orchestrator.execute(ctx)) {
+      /* consume */
+    }
     mode = modeStore.getMode('thread-2');
     assert.equal(mode.state.currentRound, 3);
 
     // Round 3
-    for await (const _ of orchestrator.execute(ctx)) { /* consume */ }
+    for await (const _ of orchestrator.execute(ctx)) {
+      /* consume */
+    }
     mode = modeStore.getMode('thread-2');
     assert.equal(mode.state.currentRound, 4);
   });
@@ -431,7 +449,9 @@ describe('ModeOrchestrator', () => {
     };
 
     await assert.rejects(async () => {
-      for await (const _ of orchestrator.execute(ctx)) { /* consume */ }
+      for await (const _ of orchestrator.execute(ctx)) {
+        /* consume */
+      }
     }, /No active mode/);
   });
 
@@ -446,8 +466,12 @@ describe('ModeOrchestrator', () => {
         yield { type: 'text', catId: 'opus', content: '@mode:debate', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
-      getNextState(_config, state) { return state; },
-      shouldAutoEnd() { return false; },
+      getNextState(_config, state) {
+        return state;
+      },
+      shouldAutoEnd() {
+        return false;
+      },
     };
     orchestrator.registerHandler('brainstorm', switchHandler);
 
@@ -494,8 +518,12 @@ describe('ModeOrchestrator', () => {
         yield { type: 'text', catId: 'opus', content: '普通总结没有模式切换', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
-      getNextState(_config, state) { return state; },
-      shouldAutoEnd() { return false; },
+      getNextState(_config, state) {
+        return state;
+      },
+      shouldAutoEnd() {
+        return false;
+      },
     };
     orchestrator.registerHandler('brainstorm', normalHandler);
 
@@ -536,8 +564,12 @@ describe('ModeOrchestrator', () => {
         yield { type: 'text', catId: 'opus', content: '这个任务适合开发自闭环\n@mode:dev-loop', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
-      getNextState(_config, state) { return state; },
-      shouldAutoEnd() { return false; },
+      getNextState(_config, state) {
+        return state;
+      },
+      shouldAutoEnd() {
+        return false;
+      },
     };
     orchestrator.registerHandler('brainstorm', switchHandler);
 
@@ -627,8 +659,12 @@ describe('ModeOrchestrator', () => {
         yield { type: 'text', catId: 'opus', content: '切换\n@mode:debate', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
-      getNextState(_config, state) { return state; },
-      shouldAutoEnd() { return false; },
+      getNextState(_config, state) {
+        return state;
+      },
+      shouldAutoEnd() {
+        return false;
+      },
     };
     orchestrator.registerHandler('brainstorm', switchHandler);
 
@@ -655,7 +691,7 @@ describe('ModeOrchestrator', () => {
     }
 
     // Should emit "已自动切换" confirmation
-    const switchMsg = messages.find(m => m.type === 'system_info' && m.content.includes('已自动切换'));
+    const switchMsg = messages.find((m) => m.type === 'system_info' && m.content.includes('已自动切换'));
     assert.ok(switchMsg, 'should confirm auto-switch');
     assert.ok(switchMsg.content.includes('debate'), 'should mention debate mode');
 
@@ -669,10 +705,13 @@ describe('ModeOrchestrator', () => {
 
     // Previous brainstorm should be in history
     const history = modeStore.getModeHistory('thread-autoswitch');
-    assert.ok(history.some(r => r.name === 'brainstorm' && r.endedAt), 'brainstorm ended in history');
+    assert.ok(
+      history.some((r) => r.name === 'brainstorm' && r.endedAt),
+      'brainstorm ended in history',
+    );
 
     // P2-3: broadcast uses action:'started' with full mode object (frontend contract)
-    const startedBroadcast = broadcasts.find(b => b.event === 'mode_changed' && b.data.action === 'started');
+    const startedBroadcast = broadcasts.find((b) => b.event === 'mode_changed' && b.data.action === 'started');
     assert.ok(startedBroadcast, 'should broadcast action:started');
     assert.ok(startedBroadcast.data.mode, 'should include full mode object');
     assert.equal(startedBroadcast.data.mode.record.name, 'debate', 'broadcast mode is debate');
@@ -697,8 +736,12 @@ describe('ModeOrchestrator', () => {
         yield { type: 'text', catId: 'opus', content: '适合开发自闭环\n@mode:dev-loop', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
-      getNextState(_config, state) { return state; },
-      shouldAutoEnd() { return false; },
+      getNextState(_config, state) {
+        return state;
+      },
+      shouldAutoEnd() {
+        return false;
+      },
     };
     orchestrator.registerHandler('brainstorm', switchHandler);
 
@@ -725,7 +768,7 @@ describe('ModeOrchestrator', () => {
     }
 
     // Should emit fallback suggestion (not auto-switch)
-    const fallback = messages.find(m => m.type === 'system_info' && m.content.includes('无法自动推导'));
+    const fallback = messages.find((m) => m.type === 'system_info' && m.content.includes('无法自动推导'));
     assert.ok(fallback, 'should emit fallback suggestion');
     assert.ok(fallback.content.includes('dev-loop'), 'mentions dev-loop');
     assert.ok(fallback.content.includes('/mode'), 'suggests manual switch');
@@ -754,8 +797,12 @@ describe('ModeOrchestrator', () => {
         yield { type: 'text', catId: 'opus', content: '切换\n@mode:debate', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
-      getNextState(_config, state) { return state; },
-      shouldAutoEnd() { return false; },
+      getNextState(_config, state) {
+        return state;
+      },
+      shouldAutoEnd() {
+        return false;
+      },
     };
     orchestrator.registerHandler('brainstorm', switchHandler);
 
@@ -782,7 +829,7 @@ describe('ModeOrchestrator', () => {
     }
 
     // Should emit structured proposal with autoSwitch: false
-    const proposal = messages.find(m => m.type === 'system_info');
+    const proposal = messages.find((m) => m.type === 'system_info');
     assert.ok(proposal);
     const parsed = JSON.parse(proposal.content);
     assert.equal(parsed.type, 'mode_switch_proposal', 'structured proposal type');
@@ -808,8 +855,12 @@ describe('ModeOrchestrator', () => {
         yield { type: 'text', catId: 'opus', content: '切换\n@mode:foo-mode', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
-      getNextState(_config, state) { return state; },
-      shouldAutoEnd() { return false; },
+      getNextState(_config, state) {
+        return state;
+      },
+      shouldAutoEnd() {
+        return false;
+      },
     };
     orchestrator.registerHandler('brainstorm', switchHandler);
 
@@ -836,7 +887,7 @@ describe('ModeOrchestrator', () => {
     }
 
     // Should emit plain text "未知模式" message, NOT a structured mode_switch_proposal
-    const sysInfo = messages.find(m => m.type === 'system_info');
+    const sysInfo = messages.find((m) => m.type === 'system_info');
     assert.ok(sysInfo, 'should have system_info');
     assert.ok(sysInfo.content.includes('未知模式'), 'mentions unknown mode');
     assert.ok(sysInfo.content.includes('foo-mode'), 'includes the bad mode name');
@@ -846,7 +897,9 @@ describe('ModeOrchestrator', () => {
     try {
       const parsed = JSON.parse(sysInfo.content);
       if (parsed?.type === 'mode_switch_proposal') isProposal = true;
-    } catch { /* not JSON — correct */ }
+    } catch {
+      /* not JSON — correct */
+    }
     assert.equal(isProposal, false, 'should NOT emit proposal for unknown mode');
   });
 
@@ -854,13 +907,10 @@ describe('ModeOrchestrator', () => {
     const modeStore = new ModeStore();
     const orchestrator = new ModeOrchestrator({ modeStore });
 
-    modeStore.startMode(
-      'thread-3',
-      'debate',
-      { topic: 'test', catA: 'opus', catB: 'codex', rounds: 1 },
-      'user-1',
-      { currentRound: 2, nextSpeaker: 'catA' },
-    );
+    modeStore.startMode('thread-3', 'debate', { topic: 'test', catA: 'opus', catB: 'codex', rounds: 1 }, 'user-1', {
+      currentRound: 2,
+      nextSpeaker: 'catA',
+    });
 
     const ctx = {
       strategyDeps: {},

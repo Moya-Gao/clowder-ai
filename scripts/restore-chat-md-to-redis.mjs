@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import process from 'node:process';
 import Redis from 'ioredis';
 
@@ -65,7 +65,7 @@ function walkMdFiles(root) {
 }
 
 function parseDateBase(text) {
-  const m = text.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  const m = text.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
   if (!m) return null;
   return { y: Number(m[1]), mo: Number(m[2]), d: Number(m[3]) };
 }
@@ -103,7 +103,10 @@ function parseConversation(file, userId) {
   const title = text.match(/^# 对话记录:\s*(.+)$/m)?.[1]?.trim() ?? threadId;
   const participantsRaw = text.match(/^- \*\*参与者\*\*:\s*(.+)$/im)?.[1] ?? '';
   const participants = new Set();
-  for (const p of participantsRaw.split(/[，,]/).map((v) => v.trim()).filter(Boolean)) {
+  for (const p of participantsRaw
+    .split(/[，,]/)
+    .map((v) => v.trim())
+    .filter(Boolean)) {
     const catId = speakerToCatId(p);
     if (catId) participants.add(catId);
   }
@@ -144,7 +147,9 @@ function parseConversation(file, userId) {
       continue;
     }
     flush();
-    const hh = Number(m[1]); const mm = Number(m[2]); const ss = Number(m[3] ?? '0');
+    const hh = Number(m[1]);
+    const mm = Number(m[2]);
+    const ss = Number(m[3] ?? '0');
     let ts = new Date(dateBase.y, dateBase.mo - 1, dateBase.d + dayOffset, hh, mm, ss, 0).getTime();
     if (lastTs !== 0 && ts + 60_000 < lastTs) {
       dayOffset += 1;
@@ -166,15 +171,27 @@ function buildRecovery(conversations, userId) {
       if (!dedup.has(key)) dedup.set(key, m);
     }
   }
-  const msgs = [...dedup.values()].sort((a, b) => a.timestamp - b.timestamp || a.sourceFile.localeCompare(b.sourceFile) || a.sourceLine - b.sourceLine);
+  const msgs = [...dedup.values()].sort(
+    (a, b) => a.timestamp - b.timestamp || a.sourceFile.localeCompare(b.sourceFile) || a.sourceLine - b.sourceLine,
+  );
   msgs.forEach((m, idx) => {
-    const hash = crypto.createHash('sha1').update(`${m.threadId}\n${m.timestamp}\n${m.speaker}\n${m.content}`).digest('hex').slice(0, 8);
+    const hash = crypto
+      .createHash('sha1')
+      .update(`${m.threadId}\n${m.timestamp}\n${m.speaker}\n${m.content}`)
+      .digest('hex')
+      .slice(0, 8);
     m.id = `${String(m.timestamp).padStart(16, '0')}-${String(idx).padStart(6, '0')}-${hash}`;
   });
 
   const threads = new Map();
   for (const c of conversations) {
-    const existing = threads.get(c.threadId) ?? { id: c.threadId, title: c.title, participants: new Set(), createdAt: Number.MAX_SAFE_INTEGER, lastActiveAt: 0 };
+    const existing = threads.get(c.threadId) ?? {
+      id: c.threadId,
+      title: c.title,
+      participants: new Set(),
+      createdAt: Number.MAX_SAFE_INTEGER,
+      lastActiveAt: 0,
+    };
     for (const p of c.participants) existing.participants.add(p);
     threads.set(c.threadId, existing);
   }
@@ -186,7 +203,13 @@ function buildRecovery(conversations, userId) {
     t.createdAt = Math.min(t.createdAt, m.timestamp);
     t.lastActiveAt = Math.max(t.lastActiveAt, m.timestamp);
   }
-  const threadList = [...threads.values()].map((t) => ({ ...t, participants: [...t.participants], userId, projectPath: 'default', createdBy: userId }));
+  const threadList = [...threads.values()].map((t) => ({
+    ...t,
+    participants: [...t.participants],
+    userId,
+    projectPath: 'default',
+    createdBy: userId,
+  }));
   return { threads: threadList, messages: msgs };
 }
 
@@ -200,7 +223,13 @@ async function backupBeforeApply(redis) {
   if (!fs.existsSync(source)) return null;
   const backupDir = path.join(os.homedir(), '.cat-cafe', 'redis-backups', 'recovery');
   fs.mkdirSync(backupDir, { recursive: true });
-  const stamp = new Date().toISOString().replaceAll(':', '').replaceAll('-', '').replace('T', '-').replace('Z', '').slice(0, 18);
+  const stamp = new Date()
+    .toISOString()
+    .replaceAll(':', '')
+    .replaceAll('-', '')
+    .replace('T', '-')
+    .replace('Z', '')
+    .slice(0, 18);
   const port = String(redis.options.port ?? 'unknown');
   const target = path.join(backupDir, `md-restore-preapply-p${port}-${stamp}.rdb`);
   fs.copyFileSync(source, target);
@@ -224,21 +253,46 @@ async function countMsgKeysRaw(redisUrl) {
 }
 
 async function applyRecovery(redis, data) {
-  let pipe = redis.multi(); let n = 0;
-  const flush = async () => { if (n === 0) return; await pipe.exec(); pipe = redis.multi(); n = 0; };
+  let pipe = redis.multi();
+  let n = 0;
+  const flush = async () => {
+    if (n === 0) return;
+    await pipe.exec();
+    pipe = redis.multi();
+    n = 0;
+  };
   for (const t of data.threads) {
-    pipe.hset(`thread:${t.id}`, { id: t.id, projectPath: t.projectPath, title: t.title ?? '', createdBy: t.createdBy, lastActiveAt: String(t.lastActiveAt), createdAt: String(t.createdAt) });
+    pipe.hset(`thread:${t.id}`, {
+      id: t.id,
+      projectPath: t.projectPath,
+      title: t.title ?? '',
+      createdBy: t.createdBy,
+      lastActiveAt: String(t.lastActiveAt),
+      createdAt: String(t.createdAt),
+    });
     pipe.zadd(`threads:user:${t.userId}`, String(t.lastActiveAt), t.id);
     if (t.participants.length > 0) pipe.sadd(`thread:${t.id}:participants`, ...t.participants);
-    n += 3; if (n >= 400) await flush();
+    n += 3;
+    if (n >= 400) await flush();
   }
   for (const m of data.messages) {
-    pipe.hset(`msg:${m.id}`, { id: m.id, threadId: m.threadId, userId: m.userId, catId: m.catId ?? '', content: m.content, contentBlocks: '', metadata: '', mentions: JSON.stringify(m.mentions), timestamp: String(m.timestamp) });
+    pipe.hset(`msg:${m.id}`, {
+      id: m.id,
+      threadId: m.threadId,
+      userId: m.userId,
+      catId: m.catId ?? '',
+      content: m.content,
+      contentBlocks: '',
+      metadata: '',
+      mentions: JSON.stringify(m.mentions),
+      timestamp: String(m.timestamp),
+    });
     pipe.zadd('msg:timeline', String(m.timestamp), m.id);
     pipe.zadd(`msg:user:${m.userId}`, String(m.timestamp), m.id);
     pipe.zadd(`msg:thread:${m.threadId}`, String(m.timestamp), m.id);
     for (const catId of m.mentions) pipe.zadd(`msg:mentions:${catId}`, String(m.timestamp), m.id);
-    n += 4 + m.mentions.length; if (n >= 400) await flush();
+    n += 4 + m.mentions.length;
+    if (n >= 400) await flush();
   }
   await flush();
 }
@@ -254,7 +308,9 @@ async function main() {
   const beforeMsgKeys = await countMsgKeysRaw(args.redisUrl);
 
   console.log(`[restore] mode=${args.apply ? 'apply' : 'dry-run'} redis=${args.redisUrl}`);
-  console.log(`[restore] files=${files.length} parsed=${conversations.length} threads=${data.threads.length} messages=${data.messages.length}`);
+  console.log(
+    `[restore] files=${files.length} parsed=${conversations.length} threads=${data.threads.length} messages=${data.messages.length}`,
+  );
   console.log(`[restore] redis-before dbsize=${beforeDbsize} msgKeys=${beforeMsgKeys}`);
   for (const t of data.threads) {
     const count = data.messages.filter((m) => m.threadId === t.id).length;

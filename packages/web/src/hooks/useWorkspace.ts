@@ -133,7 +133,9 @@ export function useWorkspace() {
         const subtreeChildren: TreeNode[] = data.tree ?? [];
         // Merge subtree into existing tree
         setTree((prev) => mergeSubtree(prev, dirPath, subtreeChildren));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     },
     [worktreeId],
   );

@@ -3,7 +3,7 @@
  * Verifies that setCatInvocation correctly stores and merges TokenUsage data,
  * simulating what useAgentMessages does when receiving invocation_usage events.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
 
 describe('F8: chatStore token usage', () => {

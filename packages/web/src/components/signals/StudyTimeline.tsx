@@ -53,7 +53,9 @@ export function StudyTimeline({ days = 7 }: StudyTimelineProps) {
     }
   }, [selectedDays]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const dateGroups = groupByDate(entries);
 

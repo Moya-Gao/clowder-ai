@@ -5,10 +5,10 @@
  * and falls back to AgentRouter when no mode is active (backward compatibility).
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ModeStore, createInitialState } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
+import { describe, it } from 'node:test';
 import { ModeOrchestrator } from '../dist/domains/cats/services/orchestration/ModeOrchestrator.js';
+import { createInitialState, ModeStore } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 
 describe('Mode Integration (dispatch logic)', () => {
   it('ModeOrchestrator only dispatches when mode is active', async () => {
@@ -26,7 +26,9 @@ describe('Mode Integration (dispatch logic)', () => {
     };
 
     await assert.rejects(async () => {
-      for await (const _ of orchestrator.execute(ctx)) { /* consume */ }
+      for await (const _ of orchestrator.execute(ctx)) {
+        /* consume */
+      }
     }, /No active mode/);
   });
 
@@ -93,7 +95,9 @@ describe('Mode Integration (dispatch logic)', () => {
         if (!state.roundOneComplete) return { roundOneComplete: true, currentRound: 2 };
         return { roundOneComplete: true, currentRound: state.currentRound + 1 };
       },
-      shouldAutoEnd() { return false; },
+      shouldAutoEnd() {
+        return false;
+      },
     });
 
     modeStore.startMode(
@@ -113,11 +117,13 @@ describe('Mode Integration (dispatch logic)', () => {
     };
 
     // Round 1
-    for await (const _ of orchestrator.execute({ ...baseCtx, message: 'msg1' })) {}
+    for await (const _ of orchestrator.execute({ ...baseCtx, message: 'msg1' })) {
+    }
     assert.equal(modeStore.getMode('thread-persist').state.currentRound, 2);
 
     // Round 2
-    for await (const _ of orchestrator.execute({ ...baseCtx, message: 'msg2' })) {}
+    for await (const _ of orchestrator.execute({ ...baseCtx, message: 'msg2' })) {
+    }
     assert.equal(modeStore.getMode('thread-persist').state.currentRound, 3);
 
     assert.equal(calls.length, 2);

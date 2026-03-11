@@ -13,10 +13,7 @@ const KNOWN_POST_RESPONSE_CANDIDATES_CRASH = "Cannot read properties of undefine
  * Transform a raw Gemini CLI NDJSON event into an AgentMessage.
  * Returns null to skip events we don't care about.
  */
-export function transformGeminiEvent(
-  event: unknown,
-  catId: CatId
-): AgentMessage | null {
+export function transformGeminiEvent(event: unknown, catId: CatId): AgentMessage | null {
   if (typeof event !== 'object' || event === null) return null;
   const e = event as Record<string, unknown>;
 

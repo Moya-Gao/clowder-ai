@@ -3,11 +3,11 @@
  * PATCH /api/config — hot-update configuration
  */
 
-import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { afterEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
-import { configRoutes } from '../dist/routes/config.js';
 import { configStore } from '../dist/config/ConfigStore.js';
+import { configRoutes } from '../dist/routes/config.js';
 
 describe('PATCH /api/config (F4 hot-reload)', () => {
   let app;

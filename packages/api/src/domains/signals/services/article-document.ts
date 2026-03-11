@@ -50,7 +50,10 @@ function toStringArray(value: unknown): readonly string[] {
   return results;
 }
 
-function parseFrontmatter(rawMarkdown: string): { readonly frontmatter: Record<string, unknown>; readonly content: string } {
+function parseFrontmatter(rawMarkdown: string): {
+  readonly frontmatter: Record<string, unknown>;
+  readonly content: string;
+} {
   if (!rawMarkdown.startsWith('---\n')) {
     return {
       frontmatter: {},

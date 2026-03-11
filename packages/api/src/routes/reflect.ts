@@ -8,8 +8,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
-import { HindsightError } from '../domains/cats/services/orchestration/HindsightClient.js';
 import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
+import { HindsightError } from '../domains/cats/services/orchestration/HindsightClient.js';
 
 const reflectSchema = z.object({
   query: z.string().trim().min(1),

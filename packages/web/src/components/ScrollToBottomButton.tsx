@@ -88,23 +88,19 @@ export function ScrollToBottomButton({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messagesEndRef]);
 
-  const classes = useMemo(() => (
-    'absolute bottom-3 right-8 z-20 ' +
-    'rounded-full border border-gray-200 bg-white/90 shadow-sm ' +
-    'px-3 py-1.5 text-xs text-gray-700 ' +
-    'hover:bg-white hover:border-gray-300 transition-colors'
-  ), []);
+  const classes = useMemo(
+    () =>
+      'absolute bottom-3 right-8 z-20 ' +
+      'rounded-full border border-gray-200 bg-white/90 shadow-sm ' +
+      'px-3 py-1.5 text-xs text-gray-700 ' +
+      'hover:bg-white hover:border-gray-300 transition-colors',
+    [],
+  );
 
   if (!visible) return null;
 
   return (
-    <button
-      type="button"
-      aria-label="到最新"
-      className={classes}
-      onClick={handleClick}
-      title="跳到对话底部"
-    >
+    <button type="button" aria-label="到最新" className={classes} onClick={handleClick} title="跳到对话底部">
       ↓ 到最新
     </button>
   );

@@ -18,9 +18,7 @@ export interface CommandExecutionLifecycle {
 const REDACTED = '[redacted]';
 const MAX_REDACT_DEPTH = 2;
 
-export function extractCommandExecutionLifecycle(
-  event: unknown
-): CommandExecutionLifecycle | null {
+export function extractCommandExecutionLifecycle(event: unknown): CommandExecutionLifecycle | null {
   if (typeof event !== 'object' || event === null) return null;
   const e = event as Record<string, unknown>;
 

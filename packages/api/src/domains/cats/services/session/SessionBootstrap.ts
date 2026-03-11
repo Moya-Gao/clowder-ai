@@ -11,20 +11,20 @@
  */
 
 import type { CatId } from '@cat-cafe/shared';
+import { estimateTokens } from '../../../../utils/token-counter.js';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
-import type { TranscriptReader } from './TranscriptReader.js';
-import type { ExtractiveDigestV1 } from './TranscriptWriter.js';
 import type { ITaskStore } from '../stores/ports/TaskStore.js';
 import type { IThreadStore } from '../stores/ports/ThreadStore.js';
 import { formatTaskSnapshot } from './formatTaskSnapshot.js';
-import { estimateTokens } from '../../../../utils/token-counter.js';
+import type { TranscriptReader } from './TranscriptReader.js';
+import type { ExtractiveDigestV1 } from './TranscriptWriter.js';
 
 /** Sanitize LLM-generated handoff body before injecting into bootstrap.
  * Prevents prompt injection and ensures handoff content stays data-only. */
 export function sanitizeHandoffBody(text: string): string {
   return text
-    .replace(/[\x00-\x09\x0b-\x1f]/g, '')               // control chars (preserve \n for multiline regex)
-    .replace(/\[\/Previous Session Summary\]/g, '')       // closing marker spoofing
+    .replace(/[\x00-\x09\x0b-\x1f]/g, '') // control chars (preserve \n for multiline regex)
+    .replace(/\[\/Previous Session Summary\]/g, '') // closing marker spoofing
     .replace(/^.*\b(IMPORTANT|INSTRUCTION|SYSTEM|NOTE)[:：]\s*.*/gim, '') // remove entire directive lines (ASCII + full-width colon)
     .trim();
 }
@@ -125,9 +125,7 @@ export async function buildSessionBootstrap(
   try {
     if (opts.bootstrapDepth === 'generative') {
       // Try handoff digest first (LLM-generated)
-      const handoff = await transcriptReader.readHandoffDigest(
-        prevSession.id, prevSession.threadId, prevSession.catId,
-      );
+      const handoff = await transcriptReader.readHandoffDigest(prevSession.id, prevSession.threadId, prevSession.catId);
       if (handoff) {
         const sanitized = sanitizeHandoffBody(handoff.body);
         if (sanitized) {
@@ -138,9 +136,7 @@ export async function buildSessionBootstrap(
     }
     // Fallback to extractive digest (or default behavior when bootstrapDepth is unset/extractive)
     if (!hasDigest) {
-      const digest = await transcriptReader.readDigest(
-        prevSession.id, prevSession.threadId, prevSession.catId,
-      );
+      const digest = await transcriptReader.readDigest(prevSession.id, prevSession.threadId, prevSession.catId);
       if (digest) {
         digestSection = '\n[Previous Session Summary]\n' + formatDigest(digest as unknown as ExtractiveDigestV1);
         hasDigest = true;
@@ -170,18 +166,16 @@ export async function buildSessionBootstrap(
   const toolLines: string[] = [];
   toolLines.push('');
   toolLines.push('[Session Recall — Available Tools]');
-  toolLines.push(
-    'You have access to these tools for retrieving context from previous sessions:',
-  );
+  toolLines.push('You have access to these tools for retrieving context from previous sessions:');
   toolLines.push('- cat_cafe_list_session_chain: List all sessions in this thread');
   toolLines.push('- cat_cafe_session_search: Search across session transcripts and digests');
   toolLines.push('- cat_cafe_read_session_digest: Read summary of a specific session');
-  toolLines.push('- cat_cafe_read_session_events: Read detailed events (use view=handoff for per-invocation summaries)');
+  toolLines.push(
+    '- cat_cafe_read_session_events: Read detailed events (use view=handoff for per-invocation summaries)',
+  );
   toolLines.push('- cat_cafe_read_invocation_detail: Read all events for a specific invocation');
   toolLines.push('');
-  toolLines.push(
-    'When unsure about previous decisions, file changes, or context:',
-  );
+  toolLines.push('When unsure about previous decisions, file changes, or context:');
   toolLines.push('1. Use cat_cafe_session_search to find relevant prior sessions');
   toolLines.push('2. Use cat_cafe_read_session_events(view=handoff) for per-invocation summaries');
   toolLines.push('3. Use cat_cafe_read_invocation_detail to drill into a specific invocation');
@@ -241,9 +235,7 @@ function formatDigest(digest: ExtractiveDigestV1): string {
   }
 
   // Tools used
-  const allTools = digest.invocations
-    .flatMap((inv) => inv.toolNames ?? [])
-    .filter(Boolean);
+  const allTools = digest.invocations.flatMap((inv) => inv.toolNames ?? []).filter(Boolean);
   if (allTools.length > 0) {
     const unique = [...new Set(allTools)];
     lines.push(`Tools used: ${unique.join(', ')}`);

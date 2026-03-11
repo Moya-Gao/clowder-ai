@@ -1,9 +1,7 @@
-import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { beforeEach, describe, it } from 'node:test';
 
-const { InvocationQueue } = await import(
-  '../dist/domains/cats/services/agents/invocation/InvocationQueue.js'
-);
+const { InvocationQueue } = await import('../dist/domains/cats/services/agents/invocation/InvocationQueue.js');
 
 /** Helper: build a minimal enqueue input */
 function entry(overrides = {}) {
@@ -21,7 +19,9 @@ function entry(overrides = {}) {
 describe('InvocationQueue', () => {
   /** @type {InvocationQueue} */
   let queue;
-  beforeEach(() => { queue = new InvocationQueue(); });
+  beforeEach(() => {
+    queue = new InvocationQueue();
+  });
 
   // ── Basic FIFO ──
 
@@ -354,10 +354,7 @@ describe('InvocationQueue', () => {
       'rollbackEnqueue should promote surviving mergedMessageIds[0] to messageId',
     );
     // mergedMessageIds should have the promoted ID removed
-    assert.ok(
-      !remaining[0].mergedMessageIds.includes('msg-B'),
-      'promoted ID should be removed from mergedMessageIds',
-    );
+    assert.ok(!remaining[0].mergedMessageIds.includes('msg-B'), 'promoted ID should be removed from mergedMessageIds');
   });
 
   // ── Cloud R2 P2: clear() must purge rollback metadata ──

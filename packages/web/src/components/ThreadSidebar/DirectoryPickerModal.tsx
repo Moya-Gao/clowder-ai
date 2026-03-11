@@ -311,7 +311,9 @@ export function DirectoryPickerModal({
               type="text"
               value={pathInput}
               onChange={(e) => setPathInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handlePathSubmit(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handlePathSubmit();
+              }}
               placeholder="输入路径，如 /home/user/projects/..."
               className="flex-1 text-sm px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-owner-primary"
             />
@@ -323,7 +325,11 @@ export function DirectoryPickerModal({
               aria-label="跳转到路径"
             >
               <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
               </svg>
             </button>
           </div>
@@ -381,7 +387,12 @@ export function DirectoryPickerModal({
 
 function FolderIcon({ className }: { className?: string }) {
   return (
-    <svg aria-hidden="true" className={`w-4 h-4 flex-shrink-0 ${className ?? ''}`} viewBox="0 0 16 16" fill="currentColor">
+    <svg
+      aria-hidden="true"
+      className={`w-4 h-4 flex-shrink-0 ${className ?? ''}`}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
       <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" />
     </svg>
   );

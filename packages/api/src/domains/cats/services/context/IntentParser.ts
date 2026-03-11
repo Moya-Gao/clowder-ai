@@ -54,11 +54,14 @@ export function parseIntent(message: string, targetCatCount: number): IntentResu
 
 /** Remove intent and prompt tags from message text */
 export function stripIntentTags(message: string): string {
-  return message.replace(TAG_PATTERN, (full, tag) => {
-    const lower = (tag as string).toLowerCase();
-    if (INTENT_TAGS.has(lower) || PROMPT_TAGS.has(lower)) {
-      return '';
-    }
-    return full;
-  }).replace(/\s{2,}/g, ' ').trim();
+  return message
+    .replace(TAG_PATTERN, (full, tag) => {
+      const lower = (tag as string).toLowerCase();
+      if (INTENT_TAGS.has(lower) || PROMPT_TAGS.has(lower)) {
+        return '';
+      }
+      return full;
+    })
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }

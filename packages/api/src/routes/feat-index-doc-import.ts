@@ -41,9 +41,7 @@ function extractFrontmatter(content: string): { frontmatter: Record<string, unkn
   if (!match) return { frontmatter: {}, body: content };
   try {
     const parsed = parseYaml(match[1] ?? '');
-    const frontmatter = parsed && typeof parsed === 'object'
-      ? parsed as Record<string, unknown>
-      : {};
+    const frontmatter = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
     return { frontmatter, body: content.slice((match[0] ?? '').length) };
   } catch {
     return { frontmatter: {}, body: content };
@@ -65,7 +63,7 @@ function extractHeadingTitle(body: string): string | undefined {
 }
 
 function extractStatusFromBody(body: string): string | undefined {
-  const match = body.match(/^\>\s*\*\*Status\*\*:\s*(.+)$/im)?.[1]?.trim();
+  const match = body.match(/^>\s*\*\*Status\*\*:\s*(.+)$/im)?.[1]?.trim();
   if (!match) return undefined;
   return match.replace(/^`|`$/g, '').trim();
 }
@@ -99,8 +97,7 @@ async function readFeatureDocEntries(featuresDir: string): Promise<FeatureDocEnt
   if (!existsSync(featuresDir)) return [];
   let fileNames: string[] = [];
   try {
-    fileNames = readdirSync(featuresDir)
-      .filter((name) => /\.md$/i.test(name));
+    fileNames = readdirSync(featuresDir).filter((name) => /\.md$/i.test(name));
   } catch {
     return [];
   }

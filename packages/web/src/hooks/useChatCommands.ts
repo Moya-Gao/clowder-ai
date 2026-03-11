@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { useChatStore } from '@/stores/chatStore';
 import { useCatData } from '@/hooks/useCatData';
-import { getUserId } from '@/utils/userId';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { getUserId } from '@/utils/userId';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ConfigSnapshot = any;
@@ -23,8 +23,15 @@ function formatConfigForDisplay(config: ConfigSnapshot): string {
   if (config.perCatBudgets) {
     lines.push('🎯 Per-Cat 上下文预算');
     for (const [catId, budget] of Object.entries(config.perCatBudgets)) {
-      const b = budget as { maxPromptTokens: number; maxContextTokens: number; maxMessages: number; maxContentLengthPerMsg: number };
-      lines.push(`  ${catId}: prompt ${(b.maxPromptTokens / 1000).toFixed(0)}k, context ${(b.maxContextTokens / 1000).toFixed(0)}k, ${b.maxMessages} msgs, ${b.maxContentLengthPerMsg}/msg`);
+      const b = budget as {
+        maxPromptTokens: number;
+        maxContextTokens: number;
+        maxMessages: number;
+        maxContentLengthPerMsg: number;
+      };
+      lines.push(
+        `  ${catId}: prompt ${(b.maxPromptTokens / 1000).toFixed(0)}k, context ${(b.maxContextTokens / 1000).toFixed(0)}k, ${b.maxMessages} msgs, ${b.maxContentLengthPerMsg}/msg`,
+      );
     }
     lines.push('');
   }
@@ -134,9 +141,10 @@ export function useChatCommands() {
     }
     // Build regex from all patterns
     const allPatterns = [...patternToCatId.keys()].sort((a, b) => b.length - a.length); // longest first
-    const regex = allPatterns.length > 0
-      ? new RegExp(`@(${allPatterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
-      : /@(opus|codex|gemini|dare|dare-agent)/gi; // fallback
+    const regex =
+      allPatterns.length > 0
+        ? new RegExp(`@(${allPatterns.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
+        : /@(opus|codex|gemini|dare|dare-agent)/gi; // fallback
     return { regex, resolve: (name: string) => patternToCatId.get(name.toLowerCase()) };
   }, [cats]);
 
@@ -330,7 +338,7 @@ export function useChatCommands() {
                 timestamp: Date.now(),
               });
             } else {
-              const lines = entries.map(e => `  ${e.key}: ${e.value}`).join('\n');
+              const lines = entries.map((e) => `  ${e.key}: ${e.value}`).join('\n');
               addMessage({
                 id: `mem-${Date.now()}`,
                 type: 'system',
@@ -369,9 +377,7 @@ export function useChatCommands() {
         }
 
         try {
-          const res = await apiFetch(
-            `/api/evidence/search?q=${encodeURIComponent(query)}`
-          );
+          const res = await apiFetch(`/api/evidence/search?q=${encodeURIComponent(query)}`);
           if (!res.ok) throw new Error(`Server error: ${res.status}`);
           const data = (await res.json()) as {
             results: Array<{
@@ -564,7 +570,7 @@ export function useChatCommands() {
           try {
             const res = await apiFetch('/api/signals/inbox?limit=20');
             if (!res.ok) throw new Error(`Server error: ${res.status}`);
-            const data = await res.json() as {
+            const data = (await res.json()) as {
               items: Array<{ id: string; title: string; source: string; tier: number; fetchedAt: string }>;
             };
 
@@ -612,7 +618,7 @@ export function useChatCommands() {
           try {
             const res = await apiFetch(`/api/signals/search?q=${encodeURIComponent(query)}&limit=20`);
             if (!res.ok) throw new Error(`Server error: ${res.status}`);
-            const data = await res.json() as {
+            const data = (await res.json()) as {
               total: number;
               items: Array<{ id: string; title: string; source: string; tier: number }>;
             };
@@ -650,7 +656,7 @@ export function useChatCommands() {
           try {
             const res = await apiFetch('/api/signals/stats');
             if (!res.ok) throw new Error(`Server error: ${res.status}`);
-            const data = await res.json() as {
+            const data = (await res.json()) as {
               todayCount: number;
               weekCount: number;
               unreadCount: number;
@@ -680,7 +686,7 @@ export function useChatCommands() {
             try {
               const res = await apiFetch('/api/signals/sources');
               if (!res.ok) throw new Error(`Server error: ${res.status}`);
-              const data = await res.json() as {
+              const data = (await res.json()) as {
                 sources: Array<{ id: string; enabled: boolean; tier: number; fetch: { method: string } }>;
               };
 
@@ -727,7 +733,7 @@ export function useChatCommands() {
               body: JSON.stringify({ enabled }),
             });
             if (!res.ok) throw new Error(`Server error: ${res.status}`);
-            const data = await res.json() as { source: { id: string; enabled: boolean } };
+            const data = (await res.json()) as { source: { id: string; enabled: boolean } };
 
             addMessage({
               id: `signals-${Date.now()}`,
@@ -750,7 +756,8 @@ export function useChatCommands() {
         addMessage({
           id: `err-${Date.now()}`,
           type: 'system',
-          content: '用法: /signals [inbox] | /signals search <query> | /signals sources [sourceId on|off] | /signals stats',
+          content:
+            '用法: /signals [inbox] | /signals search <query> | /signals sources [sourceId on|off] | /signals stats',
           timestamp: Date.now(),
         });
         return true;
@@ -778,12 +785,24 @@ export function useChatCommands() {
               body: JSON.stringify({ outcome }),
             });
             if (res.status === 404) {
-              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃模式', timestamp: Date.now() });
+              addMessage({
+                id: `mode-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: '当前没有活跃模式',
+                timestamp: Date.now(),
+              });
             } else if (!res.ok) {
               throw new Error(`Server error: ${res.status}`);
             } else {
               const data = await res.json();
-              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `模式已结束: ${data.ended.name}${outcome ? ` (${outcome})` : ''}`, timestamp: Date.now() });
+              addMessage({
+                id: `mode-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: `模式已结束: ${data.ended.name}${outcome ? ` (${outcome})` : ''}`,
+                timestamp: Date.now(),
+              });
             }
           } catch (err) {
             addSystemError(`模式操作失败: ${err instanceof Error ? err.message : 'Unknown'}`);
@@ -800,12 +819,26 @@ export function useChatCommands() {
             const data = await res.json();
             if (data.mode) {
               const m = data.mode;
-              const statusText = m.record.name === 'dev-loop'
-                ? `当前模式: dev-loop\n需求: ${m.record.config.requirement}\n阶段: ${m.state.phase} (第 ${(m.state.iteration ?? 0) + 1} 轮)`
-                : `当前模式: ${m.record.name}\n议题: ${m.record.config.topic}\n状态: 第 ${m.state.currentRound} 轮`;
-              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: statusText, timestamp: Date.now() });
+              const statusText =
+                m.record.name === 'dev-loop'
+                  ? `当前模式: dev-loop\n需求: ${m.record.config.requirement}\n阶段: ${m.state.phase} (第 ${(m.state.iteration ?? 0) + 1} 轮)`
+                  : `当前模式: ${m.record.name}\n议题: ${m.record.config.topic}\n状态: 第 ${m.state.currentRound} 轮`;
+              addMessage({
+                id: `mode-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: statusText,
+                timestamp: Date.now(),
+              });
             } else {
-              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃模式\n可用: /mode brainstorm <议题> @猫A @猫B\n       /mode debate <议题> @猫A @猫B [轮数]\n       /mode dev-loop @开发猫 @review猫 <需求>', timestamp: Date.now() });
+              addMessage({
+                id: `mode-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content:
+                  '当前没有活跃模式\n可用: /mode brainstorm <议题> @猫A @猫B\n       /mode debate <议题> @猫A @猫B [轮数]\n       /mode dev-loop @开发猫 @review猫 <需求>',
+                timestamp: Date.now(),
+              });
             }
           } catch (err) {
             addSystemError(`查询模式失败: ${err instanceof Error ? err.message : 'Unknown'}`);
@@ -857,7 +890,13 @@ export function useChatCommands() {
               throw new Error(errData?.error ?? `Server error: ${res.status}`);
             }
             await res.json();
-            addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `🔄 dev-loop 模式已启动\n需求: ${requirement}\n开发: @${mentions[0]} · Review: @${mentions[1]}`, timestamp: Date.now() });
+            addMessage({
+              id: `mode-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: `🔄 dev-loop 模式已启动\n需求: ${requirement}\n开发: @${mentions[0]} · Review: @${mentions[1]}`,
+              timestamp: Date.now(),
+            });
             await sendModeKickoff(threadId, requirement);
           } catch (err) {
             addSystemError(`启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`);
@@ -872,9 +911,15 @@ export function useChatCommands() {
 
         try {
           const threadId = getThreadId();
-          const config = modeName === 'brainstorm'
-            ? { topic, participants: mentions.length > 0 ? mentions : [cats[0]?.id ?? 'opus'] }
-            : { topic, catA: mentions[0] ?? cats[0]?.id ?? 'opus', catB: mentions[1] ?? cats[1]?.id ?? 'codex', ...(roundsMatch ? { rounds: parseInt(roundsMatch[1]!, 10) } : {}) };
+          const config =
+            modeName === 'brainstorm'
+              ? { topic, participants: mentions.length > 0 ? mentions : [cats[0]?.id ?? 'opus'] }
+              : {
+                  topic,
+                  catA: mentions[0] ?? cats[0]?.id ?? 'opus',
+                  catB: mentions[1] ?? cats[1]?.id ?? 'codex',
+                  ...(roundsMatch ? { rounds: parseInt(roundsMatch[1]!, 10) } : {}),
+                };
 
           const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`, {
             method: 'POST',
@@ -887,10 +932,17 @@ export function useChatCommands() {
             throw new Error(errData?.error ?? `Server error: ${res.status}`);
           }
           await res.json(); // consume response
-          const participantDisplay = modeName === 'brainstorm'
-            ? (config as { participants: string[] }).participants.join(', ')
-            : `${(config as { catA: string; catB: string }).catA} vs ${(config as { catA: string; catB: string }).catB}`;
-          addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `${modeName === 'brainstorm' ? '🧠' : '⚔️'} ${modeName} 模式已启动\n议题: ${topic}\n参与: ${participantDisplay}`, timestamp: Date.now() });
+          const participantDisplay =
+            modeName === 'brainstorm'
+              ? (config as { participants: string[] }).participants.join(', ')
+              : `${(config as { catA: string; catB: string }).catA} vs ${(config as { catA: string; catB: string }).catB}`;
+          addMessage({
+            id: `mode-${Date.now()}`,
+            type: 'system',
+            variant: 'info',
+            content: `${modeName === 'brainstorm' ? '🧠' : '⚔️'} ${modeName} 模式已启动\n议题: ${topic}\n参与: ${participantDisplay}`,
+            timestamp: Date.now(),
+          });
           await sendModeKickoff(threadId, topic);
         } catch (err) {
           addSystemError(`启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`);
@@ -931,7 +983,7 @@ export function useChatCommands() {
           });
 
           if (!res.ok) throw new Error(`Server error: ${res.status}`);
-          const data = await res.json() as { count: number; degraded: boolean; reason?: string };
+          const data = (await res.json()) as { count: number; degraded: boolean; reason?: string };
 
           if (data.count === 0) {
             addMessage({
@@ -976,7 +1028,13 @@ export function useChatCommands() {
               method: 'DELETE',
             });
             if (res.status === 404) {
-              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃投票', timestamp: Date.now() });
+              addMessage({
+                id: `vote-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: '当前没有活跃投票',
+                timestamp: Date.now(),
+              });
             } else if (!res.ok) {
               throw new Error(`Server error: ${res.status}`);
             } else {
@@ -985,9 +1043,17 @@ export function useChatCommands() {
               // Use backend tally (works for both anonymous and named votes)
               const tallyObj = r.tally as Record<string, number> | undefined;
               const tallyText = tallyObj
-                ? Object.entries(tallyObj).map(([opt, count]) => `  ${opt}: ${count} 票`).join('\n')
+                ? Object.entries(tallyObj)
+                    .map(([opt, count]) => `  ${opt}: ${count} 票`)
+                    .join('\n')
                 : '  (无投票)';
-              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: `投票已结束: ${r.question}\n${tallyText}`, timestamp: Date.now() });
+              addMessage({
+                id: `vote-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: `投票已结束: ${r.question}\n${tallyText}`,
+                timestamp: Date.now(),
+              });
             }
           } catch (err) {
             addSystemError(`投票操作失败: ${err instanceof Error ? err.message : 'Unknown'}`);
@@ -1006,9 +1072,21 @@ export function useChatCommands() {
               const v = data.vote;
               // Use voteCount from backend (anonymous) or compute from votes (named)
               const voteCount = v.voteCount ?? Object.keys(v.votes).length;
-              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: `当前投票: ${v.question}\n选项: ${v.options.join(' | ')}\n已投: ${voteCount} 票 | ${v.anonymous ? '匿名' : '实名'}\n截止: ${new Date(v.deadline).toLocaleTimeString()}`, timestamp: Date.now() });
+              addMessage({
+                id: `vote-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: `当前投票: ${v.question}\n选项: ${v.options.join(' | ')}\n已投: ${voteCount} 票 | ${v.anonymous ? '匿名' : '实名'}\n截止: ${new Date(v.deadline).toLocaleTimeString()}`,
+                timestamp: Date.now(),
+              });
             } else {
-              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃投票\n用法: /vote <问题> <选项1> <选项2> [--anonymous] [--timeout 120]', timestamp: Date.now() });
+              addMessage({
+                id: `vote-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: '当前没有活跃投票\n用法: /vote <问题> <选项1> <选项2> [--anonymous] [--timeout 120]',
+                timestamp: Date.now(),
+              });
             }
           } catch (err) {
             addSystemError(`查询投票失败: ${err instanceof Error ? err.message : 'Unknown'}`);
@@ -1027,14 +1105,32 @@ export function useChatCommands() {
               body: JSON.stringify({ option }),
             });
             if (res.status === 404) {
-              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃投票', timestamp: Date.now() });
+              addMessage({
+                id: `vote-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: '当前没有活跃投票',
+                timestamp: Date.now(),
+              });
             } else if (res.status === 400) {
               const data = await res.json();
-              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: `投票失败: ${data.error ?? '无效选项'}`, timestamp: Date.now() });
+              addMessage({
+                id: `vote-${Date.now()}`,
+                type: 'system',
+                variant: 'error',
+                content: `投票失败: ${data.error ?? '无效选项'}`,
+                timestamp: Date.now(),
+              });
             } else if (!res.ok) {
               throw new Error(`Server error: ${res.status}`);
             } else {
-              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: `已投票: ${option}`, timestamp: Date.now() });
+              addMessage({
+                id: `vote-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: `已投票: ${option}`,
+                timestamp: Date.now(),
+              });
             }
           } catch (err) {
             addSystemError(`投票失败: ${err instanceof Error ? err.message : 'Unknown'}`);
@@ -1049,7 +1145,7 @@ export function useChatCommands() {
 
       return false;
     },
-    [addMessage, mentionResolver, cats]
+    [addMessage, mentionResolver, cats],
   );
 
   return { processCommand };

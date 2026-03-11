@@ -3,13 +3,12 @@
  * - Steer button shows only for queued entries
  * - Steer modal submits correct mode
  */
-import React from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { QueuePanel } from '../QueuePanel';
-import { useChatStore } from '@/stores/chatStore';
 import type { QueueEntry } from '@/stores/chat-types';
+import { useChatStore } from '@/stores/chatStore';
+import { QueuePanel } from '../QueuePanel';
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(async () => ({ ok: true, json: async () => ({}) })),
@@ -115,4 +114,3 @@ describe('QueuePanel steer (F047)', () => {
     expect(callArgs.body).toContain('"mode":"promote"');
   });
 });
-

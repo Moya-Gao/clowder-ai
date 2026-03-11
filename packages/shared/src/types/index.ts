@@ -3,15 +3,6 @@
  * 导出所有类型定义
  */
 
-// Leaderboard types (F075 排行榜)
-export type {
-  LeaderboardRange,
-  LeaderboardStatsResponse,
-  MentionStats,
-  RankedCat,
-  StreakCat,
-  WorkStats,
-} from './leaderboard.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
@@ -174,6 +165,15 @@ export type {
   TriageIntentCardInput,
   TriageResult,
 } from './intent-card.js';
+// Leaderboard types (F075 排行榜)
+export type {
+  LeaderboardRange,
+  LeaderboardStatsResponse,
+  MentionStats,
+  RankedCat,
+  StreakCat,
+  WorkStats,
+} from './leaderboard.js';
 // Memory types (F3-lite 显式记忆)
 export type {
   MemoryEntry,

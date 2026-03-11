@@ -10,7 +10,7 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import type { IDraftStore, DraftRecord } from '../ports/DraftStore.js';
+import type { DraftRecord, IDraftStore } from '../ports/DraftStore.js';
 import { DraftKeys } from '../redis-keys/draft-keys.js';
 
 const DEFAULT_TTL = 300; // 5 minutes
@@ -142,7 +142,9 @@ export class RedisDraftStore implements IDraftStore {
     if (d['toolEvents']) {
       try {
         toolEvents = JSON.parse(d['toolEvents']);
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
     }
     return {
       userId: d['userId'] ?? '',

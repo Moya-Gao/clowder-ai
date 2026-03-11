@@ -7,27 +7,19 @@
  * 设计文档：docs/plans/2026-02-10-f11-mode-system-design.md §2.3
  */
 
-import type { CatId, ModeConfig, ModeState, DevLoopConfig, DevLoopState } from '@cat-cafe/shared';
+import type { CatId, DevLoopConfig, DevLoopState, ModeConfig, ModeState } from '@cat-cafe/shared';
 import { isDevLoopConfig, isDevLoopState } from '@cat-cafe/shared';
 import { getDefaultCatId } from '../../../../config/cat-config-loader.js';
 import { routeSerial } from '../agents/routing/route-serial.js';
-import type { ModeHandler, ModeExecutionContext } from './mode-types.js';
 import type { AgentMessage } from '../types.js';
-import {
-  buildDevLoopDevPrompt,
-  buildDevLoopReviewPrompt,
-  buildDevLoopFixPrompt,
-} from './mode-prompts.js';
-import { parseReviewResult, buildDevLoopSummary } from './dev-loop-parser.js';
+import { buildDevLoopSummary, parseReviewResult } from './dev-loop-parser.js';
+import { buildDevLoopDevPrompt, buildDevLoopFixPrompt, buildDevLoopReviewPrompt } from './mode-prompts.js';
+import type { ModeExecutionContext, ModeHandler } from './mode-types.js';
 
 const DEFAULT_MAX_ITERATIONS = 5;
 
 export class DevLoopMode implements ModeHandler {
-  async *execute(
-    ctx: ModeExecutionContext,
-    config: ModeConfig,
-    state: ModeState,
-  ): AsyncIterable<AgentMessage> {
+  async *execute(ctx: ModeExecutionContext, config: ModeConfig, state: ModeState): AsyncIterable<AgentMessage> {
     if (!isDevLoopConfig(config)) throw new Error('DevLoopMode requires DevLoopConfig');
     if (!isDevLoopState(state)) throw new Error('DevLoopMode requires DevLoopState');
 
@@ -135,20 +127,13 @@ export class DevLoopMode implements ModeHandler {
     systemPrompt: string,
     message: string,
   ): AsyncIterable<AgentMessage> {
-    return routeSerial(
-      ctx.strategyDeps,
-      [catId],
-      message,
-      ctx.userId,
-      ctx.threadId,
-      {
-        ...ctx.routeOptions,
-        maxA2ADepth: 0,
-        promptTags: ['dev-loop'],
-        modeSystemPromptByCat: {
-          [catId as string]: systemPrompt,
-        },
+    return routeSerial(ctx.strategyDeps, [catId], message, ctx.userId, ctx.threadId, {
+      ...ctx.routeOptions,
+      maxA2ADepth: 0,
+      promptTags: ['dev-loop'],
+      modeSystemPromptByCat: {
+        [catId as string]: systemPrompt,
       },
-    );
+    });
   }
 }

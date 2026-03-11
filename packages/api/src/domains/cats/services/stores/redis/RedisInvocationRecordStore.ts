@@ -10,16 +10,16 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { InvocationKeys } from '../redis-keys/invocation-keys.js';
 import type { TokenUsage } from '../../types.js';
 import type {
-  InvocationRecord,
-  InvocationStatus,
   CreateInvocationInput,
   CreateResult,
-  UpdateInvocationInput,
   IInvocationRecordStore,
+  InvocationRecord,
+  InvocationStatus,
+  UpdateInvocationInput,
 } from '../ports/InvocationRecordStore.js';
+import { InvocationKeys } from '../redis-keys/invocation-keys.js';
 
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const IDEMPOTENCY_TTL_SECONDS = 300; // 5 minutes
@@ -120,7 +120,7 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     const idempKey = InvocationKeys.idempotency(input.threadId, input.userId, input.idempotencyKey);
     const recordKey = InvocationKeys.detail(id);
 
-    const result = await this.redis.eval(
+    const result = (await this.redis.eval(
       CREATE_ATOMIC_LUA,
       2,
       idempKey,
@@ -132,7 +132,7 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
       input.intent,
       input.idempotencyKey,
       now,
-    ) as [string, string];
+    )) as [string, string];
 
     return {
       outcome: result[0] as 'created' | 'duplicate',
@@ -160,14 +160,14 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
 
     // All updates go through ATOMIC_UPDATE_LUA for consistent guard behavior.
     // The Lua script handles CAS check + state machine validation atomically.
-    const result = await this.redis.eval(
+    const result = (await this.redis.eval(
       ATOMIC_UPDATE_LUA,
       1,
       key,
       input.expectedStatus ?? '',
       input.status ?? '',
       ...pairs,
-    ) as number;
+    )) as number;
 
     // -2 = not found, 0 = CAS mismatch, -1 = illegal transition
     if (result !== 1) return null;
@@ -175,11 +175,7 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     return this.get(id);
   }
 
-  async getByIdempotencyKey(
-    threadId: string,
-    userId: string,
-    key: string,
-  ): Promise<InvocationRecord | null> {
+  async getByIdempotencyKey(threadId: string, userId: string, key: string): Promise<InvocationRecord | null> {
     const idempKey = InvocationKeys.idempotency(threadId, userId, key);
     const invocationId = await this.redis.get(idempKey);
     if (!invocationId) return null;
@@ -199,9 +195,7 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     const ids: string[] = [];
     let cursor = '0';
     do {
-      const [nextCursor, keys] = await this.redis.scan(
-        cursor, 'MATCH', matchPattern, 'COUNT', 100,
-      );
+      const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', matchPattern, 'COUNT', 100);
       cursor = nextCursor;
       if (keys.length > 0) {
         const pipeline = this.redis.pipeline();
@@ -260,7 +254,7 @@ function safeParseObject(value: string | undefined): Record<string, TokenUsage> 
   try {
     const parsed = JSON.parse(value);
     return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-      ? parsed as Record<string, TokenUsage>
+      ? (parsed as Record<string, TokenUsage>)
       : null;
   } catch {
     return null;

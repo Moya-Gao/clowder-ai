@@ -111,9 +111,9 @@ vi.mock('@/utils/api-client', () => ({
   API_URL: 'http://localhost:3100',
 }));
 
+import { configureDebug, invocationDebugConstants } from '@/debug/invocationEventDebug';
 // ── Import useSocket after mocks ──
 import { type SocketCallbacks, useSocket } from '../useSocket';
-import { configureDebug, invocationDebugConstants } from '@/debug/invocationEventDebug';
 
 /**
  * Minimal wrapper component to mount the useSocket hook with controlled threadId.

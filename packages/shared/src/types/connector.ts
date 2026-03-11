@@ -98,9 +98,7 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
   },
 ] as const;
 
-const connectorMap = new Map<string, ConnectorDefinition>(
-  CONNECTOR_DEFINITIONS.map((d) => [d.id, d]),
-);
+const connectorMap = new Map<string, ConnectorDefinition>(CONNECTOR_DEFINITIONS.map((d) => [d.id, d]));
 
 /** Look up a connector definition by ID. */
 export function getConnectorDefinition(connectorId: string): ConnectorDefinition | undefined {

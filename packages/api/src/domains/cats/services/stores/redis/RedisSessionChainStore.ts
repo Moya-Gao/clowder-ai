@@ -235,12 +235,7 @@ export class RedisSessionChainStore implements ISessionChainStore {
     const detailKey = SessionChainKeys.detail(id);
     // Lua: atomic exists-check + increment in one round-trip.
     // Returns -1 if key doesn't exist, otherwise the new compressionCount.
-    const result = await this.redis.eval(
-      INCR_COMPRESSION_LUA,
-      1,
-      detailKey,
-      String(Date.now()),
-    );
+    const result = await this.redis.eval(INCR_COMPRESSION_LUA, 1, detailKey, String(Date.now()));
     const code = result as number;
     return code < 0 ? null : code;
   }

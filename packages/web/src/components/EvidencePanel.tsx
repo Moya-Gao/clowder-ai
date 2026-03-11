@@ -1,7 +1,7 @@
 'use client';
 
-import { EvidenceCard } from './EvidenceCard';
 import type { EvidenceResult } from './EvidenceCard';
+import { EvidenceCard } from './EvidenceCard';
 
 export interface EvidenceData {
   results: EvidenceResult[];

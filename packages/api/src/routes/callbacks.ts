@@ -159,14 +159,18 @@ const richBlockSchema = z.discriminatedUnion('kind', [
     interactiveType: z.enum(['select', 'multi-select', 'card-grid', 'confirm']),
     title: z.string().optional(),
     description: z.string().optional(),
-    options: z.array(z.object({
-      id: z.string().min(1),
-      label: z.string().min(1),
-      emoji: z.string().optional(),
-      description: z.string().optional(),
-      level: z.number().optional(),
-      group: z.string().optional(),
-    })).min(1),
+    options: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          label: z.string().min(1),
+          emoji: z.string().optional(),
+          description: z.string().optional(),
+          level: z.number().optional(),
+          group: z.string().optional(),
+        }),
+      )
+      .min(1),
     maxSelect: z.number().int().min(1).optional(),
     allowRandom: z.boolean().optional(),
     messageTemplate: z.string().optional(),

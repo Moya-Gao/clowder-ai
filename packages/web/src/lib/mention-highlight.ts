@@ -13,9 +13,7 @@ import type { CatData } from '@/hooks/useCatData';
 
 function buildMentionToCat(cats: Array<{ id: string; mentionPatterns: string[] }>): Record<string, string> {
   return Object.fromEntries(
-    cats.flatMap((cat) =>
-      cat.mentionPatterns.map((p) => [p.replace(/^@/, '').toLowerCase(), cat.id]),
-    ),
+    cats.flatMap((cat) => cat.mentionPatterns.map((p) => [p.replace(/^@/, '').toLowerCase(), cat.id])),
   );
 }
 
@@ -28,9 +26,7 @@ function buildMentionRe(toCat: Record<string, string>): RegExp {
 }
 
 function buildMentionColor(cats: Array<{ id: string; color: { primary: string } }>): Record<string, string> {
-  return Object.fromEntries(
-    cats.map((cat) => [cat.id, cat.color.primary]),
-  );
+  return Object.fromEntries(cats.map((cat) => [cat.id, cat.color.primary]));
 }
 
 // ── Module-level cache (starts from static CAT_CONFIGS) ─

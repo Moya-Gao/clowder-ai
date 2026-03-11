@@ -8,7 +8,7 @@
  * 设计文档：docs/plans/2026-02-10-f11-mode-system-design.md
  */
 
-import type { ThreadMode, ThreadModeRecord, ModeConfig, ModeState, ModeName } from '@cat-cafe/shared';
+import type { ModeConfig, ModeName, ModeState, ThreadMode, ThreadModeRecord } from '@cat-cafe/shared';
 
 /**
  * Common interface for mode stores (in-memory and future Redis).

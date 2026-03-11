@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
 import type { StudyArtifact } from '@cat-cafe/shared';
+import React, { useCallback, useEffect, useState } from 'react';
 import { fetchPodcastScript, generatePodcast, type PodcastScript } from '@/utils/signals-api';
 
 interface PodcastPlayerProps {
@@ -35,34 +35,40 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
   const readyPodcasts = podcasts.filter((p) => p.state === 'ready');
   const pendingPodcasts = podcasts.filter((p) => p.state === 'queued' || p.state === 'running');
 
-  const loadScript = useCallback(async (artifactId: string) => {
-    setLoading(true);
-    setError(null);
-    setScript(null);
-    setActiveSegment(-1);
-    try {
-      const result = await fetchPodcastScript(articleId, artifactId);
-      setScript(result.script);
-      setSelectedId(artifactId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load script');
-    } finally {
-      setLoading(false);
-    }
-  }, [articleId]);
+  const loadScript = useCallback(
+    async (artifactId: string) => {
+      setLoading(true);
+      setError(null);
+      setScript(null);
+      setActiveSegment(-1);
+      try {
+        const result = await fetchPodcastScript(articleId, artifactId);
+        setScript(result.script);
+        setSelectedId(artifactId);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load script');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [articleId],
+  );
 
-  const handleGenerate = useCallback(async (mode: 'essence' | 'deep') => {
-    setGenerating(true);
-    setError(null);
-    try {
-      await generatePodcast(articleId, mode);
-      onArtifactCreated?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to generate');
-    } finally {
-      setGenerating(false);
-    }
-  }, [articleId, onArtifactCreated]);
+  const handleGenerate = useCallback(
+    async (mode: 'essence' | 'deep') => {
+      setGenerating(true);
+      setError(null);
+      try {
+        await generatePodcast(articleId, mode);
+        onArtifactCreated?.();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to generate');
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [articleId, onArtifactCreated],
+  );
 
   // Reset state when articleId changes
   useEffect(() => {
@@ -104,9 +110,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
       </div>
 
       {pendingPodcasts.length > 0 && (
-        <p className="mt-1 text-[10px] text-amber-600">
-          {pendingPodcasts.length} 个播客正在生成中...
-        </p>
+        <p className="mt-1 text-[10px] text-amber-600">{pendingPodcasts.length} 个播客正在生成中...</p>
       )}
 
       {readyPodcasts.length > 1 && (
@@ -137,9 +141,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
             <span className="text-[10px] text-gray-400">
               {script.mode === 'deep' ? '深度版' : '精华版'} · {script.segments.length} 段
             </span>
-            <span className="text-[10px] text-gray-400">
-              约 {formatDuration(script.totalDuration)}
-            </span>
+            <span className="text-[10px] text-gray-400">约 {formatDuration(script.totalDuration)}</span>
           </div>
           <div className="max-h-64 overflow-y-auto">
             {script.segments.map((seg, i) => (
@@ -151,13 +153,13 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
                   activeSegment === i ? 'bg-opus-bg' : 'hover:bg-gray-50'
                 }`}
               >
-                <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${speakerStyle(seg.speaker)}`}>
+                <span
+                  className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${speakerStyle(seg.speaker)}`}
+                >
                   {seg.speaker}
                 </span>
                 <span className="flex-1 text-xs text-gray-700">{seg.text}</span>
-                <span className="shrink-0 text-[10px] text-gray-300">
-                  {formatDuration(seg.durationEstimate)}
-                </span>
+                <span className="shrink-0 text-[10px] text-gray-300">{formatDuration(seg.durationEstimate)}</span>
               </button>
             ))}
           </div>
@@ -165,9 +167,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
       )}
 
       {!script && !loading && readyPodcasts.length === 0 && !error && (
-        <p className="mt-1 text-[10px] text-gray-400">
-          还没有播客脚本，点击上方按钮生成。
-        </p>
+        <p className="mt-1 text-[10px] text-gray-400">还没有播客脚本，点击上方按钮生成。</p>
       )}
     </div>
   );

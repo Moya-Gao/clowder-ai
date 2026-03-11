@@ -398,13 +398,15 @@ export class RedisBacklogStore implements IBacklogStore {
         },
         // When importing as done, add done audit + doneAt in one shot
         ...(input.initialStatus === 'done'
-          ? [{
-            id: generateSortableId(now + 2),
-            action: 'done' as const,
-            actor: makeCreatorActor(input),
-            timestamp: now,
-            detail: 'imported as done',
-          }]
+          ? [
+              {
+                id: generateSortableId(now + 2),
+                action: 'done' as const,
+                actor: makeCreatorActor(input),
+                timestamp: now,
+                detail: 'imported as done',
+              },
+            ]
           : []),
       ],
       ...(input.initialStatus === 'done' ? { doneAt: now } : {}),
@@ -425,9 +427,10 @@ export class RedisBacklogStore implements IBacklogStore {
     if (!existing) return null;
 
     // Status upgrade: only open→dispatched or open→done, never downgrade
-    const statusUpgrade = input.importStatus && existing.status === 'open' && input.importStatus !== 'open'
-      ? input.importStatus
-      : undefined;
+    const statusUpgrade =
+      input.importStatus && existing.status === 'open' && input.importStatus !== 'open'
+        ? input.importStatus
+        : undefined;
 
     const unchanged =
       existing.title === input.title &&
@@ -1000,10 +1003,7 @@ export class RedisBacklogStore implements IBacklogStore {
     await pipeline.exec();
   }
 
-  async tryAcquireDispatchLock(
-    itemId: string,
-    ttlMs = 30_000,
-  ): Promise<string | false> {
+  async tryAcquireDispatchLock(itemId: string, ttlMs = 30_000): Promise<string | false> {
     const key = BacklogKeys.dispatchLock(itemId);
     const token = crypto.randomUUID();
     const ttlSec = Math.max(1, Math.ceil(ttlMs / 1000));
@@ -1011,10 +1011,7 @@ export class RedisBacklogStore implements IBacklogStore {
     return result === 'OK' ? token : false;
   }
 
-  async releaseDispatchLock(
-    itemId: string,
-    token: string,
-  ): Promise<void> {
+  async releaseDispatchLock(itemId: string, token: string): Promise<void> {
     const key = BacklogKeys.dispatchLock(itemId);
     // CAS delete: only remove if the token still matches (prevents deleting another request's lock)
     await this.redis.eval(

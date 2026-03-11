@@ -1,17 +1,13 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 const SCRIPT = resolve(process.cwd(), 'scripts/check-feature-truth.mjs');
 
-function createRepoFixture({
-  currentFeatures,
-  generatedFeatures,
-  backlogRows,
-}) {
+function createRepoFixture({ currentFeatures, generatedFeatures, backlogRows }) {
   const root = mkdtempSync(join(tmpdir(), 'cc-feature-truth-'));
   mkdirSync(join(root, 'docs', 'features'), { recursive: true });
   mkdirSync(join(root, 'scripts'), { recursive: true });
@@ -87,10 +83,7 @@ describe('check-feature-truth.mjs', () => {
       backlogRows: ['| F050 | External | in-progress | 三猫 | [F050](features/F050.md) |'],
     });
 
-    assert.throws(
-      () => runCheck(sandboxRoot),
-      /index-sync|stale|check-feature-truth/i,
-    );
+    assert.throws(() => runCheck(sandboxRoot), /index-sync|stale|check-feature-truth/i);
   });
 
   it('fails when active feature is missing from BACKLOG', () => {
@@ -100,10 +93,7 @@ describe('check-feature-truth.mjs', () => {
       backlogRows: [],
     });
 
-    assert.throws(
-      () => runCheck(sandboxRoot),
-      /backlog-missing|check-feature-truth/i,
-    );
+    assert.throws(() => runCheck(sandboxRoot), /backlog-missing|check-feature-truth/i);
   });
 
   it('fails when BACKLOG still references done-only feature', () => {
@@ -113,9 +103,6 @@ describe('check-feature-truth.mjs', () => {
       backlogRows: ['| F001 | Legacy | in-progress | 三猫 | [F001](features/F001.md) |'],
     });
 
-    assert.throws(
-      () => runCheck(sandboxRoot),
-      /backlog-active|done|check-feature-truth/i,
-    );
+    assert.throws(() => runCheck(sandboxRoot), /backlog-active|done|check-feature-truth/i);
   });
 });

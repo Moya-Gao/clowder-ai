@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
-import { beforeAll, afterAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatContainer } from '@/components/ChatContainer';
 
 const mockStoreState = () => ({
@@ -49,10 +48,21 @@ vi.mock('@/hooks/useSocket', () => ({
   useSocket: () => ({ cancelInvocation: vi.fn(), syncRooms: vi.fn() }),
 }));
 vi.mock('@/hooks/useAgentMessages', () => ({
-  useAgentMessages: () => ({ handleAgentMessage: vi.fn(), handleStop: vi.fn(), resetRefs: vi.fn(), resetTimeout: vi.fn() }),
+  useAgentMessages: () => ({
+    handleAgentMessage: vi.fn(),
+    handleStop: vi.fn(),
+    resetRefs: vi.fn(),
+    resetTimeout: vi.fn(),
+  }),
 }));
 vi.mock('@/hooks/useChatHistory', () => ({
-  useChatHistory: () => ({ handleScroll: vi.fn(), scrollContainerRef: { current: null }, messagesEndRef: { current: null }, isLoadingHistory: false, hasMore: false }),
+  useChatHistory: () => ({
+    handleScroll: vi.fn(),
+    scrollContainerRef: { current: null },
+    messagesEndRef: { current: null },
+    isLoadingHistory: false,
+    hasMore: false,
+  }),
 }));
 vi.mock('@/hooks/useSendMessage', () => ({
   useSendMessage: () => ({ handleSend: vi.fn() }),
@@ -70,7 +80,9 @@ vi.mock('@/components/ChatMessage', () => ({ ChatMessage: () => null }));
 vi.mock('@/components/ChatInput', () => ({ ChatInput: () => null }));
 vi.mock('@/components/ChatContainerHeader', () => ({
   ChatContainerHeader: (props: { onToggleSidebar: () => void; onOpenMobileStatus: () => void }) =>
-    React.createElement('div', { 'data-testid': 'header' },
+    React.createElement(
+      'div',
+      { 'data-testid': 'header' },
       React.createElement('button', { 'data-testid': 'sidebar-toggle', onClick: props.onToggleSidebar }),
       React.createElement('button', { 'data-testid': 'mobile-status-trigger', onClick: props.onOpenMobileStatus }),
     ),
@@ -138,38 +150,54 @@ describe('ChatContainer mobile interactions', () => {
   });
 
   it('sidebar is closed by default on mobile', () => {
-    act(() => { root.render(React.createElement(ChatContainer, { threadId: 'test-thread' })); });
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'test-thread' }));
+    });
     expect(container.querySelector('[data-testid="sidebar"]')).toBeNull();
   });
 
   it('opens sidebar overlay when toggle button is clicked', () => {
-    act(() => { root.render(React.createElement(ChatContainer, { threadId: 'test-thread' })); });
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'test-thread' }));
+    });
     const toggleBtn = container.querySelector('[data-testid="sidebar-toggle"]') as HTMLButtonElement;
-    act(() => { toggleBtn.click(); });
+    act(() => {
+      toggleBtn.click();
+    });
     expect(container.querySelector('[data-testid="sidebar"]')).toBeTruthy();
     // Backdrop should also appear
     expect(container.querySelector('[class*="bg-black"]')).toBeTruthy();
   });
 
   it('closes sidebar when backdrop is clicked', () => {
-    act(() => { root.render(React.createElement(ChatContainer, { threadId: 'test-thread' })); });
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'test-thread' }));
+    });
     // Open sidebar
     const toggleBtn = container.querySelector('[data-testid="sidebar-toggle"]') as HTMLButtonElement;
-    act(() => { toggleBtn.click(); });
+    act(() => {
+      toggleBtn.click();
+    });
     expect(container.querySelector('[data-testid="sidebar"]')).toBeTruthy();
     // Click backdrop
     const backdrop = container.querySelector('[class*="bg-black"]') as HTMLElement;
-    act(() => { backdrop.click(); });
+    act(() => {
+      backdrop.click();
+    });
     expect(container.querySelector('[data-testid="sidebar"]')).toBeNull();
   });
 
   it('mobile status sheet starts closed and opens on trigger', () => {
-    act(() => { root.render(React.createElement(ChatContainer, { threadId: 'test-thread' })); });
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'test-thread' }));
+    });
     const statusSheet = container.querySelector('[data-testid="mobile-status"]') as HTMLElement;
     expect(statusSheet.getAttribute('data-open')).toBe('false');
 
     const triggerBtn = container.querySelector('[data-testid="mobile-status-trigger"]') as HTMLButtonElement;
-    act(() => { triggerBtn.click(); });
+    act(() => {
+      triggerBtn.click();
+    });
 
     const statusSheetAfter = container.querySelector('[data-testid="mobile-status"]') as HTMLElement;
     expect(statusSheetAfter.getAttribute('data-open')).toBe('true');
@@ -177,7 +205,9 @@ describe('ChatContainer mobile interactions', () => {
 
   it('auto-opens sidebar on desktop viewport', () => {
     mockMatchMedia(true);
-    act(() => { root.render(React.createElement(ChatContainer, { threadId: 'test-thread' })); });
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'test-thread' }));
+    });
     expect(container.querySelector('[data-testid="sidebar"]')).toBeTruthy();
   });
 });

@@ -3,8 +3,8 @@
  */
 
 import './helpers/setup-cat-registry.js';
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 const { getCatModel, getAllCatModels } = await import('../dist/config/cat-models.js');
 

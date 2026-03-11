@@ -2,23 +2,23 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useChatStore } from '@/stores/chatStore';
-import { useBrakeStore } from '@/stores/brakeStore';
-import { useToastStore } from '@/stores/toastStore';
-import { API_URL } from '@/utils/api-client';
-import { getUserId } from '@/utils/userId';
 import {
   bootstrapDebugFromStorage,
   ensureWindowDebugApi,
   isDebugEnabled,
   recordDebugEvent,
 } from '@/debug/invocationEventDebug';
-import { loadJoinedRoomsFromSession, saveJoinedRoomsToSession } from './useSocket-persistence';
+import { useBrakeStore } from '@/stores/brakeStore';
+import { useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
+import { API_URL } from '@/utils/api-client';
+import { getUserId } from '@/utils/userId';
 import {
   type BackgroundAgentMessage,
   clearBackgroundStreamRefForActiveEvent,
   handleBackgroundAgentMessage,
 } from './useSocket-background';
+import { loadJoinedRoomsFromSession, saveJoinedRoomsToSession } from './useSocket-persistence';
 
 interface AgentMessage {
   type: string;
@@ -85,9 +85,17 @@ export interface SocketCallbacks {
   /** #80 fix-C: Clear the done-timeout guard (called when background thread completes) */
   clearDoneTimeout?: (threadId?: string) => void;
   /** F39: Queue updated */
-  onQueueUpdated?: (data: { threadId: string; queue: import('../stores/chat-types').QueueEntry[]; action: string }) => void;
+  onQueueUpdated?: (data: {
+    threadId: string;
+    queue: import('../stores/chat-types').QueueEntry[];
+    action: string;
+  }) => void;
   /** F39: Queue paused */
-  onQueuePaused?: (data: { threadId: string; reason: 'canceled' | 'failed'; queue: import('../stores/chat-types').QueueEntry[] }) => void;
+  onQueuePaused?: (data: {
+    threadId: string;
+    reason: 'canceled' | 'failed';
+    queue: import('../stores/chat-types').QueueEntry[];
+  }) => void;
 }
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
@@ -263,8 +271,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       // Mirrors agent_message pattern — blocks switch-window race where route already
       // points to thread-B but flat store still belongs to thread-A.
       const isActiveThread = Boolean(
-        data.threadId && routeThread && storeThread &&
-        data.threadId === routeThread && data.threadId === storeThread,
+        data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
       );
 
       if (isActiveThread) {
@@ -297,7 +304,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       // Blocks switch-window race where route already points to thread-B
       // but flat store still belongs to thread-A (same pattern as agent_message).
       const isActiveThread = Boolean(
-        summary.threadId && routeThread && storeThread && summary.threadId === routeThread && summary.threadId === storeThread,
+        summary.threadId &&
+          routeThread &&
+          storeThread &&
+          summary.threadId === routeThread &&
+          summary.threadId === storeThread,
       );
       if (!isActiveThread) return;
       callbacksRef.current.onThreadSummary?.(summary);
@@ -340,11 +351,12 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     const normalizeQueueForDebug = (queue: unknown): unknown[] => (Array.isArray(queue) ? queue : []);
-    const getQueueStatusesForDebug = (queue: unknown) => normalizeQueueForDebug(queue).map((entry) => {
-      if (!entry || typeof entry !== 'object') return 'unknown';
-      const status = (entry as { status?: unknown }).status;
-      return typeof status === 'string' ? status : 'unknown';
-    });
+    const getQueueStatusesForDebug = (queue: unknown) =>
+      normalizeQueueForDebug(queue).map((entry) => {
+        if (!entry || typeof entry !== 'object') return 'unknown';
+        const status = (entry as { status?: unknown }).status;
+        return typeof status === 'string' ? status : 'unknown';
+      });
 
     // F39: Queue events — always write via store (no dual-pointer guard needed, queue is thread-scoped)
     socket.on('queue_updated', (data: { threadId: string; queue: unknown[]; action: string }) => {
@@ -368,7 +380,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
           queueLength: normalizeQueueForDebug(data.queue).length,
           queueStatuses: getQueueStatusesForDebug(data.queue),
           hasActiveInvocation: data.action === 'processing' ? true : stateAfterUpdate?.hasActiveInvocation,
-          queuePaused: (data.action === 'processing' || data.action === 'cleared') ? false : stateAfterUpdate?.queuePaused,
+          queuePaused:
+            data.action === 'processing' || data.action === 'cleared' ? false : stateAfterUpdate?.queuePaused,
         });
       }
     });
@@ -413,9 +426,12 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     // F085 Phase 4: Hyperfocus brake trigger from backend activity tracking
-    socket.on('brake:trigger', (data: { level: 1 | 2 | 3; activeMinutes: number; nightMode: boolean; timestamp: number }) => {
-      useBrakeStore.getState().show(data);
-    });
+    socket.on(
+      'brake:trigger',
+      (data: { level: 1 | 2 | 3; activeMinutes: number; nightMode: boolean; timestamp: number }) => {
+        useBrakeStore.getState().show(data);
+      },
+    );
 
     socket.on('connect_error', (error: Error & { description?: unknown; context?: unknown }) => {
       console.error('[ws] connect_error', {
@@ -469,51 +485,60 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   }, [persistJoinedRooms]);
 
   /** Join a single room (additive — does not leave other rooms) */
-  const joinRoom = useCallback((roomThreadId: string) => {
-    const socket = socketRef.current;
-    if (!socket) return;
-    const room = `thread:${roomThreadId}`;
-    if (joinedRoomsRef.current.has(room)) return;
-    socket.emit('join_room', room);
-    joinedRoomsRef.current.add(room);
-    persistJoinedRooms();
-  }, [persistJoinedRooms]);
+  const joinRoom = useCallback(
+    (roomThreadId: string) => {
+      const socket = socketRef.current;
+      if (!socket) return;
+      const room = `thread:${roomThreadId}`;
+      if (joinedRoomsRef.current.has(room)) return;
+      socket.emit('join_room', room);
+      joinedRoomsRef.current.add(room);
+      persistJoinedRooms();
+    },
+    [persistJoinedRooms],
+  );
 
   /** Leave a single room */
-  const leaveRoom = useCallback((roomThreadId: string) => {
-    const socket = socketRef.current;
-    if (!socket) return;
-    const room = `thread:${roomThreadId}`;
-    if (!joinedRoomsRef.current.has(room)) return;
-    socket.emit('leave_room', room);
-    joinedRoomsRef.current.delete(room);
-    persistJoinedRooms();
-  }, [persistJoinedRooms]);
+  const leaveRoom = useCallback(
+    (roomThreadId: string) => {
+      const socket = socketRef.current;
+      if (!socket) return;
+      const room = `thread:${roomThreadId}`;
+      if (!joinedRoomsRef.current.has(room)) return;
+      socket.emit('leave_room', room);
+      joinedRoomsRef.current.delete(room);
+      persistJoinedRooms();
+    },
+    [persistJoinedRooms],
+  );
 
   /** Sync joined rooms to exactly the given set of thread IDs */
-  const syncRooms = useCallback((threadIds: string[]) => {
-    const socket = socketRef.current;
-    if (!socket) return;
+  const syncRooms = useCallback(
+    (threadIds: string[]) => {
+      const socket = socketRef.current;
+      if (!socket) return;
 
-    const targetRooms = new Set(threadIds.map((id) => `thread:${id}`));
+      const targetRooms = new Set(threadIds.map((id) => `thread:${id}`));
 
-    // Leave rooms no longer needed
-    for (const room of joinedRoomsRef.current) {
-      if (!targetRooms.has(room)) {
-        socket.emit('leave_room', room);
-        joinedRoomsRef.current.delete(room);
+      // Leave rooms no longer needed
+      for (const room of joinedRoomsRef.current) {
+        if (!targetRooms.has(room)) {
+          socket.emit('leave_room', room);
+          joinedRoomsRef.current.delete(room);
+        }
       }
-    }
 
-    // Join new rooms
-    for (const room of targetRooms) {
-      if (!joinedRoomsRef.current.has(room)) {
-        socket.emit('join_room', room);
-        joinedRoomsRef.current.add(room);
+      // Join new rooms
+      for (const room of targetRooms) {
+        if (!joinedRoomsRef.current.has(room)) {
+          socket.emit('join_room', room);
+          joinedRoomsRef.current.add(room);
+        }
       }
-    }
-    persistJoinedRooms();
-  }, [persistJoinedRooms]);
+      persistJoinedRooms();
+    },
+    [persistJoinedRooms],
+  );
 
   // Automatically ensure active thread room is joined when threadId changes
   useEffect(() => {

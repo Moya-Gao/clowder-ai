@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
-import { beforeAll, afterAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatContainer } from '@/components/ChatContainer';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -10,7 +9,15 @@ const mockApiFetch = vi.fn(async (url: string, opts?: Record<string, unknown>) =
 // Mutable store state — mutate between renders to simulate thread switching
 let storeState = {
   currentThreadId: 'thread-A',
-  messages: [{ id: '0000001772900001-000001-aabbcc01', type: 'assistant' as const, content: 'hello from A', timestamp: Date.now(), catId: 'opus' }],
+  messages: [
+    {
+      id: '0000001772900001-000001-aabbcc01',
+      type: 'assistant' as const,
+      content: 'hello from A',
+      timestamp: Date.now(),
+      catId: 'opus',
+    },
+  ],
 };
 
 const baseStore = () => ({
@@ -75,11 +82,22 @@ vi.mock('@/hooks/useSocket', () => ({
 }));
 
 vi.mock('@/hooks/useAgentMessages', () => ({
-  useAgentMessages: () => ({ handleAgentMessage: vi.fn(), handleStop: vi.fn(), resetRefs: vi.fn(), resetTimeout: vi.fn() }),
+  useAgentMessages: () => ({
+    handleAgentMessage: vi.fn(),
+    handleStop: vi.fn(),
+    resetRefs: vi.fn(),
+    resetTimeout: vi.fn(),
+  }),
 }));
 
 vi.mock('@/hooks/useChatHistory', () => ({
-  useChatHistory: () => ({ handleScroll: vi.fn(), scrollContainerRef: { current: null }, messagesEndRef: { current: null }, isLoadingHistory: false, hasMore: false }),
+  useChatHistory: () => ({
+    handleScroll: vi.fn(),
+    scrollContainerRef: { current: null },
+    messagesEndRef: { current: null },
+    isLoadingHistory: false,
+    hasMore: false,
+  }),
 }));
 
 vi.mock('@/hooks/useSendMessage', () => ({
@@ -104,7 +122,9 @@ vi.mock('@/components/A2ACollapsible', () => ({ A2ACollapsible: () => null }));
 vi.mock('@/components/ModeStatusBar', () => ({ ModeStatusBar: () => null }));
 vi.mock('@/components/ConfirmDialog', () => ({ ConfirmDialog: () => null }));
 vi.mock('@/components/MessageNavigator', () => ({ MessageNavigator: () => null }));
-vi.mock('@/components/MessageActions', () => ({ MessageActions: ({ children }: { children: React.ReactNode }) => children }));
+vi.mock('@/components/MessageActions', () => ({
+  MessageActions: ({ children }: { children: React.ReactNode }) => children,
+}));
 vi.mock('@/components/CatCafeHub', () => ({ CatCafeHub: () => null }));
 vi.mock('@/components/SplitPaneView', () => ({ SplitPaneView: () => null }));
 vi.mock('@/components/MobileStatusSheet', () => ({ MobileStatusSheet: () => null }));
@@ -135,12 +155,22 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     mockApiFetch.mockClear();
     storeState = {
       currentThreadId: 'thread-A',
-      messages: [{ id: '0000001772900001-000001-aabbcc01', type: 'assistant' as const, content: 'hello from A', timestamp: Date.now(), catId: 'opus' }],
+      messages: [
+        {
+          id: '0000001772900001-000001-aabbcc01',
+          type: 'assistant' as const,
+          content: 'hello from A',
+          timestamp: Date.now(),
+          catId: 'opus',
+        },
+      ],
     };
   });
 
   afterEach(() => {
-    act(() => { root.unmount(); });
+    act(() => {
+      root.unmount();
+    });
     container.remove();
   });
 
@@ -148,7 +178,9 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
 
     const ackCalls = mockApiFetch.mock.calls.filter(
       (call) => typeof call[0] === 'string' && call[0].includes('/read/latest'),
@@ -163,14 +195,18 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
     mockApiFetch.mockClear();
 
     // Switch to thread-B
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-B' }));
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
 
     const ackCalls = mockApiFetch.mock.calls.filter(
       (call) => typeof call[0] === 'string' && call[0].includes('/read/latest'),
@@ -185,14 +221,22 @@ describe('F069-R5: read ack via POST /read/latest', () => {
       currentThreadId: 'thread-A',
       messages: [
         { id: 'draft-inv-1', type: 'assistant' as const, content: '...', timestamp: Date.now(), catId: 'opus' },
-        { id: 'bg-sys-1772900004-opus-1', type: 'assistant' as const, content: 'info', timestamp: Date.now(), catId: 'opus' },
+        {
+          id: 'bg-sys-1772900004-opus-1',
+          type: 'assistant' as const,
+          content: 'info',
+          timestamp: Date.now(),
+          catId: 'opus',
+        },
       ],
     };
 
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
 
     // Should STILL fire — unlike old approach which skipped when no real IDs were in cache
     const ackCalls = mockApiFetch.mock.calls.filter(
@@ -206,7 +250,9 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
 
     // Should have fired once on mount
     const initialCalls = mockApiFetch.mock.calls.filter(
@@ -219,8 +265,20 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     storeState = {
       currentThreadId: 'thread-A',
       messages: [
-        { id: '0000001772900001-000001-aabbcc01', type: 'assistant' as const, content: 'hello from A', timestamp: Date.now(), catId: 'opus' },
-        { id: '0000001772900002-000002-aabbcc02', type: 'assistant' as const, content: 'new reply', timestamp: Date.now(), catId: 'opus' },
+        {
+          id: '0000001772900001-000001-aabbcc01',
+          type: 'assistant' as const,
+          content: 'hello from A',
+          timestamp: Date.now(),
+          catId: 'opus',
+        },
+        {
+          id: '0000001772900002-000002-aabbcc02',
+          type: 'assistant' as const,
+          content: 'new reply',
+          timestamp: Date.now(),
+          catId: 'opus',
+        },
       ],
     };
 
@@ -228,7 +286,9 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
 
     // Should fire again because messageCount changed — so switching away after this
     // will have the cursor advanced to the new message

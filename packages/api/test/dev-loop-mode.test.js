@@ -9,11 +9,11 @@
  * - leadCat ≠ reviewCat enforced (route-level, tested in modes-route)
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { DevLoopMode } from '../dist/domains/cats/services/modes/DevLoopMode.js';
-import { ModeStore, createInitialState } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 import { ModeOrchestrator } from '../dist/domains/cats/services/orchestration/ModeOrchestrator.js';
+import { createInitialState, ModeStore } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 
 // ── Helpers ──
 
@@ -91,29 +91,20 @@ describe('DevLoopMode', () => {
     it('returns true when phase is completed', () => {
       const handler = new DevLoopMode();
       const config = { requirement: 'test', leadCat: 'opus', reviewCat: 'codex' };
-      assert.equal(
-        handler.shouldAutoEnd(config, { phase: 'completed', iteration: 1, p3Issues: [] }),
-        true
-      );
+      assert.equal(handler.shouldAutoEnd(config, { phase: 'completed', iteration: 1, p3Issues: [] }), true);
     });
 
     it('returns false when phase is not completed', () => {
       const handler = new DevLoopMode();
       const config = { requirement: 'test', leadCat: 'opus', reviewCat: 'codex' };
-      assert.equal(
-        handler.shouldAutoEnd(config, { phase: 'developing', iteration: 0, p3Issues: [] }),
-        false
-      );
+      assert.equal(handler.shouldAutoEnd(config, { phase: 'developing', iteration: 0, p3Issues: [] }), false);
     });
 
     it('returns false for non-dev-loop state', () => {
       const handler = new DevLoopMode();
       const config = { requirement: 'test', leadCat: 'opus', reviewCat: 'codex' };
       // brainstorm state
-      assert.equal(
-        handler.shouldAutoEnd(config, { roundOneComplete: false, currentRound: 1 }),
-        false
-      );
+      assert.equal(handler.shouldAutoEnd(config, { roundOneComplete: false, currentRound: 1 }), false);
     });
   });
 
@@ -153,7 +144,9 @@ describe('DevLoopMode', () => {
       const socketEvents = [];
       const socketManager = {
         broadcastAgentMessage() {},
-        broadcastToRoom(room, event, data) { socketEvents.push({ room, event, data }); },
+        broadcastToRoom(room, event, data) {
+          socketEvents.push({ room, event, data });
+        },
       };
       const orch = new ModeOrchestrator({ modeStore: store, socketManager });
 
@@ -191,7 +184,7 @@ describe('DevLoopMode', () => {
       assert.equal(mode, null);
 
       // Socket broadcast should have been sent
-      const endEvent = socketEvents.find(e => e.data.action === 'ended');
+      const endEvent = socketEvents.find((e) => e.data.action === 'ended');
       assert.ok(endEvent);
     });
   });

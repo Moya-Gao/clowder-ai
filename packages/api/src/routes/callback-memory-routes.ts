@@ -2,15 +2,15 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
-import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
-import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
-import { HindsightError } from '../domains/cats/services/orchestration/HindsightClient.js';
 import {
   shouldFailClosedForFreshness,
   triggerP0ReimportIfNeeded,
 } from '../domains/cats/services/hindsight-import/p0-freshness-guard.js';
 import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { getP0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
+import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
+import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
+import { HindsightError } from '../domains/cats/services/orchestration/HindsightClient.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { memoryToResult, normalizeTags, shouldDegradeToDocs } from './evidence-helpers.js';
@@ -20,7 +20,11 @@ interface CallbackMemoryRoutesDeps {
   hindsightClient?: IHindsightClient;
   sharedBank?: string;
   freshnessProvider?: () => Promise<P0Freshness>;
-  reimportTriggerProvider?: (freshness: P0Freshness) => Promise<{ status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed'; reason?: string; nextAllowedAt?: string }>;
+  reimportTriggerProvider?: (freshness: P0Freshness) => Promise<{
+    status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed';
+    reason?: string;
+    nextAllowedAt?: string;
+  }>;
 }
 
 const searchEvidenceQuerySchema = callbackAuthSchema.extend({
@@ -50,27 +54,35 @@ function shouldDegrade(err: unknown): boolean {
   }
   if (!(err instanceof Error)) return false;
   const msg = err.message.toLowerCase();
-  return msg.includes('econnrefused')
-    || msg.includes('etimedout')
-    || msg.includes('timeout')
-    || msg.includes('aborted')
-    || msg.includes('network')
-    || msg.includes('fetch failed')
-    || msg.includes('rate limit')
-    || msg.includes('too many requests')
-    || msg.includes('429');
+  return (
+    msg.includes('econnrefused') ||
+    msg.includes('etimedout') ||
+    msg.includes('timeout') ||
+    msg.includes('aborted') ||
+    msg.includes('network') ||
+    msg.includes('fetch failed') ||
+    msg.includes('rate limit') ||
+    msg.includes('too many requests') ||
+    msg.includes('429')
+  );
 }
 
-export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: CallbackMemoryRoutesDeps): Promise<void> {
+export async function registerCallbackMemoryRoutes(
+  app: FastifyInstance,
+  deps: CallbackMemoryRoutesDeps,
+): Promise<void> {
   const { registry, hindsightClient } = deps;
   const sharedBank = deps.sharedBank ?? 'cat-cafe-shared';
   const repoRoot = process.cwd();
   const freshnessProvider = deps.freshnessProvider ?? (() => getP0Freshness(repoRoot));
-  const reimportTriggerProvider = deps.reimportTriggerProvider ?? ((freshness: P0Freshness) => triggerP0ReimportIfNeeded({
-    freshness,
-    repoRoot,
-    auditLog: getEventAuditLog(),
-  }));
+  const reimportTriggerProvider =
+    deps.reimportTriggerProvider ??
+    ((freshness: P0Freshness) =>
+      triggerP0ReimportIfNeeded({
+        freshness,
+        repoRoot,
+        auditLog: getEventAuditLog(),
+      }));
 
   app.get('/api/callbacks/search-evidence', async (request, reply) => {
     if (!hindsightClient) {
@@ -195,12 +207,14 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       ...(metadata ?? {}),
     };
     try {
-      await hindsightClient.retain(sharedBank, [{
-        content,
-        tags: normalizeTags(tags, 'origin:callback'),
-        metadata: mergedMetadata,
-        timestamp: Date.now(),
-      }]);
+      await hindsightClient.retain(sharedBank, [
+        {
+          content,
+          tags: normalizeTags(tags, 'origin:callback'),
+          metadata: mergedMetadata,
+          timestamp: Date.now(),
+        },
+      ]);
       return { status: 'ok' };
     } catch (err) {
       if (shouldDegrade(err)) return { status: 'degraded', degradeReason: 'hindsight_unavailable' };

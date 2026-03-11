@@ -9,7 +9,7 @@
  * TTL 默认 30 天。
  */
 
-import type { ThreadSummary, CreateSummaryInput } from '@cat-cafe/shared';
+import type { CreateSummaryInput, ThreadSummary } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
 import type { ISummaryStore } from '../ports/SummaryStore.js';

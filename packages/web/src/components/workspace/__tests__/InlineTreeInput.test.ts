@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
-import React from 'react';
+
+import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { act } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../FileIcons', () => ({
   FileIcon: () => React.createElement('span', null, '[F]'),

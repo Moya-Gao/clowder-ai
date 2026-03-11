@@ -8,22 +8,18 @@
  * 设计文档：docs/plans/2026-02-10-f11-mode-system-design.md §4
  */
 
-import type { CatId, ModeConfig, ModeState, DebateConfig, DebateState } from '@cat-cafe/shared';
+import type { CatId, DebateConfig, DebateState, ModeConfig, ModeState } from '@cat-cafe/shared';
 import { isDebateConfig, isDebateState } from '@cat-cafe/shared';
 import { getDefaultCatId } from '../../../../config/cat-config-loader.js';
 import { routeSerial } from '../agents/routing/route-serial.js';
-import type { ModeHandler, ModeExecutionContext } from './mode-types.js';
 import type { AgentMessage } from '../types.js';
 import { buildDebatePrompt } from './mode-prompts.js';
+import type { ModeExecutionContext, ModeHandler } from './mode-types.js';
 
 const DEFAULT_ROUNDS = 3;
 
 export class DebateMode implements ModeHandler {
-  async *execute(
-    ctx: ModeExecutionContext,
-    config: ModeConfig,
-    state: ModeState,
-  ): AsyncIterable<AgentMessage> {
+  async *execute(ctx: ModeExecutionContext, config: ModeConfig, state: ModeState): AsyncIterable<AgentMessage> {
     if (!isDebateConfig(config)) throw new Error('DebateMode requires DebateConfig');
     if (!isDebateState(state)) throw new Error('DebateMode requires DebateState');
 
@@ -48,29 +44,22 @@ export class DebateMode implements ModeHandler {
 
     // Execute one round: catA → catB (serial, no A2A)
     const speakers = [catA, catB];
-    yield* routeSerial(
-      ctx.strategyDeps,
-      speakers,
-      ctx.message,
-      ctx.userId,
-      ctx.threadId,
-      {
-        ...ctx.routeOptions,
-        maxA2ADepth: 0,
-        promptTags: [`debate-round${state.currentRound}`],
-        modeSystemPromptByCat: {
-          [catA as string]: promptA,
-          [catB as string]: promptB,
-        },
+    yield* routeSerial(ctx.strategyDeps, speakers, ctx.message, ctx.userId, ctx.threadId, {
+      ...ctx.routeOptions,
+      maxA2ADepth: 0,
+      promptTags: [`debate-round${state.currentRound}`],
+      modeSystemPromptByCat: {
+        [catA as string]: promptA,
+        [catB as string]: promptB,
       },
-    );
+    });
   }
 
   getNextState(config: ModeConfig, state: ModeState): ModeState {
     if (!isDebateState(state)) return state;
 
     const nextRound = state.currentRound + 1;
-    const nextSpeaker = state.nextSpeaker === 'catA' ? 'catB' as const : 'catA' as const;
+    const nextSpeaker = state.nextSpeaker === 'catA' ? ('catB' as const) : ('catA' as const);
 
     return { currentRound: nextRound, nextSpeaker };
   }

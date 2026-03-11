@@ -47,8 +47,10 @@ export function transformClaudeEvent(
       const msgUsage = message?.['usage'] as Record<string, unknown> | undefined;
       if (msgUsage) {
         const raw = typeof msgUsage['input_tokens'] === 'number' ? msgUsage['input_tokens'] : 0;
-        const cacheRead = typeof msgUsage['cache_read_input_tokens'] === 'number' ? msgUsage['cache_read_input_tokens'] : 0;
-        const cacheCreate = typeof msgUsage['cache_creation_input_tokens'] === 'number' ? msgUsage['cache_creation_input_tokens'] : 0;
+        const cacheRead =
+          typeof msgUsage['cache_read_input_tokens'] === 'number' ? msgUsage['cache_read_input_tokens'] : 0;
+        const cacheCreate =
+          typeof msgUsage['cache_creation_input_tokens'] === 'number' ? msgUsage['cache_creation_input_tokens'] : 0;
         const total = raw + cacheRead + cacheCreate;
         if (total > 0) {
           streamState.lastTurnInputTokens = total;
@@ -63,11 +65,16 @@ export function transformClaudeEvent(
     if (s['type'] === 'message_delta') {
       if (streamState.lastTurnInputTokens == null) {
         const deltaUsage = (s['usage'] ?? (s['delta'] as Record<string, unknown> | undefined)?.['usage']) as
-          Record<string, unknown> | undefined;
+          | Record<string, unknown>
+          | undefined;
         if (deltaUsage) {
           const raw = typeof deltaUsage['input_tokens'] === 'number' ? deltaUsage['input_tokens'] : 0;
-          const cacheRead = typeof deltaUsage['cache_read_input_tokens'] === 'number' ? deltaUsage['cache_read_input_tokens'] : 0;
-          const cacheCreate = typeof deltaUsage['cache_creation_input_tokens'] === 'number' ? deltaUsage['cache_creation_input_tokens'] : 0;
+          const cacheRead =
+            typeof deltaUsage['cache_read_input_tokens'] === 'number' ? deltaUsage['cache_read_input_tokens'] : 0;
+          const cacheCreate =
+            typeof deltaUsage['cache_creation_input_tokens'] === 'number'
+              ? deltaUsage['cache_creation_input_tokens']
+              : 0;
           const total = raw + cacheRead + cacheCreate;
           if (total > 0) {
             streamState.lastTurnInputTokens = total;
@@ -218,9 +225,7 @@ export function transformClaudeEvent(
   // result/error → error message (F045: include errorSubtype)
   if (e['type'] === 'result' && e['subtype'] !== 'success') {
     const rawErrors = Array.isArray(e['errors']) ? e['errors'] : [];
-    const errors = rawErrors
-      .filter((item): item is string => typeof item === 'string')
-      .join('; ');
+    const errors = rawErrors.filter((item): item is string => typeof item === 'string').join('; ');
     const subtype = typeof e['subtype'] === 'string' ? e['subtype'] : undefined;
     return {
       type: 'error',
@@ -249,7 +254,8 @@ export function extractClaudeUsage(e: Record<string, unknown>): TokenUsage {
   const result: TokenUsage = {};
   const rawInput = typeof usage['input_tokens'] === 'number' ? usage['input_tokens'] : 0;
   const cacheRead = typeof usage['cache_read_input_tokens'] === 'number' ? usage['cache_read_input_tokens'] : 0;
-  const cacheCreate = typeof usage['cache_creation_input_tokens'] === 'number' ? usage['cache_creation_input_tokens'] : 0;
+  const cacheCreate =
+    typeof usage['cache_creation_input_tokens'] === 'number' ? usage['cache_creation_input_tokens'] : 0;
   const totalInput = rawInput + cacheRead + cacheCreate;
   if (totalInput > 0) result.inputTokens = totalInput;
   if (typeof usage['output_tokens'] === 'number') result.outputTokens = usage['output_tokens'];
@@ -265,9 +271,12 @@ export function extractClaudeUsage(e: Record<string, unknown>): TokenUsage {
   const modelUsage = (e['modelUsage'] ?? e['model_usage']) as Record<string, Record<string, unknown>> | undefined;
   if (modelUsage) {
     for (const data of Object.values(modelUsage)) {
-      const contextWindow = typeof data['contextWindow'] === 'number'
-        ? data['contextWindow']
-        : (typeof data['context_window'] === 'number' ? data['context_window'] : undefined);
+      const contextWindow =
+        typeof data['contextWindow'] === 'number'
+          ? data['contextWindow']
+          : typeof data['context_window'] === 'number'
+            ? data['context_window']
+            : undefined;
       if (contextWindow != null) {
         result.contextWindowSize = contextWindow;
         break;

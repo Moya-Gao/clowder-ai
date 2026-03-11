@@ -13,13 +13,9 @@ module.exports = {
     {
       name: 'no-services-depend-on-routes',
       severity: 'error',
-      comment:
-        'services/ is a lower layer than routes/. Services must not import from routes/.',
+      comment: 'services/ is a lower layer than routes/. Services must not import from routes/.',
       from: {
-        path: [
-          'packages/api/src/domains/cats/services',
-          'packages/api/src/services',
-        ],
+        path: ['packages/api/src/domains/cats/services', 'packages/api/src/services'],
       },
       to: {
         path: 'packages/api/src/routes',
@@ -28,8 +24,7 @@ module.exports = {
     {
       name: 'no-config-depend-on-domain',
       severity: 'error',
-      comment:
-        'config/ is foundational and must not depend on routes/ or domain services.',
+      comment: 'config/ is foundational and must not depend on routes/ or domain services.',
       from: {
         path: 'packages/api/src/config',
       },
@@ -40,8 +35,7 @@ module.exports = {
     {
       name: 'no-shared-depend-on-api',
       severity: 'error',
-      comment:
-        'shared/ is a cross-package library and must not depend on api/ internals.',
+      comment: 'shared/ is a cross-package library and must not depend on api/ internals.',
       from: {
         path: 'packages/shared/src',
       },
@@ -52,8 +46,7 @@ module.exports = {
     {
       name: 'no-stores-depend-on-agents',
       severity: 'error',
-      comment:
-        'stores/ is a lower layer than agents/. Stores must not import from agents/.',
+      comment: 'stores/ is a lower layer than agents/. Stores must not import from agents/.',
       from: {
         path: 'packages/api/src/domains/cats/services/stores',
       },

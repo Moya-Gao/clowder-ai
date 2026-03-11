@@ -113,9 +113,7 @@ export class StudyMetaService {
     const updated: StudyMeta = {
       ...meta,
       artifacts: meta.artifacts.map((a) =>
-        a.id === artifactId
-          ? { ...a, state, ...(filePath ? { filePath } : {}) }
-          : a,
+        a.id === artifactId ? { ...a, state, ...(filePath ? { filePath } : {}) } : a,
       ),
     };
     await this.writeMeta(articleFilePath, updated);

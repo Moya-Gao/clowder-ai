@@ -286,7 +286,10 @@ function createWorkspaceLinkComponent(basePath: string): Components['a'] {
       return (
         <a
           href="#"
-          onClick={(e) => { e.preventDefault(); setOpenFile(resolved); }}
+          onClick={(e) => {
+            e.preventDefault();
+            setOpenFile(resolved);
+          }}
           className="text-blue-500 hover:text-blue-400 hover:underline break-all cursor-pointer"
           title={`在工作区中打开 ${resolved}`}
         >

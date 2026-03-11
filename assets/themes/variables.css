@@ -1,48 +1,48 @@
 :root {
   /* Base Colors */
-  --color-base-white: #FDF8F3;
+  --color-base-white: #fdf8f3;
   /* Warm White / Cream */
-  --color-base-black: #1E1E24;
+  --color-base-black: #1e1e24;
   /* Soft Black / Charcoal */
 
   /* Opus (The Architect) - Purple */
-  --color-opus-primary: #9B7EBD;
+  --color-opus-primary: #9b7ebd;
   /* Lavender Purple */
-  --color-opus-light: #D4C1EC;
+  --color-opus-light: #d4c1ec;
   /* Light Lilac */
-  --color-opus-dark: #6D5A8C;
+  --color-opus-dark: #6d5a8c;
   /* Deep Purple */
-  --color-opus-bg: #F3EAF8;
+  --color-opus-bg: #f3eaf8;
   /* Very pale purple bg */
 
   /* Codex (The Engineer) - Green */
-  --color-codex-primary: #5B8C5A;
+  --color-codex-primary: #5b8c5a;
   /* Forest Green */
-  --color-codex-light: #8FB98E;
+  --color-codex-light: #8fb98e;
   /* Sage Green */
-  --color-codex-dark: #3A5F39;
+  --color-codex-dark: #3a5f39;
   /* Deep Moss */
-  --color-codex-bg: #EAF6EA;
+  --color-codex-bg: #eaf6ea;
   /* Very pale green bg */
 
   /* Gemini (The Creative) - Blue */
-  --color-gemini-primary: #5B9BD5;
+  --color-gemini-primary: #5b9bd5;
   /* Sky Blue */
-  --color-gemini-light: #9CC0E7;
+  --color-gemini-light: #9cc0e7;
   /* Baby Blue */
-  --color-gemini-dark: #3A6FA5;
+  --color-gemini-dark: #3a6fa5;
   /* Ocean Blue */
-  --color-gemini-bg: #EAF4FB;
+  --color-gemini-bg: #eaf4fb;
   /* Very pale blue bg */
 
   /* Owner (Shit Shoveler) - Coffee/Latte */
-  --color-owner-primary: #E29578;
+  --color-owner-primary: #e29578;
   /* Warm Terra Cotta */
-  --color-owner-light: #FFDDD2;
+  --color-owner-light: #ffddd2;
   /* Pale Peach */
-  --color-owner-dark: #815B5B;
+  --color-owner-dark: #815b5b;
   /* Coffee Bean */
-  --color-owner-bg: #FFF5F2;
+  --color-owner-bg: #fff5f2;
   /* Very pale warm bg */
 
   /* UI Tokens - Light Mode (Default) */
@@ -56,7 +56,7 @@
 [data-theme="dark"] {
   --bg-app: var(--color-base-black);
   --text-primary: var(--color-base-white);
-  --text-secondary: #AAAAAA;
+  --text-secondary: #aaaaaa;
 
   /* Adjust accent backgrounds for dark mode transparency/opacity if needed */
   --color-opus-bg: rgba(155, 126, 189, 0.15);

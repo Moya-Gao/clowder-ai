@@ -55,17 +55,14 @@ export function transformCodexEvent(
         ? (todoItem['items'] as Array<Record<string, unknown>>)
         : [];
     const tasks = rawItems.map((t, i) => {
-      const subject =
-        typeof t['content'] === 'string'
-          ? t['content']
-          : typeof t['text'] === 'string'
-            ? t['text']
-            : '';
+      const subject = typeof t['content'] === 'string' ? t['content'] : typeof t['text'] === 'string' ? t['text'] : '';
       const status =
         typeof t['status'] === 'string'
           ? t['status']
           : typeof t['completed'] === 'boolean'
-            ? (t['completed'] ? 'completed' : 'pending')
+            ? t['completed']
+              ? 'completed'
+              : 'pending'
             : 'pending';
       return {
         id: typeof t['id'] === 'string' ? t['id'] : `task-${i}`,
@@ -195,12 +192,13 @@ export function transformCodexEvent(
     // F060: Extract image content blocks → media_gallery rich block
     // P2 fix: mimeType whitelist + base64 size guard
     const imageItems = typed
-      .filter((c) =>
-        c['type'] === 'image' &&
-        typeof c['data'] === 'string' &&
-        typeof c['mimeType'] === 'string' &&
-        IMAGE_MIME_WHITELIST.has(c['mimeType'] as string) &&
-        (c['data'] as string).length <= MAX_BASE64_LENGTH,
+      .filter(
+        (c) =>
+          c['type'] === 'image' &&
+          typeof c['data'] === 'string' &&
+          typeof c['mimeType'] === 'string' &&
+          IMAGE_MIME_WHITELIST.has(c['mimeType'] as string) &&
+          (c['data'] as string).length <= MAX_BASE64_LENGTH,
       )
       .map((c) => ({
         url: `data:${c['mimeType'] as string};base64,${c['data'] as string}`,
@@ -232,17 +230,32 @@ export function transformCodexEvent(
 
   // F045: web_search → system_info — count only, no query (privacy)
   if (item?.['type'] === 'web_search') {
-    return { type: 'system_info', catId, content: JSON.stringify({ type: 'web_search', catId, count: 1 }), timestamp: Date.now() };
+    return {
+      type: 'system_info',
+      catId,
+      content: JSON.stringify({ type: 'web_search', catId, count: 1 }),
+      timestamp: Date.now(),
+    };
   }
 
   // F045: reasoning → system_info(thinking)
   if (item?.['type'] === 'reasoning' && typeof item['text'] === 'string' && item['text'].length > 0) {
-    return { type: 'system_info', catId, content: JSON.stringify({ type: 'thinking', catId, text: item['text'] }), timestamp: Date.now() };
+    return {
+      type: 'system_info',
+      catId,
+      content: JSON.stringify({ type: 'thinking', catId, text: item['text'] }),
+      timestamp: Date.now(),
+    };
   }
 
   // F045: item-level error → system_info(warning)
   if (item?.['type'] === 'error' && typeof item['message'] === 'string') {
-    return { type: 'system_info', catId, content: JSON.stringify({ type: 'warning', catId, message: item['message'] }), timestamp: Date.now() };
+    return {
+      type: 'system_info',
+      catId,
+      content: JSON.stringify({ type: 'warning', catId, message: item['message'] }),
+      timestamp: Date.now(),
+    };
   }
 
   return null;

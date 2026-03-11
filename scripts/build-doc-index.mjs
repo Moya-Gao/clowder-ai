@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 /**
  * build-doc-index.mjs — Scan docs/ for YAML frontmatter, build a relation index.
  *
@@ -9,9 +10,8 @@
  *   node scripts/build-doc-index.mjs          # build index
  *   node scripts/build-doc-index.mjs --check  # check consistency (CI mode)
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
-import { resolve, relative, join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DOCS_DIR = resolve(ROOT, 'docs');
@@ -73,7 +73,7 @@ function parseFrontmatter(content) {
     } else {
       const arrayMatch = rawVal.match(/^\[(.+)\]$/);
       if (arrayMatch) {
-        fm[key] = arrayMatch[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, ''));
+        fm[key] = arrayMatch[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, ''));
       } else {
         fm[key] = rawVal.trim().replace(/^['"]|['"]$/g, '');
       }

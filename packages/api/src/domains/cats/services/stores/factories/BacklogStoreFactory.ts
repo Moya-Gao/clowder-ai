@@ -1,6 +1,6 @@
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { BacklogStore } from '../ports/BacklogStore.js';
 import type { IBacklogStore } from '../ports/BacklogStore.js';
+import { BacklogStore } from '../ports/BacklogStore.js';
 import { RedisBacklogStore } from '../redis/RedisBacklogStore.js';
 
 function resolveBacklogTtlSeconds(): number | undefined {
@@ -17,10 +17,7 @@ function resolveBacklogTtlSeconds(): number | undefined {
 export function createBacklogStore(redis?: RedisClient): IBacklogStore {
   if (redis) {
     const ttlSeconds = resolveBacklogTtlSeconds();
-    return new RedisBacklogStore(
-      redis,
-      ttlSeconds !== undefined ? { ttlSeconds } : undefined,
-    );
+    return new RedisBacklogStore(redis, ttlSeconds !== undefined ? { ttlSeconds } : undefined);
   }
   return new BacklogStore();
 }

@@ -12,8 +12,8 @@
  * Uses real useChatStore (no mocks) to verify store state transitions.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useChatStore } from '@/stores/chatStore';
 import type { TokenUsage } from '@/stores/chat-types';
+import { useChatStore } from '@/stores/chatStore';
 
 const THREAD_ID = 'thread-active';
 const CAT_ID = 'opus';

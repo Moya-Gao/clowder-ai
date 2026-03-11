@@ -1,18 +1,14 @@
-import React from 'react';
-import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatCommands } from '../useChatCommands';
 
 const mocks = vi.hoisted(() => {
   const mockAddMessage = vi.fn();
   const mockApiFetch = vi.fn();
-  const useChatStoreMock = Object.assign(
-    () => ({ addMessage: mockAddMessage }),
-    {
-      getState: () => ({ currentThreadId: 'thread-1' }),
-    },
-  );
+  const useChatStoreMock = Object.assign(() => ({ addMessage: mockAddMessage }), {
+    getState: () => ({ currentThreadId: 'thread-1' }),
+  });
 
   return { mockAddMessage, mockApiFetch, useChatStoreMock };
 });
@@ -86,7 +82,13 @@ describe('useChatCommands /mode kickoff', () => {
   async function setupProcessCommand(): Promise<(input: string) => Promise<boolean>> {
     let processCommand: ((input: string) => Promise<boolean>) | null = null;
     await act(async () => {
-      root.render(React.createElement(Harness, { onReady: (fn) => { processCommand = fn; } }));
+      root.render(
+        React.createElement(Harness, {
+          onReady: (fn) => {
+            processCommand = fn;
+          },
+        }),
+      );
     });
     if (!processCommand) throw new Error('processCommand not initialized');
     return processCommand;
@@ -203,13 +205,11 @@ describe('useChatCommands /mode kickoff', () => {
 
   it('reports kickoff error when kickoff response is not ok', async () => {
     const processCommand = await setupProcessCommand();
-    mocks.mockApiFetch
-      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 502,
-        json: () => Promise.resolve({ error: 'kickoff bad gateway' }),
-      });
+    mocks.mockApiFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) }).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      json: () => Promise.resolve({ error: 'kickoff bad gateway' }),
+    });
 
     await act(async () => {
       await processCommand('/mode debate kickoff非200路径 @布偶 @缅因 2');

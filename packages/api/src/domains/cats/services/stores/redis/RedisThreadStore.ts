@@ -10,21 +10,20 @@
  * TTL 默认 30 天。
  */
 
+import type { CatId, ThreadPhase } from '@cat-cafe/shared';
 import { generateThreadId } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
-import type { ThreadPhase } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
 import type {
-  Thread,
   IThreadStore,
   MentionActionabilityMode,
-  ThreadParticipantActivity,
-  ThreadMentionRoutingFeedback,
-  ThreadRoutingPolicyV1,
+  Thread,
   ThreadMemoryV1,
+  ThreadMentionRoutingFeedback,
+  ThreadParticipantActivity,
+  ThreadRoutingPolicyV1,
   VotingStateV1,
 } from '../ports/ThreadStore.js';
+import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
 const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -97,7 +96,8 @@ function parseThreadMemoryJson(raw: string): ThreadMemoryV1 | null {
   try {
     const p = JSON.parse(raw);
     if (
-      p && typeof p === 'object' &&
+      p &&
+      typeof p === 'object' &&
       p.v === 1 &&
       typeof p.summary === 'string' &&
       Number.isFinite(p.sessionsIncorporated) &&
@@ -206,13 +206,13 @@ export class RedisThreadStore implements IThreadStore {
         await this.createDefaultThread();
       }
     }
-    const updated = await this.redis.eval(
+    const updated = (await this.redis.eval(
       SADD_IF_DETAIL_HAS_ID_LUA,
       2,
       detailKey,
       participantsKey,
       ...catIds,
-    ) as number;
+    )) as number;
     if (updated === 0) return;
 
     // Cloud Codex P1 fix: Do NOT update activity here.
@@ -305,10 +305,7 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'thinkingMode', mode);
   }
 
-  async updateMentionActionabilityMode(
-    threadId: string,
-    mode: MentionActionabilityMode,
-  ): Promise<void> {
+  async updateMentionActionabilityMode(threadId: string, mode: MentionActionabilityMode): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     // strict is default behavior; clearing keeps storage backward-compatible.
     if (mode === 'strict') {
@@ -324,13 +321,7 @@ export class RedisThreadStore implements IThreadStore {
     const unique = [...new Set(catIds)];
     // Store as JSON array string; empty array → remove field
     if (unique.length > 0) {
-      await this.redis.eval(
-        HSET_IF_HAS_ID_LUA,
-        1,
-        key,
-        'preferredCats',
-        JSON.stringify(unique),
-      );
+      await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'preferredCats', JSON.stringify(unique));
     } else {
       // Remove the field entirely (clear preference)
       await this.redis.hdel(key, 'preferredCats');
@@ -363,12 +354,9 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
-  async consumeMentionRoutingFeedback(
-    threadId: string,
-    catId: CatId,
-  ): Promise<ThreadMentionRoutingFeedback | null> {
+  async consumeMentionRoutingFeedback(threadId: string, catId: CatId): Promise<ThreadMentionRoutingFeedback | null> {
     const feedbackKey = ThreadKeys.mentionRoutingFeedback(threadId);
-    const raw = await this.redis.eval(HGETDEL_LUA, 1, feedbackKey, catId) as string | null;
+    const raw = (await this.redis.eval(HGETDEL_LUA, 1, feedbackKey, catId)) as string | null;
     if (!raw) return null;
 
     try {
@@ -392,13 +380,7 @@ export class RedisThreadStore implements IThreadStore {
       return;
     }
 
-    await this.redis.eval(
-      HSET_IF_HAS_ID_LUA,
-      1,
-      key,
-      'routingPolicy',
-      JSON.stringify(policy),
-    );
+    await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'routingPolicy', JSON.stringify(policy));
   }
 
   async getThreadMemory(threadId: string): Promise<ThreadMemoryV1 | null> {
@@ -410,13 +392,7 @@ export class RedisThreadStore implements IThreadStore {
 
   async updateThreadMemory(threadId: string, memory: ThreadMemoryV1): Promise<void> {
     const key = ThreadKeys.detail(threadId);
-    await this.redis.eval(
-      HSET_IF_HAS_ID_LUA,
-      1,
-      key,
-      'threadMemory',
-      JSON.stringify(memory),
-    );
+    await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'threadMemory', JSON.stringify(memory));
   }
 
   async getVotingState(threadId: string): Promise<VotingStateV1 | null> {
@@ -433,35 +409,17 @@ export class RedisThreadStore implements IThreadStore {
   async updateVotingState(threadId: string, state: VotingStateV1 | null): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     if (state === null) {
-      await this.redis.eval(
-        HSET_IF_HAS_ID_LUA,
-        1,
-        key,
-        'votingState',
-        '',
-      );
+      await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'votingState', '');
       await this.redis.hdel(key, 'votingState');
     } else {
-      await this.redis.eval(
-        HSET_IF_HAS_ID_LUA,
-        1,
-        key,
-        'votingState',
-        JSON.stringify(state),
-      );
+      await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'votingState', JSON.stringify(state));
     }
   }
 
   async updateVoiceMode(threadId: string, voiceMode: boolean): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     if (voiceMode) {
-      await this.redis.eval(
-        HSET_IF_HAS_ID_LUA,
-        1,
-        key,
-        'voiceMode',
-        '1',
-      );
+      await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'voiceMode', '1');
     } else {
       await this.redis.hdel(key, 'voiceMode');
     }
@@ -470,13 +428,7 @@ export class RedisThreadStore implements IThreadStore {
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
-    const updated = await this.redis.eval(
-      HSET_IF_HAS_ID_LUA,
-      1,
-      key,
-      'lastActiveAt',
-      now,
-    ) as number;
+    const updated = (await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'lastActiveAt', now)) as number;
     if (updated === 0) return;
 
     // Update score in all user lists that contain this thread
@@ -575,7 +527,7 @@ export class RedisThreadStore implements IThreadStore {
       projectPath: data['projectPath'] ?? 'default',
       title: data['title'] || null,
       createdBy: data['createdBy'] ?? 'unknown',
-      participants: [],  // Loaded separately from Set
+      participants: [], // Loaded separately from Set
       lastActiveAt: parseInt(data['lastActiveAt'] ?? '0', 10),
       createdAt: parseInt(data['createdAt'] ?? '0', 10),
       pinned: data['pinned'] === 'true',
@@ -601,7 +553,9 @@ export class RedisThreadStore implements IThreadStore {
         if (Array.isArray(parsed)) {
           result.preferredCats = parsed as CatId[];
         }
-      } catch { /* ignore malformed JSON — treat as no preference */ }
+      } catch {
+        /* ignore malformed JSON — treat as no preference */
+      }
     }
 
     if (data['routingPolicy']) {
@@ -611,7 +565,9 @@ export class RedisThreadStore implements IThreadStore {
         if (parsed && typeof parsed === 'object' && parsed.v === 1) {
           result.routingPolicy = parsed as ThreadRoutingPolicyV1;
         }
-      } catch { /* ignore malformed JSON — treat as no policy */ }
+      } catch {
+        /* ignore malformed JSON — treat as no policy */
+      }
     }
     if (data['threadMemory']) {
       const mem = parseThreadMemoryJson(data['threadMemory']);

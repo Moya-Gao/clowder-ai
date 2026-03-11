@@ -21,15 +21,10 @@ function resolveMessageTtlSeconds(): number | undefined {
   return Math.trunc(parsed);
 }
 
-export function createMessageStore(
-  redis?: RedisClient
-): AnyMessageStore {
+export function createMessageStore(redis?: RedisClient): AnyMessageStore {
   if (redis) {
     const ttlSeconds = resolveMessageTtlSeconds();
-    return new RedisMessageStore(
-      redis,
-      ttlSeconds !== undefined ? { ttlSeconds } : undefined,
-    );
+    return new RedisMessageStore(redis, ttlSeconds !== undefined ? { ttlSeconds } : undefined);
   }
   return new MessageStore();
 }

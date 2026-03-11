@@ -57,7 +57,7 @@ export function parseReviewResult(text: string): ReviewResult {
   const allVerdicts = [...text.matchAll(/VERDICT:\s*(APPROVED|NEEDS_FIX)/gi)];
   let approved = false;
   if (allVerdicts.length > 0) {
-    const hasNeedsFix = allVerdicts.some(m => m[1]!.toUpperCase() === 'NEEDS_FIX');
+    const hasNeedsFix = allVerdicts.some((m) => m[1]!.toUpperCase() === 'NEEDS_FIX');
     approved = !hasNeedsFix;
   }
   // No VERDICT → always fail-closed (approved stays false).
@@ -72,11 +72,7 @@ export function parseReviewResult(text: string): ReviewResult {
 /**
  * 生成 dev-loop 最终报告文本
  */
-export function buildDevLoopSummary(
-  config: DevLoopConfig,
-  iterations: number,
-  p3Issues: string[],
-): string {
+export function buildDevLoopSummary(config: DevLoopConfig, iterations: number, p3Issues: string[]): string {
   const lines: string[] = [
     `🔄 开发自闭环完成`,
     `需求：${config.requirement}`,
