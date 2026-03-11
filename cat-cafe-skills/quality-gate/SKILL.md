@@ -87,6 +87,15 @@ Step 7: REPORT — 输出合规报告 + 证据
 **前端功能额外要求**：`≤3 张截图 + 1 段 15s 录屏`，附"需求 → 截图"映射表。
 执行细则：`cat-cafe-skills/refs/vision-evidence-workflow.md`。
 
+**有 .pen 设计稿的功能额外要求** 🔴：
+1. 打开 .pen 文件 → `get_screenshot` 截取设计稿
+2. Playwright/Chrome 打开实际页面 → 截取实现截图
+3. 逐区域对比：布局、颜色、间距、交互状态
+4. 不一致处必须标注并修复（或记录为"有意偏差 + 原因"）
+5. 报告附 **设计稿截图 vs 实现截图** 对照表
+
+> 教训：有猫画了 UX 和铲屎官确认，实现出来的不能说一模一样只能说毫不相关。
+
 ## Quick Reference
 
 | Claim | 需要 | 不够用 |
@@ -135,6 +144,7 @@ pnpm -r --if-present run build → exit 0 ✅
 | 交付半成品让铲屎官"先看看" | 交付完整 feat，步骤是内部节奏不是交付批次 |
 | 产出后续要重写而非扩展 | 如果要重写，说明绕路了（Spike 除外） |
 | 前端功能没有截图证据 | ≤3 张截图 + 15s 录屏 + 映射表 |
+| 有 .pen 设计稿但没对照实现 | 设计截图 vs 实现截图逐区域对比，不一致必须修或标注 |
 | 为了截图在 runtime 会话里重跑 `pnpm start` | 先探活复用现有 runtime；确需重启必须显式授权 |
 | Redis 改动用默认测试命令 | 必须跑 `test:redis`，禁止直连 6399 |
 | 只看 spec checkbox 就声称完成/未完成 | 核实 `git log --grep` + `gh pr list` + 实际 commit（LL-029）|

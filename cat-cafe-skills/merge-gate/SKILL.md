@@ -227,4 +227,10 @@ git branch -d {branch-name} && git worktree prune
 
 ## 下一步
 
-合入后 → **直接加载 `feat-lifecycle`**（完成验证 + 真相源同步）。合入完成后通知铲屎官结果即可（§17）。
+合入后（如果是 feature 的最后一个 Phase）→ **直接加载 `feat-lifecycle` completion**（§17）：
+1. 自己做愿景三问
+2. 自动 @ **非 reviewer、非作者**的猫做愿景守护（查 roster 动态选，不能 hardcode）
+3. 守护猫放行 → close feat
+4. 守护猫踢回 → 修改后重新走 quality-gate
+
+仅 Phase merge（feature 未完成）→ Phase 文档同步即可（Step 7.5 已做），不触发 completion。
