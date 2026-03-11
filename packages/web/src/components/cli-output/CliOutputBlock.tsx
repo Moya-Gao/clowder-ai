@@ -14,6 +14,18 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
+/** Blend accent into a dark base → tinted dark surface (not transparent) */
+function tintedDark(hex: string, ratio = 0.25, base = '#1A1625'): string {
+  const parse = (h: string) => [
+    Number.parseInt(h.slice(1, 3), 16),
+    Number.parseInt(h.slice(3, 5), 16),
+    Number.parseInt(h.slice(5, 7), 16),
+  ];
+  const [r1, g1, b1] = parse(hex);
+  const [r2, g2, b2] = parse(base);
+  return `rgb(${Math.round(r2 + (r1 - r2) * ratio)}, ${Math.round(g2 + (g1 - g2) * ratio)}, ${Math.round(b2 + (b1 - b2) * ratio)})`;
+}
+
 /** Lighten a hex color toward white by ratio (0-1) */
 function lighten(hex: string, ratio: number): string {
   const r = Number.parseInt(hex.slice(1, 3), 16);
@@ -294,9 +306,9 @@ export function CliOutputBlock({
   const textEvents = events.filter((e) => e.kind === 'text');
   const lastToolId = status === 'streaming' ? [...events].reverse().find((e) => e.kind === 'tool_use')?.id : undefined;
   const accent = breedColor || '#7C3AED';
-  // Breed-tinted surface: subtle accent so humans can see the color (not just black)
-  const surface = hexToRgba(accent, 0.10);
-  const surfaceInner = hexToRgba(accent, 0.07);
+  // Breed-tinted dark surface: accent blended into dark base → visibly colored AND text-readable
+  const surface = tintedDark(accent, 0.25);
+  const surfaceInner = tintedDark(accent, 0.18);
 
   const handleToggle = () => {
     userInteracted.current = true;

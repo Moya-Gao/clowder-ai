@@ -383,6 +383,7 @@
       "variants": [
         {
           "id": "antigravity-gemini",
+          "variantLabel": "Gemini",
           "provider": "antigravity",
           "defaultModel": "gemini-3.1-pro",
           "mcpSupport": false,

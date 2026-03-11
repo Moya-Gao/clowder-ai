@@ -3,12 +3,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 
-/** Convert hex to rgba */
-function hexToRgba(hex: string, opacity: number): string {
-  const r = Number.parseInt(hex.slice(1, 3), 16);
-  const g = Number.parseInt(hex.slice(3, 5), 16);
-  const b = Number.parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+/** Blend accent into a dark base → tinted dark surface */
+function tintedDark(hex: string, ratio = 0.25, base = '#1A1625'): string {
+  const parse = (h: string) => [
+    Number.parseInt(h.slice(1, 3), 16),
+    Number.parseInt(h.slice(3, 5), 16),
+    Number.parseInt(h.slice(5, 7), 16),
+  ];
+  const [r1, g1, b1] = parse(hex);
+  const [r2, g2, b2] = parse(base);
+  return `rgb(${Math.round(r2 + (r1 - r2) * ratio)}, ${Math.round(g2 + (g1 - g2) * ratio)}, ${Math.round(b2 + (b1 - b2) * ratio)})`;
 }
 
 const DIVIDER = '#334155';
@@ -74,10 +78,10 @@ export function ThinkingContent({
   }, [expanded]);
   const previewLength = 60;
   const preview = content.length > previewLength ? `${content.slice(0, previewLength)}…` : content;
-  // Breed-tinted surface: subtle accent so humans can see the color
+  // Breed-tinted dark surface: accent blended into dark base → visibly colored AND text-readable
   const accent = breedColor || '#7C3AED';
-  const surface = hexToRgba(accent, 0.10);
-  const surfaceInner = hexToRgba(accent, 0.07);
+  const surface = tintedDark(accent, 0.25);
+  const surfaceInner = tintedDark(accent, 0.18);
 
   return (
     <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: surface, borderRadius: 10 }}>
