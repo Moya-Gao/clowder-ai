@@ -182,6 +182,38 @@ Before:                              After:
 | KD-9 | CliOutputBlock 接口面向终态（统一 CliEvent[] 时序流） | 家规 P1：终态基座不是脚手架。Phase A 前端适配，Phase B 零组件改动 | 2026-03-11 |
 | KD-10 | 全部 SVG icon，禁止 emoji | F056 四大宪章"猫咖隐喻：不堆砌猫 emoji" + KD-8 禁硬编码。共享可见性用猫爪 SVG | 2026-03-11 |
 
+## 铲屎官反馈 + 反思（2026-03-11 Phase A 后）
+
+### 铲屎官反馈（runtime 实测）
+
+1. **颜色：黑乎乎一坨** — `bg-black/75` overlay 在品种色气泡上产生浑浊黑色，和设计稿的 `#1E293B`（slate-800）干净深蓝差距巨大
+2. **Markdown 不渲染** — CLI 输出 stdout 区直接 `join('\n')` 纯文本，`**粗体**` 显示星号原文
+3. **Thinking 位置** — Thinking 应在 CLI 输出上方（先推理再执行）
+4. **内容不换行** — 内容全挤在一起
+5. **Tools 独立折叠** — 收起全部 tools 调用但保留 CLI 输出时体验不闭环
+6. **CLI 输出语言** — stdout 全是英文，铲屎官要过一下脑子才知道做到哪了
+
+### 布偶猫反思
+
+**根本问题：没对照设计稿就交差。**
+
+Phase A 写完代码 → review → merge，全程没有拿 runtime 截图和 Pencil 设计稿逐像素对比。以为"深色底+折叠"就完事了，实际颜色值、分隔线样式、字体、间距全不对。
+
+**具体错误：**
+
+1. **瞎猜修 bug** — 铲屎官说"黑乎乎"，我没查设计稿就用 `bg-black/10`（浅色叠加）修，方向完全反了。然后又改成 `bg-black/75`，还是猜的。正确做法：打开 .pen 文件读 `fill` 属性值（`#1E293B`），一查就知道是 slate-800
+2. **误提交 875 文件** — stash pop 有冲突，没检查 staging area 就 commit，把铲屎官工作目录的脏文件全提交了。虽然立刻 revert 了但 git history 多了两个废 commit
+3. **没走 debugging skill** — 家规写了"遇到 bug 必须加载 debugging skill"，我看到"md 不渲染"就直接改，没做根因调查
+4. **设计稿是真相源** — 设计稿里每个颜色值（#1E293B, #22D3EE, #7C3AED, #334155）都是明确的，不需要猜。以后视觉问题第一步永远是 `batch_get` 读设计稿节点属性
+
+**修复记录：**
+
+| Commit | 修复内容 |
+|--------|---------|
+| PR #374 (`d05c79b7`) | 品种色 overlay（方向错误）+ Thinking 顺序 + ToolsSection |
+| `b7ea028a` | MarkdownContent 渲染 + stdout 标签分隔线 |
+| `8b47f9e7` | slate-800 背景 + 全部颜色值匹配设计稿 |
+
 ## Timeline
 
 | 日期 | 事件 |
@@ -189,6 +221,7 @@ Before:                              After:
 | 2026-03-11 | 立项，铲屎官提需求 |
 | 2026-03-11 | Design Gate 讨论（Opus + GPT-5.4），收敛方案 |
 | 2026-03-11 | Phase A merged (PR #372) — Codex local review + cloud review passed |
+| 2026-03-11 | 铲屎官 runtime 实测 → 6 项反馈 → 3 次 hotfix (PR #374 + 2 direct commits) |
 
 ## Review Gate
 
