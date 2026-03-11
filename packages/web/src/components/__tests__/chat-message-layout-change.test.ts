@@ -1,12 +1,13 @@
-import React from 'react';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 vi.mock('@/stores/chatStore', () => ({
-  useChatStore: (selector: (s: { uiThinkingExpandedByDefault: boolean }) => unknown) => selector({ uiThinkingExpandedByDefault: false }),
+  useChatStore: (
+    selector: (s: { uiThinkingExpandedByDefault: boolean; threads: never[]; currentThreadId: string }) => unknown,
+  ) => selector({ uiThinkingExpandedByDefault: false, threads: [], currentThreadId: 'default' }),
 }));
 
 beforeAll(() => {
@@ -75,8 +76,9 @@ describe('ChatMessage layout-change event timing', () => {
       );
     });
 
-    const thinkingToggle = Array.from(container.querySelectorAll('button'))
-      .find((b) => b.textContent?.includes('🧠 Thinking'));
+    const thinkingToggle = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Thinking'),
+    );
     expect(thinkingToggle).toBeTruthy();
 
     act(() => {
@@ -89,7 +91,7 @@ describe('ChatMessage layout-change event timing', () => {
     window.removeEventListener('catcafe:chat-layout-changed', handler);
   });
 
-  it('dispatches chat-layout-changed after tool-events collapse state commits (cloud P2)', async () => {
+  it('dispatches chat-layout-changed after CLI output block collapse state commits (cloud P2)', async () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
 
     const message = {
@@ -106,9 +108,7 @@ describe('ChatMessage layout-change event timing', () => {
       content: '',
       thinking: '',
       contentBlocks: null,
-      toolEvents: [
-        { id: 't1', type: 'tool_use', label: 'tool 1', detail: 'detail-1' },
-      ],
+      toolEvents: [{ id: 't1', type: 'tool_use', label: 'tool 1', detail: 'detail-1', timestamp: 1000 }],
       metadata: null,
       summary: null,
       evidence: null,
@@ -118,7 +118,8 @@ describe('ChatMessage layout-change event timing', () => {
 
     let expandedPresentAtEvent: boolean | null = null;
     const handler = () => {
-      expandedPresentAtEvent = (container.textContent ?? '').includes('detail-1');
+      // CliOutputBlock uses data-testid="cli-output-body" when expanded
+      expandedPresentAtEvent = Boolean(container.querySelector('[data-testid="cli-output-body"]'));
     };
     window.addEventListener('catcafe:chat-layout-changed', handler);
 
@@ -131,15 +132,15 @@ describe('ChatMessage layout-change event timing', () => {
       );
     });
 
-    const toolToggle = Array.from(container.querySelectorAll('button'))
-      .find((b) => b.textContent?.includes('个工具调用'));
-    expect(toolToggle).toBeTruthy();
+    // F097: now uses CliOutputBlock summary line instead of ToolEventsPanel
+    const cliToggle = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('CLI 输出'));
+    expect(cliToggle).toBeTruthy();
 
     act(() => {
-      (toolToggle as HTMLButtonElement).click();
+      (cliToggle as HTMLButtonElement).click();
     });
 
-    expect((container.textContent ?? '').includes('detail-1')).toBe(true);
+    expect(container.querySelector('[data-testid="cli-output-body"]')).toBeTruthy();
     expect(expandedPresentAtEvent).toBe(true);
 
     window.removeEventListener('catcafe:chat-layout-changed', handler);

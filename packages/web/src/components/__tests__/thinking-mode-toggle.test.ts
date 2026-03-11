@@ -3,10 +3,9 @@
  * - Default is COLLAPSED
  * - `Thread.thinkingMode` does NOT control UI expansion/collapse
  */
-import React from 'react';
-import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -136,7 +135,7 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     expect(container.querySelectorAll('.border-l-2').length).toBe(0);
   });
 
-  it('stream-origin messages also follow global toggle', async () => {
+  it('stream-origin messages render via CliOutputBlock (F097)', async () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
 
     const streamMsg = {
@@ -159,13 +158,16 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
       );
     });
 
-    expect(container.querySelectorAll('.border-l-2').length).toBe(0);
+    // F097: stream content now renders inside CliOutputBlock, not ThinkingContent
+    expect(container.textContent).toContain('CLI 输出');
 
+    // Click to expand → content visible in terminal substrate
+    const cliButton = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('CLI 输出'));
+    expect(cliButton).toBeTruthy();
     act(() => {
-      useChatStore.getState().setUiThinkingExpandedByDefault(true);
+      cliButton?.click();
     });
 
-    expect(container.querySelectorAll('.border-l-2').length).toBeGreaterThanOrEqual(1);
     expect(container.textContent).toContain('stream inner monologue content here');
   });
 });

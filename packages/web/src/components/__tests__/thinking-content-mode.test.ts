@@ -1,12 +1,13 @@
 /**
- * Thinking UI behavior (2026-03-01):
+ * F097: Thinking UI behavior — updated for CliOutputBlock architecture
+ * - 🧠 Thinking: independent collapsible (ThinkingContent)
+ * - CLI output (stream content + tools): rendered via CliOutputBlock
  * - Default is COLLAPSED (reduce fatigue)
  * - `Thread.thinkingMode` is cross-cat visibility semantics, NOT UI expansion state
  */
-import React from 'react';
-import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -18,7 +19,6 @@ vi.mock('@/hooks/useTts', () => ({
 
 // Stub heavy sub-components
 vi.mock('../RichBlocks', () => ({ RichBlocks: () => null }));
-vi.mock('../ToolEventsPanel', () => ({ ToolEventsPanel: () => null }));
 vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
     cats: [],
@@ -70,47 +70,47 @@ const thinkingMessage = {
 const getCatById = () => undefined;
 
 describe('ThinkingContent default collapse', () => {
-  it('default: thinking and stream content are collapsed', () => {
+  it('default: thinking is collapsed, CLI output block is collapsed', () => {
     act(() => {
       root.render(
         React.createElement(ChatMessage, {
           message: thinkingMessage,
           getCatById,
-        })
+        }),
       );
     });
 
     const buttons = container.querySelectorAll('button');
-    const thinkingButton = Array.from(buttons).find((b) => b.textContent?.includes('🧠 Thinking'));
-    const heartButton = Array.from(buttons).find((b) => b.textContent?.includes('💭 心里话'));
+    const thinkingButton = Array.from(buttons).find((b) => b.textContent?.includes('Thinking'));
+    const cliButton = Array.from(buttons).find((b) => b.textContent?.includes('CLI 输出'));
 
     expect(thinkingButton).toBeTruthy();
-    expect(heartButton).toBeTruthy();
+    expect(cliButton).toBeTruthy();
 
-    // In play mode, the expanded markdown content should NOT be visible
-    // (ThinkingContent renders MarkdownContent only when expanded)
+    // Thinking expanded content should NOT be visible (collapsed)
     const markdownDivs = container.querySelectorAll('.border-l-2.border-gray-300');
     expect(markdownDivs.length).toBe(0);
   });
 
-  it('global toggle: enabling expands thinking blocks', () => {
+  it('global toggle: enabling expands thinking block', () => {
     act(() => {
       root.render(
         React.createElement(ChatMessage, {
           message: thinkingMessage,
           getCatById,
-        })
+        }),
       );
     });
 
     expect(container.querySelectorAll('.border-l-2.border-gray-300').length).toBe(0);
 
-    // Flip global preference → should expand all blocks
+    // Flip global preference → should expand thinking (ThinkingContent uses border-l-2)
     act(() => {
       useChatStore.getState().setUiThinkingExpandedByDefault(true);
     });
 
+    // Only 🧠 Thinking uses the border-l-2 style (CliOutputBlock uses terminal substrate)
     const markdownDivs = container.querySelectorAll('.border-l-2.border-gray-300');
-    expect(markdownDivs.length).toBe(2); // one for 🧠, one for 💭 (stream wrapper)
+    expect(markdownDivs.length).toBe(1); // only 🧠 Thinking
   });
 });

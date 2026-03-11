@@ -1,15 +1,18 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useChatStore, type ChatMessage as ChatMessageType, type MessageContent, type ToolEvent } from '@/stores/chatStore';
+import { useState } from 'react';
+import { useChatStore, type ChatMessage as ChatMessageType, type MessageContent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
+import { CliOutputBlock } from './cli-output/CliOutputBlock';
+import { toCliEvents } from './cli-output/toCliEvents';
 import { ConnectorBubble } from './ConnectorBubble';
 import { EvidencePanel } from './EvidencePanel';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { RichBlocks } from './rich/RichBlocks';
 import { SummaryCard } from './SummaryCard';
+import { ThinkingContent } from './ThinkingContent';
 import { useTts, type TtsState } from '@/hooks/useTts';
 import type { CatData } from '@/hooks/useCatData';
 import { hexToRgba } from '@/lib/color-utils';
@@ -60,143 +63,6 @@ function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
 function formatTime(ts: number): string {
   const d = new Date(ts);
   return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-}
-
-function CollapsedToolView({ events }: { events: ToolEvent[] }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    if (events.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentIndex((i) => (i + 1) % events.length);
-    }, 2000); // 每 2s 滚动一次
-    return () => clearInterval(interval);
-  }, [events.length]);
-
-  const current = events[currentIndex];
-
-  return (
-    <div className="px-3 pb-2 overflow-hidden h-6 relative">
-      <div
-        key={currentIndex}
-        className="font-mono text-xs text-gray-600 truncate absolute inset-0 flex items-center animate-fade-in"
-      >
-        <span className="mr-1.5">{current.type === 'tool_use' ? '🔧' : '📋'}</span>
-        {current.label}
-      </div>
-    </div>
-  );
-}
-
-function ExpandedToolView({ events }: { events: ToolEvent[] }) {
-  return (
-    <div className="px-3 pb-2 space-y-1">
-      {events.map((event) => (
-        <div key={event.id} className="font-mono text-[12px] leading-5 text-gray-600">
-          <div className="flex items-start gap-1.5">
-            <span className="mt-0.5">{event.type === 'tool_use' ? '🔧' : '📋'}</span>
-            <div className="min-w-0">
-              <div className="break-all">{event.label}</div>
-              {event.detail && (
-                <div className="text-[11px] text-gray-500 whitespace-pre-wrap break-all">
-                  {event.detail}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ToolEventsPanel({ events }: { events: ToolEvent[] }) {
-  const [collapsed, setCollapsed] = useState(true);
-  const hasMounted = useRef(false);
-
-  // Cloud P2: local UI toggles can change scrollHeight without scroll/resize events.
-  // Emit after DOM commit so scroll-dependent UI (e.g. "↓ 到最新") can recompute.
-  useLayoutEffect(() => {
-    if (!hasMounted.current) {
-      hasMounted.current = true;
-      return;
-    }
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('catcafe:chat-layout-changed'));
-    }
-  }, [collapsed]);
-
-  if (events.length === 0) return null;
-
-  return (
-    <div className="mb-3 rounded-xl border border-black/10 bg-white/65">
-      <button
-        onClick={() => setCollapsed((v) => !v)}
-        className="w-full px-3 py-2 flex items-center justify-between hover:bg-black/5 transition-colors rounded-t-xl"
-      >
-        <span className="text-xs text-gray-600">
-          {events.length} 个工具调用
-        </span>
-        <span className="text-gray-400 text-xs">{collapsed ? '▼' : '▲'}</span>
-      </button>
-
-      {collapsed ? (
-        <CollapsedToolView events={events} />
-      ) : (
-        <ExpandedToolView events={events} />
-      )}
-    </div>
-  );
-}
-
-function renderToolEvents(events: ToolEvent[]) {
-  return <ToolEventsPanel events={events} />;
-}
-
-/** Collapsible wrapper for stream-origin messages (cat's inner thinking/CLI output) */
-function ThinkingContent({ content, className, label = '💭 心里话', defaultExpanded = false, expandInExport = true }: { content: string; className?: string; label?: string; defaultExpanded?: boolean; expandInExport?: boolean }) {
-  const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
-  const shouldExpand = (isExport && expandInExport) || defaultExpanded;
-  const [expanded, setExpanded] = useState(shouldExpand);
-  const hasMounted = useRef(false);
-  // Sync with global UI preference: when defaultExpanded changes, update all blocks
-  useEffect(() => {
-    setExpanded((isExport && expandInExport) || defaultExpanded);
-  }, [isExport, expandInExport, defaultExpanded]);
-  // Notify scroll-dependent UI (e.g. "↓ 到最新") after the DOM has updated.
-  useLayoutEffect(() => {
-    if (!hasMounted.current) {
-      hasMounted.current = true;
-      return;
-    }
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('catcafe:chat-layout-changed'));
-    }
-  }, [expanded]);
-  const previewLength = 60;
-  const preview = content.length > previewLength
-    ? `${content.slice(0, previewLength)}…`
-    : content;
-
-  return (
-    <div>
-      <button
-        onClick={() => {
-          setExpanded((v) => !v);
-        }}
-        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors mb-1"
-      >
-        <span className="text-[10px]" style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s' }}>▶</span>
-        <span>{label}</span>
-        {!expanded && <span className="text-gray-400 truncate max-w-[200px]">{preview}</span>}
-      </button>
-      {expanded && (
-        <div className="border-l-2 border-gray-300 pl-3 opacity-80">
-          <MarkdownContent content={content} className={className} />
-        </div>
-      )}
-    </div>
-  );
 }
 
 /** F34: Tiny TTS play button for cat messages */
@@ -265,11 +131,24 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
       borderColor: hexToRgba(catData.color.primary, 0.3),
     };
   })() : null;
+  const currentThread = useChatStore((s) => s.threads.find(t => t.id === s.currentThreadId));
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
   const hasTextContent = message.content.trim().length > 0;
-  const hasToolEvents = Boolean(message.toolEvents && message.toolEvents.length > 0);
   const isWhisper = message.visibility === 'whisper';
   const isRevealed = isWhisper && !!message.revealedAt;
+
+  // F097: CLI Output Block — merge tool events + stream content into unified CliEvent[]
+  const isStreamOrigin = message.origin === 'stream';
+  const cliEvents = toCliEvents(
+    message.toolEvents,
+    isStreamOrigin ? message.content : undefined,
+  );
+  const hasCliBlock = cliEvents.length > 0;
+  const cliStatus = message.isStreaming
+    ? ('streaming' as const)
+    : message.variant === 'error'
+      ? ('failed' as const)
+      : ('done' as const);
 
   if (isSummary && message.summary) {
     return (
@@ -425,20 +304,27 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             borderColor: catStyle.borderColor,
           } : undefined}
         >
-          {hasToolEvents && renderToolEvents(message.toolEvents!)}
+          {/* F097: Content first (conclusion on top), then CLI block, then Thinking */}
+          {/* 1. Content — callback messages or non-stream text shown as normal content */}
+          {!isStreamOrigin && hasBlocks ? (
+            <ContentBlocks blocks={message.contentBlocks!} />
+          ) : !isStreamOrigin && hasTextContent ? (
+            <MarkdownContent content={message.content} className={catStyle?.font} />
+          ) : !hasCliBlock && message.isStreaming ? (
+            <span className="text-xs text-gray-500">思考中...</span>
+          ) : null}
+          {/* 2. CLI Output Block — tools + stream content merged */}
+          {hasCliBlock && (
+            <CliOutputBlock
+              events={cliEvents}
+              status={cliStatus}
+              thinkingMode={currentThread?.thinkingMode}
+              defaultExpanded={uiThinkingExpandedByDefault}
+            />
+          )}
+          {/* 3. 🧠 Thinking — independent, never inside CLI block (AC-A3) */}
           {message.thinking && (
             <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={uiThinkingExpandedByDefault} expandInExport={false} />
-          )}
-          {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
-            <ThinkingContent content={message.content} className={catStyle?.font} defaultExpanded={uiThinkingExpandedByDefault} />
-          ) : hasBlocks ? (
-            <ContentBlocks blocks={message.contentBlocks!} />
-          ) : hasTextContent ? (
-            <MarkdownContent content={message.content} className={catStyle?.font} />
-          ) : !hasToolEvents && message.isStreaming ? (
-            <span className="text-xs text-gray-500">思考中...</span>
-          ) : (
-            null
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
             <RichBlocks blocks={message.extra.rich.blocks} catId={message.catId} messageId={message.id} />

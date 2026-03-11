@@ -367,6 +367,19 @@ export interface ThreadState {
   queueFullSource?: 'user' | 'connector';
 }
 
+/** F097: CLI Output unified event stream */
+export type CliEventKind = 'tool_use' | 'tool_result' | 'text' | 'error';
+export type CliStatus = 'streaming' | 'done' | 'failed' | 'interrupted';
+
+export interface CliEvent {
+  id: string;
+  kind: CliEventKind;
+  timestamp: number;
+  label?: string;
+  detail?: string;
+  content?: string;
+}
+
 export const DEFAULT_THREAD_STATE: ThreadState = {
   messages: [],
   isLoading: false,
