@@ -59,9 +59,9 @@ function loadUpstreams() {
 // 4. Extra field: message.output
 //
 // Fix strategy: rewrite SSE events inline to normalize usage fields.
-// For input_tokens: we can't fix message_start (arrives before real data),
-// so we strip the bogus input_tokens from message_delta and instead
-// emit a proxy_usage_patch event that downstream parsers can pick up.
+// For input_tokens: if message_start had input_tokens:0 and message_delta
+// carries the real value, emit a corrective message_start event with the
+// real token count that downstream parsers can pick up.
 
 const USAGE_STRIP_KEYS = ['cache_creation', 'inference_geo', 'service_tier'];
 
