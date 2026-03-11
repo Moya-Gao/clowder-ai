@@ -143,8 +143,6 @@ export class ClaudeAgentService implements AgentService {
 
     // Profile-level model override (e.g. "opus[1m]") takes precedence over constructor model
     const effectiveModel = options?.callbackEnv?.[ANTHROPIC_MODEL_OVERRIDE_KEY]?.trim() || this.model;
-    const isApiKeyMode = options?.callbackEnv?.[ANTHROPIC_PROFILE_MODE_KEY] === 'api_key';
-
     const args: string[] = [
       '-p', effectivePrompt,
       '--output-format', 'stream-json',
@@ -157,12 +155,6 @@ export class ClaudeAgentService implements AgentService {
       // Enable Chrome MCP integration (built-in, requires Chrome + extension running)
       '--chrome',
     ];
-
-    // API key mode (third-party gateway): disable session persistence to avoid
-    // corrupted thinking signatures that prevent --resume from working.
-    if (isApiKeyMode) {
-      args.push('--no-session-persistence');
-    }
 
     // Inject static identity via --append-system-prompt (separate from -p content)
     if (options?.systemPrompt) {

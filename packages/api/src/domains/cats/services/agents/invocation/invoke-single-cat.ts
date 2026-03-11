@@ -504,15 +504,25 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           try {
             const existing = await deps.sessionChainStore.getActive(catId, threadId);
             if (existing) {
-              // Update cliSessionId if it changed (e.g. new CLI session after restart)
               if (existing.cliSessionId !== msg.sessionId) {
+                // CLI session changed → old context is lost (resume failed / CLI restarted).
+                // This is a seal boundary: seal the old record, create a new one.
+                const now = Date.now();
                 await deps.sessionChainStore.update(existing.id, {
+                  status: 'sealed',
+                  sealReason: 'cli_session_replaced',
+                  sealedAt: now,
+                  updatedAt: now,
+                });
+                await deps.sessionChainStore.create({
                   cliSessionId: msg.sessionId,
-                  updatedAt: Date.now(),
+                  threadId,
+                  catId,
+                  userId,
                 });
               }
             } else {
-              // First invocation in this thread — create a new SessionRecord
+              // No active session (first invocation or previous was sealed)
               await deps.sessionChainStore.create({
                 cliSessionId: msg.sessionId,
                 threadId,
