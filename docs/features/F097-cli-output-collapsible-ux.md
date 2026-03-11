@@ -27,9 +27,28 @@ created: 2026-03-11
 
 将现有的 `ToolEventsPanel` + `ThinkingContent`（origin='stream'）合并为统一的 **CLI Output Block**，新组件 `CliOutputBlock.tsx`。
 
+**🏠 家规 P1 — 终态基座设计**：
+
+CliOutputBlock 接口面向最终形态，接受统一的 `CliEvent[]` 时序流：
+
+```typescript
+interface CliEvent {
+  id: string;
+  kind: 'tool_use' | 'tool_result' | 'text' | 'error';
+  timestamp: number;
+  label?: string;
+  detail?: string;
+  content?: string;
+}
+```
+
+- **Phase A**：前端做数据适配（`toolEvents[]` → `CliEvent[]`，`content` 整块追加为 `text` 事件），渲染结果是"tools 在上、stdout 在下"——但这是数据顺序的结果，不是硬编码布局
+- **Phase B**：后端直推 `cliEvents[]` 时，前端换数据源，**组件零改动**
+- CliOutputBlock 不关心 events 来自一条 message 还是多条（为 Phase B cluster 预留）
+
 **⚠️ 硬边界（Design Gate 讨论确认）**：
-1. **不做时序穿插** — `ToolEvent` 只有 `timestamp/label/detail`，`message.content` 是整块 stdout，没有分段事件流。Phase A 分两区：上方 tool list + 下方 stdout block，不假装穿插
-2. **不合并 callback + stream** — 现在这两者是独立 message，callback 没有 `invocationId` 关联键。Phase A 保持两条 message 各自渲染
+1. **Phase A 不做时序穿插** — `ToolEvent` 只有 `timestamp/label/detail`，`message.content` 是整块 stdout，没有分段事件流。Phase A 前端适配为 `CliEvent[]`，但粒度仍是"N 个 tool + 1 个 text block"
+2. **Phase A 不合并 callback + stream** — 现在这两者是独立 message，callback 没有 `invocationId` 关联键。Phase A 保持两条 message 各自渲染（但 CliOutputBlock 接口已预留合并能力）
 3. **可见性不复用 whisper** — `whisper` 是消息级，CLI 可见性是 thread 级 `thinkingMode`，层级不同不能混
 
 **布局变化**：
@@ -112,6 +131,7 @@ Before:                              After:
 - [ ] AC-A7: `?export=true` 时全部展开；用户手动展开过的 block 不受 auto-collapse 影响
 - [ ] AC-A8: 内层 CLI block 用深色 terminal substrate + monospace，外层保留品种配色
 - [ ] AC-A9: Rename scope 限于 runtime chat UI，不改 story-export/课件/archive
+- [ ] AC-A10: CliOutputBlock 接受 `CliEvent[]` 统一接口，Phase A 前端做适配层（toolEvents+content → CliEvent[]），Phase B 换数据源时组件零改动
 
 ### Phase B（消息聚合 + 时序穿插，可选）
 - [ ] AC-B1: callback + stream 合并为同一张卡（ChatContainer cluster）
@@ -152,6 +172,7 @@ Before:                              After:
 | KD-6 | 摘要行状态枚举：进行中/已完成/失败/已中断 | 统一摘要、高亮、auto-collapse 的状态源 | 2026-03-11 |
 | KD-7 | 可见性来源 thinkingMode 不是 whisper | whisper 消息级 vs thinkingMode thread 级，层级不同 | 2026-03-11 |
 | KD-8 | Phase A 不做时序穿插，不合并 callback+stream | 后端数据模型不支持，Phase B 再补 | 2026-03-11 |
+| KD-9 | CliOutputBlock 接口面向终态（统一 CliEvent[] 时序流） | 家规 P1：终态基座不是脚手架。Phase A 前端适配，Phase B 零组件改动 | 2026-03-11 |
 
 ## Timeline
 
