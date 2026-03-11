@@ -19,6 +19,7 @@ import argparse
 import asyncio
 import logging
 import signal
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -54,17 +55,37 @@ _model_loaded: bool = False
 _transcribe_lock = asyncio.Lock()
 
 
+def _convert_to_wav(src_path: str) -> str:
+    """Convert any audio format to 16kHz mono WAV via ffmpeg (Qwen3-ASR requires WAV)."""
+    wav_path = src_path.rsplit(".", 1)[0] + ".wav"
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", src_path, "-ar", "16000", "-ac", "1", wav_path],
+        capture_output=True,
+        timeout=30,
+    )
+    return wav_path
+
+
 def _do_transcribe(audio_path: str, language: str) -> str:
     """Synchronous transcription using mlx-audio (runs in thread pool)."""
     from mlx_audio.stt.generate import generate_transcription
 
-    result = generate_transcription(
-        model=_model,
-        audio_path=audio_path,
-        format="txt",
-        verbose=False,
-    )
-    return result.text.strip() if hasattr(result, "text") else str(result).strip()
+    # Qwen3-ASR can't decode webm/opus directly — convert to WAV first
+    wav_path = audio_path
+    if not audio_path.endswith(".wav"):
+        wav_path = _convert_to_wav(audio_path)
+
+    try:
+        result = generate_transcription(
+            model=_model,
+            audio_path=wav_path,
+            format="txt",
+            verbose=False,
+        )
+        return result.text.strip() if hasattr(result, "text") else str(result).strip()
+    finally:
+        if wav_path != audio_path:
+            Path(wav_path).unlink(missing_ok=True)
 
 
 @app.post("/v1/audio/transcriptions")
