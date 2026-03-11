@@ -10,6 +10,7 @@ import { SectionGroup } from './SectionGroup';
 import { ThreadItem } from './ThreadItem';
 import { getProjectPaths, sortAndGroupThreads } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
+import { useCollapseState } from './use-collapse-state';
 
 interface ThreadSidebarProps {
   /** Called to close the sidebar drawer on mobile */
@@ -33,7 +34,6 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   } = useChatStore();
   const [isCreating, setIsCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [bindWarning, setBindWarning] = useState<string | null>(null);
   // F070: governance health by project path
@@ -241,15 +241,6 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     [currentThreadId, threads, setCurrentProject, navigateToThread, onClose],
   );
 
-  const toggleGroup = useCallback((key: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
-
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredThreads = useMemo(() => {
     if (!normalizedQuery) return threads;
@@ -297,6 +288,13 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   const threadGroups = useMemo(() => sortAndGroupThreads(filteredThreads, unreadIds), [filteredThreads, unreadIds]);
   const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
+
+  // F095: Collapse state with localStorage persistence + search/active auto-expand
+  const { isCollapsed, toggleGroup, expandAll, collapseAll } = useCollapseState({
+    threadGroups,
+    searchQuery: normalizedQuery,
+    currentThreadId,
+  });
 
   return (
     <>
@@ -387,9 +385,30 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
             />
           )}
 
+          {threadGroups.length > 0 && (
+            <div className="flex items-center justify-end px-3 pt-1.5">
+              <button
+                type="button"
+                onClick={expandAll}
+                className="text-[10px] text-gray-400 hover:text-owner-primary transition-colors"
+                data-testid="expand-all-btn"
+              >
+                全部展开
+              </button>
+              <span className="text-[10px] text-gray-300 mx-1">/</span>
+              <button
+                type="button"
+                onClick={collapseAll}
+                className="text-[10px] text-gray-400 hover:text-owner-primary transition-colors"
+                data-testid="collapse-all-btn"
+              >
+                全部折叠
+              </button>
+            </div>
+          )}
+
           {threadGroups.map((group) => {
             const groupKey = group.projectPath ?? group.type;
-            const isCollapsed = collapsedGroups.has(groupKey);
 
             return (
               <SectionGroup
@@ -397,7 +416,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
                 label={group.label}
                 icon={group.type === 'pinned' ? 'pin' : group.type === 'favorites' ? 'star' : undefined}
                 count={group.threads.length}
-                isCollapsed={isCollapsed}
+                isCollapsed={isCollapsed(groupKey)}
                 onToggle={() => toggleGroup(groupKey)}
                 projectPath={group.projectPath}
                 governanceStatus={group.projectPath ? govHealth[group.projectPath] : undefined}
