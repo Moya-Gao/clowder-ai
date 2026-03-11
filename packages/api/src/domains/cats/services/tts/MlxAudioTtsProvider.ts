@@ -11,7 +11,7 @@ import type { ITtsProvider, TtsSynthesizeRequest, TtsSynthesizeResult } from '@c
 export interface MlxAudioTtsProviderOptions {
   /** Base URL of the Python TTS server (default: http://localhost:9879) */
   readonly baseUrl?: string;
-  /** Model to request (default: mlx-community/Kokoro-82M-bf16) */
+  /** Model to request (default: mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16) */
   readonly model?: string;
   /** Request timeout in ms (default: 30000) */
   readonly timeoutMs?: number;
@@ -25,7 +25,7 @@ export class MlxAudioTtsProvider implements ITtsProvider {
 
   constructor(options?: MlxAudioTtsProviderOptions) {
     this.baseUrl = options?.baseUrl ?? process.env['TTS_URL'] ?? 'http://localhost:9879';
-    this.model = options?.model ?? 'mlx-community/Kokoro-82M-bf16';
+    this.model = options?.model ?? 'mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16';
     this.timeoutMs = options?.timeoutMs ?? 30_000;
   }
 
@@ -46,7 +46,7 @@ export class MlxAudioTtsProvider implements ITtsProvider {
       ...(request.temperature != null ? { temperature: request.temperature } : {}),
     });
 
-    // F066: Clone mode (Qwen3-TTS) is much slower than Kokoro — use longer timeout
+    // Clone mode (ref_audio/instruct) is much slower — use longer timeout
     const hasCloneParams = !!(request.refAudio || request.instruct);
     const effectiveTimeout = hasCloneParams ? Math.max(this.timeoutMs, 120_000) : this.timeoutMs;
 

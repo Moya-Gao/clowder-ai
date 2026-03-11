@@ -4,19 +4,19 @@ TTS server for Cat Cafe voice output.
 OpenAI-compatible endpoint: POST /v1/audio/speech
 
 Supports multiple backends via TtsAdapter:
-  - mlx-audio (default): Apple Silicon native, Kokoro-82M
-  - qwen3-clone: Qwen3-TTS Base + ref_audio voice cloning
+  - qwen3-clone (default): Qwen3-TTS Base + ref_audio voice cloning (三猫声线)
+  - mlx-audio: Apple Silicon native, Kokoro-82M (legacy)
   - edge-tts: Microsoft cloud TTS (fallback, no GPU needed)
 
 Usage:
   source ~/.cat-cafe/tts-venv/bin/activate
-  python scripts/tts-api.py                                     # default: mlx-audio (Kokoro-82M)
-  TTS_PROVIDER=qwen3-clone python scripts/tts-api.py            # Qwen3-TTS Base clone
+  python scripts/tts-api.py                                     # default: qwen3-clone (Qwen3-TTS Base)
+  TTS_PROVIDER=mlx-audio python scripts/tts-api.py              # Kokoro-82M (legacy)
   TTS_PROVIDER=edge-tts python scripts/tts-api.py               # edge-tts fallback
   python scripts/tts-api.py --port 9879
 
 Env vars:
-  TTS_PROVIDER  — "mlx-audio" (default), "qwen3-clone", or "edge-tts"
+  TTS_PROVIDER  — "qwen3-clone" (default), "mlx-audio", or "edge-tts"
   TTS_PORT      — server port (default: 9879)
 
 Requires (qwen3-clone/mlx-audio): pip install mlx-audio "misaki[zh]"
@@ -334,7 +334,7 @@ class Qwen3CloneAdapter(TtsAdapter):
 def create_adapter(provider: str, model: str) -> TtsAdapter:
     """Create TTS adapter based on provider name."""
     if provider == "qwen3-clone":
-        return Qwen3CloneAdapter(model=model if model != "mlx-community/Kokoro-82M-bf16" else None)
+        return Qwen3CloneAdapter(model=model if model != Qwen3CloneAdapter.DEFAULT_MODEL else None)
     if provider == "mlx-audio":
         return MlxAudioAdapter(model=model)
     if provider == "edge-tts":
@@ -356,7 +356,7 @@ adapter_ready: bool = False
 class SpeechRequest(BaseModel):
     input: str = Field(..., min_length=1, max_length=MAX_INPUT_CHARS)
     voice: str = Field(default="zm_yunjian")
-    model: str = Field(default="mlx-community/Kokoro-82M-bf16")
+    model: str = Field(default="mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16")
     response_format: str = Field(default="wav")
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
     lang_code: str = Field(default="z")
@@ -433,8 +433,8 @@ def main():
     parser = argparse.ArgumentParser(description="Cat Cafe TTS Server")
     parser.add_argument(
         "--model",
-        default="mlx-community/Kokoro-82M-bf16",
-        help="HuggingFace model repo (default: mlx-community/Kokoro-82M-bf16)",
+        default="mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+        help="HuggingFace model repo (default: mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16)",
     )
     parser.add_argument(
         "--port", type=int, default=9879, help="Server port (default: 9879)"
@@ -452,7 +452,7 @@ def main():
 
     signal.signal(signal.SIGTERM, handle_sigterm)
 
-    provider = os.environ.get("TTS_PROVIDER", "mlx-audio").strip().lower()
+    provider = os.environ.get("TTS_PROVIDER", "qwen3-clone").strip().lower()
 
     log.info("=== Cat Cafe TTS Server ===")
     log.info("Provider: %s | Port: %d", provider, args.port)

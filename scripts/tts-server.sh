@@ -3,13 +3,13 @@
 # Start local TTS server for Cat Cafe voice output.
 #
 # Usage:
-#   ./scripts/tts-server.sh                                  # default: mlx-audio + Kokoro-82M
-#   ./scripts/tts-server.sh mlx-community/Kokoro-82M-bf16    # explicit model
-#   TTS_PROVIDER=qwen3-clone ./scripts/tts-server.sh         # Qwen3-TTS Base clone (E-type)
+#   ./scripts/tts-server.sh                                  # default: qwen3-clone + Qwen3-TTS Base (三猫声线)
+#   ./scripts/tts-server.sh mlx-community/Kokoro-82M-bf16    # explicit Kokoro model
+#   TTS_PROVIDER=mlx-audio ./scripts/tts-server.sh           # Kokoro-82M (legacy)
 #   TTS_PROVIDER=edge-tts ./scripts/tts-server.sh            # edge-tts fallback
 #
 # Env vars:
-#   TTS_PROVIDER  — "mlx-audio" (default), "qwen3-clone", or "edge-tts"
+#   TTS_PROVIDER  — "qwen3-clone" (default), "mlx-audio", or "edge-tts"
 #   TTS_PORT      — server port (default: 9879)
 #
 # Requires (mlx-audio): pip install mlx-audio "misaki[zh]" fastapi uvicorn
@@ -19,9 +19,9 @@
 set -euo pipefail
 
 VENV_DIR="${HOME}/.cat-cafe/tts-venv"
-MODEL="${1:-mlx-community/Kokoro-82M-bf16}"
+MODEL="${1:-mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16}"
 PORT="${TTS_PORT:-9879}"
-PROVIDER="${TTS_PROVIDER:-mlx-audio}"
+PROVIDER="${TTS_PROVIDER:-qwen3-clone}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Activate venv if it exists

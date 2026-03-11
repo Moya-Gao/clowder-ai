@@ -17,7 +17,7 @@ describe('MlxAudioTtsProvider', () => {
   it('has correct id and model', () => {
     const p = new MlxAudioTtsProvider({ baseUrl: 'http://localhost:9999' });
     assert.strictEqual(p.id, 'mlx-audio');
-    assert.strictEqual(p.model, 'mlx-community/Kokoro-82M-bf16');
+    assert.strictEqual(p.model, 'mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16');
   });
 
   it('sends correct request body to TTS server', async () => {
