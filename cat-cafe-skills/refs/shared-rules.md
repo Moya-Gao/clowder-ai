@@ -220,3 +220,11 @@ BACKLOG.md、feature docs 的 status 等**共享状态文件**禁止在 worktree
 - **在 main 上改，改完立刻 commit push**
 - 在 worktree 里改 → 冲突 + 污染 feature PR + 其他猫看不到更新
 - 涉及文件：`BACKLOG.md`、`docs/features/F*.md` 的 status 字段、`cat-config.json` 的可用性状态
+
+## 15. 阻塞依赖必须双写到可追溯状态
+
+跨 thread 的阻塞依赖（`[BLOCKING]`）不能只留在 cross-post 消息里。
+
+- 消息是通知层，不是真相源——session 压缩/重启后消息上下文丢失
+- **必须同时写入**可追溯位置：feature doc / workflow / task 状态
+- 示例：A 依赖 B 先完成某 API → A 在 feature doc 里记录依赖 + cross-post 通知 B
