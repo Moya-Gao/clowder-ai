@@ -147,6 +147,7 @@ interface InteractiveOption {
 | 2026-03-11 | 铲屎官提出可交互富文本需求（F087 Design Gate 讨论中） |
 | 2026-03-11 | F096 立项，从 F087 Design Gate 讨论中提取为独立 Feature |
 | 2026-03-11 | Phase A+B merged (PR #365) — codex 3轮 review + cloud 3轮 review |
+| 2026-03-11 | UX bugfix `78a8511f` — select 加确认步骤 + 消息带 block title 上下文 |
 
 ## Review Gate
 
@@ -170,6 +171,13 @@ interface InteractiveOption {
 | R2 | "别的地方还能用" — 通用组件 | AC-A1~A6 | 多场景 test | [x] |
 | R3 | F087 训练营选任务需要 card-grid | AC-A2, AC-A7 | F087 集成测试 | [x] |
 | R4 | 随机抽功能 | AC-A7 | manual + screenshot | [x] |
+
+## Post-ship Bugs / Lessons
+
+| # | 问题 | 根因 | 修复 | 教训 |
+|---|------|------|------|------|
+| B1 | select 点击立刻发送，误点无法撤回 | SelectInteraction 的 `onSelect` 直接触发 `handleSelect`（发消息+disable） | 加 `pendingId` 状态 + "确认选择"按钮，点选项只高亮不发送 | 单选也需要确认步骤——用户点错了没有回头路，UX 基本功 |
+| B2 | confirm 发出的消息只有"取消"，多 block 时无法区分回答的是哪个问题 | `buildSelectionMessage` 的 confirm 分支硬编码返回 `'确认'`/`'取消'`，不带 block title | 加 `title` 参数，无 messageTemplate 时自动拼上：`"取消 — 确认部署到生产环境？"` | 消息必须自带上下文——异步对话中 "是/否" 没有意义，必须说清楚"对什么说是/否" |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
