@@ -128,4 +128,4 @@ git branch --merged main      # 哪些分支已合入
 
 ## Next Step
 
-→ `tdd`（在 worktree 里开始实现）
+→ **直接加载 `tdd`**（在 worktree 里开始实现）。SOP 链条自动推进（§17）。

@@ -126,4 +126,4 @@ Reviewer 不应该是第一个发现测试失败的人。
 
 ## 下一步
 
-Review 请求发出后 → 等 reviewer 回复 → 使用 `receive-review` skill 处理反馈（SOP Step 3b）。
+Review 请求发出后 → 等 reviewer 回复 → **直接加载 `receive-review`** skill 处理反馈（SOP Step 3b）。SOP 链条自动推进，不要停下来问铲屎官（§17）。

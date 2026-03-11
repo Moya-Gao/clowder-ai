@@ -114,4 +114,4 @@ git commit -m "feat: add specific feature"
 
 ## 下一步
 
-计划写完 → `worktree`（创建隔离开发环境）→ `tdd`（开始实现）
+计划写完 → **直接加载 `worktree`**（创建隔离开发环境）→ `tdd`（开始实现）。SOP 链条自动推进（§17）。

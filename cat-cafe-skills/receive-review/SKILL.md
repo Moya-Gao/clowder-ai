@@ -135,4 +135,4 @@ Commit: {sha} — {message}
 
 ## 下一步
 
-Reviewer 确认修复、放行（"LGTM"/"通过"/"可以合入"）→ 使用 `merge-gate` skill（SOP Step 4）。
+Reviewer 放行（"LGTM"/"通过"/"可以合入"）→ **直接加载 `merge-gate`** skill（SOP Step 4）。不要停下来问铲屎官（§17）。

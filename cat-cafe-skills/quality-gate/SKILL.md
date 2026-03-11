@@ -156,7 +156,7 @@ pnpm -r --if-present run build → exit 0 ✅
 
 ## 下一步
 
-Quality Gate 通过后 → 使用 `request-review` skill 请求 review（SOP Step 3a）。
+Quality Gate 通过后 → **直接加载 `request-review`** skill 请求 review（SOP Step 3a）。不要停下来问铲屎官"要不要继续"（§17）。
 
 Gate 未通过时：
 - **P1 遗漏** → 补完再过 gate

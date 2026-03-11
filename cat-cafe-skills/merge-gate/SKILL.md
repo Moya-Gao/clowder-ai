@@ -227,4 +227,4 @@ git branch -d {branch-name} && git worktree prune
 
 ## 下一步
 
-合入后 → `feat-lifecycle`（完成验证 + 真相源同步）
+合入后 → **直接加载 `feat-lifecycle`**（完成验证 + 真相源同步）。合入完成后通知铲屎官结果即可（§17）。
