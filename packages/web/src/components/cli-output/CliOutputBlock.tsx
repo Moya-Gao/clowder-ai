@@ -101,29 +101,6 @@ function LoaderIcon() {
   );
 }
 
-/* ── Breed-tinted dark background helper ── */
-
-function breedDarkBg(hex: string | undefined): string {
-  if (!hex) return 'rgb(38, 30, 58)'; // default dark violet (ragdoll fallback)
-  const r = Number.parseInt(hex.slice(1, 3), 16);
-  const g = Number.parseInt(hex.slice(3, 5), 16);
-  const b = Number.parseInt(hex.slice(5, 7), 16);
-  // Mix 30% breed color + 70% near-black base — visible breed tint
-  const base = { r: 18, g: 18, b: 28 };
-  const mix = 0.3;
-  return `rgb(${Math.round(base.r * (1 - mix) + r * mix)}, ${Math.round(base.g * (1 - mix) + g * mix)}, ${Math.round(base.b * (1 - mix) + b * mix)})`;
-}
-
-function breedDividerColor(hex: string | undefined): string {
-  if (!hex) return 'rgb(60, 50, 80)';
-  const r = Number.parseInt(hex.slice(1, 3), 16);
-  const g = Number.parseInt(hex.slice(3, 5), 16);
-  const b = Number.parseInt(hex.slice(5, 7), 16);
-  const base = { r: 45, g: 42, b: 60 };
-  const mix = 0.3;
-  return `rgb(${Math.round(base.r * (1 - mix) + r * mix)}, ${Math.round(base.g * (1 - mix) + g * mix)}, ${Math.round(base.b * (1 - mix) + b * mix)})`;
-}
-
 /* ── Status helpers ── */
 
 const STATUS_LABEL: Record<CliStatus, string> = {
@@ -171,10 +148,12 @@ function ToolRow({
   event,
   isActive,
   onUserInteract,
+  accentColor,
 }: {
   event: CliEvent;
   isActive: boolean;
   onUserInteract?: () => void;
+  accentColor?: string;
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
   const hasResult = event.detail != null;
@@ -182,7 +161,8 @@ function ToolRow({
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
-      className={`w-full text-left cursor-pointer px-2 py-[5px] rounded font-mono text-[11px] ${isActive ? 'bg-white/5 border-l-2 border-purple-400' : ''}`}
+      className={`w-full text-left cursor-pointer px-2 py-[5px] rounded font-mono text-[11px] ${isActive ? 'bg-white/5 border-l-2' : ''}`}
+      style={isActive ? { borderLeftColor: accentColor || '#94A3B8' } : undefined}
       onClick={() => {
         setRowExpanded((v) => !v);
         onUserInteract?.();
@@ -206,12 +186,14 @@ function ToolsSection({
   lastToolId,
   status,
   onUserInteract,
+  accentColor,
 }: {
   toolUses: CliEvent[];
   toolResults: CliEvent[];
   lastToolId: string | undefined;
   status: CliStatus;
   onUserInteract: () => void;
+  accentColor?: string;
 }) {
   // streaming 时展开看进度，done/failed 时自动折叠成一行
   const isStreaming = status === 'streaming';
@@ -259,6 +241,7 @@ function ToolsSection({
                 event={{ ...e, detail: result?.detail ?? e.detail }}
                 isActive={e.id === lastToolId}
                 onUserInteract={onUserInteract}
+                accentColor={accentColor}
               />
             );
           })}
@@ -332,19 +315,17 @@ export function CliOutputBlock({
     setExpanded((v) => !v);
   };
 
-  const darkBg = breedDarkBg(breedColor);
-  const dividerBg = breedDividerColor(breedColor);
+  const accent = breedColor || '#94A3B8'; // fallback to slate-400, not purple
 
   return (
-    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden" style={{ backgroundColor: darkBg }}>
-      {/* Summary / header bar — breed-tinted dark */}
+    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden bg-[#1E1E2E]">
+      {/* Summary / header bar — neutral dark surface, breed accent on chevron */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors"
-        style={{ backgroundColor: darkBg }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors bg-[#1E1E2E]"
       >
-        <span style={{ color: breedColor || '#7C3AED' }}>
+        <span style={{ color: accent }}>
           <ChevronIcon expanded={expanded} />
         </span>
         <span className="font-medium">{summary}</span>
@@ -362,8 +343,8 @@ export function CliOutputBlock({
 
       {/* Expanded body */}
       {expanded && (
-        <div data-testid="cli-output-body" className="text-slate-200 text-xs" style={{ backgroundColor: darkBg }}>
-          <div className="h-px" style={{ backgroundColor: dividerBg }} />
+        <div data-testid="cli-output-body" className="text-slate-200 text-xs bg-[#1E1E2E]">
+          <div className="h-px bg-slate-700/50" />
           {/* Collapsible tools section */}
           {toolUses.length > 0 && (
             <ToolsSection
@@ -374,6 +355,7 @@ export function CliOutputBlock({
               onUserInteract={() => {
                 userInteracted.current = true;
               }}
+              accentColor={accent}
             />
           )}
 
@@ -382,7 +364,7 @@ export function CliOutputBlock({
             <>
               {toolUses.length > 0 && (
                 <>
-                  <div className="h-px mx-0" style={{ backgroundColor: dividerBg }} />
+                  <div className="h-px mx-0 bg-slate-700/50" />
                   <div className="px-3 pt-2 pb-1 font-mono text-[10px] text-slate-600">─── stdout ───</div>
                 </>
               )}
