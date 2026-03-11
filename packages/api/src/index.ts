@@ -18,7 +18,6 @@ import { resolveAnthropicRuntimeProfile } from './config/provider-profiles.js';
 import { resolveProviderProfilesRoot } from './config/provider-profiles-root.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
-import { resolveUserId } from './utils/request-identity.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
 import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
 import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
@@ -71,9 +70,10 @@ import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { AgentService } from './domains/cats/services/types.js';
+import { ActivityTracker } from './domains/health/ActivityTracker.js';
+import { createSignalArticleLookup } from './domains/signals/services/signal-thread-lookup.js';
 import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
 import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
-import { createSignalArticleLookup } from './domains/signals/services/signal-thread-lookup.js';
 import {
   loadConnectorGatewayConfig,
   startConnectorGateway,
@@ -87,12 +87,12 @@ import {
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
-import { ActivityTracker } from './domains/health/ActivityTracker.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import {
   auditRoutes,
   authorizationRoutes,
   backlogRoutes,
+  brakeRoutes,
   callbackAuthRoutes,
   callbacksRoutes,
   capabilitiesRoutes,
@@ -100,6 +100,7 @@ import {
   claudeRescueRoutes,
   commandsRoutes,
   configRoutes,
+  connectorMediaRoutes,
   evidenceRoutes,
   executionDigestRoutes,
   exportRoutes,
@@ -107,6 +108,7 @@ import {
   featureDocDetailRoutes,
   intentCardRoutes,
   invocationsRoutes,
+  leaderboardRoutes,
   memoryPublishRoutes,
   memoryRoutes,
   messageActionsRoutes,
@@ -141,13 +143,12 @@ import {
   workspaceEditRoutes,
   workspaceGitRoutes,
   workspaceRoutes,
-  brakeRoutes,
-  connectorMediaRoutes,
 } from './routes/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
+import { resolveUserId } from './utils/request-identity.js';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
 const HOST = process.env['API_SERVER_HOST'] ?? '127.0.0.1';
@@ -451,6 +452,7 @@ async function main(): Promise<void> {
   });
   await app.register(catsRoutes);
   await app.register(quotaRoutes);
+  await app.register(leaderboardRoutes, { messageStore });
   await app.register(brakeRoutes, { activityTracker });
 
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration

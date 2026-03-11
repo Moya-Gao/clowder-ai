@@ -52,3 +52,4 @@ export { executionDigestRoutes } from './execution-digests.js';
 export { featureDocDetailRoutes } from './feature-doc-detail.js';
 export { brakeRoutes } from './brake.js';
 export { connectorMediaRoutes } from './connector-media.js';
+export { leaderboardRoutes } from './leaderboard.js';

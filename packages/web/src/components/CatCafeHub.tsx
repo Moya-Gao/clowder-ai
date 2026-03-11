@@ -1,21 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { CatOverviewTab, SystemTab, type ConfigData } from './config-viewer-tabs';
+import { BrakeSettingsPanel } from './BrakeSettingsPanel';
+import { CatOverviewTab, type ConfigData, SystemTab } from './config-viewer-tabs';
+import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubCommandsTab } from './HubCommandsTab';
 import { HubEnvFilesTab } from './HubEnvFilesTab';
-import { VoiceSettingsPanel } from './VoiceSettingsPanel';
-import { PushSettingsPanel } from './PushSettingsPanel';
-import { HubStrategyTab } from './HubStrategyTab';
-import { HubCapabilityTab } from './HubCapabilityTab';
-import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
-import { HubProviderProfilesTab } from './HubProviderProfilesTab';
 import { HubGovernanceTab } from './HubGovernanceTab';
-import { BrakeSettingsPanel } from './BrakeSettingsPanel';
-import { useCatData } from '@/hooks/useCatData';
+import { HubLeaderboardTab } from './HubLeaderboardTab';
+import { HubProviderProfilesTab } from './HubProviderProfilesTab';
+import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
+import { HubStrategyTab } from './HubStrategyTab';
+import { PushSettingsPanel } from './PushSettingsPanel';
+import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 
 // F032 P2: HubTabId now uses string for dynamic cat tabs
 export type HubTabId = string;
@@ -34,12 +34,10 @@ const HUB_TABS: { id: HubTabId; label: string }[] = [
   { id: 'strategy', label: 'Session 策略' },
   { id: 'governance', label: '治理看板' },
   { id: 'health', label: '健康' },
+  { id: 'leaderboard', label: '排行榜' },
 ];
 
-export function resolveRequestedHubTab(
-  requestedTab: string,
-  getCatById: (catId: string) => unknown,
-): HubTabId {
+export function resolveRequestedHubTab(requestedTab: string, getCatById: (catId: string) => unknown): HubTabId {
   if (requestedTab === 'quota') return 'routing';
   if (getCatById(requestedTab)) return 'cats';
   return requestedTab;
@@ -74,7 +72,7 @@ export function CatCafeHub() {
   // Fallback to valid tab if current is invalid
   useEffect(() => {
     if (!open) return;
-    const isValid = HUB_TABS.some(t => t.id === tab);
+    const isValid = HUB_TABS.some((t) => t.id === tab);
     if (!isValid) setTab('cats');
   }, [open, tab]);
 
@@ -89,7 +87,7 @@ export function CatCafeHub() {
     try {
       const res = await apiFetch('/api/config');
       if (res.ok) {
-        const d = await res.json() as { config: ConfigData };
+        const d = (await res.json()) as { config: ConfigData };
         setConfig(d.config);
       } else {
         setFetchError('配置加载失败');
@@ -105,7 +103,9 @@ export function CatCafeHub() {
 
   useEffect(() => {
     if (!open) return;
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') closeHub(); };
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeHub();
+    };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [open, closeHub]);
@@ -114,10 +114,15 @@ export function CatCafeHub() {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={closeHub}>
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-5 pt-4 pb-3" style={{ flexShrink: 0 }}>
           <h2 className="text-base font-bold">Cat Caf&eacute; Hub</h2>
-          <button onClick={closeHub} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+          <button onClick={closeHub} className="text-gray-400 hover:text-gray-600 text-lg">
+            &times;
+          </button>
         </div>
 
         <div className="flex border-b border-gray-200 px-5 overflow-x-auto" style={{ flexShrink: 0 }}>
@@ -135,9 +140,7 @@ export function CatCafeHub() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ minHeight: 0 }}>
-          {fetchError && (
-            <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{fetchError}</p>
-          )}
+          {fetchError && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{fetchError}</p>}
 
           {/* Keep 能力中心 mounted after first open to avoid re-mount loading flash */}
           {(tab === 'capabilities' || capTabEverOpened) && (
@@ -146,12 +149,18 @@ export function CatCafeHub() {
             </div>
           )}
 
-          {tab === 'cats' && (
-            config ? <CatOverviewTab config={config} cats={cats} /> : !fetchError ? <p className="text-sm text-gray-400">加载中...</p> : null
-          )}
-          {tab === 'system' && (
-            config ? <SystemTab config={config} /> : !fetchError ? <p className="text-sm text-gray-400">加载中...</p> : null
-          )}
+          {tab === 'cats' &&
+            (config ? (
+              <CatOverviewTab config={config} cats={cats} />
+            ) : !fetchError ? (
+              <p className="text-sm text-gray-400">加载中...</p>
+            ) : null)}
+          {tab === 'system' &&
+            (config ? (
+              <SystemTab config={config} />
+            ) : !fetchError ? (
+              <p className="text-sm text-gray-400">加载中...</p>
+            ) : null)}
           {tab === 'commands' && <HubCommandsTab />}
           {tab === 'routing' && <HubRoutingPolicyTab />}
           {tab === 'env' && <HubEnvFilesTab />}
@@ -161,6 +170,7 @@ export function CatCafeHub() {
           {tab === 'strategy' && <HubStrategyTab />}
           {tab === 'governance' && <HubGovernanceTab />}
           {tab === 'health' && <BrakeSettingsPanel />}
+          {tab === 'leaderboard' && <HubLeaderboardTab />}
         </div>
       </div>
     </div>
