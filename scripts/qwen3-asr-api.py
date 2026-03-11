@@ -84,7 +84,6 @@ def _do_transcribe(audio_path: str, language: str) -> str:
         result = generate_transcription(
             model=_model,
             audio=wav_path,
-            format="txt",
             verbose=False,
         )
         return result.text.strip() if hasattr(result, "text") else str(result).strip()
