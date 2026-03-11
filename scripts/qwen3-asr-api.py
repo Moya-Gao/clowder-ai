@@ -58,11 +58,16 @@ _transcribe_lock = asyncio.Lock()
 def _convert_to_wav(src_path: str) -> str:
     """Convert any audio format to 16kHz mono WAV via ffmpeg (Qwen3-ASR requires WAV)."""
     wav_path = src_path.rsplit(".", 1)[0] + ".wav"
-    subprocess.run(
+    result = subprocess.run(
         ["ffmpeg", "-y", "-i", src_path, "-ar", "16000", "-ac", "1", wav_path],
         capture_output=True,
         timeout=30,
     )
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace")[-500:]
+        raise RuntimeError(f"ffmpeg conversion failed (exit {result.returncode}): {stderr}")
+    if not Path(wav_path).exists() or Path(wav_path).stat().st_size == 0:
+        raise RuntimeError(f"ffmpeg produced empty or missing output: {wav_path}")
     return wav_path
 
 
