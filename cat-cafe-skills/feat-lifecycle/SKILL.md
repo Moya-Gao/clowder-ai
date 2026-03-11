@@ -95,6 +95,17 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 4. 架构：猫猫讨论 → 结论给铲屎官 → 铲屎官拍板
 5. 确认产出归档 `docs/discussions/{date}-{fid}-design/`
 
+## Phase 碰头（大 Feature 专属，3+ Phase）🔴
+
+大 scope feature **每个 Phase merge 后**，主动和铲屎官碰头（不是问"要不要继续"，是确认方向）：
+
+1. **成果展示**：这个 Phase 做了什么（截图 / 关键改动 / demo）
+2. **愿景进度**：离最终愿景还差什么（哪些 AC ✅，哪些还没）
+3. **下个 Phase 方向**：下一步计划 + 有没有发现新问题
+4. **方向确认**："方向对吗？有没有要调整的？"
+
+小 Feature（1-2 Phase）跳过碰头，直接做到底。
+
 ## 完成 (Completion)
 
 **触发**：AC 全部打勾 + PR 合入 + 云端 review 通过。**不触发**：只是 Phase 完成 / 只是 review 过了。

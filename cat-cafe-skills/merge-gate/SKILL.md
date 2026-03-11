@@ -227,10 +227,16 @@ git branch -d {branch-name} && git worktree prune
 
 ## 下一步
 
-合入后（如果是 feature 的最后一个 Phase）→ **直接加载 `feat-lifecycle` completion**（§17）：
+合入后判断 feature 规模：
+
+**最后一个 Phase（或小 Feature）** → **直接加载 `feat-lifecycle` completion**（§17）：
 1. 自己做愿景三问
 2. 自动 @ **非 reviewer、非作者**的猫做愿景守护（查 roster 动态选，不能 hardcode）
 3. 守护猫放行 → close feat
 4. 守护猫踢回 → 修改后重新走 quality-gate
 
-仅 Phase merge（feature 未完成）→ Phase 文档同步即可（Step 7.5 已做），不触发 completion。
+**中间 Phase（大 Feature，3+ Phase）** → Phase 文档同步（Step 7.5 已做）+ **主动碰头铲屎官**：
+1. 成果展示（截图 / demo / 关键改动）
+2. 愿景进度（哪些 AC ✅ 了）
+3. 下个 Phase 方向 + 新发现
+4. "方向对吗？" → 铲屎官确认 → 继续下一个 Phase
