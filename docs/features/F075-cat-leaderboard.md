@@ -120,7 +120,12 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 
 ## Key Decisions
 
-（待讨论确认）
+1. **整体视觉风格：极简活力猫咖 (Minimal Vibrant Cat Café)** — 采用 `mobile-03-minimalvibrant_light` 风格指南，强调 24px 超大圆角（Pillowy Corners）和鲜艳的配色（紫色/青色/粉色）。
+2. **布局架构：Bento Grid (便当盒布局)** — 信息展示采用不同尺寸的色块格子，不带边框，通过背景色区分功能区。
+3. **成就系统表现：Sticker Wall (贴纸墙)** — 成就徽章采用拟物化的“冰箱贴”设计，带有手绘感和软阴影。
+4. **"笨蛋猫猫"调性：顽皮而非冒犯** — 视觉上使用粉色调和滑稽图标（如香蕉皮、躲藏动画），将“被骂”转化为萌感。
+5. **CVO 能力树：拟物化猫爬架 (Interactive Cat Tree)** — 进度可视化采用猫爬架造型，Lv.1 在底层，Lv.5 在顶层。
+6. **字体策略：Confident Typography** — 使用 Plus Jakarta Sans (Extrabold 800) 处理关键数字和标题，Inter 处理描述文本。
 
 ## Dependencies
 
