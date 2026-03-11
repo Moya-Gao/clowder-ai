@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F097: CLI Output Collapsible UX — 聊天气泡折叠式重构
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -128,17 +128,17 @@ Before:                              After:
 
 ## Acceptance Criteria
 
-### Phase A（CLI Output Block）
-- [ ] AC-A1: `💭 心里话`（origin='stream'）重命名为 `CLI 输出`，嵌入 CliOutputBlock
-- [ ] AC-A2: `ToolEventsPanel` 的 tool events 嵌入 CliOutputBlock，每个 tool 可独立折叠
-- [ ] AC-A3: `🧠 Thinking` 保持独立，不混入 CLI Output Block
-- [ ] AC-A4: 摘要行按状态枚举显示（进行中/已完成/失败/已中断），含 tool count 或 line count + duration
-- [ ] AC-A5: 可见性 chip 在 header/summary 行正确显示（来源 thinkingMode，不是 whisper）
-- [ ] AC-A6: 自动收起仅作用于"系统展开且用户未手动操作"的 block
-- [ ] AC-A7: `?export=true` 时全部展开；用户手动展开过的 block 不受 auto-collapse 影响
-- [ ] AC-A8: 内层 CLI block 用深色 terminal substrate + monospace，外层保留品种配色
-- [ ] AC-A9: Rename scope 限于 runtime chat UI，不改 story-export/课件/archive
-- [ ] AC-A10: CliOutputBlock 接受 `CliEvent[]` 统一接口，Phase A 前端做适配层（toolEvents+content → CliEvent[]），Phase B 换数据源时组件零改动
+### Phase A（CLI Output Block）✅ — PR #372, 2026-03-11
+- [x] AC-A1: `💭 心里话`（origin='stream'）重命名为 `CLI 输出`，嵌入 CliOutputBlock
+- [x] AC-A2: `ToolEventsPanel` 的 tool events 嵌入 CliOutputBlock，每个 tool 可独立折叠
+- [x] AC-A3: `🧠 Thinking` 保持独立，不混入 CLI Output Block
+- [x] AC-A4: 摘要行按状态枚举显示（进行中/已完成/失败/已中断），含 tool count 或 line count + duration
+- [x] AC-A5: 可见性 chip 在 header/summary 行正确显示（来源 thinkingMode，不是 whisper）
+- [x] AC-A6: 自动收起仅作用于"系统展开且用户未手动操作"的 block
+- [x] AC-A7: `?export=true` 时全部展开；用户手动展开过的 block 不受 auto-collapse 影响
+- [x] AC-A8: 内层 CLI block 用深色 terminal substrate + monospace，外层保留品种配色
+- [x] AC-A9: Rename scope 限于 runtime chat UI，不改 story-export/课件/archive
+- [x] AC-A10: CliOutputBlock 接受 `CliEvent[]` 统一接口，Phase A 前端做适配层（toolEvents+content → CliEvent[]），Phase B 换数据源时组件零改动
 
 ### Phase B（消息聚合 + 时序穿插，可选）
 - [ ] AC-B1: callback + stream 合并为同一张卡（ChatContainer cluster）
@@ -188,6 +188,7 @@ Before:                              After:
 |------|------|
 | 2026-03-11 | 立项，铲屎官提需求 |
 | 2026-03-11 | Design Gate 讨论（Opus + GPT-5.4），收敛方案 |
+| 2026-03-11 | Phase A merged (PR #372) — Codex local review + cloud review passed |
 
 ## Review Gate
 
