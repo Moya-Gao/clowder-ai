@@ -1,11 +1,12 @@
 'use client';
 
-import type { RichBlock } from '@/stores/chat-types';
+import type { RichBlock, RichInteractiveBlock } from '@/stores/chat-types';
 import { AudioBlock } from './AudioBlock';
 import { CardBlock } from './CardBlock';
 import { ChecklistBlock } from './ChecklistBlock';
 import { DiffBlock } from './DiffBlock';
 import { InteractiveBlock } from './InteractiveBlock';
+import { InteractiveBlockGroup } from './InteractiveBlockGroup';
 import { MediaGalleryBlock } from './MediaGalleryBlock';
 
 function RichBlockRenderer({ block, catId, messageId }: { block: RichBlock; catId?: string; messageId?: string }) {
@@ -31,13 +32,43 @@ function RichBlockRenderer({ block, catId, messageId }: { block: RichBlock; catI
   }
 }
 
+/** Phase C: collect interactive blocks into groups by groupId */
+function groupBlocks(blocks: RichBlock[]): Array<RichBlock | { grouped: true; groupId: string; blocks: RichInteractiveBlock[] }> {
+  const result: Array<RichBlock | { grouped: true; groupId: string; blocks: RichInteractiveBlock[] }> = [];
+  const groupMap = new Map<string, RichInteractiveBlock[]>();
+  const groupOrder: string[] = [];
+
+  for (const block of blocks) {
+    if (block.kind === 'interactive' && block.groupId) {
+      if (!groupMap.has(block.groupId)) {
+        groupMap.set(block.groupId, []);
+        groupOrder.push(block.groupId);
+      }
+      groupMap.get(block.groupId)!.push(block);
+    } else {
+      // Flush any pending group that appeared before this non-grouped block
+      result.push(block);
+    }
+  }
+  // Append groups in order of first appearance
+  for (const gid of groupOrder) {
+    result.push({ grouped: true, groupId: gid, blocks: groupMap.get(gid)! });
+  }
+  return result;
+}
+
 export function RichBlocks({ blocks, catId, messageId }: { blocks: RichBlock[]; catId?: string; messageId?: string }) {
   if (blocks.length === 0) return null;
+  const items = groupBlocks(blocks);
   return (
     <div className="mt-2 space-y-2">
-      {blocks.map((block) => (
-        <RichBlockRenderer key={block.id} block={block} catId={catId} messageId={messageId} />
-      ))}
+      {items.map((item) =>
+        'grouped' in item ? (
+          <InteractiveBlockGroup key={item.groupId} blocks={item.blocks} messageId={messageId} />
+        ) : (
+          <RichBlockRenderer key={item.id} block={item} catId={catId} messageId={messageId} />
+        ),
+      )}
     </div>
   );
 }

@@ -137,6 +137,8 @@ export interface RichInteractiveBlock {
   messageTemplate?: string;
   disabled?: boolean;
   selectedIds?: string[];
+  /** Phase C: blocks sharing the same groupId are submitted together */
+  groupId?: string;
 }
 
 export type RichBlock =

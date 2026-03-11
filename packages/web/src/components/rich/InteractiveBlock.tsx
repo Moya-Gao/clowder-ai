@@ -52,15 +52,23 @@ function SelectInteraction({
   disabled,
   selectedIds,
   onSelect,
+  hideSubmit,
 }: {
   options: InteractiveOption[];
   disabled: boolean;
   selectedIds: string[];
   onSelect: (ids: string[]) => void;
+  hideSubmit?: boolean;
 }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
-  // When disabled (already submitted), show the committed selection; otherwise show pending
   const highlightId = disabled ? selectedIds[0] ?? null : pendingId;
+
+  const handleClick = (id: string) => {
+    if (disabled) return;
+    setPendingId(id);
+    // In group mode, immediately notify parent of pending selection
+    if (hideSubmit) onSelect([id]);
+  };
 
   return (
     <div className="space-y-1">
@@ -71,7 +79,7 @@ function SelectInteraction({
             key={opt.id}
             type="button"
             disabled={disabled}
-            onClick={() => !disabled && setPendingId(opt.id)}
+            onClick={() => handleClick(opt.id)}
             className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors
               ${
                 isSelected
@@ -87,7 +95,7 @@ function SelectInteraction({
           </button>
         );
       })}
-      {!disabled && pendingId && (
+      {!disabled && !hideSubmit && pendingId && (
         <button
           type="button"
           onClick={() => onSelect([pendingId])}
@@ -106,12 +114,14 @@ function MultiSelectInteraction({
   selectedIds,
   maxSelect,
   onSelect,
+  hideSubmit,
 }: {
   options: InteractiveOption[];
   disabled: boolean;
   selectedIds: string[];
   maxSelect?: number;
   onSelect: (ids: string[]) => void;
+  hideSubmit?: boolean;
 }) {
   const [checked, setChecked] = useState<Set<string>>(new Set(selectedIds));
 
@@ -124,6 +134,8 @@ function MultiSelectInteraction({
       } else if (!maxSelect || next.size < maxSelect) {
         next.add(id);
       }
+      // In group mode, notify parent of every change
+      if (hideSubmit) onSelect([...next]);
       return next;
     });
   };
@@ -152,7 +164,7 @@ function MultiSelectInteraction({
           <span>{opt.label}</span>
         </label>
       ))}
-      {!disabled && checked.size > 0 && (
+      {!disabled && !hideSubmit && checked.size > 0 && (
         <button
           type="button"
           onClick={() => onSelect([...checked])}
@@ -171,15 +183,28 @@ function CardGridInteraction({
   selectedIds,
   allowRandom,
   onSelect,
+  pendingMode,
 }: {
   options: InteractiveOption[];
   disabled: boolean;
   selectedIds: string[];
   allowRandom?: boolean;
   onSelect: (ids: string[]) => void;
+  pendingMode?: boolean;
 }) {
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const shuffling = useRef(false);
+
+  const handleCardClick = (id: string) => {
+    if (disabled || shuffling.current) return;
+    if (pendingMode) {
+      setPendingId(id);
+      onSelect([id]);
+    } else {
+      onSelect([id]);
+    }
+  };
 
   const handleRandom = useCallback(() => {
     if (disabled || shuffling.current || options.length === 0) return;
@@ -196,16 +221,20 @@ function CardGridInteraction({
         const delay = 50 + step * 25;
         setTimeout(tick, delay);
       } else {
-        // Final selection
         const finalIdx = Math.floor(Math.random() * options.length);
         const finalId = options[finalIdx]!.id;
         setHighlightId(finalId);
         shuffling.current = false;
-        setTimeout(() => onSelect([finalId]), 400);
+        if (pendingMode) {
+          setPendingId(finalId);
+          setTimeout(() => onSelect([finalId]), 400);
+        } else {
+          setTimeout(() => onSelect([finalId]), 400);
+        }
       }
     };
     tick();
-  }, [disabled, options, onSelect]);
+  }, [disabled, options, onSelect, pendingMode]);
 
   // Group options by group field
   const groups = new Map<string, InteractiveOption[]>();
@@ -223,16 +252,17 @@ function CardGridInteraction({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {groupOpts.map((opt) => {
               const isSelected = selectedIds.includes(opt.id);
+              const isPending = pendingId === opt.id;
               const isHighlighted = highlightId === opt.id;
               return (
                 <button
                   key={opt.id}
                   type="button"
                   disabled={disabled}
-                  onClick={() => !disabled && !shuffling.current && onSelect([opt.id])}
+                  onClick={() => handleCardClick(opt.id)}
                   className={`p-3 rounded-xl border text-center text-sm transition-all
                     ${
-                      isSelected
+                      isSelected || isPending
                         ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40 ring-2 ring-blue-400'
                         : isHighlighted
                           ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-950/40 scale-105'
@@ -268,22 +298,35 @@ function ConfirmInteraction({
   disabled,
   selectedIds,
   onSelect,
+  pendingMode,
 }: {
   options: InteractiveOption[];
   disabled: boolean;
   selectedIds: string[];
   onSelect: (ids: string[]) => void;
+  pendingMode?: boolean;
 }) {
   const confirmOpt = options.find((o) => o.id === '__confirm__') ?? { id: '__confirm__', label: '确认' };
   const cancelOpt = options.find((o) => o.id === '__cancel__') ?? { id: '__cancel__', label: '取消' };
-  const selectedId = selectedIds[0];
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const selectedId = disabled ? selectedIds[0] : (pendingMode ? pendingId : selectedIds[0]);
+
+  const handleClick = (id: string) => {
+    if (disabled) return;
+    if (pendingMode) {
+      setPendingId(id);
+      onSelect([id]);
+    } else {
+      onSelect([id]);
+    }
+  };
 
   return (
     <div className="flex gap-2">
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && onSelect(['__confirm__'])}
+        onClick={() => handleClick('__confirm__')}
         className={`px-4 py-1.5 rounded-lg text-sm transition-colors
           ${
             selectedId === '__confirm__'
@@ -299,7 +342,7 @@ function ConfirmInteraction({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && onSelect(['__cancel__'])}
+        onClick={() => handleClick('__cancel__')}
         className={`px-4 py-1.5 rounded-lg text-sm transition-colors
           ${
             selectedId === '__cancel__'
@@ -318,14 +361,35 @@ function ConfirmInteraction({
 
 // ── Main Component ──────────────────────────────────────────
 
-export function InteractiveBlock({ block, messageId }: { block: RichInteractiveBlock; messageId?: string }) {
+export interface InteractiveBlockProps {
+  block: RichInteractiveBlock;
+  messageId?: string;
+  /** Phase C: pending mode — selections don't auto-submit, parent handles it */
+  pendingMode?: boolean;
+  /** Phase C: called when pending selection changes in group mode */
+  onPendingChange?: (selectedIds: string[]) => void;
+  /** Phase C: externally controlled disabled (group submitted) */
+  groupDisabled?: boolean;
+  /** Phase C: externally controlled selectedIds (group submitted) */
+  groupSelectedIds?: string[];
+}
+
+export function InteractiveBlock({ block, messageId, pendingMode, onPendingChange, groupDisabled, groupSelectedIds }: InteractiveBlockProps) {
   const [localDisabled, setLocalDisabled] = useState(block.disabled ?? false);
   const [localSelectedIds, setLocalSelectedIds] = useState<string[]>(block.selectedIds ?? []);
-  const isDisabled = localDisabled;
+  const isDisabled = groupDisabled ?? localDisabled;
+  const displaySelectedIds = groupSelectedIds ?? localSelectedIds;
 
   const handleSelect = useCallback(
     async (optionIds: string[]) => {
       if (isDisabled) return;
+
+      // Phase C: in pending mode, just notify parent — don't submit or disable
+      if (pendingMode && onPendingChange) {
+        onPendingChange(optionIds);
+        return;
+      }
+
       setLocalDisabled(true);
       setLocalSelectedIds(optionIds);
 
@@ -342,7 +406,7 @@ export function InteractiveBlock({ block, messageId }: { block: RichInteractiveB
         });
       }
     },
-    [isDisabled, block, messageId],
+    [isDisabled, block, messageId, pendingMode, onPendingChange],
   );
 
   return (
@@ -353,34 +417,38 @@ export function InteractiveBlock({ block, messageId }: { block: RichInteractiveB
         <SelectInteraction
           options={block.options}
           disabled={isDisabled}
-          selectedIds={localSelectedIds}
+          selectedIds={displaySelectedIds}
           onSelect={handleSelect}
+          hideSubmit={pendingMode}
         />
       )}
       {block.interactiveType === 'multi-select' && (
         <MultiSelectInteraction
           options={block.options}
           disabled={isDisabled}
-          selectedIds={localSelectedIds}
+          selectedIds={displaySelectedIds}
           maxSelect={block.maxSelect}
           onSelect={handleSelect}
+          hideSubmit={pendingMode}
         />
       )}
       {block.interactiveType === 'card-grid' && (
         <CardGridInteraction
           options={block.options}
           disabled={isDisabled}
-          selectedIds={localSelectedIds}
+          selectedIds={displaySelectedIds}
           allowRandom={block.allowRandom}
           onSelect={handleSelect}
+          pendingMode={pendingMode}
         />
       )}
       {block.interactiveType === 'confirm' && (
         <ConfirmInteraction
           options={block.options}
           disabled={isDisabled}
-          selectedIds={localSelectedIds}
+          selectedIds={displaySelectedIds}
           onSelect={handleSelect}
+          pendingMode={pendingMode}
         />
       )}
     </div>

@@ -172,6 +172,7 @@ const richBlockSchema = z.discriminatedUnion('kind', [
     messageTemplate: z.string().optional(),
     disabled: z.boolean().optional(),
     selectedIds: z.array(z.string()).optional(),
+    groupId: z.string().min(1).optional(),
   }),
 ]);
 const createRichBlockSchema = callbackAuthSchema.extend({
