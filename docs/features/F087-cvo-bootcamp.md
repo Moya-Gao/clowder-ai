@@ -1,6 +1,6 @@
 ---
 feature_ids: [F087]
-related_features: [F059, F075, F090]
+related_features: [F059, F075, F090, F096]
 topics: [onboarding, cvo, tutorial, gamification, open-source]
 doc_kind: spec
 created: 2026-03-08
@@ -12,7 +12,7 @@ created: 2026-03-08
 > **Owner**: 布偶猫
 > **Priority**: P2
 > **Evolved from**: F059（开源计划 — clowder-ai 需要 onboarding 体验）
-> **Related**: F075（成就/排行榜系统）, F090（像素猫猫大作战）
+> **Related**: F075（成就/排行榜系统）, F090（像素猫猫大作战）, F096（可交互富文本）
 
 ## Why
 
@@ -44,6 +44,7 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 
 ```
 用户点击"引导"按钮 / 说"我是新手"
+  → Phase 0: 选择主引导猫（用户选哪只猫当主引导，考虑不同模型成本）
   → Phase 1: 猫猫天团轮流登场自我介绍（宪宪→砚砚→烁烁）
   → Phase 2: 环境检测——MCP 装了吗？配置对吗？缺什么依赖？
   → Phase 3: 猫猫主动帮用户解决配置问题（不是甩文档链接！）
@@ -56,10 +57,11 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
   → Phase 10: 回顾——猫猫带用户复盘，成就写入 F075 排行榜
 ```
 
-### 前端入口
+### 前端入口（Design Gate 2026-03-11 确认）
 
-- 首页/侧边栏加 **"新手引导"按钮**（不是独立页面，在现有聊天界面触发）
-- 点击后进入 **Bootcamp 模式**——猫猫天团集体登场
+- **Sidebar 按钮**：猫猫学士帽 SVG icon，放在 "+ 新对话" 按钮旁边（不用 emoji，自己画）
+- **空消息态 CTA**：在现有欢迎文字下方加 "第一次来？开始猫猫训练营" 引导链接
+- 点击任一入口 → 自动创建新 thread（title: "🎓 猫猫训练营"）→ 进入 Bootcamp 模式
 - 配套 Skill：`bootcamp-guide`（猫猫进入引导模式，更耐心、更多解释、主动检测环境）
 
 ### 新手任务的要求
@@ -142,17 +144,46 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 新手任务做什么项目？ | **候选菜单已收集（16 项），设计为用户自选制** |
-| OQ-2 | 训练营是在线服务还是本地 CLI 体验？ | 待讨论 |
+| OQ-2 | 训练营是在线服务还是本地 CLI 体验？ | **已决：Web 界面（现有 Chat UI 内触发），KD-7** |
 | OQ-3 | 成就系统持久化 | **已决：接入 F075 排行榜，跨 session 持久化** |
-| OQ-4 | 如何平衡"引导"和"真实体验"——太引导像假的，太自由新手迷路 | 待讨论 |
-| OQ-5 | 环境检测覆盖哪些 MCP / 依赖？ | 待讨论 |
+| OQ-4 | 如何平衡"引导"和"真实体验"——太引导像假的，太自由新手迷路 | **已决：渐进式引导——Phase 0-3 强引导，Phase 4+ 切到真实协作（KD-11）** |
+| OQ-5 | 环境检测覆盖哪些 MCP / 依赖？ | **已决：MVP 最小集 = Node.js + pnpm + Git + Claude CLI + MCP 连接状态（KD-12）** |
+
+## Design Gate（2026-03-11，铲屎官确认）
+
+**类型**：前端 UI/UX → 需要铲屎官确认 wireframe
+
+### UX Wireframe 总结（5 屏）
+
+| 屏 | 内容 | 设计要点 |
+|----|------|---------|
+| Screen 1 | 入口（Sidebar + 空消息态） | SVG 猫猫学士帽按钮放 "+ 新对话" 旁；空消息态加 CTA |
+| Screen 2 | Phase 0-1（选引导猫 + 天团登场） | 用户先选主引导猫（card-grid），然后三猫依次自我介绍 |
+| Screen 3 | Phase 2-3（环境检测 + 配置帮助） | checklist 卡片（✅/⚠️/❌），有问题猫猫主动给解法 |
+| Screen 4 | Phase 4（任务选择菜单） | card-grid 按难度分三层 + "🎲 随机抽" 按钮 |
+| Screen 5 | Phase 5+（进入真实协作） | 进度条 Rich Block + 正常猫猫协作，只是更耐心 |
+
+### 铲屎官反馈（4 点，全部采纳）
+
+1. **入口按钮自己画**（不用 emoji）→ KD-8
+2. **让用户选引导猫**（考虑模型成本差异）→ KD-9
+3. **任务菜单加随机抽** → KD-10
+4. **可交互富文本做成通用组件** → 提取为 F096 独立 Feature
+
+### 前置依赖
+
+F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Interactive Rich Blocks。F096 是 F087 的 `Blocked by` 依赖。
 
 ## Links
 
-- F059: [开源计划](/docs/features/F059-open-source-plan.md)（clowder-ai 需要 onboarding 体验）
-- F075: [猫猫排行榜](/docs/features/F075-cat-leaderboard.md)（成就系统真相源）
-- 讨论来源：Thread `thread_mmimwq9d41r9lhu8` (2026-03-08 22:30)
-- 需求纠正：Thread `thread_mmlo31do7rhj8lnp` (2026-03-10 23:51)
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Feature** | `docs/features/F059-open-source-plan.md` | clowder-ai 需要 onboarding |
+| **Feature** | `docs/features/F075-cat-leaderboard.md` | 成就系统真相源 |
+| **Feature** | `docs/features/F096-interactive-rich-blocks.md` | 可交互富文本（F087 前置依赖） |
+| **Discussion** | Thread `thread_mmimwq9d41r9lhu8` | 2026-03-08 原始讨论 |
+| **Discussion** | Thread `thread_mmlo31do7rhj8lnp` | 2026-03-10 需求纠正 |
+| **Design Gate** | Thread `thread_mmloli8kv9kelsl2` | 2026-03-11 Design Gate 讨论 |
 
 ## Key Decisions
 
@@ -165,11 +196,19 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 | KD-5 | 成就系统直接接入 F075 猫猫排行榜，不重新发明（家规 P1 终态基座） | 2026-03-10 | 铲屎官 |
 | KD-6 | 猫猫天团登场方式：轮流自我介绍（不是同时说话） | 2026-03-10 | 铲屎官 |
 | KD-7 | 前端入口：在现有聊天界面加"引导"按钮，不做独立页面 | 2026-03-10 | 铲屎官 |
+| KD-8 | 入口按钮用自绘 SVG icon（猫猫学士帽），不用 emoji；放在 "+ 新对话" 旁边 | 2026-03-11 | 铲屎官 |
+| KD-9 | 让用户选择主引导猫（宪宪/砚砚/烁烁），考虑不同模型成本差异 | 2026-03-11 | 铲屎官 |
+| KD-10 | 任务选择菜单加"随机抽"功能（骰子动画） | 2026-03-11 | 铲屎官 |
+| KD-11 | 渐进式引导：Phase 0-3 强引导（猫猫手把手），Phase 4+ 回归真实协作体验 | 2026-03-11 | 布偶猫+铲屎官 |
+| KD-12 | 环境检测 MVP 最小集：Node.js + pnpm + Git + Claude CLI + MCP 连接状态 | 2026-03-11 | 布偶猫 |
+| KD-13 | 任务选择菜单和引导猫选择使用 Interactive Rich Blocks（F096），通用可交互富文本组件 | 2026-03-11 | 铲屎官+布偶猫 |
 
 ## Dependencies
 
-- F059（开源计划）：训练营是 clowder-ai 的 onboarding 入口
-- **F075（猫猫排行榜）：成就/统计系统的真相源**
+- **Evolved from**: F059（开源计划 — clowder-ai 需要 onboarding 体验）
+- **Blocked by**: F096（Interactive Rich Blocks — 任务选择/引导猫选择需要可交互富文本）
+- **Related**: F075（猫猫排行榜 — 成就/统计系统的真相源）
+- **Related**: F090（像素猫猫大作战 — 训练营候选任务之一）
 - clowder-ai 核心框架就绪后才能做训练营
 
 ## Risk
@@ -195,3 +234,6 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 | 2026-03-08 | 铲屎官定调：菜单制 + 好玩优先 + 鼓励视觉/互动/游戏化 |
 | 2026-03-10 | 铲屎官纠正 MVP 定义：onboarding flow + 成就接入 F075 |
 | 2026-03-10 | Spec 更新：status discussion→spec，related 加 F075 |
+| 2026-03-11 | Design Gate：布偶猫出 UX wireframe（5 屏），铲屎官反馈 4 点 |
+| 2026-03-11 | KD-8~13：入口 SVG 按钮、用户选引导猫、随机抽、渐进式引导、F096 依赖 |
+| 2026-03-11 | F096 Interactive Rich Blocks 从 F087 Design Gate 讨论中提取立项 |

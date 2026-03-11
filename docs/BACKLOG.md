@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-10
+> 维护者：三猫 | 最后更新：2026-03-11
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -47,3 +47,4 @@ created: 2026-02-26
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | [F093](features/F093-cats-and-u-world-engine.md) |
 | F094 | Feature 文档债务清理 — 全量迁移到黄金模板标准 | spec | 布偶猫 | [F094](features/F094-feature-doc-debt-cleanup.md) |
 | F095 | Thread Sidebar 分组折叠状态记忆 | spec | 布偶猫 | [F095](features/F095-sidebar-collapse-memory.md) |
+| F096 | Interactive Rich Blocks — 可交互富文本组件 | spec | 布偶猫 | [F096](features/F096-interactive-rich-blocks.md) |
