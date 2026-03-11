@@ -103,3 +103,9 @@ private/
 
 # Voice audition output (F066 — generated wav files, local only)
 /voice-audition/
+
+# Large media files (GitHub 100MB limit)
+*.mov
+*.mp4
+*.avi
+*.mkv
