@@ -27,6 +27,7 @@ triggers:
 | `quality-gate` 通过 | 有本轮 gate report | BLOCKED — 先跑 quality-gate |
 | 测试全绿 | 附测试命令输出 | BLOCKED — 修到绿灯再发 |
 | 原始需求可引用 | Discussion/Interview 文档路径 + ≤5 行摘录 | BLOCKED — reviewer 有权拒绝审查 |
+| 前端改动已浏览器实测 | Playwright/Chrome 截图证据 | BLOCKED — 涉及前端必须真实打开浏览器验证 |
 
 > **教训（F041）**：review 信只附了 spec，没附原始 Discussion。结果 10 轮云端 review 全在抓 edge case，没有一轮说"UI 不可用"。Reviewer 没有上下文，无法做愿景验证。
 
