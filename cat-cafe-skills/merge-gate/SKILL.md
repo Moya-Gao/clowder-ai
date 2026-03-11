@@ -1,7 +1,7 @@
 ---
 name: merge-gate
 description: >
-  合入 main 的完整流程：门禁检查 → PR → 云端 review → squash merge → 清理。
+  合入 main 的完整流程：门禁检查 → PR → 云端 review → squash merge → Phase 文档同步 → 清理。
   Use when: reviewer 放行后准备合入、开 PR、触发云端 review、准备 merge。
   Not for: 开发中、review 未通过、自检未完成。
   Output: PR merged + worktree cleaned。
@@ -86,6 +86,9 @@ gh pr comment {PR_NUMBER} --body "$TRIGGER_COMMENT_BODY"
 # 7. Squash merge（GitHub 处理，禁止本地 squash！）
 gh pr merge {PR_NUMBER} --squash --delete-branch
 
+# 7.5 Phase 文档同步（每次 merge 必做！）🔴
+# → 见下方「Phase 文档同步」章节
+
 # 8. 更新本地 + 清理
 git checkout main && git pull origin main
 git worktree remove ../cat-cafe-{feature-name}
@@ -101,6 +104,32 @@ git branch -d {branch-name} && git worktree prune
 | P1/P2 无复现证据 | 降级 P3，留 comment，视为通过 |
 | 误报 | 留 comment 解释，视为通过 |
 
+### Phase 文档同步（Step 7.5）🔴
+
+**为什么在 merge-gate 而不是 feat-lifecycle close**：一个 Feature 拆 N 个 Phase/PR，如果等 close 才更新文档，中间所有 session 冷启动读到的都是过时状态。**每次 merge 都是一次增量文档同步。**
+
+**流程**：
+
+1. **识别 Feature**：从 PR title/branch name 提取 `F{NNN}`（如 `feat/f088-phase-c`）
+   - 没有 Feature ID → 跳过（纯 TD/hotfix 不需要）
+
+2. **更新 feature doc** `docs/features/F{NNN}-*.md`：
+   - **Phase 状态**：本 PR 对应的 Phase 标记从 📋/🚧 → ✅
+   - **AC 打勾**：本 PR 实际完成的 AC 项 `[ ]` → `[x]`
+   - **Timeline**：加一行 `| {YYYY-MM-DD} | Phase {X} merged (PR #{N}) |`
+   - **Status 行**：如果是第一个 Phase 完成，`spec` → `in-progress`
+   - **不做**：不动 Dependencies/Risk/Links 等（那些是 kickoff/completion 的事）
+
+3. **Commit**：`docs(F{NNN}): sync phase progress after PR #{N} merge`
+   - 如果 merge 在 worktree 清理前完成，在 main 上直接 commit
+   - 这是文档同步，不需要走 review
+
+**检查清单**：
+- [ ] Feature doc 里本 Phase 标 ✅
+- [ ] 相关 AC 打勾
+- [ ] Timeline 有 merge 记录
+- [ ] Status 行与实际进度一致
+
 ## Quick Reference
 
 | 条件 | 检查方式 |
@@ -109,6 +138,7 @@ git branch -d {branch-name} && git worktree prune
 | P1/P2 清零？ | 检查 review 记录 |
 | BACKLOG 更新？ | `grep '\[x\]' docs/BACKLOG.md` |
 | 云端通过？ | `gh pr checks {PR}` |
+| Phase 文档同步？ | feature doc Phase ✅ + AC 打勾 + Timeline 有记录 |
 
 ## Common Mistakes
 
@@ -122,6 +152,7 @@ git branch -d {branch-name} && git worktree prune
 | 本地 `git rebase -i` 手动 squash | 用 `gh pr merge --squash`（GitHub 处理） |
 | 本地 merge 后 `gh pr close` | `gh pr close` = 放弃，`gh pr merge` = 合入 |
 | 不等云端 review 直接合入 | 必须等 0 P1/P2 |
+| Merge 后不更新 feature doc | Step 7.5 Phase 文档同步（每次 merge 必做！） |
 
 ### **⚠️⚠️ 反面案例（PR #160）— 必须记住**
 
