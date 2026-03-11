@@ -262,6 +262,59 @@ describe('ActivityTracker', () => {
 		});
 	});
 
+	describe('settings (AC28+AC31)', () => {
+		it('returns default settings for new user', () => {
+			const s = tracker.getSettings(USER);
+			assert.deepEqual(s, { enabled: true, thresholdMinutes: 90 });
+		});
+
+		it('updates enabled flag', () => {
+			tracker.updateSettings(USER, { enabled: false });
+			assert.equal(tracker.getSettings(USER).enabled, false);
+		});
+
+		it('updates threshold', () => {
+			tracker.updateSettings(USER, { thresholdMinutes: 60 });
+			assert.equal(tracker.getSettings(USER).thresholdMinutes, 60);
+		});
+
+		it('shouldTrigger returns 0 when disabled', () => {
+			tracker.updateSettings(USER, { enabled: false });
+			simulateWork(USER, T0, 120);
+			assert.equal(tracker.shouldTrigger(USER), 0);
+		});
+
+		it('shouldTrigger uses custom threshold from settings', () => {
+			tracker.updateSettings(USER, { thresholdMinutes: 60 });
+			simulateWork(USER, T0, 60);
+			assert.equal(tracker.shouldTrigger(USER), 1);
+			// Would be 0 at default 90min threshold
+		});
+
+		it('rejects threshold below 30', () => {
+			const result = tracker.updateSettings(USER, { thresholdMinutes: 10 });
+			assert.equal('error' in result, true);
+		});
+
+		it('rejects threshold above 240', () => {
+			const result = tracker.updateSettings(USER, { thresholdMinutes: 300 });
+			assert.equal('error' in result, true);
+		});
+
+		it('rejects non-number threshold', () => {
+			const result = tracker.updateSettings(USER, { thresholdMinutes: /** @type {any} */ ('abc') });
+			assert.equal('error' in result, true);
+		});
+
+		it('rejects non-boolean enabled (P1: string "false" must not coerce to true)', () => {
+			const result = tracker.updateSettings(USER, { enabled: /** @type {any} */ ('false') });
+			assert.equal('error' in result, true);
+			// Ensure settings unchanged
+			const settings = tracker.getSettings(USER);
+			assert.equal(settings.enabled, true);
+		});
+	});
+
 	describe('isolation between users', () => {
 		it('tracks users independently', () => {
 			simulateWork('user-a', T0, 90);

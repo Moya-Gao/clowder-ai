@@ -89,7 +89,10 @@ function playAudio(url: string, messageId: string): void {
   audio.onerror = () => {
     if (currentAudio === audio) emit({ state: 'error', activeMessageId: messageId });
   };
-  audio.play();
+  audio.play().catch(() => {
+    // Browser autoplay policy blocked — transition to error so fallback UI shows
+    if (currentAudio === audio) emit({ state: 'error', activeMessageId: messageId });
+  });
 }
 
 function synthesize(messageId: string, text: string, catId?: string): void {

@@ -18,6 +18,7 @@ import { resolveAnthropicRuntimeProfile } from './config/provider-profiles.js';
 import { resolveProviderProfilesRoot } from './config/provider-profiles-root.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
+import { resolveUserId } from './utils/request-identity.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
 import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
 import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
@@ -205,20 +206,17 @@ async function main(): Promise<void> {
 
   // F085 Phase 4: Platform-level activity tracker (hyperfocus brake)
   const activityTracker = new ActivityTracker();
-  const brakeThresholdMs = parseInt(process.env['HYPERFOCUS_THRESHOLD_MS'] ?? `${90 * 60_000}`, 10);
   app.addHook('onRequest', (request, _reply, done) => {
     // Skip non-API paths and brake endpoints (avoid trigger-on-checkin loop)
     if (!request.url.startsWith('/api/') || request.url.startsWith('/api/brake/')) {
       done();
       return;
     }
-    const userId =
-      (typeof request.headers['x-cat-cafe-user'] === 'string' && request.headers['x-cat-cafe-user'].trim()) ||
-      (request.query as Record<string, unknown>)?.['userId'] as string ||
-      null;
+    const userId = resolveUserId(request);
     if (userId) {
       activityTracker.recordActivity(userId);
-      const level = activityTracker.shouldTrigger(userId, brakeThresholdMs);
+      // shouldTrigger reads per-user settings (enabled + threshold) internally
+      const level = activityTracker.shouldTrigger(userId);
       if (level > 0 && socketManager) {
         activityTracker.markTriggered(userId, level as 1 | 2 | 3);
         socketManager.emitToUser(userId, 'brake:trigger', {

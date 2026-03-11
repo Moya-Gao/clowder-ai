@@ -87,10 +87,10 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 
 **Gap**: Phase 4 把提醒迁到了前端，但 UX 仍是朴素的：没有语音（之前裁出的 TD108）、没有猫猫图片、没有开关。铲屎官想要：(1) Hub 里能开关 brake，(2) 弹窗时猫猫语音自动播放，(3) 弹窗里有猫猫图片增加情感。
 
-- [ ] **AC28**: Hub 开关 — Hub Settings 新增 Brake 面板，含 enable/disable toggle + 阈值调节（默认 90min）
-- [ ] **AC29**: 前端 TTS 自动播放 — brake 弹窗弹出时，用 `useTts.synthesize()` 自动播放当前猫的撒娇语音（回收 TD108）
-- [ ] **AC30**: 猫猫图片增强 — brake 弹窗内三猫头像从 36px 放大 + 增加猫猫表情/动作图片（撒娇、睡觉、叉腰），提升情感冲击力
-- [ ] **AC31**: 配置持久化 — brake 开关状态 + 阈值通过 API 持久化到用户配置，刷新/切标签页不丢失
+- [x] **AC28**: Hub 开关 — Hub Settings 新增 Brake 面板，含 enable/disable toggle + 阈值调节（默认 90min）
+- [x] **AC29**: 前端 TTS 自动播放 — brake 弹窗弹出时，用 `useTts.synthesize()` 自动播放当前猫的撒娇语音（回收 TD108）
+- [x] **AC30**: 猫猫图片增强 — brake 弹窗内三猫头像从 36px 放大 + 增加猫猫表情/动作图片（撒娇、睡觉、叉腰），提升情感冲击力
+- [ ] **AC31**: 配置持久化 — brake 开关状态 + 阈值通过 API 持久化到用户配置，刷新/切标签页不丢失（当前 in-memory，浏览器刷新不丢但服务重启丢失，真持久化待后续）
 
 ## Links
 
@@ -139,7 +139,7 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 - [x] Phase 1: 砚砚 Codex review hook 安全性 (R1-R4 本地 + R1-R2 云端, PR #329)
 - [x] Phase 2+3: 砚砚 Codex review LGTM (0 P1/P2, P3 补测试已修)
 - [x] Phase 4: 砚砚 Codex 本地 R1-R2 (2P1+1P2 全修) + 云端 R1-R2 (1P1 全修, LGTM)
-- [ ] Phase 5: TBD
+- [x] Phase 5: 砚砚 Codex 本地 R1 (2P1+1P2 全修) + R2 LGTM (0 P1/P2)
 
 ## Timeline
 
@@ -162,6 +162,8 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 | 2026-03-10 | Phase 4 合入 main (PR #347, `e959f061`) |
 | 2026-03-10 | AC25/AC27 裁出为 TD108/TD109，Feature close |
 | 2026-03-11 | Phase 5 立项: Brake UX 增强（Hub 开关 + TTS 播放 + 猫猫图片），Feature reopen |
+| 2026-03-11 | Phase 5 实现: BrakeSettings API + BrakeSettingsPanel + TTS autoplay + cat expression emoji |
+| 2026-03-11 | Codex 本地 R1 (2P1+1P2 全修) + R2 LGTM |
 
 ## 需求点 Checklist
 

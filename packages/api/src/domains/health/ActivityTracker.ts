@@ -2,7 +2,7 @@
  * F085 Phase 4 — ActivityTracker
  * 平台级活跃时长追踪：per-user in-memory state, 5min gap detection.
  */
-import type { BrakeCheckinResponse, BrakeState } from '@cat-cafe/shared';
+import type { BrakeCheckinResponse, BrakeSettings, BrakeState } from '@cat-cafe/shared';
 
 const GAP_THRESHOLD_MS = 5 * 60_000; // 5 minutes = break
 const BYPASS_WINDOW_MS = 4 * 60 * 60_000; // 4h window for bypass escalation (AC13)
@@ -29,6 +29,33 @@ function defaultState(): InternalState {
 
 export class ActivityTracker {
 	private states = new Map<string, InternalState>();
+	private settings = new Map<string, BrakeSettings>();
+
+	private static defaultSettings(): BrakeSettings {
+		return { enabled: true, thresholdMinutes: 90 };
+	}
+
+	getSettings(userId: string): BrakeSettings {
+		return this.settings.get(userId) ?? ActivityTracker.defaultSettings();
+	}
+
+	updateSettings(userId: string, patch: Partial<BrakeSettings>): BrakeSettings | { error: string } {
+		const current = { ...this.getSettings(userId) };
+		if (patch.thresholdMinutes !== undefined) {
+			if (typeof patch.thresholdMinutes !== 'number' || patch.thresholdMinutes < 30 || patch.thresholdMinutes > 240) {
+				return { error: 'thresholdMinutes must be 30–240' };
+			}
+			current.thresholdMinutes = patch.thresholdMinutes;
+		}
+		if (patch.enabled !== undefined) {
+			if (typeof patch.enabled !== 'boolean') {
+				return { error: 'enabled must be a boolean' };
+			}
+			current.enabled = patch.enabled;
+		}
+		this.settings.set(userId, current);
+		return current;
+	}
 
 	getState(userId: string): BrakeState {
 		const s = this.states.get(userId);
@@ -80,9 +107,16 @@ export class ActivityTracker {
 	 * Returns 0 if dismissed OR if same level was already triggered (dedup).
 	 * @returns 0 = no trigger, 1/2/3 = L1/L2/L3
 	 */
-	shouldTrigger(userId: string, thresholdMs: number = 90 * 60_000): 0 | 1 | 2 | 3 {
+	shouldTrigger(userId: string, thresholdMs?: number): 0 | 1 | 2 | 3 {
+		const settings = this.getSettings(userId);
+		if (!settings.enabled) return 0;
+
 		const state = this.states.get(userId);
 		if (!state || state.dismissed) return 0;
+
+		if (thresholdMs === undefined) {
+			thresholdMs = settings.thresholdMinutes * 60_000;
+		}
 
 		const ms = state.activeWorkMs;
 		let level: 0 | 1 | 2 | 3 = 0;

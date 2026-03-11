@@ -25,6 +25,12 @@ export interface BrakeCheckinResponse {
   bypassDisabled?: boolean;
 }
 
+/** User-configurable brake settings (GET/PUT /api/brake/settings) */
+export interface BrakeSettings {
+  enabled: boolean;          // default: true
+  thresholdMinutes: number;  // default: 90, range: 30–240
+}
+
 /** Internal state per user (also exposed via GET /api/brake/state) */
 export interface BrakeState {
   activeWorkMs: number;

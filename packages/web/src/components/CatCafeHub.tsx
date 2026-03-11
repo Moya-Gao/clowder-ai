@@ -14,6 +14,7 @@ import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
 import { HubProviderProfilesTab } from './HubProviderProfilesTab';
 import { HubGovernanceTab } from './HubGovernanceTab';
+import { BrakeSettingsPanel } from './BrakeSettingsPanel';
 import { useCatData } from '@/hooks/useCatData';
 
 // F032 P2: HubTabId now uses string for dynamic cat tabs
@@ -32,6 +33,7 @@ const HUB_TABS: { id: HubTabId; label: string }[] = [
   { id: 'notify', label: '通知' },
   { id: 'strategy', label: 'Session 策略' },
   { id: 'governance', label: '治理看板' },
+  { id: 'health', label: '健康' },
 ];
 
 export function resolveRequestedHubTab(
@@ -158,6 +160,7 @@ export function CatCafeHub() {
           {tab === 'notify' && <PushSettingsPanel />}
           {tab === 'strategy' && <HubStrategyTab />}
           {tab === 'governance' && <HubGovernanceTab />}
+          {tab === 'health' && <BrakeSettingsPanel />}
         </div>
       </div>
     </div>

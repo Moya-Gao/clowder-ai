@@ -320,5 +320,6 @@ export type {
 	BrakeCheckinRequest,
 	BrakeCheckinResponse,
 	BrakeEvent,
+	BrakeSettings,
 	BrakeState,
 } from './brake.js';
