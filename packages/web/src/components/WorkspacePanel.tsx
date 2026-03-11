@@ -644,6 +644,18 @@ export function WorkspacePanel() {
                   </button>
                 )}
 
+                {file?.content != null && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(file.content);
+                    }}
+                    className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                    title={file.truncated ? "复制已加载内容（文件已截断，非完整全文）" : "复制文件全文"}
+                  >
+                    {file.truncated ? "Copy…" : "Copy"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
