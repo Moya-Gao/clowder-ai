@@ -1,6 +1,6 @@
 ---
 feature_ids: [F097]
-related_features: [F009, F081, F071, F096]
+related_features: [F009, F056, F081, F071, F096]
 topics: [ux, frontend, chat-bubble, collapsible, cli-output, tool-events]
 doc_kind: spec
 created: 2026-03-11
@@ -97,9 +97,16 @@ Before:                              After:
 
 **状态枚举**：`进行中 | 已完成 | 失败 | 已中断`（摘要行、active row 高亮、auto-collapse 条件共用）
 
-**可见性 chip**：
+**可见性 chip**（遵循 F056 猫猫设计语言）：
 - 来源：thread `thinkingMode`（不是 `message.whisper`）
-- 文案：`共享给其他猫 👁` / `不共享给其他猫 🔒`
+- 规则：
+  - `thinkingMode = shared` → `共享给其他猫` + 猫爪 SVG icon（表示"其他猫能看到"）
+  - `thinkingMode = private`（或未设置）→ `不共享给其他猫`（低调灰文本，无特殊 icon）
+- **图标规范**：全部使用 SVG icon，禁止 emoji（F056 KD-8 + 四大宪章"猫咖隐喻：不堆砌猫 emoji"）
+  - Tool 行前缀：Lucide `wrench` SVG（替代 🔧 emoji）
+  - 状态完成：Lucide `check` SVG（替代 ✓/✅ 文本）
+  - 折叠箭头：Lucide `chevron-right` / `chevron-down`（替代 ▶/▼ 文本）
+  - 共享可见性：猫爪 SVG（F056 Paw Pads 设计语言）
 - 位置：header / collapsed summary 行（收起后也必须可见），不放 panel 内右下角
 - 若消息本身是 whisper → 单独挂 `悄悄话` badge，不与可见性 chip 合并
 
@@ -141,7 +148,7 @@ Before:                              After:
 ## Dependencies
 
 - **Evolved from**: F009（tool_use/tool_result 显示）、F081（气泡连续性）
-- **Related**: F071（UX debt batch）、F096（Interactive Rich Blocks）
+- **Related**: F056（猫猫设计语言 — icon/token 规范）、F071（UX debt batch）、F096（Interactive Rich Blocks）
 
 ## Risk
 
@@ -173,6 +180,7 @@ Before:                              After:
 | KD-7 | 可见性来源 thinkingMode 不是 whisper | whisper 消息级 vs thinkingMode thread 级，层级不同 | 2026-03-11 |
 | KD-8 | Phase A 不做时序穿插，不合并 callback+stream | 后端数据模型不支持，Phase B 再补 | 2026-03-11 |
 | KD-9 | CliOutputBlock 接口面向终态（统一 CliEvent[] 时序流） | 家规 P1：终态基座不是脚手架。Phase A 前端适配，Phase B 零组件改动 | 2026-03-11 |
+| KD-10 | 全部 SVG icon，禁止 emoji | F056 四大宪章"猫咖隐喻：不堆砌猫 emoji" + KD-8 禁硬编码。共享可见性用猫爪 SVG | 2026-03-11 |
 
 ## Timeline
 
