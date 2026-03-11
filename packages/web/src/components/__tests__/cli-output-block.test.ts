@@ -51,8 +51,8 @@ describe('CliOutputBlock', () => {
       );
     });
     const text = container.textContent ?? '';
-    expect(text).toContain('CLI 输出');
-    expect(text).toContain('已完成');
+    expect(text).toContain('CLI Output');
+    expect(text).toContain('done');
     // 1 tool_use event → "1 tools"
     expect(text).toMatch(/1 tool/);
   });
@@ -76,7 +76,7 @@ describe('CliOutputBlock', () => {
     expect(container.textContent).toContain('Read index.ts');
   });
 
-  it('streaming status → always expanded, summary says 进行中', () => {
+  it('streaming status → always expanded, summary says streaming', () => {
     act(() => {
       root.render(
         React.createElement(CliOutputBlock, {
@@ -86,7 +86,7 @@ describe('CliOutputBlock', () => {
       );
     });
     const text = container.textContent ?? '';
-    expect(text).toContain('进行中');
+    expect(text).toContain('streaming');
     expect(text).toContain('Bash pnpm test');
   });
 
@@ -100,7 +100,7 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    expect(container.textContent).toContain('共享给其他猫');
+    expect(container.textContent).toContain('shared');
   });
 
   it('shows private label when thinkingMode=play', () => {
@@ -113,7 +113,7 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    expect(container.textContent).toContain('不共享给其他猫');
+    expect(container.textContent).toContain('private');
   });
 
   it('returns null when no events', () => {
@@ -181,7 +181,7 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    expect(container.textContent).toContain('失败');
+    expect(container.textContent).toContain('failed');
   });
 
   // ── P1-1: per-tool collapse (AC-A2) ──
@@ -358,7 +358,7 @@ describe('CliOutputBlock', () => {
   });
 
   // ── P2-5: visibility chip always shown ──
-  it('shows "不共享给其他猫" when thinkingMode is undefined', () => {
+  it('shows "private" when thinkingMode is undefined', () => {
     act(() => {
       root.render(
         React.createElement(CliOutputBlock, {
@@ -368,6 +368,6 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    expect(container.textContent).toContain('不共享给其他猫');
+    expect(container.textContent).toContain('private');
   });
 });

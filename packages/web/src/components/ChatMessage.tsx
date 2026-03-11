@@ -2,22 +2,22 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useChatStore, type ChatMessage as ChatMessageType, type MessageContent } from '@/stores/chatStore';
+import type { CatData } from '@/hooks/useCatData';
+import { type TtsState, useTts } from '@/hooks/useTts';
+import { hexToRgba } from '@/lib/color-utils';
+import { type ChatMessage as ChatMessageType, type MessageContent, useChatStore } from '@/stores/chatStore';
+import { API_URL } from '@/utils/api-client';
 import { CatAvatar } from './CatAvatar';
+import { ConnectorBubble } from './ConnectorBubble';
 import { CliOutputBlock } from './cli-output/CliOutputBlock';
 import { toCliEvents } from './cli-output/toCliEvents';
-import { ConnectorBubble } from './ConnectorBubble';
 import { EvidencePanel } from './EvidencePanel';
+import { Lightbox } from './Lightbox';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { RichBlocks } from './rich/RichBlocks';
 import { SummaryCard } from './SummaryCard';
 import { ThinkingContent } from './ThinkingContent';
-import { useTts, type TtsState } from '@/hooks/useTts';
-import type { CatData } from '@/hooks/useCatData';
-import { hexToRgba } from '@/lib/color-utils';
-import { API_URL } from '@/utils/api-client';
-import { Lightbox } from './Lightbox';
 
 /** Breed-level aesthetics — only changes when a new BREED is added */
 const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
@@ -37,9 +37,7 @@ function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
           return <MarkdownContent key={i} content={block.text} />;
         }
         if (block.type === 'image') {
-          const src = block.url.startsWith('/uploads/')
-            ? `${API_URL}${block.url}`
-            : block.url;
+          const src = block.url.startsWith('/uploads/') ? `${API_URL}${block.url}` : block.url;
           return (
             // biome-ignore lint/performance/noImgElement: uploaded images cannot use next/image
             <img
@@ -53,9 +51,7 @@ function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
         }
         return null;
       })}
-      {lightboxSrc && (
-        <Lightbox url={lightboxSrc} alt="attached image" onClose={() => setLightboxSrc(null)} />
-      )}
+      {lightboxSrc && <Lightbox url={lightboxSrc} alt="attached image" onClose={() => setLightboxSrc(null)} />}
     </>
   );
 }
@@ -66,9 +62,19 @@ function formatTime(ts: number): string {
 }
 
 /** F34: Tiny TTS play button for cat messages */
-function TtsPlayButton({ messageId, text, catId, ttsState, activeMessageId, onSynthesize }: {
-  messageId: string; text: string; catId: string;
-  ttsState: TtsState; activeMessageId: string | null;
+function TtsPlayButton({
+  messageId,
+  text,
+  catId,
+  ttsState,
+  activeMessageId,
+  onSynthesize,
+}: {
+  messageId: string;
+  text: string;
+  catId: string;
+  ttsState: TtsState;
+  activeMessageId: string | null;
   onSynthesize: (messageId: string, text: string, catId?: string) => void;
 }) {
   const isActive = activeMessageId === messageId;
@@ -117,21 +123,23 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
 
   // Dynamic cat data lookup — works for any catId in cat-config.json
   const catData = message.catId ? getCatById(message.catId) : undefined;
-  const catStyle = catData ? (() => {
-    const breed = BREED_STYLES[catData.breedId ?? ''] ?? DEFAULT_BREED_STYLE;
-    const idLabel = catData.id.charAt(0).toUpperCase() + catData.id.slice(1);
-    const label = catData.variantLabel
-      ? `${catData.displayName}（${catData.variantLabel}）`
-      : `${catData.displayName}（${idLabel}）`;
-    return {
-      label,
-      radius: breed.radius,
-      font: breed.font,
-      bgColor: catData.color.secondary,
-      borderColor: hexToRgba(catData.color.primary, 0.3),
-    };
-  })() : null;
-  const currentThread = useChatStore((s) => s.threads.find(t => t.id === s.currentThreadId));
+  const catStyle = catData
+    ? (() => {
+        const breed = BREED_STYLES[catData.breedId ?? ''] ?? DEFAULT_BREED_STYLE;
+        const idLabel = catData.id.charAt(0).toUpperCase() + catData.id.slice(1);
+        const label = catData.variantLabel
+          ? `${catData.displayName}（${catData.variantLabel}）`
+          : `${catData.displayName}（${idLabel}）`;
+        return {
+          label,
+          radius: breed.radius,
+          font: breed.font,
+          bgColor: catData.color.secondary,
+          borderColor: hexToRgba(catData.color.primary, 0.3),
+        };
+      })()
+    : null;
+  const currentThread = useChatStore((s) => s.threads.find((t) => t.id === s.currentThreadId));
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
   const hasTextContent = message.content.trim().length > 0;
   const isWhisper = message.visibility === 'whisper';
@@ -139,10 +147,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
 
   // F097: CLI Output Block — merge tool events + stream content into unified CliEvent[]
   const isStreamOrigin = message.origin === 'stream';
-  const cliEvents = toCliEvents(
-    message.toolEvents,
-    isStreamOrigin ? message.content : undefined,
-  );
+  const cliEvents = toCliEvents(message.toolEvents, isStreamOrigin ? message.content : undefined);
   const hasCliBlock = cliEvents.length > 0;
   const cliStatus = message.isStreaming
     ? ('streaming' as const)
@@ -179,20 +184,16 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
     const toneClass = isTool
       ? 'text-gray-400 bg-gray-50/50 font-mono text-xs py-1'
       : isFollowup
-      ? 'text-purple-700 bg-purple-50 border border-purple-200'
-      : isError
-      ? 'text-red-500 bg-red-50 rounded-full'
-      : 'text-blue-700 bg-blue-50';
+        ? 'text-purple-700 bg-purple-50 border border-purple-200'
+        : isError
+          ? 'text-red-500 bg-red-50 rounded-full'
+          : 'text-blue-700 bg-blue-50';
     return (
       <div data-message-id={message.id} className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
         <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${toneClass}`}>
           {isFollowup && <span className="mr-1">🔗</span>}
           {message.content}
-          {isFollowup && (
-            <span className="block mt-1 text-xs text-purple-500">
-              输入 @猫名 跟进 来发起 follow-up
-            </span>
-          )}
+          {isFollowup && <span className="block mt-1 text-xs text-purple-500">输入 @猫名 跟进 来发起 follow-up</span>}
         </div>
       </div>
     );
@@ -208,18 +209,22 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         <div className="max-w-[75%]">
           <div className="flex justify-end items-center gap-2 mb-1">
             {isWhisper && (
-              <span className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}>
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}
+              >
                 {isRevealed ? '已揭秘' : `悄悄话 → ${message.whisperTo?.join(', ') ?? ''}`}
               </span>
             )}
             <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
             <span className="text-xs font-semibold text-owner-dark">铲屎官</span>
           </div>
-          <div className={`rounded-2xl rounded-br-sm px-4 py-3 transition-transform hover:-translate-y-0.5 ${
-            isWhisper && !isRevealed
-              ? 'bg-amber-50 text-amber-900 border border-dashed border-amber-300'
-              : 'bg-owner-light text-owner-dark'
-          }`}>
+          <div
+            className={`rounded-2xl rounded-br-sm px-4 py-3 transition-transform hover:-translate-y-0.5 ${
+              isWhisper && !isRevealed
+                ? 'bg-amber-50 text-amber-900 border border-dashed border-amber-300'
+                : 'bg-owner-light text-owner-dark'
+            }`}
+          >
             {hasBlocks ? (
               <ContentBlocks blocks={message.contentBlocks!} />
             ) : (
@@ -256,7 +261,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               </span>
               <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
               {isWhisper && (
-                <span className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}>
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}
+                >
                   {isRevealed ? '已揭秘' : '悄悄话'}
                 </span>
               )}
@@ -271,38 +278,48 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 />
               )}
             </div>
-            {message.extra?.crossPost && (() => {
-              const sourceId = message.extra.crossPost!.sourceThreadId;
-              const sourceName = threads.find((t) => t.id === sourceId)?.title ?? '未命名对话';
-              const shortId = sourceId.replace(/^thread_/, '').slice(0, 8);
-              const senderLabel = catStyle?.label;
-              return (
-                <a
-                  href={`/thread/${sourceId}`}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/thread/${sourceId}`); }}
-                  className="inline-flex items-center gap-1.5 border px-3 py-1 rounded-full bg-[#FDF6ED] border-[#E8DCCF] text-[#8D6E63] hover:bg-[#F5EDE0] transition-colors cursor-pointer w-fit max-w-full"
-                  title={sourceId}
-                  aria-label={`跳转到来源 thread ${sourceId}`}
-                >
-                  <span className="text-[10px] font-semibold" aria-hidden>📮</span>
-                  <span className="min-w-0 truncate">
-                    {senderLabel && <span className="font-medium">{senderLabel} · </span>}{shortId} · {sourceName}
-                  </span>
-                </a>
-              );
-            })()}
+            {message.extra?.crossPost &&
+              (() => {
+                const sourceId = message.extra.crossPost!.sourceThreadId;
+                const sourceName = threads.find((t) => t.id === sourceId)?.title ?? '未命名对话';
+                const shortId = sourceId.replace(/^thread_/, '').slice(0, 8);
+                const senderLabel = catStyle?.label;
+                return (
+                  <a
+                    href={`/thread/${sourceId}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      router.push(`/thread/${sourceId}`);
+                    }}
+                    className="inline-flex items-center gap-1.5 border px-3 py-1 rounded-full bg-[#FDF6ED] border-[#E8DCCF] text-[#8D6E63] hover:bg-[#F5EDE0] transition-colors cursor-pointer w-fit max-w-full"
+                    title={sourceId}
+                    aria-label={`跳转到来源 thread ${sourceId}`}
+                  >
+                    <span className="text-[10px] font-semibold" aria-hidden>
+                      📮
+                    </span>
+                    <span className="min-w-0 truncate">
+                      {senderLabel && <span className="font-medium">{senderLabel} · </span>}
+                      {shortId} · {sourceName}
+                    </span>
+                  </a>
+                );
+              })()}
           </div>
         )}
         <div
           className={`border px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
-            catStyle
-              ? `${catStyle.radius} ${catStyle.font ?? ''}`
-              : 'bg-white border-gray-200 rounded-2xl'
+            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200 rounded-2xl'
           }`}
-          style={catStyle ? {
-            backgroundColor: catStyle.bgColor,
-            borderColor: catStyle.borderColor,
-          } : undefined}
+          style={
+            catStyle
+              ? {
+                  backgroundColor: catStyle.bgColor,
+                  borderColor: catStyle.borderColor,
+                }
+              : undefined
+          }
         >
           {/* F097: Content first, then Thinking (reasoning before execution), then CLI output */}
           {/* 1. Content — callback messages or non-stream text shown as normal content */}
@@ -315,7 +332,14 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           ) : null}
           {/* 2. 🧠 Thinking — reasoning happens before tool execution (AC-A3) */}
           {message.thinking && (
-            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={uiThinkingExpandedByDefault} expandInExport={false} />
+            <ThinkingContent
+              content={message.thinking}
+              className={catStyle?.font}
+              label="Thinking"
+              defaultExpanded={uiThinkingExpandedByDefault}
+              expandInExport={false}
+              breedColor={catData?.color.primary}
+            />
           )}
           {/* 3. CLI Output Block — tools + stream content merged */}
           {hasCliBlock && (
@@ -334,9 +358,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
           )}
         </div>
-        {!message.isStreaming && message.metadata && (
-          <MetadataBadge metadata={message.metadata} />
-        )}
+        {!message.isStreaming && message.metadata && <MetadataBadge metadata={message.metadata} />}
       </div>
     </div>
   );

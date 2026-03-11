@@ -127,10 +127,10 @@ function breedDividerColor(hex: string | undefined): string {
 /* ── Status helpers ── */
 
 const STATUS_LABEL: Record<CliStatus, string> = {
-  streaming: '进行中',
-  done: '已完成',
-  failed: '失败',
-  interrupted: '已中断',
+  streaming: 'streaming',
+  done: 'done',
+  failed: 'failed',
+  interrupted: 'interrupted',
 };
 
 function formatDuration(ms: number): string {
@@ -152,17 +152,17 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
 
   if (status === 'streaming') {
     const last = [...events].reverse().find((e) => e.kind === 'tool_use');
-    return `CLI 输出 · ${statusLabel}${last ? ` · ${last.label}...` : ''}`;
+    return `CLI Output · ${statusLabel}${last ? ` · ${last.label}...` : ''}`;
   }
 
   if (toolCount > 0) {
-    return `CLI 输出 · ${statusLabel} · ${toolCount} tool${toolCount > 1 ? 's' : ''}${duration}`;
+    return `CLI Output · ${statusLabel} · ${toolCount} tool${toolCount > 1 ? 's' : ''}${duration}`;
   }
 
   const lineCount = events
     .filter((e) => e.kind === 'text')
     .reduce((n, e) => n + (e.content?.split('\n').length ?? 0), 0);
-  return `CLI 输出 · ${statusLabel} · ${lineCount} line${lineCount !== 1 ? 's' : ''}${duration}`;
+  return `CLI Output · ${statusLabel} · ${lineCount} line${lineCount !== 1 ? 's' : ''}${duration}`;
 }
 
 /* ── Tool row (individually collapsible — AC-A2) ── */
@@ -247,7 +247,7 @@ function ToolsSection({
         }}
       >
         <ChevronIcon expanded={toolsExpanded} />
-        <span>{toolsExpanded ? toolSummary : `${toolSummary}（已折叠）`}</span>
+        <span>{toolsExpanded ? toolSummary : `${toolSummary} (collapsed)`}</span>
       </button>
       {toolsExpanded && (
         <div className="space-y-0.5">
@@ -344,7 +344,7 @@ export function CliOutputBlock({
         className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors"
         style={{ backgroundColor: darkBg }}
       >
-        <span className="text-violet-600">
+        <span style={{ color: breedColor || '#7C3AED' }}>
           <ChevronIcon expanded={expanded} />
         </span>
         <span className="font-medium">{summary}</span>
@@ -352,10 +352,10 @@ export function CliOutputBlock({
           {thinkingMode === 'debug' ? (
             <>
               <PawPrint />
-              <span>共享给其他猫</span>
+              <span>shared</span>
             </>
           ) : (
-            <span>不共享给其他猫</span>
+            <span>private</span>
           )}
         </span>
       </button>
