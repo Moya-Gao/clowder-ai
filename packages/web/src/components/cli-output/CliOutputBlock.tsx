@@ -196,14 +196,14 @@ function ToolsSection({
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-3 py-1 text-[10px] text-slate-400 hover:text-slate-300 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-300 hover:bg-slate-700/30 transition-colors rounded"
         onClick={() => {
           setToolsExpanded((v) => !v);
           onUserInteract();
         }}
       >
         <ChevronIcon expanded={toolsExpanded} />
-        <span>{toolSummary}</span>
+        <span>{toolsExpanded ? toolSummary : `${toolSummary}（已折叠）`}</span>
       </button>
       {toolsExpanded && (
         <div className="space-y-0.5">
