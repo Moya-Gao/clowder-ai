@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FeatureDocDetail } from '@cat-cafe/shared';
+import { apiFetch } from '../utils/api-client';
 
 export function useFeatureDocDetail(featureId: string | null): {
   detail: FeatureDocDetail | null;
@@ -19,7 +20,7 @@ export function useFeatureDocDetail(featureId: string | null): {
     setLoading(true);
     setError(null);
 
-    fetch(`/api/backlog/feature-doc-detail?featureId=${encodeURIComponent(featureId)}`)
+    apiFetch(`/api/backlog/feature-doc-detail?featureId=${encodeURIComponent(featureId)}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
