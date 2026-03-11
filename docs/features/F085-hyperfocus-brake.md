@@ -164,6 +164,8 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 | 2026-03-11 | Phase 5 立项: Brake UX 增强（Hub 开关 + TTS 播放 + 猫猫图片），Feature reopen |
 | 2026-03-11 | Phase 5 实现: BrakeSettings API + BrakeSettingsPanel + TTS autoplay + cat expression emoji |
 | 2026-03-11 | Codex 本地 R1 (2P1+1P2 全修) + R2 LGTM |
+| 2026-03-11 | 云端 Codex R1 (1P1+1P2 全修) + R2 LGTM |
+| 2026-03-11 | Phase 5 merged (PR #361, `df895547`) — AC28/29/30 done, AC31 deferred |
 
 ## 需求点 Checklist
 
