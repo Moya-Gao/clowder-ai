@@ -9,7 +9,7 @@
  * BACKLOG #97 Phase 3b
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { getDefaultCatId } from '../../config/cat-config-loader.js';
 import type { InvocationQueue } from '../../domains/cats/services/agents/invocation/InvocationQueue.js';
@@ -87,6 +87,7 @@ export class ConnectorInvokeTrigger {
     userId: string,
     message: string,
     messageId: string,
+    contentBlocks?: readonly MessageContent[],
     policy?: ConnectorTriggerPolicy,
   ): void {
     const { invocationTracker } = this.opts;
@@ -108,7 +109,7 @@ export class ConnectorInvokeTrigger {
     }
 
     // No active invocation → direct execution (existing flow)
-    this.executeInBackground(threadId, catId, userId, message, messageId).catch((err) => {
+    this.executeInBackground(threadId, catId, userId, message, messageId, undefined, contentBlocks).catch((err) => {
       // Last-resort guard: prevent unhandledRejection from pre-try errors
       this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
     });
@@ -240,6 +241,7 @@ export class ConnectorInvokeTrigger {
     message: string,
     messageId: string,
     existingInvocationId?: string,
+    contentBlocks?: readonly MessageContent[],
   ): Promise<void> {
     const { router, socketManager, invocationRecordStore, invocationTracker, invocationQueue, log } = this.opts;
     const targetCats: CatId[] = [catId];
@@ -308,6 +310,7 @@ export class ConnectorInvokeTrigger {
       const intent = { intent: 'execute' as const, explicit: false, promptTags: [] as string[] };
 
       for await (const msg of router.routeExecution(userId, message, threadId, messageId, targetCats, intent, {
+        ...(contentBlocks ? { contentBlocks } : {}),
         ...(controller?.signal ? { signal: controller.signal } : {}),
         queueHasQueuedMessages: (tid: string) => invocationQueue.hasQueuedForThread(tid),
         cursorBoundaries,
@@ -390,11 +393,16 @@ export class ConnectorInvokeTrigger {
                 log.warn({ err, threadId }, '[ConnectorInvokeTrigger] threadMetaLookup late rejection');
                 return undefined;
               });
-              const timeout = new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), LOOKUP_TIMEOUT_MS));
+              const timeout = new Promise<undefined>((resolve) =>
+                setTimeout(() => resolve(undefined), LOOKUP_TIMEOUT_MS),
+              );
               threadMeta = await Promise.race([lookupPromise, timeout]);
             }
           } catch (lookupErr) {
-            log.warn({ err: lookupErr, threadId }, '[ConnectorInvokeTrigger] threadMetaLookup failed, falling back to plain reply');
+            log.warn(
+              { err: lookupErr, threadId },
+              '[ConnectorInvokeTrigger] threadMetaLookup failed, falling back to plain reply',
+            );
           }
           this.opts.outboundHook.deliver(threadId, finalContent, catId, richBlocks, threadMeta).catch((err) => {
             log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');

@@ -219,6 +219,142 @@ describe('ConnectorGateway Bootstrap', () => {
 		}
 	});
 
+	it('feishu webhook handler routes card action button click (AC-14)', async () => {
+		const triggerCalls = [];
+		const deps = {
+			...baseDeps,
+			invokeTrigger: {
+				trigger(...args) {
+					triggerCalls.push(args);
+				},
+			},
+		};
+
+		const config = {
+			feishuAppId: 'test-app-id',
+			feishuAppSecret: 'test-app-secret',
+			feishuVerificationToken: 'test-token',
+		};
+		const handle = await startConnectorGateway(config, deps);
+		assert.ok(handle);
+
+		const feishuHandler = handle.webhookHandlers.get('feishu');
+		const result = await feishuHandler.handleWebhook(
+			{
+				header: {
+					event_type: 'card.action.trigger',
+					event_id: 'evt-card-1',
+					token: 'test-token',
+				},
+				event: {
+					operator: { open_id: 'ou_operator' },
+					action: { value: { action: 'approve', threadId: 'th_123' }, tag: 'button' },
+					context: { open_chat_id: 'oc_chat_card' },
+				},
+			},
+			{},
+		);
+
+		assert.equal(result.kind, 'processed');
+		assert.equal(triggerCalls.length, 1, 'card action should trigger cat invocation');
+		await handle.stop();
+	});
+
+	it('feishu webhook handler routes image message (Phase 5)', async () => {
+		const triggerCalls = [];
+		const deps = {
+			...baseDeps,
+			invokeTrigger: {
+				trigger(...args) {
+					triggerCalls.push(args);
+				},
+			},
+		};
+
+		const config = {
+			feishuAppId: 'test-app-id',
+			feishuAppSecret: 'test-app-secret',
+			feishuVerificationToken: 'test-token',
+		};
+		const handle = await startConnectorGateway(config, deps);
+		assert.ok(handle);
+
+		const feishuHandler = handle.webhookHandlers.get('feishu');
+		const result = await feishuHandler.handleWebhook(
+			{
+				header: {
+					event_type: 'im.message.receive_v1',
+					event_id: 'evt-img-1',
+					token: 'test-token',
+				},
+				event: {
+					sender: { sender_id: { open_id: 'ou_user' } },
+					message: {
+						message_id: 'om_img_1',
+						chat_id: 'oc_chat_img',
+						chat_type: 'p2p',
+						content: JSON.stringify({ image_key: 'img-key-abc' }),
+						message_type: 'image',
+					},
+				},
+			},
+			{},
+		);
+
+		assert.equal(result.kind, 'processed');
+		assert.equal(triggerCalls.length, 1, 'image message should trigger cat invocation');
+		// The routed text should be [图片]
+		assert.equal(triggerCalls[0][3], '[图片]');
+		await handle.stop();
+	});
+
+	it('feishu webhook handler routes voice message (Phase 6)', async () => {
+		const triggerCalls = [];
+		const deps = {
+			...baseDeps,
+			invokeTrigger: {
+				trigger(...args) {
+					triggerCalls.push(args);
+				},
+			},
+		};
+
+		const config = {
+			feishuAppId: 'test-app-id',
+			feishuAppSecret: 'test-app-secret',
+			feishuVerificationToken: 'test-token',
+		};
+		const handle = await startConnectorGateway(config, deps);
+		assert.ok(handle);
+
+		const feishuHandler = handle.webhookHandlers.get('feishu');
+		const result = await feishuHandler.handleWebhook(
+			{
+				header: {
+					event_type: 'im.message.receive_v1',
+					event_id: 'evt-voice-1',
+					token: 'test-token',
+				},
+				event: {
+					sender: { sender_id: { open_id: 'ou_user' } },
+					message: {
+						message_id: 'om_voice_1',
+						chat_id: 'oc_chat_voice',
+						chat_type: 'p2p',
+						content: JSON.stringify({ file_key: 'audio-key-xyz', duration: 5 }),
+						message_type: 'audio',
+					},
+				},
+			},
+			{},
+		);
+
+		assert.equal(result.kind, 'processed');
+		assert.equal(triggerCalls.length, 1, 'voice message should trigger cat invocation');
+		assert.equal(triggerCalls[0][3], '[语音]');
+		await handle.stop();
+	});
+
 	it('feishu webhook handler rejects events with invalid verification token', async () => {
 		const config = {
 			feishuAppId: 'test-app-id',

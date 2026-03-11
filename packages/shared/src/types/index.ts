@@ -323,3 +323,5 @@ export type {
 	BrakeSettings,
 	BrakeState,
 } from './brake.js';
+// STT types (F088 Phase 6 — Speech-to-Text)
+export type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from './stt.js';

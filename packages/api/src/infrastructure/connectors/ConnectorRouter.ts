@@ -14,7 +14,7 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import type { CatId, ConnectorSource } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource, MessageContent } from '@cat-cafe/shared';
 import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
@@ -47,7 +47,14 @@ export interface ConnectorRouterOptions {
     create(userId: string, title?: string): { id: string } | Promise<{ id: string }>;
   };
   readonly invokeTrigger: {
-    trigger(threadId: string, catId: CatId, userId: string, message: string, messageId: string): void;
+    trigger(
+      threadId: string,
+      catId: CatId,
+      userId: string,
+      message: string,
+      messageId: string,
+      contentBlocks?: readonly MessageContent[],
+    ): void;
   };
   readonly socketManager?:
     | {
@@ -59,6 +66,19 @@ export interface ConnectorRouterOptions {
   readonly log: FastifyBaseLogger;
   readonly commandLayer?: ConnectorCommandLayer | undefined;
   readonly adapters?: Map<string, IOutboundAdapter> | undefined;
+  readonly mediaService?:
+    | {
+        download(
+          connectorId: string,
+          attachment: { type: 'image' | 'file' | 'audio'; platformKey: string; fileName?: string; duration?: number },
+        ): Promise<{ localUrl: string; absPath: string; mimeType: string }>;
+      }
+    | undefined;
+  readonly sttProvider?:
+    | {
+        transcribe(request: { audioPath: string; language?: string }): Promise<{ text: string }>;
+      }
+    | undefined;
 }
 
 export class ConnectorRouter {
@@ -83,6 +103,12 @@ export class ConnectorRouter {
     externalChatId: string,
     text: string,
     externalMessageId: string,
+    attachments?: Array<{
+      type: 'image' | 'file' | 'audio';
+      platformKey: string;
+      fileName?: string;
+      duration?: number;
+    }>,
   ): Promise<RouteResult> {
     const { bindingStore, dedup, messageStore, threadStore, invokeTrigger, socketManager, log } = this.opts;
 
@@ -107,7 +133,10 @@ export class ConnectorRouter {
         }
         // Phase C: store command exchange in messageStore + broadcast
         const stored = await this.storeCommandExchange(
-          connectorId, cmdResult.contextThreadId, text, cmdResult.response,
+          connectorId,
+          cmdResult.contextThreadId,
+          text,
+          cmdResult.response,
         );
         log.info({ connectorId, command: cmdResult.kind }, '[ConnectorRouter] Command handled');
         const result: RouteResult = { kind: 'command' };
@@ -115,6 +144,15 @@ export class ConnectorRouter {
         if (stored?.responseId) (result as { messageId?: string }).messageId = stored.responseId;
         return result;
       }
+    }
+
+    // Phase 5+6: Process media attachments
+    let resolvedText = text;
+    let contentBlocks: MessageContent[] | undefined;
+    if (attachments?.length && this.opts.mediaService) {
+      const result = await this.processAttachments(connectorId, text, attachments);
+      resolvedText = result.text;
+      if (result.contentBlocks.length > 0) contentBlocks = result.contentBlocks;
     }
 
     // 2. Lookup or create binding
@@ -140,13 +178,13 @@ export class ConnectorRouter {
 
     // Parse @-mentions to determine target cat
     const mentionPatterns = this.getMentionPatterns();
-    const { targetCatId } = parseMentions(text, mentionPatterns, this.opts.defaultCatId);
+    const { targetCatId } = parseMentions(resolvedText, mentionPatterns, this.opts.defaultCatId);
 
     const stored = await messageStore.append({
       threadId: binding.threadId,
       userId: this.opts.defaultUserId,
       catId: null,
-      content: text,
+      content: resolvedText,
       source,
       mentions: [targetCatId],
       timestamp: Date.now(),
@@ -157,11 +195,18 @@ export class ConnectorRouter {
       threadId: binding.threadId,
       messageId: stored.id,
       connectorId,
-      content: text,
+      content: resolvedText,
     });
 
     // 5. Trigger cat invocation (use parsed targetCatId)
-    invokeTrigger.trigger(binding.threadId, targetCatId, this.opts.defaultUserId, text, stored.id);
+    invokeTrigger.trigger(
+      binding.threadId,
+      targetCatId,
+      this.opts.defaultUserId,
+      resolvedText,
+      stored.id,
+      contentBlocks,
+    );
 
     log.info(
       {
@@ -178,6 +223,41 @@ export class ConnectorRouter {
       threadId: binding.threadId,
       messageId: stored.id,
     };
+  }
+
+  private async processAttachments(
+    connectorId: string,
+    originalText: string,
+    attachments: Array<{ type: 'image' | 'file' | 'audio'; platformKey: string; fileName?: string; duration?: number }>,
+  ): Promise<{ text: string; contentBlocks: MessageContent[] }> {
+    const parts: string[] = [];
+    const contentBlocks: MessageContent[] = [];
+
+    for (const att of attachments) {
+      try {
+        const downloaded = await this.opts.mediaService!.download(connectorId, att);
+
+        if (att.type === 'audio' && this.opts.sttProvider) {
+          try {
+            const result = await this.opts.sttProvider.transcribe({ audioPath: downloaded.absPath });
+            parts.push(`🎤 ${result.text}`);
+          } catch (sttErr) {
+            this.opts.log.warn({ err: sttErr, connectorId }, '[ConnectorRouter] STT failed, using placeholder');
+            parts.push(originalText);
+          }
+        } else if (att.type === 'image') {
+          parts.push(`${originalText} ${downloaded.localUrl}`);
+          contentBlocks.push({ type: 'image', url: downloaded.absPath });
+        } else {
+          parts.push(`${originalText} ${downloaded.localUrl}`);
+        }
+      } catch (err) {
+        this.opts.log.warn({ err, connectorId }, '[ConnectorRouter] Media download failed');
+        parts.push(originalText);
+      }
+    }
+
+    return { text: parts.length > 0 ? parts.join('\n') : originalText, contentBlocks };
   }
 
   /** Phase C: Store command inbound + outbound in messageStore, broadcast to WebSocket */
@@ -216,10 +296,16 @@ export class ConnectorRouter {
 
     // Broadcast both
     socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
-      threadId, messageId: cmdMsg.id, connectorId, content: commandText,
+      threadId,
+      messageId: cmdMsg.id,
+      connectorId,
+      content: commandText,
     });
     socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
-      threadId, messageId: resMsg.id, connectorId: 'system-command', content: responseText,
+      threadId,
+      messageId: resMsg.id,
+      connectorId: 'system-command',
+      content: responseText,
     });
 
     return { commandId: cmdMsg.id, responseId: resMsg.id };

@@ -142,6 +142,7 @@ import {
   workspaceGitRoutes,
   workspaceRoutes,
   brakeRoutes,
+  connectorMediaRoutes,
 } from './routes/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { terminalRoutes } from './routes/terminal.js';
@@ -620,6 +621,10 @@ async function main(): Promise<void> {
   // Serve uploaded files (images)
   const uploadDir = process.env['UPLOAD_DIR'] ?? './uploads';
   await app.register(uploadsRoutes, { uploadDir });
+
+  // F088: Serve downloaded connector media files
+  const connectorMediaDir = process.env['CONNECTOR_MEDIA_DIR'] ?? './data/connector-media';
+  await app.register(connectorMediaRoutes, { mediaDir: connectorMediaDir });
 
   // F34: TTS Provider (mlx-audio → Python TTS server)
   const ttsRegistry = new TtsRegistry();

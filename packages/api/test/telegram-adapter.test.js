@@ -37,7 +37,7 @@ describe('TelegramAdapter', () => {
 			assert.equal(result.senderId, '789');
 		});
 
-		it('returns null for non-text message', () => {
+		it('returns null for unsupported message type (e.g. sticker)', () => {
 			const adapter = new TelegramAdapter('test-token', noopLog());
 			const update = {
 				update_id: 123,
@@ -46,7 +46,7 @@ describe('TelegramAdapter', () => {
 					from: { id: 789, is_bot: false, first_name: 'Test' },
 					chat: { id: 1001, type: 'private' },
 					date: 1710000000,
-					photo: [{ file_id: 'abc', width: 100, height: 100 }],
+					sticker: { file_id: 'stk_abc', width: 512, height: 512, is_animated: false },
 				},
 			};
 			const result = adapter.parseUpdate(update);
@@ -157,6 +157,86 @@ describe('TelegramAdapter', () => {
 
 			assert.ok(sendCalls[0].text.includes('✅ Done'));
 			assert.ok(sendCalls[0].text.includes('☐ Pending'));
+		});
+	});
+
+	// ── Phase 5: Media message parsing ──
+	describe('parseUpdate() with media types', () => {
+		it('extracts photo message with file_id', () => {
+			const adapter = new TelegramAdapter('test-token', noopLog());
+			const update = {
+				update_id: 123,
+				message: {
+					message_id: 456,
+					from: { id: 789, is_bot: false },
+					chat: { id: 1001, type: 'private' },
+					date: 1710000000,
+					photo: [
+						{ file_id: 'small_id', width: 100, height: 100, file_size: 1000 },
+						{ file_id: 'large_id', width: 800, height: 600, file_size: 50000 },
+					],
+				},
+			};
+			const result = adapter.parseUpdate(update);
+			assert.ok(result);
+			assert.equal(result.text, '[图片]');
+			// Should pick the largest photo
+			assert.deepEqual(result.attachments, [{ type: 'image', telegramFileId: 'large_id' }]);
+		});
+
+		it('extracts photo with caption as text', () => {
+			const adapter = new TelegramAdapter('test-token', noopLog());
+			const update = {
+				update_id: 123,
+				message: {
+					message_id: 456,
+					from: { id: 789, is_bot: false },
+					chat: { id: 1001, type: 'private' },
+					date: 1710000000,
+					photo: [{ file_id: 'photo_id', width: 800, height: 600, file_size: 50000 }],
+					caption: 'Check this out!',
+				},
+			};
+			const result = adapter.parseUpdate(update);
+			assert.ok(result);
+			assert.equal(result.text, 'Check this out!');
+			assert.deepEqual(result.attachments, [{ type: 'image', telegramFileId: 'photo_id' }]);
+		});
+
+		it('extracts document message with file_id', () => {
+			const adapter = new TelegramAdapter('test-token', noopLog());
+			const update = {
+				update_id: 123,
+				message: {
+					message_id: 456,
+					from: { id: 789, is_bot: false },
+					chat: { id: 1001, type: 'private' },
+					date: 1710000000,
+					document: { file_id: 'doc_id', file_name: 'report.pdf', file_size: 100000 },
+				},
+			};
+			const result = adapter.parseUpdate(update);
+			assert.ok(result);
+			assert.equal(result.text, '[文件] report.pdf');
+			assert.deepEqual(result.attachments, [{ type: 'file', telegramFileId: 'doc_id', fileName: 'report.pdf' }]);
+		});
+
+		it('extracts voice message with file_id', () => {
+			const adapter = new TelegramAdapter('test-token', noopLog());
+			const update = {
+				update_id: 123,
+				message: {
+					message_id: 456,
+					from: { id: 789, is_bot: false },
+					chat: { id: 1001, type: 'private' },
+					date: 1710000000,
+					voice: { file_id: 'voice_id', duration: 5, file_size: 10000 },
+				},
+			};
+			const result = adapter.parseUpdate(update);
+			assert.ok(result);
+			assert.equal(result.text, '[语音]');
+			assert.deepEqual(result.attachments, [{ type: 'audio', telegramFileId: 'voice_id', duration: 5 }]);
 		});
 	});
 

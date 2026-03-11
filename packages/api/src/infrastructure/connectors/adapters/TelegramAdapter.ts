@@ -11,17 +11,25 @@
 
 import type { RichBlock } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import { Bot } from 'grammy';
+import { Bot, InputFile } from 'grammy';
 import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';
 import { formatTelegramHtml } from './telegram-html-formatter.js';
 
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
+
+export interface TelegramAttachment {
+  type: 'image' | 'file' | 'audio';
+  telegramFileId: string;
+  fileName?: string;
+  duration?: number;
+}
 
 export interface TelegramInboundMessage {
   chatId: string;
   text: string;
   messageId: string;
   senderId: string;
+  attachments?: TelegramAttachment[];
 }
 
 export class TelegramAdapter implements IStreamableOutboundAdapter {
@@ -30,6 +38,11 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
   private readonly log: FastifyBaseLogger;
   private sendMessageFn: ((chatId: string, text: string, opts?: Record<string, unknown>) => Promise<unknown>) | null =
     null;
+  private sendMediaFns: {
+    sendPhoto: (chatId: number, input: string | InputFile) => Promise<unknown>;
+    sendDocument: (chatId: number, input: string | InputFile) => Promise<unknown>;
+    sendVoice: (chatId: number, input: string | InputFile) => Promise<unknown>;
+  } | null = null;
 
   constructor(botToken: string, log: FastifyBaseLogger) {
     this.bot = new Bot(botToken);
@@ -38,7 +51,8 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
 
   /**
    * Parse a Telegram update into an inbound message.
-   * Returns null for non-text, group, or bot messages.
+   * Supports text, photo, document, and voice messages.
+   * Returns null for group or bot messages.
    */
   parseUpdate(update: unknown): TelegramInboundMessage | null {
     if (!update || typeof update !== 'object') return null;
@@ -46,10 +60,6 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
     const u = update as Record<string, unknown>;
     const message = u['message'] as Record<string, unknown> | undefined;
     if (!message) return null;
-
-    // MVP: text only
-    const text = message['text'];
-    if (typeof text !== 'string') return null;
 
     // MVP: DM only (private chats)
     const chat = message['chat'] as Record<string, unknown> | undefined;
@@ -59,12 +69,58 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
     const from = message['from'] as Record<string, unknown> | undefined;
     if (!from || from['is_bot'] === true) return null;
 
-    return {
+    const base = {
       chatId: String(chat['id']),
-      text,
       messageId: String(message['message_id']),
       senderId: String(from['id']),
     };
+
+    const caption = typeof message['caption'] === 'string' ? message['caption'] : undefined;
+
+    // Text message
+    const text = message['text'];
+    if (typeof text === 'string') {
+      return { ...base, text };
+    }
+
+    // Photo message — pick largest photo (last in array)
+    const photo = message['photo'] as Array<Record<string, unknown>> | undefined;
+    if (Array.isArray(photo) && photo.length > 0) {
+      const largest = photo[photo.length - 1]!;
+      return {
+        ...base,
+        text: caption ?? '[图片]',
+        attachments: [{ type: 'image', telegramFileId: largest['file_id'] as string }],
+      };
+    }
+
+    // Document message
+    const document = message['document'] as Record<string, unknown> | undefined;
+    if (document) {
+      const fileName = document['file_name'] as string | undefined;
+      return {
+        ...base,
+        text: caption ?? (fileName ? `[文件] ${fileName}` : '[文件]'),
+        attachments: [
+          { type: 'file', telegramFileId: document['file_id'] as string, ...(fileName ? { fileName } : {}) },
+        ],
+      };
+    }
+
+    // Voice message
+    const voice = message['voice'] as Record<string, unknown> | undefined;
+    if (voice) {
+      const duration = voice['duration'] as number | undefined;
+      return {
+        ...base,
+        text: '[语音]',
+        attachments: [
+          { type: 'audio', telegramFileId: voice['file_id'] as string, ...(duration != null ? { duration } : {}) },
+        ],
+      };
+    }
+
+    return null;
   }
 
   /**
@@ -85,10 +141,11 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
 
   /**
    * Start long polling for inbound messages.
-   * Each text DM is passed to the handler.
+   * Handles text, photo, document, and voice DMs.
    */
   startPolling(handler: (msg: TelegramInboundMessage) => Promise<void>): void {
-    this.bot.on('message:text', async (ctx) => {
+    const handleUpdate = async (ctx: { message?: unknown }) => {
+      if (!ctx.message) return;
       const parsed = this.parseUpdate({ message: ctx.message });
       if (!parsed) return;
 
@@ -97,7 +154,12 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
       } catch (err) {
         this.log.error({ err, chatId: parsed.chatId }, '[TelegramAdapter] Handler error');
       }
-    });
+    };
+
+    this.bot.on('message:text', handleUpdate);
+    this.bot.on('message:photo', handleUpdate);
+    this.bot.on('message:document', handleUpdate);
+    this.bot.on('message:voice', handleUpdate);
 
     this.bot.start({
       onStart: () => {
@@ -151,10 +213,60 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
   }
 
   /**
+   * Phase 5+6: Send a media message (image, file, or audio) to a Telegram chat.
+   * Handles both public URLs and local file paths (via grammy InputFile).
+   */
+  async sendMedia(
+    externalChatId: string,
+    payload: { type: 'image' | 'file' | 'audio'; url?: string; absPath?: string; [key: string]: unknown },
+  ): Promise<void> {
+    if (!payload.url && !payload.absPath) return;
+    const chatId = Number(externalChatId);
+    // Priority: absPath (resolved by OutboundDeliveryHook) → local absolute path → URL string
+    const absPath = typeof payload.absPath === 'string' ? payload.absPath : undefined;
+    let source: string | InputFile;
+    if (absPath) {
+      source = new InputFile(absPath);
+    } else if (payload.url && payload.url.startsWith('/') && !payload.url.startsWith('/api/')) {
+      source = new InputFile(payload.url);
+    } else {
+      source = payload.url!;
+    }
+    const fns = this.sendMediaFns ?? {
+      sendPhoto: (cid: number, input: string | InputFile) => this.bot.api.sendPhoto(cid, input),
+      sendDocument: (cid: number, input: string | InputFile) => this.bot.api.sendDocument(cid, input),
+      sendVoice: (cid: number, input: string | InputFile) => this.bot.api.sendVoice(cid, input),
+    };
+    switch (payload.type) {
+      case 'image':
+        await fns.sendPhoto(chatId, source);
+        break;
+      case 'file':
+        await fns.sendDocument(chatId, source);
+        break;
+      case 'audio':
+        await fns.sendVoice(chatId, source);
+        break;
+    }
+  }
+
+  /**
    * Test helper: inject a mock sendMessage function.
    * @internal
    */
   _injectSendMessage(fn: (chatId: string, text: string, opts?: Record<string, unknown>) => Promise<unknown>): void {
     this.sendMessageFn = fn;
+  }
+
+  /**
+   * Test helper: inject mock media send functions.
+   * @internal
+   */
+  _injectSendMedia(fns: {
+    sendPhoto: (chatId: number, input: string | InputFile) => Promise<unknown>;
+    sendDocument: (chatId: number, input: string | InputFile) => Promise<unknown>;
+    sendVoice: (chatId: number, input: string | InputFile) => Promise<unknown>;
+  }): void {
+    this.sendMediaFns = fns;
   }
 }

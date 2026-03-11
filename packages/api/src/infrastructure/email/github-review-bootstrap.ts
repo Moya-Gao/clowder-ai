@@ -52,6 +52,7 @@ export async function startGithubReviewWatcher(options: GithubReviewBootstrapOpt
           result.userId,
           result.content,
           result.messageId,
+          undefined,
           { priority: 'urgent', reason: 'github_review' },
         );
         options.log.info(

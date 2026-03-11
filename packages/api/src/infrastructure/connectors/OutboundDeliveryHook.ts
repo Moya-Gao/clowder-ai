@@ -15,6 +15,11 @@ export interface IOutboundAdapter {
     metadata?: Record<string, unknown>,
   ): Promise<void>;
   sendFormattedReply?(externalChatId: string, envelope: MessageEnvelope): Promise<void>;
+  /** Phase 5: Send a media message (image, file, audio). */
+  sendMedia?(
+    externalChatId: string,
+    payload: { type: 'image' | 'file' | 'audio'; [key: string]: unknown },
+  ): Promise<void>;
 }
 
 /** Adapter that supports edit-in-place streaming (placeholder → progressive edits). */
@@ -36,6 +41,8 @@ export interface OutboundDeliveryHookOptions {
   readonly bindingStore: IConnectorThreadBindingStore;
   readonly adapters: Map<string, IOutboundAdapter>;
   readonly log: FastifyBaseLogger;
+  /** Resolve a route URL (e.g. /uploads/x.png) to an absolute file path on disk. */
+  readonly mediaPathResolver?: ((url: string) => string | undefined) | undefined;
 }
 
 export class OutboundDeliveryHook {
@@ -96,6 +103,38 @@ export class OutboundDeliveryHook {
             await adapter.sendReply(binding.externalChatId, `${finalContent}\n\n${blockText}`, undefined);
           } else {
             await adapter.sendReply(binding.externalChatId, finalContent, undefined);
+          }
+
+          // Phase 6: Send audio blocks with url as media messages
+          // Phase 5: Send media_gallery image items as image messages
+          if (hasRichBlocks && adapter.sendMedia) {
+            const resolve = this.opts.mediaPathResolver;
+            for (const block of richBlocks) {
+              if (block.kind === 'audio' && 'url' in block && block.url) {
+                const absPath = resolve?.(block.url);
+                await adapter.sendMedia(binding.externalChatId, {
+                  type: 'audio',
+                  url: block.url,
+                  ...(absPath ? { absPath } : {}),
+                  ...('text' in block && block.text ? { text: block.text as string } : {}),
+                });
+              }
+              if (block.kind === 'media_gallery' && 'items' in block) {
+                const items = (block as { items?: Array<{ url?: string; type?: string }> }).items;
+                if (items) {
+                  for (const item of items) {
+                    if (item.url && item.type === 'image') {
+                      const absPath = resolve?.(item.url);
+                      await adapter.sendMedia(binding.externalChatId, {
+                        type: 'image',
+                        url: item.url,
+                        ...(absPath ? { absPath } : {}),
+                      });
+                    }
+                  }
+                }
+              }
+            }
           }
         } catch (err) {
           this.opts.log.error(

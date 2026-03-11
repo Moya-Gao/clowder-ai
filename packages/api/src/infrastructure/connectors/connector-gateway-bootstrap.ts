@@ -10,6 +10,7 @@
  * F088 Multi-Platform Chat Gateway
  */
 
+import { join, resolve } from 'node:path';
 import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import type { FastifyBaseLogger } from 'fastify';
@@ -20,7 +21,12 @@ import { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorRouter } from './ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
-import { type IOutboundAdapter, type IStreamableOutboundAdapter, OutboundDeliveryHook } from './OutboundDeliveryHook.js';
+import { ConnectorMediaService } from './media/ConnectorMediaService.js';
+import {
+  type IOutboundAdapter,
+  type IStreamableOutboundAdapter,
+  OutboundDeliveryHook,
+} from './OutboundDeliveryHook.js';
 import { RedisConnectorThreadBindingStore } from './RedisConnectorThreadBindingStore.js';
 import { StreamingOutboundHook } from './StreamingOutboundHook.js';
 
@@ -31,6 +37,8 @@ export interface ConnectorGatewayConfig {
   feishuVerificationToken?: string | undefined;
   /** Override owner userId for connector threads. Read from DEFAULT_OWNER_USER_ID env. */
   ownerUserId?: string | undefined;
+  whisperUrl?: string | undefined;
+  connectorMediaDir?: string | undefined;
 }
 
 export interface ConnectorGatewayDeps {
@@ -96,6 +104,8 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     feishuAppSecret: process.env['FEISHU_APP_SECRET'],
     feishuVerificationToken: process.env['FEISHU_VERIFICATION_TOKEN'],
     ownerUserId: process.env['DEFAULT_OWNER_USER_ID'],
+    whisperUrl: process.env['WHISPER_URL'],
+    connectorMediaDir: process.env['CONNECTOR_MEDIA_DIR'],
   };
 }
 
@@ -137,6 +147,21 @@ export async function startConnectorGateway(
     frontendBaseUrl: deps.frontendBaseUrl ?? 'http://localhost:3001',
   });
 
+  // Phase 5+6: Media service + STT provider (optional)
+  const mediaDir = config.connectorMediaDir ?? './data/connector-media';
+  const mediaService = new ConnectorMediaService({
+    mediaDir,
+    // Platform download functions will be wired after adapters are created
+  });
+
+  let sttProvider:
+    | { transcribe(request: { audioPath: string; language?: string }): Promise<{ text: string }> }
+    | undefined;
+  if (config.whisperUrl) {
+    const { WhisperSttProvider } = await import('./media/WhisperSttProvider.js');
+    sttProvider = new WhisperSttProvider({ baseUrl: config.whisperUrl });
+  }
+
   const connectorRouter = new ConnectorRouter({
     bindingStore,
     dedup,
@@ -149,6 +174,8 @@ export async function startConnectorGateway(
     log,
     commandLayer,
     adapters,
+    mediaService,
+    sttProvider,
   });
 
   // ── Telegram (long polling) ──
@@ -157,7 +184,13 @@ export async function startConnectorGateway(
     adapters.set('telegram', telegram);
 
     telegram.startPolling(async (msg) => {
-      await connectorRouter.route('telegram', msg.chatId, msg.text, msg.messageId);
+      const attachments = msg.attachments?.map((a) => ({
+        type: a.type,
+        platformKey: a.telegramFileId,
+        ...(a.fileName ? { fileName: a.fileName } : {}),
+        ...(a.duration != null ? { duration: a.duration } : {}),
+      }));
+      await connectorRouter.route('telegram', msg.chatId, msg.text, msg.messageId, attachments);
     });
 
     stopFns.push(async () => telegram.stopPolling());
@@ -186,13 +219,36 @@ export async function startConnectorGateway(
           return { kind: 'error', status: 403, message: 'Invalid verification token' };
         }
 
+        // AC-14: Check for card action callback
+        const cardAction = feishu.parseCardAction(body);
+        if (cardAction) {
+          // Route card action value as text through ConnectorRouter
+          const actionText = JSON.stringify(cardAction.actionValue);
+          const result = await connectorRouter.route(
+            'feishu',
+            cardAction.chatId,
+            actionText,
+            `card-action-${Date.now()}`,
+          );
+          return result.kind === 'skipped'
+            ? { kind: 'skipped', reason: result.reason }
+            : { kind: 'processed', messageId: result.kind === 'routed' ? result.messageId : 'card-action' };
+        }
+
         // Parse event
         const parsed = feishu.parseEvent(body);
         if (!parsed) {
           return { kind: 'skipped', reason: 'unsupported_event' };
         }
 
-        const result = await connectorRouter.route('feishu', parsed.chatId, parsed.text, parsed.messageId);
+        const attachments = parsed.attachments?.map((a) => ({
+          type: a.type,
+          platformKey: a.feishuKey,
+          ...(a.fileName ? { fileName: a.fileName } : {}),
+          ...(a.duration != null ? { duration: a.duration } : {}),
+        }));
+
+        const result = await connectorRouter.route('feishu', parsed.chatId, parsed.text, parsed.messageId, attachments);
 
         if (result.kind === 'skipped') {
           return { kind: 'skipped', reason: result.reason };
@@ -209,10 +265,23 @@ export async function startConnectorGateway(
     log.info('[ConnectorGateway] Feishu adapter registered (webhook mode)');
   }
 
+  // R3-P1: Resolve route URLs to local file paths for real media delivery
+  const uploadDir = resolve(process.env['UPLOAD_DIR'] ?? './uploads');
+  const ttsCacheDir = resolve(process.env['TTS_CACHE_DIR'] ?? './data/tts-cache');
+  const resolvedMediaDir = resolve(mediaDir);
+  const mediaPathResolver = (url: string): string | undefined => {
+    if (url.startsWith('/uploads/')) return join(uploadDir, url.slice('/uploads/'.length));
+    if (url.startsWith('/api/tts/audio/')) return join(ttsCacheDir, url.slice('/api/tts/audio/'.length));
+    if (url.startsWith('/api/connector-media/'))
+      return join(resolvedMediaDir, url.slice('/api/connector-media/'.length));
+    return undefined;
+  };
+
   const outboundHook = new OutboundDeliveryHook({
     bindingStore,
     adapters,
     log,
+    mediaPathResolver,
   });
 
   // Build streamable adapters map (only adapters with sendPlaceholder + editMessage)

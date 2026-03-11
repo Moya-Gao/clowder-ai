@@ -24,6 +24,7 @@ export type EnvCategory =
   | 'dare'
   | 'gemini'
   | 'tts'
+  | 'stt'
   | 'frontend'
   | 'push'
   | 'signal'
@@ -56,6 +57,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   dare: '狸花猫 (Dare)',
   gemini: '暹罗猫 (Gemini)',
   tts: '语音合成 (TTS)',
+  stt: '语音识别 (STT)',
   frontend: '前端',
   push: '推送通知',
   signal: 'Signal 信号源',
@@ -163,6 +165,12 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'TTS_URL', defaultValue: 'http://localhost:9879', description: 'TTS 服务地址 (Qwen3-TTS)', category: 'tts', sensitive: false },
   { name: 'TTS_CACHE_DIR', defaultValue: './data/tts-cache', description: 'TTS 音频缓存目录', category: 'tts', sensitive: false },
   { name: 'GENSHIN_VOICE_DIR', defaultValue: '~/projects/.../genshin', description: 'GPT-SoVITS 角色模型目录', category: 'tts', sensitive: false },
+
+  // --- stt ---
+  { name: 'WHISPER_URL', defaultValue: 'http://localhost:9876', description: 'Whisper STT 服务地址（服务端）', category: 'stt', sensitive: false },
+
+  // --- connector media ---
+  { name: 'CONNECTOR_MEDIA_DIR', defaultValue: './data/connector-media', description: '连接器媒体下载目录', category: 'connector', sensitive: false },
 
   // --- frontend ---
   { name: 'NEXT_PUBLIC_API_URL', defaultValue: 'http://localhost:3002', description: '前端连接的 API 地址', category: 'frontend', sensitive: false },

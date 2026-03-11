@@ -293,4 +293,130 @@ describe('OutboundDeliveryHook', () => {
 			assert.equal(feishuMock.sent.length, 1);
 		});
 	});
+
+	// Phase 6: Audio block → sendMedia delivery
+	describe('audio block delivery via sendMedia', () => {
+		it('calls sendMedia for audio blocks with url when adapter supports it', async () => {
+			const mediaSent = [];
+			const richSent = [];
+			const mediaAdapter = {
+				connectorId: 'feishu',
+				async sendReply(chatId, content) {
+					feishuMock.sent.push({ chatId, content });
+				},
+				async sendRichMessage(chatId, text, blocks, catName) {
+					richSent.push({ chatId, text, blocks, catName });
+				},
+				async sendMedia(chatId, payload) {
+					mediaSent.push({ chatId, payload });
+				},
+			};
+			hook = new OutboundDeliveryHook({
+				bindingStore,
+				adapters: new Map([['feishu', mediaAdapter]]),
+				log: noopLog(),
+			});
+			bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+
+			const blocks = [
+				{ id: 'a1', kind: 'audio', v: 1, url: '/api/tts/audio/abc123.wav', text: 'Hello voice' },
+			];
+			await hook.deliver('thread-abc', 'Text reply', 'opus', blocks);
+
+			assert.equal(mediaSent.length, 1, 'sendMedia should be called for audio block with url');
+			assert.equal(mediaSent[0].chatId, 'chat-1');
+			assert.equal(mediaSent[0].payload.type, 'audio');
+			assert.ok(mediaSent[0].payload.url.includes('abc123.wav'));
+		});
+
+		it('does not call sendMedia when adapter lacks sendMedia (graceful fallback)', async () => {
+			const richSent = [];
+			const noMediaAdapter = {
+				connectorId: 'feishu',
+				async sendReply(chatId, content) {
+					feishuMock.sent.push({ chatId, content });
+				},
+				async sendRichMessage(chatId, text, blocks, catName) {
+					richSent.push({ chatId, text, blocks, catName });
+				},
+			};
+			hook = new OutboundDeliveryHook({
+				bindingStore,
+				adapters: new Map([['feishu', noMediaAdapter]]),
+				log: noopLog(),
+			});
+			bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+
+			const blocks = [
+				{ id: 'a1', kind: 'audio', v: 1, url: '/api/tts/audio/abc123.wav', text: 'Hello voice' },
+			];
+			// Should not throw, falls back to rich message rendering
+			await hook.deliver('thread-abc', 'Text', 'opus', blocks);
+			assert.equal(richSent.length, 1, 'should fall back to sendRichMessage');
+		});
+
+		it('skips sendMedia for audio blocks without url (text-only = not yet synthesized)', async () => {
+			const mediaSent = [];
+			const richSent = [];
+			const mediaAdapter = {
+				connectorId: 'feishu',
+				async sendReply(chatId, content) {
+					feishuMock.sent.push({ chatId, content });
+				},
+				async sendRichMessage(chatId, text, blocks, catName) {
+					richSent.push({ chatId, text, blocks, catName });
+				},
+				async sendMedia(chatId, payload) {
+					mediaSent.push({ chatId, payload });
+				},
+			};
+			hook = new OutboundDeliveryHook({
+				bindingStore,
+				adapters: new Map([['feishu', mediaAdapter]]),
+				log: noopLog(),
+			});
+			bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+
+			const blocks = [
+				{ id: 'a1', kind: 'audio', v: 1, text: 'Hello voice' },
+			];
+			await hook.deliver('thread-abc', 'Text', 'opus', blocks);
+
+			assert.equal(mediaSent.length, 0, 'sendMedia should NOT be called for audio without url');
+			assert.equal(richSent.length, 1, 'should still send via sendRichMessage');
+		});
+
+		it('sends media for each audio block in mixed blocks', async () => {
+			const mediaSent = [];
+			const richSent = [];
+			const mediaAdapter = {
+				connectorId: 'feishu',
+				async sendReply(chatId, content) {
+					feishuMock.sent.push({ chatId, content });
+				},
+				async sendRichMessage(chatId, text, blocks, catName) {
+					richSent.push({ chatId, text, blocks, catName });
+				},
+				async sendMedia(chatId, payload) {
+					mediaSent.push({ chatId, payload });
+				},
+			};
+			hook = new OutboundDeliveryHook({
+				bindingStore,
+				adapters: new Map([['feishu', mediaAdapter]]),
+				log: noopLog(),
+			});
+			bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+
+			const blocks = [
+				{ id: 'c1', kind: 'card', v: 1, title: 'Status', bodyMarkdown: 'Done' },
+				{ id: 'a1', kind: 'audio', v: 1, url: '/api/tts/audio/abc.wav', text: 'Voice 1' },
+				{ id: 'a2', kind: 'audio', v: 1, url: '/api/tts/audio/def.wav', text: 'Voice 2' },
+			];
+			await hook.deliver('thread-abc', 'Mixed content', 'opus', blocks);
+
+			assert.equal(mediaSent.length, 2, 'sendMedia called for each audio block with url');
+			assert.equal(richSent.length, 1, 'sendRichMessage still called for all blocks');
+		});
+	});
 });

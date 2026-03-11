@@ -212,7 +212,7 @@ describe('F088 Gateway Integration', () => {
 			await h.outboundHook.deliver(result.threadId, '猫猫回复！');
 			assert.equal(h.feishuSent.length, 1);
 			assert.equal(h.feishuSent[0].chatId, 'oc_chat_1');
-			assert.equal(h.feishuSent[0].content, '猫猫回复！');
+			assert.equal(h.feishuSent[0].content, JSON.stringify({ text: '猫猫回复！' }));
 		});
 	});
 
@@ -313,7 +313,7 @@ describe('F088 Gateway Integration', () => {
 			assert.equal(h.telegramSent.length, 1);
 			assert.equal(h.feishuSent.length, 1);
 			assert.equal(h.telegramSent[0].text, 'Reply to both!');
-			assert.equal(h.feishuSent[0].content, 'Reply to both!');
+			assert.equal(h.feishuSent[0].content, JSON.stringify({ text: 'Reply to both!' }));
 		});
 
 		it('prefixes reply with cat identity when catId provided', async () => {
@@ -367,7 +367,7 @@ describe('F088 Gateway Integration', () => {
 			assert.deepEqual(h.messageStore.messages[0].mentions, ['opus']);
 
 			await h.outboundHook.deliver(r.threadId, '好的！', 'opus');
-			assert.match(h.feishuSent[0].content, /^\[布偶猫🐱\] 好的！$/);
+			assert.equal(h.feishuSent[0].content, JSON.stringify({ text: '[布偶猫🐱] 好的！' }));
 		});
 
 		it('no mention → default cat (opus) invoked', async () => {

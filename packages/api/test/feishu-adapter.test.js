@@ -46,7 +46,7 @@ describe('FeishuAdapter', () => {
       assert.equal(result.senderId, 'ou_sender_123');
     });
 
-    it('returns null for non-text message', () => {
+    it('returns null for unsupported message type', () => {
       const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
       const event = {
         header: { event_type: 'im.message.receive_v1', event_id: 'evt-002' },
@@ -59,8 +59,8 @@ describe('FeishuAdapter', () => {
             message_id: 'om_msg',
             chat_id: 'oc_chat',
             chat_type: 'p2p',
-            content: JSON.stringify({ image_key: 'abc' }),
-            message_type: 'image',
+            content: JSON.stringify({ sticker_id: 'abc' }),
+            message_type: 'sticker',
           },
         },
       };
@@ -100,6 +100,137 @@ describe('FeishuAdapter', () => {
     });
   });
 
+  // ── Phase 5: Media message parsing ──
+  describe('parseEvent() with media types', () => {
+    it('extracts image message with image_key', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const event = {
+        header: { event_type: 'im.message.receive_v1' },
+        event: {
+          sender: { sender_id: { open_id: 'ou_sender' } },
+          message: {
+            message_id: 'om_img_001',
+            chat_id: 'oc_chat',
+            chat_type: 'p2p',
+            content: JSON.stringify({ image_key: 'img-key-abc' }),
+            message_type: 'image',
+          },
+        },
+      };
+      const result = adapter.parseEvent(event);
+      assert.ok(result);
+      assert.equal(result.text, '[图片]');
+      assert.deepEqual(result.attachments, [{ type: 'image', feishuKey: 'img-key-abc' }]);
+    });
+
+    it('extracts file message with file_key and file_name', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const event = {
+        header: { event_type: 'im.message.receive_v1' },
+        event: {
+          sender: { sender_id: { open_id: 'ou_sender' } },
+          message: {
+            message_id: 'om_file_001',
+            chat_id: 'oc_chat',
+            chat_type: 'p2p',
+            content: JSON.stringify({ file_key: 'file-key-xyz', file_name: 'doc.pdf' }),
+            message_type: 'file',
+          },
+        },
+      };
+      const result = adapter.parseEvent(event);
+      assert.ok(result);
+      assert.equal(result.text, '[文件] doc.pdf');
+      assert.deepEqual(result.attachments, [{ type: 'file', feishuKey: 'file-key-xyz', fileName: 'doc.pdf' }]);
+    });
+
+    it('extracts audio message with file_key', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const event = {
+        header: { event_type: 'im.message.receive_v1' },
+        event: {
+          sender: { sender_id: { open_id: 'ou_sender' } },
+          message: {
+            message_id: 'om_audio_001',
+            chat_id: 'oc_chat',
+            chat_type: 'p2p',
+            content: JSON.stringify({ file_key: 'audio-key-123', duration: 5000 }),
+            message_type: 'audio',
+          },
+        },
+      };
+      const result = adapter.parseEvent(event);
+      assert.ok(result);
+      assert.equal(result.text, '[语音]');
+      assert.deepEqual(result.attachments, [{ type: 'audio', feishuKey: 'audio-key-123', duration: 5000 }]);
+    });
+
+    it('still handles text messages normally', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const event = {
+        header: { event_type: 'im.message.receive_v1' },
+        event: {
+          sender: { sender_id: { open_id: 'ou_sender' } },
+          message: {
+            message_id: 'om_text_001',
+            chat_id: 'oc_chat',
+            chat_type: 'p2p',
+            content: JSON.stringify({ text: 'hello' }),
+            message_type: 'text',
+          },
+        },
+      };
+      const result = adapter.parseEvent(event);
+      assert.ok(result);
+      assert.equal(result.text, 'hello');
+      assert.equal(result.attachments, undefined);
+    });
+  });
+
+  describe('sendMedia()', () => {
+    it('sends image via Lark API', async () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('oc_chat', { type: 'image', imageKey: 'img-key-123' });
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'image');
+      const content = JSON.parse(sendCalls[0].content);
+      assert.equal(content.image_key, 'img-key-123');
+    });
+
+    it('sends file via Lark API', async () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('oc_chat', { type: 'file', fileKey: 'file-key-abc' });
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'file');
+      const content = JSON.parse(sendCalls[0].content);
+      assert.equal(content.file_key, 'file-key-abc');
+    });
+
+    it('sends audio via Lark API', async () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('oc_chat', { type: 'audio', fileKey: 'audio-key-xyz' });
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'audio');
+      const content = JSON.parse(sendCalls[0].content);
+      assert.equal(content.file_key, 'audio-key-xyz');
+    });
+  });
+
   describe('isVerificationChallenge()', () => {
     it('detects url_verification event', () => {
       const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
@@ -129,7 +260,7 @@ describe('FeishuAdapter', () => {
       await adapter.sendReply('oc_chat_789', 'Hello from cat!');
       assert.equal(sendCalls.length, 1);
       assert.equal(sendCalls[0].chatId, 'oc_chat_789');
-      assert.equal(sendCalls[0].content, 'Hello from cat!');
+      assert.equal(sendCalls[0].content, JSON.stringify({ text: 'Hello from cat!' }));
       assert.equal(sendCalls[0].msgType, 'text');
     });
   });
@@ -281,6 +412,49 @@ describe('FeishuAdapter', () => {
     });
   });
 
+  // ── AC-14: Card action callback ──
+  describe('parseCardAction()', () => {
+    it('extracts button action from card.action.trigger event', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const body = {
+        header: { event_type: 'card.action.trigger', event_id: 'evt-card-001' },
+        event: {
+          operator: { open_id: 'ou_operator_123' },
+          action: { value: { action: 'approve_review', threadId: 'th_abc' }, tag: 'button' },
+          context: { open_chat_id: 'oc_chat_999' },
+        },
+      };
+      const result = adapter.parseCardAction(body);
+      assert.ok(result);
+      assert.equal(result.chatId, 'oc_chat_999');
+      assert.equal(result.senderId, 'ou_operator_123');
+      assert.equal(result.actionValue.action, 'approve_review');
+      assert.equal(result.actionValue.threadId, 'th_abc');
+    });
+
+    it('returns null for non-card-action events', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const body = {
+        header: { event_type: 'im.message.receive_v1' },
+        event: {},
+      };
+      assert.equal(adapter.parseCardAction(body), null);
+    });
+
+    it('returns null when action has no value', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const body = {
+        header: { event_type: 'card.action.trigger' },
+        event: {
+          operator: { open_id: 'ou_op' },
+          action: { tag: 'button' },
+          context: { open_chat_id: 'oc_chat' },
+        },
+      };
+      assert.equal(adapter.parseCardAction(body), null);
+    });
+  });
+
   describe('sendPlaceholder()', () => {
     it('sends text message and returns message_id', async () => {
       const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
@@ -294,7 +468,7 @@ describe('FeishuAdapter', () => {
       assert.equal(messageId, 'om_placeholder_123');
       assert.equal(sendCalls.length, 1);
       assert.equal(sendCalls[0].chatId, 'oc_chat_789');
-      assert.equal(sendCalls[0].content, '思考中...');
+      assert.equal(sendCalls[0].content, JSON.stringify({ text: '思考中...' }));
       assert.equal(sendCalls[0].msgType, 'text');
     });
 

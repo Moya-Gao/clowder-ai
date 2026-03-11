@@ -16,11 +16,33 @@ import type { MessageEnvelope } from '../ConnectorMessageFormatter.js';
 import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';
 import { formatFeishuCard } from './feishu-card-formatter.js';
 
+export interface FeishuAttachment {
+  type: 'image' | 'file' | 'audio';
+  feishuKey: string;
+  fileName?: string;
+  duration?: number;
+}
+
 export interface FeishuInboundMessage {
   chatId: string;
   text: string;
   messageId: string;
   senderId: string;
+  attachments?: FeishuAttachment[];
+}
+
+export interface FeishuCardAction {
+  chatId: string;
+  senderId: string;
+  actionValue: Record<string, unknown>;
+}
+
+export interface FeishuMediaPayload {
+  type: 'image' | 'file' | 'audio';
+  imageKey?: string;
+  fileKey?: string;
+  /** Fallback URL when platform key is not available (outbound from Cat Café) */
+  url?: string;
 }
 
 export interface FeishuAdapterOptions {
@@ -76,7 +98,8 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
 
   /**
    * Parse a Feishu event callback into an inbound message.
-   * Returns null for non-text, group, or unsupported events.
+   * Supports text, image, file, and audio message types.
+   * Returns null for group or unsupported events.
    */
   parseEvent(eventBody: unknown): FeishuInboundMessage | null {
     if (!eventBody || typeof eventBody !== 'object') return null;
@@ -91,62 +114,134 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     const message = event['message'] as Record<string, unknown> | undefined;
     if (!message) return null;
 
-    // MVP: text only
-    if (message['message_type'] !== 'text') return null;
+    const msgType = message['message_type'] as string;
 
     // MVP: DM only (p2p)
     if (message['chat_type'] !== 'p2p') return null;
-
-    // Parse content JSON
-    let text: string;
-    try {
-      const content = JSON.parse(message['content'] as string);
-      text = content.text;
-      if (typeof text !== 'string') return null;
-    } catch {
-      return null;
-    }
 
     // Extract sender
     const sender = event['sender'] as Record<string, unknown> | undefined;
     const senderId = (sender?.['sender_id'] as Record<string, unknown> | undefined)?.['open_id'];
 
-    return {
+    const base = {
       chatId: message['chat_id'] as string,
-      text,
       messageId: message['message_id'] as string,
       senderId: String(senderId ?? 'unknown'),
     };
+
+    // Parse content JSON
+    let content: Record<string, unknown>;
+    try {
+      content = JSON.parse(message['content'] as string);
+    } catch {
+      return null;
+    }
+
+    switch (msgType) {
+      case 'text': {
+        const text = content['text'];
+        if (typeof text !== 'string') return null;
+        return { ...base, text };
+      }
+      case 'image': {
+        const imageKey = content['image_key'] as string;
+        if (!imageKey) return null;
+        return { ...base, text: '[图片]', attachments: [{ type: 'image', feishuKey: imageKey }] };
+      }
+      case 'file': {
+        const fileKey = content['file_key'] as string;
+        const fileName = content['file_name'] as string | undefined;
+        if (!fileKey) return null;
+        return {
+          ...base,
+          text: fileName ? `[文件] ${fileName}` : '[文件]',
+          attachments: [{ type: 'file', feishuKey: fileKey, ...(fileName ? { fileName } : {}) }],
+        };
+      }
+      case 'audio': {
+        const audioKey = content['file_key'] as string;
+        const duration = content['duration'] as number | undefined;
+        if (!audioKey) return null;
+        return {
+          ...base,
+          text: '[语音]',
+          attachments: [{ type: 'audio', feishuKey: audioKey, ...(duration != null ? { duration } : {}) }],
+        };
+      }
+      default:
+        return null;
+    }
   }
 
   /**
-   * Send a reply to a Feishu chat.
+   * AC-14: Parse a Feishu card action callback (button click, etc.).
+   * Returns null for non-card-action events.
    */
-  async sendReply(externalChatId: string, content: string): Promise<void> {
-    const params = {
-      chatId: externalChatId,
-      content,
-      msgType: 'text',
+  parseCardAction(eventBody: unknown): FeishuCardAction | null {
+    if (!eventBody || typeof eventBody !== 'object') return null;
+
+    const body = eventBody as Record<string, unknown>;
+    const header = body['header'] as Record<string, unknown> | undefined;
+    if (!header || header['event_type'] !== 'card.action.trigger') return null;
+
+    const event = body['event'] as Record<string, unknown> | undefined;
+    if (!event) return null;
+
+    const operator = event['operator'] as Record<string, unknown> | undefined;
+    const action = event['action'] as Record<string, unknown> | undefined;
+    const context = event['context'] as Record<string, unknown> | undefined;
+
+    if (!operator || !action || !context) return null;
+
+    const actionValue = action['value'] as Record<string, unknown> | undefined;
+    if (!actionValue || typeof actionValue !== 'object') return null;
+
+    return {
+      chatId: context['open_chat_id'] as string,
+      senderId: operator['open_id'] as string,
+      actionValue,
     };
+  }
 
-    if (this.sendMessageFn) {
-      await this.sendMessageFn(params);
-      return;
-    }
+  /** Internal: send message via Lark API or injected mock. */
+  private async sendLarkMessage(externalChatId: string, msgType: string, content: string): Promise<unknown> {
+    const params = { chatId: externalChatId, content, msgType };
+    if (this.sendMessageFn) return this.sendMessageFn(params);
 
-    await this.client.im.message.create({
+    return this.client.im.message.create({
       params: { receive_id_type: 'chat_id' },
-      data: {
-        receive_id: externalChatId,
-        msg_type: 'text',
-        content: JSON.stringify({ text: content }),
-      },
+      data: { receive_id: externalChatId, msg_type: msgType, content },
     });
   }
 
   /**
-   * Send a rich message as Feishu interactive card.
+   * Phase 5: Send a media message (image, file, or audio) to a Feishu chat.
    */
+  async sendMedia(externalChatId: string, payload: FeishuMediaPayload): Promise<void> {
+    // Platform key path — use native Feishu media API
+    if (payload.imageKey || payload.fileKey) {
+      const typeMap = {
+        image: () => ({ msgType: 'image', content: JSON.stringify({ image_key: payload.imageKey }) }),
+        file: () => ({ msgType: 'file', content: JSON.stringify({ file_key: payload.fileKey }) }),
+        audio: () => ({ msgType: 'audio', content: JSON.stringify({ file_key: payload.fileKey }) }),
+      } as const;
+      const entry = typeMap[payload.type];
+      if (!entry) return;
+      const { msgType, content } = entry();
+      await this.sendLarkMessage(externalChatId, msgType, content);
+      return;
+    }
+    // URL fallback — send as text link (Feishu upload API requires separate integration)
+    if (payload.url) {
+      const label = payload.type === 'image' ? '🖼️' : payload.type === 'audio' ? '🔊' : '📎';
+      await this.sendReply(externalChatId, `${label} ${payload.url}`);
+    }
+  }
+
+  async sendReply(externalChatId: string, content: string): Promise<void> {
+    await this.sendLarkMessage(externalChatId, 'text', JSON.stringify({ text: content }));
+  }
+
   async sendRichMessage(
     externalChatId: string,
     textContent: string,
@@ -154,31 +249,9 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     catDisplayName: string,
   ): Promise<void> {
     const card = formatFeishuCard(blocks, catDisplayName, textContent);
-    const params = {
-      chatId: externalChatId,
-      content: JSON.stringify(card),
-      msgType: 'interactive',
-    };
-
-    if (this.sendMessageFn) {
-      await this.sendMessageFn(params);
-      return;
-    }
-
-    await this.client.im.message.create({
-      params: { receive_id_type: 'chat_id' },
-      data: {
-        receive_id: externalChatId,
-        msg_type: 'interactive',
-        content: JSON.stringify(card),
-      },
-    });
+    await this.sendLarkMessage(externalChatId, 'interactive', JSON.stringify(card));
   }
 
-  /**
-   * Send a formatted reply using MessageEnvelope (platform-agnostic public layer).
-   * Renders as Feishu interactive card.
-   */
   async sendFormattedReply(externalChatId: string, envelope: MessageEnvelope): Promise<void> {
     const card = {
       header: {
@@ -192,51 +265,13 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
         { tag: 'markdown' as const, content: envelope.footer },
       ],
     };
-
-    const params = {
-      chatId: externalChatId,
-      content: JSON.stringify(card),
-      msgType: 'interactive',
-    };
-
-    if (this.sendMessageFn) {
-      await this.sendMessageFn(params);
-      return;
-    }
-
-    await this.client.im.message.create({
-      params: { receive_id_type: 'chat_id' },
-      data: {
-        receive_id: externalChatId,
-        msg_type: 'interactive',
-        content: JSON.stringify(card),
-      },
-    });
+    await this.sendLarkMessage(externalChatId, 'interactive', JSON.stringify(card));
   }
 
-  /**
-   * Send a placeholder text message and return its platform message ID.
-   * Used as the first step in edit-in-place streaming.
-   */
   async sendPlaceholder(externalChatId: string, text: string): Promise<string> {
-    if (this.sendMessageFn) {
-      const result = (await this.sendMessageFn({
-        chatId: externalChatId,
-        content: text,
-        msgType: 'text',
-      })) as { message_id?: string } | undefined;
-      return result?.message_id ?? '';
-    }
-
-    const resp = await this.client.im.message.create({
-      params: { receive_id_type: 'chat_id' },
-      data: {
-        receive_id: externalChatId,
-        msg_type: 'text',
-        content: JSON.stringify({ text }),
-      },
-    });
-    return resp?.data?.message_id ?? '';
+    const result = await this.sendLarkMessage(externalChatId, 'text', JSON.stringify({ text }));
+    const data = result as { data?: { message_id?: string }; message_id?: string } | undefined;
+    return data?.data?.message_id ?? data?.message_id ?? '';
   }
 
   /**
