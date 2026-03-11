@@ -23,8 +23,20 @@ function highlightMentions(text: string): ReactNode[] {
     if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
     const catId = toCat[m[1].toLowerCase()] ?? 'opus';
     const catColor = colorMap[catId] ?? '#9B7EBD';
+    const r = Number.parseInt(catColor.slice(1, 3), 16);
+    const g = Number.parseInt(catColor.slice(3, 5), 16);
+    const b = Number.parseInt(catColor.slice(5, 7), 16);
     parts.push(
-      <span key={`m${m.index}`} className="font-semibold" style={{ color: catColor }}>
+      <span
+        key={`m${m.index}`}
+        className="font-semibold"
+        style={{
+          color: catColor,
+          backgroundColor: `rgba(${r}, ${g}, ${b}, 0.15)`,
+          borderRadius: 4,
+          padding: '1px 5px',
+        }}
+      >
         {m[0]}
       </span>,
     );
