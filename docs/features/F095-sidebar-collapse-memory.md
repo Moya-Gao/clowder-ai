@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F095: Thread Sidebar 导航体验升级
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -26,7 +26,7 @@ created: 2026-03-10
 
 ## What
 
-### Phase A: 折叠状态持久化 + 搜索可见性
+### Phase A: 折叠状态持久化 + 搜索可见性 ✅
 
 最小改动，立即改善体验。
 
@@ -92,13 +92,13 @@ Sidebar 布局从上到下：
 ## Acceptance Criteria
 
 ### Phase A（折叠持久化 + 搜索可见性）
-- [ ] AC-A1: 展开/折叠某分组后刷新页面，保持上次的展开/折叠状态
-- [ ] AC-A2: 多个分组可以各自独立记忆状态
-- [ ] AC-A3: 首次访问（无 localStorage 记录）时保持默认全部折叠
-- [ ] AC-A4: localStorage key 有命名空间前缀（如 `cat-cafe:sidebar:`），不与其他功能冲突
-- [ ] AC-A5: 搜索时匹配 thread 所在分组强制展开（忽略折叠状态）
-- [ ] AC-A6: 切换 thread 时目标分组自动展开
-- [ ] AC-A7: "全部展开/全部折叠"按钮可用
+- [x] AC-A1: 展开/折叠某分组后刷新页面，保持上次的展开/折叠状态
+- [x] AC-A2: 多个分组可以各自独立记忆状态
+- [x] AC-A3: 首次访问（无 localStorage 记录）时保持默认全部折叠
+- [x] AC-A4: localStorage key 有命名空间前缀（如 `cat-cafe:sidebar:`），不与其他功能冲突
+- [x] AC-A5: 搜索时匹配 thread 所在分组强制展开（忽略折叠状态）
+- [x] AC-A6: 切换 thread 时目标分组自动展开
+- [x] AC-A7: "全部展开/全部折叠"按钮可用
 
 ### Phase B（活跃工作区）
 - [ ] AC-B1: Sidebar 展示"最近对话"段（跨项目，≤8 条，按 lastActiveAt）
@@ -120,9 +120,9 @@ Sidebar 布局从上到下：
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "能够记录我是不是展开或者默认折叠" | AC-A1~A4 | test + manual | [ ] |
-| R2 | "默认折叠" | AC-A3 | test | [ ] |
-| R3 | 搜到了但分组折叠看不到（缅因猫发现） | AC-A5 | test | [ ] |
+| R1 | "能够记录我是不是展开或者默认折叠" | AC-A1~A4 | test + manual | [x] |
+| R2 | "默认折叠" | AC-A3 | test | [x] |
+| R3 | 搜到了但分组折叠看不到（缅因猫发现） | AC-A5 | test | [x] |
 | R4 | "我想用的 cat cafe 在这么下面" | AC-B1~B5 | screenshot | [ ] |
 | R5 | "如果后续我们有 20 个项目 50 个项目怎么办" | AC-B2~B7 | test + screenshot | [ ] |
 | R6 | "我可以填写他的 thread 名字" | AC-C1 | test + manual | [ ] |
@@ -172,6 +172,7 @@ Sidebar 布局从上到下：
 |------|------|
 | 2026-03-10 | 立项（铲屎官截图反馈，原 scope：折叠记忆） |
 | 2026-03-11 | Scope 扩展为导航体验升级（铲屎官确认终态方向 + 缅因猫讨论） |
+| 2026-03-11 | Phase A merged (PR #366) |
 
 ## Review Gate
 
