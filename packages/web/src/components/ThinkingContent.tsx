@@ -3,9 +3,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 
-/* Same surface colors as CliOutputBlock — unified dark panels */
-const SURFACE = '#283548';
-const SURFACE_INNER = '#243040';
+/** Convert hex to rgba */
+function hexToRgba(hex: string, opacity: number): string {
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 const DIVIDER = '#334155';
 
 function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: string }) {
@@ -69,14 +74,18 @@ export function ThinkingContent({
   }, [expanded]);
   const previewLength = 60;
   const preview = content.length > previewLength ? `${content.slice(0, previewLength)}…` : content;
+  // Breed-tinted surface: subtle accent so humans can see the color
+  const accent = breedColor || '#7C3AED';
+  const surface = hexToRgba(accent, 0.10);
+  const surfaceInner = hexToRgba(accent, 0.07);
 
   return (
-    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: SURFACE, borderRadius: 10 }}>
+    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: surface, borderRadius: 10 }}>
       <button
         type="button"
         onClick={() => { setExpanded((v) => !v); }}
         className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
-        style={{ padding: '8px 12px', backgroundColor: SURFACE }}
+        style={{ padding: '8px 12px', backgroundColor: surface }}
       >
         <span style={{ color: breedColor || '#6B7280' }}>
           <ThinkingChevron expanded={expanded} color={breedColor} />
@@ -86,7 +95,7 @@ export function ThinkingContent({
         {!expanded && <span className="truncate max-w-[240px]" style={{ color: '#6B7280' }}>{preview}</span>}
       </button>
       {expanded && (
-        <div style={{ backgroundColor: SURFACE_INNER }}>
+        <div style={{ backgroundColor: surfaceInner }}>
           <div style={{ height: 1, backgroundColor: DIVIDER }} />
           <div style={{ padding: '8px 12px 10px 12px', color: '#CBD5E1' }} className="text-xs leading-relaxed">
             <MarkdownContent content={content} className={className} />

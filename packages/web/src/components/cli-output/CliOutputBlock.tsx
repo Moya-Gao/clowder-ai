@@ -25,9 +25,7 @@ function lighten(hex: string, ratio: number): string {
   return `rgb(${lr}, ${lg}, ${lb})`;
 }
 
-/* ── Design-aligned surface colors (~15% lighter than #1E293B) ── */
-const SURFACE = '#283548';
-const SURFACE_INNER = '#243040';
+/* ── Divider stays neutral; surface colors are now breed-tinted (see buildSurface) ── */
 const DIVIDER = '#334155';
 
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
@@ -128,7 +126,7 @@ function ToolRow({
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
   const hasResult = event.detail != null;
-  // Design: active = breed bg 12% + left border 2px + lighter text
+  // Design: active = breed bg 20% + left border 2px + lighter text
   const accentLight = lighten(accent, 0.6); // ~#C084FC equivalent
   const accentVeryLight = lighten(accent, 0.9); // ~#F5F3FF equivalent
 
@@ -140,7 +138,7 @@ function ToolRow({
       style={{
         padding: '5px 8px',
         borderRadius: 4,
-        backgroundColor: isActive ? hexToRgba(accent, 0.12) : undefined,
+        backgroundColor: isActive ? hexToRgba(accent, 0.20) : undefined,
         borderLeft: isActive ? `2px solid ${accent}` : undefined,
       }}
       onClick={() => {
@@ -296,6 +294,9 @@ export function CliOutputBlock({
   const textEvents = events.filter((e) => e.kind === 'text');
   const lastToolId = status === 'streaming' ? [...events].reverse().find((e) => e.kind === 'tool_use')?.id : undefined;
   const accent = breedColor || '#7C3AED';
+  // Breed-tinted surface: subtle accent so humans can see the color (not just black)
+  const surface = hexToRgba(accent, 0.10);
+  const surfaceInner = hexToRgba(accent, 0.07);
 
   const handleToggle = () => {
     userInteracted.current = true;
@@ -303,13 +304,13 @@ export function CliOutputBlock({
   };
 
   return (
-    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: SURFACE, borderRadius: 10 }}>
+    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: surface, borderRadius: 10 }}>
       {/* Header — design: chevron(accent) + summary(slate-400) + paw chip */}
       <button
         type="button"
         onClick={handleToggle}
         className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
-        style={{ padding: '8px 12px', color: '#94A3B8', backgroundColor: SURFACE }}
+        style={{ padding: '8px 12px', color: '#94A3B8', backgroundColor: surface }}
       >
         <span style={{ color: accent }}>
           <ChevronIcon expanded={expanded} />
@@ -329,7 +330,7 @@ export function CliOutputBlock({
 
       {/* Expanded body */}
       {expanded && (
-        <div data-testid="cli-output-body" style={{ backgroundColor: SURFACE_INNER }}>
+        <div data-testid="cli-output-body" style={{ backgroundColor: surfaceInner }}>
           <div style={{ height: 1, backgroundColor: DIVIDER }} />
           {toolUses.length > 0 && (
             <ToolsSection
