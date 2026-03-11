@@ -10,24 +10,70 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile, stat as fsStat } from 'node:fs/promises';
+import { stat as fsStat, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { RichBlock } from '@cat-cafe/shared';
-import type { TtsRegistry } from './TtsRegistry.js';
 import { getCatVoice } from '../../../../config/cat-voices.js';
+import type { TtsRegistry } from './TtsRegistry.js';
 
 let instance: VoiceBlockSynthesizer | null = null;
 
-export function initVoiceBlockSynthesizer(
-  ttsRegistry: TtsRegistry,
-  cacheDir: string,
-): void {
+export function initVoiceBlockSynthesizer(ttsRegistry: TtsRegistry, cacheDir: string): void {
   instance = new VoiceBlockSynthesizer(ttsRegistry, cacheDir);
 }
 
 export function getVoiceBlockSynthesizer(): VoiceBlockSynthesizer | null {
   return instance;
 }
+
+// ---------------------------------------------------------------------------
+// F066 Phase 4: Error classification + retry helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the effective error code and message, unwrapping `err.cause` for
+ * Node `fetch` errors where the real info (e.g. ECONNREFUSED) lives on cause.
+ */
+function extractErrorInfo(err: Error): { code: string | undefined; msg: string } {
+  const code = (err as NodeJS.ErrnoException).code;
+  const cause = (err as { cause?: Error }).cause;
+  const causeCode = cause instanceof Error ? (cause as NodeJS.ErrnoException).code : undefined;
+  const causeMsg = cause instanceof Error ? cause.message : '';
+  return {
+    code: code ?? causeCode,
+    msg: `${err.message} ${causeMsg}`.trim(),
+  };
+}
+
+/** Classify an error into a user-friendly category for the 🔇 card. */
+function classifyError(err: unknown): string {
+  if (!(err instanceof Error)) return '未知错误';
+  const { code, msg } = extractErrorInfo(err);
+
+  if (code === 'ECONNREFUSED' || msg.includes('ECONNREFUSED')) return '连接被拒绝';
+  if (code === 'ETIMEDOUT' || err.name === 'AbortError' || msg.includes('ETIMEDOUT') || msg.includes('timed out'))
+    return '合成超时';
+  if (/returned\s+5\d{2}/.test(msg)) return '服务错误';
+  if (/returned\s+4\d{2}/.test(msg)) return '请求错误';
+  return '未知错误';
+}
+
+/** Determine if an error is transient and worth retrying. */
+function isRetryableError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const { code, msg } = extractErrorInfo(err);
+
+  // Network-level transient errors (top-level or cause)
+  if (code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'ECONNRESET') return true;
+  // Abort (timeout)
+  if (err.name === 'AbortError') return true;
+  // HTTP 5xx
+  if (/returned\s+5\d{2}/.test(msg)) return true;
+
+  return false;
+}
+
+const RETRY_DELAY_MS = 2_000;
 
 export class VoiceBlockSynthesizer {
   constructor(
@@ -52,8 +98,8 @@ export class VoiceBlockSynthesizer {
       }
 
       // Voice blocks from cats may have `text` but no `url` (runtime shape differs from strict type)
-      const text = ('text' in block && typeof block.text === 'string') ? block.text.trim() : '';
-      const existingUrl = ('url' in block && typeof block.url === 'string') ? block.url.trim() : '';
+      const text = 'text' in block && typeof block.text === 'string' ? block.text.trim() : '';
+      const existingUrl = 'url' in block && typeof block.url === 'string' ? block.url.trim() : '';
 
       // Only synthesize if text is present and url is missing/empty
       if (!text || existingUrl) {
@@ -63,10 +109,8 @@ export class VoiceBlockSynthesizer {
 
       try {
         // F085-P3: per-block speaker override for multi-cat voice
-        const voiceCatId = ('speaker' in block && typeof block.speaker === 'string')
-          ? block.speaker
-          : catId;
-        const result = await this.synthesizeToFile(text, voiceCatId);
+        const voiceCatId = 'speaker' in block && typeof block.speaker === 'string' ? block.speaker : catId;
+        const result = await this.synthesizeWithRetry(text, voiceCatId);
         resolved.push({
           ...block,
           url: result.audioUrl,
@@ -74,14 +118,15 @@ export class VoiceBlockSynthesizer {
           mimeType: 'audio/wav',
         });
       } catch (err) {
-        // Graceful degradation: convert to card with the spoken text
+        // F066 Phase 4: Classify the error for user-friendly display
+        const errorCategory = classifyError(err);
         console.error(`[VoiceBlockSynthesizer] Synthesis failed for cat ${catId}:`, err);
         resolved.push({
           id: block.id,
           kind: 'card' as const,
           v: 1 as const,
           title: '🔇 语音合成失败',
-          bodyMarkdown: text,
+          bodyMarkdown: `${text}\n\n---\n⚠️ 错误类型：${errorCategory}`,
           tone: 'warning' as const,
         });
       }
@@ -91,12 +136,24 @@ export class VoiceBlockSynthesizer {
   }
 
   /**
+   * F066 Phase 4: Synthesize with 1 automatic retry for transient errors.
+   */
+  private async synthesizeWithRetry(text: string, catId: string): Promise<{ audioUrl: string; durationSec?: number }> {
+    try {
+      return await this.synthesizeToFile(text, catId);
+    } catch (err) {
+      if (!isRetryableError(err)) throw err;
+
+      console.warn(`[TTS-RETRY] Transient error, retrying in ${RETRY_DELAY_MS}ms:`, (err as Error).message);
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      return await this.synthesizeToFile(text, catId);
+    }
+  }
+
+  /**
    * Synthesize text to an audio file and return the URL path.
    */
-  private async synthesizeToFile(
-    text: string,
-    catId: string,
-  ): Promise<{ audioUrl: string; durationSec?: number }> {
+  private async synthesizeToFile(text: string, catId: string): Promise<{ audioUrl: string; durationSec?: number }> {
     await mkdir(this.cacheDir, { recursive: true });
 
     let provider;
@@ -135,7 +192,9 @@ export class VoiceBlockSynthesizer {
     try {
       await fsStat(filePath);
       cached = true;
-    } catch { /* not cached */ }
+    } catch {
+      /* not cached */
+    }
 
     if (!cached) {
       const result = await provider.synthesize({

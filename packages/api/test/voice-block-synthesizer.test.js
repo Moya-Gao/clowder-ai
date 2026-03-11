@@ -482,3 +482,295 @@ describe('VoiceBlockSynthesizer — cache hit', () => {
     assert.ok(result[0].url.startsWith('/api/tts/audio/'));
   });
 });
+
+// ---------------------------------------------------------------------------
+// F066 Phase 4: TTS Resilience Enhancement — retry on transient errors
+// ---------------------------------------------------------------------------
+
+describe('VoiceBlockSynthesizer — F066 Phase 4: retry on transient errors', () => {
+  it('retries once on ECONNREFUSED and succeeds', async () => {
+    let callCount = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        callCount++;
+        if (callCount === 1) {
+          const err = new Error('connect ECONNREFUSED 127.0.0.1:9879');
+          err.code = 'ECONNREFUSED';
+          throw err;
+        }
+        return {
+          audio: Buffer.from('retry-success'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-retry-connrefused');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-retry-connrefused');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'r1', kind: 'audio', v: 1, text: 'retry me' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].kind, 'audio', 'synthesis succeeded after retry');
+    assert.ok(result[0].url.startsWith('/api/tts/audio/'), 'url populated');
+    assert.equal(callCount, 2, 'synthesize called twice (1 fail + 1 retry)');
+  });
+
+  it('retries once on ETIMEDOUT and succeeds', async () => {
+    let callCount = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        callCount++;
+        if (callCount === 1) {
+          const err = new Error('request timed out');
+          err.code = 'ETIMEDOUT';
+          throw err;
+        }
+        return {
+          audio: Buffer.from('retry-success'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-retry-timeout');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-retry-timeout');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'r2', kind: 'audio', v: 1, text: 'timeout retry' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'audio', 'synthesis succeeded after retry');
+    assert.equal(callCount, 2, 'synthesize called twice');
+  });
+
+  it('retries once on HTTP 5xx and succeeds', async () => {
+    let callCount = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        callCount++;
+        if (callCount === 1) {
+          throw new Error('TTS server returned 502: Bad Gateway');
+        }
+        return {
+          audio: Buffer.from('retry-success'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-retry-5xx');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-retry-5xx');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'r3', kind: 'audio', v: 1, text: '5xx retry' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'audio', 'synthesis succeeded after retry');
+    assert.equal(callCount, 2, 'synthesize called twice');
+  });
+
+  it('does NOT retry on 4xx errors (deterministic failure)', async () => {
+    let callCount = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        callCount++;
+        throw new Error('TTS server returned 400: Bad Request');
+      },
+    });
+    cleanTmpDir('vbs-test-no-retry-4xx');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-no-retry-4xx');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'r4', kind: 'audio', v: 1, text: 'bad request' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'card', 'degraded without retry');
+    assert.equal(callCount, 1, 'synthesize called only once (no retry)');
+  });
+
+  it('degrades after retry also fails', async () => {
+    let callCount = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        callCount++;
+        const err = new Error('connect ECONNREFUSED 127.0.0.1:9879');
+        err.code = 'ECONNREFUSED';
+        throw err;
+      },
+    });
+    cleanTmpDir('vbs-test-retry-fails');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-retry-fails');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'r5', kind: 'audio', v: 1, text: 'both fail' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'card', 'degraded to card after retry exhausted');
+    assert.equal(callCount, 2, 'synthesize called twice (original + 1 retry)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F066 Phase 4: Detailed error info in degraded card
+// ---------------------------------------------------------------------------
+
+describe('VoiceBlockSynthesizer — F066 Phase 4: error classification in degraded card', () => {
+  it('shows "连接被拒绝" for ECONNREFUSED', async () => {
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        const err = new Error('connect ECONNREFUSED 127.0.0.1:9879');
+        err.code = 'ECONNREFUSED';
+        throw err;
+      },
+    });
+    cleanTmpDir('vbs-test-err-connrefused');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-err-connrefused');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'e1', kind: 'audio', v: 1, text: 'test error' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'card');
+    assert.ok(result[0].bodyMarkdown.includes('连接被拒绝'), 'card body contains error classification');
+    assert.ok(result[0].bodyMarkdown.includes('test error'), 'card body still contains original text');
+  });
+
+  it('shows "合成超时" for ETIMEDOUT or AbortError', async () => {
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        const err = new Error('The operation was aborted');
+        err.name = 'AbortError';
+        throw err;
+      },
+    });
+    cleanTmpDir('vbs-test-err-timeout');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-err-timeout');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'e2', kind: 'audio', v: 1, text: 'timeout test' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'card');
+    assert.ok(result[0].bodyMarkdown.includes('合成超时'), 'card body contains timeout classification');
+  });
+
+  it('shows "服务错误" for HTTP 5xx', async () => {
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        throw new Error('TTS server returned 500: Internal Server Error');
+      },
+    });
+    cleanTmpDir('vbs-test-err-5xx');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-err-5xx');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'e3', kind: 'audio', v: 1, text: '500 test' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'card');
+    assert.ok(result[0].bodyMarkdown.includes('服务错误'), 'card body contains server error classification');
+  });
+
+  it('shows "未知错误" for other errors', async () => {
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        throw new Error('Something unexpected');
+      },
+    });
+    cleanTmpDir('vbs-test-err-unknown');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-err-unknown');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'e4', kind: 'audio', v: 1, text: 'unknown error' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'card');
+    assert.ok(result[0].bodyMarkdown.includes('未知错误'), 'card body contains unknown error classification');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F066 Phase 4: Real Node fetch error shape — TypeError with cause
+// ---------------------------------------------------------------------------
+
+describe('VoiceBlockSynthesizer — F066 Phase 4: real fetch error shape (cause unwrapping)', () => {
+  it('retries on TypeError("fetch failed") with cause.code=ECONNREFUSED', async () => {
+    let callCount = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        callCount++;
+        if (callCount === 1) {
+          // This is the actual shape Node fetch throws when the server is down
+          const cause = new Error('connect ECONNREFUSED 127.0.0.1:9879');
+          cause.code = 'ECONNREFUSED';
+          const err = new TypeError('fetch failed', { cause });
+          throw err;
+        }
+        return {
+          audio: Buffer.from('retry-success'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-real-fetch-connrefused');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-real-fetch-connrefused');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'rf1', kind: 'audio', v: 1, text: 'real fetch retry' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'audio', 'synthesis succeeded after retry');
+    assert.equal(callCount, 2, 'retried once via cause.code unwrapping');
+  });
+
+  it('classifies TypeError("fetch failed") with cause.code=ECONNREFUSED as "连接被拒绝"', async () => {
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        const cause = new Error('connect ECONNREFUSED 127.0.0.1:9879');
+        cause.code = 'ECONNREFUSED';
+        throw new TypeError('fetch failed', { cause });
+      },
+    });
+    cleanTmpDir('vbs-test-real-fetch-classify');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-real-fetch-classify');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'rf2', kind: 'audio', v: 1, text: 'classify real fetch' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'card', 'degraded after retry exhausted');
+    assert.ok(result[0].bodyMarkdown.includes('连接被拒绝'), 'correctly classified via cause unwrapping');
+  });
+
+  it('retries on TypeError("fetch failed") with cause.code=ETIMEDOUT', async () => {
+    let callCount = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        callCount++;
+        if (callCount === 1) {
+          const cause = new Error('connect ETIMEDOUT 10.0.0.1:9879');
+          cause.code = 'ETIMEDOUT';
+          throw new TypeError('fetch failed', { cause });
+        }
+        return {
+          audio: Buffer.from('retry-ok'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-real-fetch-timeout');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-real-fetch-timeout');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'rf3', kind: 'audio', v: 1, text: 'real fetch timeout' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'audio', 'succeeded after retry');
+    assert.equal(callCount, 2, 'retried once');
+  });
+});
