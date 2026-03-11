@@ -212,3 +212,11 @@ commit body 补一行 `Why:` 说明决策理由。
 - **软**：触发器表是自检参考，不是每次工作都要填表——只在调 `multi_mention` 时强制
 
 **不滥用**：不是每个问题都拉全体。优先级：自己搜 → 搜不到再拉 1-2 只对口猫 → 真正跨领域才拉 3 只。
+
+## 14. 共享状态文件只在 main 改
+
+BACKLOG.md、feature docs 的 status 等**共享状态文件**禁止在 worktree 里改。
+
+- **在 main 上改，改完立刻 commit push**
+- 在 worktree 里改 → 冲突 + 污染 feature PR + 其他猫看不到更新
+- 涉及文件：`BACKLOG.md`、`docs/features/F*.md` 的 status 字段、`cat-config.json` 的可用性状态
