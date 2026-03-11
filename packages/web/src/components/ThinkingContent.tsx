@@ -3,21 +3,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 
-/** Convert hex to rgba with given opacity */
-function breedBg(hex: string | undefined, opacity: number): string {
-  if (!hex) return `rgba(148, 130, 180, ${opacity})`; // muted purple fallback
-  const r = Number.parseInt(hex.slice(1, 3), 16);
-  const g = Number.parseInt(hex.slice(3, 5), 16);
-  const b = Number.parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-}
+/* ── Same surface colors as CliOutputBlock — design-aligned ── */
+const SURFACE = '#283548';
+const SURFACE_INNER = '#243040';
 
 function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: string }) {
   return (
     <svg
       aria-hidden="true"
-      width="12"
-      height="12"
+      width="14"
+      height="14"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -32,7 +27,29 @@ function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: strin
   );
 }
 
-/** Lightweight disclosure row for thinking — breed-tinted light bg, dark text */
+/** Brain SVG icon — matches design */
+function BrainIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="flex-shrink-0 opacity-70"
+    >
+      <path d="M12 2a5 5 0 0 1 4.9 4 4.5 4.5 0 0 1 2.1 4 5 5 0 0 1-1 6.4V20a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-3.6A5 5 0 0 1 5 10a4.5 4.5 0 0 1 2.1-4A5 5 0 0 1 12 2z" />
+      <path d="M12 2v8" />
+      <path d="M8 6h8" />
+    </svg>
+  );
+}
+
+/** Collapsible thinking panel — same dark surface as CLI block, with brain SVG */
 export function ThinkingContent({
   content,
   className,
@@ -68,26 +85,31 @@ export function ThinkingContent({
   }, [expanded]);
   const previewLength = 60;
   const preview = content.length > previewLength ? `${content.slice(0, previewLength)}…` : content;
+  const accent = breedColor || '#94A3B8';
 
   return (
-    <div
-      className="mt-1 mb-0.5 rounded-lg overflow-hidden"
-      style={{ backgroundColor: breedBg(breedColor, 0.08) }}
-    >
+    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden" style={{ backgroundColor: SURFACE }}>
       <button
         type="button"
         onClick={() => {
           setExpanded((v) => !v);
         }}
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-700 hover:text-slate-900 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors"
+        style={{ backgroundColor: SURFACE }}
       >
-        <ThinkingChevron expanded={expanded} color={breedColor} />
+        <span style={{ color: accent }}>
+          <ThinkingChevron expanded={expanded} color={accent} />
+        </span>
+        <BrainIcon />
         <span className="font-medium">{label}</span>
         {!expanded && <span className="text-slate-500 truncate max-w-[240px]">{preview}</span>}
       </button>
       {expanded && (
-        <div className="px-3 pb-2 text-xs text-slate-700 leading-relaxed">
-          <MarkdownContent content={content} className={className} />
+        <div style={{ backgroundColor: SURFACE_INNER }}>
+          <div className="h-px" style={{ backgroundColor: '#334155' }} />
+          <div className="px-3 py-2 text-xs text-slate-300 leading-relaxed">
+            <MarkdownContent content={content} className={className} />
+          </div>
         </div>
       )}
     </div>
