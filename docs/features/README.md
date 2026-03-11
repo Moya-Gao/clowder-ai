@@ -66,6 +66,7 @@
 | F083 | F083: Design Gate + Cloud Reviewer Quota Fallback | done | [F083-design-gate-sop.md](./F083-design-gate-sop.md) |
 | F084 | F084: Ragdoll Rescue Hub — 一键救活布偶猫 | done | [F084-ragdoll-rescue-hub.md](./F084-ragdoll-rescue-hub.md) |
 | F073 | F073: SOP Auto-Guardian — 流程自闭环守护 | done | [F073-sop-auto-guardian.md](./F073-sop-auto-guardian.md) |
+| F074 | F074: Mount Directory Support — 挂载/共享目录支持 | done | [F074-mount-directory-support.md](./F074-mount-directory-support.md) |
 | F063 | F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | done | [F063-hub-workspace-explorer.md](./F063-hub-workspace-explorer.md) |
 | F086 | F086: Cat Orchestration — 猫猫自主协作 + 元认知系统 | done | [F086-cat-orchestration-multi-mention.md](./F086-cat-orchestration-multi-mention.md) |
 | F088 | F088: Multi-Platform Chat Gateway — 聊天平台接入网关 | done | [F088-multi-platform-chat-gateway.md](./F088-multi-platform-chat-gateway.md) |

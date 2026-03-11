@@ -452,8 +452,8 @@
     },
     {
       "id": "F074",
-      "name": "— Mount Directory Support（挂载/共享目录支持）",
-      "status": "spec | **Owner**: 布偶猫",
+      "name": "F074: Mount Directory Support — 挂载/共享目录支持",
+      "status": "done | **Owner**: 布偶猫 | **Completed**: 2026-03-11",
       "file": "F074-mount-directory-support.md"
     },
     {
