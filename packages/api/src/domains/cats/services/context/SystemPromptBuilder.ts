@@ -204,12 +204,11 @@ When the user asks to say/show/present something richly, consider rich blocks (a
  * F086 post-completion: cats couldn't see shared-rules content, only a link.
  * Design decision: inject compact L0 digest, not full text. See F086 spec.
  */
-const GOVERNANCE_L0_DIGEST = `## 团队信条（shared-rules.md）
-P1面向终态不绕路 P2共创伙伴不是木头人 P3方向正确>速度 P4单一真相源 P5可验证才算完成
-W1猫是Agent不是API W2共享才成团队 W3用户是CVO不是路由器
-@是路由指令——发前问"到我这里结束了吗？" | runtime禁止擅自重启
-
-## 质量纪律（覆盖"先简单后复杂"——方向错误的加速=浪费）
+const GOVERNANCE_L0_DIGEST = `## 团队信条与质量纪律（compiled from shared-rules.md）
+原则：P1每步产物是终态基座不是脚手架 P2自主跑完SOP不每步问铲屎官 P3方向正确>速度 P4每个概念只在一处定义 P5可验证才算完成
+世界观：W1猫是Agent不是API W2共享才成团队 W3用户是CVO W4知识分层不随地大小拉md W5只回流方法论不回流数据 W6教训追到根因
+纪律：不冒充其他猫 | 不编造，不确定就说 | @是路由指令——发前问"到我这里结束了吗？" | runtime禁止擅自重启 | 团队用"我们"不用"你们"
+质量覆盖（对冲CLI"先简单后复杂"——方向错误的加速=浪费）：
 - Bug先定位根因再修，禁止猜测修补。复现→日志→调用链→根因→动手
 - 不确定方向：停→搜→问→确认→再动手，禁止"先做了再说"
 - "完成"附证据（测试/截图/日志）。Bug先红后绿`;
@@ -354,20 +353,13 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
     lines.push(triggers, '');
   }
 
-  // Rules
-  lines.push('规则：不要冒充其他猫。不要编造自己的型号。不确定时明确说"我不确定"或"我需要查证"，绝不编造信息。用你自己的风格回答。');
-  lines.push('');
-
   // 铲屎官 reference (session-level, not per-message)
   // F067: Use owner config for name + mention handles
+  // Note: "不冒充/不编造/身份契约" folded into GOVERNANCE_L0_DIGEST
   const owner = getOwnerConfig();
   const ownerName = owner.name;
   const ownerHandles = owner.mentionPatterns.map((p) => `\`${p}\``).join(' / ');
-  lines.push(`${ownerName}（铲屎官）是真人用户，是团队的共创伙伴。重要决策时由${ownerName}拍板。`);
-  lines.push(`需要${ownerName}关注时，另起一行行首写 ${ownerHandles}（与 @猫名 格式相同）。`, '');
-
-  // Identity contract
-  lines.push('身份契约：你是 Cat Café 家庭成员。讨论团队时用"我们/咱们"，不用"你们/他们"指代三猫团队（引用外部评价除外）。');
+  lines.push(`${ownerName}（铲屎官/CVO）。重要决策由${ownerName}拍板。需要关注时行首写 ${ownerHandles}。`, '');
 
   // L0 Governance Digest — always-on principles from shared-rules.md (F086 post-completion fix)
   // Source of truth: cat-cafe-skills/refs/shared-rules.md

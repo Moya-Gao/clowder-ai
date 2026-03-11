@@ -149,7 +149,7 @@ describe('SystemPromptBuilder', () => {
       teammates: [],
       mcpAvailable: false,
     });
-    assert.ok(prompt.includes('不要冒充'));
+    assert.ok(prompt.includes('不冒充'));
   });
 
   test('is deterministic (identical inputs produce identical output)', async () => {
@@ -280,8 +280,8 @@ describe('SystemPromptBuilder', () => {
     assert.ok(identity.includes('布偶猫'), 'Should contain display name');
     assert.ok(identity.includes('Anthropic'), 'Should contain provider');
     assert.ok(identity.includes('## 协作'), 'Should contain collaboration guide');
-    assert.ok(identity.includes('不要冒充'), 'Should contain anti-impersonation rule');
-    assert.ok(identity.includes('身份契约'), 'Should contain identity contract');
+    assert.ok(identity.includes('不冒充'), 'Should contain anti-impersonation rule');
+    assert.ok(identity.includes('团队用"我们"'), 'Should contain identity contract (folded into L0)');
   });
 
   test('buildStaticIdentity returns empty for unknown cat', async () => {
