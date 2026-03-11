@@ -625,7 +625,7 @@ async function main(): Promise<void> {
 
   // F34: TTS Provider (mlx-audio → Python TTS server)
   const ttsRegistry = new TtsRegistry();
-  const ttsUrl = process.env['TTS_URL'] ?? 'http://localhost:9877';
+  const ttsUrl = process.env['TTS_URL'] ?? 'http://localhost:9879';
   ttsRegistry.register(new MlxAudioTtsProvider({ baseUrl: ttsUrl }));
   const ttsCacheDir = process.env['TTS_CACHE_DIR'] ?? './data/tts-cache';
   await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });

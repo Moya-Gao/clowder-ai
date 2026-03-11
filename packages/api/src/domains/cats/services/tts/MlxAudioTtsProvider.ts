@@ -9,7 +9,7 @@
 import type { ITtsProvider, TtsSynthesizeRequest, TtsSynthesizeResult } from '@cat-cafe/shared';
 
 export interface MlxAudioTtsProviderOptions {
-  /** Base URL of the Python TTS server (default: http://localhost:9877) */
+  /** Base URL of the Python TTS server (default: http://localhost:9879) */
   readonly baseUrl?: string;
   /** Model to request (default: mlx-community/Kokoro-82M-bf16) */
   readonly model?: string;
@@ -24,7 +24,7 @@ export class MlxAudioTtsProvider implements ITtsProvider {
   private readonly timeoutMs: number;
 
   constructor(options?: MlxAudioTtsProviderOptions) {
-    this.baseUrl = options?.baseUrl ?? process.env['TTS_URL'] ?? 'http://localhost:9877';
+    this.baseUrl = options?.baseUrl ?? process.env['TTS_URL'] ?? 'http://localhost:9879';
     this.model = options?.model ?? 'mlx-community/Kokoro-82M-bf16';
     this.timeoutMs = options?.timeoutMs ?? 30_000;
   }
