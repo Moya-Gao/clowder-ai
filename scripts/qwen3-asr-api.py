@@ -18,6 +18,7 @@ Requires: pip install mlx-audio fastapi uvicorn python-multipart
 import argparse
 import asyncio
 import logging
+import os
 import signal
 import subprocess
 import sys
@@ -57,7 +58,8 @@ _transcribe_lock = asyncio.Lock()
 
 def _convert_to_wav(src_path: str) -> str:
     """Convert any audio format to 16kHz mono WAV via ffmpeg (Qwen3-ASR requires WAV)."""
-    wav_path = src_path.rsplit(".", 1)[0] + ".wav"
+    fd, wav_path = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)
     result = subprocess.run(
         ["ffmpeg", "-y", "-i", src_path, "-ar", "16000", "-ac", "1", wav_path],
         capture_output=True,
@@ -80,8 +82,10 @@ def _do_transcribe(audio_path: str, language: str, initial_prompt: str = "") -> 
     if not audio_path.endswith(".wav"):
         wav_path = _convert_to_wav(audio_path)
 
-    # mlx-audio writes {output_path}.txt — put it in /tmp/ alongside the audio
-    output_path = wav_path.rsplit(".", 1)[0] + "_asr"
+    # mlx-audio writes {output_path}.txt — force it into system temp dir, never CWD
+    fd, output_file = tempfile.mkstemp(suffix="_asr")
+    os.close(fd)
+    output_path = output_file
     try:
         kwargs = dict(model=_model, audio=wav_path, output_path=output_path, verbose=False)
         if initial_prompt:
@@ -91,6 +95,7 @@ def _do_transcribe(audio_path: str, language: str, initial_prompt: str = "") -> 
     finally:
         if wav_path != audio_path:
             Path(wav_path).unlink(missing_ok=True)
+        Path(output_path).unlink(missing_ok=True)
         Path(f"{output_path}.txt").unlink(missing_ok=True)
 
 
