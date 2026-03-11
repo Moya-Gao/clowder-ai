@@ -87,10 +87,10 @@ export function ThinkingContent({
       >
         <ThinkingChevron expanded={expanded} color={breedColor} />
         <span>{label}</span>
-        {!expanded && <span className="text-gray-400 truncate max-w-[200px]">{preview}</span>}
+        {!expanded && <span className="text-slate-500 truncate max-w-[200px]">{preview}</span>}
       </button>
       {expanded && (
-        <div className="px-3 pb-2 text-xs text-gray-400 leading-relaxed opacity-80">
+        <div className="px-3 pb-2 text-xs text-slate-300 leading-relaxed">
           <MarkdownContent content={content} className={className} />
         </div>
       )}
