@@ -72,29 +72,38 @@ Step 4: RUNTIME GUARD — 前端证据采集前先做运行态保护
   - 服务已在线时直接复用，禁止在该会话执行 `pnpm start` / `pnpm runtime:start` / `./scripts/start-dev.sh`
   - 确需重启时，先获铲屎官明确授权，再用 `CAT_CAFE_RUNTIME_RESTART_OK=1` 执行
 
-Step 5: RUN — 运行验证命令（必须这次真实运行）
+Step 5: PEN CHECK — 自动化设计稿对照（不可跳过！）
+  ① glob designs/**/*.pen，匹配当前 feat 编号或关键词
+  ② 若匹配到 .pen 文件 → 强制进入设计稿对照流程（见下方"有 .pen 设计稿的功能额外要求"）
+  ③ 若无匹配 → 检查 feat 是否有前端 UI 改动（改了 packages/web/src/components/）
+     → 有 UI 改动但无 .pen → 在报告中标注"⚠️ 无设计稿，跳过对照"
+  ④ 此步骤不依赖猫猫"记得"——必须执行 glob 命令，用输出决定是否进入对照
+
+Step 6: RUN — 运行验证命令（必须这次真实运行）
   pnpm test                              # 必须全部通过
   pnpm lint                              # 0 errors
   pnpm -r --if-present run build         # exit 0
   # Redis 相关改动额外跑：
   pnpm --filter @cat-cafe/api test:redis
 
-Step 6: READ — 完整读输出，看 exit code，数失败数
+Step 7: READ — 完整读输出，看 exit code，数失败数
 
-Step 7: REPORT — 输出合规报告 + 证据
+Step 8: REPORT — 输出合规报告 + 证据
 ```
 
 **前端功能额外要求**：`≤3 张截图 + 1 段 15s 录屏`，附"需求 → 截图"映射表。
 执行细则：`cat-cafe-skills/refs/vision-evidence-workflow.md`。
 
-**有 .pen 设计稿的功能额外要求** 🔴：
+**有 .pen 设计稿的功能额外要求** 🔴（Step 5 匹配到 .pen 时强制执行）：
 1. 打开 .pen 文件 → `get_screenshot` 截取设计稿
 2. Playwright/Chrome 打开实际页面 → 截取实现截图
 3. 逐区域对比：布局、颜色、间距、交互状态
 4. 不一致处必须标注并修复（或记录为"有意偏差 + 原因"）
 5. 报告附 **设计稿截图 vs 实现截图** 对照表
+6. 🔴 **此流程由 Step 5 自动触发，不依赖猫猫主动想起来**
 
-> 教训：有猫画了 UX 和铲屎官确认，实现出来的不能说一模一样只能说毫不相关。
+> 教训（2026-03-11）：三只布偶猫同时跳过了 .pen 对照，根因是没有自动化检查点。
+> Step 5 的 glob 就是解决这个问题——用命令输出驱动，不靠记忆。
 
 ## Quick Reference
 
@@ -126,6 +135,10 @@ Spec: docs/plans/YYYY-MM-DD-xxx.md
 |---|------|------|----------|----------|
 | 1 | XXX  | ✅   | file.ts:L10 | test.spec.ts |
 
+### 设计稿对照（Step 5）
+glob designs/**/*.pen 匹配结果: [列出匹配文件或"无匹配"]
+对照状态: ✅ 已对照 / ⚠️ 无设计稿（有 UI 改动）/ ➖ 无 UI 改动
+
 ### 验证命令输出（必须是这次真实运行）
 pnpm test → 34/34 pass ✅
 pnpm lint → 0 errors ✅
@@ -144,7 +157,7 @@ pnpm -r --if-present run build → exit 0 ✅
 | 交付半成品让铲屎官"先看看" | 交付完整 feat，步骤是内部节奏不是交付批次 |
 | 产出后续要重写而非扩展 | 如果要重写，说明绕路了（Spike 除外） |
 | 前端功能没有截图证据 | ≤3 张截图 + 15s 录屏 + 映射表 |
-| 有 .pen 设计稿但没对照实现 | 设计截图 vs 实现截图逐区域对比，不一致必须修或标注 |
+| 有 .pen 设计稿但没对照实现 | Step 5 自动 glob 检测，匹配到就强制对照，不靠记忆 |
 | 为了截图在 runtime 会话里重跑 `pnpm start` | 先探活复用现有 runtime；确需重启必须显式授权 |
 | Redis 改动用默认测试命令 | 必须跑 `test:redis`，禁止直连 6399 |
 | 只看 spec checkbox 就声称完成/未完成 | 核实 `git log --grep` + `gh pr list` + 实际 commit（LL-029）|
