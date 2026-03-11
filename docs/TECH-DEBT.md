@@ -106,7 +106,7 @@ created: 2026-02-26
 | TD105 | **多分身（variant）UI 兼容：warning 渲染 + 圆点导航 sender 映射** | [x] | [bug report](./bug-report/2026-03-01-variant-ui-warning-and-navigator/bug-report.md) | 现象：warning JSON 直出、`opus-45/codex-spark` 在导航 tooltip 显示「系统」。修复落点：`useAgentMessages.ts` 增加 warning 分支；`MessageNavigator.tsx` 改用动态 cat data + baseId fallback。commit `c0bf811` |
 | TD106 | **多分身（variant）hardcode 扫描与归一化** | [ ] | [bug report](./bug-report/2026-03-01-variant-ui-warning-and-navigator/bug-report.md) | 目标：把 Web/UI 中写死 `opus/codex/gemini` 的地方统一迁移到 `useCatData()`（例：`ContextHealthBar.tsx` 的 family color、Hub/Sidebar 的固定入口、未知 catId 的统一展示策略）。|
 | TD107 | **Signal Inbox 列表 UX 设计语言归一化** | [x] | F091 AC-13 转出 | 标题优先布局 + flex-1 填充 + min-h 固定两行高 + badges/meta 移到标题下方。commit `4104d31b`。|
-| TD108 | **Hyperfocus Brake 前端 TTS 播放** | [ ] | F085 AC25 裁出 | brake 触发时前端自动播放三猫语音撒娇。依赖 F066 TTS pipeline 提供浏览器端播放 API。触发条件：F066 Phase 4 完成前端播放基建后。|
+| TD108 | **Hyperfocus Brake 前端 TTS 播放** | [ ] | F085 AC25 裁出 → **回收到 F085 Phase 5 AC29** | brake 触发时前端自动播放三猫语音撒娇。F066 前端播放基建已就绪（`useTts` + `AudioBlock`），直接在 Phase 5 实现。|
 | TD109 | **Hyperfocus Brake agent hook 退役** | [ ] | F085 AC27 裁出 | Phase 4 平台化上线后，移除 `pretool-brake-check.sh` + `hyperfocus-brake-timer.sh`。需先验证平台 brake 稳定运行 1 周+。触发条件：铲屎官确认平台 brake 稳定后。|
 
 ## P3 — 可选优化
