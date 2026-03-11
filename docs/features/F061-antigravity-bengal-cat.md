@@ -428,3 +428,27 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 - `MODEL_LABEL_MAP`: cat-config model ID → Antigravity UI label 严格映射（无 fallback）
 - `modelVerified` metadata flag: 切换成功后标记 `true`
 - DOM scripts: `GET_CURRENT_MODEL_JS` / `CLICK_MODEL_SELECTOR_JS` / `FIND_MODEL_OPTION_JS`
+
+### Bug-3: Thinking DOM 不识别 — Antigravity 用自定义 thinking 结构 ✅
+
+**现象**：孟加拉猫抓回来的内容有重复，包含 thinking 文本和 CSS 垃圾。
+
+**根因**：`POLL_RESPONSE_JS` 只认 `<details>` / `[class*="thinking"]`，但 Antigravity 用 `<button>Thought for 16s</button>` + `<div class="max-h-0 opacity-0">` 折叠容器。`extractBlockText` 直接取 `textContent` 不过滤隐藏元素。
+
+**修复** (PR #330, `e7e00b37`):
+- 扩展 thinking 检测：匹配 "Thought for Xs" 按钮 + 遍历折叠 sibling 容器
+- `extractBlockText` 重写为 clone-first：strip hidden 子树（max-h-0/opacity-0/hidden/aria-hidden/style/script/buttons）再提取
+- thinking sibling 也走 `extractBlockText` 净化
+- 9 个测试（5 JSDOM 行为 fixture + 4 结构 smoke test）
+
+---
+
+## CDP 接入复盘
+
+完整困难清单与解决方案见 [F061 CDP 接入复盘文档](F061-cdp-integration-retrospective.md)。
+
+提炼的四个通用模式：
+1. **DOM 是私有 API，没有契约** — 多层降级选择器 + 回归测试
+2. **隐藏状态 ≠ 不存在** — 永远 clone → strip → 再读取
+3. **轮询稳定性 = 假阳性地雷** — idle timeout + 积极信号检测
+4. **一个 bug 修一半 = 新 bug** — 行为测试断言所有输出字段
