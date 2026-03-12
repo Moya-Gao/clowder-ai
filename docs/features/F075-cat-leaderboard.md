@@ -123,7 +123,7 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 ## Acceptance Criteria — Phase C（待实现）
 
 - [ ] AC-C1: 成就徽章系统（通用框架 + CVO 成就 + 日常成就）
-- [ ] AC-C2: CVO 能力等级追踪（Lv.1-5，跨 session 持久化）
+- [ ] AC-C2: CVO 能力等级追踪（Lv.1-5，框架 + 内存实现；持久化为 follow-up）
 - [ ] AC-C3: `POST /api/leaderboard/events` + F087 接入闭环
 
 ## 需求点 Checklist

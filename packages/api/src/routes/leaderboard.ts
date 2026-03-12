@@ -4,6 +4,8 @@
 
 import type { LeaderboardRange } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
+import type { AchievementStore } from '../domains/leaderboard/achievement-store.js';
+import type { GameStore } from '../domains/leaderboard/game-store.js';
 import { getLeaderboardStats } from '../domains/leaderboard/leaderboard-service.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
@@ -11,6 +13,8 @@ export interface LeaderboardRoutesOptions {
   messageStore: {
     getRecent(limit?: number, userId?: string): unknown[] | Promise<unknown[]>;
   };
+  gameStore?: GameStore;
+  achievementStore?: AchievementStore;
 }
 
 export const leaderboardRoutes: FastifyPluginAsync<LeaderboardRoutesOptions> = async (app, opts) => {
@@ -30,6 +34,11 @@ export const leaderboardRoutes: FastifyPluginAsync<LeaderboardRoutesOptions> = a
           )) as unknown as import('../domains/leaderboard/mention-stats.js').MessageLike[],
       },
       range,
+      {
+        ...(opts.gameStore ? { gameStore: opts.gameStore } : {}),
+        ...(opts.achievementStore ? { achievementStore: opts.achievementStore } : {}),
+        ...(userId ? { userId } : {}),
+      },
     );
     return stats;
   });

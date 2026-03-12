@@ -8,14 +8,14 @@
 - [ ] AC-B3: 排行榜入口与运行态对齐（runtime sync 是铲屎官操作，代码层面确保 Hub tab 可见）
 - [ ] AC-B4: 移动端适配
 - [ ] AC-C1: 成就徽章系统（通用框架 + CVO 成就 + 日常成就）
-- [ ] AC-C2: CVO 能力等级追踪（Lv.1-5，跨 session 持久化）
+- [ ] AC-C2: CVO 能力等级追踪（Lv.1-5，框架 + 内存实现；持久化为 follow-up）
 - [ ] AC-C3: `POST /api/leaderboard/events` + F087 接入闭环
 **Architecture:** 扩展现有 leaderboard domain，新增 silly-stats（关键词情绪分析）、game-store（战绩存储）、achievement-store（成就 + 事件存储）。遵循项目的 Port→InMemory 存储模式。前端替换 ComingSoon 占位为真实组件。
 **Tech Stack:** TypeScript, Fastify routes, in-memory stores, React + Tailwind
 **前端验证:** Yes — reviewer 必须用 Chrome 实测
 
-**NOT building:**
-- Redis 实现（后续按需加）
+**NOT building (本轮 scope 外):**
+- Redis / 持久层实现（AC-C2 持久化作为 follow-up，本轮交付框架 + 内存实现）
 - 自动情绪分析模型（MVP = 关键词匹配）
 - F087 Bootcamp 的具体训练逻辑（只提供事件写入接口）
 

@@ -7,7 +7,10 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { LeaderboardRange, LeaderboardStatsResponse } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
+import type { AchievementStore } from './achievement-store.js';
+import type { GameStore } from './game-store.js';
 import { computeMentionStats, type MessageLike } from './mention-stats.js';
+import { computeSillyStats } from './silly-stats.js';
 import { computeWorkStats, type GitLogEntry, parseGitLog } from './work-stats.js';
 
 const execFileAsync = promisify(execFile);
@@ -55,9 +58,16 @@ export interface MessageFetcher {
   getRecent(limit?: number): Promise<MessageLike[]> | MessageLike[];
 }
 
+export interface LeaderboardStores {
+  gameStore?: GameStore;
+  achievementStore?: AchievementStore;
+  userId?: string;
+}
+
 export async function getLeaderboardStats(
   messageFetcher: MessageFetcher,
   range: LeaderboardRange,
+  stores?: LeaderboardStores,
 ): Promise<LeaderboardStatsResponse> {
   const catNames = getCatNames();
   const sinceMs = range === '7d' ? daysAgoMs(7) : range === '30d' ? daysAgoMs(30) : undefined;
@@ -73,10 +83,23 @@ export async function getLeaderboardStats(
   const mentions = computeMentionStats(messages, catNames, range);
   const work = computeWorkStats(gitEntries, getAuthorMap(), catNames);
 
+  // Phase B: silly stats + game stats
+  const silly = computeSillyStats(messages, catNames);
+  const games = stores?.gameStore?.computeGameStats(catNames);
+
+  // Phase C: achievements + CVO level
+  const userId = stores?.userId;
+  const achievements = userId ? stores?.achievementStore?.getUnlocked(userId) : undefined;
+  const cvoLevel = userId ? stores?.achievementStore?.getCvoLevel(userId) : undefined;
+
   return {
     mentions,
     work,
     range,
     fetchedAt: new Date().toISOString(),
+    ...(silly.entries.length > 0 ? { silly } : {}),
+    ...(games ? { games } : {}),
+    ...(achievements && achievements.length > 0 ? { achievements } : {}),
+    ...(cvoLevel ? { cvoLevel } : {}),
   };
 }

@@ -108,6 +108,7 @@ import {
   featureDocDetailRoutes,
   intentCardRoutes,
   invocationsRoutes,
+  leaderboardEventsRoutes,
   leaderboardRoutes,
   memoryPublishRoutes,
   memoryRoutes,
@@ -452,7 +453,14 @@ async function main(): Promise<void> {
   });
   await app.register(catsRoutes);
   await app.register(quotaRoutes);
-  await app.register(leaderboardRoutes, { messageStore });
+  // F075 Phase B+C: Game + Achievement stores
+  const { GameStore } = await import('./domains/leaderboard/game-store.js');
+  const { AchievementStore } = await import('./domains/leaderboard/achievement-store.js');
+  const gameStore = new GameStore();
+  const achievementStore = new AchievementStore();
+  await app.register(leaderboardRoutes, { messageStore, gameStore, achievementStore });
+  await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
+
   await app.register(brakeRoutes, { activityTracker });
 
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration

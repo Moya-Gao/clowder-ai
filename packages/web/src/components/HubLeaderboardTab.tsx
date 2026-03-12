@@ -3,7 +3,8 @@
 import type { LeaderboardRange, LeaderboardStatsResponse } from '@cat-cafe/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { CatHeroCard, ComingSoon, MiniRanked, SectionCard, StreakRanked, WorkMetric } from './leaderboard-cards';
+import { CatHeroCard, MiniRanked, SectionCard, StreakRanked, WorkMetric } from './leaderboard-cards';
+import { AchievementWall, CvoLevelCard, GameArena, SillyCatsList } from './leaderboard-phase-bc';
 
 /* -- Design tokens from designs/f075-cat-leaderboard.pen (lzNOb) -- */
 const FONTS_URL =
@@ -90,7 +91,7 @@ export function HubLeaderboardTab() {
             <p className="text-[13px]" style={{ color: '#8E8E93' }}>
               Who is the most beloved feline?
             </p>
-            <div className="grid grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {top3.map((cat) => (
                 <CatHeroCard key={cat.catId} cat={cat} unit="times mentioned" />
               ))}
@@ -99,7 +100,7 @@ export function HubLeaderboardTab() {
 
           {/* Work Stats — 搬砖排行 */}
           <SectionCard title="搬砖排行">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <WorkMetric cat={data.work.commits[0]} label="Commits" />
               <WorkMetric cat={data.work.reviews[0]} label="Reviews" />
               <WorkMetric cat={data.work.bugFixes[0]} label="Bug Fixes" />
@@ -107,7 +108,7 @@ export function HubLeaderboardTab() {
           </SectionCard>
 
           {/* Mention Stats Grid */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <SectionCard title="夜猫子 🌙">
               <MiniRanked items={data.mentions.nightOwl} unit="次深夜 @" />
             </SectionCard>
@@ -117,14 +118,26 @@ export function HubLeaderboardTab() {
             <SectionCard title="连续签到 🔥">
               <StreakRanked items={data.mentions.streak} />
             </SectionCard>
-            <ComingSoon label="翻车现场 😹" />
+            <SectionCard title="翻车现场 😹">
+              <SillyCatsList entries={data.silly?.entries ?? []} />
+            </SectionCard>
           </div>
 
-          {/* Phase B/C Placeholders */}
-          <div className="grid grid-cols-3 gap-6">
-            <ComingSoon label="成就墙 🎖️" />
-            <ComingSoon label="CVO 能力等级 🐾" />
-            <ComingSoon label="游戏竞技场 🎮" />
+          {/* Phase B: Game Arena + Phase C: Achievements + CVO */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <SectionCard title="成就墙 🎖️">
+              <AchievementWall achievements={data.achievements ?? []} />
+            </SectionCard>
+            <SectionCard title="CVO 能力等级 🐾">
+              {data.cvoLevel ? <CvoLevelCard level={data.cvoLevel} /> : (
+                <p className="text-sm" style={{ color: '#8E8E93' }}>暂无等级数据</p>
+              )}
+            </SectionCard>
+            <SectionCard title="游戏竞技场 🎮">
+              {data.games ? <GameArena stats={data.games} /> : (
+                <p className="text-sm" style={{ color: '#8E8E93' }}>暂无游戏数据</p>
+              )}
+            </SectionCard>
           </div>
         </>
       )}

@@ -129,19 +129,3 @@ export function SectionCard({ title, children }: { title: string; children: Reac
   );
 }
 
-export function ComingSoon({ label }: { label: string }) {
-  return (
-    <div
-      className="rounded-2xl p-6 flex flex-col items-center justify-center gap-2 opacity-50"
-      style={{ background: '#FFFDF8' }}
-    >
-      <span className="text-2xl">🔒</span>
-      <span className="text-sm font-medium" style={{ color: '#8E8E93' }}>
-        {label}
-      </span>
-      <span className="text-[11px]" style={{ color: '#8E8E93' }}>
-        Phase B/C 待实现
-      </span>
-    </div>
-  );
-}

@@ -5,10 +5,18 @@
 
 // Leaderboard types (F075 排行榜)
 export type {
+  Achievement,
+  CvoLevel,
+  GameRecord,
+  GameRecordInput,
+  GameStats,
+  LeaderboardEvent,
   LeaderboardRange,
   LeaderboardStatsResponse,
   MentionStats,
   RankedCat,
+  SillyCatEntry,
+  SillyStats,
   StreakCat,
   WorkStats,
 } from './leaderboard.js';
