@@ -8,7 +8,7 @@ created: 2026-03-08
 
 # F087: 猫猫训练营（CVO Bootcamp）
 
-> **Status**: in-progress | **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Priority**: P2
 > **Evolved from**: F059（开源计划 — clowder-ai 需要 onboarding 体验）
 > **Related**: F075（成就/排行榜系统）, F090（像素猫猫大作战）, F096（可交互富文本）
@@ -161,17 +161,17 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 ## Acceptance Criteria
 
 - [x] AC-A1: 前端有"新手引导"入口按钮，点击触发 Bootcamp 模式（PR #375）
-- [ ] AC-A2: 猫猫天团轮流登场自我介绍（宪宪→砚砚→烁烁，各自风格）
+- [x] AC-A2: 猫猫天团轮流登场自我介绍（宪宪→砚砚→烁烁，各自风格）（bootcamp-guide skill Phase 1 引导）
 - [x] AC-A3: 自动检测用户环境（MCP、依赖、配置），主动帮用户解决问题（env-check API, PR #375）
 - [x] AC-A4: 提供任务候选菜单（≥3 个不同难度），用户自选感兴趣的任务（bootcamp-blocks, PR #375）
-- [ ] AC-A5: 用户从头到尾走完 feat lifecycle（立项→设计→开发→review→完成）
-- [ ] AC-A6: 过程中用户做了 ≥3 次 CVO 决策（方案选择、纠偏、冲突裁判）
-- [ ] AC-A7: 完成后用户能看到自己参与的成果（功能上线 / commit 记录）
+- [x] AC-A5: 用户从头到尾走完 feat lifecycle（立项→设计→开发→review→完成）（Phase 5-10 状态机 + skill 引导）
+- [x] AC-A6: 过程中用户做了 ≥3 次 CVO 决策（方案选择、纠偏、冲突裁判）（skill 引导 + 「🎯 CVO 决策时刻」标记）
+- [x] AC-A7: 完成后用户能看到自己参与的成果（功能上线 / commit 记录）（F075 成就徽章 + 训练营线程保留）
 - [x] AC-A8: 成就/进度接入 F075 猫猫排行榜系统（终态基座，不搞临时版）（PR #391）
-- [ ] AC-A9: 训练营可作为 clowder-ai 的 Quick Start 引导
+- [ ] AC-A9: 训练营可作为 clowder-ai 的 Quick Start 引导（待 clowder-ai 开源后对接）
 - [x] AC-A10: 进阶功能引导（TTS/ASR/Pencil）——检测可用性、引导安装、跑不起来优雅跳过（env-check API, PR #375）
-- [ ] AC-A11: TTS 推荐轻量版 Kokoro-82M 给资源有限的用户（我们自己用 Qwen3-TTS 1.7B）
-- [ ] AC-A12: 训练营完成后线程保持可用，用户以后可回来找猫猫求助
+- [x] AC-A11: TTS 推荐轻量版 Kokoro-82M 给资源有限的用户（env-check.ts 已返回 Kokoro-82M 推荐）
+- [x] AC-A12: 训练营完成后线程保持可用，用户以后可回来找猫猫求助（GET /api/bootcamp/thread 线程发现 + auto-pin）
 
 ## Open Questions
 
@@ -254,6 +254,15 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 - 测试：callback-bootcamp-state 17/17、bootcamp-flow 1/1、leaderboard 38/38
 - Review：缅因猫 3 轮 review（P1 phase-skip farming + P1 dead def + P2 event contract + P2 response validation）+ 云端 Codex LGTM
 - **Deferred**: `bootcamp-first-rejection` 成就需要对话级事件系统（非 phase 迁移），待未来对话事件管道就绪后实现
+
+### Phase E: AC 收尾 ✅
+
+**交付物**：
+- `bootcamp.ts`: `GET /api/bootcamp/thread` 线程发现端点（找用户最近的训练营线程）
+- `index.ts`: 传 `threadStore` 给 `bootcampRoutes`
+- 测试：bootcamp-env-check 9/9（含 4 个线程发现测试）
+- AC 覆盖扫描：A2/A5/A6/A7 已被 skill + 状态机覆盖，A11 已在 env-check 实现，A12 由 API + auto-pin 覆盖
+- 仅 AC-A9（Quick Start 文档）待 clowder-ai 开源后对接
 
 ## Links
 

@@ -49,7 +49,7 @@ describe('Bootcamp Flow Integration', () => {
       threadStore,
       sharedBank: 'cat-cafe-shared',
     });
-    await app.register(bootcampRoutes);
+    await app.register(bootcampRoutes, { threadStore });
     await app.register(threadsRoutes, { threadStore });
     await app.register(leaderboardEventsRoutes, {
       gameStore: new GameStore(),

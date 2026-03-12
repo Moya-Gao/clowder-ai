@@ -1,16 +1,21 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 
 const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
 
 describe('F087: Bootcamp env-check route', () => {
   let app;
+  let threadStore;
 
   async function createApp() {
     const { default: Fastify } = await import('fastify');
     const { bootcampRoutes } = await import('../dist/routes/bootcamp.js');
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+    threadStore = new ThreadStore();
     app = Fastify();
-    await app.register(bootcampRoutes);
+    await app.register(bootcampRoutes, { threadStore });
     await app.ready();
     return app;
   }
@@ -82,6 +87,78 @@ describe('F087: Bootcamp env-check route', () => {
     // In test env, MCP server is not running — should detect that
     // (we can't assert ok=false because CI may have it, but we assert it's a real boolean check)
     assert.ok('ok' in body.mcp);
+    await app.close();
+  });
+});
+
+describe('F087: Bootcamp thread discovery', () => {
+  let app;
+  let threadStore;
+
+  async function createApp() {
+    const { default: Fastify } = await import('fastify');
+    const { bootcampRoutes } = await import('../dist/routes/bootcamp.js');
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+    threadStore = new ThreadStore();
+    app = Fastify();
+    await app.register(bootcampRoutes, { threadStore });
+    await app.ready();
+    return app;
+  }
+
+  it('returns null when no bootcamp thread exists', async () => {
+    await createApp();
+    const res = await app.inject({ method: 'GET', url: '/api/bootcamp/thread', headers: AUTH_HEADERS });
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.strictEqual(body.thread, null);
+    await app.close();
+  });
+
+  it('returns 401 without identity', async () => {
+    await createApp();
+    const res = await app.inject({ method: 'GET', url: '/api/bootcamp/thread' });
+    assert.strictEqual(res.statusCode, 401);
+    await app.close();
+  });
+
+  it('finds bootcamp thread by bootcampState', async () => {
+    await createApp();
+    // Create a normal thread and a bootcamp thread
+    await threadStore.create('test-user', 'Normal thread');
+    const bootcampThread = await threadStore.create('test-user', '🎓 猫猫训练营');
+    await threadStore.updateBootcampState(bootcampThread.id, {
+      v: 1,
+      phase: 'phase-3-config-help',
+      startedAt: 1000,
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/bootcamp/thread', headers: AUTH_HEADERS });
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.strictEqual(body.thread.id, bootcampThread.id);
+    assert.strictEqual(body.thread.phase, 'phase-3-config-help');
+    assert.strictEqual(body.thread.startedAt, 1000);
+    await app.close();
+  });
+
+  it('returns most recent bootcamp thread when multiple exist', async () => {
+    await createApp();
+    const older = await threadStore.create('test-user', '🎓 旧训练营');
+    await threadStore.updateBootcampState(older.id, {
+      v: 1, phase: 'phase-11-farewell', startedAt: 500, completedAt: 600,
+    });
+    const newer = await threadStore.create('test-user', '🎓 新训练营');
+    await threadStore.updateBootcampState(newer.id, {
+      v: 1, phase: 'phase-1-intro', startedAt: 2000,
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/bootcamp/thread', headers: AUTH_HEADERS });
+    const body = JSON.parse(res.payload);
+    assert.strictEqual(body.thread.id, newer.id, 'Should return most recent bootcamp thread');
+    assert.strictEqual(body.thread.phase, 'phase-1-intro');
     await app.close();
   });
 });
