@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F106: 多训练营支持 + 训练营列表页
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P2
 > **Evolved from**: F087（CVO Bootcamp — 当前只支持单训练营）
 
 ## Why
@@ -43,11 +43,11 @@ created: 2026-03-12
 
 ## Acceptance Criteria
 
-- [ ] AC-A1: 用户可以创建多个训练营 thread（前端不再阻止）
-- [ ] AC-A2: 训练营列表页展示所有训练营的 phase 进度
-- [ ] AC-A3: 点击列表中的训练营跳转到对应 thread
-- [ ] AC-A4: 列表底部有"开始新训练营"入口
-- [ ] AC-A5: 空消息态 CTA 适配：有训练营→"我的训练营(N)"打开列表 modal，无训练营→"开始猫猫训练营"打开列表 modal（显示空态+创建按钮）
+- [x] AC-A1: 用户可以创建多个训练营 thread（前端不再阻止）
+- [x] AC-A2: 训练营列表页展示所有训练营的 phase 进度
+- [x] AC-A3: 点击列表中的训练营跳转到对应 thread
+- [x] AC-A4: 列表底部有"开始新训练营"入口
+- [x] AC-A5: 空消息态 CTA 适配：有训练营→"我的训练营(N)"打开列表 modal，无训练营→"开始猫猫训练营"打开列表 modal（显示空态+创建按钮）
 
 ## Dependencies
 
@@ -65,8 +65,8 @@ created: 2026-03-12
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 列表页是独立页面 `/bootcamp` 还是 modal/drawer？ | ⬜ 未定 — Design Gate 确认 |
-| OQ-2 | API 是改 `GET /api/bootcamp/thread` 返回数组还是新增端点？ | ⬜ 未定 |
+| OQ-1 | 列表页是独立页面 `/bootcamp` 还是 modal/drawer？ | ✅ Modal（Design Gate 确认） |
+| OQ-2 | API 是改 `GET /api/bootcamp/thread` 返回数组还是新增端点？ | ✅ 新增 `/api/bootcamp/threads` |
 
 ## Key Decisions
 
@@ -79,10 +79,12 @@ created: 2026-03-12
 | 日期 | 事件 |
 |------|------|
 | 2026-03-12 | 铲屎官提出多训练营需求，从 F087 演化立项 |
+| 2026-03-12 | PR #408 merged — 全部 AC 完成 |
 
 ## Review Gate
 
-- TBD
+- codex: 3 轮本地 review 放行（P1 data source + P2 spec sync + P2 refresh/fallback）
+- cloud: 1 P2 duplicate fetch → fixed in f77d3694
 
 ## Links
 
