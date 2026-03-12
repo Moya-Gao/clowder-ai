@@ -1,0 +1,181 @@
+---
+feature_ids: [F098]
+related_features: [F097, F022, F056, F086, F088]
+topics: [ux, frontend, chat-bubble, callback, a2a, direction, evidence]
+doc_kind: spec
+created: 2026-03-11
+---
+
+# F098: Callback Message UX — 猫猫传话可视化
+
+> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+
+## Why
+
+铲屎官原话（2026-03-11 16:50，F097 收尾时发现）：
+
+> "你们猫猫之间传递消息，有好几个 MCP 传递的消息，有可能你得想想要怎么样的去展现。假设你是 at 缅因猫，你这里是不是得标明布偶猫 to 缅因猫或者布偶猫箭头缅因猫？然后如果是 multi mention，你这里也需要标明。然后我们曾经做的悄悄话的功能，那里就会标明铲屎官跟什么猫猫说，你是不是也得那样子去优化一下？"
+
+> "你看你的证据地方的字，我是看不见的。还有，你不觉得它超级突兀吗？跟你的其他的东西是不是一个设计感？"
+
+### 核心痛点
+
+1. **方向不明** — 猫猫通过 MCP（post_message / cross_post / multi_mention）传话时，铲屎官看不到"谁对谁说"。stream 消息知道是谁说的（有 catId），但 callback 消息不标明目标受众
+2. **视觉断裂** — CLI 块和 Thinking 块有统一的 tinted-dark 设计语言（F097），但 callback 消息还是普通气泡，跟旁边的深色面板放一起很突兀
+3. **Evidence Panel 不可读** — 深色气泡背景上 Evidence Panel 的表格文字看不见，样式没有适配品种色主题
+4. **Whisper 不对称** — 铲屎官的悄悄话有 "悄悄话 → [猫名]" 方向标注，但猫猫的悄悄话只显示 "悄悄话"，没有方向
+
+### 现状分析
+
+| 消息类型 | origin | 方向标注 | 视觉风格 | 问题 |
+|---------|--------|---------|---------|------|
+| 猫猫 stream 输出 | `stream` | 无（catId 足够） | CLI 块 tinted-dark ✅ | — |
+| 猫猫 callback（post_message） | `callback` | ❌ 无 | 普通气泡 ❌ | 不知道对谁说 |
+| 猫猫跨 thread 转发 | `callback` + `crossPost` | 📮 badge 有来源 | 普通气泡 ❌ | 只有来源没有方向 |
+| multi_mention 结果 | `connector` | ❌ 无 | connector 样式 | 不知道谁被 @ 了 |
+| 铲屎官悄悄话 | — | ✅ "悄悄话 → [猫名]" | amber badge ✅ | — |
+| 猫猫悄悄话 | — | ❌ 只有 "悄悄话" | amber badge | 缺方向 |
+| Evidence Panel | `system` variant=evidence | — | 独立组件 | 深色背景上不可读 |
+
+## What
+
+### Phase A: 方向标注 + Callback 消息视觉统一
+
+**A1: 方向标注系统**
+
+在 callback 消息的 header 区域显示发送方向：
+
+```
+┌─ 布偶猫（Opus）16:28 ──────────────────────────┐
+│  → @缅因猫                              ← 方向标注 │
+│                                                    │
+│  R2 修复确认 (commit a47ee782)                      │
+│  ... 消息内容 ...                                   │
+│                                                    │
+│  @codex                                            │
+└────────────────────────────────────────────────────┘
+```
+
+方向标注规则：
+- **post_message + 行首 @mention** → `→ @猫名` （从消息内容解析 @mention）
+- **multi_mention** → `→ @猫A + @猫B + @猫C` （从 targets 解析）
+- **cross_post** → `↗ [来源 thread] → [目标 thread]` （已有 crossPost 元数据）
+- **whisper（猫猫）** → `悄悄话 → @猫名` （复用 whisperTo 字段，和铲屎官一致）
+- **无明确目标** → 不显示方向标注（向 thread 全体发言）
+
+方向标注视觉：品种色 pill badge（和 @mention 徽章同款），紧贴 header 行。
+
+**A2: Callback 消息视觉升级**
+
+Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/Thinking 的深色面板）：
+- 背景：`tintedLight(accent, 0.08)` — 品种色极浅底（和 tintedDark 对称）
+- 边框：品种色 12% opacity
+- 文字：保持深色（`#1E293B`），不用浅色主题的文字
+- **和 CLI 块的区分**：CLI 块 = 深色面板（执行日志），Callback = 浅色面板（面向人类的发言）
+
+**A3: 猫猫 Whisper 方向补全**
+
+猫猫的悄悄话 badge 从 "悄悄话" 改为 "悄悄话 → @猫名"，和铲屎官悄悄话一致。
+
+### Phase B: Evidence Panel 适配 + 组件统一
+
+**B1: Evidence Panel 深色适配**
+
+- Evidence Panel 表格/文字适配深色气泡背景（和 F097 的 `.cli-output-md` 同思路）
+- EvidenceCard 颜色适配品种色主题
+- 或者：Evidence Panel 独立浅色底（不跟随气泡深色），作为"内嵌卡片"
+
+**B2: Connector 消息统一**
+
+- multi_mention 结果消息（type='connector', connector='multi-mention-result'）视觉统一
+- 飞书/Telegram connector 消息（F088）视觉统一
+
+### Phase C: 后端元数据增强（可选）
+
+**C1: 消息级 targetCats 字段**
+
+当前 callback 消息没有 `targetCats` 元数据，方向信息只能从消息内容的 @mention 解析。Phase C 在 post_message API 层面补 `targetCats: string[]` 字段，让前端不依赖正文解析。
+
+**C2: multi_mention 消息归属**
+
+当前 multi_mention 结果是 connector 消息，不关联发起者。Phase C 补充发起者 catId + targets 元数据。
+
+## Acceptance Criteria
+
+### Phase A（方向标注 + 视觉统一）
+- [ ] AC-A1: callback 消息 header 显示方向标注（→ @猫名），从消息内容 @mention 解析
+- [ ] AC-A2: multi_mention 相关消息显示 `→ @猫A + @猫B` 方向
+- [ ] AC-A3: cross_post 消息方向标注包含来源/目标 thread
+- [ ] AC-A4: 猫猫 whisper badge 显示 "悄悄话 → @猫名"（和铲屎官 whisper 一致）
+- [ ] AC-A5: callback 消息有品种色浅底气泡，视觉上和 CLI 深色块区分
+- [ ] AC-A6: 方向标注用品种色 pill badge（和 @mention 彩色徽章同款样式）
+
+### Phase B（Evidence Panel + 组件统一）
+- [ ] AC-B1: Evidence Panel 在深色/品种色气泡上文字可读
+- [ ] AC-B2: connector 消息（multi-mention-result、飞书、Telegram）视觉统一
+
+### Phase C（后端元数据，可选）
+- [ ] AC-C1: post_message API 支持 `targetCats` 字段
+- [ ] AC-C2: multi_mention 结果消息包含发起者 + targets 元数据
+
+## 需求点 Checklist
+
+| # | 需求点 | 来源 | Phase | AC |
+|---|--------|------|-------|-----|
+| R1 | callback 消息显示 "→ @猫名" 方向 | 铲屎官 16:50 | A | AC-A1 |
+| R2 | multi_mention 显示方向 | 铲屎官 16:50 | A | AC-A2 |
+| R3 | cross_post 方向标注 | 布偶猫分析 | A | AC-A3 |
+| R4 | 猫猫 whisper 方向对齐铲屎官 whisper | 铲屎官 16:50 | A | AC-A4 |
+| R5 | callback 消息视觉统一（不突兀） | 铲屎官 16:50 | A | AC-A5 |
+| R6 | Evidence Panel 文字可读 | 铲屎官 16:50 截图 | B | AC-B1 |
+| R7 | connector 消息视觉统一 | 布偶猫分析 | B | AC-B2 |
+| R8 | 后端 targetCats 元数据 | 布偶猫分析（优化） | C | AC-C1 |
+
+## Dependencies
+
+- **Evolved from**: F097（CLI Output Collapsible UX — tintedDark 品种色方案、@mention 彩色徽章）
+- **Related**: F022（Rich Blocks）、F056（Cat Café 设计语言）、F086（Cat Orchestration — multi_mention）、F088（Multi-Platform Chat Gateway — connector 消息）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| 方向解析依赖消息内容 @mention（可能不准） | Phase A 先做内容解析，Phase C 补后端元数据 |
+| callback 浅色底和 CLI 深色底在同一气泡内冲突 | callback 和 stream 是不同 message，不在同一气泡 |
+| Evidence Panel 改造影响 Hindsight 功能 | Evidence Panel 只改 CSS，不改数据逻辑 |
+| connector 消息种类多（multi-mention / 飞书 / Telegram） | Phase B 逐一适配，不急 |
+
+## Open Questions
+
+| # | 问题 | 状态 |
+|---|------|------|
+| OQ-1 | callback 消息用浅色底还是和 CLI 块统一深色底？ | 初步倾向浅色（区分"发言" vs "执行日志"） |
+| OQ-2 | Evidence Panel 独立浅色底还是适配深色气泡？ | 待设计确认 |
+| OQ-3 | 方向标注放 header 行还是消息体上方？ | 待设计确认 |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | 方向信息从消息内容 @mention 解析（Phase A），后端元数据后补（Phase C） | 前端先上，不阻塞后端改动 | 2026-03-11 |
+| KD-2 | 猫猫 whisper 方向标注和铲屎官 whisper 统一 | 一致性，用户心智模型统一 | 2026-03-11 |
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-03-11 | 立项，从 F097 收尾时发现问题。铲屎官 16:50 提出需求 |
+
+## Review Gate
+
+- Phase A: 跨家族 review（@codex 或 @gpt52）
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Evolved from** | `docs/features/F097-cli-output-collapsible-ux.md` | CLI 气泡重构（品种色、@mention 徽章基础） |
+| **Component** | `packages/web/src/components/ChatMessage.tsx` | callback 渲染主战场 |
+| **Component** | `packages/web/src/components/EvidencePanel.tsx` | Evidence Panel 样式适配 |
+| **MCP Tools** | `packages/mcp-server/src/tools/callback-tools.ts` | post_message / cross_post / multi_mention |
+| **API Handler** | `packages/api/src/routes/callbacks.ts` | callback 消息处理 + @mention 解析 |

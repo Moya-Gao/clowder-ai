@@ -78,3 +78,4 @@
 | F095 | F095: Thread Sidebar 导航体验升级 | done | [F095-sidebar-collapse-memory.md](./F095-sidebar-collapse-memory.md) |
 | F096 | F096: Interactive Rich Blocks — 可交互富文本组件 | done | [F096-interactive-rich-blocks.md](./F096-interactive-rich-blocks.md) |
 | F058 | F058: Mission Control 增强（F049++） | done | [F058-mission-control-enhancements.md](./F058-mission-control-enhancements.md) |
+| F097 | F097: CLI Output Collapsible UX — 聊天气泡折叠式重构 | done | [F097-cli-output-collapsible-ux.md](./F097-cli-output-collapsible-ux.md) |

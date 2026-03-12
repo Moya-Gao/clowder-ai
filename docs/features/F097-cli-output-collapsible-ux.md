@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F097: CLI Output Collapsible UX — 聊天气泡折叠式重构
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-11
 
 ## Why
 
@@ -395,6 +395,8 @@ Phase 4: push 后自己去 runtime 截图确认（不等铲屎官来报下一个
 | 2026-03-11 | Design Gate 讨论（Opus + GPT-5.4），收敛方案 |
 | 2026-03-11 | Phase A merged (PR #372) — Codex local review + cloud review passed |
 | 2026-03-11 | 铲屎官 runtime 实测 → 6 项反馈 → 3 次 hotfix (PR #374 + 2 direct commits) |
+| 2026-03-11 | 第四轮 hotfix：tintedDark 气泡 + 文字溢出修复 + Bengal 区分 + @mention 徽章 |
+| 2026-03-11 | Phase A done — 铲屎官确认"好多啦，暂时这样吧"。Callback 消息展示转新 feat |
 
 ## Review Gate
 
@@ -408,3 +410,5 @@ Phase 4: push 后自己去 runtime 截图确认（不等铲屎官来报下一个
 | **Feature** | `docs/features/F081-bubble-continuity-observability.md` | 气泡连续性 |
 | **Component** | `packages/web/src/components/ChatMessage.tsx` | 主要改造目标 |
 | **Design Discussion** | Thread `thread_mmlwht283o7j3tyk` 2026-03-11 | Opus + GPT-5.4 讨论记录 |
+| **Reflection** | `docs/reflections/2026-03-11-f097-cli-output-ux-capsule.md` | 反思胶囊 |
+| **Evolved into** | `docs/features/F098-callback-message-ux.md` | Callback 消息展示优化 |
