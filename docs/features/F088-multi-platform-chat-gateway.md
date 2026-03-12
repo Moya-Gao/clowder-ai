@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> **Status**: Phase 1-6+A+B+C done, Phase D+E in-progress | **Owner**: 布偶猫
+> **Status**: Phase 1-6+A+B+C+E done, Phase D in-progress | **Owner**: 布偶猫
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
 > Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 
@@ -58,7 +58,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **D** | `/use` 模糊匹配：feat号 + title关键词 + 列表序号 | 🚧 in-progress | — |
 | **5** | 图片/文件收发（双向） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
 | **6** | 语音消息（STT/TTS） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
-| **E** | 飞书卡片身份标识：所有回复走 interactive card + 猫名头部，消除多猫气泡合并 | 🚧 in-progress | — |
+| **E** | 飞书卡片身份标识：所有回复走 interactive card + 猫名头部，消除多猫气泡合并 | ✅ | [#389](https://github.com/zts212653/cat-cafe/pull/389) |
 | **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
 | **7** | 群聊 + 多人 + 权限隔离 | 📋 planned | — |
 | **8** | 更多平台 + OAuth + 配置 UI | 📋 planned | — |
@@ -123,7 +123,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-10 | Phase C 架构归一完成 (PR #353) |
 | 2026-03-11 | Phase 5+6 media/voice merged (PR #362) |
 | 2026-03-11 | Phase 5b Feishu native upload + media cleanup merged (PR #364) |
-| 2026-03-11 | Phase E kickoff: 飞书多猫卡片身份标识（ISSUE-5 fix） |
+| 2026-03-11 | Phase E merged: 飞书多猫卡片身份标识 ISSUE-5 fix (PR #389) |
 
 ## 参考文件
 
