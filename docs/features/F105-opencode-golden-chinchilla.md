@@ -165,6 +165,7 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 | 2026-03-12 | PR #401 created; cloud review blocked by Codex daily limit — retry after reset |
 | 2026-03-12 | Cloud review passed (1 P1 downgraded to P3 — pre-existing F062 pattern); Phase 1 merged (PR #401) |
 | 2026-03-12 | Phase 2 完成 — OMOC isolation + MCP namespace + Ralph Loop/Context validated（24 new tests, 55 total green） |
+| 2026-03-12 | Phase 2 merged (PR #404) — local review gpt52 + cloud review codex; 3 P2 fixed (apiKey env-only, /v1 normalization, assert.ok(true) replaced), 60 tests green |
 
 ---
 
