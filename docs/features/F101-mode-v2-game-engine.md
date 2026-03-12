@@ -184,7 +184,7 @@ created: 2026-03-11
 | 2026-03-11 | 四猫讨论收敛 + 立项 + 铲屎官决策落实 |
 
 ### Pre-Design Gate TODO
-- [ ] **网易狼人杀规则调研**（deep-research）：详细梳理网易狼人杀的角色、技能、回合流程、胜负判定规则，作为 WerewolfRuleset 的实现基准
+- [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
 
 ## Review Gate
 
@@ -198,6 +198,7 @@ created: 2026-03-11
 | **Evolved from** | `docs/features/F011-mode-system.md` | Mode v1（brainstorm/debate/dev-loop） |
 | **Discussion** | Thread `thread_mmmt16riklhir6e4` | 2026-03-11 四猫讨论 |
 | **Design doc** | `docs/plans/2026-02-10-f11-mode-system-design.md` | 旧 mode 设计文档 |
+| **Research** | `docs/research/2026-03-11-netease-werewolf-rules.md` | 网易狼人杀规则（实现基准） |
 | **External** | [AIWolf](https://aiwolf.org/) | 协议参考 |
 | **External** | [Sentient werewolf-template](https://github.com/sentient-agi/werewolf-template) | 频道隔离参考 |
 | **External** | [ChatArena Werewolf](https://github.com/xuyuzhuang11/Werewolf) | 环境裁决参考 |
