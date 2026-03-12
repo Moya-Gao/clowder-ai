@@ -1,0 +1,104 @@
+---
+feature_ids: [F102]
+topics: [memory, architecture, adapter, evidence-store]
+doc_kind: discussion
+created: 2026-03-11
+participants: [opus, gemini, gpt52]
+thread_id: thread_mmmsovftp3gitjm9
+---
+
+# 记忆组件重构 — 三猫头脑风暴纪要
+
+**Thread ID**: `thread_mmmsovftp3gitjm9` | **日期**: 2026-03-11 | **参与者**: 布偶猫(opus), 暹罗猫(gemini), 缅因猫(gpt52)
+
+## 背景
+
+铲屎官决定停用 Hindsight（外部记忆服务），要求：
+1. 把 HindsightClient 硬编码改造为可插拔 Adapter 接口
+2. 设计轻量级的替代方案（可能只是 Link Index）
+3. 调研 2026 年的最佳实践和开源组件
+
+## 各方观点
+
+### 暹罗猫（烁烁）
+- **核心立场**："认清规模，拒绝过度工程，降维回受控的本地结构化数据"
+- 接口命名建议 `consult/crystallize/reconcile`（语义化）
+- Link Index 本质是"受控视图"——区分有效决策和废案，比 grep 信噪比高
+- 提出 "File-as-Database"：`EVIDENCE_INDEX.json` 自动编译，零外部依赖
+- 推荐 Orama / MiniSearch（纯 JS 进程内）作为进阶方案
+- 150 篇文档连 1M context window 都填不满，不需要数据库
+
+### 布偶猫（宪宪）
+- **核心立场**：接口已有骨架（`IHindsightClient`），保守重命名 + DI 注入
+- 建议 `recall→search`, `retain→store`, `reflect→删除或拆出`
+- 列出 5 个具体耦合文件的改造地图
+- 提出"自动索引 > 手动 retain"——与 feat-lifecycle SOP 集成
+- MVP 三层：LocalIndexStore → OramaStore → HindsightStore(legacy)
+- Phase 1 纯 JSON 索引足够，Orama 留给 Phase 2
+
+### 缅因猫 GPT-5.4（砚砚）
+- **核心立场**："不该把 Hindsight 三个动词原样抽象化，应拆成检索/沉淀/反思三层"
+- 接口最小化：`search/upsert/deleteByAnchor/getByAnchor/health`
+- **独特贡献 P1**：`retain-memory` 必须降级为 candidate/marker queue，不能直写长期库——否则重蹈"碎片化垃圾入库"覆辙
+- 发现额外耦合点：`index.ts` 启动注入 + `hindsight-import-p0.ts` 导入脚本
+- 发现 evidence fallback 只覆盖 3 个目录，漏了 `docs/features/`
+- 建议 SQLite FTS5 作为底层，加 `edges` 表存显式关系
+- 外部组件排序：借鉴模式 > 引入运行时，Phase 1 不接任何全栈 memory product
+- **反对先走 Deep Research**：Phase 1 方向已够清楚，Deep Research 留给 Phase 2 选型
+
+## 共识（全票通过）
+
+| # | 共识 | 证据 |
+|---|------|------|
+| 1 | **~150 docs 不需要外部服务/图数据库** | 三猫一致：本地优先 |
+| 2 | **`reflect` 从存储层拆出** | 三猫一致：它是 LLM 编排能力，不是存储 primitive |
+| 3 | **`bankId` 从业务层移除** | 三猫一致：单共享知识域，ADR-005 已决 |
+| 4 | **Link Index > raw grep** | 三猫一致：受控视图、噪音过滤、token 节省 |
+| 5 | **Hindsight 保留为 legacy adapter** | 三猫一致：降级不删除 |
+| 6 | **自动索引 > 手动 retain** | 三猫一致：与 feat-lifecycle 集成 |
+| 7 | **Phase 1 不上向量/图/外部服务** | 三猫一致 |
+| 8 | **retain-memory 降级为 marker/candidate** | GPT-5.4 提出，opus/gemini 未反对 |
+
+## 分歧（需铲屎官或后续讨论决定）
+
+| # | 分歧点 | 各方立场 | 建议 |
+|---|--------|---------|------|
+| 1 | **接口方法命名** | gemini: `consult/crystallize/reconcile` / opus: `search/store` / gpt52: `search/upsert/deleteByAnchor/health` | **采用 GPT-5.4 的最小化版本**——它最完整且语义通用。gemini 的命名虽有创意但对新开发者不友好 |
+| 2 | **索引格式** | opus: `EVIDENCE_INDEX.json` / codex: `.jsonl` / gpt52: `.jsonl` 或 SQLite FTS5 | **Phase 1 用 `.jsonl`**（流式追加友好），Phase 2 按需升级 SQLite FTS5 |
+| 3 | **Phase 1 搜索引擎** | gemini/codex: Orama/MiniSearch / opus: 纯 JSON / gpt52: SQLite FTS5 | **Phase 1 纯 JSONL + 内存过滤**（150 docs 不需要搜索引擎），Phase 2 再选 |
+| 4 | **接口拆分粒度** | opus: 单接口 `IEvidenceStore` / gpt52: 三接口 `IKnowledgeIndex` + `IMemoryCapture` + `IReflectionService` | **Phase 1 用单接口**（YAGNI），如果 Phase 2 发现需要再拆 |
+| 5 | **是否需要 Deep Research** | opus: 可能需要 / gpt52: Phase 1 不需要，Phase 2 再做 | **采用 GPT-5.4 意见**——Phase 1 方向已明确，Deep Research 留给 Phase 2 选型 |
+
+## 待决事项
+
+1. **立项**：需要铲屎官确认是否立为正式 feat（建议 F101 或下一个可用编号）
+2. **索引 Schema**：具体字段待定（参考 GPT-5.4 建议：`anchor/sourceHash/kind/status/featIds/title/summary/keywords/outlinks/updatedAt`）
+3. **Phase 2 触发条件**：什么情况下认为纯 JSONL 不够用？（建议：文档超 500 篇 或 检索 latency > 200ms）
+
+## 行动项
+
+| # | 行动 | 负责 | 依赖 |
+|---|------|------|------|
+| 1 | 铲屎官确认方向 + 立项 | @landy | 本纪要 |
+| 2 | 写实施计划（Adapter 接口 + LocalIndexStore + 路由解耦） | opus | 铲屎官确认 |
+| 3 | Phase 2 选型 Deep Research（Orama vs MiniSearch vs SQLite FTS5 vs Mem0） | opus + gpt52 | Phase 1 跑出真实缺口后 |
+
+## 外部参考（三猫汇总）
+
+**学术**:
+- Mnemis (分层记忆 + 双路检索): https://arxiv.org/abs/2602.15313
+- Mem2ActBench (记忆→行动): https://arxiv.org/abs/2601.19935
+- LongMemEval (ICLR 2025): https://proceedings.iclr.cc/paper_files/paper/2025/file/d813d324dbf0598bbdc9c8e79740ed01-Paper-Conference.pdf
+
+**开源框架**:
+- Mem0 OSS (metadata/filter/search + graph memory): https://docs.mem0.ai/open-source/overview
+- OpenMemory (Mem0 本地优先): https://mem0.ai/openmemory
+- Letta (memory blocks + MemGPT): https://docs.letta.com/guides/agents/memory
+- LangMem (background memory manager): https://langchain-ai.github.io/langmem/guides/background_quickstart/
+- Graphiti (时间演化图记忆): https://github.com/getzep/graphiti
+
+**嵌入式搜索**:
+- Orama (纯 JS 全文+向量): https://docs.orama.com/
+- MiniSearch (纯 JS 全文): https://lucaong.github.io/minisearch/
+- SQLite vec1 (官方向量扩展): https://sqlite.org/vec1
+- LanceDB embedded: https://docs.lancedb.com/quickstart
