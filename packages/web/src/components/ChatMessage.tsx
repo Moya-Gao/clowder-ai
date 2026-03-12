@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { CatData } from '@/hooks/useCatData';
 import { type TtsState, useTts } from '@/hooks/useTts';
-import { hexToRgba } from '@/lib/color-utils';
+import { hexToRgba, tintedLight } from '@/lib/color-utils';
 import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { parseDirection } from '@/lib/parse-direction';
 import { type ChatMessage as ChatMessageType, type MessageContent, useChatStore } from '@/stores/chatStore';
@@ -144,12 +144,14 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         const label = catData.variantLabel
           ? `${catData.displayName}（${catData.variantLabel}）`
           : `${catData.displayName}（${idLabel}）`;
+        // F098-A5: callback messages get subtle tinted bubble; stream/other keep breed secondary
+        const isCallback = message.origin === 'callback';
         return {
           label,
           radius: breed.radius,
           font: breed.font,
-          bgColor: catData.color.secondary,
-          borderColor: hexToRgba(catData.color.primary, 0.3),
+          bgColor: isCallback ? tintedLight(catData.color.primary, 0.08) : catData.color.secondary,
+          borderColor: isCallback ? hexToRgba(catData.color.primary, 0.12) : hexToRgba(catData.color.primary, 0.3),
         };
       })()
     : null;

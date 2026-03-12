@@ -87,6 +87,10 @@ export const postMessageInputSchema = {
     .max(200)
     .optional()
     .describe('Optional idempotency key for at-least-once delivery de-duplication'),
+  targetCats: z
+    .array(z.string().min(1))
+    .optional()
+    .describe('Optional explicit target cat IDs (e.g. ["codex","gpt52"]). Merged with @mentions parsed from content. Used for direction rendering in frontend.'),
 };
 
 export const getPendingMentionsInputSchema = {
@@ -190,6 +194,7 @@ export async function handlePostMessage(input: {
   threadId?: string | undefined;
   replyTo?: string | undefined;
   clientMessageId?: string | undefined;
+  targetCats?: string[] | undefined;
 }): Promise<ToolResult> {
   const result = await callbackPost(
     '/api/callbacks/post-message',
@@ -198,6 +203,7 @@ export async function handlePostMessage(input: {
       ...(input.threadId ? { threadId: input.threadId } : {}),
       ...(input.replyTo ? { replyTo: input.replyTo } : {}),
       clientMessageId: input.clientMessageId ?? randomUUID(),
+      ...(input.targetCats?.length ? { targetCats: input.targetCats } : {}),
     },
     { enableOutbox: true },
   );

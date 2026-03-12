@@ -280,6 +280,78 @@ describe('Callback Routes', () => {
     assert.deepEqual(threadBMessages[0].mentions, ['codex']);
   });
 
+  test('POST post-message stores targetCats in extra and uses as mentions (F098-C1)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'Review 结果通知',
+        targetCats: ['codex', 'gpt52'],
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+
+    const recent = messageStore.getRecent(10);
+    assert.equal(recent.length, 1);
+    // targetCats should be used as mentions
+    assert.deepEqual(recent[0].mentions, ['codex', 'gpt52']);
+    // targetCats should be stored in extra for frontend direction rendering
+    assert.deepEqual(recent[0].extra?.targetCats, ['codex', 'gpt52']);
+  });
+
+  test('POST post-message broadcasts targetCats in real-time socket event (cloud P2)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'Direction test',
+        targetCats: ['codex', 'gpt52'],
+      },
+    });
+
+    const broadcasted = socketManager.getMessages();
+    assert.equal(broadcasted.length, 1);
+    assert.deepEqual(broadcasted[0].extra?.targetCats, ['codex', 'gpt52'],
+      'real-time broadcast must include extra.targetCats for immediate direction pill rendering');
+  });
+
+  test('POST post-message targetCats merges with content @mentions (F098-C1)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'FYI\n@codex',
+        targetCats: ['gpt52'],
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+
+    const recent = messageStore.getRecent(10);
+    assert.equal(recent.length, 1);
+    // Should include both content-parsed codex AND explicit gpt52
+    const mentions = recent[0].mentions;
+    assert.ok(mentions.includes('codex'), 'content @mention should be included');
+    assert.ok(mentions.includes('gpt52'), 'explicit targetCats should be included');
+    assert.deepEqual(recent[0].extra?.targetCats, ['gpt52']);
+  });
+
   test('POST post-message rejects cross-thread send to another user thread', async () => {
     const app = await createApp();
     const threadA = await threadStore.create('user-1', 'thread-a');

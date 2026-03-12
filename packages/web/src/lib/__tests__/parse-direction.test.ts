@@ -115,6 +115,30 @@ describe('parseDirection', () => {
     expect(result?.targets).toEqual(['codex', 'gpt52']);
   });
 
+  it('uses extra.targetCats when present (F098-C1)', () => {
+    const msg = {
+      origin: 'callback' as const,
+      content: 'Review done',
+      extra: { targetCats: ['codex', 'gpt52'] },
+    };
+    const result = parseDirection(msg, getMocks);
+    expect(result).toEqual({
+      type: 'mention',
+      targets: ['codex', 'gpt52'],
+      arrow: '→',
+    });
+  });
+
+  it('extra.targetCats takes priority over content @mention parsing (F098-C1)', () => {
+    const msg = {
+      origin: 'callback' as const,
+      content: '@codex some content',
+      extra: { targetCats: ['gpt52'] },
+    };
+    const result = parseDirection(msg, getMocks);
+    expect(result?.targets).toEqual(['gpt52']);
+  });
+
   it('filters out __owner__ pseudo-cat from @mention results (P1-2)', () => {
     // getMentionToCat maps @landy/@铲屎官 to __owner__ — must not leak into UI
     const ownerToCat: Record<string, string> = {

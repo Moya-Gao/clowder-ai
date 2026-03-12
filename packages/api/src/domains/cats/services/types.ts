@@ -130,7 +130,7 @@ export interface AgentMessage {
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
   /** F52: Cross-thread origin metadata (set for cross-thread callback messages) */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string }; targetCats?: string[] };
   /** F061: Whether this message mentions the owner (@user/@铲屎官/configured patterns) */
   mentionsUser?: boolean;
   /** When this message was created */

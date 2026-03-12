@@ -324,7 +324,7 @@ describe('GET /api/messages', () => {
     assert.equal(msg.source.url, 'https://github.com/org/repo/pull/42');
   });
 
-  it('strips source.meta from API response (cloud Codex R1 P1)', async () => {
+  it('includes source.meta in API response (F098-C: needed for direction parsing)', async () => {
     messageStore.append({
       userId: 'default-user',
       catId: null,
@@ -336,7 +336,7 @@ describe('GET /api/messages', () => {
         label: 'GitHub Review',
         icon: '🔔',
         url: 'https://github.com/org/repo/pull/42',
-        meta: { token: 'secret', webhookPayload: { foo: 'bar' } },
+        meta: { targets: ['codex', 'gpt52'], initiator: 'opus' },
       },
     });
 
@@ -346,7 +346,57 @@ describe('GET /api/messages', () => {
     assert.equal(msg.type, 'connector');
     assert.equal(msg.source.connector, 'github-review');
     assert.equal(msg.source.url, 'https://github.com/org/repo/pull/42');
-    assert.equal(msg.source.meta, undefined, 'meta must be stripped from API response');
+    assert.deepStrictEqual(msg.source.meta, { targets: ['codex', 'gpt52'], initiator: 'opus' },
+      'source.meta must be included — frontend parseDirection reads meta.targets');
+  });
+
+  it('serializes deliveredAt when present (F098-D P3 regression)', async () => {
+    const stored = messageStore.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'queued message',
+      mentions: [],
+      timestamp: 5000,
+    });
+    messageStore.markDelivered(stored.id, 12000);
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    const msg = body.messages[0];
+    assert.equal(msg.deliveredAt, 12000, 'deliveredAt must be serialized in API response');
+  });
+
+  it('omits deliveredAt when not set (F098-D P3 regression)', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'immediate message',
+      mentions: [],
+      timestamp: 6000,
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    const msg = body.messages[0];
+    assert.equal(msg.deliveredAt, undefined, 'deliveredAt must be absent when not set');
+  });
+
+  it('serializes extra.targetCats when present (F098-C1 regression)', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: 'review done',
+      mentions: ['codex'],
+      origin: 'callback',
+      timestamp: 7000,
+      extra: { targetCats: ['codex', 'gpt52'] },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    const msg = body.messages[0];
+    assert.deepStrictEqual(msg.extra?.targetCats, ['codex', 'gpt52'],
+      'extra.targetCats must be serialized for frontend direction rendering');
   });
 
   it('message without source and without catId is type=user', async () => {

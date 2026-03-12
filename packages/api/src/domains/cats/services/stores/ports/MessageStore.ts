@@ -41,11 +41,12 @@ export interface StoredMessage {
   toolEvents?: readonly StoredToolEvent[];
   /** Provider/model metadata (for cat messages) */
   metadata?: MessageMetadata;
-  /** F22+F52: Extensible extra data (rich blocks, stream metadata, cross-post origin) */
+  /** F22+F52+F098-C1: Extensible extra data (rich blocks, stream metadata, cross-post origin, explicit targets) */
   extra?: {
     rich?: RichMessageExtra;
     stream?: { invocationId: string };
     crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    targetCats?: string[];
   };
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];

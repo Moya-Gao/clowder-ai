@@ -78,6 +78,7 @@ const postMessageSchema = callbackAuthSchema.extend({
   threadId: z.string().min(1).optional(),
   replyTo: z.string().optional(),
   clientMessageId: z.string().min(1).max(200).optional(),
+  targetCats: z.array(z.string().min(1)).optional(),
 });
 
 const threadContextQuerySchema = callbackAuthSchema.extend({
@@ -244,7 +245,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
 
-    const { invocationId, callbackToken, content, threadId, replyTo, clientMessageId } = parsed.data;
+    const { invocationId, callbackToken, content, threadId, replyTo, clientMessageId, targetCats: explicitTargetCats } = parsed.data;
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
@@ -313,17 +314,18 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // and inline @mentions triggering invocations (P1-2).
     // F52: Cross-thread posts skip self-reference filter so @codex can trigger target thread's codex
     const senderCatId = createCatId(record.catId);
-    const targetCats = parseA2AMentions(storedContent, isCrossThread ? undefined : senderCatId);
-    const mentions: CatId[] = [...targetCats];
+    const contentTargets = parseA2AMentions(storedContent, isCrossThread ? undefined : senderCatId);
+    // F098-C1: Merge explicit targetCats with content-parsed mentions (deduped)
+    const mergedTargets = new Set<CatId>([...contentTargets, ...(explicitTargetCats ?? []) as CatId[]]);
+    const mentions: CatId[] = [...mergedTargets];
     const mentionsUser = detectUserMention(storedContent);
     const crossPostExtra = isCrossThread
       ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } }
       : {};
     const richExtra = richBlocks.length > 0 ? { rich: { v: 1 as const, blocks: richBlocks } } : {};
-    const extra =
-      Object.keys(crossPostExtra).length > 0 || Object.keys(richExtra).length > 0
-        ? { ...richExtra, ...crossPostExtra }
-        : undefined;
+    const targetCatsExtra = explicitTargetCats?.length ? { targetCats: explicitTargetCats } : {};
+    const extraParts = { ...richExtra, ...crossPostExtra, ...targetCatsExtra };
+    const extra = Object.keys(extraParts).length > 0 ? extraParts : undefined;
 
     // Store the message (scoped to the effective thread)
     const storedMsg = await messageStore.append({
@@ -345,9 +347,12 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         content: storedContent,
         origin: 'callback',
         messageId: storedMsg.id,
-        // F52: Include crossPost in real-time broadcast so frontend shows badge immediately
-        ...(isCrossThread
-          ? { extra: { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } } }
+        // F52+F098-C1: Include crossPost + targetCats in real-time broadcast
+        ...(isCrossThread || explicitTargetCats?.length
+          ? { extra: {
+              ...(isCrossThread ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } } : {}),
+              ...(explicitTargetCats?.length ? { targetCats: explicitTargetCats } : {}),
+            } }
           : {}),
         ...(mentionsUser ? { mentionsUser } : {}),
         timestamp: Date.now(),
@@ -370,7 +375,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     }
 
     // F27: Enqueue @mentioned cats into parent worklist (unified A2A path)
-    if (targetCats.length > 0 && router && invocationRecordStore && effectiveThreadId) {
+    if (mentions.length > 0 && router && invocationRecordStore && effectiveThreadId) {
       await enqueueA2ATargets(
         {
           router,
@@ -382,7 +387,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           log: app.log,
         },
         {
-          targetCats,
+          targetCats: mentions,
           content: storedContent,
           userId: record.userId,
           threadId: effectiveThreadId,

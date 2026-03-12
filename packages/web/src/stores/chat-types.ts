@@ -189,12 +189,14 @@ export interface ChatMessage {
     createdBy: string;
   };
   evidence?: EvidenceData;
-  /** F22+F52: Rich blocks + cross-thread origin */
+  /** F22+F52+F098-C1: Rich blocks + cross-thread origin + explicit targets */
   extra?: {
     rich?: { v: 1; blocks: RichBlock[] };
     crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
     /** F081: Stream identity for continuity / hydration reconcile */
     stream?: { invocationId?: string };
+    /** F098-C1: Explicit target cats from post_message API */
+    targetCats?: string[];
   };
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;

@@ -3,6 +3,18 @@
  * Converts hex colors from API to rgba for glow/shadow effects.
  */
 
+/** Blend a hex color toward white by ratio (0→white, 1→accent). Symmetric to tintedDark. */
+export function tintedLight(hex: string, ratio: number, base = '#FFFFFF'): string {
+  const parse = (h: string) => [
+    Number.parseInt(h.slice(1, 3), 16),
+    Number.parseInt(h.slice(3, 5), 16),
+    Number.parseInt(h.slice(5, 7), 16),
+  ];
+  const [r1, g1, b1] = parse(hex);
+  const [r2, g2, b2] = parse(base);
+  return `rgb(${Math.round(r2 + (r1 - r2) * ratio)}, ${Math.round(g2 + (g1 - g2) * ratio)}, ${Math.round(b2 + (b1 - b2) * ratio)})`;
+}
+
 /** Convert hex color (3/6/8 digit) to rgba string */
 export function hexToRgba(hex: string, alpha: number): string {
   const cleaned = hex.replace('#', '');
