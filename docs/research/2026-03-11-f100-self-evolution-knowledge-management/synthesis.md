@@ -11,7 +11,8 @@ sources: [claude-ai-research, chatgpt-deep-research, gemini-deep-research, gpt-p
 # F100 知识管理与自我进化机制 — 四源调研合成报告
 
 > 合成人：布偶猫（Opus）| 日期：2026-03-11 → 更新：2026-03-12
-> 来源：Claude.ai Research (498 sources) + ChatGPT Deep Research (436 searches, 39 citations) + Gemini Deep Research (53 citations) + **GPT Pro 进阶调研 (20 primary sources, 深度推理)**
+> Round 1：Claude.ai (498 sources) + ChatGPT (436 searches) + Gemini (53 citations) + GPT Pro (20 primary sources)
+> Round 2 (Mode C)：Claude.ai + ChatGPT + Gemini + **GPT Pro 进阶 Mode C (10 来源验证 + 4 落地问题)** + 三猫收敛讨论
 > 关联：F100 Self-Evolution, F038 Skills Discovery
 
 ## GPT Pro 来源验证与校准
@@ -276,17 +277,250 @@ Anthropic 2025 年实验发现：在 reward-hackable 编码任务上训练的模
 21. 中央 skill registry + agent 本地 cache + 版本校验
 22. 外层接口往 MCP resources/prompts/tools 靠拢
 
+---
+
+# Round 2: Mode C — 经验如何变成能力
+
+> 来源：Claude.ai Mode C + ChatGPT Mode C + Gemini Mode C + **GPT Pro 进阶 Mode C (10 来源验证 + 4 落地问题)**
+> 团队讨论：布偶猫 + 砚砚 (GPT-5.4) + 烁烁 (Gemini) 三方收敛
+> 日期：2026-03-12
+
+## 背景：为什么需要第二轮调研
+
+Round 1 的五个问题全在研究**基础设施**（Q1 架构、Q2 分类学、Q3 发现加载、Q4 UX、Q5 安全），完全没触及 Mode C 的灵魂——**经验怎么变成能力**。铲屎官原话："格局小了"。
+
+Round 2 补的五个灵魂问题：
+1. 什么经验值得沉淀？判断模型
+2. 跨领域知识（医学/法律/投资）怎么变成可复用方法论？
+3. 知识从 insight → memory → skill 的成熟度演进
+4. 怎么验证沉淀的知识真正提升了能力？
+5. 能否超越"记步骤"，形成领域直觉？
+
+## GPT Pro Mode C 来源验证
+
+| # | 引用 | 验证结果 | 说明 |
+|---|------|----------|------|
+| 1 | ExpeL (AAAI 2024) | ✅ 已确认 | gather→extract→recall 三阶段 |
+| 2 | AutoRefine (Qiu et al., 2026.01) | ✅ 已确认 | dual-form Experience Patterns, TravelPlanner 27.1% vs 12.1%（arXiv 预印本） |
+| 3 | ProcMEM (Xu et al., 2025) | ⚠️ 部分准确 | Skill-MDP 和 PPO Gate 机制对，**作者和年份错误**（实为 Qirui Mi et al., 2026） |
+| 4 | EGL 进化泛化损失 (Yunjue Agent) | ⚠️ 部分准确 | 技术报告存在，EGL 概念确认，精确定义/公式未验证 |
+| 5 | MICRO-ACT (ASSERT + DECOMPOSE) | ⚠️ 部分准确 | 论文存在（ACL 2025 长文），但场景是 **RAG/QA knowledge conflict**，不是通用知识治理 |
+| 6 | Generative Agents 反思阈值 = 150 | ✅ 已确认 | 原文确认 "when the sum exceeds a threshold (150 in our implementation)" |
+| 7 | MACLA 2851→187 程序, 78% reuse | ⚠️ 部分准确 | 压缩比对，**78.1% 是 average performance 不是 reuse rate** |
+| 8 | Agentic ROI (Liu + AlShikh) | ⚠️ 部分准确 | 两篇都存在，但**没有共用的单一公式**：Liu 提概念，AlShikh 给 BIE 指标 |
+| 9 | Anthropic 元认知 (Lindsey, Oct 2025) | ⚠️ 部分准确 | 研究存在，但原文同时强调 "highly unreliable and context-dependent" |
+| 10 | PersistBench | ✅ 已确认 | cross-domain leakage 53% + memory-induced sycophancy 97% |
+
+**校准警告**：三份报告"真东西很多"，但要提防四类"长毛夸张"：把预印本写成定论，把 benchmark 内 SOTA 写成通用 SOTA，把 performance 写成 reuse rate，把概念框架写成"统一公式"。
+
+## 核心共识：Mode C MVP 三机制闭环
+
+**[四源 + 三猫共识]** Mode C 不是"值得沉淀就记下来"，而是三步闭环：
+
+```
+Episode Card（原料）→ Dual Distillation（蒸馏成品）→ Eval Ledger（证明净增益）
+```
+
+### 机制 1: Episode Card — 什么时候沉淀
+
+`docs/episodes/*.md`
+
+**触发条件**（满足任两条）：
+- 领域是高风险（医学/法律/投资）
+- 输入材料 ≥2 类
+- 人类明确认可"有帮助"
+- 输出包含清晰的结构化方法（不只是结论）
+- AI 做了有效的边界控制
+
+**保留 6 类协作 context**：
+1. 任务情境（stakes 多高）
+2. 证据地图（用了什么、缺什么）
+3. 推理转折（哪个发现改变了方向）
+4. 人类提示点（人类在哪追问了什么、为什么有价值）
+5. 边界与克制（AI 没说什么、为什么没说）
+6. 后续动作（建议的下一步）
+
+**特别保留 Collaboration Pivots**：human cue → AI interpretation → effect on reasoning → transferable lesson。这是隐性知识的灵魂。
+
+学术支撑：ExpeL gather→extract→recall (AAAI 2024), Generative Agents 事件→阈值反思 (Park et al.)
+
+### 机制 2: Dual Distillation — 沉淀成什么形状
+
+每张 Episode Card 蒸馏成两种形态之一：
+
+| 形态 | 路径 | 适用场景 | 核心原则 |
+|------|------|----------|----------|
+| **Method Card** | `docs/methods/*.md` | 高风险/跨领域（医学、法律、投资） | 沉淀分析框架，**不沉淀事实库** |
+| **Skill Draft** | `skills/drafts/*/SKILL.md` | 重复步骤稳定、输入输出清晰的流程 | 沉淀执行流程 |
+
+**关键决策**：高风险领域一律默认 Method Card。"医学报告结构化分析"不是"正常白细胞范围"。
+
+学术支撑：AutoRefine dual-form Experience Patterns (Qiu et al., 2026)
+
+### 机制 3: Eval Ledger — 怎么知道有没有用
+
+`evals/mode-c/<knowledge-id>/`
+
+Replay A/B 验证知识是否有净增益：
+- `cases.md`：5 个 replay cases（3 个太少，只够 smoke test）
+- `baseline.md`：不加载知识时的输出
+- `with_knowledge.md`：加载知识时的输出
+- `judge.md`：固定 rubric 评估差异
+- `summary.md`：结论和是否晋升
+
+**最小可信 case 数**（砚砚判断）：5 个，必须覆盖 3 类：
+1. 标准成功 case（知识应该帮上忙）
+2. 边界/应升级 case（正确行为是"停、问、升级"）
+3. 冲突/反例 case（材料互相打架）
+
+**A/B 卫生规则**：同一模型版本 + 同一 prompt skeleton + 低温/固定采样 + 同一 judge rubric + paired comparison
+
+## 五级知识成熟度阶梯
+
+| Level | 形态 | 晋升条件 | 降级/冻结 |
+|-------|------|----------|-----------|
+| **L0 Episode** | `docs/episodes/*.md` | 1 次高价值 episode，模板完整，已分离可迁移/不可迁移 | 不降级 |
+| **L1 Pattern** | `docs/methods/*.md` 草稿 | ≥2 个相似 episode（180天内），或 1 episode + 人类要求保留；5Q ≥ 7/10 | 发现是一次性特例 → rejected |
+| **L2 Draft** | Method Card 或 Skill Draft | ≥3 个 replay cases，≥2/3 通过；或 ≥3 次真实使用 + 人类评分 ≥4/5 | 最近 3 次成功率 <50% → 退回 L1 |
+| **L3 Validated** | 正式 skill / validated method | ≥6 次使用；distinct_agents ≥2；最近 6 次 ≥80%；人类评分 ≥4/5；无 critical safety breach | 最近 5 次 <60% 或过期 → 退 L2 |
+| **L4 Standard** | 团队标准实践 | ≥12 次；最近 10 次 ≥90%；时间下降 ≥20% 或修改量下降 ≥30%；CVO 批准 | 1 次高风险越界 → freeze；90天 unresolved conflict 禁维持 L4 |
+
+**双车道**（砚砚提出）：
+- **常规车道**：走上述标准数字
+- **长尾/高风险车道**：允许长期停在 L2/L3 + `long_tail: true`，不为凑次数硬冲 L4
+
+**降级/退役规则**：
+- 立即冻结：1 次 critical safety breach，或被高可信来源直接推翻
+- 降一级：最近 5 次成功率 <60%，或人类评分 <3.5/5
+- 过时降级：超过 `stale_after_days` 没复验
+- 退役：365 天没用且 `long_tail: false`
+- 例外：`long_tail: true` + `criticality: emergency` 走慢寿命通道
+
+### Frontmatter 追踪（不需要数据库）
+
+```yaml
+level: 2
+use_count: 4
+success_count: 3
+failure_count: 1
+distinct_agents: [opus, spark]
+human_rating_avg: 4.3
+last_used_at: 2026-03-12
+last_validated_at: 2026-03-12
+stale_after_days: 180
+long_tail: false
+conflict_status: none
+source_episode_ids:
+  - episode-2026-03-12-medical-report-001
+```
+
+正文附 append-only Use Log，git history 做审计与回算。
+
+## 元认知：运营级自知之明
+
+**[已确认事实]** Prompt-only 做不了真元认知，但能做**运营级元认知**：
+
+- Anthropic 2025：模型有"某种功能性内部状态 awareness"，但**高度不可靠、强依赖上下文**
+- 2026 capability calibration：response-level confidence 和模型能力不是一回事
+- 2025 临床 benchmark：12 个模型中 confidence 和 accuracy **负相关 r=-0.40**，对错答案置信度差仅 0.6%~5.4%
+- PersistBench：18 模型记忆泄露 53%、迎合率 97%
+
+**实现方案**：
+
+```yaml
+# 不用静态百分比，用滚动域内可靠度
+domain_reliability:
+  medical:
+    successes: 5
+    trials: 8
+    lower_bound: 0.49  # Wilson 下界
+```
+
+**三信号路由**（砚砚认同）：
+- `domain_reliability_lower_bound`（权重大）
+- `evidence_completeness`（权重大）
+- `self_reported_confidence`（仅辅助）
+
+**行动阈值**：
+
+| 场景 | 条件 | 动作 |
+|------|------|------|
+| 低风险 | action_confidence ≥ 0.70 | 直接执行 |
+| 中风险 | 0.55 ≤ confidence < 0.70 | 先补一个定向追问 |
+| 高风险 | < 0.85 或证据不完整 | 只做结构化分析 + 明确升级 |
+
+## 知识层级分工
+
+**[砚砚定义，三猫共识]** 防止新层级造成混乱：
+
+| 层级 | 角色 | 禁止 |
+|------|------|------|
+| Episode | 个案级证据底稿（Mode C 原料） | — |
+| Method Card / Skill Draft | 蒸馏后的复用资产（成品） | — |
+| memory | 轻量索引/触发提示/指针 | 禁止复制 Method 正文 |
+| lessons-learned | 失败导向的教训库 | 禁止塞入成功案例 |
+
+## UX 方案（烁烁设计）
+
+**Episode Card 快审**：Tinder 式滑动卡片，Collaboration Pivots 做视觉焦点，两个大按钮（准了去蒸馏 / 扔掉）
+
+**Method vs Skill 视觉区分**：
+- Method Card 🛡️：盾牌/暗紫，"高风险、需人类把关"
+- Skill Draft ⚡：芯片/亮绿，"流程自动化"
+
+**五级成熟度 RPG 品质色彩**：
+- L0 灰色（原石） → L1 蓝色（打磨） → L2 紫色（成型） → L3 橙色（验证） → L4 金色（标准）
+- 长尾高风险 L3：紫色 + 金盾徽章（"虽未满级但受保护"）
+
+**Dashboard 汇总条**：类 GitHub language bar，一眼看灰/蓝/紫/橙/金比例分布
+
+## 落地策略（V-future）
+
+| 优先级 | 内容 | 说明 |
+|--------|------|------|
+| **MVP 现在采纳** | Episode Card + Dual Distillation + Eval Ledger | ExpeL episode→extraction + AutoRefine dual-form + BIE 评估视角 |
+| **V2 再考虑** | MICRO-ACT 式冲突分解 | 它是 QA/RAG 框架，不是我们当前最急的洞 |
+| **V3 再说** | ProcMEM PPO Gate、Yunjue EGL 收敛监控 | "给三只猫的咖啡馆先修航站楼" |
+
+## Mode C 参考文献
+
+| 编号 | 来源 | 链接 |
+|------|------|------|
+| 1 | ExpeL (AAAI 2024) | https://arxiv.org/abs/2308.10144 |
+| 2 | AutoRefine (2026.01) | https://arxiv.org/abs/2601.22758 |
+| 3 | ProcMEM (2026) | https://arxiv.org/abs/2602.01869 |
+| 4 | Yunjue Agent | https://yunjueagent.com/ |
+| 5 | MICRO-ACT (ACL 2025) | https://aclanthology.org/2025.acl-long.909.pdf |
+| 6 | Generative Agents | https://ar5iv.org/pdf/2304.03442 |
+| 7 | MACLA | https://arxiv.org/abs/2512.18950 |
+| 8 | Agentic ROI (Liu) | https://arxiv.org/abs/2505.17767 |
+| 9 | Anthropic Introspection | https://transformer-circuits.pub/2025/introspection/index.html |
+| 10 | PersistBench | https://arxiv.org/abs/2602.01146 |
+| 11 | Capability Calibration (2026) | https://arxiv.org/abs/2602.13540 |
+| 12 | SafeConf (EMNLP 2025) | https://aclanthology.org/2025.findings-emnlp.186/ |
+| 13 | Clinical Confidence (2025) | https://medinform.jmir.org/2025/1/e66917 |
+
+---
+
 ## 信息来源说明
 
 - **[已确认事实]**：来自论文、官方文档、已验证 GitHub 仓库
 - **[推测/建议]**：基于已确认事实的分析推断，适用于 Cat Café 特定场景
 - **[⚠️ 需校准]**：方向可信但精确数据未独立验证（如 Stacklok 百分比）
 - **[❌ 不可引用]**：无法在一手来源中验证（如 36.9% 对齐失败率）
-- 完整 Claude.ai 报告：`claude-ai-report.md`（30,129 chars, 498 sources）
-- ChatGPT 报告：`chatgpt-report.md`（202 lines, 436 searches, 39 citations）
-- Gemini 报告：`gemini-report.md`（30K chars, 53 citations）
-- **GPT Pro 进阶报告**：`chatgpt-pro-advanced-report.md`（231 lines, 20 primary sources, 深度推理）
-- GPT Pro 进阶调研 Prompt：`gpt-pro-advanced-prompt.md`（来源验证 + 4 个进阶问题）
+**Round 1（基础设施层）**：
+- Claude.ai：`claude-ai-report.md`（30,129 chars, 498 sources）
+- ChatGPT：`chatgpt-report.md`（202 lines, 436 searches, 39 citations）
+- Gemini：`gemini-report.md`（30K chars, 53 citations）
+- GPT Pro 进阶：`chatgpt-pro-advanced-report.md`（231 lines, 20 primary sources）
+- Prompt：`research-prompt.md` + `gpt-pro-advanced-prompt.md`
+
+**Round 2（Mode C: 经验→能力）**：
+- Claude.ai：`claude-ai-report-mode-c.md`（28K chars）
+- ChatGPT：`chatgpt-report-mode-c.md`（27K chars）
+- Gemini：`gemini-report-mode-c.md`（70K chars, 最详尽）
+- GPT Pro 进阶：`gpt-pro-advanced-report-mode-c.md`（508 lines, 10 来源验证 + 4 落地方案，**本轮最高质量可执行报告**）
+- Prompt：`research-prompt-mode-c.md` + `gpt-pro-advanced-prompt-mode-c.md`
 
 ## Gemini 独特贡献（补充）
 
