@@ -340,6 +340,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-08 | **B1.1 修复合入** (PR #269): thread switch + page refresh 恢复 projectPath |
 | 2026-03-09 | 愿景守护（布偶猫自检 + 砚砚独立核实放行）：23 PR 全 merged, AC-1~21 全覆盖, R1~R15 全解决, Gap 1~7 全关闭 |
 | 2026-03-09 | **Feature closed** — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 ✅ |
+| 2026-03-12 | **Post-completion enhancement** (PR #402): reveal file in tree when search result clicked + progressive lazy-loading reveal + thread-switch state cleanup. 砚砚 R1 通过 + 云端 R1→R2 (1P1 thread-leak fix→0) |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
