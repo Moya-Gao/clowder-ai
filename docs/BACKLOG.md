@@ -43,3 +43,4 @@ created: 2026-02-26
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | [F092](features/F092-voice-companion-experience.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | [F093](features/F093-cats-and-u-world-engine.md) |
 | F098 | Callback Message UX — 猫猫传话可视化 | spec | 布偶猫 | [F098](features/F098-callback-message-ux.md) |
+| F099 | Hub & 顶栏导航可扩展性重构 — Bento Box + 三层导航 | spec | 布偶猫 | [F099](features/F099-hub-navigation-scalability.md) |
