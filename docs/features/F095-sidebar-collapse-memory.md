@@ -181,6 +181,8 @@ Sidebar 布局从上到下：
 | 2026-03-11 | Phase C merged (PR #373) |
 | 2026-03-11 | Modal UX hotfix merged (PR #376) — 项目列表前置、猫猫选择默认折叠 |
 | 2026-03-11 | 愿景守护通过，feature close |
+| 2026-03-11 | **沉痛教训**：铲屎官误删 `thread_mmlv4v2oq6dxefr6`（cross-thread-sync 教训 thread，73 条记录），不可恢复 |
+| 2026-03-12 | I-1 + I-2 hotfix merged (PR #378) — 删除二次确认 + 审计事件 + header 线程标识 |
 
 ## Review Gate
 
@@ -192,8 +194,10 @@ Sidebar 布局从上到下：
 
 | # | Issue | 优先级 | 描述 |
 |---|-------|--------|------|
-| I-1 | 删除 Thread 无二次确认 | **P1** | Thread 删除是硬删除（Redis 数据全清 + 级联删消息/任务/记忆），但前端无确认弹窗。铲屎官 2026-03-11 误删了 `thread_mmlv4v2oq6dxefr6`（与 gpt52 讨论 skills/家规优化的重要 thread，73 条审计记录），数据不可恢复。**必须加二次确认对话框**，或更好方案：软删除 + 30 天回收站。 |
-| I-2 | Thread 删除无审计事件 | P2 | `EventAuditLog` 没有 `THREAD_DELETED` 事件类型，删除操作不可追溯。应补 audit event 记录谁在什么时候删了哪个 thread。 |
+| I-1 | ~~删除 Thread 无二次确认~~ | ~~**P1**~~ | ✅ **已修复** (PR #378)：前端加确认弹窗（显示 thread 标题 + 不可恢复警告）。注意：仍为硬删除，软删除 + 回收站为后续增强。 |
+| I-2 | ~~Thread 删除无审计事件~~ | ~~P2~~ | ✅ **已修复** (PR #378)：新增 `THREAD_DELETED` 审计事件，记录 deletedBy / threadTitle / projectPath。 |
+| I-3 | Header 无线程标识 | P2 | ✅ **已修复** (PR #378)：ChatContainerHeader 显示当前 thread 标题 + 项目名，大厅显示"大厅"。 |
+| I-4 | 仍为硬删除，无软删除/回收站 | P2 | 后续增强：soft delete + 30 天回收站。当前已有确认弹窗 + 审计兜底。 |
 
 ## Links
 
