@@ -1,6 +1,6 @@
 ---
 feature_ids: [F101]
-related_features: [F011]
+related_features: [F011, F107]
 topics: [mode, game, werewolf, game-engine]
 doc_kind: done
 created: 2026-03-11

@@ -42,3 +42,4 @@ created: 2026-02-26
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | in-progress | 布偶猫 | [F102](features/F102-memory-adapter-refactor.md) |
 | F103 | 猫猫独立声线 — Per-Cat Voice Identity | spec | TBD | [F103](features/F103-per-cat-voice-identity.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | [F104](features/F104-local-omni-perception.md) |
+| F107 | 猫猫杀（脑门贴词）— 坏猫战术推理游戏 | spec | 布偶猫 | [F107](features/F107-headband-guess-game.md) |
