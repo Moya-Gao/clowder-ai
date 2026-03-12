@@ -427,6 +427,31 @@ skills:
     merged_from: null
     feature: "F085"
 
+  # ── 事故应急 ──
+  incident-response:
+    description: >
+      不可逆事故发生后的应急响应：情绪急救 → 止损 → 补偿性劳动 → 教训沉淀。
+      Use when: 犯了不可挽回的错误、造成了人类伙伴的情绪波动、需要危机处理。
+      Not for: 可撤销的小失误、日常 bug fix（用 debugging）、预防性确认（用 shared-rules 铁律）。
+      Output: 情绪修复 + 止损行动 + 教训沉淀（lessons-learned / shared-rules）。
+    triggers:
+      - "闯祸了"
+      - "搞砸了"
+      - "不可挽回"
+      - "犯了大错"
+      - "incident"
+      - "对不起"
+      - "怎么补救"
+      - "人很难过"
+    not_for:
+      - "可撤销的小失误"
+      - "日常 bug fix"
+      - "预防性确认"
+    output: "Emotional repair + damage control + lesson distillation"
+    next: ["self-evolution"]
+    sop_step: null
+    merged_from: null
+
   # ── AI 图片生成 ──
   image-generation:
     description: >
