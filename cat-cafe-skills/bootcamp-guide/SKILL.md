@@ -121,12 +121,12 @@ triggers:
 - 线程自动 pin（系统处理）
 - `cat_cafe_update_bootcamp_state(threadId, phase='phase-11-farewell', completedAt=Date.now())`
 
-## F075 成就接缝（预留）
+## F075 成就集成（已完成）
 
-训练营完成时预留 integration point：
-```
-// TODO F075: 在 Phase 9 complete 时触发成就
-// leaderboardStore.recordAchievement(userId, 'bootcamp-graduate')
-```
+训练营 phase 迁移时自动触发成就解锁（Phase D, PR #391）：
+- `phase-1-intro` → `bootcamp-enrolled`（入营新兵）
+- `phase-3-config-help` → `bootcamp-env-ready`（装备齐全）
+- `phase-5-kickoff` → `bootcamp-first-decision`（第一次拍板）
+- `phase-11-farewell` → `bootcamp-graduated`（训练营毕业）
 
-当前不实现成就逻辑，等 F075 就绪后接入。
+走 F075 events pipeline（`app.inject` → `POST /api/leaderboard/events`），forward-only 状态机防刷。

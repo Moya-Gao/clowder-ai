@@ -8,7 +8,7 @@ created: 2026-03-08
 
 # F087: 猫猫训练营（CVO Bootcamp）
 
-> **Status**: done | **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫 | **Completed**: 2026-03-12
 > **Priority**: P2
 > **Evolved from**: F059（开源计划 — clowder-ai 需要 onboarding 体验）
 > **Related**: F075（成就/排行榜系统）, F090（像素猫猫大作战）, F096（可交互富文本）
@@ -168,7 +168,7 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 - [x] AC-A6: 过程中用户做了 ≥3 次 CVO 决策（方案选择、纠偏、冲突裁判）（skill 引导 + 「🎯 CVO 决策时刻」标记）
 - [x] AC-A7: 完成后用户能看到自己参与的成果（功能上线 / commit 记录）（F075 成就徽章 + 训练营线程保留）
 - [x] AC-A8: 成就/进度接入 F075 猫猫排行榜系统（终态基座，不搞临时版）（PR #391）
-- [ ] AC-A9: 训练营可作为 clowder-ai 的 Quick Start 引导（待 clowder-ai 开源后对接）
+- [x] AC-A9: 训练营可作为 clowder-ai 的 Quick Start 引导（**Deferred to F059** — clowder-ai 开源后对接，训练营代码已就绪）
 - [x] AC-A10: 进阶功能引导（TTS/ASR/Pencil）——检测可用性、引导安装、跑不起来优雅跳过（env-check API, PR #375）
 - [x] AC-A11: TTS 推荐轻量版 Kokoro-82M 给资源有限的用户（env-check.ts 已返回 Kokoro-82M 推荐）
 - [x] AC-A12: 训练营完成后线程保持可用，用户以后可回来找猫猫求助（GET /api/bootcamp/thread 线程发现 + auto-pin）
@@ -274,6 +274,7 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 | **Discussion** | Thread `thread_mmimwq9d41r9lhu8` | 2026-03-08 原始讨论 |
 | **Discussion** | Thread `thread_mmlo31do7rhj8lnp` | 2026-03-10 需求纠正 |
 | **Design Gate** | Thread `thread_mmloli8kv9kelsl2` | 2026-03-11 Design Gate 讨论 |
+| **Reflection** | `docs/reflections/2026-03-12-f087-cvo-bootcamp-capsule.md` | 反思胶囊 |
 
 ## Key Decisions
 
@@ -336,3 +337,6 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 | 2026-03-12 | Phase B callback routes + MCP tools 完成（PR #381 merged）：bootcamp state 回调、env-check callback、严格线程绑定、缅因猫 3 轮 review |
 | 2026-03-12 | Phase C 运行时编排完成（PR #386 merged）：threadId 注入、farewell auto-pin、缅因猫 1 轮放行 |
 | 2026-03-12 | Phase D 成就接入完成（PR #391 merged）：4 bootcamp 成就 + forward-only 状态机 + F075 events pipeline 集成、缅因猫 3 轮 review + 云端 LGTM |
+| 2026-03-12 | Phase E AC 收尾（PR #394）：线程发现 API + AC 覆盖扫描 |
+| 2026-03-12 | GPT-5.4 愿景守护：4 项门禁指出（AC-A9/BACKLOG 同步/反思胶囊/skill 过时描述），全部修复 |
+| 2026-03-12 | **F087 Feature Close** — AC 全部关账，反思胶囊已写，真相源同步完成 |

@@ -80,3 +80,4 @@
 | F058 | F058: Mission Control 增强（F049++） | done | [F058-mission-control-enhancements.md](./F058-mission-control-enhancements.md) |
 | F097 | F097: CLI Output Collapsible UX — 聊天气泡折叠式重构 | done | [F097-cli-output-collapsible-ux.md](./F097-cli-output-collapsible-ux.md) |
 | F075 | F075: 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | done | [F075-cat-leaderboard.md](./F075-cat-leaderboard.md) |
+| F087 | F087: CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | done | [F087-cvo-bootcamp.md](./F087-cvo-bootcamp.md) |
