@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F099: Hub & 顶栏导航可扩展性重构
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -71,13 +71,13 @@ F042 在知识架构里已证明扁平全量注入会失控——前端 UI 正�
 
 ## Acceptance Criteria
 
-### Phase A（Bento Box + 顶栏精简）
-- [ ] AC-A1: Hub 首页为 Bento Box 网格，3 个分组卡片入口
-- [ ] AC-A2: 点击分组卡片进入组内页签列表，每组 ≤6 项
-- [ ] AC-A3: 顶栏常驻图标 ≤4 个（导出、语音、Signal、面板切换），分屏按 OQ-4 决定去留
-- [ ] AC-A4: 现有所有功能仍可达（无功能丢失）
-- [ ] AC-A5: 铲屎官确认视觉方案（Design Gate）
-- [ ] AC-A6: 齿轮 tooltip 改为"Cat Café Hub"
+### Phase A（Bento Box + 顶栏精简）✅
+- [x] AC-A1: Hub 首页为 Bento Box 网格，3 个分组卡片入口
+- [x] AC-A2: 点击分组卡片进入组内页签列表，每组 ≤6 项
+- [x] AC-A3: 顶栏常驻图标 ≤4 个（导出、语音、Signal、面板切换），分屏按 OQ-4 决定去留
+- [x] AC-A4: 现有所有功能仍可达（无功能丢失）
+- [x] AC-A5: 铲屎官确认视觉方案（Design Gate）
+- [x] AC-A6: 齿轮 tooltip 改为"Cat Café Hub"
 
 ### Phase B（重页面毕业）
 - [ ] AC-B1: 排行榜毕业为独立路由 `/leaderboard`（治理看板留 Hub）
@@ -122,6 +122,7 @@ F042 在知识架构里已证明扁平全量注入会失控——前端 UI 正�
 | 日期 | 事件 |
 |------|------|
 | 2026-03-11 | 三猫讨论 + 立项 |
+| 2026-03-12 | Phase A merged (PR #384) |
 
 ## Review Gate
 
