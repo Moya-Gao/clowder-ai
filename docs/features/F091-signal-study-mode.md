@@ -213,6 +213,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-11: 铲屎官发现播客功能是空壳（占位符脚本/无去重/无TTS），启动 Phase 5 播客增强
 - 2026-03-11: Phase 5 merged (PR #382) — LLM 脚本生成 + TTS 合成 + 去重 + 前端播放。gpt52 R1→R3 三轮 review + 云端 Codex 通过
 - 2026-03-12: Phase 6 merged (PR #388) — Thread-based podcast generation via message pipeline。gpt52 R1→R3 三轮 review + 云端 Codex 通过
+- 2026-03-12: Phase 7 merged (PR #395) — Podcast quality fixes: dynamic duration (3-10min), richer prompt, TTS safety, download/playback UI。云端 Codex 通过（P2 blob URL leak 已修）
 
 ## Phase 5: 播客真正可用（2026-03-11） ✅
 
@@ -236,6 +237,22 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 ### Phase 6: Thread Session Reuse ✅
 - [x] AC-P6-1: 有已有 study thread 时，通过消息管道往 thread 发消息触发生成（复用该 thread 的猫实例）
 - [x] AC-P6-2: 无 study thread 时，启动新 thread 再发消息
+
+## Phase 7: 播客质量修复（2026-03-12） ✅
+
+> **Status**: done | **Owner**: 布偶猫
+
+铲屎官报告 4 个问题（thread_mmn3fsvdfvgqsf9i 23:40/23:52）：
+- 精华版内容太简略（每段只有 30-50 字）
+- 时长硬编码 2-3 分钟（应根据文章长度 3-10 分钟）
+- 音频无法下载分享
+- 缺少连续播放
+
+### Phase 7 AC
+- [x] AC-P7-1: 精华版 prompt 增强（每段 80-200 字，禁止空洞套话）
+- [x] AC-P7-2: 动态时长 `estimateDuration` 根据文章长度分档（3/5/8/10 分钟）
+- [x] AC-P7-3: TTS per-segment safety（try/catch + truncate >4800 chars）
+- [x] AC-P7-4: PodcastPlayer 全部播放 + 每段下载按钮
 
 ## UX Wireframe 设计说明
 
