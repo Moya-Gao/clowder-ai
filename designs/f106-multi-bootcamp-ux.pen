@@ -1,0 +1,626 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "1Phkp",
+      "x": 0,
+      "y": 0,
+      "name": "F106 - Bootcamp List Modal",
+      "width": 480,
+      "fill": "#FFFFFF",
+      "cornerRadius": 16,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#E5E7EB"
+      },
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "exaKt",
+          "name": "Modal Header",
+          "width": "fill_container",
+          "height": 64,
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "#F3F4F6"
+          },
+          "padding": [
+            0,
+            24
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "GpDAe",
+              "name": "headerLeft",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "UQJIs",
+                  "name": "capIcon",
+                  "width": 24,
+                  "height": 24,
+                  "iconFontName": "graduation-cap",
+                  "iconFontFamily": "lucide",
+                  "fill": "#D97706"
+                },
+                {
+                  "type": "text",
+                  "id": "ppkVF",
+                  "name": "headerTitle",
+                  "fill": "#111827",
+                  "content": "我的训练营",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "icon_font",
+              "id": "mowoU",
+              "name": "closeBtn",
+              "width": 20,
+              "height": 20,
+              "iconFontName": "x",
+              "iconFontFamily": "lucide",
+              "fill": "#9CA3AF"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "62VJC",
+          "name": "Bootcamp List",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            16,
+            24
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "s4ttR",
+              "name": "Bootcamp Item - Active",
+              "width": "fill_container",
+              "fill": "#FFFBEB",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FDE68A"
+              },
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "1GJX2",
+                  "name": "card1top",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "9ZuXx",
+                      "name": "card1title",
+                      "fill": "#111827",
+                      "content": "🎓 猫猫训练营",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ABTpT",
+                      "name": "card1badge",
+                      "fill": "#FEF3C7",
+                      "cornerRadius": 99,
+                      "padding": [
+                        4,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "qg9W0",
+                          "name": "card1badgeText",
+                          "fill": "#D97706",
+                          "content": "进行中",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sELb9",
+                  "name": "card1meta",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "DVss9",
+                      "name": "card1task",
+                      "fill": "#6B7280",
+                      "content": "⭐ 猫探长断案",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dnfj2",
+                      "name": "card1phase",
+                      "fill": "#6B7280",
+                      "content": "Phase 5/11 · 立项",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "84hf9",
+                  "name": "Progress Bar BG",
+                  "width": "fill_container",
+                  "height": 6,
+                  "fill": "#F3F4F6",
+                  "cornerRadius": 99,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ULeKD",
+                      "name": "Progress Fill",
+                      "width": 200,
+                      "height": 6,
+                      "fill": "#F59E0B",
+                      "cornerRadius": 99
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "E7UY0",
+                  "name": "card1bottom",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "oKQ0F",
+                      "name": "card1date",
+                      "fill": "#9CA3AF",
+                      "content": "引导猫: 宪宪 · 3月12日",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon_font",
+                      "id": "yioiz",
+                      "name": "card1arrow",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "arrow-right",
+                      "iconFontFamily": "lucide",
+                      "fill": "#D97706"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VVw0z",
+              "name": "Bootcamp Item - Completed",
+              "width": "fill_container",
+              "fill": "#F9FAFB",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E5E7EB"
+              },
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "tyRiz",
+                  "name": "card2top",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "fdnOE",
+                      "name": "card2title",
+                      "fill": "#6B7280",
+                      "content": "🎓 猫猫训练营 #2",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "lDLLH",
+                      "name": "card2badge",
+                      "fill": "#D1FAE5",
+                      "cornerRadius": 99,
+                      "padding": [
+                        4,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "kp4CQ",
+                          "name": "card2badgeText",
+                          "fill": "#059669",
+                          "content": "已完成 ✓",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "cAT3V",
+                  "name": "card2meta",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "QutQk",
+                      "name": "card2task",
+                      "fill": "#9CA3AF",
+                      "content": "⭐⭐ 猫猫天气站",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "m6woM",
+                      "name": "card2phase",
+                      "fill": "#9CA3AF",
+                      "content": "Phase 11/11 · 完成",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "nEDKr",
+                  "name": "Progress Bar Full",
+                  "width": "fill_container",
+                  "height": 6,
+                  "fill": "#34D399",
+                  "cornerRadius": 99
+                },
+                {
+                  "type": "frame",
+                  "id": "VppHm",
+                  "name": "card2bottom",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Qryzn",
+                      "name": "card2date",
+                      "fill": "#9CA3AF",
+                      "content": "引导猫: 砚砚 · 3月10日完成",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon_font",
+                      "id": "GsftS",
+                      "name": "card2arrow",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "arrow-right",
+                      "iconFontFamily": "lucide",
+                      "fill": "#9CA3AF"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "7kwkE",
+          "name": "Modal Footer",
+          "width": "fill_container",
+          "height": 72,
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1
+            },
+            "fill": "#F3F4F6"
+          },
+          "padding": [
+            0,
+            24
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "EIVVL",
+              "name": "New Bootcamp Button",
+              "fill": "#F59E0B",
+              "cornerRadius": 12,
+              "gap": 8,
+              "padding": [
+                12,
+                24
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "iGR6C",
+                  "name": "newBtnIcon",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "plus",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                },
+                {
+                  "type": "text",
+                  "id": "DcPMK",
+                  "name": "newBtnText",
+                  "fill": "#FFFFFF",
+                  "content": "开始新训练营",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Nw9sk",
+      "x": 860,
+      "y": 0,
+      "name": "F106 - CTA States",
+      "width": 480,
+      "fill": "#FFFFFF",
+      "cornerRadius": 16,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#E5E7EB"
+      },
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "oNSbp",
+          "name": "titleText",
+          "fill": "#111827",
+          "content": "空消息态 CTA 变化",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "4xCcU",
+          "name": "State A - Has Bootcamp",
+          "width": "fill_container",
+          "fill": "#F9FAFB",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E5E7EB"
+          },
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 20,
+          "children": [
+            {
+              "type": "text",
+              "id": "MEi56",
+              "name": "stateALabel",
+              "fill": "#6B7280",
+              "content": "有训练营时 →",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "aDZUy",
+              "name": "stateAWelcome",
+              "fill": "#6B7280",
+              "content": "欢迎来到 Cat Cafe!",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "hT9bx",
+              "name": "stateABtn",
+              "fill": "#FFFBEB",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FDE68A"
+              },
+              "gap": 8,
+              "padding": [
+                10,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "v8aTf",
+                  "name": "stateAIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "graduation-cap",
+                  "iconFontFamily": "lucide",
+                  "fill": "#D97706"
+                },
+                {
+                  "type": "text",
+                  "id": "ezNVt",
+                  "name": "stateABtnText",
+                  "fill": "#D97706",
+                  "content": "我的训练营（2）",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "2x6SC",
+          "name": "State B - No Bootcamp",
+          "width": "fill_container",
+          "fill": "#F9FAFB",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E5E7EB"
+          },
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 20,
+          "children": [
+            {
+              "type": "text",
+              "id": "qGNOO",
+              "name": "stateBLabel",
+              "fill": "#6B7280",
+              "content": "无训练营时 →",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "OsnrV",
+              "name": "stateBWelcome",
+              "fill": "#6B7280",
+              "content": "欢迎来到 Cat Cafe!",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "Lcxl6",
+              "name": "stateBBtn",
+              "fill": "#FFFBEB",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FDE68A"
+              },
+              "gap": 8,
+              "padding": [
+                10,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "z6did",
+                  "name": "stateBIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "graduation-cap",
+                  "iconFontFamily": "lucide",
+                  "fill": "#D97706"
+                },
+                {
+                  "type": "text",
+                  "id": "jFgCt",
+                  "name": "stateBBtnText",
+                  "fill": "#D97706",
+                  "content": "第一次来？开始猫猫训练营",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
