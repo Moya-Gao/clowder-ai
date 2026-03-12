@@ -8,7 +8,7 @@ created: 2026-03-08
 
 # F087: 猫猫训练营（CVO Bootcamp）
 
-> **Status**: spec | **Owner**: 布偶猫
+> **Status**: phase-a-done | **Owner**: 布偶猫
 > **Priority**: P2
 > **Evolved from**: F059（开源计划 — clowder-ai 需要 onboarding 体验）
 > **Related**: F075（成就/排行榜系统）, F090（像素猫猫大作战）, F096（可交互富文本）
@@ -160,16 +160,16 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 
 ## Acceptance Criteria
 
-- [ ] AC-A1: 前端有"新手引导"入口按钮，点击触发 Bootcamp 模式
+- [x] AC-A1: 前端有"新手引导"入口按钮，点击触发 Bootcamp 模式（PR #375）
 - [ ] AC-A2: 猫猫天团轮流登场自我介绍（宪宪→砚砚→烁烁，各自风格）
-- [ ] AC-A3: 自动检测用户环境（MCP、依赖、配置），主动帮用户解决问题
-- [ ] AC-A4: 提供任务候选菜单（≥3 个不同难度），用户自选感兴趣的任务
+- [x] AC-A3: 自动检测用户环境（MCP、依赖、配置），主动帮用户解决问题（env-check API, PR #375）
+- [x] AC-A4: 提供任务候选菜单（≥3 个不同难度），用户自选感兴趣的任务（bootcamp-blocks, PR #375）
 - [ ] AC-A5: 用户从头到尾走完 feat lifecycle（立项→设计→开发→review→完成）
 - [ ] AC-A6: 过程中用户做了 ≥3 次 CVO 决策（方案选择、纠偏、冲突裁判）
 - [ ] AC-A7: 完成后用户能看到自己参与的成果（功能上线 / commit 记录）
 - [ ] AC-A8: 成就/进度接入 F075 猫猫排行榜系统（终态基座，不搞临时版）
 - [ ] AC-A9: 训练营可作为 clowder-ai 的 Quick Start 引导
-- [ ] AC-A10: 进阶功能引导（TTS/ASR/Pencil）——检测可用性、引导安装、跑不起来优雅跳过
+- [x] AC-A10: 进阶功能引导（TTS/ASR/Pencil）——检测可用性、引导安装、跑不起来优雅跳过（env-check API, PR #375）
 - [ ] AC-A11: TTS 推荐轻量版 Kokoro-82M 给资源有限的用户（我们自己用 Qwen3-TTS 1.7B）
 - [ ] AC-A12: 训练营完成后线程保持可用，用户以后可回来找猫猫求助
 
@@ -207,6 +207,35 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 ### 前置依赖
 
 F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Interactive Rich Blocks。F096 是 F087 的 `Blocked by` 依赖。
+
+## Implementation Phases
+
+### Phase A: 基础设施 ✅ (PR #375, `d26feec3`)
+
+**交付物**：
+- Thread `bootcampState` 字段（schema + API + Redis 持久化）
+- `/api/bootcamp/env-check` 环境检测端点（Node/pnpm/Git/Claude CLI/MCP/TTS/ASR/Pencil）
+- 前端入口：Sidebar 学士帽按钮 + 空消息态 CTA
+- `bootcamp-guide` Skill（13 phase 引导行为定义）
+- SystemPromptBuilder bootcamp 注入
+- `bootcamp-blocks`：引导猫选择 + 任务选择的 Interactive Rich Block 定义
+- 测试：24 tests（thread-bootcamp 6 + env-check 5 + blocks 5 + prompt-builder 2 + 预有 6）
+
+### Phase B: 运行时行为（待实施）
+
+**目标**：让 bootcamp-guide skill 真正跑起来——猫猫根据 phase 自动推进引导流程。
+- [ ] Phase 0: 引导猫选择的 Interactive Rich Block 渲染 + 回调处理
+- [ ] Phase 1: 三猫轮流自我介绍（multi_mention 编排）
+- [ ] Phase 2-3: env-check 调用 + 猫猫主动帮用户排障
+- [ ] Phase 3.5: 进阶功能引导（检测 → 建议 → 跳过）
+- [ ] Phase 4: 任务选择 Interactive Rich Block 渲染 + 回调处理
+- [ ] Phase 5-10: 真实 feat lifecycle 编排（CVO 决策时刻标记）
+- [ ] Phase 11: 告别 + pinned + 持续帮助入口
+
+### Phase C: 成就接入（依赖 F075）
+
+- [ ] 接入 F075 排行榜成就系统
+- [ ] "第一次拍板"、"第一次否决"等 bootcamp 成就
 
 ## Links
 
@@ -276,3 +305,4 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 | 2026-03-11 | F096 Interactive Rich Blocks 从 F087 Design Gate 讨论中提取立项 |
 | 2026-03-11 | F096 完成并合入 main（PR #365），F087 blocker 解除 |
 | 2026-03-11 | 铲屎官补充：进阶功能引导 + TTS 推荐策略 + 训练营线程持续帮助入口（KD-14~16） |
+| 2026-03-11 | Phase A 基础设施完成（PR #375 merged）：thread bootcampState、env-check API、前端入口、bootcamp-guide skill、SystemPromptBuilder 注入 |
