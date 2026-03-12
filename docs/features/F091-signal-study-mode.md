@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F091: Signal Study Mode — 信号学习伴侣
 
-> **Status**: in-progress (Phase 6 thread session reuse done) | **Owner**: 布偶猫
+> **Status**: in-progress (Phase 8 podcast context injection done) | **Owner**: 布偶猫
 > **Created**: 2026-03-10
 > **Completed**: 2026-03-10
 
@@ -214,6 +214,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-11: Phase 5 merged (PR #382) — LLM 脚本生成 + TTS 合成 + 去重 + 前端播放。gpt52 R1→R3 三轮 review + 云端 Codex 通过
 - 2026-03-12: Phase 6 merged (PR #388) — Thread-based podcast generation via message pipeline。gpt52 R1→R3 三轮 review + 云端 Codex 通过
 - 2026-03-12: Phase 7 merged (PR #395) — Podcast quality fixes: dynamic duration (3-10min), richer prompt, TTS safety, download/playback UI。云端 Codex 通过（P2 blob URL leak 已修）
+- 2026-03-12: Phase 8 merged (PR #405) — 播客上下文注入修复：注入 study thread 讨论历史 + 笔记到 prompt，threadContext 移到 JSON 格式前。云端 Codex P1 降级 P3（单用户系统无多租户场景）
 
 ## Phase 5: 播客真正可用（2026-03-11） ✅
 
@@ -253,6 +254,20 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-P7-2: 动态时长 `estimateDuration` 根据文章长度分档（3/5/8/10 分钟）
 - [x] AC-P7-3: TTS per-segment safety（try/catch + truncate >4800 chars）
 - [x] AC-P7-4: PodcastPlayer 全部播放 + 每段下载按钮
+
+## Phase 8: 播客上下文注入修复（2026-03-12） ✅
+
+> **Status**: done | **Owner**: 布偶猫
+
+铲屎官 04:36 报告："只给人发了原文？study的内容呢？生成的内容只有原文讲的那么点东西"
+
+根因：播客生成 prompt 只注入了原始文章内容，没有注入 study thread 讨论历史和笔记。
+
+### Phase 8 AC
+- [x] AC-P8-1: 播客生成前读取 study thread 消息历史（`getByThread`，最多 50 条）
+- [x] AC-P8-2: 播客生成前读取最新 study note artifact 内容
+- [x] AC-P8-3: `assembleThreadContext()` 将讨论和笔记组装为 threadContext
+- [x] AC-P8-4: threadContext 在 prompt 中位于 JSON 输出格式之前（不是之后）
 
 ## UX Wireframe 设计说明
 
