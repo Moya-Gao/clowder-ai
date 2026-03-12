@@ -2,13 +2,13 @@
 feature_ids: [F105]
 related_features: [F050, F061, F032, F041, F043]
 topics: [opencode, golden-chinchilla, external-agent, cli-integration, oh-my-opencode, multi-agent]
-doc_kind: phase-2-done
+doc_kind: phase-3-done
 created: 2026-03-11
 ---
 
 # F105: opencode 接入 — 金渐层（开源多模型编码猫）
 
-> **Status**: phase-2-done | **Owner**: 布偶猫 Opus 4.6
+> **Status**: phase-3-done | **Owner**: 布偶猫 Opus 4.6
 > **Created**: 2026-03-11
 
 ---
@@ -129,9 +129,9 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 - [x] AC-10: opencode MCP 与 Cat Cafe MCP 编排不冲突 — 5 namespace tests: no MCP env leakage, no CLI MCP flags, zero tool name overlap, config isolation by process + file boundary
 - [x] AC-11: Ralph Loop + Context 管理正常工作 — 6 context tests: multi-cycle Ralph Loop yields correct sequence (1 session_init dedup), high token counts handled, auto-compact gaps handled
 
-### Phase 3: 协作路由
-- [ ] AC-12: 金渐层参与 @mention 协作路由
-- [ ] AC-13: 金渐层可被其他猫 @ 并响应
+### Phase 3: 协作路由 ✅ COMPLETE
+- [x] AC-12: 金渐层参与 @mention 协作路由 — 12 tests: all 4 mention patterns (@opencode, @金渐层, @golden, @golden-chinchilla) resolve correctly, longest-match, case-insensitive, email/partial-word rejection
+- [x] AC-13: 金渐层可被其他猫 @ 并响应 — 17 tests: A2A chain opus↔opencode bidirectional, self-mention filter, CJK mention, fenced code block ignore, system prompt injection (identity + directMessageFrom), E2E routing chain mirroring real route-serial assembly (buildStaticIdentity + buildInvocationContext separately), fixture guard bound to cat-config.json truth source
 
 ---
 
@@ -166,6 +166,8 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 | 2026-03-12 | Cloud review passed (1 P1 downgraded to P3 — pre-existing F062 pattern); Phase 1 merged (PR #401) |
 | 2026-03-12 | Phase 2 完成 — OMOC isolation + MCP namespace + Ralph Loop/Context validated（24 new tests, 55 total green） |
 | 2026-03-12 | Phase 2 merged (PR #404) — local review gpt52 + cloud review codex; 3 P2 fixed (apiKey env-only, /v1 normalization, assert.ok(true) replaced), 60 tests green |
+| 2026-03-12 | Phase 3 完成 — collaboration routing validated: mention parsing (12 tests), A2A chain (7 tests), system prompt injection (4 tests), E2E routing (4 tests), fixture guard (2 tests) — 29 new tests, 89 total green |
+| 2026-03-12 | Phase 3 review fix — gpt52 P1 (mirror route-serial assembly) + P2 (fixture guard to cat-config.json), 89/89 green |
 
 ---
 
