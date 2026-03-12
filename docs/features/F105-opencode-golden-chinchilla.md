@@ -2,13 +2,13 @@
 feature_ids: [F105]
 related_features: [F050, F061, F032, F041, F043]
 topics: [opencode, golden-chinchilla, external-agent, cli-integration, oh-my-opencode, multi-agent]
-doc_kind: spec
+doc_kind: phase-0-done
 created: 2026-03-11
 ---
 
 # F105: opencode 接入 — 金渐层（开源多模型编码猫）
 
-> **Status**: spec | **Owner**: 布偶猫 Opus 4.6
+> **Status**: phase-0-done | **Owner**: 布偶猫 Opus 4.6
 > **Created**: 2026-03-11
 
 ---
@@ -106,10 +106,16 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 
 ## Acceptance Criteria
 
-### Phase 0: Spike / 可行性验证
-- [ ] AC-1: opencode CLI 安装并能通过 proxy 调用 Claude 模型
-- [ ] AC-2: `opencode run "hello" --format json` 输出可解析的 JSON 事件流
-- [ ] AC-3: Oh My OpenCode 插件安装并能启用 Sisyphus 内部编排
+### Phase 0: Spike / 可行性验证 ✅ COMPLETE
+- [x] AC-1: opencode CLI v1.2.24 安装，通过 felix-2 API key + nuoda.vip proxy 调用 Claude 模型成功
+- [x] AC-2: `opencode run --format json` 输出 NDJSON 事件流（step_start → text → tool_use → step_finish），格式清晰可映射
+- [x] AC-3: Oh My OpenCode 插件通过 `"plugin": ["oh-my-opencode"]` 配置自动安装，system prompt 增加 ~12K tokens（Sisyphus 编排器注入）
+
+**Spike 发现**：
+- opencode JSON 事件类型：`step_start` / `text` / `tool_use` / `step_finish` — 与 DARE 的 headless envelope 不同但更简洁
+- 反代模式（localhost:9877）下 opencode 会挂起（SSE streaming curl 正常），疑似 opencode 启动时有非 streaming 请求被反代异常处理，Phase 1 需排查
+- OMOC 插件注入约 12K tokens system prompt，包含 Sisyphus 编排器 + 专家团队定义
+- API baseURL 需要加 `/v1` 后缀（opencode Anthropic SDK 调用 `{baseURL}/messages` 而非 `{baseURL}/v1/messages`）
 
 ### Phase 1: Cat Cafe L1 接入
 - [ ] AC-4: `CatProvider` 扩展支持 `'opencode'`（Zod enum + switch case）
@@ -153,6 +159,7 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 | 日期 | 事件 |
 |------|------|
 | 2026-03-11 | Kickoff — spec 定稿 + avatar 生成 + cat-config 设计 |
+| 2026-03-12 | Phase 0 Spike 完成 — opencode v1.2.24 + felix-2 proxy + OMOC 插件验证通过 |
 
 ---
 
