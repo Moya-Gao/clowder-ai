@@ -1,0 +1,151 @@
+{
+  "cat": "opus",
+  "sheetSource": "assets/stickers/opus/sheet.png",
+  "generatedAt": "2026-03-12T02:24:29.959Z",
+  "stickers": [
+    {
+      "index": 1,
+      "name": "happy",
+      "file": "01_happy.png",
+      "category": "common"
+    },
+    {
+      "index": 2,
+      "name": "thinking",
+      "file": "02_thinking.png",
+      "category": "common"
+    },
+    {
+      "index": 3,
+      "name": "confused",
+      "file": "03_confused.png",
+      "category": "common"
+    },
+    {
+      "index": 4,
+      "name": "shocked",
+      "file": "04_shocked.png",
+      "category": "common"
+    },
+    {
+      "index": 5,
+      "name": "lgtm",
+      "file": "05_lgtm.png",
+      "category": "common"
+    },
+    {
+      "index": 6,
+      "name": "sleeping",
+      "file": "06_sleeping.png",
+      "category": "common"
+    },
+    {
+      "index": 7,
+      "name": "smirk",
+      "file": "07_smirk.png",
+      "category": "common"
+    },
+    {
+      "index": 8,
+      "name": "guilty",
+      "file": "08_guilty.png",
+      "category": "common"
+    },
+    {
+      "index": 9,
+      "name": "angry",
+      "file": "09_angry.png",
+      "category": "common"
+    },
+    {
+      "index": 10,
+      "name": "punch",
+      "file": "10_punch.png",
+      "category": "common"
+    },
+    {
+      "index": 11,
+      "name": "got_it",
+      "file": "11_got_it.png",
+      "category": "common"
+    },
+    {
+      "index": 12,
+      "name": "melting",
+      "file": "12_melting.png",
+      "category": "common"
+    },
+    {
+      "index": 13,
+      "name": "wallet_burning",
+      "file": "13_wallet_burning.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 14,
+      "name": "architecting",
+      "file": "14_architecting.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 15,
+      "name": "processing",
+      "file": "15_processing.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 16,
+      "name": "deep_thinking",
+      "file": "16_deep_thinking.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 17,
+      "name": "extra_17",
+      "file": "17_extra_17.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 18,
+      "name": "extra_18",
+      "file": "18_extra_18.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 19,
+      "name": "extra_19",
+      "file": "19_extra_19.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 20,
+      "name": "extra_20",
+      "file": "20_extra_20.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 21,
+      "name": "extra_21",
+      "file": "21_extra_21.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 22,
+      "name": "extra_22",
+      "file": "22_extra_22.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 23,
+      "name": "extra_23",
+      "file": "23_extra_23.png",
+      "category": "exclusive"
+    },
+    {
+      "index": 24,
+      "name": "extra_24",
+      "file": "24_extra_24.png",
+      "category": "exclusive"
+    }
+  ]
+}
