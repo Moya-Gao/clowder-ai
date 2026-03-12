@@ -4,12 +4,13 @@ related_features: [F069, F072]
 topics: [audit, state-machine, write-path, unread, catStatuses, messages, bubble]
 doc_kind: audit
 created: 2026-03-10
-status: active
+status: done
+completed: 2026-03-10
 ---
 
 # F081 Appendix — Bubble/Thread State Write-Path Audit
 
-> **Status**: in-progress | **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > 起因：铲屎官 2026-03-09 "别让铲屎官发现什么你们修什么？修了一个另一个又出现问？"
 > gpt52 提议系统级全量审计，opus 对齐到 F081 scope。
 
