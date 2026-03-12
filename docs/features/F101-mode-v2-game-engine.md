@@ -87,12 +87,20 @@ created: 2026-03-11
 - 语音模式下：猫猫发言通过 audio rich block 输出（TTS 合成），不用文字
 - 复用 F066 Voice Pipeline（Qwen3-TTS，各猫各有声线）
 
-**B6. 前端游戏 UI（与暹罗猫协作）**
-- `PlayerGrid`：玩家阵型板（存活/出局/警长标记）
-- `PhaseTimeline`：阶段进度条
+**B6. 前端游戏 UI**（KD-12 + KD-13，与 gpt52 讨论定案）
+- **GameShell**：全屏接管，替换常规 chat chrome，隐藏左大厅+右状态栏
+- **玩家视角布局（C 方案）**：
+  - 顶部常驻：`PhaseTimeline` + 倒计时
+  - 次顶部：`PlayerGrid`（存活/出局/投票指示）
+  - 中间：事件流（公共事件+发言）
+  - 底部 sticky：`ActionDock`（技能选择/投票/发言，用 interactive rich block）
+- **上帝视角布局（C 变体）**：
+  - 同上，但中间区 70% 事件流 + 30% **God Inspector** 右侧面板
+  - God Inspector 三层：Seat Matrix（角色+存活+行动状态）→ Night Timeline（结算顺序）→ Scope Tabs（All/Wolves/Seer/Witch/Resolve）
+  - 移动端降级为右侧抽屉
+- **夜间等待体验**：只显示阶段名+倒计时+个人状态+氛围文案，不显示行动进度数字（防泄露）
 - 翻牌仪式：interactive rich block 点击揭牌
-- 日夜氛围联动：CSS 变量切换主题
-- 子 Thread 做夜间频道 UX 呈现（真相源在 server scoped event log）
+- 日夜氛围联动：CSS 变量切换（夜间压暗+降饱和度）
 
 ## Acceptance Criteria
 
@@ -176,6 +184,8 @@ created: 2026-03-11
 | KD-9 | 网易狼人杀规则，无警长竞选 | 大家都熟悉的规则 | 2026-03-11 |
 | KD-10 | 有遗言阶段 | 铲屎官确认 | 2026-03-11 |
 | KD-11 | 语音模式可选 | 开局选文字/语音，语音模式猫猫用 audio rich block 发言 | 2026-03-11 |
+| KD-12 | 全屏接管布局 | 进入游戏后收掉左侧大厅+右侧状态栏，狼人杀专属全屏体验 | 2026-03-11 |
+| KD-13 | 玩家 C 方案 + 上帝 C 变体 + 夜间无泄露 | 顶部局势带+中间事件流+底部操作区；上帝加右侧 God Inspector 30%；夜间不显示行动进度数字 | 2026-03-11 |
 
 ## Timeline
 
