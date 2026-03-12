@@ -168,6 +168,7 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 | 2026-03-12 | Phase 2 merged (PR #404) — local review gpt52 + cloud review codex; 3 P2 fixed (apiKey env-only, /v1 normalization, assert.ok(true) replaced), 60 tests green |
 | 2026-03-12 | Phase 3 完成 — collaboration routing validated: mention parsing (12 tests), A2A chain (7 tests), system prompt injection (4 tests), E2E routing (4 tests), fixture guard (2 tests) — 29 new tests, 89 total green |
 | 2026-03-12 | Phase 3 review fix — gpt52 P1 (mirror route-serial assembly) + P2 (fixture guard to cat-config.json), 89/89 green |
+| 2026-03-12 | Phase 3 merged (PR #407) — peer review gpt52 + cloud review codex clean, 89 tests green |
 
 ---
 
