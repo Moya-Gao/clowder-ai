@@ -261,6 +261,27 @@ MIT 下别人可商用。三猫共识：
 - **真正的风险**：不是"别人商用"，而是"送出去多少 know-how" → 用分层 transform 控制
 - **安全面暴露**：prompt 规则公开后需更依赖代码层防护（铁律的代码层实现）
 
+## 内测小伙伴（cat-cafe-tutorials 私有仓 Collaborator）
+
+> 来源：https://github.com/zts212653/cat-cafe-tutorials/issues/29
+> 计划开放时间：2026-03-16 ~ 2026-03-22
+
+| # | GitHub 用户名 | 备注 |
+|---|--------------|------|
+| 1 | `zuiho-kai` | 有复刻截图 |
+| 2 | `pisceskkk` | |
+| 3 | `296569015` | |
+| 4 | `southstarcy` | 在公司复刻，暂无截图 |
+| 5 | `zybsdsp135` | |
+| 6 | `Liny777` | 已集成三猫（Claude/Codex/Gemini），周末继续 |
+| 7 | `whutzefengxie-ops` | 仓被猫删了 |
+| 8 | `2862282695gjh-afk` | 有截图，Python 版复刻 |
+
+**添加时注意**：
+- 权限设为 **Read**（只读），小伙伴走 fork + PR 路线
+- main 分支已设保护规则（见下方操作记录）
+- 后续有新报名的小伙伴，同步更新此表
+
 ## Acceptance Criteria
 
 - [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
