@@ -123,6 +123,7 @@ F042 在知识架构里已证明扁平全量注入会失控——前端 UI 正�
 |------|------|
 | 2026-03-11 | 三猫讨论 + 立项 |
 | 2026-03-12 | Phase A merged (PR #384) |
+| 2026-03-12 | Phase A V2 merged (PR #396) — Bento→Accordion + SVG icons + top bar Hub entry |
 
 ## Review Gate
 
