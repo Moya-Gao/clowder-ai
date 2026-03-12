@@ -238,10 +238,16 @@ skills:
       - "这个值得记住"
       - "沉淀一下"
       - "这个方法论不错"
+      - "episode card"
+      - "method card"
+      - "知识沉淀"
+      - "蒸馏"
+      - "eval ledger"
+      - "成熟度"
     not_for:
       - "日常 SOP 推进"
       - "一次性 bug fix"
-    output: "Scope guard reminder / process evolution proposal / knowledge distillation"
+    output: "Scope Guard Log / Evolution Proposal / Episode Card → Method/Skill → Eval"
     next: []
     sop_step: null
     merged_from: null
