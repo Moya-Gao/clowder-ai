@@ -85,6 +85,36 @@ describe('parseDirection', () => {
     expect(parseDirection(msg, getMocks)).toBeNull();
   });
 
+  it('parses targets from connector source.meta (F098-C2 multi_mention)', () => {
+    const msg = {
+      content: '## Multi-Mention 结果汇总',
+      source: {
+        connector: 'multi-mention-result',
+        meta: { initiator: 'opus', targets: ['codex', 'gpt52', 'gemini'] },
+      },
+    };
+    const result = parseDirection(msg, getMocks);
+    expect(result).toEqual({
+      type: 'mention',
+      targets: ['codex', 'gpt52', 'gemini'],
+      arrow: '→',
+    });
+  });
+
+  it('connector source.meta.targets takes priority over content @mention parsing', () => {
+    const msg = {
+      origin: 'callback' as const,
+      content: '@codex some content',
+      source: {
+        connector: 'multi-mention-result',
+        meta: { targets: ['codex', 'gpt52'] },
+      },
+    };
+    const result = parseDirection(msg, getMocks);
+    // Should use meta.targets, not content parsing
+    expect(result?.targets).toEqual(['codex', 'gpt52']);
+  });
+
   it('filters out __owner__ pseudo-cat from @mention results (P1-2)', () => {
     // getMentionToCat maps @landy/@铲屎官 to __owner__ — must not leak into UI
     const ownerToCat: Record<string, string> = {

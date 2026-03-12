@@ -159,6 +159,8 @@ export interface ConnectorSourceData {
   label: string;
   icon: string;
   url?: string;
+  /** F098-C2: Connector-specific metadata (e.g. targets for multi-mention) */
+  meta?: Record<string, unknown>;
 }
 
 export interface ChatMessage {

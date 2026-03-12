@@ -15,6 +15,7 @@ interface MessageLike {
   visibility?: 'public' | 'whisper';
   whisperTo?: string[];
   extra?: { crossPost?: { sourceThreadId: string } };
+  source?: { connector?: string; meta?: { targets?: string[]; initiator?: string } };
 }
 
 interface MentionData {
@@ -32,6 +33,11 @@ export function parseDirection(message: MessageLike, getMentionData: () => Menti
   if (message.extra?.crossPost?.sourceThreadId) {
     const shortId = message.extra.crossPost.sourceThreadId.replace(/^thread_/, '').slice(0, 8);
     return { type: 'crossPost', targets: [shortId], arrow: '↗' };
+  }
+
+  // F098-C2: Connector messages with explicit targets metadata (e.g. multi-mention-result)
+  if (message.source?.meta?.targets?.length) {
+    return { type: 'mention', targets: message.source.meta.targets, arrow: '→' };
   }
 
   // Stream messages don't need direction (catId in header is enough)
