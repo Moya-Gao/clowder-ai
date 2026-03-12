@@ -8,8 +8,8 @@ created: 2026-03-07
 
 # F075 — 猫猫排行榜 (Cat Leaderboard)
 
-> **Status**: Phase A done / Phase B spec / Phase C spec | **Owner**: 布偶猫
-> **Priority**: P1（Phase A 已交付，整 feat 未 close）
+> **Status**: Phase A+B+C done, 待愿景守护 | **Owner**: 布偶猫
+> **Priority**: P1（Phase A+B+C 已交付，待 feat close）
 > **Phase**: A ✅ / B spec / C spec
 
 ## Why
@@ -113,18 +113,18 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 - [x] AC-A4: 工作统计面板（3 个维度：commit / review / bug fix）
 - [x] AC-A5: 时间范围筛选（全部 / 近 7 天 / 近 30 天）
 
-## Acceptance Criteria — Phase B（待实现）
+## Acceptance Criteria — Phase B ✅
 
-- [ ] AC-B1: "笨蛋猫猫"排行榜（含情绪分析）
-- [ ] AC-B2: 游戏战绩面板（至少猫猫杀 + 谁是卧底）
-- [ ] AC-B3: 排行榜入口与 Mission Hub / 当前运行态对齐，不能只停留在旧 runtime 看不到的状态
-- [ ] AC-B4: 移动端适配
+- [x] AC-B1: "笨蛋猫猫"排行榜（含情绪分析）
+- [x] AC-B2: 游戏战绩面板（至少猫猫杀 + 谁是卧底）
+- [x] AC-B3: 排行榜入口与 Mission Hub / 当前运行态对齐，不能只停留在旧 runtime 看不到的状态
+- [x] AC-B4: 移动端适配
 
-## Acceptance Criteria — Phase C（待实现）
+## Acceptance Criteria — Phase C ✅
 
-- [ ] AC-C1: 成就徽章系统（通用框架 + CVO 成就 + 日常成就）
-- [ ] AC-C2: CVO 能力等级追踪（Lv.1-5，框架 + 内存实现；持久化为 follow-up）
-- [ ] AC-C3: `POST /api/leaderboard/events` + F087 接入闭环
+- [x] AC-C1: 成就徽章系统（通用框架 + CVO 成就 + 日常成就）
+- [x] AC-C2: CVO 能力等级追踪（Lv.1-5，框架 + 内存实现；持久化为 follow-up）
+- [x] AC-C3: `POST /api/leaderboard/events` + F087 接入闭环
 
 ## 需求点 Checklist
 
@@ -294,6 +294,7 @@ F087 Bootcamp 检测到用户完成 CVO 决策
 | 2026-03-11 | 修复 P1: eventId 加 nonce 防同日事件压扁 + source 枚举补 `system` |
 | 2026-03-11 | Phase A merged: PR #371 / `24b2274c`（@ 互动统计 + 工作统计 + range filter） |
 | 2026-03-11 | GPT-5.4 愿景守护：判定 **Phase A done, feat not close**（Phase B/C 未交付；当前 runtime 仍停在旧版 Hub） |
+| 2026-03-12 | Phase B+C merged: PR #377 — silly stats, game arena, achievements, CVO level, event ingestion |
 
 ## 故事
 
