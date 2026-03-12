@@ -205,11 +205,16 @@ const server = createServer(async (req, res) => {
   }
 
   // Forward headers (strip hop-by-hop)
+  // P1 fix: Force identity encoding so upstream doesn't gzip the response.
+  // Node fetch auto-decompresses but keeps the content-encoding header,
+  // causing downstream to double-decompress → ZlibError.
   const forwardHeaders = {};
   for (const [key, value] of Object.entries(req.headers)) {
     if (key === 'host' || key === 'connection') continue;
+    if (key === 'accept-encoding') continue; // override below
     forwardHeaders[key] = value;
   }
+  forwardHeaders['accept-encoding'] = 'identity';
 
   try {
     const upstream = await fetch(targetUrl.href, {
@@ -220,7 +225,9 @@ const server = createServer(async (req, res) => {
 
     const responseHeaders = {};
     for (const [key, value] of upstream.headers.entries()) {
-      if (['transfer-encoding', 'connection', 'keep-alive'].includes(key.toLowerCase())) continue;
+      // Strip hop-by-hop + encoding headers that Node fetch already handled
+      if (['transfer-encoding', 'connection', 'keep-alive',
+           'content-encoding', 'content-length'].includes(key.toLowerCase())) continue;
       responseHeaders[key] = value;
     }
 
@@ -281,7 +288,7 @@ const server = createServer(async (req, res) => {
       if (DEBUG) console.log(`[proxy #${reqId}] done, ${totalBytes} bytes${isSSE ? ' (SSE)' : ''}, status=${upstream.status}`);
     }
   } catch (err) {
-    console.error(`[proxy #${reqId}] upstream error:`, err.message);
+    console.error(`[proxy #${reqId}] upstream error:`, err.message, err.cause ? `(cause: ${err.cause.message || err.cause})` : '');
     if (!res.headersSent) {
       res.writeHead(502, { 'content-type': 'application/json' });
     }

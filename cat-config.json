@@ -377,7 +377,7 @@
       "name": "孟加拉猫",
       "displayName": "孟加拉猫",
       "nickname": null,
-      "avatar": "/avatars/antigravity-gemini.png",
+      "avatar": "/avatars/antigravity.png",
       "color": { "primary": "#D4853A", "secondary": "#FAEBDB" },
       "mentionPatterns": ["@antigravity", "@孟加拉猫", "@孟加拉", "@bengal"],
       "roleDescription": "混血多模型agent，擅长图片生成、浏览器自动化和视觉证据链",
