@@ -8,7 +8,11 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveSignalPaths } from '../domains/signals/config/sources-loader.js';
 import { SignalArticleQueryService } from '../domains/signals/services/article-query-service.js';
-import { generatePodcastScript, type ThreadInvokeDeps } from '../domains/signals/services/podcast-generator.js';
+import {
+  assembleThreadContext,
+  generatePodcastScript,
+  type ThreadInvokeDeps,
+} from '../domains/signals/services/podcast-generator.js';
 import { StudyMetaService } from '../domains/signals/services/study-meta-service.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
@@ -92,8 +96,29 @@ export const signalPodcastRoutes: FastifyPluginAsync<PodcastRouteOptions> = asyn
 
     const content = article.content ?? '';
     const threadId = await resolveStudyThread(
-      studyMeta, opts.threadStore, params.id, article.filePath, article.title, userId,
+      studyMeta,
+      opts.threadStore,
+      params.id,
+      article.filePath,
+      article.title,
+      userId,
     );
+
+    // P8: Assemble study context (thread messages + notes) for podcast prompt
+    const meta = await studyMeta.readMeta(params.id, article.filePath);
+    const threadMessages = await opts.messageStore.getByThread(threadId, 50);
+    const latestNote = meta.artifacts
+      .filter((a) => a.kind === 'note' && a.state === 'ready')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    let noteContent: string | undefined;
+    if (latestNote?.filePath) {
+      try {
+        noteContent = await readFile(latestNote.filePath, 'utf-8');
+      } catch {
+        /* note file missing — continue without it */
+      }
+    }
+    const threadContext = assembleThreadContext(threadMessages, noteContent);
 
     const artifact = await generatePodcastScript({
       articleId: params.id,
@@ -104,6 +129,7 @@ export const signalPodcastRoutes: FastifyPluginAsync<PodcastRouteOptions> = asyn
       requestedBy: userId,
       threadId,
       threadDeps,
+      threadContext,
     });
 
     reply.status(202);

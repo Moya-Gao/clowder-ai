@@ -1,9 +1,9 @@
 import { unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CatId, StudyArtifact } from '@cat-cafe/shared';
+import { ClaudeAgentService } from '../../cats/services/agents/providers/ClaudeAgentService.js';
 import type { AgentRouter } from '../../cats/services/agents/routing/AgentRouter.js';
 import type { InvocationTracker } from '../../cats/services/index.js';
-import { ClaudeAgentService } from '../../cats/services/agents/providers/ClaudeAgentService.js';
 import type { AnyMessageStore } from '../../cats/services/stores/factories/MessageStoreFactory.js';
 import type { IInvocationRecordStore } from '../../cats/services/stores/ports/InvocationRecordStore.js';
 import { getVoiceBlockSynthesizer } from '../../cats/services/tts/VoiceBlockSynthesizer.js';
@@ -68,9 +68,7 @@ function buildScriptPrompt(request: PodcastRequest): string {
     request.articleContent.length,
     request.mode,
   );
-  const range = request.mode === 'deep'
-    ? { min: 15, max: 25 }
-    : estimateSegmentRange(targetDuration);
+  const range = request.mode === 'deep' ? { min: 15, max: 25 } : estimateSegmentRange(targetDuration);
 
   return `你是一个播客脚本生成器。请根据以下文章生成一段两人对话播客脚本。
 
@@ -88,22 +86,23 @@ function buildScriptPrompt(request: PodcastRequest): string {
 ## 文章
 标题: ${request.articleTitle}
 内容:
-${request.articleContent.slice(0, 12000)}
+${request.articleContent.slice(0, 12000)}${
+  request.threadContext
+    ? `\n\n## 之前的讨论上下文（可参考但不必全部覆盖）\n${request.threadContext.slice(0, 4000)}`
+    : ''
+}
 
 ## 输出格式（严格 JSON，不要 markdown 代码块）
-{"segments":[{"speaker":"宪宪","text":"...","durationEstimate":30},{"speaker":"砚砚","text":"...","durationEstimate":25}],"totalDuration":${targetDuration}}${
-    request.threadContext
-      ? `\n\n## 之前的讨论上下文（可参考但不必全部覆盖）\n${request.threadContext.slice(0, 4000)}`
-      : ''
-  }`;
+{"segments":[{"speaker":"宪宪","text":"...","durationEstimate":30},{"speaker":"砚砚","text":"...","durationEstimate":25}],"totalDuration":${targetDuration}}`;
 }
 
 function parseScriptResponse(raw: string, mode: PodcastRequest['mode']): PodcastScript {
   // Strip markdown code fences if present
   const stripped = raw.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
   // Extract the outermost JSON object containing "segments"
-  const jsonMatch = stripped.match(/\{[^{}]*"segments"\s*:\s*\[[\s\S]*?\]\s*,\s*"totalDuration"\s*:\s*\d+\s*\}/)
-    ?? stripped.match(/\{[\s\S]*"segments"[\s\S]*\}/);
+  const jsonMatch =
+    stripped.match(/\{[^{}]*"segments"\s*:\s*\[[\s\S]*?\]\s*,\s*"totalDuration"\s*:\s*\d+\s*\}/) ??
+    stripped.match(/\{[\s\S]*"segments"[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('Failed to extract JSON from LLM response');
   }
@@ -175,7 +174,12 @@ export async function generateScriptViaThread(
     await deps.invocationRecordStore.update(createResult.invocationId, { status: 'running' });
 
     for await (const msg of deps.router.routeExecution(
-      request.requestedBy, prompt, threadId, userMsg.id, targetCats, intent,
+      request.requestedBy,
+      prompt,
+      threadId,
+      userMsg.id,
+      targetCats,
+      intent,
       { signal: controller.signal },
     )) {
       if (msg.type === 'text' && msg.content) {
@@ -219,6 +223,31 @@ const SPEAKER_TO_CAT: Record<string, string> = {
   宪宪: 'opus',
   砚砚: 'codex',
 };
+
+/**
+ * Assemble threadContext from study thread messages and study notes.
+ * Returns undefined if no meaningful context is available.
+ */
+export function assembleThreadContext(
+  messages: ReadonlyArray<{ catId: string | null; content: string }>,
+  studyNoteContent: string | undefined,
+): string | undefined {
+  const parts: string[] = [];
+
+  if (messages.length > 0) {
+    const chatLines = messages.map((m) => {
+      const speaker = m.catId ? `[${m.catId}]` : '[用户]';
+      return `${speaker}: ${m.content}`;
+    });
+    parts.push(`### 讨论记录\n${chatLines.join('\n')}`);
+  }
+
+  if (studyNoteContent) {
+    parts.push(`### 学习笔记\n${studyNoteContent}`);
+  }
+
+  return parts.length > 0 ? parts.join('\n\n') : undefined;
+}
 
 async function synthesizeSegments(segments: readonly PodcastSegment[]): Promise<readonly PodcastSegment[]> {
   const synthesizer = getVoiceBlockSynthesizer();
@@ -288,9 +317,10 @@ export async function generatePodcastScript(request: PodcastRequest): Promise<St
     await studyMeta.updateArtifactState(request.articleId, request.articleFilePath, artifactId, 'running');
 
     // Generate script: thread-based (P6) or standalone LLM fallback
-    const script = request.threadId && request.threadDeps
-      ? await generateScriptViaThread(request, request.threadId, request.threadDeps)
-      : await generateScriptViaLLM(request);
+    const script =
+      request.threadId && request.threadDeps
+        ? await generateScriptViaThread(request, request.threadId, request.threadDeps)
+        : await generateScriptViaLLM(request);
 
     // Synthesize audio for each segment
     const segmentsWithAudio = await synthesizeSegments(script.segments);
