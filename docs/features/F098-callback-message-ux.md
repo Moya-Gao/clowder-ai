@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F098: Callback Message UX — 猫猫传话可视化
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -150,7 +150,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 - [ ] ~~AC-A2~~: **降级到 Phase B**（依赖 Phase C2 后端元数据，见 KD-5）
 - [x] AC-A3: cross_post 消息方向标注包含来源/目标 thread ✅
 - [x] AC-A4: 猫猫 whisper badge 显示 "悄悄话 → @猫名"（和铲屎官 whisper 一致）✅
-- [ ] AC-A5: callback 消息有品种色浅底气泡，视觉上和 CLI 深色块区分（保持现有品种色气泡，pill 提供区分）
+- [x] AC-A5: callback 消息有品种色浅底气泡，视觉上和 CLI 深色块区分（tintedLight(primary, 0.08) + pill 提供区分）✅
 - [x] AC-A6: 方向标注用品种色 pill badge（和 @mention 彩色徽章同款样式）✅
 - [x] AC-A7: A2A 内部讨论消息用中性灰底（不用品种色背景），品种色仅用于边框/badge ✅
 
@@ -166,7 +166,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 - [x] AC-B5-4: 新增平台（如 iMessage）只需在 `CONNECTOR_DEFINITIONS` 加一条 ✅
 
 ### Phase C（后端元数据，可选）
-- [ ] AC-C1: post_message API 支持 `targetCats` 字段
+- [x] AC-C1: post_message API 支持 `targetCats` 字段 ✅
 - [x] AC-C2: multi_mention 结果消息包含发起者 + targets 元数据 ✅
 
 ### Phase D（消息流位置正确性）
@@ -234,6 +234,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | 2026-03-12 | Phase B.5 merged (PR #385). AC-B5-1~4 ✅. Connector theme registry (extensibility) |
 | 2026-03-12 | Phase C merged (PR #387). AC-C2 + AC-A2 ✅. multi_mention targets metadata + direction rendering |
 | 2026-03-12 | Phase D merged (PR #390). AC-D1/D2 ✅. deliveredAt dual timestamp (Method A) |
+| 2026-03-12 | Cleanup merged (PR #399). AC-C1/A5 ✅ + P3 regression tests + source.meta test fix |
 
 ## Review Gate
 
