@@ -188,6 +188,13 @@ Sidebar 布局从上到下：
 - Phase B: Design Gate（前端 UX → 铲屎官确认 wireframe）→ 布偶猫实现 → 缅因猫 review
 - Phase C: Design Gate（前端 UX → 铲屎官确认 wireframe）→ 布偶猫实现 → 缅因猫 review
 
+## Known Issues (Post-completion)
+
+| # | Issue | 优先级 | 描述 |
+|---|-------|--------|------|
+| I-1 | 删除 Thread 无二次确认 | **P1** | Thread 删除是硬删除（Redis 数据全清 + 级联删消息/任务/记忆），但前端无确认弹窗。铲屎官 2026-03-11 误删了 `thread_mmlv4v2oq6dxefr6`（与 gpt52 讨论 skills/家规优化的重要 thread，73 条审计记录），数据不可恢复。**必须加二次确认对话框**，或更好方案：软删除 + 30 天回收站。 |
+| I-2 | Thread 删除无审计事件 | P2 | `EventAuditLog` 没有 `THREAD_DELETED` 事件类型，删除操作不可追溯。应补 audit event 记录谁在什么时候删了哪个 thread。 |
+
 ## Links
 
 | 类型 | 路径 | 说明 |
