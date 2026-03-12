@@ -163,6 +163,7 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 | 2026-03-12 | Phase 1 完成 — CatProvider + OpenCodeAgentService + event-transform + cat-config（27 tests green） |
 | 2026-03-12 | Review 修复 — runtime profile injection + model override + session_init dedup（31 tests green） |
 | 2026-03-12 | PR #401 created; cloud review blocked by Codex daily limit — retry after reset |
+| 2026-03-12 | Cloud review passed (1 P1 downgraded to P3 — pre-existing F062 pattern); Phase 1 merged (PR #401) |
 
 ---
 
