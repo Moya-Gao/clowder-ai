@@ -137,7 +137,7 @@ Episode Card（原料）→ Dual Distillation（蒸馏成品）→ Eval Ledger�
 |-------|------|----------|-----------|
 | **L0 Episode** | 原始记录 | 模板完整，已分离可迁移/不可迁移 | 不降级 |
 | **L1 Pattern** | 草稿 | ≥2 个相似 episode（180天内），或人类要求；5Q ≥ 7/10 | 一次性特例 → rejected |
-| **L2 Draft** | Method Card / Skill Draft | ≥3 replay cases，≥2/3 通过 | 最近 3 次 <50% → 退 L1 |
+| **L2 Draft** | Method Card / Skill Draft | smoke gate ≥3 cases（≥2/3 通过）；promotion gate ≥5 cases（≥3/5 通过，覆盖 3 类） | 最近 3 次 <50% → 退 L1 |
 | **L3 Validated** | 正式 method/skill | ≥6 uses，≥2 agents，≥80%，无 critical breach | 最近 5 次 <60% → 退 L2 |
 | **L4 Standard** | 团队标准 | ≥12 uses，最近 10 次 ≥90%，CVO 批准 | 1 次高风险越界 → freeze |
 
@@ -165,8 +165,8 @@ Episode Card（原料）→ Dual Distillation（蒸馏成品）→ Eval Ledger�
 
 ```yaml
 knowledge:
-  artifact_type: skill | memory | fact | framework | decision | lesson | episode | method
-  domain: development | medical | legal | product | ops
+  artifact_type: episode | method | skill | proposal | eval | lesson | log
+  domain: development | medical | legal | product | ops | general
   knowledge_type: declarative | procedural | analytical | metacognitive
   scope: agent-local | team-shared
   trust_level: experimental | tested | validated | production
