@@ -213,9 +213,9 @@ NO human gestures.
 
 ## Acceptance Criteria
 
-- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
-- [ ] AC-1: 至少一个社交媒体平台（小红书）的 MCP 工具可在 Cat Café runtime 中被任意猫猫调用
-- [ ] AC-2: 发布内容有审核机制（至少铲屎官可 review 后发布，或猫猫自主发布后铲屎官可回溯）
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+- [x] AC-1: 至少一个社交媒体平台（小红书）的 MCP 工具可在 Cat Café runtime 中被任意猫猫调用（2026-03-04 完成：disabledMcpServers 修复 + 三层配置，三猫均成功发帖）
+- [x] AC-2: 发布内容有审核机制（2026-03-04 验证：猫猫自主发布 + 署名，铲屎官可在小红书回溯）
 - [ ] AC-3: 抖音/B站 MCP 可行性调研报告完成
 - [ ] AC-4: 至少 10 条名场面素材已采集、脱敏、格式化
 - [ ] AC-5: 三只猫（布偶猫/缅因猫/暹罗猫）的性格档案结构化数据完成
@@ -228,9 +228,9 @@ NO human gestures.
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "让每只猫都能自由使用小红书（虽然是我的号）" | AC-1, AC-2 | manual: 猫猫在 runtime 中成功发帖 | [ ] |
+| R1 | "让每只猫都能自由使用小红书（虽然是我的号）" | AC-1, AC-2 | manual: 猫猫在 runtime 中成功发帖 | [x] 2026-03-04 三猫发帖成功 |
 | R2 | "甚至抖音" | AC-3 | doc: 调研报告 | [ ] |
-| R3 | "接入相关的mcp" | AC-1 | test: MCP tool 可用性测试 | [ ] |
+| R3 | "接入相关的mcp" | AC-1 | test: MCP tool 可用性测试 | [x] 小红书 MCP 已接入 |
 | R4 | 名场面素材库（会议共识） | AC-4 | manual: 素材库 review | [ ] |
 | R5 | 猫猫性格档案（会议共识） | AC-5, AC-6 | doc: profile 文件存在且结构完整 | [ ] |
 | R6 | "猫猫自己发自己的表情包似乎更被喜爱" | AC-7, AC-8 | manual: 三猫表情包存在 + manifest 可用 | [ ] |
