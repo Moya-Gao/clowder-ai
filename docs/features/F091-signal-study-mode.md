@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F091: Signal Study Mode — 信号学习伴侣
 
-> **Status**: in-progress (Phase 5 播客增强) | **Owner**: 布偶猫
+> **Status**: in-progress (Phase 6 thread session reuse 待启动) | **Owner**: 布偶猫
 > **Created**: 2026-03-10
 > **Completed**: 2026-03-10
 
@@ -211,10 +211,11 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-10: 砚砚(GPT-5.4) 第二次愿景守护 → 铲屎官拍板缩 scope（AC-1 partial→done, AC-12 行为正确→done, AC-13 转出 TECH-DEBT.md TD107, AC-17 已实现→done）→ close
 - 2026-03-11: Signal Inbox 加 status tab（Inbox/已读/全部），commit `4f78ab5f` + `82135673`
 - 2026-03-11: 铲屎官发现播客功能是空壳（占位符脚本/无去重/无TTS），启动 Phase 5 播客增强
+- 2026-03-11: Phase 5 merged (PR #382) — LLM 脚本生成 + TTS 合成 + 去重 + 前端播放。gpt52 R1→R3 三轮 review + 云端 Codex 通过
 
-## Phase 5: 播客真正可用（2026-03-11）
+## Phase 5: 播客真正可用（2026-03-11） ✅
 
-> **Status**: in-progress | **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 
 铲屎官决策（2026-03-11 17:19）：
 - **脚本生成**：用 Opus 4.5 或 4.6（ClaudeAgentService），复用文章 study thread 上下文
