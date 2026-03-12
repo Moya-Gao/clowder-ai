@@ -26,6 +26,14 @@ export interface ConnectorSource {
 
 // ── Connector Definition (registry entry) ──
 
+/** Tailwind CSS class strings for connector bubble styling. */
+export interface ConnectorTailwindTheme {
+  readonly avatar: string;
+  readonly label: string;
+  readonly labelLink: string;
+  readonly bubble: string;
+}
+
 /** Static definition of a connector type for frontend rendering. */
 export interface ConnectorDefinition {
   readonly id: string;
@@ -38,6 +46,8 @@ export interface ConnectorDefinition {
     readonly secondary: string;
   };
   readonly description: string;
+  /** Tailwind theme for ConnectorBubble rendering. If omitted, default theme is used. */
+  readonly tailwindTheme?: ConnectorTailwindTheme;
 }
 
 // ── Thread Binding (external platform ↔ Cat Café thread) ──
@@ -67,6 +77,12 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     icon: '🔔',
     color: { primary: '#2563EB', secondary: '#EFF6FF' },
     description: 'GitHub PR review 邮件通知',
+    tailwindTheme: {
+      avatar: 'bg-slate-100 ring-2 ring-slate-200',
+      label: 'text-slate-700',
+      labelLink: 'text-slate-700 hover:text-slate-900',
+      bubble: 'border border-slate-200 bg-slate-50',
+    },
   },
   {
     id: 'vote-result',
@@ -74,6 +90,25 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     icon: 'ballot',
     color: { primary: '#7C3AED', secondary: '#F5F3FF' },
     description: '投票系统自动汇总结果',
+    tailwindTheme: {
+      avatar: 'bg-purple-100 ring-2 ring-purple-200',
+      label: 'text-purple-700',
+      labelLink: 'text-purple-700 hover:text-purple-900',
+      bubble: 'border border-purple-200 bg-purple-50',
+    },
+  },
+  {
+    id: 'multi-mention-result',
+    displayName: 'Multi-Mention 结果',
+    icon: '👥',
+    color: { primary: '#059669', secondary: '#ECFDF5' },
+    description: '多猫 @mention 聚合结果',
+    tailwindTheme: {
+      avatar: 'bg-emerald-100 ring-2 ring-emerald-200',
+      label: 'text-emerald-700',
+      labelLink: 'text-emerald-700 hover:text-emerald-900',
+      bubble: 'border border-emerald-200 bg-emerald-50',
+    },
   },
   {
     id: 'feishu',
@@ -81,6 +116,12 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     icon: '🔵',
     color: { primary: '#3370FF', secondary: '#E8F0FE' },
     description: '飞书机器人',
+    tailwindTheme: {
+      avatar: 'bg-blue-100 ring-2 ring-blue-200',
+      label: 'text-blue-700',
+      labelLink: 'text-blue-700 hover:text-blue-900',
+      bubble: 'border border-blue-200 bg-blue-50',
+    },
   },
   {
     id: 'telegram',
@@ -88,6 +129,12 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     icon: '✈️',
     color: { primary: '#0088CC', secondary: '#E3F2FD' },
     description: 'Telegram Bot',
+    tailwindTheme: {
+      avatar: 'bg-sky-100 ring-2 ring-sky-200',
+      label: 'text-sky-700',
+      labelLink: 'text-sky-700 hover:text-sky-900',
+      bubble: 'border border-sky-200 bg-sky-50',
+    },
   },
   {
     id: 'system-command',
@@ -98,9 +145,7 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
   },
 ] as const;
 
-const connectorMap = new Map<string, ConnectorDefinition>(
-  CONNECTOR_DEFINITIONS.map((d) => [d.id, d]),
-);
+const connectorMap = new Map<string, ConnectorDefinition>(CONNECTOR_DEFINITIONS.map((d) => [d.id, d]));
 
 /** Look up a connector definition by ID. */
 export function getConnectorDefinition(connectorId: string): ConnectorDefinition | undefined {

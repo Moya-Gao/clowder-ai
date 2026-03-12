@@ -3,23 +3,6 @@
  * 导出所有类型定义
  */
 
-// Leaderboard types (F075 排行榜)
-export type {
-  Achievement,
-  CvoLevel,
-  GameRecord,
-  GameRecordInput,
-  GameStats,
-  LeaderboardEvent,
-  LeaderboardRange,
-  LeaderboardStatsResponse,
-  MentionStats,
-  RankedCat,
-  SillyCatEntry,
-  SillyStats,
-  StreakCat,
-  WorkStats,
-} from './leaderboard.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
@@ -129,6 +112,7 @@ export type {
 export type {
   ConnectorDefinition,
   ConnectorSource,
+  ConnectorTailwindTheme,
   ConnectorThreadBinding,
   OutboundDeliveryTarget,
 } from './connector.js';
@@ -182,6 +166,23 @@ export type {
   TriageIntentCardInput,
   TriageResult,
 } from './intent-card.js';
+// Leaderboard types (F075 排行榜)
+export type {
+  Achievement,
+  CvoLevel,
+  GameRecord,
+  GameRecordInput,
+  GameStats,
+  LeaderboardEvent,
+  LeaderboardRange,
+  LeaderboardStatsResponse,
+  MentionStats,
+  RankedCat,
+  SillyCatEntry,
+  SillyStats,
+  StreakCat,
+  WorkStats,
+} from './leaderboard.js';
 // Memory types (F3-lite 显式记忆)
 export type {
   MemoryEntry,

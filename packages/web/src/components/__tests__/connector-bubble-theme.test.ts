@@ -192,4 +192,27 @@ describe('ConnectorBubble theme', () => {
     expect(html).toContain('border-sky-200');
     expect(html).not.toContain('bg-blue-100');
   });
+
+  it('uses default blue theme for unknown/unregistered connector (B5 fallback)', () => {
+    const message: ChatMessage = {
+      id: 'm-unknown',
+      type: 'connector',
+      content: 'iMessage incoming',
+      timestamp: Date.now(),
+      source: {
+        connector: 'imessage',
+        label: 'iMessage',
+        icon: '💬',
+      },
+    };
+
+    act(() => {
+      root.render(React.createElement(ConnectorBubble, { message }));
+    });
+
+    const html = container.innerHTML;
+    // Unknown connectors fall back to default blue theme
+    expect(html).toContain('bg-blue-100');
+    expect(html).toContain('border-blue-200');
+  });
 });

@@ -1,10 +1,12 @@
 'use client';
 
+import type { ConnectorTailwindTheme } from '@cat-cafe/shared';
+import { getConnectorDefinition } from '@cat-cafe/shared';
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
-import { MarkdownContent } from './MarkdownContent';
-import { RichBlocks } from './rich/RichBlocks';
 import { API_URL } from '@/utils/api-client';
 import { BallotIcon } from './icons/VoteIcons';
+import { MarkdownContent } from './MarkdownContent';
+import { RichBlocks } from './rich/RichBlocks';
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -17,9 +19,7 @@ function renderContentBlocks(blocks: MessageContent[]) {
       return <MarkdownContent key={i} content={block.text} />;
     }
     if (block.type === 'image') {
-      const src = block.url.startsWith('/uploads/')
-        ? `${API_URL}${block.url}`
-        : block.url;
+      const src = block.url.startsWith('/uploads/') ? `${API_URL}${block.url}` : block.url;
       const isSafeUrl = src.startsWith('/') || src.startsWith('http://') || src.startsWith('https://');
       return (
         <img
@@ -39,73 +39,22 @@ interface ConnectorBubbleProps {
   message: ChatMessageType;
 }
 
-function getConnectorTheme(connector: string | undefined): {
-  avatar: string;
-  label: string;
-  labelLink: string;
-  bubble: string;
-} {
-  // Default connector theme (F97): blue-gray, distinct from cat/user/system messages.
-  const defaultTheme = {
-    avatar: 'bg-blue-100 ring-2 ring-blue-200',
-    label: 'text-blue-700',
-    labelLink: 'text-blue-700 hover:text-blue-900',
-    bubble: 'border border-blue-200 bg-blue-50',
-  };
+/** Default theme for connectors without a registered tailwindTheme. */
+const DEFAULT_CONNECTOR_THEME: ConnectorTailwindTheme = {
+  avatar: 'bg-blue-100 ring-2 ring-blue-200',
+  label: 'text-blue-700',
+  labelLink: 'text-blue-700 hover:text-blue-900',
+  bubble: 'border border-blue-200 bg-blue-50',
+};
 
-  if (!connector) return defaultTheme;
-
-  // GitHub Review should stand out as "external review inbox", not look like generic system blue.
-  if (connector === 'github-review') {
-    return {
-      avatar: 'bg-slate-100 ring-2 ring-slate-200',
-      label: 'text-slate-700',
-      labelLink: 'text-slate-700 hover:text-slate-900',
-      bubble: 'border border-slate-200 bg-slate-50',
-    };
-  }
-
-  // Gap 3: Vote results get a purple theme to stand out from reviews and system messages.
-  if (connector === 'vote-result') {
-    return {
-      avatar: 'bg-purple-100 ring-2 ring-purple-200',
-      label: 'text-purple-700',
-      labelLink: 'text-purple-700 hover:text-purple-900',
-      bubble: 'border border-purple-200 bg-purple-50',
-    };
-  }
-
-  // F098-B2: Multi-mention results — emerald (collaborative action)
-  if (connector === 'multi-mention-result') {
-    return {
-      avatar: 'bg-emerald-100 ring-2 ring-emerald-200',
-      label: 'text-emerald-700',
-      labelLink: 'text-emerald-700 hover:text-emerald-900',
-      bubble: 'border border-emerald-200 bg-emerald-50',
-    };
-  }
-
-  // F098-B2: Feishu DM — blue (enterprise IM, per design spec #DBEAFE)
-  if (connector === 'feishu') {
-    return {
-      avatar: 'bg-blue-100 ring-2 ring-blue-200',
-      label: 'text-blue-700',
-      labelLink: 'text-blue-700 hover:text-blue-900',
-      bubble: 'border border-blue-200 bg-blue-50',
-    };
-  }
-
-  // F098-B2: Telegram — sky blue
-  if (connector === 'telegram') {
-    return {
-      avatar: 'bg-sky-100 ring-2 ring-sky-200',
-      label: 'text-sky-700',
-      labelLink: 'text-sky-700 hover:text-sky-900',
-      bubble: 'border border-sky-200 bg-sky-50',
-    };
-  }
-
-  return defaultTheme;
+/**
+ * F098-B5: Registry-driven connector theme lookup.
+ * New connectors only need an entry in CONNECTOR_DEFINITIONS (shared package).
+ */
+function getConnectorTheme(connector: string | undefined): ConnectorTailwindTheme {
+  if (!connector) return DEFAULT_CONNECTOR_THEME;
+  const def = getConnectorDefinition(connector);
+  return def?.tailwindTheme ?? DEFAULT_CONNECTOR_THEME;
 }
 
 /**
@@ -145,15 +94,11 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
           )}
           <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
         </div>
-        <div className={`${theme.bubble} rounded-2xl rounded-bl-sm px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden`}>
-          {hasBlocks ? (
-            renderContentBlocks(message.contentBlocks!)
-          ) : (
-            <MarkdownContent content={message.content} />
-          )}
-          {richBlocks && richBlocks.length > 0 && (
-            <RichBlocks blocks={richBlocks} />
-          )}
+        <div
+          className={`${theme.bubble} rounded-2xl rounded-bl-sm px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden`}
+        >
+          {hasBlocks ? renderContentBlocks(message.contentBlocks!) : <MarkdownContent content={message.content} />}
+          {richBlocks && richBlocks.length > 0 && <RichBlocks blocks={richBlocks} />}
         </div>
       </div>
     </div>
