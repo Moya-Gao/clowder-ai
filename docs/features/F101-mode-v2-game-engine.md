@@ -2,13 +2,14 @@
 feature_ids: [F101]
 related_features: [F011]
 topics: [mode, game, werewolf, game-engine]
-doc_kind: in-progress
+doc_kind: done
 created: 2026-03-11
+completed: 2026-03-12
 ---
 
 # F101: Mode v2 — 游戏系统引擎 + 狼人杀
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-12
 
 ## Why
 
@@ -126,21 +127,35 @@ created: 2026-03-11
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "狼人杀这种需要额外制作一个系统的" | AC-A1,A2 | test | [ ] |
-| R2 | "铲屎官可以选择当你们的玩家" | AC-B2 | manual | [ ] |
-| R3 | "也可以选择是上帝视角去观看" | AC-B2 | manual | [ ] |
-| R4 | "甚至我可以选择我来当法官" | — | v2 | [ ] |
-| R5 | "不同规则、不同剧本都是怎么样做的" | AC-A1 | test | [ ] |
-| R6 | "你们是需要开发一个法官" | AC-B1 | test | [ ] |
+| R1 | "狼人杀这种需要额外制作一个系统的" | AC-A1,A2 | test | [x] |
+| R2 | "铲屎官可以选择当你们的玩家" | AC-B2 | manual | [x] |
+| R3 | "也可以选择是上帝视角去观看" | AC-B2 | manual | [x] |
+| R4 | "甚至我可以选择我来当法官" | — | v2 | [-] |
+| R5 | "不同规则、不同剧本都是怎么样做的" | AC-A1 | test | [x] |
+| R6 | "你们是需要开发一个法官" | AC-B1 | test | [x] |
 | R7 | "开源仓有蛮多的，如何让 agent 玩起来狼人杀的" | KD-1 | — | [x] |
-| R8 | "可能需要用语音玩...开游戏的时候选择要不要让你们用语音玩" | AC-B8 | manual | [ ] |
-| R9 | "网易的狼人杀的规则，大家知道的多" | AC-B1 | test | [ ] |
-| R10 | "允许你们说遗言" | AC-B1 | test | [ ] |
+| R8 | "可能需要用语音玩...开游戏的时候选择要不要让你们用语音玩" | AC-B8 | manual | [x] |
+| R9 | "网易的狼人杀的规则，大家知道的多" | AC-B1 | test | [x] |
+| R10 | "允许你们说遗言" | AC-B1 | test | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（Phase B 设计时补）
+- [x] 前端需求已准备需求→证据映射表
+
+### 需求→证据映射
+
+| 需求 | 证据 |
+|------|------|
+| R1 (游戏系统) | `GameDefinition` / `GameRuntime` / `GameView` 类型体系 + 92 API tests |
+| R2 (player 模式) | `GameViewBuilder` humanRole='player' + `humanSeat` 裁剪 |
+| R3 (god-view 模式) | `GameViewBuilder` humanRole='god-view' + `GodInspector` 组件 |
+| R4 (judge 模式) | v2 scope（KD-5） |
+| R5 (可扩展规则) | `GameDefinition` 抽象 + `WerewolfDefinition` 首个实现 |
+| R6 (纯代码法官) | `GameEngine` 确定性结算，0 LLM 依赖 |
+| R8 (语音模式) | `voiceMode` config + audio rich block 输出 |
+| R9 (网易规则) | `WerewolfDefinition` 遵循网易标准 + 无警长竞选 |
+| R10 (遗言) | `day_last_words` phase + `day_hunter` shoot |
 
 ## Dependencies
 
@@ -246,6 +261,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-11 | **Design Gate 通过**：铲屎官确认设计稿 + 补充 KD-15/16/17 |
 | 2026-03-12 | Phase A+B backend merged (PR #400) — 92 tests, 21 commits squashed |
 | 2026-03-12 | Phase B frontend merged (PR #406) — 98 game tests, 13 commits squashed |
+| 2026-03-12 | **愿景守护通过**（缅因猫 GPT-5.4）→ F101 v1 完成 |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
@@ -271,3 +287,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | **External** | [AIWolf](https://aiwolf.org/) | 协议参考 |
 | **External** | [Sentient werewolf-template](https://github.com/sentient-agi/werewolf-template) | 频道隔离参考 |
 | **External** | [ChatArena Werewolf](https://github.com/xuyuzhuang11/Werewolf) | 环境裁决参考 |
+| **PR** | PR #400 | Phase A+B backend（92 tests, 21 commits squashed） |
+| **PR** | PR #406 | Phase B frontend（98 game tests, 13 commits squashed） |
+| **Plan** | `docs/plans/2026-03-12-f101-b8-frontend-game-ui.md` | B8 前端实施计划 |
+| **Reflection** | `docs/reflections/2026-03-12-f101-mode-v2-capsule.md` | 完成反思胶囊 |

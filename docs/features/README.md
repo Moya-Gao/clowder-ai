@@ -83,3 +83,4 @@
 | F075 | F075: 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | done | [F075-cat-leaderboard.md](./F075-cat-leaderboard.md) |
 | F087 | F087: CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | done | [F087-cvo-bootcamp.md](./F087-cvo-bootcamp.md) |
 | F099 | F099: Hub & 顶栏导航可扩展性重构 — 手风琴导航 + SVG + 顶栏精简 | done | [F099-hub-navigation-scalability.md](./F099-hub-navigation-scalability.md) |
+| F101 | F101: Mode v2 — 游戏系统引擎 + 狼人杀 | done | [F101-mode-v2-game-engine.md](./F101-mode-v2-game-engine.md) |
