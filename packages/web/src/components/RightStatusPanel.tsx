@@ -263,9 +263,9 @@ export function RightStatusPanel({
             {activeCats.length > 0 ? '当前调用' : '猫猫状态'}
           </h3>
           <button
-            onClick={() => openHub('opus')}
+            onClick={() => openHub()}
             className="text-base text-gray-400 hover:text-blue-600 hover:rotate-45 transition-all duration-200"
-            title="查看猫猫配置 / MCP / Skills"
+            title="Cat Café Hub"
           >
             &#9881;
           </button>

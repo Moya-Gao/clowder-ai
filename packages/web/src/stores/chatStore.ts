@@ -366,8 +366,8 @@ interface ChatState {
   setPendingChatInsert: (insert: { threadId: string; text: string } | null) => void;
 
   // ── Hub modal (F12) ──
-  hubState: { open: boolean; tab: string } | null;
-  openHub: (tab: string) => void;
+  hubState: { open: boolean; tab?: string } | null;
+  openHub: (tab?: string) => void;
   closeHub: () => void;
 
   // ── F079: Vote modal ──

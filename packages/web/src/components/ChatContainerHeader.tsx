@@ -23,8 +23,11 @@ export function ChatContainerHeader({
   onToggleSidebar,
   threadId,
   authPendingCount,
-  viewMode,
-  onToggleViewMode,
+  // F099/OQ-4: viewMode toggle hidden — candidate for removal (KD-7)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  viewMode: _viewMode,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onToggleViewMode: _onToggleViewMode,
   onOpenMobileStatus,
   statusPanelOpen,
   onToggleStatusPanel,
@@ -75,25 +78,7 @@ export function ChatContainerHeader({
             🔐 {authPendingCount}
           </span>
         )}
-        <button
-          onClick={onToggleViewMode}
-          className="p-1 rounded-lg hover:bg-owner-light transition-colors hidden md:block"
-          aria-label={viewMode === 'single' ? '切换分屏模式' : '切换单屏模式'}
-          title={viewMode === 'single' ? '分屏模式' : '单屏模式'}
-        >
-          <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-            {viewMode === 'single' ? (
-              <>
-                <rect x="2" y="2" width="7" height="7" rx="1" />
-                <rect x="11" y="2" width="7" height="7" rx="1" />
-                <rect x="2" y="11" width="7" height="7" rx="1" />
-                <rect x="11" y="11" width="7" height="7" rx="1" />
-              </>
-            ) : (
-              <rect x="2" y="2" width="16" height="16" rx="2" />
-            )}
-          </svg>
-        </button>
+        {/* F099/OQ-4: viewMode toggle hidden — candidate for removal (KD-7) */}
         {/* Mobile/tablet: status sheet trigger */}
         <button
           onClick={onOpenMobileStatus}
@@ -108,23 +93,8 @@ export function ChatContainerHeader({
             />
           </svg>
         </button>
-        {/* Desktop: workspace panel toggle (F063) */}
-        <WorkspaceToggleButton onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
-        {/* Desktop: status sidebar toggle */}
-        <button
-          onClick={onToggleStatusPanel}
-          className="p-1 rounded-lg hover:bg-owner-light transition-colors ml-1 hidden lg:block"
-          aria-label={statusPanelOpen ? 'Hide status panel' : 'Show status panel'}
-        >
-          <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 0v12h10V4H5z"
-              clipRule="evenodd"
-            />
-            {statusPanelOpen && <rect x="12" y="4" width="4" height="12" rx="0.5" opacity="0.3" />}
-          </svg>
-        </button>
+        {/* F099: Unified right panel toggle (merged workspace + status panel) */}
+        <RightPanelToggle onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
       </div>
     </header>
   );
@@ -150,8 +120,31 @@ function ThreadIndicator({ threadId }: { threadId: string }) {
   );
 }
 
-/** F063: Toggle between status panel and workspace explorer */
-function WorkspaceToggleButton({
+/**
+ * F099: Pure state-transition logic for the right panel toggle.
+ * Exported for testability — the component delegates to this function.
+ */
+export function rightPanelToggleTransition(
+  statusPanelOpen: boolean,
+  rightPanelMode: 'status' | 'workspace',
+  callbacks: {
+    onToggleStatusPanel: () => void;
+    setRightPanelMode: (mode: 'status' | 'workspace') => void;
+  },
+) {
+  if (!statusPanelOpen) {
+    callbacks.onToggleStatusPanel();
+    callbacks.setRightPanelMode('status');
+  } else if (rightPanelMode !== 'workspace') {
+    callbacks.setRightPanelMode('workspace');
+  } else {
+    callbacks.onToggleStatusPanel();
+    callbacks.setRightPanelMode('status');
+  }
+}
+
+/** F099: Unified right panel toggle — cycles closed → status → workspace → closed */
+function RightPanelToggle({
   onToggleStatusPanel,
   statusPanelOpen,
 }: {
@@ -160,26 +153,33 @@ function WorkspaceToggleButton({
 }) {
   const rightPanelMode = useChatStore((s) => s.rightPanelMode);
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
+
+  const handleClick = () => {
+    rightPanelToggleTransition(statusPanelOpen, rightPanelMode, {
+      onToggleStatusPanel,
+      setRightPanelMode,
+    });
+  };
+
   const isWorkspace = rightPanelMode === 'workspace';
+  const label = !statusPanelOpen ? '打开面板' : isWorkspace ? '关闭面板' : '工作区';
 
   return (
     <button
-      onClick={() => {
-        if (!statusPanelOpen) onToggleStatusPanel();
-        setRightPanelMode(isWorkspace ? 'status' : 'workspace');
-      }}
+      onClick={handleClick}
       className={`p-1 rounded-lg hover:bg-owner-light transition-colors ml-1 hidden lg:block ${
-        isWorkspace ? 'bg-blue-50 text-blue-600' : ''
+        statusPanelOpen ? (isWorkspace ? 'bg-blue-50 text-blue-600' : 'bg-gray-100') : ''
       }`}
-      aria-label={isWorkspace ? '切换到状态面板' : '打开工作区浏览器'}
-      title={isWorkspace ? '切换到状态面板' : '工作区浏览器'}
+      aria-label={label}
+      title={label}
     >
-      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+      <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
         <path
           fillRule="evenodd"
-          d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+          d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 0v12h10V4H5z"
           clipRule="evenodd"
         />
+        {statusPanelOpen && <rect x="12" y="4" width="4" height="12" rx="0.5" opacity="0.3" />}
       </svg>
     </button>
   );
