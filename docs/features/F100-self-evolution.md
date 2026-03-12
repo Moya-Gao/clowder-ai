@@ -11,7 +11,8 @@ updated: 2026-03-12
 
 > **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 > Phase 1 完成：行为层 skill（A/B/C 三模式触发规则）
-> Phase 2 进行中：三模式知识对象化（A 守护记录 + B 流程提案闭环 + C 知识蒸馏验证 + 五级阶梯 + 元认知）
+> Phase 2 完成：三模式知识对象化（A 守护记录 + B 流程提案闭环 + C 知识蒸馏验证 + 五级阶梯 + 元认知）
+> Phase 3 待建：可观测层（事件 envelope + Knowledge Dashboard）
 
 ## Why
 
@@ -55,10 +56,22 @@ updated: 2026-03-12
 
 ## Deliverables
 
+### Phase 1
 - [x] `cat-cafe-skills/self-evolution/SKILL.md` (147 行，三模式)
 - [x] `cat-cafe-skills/manifest.yaml` 注册（11 triggers）
 - [x] `SystemPromptBuilder.ts` L0 digest 许可句（含三模式）
 - [x] 三猫 symlinks（claude/codex/gemini）
+
+### Phase 2
+- [x] `docs/decisions/015-knowledge-object-contract.md` — ADR-015 Knowledge Object Contract
+- [x] `docs/scope-guard-log.md` — Mode A Scope Guard Log
+- [x] `docs/evolution-proposals/TEMPLATE.md` — Mode B Evolution Proposal 模板
+- [x] `docs/episodes/TEMPLATE.md` — Mode C Episode Card 模板
+- [x] `docs/methods/TEMPLATE.md` — Mode C Method Card 模板
+- [x] `evals/mode-c/TEMPLATE/` — Mode C Eval Ledger 结构（cases/judge/summary）
+- [x] `cat-cafe-skills/self-evolution/SKILL.md` 升级（228 行，含三机制闭环+五级阶梯+元认知）
+- [x] `cat-cafe-skills/manifest.yaml` 新增 6 triggers（共 17）
+- [x] `SystemPromptBuilder.ts` L0 digest 更新（Episode→蒸馏→Eval）
 
 ## AC
 
@@ -185,8 +198,8 @@ F100 的终态 = 行为层 + 知识对象化 + 验证闭环，面向终态设计
 | Phase | 内容 | 状态 |
 |-------|------|------|
 | **Phase 1: 行为层** | self-evolution skill 三模式（A/B/C 触发规则） | done |
-| **Phase 2: 知识对象化** | A: Scope Guard Log + 发散识别 / B: Proposal Log + 落地闭环 + 效果验证 / C: Episode Card + Dual Distillation + Eval Ledger / 共享: 五级阶梯 + 元认知 + knowledge contract + shared knowledge 分离 | design |
-| **Phase 3: 可观测** | 事件 envelope + OpenTelemetry 埋点 + Knowledge Dashboard（4 屏） | blocked by Phase 2 |
+| **Phase 2: 知识对象化** | A: Scope Guard Log + 发散识别 / B: Proposal Log + 落地闭环 + 效果验证 / C: Episode Card + Dual Distillation + Eval Ledger / 共享: 五级阶梯 + 元认知 + knowledge contract + shared knowledge 分离 | done |
+| **Phase 3: 可观测** | 事件 envelope + OpenTelemetry 埋点 + Knowledge Dashboard（4 屏） | planned |
 
 ### 关键认知更新
 
