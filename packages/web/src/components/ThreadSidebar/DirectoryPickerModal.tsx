@@ -45,6 +45,10 @@ export function DirectoryPickerModal({
   const { getCatById } = useCatData();
   const modalRef = useRef<HTMLDivElement>(null);
 
+  // F068-R7: Two-step flow — select project first, then confirm
+  // 'lobby' sentinel means user explicitly chose "大厅 (无项目)"
+  const [selectedPath, setSelectedPath] = useState<string | 'lobby' | null>(null);
+
   // F095 Phase C: new fields
   const [threadTitle, setThreadTitle] = useState('');
   const [pinOnCreate, setPinOnCreate] = useState(false);
@@ -90,6 +94,12 @@ export function DirectoryPickerModal({
     [onSelect, selectedCats, sessionInputs, threadTitle, pinOnCreate, selectedBacklogItemId],
   );
 
+  // F068-R7: Confirm creation with currently selected project
+  const confirmCreate = useCallback(() => {
+    if (selectedPath === null) return;
+    selectWithOptions(selectedPath === 'lobby' ? undefined : selectedPath);
+  }, [selectedPath, selectWithOptions]);
+
   // F068: Open native macOS folder picker via backend osascript
   const pickDirectory = useCallback(async () => {
     setIsPicking(true);
@@ -103,13 +113,13 @@ export function DirectoryPickerModal({
         return;
       }
       const data = await res.json();
-      selectWithOptions(data.path);
+      setSelectedPath(data.path);
     } catch {
       setPathError('无法连接到服务器');
     } finally {
       setIsPicking(false);
     }
-  }, [selectWithOptions]);
+  }, []);
 
   // F068: Submit path from text input — validate via browse endpoint before accepting
   const handlePathSubmit = useCallback(async () => {
@@ -123,13 +133,13 @@ export function DirectoryPickerModal({
         setPathError(data.error || '路径无效');
         return;
       }
-      // Valid directory — use the canonicalized path from server
+      // Valid directory — select the canonicalized path
       const data = await res.json();
-      selectWithOptions(data.current);
+      setSelectedPath(data.current);
     } catch {
       setPathError('无法连接到服务器');
     }
-  }, [pathInput, selectWithOptions]);
+  }, [pathInput]);
 
   // Fetch cwd for "推荐" badge
   useEffect(() => {
@@ -175,7 +185,11 @@ export function DirectoryPickerModal({
         <div className="px-5 pt-4 pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-cafe-black">新建对话</h2>
-            <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+            >
               <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
                 <path
                   fillRule="evenodd"
@@ -202,8 +216,8 @@ export function DirectoryPickerModal({
           {cwdPath && !existingProjects.includes(cwdPath) && (
             <button
               type="button"
-              onClick={() => selectWithOptions(cwdPath)}
-              className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ring-1 ring-owner-primary/30 bg-owner-bg/50"
+              onClick={() => setSelectedPath(cwdPath)}
+              className={`w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === cwdPath ? 'ring-2 ring-owner-primary bg-owner-bg' : 'ring-1 ring-owner-primary/30 bg-owner-bg/50'}`}
               title={cwdPath}
             >
               <FolderIcon />
@@ -219,8 +233,8 @@ export function DirectoryPickerModal({
             <button
               type="button"
               key={path}
-              onClick={() => selectWithOptions(path)}
-              className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
+              onClick={() => setSelectedPath(path)}
+              className={`w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === path ? 'ring-2 ring-owner-primary bg-owner-bg' : ''}`}
               title={path}
             >
               <FolderIcon />
@@ -233,8 +247,8 @@ export function DirectoryPickerModal({
 
           <button
             type="button"
-            onClick={() => selectWithOptions(undefined)}
-            className="w-full text-left px-3 py-2.5 text-sm text-gray-500 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
+            onClick={() => setSelectedPath('lobby')}
+            className={`w-full text-left px-3 py-2.5 text-sm text-gray-500 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === 'lobby' ? 'ring-2 ring-owner-primary bg-owner-bg' : ''}`}
           >
             <span className="text-base">🏠</span>
             <span>大厅 (无项目)</span>
@@ -344,14 +358,14 @@ export function DirectoryPickerModal({
           </div>
         )}
 
-        {/* ── Bottom: folder picker + path input (compact) ── */}
+        {/* ── Bottom: folder picker + path input + confirm ── */}
         <div className="px-5 py-3 border-t border-gray-100 space-y-2">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={pickDirectory}
               disabled={isPicking}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-owner-primary hover:bg-owner-dark text-white text-xs font-medium transition-colors disabled:opacity-60"
+              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium transition-colors disabled:opacity-60"
             >
               {isPicking ? (
                 <span className="animate-pulse">等待选择...</span>
@@ -366,7 +380,9 @@ export function DirectoryPickerModal({
               type="text"
               value={pathInput}
               onChange={(e) => setPathInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handlePathSubmit(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handlePathSubmit();
+              }}
               placeholder="或输入路径..."
               className="flex-1 text-xs px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-owner-primary"
             />
@@ -374,16 +390,39 @@ export function DirectoryPickerModal({
               <button
                 type="button"
                 onClick={handlePathSubmit}
-                className="px-2.5 py-2 rounded-lg bg-owner-primary text-white hover:bg-owner-dark transition-colors"
+                className="px-2.5 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                 aria-label="跳转到路径"
               >
                 <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  <path
+                    fillRule="evenodd"
+                    d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
                 </svg>
               </button>
             )}
           </div>
           {pathError && <p className="text-[10px] text-red-500">{pathError}</p>}
+          {/* F068-R7: Selected path hint + confirm button */}
+          <div className="flex items-center gap-2 pt-1">
+            {selectedPath && (
+              <span
+                className="text-[11px] text-gray-500 truncate flex-1"
+                title={selectedPath === 'lobby' ? '大厅' : selectedPath}
+              >
+                已选：{selectedPath === 'lobby' ? '大厅 (无项目)' : projectDisplayName(selectedPath)}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={confirmCreate}
+              disabled={selectedPath === null}
+              className="ml-auto px-5 py-2 rounded-lg bg-owner-primary hover:bg-owner-dark text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              创建对话
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -392,7 +431,12 @@ export function DirectoryPickerModal({
 
 function FolderIcon({ className }: { className?: string }) {
   return (
-    <svg aria-hidden="true" className={`w-4 h-4 flex-shrink-0 ${className ?? ''}`} viewBox="0 0 16 16" fill="currentColor">
+    <svg
+      aria-hidden="true"
+      className={`w-4 h-4 flex-shrink-0 ${className ?? ''}`}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
       <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" />
     </svg>
   );

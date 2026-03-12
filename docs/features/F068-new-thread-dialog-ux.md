@@ -5,12 +5,12 @@ topics: [hub, ux, directory-picker, new-thread]
 doc_kind: spec
 created: 2026-03-06
 completed: 2026-03-06
-status: done
+status: in-progress
 ---
 
 # F068 — 新建对话弹窗 UX 优化
 
-> **Status**: done | **Owner**: 三猫
+> **Status**: in-progress | **Owner**: 三猫
 
 ## Why
 
@@ -52,6 +52,7 @@ status: done
 | R4 | 删除自建目录浏览器 | AC-5 | ✅ |
 | R5 | 移动端响应式降级 | AC-7 | 🟡 待验证 |
 | R6 | 视觉设计确认 | AC-8 | ✅ |
+| R7 | 两步创建流程：选项目→填选项→确认 | AC-9 | 🔧 |
 
 ## Links
 
