@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F098: Callback Message UX — 猫猫传话可视化
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-03-12 | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -235,6 +235,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | 2026-03-12 | Phase C merged (PR #387). AC-C2 + AC-A2 ✅. multi_mention targets metadata + direction rendering |
 | 2026-03-12 | Phase D merged (PR #390). AC-D1/D2 ✅. deliveredAt dual timestamp (Method A) |
 | 2026-03-12 | Cleanup merged (PR #399). AC-C1/A5 ✅ + P3 regression tests + source.meta test fix |
+| 2026-03-12 | Feature close complete. 愿景守护通过，补齐 reflection capsule / BACKLOG 移除 / completed index 同步 |
 
 ## Review Gate
 
@@ -250,3 +251,4 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | **MCP Tools** | `packages/mcp-server/src/tools/callback-tools.ts` | post_message / cross_post / multi_mention |
 | **API Handler** | `packages/api/src/routes/callbacks.ts` | callback 消息处理 + @mention 解析 |
 | **Design** | `designs/f098-callback-message-ux.pen` | Before/After 对比设计稿（Design Gate 通过） |
+| **Reflection** | `docs/reflections/2026-03-12-f098-callback-message-ux-capsule.md` | F098 完成后的经验胶囊 |
