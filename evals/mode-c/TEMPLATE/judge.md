@@ -1,3 +1,20 @@
+---
+feature_ids: [F100]
+topics: [eval, mode-c]
+doc_kind: note
+created: YYYY-MM-DD
+knowledge:
+  artifact_type: eval
+  domain: general
+  scope: team-shared
+  trust_level: experimental
+  lifecycle: draft
+  knowledge_type: metacognitive
+  provenance:
+    author_type: agent
+  source_refs: []
+---
+
 # Judge Rubric for: [Knowledge ID]
 
 ## Scoring Dimensions
