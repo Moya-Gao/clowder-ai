@@ -13,13 +13,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { CliSpawnOptions } from '../../utils/cli-types.js';
+import { resolveCliTimeoutMs } from '../../utils/cli-timeout.js';
 import { isParseError, parseNDJSON } from '../../utils/ndjson-parser.js';
 import type { SpawnCliOverride } from '../cats/services/types.js';
 import type { AgentPaneRegistry } from './agent-pane-registry.js';
 import type { TmuxGateway } from './tmux-gateway.js';
 
 const execAsync = promisify(execFile);
-const FALLBACK_TIMEOUT_MS = 1_800_000;
 
 export interface TmuxSpawnOptions extends CliSpawnOptions {
   worktreeId: string;
@@ -69,7 +69,7 @@ export async function* spawnCliInTmux(
   deps: TmuxSpawnDeps,
 ): AsyncGenerator<unknown, TmuxSpawnResult, undefined> {
   const { tmuxGateway } = deps;
-  const timeoutMs = options.timeoutMs ?? FALLBACK_TIMEOUT_MS;
+  const timeoutMs = resolveCliTimeoutMs(options.timeoutMs);
 
   const tmpDir = await mkdtemp(join(tmpdir(), `catcafe-agent-${options.invocationId}-`));
   const fifoPath = join(tmpDir, 'output.fifo');

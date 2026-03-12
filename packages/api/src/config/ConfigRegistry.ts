@@ -13,6 +13,7 @@ import { getCodexApprovalPolicy, getCodexSandboxMode } from './codex-cli.js';
 import { parseHindsightRuntimeConfig } from './hindsight-runtime-config.js';
 import { parseBoolean, parseEnum, parseIntInRange } from './parse-utils.js';
 import type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
+import { DEFAULT_CLI_TIMEOUT_MS, readCliTimeoutMsFromEnv } from '../utils/cli-timeout.js';
 
 export type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
 
@@ -50,13 +51,7 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const maxPromptTokens = Number(env['MAX_PROMPT_TOKENS']) || 32000;
 
   // CLI (from cli-spawn.ts defaults, configurable via CLI_TIMEOUT_MS, 0 = disable)
-  const rawCliTimeout = env['CLI_TIMEOUT_MS'];
-  const parsedCliTimeout = rawCliTimeout != null && rawCliTimeout.trim() !== ''
-    ? Number(rawCliTimeout)
-    : NaN;
-  const timeoutMs = Number.isFinite(parsedCliTimeout) && parsedCliTimeout >= 0
-    ? parsedCliTimeout
-    : 1_800_000;
+  const timeoutMs = readCliTimeoutMsFromEnv(env) ?? DEFAULT_CLI_TIMEOUT_MS;
   const killGraceMs = 3_000;
   const codexSandboxMode = getCodexSandboxMode(env);
   const codexApprovalPolicy = getCodexApprovalPolicy(env);

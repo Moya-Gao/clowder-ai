@@ -191,6 +191,42 @@ test('CLI_TIMEOUT_MS=0 disables timeout (no auto-kill on silence)', async () => 
   }
 });
 
+test('spawnCli uses 5 minute fallback timeout when CLI_TIMEOUT_MS is unset', async () => {
+  const savedEnv = process.env.CLI_TIMEOUT_MS;
+  delete process.env.CLI_TIMEOUT_MS;
+
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const originalSetTimeout = global.setTimeout;
+  const delays = [];
+
+  global.setTimeout = ((handler, delay, ...args) => {
+    delays.push(delay);
+    return originalSetTimeout(() => {}, 0, ...args);
+  });
+
+  try {
+    const promise = collect(spawnCli(
+      { command: 'test-cli', args: [] },
+      { spawnFn }
+    ));
+
+    proc.stdout.end();
+    proc._emitter.emit('exit', 0, null);
+    await promise;
+
+    assert.ok(delays.length > 0);
+    assert.equal(delays[0], 300000);
+  } finally {
+    global.setTimeout = originalSetTimeout;
+    if (savedEnv === undefined) {
+      delete process.env.CLI_TIMEOUT_MS;
+    } else {
+      process.env.CLI_TIMEOUT_MS = savedEnv;
+    }
+  }
+});
+
 test('spawnCli resets timeout on stderr activity (CLI alive signal)', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

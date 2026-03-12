@@ -5,10 +5,9 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import type { CliSpawnOptions, ChildProcessLike, SpawnFn } from './cli-types.js';
+import { resolveCliTimeoutMs } from './cli-timeout.js';
 import { parseNDJSON, isParseError } from './ndjson-parser.js';
 
-/** Fallback timeout: 30 minutes */
-const FALLBACK_TIMEOUT_MS = 1_800_000;
 type CliErrorReasonCode = 'invalid_thinking_signature';
 
 function classifyKnownCliStderr(stderr: string): CliErrorReasonCode | undefined {
@@ -16,17 +15,6 @@ function classifyKnownCliStderr(stderr: string): CliErrorReasonCode | undefined 
     return 'invalid_thinking_signature';
   }
   return undefined;
-}
-
-/** Read CLI timeout from env (ms). Supports 0 to disable. */
-function getEnvTimeoutMs(): number | undefined {
-  const raw = process.env['CLI_TIMEOUT_MS'];
-  if (raw === undefined) return undefined;
-  const trimmed = raw.trim();
-  if (trimmed === '') return undefined;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
-  return parsed;
 }
 
 /** Grace period between SIGTERM and SIGKILL */
@@ -75,7 +63,7 @@ export async function* spawnCli(
 ): AsyncGenerator<unknown, void, undefined> {
   const doSpawn: SpawnFn = deps?.spawnFn ?? defaultSpawn;
   // Default timeout is configurable via CLI_TIMEOUT_MS env var; 0 disables timeout.
-  const timeoutMs = options.timeoutMs ?? getEnvTimeoutMs() ?? FALLBACK_TIMEOUT_MS;
+  const timeoutMs = resolveCliTimeoutMs(options.timeoutMs);
 
   const child = doSpawn(options.command, options.args, {
     cwd: options.cwd,

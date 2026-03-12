@@ -12,6 +12,8 @@
  * The "环境 & 文件" tab picks it up automatically.
  */
 
+import { DEFAULT_CLI_TIMEOUT_LABEL } from '../utils/cli-timeout.js';
+
 export type EnvCategory =
   | 'server'
   | 'storage'
@@ -102,7 +104,7 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'WEB_PUSH_TIMEOUT_MS', defaultValue: '(未设置)', description: 'Web Push 超时时间', category: 'budget', sensitive: false },
 
   // --- cli ---
-  { name: 'CLI_TIMEOUT_MS', defaultValue: '300000 (5分钟)', description: 'CLI 调用超时', category: 'cli', sensitive: false },
+  { name: 'CLI_TIMEOUT_MS', defaultValue: DEFAULT_CLI_TIMEOUT_LABEL, description: 'CLI 调用超时', category: 'cli', sensitive: false },
   { name: 'CAT_CONFIG_PATH', defaultValue: '(repo 根 cat-config.json)', description: '猫猫配置文件路径', category: 'cli', sensitive: false },
   { name: 'CAT_CAFE_MCP_SERVER_PATH', defaultValue: '(自动检测)', description: 'MCP Server 路径', category: 'cli', sensitive: false },
   { name: 'AUDIT_LOG_DIR', defaultValue: './data/audit-logs', description: '审计日志目录', category: 'cli', sensitive: false },
