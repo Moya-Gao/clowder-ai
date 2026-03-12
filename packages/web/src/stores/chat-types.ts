@@ -224,6 +224,20 @@ export interface Thread {
   backlogItemId?: string;
   /** F042: Thread-scoped routing policy (intent/scope). */
   routingPolicy?: ThreadRoutingPolicyV1;
+  /** F087: CVO Bootcamp onboarding state. */
+  bootcampState?: BootcampStateV1;
+}
+
+/** F087: Bootcamp state for CVO onboarding threads */
+export interface BootcampStateV1 {
+  v: 1;
+  phase: string;
+  leadCat?: string;
+  selectedTaskId?: string;
+  envCheck?: Record<string, { ok: boolean; version?: string; note?: string }>;
+  advancedFeatures?: Record<string, 'available' | 'unavailable' | 'skipped'>;
+  startedAt: number;
+  completedAt?: number;
 }
 
 export type ThreadRoutingScope = 'review' | 'architecture';

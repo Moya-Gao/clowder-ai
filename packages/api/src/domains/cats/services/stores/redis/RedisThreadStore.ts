@@ -24,6 +24,7 @@ import type {
   ThreadRoutingPolicyV1,
   ThreadMemoryV1,
   VotingStateV1,
+  BootcampStateV1,
 } from '../ports/ThreadStore.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
@@ -452,6 +453,21 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
+  async updateBootcampState(threadId: string, state: BootcampStateV1 | null): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    if (state === null) {
+      await this.redis.hdel(key, 'bootcampState');
+    } else {
+      await this.redis.eval(
+        HSET_IF_HAS_ID_LUA,
+        1,
+        key,
+        'bootcampState',
+        JSON.stringify(state),
+      );
+    }
+  }
+
   async updateVoiceMode(threadId: string, voiceMode: boolean): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     if (voiceMode) {
@@ -564,6 +580,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.voiceMode) {
       result['voiceMode'] = '1';
     }
+    if (thread.bootcampState) {
+      result['bootcampState'] = JSON.stringify(thread.bootcampState);
+    }
     return result;
   }
 
@@ -619,6 +638,14 @@ export class RedisThreadStore implements IThreadStore {
     }
     if (data['voiceMode'] === '1') {
       result.voiceMode = true;
+    }
+    if (data['bootcampState']) {
+      try {
+        const parsed = JSON.parse(data['bootcampState']);
+        if (parsed && typeof parsed === 'object' && parsed.v === 1) {
+          result.bootcampState = parsed as BootcampStateV1;
+        }
+      } catch { /* ignore malformed JSON */ }
     }
     return result;
   }

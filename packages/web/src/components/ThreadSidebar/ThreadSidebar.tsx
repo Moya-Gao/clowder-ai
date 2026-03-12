@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { BootcampIcon } from '../icons/BootcampIcon';
 import { TaskPanel } from '../TaskPanel';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
@@ -176,6 +177,36 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     [setCurrentProject, navigateToThread, loadThreads, onClose],
   );
 
+  /** F087: Create a bootcamp onboarding thread */
+  const createBootcampThread = useCallback(async () => {
+    setIsCreating(true);
+    try {
+      const res = await apiFetch('/api/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: '🎓 猫猫训练营',
+          bootcampState: {
+            v: 1,
+            phase: 'phase-0-select-cat',
+            startedAt: Date.now(),
+          },
+        }),
+      });
+      if (!res.ok) return;
+      const thread: Thread = await res.json();
+      navigateToThread(thread.id);
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        onClose?.();
+      }
+      await loadThreads();
+    } catch {
+      // Silently ignore
+    } finally {
+      setIsCreating(false);
+    }
+  }, [navigateToThread, loadThreads, onClose]);
+
   // I-1: Show confirmation dialog instead of deleting immediately
   const handleDeleteRequest = useCallback(
     (threadId: string) => {
@@ -321,14 +352,26 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
       <aside className={`${className ?? 'w-60'} border-r border-owner-light bg-white flex flex-col h-full`}>
         <div className="p-3 border-b border-owner-light flex items-center justify-between">
           <span className="text-sm font-semibold text-cafe-black">对话</span>
-          <button
-            type="button"
-            onClick={() => setShowPicker(true)}
-            disabled={isCreating}
-            className="text-xs px-2 py-1 rounded-lg bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 transition-colors"
-          >
-            {isCreating ? '...' : '+ 新对话'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={createBootcampThread}
+              disabled={isCreating}
+              className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
+              title="猫猫训练营"
+              data-testid="sidebar-bootcamp"
+            >
+              <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPicker(true)}
+              disabled={isCreating}
+              className="text-xs px-2 py-1 rounded-lg bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 transition-colors"
+            >
+              {isCreating ? '...' : '+ 新对话'}
+            </button>
+          </div>
         </div>
 
         <div className="px-3 py-2 border-b border-owner-light">

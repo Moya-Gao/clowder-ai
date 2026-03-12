@@ -12,7 +12,7 @@
 
 import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId, CatConfig } from '@cat-cafe/shared';
-import { buildStaticIdentity, buildInvocationContext } from '../../context/SystemPromptBuilder.js';
+import { buildStaticIdentity, buildInvocationContext, type InvocationContext } from '../../context/SystemPromptBuilder.js';
 import { needsMcpInjection, buildMcpCallbackInstructions } from '../invocation/McpPromptInjector.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
@@ -92,11 +92,14 @@ export async function* routeSerial(
   let sopStageHint: { stage: string; suggestedSkill: string | null; featureId: string } | undefined;
   // F092: Voice companion mode
   let voiceMode: boolean | undefined;
+  // F087: Bootcamp state for CVO onboarding
+  let bootcampState: InvocationContext['bootcampState'];
   if (deps.invocationDeps.threadStore) {
     try {
       const thread = await deps.invocationDeps.threadStore.get(threadId);
       routingPolicy = thread?.routingPolicy;
       voiceMode = thread?.voiceMode;
+      bootcampState = thread?.bootcampState;
       // F073 P4: Read workflow-sop if thread is linked to a backlog item
       if (thread?.backlogItemId && deps.invocationDeps.workflowSopStore) {
         try {
@@ -181,6 +184,7 @@ export async function* routeSerial(
       ...(sopStageHint ? { sopStageHint } : {}),
       ...(activeSignals ? { activeSignals } : {}),
       ...(voiceMode ? { voiceMode } : {}),
+      ...(bootcampState ? { bootcampState } : {}),
     });
 
     // F24 Phase E: Bootstrap context for Session #2+

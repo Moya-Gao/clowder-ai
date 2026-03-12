@@ -1067,4 +1067,39 @@ describe('SystemPromptBuilder', () => {
       `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 2600`,
     );
   });
+
+  test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      bootcampState: {
+        v: 1,
+        phase: 'phase-2-env-check',
+        leadCat: 'opus',
+        startedAt: Date.now(),
+      },
+    });
+    assert.ok(ctx.includes('Bootcamp Mode'), 'Should include bootcamp header');
+    assert.ok(ctx.includes('phase-2-env-check'), 'Should include current phase');
+    assert.ok(ctx.includes('leadCat=opus'), 'Should include lead cat');
+    assert.ok(ctx.includes('bootcamp-guide'), 'Should reference skill');
+  });
+
+  test('buildInvocationContext omits bootcamp when bootcampState absent', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.ok(!ctx.includes('Bootcamp Mode'), 'Should not include bootcamp header');
+  });
 });

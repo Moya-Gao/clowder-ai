@@ -109,6 +109,7 @@ import {
   intentCardRoutes,
   invocationsRoutes,
   leaderboardEventsRoutes,
+  bootcampRoutes,
   leaderboardRoutes,
   memoryPublishRoutes,
   memoryRoutes,
@@ -460,7 +461,7 @@ async function main(): Promise<void> {
   const achievementStore = new AchievementStore();
   await app.register(leaderboardRoutes, { messageStore, gameStore, achievementStore });
   await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
-
+  await app.register(bootcampRoutes);
   await app.register(brakeRoutes, { activityTracker });
 
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration

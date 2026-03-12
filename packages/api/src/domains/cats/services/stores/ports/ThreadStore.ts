@@ -115,6 +115,35 @@ export interface Thread {
   votingState?: VotingStateV1;
   /** F092: Voice companion mode — when true, cats should prioritize audio rich blocks. */
   voiceMode?: boolean;
+  /** F087: CVO Bootcamp onboarding state. */
+  bootcampState?: BootcampStateV1;
+}
+
+/** F087: Bootcamp phase for CVO onboarding */
+export type BootcampPhase =
+  | 'phase-0-select-cat'
+  | 'phase-1-intro'
+  | 'phase-2-env-check'
+  | 'phase-3-config-help'
+  | 'phase-3.5-advanced'
+  | 'phase-4-task-select'
+  | 'phase-5-kickoff'
+  | 'phase-6-design'
+  | 'phase-7-dev'
+  | 'phase-8-review'
+  | 'phase-9-complete'
+  | 'phase-10-retro'
+  | 'phase-11-farewell';
+
+export interface BootcampStateV1 {
+  v: 1;
+  phase: BootcampPhase;
+  leadCat?: CatId;
+  selectedTaskId?: string;
+  envCheck?: Record<string, { ok: boolean; version?: string; note?: string }>;
+  advancedFeatures?: Record<string, 'available' | 'unavailable' | 'skipped'>;
+  startedAt: number;
+  completedAt?: number;
 }
 
 /** F079: Voting state stored in thread metadata */
@@ -179,6 +208,8 @@ export interface IThreadStore {
   updateVotingState(threadId: string, state: VotingStateV1 | null): void | Promise<void>;
   /** F092: Update voice companion mode. */
   updateVoiceMode(threadId: string, voiceMode: boolean): void | Promise<void>;
+  /** F087: Get/update bootcamp state. */
+  updateBootcampState(threadId: string, state: BootcampStateV1 | null): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -450,6 +481,16 @@ export class ThreadStore implements IThreadStore {
       thread.voiceMode = true;
     } else {
       delete thread.voiceMode;
+    }
+  }
+
+  updateBootcampState(threadId: string, state: BootcampStateV1 | null): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+    if (state === null) {
+      delete thread.bootcampState;
+    } else {
+      thread.bootcampState = state;
     }
   }
 

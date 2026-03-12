@@ -17,6 +17,7 @@ import {
 } from '../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../config/cat-models.js';
 import type {
+  BootcampStateV1,
   ThreadMentionRoutingFeedback,
   ThreadParticipantActivity,
   ThreadRoutingPolicyV1,
@@ -90,6 +91,11 @@ export interface InvocationContext {
    * When true, cats should prioritize audio rich blocks for spoken output.
    */
   voiceMode?: boolean;
+  /**
+   * F087: Bootcamp state for CVO onboarding threads.
+   * When present, cats inject bootcamp-guide behavior per phase.
+   */
+  bootcampState?: BootcampStateV1;
 }
 
 /** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
@@ -508,6 +514,16 @@ export function buildInvocationContext(context: InvocationContext): string {
       '- 每条回复用 audio rich block 发语音（call get_rich_block_rules if unsure）',
       '- 文字是给日志看的，语音才是给铲屎官耳朵的输出',
       '- 代码/表格/长内容仍用文字，但加一段语音摘要',
+      '',
+    );
+  }
+
+  // F087: Bootcamp mode — inject phase context so cats know to guide the new CVO
+  if (context.bootcampState) {
+    const { phase, leadCat, selectedTaskId } = context.bootcampState;
+    lines.push(
+      `🎓 Bootcamp Mode: phase=${phase}${leadCat ? ` leadCat=${leadCat}` : ''}${selectedTaskId ? ` task=${selectedTaskId}` : ''}`,
+      '→ Load bootcamp-guide skill and act per current phase.',
       '',
     );
   }

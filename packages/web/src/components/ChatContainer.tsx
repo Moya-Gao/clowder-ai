@@ -20,6 +20,7 @@ import { WorkspacePanel } from './WorkspacePanel';
 import { ThreadSidebar } from './ThreadSidebar';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { ThinkingIndicator } from './ThinkingIndicator';
+import { BootcampIcon } from './icons/BootcampIcon';
 import { PawIcon } from './icons/PawIcon';
 import { A2ACollapsible } from './A2ACollapsible';
 import { MessageNavigator } from './MessageNavigator';
@@ -388,6 +389,31 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                 <PawIcon className="w-12 h-12 text-owner-light mx-auto mb-4" />
                 <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Cafe!</p>
                 <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
+                {!storeThreads.find((t) => t.id === threadId)?.bootcampState && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const res = await apiFetch('/api/threads', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          title: '🎓 猫猫训练营',
+                          bootcampState: { v: 1, phase: 'phase-0-select-cat', startedAt: Date.now() },
+                        }),
+                      });
+                      if (!res.ok) return;
+                      const thread = await res.json();
+                      // P2-1 fix: sync new thread to store so sidebar shows it
+                      useChatStore.getState().setThreads([thread, ...storeThreads]);
+                      router.push(`/chat/${thread.id}`);
+                    }}
+                    className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
+                    data-testid="empty-state-bootcamp"
+                  >
+                    <BootcampIcon className="w-4 h-4" />
+                    第一次来？开始猫猫训练营
+                  </button>
+                )}
               </div>
             ) : (
               renderItems.map((item) =>

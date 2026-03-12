@@ -518,6 +518,26 @@ sop_navigation:
     pitfalls:
       - "没有 @ 其他猫做愿景守护就直接 close"
 
+  # ── F087: 猫猫训练营引导 ──
+  bootcamp-guide:
+    description: >
+      CVO 新手训练营引导模式：Phase 驱动的新手引导行为。
+      Use when: thread 有 bootcampState（SystemPromptBuilder 自动注入）。
+      Not for: 非训练营线程、老用户日常对话。
+      Output: 分阶段引导行为 + bootcampState 状态更新。
+    triggers:
+      - "bootcamp"
+      - "训练营"
+      - "我是新手"
+      - "新手引导"
+    not_for:
+      - "非训练营线程"
+      - "老用户日常对话"
+    output: "Phase-driven bootcamp guidance + state updates"
+    next: ["feat-lifecycle"]
+    sop_step: null
+    merged_from: null
+
 # ─── lint 规则 ──────────────────────────────────────────
 lint:
   rules:
