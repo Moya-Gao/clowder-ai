@@ -4,15 +4,15 @@ related_features: []
 topics: [frontend, ux, sidebar, navigation]
 doc_kind: spec
 created: 2026-03-10
-completed: 2026-03-11
-status: done
+completed: null
+status: in-progress
 ---
 
 # F095: Thread Sidebar 导航体验升级
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
-**Completed: 2026-03-11**
-**Implementation**: PR #366 / #370 / #373 / #376
+> **Status**: in-progress (Phase D) | **Owner**: 布偶猫 | **Priority**: P1
+**Phase A~C completed: 2026-03-11** | **Phase D: 软删除 + 回收站（进行中）**
+**Implementation**: PR #366 / #370 / #373 / #376 / #378
 
 ## Why
 
@@ -93,6 +93,24 @@ Sidebar 布局从上到下：
 - `POST /api/threads` 已支持 `title`，补 `backlogItemId` 和 `pinned` 入参
 - 新增 `GET /api/backlog/active` 返回活跃 feat 列表（供下拉选择）
 
+### Phase D: 软删除 + 回收站（终态数据安全）
+
+**沉痛教训**：铲屎官误删 `thread_mmlv4v2oq6dxefr6`（73 条审计记录，cross-thread-sync 教训 thread），不可恢复。
+Phase C hotfix 加了确认弹窗 + 审计事件（PR #378），但确认弹窗是**脚手架**，终态是**软删除 + 回收站**。
+
+1. **软删除**：`DELETE /api/threads/:id` 改为标记 `deletedAt` 时间戳，不物理删除数据
+2. **回收站 UI**：Sidebar 底部"回收站 (N)"入口，展示已删除 thread 列表
+3. **恢复操作**：回收站内可一键恢复 thread（清除 `deletedAt`，所有关联数据恢复可见）
+4. **自动清理**：`deletedAt` 超过 30 天的 thread 才执行物理删除（定时任务或惰性清理）
+5. **已删除 thread 不出现在正常列表**：`GET /api/threads` 默认过滤 `deletedAt != null`
+
+数据模型变更：
+- Thread interface 新增 `deletedAt?: number`（时间戳，null = 未删除）
+- ThreadStore.delete() → ThreadStore.softDelete()（设 deletedAt）
+- 新增 ThreadStore.restore(id)（清除 deletedAt）
+- 新增 ThreadStore.purge(id)（物理删除，仅回收站 30 天后或手动）
+- GET /api/threads 新增 `?deleted=true` 查询参数（回收站列表）
+
 ## Acceptance Criteria
 
 ### Phase A（折叠持久化 + 搜索可见性）
@@ -120,6 +138,15 @@ Sidebar 布局从上到下：
 - [x] AC-C4: 项目列表按最近活跃排序（不再纯字母序）
 - [x] AC-C5: 后端 `POST /api/threads` 支持 `backlogItemId` 和 `pinned` 入参
 
+### Phase D（软删除 + 回收站）
+- [ ] AC-D1: DELETE /api/threads/:id 改为软删除（设 deletedAt，不物理删除）
+- [ ] AC-D2: 软删除后 thread 从正常列表消失（GET /api/threads 过滤 deletedAt）
+- [ ] AC-D3: 新增 GET /api/threads?deleted=true 返回回收站列表
+- [ ] AC-D4: 新增 POST /api/threads/:id/restore 恢复已删除 thread
+- [ ] AC-D5: Sidebar 回收站入口，展示已删除 thread 列表 + 恢复按钮
+- [ ] AC-D6: deletedAt 超过 30 天的 thread 自动物理清理
+- [ ] AC-D7: 级联数据（messages/tasks/memory）在软删除期间保留，物理删除时才清除
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -133,6 +160,8 @@ Sidebar 布局从上到下：
 | R7 | "甚至直接关联某个 feat" | AC-C2 | test + manual | [x] |
 | R8 | "我可以选择直接置顶" | AC-C3 | test + manual | [x] |
 | R9 | "新建的那个窗口可能需要大点" | AC-C4 | screenshot | [x] |
+| R10 | 铲屎官误删 thread 不可恢复（沉痛教训） | AC-D1~D7 | test + manual | [ ] |
+| R11 | "面向终态开发"——确认弹窗是脚手架，软删除才是终态 | AC-D1 | test | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
