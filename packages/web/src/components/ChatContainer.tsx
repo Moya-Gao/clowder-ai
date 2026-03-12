@@ -26,6 +26,7 @@ import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
 import { GameOverlayConnector } from './game/GameOverlayConnector';
 import { BootcampIcon } from './icons/BootcampIcon';
+import { BootcampListModal } from './BootcampListModal';
 import { PawIcon } from './icons/PawIcon';
 import { MessageActions } from './MessageActions';
 import { MessageNavigator } from './MessageNavigator';
@@ -88,6 +89,24 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusPanelOpen, setStatusPanelOpen] = useState(true);
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
+  const [showBootcampList, setShowBootcampList] = useState(false);
+  // F106: fetch bootcamp count independently of sidebar lifecycle
+  // refreshKey increments only on modal close → avoids duplicate fetch on open
+  const [bootcampRefreshKey, setBootcampRefreshKey] = useState(0);
+  const handleBootcampModalClose = useCallback(() => {
+    setShowBootcampList(false);
+    setBootcampRefreshKey((k) => k + 1);
+  }, []);
+  const [bootcampCount, setBootcampCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch('/api/bootcamp/threads').then(async (res) => {
+      if (cancelled || !res.ok) return;
+      const data = await res.json();
+      if (!cancelled) setBootcampCount(data.threads?.length ?? 0);
+    }).catch(() => { if (!cancelled) setBootcampCount(0); });
+    return () => { cancelled = true; };
+  }, [bootcampRefreshKey]);
   // F063: resizable split pane — chatBasis as percentage (20-80), persisted
   const [chatBasis, setChatBasis, resetChatBasis] = usePersistedState('cat-cafe:chatBasis', 50);
   // F063 Gap 6: sidebar width in px, persisted
@@ -393,7 +412,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             className="fixed inset-y-0 left-0 z-30 md:static md:z-auto flex-shrink-0"
             style={{ width: sidebarWidth }}
           >
-            <ThreadSidebar onClose={() => setSidebarOpen(false)} className="w-full" />
+            <ThreadSidebar onClose={() => setSidebarOpen(false)} className="w-full" onBootcampClick={() => setShowBootcampList(true)} />
           </div>
           <div className="hidden md:flex items-center">
             <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
@@ -442,39 +461,25 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                 <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Cafe!</p>
                 <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
                 {(() => {
-                  const existingBootcamp = storeThreads.find((t) => t.bootcampState);
                   const isCurrentBootcamp = storeThreads.find((t) => t.id === threadId)?.bootcampState;
                   if (isCurrentBootcamp) return null; // already in bootcamp thread
-                  if (existingBootcamp) {
+                  if (bootcampCount > 0) {
                     return (
                       <button
                         type="button"
-                        onClick={() => router.push(`/thread/${existingBootcamp.id}`)}
+                        onClick={() => setShowBootcampList(true)}
                         className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
-                        data-testid="empty-state-bootcamp-continue"
+                        data-testid="empty-state-bootcamp-list"
                       >
                         <BootcampIcon className="w-4 h-4" />
-                        继续猫猫训练营
+                        我的训练营（{bootcampCount}）
                       </button>
                     );
                   }
                   return (
                     <button
                       type="button"
-                      onClick={async () => {
-                        const res = await apiFetch('/api/threads', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            title: '🎓 猫猫训练营',
-                            bootcampState: { v: 1, phase: 'phase-0-select-cat', startedAt: Date.now() },
-                          }),
-                        });
-                        if (!res.ok) return;
-                        const thread = await res.json();
-                        useChatStore.getState().setThreads([thread, ...storeThreads]);
-                        router.push(`/thread/${thread.id}`);
-                      }}
+                      onClick={() => setShowBootcampList(true)}
                       className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
                       data-testid="empty-state-bootcamp"
                     >
@@ -617,6 +622,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         messageSummary={messageSummary}
       />
       <CatCafeHub />
+      <BootcampListModal
+        open={showBootcampList}
+        onClose={handleBootcampModalClose}
+        currentThreadId={threadId}
+      />
       {showVoteModal && <VoteConfigModal onSubmit={handleVoteSubmit} onCancel={() => setShowVoteModal(false)} />}
     </div>
   );

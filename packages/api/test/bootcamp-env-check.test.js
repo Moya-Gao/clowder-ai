@@ -162,3 +162,77 @@ describe('F087: Bootcamp thread discovery', () => {
     await app.close();
   });
 });
+
+describe('F106: Bootcamp threads list', () => {
+  let app;
+  let threadStore;
+
+  async function createApp() {
+    const { default: Fastify } = await import('fastify');
+    const { bootcampRoutes } = await import('../dist/routes/bootcamp.js');
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+    threadStore = new ThreadStore();
+    app = Fastify();
+    await app.register(bootcampRoutes, { threadStore });
+    await app.ready();
+    return app;
+  }
+
+  it('returns empty array when no bootcamp threads exist', async () => {
+    await createApp();
+    const res = await app.inject({ method: 'GET', url: '/api/bootcamp/threads', headers: AUTH_HEADERS });
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.ok(Array.isArray(body.threads), 'threads should be an array');
+    assert.strictEqual(body.threads.length, 0);
+    await app.close();
+  });
+
+  it('returns 401 without identity', async () => {
+    await createApp();
+    const res = await app.inject({ method: 'GET', url: '/api/bootcamp/threads' });
+    assert.strictEqual(res.statusCode, 401);
+    await app.close();
+  });
+
+  it('returns all bootcamp threads sorted by startedAt desc', async () => {
+    await createApp();
+    // Create normal thread (should be excluded)
+    await threadStore.create('test-user', 'Normal thread');
+    // Create two bootcamp threads
+    const older = await threadStore.create('test-user', '🎓 训练营 1');
+    await threadStore.updateBootcampState(older.id, {
+      v: 1, phase: 'phase-11-farewell', startedAt: 500, completedAt: 600,
+    });
+    const newer = await threadStore.create('test-user', '🎓 训练营 2');
+    await threadStore.updateBootcampState(newer.id, {
+      v: 1, phase: 'phase-5-kickoff', startedAt: 2000,
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/bootcamp/threads', headers: AUTH_HEADERS });
+    const body = JSON.parse(res.payload);
+    assert.strictEqual(body.threads.length, 2, 'Should return 2 bootcamp threads');
+    // Most recent first
+    assert.strictEqual(body.threads[0].id, newer.id);
+    assert.strictEqual(body.threads[0].phase, 'phase-5-kickoff');
+    assert.strictEqual(body.threads[1].id, older.id);
+    assert.strictEqual(body.threads[1].phase, 'phase-11-farewell');
+    assert.strictEqual(body.threads[1].completedAt, 600);
+    await app.close();
+  });
+
+  it('includes selectedTaskId in response when present', async () => {
+    await createApp();
+    const t = await threadStore.create('test-user', '🎓 训练营');
+    await threadStore.updateBootcampState(t.id, {
+      v: 1, phase: 'phase-5-kickoff', startedAt: 1000, selectedTaskId: 'Q3',
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/bootcamp/threads', headers: AUTH_HEADERS });
+    const body = JSON.parse(res.payload);
+    assert.strictEqual(body.threads[0].selectedTaskId, 'Q3');
+    await app.close();
+  });
+});

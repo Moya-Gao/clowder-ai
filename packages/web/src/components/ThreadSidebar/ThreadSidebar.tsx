@@ -19,9 +19,11 @@ interface ThreadSidebarProps {
   onClose?: () => void;
   /** Override root width class (default: w-60). Use w-full when parent controls width. */
   className?: string;
+  /** F106: Open bootcamp list modal instead of creating directly */
+  onBootcampClick?: () => void;
 }
 
-export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
+export function ThreadSidebar({ onClose, className, onBootcampClick }: ThreadSidebarProps) {
   const router = useRouter();
   const {
     threads,
@@ -395,8 +397,8 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={createBootcampThread}
-              disabled={isCreating}
+              onClick={onBootcampClick ?? createBootcampThread}
+              disabled={!onBootcampClick && isCreating}
               className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
               title="猫猫训练营"
               data-testid="sidebar-bootcamp"

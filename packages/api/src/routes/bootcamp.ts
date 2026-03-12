@@ -44,4 +44,27 @@ export const bootcampRoutes: FastifyPluginAsync<BootcampRoutesOptions> = async (
       },
     };
   });
+
+  /** List all bootcamp threads for the user (F106: multi-bootcamp support) */
+  app.get('/api/bootcamp/threads', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+    const allThreads = await threadStore.list(userId);
+    const bootcampThreads = allThreads
+      .filter((t) => t.bootcampState && t.id !== DEFAULT_THREAD_ID)
+      .sort((a, b) => (b.bootcampState?.startedAt ?? 0) - (a.bootcampState?.startedAt ?? 0));
+    return {
+      threads: bootcampThreads.map((t) => ({
+        id: t.id,
+        title: t.title,
+        phase: t.bootcampState?.phase,
+        completedAt: t.bootcampState?.completedAt,
+        startedAt: t.bootcampState?.startedAt,
+        selectedTaskId: t.bootcampState?.selectedTaskId,
+      })),
+    };
+  });
 };
