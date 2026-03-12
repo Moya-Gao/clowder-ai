@@ -10,6 +10,7 @@ export interface MessageLike {
   timestamp: number;
   catId: string | null;
   content: string;
+  source?: { connector?: string };
 }
 
 function isNightHour(ts: number): boolean {
@@ -103,20 +104,24 @@ export function computeMentionStats(
   const dateSets = new Map<string, Set<string>>(); // catId → set of date keys
 
   for (const msg of messages) {
-    for (const catId of msg.mentions) {
-      mentionCount.set(catId, (mentionCount.get(catId) ?? 0) + 1);
+    // Mention-based rankings should reflect 铲屎官/owner mentions only.
+    // Exclude cat-authored messages AND connector-sourced messages (catId is also null).
+    if (!msg.catId && !msg.source?.connector) {
+      for (const catId of msg.mentions) {
+        mentionCount.set(catId, (mentionCount.get(catId) ?? 0) + 1);
 
-      if (isNightHour(msg.timestamp)) {
-        nightCount.set(catId, (nightCount.get(catId) ?? 0) + 1);
-      }
+        if (isNightHour(msg.timestamp)) {
+          nightCount.set(catId, (nightCount.get(catId) ?? 0) + 1);
+        }
 
-      // Track dates for streak
-      let dates = dateSets.get(catId);
-      if (!dates) {
-        dates = new Set();
-        dateSets.set(catId, dates);
+        // Track dates for streak
+        let dates = dateSets.get(catId);
+        if (!dates) {
+          dates = new Set();
+          dateSets.set(catId, dates);
+        }
+        dates.add(toDateKey(msg.timestamp));
       }
-      dates.add(toDateKey(msg.timestamp));
     }
 
     // Chatty = messages sent BY a cat

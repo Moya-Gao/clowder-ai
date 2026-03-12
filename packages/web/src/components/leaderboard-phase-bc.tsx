@@ -1,7 +1,8 @@
 'use client';
 
+import React from 'react';
 import type { Achievement, CvoLevel, GameStats, SillyCatEntry } from '@cat-cafe/shared';
-import { AVATAR_MAP } from './leaderboard-cards';
+import { CatAvatar } from './CatAvatar';
 
 /** Phase B: Silly cats — 翻车现场 */
 export function SillyCatsList({ entries }: { entries: SillyCatEntry[] }) {
@@ -11,7 +12,7 @@ export function SillyCatsList({ entries }: { entries: SillyCatEntry[] }) {
     <ul className="space-y-2">
       {entries.slice(0, 5).map((e) => (
         <li key={e.catId} className="flex items-center gap-2">
-          <img src={AVATAR_MAP[e.catId] ?? '/avatars/opus.png'} alt="" className="w-6 h-6 rounded-full object-cover" />
+          <CatAvatar catId={e.catId} size={24} />
           <span className="text-[13px] font-semibold" style={{ color: '#2D2D2D' }}>{e.displayName}</span>
           <span className="text-[11px] ml-auto font-medium" style={{ color: '#D4845E' }}>
             ×{e.count} {e.description}

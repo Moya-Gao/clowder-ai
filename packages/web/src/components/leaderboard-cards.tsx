@@ -1,39 +1,38 @@
 'use client';
 
+import React, { type ReactNode } from 'react';
 import type { RankedCat, StreakCat } from '@cat-cafe/shared';
-
-export const AVATAR_MAP: Record<string, string> = {
-  opus: '/avatars/opus-kawaii.png',
-  codex: '/avatars/codex-kawaii.png',
-  gemini: '/avatars/gemini-kawaii.png',
-};
-
-const CAT_TAG: Record<string, string> = {
-  opus: '布偶猫 · Opus',
-  codex: '缅因猫 · Codex',
-  gemini: '暹罗猫 · Gemini',
-};
+import { useCatData } from '@/hooks/useCatData';
+import { CatAvatar } from './CatAvatar';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
+
+function CatTag({ catId }: { catId: string }) {
+  const { getCatById } = useCatData();
+  const cat = getCatById(catId);
+  const family = cat?.breedDisplayName ?? cat?.displayName;
+  const detail = cat?.variantLabel ?? cat?.nickname ?? cat?.id;
+  const label = family && detail && family !== detail ? `${family} · ${detail}` : family ?? detail ?? catId;
+
+  return (
+    <span
+      className="text-[11px] font-medium"
+      style={{ color: '#8E8E93', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+    >
+      {label}
+    </span>
+  );
+}
 
 export function CatHeroCard({ cat, unit }: { cat: RankedCat; unit: string }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl p-5" style={{ background: '#F4EFE7' }}>
       <span className="text-[28px]">{MEDAL[cat.rank - 1] ?? `#${cat.rank}`}</span>
-      <img
-        src={AVATAR_MAP[cat.catId] ?? '/avatars/opus.png'}
-        alt={cat.displayName}
-        className="w-[72px] h-[72px] rounded-full object-cover"
-      />
+      <CatAvatar catId={cat.catId} size={72} />
       <span className="text-lg font-medium" style={{ fontFamily: 'Fraunces, serif', color: '#2D2D2D' }}>
         {cat.displayName}
       </span>
-      <span
-        className="text-[11px] font-medium"
-        style={{ color: '#8E8E93', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
-      >
-        {CAT_TAG[cat.catId] ?? cat.catId}
-      </span>
+      <CatTag catId={cat.catId} />
       <span className="text-4xl font-medium tracking-tight" style={{ fontFamily: 'Fraunces, serif', color: '#8B6F47' }}>
         {cat.count}
       </span>
@@ -77,11 +76,7 @@ export function MiniRanked({ items, unit }: { items: RankedCat[]; unit: string }
       {items.slice(0, 5).map((cat) => (
         <li key={cat.catId} className="flex items-center gap-2">
           <span className="text-sm">{MEDAL[cat.rank - 1] ?? `#${cat.rank}`}</span>
-          <img
-            src={AVATAR_MAP[cat.catId] ?? '/avatars/opus.png'}
-            alt=""
-            className="w-6 h-6 rounded-full object-cover"
-          />
+          <CatAvatar catId={cat.catId} size={24} />
           <span className="text-[13px] font-semibold" style={{ color: '#2D2D2D' }}>
             {cat.displayName}
           </span>
@@ -118,7 +113,7 @@ export function StreakRanked({ items }: { items: StreakCat[] }) {
   );
 }
 
-export function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+export function SectionCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="rounded-2xl p-6 flex flex-col gap-4" style={{ background: '#FFFDF8' }}>
       <h3 className="text-xl font-medium" style={{ fontFamily: 'Fraunces, serif', color: '#2D2D2D' }}>
@@ -128,4 +123,3 @@ export function SectionCard({ title, children }: { title: string; children: Reac
     </div>
   );
 }
-

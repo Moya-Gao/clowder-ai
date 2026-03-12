@@ -88,4 +88,47 @@ describe('computeMentionStats — streak', () => {
     assert.ok(codexStreak);
     assert.equal(codexStreak.currentStreak, 2); // 03-09, 03-10
   });
+
+  it('ignores cat-authored mentions for favorite/night/streak rankings', () => {
+    const msgs = [
+      msg('1', ['codex'], '2026-03-10T02:00:00Z', null, '@codex from owner'),
+      msg('2', ['codex', 'gemini'], '2026-03-09T02:00:00Z', 'opus', '@codex @gemini from cat'),
+    ];
+
+    const result = computeMentionStats(msgs, CAT_NAMES, 'all');
+
+    assert.deepEqual(
+      result.favoriteCat.map((c) => ({ catId: c.catId, count: c.count })),
+      [{ catId: 'codex', count: 1 }],
+    );
+
+    assert.deepEqual(
+      result.nightOwl.map((c) => ({ catId: c.catId, count: c.count })),
+      [{ catId: 'codex', count: 1 }],
+    );
+
+    const codexStreak = result.streak.find((s) => s.catId === 'codex');
+    assert.ok(codexStreak);
+    assert.equal(codexStreak.currentStreak, 1);
+    assert.equal(codexStreak.maxStreak, 1);
+  });
+
+  it('ignores connector-sourced messages even when catId is null', () => {
+    const msgs = [
+      msg('1', ['codex'], '2026-03-10T02:00:00Z', null, '@codex from owner'),
+      { ...msg('2', ['codex'], '2026-03-10T03:00:00Z', null, '@codex from wechat'), source: { connector: 'wechat' } },
+    ];
+
+    const result = computeMentionStats(msgs, CAT_NAMES, 'all');
+
+    assert.deepEqual(
+      result.favoriteCat.map((c) => ({ catId: c.catId, count: c.count })),
+      [{ catId: 'codex', count: 1 }],
+    );
+
+    assert.deepEqual(
+      result.nightOwl.map((c) => ({ catId: c.catId, count: c.count })),
+      [{ catId: 'codex', count: 1 }],
+    );
+  });
 });
