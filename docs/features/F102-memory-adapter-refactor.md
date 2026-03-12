@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F102: 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -211,18 +211,18 @@ CREATE TABLE schema_version (
 ## Acceptance Criteria
 
 ### Phase A（6 接口 + SQLite 基座 + 解耦）
-- [ ] AC-A1: 六个接口定义（`IIndexBuilder` + `IEvidenceStore` + `IMarkerQueue` + `IMaterializationService` + `IReflectionService` + `IKnowledgeResolver`），不含 Hindsight 术语
-- [ ] AC-A2: `SqliteProjectMemory` 实现 `IEvidenceStore`，使用 `evidence_docs`（常规表）+ `evidence_fts`（FTS5 外部内容表）+ WAL 模式
-- [ ] AC-A3: `HindsightEvidenceStore` 实现 `IEvidenceStore`（legacy 兼容）
-- [ ] AC-A4: 所有路由通过 DI 注入接口，不直接 import HindsightClient
-- [ ] AC-A5: `ReflectionService` 独立实现，不在 `IEvidenceStore` 接口内
-- [ ] AC-A6: `retain-memory` callback 写入 markers（状态 `captured`），approved marker 必须先 materialize 到 .md 才算沉淀
-- [ ] AC-A7: Factory 函数按配置选择实现（`EVIDENCE_STORE_TYPE=sqlite|hindsight`）
-- [ ] AC-A8: edges 表支持文档间关系查询（含 `supersedes`/`invalidates` 关系，1-hop expand）
-- [ ] AC-A9: `KnowledgeResolver` 联邦检索两个同质 SQLite index（`global_knowledge.sqlite` read-only + `evidence.sqlite` read-write），RRF rank fusion
-- [ ] AC-A10: `IIndexBuilder.rebuild()` 含 idempotent migrations + schema version + PRAGMA setup + FTS5 consistency check
-- [ ] AC-A11: `IMaterializationService` 实现 approved → .md patch → trigger reindex 流程
-- [ ] AC-A12: markers 真相源在 `docs/markers/*.yaml`（git-tracked），SQLite markers 表仅为工作缓存
+- [x] AC-A1: 六个接口定义（`IIndexBuilder` + `IEvidenceStore` + `IMarkerQueue` + `IMaterializationService` + `IReflectionService` + `IKnowledgeResolver`），不含 Hindsight 术语
+- [x] AC-A2: `SqliteProjectMemory` 实现 `IEvidenceStore`，使用 `evidence_docs`（常规表）+ `evidence_fts`（FTS5 外部内容表）+ WAL 模式
+- [x] AC-A3: `HindsightEvidenceStore` 实现 `IEvidenceStore`（legacy 兼容）
+- [ ] AC-A4: 所有路由通过 DI 注入接口，不直接 import HindsightClient — **未闭合，Phase B 闭合**
+- [x] AC-A5: `ReflectionService` 独立实现，不在 `IEvidenceStore` 接口内
+- [x] AC-A6: `retain-memory` callback 写入 markers（状态 `captured`），approved marker 必须先 materialize 到 .md 才算沉淀
+- [x] AC-A7: Factory 函数按配置选择实现（`EVIDENCE_STORE_TYPE=sqlite|hindsight`）
+- [x] AC-A8: edges 表支持文档间关系查询（含 `supersedes`/`invalidates` 关系，1-hop expand）
+- [ ] AC-A9: `KnowledgeResolver` 联邦检索两个同质 SQLite index — **project-only skeleton 完成，全局 RRF 融合 Phase B 闭合**
+- [x] AC-A10: `IIndexBuilder.rebuild()` 含 idempotent migrations + schema version + PRAGMA setup + FTS5 consistency check
+- [x] AC-A11: `IMaterializationService` 实现 approved → .md patch → trigger reindex 流程（skeleton，Phase B 完善 frontmatter 兼容）
+- [x] AC-A12: markers 真相源在 `docs/markers/*.yaml`（git-tracked），SQLite markers 表仅为工作缓存
 
 ### Phase B（自动索引 + SOP 集成 + 评测）
 - [ ] AC-B1: frontmatter 解析器，从 .md 提取 anchor/kind/status/title/summary
@@ -297,6 +297,9 @@ CREATE TABLE schema_version (
 | 2026-03-11 | 铲屎官反馈：面向终态 + 多项目 + 全局记忆跟猫走 |
 | 2026-03-11 | GPT-5.4 终态评审：Schema 拆分 + Materialization + 联邦检索（KD-5~11） |
 | 2026-03-11 | 云端 GPT Pro 咨询：打回 3 项 + 补 4 盲区 + 2 缺失接口（KD-12~18） |
+| 2026-03-12 | Phase A 实现完成：6 接口 + SQLite FTS5 + 54 tests |
+| 2026-03-12 | codex review 放行（P0 path traversal + P1 quote injection + P1 stale index 已修复） |
+| 2026-03-12 | **PR #403 merged** — Phase A ✅（AC-A4/A9 未闭合，Phase B 闭合） |
 
 ## Review Gate
 
