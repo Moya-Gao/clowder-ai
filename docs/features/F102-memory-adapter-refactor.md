@@ -35,7 +35,8 @@ Hindsight（外部记忆服务）已停用——铲屎官觉得实在难用。�
 │                  项目层（留在项目里）                       │
 │  每个项目独立的 IEvidenceStore 实例                        │
 │  ├── cat-cafe/evidence.sqlite                            │
-│  │   ├── evidence (FTS5) — feat docs, decisions, plans   │
+│  │   ├── evidence_docs — 结构化元数据（常规表）           │
+│  │   ├── evidence_fts (FTS5) — 全文搜索（title+summary） │
 │  │   ├── edges — 文档间显式关系                           │
 │  │   └── markers — candidate queue（待沉淀事项）          │
 │  ├── data-framework/evidence.sqlite                      │
@@ -46,23 +47,43 @@ Hindsight（外部记忆服务）已停用——铲屎官觉得实在难用。�
 **关键设计决策**：
 - **全局记忆** = Skills + 家规 + MEMORY.md（F100 Self-Evolution 体系，已有基础设施）
 - **项目记忆** = SQLite 数据库（`evidence.sqlite`），每个项目一个文件，物理隔离
-- **SQLite 是终态基座**：FTS5 全文搜索 + vec1 向量扩展（按需） + edges 关系表，Phase 1 建的东西 Phase N 还在
+- **SQLite 是终态基座**：FTS5 全文搜索 + SQLite vector extension（按当时稳定版本启用） + edges 关系表，Phase 1 建的东西 Phase N 还在
+- **SQLite 是编译产物，不是真相源**：真相源始终是 `docs/*.md` 文件；`evidence.sqlite` = gitignore + 启动时 rebuild；accepted marker 必须先 materialize 到稳定 source anchor（.md 文件）才算真正沉淀
+- **联邦检索**：`KnowledgeResolver` 在 service 层合并"F100 全局真相源（只读）+ 当前项目 evidence.sqlite"，全局层不写进项目库
 - 猫猫出征新项目 → 带走全局层（skills/家规/记忆），新项目自动初始化空的 `evidence.sqlite`
 
 ## What
 
 ### Phase A: IEvidenceStore 接口 + SQLite 基座 + 解耦
 
-**A1. 接口定义**：将 `IHindsightClient` 重命名为 `IEvidenceStore`，`reflect` 拆出存储层。
+**A1. 接口定义**：一个 DB，两个接口，一个服务，一个联邦检索器。
 
 ```typescript
+// 项目知识索引（编译产物，从 docs/*.md 重建）
 interface IEvidenceStore {
   search(query: string, options?: SearchOptions): Promise<EvidenceItem[]>;
   upsert(items: EvidenceItem[]): Promise<void>;
   deleteByAnchor(anchor: string): Promise<void>;
   getByAnchor(anchor: string): Promise<EvidenceItem | null>;
   health(): Promise<boolean>;
-  initialize(): Promise<void>;
+  initialize(): Promise<void>;  // idempotent migrations + schema version + PRAGMA setup
+}
+
+// 候选记忆队列（retain 不直写 evidence，先进 marker queue）
+interface IMarkerQueue {
+  submit(marker: Marker): Promise<void>;
+  list(filter?: MarkerFilter): Promise<Marker[]>;
+  transition(id: string, to: MarkerStatus): Promise<void>;
+}
+
+// 反思服务（独立于存储层，LLM 编排能力）
+interface IReflectionService {
+  reflect(query: string, context?: ReflectionContext): Promise<string>;
+}
+
+// 联邦检索：合并全局层（F100 只读）+ 项目层（evidence.sqlite）
+interface IKnowledgeResolver {
+  resolve(query: string, options?: ResolveOptions): Promise<KnowledgeResult>;
 }
 
 interface SearchOptions {
@@ -71,22 +92,32 @@ interface SearchOptions {
   keywords?: string[];
   limit?: number;
 }
+
+type MarkerStatus = 'pending' | 'proposed' | 'accepted' | 'rejected' | 'needs_review';
 ```
+
+**接口关系**：`SqliteProjectMemory` 同时实现 `IEvidenceStore` + `IMarkerQueue`（同一个 DB）。`KnowledgeResolver` 在 service 层聚合全局 + 项目结果。
 
 **A2. SQLite 存储（终态基座）**：`SqliteEvidenceStore` 实现 `IEvidenceStore`。
 
 ```sql
--- 核心证据表（FTS5 全文搜索）
-CREATE VIRTUAL TABLE evidence USING fts5(
-  anchor,          -- F042, ADR-005, session-xxx
-  kind,            -- feature/decision/plan/session/lesson
-  status,          -- active/done/archived
-  title,
-  summary,
-  keywords,
-  source_path,     -- docs/features/F042.md
-  source_hash,     -- 变更检测
-  updated_at
+-- 结构化元数据表（常规表，精确过滤 + freshness check + join）
+CREATE TABLE evidence_docs (
+  anchor TEXT PRIMARY KEY,    -- F042, ADR-005, session-xxx
+  kind TEXT NOT NULL,         -- feature/decision/plan/session/lesson
+  status TEXT NOT NULL,       -- active/done/archived
+  title TEXT NOT NULL,
+  summary TEXT,
+  keywords TEXT,              -- JSON array
+  source_path TEXT,           -- docs/features/F042.md
+  source_hash TEXT,           -- 变更检测
+  updated_at TEXT NOT NULL
+);
+
+-- 全文搜索（FTS5 外部内容表，索引 title + summary）
+CREATE VIRTUAL TABLE evidence_fts USING fts5(
+  title, summary,
+  content=evidence_docs, content_rowid=rowid
 );
 
 -- 关系表（1-hop 扩展）
@@ -101,11 +132,20 @@ CREATE TABLE edges (
 CREATE TABLE markers (
   id TEXT PRIMARY KEY,
   content TEXT NOT NULL,
-  source TEXT NOT NULL,     -- cat_id + thread_id
-  status TEXT DEFAULT 'pending',  -- pending/accepted/rejected
+  source TEXT NOT NULL,        -- cat_id + thread_id
+  status TEXT DEFAULT 'pending',  -- pending/proposed/accepted/rejected/needs_review
+  target_kind TEXT,            -- 预期 materialize 的类型
   created_at TEXT NOT NULL
 );
+
+-- Schema 版本（idempotent migration）
+CREATE TABLE schema_version (
+  version INTEGER PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
 ```
+
+**关键规则**：`accepted` marker 必须先 materialize 到稳定 source anchor（.md 文件），再由自动索引写入 `evidence_docs`。SQLite 是编译产物——rebuild 不会丢知识，因为真相源在文件系统。
 
 **A3. 路由解耦**：所有硬编码文件改为 DI 注入。
 
@@ -130,20 +170,22 @@ CREATE TABLE markers (
 
 ### Phase C: 向量增强（按需）
 
-启用 SQLite vec1 扩展，对 summary 字段生成嵌入向量，实现语义 rerank。
-**注意**：这是在同一个 `evidence.sqlite` 上加列，不是换存储——P1 合规（终态基座不变）。
+启用 SQLite vector extension（按当时稳定版本），对 summary 字段生成嵌入向量，实现语义 rerank。
+**注意**：这是在同一个 `evidence.sqlite` 上加表，不是换存储——P1 合规（终态基座不变）。
 
 ## Acceptance Criteria
 
 ### Phase A（IEvidenceStore + SQLite 基座 + 解耦）
-- [ ] AC-A1: `IEvidenceStore` 接口定义，不含 Hindsight 术语（无 bankId/recall/retain）
-- [ ] AC-A2: `SqliteEvidenceStore` 实现 `IEvidenceStore`，使用 SQLite FTS5
+- [ ] AC-A1: 四个接口定义（`IEvidenceStore` + `IMarkerQueue` + `IReflectionService` + `IKnowledgeResolver`），不含 Hindsight 术语
+- [ ] AC-A2: `SqliteProjectMemory` 实现 `IEvidenceStore` + `IMarkerQueue`，使用 `evidence_docs`（常规表）+ `evidence_fts`（FTS5 外部内容表）
 - [ ] AC-A3: `HindsightEvidenceStore` 实现 `IEvidenceStore`（legacy 兼容）
-- [ ] AC-A4: 所有路由通过 DI 注入 `IEvidenceStore`，不直接 import HindsightClient
-- [ ] AC-A5: `reflect` 拆为独立服务，不在 `IEvidenceStore` 接口内
-- [ ] AC-A6: `retain-memory` callback 写入 markers 表（candidate queue），不直写 evidence
+- [ ] AC-A4: 所有路由通过 DI 注入接口，不直接 import HindsightClient
+- [ ] AC-A5: `ReflectionService` 独立实现，不在 `IEvidenceStore` 接口内
+- [ ] AC-A6: `retain-memory` callback 写入 markers 表（candidate queue），marker accepted 必须先 materialize 到 .md 才算沉淀
 - [ ] AC-A7: Factory 函数按配置选择实现（`EVIDENCE_STORE_TYPE=sqlite|hindsight`）
 - [ ] AC-A8: edges 表支持文档间关系查询（1-hop expand）
+- [ ] AC-A9: `KnowledgeResolver` 联邦检索全局层（F100 只读）+ 项目层（evidence.sqlite）
+- [ ] AC-A10: `initialize()` 含 idempotent migrations + schema version + PRAGMA setup
 
 ### Phase B（自动索引 + SOP 集成）
 - [ ] AC-B1: frontmatter 解析器，从 .md 提取 anchor/kind/status/title/summary
@@ -154,7 +196,7 @@ CREATE TABLE markers (
 - [ ] AC-B6: 新项目初始化时自动创建空 `evidence.sqlite`
 
 ### Phase C（向量增强，按需）
-- [ ] AC-C1: SQLite vec1 扩展启用，summary 嵌入向量生成
+- [ ] AC-C1: SQLite vector extension 启用（按当时稳定版本），summary 嵌入向量生成
 - [ ] AC-C2: 语义 rerank 可选开启
 
 ## Dependencies
@@ -169,17 +211,18 @@ CREATE TABLE markers (
 | 风险 | 缓解 |
 |------|------|
 | 索引与文档不同步（stale index） | 索引记录 source_hash，检索时可选 freshness check |
-| FTS5 关键词检索精度不够 | Phase C 在同一 SQLite 上加 vec1 向量列（终态基座不变） |
-| 重蹈 retain 碎片化覆辙 | AC-A6 强制 retain 写 markers 表（candidate queue） |
-| 多项目 SQLite 文件管理复杂度 | 每项目根目录一个 evidence.sqlite，跟 git 走 |
+| FTS5 关键词检索精度不够 | Phase C 在同一 SQLite 上加向量表（终态基座不变） |
+| 重蹈 retain 碎片化覆辙 | AC-A6 强制 retain 写 markers 表 + accepted 必须 materialize 到 .md |
+| 多项目 SQLite 文件管理复杂度 | 每项目根目录一个 evidence.sqlite，gitignore + rebuild |
+| rebuild 后丢失 accepted knowledge | 不会——accepted marker 先 materialize 到 .md，SQLite 只是编译产物 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 索引自动更新的触发点：git hook vs feat-lifecycle skill vs 两者都要？ | ⬜ 倾向 feat-lifecycle（零成本集成） |
-| OQ-2 | evidence.sqlite 要不要 .gitignore？（编译产物 vs 需要版本控制） | ⬜ 倾向 gitignore + 启动时 rebuild |
-| OQ-3 | markers 表的 accepted → evidence 的审批流程：自动还是人工？ | ⬜ 待讨论 |
+| OQ-2 | ~~evidence.sqlite 要不要 .gitignore？~~ | ✅ **已决（KD-8）**：gitignore + rebuild，真相源是 .md |
+| OQ-3 | ~~markers 审批流~~ | ✅ **已决（KD-9）**：分层审批，见下 |
 
 ## Key Decisions
 
@@ -192,6 +235,10 @@ CREATE TABLE markers (
 | KD-5 | **面向终态：SQLite 为基座，不搞 JSONL 中间态** | P1 铁律——Phase N 产物 Phase N+1 还在 | 2026-03-11 |
 | KD-6 | **全局记忆跟猫走，项目记忆留在项目** | 全局=Skills/家规/MEMORY.md(F100)，项目=evidence.sqlite | 2026-03-11 |
 | KD-7 | 每项目一个 evidence.sqlite（物理隔离） | 猫出征新项目不带旧项目 feat 细节 | 2026-03-11 |
+| KD-8 | evidence.sqlite = gitignore + rebuild（编译产物不是真相源） | 真相源是 docs/*.md，rebuild 不丢知识 | 2026-03-11 |
+| KD-9 | markers 分层审批：项目内知识有 anchor+dedupe → 自动 accept；影响全局层 → needs_review 走 F100 | GPT-5.4 建议，避免全自动/全人工二选一 | 2026-03-11 |
+| KD-10 | Schema 拆分：evidence_docs（常规表）+ evidence_fts（FTS5 外部内容表） | 结构化过滤不该塞 FTS5，GPT-5.4 P1 | 2026-03-11 |
+| KD-11 | 联邦检索 KnowledgeResolver：全局层只读接入，不写进项目库 | F100 定了"不发明新沉淀库"，GPT-5.4 P1 | 2026-03-11 |
 
 ## Timeline
 
