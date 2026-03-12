@@ -168,6 +168,9 @@ created: 2026-03-11
 | OQ-3 | 是否需要警长竞选？ | ✅ 不要，用网易狼人杀标准规则（KD-9） |
 | OQ-4 | 是否有遗言阶段？ | ✅ 有（KD-10） |
 | OQ-5 | judge 模式的具体交互细节 | ⬜ v2 再设计 |
+| OQ-6 | 同一 thread 是否支持多局并发？ | ✅ 不支持，单局/thread（KD-15） |
+| OQ-7 | 断线重连 UX？ | ✅ 技术细节找 gpt52 讨论（KD-17），v1 简单刷 GameView |
+| OQ-8 | 历史战绩如何查看？ | ✅ 对接 Leaderboard F075（KD-16） |
 
 ## Key Decisions
 
@@ -187,6 +190,9 @@ created: 2026-03-11
 | KD-12 | 全屏接管布局 | 进入游戏后收掉左侧大厅+右侧状态栏，狼人杀专属全屏体验 | 2026-03-11 |
 | KD-13 | 玩家 C 方案 + 上帝 C 变体 + 夜间无泄露 | 顶部局势带+中间事件流+底部操作区；上帝加右侧 God Inspector 30%；夜间不显示行动进度数字 | 2026-03-11 |
 | KD-14 | 头像复用现有 CatAvatar 系统，不做独立管线 | 见下方「头像系统调查」，已有完整的 catId→avatar 解析链，游戏内 PlayerGrid 直接用 `/avatars/{catId}.png` + `CatAvatar.tsx` fallback | 2026-03-11 |
+| KD-15 | 同一 thread 单局，不做多局并发 | 铲屎官拍板：一个 thread 只跑一局游戏，想开新局就新 thread | 2026-03-11 |
+| KD-16 | 游戏战绩对接 Leaderboard（F075） | 所有游戏模式（狼人杀/三国杀/猜猜我是谁等）统一接入现有排行榜系统，历史战绩通过排行榜查看 | 2026-03-11 |
+| KD-17 | 技术细节（断线重连/AI策略等）找 gpt52 讨论，不找铲屎官 | 铲屎官："涉及技术你找 GPT-5.4 讨论都比我靠谱" | 2026-03-11 |
 
 ## 头像系统调查（KD-14 依据）
 
@@ -236,6 +242,8 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 日期 | 事件 |
 |------|------|
 | 2026-03-11 | 四猫讨论收敛 + 立项 + 铲屎官决策落实 |
+| 2026-03-11 | UX 设计稿完成（3屏 Pencil wireframe）+ 头像系统调查 |
+| 2026-03-11 | **Design Gate 通过**：铲屎官确认设计稿 + 补充 KD-15/16/17 |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
@@ -253,6 +261,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | **Discussion** | Thread `thread_mmmt16riklhir6e4` | 2026-03-11 四猫讨论 |
 | **Design doc** | `docs/plans/2026-02-10-f11-mode-system-design.md` | 旧 mode 设计文档 |
 | **Research** | `docs/research/2026-03-11-netease-werewolf-rules.md` | 网易狼人杀规则（实现基准） |
+| **UX Design** | `designs/f101-werewolf-game-ui.pen` | 3屏 Pencil wireframe（Player Day/Night + God View） |
 | **Avatar system** | `packages/web/src/components/CatAvatar.tsx` | 头像渲染组件（fallback 到 `/avatars/{catId}.png`） |
 | **Avatar data** | `packages/web/src/hooks/useCatData.ts` | catId→avatar 数据获取 |
 | **Mention panel** | `packages/web/src/components/ChatInputMenus.tsx:50` | @ 面板头像展示 |
