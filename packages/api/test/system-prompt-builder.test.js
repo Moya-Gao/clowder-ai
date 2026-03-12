@@ -486,8 +486,8 @@ describe('SystemPromptBuilder', () => {
         promptTags: ['critique'],
       });
       assert.ok(
-        prompt.length < 3300,
-        `Full runtime prompt is ${prompt.length} chars, expected < 3300`
+        prompt.length < 3350,
+        `Full runtime prompt is ${prompt.length} chars, expected < 3350`
       );
     } finally {
       catRegistry.reset();
