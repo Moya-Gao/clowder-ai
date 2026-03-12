@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F091: Signal Study Mode — 信号学习伴侣
 
-> **Status**: done | **Owner**: 布偶猫
+> **Status**: in-progress (Phase 5 播客增强) | **Owner**: 布偶猫
 > **Created**: 2026-03-10
 > **Completed**: 2026-03-10
 
@@ -209,6 +209,22 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-10: 砚砚(GPT-5.4) 愿景守护：**不可 close**，剩余 7 AC 待补（AC-5/6/10/12/13/17/18/19）
 - 2026-03-10: Phase 4 实现合入 main (PR #351)，22/24 AC done — codex R1→R5 五轮 review
 - 2026-03-10: 砚砚(GPT-5.4) 第二次愿景守护 → 铲屎官拍板缩 scope（AC-1 partial→done, AC-12 行为正确→done, AC-13 转出 TECH-DEBT.md TD107, AC-17 已实现→done）→ close
+- 2026-03-11: Signal Inbox 加 status tab（Inbox/已读/全部），commit `4f78ab5f` + `82135673`
+- 2026-03-11: 铲屎官发现播客功能是空壳（占位符脚本/无去重/无TTS），启动 Phase 5 播客增强
+
+## Phase 5: 播客真正可用（2026-03-11）
+
+> **Status**: in-progress | **Owner**: 布偶猫
+
+铲屎官决策（2026-03-11 17:19）：
+- **脚本生成**：用 Opus 4.5 或 4.6（ClaudeAgentService），复用文章 study thread 上下文
+- **去重**：同 article+mode 新脚本覆盖旧 artifact
+- **TTS**：接现有猫猫声线（F066 VoiceBlockSynthesizer）
+
+### Phase 5 AC
+- [ ] AC-P5-1: 播客脚本由 LLM 生成（精华版 5-8 段，深度版 15-25 段）
+- [ ] AC-P5-2: 同 article+mode 生成新播客时，覆盖旧 artifact（幂等）
+- [ ] AC-P5-3: 生成后自动 TTS 合成音频，前端可播放
 
 ## UX Wireframe 设计说明
 
