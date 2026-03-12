@@ -27,7 +27,7 @@ created: 2026-02-26
 | F055 | A2A MCP Structured Routing — targetCats 结构化路由 | spec | 布偶猫 | [F055](features/F055-a2a-mcp-structured-routing.md) |
 | F056 | Cat Café 设计语言 — 猫猫化不是猫化 | spec | 三猫 | [F056](features/F056-cat-cafe-design-language.md) |
 | F059 | Cat Café 开源计划 — 3/30 目标 | in-progress | 布偶猫 | [F059](features/F059-open-source-plan.md) |
-| F061 | Antigravity 接入 — 孟加拉猫（混血家族） | in-progress | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
+| F061 | Antigravity 接入 — 孟加拉猫（混血家族） | phase-1-done | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
 | F066 | Voice Pipeline Upgrade — Phase 4: TTS 韧性增强 | in-progress | 布偶猫 | [F066](features/F066-voice-pipeline-upgrade.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | [F069](features/F069-thread-read-state.md) |
@@ -47,3 +47,4 @@ created: 2026-02-26
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | spec | 布偶猫 | [F102](features/F102-memory-adapter-refactor.md) |
 | F103 | 猫猫独立声线 — Per-Cat Voice Identity | spec | TBD | [F103](features/F103-per-cat-voice-identity.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | [F104](features/F104-local-omni-perception.md) |
+| F105 | opencode 接入 — 金渐层（开源多模型编码猫 + OMOC） | spec | 布偶猫 | [F105](features/F105-opencode-golden-chinchilla.md) |
