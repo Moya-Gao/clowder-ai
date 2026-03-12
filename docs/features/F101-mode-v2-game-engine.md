@@ -32,13 +32,13 @@ created: 2026-03-11
 将现有 mode 从"协作流程容器"改造为"游戏系统容器"。
 
 **A1. 类型抽象改造**
-- `ModeName/ModeConfig/ModeState` 从写死 3 种协作模式 → 支持 `workflow`（legacy）+ `game` 双轨
+- **删除**旧三 mode（brainstorm/debate/dev-loop），不做兼容，面向终态开发
 - 新增 `GameDefinition`（规则集）/ `GameRuntime`（运行时状态机）/ `GameView`（视图裁剪）三层抽象
 - `seat / actor / role` 三层分离：seat=P1-Pn, actor=人类/猫/system, role=游戏角色
 
 **A2. 执行模型改造**
 - 从"用户发消息触发一轮 handler"→ 系统驱动 tick（GameEngine 自主推进夜晚/结算/投票）
-- 支持超时自动结算（夜间动作超时 → 默认动作）
+- 超时自动结算：默认 3-5 分钟，全员提交可提前进入下一阶段（不用等满时间）
 - ModeStore 从内存 Map → Redis 持久化（进程重启不丢局）
 
 **A3. 信息隔离层**
@@ -46,20 +46,24 @@ created: 2026-03-11
 - API 和 socket 只发 `GameView`（裁剪后视图），**禁止**全量 state 直出
 - `GET /mode` 和 `mode_changed` socket 按请求者身份裁剪返回
 
-**A4. 旧 mode 兼容**
-- brainstorm/debate/dev-loop 标记 `legacy workflow`
-- 前端 `/mode` 命令和 ModeStatusBar 下线旧入口
-- 保留 API 兼容（不破坏已有 thread 历史）
+**A4. 旧 mode 清理**
+- 删除 brainstorm/debate/dev-loop 的 handler、类型、路由、前端入口
+- 前端 `/mode` 命令和 ModeStatusBar 重写为游戏模式入口
+- 不做向后兼容，直接清理干净
 
 ### Phase B: 狼人杀 v1 — 首个游戏实现
 
 在 Phase A 基座上实现标准狼人杀。
 
 **B1. 规则引擎（WerewolfRuleset）**
-- 角色配置：7 人局（3 狼人 + 预言家 + 女巫 + 守卫 + 1 村民，可配置）
-- 状态机：`lobby → deal → night(action collection) → resolve → day(discuss) → vote → exile → check(win?) → end`
+- 规则基准：**网易狼人杀**（大众熟悉的版本）
+- 角色配置：可自定义（铲屎官开局时选角色组合），默认 7 人局
+- 状态机：`lobby → deal → night(action collection) → resolve → day(discuss+遗言) → vote → exile → check(win?) → end`
 - 结构化动作：`vote / attack / guard / divine / use_potion`，服务端做 phase+role+alive 校验
 - 胜负判定：狼人全灭=好人胜 / 好人≤狼人=狼人胜
+- 遗言阶段：被投票出局的玩家可发遗言
+- 无警长竞选机制（网易标准规则）
+- 投票复用现有 `cat_cafe_start_vote` 能力
 
 **B2. 法官系统（GameEngine）**
 - 纯代码实现，不走 LLM 推理
@@ -78,7 +82,12 @@ created: 2026-03-11
 - 系统 prompt 按角色注入：狼人知道队友、村民只知公开信息
 - 结构化动作通过 function call 收集，不从自然语言猜测
 
-**B5. 前端游戏 UI（与暹罗猫协作）**
+**B5. 语音模式（可选）**
+- 开局时铲屎官可选择"文字模式"或"语音模式"
+- 语音模式下：猫猫发言通过 audio rich block 输出（TTS 合成），不用文字
+- 复用 F066 Voice Pipeline（Qwen3-TTS，各猫各有声线）
+
+**B6. 前端游戏 UI（与暹罗猫协作）**
 - `PlayerGrid`：玩家阵型板（存活/出局/警长标记）
 - `PhaseTimeline`：阶段进度条
 - 翻牌仪式：interactive rich block 点击揭牌
@@ -92,7 +101,7 @@ created: 2026-03-11
 - [ ] AC-A2: GameEngine 可自主驱动 tick（不依赖用户消息），超时自动结算
 - [ ] AC-A3: Event log append-only + scope 裁剪，API/socket 只返回 GameView
 - [ ] AC-A4: ModeStore Redis 持久化，进程重启后可恢复游戏
-- [ ] AC-A5: 旧三 mode 标记 legacy，前端旧入口下线，API 兼容
+- [ ] AC-A5: 旧三 mode 代码完全删除，前端入口重写为游戏模式
 - [ ] AC-A6: 信息泄漏红线测试：不同 scope 的 actor 看不到不该看的事件
 
 ### Phase B（狼人杀 v1）
@@ -103,6 +112,7 @@ created: 2026-03-11
 - [ ] AC-B5: 非法动作被拒绝（死人不能投票、白天不能用夜间技能等）
 - [ ] AC-B6: 断线重连后可恢复游戏状态
 - [ ] AC-B7: PlayerGrid + PhaseTimeline 前端组件可用
+- [ ] AC-B8: 语音模式可选，猫猫用 audio rich block 发言
 
 ## 需求点 Checklist
 
@@ -115,6 +125,9 @@ created: 2026-03-11
 | R5 | "不同规则、不同剧本都是怎么样做的" | AC-A1 | test | [ ] |
 | R6 | "你们是需要开发一个法官" | AC-B1 | test | [ ] |
 | R7 | "开源仓有蛮多的，如何让 agent 玩起来狼人杀的" | KD-1 | — | [x] |
+| R8 | "可能需要用语音玩...开游戏的时候选择要不要让你们用语音玩" | AC-B8 | manual | [ ] |
+| R9 | "网易的狼人杀的规则，大家知道的多" | AC-B1 | test | [ ] |
+| R10 | "允许你们说遗言" | AC-B1 | test | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -125,6 +138,7 @@ created: 2026-03-11
 
 - **Evolved from**: F011（模式系统 v1 — brainstorm/debate/dev-loop）
 - **Related**: F086（Cat Orchestration — multi_mention 可复用于游戏内猫猫协作）
+- **Related**: F066（Voice Pipeline — 语音模式复用 TTS 能力）
 
 ## Risk
 
@@ -132,7 +146,7 @@ created: 2026-03-11
 |------|------|
 | 信息隔离不严导致"作弊" | 服务端 scope 裁剪 + 红线测试（AC-A6, AC-B4） |
 | 猫猫 LLM 不遵守游戏规则（自然语言泄露身份） | 结构化动作强制 function call，发言内容由 LLM 自主但不影响结算 |
-| 执行模型改造影响旧 mode | 双轨设计，旧 mode 走 legacy 路径不受影响（AC-A5） |
+| 删除旧 mode 影响现有 thread | 旧 mode 几乎没人用，直接清理 |
 | 游戏状态丢失（进程重启） | Redis 持久化 + append-only event log 可重放（AC-A4, AC-B6） |
 | 前端复杂度高 | Phase B5 与暹罗猫协作，先组件化再组合 |
 
@@ -140,11 +154,11 @@ created: 2026-03-11
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 狼人杀的具体角色配置（几狼几神几民）是否需要铲屎官可自定义？ | ⬜ 未定 |
-| OQ-2 | 夜间动作超时时间多少合适？猫猫 vs 人类是否不同？ | ⬜ 未定 |
-| OQ-3 | 是否需要"警长竞选"机制？v1 还是 v2？ | ⬜ 未定 |
-| OQ-4 | 死亡玩家是否有遗言阶段？ | ⬜ 未定 |
-| OQ-5 | judge 模式的具体交互细节（v2 再设计） | ⬜ 未定 |
+| OQ-1 | 角色配置是否可自定义？ | ✅ 是，铲屎官开局可选（KD-7） |
+| OQ-2 | 夜间动作超时时间？ | ✅ 3-5 分钟，全员提交可提前（KD-8） |
+| OQ-3 | 是否需要警长竞选？ | ✅ 不要，用网易狼人杀标准规则（KD-9） |
+| OQ-4 | 是否有遗言阶段？ | ✅ 有（KD-10） |
+| OQ-5 | judge 模式的具体交互细节 | ⬜ v2 再设计 |
 
 ## Key Decisions
 
@@ -155,7 +169,12 @@ created: 2026-03-11
 | KD-3 | 信息隔离 = 服务端 scoped event log + 视图裁剪 | 前端子 Thread 只做 UX 呈现，真相源在 server | 2026-03-11 |
 | KD-4 | seat/actor/role 三层分离 | seat=位置, actor=实体(人/猫), role=游戏角色，让人类和猫在架构上完全对称 | 2026-03-11 |
 | KD-5 | v1 只做 player + god-view，judge 放 v2 | judge 模式 scope 翻倍，v1 先跑通核心 | 2026-03-11 |
-| KD-6 | 旧三 mode 标记 legacy，不删除 | 保留 API 兼容和 thread 历史 | 2026-03-11 |
+| KD-6 | 旧三 mode **直接删除**，不做兼容 | 铲屎官拍板：面向终态开发，垃圾清掉 | 2026-03-11 |
+| KD-7 | 角色配置可自定义 | 铲屎官开局选角色组合，默认 7 人局 | 2026-03-11 |
+| KD-8 | 超时 3-5 分钟，全员提交可提前进入下阶段 | 猫猫推理慢（几秒不够），但全员完成不用空等 | 2026-03-11 |
+| KD-9 | 网易狼人杀规则，无警长竞选 | 大家都熟悉的规则 | 2026-03-11 |
+| KD-10 | 有遗言阶段 | 铲屎官确认 | 2026-03-11 |
+| KD-11 | 语音模式可选 | 开局选文字/语音，语音模式猫猫用 audio rich block 发言 | 2026-03-11 |
 
 ## Timeline
 
