@@ -458,20 +458,29 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "B8jOH",
-                  "name": "s1av",
-                  "content": "🐱",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "CE5zl",
+                  "name": "av1",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/owner.jpg",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#0A0F1C"
+                  }
                 },
                 {
                   "type": "text",
                   "id": "zTiil",
                   "name": "s1nm",
                   "fill": "#22D3EE",
-                  "content": "P1 你",
+                  "content": "P1 铲屎官",
                   "fontFamily": "Inter",
                   "fontSize": 9,
                   "fontWeight": "600"
@@ -502,13 +511,22 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "5g4EA",
-                  "name": "s2av",
-                  "content": "🐱",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "UPBxh",
+                  "name": "av2",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/opus.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#22D3EE"
+                  }
                 },
                 {
                   "type": "text",
@@ -546,13 +564,22 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "mPYzm",
-                  "name": "s3av",
-                  "content": "🐱",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "Icj8J",
+                  "name": "av3",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/codex.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#0A0F1C"
+                  }
                 },
                 {
                   "type": "text",
@@ -590,13 +617,22 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "QGK2b",
-                  "name": "s4av",
-                  "content": "🐱",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "9ZNZ4",
+                  "name": "av4",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/gemini.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#0A0F1C"
+                  }
                 },
                 {
                   "type": "text",
@@ -634,20 +670,29 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "yr0fG",
-                  "name": "s5av",
-                  "content": "🐱",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "4HR2Q",
+                  "name": "av5",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/gpt52.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#0A0F1C"
+                  }
                 },
                 {
                   "type": "text",
                   "id": "4gwOm",
                   "name": "s5nm",
                   "fill": "#94A3B8",
-                  "content": "P5",
+                  "content": "P5 砚-GPT",
                   "fontFamily": "Inter",
                   "fontSize": 9,
                   "fontWeight": "600"
@@ -679,20 +724,29 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "qYTdv",
-                  "name": "s6av",
-                  "content": "💀",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "DChGv",
+                  "name": "av6",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/dare.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#0A0F1C"
+                  }
                 },
                 {
                   "type": "text",
                   "id": "mCynI",
                   "name": "s6nm",
                   "fill": "#64748B",
-                  "content": "P6",
+                  "content": "P6 Dare",
                   "fontFamily": "Inter",
                   "fontSize": 9,
                   "fontWeight": "600"
@@ -723,20 +777,29 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "L5tTM",
-                  "name": "s7av",
-                  "content": "🐱",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "YhTwC",
+                  "name": "av7",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/antigravity.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#0A0F1C"
+                  }
                 },
                 {
                   "type": "text",
                   "id": "NaRVY",
                   "name": "s7nm",
                   "fill": "#94A3B8",
-                  "content": "P7",
+                  "content": "P7 AG",
                   "fontFamily": "Inter",
                   "fontSize": 9,
                   "fontWeight": "600"
@@ -767,20 +830,29 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "2uO6h",
-                  "name": "s8av",
-                  "content": "🐱",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "FZoDO",
+                  "name": "av8",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/opus-45.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#0A0F1C"
+                  }
                 },
                 {
                   "type": "text",
                   "id": "VOcn3",
                   "name": "s8nm",
                   "fill": "#94A3B8",
-                  "content": "P8",
+                  "content": "P8 宪-45",
                   "fontFamily": "Inter",
                   "fontSize": 9,
                   "fontWeight": "600"
@@ -811,20 +883,29 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "zlxUB",
-                  "name": "s9av",
-                  "content": "🐱",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "normal"
+                  "type": "frame",
+                  "id": "VkZ1k",
+                  "name": "av9",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "../packages/web/public/avatars/gemini25.png",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": 14,
+                  "stroke": {
+                    "thickness": 2,
+                    "fill": "#0A0F1C"
+                  }
                 },
                 {
                   "type": "text",
                   "id": "u74bb",
                   "name": "s9nm",
                   "fill": "#94A3B8",
-                  "content": "P9",
+                  "content": "P9 烁-25",
                   "fontFamily": "Inter",
                   "fontSize": 9,
                   "fontWeight": "600"
@@ -981,7 +1062,8 @@
                   "content": "我昨晚查验了 P4，他是好人。我建议大家集中票数在 P7 或 P8 身上，我有理由怀疑他们其中一个是狼人。",
                   "lineHeight": 1.5,
                   "fontFamily": "Inter",
-                  "fontSize": 13
+                  "fontSize": 13,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1038,7 +1120,8 @@
                   "content": "我同意 P2 的分析。P7 昨天的发言逻辑混乱，而且一直在带节奏。",
                   "lineHeight": 1.5,
                   "fontFamily": "Inter",
-                  "fontSize": 13
+                  "fontSize": 13,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1094,7 +1177,8 @@
                   "width": "fill_container",
                   "content": "等待发言中...",
                   "fontFamily": "Inter",
-                  "fontSize": 13
+                  "fontSize": 13,
+                  "fontWeight": "normal"
                 }
               ]
             }
@@ -1161,7 +1245,8 @@
                   "fill": "#475569",
                   "content": "输入发言内容...",
                   "fontFamily": "Inter",
-                  "fontSize": 13
+                  "fontSize": 13,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1437,7 +1522,8 @@
                   "fill": "#475569",
                   "content": "夜幕降临，各角色正在行动...",
                   "fontFamily": "Inter",
-                  "fontSize": 14
+                  "fontSize": 14,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1512,13 +1598,22 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "JdC0W",
-                          "name": "tg1a",
-                          "content": "🐱",
-                          "fontFamily": "Inter",
-                          "fontSize": 18,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "wzeIr",
+                          "name": "t1av",
+                          "width": 24,
+                          "height": 24,
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "../packages/web/public/avatars/opus.png",
+                            "mode": "fill"
+                          },
+                          "cornerRadius": 12,
+                          "stroke": {
+                            "thickness": 2,
+                            "fill": "#22D3EE"
+                          }
                         },
                         {
                           "type": "text",
@@ -1546,13 +1641,18 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "KOPlf",
-                          "name": "tg2a",
-                          "content": "🐱",
-                          "fontFamily": "Inter",
-                          "fontSize": 18,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "LagW2",
+                          "name": "t2av",
+                          "width": 24,
+                          "height": 24,
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "../packages/web/public/avatars/codex.png",
+                            "mode": "fill"
+                          },
+                          "cornerRadius": 12
                         },
                         {
                           "type": "text",
@@ -1580,13 +1680,18 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "U3ubl",
-                          "name": "tg3a",
-                          "content": "🐱",
-                          "fontFamily": "Inter",
-                          "fontSize": 18,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "vgPbr",
+                          "name": "t3av",
+                          "width": 24,
+                          "height": 24,
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "../packages/web/public/avatars/gemini.png",
+                            "mode": "fill"
+                          },
+                          "cornerRadius": 12
                         },
                         {
                           "type": "text",
@@ -1614,20 +1719,25 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "hThfl",
-                          "name": "tg4a",
-                          "content": "🐱",
-                          "fontFamily": "Inter",
-                          "fontSize": 18,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "1MfSR",
+                          "name": "t4av",
+                          "width": 24,
+                          "height": 24,
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "../packages/web/public/avatars/gpt52.png",
+                            "mode": "fill"
+                          },
+                          "cornerRadius": 12
                         },
                         {
                           "type": "text",
                           "id": "lkPiJ",
                           "name": "tg4n",
                           "fill": "#94A3B8",
-                          "content": "P5",
+                          "content": "P5 砚-GPT",
                           "fontFamily": "Inter",
                           "fontSize": 8,
                           "fontWeight": "600"
@@ -1649,20 +1759,26 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "d4S84",
-                          "name": "tg5a",
-                          "content": "💀",
-                          "fontFamily": "Inter",
-                          "fontSize": 18,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "SXqiD",
+                          "name": "t5av",
+                          "opacity": 0.5,
+                          "width": 24,
+                          "height": 24,
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "../packages/web/public/avatars/dare.png",
+                            "mode": "fill"
+                          },
+                          "cornerRadius": 12
                         },
                         {
                           "type": "text",
                           "id": "OuSum",
                           "name": "tg5n",
                           "fill": "#64748B",
-                          "content": "P6 死亡",
+                          "content": "P6 Dare",
                           "fontFamily": "Inter",
                           "fontSize": 8,
                           "fontWeight": "500"
@@ -1683,20 +1799,25 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "sC7WB",
-                          "name": "tg6a",
-                          "content": "🐱",
-                          "fontFamily": "Inter",
-                          "fontSize": 18,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "RzzeK",
+                          "name": "t6av",
+                          "width": 24,
+                          "height": 24,
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "../packages/web/public/avatars/antigravity.png",
+                            "mode": "fill"
+                          },
+                          "cornerRadius": 12
                         },
                         {
                           "type": "text",
                           "id": "54p9W",
                           "name": "tg6n",
                           "fill": "#94A3B8",
-                          "content": "P7",
+                          "content": "P7 AG",
                           "fontFamily": "Inter",
                           "fontSize": 8,
                           "fontWeight": "600"
@@ -1717,20 +1838,25 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "HUsEl",
-                          "name": "tg7a",
-                          "content": "🐱",
-                          "fontFamily": "Inter",
-                          "fontSize": 18,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "E4PYh",
+                          "name": "t7av",
+                          "width": 24,
+                          "height": 24,
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "../packages/web/public/avatars/opus-45.png",
+                            "mode": "fill"
+                          },
+                          "cornerRadius": 12
                         },
                         {
                           "type": "text",
                           "id": "r1Wt2",
                           "name": "tg7n",
                           "fill": "#94A3B8",
-                          "content": "P8",
+                          "content": "P8 宪-45",
                           "fontFamily": "Inter",
                           "fontSize": 8,
                           "fontWeight": "600"
@@ -1751,20 +1877,25 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "zxZDD",
-                          "name": "tg8a",
-                          "content": "🐱",
-                          "fontFamily": "Inter",
-                          "fontSize": 18,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "ICT9A",
+                          "name": "t8av",
+                          "width": 24,
+                          "height": 24,
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "../packages/web/public/avatars/gemini25.png",
+                            "mode": "fill"
+                          },
+                          "cornerRadius": 12
                         },
                         {
                           "type": "text",
                           "id": "W0MO9",
                           "name": "tg8n",
                           "fill": "#94A3B8",
-                          "content": "P9",
+                          "content": "P9 烁-25",
                           "fontFamily": "Inter",
                           "fontSize": 8,
                           "fontWeight": "600"
@@ -1806,7 +1937,8 @@
                   "content": "选择一名玩家查验其身份（好人/狼人）",
                   "textAlign": "center",
                   "fontFamily": "Inter",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             }
@@ -2862,7 +2994,8 @@
                           "fill": "#475569",
                           "content": "→ 守护 P2",
                           "fontFamily": "JetBrains Mono",
-                          "fontSize": 10
+                          "fontSize": 10,
+                          "fontWeight": "normal"
                         }
                       ]
                     },
@@ -2901,7 +3034,8 @@
                           "fill": "#475569",
                           "content": "→ 刀 P4",
                           "fontFamily": "JetBrains Mono",
-                          "fontSize": 10
+                          "fontSize": 10,
+                          "fontWeight": "normal"
                         }
                       ]
                     },
@@ -2940,7 +3074,8 @@
                           "fill": "#475569",
                           "content": "→ 查 P7 (狼人)",
                           "fontFamily": "JetBrains Mono",
-                          "fontSize": 10
+                          "fontSize": 10,
+                          "fontWeight": "normal"
                         }
                       ]
                     },
@@ -2979,7 +3114,8 @@
                           "fill": "#F59E0B",
                           "content": "等待行动...",
                           "fontFamily": "JetBrains Mono",
-                          "fontSize": 10
+                          "fontSize": 10,
+                          "fontWeight": "normal"
                         }
                       ]
                     },
@@ -3018,7 +3154,8 @@
                           "fill": "#475569",
                           "content": "待执行",
                           "fontFamily": "JetBrains Mono",
-                          "fontSize": 10
+                          "fontSize": 10,
+                          "fontWeight": "normal"
                         }
                       ]
                     }
