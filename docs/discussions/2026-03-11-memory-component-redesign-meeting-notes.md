@@ -83,6 +83,68 @@ thread_id: thread_mmmsovftp3gitjm9
 | 2 | 写实施计划（Adapter 接口 + LocalIndexStore + 路由解耦） | opus | 铲屎官确认 |
 | 3 | Phase 2 选型 Deep Research（Orama vs MiniSearch vs SQLite FTS5 vs Mem0） | opus + gpt52 | Phase 1 跑出真实缺口后 |
 
+---
+
+## 第二轮：铲屎官反馈 + GPT-5.4 终态评审（19:36-19:53）
+
+### 铲屎官反馈（19:36, 19:39）
+
+1. **P1 面向终态**：JSONL 是脚手架，违反家规"Phase N 的产物在 Phase N+1 还在吗？不在=绕路"。直接上 SQLite FTS5 作为终态基座。
+2. **多项目扩展**：猫猫未来出征其他项目（Data Framework 等），架构必须支持 1000+ docs。
+3. **全局记忆跟猫走**：确认方案 C — 全局层 = Skills + 家规 + MEMORY.md（F100 体系），项目层 = evidence.sqlite（每项目一个，物理隔离）。
+
+### GPT-5.4 终态评审（19:46）
+
+三个 P1 全部被采纳：
+
+**P1-1: Schema 拆分**
+- 结构化元数据不该塞 FTS5 → 拆成 `evidence_docs`（常规表）+ `evidence_fts`（FTS5 外部内容表）
+- 理由：精确过滤、freshness check、join、schema migration、向量列扩展都更顺
+
+**P1-2: Materialization 规则**
+- SQLite = 编译产物（gitignore + rebuild），不是真相源
+- `accepted` marker 必须先 materialize 到稳定 source anchor（.md 文件）才算沉淀
+- 否则 rebuild 会丢 accepted knowledge，违反 P1/P4
+
+**P1-3: 联邦检索**
+- F100 定了"不发明新沉淀库，路由到现有真相源"
+- 新增 `KnowledgeResolver` 在 service 层合并 F100 全局真相源（只读）+ 项目 evidence.sqlite
+- 全局层不写进项目库
+
+**接口拆分**（收敛版）：一个 DB，两个接口，一个服务，一个联邦检索器
+- `SqliteProjectMemory` 同时实现 `IEvidenceStore` + `IMarkerQueue`
+- `IReflectionService` 独立
+- `IKnowledgeResolver` 联邦检索全局 + 项目
+
+**Markers 状态流**：`pending → proposed → accepted | rejected | needs_review`
+- 项目内知识有 anchor + dedupe + confidence 过线 → 自动 accept
+- 影响全局层（身份/偏好/方法论）→ `needs_review`，走 F100 真相源
+
+### 新增 Key Decisions（KD-5 ~ KD-11）
+
+| # | 决策 | 日期 |
+|---|------|------|
+| KD-5 | 面向终态：SQLite 为基座，不搞 JSONL 中间态 | 2026-03-11 |
+| KD-6 | 全局记忆跟猫走，项目记忆留在项目 | 2026-03-11 |
+| KD-7 | 每项目一个 evidence.sqlite（物理隔离） | 2026-03-11 |
+| KD-8 | evidence.sqlite = gitignore + rebuild | 2026-03-11 |
+| KD-9 | markers 分层审批（自动/needs_review） | 2026-03-11 |
+| KD-10 | Schema 拆分：evidence_docs + evidence_fts | 2026-03-11 |
+| KD-11 | 联邦检索 KnowledgeResolver | 2026-03-11 |
+
+---
+
+## 第三轮：铲屎官要求找云端 GPT Pro 讨论（19:58）
+
+铲屎官反馈：技术决策太多（markers 表等概念没交代清楚），要求：
+1. 把上下文交代清楚
+2. 加载 deep-research skill，找云端 GPT Pro 讨论技术决策
+3. 把增量讨论都更新到 markdown 文档（本纪要）
+
+待完成：云端 GPT Pro 讨论结果回填。
+
+---
+
 ## 外部参考（三猫汇总）
 
 **学术**:
