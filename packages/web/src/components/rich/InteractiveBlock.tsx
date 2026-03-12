@@ -135,7 +135,7 @@ function SelectInteraction({
             type="text"
             value={customText}
             onChange={(e) => setCustomText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && customText.trim()) handleSubmit(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && customText.trim()) handleSubmit(); }}
             placeholder={pendingOpt?.customInputPlaceholder ?? '输入你的想法...'}
             className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"
             autoFocus
