@@ -232,15 +232,16 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 - 测试：15 tests（callback-state 8 + callback-env-check 6 + bootcamp-flow 1）
 - Review：缅因猫 3 轮 review（P1 跨线程写入 + P1 default bypass + P2 stale guard）
 
-### Phase C: 前端联调 + 运行时编排（待实施）
+### Phase C: 运行时编排 ✅ (PR #386, `725a24bc`)
 
-- [ ] Phase 0: 引导猫选择的 Interactive Rich Block 渲染 + 回调处理
-- [ ] Phase 1: 三猫轮流自我介绍（multi_mention 编排）
-- [ ] Phase 2-3: env-check 调用 + 猫猫主动帮用户排障
-- [ ] Phase 3.5: 进阶功能引导（检测 → 建议 → 跳过）
-- [ ] Phase 4: 任务选择 Interactive Rich Block 渲染 + 回调处理
-- [ ] Phase 5-10: 真实 feat lifecycle 编排（CVO 决策时刻标记）
-- [ ] Phase 11: 告别 + pinned + 持续帮助入口
+**交付物**：
+- `SystemPromptBuilder.ts`: `threadId` 注入 bootcamp prompt（猫猫可调 MCP 工具）
+- `route-parallel.ts` / `route-serial.ts`: 传递 `threadId` alongside `bootcampState`
+- `callback-bootcamp-routes.ts`: `phase-11-farewell` 自动 pin thread
+- `bootcamp-guide/SKILL.md`: 全面重写（threadId 来源 + 完整 phase 编排指南）
+- `tool-registration.test.js`: 补上 2 个 bootcamp 工具到 guard 列表
+- 测试：API 3814 pass、MCP 54/54 pass
+- Review：缅因猫 1 轮放行（0 P1/P2）+ 云端 Codex 放行
 
 ### Phase D: 成就接入（依赖 F075）
 
