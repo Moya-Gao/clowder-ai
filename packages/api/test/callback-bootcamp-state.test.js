@@ -263,4 +263,33 @@ describe('Callback Bootcamp State', () => {
     const after = await threadStore.get(thread.id);
     assert.equal(after.bootcampState.phase, 'phase-0-select-cat');
   });
+
+  test('auto-pins thread when advancing to phase-11-farewell', async () => {
+    const app = await createApp();
+    const thread = await threadStore.create('user-1', '🎓 训练营');
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    await threadStore.updateBootcampState(thread.id, {
+      v: 1,
+      phase: 'phase-10-retro',
+      leadCat: 'opus',
+      startedAt: 1000,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/update-bootcamp-state',
+      payload: {
+        invocationId,
+        callbackToken,
+        threadId: thread.id,
+        phase: 'phase-11-farewell',
+        completedAt: Date.now(),
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const after = await threadStore.get(thread.id);
+    assert.equal(after.bootcampState.phase, 'phase-11-farewell');
+    assert.equal(after.pinned, true, 'Thread should be auto-pinned on farewell');
+  });
 });

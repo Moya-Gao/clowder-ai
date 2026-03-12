@@ -174,5 +174,9 @@ describe('Bootcamp Flow Integration', () => {
     assert.equal(s6.bootcampState.startedAt, 1000);
     assert.ok(s6.bootcampState.envCheck);
     assert.equal(s6.bootcampState.advancedFeatures.tts, 'skipped');
+
+    // Verify thread was auto-pinned on farewell
+    const finalThread = await threadStore.get(thread.id);
+    assert.equal(finalThread.pinned, true, 'Thread should be auto-pinned after farewell');
   });
 });

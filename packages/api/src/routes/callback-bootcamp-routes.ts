@@ -100,6 +100,12 @@ export function registerCallbackBootcampRoutes(
     if (updates.completedAt !== undefined) raw['completedAt'] = updates.completedAt;
 
     await threadStore.updateBootcampState(threadId, raw as unknown as BootcampStateV1);
+
+    // Auto-pin thread when bootcamp reaches farewell phase
+    if (updates.phase === 'phase-11-farewell') {
+      await threadStore.updatePin(threadId, true);
+    }
+
     const updated = await threadStore.get(threadId);
     return { bootcampState: updated?.bootcampState };
   });

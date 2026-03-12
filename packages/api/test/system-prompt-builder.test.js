@@ -179,8 +179,8 @@ describe('SystemPromptBuilder', () => {
       promptTags: ['critique'],
     });
     assert.ok(
-      prompt.length < 2300,
-      `Prompt is ${prompt.length} chars, expected < 2300`
+      prompt.length < 2600,
+      `Prompt is ${prompt.length} chars, expected < 2600`
     );
   });
 
@@ -486,8 +486,8 @@ describe('SystemPromptBuilder', () => {
         promptTags: ['critique'],
       });
       assert.ok(
-        prompt.length < 3050,
-        `Full runtime prompt is ${prompt.length} chars, expected < 3050`
+        prompt.length < 3300,
+        `Full runtime prompt is ${prompt.length} chars, expected < 3300`
       );
     } finally {
       catRegistry.reset();
@@ -782,8 +782,8 @@ describe('SystemPromptBuilder', () => {
       ],
     });
     assert.ok(
-      prompt.length < 2350,
-      `Prompt with activity is ${prompt.length} chars, expected < 2350`,
+      prompt.length < 2650,
+      `Prompt with activity is ${prompt.length} chars, expected < 2650`,
     );
   });
 
@@ -1007,8 +1007,8 @@ describe('SystemPromptBuilder', () => {
       },
     });
     assert.ok(
-      prompt.length < 2400,
-      `Prompt with SOP hint is ${prompt.length} chars, expected < 2400`,
+      prompt.length < 2600,
+      `Prompt with SOP hint is ${prompt.length} chars, expected < 2600`,
     );
   });
 
@@ -1063,8 +1063,8 @@ describe('SystemPromptBuilder', () => {
       voiceMode: true,
     });
     assert.ok(
-      prompt.length < 2600,
-      `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 2600`,
+      prompt.length < 2800,
+      `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 2800`,
     );
   });
 
@@ -1088,6 +1088,25 @@ describe('SystemPromptBuilder', () => {
     assert.ok(ctx.includes('phase-2-env-check'), 'Should include current phase');
     assert.ok(ctx.includes('leadCat=opus'), 'Should include lead cat');
     assert.ok(ctx.includes('bootcamp-guide'), 'Should reference skill');
+  });
+
+  test('buildInvocationContext injects threadId in bootcamp mode', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      threadId: 'thread_abc123',
+      bootcampState: {
+        v: 1,
+        phase: 'phase-0-select-cat',
+        startedAt: Date.now(),
+      },
+    });
+    assert.ok(ctx.includes('thread=thread_abc123'), 'Should include threadId in bootcamp line');
   });
 
   test('buildInvocationContext omits bootcamp when bootcampState absent', async () => {

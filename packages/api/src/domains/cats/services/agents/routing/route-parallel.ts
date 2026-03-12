@@ -132,7 +132,7 @@ export async function* routeParallel(
 	      ...(sopStageHint ? { sopStageHint } : {}),
 	      ...(activeSignals ? { activeSignals } : {}),
 	      ...(voiceMode ? { voiceMode } : {}),
-	      ...(bootcampState ? { bootcampState } : {}),
+	      ...(bootcampState ? { bootcampState, threadId } : {}),
 	    });
 
     const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);

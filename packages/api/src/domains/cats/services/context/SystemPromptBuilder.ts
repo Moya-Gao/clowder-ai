@@ -92,6 +92,10 @@ export interface InvocationContext {
    */
   voiceMode?: boolean;
   /**
+   * Thread ID — injected for tools that need it (e.g. bootcamp state updates).
+   */
+  threadId?: string;
+  /**
    * F087: Bootcamp state for CVO onboarding threads.
    * When present, cats inject bootcamp-guide behavior per phase.
    */
@@ -522,8 +526,9 @@ export function buildInvocationContext(context: InvocationContext): string {
   // F087: Bootcamp mode — inject phase context so cats know to guide the new CVO
   if (context.bootcampState) {
     const { phase, leadCat, selectedTaskId } = context.bootcampState;
+    const threadPart = context.threadId ? ` thread=${context.threadId}` : '';
     lines.push(
-      `🎓 Bootcamp Mode: phase=${phase}${leadCat ? ` leadCat=${leadCat}` : ''}${selectedTaskId ? ` task=${selectedTaskId}` : ''}`,
+      `🎓 Bootcamp Mode:${threadPart} phase=${phase}${leadCat ? ` leadCat=${leadCat}` : ''}${selectedTaskId ? ` task=${selectedTaskId}` : ''}`,
       '→ Load bootcamp-guide skill and act per current phase.',
       '',
     );

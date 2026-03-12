@@ -35,6 +35,9 @@ const EXPECTED_TOOLS = [
   // Permission tools (this is the regression guard)
   'cat_cafe_request_permission',
   'cat_cafe_check_permission_status',
+  // Bootcamp tools (F087)
+  'cat_cafe_update_bootcamp_state',
+  'cat_cafe_bootcamp_env_check',
   // Callback-scoped memory tools
   'cat_cafe_search_evidence_callback',
   'cat_cafe_reflect_callback',
@@ -82,6 +85,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_update_workflow',
   'cat_cafe_multi_mention',
   'cat_cafe_start_vote',
+  'cat_cafe_update_bootcamp_state',
+  'cat_cafe_bootcamp_env_check',
 ];
 
 const EXPECTED_MEMORY_TOOLS = [

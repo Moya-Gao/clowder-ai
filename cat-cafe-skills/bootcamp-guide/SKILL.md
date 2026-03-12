@@ -19,6 +19,10 @@ triggers:
 
 **重要**：这是他们第一次和 AI 猫猫协作开发！多用鼓励，少用术语。
 
+## 核心约束
+
+**threadId**：从系统注入的 `🎓 Bootcamp Mode: thread={threadId}` 中读取。所有 MCP 工具调用都需要这个 threadId。
+
 ## 工具速查
 
 | 动作 | MCP 工具 |
@@ -30,17 +34,21 @@ triggers:
 
 ## Phase 驱动行为
 
-当前 Phase 从 thread.bootcampState.phase 读取（SystemPromptBuilder 注入）。
+当前 Phase 从系统注入的 `🎓 Bootcamp Mode: thread=... phase=...` 读取。
 每完成一个 Phase，用 `cat_cafe_update_bootcamp_state` 推进到下一个 Phase。
 
 ### Phase 0: 选引导猫 (phase-0-select-cat)
 
-1. 用 `cat_cafe_create_rich_block` 发送引导猫选择卡片：
+1. 欢迎用户，简短说明训练营是什么
+2. 用 `cat_cafe_create_rich_block` 发送引导猫选择卡片（先调 `get_rich_block_rules` 确认字段要求）：
    - `kind: 'interactive'`, `interactiveType: 'card-grid'`
-   - 三选项：宪宪(opus)、砚砚(codex)、烁烁(gemini) + `allowRandom: true`
-   - 参考 `bootcamp-blocks.ts` 中的 `catSelectionBlock` 定义
-2. 用户选完后（收到文本消息如"我选 宪宪 当我的引导猫"）：
-   - 调用 `cat_cafe_update_bootcamp_state(threadId, phase='phase-1-intro', leadCat='opus')`
+   - `id: 'bootcamp-cat-select'`
+   - `title: '选一只猫猫当你的主引导！'`
+   - 三选项：宪宪(opus) / 砚砚(codex) / 烁烁(gemini)
+   - `allowRandom: true`
+3. 用户选完后（收到文本消息如"我选 宪宪 当我的引导猫"）：
+   - 从消息文本判断选了哪只猫 → 对应 catId: opus/codex/gemini
+   - 调用 `cat_cafe_update_bootcamp_state(threadId, phase='phase-1-intro', leadCat='{catId}')`
 
 ### Phase 1: 猫猫天团自我介绍 (phase-1-intro)
 
@@ -56,11 +64,11 @@ triggers:
 ### Phase 2: 环境检测 (phase-2-env-check)
 
 1. 调用 `cat_cafe_bootcamp_env_check(threadId)` — 自动检测并存储结果
-2. 将结果用 Rich Block checklist 展示：
-   - ✅ 已就绪的项（绿色）
-   - ⚠️ 需要安装的项（黄色，给出安装命令）
-   - ❌ 缺失的项（红色，给出解决方案）
-3. 全部 OK → 跳到 Phase 3.5；有问题 → 进 Phase 3
+2. 将结果用友好的格式展示：
+   - ✅ 已就绪的项
+   - ⚠️ 需要安装的项（给出安装命令）
+   - ❌ 缺失的项（给出解决方案）
+3. 全部核心项 OK → 跳到 Phase 3.5；有问题 → 进 Phase 3
 
 ### Phase 3: 配置帮助 (phase-3-config-help)
 
@@ -71,29 +79,31 @@ triggers:
 ### Phase 3.5: 进阶功能引导 (phase-3.5-advanced)
 
 环境检测结果已包含 TTS/ASR/Pencil 状态，根据结果引导：
-1. **TTS**：ok=true → "你已经有 TTS 了！" / ok=false → 推荐 Kokoro-82M
-2. **ASR**：ok=true → "语音识别已就绪" / ok=false → 推荐 Whisper
-3. **Pencil**：ok=false → "需要 Antigravity IDE"
+1. **TTS**：ok=true → "你已经有 TTS 了！" / ok=false → 推荐 Kokoro-82M（`mlx-community/Kokoro-82M-bf16`）
+2. **ASR**：ok=true → "语音识别已就绪" / ok=false → 推荐 Whisper（需 GPU/Apple Silicon）
+3. **Pencil**：ok=false → "需要 Antigravity IDE + Pencil 扩展"
 
 跑不起来就跳过，**不阻塞训练营流程！**
-记录状态：`cat_cafe_update_bootcamp_state(threadId, phase='phase-4-task-select', advancedFeatures={tts:'available'|'skipped', ...})`
+记录状态：`cat_cafe_update_bootcamp_state(threadId, phase='phase-4-task-select', advancedFeatures={tts:'available'|'unavailable'|'skipped', asr:..., pencil:...})`
 
 ### Phase 4: 任务选择 (phase-4-task-select)
 
 1. 用 `cat_cafe_create_rich_block` 发送任务选择卡片：
-   - `kind: 'interactive'`, `interactiveType: 'card-grid'`, `allowRandom: true`
-   - 参考 `bootcamp-blocks.ts` 中的 `taskSelectionBlock` 定义
-   - 按难度分三层：⭐ Lv.1 / ⭐⭐ Lv.2 / ⭐⭐⭐ Lv.3
+   - `kind: 'interactive'`, `interactiveType: 'card-grid'`
+   - `id: 'bootcamp-task-select'`
+   - `title: '选一个你感兴趣的项目，我们一起做！'`
+   - 16 个选项按难度分三层（⭐/⭐⭐/⭐⭐⭐），`allowRandom: true`
 2. 用户选完后：
-   - `cat_cafe_update_bootcamp_state(threadId, phase='phase-5-kickoff', selectedTaskId='Q3')`
+   - 从消息文本判断选了哪个任务 → 对应 taskId: Q1-Q16
+   - `cat_cafe_update_bootcamp_state(threadId, phase='phase-5-kickoff', selectedTaskId='{taskId}')`
 
 ### Phase 5-10: 真实 Feat Lifecycle
 
 进入正常的猫猫协作模式，但比平时更有指导性：
-- **Phase 5 (kickoff)**: 帮用户立项，走 feat-lifecycle
-- **Phase 6 (design)**: 和用户一起做 Design Gate
+- **Phase 5 (kickoff)**: 帮用户立项——用户说愿景，猫猫帮结构化成 spec
+- **Phase 6 (design)**: 和用户一起做设计讨论，出 2-3 个方案让用户选
 - **Phase 7 (dev)**: 手把手写代码，解释每个决策
-- **Phase 8 (review)**: 教用户发 review 请求
+- **Phase 8 (review)**: 教用户理解 review 流程
 - **Phase 9 (complete)**: 合入 + 庆祝
 - **Phase 10 (retro)**: 简短回顾学到了什么
 
@@ -108,8 +118,8 @@ triggers:
 
 - 总结用户的训练营成果
 - 告诉用户："以后有什么需要帮助的，随时回这个线程找我们！"
-- 线程保持活跃（不 archive）
-- `cat_cafe_update_bootcamp_state(threadId, completedAt=Date.now())`
+- 线程自动 pin（系统处理）
+- `cat_cafe_update_bootcamp_state(threadId, phase='phase-11-farewell', completedAt=Date.now())`
 
 ## F075 成就接缝（预留）
 

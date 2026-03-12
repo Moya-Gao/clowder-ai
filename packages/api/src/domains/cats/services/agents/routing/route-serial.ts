@@ -184,7 +184,7 @@ export async function* routeSerial(
       ...(sopStageHint ? { sopStageHint } : {}),
       ...(activeSignals ? { activeSignals } : {}),
       ...(voiceMode ? { voiceMode } : {}),
-      ...(bootcampState ? { bootcampState } : {}),
+      ...(bootcampState ? { bootcampState, threadId } : {}),
     });
 
     // F24 Phase E: Bootstrap context for Session #2+
