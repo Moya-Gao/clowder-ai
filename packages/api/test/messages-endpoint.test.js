@@ -688,6 +688,43 @@ describe('POST /api/messages orphan rejection (#21)', () => {
   });
 });
 
+describe('POST /api/messages rejects soft-deleted thread (Phase D P1)', () => {
+  it('returns 400 THREAD_NOT_FOUND when threadId is soft-deleted', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/agents/invocation/InvocationRegistry.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const { messagesRoutes } = await import('../dist/routes/messages.js');
+
+    const threadStore = new ThreadStore();
+    const thread = threadStore.create('alice', 'Will Be Deleted');
+    threadStore.softDelete(thread.id);
+
+    const app = Fastify();
+    await app.register(messagesRoutes, {
+      registry: new InvocationRegistry(),
+      messageStore: new MessageStore(),
+      socketManager: { broadcastAgentMessage: () => {}, broadcastToRoom: () => {} },
+      threadStore,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      payload: {
+        content: 'should be rejected',
+        userId: 'alice',
+        threadId: thread.id,
+      },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.equal(body.code, 'THREAD_NOT_FOUND');
+
+    await app.close();
+  });
+});
+
 describe('POST /api/messages delete-guard protection', () => {
   it('returns 409 and does not persist message when thread is being deleted', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');

@@ -40,6 +40,10 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   const [bindWarning, setBindWarning] = useState<string | null>(null);
   // I-1: Thread to confirm deletion (null = no dialog)
   const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
+  // F095 Phase D: Trash bin state
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashedThreads, setTrashedThreads] = useState<Thread[]>([]);
+  const [isLoadingTrash, setIsLoadingTrash] = useState(false);
   // F070: governance health by project path
   const [govHealth, setGovHealth] = useState<Record<string, string>>({});
 
@@ -177,6 +181,40 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     [setCurrentProject, navigateToThread, loadThreads, onClose],
   );
 
+  // F095 Phase D: Load trashed threads
+  const loadTrash = useCallback(async () => {
+    setIsLoadingTrash(true);
+    try {
+      const res = await apiFetch('/api/threads?deleted=true');
+      if (!res.ok) return;
+      const data = await res.json();
+      setTrashedThreads(data.threads ?? []);
+    } catch {
+      // Silently ignore
+    } finally {
+      setIsLoadingTrash(false);
+    }
+  }, []);
+
+  const handleToggleTrash = useCallback(() => {
+    setShowTrash((prev) => {
+      const next = !prev;
+      if (next) void loadTrash();
+      return next;
+    });
+  }, [loadTrash]);
+
+  const handleRestore = useCallback(async (threadId: string) => {
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}/restore`, { method: 'POST' });
+      if (!res.ok) return;
+      await loadThreads();
+      await loadTrash();
+    } catch {
+      // Silently ignore
+    }
+  }, [loadThreads, loadTrash]);
+
   /** F087: Create a bootcamp onboarding thread */
   const createBootcampThread = useCallback(async () => {
     setIsCreating(true);
@@ -227,10 +265,12 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
         navigateToThread('default');
       }
       await loadThreads();
+      // F095 Phase D: Refresh trash bin if visible
+      if (showTrash) void loadTrash();
     } catch {
       // Silently ignore
     }
-  }, [deleteTarget, currentThreadId, navigateToThread, loadThreads]);
+  }, [deleteTarget, currentThreadId, navigateToThread, loadThreads, showTrash, loadTrash]);
 
   const handleRename = useCallback(
     async (threadId: string, title: string) => {
@@ -585,6 +625,56 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           )}
         </div>
 
+        {/* F095 Phase D: Trash bin section */}
+        <div className="border-t border-owner-light">
+          <button
+            type="button"
+            onClick={handleToggleTrash}
+            className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            data-testid="trash-bin-toggle"
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+            </svg>
+            回收站{trashedThreads.length > 0 ? ` (${trashedThreads.length})` : ''}
+            <svg
+              className={`h-3 w-3 ml-auto transition-transform ${showTrash ? 'rotate-180' : ''}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          {showTrash && (
+            <div className="max-h-48 overflow-y-auto">
+              {isLoadingTrash && (
+                <div className="px-3 py-2 text-[10px] text-gray-400">加载中...</div>
+              )}
+              {!isLoadingTrash && trashedThreads.length === 0 && (
+                <div className="px-3 py-2 text-[10px] text-gray-400">回收站是空的</div>
+              )}
+              {trashedThreads.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 group"
+                >
+                  <span className="truncate flex-1">{t.title ?? '未命名对话'}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRestore(t.id)}
+                    className="sm:opacity-0 sm:group-hover:opacity-100 text-[10px] text-owner-primary hover:text-owner-dark transition-all shrink-0"
+                    data-testid={`restore-btn-${t.id}`}
+                  >
+                    恢复
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <TaskPanel />
       </aside>
 
@@ -607,8 +697,8 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
             <p className="text-sm text-gray-600 mb-1">
               即将删除「{deleteTarget.title ?? '未命名对话'}」
             </p>
-            <p className="text-xs text-red-500 mb-4">
-              此操作不可恢复，对话中的所有消息、任务和记忆将被永久删除。
+            <p className="text-xs text-gray-500 mb-4">
+              对话将移入回收站，30 天后自动清理。你可以随时从回收站恢复。
             </p>
             <div className="flex gap-2 justify-end">
               <button
@@ -619,9 +709,9 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-3 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+                className="px-3 py-1.5 text-sm rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors"
               >
-                确认删除
+                移入回收站
               </button>
             </div>
           </div>

@@ -184,7 +184,7 @@ export class RedisThreadStore implements IThreadStore {
     const threads: Thread[] = [];
     for (const id of ids) {
       const thread = await this.get(id);
-      if (thread) threads.push(thread);
+      if (thread && !thread.deletedAt) threads.push(thread);
     }
 
     // Sort by lastActiveAt descending
@@ -502,6 +502,44 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
+  /** F095 Phase D: Soft-delete — set deletedAt timestamp. */
+  async softDelete(threadId: string): Promise<boolean> {
+    if (threadId === DEFAULT_THREAD_ID) return false;
+    const key = ThreadKeys.detail(threadId);
+    const existing = await this.redis.hget(key, 'id');
+    if (!existing) return false;
+    // Already soft-deleted?
+    const existingDeletedAt = await this.redis.hget(key, 'deletedAt');
+    if (existingDeletedAt && parseInt(existingDeletedAt, 10) > 0) return false;
+    await this.redis.hset(key, 'deletedAt', String(Date.now()));
+    return true;
+  }
+
+  /** F095 Phase D: Restore a soft-deleted thread. */
+  async restore(threadId: string): Promise<boolean> {
+    const key = ThreadKeys.detail(threadId);
+    const existing = await this.redis.hget(key, 'id');
+    if (!existing) return false;
+    const existingDeletedAt = await this.redis.hget(key, 'deletedAt');
+    if (!existingDeletedAt || parseInt(existingDeletedAt, 10) <= 0) return false;
+    await this.redis.hset(key, 'deletedAt', '0');
+    return true;
+  }
+
+  /** F095 Phase D: List soft-deleted threads (trash bin). */
+  async listDeleted(userId: string): Promise<Thread[]> {
+    const ids = await this.redis.zrevrange(ThreadKeys.userList(userId), 0, -1);
+    const threads: Thread[] = [];
+    for (const id of ids) {
+      const thread = await this.get(id);
+      if (thread && thread.deletedAt) {
+        threads.push(thread);
+      }
+    }
+    threads.sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+    return threads;
+  }
+
   async delete(threadId: string): Promise<boolean> {
     if (threadId === DEFAULT_THREAD_ID) return false;
 
@@ -580,6 +618,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.voiceMode) {
       result['voiceMode'] = '1';
     }
+    if (thread.deletedAt) {
+      result['deletedAt'] = String(thread.deletedAt);
+    }
     if (thread.bootcampState) {
       result['bootcampState'] = JSON.stringify(thread.bootcampState);
     }
@@ -638,6 +679,10 @@ export class RedisThreadStore implements IThreadStore {
     }
     if (data['voiceMode'] === '1') {
       result.voiceMode = true;
+    }
+    const deletedAt = parseInt(data['deletedAt'] ?? '0', 10);
+    if (deletedAt > 0) {
+      result.deletedAt = deletedAt;
     }
     if (data['bootcampState']) {
       try {

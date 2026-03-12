@@ -88,6 +88,8 @@ const listThreadsSchema = z.object({
   hasBacklogItemId: z.union([z.boolean(), z.string().trim().min(1).max(8)]).optional(),
   /** F058 Phase G: comma-separated feature IDs to match against thread titles (e.g. "f058,f042") */
   featureIds: z.string().trim().min(1).max(2000).optional(),
+  /** F095 Phase D: When true, list soft-deleted threads (trash bin) instead of active threads. */
+  deleted: z.union([z.boolean(), z.string().trim().min(1).max(8)]).optional(),
 });
 
 function parseOptionalBooleanQuery(value: string | boolean | undefined): boolean | undefined {
@@ -158,7 +160,7 @@ const updateThreadSchema = z
   );
 
 export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (app, opts) => {
-  const { threadStore, messageStore, taskStore, memoryStore, deliveryCursorStore, taskProgressStore } = opts;
+  const { threadStore, messageStore, taskProgressStore } = opts;
 
   // POST /api/threads - 创建对话
   app.post('/api/threads', async (request, reply) => {
@@ -233,10 +235,17 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       return { threads: [] };
     }
 
-    const { projectPath, q, backlogItemIds, hasBacklogItemId: hasBacklogItemIdRaw, featureIds } = parseResult.data;
+    const { projectPath, q, backlogItemIds, hasBacklogItemId: hasBacklogItemIdRaw, featureIds, deleted: deletedRaw } = parseResult.data;
     const hasBacklogItemId = parseOptionalBooleanQuery(hasBacklogItemIdRaw);
+    const showDeleted = parseOptionalBooleanQuery(deletedRaw);
     const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) return { threads: [] };
+
+    // F095 Phase D: Return soft-deleted threads when deleted=true
+    if (showDeleted) {
+      const deletedThreads = await threadStore.listDeleted(userId);
+      return { threads: deletedThreads };
+    }
 
     let threads = projectPath ? await threadStore.listByProject(userId, projectPath) : await threadStore.list(userId);
 
@@ -358,7 +367,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     }
 
     const thread = await threadStore.get(id);
-    if (!thread) {
+    if (!thread || thread.deletedAt) {
       reply.status(404);
       return { error: 'Thread not found' };
     }
@@ -409,30 +418,11 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     try {
       const thread = await threadStore.get(id);
 
-      const deleted = await threadStore.delete(id);
+      // F095 Phase D: Soft-delete instead of hard delete — data preserved for trash bin
+      const deleted = await threadStore.softDelete(id);
       if (!deleted) {
         reply.status(400);
         return { error: 'Cannot delete this thread' };
-      }
-
-      // Cascade delete associated data (best-effort, don't fail if stores unavailable)
-      const cascadeResults = await Promise.allSettled([
-        messageStore?.deleteByThread(id),
-        taskStore?.deleteByThread(id),
-        memoryStore?.deleteThread(id),
-        taskProgressStore?.deleteThread(id),
-        thread ? deliveryCursorStore?.deleteByThreadForUser(thread.createdBy, id) : undefined,
-        // #80: Clean up any streaming drafts for this thread
-        thread && opts.draftStore ? opts.draftStore.deleteByThread(thread.createdBy, id) : undefined,
-        // F069: Clean up read state cursors for this thread
-        opts.readStateStore?.deleteByThread(id),
-      ]);
-
-      // Log any cascade failures but don't fail the request
-      for (const result of cascadeResults) {
-        if (result.status === 'rejected') {
-          console.warn(`[threads] Cascade delete warning for ${id}:`, result.reason);
-        }
       }
 
       // I-2: Audit thread deletion for traceability (best-effort, don't block response)
@@ -444,6 +434,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
           deletedBy: userId ?? 'unknown',
           threadTitle: thread?.title ?? null,
           projectPath: thread?.projectPath ?? null,
+          softDelete: true,
         },
       }).catch((err) => {
         console.warn(`[threads] Audit log warning for ${id}:`, err);
@@ -454,6 +445,25 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     } finally {
       guard?.release();
     }
+  });
+
+  // F095 Phase D: POST /api/threads/:id/restore — restore a soft-deleted thread
+  app.post<{ Params: { id: string } }>('/api/threads/:id/restore', async (request, reply) => {
+    const { id } = request.params;
+    const thread = await threadStore.get(id);
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+
+    const restored = await threadStore.restore(id);
+    if (!restored) {
+      reply.status(400);
+      return { error: 'Thread is not deleted' };
+    }
+
+    const updated = await threadStore.get(id);
+    return updated;
   });
 
   // F045: GET /api/threads/:threadId/task-progress — task progress snapshot for page refresh persistence

@@ -137,7 +137,7 @@ describe('Thread delete confirmation (I-1)', () => {
     // Dialog should appear with thread title and warning
     expect(container.textContent).toContain('确认删除对话');
     expect(container.textContent).toContain('和砚砚讨论家规');
-    expect(container.textContent).toContain('不可恢复');
+    expect(container.textContent).toContain('回收站');
 
     // No DELETE API call yet
     const deleteCalls = mockApiFetch.mock.calls.filter(
@@ -175,7 +175,7 @@ describe('Thread delete confirmation (I-1)', () => {
 
     // Click confirm
     const confirmBtn = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === '确认删除',
+      (b) => b.textContent === '移入回收站',
     )!;
     expect(confirmBtn).toBeTruthy();
 

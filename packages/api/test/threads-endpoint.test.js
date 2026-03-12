@@ -569,7 +569,7 @@ describe('Thread API', () => {
     assert.equal(res.statusCode, 400);
   });
 
-  it('DELETE /api/threads/:id removes thread', async () => {
+  it('DELETE /api/threads/:id soft-deletes thread (Phase D)', async () => {
     const thread = threadStore.create('alice', 'To Delete');
 
     const res = await app.inject({
@@ -578,9 +578,10 @@ describe('Thread API', () => {
     });
     assert.equal(res.statusCode, 204);
 
-    // Verify deleted
+    // Thread still exists but has deletedAt set (soft delete)
     const check = threadStore.get(thread.id);
-    assert.equal(check, null);
+    assert.ok(check, 'thread should still exist after soft delete');
+    assert.ok(check.deletedAt, 'deletedAt should be set');
   });
 
   it('DELETE /api/threads/:id cannot delete default thread', async () => {
@@ -592,13 +593,12 @@ describe('Thread API', () => {
   });
 });
 
-describe('Thread cascade delete', () => {
+describe('Thread soft-delete preserves data (Phase D)', () => {
   let app;
   let threadStore;
   let messageStore;
   let taskStore;
   let memoryStore;
-  let deliveryCursorStore;
 
   beforeEach(async () => {
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
@@ -611,13 +611,6 @@ describe('Thread cascade delete', () => {
     messageStore = new MessageStore();
     taskStore = new TaskStore();
     memoryStore = new MemoryStore();
-    deliveryCursorStore = {
-      calls: [],
-      async deleteByThreadForUser(userId, threadId) {
-        this.calls.push({ userId, threadId });
-        return 3;
-      },
-    };
 
     app = Fastify();
     await app.register(threadsRoutes, {
@@ -625,7 +618,6 @@ describe('Thread cascade delete', () => {
       messageStore,
       taskStore,
       memoryStore,
-      deliveryCursorStore,
     });
     await app.ready();
   });
@@ -634,7 +626,7 @@ describe('Thread cascade delete', () => {
     if (app) await app.close();
   });
 
-  it('DELETE /api/threads/:id cascades to messages, tasks, and memory', async () => {
+  it('DELETE /api/threads/:id soft-deletes but preserves messages, tasks, and memory', async () => {
     const thread = threadStore.create('alice', 'Cascade Test');
     const threadId = thread.id;
 
@@ -677,30 +669,22 @@ describe('Thread cascade delete', () => {
     assert.equal(taskStore.listByThread(threadId).length, 1);
     assert.equal(memoryStore.list(threadId).length, 1);
 
-    // Delete thread
+    // Soft-delete thread
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/${threadId}`,
     });
     assert.equal(res.statusCode, 204);
 
-    // Verify cascade delete
-    assert.equal(threadStore.get(threadId), null);
-    assert.equal(messageStore.getByThread(threadId).length, 0);
-    assert.equal(taskStore.listByThread(threadId).length, 0);
-    assert.equal(memoryStore.list(threadId).length, 0);
-  });
+    // Thread still exists with deletedAt (soft delete)
+    const after = threadStore.get(threadId);
+    assert.ok(after, 'thread should still exist');
+    assert.ok(after.deletedAt, 'deletedAt should be set');
 
-  it('DELETE /api/threads/:id cascades to delivery cursor cleanup', async () => {
-    const thread = threadStore.create('alice', 'Cursor Cascade');
-    const threadId = thread.id;
-
-    const res = await app.inject({
-      method: 'DELETE',
-      url: `/api/threads/${threadId}`,
-    });
-    assert.equal(res.statusCode, 204);
-    assert.deepEqual(deliveryCursorStore.calls, [{ userId: 'alice', threadId }]);
+    // Data preserved for potential restore
+    assert.equal(messageStore.getByThread(threadId).length, 2);
+    assert.equal(taskStore.listByThread(threadId).length, 1);
+    assert.equal(memoryStore.list(threadId).length, 1);
   });
 });
 
@@ -830,11 +814,151 @@ describe('Thread delete audit failure resilience (P1 fix)', () => {
     process.removeListener('unhandledRejection', handler);
 
     assert.equal(unhandled, false, 'audit failure must not cause unhandled rejection');
-    assert.equal(threadStore.get(thread.id), null, 'thread should still be deleted');
+    // Phase D: soft delete — thread exists but has deletedAt
+    const after = threadStore.get(thread.id);
+    assert.ok(after, 'thread should still exist (soft delete)');
+    assert.ok(after.deletedAt, 'deletedAt should be set');
 
     // Restore
     auditLog.append = originalAppend;
     await app.close();
+  });
+});
+
+describe('F095 Phase D: Soft delete + trash bin', () => {
+  let app;
+  let threadStore;
+
+  beforeEach(async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+
+    threadStore = new ThreadStore();
+    app = Fastify();
+    await app.register(threadsRoutes, { threadStore });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('DELETE /api/threads/:id soft-deletes instead of hard-deleting', async () => {
+    const thread = threadStore.create('alice', 'Soft Delete Me');
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}`,
+    });
+    assert.equal(res.statusCode, 204);
+
+    // Thread still exists but has deletedAt set
+    const after = threadStore.get(thread.id);
+    assert.ok(after, 'thread should still exist after soft delete');
+    assert.ok(after.deletedAt, 'deletedAt should be set');
+  });
+
+  it('soft-deleted threads are excluded from GET /api/threads list', async () => {
+    const t1 = threadStore.create('alice', 'Active Thread');
+    const t2 = threadStore.create('alice', 'Deleted Thread');
+    threadStore.softDelete(t2.id);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice',
+    });
+    const body = JSON.parse(res.body);
+    const ids = body.threads.map((t) => t.id);
+    assert.ok(ids.includes(t1.id), 'active thread should be listed');
+    assert.ok(!ids.includes(t2.id), 'soft-deleted thread should not be listed');
+  });
+
+  it('POST /api/threads/:id/restore restores a soft-deleted thread', async () => {
+    const thread = threadStore.create('alice', 'Restore Me');
+    threadStore.softDelete(thread.id);
+    assert.ok(threadStore.get(thread.id).deletedAt, 'precondition: should be soft-deleted');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/restore`,
+    });
+    assert.equal(res.statusCode, 200);
+
+    const restored = threadStore.get(thread.id);
+    assert.ok(!restored.deletedAt, 'deletedAt should be cleared after restore');
+  });
+
+  it('POST /api/threads/:id/restore returns 400 for non-deleted thread', async () => {
+    const thread = threadStore.create('alice', 'Not Deleted');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/restore`,
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('POST /api/threads/:id/restore returns 404 for nonexistent thread', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/nonexistent-id/restore',
+    });
+    assert.equal(res.statusCode, 404);
+  });
+
+  it('GET /api/threads?deleted=true lists only soft-deleted threads', async () => {
+    threadStore.create('alice', 'Active');
+    const t2 = threadStore.create('alice', 'Trashed 1');
+    const t3 = threadStore.create('alice', 'Trashed 2');
+    threadStore.softDelete(t2.id);
+    threadStore.softDelete(t3.id);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice&deleted=true',
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.threads.length, 2);
+    const titles = body.threads.map((t) => t.title);
+    assert.ok(titles.includes('Trashed 1'));
+    assert.ok(titles.includes('Trashed 2'));
+  });
+
+  it('PATCH /api/threads/:id returns 404 for soft-deleted thread (P1 fix)', async () => {
+    const thread = threadStore.create('alice', 'Deleted Thread');
+    threadStore.softDelete(thread.id);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { title: 'Should Not Work' },
+    });
+    assert.equal(res.statusCode, 404, 'PATCH on soft-deleted thread should return 404');
+    // Title should NOT have changed
+    const after = threadStore.get(thread.id);
+    assert.equal(after.title, 'Deleted Thread', 'title should not be modified');
+  });
+
+  it('soft-deleted thread cannot be double-deleted', async () => {
+    const thread = threadStore.create('alice', 'Already Deleted');
+    threadStore.softDelete(thread.id);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}`,
+    });
+    assert.equal(res.statusCode, 400, 'double soft-delete should fail');
+  });
+
+  it('DELETE /api/threads/default still rejects', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/threads/default',
+    });
+    assert.equal(res.statusCode, 400);
   });
 });
 

@@ -174,8 +174,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     if (resolvedThreadId !== 'default' && opts.threadStore) {
       const thread = await opts.threadStore.get(resolvedThreadId);
 
-      if (!thread) {
-        // Thread doesn't exist — reject to prevent orphaned messages (#21)
+      if (!thread || thread.deletedAt) {
+        // Thread doesn't exist or soft-deleted — reject to prevent orphaned messages (#21 + Phase D)
         reply.status(400);
         return {
           error: '对话不存在',

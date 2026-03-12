@@ -115,6 +115,8 @@ export interface Thread {
   votingState?: VotingStateV1;
   /** F092: Voice companion mode — when true, cats should prioritize audio rich blocks. */
   voiceMode?: boolean;
+  /** F095 Phase D: Soft-delete timestamp. null/undefined = not deleted. */
+  deletedAt?: number | null;
   /** F087: CVO Bootcamp onboarding state. */
   bootcampState?: BootcampStateV1;
 }
@@ -212,6 +214,12 @@ export interface IThreadStore {
   updateBootcampState(threadId: string, state: BootcampStateV1 | null): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
+  /** F095 Phase D: Soft-delete — mark thread as deleted without removing data. */
+  softDelete(threadId: string): boolean | Promise<boolean>;
+  /** F095 Phase D: Restore a soft-deleted thread. */
+  restore(threadId: string): boolean | Promise<boolean>;
+  /** F095 Phase D: List soft-deleted threads (trash bin). */
+  listDeleted(userId: string): Thread[] | Promise<Thread[]>;
 }
 
 const MAX_THREADS = 100;
@@ -278,7 +286,7 @@ export class ThreadStore implements IThreadStore {
   list(userId: string): Thread[] {
     const result: Thread[] = [];
     for (const thread of this.threads.values()) {
-      if (thread.createdBy === userId || thread.id === DEFAULT_THREAD_ID) {
+      if ((thread.createdBy === userId || thread.id === DEFAULT_THREAD_ID) && !thread.deletedAt) {
         result.push(thread);
       }
     }
@@ -510,6 +518,35 @@ export class ThreadStore implements IThreadStore {
     this.clearActivityForThread(threadId);
     this.clearMentionRoutingFeedbackForThread(threadId);
     return this.threads.delete(threadId);
+  }
+
+  /** F095 Phase D: Soft-delete — mark thread as deleted. */
+  softDelete(threadId: string): boolean {
+    if (threadId === DEFAULT_THREAD_ID) return false;
+    const thread = this.threads.get(threadId);
+    if (!thread || thread.deletedAt) return false;
+    thread.deletedAt = Date.now();
+    return true;
+  }
+
+  /** F095 Phase D: Restore a soft-deleted thread. */
+  restore(threadId: string): boolean {
+    const thread = this.threads.get(threadId);
+    if (!thread || !thread.deletedAt) return false;
+    thread.deletedAt = null;
+    return true;
+  }
+
+  /** F095 Phase D: List soft-deleted threads (trash bin). */
+  listDeleted(userId: string): Thread[] {
+    const result: Thread[] = [];
+    for (const thread of this.threads.values()) {
+      if (thread.createdBy === userId && thread.deletedAt) {
+        result.push(thread);
+      }
+    }
+    result.sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+    return result;
   }
 
   /** Cloud Codex R3 P2 fix: Remove all activity entries for a thread */
