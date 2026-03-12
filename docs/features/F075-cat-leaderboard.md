@@ -8,8 +8,8 @@ created: 2026-03-07
 
 # F075 — 猫猫排行榜 (Cat Leaderboard)
 
-> **Status**: Phase A+B+C done, 待愿景守护 | **Owner**: 布偶猫
-> **Priority**: P1（Phase A+B+C 已交付，待 feat close）
+> **Status**: done | **Owner**: 布偶猫 | **Completed**: 2026-03-12
+> **Priority**: —（已完成）
 > **Phase**: A ✅ / B ✅ / C ✅
 
 ## Why
@@ -148,7 +148,8 @@ Cat Café Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 - 关联：[F044 Channel & Activity System](F044-channel-activity-system.md)（游戏活动框架）
 - 关联：[F021 Signal Hunter](F021-signal-study-mode.md)（数据分析模式参考）
 - 关联：[F087 CVO Bootcamp](F087-cvo-bootcamp.md)（成就系统的主要消费者）
-- 反思胶囊：`docs/reflections/2026-03-11-f075-phase-a-capsule.md`
+- 反思胶囊（Phase A）：`docs/reflections/2026-03-11-f075-phase-a-capsule.md`
+- 反思胶囊（Completion）：`docs/reflections/2026-03-12-f075-completion-capsule.md`
 
 ## Key Decisions
 
@@ -296,6 +297,7 @@ F087 Bootcamp 检测到用户完成 CVO 决策
 | 2026-03-11 | Phase A merged: PR #371 / `24b2274c`（@ 互动统计 + 工作统计 + range filter） |
 | 2026-03-11 | GPT-5.4 愿景守护：判定 **Phase A done, feat not close**（Phase B/C 未交付；当前 runtime 仍停在旧版 Hub） |
 | 2026-03-12 | Phase B+C merged: PR #377 — silly stats, game arena, achievements, CVO level, event ingestion |
+| 2026-03-12 | GPT-5.4 愿景守护 R3 放行；feat close |
 
 ## 故事
 
