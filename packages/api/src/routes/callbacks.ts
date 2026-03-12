@@ -33,6 +33,7 @@ import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
+import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
 import { detectUserMention } from './user-mention.js';
@@ -992,6 +993,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       workflowSopStore: opts.workflowSopStore,
       backlogStore: opts.backlogStore,
     });
+  }
+
+  // F087: Bootcamp state transition callbacks
+  if (opts.threadStore) {
+    registerCallbackBootcampRoutes(app, { registry, threadStore: opts.threadStore });
   }
 
   const memoryDeps: {

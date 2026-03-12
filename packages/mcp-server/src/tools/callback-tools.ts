@@ -494,15 +494,37 @@ export async function handleUpdateWorkflow(input: {
 // ============ Multi-Mention (F086) ============
 
 export const multiMentionInputSchema = {
-  targets: z.array(z.string().min(1)).min(1).max(3).describe('Cat IDs to invoke in parallel (max 3). Example: ["codex","gemini"]'),
+  targets: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(3)
+    .describe('Cat IDs to invoke in parallel (max 3). Example: ["codex","gemini"]'),
   question: z.string().min(1).max(5000).describe('The question or request for the target cats'),
   callbackTo: z.string().min(1).describe('Cat ID to route all responses back to (required, usually yourself)'),
   context: z.string().max(5000).optional().describe('Additional context to include for the targets'),
-  idempotencyKey: z.string().min(1).max(200).optional().describe('Idempotency key to prevent duplicate dispatches within the same thread'),
+  idempotencyKey: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Idempotency key to prevent duplicate dispatches within the same thread'),
   timeoutMinutes: z.number().int().min(3).max(20).optional().describe('Timeout in minutes (default 8, range 3-20)'),
-  searchEvidenceRefs: z.array(z.string()).optional().describe('References to searches you performed before calling this tool (required unless overrideReason provided). Enforces "先搜后问" principle.'),
-  overrideReason: z.string().min(1).max(500).optional().describe('Why you are skipping search evidence (required if searchEvidenceRefs omitted)'),
-  triggerType: z.enum(['high-impact', 'cross-domain', 'uncertain', 'info-gap', 'recon']).optional().describe('Which meta-thinking trigger motivated this call'),
+  searchEvidenceRefs: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'References to searches you performed before calling this tool (required unless overrideReason provided). Enforces "先搜后问" principle.',
+    ),
+  overrideReason: z
+    .string()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe('Why you are skipping search evidence (required if searchEvidenceRefs omitted)'),
+  triggerType: z
+    .enum(['high-impact', 'cross-domain', 'uncertain', 'info-gap', 'recon'])
+    .optional()
+    .describe('Which meta-thinking trigger motivated this call'),
 };
 
 export async function handleMultiMention(input: {
@@ -520,8 +542,8 @@ export async function handleMultiMention(input: {
   if (!input.searchEvidenceRefs?.length && !input.overrideReason) {
     return errorResult(
       'multi_mention requires searchEvidenceRefs (what did you search first?) ' +
-      'or overrideReason (why are you skipping search?). ' +
-      'This enforces the "先搜后问" principle — search before asking.',
+        'or overrideReason (why are you skipping search?). ' +
+        'This enforces the "先搜后问" principle — search before asking.',
     );
   }
 
@@ -565,6 +587,68 @@ export async function handleStartVote(input: {
     ...(input.anonymous !== undefined ? { anonymous: input.anonymous } : {}),
     ...(input.timeoutSec !== undefined ? { timeoutSec: input.timeoutSec } : {}),
   });
+}
+
+// ============ Bootcamp (F087) ============
+
+export const updateBootcampStateInputSchema = {
+  threadId: z.string().min(1).describe('Thread ID of the bootcamp thread'),
+  phase: z
+    .enum([
+      'phase-0-select-cat',
+      'phase-1-intro',
+      'phase-2-env-check',
+      'phase-3-config-help',
+      'phase-3.5-advanced',
+      'phase-4-task-select',
+      'phase-5-kickoff',
+      'phase-6-design',
+      'phase-7-dev',
+      'phase-8-review',
+      'phase-9-complete',
+      'phase-10-retro',
+      'phase-11-farewell',
+    ])
+    .optional()
+    .describe('New bootcamp phase to advance to'),
+  leadCat: z.string().optional().describe('Selected lead cat ID (e.g. "opus", "codex", "gemini")'),
+  selectedTaskId: z.string().max(50).optional().describe('Selected task ID (e.g. "Q1", "Q7")'),
+  envCheck: z
+    .record(z.object({ ok: z.boolean(), version: z.string().optional(), note: z.string().optional() }))
+    .optional()
+    .describe('Environment check results (usually auto-set by bootcamp-env-check)'),
+  advancedFeatures: z
+    .record(z.enum(['available', 'unavailable', 'skipped']))
+    .optional()
+    .describe('Advanced feature status: TTS, ASR, Pencil'),
+  completedAt: z.number().optional().describe('Timestamp when bootcamp was completed (Phase 11)'),
+};
+
+export async function handleUpdateBootcampState(input: {
+  threadId: string;
+  phase?: string | undefined;
+  leadCat?: string | undefined;
+  selectedTaskId?: string | undefined;
+  envCheck?: Record<string, { ok: boolean; version?: string; note?: string }> | undefined;
+  advancedFeatures?: Record<string, string> | undefined;
+  completedAt?: number | undefined;
+}): Promise<ToolResult> {
+  const body: Record<string, unknown> = { threadId: input.threadId };
+  if (input.phase !== undefined) body['phase'] = input.phase;
+  if (input.leadCat !== undefined) body['leadCat'] = input.leadCat;
+  if (input.selectedTaskId !== undefined) body['selectedTaskId'] = input.selectedTaskId;
+  if (input.envCheck !== undefined) body['envCheck'] = input.envCheck;
+  if (input.advancedFeatures !== undefined) body['advancedFeatures'] = input.advancedFeatures;
+  if (input.completedAt !== undefined) body['completedAt'] = input.completedAt;
+  return callbackPost('/api/callbacks/update-bootcamp-state', body);
+}
+
+export const bootcampEnvCheckInputSchema = {
+  threadId: z.string().min(1).describe('Thread ID — results are auto-stored in bootcampState.envCheck'),
+};
+
+export async function handleBootcampEnvCheck(input: { threadId: string }): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/bootcamp-env-check', { threadId: input.threadId });
 }
 
 export const callbackTools = [
@@ -687,5 +771,24 @@ export const callbackTools = [
       'Auto-closes when all voters have voted or timeout expires.',
     inputSchema: startVoteInputSchema,
     handler: handleStartVote,
+  },
+  // ============ Bootcamp (F087) ============
+  {
+    name: 'cat_cafe_update_bootcamp_state',
+    description:
+      'Update the bootcamp training state for a thread. Use to advance phase, set lead cat, ' +
+      'record task selection, store env check results, or mark completion. ' +
+      'Fields are merged into existing state — only send what changed.',
+    inputSchema: updateBootcampStateInputSchema,
+    handler: handleUpdateBootcampState,
+  },
+  {
+    name: 'cat_cafe_bootcamp_env_check',
+    description:
+      'Run environment check for bootcamp (Node.js, pnpm, Git, Claude CLI, MCP, TTS, ASR, Pencil). ' +
+      "Results are automatically stored in the thread's bootcampState.envCheck. " +
+      'Returns the full check results for display to the user.',
+    inputSchema: bootcampEnvCheckInputSchema,
+    handler: handleBootcampEnvCheck,
   },
 ] as const;
