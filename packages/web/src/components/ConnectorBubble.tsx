@@ -75,6 +75,36 @@ function getConnectorTheme(connector: string | undefined): {
     };
   }
 
+  // F098-B2: Multi-mention results — emerald (collaborative action)
+  if (connector === 'multi-mention-result') {
+    return {
+      avatar: 'bg-emerald-100 ring-2 ring-emerald-200',
+      label: 'text-emerald-700',
+      labelLink: 'text-emerald-700 hover:text-emerald-900',
+      bubble: 'border border-emerald-200 bg-emerald-50',
+    };
+  }
+
+  // F098-B2: Feishu DM — blue (enterprise IM, per design spec #DBEAFE)
+  if (connector === 'feishu') {
+    return {
+      avatar: 'bg-blue-100 ring-2 ring-blue-200',
+      label: 'text-blue-700',
+      labelLink: 'text-blue-700 hover:text-blue-900',
+      bubble: 'border border-blue-200 bg-blue-50',
+    };
+  }
+
+  // F098-B2: Telegram — sky blue
+  if (connector === 'telegram') {
+    return {
+      avatar: 'bg-sky-100 ring-2 ring-sky-200',
+      label: 'text-sky-700',
+      labelLink: 'text-sky-700 hover:text-sky-900',
+      bubble: 'border border-sky-200 bg-sky-50',
+    };
+  }
+
   return defaultTheme;
 }
 

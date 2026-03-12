@@ -3,12 +3,11 @@
  * - GitHub Review notifications should be visually distinct from generic connector bubbles.
  */
 
-import React from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { ConnectorBubble } from '../ConnectorBubble';
 import type { ChatMessage } from '@/stores/chat-types';
+import { ConnectorBubble } from '../ConnectorBubble';
 
 describe('ConnectorBubble theme', () => {
   let container: HTMLDivElement;
@@ -73,18 +72,20 @@ describe('ConnectorBubble theme', () => {
       extra: {
         rich: {
           v: 1 as const,
-          blocks: [{
-            id: 'vote-1',
-            kind: 'card' as const,
-            v: 1 as const,
-            title: '投票结果: 谁最坏？',
-            bodyMarkdown: '实名投票 · 2 票',
-            tone: 'info' as const,
-            fields: [
-              { label: 'opus', value: '1 票 (50%)' },
-              { label: 'codex', value: '1 票 (50%)' },
-            ],
-          }],
+          blocks: [
+            {
+              id: 'vote-1',
+              kind: 'card' as const,
+              v: 1 as const,
+              title: '投票结果: 谁最坏？',
+              bodyMarkdown: '实名投票 · 2 票',
+              tone: 'info' as const,
+              fields: [
+                { label: 'opus', value: '1 票 (50%)' },
+                { label: 'codex', value: '1 票 (50%)' },
+              ],
+            },
+          ],
         },
       },
     };
@@ -123,5 +124,72 @@ describe('ConnectorBubble theme', () => {
     expect(html).toContain('border-slate-200');
     expect(html).not.toContain('bg-blue-100');
   });
-});
 
+  it('uses emerald theme for multi-mention-result connector', () => {
+    const message: ChatMessage = {
+      id: 'm-mm',
+      type: 'connector',
+      content: '3 只猫猫已回复',
+      timestamp: Date.now(),
+      source: {
+        connector: 'multi-mention-result',
+        label: 'Multi-Mention 结果',
+        icon: '👥',
+      },
+    };
+
+    act(() => {
+      root.render(React.createElement(ConnectorBubble, { message }));
+    });
+
+    const html = container.innerHTML;
+    expect(html).toContain('bg-emerald-100');
+    expect(html).toContain('border-emerald-200');
+    expect(html).not.toContain('bg-blue-100');
+  });
+
+  it('uses blue theme for feishu connector', () => {
+    const message: ChatMessage = {
+      id: 'm-fs',
+      type: 'connector',
+      content: '来自飞书的消息',
+      timestamp: Date.now(),
+      source: {
+        connector: 'feishu',
+        label: '飞书 DM',
+        icon: '🪶',
+      },
+    };
+
+    act(() => {
+      root.render(React.createElement(ConnectorBubble, { message }));
+    });
+
+    const html = container.innerHTML;
+    expect(html).toContain('bg-blue-100');
+    expect(html).toContain('border-blue-200');
+  });
+
+  it('uses sky theme for telegram connector', () => {
+    const message: ChatMessage = {
+      id: 'm-tg',
+      type: 'connector',
+      content: '来自 Telegram 的消息',
+      timestamp: Date.now(),
+      source: {
+        connector: 'telegram',
+        label: 'Telegram',
+        icon: '✈️',
+      },
+    };
+
+    act(() => {
+      root.render(React.createElement(ConnectorBubble, { message }));
+    });
+
+    const html = container.innerHTML;
+    expect(html).toContain('bg-sky-100');
+    expect(html).toContain('border-sky-200');
+    expect(html).not.toContain('bg-blue-100');
+  });
+});
