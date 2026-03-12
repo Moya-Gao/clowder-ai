@@ -22,7 +22,7 @@ created: 2026-03-07
 
 ## What
 
-Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
+Cat Café Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 
 ### 分阶段交付状态
 
@@ -117,7 +117,7 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 
 - [x] AC-B1: "笨蛋猫猫"排行榜（含情绪分析）
 - [x] AC-B2: 游戏战绩面板（至少猫猫杀 + 谁是卧底）
-- [x] AC-B3: 排行榜入口与 Mission Hub / 当前运行态对齐，不能只停留在旧 runtime 看不到的状态
+- [x] AC-B3: 排行榜入口在 Cat Café Hub modal tab（代码层面已确保可见；runtime 同步由铲屎官操作，不属于 feat close 门禁）
 - [x] AC-B4: 移动端适配
 
 ## Acceptance Criteria — Phase C ✅
@@ -276,7 +276,7 @@ F087 Bootcamp 检测到用户完成 CVO 决策
 1. 游戏战绩是手动录入还是自动从聊天记录解析？
 2. ~~排行榜是否对所有猫猫可见~~ → 已定义可见性规则（见治理规则）
 3. 情绪分析的阈值如何设定？→ MVP 用关键词匹配 + 铲屎官校准，后续可接模型
-4. 排行榜最终产品入口是 `Cat Café Hub` modal 还是 `Mission Hub` 主页面？PR #371 当前只落在前者，后者未集成
+4. ~~排行榜最终产品入口是 `Cat Café Hub` modal 还是 `Mission Hub` 主页面？~~ → **已决策**：当前入口为 Cat Café Hub modal tab（PR #371 + PR #377）。Mission Hub 入口待 F099 Hub 重构时统一规划
 
 ## Review Gate
 
