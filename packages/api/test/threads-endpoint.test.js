@@ -794,6 +794,50 @@ describe('Thread delete invocation protection (#35)', () => {
   });
 });
 
+describe('Thread delete audit failure resilience (P1 fix)', () => {
+  it('DELETE succeeds even when audit log append rejects', async () => {
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+    const { getEventAuditLog } = await import(
+      '../dist/domains/cats/services/orchestration/EventAuditLog.js'
+    );
+
+    const threadStore = new ThreadStore();
+    const thread = threadStore.create('alice', 'Audit Fail Thread');
+
+    const app = Fastify();
+    await app.register(threadsRoutes, { threadStore });
+    await app.ready();
+
+    // Mock append to reject (simulates unwritable audit dir)
+    const auditLog = getEventAuditLog();
+    const originalAppend = auditLog.append.bind(auditLog);
+    auditLog.append = () => Promise.reject(new Error('ENOTDIR: simulated audit failure'));
+
+    // Track unhandled rejections
+    let unhandled = false;
+    const handler = () => { unhandled = true; };
+    process.on('unhandledRejection', handler);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}`,
+    });
+    assert.equal(res.statusCode, 204);
+
+    // Give event loop a tick for any unhandled rejection to fire
+    await new Promise((r) => setTimeout(r, 50));
+    process.removeListener('unhandledRejection', handler);
+
+    assert.equal(unhandled, false, 'audit failure must not cause unhandled rejection');
+    assert.equal(threadStore.get(thread.id), null, 'thread should still be deleted');
+
+    // Restore
+    auditLog.append = originalAppend;
+    await app.close();
+  });
+});
+
 describe('GET /api/messages with threadId', () => {
   let app;
   let messageStore;

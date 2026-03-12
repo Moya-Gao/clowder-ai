@@ -187,6 +187,8 @@ export const AuditEventTypes = {
   DECISION_MADE: 'decision_made',
   /** 对话创建 */
   THREAD_CREATED: 'thread_created',
+  /** 对话删除 (I-2: 删除操作审计) */
+  THREAD_DELETED: 'thread_deleted',
   /** 任务提取完成 */
   TASKS_EXTRACTED: 'tasks_extracted',
   /** 服务器启动 */

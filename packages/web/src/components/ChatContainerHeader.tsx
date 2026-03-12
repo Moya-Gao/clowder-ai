@@ -49,7 +49,7 @@ export function ChatContainerHeader({
         <CatCafeLogo className="h-16 w-auto -my-3" />
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
-          <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
+          <ThreadIndicator threadId={threadId} />
         </div>
         <ExportButton threadId={threadId} />
         <VoiceCompanionButton threadId={threadId} defaultCatId={defaultCatId} />
@@ -127,6 +127,26 @@ export function ChatContainerHeader({
         </button>
       </div>
     </header>
+  );
+}
+
+/** Thread indicator: shows which thread you're currently chatting in */
+function ThreadIndicator({ threadId }: { threadId: string }) {
+  const threads = useChatStore((s) => s.threads);
+  const currentThread = threads.find((t) => t.id === threadId);
+
+  if (threadId === 'default') {
+    return <p className="text-xs text-gray-500">大厅 · 三只 AI 猫猫的协作空间</p>;
+  }
+
+  const title = currentThread?.title ?? '未命名对话';
+  const projectName = currentThread?.projectPath?.split('/').pop() ?? '';
+
+  return (
+    <p className="text-xs text-gray-500 truncate" title={`${title}${projectName ? ` · ${projectName}` : ''}`}>
+      <span className="font-medium text-gray-700">{title}</span>
+      {projectName && <span className="text-gray-400"> · {projectName}</span>}
+    </p>
   );
 }
 

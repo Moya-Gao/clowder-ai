@@ -23,6 +23,7 @@ import type { IThreadReadStateStore } from '../domains/cats/services/stores/port
 import type { IThreadStore, ThreadRoutingPolicyV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js';
 
 export interface ThreadsRoutesOptions {
@@ -400,6 +401,20 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
           console.warn(`[threads] Cascade delete warning for ${id}:`, result.reason);
         }
       }
+
+      // I-2: Audit thread deletion for traceability (best-effort, don't block response)
+      const userId = resolveUserId(request, {});
+      void getEventAuditLog().append({
+        threadId: id,
+        type: AuditEventTypes.THREAD_DELETED,
+        data: {
+          deletedBy: userId ?? 'unknown',
+          threadTitle: thread?.title ?? null,
+          projectPath: thread?.projectPath ?? null,
+        },
+      }).catch((err) => {
+        console.warn(`[threads] Audit log warning for ${id}:`, err);
+      });
 
       reply.status(204);
       return;

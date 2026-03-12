@@ -37,6 +37,8 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [bindWarning, setBindWarning] = useState<string | null>(null);
+  // I-1: Thread to confirm deletion (null = no dialog)
+  const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
   // F070: governance health by project path
   const [govHealth, setGovHealth] = useState<Record<string, string>>({});
 
@@ -174,21 +176,30 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     [setCurrentProject, navigateToThread, loadThreads, onClose],
   );
 
-  const handleDelete = useCallback(
-    async (threadId: string) => {
-      try {
-        const res = await apiFetch(`/api/threads/${threadId}`, { method: 'DELETE' });
-        if (!res.ok && res.status !== 204) return;
-        if (threadId === currentThreadId) {
-          navigateToThread('default');
-        }
-        await loadThreads();
-      } catch {
-        // Silently ignore
-      }
+  // I-1: Show confirmation dialog instead of deleting immediately
+  const handleDeleteRequest = useCallback(
+    (threadId: string) => {
+      const thread = threads.find((t) => t.id === threadId);
+      if (thread) setDeleteTarget(thread);
     },
-    [currentThreadId, navigateToThread, loadThreads],
+    [threads],
   );
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    const threadId = deleteTarget.id;
+    setDeleteTarget(null);
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) return;
+      if (threadId === currentThreadId) {
+        navigateToThread('default');
+      }
+      await loadThreads();
+    } catch {
+      // Silently ignore
+    }
+  }, [deleteTarget, currentThreadId, navigateToThread, loadThreads]);
 
   const handleRename = useCallback(
     async (threadId: string, title: string) => {
@@ -465,7 +476,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
                             lastActiveAt={t.lastActiveAt}
                             isActive={currentThreadId === t.id}
                             onSelect={handleSelect}
-                            onDelete={handleDelete}
+                            onDelete={handleDeleteRequest}
                             onRename={handleRename}
                             onTogglePin={handleTogglePin}
                             onToggleFavorite={handleToggleFavorite}
@@ -510,7 +521,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
                     lastActiveAt={t.lastActiveAt}
                     isActive={currentThreadId === t.id}
                     onSelect={handleSelect}
-                    onDelete={handleDelete}
+                    onDelete={handleDeleteRequest}
                     onRename={handleRename}
                     onTogglePin={handleTogglePin}
                     onToggleFavorite={handleToggleFavorite}
@@ -540,6 +551,38 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           onSelect={createInProject}
           onCancel={() => setShowPicker(false)}
         />
+      )}
+
+      {/* I-1: Delete confirmation dialog */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDeleteTarget(null)}>
+          <div
+            className="bg-white rounded-xl shadow-2xl p-5 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-gray-900 mb-2">确认删除对话</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              即将删除「{deleteTarget.title ?? '未命名对话'}」
+            </p>
+            <p className="text-xs text-red-500 mb-4">
+              此操作不可恢复，对话中的所有消息、任务和记忆将被永久删除。
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-3 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
