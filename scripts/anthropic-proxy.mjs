@@ -74,6 +74,37 @@ function normalizeUsage(usage) {
   return cleaned;
 }
 
+// --- Content block normalization ---
+// Felix-2 gateway adds non-standard fields to thinking blocks (e.g. extra metadata).
+// Claude Code stores the assembled response in session history; on the next turn the
+// Anthropic API rejects the request with "Invalid value in thinking block".
+// Fix: whitelist only standard fields for each content block type.
+
+const THINKING_BLOCK_KEYS = ['type', 'thinking', 'signature'];
+const THINKING_DELTA_KEYS = ['type', 'thinking'];
+const REDACTED_THINKING_BLOCK_KEYS = ['type', 'data'];
+
+function pickKeys(obj, allowedKeys) {
+  const result = {};
+  for (const key of allowedKeys) {
+    if (key in obj) result[key] = obj[key];
+  }
+  return result;
+}
+
+function normalizeContentBlock(block) {
+  if (!block || typeof block !== 'object') return block;
+  if (block.type === 'thinking') return pickKeys(block, THINKING_BLOCK_KEYS);
+  if (block.type === 'redacted_thinking') return pickKeys(block, REDACTED_THINKING_BLOCK_KEYS);
+  return block;
+}
+
+function normalizeDelta(delta) {
+  if (!delta || typeof delta !== 'object') return delta;
+  if (delta.type === 'thinking_delta') return pickKeys(delta, THINKING_DELTA_KEYS);
+  return delta;
+}
+
 /**
  * Parse and rewrite SSE events in a chunk. Returns the rewritten chunk.
  * Also tracks message_start input_tokens to detect the 0-value quirk.
@@ -137,6 +168,18 @@ function rewriteSSEChunk(text, state) {
         output += `event: message_start\ndata: ${JSON.stringify(correction)}\n\n`;
         state.messageStartInputZero = false;
       }
+    } else if (eventType === 'content_block_start') {
+      // Normalize thinking/redacted_thinking content blocks to strip non-standard fields
+      if (data.content_block) {
+        data.content_block = normalizeContentBlock(data.content_block);
+      }
+      output += `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+    } else if (eventType === 'content_block_delta') {
+      // Normalize thinking_delta to strip non-standard fields
+      if (data.delta) {
+        data.delta = normalizeDelta(data.delta);
+      }
+      output += `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
     } else {
       // Pass through other events unchanged
       output += part + '\n\n';
