@@ -2,13 +2,13 @@
 feature_ids: [F105]
 related_features: [F050, F061, F032, F041, F043]
 topics: [opencode, golden-chinchilla, external-agent, cli-integration, oh-my-opencode, multi-agent]
-doc_kind: phase-1-done
+doc_kind: phase-2-done
 created: 2026-03-11
 ---
 
 # F105: opencode 接入 — 金渐层（开源多模型编码猫）
 
-> **Status**: phase-1-done | **Owner**: 布偶猫 Opus 4.6
+> **Status**: phase-2-done | **Owner**: 布偶猫 Opus 4.6
 > **Created**: 2026-03-11
 
 ---
@@ -124,10 +124,10 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 - [x] AC-7: `cat-config.json` 注册金渐层（roster + breed golden-chinchilla + variant opencode-default，6 config tests green）
 - [x] AC-8: AgentRouter 注册 `case 'opencode'`，cat-config-loader 解析验证通过
 
-### Phase 2: OMOC 集成 + 高级能力
-- [ ] AC-9: OMOC Sisyphus 编排限制在金渐层内部子 agent
-- [ ] AC-10: opencode MCP 与 Cat Cafe MCP 编排不冲突
-- [ ] AC-11: Ralph Loop + Context 管理正常工作
+### Phase 2: OMOC 集成 + 高级能力 ✅ COMPLETE
+- [x] AC-9: OMOC Sisyphus 编排限制在金渐层内部子 agent — 5 isolation tests: delegate-task targets are OMOC-internal (oracle/librarian/frontend-engineer), no Cat Cafe handles in events
+- [x] AC-10: opencode MCP 与 Cat Cafe MCP 编排不冲突 — 5 namespace tests: no MCP env leakage, no CLI MCP flags, zero tool name overlap, config isolation by process + file boundary
+- [x] AC-11: Ralph Loop + Context 管理正常工作 — 6 context tests: multi-cycle Ralph Loop yields correct sequence (1 session_init dedup), high token counts handled, auto-compact gaps handled
 
 ### Phase 3: 协作路由
 - [ ] AC-12: 金渐层参与 @mention 协作路由
@@ -164,6 +164,7 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 | 2026-03-12 | Review 修复 — runtime profile injection + model override + session_init dedup（31 tests green） |
 | 2026-03-12 | PR #401 created; cloud review blocked by Codex daily limit — retry after reset |
 | 2026-03-12 | Cloud review passed (1 P1 downgraded to P3 — pre-existing F062 pattern); Phase 1 merged (PR #401) |
+| 2026-03-12 | Phase 2 完成 — OMOC isolation + MCP namespace + Ralph Loop/Context validated（24 new tests, 55 total green） |
 
 ---
 
