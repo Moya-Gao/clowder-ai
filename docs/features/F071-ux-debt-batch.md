@@ -12,7 +12,7 @@ completed: 2026-03-11
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P2
 **Completed: 2026-03-11**
 **Implementation**: PR #268 (`ed06a8c7`)
-**Follow-up fixes**: `a26ca1b7`（待上传图片预览）/ `e9249040`（mention 自动滚动 + “还有更多猫猫”提示）
+**Follow-up fixes**: `a26ca1b7`（待上传图片预览）/ `e9249040`（mention 自动滚动 + “还有更多猫猫”提示）/ `1849a90d`（lightbox 开图闪烁 hotfix）
 
 ## Why
 
@@ -157,6 +157,7 @@ completed: 2026-03-11
 | 2026-03-07 | merge 后补充 `a26ca1b7`：待上传图片也支持 Lightbox 预览 |
 | 2026-03-07 | merge 后补充 `e9249040`：mention 列表键盘自动滚动 + “还有更多猫猫”提示 |
 | 2026-03-11 | @gpt52 愿景守护复核原始需求、PR/commit 与真相源，同步反思胶囊并执行 feat close |
+| 2026-03-12 | PR #411 hotfix 合入（`1849a90d`）：`Lightbox` 改为 portal 到 `document.body`，修复点开已发送图片时的大图闪烁 |
 
 ## Review Gate
 
@@ -171,6 +172,7 @@ completed: 2026-03-11
 | **Feature** | `docs/features/F039-message-queue-delivery.md` | D2 的状态呈现基线 |
 | **Feature** | `docs/features/F075-cat-leaderboard.md` | D3 优化后引出的后续想法 |
 | **Mailbox** | `docs/mailbox/2026-03-07-f071-ux-debt-review-request.md` | 布偶猫发给 codex 的 review 请求 |
+| **Bug Report** | `docs/bug-report/lightbox-flicker-on-open/bug-report.md` | 2026-03-12 点开图片闪烁问题的根因与验证 |
 | **Reflection** | `docs/reflections/2026-03-11-f071-ux-debt-capsule.md` | 本次 feat close 的反思胶囊 |
 | **Code** | `packages/web/src/components/Lightbox.tsx` | D1 共享 Lightbox 实现 |
 | **Code** | `packages/web/src/components/ChatInput.tsx` | D3 过滤与空结果按键语义 |
