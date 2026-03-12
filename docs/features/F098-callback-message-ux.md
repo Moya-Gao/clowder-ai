@@ -157,7 +157,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 ### Phase B（Evidence Panel + 组件统一 + multi_mention 方向）
 - [x] AC-B1: Evidence Panel 在深色/品种色气泡上文字可读 ✅
 - [x] AC-B2: connector 消息（multi-mention-result、飞书、Telegram）视觉统一 ✅
-- [ ] AC-A2（从 Phase A 降级）: multi_mention 结果消息显示 `→ @猫A + @猫B` 方向（依赖 AC-C2 后端元数据）
+- [x] AC-A2（从 Phase A 降级）: multi_mention 结果消息显示 `→ @猫A + @猫B` 方向（依赖 AC-C2 后端元数据）✅
 
 ### Phase B.5（Connector 可扩展设计）
 - [x] AC-B5-1: `getConnectorTheme()` 改为从 `ConnectorDefinition` 注册表读取，不再 if-else 硬编码 ✅
@@ -167,7 +167,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 
 ### Phase C（后端元数据，可选）
 - [ ] AC-C1: post_message API 支持 `targetCats` 字段
-- [ ] AC-C2: multi_mention 结果消息包含发起者 + targets 元数据
+- [x] AC-C2: multi_mention 结果消息包含发起者 + targets 元数据 ✅
 
 ### Phase D（消息流位置正确性）
 - [ ] AC-D1: 铲屎官在猫猫调用期间发的消息，回顾时能区分"发送时刻"和"被收到时刻"
@@ -231,6 +231,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | 2026-03-12 | Phase A merged (PR #379). AC-A1/A3/A4/A6/A7 ✅. AC-A2 降级 Phase B (KD-5) |
 | 2026-03-12 | Phase B merged (PR #383). AC-B1/B2 ✅. Evidence dark slate + Connector themes |
 | 2026-03-12 | Phase B.5 merged (PR #385). AC-B5-1~4 ✅. Connector theme registry (extensibility) |
+| 2026-03-12 | Phase C merged (PR #387). AC-C2 + AC-A2 ✅. multi_mention targets metadata + direction rendering |
 
 ## Review Gate
 
