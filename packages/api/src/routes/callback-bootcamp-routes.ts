@@ -7,13 +7,15 @@
 import { catIdSchema } from '@cat-cafe/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { BOOTCAMP_PHASE_ACHIEVEMENTS } from '../domains/leaderboard/achievement-defs.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import { runEnvironmentCheck } from '../domains/cats/services/bootcamp/env-check.js';
 import type { BootcampStateV1, IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 
-const bootcampPhaseSchema = z.enum([
+/** Ordered phase list — index determines valid transitions (forward-only) */
+const PHASE_ORDER = [
   'phase-0-select-cat',
   'phase-1-intro',
   'phase-2-env-check',
@@ -27,7 +29,11 @@ const bootcampPhaseSchema = z.enum([
   'phase-9-complete',
   'phase-10-retro',
   'phase-11-farewell',
-]);
+] as const;
+
+const PHASE_INDEX = new Map(PHASE_ORDER.map((p, i) => [p, i]));
+
+const bootcampPhaseSchema = z.enum([...PHASE_ORDER]);
 
 const updateBootcampStateCallbackSchema = callbackAuthSchema.extend({
   threadId: z.string().min(1),
@@ -90,6 +96,28 @@ export function registerCallbackBootcampRoutes(
       phase: 'phase-0-select-cat' as const,
       startedAt: Date.now(),
     };
+
+    // P1 fix: Phase transition must be forward-only (no skipping)
+    let validTransition = false;
+    if (updates.phase !== undefined) {
+      const currentPhase = existing.phase as (typeof PHASE_ORDER)[number];
+      const currentIdx = PHASE_INDEX.get(currentPhase) ?? 0;
+      const targetIdx = PHASE_INDEX.get(updates.phase);
+      if (targetIdx === undefined || targetIdx <= currentIdx) {
+        reply.status(400);
+        return { error: `Invalid phase transition: ${existing.phase} → ${updates.phase} (must advance forward)` };
+      }
+      // Only allow advancing by 1 step (or to the immediately next phase)
+      // Exception: allow skipping phase-3.5-advanced (optional advanced features)
+      const gap = targetIdx - currentIdx;
+      const skippingAdvanced = existing.phase === 'phase-3-config-help' && updates.phase === 'phase-4-task-select';
+      if (gap > 1 && !skippingAdvanced) {
+        reply.status(400);
+        return { error: `Phase skip not allowed: ${existing.phase} → ${updates.phase} (max 1 step forward)` };
+      }
+      validTransition = true;
+    }
+
     // Build merged state — spreads preserve existing fields, updates override
     const raw: Record<string, unknown> = { ...existing };
     if (updates.phase !== undefined) raw['phase'] = updates.phase;
@@ -106,8 +134,38 @@ export function registerCallbackBootcampRoutes(
       await threadStore.updatePin(threadId, true);
     }
 
+    // F087 Phase D: Emit achievements via F075 event pipeline (P2 fix: unified contract)
+    let unlockedAchievement: string | undefined;
+    if (validTransition && updates.phase) {
+      const achievementId = BOOTCAMP_PHASE_ACHIEVEMENTS.get(updates.phase);
+      if (achievementId) {
+        const nonce = Math.random().toString(36).slice(2, 10);
+        const eventId = `bootcamp:${record.userId}:achievement_unlocked:${Date.now()}:${nonce}`;
+        const eventRes = await app.inject({
+          method: 'POST',
+          url: '/api/leaderboard/events',
+          headers: { 'x-cat-cafe-user': record.userId },
+          payload: {
+            eventId,
+            source: 'bootcamp',
+            catId: record.catId ?? 'system',
+            eventType: 'achievement_unlocked',
+            payload: { achievementId },
+            timestamp: new Date().toISOString(),
+          },
+        });
+        const eventBody = JSON.parse(eventRes.body) as { status?: string };
+        if (eventRes.statusCode === 200 && (eventBody.status === 'ok' || eventBody.status === 'duplicate')) {
+          unlockedAchievement = achievementId;
+        }
+      }
+    }
+
     const updated = await threadStore.get(threadId);
-    return { bootcampState: updated?.bootcampState };
+    return {
+      bootcampState: updated?.bootcampState,
+      ...(unlockedAchievement ? { unlockedAchievement } : {}),
+    };
   });
 
   // POST /api/callbacks/bootcamp-env-check — run env check and auto-store results

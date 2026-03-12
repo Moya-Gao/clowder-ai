@@ -17,6 +17,14 @@ const CVO_ACHIEVEMENTS: AchievementDef[] = [
   { id: 'cvo-mentor', emoji: '🎓', label: '带教官', description: '帮助其他猫完成第一个 PR', category: 'cvo' },
 ];
 
+/** Bootcamp CVO progression badges (F087 Phase D) */
+const BOOTCAMP_ACHIEVEMENTS: AchievementDef[] = [
+  { id: 'bootcamp-enrolled', emoji: '🎒', label: '入营新兵', description: '开始猫猫训练营', category: 'cvo' },
+  { id: 'bootcamp-env-ready', emoji: '🔧', label: '装备齐全', description: '通过环境检测', category: 'cvo' },
+  { id: 'bootcamp-first-decision', emoji: '🎯', label: '第一次拍板', description: '做出第一个 CVO 决策', category: 'cvo' },
+  { id: 'bootcamp-graduated', emoji: '🎓', label: '训练营毕业', description: '完成猫猫训练营全流程', category: 'cvo' },
+];
+
 /** Daily fun badges */
 const DAILY_ACHIEVEMENTS: AchievementDef[] = [
   { id: 'daily-night-owl', emoji: '🦉', label: '夜猫子', description: '凌晨 2-5 点还在写代码', category: 'daily' },
@@ -28,7 +36,7 @@ const DAILY_ACHIEVEMENTS: AchievementDef[] = [
 ];
 
 export const ALL_ACHIEVEMENTS: ReadonlyMap<string, AchievementDef> = new Map(
-  [...CVO_ACHIEVEMENTS, ...DAILY_ACHIEVEMENTS].map((a) => [a.id, a]),
+  [...CVO_ACHIEVEMENTS, ...BOOTCAMP_ACHIEVEMENTS, ...DAILY_ACHIEVEMENTS].map((a) => [a.id, a]),
 );
 
 /** CVO level thresholds */
@@ -39,6 +47,17 @@ const CVO_LEVELS = [
   { level: 4, title: '技术专家猫', description: '架构级能力', threshold: 6 },
   { level: 5, title: '首席铲码官', description: 'CVO — Chief Vibe Officer', threshold: 7 },
 ] as const;
+
+/**
+ * Maps bootcamp phase transitions to achievement IDs.
+ * Used by callback-bootcamp-routes to auto-emit achievements.
+ */
+export const BOOTCAMP_PHASE_ACHIEVEMENTS: ReadonlyMap<string, string> = new Map([
+  ['phase-1-intro', 'bootcamp-enrolled'],
+  ['phase-3-config-help', 'bootcamp-env-ready'],
+  ['phase-5-kickoff', 'bootcamp-first-decision'],
+  ['phase-11-farewell', 'bootcamp-graduated'],
+]);
 
 export function computeCvoLevel(cvoUnlockedCount: number) {
   let current: (typeof CVO_LEVELS)[number] = CVO_LEVELS[0]!;

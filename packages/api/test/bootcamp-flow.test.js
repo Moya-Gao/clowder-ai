@@ -38,6 +38,9 @@ describe('Bootcamp Flow Integration', () => {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
     const { bootcampRoutes } = await import('../dist/routes/bootcamp.js');
     const { threadsRoutes } = await import('../dist/routes/threads.js');
+    const { leaderboardEventsRoutes } = await import('../dist/routes/leaderboard-events.js');
+    const { AchievementStore } = await import('../dist/domains/leaderboard/achievement-store.js');
+    const { GameStore } = await import('../dist/domains/leaderboard/game-store.js');
     const app = Fastify();
     await app.register(callbacksRoutes, {
       registry,
@@ -48,6 +51,10 @@ describe('Bootcamp Flow Integration', () => {
     });
     await app.register(bootcampRoutes);
     await app.register(threadsRoutes, { threadStore });
+    await app.register(leaderboardEventsRoutes, {
+      gameStore: new GameStore(),
+      achievementStore: new AchievementStore(),
+    });
     return app;
   }
 
@@ -95,80 +102,56 @@ describe('Bootcamp Flow Integration', () => {
     assert.equal(s2.bootcampState.phase, 'phase-1-intro');
     assert.equal(s2.bootcampState.leadCat, 'opus');
 
-    // Step 3: Run env check → auto-stores results
+    // Helper: advance phase (creates fresh invocation each time, simulating multiple turns)
+    async function advancePhase(threadId, phase, extra = {}) {
+      const creds = registry.create('user-1', 'opus', threadId);
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/callbacks/update-bootcamp-state',
+        payload: { invocationId: creds.invocationId, callbackToken: creds.callbackToken, threadId, phase, ...extra },
+      });
+      assert.equal(res.statusCode, 200, `Phase ${phase} should succeed`);
+      return JSON.parse(res.body);
+    }
+
+    // Step 3: Walk through phases sequentially (phase validation enforces forward-only, +1 step)
+    await advancePhase(thread.id, 'phase-2-env-check');
+
+    // Step 3b: Run env check → auto-stores results
+    const envCreds = registry.create('user-1', 'opus', thread.id);
     const step3 = await app.inject({
       method: 'POST',
       url: '/api/callbacks/bootcamp-env-check',
-      payload: {
-        invocationId,
-        callbackToken,
-        threadId: thread.id,
-      },
+      payload: { invocationId: envCreds.invocationId, callbackToken: envCreds.callbackToken, threadId: thread.id },
     });
-
     assert.equal(step3.statusCode, 200);
-    const envResults = JSON.parse(step3.body);
-    assert.ok('node' in envResults);
-
-    // Verify env check stored in bootcampState
+    assert.ok('node' in JSON.parse(step3.body));
     const afterEnv = await threadStore.get(thread.id);
     assert.ok(afterEnv.bootcampState.envCheck);
 
-    // Step 4: Advance to task selection with advanced features
-    const step4 = await app.inject({
-      method: 'POST',
-      url: '/api/callbacks/update-bootcamp-state',
-      payload: {
-        invocationId,
-        callbackToken,
-        threadId: thread.id,
-        phase: 'phase-4-task-select',
-        advancedFeatures: { tts: 'skipped', asr: 'skipped', pencil: 'unavailable' },
-      },
+    // Step 4: config-help → skip 3.5 (allowed) → task-select → kickoff
+    await advancePhase(thread.id, 'phase-3-config-help');
+    const s4 = await advancePhase(thread.id, 'phase-4-task-select', {
+      advancedFeatures: { tts: 'skipped', asr: 'skipped', pencil: 'unavailable' },
     });
-
-    assert.equal(step4.statusCode, 200);
-    const s4 = JSON.parse(step4.body);
     assert.equal(s4.bootcampState.phase, 'phase-4-task-select');
-    assert.equal(s4.bootcampState.leadCat, 'opus'); // preserved from step 2
+    assert.equal(s4.bootcampState.leadCat, 'opus'); // preserved
     assert.equal(s4.bootcampState.advancedFeatures.tts, 'skipped');
 
-    // Step 5: Select task → advance to kickoff
-    const step5 = await app.inject({
-      method: 'POST',
-      url: '/api/callbacks/update-bootcamp-state',
-      payload: {
-        invocationId,
-        callbackToken,
-        threadId: thread.id,
-        phase: 'phase-5-kickoff',
-        selectedTaskId: 'Q3',
-      },
-    });
-
-    assert.equal(step5.statusCode, 200);
-    const s5 = JSON.parse(step5.body);
+    // Step 5: kickoff → design → dev → review → complete → retro → farewell
+    const s5 = await advancePhase(thread.id, 'phase-5-kickoff', { selectedTaskId: 'Q3' });
     assert.equal(s5.bootcampState.selectedTaskId, 'Q3');
 
-    // Step 6: Complete bootcamp
-    const completedAt = Date.now();
-    const step6 = await app.inject({
-      method: 'POST',
-      url: '/api/callbacks/update-bootcamp-state',
-      payload: {
-        invocationId,
-        callbackToken,
-        threadId: thread.id,
-        phase: 'phase-11-farewell',
-        completedAt,
-      },
-    });
+    await advancePhase(thread.id, 'phase-6-design');
+    await advancePhase(thread.id, 'phase-7-dev');
+    await advancePhase(thread.id, 'phase-8-review');
+    await advancePhase(thread.id, 'phase-9-complete');
+    await advancePhase(thread.id, 'phase-10-retro');
 
-    assert.equal(step6.statusCode, 200);
-    const s6 = JSON.parse(step6.body);
+    const completedAt = Date.now();
+    const s6 = await advancePhase(thread.id, 'phase-11-farewell', { completedAt });
     assert.equal(s6.bootcampState.phase, 'phase-11-farewell');
     assert.equal(s6.bootcampState.completedAt, completedAt);
-    // All accumulated state should be present
     assert.equal(s6.bootcampState.leadCat, 'opus');
     assert.equal(s6.bootcampState.selectedTaskId, 'Q3');
     assert.equal(s6.bootcampState.startedAt, 1000);
