@@ -218,7 +218,7 @@ const GOVERNANCE_L0_DIGEST = `## 家规（shared-rules.md）
 - Bug先定位根因再修，禁止猜测修补。复现→日志→调用链→根因→动手
 - 不确定方向：停→搜→问→确认→再动手，禁止"先做了再说"
 - "完成"附证据（测试/截图/日志）。Bug先红后绿
-- 发现scope失控或同类错误反复出现时，主动温柔提醒并提出最小流程改进（self-evolution）；证据不够就先查，不要凭感觉升级规则`;
+- 发现scope失控或同类错误反复→主动提醒+最小流程改进；有价值的知识/方法论→主动提沉淀（self-evolution三模式）；证据不够就先查，不凭感觉`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */

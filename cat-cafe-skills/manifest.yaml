@@ -222,10 +222,10 @@ skills:
   # ── 自我进化 ──
   self-evolution:
     description: >
-      Scope Guard + Process Evolution — 主动护栏与自我进化。
-      Use when: 发现铲屎官 scope 发散偏离愿景、同类错误反复出现（memory ≥2 次）、铲屎官纠正可泛化为规则、SOP 执行中发现流程缺口。
-      Not for: 日常 SOP 推进（那是正常执行）、一次性的个案 bug fix。
-      Output: Scope 收束提醒 或 流程改进提案（5 槽模板）。
+      Scope Guard + Process Evolution + Knowledge Evolution — 主动护栏与自我进化。
+      Use when: 铲屎官 scope 发散偏离愿景、同类错误反复出现、SOP 流程缺口、有价值的知识/方法论值得沉淀。
+      Not for: 日常 SOP 推进（正常执行）、一次性个案 bug fix。
+      Output: Scope 收束提醒 / 流程改进提案 / 知识沉淀提案。
     triggers:
       - "scope 发散"
       - "又犯了"
@@ -235,10 +235,13 @@ skills:
       - "self-evolution"
       - "这个错误犯了好多次"
       - "要不要拆成多个 feat"
+      - "这个值得记住"
+      - "沉淀一下"
+      - "这个方法论不错"
     not_for:
       - "日常 SOP 推进"
       - "一次性 bug fix"
-    output: "Scope guard reminder or process evolution proposal (5-slot)"
+    output: "Scope guard reminder / process evolution proposal / knowledge distillation"
     next: []
     sop_step: null
     merged_from: null
