@@ -4,13 +4,14 @@ related_features: [F066]
 topics: [健康, 提醒, hook, skill, 猫设]
 doc_kind: spec
 created: 2026-03-08
-status: active
+status: done
+completed: 2026-03-11
 reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 ---
 
 # F085 Hyperfocus Brake — 猫猫健康小刹车
 
-> **Status**: in-progress (phase 1-3 done, phase 4 pending) | **Owner**: 布偶猫
+> **Status**: done | **Completed**: 2026-03-11 | **Owner**: 布偶猫
 
 ## Why
 
@@ -94,7 +95,7 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 - [x] **AC28**: Hub 开关 — Hub Settings 新增 Brake 面板，含 enable/disable toggle + 阈值调节（默认 90min）
 - [x] **AC29**: 前端 TTS 自动播放 — brake 弹窗弹出时，用 `useTts.synthesize()` 自动播放当前猫的撒娇语音（回收 TD108）
 - [x] **AC30**: 猫猫图片增强 — brake 弹窗内三猫头像从 36px 放大 + 增加猫猫表情/动作图片（撒娇、睡觉、叉腰），提升情感冲击力
-- [ ] **AC31**: 配置持久化 — brake 开关状态 + 阈值通过 API 持久化到用户配置，刷新/切标签页不丢失（当前 in-memory，浏览器刷新不丢但服务重启丢失，真持久化待后续）
+- ~~AC31~~: 配置持久化 → 裁出为 TD110（当前 in-memory Map 满足浏览器刷新场景，真持久化需 Redis/DB，不阻塞 F085 close）
 
 ## Links
 
@@ -170,6 +171,8 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 | 2026-03-11 | Codex 本地 R1 (2P1+1P2 全修) + R2 LGTM |
 | 2026-03-11 | 云端 Codex R1 (1P1+1P2 全修) + R2 LGTM |
 | 2026-03-11 | Phase 5 merged (PR #361, `df895547`) — AC28/29/30 done, AC31 deferred |
+| 2026-03-11 | AC31 裁出为 TD110，TD108 回收完成标 done |
+| 2026-03-11 | GPT-5.4 愿景守护通过 + Feature close |
 
 ## 需求点 Checklist
 

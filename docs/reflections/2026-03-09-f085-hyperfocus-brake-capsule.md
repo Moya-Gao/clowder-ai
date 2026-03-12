@@ -1,10 +1,10 @@
 ---
 capsule_id: f085-hyperfocus-brake
-context: "F085 Hyperfocus Brake — 全 4 阶段完成反思（含 Phase 4 平台化）"
+context: "F085 Hyperfocus Brake — 全 5 阶段完成反思（含 Phase 5 UX 增强）"
 feature_ids: [F085]
 doc_kind: reflection
 created: 2026-03-09
-updated: 2026-03-10
+updated: 2026-03-11
 ---
 
 # F085 Hyperfocus Brake — 完成反思胶囊
@@ -16,6 +16,7 @@ updated: 2026-03-10
 3. **rich block + TTS 基建复用**：Phase 2 和 Phase 3 几乎零基建投入——直接复用 F022 的 rich block 体系和 F034/F066 的 TTS pipeline，只需要在 audio block 上加一个 `speaker` 字段就打通了三猫声线。
 4. **Phase 4 平台化一次到位**：从 gap 识别（hook 只覆盖布偶猫）到设计（API 追踪 + WS 推送 + 前端 UI）到实现（24 tests, 0 fail），一个 worktree cycle 完成。砚砚本地 2 轮 + 云端 2 轮 review 全修通过。
 5. **云端 review P1 的 TDD 修复**：云端 Codex 发现 nag 模式下 dedup 未重置——我写了 RED test 先复现（assert shouldTrigger===1），再加一行 `lastTriggeredLevel=0` 变绿，干净利落。
+6. **Phase 5 一个 cycle 闭环**：从 plan 到 merge 一次性完成——8 RED tests → 全绿 → Codex 本地 2 轮 + 云端 2 轮。铲屎官的三个需求（Hub 开关 + TTS + 猫猫图片）全落地，AC31 合理裁出为 TD110。
 
 ## What Failed
 
@@ -40,3 +41,5 @@ updated: 2026-03-10
 - Bug fix (thread switch): `74d24bdb`
 - Phase 2 (rich blocks): `562581aa`
 - Phase 4 cloud P1 fix (dedup reset): `aef8b0f7`
+- PR #361 (Phase 5): `df895547`
+- GPT-5.4 愿景守护: 通过（方向未漂移，AC31 合理裁出）

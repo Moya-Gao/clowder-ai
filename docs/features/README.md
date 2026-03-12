@@ -71,7 +71,7 @@
 | F086 | F086: Cat Orchestration — 猫猫自主协作 + 元认知系统 | done | [F086-cat-orchestration-multi-mention.md](./F086-cat-orchestration-multi-mention.md) |
 | F088 | F088: Multi-Platform Chat Gateway — 聊天平台接入网关 | done | [F088-multi-platform-chat-gateway.md](./F088-multi-platform-chat-gateway.md) |
 | F066 | F066: Voice Pipeline Upgrade — 本地 TTS 语音基础设施 | done | [F066-voice-pipeline-upgrade.md](./F066-voice-pipeline-upgrade.md) |
-| F085 | F085: Hyperfocus Brake — 猫猫健康小刹车 (Phase 5: UX 增强) | active | [F085-hyperfocus-brake.md](./F085-hyperfocus-brake.md) |
+| F085 | F085: Hyperfocus Brake — 猫猫健康小刹车 (5 Phases: hook→rich block→声线→平台化→UX) | done | [F085-hyperfocus-brake.md](./F085-hyperfocus-brake.md) |
 | F081 | F081: Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | done | [F081-bubble-continuity-observability.md](./F081-bubble-continuity-observability.md) |
 | F091 | F091: Signal Study Mode — 信号学习伴侣 | done | [F091-signal-study-mode.md](./F091-signal-study-mode.md) |
 | F094 | F094: Feature 文档债务清理 — 全量迁移到黄金模板标准 | done | [F094-feature-doc-debt-cleanup.md](./F094-feature-doc-debt-cleanup.md) |
