@@ -30,8 +30,8 @@ created: 2026-02-26
 - 历史记录未单列关键决策
 
 ## Dependencies
+- **Evolved to**: F101（Mode v2 — 游戏系统引擎 + 狼人杀）
 - **Related**: F011（保留原始依赖记录见下）
-- F011
 
 ## Risk
 | 风险 | 缓解 |
