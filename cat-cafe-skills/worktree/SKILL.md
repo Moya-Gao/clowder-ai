@@ -27,6 +27,7 @@ git worktree add ../cat-cafe-{feature-name} -b feat/{feature-name}
 - 🔴 **禁止在项目内部创建**（不要用 `.worktrees/` 子目录）
 - 🔴 **`cat-cafe-runtime` 是生产环境，绝对不能删/清理！** 它不是开发 worktree
 - 🔴 **禁止在 `cat-cafe-runtime` 里执行 `pnpm start` / `pnpm runtime:start`**（会先 kill 旧 API，等于把在线 runtime 踢掉）
+- 🔴 **`localhost:3001/3002` 默认属于 `cat-cafe-runtime`**。如果你要验证当前 worktree 的未合入改动，浏览器 / Playwright / curl 不能直接打这两个端口，除非你明确是在做 runtime 验收而不是开发验证
 
 其他项目：先查 `CLAUDE.md / AGENTS.md` 有没有指定位置 → 有就用 → 没有再问用户。
 
@@ -112,6 +113,21 @@ git branch --merged main      # 哪些分支已合入
 - patch 文件名用绝对路径（指向目标 worktree）
 - 或者改用 `sed/perl` 在目标 worktree 执行
 
+## 浏览器 / 端口护栏（这次事故补的）
+
+“我以为我在测 dev，实际打到了 runtime” 这种事故，根因通常不是命令本身，而是**CWD / worktree / URL 三者脱钩**。
+
+验证当前 worktree 改动前，必须先明确两件事：
+
+1. **我在哪个仓/哪个 worktree？**
+   - `pwd`
+   - `git branch --show-current`
+2. **我要打哪个 URL？**
+   - 如果目标是 `localhost:3001/3002`，默认按 **runtime** 处理
+   - 如果目标是当前 worktree 的未合入改动，必须使用该 worktree 对应的独立实例/端口
+
+一句话铁律：**未合入改动的验证，不得拿 runtime 的 3001/3002 冒充开发环境。**
+
 ## 安全核查
 
 创建前：
@@ -121,6 +137,7 @@ git branch --merged main      # 哪些分支已合入
 - [ ] `.env.local` 包含 `REDIS_URL=redis://localhost:6398`
 - [ ] 基线测试通过（失败了先报告再问是否继续）
 - [ ] 当前会话不是 `cat-cafe-runtime` 的运行态验收会话（验收会话默认只读，不做重启命令）
+- [ ] 验证目标 URL 已明确；若是 `3001/3002`，你知道自己在打 runtime，而不是当前 worktree 的本地改动
 
 清理前：
 - [ ] 分支已合入 main（`git branch --merged main`）

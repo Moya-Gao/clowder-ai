@@ -112,3 +112,6 @@ private/
 *.mp4
 *.avi
 *.mkv
+
+# Playwright MCP cache
+.playwright-mcp/
