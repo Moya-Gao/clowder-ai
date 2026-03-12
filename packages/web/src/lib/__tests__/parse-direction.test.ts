@@ -1,0 +1,108 @@
+import { describe, expect, it } from 'vitest';
+import { parseDirection } from '../parse-direction';
+
+// Minimal mock: alias (lowercase, no @) → catId
+const mockToCat: Record<string, string> = {
+  opus: 'opus',
+  布偶猫: 'opus',
+  codex: 'codex',
+  缅因猫: 'codex',
+  gpt52: 'gpt52',
+};
+
+// Mock regex matching the same aliases (case-insensitive, boundary-aware)
+const aliases = Object.keys(mockToCat).sort((a, b) => b.length - a.length);
+const mockRe = new RegExp(`@(${aliases.join('|')})(?=$|\\s|[,.:;!?])`, 'gi');
+
+const getMocks = () => ({ toCat: mockToCat, re: mockRe });
+
+describe('parseDirection', () => {
+  it('returns null for stream origin messages', () => {
+    const msg = { origin: 'stream' as const, content: '@codex hi' };
+    expect(parseDirection(msg, getMocks)).toBeNull();
+  });
+
+  it('parses single @mention from callback content', () => {
+    const msg = { origin: 'callback' as const, content: 'R2 修复确认\n\n@codex' };
+    expect(parseDirection(msg, getMocks)).toEqual({
+      type: 'mention',
+      targets: ['codex'],
+      arrow: '→',
+    });
+  });
+
+  it('parses multiple distinct @mentions', () => {
+    const msg = { origin: 'callback' as const, content: '通知\n@codex\n@gpt52' };
+    const result = parseDirection(msg, getMocks);
+    expect(result?.type).toBe('mention');
+    expect(result?.targets).toContain('codex');
+    expect(result?.targets).toContain('gpt52');
+    expect(result?.targets).toHaveLength(2);
+  });
+
+  it('deduplicates same cat from different aliases', () => {
+    const msg = { origin: 'callback' as const, content: '@codex @缅因猫' };
+    expect(parseDirection(msg, getMocks)).toEqual({
+      type: 'mention',
+      targets: ['codex'],
+      arrow: '→',
+    });
+  });
+
+  it('parses crossPost direction from extra metadata', () => {
+    const msg = {
+      origin: 'callback' as const,
+      content: 'cross post content',
+      extra: { crossPost: { sourceThreadId: 'thread_abc12345xyz' } },
+    };
+    expect(parseDirection(msg, getMocks)).toEqual({
+      type: 'crossPost',
+      targets: ['abc12345'],
+      arrow: '↗',
+    });
+  });
+
+  it('parses whisper direction from whisperTo (highest priority)', () => {
+    const msg = {
+      visibility: 'whisper' as const,
+      whisperTo: ['codex', 'gpt52'],
+      content: '@opus secret',
+    };
+    expect(parseDirection(msg, getMocks)).toEqual({
+      type: 'whisper',
+      targets: ['codex', 'gpt52'],
+      arrow: '→',
+    });
+  });
+
+  it('returns null for callback with no recognized @mention', () => {
+    const msg = { origin: 'callback' as const, content: 'general broadcast to all' };
+    expect(parseDirection(msg, getMocks)).toBeNull();
+  });
+
+  it('returns null for messages with no origin and no whisper', () => {
+    const msg = { content: 'hello world' };
+    expect(parseDirection(msg, getMocks)).toBeNull();
+  });
+
+  it('filters out __owner__ pseudo-cat from @mention results (P1-2)', () => {
+    // getMentionToCat maps @landy/@铲屎官 to __owner__ — must not leak into UI
+    const ownerToCat: Record<string, string> = {
+      ...mockToCat,
+      landy: '__owner__',
+      铲屎官: '__owner__',
+    };
+    const ownerAliases = Object.keys(ownerToCat).sort((a, b) => b.length - a.length);
+    const ownerRe = new RegExp(`@(${ownerAliases.join('|')})(?=$|\\s|[,.:;!?])`, 'gi');
+    const getOwnerMocks = () => ({ toCat: ownerToCat, re: ownerRe });
+
+    // Only @landy → should return null (owner filtered out)
+    const msg1 = { origin: 'callback' as const, content: '通知铲屎官\n@landy' };
+    expect(parseDirection(msg1, getOwnerMocks)).toBeNull();
+
+    // @landy + @codex → only codex in targets
+    const msg2 = { origin: 'callback' as const, content: '@landy @codex' };
+    const result = parseDirection(msg2, getOwnerMocks);
+    expect(result?.targets).toEqual(['codex']);
+  });
+});

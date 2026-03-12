@@ -9,13 +9,15 @@ interface A2AGroup {
 interface A2ACollapsibleProps {
   group: A2AGroup;
   renderMessage: (msg: ChatMessage) => React.ReactNode;
+  /** F098: Resolve breed primary color from catId for left border */
+  getCatColor?: (catId: string) => string | undefined;
 }
 
 /**
  * Collapsible container for A2A (agent-to-agent) chain messages.
  * Shows a summary line when collapsed; expands to show all intermediate messages.
  */
-export function A2ACollapsible({ group, renderMessage }: A2ACollapsibleProps) {
+export function A2ACollapsible({ group, renderMessage, getCatColor }: A2ACollapsibleProps) {
   // In export mode (?export=true), default to expanded so screenshots show full A2A conversations
   const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
   const [expanded, setExpanded] = useState(isExport);
@@ -37,6 +39,10 @@ export function A2ACollapsible({ group, renderMessage }: A2ACollapsibleProps) {
   const catLabel = catIds.length > 0 ? catIds.join(' ↔ ') : 'agents';
   const count = group.messages.length;
 
+  // F098: Use first cat's breed color for left border (instead of static purple)
+  const firstCatId = group.messages[0]?.catId;
+  const borderColor = (firstCatId && getCatColor?.(firstCatId)) ?? '#9B7EBD';
+
   return (
     <div className="my-2">
       <button
@@ -56,9 +62,12 @@ export function A2ACollapsible({ group, renderMessage }: A2ACollapsibleProps) {
       </button>
 
       {expanded && (
-        <div className="mt-1 ml-3 pl-3 border-l-2 border-purple-400 dark:border-purple-600 space-y-1">
+        <div
+          className="mt-1 ml-3 pl-3 border-l-2 space-y-1 bg-slate-50 dark:bg-slate-800/50 rounded-r-lg py-2"
+          style={{ borderColor }}
+        >
           {group.messages.map((msg) => (
-            <div key={msg.id} className="opacity-80">
+            <div key={msg.id}>
               {renderMessage(msg)}
             </div>
           ))}

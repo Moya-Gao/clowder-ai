@@ -42,7 +42,7 @@ describe('A2ACollapsible layout-change event', () => {
 
     let expandedPresentAtEvent: boolean | null = null;
     const handler = () => {
-      expandedPresentAtEvent = Boolean(container.querySelector('div.border-purple-400'));
+      expandedPresentAtEvent = Boolean(container.querySelector('div.border-l-2'));
     };
     window.addEventListener('catcafe:chat-layout-changed', handler);
 
@@ -63,7 +63,7 @@ describe('A2ACollapsible layout-change event', () => {
       (toggle as HTMLButtonElement).click();
     });
 
-    expect(container.querySelector('div.border-purple-400')).toBeTruthy();
+    expect(container.querySelector('div.border-l-2')).toBeTruthy();
     expect(expandedPresentAtEvent).toBe(true);
 
     window.removeEventListener('catcafe:chat-layout-changed', handler);

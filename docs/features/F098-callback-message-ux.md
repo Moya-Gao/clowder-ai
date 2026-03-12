@@ -118,16 +118,17 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 
 ### Phase A（方向标注 + 视觉统一）
 - [ ] AC-A1: callback 消息 header 显示方向标注（→ @猫名），从消息内容 @mention 解析
-- [ ] AC-A2: multi_mention 相关消息显示 `→ @猫A + @猫B` 方向
+- [ ] ~~AC-A2~~: **降级到 Phase B**（依赖 Phase C2 后端元数据，见 KD-5）
 - [ ] AC-A3: cross_post 消息方向标注包含来源/目标 thread
 - [ ] AC-A4: 猫猫 whisper badge 显示 "悄悄话 → @猫名"（和铲屎官 whisper 一致）
 - [ ] AC-A5: callback 消息有品种色浅底气泡，视觉上和 CLI 深色块区分
 - [ ] AC-A6: 方向标注用品种色 pill badge（和 @mention 彩色徽章同款样式）
 - [ ] AC-A7: A2A 内部讨论消息用中性灰底（不用品种色背景），品种色仅用于边框/badge
 
-### Phase B（Evidence Panel + 组件统一）
+### Phase B（Evidence Panel + 组件统一 + multi_mention 方向）
 - [ ] AC-B1: Evidence Panel 在深色/品种色气泡上文字可读
 - [ ] AC-B2: connector 消息（multi-mention-result、飞书、Telegram）视觉统一
+- [ ] AC-A2（从 Phase A 降级）: multi_mention 结果消息显示 `→ @猫A + @猫B` 方向（依赖 AC-C2 后端元数据）
 
 ### Phase C（后端元数据，可选）
 - [ ] AC-C1: post_message API 支持 `targetCats` 字段
@@ -177,6 +178,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | KD-2 | 猫猫 whisper 方向标注和铲屎官 whisper 统一 | 一致性，用户心智模型统一 | 2026-03-11 |
 | KD-3 | 方向标注放 header 行（猫名右侧 pill badge） | 设计稿确认，不占额外行高 | 2026-03-11 |
 | KD-4 | A2A 内部讨论改中性灰底 + 品种色边框/badge | 铲屎官截图确认颜色刺眼，灰底解决叠色问题 | 2026-03-11 |
+| KD-5 | AC-A2 降级到 Phase B | multi_mention 结果是 `type:'connector'` 聚合消息（无 targets 元数据），方向标注需 Phase C2 后端补 targets 字段后才能可靠渲染。AC-B2 已覆盖 connector 视觉统一 | 2026-03-11 |
 
 ## Timeline
 

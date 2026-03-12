@@ -5,6 +5,8 @@ import { useState } from 'react';
 import type { CatData } from '@/hooks/useCatData';
 import { type TtsState, useTts } from '@/hooks/useTts';
 import { hexToRgba } from '@/lib/color-utils';
+import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
+import { parseDirection } from '@/lib/parse-direction';
 import { type ChatMessage as ChatMessageType, type MessageContent, useChatStore } from '@/stores/chatStore';
 import { API_URL } from '@/utils/api-client';
 import { CatAvatar } from './CatAvatar';
@@ -16,6 +18,7 @@ import { Lightbox } from './Lightbox';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { RichBlocks } from './rich/RichBlocks';
+import { DirectionPill } from './DirectionPill';
 import { SummaryCard } from './SummaryCard';
 import { ThinkingContent } from './ThinkingContent';
 
@@ -145,6 +148,11 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const isWhisper = message.visibility === 'whisper';
   const isRevealed = isWhisper && !!message.revealedAt;
 
+  // F098: Direction info for pill badge
+  const direction = catData
+    ? parseDirection(message, () => ({ toCat: getMentionToCat(), re: getMentionRe() }))
+    : null;
+
   // F097: CLI Output Block — merge tool events + stream content into unified CliEvent[]
   const isStreamOrigin = message.origin === 'stream';
   const cliEvents = toCliEvents(message.toolEvents, isStreamOrigin ? message.content : undefined);
@@ -264,8 +272,18 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 <span
                   className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}
                 >
-                  {isRevealed ? '已揭秘' : '悄悄话'}
+                  {isRevealed
+                    ? '已揭秘'
+                    : `悄悄话 → ${message.whisperTo
+                        ?.map((id) => {
+                          const cat = getCatById(id);
+                          return cat ? cat.displayName : id;
+                        })
+                        .join(', ') ?? ''}`}
                 </span>
+              )}
+              {!isWhisper && direction && (
+                <DirectionPill direction={direction} getCatById={getCatById} />
               )}
               {hasTextContent && !message.isStreaming && (
                 <TtsPlayButton

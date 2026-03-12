@@ -314,6 +314,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                 key={item.groupId}
                 group={{ groupId: item.groupId, messages: item.messages }}
                 renderMessage={renderSingleMessage}
+                getCatColor={(catId) => getCatById(catId)?.color.primary}
               />
             ) : (
               renderSingleMessage(item.msg)
@@ -422,6 +423,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                     key={item.groupId}
                     group={{ groupId: item.groupId, messages: item.messages }}
                     renderMessage={renderSingleMessage}
+                    getCatColor={(catId) => getCatById(catId)?.color.primary}
                   />
                 ) : (
                   renderSingleMessage(item.msg)
