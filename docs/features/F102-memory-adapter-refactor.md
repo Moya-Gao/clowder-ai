@@ -214,24 +214,24 @@ CREATE TABLE schema_version (
 - [x] AC-A1: 六个接口定义（`IIndexBuilder` + `IEvidenceStore` + `IMarkerQueue` + `IMaterializationService` + `IReflectionService` + `IKnowledgeResolver`），不含 Hindsight 术语
 - [x] AC-A2: `SqliteProjectMemory` 实现 `IEvidenceStore`，使用 `evidence_docs`（常规表）+ `evidence_fts`（FTS5 外部内容表）+ WAL 模式
 - [x] AC-A3: `HindsightEvidenceStore` 实现 `IEvidenceStore`（legacy 兼容）
-- [ ] AC-A4: 所有路由通过 DI 注入接口，不直接 import HindsightClient — **未闭合，Phase B 闭合**
+- [x] AC-A4: 所有路由通过 DI 注入接口，不直接 import HindsightClient — **Phase B 闭合（PR #409）**
 - [x] AC-A5: `ReflectionService` 独立实现，不在 `IEvidenceStore` 接口内
 - [x] AC-A6: `retain-memory` callback 写入 markers（状态 `captured`），approved marker 必须先 materialize 到 .md 才算沉淀
 - [x] AC-A7: Factory 函数按配置选择实现（`EVIDENCE_STORE_TYPE=sqlite|hindsight`）
 - [x] AC-A8: edges 表支持文档间关系查询（含 `supersedes`/`invalidates` 关系，1-hop expand）
-- [ ] AC-A9: `KnowledgeResolver` 联邦检索两个同质 SQLite index — **project-only skeleton 完成，全局 RRF 融合 Phase B 闭合**
+- [x] AC-A9: `KnowledgeResolver` 联邦检索两个同质 SQLite index — **Phase B 闭合（PR #409）**
 - [x] AC-A10: `IIndexBuilder.rebuild()` 含 idempotent migrations + schema version + PRAGMA setup + FTS5 consistency check
 - [x] AC-A11: `IMaterializationService` 实现 approved → .md patch → trigger reindex 流程（skeleton，Phase B 完善 frontmatter 兼容）
 - [x] AC-A12: markers 真相源在 `docs/markers/*.yaml`（git-tracked），SQLite markers 表仅为工作缓存
 
 ### Phase B（自动索引 + SOP 集成 + 评测）
-- [ ] AC-B1: frontmatter 解析器，从 .md 提取 anchor/kind/status/title/summary
-- [ ] AC-B2: 索引覆盖 `docs/features/`, `docs/decisions/`, `docs/plans/`, `docs/lessons-learned.md`
-- [ ] AC-B3: feat-lifecycle 立项/关闭时自动 upsert 索引（与 SOP 集成）
-- [ ] AC-B4: search 支持 kind/status/keyword 过滤，检索时 `superseded_by IS NOT NULL` 降权
-- [ ] AC-B5: 比 grep docs/ 信噪比可测量提升（不返回 archive/废案/discussion）
-- [ ] AC-B6: 新项目初始化时自动创建空 `evidence.sqlite`
-- [ ] AC-B7: `memory_eval_corpus.yaml` 评测集：检索评测（Recall@k）+ 状态评测（DB 变化验证），含 10-15 条 Hindsight 失败案例
+- [x] AC-B1: frontmatter 解析器，从 .md 提取 anchor/kind/status/title/summary
+- [x] AC-B2: 索引覆盖 `docs/features/`, `docs/decisions/`, `docs/plans/`, `docs/lessons-learned.md`
+- [x] AC-B3: feat-lifecycle 立项/关闭时自动 upsert 索引（与 SOP 集成）
+- [x] AC-B4: search 支持 kind/status/keyword 过滤，检索时 `superseded_by IS NOT NULL` 降权
+- [x] AC-B5: 比 grep docs/ 信噪比可测量提升（不返回 archive/废案/discussion）
+- [x] AC-B6: 新项目初始化时自动创建空 `evidence.sqlite`
+- [x] AC-B7: `memory_eval_corpus.yaml` 评测集：检索评测（Recall@k）+ 状态评测（DB 变化验证），含 10-15 条 Hindsight 失败案例
 
 ### Phase C（向量增强——预期路径，非可选）
 - [ ] AC-C1: SQLite vector extension 启用（按当时稳定版本），summary 嵌入向量生成
@@ -300,6 +300,10 @@ CREATE TABLE schema_version (
 | 2026-03-12 | Phase A 实现完成：6 接口 + SQLite FTS5 + 54 tests |
 | 2026-03-12 | codex review 放行（P0 path traversal + P1 quote injection + P1 stale index 已修复） |
 | 2026-03-12 | **PR #403 merged** — Phase A ✅（AC-A4/A9 未闭合，Phase B 闭合） |
+| 2026-03-12 | Phase B 实现完成：IndexBuilder + frontmatter 解析 + eval corpus + kind-priority + 67 tests |
+| 2026-03-12 | codex review 放行（3 轮：DI wiring + anchor collision + incrementalUpdate priority） |
+| 2026-03-12 | 云端 review 放行（P1 two-pass incrementalUpdate 已修复） |
+| 2026-03-12 | **PR #409 squash merged** — Phase B ✅（AC-A4/A9 carryover 同步闭合） |
 
 ## Review Gate
 
