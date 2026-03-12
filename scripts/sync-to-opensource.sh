@@ -171,6 +171,30 @@ for f in "${MANAGED_SCRIPTS[@]}"; do
   fi
 done
 
+# 2e: docs/decisions/ allowlist（从 manifest 读取）
+DECISIONS_ALLOWLIST=()
+while IFS= read -r line; do DECISIONS_ALLOWLIST+=("$line"); done < <(yaml_list "docs_decisions_allowlist")
+for f in "${DECISIONS_ALLOWLIST[@]}"; do
+  if [ -f "$STAGING_DIR/$f" ]; then
+    mkdir -p "$FILTERED_DIR/$(dirname "$f")"
+    cp "$STAGING_DIR/$f" "$FILTERED_DIR/$f"
+    INCLUDED=$((INCLUDED + 1))
+    echo "  ✓ $f (ADR allowlist)"
+  fi
+done
+
+# 2f: docs/features/ — 结构化公开导出（调用 export-public-feature-docs.mjs）
+echo "  Exporting public feature docs..."
+FEATURES_EXPORT_DIR="$FILTERED_DIR/docs/features"
+mkdir -p "$FEATURES_EXPORT_DIR"
+node "$SOURCE_DIR/scripts/export-public-feature-docs.mjs" \
+  --features-dir "$STAGING_DIR/docs/features" \
+  --output-dir "$FEATURES_EXPORT_DIR" \
+  --min-tier yellow 2>&1 | while IFS= read -r line; do echo "    $line"; done
+feat_count=$(find "$FEATURES_EXPORT_DIR" -name "F*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+INCLUDED=$((INCLUDED + feat_count))
+echo "  ✓ docs/features/ ($feat_count public feature docs)"
+
 echo ""
 echo "  导出: $INCLUDED files | 排除: $EXCLUDED files"
 
@@ -404,17 +428,23 @@ if [ -f "$FILTERED_DIR/cat-cafe-skills/refs/shared-rules.md" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3g: Skills SKILL.md 通用化（去内部端口/路径引用）
-find "$FILTERED_DIR/cat-cafe-skills" -name "SKILL.md" -type f | while read -r skill_file; do
-  sedi \
-    -e 's/redis:\/\/localhost:6399/redis:\/\/localhost:6379/g' \
-    -e 's/redis:\/\/localhost:6398/redis:\/\/localhost:6380/g' \
-    -e 's/6399 圣域/production Redis (sacred)/g' \
-    -e 's/铲屎官/team lead/g' \
-    -e 's/Landy/Owner/g' \
-    "$skill_file"
+# 3g: Skills 全目录通用化（SKILL.md, refs/*.md, manifest.yaml, *.sh）
+find "$FILTERED_DIR/cat-cafe-skills" \( -name "*.md" -o -name "*.sh" -o -name "manifest.yaml" \) -type f | while read -r skill_file; do
+  if grep -qi '铲屎官\|Landy\|lysander\|6399\|6398' "$skill_file" 2>/dev/null; then
+    sedi \
+      -e 's/redis:\/\/localhost:6399/redis:\/\/localhost:6379/g' \
+      -e 's/redis:\/\/localhost:6398/redis:\/\/localhost:6380/g' \
+      -e 's/6399 圣域/production Redis (sacred)/g' \
+      -e 's/铲屎官原话/team experience/g' \
+      -e 's/铲屎官/team lead/g' \
+      -e 's/Landy/Owner/g' \
+      -e 's/landy/owner/g' \
+      -e 's/lysander/owner/g' \
+      -e 's/suces-MacBook[^ ]*/dev-machine/g' \
+      "$skill_file"
+  fi
 done
-echo "  ✓ Skills SKILL.md files (sanitized)"
+echo "  ✓ Skills files (all .md, .sh, manifest.yaml sanitized)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
 # 3h: BOOTSTRAP.md 通用化
@@ -442,6 +472,199 @@ if [ -f "$STAGING_DIR/.github/pull_request_template.opensource.md" ]; then
   echo "  ✓ .github/pull_request_template.md (opensource version)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
+
+# 3k-0: Source code personal info sanitization
+# leaderboard-service.ts — hardcoded author map
+if [ -f "$FILTERED_DIR/packages/api/src/domains/leaderboard/leaderboard-service.ts" ]; then
+  sedi \
+    -e "s/'lysander@suces-MacBook-Pro.local'/'owner@localhost'/g" \
+    -e "s/'773678591@qq.com'/'owner@example.com'/g" \
+    "$FILTERED_DIR/packages/api/src/domains/leaderboard/leaderboard-service.ts"
+  echo "  ✓ leaderboard-service.ts (personal info sanitized)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+# mention-highlight.ts — owner mention aliases
+if [ -f "$FILTERED_DIR/packages/web/src/lib/mention-highlight.ts" ]; then
+  sedi \
+    -e "s/'landy', 'l.s.', 'lysander', '铲屎官'/'owner', 'admin'/g" \
+    "$FILTERED_DIR/packages/web/src/lib/mention-highlight.ts"
+  echo "  ✓ mention-highlight.ts (owner mentions sanitized)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3k-1: Global source code sanitization (铲屎官 → owner, @landy/@lysander → @owner)
+echo "  Sanitizing source code globally..."
+SANITIZE_EXTENSIONS=("*.ts" "*.tsx" "*.js" "*.json")
+for ext in "${SANITIZE_EXTENSIONS[@]}"; do
+  find "$FILTERED_DIR/packages" -name "$ext" -type f 2>/dev/null | while read -r src_file; do
+    # Only process files that actually contain the strings
+    if grep -qi '铲屎官\|@landy\|@lysander\|@l\.s\.\|Landy' "$src_file" 2>/dev/null; then
+      sedi \
+        -e 's/铲屎官/owner/g' \
+        -e 's/@Landy/@owner/g' \
+        -e 's/@landy/@owner/g' \
+        -e "s/@Lysander/@owner/g" \
+        -e "s/@lysander/@owner/g" \
+        -e "s/@l\.s\./@owner/g" \
+        -e "s/'Landy'/'Owner'/g" \
+        -e "s/'landy'/'owner'/g" \
+        -e "s/'l\.s\.'/'owner'/g" \
+        -e 's/"Landy"/"Owner"/g' \
+        -e 's/name: "Landy"/name: "Owner"/g' \
+        "$src_file"
+    fi
+  done
+done
+TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+
+# 3k-2: P1-4 — Hindsight default off in public version
+if [ -f "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts" ]; then
+  sedi \
+    -e "s/parseBoolean(env\['HINDSIGHT_ENABLED'\], true)/parseBoolean(env['HINDSIGHT_ENABLED'], false)/g" \
+    "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts"
+  echo "  ✓ ConfigRegistry.ts (Hindsight default=false)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+if [ -f "$FILTERED_DIR/packages/api/src/config/env-registry.ts" ]; then
+  sedi \
+    -e "s/{ name: 'HINDSIGHT_ENABLED', defaultValue: 'true'/{ name: 'HINDSIGHT_ENABLED', defaultValue: 'false'/g" \
+    "$FILTERED_DIR/packages/api/src/config/env-registry.ts"
+  echo "  ✓ env-registry.ts (Hindsight default=false)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3k-3: P1-2 — start-dev.sh: don't kill proxy port when proxy is disabled
+if [ -f "$FILTERED_DIR/scripts/start-dev.sh" ]; then
+  sedi \
+    -e 's/kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/[ "${ANTHROPIC_PROXY_ENABLED:-1}" != "0" ] \&\& kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/g' \
+    "$FILTERED_DIR/scripts/start-dev.sh"
+  echo "  ✓ start-dev.sh (proxy kill guarded)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+echo "  ✓ Source code global sanitization complete"
+
+# 3k-4: docs/ internal links cleanup — strip remaining private paths from docs
+echo "  Stripping internal doc links from public docs..."
+find "$FILTERED_DIR/docs" -name "*.md" -type f 2>/dev/null | while read -r doc_file; do
+  # Use perl for complex regex (macOS sed ERE is limited)
+  perl -i -pe '
+    # Remove standalone list-item lines that are pure internal links to private dirs
+    next if /^- \[.*?\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\//;
+  ' "$doc_file"
+  perl -i -pe '
+    # Convert inline markdown links to private dirs into plain text
+    s/\[([^\]]*?)\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\/[^)]*\)/$1 (internal)/g;
+    # Strip backtick-quoted paths referencing private dirs
+    s/`(?:docs\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks)\/[^`]*`/*(internal reference removed)*/g;
+  ' "$doc_file"
+done
+echo "  ✓ docs/ internal links stripped"
+TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+
+# 3k: docs/VISION.md + docs/SOP.md 通用化（去铲屎官引用/内部端口）
+for doc_file in docs/VISION.md docs/SOP.md; do
+  if [ -f "$FILTERED_DIR/$doc_file" ]; then
+    sedi \
+      -e 's/铲屎官原话/team experience/g' \
+      -e 's/铲屎官/team lead/g' \
+      -e 's/Landy/Owner/g' \
+      -e 's/lysander/owner/g' \
+      -e 's/布偶猫/Ragdoll/g' \
+      -e 's/缅因猫/Maine Coon/g' \
+      -e 's/暹罗猫/Siamese/g' \
+      -e 's/宪宪/Ragdoll/g' \
+      -e 's/砚砚/Maine Coon/g' \
+      -e 's/烁烁/Siamese/g' \
+      -e 's/redis:\/\/localhost:6399/redis:\/\/localhost:6379/g' \
+      -e 's/redis:\/\/localhost:6398/redis:\/\/localhost:6380/g' \
+      -e 's/6399 圣域/production Redis (sacred)/g' \
+      -e 's/suces-MacBook[^ ]*/dev-machine/g' \
+      "$FILTERED_DIR/$doc_file"
+    echo "  ✓ $doc_file (sanitized)"
+    TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+  fi
+done
+
+# 3l: docs/decisions/ ADR 通用化
+find "$FILTERED_DIR/docs/decisions" -name "*.md" -type f 2>/dev/null | while read -r adr_file; do
+  sedi \
+    -e 's/铲屎官/team lead/g' \
+    -e 's/Landy/Owner/g' \
+    -e 's/lysander/owner/g' \
+    -e 's/布偶猫/Ragdoll/g' \
+    -e 's/缅因猫/Maine Coon/g' \
+    -e 's/暹罗猫/Siamese/g' \
+    "$adr_file"
+done
+echo "  ✓ docs/decisions/ (sanitized)"
+TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+
+# 3m: docs/ROADMAP.md — 从 BACKLOG 生成公开版
+if [ -f "$STAGING_DIR/docs/BACKLOG.md" ]; then
+  mkdir -p "$FILTERED_DIR/docs"
+  cp "$STAGING_DIR/docs/BACKLOG.md" "$FILTERED_DIR/docs/ROADMAP.md"
+  # 通用化 + 重命名标题
+  sedi \
+    -e 's/# BACKLOG/# Roadmap/' \
+    -e 's/铲屎官/team lead/g' \
+    -e 's/Landy/Owner/g' \
+    -e 's/lysander/owner/g' \
+    -e 's/布偶猫/Ragdoll/g' \
+    -e 's/缅因猫/Maine Coon/g' \
+    -e 's/暹罗猫/Siamese/g' \
+    -e 's/宪宪/Ragdoll/g' \
+    -e 's/砚砚/Maine Coon/g' \
+    -e 's/烁烁/Siamese/g' \
+    "$FILTERED_DIR/docs/ROADMAP.md"
+  echo "  ✓ docs/ROADMAP.md (generated from BACKLOG)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3n: docs/public-lessons.md — 从 lessons-learned 生成公开版
+if [ -f "$STAGING_DIR/docs/lessons-learned.md" ]; then
+  mkdir -p "$FILTERED_DIR/docs"
+  cp "$STAGING_DIR/docs/lessons-learned.md" "$FILTERED_DIR/docs/public-lessons.md"
+  sedi \
+    -e 's/铲屎官/team lead/g' \
+    -e 's/Landy/Owner/g' \
+    -e 's/lysander/owner/g' \
+    -e 's/布偶猫/Ragdoll/g' \
+    -e 's/缅因猫/Maine Coon/g' \
+    -e 's/暹罗猫/Siamese/g' \
+    -e 's/宪宪/Ragdoll/g' \
+    -e 's/砚砚/Maine Coon/g' \
+    -e 's/烁烁/Siamese/g' \
+    -e 's/redis:\/\/localhost:6399/redis:\/\/localhost:6379/g' \
+    -e 's/suces-MacBook[^ ]*/dev-machine/g' \
+    "$FILTERED_DIR/docs/public-lessons.md"
+  echo "  ✓ docs/public-lessons.md (generated from lessons-learned)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3o: docs/README.md — 开源版文档导航
+mkdir -p "$FILTERED_DIR/docs"
+cat > "$FILTERED_DIR/docs/README.md" << 'DOCS_README_EOF'
+# Clowder AI Documentation
+
+## Overview
+- [Vision](./VISION.md) — Project vision and philosophy
+- [Roadmap](./ROADMAP.md) — Feature roadmap and priorities
+- [SOP](./SOP.md) — Standard operating procedures for AI team collaboration
+- [Design System](./design-system.md) — UI/UX design system
+- [Lessons Learned](./public-lessons.md) — Team learnings and best practices
+
+## Feature Specs
+See [features/](./features/) for individual feature specifications.
+
+## Architecture Decisions
+See [decisions/](./decisions/) for Architecture Decision Records (ADRs).
+
+## Architecture
+See [architecture/](./architecture/) for system architecture documentation.
+DOCS_README_EOF
+echo "  ✓ docs/README.md (generated)"
+TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
 echo ""
 echo "  Transforms: $TRANSFORM_COUNT"
@@ -518,6 +741,25 @@ for keyword in "${ENV_VAR_NAMES[@]}"; do
   fi
 done
 
+# 4c: Endpoint scan — docs/config 层额外扫描内部 endpoint
+echo "  Scanning for internal endpoints (docs + config)..."
+ENDPOINT_PATTERNS=('localhost:[0-9]\{4,5\}' '127\.0\.0\.1' '192\.168\.' '10\.[0-9]' '\.internal' '\.local' '\.corp')
+for pattern in "${ENDPOINT_PATTERNS[@]}"; do
+  found=$(grep -rn "$pattern" "$FILTERED_DIR/docs" "$FILTERED_DIR/cat-cafe-skills" 2>/dev/null \
+    | grep -v 'redis://localhost:6379' \
+    | grep -v 'redis://localhost:6380' \
+    | grep -v 'localhost:3000' \
+    | grep -v 'localhost:3001' \
+    | grep -v 'localhost:5173' \
+    | grep -v '.export-summary.json' \
+    | head -5 || true)
+  if [ -n "$found" ]; then
+    echo -e "  ${YELLOW}⚠ Potential internal endpoint '$pattern' in docs/skills:${NC}"
+    echo "$found" | while read f; do echo "    $f"; done
+    SCAN_WARNINGS=$((SCAN_WARNINGS + 1))
+  fi
+done
+
 if [ "$SCAN_FAILED" = true ]; then
   echo ""
   echo -e "${RED}Security scan FAILED! Review the files above.${NC}"
@@ -533,7 +775,7 @@ FILE_COUNT=$(find "$FILTERED_DIR" -type f | wc -l | tr -d ' ')
 echo ""
 echo -e "${BLUE}── Provenance ──${NC}"
 echo "  source_commit_sha:   $SOURCE_SHA"
-echo "  manifest_version:    2"
+echo "  manifest_version:    3"
 echo "  included_file_count: $FILE_COUNT"
 echo "  excluded_file_count: $EXCLUDED"
 echo "  transform_count:     $TRANSFORM_COUNT"
@@ -543,7 +785,7 @@ echo "  secret_scan_result:  clean"
 cat > "$FILTERED_DIR/.sync-provenance.json" << PROV_EOF
 {
   "source_commit_sha": "$SOURCE_SHA",
-  "manifest_version": 2,
+  "manifest_version": 3,
   "included_file_count": $FILE_COUNT,
   "excluded_file_count": $EXCLUDED,
   "transform_count": $TRANSFORM_COUNT,
