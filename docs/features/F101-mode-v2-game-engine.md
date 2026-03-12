@@ -112,14 +112,14 @@ created: 2026-03-11
 - [x] AC-A5: 旧三 mode 代码完全删除，前端入口重写为游戏模式
 - [x] AC-A6: 信息泄漏红线测试：不同 scope 的 actor 看不到不该看的事件
 
-### Phase B（狼人杀 v1）🚧 backend done, frontend pending
+### Phase B（狼人杀 v1）✅
 - [x] AC-B1: 7 人局可完整跑通（lobby→deal→night/day 循环→结局）
 - [x] AC-B2: 铲屎官可选 player 或 god-view 参与
 - [x] AC-B3: 猫猫 AI 玩家能合理发言和执行夜间动作
 - [x] AC-B4: 信息隔离：村民看不到狼队夜聊、玩家看不到他人私密技能结果
 - [x] AC-B5: 非法动作被拒绝（死人不能投票、白天不能用夜间技能等）
-- [ ] AC-B6: 断线重连后可恢复游戏状态（v1 简单刷 GameView，follow-up PR）
-- [ ] AC-B7: PlayerGrid + PhaseTimeline 前端组件可用（follow-up PR）
+- [x] AC-B6: 断线重连后可恢复游戏状态（v1 简单刷 GameView）
+- [x] AC-B7: PlayerGrid + PhaseTimeline 前端组件可用
 - [x] AC-B8: 语音模式可选，猫猫用 audio rich block 发言
 
 ## 需求点 Checklist
@@ -245,6 +245,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-11 | UX 设计稿完成（3屏 Pencil wireframe）+ 头像系统调查 |
 | 2026-03-11 | **Design Gate 通过**：铲屎官确认设计稿 + 补充 KD-15/16/17 |
 | 2026-03-12 | Phase A+B backend merged (PR #400) — 92 tests, 21 commits squashed |
+| 2026-03-12 | Phase B frontend merged (PR #406) — 98 game tests, 13 commits squashed |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
