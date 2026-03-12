@@ -161,6 +161,8 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 | 2026-03-11 | Kickoff — spec 定稿 + avatar 生成 + cat-config 设计 |
 | 2026-03-12 | Phase 0 Spike 完成 — opencode v1.2.24 + felix-2 proxy + OMOC 插件验证通过 |
 | 2026-03-12 | Phase 1 完成 — CatProvider + OpenCodeAgentService + event-transform + cat-config（27 tests green） |
+| 2026-03-12 | Review 修复 — runtime profile injection + model override + session_init dedup（31 tests green） |
+| 2026-03-12 | PR #401 created; cloud review blocked by Codex daily limit — retry after reset |
 
 ---
 
