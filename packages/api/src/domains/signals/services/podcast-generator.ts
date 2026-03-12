@@ -43,23 +43,47 @@ export interface PodcastRequest {
   readonly threadDeps?: ThreadInvokeDeps;
 }
 
-const ESSENCE_SEGMENT_RANGE = { min: 5, max: 8 };
-const DEEP_SEGMENT_RANGE = { min: 15, max: 25 };
+/**
+ * Estimate target podcast duration (seconds) based on article length.
+ * Short articles → 3min, medium → 5min, long → 8-10min.
+ */
+function estimateDuration(contentLength: number, mode: 'essence' | 'deep'): { seconds: number; label: string } {
+  if (mode === 'deep') return { seconds: 600, label: '10 分钟' };
+  // Essence: scale with content length
+  if (contentLength < 2000) return { seconds: 180, label: '3 分钟' };
+  if (contentLength < 5000) return { seconds: 300, label: '5 分钟' };
+  if (contentLength < 10000) return { seconds: 480, label: '8 分钟' };
+  return { seconds: 600, label: '10 分钟' };
+}
+
+function estimateSegmentRange(durationSeconds: number): { min: number; max: number } {
+  // ~20-30 seconds per segment on average
+  const avg = 25;
+  const count = Math.round(durationSeconds / avg);
+  return { min: Math.max(6, count - 3), max: count + 3 };
+}
 
 function buildScriptPrompt(request: PodcastRequest): string {
-  const range = request.mode === 'essence' ? ESSENCE_SEGMENT_RANGE : DEEP_SEGMENT_RANGE;
-  const duration = request.mode === 'essence' ? '2-3 分钟' : '10 分钟';
+  const { seconds: targetDuration, label: durationLabel } = estimateDuration(
+    request.articleContent.length,
+    request.mode,
+  );
+  const range = request.mode === 'deep'
+    ? { min: 15, max: 25 }
+    : estimateSegmentRange(targetDuration);
 
   return `你是一个播客脚本生成器。请根据以下文章生成一段两人对话播客脚本。
 
 ## 要求
-- 模式: ${request.mode === 'essence' ? '精华版' : '深度版'}（${duration}）
+- 模式: ${request.mode === 'essence' ? '精华版' : '深度版'}（目标时长 ${durationLabel}，totalDuration ≈ ${targetDuration} 秒）
 - 段落数: ${range.min}-${range.max} 段
 - 说话人: 宪宪（主持，布偶猫）和 砚砚（嘉宾，缅因猫）
-- 风格: 自然对话，像两只猫在讨论文章。不要太正式，要有互动感。
+- 风格: 自然对话，像两只猫在茶几旁讨论文章。要有互动感和思考深度。
+- **每段文字量要求：每段至少 80-200 字**（不是大纲式一句话！要有具体分析、案例、数据引用）
 - 每段 durationEstimate 用秒（根据文字量估算，中文约 3 字/秒）
-- 精华版：聚焦核心观点和 takeaway
+- 精华版：提炼核心观点和关键 takeaway，但每个观点要**展开讨论**，不要只列要点
 - 深度版：深入讨论技术细节、实践经验、开放问题
+- **禁止**：空洞的套话（"这篇文章很有趣"）、一句话概括段落、没有实质内容的过渡
 
 ## 文章
 标题: ${request.articleTitle}
@@ -67,7 +91,7 @@ function buildScriptPrompt(request: PodcastRequest): string {
 ${request.articleContent.slice(0, 12000)}
 
 ## 输出格式（严格 JSON，不要 markdown 代码块）
-{"segments":[{"speaker":"宪宪","text":"...","durationEstimate":5},{"speaker":"砚砚","text":"...","durationEstimate":8}],"totalDuration":120}${
+{"segments":[{"speaker":"宪宪","text":"...","durationEstimate":30},{"speaker":"砚砚","text":"...","durationEstimate":25}],"totalDuration":${targetDuration}}${
     request.threadContext
       ? `\n\n## 之前的讨论上下文（可参考但不必全部覆盖）\n${request.threadContext.slice(0, 4000)}`
       : ''
@@ -75,8 +99,11 @@ ${request.articleContent.slice(0, 12000)}
 }
 
 function parseScriptResponse(raw: string, mode: PodcastRequest['mode']): PodcastScript {
-  // Extract JSON from response (might be wrapped in markdown code blocks)
-  const jsonMatch = raw.match(/\{[\s\S]*"segments"[\s\S]*\}/);
+  // Strip markdown code fences if present
+  const stripped = raw.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
+  // Extract the outermost JSON object containing "segments"
+  const jsonMatch = stripped.match(/\{[^{}]*"segments"\s*:\s*\[[\s\S]*?\]\s*,\s*"totalDuration"\s*:\s*\d+\s*\}/)
+    ?? stripped.match(/\{[\s\S]*"segments"[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('Failed to extract JSON from LLM response');
   }
@@ -203,22 +230,32 @@ async function synthesizeSegments(segments: readonly PodcastSegment[]): Promise<
   const results: PodcastSegment[] = [];
   for (const segment of segments) {
     const catId = SPEAKER_TO_CAT[segment.speaker] ?? 'opus';
-    const blocks = await synthesizer.resolveVoiceBlocks(
-      [
-        {
-          id: `seg-${results.length}`,
-          kind: 'audio' as const,
-          v: 1 as const,
-          url: '',
-          text: segment.text,
-          speaker: catId,
-        },
-      ],
-      catId,
-    );
-    const resolved = blocks[0];
-    const audioUrl = resolved && 'url' in resolved && typeof resolved.url === 'string' ? resolved.url : undefined;
-    results.push({ ...segment, ...(audioUrl ? { audioUrl } : {}) });
+    // Truncate text exceeding TTS MAX_INPUT_CHARS (5000) to avoid synthesis failure
+    const text = segment.text.length > 4800 ? segment.text.slice(0, 4800) : segment.text;
+    try {
+      const blocks = await synthesizer.resolveVoiceBlocks(
+        [
+          {
+            id: `seg-${results.length}`,
+            kind: 'audio' as const,
+            v: 1 as const,
+            url: '',
+            text,
+            speaker: catId,
+          },
+        ],
+        catId,
+      );
+      const resolved = blocks[0];
+      const audioUrl = resolved && 'url' in resolved && typeof resolved.url === 'string' ? resolved.url : undefined;
+      if (!audioUrl) {
+        console.warn(`[podcast] TTS returned no audioUrl for segment ${results.length} (${text.length} chars)`);
+      }
+      results.push({ ...segment, ...(audioUrl ? { audioUrl } : {}) });
+    } catch (err) {
+      console.error(`[podcast] TTS synthesis failed for segment ${results.length}:`, err);
+      results.push(segment); // Keep text-only on failure
+    }
   }
 
   return results;

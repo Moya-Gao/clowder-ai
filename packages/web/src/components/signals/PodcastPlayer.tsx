@@ -26,6 +26,67 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+/** Download a single segment's audio as a file. */
+async function downloadSegmentAudio(audioUrl: string, speaker: string, index: number): Promise<void> {
+  const res = await apiFetch(audioUrl);
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `podcast-${speaker}-${index + 1}.wav`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Play all segments sequentially. */
+function usePlayAll(segments: readonly PodcastSegment[], audioRef: React.MutableRefObject<HTMLAudioElement | null>) {
+  const [playing, setPlaying] = React.useState(false);
+  const [currentIdx, setCurrentIdx] = React.useState(-1);
+  const cancelRef = React.useRef(false);
+
+  const playAll = React.useCallback(async () => {
+    if (playing) {
+      cancelRef.current = true;
+      audioRef.current?.pause();
+      setPlaying(false);
+      setCurrentIdx(-1);
+      return;
+    }
+    cancelRef.current = false;
+    setPlaying(true);
+
+    for (let i = 0; i < segments.length; i++) {
+      if (cancelRef.current) break;
+      const seg = segments[i];
+      if (!seg.audioUrl) continue;
+      setCurrentIdx(i);
+      try {
+        const res = await apiFetch(seg.audioUrl);
+        if (!res.ok || cancelRef.current) break;
+        const blob = await res.blob();
+        if (cancelRef.current) break;
+        const blobUrl = URL.createObjectURL(blob);
+        const audio = new Audio(blobUrl);
+        audioRef.current = audio;
+        await new Promise<void>((resolve, reject) => {
+          const cleanup = () => { URL.revokeObjectURL(blobUrl); resolve(); };
+          audio.addEventListener('ended', cleanup);
+          audio.addEventListener('pause', cleanup);
+          audio.addEventListener('error', () => { URL.revokeObjectURL(blobUrl); reject(); });
+          void audio.play().catch(reject);
+        });
+      } catch {
+        break;
+      }
+    }
+    setPlaying(false);
+    setCurrentIdx(-1);
+  }, [segments, playing, audioRef]);
+
+  return { playAll, playingAll: playing, currentPlayIdx: currentIdx };
+}
+
 export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: PodcastPlayerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [script, setScript] = useState<PodcastScript | null>(null);
@@ -125,6 +186,9 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
     }
   }, [selectedId, readyPodcasts, loadScript]);
 
+  const hasAudio = script?.segments.some((s) => s.audioUrl);
+  const { playAll, playingAll, currentPlayIdx } = usePlayAll(script?.segments ?? [], audioRef);
+
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between">
@@ -181,7 +245,19 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
             <span className="text-[10px] text-gray-400">
               {script.mode === 'deep' ? '深度版' : '精华版'} · {script.segments.length} 段
             </span>
-            <span className="text-[10px] text-gray-400">约 {formatDuration(script.totalDuration)}</span>
+            <div className="flex items-center gap-2">
+              {hasAudio && (
+                <button
+                  type="button"
+                  onClick={() => void playAll()}
+                  className="rounded px-1.5 py-0.5 text-[10px] text-opus-dark hover:bg-opus-bg"
+                  title={playingAll ? '停止全部' : '连续播放'}
+                >
+                  {playingAll ? '⏹ 停止' : '▶ 全部播放'}
+                </button>
+              )}
+              <span className="text-[10px] text-gray-400">约 {formatDuration(script.totalDuration)}</span>
+            </div>
           </div>
           <div className="max-h-64 overflow-y-auto">
             {script.segments.map((seg, i) => (
@@ -192,14 +268,26 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
                 }`}
               >
                 {seg.audioUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => playSegment(seg, i)}
-                    className="mt-0.5 shrink-0 text-[10px] text-opus-dark hover:text-opus-primary"
-                    title={playingSegment === i ? '暂停' : '播放'}
-                  >
-                    {playingSegment === i ? '⏸' : '▶'}
-                  </button>
+                  <div className="mt-0.5 flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => playSegment(seg, i)}
+                      className={`text-[10px] hover:text-opus-primary ${
+                        playingSegment === i || currentPlayIdx === i ? 'text-opus-primary' : 'text-opus-dark'
+                      }`}
+                      title={playingSegment === i ? '暂停' : '播放'}
+                    >
+                      {playingSegment === i || currentPlayIdx === i ? '⏸' : '▶'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void downloadSegmentAudio(seg.audioUrl!, seg.speaker, i)}
+                      className="text-[10px] text-gray-400 hover:text-gray-600"
+                      title="下载音频"
+                    >
+                      ⬇
+                    </button>
+                  </div>
                 ) : null}
                 <button
                   type="button"
