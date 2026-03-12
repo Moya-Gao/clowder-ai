@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F098: Callback Message UX — 猫猫传话可视化
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -117,13 +117,13 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 ## Acceptance Criteria
 
 ### Phase A（方向标注 + 视觉统一）
-- [ ] AC-A1: callback 消息 header 显示方向标注（→ @猫名），从消息内容 @mention 解析
+- [x] AC-A1: callback 消息 header 显示方向标注（→ @猫名），从消息内容 @mention 解析 ✅
 - [ ] ~~AC-A2~~: **降级到 Phase B**（依赖 Phase C2 后端元数据，见 KD-5）
-- [ ] AC-A3: cross_post 消息方向标注包含来源/目标 thread
-- [ ] AC-A4: 猫猫 whisper badge 显示 "悄悄话 → @猫名"（和铲屎官 whisper 一致）
-- [ ] AC-A5: callback 消息有品种色浅底气泡，视觉上和 CLI 深色块区分
-- [ ] AC-A6: 方向标注用品种色 pill badge（和 @mention 彩色徽章同款样式）
-- [ ] AC-A7: A2A 内部讨论消息用中性灰底（不用品种色背景），品种色仅用于边框/badge
+- [x] AC-A3: cross_post 消息方向标注包含来源/目标 thread ✅
+- [x] AC-A4: 猫猫 whisper badge 显示 "悄悄话 → @猫名"（和铲屎官 whisper 一致）✅
+- [ ] AC-A5: callback 消息有品种色浅底气泡，视觉上和 CLI 深色块区分（保持现有品种色气泡，pill 提供区分）
+- [x] AC-A6: 方向标注用品种色 pill badge（和 @mention 彩色徽章同款样式）✅
+- [x] AC-A7: A2A 内部讨论消息用中性灰底（不用品种色背景），品种色仅用于边框/badge ✅
 
 ### Phase B（Evidence Panel + 组件统一 + multi_mention 方向）
 - [ ] AC-B1: Evidence Panel 在深色/品种色气泡上文字可读
@@ -186,6 +186,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 |------|------|
 | 2026-03-11 | 立项，从 F097 收尾时发现问题。铲屎官 16:50 提出需求 |
 | 2026-03-11 | Design Gate 通过。设计稿：`designs/f098-callback-message-ux.pen` |
+| 2026-03-12 | Phase A merged (PR #379). AC-A1/A3/A4/A6/A7 ✅. AC-A2 降级 Phase B (KD-5) |
 
 ## Review Gate
 
