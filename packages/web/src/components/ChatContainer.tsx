@@ -397,7 +397,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                     return (
                       <button
                         type="button"
-                        onClick={() => router.push(`/chat/${existingBootcamp.id}`)}
+                        onClick={() => router.push(`/thread/${existingBootcamp.id}`)}
                         className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
                         data-testid="empty-state-bootcamp-continue"
                       >
@@ -421,7 +421,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                         if (!res.ok) return;
                         const thread = await res.json();
                         useChatStore.getState().setThreads([thread, ...storeThreads]);
-                        router.push(`/chat/${thread.id}`);
+                        router.push(`/thread/${thread.id}`);
                       }}
                       className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
                       data-testid="empty-state-bootcamp"
