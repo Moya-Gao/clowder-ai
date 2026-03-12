@@ -179,3 +179,4 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 - [Oh My OpenCode](https://www.vibesparking.com/en/blog/ai/claude-code/2026-01-04-oh-my-opencode-claude-code-on-steroids/)
 - [F050: External Agent Onboarding](./F050-a2a-external-agent-onboarding.md)
 - [F061: Antigravity 接入](./F061-antigravity-bengal-cat.md)
+- [F105 反思胶囊](../reflections/2026-03-12-f105-opencode-golden-chinchilla-capsule.md)
