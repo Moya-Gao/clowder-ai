@@ -66,6 +66,8 @@ export class GameViewBuilder {
       config: {
         timeoutMs: runtime.config.timeoutMs,
         voiceMode: runtime.config.voiceMode,
+        humanRole: runtime.config.humanRole,
+        ...(runtime.config.humanSeat ? { humanSeat: runtime.config.humanSeat } : {}),
       },
     };
     if (runtime.winner) view.winner = runtime.winner;

@@ -1,45 +1,46 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
-import { apiFetch } from '@/utils/api-client';
-import { useTaskStore } from '@/stores/taskStore';
-import { useSocket } from '@/hooks/useSocket';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
-import { useChatHistory } from '@/hooks/useChatHistory';
-import { useSendMessage } from '@/hooks/useSendMessage';
-import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
-import { ChatMessage } from './ChatMessage';
+import { useAuthorization } from '@/hooks/useAuthorization';
 import { useCatData } from '@/hooks/useCatData';
-import { ChatInput } from './ChatInput';
+import { useChatHistory } from '@/hooks/useChatHistory';
+import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
+import { abortGame, submitAction } from '@/hooks/useGameApi';
+import { usePersistedState } from '@/hooks/usePersistedState';
+import { useSendMessage } from '@/hooks/useSendMessage';
+import { useSocket } from '@/hooks/useSocket';
+import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
+import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
+import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
+import { useGameStore } from '@/stores/gameStore';
+import { useTaskStore } from '@/stores/taskStore';
+import { apiFetch } from '@/utils/api-client';
+import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
+import { A2ACollapsible } from './A2ACollapsible';
+import { AuthorizationCard } from './AuthorizationCard';
+import { CatCafeHub } from './CatCafeHub';
 import { ChatContainerHeader } from './ChatContainerHeader';
-import { MessageActions } from './MessageActions';
-import { RightStatusPanel } from './RightStatusPanel';
-import { WorkspacePanel } from './WorkspacePanel';
-import { ThreadSidebar } from './ThreadSidebar';
-import { ParallelStatusBar } from './ParallelStatusBar';
-import { ThinkingIndicator } from './ThinkingIndicator';
+import { ChatInput } from './ChatInput';
+import { ChatMessage } from './ChatMessage';
+import { GameOverlayConnector } from './game/GameOverlayConnector';
 import { BootcampIcon } from './icons/BootcampIcon';
 import { PawIcon } from './icons/PawIcon';
-import { A2ACollapsible } from './A2ACollapsible';
+import { MessageActions } from './MessageActions';
 import { MessageNavigator } from './MessageNavigator';
-import { AuthorizationCard } from './AuthorizationCard';
-import { useAuthorization } from '@/hooks/useAuthorization';
-
-
-import { SplitPaneView } from './SplitPaneView';
-import { CatCafeHub } from './CatCafeHub';
 import { MobileStatusSheet } from './MobileStatusSheet';
+import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
-import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
+import { RightStatusPanel } from './RightStatusPanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
-import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { ResizeHandle } from './workspace/ResizeHandle';
-import { usePersistedState } from '@/hooks/usePersistedState';
-import { VoteConfigModal, type VoteConfig } from './VoteConfigModal';
+import { SplitPaneView } from './SplitPaneView';
+import { ThinkingIndicator } from './ThinkingIndicator';
+import { ThreadSidebar } from './ThreadSidebar';
 import { VoteActiveBar } from './VoteActiveBar';
-import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
+import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
+import { WorkspacePanel } from './WorkspacePanel';
+import { ResizeHandle } from './workspace/ResizeHandle';
 
 interface ChatContainerProps {
   threadId: string;
@@ -47,11 +48,35 @@ interface ChatContainerProps {
 
 export function ChatContainer({ threadId }: ChatContainerProps) {
   const {
-    messages, hasActiveInvocation, intentMode, targetCats,
-    catStatuses, catInvocations, setCurrentThread,
-    viewMode, setViewMode, clearUnread, rightPanelMode,
+    messages,
+    hasActiveInvocation,
+    intentMode,
+    targetCats,
+    catStatuses,
+    catInvocations,
+    setCurrentThread,
+    viewMode,
+    setViewMode,
+    clearUnread,
+    rightPanelMode,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
+
+  // F101: Game state from Zustand store
+  const gameView = useGameStore((s) => s.gameView);
+  const isGameActive = useGameStore((s) => s.isGameActive);
+  const isNight = useGameStore((s) => s.isNight);
+  const selectedTarget = useGameStore((s) => s.selectedTarget);
+  const godScopeFilter = useGameStore((s) => s.godScopeFilter);
+  const myRole = useGameStore((s) => s.myRole);
+  const myRoleIcon = useGameStore((s) => s.myRoleIcon);
+  const myActionLabel = useGameStore((s) => s.myActionLabel);
+  const myActionHint = useGameStore((s) => s.myActionHint);
+  const isGodView = useGameStore((s) => s.isGodView);
+  const godSeats = useGameStore((s) => s.godSeats);
+  const godNightSteps = useGameStore((s) => s.godNightSteps);
+  const hasTargetedAction = useGameStore((s) => s.hasTargetedAction);
+  const altActionName = useGameStore((s) => s.altActionName);
 
   // Export mode: ?export=true triggers print-friendly layout (no scroll containers)
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -67,18 +92,27 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const [chatBasis, setChatBasis, resetChatBasis] = usePersistedState('cat-cafe:chatBasis', 50);
   // F063 Gap 6: sidebar width in px, persisted
   const SIDEBAR_DEFAULT = 240;
-  const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState('cat-cafe:sidebarWidth', SIDEBAR_DEFAULT);
+  const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
+    'cat-cafe:sidebarWidth',
+    SIDEBAR_DEFAULT,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
-  const handleHorizontalResize = useCallback((delta: number) => {
-    if (!containerRef.current) return;
-    const totalWidth = containerRef.current.offsetWidth;
-    if (totalWidth === 0) return;
-    const pct = (delta / totalWidth) * 100;
-    setChatBasis((prev) => Math.min(80, Math.max(20, prev + pct)));
-  }, [setChatBasis]);
-  const handleSidebarResize = useCallback((delta: number) => {
-    setSidebarWidth((prev) => Math.min(480, Math.max(180, prev + delta)));
-  }, [setSidebarWidth]);
+  const handleHorizontalResize = useCallback(
+    (delta: number) => {
+      if (!containerRef.current) return;
+      const totalWidth = containerRef.current.offsetWidth;
+      if (totalWidth === 0) return;
+      const pct = (delta / totalWidth) * 100;
+      setChatBasis((prev) => Math.min(80, Math.max(20, prev + pct)));
+    },
+    [setChatBasis],
+  );
+  const handleSidebarResize = useCallback(
+    (delta: number) => {
+      setSidebarWidth((prev) => Math.min(480, Math.max(180, prev + delta)));
+    },
+    [setSidebarWidth],
+  );
 
   // F063: auto-open panel when message file path click triggers workspace mode
   useEffect(() => {
@@ -95,15 +129,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }, []);
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
-  const {
-    handleScroll,
-    scrollContainerRef,
-    messagesEndRef,
-    isLoadingHistory,
-    hasMore,
-  } = useChatHistory(threadId);
+  const { handleScroll, scrollContainerRef, messagesEndRef, isLoadingHistory, hasMore } = useChatHistory(threadId);
   const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
-  const { pending: authPending, respond: authRespond, handleAuthRequest, handleAuthResponse } = useAuthorization(threadId);
+  const {
+    pending: authPending,
+    respond: authRespond,
+    handleAuthRequest,
+    handleAuthResponse,
+  } = useAuthorization(threadId);
 
   // F096: Listen for interactive block send events
   useEffect(() => {
@@ -119,32 +152,47 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const showVoteModal = useChatStore((s) => s.showVoteModal);
   const setShowVoteModal = useChatStore((s) => s.setShowVoteModal);
   const { addMessage } = useChatStore();
-  const handleVoteSubmit = useCallback(async (config: VoteConfig) => {
-    setShowVoteModal(false);
-    try {
-      const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
-      if (res.status === 409) {
-        addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: '已有活跃投票，请先 /vote end', timestamp: Date.now() });
-        return;
+  const handleVoteSubmit = useCallback(
+    async (config: VoteConfig) => {
+      setShowVoteModal(false);
+      try {
+        const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config),
+        });
+        if (res.status === 409) {
+          addMessage({
+            id: `vote-${Date.now()}`,
+            type: 'system',
+            variant: 'error',
+            content: '已有活跃投票，请先 /vote end',
+            timestamp: Date.now(),
+          });
+          return;
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? `Server error: ${res.status}`);
+        }
+        const data = await res.json();
+        // Build @mention notification message and send as user message to trigger cats
+        const mentions = config.voters.map((v) => `@${v}`).join(' ');
+        const optionList = config.options.map((o) => `• ${o}`).join('\n');
+        const notifyMsg = `${mentions}\n投票请求：${data.question}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
+        handleSend(notifyMsg);
+      } catch (err) {
+        addMessage({
+          id: `vote-${Date.now()}`,
+          type: 'system',
+          variant: 'error',
+          content: `发起投票失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+          timestamp: Date.now(),
+        });
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? `Server error: ${res.status}`);
-      }
-      const data = await res.json();
-      // Build @mention notification message and send as user message to trigger cats
-      const mentions = config.voters.map((v) => `@${v}`).join(' ');
-      const optionList = config.options.map((o) => `• ${o}`).join('\n');
-      const notifyMsg = `${mentions}\n投票请求：${data.question}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
-      handleSend(notifyMsg);
-    } catch (err) {
-      addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: `发起投票失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
-    }
-  }, [threadId, handleSend, setShowVoteModal, addMessage]);
+    },
+    [threadId, handleSend, setShowVoteModal, addMessage],
+  );
 
   const messageSummary = useMemo(() => {
     const c = { total: messages.length, assistant: 0, system: 0, evidence: 0, followup: 0 };
@@ -231,7 +279,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <ChatMessage message={msg} getCatById={getCatById} />
       </MessageActions>
     ),
-    [threadId, getCatById]
+    [threadId, getCatById],
   );
 
   const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
@@ -259,7 +307,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     }
   }, [viewMode, splitPaneThreadIds, threadId, syncRooms]);
 
-  useEffect(() => { clearUnread(threadId); }, [threadId, clearUnread]);
+  useEffect(() => {
+    clearUnread(threadId);
+  }, [threadId, clearUnread]);
 
   // F069-R5: Ack read cursor server-side. The backend finds the latest real message
   // and acks it atomically — no frontend ID guessing, no timing races with fetchHistory.
@@ -269,13 +319,18 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   useEffect(() => {
     apiFetch(`/api/threads/${encodeURIComponent(threadId)}/read/latest`, {
       method: 'POST',
-    }).catch((err) => { console.debug('[F069] read ack failed:', err); });
+    }).catch((err) => {
+      console.debug('[F069] read ack failed:', err);
+    });
   }, [threadId, messageCount]);
 
-  const handleStop = useCallback((overrideThreadId?: unknown) => {
-    const targetThreadId = typeof overrideThreadId === 'string' ? overrideThreadId : threadId;
-    stopHandler(cancelInvocation, targetThreadId);
-  }, [stopHandler, cancelInvocation, threadId]);
+  const handleStop = useCallback(
+    (overrideThreadId?: unknown) => {
+      const targetThreadId = typeof overrideThreadId === 'string' ? overrideThreadId : threadId;
+      stopHandler(cancelInvocation, targetThreadId);
+    },
+    [stopHandler, cancelInvocation, threadId],
+  );
 
   const router = useRouter();
 
@@ -284,7 +339,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       setViewMode('single');
       router.push(`/thread/${tid}`);
     },
-    [setViewMode, router]
+    [setViewMode, router],
   );
 
   if (viewMode === 'split') {
@@ -317,7 +372,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
               />
             ) : (
               renderSingleMessage(item.msg)
-            )
+            ),
           )}
         </div>
       </div>
@@ -348,7 +403,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
       <div
         className="flex flex-col min-w-0"
-        style={statusPanelOpen && rightPanelMode === 'workspace' ? { flexBasis: `${chatBasis}%`, flexGrow: 0, flexShrink: 0 } : { flex: '1 1 0%' }}
+        style={
+          statusPanelOpen && rightPanelMode === 'workspace'
+            ? { flexBasis: `${chatBasis}%`, flexGrow: 0, flexShrink: 0 }
+            : { flex: '1 1 0%' }
+        }
       >
         <ChatContainerHeader
           sidebarOpen={sidebarOpen}
@@ -363,7 +422,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           defaultCatId={targetCats[0] || 'opus'}
         />
 
-
         {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
         {intentMode === 'execute' && <ThinkingIndicator />}
 
@@ -374,15 +432,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             className="h-full overflow-y-auto p-4"
             data-chat-container
           >
-            {isLoadingHistory && (
-              <div className="text-center py-3 text-sm text-gray-400">
-                加载历史消息...
-              </div>
-            )}
+            {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
             {!hasMore && messages.length > 0 && (
-              <div className="text-center py-3 text-xs text-gray-300">
-                没有更多消息了
-              </div>
+              <div className="text-center py-3 text-xs text-gray-300">没有更多消息了</div>
             )}
             {messages.length === 0 && !isLoadingHistory ? (
               <div className="text-center mt-20">
@@ -443,7 +495,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                   />
                 ) : (
                   renderSingleMessage(item.msg)
-                )
+                ),
               )
             )}
             <div ref={messagesEndRef} />
@@ -476,7 +528,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <ChatInput
           key={threadId}
           threadId={threadId}
-          onSend={(content, images, whisper, deliveryMode) => handleSend(content, images, undefined, whisper, deliveryMode)}
+          onSend={(content, images, whisper, deliveryMode) =>
+            handleSend(content, images, undefined, whisper, deliveryMode)
+          }
           onStop={handleStop}
           disabled={false}
           hasActiveInvocation={hasActiveInvocation}
@@ -484,7 +538,56 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           uploadError={uploadError}
         />
 
-        {/* F101: Game status bar placeholder (rendered when currentGame is active) */}
+        {/* F101: Game overlay — renders when a game is active */}
+        <GameOverlayConnector
+          gameView={gameView}
+          isGameActive={isGameActive}
+          isNight={isNight}
+          selectedTarget={selectedTarget}
+          godScopeFilter={godScopeFilter}
+          isGodView={isGodView}
+          godSeats={godSeats}
+          godNightSteps={godNightSteps}
+          hasTargetedAction={hasTargetedAction}
+          myRole={myRole ?? undefined}
+          myRoleIcon={myRoleIcon ?? undefined}
+          myActionLabel={myActionLabel ?? undefined}
+          myActionHint={myActionHint ?? undefined}
+          altActionName={altActionName ?? undefined}
+          onClose={() => {
+            abortGame(threadId);
+            useGameStore.getState().clearGame();
+          }}
+          onSelectTarget={(seatId) => useGameStore.getState().setSelectedTarget(seatId)}
+          onGodScopeChange={(scope) => useGameStore.getState().setGodScopeFilter(scope)}
+          onVote={() => {
+            const state = useGameStore.getState();
+            if (state.selectedTarget && state.mySeatId) {
+              submitAction(threadId, state.mySeatId, 'vote', state.selectedTarget);
+              state.setSelectedTarget(null);
+            }
+          }}
+          onSpeak={(content) => {
+            const state = useGameStore.getState();
+            if (state.mySeatId) {
+              submitAction(threadId, state.mySeatId, 'speak', undefined, { content });
+            }
+          }}
+          onConfirmAction={() => {
+            const state = useGameStore.getState();
+            if (state.selectedTarget && state.mySeatId && state.currentActionName) {
+              submitAction(threadId, state.mySeatId, state.currentActionName, state.selectedTarget);
+              state.setSelectedTarget(null);
+            }
+          }}
+          onConfirmAltAction={() => {
+            const state = useGameStore.getState();
+            if (state.selectedTarget && state.mySeatId && state.altActionName) {
+              submitAction(threadId, state.mySeatId, state.altActionName, state.selectedTarget);
+              state.setSelectedTarget(null);
+            }
+          }}
+        />
       </div>
 
       {statusPanelOpen && rightPanelMode === 'status' && (
@@ -499,11 +602,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       )}
       {statusPanelOpen && rightPanelMode === 'workspace' && (
         <>
-          <ResizeHandle
-            direction="horizontal"
-            onResize={handleHorizontalResize}
-            onDoubleClick={resetChatBasis}
-          />
+          <ResizeHandle direction="horizontal" onResize={handleHorizontalResize} onDoubleClick={resetChatBasis} />
           <WorkspacePanel />
         </>
       )}
@@ -518,12 +617,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         messageSummary={messageSummary}
       />
       <CatCafeHub />
-      {showVoteModal && (
-        <VoteConfigModal
-          onSubmit={handleVoteSubmit}
-          onCancel={() => setShowVoteModal(false)}
-        />
-      )}
+      {showVoteModal && <VoteConfigModal onSubmit={handleVoteSubmit} onCancel={() => setShowVoteModal(false)} />}
     </div>
   );
 }

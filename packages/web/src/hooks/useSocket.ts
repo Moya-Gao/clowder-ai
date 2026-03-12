@@ -19,6 +19,7 @@ import {
   clearBackgroundStreamRefForActiveEvent,
   handleBackgroundAgentMessage,
 } from './useSocket-background';
+import { reconnectGame } from './useGameReconnect';
 
 interface AgentMessage {
   type: string;
@@ -202,6 +203,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         threadId: tid ?? undefined,
         queueLength: rejoinedRooms.length,
       });
+
+      // F101: Recover game state on reconnect
+      if (tid) {
+        reconnectGame(tid).catch(() => {});
+      }
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
@@ -415,6 +421,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     // F085 Phase 4: Hyperfocus brake trigger from backend activity tracking
     socket.on('brake:trigger', (data: { level: 1 | 2 | 3; activeMinutes: number; nightMode: boolean; timestamp: number }) => {
       useBrakeStore.getState().show(data);
+    });
+
+    // F101: Game state updates (per-seat scoped views)
+    socket.on('game:state_update', (data: { gameId: string; view: unknown; timestamp: number }) => {
+      callbacksRef.current.onGameStateUpdate?.(data);
     });
 
     socket.on('connect_error', (error: Error & { description?: unknown; context?: unknown }) => {

@@ -134,7 +134,7 @@ export interface GameView {
   visibleEvents: GameEvent[];
   myActions?: GameAction[];
   winner?: string;
-  config: Pick<GameConfig, 'timeoutMs' | 'voiceMode'>;
+  config: Pick<GameConfig, 'timeoutMs' | 'voiceMode' | 'humanRole'> & { humanSeat?: SeatId };
 }
 
 export interface SeatView {
