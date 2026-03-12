@@ -271,6 +271,7 @@ export interface PodcastSegment {
   readonly speaker: string;
   readonly text: string;
   readonly durationEstimate: number;
+  readonly audioUrl?: string;
 }
 
 export interface PodcastScript {

@@ -221,10 +221,19 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - **去重**：同 article+mode 新脚本覆盖旧 artifact
 - **TTS**：接现有猫猫声线（F066 VoiceBlockSynthesizer）
 
+铲屎官决策（2026-03-11 19:51）：
+- **Thread session reuse 开 Phase 6 做**：Phase 5 scope = LLM 生成 + 去重 + TTS 播放
+- Phase 5 当前用 context injection（读已有笔记+thread ID 注入 prompt）
+- Phase 6 实现真正的 session reuse：往已有 study thread 发消息，走现有消息管道（和 GitHub 通知一样），不需要深耦合 cat routing
+
 ### Phase 5 AC
-- [ ] AC-P5-1: 播客脚本由 LLM 生成（精华版 5-8 段，深度版 15-25 段）
-- [ ] AC-P5-2: 同 article+mode 生成新播客时，覆盖旧 artifact（幂等）
-- [ ] AC-P5-3: 生成后自动 TTS 合成音频，前端可播放
+- [x] AC-P5-1: 播客脚本由 LLM 生成（精华版 5-8 段，深度版 15-25 段）
+- [x] AC-P5-2: 同 article+mode 生成新播客时，覆盖旧 artifact（幂等，失败不丢旧版本）
+- [x] AC-P5-3: 生成后自动 TTS 合成音频，前端可播放（apiFetch → blob URL）
+
+### Phase 6: Thread Session Reuse（待启动）
+- [ ] AC-P6-1: 有已有 study thread 时，通过消息管道往 thread 发消息触发生成（复用该 thread 的猫实例）
+- [ ] AC-P6-2: 无 study thread 时，启动新 thread 再发消息
 
 ## UX Wireframe 设计说明
 

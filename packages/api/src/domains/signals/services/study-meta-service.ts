@@ -102,6 +102,38 @@ export class StudyMetaService {
     return updated;
   }
 
+  /**
+   * Add artifact, replacing any existing artifact with matching kind + mode prefix.
+   * E.g. podcast-essence-* replaces previous podcast-essence-*.
+   */
+  async addOrReplaceArtifact(
+    articleId: string,
+    articleFilePath: string,
+    artifact: StudyArtifact,
+    matchPrefix: string,
+  ): Promise<{ meta: StudyMeta; replaced: readonly StudyArtifact[] }> {
+    const meta = await this.readMeta(articleId, articleFilePath);
+    const replaced = meta.artifacts.filter((a) => a.kind === artifact.kind && a.id.startsWith(matchPrefix));
+    const filtered = meta.artifacts.filter((a) => !(a.kind === artifact.kind && a.id.startsWith(matchPrefix)));
+    const updated: StudyMeta = {
+      ...meta,
+      artifacts: [...filtered, artifact],
+      lastStudiedAt: new Date().toISOString(),
+    };
+    await this.writeMeta(articleFilePath, updated);
+    return { meta: updated, replaced };
+  }
+
+  async removeArtifact(articleId: string, articleFilePath: string, artifactId: string): Promise<StudyMeta> {
+    const meta = await this.readMeta(articleId, articleFilePath);
+    const updated: StudyMeta = {
+      ...meta,
+      artifacts: meta.artifacts.filter((a) => a.id !== artifactId),
+    };
+    await this.writeMeta(articleFilePath, updated);
+    return updated;
+  }
+
   async updateArtifactState(
     articleId: string,
     articleFilePath: string,
@@ -113,9 +145,7 @@ export class StudyMetaService {
     const updated: StudyMeta = {
       ...meta,
       artifacts: meta.artifacts.map((a) =>
-        a.id === artifactId
-          ? { ...a, state, ...(filePath ? { filePath } : {}) }
-          : a,
+        a.id === artifactId ? { ...a, state, ...(filePath ? { filePath } : {}) } : a,
       ),
     };
     await this.writeMeta(articleFilePath, updated);

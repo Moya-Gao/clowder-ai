@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
 import type { StudyArtifact } from '@cat-cafe/shared';
-import { fetchPodcastScript, generatePodcast, type PodcastScript } from '@/utils/signals-api';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { apiFetch } from '@/utils/api-client';
+import { fetchPodcastScript, generatePodcast, type PodcastScript, type PodcastSegment } from '@/utils/signals-api';
 
 interface PodcastPlayerProps {
   readonly articleId: string;
@@ -9,13 +10,14 @@ interface PodcastPlayerProps {
 }
 
 const SPEAKER_COLORS: Record<string, string> = {
+  宪宪: 'text-opus-dark bg-opus-bg',
+  砚砚: 'text-emerald-700 bg-emerald-50',
   host: 'text-opus-dark bg-opus-bg',
   guest: 'text-emerald-700 bg-emerald-50',
-  narrator: 'text-amber-700 bg-amber-50',
 };
 
 function speakerStyle(speaker: string): string {
-  return SPEAKER_COLORS[speaker.toLowerCase()] ?? 'text-gray-700 bg-gray-100';
+  return SPEAKER_COLORS[speaker] ?? SPEAKER_COLORS[speaker.toLowerCase()] ?? 'text-gray-700 bg-gray-100';
 }
 
 function formatDuration(seconds: number): string {
@@ -31,45 +33,89 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [activeSegment, setActiveSegment] = useState(-1);
+  const [playingSegment, setPlayingSegment] = useState(-1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const readyPodcasts = podcasts.filter((p) => p.state === 'ready');
   const pendingPodcasts = podcasts.filter((p) => p.state === 'queued' || p.state === 'running');
 
-  const loadScript = useCallback(async (artifactId: string) => {
-    setLoading(true);
-    setError(null);
-    setScript(null);
-    setActiveSegment(-1);
-    try {
-      const result = await fetchPodcastScript(articleId, artifactId);
-      setScript(result.script);
-      setSelectedId(artifactId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load script');
-    } finally {
-      setLoading(false);
-    }
-  }, [articleId]);
+  const loadScript = useCallback(
+    async (artifactId: string) => {
+      setLoading(true);
+      setError(null);
+      setScript(null);
+      setActiveSegment(-1);
+      try {
+        const result = await fetchPodcastScript(articleId, artifactId);
+        setScript(result.script);
+        setSelectedId(artifactId);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load script');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [articleId],
+  );
 
-  const handleGenerate = useCallback(async (mode: 'essence' | 'deep') => {
-    setGenerating(true);
-    setError(null);
-    try {
-      await generatePodcast(articleId, mode);
-      onArtifactCreated?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to generate');
-    } finally {
-      setGenerating(false);
-    }
-  }, [articleId, onArtifactCreated]);
+  const handleGenerate = useCallback(
+    async (mode: 'essence' | 'deep') => {
+      setGenerating(true);
+      setError(null);
+      try {
+        await generatePodcast(articleId, mode);
+        onArtifactCreated?.();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to generate');
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [articleId, onArtifactCreated],
+  );
+
+  const playSegment = useCallback(
+    (seg: PodcastSegment, index: number) => {
+      if (!seg.audioUrl) return;
+      if (playingSegment === index) {
+        audioRef.current?.pause();
+        setPlayingSegment(-1);
+        return;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setPlayingSegment(index);
+      setActiveSegment(index);
+      // Fetch audio via apiFetch (carries auth, resolves API base URL)
+      void apiFetch(seg.audioUrl)
+        .then((res) => {
+          if (!res.ok) throw new Error(`Audio fetch ${res.status}`);
+          return res.blob();
+        })
+        .then((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          const audio = new Audio(blobUrl);
+          audioRef.current = audio;
+          audio.addEventListener('ended', () => {
+            setPlayingSegment(-1);
+            URL.revokeObjectURL(blobUrl);
+          });
+          return audio.play();
+        })
+        .catch(() => setPlayingSegment(-1));
+    },
+    [playingSegment],
+  );
 
   // Reset state when articleId changes
   useEffect(() => {
+    audioRef.current?.pause();
     setSelectedId(null);
     setScript(null);
     setError(null);
     setActiveSegment(-1);
+    setPlayingSegment(-1);
   }, [articleId]);
 
   // Auto-load first ready podcast
@@ -104,9 +150,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
       </div>
 
       {pendingPodcasts.length > 0 && (
-        <p className="mt-1 text-[10px] text-amber-600">
-          {pendingPodcasts.length} 个播客正在生成中...
-        </p>
+        <p className="mt-1 text-[10px] text-amber-600">{pendingPodcasts.length} 个播客正在生成中...</p>
       )}
 
       {readyPodcasts.length > 1 && (
@@ -137,37 +181,47 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
             <span className="text-[10px] text-gray-400">
               {script.mode === 'deep' ? '深度版' : '精华版'} · {script.segments.length} 段
             </span>
-            <span className="text-[10px] text-gray-400">
-              约 {formatDuration(script.totalDuration)}
-            </span>
+            <span className="text-[10px] text-gray-400">约 {formatDuration(script.totalDuration)}</span>
           </div>
           <div className="max-h-64 overflow-y-auto">
             {script.segments.map((seg, i) => (
-              <button
+              <div
                 key={`${seg.speaker}-${i}`}
-                type="button"
-                onClick={() => setActiveSegment(activeSegment === i ? -1 : i)}
                 className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors ${
                   activeSegment === i ? 'bg-opus-bg' : 'hover:bg-gray-50'
                 }`}
               >
-                <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${speakerStyle(seg.speaker)}`}>
-                  {seg.speaker}
-                </span>
-                <span className="flex-1 text-xs text-gray-700">{seg.text}</span>
-                <span className="shrink-0 text-[10px] text-gray-300">
-                  {formatDuration(seg.durationEstimate)}
-                </span>
-              </button>
+                {seg.audioUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => playSegment(seg, i)}
+                    className="mt-0.5 shrink-0 text-[10px] text-opus-dark hover:text-opus-primary"
+                    title={playingSegment === i ? '暂停' : '播放'}
+                  >
+                    {playingSegment === i ? '⏸' : '▶'}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setActiveSegment(activeSegment === i ? -1 : i)}
+                  className="flex flex-1 items-start gap-2 text-left"
+                >
+                  <span
+                    className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${speakerStyle(seg.speaker)}`}
+                  >
+                    {seg.speaker}
+                  </span>
+                  <span className="flex-1 text-xs text-gray-700">{seg.text}</span>
+                </button>
+                <span className="shrink-0 text-[10px] text-gray-300">{formatDuration(seg.durationEstimate)}</span>
+              </div>
             ))}
           </div>
         </div>
       )}
 
       {!script && !loading && readyPodcasts.length === 0 && !error && (
-        <p className="mt-1 text-[10px] text-gray-400">
-          还没有播客脚本，点击上方按钮生成。
-        </p>
+        <p className="mt-1 text-[10px] text-gray-400">还没有播客脚本，点击上方按钮生成。</p>
       )}
     </div>
   );
