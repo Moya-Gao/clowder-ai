@@ -141,6 +141,8 @@ export function WorkspacePanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename' | 'all'>('all');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  /** Progressive reveal: store target path, expand ancestors as tree loads deeper. */
+  const [pendingRevealPath, setPendingRevealPath] = useState<string | null>(null);
 
   // G7-2: Per-thread workspace state — save/restore expandedPaths on thread switch
   const threadStateCache = useRef<Map<string, { expanded: Set<string>; tabs: string[]; openFile: string | null }>>(new Map());
@@ -165,6 +167,8 @@ export function WorkspacePanel() {
         setExpandedPaths(new Set());
         restoreWorkspaceTabs([], null);
       }
+      // Clear any in-flight reveal so it doesn't leak into the new thread
+      setPendingRevealPath(null);
     }
     prevThreadRef.current = currentThreadId;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only trigger on thread change
@@ -218,13 +222,50 @@ export function WorkspacePanel() {
     [searchQuery, searchMode, search],
   );
 
+  const revealInTree = useCallback((filePath: string) => {
+    setPendingRevealPath(filePath);
+  }, []);
+
+  // Progressively expand ancestors each time the tree updates with new nodes.
+  useEffect(() => {
+    if (!pendingRevealPath) return;
+    const parts = pendingRevealPath.split('/');
+    const ancestors: string[] = [];
+    for (let i = 1; i < parts.length; i++) {
+      ancestors.push(parts.slice(0, i).join('/'));
+    }
+    let needsFetch = false;
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      for (const dir of ancestors) {
+        next.add(dir);
+        const node = findNode(tree, dir);
+        if (node && node.type === 'directory' && node.children === undefined) {
+          void fetchSubtree(dir);
+          needsFetch = true;
+        }
+        if (!node) {
+          // Node not yet in tree — parent needs to load first, wait for next tree update
+          needsFetch = true;
+          break;
+        }
+      }
+      return next;
+    });
+    // All ancestors are in the tree and expanded — reveal complete
+    if (!needsFetch) {
+      setPendingRevealPath(null);
+    }
+  }, [pendingRevealPath, tree, fetchSubtree]);
+
   const handleSearchResultClick = useCallback(
     (path: string, line: number) => {
       setOpenFile(path, line);
       setSearchResults([]);
       setEditMode(false);
+      revealInTree(path);
     },
-    [setOpenFile, setSearchResults],
+    [setOpenFile, setSearchResults, revealInTree],
   );
 
   // Reset markdown rendered mode when file changes (covers all entry points).
