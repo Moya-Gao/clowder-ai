@@ -2,13 +2,13 @@
 feature_ids: [F101]
 related_features: [F011]
 topics: [mode, game, werewolf, game-engine]
-doc_kind: spec
+doc_kind: in-progress
 created: 2026-03-11
 ---
 
 # F101: Mode v2 — 游戏系统引擎 + 狼人杀
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -104,23 +104,23 @@ created: 2026-03-11
 
 ## Acceptance Criteria
 
-### Phase A（Mode v2 通用基座）
-- [ ] AC-A1: `GameDefinition / GameRuntime / GameView` 类型定义完成，支持 workflow+game 双轨
-- [ ] AC-A2: GameEngine 可自主驱动 tick（不依赖用户消息），超时自动结算
-- [ ] AC-A3: Event log append-only + scope 裁剪，API/socket 只返回 GameView
-- [ ] AC-A4: ModeStore Redis 持久化，进程重启后可恢复游戏
-- [ ] AC-A5: 旧三 mode 代码完全删除，前端入口重写为游戏模式
-- [ ] AC-A6: 信息泄漏红线测试：不同 scope 的 actor 看不到不该看的事件
+### Phase A（Mode v2 通用基座）✅
+- [x] AC-A1: `GameDefinition / GameRuntime / GameView` 类型定义完成，支持 workflow+game 双轨
+- [x] AC-A2: GameEngine 可自主驱动 tick（不依赖用户消息），超时自动结算
+- [x] AC-A3: Event log append-only + scope 裁剪，API/socket 只返回 GameView
+- [x] AC-A4: ModeStore Redis 持久化，进程重启后可恢复游戏
+- [x] AC-A5: 旧三 mode 代码完全删除，前端入口重写为游戏模式
+- [x] AC-A6: 信息泄漏红线测试：不同 scope 的 actor 看不到不该看的事件
 
-### Phase B（狼人杀 v1）
-- [ ] AC-B1: 7 人局可完整跑通（lobby→deal→night/day 循环→结局）
-- [ ] AC-B2: 铲屎官可选 player 或 god-view 参与
-- [ ] AC-B3: 猫猫 AI 玩家能合理发言和执行夜间动作
-- [ ] AC-B4: 信息隔离：村民看不到狼队夜聊、玩家看不到他人私密技能结果
-- [ ] AC-B5: 非法动作被拒绝（死人不能投票、白天不能用夜间技能等）
-- [ ] AC-B6: 断线重连后可恢复游戏状态
-- [ ] AC-B7: PlayerGrid + PhaseTimeline 前端组件可用
-- [ ] AC-B8: 语音模式可选，猫猫用 audio rich block 发言
+### Phase B（狼人杀 v1）🚧 backend done, frontend pending
+- [x] AC-B1: 7 人局可完整跑通（lobby→deal→night/day 循环→结局）
+- [x] AC-B2: 铲屎官可选 player 或 god-view 参与
+- [x] AC-B3: 猫猫 AI 玩家能合理发言和执行夜间动作
+- [x] AC-B4: 信息隔离：村民看不到狼队夜聊、玩家看不到他人私密技能结果
+- [x] AC-B5: 非法动作被拒绝（死人不能投票、白天不能用夜间技能等）
+- [ ] AC-B6: 断线重连后可恢复游戏状态（v1 简单刷 GameView，follow-up PR）
+- [ ] AC-B7: PlayerGrid + PhaseTimeline 前端组件可用（follow-up PR）
+- [x] AC-B8: 语音模式可选，猫猫用 audio rich block 发言
 
 ## 需求点 Checklist
 
@@ -244,6 +244,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-11 | 四猫讨论收敛 + 立项 + 铲屎官决策落实 |
 | 2026-03-11 | UX 设计稿完成（3屏 Pencil wireframe）+ 头像系统调查 |
 | 2026-03-11 | **Design Gate 通过**：铲屎官确认设计稿 + 补充 KD-15/16/17 |
+| 2026-03-12 | Phase A+B backend merged (PR #400) — 92 tests, 21 commits squashed |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
