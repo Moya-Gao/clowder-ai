@@ -219,6 +219,30 @@ skills:
     sop_step: [4, 5, 6]
     merged_from: ["merge-approval-gate", "requesting-cloud-review", "finishing-a-development-branch"]
 
+  # ── 自我进化 ──
+  self-evolution:
+    description: >
+      Scope Guard + Process Evolution — 主动护栏与自我进化。
+      Use when: 发现铲屎官 scope 发散偏离愿景、同类错误反复出现（memory ≥2 次）、铲屎官纠正可泛化为规则、SOP 执行中发现流程缺口。
+      Not for: 日常 SOP 推进（那是正常执行）、一次性的个案 bug fix。
+      Output: Scope 收束提醒 或 流程改进提案（5 槽模板）。
+    triggers:
+      - "scope 发散"
+      - "又犯了"
+      - "反复犯错"
+      - "流程缺口"
+      - "我们应该改"
+      - "self-evolution"
+      - "这个错误犯了好多次"
+      - "要不要拆成多个 feat"
+    not_for:
+      - "日常 SOP 推进"
+      - "一次性 bug fix"
+    output: "Scope guard reminder or process evolution proposal (5-slot)"
+    next: []
+    sop_step: null
+    merged_from: null
+
   # ── 跨猫交接 ──
   cross-cat-handoff:
     description: >

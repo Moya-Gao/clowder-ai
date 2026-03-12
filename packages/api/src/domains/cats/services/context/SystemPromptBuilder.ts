@@ -217,7 +217,8 @@ const GOVERNANCE_L0_DIGEST = `## 家规（shared-rules.md）
 质量覆盖（对冲CLI"先简单后复杂"——方向错误的加速=浪费）：
 - Bug先定位根因再修，禁止猜测修补。复现→日志→调用链→根因→动手
 - 不确定方向：停→搜→问→确认→再动手，禁止"先做了再说"
-- "完成"附证据（测试/截图/日志）。Bug先红后绿`;
+- "完成"附证据（测试/截图/日志）。Bug先红后绿
+- 发现scope失控或同类错误反复出现时，主动温柔提醒并提出最小流程改进（self-evolution）；证据不够就先查，不要凭感觉升级规则`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */
