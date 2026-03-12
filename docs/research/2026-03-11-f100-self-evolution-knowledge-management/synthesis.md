@@ -174,4 +174,16 @@ Anthropic 2025 年实验发现：在 reward-hackable 编码任务上训练的模
 - **[推测/建议]**：基于已确认事实的分析推断，适用于 Cat Café 特定场景
 - 完整 Claude.ai 报告：`claude-ai-report.md`（30,129 chars, 498 sources）
 - ChatGPT 报告：在线查看（11m, 436 searches, 39 citations）
-- Gemini 报告：研究进行中，完成后补充
+- Gemini 报告：`gemini-report.md`（30K chars, 53 citations）
+- GPT Pro 进阶调研 Prompt：`gpt-pro-advanced-prompt.md`（来源验证 + 4 个进阶问题）
+
+## Gemini 独特贡献（补充）
+
+Gemini 报告提供了以下 Claude.ai 和 ChatGPT 未覆盖的独特视角：
+
+1. **TACO 框架 (KPMG 2025)**：按功能复杂度分四级 Taskers→Automators→Collaborators→Orchestrators
+2. **HAE 框架 (arxiv 2603.07496)**：三层安全治理 L1 认知自治→L2 执行自治→L3 集体自治
+3. **A2UI 协议 + Cytoscape.js**：实时 Agentic Knowledge Graph 可视化方案（比 static Skill Tree 更动态）
+4. **LaMer / HILA 元学习框架**：Meta-RL 让 agent 学会"何时探索、何时求助人类"
+5. **Neural Cache Projection**：未来 12 个月的趋势——agent 直接共享 KV-Cache 跳过自然语言解析
+6. **36.9% 跨智能体对齐失败率**：关键风险数据点（待 GPT Pro 验证来源）
