@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> **Status**: Phase 1-6+A+B+C done, Phase D in-progress | **Owner**: 布偶猫
+> **Status**: Phase 1-6+A+B+C done, Phase D+E in-progress | **Owner**: 布偶猫
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
 > Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 
@@ -58,6 +58,8 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **D** | `/use` 模糊匹配：feat号 + title关键词 + 列表序号 | 🚧 in-progress | — |
 | **5** | 图片/文件收发（双向） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
 | **6** | 语音消息（STT/TTS） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
+| **E** | 飞书卡片身份标识：所有回复走 interactive card + 猫名头部，消除多猫气泡合并 | 🚧 in-progress | — |
+| **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
 | **7** | 群聊 + 多人 + 权限隔离 | 📋 planned | — |
 | **8** | 更多平台 + OAuth + 配置 UI | 📋 planned | — |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
@@ -103,6 +105,8 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-3**: 排队路径丢失媒体上下文 — 猫忙时，connector 图片消息排队后重放为 text-only（contentBlocks 未持久化到 messageStore）。直接调用路径正常。需改 messageStore schema + QueueProcessor 恢复链路。**愿景层高优 gap**（"共享记忆"）。
 - **ISSUE-4**: Connector 媒体文件是本地缓存，非持久 artifact — MediaCleanupJob 24h TTL 后删除，历史消息中的本地 URL 会失效。原件仍在 Feishu/Telegram 平台。如需持久化，应存 platform key 而非本地 URL。
 
+- **ISSUE-5**: 飞书多猫回复气泡合并无区分度 — 所有猫共用同一 Feishu Bot，plain text 回复被飞书 UI 合并成连续气泡，不同猫的回复视觉上混在一起。**Phase E 修复**：统一走 interactive card，每条消息独立卡片 + 猫名头部。
+
 ## Open Questions (resolved)
 
 1. ~~MVP 先做飞书还是 Slack？~~ → 飞书 + Telegram
@@ -119,6 +123,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-10 | Phase C 架构归一完成 (PR #353) |
 | 2026-03-11 | Phase 5+6 media/voice merged (PR #362) |
 | 2026-03-11 | Phase 5b Feishu native upload + media cleanup merged (PR #364) |
+| 2026-03-11 | Phase E kickoff: 飞书多猫卡片身份标识（ISSUE-5 fix） |
 
 ## 参考文件
 
