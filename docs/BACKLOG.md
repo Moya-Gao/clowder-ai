@@ -35,7 +35,7 @@ created: 2026-02-26
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | [F077](features/F077-multi-user-secure-collab.md) |
 | F081 | Bubble/Thread State Write-Path Audit（附录） | in-progress | 布偶猫 | [F081](features/F081-write-path-audit.md) |
 | F085 | Hyperfocus Brake — Phase 5 UX 增强 | in-progress | 布偶猫 | [F085](features/F085-hyperfocus-brake.md) |
-| F087 | CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | spec | 布偶猫 | [F087](features/F087-cvo-bootcamp.md) |
+| F087 | CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | in-progress | 布偶猫 | [F087](features/F087-cvo-bootcamp.md) |
 | F088 | Multi-Platform Chat Gateway — 飞书/Telegram 多平台网关 | phase5-6-done | 布偶猫 | [F088](features/F088-multi-platform-chat-gateway.md) |
 | F089 | Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性 | spec | 布偶猫 | [F089](features/F089-hub-terminal-tmux.md) |
 | F090 | Pixel Cat Brawl — 像素猫猫大作战：即时格斗 demo game | phase-1-done | 布偶猫 | [F090](features/F090-pixel-cat-brawl.md) |

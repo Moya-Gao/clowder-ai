@@ -8,7 +8,7 @@ created: 2026-03-08
 
 # F087: 猫猫训练营（CVO Bootcamp）
 
-> **Status**: phase-a-done | **Owner**: 布偶猫
+> **Status**: in-progress | **Owner**: 布偶猫
 > **Priority**: P2
 > **Evolved from**: F059（开源计划 — clowder-ai 需要 onboarding 体验）
 > **Related**: F075（成就/排行榜系统）, F090（像素猫猫大作战）, F096（可交互富文本）
@@ -221,9 +221,19 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 - `bootcamp-blocks`：引导猫选择 + 任务选择的 Interactive Rich Block 定义
 - 测试：24 tests（thread-bootcamp 6 + env-check 5 + blocks 5 + prompt-builder 2 + 预有 6）
 
-### Phase B: 运行时行为（待实施）
+### Phase B: Callback Routes + MCP Tools ✅ (PR #381)
 
-**目标**：让 bootcamp-guide skill 真正跑起来——猫猫根据 phase 自动推进引导流程。
+**交付物**：
+- `callback-bootcamp-routes.ts`: 2 个回调端点（update-bootcamp-state, bootcamp-env-check）
+- `env-check.ts`: 环境检查逻辑抽取为共享 helper（GET + callback 共用）
+- `callback-tools.ts`: 2 个 MCP 工具（cat_cafe_update_bootcamp_state, cat_cafe_bootcamp_env_check）
+- `bootcamp-guide/SKILL.md`: 更新 MCP 工具引用
+- 安全：严格线程绑定（403 跨线程）+ stale invocation guard
+- 测试：15 tests（callback-state 8 + callback-env-check 6 + bootcamp-flow 1）
+- Review：缅因猫 3 轮 review（P1 跨线程写入 + P1 default bypass + P2 stale guard）
+
+### Phase C: 前端联调 + 运行时编排（待实施）
+
 - [ ] Phase 0: 引导猫选择的 Interactive Rich Block 渲染 + 回调处理
 - [ ] Phase 1: 三猫轮流自我介绍（multi_mention 编排）
 - [ ] Phase 2-3: env-check 调用 + 猫猫主动帮用户排障
@@ -232,7 +242,7 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 - [ ] Phase 5-10: 真实 feat lifecycle 编排（CVO 决策时刻标记）
 - [ ] Phase 11: 告别 + pinned + 持续帮助入口
 
-### Phase C: 成就接入（依赖 F075）
+### Phase D: 成就接入（依赖 F075）
 
 - [ ] 接入 F075 排行榜成就系统
 - [ ] "第一次拍板"、"第一次否决"等 bootcamp 成就
@@ -306,3 +316,4 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 | 2026-03-11 | F096 完成并合入 main（PR #365），F087 blocker 解除 |
 | 2026-03-11 | 铲屎官补充：进阶功能引导 + TTS 推荐策略 + 训练营线程持续帮助入口（KD-14~16） |
 | 2026-03-11 | Phase A 基础设施完成（PR #375 merged）：thread bootcampState、env-check API、前端入口、bootcamp-guide skill、SystemPromptBuilder 注入 |
+| 2026-03-12 | Phase B callback routes + MCP tools 完成（PR #381 merged）：bootcamp state 回调、env-check callback、严格线程绑定、缅因猫 3 轮 review |
