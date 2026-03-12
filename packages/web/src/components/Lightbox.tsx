@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 async function copyImageToClipboard(url: string) {
   const res = await fetch(url);
@@ -52,7 +53,11 @@ export function Lightbox({ url, alt, caption, onClose }: { url: string; alt: str
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  return (
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
     // biome-ignore lint/a11y/useKeyWithClickEvents: Escape key handled via useEffect
     <div
       role="dialog"
@@ -80,6 +85,7 @@ export function Lightbox({ url, alt, caption, onClose }: { url: string; alt: str
         {caption && <p className="mt-2 text-sm text-white/80">{caption}</p>}
         <CopyButton url={url} />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

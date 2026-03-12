@@ -53,10 +53,17 @@ function renderLightbox(props: Partial<React.ComponentProps<typeof Lightbox>> = 
 describe('Lightbox', () => {
   it('renders image with correct src and alt', () => {
     renderLightbox({ url: '/my-image.png', alt: 'my alt' });
-    const img = container.querySelector('img');
+    const img = document.body.querySelector('img');
     expect(img).toBeDefined();
     expect(img?.getAttribute('src')).toBe('/my-image.png');
     expect(img?.getAttribute('alt')).toBe('my alt');
+  });
+
+  it('renders the dialog outside the caller container to avoid hover flicker', () => {
+    renderLightbox();
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).toBeDefined();
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('calls onClose when Escape key is pressed', () => {
@@ -69,7 +76,7 @@ describe('Lightbox', () => {
 
   it('calls onClose when backdrop is clicked', () => {
     const { onClose } = renderLightbox();
-    const backdrop = container.querySelector('[role="dialog"]');
+    const backdrop = document.body.querySelector('[role="dialog"]');
     expect(backdrop).toBeDefined();
     act(() => {
       backdrop!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -79,7 +86,7 @@ describe('Lightbox', () => {
 
   it('does NOT call onClose when image content is clicked', () => {
     const { onClose } = renderLightbox();
-    const img = container.querySelector('img');
+    const img = document.body.querySelector('img');
     expect(img).toBeDefined();
     act(() => {
       img!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -90,18 +97,18 @@ describe('Lightbox', () => {
 
   it('renders caption when provided', () => {
     renderLightbox({ caption: 'My caption text' });
-    expect(container.innerHTML).toContain('My caption text');
+    expect(document.body.innerHTML).toContain('My caption text');
   });
 
   it('does not render caption when not provided', () => {
     renderLightbox();
-    const paragraphs = container.querySelectorAll('p');
+    const paragraphs = document.body.querySelectorAll('p');
     expect(paragraphs.length).toBe(0);
   });
 
   it('has close button that calls onClose', () => {
     const { onClose } = renderLightbox();
-    const closeBtn = container.querySelector('button[title="Close"]');
+    const closeBtn = document.body.querySelector('button[title="Close"]');
     expect(closeBtn).toBeDefined();
     act(() => {
       closeBtn!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
