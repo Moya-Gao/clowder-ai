@@ -210,7 +210,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | OQ-1 | callback 消息用浅色底还是和 CLI 块统一深色底？ | **已定**：保持品种色深底（和 stream 一致），加方向 pill 区分 |
 | OQ-2 | Evidence Panel 独立浅色底还是适配深色气泡？ | Phase B 处理 |
 | OQ-3 | 方向标注放 header 行还是消息体上方？ | **已定**：header 行，猫名右侧（设计稿确认） |
-| OQ-4 | 消息流位置正确性：按发送时间排序 vs 按收到时间排序 vs 双时间标注？ | 待定（Phase D 设计时确定） |
+| OQ-4 | 消息流位置正确性：按发送时间排序 vs 按收到时间排序 vs 双时间标注？ | **已定**：Method A 双时间标注（KD-6） |
 
 ## Key Decisions
 
@@ -221,6 +221,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | KD-3 | 方向标注放 header 行（猫名右侧 pill badge） | 设计稿确认，不占额外行高 | 2026-03-11 |
 | KD-4 | A2A 内部讨论改中性灰底 + 品种色边框/badge | 铲屎官截图确认颜色刺眼，灰底解决叠色问题 | 2026-03-11 |
 | KD-5 | AC-A2 降级到 Phase B | multi_mention 结果是 `type:'connector'` 聚合消息（无 targets 元数据），方向标注需 Phase C2 后端补 targets 字段后才能可靠渲染。AC-B2 已覆盖 connector 视觉统一 | 2026-03-11 |
+| KD-6 | Phase D 采用 Method A 双时间标注（`deliveredAt` 字段） | 不重排序（保留实时体验）、不加系统消息（不添杂音）、最精确（读者可自行判断延迟）。StoredMessage 加 `deliveredAt?: number`，InvocationQueue dequeue 时回填，前端 gap>5s 时显示"发送 HH:MM · 收到 HH:MM" | 2026-03-12 |
 
 ## Timeline
 
