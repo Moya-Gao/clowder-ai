@@ -14,6 +14,7 @@ export function buildSelectionMessage(
   selectedIds: string[],
   messageTemplate?: string,
   title?: string,
+  customText?: string,
 ): string {
   if (interactiveType === 'confirm') {
     const action = selectedIds[0] === '__confirm__' ? '确认' : '取消';
@@ -22,6 +23,12 @@ export function buildSelectionMessage(
 
   const selected = selectedIds.map((id) => options.find((o) => o.id === id)).filter(Boolean) as typeof options;
   const labels = selected.map((o) => (o.emoji ? `${o.emoji} ${o.label}` : o.label));
+
+  // If a customInput option was selected and user typed text, use that text
+  if (customText) {
+    const base = labels.length > 0 ? `${labels.join(', ')}：${customText}` : customText;
+    return title ? `${base}（${title}）` : base;
+  }
 
   if (messageTemplate) {
     return messageTemplate.replace('{selection}', labels.join(', '));
@@ -53,21 +60,33 @@ function SelectInteraction({
   selectedIds,
   onSelect,
   hideSubmit,
+  onCustomText,
 }: {
   options: InteractiveOption[];
   disabled: boolean;
   selectedIds: string[];
   onSelect: (ids: string[]) => void;
   hideSubmit?: boolean;
+  onCustomText?: (text: string) => void;
 }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [customText, setCustomText] = useState('');
   const highlightId = disabled ? selectedIds[0] ?? null : pendingId;
+  const pendingOpt = pendingId ? options.find((o) => o.id === pendingId) : null;
+  const showCustomInput = !disabled && pendingOpt?.customInput;
 
   const handleClick = (id: string) => {
     if (disabled) return;
     setPendingId(id);
+    setCustomText('');
     // In group mode, immediately notify parent of pending selection
     if (hideSubmit) onSelect([id]);
+  };
+
+  const handleSubmit = () => {
+    if (!pendingId) return;
+    if (showCustomInput && onCustomText) onCustomText(customText);
+    onSelect([pendingId]);
   };
 
   return (
@@ -102,11 +121,29 @@ function SelectInteraction({
           </button>
         );
       })}
+      {showCustomInput && (
+        <div className="mt-1">
+          <input
+            type="text"
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && customText.trim()) handleSubmit(); }}
+            placeholder={pendingOpt?.customInputPlaceholder ?? '输入你的想法...'}
+            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 placeholder:text-gray-400"
+            autoFocus
+          />
+        </div>
+      )}
       {!disabled && !hideSubmit && pendingId && (
         <button
           type="button"
-          onClick={() => onSelect([pendingId])}
-          className="mt-2 w-full py-2.5 bg-purple-500 text-white rounded-full text-sm font-semibold hover:bg-purple-600 transition-colors flex items-center justify-center gap-1.5"
+          disabled={showCustomInput && !customText.trim()}
+          onClick={handleSubmit}
+          className={`mt-2 w-full py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-1.5
+            ${showCustomInput && !customText.trim()
+              ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+              : 'bg-purple-500 text-white hover:bg-purple-600'
+            }`}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -414,6 +451,7 @@ export interface InteractiveBlockProps {
 export function InteractiveBlock({ block, messageId, pendingMode, onPendingChange, groupDisabled, groupSelectedIds }: InteractiveBlockProps) {
   const [localDisabled, setLocalDisabled] = useState(block.disabled ?? false);
   const [localSelectedIds, setLocalSelectedIds] = useState<string[]>(block.selectedIds ?? []);
+  const [customText, setCustomText] = useState('');
   const isDisabled = groupDisabled ?? localDisabled;
   const displaySelectedIds = groupSelectedIds ?? localSelectedIds;
 
@@ -430,8 +468,8 @@ export function InteractiveBlock({ block, messageId, pendingMode, onPendingChang
       setLocalDisabled(true);
       setLocalSelectedIds(optionIds);
 
-      // Build and send message
-      const text = buildSelectionMessage(block.interactiveType, block.options, optionIds, block.messageTemplate, block.title);
+      // Build and send message (include custom text if present)
+      const text = buildSelectionMessage(block.interactiveType, block.options, optionIds, block.messageTemplate, block.title, customText || undefined);
       dispatchInteractiveSend(text);
 
       // P2-1 fix: write back to store so re-mount/thread-switch preserves state
@@ -443,7 +481,7 @@ export function InteractiveBlock({ block, messageId, pendingMode, onPendingChang
         });
       }
     },
-    [isDisabled, block, messageId, pendingMode, onPendingChange],
+    [isDisabled, block, messageId, pendingMode, onPendingChange, customText],
   );
 
   return (
@@ -457,6 +495,7 @@ export function InteractiveBlock({ block, messageId, pendingMode, onPendingChang
           selectedIds={displaySelectedIds}
           onSelect={handleSelect}
           hideSubmit={pendingMode}
+          onCustomText={setCustomText}
         />
       )}
       {block.interactiveType === 'multi-select' && (

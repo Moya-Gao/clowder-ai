@@ -73,6 +73,10 @@ export interface InteractiveOption {
   description?: string;
   level?: number;
   group?: string;
+  /** When true, selecting this option shows a text input for custom user input */
+  customInput?: boolean;
+  /** Placeholder text for the custom input field */
+  customInputPlaceholder?: string;
 }
 
 export interface RichInteractiveBlock extends RichBlockBase {

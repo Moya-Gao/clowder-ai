@@ -70,4 +70,25 @@ describe('F096: buildSelectionMessage', () => {
     ], ['c', 'a']);
     expect(result).toBe('我选了：C, A');
   });
+
+  it('customInput — includes custom text in message', () => {
+    const result = buildSelectionMessage('select', [
+      { id: 'other', label: '我有其他想法' },
+    ], ['other'], undefined, undefined, '我觉得应该用 5 组');
+    expect(result).toBe('我有其他想法：我觉得应该用 5 组');
+  });
+
+  it('customInput — with title context', () => {
+    const result = buildSelectionMessage('select', [
+      { id: 'other', label: '其他' },
+    ], ['other'], undefined, 'Hub 分几组', '六组最好');
+    expect(result).toBe('其他：六组最好（Hub 分几组）');
+  });
+
+  it('customInput — empty custom text falls through to default', () => {
+    const result = buildSelectionMessage('select', [
+      { id: 'a', label: '方案 A' },
+    ], ['a'], undefined, undefined, '');
+    expect(result).toBe('我选了：方案 A');
+  });
 });
