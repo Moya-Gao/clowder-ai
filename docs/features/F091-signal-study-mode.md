@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F091: Signal Study Mode — 信号学习伴侣
 
-> **Status**: in-progress (Phase 6 thread session reuse 待启动) | **Owner**: 布偶猫
+> **Status**: in-progress (Phase 6 thread session reuse done) | **Owner**: 布偶猫
 > **Created**: 2026-03-10
 > **Completed**: 2026-03-10
 
@@ -212,6 +212,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-11: Signal Inbox 加 status tab（Inbox/已读/全部），commit `4f78ab5f` + `82135673`
 - 2026-03-11: 铲屎官发现播客功能是空壳（占位符脚本/无去重/无TTS），启动 Phase 5 播客增强
 - 2026-03-11: Phase 5 merged (PR #382) — LLM 脚本生成 + TTS 合成 + 去重 + 前端播放。gpt52 R1→R3 三轮 review + 云端 Codex 通过
+- 2026-03-12: Phase 6 merged (PR #388) — Thread-based podcast generation via message pipeline。gpt52 R1→R3 三轮 review + 云端 Codex 通过
 
 ## Phase 5: 播客真正可用（2026-03-11） ✅
 
@@ -232,9 +233,9 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-P5-2: 同 article+mode 生成新播客时，覆盖旧 artifact（幂等，失败不丢旧版本）
 - [x] AC-P5-3: 生成后自动 TTS 合成音频，前端可播放（apiFetch → blob URL）
 
-### Phase 6: Thread Session Reuse（待启动）
-- [ ] AC-P6-1: 有已有 study thread 时，通过消息管道往 thread 发消息触发生成（复用该 thread 的猫实例）
-- [ ] AC-P6-2: 无 study thread 时，启动新 thread 再发消息
+### Phase 6: Thread Session Reuse ✅
+- [x] AC-P6-1: 有已有 study thread 时，通过消息管道往 thread 发消息触发生成（复用该 thread 的猫实例）
+- [x] AC-P6-2: 无 study thread 时，启动新 thread 再发消息
 
 ## UX Wireframe 设计说明
 
