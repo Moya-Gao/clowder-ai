@@ -49,7 +49,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const {
     messages, hasActiveInvocation, intentMode, targetCats,
     catStatuses, catInvocations, setCurrentThread,
-    currentGame,
     viewMode, setViewMode, clearUnread, rightPanelMode,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
