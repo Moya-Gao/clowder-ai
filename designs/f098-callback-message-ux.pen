@@ -1,0 +1,569 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "F098 - Callback Message UX (Before → After)",
+      "clip": true,
+      "width": 1200,
+      "fill": "#0F0D1A",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "DZJHp",
+          "name": "title",
+          "fill": "#FFFFFF",
+          "content": "F098 — Callback Message UX",
+          "fontFamily": "Inter",
+          "fontSize": 28,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "i8l4N",
+          "name": "subtitle",
+          "fill": "#94A3B8",
+          "content": "方向标注 · Callback 视觉 · A2A 颜色优化 · Whisper 方向",
+          "fontFamily": "Inter",
+          "fontSize": 14,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "w2oXC",
+          "name": "cols",
+          "width": "fill_container",
+          "gap": 32,
+          "children": [
+            {
+              "type": "frame",
+              "id": "lcVhO",
+              "name": "beforeCol",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "y2szw",
+                  "name": "beforeLabel",
+                  "fill": "#EF4444",
+                  "content": "BEFORE（现状）",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "KpcZ9",
+                  "name": "b1Label",
+                  "fill": "#F97316",
+                  "content": "A1: Callback 消息（无方向）",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "Wlr51",
+                  "name": "b1Bubble",
+                  "width": "fill_container",
+                  "fill": "#2A1F3D",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#9B7EBD50"
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "592cV",
+                      "name": "b1Header",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "1Rcpk",
+                          "name": "b1Avatar",
+                          "fill": "#9B7EBD",
+                          "width": 24,
+                          "height": 24
+                        },
+                        {
+                          "type": "text",
+                          "id": "KlMla",
+                          "name": "b1Name",
+                          "fill": "#C4B5FD",
+                          "content": "布偶猫（Opus）",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "g1pHY",
+                          "name": "b1Time",
+                          "fill": "#64748B",
+                          "content": "16:28",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "MNruI",
+                      "name": "b1Content",
+                      "fill": "#CBD5E1",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "R2 修复确认 (commit a47ee782)\n测试已通过，可以合入。\n\n@codex",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "HVTqM",
+                  "name": "b4Label",
+                  "fill": "#F97316",
+                  "content": "A4: A2A 内部讨论（颜色刺眼）",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "kKy4V",
+                  "name": "b4A2A",
+                  "width": "fill_container",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#9B7EBD40"
+                  },
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    8,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "QTy3q",
+                      "name": "b4Toggle",
+                      "fill": "#94A3B8",
+                      "content": "▼ 收起内部讨论 (gpt52, 1 条)",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "RH6sS",
+                      "name": "b4Inner",
+                      "opacity": 0.8,
+                      "width": "fill_container",
+                      "fill": "#C8E6C9",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#66BB6A50"
+                      },
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": [
+                        8,
+                        12
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "q0saD",
+                          "name": "b4InnerH",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "D5FuX",
+                              "name": "b4InnerAv",
+                              "fill": "#66BB6A",
+                              "width": 20,
+                              "height": 20
+                            },
+                            {
+                              "type": "text",
+                              "id": "jHWmD",
+                              "name": "b4InnerNm",
+                              "fill": "#2E7D32",
+                              "content": "缅因猫（GPT-5.4）",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "WuIgJ",
+                          "name": "b4Cli",
+                          "width": "fill_container",
+                          "fill": "#1A3A1A",
+                          "cornerRadius": 8,
+                          "layout": "vertical",
+                          "padding": [
+                            8,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "4u9QY",
+                              "name": "b4CliTxt",
+                              "fill": "#81C784",
+                              "content": "CLI Output · done · 15 lines",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "f8Abn",
+                  "name": "b4Warn",
+                  "fill": "#FBBF24",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "⚠️ 浅绿底 + 深绿 CLI + opacity → 眼疼",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hcYvn",
+              "name": "afterCol",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "0FQBl",
+                  "name": "afterLabel",
+                  "fill": "#22C55E",
+                  "content": "AFTER（F098）",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "OKI32",
+                  "name": "a1Lbl",
+                  "fill": "#22C55E",
+                  "content": "A1: Callback 消息（有方向标注）",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "TKrVW",
+                  "name": "a1Bub",
+                  "width": "fill_container",
+                  "fill": "#2A1F3D",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#9B7EBD50"
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "kqmbD",
+                      "name": "a1Hdr",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "mqxQU",
+                          "name": "a1Av",
+                          "fill": "#9B7EBD",
+                          "width": 24,
+                          "height": 24
+                        },
+                        {
+                          "type": "text",
+                          "id": "z5Fkl",
+                          "name": "a1Nm",
+                          "fill": "#C4B5FD",
+                          "content": "布偶猫（Opus）",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Crfft",
+                          "name": "a1Tm",
+                          "fill": "#64748B",
+                          "content": "16:28",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "0dFq7",
+                          "name": "a1Pill",
+                          "fill": "#9B7EBD25",
+                          "cornerRadius": 10,
+                          "gap": 4,
+                          "padding": [
+                            2,
+                            8
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "SJdtJ",
+                              "name": "a1PillTxt",
+                              "fill": "#C4B5FD",
+                              "content": "→ @缅因猫",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "cafUF",
+                      "name": "a1Cnt",
+                      "fill": "#CBD5E1",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "R2 修复确认 (commit a47ee782)\n测试已通过，可以合入。\n\n@codex",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "fmZM5",
+                  "name": "a4Lbl",
+                  "fill": "#22C55E",
+                  "content": "A4: A2A 内部讨论（中性灰底）",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "MY3P6",
+                  "name": "a4Box",
+                  "width": "fill_container",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#9B7EBD40"
+                  },
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    8,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Eho5F",
+                      "name": "a4Tog",
+                      "fill": "#94A3B8",
+                      "content": "▼ 收起内部讨论 (gpt52, 1 条)",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ixYFg",
+                      "name": "a4Row",
+                      "width": "fill_container",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 2,
+                          "id": "iu1oT",
+                          "name": "a4Bdr",
+                          "fill": "#66BB6A",
+                          "width": 3,
+                          "height": "fill_container"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "oTZQV",
+                          "name": "a4Body",
+                          "width": "fill_container",
+                          "fill": "#1E293B",
+                          "cornerRadius": [
+                            0,
+                            12,
+                            12,
+                            0
+                          ],
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "2vmlB",
+                              "name": "a4BHdr",
+                              "width": "fill_container",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "t1DYU",
+                                  "name": "a4BAv",
+                                  "fill": "#66BB6A",
+                                  "width": 20,
+                                  "height": 20
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "VgOO7",
+                                  "name": "a4BNm",
+                                  "fill": "#86EFAC",
+                                  "content": "缅因猫（GPT-5.4）",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "cFYEd",
+                                  "name": "a4BPill",
+                                  "fill": "#66BB6A25",
+                                  "cornerRadius": 10,
+                                  "padding": [
+                                    2,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "JglRA",
+                                      "name": "a4BPTxt",
+                                      "fill": "#86EFAC",
+                                      "content": "→ @布偶猫",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "zsJ0Y",
+                              "name": "a4BCli",
+                              "width": "fill_container",
+                              "fill": "#1A2E1A",
+                              "cornerRadius": 8,
+                              "layout": "vertical",
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "UcDS3",
+                                  "name": "a4BCTx",
+                                  "fill": "#81C784",
+                                  "content": "CLI Output · done · 15 lines",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "ezLFJ",
+                  "name": "a4Ok",
+                  "fill": "#86EFAC",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "✅ 灰底 + 品种色边框/badge → 舒适可读",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

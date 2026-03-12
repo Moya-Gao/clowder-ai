@@ -36,6 +36,7 @@ created: 2026-03-11
 | 铲屎官悄悄话 | — | ✅ "悄悄话 → [猫名]" | amber badge ✅ | — |
 | 猫猫悄悄话 | — | ❌ 只有 "悄悄话" | amber badge | 缺方向 |
 | Evidence Panel | `system` variant=evidence | — | 独立组件 | 深色背景上不可读 |
+| A2A 内部讨论 | `stream`/`callback` | — | 品种色气泡 + opacity-80 | 颜色刺眼（绿底+深绿 CLI 块叠加） |
 
 ## What
 
@@ -77,6 +78,19 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 
 猫猫的悄悄话 badge 从 "悄悄话" 改为 "悄悄话 → @猫名"，和铲屎官悄悄话一致。
 
+**A4: A2A 内部讨论颜色优化**
+
+当前问题（铲屎官 17:28 截图）：
+- A2A 折叠展开后，内部消息用品种色 `secondary` 做气泡背景（如缅因猫 `#C8E6C9` 浅绿）
+- 气泡内的 CLI 块用 `tintedDark(greenAccent)` → 深绿面板
+- 浅绿气泡 + 深绿 CLI + `opacity-80` 叠加 → **颜色刺眼，看了眼疼**
+
+修复方案：
+- A2A 内部消息气泡**不用品种色背景**，改为中性浅灰底（`#F1F5F9` / dark: `#1E293B`），保留品种色左边框作为身份标识
+- 移除 `opacity-80`（不需要，灰底已经有视觉层级区分）
+- 品种色只用于：左边框 + 猫名 badge + @mention 徽章
+- CLI 块和 Thinking 块保持原有 `tintedDark` 品种色方案（深色面板内颜色是可读的）
+
 ### Phase B: Evidence Panel 适配 + 组件统一
 
 **B1: Evidence Panel 深色适配**
@@ -109,6 +123,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 - [ ] AC-A4: 猫猫 whisper badge 显示 "悄悄话 → @猫名"（和铲屎官 whisper 一致）
 - [ ] AC-A5: callback 消息有品种色浅底气泡，视觉上和 CLI 深色块区分
 - [ ] AC-A6: 方向标注用品种色 pill badge（和 @mention 彩色徽章同款样式）
+- [ ] AC-A7: A2A 内部讨论消息用中性灰底（不用品种色背景），品种色仅用于边框/badge
 
 ### Phase B（Evidence Panel + 组件统一）
 - [ ] AC-B1: Evidence Panel 在深色/品种色气泡上文字可读
@@ -130,6 +145,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | R6 | Evidence Panel 文字可读 | 铲屎官 16:50 截图 | B | AC-B1 |
 | R7 | connector 消息视觉统一 | 布偶猫分析 | B | AC-B2 |
 | R8 | 后端 targetCats 元数据 | 布偶猫分析（优化） | C | AC-C1 |
+| R9 | A2A 内部讨论颜色刺眼 | 铲屎官 17:28 截图 | A | AC-A7 |
 
 ## Dependencies
 
@@ -149,9 +165,9 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | callback 消息用浅色底还是和 CLI 块统一深色底？ | 初步倾向浅色（区分"发言" vs "执行日志"） |
-| OQ-2 | Evidence Panel 独立浅色底还是适配深色气泡？ | 待设计确认 |
-| OQ-3 | 方向标注放 header 行还是消息体上方？ | 待设计确认 |
+| OQ-1 | callback 消息用浅色底还是和 CLI 块统一深色底？ | **已定**：保持品种色深底（和 stream 一致），加方向 pill 区分 |
+| OQ-2 | Evidence Panel 独立浅色底还是适配深色气泡？ | Phase B 处理 |
+| OQ-3 | 方向标注放 header 行还是消息体上方？ | **已定**：header 行，猫名右侧（设计稿确认） |
 
 ## Key Decisions
 
@@ -159,12 +175,15 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 |---|------|------|------|
 | KD-1 | 方向信息从消息内容 @mention 解析（Phase A），后端元数据后补（Phase C） | 前端先上，不阻塞后端改动 | 2026-03-11 |
 | KD-2 | 猫猫 whisper 方向标注和铲屎官 whisper 统一 | 一致性，用户心智模型统一 | 2026-03-11 |
+| KD-3 | 方向标注放 header 行（猫名右侧 pill badge） | 设计稿确认，不占额外行高 | 2026-03-11 |
+| KD-4 | A2A 内部讨论改中性灰底 + 品种色边框/badge | 铲屎官截图确认颜色刺眼，灰底解决叠色问题 | 2026-03-11 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-03-11 | 立项，从 F097 收尾时发现问题。铲屎官 16:50 提出需求 |
+| 2026-03-11 | Design Gate 通过。设计稿：`designs/f098-callback-message-ux.pen` |
 
 ## Review Gate
 
@@ -179,3 +198,4 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | **Component** | `packages/web/src/components/EvidencePanel.tsx` | Evidence Panel 样式适配 |
 | **MCP Tools** | `packages/mcp-server/src/tools/callback-tools.ts` | post_message / cross_post / multi_mention |
 | **API Handler** | `packages/api/src/routes/callbacks.ts` | callback 消息处理 + @mention 解析 |
+| **Design** | `designs/f098-callback-message-ux.pen` | Before/After 对比设计稿（Design Gate 通过） |
