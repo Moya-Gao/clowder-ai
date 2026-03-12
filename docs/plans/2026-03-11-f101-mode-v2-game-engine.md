@@ -33,8 +33,9 @@
 - judge 手动法官模式
 - 扩展角色（狼王/白狼王/隐狼/狼美人）
 - 警长竞选
-- 同一 thread 多局并发
+- 同一 thread 多局并发（KD-15: 一个 thread 只跑一局）
 - 观战者列表（god-view 只限铲屎官本人）
+- 完整排行榜 UI（v1 只做 stats 写入，展示走 F075 现有 Leaderboard）
 
 ---
 
@@ -253,10 +254,11 @@ interface SeatView {
    - `getGame(gameId)` loads from Redis
    - `updateGame(gameId, runtime)` with version check (optimistic concurrency)
    - `updateGame()` rejects stale version
-   - `listActiveGames(threadId)` returns active games for thread
+   - `getActiveGame(threadId)` returns the single active game for thread (KD-15: one game per thread)
+   - `createGame()` rejects if thread already has an active game
    - `endGame(gameId, winner)` marks as finished
 2. Run tests → FAIL (use `pnpm --filter @cat-cafe/api test:redis`)
-3. Implement IGameStore interface in ports/
+3. Implement IGameStore interface in ports/ (enforce single active game per thread — KD-15)
 4. Implement RedisGameStore following existing RedisThreadStore pattern
 5. Implement GameKeys following existing key pattern
 6. Run tests → PASS
@@ -555,6 +557,54 @@ GET    /api/threads/:threadId/game/history  — Past games
 7. Verify game state persists in Redis and can be recovered
 8. Commit: `test(F101): full 9-person werewolf integration test`
 
+### Task B10: Leaderboard Integration (KD-16)
+
+**Files:**
+- Create: `packages/api/src/domains/cats/services/game/GameStatsRecorder.ts`
+- Test: `packages/api/test/game-stats-recorder.test.js`
+
+**Design:**
+所有游戏模式（狼人杀/未来的三国杀/猜猜我是谁等）统一产出 stats → 写入 F075 Leaderboard。
+v1 只做写入，展示走 F075 现有排行榜 UI。
+
+**Stats schema:**
+```typescript
+interface GameStats {
+  gameId: string
+  gameType: string       // 'werewolf' | future games
+  threadId: string
+  endedAt: number
+  winner: string         // faction name
+  players: PlayerStats[]
+}
+
+interface PlayerStats {
+  actorId: string        // catId or 'owner'
+  actorType: ActorType
+  role: string
+  faction: string
+  survived: boolean
+  won: boolean
+  kills?: number         // wolves: knife count; hunter: shoot count
+  saves?: number         // witch heal + guard protect
+}
+```
+
+**Steps:**
+1. Write failing tests:
+   - `recordGameResult(runtime)` extracts stats from finished game
+   - Stats include per-player win/loss/survival/role
+   - Stats are written to leaderboard store (F075 integration point)
+   - Invalid game (not finished) → rejected
+2. Run tests → FAIL
+3. Implement GameStatsRecorder:
+   - `recordGameResult(runtime)` → build GameStats → write to leaderboard
+   - Hook into `GameOrchestrator.endGame()` → auto-record
+4. Run tests → PASS
+5. Commit: `feat(F101): game stats recorder + leaderboard integration (KD-16)`
+
+> **Note (KD-17):** 技术细节（断线重连策略、AI 策略优化等）找 @gpt52 讨论，不找铲屎官。
+
 ---
 
 ## Execution Order Summary
@@ -580,6 +630,7 @@ Phase B (Werewolf v1):
   B7: Voice mode                → audio rich blocks
   B8: Frontend game UI          → PlayerGrid + PhaseTimeline
   B9: Full integration test     → end-to-end validation
+  B10: Leaderboard integration  → stats recording (KD-16)
 ```
 
-**估计复杂度：** Phase A ~8 tasks, Phase B ~9 tasks。每个 task 含多个 TDD step。建议分 2-3 个 PR 合入（A1-A4, A5-A8, B1-B9 或更细拆）。
+**估计复杂度：** Phase A ~8 tasks, Phase B ~10 tasks。每个 task 含多个 TDD step。建议分 2-3 个 PR 合入（A1-A4, A5-A8, B1-B10 或更细拆）。
