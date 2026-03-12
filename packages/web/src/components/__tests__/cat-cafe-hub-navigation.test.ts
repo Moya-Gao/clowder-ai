@@ -1,6 +1,6 @@
 /**
- * F099: Hub Bento Box navigation regression tests
- * Tests entry-point routing, group navigation, and resolveRequestedHubTab.
+ * F099: Hub accordion navigation regression tests
+ * Tests entry-point routing, group lookup, and resolveRequestedHubTab.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
@@ -9,7 +9,7 @@ import { useChatStore } from '@/stores/chatStore';
 vi.mock('@/hooks/useCatData', () => ({ useCatData: () => ({ cats: [], getCatById: () => undefined }) }));
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
 
-const { resolveRequestedHubTab } = await import('../CatCafeHub');
+const { resolveRequestedHubTab, findGroupForTab } = await import('../CatCafeHub');
 
 describe('F099 Hub navigation', () => {
   beforeEach(() => {
@@ -17,11 +17,10 @@ describe('F099 Hub navigation', () => {
   });
 
   describe('openHub entry point routing', () => {
-    it('openHub() without tab sets hubState with no tab (Bento home)', () => {
+    it('openHub() without tab sets hubState with no tab (accordion home)', () => {
       useChatStore.getState().openHub();
       const state = useChatStore.getState().hubState;
       expect(state?.open).toBe(true);
-      // No tab = Bento home
       expect(state?.tab).toBeUndefined();
     });
 
@@ -34,6 +33,30 @@ describe('F099 Hub navigation', () => {
     it('openHub("system") deep-links to system tab', () => {
       useChatStore.getState().openHub('system');
       expect(useChatStore.getState().hubState).toEqual({ open: true, tab: 'system' });
+    });
+  });
+
+  describe('findGroupForTab', () => {
+    it('finds cats group for "leaderboard"', () => {
+      const group = findGroupForTab('leaderboard');
+      expect(group).toBeDefined();
+      expect(group!.id).toBe('cats');
+    });
+
+    it('finds settings group for "voice"', () => {
+      const group = findGroupForTab('voice');
+      expect(group).toBeDefined();
+      expect(group!.id).toBe('settings');
+    });
+
+    it('finds monitor group for "commands"', () => {
+      const group = findGroupForTab('commands');
+      expect(group).toBeDefined();
+      expect(group!.id).toBe('monitor');
+    });
+
+    it('returns undefined for unknown tab', () => {
+      expect(findGroupForTab('nonexistent')).toBeUndefined();
     });
   });
 

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useChatStore } from '@/stores/chatStore';
 import { ExportButton } from './ExportButton';
 import { CatCafeLogo } from './icons/CatCafeLogo';
+import { HubButton } from './HubButton';
 import { VoiceCompanionButton } from './VoiceCompanionButton';
 
 interface ChatContainerHeaderProps {
@@ -78,7 +79,8 @@ export function ChatContainerHeader({
             🔐 {authPendingCount}
           </span>
         )}
-        {/* F099/OQ-4: viewMode toggle hidden — candidate for removal (KD-7) */}
+        {/* F099 P1-2: Hub gear in top bar — always reachable even when right panel shows workspace */}
+        <HubButton />
         {/* Mobile/tablet: status sheet trigger */}
         <button
           onClick={onOpenMobileStatus}
