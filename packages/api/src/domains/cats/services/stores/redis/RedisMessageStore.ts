@@ -195,6 +195,7 @@ export class RedisMessageStore {
       ...(data['visibility'] === 'whisper' ? { visibility: 'whisper' as const } : {}),
       ...(data['whisperTo'] ? { whisperTo: safeParseMentions(data['whisperTo']) } : {}),
       ...(data['revealedAt'] ? { revealedAt: parseInt(data['revealedAt'], 10) } : {}),
+      ...(data['deliveredAt'] ? { deliveredAt: parseInt(data['deliveredAt'], 10) } : {}),
       ...(parsedSource ? { source: parsedSource } : {}),
       ...(data['mentionsUser'] === '1' ? { mentionsUser: true } : {}),
     };
@@ -568,6 +569,15 @@ export class RedisMessageStore {
     return msg;
   }
 
+  /** F098-D: Mark a queued message as delivered (set deliveredAt timestamp). */
+  async markDelivered(id: string, deliveredAt: number): Promise<StoredMessage | null> {
+    const msg = await this.getById(id);
+    if (!msg) return null;
+    await this.redis.hset(MessageKeys.detail(id), { deliveredAt: String(deliveredAt) });
+    msg.deliveredAt = deliveredAt;
+    return msg;
+  }
+
   /** Hydrate message IDs into full StoredMessage objects */
   private async hydrateMessages(ids: string[], options?: { includeDeleted?: boolean }): Promise<StoredMessage[]> {
     const pipeline = this.redis.multi();
@@ -614,6 +624,7 @@ export class RedisMessageStore {
         ...(d['visibility'] === 'whisper' ? { visibility: 'whisper' as const } : {}),
         ...(d['whisperTo'] ? { whisperTo: safeParseMentions(d['whisperTo']) } : {}),
         ...(d['revealedAt'] ? { revealedAt: parseInt(d['revealedAt'], 10) } : {}),
+        ...(d['deliveredAt'] ? { deliveredAt: parseInt(d['deliveredAt'], 10) } : {}),
         ...(parsedSource ? { source: parsedSource } : {}),
         ...(d['mentionsUser'] === '1' ? { mentionsUser: true } : {}),
       });

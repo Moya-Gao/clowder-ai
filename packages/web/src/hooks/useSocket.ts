@@ -372,6 +372,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         });
       }
     });
+    // F098-D: Messages delivered — update deliveredAt on queued messages
+    socket.on('messages_delivered', (data: { threadId: string; messageIds: string[]; deliveredAt: number }) => {
+      useChatStore.getState().markMessagesDelivered(data.threadId, data.messageIds, data.deliveredAt);
+    });
+
     socket.on('queue_paused', (data: { threadId: string; reason: 'canceled' | 'failed'; queue: unknown[] }) => {
       const store = useChatStore.getState();
       store.setQueue(data.threadId, data.queue as import('../stores/chat-types').QueueEntry[]);

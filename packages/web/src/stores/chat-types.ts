@@ -176,6 +176,8 @@ export interface ChatMessage {
   toolEvents?: ToolEvent[];
   metadata?: ChatMessageMetadata;
   timestamp: number;
+  /** F098-D: When a queued message was actually dequeued and delivered to a cat */
+  deliveredAt?: number;
   isStreaming?: boolean;
   summary?: {
     id: string;

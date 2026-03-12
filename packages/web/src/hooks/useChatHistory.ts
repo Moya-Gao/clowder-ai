@@ -193,7 +193,7 @@ export function useChatHistory(threadId: string) {
         if (threadIdRef.current !== fetchForThread) return;
         const data = await res.json();
         const historyMsgs = (data.messages ?? []).map(
-          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; origin?: 'stream' | 'callback'; thinking?: string; extra?: { rich?: { v: number; blocks: unknown[] }; crossPost?: { sourceThreadId: string; sourceInvocationId?: string }; stream?: { invocationId?: string } }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string }; visibility?: 'public' | 'whisper'; whisperTo?: string[]; revealedAt?: number; isDraft?: boolean; source?: { connector: string; label: string; icon: string; url?: string }; mentionsUser?: boolean }) => ({
+          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; origin?: 'stream' | 'callback'; thinking?: string; extra?: { rich?: { v: number; blocks: unknown[] }; crossPost?: { sourceThreadId: string; sourceInvocationId?: string }; stream?: { invocationId?: string } }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string }; visibility?: 'public' | 'whisper'; whisperTo?: string[]; revealedAt?: number; isDraft?: boolean; source?: { connector: string; label: string; icon: string; url?: string }; mentionsUser?: boolean; deliveredAt?: number }) => ({
             id: m.id,
             type: (m.summary ? 'summary' : m.source ? 'connector' : m.catId ? 'assistant' : 'user') as 'user' | 'assistant' | 'summary' | 'connector',
             catId: m.catId,
@@ -214,6 +214,7 @@ export function useChatHistory(threadId: string) {
             ...(m.visibility ? { visibility: m.visibility } : {}),
             ...(m.whisperTo ? { whisperTo: m.whisperTo } : {}),
             ...(m.revealedAt ? { revealedAt: m.revealedAt } : {}),
+            ...(m.deliveredAt ? { deliveredAt: m.deliveredAt } : {}),
             ...(m.source ? { source: m.source } : {}),
             ...(m.mentionsUser ? { mentionsUser: true } : {}),
             // #80: Restore streaming indicator for draft messages recovered from Redis

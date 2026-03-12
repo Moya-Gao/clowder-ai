@@ -64,6 +64,17 @@ function formatTime(ts: number): string {
   return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** F098-D: Threshold (ms) for showing dual timestamp. Gap <= this uses single timestamp. */
+const DELIVERED_AT_GAP_THRESHOLD = 5000;
+
+/** F098-D: Format dual timestamp when deliveredAt gap is significant. */
+function formatDualTime(timestamp: number, deliveredAt?: number): string {
+  if (!deliveredAt || deliveredAt - timestamp <= DELIVERED_AT_GAP_THRESHOLD) {
+    return formatTime(timestamp);
+  }
+  return `发送 ${formatTime(timestamp)} · 收到 ${formatTime(deliveredAt)}`;
+}
+
 /** F34: Tiny TTS play button for cat messages */
 function TtsPlayButton({
   messageId,
@@ -223,7 +234,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 {isRevealed ? '已揭秘' : `悄悄话 → ${message.whisperTo?.join(', ') ?? ''}`}
               </span>
             )}
-            <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
+            <span className="text-xs text-gray-400">{formatDualTime(message.timestamp, message.deliveredAt)}</span>
             <span className="text-xs font-semibold text-owner-dark">铲屎官</span>
           </div>
           <div

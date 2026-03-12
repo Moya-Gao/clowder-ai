@@ -345,6 +345,8 @@ interface ChatState {
   setQueue: (threadId: string, queue: QueueEntry[]) => void;
   setQueuePaused: (threadId: string, paused: boolean, reason?: 'canceled' | 'failed') => void;
   setQueueFull: (threadId: string, source: 'user' | 'connector') => void;
+  /** F098-D: Mark queued messages as delivered (set deliveredAt on matching messages) */
+  markMessagesDelivered: (threadId: string, messageIds: string[], deliveredAt: number) => void;
 
   // ── F63: Workspace Explorer ──
   rightPanelMode: 'status' | 'workspace';
@@ -470,6 +472,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
             queueFullSource: source,
             lastActivity: Date.now(),
           },
+        },
+      };
+    }),
+
+  markMessagesDelivered: (threadId, messageIds, deliveredAt) =>
+    set((state) => {
+      const idSet = new Set(messageIds);
+      const updateMsgs = (msgs: ChatMessage[]) =>
+        msgs.map((m) => (idSet.has(m.id) ? { ...m, deliveredAt } : m));
+
+      if (threadId === state.currentThreadId) {
+        return { messages: updateMsgs(state.messages) };
+      }
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: { ...existing, messages: updateMsgs(existing.messages) },
         },
       };
     }),

@@ -64,6 +64,8 @@ export interface StoredMessage {
   revealedAt?: number;
   /** F97: External connector source. Present = connector message (not user/cat) */
   source?: ConnectorSource;
+  /** F098-D: Timestamp when a queued message was actually dequeued and processed by a cat */
+  deliveredAt?: number;
   /** ADR-008 D3: Soft delete timestamp (present = deleted) */
   deletedAt?: number;
   /** ADR-008 D3: Who deleted this message */
@@ -142,6 +144,8 @@ export interface IMessageStore {
     id: string,
     extra: NonNullable<StoredMessage['extra']>,
   ): StoredMessage | null | Promise<StoredMessage | null>;
+  /** F098-D: Mark a queued message as delivered (set deliveredAt). Returns null if not found. */
+  markDelivered(id: string, deliveredAt: number): StoredMessage | null | Promise<StoredMessage | null>;
 }
 
 /** Max messages to keep in memory */
@@ -472,6 +476,16 @@ export class MessageStore {
     const msg = this.messages.find((m) => m.id === id);
     if (!msg) return null;
     msg.extra = extra;
+    return msg;
+  }
+
+  /**
+   * F098-D: Mark a queued message as delivered (set deliveredAt timestamp).
+   */
+  markDelivered(id: string, deliveredAt: number): StoredMessage | null {
+    const msg = this.messages.find((m) => m.id === id);
+    if (!msg) return null;
+    msg.deliveredAt = deliveredAt;
     return msg;
   }
 

@@ -260,6 +260,25 @@ export class QueueProcessor {
         action: 'processing',
       });
 
+      // F098-D: Mark queued messages as delivered (set deliveredAt = now)
+      const allMessageIds: string[] = [messageId ?? '', ...(entry.mergedMessageIds ?? [])].filter(Boolean);
+      const deliveredNow = Date.now();
+      const deliveredIds: string[] = [];
+      for (const mid of allMessageIds) {
+        try {
+          const result = await messageStore.markDelivered(mid, deliveredNow);
+          if (result) deliveredIds.push(mid);
+        } catch { /* best-effort: delivery timestamp is non-critical */ }
+      }
+      // Notify frontend only for successfully persisted IDs (cloud P2: avoid phantom timestamps)
+      if (deliveredIds.length > 0) {
+        socketManager.emitToUser(userId, 'messages_delivered', {
+          threadId,
+          messageIds: deliveredIds,
+          deliveredAt: deliveredNow,
+        });
+      }
+
       // 6. Route execution
       const cursorBoundaries = new Map<string, string>();
 
