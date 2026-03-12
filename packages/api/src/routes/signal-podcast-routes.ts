@@ -1,9 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import type { AgentRouter } from '../domains/cats/services/agents/routing/AgentRouter.js';
+import type { InvocationTracker } from '../domains/cats/services/index.js';
+import type { AnyMessageStore } from '../domains/cats/services/stores/factories/MessageStoreFactory.js';
+import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveSignalPaths } from '../domains/signals/config/sources-loader.js';
 import { SignalArticleQueryService } from '../domains/signals/services/article-query-service.js';
-import { generatePodcastScript } from '../domains/signals/services/podcast-generator.js';
+import { generatePodcastScript, type ThreadInvokeDeps } from '../domains/signals/services/podcast-generator.js';
 import { StudyMetaService } from '../domains/signals/services/study-meta-service.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
@@ -11,37 +16,54 @@ const podcastBodySchema = z.object({
   mode: z.enum(['essence', 'deep']).default('essence'),
 });
 
-async function buildThreadContext(
-  studyMeta: StudyMetaService,
-  articleId: string,
-  filePath: string,
-): Promise<string | undefined> {
-  const meta = await studyMeta.readMeta(articleId, filePath);
-  const parts: string[] = [];
-
-  // Include notes artifacts content if available
-  const notesArtifacts = meta.artifacts.filter((a) => a.kind === 'note' && a.state === 'ready' && a.filePath);
-  for (const notes of notesArtifacts.slice(0, 2)) {
-    try {
-      const content = await readFile(notes.filePath!, 'utf-8');
-      parts.push(`[学习笔记]\n${content.slice(0, 2000)}`);
-    } catch {
-      /* file missing, skip */
-    }
-  }
-
-  // Include linked thread IDs for reference
-  if (meta.threads.length > 0) {
-    parts.push(`[关联讨论线程] ${meta.threads.map((t) => t.threadId).join(', ')}`);
-  }
-
-  return parts.length > 0 ? parts.join('\n\n') : undefined;
+export interface PodcastRouteOptions {
+  messageStore: AnyMessageStore;
+  threadStore: IThreadStore;
+  router: AgentRouter;
+  invocationRecordStore: IInvocationRecordStore;
+  invocationTracker: InvocationTracker;
 }
 
-export const signalPodcastRoutes: FastifyPluginAsync = async (app) => {
+/**
+ * Resolve or create a study thread for the article.
+ * AC-P6-1: reuse existing thread; AC-P6-2: create new one.
+ */
+async function resolveStudyThread(
+  studyMeta: StudyMetaService,
+  threadStore: IThreadStore,
+  articleId: string,
+  articleFilePath: string,
+  articleTitle: string,
+  userId: string,
+): Promise<string> {
+  const meta = await studyMeta.readMeta(articleId, articleFilePath);
+  const existingThread = meta.threads[0];
+  if (existingThread) {
+    return existingThread.threadId;
+  }
+
+  // No study thread — create one + link
+  const thread = await threadStore.create(userId, `Study: ${articleTitle}`);
+  await threadStore.addParticipants(thread.id, ['opus' as never]);
+  await studyMeta.linkThread(articleId, articleFilePath, {
+    threadId: thread.id,
+    linkedBy: userId,
+  });
+
+  return thread.id;
+}
+
+export const signalPodcastRoutes: FastifyPluginAsync<PodcastRouteOptions> = async (app, opts) => {
   const paths = resolveSignalPaths();
   const articleQuery = new SignalArticleQueryService({ paths });
   const studyMeta = new StudyMetaService();
+
+  const threadDeps: ThreadInvokeDeps = {
+    messageStore: opts.messageStore,
+    router: opts.router,
+    invocationRecordStore: opts.invocationRecordStore,
+    invocationTracker: opts.invocationTracker,
+  };
 
   app.post('/api/signals/articles/:id/podcast', async (request, reply) => {
     const userId = resolveUserId(request);
@@ -69,7 +91,9 @@ export const signalPodcastRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const content = article.content ?? '';
-    const threadContext = await buildThreadContext(studyMeta, params.id, article.filePath);
+    const threadId = await resolveStudyThread(
+      studyMeta, opts.threadStore, params.id, article.filePath, article.title, userId,
+    );
 
     const artifact = await generatePodcastScript({
       articleId: params.id,
@@ -78,7 +102,8 @@ export const signalPodcastRoutes: FastifyPluginAsync = async (app) => {
       articleContent: content,
       mode: parsed.data.mode,
       requestedBy: userId,
-      threadContext,
+      threadId,
+      threadDeps,
     });
 
     reply.status(202);

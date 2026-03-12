@@ -1,7 +1,11 @@
 import { unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { StudyArtifact } from '@cat-cafe/shared';
+import type { CatId, StudyArtifact } from '@cat-cafe/shared';
+import type { AgentRouter } from '../../cats/services/agents/routing/AgentRouter.js';
+import type { InvocationTracker } from '../../cats/services/index.js';
 import { ClaudeAgentService } from '../../cats/services/agents/providers/ClaudeAgentService.js';
+import type { AnyMessageStore } from '../../cats/services/stores/factories/MessageStoreFactory.js';
+import type { IInvocationRecordStore } from '../../cats/services/stores/ports/InvocationRecordStore.js';
 import { getVoiceBlockSynthesizer } from '../../cats/services/tts/VoiceBlockSynthesizer.js';
 import { StudyMetaService } from './study-meta-service.js';
 
@@ -18,6 +22,14 @@ export interface PodcastScript {
   readonly totalDuration: number;
 }
 
+/** Dependencies for invoking a cat via the existing message pipeline. */
+export interface ThreadInvokeDeps {
+  readonly messageStore: AnyMessageStore;
+  readonly router: AgentRouter;
+  readonly invocationRecordStore: IInvocationRecordStore;
+  readonly invocationTracker: InvocationTracker;
+}
+
 export interface PodcastRequest {
   readonly articleId: string;
   readonly articleFilePath: string;
@@ -26,6 +38,9 @@ export interface PodcastRequest {
   readonly mode: 'essence' | 'deep';
   readonly requestedBy: string;
   readonly threadContext?: string | undefined;
+  /** AC-P6-1/P6-2: Thread-based generation (reuses existing study thread). */
+  readonly threadId?: string;
+  readonly threadDeps?: ThreadInvokeDeps;
 }
 
 const ESSENCE_SEGMENT_RANGE = { min: 5, max: 8 };
@@ -84,6 +99,75 @@ function parseScriptResponse(raw: string, mode: PodcastRequest['mode']): Podcast
     })),
     totalDuration: parsed.totalDuration ?? parsed.segments.reduce((sum, s) => sum + (s.durationEstimate ?? 5), 0),
   };
+}
+
+/**
+ * AC-P6: Generate script by posting a prompt into the study thread.
+ * Reuses the existing message pipeline (same as GitHub/connector triggers).
+ */
+export async function generateScriptViaThread(
+  request: PodcastRequest,
+  threadId: string,
+  deps: ThreadInvokeDeps,
+): Promise<PodcastScript> {
+  const prompt = buildScriptPrompt(request);
+  const targetCats: CatId[] = ['opus' as CatId];
+
+  // ① Write user message into thread
+  const userMsg = await deps.messageStore.append({
+    threadId,
+    catId: null,
+    content: prompt,
+    userId: request.requestedBy,
+    mentions: ['opus' as CatId],
+    timestamp: Date.now(),
+  });
+
+  // ② Create invocation record
+  const createResult = await deps.invocationRecordStore.create({
+    threadId,
+    userId: request.requestedBy,
+    targetCats,
+    intent: 'execute',
+    idempotencyKey: `podcast-${request.articleId}-${Date.now()}`,
+  });
+
+  // ②b Backfill userMessageId so retry endpoint can find the trigger message
+  await deps.invocationRecordStore.update(createResult.invocationId, {
+    userMessageId: userMsg.id,
+  });
+
+  // ③ Track invocation
+  const controller = deps.invocationTracker.start(threadId, request.requestedBy, targetCats);
+
+  // ④ Route execution and collect text response
+  const intent = { intent: 'execute' as const, explicit: false, promptTags: [] as string[] };
+  let fullText = '';
+
+  try {
+    await deps.invocationRecordStore.update(createResult.invocationId, { status: 'running' });
+
+    for await (const msg of deps.router.routeExecution(
+      request.requestedBy, prompt, threadId, userMsg.id, targetCats, intent,
+      { signal: controller.signal },
+    )) {
+      if (msg.type === 'text' && msg.content) {
+        fullText += msg.content;
+      }
+    }
+
+    await deps.invocationRecordStore.update(createResult.invocationId, { status: 'succeeded' });
+  } catch (err) {
+    await deps.invocationRecordStore.update(createResult.invocationId, {
+      status: 'failed',
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  } finally {
+    deps.invocationTracker.complete(threadId, controller);
+  }
+
+  return parseScriptResponse(fullText, request.mode);
 }
 
 async function generateScriptViaLLM(request: PodcastRequest): Promise<PodcastScript> {
@@ -166,8 +250,10 @@ export async function generatePodcastScript(request: PodcastRequest): Promise<St
     // Update to running
     await studyMeta.updateArtifactState(request.articleId, request.articleFilePath, artifactId, 'running');
 
-    // Generate script via LLM
-    const script = await generateScriptViaLLM(request);
+    // Generate script: thread-based (P6) or standalone LLM fallback
+    const script = request.threadId && request.threadDeps
+      ? await generateScriptViaThread(request, request.threadId, request.threadDeps)
+      : await generateScriptViaLLM(request);
 
     // Synthesize audio for each segment
     const segmentsWithAudio = await synthesizeSegments(script.segments);

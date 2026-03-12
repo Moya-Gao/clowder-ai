@@ -628,7 +628,13 @@ async function main(): Promise<void> {
   await app.register(signalsRoutes);
   await app.register(signalStudyRoutes);
   await app.register(signalCollectionRoutes);
-  await app.register(signalPodcastRoutes);
+  await app.register(signalPodcastRoutes, {
+    messageStore,
+    threadStore,
+    router,
+    invocationRecordStore,
+    invocationTracker,
+  });
 
   // Serve uploaded files (images)
   const uploadDir = process.env['UPLOAD_DIR'] ?? './uploads';
