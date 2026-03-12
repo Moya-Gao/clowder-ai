@@ -1,6 +1,6 @@
 ---
 feature_ids: [F038]
-related_features: []
+related_features: [F100]
 topics: [skills, discovery]
 doc_kind: note
 created: 2026-02-26

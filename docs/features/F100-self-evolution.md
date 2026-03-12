@@ -1,6 +1,6 @@
 ---
 feature_ids: [F100]
-related_features: [F042, F086]
+related_features: [F042, F086, F038]
 topics: [skills, sop, governance, self-improvement, knowledge-management]
 doc_kind: spec
 created: 2026-03-11
