@@ -59,7 +59,7 @@ async function createSqliteServices(config: MemoryConfig): Promise<MemoryService
   const markerQueue = new MarkerQueue(markersDir);
   const materializationService = new MaterializationService(markerQueue, docsRoot);
   const reflectionService = new ReflectionService(async () => '');
-  const knowledgeResolver = new KnowledgeResolver(store);
+  const knowledgeResolver = new KnowledgeResolver({ projectStore: store });
 
   return {
     evidenceStore: store,
@@ -82,7 +82,7 @@ async function createHindsightServices(config: MemoryConfig): Promise<MemoryServ
   const markersDir = config.markersDir ?? 'docs/markers';
   const markerQueue = new MarkerQueue(markersDir);
   const reflectionService = new ReflectionService(createHindsightReflectBackend(client, bankId));
-  const knowledgeResolver = new KnowledgeResolver(adapter);
+  const knowledgeResolver = new KnowledgeResolver({ projectStore: adapter });
 
   return {
     evidenceStore: adapter,

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { HindsightError } from '../domains/cats/services/orchestration/HindsightClient.js';
 import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
+import type { IReflectionService } from '../domains/memory/interfaces.js';
 
 const reflectSchema = z.object({
   query: z.string().trim().min(1),
@@ -18,6 +19,8 @@ const reflectSchema = z.object({
 export interface ReflectRoutesOptions {
   hindsightClient: IHindsightClient;
   sharedBank: string;
+  /** F102: when provided, bypasses Hindsight entirely */
+  reflectionService?: IReflectionService;
 }
 
 export interface ReflectResponse {
@@ -36,6 +39,17 @@ export const reflectRoutes: FastifyPluginAsync<ReflectRoutesOptions> = async (ap
     }
 
     const { query } = parseResult.data;
+
+    // F102: IReflectionService DI path — bypass Hindsight entirely
+    if (opts.reflectionService) {
+      try {
+        const reflection = await opts.reflectionService.reflect(query);
+        return { reflection, degraded: false, dispositionMode: 'off' as const } satisfies ReflectResponse;
+      } catch {
+        return { reflection: '', degraded: true, degradeReason: 'reflection_service_error', dispositionMode: 'off' as const } satisfies ReflectResponse;
+      }
+    }
+
     const hindsightConfig = collectConfigSnapshot().hindsight;
     const dispositionMode = hindsightConfig.reflect.dispositionMode;
     if (!hindsightConfig.enabled) {

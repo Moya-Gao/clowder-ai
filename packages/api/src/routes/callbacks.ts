@@ -30,6 +30,7 @@ import { getFeatureTagId } from './backlog-doc-import.js';
 import { enqueueA2ATargets } from './callback-a2a-trigger.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import type { IEvidenceStore, IMarkerQueue, IReflectionService } from '../domains/memory/interfaces.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
@@ -67,6 +68,10 @@ export interface CallbackRoutesOptions {
   featIndexProvider?: () => Promise<FeatIndexEntry[]>;
   /** F073 P1: workflow SOP store for bulletin board */
   workflowSopStore?: import('../domains/cats/services/stores/ports/WorkflowSopStore.js').IWorkflowSopStore;
+  /** F102: DI memory services — when provided, routes use SQLite path instead of Hindsight */
+  evidenceStore?: IEvidenceStore;
+  markerQueue?: IMarkerQueue;
+  reflectionService?: IReflectionService;
   /** Queue auto-dequeue on A2A invocation completion */
   queueProcessor?: {
     onInvocationComplete(threadId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
@@ -1016,11 +1021,17 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       reason?: string;
       nextAllowedAt?: string;
     }>;
+    evidenceStore?: IEvidenceStore;
+    markerQueue?: IMarkerQueue;
+    reflectionService?: IReflectionService;
   } = { registry };
   if (opts.hindsightClient) memoryDeps.hindsightClient = opts.hindsightClient;
   if (opts.sharedBank) memoryDeps.sharedBank = opts.sharedBank;
   if (opts.freshnessProvider) memoryDeps.freshnessProvider = opts.freshnessProvider;
   if (opts.reimportTriggerProvider) memoryDeps.reimportTriggerProvider = opts.reimportTriggerProvider;
+  if (opts.evidenceStore) memoryDeps.evidenceStore = opts.evidenceStore;
+  if (opts.markerQueue) memoryDeps.markerQueue = opts.markerQueue;
+  if (opts.reflectionService) memoryDeps.reflectionService = opts.reflectionService;
   await registerCallbackMemoryRoutes(app, memoryDeps);
 
   // F086: Multi-mention orchestration routes

@@ -14,6 +14,7 @@
     "fetch-signals": "node dist/scripts/fetch-signals.js",
     "migrate-signals": "node dist/scripts/migrate-signals.js",
     "hindsight:import:p0": "node dist/scripts/hindsight-import-p0.js",
+    "rebuild-index": "node dist/scripts/rebuild-index.js",
     "test:redis": "bash ./scripts/run-isolated-redis-tests.sh",
     "test:redis:repeat": "bash ./scripts/run-isolated-redis-tests.sh --repeat 2",
     "test:integration": "node --test test/integration/*.test.js",

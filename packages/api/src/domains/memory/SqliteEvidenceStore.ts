@@ -46,7 +46,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     const results: EvidenceItem[] = [];
     const seenAnchors = new Set<string>();
 
-    let anchorSql = 'SELECT * FROM evidence_docs WHERE anchor = ?';
+    let anchorSql = 'SELECT * FROM evidence_docs WHERE anchor = ? COLLATE NOCASE';
     const anchorParams: unknown[] = [trimmed];
     if (options?.kind) {
       anchorSql += ' AND kind = ?';
@@ -55,6 +55,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (options?.status) {
       anchorSql += ' AND status = ?';
       anchorParams.push(options.status);
+    }
+    if (options?.keywords?.length) {
+      anchorSql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
+      anchorParams.push(...options.keywords.map((kw) => `%"${kw}"%`));
     }
     const exactRow = this.db!.prepare(anchorSql).get(...anchorParams) as RowShape | undefined;
     if (exactRow) {
@@ -86,6 +90,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         if (options?.status) {
           sql += ' AND d.status = ?';
           params.push(options.status);
+        }
+        if (options?.keywords?.length) {
+          sql += ` AND (${options.keywords.map(() => 'd.keywords LIKE ?').join(' OR ')})`;
+          params.push(...options.keywords.map((kw) => `%"${kw}"%`));
         }
 
         // Superseded items sort last (KD-16)
@@ -144,7 +152,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 
   async getByAnchor(anchor: string): Promise<EvidenceItem | null> {
     this.ensureOpen();
-    const row = this.db!.prepare('SELECT * FROM evidence_docs WHERE anchor = ?').get(anchor) as RowShape | undefined;
+    const row = this.db!.prepare('SELECT * FROM evidence_docs WHERE anchor = ? COLLATE NOCASE').get(anchor) as RowShape | undefined;
     return row ? rowToItem(row) : null;
   }
 

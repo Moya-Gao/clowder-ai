@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
 import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
+import type { IEvidenceStore } from '../domains/memory/interfaces.js';
 import {
   shouldFailClosedForFreshness,
   triggerP0ReimportIfNeeded,
@@ -67,6 +68,8 @@ export interface EvidenceRoutesOptions {
   docsRoot?: string;
   freshnessProvider?: () => Promise<EvidenceFreshness>;
   reimportTriggerProvider?: (freshness: EvidenceFreshness) => Promise<EvidenceReimportTrigger>;
+  /** F102: when provided, bypasses Hindsight entirely */
+  evidenceStore?: IEvidenceStore;
 }
 
 export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
@@ -87,6 +90,25 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
     }
 
     const { q, limit, budget, tags, tagsMatch } = parseResult.data;
+
+    // F102: IEvidenceStore DI path — bypass Hindsight entirely
+    if (opts.evidenceStore) {
+      const effectiveLimit = limit ?? 5;
+      try {
+        const items = await opts.evidenceStore.search(q, { limit: effectiveLimit });
+        const results: EvidenceResult[] = items.map((item) => ({
+          title: item.title,
+          anchor: item.anchor,
+          snippet: item.summary ?? '',
+          confidence: 'mid' as const,
+          sourceType: (item.kind === 'decision' ? 'decision' : item.kind === 'plan' ? 'phase' : 'discussion') as EvidenceResult['sourceType'],
+        }));
+        return { results, degraded: false } satisfies Partial<EvidenceSearchResponse>;
+      } catch {
+        return { results: [], degraded: true, degradeReason: 'evidence_store_error' } satisfies Partial<EvidenceSearchResponse>;
+      }
+    }
+
     const hindsightConfig = collectConfigSnapshot().hindsight;
     const recallDefaults = hindsightConfig.recallDefaults;
     const effectiveLimit = limit ?? recallDefaults.limit;

@@ -249,6 +249,41 @@ describe('SqliteEvidenceStore', () => {
 		assert.equal(await store.health(), false);
 	});
 
+	it('search filters by keywords when provided', async () => {
+		await store.upsert([
+			{
+				anchor: 'F042',
+				kind: 'feature',
+				status: 'active',
+				title: 'Prompt Engineering Audit of the system',
+				keywords: ['prompt', 'skills'],
+				updatedAt: '2026-03-11T00:00:00Z',
+			},
+			{
+				anchor: 'F100',
+				kind: 'feature',
+				status: 'active',
+				title: 'Self Evolution of the system',
+				keywords: ['knowledge', 'memory'],
+				updatedAt: '2026-03-11T00:00:00Z',
+			},
+		]);
+
+		// Both titles contain "system" — without keyword filter, both match
+		const all = await store.search('system');
+		assert.equal(all.length, 2);
+
+		// Filter by keyword 'prompt' → only F042
+		const results = await store.search('system', { keywords: ['prompt'] });
+		assert.equal(results.length, 1);
+		assert.equal(results[0].anchor, 'F042');
+
+		// Filter by keyword 'memory' → only F100
+		const results2 = await store.search('system', { keywords: ['memory'] });
+		assert.equal(results2.length, 1);
+		assert.equal(results2[0].anchor, 'F100');
+	});
+
 	// ── Edge operations ──────────────────────────────────────────────
 
 	it('addEdge + getRelated returns 1-hop neighbors', async () => {

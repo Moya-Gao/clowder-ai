@@ -309,6 +309,19 @@ async function main(): Promise<void> {
   const sharedHindsightBank = 'cat-cafe-shared';
   const hindsightClient = createHindsightClient();
 
+  // F102: Memory services — SQLite-backed when configured, otherwise routes fall through to Hindsight
+  const evidenceStoreType = process.env['EVIDENCE_STORE_TYPE'] ?? (hindsightClient ? 'hindsight' : 'sqlite');
+  let memoryServices: import('./domains/memory/factory.js').MemoryServices | undefined;
+  if (evidenceStoreType === 'sqlite') {
+    const { createMemoryServices } = await import('./domains/memory/factory.js');
+    memoryServices = await createMemoryServices({
+      type: 'sqlite',
+      sqlitePath: process.env['EVIDENCE_DB'] ?? 'evidence.sqlite',
+      docsRoot: process.env['DOCS_ROOT'] ?? 'docs',
+    });
+    app.log.info('[api] F102: SQLite memory services initialized');
+  }
+
   // ── F32-b: Populate CatRegistry from cat-config.json (all variants) ──
   // Must happen BEFORE AgentRouter construction (parseMentions reads catRegistry)
   try {
@@ -490,6 +503,11 @@ async function main(): Promise<void> {
     prTrackingStore,
     ...(workflowSopStore ? { workflowSopStore } : {}),
     queueProcessor,
+    ...(memoryServices ? {
+      evidenceStore: memoryServices.evidenceStore,
+      markerQueue: memoryServices.markerQueue,
+      reflectionService: memoryServices.reflectionService,
+    } : {}),
   });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)
@@ -608,12 +626,14 @@ async function main(): Promise<void> {
   await app.register(evidenceRoutes, {
     hindsightClient,
     sharedBank: sharedHindsightBank,
+    ...(memoryServices ? { evidenceStore: memoryServices.evidenceStore } : {}),
   });
 
   // Reflect (Hindsight LLM reflection)
   await app.register(reflectRoutes, {
     hindsightClient,
     sharedBank: sharedHindsightBank,
+    ...(memoryServices ? { reflectionService: memoryServices.reflectionService } : {}),
   });
 
   // Memory governance (publish workflow)

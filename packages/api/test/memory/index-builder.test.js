@@ -184,6 +184,214 @@ doc_kind: spec
 		assert.equal(stale, null, 'F001 should be removed after file deletion');
 	});
 
+	it('rebuild indexes lessons directory', async () => {
+		mkdirSync(join(docsDir, 'lessons'), { recursive: true });
+		writeFileSync(
+			join(docsDir, 'lessons', 'LL-001.md'),
+			`---
+anchor: LL-001
+doc_kind: lesson
+topics: [redis, pitfall]
+---
+
+# LL-001: Redis keyPrefix Pitfall
+
+Lesson content about ioredis keyPrefix behavior.
+`,
+		);
+
+		const result = await builder.rebuild();
+		assert.equal(result.docsIndexed, 1);
+
+		const item = await store.getByAnchor('LL-001');
+		assert.ok(item, 'Should have indexed lesson LL-001');
+		assert.equal(item.kind, 'lesson');
+		assert.equal(item.title, 'LL-001: Redis keyPrefix Pitfall');
+	});
+
+	it('extractAnchor recognizes anchor: field from materialized files', async () => {
+		mkdirSync(join(docsDir, 'lessons'), { recursive: true });
+		writeFileSync(
+			join(docsDir, 'lessons', 'lesson-marker1.md'),
+			`---
+anchor: lesson-marker1
+doc_kind: lesson
+materialized_from: marker1
+created: 2026-03-12
+---
+
+# Lesson from Marker
+
+Some materialized lesson content.
+`,
+		);
+
+		const result = await builder.rebuild();
+		assert.ok(result.docsIndexed >= 1);
+
+		const item = await store.getByAnchor('lesson-marker1');
+		assert.ok(item, 'Should index file with anchor: frontmatter');
+		assert.equal(item.kind, 'lesson');
+	});
+
+	it('getByAnchor is case-insensitive', async () => {
+		writeFileSync(
+			join(docsDir, 'features', 'F042.md'),
+			`---
+feature_ids: [F042]
+doc_kind: spec
+---
+
+# F042: Test Feature
+`,
+		);
+		await builder.rebuild();
+
+		const upper = await store.getByAnchor('F042');
+		assert.ok(upper, 'Should find by uppercase F042');
+
+		const lower = await store.getByAnchor('f042');
+		assert.ok(lower, 'Should find by lowercase f042');
+
+		assert.equal(upper.anchor, lower.anchor);
+	});
+
+	it('feature spec wins anchor collision over plan/lesson with same feature_ids', async () => {
+		mkdirSync(join(docsDir, 'plans'), { recursive: true });
+		mkdirSync(join(docsDir, 'lessons'), { recursive: true });
+
+		// Feature spec for F042
+		writeFileSync(
+			join(docsDir, 'features', 'F042-prompt.md'),
+			`---
+feature_ids: [F042]
+doc_kind: spec
+---
+
+# F042: Prompt Engineering Audit
+`,
+		);
+
+		// Plan that also references F042 (scanned after features)
+		writeFileSync(
+			join(docsDir, 'plans', 'plan-f042.md'),
+			`---
+feature_ids: [F042]
+doc_kind: plan
+---
+
+# Plan for F042 Implementation
+`,
+		);
+
+		// Lesson that also references F042 (scanned last)
+		writeFileSync(
+			join(docsDir, 'lessons', 'lesson-f042.md'),
+			`---
+feature_ids: [F042]
+doc_kind: lesson
+---
+
+# Lesson from F042 Rollout
+`,
+		);
+
+		await builder.rebuild({ force: true });
+
+		const item = await store.getByAnchor('F042');
+		assert.ok(item, 'F042 should exist');
+		// Feature spec should win over plan/lesson
+		assert.equal(item.kind, 'feature', 'Feature spec should win anchor collision');
+		assert.ok(
+			item.sourcePath.includes('features/'),
+			`Source should be features/ dir, got: ${item.sourcePath}`,
+		);
+	});
+
+	it('incrementalUpdate does not let plan overwrite feature spec anchor', async () => {
+		mkdirSync(join(docsDir, 'plans'), { recursive: true });
+
+		const featurePath = join(docsDir, 'features', 'F042-prompt.md');
+		writeFileSync(
+			featurePath,
+			`---
+feature_ids: [F042]
+doc_kind: spec
+---
+
+# F042: Prompt Engineering Audit
+`,
+		);
+
+		const planPath = join(docsDir, 'plans', 'plan-f042.md');
+		writeFileSync(
+			planPath,
+			`---
+feature_ids: [F042]
+doc_kind: plan
+---
+
+# Plan for F042 Implementation
+`,
+		);
+
+		// First rebuild — feature wins
+		await builder.rebuild({ force: true });
+		const before = await store.getByAnchor('F042');
+		assert.equal(before.kind, 'feature', 'Feature should own anchor after rebuild');
+
+		// Now incrementally update the plan file — should NOT overwrite feature
+		await builder.incrementalUpdate([planPath]);
+		const after = await store.getByAnchor('F042');
+		assert.equal(after.kind, 'feature', 'Feature should still own anchor after plan incrementalUpdate');
+		assert.ok(
+			after.sourcePath.includes('features/'),
+			`Source should remain features/, got: ${after.sourcePath}`,
+		);
+	});
+
+	it('incrementalUpdate: deleted feature + updated plan in same batch promotes plan', async () => {
+		mkdirSync(join(docsDir, 'plans'), { recursive: true });
+
+		const featurePath = join(docsDir, 'features', 'F042-prompt.md');
+		writeFileSync(
+			featurePath,
+			`---
+feature_ids: [F042]
+doc_kind: spec
+---
+
+# F042: Prompt Engineering Audit
+`,
+		);
+
+		const planPath = join(docsDir, 'plans', 'plan-f042.md');
+		writeFileSync(
+			planPath,
+			`---
+feature_ids: [F042]
+doc_kind: plan
+---
+
+# Plan for F042 Implementation
+`,
+		);
+
+		// Rebuild — feature wins
+		await builder.rebuild({ force: true });
+		assert.equal((await store.getByAnchor('F042')).kind, 'feature');
+
+		// Delete the feature file
+		unlinkSync(featurePath);
+
+		// incrementalUpdate with plan first, deleted feature second (worst-case ordering)
+		await builder.incrementalUpdate([planPath, featurePath]);
+
+		const after = await store.getByAnchor('F042');
+		assert.ok(after, 'F042 should still exist — plan should take over after feature deletion');
+		assert.equal(after.kind, 'plan', 'Plan should own anchor after feature is deleted');
+	});
+
 	it('incrementalUpdate deletes anchor when file no longer exists', async () => {
 		const filePath = join(docsDir, 'features', 'F099.md');
 		writeFileSync(

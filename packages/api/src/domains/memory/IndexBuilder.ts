@@ -10,6 +10,16 @@ const KIND_DIRS: Record<string, EvidenceKind> = {
   features: 'feature',
   decisions: 'decision',
   plans: 'plan',
+  lessons: 'lesson',
+};
+
+/** Higher number = higher priority for anchor ownership */
+const KIND_PRIORITY: Record<EvidenceKind, number> = {
+  feature: 4,
+  decision: 3,
+  plan: 2,
+  session: 1,
+  lesson: 1,
 };
 
 export class IndexBuilder implements IIndexBuilder {
@@ -44,6 +54,17 @@ export class IndexBuilder implements IIndexBuilder {
         }
       }
 
+      // Kind-priority guard: don't let lower-priority docs overwrite higher-priority ones
+      const existing = await this.store.getByAnchor(parsed.anchor);
+      if (existing) {
+        const existingPriority = KIND_PRIORITY[existing.kind] ?? 0;
+        const newPriority = KIND_PRIORITY[parsed.kind] ?? 0;
+        if (newPriority < existingPriority) {
+          skipped++;
+          continue;
+        }
+      }
+
       await this.store.upsert([parsed]);
       indexed++;
     }
@@ -63,22 +84,44 @@ export class IndexBuilder implements IIndexBuilder {
   }
 
   async incrementalUpdate(changedPaths: string[]): Promise<void> {
+    // Two-pass: deletions first, then upserts.
+    // This ensures that when a higher-priority owner is deleted and a lower-priority
+    // doc is updated in the same batch, the deletion clears the way for the upsert.
+    const toUpsert: Array<{ filePath: string; parsed: EvidenceItem }> = [];
+    const toDelete: string[] = [];
+
     for (const filePath of changedPaths) {
       const parsed = this.parseFile(filePath);
       if (parsed) {
-        await this.store.upsert([parsed]);
+        toUpsert.push({ filePath, parsed });
       } else {
-        // File deleted or no longer parseable — remove from index if it was indexed
-        // Try to find existing anchor by source_path
-        const relPath = relative(this.docsRoot, filePath);
-        const db = this.store.getDb();
-        const row = db.prepare('SELECT anchor FROM evidence_docs WHERE source_path = ?').get(relPath) as
-          | { anchor: string }
-          | undefined;
-        if (row) {
-          await this.store.deleteByAnchor(row.anchor);
+        toDelete.push(filePath);
+      }
+    }
+
+    // Pass 1: deletions
+    for (const filePath of toDelete) {
+      const relPath = relative(this.docsRoot, filePath);
+      const db = this.store.getDb();
+      const row = db.prepare('SELECT anchor FROM evidence_docs WHERE source_path = ?').get(relPath) as
+        | { anchor: string }
+        | undefined;
+      if (row) {
+        await this.store.deleteByAnchor(row.anchor);
+      }
+    }
+
+    // Pass 2: upserts (with kind-priority guard)
+    for (const { parsed } of toUpsert) {
+      const existing = await this.store.getByAnchor(parsed.anchor);
+      if (existing) {
+        const existingPriority = KIND_PRIORITY[existing.kind] ?? 0;
+        const newPriority = KIND_PRIORITY[parsed.kind] ?? 0;
+        if (newPriority < existingPriority) {
+          continue;
         }
       }
+      await this.store.upsert([parsed]);
     }
   }
 
@@ -186,6 +229,9 @@ function extractFrontmatter(content: string): Record<string, unknown> | null {
 }
 
 function extractAnchor(fm: Record<string, unknown>): string | null {
+  // Direct anchor field (from MaterializationService or explicit frontmatter)
+  const anchor = fm['anchor'];
+  if (typeof anchor === 'string') return anchor;
   // feature_ids: [F042] → F042
   const featureIds = fm['feature_ids'];
   if (Array.isArray(featureIds) && featureIds.length > 0) {

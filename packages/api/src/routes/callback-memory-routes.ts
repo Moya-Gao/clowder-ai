@@ -5,6 +5,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
 import { HindsightError } from '../domains/cats/services/orchestration/HindsightClient.js';
+import type { IEvidenceStore, IMarkerQueue, IReflectionService } from '../domains/memory/interfaces.js';
 import {
   shouldFailClosedForFreshness,
   triggerP0ReimportIfNeeded,
@@ -21,6 +22,10 @@ interface CallbackMemoryRoutesDeps {
   sharedBank?: string;
   freshnessProvider?: () => Promise<P0Freshness>;
   reimportTriggerProvider?: (freshness: P0Freshness) => Promise<{ status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed'; reason?: string; nextAllowedAt?: string }>;
+  /** F102: DI — when provided, takes precedence over hindsightClient */
+  evidenceStore?: IEvidenceStore;
+  markerQueue?: IMarkerQueue;
+  reflectionService?: IReflectionService;
 }
 
 const searchEvidenceQuerySchema = callbackAuthSchema.extend({
@@ -73,16 +78,41 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
   }));
 
   app.get('/api/callbacks/search-evidence', async (request, reply) => {
-    if (!hindsightClient) {
-      reply.status(501);
-      return { error: 'Hindsight client not configured' };
-    }
     const parsed = searchEvidenceQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       reply.status(400);
       return { error: 'Invalid query parameters', details: parsed.error.issues };
     }
-    const { invocationId, callbackToken, q, limit, budget, tags, tagsMatch } = parsed.data;
+    const { invocationId, callbackToken, q, limit } = parsed.data;
+    const record = registry.verify(invocationId, callbackToken);
+    if (!record) {
+      reply.status(401);
+      return EXPIRED_CREDENTIALS_ERROR;
+    }
+
+    // F102: IEvidenceStore DI path — bypass Hindsight entirely
+    if (deps.evidenceStore) {
+      try {
+        const items = await deps.evidenceStore.search(q, { limit: limit ?? 5 });
+        const results = items.map((item) => ({
+          title: item.title,
+          anchor: item.anchor,
+          snippet: item.summary ?? '',
+          confidence: 'mid' as const,
+          sourceType: (item.kind === 'decision' ? 'decision' : item.kind === 'plan' ? 'phase' : 'discussion') as 'decision' | 'phase' | 'discussion',
+        }));
+        return { results, degraded: false };
+      } catch {
+        return { results: [], degraded: true, degradeReason: 'evidence_store_error' };
+      }
+    }
+
+    // Legacy Hindsight path
+    if (!hindsightClient) {
+      reply.status(501);
+      return { error: 'Hindsight client not configured' };
+    }
+    const { budget, tags, tagsMatch } = parsed.data;
     const hindsightConfig = collectConfigSnapshot().hindsight;
     const recallDefaults = hindsightConfig.recallDefaults;
     const failClosedSettings = {
@@ -92,11 +122,6 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
     const effectiveLimit = limit ?? recallDefaults.limit;
     const effectiveBudget = budget ?? recallDefaults.budget;
     const effectiveTagsMatch = tagsMatch ?? recallDefaults.tagsMatch;
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
-      reply.status(401);
-      return EXPIRED_CREDENTIALS_ERROR;
-    }
     const freshness = await freshnessProvider().catch(() => ({
       status: 'unknown' as const,
       checkedAt: new Date().toISOString(),
@@ -135,23 +160,35 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
   });
 
   app.post('/api/callbacks/reflect', async (request, reply) => {
-    if (!hindsightClient) {
-      reply.status(501);
-      return { error: 'Hindsight client not configured' };
-    }
     const parsed = reflectSchema.safeParse(request.body);
     if (!parsed.success) {
       reply.status(400);
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
     const { invocationId, callbackToken, query } = parsed.data;
-    const hindsightConfig = collectConfigSnapshot().hindsight;
-    const dispositionMode = hindsightConfig.reflect.dispositionMode;
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
       return EXPIRED_CREDENTIALS_ERROR;
     }
+
+    // F102: IReflectionService DI path
+    if (deps.reflectionService) {
+      try {
+        const reflection = await deps.reflectionService.reflect(query);
+        return { reflection, degraded: false, dispositionMode: 'off' as const };
+      } catch {
+        return { reflection: '', degraded: true, degradeReason: 'reflection_service_error', dispositionMode: 'off' as const };
+      }
+    }
+
+    // Legacy Hindsight path
+    if (!hindsightClient) {
+      reply.status(501);
+      return { error: 'Hindsight client not configured' };
+    }
+    const hindsightConfig = collectConfigSnapshot().hindsight;
+    const dispositionMode = hindsightConfig.reflect.dispositionMode;
     if (!hindsightConfig.enabled) {
       return { reflection: '', degraded: true, degradeReason: 'hindsight_disabled', dispositionMode };
     }
@@ -168,10 +205,6 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
   });
 
   app.post('/api/callbacks/retain-memory', async (request, reply) => {
-    if (!hindsightClient) {
-      reply.status(501);
-      return { error: 'Hindsight client not configured' };
-    }
     const parsed = retainMemorySchema.safeParse(request.body);
     if (!parsed.success) {
       reply.status(400);
@@ -182,6 +215,26 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
     if (!record) {
       reply.status(401);
       return EXPIRED_CREDENTIALS_ERROR;
+    }
+
+    // F102: IMarkerQueue DI path
+    if (deps.markerQueue) {
+      try {
+        await deps.markerQueue.submit({
+          content,
+          source: `callback:${record.catId}:${invocationId}`,
+          status: 'captured',
+        });
+        return { status: 'ok' };
+      } catch {
+        return { status: 'degraded', degradeReason: 'marker_queue_error' };
+      }
+    }
+
+    // Legacy Hindsight path
+    if (!hindsightClient) {
+      reply.status(501);
+      return { error: 'Hindsight client not configured' };
     }
     if (!collectConfigSnapshot().hindsight.enabled) {
       return { status: 'skipped', degradeReason: 'hindsight_disabled' };
