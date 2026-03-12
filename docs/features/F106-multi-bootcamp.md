@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F106: 多训练营支持 + 训练营列表页
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P2 | **Completed**: 2026-03-12
 > **Evolved from**: F087（CVO Bootcamp — 当前只支持单训练营）
 
 ## Why
@@ -30,8 +30,8 @@ created: 2026-03-12
    - 底部"开始新训练营"按钮
 
 2. **前端 CTA 逻辑调整**：
-   - 有训练营 → "我的训练营" → 打开列表
-   - 无训练营 → "开始猫猫训练营" → 创建新 thread
+   - 有训练营 → "我的训练营(N)" → 打开列表 modal
+   - 无训练营 → "开始猫猫训练营" → 打开列表 modal（空态 + 创建按钮）
 
 3. **Phase 进度可视化**：列表中每个训练营显示当前 phase（如 Phase 5/11）
 
