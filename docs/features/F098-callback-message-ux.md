@@ -104,6 +104,16 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 - multi_mention 结果消息（type='connector', connector='multi-mention-result'）视觉统一
 - 飞书/Telegram connector 消息（F088）视觉统一
 
+### Phase B.5: Connector 可扩展设计
+
+**铲屎官新需求**（2026-03-12 20:26）：
+> "我可能现在还要想要接苹果的iMessage，那你其实，在你的设计上得预留给他们一些空间，就不能写死。"
+
+- 将 `getConnectorTheme()` 从 if-else 硬编码重构为注册表驱动
+- 在 shared `ConnectorDefinition` 扩展 Tailwind theme 字段
+- 新平台只需在 `CONNECTOR_DEFINITIONS` 加一条，前端自动生效
+- Default fallback theme 保证未注册 connector 也有合理样式
+
 ### Phase C: 后端元数据增强（可选）
 
 **C1: 消息级 targetCats 字段**
@@ -149,6 +159,12 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 - [x] AC-B2: connector 消息（multi-mention-result、飞书、Telegram）视觉统一 ✅
 - [ ] AC-A2（从 Phase A 降级）: multi_mention 结果消息显示 `→ @猫A + @猫B` 方向（依赖 AC-C2 后端元数据）
 
+### Phase B.5（Connector 可扩展设计）
+- [x] AC-B5-1: `getConnectorTheme()` 改为从 `ConnectorDefinition` 注册表读取，不再 if-else 硬编码 ✅
+- [x] AC-B5-2: shared `ConnectorDefinition` 扩展 `tailwindTheme` 字段 ✅
+- [x] AC-B5-3: 未注册 connector 自动 fallback 到 default theme ✅
+- [x] AC-B5-4: 新增平台（如 iMessage）只需在 `CONNECTOR_DEFINITIONS` 加一条 ✅
+
 ### Phase C（后端元数据，可选）
 - [ ] AC-C1: post_message API 支持 `targetCats` 字段
 - [ ] AC-C2: multi_mention 结果消息包含发起者 + targets 元数据
@@ -171,6 +187,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | R8 | 后端 targetCats 元数据 | 布偶猫分析（优化） | C | AC-C1 |
 | R9 | A2A 内部讨论颜色刺眼 | 铲屎官 17:28 截图 | A | AC-A7 |
 | R10 | 消息流位置正确性 — 铲屎官消息"发送 vs 收到"时间差导致回顾误导 | 铲屎官 19:12 (2026-03-12) | D | AC-D1/D2 |
+| R11 | Connector 主题不能写死，要预留给未来平台（iMessage 等）空间 | 铲屎官 20:26 (2026-03-12) | B.5 | AC-B5-1~4 |
 
 ## Dependencies
 
@@ -213,6 +230,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | 2026-03-11 | Design Gate 通过。设计稿：`designs/f098-callback-message-ux.pen` |
 | 2026-03-12 | Phase A merged (PR #379). AC-A1/A3/A4/A6/A7 ✅. AC-A2 降级 Phase B (KD-5) |
 | 2026-03-12 | Phase B merged (PR #383). AC-B1/B2 ✅. Evidence dark slate + Connector themes |
+| 2026-03-12 | Phase B.5 merged (PR #385). AC-B5-1~4 ✅. Connector theme registry (extensibility) |
 
 ## Review Gate
 
