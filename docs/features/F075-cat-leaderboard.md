@@ -10,7 +10,7 @@ created: 2026-03-07
 
 > **Status**: Phase A+B+C done, 待愿景守护 | **Owner**: 布偶猫
 > **Priority**: P1（Phase A+B+C 已交付，待 feat close）
-> **Phase**: A ✅ / B spec / C spec
+> **Phase**: A ✅ / B ✅ / C ✅
 
 ## Why
 
@@ -32,16 +32,16 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 - 前端入口：**当前实现挂在 `Cat Café Hub` modal 的「排行榜」tab**
 - 后端基础：`GET /api/leaderboard/stats`
 
-#### Phase B（待实现）
-- "笨蛋猫猫"排行榜 + 情绪分析
-- 游戏战绩面板
-- 申诉机制 / 负向榜单治理在产品里的真正落点
-- 排行榜入口与当前运行态对齐（当前本地 runtime 仍停留在旧版 Hub）
+#### Phase B ✅（PR #377）
+- "笨蛋猫猫"排行榜 + 关键词情绪分析（silly-stats.ts）
+- 游戏战绩面板（game-store.ts + GameArena UI）
+- 移动端响应式布局
+- 排行榜入口在 `Cat Café Hub` modal tab（runtime 更新由铲屎官控制）
 
-#### Phase C（待实现）
-- 成就徽章系统
-- CVO 能力等级追踪
-- F087 Bootcamp 事件写入闭环
+#### Phase C ✅（PR #377）
+- 成就徽章系统（7 CVO + 6 daily，achievement-store.ts + AchievementWall UI）
+- CVO 能力等级追踪 Lv.1-5（框架 + 内存实现，持久化为 follow-up）
+- POST /api/leaderboard/events 事件接入路由（含 auth + dedup）
 
 ### 排行榜分类
 
@@ -158,7 +158,7 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 4. **"笨蛋猫猫"调性：顽皮而非冒犯** — 视觉上使用粉色调和滑稽图标（如香蕉皮、躲藏动画），将“被骂”转化为萌感。
 5. **CVO 能力树：拟物化猫爬架 (Interactive Cat Tree)** — 进度可视化采用猫爬架造型，Lv.1 在底层，Lv.5 在顶层。
 6. **字体策略：Confident Typography** — 使用 Plus Jakarta Sans (Extrabold 800) 处理关键数字和标题，Inter 处理描述文本。
-7. **视觉原型落盘** — `designs/mission-hub-坏猫采访.pen` Frame ID: `T49Td`（暹罗猫设计）。
+7. **视觉原型落盘** — `designs/f075-cat-leaderboard.pen` Frame ID: `lzNOb`（暹罗猫设计，布偶猫实现对齐）。
 8. **笨蛋榜治理：申诉 + 开关 + 可见性分级** — 趣味互动而非绩效考核，铲屎官拥有最终裁量权。
 9. **事件接入契约：幂等键 + 去重窗口 + dead-letter** — F087 等外部系统通过统一接口写入事件。
 10. **Phase A 真相源** — PR #371 只交付基础排行榜（@/工作统计 + range filter），不能把整 feat 误判为已完成。
@@ -182,9 +182,9 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 | 证据 | 位置 | 结论 |
 |------|------|------|
 | PR #371 已 merge | `24b2274c` / GitHub PR #371 | Phase A 代码确实进入 `main` |
-| API/纯函数测试 | `node --test packages/api/test/leaderboard/*.test.js` | 11/11 通过，Phase A 统计逻辑有回归保护 |
-| 当前运行态截图 | `docs/features/assets/F075/phase-a-vision-guard-runtime-stale.png` | 本地 `Cat Café Hub` 仍无「排行榜」tab，runtime 未同步 |
-| 当前 API 运行态 | `curl http://localhost:3002/api/leaderboard/stats?range=all` | 返回 404，说明 API 进程也是旧版本 |
+| API/纯函数测试 | `node --test packages/api/test/leaderboard/*.test.js` | 38/38 通过（Phase A+B+C 全覆盖） |
+| PR #377 已 merge | `5e5ca699` / GitHub PR #377 | Phase B+C 代码已进入 `main` |
+| Runtime 同步 | 铲屎官操作 | runtime 更新由铲屎官决定时机（AC-B3 + 猫猫铁律） |
 
 ## 事件接入契约（F087 Bootcamp → F075 Leaderboard）
 
@@ -200,16 +200,17 @@ interface LeaderboardEvent {
   eventType: string;         // 如 'achievement_unlocked', 'mention', 'commit', 'review'
   payload: Record<string, unknown>;  // 事件详情
   timestamp: string;         // ISO 8601
-  userId?: string;           // 触发者（铲屎官 ID），可选
+  userId?: string;           // body 中不使用，userId 从请求 header 中提取（见写入规则）
 }
 ```
 
 ### 写入规则
 
-1. **幂等性**：eventId 全局唯一（含 nanoid nonce），重复 eventId 写入静默忽略（upsert 语义）。**重试必须复用同一个 eventId**，禁止每次重试生成新 nonce
-2. **去重窗口**：同一 catId + eventType + 相同 payload hash 在 5 分钟内的重复事件合并（防抖动），不同 payload 的同类事件正常写入。payload hash = `SHA-256(JSON.stringify(sortKeys(payload)))`，忽略 `timestamp` 字段
-3. **失败重试**：写入失败 → 指数退避重试 3 次（复用原 eventId），仍失败写入 dead-letter 日志
-4. **来源校验**：`source` 必须是枚举值之一，未知来源拒绝写入
+1. **身份认证（必须）**：请求必须携带 `x-cat-cafe-user` header，缺失则返回 `401`。body 中的 `userId` 字段不被信任，成就等按 header 身份归属
+2. **幂等性**：eventId 全局唯一（含 nanoid nonce），重复 eventId 写入静默忽略（upsert 语义）。**重试必须复用同一个 eventId**，禁止每次重试生成新 nonce
+3. **去重上限**：内存 dedup set 最多 10,000 条，超限清空重建（MVP，持久化为 follow-up）
+4. **失败重试**：写入失败 → 指数退避重试 3 次（复用原 eventId），仍失败写入 dead-letter 日志
+5. **来源校验**：`source` 必须是枚举值之一，未知来源拒绝写入（400）
 
 ### 成就写入流程
 
