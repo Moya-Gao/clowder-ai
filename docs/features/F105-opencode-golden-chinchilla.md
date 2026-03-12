@@ -2,13 +2,13 @@
 feature_ids: [F105]
 related_features: [F050, F061, F032, F041, F043]
 topics: [opencode, golden-chinchilla, external-agent, cli-integration, oh-my-opencode, multi-agent]
-doc_kind: phase-0-done
+doc_kind: phase-1-done
 created: 2026-03-11
 ---
 
 # F105: opencode 接入 — 金渐层（开源多模型编码猫）
 
-> **Status**: phase-0-done | **Owner**: 布偶猫 Opus 4.6
+> **Status**: phase-1-done | **Owner**: 布偶猫 Opus 4.6
 > **Created**: 2026-03-11
 
 ---
@@ -117,12 +117,12 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 - OMOC 插件注入约 12K tokens system prompt，包含 Sisyphus 编排器 + 专家团队定义
 - API baseURL 需要加 `/v1` 后缀（opencode Anthropic SDK 调用 `{baseURL}/messages` 而非 `{baseURL}/v1/messages`）
 
-### Phase 1: Cat Cafe L1 接入
-- [ ] AC-4: `CatProvider` 扩展支持 `'opencode'`（Zod enum + switch case）
-- [ ] AC-5: `OpenCodeAgentService` 实现 `AgentService` 接口
-- [ ] AC-6: `opencode-event-transform.ts` 完成 JSON → AgentMessage 映射
-- [ ] AC-7: `cat-config.json` 注册金渐层（roster + breed + variant）
-- [ ] AC-8: AgentRouter 可路由消息到 opencode 并获取流式回复
+### Phase 1: Cat Cafe L1 接入 ✅ COMPLETE
+- [x] AC-4: `CatProvider` 扩展支持 `'opencode'`（shared types + Zod enum + switch case）
+- [x] AC-5: `OpenCodeAgentService` 实现 `AgentService` 接口（11 tests green）
+- [x] AC-6: `opencode-event-transform.ts` 完成 JSON → AgentMessage 映射（10 tests green）
+- [x] AC-7: `cat-config.json` 注册金渐层（roster + breed golden-chinchilla + variant opencode-default，6 config tests green）
+- [x] AC-8: AgentRouter 注册 `case 'opencode'`，cat-config-loader 解析验证通过
 
 ### Phase 2: OMOC 集成 + 高级能力
 - [ ] AC-9: OMOC Sisyphus 编排限制在金渐层内部子 agent
@@ -160,6 +160,7 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 |------|------|
 | 2026-03-11 | Kickoff — spec 定稿 + avatar 生成 + cat-config 设计 |
 | 2026-03-12 | Phase 0 Spike 完成 — opencode v1.2.24 + felix-2 proxy + OMOC 插件验证通过 |
+| 2026-03-12 | Phase 1 完成 — CatProvider + OpenCodeAgentService + event-transform + cat-config（27 tests green） |
 
 ---
 
