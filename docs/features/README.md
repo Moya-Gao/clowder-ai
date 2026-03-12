@@ -81,3 +81,4 @@
 | F097 | F097: CLI Output Collapsible UX — 聊天气泡折叠式重构 | done | [F097-cli-output-collapsible-ux.md](./F097-cli-output-collapsible-ux.md) |
 | F075 | F075: 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | done | [F075-cat-leaderboard.md](./F075-cat-leaderboard.md) |
 | F087 | F087: CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | done | [F087-cvo-bootcamp.md](./F087-cvo-bootcamp.md) |
+| F099 | F099: Hub & 顶栏导航可扩展性重构 — 手风琴导航 + SVG + 顶栏精简 | done | [F099-hub-navigation-scalability.md](./F099-hub-navigation-scalability.md) |

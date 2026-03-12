@@ -40,7 +40,6 @@ created: 2026-02-26
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | [F092](features/F092-voice-companion-experience.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | [F093](features/F093-cats-and-u-world-engine.md) |
 | F098 | Callback Message UX — 猫猫传话可视化 | phase-a-done | 布偶猫 | [F098](features/F098-callback-message-ux.md) |
-| F099 | Hub & 顶栏导航可扩展性重构 — Bento Box + 三层导航 | spec | 布偶猫 | [F099](features/F099-hub-navigation-scalability.md) |
 | F100 | Self-Evolution — 猫猫自我进化机制（Scope Guard + Process Evolution） | done | 布偶猫 | [F100](features/F100-self-evolution.md) |
 | F101 | Mode v2 — 游戏系统引擎 + 狼人杀 | spec | 布偶猫 | [F101](features/F101-mode-v2-game-engine.md) |
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | spec | 布偶猫 | [F102](features/F102-memory-adapter-refactor.md) |
