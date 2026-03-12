@@ -42,5 +42,4 @@ created: 2026-02-26
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | spec | 布偶猫 | [F102](features/F102-memory-adapter-refactor.md) |
 | F103 | 猫猫独立声线 — Per-Cat Voice Identity | spec | TBD | [F103](features/F103-per-cat-voice-identity.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | [F104](features/F104-local-omni-perception.md) |
-| F105 | opencode 接入 — 金渐层（开源多模型编码猫 + OMOC） | phase-3-done | 布偶猫 | [F105](features/F105-opencode-golden-chinchilla.md) |
 | F106 | 多训练营支持 + 训练营列表页 | spec | 布偶猫 | [F106](features/F106-multi-bootcamp.md) |

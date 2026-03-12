@@ -2,14 +2,14 @@
 feature_ids: [F105]
 related_features: [F050, F061, F032, F041, F043]
 topics: [opencode, golden-chinchilla, external-agent, cli-integration, oh-my-opencode, multi-agent]
-doc_kind: phase-3-done
+doc_kind: done
 created: 2026-03-11
 ---
 
 # F105: opencode 接入 — 金渐层（开源多模型编码猫）
 
-> **Status**: phase-3-done | **Owner**: 布偶猫 Opus 4.6
-> **Created**: 2026-03-11
+> **Status**: done | **Owner**: 布偶猫 Opus 4.6
+> **Created**: 2026-03-11 | **Completed**: 2026-03-12
 
 ---
 
@@ -169,6 +169,7 @@ opencode 使用 Anthropic 格式 API，通过 proxy 支持所有 Claude 模型�
 | 2026-03-12 | Phase 3 完成 — collaboration routing validated: mention parsing (12 tests), A2A chain (7 tests), system prompt injection (4 tests), E2E routing (4 tests), fixture guard (2 tests) — 29 new tests, 89 total green |
 | 2026-03-12 | Phase 3 review fix — gpt52 P1 (mirror route-serial assembly) + P2 (fixture guard to cat-config.json), 89/89 green |
 | 2026-03-12 | Phase 3 merged (PR #407) — peer review gpt52 + cloud review codex clean, 89 tests green |
+| 2026-03-12 | Feature closed — 愿景守护 gemini PASS, 反思胶囊已写 |
 
 ---
 
