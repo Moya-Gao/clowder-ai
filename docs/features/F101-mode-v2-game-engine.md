@@ -186,6 +186,50 @@ created: 2026-03-11
 | KD-11 | 语音模式可选 | 开局选文字/语音，语音模式猫猫用 audio rich block 发言 | 2026-03-11 |
 | KD-12 | 全屏接管布局 | 进入游戏后收掉左侧大厅+右侧状态栏，狼人杀专属全屏体验 | 2026-03-11 |
 | KD-13 | 玩家 C 方案 + 上帝 C 变体 + 夜间无泄露 | 顶部局势带+中间事件流+底部操作区；上帝加右侧 God Inspector 30%；夜间不显示行动进度数字 | 2026-03-11 |
+| KD-14 | 头像复用现有 CatAvatar 系统，不做独立管线 | 见下方「头像系统调查」，已有完整的 catId→avatar 解析链，游戏内 PlayerGrid 直接用 `/avatars/{catId}.png` + `CatAvatar.tsx` fallback | 2026-03-11 |
+
+## 头像系统调查（KD-14 依据）
+
+> 2026-03-11 调查，铲屎官指出 @ 弹出面板已有完整头像映射
+
+### 现有系统数据流
+
+```
+cat-config.json (breeds[].avatar + variants[].avatar)
+    ↓
+API: GET /api/cats（routes/cats.ts）
+    ↓
+useCatData() hook（hooks/useCatData.ts:59-69）
+    ↓
+buildCatOptions()（chat-input-options.ts:21-32）→ CatOption.avatar
+    ↓
+ChatInputMenus.tsx:50  <img src={opt.avatar} />
+CatAvatar.tsx:44       src={cat?.avatar ?? `/avatars/${catId}.png`}
+    ↓
+packages/web/public/avatars/*.png（静态文件服务）
+```
+
+### 可用头像文件（`packages/web/public/avatars/`）
+
+| catId | 文件名 | 说明 |
+|-------|--------|------|
+| opus | `opus.png` | 布偶猫 Opus 4.6（紫垫子） |
+| sonnet | `sonnet.png` | 布偶猫 Sonnet（坐在玻璃杯里） |
+| opus-45 | `opus-45.png` | 布偶猫 Opus 4.5（躺在纸箱里，紫项圈） |
+| codex | `codex.png` | 缅因猫 Codex（GPT 铭牌） |
+| gpt52 | `gpt52.png` | 缅因猫 GPT-5.4（趴在 RGB 键盘上） |
+| spark | `sliced-finial/codex_box.png` | 缅因猫 Spark |
+| gemini | `gemini.png` | 暹罗猫 Gemini（蓝垫子+画笔） |
+| gemini25 | `gemini25.png` | 暹罗猫 Gemini 2.5 |
+| dare | `dare.png` | 狸花猫 Dare |
+| antigravity | `antigravity.png` | 孟加拉猫（豹纹+棱镜吊坠） |
+| owner | `owner.jpg` | 铲屎官（`Landy.png` 在 assets/avatars/ 也有一份海豚版） |
+
+### 游戏集成方案
+
+GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<CatAvatar catId={seat.actorId} />` 渲染，**零额外开发**。铲屎官的 seat 用 `owner` 作为 actorId，fallback 到 `/avatars/owner.jpg`。
+
+设计稿里的座位命名规范：`{昵称}-{模型简称}`（如"宪宪-Opus"、"砚砚-GPT"），与 @ 面板一致。
 
 ## Timeline
 
@@ -209,6 +253,10 @@ created: 2026-03-11
 | **Discussion** | Thread `thread_mmmt16riklhir6e4` | 2026-03-11 四猫讨论 |
 | **Design doc** | `docs/plans/2026-02-10-f11-mode-system-design.md` | 旧 mode 设计文档 |
 | **Research** | `docs/research/2026-03-11-netease-werewolf-rules.md` | 网易狼人杀规则（实现基准） |
+| **Avatar system** | `packages/web/src/components/CatAvatar.tsx` | 头像渲染组件（fallback 到 `/avatars/{catId}.png`） |
+| **Avatar data** | `packages/web/src/hooks/useCatData.ts` | catId→avatar 数据获取 |
+| **Mention panel** | `packages/web/src/components/ChatInputMenus.tsx:50` | @ 面板头像展示 |
+| **Avatar files** | `packages/web/public/avatars/` | 静态头像文件目录 |
 | **External** | [AIWolf](https://aiwolf.org/) | 协议参考 |
 | **External** | [Sentient werewolf-template](https://github.com/sentient-agi/werewolf-template) | 频道隔离参考 |
 | **External** | [ChatArena Werewolf](https://github.com/xuyuzhuang11/Werewolf) | 环境裁决参考 |

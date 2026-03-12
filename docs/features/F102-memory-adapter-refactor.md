@@ -24,41 +24,50 @@ Hindsight（外部记忆服务）已停用——铲屎官觉得实在难用。�
 ## 终态架构（P1 面向终态，从这里反推）
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    全局层（跟猫走）                        │
-│  Skills + 家规 + 猫猫记忆（F100 体系）                    │
-│  ├── 猫猫身份/偏好/协作经验                               │
-│  ├── 铲屎官画像                                          │
-│  ├── 跨项目方法论/教训/踩坑经验                           │
-│  └── 存储：skills 文件系统 + MEMORY.md（已有，不变）        │
-├─────────────────────────────────────────────────────────┤
-│                  项目层（留在项目里）                       │
-│  每个项目独立的 IEvidenceStore 实例                        │
-│  ├── cat-cafe/evidence.sqlite                            │
-│  │   ├── evidence_docs — 结构化元数据（常规表）           │
-│  │   ├── evidence_fts (FTS5) — 全文搜索（title+summary） │
-│  │   ├── edges — 文档间显式关系                           │
-│  │   └── markers — candidate queue（待沉淀事项）          │
-│  ├── data-framework/evidence.sqlite                      │
-│  └── future-project/evidence.sqlite                      │
-└─────────────────────────────────────────────────────────┘
+truth sources (git-tracked)
+  docs/*.md                          — 项目文档（feat/decision/plan/lesson）
+  docs/markers/*.yaml                — marker 审核日志（durable workflow state）
+  global profiles/rules/lessons      — Skills + 家规 + MEMORY.md
+
+compiled indices (gitignore + rebuild)
+  evidence.sqlite                    — 项目索引（evidence_docs + evidence_fts + edges）
+  global_knowledge.sqlite            — 全局索引（read-only，从 Skills/家规/MEMORY.md 编译）
+
+services (6 个接口)
+  IIndexBuilder                      — scan/hash/rebuild/schema migration/fts consistency
+  IEvidenceStore                     — search/upsert/delete/get/health
+  IMarkerQueue                       — submit/list/transition（真相源在 docs/markers/）
+  IMaterializationService            — approved → .md patch → git commit → trigger reindex
+  IReflectionService                 — LLM 编排，独立于存储
+  IKnowledgeResolver                 — query planning → fan-out → normalize → RRF rank fusion
 ```
 
 **关键设计决策**：
 - **全局记忆** = Skills + 家规 + MEMORY.md（F100 Self-Evolution 体系，已有基础设施）
 - **项目记忆** = SQLite 数据库（`evidence.sqlite`），每个项目一个文件，物理隔离
-- **SQLite 是终态基座**：FTS5 全文搜索 + SQLite vector extension（按当时稳定版本启用） + edges 关系表，Phase 1 建的东西 Phase N 还在
-- **SQLite 是编译产物，不是真相源**：真相源始终是 `docs/*.md` 文件；`evidence.sqlite` = gitignore + 启动时 rebuild；accepted marker 必须先 materialize 到稳定 source anchor（.md 文件）才算真正沉淀
-- **联邦检索**：`KnowledgeResolver` 在 service 层合并"F100 全局真相源（只读）+ 当前项目 evidence.sqlite"，全局层不写进项目库
+- **SQLite 是终态存储基座**（不是终态检索策略）：FTS5 全文搜索 + SQLite vector extension（按当时稳定版本启用） + edges 关系表，Phase 1 建的东西 Phase N 还在。纯 lexical 不够，Phase C 向量增强是预期路径
+- **真相源分层**：
+  - 索引（`evidence.sqlite`/`global_knowledge.sqlite`）= 编译产物，gitignore + rebuild
+  - 工作流状态（`docs/markers/*.yaml`）= git-tracked durable store，rebuild 不能蒸发审核历史
+  - 知识真相源 = `docs/*.md` 文件；approved marker 必须先 materialize 到 .md 才算沉淀
+- **联邦检索**：`KnowledgeResolver` 融合两个同质 SQLite index（全局 read-only + 项目 read-write），用 RRF rank fusion，不混用 raw filesystem 和 SQLite MATCH
+- **过期知识防护**：`superseded_by` 字段 + `supersedes/invalidates` 关系，过时高相似决策比查不到更危险
 - 猫猫出征新项目 → 带走全局层（skills/家规/记忆），新项目自动初始化空的 `evidence.sqlite`
 
 ## What
 
-### Phase A: IEvidenceStore 接口 + SQLite 基座 + 解耦
+### Phase A: 6 接口 + SQLite 基座 + 解耦
 
-**A1. 接口定义**：一个 DB，两个接口，一个服务，一个联邦检索器。
+**A1. 接口定义**：6 个接口（KD-13）。
 
 ```typescript
+// 编译器：scan → hash → incremental rebuild → schema version → fts consistency
+interface IIndexBuilder {
+  rebuild(options?: RebuildOptions): Promise<RebuildResult>;
+  incrementalUpdate(changedPaths: string[]): Promise<void>;
+  checkConsistency(): Promise<ConsistencyReport>;
+}
+
 // 项目知识索引（编译产物，从 docs/*.md 重建）
 interface IEvidenceStore {
   search(query: string, options?: SearchOptions): Promise<EvidenceItem[]>;
@@ -69,11 +78,17 @@ interface IEvidenceStore {
   initialize(): Promise<void>;  // idempotent migrations + schema version + PRAGMA setup
 }
 
-// 候选记忆队列（retain 不直写 evidence，先进 marker queue）
+// 候选记忆队列（真相源在 docs/markers/*.yaml，不是 SQLite）
 interface IMarkerQueue {
   submit(marker: Marker): Promise<void>;
   list(filter?: MarkerFilter): Promise<Marker[]>;
   transition(id: string, to: MarkerStatus): Promise<void>;
+}
+
+// 晋升服务：approved marker → .md patch → git commit → trigger reindex
+interface IMaterializationService {
+  materialize(markerId: string): Promise<MaterializeResult>;
+  canMaterialize(markerId: string): Promise<boolean>;
 }
 
 // 反思服务（独立于存储层，LLM 编排能力）
@@ -81,7 +96,7 @@ interface IReflectionService {
   reflect(query: string, context?: ReflectionContext): Promise<string>;
 }
 
-// 联邦检索：合并全局层（F100 只读）+ 项目层（evidence.sqlite）
+// 联邦检索：query planning → fan-out → normalize → RRF rank fusion
 interface IKnowledgeResolver {
   resolve(query: string, options?: ResolveOptions): Promise<KnowledgeResult>;
 }
@@ -91,12 +106,14 @@ interface SearchOptions {
   status?: 'active' | 'done' | 'archived';
   keywords?: string[];
   limit?: number;
+  scope?: 'global' | 'project' | 'workspace';  // 预留中间层 scope
 }
 
-type MarkerStatus = 'pending' | 'proposed' | 'accepted' | 'rejected' | 'needs_review';
+// captured → normalized → approved → materialized → indexed（+ rejected 分支）
+type MarkerStatus = 'captured' | 'normalized' | 'approved' | 'rejected' | 'needs_review' | 'materialized' | 'indexed';
 ```
 
-**接口关系**：`SqliteProjectMemory` 同时实现 `IEvidenceStore` + `IMarkerQueue`（同一个 DB）。`KnowledgeResolver` 在 service 层聚合全局 + 项目结果。
+**接口关系**：`SqliteProjectMemory` 实现 `IEvidenceStore`。`IMarkerQueue` 真相源在 `docs/markers/*.yaml`（git-tracked），SQLite 内的 markers 表只是工作缓存。`IIndexBuilder` 负责 SQLite 编译。`IMaterializationService` 负责 approved → .md patch → reindex。`IKnowledgeResolver` 融合两个同质 SQLite index（全局 read-only + 项目 read-write），用 RRF rank fusion。
 
 **A2. SQLite 存储（终态基座）**：`SqliteEvidenceStore` 实现 `IEvidenceStore`。
 
@@ -111,32 +128,45 @@ CREATE TABLE evidence_docs (
   keywords TEXT,              -- JSON array
   source_path TEXT,           -- docs/features/F042.md
   source_hash TEXT,           -- 变更检测
+  superseded_by TEXT,         -- KD-16: 过期知识指向替代文档的 anchor
+  materialized_from TEXT,     -- 关联 marker id（如从 marker 晋升而来）
   updated_at TEXT NOT NULL
 );
 
 -- 全文搜索（FTS5 外部内容表，索引 title + summary）
+-- KD-18: tokenchars 处理 snake_case/feature ID，bm25 列权重 title > summary
 CREATE VIRTUAL TABLE evidence_fts USING fts5(
   title, summary,
-  content=evidence_docs, content_rowid=rowid
+  content=evidence_docs, content_rowid=rowid,
+  tokenize='unicode61 tokenchars "_-"'
 );
 
 -- 关系表（1-hop 扩展）
 CREATE TABLE edges (
   from_anchor TEXT NOT NULL,
   to_anchor TEXT NOT NULL,
-  relation TEXT NOT NULL,  -- evolved_from/blocked_by/related
+  relation TEXT NOT NULL,  -- evolved_from/blocked_by/related/supersedes/invalidates
   PRIMARY KEY (from_anchor, to_anchor, relation)
 );
 
--- 候选队列（替代直写 retain）
+-- 候选队列工作缓存（真相源在 docs/markers/*.yaml，KD-8'）
 CREATE TABLE markers (
   id TEXT PRIMARY KEY,
   content TEXT NOT NULL,
   source TEXT NOT NULL,        -- cat_id + thread_id
-  status TEXT DEFAULT 'pending',  -- pending/proposed/accepted/rejected/needs_review
+  status TEXT DEFAULT 'captured',  -- KD-12: captured/normalized/approved/rejected/needs_review/materialized/indexed
   target_kind TEXT,            -- 预期 materialize 的类型
   created_at TEXT NOT NULL
 );
+
+-- KD-15: 预留 passage 级索引（v1 不填，1000+ docs 或 Phase C 启用）
+-- CREATE TABLE evidence_passages (
+--   doc_anchor TEXT NOT NULL REFERENCES evidence_docs(anchor),
+--   passage_id TEXT NOT NULL,
+--   content TEXT NOT NULL,
+--   position INTEGER,
+--   PRIMARY KEY (doc_anchor, passage_id)
+-- );
 
 -- Schema 版本（idempotent migration）
 CREATE TABLE schema_version (
@@ -145,7 +175,12 @@ CREATE TABLE schema_version (
 );
 ```
 
-**关键规则**：`accepted` marker 必须先 materialize 到稳定 source anchor（.md 文件），再由自动索引写入 `evidence_docs`。SQLite 是编译产物——rebuild 不会丢知识，因为真相源在文件系统。
+**关键规则**：
+- `approved` marker 必须先 materialize 到稳定 source anchor（.md 文件），再由 `IIndexBuilder` 写入 `evidence_docs`。SQLite 是编译产物——rebuild 不会丢知识，因为真相源在文件系统
+- markers 工作流状态的真相源是 `docs/markers/*.yaml`（git-tracked），SQLite 只是工作缓存
+- 检索时 `superseded_by IS NOT NULL` 的结果降权或过滤（KD-16）
+- WAL 模式 + 显式单写者队列（KD-18）
+- FTS5 external-content 一致性封装到 `IIndexBuilder`（KD-18）
 
 **A3. 路由解耦**：所有硬编码文件改为 DI 注入。
 
@@ -168,36 +203,40 @@ CREATE TABLE schema_version (
 
 检索链路：`metadata filter (kind/status) → FTS5 search → edges 1-hop expand → source read`
 
-### Phase C: 向量增强（按需）
+### Phase C: 向量增强（预期路径）
 
-启用 SQLite vector extension（按当时稳定版本），对 summary 字段生成嵌入向量，实现语义 rerank。
-**注意**：这是在同一个 `evidence.sqlite` 上加表，不是换存储——P1 合规（终态基座不变）。
+启用 SQLite vector extension（按当时稳定版本），对 summary 字段生成嵌入向量，实现语义 rerank。按需启用 `evidence_passages` 表实现 passage 级检索粒度。
+**注意**：这是在同一个 `evidence.sqlite` 上加表/列，不是换存储——终态基座不变。纯 lexical 检索是已知短板（KD-5），Phase C 是预期路径而非可选。
 
 ## Acceptance Criteria
 
-### Phase A（IEvidenceStore + SQLite 基座 + 解耦）
-- [ ] AC-A1: 四个接口定义（`IEvidenceStore` + `IMarkerQueue` + `IReflectionService` + `IKnowledgeResolver`），不含 Hindsight 术语
-- [ ] AC-A2: `SqliteProjectMemory` 实现 `IEvidenceStore` + `IMarkerQueue`，使用 `evidence_docs`（常规表）+ `evidence_fts`（FTS5 外部内容表）
+### Phase A（6 接口 + SQLite 基座 + 解耦）
+- [ ] AC-A1: 六个接口定义（`IIndexBuilder` + `IEvidenceStore` + `IMarkerQueue` + `IMaterializationService` + `IReflectionService` + `IKnowledgeResolver`），不含 Hindsight 术语
+- [ ] AC-A2: `SqliteProjectMemory` 实现 `IEvidenceStore`，使用 `evidence_docs`（常规表）+ `evidence_fts`（FTS5 外部内容表）+ WAL 模式
 - [ ] AC-A3: `HindsightEvidenceStore` 实现 `IEvidenceStore`（legacy 兼容）
 - [ ] AC-A4: 所有路由通过 DI 注入接口，不直接 import HindsightClient
 - [ ] AC-A5: `ReflectionService` 独立实现，不在 `IEvidenceStore` 接口内
-- [ ] AC-A6: `retain-memory` callback 写入 markers 表（candidate queue），marker accepted 必须先 materialize 到 .md 才算沉淀
+- [ ] AC-A6: `retain-memory` callback 写入 markers（状态 `captured`），approved marker 必须先 materialize 到 .md 才算沉淀
 - [ ] AC-A7: Factory 函数按配置选择实现（`EVIDENCE_STORE_TYPE=sqlite|hindsight`）
-- [ ] AC-A8: edges 表支持文档间关系查询（1-hop expand）
-- [ ] AC-A9: `KnowledgeResolver` 联邦检索全局层（F100 只读）+ 项目层（evidence.sqlite）
-- [ ] AC-A10: `initialize()` 含 idempotent migrations + schema version + PRAGMA setup
+- [ ] AC-A8: edges 表支持文档间关系查询（含 `supersedes`/`invalidates` 关系，1-hop expand）
+- [ ] AC-A9: `KnowledgeResolver` 联邦检索两个同质 SQLite index（`global_knowledge.sqlite` read-only + `evidence.sqlite` read-write），RRF rank fusion
+- [ ] AC-A10: `IIndexBuilder.rebuild()` 含 idempotent migrations + schema version + PRAGMA setup + FTS5 consistency check
+- [ ] AC-A11: `IMaterializationService` 实现 approved → .md patch → trigger reindex 流程
+- [ ] AC-A12: markers 真相源在 `docs/markers/*.yaml`（git-tracked），SQLite markers 表仅为工作缓存
 
-### Phase B（自动索引 + SOP 集成）
+### Phase B（自动索引 + SOP 集成 + 评测）
 - [ ] AC-B1: frontmatter 解析器，从 .md 提取 anchor/kind/status/title/summary
 - [ ] AC-B2: 索引覆盖 `docs/features/`, `docs/decisions/`, `docs/plans/`, `docs/lessons-learned.md`
 - [ ] AC-B3: feat-lifecycle 立项/关闭时自动 upsert 索引（与 SOP 集成）
-- [ ] AC-B4: search 支持 kind/status/keyword 过滤，返回摘要+anchor（不返回全文）
+- [ ] AC-B4: search 支持 kind/status/keyword 过滤，检索时 `superseded_by IS NOT NULL` 降权
 - [ ] AC-B5: 比 grep docs/ 信噪比可测量提升（不返回 archive/废案/discussion）
 - [ ] AC-B6: 新项目初始化时自动创建空 `evidence.sqlite`
+- [ ] AC-B7: `memory_eval_corpus.yaml` 评测集：检索评测（Recall@k）+ 状态评测（DB 变化验证），含 10-15 条 Hindsight 失败案例
 
-### Phase C（向量增强，按需）
+### Phase C（向量增强——预期路径，非可选）
 - [ ] AC-C1: SQLite vector extension 启用（按当时稳定版本），summary 嵌入向量生成
 - [ ] AC-C2: 语义 rerank 可选开启
+- [ ] AC-C3: `evidence_passages` 表按需启用（passage 级检索粒度）
 
 ## Dependencies
 
@@ -210,11 +249,13 @@ CREATE TABLE schema_version (
 
 | 风险 | 缓解 |
 |------|------|
-| 索引与文档不同步（stale index） | 索引记录 source_hash，检索时可选 freshness check |
-| FTS5 关键词检索精度不够 | Phase C 在同一 SQLite 上加向量表（终态基座不变） |
-| 重蹈 retain 碎片化覆辙 | AC-A6 强制 retain 写 markers 表 + accepted 必须 materialize 到 .md |
+| 索引与文档不同步（stale index） | 索引记录 source_hash，`IIndexBuilder` 增量更新 + consistency check |
+| FTS5 关键词检索精度不够 | Phase C 向量增强是预期路径（KD-5），不是可选 |
+| 重蹈 retain 碎片化覆辙 | marker candidate queue + 分层审批（KD-3/9/12） |
 | 多项目 SQLite 文件管理复杂度 | 每项目根目录一个 evidence.sqlite，gitignore + rebuild |
-| rebuild 后丢失 accepted knowledge | 不会——accepted marker 先 materialize 到 .md，SQLite 只是编译产物 |
+| rebuild 后丢失工作流状态 | markers 真相源在 git-tracked `docs/markers/*.yaml`（KD-8） |
+| 过期知识高相似误召回 | `superseded_by` 字段 + 检索降权（KD-16） |
+| 评测缺失导致上线后才发现检索质量差 | Phase B 加评测集（KD-17） |
 
 ## Open Questions
 
@@ -232,13 +273,20 @@ CREATE TABLE schema_version (
 | KD-2 | `reflect` 从存储层拆出 | 它是 LLM 编排能力，不是存储 primitive | 2026-03-11 |
 | KD-3 | retain 降级为 candidate/marker queue | 防止碎片化垃圾入库（Hindsight 失败教训） | 2026-03-11 |
 | KD-4 | 自动索引 > 手动 retain | 与 feat-lifecycle SOP 集成，90% 记忆沉淀自动化 | 2026-03-11 |
-| KD-5 | **面向终态：SQLite 为基座，不搞 JSONL 中间态** | P1 铁律——Phase N 产物 Phase N+1 还在 | 2026-03-11 |
+| KD-5 | **SQLite 是终态存储基座**（不是终态检索策略），纯 lexical 不够，Phase C 向量增强是预期路径 | GPT Pro 打回：KD-5 原文把存储和检索混为一谈 | 2026-03-11 |
 | KD-6 | **全局记忆跟猫走，项目记忆留在项目** | 全局=Skills/家规/MEMORY.md(F100)，项目=evidence.sqlite | 2026-03-11 |
 | KD-7 | 每项目一个 evidence.sqlite（物理隔离） | 猫出征新项目不带旧项目 feat 细节 | 2026-03-11 |
-| KD-8 | evidence.sqlite = gitignore + rebuild（编译产物不是真相源） | 真相源是 docs/*.md，rebuild 不丢知识 | 2026-03-11 |
-| KD-9 | markers 分层审批：项目内知识有 anchor+dedupe → 自动 accept；影响全局层 → needs_review 走 F100 | GPT-5.4 建议，避免全自动/全人工二选一 | 2026-03-11 |
+| KD-8 | **索引 = gitignore + rebuild；markers = git-tracked durable store** | GPT Pro 打回：markers 有审核历史，不是编译产物，rebuild 会蒸发 | 2026-03-11 |
+| KD-9 | markers 分层审批：项目内知识有 anchor+dedupe → 自动 approve；影响全局层 → needs_review 走 F100 | GPT-5.4 建议，避免全自动/全人工二选一 | 2026-03-11 |
 | KD-10 | Schema 拆分：evidence_docs（常规表）+ evidence_fts（FTS5 外部内容表） | 结构化过滤不该塞 FTS5，GPT-5.4 P1 | 2026-03-11 |
 | KD-11 | 联邦检索 KnowledgeResolver：全局层只读接入，不写进项目库 | F100 定了"不发明新沉淀库"，GPT-5.4 P1 | 2026-03-11 |
+| KD-12 | marker 状态机：`captured→normalized→approved→materialized→indexed`（+ `rejected`/`needs_review` 分支） | GPT Pro 打回：`accepted` ≠ truth，`materialized` 才是终态 | 2026-03-11 |
+| KD-13 | 新增 `IMaterializationService` + `IIndexBuilder` 接口（共 6 接口） | 晋升瞬间和编译器是一等公民，不能散落在角落 | 2026-03-11 |
+| KD-14 | 全局层也编译 read-only `global_knowledge.sqlite` | resolver 不应混用 raw filesystem 和 SQLite MATCH | 2026-03-11 |
+| KD-15 | 预留 `evidence_passages` 表（v1 不填） | 检索粒度太粗，1000+ docs 后 summary 不够 | 2026-03-11 |
+| KD-16 | `superseded_by` 字段 + `supersedes`/`invalidates` 关系类型 | 过时高相似决策比查不到更危险 | 2026-03-11 |
+| KD-17 | Phase B 加评测集 `memory_eval_corpus.yaml` | 上次痛点是"找不对"不是"存不了" | 2026-03-11 |
+| KD-18 | WAL 模式 + 单写者队列 + `tokenchars` + `bm25()` 列权重 | SQLite 实操最佳实践，GPT Pro 建议 | 2026-03-11 |
 
 ## Timeline
 
@@ -246,6 +294,9 @@ CREATE TABLE schema_version (
 |------|------|
 | 2026-03-11 | 三猫头脑风暴（opus + gemini + gpt52），方向收敛 |
 | 2026-03-11 | 立项 |
+| 2026-03-11 | 铲屎官反馈：面向终态 + 多项目 + 全局记忆跟猫走 |
+| 2026-03-11 | GPT-5.4 终态评审：Schema 拆分 + Materialization + 联邦检索（KD-5~11） |
+| 2026-03-11 | 云端 GPT Pro 咨询：打回 3 项 + 补 4 盲区 + 2 缺失接口（KD-12~18） |
 
 ## Review Gate
 
@@ -260,4 +311,5 @@ CREATE TABLE schema_version (
 | **Research** | `docs/research/2026-02-25-memory-design/proposal.md` | 原始记忆系统设计（三层/marker/混合检索） |
 | **Research** | `docs/research/2026-02-25-memory-design/memory-bench-mark.md` | Benchmark 调研 |
 | **ADR** | `docs/decisions/005-hindsight-integration-decisions.md` | 知识共享决策（单 bank） |
+| **Research** | `docs/research/2026-03-11-f102-memory-adapter-gpt-pro-consult.md` | 云端 GPT Pro 咨询（含 Part 1 提问 + Part 2 回答 + Part 3 综合） |
 | **Feature** | `docs/features/F024-session-chain.md` | Session Chain（数据源） |

@@ -141,7 +141,79 @@ thread_id: thread_mmmsovftp3gitjm9
 2. 加载 deep-research skill，找云端 GPT Pro 讨论技术决策
 3. 把增量讨论都更新到 markdown 文档（本纪要）
 
-待完成：云端 GPT Pro 讨论结果回填。
+---
+
+## 第四轮：云端 GPT Pro 咨询结果（21:40-04:43）
+
+### 咨询方式
+
+Deep Research Mode B：布偶猫准备自含上下文提问文档（Part 1），铲屎官手动贴到云端 GPT Pro，GPT Pro 回答（Part 2），布偶猫本地综合（Part 3）。
+
+完整咨询文档见 `docs/research/2026-03-11-f102-memory-adapter-gpt-pro-consult.md`。
+
+### GPT Pro 评审结果
+
+**骨架确认**（无需修改）：KD-1/2/4/6/7/10/11 全部认可。
+
+**打回 3 项**：
+
+| # | 打回内容 | 修改 |
+|---|---------|------|
+| 1 | KD-8 只对索引成立——markers/edges 有审核历史，不是编译产物 | KD-8 拆分：索引=gitignore+rebuild；markers=git-tracked `docs/markers/*.yaml` |
+| 2 | KD-5 混淆了存储和检索——纯 lexical 不够 | KD-5 改为"终态**存储**基座"，Phase C 从"按需"改为"预期路径" |
+| 3 | `accepted` 命名不精确——approved ≠ materialized | KD-12：状态机 `captured→normalized→approved→materialized→indexed` |
+
+**补 4 盲区**：
+
+| # | 盲区 | 处理 |
+|---|------|------|
+| 1 | 工作流状态的 source of truth | 与打回 1 合并：markers 走 git-tracked YAML |
+| 2 | 检索粒度——只索引 title+summary 会漏正文 | KD-15：预留 `evidence_passages` 表，v1 不填 |
+| 3 | 过期/冲突知识 | KD-16：`superseded_by` 字段 + `supersedes/invalidates` 关系 |
+| 4 | 评测集 | KD-17：Phase B 加 `memory_eval_corpus.yaml` |
+
+**新增 2 接口**：
+
+| 接口 | 职责 |
+|------|------|
+| `IIndexBuilder` | scan/hash/incremental rebuild/schema migration/FTS5 consistency |
+| `IMaterializationService` | approved → .md patch → git commit → trigger reindex |
+
+**其他建议**：
+- 全局层也编译 read-only `global_knowledge.sqlite`（KD-14），resolver 融合两个同质 index
+- WAL + 单写者队列 + FTS5 tokenchars + bm25 列权重（KD-18）
+- 联邦检索用 RRF rank fusion
+- 预留 `scope: 'workspace'`（中间层 scope），但 v1 不做
+- ProfileStore 搁置（MEMORY.md + Skills 已在做）
+
+### 新增 Key Decisions（KD-12 ~ KD-18）
+
+| # | 决策 | 日期 |
+|---|------|------|
+| KD-12 | marker 状态机：captured→normalized→approved→materialized→indexed | 2026-03-11 |
+| KD-13 | 新增 IMaterializationService + IIndexBuilder（共 6 接口） | 2026-03-11 |
+| KD-14 | 全局层也编译 read-only global_knowledge.sqlite | 2026-03-11 |
+| KD-15 | 预留 evidence_passages 表（v1 不填） | 2026-03-11 |
+| KD-16 | superseded_by 字段 + supersedes/invalidates 关系 | 2026-03-11 |
+| KD-17 | Phase B 加评测集 memory_eval_corpus.yaml | 2026-03-11 |
+| KD-18 | WAL + 单写者队列 + tokenchars + bm25 列权重 | 2026-03-11 |
+
+### 终态架构（收敛版）
+
+```
+truth sources (git-tracked)
+  docs/*.md                          — 项目文档
+  docs/markers/*.yaml                — marker 审核日志
+  global profiles/rules/lessons      — Skills + 家规 + MEMORY.md
+
+compiled indices (gitignore + rebuild)
+  evidence.sqlite                    — 项目索引
+  global_knowledge.sqlite            — 全局索引（read-only）
+
+services (6 个接口)
+  IIndexBuilder, IEvidenceStore, IMarkerQueue,
+  IMaterializationService, IReflectionService, IKnowledgeResolver
+```
 
 ---
 

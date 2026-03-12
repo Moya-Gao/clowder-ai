@@ -2,13 +2,13 @@
 feature_ids: [F061]
 related_features: [F050, F032, F041, F043, F045, F060]
 topics: [antigravity, bengal-cat, cdp, external-agent, image-generation, evidence-chain, multi-model]
-doc_kind: spec
+doc_kind: phase-1-done
 created: 2026-03-04
 ---
 
 # F061: Antigravity 接入 — 孟加拉猫（混血家族）
 
-> **Status**: spec | **Owner**: 布偶猫 Opus 4.6
+> **Status**: phase-1-done | **Owner**: 布偶猫 Opus 4.6
 > **Created**: 2026-03-04
 
 ---
