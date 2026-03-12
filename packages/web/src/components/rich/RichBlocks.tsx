@@ -32,27 +32,86 @@ function RichBlockRenderer({ block, catId, messageId }: { block: RichBlock; catI
   }
 }
 
-/** Phase C: collect interactive blocks into groups by groupId */
-function groupBlocks(blocks: RichBlock[]): Array<RichBlock | { grouped: true; groupId: string; blocks: RichInteractiveBlock[] }> {
-  const result: Array<RichBlock | { grouped: true; groupId: string; blocks: RichInteractiveBlock[] }> = [];
-  const groupMap = new Map<string, RichInteractiveBlock[]>();
-  const groupOrder: string[] = [];
+type GroupedItem = { grouped: true; groupId: string; blocks: RichInteractiveBlock[] };
+type ResultItem = RichBlock | GroupedItem;
 
+/** Check if any option in a block has customInput (incompatible with group submission) */
+function hasCustomInput(block: RichInteractiveBlock): boolean {
+  return block.options.some((o) => o.customInput);
+}
+
+/** Find runs of consecutive ungrouped interactive blocks (no non-interactive gaps) */
+function findConsecutiveRuns(blocks: RichBlock[]): RichInteractiveBlock[][] {
+  const runs: RichInteractiveBlock[][] = [];
+  let current: RichInteractiveBlock[] = [];
   for (const block of blocks) {
+    if (block.kind === 'interactive' && !block.groupId) {
+      current.push(block);
+    } else {
+      if (current.length > 0) {
+        runs.push(current);
+        current = [];
+      }
+    }
+  }
+  if (current.length > 0) runs.push(current);
+  return runs;
+}
+
+/** Phase C: collect interactive blocks into groups by groupId.
+ *  Auto-groups: consecutive ungrouped blocks (2+, none with customInput)
+ *  are batched at the first block's position. Non-consecutive blocks stay solo. */
+function groupBlocks(blocks: RichBlock[]): ResultItem[] {
+  const result: ResultItem[] = [];
+  const groupMap = new Map<string, RichInteractiveBlock[]>();
+  const groupFirstIdx = new Map<string, number>();
+
+  // Find which ungrouped blocks should be auto-grouped (consecutive runs of 2+)
+  const autoGroupIds = new Set<string>();
+  const blockToGroup = new Map<string, string>(); // blockId → syntheticGroupId
+  const syntheticGroups = new Map<string, RichInteractiveBlock[]>();
+
+  for (const run of findConsecutiveRuns(blocks)) {
+    if (run.length >= 2 && !run.some(hasCustomInput)) {
+      const gid = `__auto_${run[0]!.id}`;
+      syntheticGroups.set(gid, run);
+      for (const b of run) {
+        autoGroupIds.add(b.id);
+        blockToGroup.set(b.id, gid);
+      }
+    }
+  }
+
+  // Pass 1: collect explicit groups
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]!;
     if (block.kind === 'interactive' && block.groupId) {
       if (!groupMap.has(block.groupId)) {
         groupMap.set(block.groupId, []);
-        groupOrder.push(block.groupId);
+        groupFirstIdx.set(block.groupId, i);
       }
       groupMap.get(block.groupId)!.push(block);
-    } else {
-      // Flush any pending group that appeared before this non-grouped block
-      result.push(block);
     }
   }
-  // Append groups in order of first appearance
-  for (const gid of groupOrder) {
-    result.push({ grouped: true, groupId: gid, blocks: groupMap.get(gid)! });
+
+  // Pass 2: build result in original order
+  const emittedGroups = new Set<string>();
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]!;
+    if (block.kind === 'interactive' && block.groupId) {
+      const gid = block.groupId;
+      if (groupFirstIdx.get(gid) === i) {
+        result.push({ grouped: true, groupId: gid, blocks: groupMap.get(gid)! });
+      }
+    } else if (block.kind === 'interactive' && autoGroupIds.has(block.id)) {
+      const gid = blockToGroup.get(block.id)!;
+      if (!emittedGroups.has(gid)) {
+        result.push({ grouped: true, groupId: gid, blocks: syntheticGroups.get(gid)! });
+        emittedGroups.add(gid);
+      }
+    } else {
+      result.push(block);
+    }
   }
   return result;
 }

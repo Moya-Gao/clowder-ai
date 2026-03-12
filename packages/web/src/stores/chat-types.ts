@@ -118,6 +118,8 @@ export interface InteractiveOption {
   id: string;
   label: string;
   emoji?: string;
+  /** SVG icon name from the café icon set — preferred over emoji */
+  icon?: string;
   description?: string;
   level?: number;
   group?: string;

@@ -40,7 +40,9 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
 - **interactive**（用户可交互选择/确认）
   - 让用户选方案（select/multi-select）、选卡片（card-grid）、确认操作（confirm）
   - \`interactiveType\` + \`options\`(id+label) 必填，\`title\`/\`description\`/\`maxSelect\`/\`allowRandom\`/\`messageTemplate\` 可选
+  - option 优先用 \`icon\`（café SVG 图标名）而不是 \`emoji\`。可用图标：sparkle/idea/game/chart/coffee/cat/heart/paw/star/check/cross 等
   - option 可加 \`customInput: true\` + \`customInputPlaceholder\`，选中后展开文本输入框（如"我有其他想法"选项）
+  - 发多个 interactive block 时用相同 \`groupId\` 实现批量提交（用户选完所有再一次提交）
   - 用户选择后 block 自动 disabled，选择结果持久化（刷新不丢）
 
 **何时不用**（保持纯文本）：
@@ -57,7 +59,7 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
 - checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选
 - media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选
 - audio: \`text\` 必填（你想说的话，简短口语化，1-2 句）
-- interactive: \`interactiveType\` + \`options\` (id+label) 必填，option 可加 \`customInput: true\` 展开输入框`;
+- interactive: \`interactiveType\` + \`options\` (id+label) 必填，优先用 \`icon\` 不用 emoji，多块用 \`groupId\` 批量提交`;
 
 /**
  * Condensed rich block reference for injection into system prompts.

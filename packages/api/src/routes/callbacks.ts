@@ -164,6 +164,7 @@ const richBlockSchema = z.discriminatedUnion('kind', [
       id: z.string().min(1),
       label: z.string().min(1),
       emoji: z.string().optional(),
+      icon: z.string().optional(),
       description: z.string().optional(),
       level: z.number().optional(),
       group: z.string().optional(),

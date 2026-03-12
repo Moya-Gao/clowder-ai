@@ -88,7 +88,7 @@ export function InteractiveBlockGroup({
   }, [allSelected, submitted, blocks, selections, messageId]);
 
   return (
-    <div className="space-y-3 rounded-2xl border-2 border-dashed border-purple-200 dark:border-purple-800/50 p-3">
+    <div className="space-y-3 rounded-2xl border-2 border-dashed border-amber-200 dark:border-amber-800/50 p-3">
       {blocks.map((block) => (
         <InteractiveBlock
           key={block.id}
@@ -108,7 +108,7 @@ export function InteractiveBlockGroup({
           className={`w-full py-2.5 rounded-full text-sm font-semibold transition-all flex items-center justify-center gap-2
             ${
               allSelected
-                ? 'bg-purple-500 text-white hover:bg-purple-600 cursor-pointer'
+                ? 'bg-amber-600 text-white hover:bg-amber-700 cursor-pointer'
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
             }`}
         >
@@ -116,7 +116,7 @@ export function InteractiveBlockGroup({
           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
             allSelected
               ? 'bg-white/20 text-white'
-              : 'bg-purple-100 dark:bg-purple-900/50 text-purple-500 dark:text-purple-400'
+              : 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
           }`}>
             {selections.size}/{blocks.length}
           </span>
