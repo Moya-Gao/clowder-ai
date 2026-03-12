@@ -564,6 +564,503 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "bhnGK",
+      "x": 0,
+      "y": 646,
+      "name": "F098 Phase B — Evidence Panel + Connector 统一",
+      "width": 900,
+      "height": 680,
+      "fill": "#0F0E17",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "d6QH6",
+          "name": "title",
+          "fill": "#FFFFFF",
+          "content": "F098 Phase B — Evidence Panel 适配 + Connector 视觉统一",
+          "fontFamily": "Inter",
+          "fontSize": 20,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "9cZsX",
+          "name": "subtitle",
+          "fill": "#94A3B8",
+          "content": "Design Gate wireframe · 2026-03-12",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "WBDkl",
+          "name": "cols",
+          "width": "fill_container",
+          "height": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "ASyLd",
+              "name": "leftCol",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "p6QpQ",
+                  "name": "leftTitle",
+                  "fill": "#E2E8F0",
+                  "content": "B1: Evidence Panel 重设计",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "xLBQp",
+                  "name": "beforeLabel",
+                  "fill": "#EF4444",
+                  "content": "BEFORE — owner 色 + 白底卡片，深色背景不可读",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "XxMuX",
+                  "name": "beforeBox",
+                  "width": "fill_container",
+                  "fill": "#1A1625",
+                  "cornerRadius": 12,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "rBHRf",
+                      "name": "epBefore",
+                      "opacity": 0.6,
+                      "width": "fill_container",
+                      "fill": "#FFF8F0",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "2RzZV",
+                          "name": "epHeader",
+                          "fill": "#8B6F47",
+                          "content": "HINDSIGHT 检索结果  [3]",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "800"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "44eib",
+                          "name": "epCard1",
+                          "width": "fill_container",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 8,
+                          "padding": 8,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "XXQMX",
+                              "name": "epCard1Text",
+                              "fill": "#9CA3AF",
+                              "content": "F097 CLI 重构决策 — 高置信度\n文字太小太淡，深色背景下更难读",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "iWmEJ",
+                  "name": "afterLabel",
+                  "fill": "#22C55E",
+                  "content": "AFTER — 深色卡片 + 高对比文字 + 品种色置信度",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "3teQa",
+                  "name": "afterBox",
+                  "width": "fill_container",
+                  "fill": "#1A1625",
+                  "cornerRadius": 12,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YAmzU",
+                      "name": "epAfter",
+                      "width": "fill_container",
+                      "fill": "#1E293B",
+                      "cornerRadius": 12,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "P4yTv",
+                          "name": "epAfterHeader",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "JUbf8",
+                              "name": "epAHText",
+                              "fill": "#CBD5E1",
+                              "content": "HINDSIGHT 检索结果",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "FMqlM",
+                              "name": "epAHBadge",
+                              "fill": "#334155",
+                              "cornerRadius": 99,
+                              "padding": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "fkdJV",
+                                  "name": "epAHCount",
+                                  "fill": "#94A3B8",
+                                  "content": "3",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 8,
+                                  "fontWeight": "700"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "d9FB6",
+                          "name": "epAfterCard",
+                          "width": "fill_container",
+                          "fill": "#0F172A",
+                          "cornerRadius": 8,
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "r2ZN4",
+                              "name": "epACTitle",
+                              "fill": "#E2E8F0",
+                              "content": "F097 CLI 重构决策",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "7ap0H",
+                              "name": "epACSnippet",
+                              "fill": "#94A3B8",
+                              "content": "tintedDark 品种色方案、三层折叠结构...",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "azpq5",
+                              "name": "epACConfBadge",
+                              "fill": "#166534",
+                              "cornerRadius": 99,
+                              "padding": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "jZYVX",
+                                  "name": "epACConfText",
+                                  "fill": "#86EFAC",
+                                  "content": "高置信度",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 8,
+                                  "fontWeight": "700"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OaPPe",
+              "name": "rightCol",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "HWG3L",
+                  "name": "rightTitle",
+                  "fill": "#E2E8F0",
+                  "content": "B2: Connector 主题统一",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "aVPyz",
+                  "name": "themeDesc",
+                  "fill": "#94A3B8",
+                  "content": "现有: github-review(slate) + vote-result(purple) + default(blue)\n新增: multi-mention(emerald) + feishu(blue) + telegram(sky)",
+                  "fontFamily": "Inter",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "aC8RL",
+                  "name": "themeGrid",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "P7Q7u",
+                      "name": "mmRow",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "FpYsC",
+                          "name": "mmAvatar",
+                          "width": 28,
+                          "height": 28,
+                          "fill": "#D1FAE5",
+                          "cornerRadius": 99,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "dxGfD",
+                              "name": "mmAIcon",
+                              "content": "👥",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Mf1Fd",
+                          "name": "mmBubble",
+                          "width": "fill_container",
+                          "fill": "#ECFDF5",
+                          "cornerRadius": 12,
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Np6u7",
+                              "name": "mmLabel",
+                              "fill": "#065F46",
+                              "content": "Multi-Mention 结果  19:03",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "CLbZn",
+                              "name": "mmContent",
+                              "fill": "#064E3B",
+                              "content": "3 只猫猫已回复：布偶猫✅ 缅因猫✅ 暹罗猫✅",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OXy1Y",
+                      "name": "fsRow",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "TjsGp",
+                          "name": "fsAvatar",
+                          "width": 28,
+                          "height": 28,
+                          "fill": "#DBEAFE",
+                          "cornerRadius": 99,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "hd2Cu",
+                              "name": "fsIcon",
+                              "content": "🪶",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "a1hXp",
+                          "name": "fsBubble",
+                          "width": "fill_container",
+                          "fill": "#EFF6FF",
+                          "cornerRadius": 12,
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "oLwTM",
+                              "name": "fsLabel",
+                              "fill": "#1E40AF",
+                              "content": "飞书 DM  18:45",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "hG01x",
+                              "name": "fsContent",
+                              "fill": "#1E3A5F",
+                              "content": "来自飞书用户的消息内容...",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "S46Xc",
+                      "name": "tgRow",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "kAgyI",
+                          "name": "tgAvatar",
+                          "width": 28,
+                          "height": 28,
+                          "fill": "#E0F2FE",
+                          "cornerRadius": 99,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "I4fGx",
+                              "name": "tgIcon",
+                              "content": "✈️",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "YRpmc",
+                          "name": "tgBubble",
+                          "width": "fill_container",
+                          "fill": "#F0F9FF",
+                          "cornerRadius": 12,
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "cs0sB",
+                              "name": "tgLabel",
+                              "fill": "#0369A1",
+                              "content": "Telegram  18:50",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "BwLFa",
+                              "name": "tgContent",
+                              "fill": "#0C4A6E",
+                              "content": "来自 Telegram 的消息...",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "6aXZ9",
+                  "name": "designNote",
+                  "fill": "#94A3B8",
+                  "content": "设计原则：\n• Evidence Panel 适配深色模式（slate 色系卡片）\n• 置信度 badge 用品种色映射（高=绿 中=金 低=灰）\n• 每种 connector 有独立色系，和 cat/user/system 明确区分\n• 所有 connector 共享圆角 + 图标头像 + 标签行布局",
+                  "fontFamily": "Inter",
+                  "fontSize": 9,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

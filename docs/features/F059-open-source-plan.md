@@ -261,10 +261,11 @@ MIT 下别人可商用。三猫共识：
 - **真正的风险**：不是"别人商用"，而是"送出去多少 know-how" → 用分层 transform 控制
 - **安全面暴露**：prompt 规则公开后需更依赖代码层防护（铁律的代码层实现）
 
-## 内测小伙伴（cat-cafe-tutorials 私有仓 Collaborator）
+## 内测小伙伴（clowder-ai 私有仓 Collaborator）
 
 > 来源：https://github.com/zts212653/cat-cafe-tutorials/issues/29
 > 计划开放时间：2026-03-16 ~ 2026-03-22
+> 仓库：https://github.com/zts212653/clowder-ai（私有，2026-03-12 建立）
 
 | # | GitHub 用户名 | 备注 |
 |---|--------------|------|
@@ -279,7 +280,7 @@ MIT 下别人可商用。三猫共识：
 
 **添加时注意**：
 - 权限设为 **Read**（只读），小伙伴走 fork + PR 路线
-- main 分支已设保护规则（见下方操作记录）
+- GitHub Free 私有仓不支持 Branch Protection / Rulesets，但 Read 权限本身已足够：collaborator 无法 push 任何分支，只能 fork + PR，owner 手动 merge
 - 后续有新报名的小伙伴，同步更新此表
 
 ## Acceptance Criteria
