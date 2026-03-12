@@ -76,18 +76,26 @@ export class OutboundDeliveryHook {
           return;
         }
         try {
-          // Prefer sendFormattedReply when adapter supports it and threadMeta is available
-          if (adapter.sendFormattedReply && threadMeta && !hasRichBlocks) {
-            const envelope = this.formatter.format({
-              catDisplayName: catDisplayName || 'Cat',
-              catEmoji,
-              threadShortId: threadMeta.threadShortId,
-              threadTitle: threadMeta.threadTitle,
-              featId: threadMeta.featId,
-              body: content,
-              deepLinkUrl: threadMeta.deepLinkUrl,
-              timestamp: new Date(),
-            });
+          // Phase E: Always prefer sendFormattedReply (interactive card) when adapter supports it.
+          // This ensures each cat's reply is a distinct card with identity header,
+          // preventing Feishu from merging multiple cats' plain-text into one bubble.
+          if (adapter.sendFormattedReply && !hasRichBlocks) {
+            const envelope = threadMeta
+              ? this.formatter.format({
+                  catDisplayName: catDisplayName || 'Cat',
+                  catEmoji,
+                  threadShortId: threadMeta.threadShortId,
+                  threadTitle: threadMeta.threadTitle,
+                  featId: threadMeta.featId,
+                  body: content,
+                  deepLinkUrl: threadMeta.deepLinkUrl,
+                  timestamp: new Date(),
+                })
+              : this.formatter.formatMinimal({
+                  catDisplayName: catDisplayName || 'Cat',
+                  catEmoji,
+                  body: content,
+                });
             await adapter.sendFormattedReply(binding.externalChatId, envelope);
           } else if (hasRichBlocks && adapter.sendRichMessage) {
             await adapter.sendRichMessage(

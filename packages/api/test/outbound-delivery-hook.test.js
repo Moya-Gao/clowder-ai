@@ -268,7 +268,7 @@ describe('OutboundDeliveryHook', () => {
 			assert.ok(feishuMock.sent[0].content.includes('Hello!'));
 		});
 
-		it('falls back to sendReply when no threadMeta provided (legacy path)', async () => {
+		it('uses sendFormattedReply even without threadMeta (Phase E: card identity)', async () => {
 			const formattedCalls = [];
 			const richAdapter = {
 				connectorId: 'feishu',
@@ -286,11 +286,14 @@ describe('OutboundDeliveryHook', () => {
 			});
 			bindingStore.bind('feishu', 'oc_chat_1', 'thread-1', 'user-1');
 
-			// No threadMeta → legacy plain text path
+			// No threadMeta → should STILL use card for visual identity separation
 			await hook.deliver('thread-1', 'Old style message', 'opus');
 
-			assert.equal(formattedCalls.length, 0, 'sendFormattedReply should NOT be called without threadMeta');
-			assert.equal(feishuMock.sent.length, 1);
+			assert.equal(formattedCalls.length, 1, 'sendFormattedReply SHOULD be called even without threadMeta');
+			assert.equal(feishuMock.sent.length, 0, 'sendReply should NOT be called');
+			const env = formattedCalls[0].envelope;
+			assert.ok(env.header.includes('布偶猫'), 'header should contain cat display name');
+			assert.equal(env.body, 'Old style message');
 		});
 	});
 

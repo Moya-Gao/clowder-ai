@@ -57,6 +57,19 @@ export class ConnectorMessageFormatter {
     return { header, subtitle, body: input.body, footer };
   }
 
+  /**
+   * Format a minimal envelope with cat identity only (no thread metadata).
+   * Phase E: ensures every message is a distinct card even without threadMeta.
+   */
+  formatMinimal(input: { catDisplayName: string; catEmoji: string; body: string }): MessageEnvelope {
+    return {
+      header: `${input.catEmoji} ${input.catDisplayName}`,
+      subtitle: '',
+      body: input.body,
+      footer: new Date().toISOString().slice(11, 16),
+    };
+  }
+
   /** Format a system/command response (no cat identity, lightweight envelope). */
   formatCommand(body: string): MessageEnvelope {
     return {

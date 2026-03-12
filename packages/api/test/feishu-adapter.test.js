@@ -393,6 +393,27 @@ describe('FeishuAdapter', () => {
     });
   });
 
+    it('skips subtitle and footer elements when empty (Phase E minimal card)', async () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendFormattedReply('oc_chat', {
+        header: '🐱 布偶猫',
+        subtitle: '',
+        body: 'Hello from cat!',
+        footer: '',
+      });
+
+      const card = JSON.parse(sendCalls[0].content);
+      assert.equal(card.header.title.content, '🐱 布偶猫');
+      // Should only have the body markdown element, no subtitle/hr/footer
+      assert.equal(card.elements.length, 1, 'minimal card should have only body element');
+      assert.equal(card.elements[0].content, 'Hello from cat!');
+    });
+
   // P1-2: textContent must not be discarded when both text and blocks present
   describe('sendRichMessage() text preservation', () => {
     it('includes textContent in card elements alongside blocks', async () => {

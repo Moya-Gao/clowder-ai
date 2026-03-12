@@ -314,17 +314,21 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
   }
 
   async sendFormattedReply(externalChatId: string, envelope: MessageEnvelope): Promise<void> {
+    const elements: Array<{ tag: string; content?: string }> = [];
+    if (envelope.subtitle) {
+      elements.push({ tag: 'markdown', content: `**${envelope.subtitle}**` });
+    }
+    elements.push({ tag: 'markdown', content: envelope.body });
+    if (envelope.footer) {
+      elements.push({ tag: 'hr' });
+      elements.push({ tag: 'markdown', content: envelope.footer });
+    }
     const card = {
       header: {
         title: { tag: 'plain_text' as const, content: envelope.header },
         template: 'blue' as const,
       },
-      elements: [
-        { tag: 'markdown' as const, content: `**${envelope.subtitle}**` },
-        { tag: 'markdown' as const, content: envelope.body },
-        { tag: 'hr' as const },
-        { tag: 'markdown' as const, content: envelope.footer },
-      ],
+      elements,
     };
     await this.sendLarkMessage(externalChatId, 'interactive', JSON.stringify(card));
   }
