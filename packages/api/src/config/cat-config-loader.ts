@@ -55,7 +55,7 @@ const catVariantSchema = z.object({
   displayName: z.string().min(1).optional(), // F32-b: variant-level displayName
   variantLabel: z.string().min(1).optional(), // F32-b P4: disambiguation label
   mentionPatterns: z.array(mentionPatternSchema).optional(), // F32-b: variant-level mentions
-  provider: z.enum(['anthropic', 'openai', 'google', 'dare', 'antigravity']),
+  provider: z.enum(['anthropic', 'openai', 'google', 'dare', 'antigravity', 'opencode']),
   defaultModel: z.string().min(1),
   mcpSupport: z.boolean(),
   cli: cliConfigSchema,

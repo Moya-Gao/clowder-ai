@@ -75,6 +75,13 @@
       "lead": true,
       "available": false,
       "evaluation": "混血多模型agent，图片生成 + 浏览器自动化 + 视觉证据链 (F061)"
+    },
+    "opencode": {
+      "family": "golden-chinchilla",
+      "roles": ["coding", "multi-agent"],
+      "lead": true,
+      "available": false,
+      "evaluation": "开源多模型编码猫，自带 Oh My OpenCode 多专家编排 + LSP (F105)"
     }
   },
   "reviewPolicy": {
@@ -419,6 +426,44 @@
           },
           "personality": "同一只豹猫，换了一副布偶猫的灵魂——更沉稳但依然大胆",
           "strengths": ["image-generation", "browser-automation", "deep-reasoning", "coding"],
+          "contextBudget": {
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 10000
+          }
+        }
+      ]
+    },
+    {
+      "id": "golden-chinchilla",
+      "catId": "opencode",
+      "name": "金渐层",
+      "displayName": "金渐层",
+      "nickname": null,
+      "avatar": "/avatars/opencode.png",
+      "color": { "primary": "#C8A951", "secondary": "#F5EDDA" },
+      "mentionPatterns": ["@opencode", "@金渐层", "@golden", "@golden-chinchilla"],
+      "roleDescription": "开源多模型编码 agent，自带 Oh My OpenCode 多专家编排 + LSP + 主题生态",
+      "teamStrengths": "多专家内部编排、LSP 集成、开源生态、provider-agnostic",
+      "caution": "OMOC Sisyphus 只编排自己的子 agent，不编排其他猫；opencode 原生 MCP 和 Cat Cafe MCP 需避免冲突",
+      "defaultVariantId": "opencode-default",
+      "features": {
+        "sessionChain": false
+      },
+      "variants": [
+        {
+          "id": "opencode-default",
+          "provider": "opencode",
+          "defaultModel": "claude-sonnet-4-6",
+          "mcpSupport": true,
+          "cli": {
+            "command": "opencode",
+            "outputFormat": "ndjson",
+            "defaultArgs": ["run", "--format", "json"]
+          },
+          "personality": "沉稳可靠，像一只圆润的英短金渐层——什么 provider 都能接，什么任务都能扛",
+          "strengths": ["coding", "multi-agent-orchestration", "lsp", "open-source"],
           "contextBudget": {
             "maxPromptTokens": 180000,
             "maxContextTokens": 160000,

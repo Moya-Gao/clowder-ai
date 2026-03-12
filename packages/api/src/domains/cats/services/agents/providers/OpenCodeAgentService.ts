@@ -1,0 +1,182 @@
+/**
+ * opencode Agent Service
+ * 通过 opencode CLI 子进程调用 opencode agent（headless JSON 模式）
+ *
+ * CLI 调用方式:
+ *   opencode run "prompt" --format json -m anthropic/MODEL
+ *   (API key passed via child process env, not CLI args)
+ *
+ * NDJSON 事件格式 (opencode run --format json):
+ *   step_start  → session_init
+ *   text        → text (part.text)
+ *   tool_use    → tool_use (part.tool, part.state.input)
+ *   step_finish → null (cost/tokens metadata)
+ *   error       → error
+ */
+
+import { type CatId, createCatId } from '@cat-cafe/shared';
+import { getCatModel } from '../../../../../config/cat-models.js';
+import { formatCliExitError } from '../../../../../utils/cli-format.js';
+import { isCliError, isCliTimeout, spawnCli } from '../../../../../utils/cli-spawn.js';
+import type { SpawnFn } from '../../../../../utils/cli-types.js';
+import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
+import { transformOpenCodeEvent } from './opencode-event-transform.js';
+
+interface OpenCodeAgentServiceOptions {
+  catId?: CatId;
+  /** Model name (e.g. 'claude-sonnet-4-6') — will be prefixed with 'anthropic/' for CLI */
+  model?: string;
+  /** API key for Anthropic provider */
+  apiKey?: string;
+  /** Base URL for Anthropic provider (e.g. proxy endpoint) */
+  baseUrl?: string;
+  /** Inject a custom spawn function (for testing) */
+  spawnFn?: SpawnFn;
+}
+
+const OPENCODE_API_KEY_ENV = 'OPENCODE_API_KEY';
+const ANTHROPIC_API_KEY_ENV = 'ANTHROPIC_API_KEY';
+const ANTHROPIC_BASE_URL_ENV = 'ANTHROPIC_BASE_URL';
+
+export class OpenCodeAgentService implements AgentService {
+  readonly catId: CatId;
+  private readonly model: string;
+  private readonly apiKey: string | undefined;
+  private readonly baseUrl: string | undefined;
+  private readonly spawnFn: SpawnFn | undefined;
+
+  constructor(options?: OpenCodeAgentServiceOptions) {
+    this.catId = options?.catId ?? createCatId('opencode');
+    this.model = options?.model ?? getCatModel(this.catId as string);
+    this.apiKey = options?.apiKey
+      ?? process.env[OPENCODE_API_KEY_ENV]
+      ?? process.env[ANTHROPIC_API_KEY_ENV];
+    this.baseUrl = options?.baseUrl
+      ?? process.env['OPENCODE_BASE_URL']
+      ?? process.env[ANTHROPIC_BASE_URL_ENV];
+    this.spawnFn = options?.spawnFn;
+  }
+
+  async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
+    // P1-2: runtime model override takes precedence over constructor model
+    const effectiveModel = options?.callbackEnv?.['CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE'] ?? this.model;
+    const args = this.buildArgs(prompt, options?.sessionId, effectiveModel);
+    const cwd = options?.workingDirectory;
+    const childEnv = this.buildEnv(options?.callbackEnv);
+    const metadata: MessageMetadata = { provider: 'opencode', model: effectiveModel };
+    let sessionInitEmitted = false;
+
+    try {
+      const cliOpts = {
+        command: 'opencode' as const,
+        args,
+        ...(cwd ? { cwd } : {}),
+        env: childEnv,
+        ...(options?.signal ? { signal: options.signal } : {}),
+      };
+      const events = options?.spawnCliOverride
+        ? options.spawnCliOverride(cliOpts)
+        : spawnCli(cliOpts, this.spawnFn ? { spawnFn: this.spawnFn } : undefined);
+
+      for await (const event of events) {
+        if (isCliTimeout(event)) {
+          yield {
+            type: 'error',
+            catId: this.catId,
+            error: `opencode CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            metadata,
+            timestamp: Date.now(),
+          };
+          continue;
+        }
+        if (isCliError(event)) {
+          yield {
+            type: 'error',
+            catId: this.catId,
+            error: formatCliExitError('opencode CLI', event),
+            metadata,
+            timestamp: Date.now(),
+          };
+          continue;
+        }
+
+        const result = transformOpenCodeEvent(event, this.catId);
+        if (result !== null) {
+          // P2-1: Only emit the first session_init; subsequent step_start events
+          // in multi-step runs are silently dropped to avoid duplicate session metrics.
+          if (result.type === 'session_init') {
+            if (sessionInitEmitted) continue;
+            sessionInitEmitted = true;
+            if (result.sessionId) metadata.sessionId = result.sessionId;
+          }
+          yield { ...result, metadata };
+        }
+      }
+
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+    } catch (err) {
+      yield {
+        type: 'error',
+        catId: this.catId,
+        error: err instanceof Error ? err.message : String(err),
+        metadata,
+        timestamp: Date.now(),
+      };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+    }
+  }
+
+  private buildArgs(prompt: string, sessionId?: string, model?: string): string[] {
+    const args = ['run'];
+
+    // Session resume
+    if (sessionId) {
+      args.push('--session', sessionId);
+    }
+
+    // Model: opencode expects provider/model format
+    const effectiveModel = model ?? this.model;
+    const modelStr = effectiveModel.includes('/')
+      ? effectiveModel
+      : `anthropic/${effectiveModel}`;
+    args.push('-m', modelStr);
+
+    // JSON event stream output
+    args.push('--format', 'json');
+
+    // Prompt as positional arg
+    args.push(prompt);
+
+    return args;
+  }
+
+  private buildEnv(callbackEnv?: Record<string, string>): Record<string, string | null> {
+    const env: Record<string, string | null> = { ...callbackEnv };
+
+    // API key: callbackEnv > constructor > process.env
+    const apiKey =
+      callbackEnv?.['CAT_CAFE_ANTHROPIC_API_KEY']
+      ?? callbackEnv?.[OPENCODE_API_KEY_ENV]
+      ?? this.apiKey;
+    if (apiKey) {
+      env[ANTHROPIC_API_KEY_ENV] = apiKey;
+    }
+
+    // Base URL: callbackEnv > constructor > process.env
+    // P1-1: opencode's Anthropic SDK calls {baseURL}/messages (not /v1/messages),
+    // so proxy URLs need /v1 appended to route correctly through nuoda.vip.
+    const rawBaseUrl =
+      callbackEnv?.['CAT_CAFE_ANTHROPIC_BASE_URL']
+      ?? this.baseUrl;
+    if (rawBaseUrl) {
+      const needsV1 = !rawBaseUrl.endsWith('/v1') && !rawBaseUrl.endsWith('/v1/');
+      env[ANTHROPIC_BASE_URL_ENV] = needsV1 ? `${rawBaseUrl}/v1` : rawBaseUrl;
+    }
+
+    // Clean up intermediate env vars (don't leak to child)
+    env[OPENCODE_API_KEY_ENV] = null;
+    env['OPENCODE_BASE_URL'] = null;
+
+    return env;
+  }
+}

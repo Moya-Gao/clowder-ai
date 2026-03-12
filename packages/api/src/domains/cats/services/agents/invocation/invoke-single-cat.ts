@@ -391,7 +391,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // api_key profiles are automatically routed through the local anthropic-proxy
     // gateway (started by start-dev.sh) for unified logging/fixing.
     const provider = catRegistry.tryGet(catId as string)?.config.provider;
-    if (provider === 'anthropic') {
+    if (provider === 'anthropic' || provider === 'opencode') {
       try {
         const projectRoot = workingDirectory ?? findMonorepoRoot(process.cwd());
         const profile = await resolveAnthropicRuntimeProfile(projectRoot);

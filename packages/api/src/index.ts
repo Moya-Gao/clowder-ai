@@ -40,6 +40,7 @@ import {
   createInvocationRecordStore,
   createSessionChainStore,
   DareAgentService,
+  OpenCodeAgentService,
   DeliveryCursorStore,
   GeminiAgentService,
   getEventAuditLog,
@@ -352,6 +353,9 @@ async function main(): Promise<void> {
         break;
       case 'antigravity':
         service = new AntigravityAgentService({ catId });
+        break;
+      case 'opencode':
+        service = new OpenCodeAgentService({ catId });
         break;
       default:
         app.log.warn(`[api] Unknown provider "${provider}" for cat "${id as string}". It will not be routable.`);
