@@ -238,7 +238,18 @@ async function flushResult(
 
   const content = lines.join('\n');
 
-  // Post aggregated result to thread
+  // F098-C2: Include initiator + targets metadata for frontend direction rendering
+  const connectorSource = {
+    connector: 'multi-mention-result' as const,
+    label: 'Multi-Mention 结果',
+    icon: 'users',
+    meta: {
+      initiator: result.request.callbackTo,
+      targets: [...result.request.targets],
+    },
+  };
+
+  // Post aggregated result to thread (with source for persistence)
   const stored = await messageStore.append({
     userId,
     catId: result.request.callbackTo,
@@ -246,6 +257,7 @@ async function flushResult(
     mentions: [],
     timestamp: Date.now(),
     threadId,
+    source: connectorSource,
   });
 
   socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
@@ -254,11 +266,7 @@ async function flushResult(
       id: stored.id,
       type: 'connector',
       content,
-      source: {
-        connector: 'multi-mention-result',
-        label: 'Multi-Mention 结果',
-        icon: 'users',
-      },
+      source: connectorSource,
       timestamp: stored.timestamp,
     },
   });
