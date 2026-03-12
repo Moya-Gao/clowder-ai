@@ -170,8 +170,8 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 - [x] AC-C2: multi_mention 结果消息包含发起者 + targets 元数据 ✅
 
 ### Phase D（消息流位置正确性）
-- [ ] AC-D1: 铲屎官在猫猫调用期间发的消息，回顾时能区分"发送时刻"和"被收到时刻"
-- [ ] AC-D2: 消息在 thread 时间线中的位置能反映实际被处理顺序（不误导读者）
+- [x] AC-D1: 铲屎官在猫猫调用期间发的消息，回顾时能区分"发送时刻"和"被收到时刻" ✅
+- [x] AC-D2: 消息在 thread 时间线中的位置能反映实际被处理顺序（不误导读者） ✅
 
 ## 需求点 Checklist
 
@@ -233,6 +233,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | 2026-03-12 | Phase B merged (PR #383). AC-B1/B2 ✅. Evidence dark slate + Connector themes |
 | 2026-03-12 | Phase B.5 merged (PR #385). AC-B5-1~4 ✅. Connector theme registry (extensibility) |
 | 2026-03-12 | Phase C merged (PR #387). AC-C2 + AC-A2 ✅. multi_mention targets metadata + direction rendering |
+| 2026-03-12 | Phase D merged (PR #390). AC-D1/D2 ✅. deliveredAt dual timestamp (Method A) |
 
 ## Review Gate
 
