@@ -145,8 +145,8 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 - [x] AC-A7: A2A 内部讨论消息用中性灰底（不用品种色背景），品种色仅用于边框/badge ✅
 
 ### Phase B（Evidence Panel + 组件统一 + multi_mention 方向）
-- [ ] AC-B1: Evidence Panel 在深色/品种色气泡上文字可读
-- [ ] AC-B2: connector 消息（multi-mention-result、飞书、Telegram）视觉统一
+- [x] AC-B1: Evidence Panel 在深色/品种色气泡上文字可读 ✅
+- [x] AC-B2: connector 消息（multi-mention-result、飞书、Telegram）视觉统一 ✅
 - [ ] AC-A2（从 Phase A 降级）: multi_mention 结果消息显示 `→ @猫A + @猫B` 方向（依赖 AC-C2 后端元数据）
 
 ### Phase C（后端元数据，可选）
@@ -212,6 +212,7 @@ Callback 消息从普通气泡升级为 **浅色品种气泡**（区别于 CLI/T
 | 2026-03-11 | 立项，从 F097 收尾时发现问题。铲屎官 16:50 提出需求 |
 | 2026-03-11 | Design Gate 通过。设计稿：`designs/f098-callback-message-ux.pen` |
 | 2026-03-12 | Phase A merged (PR #379). AC-A1/A3/A4/A6/A7 ✅. AC-A2 降级 Phase B (KD-5) |
+| 2026-03-12 | Phase B merged (PR #383). AC-B1/B2 ✅. Evidence dark slate + Connector themes |
 
 ## Review Gate
 
