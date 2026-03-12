@@ -167,7 +167,7 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 - [ ] AC-A5: 用户从头到尾走完 feat lifecycle（立项→设计→开发→review→完成）
 - [ ] AC-A6: 过程中用户做了 ≥3 次 CVO 决策（方案选择、纠偏、冲突裁判）
 - [ ] AC-A7: 完成后用户能看到自己参与的成果（功能上线 / commit 记录）
-- [ ] AC-A8: 成就/进度接入 F075 猫猫排行榜系统（终态基座，不搞临时版）
+- [x] AC-A8: 成就/进度接入 F075 猫猫排行榜系统（终态基座，不搞临时版）（PR #391）
 - [ ] AC-A9: 训练营可作为 clowder-ai 的 Quick Start 引导
 - [x] AC-A10: 进阶功能引导（TTS/ASR/Pencil）——检测可用性、引导安装、跑不起来优雅跳过（env-check API, PR #375）
 - [ ] AC-A11: TTS 推荐轻量版 Kokoro-82M 给资源有限的用户（我们自己用 Qwen3-TTS 1.7B）
@@ -182,6 +182,7 @@ clowder-ai 开源后，用户拿到框架但不知道怎么用。文档教程是
 | OQ-3 | 成就系统持久化 | **已决：接入 F075 排行榜，跨 session 持久化** |
 | OQ-4 | 如何平衡"引导"和"真实体验"——太引导像假的，太自由新手迷路 | **已决：渐进式引导——Phase 0-3 强引导，Phase 4+ 切到真实协作（KD-11）** |
 | OQ-5 | 环境检测覆盖哪些 MCP / 依赖？ | **已决：MVP 最小集 = Node.js + pnpm + Git + Claude CLI + MCP 连接状态（KD-12）** |
+| OQ-6 | `bootcamp-first-rejection` 成就如何触发？ | **Deferred** — "否决"是对话级事件（用户否定猫猫建议），非 phase 迁移，需要未来对话事件管道支持 |
 
 ## Design Gate（2026-03-11，铲屎官确认）
 
@@ -243,10 +244,16 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 - 测试：API 3814 pass、MCP 54/54 pass
 - Review：缅因猫 1 轮放行（0 P1/P2）+ 云端 Codex 放行
 
-### Phase D: 成就接入（依赖 F075）
+### Phase D: 成就接入 ✅ (PR #391)
 
-- [ ] 接入 F075 排行榜成就系统
-- [ ] "第一次拍板"、"第一次否决"等 bootcamp 成就
+**交付物**：
+- `achievement-defs.ts`: 4 个 bootcamp 成就（入营新兵/装备齐全/第一次拍板/训练营毕业）
+- `BOOTCAMP_PHASE_ACHIEVEMENTS` 映射表：phase→achievement（4 个关键 phase 触发解锁）
+- `callback-bootcamp-routes.ts`: forward-only phase 状态机（PHASE_ORDER + PHASE_INDEX），防刷成就
+- 成就通过 `app.inject()` 走 F075 events pipeline（统一契约），含响应校验
+- 测试：callback-bootcamp-state 17/17、bootcamp-flow 1/1、leaderboard 38/38
+- Review：缅因猫 3 轮 review（P1 phase-skip farming + P1 dead def + P2 event contract + P2 response validation）+ 云端 Codex LGTM
+- **Deferred**: `bootcamp-first-rejection` 成就需要对话级事件系统（非 phase 迁移），待未来对话事件管道就绪后实现
 
 ## Links
 
@@ -318,3 +325,5 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 | 2026-03-11 | 铲屎官补充：进阶功能引导 + TTS 推荐策略 + 训练营线程持续帮助入口（KD-14~16） |
 | 2026-03-11 | Phase A 基础设施完成（PR #375 merged）：thread bootcampState、env-check API、前端入口、bootcamp-guide skill、SystemPromptBuilder 注入 |
 | 2026-03-12 | Phase B callback routes + MCP tools 完成（PR #381 merged）：bootcamp state 回调、env-check callback、严格线程绑定、缅因猫 3 轮 review |
+| 2026-03-12 | Phase C 运行时编排完成（PR #386 merged）：threadId 注入、farewell auto-pin、缅因猫 1 轮放行 |
+| 2026-03-12 | Phase D 成就接入完成（PR #391 merged）：4 bootcamp 成就 + forward-only 状态机 + F075 events pipeline 集成、缅因猫 3 轮 review + 云端 LGTM |
