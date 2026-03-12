@@ -139,6 +139,7 @@ created: 2026-03-11
 - **Evolved from**: F011（模式系统 v1 — brainstorm/debate/dev-loop）
 - **Related**: F086（Cat Orchestration — multi_mention 可复用于游戏内猫猫协作）
 - **Related**: F066（Voice Pipeline — 语音模式复用 TTS 能力）
+- **Related**: F103（Per-Cat Voice Identity — 多猫语音模式需要独立声线）
 
 ## Risk
 
@@ -180,7 +181,10 @@ created: 2026-03-11
 
 | 日期 | 事件 |
 |------|------|
-| 2026-03-11 | 四猫讨论收敛 + 立项 |
+| 2026-03-11 | 四猫讨论收敛 + 立项 + 铲屎官决策落实 |
+
+### Pre-Design Gate TODO
+- [ ] **网易狼人杀规则调研**（deep-research）：详细梳理网易狼人杀的角色、技能、回合流程、胜负判定规则，作为 WerewolfRuleset 的实现基准
 
 ## Review Gate
 

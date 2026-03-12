@@ -46,3 +46,4 @@ created: 2026-02-26
 | F100 | Self-Evolution — 猫猫自我进化机制（Scope Guard + Process Evolution） | done | 布偶猫 | [F100](features/F100-self-evolution.md) |
 | F101 | Mode v2 — 游戏系统引擎 + 狼人杀 | spec | 布偶猫 | [F101](features/F101-mode-v2-game-engine.md) |
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | spec | 布偶猫 | [F102](features/F102-memory-adapter-refactor.md) |
+| F103 | 猫猫独立声线 — Per-Cat Voice Identity | spec | TBD | [F103](features/F103-per-cat-voice-identity.md) |
