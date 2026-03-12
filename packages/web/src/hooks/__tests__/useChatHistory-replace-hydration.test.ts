@@ -42,8 +42,8 @@ function buildThreadBState(cachedAssistantTs: number) {
     targetCats: ['opus'],
     catStatuses: { opus: 'streaming' as const },
     catInvocations: {},
-    currentMode: null,
-    pendingModeSwitchProposal: null,
+    currentGame: null,
+    
     unreadCount: 0,
     hasUserMention: false,
     lastActivity: cachedAssistantTs,
@@ -93,8 +93,8 @@ describe('useChatHistory replace hydration', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       currentThreadId: 'thread-a',
       viewMode: 'single',

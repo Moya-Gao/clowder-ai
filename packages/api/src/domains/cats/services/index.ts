@@ -64,12 +64,27 @@ export { RedisPendingRequestStore } from './stores/redis/RedisPendingRequestStor
 export { createPendingRequestStore } from './stores/factories/PendingRequestStoreFactory.js';
 export { RedisAuthorizationAuditStore } from './stores/redis/RedisAuthorizationAuditStore.js';
 export { createAuthorizationAuditStore } from './stores/factories/AuthorizationAuditStoreFactory.js';
-export { ModeOrchestrator } from './orchestration/ModeOrchestrator.js';
-export { ModeStore } from './stores/ports/ModeStore.js';
-export type { IModeStore } from './stores/ports/ModeStore.js';
+
 export { SessionChainStore } from './stores/ports/SessionChainStore.js';
 export type { ISessionChainStore, CreateSessionInput, SessionRecordPatch } from './stores/ports/SessionChainStore.js';
 export { RedisSessionChainStore } from './stores/redis/RedisSessionChainStore.js';
 export { createSessionChainStore } from './stores/factories/SessionChainStoreFactory.js';
 export type { AnySessionChainStore } from './stores/factories/SessionChainStoreFactory.js';
+// Game engine (F101)
+export { GameEngine } from './game/GameEngine.js';
+export { GameViewBuilder } from './game/GameViewBuilder.js';
+export { GameOrchestrator } from './game/GameOrchestrator.js';
+export type { GameOrchestratorDeps, StartGameInput } from './game/GameOrchestrator.js';
+export type { IGameStore } from './stores/ports/GameStore.js';
+export { RedisGameStore } from './stores/redis/RedisGameStore.js';
+export { GameStatsRecorder } from './game/GameStatsRecorder.js';
+export type { GameStats, PlayerStats } from './game/GameStatsRecorder.js';
+// Werewolf (F101 Phase B)
+export { WerewolfEngine } from './game/werewolf/WerewolfEngine.js';
+export { WerewolfLobby } from './game/werewolf/WerewolfLobby.js';
+export { WerewolfAIPlayer } from './game/werewolf/WerewolfAIPlayer.js';
+export type { AIProvider } from './game/werewolf/WerewolfAIPlayer.js';
+export { createWerewolfDefinition, WEREWOLF_PRESETS } from './game/werewolf/WerewolfDefinition.js';
+export { buildWerewolfPrompt } from './game/werewolf/werewolf-prompts.js';
+
 export * from './types.js';

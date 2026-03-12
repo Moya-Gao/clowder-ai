@@ -353,18 +353,13 @@ export interface QueueEntry {
 /** F39: Message delivery mode — undefined = smart default, 'queue' = enqueue, 'force' = cancel + execute */
 export type DeliveryMode = 'queue' | 'force' | undefined;
 
-export type ModeState = {
-  name: string;
-  config: Record<string, unknown>;
-  startedAt: string;
-  state?: Record<string, unknown>;
-};
-
-export type ModeSwitchProposal = {
-  proposedMode: string;
-  command: string;
-  proposedBy: string;
-  threadId: string;
+/** F101: Current game state in a thread */
+export type GameState = {
+  gameId: string;
+  gameType: string;
+  status: 'lobby' | 'playing' | 'finished';
+  currentPhase: string;
+  round: number;
 };
 
 /** Per-thread state — everything that varies by thread */
@@ -379,8 +374,8 @@ export interface ThreadState {
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;
   catInvocations: Record<string, CatInvocationInfo>;
-  currentMode: ModeState | null;
-  pendingModeSwitchProposal: ModeSwitchProposal | null;
+  /** F101: Active game in this thread */
+  currentGame: GameState | null;
   unreadCount: number;
   /** F057-C2: Thread has an unread @user mention from a cat */
   hasUserMention: boolean;
@@ -420,8 +415,7 @@ export const DEFAULT_THREAD_STATE: ThreadState = {
   targetCats: [],
   catStatuses: {},
   catInvocations: {},
-  currentMode: null,
-  pendingModeSwitchProposal: null,
+  currentGame: null,
   unreadCount: 0,
   hasUserMention: false,
   lastActivity: 0,

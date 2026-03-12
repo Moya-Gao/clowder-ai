@@ -25,7 +25,7 @@ export { auditRoutes } from './audit.js';
 export { capabilitiesRoutes } from './capabilities.js';
 export { callbackAuthRoutes } from './callback-auth.js';
 export { authorizationRoutes } from './authorization.js';
-export { modesRoutes } from './modes.js';
+
 export { sessionChainRoutes } from './session-chain.js';
 export { sessionTranscriptRoutes } from './session-transcript.js';
 export { sessionHooksRoutes } from './session-hooks.js';
@@ -55,3 +55,4 @@ export { connectorMediaRoutes } from './connector-media.js';
 export { leaderboardRoutes } from './leaderboard.js';
 export { leaderboardEventsRoutes } from './leaderboard-events.js';
 export { bootcampRoutes } from './bootcamp.js';
+export { gameRoutes } from './games.js';

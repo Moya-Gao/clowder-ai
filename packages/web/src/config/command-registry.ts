@@ -8,7 +8,7 @@
  * That's it — the "命令速查" tab picks it up automatically.
  */
 
-export type CommandCategory = 'general' | 'memory' | 'knowledge' | 'mode' | 'task' | 'vote' | 'connector';
+export type CommandCategory = 'general' | 'memory' | 'knowledge' | 'game' | 'task' | 'vote' | 'connector';
 
 export interface CommandDefinition {
   /** The command string, e.g. '/help' */
@@ -25,7 +25,7 @@ export const COMMAND_CATEGORIES: Record<CommandCategory, string> = {
   general: '通用',
   memory: '记忆',
   knowledge: '知识库',
-  mode: '模式',
+  game: '游戏',
   task: '任务',
   vote: '投票',
   connector: '跨平台',
@@ -51,13 +51,6 @@ export const COMMANDS: CommandDefinition[] = [
   { name: '/signals sources', usage: '/signals sources [sourceId on|off]', description: '查看/切换信源启用状态', category: 'knowledge' },
   { name: '/signals stats', usage: '/signals stats', description: '查看 Signal 统计信息', category: 'knowledge' },
 
-  // --- mode ---
-  { name: '/mode', usage: '/mode', description: '查看当前模式状态', category: 'mode' },
-  { name: '/mode brainstorm', usage: '/mode brainstorm <议题> @猫A @猫B', description: '启动头脑风暴模式', category: 'mode' },
-  { name: '/mode debate', usage: '/mode debate <议题> @猫A @猫B [轮数]', description: '启动辩论模式', category: 'mode' },
-  { name: '/mode dev-loop', usage: '/mode dev-loop @开发猫 @review猫 <需求>', description: '启动开发自闭环模式', category: 'mode' },
-  { name: '/mode end', usage: '/mode end [outcome]', description: '结束当前模式', category: 'mode' },
-
   // --- task ---
   { name: '/tasks extract', usage: '/tasks extract [N]', description: '从对话中提取任务', category: 'task' },
 
@@ -66,6 +59,11 @@ export const COMMANDS: CommandDefinition[] = [
   { name: '/vote status', usage: '/vote status', description: '查看当前投票状态', category: 'vote' },
   { name: '/vote cast', usage: '/vote cast <选项>', description: '投票给指定选项', category: 'vote' },
   { name: '/vote end', usage: '/vote end', description: '结束当前投票并显示结果', category: 'vote' },
+
+  // --- game (F101) ---
+  { name: '/game', usage: '/game werewolf [player|god-view] [voice]', description: '开始狼人杀游戏', category: 'game' },
+  { name: '/game status', usage: '/game status', description: '查看当前游戏状态', category: 'game' },
+  { name: '/game end', usage: '/game end', description: '结束当前游戏', category: 'game' },
 
   // --- connector (F088, Telegram/飞书等跨平台命令) ---
   { name: '/where', usage: '/where', description: '查看当前绑定的 thread', category: 'connector' },

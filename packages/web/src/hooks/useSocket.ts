@@ -81,7 +81,8 @@ export interface SocketCallbacks {
     createdAt: number;
   }) => void;
   onAuthorizationResponse?: (data: { requestId: string; status: string; scope?: string; reason?: string }) => void;
-  onModeChanged?: (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => void;
+  /** F101: Game state update */
+  onGameStateUpdate?: (data: { gameId: string; view: unknown; timestamp: number }) => void;
   /** #80 fix-C: Clear the done-timeout guard (called when background thread completes) */
   clearDoneTimeout?: (threadId?: string) => void;
   /** F39: Queue updated */
@@ -331,12 +332,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacksRef.current.onAuthorizationResponse?.(
         data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0],
       );
-    });
-
-    socket.on('mode_changed', (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => {
-      const currentThread = threadIdRef.current;
-      if (data.threadId && currentThread && data.threadId !== currentThread) return;
-      callbacksRef.current.onModeChanged?.(data);
     });
 
     const normalizeQueueForDebug = (queue: unknown): unknown[] => (Array.isArray(queue) ? queue : []);

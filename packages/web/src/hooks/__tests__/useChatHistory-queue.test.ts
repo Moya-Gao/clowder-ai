@@ -49,8 +49,8 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       currentThreadId: 'thread-q',
       viewMode: 'single',

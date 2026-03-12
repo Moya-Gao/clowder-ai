@@ -14,7 +14,7 @@ const mockSetCatStatus = vi.fn();
 const mockClearCatStatuses = vi.fn();
 const mockSetCatInvocation = vi.fn();
 const mockSetMessageUsage = vi.fn();
-const mockSetPendingModeSwitchProposal = vi.fn();
+
 const mockAddMessageToThread = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
 const mockResetThreadInvocationState = vi.fn();
@@ -41,7 +41,7 @@ const storeState = {
   clearCatStatuses: mockClearCatStatuses,
   setCatInvocation: mockSetCatInvocation,
   setMessageUsage: mockSetMessageUsage,
-  setPendingModeSwitchProposal: mockSetPendingModeSwitchProposal,
+  
   addMessageToThread: mockAddMessageToThread,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
   resetThreadInvocationState: mockResetThreadInvocationState,
@@ -95,7 +95,7 @@ describe('useAgentMessages loading lifecycle', () => {
     mockClearCatStatuses.mockClear();
     mockSetCatInvocation.mockClear();
     mockSetMessageUsage.mockClear();
-    mockSetPendingModeSwitchProposal.mockClear();
+
     mockAddMessageToThread.mockClear();
     mockClearThreadActiveInvocation.mockClear();
     mockResetThreadInvocationState.mockClear();

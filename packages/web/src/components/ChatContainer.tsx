@@ -26,8 +26,8 @@ import { A2ACollapsible } from './A2ACollapsible';
 import { MessageNavigator } from './MessageNavigator';
 import { AuthorizationCard } from './AuthorizationCard';
 import { useAuthorization } from '@/hooks/useAuthorization';
-import { ModeStatusBar } from './ModeStatusBar';
-import { ConfirmDialog } from './ConfirmDialog';
+
+
 import { SplitPaneView } from './SplitPaneView';
 import { CatCafeHub } from './CatCafeHub';
 import { MobileStatusSheet } from './MobileStatusSheet';
@@ -49,7 +49,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const {
     messages, hasActiveInvocation, intentMode, targetCats,
     catStatuses, catInvocations, setCurrentThread,
-    pendingModeSwitchProposal, setPendingModeSwitchProposal,
+    currentGame,
     viewMode, setViewMode, clearUnread, rightPanelMode,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
@@ -364,7 +364,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           defaultCatId={targetCats[0] || 'opus'}
         />
 
-        <ModeStatusBar />
+
         {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
         {intentMode === 'execute' && <ThinkingIndicator />}
 
@@ -485,23 +485,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           uploadError={uploadError}
         />
 
-        {/* Mode switch confirmation dialog (P2-4: 弹确认对话框) */}
-        <ConfirmDialog
-          open={!!pendingModeSwitchProposal}
-          title="模式切换确认"
-          message={pendingModeSwitchProposal
-            ? `${pendingModeSwitchProposal.proposedBy} 提议切换到 ${pendingModeSwitchProposal.proposedMode} 模式。确认切换？`
-            : ''}
-          confirmLabel="确认切换"
-          cancelLabel="忽略"
-          onConfirm={() => {
-            if (pendingModeSwitchProposal && pendingModeSwitchProposal.threadId === threadId) {
-              handleSend(pendingModeSwitchProposal.command);
-            }
-            setPendingModeSwitchProposal(null);
-          }}
-          onCancel={() => setPendingModeSwitchProposal(null)}
-        />
+        {/* F101: Game status bar placeholder (rendered when currentGame is active) */}
       </div>
 
       {statusPanelOpen && rightPanelMode === 'status' && (

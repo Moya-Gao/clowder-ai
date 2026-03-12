@@ -71,7 +71,6 @@ export function useAgentMessages() {
     setMessageMetadata,
     setMessageThinking,
     setMessageStreamInvocation,
-    setPendingModeSwitchProposal,
     currentThreadId,
   } = useChatStore();
 
@@ -413,18 +412,6 @@ export function useAgentMessages() {
               }
               consumed = true;
             }
-          } else if (parsed?.type === 'mode_switch_proposal') {
-            // Mode switch confirmation: trigger ConfirmDialog via store
-            const by = parsed.proposedBy ?? '猫猫';
-            const cmd = parsed.command ?? `/mode ${parsed.proposedMode}`;
-            setPendingModeSwitchProposal({
-              proposedMode: parsed.proposedMode,
-              command: cmd,
-              proposedBy: by,
-              threadId: currentThreadId,
-            });
-            sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。`;
-            sysVariant = 'info';
           } else if (parsed?.type === 'invocation_metrics') {
             // Store metrics silently — don't show as system message
             if (parsed.kind === 'session_started') {
@@ -637,7 +624,6 @@ export function useAgentMessages() {
       setCatStatus,
       clearCatStatuses,
       setCatInvocation,
-      setPendingModeSwitchProposal,
       setMessageThinking,
       setMessageStreamInvocation,
       currentThreadId,

@@ -46,7 +46,6 @@ import {
   MemoryGovernanceStore,
 } from './domains/cats/services/index.js';
 import { AutoSummarizer } from './domains/cats/services/orchestration/AutoSummarizer.js';
-import { ModeOrchestrator } from './domains/cats/services/orchestration/ModeOrchestrator.js';
 import { initPushNotificationService } from './domains/cats/services/push/PushNotificationService.js';
 import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
@@ -64,7 +63,6 @@ import { createSummaryStore } from './domains/cats/services/stores/factories/Sum
 import { createTaskStore } from './domains/cats/services/stores/factories/TaskStoreFactory.js';
 import { createThreadStore } from './domains/cats/services/stores/factories/ThreadStoreFactory.js';
 import { createWorkflowSopStore } from './domains/cats/services/stores/factories/WorkflowSopStoreFactory.js';
-import { ModeStore } from './domains/cats/services/stores/ports/ModeStore.js';
 import { MlxAudioTtsProvider } from './domains/cats/services/tts/MlxAudioTtsProvider.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
@@ -115,7 +113,7 @@ import {
   memoryRoutes,
   messageActionsRoutes,
   messagesRoutes,
-  modesRoutes,
+
   projectsRoutes,
   providerProfilesRoutes,
   pushRoutes,
@@ -146,6 +144,7 @@ import {
   workspaceGitRoutes,
   workspaceRoutes,
 } from './routes/index.js';
+import { gameRoutes } from './routes/games.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
@@ -398,8 +397,6 @@ async function main(): Promise<void> {
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
-  const modeStore = new ModeStore();
-  const modeOrchestrator = new ModeOrchestrator({ modeStore, socketManager });
 
   // F39: Message queue delivery
   const invocationQueue = new InvocationQueue();
@@ -427,8 +424,6 @@ async function main(): Promise<void> {
     autoSummarizer,
     summaryStore,
     draftStore,
-    modeStore,
-    modeOrchestrator,
     invocationQueue,
     queueProcessor,
   });
@@ -463,6 +458,14 @@ async function main(): Promise<void> {
   await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
   await app.register(bootcampRoutes, { threadStore });
   await app.register(brakeRoutes, { activityTracker });
+
+  // F101: Game engine store + routes
+  const { RedisGameStore } = await import('./domains/cats/services/stores/redis/RedisGameStore.js');
+  const f101GameStore = redis ? new RedisGameStore(redis) : undefined;
+  if (f101GameStore) {
+    await app.register(gameRoutes, { gameStore: f101GameStore, socketManager });
+    app.log.info('[api] F101 game routes registered');
+  }
 
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
   const prTrackingStore = new MemoryPrTrackingStore();
@@ -592,9 +595,6 @@ async function main(): Promise<void> {
     }
   }
   await app.register(sessionStrategyConfigRoutes);
-
-  // Mode system (F11)
-  await app.register(modesRoutes, { modeStore, threadStore, socketManager });
 
   // Voting system (F079)
   const { voteRoutes } = await import('./routes/votes.js');

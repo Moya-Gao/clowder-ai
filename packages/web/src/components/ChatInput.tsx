@@ -622,7 +622,7 @@ export function ChatInput({
                 ? '悄悄话...'
                 : hasActiveInvocation
                   ? '继续输入，消息会排队...'
-                  : '输入消息... (@ 召唤猫猫, /mode 切换模式)'
+                  : '输入消息... (@ 召唤猫猫)'
             }
             className={`w-full resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
               whisperMode

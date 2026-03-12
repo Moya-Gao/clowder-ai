@@ -17,7 +17,7 @@ const mockSetCatInvocation = vi.fn();
 const mockSetMessageUsage = vi.fn();
 const mockSetMessageMetadata = vi.fn();
 const mockSetMessageThinking = vi.fn();
-const mockSetPendingModeSwitchProposal = vi.fn();
+
 const mockAddMessageToThread = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
 const mockResetThreadInvocationState = vi.fn();
@@ -47,7 +47,7 @@ const storeState = {
   setMessageUsage: mockSetMessageUsage,
   setMessageMetadata: mockSetMessageMetadata,
   setMessageThinking: mockSetMessageThinking,
-  setPendingModeSwitchProposal: mockSetPendingModeSwitchProposal,
+  
   addMessageToThread: mockAddMessageToThread,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
   resetThreadInvocationState: mockResetThreadInvocationState,

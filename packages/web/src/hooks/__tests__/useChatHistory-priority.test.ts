@@ -45,8 +45,8 @@ describe('useChatHistory request priority', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       currentThreadId: 'thread-priority',
       viewMode: 'single',

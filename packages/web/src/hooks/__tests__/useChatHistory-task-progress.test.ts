@@ -45,8 +45,8 @@ describe('useChatHistory task-progress hydration', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       currentThreadId: 'thread-progress',
       viewMode: 'single',

@@ -20,8 +20,8 @@ describe('chatStore background thread invocation lifecycle (P2 regression)', () 
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       viewMode: 'single',
       splitPaneThreadIds: [],

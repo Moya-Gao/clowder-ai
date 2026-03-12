@@ -35,8 +35,6 @@ import type { QueueProcessor } from '../domains/cats/services/agents/invocation/
 import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
-import type { IModeStore } from '../domains/cats/services/stores/ports/ModeStore.js';
-import type { ModeOrchestrator } from '../domains/cats/services/orchestration/ModeOrchestrator.js';
 import { parseMultipart } from './parse-multipart.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -59,8 +57,6 @@ export interface MessagesRoutesOptions {
   invocationRecordStore?: IInvocationRecordStore;
   autoSummarizer?: AutoSummarizer;
   summaryStore?: ISummaryStore;
-  modeStore?: IModeStore;
-  modeOrchestrator?: ModeOrchestrator;
   /** #80: Streaming draft store for F5 recovery */
   draftStore?: IDraftStore;
   /** F39: Message queue for delivery-mode routing */
@@ -421,41 +417,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           // Aggregate streamed assistant text for push summary/decision classification.
           let assistantReplyContent = '';
 
-          // F11: active mode → ModeOrchestrator, otherwise → AgentRouter
-          // F35: Whisper messages bypass mode orchestrator — mode uses its own
-          // participants which would leak whisper content to non-recipients.
-          const activeMode = whisperVisibility !== 'whisper'
-            ? await opts.modeStore?.getMode(resolvedThreadId)
-            : undefined;
-          if (activeMode && opts.modeOrchestrator) {
-            for await (const msg of opts.modeOrchestrator.execute({
-              strategyDeps: router.getStrategyDeps(),
-              message: content,
-              userId,
-              threadId: resolvedThreadId,
-              userMessageId: storedUserMessage.id,
-              routeOptions: {
-                ...(contentBlocks ? { contentBlocks } : {}),
-                uploadDir,
-                ...(controller?.signal ? { signal: controller.signal } : {}),
-                ...(opts.invocationQueue ? {
-                  queueHasQueuedMessages: (tid: string) => opts.invocationQueue!.hasQueuedForThread(tid),
-                } : {}),
-                cursorBoundaries,
-                persistenceContext,
-              },
-            })) {
-              // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
-              if (controller?.signal.aborted) break;
-              if (msg.type === 'text' && msg.content) {
-                assistantReplyContent += msg.content;
-              }
-              if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
-                collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
-              }
-              opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
-            }
-          } else {
+          // F101: Mode system removed — always route through AgentRouter
+          // (Game system will be wired separately via GameOrchestrator)
+          {
             for await (const msg of router.routeExecution(
               userId, content, resolvedThreadId, storedUserMessage.id,
               targetCats, intent,

@@ -5,8 +5,7 @@ import type {
   CatStatusType,
   ChatMessage,
   ChatMessageMetadata,
-  ModeState,
-  ModeSwitchProposal,
+  GameState,
   QueueEntry,
   RichBlock,
   Thread,
@@ -26,8 +25,7 @@ export type {
   EvidenceResultData,
   ImageContent,
   MessageContent,
-  ModeState,
-  ModeSwitchProposal,
+  GameState,
   QueueEntry,
   RichAudioBlock,
   RichBlock,
@@ -58,8 +56,7 @@ function snapshotActive(s: ChatState): ThreadState {
     targetCats: s.targetCats,
     catStatuses: s.catStatuses,
     catInvocations: s.catInvocations,
-    currentMode: s.currentMode,
-    pendingModeSwitchProposal: s.pendingModeSwitchProposal,
+    currentGame: s.currentGame,
     unreadCount: 0, // active thread always 0
     hasUserMention: false,
     lastActivity: Date.now(),
@@ -83,8 +80,7 @@ function flattenThread(ts: ThreadState): Partial<ChatState> {
     targetCats: ts.targetCats,
     catStatuses: ts.catStatuses,
     catInvocations: ts.catInvocations,
-    currentMode: ts.currentMode,
-    pendingModeSwitchProposal: ts.pendingModeSwitchProposal,
+    currentGame: ts.currentGame,
     queue: ts.queue,
     queuePaused: ts.queuePaused,
     queuePauseReason: ts.queuePauseReason,
@@ -221,8 +217,8 @@ interface ChatState {
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;
   catInvocations: Record<string, CatInvocationInfo>;
-  currentMode: ModeState | null;
-  pendingModeSwitchProposal: ModeSwitchProposal | null;
+  /** F101: Active game in current thread */
+  currentGame: GameState | null;
   /** F39: Message queue entries */
   queue: QueueEntry[];
   /** F39: Whether the queue is paused */
@@ -282,8 +278,8 @@ interface ChatState {
   /** F081: Persist stream invocation identity onto a message for replace/hydration reconcile */
   setMessageStreamInvocation: (messageId: string, invocationId: string) => void;
   clearMessages: () => void;
-  setCurrentMode: (mode: ModeState | null) => void;
-  setPendingModeSwitchProposal: (proposal: ModeSwitchProposal | null) => void;
+  /** F101: Update current game state */
+  setCurrentGame: (game: GameState | null) => void;
 
   // ── Thread management ──
   setThreads: (threads: Thread[]) => void;
@@ -387,8 +383,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   targetCats: [],
   catStatuses: {},
   catInvocations: {},
-  currentMode: null,
-  pendingModeSwitchProposal: null,
+  currentGame: null,
   queue: [],
   queuePaused: false,
   queueFull: false,
@@ -733,8 +728,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { messages: [], hasMore: true };
     }),
 
-  setCurrentMode: (mode) => set({ currentMode: mode }),
-  setPendingModeSwitchProposal: (proposal) => set({ pendingModeSwitchProposal: proposal }),
+  setCurrentGame: (game) => set({ currentGame: game }),
 
   // ── Thread management ──
 

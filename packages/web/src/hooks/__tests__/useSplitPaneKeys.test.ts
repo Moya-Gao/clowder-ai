@@ -24,8 +24,8 @@ describe('split-pane keyboard shortcuts (logic)', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
     });
   });

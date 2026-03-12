@@ -45,8 +45,8 @@ describe('useChatHistory thread switch ordering', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       currentThreadId: 'thread-a',
       viewMode: 'single',
@@ -109,8 +109,8 @@ describe('useChatHistory thread switch ordering', () => {
           targetCats: [],
           catStatuses: {},
           catInvocations: {},
-          currentMode: null,
-          pendingModeSwitchProposal: null,
+          currentGame: null,
+          
           unreadCount: 1,
           hasUserMention: false,
           lastActivity: Date.now(),
@@ -148,8 +148,8 @@ describe('useChatHistory thread switch ordering', () => {
           targetCats: [],
           catStatuses: {},
           catInvocations: {},
-          currentMode: null,
-          pendingModeSwitchProposal: null,
+          currentGame: null,
+          
           unreadCount: 0,
           hasUserMention: false,
           lastActivity: Date.now(),
@@ -186,8 +186,8 @@ describe('useChatHistory thread switch ordering', () => {
           targetCats: ['opus'],
           catStatuses: { opus: 'streaming' },
           catInvocations: {},
-          currentMode: null,
-          pendingModeSwitchProposal: null,
+          currentGame: null,
+          
           unreadCount: 0,
           hasUserMention: false,
           lastActivity: Date.now(),

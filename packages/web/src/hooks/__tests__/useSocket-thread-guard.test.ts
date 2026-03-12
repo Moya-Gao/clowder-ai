@@ -61,8 +61,8 @@ const mockGetThreadState = vi.fn(() => ({
   targetCats: [],
   catStatuses: {},
   catInvocations: {},
-  currentMode: null,
-  pendingModeSwitchProposal: null,
+  currentGame: null,
+  
   unreadCount: 0,
   lastActivity: 0,
 }));

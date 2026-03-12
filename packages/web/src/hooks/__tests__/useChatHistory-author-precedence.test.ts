@@ -46,8 +46,8 @@ describe('useChatHistory author precedence (cross-thread)', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       currentThreadId: 'thread-author',
       viewMode: 'single',

@@ -32,7 +32,6 @@ export function useChatSocketCallbacks({
     setTargetCats,
     addMessage,
     removeMessage,
-    setCurrentMode,
   } = useChatStore();
   const { addTask, updateTask } = useTaskStore();
 
@@ -71,13 +70,5 @@ export function useChatSocketCallbacks({
     onThreadBranched: () => { /* branch navigation handled by the action initiator */ },
     onAuthorizationRequest: handleAuthRequest,
     onAuthorizationResponse: handleAuthResponse,
-    onModeChanged: (data) => {
-      if (data.action === 'started' && data.mode) {
-        const m = data.mode as { record: { name: string; config: Record<string, unknown>; startedAt: string }; state?: Record<string, unknown> };
-        setCurrentMode({ name: m.record.name, config: m.record.config, startedAt: m.record.startedAt, ...(m.state ? { state: m.state } : {}) });
-      } else {
-        setCurrentMode(null);
-      }
-    },
-  }), [handleAgentMessage, updateThreadTitle, setLoading, setHasActiveInvocation, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, clearDoneTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode, threadId]);
+  }), [handleAgentMessage, updateThreadTitle, setLoading, setHasActiveInvocation, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, clearDoneTimeout, handleAuthRequest, handleAuthResponse, threadId]);
 }

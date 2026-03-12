@@ -19,8 +19,8 @@ describe('chatStore multi-thread state', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       viewMode: 'single',
       splitPaneThreadIds: [],
@@ -83,14 +83,14 @@ describe('chatStore multi-thread state', () => {
     expect(useChatStore.getState().intentMode).toBe('ideate');
   });
 
-  it('preserves currentMode when switching threads', () => {
-    const mode = { name: 'brainstorm', config: { topic: 'test' }, startedAt: '2026-01-01' };
-    useChatStore.getState().setCurrentMode(mode);
+  it('preserves currentGame when switching threads', () => {
+    const game = { gameId: 'g1', gameType: 'werewolf', status: 'playing' as const, currentPhase: 'night', round: 1 };
+    useChatStore.getState().setCurrentGame(game);
     useChatStore.getState().setCurrentThread('thread-b');
-    expect(useChatStore.getState().currentMode).toBeNull();
+    expect(useChatStore.getState().currentGame).toBeNull();
 
     useChatStore.getState().setCurrentThread('thread-a');
-    expect(useChatStore.getState().currentMode).toEqual(mode);
+    expect(useChatStore.getState().currentGame).toEqual(game);
   });
 
   it('does nothing when switching to same thread', () => {

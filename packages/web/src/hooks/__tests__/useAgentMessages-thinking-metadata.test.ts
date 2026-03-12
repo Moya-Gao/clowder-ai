@@ -31,8 +31,8 @@ describe('F045: thinking-first placeholder metadata flow', () => {
       targetCats: [],
       catStatuses: {},
       catInvocations: {},
-      currentMode: null,
-      pendingModeSwitchProposal: null,
+      currentGame: null,
+      
       threadStates: {},
       viewMode: 'single',
       splitPaneThreadIds: [],

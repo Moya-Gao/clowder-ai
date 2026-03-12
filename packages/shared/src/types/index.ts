@@ -205,28 +205,29 @@ export {
   createCatMessage,
   createUserMessage,
 } from './message.js';
-// Mode types (F11 模式系统)
+// Game engine types (F101)
 export type {
-  BrainstormConfig,
-  BrainstormState,
-  DebateConfig,
-  DebateState,
-  DevLoopConfig,
-  DevLoopState,
-  ModeConfig,
-  ModeName,
-  ModeState,
-  ThreadMode,
-  ThreadModeRecord,
-} from './modes.js';
+  SeatId,
+  ActorType,
+  EventScope,
+  Seat,
+  GameDefinition,
+  RoleDefinition,
+  PhaseDefinition,
+  ActionDefinition,
+  WinCondition,
+  GameRuntime,
+  GameEvent,
+  GameAction,
+  GameConfig,
+  GameView,
+  SeatView,
+} from './game.js';
 export {
-  isBrainstormConfig,
-  isBrainstormState,
-  isDebateConfig,
-  isDebateState,
-  isDevLoopConfig,
-  isDevLoopState,
-} from './modes.js';
+  isSeatId,
+  isValidScope,
+  isGameEvent,
+} from './game.js';
 // Multi-mention types (F086 Cat Orchestration)
 export type {
   MultiMentionRequest,

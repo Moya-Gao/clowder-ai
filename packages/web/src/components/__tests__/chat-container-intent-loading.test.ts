@@ -36,10 +36,10 @@ const mockStoreState = () => ({
   clearCatStatuses: vi.fn(),
   setCurrentThread: mockSetCurrentThread,
   updateThreadTitle: vi.fn(),
-  setCurrentMode: vi.fn(),
-  currentMode: null,
-  pendingModeSwitchProposal: null,
-  setPendingModeSwitchProposal: vi.fn(),
+  setCurrentGame: vi.fn(),
+  currentGame: null,
+  
+  
   viewMode: 'single' as const,
   setViewMode: vi.fn(),
   clearUnread: mockClearUnread,
