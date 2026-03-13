@@ -8,10 +8,11 @@ created: 2026-03-05
 
 # F066: Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列
 
-> **Status**: phase4-done | **Owner**: 布偶猫 (Opus 4.6)
-> **Created**: 2026-03-05
+> **Status**: done | **Owner**: 布偶猫 (Opus 4.6)
+> **Created**: 2026-03-05 | **Completed**: 2026-03-12
 > **Phase 1 Closed**: 2026-03-09 — 本地 TTS 语音基础设施落地完成（Qwen3-TTS Base clone + E 型统一方案）
 > **Phase 4 Closed**: 2026-03-11 — TTS 韧性增强合入（PR #356, 缅因猫 R2 + 云端 Codex 双关放行）
+> **AC-10 补漏**: 2026-03-12 — PR #414 补齐 resynthesize 按钮（GPT-5.4 愿景守护发现遗漏）
 > **未来方向**: 流式分句（Phase 2）+ 播放队列（Phase 3）拆分为独立 Feature
 
 ## Why
@@ -114,7 +115,7 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 
 ## Acceptance Criteria
 
-- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] AC-1: TTS 合成完全在本地 Apple Silicon 完成，不依赖外部云服务 ✅ Qwen3-TTS 1.7B Base clone via mlx-audio
 - [x] AC-2: 现有语音消息功能（F034）不受影响——微信风格语音条、缓存、降级全部正常 ✅ PR #333 回归测试通过
 - [x] AC-3: 中文合成质量主观评估不低于 edge-tts（铲屎官试听确认）✅ 铲屎官："牛逼！是我要的了！"
@@ -238,6 +239,7 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 | 2026-03-12 | GPT-5.4 愿景守护发现 AC-10 实际未实现（PR #356 遗漏），快速修复开 worktree |
 | 2026-03-12 | 缅因猫 Codex 本地 review 放行（0 P1/P2） + 云端 Codex 放行 |
 | 2026-03-12 | PR #414 squash merged → AC-10 resynthesize 按钮补齐 |
+| 2026-03-12 | GPT-5.4 愿景守护确认通过 → **F066 done** |
 
 ## Voice Audition Progress (2026-03-09)
 
