@@ -4,12 +4,13 @@ related_features: [F063]
 topics: [hub, ux, directory-picker, new-thread]
 doc_kind: spec
 created: 2026-03-06
-status: in-progress
+status: done
+completed: 2026-03-12
 ---
 
 # F068 — 新建对话弹窗 UX 优化
 
-> **Status**: in-progress | **Owner**: 三猫
+> **Status**: done | **Completed**: 2026-03-12 | **Owner**: 三猫
 
 ## Why
 
@@ -97,6 +98,7 @@ status: in-progress
 | 2026-03-06 | 砚砚本地 review R1→R2 放行 (1P1+2P2 → 0) |
 | 2026-03-06 | PR #258 合入 — 云端 review R1→R2 (2P1 误报确认 → 0)，squash merge |
 | 2026-03-12 | R7 两步创建流程 — codex 本地 review 二轮放行 + 云端 review 通过，PR #416 squash merge |
+| 2026-03-12 | Feature closed — 愿景守护通过 (gpt52 + codex)，全部 AC 达成 |
 
 ## Completion
 
@@ -110,3 +112,6 @@ status: in-progress
 
 ### 残留项
 - R5 移动端响应式降级：当前 Cat Café 仅桌面使用，移动端验证待 F010 手机端功能推进时一并确认
+
+### 反思胶囊
+- [2026-03-12-f068-new-thread-dialog-capsule.md](../reflections/2026-03-12-f068-new-thread-dialog-capsule.md)

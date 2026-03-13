@@ -29,7 +29,6 @@ created: 2026-02-26
 | F059 | Cat Café 开源计划 — 3/30 目标 | in-progress | 布偶猫 | [F059](features/F059-open-source-plan.md) |
 | F061 | Antigravity 接入 — 孟加拉猫（混血家族） | phase-1-done | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
-| F068 | 新建对话弹窗 UX 优化 | in-progress | 三猫 | [F068](features/F068-new-thread-dialog-ux.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | [F069](features/F069-thread-read-state.md) |
 | F076 | Mission Hub 跨项目作战面板 — 派遣进展 + 回流摘要 + 决策中枢 | phase-2-done | 布偶猫 | [F076](features/F076-mission-hub-cross-project.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | [F077](features/F077-multi-user-secure-collab.md) |
