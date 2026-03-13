@@ -84,9 +84,13 @@ Step 5: PEN CHECK — 自动化设计稿对照（不可跳过！）
 Step 6: RUN — 运行验证命令（必须这次真实运行）
   pnpm test                              # 必须全部通过
   pnpm lint                              # 0 errors
+  pnpm check                             # 0 errors（biome 格式 + lint）
   pnpm -r --if-present run build         # exit 0
   # Redis 相关改动额外跑：
   pnpm --filter @cat-cafe/api test:redis
+  # ⚠️ pnpm check 包含 biome format + lint 规则。
+  # 如果有 format 问题，先跑 pnpm check:fix 自动修复。
+  # 不能带着 biome errors 提 review！（2026-03-12 铲屎官定调）
 
 Step 7: READ — 完整读输出，看 exit code，数失败数
 
@@ -113,6 +117,7 @@ Step 8: REPORT — 输出合规报告 + 证据
 |-------|------|--------|
 | 测试通过 | 这次运行输出：0 failures | "上次跑过"、"应该通过" |
 | lint 干净 | lint 输出：0 errors | 部分检查、推断 |
+| biome 干净 | pnpm check：0 errors | "先跑通再说"、"回头再改格式" |
 | 构建成功 | build 命令：exit 0 | lint 通过不代表编译通过 |
 | Bug 修了 | 原症状测试：通过 | 代码改了，以为修了 |
 | 需求满足 | spec + Discussion 逐项打勾 | 测试通过就完事 |
@@ -144,6 +149,7 @@ glob designs/**/*.pen 匹配结果: [列出匹配文件或"无匹配"]
 ### 验证命令输出（必须是这次真实运行）
 pnpm test → 34/34 pass ✅
 pnpm lint → 0 errors ✅
+pnpm check → 0 errors ✅ (biome format + lint)
 pnpm -r --if-present run build → exit 0 ✅
 ```
 

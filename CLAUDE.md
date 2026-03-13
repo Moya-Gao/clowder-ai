@@ -86,12 +86,6 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 - 禁止直连环境 Redis，测试脚本自动起临时 Redis
 - Redis bug 先红后绿（先有失败用例再修）
 
-### Subagent 模型选择
-
-- `haiku`：找文件、grep、看目录、简单搜索（**默认选这个！**）
-- `sonnet`：多文件调用链分析
-- `opus`：几乎不该用于 subagent
-
 ### JetBrains MCP
 
 - 必须传 `projectPath: /Users/lysander/projects/relay-station/cat-cafe`
