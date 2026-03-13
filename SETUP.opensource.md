@@ -45,10 +45,10 @@ You need at least one model provider to have a working agent. All three are reco
 
 ```bash
 # Claude (Ragdoll cat / 布偶猫) — recommended as primary
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=your-anthropic-api-key
 
 # GPT / Codex (Maine Coon / 缅因猫) — code review specialist
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=your-openai-api-key
 
 # Gemini (Siamese / 暹罗猫) — visual design
 GOOGLE_API_KEY=...
@@ -241,10 +241,10 @@ pnpm start
 
 ```bash
 # Claude（布偶猫/宪宪）— 推荐作为主力
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=your-anthropic-api-key
 
 # GPT / Codex（缅因猫/砚砚）— 代码审查专家
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=your-openai-api-key
 
 # Gemini（暹罗猫/烁烁）— 视觉设计
 GOOGLE_API_KEY=...
