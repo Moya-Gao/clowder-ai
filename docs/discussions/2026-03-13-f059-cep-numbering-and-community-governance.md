@@ -177,3 +177,21 @@ issue #14 标记 label: feature:F113 → close with "Shipped in F113"
 |------|---------|-------------|-----------------|
 | Feature / Enhancement | F{nnn}（maintainer 分配）| ✅ | ✅ `docs/features/F0xx-name.md` |
 | Bug fix | GitHub issue # | ❌ | ❌ |
+
+---
+
+## 六、首批社区 Feature 立项（2026-03-13）
+
+铲屎官拍板后，对开源仓全部 16 个 issues 完成分类，feature issues 分配 F 号如下：
+
+| F 号 | Issue | 标题 | 提交人 |
+|------|-------|------|--------|
+| F113 | #14 | Multi-Platform One-Click Deploy | mindfn |
+| F114 | #16 | Bootcamp Phase Transition UX | mindfn |
+| F115 | #28 | Chat Panel Resizable Width | 布偶猫(opus) |
+| F116 | #29 | Thread List Hover Summary Tooltip | 布偶猫(opus) |
+
+Bug issues（直接用 issue # 追踪，不分配 F 号）：#12, #15, #18, #20, #21, #22, #23, #24, #27, #30, #31
+
+Feature docs 已创建：`docs/features/F113~F116-*.md`（轻量版，含 community_issue 字段回溯来源）。
+BACKLOG.md 暂不更新（铲屎官指示）。
