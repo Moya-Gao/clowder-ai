@@ -4,7 +4,7 @@ topics: [sync, opensource, architecture, governance]
 doc_kind: discussion
 created: 2026-03-13
 participants: [opus, gpt52]
-status: open
+status: converged
 thread: current
 ---
 
@@ -99,6 +99,22 @@ thread: current
 | Target-owned | clowder-ai 独占 | 正向不触碰 | .github/FUNDING.yml、CHANGELOG、社区文档 |
 | Public-intake | clowder-ai 接收 → intake | 反向受控 | issues、PR、beta 反馈 |
 
+**Public-generated 真相源文件（制度化）：**
+
+以下文件是 cat-cafe 里的**公开版真相源**，不是 transform 的中间产物。它们的存在和维护是制度性要求：
+
+| cat-cafe 真相源 | → clowder-ai 目标 |
+|----------------|-------------------|
+| `README.opensource.md` | `README.md` |
+| `CONTRIBUTING.opensource.md` | `CONTRIBUTING.md` |
+| `SETUP.opensource.md` | `SETUP.md` |
+| `.env.example.opensource` | `.env.example` |
+| `.github/pull_request_template.opensource.md` | `.github/pull_request_template.md` |
+| `CLA.md` | `CLA.md`（直出） |
+| `TRADEMARKS.md` | `TRADEMARKS.md`（直出） |
+
+> 教训来源：README/CONTRIBUTING 事故中，根因之一是这层真相源没被制度化，导致公开仓手工维护了一份、源仓又维护了另一份。
+
 ### D2: 出站同步优化（sync-to-opensource.sh 改造）
 
 **2a. Pre-sync gate（Step 0，在现有 Step 1 前插入）**
@@ -145,17 +161,28 @@ Target-owned (保护): 2 files
 
 非 `--force` 模式下必须人工确认。
 
-**2d. Post-sync 验收（Step 6，rsync 后新增）**
+**2d. Post-sync 标准启动验收（Step 6，rsync 后必须执行）**
+
+> 这次事故真正咬人的不是 `pnpm check`，而是同步后按公开用户方式跑不起来。
+> 因此 post-sync 验收不是可选 smoke test，而是**硬性启动验收**。
 
 ```bash
-# 在目标仓执行
+# 在目标仓执行——模拟公开用户首次启动
 cd $TARGET_DIR
-cp .env.example .env  # 用公开版模板
-pnpm install --frozen-lockfile
-pnpm --filter @cat-cafe/shared build
-pnpm --filter @cat-cafe/api build
-# 可选 smoke test
+cp .env.example .env                          # 用公开版模板，不手改
+pnpm install --frozen-lockfile                 # 依赖安装
+pnpm --filter @cat-cafe/shared build           # shared 构建
+pnpm --filter @cat-cafe/api build              # API 构建
+
+# 启动验收（必须通过）
+# 1. 前端页面能打开（端口必须是 3003 或 3004，不是 3001/3002）
+# 2. API health endpoint 返回 200
+# 3. 端口验收：不碰我们家的 3001/3002/6399
+#    lsof -nP -i :3001 -i :3002 -i :6399 → 必须为空
+# 4. 可选：pnpm --filter @cat-cafe/api run test:public
 ```
+
+验收失败 → 中止同步，不推 commit 到 clowder-ai。
 
 ### D3: 入站感知机制
 
@@ -186,18 +213,40 @@ fi
 
 ### D4: 安全扫描加强
 
+**4a. 文件名级 denylist 新增**
+
 | 检查项 | 类型 | 实现 |
 |--------|------|------|
-| `/Users/` 绝对路径 | denylist_patterns 新增 | `grep -r '/Users/' $FILTERED_DIR` |
-| Email 地址 | endpoint_scan 新增 | `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}` |
-| `proxy-upstreams.json` | denylist_patterns 新增 | 文件名匹配 |
+| `proxy-upstreams.json` | denylist_patterns 新增 | 文件名匹配（含上游密钥） |
 | `.mcp.json` | denylist_patterns 新增 | belt-and-suspenders |
+
+**4b. 内容级扫描新增**
+
+| 检查项 | 类型 | 实现 |
+|--------|------|------|
+| `/Users/` 绝对路径 | 零容忍 | `grep -r '/Users/' $FILTERED_DIR` |
+| Email 地址 | 零容忍（非 noreply） | `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`（排除 `@example.com`、`@noreply`） |
 | 高熵字符串（≥32 chars） | warning 级 | 对非 hash/非 lockfile 文件扫描 |
 
-### D5: 共享脚本变更纪律
+**4c. 内部工作流路径/运行态坐标扫描（gpt52 补充）**
 
-改动以下文件时，commit message 或 PR description 必须附 **runtime 影响说明**：
+> 这次泄漏和误导的不只是 secrets，还有内部工作流路径和内部运行态坐标。
 
+| 检查项 | 类型 | 说明 |
+|--------|------|------|
+| `docs/mailbox` | 零容忍（docs/ 内） | 内部 review 路径，不应出现在公开文档 |
+| `docs/plans` | 零容忍（docs/ 内） | 内部计划路径 |
+| `docs/discussions` | 零容忍（docs/ 内） | 内部讨论路径 |
+| `.cat-cafe/` | 零容忍 | 本地运行态目录 |
+| `cat-cafe-runtime` | warning | 内部运行态标识 |
+| `6399` | 零容忍（非注释行） | 我们家的 Redis 端口 |
+| `3001` / `3002` | warning（docs/skills 内） | 我们家的 web/API 端口 |
+
+### D5: 共享脚本变更纪律（说明 + 强制验收）
+
+改动以下文件时，**必须同时满足两个要求**：
+
+**受控文件清单：**
 ```
 scripts/start-dev.sh
 scripts/runtime-worktree.sh
@@ -209,13 +258,23 @@ scripts/llm-postprocess-server.sh
 .env.example / .env.example.opensource
 ```
 
-格式：
+**要求 1：commit message 或 PR description 附 Runtime Impact 说明**
+
 ```
 ## Runtime Impact
 - 家里(cat-cafe): [影响说明]
 - 公开仓(clowder-ai): [影响说明]
 - 需要补的 .env 显式项: [列表]
 ```
+
+**要求 2：强制 smoke test（不能只写说明不验证）**
+
+> 教训：这次事故中文档写了影响说明，但真正重启 runtime 后还是炸了。
+
+- 家里 runtime smoke test：`pnpm start` 能正常启动，关键端口（3001/3002/6399）正常
+- 公开仓 startup smoke test：按 D2d 标准启动验收流程执行
+
+两个 smoke 都通过才允许 merge。
 
 ---
 
@@ -225,12 +284,12 @@ scripts/llm-postprocess-server.sh
 |--------|------|------|--------|
 | P0 | target_owned_files 保护 + rsync 改造 | 防止核弹式同步毁掉目标仓内容 | 中 |
 | P0 | pre-sync gate check | 防止脏 tree / 未通过测试的代码同步出去 | 小 |
+| P0 | post-sync 标准启动验收 | 这次事故首先被"同步后跑不起来"咬死 | 中 |
 | P1 | diff 预览 + 人工确认 | 让操作者知道会发生什么 | 小 |
 | P1 | 入站变更检测（provenance-based） | 防止覆盖社区贡献 | 小 |
-| P1 | `/Users/` + email + proxy-upstreams 扫描 | 堵住已知泄漏向量 | 小 |
-| P2 | post-sync 验收自动化 | 保证同步出去的东西能跑 | 中 |
-| P2 | runtime impact 模板 | 纪律约束，靠 PR 模板 enforce | 小 |
-| P3 | 高熵字符串检测 | 兜底未知格式密钥 | 中 |
+| P1 | 安全扫描加强（含内部路径/运行态坐标） | 堵住已知泄漏向量 | 小 |
+| P1 | runtime impact 说明 + 强制 smoke | 纪律 + 验证双保险 | 小 |
+| P2 | 高熵字符串检测 | 兜底未知格式密钥 | 中 |
 | P3 | GitHub label 流程 | 社区活跃后才有意义 | 小 |
 
 ---
@@ -247,9 +306,7 @@ scripts/llm-postprocess-server.sh
 
 ## 七、决策签名
 
-> 待两猫讨论收敛后填写。
-
 | 猫猫 | 立场 | 签名时间 |
 |------|------|---------|
-| 布偶猫(opus) | | |
-| 缅因猫(gpt52) | | |
+| 布偶猫(opus) | 同意 D1~D5（含 gpt52 补充的 4 点修订） | 2026-03-13 |
+| 缅因猫(gpt52) | 同意 D1~D5，要求按 4 点修订后签字（已修订） | 2026-03-13 |
