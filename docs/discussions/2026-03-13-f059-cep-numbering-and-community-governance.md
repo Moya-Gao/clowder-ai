@@ -182,16 +182,30 @@ issue #14 标记 label: feature:F113 → close with "Shipped in F113"
 
 ## 六、首批社区 Feature 立项（2026-03-13）
 
-铲屎官拍板后，对开源仓全部 16 个 issues 完成分类，feature issues 分配 F 号如下：
+铲屎官拍板后，对开源仓 issues 完成分类。
+
+### 立项的 Feature
 
 | F 号 | Issue | 标题 | 提交人 |
 |------|-------|------|--------|
 | F113 | #14 | Multi-Platform One-Click Deploy | mindfn |
-| F114 | #16 | Bootcamp Phase Transition UX | mindfn |
-| F115 | #28 | Chat Panel Resizable Width | 布偶猫(opus) |
-| F116 | #29 | Thread List Hover Summary Tooltip | 布偶猫(opus) |
 
-Bug issues（直接用 issue # 追踪，不分配 F 号）：#12, #15, #18, #20, #21, #22, #23, #24, #27, #30, #31
+Feature doc：`docs/features/F113-multi-platform-one-click-deploy.md`。
 
-Feature docs 已创建：`docs/features/F113~F116-*.md`（轻量版，含 community_issue 字段回溯来源）。
+### 撤销立项（2026-03-13 修订）
+
+以下三个 issue 最初被错误分配了独立 F 编号，经铲屎官审核后撤销：
+
+| 原 F 号 | Issue | 原因 | 处置 |
+|---------|-------|------|------|
+| ~~F114~~ | #16 | Bootcamp UX 改善属于 F110 范畴，不需要独立立项 | 标签移除，关联 F110 |
+| ~~F115~~ | #28 | 纯 UI enhancement，不够 feature 级别 | 标签移除，保留 enhancement |
+| ~~F116~~ | #29 | 摘要数据源不完整（仅 sealed session 有），可行性存疑 | 标签移除，保留 enhancement，未来可挂 F095 |
+
+**教训**：社区 issue 分配 F 编号前，必须逐个审核是否达到 feature 级别。批量打标签 ≠ 审核通过。
+
+### Bug issues
+
+直接用 issue # 追踪，不分配 F 号：#12, #15, #18, #20, #21, #22, #23, #24, #27, #30, #31
+
 BACKLOG.md 暂不更新（铲屎官指示）。
