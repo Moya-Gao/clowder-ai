@@ -209,3 +209,59 @@ Feature doc：`docs/features/F113-multi-platform-one-click-deploy.md`。
 直接用 issue # 追踪，不分配 F 号：#12, #15, #18, #20, #21, #22, #23, #24, #27, #30, #31
 
 BACKLOG.md 已更新：F113 加入，Source 列标记 `community`（2026-03-13 修订）。
+
+---
+
+## 七、Alpha/Release 双仓同步模型（2026-03-13）
+
+### 核心认知
+
+cat-cafe（私有）和 clowder-ai（公开）的关系是 **alpha dev repo ↔ public release repo**：
+
+- **代码完全一致**，两边没有差异
+- **差异只在文档**：cat-cafe 有完整内部文档（BACKLOG、decisions、discussions、skills 等），clowder-ai 有精简公开版 + 社区独有文件（CONTRIBUTING.md、.github/ 等）
+
+### 同步规则
+
+```
+cat-cafe (alpha/dev)              clowder-ai (public release)
+├── packages/ (代码)   ←→ 双向    ├── packages/ (代码，完全一致)
+├── docs/ (完整内部文档) ──→ 精简  ├── docs/ (公开版)
+├── cat-cafe-skills/ (不推)       ├── CONTRIBUTING.md (社区独有)
+└── ...                           └── .github/ (社区独有)
+```
+
+| 内容类型 | 同步方向 | 说明 |
+|---------|---------|------|
+| 代码 (`packages/`) | **双向** | 我们推出去 + 社区 PR 拉回来 |
+| 内部文档 (`docs/`) | **单向推送** cat-cafe → clowder-ai | sync 脚本过滤/精简 |
+| 社区独有文件 | **不覆盖** | CONTRIBUTING.md、.github/ 等，sync 脚本白名单保护 |
+| Skills / 内部配置 | **不推送** | 留在 cat-cafe |
+
+### 社区 PR 合入流程
+
+```
+社区 fork → PR → clowder-ai review + merge（直接 merge，代码一致无冲突风险）
+                                       ↓
+cat-cafe pull 代码回来（git pull / cherry-pick）
+                                       ↓
+下次 sync 推文档时，代码已一致，零冲突
+```
+
+### Issue Accept → PR 两层门禁
+
+```
+社区开 issue
+  ↓ 分类
+  ├─ Bug（可复现）→ 标 accepted → 欢迎 PR
+  ├─ Feature → feat-lifecycle Step 0 关联检测 → 分配 F 号 → 标 accepted → 欢迎 PR
+  └─ Enhancement → maintainer 判断 → accept / wontfix
+  ↓
+Issue 标 accepted 后，PR 进来走正常 code review
+```
+
+**原则**：Issue accept 是 PR 的前提。不 accept 的 issue 不应该有 PR，避免社区贡献者做无用功。
+
+### 备注
+
+sync 脚本（平行猫正在开发）已采用双向同步方案，与此模型一致。
