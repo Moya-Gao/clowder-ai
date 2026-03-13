@@ -61,6 +61,8 @@ managed_scripts:
   - scripts/tts-api.py
   - scripts/llm-postprocess-server.sh
   - scripts/llm-postprocess-api.py
+  # 安装向导
+  - scripts/setup.sh
 
 # ── docs/ 生成型导出（由脚本生成，不直出原始文件）──────────────
 # 这些文件由 sync 脚本的 transform 步骤生成到目标仓
@@ -202,6 +204,11 @@ transforms:
     type: generate
     source: .github/pull_request_template.opensource.md
     description: "开源版 PR 模板（去内部路径引用和猫猫签名）"
+
+  - target: .env.example
+    type: generate
+    source: .env.example.opensource
+    description: "开源版环境变量模板（端口 3003/3004，可选功能默认关闭）"
 
   # docs/ transform（v3 新增）
   - target: docs/VISION.md

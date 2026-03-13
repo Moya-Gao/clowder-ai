@@ -540,6 +540,13 @@ if [ -f "$STAGING_DIR/.github/pull_request_template.opensource.md" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
+# 3j-2: .env.example — 复制开源版环境变量模板
+if [ -f "$STAGING_DIR/.env.example.opensource" ]; then
+  cp "$STAGING_DIR/.env.example.opensource" "$FILTERED_DIR/.env.example"
+  echo "  ✓ .env.example (opensource version, $(wc -l < "$STAGING_DIR/.env.example.opensource") lines)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 # 3k-0: Source code personal info sanitization
 # leaderboard-service.ts — hardcoded author map
 if [ -f "$FILTERED_DIR/packages/api/src/domains/leaderboard/leaderboard-service.ts" ]; then
