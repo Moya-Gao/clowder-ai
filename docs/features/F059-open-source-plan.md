@@ -368,3 +368,4 @@ MIT 下别人可商用。三猫共识：
 | 2026-03-09~13 | 首次同步引发连锁事故（详见 [复盘](../postmortems/2026-03-13-opensource-sync-incident-chain.md)） |
 | 2026-03-13 | 两猫独立分析 → [同步架构优化讨论](../discussions/2026-03-13-f059-sync-optimization.md) → D1~D5 决策收敛 |
 | 2026-03-13 | Phase 4 merged (PR #423) — D1~D5 全部落地，gpt52 三轮 review + codex 云端 review |
+| 2026-03-13 | 内测首批 6 个 issue → [CEP 编号体系与社区治理讨论](../discussions/2026-03-13-f059-cep-numbering-and-community-governance.md) → CEP (Clowder Enhancement Proposal) 决策收敛 |
