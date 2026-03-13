@@ -502,12 +502,10 @@ if [ -f "$FILTERED_DIR/cat-cafe-skills/BOOTSTRAP.md" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3i: README.md — 复制开源版替换内部版
-if [ -f "$STAGING_DIR/README.opensource.md" ]; then
-  cp "$STAGING_DIR/README.opensource.md" "$FILTERED_DIR/README.md"
-  echo "  ✓ README.md (opensource version)"
-  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
-fi
+# 3i: README.md — 跳过，clowder-ai 维护自己的 README
+# 开源仓有精心写的 688 行 README（含猫猫故事、架构图、双语内容），
+# 不应该被源仓的内部 README 覆盖。
+echo "  ⊘ README.md (skipped — clowder-ai maintains its own)"
 
 # 3j: .github/pull_request_template.md — 复制开源版替换内部版
 if [ -f "$STAGING_DIR/.github/pull_request_template.opensource.md" ]; then
@@ -990,8 +988,11 @@ if [ ! -d "$TARGET_DIR" ]; then
 fi
 
 # rsync (destructive — target matches filtered output exactly)
+# README.md + CONTRIBUTING.md excluded: clowder-ai maintains its own versions
 rsync -a --delete \
   --exclude='.git' \
+  --exclude='README.md' \
+  --exclude='CONTRIBUTING.md' \
   "$FILTERED_DIR/" "$TARGET_DIR/"
 
 echo "  ✓ Synced to $TARGET_DIR"
