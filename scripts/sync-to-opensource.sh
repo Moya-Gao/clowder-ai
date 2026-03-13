@@ -862,11 +862,12 @@ if [ ${#DENYLIST_PATTERNS[@]} -eq 0 ]; then
   exit 1
 fi
 for pattern in "${DENYLIST_PATTERNS[@]}"; do
-  found=$(find "$FILTERED_DIR" -name "$pattern" -type f 2>/dev/null)
-  if [ -n "$found" ]; then
-    echo -e "  ${RED}✗ Forbidden file: $found${NC}"
+  while IFS= read -r match; do
+    # .env.example is a template with no secrets — allow it
+    [[ "$(basename "$match")" == ".env.example" ]] && continue
+    echo -e "  ${RED}✗ Forbidden file: $match${NC}"
     SCAN_FAILED=true
-  fi
+  done < <(find "$FILTERED_DIR" -name "$pattern" -type f 2>/dev/null)
 done
 
 # 4b: Sensitive content scan (layered strategy)
