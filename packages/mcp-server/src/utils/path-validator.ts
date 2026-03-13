@@ -29,10 +29,10 @@ export function getDefaultConfig(): PathConfig {
   const homeDir = os.homedir();
   const defaultCatCafeDir = path.join(homeDir, '.cat-cafe');
 
-  const catCafeDir = process.env.CAT_CAFE_DATA_DIR ?? defaultCatCafeDir;
+  const catCafeDir = process.env['CAT_CAFE_DATA_DIR'] ?? defaultCatCafeDir;
 
   // 解析允许的工作目录
-  const allowedWorkspaceDirs = process.env.ALLOWED_WORKSPACE_DIRS;
+  const allowedWorkspaceDirs = process.env['ALLOWED_WORKSPACE_DIRS'];
   const additionalDirs = allowedWorkspaceDirs
     ? allowedWorkspaceDirs
         .split(/[:,]/)

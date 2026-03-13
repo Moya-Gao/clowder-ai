@@ -14,11 +14,11 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env.CAT_CAFE_API_URL ?? 'http://localhost:3002';
+const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
 
 /** Resolve userId: env var (invocation-bound, tamper-proof) > default */
 function resolveToolUserId(): string {
-  return process.env.CAT_CAFE_USER_ID ?? 'default-user';
+  return process.env['CAT_CAFE_USER_ID'] ?? 'default-user';
 }
 
 // --- list_session_chain ---
@@ -221,7 +221,7 @@ export async function handleReadInvocationDetail(input: {
     lines.push(`Invocation ${data.invocationId}: ${data.total} event(s)`);
     lines.push('');
     for (const evt of data.events) {
-      const evtType = (evt.event.type as string) ?? 'unknown';
+      const evtType = (evt.event['type'] as string) ?? 'unknown';
       lines.push(`[${evt.eventNo}] ${evtType}: ${JSON.stringify(evt.event).slice(0, 300)}`);
     }
     return successResult(lines.join('\n'));
