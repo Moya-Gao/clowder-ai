@@ -4,7 +4,7 @@ topics: [sync, opensource, performance]
 doc_kind: plan
 created: 2026-03-13
 author: opus（宪宪）
-status: proposal — 等待平行 session Opus 评估
+status: implemented-v1 — Step 5/6 模块化已落地，Step 1-4 仍全量（V2 优化项）
 ---
 
 # F059 同步脚本模块化 + 性能优化提案
@@ -43,7 +43,7 @@ PID 36732 — sed s|^\./||
 
 ### 2.1 核心思路
 
-将 Step 1-4（export + transform + security scan）按**模块**独立执行，Step 5-6 保持全量。
+将同步按**模块**粒度执行。**V1 实现**：Step 5（rsync）和 Step 6（validate）按模块执行；Step 1-4（export/transform/scan）仍全量（耗时 < 5s，V2 再按模块裁剪）。
 
 ```
 sync.sh --module docs        # 只处理 docs/
@@ -70,19 +70,19 @@ sync.sh --module all         # 默认全量（等价于现在）
 | Step | 全量模式 | 模块模式 |
 |------|---------|---------|
 | Step 0 Pre-gate | 检查整个源仓 | 不变 |
-| Step 1 Clean export | `rsync` 全部 allowlist | 只 rsync 该模块路径 |
-| Step 2 Allowlist filter | 全量 | 只过滤模块范围 |
-| Step 3 Transform | 20+ passes × 全部文件 | 20+ passes × **仅模块文件** |
-| Step 4 Security scan | 全量扫描 | 仅扫该模块（但 denylist 仍全局检查） |
-| Step 5 Sync to target | 全量 rsync --delete | **模块级 rsync**（不用 --delete，避免删其他模块） |
-| Step 6 验收 | install + build + health | 全部模块同步完后统一跑 |
+| Step 1 Clean export | `rsync` 全部 allowlist | ⚠️ V1: 仍全量（< 2s） |
+| Step 2 Allowlist filter | 全量 | ⚠️ V1: 仍全量（< 1s） |
+| Step 3 Transform | single-pass perl × 全部文件 | ⚠️ V1: 仍全量（< 2s） |
+| Step 4 Security scan | 全量扫描 | ⚠️ V1: 仍全量（< 1s） |
+| Step 5 Sync to target | 全量 rsync --delete | ✅ **模块级 rsync**（模块内 --delete，不碰其他模块） |
+| Step 6 验收 | install + build + health | ✅ 模块 sync 自动跳过验证 / --fast-validate |
 
 ### 2.4 好处
 
-1. **故障隔离**：`docs/` 的 sed transform 出错不影响 `packages/api/` 同步
-2. **增量重试**：某模块失败 → 只重跑该模块，不全量重来
-3. **进度天然可见**：`[docs] done (12s) → [shared] done (8s) → [api] done (25s)`
-4. **智能跳过**：配合 `git diff --stat` 检测变更模块，未变的直接 skip
+1. **模块级同步**（V1）：`--module=docs` 只把 docs/ rsync 到目标仓，不碰其他模块
+2. **增量重试**（V1）：Step 5 某模块失败 → 只重跑该模块的 rsync
+3. ~~**故障隔离**：Step 1-4 按模块独立执行~~ → V2 优化项（V1 中 Step 1-4 全量，耗时 < 5s）
+4. **智能跳过**：配合 `git diff --stat` 检测变更模块，未变的直接 skip（V2）
 
 ### 2.5 潜在问题 & 解法
 
