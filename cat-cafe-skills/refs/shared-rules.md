@@ -123,7 +123,12 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 
 ## 5. Commit 纪律
 
-完成一个可验证的子任务就提交。签名表见 `refs/commit-signatures.md`。
+完成一个可验证的子任务就提交。
+
+**签名（强制）**：commit message body 必须带猫猫签名，格式 `[昵称/模型🐾]`。
+签名必须包含**模型型号**，不能只写 `[布偶猫🐾]`——同族有多个模型（Opus 4.6 / Opus 4.5 / Sonnet），不带型号无法区分是谁干的。
+签名表见 `refs/commit-signatures.md`。示例：`[宪宪/Opus-46🐾]`、`[砚砚/GPT-52🐾]`。
+
 commit body 补一行 `Why:` 说明决策理由。
 
 ## 6. 技术债务与 P3 处置
