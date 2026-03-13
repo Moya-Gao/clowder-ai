@@ -215,9 +215,9 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 
 **Phase 3: 打磨（待 P2 完成后）**
 
-- [ ] 补充 JSDoc
-- [ ] 更新教程仓链接
-- [ ] 两猫交叉 review 完整导出
+- [ ] 补充 JSDoc（公开 API 面：service 层 public 方法、config 类、MCP tool handlers）
+- [ ] 更新教程仓链接 — 教程仓: https://github.com/zts212653/cat-cafe-tutorials （注意不是 clowder-ai-tutorials）
+- [ ] 两猫交叉 review 完整导出（用 Phase 4 新管道做真实同步 + 交叉 review 导出产物）
 
 **Phase 4: 同步架构优化（3/13 事故后新增，两猫共识）** ✅
 
