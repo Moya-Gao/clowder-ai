@@ -49,18 +49,19 @@ created: 2026-03-12
 
 这些问题如果继续只在 `clowder-ai` 修，会让两个仓分叉。默认先在家里修，再同步。
 
-### A1. Directory Size Guard 历史红灯
+### A1. Directory Size Guard 在公开仓的假红灯
 
 **现象**
-- CI 里的 `Directory Size Guard` 仍然会红
-- 目前已知超阈值的目录以 `packages/api/src/routes` 为主
+- 家里 `cat-cafe` 运行 `bash scripts/check-dir-size.sh` 已经是**警告态通过**
+- `clowder-ai` 的 `Directory Size Guard` 会红，是因为同步时漏了 `.dir-exceptions.json`
+- 这说明它不是源仓结构债，而是公开同步漏项
 
 **处理原则**
-- 优先在 `cat-cafe` 拆目录
-- 如果短期拆不动，按 ADR-010 加 **time-bound exception**
-- 修完后再同步到 `clowder-ai`
+- 先把 `.dir-exceptions.json` 纳入开源同步
+- 再重新同步到 `clowder-ai`
+- 真正的目录拆分/例外治理仍然继续在家里做，但这条 CI 红灯本身不该再归类为源仓债
 
-**状态**：未完成
+**状态**：处理中（已确认根因）
 
 ### A2. `Test (Public)` 历史红灯
 
@@ -68,12 +69,17 @@ created: 2026-03-12
 - `clowder-ai` 的 `Test (Public)` 仍非稳定绿灯
 - 这类问题默认先判断为源仓测试债
 
+**本轮进展（2026-03-12）**
+- 已在家里 `cat-cafe` 修完公开测试套件对应的源仓债
+- `pnpm --filter @cat-cafe/api run test:public` 当前结果：`3880 pass / 0 fail`
+- 这批修复仍需同步到 `clowder-ai`，再确认公开仓 CI 回绿
+
 **处理原则**
 - 先在 `cat-cafe` 修测试或修实现
 - 保持 `test:public` 在家里和公开仓同口径
 - 修完后同步
 
-**状态**：未完成
+**状态**：源仓已修，待同步验证
 
 ### A3. 源仓结构和质量债持续回流
 
@@ -203,4 +209,3 @@ created: 2026-03-12
 - [ ] 重新同步到 `clowder-ai`
 - [ ] 再扫一轮 docs/skills 私有路径残留
 - [ ] 补 `README` / `SETUP` 的 MCP 与设计能力说明
-
