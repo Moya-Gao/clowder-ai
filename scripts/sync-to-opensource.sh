@@ -14,6 +14,7 @@
 #   bash scripts/sync-to-opensource.sh --dry-run        # 只导出到临时目录，不同步
 #   bash scripts/sync-to-opensource.sh --validate       # 导出 + install + build（不同步）
 #   bash scripts/sync-to-opensource.sh --skip-validate  # 同步但跳过 post-sync 验证
+#   bash scripts/sync-to-opensource.sh --yes            # 非交互模式（猫猫/CI 用，跳过所有确认）
 
 set -euo pipefail
 
@@ -36,11 +37,13 @@ NC='\033[0m'
 DRY_RUN=false
 VALIDATE=false
 SKIP_VALIDATE=false
+AUTO_YES=false
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
     --validate) VALIDATE=true ;;
     --skip-validate) SKIP_VALIDATE=true ;;
+    --yes|-y) AUTO_YES=true ;;
   esac
 done
 
@@ -124,20 +127,13 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" 
   fi
   echo "  ✓ Target repo clean"
 
-  # 0b-2: Open PR check — warn if target has open PRs that sync might conflict with
+  # 0b-2: Open PR check — info only (open PRs in target don't block one-way sync)
   if command -v gh >/dev/null 2>&1; then
     OPEN_PRS=$(cd "$TARGET_DIR" && gh pr list --state open --limit 5 --json number,title 2>/dev/null || true)
     if [ -n "$OPEN_PRS" ] && [ "$OPEN_PRS" != "[]" ]; then
       PR_COUNT=$(echo "$OPEN_PRS" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8'));console.log(d.length)" 2>/dev/null || echo "?")
-      echo -e "  ${YELLOW}⚠ Target repo has $PR_COUNT open PR(s):${NC}"
+      echo -e "  ${YELLOW}ℹ Target has $PR_COUNT open PR(s) (info only, does not block sync):${NC}"
       echo "$OPEN_PRS" | node -e "JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')).forEach(p=>console.log('    #'+p.number+' '+p.title))" 2>/dev/null || true
-      echo -e "  ${YELLOW}  Sync may conflict with these PRs.${NC}"
-      echo -n "  Continue? [y/N] "
-      read -r PR_CONFIRM
-      if [ "$PR_CONFIRM" != "y" ] && [ "$PR_CONFIRM" != "Y" ]; then
-        echo "  Aborted."
-        exit 0
-      fi
     else
       echo "  ✓ No open PRs in target"
     fi
@@ -175,11 +171,15 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" 
         echo -e "  ${YELLOW}  Last sync base:      ${LAST_TARGET_HEAD:0:12}${NC}"
         echo -e "  ${YELLOW}  Current target HEAD: ${CURRENT_TARGET_HEAD:0:12}${NC}"
         echo -e "  ${YELLOW}  These may contain community contributions. Review before overwriting.${NC}"
-        echo -n "  Continue? [y/N] "
-        read -r CONFIRM
-        if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
-          echo "  Aborted."
-          exit 0
+        if [ "$AUTO_YES" = false ]; then
+          echo -n "  Continue? [y/N] "
+          read -r CONFIRM
+          if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
+            echo "  Aborted."
+            exit 0
+          fi
+        else
+          echo "  (--yes: auto-continuing)"
         fi
       else
         echo "  ✓ No inbound changes since last sync"
@@ -1221,12 +1221,16 @@ if [ $((DIFF_ADD + DIFF_UPDATE + DIFF_DELETE)) -eq 0 ]; then
   rm -rf "$BACKUP_DIR"
   exit 0
 fi
-echo -n "  Proceed with sync? [y/N] "
-read -r SYNC_CONFIRM
-if [ "$SYNC_CONFIRM" != "y" ] && [ "$SYNC_CONFIRM" != "Y" ]; then
-  echo "  Aborted."
-  rm -rf "$BACKUP_DIR"
-  exit 0
+if [ "$AUTO_YES" = false ]; then
+  echo -n "  Proceed with sync? [y/N] "
+  read -r SYNC_CONFIRM
+  if [ "$SYNC_CONFIRM" != "y" ] && [ "$SYNC_CONFIRM" != "Y" ]; then
+    echo "  Aborted."
+    rm -rf "$BACKUP_DIR"
+    exit 0
+  fi
+else
+  echo "  (--yes: auto-proceeding with sync)"
 fi
 
 # 5c: rsync (destructive — target matches filtered output exactly)
