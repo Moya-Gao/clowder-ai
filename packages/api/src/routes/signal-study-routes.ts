@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { isAbsolute, join } from 'node:path';
 import type { ArtifactJobState, ArtifactKind } from '@cat-cafe/shared';
 import { SignalArticleStatusSchema } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
@@ -90,7 +91,12 @@ export const signalStudyRoutes: FastifyPluginAsync = async (app) => {
     }
 
     try {
-      const content = await readFile(note.filePath, 'utf-8');
+      // Migrated notes store relative paths (e.g. "notes/study_xxx.md");
+      // resolve them against the article's sidecar directory.
+      const absPath = isAbsolute(note.filePath)
+        ? note.filePath
+        : join(article.filePath.replace(/\.md$/, ''), note.filePath);
+      const content = await readFile(absPath, 'utf-8');
       return { content };
     } catch {
       reply.status(404);

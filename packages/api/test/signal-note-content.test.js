@@ -40,6 +40,28 @@ describe('signal note content endpoint logic', () => {
   });
 });
 
+it('resolves relative filePath against article sidecar dir', async () => {
+  // Simulate article at /tmp/.../library/src/article-id.md
+  // Sidecar dir = /tmp/.../library/src/article-id/
+  const articleDir = join(TMP, 'article-id');
+  const notesDir = join(articleDir, 'notes');
+  await mkdir(notesDir, { recursive: true });
+  await writeFile(join(notesDir, 'study_abc.md'), '# Migrated note content');
+
+  // This is what the route does now: resolve relative path
+  const { isAbsolute } = await import('node:path');
+  const articleFilePath = join(TMP, 'article-id.md');
+  const relativeNotePath = 'notes/study_abc.md';
+
+  assert.ok(!isAbsolute(relativeNotePath), 'note path should be relative');
+  const absPath = isAbsolute(relativeNotePath)
+    ? relativeNotePath
+    : join(articleFilePath.replace(/\.md$/, ''), relativeNotePath);
+
+  const content = await readFile(absPath, 'utf-8');
+  assert.ok(content.includes('Migrated note content'));
+});
+
 // Cleanup
 import { after } from 'node:test';
 
