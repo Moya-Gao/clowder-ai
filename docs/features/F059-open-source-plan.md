@@ -380,3 +380,4 @@ MIT 下别人可商用。三猫共识：
 | 2026-03-13 | Phase 4 merged (PR #423) — D1~D5 全部落地，gpt52 三轮 review + codex 云端 review |
 | 2026-03-13 | 内测首批 6 个 issue → [CEP 编号体系与社区治理讨论](../discussions/2026-03-13-f059-cep-numbering-and-community-governance.md) → CEP 方案否决，收敛为统一 F 编号 |
 | 2026-03-13 | **编号体系决策**：社区和内部共用一套 F 编号（从 BACKLOG.md 分配），不另起 P/CEP 系列。Bug 用 GitHub issue # 不给 F 号。F113 首个社区 feature。F114-F116 误标后撤销。 |
+| 2026-03-13 | sync 脚本 P0/P1/P2 性能+架构优化 merged (PR #427) — 13min→<15s, rsync dry-run + single-pass perl + 模块化 V1, gpt52 review |
