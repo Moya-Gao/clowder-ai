@@ -26,6 +26,6 @@ fi
 source "$VENV_DIR/bin/activate"
 
 # Ensure all dependencies are installed (pip is idempotent, skips installed packages)
-pip install --quiet mlx-vlm "httpx[socks]" fastapi uvicorn pydantic
+pip install --quiet mlx-vlm "httpx[socks]" torchvision fastapi uvicorn pydantic
 
 python3 "$SCRIPT_DIR/llm-postprocess-api.py" --model "$MODEL" --port "$PORT"
