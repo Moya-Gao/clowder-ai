@@ -25,6 +25,7 @@ managed_files:
   - pnpm-lock.yaml
   - tsconfig.base.json
   - biome.json
+  - .dir-exceptions.json
   - .gitignore
   - .npmrc
   - SETUP.md
