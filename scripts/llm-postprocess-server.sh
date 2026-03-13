@@ -25,10 +25,7 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 source "$VENV_DIR/bin/activate"
 
-# Auto-install dependencies if missing
-if ! python3 -c "import mlx_vlm" 2>/dev/null; then
-  echo "  安装依赖: mlx-vlm fastapi uvicorn pydantic ..."
-  pip install --quiet mlx-vlm fastapi uvicorn pydantic
-fi
+# Ensure all dependencies are installed (pip is idempotent, skips installed packages)
+pip install --quiet mlx-vlm "httpx[socks]" fastapi uvicorn pydantic
 
 python3 "$SCRIPT_DIR/llm-postprocess-api.py" --model "$MODEL" --port "$PORT"
