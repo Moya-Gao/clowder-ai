@@ -115,8 +115,9 @@ async def refine(req: RefineRequest):
         latency_ms = int((time.monotonic() - t0) * 1000)
         refined = result.text.strip()
 
-        # Safety: if LLM output is suspiciously different (>2x length or empty), fall back to original
-        if not refined or len(refined) > len(text) * 2.5:
+        # Safety: if LLM output is suspiciously different or empty, fall back to original
+        max_output_len = max(len(text) * 2.5, 80)  # short inputs get a minimum allowance
+        if not refined or len(refined) > max_output_len:
             log.warning("LLM output suspicious (len %d vs input %d), falling back", len(refined), len(text))
             return RefineResponse(text=text, latency_ms=latency_ms)
 
