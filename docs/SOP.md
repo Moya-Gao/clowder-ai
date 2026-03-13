@@ -145,7 +145,9 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 
 ### 规则
 
+- **社区和内部共用一套 F 编号**：不另起 P/CEP/社区专属编号系列（2026-03-13 决策，详见 F059 spec D6）
 - **F 编号唯一源**：BACKLOG.md（铲屎官拍板后猫执行分配）
-- **Bug 不编号**：直接用 issue # 追踪，修完 close
-- **贡献者不自选号**：CONTRIBUTING.md 已写明，猫猫回复时也要强调
+- **Bug 不编号**：直接用 issue # 追踪，修完 close（D7）
+- **贡献者不自选号**：CONTRIBUTING.md 已写明，猫猫回复时也要强调（D8）
+- **分配 F 号前必须做关联检测**：确认 issue 不是现有 feature 的子项/增强（F114-F116 撤销教训，D9）
 - **社区贡献者的 PR**：猫猫用 `community-pr` skill 引导（编号校验 + Feature Doc 对齐）

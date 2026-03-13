@@ -1,12 +1,12 @@
 ---
-feature_ids: [F117]
+feature_ids: [F114]
 related_features: [F086, F073, F041]
 topics: [governance, quality, prompt-engineering, magic-words]
 doc_kind: spec
 created: 2026-03-13
 ---
 
-# F117: 喵约治理升级 — 四层架构 + Magic Words + Evidence Gate
+# F114: 喵约治理升级 — 四层架构 + Magic Words + Evidence Gate
 
 > **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
 
@@ -61,9 +61,9 @@ created: 2026-03-13
 4. **实事求是，多源证据**（纪律）— 结论基于代码+commit+PR+文档，不够就说"还没查完"
 5. **出口检查 / 路由纪律**（纪律）— 发 @ 前问"到我这里结束了吗？"
 
-### Phase B: Evidence Gate（证物门禁）— F117 核心
+### Phase B: Evidence Gate（证物门禁）— F114 核心
 
-> **这是 F117 的真正护城河。** Magic Words 可能被忽略（跟现有规则一样），但 Gate 是外部机制，猫不产出证物就物理上无法进入下一步。
+> **这是 F114 的真正护城河。** Magic Words 可能被忽略（跟现有规则一样），但 Gate 是外部机制，猫不产出证物就物理上无法进入下一步。
 
 改造愿景守护和完成声明流程，要求必须产出结构化证物。
 
@@ -160,7 +160,7 @@ created: 2026-03-13
 | KD-2 | 证物对照表作为 evidence gate 核心机制 | F101 狼人杀案例证明：checkbox 审计无效，只有逐条对照铲屎官原话才能防漂移 | 2026-03-13 |
 | KD-3 | Magic words 存入 SystemPromptBuilder（不是 memory） | 必须对所有 session/thread 生效，不能只存个人记忆 | 2026-03-13 |
 | KD-4 | 「星星罐子」作为最高级停机词 | 源自 2026-03-12 repo visibility 事故（597 星仓库误操作），铲屎官命名 | 2026-03-13 |
-| KD-5 | F117 与社区 F113-F116 编号治理分开处理 | 社区编号是 F059 的 intake/triage 问题，F117 专注内部治理 | 2026-03-13 |
+| KD-5 | F114 与社区 F113-F116 编号治理分开处理 | 社区编号是 F059 的 intake/triage 问题，F114 专注内部治理 | 2026-03-13 |
 | KD-6 | Gate 是核心护城河，Magic Words 是辅助 | Codex/Gemini 有 system prompt 压缩补注空窗，纯 prompt 方案不可靠 | 2026-03-13 |
 | KD-7 | 喵约层锁定 5 条：终态基座/方向>速度/可验证/实事求是/出口检查 | 砚砚提议直接锁候选避免空转，宪宪同意 | 2026-03-13 |
 

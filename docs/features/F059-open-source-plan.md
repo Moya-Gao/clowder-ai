@@ -230,6 +230,16 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 - **D4**: 安全扫描加强（内部路径/运行态坐标 + 文件名级 denylist）
 - **D5**: 共享脚本变更纪律（说明 + 强制 smoke test）
 
+**Phase 5: 社区编号体系（3/13 讨论收敛）**
+
+> 详见 [CEP 编号体系与社区治理讨论](../discussions/2026-03-13-f059-cep-numbering-and-community-governance.md)
+
+核心决策：
+- **D6**: 社区和内部共用一套 F 编号，从 BACKLOG.md 统一分配，不另起 P/CEP 系列
+- **D7**: Bug 用 GitHub issue # 追踪，不分配 F 号（F 号只给 feature）
+- **D8**: F 编号由维护者（铲屎官拍板 + 猫执行）分配，社区不自选号
+- **D9**: 分配 F 号前必须做关联检测——确认 issue 不是现有 feature 的子项（F114-F116 撤销教训）
+
 实施项（按优先级）：
 - [x] P0: sync-manifest.yaml 新增 target_owned_files + sync 脚本 rsync 改造
 - [x] P0: pre-sync gate check（源仓 clean + 目标仓状态检查）
@@ -368,4 +378,5 @@ MIT 下别人可商用。三猫共识：
 | 2026-03-09~13 | 首次同步引发连锁事故（详见 [复盘](../postmortems/2026-03-13-opensource-sync-incident-chain.md)） |
 | 2026-03-13 | 两猫独立分析 → [同步架构优化讨论](../discussions/2026-03-13-f059-sync-optimization.md) → D1~D5 决策收敛 |
 | 2026-03-13 | Phase 4 merged (PR #423) — D1~D5 全部落地，gpt52 三轮 review + codex 云端 review |
-| 2026-03-13 | 内测首批 6 个 issue → [CEP 编号体系与社区治理讨论](../discussions/2026-03-13-f059-cep-numbering-and-community-governance.md) → CEP (Clowder Enhancement Proposal) 决策收敛 |
+| 2026-03-13 | 内测首批 6 个 issue → [CEP 编号体系与社区治理讨论](../discussions/2026-03-13-f059-cep-numbering-and-community-governance.md) → CEP 方案否决，收敛为统一 F 编号 |
+| 2026-03-13 | **编号体系决策**：社区和内部共用一套 F 编号（从 BACKLOG.md 分配），不另起 P/CEP 系列。Bug 用 GitHub issue # 不给 F 号。F113 首个社区 feature。F114-F116 误标后撤销。 |
