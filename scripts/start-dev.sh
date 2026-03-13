@@ -125,19 +125,23 @@ kill_port() {
     fi
 }
 
-# 检查端口是否真的在监听（用于验证 sidecar 启动成功）
-check_port_alive() {
+# 轮询等待端口监听（ML 模型加载需要时间）
+# 用法: wait_for_port <port> <name> [max_seconds=15]
+wait_for_port() {
     local port=$1
     local name=$2
-    local pids
-    pids=$(lsof -nP -i ":$port" -sTCP:LISTEN -t 2>/dev/null || true)
-    if [ -n "$pids" ]; then
-        echo -e "${GREEN}  ✓ $name 已启动 (端口 $port)${NC}"
-        return 0
-    else
-        echo -e "${RED}  ✗ $name 启动失败（端口 $port 未监听）${NC}"
-        return 1
-    fi
+    local max_wait=${3:-15}
+    local elapsed=0
+    while [ $elapsed -lt $max_wait ]; do
+        if lsof -nP -i ":$port" -sTCP:LISTEN -t >/dev/null 2>&1; then
+            echo -e "${GREEN}  ✓ $name 已启动 (端口 $port, ${elapsed}s)${NC}"
+            return 0
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    echo -e "${RED}  ✗ $name 启动超时（端口 $port, ${max_wait}s 内未监听）${NC}"
+    return 1
 }
 
 # 清理缓存
@@ -461,15 +465,13 @@ main() {
         if [ -f "scripts/qwen3-asr-server.sh" ]; then
             echo "  启动 Qwen3-ASR (端口 $ASR_PORT)..."
             WHISPER_PORT=$ASR_PORT bash scripts/qwen3-asr-server.sh &
-            sleep 2
-            if check_port_alive $ASR_PORT "Qwen3-ASR"; then
+            if wait_for_port $ASR_PORT "Qwen3-ASR" 30; then
                 STARTED_ASR=true
             fi
         elif [ -f "scripts/whisper-server.sh" ]; then
             echo "  启动 Whisper ASR fallback (端口 $ASR_PORT)..."
             WHISPER_PORT=$ASR_PORT bash scripts/whisper-server.sh &
-            sleep 2
-            if check_port_alive $ASR_PORT "Whisper ASR"; then
+            if wait_for_port $ASR_PORT "Whisper ASR" 30; then
                 STARTED_ASR=true
             fi
         else
@@ -486,8 +488,7 @@ main() {
         if [ -f "scripts/tts-server.sh" ]; then
             echo "  启动 TTS (端口 $TTS_PORT_VAL)..."
             TTS_PORT=$TTS_PORT_VAL bash scripts/tts-server.sh &
-            sleep 2
-            if check_port_alive $TTS_PORT_VAL "TTS"; then
+            if wait_for_port $TTS_PORT_VAL "TTS" 30; then
                 STARTED_TTS=true
             fi
         else
@@ -504,8 +505,7 @@ main() {
         if [ -f "scripts/llm-postprocess-server.sh" ]; then
             echo "  启动 LLM 后修 (端口 $LLM_PP_PORT)..."
             LLM_POSTPROCESS_PORT=$LLM_PP_PORT bash scripts/llm-postprocess-server.sh &
-            sleep 2
-            if check_port_alive $LLM_PP_PORT "LLM 后修"; then
+            if wait_for_port $LLM_PP_PORT "LLM 后修" 20; then
                 STARTED_LLM_PP=true
             fi
         else
