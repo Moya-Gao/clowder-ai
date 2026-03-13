@@ -125,6 +125,21 @@ kill_port() {
     fi
 }
 
+# 检查端口是否真的在监听（用于验证 sidecar 启动成功）
+check_port_alive() {
+    local port=$1
+    local name=$2
+    local pids
+    pids=$(lsof -nP -i ":$port" -sTCP:LISTEN -t 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo -e "${GREEN}  ✓ $name 已启动 (端口 $port)${NC}"
+        return 0
+    else
+        echo -e "${RED}  ✗ $name 启动失败（端口 $port 未监听）${NC}"
+        return 1
+    fi
+}
+
 # 清理缓存
 # --prod-web + --quick: 保留 .next production 产物以便秒启动
 clean_cache() {
@@ -447,14 +462,16 @@ main() {
             echo "  启动 Qwen3-ASR (端口 $ASR_PORT)..."
             WHISPER_PORT=$ASR_PORT bash scripts/qwen3-asr-server.sh &
             sleep 2
-            echo -e "${GREEN}  ✓ Qwen3-ASR 已启动${NC}"
-            STARTED_ASR=true
+            if check_port_alive $ASR_PORT "Qwen3-ASR"; then
+                STARTED_ASR=true
+            fi
         elif [ -f "scripts/whisper-server.sh" ]; then
             echo "  启动 Whisper ASR fallback (端口 $ASR_PORT)..."
             WHISPER_PORT=$ASR_PORT bash scripts/whisper-server.sh &
             sleep 2
-            echo -e "${GREEN}  ✓ Whisper ASR 已启动${NC}"
-            STARTED_ASR=true
+            if check_port_alive $ASR_PORT "Whisper ASR"; then
+                STARTED_ASR=true
+            fi
         else
             echo -e "${YELLOW}  ⚠ ASR 已启用，但脚本未找到，跳过语音输入服务${NC}"
         fi
@@ -470,8 +487,9 @@ main() {
             echo "  启动 TTS (端口 $TTS_PORT_VAL)..."
             TTS_PORT=$TTS_PORT_VAL bash scripts/tts-server.sh &
             sleep 2
-            echo -e "${GREEN}  ✓ TTS 已启动${NC}"
-            STARTED_TTS=true
+            if check_port_alive $TTS_PORT_VAL "TTS"; then
+                STARTED_TTS=true
+            fi
         else
             echo -e "${YELLOW}  ⚠ TTS 已启用，但 tts-server.sh 未找到，跳过语音合成服务${NC}"
         fi
@@ -487,8 +505,9 @@ main() {
             echo "  启动 LLM 后修 (端口 $LLM_PP_PORT)..."
             LLM_POSTPROCESS_PORT=$LLM_PP_PORT bash scripts/llm-postprocess-server.sh &
             sleep 2
-            echo -e "${GREEN}  ✓ LLM 后修已启动${NC}"
-            STARTED_LLM_PP=true
+            if check_port_alive $LLM_PP_PORT "LLM 后修"; then
+                STARTED_LLM_PP=true
+            fi
         else
             echo -e "${YELLOW}  ⚠ LLM 后修已启用，但脚本未找到，跳过语音纠正${NC}"
         fi
