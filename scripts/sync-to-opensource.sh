@@ -988,11 +988,17 @@ if [ ! -d "$TARGET_DIR" ]; then
 fi
 
 # rsync (destructive — target matches filtered output exactly)
-# README.md + CONTRIBUTING.md excluded: clowder-ai maintains its own versions
+# Exclude files that clowder-ai maintains independently:
+# README.md, CONTRIBUTING.md — hand-crafted with cat stories/intent-first philosophy
+# CLA.md, TRADEMARKS.md — community governance docs not in source repo
+# SETUP.md — clowder-specific setup guide
 rsync -a --delete \
   --exclude='.git' \
   --exclude='README.md' \
   --exclude='CONTRIBUTING.md' \
+  --exclude='CLA.md' \
+  --exclude='TRADEMARKS.md' \
+  --exclude='SETUP.md' \
   "$FILTERED_DIR/" "$TARGET_DIR/"
 
 echo "  ✓ Synced to $TARGET_DIR"
