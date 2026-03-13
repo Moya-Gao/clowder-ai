@@ -128,6 +128,7 @@ export function useChatCommands() {
   const { cats } = useCatData();
 
   // Build dynamic mention pattern → catId resolver from cat data
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _mentionResolver = useMemo(() => {
     const patternToCatId = new Map<string, string>();
     for (const cat of cats) {

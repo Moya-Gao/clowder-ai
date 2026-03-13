@@ -129,7 +129,7 @@ describe('useChatHistory pagination cursor (#80 cloud R8 P2)', () => {
     } as Response);
 
     // Simulate scroll to top
-    const scrollEl = capturedHook?.scrollContainerRef.current!;
+    const scrollEl = capturedHook!.scrollContainerRef.current;
     Object.defineProperty(scrollEl, 'scrollTop', { value: 10, writable: true });
 
     act(() => {
@@ -164,7 +164,7 @@ describe('useChatHistory pagination cursor (#80 cloud R8 P2)', () => {
 
     apiFetchMock.mockClear();
 
-    const scrollEl = capturedHook?.scrollContainerRef.current!;
+    const scrollEl = capturedHook!.scrollContainerRef.current;
     Object.defineProperty(scrollEl, 'scrollTop', { value: 10, writable: true });
 
     act(() => {

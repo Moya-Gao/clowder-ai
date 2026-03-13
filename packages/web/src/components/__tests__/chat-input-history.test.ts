@@ -66,7 +66,7 @@ function getTextarea(): HTMLTextAreaElement {
 }
 
 function typeInto(textarea: HTMLTextAreaElement, value: string) {
-  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set!;
+  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
   nativeSetter.call(textarea, value);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -289,7 +289,7 @@ describe('ChatInput history completion', () => {
 
     // Type a search term
     act(() => {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set!;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
       setter.call(searchInput, 'hel');
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     });

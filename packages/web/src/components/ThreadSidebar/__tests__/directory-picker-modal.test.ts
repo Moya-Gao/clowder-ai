@@ -245,7 +245,7 @@ describe('DirectoryPickerModal', () => {
       (i as HTMLInputElement).placeholder.includes('路径'),
     ) as HTMLInputElement;
     act(() => {
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set!;
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
       nativeInputValueSetter.call(input, '/Users/test/new-path');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
@@ -274,7 +274,7 @@ describe('DirectoryPickerModal', () => {
       (i as HTMLInputElement).placeholder.includes('路径'),
     ) as HTMLInputElement;
     act(() => {
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set!;
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
       nativeInputValueSetter.call(input, '/root/evil');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
@@ -357,7 +357,7 @@ describe('DirectoryPickerModal', () => {
       (i as HTMLInputElement).placeholder.includes('对话标题'),
     ) as HTMLInputElement;
     act(() => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set!;
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
       setter.call(titleInput, '我的新对话');
       titleInput.dispatchEvent(new Event('input', { bubbles: true }));
     });

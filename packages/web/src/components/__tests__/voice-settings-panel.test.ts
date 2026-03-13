@@ -270,7 +270,7 @@ describe('CustomTermRow delete button', () => {
 function fireNativeInput(input: HTMLInputElement, value: string) {
   // For React controlled components rendered via createRoot, we need to
   // set the value via the native setter and dispatch an input event.
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set!;
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
   nativeInputValueSetter.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }

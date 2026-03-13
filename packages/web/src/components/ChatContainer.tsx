@@ -92,6 +92,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const [showBootcampList, setShowBootcampList] = useState(false);
   // F106: fetch bootcamp count independently of sidebar lifecycle
   // refreshKey increments only on modal close → avoids duplicate fetch on open
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_bootcampRefreshKey, setBootcampRefreshKey] = useState(0);
   const handleBootcampModalClose = useCallback(() => {
     setShowBootcampList(false);
@@ -345,6 +346,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // and acks it atomically — no frontend ID guessing, no timing races with fetchHistory.
   // Fires on thread entry AND when new messages arrive (messages.length changes),
   // so switching away after receiving new messages still acks to the latest.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _messageCount = messages.length;
   useEffect(() => {
     apiFetch(`/api/threads/${encodeURIComponent(threadId)}/read/latest`, {

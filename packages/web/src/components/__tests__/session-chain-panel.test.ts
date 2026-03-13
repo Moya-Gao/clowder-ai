@@ -709,8 +709,8 @@ describe('F24: SessionChainPanel', () => {
       // Type session ID
       const input = container.querySelector('input[placeholder="CLI session ID"]') as HTMLInputElement;
       act(() => {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')
-          ?.set!;
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!
+          .set!;
         nativeInputValueSetter.call(input, 'ses_test_123');
         input.dispatchEvent(new Event('input', { bubbles: true }));
       });
@@ -754,7 +754,7 @@ describe('F24: SessionChainPanel', () => {
       // Type value
       const input = container.querySelector('input[placeholder="CLI session ID"]') as HTMLInputElement;
       act(() => {
-        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set!;
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
         setter.call(input, 'bad_session');
         input.dispatchEvent(new Event('input', { bubbles: true }));
       });

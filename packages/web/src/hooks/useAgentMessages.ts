@@ -71,6 +71,7 @@ export function useAgentMessages() {
     setMessageMetadata,
     setMessageThinking,
     setMessageStreamInvocation,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     currentThreadId,
   } = useChatStore();
 

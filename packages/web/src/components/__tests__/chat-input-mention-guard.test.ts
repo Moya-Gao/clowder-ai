@@ -125,7 +125,7 @@ function getTextarea(): HTMLTextAreaElement {
 function typeInTextarea(value: string) {
   const ta = getTextarea();
   act(() => {
-    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
     setter.call(ta, value);
     ta.dispatchEvent(new Event('change', { bubbles: true }));
   });

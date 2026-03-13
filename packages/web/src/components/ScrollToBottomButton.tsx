@@ -13,8 +13,6 @@ export function ScrollToBottomButton({
   scrollContainerRef,
   messagesEndRef,
   thresholdPx = 120,
-  recomputeSignal,
-  observerKey,
 }: {
   scrollContainerRef: React.RefObject<HTMLElement | null>;
   messagesEndRef: React.RefObject<HTMLElement | null>;

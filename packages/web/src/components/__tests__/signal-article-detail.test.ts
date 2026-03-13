@@ -136,7 +136,7 @@ describe('SignalArticleDetail', () => {
 
     // Type a partial tag value
     act(() => {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set!;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
       setter.call(tagInput, '中文标签');
       tagInput.dispatchEvent(new Event('input', { bubbles: true }));
       tagInput.dispatchEvent(new Event('change', { bubbles: true }));

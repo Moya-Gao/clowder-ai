@@ -71,7 +71,7 @@ function getTextarea(): HTMLTextAreaElement {
 
 function typeInto(textarea: HTMLTextAreaElement, value: string) {
   // React controlled components need nativeInputValueSetter + input event
-  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set!;
+  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
   nativeSetter.call(textarea, value);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
