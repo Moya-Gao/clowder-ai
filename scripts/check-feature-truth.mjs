@@ -12,6 +12,7 @@ const defaultRepoRoot = resolve(scriptDir, '..');
 const repoRoot = process.argv[2] ? resolve(process.argv[2]) : defaultRepoRoot;
 
 const backlogPath = join(repoRoot, 'docs', 'BACKLOG.md');
+const roadmapPath = join(repoRoot, 'docs', 'ROADMAP.md');
 const currentIndexPath = join(repoRoot, 'docs', 'features', 'index.json');
 const generatorPath = join(repoRoot, 'scripts', 'generate-feature-index.mjs');
 
@@ -38,6 +39,18 @@ function loadJson(path) {
   }
   const raw = readFileSync(path, 'utf-8');
   return JSON.parse(raw);
+}
+
+function resolveTruthDocPath() {
+  if (existsSync(backlogPath)) {
+    return { path: backlogPath, label: 'BACKLOG' };
+  }
+
+  if (existsSync(roadmapPath)) {
+    return { path: roadmapPath, label: 'ROADMAP' };
+  }
+
+  throw new Error(`Missing backlog/roadmap: ${backlogPath} | ${roadmapPath}`);
 }
 
 function buildFeatureStatusMap(features) {
@@ -84,16 +97,14 @@ function main() {
   const generatedIndexPath = join(tempDir, 'index.json');
 
   try {
-    if (!existsSync(backlogPath)) {
-      throw new Error(`Missing backlog: ${backlogPath}`);
-    }
     if (!existsSync(currentIndexPath)) {
       throw new Error(`Missing feature index: ${currentIndexPath}`);
     }
 
     generateFreshIndex(generatedIndexPath);
 
-    const backlogMarkdown = readFileSync(backlogPath, 'utf-8');
+    const truthDoc = resolveTruthDocPath();
+    const backlogMarkdown = readFileSync(truthDoc.path, 'utf-8');
     const currentIndex = loadJson(currentIndexPath);
     const generatedIndex = loadJson(generatedIndexPath);
 
@@ -110,17 +121,17 @@ function main() {
     for (const backlogId of backlogIds) {
       const entry = statusMap.get(backlogId);
       if (!entry) {
-        errors.push(`[backlog-ref] BACKLOG contains ${backlogId}, but no such feature exists in index`);
+        errors.push(`[backlog-ref] ${truthDoc.label} contains ${backlogId}, but no such feature exists in index`);
         continue;
       }
       if (!entry.hasActive && entry.hasDone) {
-        errors.push(`[backlog-active] BACKLOG contains ${backlogId}, but all records are done`);
+        errors.push(`[backlog-active] ${truthDoc.label} contains ${backlogId}, but all records are done`);
       }
     }
 
     for (const [featureId, entry] of statusMap.entries()) {
       if (entry.hasActive && !backlogIds.has(featureId)) {
-        errors.push(`[backlog-missing] Active feature ${featureId} is missing from BACKLOG`);
+        errors.push(`[backlog-missing] Active feature ${featureId} is missing from ${truthDoc.label}`);
       }
     }
 
@@ -132,7 +143,9 @@ function main() {
       process.exit(1);
     }
 
-    console.log(`PASS check-feature-truth: features=${generatedFeatures.length} backlog_active=${backlogIds.size}`);
+    console.log(
+      `PASS check-feature-truth: features=${generatedFeatures.length} ${truthDoc.label.toLowerCase()}_active=${backlogIds.size}`,
+    );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

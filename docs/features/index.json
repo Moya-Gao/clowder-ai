@@ -659,7 +659,13 @@
       "name": "猫猫杀（脑门贴词）— 坏猫战术推理游戏",
       "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F107-headband-guess-game.md"
+    },
+    {
+      "id": "F108",
+      "name": "Side-Dispatch — 同一 Thread 多猫并发执行",
+      "status": "spec | **Owner**: TBD | **Priority**: P1",
+      "file": "F108-side-dispatch-concurrent-invocation.md"
     }
   ],
-  "generated_at": "2026-03-13T00:26:04.978Z"
+  "generated_at": "2026-03-13T01:35:28.184Z"
 }

@@ -166,13 +166,13 @@ export function isGameEvent(value: unknown): value is GameEvent {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
   return (
-    typeof v.eventId === 'string' &&
-    typeof v.round === 'number' &&
-    typeof v.phase === 'string' &&
-    typeof v.type === 'string' &&
-    isValidScope(v.scope) &&
-    typeof v.payload === 'object' &&
-    v.payload !== null &&
-    typeof v.timestamp === 'number'
+    typeof v['eventId'] === 'string' &&
+    typeof v['round'] === 'number' &&
+    typeof v['phase'] === 'string' &&
+    typeof v['type'] === 'string' &&
+    isValidScope(v['scope']) &&
+    typeof v['payload'] === 'object' &&
+    v['payload'] !== null &&
+    typeof v['timestamp'] === 'number'
   );
 }
