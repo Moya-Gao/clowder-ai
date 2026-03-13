@@ -10,11 +10,17 @@
 #   Step 6: Post-sync validation (install + build + port check)
 #
 # Usage:
-#   bash scripts/sync-to-opensource.sh                  # 完整同步（含 post-sync 验证）
-#   bash scripts/sync-to-opensource.sh --dry-run        # 只导出到临时目录，不同步
-#   bash scripts/sync-to-opensource.sh --validate       # 导出 + install + build（不同步）
-#   bash scripts/sync-to-opensource.sh --skip-validate  # 同步但跳过 post-sync 验证
-#   bash scripts/sync-to-opensource.sh --yes            # 非交互模式（猫猫/CI 用，跳过所有确认）
+#   bash scripts/sync-to-opensource.sh                    # 完整同步（含 post-sync 验证）
+#   bash scripts/sync-to-opensource.sh --dry-run          # 只导出到临时目录，不同步
+#   bash scripts/sync-to-opensource.sh --validate         # 导出 + install + build（不同步）
+#   bash scripts/sync-to-opensource.sh --skip-validate    # 同步但跳过 post-sync 验证
+#   bash scripts/sync-to-opensource.sh --fast-validate    # 同步 + install/build（跳过 full startup acceptance）
+#   bash scripts/sync-to-opensource.sh --yes              # 非交互模式（猫猫/CI 用，跳过所有确认）
+#   bash scripts/sync-to-opensource.sh --module=docs      # 模块级同步（V1: Step 5/6 按模块，Step 1-4 仍全量）
+#   bash scripts/sync-to-opensource.sh --module=api       # 模块级同步（同上）
+#   Modules: all root docs shared api web mcp skills
+#   NOTE: V1 模块化仅影响 Step 5 rsync 和 Step 6 validate。
+#         Step 1-4（export/transform/scan）始终全量执行。V2 再按模块裁剪。
 
 set -euo pipefail
 
@@ -33,19 +39,58 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# ── 进度日志（P0 可观测性）──────────────────────────────────
+SYNC_START_TIME=$(date +%s)
+STEP_START_TIME=$SYNC_START_TIME
+step_start() {
+  STEP_START_TIME=$(date +%s)
+  echo ""
+  echo -e "${GREEN}[$1] $2${NC}  [$(date +%H:%M:%S)]"
+}
+step_done() {
+  local elapsed=$(( $(date +%s) - STEP_START_TIME ))
+  echo -e "  ${BLUE}⏱ ${elapsed}s${NC}"
+}
+
 # ── 参数 ──────────────────────────────────────────────────────
 DRY_RUN=false
 VALIDATE=false
 SKIP_VALIDATE=false
+FAST_VALIDATE=false
 AUTO_YES=false
+SYNC_MODULE="all"
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
     --validate) VALIDATE=true ;;
     --skip-validate) SKIP_VALIDATE=true ;;
+    --fast-validate) FAST_VALIDATE=true ;;
     --yes|-y) AUTO_YES=true ;;
+    --module=*) SYNC_MODULE="${arg#--module=}" ;;
   esac
 done
+
+# ── 模块定义（P2 modular sync）──────────────────────────────
+# Each module owns mutually exclusive roots → per-module rsync --delete is safe
+# bash 3.2 compatible (no declare -A)
+module_root() {
+  case "$1" in
+    root)   echo "" ;;
+    docs)   echo "docs/" ;;
+    shared) echo "packages/shared/" ;;
+    api)    echo "packages/api/" ;;
+    web)    echo "packages/web/" ;;
+    mcp)    echo "packages/mcp-server/" ;;
+    skills) echo "cat-cafe-skills/" ;;
+    *)      echo "INVALID" ;;
+  esac
+}
+VALID_MODULES="all root docs shared api web mcp skills"
+if ! echo "$VALID_MODULES" | grep -qw "$SYNC_MODULE"; then
+  echo -e "${RED}✗ Invalid module: $SYNC_MODULE${NC}"
+  echo "  Valid modules: $VALID_MODULES"
+  exit 1
+fi
 
 SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET_DIR="${CLOWDER_AI_DIR:-$(cd "$SOURCE_DIR/.." && pwd)/clowder-ai}"
@@ -92,6 +137,7 @@ echo "源仓: $SOURCE_DIR"
 echo "目标: $TARGET_DIR"
 if [ "$DRY_RUN" = true ]; then echo "模式: DRY RUN"; fi
 if [ "$VALIDATE" = true ]; then echo "模式: VALIDATE"; fi
+if [ "$SYNC_MODULE" != "all" ]; then echo "模块: $SYNC_MODULE"; fi
 
 cd "$SOURCE_DIR"
 SOURCE_SHA=$(git rev-parse --short=12 HEAD)
@@ -105,8 +151,7 @@ fi
 echo -e "\n${BLUE}源 commit: ${SOURCE_SHA}${NC}"
 
 # ── Step 0: Pre-sync gate（D2a）────────────────────────────────
-echo ""
-echo -e "${GREEN}[Step 0] Pre-sync gate...${NC}"
+step_start "Step 0" "Pre-sync gate..."
 
 # 0a: Source repo dirty check (real sync only — dry-run/validate allow dirty)
 if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
@@ -195,10 +240,10 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" 
 fi
 
 echo "  ✓ Pre-sync gate passed"
+step_done
 
 # ── Step 1: Clean tree 导出 ────────────────────────────────────
-echo ""
-echo -e "${GREEN}[Step 1/6] Clean tree 导出...${NC}"
+step_start "Step 1/6" "Clean tree 导出..."
 
 STAGING_DIR=$(mktemp -d)
 trap 'rm -rf "$STAGING_DIR"' EXIT
@@ -215,9 +260,10 @@ else
   echo "  已导出到 staging: ${STAGING_DIR}"
 fi
 
+step_done
+
 # ── Step 2: Allowlist 过滤（只保留 manifest 中的路径）──────────
-echo ""
-echo -e "${GREEN}[Step 2/6] Allowlist 过滤...${NC}"
+step_start "Step 2/6" "Allowlist 过滤..."
 
 FILTERED_DIR=$(mktemp -d)
 if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
@@ -310,10 +356,10 @@ fi
 
 echo ""
 echo "  导出: $INCLUDED files | 排除: $EXCLUDED files"
+step_done
 
 # ── Step 3: Transforms ─────────────────────────────────────────
-echo ""
-echo -e "${GREEN}[Step 3/6] Transforms...${NC}"
+step_start "Step 3/6" "Transforms..."
 
 TRANSFORM_COUNT=0
 
@@ -486,82 +532,7 @@ LICENSE_EOF
 echo "  ✓ LICENSE (MIT)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
-# 3f: shared-rules.md 通用化（去铲屎官个人引用）
-if [ -f "$FILTERED_DIR/cat-cafe-skills/refs/shared-rules.md" ]; then
-  # 通用化铲屎官引用
-  sedi \
-    -e 's/铲屎官/team lead/g' \
-    -e 's/铲屎官原话/team experience/g' \
-    -e 's/Landy/Owner/g' \
-    -e 's/lysander/owner/g' \
-    -e 's/suces-MacBook[^ ]*/dev-machine/g' \
-    "$FILTERED_DIR/cat-cafe-skills/refs/shared-rules.md"
-  echo "  ✓ shared-rules.md (sanitized)"
-  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
-fi
-
-# 3g: Skills 全目录通用化（SKILL.md, refs/*.md, manifest.yaml, *.sh）
-find "$FILTERED_DIR/cat-cafe-skills" \( -name "*.md" -o -name "*.sh" -o -name "manifest.yaml" \) -type f | while read -r skill_file; do
-  if grep -qi '铲屎官\|Landy\|lysander\|6399\|6398' "$skill_file" 2>/dev/null; then
-    sedi \
-      -e 's/redis:\/\/localhost:6399/redis:\/\/localhost:6379/g' \
-      -e 's/redis:\/\/localhost:6398/redis:\/\/localhost:6380/g' \
-      -e 's/6399 圣域/production Redis (sacred)/g' \
-      -e 's/铲屎官原话/team experience/g' \
-      -e 's/铲屎官/team lead/g' \
-      -e 's/Landy/Owner/g' \
-      -e 's/landy/owner/g' \
-      -e 's/lysander/owner/g' \
-      -e 's/suces-MacBook[^ ]*/dev-machine/g' \
-      "$skill_file"
-  fi
-done
-find "$FILTERED_DIR/cat-cafe-skills" \( -name "*.md" -o -name "*.sh" -o -name "manifest.yaml" \) -type f | while read -r skill_file; do
-  sedi \
-    -e 's#docs/mailbox/YYYY-MM-DD-{topic}-review-request\.md#review request note#g' \
-    -e 's#docs/mailbox/#review-notes/#g' \
-    -e 's#docs/plans/YYYY-MM-DD-<feature-name>\.md#feature spec or implementation note#g' \
-    -e 's#docs/plans/YYYY-MM-DD-xxx\.md#feature spec or implementation note#g' \
-    -e 's#docs/plans/{date}-{topic}\.md 或 docs/phases/{name}\.md#the active feature spec or implementation plan#g' \
-    -e 's#docs/plans/#feature-specs/#g' \
-    -e 's#docs/discussions/YYYY-MM-DD-{topic}/README\.md#feature discussion#g' \
-    -e 's#docs/discussions/{date}-{fid}-design/#feature discussion record/#g' \
-    -e 's#docs/discussions/#feature-discussions/#g' \
-    -e 's#docs/archive/#internal-archive/#g' \
-    -e 's#archive/#internal-archive/#g' \
-    -e 's#mailbox/#review-notes/#g' \
-    -e 's#plans/#feature-specs/#g' \
-    -e 's#discussions/#feature-discussions/#g' \
-    -e 's#`\\.env\.local`#`.env`#g' \
-    -e 's#\.env\.local#.env#g' \
-    -e 's#\.cat-cafe/\*secrets\*\.local\.json#local secrets file#g' \
-    -e 's#http://localhost:3002#http://localhost:3003#g' \
-    -e 's#http://localhost:3001#http://localhost:3004#g' \
-    -e 's#http://127\.0\.0\.1:3002#your local Clowder API URL#g' \
-    -e 's#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g' \
-    -e 's#localhost:3002#localhost:3003#g' \
-    -e 's#localhost:3001#localhost:3004#g' \
-    -e 's#127\.0\.0\.1:3002#127.0.0.1:3003#g' \
-    -e 's#127\.0\.0\.1:3001#127.0.0.1:3004#g' \
-    -e 's#3002/3001#3003/3004#g' \
-    -e 's#3001/3002#3004/3003#g' \
-    -e 's#localhost:18060#<local-integration-endpoint>#g' \
-    -e 's#localhost:9000#<local-browser-automation-endpoint>#g' \
-    "$skill_file"
-done
-echo "  ✓ Skills files (all .md, .sh, manifest.yaml sanitized)"
-TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
-
-# 3h: BOOTSTRAP.md 通用化
-if [ -f "$FILTERED_DIR/cat-cafe-skills/BOOTSTRAP.md" ]; then
-  sedi \
-    -e 's/铲屎官/team lead/g' \
-    -e 's/Landy/Owner/g' \
-    -e 's/lysander/owner/g' \
-    "$FILTERED_DIR/cat-cafe-skills/BOOTSTRAP.md"
-  echo "  ✓ BOOTSTRAP.md (sanitized)"
-  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
-fi
+# 3f-3h: (merged into 3-UNIFIED comprehensive sanitizer below)
 
 # 3i: README.md — 复制开源版替换内部版
 if [ -f "$STAGING_DIR/README.opensource.md" ]; then
@@ -627,30 +598,7 @@ if [ -f "$FILTERED_DIR/packages/web/src/lib/mention-highlight.ts" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3k-1: Global source code sanitization (铲屎官 → owner, @landy/@lysander → @owner)
-echo "  Sanitizing source code globally..."
-SANITIZE_EXTENSIONS=("*.ts" "*.tsx" "*.js" "*.json")
-for ext in "${SANITIZE_EXTENSIONS[@]}"; do
-  find "$FILTERED_DIR/packages" -name "$ext" -type f 2>/dev/null | while read -r src_file; do
-    # Only process files that actually contain the strings
-    if grep -qi '铲屎官\|@landy\|@lysander\|@l\.s\.\|Landy' "$src_file" 2>/dev/null; then
-      sedi \
-        -e 's/铲屎官/owner/g' \
-        -e 's/@Landy/@owner/g' \
-        -e 's/@landy/@owner/g' \
-        -e "s/@Lysander/@owner/g" \
-        -e "s/@lysander/@owner/g" \
-        -e "s/@l\.s\./@owner/g" \
-        -e "s/'Landy'/'Owner'/g" \
-        -e "s/'landy'/'owner'/g" \
-        -e "s/'l\.s\.'/'owner'/g" \
-        -e 's/"Landy"/"Owner"/g' \
-        -e 's/name: "Landy"/name: "Owner"/g' \
-        "$src_file"
-    fi
-  done
-done
-TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+# 3k-1: (merged into 3-UNIFIED comprehensive sanitizer below)
 
 # 3k-2: P1-4 — Hindsight default off in public version
 if [ -f "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts" ]; then
@@ -707,129 +655,21 @@ fi
 echo "  ✓ public default ports (3003/3004) applied"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
-echo "  ✓ Source code global sanitization complete"
+# 3k-4 through 3p: (merged into 3-UNIFIED comprehensive sanitizer below)
 
-# 3k-4: docs/ internal links cleanup — strip remaining private paths from docs
-echo "  Stripping internal doc links from public docs..."
-find "$FILTERED_DIR/docs" -name "*.md" -type f 2>/dev/null | while read -r doc_file; do
-  # Use perl for complex regex (macOS sed ERE is limited)
-  perl -i -pe '
-    # Remove standalone list-item lines that are pure internal links to private dirs
-    next if /^- \[.*?\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\//;
-  ' "$doc_file"
-  perl -i -pe '
-    # Convert inline markdown links to private dirs into plain text
-    s/\[([^\]]*?)\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\/[^)]*\)/$1 (internal)/g;
-    # Strip backtick-quoted paths referencing private dirs
-    s/`(?:docs\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks)\/[^`]*`/*(internal reference removed)*/g;
-  ' "$doc_file"
-  perl -i -pe '
-    s#docs/mailbox/#review-notes/#g;
-    s#docs/plans/#feature-specs/#g;
-    s#docs/discussions/#feature-discussions/#g;
-    s#docs/archive/#internal-archive/#g;
-    s#(^|[^A-Za-z])mailbox/#${1}review-notes/#g;
-    s#(^|[^A-Za-z])plans/#${1}feature-specs/#g;
-    s#(^|[^A-Za-z])discussions/#${1}feature-discussions/#g;
-    s#(^|[^A-Za-z])archive/#${1}internal-archive/#g;
-    s#\.env\.local#.env#g;
-    s#\.cat-cafe/\*secrets\*\.local\.json#local secrets file#g;
-    s#http://localhost:3002#http://localhost:3003#g;
-    s#http://localhost:3001#http://localhost:3004#g;
-    s#http://127\.0\.0\.1:3002#your local Clowder API URL#g;
-    s#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g;
-    s#localhost:3002#localhost:3003#g;
-    s#localhost:3001#localhost:3004#g;
-    s#127\.0\.0\.1:3002#127.0.0.1:3003#g;
-    s#127\.0\.0\.1:3001#127.0.0.1:3004#g;
-    s#3002/3001#3003/3004#g;
-    s#3001/3002#3004/3003#g;
-    s#localhost:18060#<local-integration-endpoint>#g;
-    s#localhost:9000#<local-browser-automation-endpoint>#g;
-  ' "$doc_file"
-done
-echo "  ✓ docs/ internal links stripped"
-TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
-
-# 3k: docs/VISION.md + docs/SOP.md 通用化（去铲屎官引用/内部端口）
-for doc_file in docs/VISION.md docs/SOP.md; do
-  if [ -f "$FILTERED_DIR/$doc_file" ]; then
-    sedi \
-      -e 's/铲屎官原话/team experience/g' \
-      -e 's/铲屎官/team lead/g' \
-      -e 's/Landy/Owner/g' \
-      -e 's/lysander/owner/g' \
-      -e 's/布偶猫/Ragdoll/g' \
-      -e 's/缅因猫/Maine Coon/g' \
-      -e 's/暹罗猫/Siamese/g' \
-      -e 's/宪宪/Ragdoll/g' \
-      -e 's/砚砚/Maine Coon/g' \
-      -e 's/烁烁/Siamese/g' \
-      -e 's/redis:\/\/localhost:6399/redis:\/\/localhost:6379/g' \
-      -e 's/redis:\/\/localhost:6398/redis:\/\/localhost:6380/g' \
-      -e 's/6399 圣域/production Redis (sacred)/g' \
-      -e 's/suces-MacBook[^ ]*/dev-machine/g' \
-      -e 's/BACKLOG\.md/ROADMAP.md/g' \
-      "$FILTERED_DIR/$doc_file"
-    echo "  ✓ $doc_file (sanitized)"
-    TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
-  fi
-done
-
-# 3l: docs/decisions/ ADR 通用化
-find "$FILTERED_DIR/docs/decisions" -name "*.md" -type f 2>/dev/null | while read -r adr_file; do
-  sedi \
-    -e 's/铲屎官/team lead/g' \
-    -e 's/Landy/Owner/g' \
-    -e 's/lysander/owner/g' \
-    -e 's/布偶猫/Ragdoll/g' \
-    -e 's/缅因猫/Maine Coon/g' \
-    -e 's/暹罗猫/Siamese/g' \
-    "$adr_file"
-  # Scrub /Users/ absolute paths
-  perl -i -pe 's#/Users/[^\s,"'\'']+/cat-cafe\b#/path/to/project#g' "$adr_file"
-done
-echo "  ✓ docs/decisions/ (sanitized)"
-TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
-
-# 3m: docs/ROADMAP.md — 从 BACKLOG 生成公开版
+# 3m: docs/ROADMAP.md — 从 BACKLOG 生成公开版（copy + title rename only; sanitization by 3-UNIFIED）
 if [ -f "$STAGING_DIR/docs/BACKLOG.md" ]; then
   mkdir -p "$FILTERED_DIR/docs"
   cp "$STAGING_DIR/docs/BACKLOG.md" "$FILTERED_DIR/docs/ROADMAP.md"
-  # 通用化 + 重命名标题
-  sedi \
-    -e 's/# BACKLOG/# Roadmap/' \
-    -e 's/铲屎官/team lead/g' \
-    -e 's/Landy/Owner/g' \
-    -e 's/lysander/owner/g' \
-    -e 's/布偶猫/Ragdoll/g' \
-    -e 's/缅因猫/Maine Coon/g' \
-    -e 's/暹罗猫/Siamese/g' \
-    -e 's/宪宪/Ragdoll/g' \
-    -e 's/砚砚/Maine Coon/g' \
-    -e 's/烁烁/Siamese/g' \
-    "$FILTERED_DIR/docs/ROADMAP.md"
+  sedi -e 's/# BACKLOG/# Roadmap/' "$FILTERED_DIR/docs/ROADMAP.md"
   echo "  ✓ docs/ROADMAP.md (generated from BACKLOG)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3n: docs/public-lessons.md — 从 lessons-learned 生成公开版
+# 3n: docs/public-lessons.md — 从 lessons-learned 生成公开版（copy only; sanitization by 3-UNIFIED）
 if [ -f "$STAGING_DIR/docs/lessons-learned.md" ]; then
   mkdir -p "$FILTERED_DIR/docs"
   cp "$STAGING_DIR/docs/lessons-learned.md" "$FILTERED_DIR/docs/public-lessons.md"
-  sedi \
-    -e 's/铲屎官/team lead/g' \
-    -e 's/Landy/Owner/g' \
-    -e 's/lysander/owner/g' \
-    -e 's/布偶猫/Ragdoll/g' \
-    -e 's/缅因猫/Maine Coon/g' \
-    -e 's/暹罗猫/Siamese/g' \
-    -e 's/宪宪/Ragdoll/g' \
-    -e 's/砚砚/Maine Coon/g' \
-    -e 's/烁烁/Siamese/g' \
-    -e 's/redis:\/\/localhost:6399/redis:\/\/localhost:6379/g' \
-    -e 's/suces-MacBook[^ ]*/dev-machine/g' \
-    "$FILTERED_DIR/docs/public-lessons.md"
   echo "  ✓ docs/public-lessons.md (generated from lessons-learned)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
@@ -858,74 +698,114 @@ DOCS_README_EOF
 echo "  ✓ docs/README.md (generated)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
-# 3o-1: final public docs cleanup — generated docs need a second pass
-find "$FILTERED_DIR/docs" -name "*.md" -type f 2>/dev/null | while read -r doc_file; do
-  perl -i -pe '
-    s/\[([^\]]*?)\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\/[^)]*\)/$1 (internal)/g;
-    s/`(?:docs\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks)\/[^`]*`/*(internal reference removed)*/g;
-    s#docs/mailbox/#review-notes/#g;
-    s#docs/plans/#feature-specs/#g;
-    s#docs/discussions/#feature-discussions/#g;
-    s#docs/archive/#internal-archive/#g;
-    s#(^|[^A-Za-z])mailbox/#${1}review-notes/#g;
-    s#(^|[^A-Za-z])plans/#${1}feature-specs/#g;
-    s#(^|[^A-Za-z])discussions/#${1}feature-discussions/#g;
-    s#(^|[^A-Za-z])archive/#${1}internal-archive/#g;
-    s#\.env\.local#.env#g;
-    s#\.cat-cafe/\*secrets\*\.local\.json#local secrets file#g;
-    s#http://localhost:3002#http://localhost:3003#g;
-    s#http://localhost:3001#http://localhost:3004#g;
-    s#http://127\.0\.0\.1:3002#your local Clowder API URL#g;
-    s#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g;
-    s#localhost:3002#localhost:3003#g;
-    s#localhost:3001#localhost:3004#g;
-    s#127\.0\.0\.1:3002#127.0.0.1:3003#g;
-    s#127\.0\.0\.1:3001#127.0.0.1:3004#g;
-    s#3002/3001#3003/3004#g;
-    s#3001/3002#3004/3003#g;
-    s#localhost:18060#<local-integration-endpoint>#g;
-    s#localhost:9000#<local-browser-automation-endpoint>#g;
-  ' "$doc_file"
-done
-echo "  ✓ docs/ final public cleanup"
-TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+# ── 3-UNIFIED: Comprehensive single-pass sanitizer ──────────────
+# Replaces 10+ separate find|while|sed/perl loops (3f, 3g, 3h, 3k-1, 3k-4, 3k, 3l, 3o-1, 3o-2, 3p)
+# with ONE find + ONE perl pass over all text files. Conditional logic via $ARGV.
+# Written to temp file to avoid shell quoting issues with perl regex.
+echo "  Comprehensive sanitization (single-pass)..."
+SANITIZER="$STAGING_DIR/_sanitize.pl"
+cat > "$SANITIZER" << 'SANITIZE_PERL_EOF'
+# ── Personal info (all files) ──
+s/铲屎官原话/team experience/g;
+s/铲屎官/team lead/g;
+s/\@Landy/\@owner/g;
+s/\@landy/\@owner/g;
+s/\@Lysander/\@owner/g;
+s/\@lysander/\@owner/g;
+s/\@l\.s\./\@owner/g;
+s/"Landy"/"Owner"/g;
+s/'Landy'/'Owner'/g;
+s/name: "Landy"/name: "Owner"/g;
+s/'landy'/'owner'/g;
+s/'l\.s\.'/'owner'/g;
+s/Landy/Owner/g;
+s/lysander/owner/g;
+s/suces-MacBook[^ ]*/dev-machine/g;
 
-# 3o-2: global path normalization — fix double-prefix artifacts and lingering private path tokens
-find "$FILTERED_DIR/docs" "$FILTERED_DIR/cat-cafe-skills" \( -name "*.md" -o -name "*.sh" -o -name "manifest.yaml" \) -type f 2>/dev/null | while read -r public_file; do
-  perl -i -pe '
-    s#docs/mailbox\b#review-notes#g;
-    s#docs/plans\b#feature-specs#g;
-    s#docs/discussions\b#feature-discussions#g;
-    s#docs/archive\b#internal-archive#g;
-    s#feature-feature-discussions/#feature-discussions/#g;
-    s#feature-feature-specs/#feature-specs/#g;
-    s#internal-internal-archive/#internal-archive/#g;
-    s#localhost:3004/3002#localhost:3004/3003#g;
-    s#localhost:3003/3004#localhost:3004/3003#g;
-    s#3004/3002#3004/3003#g;
-    s#3003/3004#3004/3003#g;
-  ' "$public_file"
-done
-echo "  ✓ docs/skills path normalization"
-TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+# ── Redis ports (all files) ──
+s#redis://localhost:6399#redis://localhost:6379#g;
+s#redis://localhost:6398#redis://localhost:6380#g;
+s/6399 圣域/production Redis (sacred)/g;
 
-# 3p: Global /Users/ path scrub (D4 — absolute paths must not leak)
-echo "  Scrubbing absolute /Users/ paths globally..."
-find "$FILTERED_DIR" \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.md" -o -name "*.yaml" -o -name "*.yml" -o -name "*.sh" \) -type f 2>/dev/null | while read -r src_file; do
-  if grep -q '/Users/' "$src_file" 2>/dev/null; then
-    perl -i -pe 's#/Users/[^\s,"'\''}\]]+/cat-cafe\b#/path/to/project#g' "$src_file"
-    perl -i -pe 's#/Users/[^\s,"'\''}\]]+#/home/user#g' "$src_file"
-  fi
-done
-echo "  ✓ /Users/ paths scrubbed"
+# ── Port remapping (all files) ──
+s#http://localhost:3002#http://localhost:3003#g;
+s#http://localhost:3001#http://localhost:3004#g;
+s#http://127\.0\.0\.1:3002#your local Clowder API URL#g;
+s#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g;
+s#localhost:3002#localhost:3003#g;
+s#localhost:3001#localhost:3004#g;
+s#127\.0\.0\.1:3002#127.0.0.1:3003#g;
+s#127\.0\.0\.1:3001#127.0.0.1:3004#g;
+s#3002/3001#3003/3004#g;
+s#3001/3002#3004/3003#g;
+s#localhost:18060#<local-integration-endpoint>#g;
+s#localhost:9000#<local-browser-automation-endpoint>#g;
+
+# ── /Users/ path scrubbing (all files) ──
+s#/Users/[^\s,"'}\]]+/cat-cafe\b#/path/to/project#g;
+s#/Users/[^\s,"'}\]]+#/home/user#g;
+
+# ── Cat names + BACKLOG ref (docs + skills only) ──
+if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
+  s/布偶猫/Ragdoll/g;
+  s/缅因猫/Maine Coon/g;
+  s/暹罗猫/Siamese/g;
+  s/宪宪/Ragdoll/g;
+  s/砚砚/Maine Coon/g;
+  s/烁烁/Siamese/g;
+  s/BACKLOG\.md/ROADMAP.md/g;
+}
+
+# ── Internal link stripping + path remapping (docs + skills only) ──
+if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
+  # Remove list-item lines that are pure internal links
+  $_ = "" if /^- \[.*?\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\//;
+  # Convert inline links to private dirs into plain text
+  s/\[([^\]]*?)\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\/[^)]*\)/$1 (internal)/g;
+  # Strip backtick-quoted paths referencing private dirs
+  s/`(?:docs\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks)\/[^`]*`/*(internal reference removed)*/g;
+  # Specific path templates
+  s#docs/mailbox/YYYY-MM-DD-\{topic\}-review-request\.md#review request note#g;
+  s#docs/plans/YYYY-MM-DD-<feature-name>\.md#feature spec or implementation note#g;
+  s#docs/plans/YYYY-MM-DD-xxx\.md#feature spec or implementation note#g;
+  s#docs/plans/\{date\}-\{topic\}\.md 或 docs/phases/\{name\}\.md#the active feature spec or implementation plan#g;
+  s#docs/discussions/YYYY-MM-DD-\{topic\}/README\.md#feature discussion#g;
+  s#docs/discussions/\{date\}-\{fid\}-design/#feature discussion record/#g;
+  # Path remapping
+  s#docs/mailbox/#review-notes/#g;
+  s#docs/plans/#feature-specs/#g;
+  s#docs/discussions/#feature-discussions/#g;
+  s#docs/archive/#internal-archive/#g;
+  s#(^|[^A-Za-z])mailbox/#${1}review-notes/#g;
+  s#(^|[^A-Za-z])plans/#${1}feature-specs/#g;
+  s#(^|[^A-Za-z])discussions/#${1}feature-discussions/#g;
+  s#(^|[^A-Za-z])archive/#${1}internal-archive/#g;
+  # Double-prefix fix
+  s#feature-feature-discussions/#feature-discussions/#g;
+  s#feature-feature-specs/#feature-specs/#g;
+  s#internal-internal-archive/#internal-archive/#g;
+  # Port pair normalization
+  s#localhost:3004/3002#localhost:3004/3003#g;
+  s#localhost:3003/3004#localhost:3004/3003#g;
+  s#3004/3002#3004/3003#g;
+  s#3003/3004#3004/3003#g;
+  # Config path normalization
+  s#`\.env\.local`#`.env`#g;
+  s#\.env\.local#.env#g;
+  s#\.cat-cafe/\*secrets\*\.local\.json#local secrets file#g;
+}
+SANITIZE_PERL_EOF
+find "$FILTERED_DIR" \( -name "*.md" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.sh" \) -type f -print0 | \
+  xargs -0 perl -pi "$SANITIZER"
+echo "  ✓ Comprehensive sanitization complete (single-pass)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
 echo ""
 echo "  Transforms: $TRANSFORM_COUNT"
+step_done
 
 # ── Step 4: Denylist / Secret scan ────────────────────────────
-echo ""
-echo -e "${GREEN}[Step 4/6] Security scan...${NC}"
+step_start "Step 4/6" "Security scan..."
 
 SCAN_FAILED=false
 
@@ -945,38 +825,31 @@ for pattern in "${DENYLIST_PATTERNS[@]}"; do
   done < <(find "$FILTERED_DIR" -name "$pattern" -type f 2>/dev/null)
 done
 
-# 4b: Sensitive content scan (layered strategy)
+# 4b: Sensitive content scan — merged into fewer grep passes for performance
 SCAN_WARNINGS=0
+SCAN_INCLUDES='--include=*.ts --include=*.tsx --include=*.js --include=*.json --include=*.md --include=*.yaml --include=*.yml --include=*.sh'
 
-# 4b-1: Actual API key values (non-test source code only)
-# Test files use fake keys (sk-ant-secret etc.) which is fine
-echo "  Scanning for API key values (source code, non-test)..."
-KEY_PATTERNS=('sk-ant-' 'sk-proj-' 'sk-live-' 'gsk_' 'AIzaSy')
-for pattern in "${KEY_PATTERNS[@]}"; do
-  found=$(grep -rl "$pattern" "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' --include='*.yaml' --include='*.yml' --include='*.sh' 2>/dev/null \
-    | grep -v '/test/' | grep -v '/__tests__/' | grep -v '.test.' | head -5 || true)
-  if [ -n "$found" ]; then
-    echo -e "  ${RED}✗ Suspected API key '$pattern' in:${NC}"
-    echo "$found" | while read f; do echo "    $f"; done
-    SCAN_FAILED=true
+# 4b-BLOCK: Single grep pass for all blocking patterns (API keys + personal info + /Users/)
+# Combines old 4b-1, 4b-2, lysander check, and 4c into one pass
+# Uses grep -E (POSIX ERE) instead of grep -P — BSD grep on macOS does not support -P
+echo "  Scanning for secrets + personal info (single pass)..."
+BLOCK_RESULTS=$(grep -rEn 'sk-ant-|sk-proj-|sk-live-|gsk_|AIzaSy|suces-MacBook|/Users/[A-Za-z0-9]' "$FILTERED_DIR" \
+  $SCAN_INCLUDES 2>/dev/null \
+  | grep -v 'node_modules' | grep -v '/home/user' | grep -v '/path/to/project' \
+  || true)
+# Filter out test files for API key patterns, report the rest
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  file="${line%%:*}"
+  # Test files may use fake keys — skip for key patterns
+  if echo "$line" | grep -qE 'sk-ant-|sk-proj-|sk-live-|gsk_|AIzaSy'; then
+    echo "$file" | grep -qE '/test/|/__tests__/|\.test\.' && continue
   fi
-done
-
-# 4b-2: Personal info (non-test source code only)
-echo "  Scanning for personal info (source code)..."
-PERSONAL_KEYWORDS=('suces-MacBook')
-for keyword in "${PERSONAL_KEYWORDS[@]}"; do
-  found=$(grep -rl "$keyword" "$FILTERED_DIR" 2>/dev/null | head -5 || true)
-  if [ -n "$found" ]; then
-    echo -e "  ${RED}✗ Personal info '$keyword' in:${NC}"
-    echo "$found" | while read f; do echo "    $f"; done
-    SCAN_FAILED=true
-  fi
-done
-
-# lysander: only check in non-test source code
-# Test files may have @lysander for mention routing tests — these are config-driven, not secrets
-found=$(grep -rl "lysander" "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' --include='*.sh' 2>/dev/null \
+  echo -e "  ${RED}✗ Blocked content: ${line:0:120}${NC}"
+  SCAN_FAILED=true
+done <<< "$BLOCK_RESULTS"
+# Separate lysander check (excludes test files)
+found=$(grep -rl "lysander" "$FILTERED_DIR" $SCAN_INCLUDES 2>/dev/null \
   | grep -v '/test/' | grep -v '/__tests__/' | grep -v '.test.' | head -5 || true)
 if [ -n "$found" ]; then
   echo -e "  ${RED}✗ Found 'lysander' in source code:${NC}"
@@ -984,38 +857,24 @@ if [ -n "$found" ]; then
   SCAN_FAILED=true
 fi
 
-# 4b-3: Env var name references — warning only (code needs to read env vars)
+# 4b-WARN: Env var references — warning only (single grep)
 echo "  Scanning for env var references..."
-ENV_VAR_NAMES=('ANTHROPIC_API_KEY' 'OPENAI_API_KEY' 'GOOGLE_API_KEY')
-for keyword in "${ENV_VAR_NAMES[@]}"; do
-  found=$(grep -rl "$keyword" "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.sh' 2>/dev/null | head -5 || true)
-  if [ -n "$found" ]; then
-    echo -e "  ${YELLOW}⚠ Env var reference '$keyword' (normal — code reads env vars):${NC}"
-    echo "$found" | while read f; do echo "    $f"; done
-    SCAN_WARNINGS=$((SCAN_WARNINGS + 1))
-  fi
-done
-
-# 4c: /Users/ absolute path scan (D4 — actual paths like /Users/username/... should never appear)
-echo "  Scanning for absolute /Users/ paths..."
-# Match /Users/<word-char> (actual paths), not bare "/Users/" mentions in text
-found=$(grep -rPn '/Users/\w' "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' --include='*.yaml' --include='*.yml' --include='*.sh' 2>/dev/null \
-  | grep -v 'node_modules' \
-  | grep -v '/home/user' \
-  | grep -v '/path/to/project' \
-  | head -10 || true)
+found=$(grep -rl 'ANTHROPIC_API_KEY\|OPENAI_API_KEY\|GOOGLE_API_KEY' "$FILTERED_DIR" \
+  --include='*.ts' --include='*.tsx' --include='*.js' --include='*.sh' 2>/dev/null | head -10 || true)
 if [ -n "$found" ]; then
-  echo -e "  ${RED}✗ Absolute /Users/ path found in export:${NC}"
+  echo -e "  ${YELLOW}⚠ Env var references (normal — code reads env vars):${NC}"
   echo "$found" | while read f; do echo "    $f"; done
-  SCAN_FAILED=true
+  SCAN_WARNINGS=$((SCAN_WARNINGS + 1))
 fi
 
 # 4d: Internal path patterns scan (from manifest SOT)
 echo "  Scanning for internal path references..."
 INTERNAL_PATTERNS=()
 while IFS= read -r line; do INTERNAL_PATTERNS+=("$line"); done < <(yaml_list "internal_path_patterns")
-for pattern in "${INTERNAL_PATTERNS[@]}"; do
-  found=$(grep -rn "$pattern" "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' --include='*.yaml' --include='*.sh' 2>/dev/null \
+# Build combined regex for single grep pass
+INTERNAL_REGEX=$(IFS='|'; echo "${INTERNAL_PATTERNS[*]}")
+if [ -n "$INTERNAL_REGEX" ]; then
+  found=$(grep -rn "$INTERNAL_REGEX" "$FILTERED_DIR" $SCAN_INCLUDES 2>/dev/null \
     | grep -v '.sync-provenance.json' \
     | grep -v '.export-summary.json' \
     | grep -v 'review-notes/' \
@@ -1023,33 +882,32 @@ for pattern in "${INTERNAL_PATTERNS[@]}"; do
     | grep -v 'feature-discussions/' \
     | grep -v 'internal-archive/' \
     | grep -v '# .*internal' \
-    | head -5 || true)
+    | head -20 || true)
   if [ -n "$found" ]; then
-    echo -e "  ${YELLOW}⚠ Internal pattern '$pattern' found:${NC}"
+    echo -e "  ${YELLOW}⚠ Internal patterns found:${NC}"
     echo "$found" | while read f; do echo "    $f"; done
     SCAN_WARNINGS=$((SCAN_WARNINGS + 1))
   fi
-done
+fi
 
-# 4e: Endpoint scan — docs/config 层额外扫描内部 endpoint
+# 4e: Endpoint scan — single grep for all endpoint patterns in docs/skills
+# Uses grep -E (POSIX ERE) — BSD grep on macOS does not support -P
 echo "  Scanning for internal endpoints (docs + config)..."
-ENDPOINT_PATTERNS=('localhost:[0-9]\{4,5\}' '127\.0\.0\.1' '192\.168\.' '10\.[0-9]' '\.internal' '\.local' '\.corp')
-for pattern in "${ENDPOINT_PATTERNS[@]}"; do
-  found=$(grep -rn "$pattern" "$FILTERED_DIR/docs" "$FILTERED_DIR/cat-cafe-skills" 2>/dev/null \
-    | grep -v 'redis://localhost:6379' \
-    | grep -v 'redis://localhost:6380' \
-    | grep -v 'localhost:3000' \
-    | grep -v 'localhost:3003' \
-    | grep -v 'localhost:3004' \
-    | grep -v 'localhost:5173' \
-    | grep -v '.export-summary.json' \
-    | head -5 || true)
-  if [ -n "$found" ]; then
-    echo -e "  ${YELLOW}⚠ Potential internal endpoint '$pattern' in docs/skills:${NC}"
-    echo "$found" | while read f; do echo "    $f"; done
-    SCAN_WARNINGS=$((SCAN_WARNINGS + 1))
-  fi
-done
+found=$(grep -rEn 'localhost:[0-9]{4,5}|127\.0\.0\.1|192\.168\.|10\.[0-9]+\.[0-9]+\.|\.internal[^a-z]|\.local[^a-z]|\.corp[^a-z]' \
+  "$FILTERED_DIR/docs" "$FILTERED_DIR/cat-cafe-skills" 2>/dev/null \
+  | grep -v 'redis://localhost:6379' \
+  | grep -v 'redis://localhost:6380' \
+  | grep -v 'localhost:3000' \
+  | grep -v 'localhost:3003' \
+  | grep -v 'localhost:3004' \
+  | grep -v 'localhost:5173' \
+  | grep -v '.export-summary.json' \
+  | head -20 || true)
+if [ -n "$found" ]; then
+  echo -e "  ${YELLOW}⚠ Potential internal endpoints in docs/skills:${NC}"
+  echo "$found" | while read f; do echo "    $f"; done
+  SCAN_WARNINGS=$((SCAN_WARNINGS + 1))
+fi
 
 if [ "$SCAN_FAILED" = true ]; then
   echo ""
@@ -1060,6 +918,7 @@ if [ "$SCAN_FAILED" = true ]; then
 fi
 
 echo "  ✓ Security scan passed ($SCAN_WARNINGS warnings)"
+step_done
 
 # ── Provenance ─────────────────────────────────────────────────
 FILE_COUNT=$(find "$FILTERED_DIR" -type f | wc -l | tr -d ' ')
@@ -1141,8 +1000,7 @@ if [ "$DRY_RUN" = true ]; then
 fi
 
 # Real sync
-echo ""
-echo -e "${GREEN}[Step 5/6] Syncing to target...${NC}"
+step_start "Step 5/6" "Syncing to target..."
 if [ ! -d "$TARGET_DIR" ]; then
   echo -e "  ${YELLOW}Target dir does not exist: $TARGET_DIR${NC}"
   echo "  Create it with: git init $TARGET_DIR"
@@ -1170,38 +1028,39 @@ if [ "$BACKED_UP" -gt 0 ]; then
   echo "  ✓ Backed up $BACKED_UP target-owned item(s)"
 fi
 
-# 5b: Diff preview (D2c) — show what will change before syncing
+# 5b: Diff preview (D2c) — rsync --dry-run for instant diff (replaces 13min file-by-file loop)
 echo ""
 echo -e "  ${BLUE}── Diff preview ──${NC}"
-# Compare filtered output vs current target (excluding .git)
 DIFF_ADD=0; DIFF_UPDATE=0; DIFF_DELETE=0
 DELETE_LIST=""
-# Files that will be added or updated
-while IFS= read -r rel_path; do
-  if [ ! -f "$TARGET_DIR/$rel_path" ]; then
-    DIFF_ADD=$((DIFF_ADD + 1))
-  elif ! diff -q "$FILTERED_DIR/$rel_path" "$TARGET_DIR/$rel_path" >/dev/null 2>&1; then
-    DIFF_UPDATE=$((DIFF_UPDATE + 1))
-  fi
-done < <(cd "$FILTERED_DIR" && find . -type f | sed 's|^\./||')
-# Files that will be deleted (in target but not in filtered, excluding .git and target-owned)
 PROTECTED_LIST=""
-while IFS= read -r rel_path; do
-  if [ ! -f "$FILTERED_DIR/$rel_path" ]; then
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  # rsync --itemize-changes format: YXcstpoguax path
+  # >f+++++++++ = new file, >f.sT...... = updated file, *deleting = delete
+  change="${line%% *}"
+  path="${line#* }"
+  [[ "$path" == ".git/"* ]] && continue
+  if [[ "$change" == *"deleting" ]]; then
     IS_OWNED=false
     for owned in "${TARGET_OWNED[@]}"; do
-      if [[ "$rel_path" == "$owned"* ]]; then
+      if [[ "$path" == "$owned"* ]]; then
         IS_OWNED=true
-        PROTECTED_LIST="${PROTECTED_LIST}    🛡 ${rel_path}\n"
+        PROTECTED_LIST="${PROTECTED_LIST}    🛡 ${path}\n"
         break
       fi
     done
     if [ "$IS_OWNED" = false ]; then
       DIFF_DELETE=$((DIFF_DELETE + 1))
-      DELETE_LIST="${DELETE_LIST}    - ${rel_path}\n"
+      DELETE_LIST="${DELETE_LIST}    - ${path}\n"
     fi
+  elif [[ "$change" == ">f+++"* ]]; then
+    DIFF_ADD=$((DIFF_ADD + 1))
+  elif [[ "$change" == ">f"* ]]; then
+    DIFF_UPDATE=$((DIFF_UPDATE + 1))
   fi
-done < <(cd "$TARGET_DIR" && find . -type f -not -path './.git/*' | sed 's|^\./||')
+done < <(rsync -a --delete --dry-run --itemize-changes \
+  --exclude='.git' "$FILTERED_DIR/" "$TARGET_DIR/" 2>/dev/null)
 echo -e "  ${GREEN}+${DIFF_ADD} add${NC}  ${BLUE}~${DIFF_UPDATE} update${NC}  ${RED}-${DIFF_DELETE} delete${NC}"
 # Show deletion details (important for human review)
 if [ "$DIFF_DELETE" -gt 0 ]; then
@@ -1233,10 +1092,38 @@ else
   echo "  (--yes: auto-proceeding with sync)"
 fi
 
-# 5c: rsync (destructive — target matches filtered output exactly)
-rsync -a --delete \
-  --exclude='.git' \
-  "$FILTERED_DIR/" "$TARGET_DIR/"
+# 5c: rsync — module-aware sync
+if [ "$SYNC_MODULE" = "all" ]; then
+  # Full sync: target matches filtered output exactly
+  rsync -a --delete \
+    --exclude='.git' \
+    "$FILTERED_DIR/" "$TARGET_DIR/"
+else
+  # Module sync: only sync the module's owned root(s), safe --delete within owned paths
+  MODULE_ROOT="$(module_root "$SYNC_MODULE")"
+  if [ -z "$MODULE_ROOT" ]; then
+    # root module: sync ONLY root-level managed_files (package.json, tsconfig, etc.)
+    # Excludes ALL directory trees — those belong to other modules
+    rsync -a \
+      --exclude='.git' \
+      --exclude='packages/' \
+      --exclude='docs/' \
+      --exclude='cat-cafe-skills/' \
+      --exclude='scripts/' \
+      --exclude='.github/' \
+      --exclude='.sync-provenance.json' \
+      "$FILTERED_DIR/" "$TARGET_DIR/"
+    echo "  ✓ Module 'root': synced root-level files only (no --delete, no subdirs)"
+  elif [ -d "$FILTERED_DIR/$MODULE_ROOT" ]; then
+    # Module with directory root: rsync with --delete (safe — mutually exclusive roots)
+    mkdir -p "$TARGET_DIR/$MODULE_ROOT"
+    rsync -a --delete \
+      "$FILTERED_DIR/$MODULE_ROOT" "$TARGET_DIR/$MODULE_ROOT"
+    echo "  ✓ Module '$SYNC_MODULE': synced $MODULE_ROOT (with --delete)"
+  else
+    echo -e "  ${YELLOW}⚠ Module '$SYNC_MODULE' has no files in export, skipping${NC}"
+  fi
+fi
 
 # 5d: Restore target-owned files
 RESTORED=0
@@ -1257,13 +1144,18 @@ if [ "$RESTORED" -gt 0 ]; then
 fi
 
 echo "  ✓ Synced to $TARGET_DIR"
+step_done
 
 # 5e: Auto-commit + provenance finalization (D3)
 # Commit the sync, then record the resulting target HEAD into provenance
 if [ -d "$TARGET_DIR/.git" ]; then
   cd "$TARGET_DIR"
   git add -A
-  SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai (manifest v3)"
+  if [ "$SYNC_MODULE" = "all" ]; then
+    SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai (manifest v3)"
+  else
+    SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai [$SYNC_MODULE] (manifest v3)"
+  fi
   git commit -m "$SYNC_MSG" --allow-empty 2>&1 | tail -3
   # Provenance: record the pre-sync HEAD (the base before our sync commit).
   # We do NOT try to embed the sync commit's own hash (chicken-and-egg with amend).
@@ -1284,13 +1176,19 @@ if [ -d "$TARGET_DIR/.git" ]; then
   cd "$SOURCE_DIR"
 fi
 
-# ── Step 6: Post-sync startup acceptance (D2d, mandatory) ─────
+# ── Step 6: Post-sync validation (layered: skip / fast / full) ─
 if [ "$SKIP_VALIDATE" = true ]; then
   echo ""
   echo -e "${YELLOW}[Step 6] Post-sync validation SKIPPED (--skip-validate)${NC}"
-else
+elif [ "$SYNC_MODULE" != "all" ]; then
   echo ""
-  echo -e "${GREEN}[Step 6] Post-sync startup acceptance (D2d)...${NC}"
+  echo -e "${YELLOW}[Step 6] Post-sync validation SKIPPED (module sync — run full sync for final gate)${NC}"
+else
+  if [ "$FAST_VALIDATE" = true ]; then
+    step_start "Step 6" "Post-sync fast validation (install + build + test)..."
+  else
+    step_start "Step 6" "Post-sync full acceptance (D2d)..."
+  fi
   cd "$TARGET_DIR"
   STEP6_FAIL=false
   if command -v pnpm >/dev/null 2>&1; then
@@ -1326,6 +1224,9 @@ else
       STEP6_FAIL=true
     fi
 
+    if [ "$FAST_VALIDATE" = true ]; then
+      echo -e "  ${YELLOW}ℹ Fast validate: skipping full startup acceptance${NC}"
+    else
     # 6d: Full startup acceptance — API + frontend, probe health, lsof diff
     echo "  Startup acceptance (full stack)..."
     ACCEPT_API_PORT=${API_SERVER_PORT:-3003}
@@ -1415,6 +1316,8 @@ else
       echo "  ✓ Port verification passed"
     fi
 
+    fi  # end of full validation (else branch of fast_validate)
+
     # Final verdict
     if [ "$STEP6_FAIL" = true ]; then
       echo -e "  ${RED}✗ Post-sync acceptance FAILED${NC}"
@@ -1426,10 +1329,12 @@ else
   else
     echo -e "  ${YELLOW}⚠ pnpm not found, skipping post-sync validation${NC}"
   fi
+  step_done
   cd "$SOURCE_DIR"
 fi
 
+TOTAL_ELAPSED=$(( $(date +%s) - SYNC_START_TIME ))
 echo ""
-echo -e "${GREEN}=== Sync complete ===${NC}"
+echo -e "${GREEN}=== Sync complete ===${NC}  [total: ${TOTAL_ELAPSED}s]"
 echo "Target: $TARGET_DIR"
 echo "Next: cd $TARGET_DIR && git push (or create PR)"
