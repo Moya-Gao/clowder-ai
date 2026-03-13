@@ -39,12 +39,28 @@ managed_files:
   - docs/design-system.md
 
 # ── 脚本导出（managed_scripts）────────────────────────────────
+# CI/构建脚本
 managed_scripts:
   - scripts/check-dir-size.sh
   - scripts/start-dev.sh
   - scripts/check-feature-truth.mjs
   - scripts/generate-feature-index.mjs
   - scripts/audit-feature-doc-template.mjs
+  - scripts/check-frontmatter.mjs
+  - scripts/build-doc-index.mjs
+  - scripts/preflight-shared-state.sh
+  # 运行时可选服务（开源用户按需启用）
+  - scripts/anthropic-proxy.mjs
+  - scripts/init-cafe.sh
+  - scripts/runtime-worktree.sh
+  - scripts/qwen3-asr-server.sh
+  - scripts/qwen3-asr-api.py
+  - scripts/whisper-server.sh
+  - scripts/whisper-api.py
+  - scripts/tts-server.sh
+  - scripts/tts-api.py
+  - scripts/llm-postprocess-server.sh
+  - scripts/llm-postprocess-api.py
 
 # ── docs/ 生成型导出（由脚本生成，不直出原始文件）──────────────
 # 这些文件由 sync 脚本的 transform 步骤生成到目标仓

@@ -9,11 +9,11 @@
  * and the proxy strips the slug prefix, forwarding to the real upstream.
  *
  * Config file: .cat-cafe/proxy-upstreams.json (auto-managed by API)
- *   { "felix-2": "https://chat.nuoda.vip/claudecode" }
+ *   { "my-gateway": "https://your-gateway.example.com/api" }
  *
  * Request flow:
- *   CLI → http://127.0.0.1:9877/felix-2/v1/messages
- *   Proxy strips "/felix-2" → forwards to https://chat.nuoda.vip/claudecode/v1/messages
+ *   CLI → http://127.0.0.1:9877/my-gateway/v1/messages
+ *   Proxy strips "/my-gateway" → forwards to https://your-gateway.example.com/api/v1/messages
  *
  * Startup: automatically started by start-dev.sh
  * Disable: ANTHROPIC_PROXY_ENABLED=0 (skip proxy, CLI connects to upstream directly)
@@ -53,7 +53,7 @@ function loadUpstreams() {
 }
 
 // --- SSE normalization for non-standard upstream responses ---
-// Known quirks (felix-2 gateway):
+// Known quirks (some third-party gateways):
 // 1. message_start.usage.input_tokens = 0 (should be real count)
 // 2. message_delta.usage.input_tokens = real count (non-standard, Anthropic only puts output_tokens here)
 // 3. Extra fields: usage.cache_creation (nested), usage.inference_geo, usage.service_tier
