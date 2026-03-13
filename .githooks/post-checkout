@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# post-checkout hook: enforce main-only policy in PRIMARY worktree
+#
+# Rule: the primary worktree (repo root) must ALWAYS stay on `main`.
+# Feature branches belong in secondary worktrees created via `git worktree add`.
+# This hook auto-reverts unauthorized checkouts and prints a loud warning.
+#
+# Installed by: F068 enforcement (2026-03-12)
+# Why: 铲屎官铁律 — 主仓库禁止 checkout 到非 main 分支
+
+# Args: $1 = previous HEAD, $2 = new HEAD, $3 = branch flag (1 = branch checkout)
+BRANCH_FLAG="$3"
+
+# Only act on branch checkouts (flag=1), not file checkouts
+[ "$BRANCH_FLAG" != "1" ] && exit 0
+
+# Only enforce in the PRIMARY worktree, not secondary worktrees.
+# In a secondary worktree, GIT_DIR is something like ../.git/worktrees/<name>
+# In the primary worktree, git rev-parse --git-dir returns just ".git"
+GIT_DIR_REL=$(git rev-parse --git-dir 2>/dev/null)
+if [ "$GIT_DIR_REL" != ".git" ]; then
+  # We're in a secondary worktree — allow any branch
+  exit 0
+fi
+
+# Check current branch
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  🚫 BLOCKED: 主仓库禁止 checkout 到非 main 分支！          ║"
+  echo "║                                                            ║"
+  echo "║  检测到: $CURRENT_BRANCH"
+  echo "║  自动回滚到: main                                          ║"
+  echo "║                                                            ║"
+  echo "║  要改代码？请用 git worktree add 开隔离环境：               ║"
+  echo "║    git worktree add ../my-feature feat/my-feature          ║"
+  echo "║                                                            ║"
+  echo "║  铁律：主仓库永远留在 main，改代码必须开 worktree。         ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+
+  # Auto-revert to main
+  git checkout main --quiet 2>/dev/null
+
+  # Exit non-zero to signal the checkout was rejected
+  exit 1
+fi
+
+exit 0
