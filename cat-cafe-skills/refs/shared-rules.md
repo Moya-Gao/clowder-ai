@@ -226,7 +226,7 @@ commit body 补一行 `Why:` 说明决策理由。
 | L1 | `.githooks/pre-commit` | 非 main 分支 commit → **硬拦** |
 | L2 | `invoke-single-cat.ts` runtime preflight | unpushed → **硬拦**（停止调用）；uncommitted → warn |
 | L2.5 | `.claude/hooks/shared-doc-push-guard.sh` | Claude 专属提醒（不拦截） |
-| L3 | CI guard（TODO） | PR 含共享状态变更 → **硬拦** |
+| L3 | `.github/workflows/shared-state-guard.yml` | PR 含共享状态变更 → **硬拦** |
 
 **Review 守护的字段**（不做机器拦截）：
 - `docs/features/F*.md` 的 status/owner 字段变更也应在 main，但整文件可在 worktree 改

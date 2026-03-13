@@ -1,0 +1,38 @@
+name: Shared State Guard
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  shared-state-guard:
+    name: Shared State Guard (L3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for shared-state file changes
+        run: |
+          # L3 CI Guard — shared-rules §14
+          # Shared-state files must only be modified on main (direct push),
+          # never through PRs. PRs touching these files are blocked.
+          SHARED_FILES=$(git diff --name-only origin/main...HEAD | grep -E '^(docs/BACKLOG\.md|cat-config\.json)$' || true)
+
+          if [ -n "$SHARED_FILES" ]; then
+            echo "::error::Shared-state files must not be modified in PRs."
+            echo ""
+            echo "🚫 SHARED-STATE GUARD (L3): PR contains changes to shared-state files:"
+            echo "$SHARED_FILES" | sed 's/^/  - /'
+            echo ""
+            echo "These files must only be modified on the main branch with immediate"
+            echo "commit + push (shared-rules §14). Remove these changes from your PR:"
+            echo ""
+            echo "  git checkout origin/main -- docs/BACKLOG.md cat-config.json"
+            echo "  git commit -m 'revert shared-state changes'"
+            echo "  git push"
+            exit 1
+          fi
+
+          echo "✅ No shared-state files modified in this PR."
