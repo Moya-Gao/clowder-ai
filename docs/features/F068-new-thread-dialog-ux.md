@@ -51,7 +51,7 @@ status: in-progress
 | R4 | 删除自建目录浏览器 | AC-5 | ✅ |
 | R5 | 移动端响应式降级 | AC-7 | 🟡 待验证 |
 | R6 | 视觉设计确认 | AC-8 | ✅ |
-| R7 | 两步创建流程：选项目→填选项→确认 | AC-9 | 🔧 |
+| R7 | 两步创建流程：选项目→填选项→确认 | AC-9 | ✅ |
 
 ## Links
 
@@ -96,6 +96,7 @@ status: in-progress
 | 2026-03-06 | 实现完成 — 后端 pick-directory API + 前端 DirectoryPickerModal 重写 |
 | 2026-03-06 | 砚砚本地 review R1→R2 放行 (1P1+2P2 → 0) |
 | 2026-03-06 | PR #258 合入 — 云端 review R1→R2 (2P1 误报确认 → 0)，squash merge |
+| 2026-03-12 | R7 两步创建流程 — codex 本地 review 二轮放行 + 云端 review 通过，PR #416 squash merge |
 
 ## Completion
 
