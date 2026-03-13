@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F091: Signal Study Mode — 信号学习伴侣
 
-> **Status**: in-progress (Phase 8 podcast context injection done) | **Owner**: 布偶猫
+> **Status**: in-progress (Phase 9 signal nav + notes viewable done) | **Owner**: 布偶猫
 > **Created**: 2026-03-10
 > **Completed**: 2026-03-10
 
@@ -215,6 +215,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-12: Phase 6 merged (PR #388) — Thread-based podcast generation via message pipeline。gpt52 R1→R3 三轮 review + 云端 Codex 通过
 - 2026-03-12: Phase 7 merged (PR #395) — Podcast quality fixes: dynamic duration (3-10min), richer prompt, TTS safety, download/playback UI。云端 Codex 通过（P2 blob URL leak 已修）
 - 2026-03-12: Phase 8 merged (PR #405) — 播客上下文注入修复：注入 study thread 讨论历史 + 笔记到 prompt，threadContext 移到 JSON 格式前。云端 Codex P1 降级 P3（单用户系统无多租户场景）
+- 2026-03-13: Phase 9 merged (PR #425) — Signal 返回导航修复 + 学习笔记可查看：?from=threadId 回源线程、Mission Hub 风格返回按钮、讨论用关联 thread、note content API + 展开查看。Codex review P1(裸 fetch→apiFetch)已修
 
 ## Phase 5: 播客真正可用（2026-03-11） ✅
 
@@ -268,6 +269,20 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-P8-2: 播客生成前读取最新 study note artifact 内容
 - [x] AC-P8-3: `assembleThreadContext()` 将讨论和笔记组装为 threadContext
 - [x] AC-P8-4: threadContext 在 prompt 中位于 JSON 输出格式之前（不是之后）
+
+## Phase 9: Signal 返回导航修复 + 学习笔记可查看（2026-03-13） ✅
+
+> **Status**: done | **Owner**: 布偶猫
+
+铲屎官 01:22 报告：学习笔记只列 ID 看不了内容，Signal 返回跳默认 thread 会发错消息。
+
+### Phase 9 AC
+- [x] AC-P9-1: Signal 入口传 `?from=threadId`，返回按钮回到来源 thread
+- [x] AC-P9-2: "Chat" 改为 Mission Hub 风格"返回线程"按钮（`<` 图标 + 文字）
+- [x] AC-P9-3: `?from=` 参数在 Signals/Sources 子页间透传
+- [x] AC-P9-4: "在对话中讨论"/"开始学习"/"多猫研究"使用关联 study thread（不再 hardcode default）
+- [x] AC-P9-5: 学习笔记可点击展开查看内容（`apiFetch` + lazy load）
+- [x] AC-P9-6: 新增 `GET /api/signals/articles/:id/notes/:noteId` API endpoint
 
 ## UX Wireframe 设计说明
 
