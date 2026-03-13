@@ -41,7 +41,6 @@ created: 2026-02-26
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | internal | [F092](features/F092-voice-companion-experience.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | internal | [F093](features/F093-cats-and-u-world-engine.md) |
 | F095 | Thread Sidebar 导航体验升级 | in-progress | 布偶猫 | internal | [F095](features/F095-sidebar-collapse-memory.md) |
-| F096 | Interactive Rich Blocks — 可交互富文本组件 | in-progress | 布偶猫 | internal | [F096](features/F096-interactive-rich-blocks.md) |
 | F100 | Self-Evolution — 猫猫自我进化机制（行为层 + 知识对象化） | in-progress | 布偶猫 | internal | [F100](features/F100-self-evolution.md) |
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | in-progress | 布偶猫 | internal | [F102](features/F102-memory-adapter-refactor.md) |
 | F103 | 猫猫独立声线 — Per-Cat Voice Identity | spec | TBD | internal | [F103](features/F103-per-cat-voice-identity.md) |
