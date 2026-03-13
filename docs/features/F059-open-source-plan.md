@@ -219,7 +219,7 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 - [ ] 更新教程仓链接
 - [ ] 两猫交叉 review 完整导出
 
-**Phase 4: 同步架构优化（3/13 事故后新增，两猫共识）**
+**Phase 4: 同步架构优化（3/13 事故后新增，两猫共识）** ✅
 
 > 详见 [同步架构优化讨论](../discussions/2026-03-13-f059-sync-optimization.md)
 
@@ -231,13 +231,13 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 - **D5**: 共享脚本变更纪律（说明 + 强制 smoke test）
 
 实施项（按优先级）：
-- [ ] P0: sync-manifest.yaml 新增 target_owned_files + sync 脚本 rsync 改造
-- [ ] P0: pre-sync gate check（源仓 clean + 目标仓状态检查）
-- [ ] P0: post-sync 标准启动验收（模拟公开用户首次启动）
-- [ ] P1: diff 预览 + 人工确认
-- [ ] P1: 入站变更检测（provenance-based）
-- [ ] P1: 安全扫描加强（/Users/ + email + 内部路径 + proxy-upstreams）
-- [ ] P1: 共享脚本 runtime impact + 强制 smoke
+- [x] P0: sync-manifest.yaml 新增 target_owned_files + sync 脚本 rsync 改造
+- [x] P0: pre-sync gate check（源仓 clean + 目标仓状态检查）
+- [x] P0: post-sync 标准启动验收（模拟公开用户首次启动）
+- [x] P1: diff 预览 + 人工确认
+- [x] P1: 入站变更检测（provenance-based）
+- [x] P1: 安全扫描加强（/Users/ + email + 内部路径 + proxy-upstreams）
+- [x] P1: 共享脚本 runtime impact + 强制 smoke
 
 ### Skills 开源策略（2026-03-09 讨论收敛）
 
@@ -367,3 +367,4 @@ MIT 下别人可商用。三猫共识：
 | 2026-03-08 | Story telling 全猫讨论收敛：Slogan "Hard Rails. Soft Power. Shared Mission." 全票通过 |
 | 2026-03-09~13 | 首次同步引发连锁事故（详见 [复盘](../postmortems/2026-03-13-opensource-sync-incident-chain.md)） |
 | 2026-03-13 | 两猫独立分析 → [同步架构优化讨论](../discussions/2026-03-13-f059-sync-optimization.md) → D1~D5 决策收敛 |
+| 2026-03-13 | Phase 4 merged (PR #423) — D1~D5 全部落地，gpt52 三轮 review + codex 云端 review |
