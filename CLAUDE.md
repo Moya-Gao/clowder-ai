@@ -67,6 +67,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | 时机 | 检查 |
 |------|------|
 | 开 worktree 前 | Design Gate 过了？`docs/` 双向同步？（ahead=0 behind=0） |
+| **改了共享文档** | **Edit 完 → 同一消息内 commit + push，零延迟。** 共享文档 = `docs/features/`、`docs/BACKLOG.md`、`docs/decisions/` 等多猫可能同时编辑的文件。在非 main 分支改了也一样：改完立刻 commit push，不等下一轮对话。 |
 | feat close 前 | 主动 @ 其他猫做愿景守护（不要等铲屎官提醒）|
 | 全流程 | 自主跑完 SOP，只在 feat close 时通知铲屎官 |
 
