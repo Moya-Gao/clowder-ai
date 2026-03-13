@@ -50,3 +50,4 @@ created: 2026-02-26
 | F110 | 训练营愿景引导增强 — CVO 需求挖掘 + SOP 显式加载 | spec | 布偶猫 | [F110](features/F110-bootcamp-vision-elicitation.md) |
 | F111 | Streaming TTS Chunker — 流式分句合成管线 | spec | 布偶猫 | [F111](features/F111-streaming-tts-chunker.md) |
 | F112 | Voice Playback Queue — 语音播放队列 + Intent 调度 | spec | 布偶猫 | [F112](features/F112-voice-playback-queue.md) |
+| F117 | 喵约治理升级 — 四层架构 + Magic Words + Evidence Gate | spec | 布偶猫 | [F117](features/F117-governance-magic-words.md) |
