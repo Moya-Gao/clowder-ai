@@ -23,6 +23,7 @@ created: 2026-02-26
 - **F20b**: 1ec0910 + 23a5c30 — requestData() 轮询 + partialTranscript + streamSeqRef 竞态保护。
 - **F20c**: 已独立实现为 relay-station 平级项目（非 cat-cafe 子包）。macOS 全局热键（⌥Space）+ Whisper 转写 + 术语纠正 + 打字到任意 app。
 - **F20d**: CatCafeHub "语音设置" tab：可编辑术语纠正表 + initial_prompt 编辑 + 语言选择。内置词典 + localStorage 用户自定义合并。计划: 2026-02-15-voice-accuracy-and-system-whisper.md Phase B
+- **F20e**: 语音 ASR 自修正 — 干掉 LLM 后修中间人。前端标记 `isVoiceInput: true`，system prompt 注入提示大模型"这条消息来自语音输入，可能有识别错误，请自行理解原意"。大模型本身有完整上下文（项目术语、猫名、feature 编号），是最好的后修者，零额外延迟零额外成本。LLM 后修服务（`scripts/llm-postprocess-*`）保留但不再用于语音后修。起因：Qwen3.5 35B MoE 无上下文时把"magic word"修不回来，而主模型天然理解。2026-03-13 铲屎官提出。
 
 ## Acceptance Criteria
 - [x] AC-A1: 本文档已补齐模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
