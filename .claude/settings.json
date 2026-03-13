@@ -26,6 +26,16 @@
             "statusMessage": "F24: Restoring context..."
           }
         ]
+      },
+      {
+        "matcher": "new|compact|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/preflight-shared-state.sh",
+            "statusMessage": "Checking shared-state files..."
+          }
+        ]
       }
     ],
     "PreToolUse": [

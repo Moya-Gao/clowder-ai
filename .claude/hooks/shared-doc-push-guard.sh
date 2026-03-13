@@ -1,56 +1,57 @@
 #!/bin/bash
-# Shared Document Push Guard
-# 检查是否有改了共享文档但未 push 的 commit
-# 挂在 PostToolUse (Edit|Write) — 编辑共享文档后立即提醒
+# Shared Document Push Guard (Claude Code 提醒层)
 #
-# 共享文档 = docs/features/ | docs/BACKLOG.md | docs/decisions/ | cat-config.json
+# 定位：体验提醒层，不是制度执行层。
+# 制度执行层 = .githooks/pre-commit（repo 级，所有猫通用）
+#
+# 两类文档，不同强度：
+#   严格共享状态（非 main 禁止改）：BACKLOG.md, cat-config.json
+#   普通共享文档（可改，但改完必须 push）：docs/features/, docs/decisions/
 #
 # Exit codes:
-#   0 = no issue
-#   2 = blocking — 必须先 push
+#   0 = pass / 提醒（不拦截）
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
-# Only trigger for shared doc paths
 if [[ -z "$FILE_PATH" ]]; then
   exit 0
 fi
 
+# Classify: strict shared state vs regular shared doc
+IS_STRICT=false
+IS_SHARED=false
+
 case "$FILE_PATH" in
-  */docs/features/*|*/docs/BACKLOG.md|*/docs/decisions/*|*/cat-config.json) ;;
-  *) exit 0 ;;
+  */docs/BACKLOG.md|*/cat-config.json)
+    IS_STRICT=true
+    IS_SHARED=true
+    ;;
+  */docs/features/*|*/docs/decisions/*)
+    IS_SHARED=true
+    ;;
+  *)
+    exit 0
+    ;;
 esac
 
-# Find project root
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 cd "$PROJECT_DIR" || exit 0
 
-# Check: is this file modified but not committed?
-if git diff --name-only 2>/dev/null | grep -qE '(docs/features/|docs/BACKLOG\.md|docs/decisions/|cat-config\.json)'; then
-  echo "⚠️ SHARED-DOC GUARD: 你刚改了共享文档 $(basename "$FILE_PATH")，必须在这条消息内 commit + push！不 push 其他猫的修改会被覆盖。" >&2
-  # Don't block (exit 0) — 提醒，不拦截 Edit 本身
+BRANCH=$(git branch --show-current 2>/dev/null)
+
+# Strict shared state on non-main → strong warning
+if $IS_STRICT && [[ "$BRANCH" != "main" ]]; then
+  echo "🚫 SHARED-STATE GUARD: $(basename "$FILE_PATH") 是共享状态文件，应该在 main 分支改！" >&2
+  echo "正确做法：git restore --staged 该文件 → 切到 main worktree（或 git checkout main 如未被占用）→ pull → 编辑 → commit + push → 切回来" >&2
+  echo "（.githooks/pre-commit 会在 commit 时拦截，这里先提醒）" >&2
+  # 不 exit 2：Edit 本身不应该被拦截，pre-commit 会拦 commit
   exit 0
 fi
 
-# Check: are there unpushed commits touching shared docs?
-CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
-if [[ -z "$CURRENT_BRANCH" ]]; then
-  exit 0
-fi
-
-UPSTREAM=$(git rev-parse --abbrev-ref "@{upstream}" 2>/dev/null)
-if [[ -z "$UPSTREAM" ]]; then
-  # No upstream — can't check, but warn
-  exit 0
-fi
-
-UNPUSHED_SHARED=$(git diff --name-only "$UPSTREAM"..HEAD 2>/dev/null | grep -E '(docs/features/|docs/BACKLOG\.md|docs/decisions/|cat-config\.json)')
-if [[ -n "$UNPUSHED_SHARED" ]]; then
-  echo "🚨 SHARED-DOC GUARD: 有共享文档 commit 了但没 push！立刻 git push！" >&2
-  echo "未 push 的共享文档: $UNPUSHED_SHARED" >&2
-  # Block! 不 push 就不让继续
-  exit 2
+# Regular shared doc → remind to push after commit
+if $IS_SHARED; then
+  echo "📌 SHARED-DOC REMINDER: 你改了共享文档 $(basename "$FILE_PATH")，记得同消息内 commit + push。" >&2
 fi
 
 exit 0

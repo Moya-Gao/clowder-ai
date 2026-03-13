@@ -1,0 +1,46 @@
+#!/bin/bash
+# .githooks/pre-commit — Shared State File Guard
+#
+# 共享状态文件禁止在非 main 分支提交。
+# 规则来源：cat-cafe-skills/refs/shared-rules.md §14
+#
+# 共享状态文件清单（严格定义，不是整个 docs/features/）：
+#   - docs/BACKLOG.md
+#   - cat-config.json
+#
+# 注意：docs/features/F*.md 的 status/owner 字段变更也应在 main，
+# 但整个 feature doc 的 spec/AC/设计内容可以在 worktree 改。
+# 这里只拦截整文件级别的共享状态文件，字段级别靠 review 守护。
+#
+# 可被 --no-verify 绕过，所以需要 CI guard 兜底。
+
+BRANCH=$(git branch --show-current 2>/dev/null)
+
+# main 分支不拦截
+if [ "$BRANCH" = "main" ]; then
+  exit 0
+fi
+
+# 获取暂存区中的共享状态文件
+SHARED_STATE_FILES=$(git diff --cached --name-only | grep -E '^(docs/BACKLOG\.md|cat-config\.json)$')
+
+if [ -n "$SHARED_STATE_FILES" ]; then
+  echo "" >&2
+  echo "🚫 SHARED-STATE GUARD: 共享状态文件不能在非 main 分支提交！" >&2
+  echo "" >&2
+  echo "被拦截的文件：" >&2
+  echo "$SHARED_STATE_FILES" | sed 's/^/  - /' >&2
+  echo "" >&2
+  echo "正确做法：" >&2
+  echo "  1. git restore --staged $SHARED_STATE_FILES" >&2
+  echo "  2. 切到 main worktree（如已有：cd <main-worktree-path>）" >&2
+  echo "     或：git stash && git checkout main（如 main 未被其他 worktree 占用）" >&2
+  echo "  3. 在 main 上：git pull && 编辑 → git add → commit → push" >&2
+  echo "  4. 切回 feature 分支继续工作" >&2
+  echo "" >&2
+  echo "规则来源：shared-rules.md §14「共享状态文件只在 main 改」" >&2
+  echo "绕过方式：--no-verify（但 CI 会再拦一次）" >&2
+  exit 1
+fi
+
+exit 0
