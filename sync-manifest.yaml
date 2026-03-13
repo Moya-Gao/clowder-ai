@@ -251,6 +251,8 @@ denylist_patterns:
   - ".p12"
   - "cookies.json"
   - "dump.rdb"
+  - "proxy-upstreams.json"
+  - ".mcp.json"
 
 # ── Endpoint scan patterns（文档/配置层额外扫描）──────────────
 endpoint_scan_patterns:
@@ -259,6 +261,23 @@ endpoint_scan_patterns:
   - "192\\.168\\."
   - "10\\.\\d+\\.\\d+\\."
   - "@[a-zA-Z0-9.-]+\\.(internal|local|corp)"
+
+# ── Internal path patterns（导出内容不应包含的内部路径）────────
+internal_path_patterns:
+  - "docs/mailbox"
+  - "docs/plans"
+  - "docs/discussions"
+  - "\\.cat-cafe/"
+  - "cat-cafe-runtime"
+  - "6399"
+
+# ── Target-owned（目标仓独有，sync 不删除）──────────────────────
+target_owned_files:
+  - .github/FUNDING.yml
+  - .github/ISSUE_TEMPLATE/
+  - .github/DISCUSSION_TEMPLATE/
+  - CHANGELOG.md
+  - docs/community/
 
 # ── Provenance（同步元数据）────────────────────────────────────
 provenance:

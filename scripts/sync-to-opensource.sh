@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 # sync-to-opensource.sh — Cat Café → Clowder AI 开源同步脚本
-# 三猫共识管道: Clean export → Allowlist → Transforms → Security scan → Output
+# 七步管道 (D1-D5 hardening):
+#   Step 0: Pre-sync gate (dirty check + inbound detection)
+#   Step 1: Clean tree export
+#   Step 2: Allowlist filter
+#   Step 3: Transforms (sanitize + generate)
+#   Step 4: Security scan (denylist + secrets + /Users/ + internal patterns + endpoints)
+#   Step 5: Sync (target-owned backup → diff preview → rsync → restore)
+#   Step 6: Post-sync validation (install + build + port check)
 #
 # Usage:
-#   bash scripts/sync-to-opensource.sh              # 同步到目标目录
-#   bash scripts/sync-to-opensource.sh --dry-run    # 只导出到临时目录，不同步
-#   bash scripts/sync-to-opensource.sh --validate   # 导出 + install + build + smoke test
+#   bash scripts/sync-to-opensource.sh                  # 完整同步（含 post-sync 验证）
+#   bash scripts/sync-to-opensource.sh --dry-run        # 只导出到临时目录，不同步
+#   bash scripts/sync-to-opensource.sh --validate       # 导出 + install + build（不同步）
+#   bash scripts/sync-to-opensource.sh --skip-validate  # 同步但跳过 post-sync 验证
 
 set -euo pipefail
 
@@ -27,10 +35,12 @@ NC='\033[0m'
 # ── 参数 ──────────────────────────────────────────────────────
 DRY_RUN=false
 VALIDATE=false
+SKIP_VALIDATE=false
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
     --validate) VALIDATE=true ;;
+    --skip-validate) SKIP_VALIDATE=true ;;
   esac
 done
 
@@ -91,9 +101,91 @@ if [ "$DRY_RUN" = true ] || [ "$VALIDATE" = true ]; then
 fi
 echo -e "\n${BLUE}源 commit: ${SOURCE_SHA}${NC}"
 
+# ── Step 0: Pre-sync gate（D2a）────────────────────────────────
+echo ""
+echo -e "${GREEN}[Step 0] Pre-sync gate...${NC}"
+
+# 0a: Source repo dirty check (real sync only — dry-run/validate allow dirty)
+if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
+  if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+    echo -e "  ${RED}✗ Source repo has uncommitted changes. Commit or stash first.${NC}"
+    exit 1
+  fi
+  echo "  ✓ Source repo clean"
+fi
+
+# 0b: Target repo state check (skip for dry-run/validate)
+if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" ]; then
+  cd "$TARGET_DIR"
+  if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+    echo -e "  ${RED}✗ Target repo has uncommitted changes: $TARGET_DIR${NC}"
+    echo -e "  ${YELLOW}  Commit or discard target changes before syncing.${NC}"
+    exit 1
+  fi
+  echo "  ✓ Target repo clean"
+
+  # 0b-2: Open PR check — warn if target has open PRs that sync might conflict with
+  if command -v gh >/dev/null 2>&1; then
+    OPEN_PRS=$(cd "$TARGET_DIR" && gh pr list --state open --limit 5 --json number,title 2>/dev/null || true)
+    if [ -n "$OPEN_PRS" ] && [ "$OPEN_PRS" != "[]" ]; then
+      PR_COUNT=$(echo "$OPEN_PRS" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8'));console.log(d.length)" 2>/dev/null || echo "?")
+      echo -e "  ${YELLOW}⚠ Target repo has $PR_COUNT open PR(s):${NC}"
+      echo "$OPEN_PRS" | node -e "JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')).forEach(p=>console.log('    #'+p.number+' '+p.title))" 2>/dev/null || true
+      echo -e "  ${YELLOW}  Sync may conflict with these PRs.${NC}"
+      echo -n "  Continue? [y/N] "
+      read -r PR_CONFIRM
+      if [ "$PR_CONFIRM" != "y" ] && [ "$PR_CONFIRM" != "Y" ]; then
+        echo "  Aborted."
+        exit 0
+      fi
+    else
+      echo "  ✓ No open PRs in target"
+    fi
+  fi
+  cd "$SOURCE_DIR"
+fi
+
+# 0c: Provenance-based inbound detection (D3)
+# Strategy: provenance records target_head_sha (the target's HEAD at last sync time).
+# We compare current target HEAD against that to detect inbound changes.
+if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" ]; then
+  if [ -f "$TARGET_DIR/.sync-provenance.json" ]; then
+    # Read the target HEAD SHA that was recorded at last sync
+    LAST_TARGET_HEAD=$(node -e "const p=JSON.parse(require('fs').readFileSync('$TARGET_DIR/.sync-provenance.json','utf-8')); console.log(p.target_head_sha || '')" 2>/dev/null || true)
+    cd "$TARGET_DIR"
+    CURRENT_TARGET_HEAD=$(git rev-parse HEAD 2>/dev/null || true)
+    if [ -n "$LAST_TARGET_HEAD" ] && [ -n "$CURRENT_TARGET_HEAD" ]; then
+      if [ "$LAST_TARGET_HEAD" != "$CURRENT_TARGET_HEAD" ]; then
+        # target has moved since last sync
+        INBOUND_COUNT=$(git rev-list --count "$LAST_TARGET_HEAD".."$CURRENT_TARGET_HEAD" 2>/dev/null || echo "?")
+        echo -e "  ${YELLOW}⚠ Target has $INBOUND_COUNT commit(s) since last sync${NC}"
+        echo -e "  ${YELLOW}  Last sync target HEAD: ${LAST_TARGET_HEAD:0:12}${NC}"
+        echo -e "  ${YELLOW}  Current target HEAD:   ${CURRENT_TARGET_HEAD:0:12}${NC}"
+        echo -e "  ${YELLOW}  These may contain community contributions. Review before overwriting.${NC}"
+        echo -n "  Continue? [y/N] "
+        read -r CONFIRM
+        if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
+          echo "  Aborted."
+          exit 0
+        fi
+      else
+        echo "  ✓ No inbound changes since last sync"
+      fi
+    elif [ -z "$LAST_TARGET_HEAD" ]; then
+      # Old provenance format without target_head_sha — fallback warning
+      echo -e "  ${YELLOW}⚠ Provenance has no target_head_sha (old format) — cannot detect inbound changes${NC}"
+    fi
+    cd "$SOURCE_DIR"
+  else
+    echo -e "  ${YELLOW}⚠ No .sync-provenance.json in target — first sync or manual changes${NC}"
+  fi
+fi
+
+echo "  ✓ Pre-sync gate passed"
+
 # ── Step 1: Clean tree 导出 ────────────────────────────────────
 echo ""
-echo -e "${GREEN}[Step 1/5] Clean tree 导出...${NC}"
+echo -e "${GREEN}[Step 1/6] Clean tree 导出...${NC}"
 
 STAGING_DIR=$(mktemp -d)
 trap 'rm -rf "$STAGING_DIR"' EXIT
@@ -112,7 +204,7 @@ fi
 
 # ── Step 2: Allowlist 过滤（只保留 manifest 中的路径）──────────
 echo ""
-echo -e "${GREEN}[Step 2/5] Allowlist 过滤...${NC}"
+echo -e "${GREEN}[Step 2/6] Allowlist 过滤...${NC}"
 
 FILTERED_DIR=$(mktemp -d)
 if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
@@ -208,7 +300,7 @@ echo "  导出: $INCLUDED files | 排除: $EXCLUDED files"
 
 # ── Step 3: Transforms ─────────────────────────────────────────
 echo ""
-echo -e "${GREEN}[Step 3/5] Transforms...${NC}"
+echo -e "${GREEN}[Step 3/6] Transforms...${NC}"
 
 TRANSFORM_COUNT=0
 
@@ -680,6 +772,8 @@ find "$FILTERED_DIR/docs/decisions" -name "*.md" -type f 2>/dev/null | while rea
     -e 's/缅因猫/Maine Coon/g' \
     -e 's/暹罗猫/Siamese/g' \
     "$adr_file"
+  # Scrub /Users/ absolute paths
+  perl -i -pe 's#/Users/[^\s,"'\'']+/cat-cafe\b#/path/to/project#g' "$adr_file"
 done
 echo "  ✓ docs/decisions/ (sanitized)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
@@ -801,12 +895,23 @@ done
 echo "  ✓ docs/skills path normalization"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
+# 3p: Global /Users/ path scrub (D4 — absolute paths must not leak)
+echo "  Scrubbing absolute /Users/ paths globally..."
+find "$FILTERED_DIR" \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.md" -o -name "*.yaml" -o -name "*.yml" -o -name "*.sh" \) -type f 2>/dev/null | while read -r src_file; do
+  if grep -q '/Users/' "$src_file" 2>/dev/null; then
+    perl -i -pe 's#/Users/[^\s,"'\''}\]]+/cat-cafe\b#/path/to/project#g' "$src_file"
+    perl -i -pe 's#/Users/[^\s,"'\''}\]]+#/home/user#g' "$src_file"
+  fi
+done
+echo "  ✓ /Users/ paths scrubbed"
+TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+
 echo ""
 echo "  Transforms: $TRANSFORM_COUNT"
 
 # ── Step 4: Denylist / Secret scan ────────────────────────────
 echo ""
-echo -e "${GREEN}[Step 4/5] Security scan...${NC}"
+echo -e "${GREEN}[Step 4/6] Security scan...${NC}"
 
 SCAN_FAILED=false
 
@@ -877,7 +982,42 @@ for keyword in "${ENV_VAR_NAMES[@]}"; do
   fi
 done
 
-# 4c: Endpoint scan — docs/config 层额外扫描内部 endpoint
+# 4c: /Users/ absolute path scan (D4 — actual paths like /Users/username/... should never appear)
+echo "  Scanning for absolute /Users/ paths..."
+# Match /Users/<word-char> (actual paths), not bare "/Users/" mentions in text
+found=$(grep -rPn '/Users/\w' "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' --include='*.yaml' --include='*.yml' --include='*.sh' 2>/dev/null \
+  | grep -v 'node_modules' \
+  | grep -v '/home/user' \
+  | grep -v '/path/to/project' \
+  | head -10 || true)
+if [ -n "$found" ]; then
+  echo -e "  ${RED}✗ Absolute /Users/ path found in export:${NC}"
+  echo "$found" | while read f; do echo "    $f"; done
+  SCAN_FAILED=true
+fi
+
+# 4d: Internal path patterns scan (from manifest SOT)
+echo "  Scanning for internal path references..."
+INTERNAL_PATTERNS=()
+while IFS= read -r line; do INTERNAL_PATTERNS+=("$line"); done < <(yaml_list "internal_path_patterns")
+for pattern in "${INTERNAL_PATTERNS[@]}"; do
+  found=$(grep -rn "$pattern" "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' --include='*.yaml' --include='*.sh' 2>/dev/null \
+    | grep -v '.sync-provenance.json' \
+    | grep -v '.export-summary.json' \
+    | grep -v 'review-notes/' \
+    | grep -v 'feature-specs/' \
+    | grep -v 'feature-discussions/' \
+    | grep -v 'internal-archive/' \
+    | grep -v '# .*internal' \
+    | head -5 || true)
+  if [ -n "$found" ]; then
+    echo -e "  ${YELLOW}⚠ Internal pattern '$pattern' found:${NC}"
+    echo "$found" | while read f; do echo "    $f"; done
+    SCAN_WARNINGS=$((SCAN_WARNINGS + 1))
+  fi
+done
+
+# 4e: Endpoint scan — docs/config 层额外扫描内部 endpoint
 echo "  Scanning for internal endpoints (docs + config)..."
 ENDPOINT_PATTERNS=('localhost:[0-9]\{4,5\}' '127\.0\.0\.1' '192\.168\.' '10\.[0-9]' '\.internal' '\.local' '\.corp')
 for pattern in "${ENDPOINT_PATTERNS[@]}"; do
@@ -918,10 +1058,11 @@ echo "  excluded_file_count: $EXCLUDED"
 echo "  transform_count:     $TRANSFORM_COUNT"
 echo "  secret_scan_result:  clean"
 
-# Write provenance file
+# Write provenance file (target_head_sha added by post-sync step)
 cat > "$FILTERED_DIR/.sync-provenance.json" << PROV_EOF
 {
   "source_commit_sha": "$SOURCE_SHA",
+  "target_head_sha": "",
   "manifest_version": 3,
   "included_file_count": $FILE_COUNT,
   "excluded_file_count": $EXCLUDED,
@@ -935,7 +1076,7 @@ PROV_EOF
 
 if [ "$VALIDATE" = true ]; then
   echo ""
-  echo -e "${GREEN}[Step 5/5] Validate (install + build + smoke test)...${NC}"
+  echo -e "${GREEN}[Step 5/6] Validate (install + build + port check)...${NC}"
   cd "$FILTERED_DIR"
   if command -v pnpm >/dev/null 2>&1; then
     echo "  Installing dependencies..."
@@ -945,6 +1086,24 @@ if [ "$VALIDATE" = true ]; then
     pnpm --filter @cat-cafe/api build 2>&1 | tail -3
     echo "  Smoke test (test:public)..."
     pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5
+    # D2d: Port verification — ensure no internal ports leak into config
+    echo "  Port verification (D2d)..."
+    PORT_FAIL=false
+    for bad_port in 3001 3002 6399; do
+      found=$(grep -rn "[:=]${bad_port}\b" "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.sh' --include='*.yaml' --include='*.md' 2>/dev/null \
+        | grep -v 'node_modules' | grep -v '.sync-provenance' | grep -v 'CORS' | head -3 || true)
+      if [ -n "$found" ]; then
+        echo -e "    ${RED}✗ Internal port $bad_port found:${NC}"
+        echo "$found" | while read f; do echo "      $f"; done
+        PORT_FAIL=true
+      fi
+    done
+    if [ "$PORT_FAIL" = true ]; then
+      echo -e "  ${RED}✗ Port verification FAILED — internal ports leaked${NC}"
+      trap - EXIT
+      exit 1
+    fi
+    echo "  ✓ Port verification passed (no 3001/3002/6399)"
     echo -e "  ${GREEN}✓ Validate passed${NC}"
   else
     echo -e "  ${YELLOW}⚠ pnpm not found, skipping validate${NC}"
@@ -969,22 +1128,287 @@ fi
 
 # Real sync
 echo ""
-echo -e "${GREEN}[Step 5/5] Syncing to target...${NC}"
+echo -e "${GREEN}[Step 5/6] Syncing to target...${NC}"
 if [ ! -d "$TARGET_DIR" ]; then
   echo -e "  ${YELLOW}Target dir does not exist: $TARGET_DIR${NC}"
   echo "  Create it with: git init $TARGET_DIR"
   exit 1
 fi
 
-# rsync (destructive — target matches filtered output exactly)
-# All community docs (README, CONTRIBUTING, CLA, TRADEMARKS, SETUP) are now
-# maintained as .opensource.md in cat-cafe and synced via step 3i transforms.
-# No excludes needed — source is the single truth.
+# 5a: Target-owned file backup (D2b)
+# Read target_owned_files from manifest and back them up before rsync
+TARGET_OWNED=()
+while IFS= read -r line; do TARGET_OWNED+=("$line"); done < <(yaml_list "target_owned_files")
+BACKUP_DIR=$(mktemp -d)
+BACKED_UP=0
+for owned in "${TARGET_OWNED[@]}"; do
+  if [ -d "$TARGET_DIR/$owned" ]; then
+    mkdir -p "$BACKUP_DIR/$(dirname "$owned")"
+    cp -R "$TARGET_DIR/$owned" "$BACKUP_DIR/$owned"
+    BACKED_UP=$((BACKED_UP + 1))
+  elif [ -f "$TARGET_DIR/$owned" ]; then
+    mkdir -p "$BACKUP_DIR/$(dirname "$owned")"
+    cp "$TARGET_DIR/$owned" "$BACKUP_DIR/$owned"
+    BACKED_UP=$((BACKED_UP + 1))
+  fi
+done
+if [ "$BACKED_UP" -gt 0 ]; then
+  echo "  ✓ Backed up $BACKED_UP target-owned item(s)"
+fi
+
+# 5b: Diff preview (D2c) — show what will change before syncing
+echo ""
+echo -e "  ${BLUE}── Diff preview ──${NC}"
+# Compare filtered output vs current target (excluding .git)
+DIFF_ADD=0; DIFF_UPDATE=0; DIFF_DELETE=0
+DELETE_LIST=""
+# Files that will be added or updated
+while IFS= read -r rel_path; do
+  if [ ! -f "$TARGET_DIR/$rel_path" ]; then
+    DIFF_ADD=$((DIFF_ADD + 1))
+  elif ! diff -q "$FILTERED_DIR/$rel_path" "$TARGET_DIR/$rel_path" >/dev/null 2>&1; then
+    DIFF_UPDATE=$((DIFF_UPDATE + 1))
+  fi
+done < <(cd "$FILTERED_DIR" && find . -type f | sed 's|^\./||')
+# Files that will be deleted (in target but not in filtered, excluding .git and target-owned)
+PROTECTED_LIST=""
+while IFS= read -r rel_path; do
+  if [ ! -f "$FILTERED_DIR/$rel_path" ]; then
+    IS_OWNED=false
+    for owned in "${TARGET_OWNED[@]}"; do
+      if [[ "$rel_path" == "$owned"* ]]; then
+        IS_OWNED=true
+        PROTECTED_LIST="${PROTECTED_LIST}    🛡 ${rel_path}\n"
+        break
+      fi
+    done
+    if [ "$IS_OWNED" = false ]; then
+      DIFF_DELETE=$((DIFF_DELETE + 1))
+      DELETE_LIST="${DELETE_LIST}    - ${rel_path}\n"
+    fi
+  fi
+done < <(cd "$TARGET_DIR" && find . -type f -not -path './.git/*' | sed 's|^\./||')
+echo -e "  ${GREEN}+${DIFF_ADD} add${NC}  ${BLUE}~${DIFF_UPDATE} update${NC}  ${RED}-${DIFF_DELETE} delete${NC}"
+# Show deletion details (important for human review)
+if [ "$DIFF_DELETE" -gt 0 ]; then
+  echo -e "  ${RED}Files to delete:${NC}"
+  echo -e "$DELETE_LIST" | head -20
+  if [ "$DIFF_DELETE" -gt 20 ]; then
+    echo "    ... and $((DIFF_DELETE - 20)) more"
+  fi
+fi
+# Show protected target-owned files
+if [ -n "$PROTECTED_LIST" ]; then
+  echo -e "  ${GREEN}Protected (target-owned):${NC}"
+  echo -e "$PROTECTED_LIST"
+fi
+if [ $((DIFF_ADD + DIFF_UPDATE + DIFF_DELETE)) -eq 0 ]; then
+  echo "  No changes to sync."
+  rm -rf "$BACKUP_DIR"
+  exit 0
+fi
+echo -n "  Proceed with sync? [y/N] "
+read -r SYNC_CONFIRM
+if [ "$SYNC_CONFIRM" != "y" ] && [ "$SYNC_CONFIRM" != "Y" ]; then
+  echo "  Aborted."
+  rm -rf "$BACKUP_DIR"
+  exit 0
+fi
+
+# 5c: rsync (destructive — target matches filtered output exactly)
 rsync -a --delete \
   --exclude='.git' \
   "$FILTERED_DIR/" "$TARGET_DIR/"
 
+# 5d: Restore target-owned files
+RESTORED=0
+for owned in "${TARGET_OWNED[@]}"; do
+  if [ -d "$BACKUP_DIR/$owned" ]; then
+    mkdir -p "$TARGET_DIR/$(dirname "$owned")"
+    cp -R "$BACKUP_DIR/$owned" "$TARGET_DIR/$owned"
+    RESTORED=$((RESTORED + 1))
+  elif [ -f "$BACKUP_DIR/$owned" ]; then
+    mkdir -p "$TARGET_DIR/$(dirname "$owned")"
+    cp "$BACKUP_DIR/$owned" "$TARGET_DIR/$owned"
+    RESTORED=$((RESTORED + 1))
+  fi
+done
+rm -rf "$BACKUP_DIR"
+if [ "$RESTORED" -gt 0 ]; then
+  echo "  ✓ Restored $RESTORED target-owned item(s)"
+fi
+
 echo "  ✓ Synced to $TARGET_DIR"
+
+# 5e: Auto-commit + provenance finalization (D3)
+# Commit the sync, then record the resulting target HEAD into provenance
+if [ -d "$TARGET_DIR/.git" ]; then
+  cd "$TARGET_DIR"
+  git add -A
+  SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai (manifest v3)"
+  git commit -m "$SYNC_MSG" --allow-empty 2>&1 | tail -3
+  # Now capture the actual post-sync HEAD into provenance
+  POST_SYNC_HEAD=$(git rev-parse HEAD 2>/dev/null || true)
+  if [ -n "$POST_SYNC_HEAD" ] && [ -f "$TARGET_DIR/.sync-provenance.json" ]; then
+    node -e "
+      const fs = require('fs');
+      const p = JSON.parse(fs.readFileSync('$TARGET_DIR/.sync-provenance.json', 'utf-8'));
+      p.target_head_sha = '$POST_SYNC_HEAD';
+      fs.writeFileSync('$TARGET_DIR/.sync-provenance.json', JSON.stringify(p, null, 2) + '\n');
+    "
+    git add .sync-provenance.json
+    git commit --amend --no-edit 2>&1 | tail -1
+    echo "  ✓ Provenance finalized (target_head_sha: ${POST_SYNC_HEAD:0:12})"
+  fi
+  cd "$SOURCE_DIR"
+fi
+
+# ── Step 6: Post-sync startup acceptance (D2d, mandatory) ─────
+if [ "$SKIP_VALIDATE" = true ]; then
+  echo ""
+  echo -e "${YELLOW}[Step 6] Post-sync validation SKIPPED (--skip-validate)${NC}"
+else
+  echo ""
+  echo -e "${GREEN}[Step 6] Post-sync startup acceptance (D2d)...${NC}"
+  cd "$TARGET_DIR"
+  STEP6_FAIL=false
+  if command -v pnpm >/dev/null 2>&1; then
+    # 6a: .env setup (simulate public user first-run)
+    if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
+      cp "$TARGET_DIR/.env.example" "$TARGET_DIR/.env"
+      echo "  ✓ Created .env from .env.example"
+    elif [ ! -f "$TARGET_DIR/.env.example" ]; then
+      echo -e "  ${RED}✗ .env.example missing — public user cannot bootstrap${NC}"
+      STEP6_FAIL=true
+    fi
+
+    # 6b: Install + build
+    echo "  Installing dependencies..."
+    if ! pnpm install --frozen-lockfile 2>&1 | tail -5; then
+      echo -e "  ${RED}✗ pnpm install failed${NC}"
+      STEP6_FAIL=true
+    fi
+    echo "  Building..."
+    if ! pnpm --filter @cat-cafe/shared build 2>&1 | tail -3; then
+      echo -e "  ${RED}✗ shared build failed${NC}"
+      STEP6_FAIL=true
+    fi
+    if ! pnpm --filter @cat-cafe/api build 2>&1 | tail -3; then
+      echo -e "  ${RED}✗ api build failed${NC}"
+      STEP6_FAIL=true
+    fi
+
+    # 6c: Smoke test (test:public — gate: failure blocks sync)
+    echo "  Smoke test (test:public)..."
+    if ! pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5; then
+      echo -e "  ${RED}✗ test:public failed${NC}"
+      STEP6_FAIL=true
+    fi
+
+    # 6d: Full startup acceptance — API + frontend, probe health, lsof diff
+    echo "  Startup acceptance (full stack)..."
+    ACCEPT_API_PORT=${API_SERVER_PORT:-3003}
+    ACCEPT_WEB_PORT=${FRONTEND_PORT:-3004}
+    FORBIDDEN_PORTS="3001|3002|6399"
+
+    # Record listening ports BEFORE startup (baseline)
+    PORTS_BEFORE=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
+
+    # Start API + frontend in background
+    cd "$TARGET_DIR"
+    API_SERVER_PORT=$ACCEPT_API_PORT NODE_ENV=test pnpm --filter @cat-cafe/api start >/dev/null 2>&1 &
+    API_PID=$!
+    PORT=$ACCEPT_WEB_PORT pnpm --filter @cat-cafe/web dev -p $ACCEPT_WEB_PORT >/dev/null 2>&1 &
+    WEB_PID=$!
+
+    # Wait for API health (max 20s)
+    API_READY=false
+    for i in $(seq 1 20); do
+      if curl -sf "http://localhost:${ACCEPT_API_PORT}/api/health" >/dev/null 2>&1; then
+        API_READY=true
+        break
+      fi
+      sleep 1
+    done
+    if [ "$API_READY" = true ]; then
+      echo "  ✓ API health check passed (port $ACCEPT_API_PORT)"
+    else
+      echo -e "  ${RED}✗ API did not respond on port $ACCEPT_API_PORT within 20s${NC}"
+      STEP6_FAIL=true
+    fi
+
+    # Wait for frontend (max 15s after API is up)
+    WEB_READY=false
+    for i in $(seq 1 15); do
+      if curl -sf "http://localhost:${ACCEPT_WEB_PORT}" >/dev/null 2>&1; then
+        WEB_READY=true
+        break
+      fi
+      sleep 1
+    done
+    if [ "$WEB_READY" = true ]; then
+      echo "  ✓ Frontend page responded (port $ACCEPT_WEB_PORT)"
+    else
+      echo -e "  ${RED}✗ Frontend did not respond on port $ACCEPT_WEB_PORT within 15s${NC}"
+      STEP6_FAIL=true
+    fi
+
+    # Record listening ports AFTER startup
+    PORTS_AFTER=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
+
+    # before/after diff — detect unexpected new ports
+    NEW_PORTS=$(comm -13 <(echo "$PORTS_BEFORE") <(echo "$PORTS_AFTER") || true)
+    if [ -n "$NEW_PORTS" ]; then
+      echo "  New ports opened: $(echo "$NEW_PORTS" | tr '\n' ' ')"
+      # Check for forbidden ports in newly opened set
+      FORBIDDEN_FOUND=$(echo "$NEW_PORTS" | grep -E ":(${FORBIDDEN_PORTS})$" || true)
+      if [ -n "$FORBIDDEN_FOUND" ]; then
+        echo -e "  ${RED}✗ Forbidden port(s) opened during startup:${NC}"
+        echo "$FORBIDDEN_FOUND" | while read f; do echo "    $f"; done
+        STEP6_FAIL=true
+      fi
+    fi
+
+    # Cleanup: kill API + frontend
+    kill $API_PID 2>/dev/null || true
+    kill $WEB_PID 2>/dev/null || true
+    lsof -ti:$ACCEPT_API_PORT 2>/dev/null | xargs kill 2>/dev/null || true
+    lsof -ti:$ACCEPT_WEB_PORT 2>/dev/null | xargs kill 2>/dev/null || true
+    sleep 1
+
+    # 6e: Port verification (static scan)
+    echo "  Port verification (static scan)..."
+    PORT_FAIL=false
+    for bad_port in 3001 3002 6399; do
+      found=$(grep -rn "[:=]${bad_port}\b" "$TARGET_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.sh' --include='*.yaml' --include='*.md' 2>/dev/null \
+        | grep -v 'node_modules' | grep -v '.sync-provenance' | grep -v '.git/' | grep -v 'CORS' | head -3 || true)
+      if [ -n "$found" ]; then
+        echo -e "    ${RED}✗ Internal port $bad_port found:${NC}"
+        echo "$found" | while read f; do echo "      $f"; done
+        PORT_FAIL=true
+      fi
+    done
+    if [ "$PORT_FAIL" = true ]; then
+      STEP6_FAIL=true
+    else
+      echo "  ✓ Port verification passed"
+    fi
+
+    # Final verdict
+    if [ "$STEP6_FAIL" = true ]; then
+      echo -e "  ${RED}✗ Post-sync acceptance FAILED${NC}"
+      echo -e "  ${YELLOW}  Sync completed but target has issues. Fix before committing.${NC}"
+      cd "$SOURCE_DIR"
+      exit 1
+    fi
+    echo -e "  ${GREEN}✓ Post-sync startup acceptance passed${NC}"
+  else
+    echo -e "  ${YELLOW}⚠ pnpm not found, skipping post-sync validation${NC}"
+  fi
+  cd "$SOURCE_DIR"
+fi
+
 echo ""
 echo -e "${GREEN}=== Sync complete ===${NC}"
-echo "Next: cd $TARGET_DIR && git add -A && git commit"
+echo "Target: $TARGET_DIR"
+echo "Next: cd $TARGET_DIR && git push (or create PR)"
