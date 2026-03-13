@@ -46,3 +46,5 @@ created: 2026-02-26
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | [F104](features/F104-local-omni-perception.md) |
 | F107 | 猫猫杀（脑门贴词）— 坏猫战术推理游戏 | spec | 布偶猫 | [F107](features/F107-headband-guess-game.md) |
 | F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | spec | TBD | [F108](features/F108-side-dispatch-concurrent-invocation.md) |
+| F109 | Streaming TTS Chunker — 流式分句合成管线 | spec | 布偶猫 | [F109](features/F109-streaming-tts-chunker.md) |
+| F110 | Voice Playback Queue — 语音播放队列 + Intent 调度 | spec | 布偶猫 | [F110](features/F110-voice-playback-queue.md) |

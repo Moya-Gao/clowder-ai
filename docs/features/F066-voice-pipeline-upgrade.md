@@ -148,6 +148,8 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 ## Links
 
 - **Evolved from**: [F034 Voice Block 语音消息](F034-voice-message.md) — Provider 架构 + 语音条 UI
+- **Evolved into**: [F109 Streaming TTS Chunker](F109-streaming-tts-chunker.md) — Phase 2 流式分句拆出
+- **Evolved into**: [F110 Voice Playback Queue](F110-voice-playback-queue.md) — Phase 3 播放队列拆出
 - **Downstream**: [F021 Signal Study Mode](F021-signal-study-mode.md) — R5 播客功能依赖流式合成 + 播放队列
 - **Related**: [F054 HCI 预热基础设施](F054-hci-preheat-infra.md) — 性格档案影响声线选择
 - **Research**: [TTS 选型调研](../research/TTS-research.md) — MLX-Audio / CosyVoice3 / Piper / MeloTTS 对比
