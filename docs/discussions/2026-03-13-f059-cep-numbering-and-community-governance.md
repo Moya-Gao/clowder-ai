@@ -208,4 +208,4 @@ Feature doc：`docs/features/F113-multi-platform-one-click-deploy.md`。
 
 直接用 issue # 追踪，不分配 F 号：#12, #15, #18, #20, #21, #22, #23, #24, #27, #30, #31
 
-BACKLOG.md 暂不更新（铲屎官指示）。
+BACKLOG.md 已更新：F113 加入，Source 列标记 `community`（2026-03-13 修订）。

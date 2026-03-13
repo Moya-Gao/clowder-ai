@@ -33,6 +33,29 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 
 **触发**：铲屎官说"新功能"/"立项"、讨论收敛确认要做。**不触发**：还在探索 → `collaborative-thinking` Mode A；小修补 → TD。
 
+### Step 0: 关联检测（内部 + 社区 issue 都必须做）🔴
+
+**分配 F 编号前，先跑关联检测**，防止重复立项或把子任务误立为独立 feature：
+
+1. **扫描 BACKLOG + features/**：`grep -i "{关键词}" docs/BACKLOG.md docs/features/*.md`
+2. **判定**：
+
+| 判定结果 | 处置 |
+|---------|------|
+| 已有 Feature 的子任务/phase | **不立新号**，挂到现有 Fxxx 下，issue 加 `related: Fxxx` |
+| 已有 Feature 的相关需求 | 标记 `related: Fxxx`，由 maintainer 决定合并还是独立 |
+| 全新独立需求 | 继续走 Step 1 分配 F 号 |
+| 太小 / 纯 enhancement | **不立项**，保留 enhancement 标签，不给 F 号 |
+
+3. **社区 issue 额外检查**：
+   - 可行性：需求的数据源/依赖是否存在？
+   - 粒度：是独立 feature 还是现有 feature 的 UX polish？
+   - 回溯：feature doc 必须含 `community_issue: #{issue号}` 字段
+
+**教训（F114/F115/F116 事故）**：批量打标签 ≠ 审核通过。每个 issue 必须逐个过关联检测。
+
+### Step 1-5: 正式立项流程
+
 **5 步流程**：
 
 1. **分配 ID**：`grep -E "^\| F[0-9]+" docs/BACKLOG.md | tail -1`，新 ID = 最大 + 1，三位数
@@ -45,7 +68,8 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 
    并在 spec 中补一节：`## 需求点 Checklist`（模板见 `cat-cafe-skills/refs/requirements-checklist-template.md`）
 
-3. **更新 BACKLOG.md**：末尾加 `| F042 | 名称 | spec | Owner | [F042](features/...) |`
+3. **更新 BACKLOG.md**：末尾加 `| F042 | 名称 | spec | Owner | {source} | [F042](features/...) |`
+   - Source 列：`internal`（内部立项）或 `community [#xx](url)`（社区 issue 立项，附链接）
 
 4. **关联文档**：Links 章节列出相关 research/discussion；更新这些文档的 `feature_ids: [F042]`
 
@@ -186,6 +210,8 @@ AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先�
 | UX 没确认就开 worktree 写代码 | 先过 Design Gate 再动手 |
 | 后端 API 自己拍板不跟其他猫讨论 | 纯后端走 `collaborative-thinking` 拉猫讨论 |
 | 等 feat close 才补 Phase 进度 | merge-gate Step 7.5 每次 merge 实时同步（Phase ✅ + AC + Timeline） |
+| 社区 issue 批量打 feature 标签不逐个审核 | 每个 issue 必须过 Step 0 关联检测（F114/F115/F116 教训） |
+| 社区 feature 只在开源仓打标签，BACKLOG 不同步 | BACKLOG.md 必须同步加 Source=community 条目 |
 
 ## 下一步
 
