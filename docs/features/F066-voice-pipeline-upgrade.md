@@ -235,6 +235,9 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 | 2026-03-11 | 缅因猫 GPT-5.4 本地 R2 放行（2 P1 修复确认, 27/27 pass）|
 | 2026-03-11 | 云端 Codex review 放行（"Didn't find any major issues. Nice work!"）|
 | 2026-03-11 | PR #356 squash merged → **Phase 4 closed** |
+| 2026-03-12 | GPT-5.4 愿景守护发现 AC-10 实际未实现（PR #356 遗漏），快速修复开 worktree |
+| 2026-03-12 | 缅因猫 Codex 本地 review 放行（0 P1/P2） + 云端 Codex 放行 |
+| 2026-03-12 | PR #414 squash merged → AC-10 resynthesize 按钮补齐 |
 
 ## Voice Audition Progress (2026-03-09)
 
