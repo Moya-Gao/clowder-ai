@@ -43,9 +43,10 @@ export function buildWhisperOptions(cats: CatData[]): CatOption[] {
 }
 
 /** Pure detection — returns menu trigger type from current input, or null. */
-export function detectMenuTrigger(val: string, selectionStart: number):
-  | { type: 'mention'; start: number; filter: string }
-  | null {
+export function detectMenuTrigger(
+  val: string,
+  selectionStart: number,
+): { type: 'mention'; start: number; filter: string } | null {
   const textBefore = val.slice(0, selectionStart);
   const atIdx = textBefore.lastIndexOf('@');
   if (atIdx >= 0) {

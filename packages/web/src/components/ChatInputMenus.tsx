@@ -13,8 +13,12 @@ interface ChatInputMenusProps {
 }
 
 export function ChatInputMenus({
-  catOptions, showMentions, selectedIdx,
-  onSelectIdx, onInsertMention, menuRef,
+  catOptions,
+  showMentions,
+  selectedIdx,
+  onSelectIdx,
+  onInsertMention,
+  menuRef,
 }: ChatInputMenusProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollDown, setCanScrollDown] = useState(false);

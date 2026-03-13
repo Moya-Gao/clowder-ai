@@ -10,12 +10,7 @@ import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { compressImage } from '@/utils/compressImage';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
-import {
-  buildCatOptions,
-  buildWhisperOptions,
-  type CatOption,
-  detectMenuTrigger,
-} from './chat-input-options';
+import { buildCatOptions, buildWhisperOptions, type CatOption, detectMenuTrigger } from './chat-input-options';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
 import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';

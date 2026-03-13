@@ -72,7 +72,7 @@ describe('MobileInputToolbar', () => {
   it('disables buttons when disabled prop is set', () => {
     render({ disabled: true });
     const buttons = container.querySelectorAll('button');
-    const whisperBtn = Array.from(buttons).find(b => b.textContent?.includes('悄悄话'));
+    const whisperBtn = Array.from(buttons).find((b) => b.textContent?.includes('悄悄话'));
     expect(whisperBtn?.disabled).toBe(true);
   });
 
