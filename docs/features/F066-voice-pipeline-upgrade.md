@@ -120,7 +120,7 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 - [x] AC-3: 中文合成质量主观评估不低于 edge-tts（铲屎官试听确认）✅ 铲屎官："牛逼！是我要的了！"
 - [x] AC-8: (Phase 4) TTS 瞬时失败（ECONNREFUSED/timeout/5xx）自动重试 1 次，无需用户干预 ✅ PR #356
 - [x] AC-9: (Phase 4) 🔇 warning card 显示具体错误分类（连接拒绝/超时/服务错误） ✅ PR #356
-- [x] AC-10: (Phase 4) 🔇 warning card 提供"重新合成"按钮，点击后可重新触发 TTS 合成 ✅ PR #356
+- [x] AC-10: (Phase 4) 🔇 warning card 提供"重新合成"按钮，点击后可重新触发 TTS 合成 ✅ AC-10 补齐（PR #356 遗漏 → 本 PR 补齐）
 - [ ] AC-4: (Phase 2) LLM 流式输出到首次发声延迟 < 2 秒 → 拆分至未来 Feature
 - [ ] AC-5: (Phase 2) 长文本（>100 字）合成延迟比全文合成降低 50%+ → 拆分至未来 Feature
 - [ ] AC-6: (Phase 3) 双猫对话稿可按 queue 模式交替播放 → 拆分至未来 Feature
@@ -137,7 +137,7 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 | R5 | 用户可控制播放 | AC-7 | manual: 暂停/跳过操作 | [ ] 拆分 |
 | R6 | TTS 合成失败自动重试 1 次（瞬时故障容错） | AC-8 | test: mock ECONNREFUSED → 验证重试 + 成功 | [x] |
 | R7 | 🔇 card 显示具体错误信息（连接拒绝/超时/500） | AC-9 | test: 各类错误 → 验证 card 文案 | [x] |
-| R8 | 🔇 card 提供"重新合成"按钮 | AC-10 | manual: 点击按钮 → 验证语音生成 | [x] |
+| R8 | 🔇 card 提供"重新合成"按钮 | AC-10 | test: degraded card actions + resynthesize() method（32/32 pass） | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
