@@ -1042,9 +1042,9 @@ done
 
 # Single-pass awk: counts add/update/delete, captures first 20 deletes + protected
 DIFF_RESULT_FILE=$(mktemp)
-rsync -a --delete --dry-run --itemize-changes \
+LC_ALL=C rsync -a --delete --dry-run --itemize-changes \
   --exclude='.git' "$FILTERED_DIR/" "$TARGET_DIR/" 2>/dev/null | \
-  awk -v owned_pat="$OWNED_PATTERN" '
+  LC_ALL=C awk -v owned_pat="$OWNED_PATTERN" '
   BEGIN { add=0; upd=0; del=0; prot=0; del_shown=0 }
   /^$/ { next }
   {
