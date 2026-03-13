@@ -152,7 +152,7 @@ When in doubt about what's authoritative:
 | Feature behavior and direction | `docs/features/` |
 | Collaboration rules and workflows | `cat-cafe-skills/refs/` |
 | Architecture decisions | `docs/decisions/` |
-| Active work | `docs/BACKLOG.md` |
+| Active work | `docs/ROADMAP.md` |
 
 If code and docs disagree, **fix the doc first, then align the code**. Docs lead, code follows.
 
@@ -191,9 +191,9 @@ Every contribution should respect these:
 
 1. Read the [README](README.md) to understand what Clowder is
 2. Browse `docs/features/` to see existing Feature Docs
-3. Check `docs/BACKLOG.md` for the active feature list
+3. Check `docs/ROADMAP.md` for the active feature list
 4. Look at `docs/decisions/` for past architectural decisions
-5. Open an issue or draft a Feature Doc PR
+5. Open an Issue describing the problem or idea (maintainers assign F-numbers and create Feature Docs)
 6. Sign the [CLA](CLA.md) on your first PR (the bot will guide you)
 
 ### Code Style (When You Do Write Code)
@@ -312,7 +312,7 @@ Feature Doc 是**唯一真相源**。代码是它的产物。
 | 功能行为和方向 | `docs/features/` |
 | 协作规则和工作流 | `cat-cafe-skills/refs/` |
 | 架构决策 | `docs/decisions/` |
-| 活跃工作 | `docs/BACKLOG.md` |
+| 活跃工作 | `docs/ROADMAP.md` |
 
 如果代码和文档冲突，**先修文档，再对齐代码**。文档领路，代码跟随。
 
@@ -351,9 +351,9 @@ Review PR 时的优先级：
 
 1. 读 [README](README.md) 了解 Clowder 是什么
 2. 浏览 `docs/features/` 看看现有的 Feature Doc
-3. 看 `docs/BACKLOG.md` 了解当前活跃的功能列表
+3. 看 `docs/ROADMAP.md` 了解当前活跃的功能列表
 4. 翻翻 `docs/decisions/` 看看过去的架构决策
-5. 开一个 Issue 或直接提一个 Feature Doc 的 PR
+5. 开一个 Issue 描述问题或想法（maintainer 分配 F 编号并创建 Feature Doc）
 6. 首次提 PR 时签署 [CLA](CLA.md)（bot 会自动引导）
 
 ### 代码规范（当你确实要写代码时）

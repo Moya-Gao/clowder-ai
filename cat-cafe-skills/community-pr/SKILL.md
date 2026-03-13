@@ -63,10 +63,10 @@ grep -r "F110" --include="*.md" --include="*.ts" --include="*.tsx" --include="*.
 mv docs/features/F110-xxx.md docs/features/F115-xxx.md
 
 # 内容替换（frontmatter、引用、注释）
-# macOS (BSD sed): sed -i '' 's/F110/F115/g' file
-# Linux (GNU sed): sed -i 's/F110/F115/g' file
-sed -i '' 's/F110/F115/g' docs/features/F115-xxx.md
-# ... 对所有受影响的文件重复
+# 跨平台 sed（macOS + Linux 均可用）：
+if [[ "$OSTYPE" == "darwin"* ]]; then SED_I="sed -i ''"; else SED_I="sed -i"; fi
+find . \( -name "*.md" -o -name "*.ts" -o -name "*.tsx" -o -name "*.json" -o -name "*.yaml" \) \
+  -exec sh -c "$SED_I 's/F110/F115/g' \"\$1\"" _ {} \;
 
 # 3. 验证替换完整性
 grep -r "F110" --include="*.md" --include="*.ts" --include="*.tsx" --include="*.json"

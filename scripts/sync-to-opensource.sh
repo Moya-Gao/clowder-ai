@@ -146,21 +146,34 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" 
 fi
 
 # 0c: Provenance-based inbound detection (D3)
-# Strategy: provenance records target_head_sha (the target's HEAD at last sync time).
-# We compare current target HEAD against that to detect inbound changes.
+# Strategy: provenance records target_head_sha = the target's HEAD BEFORE the sync commit.
+# Next sync compares: is current HEAD an ancestor-or-equal of recorded SHA?
+# If current HEAD moved beyond it via non-sync commits, we detect inbound changes.
+# Note: we record pre-sync HEAD (not post-sync) to avoid the chicken-and-egg problem
+# where amending a commit to embed its own hash is impossible.
 if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" ]; then
   if [ -f "$TARGET_DIR/.sync-provenance.json" ]; then
-    # Read the target HEAD SHA that was recorded at last sync
+    # Read the pre-sync target HEAD recorded at last sync
     LAST_TARGET_HEAD=$(node -e "const p=JSON.parse(require('fs').readFileSync('$TARGET_DIR/.sync-provenance.json','utf-8')); console.log(p.target_head_sha || '')" 2>/dev/null || true)
     cd "$TARGET_DIR"
     CURRENT_TARGET_HEAD=$(git rev-parse HEAD 2>/dev/null || true)
     if [ -n "$LAST_TARGET_HEAD" ] && [ -n "$CURRENT_TARGET_HEAD" ]; then
-      if [ "$LAST_TARGET_HEAD" != "$CURRENT_TARGET_HEAD" ]; then
-        # target has moved since last sync
-        INBOUND_COUNT=$(git rev-list --count "$LAST_TARGET_HEAD".."$CURRENT_TARGET_HEAD" 2>/dev/null || echo "?")
-        echo -e "  ${YELLOW}⚠ Target has $INBOUND_COUNT commit(s) since last sync${NC}"
-        echo -e "  ${YELLOW}  Last sync target HEAD: ${LAST_TARGET_HEAD:0:12}${NC}"
-        echo -e "  ${YELLOW}  Current target HEAD:   ${CURRENT_TARGET_HEAD:0:12}${NC}"
+      # Check if current HEAD is the recorded SHA or a sync commit on top of it
+      # Inbound changes = commits between recorded SHA and current HEAD that are NOT sync commits
+      COMMITS_SINCE=$(git rev-list "$LAST_TARGET_HEAD".."$CURRENT_TARGET_HEAD" 2>/dev/null || true)
+      HAS_INBOUND=false
+      INBOUND_COUNT=0
+      for c in $COMMITS_SINCE; do
+        MSG=$(git log --format=%s -1 "$c" 2>/dev/null || true)
+        if ! echo "$MSG" | grep -q "^sync: cat-cafe"; then
+          HAS_INBOUND=true
+          INBOUND_COUNT=$((INBOUND_COUNT + 1))
+        fi
+      done
+      if [ "$HAS_INBOUND" = true ]; then
+        echo -e "  ${YELLOW}⚠ Target has $INBOUND_COUNT non-sync commit(s) since last sync${NC}"
+        echo -e "  ${YELLOW}  Last sync base:      ${LAST_TARGET_HEAD:0:12}${NC}"
+        echo -e "  ${YELLOW}  Current target HEAD: ${CURRENT_TARGET_HEAD:0:12}${NC}"
         echo -e "  ${YELLOW}  These may contain community contributions. Review before overwriting.${NC}"
         echo -n "  Continue? [y/N] "
         read -r CONFIRM
@@ -1059,7 +1072,7 @@ echo "  excluded_file_count: $EXCLUDED"
 echo "  transform_count:     $TRANSFORM_COUNT"
 echo "  secret_scan_result:  clean"
 
-# Write provenance file (target_head_sha added by post-sync step)
+# Write provenance file (target_head_sha = pre-sync base, finalized in Step 5e)
 cat > "$FILTERED_DIR/.sync-provenance.json" << PROV_EOF
 {
   "source_commit_sha": "$SOURCE_SHA",
@@ -1248,18 +1261,21 @@ if [ -d "$TARGET_DIR/.git" ]; then
   git add -A
   SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai (manifest v3)"
   git commit -m "$SYNC_MSG" --allow-empty 2>&1 | tail -3
-  # Now capture the actual post-sync HEAD into provenance
-  POST_SYNC_HEAD=$(git rev-parse HEAD 2>/dev/null || true)
-  if [ -n "$POST_SYNC_HEAD" ] && [ -f "$TARGET_DIR/.sync-provenance.json" ]; then
+  # Provenance: record the pre-sync HEAD (the base before our sync commit).
+  # We do NOT try to embed the sync commit's own hash (chicken-and-egg with amend).
+  # Detection logic uses commit-message matching to distinguish sync vs inbound.
+  # PRE_SYNC_TARGET_HEAD was captured at Step 0 (or defaults to parent if unavailable).
+  PRE_SYNC_BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD 2>/dev/null || true)
+  if [ -n "$PRE_SYNC_BASE" ] && [ -f "$TARGET_DIR/.sync-provenance.json" ]; then
     node -e "
       const fs = require('fs');
       const p = JSON.parse(fs.readFileSync('$TARGET_DIR/.sync-provenance.json', 'utf-8'));
-      p.target_head_sha = '$POST_SYNC_HEAD';
+      p.target_head_sha = '$PRE_SYNC_BASE';
       fs.writeFileSync('$TARGET_DIR/.sync-provenance.json', JSON.stringify(p, null, 2) + '\n');
     "
     git add .sync-provenance.json
     git commit --amend --no-edit 2>&1 | tail -1
-    echo "  ✓ Provenance finalized (target_head_sha: ${POST_SYNC_HEAD:0:12})"
+    echo "  ✓ Provenance finalized (target_head_sha: ${PRE_SYNC_BASE:0:12}, pre-sync base)"
   fi
   cd "$SOURCE_DIR"
 fi
