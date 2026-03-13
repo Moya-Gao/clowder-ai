@@ -99,6 +99,7 @@ async def refine(req: RefineRequest):
 
     prompt = model_ref["processor"].apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True,
+        enable_thinking=False,  # suppress CoT output, not the capability
     )
 
     t0 = time.monotonic()
