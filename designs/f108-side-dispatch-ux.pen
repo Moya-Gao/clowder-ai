@@ -1,0 +1,1216 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "text",
+      "id": "UNyAW",
+      "x": 40,
+      "y": 30,
+      "name": "title",
+      "fill": "#2D2D2D",
+      "content": "F108 Side-Dispatch UX Wireframes",
+      "fontFamily": "Inter",
+      "fontSize": 28,
+      "fontWeight": "700"
+    },
+    {
+      "type": "text",
+      "id": "57XNH",
+      "x": 40,
+      "y": 68,
+      "name": "subtitle",
+      "fill": "#8A8A8A",
+      "content": "同一 Thread 多猫并发执行 — 双模发送交互流",
+      "fontFamily": "Inter",
+      "fontSize": 14,
+      "fontWeight": "normal"
+    },
+    {
+      "type": "frame",
+      "id": "98obQ",
+      "x": 40,
+      "y": 110,
+      "name": "Scene 1: Chat Input — 锁头悄悄话模式",
+      "width": 520,
+      "fill": "#FDF8F3",
+      "cornerRadius": 24,
+      "layout": "vertical",
+      "gap": 20,
+      "padding": 28,
+      "children": [
+        {
+          "type": "text",
+          "id": "JRGTK",
+          "name": "s1title",
+          "fill": "#2D2D2D",
+          "content": "Scene 1: 输入区域 — 锁头悄悄话模式",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "SAzXr",
+          "name": "s1desc",
+          "fill": "#8A8A8A",
+          "content": "布偶猫正在执行任务中…铲屎官想悄悄派缅因猫反思",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "XVKB6",
+          "name": "ExecutionStatusBar",
+          "width": "fill_container",
+          "fill": "#F3EDE6",
+          "cornerRadius": 16,
+          "gap": 10,
+          "padding": [
+            8,
+            14
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "8uDYr",
+              "name": "execLabel",
+              "fill": "#5A5A5A",
+              "content": "执行中",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "jYEd6",
+              "name": "CatTag-Ragdoll",
+              "fill": "#9B7EBD",
+              "cornerRadius": 999,
+              "gap": 6,
+              "padding": [
+                4,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "alZXv",
+                  "name": "catTag1dot",
+                  "fill": "#FFFFFF",
+                  "width": 6,
+                  "height": 6
+                },
+                {
+                  "type": "text",
+                  "id": "czoFP",
+                  "name": "catTag1text",
+                  "fill": "#FFFFFF",
+                  "content": "布偶猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "WZiX2",
+              "name": "catTag1status",
+              "fill": "#7A6B8A",
+              "content": "修复 F108 bug…",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "SIf4v",
+          "name": "divider",
+          "width": "fill_container",
+          "height": 1,
+          "fill": "#E8DDD4"
+        },
+        {
+          "type": "frame",
+          "id": "RnH4j",
+          "name": "InputArea-Normal",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "text",
+              "id": "STsGx",
+              "name": "inLabel",
+              "fill": "#9B7EBD",
+              "content": "A. 默认状态",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "xlx7B",
+              "name": "InputRow",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 20,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E8DDD4"
+              },
+              "gap": 8,
+              "padding": [
+                10,
+                14
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Z5xiW",
+                  "name": "LockBtn",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#F3EDE6",
+                  "cornerRadius": 999,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "1CPxc",
+                      "name": "lockIcon",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "lock-open",
+                      "iconFontFamily": "lucide",
+                      "fill": "#8A8A8A"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "srKdS",
+                  "name": "inputText",
+                  "fill": "#AAAAAA",
+                  "content": "输入消息…",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "STtnj",
+                  "name": "SendBtn",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#9B7EBD",
+                  "cornerRadius": 999,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "8SFQ9",
+                      "name": "sendIcon",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "arrow-up",
+                      "iconFontFamily": "lucide",
+                      "fill": "#FFFFFF"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "y58cW",
+              "name": "normalNote",
+              "fill": "#AAAAAA",
+              "content": "直接发送 = 广播，不打断执行猫。@ 特定猫则旁路执行。",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "WkkVz",
+          "name": "divider2",
+          "width": "fill_container",
+          "height": 1,
+          "fill": "#E8DDD4"
+        },
+        {
+          "type": "frame",
+          "id": "ZYb4t",
+          "name": "InputArea-Whisper",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "text",
+              "id": "K7bNI",
+              "name": "wLabel",
+              "fill": "#9B7EBD",
+              "content": "B. 锁头激活 → 悄悄话模式",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "BNhWB",
+              "name": "WhisperInputRow",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 20,
+              "stroke": {
+                "align": "inside",
+                "thickness": 2,
+                "fill": "#9B7EBD"
+              },
+              "gap": 8,
+              "padding": [
+                10,
+                14
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "wjjqE",
+                  "name": "LockBtnActive",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#9B7EBD",
+                  "cornerRadius": 999,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "7NLYX",
+                      "name": "lockIconActive",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "lock",
+                      "iconFontFamily": "lucide",
+                      "fill": "#FFFFFF"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "t5WEb",
+                  "name": "TargetCatChip",
+                  "fill": "#2A7B5B",
+                  "cornerRadius": 999,
+                  "gap": 4,
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "GB3L8",
+                      "name": "catChipDot",
+                      "fill": "#FFFFFF",
+                      "width": 6,
+                      "height": 6
+                    },
+                    {
+                      "type": "text",
+                      "id": "RabiI",
+                      "name": "catChipText",
+                      "fill": "#FFFFFF",
+                      "content": "缅因猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "FYBoN",
+                  "name": "whisperInput",
+                  "fill": "#2D2D2D",
+                  "content": "你反思一下为什么 review 放过了",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "MWZKz",
+                  "name": "SendBtn",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#9B7EBD",
+                  "cornerRadius": 999,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "0sfNb",
+                      "name": "wSendIcon",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "arrow-up",
+                      "iconFontFamily": "lucide",
+                      "fill": "#FFFFFF"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "Eh3Jf",
+              "name": "whisperNote",
+              "fill": "#9B7EBD",
+              "content": "悄悄话：仅目标猫可见，不打断当前执行猫",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "G9Gh4",
+      "x": 600,
+      "y": 110,
+      "name": "Scene 2: Cat Selector — 锁头点击后",
+      "width": 520,
+      "fill": "#FDF8F3",
+      "cornerRadius": 24,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 28,
+      "children": [
+        {
+          "type": "text",
+          "id": "NrKwC",
+          "name": "s2title",
+          "fill": "#2D2D2D",
+          "content": "Scene 2: 猫选择器（锁头点击后弹出）",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "i00gg",
+          "name": "s2desc",
+          "fill": "#8A8A8A",
+          "content": "选择悄悄话目标猫 — 正在执行的猫灰掉不可选",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "VwZss",
+          "name": "CatSelectorDropdown",
+          "width": "fill_container",
+          "fill": "#1E1E2E",
+          "cornerRadius": 16,
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "VAbcB",
+              "name": "selTitle",
+              "fill": "#E0E0E0",
+              "content": "选择悄悄话目标猫",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "MnFEx",
+              "name": "BreedGroup-Ragdoll",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "iNPQ3",
+                  "name": "breedRHdr",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "6rxev",
+                      "name": "breedRDot",
+                      "fill": "#555555",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "sXtLA",
+                      "name": "breedRLabel",
+                      "fill": "#555555",
+                      "content": "布偶猫家族 · Anthropic",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "5dxrx",
+                  "name": "breedRChip",
+                  "opacity": 0.4,
+                  "fill": "#333344",
+                  "cornerRadius": 999,
+                  "gap": 6,
+                  "padding": [
+                    6,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "91yPk",
+                      "name": "breedRChipDot",
+                      "fill": "#555555",
+                      "width": 6,
+                      "height": 6
+                    },
+                    {
+                      "type": "text",
+                      "id": "KyhQl",
+                      "name": "breedRChipText",
+                      "fill": "#777777",
+                      "content": "布偶猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "3DA28",
+                      "name": "breedRBusy",
+                      "fill": "#777777",
+                      "content": "执行中",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon_font",
+                      "id": "gICT9",
+                      "name": "breedRIcon",
+                      "width": 12,
+                      "height": 12,
+                      "iconFontName": "loader",
+                      "iconFontFamily": "lucide",
+                      "fill": "#777777"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "L6vdE",
+              "name": "BreedGroup-Maine",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "FfCxg",
+                  "name": "breedMHdr",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "v0VsI",
+                      "name": "breedMDot",
+                      "fill": "#2A7B5B",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "hwksi",
+                      "name": "breedMLabel",
+                      "fill": "#8A8A8A",
+                      "content": "缅因猫家族 · OpenAI",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "pLo4s",
+                  "name": "breedMChips",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "wQzwl",
+                      "name": "chipCodex",
+                      "fill": "#2A7B5B",
+                      "cornerRadius": 999,
+                      "gap": 4,
+                      "padding": [
+                        6,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "sp3ij",
+                          "name": "chipCodexDot",
+                          "fill": "#FFFFFF",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "text",
+                          "id": "iqnQK",
+                          "name": "chipCodexText",
+                          "fill": "#FFFFFF",
+                          "content": "缅因猫 (Codex)",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "oPvx0",
+                      "name": "chipGpt",
+                      "fill": "#00000000",
+                      "cornerRadius": 999,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#2A7B5B"
+                      },
+                      "gap": 4,
+                      "padding": [
+                        6,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "lSJC0",
+                          "name": "chipGptDot",
+                          "fill": "#2A7B5B",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "text",
+                          "id": "YjGwz",
+                          "name": "chipGptText",
+                          "fill": "#2A7B5B",
+                          "content": "缅因猫 (GPT-5.4)",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "5Dm9D",
+              "name": "BreedGroup-Siamese",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Srynp",
+                  "name": "breedSHdr",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "ZVnZ1",
+                      "name": "breedSDot",
+                      "fill": "#4A90D9",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "pon6T",
+                      "name": "breedSLabel",
+                      "fill": "#8A8A8A",
+                      "content": "暹罗猫家族 · Google",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "TmPN9",
+                  "name": "chipGemini",
+                  "fill": "#00000000",
+                  "cornerRadius": 999,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#4A90D9"
+                  },
+                  "gap": 4,
+                  "padding": [
+                    6,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "e7nX0",
+                      "name": "chipGeminiDot",
+                      "fill": "#4A90D9",
+                      "width": 6,
+                      "height": 6
+                    },
+                    {
+                      "type": "text",
+                      "id": "LjALP",
+                      "name": "chipGeminiText",
+                      "fill": "#4A90D9",
+                      "content": "暹罗猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ZZxkk",
+      "x": 1160,
+      "y": 110,
+      "name": "Scene 3: 并发执行状态",
+      "width": 520,
+      "fill": "#FDF8F3",
+      "cornerRadius": 24,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 28,
+      "children": [
+        {
+          "type": "text",
+          "id": "Wx5Bo",
+          "name": "s3title",
+          "fill": "#2D2D2D",
+          "content": "Scene 3: 并发执行 — 两猫同时工作",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "Ypvmu",
+          "name": "s3desc",
+          "fill": "#8A8A8A",
+          "content": "布偶猫修 bug + 缅因猫反思，各自独立 Stop",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "1UCvv",
+          "name": "ExecutionStatusBar-Multi",
+          "width": "fill_container",
+          "fill": "#F3EDE6",
+          "cornerRadius": 16,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": 14,
+          "children": [
+            {
+              "type": "text",
+              "id": "sjw8U",
+              "name": "execBarTitle",
+              "fill": "#5A5A5A",
+              "content": "活跃执行",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "WdU8q",
+              "name": "Slot-Ragdoll",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "gap": 8,
+              "padding": [
+                8,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "JSJxb",
+                  "name": "slot1tag",
+                  "fill": "#9B7EBD",
+                  "cornerRadius": 999,
+                  "gap": 4,
+                  "padding": [
+                    3,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "dJOFM",
+                      "name": "slot1dot",
+                      "fill": "#FFFFFF",
+                      "width": 6,
+                      "height": 6
+                    },
+                    {
+                      "type": "text",
+                      "id": "O6TEk",
+                      "name": "slot1name",
+                      "fill": "#FFFFFF",
+                      "content": "布偶猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "0MXJ6",
+                  "name": "slot1task",
+                  "fill": "#5A5A5A",
+                  "content": "修复 F108 InvocationTracker bug…",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "zq2Bq",
+                  "name": "StopBtn",
+                  "fill": "#F3EDE6",
+                  "cornerRadius": 999,
+                  "gap": 4,
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "8zFbA",
+                      "name": "slot1stopIcon",
+                      "width": 10,
+                      "height": 10,
+                      "iconFontName": "square",
+                      "iconFontFamily": "lucide",
+                      "fill": "#E74C3C"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ggbjP",
+                      "name": "slot1stopText",
+                      "fill": "#E74C3C",
+                      "content": "Stop",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Lt9vL",
+              "name": "Slot-Maine",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "gap": 8,
+              "padding": [
+                8,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EWfUr",
+                  "name": "slot2tag",
+                  "fill": "#2A7B5B",
+                  "cornerRadius": 999,
+                  "gap": 4,
+                  "padding": [
+                    3,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "cz8pa",
+                      "name": "slot2dot",
+                      "fill": "#FFFFFF",
+                      "width": 6,
+                      "height": 6
+                    },
+                    {
+                      "type": "text",
+                      "id": "prf0G",
+                      "name": "slot2name",
+                      "fill": "#FFFFFF",
+                      "content": "缅因猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "mlnr6",
+                  "name": "slot2task",
+                  "fill": "#5A5A5A",
+                  "content": "反思 review 流程漏洞…",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "Lmv1W",
+                  "name": "StopBtn2",
+                  "fill": "#F3EDE6",
+                  "cornerRadius": 999,
+                  "gap": 4,
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "rf2cO",
+                      "name": "slot2stopIcon",
+                      "width": 10,
+                      "height": 10,
+                      "iconFontName": "square",
+                      "iconFontFamily": "lucide",
+                      "fill": "#E74C3C"
+                    },
+                    {
+                      "type": "text",
+                      "id": "S3E7p",
+                      "name": "slot2stopText",
+                      "fill": "#E74C3C",
+                      "content": "Stop",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "KvuaO",
+          "name": "MessageThread",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "frame",
+              "id": "US1bl",
+              "name": "Msg-Ragdoll",
+              "width": "fill_container",
+              "fill": "#F5F0FF",
+              "cornerRadius": 16,
+              "gap": 8,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "hJjkv",
+                  "name": "msg1tag",
+                  "fill": "#9B7EBD",
+                  "cornerRadius": 999,
+                  "gap": 3,
+                  "padding": [
+                    2,
+                    6
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "xPqEH",
+                      "name": "msg1tagDot",
+                      "fill": "#FFFFFF",
+                      "width": 4,
+                      "height": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "1A19Q",
+                      "name": "msg1tagName",
+                      "fill": "#FFFFFF",
+                      "content": "布偶猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 9,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "MMIJI",
+                  "name": "msg1text",
+                  "fill": "#2D2D2D",
+                  "content": "找到了，InvocationTracker 的 scopeKey 只用了 threadId…正在改为 threadId+catId 组合键",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "7ujL9",
+              "name": "Msg-Maine",
+              "width": "fill_container",
+              "fill": "#E8F5EE",
+              "cornerRadius": 16,
+              "gap": 8,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Lgjid",
+                  "name": "msg2tag",
+                  "fill": "#2A7B5B",
+                  "cornerRadius": 999,
+                  "gap": 3,
+                  "padding": [
+                    2,
+                    6
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "vDNy2",
+                      "name": "msg2tagDot",
+                      "fill": "#FFFFFF",
+                      "width": 4,
+                      "height": 4
+                    },
+                    {
+                      "type": "text",
+                      "id": "7PZna",
+                      "name": "msg2tagName",
+                      "fill": "#FFFFFF",
+                      "content": "缅因猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 9,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "YMtau",
+                  "name": "msg2text",
+                  "fill": "#2D2D2D",
+                  "content": "反思结论：review 时只检查了功能正确性，没有验证并发安全性。建议增加 SA 审查清单…",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qhUcY",
+          "name": "InputArea-Concurrent",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 6,
+          "children": [
+            {
+              "type": "text",
+              "id": "AvMzY",
+              "name": "s3inputNote",
+              "fill": "#9B7EBD",
+              "content": "两猫都在执行 — 广播消息排队，锁头可选空闲猫",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "FIqjk",
+              "name": "InputRow",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 20,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E8DDD4"
+              },
+              "gap": 8,
+              "padding": [
+                10,
+                14
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "6vI1X",
+                  "name": "LockBtn",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#F3EDE6",
+                  "cornerRadius": 999,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "lpLpy",
+                      "name": "s3lockIcon",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "lock-open",
+                      "iconFontFamily": "lucide",
+                      "fill": "#8A8A8A"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "GFDJO",
+                  "name": "s3inputText",
+                  "fill": "#2D2D2D",
+                  "content": "大家注意，API 的 breaking change 影响…",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "QngeU",
+                  "name": "SendBtn",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#9B7EBD",
+                  "cornerRadius": 999,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "XOi7V",
+                      "name": "s3sendIcon",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "arrow-up",
+                      "iconFontFamily": "lucide",
+                      "fill": "#FFFFFF"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "3PSQh",
+              "name": "s3hint",
+              "fill": "#AAAAAA",
+              "content": "广播：两猫下次拉起 CLI 时收到。不打断当前执行。",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
