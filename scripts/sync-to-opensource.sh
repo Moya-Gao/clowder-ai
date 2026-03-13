@@ -502,10 +502,35 @@ if [ -f "$FILTERED_DIR/cat-cafe-skills/BOOTSTRAP.md" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3i: README.md — 跳过，clowder-ai 维护自己的 README
-# 开源仓有精心写的 688 行 README（含猫猫故事、架构图、双语内容），
-# 不应该被源仓的内部 README 覆盖。
-echo "  ⊘ README.md (skipped — clowder-ai maintains its own)"
+# 3i: README.md — 复制开源版替换内部版
+if [ -f "$STAGING_DIR/README.opensource.md" ]; then
+  cp "$STAGING_DIR/README.opensource.md" "$FILTERED_DIR/README.md"
+  echo "  ✓ README.md (opensource version, $(wc -l < "$STAGING_DIR/README.opensource.md") lines)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3i-2: CONTRIBUTING.md — 复制开源版替换内部版
+if [ -f "$STAGING_DIR/CONTRIBUTING.opensource.md" ]; then
+  cp "$STAGING_DIR/CONTRIBUTING.opensource.md" "$FILTERED_DIR/CONTRIBUTING.md"
+  echo "  ✓ CONTRIBUTING.md (opensource version, $(wc -l < "$STAGING_DIR/CONTRIBUTING.opensource.md") lines)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3i-3: SETUP.md — 复制开源版替换内部版
+if [ -f "$STAGING_DIR/SETUP.opensource.md" ]; then
+  cp "$STAGING_DIR/SETUP.opensource.md" "$FILTERED_DIR/SETUP.md"
+  echo "  ✓ SETUP.md (opensource version, $(wc -l < "$STAGING_DIR/SETUP.opensource.md") lines)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3i-4: CLA.md + TRADEMARKS.md — 开源社区治理文件
+for gov_file in CLA.md TRADEMARKS.md; do
+  if [ -f "$STAGING_DIR/$gov_file" ]; then
+    cp "$STAGING_DIR/$gov_file" "$FILTERED_DIR/$gov_file"
+    echo "  ✓ $gov_file (community governance)"
+    TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+  fi
+done
 
 # 3j: .github/pull_request_template.md — 复制开源版替换内部版
 if [ -f "$STAGING_DIR/.github/pull_request_template.opensource.md" ]; then
@@ -988,17 +1013,11 @@ if [ ! -d "$TARGET_DIR" ]; then
 fi
 
 # rsync (destructive — target matches filtered output exactly)
-# Exclude files that clowder-ai maintains independently:
-# README.md, CONTRIBUTING.md — hand-crafted with cat stories/intent-first philosophy
-# CLA.md, TRADEMARKS.md — community governance docs not in source repo
-# SETUP.md — clowder-specific setup guide
+# All community docs (README, CONTRIBUTING, CLA, TRADEMARKS, SETUP) are now
+# maintained as .opensource.md in cat-cafe and synced via step 3i transforms.
+# No excludes needed — source is the single truth.
 rsync -a --delete \
   --exclude='.git' \
-  --exclude='README.md' \
-  --exclude='CONTRIBUTING.md' \
-  --exclude='CLA.md' \
-  --exclude='TRADEMARKS.md' \
-  --exclude='SETUP.md' \
   "$FILTERED_DIR/" "$TARGET_DIR/"
 
 echo "  ✓ Synced to $TARGET_DIR"

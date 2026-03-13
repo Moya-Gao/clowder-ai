@@ -27,10 +27,10 @@ managed_files:
   - biome.json
   - .gitignore
   - .npmrc
-  - SETUP.md
-  - CONTRIBUTING.md
   - SECURITY.md
   - CODEOWNERS
+  - CLA.md
+  - TRADEMARKS.md
   - .github/workflows/ci.yml
   # docs/ 单文件导出（需 transform）
   - docs/VISION.md
@@ -121,6 +121,10 @@ excluded:
   - GEMINI.md                # 由 transform 生成通用版
   - README.md                # 由 transform 替换为开源版
   - README.opensource.md     # 源文件，不直接导出
+  - CONTRIBUTING.md          # 由 transform 替换为开源版
+  - CONTRIBUTING.opensource.md # 源文件，不直接导出
+  - SETUP.md                 # 由 transform 替换为开源版（cat-cafe 没有内部 SETUP.md）
+  - SETUP.opensource.md      # 源文件，不直接导出
   - .github/pull_request_template.md           # 由 transform 替换为开源版
   - .github/pull_request_template.opensource.md # 源文件，不直接导出
   # 运行时/部署
@@ -166,6 +170,16 @@ transforms:
     type: generate
     source: README.opensource.md
     description: "开源版 README（从 README.opensource.md 复制）"
+
+  - target: CONTRIBUTING.md
+    type: generate
+    source: CONTRIBUTING.opensource.md
+    description: "开源版 CONTRIBUTING（intent-first + beta tester + 双语）"
+
+  - target: SETUP.md
+    type: generate
+    source: SETUP.opensource.md
+    description: "开源版 SETUP（双语安装指南，端口已改为 3003/3004）"
 
   - target: .github/pull_request_template.md
     type: generate
