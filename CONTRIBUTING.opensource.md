@@ -89,7 +89,7 @@ In the age of AI-assisted development, **code is cheap. Alignment is expensive.*
 
 ### What's a Feature Doc?
 
-A Feature Doc (`docs/features/Fxxx-slug.md`) is a structured document that captures:
+A Feature Doc (`docs/features/F{NNN}-slug.md`) is a structured document created by **maintainers** after approving a feature request. It captures:
 
 - **Why** — the problem, the motivation, who it's for
 - **What** — the design, broken into phases
@@ -98,25 +98,15 @@ A Feature Doc (`docs/features/Fxxx-slug.md`) is a structured document that captu
 
 The Feature Doc is the **single source of truth** for what gets built. Code is a byproduct.
 
-Use the template at `docs/features/TEMPLATE.md`. Required frontmatter:
+**You don't need to write a Feature Doc yourself.** Open an Issue with a clear problem/solution description, and maintainers will create the doc with an assigned F-number if approved. You're welcome to suggest content for the doc in your Issue — especially Refs and AC ideas.
 
-```yaml
----
-feature_ids: [F{NNN}]
-related_features: []
-topics: []
-doc_kind: spec
-created: YYYY-MM-DD
----
-```
-
-**Refs matter more than you think.** A Feature Doc with good refs — competitive analysis, user quotes, design explorations — gives the implementing team (human or AI) the context to make good micro-decisions without asking you every 5 minutes.
+**Refs matter more than you think.** Including competitive analysis, user quotes, or design explorations in your Issue gives maintainers the context to write a better Feature Doc.
 
 ### What Counts as a Contribution
 
 | Type | What It Looks Like |
 |------|--------------------|
-| **Feature proposal** | A new `Fxxx-slug.md` with Why/What/AC |
+| **Feature proposal** | An Issue describing problem + proposed solution (maintainer creates the Feature Doc) |
 | **Design feedback** | Comment on an existing Feature Doc PR — challenge assumptions, suggest alternatives |
 | **Research / Refs** | Add context to an existing feature — competitive analysis, user research, technical spikes |
 | **Bug report** | Issue with reproduction steps — becomes a Feature Doc if non-trivial |
@@ -132,7 +122,7 @@ Not every PR is the same. Different changes have different requirements:
 | PR Type | What It Is | What's Required |
 |---------|-----------|-----------------|
 | **Patch** | Small bug fix, typo, test gap | Code + tests. No Feature Doc needed. |
-| **Feature** | New capability or behavior change | Feature Doc **first** (merged or in same PR), then code + tests + evidence |
+| **Feature** | New capability or behavior change | Feature Doc must exist **first** (created by maintainer), then code + tests + evidence |
 | **Protocol** | Changes to rules, skills, workflows, refs | The document **is** the contribution. Code is supporting. |
 | **Adapter** | New agent integration | Contract spec + example config + verification steps + code |
 
@@ -259,7 +249,7 @@ Feature 编号（`F001`、`F002`、……）由 **maintainer 分配**，不需�
 
 ### Feature Doc 是什么？
 
-Feature Doc（`docs/features/Fxxx-slug.md`）是一个结构化文档，包含：
+Feature Doc（`docs/features/F{NNN}-slug.md`）是由 **maintainer** 在批准功能请求后创建的结构化文档，包含：
 
 - **Why** — 问题是什么、动机是什么、为谁而做
 - **What** — 设计方案，按阶段拆分
@@ -268,25 +258,15 @@ Feature Doc（`docs/features/Fxxx-slug.md`）是一个结构化文档，包含�
 
 Feature Doc 是**唯一真相源**。代码是它的产物。
 
-使用 `docs/features/TEMPLATE.md` 模板。必要的 frontmatter：
+**你不需要自己写 Feature Doc。** 在 Issue 里清楚描述问题和方案，maintainer 批准后会创建带 F 编号的文档。欢迎在 Issue 里建议文档内容——尤其是 Refs 和 AC 想法。
 
-```yaml
----
-feature_ids: [F{NNN}]
-related_features: []
-topics: []
-doc_kind: spec
-created: YYYY-MM-DD
----
-```
-
-**Refs 比你想象的重要。** 一份带着好 refs 的 Feature Doc — 竞品分析、用户原话、设计探索 — 让实现团队（人或 AI）能自主做出好的微决策，不用每 5 分钟来问你一次。
+**Refs 比你想象的重要。** 在 Issue 里附上竞品分析、用户原话、设计探索，能帮 maintainer 写出更好的 Feature Doc。
 
 ### 什么算贡献
 
 | 类型 | 形式 |
 |------|------|
-| **功能提案** | 一个新的 `Fxxx-slug.md`，包含 Why/What/AC |
+| **功能提案** | 一个 Issue 描述问题 + 方案（maintainer 创建 Feature Doc） |
 | **设计反馈** | 在已有 Feature Doc PR 上留言 — 质疑假设、提出替代方案 |
 | **调研 / Refs** | 为已有功能补充上下文 — 竞品分析、用户研究、技术探针 |
 | **Bug 报告** | 带复现步骤的 Issue — 非 trivial 的会变成 Feature Doc |
@@ -302,7 +282,7 @@ created: YYYY-MM-DD
 | PR 类型 | 适用场景 | 需要什么 |
 |---------|---------|---------|
 | **Patch** | 小 bug 修复、文案修正、测试补洞 | 代码 + 测试。不需要 Feature Doc。 |
-| **Feature** | 新能力或行为变更 | **先有** Feature Doc（已 merge 或在同一 PR），再上代码 + 测试 + 证据 |
+| **Feature** | 新能力或行为变更 | Feature Doc 必须**先存在**（由 maintainer 创建），再上代码 + 测试 + 证据 |
 | **Protocol** | 改规则、技能、工作流、参考文档 | 文档**本身就是**贡献主体。代码是配套。 |
 | **Adapter** | 接入新 Agent | 契约规格 + 示例配置 + 验证步骤 + 代码 |
 

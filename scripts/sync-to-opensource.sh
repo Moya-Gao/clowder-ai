@@ -756,6 +756,7 @@ for doc_file in docs/VISION.md docs/SOP.md; do
       -e 's/redis:\/\/localhost:6398/redis:\/\/localhost:6380/g' \
       -e 's/6399 圣域/production Redis (sacred)/g' \
       -e 's/suces-MacBook[^ ]*/dev-machine/g' \
+      -e 's/BACKLOG\.md/ROADMAP.md/g' \
       "$FILTERED_DIR/$doc_file"
     echo "  ✓ $doc_file (sanitized)"
     TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))

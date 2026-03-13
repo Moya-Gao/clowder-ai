@@ -56,18 +56,20 @@ gh issue view {ISSUE_NUMBER} --repo zts212653/clowder-ai
 
 ```bash
 # 1. 找出所有引用了旧编号的文件
-grep -r "F110" --include="*.md" --include="*.ts" --include="*.tsx" --include="*.yaml"
+grep -r "F110" --include="*.md" --include="*.ts" --include="*.tsx" --include="*.yaml" --include="*.json"
 
 # 2. 批量替换
 # 文件名重命名
 mv docs/features/F110-xxx.md docs/features/F115-xxx.md
 
 # 内容替换（frontmatter、引用、注释）
+# macOS (BSD sed): sed -i '' 's/F110/F115/g' file
+# Linux (GNU sed): sed -i 's/F110/F115/g' file
 sed -i '' 's/F110/F115/g' docs/features/F115-xxx.md
 # ... 对所有受影响的文件重复
 
 # 3. 验证替换完整性
-grep -r "F110" --include="*.md" --include="*.ts" --include="*.tsx"
+grep -r "F110" --include="*.md" --include="*.ts" --include="*.tsx" --include="*.json"
 # 应该零结果
 ```
 
