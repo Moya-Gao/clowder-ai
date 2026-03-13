@@ -212,105 +212,61 @@ echo -e "${GREEN}[Step 3/5] Transforms...${NC}"
 
 TRANSFORM_COUNT=0
 
-# 3a: cat-config.json（脱敏可运行版，必须符合 V2 schema）
-cat > "$FILTERED_DIR/cat-config.json" << 'CONFIG_EOF'
-{
-  "$schema": "./cat-config.schema.json",
-  "$comment": "Clowder AI config. Customize your cat roster. See docs for full schema.",
-  "version": 2,
-  "owner": {
-    "name": "Owner",
-    "aliases": ["Admin"],
-    "mentionPatterns": ["@owner", "@admin"]
-  },
-  "breeds": [
-    {
-      "id": "ragdoll",
-      "catId": "opus",
-      "name": "Ragdoll",
-      "displayName": "Ragdoll",
-      "avatar": "/avatars/ragdoll.png",
-      "color": { "primary": "#9B7EBD", "secondary": "#E8DFF5" },
-      "mentionPatterns": ["@opus", "@ragdoll"],
-      "roleDescription": "Lead architect and core developer",
-      "defaultVariantId": "opus-default",
-      "variants": [
-        {
-          "id": "opus-default",
-          "provider": "anthropic",
-          "defaultModel": "claude-opus-4-6",
-          "mcpSupport": true,
-          "cli": { "command": "claude", "outputFormat": "stream-json", "defaultArgs": ["--output-format", "stream-json"] },
-          "personality": "Deep thinker, quality-focused",
-          "strengths": ["architecture", "backend", "mcp"],
-          "contextBudget": { "maxPromptTokens": 180000, "maxContextTokens": 160000, "maxMessages": 200, "maxContentLengthPerMsg": 10000 }
-        }
-      ]
-    },
-    {
-      "id": "maine-coon",
-      "catId": "codex",
-      "name": "Maine Coon",
-      "displayName": "Maine Coon",
-      "avatar": "/avatars/maine-coon.png",
-      "color": { "primary": "#059669", "secondary": "#D1FAE5" },
-      "mentionPatterns": ["@codex", "@maine-coon"],
-      "roleDescription": "Code reviewer and security specialist",
-      "defaultVariantId": "codex-default",
-      "variants": [
-        {
-          "id": "codex-default",
-          "provider": "openai",
-          "defaultModel": "gpt-5.3-codex",
-          "mcpSupport": false,
-          "cli": { "command": "codex", "outputFormat": "stream-json", "defaultArgs": ["--full-auto"] },
-          "personality": "Thorough reviewer, security-minded",
-          "strengths": ["review", "security", "testing"],
-          "contextBudget": { "maxPromptTokens": 180000, "maxContextTokens": 160000, "maxMessages": 200, "maxContentLengthPerMsg": 10000 }
-        }
-      ]
-    },
-    {
-      "id": "siamese",
-      "catId": "gemini",
-      "name": "Siamese",
-      "displayName": "Siamese",
-      "avatar": "/avatars/siamese.png",
-      "color": { "primary": "#D97706", "secondary": "#FEF3C7" },
-      "mentionPatterns": ["@gemini", "@siamese"],
-      "roleDescription": "Visual designer and creative thinker",
-      "defaultVariantId": "gemini-default",
-      "variants": [
-        {
-          "id": "gemini-default",
-          "provider": "google",
-          "defaultModel": "gemini-2.5-pro",
-          "mcpSupport": true,
-          "cli": { "command": "gemini", "outputFormat": "stream-json", "defaultArgs": [] },
-          "personality": "Creative spark, visual excellence",
-          "strengths": ["design", "creativity"],
-          "contextBudget": { "maxPromptTokens": 180000, "maxContextTokens": 160000, "maxMessages": 200, "maxContentLengthPerMsg": 10000 }
-        }
-      ]
+# 3a: cat-config.json（从真实配置拷贝 + 脱敏 owner 段）
+# 策略：保留完整猫阵（所有 breed + variant + 性格描述），只脱敏 owner 段
+if [ -f "$STAGING_DIR/cat-config.json" ]; then
+  node - "$STAGING_DIR/cat-config.json" "$FILTERED_DIR/cat-config.json" << 'CONFIG_TRANSFORM_EOF'
+const config = JSON.parse(require("fs").readFileSync(process.argv[2], "utf-8"));
+// 脱敏 owner
+config.owner = {
+  name: "Co-worker",
+  aliases: ["共创伙伴"],
+  mentionPatterns: ["@co-worker", "@owner"]
+};
+// 去掉 mentionPatterns 中铲屎官相关的 pattern
+const blocked = ["@landy", "@l.s.", "@lysander", "@铲屎官"];
+for (const breed of config.breeds || []) {
+  if (Array.isArray(breed.mentionPatterns)) {
+    breed.mentionPatterns = breed.mentionPatterns.filter(
+      p => blocked.indexOf(p.toLowerCase()) === -1
+    );
+  }
+  for (const v of breed.variants || []) {
+    if (Array.isArray(v.mentionPatterns)) {
+      v.mentionPatterns = v.mentionPatterns.filter(
+        p => blocked.indexOf(p.toLowerCase()) === -1
+      );
     }
-  ],
-  "roster": {
-    "opus": { "family": "ragdoll", "roles": ["architect", "peer-reviewer"], "lead": true, "available": true, "evaluation": "Lead architect" },
-    "codex": { "family": "maine-coon", "roles": ["reviewer", "peer-reviewer"], "lead": true, "available": true, "evaluation": "Code reviewer" },
-    "gemini": { "family": "siamese", "roles": ["designer", "peer-reviewer"], "lead": true, "available": true, "evaluation": "Visual designer" }
-  },
-  "reviewPolicy": {
-    "requireDifferentFamily": true,
-    "preferActiveInThread": true,
-    "preferLead": true,
-    "excludeUnavailable": true
   }
 }
-CONFIG_EOF
+// roster evaluation 中脱敏铲屎官引用
+for (const [, entry] of Object.entries(config.roster || {})) {
+  if (entry.evaluation) {
+    entry.evaluation = entry.evaluation
+      .replace(/铲屎官/g, "team lead")
+      .replace(/Landy/g, "Owner")
+      .replace(/lysander/g, "owner");
+  }
+}
+// personality 中脱敏
+for (const breed of config.breeds || []) {
+  for (const v of breed.variants || []) {
+    if (v.personality) {
+      v.personality = v.personality
+        .replace(/铲屎官/g, "team lead")
+        .replace(/Landy/g, "Owner");
+    }
+  }
+}
+require("fs").writeFileSync(process.argv[3], JSON.stringify(config, null, 2) + "\n");
+CONFIG_TRANSFORM_EOF
+else
+  echo -e "  ${YELLOW}⚠ cat-config.json not found in staging, skipping${NC}"
+fi
 if command -v pnpm >/dev/null 2>&1; then
   pnpm biome format --write "$FILTERED_DIR/cat-config.json" >/dev/null 2>&1 || true
 fi
-echo "  ✓ cat-config.json (desecreted)"
+echo "  ✓ cat-config.json (full roster, owner desecreted)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
 # 3b: CLAUDE.md（通用版）
