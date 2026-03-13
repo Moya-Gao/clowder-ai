@@ -1028,53 +1028,66 @@ if [ "$BACKED_UP" -gt 0 ]; then
   echo "  ✓ Backed up $BACKED_UP target-owned item(s)"
 fi
 
-# 5b: Diff preview (D2c) — rsync --dry-run for instant diff (replaces 13min file-by-file loop)
+# 5b: Diff preview (D2c) — rsync --dry-run + awk single-pass counting
+# NOTE: bash while-read is ~100 lines/s; awk handles 50K+ lines in <1s
 echo ""
 echo -e "  ${BLUE}── Diff preview ──${NC}"
-DIFF_ADD=0; DIFF_UPDATE=0; DIFF_DELETE=0
-DELETE_LIST=""
-PROTECTED_LIST=""
-while IFS= read -r line; do
-  [[ -z "$line" ]] && continue
-  # rsync --itemize-changes format: YXcstpoguax path
-  # >f+++++++++ = new file, >f.sT...... = updated file, *deleting = delete
-  change="${line%% *}"
-  path="${line#* }"
-  [[ "$path" == ".git/"* ]] && continue
-  if [[ "$change" == *"deleting" ]]; then
-    IS_OWNED=false
-    for owned in "${TARGET_OWNED[@]}"; do
-      if [[ "$path" == "$owned"* ]]; then
-        IS_OWNED=true
-        PROTECTED_LIST="${PROTECTED_LIST}    🛡 ${path}\n"
-        break
-      fi
-    done
-    if [ "$IS_OWNED" = false ]; then
-      DIFF_DELETE=$((DIFF_DELETE + 1))
-      DELETE_LIST="${DELETE_LIST}    - ${path}\n"
-    fi
-  elif [[ "$change" == ">f+++"* ]]; then
-    DIFF_ADD=$((DIFF_ADD + 1))
-  elif [[ "$change" == ">f"* ]]; then
-    DIFF_UPDATE=$((DIFF_UPDATE + 1))
-  fi
-done < <(rsync -a --delete --dry-run --itemize-changes \
-  --exclude='.git' "$FILTERED_DIR/" "$TARGET_DIR/" 2>/dev/null)
+
+# Build owned-prefix pattern for awk (pipe-separated)
+OWNED_PATTERN=""
+for owned in "${TARGET_OWNED[@]}"; do
+  [ -n "$OWNED_PATTERN" ] && OWNED_PATTERN="${OWNED_PATTERN}|"
+  OWNED_PATTERN="${OWNED_PATTERN}${owned}"
+done
+
+# Single-pass awk: counts add/update/delete, captures first 20 deletes + protected
+DIFF_RESULT_FILE=$(mktemp)
+rsync -a --delete --dry-run --itemize-changes \
+  --exclude='.git' "$FILTERED_DIR/" "$TARGET_DIR/" 2>/dev/null | \
+  awk -v owned_pat="$OWNED_PATTERN" '
+  BEGIN { add=0; upd=0; del=0; prot=0; del_shown=0 }
+  /^$/ { next }
+  {
+    change = $1; path = $0; sub(/^[^ ]+ /, "", path)
+    if (path ~ /^\.git\//) next
+    if (change ~ /deleting/) {
+      if (owned_pat != "" && path ~ ("^(" owned_pat ")")) {
+        prot++
+        print "PROTECTED:" path
+      } else {
+        del++
+        if (del_shown < 20) { print "DELETE:" path; del_shown++ }
+      }
+    } else if (change ~ /^>f\+\+\+/) {
+      add++
+    } else if (change ~ /^>f/) {
+      upd++
+    }
+  }
+  END { print "COUNTS:" add " " upd " " del " " prot }
+' > "$DIFF_RESULT_FILE"
+
+# Parse results
+DIFF_ADD=$(grep '^COUNTS:' "$DIFF_RESULT_FILE" | sed 's/COUNTS://' | awk '{print $1}')
+DIFF_UPDATE=$(grep '^COUNTS:' "$DIFF_RESULT_FILE" | sed 's/COUNTS://' | awk '{print $2}')
+DIFF_DELETE=$(grep '^COUNTS:' "$DIFF_RESULT_FILE" | sed 's/COUNTS://' | awk '{print $3}')
+DIFF_PROTECTED=$(grep '^COUNTS:' "$DIFF_RESULT_FILE" | sed 's/COUNTS://' | awk '{print $4}')
+
 echo -e "  ${GREEN}+${DIFF_ADD} add${NC}  ${BLUE}~${DIFF_UPDATE} update${NC}  ${RED}-${DIFF_DELETE} delete${NC}"
 # Show deletion details (important for human review)
 if [ "$DIFF_DELETE" -gt 0 ]; then
   echo -e "  ${RED}Files to delete:${NC}"
-  echo -e "$DELETE_LIST" | head -20
+  grep '^DELETE:' "$DIFF_RESULT_FILE" | sed 's/^DELETE:/    - /'
   if [ "$DIFF_DELETE" -gt 20 ]; then
     echo "    ... and $((DIFF_DELETE - 20)) more"
   fi
 fi
 # Show protected target-owned files
-if [ -n "$PROTECTED_LIST" ]; then
+if [ "$DIFF_PROTECTED" -gt 0 ]; then
   echo -e "  ${GREEN}Protected (target-owned):${NC}"
-  echo -e "$PROTECTED_LIST"
+  grep '^PROTECTED:' "$DIFF_RESULT_FILE" | sed 's/^PROTECTED:/    🛡 /'
 fi
+rm -f "$DIFF_RESULT_FILE"
 if [ $((DIFF_ADD + DIFF_UPDATE + DIFF_DELETE)) -eq 0 ]; then
   echo "  No changes to sync."
   rm -rf "$BACKUP_DIR"
