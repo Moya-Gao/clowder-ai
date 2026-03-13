@@ -383,9 +383,15 @@ main() {
     if [ "${ANTHROPIC_PROXY_ENABLED:-0}" = "1" ]; then
         kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"
     fi
-    kill_port ${WHISPER_PORT:-9876} "ASR"
-    kill_port ${TTS_PORT:-9879} "TTS"
-    kill_port ${LLM_POSTPROCESS_PORT:-9878} "LLM后修"
+    if [ "${ASR_ENABLED:-0}" = "1" ]; then
+        kill_port ${WHISPER_PORT:-9876} "ASR"
+    fi
+    if [ "${TTS_ENABLED:-0}" = "1" ]; then
+        kill_port ${TTS_PORT:-9879} "TTS"
+    fi
+    if [ "${LLM_POSTPROCESS_ENABLED:-0}" = "1" ]; then
+        kill_port ${LLM_POSTPROCESS_PORT:-9878} "LLM后修"
+    fi
 
     # 2. 清理缓存
     clean_cache
@@ -436,46 +442,58 @@ main() {
     # Qwen3-ASR Server (语音输入 — 替代 Whisper，同端口 drop-in)
     ASR_PORT=${WHISPER_PORT:-9876}
     STARTED_ASR=false
-    if [ -f "scripts/qwen3-asr-server.sh" ]; then
-        echo "  启动 Qwen3-ASR (端口 $ASR_PORT)..."
-        WHISPER_PORT=$ASR_PORT bash scripts/qwen3-asr-server.sh &
-        sleep 2
-        echo -e "${GREEN}  ✓ Qwen3-ASR 已启动${NC}"
-        STARTED_ASR=true
-    elif [ -f "scripts/whisper-server.sh" ]; then
-        echo "  启动 Whisper ASR fallback (端口 $ASR_PORT)..."
-        WHISPER_PORT=$ASR_PORT bash scripts/whisper-server.sh &
-        sleep 2
-        echo -e "${GREEN}  ✓ Whisper ASR 已启动${NC}"
-        STARTED_ASR=true
+    if [ "${ASR_ENABLED:-0}" = "1" ]; then
+        if [ -f "scripts/qwen3-asr-server.sh" ]; then
+            echo "  启动 Qwen3-ASR (端口 $ASR_PORT)..."
+            WHISPER_PORT=$ASR_PORT bash scripts/qwen3-asr-server.sh &
+            sleep 2
+            echo -e "${GREEN}  ✓ Qwen3-ASR 已启动${NC}"
+            STARTED_ASR=true
+        elif [ -f "scripts/whisper-server.sh" ]; then
+            echo "  启动 Whisper ASR fallback (端口 $ASR_PORT)..."
+            WHISPER_PORT=$ASR_PORT bash scripts/whisper-server.sh &
+            sleep 2
+            echo -e "${GREEN}  ✓ Whisper ASR 已启动${NC}"
+            STARTED_ASR=true
+        else
+            echo -e "${YELLOW}  ⚠ ASR 已启用，但脚本未找到，跳过语音输入服务${NC}"
+        fi
     else
-        echo -e "${YELLOW}  ⚠ ASR 脚本未找到，跳过语音输入服务${NC}"
+        echo -e "${YELLOW}  ⚠ ASR 已禁用 (ASR_ENABLED=0)${NC}"
     fi
 
     # TTS Server (语音合成 — Qwen3-TTS / Kokoro / edge-tts)
     TTS_PORT_VAL=${TTS_PORT:-9879}
     STARTED_TTS=false
-    if [ -f "scripts/tts-server.sh" ]; then
-        echo "  启动 TTS (端口 $TTS_PORT_VAL)..."
-        TTS_PORT=$TTS_PORT_VAL bash scripts/tts-server.sh &
-        sleep 2
-        echo -e "${GREEN}  ✓ TTS 已启动${NC}"
-        STARTED_TTS=true
+    if [ "${TTS_ENABLED:-0}" = "1" ]; then
+        if [ -f "scripts/tts-server.sh" ]; then
+            echo "  启动 TTS (端口 $TTS_PORT_VAL)..."
+            TTS_PORT=$TTS_PORT_VAL bash scripts/tts-server.sh &
+            sleep 2
+            echo -e "${GREEN}  ✓ TTS 已启动${NC}"
+            STARTED_TTS=true
+        else
+            echo -e "${YELLOW}  ⚠ TTS 已启用，但 tts-server.sh 未找到，跳过语音合成服务${NC}"
+        fi
     else
-        echo -e "${YELLOW}  ⚠ tts-server.sh 未找到，跳过语音合成服务${NC}"
+        echo -e "${YELLOW}  ⚠ TTS 已禁用 (TTS_ENABLED=0)${NC}"
     fi
 
     # LLM 后修 Server (语音转写纠正 — Qwen3-4B)
     LLM_PP_PORT=${LLM_POSTPROCESS_PORT:-9878}
     STARTED_LLM_PP=false
-    if [ -f "scripts/llm-postprocess-server.sh" ]; then
-        echo "  启动 LLM 后修 (端口 $LLM_PP_PORT)..."
-        LLM_POSTPROCESS_PORT=$LLM_PP_PORT bash scripts/llm-postprocess-server.sh &
-        sleep 2
-        echo -e "${GREEN}  ✓ LLM 后修已启动${NC}"
-        STARTED_LLM_PP=true
+    if [ "${LLM_POSTPROCESS_ENABLED:-0}" = "1" ]; then
+        if [ -f "scripts/llm-postprocess-server.sh" ]; then
+            echo "  启动 LLM 后修 (端口 $LLM_PP_PORT)..."
+            LLM_POSTPROCESS_PORT=$LLM_PP_PORT bash scripts/llm-postprocess-server.sh &
+            sleep 2
+            echo -e "${GREEN}  ✓ LLM 后修已启动${NC}"
+            STARTED_LLM_PP=true
+        else
+            echo -e "${YELLOW}  ⚠ LLM 后修已启用，但脚本未找到，跳过语音纠正${NC}"
+        fi
     else
-        echo -e "${YELLOW}  ⚠ llm-postprocess-server.sh 未找到，跳过语音纠正${NC}"
+        echo -e "${YELLOW}  ⚠ LLM 后修已禁用 (LLM_POSTPROCESS_ENABLED=0)${NC}"
     fi
 
     # API Server
