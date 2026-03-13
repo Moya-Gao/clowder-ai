@@ -113,7 +113,7 @@ async def refine(req: RefineRequest):
                 temperature=0.1,  # Low temperature for deterministic correction
             )
         latency_ms = int((time.monotonic() - t0) * 1000)
-        refined = result.strip()
+        refined = result.text.strip()
 
         # Safety: if LLM output is suspiciously different (>2x length or empty), fall back to original
         if not refined or len(refined) > len(text) * 2.5:
