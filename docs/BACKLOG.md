@@ -47,3 +47,4 @@ created: 2026-02-26
 | F103 | 猫猫独立声线 — Per-Cat Voice Identity | spec | TBD | [F103](features/F103-per-cat-voice-identity.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | [F104](features/F104-local-omni-perception.md) |
 | F107 | 猫猫杀（脑门贴词）— 坏猫战术推理游戏 | spec | 布偶猫 | [F107](features/F107-headband-guess-game.md) |
+| F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | spec | TBD | [F108](features/F108-side-dispatch-concurrent-invocation.md) |
