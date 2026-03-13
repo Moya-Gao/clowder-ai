@@ -195,6 +195,14 @@ feat_count=$(find "$FEATURES_EXPORT_DIR" -name "F*.md" -type f 2>/dev/null | wc 
 INCLUDED=$((INCLUDED + feat_count))
 echo "  ✓ docs/features/ ($feat_count public feature docs)"
 
+if [ -f "$FILTERED_DIR/scripts/generate-feature-index.mjs" ]; then
+  node "$FILTERED_DIR/scripts/generate-feature-index.mjs" \
+    --features-dir "$FEATURES_EXPORT_DIR" \
+    --output "$FEATURES_EXPORT_DIR/index.json" >/dev/null
+  INCLUDED=$((INCLUDED + 1))
+  echo "  ✓ docs/features/index.json (generated)"
+fi
+
 echo ""
 echo "  导出: $INCLUDED files | 排除: $EXCLUDED files"
 
@@ -299,6 +307,9 @@ cat > "$FILTERED_DIR/cat-config.json" << 'CONFIG_EOF'
   }
 }
 CONFIG_EOF
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm biome format --write "$FILTERED_DIR/cat-config.json" >/dev/null 2>&1 || true
+fi
 echo "  ✓ cat-config.json (desecreted)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
@@ -444,6 +455,39 @@ find "$FILTERED_DIR/cat-cafe-skills" \( -name "*.md" -o -name "*.sh" -o -name "m
       "$skill_file"
   fi
 done
+find "$FILTERED_DIR/cat-cafe-skills" \( -name "*.md" -o -name "*.sh" -o -name "manifest.yaml" \) -type f | while read -r skill_file; do
+  sedi \
+    -e 's#docs/mailbox/YYYY-MM-DD-{topic}-review-request\.md#review request note#g' \
+    -e 's#docs/mailbox/#review-notes/#g' \
+    -e 's#docs/plans/YYYY-MM-DD-<feature-name>\.md#feature spec or implementation note#g' \
+    -e 's#docs/plans/YYYY-MM-DD-xxx\.md#feature spec or implementation note#g' \
+    -e 's#docs/plans/{date}-{topic}\.md 或 docs/phases/{name}\.md#the active feature spec or implementation plan#g' \
+    -e 's#docs/plans/#feature-specs/#g' \
+    -e 's#docs/discussions/YYYY-MM-DD-{topic}/README\.md#feature discussion#g' \
+    -e 's#docs/discussions/{date}-{fid}-design/#feature discussion record/#g' \
+    -e 's#docs/discussions/#feature-discussions/#g' \
+    -e 's#docs/archive/#internal-archive/#g' \
+    -e 's#archive/#internal-archive/#g' \
+    -e 's#mailbox/#review-notes/#g' \
+    -e 's#plans/#feature-specs/#g' \
+    -e 's#discussions/#feature-discussions/#g' \
+    -e 's#`\\.env\.local`#`.env`#g' \
+    -e 's#\.env\.local#.env#g' \
+    -e 's#\.cat-cafe/\*secrets\*\.local\.json#local secrets file#g' \
+    -e 's#http://localhost:3002#http://localhost:3003#g' \
+    -e 's#http://localhost:3001#http://localhost:3004#g' \
+    -e 's#http://127\.0\.0\.1:3002#your local Clowder API URL#g' \
+    -e 's#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g' \
+    -e 's#localhost:3002#localhost:3003#g' \
+    -e 's#localhost:3001#localhost:3004#g' \
+    -e 's#127\.0\.0\.1:3002#127.0.0.1:3003#g' \
+    -e 's#127\.0\.0\.1:3001#127.0.0.1:3004#g' \
+    -e 's#3002/3001#3003/3004#g' \
+    -e 's#3001/3002#3004/3003#g' \
+    -e 's#localhost:18060#<local-integration-endpoint>#g' \
+    -e 's#localhost:9000#<local-browser-automation-endpoint>#g' \
+    "$skill_file"
+done
 echo "  ✓ Skills files (all .md, .sh, manifest.yaml sanitized)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
@@ -536,11 +580,41 @@ fi
 # 3k-3: P1-2 — start-dev.sh: don't kill proxy port when proxy is disabled
 if [ -f "$FILTERED_DIR/scripts/start-dev.sh" ]; then
   sedi \
+    -e 's/API_PORT=${API_SERVER_PORT:-3002}/API_PORT=${API_SERVER_PORT:-3003}/g' \
+    -e 's/WEB_PORT=${FRONTEND_PORT:-3001}/WEB_PORT=${FRONTEND_PORT:-3004}/g' \
     -e 's/kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/[ "${ANTHROPIC_PROXY_ENABLED:-1}" != "0" ] \&\& kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/g' \
     "$FILTERED_DIR/scripts/start-dev.sh"
-  echo "  ✓ start-dev.sh (proxy kill guarded)"
+  echo "  ✓ start-dev.sh (public ports + proxy kill guarded)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
+
+# 3k-3b: Public default ports — exported repo should avoid runtime defaults 3001/3002
+if [ -f "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts" ]; then
+  sedi \
+    -e "s/const port = parseInt(env.API_SERVER_PORT ?? '3002', 10);/const port = parseInt(env.API_SERVER_PORT ?? '3003', 10);/g" \
+    "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts"
+fi
+if [ -f "$FILTERED_DIR/packages/api/src/config/env-registry.ts" ]; then
+  sedi \
+    -e "s/{ name: 'API_SERVER_PORT', defaultValue: '3002'/{ name: 'API_SERVER_PORT', defaultValue: '3003'/g" \
+    -e "s/defaultValue: '3000',/defaultValue: '3004',/g" \
+    -e "s/defaultValue: 'http:\/\/localhost:3002'/defaultValue: 'http:\/\/localhost:3003'/g" \
+    "$FILTERED_DIR/packages/api/src/config/env-registry.ts"
+fi
+if [ -f "$FILTERED_DIR/packages/api/src/config/frontend-origin.ts" ]; then
+  sedi \
+    -e "s#const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3001';#const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3004';#g" \
+    -e "s#const DEFAULT_CORS_ORIGINS = \\['http://localhost:3000', 'http://localhost:3001', 'https://cafe.clowder-ai.com'\\];#const DEFAULT_CORS_ORIGINS = ['http://localhost:3000', 'http://localhost:3004', 'https://cafe.clowder-ai.com'];#g" \
+    -e "s/fallback to localhost:3001/fallback to localhost:3004/g" \
+    "$FILTERED_DIR/packages/api/src/config/frontend-origin.ts"
+fi
+if [ -f "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts" ]; then
+  sedi \
+    -e "s/- \\*\\*Port 3001\\*\\* is reserved for Cat Cafe frontend. Use 3002+ for other dev servers./- **Public local defaults**: use frontend 3004 and API 3003 to avoid colliding with another local runtime./g" \
+    "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts"
+fi
+echo "  ✓ public default ports (3003/3004) applied"
+TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
 echo "  ✓ Source code global sanitization complete"
 
@@ -557,6 +631,30 @@ find "$FILTERED_DIR/docs" -name "*.md" -type f 2>/dev/null | while read -r doc_f
     s/\[([^\]]*?)\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\/[^)]*\)/$1 (internal)/g;
     # Strip backtick-quoted paths referencing private dirs
     s/`(?:docs\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks)\/[^`]*`/*(internal reference removed)*/g;
+  ' "$doc_file"
+  perl -i -pe '
+    s#docs/mailbox/#review-notes/#g;
+    s#docs/plans/#feature-specs/#g;
+    s#docs/discussions/#feature-discussions/#g;
+    s#docs/archive/#internal-archive/#g;
+    s#(^|[^A-Za-z])mailbox/#${1}review-notes/#g;
+    s#(^|[^A-Za-z])plans/#${1}feature-specs/#g;
+    s#(^|[^A-Za-z])discussions/#${1}feature-discussions/#g;
+    s#(^|[^A-Za-z])archive/#${1}internal-archive/#g;
+    s#\.env\.local#.env#g;
+    s#\.cat-cafe/\*secrets\*\.local\.json#local secrets file#g;
+    s#http://localhost:3002#http://localhost:3003#g;
+    s#http://localhost:3001#http://localhost:3004#g;
+    s#http://127\.0\.0\.1:3002#your local Clowder API URL#g;
+    s#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g;
+    s#localhost:3002#localhost:3003#g;
+    s#localhost:3001#localhost:3004#g;
+    s#127\.0\.0\.1:3002#127.0.0.1:3003#g;
+    s#127\.0\.0\.1:3001#127.0.0.1:3004#g;
+    s#3002/3001#3003/3004#g;
+    s#3001/3002#3004/3003#g;
+    s#localhost:18060#<local-integration-endpoint>#g;
+    s#localhost:9000#<local-browser-automation-endpoint>#g;
   ' "$doc_file"
 done
 echo "  ✓ docs/ internal links stripped"
@@ -666,6 +764,57 @@ DOCS_README_EOF
 echo "  ✓ docs/README.md (generated)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
+# 3o-1: final public docs cleanup — generated docs need a second pass
+find "$FILTERED_DIR/docs" -name "*.md" -type f 2>/dev/null | while read -r doc_file; do
+  perl -i -pe '
+    s/\[([^\]]*?)\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\/[^)]*\)/$1 (internal)/g;
+    s/`(?:docs\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks)\/[^`]*`/*(internal reference removed)*/g;
+    s#docs/mailbox/#review-notes/#g;
+    s#docs/plans/#feature-specs/#g;
+    s#docs/discussions/#feature-discussions/#g;
+    s#docs/archive/#internal-archive/#g;
+    s#(^|[^A-Za-z])mailbox/#${1}review-notes/#g;
+    s#(^|[^A-Za-z])plans/#${1}feature-specs/#g;
+    s#(^|[^A-Za-z])discussions/#${1}feature-discussions/#g;
+    s#(^|[^A-Za-z])archive/#${1}internal-archive/#g;
+    s#\.env\.local#.env#g;
+    s#\.cat-cafe/\*secrets\*\.local\.json#local secrets file#g;
+    s#http://localhost:3002#http://localhost:3003#g;
+    s#http://localhost:3001#http://localhost:3004#g;
+    s#http://127\.0\.0\.1:3002#your local Clowder API URL#g;
+    s#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g;
+    s#localhost:3002#localhost:3003#g;
+    s#localhost:3001#localhost:3004#g;
+    s#127\.0\.0\.1:3002#127.0.0.1:3003#g;
+    s#127\.0\.0\.1:3001#127.0.0.1:3004#g;
+    s#3002/3001#3003/3004#g;
+    s#3001/3002#3004/3003#g;
+    s#localhost:18060#<local-integration-endpoint>#g;
+    s#localhost:9000#<local-browser-automation-endpoint>#g;
+  ' "$doc_file"
+done
+echo "  ✓ docs/ final public cleanup"
+TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+
+# 3o-2: global path normalization — fix double-prefix artifacts and lingering private path tokens
+find "$FILTERED_DIR/docs" "$FILTERED_DIR/cat-cafe-skills" \( -name "*.md" -o -name "*.sh" -o -name "manifest.yaml" \) -type f 2>/dev/null | while read -r public_file; do
+  perl -i -pe '
+    s#docs/mailbox\b#review-notes#g;
+    s#docs/plans\b#feature-specs#g;
+    s#docs/discussions\b#feature-discussions#g;
+    s#docs/archive\b#internal-archive#g;
+    s#feature-feature-discussions/#feature-discussions/#g;
+    s#feature-feature-specs/#feature-specs/#g;
+    s#internal-internal-archive/#internal-archive/#g;
+    s#localhost:3004/3002#localhost:3004/3003#g;
+    s#localhost:3003/3004#localhost:3004/3003#g;
+    s#3004/3002#3004/3003#g;
+    s#3003/3004#3004/3003#g;
+  ' "$public_file"
+done
+echo "  ✓ docs/skills path normalization"
+TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+
 echo ""
 echo "  Transforms: $TRANSFORM_COUNT"
 
@@ -749,7 +898,8 @@ for pattern in "${ENDPOINT_PATTERNS[@]}"; do
     | grep -v 'redis://localhost:6379' \
     | grep -v 'redis://localhost:6380' \
     | grep -v 'localhost:3000' \
-    | grep -v 'localhost:3001' \
+    | grep -v 'localhost:3003' \
+    | grep -v 'localhost:3004' \
     | grep -v 'localhost:5173' \
     | grep -v '.export-summary.json' \
     | head -5 || true)
