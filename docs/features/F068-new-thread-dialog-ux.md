@@ -4,7 +4,6 @@ related_features: [F063]
 topics: [hub, ux, directory-picker, new-thread]
 doc_kind: spec
 created: 2026-03-06
-completed: 2026-03-06
 status: in-progress
 ---
 
