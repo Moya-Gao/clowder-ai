@@ -9,15 +9,13 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
+const API_URL = process.env.CAT_CAFE_API_URL ?? 'http://localhost:3002';
 
 export const reflectInputSchema = {
   query: z.string().trim().min(1).describe('Question to reflect on using project knowledge'),
 };
 
-export async function handleReflect(input: {
-  query: string;
-}): Promise<ToolResult> {
+export async function handleReflect(input: { query: string }): Promise<ToolResult> {
   const url = `${API_URL}/api/reflect`;
 
   try {
@@ -40,7 +38,7 @@ export async function handleReflect(input: {
 
     if (data.degraded) {
       return successResult(
-        `[DEGRADED] Hindsight unavailable (${data.degradeReason ?? 'unknown'}). Cannot generate reflection.`
+        `[DEGRADED] Hindsight unavailable (${data.degradeReason ?? 'unknown'}). Cannot generate reflection.`,
       );
     }
 

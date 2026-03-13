@@ -17,9 +17,9 @@ interface CallbackConfig {
 }
 
 export function getCallbackConfig(): CallbackConfig | null {
-  const apiUrl = process.env['CAT_CAFE_API_URL'];
-  const invocationId = process.env['CAT_CAFE_INVOCATION_ID'];
-  const callbackToken = process.env['CAT_CAFE_CALLBACK_TOKEN'];
+  const apiUrl = process.env.CAT_CAFE_API_URL;
+  const invocationId = process.env.CAT_CAFE_INVOCATION_ID;
+  const callbackToken = process.env.CAT_CAFE_CALLBACK_TOKEN;
   if (!apiUrl || !invocationId || !callbackToken) return null;
   return { apiUrl, invocationId, callbackToken };
 }
@@ -90,7 +90,9 @@ export const postMessageInputSchema = {
   targetCats: z
     .array(z.string().min(1))
     .optional()
-    .describe('Optional explicit target cat IDs (e.g. ["codex","gpt52"]). Merged with @mentions parsed from content. Used for direction rendering in frontend.'),
+    .describe(
+      'Optional explicit target cat IDs (e.g. ["codex","gpt52"]). Merged with @mentions parsed from content. Used for direction rendering in frontend.',
+    ),
 };
 
 export const getPendingMentionsInputSchema = {
@@ -488,12 +490,12 @@ export async function handleUpdateWorkflow(input: {
     backlogItemId: input.backlogItemId,
     featureId: input.featureId,
   };
-  if (input.stage !== undefined) body['stage'] = input.stage;
-  if (input.batonHolder !== undefined) body['batonHolder'] = input.batonHolder;
-  if (input.nextSkill !== undefined) body['nextSkill'] = input.nextSkill;
-  if (input.resumeCapsule !== undefined) body['resumeCapsule'] = input.resumeCapsule;
-  if (input.checks !== undefined) body['checks'] = input.checks;
-  if (input.expectedVersion !== undefined) body['expectedVersion'] = input.expectedVersion;
+  if (input.stage !== undefined) body.stage = input.stage;
+  if (input.batonHolder !== undefined) body.batonHolder = input.batonHolder;
+  if (input.nextSkill !== undefined) body.nextSkill = input.nextSkill;
+  if (input.resumeCapsule !== undefined) body.resumeCapsule = input.resumeCapsule;
+  if (input.checks !== undefined) body.checks = input.checks;
+  if (input.expectedVersion !== undefined) body.expectedVersion = input.expectedVersion;
   return callbackPost('/api/callbacks/update-workflow-sop', body);
 }
 
@@ -640,12 +642,12 @@ export async function handleUpdateBootcampState(input: {
   completedAt?: number | undefined;
 }): Promise<ToolResult> {
   const body: Record<string, unknown> = { threadId: input.threadId };
-  if (input.phase !== undefined) body['phase'] = input.phase;
-  if (input.leadCat !== undefined) body['leadCat'] = input.leadCat;
-  if (input.selectedTaskId !== undefined) body['selectedTaskId'] = input.selectedTaskId;
-  if (input.envCheck !== undefined) body['envCheck'] = input.envCheck;
-  if (input.advancedFeatures !== undefined) body['advancedFeatures'] = input.advancedFeatures;
-  if (input.completedAt !== undefined) body['completedAt'] = input.completedAt;
+  if (input.phase !== undefined) body.phase = input.phase;
+  if (input.leadCat !== undefined) body.leadCat = input.leadCat;
+  if (input.selectedTaskId !== undefined) body.selectedTaskId = input.selectedTaskId;
+  if (input.envCheck !== undefined) body.envCheck = input.envCheck;
+  if (input.advancedFeatures !== undefined) body.advancedFeatures = input.advancedFeatures;
+  if (input.completedAt !== undefined) body.completedAt = input.completedAt;
   return callbackPost('/api/callbacks/update-bootcamp-state', body);
 }
 

@@ -87,7 +87,7 @@ const rowRegex = /^\|\s*(TD\d{3})\s*\|/;
   let tableRows = [];
   let inTable = false;
   let seenHeader = false;
-  let inOrderViolations = [];
+  const inOrderViolations = [];
 
   const flushTable = () => {
     if (tableLines.length === 0) {
@@ -163,7 +163,7 @@ const rowRegex = /^\|\s*(TD\d{3})\s*\|/;
     }
 
     const match = rowRegex.exec(line);
-    if (match && match[1]) {
+    if (match?.[1]) {
       tableRows.push({
         id: match[1],
         idNum: Number.parseInt(match[1].slice(2), 10),
@@ -179,7 +179,6 @@ const rowRegex = /^\|\s*(TD\d{3})\s*\|/;
     } else {
       output.push(line);
     }
-    continue;
   }
 
   flushTable();
@@ -187,9 +186,7 @@ const rowRegex = /^\|\s*(TD\d{3})\s*\|/;
   if (options.checkOrder && inOrderViolations.length > 0) {
     console.error(`tech-debt-order: TD ID not in ascending order in ${options.file}`);
     inOrderViolations.forEach((item) => {
-      console.error(
-        `  - ${item.idA}(line ${item.idxA + 1}) appears before ${item.idB}(line ${item.idxB + 1})`
-      );
+      console.error(`  - ${item.idA}(line ${item.idxA + 1}) appears before ${item.idB}(line ${item.idxB + 1})`);
     });
     process.exitCode = 1;
     return;

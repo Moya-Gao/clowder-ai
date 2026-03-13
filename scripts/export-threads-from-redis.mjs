@@ -13,7 +13,7 @@ Defaults:
 
 function parseArgs(argv) {
   const out = {
-    redisUrl: process.env['REDIS_URL'] ?? 'redis://127.0.0.1:6399',
+    redisUrl: process.env.REDIS_URL ?? 'redis://127.0.0.1:6399',
     outDir: path.resolve(process.cwd(), 'docs/discussions/exported-threads'),
     threadIds: [],
     dryRun: false,
@@ -133,7 +133,7 @@ function toMarkdown(threadId, threadMeta, participants, messages) {
   lines.push('', '---', '');
 
   for (const m of messages) {
-    const speaker = m.catId ? catLabel(m.catId) ?? m.catId : userLabel(m.userId);
+    const speaker = m.catId ? (catLabel(m.catId) ?? m.catId) : userLabel(m.userId);
     lines.push(`[${fmtTime(m.timestamp)} ${speaker}] ${m.content}`.trimEnd());
     const model = m.metadata?.model ?? m.metadata?.providerModel;
     if (m.catId && model) {
@@ -142,7 +142,7 @@ function toMarkdown(threadId, threadMeta, participants, messages) {
   }
 
   lines.push('', '---', `*导出时间: ${fmt(Date.now())}*`);
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 function sameContent(file, content) {
@@ -204,7 +204,9 @@ async function main() {
 
   console.log(`[thread-export] redis=${args.redisUrl}`);
   console.log(`[thread-export] outDir=${args.outDir}`);
-  console.log(`[thread-export] threads=${threadIds.length} exported=${exported} updated=${updated} mode=${args.dryRun ? 'dry-run' : 'write'}`);
+  console.log(
+    `[thread-export] threads=${threadIds.length} exported=${exported} updated=${updated} mode=${args.dryRun ? 'dry-run' : 'write'}`,
+  );
   await redis.quit();
 }
 

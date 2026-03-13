@@ -25,18 +25,14 @@ import process from 'node:process';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const SECTIONS_TO_STRIP = new Set([
-  'timeline',
-  'open questions',
-  'links',
-  'internal notes',
-]);
+const SECTIONS_TO_STRIP = new Set(['timeline', 'open questions', 'links', 'internal notes']);
 
-const PRIVATE_DIRS = 'research|bug-report|mailbox|discussions|plans|reflections|evidence|archive|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons';
+const PRIVATE_DIRS =
+  'research|bug-report|mailbox|discussions|plans|reflections|evidence|archive|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons';
 const INTERNAL_LINK_PATTERNS = [
   new RegExp(`\\.\\.\\/(?:${PRIVATE_DIRS})\\/`),
   new RegExp(`docs\\/(?:${PRIVATE_DIRS})\\/`),
-  new RegExp(`\\.\\/(?:${PRIVATE_DIRS})\\/`),   // ./archive/... relative links within docs/features
+  new RegExp(`\\.\\/(?:${PRIVATE_DIRS})\\/`), // ./archive/... relative links within docs/features
 ];
 
 const SANITIZE_REPLACEMENTS = [
@@ -87,9 +83,15 @@ function parseFeatureIds(fmValue) {
     const normalized = normalizeFeatureId(fmValue);
     return normalized ? [normalized] : [];
   }
-  return [...new Set(
-    fmValue.slice(1, -1).split(',').map(p => normalizeFeatureId(p.trim())).filter(Boolean),
-  )];
+  return [
+    ...new Set(
+      fmValue
+        .slice(1, -1)
+        .split(',')
+        .map((p) => normalizeFeatureId(p.trim()))
+        .filter(Boolean),
+    ),
+  ];
 }
 
 /**
@@ -139,17 +141,17 @@ function checkConformance(content) {
     { key: 'section_dependencies', pass: hasSection(content, 'Dependencies') },
     { key: 'section_risk', pass: hasSection(content, 'Risk') },
   ];
-  const passed = checks.filter(c => c.pass).length;
+  const passed = checks.filter((c) => c.pass).length;
   const score = Math.round((passed / checks.length) * 100);
   const tier = score >= 80 ? 'green' : score >= 50 ? 'yellow' : 'red';
-  const missing = checks.filter(c => !c.pass).map(c => c.key);
+  const missing = checks.filter((c) => !c.pass).map((c) => c.key);
   return { score, tier, passed, total: checks.length, missing };
 }
 
 // ── Line-level filtering ──────────────────────────────────────────────────────
 
 function isInternalLink(line) {
-  return INTERNAL_LINK_PATTERNS.some(p => p.test(line));
+  return INTERNAL_LINK_PATTERNS.some((p) => p.test(line));
 }
 
 function isQuotedInternalSpeech(line) {
@@ -269,10 +271,22 @@ Options:
   --help                  Show this help`);
       process.exit(0);
     }
-    if (arg === '--features-dir') { options.featuresDir = path.resolve(process.cwd(), argv[++i]); continue; }
-    if (arg === '--output-dir') { options.outputDir = path.resolve(process.cwd(), argv[++i]); continue; }
-    if (arg === '--dry-run') { options.dryRun = true; continue; }
-    if (arg === '--min-tier') { options.minTier = argv[++i]; continue; }
+    if (arg === '--features-dir') {
+      options.featuresDir = path.resolve(process.cwd(), argv[++i]);
+      continue;
+    }
+    if (arg === '--output-dir') {
+      options.outputDir = path.resolve(process.cwd(), argv[++i]);
+      continue;
+    }
+    if (arg === '--dry-run') {
+      options.dryRun = true;
+      continue;
+    }
+    if (arg === '--min-tier') {
+      options.minTier = argv[++i];
+      continue;
+    }
     throw new Error(`Unknown argument: ${arg}`);
   }
 
@@ -283,12 +297,13 @@ Options:
 }
 
 function listFeatureFiles(featuresDir) {
-  return fs.readdirSync(featuresDir, { withFileTypes: true })
-    .filter(e => e.isFile())
-    .map(e => e.name)
-    .filter(name => /^F\d+.*\.md$/i.test(name))
+  return fs
+    .readdirSync(featuresDir, { withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => e.name)
+    .filter((name) => /^F\d+.*\.md$/i.test(name))
     .sort((a, b) => a.localeCompare(b))
-    .map(name => path.join(featuresDir, name));
+    .map((name) => path.join(featuresDir, name));
 }
 
 const TIER_ORDER = { green: 0, yellow: 1, red: 2 };
@@ -312,7 +327,13 @@ function run() {
       const featureId = parseFeatureIds(frontmatter.feature_ids)[0] ?? normalizeFeatureId(fileName) ?? 'UNKNOWN';
 
       if (!meetsMinTier(conformance.tier, options.minTier)) {
-        results.skipped.push({ file: fileName, featureId, tier: conformance.tier, score: conformance.score, missing: conformance.missing });
+        results.skipped.push({
+          file: fileName,
+          featureId,
+          tier: conformance.tier,
+          score: conformance.score,
+          missing: conformance.missing,
+        });
         continue;
       }
 
@@ -335,7 +356,9 @@ function run() {
   console.log(`Source: ${options.featuresDir}`);
   console.log(`Output: ${options.dryRun ? '(dry run)' : options.outputDir}`);
   console.log(`Min tier: ${options.minTier}`);
-  console.log(`\nExported: ${results.exported.length} | Skipped: ${results.skipped.length} | Errors: ${results.errors.length}`);
+  console.log(
+    `\nExported: ${results.exported.length} | Skipped: ${results.skipped.length} | Errors: ${results.errors.length}`,
+  );
 
   if (results.exported.length > 0) {
     console.log(`\n✓ Exported (${results.exported.length}):`);
@@ -347,7 +370,9 @@ function run() {
   if (results.skipped.length > 0) {
     console.log(`\n⚠ Skipped — below min tier (${results.skipped.length}):`);
     for (const r of results.skipped) {
-      console.log(`  [${r.tier.toUpperCase().padEnd(6)}] ${r.featureId} ${r.file} (${r.score}%) missing: ${r.missing.join(', ')}`);
+      console.log(
+        `  [${r.tier.toUpperCase().padEnd(6)}] ${r.featureId} ${r.file} (${r.score}%) missing: ${r.missing.join(', ')}`,
+      );
     }
   }
 
@@ -361,14 +386,22 @@ function run() {
   // Write summary JSON for downstream tooling
   if (!options.dryRun && options.outputDir) {
     const summaryPath = path.join(options.outputDir, '.export-summary.json');
-    fs.writeFileSync(summaryPath, JSON.stringify({
-      exportedAt: new Date().toISOString(),
-      minTier: options.minTier,
-      exported: results.exported.length,
-      skipped: results.skipped.length,
-      errors: results.errors.length,
-      skippedFiles: results.skipped.map(r => r.file),
-    }, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(
+      summaryPath,
+      `${JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          minTier: options.minTier,
+          exported: results.exported.length,
+          skipped: results.skipped.length,
+          errors: results.errors.length,
+          skippedFiles: results.skipped.map((r) => r.file),
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
   }
 
   // Exit code: 1 if errors, 0 otherwise

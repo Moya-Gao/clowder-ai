@@ -128,15 +128,15 @@ export function normalizeRichBlock(raw: unknown): unknown {
 
   // type → kind alias
   if ('type' in obj && !('kind' in obj)) {
-    if (VALID_KINDS.includes(obj['type'] as string)) {
-      obj['kind'] = obj['type'];
-      delete obj['type'];
+    if (VALID_KINDS.includes(obj.type as string)) {
+      obj.kind = obj.type;
+      delete obj.type;
     }
   }
 
   // Auto-fill v: 1
   if (!('v' in obj) && 'kind' in obj) {
-    obj['v'] = 1;
+    obj.v = 1;
   }
 
   return obj;

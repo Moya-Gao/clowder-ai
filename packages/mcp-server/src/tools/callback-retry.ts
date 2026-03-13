@@ -9,12 +9,10 @@ export interface CallbackPostFailure {
   retryable: boolean;
 }
 
-export type CallbackPostResult =
-  | { ok: true; data: unknown }
-  | { ok: false; failure: CallbackPostFailure };
+export type CallbackPostResult = { ok: true; data: unknown } | { ok: false; failure: CallbackPostFailure };
 
 export function getRetryDelaysMs(): number[] {
-  const raw = process.env['CAT_CAFE_CALLBACK_RETRY_DELAYS_MS'];
+  const raw = process.env.CAT_CAFE_CALLBACK_RETRY_DELAYS_MS;
   if (!raw) return DEFAULT_RETRY_DELAYS_MS;
   const parsed = raw
     .split(',')

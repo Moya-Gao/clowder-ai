@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 /**
  * build-doc-index.mjs — Scan docs/ for YAML frontmatter, build a relation index.
  *
@@ -9,9 +10,8 @@
  *   node scripts/build-doc-index.mjs          # build index
  *   node scripts/build-doc-index.mjs --check  # check consistency (CI mode)
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
-import { resolve, relative, join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DOCS_DIR = resolve(ROOT, 'docs');
@@ -73,7 +73,7 @@ function parseFrontmatter(content) {
     } else {
       const arrayMatch = rawVal.match(/^\[(.+)\]$/);
       if (arrayMatch) {
-        fm[key] = arrayMatch[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, ''));
+        fm[key] = arrayMatch[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, ''));
       } else {
         fm[key] = rawVal.trim().replace(/^['"]|['"]$/g, '');
       }
@@ -100,7 +100,7 @@ function extractSummary(content) {
   for (const line of body.split('\n')) {
     const trimmed = line.trim();
     if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('|') && !trimmed.startsWith('```')) {
-      return trimmed.length > 200 ? trimmed.slice(0, 200) + '...' : trimmed;
+      return trimmed.length > 200 ? `${trimmed.slice(0, 200)}...` : trimmed;
     }
   }
   return null;
@@ -202,7 +202,7 @@ if (CHECK_MODE) {
   // P2 fix: compare content hash, not just file count — detects stale metadata.
   // If index absent (fresh checkout / CI), generate it so the gate is usable standalone.
   if (!existsSync(OUTPUT)) {
-    writeFileSync(OUTPUT, JSON.stringify(index, null, 2) + '\n');
+    writeFileSync(OUTPUT, `${JSON.stringify(index, null, 2)}\n`);
     console.log(`Doc index generated (first run): ${index.files.length} files, ${errors.length} issues. OK.`);
     process.exit(0);
   }
@@ -218,7 +218,7 @@ if (CHECK_MODE) {
 }
 
 // Write mode
-writeFileSync(OUTPUT, JSON.stringify(index, null, 2) + '\n');
+writeFileSync(OUTPUT, `${JSON.stringify(index, null, 2)}\n`);
 console.log(`Doc index built: ${index.files.length} files → ${relative(ROOT, OUTPUT)}`);
 if (errors.length > 0) {
   console.warn(`Warnings: ${errors.length} issue(s):`);

@@ -4,7 +4,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { getRetryDelaysMs, postJsonWithRetry } from './callback-retry.js';
@@ -36,24 +36,24 @@ function parseIntEnv(raw: string | undefined): number | null {
 }
 
 function isOutboxEnabled(): boolean {
-  const raw = (process.env['CAT_CAFE_CALLBACK_OUTBOX_ENABLED'] ?? 'true').toLowerCase();
+  const raw = (process.env.CAT_CAFE_CALLBACK_OUTBOX_ENABLED ?? 'true').toLowerCase();
   return raw !== '0' && raw !== 'false' && raw !== 'off';
 }
 
 function getOutboxDir(): string {
-  const fromEnv = process.env['CAT_CAFE_CALLBACK_OUTBOX_DIR'];
+  const fromEnv = process.env.CAT_CAFE_CALLBACK_OUTBOX_DIR;
   if (fromEnv && fromEnv.trim().length > 0) return fromEnv;
   return join(homedir(), '.cat-cafe', 'callback-outbox');
 }
 
 function getOutboxMaxFlushBatch(): number {
-  const parsed = parseIntEnv(process.env['CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH']);
+  const parsed = parseIntEnv(process.env.CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH);
   if (parsed === null || parsed < 0) return DEFAULT_OUTBOX_MAX_FLUSH_BATCH;
   return parsed;
 }
 
 function getOutboxMaxAttempts(): number {
-  const parsed = parseIntEnv(process.env['CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS']);
+  const parsed = parseIntEnv(process.env.CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS);
   if (parsed === null || parsed < 0) return DEFAULT_OUTBOX_MAX_ATTEMPTS;
   return parsed;
 }
@@ -122,11 +122,7 @@ async function flushOutbox(): Promise<void> {
         continue;
       }
 
-      const replay = await postJsonWithRetry(
-        `${entry.apiUrl}${entry.path}`,
-        JSON.stringify(entry.body),
-        retryDelaysMs,
-      );
+      const replay = await postJsonWithRetry(`${entry.apiUrl}${entry.path}`, JSON.stringify(entry.body), retryDelaysMs);
       if (replay.ok) {
         await unlink(processingPath);
         continue;

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Sticker Sheet Cutter — F054 Phase 1.5
  *
@@ -18,8 +19,8 @@
  *   assets/stickers/<cat>/manifest.json
  */
 
-import { createRequire } from 'node:module';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 
 const sharp = createRequire(import.meta.url)('sharp');
@@ -27,13 +28,25 @@ const sharp = createRequire(import.meta.url)('sharp');
 // Default sticker names matching F054 spec order
 const DEFAULT_NAMES = [
   // Row 1
-  'happy', 'thinking', 'confused', 'shocked',
+  'happy',
+  'thinking',
+  'confused',
+  'shocked',
   // Row 2
-  'lgtm', 'sleeping', 'smirk', 'guilty',
+  'lgtm',
+  'sleeping',
+  'smirk',
+  'guilty',
   // Row 3
-  'angry', 'punch', 'got_it', 'melting',
+  'angry',
+  'punch',
+  'got_it',
+  'melting',
   // Row 4 (exclusive — will be overridden per cat)
-  'exclusive_1', 'exclusive_2', 'exclusive_3', 'exclusive_4',
+  'exclusive_1',
+  'exclusive_2',
+  'exclusive_3',
+  'exclusive_4',
 ];
 
 // Per-cat exclusive sticker names (Row 4)
@@ -126,7 +139,7 @@ async function main() {
 
       await sharp(sheetPath)
         .extract({ left, top, width: cellWidth, height: cellHeight })
-        .trim()  // Remove whitespace borders
+        .trim() // Remove whitespace borders
         .resize(512, 512, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
         .png()
         .toFile(outPath);
@@ -144,7 +157,7 @@ async function main() {
 
   // Write manifest
   const manifestPath = path.join(outDir, 'manifest.json');
-  await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`\n📋 Manifest: ${manifestPath}`);
   console.log(`✅ Done! ${manifest.stickers.length} stickers cut to ${outDir}/`);
 }

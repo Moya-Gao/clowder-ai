@@ -1,8 +1,8 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { test } from 'node:test';
 
 import {
   findBrokenSessionFiles,
@@ -90,5 +90,8 @@ test('findBrokenSessionFiles scans recursively for invalid thinking signature fa
 
   const files = await findBrokenSessionFiles(tmp);
 
-  assert.deepEqual(files.map((file) => path.basename(file)), ['bad.jsonl']);
+  assert.deepEqual(
+    files.map((file) => path.basename(file)),
+    ['bad.jsonl'],
+  );
 });

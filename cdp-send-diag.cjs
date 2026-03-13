@@ -1,25 +1,37 @@
-const { WebSocket } = require("ws");
+const { WebSocket } = require('ws');
 (async () => {
-  const resp = await fetch("http://localhost:9000/json", { signal: AbortSignal.timeout(3000) });
+  const resp = await fetch('http://localhost:9000/json', { signal: AbortSignal.timeout(3000) });
   const targets = await resp.json();
-  const page = targets.find(t => t.type === "page" && !t.title.includes("Launchpad") && t.webSocketDebuggerUrl);
-  if (!page) { console.log("No target"); process.exit(1); }
+  const page = targets.find((t) => t.type === 'page' && !t.title.includes('Launchpad') && t.webSocketDebuggerUrl);
+  if (!page) {
+    console.log('No target');
+    process.exit(1);
+  }
   const ws = new WebSocket(page.webSocketDebuggerUrl);
-  await new Promise((r) => { ws.onopen = r; setTimeout(() => { throw new Error("timeout"); }, 5000); });
+  await new Promise((r) => {
+    ws.onopen = r;
+    setTimeout(() => {
+      throw new Error('timeout');
+    }, 5000);
+  });
   let idCounter = 0;
   function cdp(method, params) {
     params = params || {};
     return new Promise((resolve, reject) => {
       const id = ++idCounter;
-      const timer = setTimeout(() => reject(new Error("CDP timeout")), 10000);
-      ws.on("message", function handler(data) {
+      const timer = setTimeout(() => reject(new Error('CDP timeout')), 10000);
+      ws.on('message', function handler(data) {
         const msg = JSON.parse(data.toString());
-        if (msg.id === id) { clearTimeout(timer); ws.removeListener("message", handler); msg.error ? reject(new Error(msg.error.message)) : resolve(msg.result); }
+        if (msg.id === id) {
+          clearTimeout(timer);
+          ws.removeListener('message', handler);
+          msg.error ? reject(new Error(msg.error.message)) : resolve(msg.result);
+        }
       });
       ws.send(JSON.stringify({ id, method, params }));
     });
   }
-  await cdp("Runtime.enable");
+  await cdp('Runtime.enable');
 
   const diagJS = `(() => {
     const textbox = document.querySelector('[role="textbox"][contenteditable="true"]');
@@ -50,7 +62,10 @@ const { WebSocket } = require("ws");
     }, null, 2);
   })()`;
 
-  const result = await cdp("Runtime.evaluate", { expression: diagJS, returnByValue: true });
+  const result = await cdp('Runtime.evaluate', { expression: diagJS, returnByValue: true });
   console.log(result.result?.value || JSON.stringify(result, null, 2));
   ws.close();
-})().catch(e => { console.error("Error:", e.message); process.exit(1); });
+})().catch((e) => {
+  console.error('Error:', e.message);
+  process.exit(1);
+});
