@@ -138,10 +138,22 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 ### 流程
 
 ```
-社区开 issue → 猫 triage（加 label）→ 铲屎官拍板立项
-    → BACKLOG.md 加 F{NNN} → 写 Feature Doc → 实现 → sync 推送
-    → issue 标 label feature:F{NNN} → close
+社区开 issue → 猫 triage（加 label）→ 铲屎官拍板
+    ├─ Feature → BACKLOG.md 加 F{NNN} → Feature Doc → 实现 → 全量 sync 推送
+    └─ Bug fix → worktree(sync tag) → 修 → sync-hotfix.sh → clowder-ai PR → cherry-pick 回 main
 ```
+
+### Hotfix Lane（Bug 快修通道）
+
+社区报 bug 时，不必等全量 sync，直接走 hotfix lane：
+
+1. `git worktree add -b fix/xxx ../cat-cafe-hotfix-xxx sync/LATEST-TAG`
+2. 在 worktree 里修 bug
+3. `cd ../cat-cafe-hotfix-xxx && bash scripts/sync-hotfix.sh fix/xxx <changed-files>`
+4. 在 clowder-ai 上开 PR、review、merge
+5. Cherry-pick fix 回 cat-cafe main
+
+> 详见 [Hotfix Lane 设计](discussions/2026-03-14-sync-hotfix-lane-design.md)
 
 ### 规则
 
