@@ -718,97 +718,12 @@ TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 # with ONE find + ONE perl pass over all text files. Conditional logic via $ARGV.
 # Written to temp file to avoid shell quoting issues with perl regex.
 echo "  Comprehensive sanitization (single-pass)..."
-SANITIZER="$STAGING_DIR/_sanitize.pl"
-cat > "$SANITIZER" << 'SANITIZE_PERL_EOF'
-# ── Personal info (all files) ──
-# 铲屎官：猫圈通用梗（猫主子的仆人），非个人信息，保留不替换
-s/\@Landy/\@owner/g;
-s/\@landy/\@owner/g;
-s/\@Lysander/\@owner/g;
-s/\@lysander/\@owner/g;
-s/\@l\.s\./\@owner/g;
-s/"Landy"/"Owner"/g;
-s/'Landy'/'Owner'/g;
-s/name: "Landy"/name: "Owner"/g;
-s/'landy'/'owner'/g;
-s/'l\.s\.'/'owner'/g;
-s/Landy/Owner/g;
-s/lysander/owner/g;
-s/suces-MacBook[^ ]*/dev-machine/g;
-
-# ── Redis ports (all files) ──
-s#redis://localhost:6399#redis://localhost:6379#g;
-s#redis://localhost:6398#redis://localhost:6380#g;
-s/6399 圣域/production Redis (sacred)/g;
-
-# ── Port remapping (all files) ──
-s#http://localhost:3002#http://localhost:3003#g;
-s#http://localhost:3001#http://localhost:3004#g;
-s#http://127\.0\.0\.1:3002#your local Clowder API URL#g;
-s#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g;
-s#localhost:3002#localhost:3003#g;
-s#localhost:3001#localhost:3004#g;
-s#127\.0\.0\.1:3002#127.0.0.1:3003#g;
-s#127\.0\.0\.1:3001#127.0.0.1:3004#g;
-s#3002/3001#3003/3004#g;
-s#3001/3002#3004/3003#g;
-s#localhost:18060#<local-integration-endpoint>#g;
-s#localhost:9000#<local-browser-automation-endpoint>#g;
-
-# ── /Users/ path scrubbing (all files) ──
-s#/Users/[^\s,"'}\]]+/cat-cafe\b#/path/to/project#g;
-s#/Users/[^\s,"'}\]]+#/home/user#g;
-
-# ── Cat names + BACKLOG ref (docs + skills only) ──
-if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
-  s/布偶猫/Ragdoll/g;
-  s/缅因猫/Maine Coon/g;
-  s/暹罗猫/Siamese/g;
-  s/宪宪/Ragdoll/g;
-  s/砚砚/Maine Coon/g;
-  s/烁烁/Siamese/g;
-  s/BACKLOG\.md/ROADMAP.md/g;
-}
-
-# ── Internal link stripping + path remapping (docs + skills only) ──
-if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
-  # Remove list-item lines that are pure internal links
-  $_ = "" if /^- \[.*?\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\//;
-  # Convert inline links to private dirs into plain text
-  s/\[([^\]]*?)\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\/[^)]*\)/$1 (internal)/g;
-  # Strip backtick-quoted paths referencing private dirs
-  s/`(?:docs\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks)\/[^`]*`/*(internal reference removed)*/g;
-  # Specific path templates
-  s#docs/mailbox/YYYY-MM-DD-\{topic\}-review-request\.md#review request note#g;
-  s#docs/plans/YYYY-MM-DD-<feature-name>\.md#feature spec or implementation note#g;
-  s#docs/plans/YYYY-MM-DD-xxx\.md#feature spec or implementation note#g;
-  s#docs/plans/\{date\}-\{topic\}\.md 或 docs/phases/\{name\}\.md#the active feature spec or implementation plan#g;
-  s#docs/discussions/YYYY-MM-DD-\{topic\}/README\.md#feature discussion#g;
-  s#docs/discussions/\{date\}-\{fid\}-design/#feature discussion record/#g;
-  # Path remapping
-  s#docs/mailbox/#review-notes/#g;
-  s#docs/plans/#feature-specs/#g;
-  s#docs/discussions/#feature-discussions/#g;
-  s#docs/archive/#internal-archive/#g;
-  s#(^|[^A-Za-z])mailbox/#${1}review-notes/#g;
-  s#(^|[^A-Za-z])plans/#${1}feature-specs/#g;
-  s#(^|[^A-Za-z])discussions/#${1}feature-discussions/#g;
-  s#(^|[^A-Za-z])archive/#${1}internal-archive/#g;
-  # Double-prefix fix
-  s#feature-feature-discussions/#feature-discussions/#g;
-  s#feature-feature-specs/#feature-specs/#g;
-  s#internal-internal-archive/#internal-archive/#g;
-  # Port pair normalization
-  s#localhost:3004/3002#localhost:3004/3003#g;
-  s#localhost:3003/3004#localhost:3004/3003#g;
-  s#3004/3002#3004/3003#g;
-  s#3003/3004#3004/3003#g;
-  # Config path normalization
-  s#`\.env\.local`#`.env`#g;
-  s#\.env\.local#.env#g;
-  s#\.cat-cafe/\*secrets\*\.local\.json#local secrets file#g;
-}
-SANITIZE_PERL_EOF
+# Sanitizer rules extracted to _sanitize-rules.pl (shared with sync-hotfix.sh)
+SANITIZER="$SOURCE_DIR/scripts/_sanitize-rules.pl"
+if [ ! -f "$SANITIZER" ]; then
+  echo -e "${RED}✗ _sanitize-rules.pl not found at $SANITIZER${NC}"
+  exit 1
+fi
 find "$FILTERED_DIR" \( -name "*.md" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.sh" \) -type f -print0 | \
   xargs -0 perl -pi "$SANITIZER"
 echo "  ✓ Comprehensive sanitization complete (single-pass)"
@@ -1361,6 +1276,20 @@ else
 fi
 
 TOTAL_ELAPSED=$(( $(date +%s) - SYNC_START_TIME ))
+
+# ── Auto-tag: sync/YYYY-MM-DD ────────────────────────────────
+# After successful sync, tag the target repo for hotfix lane baseline.
+# Tag is force-pushed so repeated same-day syncs update the tag.
+if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
+  SYNC_TAG="sync/$(date +%Y-%m-%d)"
+  echo ""
+  echo -e "${BLUE}Tagging target: $SYNC_TAG${NC}"
+  git -C "$TARGET_DIR" tag -f "$SYNC_TAG" 2>/dev/null && \
+    echo -e "  ${GREEN}✓ Tag $SYNC_TAG created (local)${NC}" || \
+    echo -e "  ${YELLOW}⚠ Failed to create tag $SYNC_TAG${NC}"
+  echo -e "  ${YELLOW}Note: push tag with: cd $TARGET_DIR && git push origin $SYNC_TAG --force${NC}"
+fi
+
 echo ""
 echo -e "${GREEN}=== Sync complete ===${NC}  [total: ${TOTAL_ELAPSED}s]"
 echo "Target: $TARGET_DIR"
