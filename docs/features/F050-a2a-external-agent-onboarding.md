@@ -124,7 +124,7 @@ Cat Café 通过 `SystemPromptBuilder` 动态注入身份和家规到 prompt 文
 | Claude (布偶猫) | 仓库根 `CLAUDE.md` | Markdown | 自动注入 system prompt，改完即生效 |
 | Codex (缅因猫) | `~/.codex/AGENTS.md` + App Personalization | Markdown | CLI 和 App 都读；截图里的 Custom instructions |
 | Gemini (暹罗猫) | `~/.gemini/GEMINI.md` | Markdown | 项目级可用 `.gemini/GEMINI.md` |
-| OpenCode (金渐层) | `~/.config/opencode/opencode.json` | JSON | 系统提示词走 OMOC plugin；未来可能加 instructions 字段 |
+| OpenCode (金渐层) | `~/.config/opencode/opencode.json` | JSON | 系统提示词走 OMOC plugin；底层 Claude Code 运行时共享 `~/.claude/` 配置和 skills（见下方说明） |
 | Antigravity (孟加拉猫) | CDP bridge / prompt 注入 | — | 无独立配置文件，纯靠 Cat Café 动态注入 |
 
 **变更 SOP**：
@@ -132,6 +132,11 @@ Cat Café 通过 `SystemPromptBuilder` 动态注入身份和家规到 prompt 文
 2. 跑 `npx tsx scripts/sync-system-prompts.ts --check` 检测 drift
 3. 跑 `npx tsx scripts/sync-system-prompts.ts --apply` 写入 `~/.codex/AGENTS.md` + `~/.gemini/GEMINI.md`
 4. Commit 分片变更
+
+**OpenCode 配置共享说明**：OpenCode 底层使用 Claude Code 运行时（`claude-opus-4-6`），因此天然共享 `~/.claude/` 下的配置和 skills。这意味着：
+- `~/.claude/skills/` 中的 Cat Café symlink skills 金渐层可直接加载
+- `~/.claude/projects/` 中的项目级配置也会生效
+- 无需为金渐层单独维护 skills 同步链
 
 **决策**：禁止 runtime 自动覆写 `~/` 配置 → [ADR-017](../decisions/017-no-runtime-home-overwrite.md)
 

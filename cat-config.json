@@ -80,7 +80,7 @@
       "family": "golden-chinchilla",
       "roles": ["coding", "multi-agent"],
       "lead": true,
-      "available": false,
+      "available": true,
       "evaluation": "开源多模型编码猫，自带 Oh My OpenCode 多专家编排 + LSP (F105)"
     }
   },
@@ -466,7 +466,7 @@
         {
           "id": "opencode-default",
           "provider": "opencode",
-          "defaultModel": "claude-sonnet-4-6",
+          "defaultModel": "claude-opus-4-6",
           "mcpSupport": true,
           "cli": {
             "command": "opencode",
