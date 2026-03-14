@@ -6,7 +6,7 @@ doc_kind: spec
 created: 2026-03-14
 ---
 
-# F118: CLI Liveness Watchdog — CLI 进程活性守卫
+# F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复
 
 > **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0
 
@@ -163,6 +163,33 @@ created: 2026-03-14
 - [x] 每个 AC 都有验证方式
 - [ ] 前端需求已准备需求→证据映射表（Phase C Design Gate 时补）
 
+## Community Issue Coverage (Scope Extension 2026-03-14)
+
+> **决策**：三猫 + 铲屎官共识，社区 issue #86/#98/#99 统一归入 F118，扩展 scope 为 liveness + recovery + audit closure 完整链路，不新开 F121。
+> **Triage 报告**：`docs/ops/2026-03-14-community-issue-triage-tokenfelix.md`
+> **贡献者**：TokenFelix (whutzefengxie-ops)
+
+| clowder-ai Issue | 问题 | 与 F118 的关系 | 社区已有修复 |
+|------------------|------|---------------|-------------|
+| [#86](https://github.com/zts212653/clowder-ai/issues/86) | Session 上下文溢出死循环 — resume 无熔断器 | **主线**：直接对应 liveness + overflow circuit breaker | — |
+| [#98](https://github.com/zts212653/clowder-ai/issues/98) | 有毒 session 绑定无自愈 — active record 无健康检查 | **主线**：resume health check + auto-seal | — |
+| [#99](https://github.com/zts212653/clowder-ai/issues/99) | `finally` 块审计缺失 — generator `.return()` 不写 `CAT_ERROR` | **伴生**：liveness 链的审计闭环 | fork commit `465f64d` |
+
+### 扩展后的因果链
+
+```
+CLI 挂了 (liveness, Phase A+B ✅)
+  → session 不知道该放手 (no self-heal, #98 — 待 Phase C/D 覆盖)
+  → 审计链断了 (no audit, #99 — 待 Phase C 覆盖)
+  → 下次 resume 进死循环 (no circuit breaker, #86 — 待 Phase C/D 覆盖)
+```
+
+### 新增 AC（Phase C 扩展）
+
+- [ ] AC-C4: resume 前对 activeRec 做健康检查，session 不可用时 auto-seal + 走 fresh session fallback (#98)
+- [ ] AC-C5: `finally` 块补 fallback 审计写入，确保 generator `.return()` 路径也有 `CAT_ERROR` (#99)
+- [ ] AC-C6: session resume 加 overflow circuit breaker，连续 N 次 restore 无有效命令时熔断 (#86)
+
 ## Dependencies
 
 - **Evolved from**: 无（新发现的架构缺陷）
@@ -194,6 +221,7 @@ created: 2026-03-14
 | KD-3 | 进程活性用 CPU 时间采样而不是单纯 kill -0 | kill -0 只能检测 PID 存在，不能检测假死 | 2026-03-14 |
 | KD-4 | SessionMutex 默认 queue/fail-fast，不默认抢占旧请求 | 防止后来的 thread 杀掉健康请求（砚砚 review P1） | 2026-03-14 |
 | KD-5 | CPU 增长只影响状态判定，不无限重置 timer；需 bounded extension + hard cap | 防 busy-loop/livelock 永不超时（砚砚 review P1） | 2026-03-14 |
+| KD-6 | 社区 #86/#98/#99 归入 F118，扩展 scope 为 liveness + recovery + audit closure，不开 F121 | 一条因果链不拆两个 feature，管理成本 > 边界清晰收益（三猫 + 铲屎官共识） | 2026-03-14 |
 
 ## Timeline
 
@@ -201,6 +229,7 @@ created: 2026-03-14
 |------|------|
 | 2026-03-14 | 立项。布偶猫 + 缅因猫联合取证定位根因 |
 | 2026-03-14 | Phase A+B merged (PR #445) |
+| 2026-03-14 | Scope 扩展：社区 #86/#98/#99 归入 F118 (KD-6)，三猫 triage 验证 |
 
 ## Review Gate
 
@@ -219,3 +248,7 @@ created: 2026-03-14
 | **代码** | `packages/api/src/domains/cats/services/agents/invocation/InvocationTracker.ts` | 现有 slot guard（不覆盖 session） |
 | **代码** | `packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts:355-384` | session 复用入口 |
 | **社区** | 截图：CLI stdout 静默窗口分析 | 社区小伙伴对 Claude CLI 的独立分析 |
+| **社区 Issue** | [clowder-ai#86](https://github.com/zts212653/clowder-ai/issues/86) | Session 溢出死循环 |
+| **社区 Issue** | [clowder-ai#98](https://github.com/zts212653/clowder-ai/issues/98) | 有毒 session 无自愈 |
+| **社区 Issue** | [clowder-ai#99](https://github.com/zts212653/clowder-ai/issues/99) | `finally` 审计缺失 |
+| **Triage 报告** | `docs/ops/2026-03-14-community-issue-triage-tokenfelix.md` | 三猫验证报告 |
