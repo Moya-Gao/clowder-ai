@@ -201,3 +201,100 @@ describe('WorklistRegistry', () => {
     }
   });
 });
+
+// --- F108: parentInvocationId-based isolation (AC-A6) ---
+
+describe('WorklistRegistry: parentInvocationId isolation (F108)', () => {
+  test('two concurrent invocations in same thread have independent worklists (AC-A6)', async () => {
+    const { registerWorklist, unregisterWorklist, pushToWorklist, hasWorklist, getWorklist } = await import(
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
+    );
+
+    const threadId = 'thread-concurrent';
+
+    // Invocation 1: opus running, keyed by parentInvocationId 'inv-1'
+    const wl1 = ['opus'];
+    const entry1 = registerWorklist(threadId, wl1, 10, 'inv-1');
+
+    // Invocation 2: codex running, keyed by parentInvocationId 'inv-2'
+    const wl2 = ['codex'];
+    const entry2 = registerWorklist(threadId, wl2, 10, 'inv-2');
+
+    try {
+      // Both worklists coexist
+      assert.equal(hasWorklist(threadId), true, 'thread-level check: any worklist active');
+
+      // Push to inv-1 worklist only
+      const pushed1 = pushToWorklist(threadId, ['gemini'], undefined, 'inv-1');
+      assert.deepEqual(pushed1, ['gemini'], 'push to inv-1 worklist');
+      assert.deepEqual(wl1, ['opus', 'gemini']);
+      assert.deepEqual(wl2, ['codex'], 'inv-2 worklist untouched');
+
+      // Push to inv-2 worklist only
+      const pushed2 = pushToWorklist(threadId, ['opus'], undefined, 'inv-2');
+      assert.deepEqual(pushed2, ['opus'], 'push to inv-2 worklist');
+      assert.deepEqual(wl2, ['codex', 'opus']);
+      assert.deepEqual(wl1, ['opus', 'gemini'], 'inv-1 worklist untouched');
+
+      // Unregister inv-1, inv-2 still alive
+      unregisterWorklist(threadId, entry1, 'inv-1');
+      assert.equal(hasWorklist(threadId), true, 'inv-2 still active');
+
+      // Unregister inv-2, thread worklist gone
+      unregisterWorklist(threadId, entry2, 'inv-2');
+      assert.equal(hasWorklist(threadId), false, 'no worklists left');
+    } finally {
+      // Safety cleanup
+      unregisterWorklist(threadId, entry1, 'inv-1');
+      unregisterWorklist(threadId, entry2, 'inv-2');
+    }
+  });
+
+  test('pushToWorklist without parentInvocationId falls back to threadId key (backward compat)', async () => {
+    const { registerWorklist, unregisterWorklist, pushToWorklist, hasWorklist } = await import(
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
+    );
+
+    const threadId = 'thread-legacy';
+    const wl = ['opus'];
+
+    // Register without parentInvocationId (legacy path)
+    const entry = registerWorklist(threadId, wl, 10);
+
+    try {
+      assert.equal(hasWorklist(threadId), true);
+
+      // Push without parentInvocationId (legacy path)
+      const pushed = pushToWorklist(threadId, ['codex']);
+      assert.deepEqual(pushed, ['codex']);
+      assert.deepEqual(wl, ['opus', 'codex']);
+    } finally {
+      unregisterWorklist(threadId, entry);
+    }
+  });
+
+  test('getWorklist with parentInvocationId returns specific invocation worklist', async () => {
+    const { registerWorklist, unregisterWorklist, getWorklist } = await import(
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
+    );
+
+    const threadId = 'thread-get-specific';
+    const wl1 = ['opus'];
+    const wl2 = ['codex'];
+    const entry1 = registerWorklist(threadId, wl1, 10, 'inv-a');
+    const entry2 = registerWorklist(threadId, wl2, 5, 'inv-b');
+
+    try {
+      const fetched1 = getWorklist(threadId, 'inv-a');
+      assert.equal(fetched1.maxDepth, 10);
+      assert.strictEqual(fetched1.list, wl1);
+
+      const fetched2 = getWorklist(threadId, 'inv-b');
+      assert.equal(fetched2.maxDepth, 5);
+      assert.strictEqual(fetched2.list, wl2);
+    } finally {
+      unregisterWorklist(threadId, entry1, 'inv-a');
+      unregisterWorklist(threadId, entry2, 'inv-b');
+    }
+  });
+});

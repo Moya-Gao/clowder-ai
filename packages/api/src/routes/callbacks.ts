@@ -74,7 +74,7 @@ export interface CallbackRoutesOptions {
   reflectionService?: IReflectionService;
   /** Queue auto-dequeue on A2A invocation completion */
   queueProcessor?: {
-    onInvocationComplete(threadId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
+    onInvocationComplete(threadId: string, catId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
   };
 }
 
@@ -426,6 +426,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           threadId: effectiveThreadId,
           triggerMessage: storedMsg,
           callerCatId: senderCatId,
+          parentInvocationId: invocationId,
         },
       );
     }

@@ -38,6 +38,7 @@ function simulateBackgroundMessage(msg: {
   isFinal?: boolean;
   metadata?: { provider: string; model: string };
   origin?: 'stream' | 'callback';
+  invocationId?: string;
   timestamp: number;
 }) {
   handleBackgroundAgentMessage(msg as BackgroundAgentMessage, {
@@ -1271,6 +1272,76 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0].content).toBe('start end');
       expect(ts.messages[0].isStreaming).toBe(false);
       expect(ts.catStatuses.opus).toBe('done');
+    });
+  });
+
+  describe('F108: slot-aware background invocation tracking', () => {
+    it('markThreadInvocationActive registers invocationId when available', () => {
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'hello',
+        invocationId: 'inv-1',
+        timestamp: Date.now(),
+      });
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.hasActiveInvocation).toBe(true);
+      expect(ts.activeInvocations['inv-1']).toEqual({ catId: 'opus', mode: 'execute' });
+    });
+
+    it('markThreadInvocationComplete removes specific invocationId, preserves others', () => {
+      // Activate two invocations
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'a',
+        invocationId: 'inv-1',
+        timestamp: Date.now(),
+      });
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: 'b',
+        invocationId: 'inv-2',
+        timestamp: Date.now(),
+      });
+
+      let ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(Object.keys(ts.activeInvocations)).toHaveLength(2);
+
+      // Complete inv-1 (opus done, codex still running)
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: '',
+        isFinal: true,
+        invocationId: 'inv-1',
+        timestamp: Date.now(),
+      });
+
+      ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.activeInvocations['inv-1']).toBeUndefined();
+      expect(ts.activeInvocations['inv-2']).toEqual({ catId: 'codex', mode: 'execute' });
+      expect(ts.hasActiveInvocation).toBe(true);
+
+      // Complete inv-2 → all clear
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: '',
+        isFinal: true,
+        invocationId: 'inv-2',
+        timestamp: Date.now(),
+      });
+
+      ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(Object.keys(ts.activeInvocations)).toHaveLength(0);
+      expect(ts.hasActiveInvocation).toBe(false);
     });
   });
 });

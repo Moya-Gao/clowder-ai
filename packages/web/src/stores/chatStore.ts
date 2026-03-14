@@ -52,6 +52,7 @@ function snapshotActive(s: ChatState): ThreadState {
     isLoadingHistory: s.isLoadingHistory,
     hasMore: s.hasMore,
     hasActiveInvocation: s.hasActiveInvocation,
+    activeInvocations: s.activeInvocations,
     intentMode: s.intentMode,
     targetCats: s.targetCats,
     catStatuses: s.catStatuses,
@@ -76,6 +77,7 @@ function flattenThread(ts: ThreadState): Partial<ChatState> {
     isLoadingHistory: ts.isLoadingHistory,
     hasMore: ts.hasMore,
     hasActiveInvocation: ts.hasActiveInvocation,
+    activeInvocations: ts.activeInvocations,
     intentMode: ts.intentMode,
     targetCats: ts.targetCats,
     catStatuses: ts.catStatuses,
@@ -213,6 +215,8 @@ interface ChatState {
   hasMore: boolean;
   /** Whether the thread has an active invocation (broader than isLoading — stays true during A2A chains) */
   hasActiveInvocation: boolean;
+  /** F108: Per-invocation slot tracking — key=invocationId, value=slot info */
+  activeInvocations: Record<string, { catId: string; mode: string }>;
   intentMode: 'execute' | 'ideate' | null;
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;
@@ -264,6 +268,12 @@ interface ChatState {
   setStreaming: (id: string, streaming: boolean) => void;
   setLoading: (loading: boolean) => void;
   setHasActiveInvocation: (v: boolean) => void;
+  /** F108: Register a new active invocation slot */
+  addActiveInvocation: (invocationId: string, catId: string, mode: string) => void;
+  /** F108: Remove an active invocation slot; derives hasActiveInvocation */
+  removeActiveInvocation: (invocationId: string) => void;
+  /** F108: Clear all active invocations (timeout/error/stop recovery) */
+  clearAllActiveInvocations: () => void;
   setLoadingHistory: (loading: boolean) => void;
   setIntentMode: (mode: 'execute' | 'ideate' | null) => void;
   setTargetCats: (cats: string[]) => void;
@@ -311,6 +321,10 @@ interface ChatState {
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
+  /** F108: Add an active invocation to a thread (background or active) */
+  addThreadActiveInvocation: (threadId: string, invocationId: string, catId: string, mode: string) => void;
+  /** F108: Remove an active invocation from a thread; derives hasActiveInvocation */
+  removeThreadActiveInvocation: (threadId: string, invocationId: string) => void;
   setThreadIntentMode: (threadId: string, mode: 'execute' | 'ideate' | null) => void;
   setThreadTargetCats: (threadId: string, cats: string[]) => void;
   getThreadState: (threadId: string) => ThreadState;
@@ -383,6 +397,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoadingHistory: false,
   hasMore: true,
   hasActiveInvocation: false,
+  activeInvocations: {},
   intentMode: null,
   targetCats: [],
   catStatuses: {},
@@ -675,6 +690,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setLoading: (loading) => set({ isLoading: loading }),
   setHasActiveInvocation: (v) => set({ hasActiveInvocation: v }),
+  /** F108: Register a new active invocation slot */
+  addActiveInvocation: (invocationId, catId, mode) =>
+    set((state) => {
+      const activeInvocations = { ...state.activeInvocations, [invocationId]: { catId, mode } };
+      return { activeInvocations, hasActiveInvocation: true };
+    }),
+  /** F108: Remove an active invocation slot; derives hasActiveInvocation */
+  removeActiveInvocation: (invocationId) =>
+    set((state) => {
+      if (!(invocationId in state.activeInvocations)) {
+        return { hasActiveInvocation: Object.keys(state.activeInvocations).length > 0 };
+      }
+      const rest = Object.fromEntries(Object.entries(state.activeInvocations).filter(([k]) => k !== invocationId));
+      return { activeInvocations: rest, hasActiveInvocation: Object.keys(rest).length > 0 };
+    }),
+  /** F108: Clear all active invocations (timeout/error/stop recovery) */
+  clearAllActiveInvocations: () => set({ activeInvocations: {}, hasActiveInvocation: false }),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
   setIntentMode: (mode) => set({ intentMode: mode }),
 
@@ -1005,6 +1037,50 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
+  /** F108: Add an active invocation to a thread (background or active) */
+  addThreadActiveInvocation: (threadId, invocationId, catId, mode) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        const activeInvocations = { ...state.activeInvocations, [invocationId]: { catId, mode } };
+        return { activeInvocations, hasActiveInvocation: true };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      const activeInvocations = { ...existing.activeInvocations, [invocationId]: { catId, mode } };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: { ...existing, activeInvocations, hasActiveInvocation: true, lastActivity: Date.now() },
+        },
+      };
+    }),
+
+  /** F108: Remove an active invocation from a thread; derives hasActiveInvocation */
+  removeThreadActiveInvocation: (threadId, invocationId) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        const rest = Object.fromEntries(
+          Object.entries(state.activeInvocations).filter(([k]) => k !== invocationId),
+        );
+        return { activeInvocations: rest, hasActiveInvocation: Object.keys(rest).length > 0 };
+      }
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+      const rest = Object.fromEntries(
+        Object.entries(existing.activeInvocations).filter(([k]) => k !== invocationId),
+      );
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            activeInvocations: rest,
+            hasActiveInvocation: Object.keys(rest).length > 0,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
   /** Update intentMode for a specific thread (active or background).
    *  Also resets catStatuses — new intent mode = new invocation = fresh statuses. */
   setThreadIntentMode: (threadId, mode) =>
@@ -1180,7 +1256,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       // Active thread — clear flat state
       if (threadId === state.currentThreadId) {
-        return { hasActiveInvocation: false };
+        return { hasActiveInvocation: false, activeInvocations: {} };
       }
       // Background thread — update in threadStates map (no-op if unknown)
       const ts = state.threadStates[threadId];
@@ -1188,7 +1264,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         threadStates: {
           ...state.threadStates,
-          [threadId]: { ...ts, hasActiveInvocation: false },
+          [threadId]: { ...ts, hasActiveInvocation: false, activeInvocations: {} },
         },
       };
     }),

@@ -76,9 +76,10 @@ export async function* routeSerial(
 
   // Worklist pattern: starts with targetCats, may grow via A2A mentions
   // F27: Register worklist so callback A2A can push targets here
+  // F108: Key by parentInvocationId for concurrent isolation
   const worklist = [...targetCats];
   const maxDepth = options.maxA2ADepth ?? getMaxA2ADepth();
-  const worklistEntry = registerWorklist(threadId, worklist, maxDepth);
+  const worklistEntry = registerWorklist(threadId, worklist, maxDepth, options.parentInvocationId);
 
   let index = 0;
   // F27: Track how many worklist entries have had a2a_handoff emitted
@@ -831,6 +832,6 @@ export async function* routeSerial(
   } finally {
     // F27: Always unregister worklist, even on error/abort.
     // Pass owner ref so preempting new invocation's worklist is not deleted (缅因猫 R1 P1-1)
-    unregisterWorklist(threadId, worklistEntry);
+    unregisterWorklist(threadId, worklistEntry, options.parentInvocationId);
   }
 }

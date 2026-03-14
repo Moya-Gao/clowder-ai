@@ -25,7 +25,7 @@ import type { StoredMessage } from '../domains/cats/services/stores/ports/Messag
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 export interface QueueProcessorLike {
-  onInvocationComplete(threadId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
+  onInvocationComplete(threadId: string, catId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
 }
 
 export interface A2ATriggerDeps {
@@ -54,6 +54,8 @@ export async function enqueueA2ATargets(
     triggerMessage: StoredMessage;
     /** The cat that triggered this A2A callback (for worklist caller guard). */
     callerCatId?: CatId;
+    /** F108: parentInvocationId for concurrent worklist isolation. */
+    parentInvocationId?: string;
   },
 ): Promise<{ enqueued: CatId[]; fallback: boolean }> {
   const { log } = deps;
@@ -63,7 +65,7 @@ export async function enqueueA2ATargets(
 
   // F27: Try to push to parent worklist first
   if (hasWorklist(threadId)) {
-    const enqueued = pushToWorklist(threadId, targetCats, callerCatId);
+    const enqueued = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId);
     if (enqueued.length > 0) {
       if (deliveryCursorStore) {
         // F27 + #77: Best-effort auto-ack to prevent surprise backlog when cats later
@@ -165,7 +167,7 @@ export async function triggerA2AInvocation(
   // tracker.start() would abort the running parent (e.g. routeParallel). (缅因猫 R1 P1-2)
   const parentActive = invocationTracker?.has(threadId) ?? false;
   if (parentActive) {
-    const activeCats = invocationTracker?.getCatIds?.(threadId) ?? [];
+    const activeCats = invocationTracker?.getActiveSlots?.(threadId) ?? [];
     // Redundant A2A short-circuit (砚砚 4ee660b defense-in-depth):
     // if parent already includes all targets, skip entirely.
     if (targetCats.length > 0 && targetCats.every((catId) => activeCats.includes(catId))) {
@@ -205,9 +207,9 @@ export async function triggerA2AInvocation(
   if (createResult.outcome === 'duplicate') return;
 
   // Safe: no active parent invocation, so tracker.start() won't abort anything unexpected.
-  const controller = invocationTracker?.start(threadId, userId, targetCats);
+  const controller = invocationTracker?.start(threadId, statusCatId, userId, targetCats);
   if (controller?.signal.aborted) {
-    invocationTracker?.complete(threadId, controller);
+    invocationTracker?.complete(threadId, statusCatId, controller);
     await invocationRecordStore.update(createResult.invocationId, {
       status: 'canceled',
     });
@@ -232,9 +234,10 @@ export async function triggerA2AInvocation(
 
       for await (const msg of router.routeExecution(userId, content, threadId, triggerMessage.id, targetCats, intent, {
         ...(controller?.signal ? { signal: controller.signal } : {}),
+        parentInvocationId: createResult.invocationId,
       })) {
         if (controller?.signal.aborted) break;
-        socketManager.broadcastAgentMessage(msg, threadId);
+        socketManager.broadcastAgentMessage({ ...msg, invocationId: createResult.invocationId }, threadId);
       }
 
       if (controller?.signal.aborted) {
@@ -285,9 +288,9 @@ export async function triggerA2AInvocation(
       }
     } finally {
       if (controller) {
-        invocationTracker?.complete(threadId, controller);
+        invocationTracker?.complete(threadId, statusCatId, controller);
       }
-      queueProcessor?.onInvocationComplete(threadId, finalStatus).catch(() => {
+      queueProcessor?.onInvocationComplete(threadId, statusCatId, finalStatus).catch(() => {
         /* best-effort */
       });
     }

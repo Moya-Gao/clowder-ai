@@ -29,6 +29,8 @@ interface AgentMsg {
   mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
   extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  /** F108: Invocation ID — distinguishes messages from concurrent invocations */
+  invocationId?: string;
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -63,6 +65,8 @@ export function useAgentMessages() {
     setStreaming,
     setLoading,
     setHasActiveInvocation,
+    removeActiveInvocation,
+    clearAllActiveInvocations,
     setIntentMode,
     setCatStatus,
     clearCatStatuses,
@@ -121,7 +125,7 @@ export function useAgentMessages() {
 
       // Timeout fired — stop loading and show system message
       setLoading(false);
-      setHasActiveInvocation(false);
+      clearAllActiveInvocations();
       setIntentMode(null);
       clearCatStatuses();
       for (const ref of activeRefs.current.values()) {
@@ -136,7 +140,7 @@ export function useAgentMessages() {
         timestamp: Date.now(),
       });
     }, DONE_TIMEOUT_MS);
-  }, [setLoading, setHasActiveInvocation, setIntentMode, clearCatStatuses, setStreaming, addMessage]);
+  }, [setLoading, clearAllActiveInvocations, setIntentMode, clearCatStatuses, setStreaming, addMessage]);
 
   /** Clear the timeout (called on done with isFinal) */
   const clearDoneTimeout = useCallback((threadId?: string) => {
@@ -376,7 +380,12 @@ export function useAgentMessages() {
         if (msg.isFinal) {
           clearDoneTimeout();
           setLoading(false);
-          setHasActiveInvocation(false);
+          // F108: Remove specific invocation slot; fall back to clearing all if no invocationId
+          if (msg.invocationId) {
+            removeActiveInvocation(msg.invocationId);
+          } else {
+            setHasActiveInvocation(false);
+          }
           setIntentMode(null);
           clearCatStatuses();
           a2aGroupRef.current = null;
@@ -663,7 +672,12 @@ export function useAgentMessages() {
         if (msg.isFinal) {
           clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
           setLoading(false);
-          setHasActiveInvocation(false);
+          // F108: clear all invocation slots on terminal error
+          if (msg.invocationId) {
+            removeActiveInvocation(msg.invocationId);
+          } else {
+            clearAllActiveInvocations();
+          }
           setIntentMode(null);
           // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
           // not match the cat that was actually running (e.g. codex/gemini)
@@ -681,7 +695,8 @@ export function useAgentMessages() {
       appendRichBlock,
       setStreaming,
       setLoading,
-      setHasActiveInvocation,
+      removeActiveInvocation,
+      clearAllActiveInvocations,
       setIntentMode,
       setCatStatus,
       clearCatStatuses,
@@ -718,7 +733,8 @@ export function useAgentMessages() {
 
       clearDoneTimeout(threadId);
       setLoading(false);
-      setHasActiveInvocation(false);
+      // F108: stop clears all invocation slots (user cancel-all)
+      clearAllActiveInvocations();
       setIntentMode(null);
       clearCatStatuses();
       // Stop all active streams
@@ -727,7 +743,7 @@ export function useAgentMessages() {
       }
       activeRefs.current.clear();
     },
-    [setLoading, setHasActiveInvocation, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
+    [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
   );
 
   const resetRefs = useCallback(() => {

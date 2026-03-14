@@ -1,13 +1,14 @@
 /**
- * WorklistRegistry — per-thread worklist for A2A unification (F27)
+ * WorklistRegistry — per-invocation worklist for A2A unification (F27 + F108)
  *
  * When routeSerial is running, it registers its worklist here.
  * Callback A2A triggers (MCP post_message with @mention) push
  * targets into the worklist instead of spawning independent invocations.
  *
- * This eliminates the dual-path problem:
- * - Path A (worklist): @mention in cat response text → worklist extends
- * - Path B (callback): @mention in MCP post_message → now ALSO extends worklist
+ * F108: Registry key is `parentInvocationId` (unique per invocation) when
+ * provided, falling back to `threadId` for backward compatibility.
+ * A reverse index (threadId → Set<registryKey>) enables thread-level
+ * lookups (`hasWorklist(threadId)`) for routing decisions.
  *
  * All A2A chains share the parent's AbortController, isFinal semantics,
  * and MAX_A2A_DEPTH limit.
@@ -34,14 +35,31 @@ export interface WorklistEntry {
   a2aFrom: Map<CatId, CatId>;
 }
 
-/** Per-thread worklist registry. Single-process, no cross-process needed. */
+/** Primary registry: registryKey → WorklistEntry */
 const registry = new Map<string, WorklistEntry>();
 
+/** F108: Reverse index: threadId → Set<registryKey> (for thread-level hasWorklist) */
+const threadIndex = new Map<string, Set<string>>();
+
+/** Compute registry key: parentInvocationId when provided, threadId as fallback */
+function registryKey(threadId: string, parentInvocationId?: string): string {
+  return parentInvocationId ?? threadId;
+}
+
 /**
- * Register a worklist for a thread. Called by routeSerial at start.
+ * Register a worklist for an invocation. Called by routeSerial at start.
  * Returns the entry for routeSerial to read a2aCount updates.
+ *
+ * @param parentInvocationId - F108: unique invocation ID for concurrent isolation.
+ *   When omitted, threadId is used as the key (backward compat).
  */
-export function registerWorklist(threadId: string, worklist: CatId[], maxDepth: number): WorklistEntry {
+export function registerWorklist(
+  threadId: string,
+  worklist: CatId[],
+  maxDepth: number,
+  parentInvocationId?: string,
+): WorklistEntry {
+  const key = registryKey(threadId, parentInvocationId);
   const entry: WorklistEntry = {
     list: worklist,
     originalCount: worklist.length,
@@ -50,26 +68,43 @@ export function registerWorklist(threadId: string, worklist: CatId[], maxDepth: 
     executedIndex: 0,
     a2aFrom: new Map(),
   };
-  registry.set(threadId, entry);
+  registry.set(key, entry);
+
+  // Maintain reverse index
+  let keys = threadIndex.get(threadId);
+  if (!keys) {
+    keys = new Set();
+    threadIndex.set(threadId, keys);
+  }
+  keys.add(key);
+
   return entry;
 }
 
 /**
- * Unregister worklist for a thread. Called by routeSerial on exit.
+ * Unregister worklist for an invocation. Called by routeSerial on exit.
  * Owner check: only removes if the stored entry matches the caller's entry.
  * This prevents a preempting new invocation's worklist from being deleted
  * by the old invocation's finally block. (缅因猫 R1 P1-1)
  */
-export function unregisterWorklist(threadId: string, owner?: WorklistEntry): void {
+export function unregisterWorklist(threadId: string, owner?: WorklistEntry, parentInvocationId?: string): void {
+  const key = registryKey(threadId, parentInvocationId);
   if (owner) {
-    const current = registry.get(threadId);
+    const current = registry.get(key);
     if (current !== owner) return; // Stale caller — new invocation owns the slot
   }
-  registry.delete(threadId);
+  registry.delete(key);
+
+  // Maintain reverse index
+  const keys = threadIndex.get(threadId);
+  if (keys) {
+    keys.delete(key);
+    if (keys.size === 0) threadIndex.delete(threadId);
+  }
 }
 
 /**
- * Push cats to a thread's worklist (callback A2A path).
+ * Push cats to an invocation's worklist (callback A2A path).
  * Dedup only against pending (not-yet-executed) portion — cats that already
  * ran can be re-enqueued for another round (e.g. A→B→A review ping-pong).
  *
@@ -78,11 +113,20 @@ export function unregisterWorklist(threadId: string, owner?: WorklistEntry): voi
  * prevents stale callbacks from a preempted invocation from injecting targets
  * into a newer invocation's worklist.
  *
+ * @param parentInvocationId - F108: target specific invocation's worklist.
+ *   When omitted, uses threadId as key (backward compat).
+ *
  * Returns the cats actually added (empty if worklist not found, depth exceeded,
  * or caller not authorized).
  */
-export function pushToWorklist(threadId: string, cats: CatId[], callerCatId?: CatId): CatId[] {
-  const entry = registry.get(threadId);
+export function pushToWorklist(
+  threadId: string,
+  cats: CatId[],
+  callerCatId?: CatId,
+  parentInvocationId?: string,
+): CatId[] {
+  const key = registryKey(threadId, parentInvocationId);
+  const entry = registry.get(key);
   if (!entry) return [];
 
   // Caller authorization: only the currently-executing cat may push
@@ -119,12 +163,18 @@ export function pushToWorklist(threadId: string, cats: CatId[], callerCatId?: Ca
   return added;
 }
 
-/** Check if a thread has an active worklist (parent invocation running). */
+/** Check if a thread has any active worklist (any invocation running). */
 export function hasWorklist(threadId: string): boolean {
-  return registry.has(threadId);
+  const keys = threadIndex.get(threadId);
+  return keys !== undefined && keys.size > 0;
 }
 
-/** Get the current worklist entry for a thread (for testing/debugging). */
-export function getWorklist(threadId: string): WorklistEntry | undefined {
-  return registry.get(threadId);
+/**
+ * Get the worklist entry for a specific invocation or thread.
+ * @param parentInvocationId - F108: get specific invocation's worklist.
+ *   When omitted, uses threadId as key (backward compat / legacy single-invocation).
+ */
+export function getWorklist(threadId: string, parentInvocationId?: string): WorklistEntry | undefined {
+  const key = registryKey(threadId, parentInvocationId);
+  return registry.get(key);
 }

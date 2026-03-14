@@ -379,6 +379,8 @@ export interface ThreadState {
   hasMore: boolean;
   /** Whether the thread has an active invocation (broader than isLoading — stays true during A2A chains) */
   hasActiveInvocation: boolean;
+  /** F108: Per-invocation slot tracking — key=invocationId, value=slot info */
+  activeInvocations: Record<string, { catId: string; mode: string }>;
   intentMode: 'execute' | 'ideate' | null;
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;
@@ -429,6 +431,7 @@ export const DEFAULT_THREAD_STATE: ThreadState = {
   hasUserMention: false,
   lastActivity: 0,
   queue: [],
+  activeInvocations: {},
   queuePaused: false,
   queueFull: false,
 };

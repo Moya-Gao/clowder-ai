@@ -133,6 +133,8 @@ export interface AgentMessage {
   extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string }; targetCats?: string[] };
   /** F061: Whether this message mentions the owner (@user/@铲屎官/configured patterns) */
   mentionsUser?: boolean;
+  /** F108: Invocation ID — allows frontend to distinguish messages from concurrent invocations */
+  invocationId?: string;
   /** When this message was created */
   timestamp: number;
 }

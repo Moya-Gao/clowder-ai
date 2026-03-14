@@ -34,6 +34,8 @@ interface AgentMessage {
   metadata?: { provider: string; model: string; sessionId?: string; usage?: import('../stores/chat-types').TokenUsage };
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
+  /** F108: Invocation ID — distinguishes messages from concurrent invocations */
+  invocationId?: string;
   timestamp: number;
 }
 
@@ -265,36 +267,50 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacksRef.current.onThreadUpdated?.(data);
     });
 
-    socket.on('intent_mode', (data: { threadId: string; mode: string; targetCats: string[] }) => {
-      const routeThread = threadIdRef.current;
-      const storeThread = useChatStore.getState().currentThreadId;
-      recordInvocationEvent({
-        event: 'intent_mode',
-        threadId: data.threadId,
-        mode: data.mode,
-      });
+    socket.on(
+      'intent_mode',
+      (data: { threadId: string; mode: string; targetCats: string[]; invocationId?: string }) => {
+        const routeThread = threadIdRef.current;
+        const storeThread = useChatStore.getState().currentThreadId;
+        recordInvocationEvent({
+          event: 'intent_mode',
+          threadId: data.threadId,
+          mode: data.mode,
+        });
 
-      // Dual-pointer guard: both route and store must agree for active-thread processing.
-      // Mirrors agent_message pattern — blocks switch-window race where route already
-      // points to thread-B but flat store still belongs to thread-A.
-      const isActiveThread = Boolean(
-        data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
-      );
+        // Dual-pointer guard: both route and store must agree for active-thread processing.
+        // Mirrors agent_message pattern — blocks switch-window race where route already
+        // points to thread-B but flat store still belongs to thread-A.
+        const isActiveThread = Boolean(
+          data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
+        );
 
-      if (isActiveThread) {
-        callbacksRef.current.onIntentMode?.(data);
-        return;
-      }
+        if (isActiveThread) {
+          callbacksRef.current.onIntentMode?.(data);
+          // F108: Register invocation slot in active thread store
+          if (data.invocationId) {
+            const primaryCat = data.targetCats?.[0] ?? 'unknown';
+            useChatStore.getState().addActiveInvocation(data.invocationId, primaryCat, data.mode);
+          }
+          return;
+        }
 
-      // Background thread (split-pane) or switch-window: write directly to thread-scoped state
-      if (data.threadId) {
-        const store = useChatStore.getState();
-        store.setThreadLoading(data.threadId, true);
-        store.setThreadHasActiveInvocation(data.threadId, true);
-        store.setThreadIntentMode(data.threadId, data.mode as 'execute' | 'ideate');
-        store.setThreadTargetCats(data.threadId, data.targetCats ?? []);
-      }
-    });
+        // Background thread (split-pane) or switch-window: write directly to thread-scoped state
+        if (data.threadId) {
+          const store = useChatStore.getState();
+          store.setThreadLoading(data.threadId, true);
+          // F108: slot-aware — register specific invocation if ID available
+          if (data.invocationId) {
+            const primaryCat = data.targetCats?.[0] ?? 'unknown';
+            store.addThreadActiveInvocation(data.threadId, data.invocationId, primaryCat, data.mode);
+          } else {
+            store.setThreadHasActiveInvocation(data.threadId, true);
+          }
+          store.setThreadIntentMode(data.threadId, data.mode as 'execute' | 'ideate');
+          store.setThreadTargetCats(data.threadId, data.targetCats ?? []);
+        }
+      },
+    );
 
     socket.on('task_created', (task: Record<string, unknown>) => {
       callbacksRef.current.onTaskCreated?.(task);

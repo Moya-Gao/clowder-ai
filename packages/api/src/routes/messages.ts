@@ -207,12 +207,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       whisperVisibility === 'whisper' && whisperRecipients?.length
         ? [...new Set(whisperRecipients)]
         : [...resolvedTargetCats];
+    const primaryCat = targetCats[0] ?? 'unknown';
 
     // Server-generated idempotency key if client didn't provide one
     const resolvedIdempotencyKey = idempotencyKey ?? randomUUID();
 
-    // F39: Queue routing — determine delivery mode
-    const hasActive = opts.invocationTracker?.has(resolvedThreadId) ?? false;
+    // F39+F108: Queue routing — slot-aware delivery mode (P1-1 fix)
+    const hasActive = opts.invocationTracker?.has(resolvedThreadId, primaryCat) ?? false;
     const mode = deliveryMode ?? (hasActive ? 'queue' : 'immediate');
 
     if (mode === 'queue' && hasActive && opts.invocationQueue) {
@@ -300,7 +301,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     if (mode === 'force' && hasActive) {
       // Cancel current invocation (same logic as WS cancel)
-      const cancelResult = opts.invocationTracker?.cancel(resolvedThreadId, userId);
+      const cancelResult = opts.invocationTracker?.cancel(resolvedThreadId, primaryCat, userId);
       if (cancelResult?.cancelled) {
         for (const m of buildCancelMessages(cancelResult)) {
           opts.socketManager.broadcastAgentMessage(m, resolvedThreadId);
@@ -309,7 +310,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       // F39 bugfix: Prevent QueueProcessor state poisoning — the old invocation's
       // async cleanup will call onInvocationComplete('failed'/'canceled') which pauses
       // the thread. Clear that preemptively since we're about to start a new invocation.
-      opts.queueProcessor?.clearPause(resolvedThreadId);
+      opts.queueProcessor?.clearPause(resolvedThreadId, primaryCat);
 
       // F39 bugfix: Notify frontend that force-cancel happened (clear stale queue UI)
       if (opts.invocationQueue) {
@@ -339,7 +340,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       }
 
       // Not duplicate → safe to start() (may abort prior invocation for this thread)
-      const controller = opts.invocationTracker?.start(resolvedThreadId, userId, targetCats);
+      const controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
 
       // Race: thread entered deleting between isDeleting() and start()
       if (controller?.signal.aborted) {
@@ -403,6 +404,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             threadId: resolvedThreadId,
             mode: intent.intent,
             targetCats,
+            invocationId: createResult.invocationId,
           });
 
           // ADR-008 S3: collect cursor boundaries; ack only after succeeded
@@ -431,6 +433,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 : {}),
               cursorBoundaries,
               persistenceContext,
+              parentInvocationId: createResult.invocationId,
             },
           )) {
             // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
@@ -441,7 +444,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
               collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
             }
-            opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
+            opts.socketManager.broadcastAgentMessage(
+              { ...msg, invocationId: createResult.invocationId },
+              resolvedThreadId,
+            );
           }
 
           // F39 P1 fix (砚砚 R1): abort guard after loop — when signal is aborted
@@ -592,16 +598,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           } // end else (non-abort error)
         } finally {
           clearInterval(heartbeatInterval);
-          opts.invocationTracker?.complete(resolvedThreadId, controller);
+          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
           // F39: Notify queue processor for auto-dequeue chain
-          opts.queueProcessor?.onInvocationComplete(resolvedThreadId, finalStatus).catch(() => {
+          opts.queueProcessor?.onInvocationComplete(resolvedThreadId, primaryCat, finalStatus).catch(() => {
             /* best-effort, don't crash background task */
           });
         }
       })();
     } else {
       // Fallback: no invocationRecordStore (legacy path, uses route())
-      const controller = opts.invocationTracker?.start(resolvedThreadId, userId, targetCats);
+      const controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
       if (controller?.signal.aborted) {
         reply.status(409);
         return {
@@ -627,6 +633,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             threadId: resolvedThreadId,
             mode: intent.intent,
             targetCats,
+            // Legacy path: no invocationId (no InvocationRecord). Frontend falls back gracefully.
           });
 
           for await (const msg of router.route(
@@ -653,7 +660,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           );
         } finally {
           clearInterval(heartbeatInterval);
-          opts.invocationTracker?.complete(resolvedThreadId, controller);
+          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
         }
       })();
     }

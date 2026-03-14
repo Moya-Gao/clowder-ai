@@ -157,14 +157,22 @@ function markThreadInvocationActive(msg: BackgroundAgentMessage, options: Handle
   if (!threadState.isLoading) {
     options.store.setThreadLoading(msg.threadId, true);
   }
-  if (!threadState.hasActiveInvocation) {
+  // F108: slot-aware — register specific invocation if ID available
+  if (msg.invocationId) {
+    options.store.addThreadActiveInvocation(msg.threadId, msg.invocationId, msg.catId, 'execute');
+  } else if (!threadState.hasActiveInvocation) {
     options.store.setThreadHasActiveInvocation(msg.threadId, true);
   }
 }
 
 function markThreadInvocationComplete(msg: BackgroundAgentMessage, options: HandleBackgroundMessageOptions): void {
   options.store.setThreadLoading(msg.threadId, false);
-  options.store.setThreadHasActiveInvocation(msg.threadId, false);
+  // F108: slot-aware — remove specific invocation if ID available
+  if (msg.invocationId) {
+    options.store.removeThreadActiveInvocation(msg.threadId, msg.invocationId);
+  } else {
+    options.store.setThreadHasActiveInvocation(msg.threadId, false);
+  }
 }
 
 export function handleBackgroundAgentMessage(

@@ -24,6 +24,8 @@ export interface BackgroundAgentMessage {
   extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
   /** F057-C2: Whether this message mentions the user (@user / @铲屎官) */
   mentionsUser?: boolean;
+  /** F108: Invocation ID — distinguishes messages from concurrent invocations */
+  invocationId?: string;
   timestamp: number;
 }
 
@@ -55,6 +57,10 @@ export interface BackgroundStoreLike {
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
+  /** F108: Add an active invocation slot to a thread */
+  addThreadActiveInvocation: (threadId: string, invocationId: string, catId: string, mode: string) => void;
+  /** F108: Remove an active invocation slot from a thread */
+  removeThreadActiveInvocation: (threadId: string, invocationId: string) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
   /** Batch content-append + metadata + streaming + catStatus into one set(). */
   batchStreamChunkUpdate: (params: {
