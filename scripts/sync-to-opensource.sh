@@ -1287,7 +1287,7 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
   git -C "$TARGET_DIR" tag -f "$SYNC_TAG" 2>/dev/null && \
     echo -e "  ${GREEN}✓ Tag $SYNC_TAG created (local)${NC}" || \
     echo -e "  ${YELLOW}⚠ Failed to create tag $SYNC_TAG${NC}"
-  echo -e "  ${YELLOW}Note: push tag with: cd $TARGET_DIR && git push origin $SYNC_TAG --force${NC}"
+  echo -e "  ${YELLOW}Note: push tag with: cd $TARGET_DIR && git push origin refs/tags/$SYNC_TAG --force${NC}"
 fi
 
 echo ""

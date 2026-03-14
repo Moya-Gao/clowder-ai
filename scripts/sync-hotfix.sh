@@ -96,6 +96,82 @@ if [ ! -d "$TARGET_DIR/.git" ]; then
   exit 1
 fi
 
+if [ ! -f "$MANIFEST" ]; then
+  echo -e "${RED}Error: sync-manifest.yaml not found at $MANIFEST${NC}"
+  exit 1
+fi
+
+# ── Parse manifest allowlist + excluded (reuse yaml_list from sync-to-opensource.sh) ──
+yaml_list() {
+  local key="$1"
+  awk -v k="$key:" '
+    BEGIN { found=0 }
+    found && /^[^ #-]/ { exit }
+    found && /^  - / {
+      line = $0
+      sub(/^  - /, "", line)
+      sub(/#.*/, "", line)
+      gsub(/^[[:space:]]+/, "", line)
+      gsub(/[[:space:]]+$/, "", line)
+      gsub(/"/, "", line)
+      if (length(line) > 0) print line
+      next
+    }
+    $0 ~ "^"k { found=1 }
+  ' "$MANIFEST"
+}
+
+MANAGED_ROOTS=()
+while IFS= read -r line; do MANAGED_ROOTS+=("$line"); done < <(yaml_list "managed_roots")
+MANAGED_FILES=()
+while IFS= read -r line; do MANAGED_FILES+=("$line"); done < <(yaml_list "managed_files")
+MANAGED_SCRIPTS=()
+while IFS= read -r line; do MANAGED_SCRIPTS+=("$line"); done < <(yaml_list "managed_scripts")
+EXCLUDED_ITEMS=()
+while IFS= read -r line; do EXCLUDED_ITEMS+=("$line"); done < <(yaml_list "excluded")
+DECISIONS_ALLOWLIST=()
+while IFS= read -r line; do DECISIONS_ALLOWLIST+=("$line"); done < <(yaml_list "docs_decisions_allowlist")
+
+# Check if a file is allowed by the manifest (allowlisted and not excluded)
+file_allowed() {
+  local f="$1"
+
+  # Check excluded list first
+  for exc in "${EXCLUDED_ITEMS[@]}"; do
+    # Exact match
+    if [ "$f" = "$exc" ]; then return 1; fi
+    # Directory prefix match (exc ends with /)
+    if [[ "$exc" == */ ]] && [[ "$f" == "$exc"* ]]; then return 1; fi
+    # Glob patterns (*.pen etc)
+    case "$exc" in
+      \*.*) [[ "$f" == $exc ]] && return 1 ;;
+    esac
+  done
+
+  # Check managed_roots (file is under a managed root directory)
+  for root in "${MANAGED_ROOTS[@]}"; do
+    if [[ "$f" == "$root/"* ]] || [ "$f" = "$root" ]; then return 0; fi
+  done
+
+  # Check managed_files (exact match)
+  for mf in "${MANAGED_FILES[@]}"; do
+    if [ "$f" = "$mf" ]; then return 0; fi
+  done
+
+  # Check managed_scripts (exact match)
+  for ms in "${MANAGED_SCRIPTS[@]}"; do
+    if [ "$f" = "$ms" ]; then return 0; fi
+  done
+
+  # Check docs_decisions_allowlist (exact match)
+  for da in "${DECISIONS_ALLOWLIST[@]}"; do
+    if [ "$f" = "$da" ]; then return 0; fi
+  done
+
+  # Not in any allowlist
+  return 1
+}
+
 echo -e "${GREEN}=== Hotfix Lane ===${NC}"
 echo "Source: $SOURCE_DIR"
 echo "Target: $TARGET_DIR"
@@ -104,10 +180,11 @@ echo "Files:  ${FILES[*]}"
 echo ""
 
 # ── Step 1: Find latest sync tag ──
-echo -e "${BLUE}[Step 1/5] Finding sync tag...${NC}"
+echo -e "${BLUE}[Step 1/6] Finding sync tag...${NC}"
 if [ -n "$CUSTOM_TAG" ]; then
   SYNC_TAG="$CUSTOM_TAG"
-  if ! git -C "$TARGET_DIR" rev-parse "$SYNC_TAG" >/dev/null 2>&1; then
+  # P2 fix: use explicit refs/tags/ to avoid branch/tag ambiguity
+  if ! git -C "$TARGET_DIR" rev-parse "refs/tags/$SYNC_TAG" >/dev/null 2>&1; then
     echo -e "${RED}Error: tag '$SYNC_TAG' not found in target repo${NC}"
     exit 1
   fi
@@ -120,46 +197,68 @@ else
   fi
 fi
 echo -e "  Using tag: ${GREEN}$SYNC_TAG${NC}"
-echo -e "  Tag commit: $(git -C "$TARGET_DIR" log -1 --format='%h %s' "$SYNC_TAG")"
+# P2 fix: explicit refs/tags/ in log to avoid ambiguity
+echo -e "  Tag commit: $(git -C "$TARGET_DIR" log -1 --format='%h %s' "refs/tags/$SYNC_TAG")"
 
-# ── Step 2: Validate source files exist ──
+# ── Step 2: Validate source files exist + manifest allowlist ──
 echo ""
-echo -e "${BLUE}[Step 2/5] Validating source files...${NC}"
-MISSING=false
+echo -e "${BLUE}[Step 2/6] Validating source files against manifest...${NC}"
+VALIDATION_FAIL=false
 for f in "${FILES[@]}"; do
   if [ ! -f "$SOURCE_DIR/$f" ]; then
     echo -e "  ${RED}✗ Not found: $f${NC}"
-    MISSING=true
+    VALIDATION_FAIL=true
+  elif ! file_allowed "$f"; then
+    echo -e "  ${RED}✗ BLOCKED by manifest: $f${NC}"
+    echo -e "    ${YELLOW}This file is excluded or not in any allowlist (managed_roots/files/scripts).${NC}"
+    echo -e "    ${YELLOW}Hotfix lane cannot bypass the export allowlist.${NC}"
+    VALIDATION_FAIL=true
   else
     echo -e "  ${GREEN}✓${NC} $f"
   fi
 done
 
-if [ "$MISSING" = true ]; then
-  echo -e "${RED}Error: some files not found in source repo${NC}"
+if [ "$VALIDATION_FAIL" = true ]; then
+  echo -e "${RED}Error: validation failed. All files must exist AND be in the manifest allowlist.${NC}"
   exit 1
 fi
 
-# ── Step 3: Create branch in target ──
+# ── Step 3: Check target repo cleanliness ──
 echo ""
-echo -e "${BLUE}[Step 3/5] Creating branch in target repo...${NC}"
+echo -e "${BLUE}[Step 3/6] Checking target repo state...${NC}"
+
+if [ "$DRY_RUN" = false ]; then
+  # Check for uncommitted changes or staged files in target
+  if ! git -C "$TARGET_DIR" diff --quiet 2>/dev/null || ! git -C "$TARGET_DIR" diff --cached --quiet 2>/dev/null; then
+    echo -e "  ${RED}✗ Target repo has uncommitted changes. Clean it first.${NC}"
+    echo -e "  ${YELLOW}  cd $TARGET_DIR && git status${NC}"
+    exit 1
+  fi
+  echo -e "  ${GREEN}✓${NC} Target repo clean"
+fi
+
+# ── Step 4: Create branch in target ──
+echo ""
+echo -e "${BLUE}[Step 4/6] Creating branch in target repo...${NC}"
 
 if [ "$DRY_RUN" = true ]; then
   echo -e "  ${YELLOW}[dry-run] Would create branch '$BRANCH_NAME' from $SYNC_TAG${NC}"
 else
-  # Check if branch already exists
-  if git -C "$TARGET_DIR" rev-parse --verify "$BRANCH_NAME" >/dev/null 2>&1; then
-    echo -e "  ${YELLOW}⚠ Branch '$BRANCH_NAME' already exists. Checking out...${NC}"
-    git -C "$TARGET_DIR" checkout "$BRANCH_NAME"
-  else
-    git -C "$TARGET_DIR" checkout -b "$BRANCH_NAME" "$SYNC_TAG"
-    echo -e "  ${GREEN}✓ Branch '$BRANCH_NAME' created from $SYNC_TAG${NC}"
+  # P1 fix: hard-fail if branch already exists — no silent reuse
+  if git -C "$TARGET_DIR" rev-parse --verify "refs/heads/$BRANCH_NAME" >/dev/null 2>&1; then
+    echo -e "  ${RED}✗ Branch '$BRANCH_NAME' already exists in target repo.${NC}"
+    echo -e "  ${YELLOW}  To reuse it, delete it first: git -C $TARGET_DIR branch -D $BRANCH_NAME${NC}"
+    echo -e "  ${YELLOW}  Or choose a different branch name.${NC}"
+    exit 1
   fi
+  # P2 fix: explicit refs/tags/ to avoid branch/tag ambiguity
+  git -C "$TARGET_DIR" checkout -b "$BRANCH_NAME" "refs/tags/$SYNC_TAG"
+  echo -e "  ${GREEN}✓ Branch '$BRANCH_NAME' created from refs/tags/$SYNC_TAG${NC}"
 fi
 
-# ── Step 4: Copy files + sanitize ──
+# ── Step 5: Copy files + sanitize ──
 echo ""
-echo -e "${BLUE}[Step 4/5] Copying files and sanitizing...${NC}"
+echo -e "${BLUE}[Step 5/6] Copying files and sanitizing...${NC}"
 
 # Sanitizer rules: shared with sync-to-opensource.sh (single source of truth)
 SANITIZER="$SOURCE_DIR/scripts/_sanitize-rules.pl"
@@ -195,9 +294,9 @@ for f in "${FILES[@]}"; do
   COPIED_FILES+=("$f")
 done
 
-# ── Step 5: Commit ──
+# ── Step 6: Commit ──
 echo ""
-echo -e "${BLUE}[Step 5/5] Committing...${NC}"
+echo -e "${BLUE}[Step 6/6] Committing...${NC}"
 
 if [ "$DRY_RUN" = true ]; then
   echo -e "  ${YELLOW}[dry-run] Would commit ${#FILES[@]} file(s) on branch '$BRANCH_NAME'${NC}"
