@@ -21,6 +21,7 @@ import { MetadataBadge } from './MetadataBadge';
 import { RichBlocks } from './rich/RichBlocks';
 import { SummaryCard } from './SummaryCard';
 import { ThinkingContent } from './ThinkingContent';
+import { TimeoutDiagnosticsPanel } from './TimeoutDiagnosticsPanel';
 
 /** Breed-level aesthetics — only changes when a new BREED is added */
 const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
@@ -200,6 +201,18 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
     const isError = message.variant === 'error' || isLegacyError;
     const isTool = message.variant === 'tool';
     const isFollowup = message.variant === 'a2a_followup';
+
+    // F118 AC-C3: Enhanced timeout diagnostics panel
+    if (isError && message.extra?.timeoutDiagnostics) {
+      return (
+        <div data-message-id={message.id} className="flex justify-center mb-3">
+          <div className="max-w-[85%] w-full">
+            <TimeoutDiagnosticsPanel errorMessage={message.content} diagnostics={message.extra.timeoutDiagnostics} />
+          </div>
+        </div>
+      );
+    }
+
     const toneClass = isTool
       ? 'text-gray-400 bg-gray-50/50 font-mono text-xs py-1'
       : isFollowup

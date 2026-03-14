@@ -87,6 +87,9 @@ export function useAgentMessages() {
   /** Current A2A group ID — set on a2a_handoff, cleared on done(isFinal) */
   const a2aGroupRef = useRef<string | null>(null);
 
+  /** F118 AC-C3: Pending timeout diagnostics keyed by catId to prevent cross-cat mismatch */
+  const pendingTimeoutDiagRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+
   /** Timeout ref for done(isFinal) reachability */
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Which thread the current timeout guard belongs to */
@@ -261,6 +264,8 @@ export function useAgentMessages() {
 
       if (msg.type === 'text' && msg.content) {
         setCatStatus(msg.catId, 'streaming');
+        // F118: Clear liveness warning when cat resumes output
+        setCatInvocation(msg.catId, { livenessWarning: undefined });
         if (msg.origin !== 'callback') {
           sawStreamDataRef.current.add(msg.catId);
         }
@@ -551,6 +556,27 @@ export function useAgentMessages() {
               setMessageThinking(messageId, thinkingText);
             }
             consumed = true;
+          } else if (parsed?.type === 'liveness_warning') {
+            // F118 Phase C: Liveness warning — update cat status + invocation snapshot
+            const level = parsed.level as 'alive_but_silent' | 'suspected_stall';
+            setCatStatus(msg.catId, level);
+            setCatInvocation(msg.catId, {
+              livenessWarning: {
+                level,
+                state: parsed.state as 'active' | 'busy-silent' | 'idle-silent' | 'dead',
+                silenceDurationMs: parsed.silenceDurationMs as number,
+                cpuTimeMs: typeof parsed.cpuTimeMs === 'number' ? parsed.cpuTimeMs : undefined,
+                processAlive: parsed.processAlive as boolean,
+                receivedAt: Date.now(),
+              },
+            });
+            consumed = true;
+          } else if (parsed?.type === 'timeout_diagnostics') {
+            // F118 AC-C3: Store diagnostics keyed by catId to prevent cross-cat mismatch
+            if (msg.catId) {
+              pendingTimeoutDiagRef.current.set(msg.catId, parsed as Record<string, unknown>);
+            }
+            consumed = true;
           } else if (parsed?.type === 'warning') {
             // F045: item-level warning — render as readable system message (avoid raw JSON blob)
             const warningText = typeof parsed.message === 'string' ? parsed.message : '';
@@ -642,6 +668,10 @@ export function useAgentMessages() {
           setStreaming(messageId, false);
           activeRefs.current.delete(msg.catId);
         }
+        // F118 AC-C3: Attach pending timeout diagnostics matched by catId
+        const timeoutDiag = msg.catId ? (pendingTimeoutDiagRef.current.get(msg.catId) ?? null) : null;
+        if (msg.catId) pendingTimeoutDiagRef.current.delete(msg.catId);
+
         addMessage({
           id: `err-${Date.now()}-${msg.catId}`,
           type: 'system',
@@ -667,6 +697,22 @@ export function useAgentMessages() {
             return base;
           })(),
           timestamp: Date.now(),
+          ...(timeoutDiag
+            ? {
+                extra: {
+                  timeoutDiagnostics: {
+                    silenceDurationMs: timeoutDiag.silenceDurationMs as number,
+                    processAlive: timeoutDiag.processAlive as boolean,
+                    lastEventType: timeoutDiag.lastEventType as string | undefined,
+                    firstEventAt: timeoutDiag.firstEventAt as number | undefined,
+                    lastEventAt: timeoutDiag.lastEventAt as number | undefined,
+                    cliSessionId: timeoutDiag.cliSessionId as string | undefined,
+                    invocationId: timeoutDiag.invocationId as string | undefined,
+                    rawArchivePath: timeoutDiag.rawArchivePath as string | undefined,
+                  },
+                },
+              }
+            : {}),
         });
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps
         if (msg.isFinal) {

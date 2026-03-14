@@ -319,14 +319,38 @@ export function isCliError(value: unknown): value is {
  * Type guard for CLI timeout objects (process killed due to timeout)
  * Note: `message` is sanitized for user display; raw stderr is logged to console only.
  */
-export function isCliTimeout(
-  value: unknown,
-): value is { __cliTimeout: true; timeoutMs: number; message: string; command: string } {
+export function isCliTimeout(value: unknown): value is {
+  __cliTimeout: true;
+  timeoutMs: number;
+  message: string;
+  command: string;
+  // F118 AC-C3: Diagnostic enrichment fields
+  silenceDurationMs?: number;
+  processAlive?: boolean;
+  lastEventType?: string;
+  firstEventAt?: number;
+  lastEventAt?: number;
+  cliSessionId?: string;
+  invocationId?: string;
+  rawArchivePath?: string;
+} {
   return (
     typeof value === 'object' &&
     value !== null &&
     '__cliTimeout' in value &&
     (value as Record<string, unknown>).__cliTimeout === true
+  );
+}
+
+/**
+ * Type guard for liveness warning events from ProcessLivenessProbe (F118 Phase C)
+ */
+export function isLivenessWarning(value: unknown): value is import('./ProcessLivenessProbe.js').LivenessWarningEvent {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    '__livenessWarning' in value &&
+    (value as Record<string, unknown>).__livenessWarning === true
   );
 }
 

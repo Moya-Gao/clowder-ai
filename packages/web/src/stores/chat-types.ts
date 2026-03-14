@@ -206,6 +206,8 @@ export interface ChatMessage {
     stream?: { invocationId?: string };
     /** F098-C1: Explicit target cats from post_message API */
     targetCats?: string[];
+    /** F118 AC-C3: Timeout diagnostics for enhanced error display */
+    timeoutDiagnostics?: TimeoutDiagnostics;
   };
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;
@@ -340,9 +342,33 @@ export interface CatInvocationInfo {
   sessionSealed?: boolean;
   /** F26: Real-time task progress from cat's tool usage */
   taskProgress?: TaskProgressState;
+  /** F118 Phase C: Latest liveness warning snapshot */
+  livenessWarning?: LivenessWarningSnapshot;
 }
 
-export type CatStatusType = 'pending' | 'streaming' | 'done' | 'error';
+/** F118 Phase C: Liveness warning snapshot from ProcessLivenessProbe */
+export interface LivenessWarningSnapshot {
+  level: 'alive_but_silent' | 'suspected_stall';
+  state: 'active' | 'busy-silent' | 'idle-silent' | 'dead';
+  silenceDurationMs: number;
+  cpuTimeMs?: number;
+  processAlive: boolean;
+  receivedAt: number;
+}
+
+/** F118 Phase C AC-C3: Timeout diagnostics data from CLI */
+export interface TimeoutDiagnostics {
+  silenceDurationMs: number;
+  processAlive: boolean;
+  lastEventType?: string;
+  firstEventAt?: number;
+  lastEventAt?: number;
+  cliSessionId?: string;
+  invocationId?: string;
+  rawArchivePath?: string;
+}
+
+export type CatStatusType = 'pending' | 'streaming' | 'done' | 'error' | 'alive_but_silent' | 'suspected_stall';
 
 /** F39: Queue entry from backend InvocationQueue */
 export interface QueueEntry {

@@ -459,7 +459,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         />
 
         {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
-        {intentMode === 'execute' && <ThinkingIndicator />}
+        {intentMode === 'execute' && <ThinkingIndicator onCancel={cancelInvocation} />}
 
         <div className="flex-1 relative overflow-hidden">
           <main

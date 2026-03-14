@@ -8,7 +8,9 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { mock, test } from 'node:test';
 
-const { spawnCli, isCliError, isCliTimeout, KILL_GRACE_MS } = await import('../dist/utils/cli-spawn.js');
+const { spawnCli, isCliError, isCliTimeout, isLivenessWarning, KILL_GRACE_MS } = await import(
+  '../dist/utils/cli-spawn.js'
+);
 
 /** Helper: collect all items from async iterable */
 async function collect(iterable) {
@@ -813,4 +815,23 @@ test('spawnCli handles spawn error (e.g. command not found)', async () => {
       return true;
     },
   );
+});
+
+// F118 Phase C: isLivenessWarning type guard
+test('isLivenessWarning returns true for valid warning events', () => {
+  const warning = {
+    __livenessWarning: true,
+    state: 'busy-silent',
+    silenceDurationMs: 125000,
+    level: 'alive_but_silent',
+    processAlive: true,
+  };
+  assert.ok(isLivenessWarning(warning));
+});
+
+test('isLivenessWarning returns false for non-warning objects', () => {
+  assert.ok(!isLivenessWarning({ type: 'text', content: 'hello' }));
+  assert.ok(!isLivenessWarning(null));
+  assert.ok(!isLivenessWarning(42));
+  assert.ok(!isLivenessWarning({ __livenessWarning: false }));
 });

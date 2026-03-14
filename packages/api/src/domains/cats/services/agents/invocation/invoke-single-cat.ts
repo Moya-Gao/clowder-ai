@@ -193,6 +193,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const promptDigest = createPromptDigest(prompt);
   const startTime = Date.now();
 
+  // F118 AC-C5: Flags for finally block fallback audit (must be before any early return)
+  let hadError = false;
+  let didWriteAudit = false;
+  let didComplete = false;
+  let didResetRestoreFailures = false;
+
   // Shared-state preflight — covers ALL cats (Claude/Codex/Gemini), vendor-agnostic.
   // Three-layer defense model (shared-rules §14):
   //   L1 .githooks/pre-commit = hard block (prevents committing on wrong branch)
@@ -222,6 +228,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           timestamp: Date.now(),
         };
         yield { type: 'done', catId, isFinal: params.isLastCat, timestamp: Date.now() };
+        didComplete = true; // F118 AC-C5: Normal early exit (governance block), not force-return
         return;
       }
       // Warn-only: uncommitted changes — cat can help fix this
@@ -259,7 +266,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     });
 
   let hadStreamError = false;
-  let hadError = false;
   let lastTasks: TaskProgressItem[] | null = null;
   let terminalTaskProgressStatus: TaskProgressStatus | null = null;
   let terminalInterruptReason: 'error' | 'aborted' | null = null;
@@ -389,8 +395,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             // Chain exists but no active session → previous was sealed; don't resume
             sessionId = undefined;
           } else if (activeRec.cliSessionId) {
-            // Active record's cliSessionId is authoritative (includes F33 manual bind)
-            sessionId = activeRec.cliSessionId;
+            // F118 AC-C4: Resume health check — auto-seal toxic/stale sessions (#98)
+            const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+            const isStale = activeRec.updatedAt && Date.now() - activeRec.updatedAt > STALE_THRESHOLD_MS;
+            // F118 AC-C6: Overflow circuit breaker — too many consecutive restore failures (#86)
+            const MAX_CONSECUTIVE_FAILURES = 3;
+            const isOverflow = (activeRec.consecutiveRestoreFailures ?? 0) >= MAX_CONSECUTIVE_FAILURES;
+            if ((isStale || isOverflow) && deps.sessionSealer) {
+              try {
+                await deps.sessionSealer.requestSeal({
+                  sessionId: activeRec.id,
+                  reason: isOverflow ? 'overflow_circuit_breaker' : 'auto_health_check',
+                });
+              } catch {
+                /* best-effort seal */
+              }
+              sessionId = undefined;
+            } else {
+              // Active record's cliSessionId is authoritative (includes F33 manual bind)
+              sessionId = activeRec.cliSessionId;
+            }
           }
         }
       } catch {
@@ -411,6 +435,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         // Abort while queued is not a runtime error — clean exit
         if (signal?.aborted) {
           yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
+          didComplete = true; // F118 AC-C5: Abort early exit, not force-return
           return;
         }
         throw err; // unexpected error — let outer catch handle
@@ -448,6 +473,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           timestamp: Date.now(),
         };
         yield { type: 'done', catId, isFinal: params.isLastCat, timestamp: Date.now() };
+        didComplete = true; // F118 AC-C5: Normal early exit (governance preflight), not force-return
         return;
       }
     }
@@ -1060,6 +1086,21 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         }
         if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
           attemptHasContentOutput = true;
+          // F118 AC-C6: Reset consecutive restore failure counter on successful content
+          if (deps.sessionChainStore && !didResetRestoreFailures) {
+            didResetRestoreFailures = true; // only reset once per invocation
+            try {
+              const activeRec = await deps.sessionChainStore.getActive(catId as CatId, threadId);
+              if (activeRec && (activeRec.consecutiveRestoreFailures ?? 0) > 0) {
+                await deps.sessionChainStore.update(activeRec.id, {
+                  consecutiveRestoreFailures: 0,
+                  updatedAt: Date.now(),
+                });
+              }
+            } catch {
+              /* best-effort reset */
+            }
+          }
         }
       }
 
@@ -1080,6 +1121,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           await sessionManager.delete(userId, catId, threadId);
         } catch {
           // Redis delete failure — best-effort only
+        }
+        // F118 AC-C6: Increment consecutive restore failure counter
+        if (deps.sessionChainStore) {
+          try {
+            const activeRec = await deps.sessionChainStore.getActive(catId as CatId, threadId);
+            if (activeRec) {
+              await deps.sessionChainStore.update(activeRec.id, {
+                consecutiveRestoreFailures: (activeRec.consecutiveRestoreFailures ?? 0) + 1,
+                updatedAt: Date.now(),
+              });
+            }
+          } catch {
+            /* best-effort counter update */
+          }
         }
         sessionId = undefined;
         // F118 P2-fix: Clear stale cliSessionId so retry diagnostics don't mis-attribute
@@ -1180,6 +1235,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         yield out;
       }
     }
+    didComplete = true; // F118 AC-C5: Normal completion reached
   } catch (err) {
     // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===
     const durationMs = Date.now() - startTime;
@@ -1200,6 +1256,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       });
 
     hadError = true;
+    didWriteAudit = true; // F118 AC-C5: Catch block wrote audit, don't double-write in finally
     yield {
       type: 'error' as const,
       catId,
@@ -1211,6 +1268,28 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   } finally {
     // F118: Release session mutex (idempotent — safe if never acquired)
     sessionMutexRelease?.();
+
+    // F118 AC-C5: Fallback audit for generator .return() path (#99)
+    // If generator was force-returned (e.g. AbortController, client disconnect)
+    // and the catch block didn't fire, write a fallback CAT_ERROR audit entry.
+    if (!didWriteAudit && !hadError && !didComplete) {
+      const durationMs = Date.now() - startTime;
+      auditLog
+        .append({
+          type: AuditEventTypes.CAT_ERROR,
+          threadId,
+          data: {
+            catId,
+            userId,
+            invocationId,
+            durationMs,
+            error: 'generator_returned_without_completion',
+          },
+        })
+        .catch((auditErr) => {
+          console.warn('[audit] finally fallback CAT_ERROR write failed', { threadId, invocationId, err: auditErr });
+        });
+    }
 
     await finalizeTaskProgress();
 
