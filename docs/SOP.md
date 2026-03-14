@@ -151,3 +151,18 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 - **贡献者不自选号**：CONTRIBUTING.md 已写明，猫猫回复时也要强调（D8）
 - **分配 F 号前必须做关联检测**：确认 issue 不是现有 feature 的子项/增强（F114-F116 撤销教训，D9）
 - **社区贡献者的 PR**：猫猫用 `community-pr` skill 引导（编号校验 + Feature Doc 对齐）
+
+### Issue Label 命名规范
+
+开源仓 `clowder-ai` 的 issue label 统一格式：
+
+| Label | 格式 | 颜色 | 说明 |
+|-------|------|------|------|
+| Feature 关联 | `feature:F{NNN}` | `#0E8A16` 绿 | 关联到 cat-cafe Feature 编号 |
+| Bug | `bug` | GitHub 默认 | 社区 bug report |
+| Enhancement | `enhancement` | GitHub 默认 | 社区增强建议 |
+
+**注意**：
+- Feature label 必须用 `feature:F{NNN}` 格式（带 `feature:` 前缀 + 大写 F + 三位数字），不要用裸编号如 `F115`
+- Label 在 cat-cafe 定义规范，通过 sync 流程同步到 clowder-ai 的 CONTRIBUTING.md
+- 新建 label 时统一用绿色 `#0E8A16`
