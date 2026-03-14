@@ -1,0 +1,1704 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "text",
+      "id": "k3Aux",
+      "x": 0,
+      "y": 0,
+      "name": "title",
+      "fill": "#1e1e24",
+      "content": "F108 Phase B — Side-Dispatch UX",
+      "fontFamily": "Inter",
+      "fontSize": 28,
+      "fontWeight": "700"
+    },
+    {
+      "type": "text",
+      "id": "Li2Sn",
+      "x": 0,
+      "y": 40,
+      "name": "subtitle",
+      "fill": "#8b8b8b",
+      "content": "悄悄话模式 · 猫选择器 · 执行状态 · Per-Cat Stop · 输入框状态",
+      "fontFamily": "Inter",
+      "fontSize": 14,
+      "fontWeight": "normal"
+    },
+    {
+      "type": "frame",
+      "id": "QmBPi",
+      "x": 600,
+      "y": 0,
+      "name": "Component/CatAvatar/Opus",
+      "reusable": true,
+      "gap": 6,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "EwOgL",
+          "name": "opusCircle",
+          "fill": "#f3eaf8",
+          "width": 28,
+          "height": 28,
+          "stroke": {
+            "thickness": 2,
+            "fill": "#9b7ebd"
+          }
+        },
+        {
+          "type": "text",
+          "id": "Pk4DJ",
+          "name": "opusLabel",
+          "fill": "#6d5a8c",
+          "content": "布偶猫",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "500"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "G8pnw",
+      "x": 600,
+      "y": 50,
+      "name": "Component/CatAvatar/Codex",
+      "reusable": true,
+      "gap": 6,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "vuEuf",
+          "name": "codexCircle",
+          "fill": "#eaf6ea",
+          "width": 28,
+          "height": 28,
+          "stroke": {
+            "thickness": 2,
+            "fill": "#5b8c5a"
+          }
+        },
+        {
+          "type": "text",
+          "id": "rTpV5",
+          "name": "codexLabel",
+          "fill": "#3a5f39",
+          "content": "缅因猫",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "500"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "3Vk55",
+      "x": 600,
+      "y": 100,
+      "name": "Component/CatAvatar/Gemini",
+      "reusable": true,
+      "gap": 6,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "xM4cS",
+          "name": "geminiCircle",
+          "fill": "#eaf4fb",
+          "width": 28,
+          "height": 28,
+          "stroke": {
+            "thickness": 2,
+            "fill": "#5b9bd5"
+          }
+        },
+        {
+          "type": "text",
+          "id": "lMoGL",
+          "name": "geminiLabel",
+          "fill": "#3a6fa5",
+          "content": "暹罗猫",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "500"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "sHk5g",
+      "x": 0,
+      "y": 90,
+      "name": "Scene 1: Input Area — Normal vs Whisper",
+      "width": 520,
+      "fill": "#fdf8f3",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "gLsyj",
+          "name": "s1title",
+          "fill": "#1e1e24",
+          "content": "Scene 1: 悄悄话模式增强 — 基于现有锁头 UI",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "nTsTq",
+          "name": "s1desc",
+          "fill": "#8b8b8b",
+          "textGrowth": "fixed-width",
+          "width": 470,
+          "content": "现有锁头（黄色）+ 猫 chip 选择器已有。F108 增量：① 默认不选（不是全选）② 执行中的猫 chip 标灰 ③ 选中空闲猫后立即旁路执行",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "QQHRs",
+          "name": "stateA",
+          "fill": "#815b5b",
+          "content": "A. 现有行为（点锁头后，默认全选 → 不合理）",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "pxWOF",
+          "name": "Old Chips Row",
+          "width": "fill_container",
+          "fill": "#FFF8E7",
+          "cornerRadius": 8,
+          "gap": 6,
+          "padding": [
+            8,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "dNmYL",
+              "name": "oldLabel",
+              "fill": "#e29578",
+              "content": "悄悄话发给：",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "h9u5U",
+              "name": "chip1",
+              "height": 24,
+              "fill": "#f3eaf8",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1.5,
+                "fill": "#9b7ebd"
+              },
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "i5Bzs",
+                  "name": "chip1t",
+                  "fill": "#6d5a8c",
+                  "content": "布偶猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "B8g5W",
+              "name": "chip2",
+              "height": 24,
+              "fill": "#eaf6ea",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1.5,
+                "fill": "#5b8c5a"
+              },
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "XPHbA",
+                  "name": "chip2t",
+                  "fill": "#3a5f39",
+                  "content": "缅因猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XXm0w",
+              "name": "chip3",
+              "height": 24,
+              "fill": "#eaf4fb",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1.5,
+                "fill": "#5b9bd5"
+              },
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "GgA41",
+                  "name": "chip3t",
+                  "fill": "#3a6fa5",
+                  "content": "暹罗猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "dJs8r",
+              "name": "oldNote",
+              "fill": "#ef4444",
+              "content": "← 全选中（❌）",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "BEsal",
+          "name": "stateB",
+          "fill": "#5b8c5a",
+          "content": "B. F108 改进：默认不选 + 执行中标灰",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "ty2zv",
+          "name": "New Chips Row",
+          "width": "fill_container",
+          "fill": "#FFF8E7",
+          "cornerRadius": 8,
+          "gap": 6,
+          "padding": [
+            8,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "JcwUC",
+              "name": "newLabel",
+              "fill": "#e29578",
+              "content": "悄悄话发给：",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "YtrFY",
+              "name": "nchip1",
+              "opacity": 0.5,
+              "height": 24,
+              "fill": "#f5f5f5",
+              "cornerRadius": 12,
+              "gap": 4,
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "5r2xh",
+                  "name": "nchip1dot",
+                  "fill": "#9b7ebd",
+                  "width": 6,
+                  "height": 6
+                },
+                {
+                  "type": "text",
+                  "id": "NXOyt",
+                  "name": "nchip1t",
+                  "fill": "#8b8b8b",
+                  "content": "布偶猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11
+                },
+                {
+                  "type": "text",
+                  "id": "sIuKG",
+                  "name": "nchip1badge",
+                  "fill": "#e29578",
+                  "content": "执行中",
+                  "fontFamily": "Inter",
+                  "fontSize": 8,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "FGtfH",
+              "name": "nchip2",
+              "height": 24,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#e8e0d8"
+              },
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ocNNo",
+                  "name": "nchip2t",
+                  "fill": "#1e1e24",
+                  "content": "缅因猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "G8zZa",
+              "name": "nchip3",
+              "height": 24,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#e8e0d8"
+              },
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "fVzQA",
+                  "name": "nchip3t",
+                  "fill": "#1e1e24",
+                  "content": "暹罗猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "HAp0k",
+              "name": "newNote",
+              "fill": "#5b8c5a",
+              "content": "← 默认都不选（✅）",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "PP0qZ",
+          "name": "stateC",
+          "fill": "#5b8c5a",
+          "content": "C. 选中缅因猫后 → 立即旁路执行（Phase A 支撑）",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "f8KCz",
+          "name": "Selected Chips Row",
+          "width": "fill_container",
+          "fill": "#FFF8E7",
+          "cornerRadius": 8,
+          "gap": 6,
+          "padding": [
+            8,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "yE8VV",
+              "name": "selLabel",
+              "fill": "#e29578",
+              "content": "悄悄话发给：",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "hcVz8",
+              "name": "schip1",
+              "opacity": 0.5,
+              "height": 24,
+              "fill": "#f5f5f5",
+              "cornerRadius": 12,
+              "gap": 4,
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "zs239",
+                  "name": "schip1dot",
+                  "fill": "#9b7ebd",
+                  "width": 6,
+                  "height": 6
+                },
+                {
+                  "type": "text",
+                  "id": "Kznas",
+                  "name": "schip1t",
+                  "fill": "#8b8b8b",
+                  "content": "布偶猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11
+                },
+                {
+                  "type": "text",
+                  "id": "Mg4vs",
+                  "name": "schip1b",
+                  "fill": "#e29578",
+                  "content": "执行中",
+                  "fontFamily": "Inter",
+                  "fontSize": 8,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "aewax",
+              "name": "schip2",
+              "height": 24,
+              "fill": "#eaf6ea",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1.5,
+                "fill": "#5b8c5a"
+              },
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uvhkv",
+                  "name": "schip2t",
+                  "fill": "#3a5f39",
+                  "content": "缅因猫 ✓",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "1AYBH",
+              "name": "schip3",
+              "height": 24,
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#e8e0d8"
+              },
+              "padding": [
+                0,
+                10
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "5Ez9Q",
+                  "name": "schip3t",
+                  "fill": "#1e1e24",
+                  "content": "暹罗猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "ITXZu",
+              "name": "selNote",
+              "fill": "#5b8c5a",
+              "content": "← 缅因猫选中",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "8ma8u",
+          "name": "Selected Input",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 2,
+            "fill": "#e29578"
+          },
+          "gap": 8,
+          "padding": [
+            0,
+            8
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "GWes5",
+              "name": "selLock",
+              "width": 28,
+              "height": 28,
+              "fill": "#FFF0ED",
+              "cornerRadius": 14,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "BmOxM",
+                  "name": "selLockIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "lock",
+                  "iconFontFamily": "lucide",
+                  "fill": "#e29578"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "1XaAD",
+              "name": "selText",
+              "fill": "#b0a89e",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "悄悄话...",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal",
+              "fontStyle": "italic"
+            },
+            {
+              "type": "frame",
+              "id": "IDViD",
+              "name": "selSend",
+              "width": 32,
+              "height": 32,
+              "fill": "#e29578",
+              "cornerRadius": 16,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "IPONQ",
+                  "name": "selSendIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "arrow-up",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "PHA8w",
+      "x": 550,
+      "y": 90,
+      "name": "Scene 2: Cat Selector Dropdown",
+      "width": 280,
+      "fill": "#FFFFFF",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "#e8e0d8"
+      },
+      "effect": {
+        "type": "shadow",
+        "shadowType": "outer",
+        "color": "#1e1e2418",
+        "offset": {
+          "x": 0,
+          "y": 4
+        },
+        "blur": 16
+      },
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "text",
+          "id": "uBL2l",
+          "name": "s2title",
+          "fill": "#1e1e24",
+          "content": "猫选择器",
+          "fontFamily": "Inter",
+          "fontSize": 14,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "4ZWOD",
+          "name": "s2desc",
+          "fill": "#8b8b8b",
+          "textGrowth": "fixed-width",
+          "width": 248,
+          "content": "点击锁头后弹出。执行中的猫灰掉不可选。",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "1geWR",
+          "name": "s2hint",
+          "fill": "#6d5a8c",
+          "content": "选择悄悄话目标：",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "500"
+        },
+        {
+          "type": "frame",
+          "id": "KMPcr",
+          "name": "CatRow/Opus/Disabled",
+          "opacity": 0.5,
+          "width": "fill_container",
+          "height": 40,
+          "fill": "#f5f5f5",
+          "cornerRadius": 8,
+          "gap": 10,
+          "padding": [
+            0,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "DRFab",
+              "name": "opusAvDisabled",
+              "fill": "#f3eaf8",
+              "width": 24,
+              "height": 24,
+              "stroke": {
+                "thickness": 2,
+                "fill": "#9b7ebd"
+              }
+            },
+            {
+              "type": "text",
+              "id": "O1Mqz",
+              "name": "opusNameDisabled",
+              "fill": "#1e1e24",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "布偶猫 · 宪宪",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "XGDtI",
+              "name": "opusBadge",
+              "height": 20,
+              "fill": "#FFF0ED",
+              "cornerRadius": 10,
+              "padding": [
+                0,
+                8
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FDwvT",
+                  "name": "opusBadgeText",
+                  "fill": "#e29578",
+                  "content": "执行中",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hfS6K",
+          "name": "CatRow/Codex/Available",
+          "width": "fill_container",
+          "height": 40,
+          "fill": "#eaf6ea",
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#5b8c5a44"
+          },
+          "gap": 10,
+          "padding": [
+            0,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "8XjfU",
+              "name": "codexAv",
+              "fill": "#eaf6ea",
+              "width": 24,
+              "height": 24,
+              "stroke": {
+                "thickness": 2,
+                "fill": "#5b8c5a"
+              }
+            },
+            {
+              "type": "text",
+              "id": "Rl7nh",
+              "name": "codexName",
+              "fill": "#1e1e24",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "缅因猫 · 砚砚",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "jR2Fv",
+              "name": "codexIdle",
+              "height": 20,
+              "fill": "#eaf6ea",
+              "cornerRadius": 10,
+              "padding": [
+                0,
+                8
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rro2x",
+                  "name": "codexIdleText",
+                  "fill": "#5b8c5a",
+                  "content": "空闲",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hhaA9",
+          "name": "CatRow/Gemini/Available",
+          "width": "fill_container",
+          "height": 40,
+          "fill": "#eaf4fb",
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#5b9bd544"
+          },
+          "gap": 10,
+          "padding": [
+            0,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "JCAIH",
+              "name": "geminiAv",
+              "fill": "#eaf4fb",
+              "width": 24,
+              "height": 24,
+              "stroke": {
+                "thickness": 2,
+                "fill": "#5b9bd5"
+              }
+            },
+            {
+              "type": "text",
+              "id": "ZtDd7",
+              "name": "geminiName",
+              "fill": "#1e1e24",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "暹罗猫 · 烁烁",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "CDuAl",
+              "name": "geminiIdle",
+              "height": 20,
+              "fill": "#eaf4fb",
+              "cornerRadius": 10,
+              "padding": [
+                0,
+                8
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "VK5d7",
+                  "name": "geminiIdleText",
+                  "fill": "#5b9bd5",
+                  "content": "空闲",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "CAu19",
+      "x": 0,
+      "y": 520,
+      "name": "Scene 3: Thread Execution Status Bar",
+      "width": 520,
+      "fill": "#fdf8f3",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "tJzjX",
+          "name": "s3title",
+          "fill": "#1e1e24",
+          "content": "Scene 3: Thread 执行状态条",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "xYkCH",
+          "name": "s3desc",
+          "fill": "#8b8b8b",
+          "textGrowth": "fixed-width",
+          "width": 470,
+          "content": "显示当前 thread 中哪些猫正在活跃执行。位于消息区底部、输入框上方。",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "5NN37",
+          "name": "ExecutionStatusBar",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e8e0d8"
+          },
+          "gap": 12,
+          "padding": [
+            0,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "KgspI",
+              "name": "statusLabel",
+              "fill": "#8b8b8b",
+              "content": "执行中",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            },
+            {
+              "type": "rectangle",
+              "id": "0VcPY",
+              "name": "divider1",
+              "fill": "#e8e0d8",
+              "width": 1,
+              "height": 20
+            },
+            {
+              "type": "frame",
+              "id": "BhhPT",
+              "name": "Slot/Opus",
+              "height": 28,
+              "fill": "#f3eaf8",
+              "cornerRadius": 14,
+              "gap": 6,
+              "padding": [
+                0,
+                10,
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "JQILQ",
+                  "name": "opusDot",
+                  "fill": "#9b7ebd",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "9MEb3",
+                  "name": "opusSlotName",
+                  "fill": "#6d5a8c",
+                  "content": "布偶猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "XBcTc",
+                  "name": "opusSlotTime",
+                  "fill": "#9b7ebd88",
+                  "content": "2:34",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "3exgn",
+              "name": "Slot/Codex",
+              "height": 28,
+              "fill": "#eaf6ea",
+              "cornerRadius": 14,
+              "gap": 6,
+              "padding": [
+                0,
+                10,
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "Rp47h",
+                  "name": "codexDot",
+                  "fill": "#5b8c5a",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "zJGXq",
+                  "name": "codexSlotName",
+                  "fill": "#3a5f39",
+                  "content": "缅因猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "i5DZO",
+                  "name": "codexSlotTime",
+                  "fill": "#5b8c5a88",
+                  "content": "0:45",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "0sUVx",
+      "x": 0,
+      "y": 750,
+      "name": "Scene 4: Per-Cat Stop Controls",
+      "width": 520,
+      "fill": "#fdf8f3",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "z3huj",
+          "name": "s4title",
+          "fill": "#1e1e24",
+          "content": "Scene 4: Per-Cat Stop 控制",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "YaudF",
+          "name": "s4desc",
+          "fill": "#8b8b8b",
+          "textGrowth": "fixed-width",
+          "width": 470,
+          "content": "并发时每只猫独立 Stop（不再整 thread 清零）。点击 × 只停止对应猫。",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "ccEyw",
+          "name": "StopBar",
+          "width": "fill_container",
+          "height": 48,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e8e0d8"
+          },
+          "gap": 8,
+          "padding": [
+            0,
+            12,
+            0,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "dpNRa",
+              "name": "stopLabel",
+              "fill": "#8b8b8b",
+              "content": "执行中",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            },
+            {
+              "type": "rectangle",
+              "id": "hrCE3",
+              "name": "stopDiv",
+              "fill": "#e8e0d8",
+              "width": 1,
+              "height": 24
+            },
+            {
+              "type": "frame",
+              "id": "sgzfy",
+              "name": "StopChip/Opus",
+              "height": 30,
+              "fill": "#f3eaf8",
+              "cornerRadius": 15,
+              "gap": 4,
+              "padding": [
+                0,
+                6,
+                0,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "BQhzt",
+                  "name": "opusStopDot",
+                  "fill": "#9b7ebd",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "218Ka",
+                  "name": "opusStopName",
+                  "fill": "#6d5a8c",
+                  "content": "布偶猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "frame",
+                  "id": "NlvH6",
+                  "name": "opusStopBtn",
+                  "width": 18,
+                  "height": 18,
+                  "fill": "#9b7ebd33",
+                  "cornerRadius": 9,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "Aadut",
+                      "name": "opusStopX",
+                      "width": 10,
+                      "height": 10,
+                      "iconFontName": "x",
+                      "iconFontFamily": "lucide",
+                      "fill": "#9b7ebd"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nGPzT",
+              "name": "StopChip/Codex",
+              "height": 30,
+              "fill": "#eaf6ea",
+              "cornerRadius": 15,
+              "gap": 4,
+              "padding": [
+                0,
+                6,
+                0,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "ki1Ml",
+                  "name": "codexStopDot",
+                  "fill": "#5b8c5a",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "rjj0Y",
+                  "name": "codexStopName",
+                  "fill": "#3a5f39",
+                  "content": "缅因猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "frame",
+                  "id": "nIb6h",
+                  "name": "codexStopBtn",
+                  "width": 18,
+                  "height": 18,
+                  "fill": "#5b8c5a33",
+                  "cornerRadius": 9,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "CQYGf",
+                      "name": "codexStopX",
+                      "width": 10,
+                      "height": 10,
+                      "iconFontName": "x",
+                      "iconFontFamily": "lucide",
+                      "fill": "#5b8c5a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hGQGt",
+              "name": "spacer",
+              "width": "fill_container",
+              "height": 1
+            },
+            {
+              "type": "frame",
+              "id": "NqDUl",
+              "name": "StopAll",
+              "height": 30,
+              "fill": "#ef444420",
+              "cornerRadius": 15,
+              "gap": 4,
+              "padding": [
+                0,
+                12
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "BTyAl",
+                  "name": "stopAllIcon",
+                  "width": 12,
+                  "height": 12,
+                  "iconFontName": "square",
+                  "iconFontFamily": "lucide",
+                  "fill": "#ef4444"
+                },
+                {
+                  "type": "text",
+                  "id": "QxPLn",
+                  "name": "stopAllText",
+                  "fill": "#ef4444",
+                  "content": "全部停止",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "CnKCD",
+      "x": 0,
+      "y": 1000,
+      "name": "Scene 5: Input State Variants",
+      "width": 520,
+      "fill": "#fdf8f3",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "ZwM85",
+          "name": "s5title",
+          "fill": "#1e1e24",
+          "content": "Scene 5: 输入框状态变体",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "1a6hB",
+          "name": "s5desc",
+          "fill": "#8b8b8b",
+          "textGrowth": "fixed-width",
+          "width": 470,
+          "content": "给忙碌猫发 → 排队/强制；给空闲猫发 → 直接发送。不显示多余按钮。",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "pbGdf",
+          "name": "stateA",
+          "fill": "#815b5b",
+          "content": "A. 目标猫空闲 → 直接发送（橙色）",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "M8f9x",
+          "name": "Input/IdleCat",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e8e0d8"
+          },
+          "gap": 8,
+          "padding": [
+            0,
+            8,
+            0,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "a7kOW",
+              "name": "idleLock",
+              "width": 28,
+              "height": 28,
+              "fill": "#f0ebe5",
+              "cornerRadius": 14,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "DP8wm",
+                  "name": "idleLockIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "lock-open",
+                  "iconFontFamily": "lucide",
+                  "fill": "#8b8b8b"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "tnMYj",
+              "name": "idleText",
+              "fill": "#1e1e24",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "帮我看看这个 PR",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "RJapE",
+              "name": "idleSend",
+              "width": 32,
+              "height": 32,
+              "fill": "#e29578",
+              "cornerRadius": 16,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "XhSi9",
+                  "name": "idleSendIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "arrow-up",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "OwYid",
+          "name": "stateB",
+          "fill": "#6d5a8c",
+          "content": "B. 目标猫忙碌 → 排队发送（紫色）",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "6KKI4",
+          "name": "Input/BusyCat/Queue",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#9b7ebd88"
+          },
+          "gap": 8,
+          "padding": [
+            0,
+            8,
+            0,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "nKrxR",
+              "name": "busyLock",
+              "width": 28,
+              "height": 28,
+              "fill": "#f0ebe5",
+              "cornerRadius": 14,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "E7Sf0",
+                  "name": "busyLockIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "lock-open",
+                  "iconFontFamily": "lucide",
+                  "fill": "#8b8b8b"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "nKa1u",
+              "name": "busyText",
+              "fill": "#1e1e24",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "帮我看看这个 PR",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "mhH1N",
+              "name": "queueBtn",
+              "height": 32,
+              "fill": "#9b7ebd",
+              "cornerRadius": 16,
+              "gap": 4,
+              "padding": [
+                0,
+                12,
+                0,
+                8
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "8Xgme",
+                  "name": "queueIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "list-plus",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                },
+                {
+                  "type": "text",
+                  "id": "C2a1K",
+                  "name": "queueText",
+                  "fill": "#FFFFFF",
+                  "content": "排队",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "tlyaZ",
+          "name": "stateC",
+          "fill": "#815b5b",
+          "content": "C. 目标猫忙碌 → 强制发送（长按排队按钮）",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "qPtVH",
+          "name": "Input/BusyCat/Force",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#FFFFFF",
+          "cornerRadius": 22,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#ef444444"
+          },
+          "gap": 8,
+          "padding": [
+            0,
+            8,
+            0,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "FoNKe",
+              "name": "forceLock",
+              "width": 28,
+              "height": 28,
+              "fill": "#f0ebe5",
+              "cornerRadius": 14,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "Xon43",
+                  "name": "forceLockIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "lock-open",
+                  "iconFontFamily": "lucide",
+                  "fill": "#8b8b8b"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "ZPPJF",
+              "name": "forceText",
+              "fill": "#1e1e24",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "帮我看看这个 PR",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "tBwNh",
+              "name": "forceBtn",
+              "height": 32,
+              "fill": "#ef4444",
+              "cornerRadius": 16,
+              "gap": 4,
+              "padding": [
+                0,
+                12,
+                0,
+                8
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "j1cU2",
+                  "name": "forceIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "zap",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                },
+                {
+                  "type": "text",
+                  "id": "3luLG",
+                  "name": "forceTextBtn",
+                  "fill": "#FFFFFF",
+                  "content": "强制",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
