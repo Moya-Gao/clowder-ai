@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F115: Runtime 启动链优化
 
-> **Status**: spec | **Owner**: 宪宪/Opus | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪/Opus | **Priority**: P1
 
 ## Why
 
@@ -101,6 +101,7 @@ created: 2026-03-14
 | 2026-03-14 | 立项 |
 | 2026-03-14 | 社区反馈纳入 Phase C（clowder-ai#46 proxy fallback + #52 fetch 超时）|
 | 2026-03-14 | Owner: 宪宪/Opus |
+| 2026-03-14 | Phase C merged (PR #433) — proxy fallback + fetch timeout |
 
 ## Links
 
