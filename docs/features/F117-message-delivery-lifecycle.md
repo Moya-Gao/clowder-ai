@@ -35,11 +35,16 @@ created: 2026-03-14
 - **期望**：取消后气泡消失，猫猫永远不应该"看到"这条消息
 - **实测证据**：铲屎官发送 `嘿嘿大猫猫喵` → 取消 → 猫猫对话上下文中仍出现该消息
 
-### Bug 3: @mention 消息在队列中卡死 + 目标猫未收到
-- **复现**：布偶猫 @gpt52 发消息 → 消息进入队列（排队中 1）→ 铲屎官后续消息发不出去 → 登入缅因猫 session 发现缅因猫没收到该消息
-- **期望**：@mention 消息在队列中时不应触发路由；dequeue 执行时才路由到目标猫
+### Bug 3a: queued 用户 @mention 提前进入 pending-mentions（F117 scope）
+- **复现**：用户发带 @gpt52 的消息 → 消息进入队列（排队中）→ `pending-mentions` 已包含该条目
+- **期望**：queued/canceled 的用户 @mention 不应出现在 `pending-mentions`；delivered 后才进入
+- **根因**：mention inbox 读取时只看 `msg.mentions`，不看 `deliveryStatus`
+
+### Bug 3b: `cat_cafe_post_message` 的 @mention 路由异常（F117 out of scope）
+- **复现**：猫猫用 `cat_cafe_post_message` 发带 `@gpt52` 的消息 → 缅因猫 session 未收到
 - **截图**：`1773488607773-f4b34f0a.png`
-- **可能关联**：queued message 持久化后 @mention routing 可能尝试处理未送达消息，与 queue 状态互相干扰
+- **不属于 F117**：`post_message` 走 callback 路由（`callbacks.ts` → `messageStore.append` + `enqueueA2ATargets`），不经过前端 queue send，不依赖 delivery lifecycle
+- **处置**：单开 callback @mention 路由 bug，F117 仅标记 `related`
 
 ### 根因链路（砚砚 + 宪宪调查确认）
 1. `useSendMessage.ts:95-100` — 无条件乐观插入，不区分 queue/immediate
@@ -56,7 +61,8 @@ created: 2026-03-14
 2. enqueue 时 message 持久化带 `deliveryStatus: 'queued'`
 3. History API（`GET /api/messages`）默认只返回 `delivered`（或无 deliveryStatus 的历史消息）
 4. ContextAssembler 只组装 `delivered` 消息
-5. QueueProcessor dequeue 执行时：将 message 标为 `delivered`，扩展 `messages_delivered` 事件携带完整 user message payload
+5. Mention surfaces（`pending-mentions` 等）只返回 `delivered` 消息的 @mention
+6. QueueProcessor dequeue 执行时：将 message 标为 `delivered`，扩展 `messages_delivered` 事件携带完整 user message payload
 6. withdraw 单条：同步将 message 标 `canceled`，发 `message_deleted` 给前端
 7. clear 队列：批量标 `canceled`，发批量 `message_deleted`
 
@@ -78,6 +84,7 @@ created: 2026-03-14
 - [ ] AC-A6: withdraw 将 message 标 `canceled` + 发 `message_deleted`
 - [ ] AC-A7: clear 队列批量标 `canceled` + 发批量 `message_deleted`
 - [ ] AC-A8: 回归测试——queue send → cancel → history API 不返回、ContextAssembler 不组装
+- [ ] AC-A9: queue send 带 @mention 的消息 → delivered 前 `pending-mentions` 不返回；delivered 后才出现
 
 ### Phase B（前端适配）
 - [ ] AC-B1: queue send 不做乐观插入到主聊天流
@@ -85,6 +92,12 @@ created: 2026-03-14
 - [ ] AC-B3: `message_deleted` 事件触发 store 移除
 - [ ] AC-B4: F5 刷新后 queued/canceled 消息不出现在聊天流
 - [ ] AC-B5: QueuePanel 功能不受影响（仍通过 `queue_updated` 正常展示）
+- [ ] AC-B6: queue send 多行消息（Shift+Enter）时不出现 optimistic bubble；delivered 后只出现一次
+
+## Scope Boundary
+
+- **In scope**: undelivered user message 对 `timeline / history API / prompt context / pending-mentions` 的一切泄漏
+- **Out of scope but related**: `cat_cafe_post_message` callback 路由的 @mention 解析/路由异常（走 `callbacks.ts`，不经过 queue/delivery lifecycle）
 
 ## Dependencies
 
@@ -113,6 +126,7 @@ created: 2026-03-14
 | KD-1 | 用显式 `deliveryStatus` 字段而非 `deliveredAt` | `deliveredAt` 老数据没有，过滤会误伤即时消息和历史消息（砚砚提出） | 2026-03-14 |
 | KD-2 | 不 merge 社区 PR #25 作为 quick fix | 只修渲染层是脚手架不是终态，withdraw resurfacing 未闭合（P1铁律）| 2026-03-14 |
 | KD-3 | 修完后走全量 sync 而非 hotfix | 有多个已完成 F 待同步，hotfix 增加后续同步难度（铲屎官决定）| 2026-03-14 |
+| KD-4 | Bug 3 拆分：queued @mention 泄漏 in scope / post_message callback 路由 out of scope | post_message 走 callback 路由不经 queue，硬塞进 F117 会混 scope（砚砚 Design Gate 提出）| 2026-03-14 |
 
 ## Timeline
 
