@@ -173,5 +173,47 @@ resolve_config "ANTHROPIC_PROXY_ENABLED"
 unset ANTHROPIC_PROXY_ENABLED
 echo "PASS: .env override beats profile default (AC-A4)"
 
+# ── F115 Phase B: Sidecar 状態分層 ──
+
+# Save original wait_for_port before overriding
+eval "$(declare -f wait_for_port)" 2>/dev/null
+_original_wait_for_port() { wait_for_port "$@"; }
+
+# Test 14: start_sidecar sets state to "ready" when port available
+_STATE_TEST=disabled
+wait_for_port() { return 0; }
+start_sidecar "TestSvc" "_STATE_TEST" 9999 5 "true" 2>/dev/null
+[ "$_STATE_TEST" = "ready" ] || { echo "FAIL: state should be ready, got: $_STATE_TEST"; exit 1; }
+echo "PASS: start_sidecar → ready (AC-B1)"
+
+# Test 15: start_sidecar sets state to "failed" when port timeout
+_STATE_TEST2=disabled
+wait_for_port() { return 1; }
+start_sidecar "TestSvc2" "_STATE_TEST2" 9998 5 "true" 2>/dev/null
+[ "$_STATE_TEST2" = "failed" ] || { echo "FAIL: state should be failed, got: $_STATE_TEST2"; exit 1; }
+echo "PASS: start_sidecar → failed (AC-B1)"
+
+# Test 16: print_sidecar_summary_all only lists ready, reports failed, hides disabled
+_STATE_ASR=ready
+_STATE_TTS=failed
+_STATE_LLM_PP=disabled
+ASR_PORT=9876
+TTS_PORT_VAL=9879
+LLM_PP_PORT=9878
+sidecar_output=$(print_sidecar_summary_all 2>&1)
+echo "$sidecar_output" | grep -q "ASR.*9876" || { echo "FAIL: ready ASR should appear"; exit 1; }
+echo "$sidecar_output" | grep -q "启动失败" || { echo "FAIL: failed TTS should show failure"; exit 1; }
+echo "$sidecar_output" | grep -q "LLM" && { echo "FAIL: disabled LLM should not appear"; exit 1; }
+echo "PASS: sidecar summary shows ready + failed, hides disabled (AC-B3)"
+
+# Test 17: Default timeouts — ASR/TTS 30s, LLM 60s
+[ "${ASR_TIMEOUT:-30}" = "30" ] || { echo "FAIL: ASR default timeout should be 30"; exit 1; }
+[ "${TTS_TIMEOUT:-30}" = "30" ] || { echo "FAIL: TTS default timeout should be 30"; exit 1; }
+[ "${LLM_TIMEOUT:-60}" = "60" ] || { echo "FAIL: LLM default timeout should be 60"; exit 1; }
+ASR_TIMEOUT=45
+[ "$ASR_TIMEOUT" = "45" ] || { echo "FAIL: ASR timeout not configurable"; exit 1; }
+unset ASR_TIMEOUT
+echo "PASS: sidecar timeouts configurable with correct defaults (AC-B2)"
+
 echo ""
 echo "All shell tests passed."

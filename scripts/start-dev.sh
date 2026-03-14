@@ -246,6 +246,39 @@ wait_for_port() {
     return 1
 }
 
+# Sidecar 状态机：disabled → launching → ready | failed
+# 用法: start_sidecar <name> <state_var> <port> <timeout> <launch_cmd...>
+start_sidecar() {
+    local name="$1" state_var="$2" port="$3" timeout="$4"
+    shift 4
+    local launch_cmd="$*"
+
+    eval "${state_var}=launching"
+    echo "  启动 ${name} (端口 ${port})..."
+    eval "$launch_cmd" &
+    if wait_for_port "$port" "$name" "$timeout"; then
+        eval "${state_var}=ready"
+    else
+        eval "${state_var}=failed"
+    fi
+}
+
+# Sidecar summary: ready → 地址, failed → 报告, disabled → 静默
+print_sidecar_summary_all() {
+    local name state_var port state
+    for entry in "ASR:_STATE_ASR:${ASR_PORT:-9876}" "TTS:_STATE_TTS:${TTS_PORT_VAL:-9879}" "LLM后修:_STATE_LLM_PP:${LLM_PP_PORT:-9878}"; do
+        name="${entry%%:*}"
+        local rest="${entry#*:}"
+        state_var="${rest%%:*}"
+        port="${rest#*:}"
+        state="${!state_var}"
+        case "$state" in
+            ready)   echo "  - ${name}:      http://localhost:${port}" ;;
+            failed)  echo -e "  - ${name}:      ${RED:-}启动失败${NC:-}" ;;
+        esac
+    done
+}
+
 # 清理缓存
 # --prod-web + --quick: 保留 .next production 产物以便秒启动
 clean_cache() {
@@ -560,61 +593,48 @@ main() {
         echo -e "${YELLOW}  ⚠ Anthropic Proxy 已禁用 (ANTHROPIC_PROXY_ENABLED=0)${NC}"
     fi
 
-    # Qwen3-ASR Server (语音输入 — 替代 Whisper，同端口 drop-in)
+    # Sidecar 状态初始化
     ASR_PORT=${WHISPER_PORT:-9876}
-    STARTED_ASR=false
+    TTS_PORT_VAL=${TTS_PORT:-9879}
+    LLM_PP_PORT=${LLM_POSTPROCESS_PORT:-9878}
+    _STATE_ASR=disabled
+    _STATE_TTS=disabled
+    _STATE_LLM_PP=disabled
+
+    # Qwen3-ASR Server (语音输入 — 替代 Whisper，同端口 drop-in)
     if [ "${ASR_ENABLED:-0}" = "1" ]; then
         if [ -f "scripts/qwen3-asr-server.sh" ]; then
-            echo "  启动 Qwen3-ASR (端口 $ASR_PORT)..."
-            WHISPER_PORT=$ASR_PORT bash scripts/qwen3-asr-server.sh &
-            if wait_for_port $ASR_PORT "Qwen3-ASR" 30; then
-                STARTED_ASR=true
-            fi
+            start_sidecar "Qwen3-ASR" "_STATE_ASR" "$ASR_PORT" "${ASR_TIMEOUT:-30}" \
+                "WHISPER_PORT=$ASR_PORT bash scripts/qwen3-asr-server.sh"
         elif [ -f "scripts/whisper-server.sh" ]; then
-            echo "  启动 Whisper ASR fallback (端口 $ASR_PORT)..."
-            WHISPER_PORT=$ASR_PORT bash scripts/whisper-server.sh &
-            if wait_for_port $ASR_PORT "Whisper ASR" 30; then
-                STARTED_ASR=true
-            fi
+            start_sidecar "Whisper ASR" "_STATE_ASR" "$ASR_PORT" "${ASR_TIMEOUT:-30}" \
+                "WHISPER_PORT=$ASR_PORT bash scripts/whisper-server.sh"
         else
-            echo -e "${YELLOW}  ⚠ ASR 已启用，但脚本未找到，跳过语音输入服务${NC}"
+            echo -e "${YELLOW}  ⚠ ASR 已启用，但脚本未找到，跳过${NC}"
+            _STATE_ASR=failed
         fi
-    else
-        echo -e "${YELLOW}  ⚠ ASR 已禁用 (ASR_ENABLED=0)${NC}"
     fi
 
     # TTS Server (语音合成 — Qwen3-TTS / Kokoro / edge-tts)
-    TTS_PORT_VAL=${TTS_PORT:-9879}
-    STARTED_TTS=false
     if [ "${TTS_ENABLED:-0}" = "1" ]; then
         if [ -f "scripts/tts-server.sh" ]; then
-            echo "  启动 TTS (端口 $TTS_PORT_VAL)..."
-            TTS_PORT=$TTS_PORT_VAL bash scripts/tts-server.sh &
-            if wait_for_port $TTS_PORT_VAL "TTS" 30; then
-                STARTED_TTS=true
-            fi
+            start_sidecar "TTS" "_STATE_TTS" "$TTS_PORT_VAL" "${TTS_TIMEOUT:-30}" \
+                "TTS_PORT=$TTS_PORT_VAL bash scripts/tts-server.sh"
         else
-            echo -e "${YELLOW}  ⚠ TTS 已启用，但 tts-server.sh 未找到，跳过语音合成服务${NC}"
+            echo -e "${YELLOW}  ⚠ TTS 已启用，但脚本未找到，跳过${NC}"
+            _STATE_TTS=failed
         fi
-    else
-        echo -e "${YELLOW}  ⚠ TTS 已禁用 (TTS_ENABLED=0)${NC}"
     fi
 
     # LLM 后修 Server (语音转写纠正 — Qwen3-4B)
-    LLM_PP_PORT=${LLM_POSTPROCESS_PORT:-9878}
-    STARTED_LLM_PP=false
     if [ "${LLM_POSTPROCESS_ENABLED:-0}" = "1" ]; then
         if [ -f "scripts/llm-postprocess-server.sh" ]; then
-            echo "  启动 LLM 后修 (端口 $LLM_PP_PORT)..."
-            LLM_POSTPROCESS_PORT=$LLM_PP_PORT bash scripts/llm-postprocess-server.sh &
-            if wait_for_port $LLM_PP_PORT "LLM 后修" 20; then
-                STARTED_LLM_PP=true
-            fi
+            start_sidecar "LLM 后修" "_STATE_LLM_PP" "$LLM_PP_PORT" "${LLM_TIMEOUT:-60}" \
+                "LLM_POSTPROCESS_PORT=$LLM_PP_PORT bash scripts/llm-postprocess-server.sh"
         else
-            echo -e "${YELLOW}  ⚠ LLM 后修已启用，但脚本未找到，跳过语音纠正${NC}"
+            echo -e "${YELLOW}  ⚠ LLM 后修已启用，但脚本未找到，跳过${NC}"
+            _STATE_LLM_PP=failed
         fi
-    else
-        echo -e "${YELLOW}  ⚠ LLM 后修已禁用 (LLM_POSTPROCESS_ENABLED=0)${NC}"
     fi
 
     # API Server
@@ -665,9 +685,7 @@ main() {
     echo "  - Frontend: http://localhost:$WEB_PORT"
     echo "  - API:      http://localhost:$API_PORT"
     [ "${ANTHROPIC_PROXY_ENABLED:-0}" = "1" ] && echo "  - Proxy:    http://localhost:$PROXY_PORT"
-    [ "$STARTED_ASR" = true ] && echo "  - ASR:      http://localhost:$ASR_PORT"
-    [ "$STARTED_TTS" = true ] && echo "  - TTS:      http://localhost:$TTS_PORT_VAL"
-    [ "$STARTED_LLM_PP" = true ] && echo "  - LLM后修:  http://localhost:$LLM_PP_PORT"
+    print_sidecar_summary_all
     echo -e "  - 前端模式: $PWA_INFO"
     echo -e "  - 存储:     $STORAGE_INFO"
     echo ""
