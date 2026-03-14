@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F115: Runtime 启动链优化
 
-> **Status**: in-progress | **Owner**: 宪宪/Opus | **Priority**: P1
+> **Status**: review-pending-guardian | **Owner**: 宪宪/Opus | **Priority**: P1
 
 ## Why
 
@@ -61,10 +61,10 @@ created: 2026-03-14
 - [x] AC-C3: proxy 进程不可达时 fallback 直连 upstream（TCP 探活 + 结构化告警）
 - [x] AC-C4: upstream fetch 增加超时（60s），避免无限等待返回 502（clowder-ai#52）
 
-### Phase D（交互式 Setup）
-- [ ] AC-D1: setup 脚本检测缺失依赖并提示安装命令
-- [ ] AC-D2: `--install-missing` 可自动安装到 venv
-- [ ] AC-D3: `start-dev.sh` 检测到 ENABLED=1 但依赖缺失时报错而非静默跳过
+### Phase D（交互式 Setup） ✅
+- [x] AC-D1: setup 脚本检测缺失依赖并提示安装命令
+- [x] AC-D2: `--install-missing` 可自动安装到 venv
+- [x] AC-D3: `start-dev.sh` 检测到 ENABLED=1 但依赖缺失时报错而非静默跳过
 
 ## Dependencies
 
@@ -104,6 +104,7 @@ created: 2026-03-14
 | 2026-03-14 | Phase C merged (PR #433) — proxy fallback + fetch timeout |
 | 2026-03-14 | Phase A merged (PR #434) — start-dev.sh profile 化 |
 | 2026-03-14 | Phase B merged (PR #435) — sidecar state machine |
+| 2026-03-14 | Phase D merged (PR #437) — interactive setup + check_sidecar_dep |
 
 ## Links
 
