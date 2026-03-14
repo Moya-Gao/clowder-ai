@@ -53,10 +53,10 @@ F101 狼人杀需要多猫同时发言（语音模式），当前 TTS 声线是�
 | spark | 缅因猫 Spark | **雷泽** | 原神 | 直接冲、短句快打 | 🆕 待配置 |
 | gemini | 暹罗猫 | **班尼特** | 原神 | 阳光开心少年 | ✅ 已有 |
 | gemini25 | 暹罗猫 2.5 | **米卡** | 原神 | 乖巧可爱、温和 | 🆕 待配置 |
-| dare | 狸花猫 | **待选** | — | — | ❓ 待猫自选 |
-| antigravity | 孟加拉猫 Gemini | **待选** | — | — | ❓ 待猫自选 |
-| antig-opus | 孟加拉猫 Opus | **待选** | — | — | ❓ 待猫自选 |
-| opencode | 金渐层 | **待选** | — | — | ❓ 待猫自选 |
+| dare | 狸花猫 | **待选** | — | — | ❓ 启动失败，待铲屎官指定 |
+| antigravity | 孟加拉猫 Gemini | **待选** | — | — | ❓ unavailable，待铲屎官指定 |
+| antig-opus | 孟加拉猫 Opus | **待选** | — | — | ❓ unavailable，待铲屎官指定 |
+| opencode | 金渐层 | **钟离** | 原神 | 沉稳可靠、低沉磁性 | 🆕 待配置 |
 
 ## Architecture: 统一入口
 
@@ -83,7 +83,7 @@ Hub 设置页 → 可视化管理声线配置（未来）
 | OQ-1 | Qwen3-TTS clone 模式区分度 | ✅ 已验证：不同 refAudio 即可区分 |
 | OQ-2 | 声线参数 | ✅ 已定：refAudio + refText + instruct + temperature |
 | OQ-3 | 帕姆（崩铁）中文语音素材来源 | ⬜ 铲屎官确认 |
-| OQ-4 | dare / antigravity x2 / opencode 声线选角 | ⬜ 待猫自选 |
+| OQ-4 | dare / antigravity x2 声线选角 | ⬜ opencode=钟离已定，剩 3 只待铲屎官指定 |
 
 ## Key Decisions
 
@@ -98,4 +98,4 @@ Hub 设置页 → 可视化管理声线配置（未来）
 | 日期 | 事件 |
 |------|------|
 | 2026-03-11 | 立项（由 F101 狼人杀语音模式需求衍生） |
-| 2026-03-14 | 全员选角 8/12 完成，sonnet 确定用帕姆（崩铁），剩余 4 只待选 |
+| 2026-03-14 | 全员选角 9/12 完成，sonnet=帕姆，opencode=钟离，剩 dare/antigravity x2 待铲屎官指定 |
