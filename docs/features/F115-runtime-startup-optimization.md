@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F115: Runtime 启动链优化
 
-> **Status**: spec | **Owner**: TBD | **Priority**: P1
+> **Status**: spec | **Owner**: 宪宪/Opus | **Priority**: P1
 
 ## Why
 
@@ -58,6 +58,8 @@ created: 2026-03-14
 ### Phase C（Proxy 弹性）
 - [ ] AC-C1: upstream 529/503 自动 retry（最多 3 次，exponential backoff）
 - [ ] AC-C2: thinking/signature 事件不做 JSON round-trip
+- [ ] AC-C3: proxy 进程不可达时 fallback 直连 upstream（TCP 探活 + 结构化告警）
+- [ ] AC-C4: upstream fetch 增加超时（60s），避免无限等待返回 502（clowder-ai#52）
 
 ### Phase D（交互式 Setup）
 - [ ] AC-D1: setup 脚本检测缺失依赖并提示安装命令
@@ -68,6 +70,7 @@ created: 2026-03-14
 
 - **Evolved from**: F059（同步验收中发现的 runtime 问题）
 - **Related**: ADR-016（否决决策：不分叉脚本/不静默安装等）
+- **Community input**: clowder-ai#46（proxy 不可达无 fallback）、clowder-ai#52（upstream fetch 无超时）
 
 ## Risk
 
@@ -96,6 +99,8 @@ created: 2026-03-14
 |------|------|
 | 2026-03-13 | 事故复盘 + 两猫收敛优化方向 |
 | 2026-03-14 | 立项 |
+| 2026-03-14 | 社区反馈纳入 Phase C（clowder-ai#46 proxy fallback + #52 fetch 超时）|
+| 2026-03-14 | Owner: 宪宪/Opus |
 
 ## Links
 
