@@ -2,11 +2,20 @@
 
 # Cat Cafe 启动脚本
 # 用法:
-#   pnpm start              — 开发模式 (next dev + Redis 持久化)
-#   pnpm start --quick      — 跳过 rebuild
-#   pnpm start --memory     — 使用内存存储 (重启丢数据)
-#   pnpm start --no-redis   — 同 --memory
-#   pnpm start --prod-web   — 前端 production build (PWA + Tailscale 友好)
+#   pnpm start                        — 开发模式 (next dev + Redis 持久化)
+#   pnpm start --profile=dev          — 家里开发默认值 (proxy ON, sidecar ON)
+#   pnpm start --profile=opensource   — 开源仓默认值 (proxy OFF, sidecar OFF)
+#   pnpm start --quick                — 跳过 rebuild
+#   pnpm start --memory               — 使用内存存储 (重启丢数据)
+#   pnpm start --no-redis             — 同 --memory
+#   pnpm start --prod-web             — 前端 production build (PWA + Tailscale 友好)
+#
+# Profile 说明:
+#   dev        — proxy ON, ASR/TTS/LLM ON, TTL=永久, redis-dev
+#   opensource — proxy OFF, ASR/TTS/LLM OFF, TTL=86400s, redis-opensource
+#   (无)       — 保持原有行为（各项 ENABLED 默认 0）
+#
+# .env 中的显式值覆盖 profile 默认值。启动摘要标注每个值的来源。
 #
 # --prod-web 模式 (runtime-worktree.sh 自动传入):
 #   - next build + next start（非 next dev）
@@ -41,11 +50,13 @@ NC='\033[0m' # No Color
 QUICK_MODE=false
 USE_REDIS=true
 PROD_WEB=false
+PROFILE=""
 for arg in "$@"; do
     case $arg in
         --quick|-q) QUICK_MODE=true ;;
         --memory|--no-redis) USE_REDIS=false ;;
         --prod-web) PROD_WEB=true ;;
+        --profile=*) PROFILE="${arg#*=}" ;;
     esac
 done
 
@@ -85,11 +96,107 @@ load_dare_env_from_local() {
 
 load_dare_env_from_local
 
-# 默认端口
+# Profile 默认值（env 变量优先，profile 作 fallback）
+apply_profile_defaults() {
+    local profile="$1"
+    # Clear previous profile state
+    unset _PROF_ANTHROPIC_PROXY_ENABLED _PROF_ASR_ENABLED _PROF_TTS_ENABLED
+    unset _PROF_LLM_POSTPROCESS_ENABLED _PROF_REDIS_PROFILE
+    unset _PROF_MESSAGE_TTL_SECONDS _PROF_THREAD_TTL_SECONDS
+    unset _PROF_TASK_TTL_SECONDS _PROF_SUMMARY_TTL_SECONDS
+    case "$profile" in
+        dev)
+            _PROF_ANTHROPIC_PROXY_ENABLED=1
+            _PROF_ASR_ENABLED=1
+            _PROF_TTS_ENABLED=1
+            _PROF_LLM_POSTPROCESS_ENABLED=1
+            _PROF_MESSAGE_TTL_SECONDS=0
+            _PROF_THREAD_TTL_SECONDS=0
+            _PROF_TASK_TTL_SECONDS=0
+            _PROF_SUMMARY_TTL_SECONDS=0
+            _PROF_REDIS_PROFILE=dev
+            ;;
+        opensource)
+            _PROF_ANTHROPIC_PROXY_ENABLED=0
+            _PROF_ASR_ENABLED=0
+            _PROF_TTS_ENABLED=0
+            _PROF_LLM_POSTPROCESS_ENABLED=0
+            _PROF_MESSAGE_TTL_SECONDS=86400
+            _PROF_THREAD_TTL_SECONDS=86400
+            _PROF_TASK_TTL_SECONDS=86400
+            _PROF_SUMMARY_TTL_SECONDS=86400
+            _PROF_REDIS_PROFILE=opensource
+            ;;
+        "")
+            # No profile — all _PROF_ vars stay unset, existing behavior preserved
+            ;;
+        *)
+            echo -e "${RED}ERROR: Unknown profile '$profile'. Valid: dev, opensource${NC}"
+            exit 1
+            ;;
+    esac
+}
+
+apply_profile_defaults "$PROFILE"
+
+# resolve_config: env override > profile default (sets var + _SRC_ annotation)
+# Usage: resolve_config "VAR_NAME" — sets VAR_NAME and _SRC_VAR_NAME in current shell
+resolve_config() {
+    local var_name="$1"
+    local prof_var="_PROF_${var_name}"
+    local env_val="${!var_name}"
+    local prof_val="${!prof_var}"
+    if [ -n "$env_val" ]; then
+        eval "_SRC_${var_name}=\".env override\""
+    elif [ -n "$prof_val" ]; then
+        eval "_SRC_${var_name}=\"profile default ($PROFILE)\""
+        eval "${var_name}=\"${prof_val}\""
+    else
+        eval "_SRC_${var_name}=\"built-in default\""
+    fi
+}
+
+# print_config_summary: display each profile-aware config with its source
+print_config_summary() {
+    echo "  配置来源："
+    local key src_var val source
+    for key in ANTHROPIC_PROXY_ENABLED ASR_ENABLED TTS_ENABLED LLM_POSTPROCESS_ENABLED \
+               MESSAGE_TTL_SECONDS THREAD_TTL_SECONDS TASK_TTL_SECONDS SUMMARY_TTL_SECONDS \
+               REDIS_PROFILE; do
+        val="${!key}"
+        src_var="_SRC_${key}"
+        source="${!src_var:-built-in default}"
+        printf "    %-30s = %-10s ← %s\n" "$key" "$val" "$source"
+    done
+}
+
+# 默认端口 (not profile-dependent)
 API_PORT=${API_SERVER_PORT:-3002}
 WEB_PORT=${FRONTEND_PORT:-3001}
 REDIS_PORT=${REDIS_PORT:-6399}
-REDIS_PROFILE=${REDIS_PROFILE:-dev}
+
+# Profile-aware config resolution
+resolve_config "ANTHROPIC_PROXY_ENABLED"
+resolve_config "ASR_ENABLED"
+resolve_config "TTS_ENABLED"
+resolve_config "LLM_POSTPROCESS_ENABLED"
+resolve_config "MESSAGE_TTL_SECONDS"
+resolve_config "THREAD_TTL_SECONDS"
+resolve_config "TASK_TTL_SECONDS"
+resolve_config "SUMMARY_TTL_SECONDS"
+resolve_config "REDIS_PROFILE"
+
+# Apply built-in fallbacks for vars with no profile and no env
+: "${ANTHROPIC_PROXY_ENABLED:=0}"
+: "${ASR_ENABLED:=0}"
+: "${TTS_ENABLED:=0}"
+: "${LLM_POSTPROCESS_ENABLED:=0}"
+: "${MESSAGE_TTL_SECONDS:=0}"
+: "${THREAD_TTL_SECONDS:=0}"
+: "${TASK_TTL_SECONDS:=0}"
+: "${SUMMARY_TTL_SECONDS:=0}"
+: "${REDIS_PROFILE:=dev}"
+
 REDIS_DATA_DIR=${REDIS_DATA_DIR:-"$HOME/.cat-cafe/redis-${REDIS_PROFILE}"}
 REDIS_BACKUP_DIR=${REDIS_BACKUP_DIR:-"$HOME/.cat-cafe/redis-backups/${REDIS_PROFILE}"}
 REDIS_DBFILE=${REDIS_DBFILE:-dump.rdb}
@@ -97,11 +204,6 @@ REDIS_PIDFILE="${REDIS_DATA_DIR}/redis-${REDIS_PORT}.pid"
 REDIS_LOGFILE="${REDIS_DATA_DIR}/redis-${REDIS_PORT}.log"
 STARTED_REDIS=false
 
-# 默认永久保留（用户无需手动配置 TTL）
-MESSAGE_TTL_SECONDS=${MESSAGE_TTL_SECONDS:-0}
-THREAD_TTL_SECONDS=${THREAD_TTL_SECONDS:-0}
-TASK_TTL_SECONDS=${TASK_TTL_SECONDS:-0}
-SUMMARY_TTL_SECONDS=${SUMMARY_TTL_SECONDS:-0}
 export MESSAGE_TTL_SECONDS THREAD_TTL_SECONDS TASK_TTL_SECONDS SUMMARY_TTL_SECONDS
 
 # 杀掉占用端口的进程
@@ -555,6 +657,9 @@ main() {
     echo ""
     echo "========================"
     echo -e "${GREEN}🎉 Cat Café 已启动！${NC}"
+    [ -n "$PROFILE" ] && echo -e "  Profile: ${CYAN}${PROFILE}${NC}"
+    echo ""
+    print_config_summary
     echo ""
     echo "服务地址："
     echo "  - Frontend: http://localhost:$WEB_PORT"
