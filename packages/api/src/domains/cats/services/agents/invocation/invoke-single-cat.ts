@@ -18,6 +18,7 @@ import { resolveAnthropicRuntimeProfile } from '../../../../../config/provider-p
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
+import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import type { AgentPaneRegistry } from '../../../../terminal/agent-pane-registry.js';
 import type { TmuxGateway } from '../../../../terminal/tmux-gateway.js';
 import { createPromptDigest } from '../../context/prompt-digest.js';
@@ -464,13 +465,27 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           if (profile.baseUrl) {
             // Route through local proxy gateway if enabled (default: on).
             // Proxy uses slug-based routing: /SLUG/v1/messages → upstream/v1/messages
-            const proxyPort = process.env.ANTHROPIC_PROXY_PORT || '9877';
+            const proxyPortStr = process.env.ANTHROPIC_PROXY_PORT || '9877';
+            const proxyPortNum = parseInt(proxyPortStr, 10);
             const proxyEnabled = process.env.ANTHROPIC_PROXY_ENABLED !== '0';
-            if (proxyEnabled) {
-              const slug = deriveProxySlug(profile.id);
-              registerProxyUpstream(projectRoot, slug, profile.baseUrl);
-              callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyPort}/${slug}`;
+            if (proxyEnabled && !Number.isNaN(proxyPortNum) && proxyPortNum > 0 && proxyPortNum <= 65535) {
+              const proxyAlive = await tcpProbe('127.0.0.1', proxyPortNum);
+              if (proxyAlive) {
+                const slug = deriveProxySlug(profile.id);
+                registerProxyUpstream(projectRoot, slug, profile.baseUrl);
+                callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyPortStr}/${slug}`;
+              } else {
+                console.warn(
+                  `[invoke] proxy 127.0.0.1:${proxyPortStr} unreachable, falling back to direct upstream: ${profile.baseUrl}`,
+                );
+                callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = profile.baseUrl;
+              }
             } else {
+              if (proxyEnabled && (Number.isNaN(proxyPortNum) || proxyPortNum <= 0 || proxyPortNum > 65535)) {
+                console.warn(
+                  `[invoke] invalid ANTHROPIC_PROXY_PORT="${proxyPortStr}", falling back to direct upstream`,
+                );
+              }
               callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = profile.baseUrl;
             }
           }

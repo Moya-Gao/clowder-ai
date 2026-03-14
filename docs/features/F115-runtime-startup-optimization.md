@@ -55,11 +55,11 @@ created: 2026-03-14
 - [ ] AC-B2: ASR/TTS 超时 30s、LLM 超时 60s（可配置）
 - [ ] AC-B3: summary 只报 `ready` 状态的服务
 
-### Phase C（Proxy 弹性）
-- [ ] AC-C1: upstream 529/503 自动 retry（最多 3 次，exponential backoff）
-- [ ] AC-C2: thinking/signature 事件不做 JSON round-trip
-- [ ] AC-C3: proxy 进程不可达时 fallback 直连 upstream（TCP 探活 + 结构化告警）
-- [ ] AC-C4: upstream fetch 增加超时（60s），避免无限等待返回 502（clowder-ai#52）
+### Phase C（Proxy 弹性） ✅
+- [x] AC-C1: upstream 529/503 自动 retry（最多 3 次，exponential backoff）
+- [x] AC-C2: thinking/signature 事件不做 JSON round-trip
+- [x] AC-C3: proxy 进程不可达时 fallback 直连 upstream（TCP 探活 + 结构化告警）
+- [x] AC-C4: upstream fetch 增加超时（60s），避免无限等待返回 502（clowder-ai#52）
 
 ### Phase D（交互式 Setup）
 - [ ] AC-D1: setup 脚本检测缺失依赖并提示安装命令

@@ -41,6 +41,10 @@ const UPSTREAMS_PATH =
   getArg('upstreams') ||
   process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH ||
   resolve(PROJECT_ROOT, '.cat-cafe', 'proxy-upstreams.json');
+const UPSTREAM_TIMEOUT_MS = parseInt(
+  getArg('upstream-timeout') || process.env.ANTHROPIC_PROXY_UPSTREAM_TIMEOUT_MS || '60000',
+  10,
+);
 
 /** Load upstream mapping from config file. Re-read on each request for hot-reload. */
 function loadUpstreams() {
@@ -321,11 +325,25 @@ const server = createServer(async (req, res) => {
     const MAX_RETRIES = 3;
     let upstream;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      upstream = await fetch(targetUrl.href, {
-        method: req.method || 'GET',
-        headers: forwardHeaders,
-        ...(sanitizedBody.length > 0 ? { body: sanitizedBody } : {}),
-      });
+      // Connect-only timeout: abort if upstream doesn't respond with headers
+      // within UPSTREAM_TIMEOUT_MS, but do NOT abort mid-stream once headers arrive.
+      const connectController = new AbortController();
+      const connectTimer = setTimeout(() => {
+        connectController.abort(new DOMException('upstream connect timeout', 'TimeoutError'));
+      }, UPSTREAM_TIMEOUT_MS);
+
+      try {
+        upstream = await fetch(targetUrl.href, {
+          method: req.method || 'GET',
+          headers: forwardHeaders,
+          ...(sanitizedBody.length > 0 ? { body: sanitizedBody } : {}),
+          signal: connectController.signal,
+        });
+      } finally {
+        // Headers received (or error thrown) — cancel the connect timeout
+        // so it does not fire during body streaming.
+        clearTimeout(connectTimer);
+      }
 
       if ((upstream.status === 429 || upstream.status === 529) && attempt < MAX_RETRIES) {
         // Respect Retry-After header, fallback to exponential backoff
@@ -414,15 +432,18 @@ const server = createServer(async (req, res) => {
         console.log(`[proxy #${reqId}] done, ${totalBytes} bytes${isSSE ? ' (SSE)' : ''}, status=${upstream.status}`);
     }
   } catch (err) {
+    const isTimeout = err.name === 'TimeoutError';
+    const status = isTimeout ? 504 : 502;
+    const errorType = isTimeout ? 'proxy_timeout' : 'proxy_error';
     console.error(
-      `[proxy #${reqId}] upstream error:`,
+      `[proxy #${reqId}] ${isTimeout ? 'upstream timeout' : 'upstream error'}:`,
       err.message,
       err.cause ? `(cause: ${err.cause.message || err.cause})` : '',
     );
     if (!res.headersSent) {
-      res.writeHead(502, { 'content-type': 'application/json' });
+      res.writeHead(status, { 'content-type': 'application/json' });
     }
-    res.end(JSON.stringify({ type: 'error', error: { type: 'proxy_error', message: err.message } }));
+    res.end(JSON.stringify({ type: 'error', error: { type: errorType, message: err.message } }));
   }
 });
 
@@ -432,5 +453,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[anthropic-proxy] listening on http://127.0.0.1:${PORT}`);
   console.log(`[anthropic-proxy] upstreams file: ${UPSTREAMS_PATH}`);
   console.log(`[anthropic-proxy] upstreams: ${slugs.length > 0 ? slugs.join(', ') : '(none)'}`);
+  console.log(`[anthropic-proxy] upstream timeout: ${UPSTREAM_TIMEOUT_MS}ms`);
   console.log(`[anthropic-proxy] debug: ${DEBUG ? 'ON' : 'OFF'}`);
 });
