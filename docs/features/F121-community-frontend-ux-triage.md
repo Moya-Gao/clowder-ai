@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F121: Community Frontend UX Triage — 社区前端交互体验侦查与分诊
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: in-progress (code fixes merged, pending outbound sync) | **Owner**: 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -107,6 +107,7 @@ PR #40 和 #43 方向正确但都有深层问题（缺测试 + 边界未覆盖 +
 | 2026-06-12 | Phase C 社区 PR 侦查（金渐层）：#28 有 PR#43、#27 有 PR#40（mindfn），但 review 来自社区 Collaborator bouillipx 不是我们家猫，需要正式 inbound review |
 | 2026-06-12 | Phase C 复核（缅因猫 gpt52）：PR#40 有 replace hydration 边界问题 + 缺回归测试；PR#43 有 scope 偏差（只修状态栏不是聊天面板）+ 缺测试。两个都不能直接 merge |
 | 2026-03-14 | Phase D 决策：按 Inbound PR B2 上游完整修复路线，关闭社区 PR #40/#43，cat-cafe 做终态修复后 Outbound Sync |
+| 2026-03-14 | Code fixes merged (PR #449): #22/#89/#28/#27 全部修复，砚砚(codex) review 放行 + 云端 review 通过 |
 
 ## Links
 
