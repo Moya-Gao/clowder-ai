@@ -225,7 +225,12 @@ const GOVERNANCE_L0_DIGEST = `## 家规（shared-rules.md）
 - Bug先定位根因再修，禁止猜测修补。复现→日志→调用链→根因→动手
 - 不确定方向：停→搜→问→确认→再动手，禁止"先做了再说"
 - "完成"附证据（测试/截图/日志）。Bug先红后绿
-- scope失控→记录；同类错误→提案；有价值经验→Episode→蒸馏→Eval（self-evolution+五级阶梯）`;
+- scope失控→记录；同类错误→提案；有价值经验→Episode→蒸馏→Eval（self-evolution+五级阶梯）
+Magic Words（铲屎官对你说以下词=手动拉闸，仅铲屎官当前指令触发，引用/复述/讨论历史不触发）：
+-「脚手架」= 你在偷懒写临时方案 → 停，审视产物是否终态，不是→重写
+-「绕路了」= 局部最优但全局绕路 → 停，画出直线路径，丢掉绕路部分
+-「喵约」= 你忘了我们的约定 → 重读本段家规，逐条对照当前行为
+-「星星罐子」= P0不可逆风险 → 立刻停止新增副作用（不发新命令、不写新文件、不push），等铲屎官指示`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */

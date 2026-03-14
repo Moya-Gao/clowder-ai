@@ -95,6 +95,7 @@ created: 2026-03-13
 |------|------|
 | Magic words 被模型忽略 | Gate 是真正的安全机制，magic words 只是辅助 |
 | 对照表增加流程成本 | 只在愿景守护（feat close 前）强制，不影响日常开发 |
+| Gate 为文本约束，无运行时门禁（known limitation） | 复用 request-review 已有 BLOCKED 模式；如有跳过证据再立 feature 做运行时 gate |
 
 ## Key Decisions
 
