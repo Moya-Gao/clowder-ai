@@ -160,6 +160,10 @@ export function useChatHistory(threadId: string) {
   const prevCountRef = useRef(0);
   const scrollSnapshotRef = useRef<number | null>(null);
 
+  // clowder-ai#27: per-thread scroll position save/restore
+  const scrollPositionsRef = useRef<Map<string, number>>(new Map());
+  const restoringScrollRef = useRef<string | null>(null);
+
   // Track loading guard per-thread to prevent double-fetch
   const loadingRef = useRef(false);
 
@@ -442,6 +446,9 @@ export function useChatHistory(threadId: string) {
     abortRef.current = new AbortController();
     loadingRef.current = false;
     const controller = abortRef.current;
+    // clowder-ai#27: capture ref values for cleanup (React lint: refs may change before cleanup runs)
+    const scrollEl = scrollContainerRef.current;
+    const scrollPositions = scrollPositionsRef.current;
 
     // Check if this thread has cached messages in the threadStates map.
     // If so, the store's setCurrentThread already restored them — skip API fetch.
@@ -494,9 +501,18 @@ export function useChatHistory(threadId: string) {
       }
     };
 
+    // clowder-ai#27: mark for scroll restoration if we have a saved position
+    if (scrollPositionsRef.current.has(threadId)) {
+      restoringScrollRef.current = threadId;
+    }
+
     void bootstrap();
 
     return () => {
+      // clowder-ai#27: save scroll position before leaving this thread
+      if (scrollEl) {
+        scrollPositions.set(threadId, scrollEl.scrollTop);
+      }
       clearTimeout(secondaryFallbackTimer);
       abortRef.current?.abort();
     };
@@ -536,6 +552,20 @@ export function useChatHistory(threadId: string) {
     prevFirstIdRef.current = currentFirstId;
 
     if (messages.length === 0) return;
+
+    // clowder-ai#27: restore saved scroll position on ANY messages change while flag is set.
+    // Covers all thread-switch paths: prevCount===0 (fresh load), prevCount>messages.length
+    // (cached thread with fewer messages), and messages.length>prevCount (replace hydration).
+    if (restoringScrollRef.current && el) {
+      const saved = scrollPositionsRef.current.get(restoringScrollRef.current);
+      restoringScrollRef.current = null;
+      if (saved !== undefined) {
+        requestAnimationFrame(() => {
+          el.scrollTop = saved;
+        });
+        return;
+      }
+    }
 
     // Initial load - scroll to bottom
     if (prevCount === 0) {

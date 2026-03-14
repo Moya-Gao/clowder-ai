@@ -58,6 +58,7 @@ export function useCollapseState({ threadGroups, searchQuery, currentThreadId }:
     const groupsMeta = threadGroups.map((g) => ({
       groupKey: getGroupKey(g),
       threadIds: g.threads.map((t) => t.id),
+      type: g.type,
     }));
     const key = findGroupKeyForThread(currentThreadId, groupsMeta);
     if (key) {

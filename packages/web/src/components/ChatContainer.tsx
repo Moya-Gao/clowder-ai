@@ -116,6 +116,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }, []);
   // F063: resizable split pane — chatBasis as percentage (20-80), persisted
   const [chatBasis, setChatBasis, resetChatBasis] = usePersistedState('cat-cafe:chatBasis', 50);
+  // clowder-ai#28: right status panel width in px, persisted
+  const STATUS_PANEL_DEFAULT = 288; // w-72
+  const [statusPanelWidth, setStatusPanelWidth, resetStatusPanelWidth] = usePersistedState(
+    'cat-cafe:statusPanelWidth',
+    STATUS_PANEL_DEFAULT,
+  );
   // F063 Gap 6: sidebar width in px, persisted
   const SIDEBAR_DEFAULT = 240;
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
@@ -138,6 +144,13 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       setSidebarWidth((prev) => Math.min(480, Math.max(180, prev + delta)));
     },
     [setSidebarWidth],
+  );
+  // clowder-ai#28: drag-to-resize for right status panel (negative delta = panel wider)
+  const handleStatusPanelResize = useCallback(
+    (delta: number) => {
+      setStatusPanelWidth((prev) => Math.min(480, Math.max(200, prev - delta)));
+    },
+    [setStatusPanelWidth],
   );
 
   // F063: auto-open panel when message file path click triggers workspace mode
@@ -613,14 +626,24 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       </div>
 
       {statusPanelOpen && rightPanelMode === 'status' && (
-        <RightStatusPanel
-          intentMode={intentMode}
-          targetCats={targetCats}
-          catStatuses={catStatuses}
-          catInvocations={catInvocations}
-          threadId={threadId}
-          messageSummary={messageSummary}
-        />
+        <>
+          <div className="hidden lg:flex items-center">
+            <ResizeHandle
+              direction="horizontal"
+              onResize={handleStatusPanelResize}
+              onDoubleClick={resetStatusPanelWidth}
+            />
+          </div>
+          <RightStatusPanel
+            intentMode={intentMode}
+            targetCats={targetCats}
+            catStatuses={catStatuses}
+            catInvocations={catInvocations}
+            threadId={threadId}
+            messageSummary={messageSummary}
+            width={statusPanelWidth}
+          />
+        </>
       )}
       {statusPanelOpen && rightPanelMode === 'workspace' && (
         <>

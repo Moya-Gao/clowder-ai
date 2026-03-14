@@ -723,7 +723,7 @@
     {
       "id": "F118",
       "name": "CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复",
-      "status": "in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0",
+      "status": "done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14",
       "file": "F118-cli-liveness-watchdog.md"
     },
     {
@@ -745,5 +745,5 @@
       "file": "F121-community-frontend-ux-triage.md"
     }
   ],
-  "generated_at": "2026-03-14T17:43:13.316Z"
+  "generated_at": "2026-03-14T18:49:54.196Z"
 }
