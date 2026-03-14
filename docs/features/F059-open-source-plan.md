@@ -230,6 +230,18 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 - **D4**: 安全扫描加强（内部路径/运行态坐标 + 文件名级 denylist）
 - **D5**: 共享脚本变更纪律（说明 + 强制 smoke test）
 
+**Phase 4b: 同步 Runtime 事故复盘（3/13 下午事故后新增）** ⏳
+
+> 详见 [同步 Runtime 事故复盘](../discussions/2026-03-13-f059-sync-runtime-postmortem.md)
+
+Phase 4 实施过程中暴露的 runtime 层问题：
+- 共享脚本改默认值导致家里 runtime 行为漂移
+- sidecar 启动验证假阳性
+- proxy 被误杀和生命周期管理
+- 修 A 炸 B 链条分析
+
+待讨论：脚本 profile 化、sidecar 启动可靠性、proxy 弹性、可选依赖自动安装
+
 **Phase 5: 社区编号体系（3/13 讨论收敛）**
 
 > 详见 [CEP 编号体系与社区治理讨论](../discussions/2026-03-13-f059-cep-numbering-and-community-governance.md)
