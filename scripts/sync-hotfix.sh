@@ -4,7 +4,10 @@
 # 基于最新 sync tag 在 clowder-ai 创建分支，从 cat-cafe 复制指定文件，
 # 经过 sanitizer 处理后提交。用于社区 bug 修复的小而精 PR。
 #
-# Usage:
+# Usage (MUST run from a worktree based on a sync tag):
+#   git worktree add -b fix/xxx ../cat-cafe-hotfix-xxx sync/2026-03-13-HHMMSS
+#   cd ../cat-cafe-hotfix-xxx
+#   # ... make your fix ...
 #   bash scripts/sync-hotfix.sh <branch-name> <file1> [file2] ...
 #
 # Example:
@@ -13,10 +16,11 @@
 #     packages/api/src/utils/proxy-client.ts
 #
 # Flags:
-#   --dry-run     预览操作，不实际修改 clowder-ai
-#   --tag=NAME    指定 sync tag（默认: 最新 sync/* tag）
-#   --no-sanitize 跳过 sanitizer（调试用，不推荐）
-#   --push        自动推送分支到 origin
+#   --dry-run              预览操作，不实际修改 clowder-ai
+#   --tag=NAME             指定 sync tag（默认: 最新 sync/* tag）
+#   --no-sanitize          跳过 sanitizer（调试用，不推荐）
+#   --push                 自动推送分支到 origin
+#   --force-unsafe-source  允许从非 worktree 运行（⚠ 不满足 AC#3）
 #
 # Prerequisites:
 #   - clowder-ai repo 在 ../clowder-ai（或 $CLOWDER_AI_DIR）
@@ -45,6 +49,7 @@ DRY_RUN=false
 CUSTOM_TAG=""
 NO_SANITIZE=false
 AUTO_PUSH=false
+FORCE_UNSAFE_SOURCE=false
 BRANCH_NAME=""
 FILES=()
 
@@ -54,6 +59,7 @@ for arg in "$@"; do
     --tag=*) CUSTOM_TAG="${arg#--tag=}" ;;
     --no-sanitize) NO_SANITIZE=true ;;
     --push) AUTO_PUSH=true ;;
+    --force-unsafe-source) FORCE_UNSAFE_SOURCE=true ;;
     -*)
       echo -e "${RED}Unknown flag: $arg${NC}"
       echo "Usage: $0 <branch-name> <file1> [file2] ..."
@@ -70,23 +76,17 @@ for arg in "$@"; do
 done
 
 # ── Validate args ──
-if [ -z "$BRANCH_NAME" ]; then
-  echo -e "${RED}Error: branch name required${NC}"
-  echo "Usage: $0 <branch-name> <file1> [file2] ..."
-  echo ""
-  echo "Example:"
-  echo "  $0 fix/proxy-fallback packages/api/src/routes/invoke-single-cat.ts"
-  exit 1
-fi
-
-if [ ${#FILES[@]} -eq 0 ]; then
-  echo -e "${RED}Error: at least one file path required${NC}"
+if [ -z "$BRANCH_NAME" ] || [ ${#FILES[@]} -eq 0 ]; then
+  echo -e "${RED}Error: branch name and at least one file required${NC}"
   echo "Usage: $0 <branch-name> <file1> [file2] ..."
   exit 1
 fi
 
 # ── Resolve directories ──
-SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# SOURCE_DIR = pwd (expected to be a worktree based on a sync tag)
+SOURCE_DIR="$(pwd)"
+# SCRIPT_DIR = where the script lives (for finding sanitizer etc.)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_DIR="${CLOWDER_AI_DIR:-$(cd "$SOURCE_DIR/.." && pwd)/clowder-ai}"
 MANIFEST="$SOURCE_DIR/sync-manifest.yaml"
 
@@ -101,74 +101,49 @@ if [ ! -f "$MANIFEST" ]; then
   exit 1
 fi
 
-# ── Parse manifest allowlist + excluded (reuse yaml_list from sync-to-opensource.sh) ──
+# ── Source side constraint: must be a git worktree ──
+GIT_COMMON="$(git -C "$SOURCE_DIR" rev-parse --git-common-dir 2>/dev/null || echo "")"
+GIT_DIR="$(git -C "$SOURCE_DIR" rev-parse --git-dir 2>/dev/null || echo "")"
+if [ "$GIT_COMMON" = "$GIT_DIR" ] || [ -z "$GIT_COMMON" ]; then
+  if [ "$FORCE_UNSAFE_SOURCE" = true ]; then
+    echo -e "${YELLOW}⚠ WARNING: Not a worktree. Does NOT satisfy AC#3.${NC}"
+  else
+    echo -e "${RED}Error: pwd is not a git worktree.${NC}"
+    echo "Run from a worktree: git worktree add -b fix/xxx ../hotfix sync/TAG"
+    echo "Or bypass (unsafe): --force-unsafe-source"
+    exit 1
+  fi
+fi
+
+# ── Parse manifest allowlist + excluded ──
 yaml_list() {
   local key="$1"
   awk -v k="$key:" '
-    BEGIN { found=0 }
-    found && /^[^ #-]/ { exit }
-    found && /^  - / {
-      line = $0
-      sub(/^  - /, "", line)
-      sub(/#.*/, "", line)
-      gsub(/^[[:space:]]+/, "", line)
-      gsub(/[[:space:]]+$/, "", line)
-      gsub(/"/, "", line)
-      if (length(line) > 0) print line
-      next
-    }
-    $0 ~ "^"k { found=1 }
+    BEGIN{f=0} f&&/^[^ #-]/{exit}
+    f&&/^  - /{l=$0;sub(/^  - /,"",l);sub(/#.*/,"",l);gsub(/^[[:space:]]+/,"",l);gsub(/[[:space:]]+$/,"",l);gsub(/"/,"",l);if(length(l)>0)print l;next}
+    $0~"^"k{f=1}
   ' "$MANIFEST"
 }
 
-MANAGED_ROOTS=()
-while IFS= read -r line; do MANAGED_ROOTS+=("$line"); done < <(yaml_list "managed_roots")
-MANAGED_FILES=()
-while IFS= read -r line; do MANAGED_FILES+=("$line"); done < <(yaml_list "managed_files")
-MANAGED_SCRIPTS=()
-while IFS= read -r line; do MANAGED_SCRIPTS+=("$line"); done < <(yaml_list "managed_scripts")
-EXCLUDED_ITEMS=()
-while IFS= read -r line; do EXCLUDED_ITEMS+=("$line"); done < <(yaml_list "excluded")
-DECISIONS_ALLOWLIST=()
-while IFS= read -r line; do DECISIONS_ALLOWLIST+=("$line"); done < <(yaml_list "docs_decisions_allowlist")
+MANAGED_ROOTS=(); while IFS= read -r l; do MANAGED_ROOTS+=("$l"); done < <(yaml_list "managed_roots")
+MANAGED_FILES=(); while IFS= read -r l; do MANAGED_FILES+=("$l"); done < <(yaml_list "managed_files")
+MANAGED_SCRIPTS=(); while IFS= read -r l; do MANAGED_SCRIPTS+=("$l"); done < <(yaml_list "managed_scripts")
+EXCLUDED_ITEMS=(); while IFS= read -r l; do EXCLUDED_ITEMS+=("$l"); done < <(yaml_list "excluded")
+DECISIONS_ALLOWLIST=(); while IFS= read -r l; do DECISIONS_ALLOWLIST+=("$l"); done < <(yaml_list "docs_decisions_allowlist")
 
-# Check if a file is allowed by the manifest (allowlisted and not excluded)
 file_allowed() {
   local f="$1"
-
-  # Check excluded list first
   for exc in "${EXCLUDED_ITEMS[@]}"; do
-    # Exact match
-    if [ "$f" = "$exc" ]; then return 1; fi
-    # Directory prefix match (exc ends with /)
-    if [[ "$exc" == */ ]] && [[ "$f" == "$exc"* ]]; then return 1; fi
-    # Glob patterns (*.pen etc)
-    case "$exc" in
-      \*.*) [[ "$f" == $exc ]] && return 1 ;;
-    esac
+    [ "$f" = "$exc" ] && return 1
+    [[ "$exc" == */ ]] && [[ "$f" == "$exc"* ]] && return 1
+    case "$exc" in \*.*) [[ "$f" == $exc ]] && return 1 ;; esac
   done
-
-  # Check managed_roots (file is under a managed root directory)
   for root in "${MANAGED_ROOTS[@]}"; do
-    if [[ "$f" == "$root/"* ]] || [ "$f" = "$root" ]; then return 0; fi
+    [[ "$f" == "$root/"* ]] || [ "$f" = "$root" ] && return 0
   done
-
-  # Check managed_files (exact match)
-  for mf in "${MANAGED_FILES[@]}"; do
-    if [ "$f" = "$mf" ]; then return 0; fi
-  done
-
-  # Check managed_scripts (exact match)
-  for ms in "${MANAGED_SCRIPTS[@]}"; do
-    if [ "$f" = "$ms" ]; then return 0; fi
-  done
-
-  # Check docs_decisions_allowlist (exact match)
-  for da in "${DECISIONS_ALLOWLIST[@]}"; do
-    if [ "$f" = "$da" ]; then return 0; fi
-  done
-
-  # Not in any allowlist
+  for mf in "${MANAGED_FILES[@]}"; do [ "$f" = "$mf" ] && return 0; done
+  for ms in "${MANAGED_SCRIPTS[@]}"; do [ "$f" = "$ms" ] && return 0; done
+  for da in "${DECISIONS_ALLOWLIST[@]}"; do [ "$f" = "$da" ] && return 0; done
   return 1
 }
 
@@ -180,7 +155,7 @@ echo "Files:  ${FILES[*]}"
 echo ""
 
 # ── Step 1: Find latest sync tag (on cat-cafe, not clowder-ai) ──
-echo -e "${BLUE}[Step 1/6] Finding sync tag on source repo...${NC}"
+echo -e "${BLUE}[Step 1/7] Finding sync tag on source repo...${NC}"
 if [ -n "$CUSTOM_TAG" ]; then
   SYNC_TAG="$CUSTOM_TAG"
   if ! git -C "$SOURCE_DIR" rev-parse "refs/tags/$SYNC_TAG" >/dev/null 2>&1; then
@@ -200,7 +175,7 @@ echo -e "  Tag commit: $(git -C "$SOURCE_DIR" log -1 --format='%h %s' "refs/tags
 
 # ── Step 2: Validate source files exist + manifest allowlist ──
 echo ""
-echo -e "${BLUE}[Step 2/6] Validating source files against manifest...${NC}"
+echo -e "${BLUE}[Step 2/7] Validating source files against manifest...${NC}"
 VALIDATION_FAIL=false
 for f in "${FILES[@]}"; do
   if [ ! -f "$SOURCE_DIR/$f" ]; then
@@ -223,7 +198,7 @@ fi
 
 # ── Step 3: Check target repo cleanliness ──
 echo ""
-echo -e "${BLUE}[Step 3/6] Checking target repo state...${NC}"
+echo -e "${BLUE}[Step 3/7] Checking target repo state...${NC}"
 
 if [ "$DRY_RUN" = false ]; then
   # Check for uncommitted changes or staged files in target
@@ -235,9 +210,42 @@ if [ "$DRY_RUN" = false ]; then
   echo -e "  ${GREEN}✓${NC} Target repo clean"
 fi
 
-# ── Step 4: Create branch in target ──
+# ── Step 4: Target drift check (AC#3 guardian) ──
 echo ""
-echo -e "${BLUE}[Step 4/6] Creating branch in target repo...${NC}"
+echo -e "${BLUE}[Step 4/7] Checking target files for post-sync drift...${NC}"
+
+# Verify clowder-ai main files haven't changed since last full sync
+SYNC_TAG_DATE=$(git -C "$SOURCE_DIR" log -1 --format='%aI' "refs/tags/$SYNC_TAG" 2>/dev/null || echo "")
+DRIFT_FAIL=false
+for f in "${FILES[@]}"; do
+  if [ ! -f "$TARGET_DIR/$f" ]; then
+    echo -e "  ${GREEN}✓${NC} $f (new file)"
+    continue
+  fi
+  if [ -z "$SYNC_TAG_DATE" ]; then
+    echo -e "  ${YELLOW}⚠${NC} $f (cannot determine sync date)"
+    continue
+  fi
+  DRIFT_COMMITS=$(git -C "$TARGET_DIR" log --oneline --after="$SYNC_TAG_DATE" -- "$f" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$DRIFT_COMMITS" -gt 0 ]; then
+    echo -e "  ${RED}✗ DRIFT: $f has $DRIFT_COMMITS commit(s) in clowder-ai after sync tag${NC}"
+    DRIFT_FAIL=true
+  else
+    echo -e "  ${GREEN}✓${NC} $f (no drift)"
+  fi
+done
+
+if [ "$DRIFT_FAIL" = true ]; then
+  echo -e "${RED}Error: target drift detected. Cannot safely whole-file copy.${NC}"
+  echo "Options:"
+  echo "  1. Cherry-pick the fix manually into clowder-ai"
+  echo "  2. Run a full sync first to reset the baseline"
+  exit 1
+fi
+
+# ── Step 5: Create branch in target ──
+echo ""
+echo -e "${BLUE}[Step 5/7] Creating branch in target repo...${NC}"
 
 if [ "$DRY_RUN" = true ]; then
   echo -e "  ${YELLOW}[dry-run] Would create branch '$BRANCH_NAME' from clowder-ai main${NC}"
@@ -254,12 +262,12 @@ else
   echo -e "  ${GREEN}✓ Branch '$BRANCH_NAME' created from clowder-ai main${NC}"
 fi
 
-# ── Step 5: Copy files + sanitize ──
+# ── Step 6: Copy files + sanitize ──
 echo ""
-echo -e "${BLUE}[Step 5/6] Copying files and sanitizing...${NC}"
+echo -e "${BLUE}[Step 6/7] Copying files and sanitizing...${NC}"
 
 # Sanitizer rules: shared with sync-to-opensource.sh (single source of truth)
-SANITIZER="$SOURCE_DIR/scripts/_sanitize-rules.pl"
+SANITIZER="$SCRIPT_DIR/_sanitize-rules.pl"
 if [ ! -f "$SANITIZER" ]; then
   echo -e "${RED}Error: _sanitize-rules.pl not found at $SANITIZER${NC}"
   exit 1
@@ -292,9 +300,9 @@ for f in "${FILES[@]}"; do
   COPIED_FILES+=("$f")
 done
 
-# ── Step 6: Commit ──
+# ── Step 7: Commit ──
 echo ""
-echo -e "${BLUE}[Step 6/6] Committing...${NC}"
+echo -e "${BLUE}[Step 7/7] Committing...${NC}"
 
 if [ "$DRY_RUN" = true ]; then
   echo -e "  ${YELLOW}[dry-run] Would commit ${#FILES[@]} file(s) on branch '$BRANCH_NAME'${NC}"
@@ -333,13 +341,7 @@ echo ""
 if [ "$DRY_RUN" = false ] && [ "$AUTO_PUSH" = false ]; then
   echo -e "${YELLOW}Next steps:${NC}"
   echo "  1. cd $TARGET_DIR && git push -u origin $BRANCH_NAME"
-  echo "  2. Open PR on clowder-ai: gh pr create --title 'fix: ...' --body '...'"
-  echo "  3. Apply same fix to cat-cafe main (if not already done)"
-  echo ""
-  echo -e "${YELLOW}Intake ledger (before next full sync):${NC}"
-  echo "  1. Record the hotfix PR decision:"
-  echo "     bash scripts/intake-from-opensource.sh --record --pr <PR_NUMBER> --decision <absorbed|public-only>"
-  echo "     (absorbed = fix already in cat-cafe main; public-only = clowder-ai-only change)"
-  echo "  2. After all PRs recorded, advance the ledger gate:"
-  echo "     bash scripts/intake-from-opensource.sh --advance-ledger"
+  echo "  2. gh pr create --title 'fix: ...' --body '...'"
+  echo "  3. After merge, cherry-pick fix back to cat-cafe main"
+  echo "  4. Record in intake ledger: scripts/intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only>"
 fi
