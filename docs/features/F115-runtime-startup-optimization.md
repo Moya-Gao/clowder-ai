@@ -1,0 +1,107 @@
+---
+feature_ids: [F115]
+related_features: [F059]
+topics: [runtime, startup, devex, infrastructure]
+doc_kind: spec
+created: 2026-03-14
+---
+
+# F115: Runtime 启动链优化
+
+> **Status**: spec | **Owner**: TBD | **Priority**: P1
+
+## Why
+
+2026-03-13 clowder-ai 同步验收中发生一连串 runtime 事故（proxy 被杀、sidecar 假阳性、529 透传、依赖缺失），暴露了 `start-dev.sh` 在跨仓共享时的脆弱性。两猫（opus + gpt52）独立复盘后收敛了 4 个优化方向（见 ADR-016）。本 feature 将这些优化落地为可交付的代码改动。
+
+## What
+
+### Phase A: start-dev.sh Profile 化
+
+将 `start-dev.sh` 改为 `--profile=dev|opensource` 模式：
+- 不同 profile 决定默认值（proxy、sidecar、端口等）
+- `.env` 只做显式 override，不负责定义环境身份
+- 启动摘要标注每个值来源（`profile default` vs `.env override`）
+
+### Phase B: Sidecar 状态分层
+
+- 状态机：`disabled → launching → ready → failed`
+- `wait_for_port` + 合理超时（ASR/TTS 30s, LLM 60s）
+- 启动失败明确报告，不静默跳过
+- summary 只列实际 `ready` 的服务
+
+### Phase C: Proxy 弹性
+
+- upstream 529/503 实现 retry with exponential backoff（最多 3 次）
+- thinking/signature 相关事件特殊保护，避免 JSON round-trip 破坏签名
+- 非流式非事件路径可做最薄错误包装
+
+### Phase D: 交互式 Setup 脚本
+
+- 提供交互式 setup 脚本让用户选择可选依赖（mlx-lm、TTS/ASR 等）
+- `start-dev.sh` 只检查、报错、给下一步命令
+- 可选显式 `--install-missing` 触发安装，默认不安装
+
+## Acceptance Criteria
+
+### Phase A（Profile 化）
+- [ ] AC-A1: `start-dev.sh --profile=opensource` 使用开源仓默认值（proxy OFF 等）
+- [ ] AC-A2: `start-dev.sh --profile=dev` 使用家里默认值（proxy ON 等）
+- [ ] AC-A3: 启动摘要标注每个配置值来源
+- [ ] AC-A4: `.env` override 正确覆盖 profile 默认值
+
+### Phase B（Sidecar 状态分层）
+- [ ] AC-B1: sidecar 状态机 `disabled/launching/ready/failed` 正确流转
+- [ ] AC-B2: ASR/TTS 超时 30s、LLM 超时 60s（可配置）
+- [ ] AC-B3: summary 只报 `ready` 状态的服务
+
+### Phase C（Proxy 弹性）
+- [ ] AC-C1: upstream 529/503 自动 retry（最多 3 次，exponential backoff）
+- [ ] AC-C2: thinking/signature 事件不做 JSON round-trip
+
+### Phase D（交互式 Setup）
+- [ ] AC-D1: setup 脚本检测缺失依赖并提示安装命令
+- [ ] AC-D2: `--install-missing` 可自动安装到 venv
+- [ ] AC-D3: `start-dev.sh` 检测到 ENABLED=1 但依赖缺失时报错而非静默跳过
+
+## Dependencies
+
+- **Evolved from**: F059（同步验收中发现的 runtime 问题）
+- **Related**: ADR-016（否决决策：不分叉脚本/不静默安装等）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| Profile 化改动影响家里现有 runtime | 改动同 commit 补家里 `.env` 显式值 + 真实启动验收（LL-030） |
+| Proxy retry 可能与 thinking block 签名冲突 | Phase C 明确保护 thinking/signature 事件不做 round-trip |
+
+## Open Questions
+
+| # | 问题 | 状态 |
+|---|------|------|
+| OQ-1 | Profile 的具体默认值列表需要逐项梳理 | ⬜ 未定 |
+| OQ-2 | 交互式 setup 是否需要支持 Docker 环境 | ⬜ 未定 |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | Profile 化而非分叉脚本 | 两份真相源会漂移（ADR-016 N3） | 2026-03-13 |
+| KD-2 | 交互式 setup 而非启动时静默安装 | 启动脚本必须可预测（ADR-016 N4） | 2026-03-13 |
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-03-13 | 事故复盘 + 两猫收敛优化方向 |
+| 2026-03-14 | 立项 |
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Decision** | `docs/decisions/016-sync-runtime-negation-decisions.md` | 4 条否决决策 |
+| **Discussion** | `docs/discussions/2026-03-13-f059-sync-runtime-postmortem.md` | Runtime 事故复盘 |
+| **Lesson** | `docs/lessons-learned.md` LL-030 | 共享脚本改默认值教训 |
+| **Feature** | `docs/features/F059-open-source-plan.md` | 母 feature（同步计划） |

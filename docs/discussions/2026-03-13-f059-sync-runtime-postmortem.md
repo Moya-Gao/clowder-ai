@@ -1,5 +1,5 @@
 ---
-feature_ids: [F059]
+feature_ids: [F059, F115]
 topics: [sync, runtime, postmortem, startup-chain]
 doc_kind: discussion
 created: 2026-03-13

@@ -52,4 +52,5 @@ created: 2026-02-26
 | F111 | Streaming TTS Chunker — 流式分句合成管线 | spec | 布偶猫 | internal | [F111](features/F111-streaming-tts-chunker.md) |
 | F112 | Voice Playback Queue — 语音播放队列 + Intent 调度 | spec | 布偶猫 | internal | [F112](features/F112-voice-playback-queue.md) |
 | F113 | Multi-Platform One-Click Deploy — 多平台一键部署 | spec | community | community [#14](https://github.com/zts212653/clowder-ai/issues/14) | [F113](features/F113-multi-platform-one-click-deploy.md) |
+| F115 | Runtime 启动链优化 — Profile 化 + Sidecar 状态分层 + Proxy Retry + 交互式 Setup | spec | TBD | internal | [F115](features/F115-runtime-startup-optimization.md) |
 
