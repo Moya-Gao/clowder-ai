@@ -179,26 +179,24 @@ echo "Branch: $BRANCH_NAME"
 echo "Files:  ${FILES[*]}"
 echo ""
 
-# ── Step 1: Find latest sync tag ──
-echo -e "${BLUE}[Step 1/6] Finding sync tag...${NC}"
+# ── Step 1: Find latest sync tag (on cat-cafe, not clowder-ai) ──
+echo -e "${BLUE}[Step 1/6] Finding sync tag on source repo...${NC}"
 if [ -n "$CUSTOM_TAG" ]; then
   SYNC_TAG="$CUSTOM_TAG"
-  # P2 fix: use explicit refs/tags/ to avoid branch/tag ambiguity
-  if ! git -C "$TARGET_DIR" rev-parse "refs/tags/$SYNC_TAG" >/dev/null 2>&1; then
-    echo -e "${RED}Error: tag '$SYNC_TAG' not found in target repo${NC}"
+  if ! git -C "$SOURCE_DIR" rev-parse "refs/tags/$SYNC_TAG" >/dev/null 2>&1; then
+    echo -e "${RED}Error: tag '$SYNC_TAG' not found in source repo (cat-cafe)${NC}"
     exit 1
   fi
 else
-  SYNC_TAG=$(git -C "$TARGET_DIR" tag -l 'sync/*' --sort=-version:refname | head -1)
+  SYNC_TAG=$(git -C "$SOURCE_DIR" tag -l 'sync/*' --sort=-version:refname | head -1)
   if [ -z "$SYNC_TAG" ]; then
-    echo -e "${RED}Error: no sync/* tags found in target repo${NC}"
+    echo -e "${RED}Error: no sync/* tags found in source repo (cat-cafe)${NC}"
     echo "Run a full sync first: bash scripts/sync-to-opensource.sh"
     exit 1
   fi
 fi
-echo -e "  Using tag: ${GREEN}$SYNC_TAG${NC}"
-# P2 fix: explicit refs/tags/ in log to avoid ambiguity
-echo -e "  Tag commit: $(git -C "$TARGET_DIR" log -1 --format='%h %s' "refs/tags/$SYNC_TAG")"
+echo -e "  Using tag: ${GREEN}$SYNC_TAG${NC} (on cat-cafe)"
+echo -e "  Tag commit: $(git -C "$SOURCE_DIR" log -1 --format='%h %s' "refs/tags/$SYNC_TAG")"
 
 # ── Step 2: Validate source files exist + manifest allowlist ──
 echo ""
@@ -242,7 +240,7 @@ echo ""
 echo -e "${BLUE}[Step 4/6] Creating branch in target repo...${NC}"
 
 if [ "$DRY_RUN" = true ]; then
-  echo -e "  ${YELLOW}[dry-run] Would create branch '$BRANCH_NAME' from $SYNC_TAG${NC}"
+  echo -e "  ${YELLOW}[dry-run] Would create branch '$BRANCH_NAME' from clowder-ai main${NC}"
 else
   # P1 fix: hard-fail if branch already exists — no silent reuse
   if git -C "$TARGET_DIR" rev-parse --verify "refs/heads/$BRANCH_NAME" >/dev/null 2>&1; then
@@ -251,9 +249,9 @@ else
     echo -e "  ${YELLOW}  Or choose a different branch name.${NC}"
     exit 1
   fi
-  # P2 fix: explicit refs/tags/ to avoid branch/tag ambiguity
-  git -C "$TARGET_DIR" checkout -b "$BRANCH_NAME" "refs/tags/$SYNC_TAG"
-  echo -e "  ${GREEN}✓ Branch '$BRANCH_NAME' created from refs/tags/$SYNC_TAG${NC}"
+  # Branch from clowder-ai main (which is the latest sync result)
+  git -C "$TARGET_DIR" checkout -b "$BRANCH_NAME" main
+  echo -e "  ${GREEN}✓ Branch '$BRANCH_NAME' created from clowder-ai main${NC}"
 fi
 
 # ── Step 5: Copy files + sanitize ──

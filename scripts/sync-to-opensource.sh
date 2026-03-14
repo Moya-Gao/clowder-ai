@@ -1278,16 +1278,16 @@ fi
 TOTAL_ELAPSED=$(( $(date +%s) - SYNC_START_TIME ))
 
 # ── Auto-tag: sync/YYYY-MM-DD ────────────────────────────────
-# After successful sync, tag the target repo for hotfix lane baseline.
-# Tag is force-pushed so repeated same-day syncs update the tag.
+# After successful sync, tag the SOURCE repo (cat-cafe) to record which
+# commit was synced. Hotfix lane uses this to know what code is "in sync".
+# Tag is force-updated so repeated same-day syncs move the tag forward.
 if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
   SYNC_TAG="sync/$(date +%Y-%m-%d)"
   echo ""
-  echo -e "${BLUE}Tagging target: $SYNC_TAG${NC}"
-  git -C "$TARGET_DIR" tag -f "$SYNC_TAG" 2>/dev/null && \
-    echo -e "  ${GREEN}✓ Tag $SYNC_TAG created (local)${NC}" || \
+  echo -e "${BLUE}Tagging source (cat-cafe): $SYNC_TAG${NC}"
+  git -C "$SOURCE_DIR" tag -f "$SYNC_TAG" 2>/dev/null && \
+    echo -e "  ${GREEN}✓ Tag $SYNC_TAG created on cat-cafe (local)${NC}" || \
     echo -e "  ${YELLOW}⚠ Failed to create tag $SYNC_TAG${NC}"
-  echo -e "  ${YELLOW}Note: push tag with: cd $TARGET_DIR && git push origin refs/tags/$SYNC_TAG --force${NC}"
 fi
 
 echo ""
