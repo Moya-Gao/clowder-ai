@@ -58,6 +58,12 @@ opensource-ops
 │   流程：标签规范 → 打标签 → 互链 → 收口关单
 │   ref: F059 CEP 讨论中的 label 语义
 │
+├── 场景 F: Hotfix Lane（Bug 快修通道）
+│   触发：社区报 bug，需要精准修复而非全量 sync
+│   流程：worktree(sync tag) → 修 bug → sync-hotfix.sh → clowder-ai PR
+│         → cherry-pick 回 main → intake record + advance-ledger
+│   ref: scripts/sync-hotfix.sh, SOP Hotfix Lane 段落
+│
 └── 贯穿规则：双仓边界
     cat-cafe = 家 | clowder-ai = 开源仓
     哪些操作在哪个仓做，标签在哪里打，PR 在哪里 review
@@ -70,6 +76,8 @@ opensource-ops
 3. **Merge 前预判 Intake 类型**：在决定合 PR 之前，先回答"这个 PR 未来是 `absorbed`、`public-only` 还是 `manual-port`"。
 4. **一条线不断裂**：`Issue accept → Merge decision → Merge → Intake decision → Ledger record`，每个环节有 checklist。
 5. **签名归属**：所有开源仓的评论/操作带猫猫签名（如 `缅因猫-gpt5.4`），可追溯。
+6. **Issue accept 是 Merge 前提**：没有 accepted issue 的 PR 不得 merge。Bug 需确认可复现；Feature 需完成 F 号分配 + 关联检测。
+7. **Skill 本身不同步到开源仓**：`opensource-ops` 是内部运营 playbook，必须排除出 outbound sync（`sync-manifest.yaml` excluded 列表）。
 
 ### Phase B: 现有 community-pr 迁移 + 废弃
 
@@ -81,13 +89,15 @@ opensource-ops
 
 ### Phase A（Skill 框架 + 核心场景）
 
-- [ ] AC-A1: `cat-cafe-skills/opensource-ops/SKILL.md` 存在，包含场景 A~E 的完整操作步骤
+- [ ] AC-A1: `cat-cafe-skills/opensource-ops/SKILL.md` 存在，包含场景 A~F 的完整操作步骤
 - [ ] AC-A2: 场景 A（Issue Triage）包含：分类标准、标签规范、关联检测 ref、互链模板、收敛（duplicate）规则
-- [ ] AC-A3: 场景 B（Inbound PR）包含：Merge Gate checklist（质量/方向/intake 预判）、intake 脚本用法、ledger 登记步骤
+- [ ] AC-A3: 场景 B（Inbound PR）Merge Gate checklist 必须包含：① 有 accepted issue（硬门禁：无 accepted issue 不得 merge）② 质量（CI/测试/代码规范）③ 方向（F 编号 + 关联检测）④ intake 预判（absorbed/public-only/manual-port）；后续含 intake 脚本用法 + ledger 登记步骤
 - [ ] AC-A4: 场景 D（Outbound Sync）包含：sync 脚本用法、pre-sync gate、diff preview、post-sync validation
-- [ ] AC-A5: 场景 E（Label & 归档）包含：标签体系定义、双仓标签归属规则、互链评论模板
+- [ ] AC-A5: 场景 E（Label & 归档）包含：标签真相源表（区分"概念语义"和"GitHub 上实际存在的 label"）、缺失标签的创建指引、双仓标签归属规则、互链评论模板
 - [ ] AC-A6: 贯穿规则"双仓边界"明确：每个操作步骤标注在哪个仓执行
 - [ ] AC-A7: Skill 加载后，猫猫能按场景路由找到对应操作步骤，不需要去翻 F059 spec 或 SOP
+- [ ] AC-A8: 场景 F（Hotfix Lane）包含：worktree 基于 sync tag 创建、sync-hotfix.sh 用法、clowder-ai PR 流程、cherry-pick 回 main、intake 登记全链路
+- [ ] AC-A9: `sync-manifest.yaml` excluded 列表包含 `cat-cafe-skills/opensource-ops/`，确保 skill 不同步到开源仓
 
 ### Phase B（迁移 + 废弃）
 
@@ -108,13 +118,15 @@ opensource-ops
 | Skill 写得太长，猫猫加载后找不到需要的场景 | 场景路由表置顶，每个场景独立 section，按触发条件快速定位 |
 | 双仓操作步骤写错仓库 | 每个步骤强制标注 `[cat-cafe]` 或 `[clowder-ai]`，review 时逐条检查 |
 | community-pr 迁移遗漏 | 迁移前 diff 对照，Phase B 独立 review |
+| 社区 bug fix 误走全量 sync 而非 hotfix lane | 场景 F 单列 Hotfix Lane，触发条件明确区分 |
+| 内部运营 playbook 泄露到开源仓 | KD-5 + AC-A9：sync-manifest.yaml excluded 硬卡 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | intake 脚本要不要加 `--mode=preview`（对未合并 PR 做预分类）？ | ⬜ 未定 |
-| OQ-2 | Patch 类社区 PR 猫猫能否自主 merge，还是全部要铲屎官拍板？ | ⬜ 未定 |
+| OQ-2 | Patch 类社区 PR 猫猫能否自主 merge？ | ✅ 已定（KD-4） |
 | OQ-3 | `community-pr` 改名为 `opensource-ops` 后，现有引用（SOP.md 等）的更新范围？ | ⬜ 未定 |
 
 ## Key Decisions
@@ -124,6 +136,8 @@ opensource-ops
 | KD-1 | Skill 命名 `opensource-ops`，不叫 `community-governance` | 覆盖运营全链路（sync/intake/triage/PR），不局限于治理 | 2026-03-14 |
 | KD-2 | Merge 和 Intake 是两个独立 Gate | merge = 接受进开源仓，intake = 决定是否回流家里（缅因猫-gpt5.4 提议，布偶猫同意） | 2026-03-14 |
 | KD-3 | 所有开源仓操作必须带猫猫签名 | 可追溯，防止混淆是谁干的（铲屎官要求） | 2026-03-14 |
+| KD-4 | Patch 类社区 PR 猫猫可自主 merge，需同时满足 4 条件 | 条件：① 有 accepted issue ② 只改 safe-cherry-pick 或 public-only 路径 ③ 公开仓 CI/测试过 ④ 不涉及 sync 脚本/ledger/边界规则/安全。碰到 manual-port/Feature/工具链 → 升级铲屎官（缅因猫-gpt5.4 提议，布偶猫同意） | 2026-03-14 |
+| KD-5 | `opensource-ops` skill 不同步到开源仓 | 内部运营 playbook，排除出 sync-manifest.yaml excluded 列表（铲屎官要求 2026-03-14 00:27） | 2026-03-14 |
 
 ## Timeline
 
@@ -131,6 +145,7 @@ opensource-ops
 |------|------|
 | 2026-03-14 | 立项。起因：砚砚做 F113 issue triage 后，铲屎官发现缺统一的社区运营规范 |
 | 2026-03-14 | 布偶猫 + 缅因猫讨论确认双 Gate 架构（Merge Gate + Intake Gate） |
+| 2026-03-14 | 缅因猫 R1 review：补 Hotfix Lane 场景 / Issue accept 硬门禁 / Label 真相源 / sync 排除 |
 
 ## Review Gate
 
@@ -150,3 +165,5 @@ opensource-ops
 | **Config** | `sync-manifest.yaml` | 同步白名单 + 安全扫描规则 |
 | **Ledger** | `docs/ops/opensource-intake-ledger.json` | Intake 登记簿 |
 | **Skill** | `cat-cafe-skills/community-pr/SKILL.md` | 将被吸收进场景 C（deprecated） |
+| **Script** | `scripts/sync-hotfix.sh` | Hotfix Lane 精准修复通道 |
+| **Discussion** | `docs/discussions/2026-03-14-sync-hotfix-lane-design.md` | Hotfix Lane 设计讨论 |
