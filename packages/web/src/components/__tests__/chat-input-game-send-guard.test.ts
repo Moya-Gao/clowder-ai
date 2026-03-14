@@ -132,6 +132,34 @@ describe('game button toggle closes open menu', () => {
   });
 });
 
+describe('layer drill-in does not trigger outside-click close', () => {
+  it('clicking werewolf drills into modes (layer 2 visible)', () => {
+    const onSend = vi.fn();
+
+    act(() => {
+      root.render(React.createElement(ChatInput, { onSend, disabled: false }));
+    });
+
+    // Open game menu
+    const gameBtn = container.querySelector('button[aria-label="Game mode"]') as HTMLButtonElement;
+    act(() => {
+      gameBtn.click();
+    });
+    expect(container.querySelector('[data-testid="game-item-werewolf"]')).toBeTruthy();
+
+    // Click werewolf to drill in
+    const werewolfItem = container.querySelector('[data-testid="game-item-werewolf"]') as HTMLElement;
+    act(() => {
+      werewolfItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+
+    // Layer 2 should be visible (mode selection)
+    expect(container.querySelector('[data-testid="game-mode-player"]')).toBeTruthy();
+    // Layer 1 should be gone
+    expect(container.querySelector('[data-testid="game-item-werewolf"]')).toBeNull();
+  });
+});
+
 describe('sendGameCommand passes queue delivery mode during active invocation', () => {
   it('sends with queue mode when hasActiveInvocation is true', () => {
     const onSend = vi.fn();

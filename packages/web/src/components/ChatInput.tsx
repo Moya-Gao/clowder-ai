@@ -448,6 +448,10 @@ export function ChatInput({
     if (!activeMenu) return;
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
+      // React 18 may flush state synchronously during event bubbling,
+      // detaching the original target (e.g. layer 1 unmounts when drilling
+      // into layer 2). A detached target is not a genuine outside click.
+      if (!target.isConnected) return;
       if (menuRef.current && !menuRef.current.contains(target) && !gameBtnRef.current?.contains(target)) {
         closeMenus();
       }
