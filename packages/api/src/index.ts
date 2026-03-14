@@ -70,6 +70,9 @@ import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-clea
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { AgentService } from './domains/cats/services/types.js';
 import { ActivityTracker } from './domains/health/ActivityTracker.js';
+import { PortDiscoveryService } from './domains/preview/port-discovery.js';
+import { collectRuntimePorts } from './domains/preview/port-validator.js';
+import { PreviewGateway } from './domains/preview/preview-gateway.js';
 import { createSignalArticleLookup } from './domains/signals/services/signal-thread-lookup.js';
 import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
 import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
@@ -146,6 +149,7 @@ import {
   workspaceRoutes,
 } from './routes/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
+import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
@@ -389,6 +393,24 @@ async function main(): Promise<void> {
   }
   const agentPaneRegistry = tmuxGateway ? new AgentPaneRegistry() : undefined;
 
+  // F120: Preview Gateway (独立端口反向代理) + Port Discovery
+  const PREVIEW_GATEWAY_PORT = Number.parseInt(process.env.PREVIEW_GATEWAY_PORT ?? '4100', 10);
+  const runtimePorts = collectRuntimePorts();
+  const previewGateway = new PreviewGateway({ port: PREVIEW_GATEWAY_PORT, runtimePorts });
+  const portDiscovery = new PortDiscoveryService();
+  try {
+    await previewGateway.start();
+    app.log.info(`[preview] Gateway started on port ${previewGateway.actualPort}`);
+  } catch (err) {
+    app.log.warn(`[preview] Gateway failed to start: ${(err as Error).message}`);
+  }
+  // Port discovery → Socket.IO push to all clients
+  portDiscovery.onDiscovered((port) => {
+    if (socketManager) {
+      socketManager.getIO().emit('preview:port-discovered', port);
+    }
+  });
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   const router = new AgentRouter({
     agentRegistry,
@@ -590,6 +612,12 @@ async function main(): Promise<void> {
   await app.register(terminalRoutes, {
     ...(tmuxGateway ? { tmuxGateway } : {}),
     ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
+    portDiscovery,
+  });
+  await app.register(previewRoutes, {
+    portDiscovery,
+    gatewayPort: previewGateway.actualPort || PREVIEW_GATEWAY_PORT,
+    runtimePorts,
   });
   await app.register(skillsRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
@@ -883,6 +911,13 @@ async function main(): Promise<void> {
         await connectorGatewayHandle?.stop();
       } catch (err) {
         app.log.error(`[api] ConnectorGateway stop failed: ${String(err)}`);
+      }
+
+      // Stop preview gateway (F120)
+      try {
+        await previewGateway.stop();
+      } catch (err) {
+        app.log.error(`[api] PreviewGateway stop failed: ${String(err)}`);
       }
 
       // Close WebSocket connections

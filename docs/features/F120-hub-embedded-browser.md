@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F120: Hub Embedded Browser — 在 Hub 内嵌浏览器预览运行中的前端应用
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -95,17 +95,17 @@ Cat Café 目前的差距：
 
 ## Acceptance Criteria
 
-### Phase A（Embedded Browser Panel）
-- [ ] AC-A1: Hub 内可打开一个 browser panel，输入 `localhost:xxxx` 后显示运行中的页面
-- [ ] AC-A2: 猫猫在 Terminal（F089）启动 dev server 后，Hub 自动检测端口并提示预览
-- [ ] AC-A3: dev server HMR 热更新在 browser panel 内正常工作（改代码 → 页面自动刷新）
-- [ ] AC-A4: browser panel 有 URL 栏、刷新、前进/后退基础导航控件
-- [ ] AC-A5: browser panel 和 workspace file explorer 可同时可见或 tab 切换
+### Phase A（Embedded Browser Panel） ✅
+- [x] AC-A1: Hub 内可打开一个 browser panel，输入 `localhost:xxxx` 后显示运行中的页面
+- [x] AC-A2: 猫猫在 Terminal（F089）启动 dev server 后，Hub 自动检测端口并提示预览
+- [x] AC-A3: dev server HMR 热更新在 browser panel 内正常工作（改代码 → 页面自动刷新）
+- [x] AC-A4: browser panel 有 URL 栏、刷新、前进/后退基础导航控件
+- [x] AC-A5: browser panel 和 workspace file explorer 可同时可见或 tab 切换
 
-### Phase B（安全与隔离）
-- [ ] AC-B1: browser panel 只能访问 localhost，尝试访问外部 URL 被拦截
-- [ ] AC-B2: iframe 内页面无法访问 Hub 的 Cookie/Storage/DOM
-- [ ] AC-B3: 禁止访问 Cat Café 自身 API 端口（可配置排除列表）
+### Phase B（安全与隔离） ✅
+- [x] AC-B1: browser panel 只能访问 localhost，尝试访问外部 URL 被拦截
+- [x] AC-B2: iframe 内页面无法访问 Hub 的 Cookie/Storage/DOM
+- [x] AC-B3: 禁止访问 Cat Café 自身 API 端口（可配置排除列表）
 
 ### Phase C（增强体验）
 - [ ] AC-C1: browser panel 下方可查看页面的 console 输出
@@ -116,9 +116,9 @@ Cat Café 目前的差距：
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "让你们把前端启动起来，你们能在这里直接看到" | AC-A1, AC-A3 | manual: Hub 内看到运行中的前端页面 | [ ] |
-| R2 | "跟 Claude Code 这样能够有一个浏览器能够直接预览前端的能力" | AC-A1, AC-A4 | manual: embedded browser 有基础导航控件 | [ ] |
-| R3 | "a + b，面向最终的状态开发" — 自动检测 + 手动输入都要 | AC-A2, AC-A4 | manual: 自动检测弹提示 + 手动输入 URL 都能打开 | [ ] |
+| R1 | "让你们把前端启动起来，你们能在这里直接看到" | AC-A1, AC-A3 | manual: Hub 内看到运行中的前端页面 | [x] |
+| R2 | "跟 Claude Code 这样能够有一个浏览器能够直接预览前端的能力" | AC-A1, AC-A4 | manual: embedded browser 有基础导航控件 | [x] |
+| R3 | "a + b，面向最终的状态开发" — 自动检测 + 手动输入都要 | AC-A2, AC-A4 | manual: 自动检测弹提示 + 手动输入 URL 都能打开 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -169,6 +169,7 @@ Cat Café 目前的差距：
 | 2026-03-14 | 设计稿 v1（绿色）+ v2（暖色修正）完成，铲屎官审过 UX 布局 |
 | 2026-03-14 | Design Gate 技术讨论：砚砚给出安全架构结论（反向代理 + 独立 origin + sandbox 策略 + 端口白名单） |
 | 2026-03-14 | OQ-1/2/3 全部关闭，KD-3/4/5 新增，进入 writing-plans |
+| 2026-03-14 | Phase A+B 实现完成，56 tests passing，砚砚 review 3 轮后放行 |
 
 ## Review Gate
 

@@ -239,6 +239,15 @@ export const AuditEventTypes = {
   PUSH_SUBSCRIPTION_UPSERTED: 'push_subscription_upserted',
   /** 订阅移除 */
   PUSH_SUBSCRIPTION_REMOVED: 'push_subscription_removed',
+
+  // === Browser Preview (F120) ===
+
+  /** 浏览器预览打开 */
+  BROWSER_PREVIEW_OPEN: 'browser_preview_open',
+  /** 浏览器预览关闭 */
+  BROWSER_PREVIEW_CLOSE: 'browser_preview_close',
+  /** 浏览器预览导航 */
+  BROWSER_PREVIEW_NAVIGATE: 'browser_preview_navigate',
 } as const;
 
 /** Singleton instance for convenience */
