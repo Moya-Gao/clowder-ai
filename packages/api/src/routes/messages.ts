@@ -287,8 +287,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     // Server-generated idempotency key if client didn't provide one
     const resolvedIdempotencyKey = idempotencyKey ?? randomUUID();
 
-    // F39+F108: Queue routing — slot-aware delivery mode (P1-1 fix)
-    const hasActive = opts.invocationTracker?.has(resolvedThreadId, primaryCat) ?? false;
+    // F39+F108: Queue routing — thread-level delivery mode
+    // Any active invocation in the thread → new user messages should queue.
+    // Using thread-level check (no catId) instead of slot-level to prevent
+    // concurrent execution when different cats are active (regression fix).
+    const hasActive = opts.invocationTracker?.has(resolvedThreadId) ?? false;
     const mode = deliveryMode ?? (hasActive ? 'queue' : 'immediate');
 
     if (mode === 'queue' && hasActive && opts.invocationQueue) {
