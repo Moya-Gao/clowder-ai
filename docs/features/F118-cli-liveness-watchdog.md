@@ -130,7 +130,7 @@ created: 2026-03-14
 
 ### Phase A（Session Mutex + 诊断增强）
 - [ ] AC-A1: 同一 `cliSessionId` 并发 resume 时，第二颗排队等待或 fail-fast（不默认抢占旧请求），不再出现两个进程同时 resume 同一 session 的情况
-- [ ] AC-A2: `SessionMutex` 有独立单元测试，覆盖：正常串行、并发竞争、abort 旧进程、grace period 超时
+- [ ] AC-A2: `SessionMutex` 有独立单元测试，覆盖：正常串行、并发竞争（queue/fail-fast）、显式抢占分支、grace period 超时
 - [ ] AC-A3: `__cliTimeout` 事件包含 `firstEventAt`/`lastEventAt`/`lastEventType`/`silenceDurationMs`/`processAlive`/`cliSessionId`/`invocationId`/`rawArchivePath`
 - [ ] AC-A4: 回归测试：复现"同 session 双 resume"场景，验证 mutex 生效
 - [ ] AC-A5: 回归测试：timeout 只有 `thread.started` 时，诊断日志能完整输出所有增强字段
