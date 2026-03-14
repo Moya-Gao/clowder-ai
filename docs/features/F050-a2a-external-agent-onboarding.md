@@ -128,9 +128,12 @@ Cat Café 通过 `SystemPromptBuilder` 动态注入身份和家规到 prompt 文
 | Antigravity (孟加拉猫) | CDP bridge / prompt 注入 | — | 无独立配置文件，纯靠 Cat Café 动态注入 |
 
 **变更 SOP**：
-1. 改了家规/身份 → 同时更新 `SystemPromptBuilder`（动态注入层）**和**对应 agent 的原生配置文件
-2. 原生配置文件在铲屎官本机（`~/`），不在仓库里 → **无法通过 git 同步**，需铲屎官手动或脚本同步
-3. 建议：将各猫的原生系统提示词模板存入 `assets/system-prompts/` 作为真相源，铲屎官用脚本同步到 `~/` 对应位置
+1. 改了 Codex/Gemini 原生配置相关内容 → 编辑 `assets/system-prompts/` 分片文件（Codex/Gemini 原生配置的仓库内真相源）
+2. 跑 `npx tsx scripts/sync-system-prompts.ts --check` 检测 drift
+3. 跑 `npx tsx scripts/sync-system-prompts.ts --apply` 写入 `~/.codex/AGENTS.md` + `~/.gemini/GEMINI.md`
+4. Commit 分片变更
+
+**决策**：禁止 runtime 自动覆写 `~/` 配置 → [ADR-017](../decisions/017-no-runtime-home-overwrite.md)
 
 ---
 
@@ -312,15 +315,17 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 - [x] 与现有三猫回归测试共跑通过
 - [x] DARE 通过 L1 验收
 
-### Phase 4: System Prompt 两层一源（2026-03-13 起）
+### Phase 4: Native Prompt Sync for Codex + Gemini（2026-03-13 起）
 
 **背景**：F105（金渐层接入）过程中发现系统提示词存在动态层（SystemPromptBuilder）与静态层（各猫 `~/` 原生配置）不同步问题。铲屎官直接 CLI 裸跑 opencode 时完全无身份/家规意识（回复"大猫猫你好"），而 Codex 因铲屎官手动在 `~/.codex/AGENTS.md` 写了身份所以裸跑也正常。
 
 **愿景**：
-1. 家规/身份信息有**唯一真相源**（仓库内 `assets/system-prompts/`），不再散落在各猫 `~/` 配置中各自为政
-2. 铲屎官改了家规后，跑一条命令就能同步到 Codex + Gemini 的原生配置，**不会漏改**
+1. Codex/Gemini 原生配置有**仓库内真相源**（`assets/system-prompts/`），不再在各猫 `~/` 中各自为政
+2. 铲屎官改了原生配置相关内容后，跑一条命令就能同步到 Codex + Gemini 的 `~/` 配置，**不会漏改 `~/`**
 3. 不支持原生配置的猫（OpenCode、Antigravity）继续靠 Cat Café 动态注入，**不假装有配置**
 4. 禁止 runtime 自动覆写 `~/` 配置（ADR 记录）
+
+**本 Phase 不覆盖**：Cat Café 运行时动态注入层（`SystemPromptBuilder` 的 `GOVERNANCE_L0_DIGEST` 等常量）仍维持现状。将动态层也收拢到分片源是 Phase 5 候选方向（见 Open Questions）。
 
 **方案**（布偶猫 × 缅因猫讨论收敛）：
 - 真相源：`assets/system-prompts/` 语义分片（`governance-l0.md`、`collab-rules.md`、`cats/{catId}.md`）
@@ -332,12 +337,12 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 - ❌ 调度时动态覆写各猫 home 配置 — 侵入性强、易竞态、污染个人环境
 - ❌ OpenCode wrapper（`scripts/opencode-cat-cafe-run`）— 铲屎官否决，裸跑场景是测试触发非日常使用
 
-- [ ] AC-P4-1: `assets/system-prompts/` 语义分片结构建立（governance-l0 + collab-rules + 各猫身份）
-- [ ] AC-P4-2: `scripts/sync-system-prompts.ts --check` 能检测 drift（Codex + Gemini）
-- [ ] AC-P4-3: `scripts/sync-system-prompts.ts --apply` 能渲染并写入 `~/.codex/AGENTS.md` + `~/.gemini/GEMINI.md`
-- [ ] AC-P4-4: ADR 记录"禁止 runtime 覆写 `~/` 配置"决策
-- [ ] AC-P4-5: F050 §H 配置地图与实际同步脚本一致
-- [ ] AC-P4-6: 愿景守护 — 改了 governance-l0 后跑 `--check` 能发现 Codex/Gemini 未同步
+- [x] AC-P4-1: `assets/system-prompts/` 语义分片结构建立（governance-l0 + collab-rules + 各猫身份）
+- [x] AC-P4-2: `scripts/sync-system-prompts.ts --check` 能检测 Codex/Gemini `~/` 配置 drift
+- [x] AC-P4-3: `scripts/sync-system-prompts.ts --apply` 能渲染并写入 `~/.codex/AGENTS.md` + `~/.gemini/GEMINI.md`
+- [x] AC-P4-4: ADR 记录"禁止 runtime 覆写 `~/` 配置"决策 → [ADR-017](../decisions/017-no-runtime-home-overwrite.md)
+- [x] AC-P4-5: F050 §H 配置地图与实际同步脚本一致
+- [ ] AC-P4-6: 愿景守护 — 改了 governance-l0 后跑 `--check` 能发现 Codex/Gemini 未同步（merge 后由守护猫验证）
 
 ### Phase 3: A2A L2（future）
 - [ ] `A2AAgentService` 设计稿 + 接口定义完成
@@ -373,6 +378,7 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 2. 外部 agent 的权限隔离由 Cat Cafe 统一托管，还是允许 adapter 自带策略？
 3. DARE/opencode 的”技能协议”是否需要抽象成统一 capability schema？
 4. DARE 猫是否需要参与 @mention 协作路由？（Phase 1 先不参与，只做单轮调用）
+5. **[Phase 5 候选]** `SystemPromptBuilder` 的 `GOVERNANCE_L0_DIGEST` / `WORKFLOW_TRIGGERS` 等静态常量是否也应从 `assets/system-prompts/` 分片渲染或生成？Phase 4 只覆盖了 Codex/Gemini `~/` 原生配置的同步，动态注入层仍维持独立常量。收拢后才是真正的"全家一源"。
 
 ## Timeline
 
@@ -381,7 +387,7 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 | 2026-03-02 | Kickoff — spec 定稿，EAC v1 契约设计 |
 | 2026-03-02~03 | DARE issue #135 gap 分析 + PR #145 review（缅因猫 × 2） |
 | 2026-03-04 | Phase 1 启动 — DARE L1 CLI 接入实施 |
-| 2026-03-13 | Phase 4 立项 — System Prompt 两层一源（布偶猫 × 缅因猫讨论收敛） |
+| 2026-03-13 | Phase 4 立项 — Native Prompt Sync for Codex + Gemini（布偶猫 × 缅因猫讨论收敛） |
 
 ## Dependencies
 
