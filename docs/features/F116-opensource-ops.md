@@ -51,6 +51,7 @@ opensource-ops
 ├── 场景 D: Outbound Sync（定期同步）
 │   触发：cat-cafe 有新代码要 sync 到 clowder-ai
 │   流程：pre-sync gate → diff preview → sync → post-sync validation
+│         → PR 记录（必须列清同步了哪些 feat/bugfix/改动）
 │   ref: scripts/sync-to-opensource.sh, sync-manifest.yaml
 │
 ├── 场景 E: Label & 归档管理
@@ -92,7 +93,7 @@ opensource-ops
 - [ ] AC-A1: `cat-cafe-skills/opensource-ops/SKILL.md` 存在，包含场景 A~F 的完整操作步骤
 - [ ] AC-A2: 场景 A（Issue Triage）包含：分类标准、标签规范、关联检测 ref、互链模板、收敛（duplicate）规则
 - [ ] AC-A3: 场景 B（Inbound PR）Merge Gate checklist 必须包含：① 有 accepted issue（硬门禁：无 accepted issue 不得 merge）② 质量（CI/测试/代码规范）③ 方向（F 编号 + 关联检测）④ intake 预判（absorbed/public-only/manual-port）；后续含 intake 脚本用法 + ledger 登记步骤
-- [ ] AC-A4: 场景 D（Outbound Sync）包含：sync 脚本用法、pre-sync gate、diff preview、post-sync validation
+- [ ] AC-A4: 场景 D（Outbound Sync）包含：sync 脚本用法、pre-sync gate、diff preview、post-sync validation、PR 记录规范（必须列清同步了哪些 feat/bugfix/改动，铲屎官要求）
 - [ ] AC-A5: 场景 E（Label & 归档）包含：标签真相源表（区分"概念语义"和"GitHub 上实际存在的 label"）、缺失标签的创建指引、双仓标签归属规则、互链评论模板
 - [ ] AC-A6: 贯穿规则"双仓边界"明确：每个操作步骤标注在哪个仓执行
 - [ ] AC-A7: Skill 加载后，猫猫能按场景路由找到对应操作步骤，不需要去翻 F059 spec 或 SOP
@@ -138,6 +139,8 @@ opensource-ops
 | KD-3 | 所有开源仓操作必须带猫猫签名 | 可追溯，防止混淆是谁干的（铲屎官要求） | 2026-03-14 |
 | KD-4 | Patch 类社区 PR 猫猫可自主 merge，需同时满足 4 条件 | 条件：① 有 accepted issue ② 只改 safe-cherry-pick 或 public-only 路径 ③ 公开仓 CI/测试过 ④ 不涉及 sync 脚本/ledger/边界规则/安全。碰到 manual-port/Feature/工具链 → 升级铲屎官（缅因猫-gpt5.4 提议，布偶猫同意） | 2026-03-14 |
 | KD-5 | `opensource-ops` skill 不同步到开源仓 | 内部运营 playbook，排除出 sync-manifest.yaml excluded 列表（铲屎官要求 2026-03-14 00:27） | 2026-03-14 |
+| KD-6 | Outbound Sync PR 必须列清同步内容（feat/bugfix/改动） | 铲屎官要求 2026-03-14 00:41 | 2026-03-14 |
+| KD-7 | Skill 写完缅因猫放行后，@ 铲屎官亲自审核，不直接提 PR | 铲屎官要求 2026-03-14 00:41 | 2026-03-14 |
 
 ## Timeline
 
@@ -149,7 +152,7 @@ opensource-ops
 
 ## Review Gate
 
-- Phase A: 缅因猫 review skill 初稿（操作步骤完整性 + 双仓边界正确性）
+- Phase A: 缅因猫 review skill 初稿（操作步骤完整性 + 双仓边界正确性）→ 放行后 **@ 铲屎官亲自审核**（不直接提 PR）
 - Phase B: 布偶猫 review 迁移完整性（diff 对照 community-pr 原文）
 
 ## Links
