@@ -66,20 +66,25 @@ is_public_only() {
   esac
 }
 
-# Files with code-level transforms (port remapping, config changes)
+# Files with code-level transforms (port remapping, config changes, sanitization)
+# P2 fix: conservative default — docs/** and scripts/** are all manual-port because
+# outbound sanitizer applies global transforms (cat names, ports, internal paths) to
+# ALL docs and shell scripts, not just the specific files listed here.
 is_manual_port() {
   local path="$1"
   case "$path" in
+    # Specific known-transformed source files
     packages/api/src/domains/leaderboard/leaderboard-service.ts) return 0 ;;
     packages/web/src/lib/mention-highlight.ts) return 0 ;;
     packages/api/src/config/ConfigRegistry.ts) return 0 ;;
     packages/api/src/config/env-registry.ts) return 0 ;;
     packages/api/src/config/frontend-origin.ts) return 0 ;;
     packages/api/src/config/governance/governance-pack.ts) return 0 ;;
-    scripts/start-dev.sh) return 0 ;;
-    docs/features/*) return 0 ;;
-    docs/decisions/*) return 0 ;;
-    docs/VISION.md|docs/SOP.md|docs/design-system.md) return 0 ;;
+    # ALL docs — sanitizer does cat-name / port / internal-path transforms on every .md
+    docs/*) return 0 ;;
+    # ALL scripts — sanitizer does global replacements on all .sh files
+    scripts/*) return 0 ;;
+    # Skills directory — heavily transformed
     cat-cafe-skills/*) return 0 ;;
     *) return 1 ;;
   esac
@@ -87,7 +92,6 @@ is_manual_port() {
 
 # Everything else = safe to cherry-pick (only cosmetic sanitization applied)
 # packages/api/**, packages/web/**, packages/shared/**, packages/mcp-server/**
-# scripts/** (except start-dev.sh), etc.
 
 # ── Advance ledger ──
 if [ "$ADVANCE_LEDGER" = true ]; then
@@ -100,13 +104,59 @@ if [ "$ADVANCE_LEDGER" = true ]; then
     echo -e "${RED}✗ Intake ledger not found at $INTAKE_LEDGER${NC}"
     exit 1
   fi
-  # Update last_reviewed_target_head
+  OLD_HEAD=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); console.log(l.last_reviewed_target_head || '')" 2>/dev/null || true)
+  if [ "$OLD_HEAD" = "$CURRENT_HEAD" ]; then
+    echo -e "${GREEN}✓ Ledger already at target HEAD ($CURRENT_HEAD)${NC}"
+    exit 0
+  fi
+  # Enumerate non-sync commits between old head and target HEAD
+  UNREVIEWED=""
+  UNREVIEWED_COUNT=0
+  if [ -n "$OLD_HEAD" ]; then
+    for c in $(git -C "$TARGET_DIR" rev-list "$OLD_HEAD".."$CURRENT_HEAD" 2>/dev/null); do
+      MSG=$(git -C "$TARGET_DIR" log --format=%s -1 "$c" 2>/dev/null || true)
+      if ! echo "$MSG" | grep -q "^sync: cat-cafe"; then
+        UNREVIEWED_COUNT=$((UNREVIEWED_COUNT + 1))
+        SHORT=$(git -C "$TARGET_DIR" log --format="%h %s" -1 "$c" 2>/dev/null)
+        UNREVIEWED="${UNREVIEWED}    → ${SHORT}\n"
+      fi
+    done
+  fi
+  if [ "$UNREVIEWED_COUNT" -gt 0 ]; then
+    echo -e "${RED}✗ Cannot advance: $UNREVIEWED_COUNT unreviewed non-sync commit(s)${NC}"
+    echo -e "$UNREVIEWED"
+    echo ""
+    echo "  Run intake --pr <N> --mode=plan for each community PR first."
+    echo "  Then re-run --advance-ledger --force to advance with audit trail."
+    if [ "$FORCE_OVERWRITE" != true ]; then
+      exit 1
+    fi
+    echo -e "${YELLOW}⚠ --force-overwrite: force-advancing ledger${NC}"
+    # Record forced advance in entries for audit
+    node -e "
+      const fs = require('fs');
+      const ledger = JSON.parse(fs.readFileSync('$INTAKE_LEDGER', 'utf-8'));
+      ledger.entries.push({
+        action: 'force_advance',
+        from: '$OLD_HEAD',
+        to: '$CURRENT_HEAD',
+        skipped_community_commits: $UNREVIEWED_COUNT,
+        timestamp: new Date().toISOString(),
+        notes: 'Force-advanced without per-PR review'
+      });
+      ledger.last_reviewed_target_head = '$CURRENT_HEAD';
+      fs.writeFileSync('$INTAKE_LEDGER', JSON.stringify(ledger, null, 2) + '\n');
+      console.log('⚠ Ledger force-advanced to: $CURRENT_HEAD');
+    "
+    exit 0
+  fi
+  # No unreviewed commits — safe to auto-advance
   node -e "
     const fs = require('fs');
     const ledger = JSON.parse(fs.readFileSync('$INTAKE_LEDGER', 'utf-8'));
     ledger.last_reviewed_target_head = '$CURRENT_HEAD';
     fs.writeFileSync('$INTAKE_LEDGER', JSON.stringify(ledger, null, 2) + '\n');
-    console.log('✓ Ledger advanced to: $CURRENT_HEAD');
+    console.log('✓ Ledger advanced to: $CURRENT_HEAD (only sync commits since last review)');
   "
   exit 0
 fi
@@ -140,6 +190,14 @@ echo -e "${BLUE}Author:${NC} $PR_AUTHOR"
 echo -e "${BLUE}State:${NC}  $PR_STATE"
 echo -e "${BLUE}Merged:${NC} $PR_MERGED"
 echo ""
+
+# P1-2: Block plan on unmerged PRs — intake operates on landed facts, not candidates
+if [ "$PR_STATE" != "MERGED" ]; then
+  echo -e "${RED}✗ PR #$PR_NUMBER is $PR_STATE, not MERGED.${NC}"
+  echo "  Intake operates on PRs that have landed in clowder-ai main."
+  echo "  Merge the PR first, then re-run intake."
+  exit 1
+fi
 
 # Get changed files
 FILES=$(echo "$PR_INFO" | node -e "
