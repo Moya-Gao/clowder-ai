@@ -396,6 +396,7 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Discussion** | `docs/discussions/2026-03-11-memory-component-redesign-meeting-notes.md` | 三猫头脑风暴纪要 |
+| **Discussion** | `docs/discussions/2026-03-14-f102-activation-meeting-notes.md` | 布偶猫+缅因猫：激活讨论（Hindsight 清理 + MVP 定义） |
 | **Research** | `docs/research/2026-02-25-memory-design/proposal.md` | 原始记忆系统设计（三层/marker/混合检索） |
 | **Research** | `docs/research/2026-02-25-memory-design/memory-bench-mark.md` | Benchmark 调研 |
 | **ADR** | `docs/decisions/005-hindsight-integration-decisions.md` | 知识共享决策（单 bank） |
