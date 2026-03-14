@@ -142,10 +142,10 @@ created: 2026-03-14
 - [x] AC-B4: 分级预警：静默 2min 发 `alive_but_silent`，5min 发 `suspected_stall`
 - [x] AC-B5: 后端产出可被前端消费的 `__livenessWarning` 事件（`alive_but_silent` / `suspected_stall`），前端展示待 Phase C Design Gate
 
-### Phase C（前端预警 UI）
-- [ ] AC-C1: 消息气泡区域显示 CLI 进程当前状态（正常/静默等待/疑似卡住）
-- [ ] AC-C2: `suspected_stall` 状态下有手动 Cancel 按钮
-- [ ] AC-C3: 超时错误展示增强诊断信息（不只是"1800s 超时"）
+### Phase C（前端预警 UI + Session Recovery）✅
+- [x] AC-C1: 消息气泡区域显示 CLI 进程当前状态（正常/静默等待/疑似卡住）
+- [x] AC-C2: `suspected_stall` 状态下有手动 Cancel 按钮
+- [x] AC-C3: 超时错误展示增强诊断信息（不只是"1800s 超时"）
 
 ## 需求点 Checklist
 
@@ -156,12 +156,12 @@ created: 2026-03-14
 | R3 | "本质是我们的 CLI 都没有心跳" — 无进程活性检测 | AC-B1, AC-B2, AC-B3 | test | [x] |
 | R4 | "万一有进程但是假死咋办" — 假死检测 | AC-B1, AC-B2 | test | [x] |
 | R5 | 社区反馈：tool 执行中 stdout 静默窗口导致误杀 | AC-B1 | test | [x] |
-| R6 | 铲屎官不想等 30 分钟才知道出问题了 | AC-B4, AC-B5, AC-C1, AC-C2 | screenshot | [ ] |
+| R6 | 铲屎官不想等 30 分钟才知道出问题了 | AC-B4, AC-B5, AC-C1, AC-C2 | screenshot | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（Phase C Design Gate 时补）
+- [x] 前端需求已准备需求→证据映射表（Phase C Design Gate 通过，Pencil Scene 4 设计稿 100% 匹配）
 
 ## Community Issue Coverage (Scope Extension 2026-03-14)
 
@@ -179,16 +179,16 @@ created: 2026-03-14
 
 ```
 CLI 挂了 (liveness, Phase A+B ✅)
-  → session 不知道该放手 (no self-heal, #98 — 待 Phase C/D 覆盖)
-  → 审计链断了 (no audit, #99 — 待 Phase C 覆盖)
-  → 下次 resume 进死循环 (no circuit breaker, #86 — 待 Phase C/D 覆盖)
+  → session 不知道该放手 (no self-heal, #98 — Phase C ✅ AC-C4)
+  → 审计链断了 (no audit, #99 — Phase C ✅ AC-C5)
+  → 下次 resume 进死循环 (no circuit breaker, #86 — Phase C ✅ AC-C6)
 ```
 
 ### 新增 AC（Phase C 扩展）
 
-- [ ] AC-C4: resume 前对 activeRec 做健康检查，session 不可用时 auto-seal + 走 fresh session fallback (#98)
-- [ ] AC-C5: `finally` 块补 fallback 审计写入，确保 generator `.return()` 路径也有 `CAT_ERROR` (#99)
-- [ ] AC-C6: session resume 加 overflow circuit breaker，连续 N 次 restore 无有效命令时熔断 (#86)
+- [x] AC-C4: resume 前对 activeRec 做健康检查，session 不可用时 auto-seal + 走 fresh session fallback (#98)
+- [x] AC-C5: `finally` 块补 fallback 审计写入，确保 generator `.return()` 路径也有 `CAT_ERROR` (#99)
+- [x] AC-C6: session resume 加 overflow circuit breaker，连续 N 次 restore 无有效命令时熔断 (#86)
 
 ## Dependencies
 
@@ -230,6 +230,7 @@ CLI 挂了 (liveness, Phase A+B ✅)
 | 2026-03-14 | 立项。布偶猫 + 缅因猫联合取证定位根因 |
 | 2026-03-14 | Phase A+B merged (PR #445) |
 | 2026-03-14 | Scope 扩展：社区 #86/#98/#99 归入 F118 (KD-6)，三猫 triage 验证 |
+| 2026-03-14 | Phase C merged (PR #448) — 前端预警 UI + session recovery (AC-C1~C6) |
 
 ## Review Gate
 
