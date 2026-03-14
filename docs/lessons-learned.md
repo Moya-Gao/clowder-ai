@@ -560,6 +560,23 @@ created: 2026-02-26
 - 来源锚点：2026-03-09 铲屎官发现布偶猫(另一线程)只看 spec 就声称 feat 未完成
 - 关联：P5（可验证才算完成）| quality-gate | feat-lifecycle
 
+### LL-030: 共享脚本改默认值，同 commit 必须补显式环境值 + 真实启动验收
+- 状态：validated
+- 更新时间：2026-03-13
+
+- 坑：为开源仓安全把 `start-dev.sh` 的 proxy 默认值改为 OFF → 家里 `.env` 没补显式 `ANTHROPIC_PROXY_ENABLED=1` → runtime 重启后 proxy 消失 → 手动拉起绑定 CLI session → session 退出 proxy 再死。一个默认值改动引发 4 步修A炸B 链条。
+- 根因：把"改脚本默认值"当成局部变更，没意识到这是"改所有依赖该脚本的环境的行为"。`.env` 显式值是防漂移的唯一屏障，但没有同步补上。
+- 触发条件：共享脚本被多环境（dev / opensource / runtime worktree）使用 + 改了默认值但没补 `.env` 显式覆盖 + 未做真实启动验收（只跑了静态检查）。
+- 修复：(1) 同 commit 补 `.env` 显式值 (2) 验收必须包含 `pnpm start` 真实启动 (3) 启动摘要标注值来源（profile default vs .env override）。
+- 防护：ADR-016 N3（profile 化取代纯 `.env` 感知）+ 启动摘要值来源标注 + sidecar 状态分层（disabled/launching/ready/failed）。
+- 来源锚点：
+  - `docs/discussions/2026-03-13-f059-sync-runtime-postmortem.md`（C1 共识 + 4.1 决策）
+  - `docs/decisions/016-sync-runtime-negation-decisions.md`（N3 否决分叉脚本）
+  - commit `553984d5`（砚砚 proxy kill 门禁修复）
+- 原理：共享基础设施的默认值是所有消费环境的隐式契约。改默认值 = 改所有环境的行为。必须同时补齐所有消费方的显式覆盖，并用真实启动验证——静态检查只能证明"代码合法"，不能证明"行为正确"。
+
+- 关联：ADR-016 | LL-019 过度修复反模式 | LL-020 补丁数量信号
+
 ---
 
 ## 8) 维护约定

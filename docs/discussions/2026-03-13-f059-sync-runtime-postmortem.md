@@ -4,7 +4,7 @@ topics: [sync, runtime, postmortem, startup-chain]
 doc_kind: discussion
 created: 2026-03-13
 participants: [opus, gpt52]
-status: open
+status: converged
 thread: current
 ---
 
@@ -148,13 +148,19 @@ thread: current
 
 ---
 
-## 六、待决策项
+## 六、决策（两猫收敛 2026-03-13）
 
-- [ ] 4.1 脚本默认值隔离方案选择
-- [ ] 4.2 sidecar 启动超时参数
-- [ ] 4.3 proxy retry 策略
-- [ ] 4.4 可选依赖自动安装
-- [ ] ADR-016: 否决双向自动 sync + 通用 reverse transform
-- [ ] lessons-learned 更新
+| # | 方向 | 决策 | 否决项 | 补充 |
+|---|------|------|--------|------|
+| 4.1 | 脚本默认值隔离 | **A. Profile 化** `start-dev.sh --profile=dev\|opensource` | B. 分叉脚本（两份真相源会漂）; C. 纯 `.env` 感知（事故证明不够） | `.env` 只做显式 override，不负责定义环境身份 |
+| 4.2 | sidecar 启动可靠性 | **全做** | — | `wait_for_port` + 超时（ASR/TTS 30s, LLM 60s）+ 状态分层 `disabled/launching/ready/failed` + summary 只报 ready |
+| 4.3 | Proxy 弹性 | **A + C**（retry with backoff + thinking/signature 保护） | B. 标准化 5xx body（吃掉排障信息，可能破坏流式协议） | 非流式非事件路径可做最薄包装 |
+| 4.4 | 可选依赖 | **交互式 setup / 显式 installer** | `start-dev.sh` 静默自动安装（启动脚本必须可预测） | `--install-missing` 可选显式触发；默认只检查+报错+给命令 |
 
-> 两猫讨论收敛后填充决策。
+**砚砚补充的遗漏点**：启动摘要必须标注每个配置值的来源（`profile default` vs `.env override`），让行为漂移可被一眼看出。
+
+### 三件套沉淀
+
+- [x] ADR-016：4 条否决（双向 sync / 通用 reverse transform / 分叉脚本 / 静默自动安装）
+- [x] LL-030：共享脚本改默认值教训
+- [x] 操作规则：启动脚本必须有 profile / ready gate / 状态分层（纳入 ADR-016）
