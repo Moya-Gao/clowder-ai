@@ -115,6 +115,23 @@ updated: 2026-03-04
 - 每个 variant 如有独立 avatar 字段，对应文件也必须同步
 - 接入 checklist 中必须包含"头像文件已复制到 web/public"验收项
 
+### H. System Prompt Configuration Map（必须）
+
+Cat Café 通过 `SystemPromptBuilder` 动态注入身份和家规到 prompt 文本中，但各 agent **也有自己的原生系统提示词配置**。更新家规/身份时，**两层都要同步**。
+
+| Agent | 原生配置路径 | 格式 | 说明 |
+|-------|-------------|------|------|
+| Claude (布偶猫) | 仓库根 `CLAUDE.md` | Markdown | 自动注入 system prompt，改完即生效 |
+| Codex (缅因猫) | `~/.codex/AGENTS.md` + App Personalization | Markdown | CLI 和 App 都读；截图里的 Custom instructions |
+| Gemini (暹罗猫) | `~/.gemini/GEMINI.md` | Markdown | 项目级可用 `.gemini/GEMINI.md` |
+| OpenCode (金渐层) | `~/.config/opencode/opencode.json` | JSON | 系统提示词走 OMOC plugin；未来可能加 instructions 字段 |
+| Antigravity (孟加拉猫) | CDP bridge / prompt 注入 | — | 无独立配置文件，纯靠 Cat Café 动态注入 |
+
+**变更 SOP**：
+1. 改了家规/身份 → 同时更新 `SystemPromptBuilder`（动态注入层）**和**对应 agent 的原生配置文件
+2. 原生配置文件在铲屎官本机（`~/`），不在仓库里 → **无法通过 git 同步**，需铲屎官手动或脚本同步
+3. 建议：将各猫的原生系统提示词模板存入 `assets/system-prompts/` 作为真相源，铲屎官用脚本同步到 `~/` 对应位置
+
 ---
 
 ## 结论问题逐条回答
