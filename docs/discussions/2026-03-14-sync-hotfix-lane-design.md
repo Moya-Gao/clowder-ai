@@ -143,8 +143,7 @@ Hotfix 合入 clowder-ai 后，`last_reviewed_target_head`（`docs/ops/opensourc
    - 需要验证：单文件 Perl 运行时 `$ARGV` 是否正确反映文件路径
    - 宪宪：应该能，但需实测
 3. cat-cafe 侧的 fix 是直接 commit 到 main 还是也走 worktree + PR？
-   - bugfix 级别：worktree + 直接 merge（不需要跨猫 review）
-   - 宪宪：仍需跨个体 review（铁律），可降级到同 family 不同个体
+   - **已决**：hotfix 也需要跨个体 review（铁律：同一个体不能 review 自己的代码），可降级到同 family 不同个体
 4. Tag 打在哪个 repo？
    - **已决**：打在 cat-cafe（源），不打在 clowder-ai（目标）
 
@@ -197,14 +196,14 @@ Hotfix 合入 clowder-ai 后，`last_reviewed_target_head`（`docs/ops/opensourc
 ```
 
 **脚本改动**：
-- `SOURCE_DIR` 不再硬编码为脚本所在目录。改为使用 `pwd` 作为源（期望在 worktree 内运行）
-- 如果 pwd 不是基于 sync tag 的 worktree，打 warning 并要求确认
-- **新增 target 侧漂移检查**（修 P1-2）：
-  - 对每个要复制的文件，比较 clowder-ai main 上的当前版本与 sync tag 对应的全量 sync 版本
-  - 如果不一致（说明 clowder-ai 在 sync 后有过改动），hard-fail 并提示：
+- `SOURCE_DIR` 不再硬编码为脚本所在目录。改为使用 `pwd` 作为源
+- **Source 侧硬约束**：pwd 必须是基于 sync tag 的 git worktree，否则 **hard-fail**（不给 confirm-continue）。检查方式：`git rev-parse --git-common-dir` ≠ `--git-dir`（是 worktree）+ `git log --oneline sync/TAG..HEAD` 确认 worktree 基于 sync tag
+  - 不提供 `--source` 快捷覆盖。如果确实需要从非 worktree 运行（调试/紧急情况），提供 `--force-unsafe-source`，但脚本会打 **WARNING: 不满足 AC#3，hotfix diff 可能包含非 fix 增量**
+- **新增 target 侧漂移检查**（修 R1-P1-2）：
+  - 对每个要复制的文件，比较 clowder-ai main 上的当前版本与上次全量 sync 推过来的版本
+  - 如果不一致（说明 clowder-ai 在 sync 后有过改动），**hard-fail** 并提示：
     `"文件 {path} 在 clowder-ai main 上已有 sync tag 之后的改动，整文件复制会覆盖。请手动处理。"`
   - 这保证了 AC#3：hotfix diff 只包含 fix 增量，不会意外覆盖 target 侧的后续改动
-- 保留 `--source=<path>` 参数作为显式覆盖
 
 #### M2. 修 clowder-ai PR #65 的误伤（止损）
 
