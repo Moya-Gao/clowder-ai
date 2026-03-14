@@ -264,6 +264,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-12 | **愿景守护通过**（缅因猫 GPT-5.4）→ F101 v1 完成 |
 | 2026-03-12 | AC-A5 补充清理：前端旧 mode UI 删除 (PR #415) |
 | 2026-03-13 | AC-A5 修复：恢复游戏入口 — 两层菜单 + SVG 图标 (PR #426) |
+| 2026-03-14 | Bug fix: outside-click handler React 18 flush 竞态 (PR #444) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
@@ -293,5 +294,6 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | **PR** | PR #406 | Phase B frontend（98 game tests, 13 commits squashed） |
 | **PR** | PR #415 | AC-A5 supplementary cleanup — frontend old mode UI deletion |
 | **PR** | PR #426 | AC-A5 fix — restore game entry with two-layer menu + SVG icons |
+| **PR** | PR #444 | Bug fix — outside-click handler React 18 flush race |
 | **Plan** | `docs/plans/2026-03-12-f101-b8-frontend-game-ui.md` | B8 前端实施计划 |
 | **Reflection** | `docs/reflections/2026-03-12-f101-mode-v2-capsule.md` | 完成反思胶囊 |
