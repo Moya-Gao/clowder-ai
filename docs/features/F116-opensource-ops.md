@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F116: Open-Source Ops — 开源社区运营 Skill
 
-> **Status**: spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
 
 ## Why
 
@@ -90,16 +90,16 @@ opensource-ops
 
 ### Phase A（Skill 框架 + 核心场景）
 
-- [ ] AC-A1: `cat-cafe-skills/opensource-ops/SKILL.md` 存在，包含场景 A~F 的完整操作步骤
-- [ ] AC-A2: 场景 A（Issue Triage）包含：分类标准、标签规范、关联检测 ref、互链模板、收敛（duplicate）规则
-- [ ] AC-A3: 场景 B（Inbound PR）Merge Gate checklist 必须包含：① 有 accepted issue（硬门禁：无 accepted issue 不得 merge）② 质量（CI/测试/代码规范）③ 方向（F 编号 + 关联检测）④ intake 预判（absorbed/public-only/manual-port）；后续含 intake 脚本用法 + ledger 登记步骤
-- [ ] AC-A4: 场景 D（Outbound Sync）包含：sync 脚本用法、pre-sync gate、diff preview、post-sync validation、PR 记录规范（必须列清同步了哪些 feat/bugfix/改动，铲屎官要求）
-- [ ] AC-A5: 场景 E（Label & 归档）包含：标签真相源表（区分"概念语义"和"GitHub 上实际存在的 label"）、缺失标签的创建指引、双仓标签归属规则、互链评论模板
-- [ ] AC-A6: 贯穿规则"双仓边界"明确：每个操作步骤标注在哪个仓执行
-- [ ] AC-A7: Skill 加载后，猫猫能按场景路由找到对应操作步骤，不需要去翻 F059 spec 或 SOP
-- [ ] AC-A8: 场景 F（Hotfix Lane）包含：worktree 基于 sync tag 创建、sync-hotfix.sh 用法、clowder-ai PR 流程、cherry-pick 回 main、intake 登记全链路
-- [ ] AC-A9: `sync-manifest.yaml` excluded 列表包含 `cat-cafe-skills/opensource-ops/`，确保 skill 不同步到开源仓
-- [ ] AC-A10: 场景 D Post-Sync Community Reconciliation：全量同步后按 Feature 分包搜社区 issue → 两猫对齐 → 逐包推铲屎官核验 → 核验全过后执行关单/打标签/评论。全量同步完成 ≠ 技术发布完成，社区收敛做完才算闭环
+- [x] AC-A1: `cat-cafe-skills/opensource-ops/SKILL.md` 存在，包含场景 A~F 的完整操作步骤
+- [x] AC-A2: 场景 A（Issue Triage）包含：分类标准、标签规范、关联检测 ref、互链模板、收敛（duplicate）规则
+- [x] AC-A3: 场景 B（Inbound PR）Merge Gate checklist 必须包含：① 有 accepted issue（硬门禁：无 accepted issue 不得 merge）② 质量（CI/测试/代码规范）③ 方向（F 编号 + 关联检测）④ intake 预判（absorbed/public-only/manual-port）；后续含 intake 脚本用法 + ledger 登记步骤
+- [x] AC-A4: 场景 D（Outbound Sync）包含：sync 脚本用法、pre-sync gate、diff preview、post-sync validation、PR 记录规范（必须列清同步了哪些 feat/bugfix/改动，铲屎官要求）
+- [x] AC-A5: 场景 E（Label & 归档）包含：标签真相源表（区分"概念语义"和"GitHub 上实际存在的 label"）、缺失标签的创建指引、双仓标签归属规则、互链评论模板
+- [x] AC-A6: 贯穿规则"双仓边界"明确：每个操作步骤标注在哪个仓执行
+- [x] AC-A7: Skill 加载后，猫猫能按场景路由找到对应操作步骤，不需要去翻 F059 spec 或 SOP
+- [x] AC-A8: 场景 F（Hotfix Lane）包含：worktree 基于 sync tag 创建、sync-hotfix.sh 用法、clowder-ai PR 流程、cherry-pick 回 main、intake 登记全链路
+- [x] AC-A9: `sync-manifest.yaml` excluded 列表包含 `cat-cafe-skills/opensource-ops/`，确保 skill 不同步到开源仓
+- [x] AC-A10: 场景 D Post-Sync Community Reconciliation：全量同步后按 Feature 分包搜社区 issue → 两猫对齐 → 逐包推铲屎官核验 → 核验全过后执行关单/打标签/评论。全量同步完成 ≠ 技术发布完成，社区收敛做完才算闭环
 
 ### Phase B（完全吸收 — 已完成）
 
@@ -151,6 +151,7 @@ opensource-ops
 | 2026-03-14 | 立项。起因：砚砚做 F113 issue triage 后，铲屎官发现缺统一的社区运营规范 |
 | 2026-03-14 | 布偶猫 + 缅因猫讨论确认双 Gate 架构（Merge Gate + Intake Gate） |
 | 2026-03-14 | 缅因猫 R1 review：补 Hotfix Lane 场景 / Issue accept 硬门禁 / Label 真相源 / sync 排除 |
+| 2026-03-14 | Phase A+B merged (PR cat-cafe#442). Code review: codex 放行. 愿景守护: gpt52 放行. 云端 review: 0 findings |
 
 ## Review Gate
 
