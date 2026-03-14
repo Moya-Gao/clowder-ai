@@ -78,10 +78,10 @@ created: 2026-03-14
 - `lastEventAt`: 最后一条 NDJSON 事件的时间戳
 - `lastEventType`: 最后一条事件的 type（如 `thread.started`、`item.completed`）
 - `silenceDurationMs`: `now - lastEventAt`
-- `processAlive`: kill -0 检查结果
+- `processAlive`: timeout 触发当刻的进程存活快照（在 kill 之前采样）
 - `cliSessionId`: 关联的 CLI session ID
 - `invocationId`: 关联的 invocation ID
-- `rawArchivePath`: 对应的 raw archive 文件路径
+- `rawArchivePath`（可选，provider-scoped）: 对应的 raw archive 文件路径。当前仅 Codex 有 raw archive 机制，defer 到 Phase B 在 provider 层注入
 
 ### Phase B: 进程活性检测 + 分级超时
 
@@ -131,7 +131,7 @@ created: 2026-03-14
 ### Phase A（Session Mutex + 诊断增强）
 - [ ] AC-A1: 同一 `cliSessionId` 并发 resume 时，第二颗排队等待或 fail-fast（不默认抢占旧请求），不再出现两个进程同时 resume 同一 session 的情况
 - [ ] AC-A2: `SessionMutex` 有独立单元测试，覆盖：正常串行、并发竞争（queue/fail-fast）、显式抢占分支、grace period 超时
-- [ ] AC-A3: `__cliTimeout` 事件包含 `firstEventAt`/`lastEventAt`/`lastEventType`/`silenceDurationMs`/`processAlive`/`cliSessionId`/`invocationId`/`rawArchivePath`
+- [ ] AC-A3: `__cliTimeout` 事件包含 `firstEventAt`/`lastEventAt`/`lastEventType`/`silenceDurationMs`/`processAlive`/`cliSessionId`/`invocationId`（`rawArchivePath` 为 provider-scoped 可选字段，defer 到 Phase B）
 - [ ] AC-A4: 回归测试：复现"同 session 双 resume"场景，验证 mutex 生效
 - [ ] AC-A5: 回归测试：timeout 只有 `thread.started` 时，诊断日志能完整输出所有增强字段
 
@@ -140,7 +140,7 @@ created: 2026-03-14
 - [ ] AC-B2: `idle-silent`（CPU 不涨 + 无输出）不重置计时器，正常走超时流程
 - [ ] AC-B3: 进程已死（PID 不存在）时立即清理，不等超时
 - [ ] AC-B4: 分级预警：静默 2min 发 `alive_but_silent`，5min 发 `suspected_stall`
-- [ ] AC-B5: 前端能根据预警事件展示中间状态（具体 UI 待 Design Gate）
+- [ ] AC-B5: 后端产出可被前端消费的 `__livenessWarning` 事件（`alive_but_silent` / `suspected_stall`），前端展示待 Phase C Design Gate
 
 ### Phase C（前端预警 UI）
 - [ ] AC-C1: 消息气泡区域显示 CLI 进程当前状态（正常/静默等待/疑似卡住）

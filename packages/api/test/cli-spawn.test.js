@@ -26,14 +26,14 @@ async function collect(iterable) {
  *   exitCode: the code to emit on exit (default null for signal kills).
  */
 function createMockProcess(opts = {}) {
-  const { exitOnKill = true, exitCode = null } = opts;
+  const { exitOnKill = true, exitCode = null, pid = 12345 } = opts;
   const stdout = new PassThrough();
   const stderr = new PassThrough();
   const emitter = new EventEmitter();
   const proc = {
     stdout,
     stderr,
-    pid: 12345,
+    pid,
     exitCode: null,
     kill: mock.fn((signal) => {
       if (exitOnKill) {
@@ -522,6 +522,269 @@ test('spawnCli escalates SIGTERM to SIGKILL after grace period', async () => {
   proc._emitter.emit('exit', null, 'SIGKILL');
 
   await promise;
+});
+
+// === F118: Timeout diagnostic enrichment ===
+
+test('timeout event includes firstEventAt/lastEventAt/lastEventType when events were received', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(spawnCli({ command: 'codex', args: [], timeoutMs: 50 }, { spawnFn }));
+
+  // Feed one event then go silent
+  proc.stdout.write(JSON.stringify({ type: 'thread.started', thread_id: 'abc' }) + '\n');
+
+  // Wait for timeout
+  await new Promise((r) => setTimeout(r, 100));
+  proc.stdout.end();
+
+  const results = await promise;
+  const timeout = results.find(isCliTimeout);
+  assert.ok(timeout, 'should have timeout event');
+  assert.equal(typeof timeout.firstEventAt, 'number');
+  assert.equal(typeof timeout.lastEventAt, 'number');
+  assert.equal(timeout.firstEventAt, timeout.lastEventAt, 'only one event — first === last');
+  assert.equal(timeout.lastEventType, 'thread.started');
+  assert.equal(typeof timeout.silenceDurationMs, 'number');
+  assert.ok(timeout.silenceDurationMs >= 40, 'silence should be at least ~timeout ms');
+  assert.equal(typeof timeout.processAlive, 'boolean');
+});
+
+test('timeout with no events has null firstEventAt/lastEventAt/lastEventType', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(spawnCli({ command: 'codex', args: [], timeoutMs: 50 }, { spawnFn }));
+
+  // No events — just wait for timeout
+  await new Promise((r) => setTimeout(r, 100));
+  proc.stdout.end();
+
+  const results = await promise;
+  const timeout = results.find(isCliTimeout);
+  assert.ok(timeout);
+  assert.equal(timeout.firstEventAt, null);
+  assert.equal(timeout.lastEventAt, null);
+  assert.equal(timeout.lastEventType, null);
+  assert.equal(timeout.silenceDurationMs, timeout.timeoutMs, 'silence = full timeout when no events');
+});
+
+test('timeout includes invocationId and cliSessionId when passed in options', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(
+    spawnCli(
+      {
+        command: 'codex',
+        args: [],
+        timeoutMs: 50,
+        invocationId: 'inv-123',
+        cliSessionId: 'sess-456',
+      },
+      { spawnFn },
+    ),
+  );
+
+  await new Promise((r) => setTimeout(r, 100));
+  proc.stdout.end();
+
+  const results = await promise;
+  const timeout = results.find(isCliTimeout);
+  assert.ok(timeout);
+  assert.equal(timeout.invocationId, 'inv-123');
+  assert.equal(timeout.cliSessionId, 'sess-456');
+});
+
+test('P1-fix: processAlive reflects state at timeout moment, not after kill', async () => {
+  // Process is alive when timeout fires (hasn't exited on its own)
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  proc.stdout.write(JSON.stringify({ type: 'init' }) + '\n');
+
+  const promise = collect(spawnCli({ command: 'codex', args: [], timeoutMs: 50 }, { spawnFn }));
+
+  await new Promise((r) => setTimeout(r, 100));
+  // Don't manually end stdout — let timeout kill handle it
+
+  const results = await promise;
+  const timeout = results.find(isCliTimeout);
+  assert.ok(timeout, 'should have timeout event');
+  // Process was alive when timeout fired (it hadn't exited on its own)
+  assert.equal(timeout.processAlive, true, 'process should be alive at timeout moment');
+});
+
+test('timeout omits invocationId/cliSessionId when not provided', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(spawnCli({ command: 'test-cli', args: [], timeoutMs: 50 }, { spawnFn }));
+
+  await new Promise((r) => setTimeout(r, 100));
+  proc.stdout.end();
+
+  const results = await promise;
+  const timeout = results.find(isCliTimeout);
+  assert.ok(timeout);
+  assert.equal(timeout.invocationId, undefined);
+  assert.equal(timeout.cliSessionId, undefined);
+});
+
+// === F118 Phase B: Liveness probe integration ===
+
+test('B4: yields alive_but_silent warning during CLI silence', async () => {
+  const proc = createMockProcess({ pid: process.pid });
+  const spawnFn = createMockSpawnFn(proc);
+
+  proc.stdout.write(JSON.stringify({ type: 'init' }) + '\n');
+
+  const promise = collect(
+    spawnCli(
+      {
+        command: 'codex',
+        args: [],
+        timeoutMs: 500,
+        livenessProbe: { sampleIntervalMs: 30, softWarningMs: 80, stallWarningMs: 300 },
+      },
+      { spawnFn },
+    ),
+  );
+
+  await new Promise((r) => setTimeout(r, 600));
+  proc.stdout.end();
+
+  const results = await promise;
+  const warnings = results.filter((e) => e?.__livenessWarning);
+  assert.ok(warnings.length > 0, 'should have liveness warnings');
+  assert.ok(warnings.some((w) => w.level === 'alive_but_silent'));
+});
+
+test('B3: dead process triggers immediate cleanup via probe', async () => {
+  // Use a PID that doesn't exist — probe should classify as dead
+  const proc = createMockProcess({ exitOnKill: false, pid: 99999 });
+  const spawnFn = createMockSpawnFn(proc);
+
+  proc.stdout.write(JSON.stringify({ type: 'init' }) + '\n');
+
+  const startMs = Date.now();
+  const promise = collect(
+    spawnCli(
+      {
+        command: 'codex',
+        args: [],
+        timeoutMs: 5000,
+        livenessProbe: { sampleIntervalMs: 30 },
+      },
+      { spawnFn },
+    ),
+  );
+
+  // Give probe time to detect dead process
+  await new Promise((r) => setTimeout(r, 200));
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null);
+
+  await promise;
+  const elapsedMs = Date.now() - startMs;
+  assert.ok(elapsedMs < 2000, `should finish quickly (${elapsedMs}ms), not wait for 5s timeout`);
+});
+
+test('timeout includes rawArchivePath when passed in options', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(
+    spawnCli(
+      {
+        command: 'codex',
+        args: [],
+        timeoutMs: 50,
+        rawArchivePath: '/data/cli-raw-archive/2026-03-14/inv-123.ndjson',
+      },
+      { spawnFn },
+    ),
+  );
+
+  await new Promise((r) => setTimeout(r, 100));
+  proc.stdout.end();
+
+  const results = await promise;
+  const timeout = results.find(isCliTimeout);
+  assert.ok(timeout);
+  assert.equal(timeout.rawArchivePath, '/data/cli-raw-archive/2026-03-14/inv-123.ndjson');
+});
+
+test('P1-fix: probe race timer is cleaned up when NDJSON wins', async () => {
+  const proc = createMockProcess({ pid: process.pid });
+  const spawnFn = createMockSpawnFn(proc);
+
+  let clearCount = 0;
+  const origClearTimeout = global.clearTimeout;
+  global.clearTimeout = (timer) => {
+    clearCount++;
+    return origClearTimeout(timer);
+  };
+
+  const promise = collect(
+    spawnCli(
+      {
+        command: 'codex',
+        args: [],
+        timeoutMs: 5000,
+        livenessProbe: { sampleIntervalMs: 200 },
+      },
+      { spawnFn },
+    ),
+  );
+
+  // Rapid-fire 10 events — each should win the race and clear the timer
+  for (let i = 0; i < 10; i++) {
+    proc.stdout.write(JSON.stringify({ type: 'msg', i }) + '\n');
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
+  await promise;
+
+  global.clearTimeout = origClearTimeout;
+  // Each NDJSON event that wins the race should clearTimeout the probe timer
+  assert.ok(clearCount >= 10, `clearTimeout should be called at least 10 times, got ${clearCount}`);
+});
+
+test('P2-fix: stderr activity notifies probe (no false silent warning)', async () => {
+  const proc = createMockProcess({ pid: process.pid });
+  const spawnFn = createMockSpawnFn(proc);
+
+  proc.stdout.write(JSON.stringify({ type: 'init' }) + '\n');
+
+  const promise = collect(
+    spawnCli(
+      {
+        command: 'codex',
+        args: [],
+        timeoutMs: 500,
+        livenessProbe: { sampleIntervalMs: 30, softWarningMs: 80, stallWarningMs: 300 },
+      },
+      { spawnFn },
+    ),
+  );
+
+  // Keep stderr active but stdout silent — should reset probe silence
+  for (let i = 0; i < 5; i++) {
+    await new Promise((r) => setTimeout(r, 40));
+    proc.stderr.write(`thinking step ${i}...\n`);
+  }
+
+  await new Promise((r) => setTimeout(r, 100));
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
+
+  const results = await promise;
+  const warnings = results.filter((e) => e?.__livenessWarning);
+  const silentWarnings = warnings.filter((w) => w.level === 'alive_but_silent');
+  assert.equal(silentWarnings.length, 0, 'stderr activity should prevent alive_but_silent warnings');
 });
 
 test('spawnCli handles spawn error (e.g. command not found)', async () => {

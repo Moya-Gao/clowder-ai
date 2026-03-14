@@ -41,7 +41,7 @@ interface CliTimeoutEvent {
   lastEventAt: number | null;    // 最后一条 NDJSON 事件时间戳
   lastEventType: string | null;  // 最后一条事件的 type 字段
   silenceDurationMs: number;     // now - lastEventAt
-  processAlive: boolean;         // kill -0 检查
+  processAlive: boolean;         // timeout 触发当刻的存活快照（kill 之前采样）
 }
 
 // invoke-single-cat.ts 在调用时注入额外 context

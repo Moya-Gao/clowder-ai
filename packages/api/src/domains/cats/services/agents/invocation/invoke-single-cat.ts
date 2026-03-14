@@ -37,7 +37,11 @@ import {
   isMissingClaudeSessionError,
   isTransientCliExitCode1,
 } from './invoke-helpers.js';
+import { SessionMutex } from './SessionMutex.js';
 import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './TaskProgressStore.js';
+
+/** F118: Module-level singleton — guards per-cliSessionId serialization */
+const sessionMutex = new SessionMutex();
 
 const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
 const ANTHROPIC_PROFILE_MODE_API_KEY = 'api_key';
@@ -351,6 +355,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
   };
 
+  // F118: Declared before try so it's accessible in finally
+  let sessionMutexRelease: (() => void) | undefined;
+
   try {
     let sessionId: string | undefined;
     try {
@@ -393,6 +400,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         // into a sealed session. Lost resume is recoverable; sealed-session
         // corruption is not.
         sessionId = undefined;
+      }
+    }
+
+    // F118: Acquire per-cliSessionId mutex to prevent concurrent resume
+    if (sessionId) {
+      try {
+        sessionMutexRelease = await sessionMutex.acquire(sessionId, signal);
+      } catch (err) {
+        // Abort while queued is not a runtime error — clean exit
+        if (signal?.aborted) {
+          yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
+          return;
+        }
+        throw err; // unexpected error — let outer catch handle
       }
     }
 
@@ -557,6 +578,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(params.uploadDir ? { uploadDir: params.uploadDir } : {}),
       ...(signal ? { signal } : {}),
       ...(spawnCliOverride ? { spawnCliOverride } : {}),
+      invocationId,
+      ...(sessionId ? { cliSessionId: sessionId } : {}),
+      // F118 Phase B: Enable liveness probe with defaults for all CLI providers
+      livenessProbe: {},
     };
 
     let lastErrorMessage: string | undefined;
@@ -1057,6 +1082,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           // Redis delete failure — best-effort only
         }
         sessionId = undefined;
+        // F118 P2-fix: Clear stale cliSessionId so retry diagnostics don't mis-attribute
+        delete baseOptions.cliSessionId;
         // F-BLOAT P1: self-heal drops session → retry is now a fresh session.
         // Must re-inject systemPrompt since baseOptions may have omitted it
         // when the original attempt was a resume (injectSystemPrompt=false).
@@ -1182,6 +1209,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     await finalizeTaskProgress();
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
   } finally {
+    // F118: Release session mutex (idempotent — safe if never acquired)
+    sessionMutexRelease?.();
+
     await finalizeTaskProgress();
 
     // F089: Mark agent pane status when invocation completes

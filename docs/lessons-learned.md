@@ -577,6 +577,22 @@ created: 2026-02-26
 
 - 关联：ADR-016 | LL-019 过度修复反模式 | LL-020 补丁数量信号
 
+### LL-031: Quality gate 逐字段对账 AC——文档承诺 ≠ 代码已兑现
+- 状态：draft
+- 更新时间：2026-03-14
+
+- 坑：F118 Phase A 的 quality gate 将 AC-A3/AC-A5 记为"已达成"，但 AC-A3 承诺的 `rawArchivePath` 字段在代码和测试里都不存在。GPT-5.4 愿景守护才发现这个缺口。
+- 根因：quality gate 按"大部分字段都实现了"的直觉打勾，没有逐字段对账 AC 文本与实际代码产出。文档里写了什么 ≠ 代码里有什么。
+- 触发条件：AC 列出多个字段/能力时，部分实现容易被当成全部实现。
+- 修复：spec 改为 `rawArchivePath` provider-scoped 可选，defer 到 Phase B（commit `b594dd90`）。
+- 防护：quality gate Step 3 逐项检查时，对列表型 AC（多个字段/多个能力），必须逐项在代码中 grep 确认存在，不能凭印象打勾。
+- 来源锚点：
+  - `docs/features/F118-cli-liveness-watchdog.md` AC-A3 修订
+  - GPT-5.4 愿景守护 2026-03-14（thread_mmqaetstx6zsintt）
+- 原理：AC 是 feature contract 的一部分，每个字段都是承诺。"大部分实现"≠"AC 达成"。quality gate 的价值在于精确性，不在于速度。
+
+- 关联：LL-029 交付物验证不能只看 spec checkbox
+
 ---
 
 ## 8) 维护约定

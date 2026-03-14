@@ -261,6 +261,12 @@ export class CodexAgentService implements AgentService {
         ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
         env: codexEnv,
         ...(options?.signal ? { signal: options.signal } : {}),
+        ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
+        ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
+        ...(options?.invocationId && this.rawArchive.getPath
+          ? { rawArchivePath: this.rawArchive.getPath(options.invocationId) }
+          : {}),
+        ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
       };
       const events = options?.spawnCliOverride
         ? options.spawnCliOverride(cliOpts)

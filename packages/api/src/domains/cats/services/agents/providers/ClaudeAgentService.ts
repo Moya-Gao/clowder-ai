@@ -195,6 +195,9 @@ export class ClaudeAgentService implements AgentService {
         ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
         ...(envOverrides ? { env: envOverrides } : {}),
         ...(options?.signal ? { signal: options.signal } : {}),
+        ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
+        ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
+        ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
       };
       const events = options?.spawnCliOverride
         ? options.spawnCliOverride(cliOpts)

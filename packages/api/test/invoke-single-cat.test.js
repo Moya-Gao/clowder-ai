@@ -1159,6 +1159,53 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(sessionStores.includes('new-sess'), 'new session should be stored after recovery');
   });
 
+  it('F118 P2-fix: self-heal retry clears cliSessionId from baseOptions', async () => {
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        if (invokeCount === 1) {
+          yield {
+            type: 'error',
+            catId: 'opus',
+            error: 'No conversation found with session ID: stale-sess',
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+          return;
+        }
+        yield { type: 'text', catId: 'opus', content: 'ok', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'stale-sess',
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'test',
+        userId: 'u1',
+        threadId: 't-p2-fix',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invokeCount, 2);
+    // First attempt should carry cliSessionId
+    assert.equal(optionsSeen[0].cliSessionId, 'stale-sess', 'first attempt should have cliSessionId');
+    // Retry after self-heal should NOT carry stale cliSessionId
+    assert.equal(optionsSeen[1].cliSessionId, undefined, 'retry should clear cliSessionId');
+  });
+
   it('F-BLOAT cloud P1: self-heal retry re-injects systemPrompt when session drops', async () => {
     const optionsSeen = [];
     let invokeCount = 0;

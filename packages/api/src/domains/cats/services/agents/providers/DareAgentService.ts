@@ -127,6 +127,9 @@ export class DareAgentService implements AgentService {
         ...(cwd ? { cwd } : {}),
         env: childEnv,
         ...(options?.signal ? { signal: options.signal } : {}),
+        ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
+        ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
+        ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
       };
       const events = options?.spawnCliOverride
         ? options.spawnCliOverride(cliOpts)

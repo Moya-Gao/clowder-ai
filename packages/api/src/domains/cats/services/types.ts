@@ -167,6 +167,17 @@ export interface AgentServiceOptions {
   systemPrompt?: string;
   /** F089: Override spawnCli with tmux-based spawner (set per-invocation) */
   spawnCliOverride?: SpawnCliOverride;
+  /** F118: Invocation ID for diagnostic enrichment of __cliTimeout */
+  invocationId?: string;
+  /** F118: CLI session ID for diagnostic enrichment of __cliTimeout */
+  cliSessionId?: string;
+  /** F118 Phase B: Liveness probe config (undefined = disabled) */
+  livenessProbe?: {
+    sampleIntervalMs?: number;
+    softWarningMs?: number;
+    stallWarningMs?: number;
+    boundedExtensionFactor?: number;
+  };
 }
 
 /**
