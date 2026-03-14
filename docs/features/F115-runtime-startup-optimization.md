@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F115: Runtime 启动链优化
 
-> **Status**: review-pending-guardian | **Owner**: 宪宪/Opus | **Priority**: P1
+> **Status**: done | **Owner**: 宪宪/Opus | **Priority**: P1 | **Completed**: 2026-03-14
 
 ## Why
 
@@ -105,6 +105,8 @@ created: 2026-03-14
 | 2026-03-14 | Phase A merged (PR #434) — start-dev.sh profile 化 |
 | 2026-03-14 | Phase B merged (PR #435) — sidecar state machine |
 | 2026-03-14 | Phase D merged (PR #437) — interactive setup + check_sidecar_dep |
+| 2026-03-14 | 愿景守護 by gpt52 — 5/5 痛点匹配，放行 |
+| 2026-03-14 | Feature closed ✅ |
 
 ## Links
 
