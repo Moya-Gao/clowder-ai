@@ -58,10 +58,21 @@ created: 2026-03-14
 - `bouillipx` 是社区 Collaborator，不是我们家的猫。他在 PR#40 的 APPROVED 和 PR#43 的"Approve with nit"（已 DISMISSED）都不能算我们家的放行
 - 两个 PR 都来自 **mindfn**（内测小伙伴 lang），用 Claude Opus 4.6 co-author，历史上都迭代过一轮（PR #39→#40、PR #42→#43）
 
-**下一步建议**：
-- PR#43 (#28)：先由 maintainer 明确 issue 口径（"状态栏拖拽"还是"聊天面板宽度"），要求补测试，再决定 merge
-- PR#40 (#27)：要求补"cached thread + unread/replace hydration 仍保留阅读位置"回归测试，再决定 merge
-- #22/#89：我们自己修
+### Phase D 决策：上游完整修复（2026-03-14 铲屎官拍板）
+
+**依据 opensource-ops Inbound PR B2「质量不达标但方向正确 — 上游完整修复」**：
+
+PR #40 和 #43 方向正确但都有深层问题（缺测试 + 边界未覆盖 + scope 偏差），按家规 P1（面向终态，不做脚手架），不 merge 社区 PR，改为上游完整修复后一次性 Outbound Sync 出去。
+
+**执行路径**：
+1. `[clowder-ai]` 关闭 PR #40 和 #43，评论感谢 mindfn 并说明上游完整修复
+2. `[cat-cafe]` 开 worktree，4 个 issue 一起修到终态（#22 + #89 + #28 + #27）
+3. `[cat-cafe]` 正常 review + merge 到 main
+4. `[cat-cafe → clowder-ai]` Scene D Outbound Sync 全量同步，sync PR closes #22/#89/#28/#27
+5. #28 和 #27 的 commit 带 `Co-authored-by: mindfn`（尊重社区贡献者方案）
+6. sync PR 的 squash commit message 也带 `Co-authored-by: mindfn`（防止 squash 压掉记录）
+
+**不走 Hotfix Lane**：这 4 个 UX 改进不是紧急修复，走正常开发 → Outbound Sync 即可
 
 ## Issue Checklist
 
@@ -95,6 +106,7 @@ created: 2026-03-14
 | 2026-03-14 | Phase B 分诊拍板：铲屎官确认 6/6 accept，#16→F110，#88 走术语表路线 |
 | 2026-06-12 | Phase C 社区 PR 侦查（金渐层）：#28 有 PR#43、#27 有 PR#40（mindfn），但 review 来自社区 Collaborator bouillipx 不是我们家猫，需要正式 inbound review |
 | 2026-06-12 | Phase C 复核（缅因猫 gpt52）：PR#40 有 replace hydration 边界问题 + 缺回归测试；PR#43 有 scope 偏差（只修状态栏不是聊天面板）+ 缺测试。两个都不能直接 merge |
+| 2026-03-14 | Phase D 决策：按 Inbound PR B2 上游完整修复路线，关闭社区 PR #40/#43，cat-cafe 做终态修复后 Outbound Sync |
 
 ## Links
 
