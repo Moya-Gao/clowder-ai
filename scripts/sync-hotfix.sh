@@ -340,7 +340,8 @@ if [ "$DRY_RUN" = false ] && [ "$AUTO_PUSH" = false ]; then
   echo ""
   echo -e "${YELLOW}Intake ledger (before next full sync):${NC}"
   echo "  1. Record the hotfix PR decision:"
-  echo "     bash scripts/intake-from-opensource.sh --record --pr <PR_NUMBER> --decision public-only"
+  echo "     bash scripts/intake-from-opensource.sh --record --pr <PR_NUMBER> --decision <absorbed|public-only>"
+  echo "     (absorbed = fix already in cat-cafe main; public-only = clowder-ai-only change)"
   echo "  2. After all PRs recorded, advance the ledger gate:"
   echo "     bash scripts/intake-from-opensource.sh --advance-ledger"
 fi
