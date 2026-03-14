@@ -4,12 +4,14 @@ related_features: [F087, F106]
 topics: [bootcamp, onboarding, cvo, vision, ux]
 doc_kind: spec
 created: 2026-03-12
+community_issue: https://github.com/zts212653/clowder-ai/issues/16
 ---
 
 # F110: 训练营愿景引导增强 — CVO 需求挖掘 + SOP 显式加载
 
 > **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
 > **Evolved from**: F087（CVO Bootcamp — 训练营基础设施已完成，但 Phase 5+ 引导能力不足）
+> **Community issue**: [#16](https://github.com/zts212653/clowder-ai/issues/16)（Bootcamp Phase Transition UX，已吸收进 F110）
 
 ## Why
 
@@ -204,6 +206,7 @@ Phase 4 选完任务后，先做三件事再进采访：
 | 2026-03-12 | 三猫 UX 对齐讨论（multi_mention）→ 收敛 8 项 KD |
 | 2026-03-13 | 铲屎官指出 Phase 3.5 问题：可选功能被跳过、应主动帮装 + 硬件感知推荐 |
 | 2026-03-13 | 新增 KD-9/KD-10 + OQ-3（进阶训练营口子）|
+| 2026-03-14 | 社区 issue [#16](https://github.com/zts212653/clowder-ai/issues/16) 正式回挂 F110，来源写明到 feature doc |
 
 ## Review Gate
 
