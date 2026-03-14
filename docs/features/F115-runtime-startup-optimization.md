@@ -50,10 +50,10 @@ created: 2026-03-14
 - [x] AC-A3: 启动摘要标注每个配置值来源
 - [x] AC-A4: `.env` override 正确覆盖 profile 默认值
 
-### Phase B（Sidecar 状态分层）
-- [ ] AC-B1: sidecar 状态机 `disabled/launching/ready/failed` 正确流转
-- [ ] AC-B2: ASR/TTS 超时 30s、LLM 超时 60s（可配置）
-- [ ] AC-B3: summary 只报 `ready` 状态的服务
+### Phase B（Sidecar 状态分层） ✅
+- [x] AC-B1: sidecar 状态机 `disabled/launching/ready/failed` 正确流转
+- [x] AC-B2: ASR/TTS 超时 30s、LLM 超时 60s（可配置）
+- [x] AC-B3: summary 只报 `ready` 状态的服务
 
 ### Phase C（Proxy 弹性） ✅
 - [x] AC-C1: upstream 529/503 自动 retry（最多 3 次，exponential backoff）
@@ -103,6 +103,7 @@ created: 2026-03-14
 | 2026-03-14 | Owner: 宪宪/Opus |
 | 2026-03-14 | Phase C merged (PR #433) — proxy fallback + fetch timeout |
 | 2026-03-14 | Phase A merged (PR #434) — start-dev.sh profile 化 |
+| 2026-03-14 | Phase B merged (PR #435) — sidecar state machine |
 
 ## Links
 
