@@ -338,7 +338,9 @@ if [ "$DRY_RUN" = false ] && [ "$AUTO_PUSH" = false ]; then
   echo "  2. Open PR on clowder-ai: gh pr create --title 'fix: ...' --body '...'"
   echo "  3. Apply same fix to cat-cafe main (if not already done)"
   echo ""
-  echo -e "${YELLOW}Intake ledger:${NC}"
-  echo "  After hotfix merges to clowder-ai, update intake ledger before next full sync:"
-  echo "  bash scripts/intake-from-opensource.sh --record"
+  echo -e "${YELLOW}Intake ledger (before next full sync):${NC}"
+  echo "  1. Record the hotfix PR decision:"
+  echo "     bash scripts/intake-from-opensource.sh --record --pr <PR_NUMBER> --decision public-only"
+  echo "  2. After all PRs recorded, advance the ledger gate:"
+  echo "     bash scripts/intake-from-opensource.sh --advance-ledger"
 fi
