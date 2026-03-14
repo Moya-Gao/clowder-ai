@@ -409,7 +409,7 @@ for (const breed of config.breeds || []) {
 for (const [, entry] of Object.entries(config.roster || {})) {
   if (entry.evaluation) {
     entry.evaluation = entry.evaluation
-      .replace(/铲屎官/g, "team lead")
+      /* 铲屎官: 猫圈通用梗，保留 */
       .replace(/Landy/g, "Owner")
       .replace(/lysander/g, "owner");
   }
@@ -419,7 +419,7 @@ for (const breed of config.breeds || []) {
   for (const v of breed.variants || []) {
     if (v.personality) {
       v.personality = v.personality
-        .replace(/铲屎官/g, "team lead")
+        /* 铲屎官: 猫圈通用梗，保留 */
         .replace(/Landy/g, "Owner");
     }
   }
@@ -721,8 +721,7 @@ echo "  Comprehensive sanitization (single-pass)..."
 SANITIZER="$STAGING_DIR/_sanitize.pl"
 cat > "$SANITIZER" << 'SANITIZE_PERL_EOF'
 # ── Personal info (all files) ──
-s/铲屎官原话/team experience/g;
-s/铲屎官/team lead/g;
+# 铲屎官：猫圈通用梗（猫主子的仆人），非个人信息，保留不替换
 s/\@Landy/\@owner/g;
 s/\@landy/\@owner/g;
 s/\@Lysander/\@owner/g;
