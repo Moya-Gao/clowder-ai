@@ -426,6 +426,10 @@ async function main(): Promise<void> {
     log: app.log,
   });
 
+  // F101: Game engine store (created early so messages route can intercept /game commands)
+  const { RedisGameStore } = await import('./domains/cats/services/stores/redis/RedisGameStore.js');
+  const f101GameStore = redis ? new RedisGameStore(redis) : undefined;
+
   // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
     registry,
@@ -442,6 +446,7 @@ async function main(): Promise<void> {
     draftStore,
     invocationQueue,
     queueProcessor,
+    ...(f101GameStore ? { gameStore: f101GameStore } : {}),
   });
   await app.register(queueRoutes, {
     threadStore,
@@ -476,9 +481,7 @@ async function main(): Promise<void> {
   await app.register(bootcampRoutes, { threadStore });
   await app.register(brakeRoutes, { activityTracker });
 
-  // F101: Game engine store + routes
-  const { RedisGameStore } = await import('./domains/cats/services/stores/redis/RedisGameStore.js');
-  const f101GameStore = redis ? new RedisGameStore(redis) : undefined;
+  // F101: Game routes (store created earlier for /game command interception)
   if (f101GameStore) {
     await app.register(gameRoutes, { gameStore: f101GameStore, socketManager });
     app.log.info('[api] F101 game routes registered');

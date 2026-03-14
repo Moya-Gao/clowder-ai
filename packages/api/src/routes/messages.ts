@@ -19,17 +19,20 @@ import type { SessionStore } from '@cat-cafe/shared/utils';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { getDefaultCatId } from '../config/cat-config-loader.js';
+import { getAllCatIdsFromConfig, getDefaultCatId } from '../config/cat-config-loader.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
+import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
+import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
 import { getPushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
+import type { IGameStore } from '../domains/cats/services/stores/ports/GameStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
@@ -38,6 +41,7 @@ import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
 import { normalizeErrorMessage } from '../utils/normalize-error.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { buildGameSeats, parseGameCommand } from './game-command-interceptor.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { parseMultipart } from './parse-multipart.js';
 
@@ -64,6 +68,8 @@ export interface MessagesRoutesOptions {
   invocationQueue?: InvocationQueue;
   /** F39: Queue processor for auto-dequeue on invocation complete */
   queueProcessor?: QueueProcessor;
+  /** F101: Game store for /game command interception */
+  gameStore?: IGameStore;
 }
 
 const getMessagesSchema = z.object({
@@ -195,6 +201,74 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         error: '对话正在删除中',
         detail: '请稍后重试，或新建一个对话继续',
         code: 'THREAD_DELETING',
+      };
+    }
+
+    // F101: /game command interception — start game directly, skip AI routing
+    const parsedGame = parseGameCommand(content);
+    if (parsedGame && opts.gameStore) {
+      const DEFAULT_PLAYER_COUNT = 7;
+      const catIds = getAllCatIdsFromConfig();
+      const seats = buildGameSeats({
+        humanRole: parsedGame.humanRole,
+        userId,
+        catIds,
+        playerCount: DEFAULT_PLAYER_COUNT,
+      });
+
+      // Store user message (shows in chat history)
+      const userMessage = await opts.messageStore.append({
+        userId,
+        catId: null,
+        content,
+        mentions: [],
+        timestamp: Date.now(),
+        threadId: resolvedThreadId,
+      });
+
+      // Use WerewolfLobby for role assignment, then orchestrator for persistence + broadcast
+      const lobby = new WerewolfLobby();
+      const lobbyRuntime = lobby.createLobby({
+        threadId: resolvedThreadId,
+        playerCount: DEFAULT_PLAYER_COUNT,
+        players: seats.map((s) => ({ actorType: s.actorType, actorId: s.actorId })),
+      });
+      lobby.startGame(lobbyRuntime);
+
+      const orchestrator = new GameOrchestrator({
+        gameStore: opts.gameStore,
+        socketManager: opts.socketManager,
+      });
+
+      let gameRuntime;
+      try {
+        gameRuntime = await orchestrator.startGame({
+          threadId: resolvedThreadId,
+          definition: lobbyRuntime.definition,
+          seats: lobbyRuntime.seats,
+          config: {
+            timeoutMs: 30000,
+            voiceMode: parsedGame.voiceMode,
+            humanRole: parsedGame.humanRole,
+            ...(parsedGame.humanRole === 'player' ? { humanSeat: 'P1' } : {}),
+          },
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.includes('already has an active game')) {
+          reply.status(409);
+          return { error: message };
+        }
+        throw err;
+      }
+
+      // Broadcast scoped views so frontend receives game:state_update
+      await orchestrator.broadcastGameState(gameRuntime.gameId);
+
+      return {
+        status: 'game_started',
+        gameId: gameRuntime.gameId,
+        userMessageId: userMessage.id,
       };
     }
 
