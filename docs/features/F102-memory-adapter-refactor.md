@@ -297,16 +297,16 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 - [x] AC-B6: 新项目初始化时自动创建空 `evidence.sqlite`
 - [x] AC-B7: `memory_eval_corpus.yaml` 评测集：检索评测（Recall@k）+ 状态评测（DB 变化验证），含 10-15 条 Hindsight 失败案例
 
-### Phase C（向量增强——预期路径，非可选）
-- [ ] AC-C1: `EMBED_MODE` 三态开关（`off|shadow|on`，默认 `off`），`EMBED_MODEL` 可配置（`qwen3-embedding-0.6b` 默认 + `multilingual-e5-small` 兜底）
-- [ ] AC-C2: Qwen3-Embedding-0.6B ONNX 本地推理（Transformers.js），MRL 维度可配置
-- [ ] AC-C3: `evidence_vectors` vec0 虚拟表（单一向量真相源），不在 `evidence_docs` 加 embedding 列
-- [ ] AC-C4: fail-open — 模型下载/加载/推理任一失败自动回落 Phase B lexical
-- [ ] AC-C5: 资源门禁 `max_model_mem_mb` + `embed_timeout_ms`，超阈值降级
-- [ ] AC-C6: `embedding_meta` 版本锚——模型/维度变更触发全量 re-embed（禁止静默混跑）
-- [ ] AC-C7: shadow 期 A/B（`dim=128/256`），复用 `memory_eval_corpus.yaml` 对比 Recall@k
-- [ ] AC-C8: 语义 rerank 对 FTS5 候选集重排序（不替代 lexical 召回）
-- [ ] AC-C9: `evidence_passages` 表按需启用（passage 级检索粒度，1000+ docs 后评估）
+### Phase C（向量增强——预期路径，非可选）✅
+- [x] AC-C1: `EMBED_MODE` 三态开关（`off|shadow|on`，默认 `off`），`EMBED_MODEL` 可配置（`qwen3-embedding-0.6b` 默认 + `multilingual-e5-small` 兜底）
+- [x] AC-C2: Qwen3-Embedding-0.6B ONNX 本地推理（Transformers.js），MRL 维度可配置
+- [x] AC-C3: `evidence_vectors` vec0 虚拟表（单一向量真相源），不在 `evidence_docs` 加 embedding 列
+- [x] AC-C4: fail-open — 模型下载/加载/推理任一失败自动回落 Phase B lexical
+- [x] AC-C5: 资源门禁 `max_model_mem_mb` + `embed_timeout_ms`，超阈值降级
+- [x] AC-C6: `embedding_meta` 版本锚——模型/维度变更触发全量 re-embed（禁止静默混跑）
+- [x] AC-C7: shadow 期 A/B（`dim=128/256`），复用 `memory_eval_corpus.yaml` 对比 Recall@k
+- [x] AC-C8: 语义 rerank 对 FTS5 候选集重排序（不替代 lexical 召回）
+- [ ] AC-C9: `evidence_passages` 表按需启用（passage 级检索粒度，1000+ docs 后评估）— **deferred per spec**
 
 ## Dependencies
 
@@ -381,6 +381,10 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 | 2026-03-12 | 云端 review 放行（P1 two-pass incrementalUpdate 已修复） |
 | 2026-03-12 | **PR #409 squash merged** — Phase B ✅（AC-A4/A9 carryover 同步闭合） |
 | 2026-03-12 | Phase C spec 更新：Qwen3-Embedding-0.6B 选型 + 6 条硬约束（codex review 对齐） |
+| 2026-03-13 | Phase C 实现完成：EmbeddingService + VectorStore + SemanticReranker + 141 tests |
+| 2026-03-13 | codex review：2 P1（anchor owner 迁移 + delete 回填），修复后放行 |
+| 2026-03-13 | 云端 review 放行（0 P1/P2） |
+| 2026-03-14 | **PR #431 squash merged** — Phase C ✅（AC-C9 deferred per spec） |
 
 ## Review Gate
 
