@@ -310,6 +310,11 @@ export async function* routeSerial(
       const FLUSH_CHAR_DELTA = 2000;
       const noop = () => {};
 
+      // Issue #83: Independent keepalive timer — touch draft every 60s during long tool calls.
+      // Stream events alone can't keep draft alive when tools execute silently for >300s.
+      const KEEPALIVE_INTERVAL_MS = 60_000;
+      let keepaliveTimer: ReturnType<typeof setInterval> | undefined;
+
       // Always pass isLastCat:false — we set isFinal AFTER A2A detection
       for await (const msg of invokeSingleCat(deps.invocationDeps, {
         catId,
@@ -333,6 +338,14 @@ export async function* routeSerial(
             const parsed = JSON.parse(msg.content);
             if (parsed.type === 'invocation_created') {
               ownInvocationId = parsed.invocationId;
+              // Issue #83: Start keepalive timer once we have an invocationId.
+              // This ensures draft TTL is renewed even during long silent tool calls.
+              if (deps.draftStore && !keepaliveTimer) {
+                const keepInvId = ownInvocationId!;
+                keepaliveTimer = setInterval(() => {
+                  deps.draftStore!.touch(userId, threadId, keepInvId)?.catch?.(noop);
+                }, KEEPALIVE_INTERVAL_MS);
+              }
             }
           } catch {
             /* ignore parse errors */
@@ -433,6 +446,12 @@ export async function* routeSerial(
           // Tag CLI stdout text with origin: 'stream' (thinking/internal)
           yield msg.type === 'text' ? { ...msg, origin: 'stream' as const } : msg;
         }
+      }
+
+      // Issue #83: Stop keepalive timer — streaming loop has exited.
+      if (keepaliveTimer) {
+        clearInterval(keepaliveTimer);
+        keepaliveTimer = undefined;
       }
 
       let a2aMentions: CatId[] = [];

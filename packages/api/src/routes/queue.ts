@@ -29,6 +29,8 @@ interface InvocationTrackerLike {
     requestUserId?: string,
     abortReason?: string,
   ): { cancelled: boolean; catIds: string[] };
+  /** Issue #83: Get all active catIds for a thread (F5 refresh recovery) */
+  getActiveSlots(threadId: string): string[];
 }
 
 export interface QueueRoutesOptions {
@@ -96,6 +98,9 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
       queue: invocationQueue.list(threadId, guard.userId),
       paused: queueProcessor.isPaused(threadId),
       pauseReason: queueProcessor.getPauseReason(threadId),
+      // Issue #83: Expose active invocation slots for F5 refresh recovery.
+      // Frontend can use this to restore processing state even when drafts expire.
+      activeInvocations: invocationTracker.getActiveSlots(threadId),
     };
   });
 

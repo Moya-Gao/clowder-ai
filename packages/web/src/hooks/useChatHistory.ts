@@ -403,10 +403,33 @@ export function useChatHistory(threadId: string) {
       if (!res.ok) return;
       if (abortRef.current !== controller) return;
       if (threadIdRef.current !== fetchForThread) return;
-      const data = (await res.json()) as { queue: QueueEntry[]; paused: boolean; pauseReason?: 'canceled' | 'failed' };
+      const data = (await res.json()) as {
+        queue: QueueEntry[];
+        paused: boolean;
+        pauseReason?: 'canceled' | 'failed';
+        activeInvocations?: string[];
+      };
       // Always sync server state — clears stale local data when server queue is empty
       setQueue(fetchForThread, data.queue);
       setQueuePaused(fetchForThread, data.paused, data.pauseReason);
+      // Issue #83: Reconcile processing state from server-side InvocationTracker.
+      // Uses thread-scoped APIs so it works correctly for both active and background threads,
+      // and always overwrites stale snapshots restored by setCurrentThread().
+      const store = useChatStore.getState();
+      if (data.activeInvocations && data.activeInvocations.length > 0) {
+        setThreadTargetCats(fetchForThread, data.activeInvocations);
+        for (const catId of data.activeInvocations) {
+          store.setCatStatus(catId, 'streaming');
+        }
+        store.setThreadHasActiveInvocation(fetchForThread, true);
+      } else {
+        // Server says no active invocations — clear any stale processing state
+        // that may have been restored from a threadStates snapshot.
+        // clearThreadActiveInvocation clears BOTH hasActiveInvocation boolean
+        // AND the activeInvocations slot map, preventing re-derivation bugs.
+        store.clearThreadActiveInvocation(fetchForThread);
+        setThreadTargetCats(fetchForThread, []);
+      }
     } catch (err) {
       if (isAbortError(err)) return;
     }
