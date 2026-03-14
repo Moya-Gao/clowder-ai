@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F116: Open-Source Ops — 开源社区运营 Skill
 
-> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-03-14 | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
 
 ## Why
 

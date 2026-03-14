@@ -88,3 +88,4 @@
 | F106 | F106: 多训练营支持 + 训练营列表页 | done | [F106-multi-bootcamp.md](./F106-multi-bootcamp.md) |
 | F114 | F114: Magic Words + 愿景守护 Gate | done | [F114-governance-magic-words.md](./F114-governance-magic-words.md) |
 | F115 | F115: Runtime 启动链优化 — Profile 化 + Sidecar 状态分层 + Proxy 弹性 + 交互式 Setup | done | [F115-runtime-startup-optimization.md](./F115-runtime-startup-optimization.md) |
+| F116 | F116: Open-Source Ops — 开源社区运营 Skill | done | [F116-opensource-ops.md](./F116-opensource-ops.md) |
