@@ -242,13 +242,13 @@ Phase 4 实施过程中暴露的 runtime 层问题：
 
 已收敛（两猫 3/13）：4.1=A profile 化, 4.2=全做, 4.3=A+C, 4.4=交互式 setup → [ADR-016](../decisions/016-sync-runtime-negation-decisions.md) + [LL-030](../lessons-learned.md#LL-030)
 
-**Phase 4c: Hotfix Lane 设计（3/14 平行 session 提出）** ⏳ 实现中（R2 review 进行中）
+**Phase 4c: Hotfix Lane 设计（3/14 平行 session 提出）** ✅ 已实现（砚砚 code review 3/13 放行）
 
 > 详见 [同步管道 Hotfix Lane 设计](../discussions/2026-03-14-sync-hotfix-lane-design.md)
 
 社区报 bug 后的精准修复通道：全量 sync 之外增加 tag-based hotfix 节奏。
 - `scripts/sync-hotfix.sh` — 从 worktree（基于 sync tag）推指定文件到 clowder-ai
-- Source 侧硬约束：必须从 worktree 运行，hard-fail
+- Source 侧两层门禁：HEAD == sync tag + 本地改动 ⊆ FILES，hard-fail
 - Target 侧漂移检查：clowder-ai 文件必须等于 sync 时版本
 - 首次 e2e 验证：clowder-ai#18（button tooltips），PR #65
 
