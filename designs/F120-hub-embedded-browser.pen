@@ -32,7 +32,7 @@
       "y": 80,
       "name": "Scene 1: Hub Full Layout — Chat + Browser Panel",
       "width": 1200,
-      "fill": "#F5F4F1",
+      "fill": "#FDF8F3",
       "cornerRadius": 16,
       "layout": "vertical",
       "gap": 12,
@@ -75,7 +75,7 @@
               "name": "Top Bar",
               "width": "fill_container",
               "height": 48,
-              "fill": "#FAFAF8",
+              "fill": "#FDF8F3",
               "stroke": {
                 "align": "inside",
                 "thickness": {
@@ -105,7 +105,7 @@
                       "height": 20,
                       "iconFontName": "cat",
                       "iconFontFamily": "lucide",
-                      "fill": "#3D8A5A"
+                      "fill": "#E29578"
                     },
                     {
                       "type": "text",
@@ -130,7 +130,7 @@
                       "type": "frame",
                       "id": "xbXQG",
                       "name": "filesBtn",
-                      "fill": "#F5F4F1",
+                      "fill": "#FDF8F3",
                       "cornerRadius": 6,
                       "gap": 4,
                       "padding": [
@@ -165,7 +165,7 @@
                       "type": "frame",
                       "id": "YISGU",
                       "name": "browserBtn",
-                      "fill": "#3D8A5A",
+                      "fill": "#E29578",
                       "cornerRadius": 6,
                       "gap": 4,
                       "padding": [
@@ -235,7 +235,7 @@
                           "name": "catAvatar",
                           "width": 28,
                           "height": 28,
-                          "fill": "#E8F0EB",
+                          "fill": "#F3EAF8",
                           "cornerRadius": 14,
                           "children": [
                             {
@@ -246,7 +246,7 @@
                               "height": 16,
                               "iconFontName": "cat",
                               "iconFontFamily": "lucide",
-                              "fill": "#3D8A5A"
+                              "fill": "#9B7EBD"
                             }
                           ]
                         },
@@ -262,7 +262,7 @@
                               "type": "text",
                               "id": "zlwmr",
                               "name": "catName",
-                              "fill": "#3D8A5A",
+                              "fill": "#9B7EBD",
                               "content": "布偶猫 · 宪宪",
                               "fontFamily": "Outfit",
                               "fontSize": 12,
@@ -290,7 +290,7 @@
                       "id": "txu7h",
                       "name": "System Notice",
                       "width": "fill_container",
-                      "fill": "#E8F0EB",
+                      "fill": "#FFF5F2",
                       "cornerRadius": 8,
                       "gap": 8,
                       "padding": [
@@ -307,13 +307,13 @@
                           "height": 14,
                           "iconFontName": "radio",
                           "iconFontFamily": "lucide",
-                          "fill": "#3D8A5A"
+                          "fill": "#E29578"
                         },
                         {
                           "type": "text",
                           "id": "Sptry",
                           "name": "noticeText",
-                          "fill": "#3D8A5A",
+                          "fill": "#E29578",
                           "content": "检测到 dev server 启动: localhost:3847 — 已自动打开 Browser 面板",
                           "fontFamily": "Outfit",
                           "fontSize": 12,
@@ -358,7 +358,7 @@
                           "height": 18,
                           "iconFontName": "send",
                           "iconFontFamily": "lucide",
-                          "fill": "#3D8A5A"
+                          "fill": "#E29578"
                         }
                       ]
                     }
@@ -379,7 +379,7 @@
                   "clip": true,
                   "width": "fill_container",
                   "height": "fill_container",
-                  "fill": "#FAFAF8",
+                  "fill": "#FDF8F3",
                   "layout": "vertical",
                   "children": [
                     {
@@ -388,7 +388,7 @@
                       "name": "Browser Toolbar",
                       "width": "fill_container",
                       "height": 40,
-                      "fill": "#F5F4F1",
+                      "fill": "#FDF8F3",
                       "stroke": {
                         "align": "inside",
                         "thickness": {
@@ -470,7 +470,7 @@
                               "height": 12,
                               "iconFontName": "lock",
                               "iconFontFamily": "lucide",
-                              "fill": "#3D8A5A"
+                              "fill": "#E29578"
                             },
                             {
                               "type": "text",
@@ -711,7 +711,7 @@
                               "name": "signInBtn",
                               "width": "fill_container",
                               "height": 36,
-                              "fill": "#3D8A5A",
+                              "fill": "#E29578",
                               "cornerRadius": 8,
                               "justifyContent": "center",
                               "alignItems": "center",
@@ -738,13 +738,13 @@
                       "name": "HMR Status Bar",
                       "width": "fill_container",
                       "height": 24,
-                      "fill": "#E8F0EB",
+                      "fill": "#FFF5F2",
                       "stroke": {
                         "align": "inside",
                         "thickness": {
                           "top": 1
                         },
-                        "fill": "#C5DCC9"
+                        "fill": "#FFDDD2"
                       },
                       "gap": 6,
                       "padding": [
@@ -757,7 +757,7 @@
                           "type": "ellipse",
                           "id": "CeQ1D",
                           "name": "hmrDot",
-                          "fill": "#3D8A5A",
+                          "fill": "#4CAF50",
                           "width": 6,
                           "height": 6
                         },
@@ -765,7 +765,7 @@
                           "type": "text",
                           "id": "3GUYT",
                           "name": "hmrText",
-                          "fill": "#3D8A5A",
+                          "fill": "#4CAF50",
                           "content": "HMR connected · localhost:3847",
                           "fontFamily": "Outfit",
                           "fontSize": 11,
@@ -798,7 +798,7 @@
       "y": 80,
       "name": "Scene 2: Port Discovery Toast",
       "width": 440,
-      "fill": "#F5F4F1",
+      "fill": "#FDF8F3",
       "cornerRadius": 16,
       "layout": "vertical",
       "gap": 12,
@@ -858,7 +858,7 @@
                       "height": 18,
                       "iconFontName": "radio",
                       "iconFontFamily": "lucide",
-                      "fill": "#3D8A5A"
+                      "fill": "#E29578"
                     },
                     {
                       "type": "text",
@@ -909,7 +909,7 @@
                   "id": "gHgmb",
                   "name": "previewBtn",
                   "height": 32,
-                  "fill": "#3D8A5A",
+                  "fill": "#E29578",
                   "cornerRadius": 8,
                   "gap": 6,
                   "padding": [
@@ -946,7 +946,7 @@
                   "id": "tPoL7",
                   "name": "dismissBtn",
                   "height": 32,
-                  "fill": "#F5F4F1",
+                  "fill": "#FDF8F3",
                   "cornerRadius": 8,
                   "padding": [
                     0,
@@ -1037,7 +1037,7 @@
               "id": "zqeZm",
               "name": "port1",
               "width": "fill_container",
-              "fill": "#E8F0EB",
+              "fill": "#FFF5F2",
               "padding": [
                 10,
                 14
@@ -1056,7 +1056,7 @@
                       "type": "ellipse",
                       "id": "TfaqW",
                       "name": "port1Dot",
-                      "fill": "#3D8A5A",
+                      "fill": "#4CAF50",
                       "width": 8,
                       "height": 8
                     },
@@ -1076,7 +1076,7 @@
                   "type": "text",
                   "id": "Wkhlm",
                   "name": "port1Badge",
-                  "fill": "#3D8A5A",
+                  "fill": "#E29578",
                   "content": "Viewing",
                   "fontFamily": "Outfit",
                   "fontSize": 11,
@@ -1127,7 +1127,7 @@
                   "type": "text",
                   "id": "XCdUd",
                   "name": "port2Open",
-                  "fill": "#3D8A5A",
+                  "fill": "#E29578",
                   "content": "Open",
                   "fontFamily": "Outfit",
                   "fontSize": 11,
@@ -1185,7 +1185,7 @@
               "height": 14,
               "iconFontName": "arrow-right",
               "iconFontFamily": "lucide",
-              "fill": "#3D8A5A"
+              "fill": "#E29578"
             }
           ]
         }
@@ -1198,7 +1198,7 @@
       "y": 440,
       "name": "Scene 3: Browser Panel Controls Detail",
       "width": 600,
-      "fill": "#F5F4F1",
+      "fill": "#FDF8F3",
       "cornerRadius": 16,
       "layout": "vertical",
       "gap": 12,
@@ -1220,7 +1220,7 @@
           "name": "Toolbar: Normal",
           "width": "fill_container",
           "height": 40,
-          "fill": "#F5F4F1",
+          "fill": "#FDF8F3",
           "cornerRadius": 8,
           "stroke": {
             "align": "inside",
@@ -1301,7 +1301,7 @@
                   "height": 12,
                   "iconFontName": "lock",
                   "iconFontFamily": "lucide",
-                  "fill": "#3D8A5A"
+                  "fill": "#E29578"
                 },
                 {
                   "type": "text",
@@ -1372,7 +1372,7 @@
           "name": "HMR: Connected",
           "width": "fill_container",
           "height": 28,
-          "fill": "#E8F0EB",
+          "fill": "#FFF5F2",
           "cornerRadius": 8,
           "gap": 6,
           "padding": [
@@ -1385,7 +1385,7 @@
               "type": "ellipse",
               "id": "XUO9C",
               "name": "hmrConDot",
-              "fill": "#3D8A5A",
+              "fill": "#4CAF50",
               "width": 6,
               "height": 6
             },
@@ -1393,7 +1393,7 @@
               "type": "text",
               "id": "ACZ73",
               "name": "hmrConText",
-              "fill": "#3D8A5A",
+              "fill": "#4CAF50",
               "content": "HMR connected · localhost:3847",
               "fontFamily": "Outfit",
               "fontSize": 11,
@@ -1544,7 +1544,7 @@
                   "type": "text",
                   "id": "Qyfow",
                   "name": "logLine2",
-                  "fill": "#3D8A5A",
+                  "fill": "#4CAF50",
                   "content": "[vite] hmr update /src/App.tsx",
                   "fontFamily": "Outfit",
                   "fontSize": 11,
@@ -1585,7 +1585,7 @@
               "type": "frame",
               "id": "43YKY",
               "name": "vpDesktop",
-              "fill": "#E8F0EB",
+              "fill": "#FFF5F2",
               "cornerRadius": 6,
               "layout": "vertical",
               "gap": 4,
@@ -1603,13 +1603,13 @@
                   "height": 18,
                   "iconFontName": "monitor",
                   "iconFontFamily": "lucide",
-                  "fill": "#3D8A5A"
+                  "fill": "#E29578"
                 },
                 {
                   "type": "text",
                   "id": "PFd5v",
                   "name": "vpDesktopLabel",
-                  "fill": "#3D8A5A",
+                  "fill": "#E29578",
                   "content": "Desktop",
                   "fontFamily": "Outfit",
                   "fontSize": 10,
