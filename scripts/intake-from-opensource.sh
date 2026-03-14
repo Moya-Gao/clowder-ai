@@ -94,59 +94,44 @@ is_manual_port() {
 # packages/api/**, packages/web/**, packages/shared/**, packages/mcp-server/**
 
 # ── Record decision (happy path) ──
-# This is the proper way to advance the ledger: record a per-PR decision.
-# The sync gate reads last_reviewed_target_head; this command advances it
-# only when the recorded PR's merge commit is accounted for.
+# Records a per-PR decision in entries[]. Does NOT advance last_reviewed_target_head.
+# Use --advance-ledger after recording all PRs to advance the gate.
 if [ "$RECORD_DECISION" = true ]; then
   if [ -z "$PR_NUMBER" ]; then
-    echo -e "${RED}✗ --record requires --pr <number>${NC}"
-    exit 1
+    echo -e "${RED}✗ --record requires --pr <number>${NC}"; exit 1
   fi
   if [ -z "$DECISION" ]; then
-    echo -e "${RED}✗ --record requires --decision <absorbed|public-only|rejected>${NC}"
-    exit 1
+    echo -e "${RED}✗ --record requires --decision <absorbed|public-only|rejected>${NC}"; exit 1
   fi
   case "$DECISION" in
     absorbed|public-only|rejected) ;;
     *) echo -e "${RED}✗ Invalid decision '$DECISION'. Use: absorbed | public-only | rejected${NC}"; exit 1 ;;
   esac
   if [ ! -f "$INTAKE_LEDGER" ]; then
-    echo -e "${RED}✗ Intake ledger not found at $INTAKE_LEDGER${NC}"
-    exit 1
+    echo -e "${RED}✗ Intake ledger not found${NC}"; exit 1
   fi
-  # Get PR merge commit from GitHub
   PR_MERGE_INFO=$(gh pr view "$PR_NUMBER" --repo "$TARGET_REPO" --json state,mergeCommit 2>/dev/null || true)
   if [ -z "$PR_MERGE_INFO" ]; then
-    echo -e "${RED}✗ Cannot fetch PR #$PR_NUMBER from $TARGET_REPO${NC}"
-    exit 1
+    echo -e "${RED}✗ Cannot fetch PR #$PR_NUMBER from $TARGET_REPO${NC}"; exit 1
   fi
   PR_REC_STATE=$(echo "$PR_MERGE_INFO" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.state)")
   if [ "$PR_REC_STATE" != "MERGED" ]; then
-    echo -e "${RED}✗ PR #$PR_NUMBER is $PR_REC_STATE, not MERGED. Record decisions only for merged PRs.${NC}"
-    exit 1
+    echo -e "${RED}✗ PR #$PR_NUMBER is $PR_REC_STATE, not MERGED.${NC}"; exit 1
   fi
   PR_MERGE_SHA=$(echo "$PR_MERGE_INFO" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log((d.mergeCommit||{}).oid||'')")
-  # Write entry + try to advance head
   node -e "
     const fs = require('fs');
     const ledger = JSON.parse(fs.readFileSync('$INTAKE_LEDGER', 'utf-8'));
-    // Check for duplicate
     if (ledger.entries.some(e => e.pr_number === $PR_NUMBER && e.action !== 'force_advance')) {
-      console.log('⚠ PR #$PR_NUMBER already has an entry in the ledger. Skipping.');
-      process.exit(0);
+      console.log('⚠ PR #$PR_NUMBER already recorded. Skipping.'); process.exit(0);
     }
     ledger.entries.push({
-      pr_number: $PR_NUMBER,
-      target_merge_commit: '$PR_MERGE_SHA',
-      decision: '$DECISION',
-      timestamp: new Date().toISOString()
+      pr_number: $PR_NUMBER, target_merge_commit: '$PR_MERGE_SHA',
+      decision: '$DECISION', timestamp: new Date().toISOString()
     });
-    // Try to advance last_reviewed_target_head if this merge commit is an
-    // ancestor of or equal to target HEAD
-    ledger.last_reviewed_target_head = '$PR_MERGE_SHA';
     fs.writeFileSync('$INTAKE_LEDGER', JSON.stringify(ledger, null, 2) + '\n');
-    console.log('✓ Recorded PR #$PR_NUMBER → $DECISION');
-    console.log('✓ Ledger advanced to merge commit: $PR_MERGE_SHA');
+    console.log('✓ Recorded PR #$PR_NUMBER → $DECISION (merge: ${PR_MERGE_SHA:0:12})');
+    console.log('  Run --advance-ledger to advance the sync gate.');
   "
   exit 0
 fi
@@ -167,21 +152,24 @@ if [ "$ADVANCE_LEDGER" = true ]; then
     echo -e "${GREEN}✓ Ledger already at target HEAD ($CURRENT_HEAD)${NC}"
     exit 0
   fi
-  # Enumerate non-sync commits between old head and target HEAD
+  # Enumerate non-sync commits; check each against entries[] merge_commit coverage
   UNREVIEWED=""
   UNREVIEWED_COUNT=0
   if [ -n "$OLD_HEAD" ]; then
+    # Build set of recorded merge commits from entries[]
+    RECORDED_SHAS=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); l.entries.filter(e=>e.target_merge_commit).forEach(e=>console.log(e.target_merge_commit))" 2>/dev/null || true)
     for c in $(git -C "$TARGET_DIR" rev-list "$OLD_HEAD".."$CURRENT_HEAD" 2>/dev/null); do
       MSG=$(git -C "$TARGET_DIR" log --format=%s -1 "$c" 2>/dev/null || true)
-      if ! echo "$MSG" | grep -q "^sync: cat-cafe"; then
-        UNREVIEWED_COUNT=$((UNREVIEWED_COUNT + 1))
-        SHORT=$(git -C "$TARGET_DIR" log --format="%h %s" -1 "$c" 2>/dev/null)
-        UNREVIEWED="${UNREVIEWED}    → ${SHORT}\n"
-      fi
+      if echo "$MSG" | grep -q "^sync: cat-cafe"; then continue; fi
+      # Check if this commit is covered by an entries[] record
+      if echo "$RECORDED_SHAS" | grep -q "^${c}$"; then continue; fi
+      UNREVIEWED_COUNT=$((UNREVIEWED_COUNT + 1))
+      SHORT=$(git -C "$TARGET_DIR" log --format="%h %s" -1 "$c" 2>/dev/null)
+      UNREVIEWED="${UNREVIEWED}    → ${SHORT}\n"
     done
   fi
   if [ "$UNREVIEWED_COUNT" -gt 0 ]; then
-    echo -e "${RED}✗ Cannot advance: $UNREVIEWED_COUNT unreviewed non-sync commit(s)${NC}"
+    echo -e "${RED}✗ Cannot advance: $UNREVIEWED_COUNT unrecorded non-sync commit(s)${NC}"
     echo -e "$UNREVIEWED"
     echo ""
     echo "  For each community PR, run:"
@@ -336,9 +324,9 @@ if [ "$MODE" = "plan" ]; then
     echo "  2. Manually review and port transformed files"
     echo "     Compare clowder-ai diff with cat-cafe source"
   fi
-  echo "  3. After absorbing, record decision in ledger:"
-  echo "     bash scripts/intake-from-opensource.sh --record --pr $PR_NUMBER --decision absorbed"
+  echo "  3. Record decision: --record --pr $PR_NUMBER --decision absorbed"
   echo "     (or: --decision public-only | --decision rejected)"
+  echo "  4. After all PRs recorded: --advance-ledger"
 elif [ "$MODE" = "apply" ]; then
   echo ""
   echo -e "${YELLOW}⚠ --mode=apply not yet implemented (V2)${NC}"
