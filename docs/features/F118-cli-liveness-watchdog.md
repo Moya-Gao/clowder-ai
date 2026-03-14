@@ -25,15 +25,16 @@ created: 2026-03-14
 - Thread: `thread_mmq8de3e0o4p1407` / session `019cec11-32cf-74b2-af27-469c43644c37`
 - 表现：Codex CLI 吐出 `thread.started` 后 30 分钟完全静默，被 watchdog 杀掉
 - Raw archive 只有两行：`thread.started` → `__cliTimeout`（零中间事件）
-- 硬证据：同一 `cliSessionId` 在挂住期间被另一颗 invocation 成功 resume 使用
-- Invocation: `6c521978-b5ea-439d-b03b-52444ac4f1e5`（04:41:55 → 05:11:57 UTC）
+- **硬证据**：同一 `cliSessionId` 在挂住期间被另一颗 invocation 成功 resume 使用（审计日志 04:46:16–04:48:02 PDT）
+- Invocation: `6c521978-b5ea-439d-b03b-52444ac4f1e5`（04:41:55 → 05:11:57 PDT / 11:41:55 → 12:11:57 UTC）
 
-**现象 2 — 缅因猫半初始化失败（Cat Café 内部）**
+**现象 2 — 缅因猫半初始化失败（Cat Café 内部）** ⚠️ 高度一致，非独立证明并发 resume
 
 - Thread: `thread_mmq9wjiiht3k5vb3` / session `019cec37-8def-75e3-951e-bbc04c1febf9`
 - 表现：session chain 登记了 `cliSessionId`，raw archive 收到 `thread.started`，但 Codex 本地 `~/.codex/sessions/` 无 rollout 文件
 - 铲屎官执行 `codex resume` 发现 session 不存在
-- Invocation: `dfe13a22-aa7a-4fd4-863d-962f52e0002e`（04:59:49 → 05:29:50 UTC）
+- 与现象 1 的故障模式一致（只有 `thread.started` + `__cliTimeout`），但未独立证明存在并发 resume
+- Invocation: `dfe13a22-aa7a-4fd4-863d-962f52e0002e`（04:59:49 → 05:29:50 PDT / 11:59:49 → 12:29:50 UTC）
 
 **现象 3 — Claude CLI stdout 静默窗口（社区反馈）**
 
@@ -44,14 +45,17 @@ created: 2026-03-14
 ### 根因链
 
 ```
-同一 cliSessionId 无 mutex
-  → 并发 resume 同一个 Codex session
-    → 其中一颗进程静默挂死
-      → watchdog 只看 stdout/stderr，30 分钟才发现
-        → 铲屎官困惑："是我们的问题还是 Codex 的问题？"
+已证实（现象 1 硬证据）：
+  同一 cliSessionId 无 mutex → 并发 resume → 一颗成功一颗静默挂死
+
+高度一致（现象 2）：
+  半初始化失败 + 无本地 rollout → 故障模式与并发 resume 一致
+
+共性问题（现象 1+2+3）：
+  watchdog 只看 stdout/stderr → 30 分钟才发现 → 无法区分死/假死/忙
 ```
 
-同时，即使修了 session mutex，现有 watchdog 仍然是单维信号——无法区分"死了/假死/忙着"。
+即使修了 session mutex，现有 watchdog 仍然是单维信号——无法区分"死了/假死/忙着"。
 
 ## What
 
@@ -62,8 +66,8 @@ created: 2026-03-14
 在 `invoke-single-cat.ts` 拿到 `activeRec.cliSessionId` 之后、进入 `service.invoke()` 之前，加 session 级别串行锁：
 
 - 同一进程内，同一个 `cliSessionId` 任一时刻最多允许一颗 in-flight `resume`
-- 第二颗到来时：先尝试 abort 旧的（通过 AbortController），等旧的结束后再 resume
-- 如果旧的 abort 超时（grace period 后仍未退出）→ fail-fast 报错，不静默进入 Codex CLI
+- 默认策略：**queue / fail-fast**（第二颗排队等旧的结束，或直接报错），不默认抢占旧请求
+- 允许抢占的例外（需显式触发）：① 用户手动 cancel ② 同 thread 重试接管 ③ 旧请求已进入 `suspected_stall` 状态
 - 实现为独立的 `SessionMutex` 类，不修改现有 `InvocationTracker`
 
 **A2 — 超时诊断增强**
@@ -86,16 +90,19 @@ created: 2026-03-14
 在 `cli-spawn.ts` 中加入 periodic health check：
 
 - 每 60s 采样进程 CPU 时间（macOS: `ps -o cputime= -p <pid>`）
-- CPU 时间在增长 → 进程活着且在工作，重置超时计时器
-- CPU 时间不变 + 无 stdout/stderr → 高度疑似假死/挂死
+- CPU 时间变化只影响 **状态判定和 kill 决策**，不无限重置超时计时器
+- 三层超时机制：
+  - **soft warning**：静默 > 2min 发预警（不管 CPU 状态）
+  - **bounded extension**：`busy-silent` 状态下超时阈值可延长，但有上限（如 2x 原超时）
+  - **hard cap**：无论 CPU 是否在涨，达到 hard cap 一律进入 kill 决策（防 busy-loop/livelock 永不超时）
 
 活性状态分类：
 
 | stdout/stderr | CPU 变化 | PID 存在 | 判定 | 动作 |
 |---------------|---------|---------|------|------|
 | 有输出 | — | — | `active` | 正常重置 timer |
-| 无 | 在涨 | ✓ | `busy-silent` | 重置 timer，但记录 warning |
-| 无 | 没涨 | ✓ | `idle-silent` | 不重置 timer，进入 kill 倒计时 |
+| 无 | 在涨 | ✓ | `busy-silent` | 不重置 timer，但延长至 bounded extension 上限；记录 warning |
+| 无 | 没涨 | ✓ | `idle-silent` | 不重置 timer，正常走超时流程 |
 | 无 | — | ✗ | `dead` | 立即清理 |
 
 **B2 — 分级预警**
@@ -122,14 +129,14 @@ created: 2026-03-14
 ## Acceptance Criteria
 
 ### Phase A（Session Mutex + 诊断增强）
-- [ ] AC-A1: 同一 `cliSessionId` 并发 resume 时，第二颗等待或 fail-fast，不再出现两个进程同时 resume 同一 session 的情况
+- [ ] AC-A1: 同一 `cliSessionId` 并发 resume 时，第二颗排队等待或 fail-fast（不默认抢占旧请求），不再出现两个进程同时 resume 同一 session 的情况
 - [ ] AC-A2: `SessionMutex` 有独立单元测试，覆盖：正常串行、并发竞争、abort 旧进程、grace period 超时
 - [ ] AC-A3: `__cliTimeout` 事件包含 `firstEventAt`/`lastEventAt`/`lastEventType`/`silenceDurationMs`/`processAlive`/`cliSessionId`/`invocationId`/`rawArchivePath`
 - [ ] AC-A4: 回归测试：复现"同 session 双 resume"场景，验证 mutex 生效
 - [ ] AC-A5: 回归测试：timeout 只有 `thread.started` 时，诊断日志能完整输出所有增强字段
 
 ### Phase B（进程活性检测 + 分级超时）
-- [ ] AC-B1: 进程活性探针每 60s 采样 CPU 时间，`busy-silent` 状态重置超时计时器
+- [ ] AC-B1: 进程活性探针每 60s 采样 CPU 时间，`busy-silent` 状态延长超时至 bounded extension 上限（不无限续命），达到 hard cap 一律进入 kill 决策
 - [ ] AC-B2: `idle-silent`（CPU 不涨 + 无输出）不重置计时器，正常走超时流程
 - [ ] AC-B3: 进程已死（PID 不存在）时立即清理，不等超时
 - [ ] AC-B4: 分级预警：静默 2min 发 `alive_but_silent`，5min 发 `suspected_stall`
@@ -168,7 +175,7 @@ created: 2026-03-14
 |------|------|
 | CPU 时间采样在 macOS 和 Linux 上行为不同 | Phase B 实现时抽象为 `ProcessProbe` 接口，按平台实现 |
 | 分级预警事件增加前端复杂度 | Phase C 有独立 Design Gate |
-| session mutex 可能导致排队延迟 | mutex 策略是 abort-old-first，不是无限排队；有 grace period |
+| session mutex 可能导致排队延迟 | 默认 queue/fail-fast；排队有上限，超时直接 fail-fast 报错 |
 
 ## Open Questions
 
@@ -185,6 +192,8 @@ created: 2026-03-14
 | KD-1 | Bug + Enhancement 合并为一个 Feature | 铲屎官："拆的越复杂，实现出来距离愿景越远" | 2026-03-14 |
 | KD-2 | Session mutex 放在会话复用层，不修改 InvocationTracker | InvocationTracker 是 threadId:catId slot guard，不是 session 级串行化 | 2026-03-14 |
 | KD-3 | 进程活性用 CPU 时间采样而不是单纯 kill -0 | kill -0 只能检测 PID 存在，不能检测假死 | 2026-03-14 |
+| KD-4 | SessionMutex 默认 queue/fail-fast，不默认抢占旧请求 | 防止后来的 thread 杀掉健康请求（砚砚 review P1） | 2026-03-14 |
+| KD-5 | CPU 增长只影响状态判定，不无限重置 timer；需 bounded extension + hard cap | 防 busy-loop/livelock 永不超时（砚砚 review P1） | 2026-03-14 |
 
 ## Timeline
 
