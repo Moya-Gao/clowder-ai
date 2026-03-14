@@ -170,6 +170,7 @@ Cat Café 目前的差距：
 | 2026-03-14 | Design Gate 技术讨论：砚砚给出安全架构结论（反向代理 + 独立 origin + sandbox 策略 + 端口白名单） |
 | 2026-03-14 | OQ-1/2/3 全部关闭，KD-3/4/5 新增，进入 writing-plans |
 | 2026-03-14 | Phase A+B 实现完成，56 tests passing，砚砚 review 3 轮后放行 |
+| 2026-03-14 | Phase A+B merged (PR #450)，云端 review 3 轮通过，60 tests |
 
 ## Review Gate
 
