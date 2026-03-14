@@ -388,6 +388,7 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 | 2026-03-02~03 | DARE issue #135 gap 分析 + PR #145 review（缅因猫 × 2） |
 | 2026-03-04 | Phase 1 启动 — DARE L1 CLI 接入实施 |
 | 2026-03-13 | Phase 4 立项 — Native Prompt Sync for Codex + Gemini（布偶猫 × 缅因猫讨论收敛） |
+| 2026-03-14 | Phase 4 merged (PR #436) |
 
 ## Dependencies
 
