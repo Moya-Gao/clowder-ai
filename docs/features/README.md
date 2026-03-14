@@ -89,3 +89,4 @@
 | F114 | F114: Magic Words + 愿景守护 Gate | done | [F114-governance-magic-words.md](./F114-governance-magic-words.md) |
 | F115 | F115: Runtime 启动链优化 — Profile 化 + Sidecar 状态分层 + Proxy 弹性 + 交互式 Setup | done | [F115-runtime-startup-optimization.md](./F115-runtime-startup-optimization.md) |
 | F116 | F116: Open-Source Ops — 开源社区运营 Skill | done | [F116-opensource-ops.md](./F116-opensource-ops.md) |
+| F118 | F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复 | done | [F118-cli-liveness-watchdog.md](./F118-cli-liveness-watchdog.md) |

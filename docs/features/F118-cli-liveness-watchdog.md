@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复
 
-> **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0
+> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14
 
 ## Why
 
@@ -231,6 +231,7 @@ CLI 挂了 (liveness, Phase A+B ✅)
 | 2026-03-14 | Phase A+B merged (PR #445) |
 | 2026-03-14 | Scope 扩展：社区 #86/#98/#99 归入 F118 (KD-6)，三猫 triage 验证 |
 | 2026-03-14 | Phase C merged (PR #448) — 前端预警 UI + session recovery (AC-C1~C6) |
+| 2026-03-14 | Feature closed — 愿景守护放行 (GPT-5.4), 全 AC 完成 |
 
 ## Review Gate
 
