@@ -46,7 +46,7 @@ created: 2026-02-26
 | F103 | 猫猫独立声线 — Per-Cat Voice Identity | spec | TBD | internal | [F103](features/F103-per-cat-voice-identity.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | internal | [F104](features/F104-local-omni-perception.md) |
 | F107 | 猫猫杀（脑门贴词）— 坏猫战术推理游戏 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
-| F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | spec | TBD | internal | [F108](features/F108-side-dispatch-concurrent-invocation.md) |
+| F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | in-progress | 布偶猫 | internal | [F108](features/F108-side-dispatch-concurrent-invocation.md) |
 | F109 | Message Actions 修复与增强 — 软删除/Branch/编辑/通知 | spec | 布偶猫 | internal | [F109](features/F109-message-actions-overhaul.md) |
 | F110 | 训练营愿景引导增强 — CVO 需求挖掘 + SOP 显式加载 | spec | 布偶猫 | internal | [F110](features/F110-bootcamp-vision-elicitation.md) |
 | F111 | Streaming TTS Chunker — 流式分句合成管线 | spec | 布偶猫 | internal | [F111](features/F111-streaming-tts-chunker.md) |
