@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F117: Message Delivery Lifecycle — 消息投递生命周期真相源
 
-> **Status**: spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
 > **community_issue**: [#20](https://github.com/zts212653/clowder-ai/issues/20)
 
 ## Why
@@ -75,24 +75,24 @@ created: 2026-03-14
 
 ## Acceptance Criteria
 
-### Phase A（后端 — deliveryStatus 真相源）
-- [ ] AC-A1: Message 模型支持 `deliveryStatus` 字段，老数据兼容
-- [ ] AC-A2: enqueue 持久化 message 时 `deliveryStatus='queued'`
-- [ ] AC-A3: History API 默认排除 `queued` 和 `canceled` 消息
-- [ ] AC-A4: ContextAssembler 只组装 `delivered` 消息（含无 deliveryStatus 的历史兼容）
-- [ ] AC-A5: dequeue 执行时 message 标为 `delivered` + 扩展 `messages_delivered` 事件
-- [ ] AC-A6: withdraw 将 message 标 `canceled` + 发 `message_deleted`
-- [ ] AC-A7: clear 队列批量标 `canceled` + 发批量 `message_deleted`
-- [ ] AC-A8: 回归测试——queue send → cancel → history API 不返回、ContextAssembler 不组装
-- [ ] AC-A9: queue send 带 @mention 的消息 → delivered 前 `pending-mentions` 不返回；delivered 后才出现
+### Phase A（后端 — deliveryStatus 真相源） ✅
+- [x] AC-A1: Message 模型支持 `deliveryStatus` 字段，老数据兼容
+- [x] AC-A2: enqueue 持久化 message 时 `deliveryStatus='queued'`
+- [x] AC-A3: History API 默认排除 `queued` 和 `canceled` 消息
+- [x] AC-A4: ContextAssembler 只组装 `delivered` 消息（含无 deliveryStatus 的历史兼容）
+- [x] AC-A5: dequeue 执行时 message 标为 `delivered` + 扩展 `messages_delivered` 事件
+- [x] AC-A6: withdraw 将 message 标 `canceled` + 发 `message_deleted`
+- [x] AC-A7: clear 队列批量标 `canceled` + 发批量 `message_deleted`
+- [x] AC-A8: 回归测试——queue send → cancel → history API 不返回、ContextAssembler 不组装
+- [x] AC-A9: queue send 带 @mention 的消息 → delivered 前 `pending-mentions` 不返回；delivered 后才出现
 
-### Phase B（前端适配）
-- [ ] AC-B1: queue send 不做乐观插入到主聊天流
-- [ ] AC-B2: `messages_delivered` 事件触发 user bubble 插入主时间线
-- [ ] AC-B3: `message_deleted` 事件触发 store 移除
-- [ ] AC-B4: F5 刷新后 queued/canceled 消息不出现在聊天流
-- [ ] AC-B5: QueuePanel 功能不受影响（仍通过 `queue_updated` 正常展示）
-- [ ] AC-B6: queue send 多行消息（Shift+Enter）时不出现 optimistic bubble；delivered 后只出现一次
+### Phase B（前端适配） ✅
+- [x] AC-B1: queue send 不做乐观插入到主聊天流
+- [x] AC-B2: `messages_delivered` 事件触发 user bubble 插入主时间线
+- [x] AC-B3: `message_deleted` 事件触发 store 移除
+- [x] AC-B4: F5 刷新后 queued/canceled 消息不出现在聊天流
+- [x] AC-B5: QueuePanel 功能不受影响（仍通过 `queue_updated` 正常展示）
+- [x] AC-B6: queue send 多行消息（Shift+Enter）时不出现 optimistic bubble；delivered 后只出现一次
 
 ## Scope Boundary
 
@@ -133,6 +133,7 @@ created: 2026-03-14
 | 日期 | 事件 |
 |------|------|
 | 2026-03-14 | 立项。社区 issue #20 触发调查，铲屎官确认 bug + 决定立项 |
+| 2026-03-14 | Phase A+B merged (PR #441)。缅因猫 R5 LGTM + 云端 review 通过 |
 
 ## Review Gate
 
