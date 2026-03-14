@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 # sync-hotfix.sh — Hotfix Lane: 精准推送指定文件到 clowder-ai
-#
-# 基于最新 sync tag 在 clowder-ai 创建分支，从 cat-cafe 复制指定文件，
-# 经过 sanitizer 处理后提交。用于社区 bug 修复的小而精 PR。
-#
 # Usage (MUST run from a worktree based on a sync tag):
 #   git worktree add -b fix/xxx ../hotfix sync/TAG && cd ../hotfix
 #   # ... fix bug ... then:
@@ -167,14 +163,18 @@ fi
 echo -e "  Using tag: ${GREEN}$SYNC_TAG${NC} (on cat-cafe)"
 echo -e "  Tag commit: $(git -C "$SOURCE_DIR" log -1 --format='%h %s' "refs/tags/$SYNC_TAG")"
 
-# ── Source-side baseline check: worktree changes must only contain FILES ──
+# ── Source-side baseline check: tag → full worktree diff must only contain FILES ──
+# Checks committed (tag..HEAD), unstaged (HEAD..worktree), and staged (HEAD..index)
 if [ "$FORCE_UNSAFE_SOURCE" = false ]; then
   EXTRA=false
+  ALL_CHANGES=$({ git -C "$SOURCE_DIR" diff --name-only "refs/tags/$SYNC_TAG" HEAD 2>/dev/null; \
+                   git -C "$SOURCE_DIR" diff --name-only 2>/dev/null; \
+                   git -C "$SOURCE_DIR" diff --cached --name-only 2>/dev/null; } | sort -u)
   while IFS= read -r ch; do
     [ -z "$ch" ] && continue
     HIT=false; for f in "${FILES[@]}"; do [ "$ch" = "$f" ] && HIT=true && break; done
     [ "$HIT" = false ] && echo -e "  ${RED}✗ Extra change in worktree: $ch${NC}" && EXTRA=true
-  done <<< "$(git -C "$SOURCE_DIR" diff --name-only "refs/tags/$SYNC_TAG" HEAD 2>/dev/null)"
+  done <<< "$ALL_CHANGES"
   if [ "$EXTRA" = true ]; then
     echo -e "${RED}Error: worktree has changes beyond specified files.${NC}"
     exit 1

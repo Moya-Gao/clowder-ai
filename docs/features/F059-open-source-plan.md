@@ -242,7 +242,7 @@ Phase 4 实施过程中暴露的 runtime 层问题：
 
 已收敛（两猫 3/13）：4.1=A profile 化, 4.2=全做, 4.3=A+C, 4.4=交互式 setup → [ADR-016](../decisions/016-sync-runtime-negation-decisions.md) + [LL-030](../lessons-learned.md#LL-030)
 
-**Phase 4c: Hotfix Lane 设计（3/14 平行 session 提出）** ✅ 已实现
+**Phase 4c: Hotfix Lane 设计（3/14 平行 session 提出）** ⏳ 实现中（R2 review 进行中）
 
 > 详见 [同步管道 Hotfix Lane 设计](../discussions/2026-03-14-sync-hotfix-lane-design.md)
 
