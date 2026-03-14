@@ -1,10 +1,12 @@
 ---
 title: "同步管道 Hotfix Lane 设计"
+feature_ids: [F059]
 date: 2026-03-14
 participants: [铲屎官, 宪宪/Opus]
 status: spec-ready
 tags: [sync, clowder-ai, infrastructure]
 related_issues: ["clowder-ai#46", "clowder-ai#52"]
+doc_kind: discussion
 ---
 
 # 同步管道 Hotfix Lane 设计
@@ -100,11 +102,36 @@ perl -i -p _sanitize.pl path/to/specific/file.ts
 - **验证 + PR review**：当前宪宪
 - **proxy fallback bug（#46）**：作为第一个 hotfix lane 的试点用例
 
+## 宪宪（当前 session 布偶猫）Review 意见
+
+方向支持。补 3 点：
+
+### 1. 和 intake ledger 的交互（遗漏）
+
+Hotfix 合入 clowder-ai 后，`last_reviewed_target_head`（`docs/ops/opensource-intake-ledger.json`）会落后于新 commit。下次全量 sync 前必须先 `--record` 这个 hotfix commit，否则 intake gate 会 block。
+
+**建议**：`sync-hotfix.sh` 末尾自动提示或直接调用 `intake-from-opensource.sh --record`。
+
+### 2. Review 铁律（开放问题 #3）
+
+文档说 bugfix "不需要跨猫 review"——但铁律是"同一个体不能 review 自己的代码"。
+
+- 平行布偶猫写 fix → 当前布偶猫 review：✓（同 family 不同个体）
+- 同一只猫自己写自己 review：✗
+
+建议明确写成：hotfix 也要跨个体 review，可降级到同 family 不同个体。
+
+### 3. sanitizer `$ARGV` 上下文（开放问题 #2）
+
+`$ARGV` 在单文件模式下就是传入的文件路径。只要路径格式和 sanitizer 里的条件分支匹配（相对路径 `packages/api/src/...`），应该能正确命中。需要实测验证 `managed_roots` 前缀是否一致。
+
 ## 开放问题
 
 1. Tag 命名：`sync/2026-03-13` 还是 `sync/v3.1`（语义化版本）？
    - 铲屎官倾向日期，简单直观
 2. 如果 hotfix 涉及多个文件跨多个 managed_roots，sanitizer 的上下文（`$ARGV` 条件分支）能否正确处理？
    - 需要验证：单文件 Perl 运行时 `$ARGV` 是否正确反映文件路径
+   - 宪宪：应该能，但需实测
 3. cat-cafe 侧的 fix 是直接 commit 到 main 还是也走 worktree + PR？
    - bugfix 级别：worktree + 直接 merge（不需要跨猫 review）
+   - 宪宪：仍需跨个体 review（铁律），可降级到同 family 不同个体

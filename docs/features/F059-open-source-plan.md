@@ -240,7 +240,13 @@ Phase 4 实施过程中暴露的 runtime 层问题：
 - proxy 被误杀和生命周期管理
 - 修 A 炸 B 链条分析
 
-待讨论：脚本 profile 化、sidecar 启动可靠性、proxy 弹性、可选依赖自动安装
+已收敛（两猫 3/13）：4.1=A profile 化, 4.2=全做, 4.3=A+C, 4.4=交互式 setup → [ADR-016](../decisions/016-sync-runtime-negation-decisions.md) + [LL-030](../lessons-learned.md#LL-030)
+
+**Phase 4c: Hotfix Lane 设计（3/14 平行 session 提出）** ⏳
+
+> 详见 [同步管道 Hotfix Lane 设计](../discussions/2026-03-14-sync-hotfix-lane-design.md)
+
+社区报 bug 后的精准修复通道：全量 sync 之外增加 tag-based hotfix 节奏，避免"修一个 bug 要推全量"或"在开源仓直接修被下次 sync 覆盖"。
 
 **Phase 5: 社区编号体系（3/13 讨论收敛）**
 
