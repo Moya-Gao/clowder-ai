@@ -5,17 +5,7 @@
 #   # ... fix bug ... then:
 #   bash scripts/sync-hotfix.sh fix/xxx <file1> [file2] ...
 #
-# Flags:
-#   --dry-run              预览操作，不实际修改 clowder-ai
-#   --tag=NAME             指定 sync tag（默认: 最新 sync/* tag）
-#   --no-sanitize          跳过 sanitizer（调试用，不推荐）
-#   --push                 自动推送分支到 origin
-#   --force-unsafe-source  允许从非 worktree 运行（⚠ 不满足 AC#3）
-#
-# Prerequisites:
-#   - clowder-ai repo 在 ../clowder-ai（或 $CLOWDER_AI_DIR）
-#   - 至少有一个 sync/* tag（由 sync-to-opensource.sh 自动创建）
-#
+# Flags: --dry-run --tag=NAME --no-sanitize --push --force-unsafe-source
 # See: docs/discussions/2026-03-14-sync-hotfix-lane-design.md
 
 set -euo pipefail
@@ -163,12 +153,19 @@ fi
 echo -e "  Using tag: ${GREEN}$SYNC_TAG${NC} (on cat-cafe)"
 echo -e "  Tag commit: $(git -C "$SOURCE_DIR" log -1 --format='%h %s' "refs/tags/$SYNC_TAG")"
 
-# ── Source-side baseline check: tag → full worktree diff must only contain FILES ──
-# Checks committed (tag..HEAD), unstaged (HEAD..worktree), and staged (HEAD..index)
+# ── Source-side baseline: HEAD must equal sync tag, local changes only in FILES ──
 if [ "$FORCE_UNSAFE_SOURCE" = false ]; then
+  TAG_SHA=$(git -C "$SOURCE_DIR" rev-parse "refs/tags/$SYNC_TAG^{commit}" 2>/dev/null)
+  HEAD_SHA=$(git -C "$SOURCE_DIR" rev-parse HEAD 2>/dev/null)
+  if [ "$TAG_SHA" != "$HEAD_SHA" ]; then
+    echo -e "${RED}Error: HEAD ($HEAD_SHA) is not at sync tag ($TAG_SHA).${NC}"
+    echo "Worktree must be based directly on the sync tag with no extra commits."
+    echo "Create with: git worktree add -b fix/xxx ../hotfix $SYNC_TAG"
+    exit 1
+  fi
+  # HEAD == tag, so only local uncommitted/staged changes can exist. Verify they're in FILES.
   EXTRA=false
-  ALL_CHANGES=$({ git -C "$SOURCE_DIR" diff --name-only "refs/tags/$SYNC_TAG" HEAD 2>/dev/null; \
-                   git -C "$SOURCE_DIR" diff --name-only 2>/dev/null; \
+  ALL_CHANGES=$({ git -C "$SOURCE_DIR" diff --name-only 2>/dev/null; \
                    git -C "$SOURCE_DIR" diff --cached --name-only 2>/dev/null; } | sort -u)
   while IFS= read -r ch; do
     [ -z "$ch" ] && continue
