@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
 # intake-from-opensource.sh — Clowder AI → Cat Café 社区贡献吸收
 #
-# Usage:
-#   bash scripts/intake-from-opensource.sh --pr 42 --mode=plan    # 分析 PR，生成吸收报告
-#   bash scripts/intake-from-opensource.sh --pr 42 --mode=apply   # 自动吸收 safe 文件（TODO: V2）
-#   bash scripts/intake-from-opensource.sh --advance-ledger       # 推进 ledger 到 target HEAD
-#
-# V1: plan mode only. apply mode 留给 V2。
-# 设计共识（布偶猫 + 缅因猫 2026-03-13）：
-#   - 不做双向自动 sync，不做通用 reverse transform
-#   - intake 以 PR 为单位，分三类：safe-cherry-pick / manual-port / public-only
-#   - 用 ledger 作为出站 sync 的门禁真相源
+# Usage: see --help or run without args. V1: plan + record only (apply = V2).
+# Design consensus (2026-03-13): no bidirectional sync, no reverse transform,
+# intake by PR, 3-class: safe-cherry-pick / manual-port / public-only.
 
 set -euo pipefail
 
@@ -31,19 +24,26 @@ TARGET_REPO="zts212653/clowder-ai"
 PR_NUMBER=""
 MODE="plan"
 ADVANCE_LEDGER=false
+FORCE_OVERWRITE=false
+RECORD_DECISION=false
+DECISION=""
 
 for arg in "$@"; do
   case "$arg" in
     --pr=*) PR_NUMBER="${arg#--pr=}" ;;
     --pr) ;; # handled below with next arg
     --mode=*) MODE="${arg#--mode=}" ;;
+    --decision=*) DECISION="${arg#--decision=}" ;;
     --advance-ledger) ADVANCE_LEDGER=true ;;
+    --force-overwrite) FORCE_OVERWRITE=true ;;
+    --record) RECORD_DECISION=true ;;
   esac
 done
-# Handle --pr N (space-separated)
+# Handle --pr N and --decision D (space-separated)
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pr) PR_NUMBER="$2"; shift 2 ;;
+    --decision) DECISION="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -93,6 +93,64 @@ is_manual_port() {
 # Everything else = safe to cherry-pick (only cosmetic sanitization applied)
 # packages/api/**, packages/web/**, packages/shared/**, packages/mcp-server/**
 
+# ── Record decision (happy path) ──
+# This is the proper way to advance the ledger: record a per-PR decision.
+# The sync gate reads last_reviewed_target_head; this command advances it
+# only when the recorded PR's merge commit is accounted for.
+if [ "$RECORD_DECISION" = true ]; then
+  if [ -z "$PR_NUMBER" ]; then
+    echo -e "${RED}✗ --record requires --pr <number>${NC}"
+    exit 1
+  fi
+  if [ -z "$DECISION" ]; then
+    echo -e "${RED}✗ --record requires --decision <absorbed|public-only|rejected>${NC}"
+    exit 1
+  fi
+  case "$DECISION" in
+    absorbed|public-only|rejected) ;;
+    *) echo -e "${RED}✗ Invalid decision '$DECISION'. Use: absorbed | public-only | rejected${NC}"; exit 1 ;;
+  esac
+  if [ ! -f "$INTAKE_LEDGER" ]; then
+    echo -e "${RED}✗ Intake ledger not found at $INTAKE_LEDGER${NC}"
+    exit 1
+  fi
+  # Get PR merge commit from GitHub
+  PR_MERGE_INFO=$(gh pr view "$PR_NUMBER" --repo "$TARGET_REPO" --json state,mergeCommit 2>/dev/null || true)
+  if [ -z "$PR_MERGE_INFO" ]; then
+    echo -e "${RED}✗ Cannot fetch PR #$PR_NUMBER from $TARGET_REPO${NC}"
+    exit 1
+  fi
+  PR_REC_STATE=$(echo "$PR_MERGE_INFO" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.state)")
+  if [ "$PR_REC_STATE" != "MERGED" ]; then
+    echo -e "${RED}✗ PR #$PR_NUMBER is $PR_REC_STATE, not MERGED. Record decisions only for merged PRs.${NC}"
+    exit 1
+  fi
+  PR_MERGE_SHA=$(echo "$PR_MERGE_INFO" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log((d.mergeCommit||{}).oid||'')")
+  # Write entry + try to advance head
+  node -e "
+    const fs = require('fs');
+    const ledger = JSON.parse(fs.readFileSync('$INTAKE_LEDGER', 'utf-8'));
+    // Check for duplicate
+    if (ledger.entries.some(e => e.pr_number === $PR_NUMBER && e.action !== 'force_advance')) {
+      console.log('⚠ PR #$PR_NUMBER already has an entry in the ledger. Skipping.');
+      process.exit(0);
+    }
+    ledger.entries.push({
+      pr_number: $PR_NUMBER,
+      target_merge_commit: '$PR_MERGE_SHA',
+      decision: '$DECISION',
+      timestamp: new Date().toISOString()
+    });
+    // Try to advance last_reviewed_target_head if this merge commit is an
+    // ancestor of or equal to target HEAD
+    ledger.last_reviewed_target_head = '$PR_MERGE_SHA';
+    fs.writeFileSync('$INTAKE_LEDGER', JSON.stringify(ledger, null, 2) + '\n');
+    console.log('✓ Recorded PR #$PR_NUMBER → $DECISION');
+    console.log('✓ Ledger advanced to merge commit: $PR_MERGE_SHA');
+  "
+  exit 0
+fi
+
 # ── Advance ledger ──
 if [ "$ADVANCE_LEDGER" = true ]; then
   if [ ! -d "$TARGET_DIR/.git" ]; then
@@ -126,8 +184,12 @@ if [ "$ADVANCE_LEDGER" = true ]; then
     echo -e "${RED}✗ Cannot advance: $UNREVIEWED_COUNT unreviewed non-sync commit(s)${NC}"
     echo -e "$UNREVIEWED"
     echo ""
-    echo "  Run intake --pr <N> --mode=plan for each community PR first."
-    echo "  Then re-run --advance-ledger --force to advance with audit trail."
+    echo "  For each community PR, run:"
+    echo "    bash scripts/intake-from-opensource.sh --pr <N> --mode=plan"
+    echo "    bash scripts/intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only|rejected>"
+    echo ""
+    echo "  Or force-advance (DANGEROUS — skips per-PR review):"
+    echo "    bash scripts/intake-from-opensource.sh --advance-ledger --force-overwrite"
     if [ "$FORCE_OVERWRITE" != true ]; then
       exit 1
     fi
@@ -163,8 +225,12 @@ fi
 
 # ── Plan mode ──
 if [ -z "$PR_NUMBER" ]; then
-  echo "Usage: bash scripts/intake-from-opensource.sh --pr <number> --mode=plan"
-  echo "       bash scripts/intake-from-opensource.sh --advance-ledger"
+  echo "Usage:"
+  echo "  bash scripts/intake-from-opensource.sh --pr <N> --mode=plan              # Analyze PR"
+  echo "  bash scripts/intake-from-opensource.sh --record --pr <N> --decision <D>  # Record decision"
+  echo "  bash scripts/intake-from-opensource.sh --advance-ledger                  # Advance ledger (sync-only commits)"
+  echo ""
+  echo "Decisions: absorbed | public-only | rejected"
   exit 1
 fi
 
@@ -270,8 +336,9 @@ if [ "$MODE" = "plan" ]; then
     echo "  2. Manually review and port transformed files"
     echo "     Compare clowder-ai diff with cat-cafe source"
   fi
-  echo "  3. After absorbing, update ledger:"
-  echo "     bash scripts/intake-from-opensource.sh --advance-ledger"
+  echo "  3. After absorbing, record decision in ledger:"
+  echo "     bash scripts/intake-from-opensource.sh --record --pr $PR_NUMBER --decision absorbed"
+  echo "     (or: --decision public-only | --decision rejected)"
 elif [ "$MODE" = "apply" ]; then
   echo ""
   echo -e "${YELLOW}⚠ --mode=apply not yet implemented (V2)${NC}"
