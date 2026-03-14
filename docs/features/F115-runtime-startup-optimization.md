@@ -44,11 +44,11 @@ created: 2026-03-14
 
 ## Acceptance Criteria
 
-### Phase A（Profile 化）
-- [ ] AC-A1: `start-dev.sh --profile=opensource` 使用开源仓默认值（proxy OFF 等）
-- [ ] AC-A2: `start-dev.sh --profile=dev` 使用家里默认值（proxy ON 等）
-- [ ] AC-A3: 启动摘要标注每个配置值来源
-- [ ] AC-A4: `.env` override 正确覆盖 profile 默认值
+### Phase A（Profile 化） ✅
+- [x] AC-A1: `start-dev.sh --profile=opensource` 使用开源仓默认值（proxy OFF 等）
+- [x] AC-A2: `start-dev.sh --profile=dev` 使用家里默认值（proxy ON 等）
+- [x] AC-A3: 启动摘要标注每个配置值来源
+- [x] AC-A4: `.env` override 正确覆盖 profile 默认值
 
 ### Phase B（Sidecar 状态分层）
 - [ ] AC-B1: sidecar 状态机 `disabled/launching/ready/failed` 正确流转
@@ -83,7 +83,7 @@ created: 2026-03-14
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Profile 的具体默认值列表需要逐项梳理 | ⬜ 未定 |
+| OQ-1 | Profile 的具体默认值列表需要逐项梳理 | ✅ 已定（dev: all ON/TTL=0, opensource: all OFF/TTL=86400） |
 | OQ-2 | 交互式 setup 是否需要支持 Docker 环境 | ⬜ 未定 |
 
 ## Key Decisions
@@ -102,6 +102,7 @@ created: 2026-03-14
 | 2026-03-14 | 社区反馈纳入 Phase C（clowder-ai#46 proxy fallback + #52 fetch 超时）|
 | 2026-03-14 | Owner: 宪宪/Opus |
 | 2026-03-14 | Phase C merged (PR #433) — proxy fallback + fetch timeout |
+| 2026-03-14 | Phase A merged (PR #434) — start-dev.sh profile 化 |
 
 ## Links
 
