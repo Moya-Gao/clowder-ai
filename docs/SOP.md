@@ -152,6 +152,8 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 3. `cd ../cat-cafe-hotfix-xxx && bash scripts/sync-hotfix.sh fix/xxx <changed-files>`
 4. 在 clowder-ai 上开 PR、review、merge
 5. Cherry-pick fix 回 cat-cafe main
+6. `intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only>`
+7. `intake-from-opensource.sh --advance-ledger`
 
 > 详见 [Hotfix Lane 设计](discussions/2026-03-14-sync-hotfix-lane-design.md)
 

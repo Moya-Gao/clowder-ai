@@ -5,15 +5,9 @@
 # 经过 sanitizer 处理后提交。用于社区 bug 修复的小而精 PR。
 #
 # Usage (MUST run from a worktree based on a sync tag):
-#   git worktree add -b fix/xxx ../cat-cafe-hotfix-xxx sync/2026-03-13-HHMMSS
-#   cd ../cat-cafe-hotfix-xxx
-#   # ... make your fix ...
-#   bash scripts/sync-hotfix.sh <branch-name> <file1> [file2] ...
-#
-# Example:
-#   bash scripts/sync-hotfix.sh fix/proxy-fallback \
-#     packages/api/src/routes/invoke-single-cat.ts \
-#     packages/api/src/utils/proxy-client.ts
+#   git worktree add -b fix/xxx ../hotfix sync/TAG && cd ../hotfix
+#   # ... fix bug ... then:
+#   bash scripts/sync-hotfix.sh fix/xxx <file1> [file2] ...
 #
 # Flags:
 #   --dry-run              预览操作，不实际修改 clowder-ai
@@ -173,19 +167,29 @@ fi
 echo -e "  Using tag: ${GREEN}$SYNC_TAG${NC} (on cat-cafe)"
 echo -e "  Tag commit: $(git -C "$SOURCE_DIR" log -1 --format='%h %s' "refs/tags/$SYNC_TAG")"
 
+# ── Source-side baseline check: worktree changes must only contain FILES ──
+if [ "$FORCE_UNSAFE_SOURCE" = false ]; then
+  EXTRA=false
+  while IFS= read -r ch; do
+    [ -z "$ch" ] && continue
+    HIT=false; for f in "${FILES[@]}"; do [ "$ch" = "$f" ] && HIT=true && break; done
+    [ "$HIT" = false ] && echo -e "  ${RED}✗ Extra change in worktree: $ch${NC}" && EXTRA=true
+  done <<< "$(git -C "$SOURCE_DIR" diff --name-only "refs/tags/$SYNC_TAG" HEAD 2>/dev/null)"
+  if [ "$EXTRA" = true ]; then
+    echo -e "${RED}Error: worktree has changes beyond specified files.${NC}"
+    exit 1
+  fi
+fi
+
 # ── Step 2: Validate source files exist + manifest allowlist ──
 echo ""
 echo -e "${BLUE}[Step 2/7] Validating source files against manifest...${NC}"
 VALIDATION_FAIL=false
 for f in "${FILES[@]}"; do
   if [ ! -f "$SOURCE_DIR/$f" ]; then
-    echo -e "  ${RED}✗ Not found: $f${NC}"
-    VALIDATION_FAIL=true
+    echo -e "  ${RED}✗ Not found: $f${NC}"; VALIDATION_FAIL=true
   elif ! file_allowed "$f"; then
-    echo -e "  ${RED}✗ BLOCKED by manifest: $f${NC}"
-    echo -e "    ${YELLOW}This file is excluded or not in any allowlist (managed_roots/files/scripts).${NC}"
-    echo -e "    ${YELLOW}Hotfix lane cannot bypass the export allowlist.${NC}"
-    VALIDATION_FAIL=true
+    echo -e "  ${RED}✗ BLOCKED by manifest: $f${NC}"; VALIDATION_FAIL=true
   else
     echo -e "  ${GREEN}✓${NC} $f"
   fi
@@ -210,29 +214,36 @@ if [ "$DRY_RUN" = false ]; then
   echo -e "  ${GREEN}✓${NC} Target repo clean"
 fi
 
+# ── Resolve sanitizer early (needed for drift check + copy) ──
+SANITIZER="$SCRIPT_DIR/_sanitize-rules.pl"
+if [ ! -f "$SANITIZER" ]; then
+  echo -e "${RED}Error: _sanitize-rules.pl not found at $SANITIZER${NC}"
+  exit 1
+fi
+
 # ── Step 4: Target drift check (AC#3 guardian) ──
 echo ""
 echo -e "${BLUE}[Step 4/7] Checking target files for post-sync drift...${NC}"
 
-# Verify clowder-ai main files haven't changed since last full sync
-SYNC_TAG_DATE=$(git -C "$SOURCE_DIR" log -1 --format='%aI' "refs/tags/$SYNC_TAG" 2>/dev/null || echo "")
+# Content-based: sync tag file + sanitizer = expected baseline in clowder-ai
 DRIFT_FAIL=false
 for f in "${FILES[@]}"; do
   if [ ! -f "$TARGET_DIR/$f" ]; then
     echo -e "  ${GREEN}✓${NC} $f (new file)"
     continue
   fi
-  if [ -z "$SYNC_TAG_DATE" ]; then
-    echo -e "  ${YELLOW}⚠${NC} $f (cannot determine sync date)"
-    continue
+  BASELINE_TMP=$(mktemp)
+  if ! git -C "$SOURCE_DIR" show "refs/tags/$SYNC_TAG:$f" > "$BASELINE_TMP" 2>/dev/null; then
+    rm -f "$BASELINE_TMP"; echo -e "  ${YELLOW}⚠${NC} $f (not in sync tag)"; continue
   fi
-  DRIFT_COMMITS=$(git -C "$TARGET_DIR" log --oneline --after="$SYNC_TAG_DATE" -- "$f" 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$DRIFT_COMMITS" -gt 0 ]; then
-    echo -e "  ${RED}✗ DRIFT: $f has $DRIFT_COMMITS commit(s) in clowder-ai after sync tag${NC}"
+  perl -pi "$SANITIZER" "$BASELINE_TMP"
+  if ! diff -q "$BASELINE_TMP" "$TARGET_DIR/$f" >/dev/null 2>&1; then
+    echo -e "  ${RED}✗ DRIFT: $f in clowder-ai differs from sync baseline${NC}"
     DRIFT_FAIL=true
   else
-    echo -e "  ${GREEN}✓${NC} $f (no drift)"
+    echo -e "  ${GREEN}✓${NC} $f (matches baseline)"
   fi
+  rm -f "$BASELINE_TMP"
 done
 
 if [ "$DRIFT_FAIL" = true ]; then
@@ -250,14 +261,10 @@ echo -e "${BLUE}[Step 5/7] Creating branch in target repo...${NC}"
 if [ "$DRY_RUN" = true ]; then
   echo -e "  ${YELLOW}[dry-run] Would create branch '$BRANCH_NAME' from clowder-ai main${NC}"
 else
-  # P1 fix: hard-fail if branch already exists — no silent reuse
   if git -C "$TARGET_DIR" rev-parse --verify "refs/heads/$BRANCH_NAME" >/dev/null 2>&1; then
-    echo -e "  ${RED}✗ Branch '$BRANCH_NAME' already exists in target repo.${NC}"
-    echo -e "  ${YELLOW}  To reuse it, delete it first: git -C $TARGET_DIR branch -D $BRANCH_NAME${NC}"
-    echo -e "  ${YELLOW}  Or choose a different branch name.${NC}"
+    echo -e "  ${RED}✗ Branch '$BRANCH_NAME' already exists. Delete or rename.${NC}"
     exit 1
   fi
-  # Branch from clowder-ai main (which is the latest sync result)
   git -C "$TARGET_DIR" checkout -b "$BRANCH_NAME" main
   echo -e "  ${GREEN}✓ Branch '$BRANCH_NAME' created from clowder-ai main${NC}"
 fi
@@ -265,13 +272,6 @@ fi
 # ── Step 6: Copy files + sanitize ──
 echo ""
 echo -e "${BLUE}[Step 6/7] Copying files and sanitizing...${NC}"
-
-# Sanitizer rules: shared with sync-to-opensource.sh (single source of truth)
-SANITIZER="$SCRIPT_DIR/_sanitize-rules.pl"
-if [ ! -f "$SANITIZER" ]; then
-  echo -e "${RED}Error: _sanitize-rules.pl not found at $SANITIZER${NC}"
-  exit 1
-fi
 
 COPIED_FILES=()
 for f in "${FILES[@]}"; do
@@ -343,5 +343,6 @@ if [ "$DRY_RUN" = false ] && [ "$AUTO_PUSH" = false ]; then
   echo "  1. cd $TARGET_DIR && git push -u origin $BRANCH_NAME"
   echo "  2. gh pr create --title 'fix: ...' --body '...'"
   echo "  3. After merge, cherry-pick fix back to cat-cafe main"
-  echo "  4. Record in intake ledger: scripts/intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only>"
+  echo "  4. Record: scripts/intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only>"
+  echo "  5. Advance: scripts/intake-from-opensource.sh --advance-ledger"
 fi
