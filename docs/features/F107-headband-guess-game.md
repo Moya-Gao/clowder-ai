@@ -1,12 +1,12 @@
 ---
 feature_ids: [F107]
-related_features: [F101, F075]
+related_features: [F101, F075, F119]
 topics: [game, headband, guess-who, party-game, ai-deception]
 doc_kind: spec
 created: 2026-03-12
 ---
 
-# F107: 猫猫杀（脑门贴词）— 坏猫战术推理游戏
+# F107: 脑门贴词 — 坏猫战术推理游戏 #1
 
 > **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
 
@@ -158,6 +158,7 @@ F101 已搭好通用游戏引擎基座（`GameDefinition` / `GameRuntime` / `Gam
 - **Related**: F075（Cat Leaderboard — 战绩对接 game-store）
 - **Related**: F066（Voice Pipeline — 语音模式 TTS）
 - **Related**: F103（Per-Cat Voice Identity — 多猫独立声线）
+- **Related**: F119（谁是卧底 — 坏猫战术推理游戏 #2，共享战术体系）
 
 ## Risk
 

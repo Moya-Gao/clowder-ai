@@ -45,7 +45,7 @@ created: 2026-02-26
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | in-progress | 布偶猫 | internal | [F102](features/F102-memory-adapter-refactor.md) |
 | F103 | 猫猫独立声线 — Per-Cat Voice Identity | spec | TBD | internal | [F103](features/F103-per-cat-voice-identity.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | internal | [F104](features/F104-local-omni-perception.md) |
-| F107 | 猫猫杀（脑门贴词）— 坏猫战术推理游戏 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
+| F107 | 脑门贴词 — 坏猫战术推理游戏 #1 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
 | F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | in-progress | 布偶猫 | internal | [F108](features/F108-side-dispatch-concurrent-invocation.md) |
 | F109 | Message Actions 修复与增强 — 软删除/Branch/编辑/通知 | spec | 布偶猫 | internal | [F109](features/F109-message-actions-overhaul.md) |
 | F110 | 训练营愿景引导增强 — CVO 需求挖掘 + SOP 显式加载 | spec | 布偶猫 | internal | [F110](features/F110-bootcamp-vision-elicitation.md) |
@@ -53,5 +53,6 @@ created: 2026-02-26
 | F112 | Voice Playback Queue — 语音播放队列 + Intent 调度 | spec | 布偶猫 | internal | [F112](features/F112-voice-playback-queue.md) |
 | F113 | Multi-Platform One-Click Deploy — 多平台一键部署 | spec | community | community [#14](https://github.com/zts212653/clowder-ai/issues/14) | [F113](features/F113-multi-platform-one-click-deploy.md) |
 | F116 | Open-Source Ops — 开源社区运营 Skill | spec | 布偶猫 + 缅因猫 | internal | [F116](features/F116-opensource-ops.md) |
+| F119 | 谁是卧底 — 坏猫战术推理游戏 #2 | spec | 布偶猫 | internal | [F119](features/F119-who-is-spy-game.md) |
 
 
