@@ -189,68 +189,68 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" 
   cd "$SOURCE_DIR"
 fi
 
-# 0c: Provenance-based inbound detection (D3)
-# Strategy: provenance records target_head_sha = the target's HEAD BEFORE the sync commit.
-# Next sync compares: is current HEAD an ancestor-or-equal of recorded SHA?
-# If current HEAD moved beyond it via non-sync commits, we detect inbound changes.
-# Note: we record pre-sync HEAD (not post-sync) to avoid the chicken-and-egg problem
-# where amending a commit to embed its own hash is impossible.
+# 0c: Intake ledger gate (D3 upgraded)
+# Truth source: docs/ops/opensource-intake-ledger.json in cat-cafe (not target provenance)
+# Gate: target HEAD must match ledger's last_reviewed_target_head, OR all commits
+# between ledger HEAD and current target HEAD must be sync commits.
+INTAKE_LEDGER="$SOURCE_DIR/docs/ops/opensource-intake-ledger.json"
 if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" ]; then
-  if [ -f "$TARGET_DIR/.sync-provenance.json" ]; then
-    # Read the pre-sync target HEAD recorded at last sync
-    LAST_TARGET_HEAD=$(node -e "const p=JSON.parse(require('fs').readFileSync('$TARGET_DIR/.sync-provenance.json','utf-8')); console.log(p.target_head_sha || '')" 2>/dev/null || true)
+  if [ -f "$INTAKE_LEDGER" ]; then
+    LEDGER_HEAD=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); console.log(l.last_reviewed_target_head || '')" 2>/dev/null || true)
     cd "$TARGET_DIR"
     CURRENT_TARGET_HEAD=$(git rev-parse HEAD 2>/dev/null || true)
-    if [ -n "$LAST_TARGET_HEAD" ] && [ -n "$CURRENT_TARGET_HEAD" ]; then
-      # Check if current HEAD is the recorded SHA or a sync commit on top of it
-      # Inbound changes = commits between recorded SHA and current HEAD that are NOT sync commits
-      COMMITS_SINCE=$(git rev-list "$LAST_TARGET_HEAD".."$CURRENT_TARGET_HEAD" 2>/dev/null || true)
-      HAS_INBOUND=false
-      INBOUND_COUNT=0
-      for c in $COMMITS_SINCE; do
-        MSG=$(git log --format=%s -1 "$c" 2>/dev/null || true)
-        if ! echo "$MSG" | grep -q "^sync: cat-cafe"; then
-          HAS_INBOUND=true
-          INBOUND_COUNT=$((INBOUND_COUNT + 1))
-        fi
-      done
-      if [ "$HAS_INBOUND" = true ]; then
-        echo -e "  ${RED}✗ BLOCKED: Target has $INBOUND_COUNT non-sync commit(s) since last sync${NC}"
-        echo -e "  ${YELLOW}  Last sync base:      ${LAST_TARGET_HEAD:0:12}${NC}"
-        echo -e "  ${YELLOW}  Current target HEAD: ${CURRENT_TARGET_HEAD:0:12}${NC}"
-        echo ""
-        echo -e "  ${YELLOW}  Unabsorbed community commits:${NC}"
+    if [ -n "$LEDGER_HEAD" ] && [ -n "$CURRENT_TARGET_HEAD" ]; then
+      if [ "$LEDGER_HEAD" = "$CURRENT_TARGET_HEAD" ]; then
+        echo "  ✓ Intake ledger up to date (target HEAD = ledger HEAD)"
+      else
+        # Check commits between ledger HEAD and current target HEAD
+        COMMITS_SINCE=$(git rev-list "$LEDGER_HEAD".."$CURRENT_TARGET_HEAD" 2>/dev/null || true)
+        HAS_UNREVIEWED=false
+        UNREVIEWED_COUNT=0
+        UNREVIEWED_LIST=""
         for c in $COMMITS_SINCE; do
-          MSG=$(git log --format="%h %s" -1 "$c" 2>/dev/null || true)
-          if ! echo "$MSG" | grep -q "^[a-f0-9]* sync: cat-cafe"; then
-            echo -e "    ${RED}→ ${MSG}${NC}"
+          MSG=$(git log --format=%s -1 "$c" 2>/dev/null || true)
+          if ! echo "$MSG" | grep -q "^sync: cat-cafe"; then
+            HAS_UNREVIEWED=true
+            UNREVIEWED_COUNT=$((UNREVIEWED_COUNT + 1))
+            SHORT_MSG=$(git log --format="%h %s" -1 "$c" 2>/dev/null || true)
+            UNREVIEWED_LIST="${UNREVIEWED_LIST}    → ${SHORT_MSG}\n"
           fi
         done
-        echo ""
-        echo -e "  ${YELLOW}  These commits will be OVERWRITTEN by rsync --delete.${NC}"
-        echo -e "  ${YELLOW}  To proceed safely:${NC}"
-        echo -e "  ${YELLOW}    1. Cherry-pick valuable changes back to cat-cafe (intake)${NC}"
-        echo -e "  ${YELLOW}    2. Then re-run this sync${NC}"
-        echo -e "  ${YELLOW}  To force (DANGEROUS — loses community work):${NC}"
-        echo -e "  ${YELLOW}    --force-overwrite${NC}"
-        echo ""
-        if [ "$FORCE_OVERWRITE" = true ]; then
-          echo -e "  ${RED}⚠ --force-overwrite: proceeding despite unabsorbed inbound commits${NC}"
+        if [ "$HAS_UNREVIEWED" = true ]; then
+          echo -e "  ${RED}✗ BLOCKED: $UNREVIEWED_COUNT unreviewed community commit(s) in target${NC}"
+          echo -e "  ${YELLOW}  Ledger reviewed up to: ${LEDGER_HEAD:0:12}${NC}"
+          echo -e "  ${YELLOW}  Current target HEAD:   ${CURRENT_TARGET_HEAD:0:12}${NC}"
+          echo ""
+          echo -e "  ${YELLOW}  Unreviewed commits:${NC}"
+          echo -e "$UNREVIEWED_LIST"
+          echo -e "  ${YELLOW}  These will be OVERWRITTEN by rsync --delete.${NC}"
+          echo -e "  ${YELLOW}  To proceed safely:${NC}"
+          echo -e "  ${YELLOW}    1. Run: bash scripts/intake-from-opensource.sh --pr <N> --mode=plan${NC}"
+          echo -e "  ${YELLOW}    2. Review and absorb valuable changes${NC}"
+          echo -e "  ${YELLOW}    3. Update ledger, then re-run sync${NC}"
+          echo -e "  ${YELLOW}  To force (DANGEROUS — loses community work):${NC}"
+          echo -e "  ${YELLOW}    --force-overwrite${NC}"
+          echo ""
+          if [ "$FORCE_OVERWRITE" = true ]; then
+            echo -e "  ${RED}⚠ --force-overwrite: proceeding despite unreviewed inbound commits${NC}"
+          else
+            echo -e "  ${RED}Aborted. Use --force-overwrite to bypass (not recommended).${NC}"
+            cd "$SOURCE_DIR"
+            exit 1
+          fi
         else
-          echo -e "  ${RED}Aborted. Use --force-overwrite to bypass (not recommended).${NC}"
-          cd "$SOURCE_DIR"
-          exit 1
+          # Only sync commits since ledger — safe to auto-advance ledger
+          echo "  ✓ No unreviewed community commits (only sync commits since ledger)"
         fi
-      else
-        echo "  ✓ No inbound changes since last sync"
       fi
-    elif [ -z "$LAST_TARGET_HEAD" ]; then
-      # Old provenance format without target_head_sha — fallback warning
-      echo -e "  ${YELLOW}⚠ Provenance has no target_head_sha (old format) — cannot detect inbound changes${NC}"
     fi
     cd "$SOURCE_DIR"
+  elif [ -f "$TARGET_DIR/.sync-provenance.json" ]; then
+    echo -e "  ${YELLOW}⚠ No intake ledger found — falling back to provenance warning${NC}"
+    echo -e "  ${YELLOW}  Create docs/ops/opensource-intake-ledger.json to enable ledger gate${NC}"
   else
-    echo -e "  ${YELLOW}⚠ No .sync-provenance.json in target — first sync or manual changes${NC}"
+    echo -e "  ${YELLOW}⚠ No ledger or provenance — first sync${NC}"
   fi
 fi
 
