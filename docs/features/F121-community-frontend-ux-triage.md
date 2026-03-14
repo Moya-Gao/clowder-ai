@@ -40,25 +40,28 @@ created: 2026-03-14
 3. **#88 保留术语，做术语表**：不修改家里的猫言猫语/领域术语本体，改做「项目术语表 / 黑话集合」，必要时把这套内容接进进阶训练营。
 4. **其余 accept 项继续挂 F121**：`#28` / `#27` / `#22` 作为 F121 umbrella 下的社区前端 UX 收口项继续推进。
 
-### Phase C: 社区 PR 侦查（2026-06-12 金渐层执行）
+### Phase C: 社区 PR 侦查（2026-06-12 金渐层初查 → 缅因猫复核）
 
 铲屎官要求检查 #22/#89/#28/#27 是否有社区 PR，以及 PR 是否真的修好了问题。
 
-| Issue | 社区 PR | PR 状态 | 作者 | Review 状态 | 侦查结论 |
-|-------|---------|---------|------|-------------|---------|
-| **#28** | **PR #43** | OPEN | mindfn (co-author: Claude Opus 4.6) | bouillipx(社区 Collaborator) review 过一轮 nit，已处理。**注意：bouillipx 是社区贡献者，不是我们家的布偶猫（宪宪）** | 🟢 方向正确：复用 ResizeHandle + usePersistedState，范围 200-480px，移动端隐藏。review feedback 已处理（命名常量 + lg breakpoint）。额外修了 4 个 main 上 pre-existing Biome 格式错误（略越界但无害）。**需要我们家的猫做正式 review 后才能 merge。** |
-| **#27** | **PR #40** | OPEN | mindfn (co-author: Claude Opus 4.6) | bouillipx(社区 Collaborator) 给了 APPROVED。**同上，这不是我们家猫的 APPROVED。** | 🟢 方向正确：hook 内 `Map<threadId, scrollTop>` ref 保存滚动位置，rAF 恢复 + 快速 A→B→C 切换防抖。37 行改动，仅改 `useChatHistory.ts` 一个文件。比砚砚侦查预估的 M 难度更轻量（不改 store）。**需要我们家的猫做正式 review 后才能 merge。** |
-| **#22** | ❌ 无 PR | — | — | — | 需要我们自己修（XS 难度，4 行 CSS） |
-| **#89** | ❌ 无 PR | — | — | — | 需要我们自己修（S 难度，F095 回归） |
+**金渐层初查**发现 #28 有 PR#43、#27 有 PR#40，reviewer `bouillipx` 是社区 Collaborator 不是我们家猫。
+**缅因猫(gpt52)复核**发现两个 PR 都有深层问题，不能直接 merge：
 
-**关键发现**：
-- 两个 PR 都来自同一位贡献者 **mindfn**（内测小伙伴 lang），历史上都迭代过一轮（PR #39→#40、PR #42→#43）
-- PR 中 review 的 **bouillipx** 是社区 Collaborator，不是我们家的猫。他的 review 签名写了"布偶猫 Review"容易误导，但他的 GitHub 账号不在内测小伙伴列表中（F059），也不是我们团队的账号
-- 两个 PR 技术方向正确（和我们侦查判断一致），但**都还没经过我们家猫的正式 review**，需要按 opensource-ops Inbound PR 流程处理
+| Issue | 社区 PR | PR 状态 | 侦查结论（缅因猫复核后） |
+|-------|---------|---------|-------------------------|
+| **#28** | **PR #43** (mindfn) | OPEN, CI 绿 | 🟡 **Scope 偏差**：issue 原文要的是"sidebar + chat 双栏下聊天面板可调宽"，但 PR 只在 `statusPanelOpen && rightPanelMode === 'status'` 分支给 `RightStatusPanel` 加了 resize handle。如果 maintainer 口径收窄为"右侧状态栏拖拽"则方向对；如果按 issue 原文，只算部分修复。另外 PR 顺手带了 4 个无关 Biome 格式文件，merge 粒度变脏。前一版 PR#42 有 3 个 resize 测试，这版反而拿掉了。 |
+| **#27** | **PR #40** (mindfn) | OPEN, CI 绿 | 🟡 **边界未覆盖**：保存/恢复 scrollTop 的思路对，但 `useChatHistory` 在 cached thread 有 unread 或 active invocation 时会 `replace` 拉新消息（L481-489），消息追加分支仍会自动滚到底（L554-556）。PR 只解决了"先恢复"，没处理"恢复后又被 replace hydration 拉到底"。在"切回仍有 unread 的旧线程"场景下 bug 可能复现。且改动在有完整 hook 测试套件的热区，但没补自动化回归。 |
+| **#22** | ❌ 无 PR | — | 需要我们自己修（XS 难度，4 行 CSS） |
+| **#89** | ❌ 无 PR | — | 需要我们自己修（S 难度，F095 回归） |
 
-**历史 PR**（已关闭，被新版替代）：
-- PR #42（#28 早期版本，2026-03-14 closed）→ 重开为 #43
-- PR #39（#27 早期版本，2026-03-14 closed）→ 重开为 #40
+**Review 身份确认**：
+- `bouillipx` 是社区 Collaborator，不是我们家的猫。他在 PR#40 的 APPROVED 和 PR#43 的"Approve with nit"（已 DISMISSED）都不能算我们家的放行
+- 两个 PR 都来自 **mindfn**（内测小伙伴 lang），用 Claude Opus 4.6 co-author，历史上都迭代过一轮（PR #39→#40、PR #42→#43）
+
+**下一步建议**：
+- PR#43 (#28)：先由 maintainer 明确 issue 口径（"状态栏拖拽"还是"聊天面板宽度"），要求补测试，再决定 merge
+- PR#40 (#27)：要求补"cached thread + unread/replace hydration 仍保留阅读位置"回归测试，再决定 merge
+- #22/#89：我们自己修
 
 ## Issue Checklist
 
@@ -91,6 +94,7 @@ created: 2026-03-14
 | 2026-03-14 | Phase A 侦查完成：6/6 issue 全部定位，等待铲屎官分诊拍板 |
 | 2026-03-14 | Phase B 分诊拍板：铲屎官确认 6/6 accept，#16→F110，#88 走术语表路线 |
 | 2026-06-12 | Phase C 社区 PR 侦查（金渐层）：#28 有 PR#43、#27 有 PR#40（mindfn），但 review 来自社区 Collaborator bouillipx 不是我们家猫，需要正式 inbound review |
+| 2026-06-12 | Phase C 复核（缅因猫 gpt52）：PR#40 有 replace hydration 边界问题 + 缺回归测试；PR#43 有 scope 偏差（只修状态栏不是聊天面板）+ 缺测试。两个都不能直接 merge |
 
 ## Links
 
