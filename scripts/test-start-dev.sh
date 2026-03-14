@@ -215,5 +215,68 @@ ASR_TIMEOUT=45
 unset ASR_TIMEOUT
 echo "PASS: sidecar timeouts configurable with correct defaults (AC-B2)"
 
+# ── F115 Phase D: 交互式 Setup ──
+
+# Test 18: check_sidecar_dep returns 1 when python3 is missing (AC-D3)
+# Override command to simulate missing python3
+_orig_command=$(which command 2>/dev/null || true)
+command() {
+    if [[ "$2" == "python3" ]]; then
+        return 1
+    fi
+    builtin command "$@"
+}
+dep_result=0
+check_sidecar_dep "ASR" "python3" 2>/dev/null || dep_result=$?
+[ "$dep_result" -ne 0 ] || { echo "FAIL: check_sidecar_dep should fail when python3 missing"; exit 1; }
+echo "PASS: check_sidecar_dep detects missing python3 (AC-D3)"
+
+# Test 19: check_sidecar_dep returns 0 when dep exists
+command() { builtin command "$@"; }  # restore
+check_sidecar_dep "Node" "node" 2>/dev/null
+dep_result=$?
+[ "$dep_result" -eq 0 ] || { echo "FAIL: check_sidecar_dep should pass when node exists"; exit 1; }
+echo "PASS: check_sidecar_dep passes when dep exists (AC-D3)"
+
+# Test 20: setup.sh exists (AC-D1)
+[ -f "$SCRIPT_DIR/setup.sh" ] || { echo "FAIL: setup.sh not found"; exit 1; }
+echo "PASS: setup.sh exists (AC-D1)"
+
+# Test 21: setup.sh --install-missing triggers venv creation (AC-D2)
+# Extract the install_sidecar_venvs function and test it with a mock python3 -m venv
+# We verify setup.sh contains install_sidecar_venvs and calls it when --install-missing
+grep -q "^install_sidecar_venvs()" "$SCRIPT_DIR/setup.sh" || { echo "FAIL: setup.sh missing install_sidecar_venvs function definition (AC-D2)"; exit 1; }
+grep -q '    install_sidecar_venvs' "$SCRIPT_DIR/setup.sh" || { echo "FAIL: setup.sh should call install_sidecar_venvs (indented call site) when --install-missing"; exit 1; }
+echo "PASS: setup.sh has install_sidecar_venvs for --install-missing (AC-D2)"
+
+# Test 22: install_sidecar_venvs creates venvs in expected paths (AC-D2)
+# Mock python3 to avoid real venv creation, create fake bin/pip
+setup_venv_calls=""
+python3() {
+    if [ "$1" = "-m" ] && [ "$2" = "venv" ]; then
+        setup_venv_calls="${setup_venv_calls}${3};"
+        mkdir -p "$3/bin"
+        # Create a fake pip that does nothing
+        echo '#!/bin/bash' > "$3/bin/pip"
+        echo 'exit 0' >> "$3/bin/pip"
+        chmod +x "$3/bin/pip"
+        return 0
+    fi
+    builtin command python3 "$@"
+}
+
+# Source just the function from setup.sh
+eval "$(sed -n '/^install_sidecar_venvs/,/^}/p' "$SCRIPT_DIR/setup.sh")"
+TMPVENV=$(mktemp -d)
+HOME="$TMPVENV" install_sidecar_venvs 2>/dev/null
+# Check that it tried to create all three venvs
+[ -n "$setup_venv_calls" ] || { echo "FAIL: install_sidecar_venvs did not call python3 -m venv"; exit 1; }
+echo "$setup_venv_calls" | grep -q "asr-venv" || { echo "FAIL: should create asr-venv"; exit 1; }
+echo "$setup_venv_calls" | grep -q "tts-venv" || { echo "FAIL: should create tts-venv"; exit 1; }
+echo "$setup_venv_calls" | grep -q "llm-venv" || { echo "FAIL: should create llm-venv"; exit 1; }
+rm -rf "$TMPVENV"
+unset -f python3 2>/dev/null || true
+echo "PASS: install_sidecar_venvs creates ASR/TTS/LLM venvs (AC-D2)"
+
 echo ""
 echo "All shell tests passed."
