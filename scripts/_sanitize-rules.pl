@@ -45,6 +45,19 @@ s#localhost:9000#<local-browser-automation-endpoint>#g;
 s#/Users/[^\s,"'}\]]+/cat-cafe\b#/path/to/project#g;
 s#/Users/[^\s,"'}\]]+#/home/user#g;
 
+# ── KD-5: Remove opensource-ops from public-facing files ──
+if ($ARGV =~ m{cat-cafe-skills/manifest\.yaml$}) {
+  $_ = "" if /^  # ── .*(?:opensource-ops|开源社区运营)/;
+  if (/^  opensource-ops:\s*$/) { $__skip_oo = 1; $_ = ""; }
+  if ($__skip_oo && $_ ne "") {
+    if (/^  \S/ || /^\S/) { $__skip_oo = 0; }
+    else { $_ = ""; }
+  }
+}
+if ($ARGV =~ m{BOOTSTRAP\.md$}) {
+  $_ = "" if /\bopensource-ops\b/;
+}
+
 # ── Cat names + BACKLOG ref (docs + skills only) ──
 if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
   s/布偶猫/Ragdoll/g;

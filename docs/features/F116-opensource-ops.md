@@ -45,8 +45,8 @@ opensource-ops
 │
 ├── 场景 C: Outbound PR（我们往开源仓提 PR）
 │   触发：cat-cafe 代码要发布到 clowder-ai
-│   流程：现有 community-pr skill 内容迁入
-│   ref: community-pr SKILL.md (deprecated after merge)
+│   流程：原 community-pr skill 已完全吸收为 ref 文档
+│   ref: refs/opensource-ops-outbound-pr.md
 │
 ├── 场景 D: Outbound Sync（定期同步）
 │   触发：cat-cafe 有新代码要 sync 到 clowder-ai
@@ -80,11 +80,11 @@ opensource-ops
 6. **Issue accept 是 Merge 前提**：没有 accepted issue 的 PR 不得 merge。Bug 需确认可复现；Feature 需完成 F 号分配 + 关联检测。
 7. **Skill 本身不同步到开源仓**：`opensource-ops` 是内部运营 playbook，必须排除出 outbound sync（`sync-manifest.yaml` excluded 列表）。
 
-### Phase B: 现有 community-pr 迁移 + 废弃
+### Phase B: community-pr 完全吸收（已完成）
 
-将 `community-pr` SKILL.md 中的 outbound PR 流程迁入场景 C，然后：
-- `community-pr/SKILL.md` 标记 deprecated，指向 `opensource-ops`
-- `manifest.yaml` 更新 skill 条目
+原 `community-pr` skill 的 outbound PR 流程已完全吸收为 `refs/opensource-ops-outbound-pr.md`：
+- `community-pr/` 目录已删除（非 deprecated，而是完全移除）
+- `manifest.yaml` 已移除 community-pr 条目，opensource-ops 标注 `merged_from: ["community-pr"]`
 
 ## Acceptance Criteria
 
@@ -99,18 +99,19 @@ opensource-ops
 - [ ] AC-A7: Skill 加载后，猫猫能按场景路由找到对应操作步骤，不需要去翻 F059 spec 或 SOP
 - [ ] AC-A8: 场景 F（Hotfix Lane）包含：worktree 基于 sync tag 创建、sync-hotfix.sh 用法、clowder-ai PR 流程、cherry-pick 回 main、intake 登记全链路
 - [ ] AC-A9: `sync-manifest.yaml` excluded 列表包含 `cat-cafe-skills/opensource-ops/`，确保 skill 不同步到开源仓
+- [ ] AC-A10: 场景 D Post-Sync Community Reconciliation：全量同步后按 Feature 分包搜社区 issue → 两猫对齐 → 逐包推铲屎官核验 → 核验全过后执行关单/打标签/评论。全量同步完成 ≠ 技术发布完成，社区收敛做完才算闭环
 
-### Phase B（迁移 + 废弃）
+### Phase B（完全吸收 — 已完成）
 
-- [ ] AC-B1: 场景 C 包含现有 `community-pr` 的全部 outbound PR 流程
-- [ ] AC-B2: `community-pr/SKILL.md` 标记 deprecated 并指向 `opensource-ops`
-- [ ] AC-B3: `manifest.yaml` 更新 skill 条目
+- [x] AC-B1: 场景 C 包含原 `community-pr` 的全部 outbound PR 流程（→ `refs/opensource-ops-outbound-pr.md`）
+- [x] AC-B2: `community-pr/` 目录已完全删除（铲屎官拍板：不保留独立 skill，完全吸收为 ref）
+- [x] AC-B3: `manifest.yaml` 已移除 community-pr，opensource-ops 标注 `merged_from`
 
 ## Dependencies
 
 - **Evolved from**: F059（开源计划——技术基础设施已就绪，现在需要操作规范 skill）
 - **Related**: F113（多平台一键部署——首个社区 feature，Issue Triage 实践来源）
-- **Related**: community-pr skill（将被吸收进场景 C，然后 deprecated）
+- **Absorbed**: community-pr skill（已完全吸收为 `refs/opensource-ops-outbound-pr.md`，目录已删除）
 
 ## Risk
 
@@ -168,6 +169,6 @@ opensource-ops
 | **Script** | `scripts/sync-to-opensource.sh` | Outbound sync 七步管道 |
 | **Config** | `sync-manifest.yaml` | 同步白名单 + 安全扫描规则 |
 | **Ledger** | `docs/ops/opensource-intake-ledger.json` | Intake 登记簿 |
-| **Skill** | `cat-cafe-skills/community-pr/SKILL.md` | 将被吸收进场景 C（deprecated） |
+| **Ref** | `cat-cafe-skills/refs/opensource-ops-outbound-pr.md` | 原 community-pr 完全吸收为 ref 文档 |
 | **Script** | `scripts/sync-hotfix.sh` | Hotfix Lane 精准修复通道 |
 | **Discussion** | `docs/discussions/2026-03-14-sync-hotfix-lane-design.md` | Hotfix Lane 设计讨论 |

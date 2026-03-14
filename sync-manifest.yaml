@@ -124,6 +124,14 @@ excluded:
   - docs/BACKLOG.md
   - docs/lessons-learned.md
   - docs/TECH-DEBT.md
+  # 内部运营 skill（F116: opensource-ops 不同步，KD-5）
+  - cat-cafe-skills/opensource-ops/
+  - cat-cafe-skills/refs/opensource-ops-issue-triage.md
+  - cat-cafe-skills/refs/opensource-ops-inbound-pr.md
+  - cat-cafe-skills/refs/opensource-ops-outbound-sync.md
+  - cat-cafe-skills/refs/opensource-ops-labels.md
+  - cat-cafe-skills/refs/opensource-ops-outbound-pr.md
+  - cat-cafe-skills/refs/opensource-ops-hotfix.md
   # 内部运营 skills refs
   - cat-cafe-skills/refs/commit-signatures.md
   - cat-cafe-skills/refs/hyperfocus-brake-messages.md
@@ -184,6 +192,14 @@ transforms:
   - target: LICENSE
     type: generate
     description: "MIT License"
+
+  - target: cat-cafe-skills/manifest.yaml
+    type: sanitize
+    description: "去 opensource-ops 条目（KD-5: 内部运营 skill 不暴露）"
+
+  - target: cat-cafe-skills/BOOTSTRAP.md
+    type: sanitize
+    description: "去 opensource-ops 行（KD-5: 内部运营 skill 不暴露）"
 
   - target: cat-cafe-skills/refs/shared-rules.md
     type: sanitize

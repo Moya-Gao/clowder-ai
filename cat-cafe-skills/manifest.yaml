@@ -219,28 +219,35 @@ skills:
     sop_step: [4, 5, 6]
     merged_from: ["merge-approval-gate", "requesting-cloud-review", "finishing-a-development-branch"]
 
-  # ── 社区贡献 PR ──
-  community-pr:
+  # ── 开源社区运营（F116，替代 community-pr）──
+  opensource-ops:
     description: >
-      开源仓贡献 PR 准备：F 编号校验、Feature Doc 对齐、PR 格式化。
-      Use when: 准备向 clowder-ai 提 PR、fork 用户提交贡献、社区 PR。
-      Not for: 内部 cat-cafe PR（用 merge-gate）、review（用 request-review）。
-      Output: 编号对齐 + Feature Doc 校验 + 格式化 PR。
+      开源社区运营全链路：Issue Triage、社区 PR 评估/合入/吸收、Outbound Sync、标签归档、Hotfix。
+      Use when: 社区 issue/PR 来了、要 sync 到开源仓、要 intake 社区代码、整理标签/归档。
+      Not for: 内部 cat-cafe 开发（用 worktree/tdd）、内部 review（用 request-review）。
+      Output: 社区运营操作完成 + ledger/标签/文档同步。
     triggers:
-      - "提 PR 到 clowder"
+      - "社区 issue"
       - "社区 PR"
       - "community PR"
+      - "开源仓"
+      - "clowder-ai"
+      - "intake"
+      - "sync 到开源"
+      - "outbound sync"
+      - "issue triage"
+      - "打标签"
+      - "hotfix lane"
       - "贡献 PR"
-      - "提交贡献"
-      - "open source PR"
       - "fork PR"
     not_for:
-      - "内部 cat-cafe PR（用 merge-gate）"
-      - "review（用 request-review）"
-    output: "F-number aligned + Feature Doc validated + formatted PR"
-    next: ["receive-review"]
+      - "内部 cat-cafe 开发（用 worktree/tdd）"
+      - "内部 review（用 request-review）"
+      - "内部 merge（用 merge-gate）"
+    output: "Community ops completed + ledger/labels/docs synced"
+    next: []
     sop_step: null
-    merged_from: null
+    merged_from: ["community-pr"]
 
   # ── 自我进化 ──
   self-evolution:

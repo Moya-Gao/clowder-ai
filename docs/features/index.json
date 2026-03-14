@@ -717,9 +717,15 @@
     {
       "id": "F117",
       "name": "Message Delivery Lifecycle — 消息投递生命周期真相源",
-      "status": "spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
       "file": "F117-message-delivery-lifecycle.md"
+    },
+    {
+      "id": "F118",
+      "name": "CLI Liveness Watchdog — CLI 进程活性守卫",
+      "status": "spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0",
+      "file": "F118-cli-liveness-watchdog.md"
     }
   ],
-  "generated_at": "2026-03-14T12:20:03.128Z"
+  "generated_at": "2026-03-14T14:06:57.587Z"
 }

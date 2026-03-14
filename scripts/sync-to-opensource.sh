@@ -729,6 +729,15 @@ find "$FILTERED_DIR" \( -name "*.md" -o -name "*.ts" -o -name "*.tsx" -o -name "
 echo "  ✓ Comprehensive sanitization complete (single-pass)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
+# 3-POST: Re-format sanitized files with biome (sanitize may break formatting)
+echo "  Post-sanitize biome format..."
+if command -v pnpm >/dev/null 2>&1 && [ -f "$FILTERED_DIR/biome.json" ]; then
+  (cd "$FILTERED_DIR" && pnpm biome format --write . >/dev/null 2>&1) || true
+  echo "  ✓ Post-sanitize biome format complete"
+else
+  echo "  ⚠ biome not available, skipping post-sanitize format"
+fi
+
 echo ""
 echo "  Transforms: $TRANSFORM_COUNT"
 step_done

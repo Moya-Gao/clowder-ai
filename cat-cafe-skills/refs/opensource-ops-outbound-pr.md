@@ -1,13 +1,6 @@
----
-name: community-pr
-description: >
-  开源仓贡献 PR 准备：F 编号校验、Feature Doc 对齐、PR 格式化。
-  Use when: 准备向 clowder-ai 提 PR、fork 用户提交贡献、社区 PR。
-  Not for: 内部 cat-cafe PR（用 merge-gate）、review（用 request-review）。
-  Output: 编号对齐 + Feature Doc 校验 + 格式化 PR。
----
+# 场景 C: Outbound PR — 我们往开源仓提 PR
 
-# Community PR — 开源贡献 PR 准备
+> 返回 → [opensource-ops SKILL.md](../opensource-ops/SKILL.md)
 
 ## 核心原则
 
@@ -17,13 +10,10 @@ description: >
 
 ## 触发条件
 
-- 准备向 `clowder-ai` 提交 PR
-- Fork 用户完成开发，准备提交贡献
-- 猫猫收到指令"提 PR"或"准备贡献"
+- 我们的代码要以 PR 形式发布到 clowder-ai
+- 通常用于 Feature PR 或需要 review 的改动
 
-## 流程
-
-### Step 1: 确认 PR 类型
+## Step 1: 确认 PR 类型
 
 | 类型 | 判断条件 | 需要 Feature Doc？ |
 |------|---------|-------------------|
@@ -31,7 +21,7 @@ description: >
 | **Feature** | 新能力、行为变更 | 需要 |
 | **Protocol** | 规则、workflow 变更 | 文档本身就是贡献 |
 
-### Step 2: 查官方 F 编号（Feature PR 必做）
+## Step 2: 查官方 F 编号（Feature PR 必做）
 
 ```bash
 # 1. 找到关联的 GitHub Issue
@@ -50,7 +40,7 @@ gh issue view {ISSUE_NUMBER} --repo zts212653/clowder-ai
 - 在 issue 中评论请求分配："@maintainer 请分配 F 编号"
 - **不要自行选号** — 等 maintainer 回复后再继续
 
-### Step 3: 本地编号对齐
+## Step 3: 本地编号对齐
 
 如果本地使用的编号（如 F110）与官方编号（F115）不同：
 
@@ -73,7 +63,7 @@ grep -r "F110" --include="*.md" --include="*.ts" --include="*.tsx" --include="*.
 # 应该零结果
 ```
 
-### Step 4: Feature Doc 校验（Feature PR 必做）
+## Step 4: Feature Doc 校验（Feature PR 必做）
 
 ```bash
 # 1. 确认 Feature Doc 存在
@@ -93,7 +83,7 @@ ls docs/features/F115-*.md
 # 逐条确认每个验收标准是否有对应的代码改动和测试
 ```
 
-### Step 5: 运行质量门禁
+## Step 5: 运行质量门禁
 
 ```bash
 pnpm check          # Biome lint
@@ -101,7 +91,9 @@ pnpm lint           # TypeScript 类型检查
 pnpm --filter @cat-cafe/api run test:public  # 公开测试套件
 ```
 
-### Step 6: 组装 PR
+## Step 6: 组装 PR
+
+> **编号规则**：PR body 中裸 `#N` 有两种含义——`Fixes #N` 是 GitHub **auto-close** 语法（PR merge 后自动关 issue），`(#N)` 仅是同仓 **issue 引用/链接**（不会自动关单）。两者都在同仓 PR body 中有效且必须保留。但在**猫猫讨论、mailbox、评论**中必须写显式前缀（`clowder-ai#N` / `cat-cafe#N`），不要裸写。
 
 **Bug fix PR**：
 
@@ -113,7 +105,7 @@ gh pr create --repo zts212653/clowder-ai \
 <!-- 改了什么 -->
 
 ## Why
-Fixes #ISSUE_NUMBER
+Fixes #ISSUE_NUMBER <!-- Fixes #N = auto-close（merge 后自动关 issue），猫猫讨论时写 clowder-ai#N -->
 
 ## Test Evidence
 ```
@@ -135,7 +127,7 @@ gh pr create --repo zts212653/clowder-ai \
 <!-- 改了什么，关键文件列表 -->
 
 ## Why
-Implements F115 (#ISSUE_NUMBER)
+Implements F115 (#ISSUE_NUMBER) <!-- (#N) = 同仓 issue 引用（不会自动关单），Fixes #N 才是 auto-close -->
 Feature Doc: docs/features/F115-xxx.md
 
 ## AC Checklist
@@ -165,13 +157,3 @@ EOF
 | Feature PR 没有 Feature Doc | PR 无锚，reviewer 不知道对照什么 | 先开 Issue → 等 Feature Doc merge → 再提实现 PR |
 | 跳过 test:public | CI 会挂 | 本地先跑通再提 |
 | PR title 没有 feat/fix 前缀 | changelog 生成不正确 | 用 conventional commit 格式 |
-
-## 和其他 skill 的区别
-
-- `merge-gate`：内部 cat-cafe 合入 main 的流程 — community-pr 是**开源贡献者**向 clowder-ai 提 PR
-- `request-review`：内部猫间发 review 请求 — community-pr 是**社区 PR 准备**
-- `quality-gate`：内部自检 — community-pr 包含编号对齐和 Feature Doc 校验
-
-## 下一步
-
-PR 提交后 → maintainer 会 review → 如有反馈按 `receive-review` 处理。

@@ -24,7 +24,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `request-review` | 发 review 请求给 reviewer | ③ |
 | `receive-review` | 处理 review 反馈（Red→Green） | ③ |
 | `merge-gate` | 门禁→PR→云端 review→merge→清理 | ④⑤⑥ |
-| `community-pr` | 开源贡献 PR（F 编号校验+对齐+格式化） | — |
+| `opensource-ops` | 开源社区运营（Issue/PR/Sync/Hotfix） | — |
 | `cross-cat-handoff` | 跨猫交接/传话（五件套） | — |
 | `parallel-execution` | 多任务并行/子代理 | — |
 | `deep-research` | 多源深度调研 | — |

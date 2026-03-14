@@ -297,6 +297,15 @@ for f in "${FILES[@]}"; do
   COPIED_FILES+=("$f")
 done
 
+# Post-sanitize: re-format with biome (sanitize may break formatting)
+if [ "$DRY_RUN" != true ] && [ "$NO_SANITIZE" = false ] && [ ${#COPIED_FILES[@]} -gt 0 ]; then
+  if command -v pnpm >/dev/null 2>&1 && [ -f "$TARGET_DIR/biome.json" ]; then
+    echo -e "  Post-sanitize biome format..."
+    (cd "$TARGET_DIR" && pnpm biome format --write "${COPIED_FILES[@]}" >/dev/null 2>&1) || true
+    echo -e "  ${GREEN}✓${NC} Post-sanitize biome format complete"
+  fi
+fi
+
 # ── Step 7: Commit ──
 echo ""
 echo -e "${BLUE}[Step 7/7] Committing...${NC}"
