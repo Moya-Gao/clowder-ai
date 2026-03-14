@@ -116,19 +116,30 @@ export async function enqueueA2ATargets(
     return { enqueued, fallback: false };
   }
 
-  // Fallback: no parent worklist (shouldn't normally happen)
-  // Guard: if parent invocation is active (e.g. routeParallel), don't start
-  // a standalone fallback because tracker.start() would abort it. (缅因猫 R1 P1-2)
+  // Fallback: no parent worklist — start standalone invocation.
+  // F108 slot-aware: tracker.start() only aborts same (threadId, catId) slot,
+  // so starting codex won't abort opus. Only skip targets already running.
   const { invocationTracker } = deps;
   if (invocationTracker?.has(threadId)) {
-    log.warn(
-      {
-        threadId,
-        targetCats,
-      },
-      '[F27] A2A fallback skipped: no worklist but parent invocation active, refusing to abort',
-    );
-    return { enqueued: [], fallback: true };
+    // Guard: shims may not implement getActiveSlots — fall back to empty (allow all)
+    const activeSlots = invocationTracker.getActiveSlots?.(threadId) ?? [];
+    const nonConflicting = targetCats.filter((catId) => !activeSlots.includes(catId));
+    if (nonConflicting.length === 0) {
+      log.info(
+        { threadId, targetCats, activeSlots },
+        '[F27] A2A fallback skipped: all targets already active in thread slots',
+      );
+      return { enqueued: [], fallback: true };
+    }
+    if (nonConflicting.length < targetCats.length) {
+      log.info(
+        { threadId, targetCats, activeSlots, nonConflicting },
+        '[F27] A2A fallback: filtered already-active targets, proceeding with remaining',
+      );
+    }
+    // Proceed with non-conflicting targets only
+    await triggerA2AInvocation(deps, { ...opts, targetCats: nonConflicting });
+    return { enqueued: nonConflicting, fallback: true };
   }
 
   // Create standalone invocation like the old triggerA2AInvocation
@@ -163,8 +174,9 @@ export async function triggerA2AInvocation(
   const statusCatId = targetCats[0] ?? getDefaultCatId();
   const intent = parseIntent(content, targetCats.length);
 
-  // Guard: if parent invocation is active, don't start a standalone fallback.
-  // tracker.start() would abort the running parent (e.g. routeParallel). (缅因猫 R1 P1-2)
+  // F108 slot-aware: tracker.start(threadId, catId) only aborts the SAME slot,
+  // so starting a different cat won't abort the parent. Only skip if all targets
+  // are already covered by active slots (redundancy short-circuit).
   const parentActive = invocationTracker?.has(threadId) ?? false;
   if (parentActive) {
     const activeCats = invocationTracker?.getActiveSlots?.(threadId) ?? [];
@@ -182,18 +194,17 @@ export async function triggerA2AInvocation(
       );
       return;
     }
-    // Parent is active but targets differ — cannot safely start standalone
-    // because tracker.start() would abort the parent. Log and bail.
-    log.warn(
+    // Targets differ from active slots — safe to proceed because
+    // tracker.start() is slot-aware and won't abort other cats' slots.
+    log.info(
       {
         threadId,
         targetCats,
         activeCats,
         triggerMessageId: triggerMessage.id,
       },
-      '[F27] A2A fallback skipped: parent invocation active, refusing to abort it',
+      '[F27] A2A standalone: parent active in different slots, safe to start new targets',
     );
-    return;
   }
 
   const createResult = await invocationRecordStore.create({

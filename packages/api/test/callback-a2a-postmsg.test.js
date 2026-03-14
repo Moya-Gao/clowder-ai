@@ -244,6 +244,9 @@ describe('post_message A2A mention invocation', () => {
       getCatIds() {
         return ['opus', 'codex', 'gemini'];
       },
+      getActiveSlots() {
+        return ['opus', 'codex', 'gemini'];
+      },
       start() {
         return new AbortController();
       },
@@ -265,6 +268,80 @@ describe('post_message A2A mention invocation', () => {
     assert.equal(response.statusCode, 200);
     assert.equal(invocationRecordStore.getRecords().length, 0, 'Redundant A2A should not create InvocationRecord');
     assert.equal(mockRouter.getExecutions().length, 0, 'Redundant A2A should not call routeExecution');
+  });
+
+  // F108 slot-aware: opus active, @codex in different slot → codex SHOULD be invoked
+  test('post-message wakes codex when opus is active in different slot (slot-aware fallback)', async () => {
+    const mockInvocationTracker = {
+      has() {
+        return true;
+      },
+      getActiveSlots() {
+        return ['opus']; // only opus is active, codex is NOT
+      },
+      start() {
+        return new AbortController();
+      },
+      complete() {},
+    };
+    const app = await createApp({ invocationTracker: mockInvocationTracker });
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', { threadId: 't1' });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: '修完了，请帮忙 review\n@缅因猫',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    // codex should be invoked even though opus is active
+    assert.equal(invocationRecordStore.getRecords().length, 1, 'Should create InvocationRecord for codex');
+    assert.deepEqual(
+      invocationRecordStore.getRecords()[0].targetCats,
+      ['codex'],
+      'codex should be invoked (different slot from active opus)',
+    );
+  });
+
+  // F108 slot-aware: opus active, explicit targetCats:["codex"] → codex SHOULD be invoked
+  test('post-message with targetCats wakes codex when opus is active (no worklist)', async () => {
+    const mockInvocationTracker = {
+      has() {
+        return true;
+      },
+      getActiveSlots() {
+        return ['opus'];
+      },
+      start() {
+        return new AbortController();
+      },
+      complete() {},
+    };
+    const app = await createApp({ invocationTracker: mockInvocationTracker });
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', { threadId: 't1' });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: '铲屎官快看！有事情！',
+        targetCats: ['codex'],
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(
+      invocationRecordStore.getRecords().length,
+      1,
+      'Should create InvocationRecord for codex via targetCats',
+    );
+    assert.deepEqual(invocationRecordStore.getRecords()[0].targetCats, ['codex']);
   });
 
   // Invalid catId in explicitTargetCats → filtered out, no A2A crash
