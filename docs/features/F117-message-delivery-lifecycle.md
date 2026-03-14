@@ -35,6 +35,12 @@ created: 2026-03-14
 - **期望**：取消后气泡消失，猫猫永远不应该"看到"这条消息
 - **实测证据**：铲屎官发送 `嘿嘿大猫猫喵` → 取消 → 猫猫对话上下文中仍出现该消息
 
+### Bug 3: @mention 消息在队列中卡死 + 目标猫未收到
+- **复现**：布偶猫 @gpt52 发消息 → 消息进入队列（排队中 1）→ 铲屎官后续消息发不出去 → 登入缅因猫 session 发现缅因猫没收到该消息
+- **期望**：@mention 消息在队列中时不应触发路由；dequeue 执行时才路由到目标猫
+- **截图**：`1773488607773-f4b34f0a.png`
+- **可能关联**：queued message 持久化后 @mention routing 可能尝试处理未送达消息，与 queue 状态互相干扰
+
 ### 根因链路（砚砚 + 宪宪调查确认）
 1. `useSendMessage.ts:95-100` — 无条件乐观插入，不区分 queue/immediate
 2. `messages.ts:249` — enqueue 阶段就持久化 user message，无 delivery status 标记
