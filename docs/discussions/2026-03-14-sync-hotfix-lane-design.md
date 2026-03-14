@@ -30,17 +30,18 @@ Cat Café → Clowder AI 的开源同步目前是**全量单向推送**（`sync-
 cat-cafe main (持续开发)
     │
     ├─── 全量 sync ──→ clowder-ai main    ← 批量特性，一个大 PR
-    │                       │
-    │                       └─ tag: sync/2026-03-13   ← sync 完自动打 tag
+    │         │
+    │         └─ tag: sync/2026-03-13-143052   ← sync 完在 cat-cafe 打 tag（秒精度）
     │
     ├─── (社区报 bug)
     │
     ├─── cat-cafe worktree: 基于 sync tag 拉分支 fix/xxx
+    │         │                  （git worktree add -b fix/xxx ../cat-cafe-hotfix-xxx sync/...）
     │         │
-    │         ├─ 修 bug（只改需要的文件）
-    │         ├─ 对改动文件跑 sanitizer（单文件模式）
+    │         ├─ 在 worktree 里修 bug（只改需要的文件）
+    │         ├─ 从 worktree 跑 sync-hotfix.sh → 对改动文件跑 sanitizer → 推到 clowder-ai 分支
     │         ├─ PR → clowder-ai main       ← 小而精的 bugfix PR
-    │         └─ 同一个 fix 合入 cat-cafe main   ← 两边同步
+    │         └─ 同一个 fix cherry-pick 回 cat-cafe main   ← 两边同步
     │
     └─── 下次全量 sync → 两边已一致，无冲突
 ```
@@ -56,27 +57,34 @@ cat-cafe main (持续开发)
 
 #### 1. sync 脚本：自动打 tag
 
-全量 sync 完成后，在 clowder-ai 打 tag：
+全量 sync 完成后，在 **cat-cafe（源 repo）** 打 tag：
 
 ```bash
 # sync-to-opensource.sh 末尾
-TAG="sync/$(date +%Y-%m-%d)"
-git -C "$TARGET_DIR" tag -f "$TAG"
-git -C "$TARGET_DIR" push origin "$TAG" --force
+TAG="sync/$(date +%Y-%m-%d-%H%M%S)"
+git -C "$SOURCE_DIR" tag "$TAG"
+# 每次 sync 生成唯一 tag（秒精度），不用 -f
 ```
+
+> **已决**：Tag 打在 cat-cafe（源），不打在 clowder-ai（目标）。秒精度，不用 `-f`。
 
 #### 2. 新增 hotfix 脚本：`scripts/sync-hotfix.sh`
 
 ```
-用法: scripts/sync-hotfix.sh <branch-name> <file1> [file2] ...
+用法: cd <cat-cafe-worktree> && bash scripts/sync-hotfix.sh <branch-name> <file1> [file2] ...
 
 流程:
-1. 在 clowder-ai 基于最新 sync tag 创建分支
-2. 从 cat-cafe 复制指定文件到分支
-3. 对复制的文件跑 sanitizer（单文件模式）
-4. 提交 + 推送
-5. 输出: "请在 clowder-ai 上开 PR"
+1. 找到最新 sync tag（在 cat-cafe 源 repo 上）
+2. 验证指定文件在 manifest 白名单内
+3. Target 侧漂移检查：clowder-ai main 上的这些文件必须仍等于 sync tag 对应版本，否则 hard-fail
+4. 在 clowder-ai 基于 main 创建分支
+5. 从 worktree（pwd）复制指定文件到分支
+6. 对复制的文件跑 sanitizer（单文件模式）
+7. 提交 + 推送
+8. 输出: "请在 clowder-ai 上开 PR"
 ```
+
+> **关键**：脚本从 pwd（worktree）读文件，不从 cat-cafe main 读。worktree 基于 sync tag checkout，所以只有 fix 的增量。
 
 #### 3. sanitizer 支持单文件模式
 
@@ -91,10 +99,11 @@ perl -i -p _sanitize.pl path/to/specific/file.ts
 
 ## 验收标准
 
-1. 全量 sync 后 clowder-ai 有 `sync/YYYY-MM-DD` tag
-2. `sync-hotfix.sh fix/proxy-fallback packages/api/src/.../invoke-single-cat.ts` 能生成干净的 hotfix 分支
-3. hotfix 分支的 diff 只包含指定文件的变更（经过 sanitizer）
-4. hotfix 合入 clowder-ai + cat-cafe 后，下次全量 sync 无冲突
+1. 全量 sync 后 **cat-cafe**（源 repo）有 `sync/YYYY-MM-DD-HHMMSS` tag
+2. `sync-hotfix.sh fix/proxy-fallback packages/api/src/.../invoke-single-cat.ts` 在 worktree 内运行，能生成干净的 hotfix 分支
+3. **hotfix 分支的 diff 只包含指定文件的 fix 增量**（经过 sanitizer），不夹带 sync tag 之后的其他改动
+4. 如果 clowder-ai main 上的目标文件在 sync tag 之后有变动，脚本 hard-fail 并提示
+5. hotfix 合入 clowder-ai + cherry-pick 回 cat-cafe main 后，下次全量 sync 无冲突
 
 ## 分工
 
@@ -172,8 +181,8 @@ Hotfix 合入 clowder-ai 后，`last_reviewed_target_head`（`docs/ops/opensourc
 ```
 铲屎官说"修 clowder-ai#XX"
     │
-    ├─ 1. 开 worktree，基于 sync tag checkout
-    │      git worktree add ../cat-cafe-hotfix-XX sync/2026-03-13-HHMMSS
+    ├─ 1. 开 worktree，基于 sync tag 拉分支
+    │      git worktree add -b fix/XX ../cat-cafe-hotfix-XX sync/2026-03-13-HHMMSS
     │
     ├─ 2. 在 worktree 里修 bug（只改需要的文件）
     │
@@ -188,10 +197,14 @@ Hotfix 合入 clowder-ai 后，`last_reviewed_target_head`（`docs/ops/opensourc
 ```
 
 **脚本改动**：
-- `SOURCE_DIR` 不再硬编码。改为：优先用 `--source=<path>`，否则用 `pwd`
-- 新增 `--source` 参数：指定源目录（可以是 worktree 路径）
-- 如果 pwd 是 git worktree（`git rev-parse --git-common-dir` ≠ `--git-dir`），自动使用 pwd 作为源
-- 保留回退：如果不在 worktree 且未指定 `--source`，从主仓库复制（但打 warning）
+- `SOURCE_DIR` 不再硬编码为脚本所在目录。改为使用 `pwd` 作为源（期望在 worktree 内运行）
+- 如果 pwd 不是基于 sync tag 的 worktree，打 warning 并要求确认
+- **新增 target 侧漂移检查**（修 P1-2）：
+  - 对每个要复制的文件，比较 clowder-ai main 上的当前版本与 sync tag 对应的全量 sync 版本
+  - 如果不一致（说明 clowder-ai 在 sync 后有过改动），hard-fail 并提示：
+    `"文件 {path} 在 clowder-ai main 上已有 sync tag 之后的改动，整文件复制会覆盖。请手动处理。"`
+  - 这保证了 AC#3：hotfix diff 只包含 fix 增量，不会意外覆盖 target 侧的后续改动
+- 保留 `--source=<path>` 参数作为显式覆盖
 
 #### M2. 修 clowder-ai PR #65 的误伤（止损）
 
@@ -202,12 +215,13 @@ Hotfix 合入 clowder-ai 后，`last_reviewed_target_head`（`docs/ops/opensourc
 
 需要检查并更新的文档/skills：
 
-| 文档/Skill | 需要写什么 |
-|---|---|
-| 本文档（hotfix-lane-design.md） | ✅ 偏差分析已写入 |
-| `docs/SOP.md` | 补充 hotfix lane 操作步骤 |
-| `cat-cafe-skills/` 社区相关 skill（如有） | 补充 hotfix 流程引用 |
-| `sync-manifest.yaml` 或 sync 相关文档 | 补充 hotfix 脚本说明 |
+| 文档/Skill | 具体位置 | 需要写什么 |
+|---|---|---|
+| 本文档（hotfix-lane-design.md） | 全文 | ✅ 偏差分析已写入，前半截已统一到新共识 |
+| `docs/SOP.md` | §社区 issue 流程（~L125） | 补充 hotfix lane 操作步骤：worktree → sync-hotfix → PR → cherry-pick |
+| `docs/features/F059-open-source-plan.md` | Phase 4c | 补充 hotfix lane 作为已实现的同步机制 |
+| `cat-cafe-skills/community-pr/SKILL.md` | 全文 | 评估：是在现有 community-pr skill 中扩展 hotfix 流程，还是新建 `hotfix-lane` skill |
+| `sync-manifest.yaml` | 无需改（manifest 本身不变） | — |
 
 #### M4. 修正顺序（修 D3）
 
