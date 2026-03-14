@@ -15,7 +15,8 @@
 #   bash scripts/sync-to-opensource.sh --validate         # 导出 + install + build（不同步）
 #   bash scripts/sync-to-opensource.sh --skip-validate    # 同步但跳过 post-sync 验证
 #   bash scripts/sync-to-opensource.sh --fast-validate    # 同步 + install/build（跳过 full startup acceptance）
-#   bash scripts/sync-to-opensource.sh --yes              # 非交互模式（猫猫/CI 用，跳过所有确认）
+#   bash scripts/sync-to-opensource.sh --yes              # 非交互模式（猫猫/CI 用，跳过确认提示）
+#   bash scripts/sync-to-opensource.sh --force-overwrite  # 强制覆盖未吸收的社区 commit（危险！）
 #   bash scripts/sync-to-opensource.sh --module=docs      # 模块级同步（V1: Step 5/6 按模块，Step 1-4 仍全量）
 #   bash scripts/sync-to-opensource.sh --module=api       # 模块级同步（同上）
 #   Modules: all root docs shared api web mcp skills
@@ -58,6 +59,7 @@ VALIDATE=false
 SKIP_VALIDATE=false
 FAST_VALIDATE=false
 AUTO_YES=false
+FORCE_OVERWRITE=false
 SYNC_MODULE="all"
 for arg in "$@"; do
   case "$arg" in
@@ -66,6 +68,7 @@ for arg in "$@"; do
     --skip-validate) SKIP_VALIDATE=true ;;
     --fast-validate) FAST_VALIDATE=true ;;
     --yes|-y) AUTO_YES=true ;;
+    --force-overwrite) FORCE_OVERWRITE=true ;;
     --module=*) SYNC_MODULE="${arg#--module=}" ;;
   esac
 done
@@ -212,19 +215,31 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" 
         fi
       done
       if [ "$HAS_INBOUND" = true ]; then
-        echo -e "  ${YELLOW}⚠ Target has $INBOUND_COUNT non-sync commit(s) since last sync${NC}"
+        echo -e "  ${RED}✗ BLOCKED: Target has $INBOUND_COUNT non-sync commit(s) since last sync${NC}"
         echo -e "  ${YELLOW}  Last sync base:      ${LAST_TARGET_HEAD:0:12}${NC}"
         echo -e "  ${YELLOW}  Current target HEAD: ${CURRENT_TARGET_HEAD:0:12}${NC}"
-        echo -e "  ${YELLOW}  These may contain community contributions. Review before overwriting.${NC}"
-        if [ "$AUTO_YES" = false ]; then
-          echo -n "  Continue? [y/N] "
-          read -r CONFIRM
-          if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
-            echo "  Aborted."
-            exit 0
+        echo ""
+        echo -e "  ${YELLOW}  Unabsorbed community commits:${NC}"
+        for c in $COMMITS_SINCE; do
+          MSG=$(git log --format="%h %s" -1 "$c" 2>/dev/null || true)
+          if ! echo "$MSG" | grep -q "^[a-f0-9]* sync: cat-cafe"; then
+            echo -e "    ${RED}→ ${MSG}${NC}"
           fi
+        done
+        echo ""
+        echo -e "  ${YELLOW}  These commits will be OVERWRITTEN by rsync --delete.${NC}"
+        echo -e "  ${YELLOW}  To proceed safely:${NC}"
+        echo -e "  ${YELLOW}    1. Cherry-pick valuable changes back to cat-cafe (intake)${NC}"
+        echo -e "  ${YELLOW}    2. Then re-run this sync${NC}"
+        echo -e "  ${YELLOW}  To force (DANGEROUS — loses community work):${NC}"
+        echo -e "  ${YELLOW}    --force-overwrite${NC}"
+        echo ""
+        if [ "$FORCE_OVERWRITE" = true ]; then
+          echo -e "  ${RED}⚠ --force-overwrite: proceeding despite unabsorbed inbound commits${NC}"
         else
-          echo "  (--yes: auto-continuing)"
+          echo -e "  ${RED}Aborted. Use --force-overwrite to bypass (not recommended).${NC}"
+          cd "$SOURCE_DIR"
+          exit 1
         fi
       else
         echo "  ✓ No inbound changes since last sync"
