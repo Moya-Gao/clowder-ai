@@ -55,17 +55,26 @@ Cat Café 目前的差距：
 
 ### Phase B: 安全与隔离（P0 — 与 Phase A 并行）
 
-1. **端口白名单**
-   - 只允许访问 `localhost` / `127.0.0.1`，不允许访问外部 URL
-   - 可配置允许的端口范围（默认 3000-9999）
-   - 禁止访问 Cat Café 自身的 API 端口（防止 CSRF/token 泄漏）
+**核心架构决策（Design Gate 砚砚结论）**：反向代理为主，不做 iframe 直连作为默认路径。
 
-2. **iframe sandbox 策略**
-   - `sandbox="allow-scripts allow-forms allow-same-origin"` 基础策略
-   - CSP header 限制：只允许 localhost 资源
-   - 阻止 iframe 内页面访问 parent window（Hub）的 DOM/Cookie/Storage
+1. **Preview Gateway（反向代理）**
+   - Hub 后端启动 preview gateway，iframe 永远打开网关 URL，不直接连 `localhost:xxxx`
+   - **独立预览 origin**：网关必须和 Hub 主站不同 origin（不同端口），避免 `allow-same-origin + allow-scripts` 暴露 Hub 存储
+   - 代理层可控地剥离/重写目标 dev server 的 `X-Frame-Options` / `CSP frame-ancestors` 响应头
+   - WebSocket 代理：HMR/Hot Reload 的 WebSocket 连接必须穿透代理层
 
-3. **审计**
+2. **端口白名单**
+   - Host 只允许：`localhost`、`127.0.0.1`、`::1`（解析后再校验必须是 loopback）
+   - 端口策略：默认允许 `1024-65535`，只自动推荐"检测到的 dev server 端口"
+   - 强制排除（从配置动态读取 + 固定保底）：`3001/3002`（Hub）、`6398/6399`（Redis）、`18888/19999`（MCP/API）、`9876/9878/9879`（服务端口）、preview gateway 自身端口（防递归代理）
+
+3. **iframe sandbox 策略**
+   - 基线：`sandbox="allow-scripts allow-forms allow-popups allow-downloads allow-same-origin"`
+   - **前提**：仅在"独立预览 origin"下使用 `allow-same-origin`；若同 origin 则不安全
+   - 明确禁止：`allow-top-navigation`（默认禁），避免预览页劫持顶层 Hub
+   - 配套：`referrerpolicy="no-referrer"`，`allow` 权限白名单（摄像头/麦克风/地理位置默认禁）
+
+4. **审计**
    - `browser_preview_open / close / navigate` 事件记录（threadId、port、url）
 
 ### Phase C: 增强体验（P1 — Phase A 稳定后）
@@ -125,19 +134,20 @@ Cat Café 目前的差距：
 
 | 风险 | 缓解 |
 |------|------|
-| iframe 同源策略阻止 localhost 页面加载 | Hub 本身也跑在 localhost，同源；如端口不同需后端反向代理 |
-| HMR WebSocket 被 iframe sandbox 阻断 | 测试 `allow-same-origin` 策略是否足够；不够则走后端 WebSocket 代理 |
-| dev server 的 CORS 策略拒绝 iframe 嵌入 | 需要 dev server 配置 `X-Frame-Options` / CSP 允许被嵌入，或后端代理绕过 |
-| 端口自动发现误报（非 dev server 的进程） | 端口检测 + 进程名匹配（node/vite/next）双重过滤 |
-| iframe 内页面访问 Hub token 导致安全问题 | sandbox 策略 + Cookie SameSite + 排除 Cat Café API 端口 |
+| dev server 的 X-Frame-Options/CSP 阻止 iframe 嵌入 | **反向代理剥离响应头**（Design Gate 决策：代理是必须的） |
+| HMR WebSocket 被代理层阻断 | preview gateway 必须支持 WebSocket 升级代理（HTTP Upgrade） |
+| 端口自动发现误报（非 dev server 的进程） | stdout 解析 + 端口可达性探测双重过滤；lsof 按 tmux pane pid 定向扫描 |
+| 预览页访问 Hub Cookie/Storage | 独立预览 origin + iframe sandbox；不同 origin 天然隔离 Cookie |
+| 递归代理（预览页访问 preview gateway 自身） | 端口排除列表强制包含 gateway 自身端口 |
+| 预览页劫持 Hub 顶层导航 | sandbox 禁止 `allow-top-navigation` |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | iframe 跨端口 localhost 是否需要反向代理？还是浏览器同源策略允许 `localhost:3001` 嵌入 `localhost:3000` 的 iframe？ | ⬜ 未定（需调研） |
-| OQ-2 | 端口自动发现的技术方案：监听 terminal stdout 解析 "listening on port xxx"？还是定期扫描 `lsof -i -P`？ | ⬜ 未定 |
-| OQ-3 | 布局方案：browser panel 是 workspace 的一个 tab？还是独立的第三栏？ | ⬜ 未定（需 Design Gate 讨论） |
+| OQ-1 | ~~iframe 跨端口是否需要反向代理？~~ | ✅ 已定：**必须反向代理**。X-Frame-Options 无法绕过 + 独立 origin 隔离安全。砚砚 Design Gate 结论。 |
+| OQ-2 | ~~端口自动发现技术方案？~~ | ✅ 已定：**C 两者结合**。主路径 terminal stdout 解析 + 兜底 tmux pane pid 定向 lsof + 端口可达性探测。砚砚 Design Gate 结论。 |
+| OQ-3 | ~~布局方案？~~ | ✅ 已定：workspace tab 切换模式（设计稿已确认）。铲屎官审过设计稿。 |
 
 ## Key Decisions
 
@@ -145,6 +155,9 @@ Cat Café 目前的差距：
 |---|------|------|------|
 | KD-1 | 独立立项（不挂 F063） | F063 已关闭（23 PR），技术栈完全不同（live server vs 静态渲染），独立 scope | 2026-03-14 |
 | KD-2 | 自动检测 + 手动输入都要（不拆 A/B） | 铲屎官："面向最终的状态开发"，只有其一是残缺体验 | 2026-03-14 |
+| KD-3 | **反向代理为必选方案**（否决 iframe 直连作为默认路径） | X-Frame-Options/CSP 不可控 + 独立 origin 隔离安全 + WebSocket 代理可控。砚砚 Design Gate 安全审查结论 | 2026-03-14 |
+| KD-4 | 端口发现：stdout 解析 + lsof 兜底 + 可达性探测 | 快+通用+防误报三层保险。砚砚 Design Gate 结论 | 2026-03-14 |
+| KD-5 | 独立预览 origin（preview gateway 独立端口） | allow-same-origin + allow-scripts 同 origin 不安全。砚砚安全审查结论 | 2026-03-14 |
 
 ## Timeline
 
@@ -153,6 +166,9 @@ Cat Café 目前的差距：
 | 2026-03-14 | 铲屎官看到 Claude Code embedded browser 截图，提出需求 |
 | 2026-03-14 | 确认独立立项 F120，不挂 F063 |
 | 2026-03-14 | 铲屎官拍板：自动检测 + 手动输入都要，面向最终状态开发 |
+| 2026-03-14 | 设计稿 v1（绿色）+ v2（暖色修正）完成，铲屎官审过 UX 布局 |
+| 2026-03-14 | Design Gate 技术讨论：砚砚给出安全架构结论（反向代理 + 独立 origin + sandbox 策略 + 端口白名单） |
+| 2026-03-14 | OQ-1/2/3 全部关闭，KD-3/4/5 新增，进入 writing-plans |
 
 ## Review Gate
 
