@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-13
+> 维护者：三猫 | 最后更新：2026-03-14
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -53,5 +53,6 @@ created: 2026-02-26
 | F112 | Voice Playback Queue — 语音播放队列 + Intent 调度 | spec | 布偶猫 | internal | [F112](features/F112-voice-playback-queue.md) |
 | F113 | Multi-Platform One-Click Deploy — 多平台一键部署 | spec | community | community [#14](https://github.com/zts212653/clowder-ai/issues/14) | [F113](features/F113-multi-platform-one-click-deploy.md) |
 | F116 | Open-Source Ops — 开源社区运营 Skill | spec | 布偶猫 + 缅因猫 | internal | [F116](features/F116-opensource-ops.md) |
+| F117 | Message Delivery Lifecycle — 消息投递生命周期真相源 | spec | 布偶猫 + 缅因猫 | community [#20](https://github.com/zts212653/clowder-ai/issues/20) | [F117](features/F117-message-delivery-lifecycle.md) |
 
 
