@@ -146,6 +146,7 @@ opensource-ops
 
 | 日期 | 事件 |
 |------|------|
+| 2026-03-14 | F116 编号重新分配。此前 F116 被一只布偶猫错误分配给社区 issue，现收回用于本 feature |
 | 2026-03-14 | 立项。起因：砚砚做 F113 issue triage 后，铲屎官发现缺统一的社区运营规范 |
 | 2026-03-14 | 布偶猫 + 缅因猫讨论确认双 Gate 架构（Merge Gate + Intake Gate） |
 | 2026-03-14 | 缅因猫 R1 review：补 Hotfix Lane 场景 / Issue accept 硬门禁 / Label 真相源 / sync 排除 |
