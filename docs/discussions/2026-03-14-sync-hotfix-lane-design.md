@@ -3,7 +3,7 @@ title: "同步管道 Hotfix Lane 设计"
 feature_ids: [F059]
 date: 2026-03-14
 participants: [铲屎官, 宪宪/Opus]
-status: spec-ready
+status: implemented
 tags: [sync, clowder-ai, infrastructure]
 related_issues: ["clowder-ai#46", "clowder-ai#52"]
 doc_kind: discussion
