@@ -771,10 +771,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   streamCatchUpVersion: 0,
   streamCatchUpThreadId: null,
-  requestStreamCatchUp: (threadId: string) => set((state) => ({
-    streamCatchUpVersion: state.streamCatchUpVersion + 1,
-    streamCatchUpThreadId: threadId,
-  })),
+  requestStreamCatchUp: (threadId: string) =>
+    set((state) => ({
+      streamCatchUpVersion: state.streamCatchUpVersion + 1,
+      streamCatchUpThreadId: threadId,
+    })),
 
   setCurrentGame: (game) => set({ currentGame: game }),
 
@@ -1058,16 +1059,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   removeThreadActiveInvocation: (threadId, invocationId) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        const rest = Object.fromEntries(
-          Object.entries(state.activeInvocations).filter(([k]) => k !== invocationId),
-        );
+        const rest = Object.fromEntries(Object.entries(state.activeInvocations).filter(([k]) => k !== invocationId));
         return { activeInvocations: rest, hasActiveInvocation: Object.keys(rest).length > 0 };
       }
       const existing = state.threadStates[threadId];
       if (!existing) return state;
-      const rest = Object.fromEntries(
-        Object.entries(existing.activeInvocations).filter(([k]) => k !== invocationId),
-      );
+      const rest = Object.fromEntries(Object.entries(existing.activeInvocations).filter(([k]) => k !== invocationId));
       return {
         threadStates: {
           ...state.threadStates,

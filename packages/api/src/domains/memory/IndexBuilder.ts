@@ -74,9 +74,7 @@ export class IndexBuilder implements IIndexBuilder {
       if (existing) {
         const existingPriority = KIND_PRIORITY[existing.kind] ?? 0;
         const newPriority = KIND_PRIORITY[parsed.kind] ?? 0;
-        const existingFileExists = existing.sourcePath
-          ? existsSync(join(this.docsRoot, existing.sourcePath))
-          : false;
+        const existingFileExists = existing.sourcePath ? existsSync(join(this.docsRoot, existing.sourcePath)) : false;
         if (newPriority < existingPriority && existingFileExists) {
           skipped++;
           continue;

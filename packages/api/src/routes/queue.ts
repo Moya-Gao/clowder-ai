@@ -9,9 +9,9 @@
  * DELETE /api/threads/:threadId/queue               → 清空队列
  */
 
+import type { CatId } from '@cat-cafe/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import type { CatId } from '@cat-cafe/shared';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
@@ -22,7 +22,12 @@ import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js'
 interface InvocationTrackerLike {
   has(threadId: string, catId?: string): boolean;
   getUserId(threadId: string, catId: string): string | null;
-  cancel(threadId: string, catId: string, requestUserId?: string, abortReason?: string): { cancelled: boolean; catIds: string[] };
+  cancel(
+    threadId: string,
+    catId: string,
+    requestUserId?: string,
+    abortReason?: string,
+  ): { cancelled: boolean; catIds: string[] };
 }
 
 export interface QueueRoutesOptions {
