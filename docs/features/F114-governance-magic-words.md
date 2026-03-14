@@ -8,7 +8,7 @@ created: 2026-03-13
 
 # F114: Magic Words + 愿景守护 Gate
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -78,11 +78,11 @@ created: 2026-03-13
 
 ## Acceptance Criteria
 
-- [ ] AC-1: `GOVERNANCE_L0_DIGEST` 包含 4 个 magic words 定义 + 对应行为
-- [ ] AC-2: 铲屎官发送「星星罐子」时，猫停止新增副作用并等待指示
-- [ ] AC-3: `feat-lifecycle` 愿景守护步骤包含 BLOCKED 条件（缺对照表 = 不放行）
-- [ ] AC-4: 愿景守护输出包含"铲屎官原话 vs 实际状态"对照表格式
-- [ ] AC-5: SystemPromptBuilder 测试通过（`pnpm --filter @cat-cafe/api test`）
+- [x] AC-1: `GOVERNANCE_L0_DIGEST` 包含 4 个 magic words 定义 + 对应行为
+- [x] AC-2: 铲屎官发送「星星罐子」时，猫停止新增副作用并等待指示
+- [x] AC-3: `feat-lifecycle` 愿景守护步骤包含 BLOCKED 条件（缺对照表 = 不放行）
+- [x] AC-4: 愿景守护输出包含"铲屎官原话 vs 实际状态"对照表格式
+- [x] AC-5: SystemPromptBuilder 测试通过（`pnpm --filter @cat-cafe/api test`）
 
 ## Dependencies
 
@@ -117,6 +117,7 @@ created: 2026-03-13
 | 2026-03-13 15:01 | 砚砚 R1 review → 4 条 P1 |
 | 2026-03-13 16:20 | 铲屎官指出"以前就是这样，效果不好" → 推翻四层/瘦身 |
 | 2026-03-13 16:30 | 三猫共识收窄：只做 Magic Words + 愿景守护 Gate（v2） |
+| 2026-03-13 17:12 | PR #430 merged（云端 review 0 P1/P2） |
 
 ## Review Gate
 
