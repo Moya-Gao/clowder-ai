@@ -333,14 +333,26 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     const senderCatId = createCatId(record.catId);
     const contentTargets = parseA2AMentions(storedContent, isCrossThread ? undefined : senderCatId);
     // F098-C1: Merge explicit targetCats with content-parsed mentions (deduped)
-    const mergedTargets = new Set<CatId>([...contentTargets, ...((explicitTargetCats ?? []) as CatId[])]);
+    // Filter out invalid catIds (e.g. "default-user") — graceful degradation, not 400
+    const validExplicitTargets: CatId[] = [];
+    for (const id of explicitTargetCats ?? []) {
+      if (catRegistry.has(id)) {
+        validExplicitTargets.push(createCatId(id));
+      } else {
+        app.log.warn(
+          { droppedId: id, catId: record.catId, invocationId },
+          '[callbacks/post-message] Dropped invalid catId from targetCats',
+        );
+      }
+    }
+    const mergedTargets = new Set<CatId>([...contentTargets, ...validExplicitTargets]);
     const mentions: CatId[] = [...mergedTargets];
     const mentionsUser = detectUserMention(storedContent);
     const crossPostExtra = isCrossThread
       ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } }
       : {};
     const richExtra = richBlocks.length > 0 ? { rich: { v: 1 as const, blocks: richBlocks } } : {};
-    const targetCatsExtra = explicitTargetCats?.length ? { targetCats: explicitTargetCats } : {};
+    const targetCatsExtra = validExplicitTargets.length ? { targetCats: validExplicitTargets } : {};
     const extraParts = { ...richExtra, ...crossPostExtra, ...targetCatsExtra };
     const extra = Object.keys(extraParts).length > 0 ? extraParts : undefined;
 
@@ -365,13 +377,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         origin: 'callback',
         messageId: storedMsg.id,
         // F52+F098-C1: Include crossPost + targetCats in real-time broadcast
-        ...(isCrossThread || explicitTargetCats?.length
+        ...(isCrossThread || validExplicitTargets.length
           ? {
               extra: {
                 ...(isCrossThread
                   ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } }
                   : {}),
-                ...(explicitTargetCats?.length ? { targetCats: explicitTargetCats } : {}),
+                ...(validExplicitTargets.length ? { targetCats: validExplicitTargets } : {}),
               },
             }
           : {}),
