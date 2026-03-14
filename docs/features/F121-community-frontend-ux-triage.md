@@ -33,6 +33,33 @@ created: 2026-03-14
 
 汇总侦查结果 → 铲屎官拍板 → 社区回复 + 打标签
 
+### Phase B 决策（2026-03-14 铲屎官拍板）
+
+1. **#89 -> F095**：确认是 F095 Phase B 引入的回归，不按新 feature 处理。
+2. **#16 -> F110**：已被 F110 吸收；在 F110 feature doc 明确写社区来源 issue。
+3. **#88 保留术语，做术语表**：不修改家里的猫言猫语/领域术语本体，改做「项目术语表 / 黑话集合」，必要时把这套内容接进进阶训练营。
+4. **其余 accept 项继续挂 F121**：`#28` / `#27` / `#22` 作为 F121 umbrella 下的社区前端 UX 收口项继续推进。
+
+### Phase C: 社区 PR 侦查（2026-06-12 金渐层执行）
+
+铲屎官要求检查 #22/#89/#28/#27 是否有社区 PR，以及 PR 是否真的修好了问题。
+
+| Issue | 社区 PR | PR 状态 | 作者 | Review 状态 | 侦查结论 |
+|-------|---------|---------|------|-------------|---------|
+| **#28** | **PR #43** | OPEN | mindfn (co-author: Claude Opus 4.6) | bouillipx(社区 Collaborator) review 过一轮 nit，已处理。**注意：bouillipx 是社区贡献者，不是我们家的布偶猫（宪宪）** | 🟢 方向正确：复用 ResizeHandle + usePersistedState，范围 200-480px，移动端隐藏。review feedback 已处理（命名常量 + lg breakpoint）。额外修了 4 个 main 上 pre-existing Biome 格式错误（略越界但无害）。**需要我们家的猫做正式 review 后才能 merge。** |
+| **#27** | **PR #40** | OPEN | mindfn (co-author: Claude Opus 4.6) | bouillipx(社区 Collaborator) 给了 APPROVED。**同上，这不是我们家猫的 APPROVED。** | 🟢 方向正确：hook 内 `Map<threadId, scrollTop>` ref 保存滚动位置，rAF 恢复 + 快速 A→B→C 切换防抖。37 行改动，仅改 `useChatHistory.ts` 一个文件。比砚砚侦查预估的 M 难度更轻量（不改 store）。**需要我们家的猫做正式 review 后才能 merge。** |
+| **#22** | ❌ 无 PR | — | — | — | 需要我们自己修（XS 难度，4 行 CSS） |
+| **#89** | ❌ 无 PR | — | — | — | 需要我们自己修（S 难度，F095 回归） |
+
+**关键发现**：
+- 两个 PR 都来自同一位贡献者 **mindfn**（内测小伙伴 lang），历史上都迭代过一轮（PR #39→#40、PR #42→#43）
+- PR 中 review 的 **bouillipx** 是社区 Collaborator，不是我们家的猫。他的 review 签名写了"布偶猫 Review"容易误导，但他的 GitHub 账号不在内测小伙伴列表中（F059），也不是我们团队的账号
+- 两个 PR 技术方向正确（和我们侦查判断一致），但**都还没经过我们家猫的正式 review**，需要按 opensource-ops Inbound PR 流程处理
+
+**历史 PR**（已关闭，被新版替代）：
+- PR #42（#28 早期版本，2026-03-14 closed）→ 重开为 #43
+- PR #39（#27 早期版本，2026-03-14 closed）→ 重开为 #40
+
 ## Issue Checklist
 
 | # | Issue | 类型 | 侦查猫 | 判定 | 猫爪印 |
@@ -41,7 +68,7 @@ created: 2026-03-14
 | #89 | collapse-all 后 sidebar 展开跳错分组 | bug | 金渐层 | ✅ accept-bug | 🐾 F095 遗漏。`findGroupKeyForThread()` 遍历 groups 取第一个命中，recent 排在 project 前面导致优先展开 recent。修复方案：优先 project group 或传入来源 groupKey。难度 S，影响范围小（collapse-state.ts + use-collapse-state.ts）。详见下方猫爪印报告。 |
 | #27 | 切换会话时滚动位置重置 | bug | 缅因猫(gpt52) | ✅ accept-bug | [砚砚/gpt52] 实锤：线程状态只保存消息/队列，不保存 scrollTop；切换回来首轮渲染会走“初始加载滚到底”分支。详见下方猫爪印报告。 |
 | #22 | @mention 下拉框溢出+行高不一致 | bug | 布偶猫 | ✅ accept-bug | 🐾 确认问题存在：ChatInputMenus.tsx L113 `w-64`(256px) 容器过窄，中文描述溢出致行高不一致。缺 `truncate`/`line-clamp-1`/`min-w-0`。纯 CSS 修复 4 行 Tailwind class，`w-64`→`w-72` 对齐游戏菜单宽度。难度 XS。详见下方猫爪印报告。 |
-| #88 | UX Debt 内部术语暴露给用户 | enhancement | 金渐层 | ✅ accept-enhancement (部分) | 🐾 经代码确认：(1) `(F33)` 确实暴露在 HubStrategyTab.tsx 用户 UI 中；(2) sidebar 治理 dot 仅靠 hover title，触屏不可见；(3) GovernanceHealth 的 `Q/O/D/R/A` 和 bucket 名有 legend 但只在有数据时显示。建议拆为两批：快修（去 F33 编号 + dot 加 aria-label）和规范（design-system.md 加 guardrail）。难度 M。详见下方猫爪印报告。 |
+| #88 | UX Debt 内部术语暴露给用户 | enhancement | 金渐层 | ✅ accept-enhancement (部分) | 🐾 经代码确认：(1) `(F33)` 确实暴露在 HubStrategyTab.tsx 用户 UI 中；(2) sidebar 治理 dot 仅靠 hover title，触屏不可见；(3) GovernanceHealth 的 `Q/O/D/R/A` 和 bucket 名有 legend 但只在有数据时显示。铲屎官拍板：不改术语本体，改走“项目术语表 / 黑话集合 + 必要可访问性快修”路线。详见下方猫爪印报告。 |
 | #16 | Bootcamp 阶段过渡 UX | enhancement | 缅因猫(gpt52) | ✅ accept-enhancement -> F110 | [砚砚/gpt52] 问题原始成立，但已被 F110 吸收；当前只剩 Phase 2 全 OK 快路径缺少显式过渡文案。详见下方猫爪印报告。 |
 
 ## Dependencies
@@ -62,6 +89,8 @@ created: 2026-03-14
 |------|------|
 | 2026-03-14 | 立项，三猫分工侦查 |
 | 2026-03-14 | Phase A 侦查完成：6/6 issue 全部定位，等待铲屎官分诊拍板 |
+| 2026-03-14 | Phase B 分诊拍板：铲屎官确认 6/6 accept，#16→F110，#88 走术语表路线 |
+| 2026-06-12 | Phase C 社区 PR 侦查（金渐层）：#28 有 PR#43、#27 有 PR#40（mindfn），但 review 来自社区 Collaborator bouillipx 不是我们家猫，需要正式 inbound review |
 
 ## Links
 
@@ -165,9 +194,9 @@ export function findGroupKeyForThread(
 |------|------|------|
 | 去掉 `(F33)` | ✅ accept-enhancement | 零争议，内部编号不应暴露给用户 |
 | 治理 dot 加 aria-label | ✅ accept-enhancement | 可访问性缺陷，修复成本低 |
-| "治理"术语换成 plain-language | ⚠️ needs-discussion | "治理"是 F070 的核心概念，改文案需要铲屎官确认替代用语（如"项目规范同步"/"方法论同步"） |
+| "治理"术语换成 plain-language | ❌ 不采用 | 铲屎官拍板：不改我们自己的术语，改做术语表 / 黑话集合解释即可 |
 | GovernanceHealth 补 legend | ⚠️ needs-discussion | Mission Control 本身面向 team lead，补 legend 合理但优先级低 |
-| design-system.md 加 guardrail 规范 | ✅ accept-enhancement | 长期防腐，但属于规范层面，不急 |
+| 项目术语表 / 黑话集合 | ✅ accept-enhancement | 保留猫言猫语，同时给用户一处集中解释入口 |
 
 #### 4. 修复评估
 
@@ -175,12 +204,17 @@ export function findGroupKeyForThread(
 - `HubStrategyTab.tsx`：删除 `(F33)` → `Session 策略配置`
 - `SectionGroup.tsx`：dot 加 `aria-label` 属性
 
-**规范批（M 难度，需铲屎官确认）**：
-- `HubGovernanceTab.tsx`："治理" → 需要确认替代用语
+**术语层路线（铲屎官已拍板）**：
+- 不改掉现有猫言猫语 / 领域术语
+- 新增「项目术语表 / 黑话集合」解释这些词
+- 进阶训练营可吸收这套内容，作为新手理解家里术语的入口
+
+**规范批（M 难度，可后置）**：
 - `GovernanceHealth.tsx`：Source Tag 释义 legend
-- `docs/design-system.md`：新增 UI 文案 guardrail 规则
+- 视需要补一份面向用户的术语入口或帮助页
 
 **建议不做的**：
+- 为了“众口统一”去强改现有领域术语
 - issue 提到的"统一 InfoTooltip 组件"——过度工程化，现有 `title` + `aria-label` 够用
 
 ---
