@@ -71,12 +71,14 @@ export function useAgentMessages() {
     setMessageMetadata,
     setMessageThinking,
     setMessageStreamInvocation,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    currentThreadId,
+    requestStreamCatchUp,
   } = useChatStore();
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
   const activeRefs = useRef<Map<string, { id: string; catId: string }>>(new Map());
+
+  /** Bug C P2: Track whether stream data was received per cat (avoids false catch-up on callback-only flows) */
+  const sawStreamDataRef = useRef<Set<string>>(new Set());
 
   /** Current A2A group ID — set on a2a_handoff, cleared on done(isFinal) */
   const a2aGroupRef = useRef<string | null>(null);
@@ -255,6 +257,9 @@ export function useAgentMessages() {
 
       if (msg.type === 'text' && msg.content) {
         setCatStatus(msg.catId, 'streaming');
+        if (msg.origin !== 'callback') {
+          sawStreamDataRef.current.add(msg.catId);
+        }
 
         if (msg.origin === 'callback') {
           // MCP callback message: always a separate bubble (never merge into stream)
@@ -298,6 +303,7 @@ export function useAgentMessages() {
         }
       } else if (msg.type === 'tool_use') {
         setCatStatus(msg.catId, 'streaming');
+        sawStreamDataRef.current.add(msg.catId);
         const toolName = msg.toolName ?? 'unknown';
         const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : undefined;
         const isFileChange = toolName === 'file_change';
@@ -374,6 +380,23 @@ export function useAgentMessages() {
           setIntentMode(null);
           clearCatStatuses();
           a2aGroupRef.current = null;
+          // Bug C safety net: if done(isFinal) arrived but no streaming bubble
+          // was ever created for this cat, text events were lost (socket transport
+          // drop, dual-pointer guard mismatch, etc.). Request a history catch-up
+          // so the user sees the response without needing F5.
+          // P2: Only trigger if stream data was actually received (avoids false
+          // catch-up on callback-only flows where addMessage handles delivery).
+          if (!messageId && sawStreamDataRef.current.has(msg.catId)) {
+            const tid = useChatStore.getState().currentThreadId;
+            console.warn('[stream-catchup] done(isFinal) with no active bubble — requesting catch-up', {
+              catId: msg.catId,
+              threadId: tid,
+            });
+            if (tid) {
+              requestStreamCatchUp(tid);
+            }
+          }
+          sawStreamDataRef.current.delete(msg.catId);
         }
       } else if (msg.type === 'a2a_handoff') {
         // Start or continue an A2A group
@@ -389,6 +412,7 @@ export function useAgentMessages() {
           timestamp: Date.now(),
         });
       } else if (msg.type === 'system_info') {
+        sawStreamDataRef.current.add(msg.catId);
         // System notifications: budget warnings, cancel feedback, A2A follow-up hints, invocation metrics
         let sysContent = msg.content ?? '';
         let sysVariant: 'info' | 'a2a_followup' = 'info';
@@ -670,6 +694,7 @@ export function useAgentMessages() {
       getOrRecoverActiveAssistantMessageId,
       ensureActiveAssistantMessage,
       setMessageUsage,
+      requestStreamCatchUp,
     ],
   );
 

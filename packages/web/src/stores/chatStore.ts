@@ -278,6 +278,10 @@ interface ChatState {
   /** F081: Persist stream invocation identity onto a message for replace/hydration reconcile */
   setMessageStreamInvocation: (messageId: string, invocationId: string) => void;
   clearMessages: () => void;
+  /** Bug C: Monotonic counter + target threadId — increment to request a history catch-up fetch */
+  streamCatchUpVersion: number;
+  streamCatchUpThreadId: string | null;
+  requestStreamCatchUp: (threadId: string) => void;
   /** F101: Update current game state */
   setCurrentGame: (game: GameState | null) => void;
 
@@ -732,6 +736,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       revokeBlobUrls(state.messages);
       return { messages: [], hasMore: true };
     }),
+
+  streamCatchUpVersion: 0,
+  streamCatchUpThreadId: null,
+  requestStreamCatchUp: (threadId: string) => set((state) => ({
+    streamCatchUpVersion: state.streamCatchUpVersion + 1,
+    streamCatchUpThreadId: threadId,
+  })),
 
   setCurrentGame: (game) => set({ currentGame: game }),
 

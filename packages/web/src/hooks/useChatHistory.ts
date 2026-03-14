@@ -479,6 +479,21 @@ export function useChatHistory(threadId: string) {
     };
   }, [threadId, clearMessages, fetchHistory, fetchQueue, fetchTaskProgress, fetchTasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Bug C safety net: when useAgentMessages detects done(isFinal) with no
+  // streaming bubble, it bumps streamCatchUpVersion with a target threadId.
+  // Only fetch if this hook's threadId matches the request (P1: thread-scoped).
+  const catchUpVersion = useChatStore((s) => s.streamCatchUpVersion);
+  const catchUpThreadId = useChatStore((s) => s.streamCatchUpThreadId);
+  useEffect(() => {
+    if (catchUpVersion === 0) return; // Skip initial render
+    if (catchUpThreadId !== threadId) return; // P1: only act for matching thread
+    // Small delay: backend may still be persisting the final message
+    const timer = setTimeout(() => {
+      void fetchHistory(undefined, { replace: true });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [catchUpVersion, catchUpThreadId, threadId, fetchHistory]);
+
   // Snapshot scroll height before history load
   useEffect(() => {
     const el = scrollContainerRef.current;
