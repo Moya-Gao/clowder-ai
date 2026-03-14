@@ -250,7 +250,7 @@ Phase 4 实施过程中暴露的 runtime 层问题：
 - `scripts/sync-hotfix.sh` — 从 worktree（基于 sync tag）推指定文件到 clowder-ai
 - Source 侧两层门禁：HEAD == sync tag + 本地改动 ⊆ FILES，hard-fail
 - Target 侧漂移检查：clowder-ai 文件必须等于 sync 时版本
-- 首次 e2e 验证：clowder-ai#18（button tooltips），PR #65
+- 首次 e2e 验证：clowder-ai#18（button tooltips），PR #70
 
 **Phase 5: 社区编号体系（3/13 讨论收敛）**
 
@@ -403,3 +403,5 @@ MIT 下别人可商用。三猫共识：
 | 2026-03-13 | 内测首批 6 个 issue → [CEP 编号体系与社区治理讨论](../discussions/2026-03-13-f059-cep-numbering-and-community-governance.md) → CEP 方案否决，收敛为统一 F 编号 |
 | 2026-03-13 | **编号体系决策**：社区和内部共用一套 F 编号（从 BACKLOG.md 分配），不另起 P/CEP 系列。Bug 用 GitHub issue # 不给 F 号。F113 首个社区 feature。F114-F116 误标后撤销。 |
 | 2026-03-13 | sync 脚本 P0/P1/P2 性能+架构优化 merged (PR #427) — 13min→<15s, rsync dry-run + single-pass perl + 模块化 V1, gpt52 review |
+| 2026-03-14 | Hotfix Lane 首次真实 e2e 完成：clowder-ai#18 → PR #70 merged，source/target 双门禁 + intake ledger 全链路验证通过 |
+| 2026-03-14 | 社区完整回合验证完成：clowder-ai#38（closes #24）经 red→green intake 吸收回家里，cat-cafe PR #439 merged |
