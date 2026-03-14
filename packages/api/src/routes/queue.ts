@@ -14,6 +14,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
+import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -36,6 +37,8 @@ export interface QueueRoutesOptions {
   queueProcessor: QueueProcessor;
   invocationTracker: InvocationTrackerLike;
   socketManager: SocketManager;
+  /** F117: MessageStore for marking queued messages as canceled on withdraw/clear */
+  messageStore?: IMessageStore;
 }
 
 const moveBodySchema = z.object({
@@ -81,7 +84,7 @@ async function guardThreadOwnership(
 }
 
 export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, opts) => {
-  const { threadStore, invocationQueue, queueProcessor, invocationTracker, socketManager } = opts;
+  const { threadStore, invocationQueue, queueProcessor, invocationTracker, socketManager, messageStore } = opts;
 
   // GET /api/threads/:threadId/queue
   app.get<{ Params: { threadId: string } }>('/api/threads/:threadId/queue', async (request, reply) => {
@@ -116,12 +119,27 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
         return { error: '条目正在处理中，无法撤回', code: 'ENTRY_PROCESSING' };
       }
 
+      // F117: Collect message IDs before removing (entry contains messageId + mergedMessageIds)
+      const messageIds = [entry.messageId, ...(entry.mergedMessageIds ?? [])].filter(Boolean) as string[];
+
       const removed = invocationQueue.remove(threadId, guard.userId, entryId);
       socketManager.emitToUser(guard.userId, 'queue_updated', {
         threadId,
         queue: invocationQueue.list(threadId, guard.userId),
         action: 'removed',
       });
+
+      // F117: Mark queued messages as canceled + emit message_deleted
+      if (messageStore) {
+        for (const msgId of messageIds) {
+          await messageStore.markCanceled(msgId);
+          socketManager.emitToUser(guard.userId, 'message_deleted', {
+            messageId: msgId,
+            threadId,
+            deletedBy: guard.userId,
+          });
+        }
+      }
 
       return { removed };
     },
@@ -252,12 +270,34 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
     const guard = await guardThreadOwnership(request, reply, threadStore, threadId);
     if (!guard) return;
 
+    // F117: Collect message IDs from non-processing entries for cancelation
+    // Skip 'processing' entries — their invocation is already running and will markDelivered itself
+    const entriesBeforeClear = invocationQueue.list(threadId, guard.userId);
+    const allMessageIds: string[] = [];
+    for (const e of entriesBeforeClear) {
+      if (e.status === 'processing') continue;
+      if (e.messageId) allMessageIds.push(e.messageId);
+      if (e.mergedMessageIds) allMessageIds.push(...e.mergedMessageIds);
+    }
+
     const cleared = invocationQueue.clear(threadId, guard.userId);
     socketManager.emitToUser(guard.userId, 'queue_updated', {
       threadId,
       queue: [],
       action: 'cleared',
     });
+
+    // F117: Mark all queued messages as canceled + emit message_deleted
+    if (messageStore) {
+      for (const msgId of allMessageIds) {
+        await messageStore.markCanceled(msgId);
+        socketManager.emitToUser(guard.userId, 'message_deleted', {
+          messageId: msgId,
+          threadId,
+          deletedBy: guard.userId,
+        });
+      }
+    }
 
     return { cleared };
   });

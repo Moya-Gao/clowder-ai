@@ -246,7 +246,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
       let storedUserMessageId: string | null = null;
 
-      // ② Write user message (message becomes visible to frontend)
+      // ② Write user message (F117: mark as queued — invisible until dequeue)
       try {
         const userMessage = await opts.messageStore.append({
           userId,
@@ -255,6 +255,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           mentions: targetCats,
           timestamp: Date.now(),
           threadId: resolvedThreadId,
+          deliveryStatus: 'queued', // F117: not visible in history/context/mentions until delivered
           ...(contentBlocks ? { contentBlocks } : {}),
           ...(whisperVisibility && whisperRecipients
             ? { visibility: whisperVisibility, whisperTo: whisperRecipients }

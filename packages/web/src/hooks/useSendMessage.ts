@@ -92,11 +92,14 @@ export function useSendMessage(activeThreadId?: string) {
           })),
         ];
       }
-      // Write optimistic message to the target thread
-      if (threadId !== activeThread) {
-        addMessageToThread(threadId, userMsg);
-      } else {
-        addMessage(userMsg);
+      // F117: Queue sends skip optimistic insert — bubble appears only on messages_delivered
+      // (prevents queued message from showing in chat timeline before delivery)
+      if (!isQueueSend) {
+        if (threadId !== activeThread) {
+          addMessageToThread(threadId, userMsg);
+        } else {
+          addMessage(userMsg);
+        }
       }
 
       // F39: Queue sends don't flip loading/invocation flags — cat is already running,

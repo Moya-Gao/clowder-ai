@@ -359,8 +359,19 @@ interface ChatState {
   setQueue: (threadId: string, queue: QueueEntry[]) => void;
   setQueuePaused: (threadId: string, paused: boolean, reason?: 'canceled' | 'failed') => void;
   setQueueFull: (threadId: string, source: 'user' | 'connector') => void;
-  /** F098-D: Mark queued messages as delivered (set deliveredAt on matching messages) */
-  markMessagesDelivered: (threadId: string, messageIds: string[], deliveredAt: number) => void;
+  /** F098-D + F117: Mark queued messages as delivered (set deliveredAt) + insert user bubbles for queue-sent messages */
+  markMessagesDelivered: (
+    threadId: string,
+    messageIds: string[],
+    deliveredAt: number,
+    messages?: Array<{
+      id: string;
+      content: string;
+      catId: string | null;
+      timestamp: number;
+      contentBlocks?: readonly unknown[];
+    }>,
+  ) => void;
 
   // ── F63: Workspace Explorer ──
   rightPanelMode: 'status' | 'workspace';
@@ -490,10 +501,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  markMessagesDelivered: (threadId, messageIds, deliveredAt) =>
+  markMessagesDelivered: (threadId, messageIds, deliveredAt, serverMessages) =>
     set((state) => {
       const idSet = new Set(messageIds);
-      const updateMsgs = (msgs: ChatMessage[]) => msgs.map((m) => (idSet.has(m.id) ? { ...m, deliveredAt } : m));
+      const updateMsgs = (msgs: ChatMessage[]) => {
+        // Update deliveredAt on existing messages
+        const updated = msgs.map((m) => (idSet.has(m.id) ? { ...m, deliveredAt } : m));
+        // F117: Insert user bubbles for queue-sent messages not yet in the store
+        if (serverMessages) {
+          const existingIds = new Set(updated.map((m) => m.id));
+          for (const sm of serverMessages) {
+            if (!existingIds.has(sm.id)) {
+              updated.push({
+                id: sm.id,
+                type: 'user',
+                content: sm.content,
+                timestamp: sm.timestamp,
+                deliveredAt,
+                contentBlocks: sm.contentBlocks as ChatMessage['contentBlocks'],
+              });
+            }
+          }
+          // Re-sort by timestamp to place inserted messages correctly
+          updated.sort((a, b) => a.timestamp - b.timestamp);
+        }
+        return updated;
+      };
 
       if (threadId === state.currentThreadId) {
         return { messages: updateMsgs(state.messages) };

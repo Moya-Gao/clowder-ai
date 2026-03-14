@@ -8,7 +8,7 @@
 
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import { estimateTokens } from '../../../../utils/token-counter.js';
-import type { StoredMessage } from '../stores/ports/MessageStore.js';
+import { isDelivered, type StoredMessage } from '../stores/ports/MessageStore.js';
 
 export interface ContextAssemblerOptions {
   /** Maximum number of recent messages to include (default: 20) */
@@ -105,12 +105,15 @@ export function assembleContext(messages: StoredMessage[], options?: ContextAsse
   // F8: token-based budget (maxTotalTokens preferred, maxTotalChars fallback for compat)
   const maxTotalTokens = options?.maxTotalTokens ?? options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_TOKENS;
 
-  if (messages.length === 0) {
+  // F117: exclude undelivered messages (queued/canceled) from prompt context
+  const deliveredMessages = messages.filter(isDelivered);
+
+  if (deliveredMessages.length === 0) {
     return { contextText: '', messageCount: 0, estimatedTokens: 0 };
   }
 
   // Take the most recent N messages (messages are already chronological from store)
-  const recent = messages.length > maxMessages ? messages.slice(-maxMessages) : messages;
+  const recent = deliveredMessages.length > maxMessages ? deliveredMessages.slice(-maxMessages) : deliveredMessages;
 
   // Format all messages, then apply token budget from most-recent backward
   const formatted = recent.map((m) => formatMessage(m, { truncate: maxContentLength }));

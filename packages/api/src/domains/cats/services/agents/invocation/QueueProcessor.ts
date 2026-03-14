@@ -313,23 +313,46 @@ export class QueueProcessor {
       });
 
       // F098-D: Mark queued messages as delivered (set deliveredAt = now)
+      // F117: Collect full message objects for frontend bubble rendering
       const allMessageIds: string[] = [messageId ?? '', ...(entry.mergedMessageIds ?? [])].filter(Boolean);
       const deliveredNow = Date.now();
       const deliveredIds: string[] = [];
+      const deliveredMessages: Array<{
+        id: string;
+        content: string;
+        catId: string | null;
+        timestamp: number;
+        mentions: readonly string[];
+        userId: string;
+        contentBlocks?: readonly unknown[];
+      }> = [];
       for (const mid of allMessageIds) {
         try {
           const result = await messageStore.markDelivered(mid, deliveredNow);
-          if (result) deliveredIds.push(mid);
+          if (result) {
+            deliveredIds.push(mid);
+            deliveredMessages.push({
+              id: result.id,
+              content: result.content,
+              catId: result.catId,
+              timestamp: result.timestamp,
+              mentions: result.mentions,
+              userId: result.userId,
+              contentBlocks: result.contentBlocks,
+            });
+          }
         } catch {
           /* best-effort: delivery timestamp is non-critical */
         }
       }
       // Notify frontend only for successfully persisted IDs (cloud P2: avoid phantom timestamps)
+      // F117: Include messages array so frontend can render user bubble on delivery
       if (deliveredIds.length > 0) {
         socketManager.emitToUser(userId, 'messages_delivered', {
           threadId,
           messageIds: deliveredIds,
           deliveredAt: deliveredNow,
+          messages: deliveredMessages,
         });
       }
 

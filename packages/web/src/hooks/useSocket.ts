@@ -402,10 +402,26 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         });
       }
     });
-    // F098-D: Messages delivered — update deliveredAt on queued messages
-    socket.on('messages_delivered', (data: { threadId: string; messageIds: string[]; deliveredAt: number }) => {
-      useChatStore.getState().markMessagesDelivered(data.threadId, data.messageIds, data.deliveredAt);
-    });
+    // F098-D + F117: Messages delivered — update deliveredAt + insert user bubbles for queue sends
+    socket.on(
+      'messages_delivered',
+      (data: {
+        threadId: string;
+        messageIds: string[];
+        deliveredAt: number;
+        messages?: Array<{
+          id: string;
+          content: string;
+          catId: string | null;
+          timestamp: number;
+          mentions: readonly string[];
+          userId: string;
+          contentBlocks?: readonly unknown[];
+        }>;
+      }) => {
+        useChatStore.getState().markMessagesDelivered(data.threadId, data.messageIds, data.deliveredAt, data.messages);
+      },
+    );
 
     socket.on('queue_paused', (data: { threadId: string; reason: 'canceled' | 'failed'; queue: unknown[] }) => {
       const store = useChatStore.getState();

@@ -1697,7 +1697,12 @@ describe('Import sync hard-fails on parse error (zero writes)', () => {
       method: 'POST',
       url: '/api/backlog/items',
       headers: H,
-      payload: { title: '[F777] Existing', summary: 'S', priority: 'p2', tags: ['source:docs-backlog', 'feature:f777'] },
+      payload: {
+        title: '[F777] Existing',
+        summary: 'S',
+        priority: 'p2',
+        tags: ['source:docs-backlog', 'feature:f777'],
+      },
     });
     const itemId = createRes.json().id;
 
@@ -1708,7 +1713,10 @@ describe('Import sync hard-fails on parse error (zero writes)', () => {
       headers: H,
     });
     assert.strictEqual(importRes.statusCode, 500);
-    assert.ok(importRes.json().error.includes('missing required columns'), 'error message should mention missing columns');
+    assert.ok(
+      importRes.json().error.includes('missing required columns'),
+      'error message should mention missing columns',
+    );
 
     // Verify existing item was NOT marked done (zero writes)
     const afterList = await app.inject({ method: 'GET', url: '/api/backlog/items', headers: H });
