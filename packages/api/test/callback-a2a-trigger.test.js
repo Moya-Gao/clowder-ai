@@ -156,7 +156,7 @@ describe('triggerA2AInvocation (fallback path)', () => {
       has() {
         return true;
       },
-      getCatIds() {
+      getActiveSlots() {
         return ['opus', 'codex', 'gemini'];
       },
       start() {
@@ -305,8 +305,8 @@ describe('triggerA2AInvocation (fallback path)', () => {
 
     const completions = [];
     const mockQueueProcessor = {
-      async onInvocationComplete(threadId, status) {
-        completions.push({ threadId, status });
+      async onInvocationComplete(threadId, catId, status) {
+        completions.push({ threadId, catId, status });
       },
     };
 
@@ -378,8 +378,8 @@ describe('triggerA2AInvocation (fallback path)', () => {
 
     const completions = [];
     const mockQueueProcessor = {
-      async onInvocationComplete(threadId, status) {
-        completions.push({ threadId, status });
+      async onInvocationComplete(threadId, catId, status) {
+        completions.push({ threadId, catId, status });
       },
     };
 
@@ -451,8 +451,8 @@ describe('triggerA2AInvocation (fallback path)', () => {
 
     const completions = [];
     const mockQueueProcessor = {
-      async onInvocationComplete(threadId, status) {
-        completions.push({ threadId, status });
+      async onInvocationComplete(threadId, catId, status) {
+        completions.push({ threadId, catId, status });
       },
     };
 
@@ -674,7 +674,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
     }
   });
 
-  test('R1 P1-2: fallback does not abort active parent invocation', async () => {
+  test('R1 P1-2: slot-aware fallback allows non-conflicting cross-slot invocation', async () => {
     const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
 
     let startCalled = 0;
@@ -683,9 +683,9 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
       has() {
         return true;
       }, // Parent is active
-      getCatIds() {
+      getActiveSlots() {
         return ['opus'];
-      }, // Different from targets
+      }, // Only opus is active — codex is non-conflicting
       start() {
         startCalled++;
         return new AbortController();
@@ -703,7 +703,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
 
     const mockRouter = {
       async *routeExecution() {
-        throw new Error('must not be called');
+        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
       },
     };
 
@@ -739,12 +739,82 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
       },
     );
 
-    // Fallback was entered (no worklist), but since parent is active,
-    // it must NOT call tracker.start() which would abort the parent.
-    assert.equal(startCalled, 0, 'tracker.start() must NOT be called when parent is active');
-    assert.equal(createCalled, 0, 'invocationRecord must NOT be created when parent is active');
+    // Wait for fire-and-forget background execution
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // F108 slot-aware: codex is non-conflicting with opus, safe to start
+    assert.equal(startCalled, 1, 'tracker.start() should be called for non-conflicting slot');
+    assert.equal(createCalled, 1, 'invocationRecord should be created for non-conflicting target');
+    assert.equal(result.fallback, true, 'should indicate fallback path was used');
+    assert.deepEqual(result.enqueued, ['codex'], 'non-conflicting target should be enqueued');
+  });
+
+  test('R1 P1-2: slot-aware fallback skips when all targets already active', async () => {
+    const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
+
+    let startCalled = 0;
+    const mockInvocationTracker = {
+      has() {
+        return true;
+      },
+      getActiveSlots() {
+        return ['opus', 'codex'];
+      }, // codex already active
+      start() {
+        startCalled++;
+        return new AbortController();
+      },
+      complete() {},
+    };
+
+    const mockInvocationRecordStore = {
+      create() {
+        return { outcome: 'created', invocationId: 'inv-skip' };
+      },
+      update() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution() {
+        throw new Error('must not be called');
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom() {},
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    const result = await enqueueA2ATargets(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nreview',
+        userId: 'user-1',
+        threadId: 'all-active-thread',
+        triggerMessage: {
+          id: 'msg-allactive',
+          threadId: 'all-active-thread',
+          userId: 'user-1',
+          catId: 'opus',
+          content: 'test',
+          mentions: [],
+          timestamp: Date.now(),
+        },
+      },
+    );
+
+    assert.equal(startCalled, 0, 'tracker.start() must NOT be called when target already active');
     assert.equal(result.fallback, true, 'should indicate fallback path was attempted');
-    assert.deepEqual(result.enqueued, [], 'nothing actually enqueued when parent blocks fallback');
+    assert.deepEqual(result.enqueued, [], 'nothing enqueued when all targets already active');
   });
 
   test('falls back to standalone invocation when no worklist exists', async () => {

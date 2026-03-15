@@ -426,7 +426,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           threadId: effectiveThreadId,
           triggerMessage: storedMsg,
           callerCatId: senderCatId,
-          parentInvocationId: invocationId,
+          parentInvocationId: record.parentInvocationId,
         },
       );
     }

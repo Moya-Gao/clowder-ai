@@ -326,6 +326,7 @@ export async function* routeSerial(
         ...(targetUploadDir ? { uploadDir: targetUploadDir } : {}),
         ...(signal ? { signal } : {}),
         ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
+        ...(options.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
         isLastCat: false,
       })) {
         // F39 bugfix: stop yielding after cancel (pipe buffer may still drain)
