@@ -309,3 +309,57 @@ describe('consumeBackgroundSystemInfo liveness_warning', () => {
     expect(options.store.addMessageToThread).not.toHaveBeenCalled();
   });
 });
+
+describe('consumeBackgroundSystemInfo warning + telemetry suppression', () => {
+  it('converts warning JSON to readable text (not raw JSON bubble)', () => {
+    const options = createMockOptions();
+
+    const msg = {
+      type: 'system_info',
+      catId: 'opus',
+      threadId: 'thread-1',
+      content: JSON.stringify({ type: 'warning', message: 'API rate limit approaching' }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    // warning is NOT consumed (it renders as a readable system message, not suppressed)
+    expect(result.consumed).toBe(false);
+    expect(result.content).toBe('⚠️ API rate limit approaching');
+  });
+
+  it('suppresses strategy_allow_compress telemetry', () => {
+    const options = createMockOptions();
+
+    const msg = {
+      type: 'system_info',
+      catId: 'opus',
+      threadId: 'thread-1',
+      content: JSON.stringify({ type: 'strategy_allow_compress', allowCompress: true }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    expect(options.store.addMessageToThread).not.toHaveBeenCalled();
+  });
+
+  it('suppresses resume_failure_stats telemetry', () => {
+    const options = createMockOptions();
+
+    const msg = {
+      type: 'system_info',
+      catId: 'opus',
+      threadId: 'thread-1',
+      content: JSON.stringify({ type: 'resume_failure_stats', failures: 2, recovered: 1 }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    expect(options.store.addMessageToThread).not.toHaveBeenCalled();
+  });
+});

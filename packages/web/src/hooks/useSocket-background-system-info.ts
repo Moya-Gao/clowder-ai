@@ -228,6 +228,14 @@ export function consumeBackgroundSystemInfo(
       // Foreground uses pendingTimeoutDiagRef (React ref) to attach to error messages;
       // background threads don't have that mechanism, so we just suppress the raw JSON.
       consumed = true;
+    } else if (parsed?.type === 'warning') {
+      // F045: item-level warning — render as readable system message (mirror foreground)
+      const warningText = typeof parsed.message === 'string' ? parsed.message : '';
+      sysContent = warningText ? `⚠️ ${warningText}` : '⚠️ Warning';
+      sysVariant = 'info';
+    } else if (parsed?.type === 'strategy_allow_compress' || parsed?.type === 'resume_failure_stats') {
+      // Internal telemetry — suppress to avoid raw JSON bubbles in background threads
+      consumed = true;
     } else if (parsed?.type === 'session_seal_requested') {
       if (parsed.catId) {
         options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {
