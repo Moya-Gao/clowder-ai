@@ -135,6 +135,59 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 ### Phase B（语义收敛，待 OQ-1 决策后定义）
 - [ ] AC-B1: TBD（取决于产品方向决策）
 
+## Roadmap（F108 × F122 统一执行计划）
+
+> 三猫（opus+gpt52+opencode）独立分析后的共识 + 铲屎官 2026-03-14 拍板。
+> 负责：布偶猫主写 + 缅因猫 review，同一 thread 按节奏推进。
+
+### 关系定位
+
+- **F108 = capability（能力）**：让同一 thread 多猫并发成为可能。Phase A 已合入，是基座。
+- **F122 = policy（策略）**：在 F108 能力之上，统一所有执行通道的调度治理。
+
+### 三猫共识
+
+| 共识点 | opus | gpt52 | opencode |
+|--------|:----:|:-----:|:--------:|
+| F108 Phase A 是基座，已完成，冻结 | ✅ | ✅ | ✅ |
+| F108 Phase B 和 F122 Phase B 不能各做各的 | ✅ | ✅ | ✅ |
+| F122 Phase A（补漏洞）可以先做，风险低 | ✅ | ✅ | ✅ |
+| 判忙粒度 + A2A 是否入 queue 必须先拍板 | ✅ | ✅ | ✅ |
+
+### 冲突点（F108 Phase B × F122 Phase B）
+
+1. **入队粒度之争**：F108 Phase B 的 side-dispatch（悄悄话/锁头）是"绕过 queue 直接派给空闲猫"；F122 Phase B 的目标是"所有执行都进 queue"。语义矛盾。
+2. **判忙语义之争**：F108 Phase B 需要 slot 级（`has(threadId, catId)`）区分"猫A忙猫B空闲"；F122 OQ-4 在讨论是否改为 thread 级。
+3. **WorklistRegistry 生死**：F122 Phase B 终局可能弱化 worklist 改走 queue entry；但 F108 Phase A 刚加强了 worklist 的 parentInvocationId 隔离。
+
+### 执行阶段
+
+```
+阶段 1: F122 Phase A — 补漏洞（可以马上动手，和 F108 Phase B 无冲突）
+  ├── AC-A1: multi_mention parentInvocationId 透传
+  ├── AC-A2/A3: pushToWorklist 结构化 reason + not_found 降级
+  ├── AC-A4: QueuePanel 显示 processing 态
+  ├── AC-A7: multi_mention target 崩溃时释放 caller slot ← 铲屎官截图的 bug
+  └── AC-A5/A6: 回归测试
+
+阶段 2: 产品决策（铲屎官拍板，阻塞后续所有工作）
+  ├── OQ-1: A2A handoff 走 queue？（好处：聊歪了能 steer 纠正）
+  ├── OQ-2: multi_mention 走 queue？
+  ├── OQ-4: 判忙 slot 级 vs thread 级？
+  └── F108 Phase B 的 side-dispatch 和 F122 queue 如何共存？
+
+阶段 3: F108 Phase B + F122 Phase B — 合并设计 + 实现
+  ├── 在同一个 spec 里讨论（不分两条线）
+  ├── 统一判忙语义、统一入队策略
+  └── 一组猫一起实现，避免改到同一堆文件打架
+```
+
+### 不做的事
+
+- ❌ 不再把新的产品语义塞回 F108（F108 Phase A 冻结，只修 bug）
+- ❌ 不同时开两条分支各做各的（`messages.ts`/`InvocationTracker`/`QueueProcessor`/`callback-a2a-trigger.ts` 会打架）
+- ❌ 阶段 2 产品决策没拍之前，不动阶段 3
+
 ## Dependencies
 
 - **Evolved from**: F108（slot-aware InvocationTracker 是 F122 的基础设施）
