@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import { DEFAULT_EXCLUDED_PORTS, validatePort } from '../../../dist/domains/preview/port-validator.js';
+import { afterEach, describe, it } from 'node:test';
+import { DEFAULT_EXCLUDED_PORTS, collectRuntimePorts, validatePort } from '../../../dist/domains/preview/port-validator.js';
 
 describe('validatePort', () => {
   it('allows a normal dev server port', () => {
@@ -116,5 +116,50 @@ describe('validatePort', () => {
   it('coerces valid string port to number and allows', () => {
     const result = validatePort('3847');
     assert.equal(result.allowed, true);
+  });
+});
+
+describe('collectRuntimePorts', () => {
+  const envSnapshot = {};
+
+  afterEach(() => {
+    // Restore env vars
+    for (const key of ['API_SERVER_PORT', 'FRONTEND_PORT', 'MCP_SERVER_PORT', 'PREVIEW_GATEWAY_PORT', 'REDIS_PORT', 'VITE_PORT']) {
+      if (envSnapshot[key] !== undefined) {
+        process.env[key] = envSnapshot[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+  });
+
+  it('reads VITE_PORT from env', () => {
+    const saved = process.env.VITE_PORT;
+    envSnapshot.VITE_PORT = saved;
+    process.env.VITE_PORT = '5173';
+    const ports = collectRuntimePorts();
+    assert.ok(ports.includes(5173), 'collectRuntimePorts should include VITE_PORT');
+    if (saved !== undefined) process.env.VITE_PORT = saved;
+    else delete process.env.VITE_PORT;
+  });
+
+  it('reads multiple env keys', () => {
+    for (const key of ['API_SERVER_PORT', 'FRONTEND_PORT', 'VITE_PORT']) {
+      envSnapshot[key] = process.env[key];
+    }
+    process.env.API_SERVER_PORT = '3102';
+    process.env.FRONTEND_PORT = '3203';
+    process.env.VITE_PORT = '5173';
+    const ports = collectRuntimePorts();
+    assert.ok(ports.includes(3102));
+    assert.ok(ports.includes(3203));
+    assert.ok(ports.includes(5173));
+  });
+
+  it('ignores invalid env values', () => {
+    envSnapshot.VITE_PORT = process.env.VITE_PORT;
+    process.env.VITE_PORT = 'notanumber';
+    const ports = collectRuntimePorts();
+    assert.ok(!ports.includes(Number.NaN));
   });
 });

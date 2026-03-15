@@ -5,6 +5,7 @@ import { apiFetch } from '@/utils/api-client';
 import { BrowserTabBar } from './BrowserTabBar';
 import { BrowserToolbar } from './BrowserToolbar';
 import { ConsolePanel } from './ConsolePanel';
+import { parsePreviewUrl } from './preview-url-utils';
 import { useHmrStatus } from './useHmrStatus';
 import { usePreviewBridge } from './usePreviewBridge';
 
@@ -115,16 +116,19 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
     return url.toString();
   })();
 
+  const [warning, setWarning] = useState<string | null>(null);
+
   const handleNavigate = useCallback(() => {
     setError(null);
-    // Parse "localhost:PORT" or "localhost:PORT/path" or "http://localhost:PORT/..."
-    const match = urlInput.match(/^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|::1):(\d+)(\/.*)?$/);
-    if (!match) {
-      setError('Enter a valid localhost URL (e.g. localhost:5173)');
+    setWarning(null);
+    const parsed = parsePreviewUrl(urlInput);
+    if (!parsed.valid || !parsed.port) {
+      setError(parsed.error ?? 'Enter a valid localhost URL (e.g. localhost:5173)');
       return;
     }
-    const port = Number.parseInt(match[1], 10);
-    const path = match[2] ?? '/';
+    if (parsed.warning) setWarning(parsed.warning);
+    const port = parsed.port;
+    const path = parsed.path ?? '/';
     // Audit: validate + open via backend
     apiFetch('/api/preview/open', {
       method: 'POST',
@@ -275,6 +279,11 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
 
       {/* Error banner */}
       {error && <div className="px-3 py-1.5 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>}
+
+      {/* Hub URL warning banner */}
+      {warning && !error && (
+        <div className="px-3 py-1.5 text-xs text-amber-700 bg-amber-50/80 border-b border-amber-100">{warning}</div>
+      )}
 
       {/* Screenshot success toast */}
       {screenshotUrl && (

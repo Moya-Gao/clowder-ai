@@ -19,7 +19,14 @@ export const DEFAULT_EXCLUDED_PORTS = [
  * These are merged with the hardcoded fallback list for defense in depth.
  */
 export function collectRuntimePorts(): number[] {
-  const envKeys = ['API_SERVER_PORT', 'FRONTEND_PORT', 'MCP_SERVER_PORT', 'PREVIEW_GATEWAY_PORT', 'REDIS_PORT'];
+  const envKeys = [
+    'API_SERVER_PORT',
+    'FRONTEND_PORT',
+    'MCP_SERVER_PORT',
+    'PREVIEW_GATEWAY_PORT',
+    'REDIS_PORT',
+    'VITE_PORT',
+  ];
   const ports: number[] = [];
   for (const key of envKeys) {
     const val = process.env[key];
