@@ -54,10 +54,10 @@ const STATUS_ICONS: Record<string, { icon: string; color: string }> = {
 };
 
 const SCOPE_TABS = [
-  { key: 'all', label: 'All', color: null },
-  { key: 'wolves', label: 'Wolves', color: 'var(--ww-role-wolf)' },
-  { key: 'seer', label: 'Seer', color: 'var(--ww-role-seer)' },
-  { key: 'witch', label: 'Witch', color: 'var(--ww-role-witch)' },
+  { key: 'all', label: '全部', color: null },
+  { key: 'wolves', label: '狼人', color: 'var(--ww-role-wolf)' },
+  { key: 'seer', label: '预言家', color: 'var(--ww-role-seer)' },
+  { key: 'witch', label: '女巫', color: 'var(--ww-role-witch)' },
 ];
 
 function getRoleColor(faction?: string): string {
@@ -96,7 +96,7 @@ export function GodInspector({
         </div>
       )}
       {/* Section 1: Seat Matrix */}
-      <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">SEAT MATRIX</span>
+      <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">座位表</span>
       <div data-testid="seat-matrix" className="flex flex-col gap-1">
         {seats.map((seat) => {
           const roleColor = getRoleColor(seat.faction);
@@ -138,7 +138,7 @@ export function GodInspector({
       <div className="h-px bg-ww-card w-full" />
 
       {/* Section 2: Night Timeline */}
-      <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">NIGHT TIMELINE</span>
+      <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">夜晚时间线</span>
       <div data-testid="night-timeline" className="flex flex-col gap-1.5">
         {nightSteps.map((step) => {
           const si = STATUS_ICONS[step.status] ?? { icon: '○', color: 'var(--ww-text-dim)' };
@@ -160,7 +160,7 @@ export function GodInspector({
       <div className="h-px bg-ww-card w-full" />
 
       {/* Section 3: Scope Filter */}
-      <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">SCOPE FILTER</span>
+      <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">阵营筛选</span>
       <div data-testid="scope-tabs" className="flex gap-1">
         {SCOPE_TABS.map((tab) => {
           const isActive = scopeFilter === tab.key;

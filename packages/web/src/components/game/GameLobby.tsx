@@ -31,7 +31,7 @@ interface GameLobbyProps {
 
 export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
   const [selectedPreset, setSelectedPreset] = useState(7);
-  const [selectedCats, setSelectedCats] = useState<Set<string>>(() => new Set(cats.map((c) => c.id)));
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(() => new Set<string>());
   const [voiceMode, setVoiceMode] = useState(false);
   // Detective mode: which cat to bind to
   const [detectiveCatId, setDetectiveCatId] = useState<string | null>(null);
@@ -120,10 +120,10 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
         {/* Cat selection */}
         <div className="px-6 py-4 border-t border-ww-subtle">
           <div className="text-sm text-ww-muted font-medium mb-3">
-            选择参赛猫猫
+            选择参赛猫猫（点击添加）
             <span className="ml-2 text-xs">
               ({selectedCatList.length}/{catSeatsNeeded} 席位
-              {!canStart && <span className="text-ww-danger ml-1">不足</span>})
+              {!canStart && <span className="text-ww-danger ml-1">至少选 1 只</span>})
             </span>
           </div>
           <div className="flex flex-wrap gap-2">

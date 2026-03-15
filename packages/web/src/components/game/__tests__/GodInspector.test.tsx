@@ -33,7 +33,7 @@ function render(overrides: Partial<Parameters<typeof GodInspector>[0]> = {}): st
 describe('GodInspector', () => {
   it('renders seat matrix section', () => {
     const html = render();
-    expect(html).toContain('SEAT MATRIX');
+    expect(html).toContain('座位表');
     expect(html).toContain('data-testid="seat-matrix"');
   });
 
@@ -58,7 +58,7 @@ describe('GodInspector', () => {
 
   it('renders night timeline section', () => {
     const html = render();
-    expect(html).toContain('NIGHT TIMELINE');
+    expect(html).toContain('夜晚时间线');
     expect(html).toContain('data-testid="night-timeline"');
   });
 
@@ -72,7 +72,7 @@ describe('GodInspector', () => {
 
   it('renders scope filter tabs', () => {
     const html = render();
-    expect(html).toContain('SCOPE FILTER');
+    expect(html).toContain('阵营筛选');
     expect(html).toContain('data-testid="scope-all"');
     expect(html).toContain('data-testid="scope-wolves"');
     expect(html).toContain('data-testid="scope-seer"');

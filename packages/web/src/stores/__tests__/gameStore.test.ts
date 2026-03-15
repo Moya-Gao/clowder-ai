@@ -226,14 +226,14 @@ describe('gameStore', () => {
     expect(s.godSeats).toHaveLength(3);
     expect(s.godSeats[0]).toEqual({
       seatId: 'P1',
-      role: 'wolf',
+      role: '狼人 wolf',
       faction: undefined,
       alive: true,
       status: 'alive',
     });
     expect(s.godSeats[1]).toEqual({
       seatId: 'P2',
-      role: 'seer',
+      role: '预言家 seer',
       faction: undefined,
       alive: true,
       status: 'alive',

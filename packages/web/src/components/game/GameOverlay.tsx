@@ -1,6 +1,7 @@
 'use client';
 
 import type { GameView, SeatId } from '@cat-cafe/shared';
+import { PHASE_NAMES_ZH } from '@/stores/gameStore';
 import { ActionDock } from './ActionDock';
 import { EventFlow } from './EventFlow';
 import { GameResultScreen } from './GameResultScreen';
@@ -47,7 +48,8 @@ interface GameOverlayProps {
 }
 
 function buildPhaseEntries(view: GameView): PhaseEntry[] {
-  return [{ name: view.currentPhase, label: view.currentPhase, round: view.round }];
+  const label = PHASE_NAMES_ZH[view.currentPhase] ?? view.currentPhase;
+  return [{ name: view.currentPhase, label, round: view.round }];
 }
 
 export function GameOverlay({
@@ -90,7 +92,7 @@ export function GameOverlay({
   return (
     <GameShell onClose={onClose} isNight={isNight}>
       <TopBar
-        phaseName={view.currentPhase}
+        phaseName={PHASE_NAMES_ZH[view.currentPhase] ?? view.currentPhase}
         roundInfo={`第 ${view.round} 轮`}
         timeLeftMs={timeLeftMs}
         isNight={isNight}

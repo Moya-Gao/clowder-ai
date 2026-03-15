@@ -21,6 +21,33 @@ const PHASE_ACTING_ROLE: Record<string, string> = {
   day_hunter: 'hunter',
 };
 
+/** Role → Chinese display name */
+export const ROLE_NAMES_ZH: Record<string, string> = {
+  wolf: '狼人',
+  seer: '预言家',
+  witch: '女巫',
+  hunter: '猎人',
+  guard: '守卫',
+  villager: '村民',
+  idiot: '白痴',
+};
+
+/** Phase → Chinese display name */
+export const PHASE_NAMES_ZH: Record<string, string> = {
+  night_guard: '守卫守护',
+  night_wolf: '狼人袭击',
+  night_seer: '预言家查验',
+  night_witch: '女巫行动',
+  night_resolve: '夜晚结算',
+  day_announce: '天亮公告',
+  day_last_words: '遗言时间',
+  day_hunter: '猎人开枪',
+  day_discuss: '白天讨论',
+  day_vote: '投票放逐',
+  day_pk: 'PK 发言',
+  day_exile: '放逐结算',
+};
+
 /** Role → night action label mapping */
 const ROLE_ACTION_LABELS: Record<string, string> = {
   seer: '查验',
@@ -101,13 +128,17 @@ function deriveIsNight(phase: string): boolean {
 }
 
 function deriveGodSeats(view: GameView): GodSeat[] {
-  return view.seats.map((s) => ({
-    seatId: s.seatId,
-    role: s.role ?? '?',
-    faction: s.faction,
-    alive: s.alive,
-    status: s.alive ? 'alive' : 'dead',
-  }));
+  return view.seats.map((s) => {
+    const raw = s.role ?? '?';
+    const zh = ROLE_NAMES_ZH[raw];
+    return {
+      seatId: s.seatId,
+      role: zh ? `${zh} ${raw}` : raw,
+      faction: s.faction,
+      alive: s.alive,
+      status: s.alive ? 'alive' : 'dead',
+    };
+  });
 }
 
 function deriveGodNightSteps(view: GameView): GodNightStep[] {

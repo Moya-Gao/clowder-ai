@@ -66,7 +66,7 @@ describe('GameOverlay', () => {
   it('renders TopBar with phase info', () => {
     const html = render(makeView());
     expect(html).toContain('data-testid="top-bar"');
-    expect(html).toContain('day_discuss');
+    expect(html).toContain('白天讨论');
   });
 
   it('renders PlayerGrid with seats', () => {

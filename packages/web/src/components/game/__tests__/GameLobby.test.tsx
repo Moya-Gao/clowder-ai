@@ -105,15 +105,15 @@ describe('GameLobby', () => {
     expect(html).toContain('席位');
   });
 
-  // P1-3: fallback with fewer cats than seats should still allow starting
-  it('allows starting with fewer cats than seat count (backend cycles)', () => {
-    // Only 3 cats but default 7-player board (needs 6 cat seats)
+  // Default selection is empty — button starts disabled until user picks cats
+  it('starts with empty selection (click to add)', () => {
     const html = render({ cats: mockCats });
-    // Confirm button should NOT be disabled — backend handles cycling
-    expect(html).not.toContain('disabled=""');
+    // Confirm button should be disabled — no cats selected yet
+    expect(html).toContain('disabled=""');
+    expect(html).toContain('点击添加');
   });
 
-  it('disables start when zero cats selected', () => {
+  it('disables start when zero cats available', () => {
     // With no cats at all, can't start
     const html = render({ cats: [] });
     // Confirm button should be disabled
