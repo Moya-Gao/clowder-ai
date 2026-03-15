@@ -60,6 +60,14 @@ callback A2A（③）和 multi_mention（④）虽然热修后接了 InvocationT
 
 `dispatchToTarget` 调用 `routeExecution` 时只传了 `{ signal }`，没有 `parentInvocationId`（`callback-multi-mention-routes.ts:163`）。如果 multi_mention 目标猫在回复中 @mention 发起猫，A2A push 可能进错 worklist。
 
+#### P1: multi_mention target 崩溃导致 caller slot 不释放
+
+**现象**（铲屎官 2026-03-14 22:54 截图）：缅因猫干完活用 multi_mention @ opencode，opencode 上下文超限崩溃（`prompt token count of 158302 exceeds the limit of 128000`），但缅因猫的 InvocationTracker slot 没有释放 → 系统一直显示"猫猫正在回复中"→ 铲屎官发的消息只能排队，除非手动 steer 强推。
+
+**根因推测**：`callback-multi-mention-routes.ts` 的 `dispatchToTarget` 在 target 执行失败时，caller 的 tracker slot 没有正确 complete。热修加的 `tracker.start()` / `tracker.complete()` 只管 target 自己的 slot，但 caller（缅因猫）的 slot 可能在等 multi_mention 完成才释放——target 崩了就永远等。
+
+**用户视角的影响**：猫 @ 了一个挂掉的猫后，铲屎官被锁死在排队状态，只能手动 steer。
+
 #### P2: QueuePanel 不显示 processing 状态
 
 QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条目进入 processing 后从面板消失，体感像"没进队列直接跑了"。
@@ -122,6 +130,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 - [ ] AC-A4: QueuePanel 显示 processing 态条目
 - [ ] AC-A5: 回归测试覆盖：A2A 期间用户发消息 → 必须 queued；steer → 必须 immediate
 - [ ] AC-A6: 回归测试覆盖：connector 消息在 active slot 下 → 必须 queued；steer → 必须 immediate
+- [ ] AC-A7: multi_mention target 崩溃/超时时，caller 的 InvocationTracker slot 必须正确释放，不能锁死铲屎官
 
 ### Phase B（语义收敛，待 OQ-1 决策后定义）
 - [ ] AC-B1: TBD（取决于产品方向决策）
@@ -162,6 +171,10 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 日期 | 事件 |
 |------|------|
 | 2026-03-14 | 立项。热修 `a95e02ef` + `1d2b2ce6` 已合入 main |
+| 2026-03-14 | 砚砚(codex) 独立审查 + 二次复核通过，修正入口表②+steer 范围+AC-A6+OQ-4 |
+| 2026-03-14 | 三猫(opus+gpt52+opencode)独立分析 F108×F122 交叉风险 |
+| 2026-03-14 | 铲屎官报告 multi_mention target 崩溃锁死 caller slot bug，补 P1+AC-A7 |
+| 2026-03-14 | 铲屎官决策：F108+F122 统一由布偶猫+缅因猫在同一 thread 按节奏推进 |
 
 ## Review Gate
 
