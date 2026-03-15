@@ -817,6 +817,102 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
     assert.deepEqual(result.enqueued, [], 'nothing enqueued when all targets already active');
   });
 
+  test('F122 AC-A3: not_found reason falls back to standalone invocation', async () => {
+    // Race condition: hasWorklist returns true, but worklist is unregistered
+    // between has() and push(). pushToWorklist returns { added: [], reason: 'not_found' }.
+    // enqueueA2ATargets must fall through to standalone invocation.
+    const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
+    const {
+      registerWorklist,
+      unregisterWorklist,
+      hasWorklist: hasWL,
+    } = await import('../dist/domains/cats/services/agents/routing/WorklistRegistry.js');
+
+    // Register then immediately unregister to set up the race
+    // We need hasWorklist to return true but pushToWorklist to return not_found.
+    // Since the module-level functions share state, we can't do this with the real registry.
+    // Instead, test that when no worklist exists at all (hasWorklist=false),
+    // fallback path triggers — and separately test the new not_found branch via
+    // a targeted code path where we register + unregister between calls.
+    // Actually the simplest way: the not_found branch now falls through to the same
+    // fallback code. So if we register a worklist with parentInvocationId 'inv-X',
+    // then call enqueueA2ATargets with parentInvocationId 'inv-Y' (wrong key),
+    // hasWorklist(threadId) returns true (thread index), but pushToWorklist
+    // with 'inv-Y' returns not_found (specific key doesn't exist).
+    const threadId = 't-notfound-race';
+    const worklist = ['opus'];
+    const entry = registerWorklist(threadId, worklist, 10, 'inv-existing');
+    assert.equal(hasWL(threadId), true, 'setup: thread has worklist via inv-existing');
+
+    let routeCalled = 0;
+    const mockInvocationRecordStore = {
+      create() {
+        return { outcome: 'created', invocationId: 'inv-fb-nf' };
+      },
+      update() {},
+    };
+
+    const mockInvocationTracker = {
+      has() {
+        return false;
+      },
+      start() {
+        return new AbortController();
+      },
+      complete() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution() {
+        routeCalled++;
+        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom() {},
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    try {
+      const result = await enqueueA2ATargets(
+        {
+          router: mockRouter,
+          invocationRecordStore: mockInvocationRecordStore,
+          socketManager: mockSocketManager,
+          invocationTracker: mockInvocationTracker,
+          log: mockLog,
+        },
+        {
+          targetCats: ['codex'],
+          content: '@缅因猫\nreview',
+          userId: 'user-1',
+          threadId,
+          triggerMessage: {
+            id: 'msg-nf',
+            threadId,
+            userId: 'user-1',
+            catId: 'opus',
+            content: 'test',
+            mentions: [],
+            timestamp: Date.now(),
+          },
+          // Wrong parentInvocationId — will cause not_found from pushToWorklist
+          parentInvocationId: 'inv-nonexistent',
+        },
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(result.fallback, true, 'not_found must trigger fallback path');
+      assert.equal(routeCalled, 1, 'standalone invocation must be triggered on not_found');
+    } finally {
+      unregisterWorklist(threadId, entry, 'inv-existing');
+    }
+  });
+
   test('falls back to standalone invocation when no worklist exists', async () => {
     const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
 

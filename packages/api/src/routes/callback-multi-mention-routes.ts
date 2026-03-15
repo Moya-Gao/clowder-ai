@@ -100,42 +100,44 @@ async function dispatchToTarget(
   const orch = getMultiMentionOrchestrator();
   const { router, invocationRecordStore, socketManager, invocationTracker } = deps;
 
+  // Build the message for this target
+  // Include multi-mention context as structured prefix so the target cat
+  // understands the request is from another cat, not the user directly.
+  const messageContent = [`[Multi-Mention from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
+    '\n\n',
+  );
+
+  const intent = parseIntent(messageContent, 1);
+
+  // Create invocation record
+  const createResult = await invocationRecordStore.create({
+    threadId,
+    userId,
+    targetCats: [targetCatId],
+    intent: intent.intent,
+    idempotencyKey: `mm-${requestId}-${targetCatId}`,
+  });
+
+  if (createResult.outcome === 'duplicate') {
+    log.info({ requestId, targetCatId }, '[F086] Dispatch skipped: duplicate invocation');
+    return;
+  }
+
+  await invocationRecordStore.update(createResult.invocationId, {
+    status: 'running',
+  });
+
+  // Collect response text from the routing execution
+  let responseText = '';
+  const toolsUsed: string[] = [];
+
+  // F108 made InvocationTracker slot-aware, so multi-mention dispatches can safely
+  // register as active per (threadId, catId) slot without preempting siblings.
+  // This restores the same "thread is active" semantics that drive queue/steer UI.
+  // F122 AC-A7: outer try/finally ensures tracker slot is ALWAYS released,
+  // even if registerDispatch throws or early return on pre-aborted controller.
+  const controller = invocationTracker?.start(threadId, targetCatId, userId, [targetCatId]) ?? new AbortController();
   try {
-    // Build the message for this target
-    // Include multi-mention context as structured prefix so the target cat
-    // understands the request is from another cat, not the user directly.
-    const messageContent = [`[Multi-Mention from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
-      '\n\n',
-    );
-
-    const intent = parseIntent(messageContent, 1);
-
-    // Create invocation record
-    const createResult = await invocationRecordStore.create({
-      threadId,
-      userId,
-      targetCats: [targetCatId],
-      intent: intent.intent,
-      idempotencyKey: `mm-${requestId}-${targetCatId}`,
-    });
-
-    if (createResult.outcome === 'duplicate') {
-      log.info({ requestId, targetCatId }, '[F086] Dispatch skipped: duplicate invocation');
-      return;
-    }
-
-    await invocationRecordStore.update(createResult.invocationId, {
-      status: 'running',
-    });
-
-    // Collect response text from the routing execution
-    let responseText = '';
-    const toolsUsed: string[] = [];
-
-    // F108 made InvocationTracker slot-aware, so multi-mention dispatches can safely
-    // register as active per (threadId, catId) slot without preempting siblings.
-    // This restores the same "thread is active" semantics that drive queue/steer UI.
-    const controller = invocationTracker?.start(threadId, targetCatId, userId, [targetCatId]) ?? new AbortController();
     if (controller.signal.aborted) {
       await invocationRecordStore.update(createResult.invocationId, {
         status: 'canceled',
@@ -160,7 +162,7 @@ async function dispatchToTarget(
         createResult.invocationId,
         [targetCatId],
         intent,
-        { signal: controller.signal },
+        { signal: controller.signal, parentInvocationId: createResult.invocationId },
       )) {
         if (controller.signal.aborted) break;
 
@@ -181,7 +183,6 @@ async function dispatchToTarget(
       });
     } finally {
       orch.unregisterDispatch(requestId, targetCatId);
-      invocationTracker?.complete(threadId, targetCatId, controller);
     }
 
     // If aborted (stop button / preempt / thread cancel), do NOT record response
@@ -219,6 +220,11 @@ async function dispatchToTarget(
       targetCatId,
       `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`,
     );
+  } finally {
+    // F122 AC-A7: unconditional slot release — covers early return, registerDispatch
+    // throw, routeExecution crash, and normal completion. InvocationTracker.complete()
+    // is idempotent (no-op if slot already removed or controller doesn't match).
+    invocationTracker?.complete(threadId, targetCatId, controller);
   }
 }
 

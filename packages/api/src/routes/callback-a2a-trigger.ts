@@ -65,7 +65,8 @@ export async function enqueueA2ATargets(
 
   // F27: Try to push to parent worklist first
   if (hasWorklist(threadId)) {
-    const enqueued = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId);
+    const pushResult = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId);
+    const enqueued = pushResult.added;
     if (enqueued.length > 0) {
       if (deliveryCursorStore) {
         // F27 + #77: Best-effort auto-ack to prevent surprise backlog when cats later
@@ -103,17 +104,26 @@ export async function enqueueA2ATargets(
         },
         '[F27] A2A callback: enqueued targets to parent worklist',
       );
+      return { enqueued, fallback: false };
+    } else if (pushResult.reason === 'not_found') {
+      // F122 AC-A3: Race condition — worklist vanished between hasWorklist() and pushToWorklist().
+      // Fall through to standalone invocation path below.
+      log.warn(
+        { threadId, triggerMessageId, targetCats },
+        '[F27] A2A callback: worklist vanished between has/push, falling back to standalone',
+      );
     } else {
       log.info(
         {
           threadId,
           triggerMessageId,
           targetCats,
+          reason: pushResult.reason,
         },
-        '[F27] A2A callback: targets not enqueued (depth limit or already in worklist)',
+        `[F27] A2A callback: targets not enqueued (${pushResult.reason})`,
       );
+      return { enqueued, fallback: false };
     }
-    return { enqueued, fallback: false };
   }
 
   // Fallback: no parent worklist — start standalone invocation.

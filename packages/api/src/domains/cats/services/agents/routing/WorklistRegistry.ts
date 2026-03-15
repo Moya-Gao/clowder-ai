@@ -16,6 +16,13 @@
 
 import type { CatId } from '@cat-cafe/shared';
 
+/** F122: Structured result from pushToWorklist — reason explains empty adds */
+export type PushReason = 'not_found' | 'depth_limit' | 'caller_mismatch' | 'all_duplicate';
+export interface PushResult {
+  added: CatId[];
+  reason?: PushReason;
+}
+
 export interface WorklistEntry {
   /** The mutable worklist array — push to extend */
   list: CatId[];
@@ -116,31 +123,34 @@ export function unregisterWorklist(threadId: string, owner?: WorklistEntry, pare
  * @param parentInvocationId - F108: target specific invocation's worklist.
  *   When omitted, uses threadId as key (backward compat).
  *
- * Returns the cats actually added (empty if worklist not found, depth exceeded,
- * or caller not authorized).
+ * F122: Returns structured PushResult with reason explaining empty adds.
  */
 export function pushToWorklist(
   threadId: string,
   cats: CatId[],
   callerCatId?: CatId,
   parentInvocationId?: string,
-): CatId[] {
+): PushResult {
   const key = registryKey(threadId, parentInvocationId);
   const entry = registry.get(key);
-  if (!entry) return [];
+  if (!entry) return { added: [], reason: 'not_found' };
 
   // Caller authorization: only the currently-executing cat may push
   if (callerCatId !== undefined) {
     const currentCat = entry.list[entry.executedIndex];
-    if (currentCat !== callerCatId) return [];
+    if (currentCat !== callerCatId) return { added: [], reason: 'caller_mismatch' };
   }
 
   // Only dedup against pending tail (from executedIndex onward)
   const pending = entry.list.slice(entry.executedIndex);
 
   const added: CatId[] = [];
+  let hitDepthLimit = false;
   for (const cat of cats) {
-    if (entry.a2aCount >= entry.maxDepth) break;
+    if (entry.a2aCount >= entry.maxDepth) {
+      hitDepthLimit = true;
+      break;
+    }
     if (!pending.includes(cat)) {
       entry.list.push(cat);
       entry.a2aCount++;
@@ -160,7 +170,10 @@ export function pushToWorklist(
       }
     }
   }
-  return added;
+  if (added.length === 0) {
+    return { added: [], reason: hitDepthLimit ? 'depth_limit' : 'all_duplicate' };
+  }
+  return { added };
 }
 
 /** Check if a thread has any active worklist (any invocation running). */
