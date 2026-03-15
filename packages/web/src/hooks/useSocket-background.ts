@@ -27,6 +27,19 @@ function getStreamKey(msg: Pick<BackgroundAgentMessage, 'threadId' | 'catId'>): 
   return `${msg.threadId}::${msg.catId}`;
 }
 
+function findLatestActiveInvocationIdForCat(
+  activeInvocations: Record<string, { catId: string; mode: string }> | undefined,
+  catId: string,
+): string | undefined {
+  if (!activeInvocations) return undefined;
+  const entries = Object.entries(activeInvocations);
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const [invocationId, info] = entries[i]!;
+    if (info.catId === catId) return invocationId;
+  }
+  return undefined;
+}
+
 function shouldClearBackgroundRefOnActiveEvent(msg: ActiveRoutedAgentMessage): boolean {
   if (!msg.threadId) return false;
   if (msg.type === 'done') return true;
@@ -39,7 +52,11 @@ function getThreadInvocationId(
   msg: Pick<BackgroundAgentMessage, 'threadId' | 'catId'>,
   options: HandleBackgroundMessageOptions,
 ): string | undefined {
-  return options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
+  const threadState = options.store.getThreadState(msg.threadId);
+  return (
+    threadState.catInvocations[msg.catId]?.invocationId ??
+    findLatestActiveInvocationIdForCat(threadState.activeInvocations, msg.catId)
+  );
 }
 
 export function clearBackgroundStreamRefForActiveEvent(

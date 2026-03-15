@@ -47,6 +47,19 @@ function safeJsonPreview(value: unknown, maxLength: number): string {
   }
 }
 
+function findLatestActiveInvocationIdForCat(
+  activeInvocations: Record<string, { catId: string; mode: string }> | undefined,
+  catId: string,
+): string | undefined {
+  if (!activeInvocations) return undefined;
+  const entries = Object.entries(activeInvocations);
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const [invocationId, info] = entries[i]!;
+    if (info.catId === catId) return invocationId;
+  }
+  return undefined;
+}
+
 /**
  * Hook for handling agent message streaming (parallel-aware).
  * Tracks active streams via Map<catId, ref> for simultaneous multi-cat output.
@@ -169,7 +182,10 @@ export function useAgentMessages() {
   );
 
   const getCurrentInvocationIdForCat = useCallback((catId: string): string | undefined => {
-    return useChatStore.getState().catInvocations?.[catId]?.invocationId;
+    const state = useChatStore.getState();
+    return (
+      state.catInvocations?.[catId]?.invocationId ?? findLatestActiveInvocationIdForCat(state.activeInvocations, catId)
+    );
   }, []);
 
   const findRecoverableAssistantMessage = useCallback(

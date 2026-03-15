@@ -38,6 +38,7 @@ const storeState = {
     timestamp: number;
   }>,
   catInvocations: {} as Record<string, { invocationId?: string }>,
+  activeInvocations: {} as Record<string, { catId: string; mode: string }>,
   addMessage: mockAddMessage,
   appendToMessage: mockAppendToMessage,
   appendToolEvent: mockAppendToolEvent,
@@ -98,6 +99,7 @@ describe('useAgentMessages placeholder recovery', () => {
     captured = undefined;
     storeState.messages = [];
     storeState.catInvocations = {};
+    storeState.activeInvocations = {};
     mockAddMessage.mockClear();
     mockAppendRichBlock.mockClear();
     mockSetMessageThinking.mockClear();
@@ -167,6 +169,34 @@ describe('useAgentMessages placeholder recovery', () => {
 
     expect(mockAddMessage).not.toHaveBeenCalled();
     expect(mockAppendRichBlock).toHaveBeenCalledWith('msg-live-2', expect.objectContaining({ id: 'rb-1' }));
+  });
+
+  it('seeds a new stream bubble with invocationId from activeInvocations before invocation_created arrives', () => {
+    storeState.activeInvocations = {
+      'inv-active-1': { catId: 'opus', mode: 'execute' },
+    };
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        toolName: 'command_execution',
+        toolInput: { command: 'git status' },
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assistant',
+        catId: 'opus',
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-active-1' } },
+      }),
+    );
   });
 
   it('recovers when replace hydration swaps the local stream id to a persisted server id mid-stream', () => {

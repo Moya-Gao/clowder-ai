@@ -1276,6 +1276,28 @@ describe('background thread socket handling', () => {
   });
 
   describe('F108: slot-aware background invocation tracking', () => {
+    it('seeds a new background stream bubble with invocationId from activeInvocations when catInvocations is still empty', () => {
+      useChatStore.getState().addThreadActiveInvocation('thread-bg', 'inv-slot-1', 'opus', 'execute');
+
+      simulateBackgroundMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        toolName: 'command_execution',
+        toolInput: { command: 'git status' },
+        timestamp: Date.now(),
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]).toMatchObject({
+        type: 'assistant',
+        catId: 'opus',
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-slot-1' } },
+      });
+    });
+
     it('markThreadInvocationActive registers invocationId when available', () => {
       simulateBackgroundMessage({
         type: 'text',
