@@ -379,12 +379,15 @@ export class RedisMessageStore {
         ids = await this.redis.zrange(key, 0, -1);
         ids = ids.filter((id) => id > afterId);
       } else {
-        // Fetch from cursor score onward, then trim strictly by ID.
-        const allAfterScore = await this.redis.zrangebyscore(key, afterScore, '+inf');
-        ids = allAfterScore.filter((id) => {
-          if (id === afterId) return false;
-          return id > afterId;
-        });
+        // Split into two ranges to avoid filtering by ID across different
+        // scores — deliveredAt can shift a message's score forward while
+        // its ID still embeds the original send timestamp.
+        // 1) Same score as cursor: use ID as tiebreaker
+        const sameScore = await this.redis.zrangebyscore(key, afterScore, afterScore);
+        const sameFiltered = sameScore.filter((id) => id !== afterId && id > afterId);
+        // 2) Strictly higher scores: include all (no ID filter needed)
+        const higherScore = await this.redis.zrangebyscore(key, `(${afterScore}`, '+inf');
+        ids = [...sameFiltered, ...higherScore];
       }
       if (limit && limit > 0 && ids.length > limit) {
         ids = ids.slice(0, limit);

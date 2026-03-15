@@ -674,7 +674,7 @@ export function useChatHistory(threadId: string) {
       // #80 cloud R8 P2: skip draft rows — their synthetic IDs break cursor semantics
       const oldest = messages.find((m) => !m.id.startsWith('draft-'));
       if (oldest) {
-        void fetchHistory(`${oldest.timestamp}:${oldest.id}`);
+        void fetchHistory(`${oldest.deliveredAt ?? oldest.timestamp}:${oldest.id}`);
       }
     }
   }, [hasMore, isLoadingHistory, messages, fetchHistory]);

@@ -200,7 +200,7 @@ export function consumeBackgroundSystemInfo(
           ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
           timestamp: msg.timestamp,
           isStreaming: true,
-          origin: 'callback',
+          origin: 'stream',
         });
       }
 
