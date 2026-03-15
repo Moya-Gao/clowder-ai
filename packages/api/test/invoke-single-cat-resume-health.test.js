@@ -68,6 +68,7 @@ describe('F118 resume health check (AC-C4 + AC-C6)', () => {
 
   it('auto-seals session after ≥3 consecutive restore failures (overflow)', async () => {
     const sealCalls = [];
+    const finalizeCalls = [];
     const ONE_HOUR_AGO = Date.now() - 60 * 60 * 1000;
 
     const deps = makeDeps({
@@ -94,7 +95,9 @@ describe('F118 resume health check (AC-C4 + AC-C6)', () => {
           sealCalls.push(args);
           return { accepted: true, status: 'sealing' };
         },
-        finalize: async () => {},
+        finalize: async (args) => {
+          finalizeCalls.push(args);
+        },
       },
     });
 
@@ -113,6 +116,12 @@ describe('F118 resume health check (AC-C4 + AC-C6)', () => {
     assert.equal(sealCalls.length, 1, 'requestSeal should be called once');
     assert.equal(sealCalls[0].sessionId, 'sess-overflow');
     assert.equal(sealCalls[0].reason, 'overflow_circuit_breaker');
+
+    // Must call finalize to write transcript + digest (otherwise session recall 404s)
+    // finalize is fire-and-forget, so wait a tick for the async call
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(finalizeCalls.length, 1, 'finalize should be called after requestSeal');
+    assert.equal(finalizeCalls[0].sessionId, 'sess-overflow');
 
     // Should still complete successfully (fresh session)
     assert.ok(

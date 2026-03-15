@@ -408,6 +408,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   sessionId: activeRec.id,
                   reason: 'overflow_circuit_breaker',
                 });
+                // Must finalize to write transcript + digest to disk,
+                // otherwise session recall tools get 404 (no data on disk).
+                deps.sessionSealer.finalize({ sessionId: activeRec.id }).catch(() => {});
               } catch {
                 /* best-effort seal */
               }
