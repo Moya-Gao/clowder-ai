@@ -74,6 +74,9 @@ export interface GameStoreState {
   mySeatId: SeatId | null;
   myRole: string | null;
   isGodView: boolean;
+  isDetective: boolean;
+  /** Display name of the cat bound in detective mode */
+  detectiveBoundName: string | null;
   myActionLabel: string | null;
   myRoleIcon: string | null;
   myActionHint: string | null;
@@ -155,6 +158,8 @@ const CLEAR_STATE = {
   mySeatId: null,
   myRole: null,
   isGodView: false,
+  isDetective: false,
+  detectiveBoundName: null,
   myActionLabel: null,
   myRoleIcon: null,
   myActionHint: null,
@@ -173,9 +178,17 @@ function deriveFromView(
 ): Omit<GameStoreState, 'setGameView' | 'clearGame' | 'setSelectedTarget' | 'setGodScopeFilter'> {
   const humanSeat = view.config.humanSeat ?? null;
   const isGodView = view.config.humanRole === 'god-view';
+  const isDetective = view.config.humanRole === 'detective';
   const mySeat = humanSeat ? view.seats.find((s) => s.seatId === humanSeat) : null;
   const myRole = mySeat?.role ?? null;
   const isNight = deriveIsNight(view.currentPhase);
+  const showInspector = isGodView || isDetective;
+
+  // Detective bound cat display name
+  const detectiveBoundName =
+    isDetective && view.config.detectiveSeatId
+      ? (view.seats.find((s) => s.seatId === view.config.detectiveSeatId)?.displayName ?? null)
+      : null;
 
   return {
     gameView: view,
@@ -189,14 +202,16 @@ function deriveFromView(
     mySeatId: humanSeat,
     myRole,
     isGodView,
+    isDetective,
+    detectiveBoundName,
     myActionLabel: myRole ? (ROLE_ACTION_LABELS[myRole] ?? null) : null,
     myRoleIcon: myRole ? (ROLE_ICONS[myRole] ?? null) : null,
     myActionHint: deriveActionHint(myRole, isNight, view.currentPhase),
     currentActionName: PHASE_ACTION_MAP[view.currentPhase] ?? null,
-    hasTargetedAction: !isGodView && myRole != null && PHASE_ACTING_ROLE[view.currentPhase] === myRole,
+    hasTargetedAction: !isGodView && !isDetective && myRole != null && PHASE_ACTING_ROLE[view.currentPhase] === myRole,
     altActionName: view.currentPhase === 'night_witch' ? 'poison' : null,
-    godSeats: isGodView ? deriveGodSeats(view) : [],
-    godNightSteps: isGodView && isNight ? deriveGodNightSteps(view) : [],
+    godSeats: showInspector ? deriveGodSeats(view) : [],
+    godNightSteps: showInspector && isNight ? deriveGodNightSteps(view) : [],
   };
 }
 

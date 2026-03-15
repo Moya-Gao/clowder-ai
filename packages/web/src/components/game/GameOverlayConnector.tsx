@@ -12,6 +12,8 @@ interface GameOverlayConnectorProps {
   godScopeFilter: string;
 
   isGodView?: boolean;
+  isDetective?: boolean;
+  detectiveBoundName?: string;
   godSeats?: GodSeat[];
   godNightSteps?: GodNightStep[];
   hasTargetedAction?: boolean;
@@ -38,6 +40,8 @@ export function GameOverlayConnector({
   selectedTarget,
   godScopeFilter,
   isGodView,
+  isDetective,
+  detectiveBoundName,
   godSeats,
   godNightSteps,
   hasTargetedAction,
@@ -64,6 +68,8 @@ export function GameOverlayConnector({
       selectedTarget={selectedTarget}
       godScopeFilter={godScopeFilter}
       isGodView={isGodView}
+      isDetective={isDetective}
+      detectiveBoundName={detectiveBoundName}
       godSeats={godSeats}
       godNightSteps={godNightSteps}
       hasTargetedAction={hasTargetedAction}

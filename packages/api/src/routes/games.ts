@@ -15,8 +15,8 @@ import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLo
 import type { IGameStore } from '../domains/cats/services/stores/ports/GameStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { buildGameSeats, sanitizeCatIds } from './game-command-interceptor.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { buildGameSeats, sanitizeCatIds } from './game-command-interceptor.js';
 
 interface SocketLike {
   broadcastToRoom(room: string, event: string, data: unknown): void;
@@ -113,10 +113,11 @@ const DEFAULT_PLAYER_COUNT = 7;
 
 const gameStartSchema = z.object({
   gameType: z.enum(['werewolf']),
-  humanRole: z.enum(['player', 'god-view']),
+  humanRole: z.enum(['player', 'god-view', 'detective']),
   playerCount: z.number().int().min(6).max(12).default(DEFAULT_PLAYER_COUNT),
   catIds: z.array(z.string().min(1)).min(1),
   voiceMode: z.boolean().default(false),
+  detectiveCatId: z.string().min(1).optional(),
 });
 
 export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opts) => {
@@ -133,7 +134,13 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       return { error: 'Invalid request', details: parseResult.error.issues };
     }
 
-    const { gameType, humanRole, playerCount, catIds: rawCatIds, voiceMode } = parseResult.data;
+    const { gameType, humanRole, playerCount, catIds: rawCatIds, voiceMode, detectiveCatId } = parseResult.data;
+
+    // Detective mode requires detectiveCatId
+    if (humanRole === 'detective' && !detectiveCatId) {
+      reply.status(400);
+      return { error: 'detectiveCatId is required for detective mode' };
+    }
 
     // Sanitize catIds against known config
     const allCatIds = getAllCatIdsFromConfig();
@@ -150,6 +157,17 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       return { error: 'Could not determine user identity' };
     }
     const seats = buildGameSeats({ humanRole, userId, catIds, playerCount: clampedCount });
+
+    // Validate detectiveCatId maps to an actual seat BEFORE creating any persistent resources
+    let resolvedDetectiveSeatId: import('@cat-cafe/shared').SeatId | undefined;
+    if (humanRole === 'detective' && detectiveCatId) {
+      const seat = seats.find((s) => s.actorId === detectiveCatId);
+      if (!seat) {
+        reply.status(400);
+        return { error: 'detectiveCatId does not match any seat in this game' };
+      }
+      resolvedDetectiveSeatId = seat.seatId;
+    }
 
     // Create independent game thread
     const gameTitle = `狼人杀 — ${clampedCount}人局`;
@@ -185,7 +203,8 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
           timeoutMs: 30000,
           voiceMode,
           humanRole,
-          ...(humanRole === 'player' ? { humanSeat: 'P1' } : {}),
+          ...(humanRole === 'player' ? { humanSeat: 'P1' as const } : {}),
+          ...(resolvedDetectiveSeatId ? { detectiveSeatId: resolvedDetectiveSeatId } : {}),
         },
       });
     } catch (err: unknown) {
@@ -260,6 +279,14 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       if (runtime.config.humanRole === 'god-view') {
         // God-view mode: allow god or any seat
         viewer = requestedViewer ?? 'god';
+      } else if (runtime.config.humanRole === 'detective') {
+        // Detective mode: locked to detective:{boundSeatId}
+        const boundSeat = runtime.config.detectiveSeatId;
+        if (!boundSeat) {
+          reply.status(400);
+          return { error: 'detective mode requires detectiveSeatId in game config' };
+        }
+        viewer = `detective:${boundSeat}`;
       } else {
         // Player mode: lock to humanSeat, reject god/other-seat requests
         const humanSeat = runtime.config.humanSeat;
@@ -274,7 +301,10 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
         viewer = humanSeat;
       }
 
-      const view = GameViewBuilder.buildView(runtime, viewer as import('@cat-cafe/shared').SeatId | 'god');
+      const view = GameViewBuilder.buildView(
+        runtime,
+        viewer as import('@cat-cafe/shared').SeatId | 'god' | `detective:${string}`,
+      );
       return view;
     },
   );
@@ -294,10 +324,10 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       return { error: 'No active game in this thread' };
     }
 
-    // God-view cannot submit actions
-    if (runtime.config.humanRole === 'god-view') {
+    // God-view and detective cannot submit actions
+    if (runtime.config.humanRole === 'god-view' || runtime.config.humanRole === 'detective') {
       reply.status(403);
-      return { error: 'god-view mode: actions are not allowed' };
+      return { error: `${runtime.config.humanRole} mode: actions are not allowed` };
     }
 
     const { seatId, actionName, targetSeat, params } = parseResult.data;

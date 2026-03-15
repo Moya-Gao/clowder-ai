@@ -93,9 +93,9 @@ describe('gameStore', () => {
     expect(useGameStore.getState().isNight).toBe(true);
   });
 
-  it('finished game is not active', () => {
+  it('finished game is still active (for result screen)', () => {
     useGameStore.getState().setGameView(makeView({ status: 'finished' }), 'g1', 't1');
-    expect(useGameStore.getState().isGameActive).toBe(false);
+    expect(useGameStore.getState().isGameActive).toBe(true);
   });
 
   it('lobby game is active', () => {
@@ -371,5 +371,57 @@ describe('gameStore', () => {
   it('altActionName is null for non-witch phases', () => {
     useGameStore.getState().setGameView(makeView({ currentPhase: 'night_wolf' }), 'g1', 't1');
     expect(useGameStore.getState().altActionName).toBeNull();
+  });
+
+  it('detective mode: isDetective true, godSeats populated, hasTargetedAction false', () => {
+    const view = makeView({
+      seats: [wolfSeat, seerSeat, guardSeat],
+      config: {
+        timeoutMs: 180000,
+        voiceMode: false,
+        humanRole: 'detective',
+        detectiveSeatId: 'P1',
+      },
+    });
+    useGameStore.getState().setGameView(view, 'g1', 't1');
+    const s = useGameStore.getState();
+    expect(s.isDetective).toBe(true);
+    expect(s.isGodView).toBe(false);
+    expect(s.godSeats).toHaveLength(3);
+    expect(s.hasTargetedAction).toBe(false);
+    expect(s.detectiveBoundName).toBe('宪宪');
+  });
+
+  it('detective mode: godNightSteps populated during night', () => {
+    const view = makeView({
+      seats: [wolfSeat, seerSeat],
+      currentPhase: 'night_wolf',
+      config: {
+        timeoutMs: 180000,
+        voiceMode: false,
+        humanRole: 'detective',
+        detectiveSeatId: 'P1',
+      },
+    });
+    useGameStore.getState().setGameView(view, 'g1', 't1');
+    const s = useGameStore.getState();
+    expect(s.isDetective).toBe(true);
+    expect(s.godNightSteps.length).toBeGreaterThan(0);
+    expect(s.isNight).toBe(true);
+  });
+
+  it('detective mode: detectiveBoundName null when no detectiveSeatId', () => {
+    const view = makeView({
+      seats: [wolfSeat],
+      config: {
+        timeoutMs: 180000,
+        voiceMode: false,
+        humanRole: 'detective',
+      },
+    });
+    useGameStore.getState().setGameView(view, 'g1', 't1');
+    const s = useGameStore.getState();
+    expect(s.isDetective).toBe(true);
+    expect(s.detectiveBoundName).toBeNull();
   });
 });

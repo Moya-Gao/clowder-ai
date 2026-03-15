@@ -113,7 +113,9 @@ export interface GameConfig {
   timeoutMs: number;
   voiceMode: boolean;
   humanSeat?: SeatId;
-  humanRole: 'player' | 'god-view';
+  humanRole: 'player' | 'god-view' | 'detective';
+  /** Detective mode: the seat whose perspective the observer inherits */
+  detectiveSeatId?: SeatId;
 }
 
 // === Game View (scoped read-only) ===
@@ -129,7 +131,10 @@ export interface GameView {
   visibleEvents: GameEvent[];
   myActions?: GameAction[];
   winner?: string;
-  config: Pick<GameConfig, 'timeoutMs' | 'voiceMode' | 'humanRole'> & { humanSeat?: SeatId };
+  config: Pick<GameConfig, 'timeoutMs' | 'voiceMode' | 'humanRole'> & {
+    humanSeat?: SeatId;
+    detectiveSeatId?: SeatId;
+  };
   /** Filled when status === 'finished' — per-player stats + MVP */
   gameStats?: GameResultStats;
 }

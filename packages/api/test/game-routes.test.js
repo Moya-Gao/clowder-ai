@@ -384,5 +384,93 @@ describe('Game API Routes', () => {
 
       await trackingApp.close();
     });
+
+    it('starts a detective mode game with detectiveCatId', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/game/start',
+        payload: {
+          gameType: 'werewolf',
+          humanRole: 'detective',
+          playerCount: 7,
+          catIds: ['opus', 'sonnet', 'codex', 'gpt52', 'gemini', 'spark', 'antigravity'],
+          voiceMode: false,
+          detectiveCatId: 'codex',
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.body);
+      assert.equal(body.status, 'game_started');
+      assert.ok(body.gameId, 'should return gameId');
+      assert.ok(body.gameThreadId, 'should return gameThreadId');
+    });
+
+    it('rejects detective mode when detectiveCatId is not in catIds without side effects', async () => {
+      // Separate app instance with tracking stores to verify no orphan thread/message
+      const createCalls = [];
+      const appendCalls = [];
+      const trackingThreadStore = {
+        ...createStubThreadStore(),
+        async create(userId, title, category) {
+          createCalls.push({ userId, title, category });
+          return { id: 'game-thread-track', userId, title, category, createdAt: Date.now() };
+        },
+      };
+      const trackingMessageStore = {
+        ...createStubMessageStore(),
+        async append(msg) {
+          appendCalls.push(msg);
+          return { id: 'msg-track', ...msg };
+        },
+      };
+      const trackingApp = Fastify();
+      await trackingApp.register(gameRoutes, {
+        gameStore: createStubGameStore(),
+        socketManager: createStubSocket(),
+        threadStore: trackingThreadStore,
+        messageStore: trackingMessageStore,
+      });
+      await trackingApp.ready();
+
+      const res = await trackingApp.inject({
+        method: 'POST',
+        url: '/api/game/start',
+        payload: {
+          gameType: 'werewolf',
+          humanRole: 'detective',
+          playerCount: 7,
+          catIds: ['opus', 'sonnet', 'codex', 'gpt52', 'gemini', 'spark', 'antigravity'],
+          voiceMode: false,
+          detectiveCatId: 'nonexistent-cat',
+        },
+      });
+
+      assert.equal(res.statusCode, 400);
+      const body = JSON.parse(res.body);
+      assert.ok(body.error.includes('detectiveCatId'), 'error should mention detectiveCatId');
+      assert.equal(createCalls.length, 0, 'should NOT create thread for invalid detectiveCatId');
+      assert.equal(appendCalls.length, 0, 'should NOT append message for invalid detectiveCatId');
+
+      await trackingApp.close();
+    });
+
+    it('rejects detective mode without detectiveCatId', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/game/start',
+        payload: {
+          gameType: 'werewolf',
+          humanRole: 'detective',
+          playerCount: 7,
+          catIds: ['opus', 'sonnet', 'codex', 'gpt52', 'gemini', 'spark', 'antigravity'],
+          voiceMode: false,
+        },
+      });
+
+      assert.equal(res.statusCode, 400);
+      const body = JSON.parse(res.body);
+      assert.ok(body.error.includes('detectiveCatId'), 'error should mention detectiveCatId');
+    });
   });
 });

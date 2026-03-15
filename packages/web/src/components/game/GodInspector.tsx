@@ -19,6 +19,8 @@ interface GodInspectorProps {
   nightSteps: NightStep[];
   scopeFilter: string;
   gameStatus?: string;
+  isDetective?: boolean;
+  detectiveBoundName?: string;
   onScopeChange: (scope: string) => void;
   onGodAction?: (action: string) => void;
 }
@@ -68,6 +70,8 @@ export function GodInspector({
   nightSteps,
   scopeFilter,
   gameStatus,
+  isDetective = false,
+  detectiveBoundName,
   onScopeChange,
   onGodAction,
 }: GodInspectorProps) {
@@ -77,6 +81,20 @@ export function GodInspector({
       data-testid="god-inspector"
       className="flex flex-col gap-3.5 bg-ww-topbar border-l border-ww-subtle p-4 h-full w-[360px] overflow-y-auto"
     >
+      {/* Detective mode indicator */}
+      {isDetective && (
+        <div
+          data-testid="detective-indicator"
+          className="flex items-center gap-2 rounded-lg bg-ww-cute-soft border border-ww-cute px-3 py-2"
+        >
+          <svg className="w-4 h-4 text-ww-cute flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" />
+          </svg>
+          <span className="text-xs font-semibold text-ww-cute">
+            推理模式{detectiveBoundName ? ` — 绑定: ${detectiveBoundName}` : ''}
+          </span>
+        </div>
+      )}
       {/* Section 1: Seat Matrix */}
       <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">SEAT MATRIX</span>
       <div data-testid="seat-matrix" className="flex flex-col gap-1">
@@ -163,8 +181,8 @@ export function GodInspector({
         })}
       </div>
 
-      {/* Section 4: God Actions */}
-      {(buttons.showPause || buttons.showResume || buttons.showSkip) && (
+      {/* Section 4: God Actions (hidden in detective mode) */}
+      {!isDetective && (buttons.showPause || buttons.showResume || buttons.showSkip) && (
         <>
           <div className="h-px bg-ww-card w-full" />
           <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">GOD ACTIONS</span>

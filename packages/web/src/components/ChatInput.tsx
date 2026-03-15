@@ -72,7 +72,7 @@ export function ChatInput({
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
-  const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | null>(null);
+  const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | 'detective' | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const gameBtnRef = useRef<HTMLButtonElement>(null);
@@ -297,9 +297,9 @@ export function ChatInput({
         } else {
           // Layer 2: open lobby for mode configuration
           const mode = WEREWOLF_MODES[selectedIdx];
-          const role = mode.id.startsWith('god') ? 'god-view' : 'player';
+          const role = mode.id === 'detective' ? 'detective' : mode.id.startsWith('god') ? 'god-view' : 'player';
           closeMenus();
-          setLobbyMode(role as 'player' | 'god-view');
+          setLobbyMode(role as 'player' | 'god-view' | 'detective');
         }
         return;
       }
@@ -539,9 +539,13 @@ export function ChatInput({
         onInsertMention={insertMention}
         onSendCommand={(command) => {
           // Open lobby instead of sending directly
-          const role = command.includes('god-view') ? 'god-view' : 'player';
+          const role = command.includes('detective')
+            ? 'detective'
+            : command.includes('god-view')
+              ? 'god-view'
+              : 'player';
           closeMenus();
-          setLobbyMode(role as 'player' | 'god-view');
+          setLobbyMode(role as 'player' | 'god-view' | 'detective');
         }}
         menuRef={menuRef}
       />

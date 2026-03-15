@@ -9,18 +9,23 @@ import type { EventScope, GameRuntime, GameView, SeatId, SeatView } from '@cat-c
 import { GameStatsRecorder } from './GameStatsRecorder.js';
 
 export class GameViewBuilder {
-  /** Build a scoped view for a specific viewer */
-  static buildView(runtime: GameRuntime, viewer: SeatId | 'god'): GameView {
+  /** Build a scoped view for a specific viewer.
+   *  viewer formats: SeatId ('P1'), 'god', or 'detective:P3' (inherits bound seat's perspective) */
+  static buildView(runtime: GameRuntime, viewer: SeatId | 'god' | `detective:${string}`): GameView {
     const isGod = viewer === 'god';
-    const viewerSeat = isGod ? undefined : runtime.seats.find((s) => s.seatId === viewer);
-    // Dead players lose faction visibility (no faction leak after death)
+    const isDetective = typeof viewer === 'string' && viewer.startsWith('detective:');
+    const boundSeatId = isDetective ? (viewer.slice(10) as SeatId) : undefined;
+    // Detective inherits bound seat's perspective; player sees own seat
+    const effectiveSeatId = boundSeatId ?? (isGod ? undefined : (viewer as SeatId));
+    const viewerSeat = effectiveSeatId ? runtime.seats.find((s) => s.seatId === effectiveSeatId) : undefined;
+    // Dead players/bound-seats lose faction visibility (no faction leak after death)
     const viewerFaction = viewerSeat?.alive
       ? runtime.definition.roles.find((r) => r.name === viewerSeat.role)?.faction
       : undefined;
 
     // Filter events by visibility
     const visibleEvents = runtime.eventLog.filter(
-      (e) => isGod || GameViewBuilder.isVisible(e.scope, viewer as SeatId, viewerFaction),
+      (e) => isGod || GameViewBuilder.isVisible(e.scope, effectiveSeatId as SeatId, viewerFaction),
     );
 
     // Build seat views with role masking
@@ -28,7 +33,7 @@ export class GameViewBuilder {
       const seatRole = runtime.definition.roles.find((r) => r.name === seat.role);
       const showRole =
         isGod ||
-        seat.seatId === viewer || // always see own role
+        seat.seatId === effectiveSeatId || // see bound/own seat's role
         (viewerFaction && seatRole?.faction === viewerFaction); // see faction mates
 
       const sv: SeatView = {
@@ -59,6 +64,7 @@ export class GameViewBuilder {
         voiceMode: runtime.config.voiceMode,
         humanRole: runtime.config.humanRole,
         ...(runtime.config.humanSeat ? { humanSeat: runtime.config.humanSeat } : {}),
+        ...(runtime.config.detectiveSeatId ? { detectiveSeatId: runtime.config.detectiveSeatId } : {}),
       },
     };
     if (runtime.winner) view.winner = runtime.winner;

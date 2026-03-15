@@ -109,7 +109,7 @@ export function parseGameCommand(content: string): ParsedGameCommand | null {
 }
 
 interface BuildSeatsInput {
-  humanRole: 'player' | 'god-view';
+  humanRole: 'player' | 'god-view' | 'detective';
   userId: string;
   catIds: readonly string[];
   playerCount: number;
@@ -119,7 +119,7 @@ interface BuildSeatsInput {
  * Build seat assignments for a game.
  *
  * - player mode: P1 = human, P2..Pn = cats
- * - god-view mode: all seats are cats (human observes)
+ * - god-view / detective mode: all seats are cats (human observes)
  */
 export function buildGameSeats(input: BuildSeatsInput): Seat[] {
   const { humanRole, userId, catIds, playerCount } = input;

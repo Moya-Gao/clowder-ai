@@ -18,8 +18,10 @@ interface GameOverlayProps {
   selectedTarget: SeatId | null;
   godScopeFilter: string;
 
-  // God-view mode
+  // God-view / detective mode
   isGodView?: boolean;
+  isDetective?: boolean;
+  detectiveBoundName?: string;
   godSeats?: Array<{ seatId: string; role: string; faction?: string; alive: boolean; status: string }>;
   godNightSteps?: Array<{ roleName: string; detail: string; status: 'done' | 'in_progress' | 'pending' }>;
 
@@ -54,6 +56,8 @@ export function GameOverlay({
   selectedTarget,
   godScopeFilter,
   isGodView = false,
+  isDetective = false,
+  detectiveBoundName,
   godSeats = [],
   godNightSteps = [],
   hasTargetedAction = false,
@@ -123,13 +127,15 @@ export function GameOverlay({
           )}
         </div>
 
-        {/* God Inspector (right panel) */}
-        {isGodView && (
+        {/* God Inspector (right panel) — shown for god-view and detective */}
+        {(isGodView || isDetective) && (
           <GodInspector
             seats={godSeats}
             nightSteps={godNightSteps}
             scopeFilter={godScopeFilter}
             gameStatus={view.status}
+            isDetective={isDetective}
+            detectiveBoundName={detectiveBoundName}
             onScopeChange={onGodScopeChange}
             onGodAction={onGodAction}
           />

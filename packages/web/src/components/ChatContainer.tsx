@@ -12,13 +12,13 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
-import { getUserId } from '@/utils/userId';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
+import { getUserId } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
@@ -75,6 +75,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const myActionLabel = useGameStore((s) => s.myActionLabel);
   const myActionHint = useGameStore((s) => s.myActionHint);
   const isGodView = useGameStore((s) => s.isGodView);
+  const isDetective = useGameStore((s) => s.isDetective);
+  const detectiveBoundName = useGameStore((s) => s.detectiveBoundName);
   const godSeats = useGameStore((s) => s.godSeats);
   const godNightSteps = useGameStore((s) => s.godNightSteps);
   const hasTargetedAction = useGameStore((s) => s.hasTargetedAction);
@@ -584,6 +586,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           selectedTarget={selectedTarget}
           godScopeFilter={godScopeFilter}
           isGodView={isGodView}
+          isDetective={isDetective}
+          detectiveBoundName={detectiveBoundName ?? undefined}
           godSeats={godSeats}
           godNightSteps={godNightSteps}
           hasTargetedAction={hasTargetedAction}

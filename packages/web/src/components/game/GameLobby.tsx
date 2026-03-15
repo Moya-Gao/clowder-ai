@@ -15,14 +15,15 @@ const BOARD_PRESETS = [
 
 export interface GameStartPayload {
   gameType: 'werewolf';
-  humanRole: 'player' | 'god-view';
+  humanRole: 'player' | 'god-view' | 'detective';
   playerCount: number;
   catIds: string[];
   voiceMode: boolean;
+  detectiveCatId?: string;
 }
 
 interface GameLobbyProps {
-  mode: 'player' | 'god-view';
+  mode: 'player' | 'god-view' | 'detective';
   cats: CatData[];
   onConfirm: (payload: GameStartPayload) => void;
   onCancel: () => void;
@@ -32,18 +33,27 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
   const [selectedPreset, setSelectedPreset] = useState(7);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(() => new Set(cats.map((c) => c.id)));
   const [voiceMode, setVoiceMode] = useState(false);
+  // Detective mode: which cat to bind to
+  const [detectiveCatId, setDetectiveCatId] = useState<string | null>(null);
 
-  // How many cat seats needed
+  // How many cat seats needed (detective = same as god-view: all cats)
   const catSeatsNeeded = mode === 'player' ? selectedPreset - 1 : selectedPreset;
   const selectedCatList = useMemo(() => cats.filter((c) => selectedCats.has(c.id)), [cats, selectedCats]);
-  // At least 1 cat required; backend cycles cats if fewer than seats needed
-  const canStart = selectedCatList.length >= 1;
+  // At least 1 cat required; detective also needs a bound cat
+  const canStart =
+    selectedCatList.length >= 1 &&
+    (mode !== 'detective' || (detectiveCatId !== null && selectedCats.has(detectiveCatId)));
 
   const toggleCat = useCallback((catId: string) => {
     setSelectedCats((prev) => {
       const next = new Set(prev);
-      if (next.has(catId)) next.delete(catId);
-      else next.add(catId);
+      if (next.has(catId)) {
+        next.delete(catId);
+        // Clear detective binding if the bound cat was deselected
+        setDetectiveCatId((prev) => (prev === catId ? null : prev));
+      } else {
+        next.add(catId);
+      }
       return next;
     });
   }, []);
@@ -55,8 +65,9 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
       playerCount: selectedPreset,
       catIds: selectedCatList.map((c) => c.id),
       voiceMode,
+      ...(mode === 'detective' && detectiveCatId ? { detectiveCatId } : {}),
     });
-  }, [mode, selectedPreset, selectedCatList, voiceMode, onConfirm]);
+  }, [mode, selectedPreset, selectedCatList, voiceMode, detectiveCatId, onConfirm]);
 
   return (
     <div
@@ -66,7 +77,9 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
       <div className="bg-ww-topbar rounded-2xl border border-ww-subtle w-full max-w-lg mx-4 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-ww-subtle">
-          <h2 className="text-ww-main font-semibold text-lg">狼人杀 — {mode === 'player' ? '玩家模式' : '上帝视角'}</h2>
+          <h2 className="text-ww-main font-semibold text-lg">
+            狼人杀 — {mode === 'player' ? '玩家模式' : mode === 'detective' ? '推理模式' : '上帝视角'}
+          </h2>
           <button
             onClick={onCancel}
             className="text-ww-dim hover:text-ww-main transition-colors p-1 rounded"
@@ -139,6 +152,41 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
             ))}
           </div>
         </div>
+
+        {/* Detective mode: pick ONE cat to bind */}
+        {mode === 'detective' && (
+          <div className="px-6 py-4 border-t border-ww-subtle">
+            <div className="text-sm text-ww-muted font-medium mb-3">
+              选择绑定猫猫
+              <span className="ml-2 text-xs opacity-70">（只能看到这只猫的视角）</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {selectedCatList.map((cat) => (
+                <button
+                  key={cat.id}
+                  data-testid={`detective-bind-${cat.id}`}
+                  onClick={() => setDetectiveCatId(cat.id)}
+                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors border ${
+                    detectiveCatId === cat.id
+                      ? 'border-ww-cute bg-ww-cute-soft text-ww-cute font-medium'
+                      : 'border-ww-subtle text-ww-dim hover:border-ww-active'
+                  }`}
+                >
+                  <img
+                    src={cat.avatar}
+                    alt={cat.displayName}
+                    className="w-5 h-5 rounded-full"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                  {cat.displayName}
+                </button>
+              ))}
+            </div>
+            {!detectiveCatId && <div className="text-xs text-ww-danger mt-2">请选择一只猫猫绑定视角</div>}
+          </div>
+        )}
 
         {/* Voice mode toggle + actions */}
         <div className="px-6 py-4 border-t border-ww-subtle flex items-center justify-between">

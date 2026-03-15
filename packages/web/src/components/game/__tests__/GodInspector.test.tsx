@@ -84,4 +84,21 @@ describe('GodInspector', () => {
     const allMatch = html.match(/data-testid="scope-all"[^>]*class="([^"]+)"/);
     expect(allMatch?.[1]).toContain('bg-ww-danger');
   });
+
+  it('shows detective indicator when isDetective is true', () => {
+    const html = render({ isDetective: true, detectiveBoundName: '宪宪' });
+    expect(html).toContain('data-testid="detective-indicator"');
+    expect(html).toContain('推理模式');
+    expect(html).toContain('绑定: 宪宪');
+  });
+
+  it('hides god actions in detective mode', () => {
+    const html = render({ isDetective: true, gameStatus: 'playing' });
+    expect(html).not.toContain('data-testid="god-actions"');
+  });
+
+  it('shows god actions in non-detective mode', () => {
+    const html = render({ gameStatus: 'playing' });
+    expect(html).toContain('data-testid="god-actions"');
+  });
 });
