@@ -627,7 +627,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
       {statusPanelOpen && rightPanelMode === 'status' && (
         <>
-          <div className="hidden lg:flex items-center">
+          <div className="hidden lg:flex">
             <ResizeHandle
               direction="horizontal"
               onResize={handleStatusPanelResize}

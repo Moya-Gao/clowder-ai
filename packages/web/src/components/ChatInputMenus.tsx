@@ -110,7 +110,7 @@ export function ChatInputMenus({
       {showMentions && (
         <div
           ref={menuRef}
-          className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-72 z-10 max-h-80 flex flex-col"
+          className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-64 z-10 max-h-80 flex flex-col"
         >
           <div ref={scrollRef} className="overflow-y-auto flex-1">
             {catOptions.map((opt, i) => (
@@ -133,10 +133,10 @@ export function ChatInputMenus({
                   }}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold truncate" style={{ color: opt.color }}>
+                  <div className="text-sm font-semibold" style={{ color: opt.color }}>
                     {opt.label}
                   </div>
-                  <div className="text-xs text-gray-400 line-clamp-1">{opt.desc}</div>
+                  <div className="text-xs text-gray-400">{opt.desc}</div>
                 </div>
               </button>
             ))}
