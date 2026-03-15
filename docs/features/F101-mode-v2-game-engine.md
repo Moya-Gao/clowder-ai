@@ -201,7 +201,7 @@ reopened: 2026-03-14
 | R14 | "展示真实状态，不是假动画" | AC-D4 | manual | [x] |
 | R15 | "猫猫装狼人那种可爱的带点黑色的风格" | AC-D5 | manual+design | [x] |
 | R16 | "要战绩统计 + MVP" | AC-D6 | manual | [x] |
-| R17 | "只能选择一只猫看他身份，狼人杀观战模式那种" | AC-E1 | manual | [ ] |
+| R17 | "只能选择一只猫看他身份，狼人杀观战模式那种" | AC-E1 | manual | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -350,6 +350,8 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-15 | AC-D5 PR-B merged (PR #467) — 12 组件 token 替换 + 5 soft token + GameLobby/NightActionCard 全量迁移（codex review 3 rounds） |
 | 2026-03-15 | Phase D game startup API merged (PR #471) — dedicated POST /api/game/start + HTTP navigation, eliminates 布偶猫思考中 loading (codex 3-round local + 3-round cloud review) |
 | 2026-03-15 | Phase E detective mode merged (PR #474) — scoped observer view, GameViewBuilder detective viewer, lobby binding UI (codex 1-round local + 2-round cloud review) |
+| 2026-03-15 | i18n + lobby fix merged (PR #477) — 游戏 UI 中文化 + lobby 默认不全选猫猫 |
+| 2026-03-15 | 3x P1 game state fixes merged (PR #478) — observer broadcast + real countdown + seat hasActed status + info-isolation regression tests (codex 1-round local + 3-round cloud review) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
