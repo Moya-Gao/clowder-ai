@@ -129,9 +129,9 @@ Cat Café 目前的差距：
 - [x] AC-B2: iframe 内页面无法访问 Hub 的 Cookie/Storage/DOM
 - [x] AC-B3: 禁止访问 Cat Café 自身 API 端口（可配置排除列表）
 
-### Phase C（增强体验）
-- [ ] AC-C1: 猫可通过 API 触发 `preview:auto-open`，前端自动打开 browser panel（无需用户点击 toast）
-- [ ] AC-C2: 新增 `html_widget` rich block，猫发送的 HTML/JS 代码在聊天中以 sandboxed iframe 内联渲染
+### Phase C（增强体验）— AC-C1/C2 ✅
+- [x] AC-C1: 猫可通过 API 触发 `preview:auto-open`，前端自动打开 browser panel（无需用户点击 toast）
+- [x] AC-C2: 新增 `html_widget` rich block，猫发送的 HTML/JS 代码在聊天中以 sandboxed iframe 内联渲染
 - [ ] AC-C3: browser panel 下方可查看页面的 console 输出
 - [ ] AC-C4: 一键截图 browser panel 并附到聊天消息
 - [ ] AC-C5: 支持同时打开多个 localhost tab
@@ -143,9 +143,9 @@ Cat Café 目前的差距：
 | R1 | "让你们把前端启动起来，你们能在这里直接看到" | AC-A1, AC-A3 | manual: Hub 内看到运行中的前端页面 | [x] |
 | R2 | "跟 Claude Code 这样能够有一个浏览器能够直接预览前端的能力" | AC-A1, AC-A4 | manual: embedded browser 有基础导航控件 | [x] |
 | R3 | "a + b，面向最终的状态开发" — 自动检测 + 手动输入都要 | AC-A2, AC-A4 | manual: 自动检测弹提示 + 手动输入 URL 都能打开 | [x] |
-| R4 | "你最好打开浏览器，把页面放出来" — 猫主动打开浏览器，不靠用户手动输入 | AC-C1 | manual: 猫调用 API 后 browser panel 自动打开指定页面 | [ ] |
-| R5 | "简单的用富文本，复杂的用猫主动打开浏览器" — 内联 widget + 浏览器两层策略 | AC-C1, AC-C2 | manual: 简单可视化在聊天内联渲染，复杂应用在浏览器面板打开 | [ ] |
-| R6 | "这种能力我们能搞吗？"（Claude.ai `visualize:show_widget`）— 聊天内联可交互 HTML | AC-C2 | manual: 猫发送 html_widget rich block，聊天中显示可交互组件 | [ ] |
+| R4 | "你最好打开浏览器，把页面放出来" — 猫主动打开浏览器，不靠用户手动输入 | AC-C1 | manual: 猫调用 API 后 browser panel 自动打开指定页面 | [x] |
+| R5 | "简单的用富文本，复杂的用猫主动打开浏览器" — 内联 widget + 浏览器两层策略 | AC-C1, AC-C2 | manual: 简单可视化在聊天内联渲染，复杂应用在浏览器面板打开 | [x] |
+| R6 | "这种能力我们能搞吗？"（Claude.ai `visualize:show_widget`）— 聊天内联可交互 HTML | AC-C2 | manual: 猫发送 html_widget rich block，聊天中显示可交互组件 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -204,6 +204,7 @@ Cat Café 目前的差距：
 | 2026-03-14 | P0 hotfix: Preview Gateway ECONNRESET crash（`6c8ed78e`），proxy/socket 错误处理 |
 | 2026-03-14 | 铲屎官看到 Claude.ai `visualize:show_widget`，提出内联可视化 + 猫主动打开浏览器需求 |
 | 2026-03-14 | Phase C spec 更新：AC-C1（auto-open）+ AC-C2（html_widget）纳入，KD-6/7 决策记录 |
+| 2026-03-15 | Phase C AC-C1/C2 merged (PR #458)，砚砚 3 轮 review 后放行 |
 
 ## Review Gate
 
