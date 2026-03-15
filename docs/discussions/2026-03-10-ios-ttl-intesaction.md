@@ -1,3 +1,11 @@
+---
+feature_ids: [F124]
+related_features: [F092, F066, F088]
+topics: [ios, watchos, apple-watch, airpods, voice]
+doc_kind: note
+created: 2026-03-10
+---
+
 # 🎧 苹果生态 × Cat Café 语音交互系统
 
 ## 给猫猫们的 Handoff
