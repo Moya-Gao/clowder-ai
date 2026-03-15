@@ -136,7 +136,7 @@ Reviewer 在 review 过程中发现 author 触发以下任一条件，可直接�
 2. 连续 2 次假绿（声明 fixed 但复验失败）；
 3. 你（reviewer）被迫对同一验收点重复验证 2 次。
 
-**触发后**：在 thread 显式宣布 TAKEOVER → 原 author 停止试错 → 你或另一只猫接手修复。
+**触发后**：在 thread 显式宣布 TAKEOVER → 原 author 停止试错 → 你或另一只猫接手修复。接管猫不得自审，需由另一只猫 review。
 
 ## Common Mistakes
 
