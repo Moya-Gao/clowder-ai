@@ -389,6 +389,60 @@ describe('background thread socket handling', () => {
         ]),
       );
     });
+
+    it('allows the first unlabeled background chunk of a new invocation after callback replacement once the old slot is gone', () => {
+      const now = Date.now();
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-old' });
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-old',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'thinking...',
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-old' } },
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'final answer',
+        origin: 'callback',
+        messageId: 'bg-callback-old',
+        timestamp: now + 1,
+      });
+
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: undefined });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'new invocation first chunk',
+        origin: 'stream',
+        timestamp: now + 2,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toEqual([
+        expect.objectContaining({
+          id: 'bg-callback-old',
+          catId: 'opus',
+          content: 'final answer',
+          origin: 'callback',
+          isStreaming: false,
+        }),
+        expect.objectContaining({
+          type: 'assistant',
+          catId: 'opus',
+          content: 'new invocation first chunk',
+          origin: 'stream',
+          isStreaming: true,
+        }),
+      ]);
+    });
   });
 
   describe('P2: message ID uniqueness', () => {

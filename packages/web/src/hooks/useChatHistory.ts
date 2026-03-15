@@ -78,7 +78,19 @@ function getMessageRichness(msg: ChatMessageData): [number, number, number, numb
   ];
 }
 
+function getMessagePhasePriority(msg: ChatMessageData): number {
+  if (msg.origin === 'callback') return 2;
+  if (msg.origin === 'stream') return 1;
+  return 0;
+}
+
 function shouldPreferCurrentMessage(current: ChatMessageData, history: ChatMessageData): boolean {
+  const currentPhasePriority = getMessagePhasePriority(current);
+  const historyPhasePriority = getMessagePhasePriority(history);
+  if (currentPhasePriority !== historyPhasePriority) {
+    return currentPhasePriority > historyPhasePriority;
+  }
+
   const currentRichness = getMessageRichness(current);
   const historyRichness = getMessageRichness(history);
   for (let i = 0; i < currentRichness.length; i++) {

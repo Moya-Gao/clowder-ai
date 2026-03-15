@@ -334,6 +334,67 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
     ]);
   });
 
+  it('allows the first unlabeled chunk of a new invocation after callback replacement once the old slot is gone', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    storeState.messages.push({
+      id: 'msg-stream-old',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'thinking...',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-old' } },
+      timestamp: Date.now() - 1000,
+    });
+    storeState.catInvocations = { opus: { invocationId: 'inv-old' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'final answer',
+        origin: 'callback',
+        messageId: 'msg-callback-old',
+      });
+    });
+
+    // New invocation has started, but no invocation slot / id has been bound yet.
+    storeState.catInvocations = {};
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'new invocation first chunk',
+        origin: 'stream',
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledTimes(1);
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assistant',
+        catId: 'opus',
+        content: 'new invocation first chunk',
+        origin: 'stream',
+        isStreaming: true,
+      }),
+    );
+    expect(storeState.messages).toEqual([
+      expect.objectContaining({
+        id: 'msg-callback-old',
+        catId: 'opus',
+        content: 'final answer',
+        origin: 'callback',
+      }),
+    ]);
+  });
+
   it('falls back to ensureActiveAssistantMessage when no callback message exists', () => {
     act(() => {
       root.render(React.createElement(Harness));

@@ -174,6 +174,10 @@ function shouldSuppressLateBackgroundStreamChunk(
   if (!replacedInvocationId) return false;
 
   const currentInvocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+  if (!currentInvocationId) {
+    options.replacedInvocations.delete(streamKey);
+    return false;
+  }
   if (currentInvocationId && currentInvocationId !== replacedInvocationId) {
     options.replacedInvocations.delete(streamKey);
     return false;
