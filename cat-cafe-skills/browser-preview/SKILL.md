@@ -26,12 +26,29 @@ Hub 内置了嵌入式浏览器面板（F120），可以直接预览运行中的
 
 ## 工作流
 
+### 基础流程（端口发现 → 预览）
 1. **在 Terminal 启动 dev server**（`pnpm dev` / `npm start` / `vite` 等）
 2. **Hub 自动检测端口** → 弹出 toast 提示"检测到 localhost:xxxx 启动"
 3. **点击 Open Preview** → 自动打开 browser panel 并加载页面
 4. **也可以手动**：切到 workspace 的 Browser tab，输入 `localhost:port` 按 Go
 
 改代码 → HMR 热更新 → browser panel 内页面自动刷新，无需手动操作。
+
+### 猫主动打开浏览器（Phase C — 必须掌握）
+铲屎官说过："别手动让我输入，你最好打开浏览器，把页面放出来。"
+
+**猫应该主动替铲屎官打开浏览器**，不要等铲屎官点 toast 或手动输 URL：
+- 调用 `POST /api/preview/auto-open` → 后端 emit `preview:auto-open` socket 事件 → 前端自动打开 browser panel
+- 支持 `{ port, path?, html? }`：`port + path` 打开指定页面；`html` 临时托管猫生成的 HTML
+- 适用场景：写完前端代码后、铲屎官说"看看效果"、需要展示复杂页面
+
+### 两层可视化策略
+铲屎官拍板："简单的用富文本，复杂的用猫主动打开浏览器。"
+
+| 场景 | 方式 | 怎么做 |
+|------|------|--------|
+| 简单可视化（图表、动画、计算器） | `html_widget` rich block 内联渲染 | 用 `rich-messaging` skill 发 `html_widget` block |
+| 复杂应用（完整页面、多组件交互） | 猫主动打开浏览器 | 调用 `auto-open` API |
 
 ## 技术要点（猫猫需要知道的）
 
@@ -43,13 +60,20 @@ Hub 内置了嵌入式浏览器面板（F120），可以直接预览运行中的
 | **WebSocket/HMR** | 代理层支持 WebSocket 升级，Vite/Next/Webpack HMR 正常工作 |
 | **端口排除** | Cat Cafe 自身端口（3001/3002/6398/6399/18888 等）自动排除 |
 | **审计** | 每次 open/close/navigate 都有审计日志 |
+| **Console 面板** | bridge script 注入到 iframe，捕获 console.log/warn/error，在面板展示 |
+| **一键截图** | SVG foreignObject + canvas 截图，上传后端，toast 展示 |
+| **多 Tab** | 同时预览多个 localhost 页面，Tab 切换独立状态 |
+| **Socket room 隔离** | preview 事件按 worktree room 定向发送，不会全局广播 |
 
 ## 什么时候主动用
 
-- 写完前端组件/页面 → "让我在 browser panel 里看看效果"
+- 写完前端组件/页面 → **主动调 auto-open 打开浏览器展示**（不要等铲屎官点）
 - 调样式/布局 → 改代码后在 browser panel 里实时查看
-- 铲屎官说"看看效果"/"给我看看" → 切到 browser panel 展示
-- dev server 已在 Terminal 跑着 → 提示铲屎官可以在 Hub 里直接预览
+- 铲屎官说"看看效果"/"给我看看" → 主动打开 browser panel 展示
+- dev server 已在 Terminal 跑着 → 主动打开浏览器，不要只提示
+- 简单可视化（图表/动画） → 用 `html_widget` rich block 内联渲染
+- Console 有报错 → browser panel 下方 Console 面板自动展开，可以看
+- 需要截图 → browser panel 工具栏一键截图
 
 ## 不要做的事
 

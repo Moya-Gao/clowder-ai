@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F120: Hub Embedded Browser — 在 Hub 内嵌浏览器预览运行中的前端应用
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-15
 
 ## Why
 

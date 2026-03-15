@@ -91,3 +91,4 @@
 | F115 | F115: Runtime 启动链优化 — Profile 化 + Sidecar 状态分层 + Proxy 弹性 + 交互式 Setup | done | [F115-runtime-startup-optimization.md](./F115-runtime-startup-optimization.md) |
 | F116 | F116: Open-Source Ops — 开源社区运营 Skill | done | [F116-opensource-ops.md](./F116-opensource-ops.md) |
 | F118 | F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复 | done | [F118-cli-liveness-watchdog.md](./F118-cli-liveness-watchdog.md) |
+| F120 | F120: Hub Embedded Browser — 在 Hub 内嵌浏览器预览运行中的前端应用 | done | [F120-hub-embedded-browser.md](./F120-hub-embedded-browser.md) |
