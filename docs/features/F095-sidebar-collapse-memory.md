@@ -4,15 +4,15 @@ related_features: []
 topics: [frontend, ux, sidebar, navigation]
 doc_kind: spec
 created: 2026-03-10
-completed: null
-status: in-progress
+completed: 2026-03-13
+status: done
 ---
 
 # F095: Thread Sidebar 导航体验升级
 
-> **Status**: in-progress (Phase D) | **Owner**: 布偶猫 | **Priority**: P1
-**Phase A~C completed: 2026-03-11** | **Phase D: 软删除 + 回收站（进行中）**
-**Implementation**: PR #366 / #370 / #373 / #376 / #378
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
+**Phase A~C completed: 2026-03-11** | **Phase D completed: 2026-03-12** | **Feature closed: 2026-03-13**
+**Implementation**: PR #366 / #370 / #373 / #376 / #378 / #380
 
 ## Why
 
@@ -93,7 +93,7 @@ Sidebar 布局从上到下：
 - `POST /api/threads` 已支持 `title`，补 `backlogItemId` 和 `pinned` 入参
 - 新增 `GET /api/backlog/active` 返回活跃 feat 列表（供下拉选择）
 
-### Phase D: 软删除 + 回收站（终态数据安全）
+### Phase D: 软删除 + 回收站（终态数据安全）✅
 
 **沉痛教训**：铲屎官误删 `thread_mmlv4v2oq6dxefr6`（73 条审计记录，cross-thread-sync 教训 thread），不可恢复。
 Phase C hotfix 加了确认弹窗 + 审计事件（PR #378），但确认弹窗是**脚手架**，终态是**软删除 + 回收站**。
@@ -138,14 +138,14 @@ Phase C hotfix 加了确认弹窗 + 审计事件（PR #378），但确认弹窗�
 - [x] AC-C4: 项目列表按最近活跃排序（不再纯字母序）
 - [x] AC-C5: 后端 `POST /api/threads` 支持 `backlogItemId` 和 `pinned` 入参
 
-### Phase D（软删除 + 回收站）
-- [ ] AC-D1: DELETE /api/threads/:id 改为软删除（设 deletedAt，不物理删除）
-- [ ] AC-D2: 软删除后 thread 从正常列表消失（GET /api/threads 过滤 deletedAt）
-- [ ] AC-D3: 新增 GET /api/threads?deleted=true 返回回收站列表
-- [ ] AC-D4: 新增 POST /api/threads/:id/restore 恢复已删除 thread
-- [ ] AC-D5: Sidebar 回收站入口，展示已删除 thread 列表 + 恢复按钮
-- [ ] AC-D6: deletedAt 超过 30 天的 thread 自动物理清理
-- [ ] AC-D7: 级联数据（messages/tasks/memory）在软删除期间保留，物理删除时才清除
+### Phase D（软删除 + 回收站）✅
+- [x] AC-D1: DELETE /api/threads/:id 改为软删除（设 deletedAt，不物理删除）
+- [x] AC-D2: 软删除后 thread 从正常列表消失（GET /api/threads 过滤 deletedAt）
+- [x] AC-D3: 新增 GET /api/threads?deleted=true 返回回收站列表
+- [x] AC-D4: 新增 POST /api/threads/:id/restore 恢复已删除 thread
+- [x] AC-D5: Sidebar 回收站入口，展示已删除 thread 列表 + 恢复按钮
+- [ ] AC-D6: deletedAt 超过 30 天的 thread 自动物理清理 — **延后**（需 cron 基建，铲屎官确认后续再做）
+- [x] AC-D7: 级联数据（messages/tasks/memory）在软删除期间保留，物理删除时才清除
 
 ## 需求点 Checklist
 
@@ -160,8 +160,8 @@ Phase C hotfix 加了确认弹窗 + 审计事件（PR #378），但确认弹窗�
 | R7 | "甚至直接关联某个 feat" | AC-C2 | test + manual | [x] |
 | R8 | "我可以选择直接置顶" | AC-C3 | test + manual | [x] |
 | R9 | "新建的那个窗口可能需要大点" | AC-C4 | screenshot | [x] |
-| R10 | 铲屎官误删 thread 不可恢复（沉痛教训） | AC-D1~D7 | test + manual | [ ] |
-| R11 | "面向终态开发"——确认弹窗是脚手架，软删除才是终态 | AC-D1 | test | [ ] |
+| R10 | 铲屎官误删 thread 不可恢复（沉痛教训） | AC-D1~D7 | test + manual | [x] |
+| R11 | "面向终态开发"——确认弹窗是脚手架，软删除才是终态 | AC-D1 | test | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -212,6 +212,8 @@ Phase C hotfix 加了确认弹窗 + 审计事件（PR #378），但确认弹窗�
 | 2026-03-11 | 愿景守护通过，feature close |
 | 2026-03-11 | **沉痛教训**：铲屎官误删 `thread_mmlv4v2oq6dxefr6`（cross-thread-sync 教训 thread，73 条记录），不可恢复 |
 | 2026-03-12 | I-1 + I-2 hotfix merged (PR #378) — 删除二次确认 + 审计事件 + header 线程标识 |
+| 2026-03-12 | Phase D merged (PR #380) — 软删除 + 回收站 + 恢复 |
+| 2026-03-13 | 愿景守护通过（金渐层），feature closed。AC-D6（30天自动清理 cron）延后 |
 
 ## Review Gate
 
@@ -234,4 +236,5 @@ Phase C hotfix 加了确认弹窗 + 审计事件（PR #378），但确认弹窗�
 |------|------|------|
 | **Discussion** | Thread `thread_mm4dj9jp0tij0ch3` 2026-03-11 | 铲屎官需求 + 缅因猫讨论 |
 | **Design** | `designs/sidebar-navigation.pen` | Phase B/C 设计稿与导航终态 wireframe |
-| **Reflection** | `docs/reflections/2026-03-11-f095-thread-sidebar-navigation-capsule.md` | 完成阶段反思胶囊 |
+| **Reflection** | `docs/reflections/2026-03-11-f095-thread-sidebar-navigation-capsule.md` | Phase A~C 反思胶囊 |
+| **Reflection** | `docs/reflections/2026-03-13-f095-phase-d-soft-delete-capsule.md` | Phase D 反思胶囊 |

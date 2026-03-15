@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-13
+> 维护者：三猫 | 最后更新：2026-03-15
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -40,10 +40,8 @@ created: 2026-02-26
 | F091 | Signal Study Mode — 信号学习伴侣 | in-progress | 布偶猫 | internal | [F091](features/F091-signal-study-mode.md) |
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | internal | [F092](features/F092-voice-companion-experience.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | internal | [F093](features/F093-cats-and-u-world-engine.md) |
-| F095 | Thread Sidebar 导航体验升级 | in-progress | 布偶猫 | internal | [F095](features/F095-sidebar-collapse-memory.md) |
 | F100 | Self-Evolution — 猫猫自我进化机制（行为层 + 知识对象化） | in-progress | 布偶猫 | internal | [F100](features/F100-self-evolution.md) |
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | in-progress | 布偶猫 | internal | [F102](features/F102-memory-adapter-refactor.md) |
-| F103 | 猫猫独立声线 — Per-Cat Voice Identity | done | 布偶猫 | internal | [F103](features/F103-per-cat-voice-identity.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | internal | [F104](features/F104-local-omni-perception.md) |
 | F107 | 脑门贴词 — 坏猫战术推理游戏 #1 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
 | F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | in-progress | 布偶猫 | internal | [F108](features/F108-side-dispatch-concurrent-invocation.md) |
