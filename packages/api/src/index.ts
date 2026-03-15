@@ -506,7 +506,7 @@ async function main(): Promise<void> {
 
   // F101: Game routes (store created earlier for /game command interception)
   if (f101GameStore) {
-    await app.register(gameRoutes, { gameStore: f101GameStore, socketManager });
+    await app.register(gameRoutes, { gameStore: f101GameStore, socketManager, threadStore, messageStore });
     app.log.info('[api] F101 game routes registered');
   }
 

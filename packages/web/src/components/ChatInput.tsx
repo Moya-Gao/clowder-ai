@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
@@ -7,6 +8,7 @@ import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
+import { apiFetch } from '@/utils/api-client';
 import { compressImage } from '@/utils/compressImage';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
@@ -19,7 +21,7 @@ import {
   WEREWOLF_MODES,
 } from './chat-input-options';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
-import { GameLobby } from './game/GameLobby';
+import { GameLobby, type GameStartPayload } from './game/GameLobby';
 import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
@@ -152,14 +154,51 @@ export function ChatInput({
     setShowGameMenu(false);
   }, []);
 
-  const sendGameCommand = useCallback(
-    (command: string) => {
+  const router = useRouter();
+  const [gameStarting, setGameStarting] = useState(false);
+
+  const startGame = useCallback(
+    async (payload: GameStartPayload) => {
       closeMenus();
-      if (!disabled && !sendTemporarilyDisabled) {
-        onSend(command, undefined, undefined, hasActiveInvocation ? 'queue' : undefined);
+      if (disabled || sendTemporarilyDisabled || gameStarting) return;
+      setGameStarting(true);
+      try {
+        const res = await apiFetch('/api/game/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          useChatStore.getState().addMessage({
+            id: `game-err-${Date.now()}`,
+            type: 'system',
+            variant: 'error',
+            content: `开局失败: ${data.error ?? `HTTP ${res.status}`}`,
+            timestamp: Date.now(),
+          });
+          // Restore lobby so user can retry without re-selecting
+          setLobbyMode(payload.humanRole);
+          return;
+        }
+        // Success — dismiss lobby and navigate
+        setLobbyMode(null);
+        router.push(`/thread/${data.gameThreadId}`);
+      } catch (err) {
+        useChatStore.getState().addMessage({
+          id: `game-err-${Date.now()}`,
+          type: 'system',
+          variant: 'error',
+          content: `开局失败: ${err instanceof Error ? err.message : '网络异常'}`,
+          timestamp: Date.now(),
+        });
+        // Restore lobby so user can retry
+        setLobbyMode(payload.humanRole);
+      } finally {
+        setGameStarting(false);
       }
     },
-    [closeMenus, disabled, sendTemporarilyDisabled, onSend, hasActiveInvocation],
+    [closeMenus, disabled, sendTemporarilyDisabled, gameStarting, router],
   );
 
   const insertMention = useCallback(
@@ -683,9 +722,8 @@ export function ChatInput({
         <GameLobby
           mode={lobbyMode}
           cats={cats}
-          onConfirm={(command) => {
-            setLobbyMode(null);
-            sendGameCommand(command);
+          onConfirm={(payload) => {
+            startGame(payload);
           }}
           onCancel={() => setLobbyMode(null)}
         />

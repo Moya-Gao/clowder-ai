@@ -3,6 +3,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatInput } from '@/components/ChatInput';
 
+const mockPush = vi.fn();
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 vi.mock('@/components/icons/SendIcon', () => ({
   SendIcon: () => React.createElement('span', null, 'send'),
 }));
@@ -17,6 +22,15 @@ vi.mock('@/components/ImagePreview', () => ({
 }));
 vi.mock('@/utils/compressImage', () => ({
   compressImage: (f: File) => Promise.resolve(f),
+}));
+
+// Mock api-client: expose apiFetch as a spy that delegates to globalThis.fetch
+// This lets tests verify apiFetch is called (not raw fetch), catching regressions
+// where someone switches back to fetch('/api/game/start', ...).
+const mockApiFetch = vi.fn((path: string, init?: RequestInit) => globalThis.fetch(path, init));
+vi.mock('@/utils/api-client', () => ({
+  API_URL: '',
+  apiFetch: (...args: [string, RequestInit?]) => mockApiFetch(...args),
 }));
 
 // Mock useCatData to return enough cats for a 7-player game (6 cat seats in player mode)
@@ -96,8 +110,15 @@ describe('sendGameCommand respects sendTemporarilyDisabled', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('opens lobby when upload is idle, sends on confirm', () => {
+  it('opens lobby when upload is idle, calls game API on confirm', () => {
     const onSend = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ status: 'game_started', gameId: 'g1', gameThreadId: 'gt1' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    mockApiFetch.mockClear();
 
     act(() => {
       root.render(React.createElement(ChatInput, { onSend, disabled: false, uploadStatus: 'idle' }));
@@ -122,14 +143,24 @@ describe('sendGameCommand respects sendTemporarilyDisabled', () => {
     expect(onSend).not.toHaveBeenCalled();
     expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
 
-    // Confirm in lobby triggers send
+    // Confirm in lobby calls game API directly (not onSend)
     const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
     act(() => {
       confirmBtn.click();
     });
 
-    expect(onSend).toHaveBeenCalledTimes(1);
-    expect(onSend.mock.calls[0]![0]).toMatch(/^\/game werewolf player/);
+    // Should NOT call onSend — game start bypasses message pipeline
+    expect(onSend).not.toHaveBeenCalled();
+    // Should call apiFetch (not raw fetch) with structured payload
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/game/start',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"gameType":"werewolf"'),
+      }),
+    );
+
+    vi.restoreAllMocks();
   });
 });
 
@@ -187,9 +218,103 @@ describe('layer drill-in does not trigger outside-click close', () => {
   });
 });
 
-describe('sendGameCommand passes queue delivery mode during active invocation', () => {
-  it('sends with queue mode when hasActiveInvocation is true', () => {
+describe('game start failure handling (P1-1)', () => {
+  it('shows error and restores lobby when API returns error', async () => {
     const onSend = vi.fn();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Thread already has an active game' }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    act(() => {
+      root.render(React.createElement(ChatInput, { onSend, disabled: false, uploadStatus: 'idle' }));
+    });
+
+    // Open lobby
+    const gameBtn = container.querySelector('button[aria-label="Game mode"]') as HTMLButtonElement;
+    act(() => {
+      gameBtn.click();
+    });
+    const layer1Item = container.querySelector('[data-testid="game-item-werewolf"]') as HTMLElement;
+    act(() => {
+      layer1Item.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+    const modeItem = container.querySelector('[data-testid="game-mode-player"]') as HTMLElement;
+    act(() => {
+      modeItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+
+    expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
+
+    // Confirm — triggers fetch which will fail
+    const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
+    act(() => {
+      confirmBtn.click();
+    });
+
+    // Wait for async fetch to resolve
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    // Lobby should be restored after failure
+    expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
+
+    fetchSpy.mockRestore();
+  });
+
+  it('shows error and restores lobby on network failure', async () => {
+    const onSend = vi.fn();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+
+    act(() => {
+      root.render(React.createElement(ChatInput, { onSend, disabled: false, uploadStatus: 'idle' }));
+    });
+
+    // Open lobby
+    const gameBtn = container.querySelector('button[aria-label="Game mode"]') as HTMLButtonElement;
+    act(() => {
+      gameBtn.click();
+    });
+    const layer1Item = container.querySelector('[data-testid="game-item-werewolf"]') as HTMLElement;
+    act(() => {
+      layer1Item.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+    const modeItem = container.querySelector('[data-testid="game-mode-player"]') as HTMLElement;
+    act(() => {
+      modeItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+
+    expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
+
+    const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
+    act(() => {
+      confirmBtn.click();
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    // Lobby should be restored after network failure
+    expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
+
+    fetchSpy.mockRestore();
+  });
+});
+
+describe('game start calls dedicated API (not message pipeline)', () => {
+  it('calls /api/game/start regardless of hasActiveInvocation', () => {
+    const onSend = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ status: 'game_started', gameId: 'g1', gameThreadId: 'gt1' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    mockApiFetch.mockClear();
 
     act(() => {
       root.render(React.createElement(ChatInput, { onSend, disabled: false, hasActiveInvocation: true }));
@@ -210,49 +335,23 @@ describe('sendGameCommand passes queue delivery mode during active invocation', 
       modeItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     });
 
-    // Lobby opens, confirm to trigger send
+    // Lobby opens, confirm to trigger game API call
     expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
     const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
     act(() => {
       confirmBtn.click();
     });
 
-    expect(onSend).toHaveBeenCalledTimes(1);
-    expect(onSend.mock.calls[0]![0]).toMatch(/^\/game werewolf player/);
-    expect(onSend.mock.calls[0]![3]).toBe('queue');
-  });
+    // Game start bypasses message pipeline entirely
+    expect(onSend).not.toHaveBeenCalled();
+    // Must go through apiFetch (shared API client), not raw fetch
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/game/start',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
 
-  it('sends without queue mode when no active invocation', () => {
-    const onSend = vi.fn();
-
-    act(() => {
-      root.render(React.createElement(ChatInput, { onSend, disabled: false, hasActiveInvocation: false }));
-    });
-
-    const gameBtn = container.querySelector('button[aria-label="Game mode"]') as HTMLButtonElement;
-    act(() => {
-      gameBtn.click();
-    });
-
-    const layer1Item = container.querySelector('[data-testid="game-item-werewolf"]') as HTMLElement;
-    act(() => {
-      layer1Item.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    });
-
-    const modeItem = container.querySelector('[data-testid="game-mode-player"]') as HTMLElement;
-    act(() => {
-      modeItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    });
-
-    // Lobby opens, confirm to trigger send
-    expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
-    const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
-    act(() => {
-      confirmBtn.click();
-    });
-
-    expect(onSend).toHaveBeenCalledTimes(1);
-    expect(onSend.mock.calls[0]![0]).toMatch(/^\/game werewolf player/);
-    expect(onSend.mock.calls[0]![3]).toBeUndefined();
+    vi.restoreAllMocks();
   });
 });

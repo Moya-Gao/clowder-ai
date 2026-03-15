@@ -13,10 +13,18 @@ const BOARD_PRESETS = [
   { count: 12, label: '12人局', desc: '4狼 1预言 1女巫 1猎人 1守卫 4村民' },
 ] as const;
 
+export interface GameStartPayload {
+  gameType: 'werewolf';
+  humanRole: 'player' | 'god-view';
+  playerCount: number;
+  catIds: string[];
+  voiceMode: boolean;
+}
+
 interface GameLobbyProps {
   mode: 'player' | 'god-view';
   cats: CatData[];
-  onConfirm: (command: string) => void;
+  onConfirm: (payload: GameStartPayload) => void;
   onCancel: () => void;
 }
 
@@ -41,10 +49,13 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
   }, []);
 
   const handleConfirm = useCallback(() => {
-    const catIdStr = selectedCatList.map((c) => c.id).join(',');
-    const parts = ['/game', 'werewolf', mode, String(selectedPreset), catIdStr];
-    if (voiceMode) parts.push('voice');
-    onConfirm(parts.join(' '));
+    onConfirm({
+      gameType: 'werewolf',
+      humanRole: mode,
+      playerCount: selectedPreset,
+      catIds: selectedCatList.map((c) => c.id),
+      voiceMode,
+    });
   }, [mode, selectedPreset, selectedCatList, voiceMode, onConfirm]);
 
   return (
