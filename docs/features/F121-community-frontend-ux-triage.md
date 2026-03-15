@@ -131,6 +131,7 @@ Bug report 存档：
 | 2026-03-14 | Code fixes merged (PR #449): #22/#89/#28/#27 全部修复，砚砚(codex) review 放行 + 云端 review 通过 |
 | 2026-03-14 | Follow-up hotfix：铲屎官 runtime 反馈”置顶分组在新回复到达时自动展开”，定位为 `useCollapseState` auto-expand effect 依赖过宽，继续挂 F121 收口 |
 | 2026-03-15 | 社区 PR#71 (bouillipx) replyTo threading：方向 accepted，PR 关闭不 merge，按上游完整修复路线收进 F121 子项，下次 Outbound Sync 带出 |
+| 2026-03-15 | #66 replyTo threading merged (PR #480): 服务端校验+preview hydration+ReplyPill 组件，codex review 放行+云端 review 通过 |
 
 ## Links
 
