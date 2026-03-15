@@ -130,6 +130,8 @@ iPhone companion App：
 | iOS/watchOS 开发需要 Xcode + 真机调试 | 铲屎官有 M4 Max + 手表实机 |
 | AirPods 硬件事件（单击/双击/长按）浏览器/App 能否捕获 | Phase B 调研，降级方案用语音指令 |
 | Cat Café 后端 API 需要适配移动端 | 现有 REST API 基本可用，需补鉴权 |
+| **Cloudflare Tunnel 延迟** | 之前体验很卡，Watch 语音交互需要 <300ms 延迟。**Blocker 级**——需要铲屎官和之前的布偶猫讨论优化方案 |
+| 域名未注册 | 公网入口的域名还没注册，需要铲屎官处理 |
 
 ## Open Questions
 
@@ -139,6 +141,8 @@ iPhone companion App：
 | OQ-2 | ~~iOS App 是否需要上架 App Store？~~ | ✅ 先 sideload 测试，成熟后再决定 |
 | OQ-3 | 后端鉴权方案——现有 session 还是新增 API key/token？ | ⬜ 未定 |
 | OQ-4 | watchOS 最低支持版本？（影响 API 可用性） | ⬜ 未定 |
+| OQ-5 | Cloudflare Tunnel 延迟优化方案？之前很卡，需 <300ms | ⬜ 铲屎官找之前的布偶猫讨论 |
+| OQ-6 | 公网域名注册 | ⬜ 铲屎官处理 |
 
 ## Key Decisions
 
@@ -151,6 +155,7 @@ iPhone companion App：
 | KD-5 | 猫猫状态是 per-thread 而非全局 | 全局看所有猫太杂，进具体 thread 再看该 thread 的猫 | 2026-03-15 |
 | KD-6 | 原生 App 和 iMessage (F088 Phase F) 是两条独立路径 | 用途不同：iMessage 是消息通道走 connector，原生 App 是专属猫咖入口 | 2026-03-15 |
 | KD-7 | 先 sideload 测试，成熟后再交 $99 | 铲屎官确认：free provisioning 先跑起来 | 2026-03-15 |
+| KD-8 | Watch 走公网 API（Cloudflare Tunnel），不走 Tailscale | Watch 装不了 Tailscale，复用飞书/Telegram 同一条公网入口 | 2026-03-15 |
 
 ## Timeline
 
