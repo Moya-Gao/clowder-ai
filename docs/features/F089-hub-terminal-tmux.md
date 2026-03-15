@@ -173,3 +173,4 @@ tmux pane（agent 跑在这里）─┤
 | 2026-03-10 | **Bug fix #1**: `@fastify/websocket`（Phase 2 PR #334 引入）全局抢占 HTTP upgrade → Socket.IO WebSocket 握手 404 → 前端消息气泡全部消失。修复：`index.ts` 加 `onRequest` hook 对 `/socket.io/` 路径 hijack（布偶猫 Opus 4.6 定位+修复）|
 | 2026-03-10 | **Bug fix #2**: `TmuxGateway` 无条件创建 → 所有有 workingDirectory 的 agent 调用走 tmux pane → runtime 无 tmux 时 CLI exit 1 → 猫猫静默失败。修复：改为 `CAT_CAFE_TMUX_AGENT=1` opt-in，默认关闭（布偶猫 Opus 4.6 定位+修复）|
 | 2026-03-10 | Phase 3a: worktreeId canonical fix + AgentPaneList + AgentPaneViewer + agent pane WS endpoint (read-only attach) |
+| 2026-03-15 | **Bug fix #3**: invocation-level hard timeout guard (PR #473)：`abortableNext()` 防止 service.invoke() 永远挂起 + tmux firstEventTimeout/idleTimeout 双时钟 + CLI_TIMEOUT_MS=0 安全处理。Codex 本地 review + 云端 review 均通过 |
