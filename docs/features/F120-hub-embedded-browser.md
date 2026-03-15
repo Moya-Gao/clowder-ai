@@ -206,6 +206,7 @@ Cat Café 目前的差距：
 | 2026-03-14 | Phase C spec 更新：AC-C1（auto-open）+ AC-C2（html_widget）纳入，KD-6/7 决策记录 |
 | 2026-03-15 | Phase C AC-C1/C2 merged (PR #458)，砚砚 3 轮 review 后放行 |
 | 2026-03-15 | Phase C AC-C3/C4/C5 + socket room scoping merged (PR #461)，砚砚 review 放行 + 云端 review 通过 |
+| 2026-03-15 | fix: preview port validation + Hub URL warning (PR #472)，VITE_PORT 加入端口排除 + Hub URL 误输入琥珀提示。砚砚(codex) review 放行 + 云端 review 通过 |
 
 ## Review Gate
 
