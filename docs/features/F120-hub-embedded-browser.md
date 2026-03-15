@@ -25,6 +25,12 @@ Cat Café 目前的差距：
 > "让你们把前端启动起来，你们能在这里直接看到"
 > "a + b，按照咱的家规，我们要面向最终的状态开发"
 
+铲屎官原话（2026-03-14，Phase C 讨论）：
+> "我希望的是你打开那个浏览器不是我手动输入...别手动让我输入，你最好打开浏览器，把页面放出来"（猫必须能主动打开浏览器，不能只靠用户点 toast 或手动输 URL）
+> "简单的用富文本，复杂的用猫主动打开浏览器"（两层策略：轻量可视化走 rich block 内联，复杂应用走浏览器面板）
+> "这种能力我们能搞吗？"（指 Claude.ai 的 `visualize:show_widget` — 在聊天中内联渲染可交互 HTML/JS 组件）
+> "你不是120就是这些？120的 Phase 3 你都没做！"（Phase C 就是这些能力的归属，不需要另起 feature）
+
 ## What
 
 ### Phase A: Embedded Browser Panel（P0 — 核心能力）
@@ -79,16 +85,21 @@ Cat Café 目前的差距：
 
 ### Phase C: 增强体验（P1 — Phase A 稳定后）
 
-1. **猫主动打开浏览器**
-   - 猫通过 API/MCP 触发 `preview:auto-open` socket 事件 → 前端直接打开 browser panel（跳过 toast 确认）
-   - 支持指定 port + path，猫说"看看首页效果"→ 自动切到 browser panel 并加载
-   - 猫也可以发送生成的 HTML → 后端临时托管 → 自动打开浏览器渲染
+1. **猫主动打开浏览器（AC-C1）**
+   - 猫通过 API 调用 `POST /api/preview/auto-open` → 后端 emit `preview:auto-open` socket 事件 → 前端直接打开 browser panel（跳过 toast 确认）
+   - 支持指定 `{ port, path?, html? }`：
+     - `port + path`：打开已运行的 dev server 特定页面（如"看看首页效果"）
+     - `html`：后端临时托管猫生成的 HTML，分配临时端口，自动打开浏览器渲染
+   - 前端 `WorkspacePanel.tsx` 监听 `preview:auto-open` → 直接 `setViewMode('browser')` + `setPreviewPort()`，不走 toast
+   - 技术要点：复用现有 Preview Gateway 反向代理，临时 HTML 用 express static serve 即可
 
-2. **内联可视化 Widget（html_widget rich block）**
-   - 新增 rich block kind = `html_widget`，payload 包含 HTML/JS/CSS 代码
-   - 前端用 sandboxed iframe 渲染（`sandbox="allow-scripts"`，禁止 same-origin）
-   - 适合简单可视化：图表、计算器、动画等纯前端组件
+2. **内联可视化 Widget（AC-C2，html_widget rich block）**
+   - 新增 rich block kind = `html_widget`，payload 包含 HTML/JS/CSS 代码字符串
+   - 前端用 sandboxed iframe 渲染：`sandbox="allow-scripts"`，**禁止** `allow-same-origin`（内联 widget 不需要访问 Hub 存储）
+   - iframe `srcdoc` 直接注入 HTML（不走 Preview Gateway），零额外网络请求
+   - 适合简单可视化：Chart.js 图表、计算器、CSS 动画等纯前端组件
    - 类似 Claude.ai 的 `visualize:show_widget` 能力
+   - 铲屎官决策："简单的用富文本，复杂的用猫主动打开浏览器"——两层策略共存
 
 3. **DevTools 精简版**
    - Console 输出面板：显示 iframe 内页面的 console.log/warn/error
@@ -132,6 +143,9 @@ Cat Café 目前的差距：
 | R1 | "让你们把前端启动起来，你们能在这里直接看到" | AC-A1, AC-A3 | manual: Hub 内看到运行中的前端页面 | [x] |
 | R2 | "跟 Claude Code 这样能够有一个浏览器能够直接预览前端的能力" | AC-A1, AC-A4 | manual: embedded browser 有基础导航控件 | [x] |
 | R3 | "a + b，面向最终的状态开发" — 自动检测 + 手动输入都要 | AC-A2, AC-A4 | manual: 自动检测弹提示 + 手动输入 URL 都能打开 | [x] |
+| R4 | "你最好打开浏览器，把页面放出来" — 猫主动打开浏览器，不靠用户手动输入 | AC-C1 | manual: 猫调用 API 后 browser panel 自动打开指定页面 | [ ] |
+| R5 | "简单的用富文本，复杂的用猫主动打开浏览器" — 内联 widget + 浏览器两层策略 | AC-C1, AC-C2 | manual: 简单可视化在聊天内联渲染，复杂应用在浏览器面板打开 | [ ] |
+| R6 | "这种能力我们能搞吗？"（Claude.ai `visualize:show_widget`）— 聊天内联可交互 HTML | AC-C2 | manual: 猫发送 html_widget rich block，聊天中显示可交互组件 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -171,6 +185,8 @@ Cat Café 目前的差距：
 | KD-3 | **反向代理为必选方案**（否决 iframe 直连作为默认路径） | X-Frame-Options/CSP 不可控 + 独立 origin 隔离安全 + WebSocket 代理可控。砚砚 Design Gate 安全审查结论 | 2026-03-14 |
 | KD-4 | 端口发现：stdout 解析 + lsof 兜底 + 可达性探测 | 快+通用+防误报三层保险。砚砚 Design Gate 结论 | 2026-03-14 |
 | KD-5 | 独立预览 origin（preview gateway 独立端口） | allow-same-origin + allow-scripts 同 origin 不安全。砚砚安全审查结论 | 2026-03-14 |
+| KD-6 | **两层可视化策略**：简单走 `html_widget` rich block 内联，复杂走猫主动打开浏览器 | 铲屎官拍板："简单的用富文本，复杂的用猫主动打开浏览器"。参考 Claude.ai `visualize:show_widget` | 2026-03-14 |
+| KD-7 | `html_widget` 用 iframe `srcdoc` 渲染，不走 Preview Gateway | 内联 widget 是纯前端沙箱，不需要反向代理；sandbox 禁止 `allow-same-origin`（比 browser panel 更严格） | 2026-03-14 |
 
 ## Timeline
 
@@ -184,6 +200,10 @@ Cat Café 目前的差距：
 | 2026-03-14 | OQ-1/2/3 全部关闭，KD-3/4/5 新增，进入 writing-plans |
 | 2026-03-14 | Phase A+B 实现完成，56 tests passing，砚砚 review 3 轮后放行 |
 | 2026-03-14 | Phase A+B merged (PR #450)，云端 review 3 轮通过，60 tests |
+| 2026-03-14 | browser-preview skill 创建并合入（PR #453），教猫猫知道浏览器能力存在 |
+| 2026-03-14 | P0 hotfix: Preview Gateway ECONNRESET crash（`6c8ed78e`），proxy/socket 错误处理 |
+| 2026-03-14 | 铲屎官看到 Claude.ai `visualize:show_widget`，提出内联可视化 + 猫主动打开浏览器需求 |
+| 2026-03-14 | Phase C spec 更新：AC-C1（auto-open）+ AC-C2（html_widget）纳入，KD-6/7 决策记录 |
 
 ## Review Gate
 
