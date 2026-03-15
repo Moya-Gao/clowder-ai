@@ -677,10 +677,18 @@ export class RedisMessageStore {
   async markDelivered(id: string, deliveredAt: number): Promise<StoredMessage | null> {
     const msg = await this.getById(id);
     if (!msg) return null;
-    await this.redis.hset(MessageKeys.detail(id), {
+    const pipeline = this.redis.multi();
+    pipeline.hset(MessageKeys.detail(id), {
       deliveredAt: String(deliveredAt),
       deliveryStatus: 'delivered',
     });
+    // Update sorted set scores so history queries return messages at delivery
+    // position, not original send-time slot (Bug A: queue message ordering).
+    const scoreStr = String(deliveredAt);
+    pipeline.zadd(MessageKeys.thread(msg.threadId), scoreStr, id);
+    pipeline.zadd(MessageKeys.TIMELINE, scoreStr, id);
+    pipeline.zadd(MessageKeys.user(msg.userId), scoreStr, id);
+    await pipeline.exec();
     msg.deliveredAt = deliveredAt;
     msg.deliveryStatus = 'delivered';
     return msg;

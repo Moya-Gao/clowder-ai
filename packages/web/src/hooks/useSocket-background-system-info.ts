@@ -181,12 +181,30 @@ export function consumeBackgroundSystemInfo(
         }
       }
 
-      // Final fallback: recover active stream bubble
+      // Final fallback: recover active stream bubble or create placeholder
       if (!targetId) {
         targetId = existingRef?.id ?? recoverBackgroundStreamingMessage(msg, options);
       }
+      if (!targetId) {
+        // No existing bubble — create placeholder (mirrors foreground ensureActiveAssistantMessage)
+        const streamKey = `${msg.threadId}::${msg.catId}`;
+        targetId = `bg-rich-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
+        const invocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
+        options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
+        options.store.addMessageToThread(msg.threadId, {
+          id: targetId,
+          type: 'assistant',
+          catId: msg.catId,
+          content: '',
+          ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
+          timestamp: msg.timestamp,
+          isStreaming: true,
+          origin: 'callback',
+        });
+      }
 
-      if (targetId && parsed.block) {
+      if (parsed.block) {
         options.store.appendRichBlockToThread(msg.threadId, targetId, parsed.block);
       }
       consumed = true;

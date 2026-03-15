@@ -921,7 +921,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           },
         });
       }
-      chatItems.sort((a, b) => a.timestamp - b.timestamp);
+      chatItems.sort((a, b) => {
+        const ta = (typeof a.deliveredAt === 'number' ? a.deliveredAt : a.timestamp);
+        const tb = (typeof b.deliveredAt === 'number' ? b.deliveredAt : b.timestamp);
+        return ta - tb;
+      });
     }
 
     return {

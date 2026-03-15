@@ -141,7 +141,9 @@ function mergeReplaceHydrationMessages(
 
   return {
     messages: mergedMsgs.sort((a, b) => {
-      if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+      const ta = a.deliveredAt ?? a.timestamp;
+      const tb = b.deliveredAt ?? b.timestamp;
+      if (ta !== tb) return ta - tb;
       return a.id.localeCompare(b.id);
     }),
     stats: {
