@@ -6,13 +6,15 @@ interface SeatStatusInput {
   alive: boolean;
   ready?: boolean;
   gameStatus?: string;
+  hasActed?: boolean;
 }
 
 export function deriveSeatStatus(input: SeatStatusInput): string {
   if (!input.alive) return '死亡';
   if (input.gameStatus === 'lobby') return input.ready ? '准备中' : '加载中…';
   if (input.gameStatus === 'paused') return '暂停';
-  return '等待';
+  if (input.gameStatus === 'finished') return '结束';
+  return input.hasActed ? '✓ 已行动' : '等待';
 }
 
 interface PlayerGridProps {
@@ -54,7 +56,7 @@ export function PlayerGrid({ seats, activeSeatId, gameStatus, onSeatClick }: Pla
               {seat.seatId} {seat.displayName}
             </span>
             <span className={`text-[8px] font-mono ${isActive ? 'text-ww-base font-semibold' : 'text-ww-dim'}`}>
-              {isActive ? '发言中' : deriveSeatStatus({ alive: seat.alive, gameStatus })}
+              {isActive ? '发言中' : deriveSeatStatus({ alive: seat.alive, gameStatus, hasActed: seat.hasActed })}
             </span>
           </button>
         );

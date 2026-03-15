@@ -36,12 +36,19 @@ export class GameViewBuilder {
         seat.seatId === effectiveSeatId || // see bound/own seat's role
         (viewerFaction && seatRole?.faction === viewerFaction); // see faction mates
 
+      // hasActed is sensitive during night phases — only god/detective or own seat can see it.
+      // During day phases (public), everyone can see who has acted (e.g. voted).
+      const isPublicPhase = runtime.currentPhase?.startsWith('day_') ?? false;
+      const canSeeActed =
+        isGod || isDetective || seat.seatId === effectiveSeatId || isPublicPhase;
+
       const sv: SeatView = {
         seatId: seat.seatId,
         actorType: seat.actorType,
         actorId: seat.actorId,
         displayName: seat.actorId,
         alive: seat.alive,
+        hasActed: canSeeActed ? !!runtime.pendingActions[seat.seatId] : undefined,
       };
       if (showRole) {
         sv.role = seat.role;
@@ -59,6 +66,7 @@ export class GameViewBuilder {
       round: runtime.round,
       seats,
       visibleEvents,
+      phaseStartedAt: runtime.phaseStartedAt,
       config: {
         timeoutMs: runtime.config.timeoutMs,
         voiceMode: runtime.config.voiceMode,

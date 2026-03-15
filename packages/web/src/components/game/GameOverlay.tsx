@@ -1,6 +1,7 @@
 'use client';
 
 import type { GameView, SeatId } from '@cat-cafe/shared';
+import { useCountdown } from '@/hooks/useCountdown';
 import { PHASE_NAMES_ZH } from '@/stores/gameStore';
 import { ActionDock } from './ActionDock';
 import { EventFlow } from './EventFlow';
@@ -77,6 +78,9 @@ export function GameOverlay({
   onConfirmAction,
   onConfirmAltAction,
 }: GameOverlayProps) {
+  const phases = buildPhaseEntries(view);
+  const timeLeftMs = useCountdown(view.config.timeoutMs, view.phaseStartedAt);
+
   // Show result screen when game is finished with stats
   if (view.status === 'finished' && view.gameStats) {
     return (
@@ -85,9 +89,6 @@ export function GameOverlay({
       </GameShell>
     );
   }
-
-  const phases = buildPhaseEntries(view);
-  const timeLeftMs = view.config.timeoutMs;
 
   return (
     <GameShell onClose={onClose} isNight={isNight}>

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
+import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
@@ -184,6 +185,8 @@ export function ChatInput({
         // Success — dismiss lobby and navigate
         setLobbyMode(null);
         router.push(`/thread/${data.gameThreadId}`);
+        // Hydrate game state immediately (socket reconnect won't fire for same connection)
+        reconnectGame(data.gameThreadId).catch(() => {});
       } catch (err) {
         useChatStore.getState().addMessage({
           id: `game-err-${Date.now()}`,

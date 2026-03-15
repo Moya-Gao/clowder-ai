@@ -116,6 +116,8 @@ export interface GameConfig {
   humanRole: 'player' | 'god-view' | 'detective';
   /** Detective mode: the seat whose perspective the observer inherits */
   detectiveSeatId?: SeatId;
+  /** UserId of the human observer (god-view/detective) for state broadcast */
+  observerUserId?: string;
 }
 
 // === Game View (scoped read-only) ===
@@ -131,6 +133,8 @@ export interface GameView {
   visibleEvents: GameEvent[];
   myActions?: GameAction[];
   winner?: string;
+  /** Epoch ms when current phase started (for countdown timer) */
+  phaseStartedAt?: number;
   config: Pick<GameConfig, 'timeoutMs' | 'voiceMode' | 'humanRole'> & {
     humanSeat?: SeatId;
     detectiveSeatId?: SeatId;
@@ -167,6 +171,8 @@ export interface SeatView {
   role?: string;
   faction?: string;
   alive: boolean;
+  /** Whether this seat has submitted an action for the current phase */
+  hasActed?: boolean;
 }
 
 // === Type Guards ===

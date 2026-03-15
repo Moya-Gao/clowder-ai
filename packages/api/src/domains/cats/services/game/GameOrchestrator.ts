@@ -119,7 +119,7 @@ export class GameOrchestrator {
     await this.broadcastGameState(gameId);
   }
 
-  /** Broadcast scoped game state — per-seat views to each actor */
+  /** Broadcast scoped game state — per-seat views to each actor + observer */
   async broadcastGameState(gameId: string): Promise<void> {
     const runtime = await this.store.getGame(gameId);
     if (!runtime) return;
@@ -130,6 +130,21 @@ export class GameOrchestrator {
     for (const seat of runtime.seats) {
       const view = GameViewBuilder.buildView(runtime, seat.seatId as import('@cat-cafe/shared').SeatId);
       this.socket.emitToUser(seat.actorId, 'game:state_update', {
+        gameId: runtime.gameId,
+        view,
+        timestamp: now,
+      });
+    }
+
+    // Emit observer view for god-view/detective humans (not in seats)
+    const { humanRole, observerUserId } = runtime.config;
+    if (observerUserId && humanRole !== 'player') {
+      const viewer =
+        humanRole === 'detective' && runtime.config.detectiveSeatId
+          ? (`detective:${runtime.config.detectiveSeatId}` as const)
+          : 'god';
+      const view = GameViewBuilder.buildView(runtime, viewer);
+      this.socket.emitToUser(observerUserId, 'game:state_update', {
         gameId: runtime.gameId,
         view,
         timestamp: now,

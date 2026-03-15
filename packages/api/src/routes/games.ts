@@ -205,6 +205,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
           humanRole,
           ...(humanRole === 'player' ? { humanSeat: 'P1' as const } : {}),
           ...(resolvedDetectiveSeatId ? { detectiveSeatId: resolvedDetectiveSeatId } : {}),
+          ...(humanRole !== 'player' ? { observerUserId: userId } : {}),
         },
       });
     } catch (err: unknown) {
