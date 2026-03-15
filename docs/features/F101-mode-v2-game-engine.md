@@ -125,7 +125,7 @@ reopened: 2026-03-14
 - [x] AC-B7: PlayerGrid + PhaseTimeline 前端组件可用
 - [x] AC-B8: 语音模式可选，猫猫用 audio rich block 发言
 
-### Phase C（2026-03-14 补充 — 可用性修复）🟡
+### Phase C（2026-03-14 补充 — 可用性修复）✅
 - [x] AC-C1: GameShell 有关闭/返回按钮，用户可退出游戏回到聊天界面
 - [x] AC-C2: 大厅流程 — 选板子（6/7/8/9/10/12人局）+ 配置参赛猫 + 确认开始
 - [x] AC-C3: 猫猫 AI 自动行动 — GameAutoPlayer 驱动夜间技能 + 白天投票，游戏可推进
@@ -275,6 +275,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-14 | Bug fix: outside-click handler React 18 flush 竞态 (PR #444) |
 | 2026-03-14 | Bug fix: /game command bridge — intercept chat command to start game (PR #446) |
 | 2026-03-14 | **重新打开** — 铲屎官实际测试发现不可用：无关闭按钮/无大厅/猫不行动（LL-032） |
+| 2026-03-14 | Phase C merged (PR #454) — close button, lobby, AI auto-play, security hardening (codex review 2 rounds) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
