@@ -132,6 +132,28 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 - [x] AC-A6: 回归测试覆盖：connector 消息在 active slot 下 → 必须 queued；steer → 必须 immediate
 - [x] AC-A7: multi_mention target 崩溃/超时时，caller 的 InvocationTracker slot 必须正确释放，不能锁死铲屎官
 
+### Phase A.1（TOCTOU 竞态修复）
+> 铲屎官 2026-03-15 反馈：用户消息能打断 A2A 链。三猫（opus+codex+gpt52）独立排查确认为 P1 竞态。
+> 必须先修，否则 OQ-1/2/4 的产品讨论基础不稳。
+
+**根因 1（P1）：`messages.ts` TOCTOU**
+`messages.ts:306` 先 `has(threadId)` 判忙，`messages.ts:434` 才 `start()` 占槽。中间跨 `invocationRecordStore.create()` 等异步步骤。窗口期若 A2A 已占槽，用户消息仍走 immediate 路径，且 `start()` 的 preempt 会 `abort('preempted')` 打断 A2A。
+
+**根因 2（P1）：`multi_mention` 启动窗口**
+`callback-multi-mention-routes.ts` 先 create invocation record（line 113），后 `tracker.start()`（line 139）。窗口期 `messages.ts` 看到 `has()=false` → immediate → 并发穿透。
+
+**修复方案（三猫对齐）：**
+1. `InvocationTracker` 新增 `tryStartThread(threadId, catId, ...)` — thread 级 busy gate + slot 级占位，一个同步操作。thread 内任一猫活跃 → 返回 null（不 preempt）。
+2. `messages.ts` 所有非 force 的 immediate 路径改用 `tryStartThread()`，返回 null → 降级 queue。`tryStartThread()` 在 `create()` 之前调用。force/steer 不变（仍用 `start()`）。
+3. `multi_mention` 占位前移：`start()` 在 `create invocation record` 之前，全路径包在 outer try/finally。
+4. duplicate 路径：`tryStartThread()` 成功但 `create()` 返回 duplicate → 必须 `complete()` 回收占位。
+
+- [ ] AC-A8: `messages.ts` 非 force immediate 路径使用 `tryStartThread`，TOCTOU 窗口穿透时降级 queue
+- [ ] AC-A9: `multi_mention` 占位前移到 create 之前，全路径 outer try/finally 保证释放
+- [ ] AC-A10: 回归测试：`has()=false` 后 thread 变 busy → 用户消息必须 queued
+- [ ] AC-A11: 回归测试：`tryStartThread` 成功但 create 返回 duplicate → slot 必释放
+- [ ] AC-A12: 回归测试：multi_mention create/update 抛错 → slot 必释放
+
 ### Phase B（语义收敛，待 OQ-1 决策后定义）
 - [ ] AC-B1: TBD（取决于产品方向决策）
 
@@ -229,10 +251,13 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-14 | 铲屎官报告 multi_mention target 崩溃锁死 caller slot bug，补 P1+AC-A7 |
 | 2026-03-14 | 铲屎官决策：F108+F122 统一由布偶猫+缅因猫在同一 thread 按节奏推进 |
 | 2026-03-15 | Phase A merged (PR #459) — AC-A1~A7 全部完成 |
+| 2026-03-15 | 铲屎官反馈用户消息能打断 A2A；三猫独立排查确认 TOCTOU 竞态（P1） |
+| 2026-03-15 | Phase A.1 方案锁定：tryStartThread + messages.ts 降级 + multi_mention 占位前移 |
 
 ## Review Gate
 
 - Phase A: 跨家族 review（缅因猫优先，codex 或 gpt52）
+- Phase A.1: 跨家族 review（codex 或 gpt52）
 
 ## Links
 
