@@ -40,6 +40,18 @@ export class PreviewGateway {
       changeOrigin: true,
     });
 
+    // Prevent unhandled proxy errors from crashing the process
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.proxy.on('error', (err: Error, _req: any, res: any) => {
+      // res may be a ServerResponse (HTTP) or a Socket (WS upgrade)
+      if (res && 'writeHead' in res && !res.headersSent) {
+        (res as http.ServerResponse).writeHead(502, { 'Content-Type': 'application/json' });
+        (res as http.ServerResponse).end(JSON.stringify({ error: 'Proxy error', message: err.message }));
+      } else if (res && 'destroy' in res) {
+        (res as import('node:net').Socket).destroy();
+      }
+    });
+
     // Strip iframe-blocking headers from proxied responses
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.proxy.on('proxyRes', (proxyRes: any) => {
@@ -111,6 +123,7 @@ export class PreviewGateway {
         return;
       }
       const target = `http://${parsed.host}:${parsed.port}`;
+      socket.on('error', () => socket.destroy()); // prevent unhandled socket error crash
       this.proxy.ws(req, socket, head, { target });
     });
   }
