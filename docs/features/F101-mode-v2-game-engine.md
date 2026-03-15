@@ -176,10 +176,10 @@ reopened: 2026-03-14
 - [x] AC-D5: 狼人猫猫风 UX（可爱+暗色调+猫猫 cosplay 狼人）— 需暹罗猫参与视觉资产
 - [x] AC-D6: 结算画面 — 胜负 + 各玩家统计 + MVP 评选
 
-### Phase E（后续增强 — backlog）⬜
-- [ ] AC-E1: 上帝推理模式（Detective Mode）— 观战者开局选定一只猫，只能看到该玩家的身份和信息权限，其余座位只看到公开信息。铲屎官原话："只能选择一只猫看他身份，狼人杀观战模式那种"
-  - 视觉：塔罗牌卡背 + 灵魂链接光效 + 翻牌仪式（烁烁提案）
-  - 技术：`GameViewBuilder` 新增 `detective` 视角，绑定 seatId 后继承该座位信息域
+### Phase E（后续增强 — backlog）🚧
+- [x] AC-E1: 上帝推理模式（Detective Mode）— 观战者开局选定一只猫，只能看到该玩家的身份和信息权限，其余座位只看到公开信息。铲屎官原话："只能选择一只猫看他身份，狼人杀观战模式那种"
+  - 视觉：塔罗牌卡背 + 灵魂链接光效 + 翻牌仪式（烁烁提案）— ⬜ 视觉资产待暹罗猫
+  - 技术：`GameViewBuilder` 新增 `detective` 视角，绑定 seatId 后继承该座位信息域 ✅
 
 ## 需求点 Checklist
 
@@ -349,6 +349,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-15 | AC-D5 PR-A merged (PR #466) — token-only CSS vars + data-theme/data-phase 挂载（零视觉变化，PR-B 待做组件替换） |
 | 2026-03-15 | AC-D5 PR-B merged (PR #467) — 12 组件 token 替换 + 5 soft token + GameLobby/NightActionCard 全量迁移（codex review 3 rounds） |
 | 2026-03-15 | Phase D game startup API merged (PR #471) — dedicated POST /api/game/start + HTTP navigation, eliminates 布偶猫思考中 loading (codex 3-round local + 3-round cloud review) |
+| 2026-03-15 | Phase E detective mode merged (PR #474) — scoped observer view, GameViewBuilder detective viewer, lobby binding UI (codex 1-round local + 2-round cloud review) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
