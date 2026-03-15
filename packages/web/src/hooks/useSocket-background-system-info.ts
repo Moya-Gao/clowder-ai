@@ -208,6 +208,26 @@ export function consumeBackgroundSystemInfo(
         options.store.appendRichBlockToThread(msg.threadId, targetId, parsed.block);
       }
       consumed = true;
+    } else if (parsed?.type === 'liveness_warning') {
+      // F118 Phase C: Liveness warning — update cat status + invocation snapshot (mirror foreground)
+      const level = parsed.level as 'alive_but_silent' | 'suspected_stall';
+      options.store.updateThreadCatStatus(msg.threadId, msg.catId, level);
+      options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
+        livenessWarning: {
+          level,
+          state: parsed.state as 'active' | 'busy-silent' | 'idle-silent' | 'dead',
+          silenceDurationMs: parsed.silenceDurationMs as number,
+          cpuTimeMs: typeof parsed.cpuTimeMs === 'number' ? parsed.cpuTimeMs : undefined,
+          processAlive: parsed.processAlive as boolean,
+          receivedAt: Date.now(),
+        },
+      });
+      consumed = true;
+    } else if (parsed?.type === 'timeout_diagnostics') {
+      // F118 AC-C3: Timeout diagnostics — consume silently in background threads.
+      // Foreground uses pendingTimeoutDiagRef (React ref) to attach to error messages;
+      // background threads don't have that mechanism, so we just suppress the raw JSON.
+      consumed = true;
     } else if (parsed?.type === 'session_seal_requested') {
       if (parsed.catId) {
         options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {

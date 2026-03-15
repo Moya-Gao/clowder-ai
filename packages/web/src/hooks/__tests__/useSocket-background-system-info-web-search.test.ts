@@ -218,3 +218,94 @@ describe('consumeBackgroundSystemInfo rich_block placeholder', () => {
     expect(options.store.appendRichBlockToThread).toHaveBeenCalledWith('thread-1', 'target-msg', block);
   });
 });
+
+describe('consumeBackgroundSystemInfo liveness_warning', () => {
+  it('consumes liveness_warning and updates catStatus + invocation snapshot (F118 parity)', () => {
+    const options = createMockOptions();
+
+    const msg = {
+      type: 'system_info',
+      catId: 'opus',
+      threadId: 'thread-1',
+      content: JSON.stringify({
+        type: 'liveness_warning',
+        __livenessWarning: true,
+        state: 'busy-silent',
+        silenceDurationMs: 160094,
+        level: 'alive_but_silent',
+        cpuTimeMs: 12700,
+        processAlive: true,
+      }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    // Must update catStatus so ThinkingIndicator renders amber warning (not raw JSON)
+    expect(options.store.updateThreadCatStatus).toHaveBeenCalledWith('thread-1', 'opus', 'alive_but_silent');
+    // Must set invocation snapshot for the warning UI to display details
+    expect(options.store.setThreadCatInvocation).toHaveBeenCalledWith(
+      'thread-1',
+      'opus',
+      expect.objectContaining({
+        livenessWarning: expect.objectContaining({
+          level: 'alive_but_silent',
+          state: 'busy-silent',
+          silenceDurationMs: 160094,
+          cpuTimeMs: 12700,
+          processAlive: true,
+        }),
+      }),
+    );
+  });
+
+  it('consumes suspected_stall level', () => {
+    const options = createMockOptions();
+
+    const msg = {
+      type: 'system_info',
+      catId: 'codex',
+      threadId: 'thread-2',
+      content: JSON.stringify({
+        type: 'liveness_warning',
+        __livenessWarning: true,
+        state: 'idle-silent',
+        silenceDurationMs: 300000,
+        level: 'suspected_stall',
+        cpuTimeMs: 0,
+        processAlive: true,
+      }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    expect(options.store.updateThreadCatStatus).toHaveBeenCalledWith('thread-2', 'codex', 'suspected_stall');
+  });
+
+  it('consumes timeout_diagnostics without rendering raw JSON', () => {
+    const options = createMockOptions();
+
+    const msg = {
+      type: 'system_info',
+      catId: 'opus',
+      threadId: 'thread-1',
+      content: JSON.stringify({
+        type: 'timeout_diagnostics',
+        catId: 'opus',
+        firstEvent: 'item.streaming',
+        lastEvent: 'item.completed',
+        durationMs: 45000,
+      }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    // Should NOT create any message bubble
+    expect(options.store.addMessageToThread).not.toHaveBeenCalled();
+  });
+});
