@@ -114,3 +114,79 @@ describe('preview routes', () => {
     assert.equal(body.ok, true);
   });
 });
+
+// F120 Phase C: auto-open tests (need socketEmit)
+describe('POST /api/preview/auto-open', () => {
+  let app2;
+  const emitted = [];
+
+  before(async () => {
+    app2 = Fastify();
+    await app2.register(previewRoutes, {
+      portDiscovery: new PortDiscoveryService(),
+      gatewayPort: 4100,
+      socketEmit: (event, data) => emitted.push({ event, data }),
+    });
+    await app2.ready();
+  });
+
+  after(async () => {
+    await app2.close();
+  });
+
+  it('emits preview:auto-open socket event with port and path', async () => {
+    emitted.length = 0;
+    const res = await app2.inject({
+      method: 'POST',
+      url: '/api/preview/auto-open',
+      payload: { port: 5173, path: '/dashboard' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.allowed, true);
+    assert.equal(body.port, 5173);
+    assert.equal(body.path, '/dashboard');
+    assert.equal(emitted.length, 1);
+    assert.equal(emitted[0].event, 'preview:auto-open');
+    assert.equal(emitted[0].data.port, 5173);
+    assert.equal(emitted[0].data.path, '/dashboard');
+  });
+
+  it('rejects excluded port (6399)', async () => {
+    emitted.length = 0;
+    const res = await app2.inject({
+      method: 'POST',
+      url: '/api/preview/auto-open',
+      payload: { port: 6399 },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.allowed, false);
+    assert.equal(emitted.length, 0); // no socket emit for rejected port
+  });
+
+  it('includes worktreeId in emitted event for scope filtering', async () => {
+    emitted.length = 0;
+    const res = await app2.inject({
+      method: 'POST',
+      url: '/api/preview/auto-open',
+      payload: { port: 5173, path: '/settings', worktreeId: 'wt-abc' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(emitted[0].data.worktreeId, 'wt-abc');
+    assert.equal(emitted[0].data.path, '/settings');
+  });
+
+  it('works without path (port-only)', async () => {
+    emitted.length = 0;
+    const res = await app2.inject({
+      method: 'POST',
+      url: '/api/preview/auto-open',
+      payload: { port: 3847 },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.allowed, true);
+    assert.equal(body.port, 3847);
+    assert.equal(emitted[0].data.path, undefined);
+  });
+});

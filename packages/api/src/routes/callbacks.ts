@@ -188,6 +188,15 @@ const richBlockSchema = z.discriminatedUnion('kind', [
     selectedIds: z.array(z.string()).optional(),
     groupId: z.string().min(1).optional(),
   }),
+  // F120 Phase C: html_widget — inline sandboxed HTML/JS visualization
+  z.object({
+    id: z.string().min(1),
+    kind: z.literal('html_widget'),
+    v: z.literal(1),
+    html: z.string().min(1).max(500_000),
+    title: z.string().optional(),
+    height: z.number().int().min(50).max(2000).optional(),
+  }),
 ]);
 const createRichBlockSchema = callbackAuthSchema.extend({
   block: richBlockSchema,

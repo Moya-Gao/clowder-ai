@@ -7,6 +7,8 @@ interface PreviewRouteOpts {
   portDiscovery: PortDiscoveryService;
   gatewayPort: number;
   runtimePorts?: number[];
+  /** F120 Phase C: emit socket events (e.g. preview:auto-open) */
+  socketEmit?: (event: string, data: unknown) => void;
 }
 
 export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, opts) => {
@@ -77,5 +79,26 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
       })
       .catch(() => {});
     return { ok: true };
+  });
+
+  // F120 Phase C: Cat-initiated auto-open — skips toast, directly opens browser panel
+  app.post<{ Body: { port: number; path?: string; threadId?: string; worktreeId?: string } }>(
+    '/api/preview/auto-open',
+    async (req) => {
+      const { port, path, threadId, worktreeId } = req.body;
+      const result = validatePort(port, { host: 'localhost', gatewaySelfPort: gatewayPort, runtimePorts });
+      if (!result.allowed) {
+        return result;
+      }
+      // Emit with worktreeId so frontend can scope-filter (same pattern as port-discovered)
+      opts.socketEmit?.('preview:auto-open', { port, path, threadId, worktreeId });
+      auditLog
+        .append({
+          type: AuditEventTypes.BROWSER_PREVIEW_OPEN,
+          threadId,
+          data: { port, host: 'localhost', gatewayPort, autoOpen: true, worktreeId },
+        })
+        .catch(() => {});
+      return { allowed: true, port, path };
   });
 };
