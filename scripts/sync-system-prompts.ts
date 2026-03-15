@@ -30,11 +30,154 @@ export interface DriftResult {
   reason?: string;
 }
 
+interface PromptRosterEntry {
+  family?: string;
+}
+
+interface PromptVariant {
+  id: string;
+  catId?: string;
+  variantLabel?: string;
+  displayName?: string;
+  mentionPatterns?: string[];
+  teamStrengths?: string | null;
+  caution?: string | null;
+}
+
+interface PromptBreed {
+  id: string;
+  catId: string;
+  name: string;
+  displayName: string;
+  nickname?: string | null;
+  roleDescription: string;
+  teamStrengths?: string | null;
+  caution?: string | null;
+  mentionPatterns: string[];
+  defaultVariantId: string;
+  variants: PromptVariant[];
+}
+
+interface PromptConfig {
+  roster: Record<string, PromptRosterEntry>;
+  breeds: PromptBreed[];
+}
+
+interface FlatPromptCat {
+  catId: string;
+  breedId: string;
+  familyName: string;
+  nickname?: string | null;
+  displayName: string;
+  provider: string;
+  roleDescription: string;
+  teamStrengths?: string | null;
+  mentionPatterns: string[];
+}
+
+const PROVIDER_FAMILY_LABELS: Record<string, string> = {
+  anthropic: 'Claude',
+  openai: 'OpenAI',
+  google: 'Gemini',
+  dare: 'DARE',
+  antigravity: 'Antigravity',
+  opencode: 'OpenCode',
+};
+
 // --- Shard Reader ---
 
 function readShard(shardsDir: string, name: string): string {
   const path = join(shardsDir, name);
   return readFileSync(path, 'utf-8').trim();
+}
+
+function readPromptConfig(shardsDir: string): PromptConfig {
+  const configPath = join(shardsDir, '..', '..', 'cat-config.json');
+  return JSON.parse(readFileSync(configPath, 'utf-8')) as PromptConfig;
+}
+
+function flattenPromptCats(config: PromptConfig): FlatPromptCat[] {
+  const result: FlatPromptCat[] = [];
+
+  for (const breed of config.breeds) {
+    for (const variant of breed.variants) {
+      const isDefault = variant.id === breed.defaultVariantId;
+      const catId = variant.catId ?? breed.catId;
+      const mentionPatterns =
+        variant.mentionPatterns && variant.mentionPatterns.length > 0
+          ? variant.mentionPatterns
+          : isDefault
+            ? breed.mentionPatterns
+            : [`@${catId}`];
+
+      result.push({
+        catId,
+        breedId: breed.id,
+        familyName: breed.name,
+        nickname: breed.nickname,
+        displayName: variant.displayName ?? breed.displayName,
+        provider: variant.provider,
+        roleDescription: breed.roleDescription,
+        teamStrengths: variant.teamStrengths ?? breed.teamStrengths,
+        mentionPatterns,
+      });
+    }
+  }
+
+  return result;
+}
+
+function pickMention(cat: FlatPromptCat): string {
+  const exact = cat.mentionPatterns.find((pattern) => pattern.toLowerCase() === `@${cat.catId}`.toLowerCase());
+  if (exact) return exact;
+  return [...cat.mentionPatterns].sort((a, b) => a.length - b.length)[0] ?? `@${cat.catId}`;
+}
+
+function formatFamilyLabel(cat: FlatPromptCat): string {
+  return `${cat.familyName} (${PROVIDER_FAMILY_LABELS[cat.provider] ?? cat.provider})`;
+}
+
+function buildDynamicRosterSection(config: PromptConfig): string {
+  const byId = new Map(flattenPromptCats(config).map((cat) => [cat.catId, cat]));
+  const rows: string[] = [];
+
+  for (const catId of Object.keys(config.roster)) {
+    const cat = byId.get(catId);
+    if (!cat) continue;
+
+    rows.push(
+      `| ${formatFamilyLabel(cat)} | ${cat.nickname ?? cat.displayName} | ${cat.teamStrengths ?? cat.roleDescription} | \`${pickMention(cat)}\` |`,
+    );
+  }
+
+  return [
+    '## 队友',
+    '',
+    `当前名册来自 \`cat-config.json\`，共 ${rows.length} 只猫。`,
+    '',
+    '| 家族 | 昵称 | 角色 | @ 句柄 |',
+    '|------|------|------|--------|',
+    ...rows,
+    '',
+    '注：同族不同个体按唯一句柄区分；完整真相源是 `cat-config.json`。',
+  ].join('\n');
+}
+
+function renderCollabRules(shardsDir: string): string {
+  const raw = readShard(shardsDir, 'collab-rules.md');
+  const config = readPromptConfig(shardsDir);
+  const teamHeading = '## 队友';
+  const projectHeading = '## 项目信息';
+  const teamIndex = raw.indexOf(teamHeading);
+  const projectIndex = raw.indexOf(projectHeading);
+
+  if (teamIndex < 0 || projectIndex < 0 || projectIndex <= teamIndex) {
+    return raw;
+  }
+
+  const before = raw.slice(0, teamIndex).trim();
+  const after = raw.slice(projectIndex).trim();
+  return [before, '', buildDynamicRosterSection(config), '', after].join('\n');
 }
 
 // --- Renderers ---
@@ -46,7 +189,7 @@ function readShard(shardsDir: string, name: string): string {
  */
 export function renderForCodex(shardsDir: string): string {
   const governance = readShard(shardsDir, 'governance-l0.md');
-  const collab = readShard(shardsDir, 'collab-rules.md');
+  const collab = renderCollabRules(shardsDir);
   const identity = readShard(shardsDir, 'cats/codex.md');
 
   return [identity, '', '---', '', collab, '', '---', '', governance].join('\n');
@@ -59,7 +202,7 @@ export function renderForCodex(shardsDir: string): string {
  */
 export function renderForGemini(shardsDir: string): string {
   const governance = readShard(shardsDir, 'governance-l0.md');
-  const collab = readShard(shardsDir, 'collab-rules.md');
+  const collab = renderCollabRules(shardsDir);
   const identity = readShard(shardsDir, 'cats/gemini.md');
 
   return [identity, '', '---', '', collab, '', '---', '', governance].join('\n');

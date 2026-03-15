@@ -19,15 +19,20 @@ describe('sync-system-prompts', () => {
       assert.ok(result.includes('Magic Words'), 'missing magic words');
     });
 
-    it('should include codex identity', () => {
+    it('should include shared OpenAI maine-coon identity', () => {
       const result = renderForCodex(SHARDS_DIR);
       assert.ok(result.includes('砚砚'), 'missing 砚砚 nickname');
-      assert.ok(result.includes('缅因猫'), 'missing 缅因猫 family');
+      assert.ok(result.includes('OpenAI 家族共享'), 'missing shared home prompt marker');
+      assert.ok(result.includes('@gpt52'), 'missing gpt52 handle');
+      assert.ok(result.includes('@spark'), 'missing spark handle');
+      assert.ok(result.includes('默认按 `@codex` 行事'), 'missing default cat guard');
     });
 
-    it('should include collab rules', () => {
+    it('should include dynamic collab rules from cat-config roster', () => {
       const result = renderForCodex(SHARDS_DIR);
       assert.ok(result.includes('@opus'), 'missing @opus handle');
+      assert.ok(result.includes('@opencode'), 'missing @opencode handle');
+      assert.ok(result.includes('共 11 只猫'), 'missing dynamic roster count');
       assert.ok(result.includes('到我这里结束了吗'), 'missing exit check');
     });
 
@@ -45,10 +50,11 @@ describe('sync-system-prompts', () => {
       assert.ok(result.includes('P1'), 'missing P1 principle');
     });
 
-    it('should include gemini identity', () => {
+    it('should include shared Gemini identity', () => {
       const result = renderForGemini(SHARDS_DIR);
       assert.ok(result.includes('烁烁'), 'missing 烁烁 nickname');
-      assert.ok(result.includes('暹罗猫'), 'missing 暹罗猫 family');
+      assert.ok(result.includes('Gemini 家族共享'), 'missing shared Gemini prompt marker');
+      assert.ok(result.includes('@gemini25'), 'missing gemini25 handle');
     });
 
     it('should include language instruction', () => {
