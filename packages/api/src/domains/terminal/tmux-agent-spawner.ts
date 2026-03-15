@@ -146,11 +146,13 @@ export async function* spawnCliInTmux(
   try {
     const fifoStream = createReadStream(fifoPath, { encoding: 'utf-8' });
     for await (const event of parseNDJSON(fifoStream)) {
-      resetTimeout();
       if (isParseError(event)) {
         console.error(`[tmux-agent] JSON parse error: ${(event as { line: string }).line}`);
         continue;
       }
+      // Reset timeout only on valid NDJSON events.
+      // Invalid output should not mask a hung CLI.
+      resetTimeout();
       yield event;
     }
 

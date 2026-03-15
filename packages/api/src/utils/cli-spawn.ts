@@ -212,16 +212,16 @@ export async function* spawnCli(
       const { done, value } = raceResult.result;
       if (done) break;
 
-      // Reset timeout on any output — CLI is still alive
-      resetTimeout();
-      if (probe) probe.notifyActivity();
-
       if (isParseError(value)) {
         const parseErr = value as { line: string };
         console.error(`[cli-spawn] JSON parse error from ${options.command}: ${parseErr.line}`);
         pendingNext = ndjson.next();
         continue;
       }
+      // Reset timeout only after a valid NDJSON event.
+      // Invalid chatter should not keep a stuck invocation alive forever.
+      resetTimeout();
+      if (probe) probe.notifyActivity();
       // F118: Record event timestamps for diagnostic enrichment
       const now = Date.now();
       if (firstEventAt === null) firstEventAt = now;

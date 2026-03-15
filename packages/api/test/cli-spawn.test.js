@@ -133,6 +133,28 @@ test('spawnCli skips parse errors in stdout', async () => {
   console.error = originalError;
 });
 
+test('parse-error noise does not reset timeout forever', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(spawnCli({ command: 'test-cli', args: [], timeoutMs: 60 }, { spawnFn }));
+
+  const noiseTimer = setInterval(() => {
+    if (!proc.stdout.writableEnded) {
+      proc.stdout.write('not-json-line\n');
+    }
+  }, 10);
+
+  // Let timeout fire while noise is still arriving.
+  await new Promise((resolve) => setTimeout(resolve, 140));
+  clearInterval(noiseTimer);
+  if (!proc.stdout.writableEnded) proc.stdout.end();
+
+  const results = await promise;
+  const hasTimeout = results.some((r) => isCliTimeout(r));
+  assert.equal(hasTimeout, true, 'invalid stdout noise should not keep invocation alive');
+});
+
 test('spawnCli kills process on timeout', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

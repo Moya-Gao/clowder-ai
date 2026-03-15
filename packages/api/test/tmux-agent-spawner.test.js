@@ -114,6 +114,28 @@ describe('spawnCliInTmux', () => {
     assert.equal(valEvent.val, 'hello-tmux');
   });
 
+  it('parse-error noise does not reset timeout forever', async () => {
+    const events = [];
+    const gen = spawnCliInTmux(
+      {
+        command: '/bin/sh',
+        args: ['-c', 'while true; do echo not-json-line; sleep 0.05; done'],
+        worktreeId: WORKTREE,
+        invocationId: 'test-inv-timeout-noise',
+        cwd: '/tmp',
+        timeoutMs: 200,
+      },
+      { tmuxGateway: gateway },
+    );
+
+    for await (const event of gen) {
+      events.push(event);
+    }
+
+    const timeoutEvent = events.find((e) => e.__cliTimeout);
+    assert.ok(timeoutEvent, 'invalid tmux output noise should still hit timeout');
+  });
+
   it('pane has remain-on-exit set', async () => {
     // Create an agent pane and verify remain-on-exit
     const paneId = await gateway.createAgentPane(WORKTREE, { cwd: '/tmp' });
