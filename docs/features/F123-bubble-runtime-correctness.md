@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F123: Bubble Runtime Correctness（消息身份契约 + Reconcile 状态机）
 
-> **Status**: spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -55,20 +55,20 @@ created: 2026-03-14
 
 ### Phase A（Truth Model & Replay Harness）
 - [ ] AC-A1: 产出一份 code-backed bubble state model，逐条映射当前真实写入入口与字段职责
-- [ ] AC-A2: replay harness 的首批 fixture 至少覆盖 active late-bind 双影 + background ref-lost 停更 两条主路径
+- [x] AC-A2: replay harness 的首批 fixture 至少覆盖 active late-bind 双影 + background ref-lost 停更 两条主路径
 - [ ] AC-A3: 每个进入 F123 的现场症状都能映射到某个 fixture，而不是只保留口头描述
 
 ### Phase B（Writer Convergence & Identity Hardening）
 - [ ] AC-B1: active / background / history / draft / queue 的 assistant bubble 创建路径统一遵守同一身份 contract
 - [ ] AC-B2: 同一 `catId + invocationId + bubble kind` 不会在 store 中稳定存在两条 text bubble
 - [ ] AC-B3: placeholder 升级为正式消息时遵守单调规则，不会因 id swap / hydration / late bind 产生影子 bubble
-- [ ] AC-B4: 同一 invocation 下，语义重叠的 callback text 到达时会替换对应 stream text，而不是新增第二条 bubble
+- [x] AC-B4: 同一 invocation 下，语义重叠的 callback text 到达时会替换对应 stream text，而不是新增第二条 bubble
 - [ ] AC-B5: dev/test 模式下提供 invariant 断言或诊断日志，能直接指出 duplicate 是在哪个入口创建的
 
 ### Phase C（Monotonic Recovery & Observability Closure）
 - [ ] AC-C1: F5、thread switch、replace hydration、draft recovery 后，用户看到的同一条消息满足单调可见性
 - [ ] AC-C2: 针对已知历史症状的 replay/golden tests 全绿：瞬时双影、stream 停更、draft/hydration 身份断层、rich block 落错 bubble、queue/hydration 乱序
-- [ ] AC-C3: 提供 bubble provenance / timeline dump 的最小可用调试能力，能导出一次 invocation 的关键 lifecycle
+- [x] AC-C3: 提供 bubble provenance / timeline dump 的最小可用调试能力，能导出一次 invocation 的关键 lifecycle
 - [ ] AC-C4: F123 完成时，剩余未解问题必须明确分流为 provider/runtime 问题或 follow-up feature，不能再以“散装 bug”留在空气里
 
 ## 需求点 Checklist
@@ -78,9 +78,9 @@ created: 2026-03-14
 | R1 | “这个问题从第一天开始就修到现在” | AC-A1, AC-A3 | discussion + spec review | [ ] |
 | R2 | “F5 前后不能一会两条一会一条” | AC-B2, AC-C1 | replay test + manual | [ ] |
 | R3 | “不要乱编和瞎猜，一定要看代码” | AC-A1, AC-A2 | code-backed audit + replay fixtures | [ ] |
-| R4 | “要有一个独立 feature owning 这条线” | AC-C4 | backlog + feature doc | [ ] |
+| R4 | “要有一个独立 feature owning 这条线” | AC-C4 | backlog + feature doc | [x] |
 | R5 | “不要再靠补丁式修法反复打同类问题” | AC-B1, AC-B3, AC-C2 | code review + replay suite | [ ] |
-| R6 | “同一 invocation 里正式发言和思考过程不要再双影并存” | AC-B4, AC-C1 | replay test + manual | [ ] |
+| R6 | “同一 invocation 里正式发言和思考过程不要再双影并存” | AC-B4, AC-C1 | replay test + manual | [x] |
 
 ### 覆盖检查
 - [ ] 每个需求点都能映射到至少一个 AC
@@ -128,6 +128,7 @@ created: 2026-03-14
 | 日期 | 事件 |
 |------|------|
 | 2026-03-14 | 从 F081 演进 kickoff F123，收敛三猫观点并明确第二阶段 scope |
+| 2026-03-15 | Phase A/B slice merged (PR #460): active/background fixture 落盘、callback replacement hardening、late-stream suppression、bubble timeline dump |
 
 ## Review Gate
 
