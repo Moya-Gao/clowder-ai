@@ -404,10 +404,11 @@ async function main(): Promise<void> {
   } catch (err) {
     app.log.warn(`[preview] Gateway failed to start: ${(err as Error).message}`);
   }
-  // Port discovery → Socket.IO push to all clients
+  // Port discovery → Socket.IO push to worktree-scoped room
   portDiscovery.onDiscovered((port) => {
     if (socketManager) {
-      socketManager.getIO().emit('preview:port-discovered', port);
+      const room = port.worktreeId ? `worktree:${port.worktreeId}` : 'preview:global';
+      socketManager.broadcastToRoom(room, 'preview:port-discovered', port);
     }
   });
 
@@ -618,8 +619,8 @@ async function main(): Promise<void> {
     portDiscovery,
     gatewayPort: previewGateway.actualPort || PREVIEW_GATEWAY_PORT,
     runtimePorts,
-    socketEmit: (event, data) => {
-      socketManager?.getIO().emit(event, data);
+    socketEmit: (event, data, room) => {
+      socketManager?.broadcastToRoom(room, event, data);
     },
   });
   await app.register(skillsRoutes);

@@ -2,6 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { BrowserTabBar } from './BrowserTabBar';
+import { BrowserToolbar } from './BrowserToolbar';
+import { ConsolePanel } from './ConsolePanel';
+import { useHmrStatus } from './useHmrStatus';
+import { usePreviewBridge } from './usePreviewBridge';
+
+export interface BrowserTab {
+  id: string;
+  port: number;
+  path: string;
+  title: string;
+}
 
 interface BrowserPanelProps {
   /** Initial port to preview (e.g. from port discovery toast) */
@@ -14,8 +26,6 @@ interface PreviewStatus {
   available: boolean;
   gatewayPort: number;
 }
-
-type HmrStatus = 'idle' | 'connected' | 'disconnected';
 
 /**
  * F120: Embedded Browser Panel — previews localhost dev servers via reverse proxy.
@@ -31,8 +41,20 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
   const [targetPath, setTargetPath] = useState(initialPath ?? '/');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hmrStatus, setHmrStatus] = useState<HmrStatus>('idle');
+  const [tabs, setTabs] = useState<BrowserTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const tabIdCounter = useRef(0);
+  const hmrStatus = useHmrStatus(gatewayPort, targetPort);
+  const { consoleEntries, consoleOpen, setConsoleOpen, isCapturing, screenshotUrl, handleScreenshot, clearConsole } =
+    usePreviewBridge(iframeRef, gatewayPort);
+
+  // Helper: update active viewport state
+  const activateView = useCallback((port: number, path: string) => {
+    setTargetPort(port);
+    setTargetPath(path);
+    setUrlInput(port ? `localhost:${port}${path !== '/' ? path : ''}` : '');
+  }, []);
 
   // Fetch gateway port on mount
   useEffect(() => {
@@ -44,15 +66,22 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
       .catch(() => setError('Preview gateway not available'));
   }, []);
 
-  // If initialPort/initialPath changes (e.g. from port discovery or auto-open), auto-navigate
+  // If initialPort/initialPath changes, add or activate a tab
   useEffect(() => {
-    if (initialPort && (initialPort !== targetPort || (initialPath ?? '/') !== targetPath)) {
-      setTargetPort(initialPort);
-      const pathSuffix = initialPath && initialPath !== '/' ? initialPath : '';
-      setUrlInput(`localhost:${initialPort}${pathSuffix}`);
-      setTargetPath(initialPath ?? '/');
+    if (!initialPort) return;
+    const path = initialPath ?? '/';
+    const title = `localhost:${initialPort}${path !== '/' ? path : ''}`;
+    // Find existing tab with same port
+    const existing = tabs.find((t) => t.port === initialPort);
+    if (existing) {
+      setActiveTabId(existing.id);
+    } else {
+      const id = `tab-${++tabIdCounter.current}`;
+      setTabs((prev) => [...prev, { id, port: initialPort, path, title }]);
+      setActiveTabId(id);
     }
-  }, [initialPort, initialPath]); // eslint-disable-line react-hooks/exhaustive-deps
+    activateView(initialPort, path);
+  }, [initialPort, initialPath, activateView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Audit: close on unmount only (use ref to avoid stale closure)
   const targetPortRef = useRef(targetPort);
@@ -119,14 +148,18 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
         setTargetPort(port);
         setTargetPath(path);
         setIsLoading(true);
+        // Sync active tab
+        if (activeTabId) {
+          const title = `localhost:${port}${path !== '/' ? path : ''}`;
+          setTabs((prev) => prev.map((t) => (t.id === activeTabId ? { ...t, port, path, title } : t)));
+        }
       })
       .catch(() => {
-        // Fallback: navigate anyway (gateway will validate)
         setTargetPort(port);
         setTargetPath(path);
         setIsLoading(true);
       });
-  }, [urlInput, targetPort]);
+  }, [urlInput, activeTabId]);
 
   const handleBack = useCallback(() => {
     try {
@@ -155,118 +188,83 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
     }
   }, [gatewayUrl]);
 
-  // Listen for HMR WebSocket status from iframe
-  useEffect(() => {
-    if (!gatewayPort || !targetPort) return;
-    setHmrStatus('idle');
-
-    const wsUrl = `ws://localhost:${gatewayPort}/?__preview_port=${targetPort}`;
-    let ws: WebSocket | null = null;
-    let closed = false;
-
-    const connect = () => {
-      if (closed) return;
-      try {
-        ws = new WebSocket(wsUrl);
-        ws.onopen = () => setHmrStatus('connected');
-        ws.onclose = () => {
-          setHmrStatus('disconnected');
-          // Retry after 3s
-          if (!closed) setTimeout(connect, 3000);
-        };
-        ws.onerror = () => ws?.close();
-      } catch {
-        setHmrStatus('disconnected');
-      }
-    };
-    connect();
-
-    return () => {
-      closed = true;
-      ws?.close();
-    };
-  }, [gatewayPort, targetPort]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') handleNavigate();
+  const handleTabSelect = useCallback(
+    (tabId: string) => {
+      const tab = tabs.find((t) => t.id === tabId);
+      if (!tab) return;
+      setActiveTabId(tabId);
+      activateView(tab.port, tab.path);
     },
-    [handleNavigate],
+    [tabs, activateView],
   );
+
+  const handleTabClose = useCallback(
+    (tabId: string) => {
+      setTabs((prev) => {
+        const next = prev.filter((t) => t.id !== tabId);
+        if (activeTabId === tabId) {
+          const fallback = next[next.length - 1];
+          if (fallback) {
+            setActiveTabId(fallback.id);
+            activateView(fallback.port, fallback.path);
+          } else {
+            setActiveTabId(null);
+            activateView(0, '/');
+          }
+        }
+        return next;
+      });
+    },
+    [activeTabId, activateView],
+  );
+
+  const handleTabAdd = useCallback(() => {
+    const id = `tab-${++tabIdCounter.current}`;
+    setTabs((prev) => [...prev, { id, port: 0, path: '/', title: 'New Tab' }]);
+    setActiveTabId(id);
+    activateView(0, '/');
+  }, [activateView]);
 
   return (
     <div className="flex flex-col h-full bg-[#FDF8F3]">
-      {/* Toolbar — matches design Scene 3 */}
-      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[#FFDDD2] bg-white/60">
-        {/* Back / Forward */}
-        <button
-          type="button"
-          onClick={handleBack}
-          className="p-1 rounded hover:bg-[#FFF5F2] text-[#5a4a42]/60 text-sm"
-          title="Back"
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          onClick={handleForward}
-          className="p-1 rounded hover:bg-[#FFF5F2] text-[#5a4a42]/60 text-sm"
-          title="Forward"
-        >
-          ›
-        </button>
+      <BrowserToolbar
+        urlInput={urlInput}
+        onUrlChange={setUrlInput}
+        onNavigate={handleNavigate}
+        onBack={handleBack}
+        onForward={handleForward}
+        onRefresh={handleRefresh}
+        onScreenshot={handleScreenshot}
+        isCapturing={isCapturing}
+        hasTarget={!!targetPort}
+        consoleOpen={consoleOpen}
+        onConsoleToggle={() => setConsoleOpen((v) => !v)}
+        consoleCount={consoleEntries.length}
+      />
 
-        {/* Refresh */}
-        <button
-          type="button"
-          onClick={handleRefresh}
-          className="p-1 rounded hover:bg-[#FFF5F2] text-[#5a4a42]/60 text-sm"
-          title="Refresh"
-        >
-          ↻
-        </button>
+      {/* Tab bar — only show when there are tabs */}
+      {tabs.length > 0 && (
+        <BrowserTabBar
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSelect={handleTabSelect}
+          onClose={handleTabClose}
+          onAdd={handleTabAdd}
+        />
+      )}
 
-        {/* URL bar */}
-        <div className="flex-1 flex items-center">
-          <input
-            type="text"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="localhost:3000"
-            className="w-full px-2 py-1 text-xs rounded border border-[#FFDDD2] bg-white focus:outline-none focus:border-[#E29578] placeholder:text-[#5a4a42]/30"
-          />
-        </div>
-
-        {/* Go */}
-        <button
-          type="button"
-          onClick={handleNavigate}
-          className="px-2.5 py-1 text-xs rounded bg-[#E29578] text-white hover:bg-[#d4856a] transition-colors"
-        >
-          Go
-        </button>
-      </div>
-
-      {/* HMR status indicator — design Scene 3 */}
       {hmrStatus !== 'idle' && (
         <div
-          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] border-b ${
-            hmrStatus === 'connected'
-              ? 'bg-[#FFF5F2] border-[#FFDDD2] text-[#5a4a42]/70'
-              : 'bg-[#FFF0ED] border-[#FFD4CC] text-[#5a4a42]/70'
-          }`}
+          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] border-b ${hmrStatus === 'connected' ? 'bg-[#FFF5F2] border-[#FFDDD2]' : 'bg-[#FFF0ED] border-[#FFD4CC]'} text-[#5a4a42]/70`}
         >
           <span
-            className={`w-1.5 h-1.5 rounded-full inline-block ${
-              hmrStatus === 'connected' ? 'bg-green-500' : 'bg-red-400'
-            }`}
+            className={`w-1.5 h-1.5 rounded-full inline-block ${hmrStatus === 'connected' ? 'bg-green-500' : 'bg-red-400'}`}
           />
           {hmrStatus === 'connected' ? (
             <span>HMR connected · localhost:{targetPort}</span>
           ) : (
             <span>
-              HMR disconnected — dev server stopped.{' '}
+              HMR disconnected.{' '}
               <button type="button" className="underline hover:text-[#E29578]" onClick={handleRefresh}>
                 Retry
               </button>
@@ -278,7 +276,16 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
       {/* Error banner */}
       {error && <div className="px-3 py-1.5 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>}
 
-      {/* iframe or empty state */}
+      {/* Screenshot success toast */}
+      {screenshotUrl && (
+        <div className="px-3 py-1.5 text-xs text-green-700 bg-green-50/80 border-b border-green-100">
+          Screenshot saved:{' '}
+          <a href={screenshotUrl} target="_blank" rel="noreferrer" className="underline">
+            {screenshotUrl}
+          </a>
+        </div>
+      )}
+
       {gatewayUrl ? (
         <div className="relative flex-1">
           {isLoading && (
@@ -301,16 +308,17 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
           />
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-[#5a4a42]/40 text-sm">
-          <div className="text-center">
+        <div className="flex-1 flex items-center justify-center text-[#5a4a42]/40 text-sm text-center">
+          <div>
             <div className="text-3xl mb-3 opacity-30">🌐</div>
-            <p className="mb-1">Enter a localhost URL to preview</p>
-            <p className="text-xs opacity-60">e.g. localhost:5173</p>
+            <p>Enter a localhost URL to preview</p>
           </div>
         </div>
       )}
 
-      {/* Status bar */}
+      {/* Console panel */}
+      {consoleOpen && <ConsolePanel entries={consoleEntries} onClear={clearConsole} />}
+
       <div className="flex items-center px-2 py-0.5 border-t border-[#FFDDD2] text-[10px] text-[#5a4a42]/40 bg-white/40">
         {targetPort && gatewayPort ? (
           <span className="flex items-center gap-1">

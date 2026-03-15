@@ -1,6 +1,7 @@
 import http from 'node:http';
-// @ts-ignore — optional dep, may or may not be installed
+import { createGunzip, createInflate } from 'node:zlib';
 import httpProxy from 'http-proxy';
+import { BRIDGE_SCRIPT } from './bridge-script.js';
 import { validatePort } from './port-validator.js';
 
 export interface PreviewGatewayOptions {
@@ -38,6 +39,7 @@ export class PreviewGateway {
       ws: true,
       xfwd: false,
       changeOrigin: true,
+      selfHandleResponse: true,
     });
 
     // Prevent unhandled proxy errors from crashing the process
@@ -52,15 +54,17 @@ export class PreviewGateway {
       }
     });
 
-    // Strip iframe-blocking headers from proxied responses
+    // Handle proxied responses: strip iframe headers + inject bridge script into HTML
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.proxy.on('proxyRes', (proxyRes: any) => {
+    this.proxy.on('proxyRes', (proxyRes: any, _req: any, res: any) => {
+      const clientRes = res as http.ServerResponse;
+      // Strip iframe-blocking headers
       delete proxyRes.headers['x-frame-options'];
       const csp = proxyRes.headers['content-security-policy'];
       if (typeof csp === 'string') {
         const cleaned = csp
           .split(';')
-          .filter((d) => !d.trim().startsWith('frame-ancestors'))
+          .filter((d: string) => !d.trim().startsWith('frame-ancestors'))
           .join(';')
           .trim();
         if (cleaned) {
@@ -69,6 +73,60 @@ export class PreviewGateway {
           delete proxyRes.headers['content-security-policy'];
         }
       }
+
+      const ct = (proxyRes.headers['content-type'] ?? '') as string;
+      const isHtml = ct.includes('text/html');
+
+      if (!isHtml) {
+        // Non-HTML: pipe through unchanged
+        clientRes.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
+        proxyRes.pipe(clientRes);
+        return;
+      }
+
+      // HTML: buffer body, inject bridge script, then send
+      const encoding = (proxyRes.headers['content-encoding'] ?? '') as string;
+      // If encoding is unsupported (e.g. br), passthrough without injection
+      // 'identity' means no encoding, treat same as empty
+      if (encoding && encoding !== 'gzip' && encoding !== 'deflate' && encoding !== 'identity') {
+        clientRes.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
+        proxyRes.pipe(clientRes);
+        return;
+      }
+      const chunks: Buffer[] = [];
+      // Decompress if needed
+      let stream: NodeJS.ReadableStream = proxyRes;
+      if (encoding === 'gzip') {
+        stream = proxyRes.pipe(createGunzip());
+      } else if (encoding === 'deflate') {
+        stream = proxyRes.pipe(createInflate());
+      }
+
+      stream.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+      stream.on('end', () => {
+        let html = Buffer.concat(chunks).toString('utf-8');
+        // Inject before </head> or before </body> or at end
+        if (html.includes('</head>')) {
+          html = html.replace('</head>', `${BRIDGE_SCRIPT}</head>`);
+        } else if (html.includes('<body')) {
+          html = html.replace(/<body([^>]*)>/, `<body$1>${BRIDGE_SCRIPT}`);
+        } else {
+          html = BRIDGE_SCRIPT + html;
+        }
+        // Remove content-encoding (we've decompressed) and update content-length
+        const headers = { ...proxyRes.headers };
+        delete headers['content-encoding'];
+        delete headers['transfer-encoding'];
+        const buf = Buffer.from(html, 'utf-8');
+        headers['content-length'] = String(buf.length);
+        clientRes.writeHead(proxyRes.statusCode ?? 200, headers);
+        clientRes.end(buf);
+      });
+      stream.on('error', () => {
+        // Fallback: send without injection
+        clientRes.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
+        clientRes.end(Buffer.concat(chunks));
+      });
     });
 
     this.server = http.createServer((req, res) => {

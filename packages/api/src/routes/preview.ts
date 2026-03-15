@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/index.js';
 import type { PortDiscoveryService } from '../domains/preview/port-discovery.js';
@@ -7,8 +10,8 @@ interface PreviewRouteOpts {
   portDiscovery: PortDiscoveryService;
   gatewayPort: number;
   runtimePorts?: number[];
-  /** F120 Phase C: emit socket events (e.g. preview:auto-open) */
-  socketEmit?: (event: string, data: unknown) => void;
+  /** F120 Phase C: emit socket events to a specific room */
+  socketEmit?: (event: string, data: unknown, room: string) => void;
 }
 
 export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, opts) => {
@@ -90,8 +93,9 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
       if (!result.allowed) {
         return result;
       }
-      // Emit with worktreeId so frontend can scope-filter (same pattern as port-discovered)
-      opts.socketEmit?.('preview:auto-open', { port, path, threadId, worktreeId });
+      // Emit to worktree-scoped room (or global fallback)
+      const room = worktreeId ? `worktree:${worktreeId}` : 'preview:global';
+      opts.socketEmit?.('preview:auto-open', { port, path, threadId, worktreeId }, room);
       auditLog
         .append({
           type: AuditEventTypes.BROWSER_PREVIEW_OPEN,
@@ -100,5 +104,29 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
         })
         .catch(() => {});
       return { allowed: true, port, path };
+    },
+  );
+
+  // F120 Phase C: Screenshot upload — converts data URL to file
+  app.post<{ Body: { dataUrl: string; threadId?: string } }>('/api/preview/screenshot', async (req, reply) => {
+    const { dataUrl, threadId } = req.body;
+    const match = dataUrl?.match(/^data:image\/(png|jpeg|webp);base64,(.+)$/);
+    if (!match) {
+      return reply.status(400).send({ error: 'Invalid data URL — expected data:image/{png|jpeg|webp};base64,...' });
+    }
+    const ext = match[1] === 'jpeg' ? 'jpg' : match[1]!;
+    const buffer = Buffer.from(match[2]!, 'base64');
+    const uploadDir = resolve('uploads');
+    await mkdir(uploadDir, { recursive: true });
+    const filename = `screenshot-${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
+    await writeFile(join(uploadDir, filename), buffer);
+    auditLog
+      .append({
+        type: AuditEventTypes.BROWSER_PREVIEW_OPEN,
+        threadId,
+        data: { action: 'screenshot', filename },
+      })
+      .catch(() => {});
+    return { url: `/uploads/${filename}` };
   });
 };

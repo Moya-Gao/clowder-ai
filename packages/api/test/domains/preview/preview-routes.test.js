@@ -125,7 +125,7 @@ describe('POST /api/preview/auto-open', () => {
     await app2.register(previewRoutes, {
       portDiscovery: new PortDiscoveryService(),
       gatewayPort: 4100,
-      socketEmit: (event, data) => emitted.push({ event, data }),
+      socketEmit: (event, data, room) => emitted.push({ event, data, room }),
     });
     await app2.ready();
   });
@@ -188,5 +188,70 @@ describe('POST /api/preview/auto-open', () => {
     assert.equal(body.allowed, true);
     assert.equal(body.port, 3847);
     assert.equal(emitted[0].data.path, undefined);
+  });
+
+  it('emits to worktree room when worktreeId is provided', async () => {
+    emitted.length = 0;
+    const res = await app2.inject({
+      method: 'POST',
+      url: '/api/preview/auto-open',
+      payload: { port: 5173, worktreeId: 'wt-room-test' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(emitted[0].room, 'worktree:wt-room-test');
+  });
+
+  it('emits to preview:global room when worktreeId is absent', async () => {
+    emitted.length = 0;
+    const res = await app2.inject({
+      method: 'POST',
+      url: '/api/preview/auto-open',
+      payload: { port: 5173 },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(emitted[0].room, 'preview:global');
+  });
+});
+
+// F120 Phase C: screenshot upload endpoint
+describe('POST /api/preview/screenshot', () => {
+  let app3;
+
+  before(async () => {
+    app3 = Fastify();
+    await app3.register(previewRoutes, {
+      portDiscovery: new PortDiscoveryService(),
+      gatewayPort: 4100,
+    });
+    await app3.ready();
+  });
+
+  after(async () => {
+    await app3.close();
+  });
+
+  it('accepts a data URL and returns upload path', async () => {
+    // Minimal 1x1 red pixel PNG as data URL
+    const dataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+    const res = await app3.inject({
+      method: 'POST',
+      url: '/api/preview/screenshot',
+      payload: { dataUrl, threadId: 'test-thread' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.ok(body.url, 'should return upload URL');
+    assert.ok(body.url.startsWith('/uploads/'), 'URL should start with /uploads/');
+    assert.ok(body.url.endsWith('.png'), 'URL should end with .png');
+  });
+
+  it('rejects invalid data URL', async () => {
+    const res = await app3.inject({
+      method: 'POST',
+      url: '/api/preview/screenshot',
+      payload: { dataUrl: 'not-a-data-url' },
+    });
+    assert.equal(res.statusCode, 400);
   });
 });

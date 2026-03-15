@@ -202,9 +202,10 @@ export function WorkspacePanel() {
       if (cancelled) return;
       const apiUrl = new URL(API_URL);
       const socket = io(`${apiUrl.protocol}//${apiUrl.host}`, { transports: ['websocket'] });
-      const handler = (data: { port: number; framework?: string; worktreeId?: string }) => {
-        // P1-1 fix: only show toast for ports from the active worktree
-        if (data.worktreeId && worktreeId && data.worktreeId !== worktreeId) return;
+      // Join worktree-scoped room for targeted preview events
+      const room = worktreeId ? `worktree:${worktreeId}` : 'preview:global';
+      socket.emit('join_room', room);
+      const handler = (data: { port: number; framework?: string }) => {
         setPortDiscoveryToast(data);
         setTimeout(() => setPortDiscoveryToast(null), 8000);
       };
