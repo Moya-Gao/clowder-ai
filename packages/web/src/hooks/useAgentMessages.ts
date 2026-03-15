@@ -335,10 +335,6 @@ export function useAgentMessages() {
       if (!replacedInvocationId) return false;
 
       const currentInvocationId = invocationId ?? getCurrentInvocationIdForCat(catId);
-      if (!currentInvocationId) {
-        replacedInvocationsRef.current.delete(catId);
-        return false;
-      }
       if (currentInvocationId && currentInvocationId !== replacedInvocationId) {
         replacedInvocationsRef.current.delete(catId);
         return false;

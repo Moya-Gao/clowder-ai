@@ -334,7 +334,7 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
     ]);
   });
 
-  it('allows the first unlabeled chunk of a new invocation after callback replacement once the old slot is gone', () => {
+  it('keeps suppressing unlabeled late chunks until a different invocation is observed', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
@@ -361,7 +361,7 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
       });
     });
 
-    // New invocation has started, but no invocation slot / id has been bound yet.
+    // Invocation slot is gone, but that alone is not enough proof that a new invocation owns this chunk.
     storeState.catInvocations = {};
     vi.clearAllMocks();
 
@@ -369,22 +369,13 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
       captured?.handleAgentMessage({
         type: 'text',
         catId: 'opus',
-        content: 'new invocation first chunk',
+        content: 'stale unlabeled chunk from old invocation',
         origin: 'stream',
       });
     });
 
-    expect(mockAddMessage).toHaveBeenCalledTimes(1);
+    expect(mockAddMessage).not.toHaveBeenCalled();
     expect(mockAppendToMessage).not.toHaveBeenCalled();
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'opus',
-        content: 'new invocation first chunk',
-        origin: 'stream',
-        isStreaming: true,
-      }),
-    );
     expect(storeState.messages).toEqual([
       expect.objectContaining({
         id: 'msg-callback-old',
@@ -393,6 +384,29 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
         origin: 'callback',
       }),
     ]);
+
+    storeState.catInvocations = { opus: { invocationId: 'inv-new' } };
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'verified new invocation first chunk',
+        origin: 'stream',
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledTimes(1);
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assistant',
+        catId: 'opus',
+        content: 'verified new invocation first chunk',
+        origin: 'stream',
+        isStreaming: true,
+      }),
+    );
   });
 
   it('falls back to ensureActiveAssistantMessage when no callback message exists', () => {
