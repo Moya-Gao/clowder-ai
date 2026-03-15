@@ -129,6 +129,7 @@ created: 2026-03-14
 |------|------|
 | 2026-03-14 | 从 F081 演进 kickoff F123，收敛三猫观点并明确第二阶段 scope |
 | 2026-03-15 | Phase A/B slice merged (PR #460): active/background fixture 落盘、callback replacement hardening、late-stream suppression、bubble timeline dump |
+| 2026-03-15 | Hydration reconcile slice merged (PR #464): callback-over-stream hydrate priority、R2 fixture 补强、active/background unlabeled-first-chunk guard 落盘 |
 
 ## Review Gate
 
