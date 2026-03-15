@@ -32,7 +32,7 @@ created: 2026-03-14
 | # | 入口 | 走 InvocationQueue? | steer 管得到? | 代码位置 |
 |---|------|---------------------|---------------|----------|
 | ① | 用户/前端 POST `/api/messages` | ✅ smart-default queue | ✅ | `messages.ts:306-307` |
-| ② | Connector（飞书/GitHub/iMessage） | ✅ `enqueueWhileActive()` | ✅ | `ConnectorInvokeTrigger.ts:106-112` |
+| ② | Connector（飞书/GitHub/iMessage） | ⚠️ 条件入队（同 cat slot 活跃才 queue） | ✅（入队后受 steer 管） | `ConnectorInvokeTrigger.ts:106-112` |
 | ③ | 猫 post_message A2A（worklist） | ❌ 直接 pushToWorklist | ❌ | `callback-a2a-trigger.ts:67-116` |
 | ④ | 猫 multi_mention | ❌ 直接 dispatchToTarget | ❌ | `callback-multi-mention-routes.ts:138-184` |
 | ⑤ | Steer（用户手动） | — | 它就是控制入口 | `queue.ts:199-225` |
@@ -67,7 +67,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 ### 可靠的部分（不需要改）
 
 - **用户消息** → smart-default queue ✅
-- **Connector 消息** → `ConnectorInvokeTrigger.enqueueWhileActive()` ✅ 完整走 InvocationQueue
+- **Connector 消息** → `ConnectorInvokeTrigger.enqueueWhileActive()` ⚠️ slot 级条件入队（`invocationTracker.has(threadId, catId)` 才 queue，否则直接 `executeInBackground`）
 - **Worklist 内部串行 A2A** → route-serial 的 while 循环 + depth limit ✅
 - **Anti-cascade guard** → multi_mention 不能互相回环（`callback-multi-mention-routes.ts:331-336`）✅
 - **Slot-aware InvocationTracker** → 不同猫在同一 thread 不互相 abort（`InvocationTracker.ts:50-54`）✅
@@ -77,9 +77,9 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 ### 铲屎官期望的行为
 
 1. **猫猫在忙时（不论原因），我发的消息必须排队** — 已实现 ✅
-2. **只有 steer 才能强推** — 对用户/connector 消息已实现 ✅，对 A2A/multi_mention 不适用（它们是猫猫自动接力，不应该被 steer 管控，见 OQ-1）
+2. **只有 steer 才能强推** — 对用户/connector 消息已实现 ✅；A2A/multi_mention 是否也需要被 steer 管控待决策（见 OQ-1）
 3. **前端必须正确显示"忙/排队"状态** — 热修后基本 OK，QueuePanel processing 可见性待改善
-4. **Connector 来的消息和用户消息一样可靠** — 已实现 ✅（走同一套 InvocationQueue）
+4. **Connector 来的消息和用户消息一样可靠** — ⚠️ 部分实现：同 cat slot 活跃时走 queue ✅，但判忙是 slot 级（`has(threadId, catId)`）而非 thread 级，与"猫猫在忙就排队"的全局语义可能不一致（见 OQ-4）
 
 ### Phase A: 可靠性加固（最小闭环）
 
@@ -121,6 +121,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 - [ ] AC-A3: reason='not_found' 时降级到 standalone invocation
 - [ ] AC-A4: QueuePanel 显示 processing 态条目
 - [ ] AC-A5: 回归测试覆盖：A2A 期间用户发消息 → 必须 queued；steer → 必须 immediate
+- [ ] AC-A6: 回归测试覆盖：connector 消息在 active slot 下 → 必须 queued；steer → 必须 immediate
 
 ### Phase B（语义收敛，待 OQ-1 决策后定义）
 - [ ] AC-B1: TBD（取决于产品方向决策）
@@ -146,13 +147,14 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | OQ-1 | A2A handoff 应该走 queue（用户可 steer）还是保持自动推进（用户只管自己的消息）？铲屎官 2026-03-14 确认的期望是"A2A 跑完再处理我的消息"（排队语义），但没明确说"我要 steer A2A"。 | ⬜ 待铲屎官定 |
 | OQ-2 | multi_mention 是否也应入 queue？当前 anti-cascade guard 已防止无限回环，但语义上它仍是一个独立的分发平面。 | ⬜ 待讨论 |
 | OQ-3 | QueuePanel processing 态的 UI 设计——是和 queued 混在一起，还是单独区域？ | ⬜ 待设计 |
+| OQ-4 | Connector 判忙是 slot 级（`has(threadId, catId)`）还是应改为 thread 级（`has(threadId)`）？slot 级意味着猫A在忙时，发给猫B的 connector 消息不排队直接执行——这符合铲屎官"猫猫在忙就排队"的全局语义吗？ | ⬜ 待铲屎官定 |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 热修优先，架构统一后做 | 铲屎官现场 bug 需要立即止血 | 2026-03-14 |
-| KD-2 | Connector 消息不需要改（已正确走 queue） | `ConnectorInvokeTrigger` 已有完整的 `enqueueWhileActive` 逻辑 | 2026-03-14 |
+| KD-2 | Connector 消息走 slot 级条件入队，Phase A 需评估是否改为 thread 级 | `ConnectorInvokeTrigger` 用 `has(threadId, catId)` 判忙，只对同 cat slot 入队（砚砚 review 指出） | 2026-03-14 |
 | KD-3 | Phase A 不改 A2A 调度模型，只补漏洞 | 降低风险，先稳后收敛 | 2026-03-14 |
 
 ## Timeline
