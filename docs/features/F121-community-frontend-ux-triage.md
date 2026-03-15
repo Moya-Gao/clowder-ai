@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F121: Community Frontend UX Triage — 社区前端交互体验侦查与分诊
 
-> **Status**: in-progress (code fixes merged, pending outbound sync) | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: in-progress (community fixes merged + follow-up hotfix in review, pending outbound sync) | **Owner**: 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -74,6 +74,26 @@ PR #40 和 #43 方向正确但都有深层问题（缺测试 + 边界未覆盖 +
 
 **不走 Hotfix Lane**：这 4 个 UX 改进不是紧急修复，走正常开发 → Outbound Sync 即可
 
+### Follow-up Hotfix（2026-03-14 铲屎官 runtime 反馈）
+
+PR #449 / #455 合并后，铲屎官在 runtime 继续打到一个同区域回归：
+
+> “如果有人回消息，置顶那一栏会‘biu’一下突然展开。”
+
+这不是社区已存在的 exact issue，但属于 F121/F095 同一块 sidebar collapse / auto-expand 热区，先挂在 F121 下直接修，不再另开新 feature。
+
+**根因**：
+- `useCollapseState()` 的 auto-expand effect 依赖 `[currentThreadId, threadGroups]`
+- 当前 thread 不变时，只要新消息导致 `threadGroups` 重算，effect 就会再次强制展开当前 thread 所在分组
+- 用户手动折叠 `置顶` 后，会被新回复覆盖
+
+**修复**：
+- 收紧 auto-expand 触发条件：同一个 `currentThreadId` 只自动展开一次
+- 不改 group 归属判定，不改 recent/project/pinned 排序
+
+Bug report 存档：
+- [2026-03-14-f121-pinned-section-auto-expand bug report](/Users/lysander/projects/relay-station/cat-cafe-f121-pinned-expand/docs/bug-report/2026-03-14-f121-pinned-section-auto-expand/bug-report.md)
+
 ## Issue Checklist
 
 | # | Issue | 类型 | 侦查猫 | 判定 | 猫爪印 |
@@ -108,6 +128,7 @@ PR #40 和 #43 方向正确但都有深层问题（缺测试 + 边界未覆盖 +
 | 2026-06-12 | Phase C 复核（缅因猫 gpt52）：PR#40 有 replace hydration 边界问题 + 缺回归测试；PR#43 有 scope 偏差（只修状态栏不是聊天面板）+ 缺测试。两个都不能直接 merge |
 | 2026-03-14 | Phase D 决策：按 Inbound PR B2 上游完整修复路线，关闭社区 PR #40/#43，cat-cafe 做终态修复后 Outbound Sync |
 | 2026-03-14 | Code fixes merged (PR #449): #22/#89/#28/#27 全部修复，砚砚(codex) review 放行 + 云端 review 通过 |
+| 2026-03-14 | Follow-up hotfix：铲屎官 runtime 反馈“置顶分组在新回复到达时自动展开”，定位为 `useCollapseState` auto-expand effect 依赖过宽，继续挂 F121 收口 |
 
 ## Links
 
