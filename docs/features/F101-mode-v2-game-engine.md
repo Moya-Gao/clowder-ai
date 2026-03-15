@@ -348,6 +348,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-15 | AC-D5 视觉设计稿完成 — 4 屏狼人猫猫风主题（三猫讨论收敛 + 布偶猫画 pen），Phase E backlog 加入上帝推理模式 |
 | 2026-03-15 | AC-D5 PR-A merged (PR #466) — token-only CSS vars + data-theme/data-phase 挂载（零视觉变化，PR-B 待做组件替换） |
 | 2026-03-15 | AC-D5 PR-B merged (PR #467) — 12 组件 token 替换 + 5 soft token + GameLobby/NightActionCard 全量迁移（codex review 3 rounds） |
+| 2026-03-15 | Phase D game startup API merged (PR #471) — dedicated POST /api/game/start + HTTP navigation, eliminates 布偶猫思考中 loading (codex 3-round local + 3-round cloud review) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
@@ -381,5 +382,6 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | **PR** | PR #446 | Bug fix — /game command bridge (intercept → GameOrchestrator) |
 | **PR** | PR #463 | Phase D — 独立 thread + 上帝面板 + 结算 MVP (codex 3-round review) |
 | **PR** | PR #466 | AC-D5 PR-A — token-only CSS vars (werewolf-cute theme layer) |
+| **PR** | PR #471 | Phase D — game startup via dedicated API + HTTP navigation (codex 3-round local + 3-round cloud review) |
 | **Plan** | `docs/plans/2026-03-12-f101-b8-frontend-game-ui.md` | B8 前端实施计划 |
 | **Reflection** | `docs/reflections/2026-03-12-f101-mode-v2-capsule.md` | 完成反思胶囊 |
