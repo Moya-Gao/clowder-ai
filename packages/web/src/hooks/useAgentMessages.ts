@@ -598,6 +598,9 @@ export function useAgentMessages() {
             const warningText = typeof parsed.message === 'string' ? parsed.message : '';
             sysContent = warningText ? `⚠️ ${warningText}` : '⚠️ Warning';
             sysVariant = 'info';
+          } else if (parsed?.type === 'strategy_allow_compress' || parsed?.type === 'resume_failure_stats') {
+            // Internal telemetry — suppress to avoid raw JSON bubbles
+            consumed = true;
           } else if (parsed?.type === 'silent_completion') {
             // Bugfix: silent-exit — cat ran tools but produced no text response
             const detail = typeof parsed.detail === 'string' ? parsed.detail : '';
