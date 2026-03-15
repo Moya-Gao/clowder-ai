@@ -3,6 +3,7 @@ import type {
   CatStatusType,
   ChatMessage,
   ChatMessageMetadata,
+  RichBlock,
   ThreadState,
   TokenUsage,
   ToolEvent,
@@ -47,6 +48,8 @@ export interface BackgroundStoreLike {
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
+  /** F22: Append a rich block to a message in a specific thread */
+  appendRichBlockToThread: (threadId: string, messageId: string, block: RichBlock) => void;
   setThreadCatInvocation: (threadId: string, catId: string, info: Partial<CatInvocationInfo>) => void;
   setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;

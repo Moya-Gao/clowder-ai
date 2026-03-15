@@ -157,6 +157,39 @@ export function consumeBackgroundSystemInfo(
         timestamp: msg.timestamp,
       });
       consumed = true;
+    } else if (parsed?.type === 'rich_block') {
+      // F22: Append rich block — mirror foreground path (useAgentMessages.ts)
+      let targetId: string | undefined;
+
+      // Prefer messageId correlation from callback post-message path
+      if (parsed.messageId) {
+        const found = options.store.getThreadState(msg.threadId).messages.find((m: { id: string }) => m.id === parsed.messageId);
+        if (found) targetId = found.id;
+      }
+
+      // Fallback: most recent callback message from this cat
+      if (!targetId) {
+        const threadMessages = options.store.getThreadState(msg.threadId).messages;
+        for (let i = threadMessages.length - 1; i >= 0; i--) {
+          const m = threadMessages[i];
+          if (m.type !== 'assistant' || m.catId !== msg.catId) continue;
+          if (m.origin === 'stream' && m.isStreaming) break;
+          if (m.origin === 'callback') {
+            targetId = m.id;
+            break;
+          }
+        }
+      }
+
+      // Final fallback: recover active stream bubble
+      if (!targetId) {
+        targetId = existingRef?.id ?? recoverBackgroundStreamingMessage(msg, options);
+      }
+
+      if (targetId && parsed.block) {
+        options.store.appendRichBlockToThread(msg.threadId, targetId, parsed.block);
+      }
+      consumed = true;
     } else if (parsed?.type === 'session_seal_requested') {
       if (parsed.catId) {
         options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {

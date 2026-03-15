@@ -314,6 +314,8 @@ interface ChatState {
   replaceThreadMessageId: (threadId: string, fromId: string, toId: string) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
+  /** F22: Append a rich block to a message in a specific thread */
+  appendRichBlockToThread: (threadId: string, messageId: string, block: RichBlock) => void;
   setThreadCatInvocation: (threadId: string, catId: string, info: Partial<CatInvocationInfo>) => void;
   setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
@@ -523,8 +525,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
               });
             }
           }
-          // Re-sort by timestamp to place inserted messages correctly
-          updated.sort((a, b) => a.timestamp - b.timestamp);
+          // Re-sort: delivered messages use deliveredAt so they appear at delivery
+          // position (current tail), not their original send-time slot.
+          updated.sort((a, b) => (a.deliveredAt ?? a.timestamp) - (b.deliveredAt ?? b.timestamp));
         }
         return updated;
       };
@@ -985,6 +988,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ...m,
         toolEvents: [...(m.toolEvents ?? []), event],
       })),
+    ),
+
+  /** F22: Append a rich block to a message in a specific thread. */
+  appendRichBlockToThread: (threadId, messageId, block) =>
+    set((state) =>
+      updateThreadMessage(state, threadId, messageId, (m) => {
+        const rich = m.extra?.rich ?? { v: 1 as const, blocks: [] };
+        if (rich.blocks.some((b: { id: string }) => b.id === block.id)) return m;
+        return { ...m, extra: { ...m.extra, rich: { ...rich, blocks: [...rich.blocks, block] } } };
+      }),
     ),
 
   /** Set/merge cat invocation info for a specific thread (active or background). */
