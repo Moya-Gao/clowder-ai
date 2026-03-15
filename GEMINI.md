@@ -55,11 +55,12 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 **Skill 不是可选的——适用就必须加载。**
 
-## 三条铁律
+## 四条铁律
 
 1. **Redis 6399 圣域** — Worktree 开发只用 6398，误触 6399 立即停服务通知铲屎官
 2. **同一个体不能 review 自己的代码** — 跨 family 优先，可降级到同 family 不同个体
 3. **不能冒充其他猫** — 身份是硬约束常量
+4. **Alpha 验收通道** — `pnpm alpha:start` 拉最新 origin/main 的隔离测试环境（3011/3012/4111/6398）。已合入 main 的改动用 alpha 验收（愿景守护/铲屎官测试），不得用 runtime（3001/3002）冒充；未合入改动的自测仍在 feature worktree 上做
 
 ## 暹罗猫专属规则
 

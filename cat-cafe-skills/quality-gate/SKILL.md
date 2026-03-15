@@ -73,6 +73,7 @@ Step 4: RUNTIME GUARD — 前端证据采集前先做运行态保护
   - `localhost:3001/3002` 默认按 runtime 处理；如果你要验证未合入改动，不能把这两个端口的页面/接口响应当成当前分支的证据
   - 证明“这是我当前 worktree 的验证证据”时，必须同时说清：`worktree/cwd` + 目标 URL。两者对不上 = 证据无效
   - 确需重启时，先获铲屎官明确授权，再用 `CAT_CAFE_RUNTIME_RESTART_OK=1` 执行
+  - **Alpha 优先**：验证已合入 main 的改动时，优先用 `pnpm alpha:start`（3011/3012/4111/6398）取证，而非 runtime。Alpha 环境每次启动自动同步 origin/main
 
 Step 5: PEN CHECK — 自动化设计稿对照（不可跳过！）
   ① glob designs/**/*.pen，匹配当前 feat 编号或关键词

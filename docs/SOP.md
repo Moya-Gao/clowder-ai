@@ -50,6 +50,23 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 
 说明：`--force` 不是重启授权，不能替代第 3 条。
 
+## Alpha 验收通道
+
+`../cat-cafe-alpha` 是基于最新 `origin/main` 的隔离测试环境，供铲屎官和猫猫们验收最新改动，不干扰 runtime。
+
+| 命令 | 作用 |
+|------|------|
+| `pnpm alpha:start` | 自动同步 origin/main + 拉起 3011/3012/4111/6398 |
+| `pnpm alpha:sync` | 只同步不启动 |
+| `pnpm alpha:status` | 查看环境状态 |
+
+使用场景：
+- 愿景守护：守护猫用 alpha 独立验证已合入 main 的改动，不依赖开发猫提供环境
+- 铲屎官测试：稳定的测试入口，和 runtime 互不干扰
+- PR merge 后验收：确认合入 main 的改动在完整环境中工作正常
+
+**注意**：alpha = origin/main 镜像，只能验证已合入 main 的改动。未合入改动的自测仍在 feature worktree 上做。已合入改动的验收用 alpha（3011/3012），不得用 runtime（3001/3002）冒充。
+
 ## 完整流程（5 步）
 
 ```
