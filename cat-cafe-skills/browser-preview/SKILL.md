@@ -73,13 +73,14 @@ Hub 内置了嵌入式浏览器面板（F120），可以直接预览运行中的
 - dev server 已在 Terminal 跑着 → 主动打开浏览器，不要只提示
 - 简单可视化（图表/动画） → 用 `html_widget` rich block 内联渲染
 - Console 有报错 → browser panel 下方 Console 面板自动展开，可以看
-- 需要截图 → browser panel 工具栏一键截图
+- 需要截图 → browser panel 工具栏一键截图；默认先存到 `${TMPDIR}/cat-cafe-evidence/...`，不要落仓库根目录（见 `refs/evidence-output-contract.md`）
 
 ## 不要做的事
 
 - 不要手动去构造 gateway URL（让 Hub 前端处理）
 - 不要尝试预览外部 URL（只支持 localhost）
 - 不要预览 Cat Cafe 自身服务端口（会被端口验证拦截）
+- 不要把临时截图顺手留在仓库根目录；要入库时再显式归档到正式目录
 
 ## 和其他 skill 的区别
 

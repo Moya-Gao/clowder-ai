@@ -581,6 +581,10 @@ refs:
     description: "前端截图/录屏证据流程（B1）"
     path: "refs/vision-evidence-workflow.md"
     source: "F046 Phase B B1"
+  evidence-output-contract:
+    description: "媒体证据默认落点与仓库根目录禁放规则"
+    path: "refs/evidence-output-contract.md"
+    source: "artifact hygiene process fix"
   requirements-checklist-template:
     description: "需求点 checklist 模板（B3）"
     path: "refs/requirements-checklist-template.md"

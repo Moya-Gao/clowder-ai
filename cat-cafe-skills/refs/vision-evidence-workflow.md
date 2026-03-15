@@ -14,6 +14,12 @@
 - Claude in Chrome：用浏览器截图/录屏工具
 - Codex 浏览器：`browser_navigate` + `browser_take_screenshot`
 
+## 默认落点
+
+- 临时截图 / 录屏默认存 `${TMPDIR}/cat-cafe-evidence/{branch-or-feature}/{date}/`
+- 需要入库的证据，再显式 copy 到 `docs/evidence/` 或文档自带 `assets/` 目录
+- 不要把媒体工件直接留在仓库根目录（见 `refs/evidence-output-contract.md`）
+
 ## 采集步骤
 
 1. 明确这次验收的需求点（来自 discussion/spec）。
@@ -22,8 +28,9 @@
    - 服务在线就直接复用，禁止为截图执行 `pnpm start` / `pnpm runtime:start` / `./scripts/start-dev.sh`
    - 确实要重启时，先拿到铲屎官明确授权，再执行 `CAT_CAFE_RUNTIME_RESTART_OK=1 pnpm start`
 3. 进入目标页面，覆盖关键状态（初始态 / 成功态 / 错误态）。
-4. 先截静态图，再录 1 段 15s 内关键流程。
-5. 填写映射表并放进 quality-gate / review 请求信。
+4. 先截静态图，再录 1 段 15s 内关键流程；临时文件默认写到 `${TMPDIR}/cat-cafe-evidence/...`
+5. 需要入库时，再显式归档到 `docs/evidence/` 或对应 `assets/` 目录。
+6. 填写映射表并放进 quality-gate / review 请求信。
 
 ## 需求→证据映射模板
 
@@ -41,3 +48,4 @@
 - 录屏太长，关键行为难定位。
 - 把后端任务也强行要求截图（不需要）。
 - 为了截图在 runtime 会话里重启服务，导致在线实例中断。
+- 临时截图直接掉在仓库根目录。

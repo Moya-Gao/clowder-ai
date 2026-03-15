@@ -137,6 +137,7 @@ excluded:
   - cat-cafe-skills/refs/hyperfocus-brake-messages.md
   - cat-cafe-skills/refs/decision-matrix.md
   - cat-cafe-skills/refs/vision-evidence-workflow.md
+  - cat-cafe-skills/refs/evidence-output-contract.md
   # 同步脚本自身
   - scripts/sync-to-opensource.sh
   - scripts/sync-to-tutorials.sh
