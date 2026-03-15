@@ -164,9 +164,12 @@ cat > "$TARGET_DIR/README.md" << 'README_EOF'
 - **第十课**：[别让 AI 随地大小拉 markdown](./docs/lessons/10-knowledge-management.md) — 三层记忆架构 + 知识工程
   - [课后作业](./docs/lessons/10-homework.md)：蜘蛛网审计 + frontmatter + 7-slot 模板
 
+- **第十一课**：[让猫猫开口说话 — 从"五年前机器朗读"到 11 只猫 11 种声线](./docs/lessons/11-voice-pipeline.md) — ASR + TTS + Voice Identity 全链路
+  - [课后作业](./docs/lessons/11-homework.md)：TTS 对比 + 克隆实验 + Autoplay 策略
+
 ### 即将推出
 
-- 第十一课：降级与容错 — 猫猫挂了怎么办？
+- 第十二课：降级与容错 — 猫猫挂了怎么办？
 
 ## 适合谁
 
