@@ -127,11 +127,15 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
 
     const active = await sessionChainStore.getActive(session.catId, session.threadId);
     if (active && active.id !== session.id) {
-      reply.status(409);
-      return {
-        error: 'Another active session already exists for this cat/thread',
-        activeSessionId: active.id,
-      };
+      // Auto-seal the blocking active session so unseal can proceed.
+      // This handles the case where auto-seal created an empty replacement
+      // session that now blocks manual recovery of the original.
+      await sessionChainStore.update(active.id, {
+        status: 'sealed',
+        sealReason: 'unseal_displacement',
+        sealedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
     }
 
     const reopened = await sessionChainStore.create({
