@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
 
-## Skills 列表（23 个）
+## Skills 列表（24 个）
 
 ### 开发流程链
 ```
@@ -37,6 +37,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `self-evolution` | scope 守护/流程改进/知识沉淀 | — |
 | `bootcamp-guide` | CVO 新手训练营引导 | — |
 | `cross-thread-sync` | 跨 thread 协同/通知/争用协调 | — |
+| `browser-preview` | 写前端/跑 dev server/看页面效果 | — |
 
 ### 参考文件（refs/，按需读取）
 

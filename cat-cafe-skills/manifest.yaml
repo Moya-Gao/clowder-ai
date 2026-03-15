@@ -442,6 +442,35 @@ skills:
     merged_from: null
     feature: "F066"
 
+  # ── 浏览器预览 (F120) ──
+  browser-preview:
+    description: >
+      Hub 内嵌浏览器预览 localhost 应用。
+      Use when: 写前端代码、跑 dev server、需要看页面效果、调 UI、铲屎官说"看看效果"。
+      Not for: 后端纯 API 开发、不涉及页面的工作。
+      Output: 前端页面在 Hub browser panel 中实时预览。
+    triggers:
+      - "看效果"
+      - "看看页面"
+      - "preview"
+      - "浏览器预览"
+      - "打开浏览器"
+      - "pnpm dev"
+      - "dev server"
+      - "localhost"
+      - "前端效果"
+      - "看看 UI"
+      - "HMR"
+      - "热更新"
+    not_for:
+      - "后端纯 API 开发"
+      - "不涉及页面"
+    output: "Browser panel preview in Hub"
+    next: []
+    sop_step: null
+    merged_from: null
+    feature: "F120"
+
   # ── 健康提醒 (F085) ──
   hyperfocus-brake:
     description: >
