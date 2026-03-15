@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复
 
-> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14
+> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: open
 
 ## Why
 
@@ -212,6 +212,21 @@ CLI 挂了 (liveness, Phase A+B ✅)
 | OQ-2 | `suspected_stall` 后是否自动 kill？还是只提供手动 cancel？ | ⬜ 未定 |
 | OQ-3 | Codex CLI 0.114.0 是否修复了并发 resume 静默挂起？需要跟踪上游 | ⬜ 未定 |
 
+## Follow-up Hardening
+
+### 已定位并已落地的问题（2026-03-14）
+
+- `88084b54`：移除 `isStale` / `auto_health_check` 时间判定。闲置 session 不再因为超过 30 分钟被误判成 toxic。
+- `66b20e0f`：overflow auto-seal 在 `requestSeal()` 之后补 `finalize()`，避免 transcript / digest 不落盘导致 recall 404。
+- `60cdd082` / `168fcf97` / `19e54ad9` / `d28d5177`：统一 seal 语义到 `requestSeal()` → `accepted` 检查 → `finalize()`，补齐 `messageCount`、CAS guard、route runtime wiring、unseal displacement 竞态保护。
+- `d288fa4c`：修掉 API package 的预存 TS 错误，让 `dist/` 能重新 build，F118 路径的测试不再依赖陈旧产物。
+- `d18bd771`：给 `finalize()` 补 30s timeout、失败审计 `seal_finalize_failed`、以及 `reconcileStuck()` 兜底，避免 session 永久卡在 `sealing`。
+
+### 剩余非阻塞 hardening（避免遗忘）
+
+- [ ] 把 `reconcileStuck()` 从“invoke 前按当前 `catId/threadId` best-effort 扫描”升级成启动时 / 定时的全局 reaper。当前实现只能在同一 thread 再次被 invoke 时自愈，长期无人触碰的旧 thread 仍可能保留 `sealing` 终态垃圾。
+- [ ] 把 `reconcileStuck()` 正式纳入 `ISessionSealer` 契约，移除调用侧的 `'reconcileStuck' in deps.sessionSealer` + type cast，收干净类型层和运行时能力的漂移。
+
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
@@ -232,6 +247,7 @@ CLI 挂了 (liveness, Phase A+B ✅)
 | 2026-03-14 | Scope 扩展：社区 #86/#98/#99 归入 F118 (KD-6)，三猫 triage 验证 |
 | 2026-03-14 | Phase C merged (PR #448) — 前端预警 UI + session recovery (AC-C1~C6) |
 | 2026-03-14 | Feature closed — 愿景守护放行 (GPT-5.4), 全 AC 完成 |
+| 2026-03-14 | Post-close hardening chain merged — sealing 事故补丁串（`88084b54` → `66b20e0f` → `60cdd082` → `168fcf97` → `19e54ad9` → `d28d5177` → `d288fa4c` → `d18bd771`）完成，`Follow-up Hardening` 剩余两项转持续跟踪 |
 
 ## Review Gate
 

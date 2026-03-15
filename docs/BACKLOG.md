@@ -53,8 +53,7 @@ created: 2026-02-26
 | F112 | Voice Playback Queue — 语音播放队列 + Intent 调度 | spec | 布偶猫 | internal | [F112](features/F112-voice-playback-queue.md) |
 | F113 | Multi-Platform One-Click Deploy — 多平台一键部署 | spec | community | community [#14](https://github.com/zts212653/clowder-ai/issues/14) | [F113](features/F113-multi-platform-one-click-deploy.md) |
 | F119 | 谁是卧底 — 坏猫战术推理游戏 #2 | spec | 布偶猫 | internal | [F119](features/F119-who-is-spy-game.md) |
-| F118 | CLI Liveness Watchdog — CLI 进程活性守卫 | in-progress | 布偶猫 + 缅因猫 | internal | [F118](features/F118-cli-liveness-watchdog.md) |
+| F118 | CLI Liveness Watchdog — CLI 进程活性守卫 + Follow-up Hardening | in-progress | 布偶猫 + 缅因猫 | internal | [F118](features/F118-cli-liveness-watchdog.md) |
 | F120 | Hub Embedded Browser — 在 Hub 内嵌浏览器预览运行中的前端应用 | in-progress | 布偶猫 | internal | [F120](features/F120-hub-embedded-browser.md) |
 | F121 | Community Frontend UX Triage — 社区前端交互体验侦查与分诊 | in-progress | 三猫 | community [#28](https://github.com/zts212653/clowder-ai/issues/28) [#89](https://github.com/zts212653/clowder-ai/issues/89) [#27](https://github.com/zts212653/clowder-ai/issues/27) [#22](https://github.com/zts212653/clowder-ai/issues/22) [#88](https://github.com/zts212653/clowder-ai/issues/88) [#16](https://github.com/zts212653/clowder-ai/issues/16) | [F121](features/F121-community-frontend-ux-triage.md) |
-
 
