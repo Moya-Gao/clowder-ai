@@ -23,7 +23,7 @@ describe('Session Chain Routes', () => {
   let SessionChainStore;
   let sessionChainRoutes;
 
-  async function setup(threadStoreOverride) {
+  async function setup(threadStoreOverride, sealerOverride) {
     const storeMod = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const routeMod = await import('../dist/routes/session-chain.js');
     SessionChainStore = storeMod.SessionChainStore;
@@ -37,7 +37,7 @@ describe('Session Chain Routes', () => {
         'unknown-thread': { id: 'unknown-thread', createdBy: 'user-1' },
       });
     app = Fastify();
-    const mockSealer = {
+    const mockSealer = sealerOverride ?? {
       requestSeal: async () => ({ accepted: true }),
       finalize: async () => {},
     };
@@ -269,6 +269,27 @@ describe('Session Chain Routes', () => {
     const body = JSON.parse(res.payload);
     assert.equal(body.mode, 'reopened');
     assert.equal(body.fromSessionId, sealed.id);
+  });
+
+  it('POST /api/sessions/:sessionId/unseal returns 409 on CAS race during displacement', async () => {
+    const rejectingSealer = {
+      requestSeal: async () => ({ accepted: false }),
+      finalize: async () => {},
+    };
+    const store = await setup(undefined, rejectingSealer);
+    const sealed = store.create({ cliSessionId: 'cli-old', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(sealed.id, { status: 'sealed', sealReason: 'threshold', sealedAt: Date.now(), updatedAt: Date.now() });
+    // Empty active session but CAS will reject
+    store.create({ cliSessionId: 'cli-new', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sealed.id}/unseal`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 409);
+    const body = JSON.parse(res.payload);
+    assert.match(body.error, /CAS race/);
   });
 
   it('POST /api/sessions/:sessionId/unseal returns 409 when active session has messages', async () => {

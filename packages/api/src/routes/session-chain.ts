@@ -140,10 +140,14 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
       }
       // Empty replacement (e.g., auto-seal created it) → safe to displace.
       // Use sessionSealer when available for consistent seal semantics.
+      let displaced = false;
       if (sessionSealer) {
         try {
-          await sessionSealer.requestSeal({ sessionId: active.id, reason: 'unseal_displacement' });
-          sessionSealer.finalize({ sessionId: active.id }).catch(() => {});
+          const result = await sessionSealer.requestSeal({ sessionId: active.id, reason: 'unseal_displacement' });
+          if (result.accepted) {
+            sessionSealer.finalize({ sessionId: active.id }).catch(() => {});
+            displaced = true;
+          }
         } catch {
           /* best-effort — empty session, no data to lose */
         }
@@ -154,6 +158,14 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
           sealedAt: Date.now(),
           updatedAt: Date.now(),
         });
+        displaced = true;
+      }
+      if (!displaced) {
+        reply.status(409);
+        return {
+          error: 'Failed to displace active session (CAS race) — retry unseal',
+          activeSessionId: active.id,
+        };
       }
     }
 
