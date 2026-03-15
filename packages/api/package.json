@@ -38,7 +38,7 @@
     "imapflow": "^1.2.10",
     "ioredis": "^5.3.0",
     "js-tiktoken": "^1.0.21",
-    "node-pty": "^1.1.0",
+    "node-pty": "1.2.0-beta.12",
     "nodemailer": "^6.9.16",
     "puppeteer": "^24.37.2",
     "rss-parser": "^3.13.0",
