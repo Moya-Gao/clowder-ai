@@ -225,6 +225,8 @@ Apple 与 Anthropic/OpenAI 官方合作，Claude Agent 是第一方适配的 age
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Discussion** | `docs/discussions/2026-03-10-ios-ttl-intesaction.md` | 原始讨论（铲屎官灵感） |
+| **Callout** | `docs/features/F124-voice-comfort-callout.md` | 猫猫语音召集令：Watch 即时回应录制 |
 | **Feature** | `docs/features/F092-voice-companion-experience.md` | 演化来源：web 语音陪伴 |
 | **Feature** | `docs/features/F066-voice-pipeline-upgrade.md` | 依赖：TTS 本地化 |
+| **Feature** | `docs/features/F103-per-cat-voice-identity.md` | 依赖：每猫独立声线（11 猫全配） |
 | **Feature** | `docs/features/F088-multi-platform-chat-gateway.md` | 依赖：消息管线 |
