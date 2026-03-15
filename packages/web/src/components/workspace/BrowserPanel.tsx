@@ -6,6 +6,8 @@ import { apiFetch } from '@/utils/api-client';
 interface BrowserPanelProps {
   /** Initial port to preview (e.g. from port discovery toast) */
   initialPort?: number;
+  /** Initial path for deep-linking (e.g. "/dashboard" from auto-open) */
+  initialPath?: string;
 }
 
 interface PreviewStatus {
@@ -20,11 +22,13 @@ type HmrStatus = 'idle' | 'connected' | 'disconnected';
  * The iframe loads through the Preview Gateway (独立 origin) to strip X-Frame-Options
  * and isolate cookies/storage from Hub.
  */
-export function BrowserPanel({ initialPort }: BrowserPanelProps) {
+export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
   const [gatewayPort, setGatewayPort] = useState<number>(0);
   const [targetPort, setTargetPort] = useState(initialPort ?? 0);
-  const [urlInput, setUrlInput] = useState(initialPort ? `localhost:${initialPort}` : '');
-  const [targetPath, setTargetPath] = useState('/');
+  const [urlInput, setUrlInput] = useState(
+    initialPort ? `localhost:${initialPort}${initialPath && initialPath !== '/' ? initialPath : ''}` : '',
+  );
+  const [targetPath, setTargetPath] = useState(initialPath ?? '/');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hmrStatus, setHmrStatus] = useState<HmrStatus>('idle');
@@ -40,13 +44,15 @@ export function BrowserPanel({ initialPort }: BrowserPanelProps) {
       .catch(() => setError('Preview gateway not available'));
   }, []);
 
-  // If initialPort changes (e.g. from port discovery), auto-navigate
+  // If initialPort/initialPath changes (e.g. from port discovery or auto-open), auto-navigate
   useEffect(() => {
-    if (initialPort && initialPort !== targetPort) {
+    if (initialPort && (initialPort !== targetPort || (initialPath ?? '/') !== targetPath)) {
       setTargetPort(initialPort);
-      setUrlInput(`localhost:${initialPort}`);
+      const pathSuffix = initialPath && initialPath !== '/' ? initialPath : '';
+      setUrlInput(`localhost:${initialPort}${pathSuffix}`);
+      setTargetPath(initialPath ?? '/');
     }
-  }, [initialPort]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialPort, initialPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Audit: close on unmount only (use ref to avoid stale closure)
   const targetPortRef = useRef(targetPort);

@@ -155,6 +155,7 @@ export function WorkspacePanel() {
 
   const [viewMode, setViewMode] = useState<'files' | 'changes' | 'git' | 'terminal' | 'browser'>('files');
   const [previewPort, setPreviewPort] = useState<number | undefined>();
+  const [previewPath, setPreviewPath] = useState<string>('/');
   const [portDiscoveryToast, setPortDiscoveryToast] = useState<{ port: number; framework?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename' | 'all'>('all');
@@ -208,8 +209,18 @@ export function WorkspacePanel() {
         setTimeout(() => setPortDiscoveryToast(null), 8000);
       };
       socket.on('preview:port-discovered', handler);
+      // F120 Phase C: auto-open — cat triggers browser panel directly (no toast)
+      const autoOpenHandler = (data: { port: number; path?: string; worktreeId?: string }) => {
+        // Fail-closed scope: worktreeId must match (both undefined = match for single-session)
+        if ((data.worktreeId ?? null) !== (worktreeId ?? null)) return;
+        setPreviewPort(data.port);
+        setPreviewPath(data.path ?? '/');
+        setViewMode('browser');
+      };
+      socket.on('preview:auto-open', autoOpenHandler);
       cleanup = () => {
         socket.off('preview:port-discovered', handler);
+        socket.off('preview:auto-open', autoOpenHandler);
         socket.disconnect();
       };
     });
@@ -638,7 +649,7 @@ export function WorkspacePanel() {
       )}
 
       {viewMode === 'browser' ? (
-        <BrowserPanel initialPort={previewPort} />
+        <BrowserPanel initialPort={previewPort} initialPath={previewPath} />
       ) : viewMode === 'terminal' ? (
         worktreeId ? (
           <TerminalTab worktreeId={worktreeId} />

@@ -618,6 +618,9 @@ async function main(): Promise<void> {
     portDiscovery,
     gatewayPort: previewGateway.actualPort || PREVIEW_GATEWAY_PORT,
     runtimePorts,
+    socketEmit: (event, data) => {
+      socketManager?.getIO().emit(event, data);
+    },
   });
   await app.register(skillsRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });

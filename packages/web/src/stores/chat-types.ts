@@ -62,7 +62,7 @@ export interface ToolEvent {
 }
 
 /** F22: Rich block types for frontend rendering */
-export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio' | 'interactive';
+export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio' | 'interactive' | 'html_widget';
 
 /** F066 Phase 4: Card action button */
 export interface CardAction {
@@ -156,13 +156,27 @@ export interface RichInteractiveBlock {
   groupId?: string;
 }
 
+/** F120 Phase C: Inline HTML/JS widget rendered in sandboxed iframe (srcdoc) */
+export interface RichHtmlWidgetBlock {
+  id: string;
+  kind: 'html_widget';
+  v: 1;
+  /** Complete HTML document or fragment to render */
+  html: string;
+  /** Optional title displayed above the widget */
+  title?: string;
+  /** iframe height in px (default: 300) */
+  height?: number;
+}
+
 export type RichBlock =
   | RichCardBlock
   | RichDiffBlock
   | RichChecklistBlock
   | RichMediaGalleryBlock
   | RichAudioBlock
-  | RichInteractiveBlock;
+  | RichInteractiveBlock
+  | RichHtmlWidgetBlock;
 
 /** F97: External connector source info (only when type='connector') */
 export interface ConnectorSourceData {
