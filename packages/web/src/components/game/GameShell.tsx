@@ -12,6 +12,8 @@ export function GameShell({ children, isNight = false }: GameShellProps) {
   return (
     <div
       data-testid="game-shell"
+      data-theme="werewolf-cute"
+      data-phase={isNight ? 'night' : 'day'}
       className={`fixed inset-0 z-50 flex flex-col bg-[#0A0F1C] text-white${isNight ? ' brightness-90 saturate-75' : ''}`}
     >
       {children}
