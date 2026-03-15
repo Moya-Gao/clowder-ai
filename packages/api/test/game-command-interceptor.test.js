@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { buildGameSeats, parseGameCommand } from '../dist/routes/game-command-interceptor.js';
+import { buildGameSeats, parseGameCommand, sanitizeCatIds } from '../dist/routes/game-command-interceptor.js';
 
 describe('parseGameCommand', () => {
   it('returns null for non-game messages', () => {
@@ -22,6 +22,8 @@ describe('parseGameCommand', () => {
       gameType: 'werewolf',
       humanRole: 'player',
       voiceMode: false,
+      playerCount: undefined,
+      catIds: undefined,
     });
   });
 
@@ -31,6 +33,8 @@ describe('parseGameCommand', () => {
       gameType: 'werewolf',
       humanRole: 'god-view',
       voiceMode: false,
+      playerCount: undefined,
+      catIds: undefined,
     });
   });
 
@@ -40,6 +44,8 @@ describe('parseGameCommand', () => {
       gameType: 'werewolf',
       humanRole: 'player',
       voiceMode: true,
+      playerCount: undefined,
+      catIds: undefined,
     });
   });
 
@@ -49,6 +55,8 @@ describe('parseGameCommand', () => {
       gameType: 'werewolf',
       humanRole: 'god-view',
       voiceMode: true,
+      playerCount: undefined,
+      catIds: undefined,
     });
   });
 
@@ -72,7 +80,87 @@ describe('parseGameCommand', () => {
       gameType: 'werewolf',
       humanRole: 'god-view',
       voiceMode: true,
+      playerCount: undefined,
+      catIds: undefined,
     });
+  });
+
+  // AC-C2: Extended lobby config parsing
+  it('parses player count from command', () => {
+    const result = parseGameCommand('/game werewolf player 9');
+    assert.equal(result?.playerCount, 9);
+    assert.equal(result?.voiceMode, false);
+  });
+
+  it('parses player count + voice', () => {
+    const result = parseGameCommand('/game werewolf player 9 voice');
+    assert.equal(result?.playerCount, 9);
+    assert.equal(result?.voiceMode, true);
+  });
+
+  it('parses player count + cat IDs', () => {
+    const result = parseGameCommand('/game werewolf player 9 opus,sonnet,codex,gpt52,spark,gemini,gemini25,dare');
+    assert.equal(result?.playerCount, 9);
+    assert.deepStrictEqual(result?.catIds, ['opus', 'sonnet', 'codex', 'gpt52', 'spark', 'gemini', 'gemini25', 'dare']);
+  });
+
+  it('parses player count + cat IDs + voice', () => {
+    const result = parseGameCommand('/game werewolf god-view 7 opus,sonnet,codex voice');
+    assert.equal(result?.playerCount, 7);
+    assert.deepStrictEqual(result?.catIds, ['opus', 'sonnet', 'codex']);
+    assert.equal(result?.voiceMode, true);
+  });
+
+  // P2: single cat ID (no comma) must still be parsed as catIds
+  it('parses single cat ID without comma', () => {
+    const result = parseGameCommand('/game werewolf player 9 opus');
+    assert.deepStrictEqual(result?.catIds, ['opus']);
+  });
+
+  // P2: trailing tokens must not overwrite catIds
+  it('ignores trailing tokens after catIds', () => {
+    const result = parseGameCommand('/game werewolf player 9 opus,sonnet please');
+    assert.deepStrictEqual(result?.catIds, ['opus', 'sonnet']);
+  });
+
+  // P1-2: playerCount must be clamped to valid presets
+  it('clamps playerCount to nearest valid preset', () => {
+    // 5 → too low, should clamp to 6
+    assert.equal(parseGameCommand('/game werewolf player 5')?.playerCount, 6);
+    // 11 → not a preset, should clamp to 10
+    assert.equal(parseGameCommand('/game werewolf player 11')?.playerCount, 10);
+    // 999 → way too high, should clamp to 12
+    assert.equal(parseGameCommand('/game werewolf player 999')?.playerCount, 12);
+    // 0 → clamp to 6
+    assert.equal(parseGameCommand('/game werewolf player 0')?.playerCount, 6);
+    // Valid presets should pass through
+    assert.equal(parseGameCommand('/game werewolf player 6')?.playerCount, 6);
+    assert.equal(parseGameCommand('/game werewolf player 9')?.playerCount, 9);
+    assert.equal(parseGameCommand('/game werewolf player 12')?.playerCount, 12);
+  });
+});
+
+describe('sanitizeCatIds', () => {
+  const allowedIds = ['opus', 'sonnet', 'codex', 'gpt52', 'gemini'];
+
+  it('filters out unknown cat IDs', () => {
+    const result = sanitizeCatIds(['opus', 'fakeUser', 'codex', 'hacker'], allowedIds);
+    assert.deepStrictEqual(result, ['opus', 'codex']);
+  });
+
+  it('returns all when all are valid', () => {
+    const result = sanitizeCatIds(['opus', 'codex', 'gemini'], allowedIds);
+    assert.deepStrictEqual(result, ['opus', 'codex', 'gemini']);
+  });
+
+  it('returns empty array when all are invalid', () => {
+    const result = sanitizeCatIds(['fakeUser1', 'fakeUser2'], allowedIds);
+    assert.deepStrictEqual(result, []);
+  });
+
+  it('returns empty array for empty input', () => {
+    const result = sanitizeCatIds([], allowedIds);
+    assert.deepStrictEqual(result, []);
   });
 });
 

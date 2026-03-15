@@ -17,15 +17,51 @@ const SUBCOMMANDS = new Set(['status', 'end']);
 /** Valid human role values */
 const VALID_HUMAN_ROLES = new Set(['player', 'god-view']);
 
+/** Valid board preset player counts (ascending) */
+const VALID_PLAYER_COUNTS: readonly number[] = [6, 7, 8, 9, 10, 12];
+
+/** Clamp a number to the nearest valid preset player count */
+function clampToPreset(n: number): number {
+  if (n <= VALID_PLAYER_COUNTS[0]) return VALID_PLAYER_COUNTS[0];
+  if (n >= VALID_PLAYER_COUNTS[VALID_PLAYER_COUNTS.length - 1])
+    return VALID_PLAYER_COUNTS[VALID_PLAYER_COUNTS.length - 1];
+  // Find nearest valid preset (prefer lower if equidistant)
+  let best = VALID_PLAYER_COUNTS[0];
+  for (const preset of VALID_PLAYER_COUNTS) {
+    if (preset <= n) best = preset;
+  }
+  return best;
+}
+
+/**
+ * Filter catIds to only include IDs present in the allowed whitelist.
+ * Prevents injection of arbitrary actorIds into game seats.
+ */
+export function sanitizeCatIds(catIds: string[], allowedIds: readonly string[]): string[] {
+  const allowed = new Set(allowedIds);
+  return catIds.filter((id) => allowed.has(id));
+}
+
 export interface ParsedGameCommand {
   gameType: string;
   humanRole: 'player' | 'god-view';
   voiceMode: boolean;
+  /** Player count from lobby config; undefined = use default */
+  playerCount?: number;
+  /** Specific cat IDs from lobby config; undefined = use all cats */
+  catIds?: string[];
 }
 
 /**
  * Parse a `/game` command from a chat message.
  * Returns null if the message is not a valid `/game` start command.
+ *
+ * Format: /game <type> <role> [<playerCount>] [<catIds>] [voice]
+ * Examples:
+ *   /game werewolf player
+ *   /game werewolf player 9
+ *   /game werewolf player 9 opus,sonnet,codex,gpt52,spark,gemini,gemini25,dare
+ *   /game werewolf god-view 7 opus,sonnet,codex voice
  */
 export function parseGameCommand(content: string): ParsedGameCommand | null {
   const trimmed = content.trim();
@@ -46,12 +82,29 @@ export function parseGameCommand(content: string): ParsedGameCommand | null {
   const humanRole = parts[2]!.toLowerCase();
   if (!VALID_HUMAN_ROLES.has(humanRole)) return null;
 
-  const voiceMode = parts.length >= 4 && parts[3]!.toLowerCase() === 'voice';
+  // Parse remaining parts: [playerCount] [catIds] [voice]
+  let playerCount: number | undefined;
+  let catIds: string[] | undefined;
+  let voiceMode = false;
+
+  for (let i = 3; i < parts.length; i++) {
+    const part = parts[i]!.toLowerCase();
+    if (part === 'voice') {
+      voiceMode = true;
+    } else if (/^\d+$/.test(part)) {
+      playerCount = clampToPreset(parseInt(part, 10));
+    } else if (!catIds) {
+      // First non-voice, non-digit token = catIds (single or comma-separated)
+      catIds = part.split(',').filter(Boolean);
+    }
+  }
 
   return {
     gameType,
     humanRole: humanRole as 'player' | 'god-view',
     voiceMode,
+    playerCount,
+    catIds,
   };
 }
 

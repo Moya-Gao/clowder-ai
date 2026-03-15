@@ -19,6 +19,22 @@ vi.mock('@/utils/compressImage', () => ({
   compressImage: (f: File) => Promise.resolve(f),
 }));
 
+// Mock useCatData to return enough cats for a 7-player game (6 cat seats in player mode)
+const mockCats = ['opus', 'sonnet', 'codex', 'gpt52', 'spark', 'gemini'].map((id) => ({
+  id,
+  displayName: id,
+  color: { primary: '#888', secondary: '#666' },
+  avatar: `/avatars/${id}.png`,
+  mentionPatterns: [id],
+  provider: 'test',
+  defaultModel: 'test',
+  roleDescription: '',
+  personality: '',
+}));
+vi.mock('@/hooks/useCatData', () => ({
+  useCatData: () => ({ cats: mockCats, isLoading: false }),
+}));
+
 beforeAll(() => {
   (globalThis as { React?: typeof React }).React = React;
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -80,7 +96,7 @@ describe('sendGameCommand respects sendTemporarilyDisabled', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('sends game command when upload is idle', () => {
+  it('opens lobby when upload is idle, sends on confirm', () => {
     const onSend = vi.fn();
 
     act(() => {
@@ -102,7 +118,18 @@ describe('sendGameCommand respects sendTemporarilyDisabled', () => {
       modeItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     });
 
-    expect(onSend).toHaveBeenCalledWith('/game werewolf player', undefined, undefined, undefined);
+    // Mode click now opens lobby instead of sending directly
+    expect(onSend).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
+
+    // Confirm in lobby triggers send
+    const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
+    act(() => {
+      confirmBtn.click();
+    });
+
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend.mock.calls[0]![0]).toMatch(/^\/game werewolf player/);
   });
 });
 
@@ -183,7 +210,16 @@ describe('sendGameCommand passes queue delivery mode during active invocation', 
       modeItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     });
 
-    expect(onSend).toHaveBeenCalledWith('/game werewolf player', undefined, undefined, 'queue');
+    // Lobby opens, confirm to trigger send
+    expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
+    const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
+    act(() => {
+      confirmBtn.click();
+    });
+
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend.mock.calls[0]![0]).toMatch(/^\/game werewolf player/);
+    expect(onSend.mock.calls[0]![3]).toBe('queue');
   });
 
   it('sends without queue mode when no active invocation', () => {
@@ -208,6 +244,15 @@ describe('sendGameCommand passes queue delivery mode during active invocation', 
       modeItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     });
 
-    expect(onSend).toHaveBeenCalledWith('/game werewolf player', undefined, undefined, undefined);
+    // Lobby opens, confirm to trigger send
+    expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
+    const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
+    act(() => {
+      confirmBtn.click();
+    });
+
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend.mock.calls[0]![0]).toMatch(/^\/game werewolf player/);
+    expect(onSend.mock.calls[0]![3]).toBeUndefined();
   });
 });

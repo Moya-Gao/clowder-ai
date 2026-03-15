@@ -19,6 +19,7 @@ import {
   WEREWOLF_MODES,
 } from './chat-input-options';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
+import { GameLobby } from './game/GameLobby';
 import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
@@ -69,6 +70,7 @@ export function ChatInput({
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
+  const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const gameBtnRef = useRef<HTMLButtonElement>(null);
@@ -254,8 +256,11 @@ export function ChatInput({
           setGameStep('modes');
           setSelectedIdx(0);
         } else {
-          // Layer 2: send selected mode command directly
-          sendGameCommand(WEREWOLF_MODES[selectedIdx].command);
+          // Layer 2: open lobby for mode configuration
+          const mode = WEREWOLF_MODES[selectedIdx];
+          const role = mode.id.startsWith('god') ? 'god-view' : 'player';
+          closeMenus();
+          setLobbyMode(role as 'player' | 'god-view');
         }
         return;
       }
@@ -493,7 +498,12 @@ export function ChatInput({
         selectedIdx={selectedIdx}
         onSelectIdx={setSelectedIdx}
         onInsertMention={insertMention}
-        onSendCommand={sendGameCommand}
+        onSendCommand={(command) => {
+          // Open lobby instead of sending directly
+          const role = command.includes('god-view') ? 'god-view' : 'player';
+          closeMenus();
+          setLobbyMode(role as 'player' | 'god-view');
+        }}
         menuRef={menuRef}
       />
 
@@ -667,6 +677,18 @@ export function ChatInput({
 
       {showHistorySearch && (
         <HistorySearchModal onSelect={handleHistorySelect} onClose={() => setShowHistorySearch(false)} />
+      )}
+
+      {lobbyMode && (
+        <GameLobby
+          mode={lobbyMode}
+          cats={cats}
+          onConfirm={(command) => {
+            setLobbyMode(null);
+            sendGameCommand(command);
+          }}
+          onCancel={() => setLobbyMode(null)}
+        />
       )}
     </div>
   );

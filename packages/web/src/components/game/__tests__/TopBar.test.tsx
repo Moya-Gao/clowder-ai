@@ -52,4 +52,15 @@ describe('TopBar', () => {
     const html = render({ isNight: false });
     expect(html).toContain('bg-[#0F172A]');
   });
+
+  it('renders close button when onClose provided', () => {
+    const html = render({ onClose: () => {} });
+    expect(html).toContain('data-testid="game-close-btn"');
+    expect(html).toContain('退出游戏');
+  });
+
+  it('does not render close button when onClose omitted', () => {
+    const html = render();
+    expect(html).not.toContain('data-testid="game-close-btn"');
+  });
 });

@@ -78,6 +78,7 @@ export function GameOverlay({
         roundInfo={`第 ${view.round} 轮`}
         timeLeftMs={timeLeftMs}
         isNight={isNight}
+        onClose={onClose}
       />
       <PhaseTimeline phases={phases} currentIndex={0} />
       <PlayerGrid seats={view.seats} />

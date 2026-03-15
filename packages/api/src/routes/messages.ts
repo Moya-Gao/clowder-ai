@@ -25,6 +25,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
+import { GameAutoPlayer } from '../domains/cats/services/game/GameAutoPlayer.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
@@ -41,7 +42,7 @@ import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
 import { normalizeErrorMessage } from '../utils/normalize-error.js';
 import { resolveUserId } from '../utils/request-identity.js';
-import { buildGameSeats, parseGameCommand } from './game-command-interceptor.js';
+import { buildGameSeats, parseGameCommand, sanitizeCatIds } from './game-command-interceptor.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { parseMultipart } from './parse-multipart.js';
 
@@ -208,12 +209,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     const parsedGame = parseGameCommand(content);
     if (parsedGame && opts.gameStore) {
       const DEFAULT_PLAYER_COUNT = 7;
-      const catIds = getAllCatIdsFromConfig();
+      const allCatIds = getAllCatIdsFromConfig();
+      const sanitized = parsedGame.catIds ? sanitizeCatIds(parsedGame.catIds, allCatIds) : [];
+      // Fallback to all cats if sanitize filtered everything out (or no catIds provided)
+      const catIds = sanitized.length > 0 ? sanitized : [...allCatIds];
+      const playerCount = parsedGame.playerCount ?? DEFAULT_PLAYER_COUNT;
       const seats = buildGameSeats({
         humanRole: parsedGame.humanRole,
         userId,
         catIds,
-        playerCount: DEFAULT_PLAYER_COUNT,
+        playerCount,
       });
 
       // Store user message (shows in chat history)
@@ -230,7 +235,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       const lobby = new WerewolfLobby();
       const lobbyRuntime = lobby.createLobby({
         threadId: resolvedThreadId,
-        playerCount: DEFAULT_PLAYER_COUNT,
+        playerCount,
         players: seats.map((s) => ({ actorType: s.actorType, actorId: s.actorId })),
       });
       lobby.startGame(lobbyRuntime);
@@ -264,6 +269,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
       // Broadcast scoped views so frontend receives game:state_update
       await orchestrator.broadcastGameState(gameRuntime.gameId);
+
+      // AC-C3: Start AI auto-play loop — cats submit actions asynchronously
+      const autoPlayer = new GameAutoPlayer({
+        gameStore: opts.gameStore,
+        orchestrator,
+      });
+      autoPlayer.startLoop(gameRuntime.gameId);
 
       return {
         status: 'game_started',
