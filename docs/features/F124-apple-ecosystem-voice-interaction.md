@@ -35,7 +35,7 @@ created: 2026-03-15
 | Thread 列表 | 表冠滚动 + 点击 | 类微信手表版聊天列表 |
 | 最新消息预览 | 推送通知 + 抬腕 | 猫猫发消息 → 推到手表，和现有通知一样 |
 | 切换 Thread | 手势/表冠/语音 | "切到 f88" 或滚动选择 |
-| 语音输入 | 长按/抬腕说话 | 说话 → ASR → 发到当前 thread |
+| 语音输入 | 长按/抬腕说话 | 说话 → Watch 本地 ASR（SFSpeechRecognizer 离线）→ 文字发到 thread |
 | 语音输出 | 自动播报 | 猫猫消息 TTS → Watch 扬声器/蓝牙耳机 |
 | 猫猫状态 | 进入 thread 后查看 | **不是全局看所有猫**——进具体 thread 才看该 thread 的猫谁在忙 |
 | 快捷操作 | 按钮/语音 | Approve PR、切 thread、发语音指令 |
@@ -63,7 +63,7 @@ created: 2026-03-15
 SwiftUI 实现 watchOS App MVP：
 - Watch 直连 Cat Café 后端（URLSession / WebSocket over eSIM/WiFi）
 - Thread 列表 + 切换（表冠/手势/语音）
-- 语音输入：Watch 麦克风 → 后端 ASR → 发到 thread
+- 语音输入：Watch 麦克风 → SFSpeechRecognizer 本地离线识别 → 文字发到 thread（不传音频到后端）
 - 语音输出：猫猫消息 → TTS → Watch 扬声器/蓝牙耳机自动播报
 - 推送通知：猫猫汇报 → APNs → Watch 震动
 - Watch 模式标识：后端知道铲屎官在用 Watch，猫猫自动发语音
@@ -97,7 +97,7 @@ iPhone companion App：
 ### Phase C（watchOS App MVP）
 - [ ] AC-C1: Watch 独立联网（eSIM/WiFi）直连 Cat Café 后端
 - [ ] AC-C2: Thread 列表显示 + 表冠滚动切换
-- [ ] AC-C3: Watch 麦克风语音输入 → 后端 ASR → 发到 thread
+- [ ] AC-C3: Watch 麦克风语音输入 → SFSpeechRecognizer 本地识别 → 文字发到 thread
 - [ ] AC-C4: 猫猫消息 → TTS → Watch 扬声器/蓝牙自动播报
 - [ ] AC-C5: 推送通知（APNs）→ Watch 震动
 - [ ] AC-C6: 后端识别 Watch 模式，猫猫自动发语音消息
@@ -140,7 +140,7 @@ iPhone companion App：
 | OQ-1 | ~~Apple Developer 账号注册时机？~~ | ✅ 先不交钱，free provisioning sideload，成熟后再交 $99 |
 | OQ-2 | ~~iOS App 是否需要上架 App Store？~~ | ✅ 先 sideload 测试，成熟后再决定 |
 | OQ-3 | 后端鉴权方案——现有 session 还是新增 API key/token？ | ⬜ 未定 |
-| OQ-4 | watchOS 最低支持版本？（影响 API 可用性） | ⬜ 未定 |
+| OQ-4 | ~~watchOS 最低支持版本？~~ | ✅ Ultra 3 = 最新 watchOS，无兼容性顾虑 |
 | OQ-5 | Cloudflare Tunnel 延迟优化方案？之前很卡，需 <300ms | ⬜ 铲屎官找之前的布偶猫讨论 |
 | OQ-6 | 公网域名注册 | ⬜ 铲屎官处理 |
 
@@ -156,6 +156,8 @@ iPhone companion App：
 | KD-6 | 原生 App 和 iMessage (F088 Phase F) 是两条独立路径 | 用途不同：iMessage 是消息通道走 connector，原生 App 是专属猫咖入口 | 2026-03-15 |
 | KD-7 | 先 sideload 测试，成熟后再交 $99 | 铲屎官确认：free provisioning 先跑起来 | 2026-03-15 |
 | KD-8 | Watch 走公网 API（Cloudflare Tunnel），不走 Tailscale | Watch 装不了 Tailscale，复用飞书/Telegram 同一条公网入口 | 2026-03-15 |
+| KD-9 | ASR 用 Watch 本地 SFSpeechRecognizer（离线），不传音频到后端 | Ultra 3 S10 芯片支持离线中文识别，省网络延迟+算力；和手机上用 Apple 原生 ASR 一致 | 2026-03-15 |
+| KD-10 | 目标设备：Apple Watch Ultra 3（S10 芯片） | 铲屎官实机，最新最强，离线 ASR 全量支持 | 2026-03-15 |
 
 ## Timeline
 
