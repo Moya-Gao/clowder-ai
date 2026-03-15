@@ -1,8 +1,8 @@
 /**
- * F118 Phase C — AC-C4: Resume Health Check + Auto-Seal
+ * F118 Phase C — AC-C4/AC-C6: Resume Health Check + Overflow Circuit Breaker
  *
- * When session chain has an active record with stale updatedAt (>30min),
- * auto-seal it and fall back to fresh session instead of resuming.
+ * Only consecutive restore failures (≥3) trigger auto-seal.
+ * Idle sessions (no matter how old) are NOT sealed — idle ≠ toxic.
  */
 
 import './helpers/setup-cat-registry.js';
@@ -21,7 +21,7 @@ async function collect(iterable) {
 let tempDir;
 let invokeSingleCat;
 
-describe('F118 resume health check (AC-C4)', () => {
+describe('F118 resume health check (AC-C4 + AC-C6)', () => {
   before(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'cat-health-'));
     process.env.AUDIT_LOG_DIR = tempDir;
@@ -66,24 +66,25 @@ describe('F118 resume health check (AC-C4)', () => {
     };
   }
 
-  it('auto-seals stale active session and falls back to fresh', async () => {
+  it('auto-seals session after ≥3 consecutive restore failures (overflow)', async () => {
     const sealCalls = [];
-    const THIRTY_ONE_MIN_AGO = Date.now() - 31 * 60 * 1000;
+    const ONE_HOUR_AGO = Date.now() - 60 * 60 * 1000;
 
     const deps = makeDeps({
       sessionChainStore: {
         getChain: async () => [
           {
-            id: 'sess-stale',
-            cliSessionId: 'cli-sess-stale',
+            id: 'sess-overflow',
+            cliSessionId: 'cli-sess-overflow',
             status: 'active',
-            updatedAt: THIRTY_ONE_MIN_AGO,
+            updatedAt: ONE_HOUR_AGO,
+            consecutiveRestoreFailures: 3,
             catId: 'codex',
-            threadId: 'thread-health',
+            threadId: 'thread-overflow',
             userId: 'user1',
             seq: 0,
             messageCount: 5,
-            createdAt: THIRTY_ONE_MIN_AGO - 60000,
+            createdAt: ONE_HOUR_AGO - 60000,
           },
         ],
         updateRecord: async () => {},
@@ -103,15 +104,15 @@ describe('F118 resume health check (AC-C4)', () => {
         service: makeOkService(),
         prompt: 'test',
         userId: 'user1',
-        threadId: 'thread-health',
+        threadId: 'thread-overflow',
         isLastCat: true,
       }),
     );
 
-    // Should have auto-sealed the stale session
+    // Should auto-seal due to overflow circuit breaker
     assert.equal(sealCalls.length, 1, 'requestSeal should be called once');
-    assert.equal(sealCalls[0].sessionId, 'sess-stale');
-    assert.equal(sealCalls[0].reason, 'auto_health_check');
+    assert.equal(sealCalls[0].sessionId, 'sess-overflow');
+    assert.equal(sealCalls[0].reason, 'overflow_circuit_breaker');
 
     // Should still complete successfully (fresh session)
     assert.ok(
@@ -120,24 +121,25 @@ describe('F118 resume health check (AC-C4)', () => {
     );
   });
 
-  it('allows resume for healthy (recent) active session', async () => {
+  it('does NOT seal idle session regardless of age', async () => {
     const sealCalls = [];
-    const FIVE_MIN_AGO = Date.now() - 5 * 60 * 1000;
+    const TWO_WEEKS_AGO = Date.now() - 14 * 24 * 60 * 60 * 1000;
 
     const deps = makeDeps({
       sessionChainStore: {
         getChain: async () => [
           {
-            id: 'sess-healthy',
-            cliSessionId: 'cli-sess-healthy',
+            id: 'sess-old-but-healthy',
+            cliSessionId: 'cli-sess-old',
             status: 'active',
-            updatedAt: FIVE_MIN_AGO,
+            updatedAt: TWO_WEEKS_AGO,
+            consecutiveRestoreFailures: 0,
             catId: 'codex',
-            threadId: 'thread-healthy',
+            threadId: 'thread-old',
             userId: 'user1',
             seq: 0,
-            messageCount: 3,
-            createdAt: FIVE_MIN_AGO - 60000,
+            messageCount: 20,
+            createdAt: TWO_WEEKS_AGO - 86400000,
           },
         ],
         updateRecord: async () => {},
@@ -157,15 +159,65 @@ describe('F118 resume health check (AC-C4)', () => {
         service: makeOkService(),
         prompt: 'test',
         userId: 'user1',
-        threadId: 'thread-healthy',
+        threadId: 'thread-old',
         isLastCat: true,
       }),
     );
 
-    // Should NOT auto-seal — session is healthy
-    assert.equal(sealCalls.length, 0, 'requestSeal should not be called for healthy session');
+    // Should NOT seal — idle ≠ toxic, even after 2 weeks
+    assert.equal(sealCalls.length, 0, 'requestSeal should not be called for idle session');
 
-    // Should still complete
+    assert.ok(
+      msgs.some((m) => m.type === 'done'),
+      'should yield done message',
+    );
+  });
+
+  it('does NOT seal session with failures below threshold', async () => {
+    const sealCalls = [];
+
+    const deps = makeDeps({
+      sessionChainStore: {
+        getChain: async () => [
+          {
+            id: 'sess-recovering',
+            cliSessionId: 'cli-sess-recovering',
+            status: 'active',
+            updatedAt: Date.now() - 10 * 60 * 1000,
+            consecutiveRestoreFailures: 2,
+            catId: 'codex',
+            threadId: 'thread-recovering',
+            userId: 'user1',
+            seq: 0,
+            messageCount: 8,
+            createdAt: Date.now() - 3600000,
+          },
+        ],
+        updateRecord: async () => {},
+      },
+      sessionSealer: {
+        requestSeal: async (args) => {
+          sealCalls.push(args);
+          return { accepted: true, status: 'sealing' };
+        },
+        finalize: async () => {},
+      },
+    });
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'codex',
+        service: makeOkService(),
+        prompt: 'test',
+        userId: 'user1',
+        threadId: 'thread-recovering',
+        isLastCat: true,
+      }),
+    );
+
+    // 2 failures < threshold of 3 — should NOT seal
+    assert.equal(sealCalls.length, 0, 'requestSeal should not be called when below threshold');
+
     assert.ok(
       msgs.some((m) => m.type === 'done'),
       'should yield done message',

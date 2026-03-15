@@ -147,6 +147,8 @@ export interface InvocationParams {
   readonly isLastCat: boolean;
   /** Static identity prompt — prepended to prompt on new sessions (gated by F-BLOAT logic) */
   readonly systemPrompt?: string;
+  /** F108 fix: InvocationRecordStore's parent invocation ID for worklist key alignment */
+  readonly parentInvocationId?: string;
 }
 
 /**
@@ -161,7 +163,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal } = params;
 
-  const { invocationId, callbackToken } = registry.create(userId, catId, threadId);
+  const { invocationId, callbackToken } = registry.create(userId, catId, threadId, params.parentInvocationId);
 
   // DIAG: ghost-thread bug — log invocation creation with thread binding
   console.info('[DIAG/ghost-thread] invokeSingleCat: created invocation', {
@@ -395,17 +397,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             // Chain exists but no active session → previous was sealed; don't resume
             sessionId = undefined;
           } else if (activeRec.cliSessionId) {
-            // F118 AC-C4: Resume health check — auto-seal toxic/stale sessions (#98)
-            const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
-            const isStale = activeRec.updatedAt && Date.now() - activeRec.updatedAt > STALE_THRESHOLD_MS;
             // F118 AC-C6: Overflow circuit breaker — too many consecutive restore failures (#86)
+            // Note: time-based "stale" check removed — idle sessions are healthy,
+            // only repeated restore failures indicate a toxic session.
             const MAX_CONSECUTIVE_FAILURES = 3;
             const isOverflow = (activeRec.consecutiveRestoreFailures ?? 0) >= MAX_CONSECUTIVE_FAILURES;
-            if ((isStale || isOverflow) && deps.sessionSealer) {
+            if (isOverflow && deps.sessionSealer) {
               try {
                 await deps.sessionSealer.requestSeal({
                   sessionId: activeRec.id,
-                  reason: isOverflow ? 'overflow_circuit_breaker' : 'auto_health_check',
+                  reason: 'overflow_circuit_breaker',
                 });
               } catch {
                 /* best-effort seal */
