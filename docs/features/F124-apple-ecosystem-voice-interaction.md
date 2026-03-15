@@ -18,40 +18,69 @@ created: 2026-03-15
 
 **商业目标**：演示给华子看——苹果全家桶 + Multi-Agent = 未来企业协作形态 → 猫粮自由。
 
+## 产品定义（铲屎官确认 2026-03-15）
+
+### 核心交互模型
+
+**Watch = 独立设备，不依赖 iPhone**。Watch 有 eSIM，直连后端。跑步时谁带 iPhone？
+
+**Watch 上几乎所有交互靠语音**。猫必须知道铲屎官在用 Watch 模式，所有回复发语音消息。
+
+**原生 App ≠ iMessage**：iMessage（F088 Phase F）是消息通道走 connector 管线，原生 App 是专属猫咖入口，用途不同，两条路共存。
+
+### Watch App 功能清单
+
+| 功能 | 交互方式 | 说明 |
+|------|---------|------|
+| Thread 列表 | 表冠滚动 + 点击 | 类微信手表版聊天列表 |
+| 最新消息预览 | 推送通知 + 抬腕 | 猫猫发消息 → 推到手表，和现有通知一样 |
+| 切换 Thread | 手势/表冠/语音 | "切到 f88" 或滚动选择 |
+| 语音输入 | 长按/抬腕说话 | 说话 → ASR → 发到当前 thread |
+| 语音输出 | 自动播报 | 猫猫消息 TTS → Watch 扬声器/蓝牙耳机 |
+| 猫猫状态 | 进入 thread 后查看 | **不是全局看所有猫**——进具体 thread 才看该 thread 的猫谁在忙 |
+| 快捷操作 | 按钮/语音 | Approve PR、切 thread、发语音指令 |
+| 震动通知 | 系统推送 | 猫猫主动汇报、PR 待审 |
+
+### 部署策略
+
+先 Xcode free provisioning sideload 测试（每 7 天重签），成熟后交 $99 上 TestFlight/App Store。
+
 ## What
 
 ### Phase A: F092 Autoplay Bug 修复 + iOS 基础验证
 
 修复现有 Voice Companion 在 iOS 上的 autoplay 无声 bug（根因已定位：`unlockAutoplay()` 用 AudioContext 解锁但实际播放用 HTMLAudioElement，iOS 上两套音频子系统不互通）。修复后在 iPhone Safari + AirPods 上验证 web 版语音陪伴体验。
 
-### Phase B: UX 设计 — iPhone + Watch 统一体验
+### Phase B: UX 设计 — Watch 优先
 
-和烁烁一起确定 iOS App + watchOS App 的 UX 设计：
-- iPhone App：主控制界面、Thread 切换、Dynamic Island 状态
-- Watch App：抬腕快捷操作、猫猫状态、震动通知
-- 关键原则：Watch UX = 未来 iOS App 的手表版，保持一致
+和烁烁一起确定 watchOS App 的 UX 设计（Watch 是主战场）：
+- Watch App：极简 voice-first 界面，类微信手表版
+- iPhone App：Watch 的 companion + 完整控制界面 + Dynamic Island
+- 关键原则：Watch 独立运行（eSIM 直连），不依赖 iPhone
 
-### Phase C: iOS 原生 App — MVP
+### Phase C: watchOS App — MVP（Watch 优先）
 
-Swift/SwiftUI 实现 iPhone App MVP：
-- 语音输入：AirPods 麦克风 → App 录音 → 后端 ASR → 发到 thread
-- 语音输出：猫猫消息 → TTS → 推送到 AirPods 播报
-- Thread 切换：语音指令 "切到 f88" → 识别 → 切换
-- Cat Café 后端 API 对接
+SwiftUI 实现 watchOS App MVP：
+- Watch 直连 Cat Café 后端（URLSession / WebSocket over eSIM/WiFi）
+- Thread 列表 + 切换（表冠/手势/语音）
+- 语音输入：Watch 麦克风 → 后端 ASR → 发到 thread
+- 语音输出：猫猫消息 → TTS → Watch 扬声器/蓝牙耳机自动播报
+- 推送通知：猫猫汇报 → APNs → Watch 震动
+- Watch 模式标识：后端知道铲屎官在用 Watch，猫猫自动发语音
 
-### Phase D: watchOS App + 联动
+### Phase D: iPhone App + Watch 联动
 
-watchOS 配套 App：
-- 当前 thread + 猫猫状态显示
-- 抬腕快捷操作（approve PR、切 thread）
-- 震动通知（猫猫汇报、PR 待审）
-- iPhone ↔ Watch 数据同步
+iPhone companion App：
+- 完整 Thread 管理 + 消息浏览
+- Dynamic Island 实时 Agent 状态
+- AirPods 语音交互（iPhone 在口袋时）
+- Watch ↔ iPhone 数据同步（WatchConnectivity）
 
-### Phase E: Dynamic Island + 演示打磨
+### Phase E: 演示打磨
 
-- Dynamic Island 实时显示 Agent 工作状态
-- 演示剧本打磨（给华子看的 demo）
-- 端到端联调
+- 端到端演示剧本（给华子看的 demo）
+- 演示场景：跑步机上用 Watch 审 PR、语音指令切 thread
+- 联调 + 体验打磨
 
 ## Acceptance Criteria
 
@@ -65,20 +94,25 @@ watchOS 配套 App：
 - [ ] AC-B2: Watch App wireframe 铲屎官确认
 - [ ] AC-B3: iPhone ↔ Watch 交互流程图确认
 
-### Phase C（iOS App MVP）
-- [ ] AC-C1: AirPods 语音输入 → 后端 ASR → 消息发送到 thread
-- [ ] AC-C2: 猫猫消息 → TTS → AirPods 自动播报
-- [ ] AC-C3: 语音指令切换 thread
-- [ ] AC-C4: Apple Developer 账号配置完成
+### Phase C（watchOS App MVP）
+- [ ] AC-C1: Watch 独立联网（eSIM/WiFi）直连 Cat Café 后端
+- [ ] AC-C2: Thread 列表显示 + 表冠滚动切换
+- [ ] AC-C3: Watch 麦克风语音输入 → 后端 ASR → 发到 thread
+- [ ] AC-C4: 猫猫消息 → TTS → Watch 扬声器/蓝牙自动播报
+- [ ] AC-C5: 推送通知（APNs）→ Watch 震动
+- [ ] AC-C6: 后端识别 Watch 模式，猫猫自动发语音消息
+- [ ] AC-C7: 进入 thread 后可查看该 thread 猫猫忙闲状态
+- [ ] AC-C8: 快捷操作：Approve PR、语音指令
 
-### Phase D（watchOS App）
-- [ ] AC-D1: Watch 显示当前 thread + 猫猫状态
-- [ ] AC-D2: 抬腕快捷操作（至少支持 approve PR）
-- [ ] AC-D3: 震动通知推送
+### Phase D（iPhone App + 联动）
+- [ ] AC-D1: iPhone companion App 完整 Thread 管理
+- [ ] AC-D2: Dynamic Island 显示 Agent 工作状态
+- [ ] AC-D3: AirPods 语音交互
+- [ ] AC-D4: Watch ↔ iPhone 数据同步
 
-### Phase E（Dynamic Island + Demo）
-- [ ] AC-E1: Dynamic Island 显示 Agent 工作状态
-- [ ] AC-E2: 端到端演示剧本可运行
+### Phase E（演示打磨）
+- [ ] AC-E1: 端到端演示剧本可运行（跑步机场景）
+- [ ] AC-E2: 体验流畅度达到演示标准
 
 ## Dependencies
 
@@ -92,7 +126,7 @@ watchOS 配套 App：
 
 | 风险 | 缓解 |
 |------|------|
-| Apple Developer 账号 $99/年 | 铲屎官出（已确认） |
+| Apple Developer 账号 $99/年 | 先 free provisioning sideload，成熟后交钱 |
 | iOS/watchOS 开发需要 Xcode + 真机调试 | 铲屎官有 M4 Max + 手表实机 |
 | AirPods 硬件事件（单击/双击/长按）浏览器/App 能否捕获 | Phase B 调研，降级方案用语音指令 |
 | Cat Café 后端 API 需要适配移动端 | 现有 REST API 基本可用，需补鉴权 |
@@ -101,8 +135,8 @@ watchOS 配套 App：
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Apple Developer 账号注册时机？Phase B 开始前还是 Phase C？ | ⬜ 未定 |
-| OQ-2 | iOS App 是否需要上架 App Store 还是 TestFlight 分发即可？ | ⬜ 未定 |
+| OQ-1 | ~~Apple Developer 账号注册时机？~~ | ✅ 先不交钱，free provisioning sideload，成熟后再交 $99 |
+| OQ-2 | ~~iOS App 是否需要上架 App Store？~~ | ✅ 先 sideload 测试，成熟后再决定 |
 | OQ-3 | 后端鉴权方案——现有 session 还是新增 API key/token？ | ⬜ 未定 |
 | OQ-4 | watchOS 最低支持版本？（影响 API 可用性） | ⬜ 未定 |
 
@@ -112,6 +146,11 @@ watchOS 配套 App：
 |---|------|------|------|
 | KD-1 | Phase A 先修 F092 autoplay bug 再做原生 App | autoplay 是语音基础能力，修好后 web 版也受益；且可验证 iOS + AirPods 音频链路 | 2026-03-15 |
 | KD-2 | Watch UX = iOS App 手表版，保持一致 | 铲屎官要求：和未来 iOS app 手表的一样的 UX 就够了 | 2026-03-15 |
+| KD-3 | Watch 独立模式（eSIM 直连后端），不依赖 iPhone | 跑步时谁带 iPhone？现代 Watch 都有 eSIM | 2026-03-15 |
+| KD-4 | Watch 交互以语音为主，猫猫在 Watch 模式必须发语音 | Watch 屏幕小，几乎所有交互靠语音 | 2026-03-15 |
+| KD-5 | 猫猫状态是 per-thread 而非全局 | 全局看所有猫太杂，进具体 thread 再看该 thread 的猫 | 2026-03-15 |
+| KD-6 | 原生 App 和 iMessage (F088 Phase F) 是两条独立路径 | 用途不同：iMessage 是消息通道走 connector，原生 App 是专属猫咖入口 | 2026-03-15 |
+| KD-7 | 先 sideload 测试，成熟后再交 $99 | 铲屎官确认：free provisioning 先跑起来 | 2026-03-15 |
 
 ## Timeline
 
