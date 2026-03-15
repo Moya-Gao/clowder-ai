@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F122: 执行通道统一 — A2A/multi_mention 入 Dispatch Queue
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -123,14 +123,14 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 
 ## Acceptance Criteria
 
-### Phase A（可靠性加固）
-- [ ] AC-A1: multi_mention 的 routeExecution 传递 parentInvocationId
-- [ ] AC-A2: pushToWorklist 返回结构化 reason，不再只返回空数组
-- [ ] AC-A3: reason='not_found' 时降级到 standalone invocation
-- [ ] AC-A4: QueuePanel 显示 processing 态条目
-- [ ] AC-A5: 回归测试覆盖：A2A 期间用户发消息 → 必须 queued；steer → 必须 immediate
-- [ ] AC-A6: 回归测试覆盖：connector 消息在 active slot 下 → 必须 queued；steer → 必须 immediate
-- [ ] AC-A7: multi_mention target 崩溃/超时时，caller 的 InvocationTracker slot 必须正确释放，不能锁死铲屎官
+### Phase A（可靠性加固）✅
+- [x] AC-A1: multi_mention 的 routeExecution 传递 parentInvocationId
+- [x] AC-A2: pushToWorklist 返回结构化 reason，不再只返回空数组
+- [x] AC-A3: reason='not_found' 时降级到 standalone invocation
+- [x] AC-A4: QueuePanel 显示 processing 态条目
+- [x] AC-A5: 回归测试覆盖：A2A 期间用户发消息 → 必须 queued；steer → 必须 immediate
+- [x] AC-A6: 回归测试覆盖：connector 消息在 active slot 下 → 必须 queued；steer → 必须 immediate
+- [x] AC-A7: multi_mention target 崩溃/超时时，caller 的 InvocationTracker slot 必须正确释放，不能锁死铲屎官
 
 ### Phase B（语义收敛，待 OQ-1 决策后定义）
 - [ ] AC-B1: TBD（取决于产品方向决策）
@@ -228,6 +228,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-14 | 三猫(opus+gpt52+opencode)独立分析 F108×F122 交叉风险 |
 | 2026-03-14 | 铲屎官报告 multi_mention target 崩溃锁死 caller slot bug，补 P1+AC-A7 |
 | 2026-03-14 | 铲屎官决策：F108+F122 统一由布偶猫+缅因猫在同一 thread 按节奏推进 |
+| 2026-03-15 | Phase A merged (PR #459) — AC-A1~A7 全部完成 |
 
 ## Review Gate
 
