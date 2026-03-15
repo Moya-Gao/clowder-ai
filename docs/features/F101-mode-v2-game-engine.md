@@ -168,13 +168,13 @@ reopened: 2026-03-14
 - [x] AC-C3: 猫猫 AI 自动行动 — GameAutoPlayer 驱动夜间技能 + 白天投票，游戏可推进
 - [ ] AC-C4: **E2E 验收标准** — codex 或 gpt52 启动 dev 环境，铲屎官能真正进入并完成一局游戏
 
-### Phase D（狼人杀重做 — 铲屎官采访定案）⬜
-- [ ] AC-D1: 游戏在独立 thread 运行，归档分类 `游戏-狼人杀`，左侧栏可见
-- [ ] AC-D2: 猫猫保留咖啡馆身份（宪宪/砚砚/烁烁），复用现有头像系统
-- [ ] AC-D3: 上帝面板三按钮（发牌、暂停/恢复、跳过阶段），无踢人功能
-- [ ] AC-D4: 每只猫展示真实 ready 状态 + 卡住时有 loading 指示
-- [ ] AC-D5: 狼人猫猫风 UX（可爱+暗色调+猫猫 cosplay 狼人）
-- [ ] AC-D6: 结算画面 — 胜负 + 各玩家统计 + MVP 评选
+### Phase D（狼人杀重做 — 铲屎官采访定案）🚧
+- [x] AC-D1: 游戏在独立 thread 运行，归档分类 `游戏-狼人杀`，左侧栏可见
+- [x] AC-D2: 猫猫保留咖啡馆身份（宪宪/砚砚/烁烁），复用现有头像系统
+- [x] AC-D3: 上帝面板三按钮（发牌、暂停/恢复、跳过阶段），无踢人功能
+- [x] AC-D4: 每只猫展示真实 ready 状态 + 卡住时有 loading 指示
+- [ ] AC-D5: 狼人猫猫风 UX（可爱+暗色调+猫猫 cosplay 狼人）— 需暹罗猫参与视觉资产
+- [x] AC-D6: 结算画面 — 胜负 + 各玩家统计 + MVP 评选
 
 ## 需求点 Checklist
 
@@ -190,12 +190,12 @@ reopened: 2026-03-14
 | R8 | "可能需要用语音玩...开游戏的时候选择要不要让你们用语音玩" | AC-B8 | manual | [x] |
 | R9 | "网易的狼人杀的规则，大家知道的多" | AC-B1 | test | [x] |
 | R10 | "允许你们说遗言" | AC-B1 | test | [x] |
-| R11 | "新建独立 thread，类似新手训练营那样独立" | AC-D1 | manual | [ ] |
-| R12 | "还是猫猫咖啡的猫猫！！！" | AC-D2 | manual | [ ] |
-| R13 | "发牌✅ 暂停✅ 踢人❌ 跳过超时✅" | AC-D3 | manual | [ ] |
-| R14 | "展示真实状态，不是假动画" | AC-D4 | manual | [ ] |
+| R11 | "新建独立 thread，类似新手训练营那样独立" | AC-D1 | manual | [x] |
+| R12 | "还是猫猫咖啡的猫猫！！！" | AC-D2 | manual | [x] |
+| R13 | "发牌✅ 暂停✅ 踢人❌ 跳过超时✅" | AC-D3 | manual | [x] |
+| R14 | "展示真实状态，不是假动画" | AC-D4 | manual | [x] |
 | R15 | "猫猫装狼人那种可爱的带点黑色的风格" | AC-D5 | manual+design | [ ] |
-| R16 | "要战绩统计 + MVP" | AC-D6 | manual | [ ] |
+| R16 | "要战绩统计 + MVP" | AC-D6 | manual | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -337,6 +337,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-14 | **重新打开** — 铲屎官实际测试发现不可用：无关闭按钮/无大厅/猫不行动（LL-032） |
 | 2026-03-14 | Phase C merged (PR #454) — close button, lobby, AI auto-play, security hardening (codex review 2 rounds) |
 | 2026-03-14 | **Phase D 愿景采访** — 铲屎官 1v1 回答 6 个关键问题，定案独立 thread + 猫猫身份保留 + 上帝面板 + 狼人猫猫风 + 战绩 MVP |
+| 2026-03-15 | Phase D merged (PR #463) — 独立 thread + 上帝面板(pause/resume/skip) + 结算 MVP + win condition + ready state + race fix (codex review 3 rounds) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
@@ -368,5 +369,6 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | **PR** | PR #426 | AC-A5 fix — restore game entry with two-layer menu + SVG icons |
 | **PR** | PR #444 | Bug fix — outside-click handler React 18 flush race |
 | **PR** | PR #446 | Bug fix — /game command bridge (intercept → GameOrchestrator) |
+| **PR** | PR #463 | Phase D — 独立 thread + 上帝面板 + 结算 MVP (codex 3-round review) |
 | **Plan** | `docs/plans/2026-03-12-f101-b8-frontend-game-ui.md` | B8 前端实施计划 |
 | **Reflection** | `docs/reflections/2026-03-12-f101-mode-v2-capsule.md` | 完成反思胶囊 |
