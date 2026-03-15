@@ -197,8 +197,10 @@ Apple 与 Anthropic/OpenAI 官方合作，Claude Agent 是第一方适配的 age
 | KD-6 | 原生 App 和 iMessage (F088 Phase F) 是两条独立路径 | 用途不同：iMessage 是消息通道走 connector，原生 App 是专属猫咖入口 | 2026-03-15 |
 | KD-7 | 先 sideload 测试，成熟后再交 $99 | 铲屎官确认：free provisioning 先跑起来 | 2026-03-15 |
 | KD-8 | Watch 走公网 API（Cloudflare Tunnel），不走 Tailscale | Watch 装不了 Tailscale，复用飞书/Telegram 同一条公网入口 | 2026-03-15 |
-| KD-9 | ASR 用 Watch 本地 SFSpeechRecognizer（离线），不传音频到后端 | Ultra 3 S10 芯片支持离线中文识别，省网络延迟+算力；和手机上用 Apple 原生 ASR 一致 | 2026-03-15 |
-| KD-10 | 目标设备：Apple Watch Ultra 3（S10 芯片） | 铲屎官实机，最新最强，离线 ASR 全量支持 | 2026-03-15 |
+| KD-9 | ~~ASR 用 Watch 本地 SFSpeechRecognizer（离线）~~ → 改为录音上传 + 后端 ASR | watchOS 26.2 的 Speech framework 在真机 watch target 不可用（`#if canImport(Speech)` 走到 else 分支）；改用系统原生 `presentTextInputController` 或录音上传后端 ASR | 2026-03-15 |
+| KD-10 | 目标设备：Apple Watch Ultra 3（S10 芯片） | 铲屎官实机，最新最强 | 2026-03-15 |
+| KD-11 | Voice-First 等待设计：本地内置猫猫即时语音反馈遮罩延迟 | 铲屎官创意：录音发送后立刻播本地预生成的猫猫语音（"宪宪收到啦，等等哦"），把异步等待变成被猫接住的陪伴。用 F066 TTS pipeline 预生成约 27 条音频（3 猫 × 3 场景 × 3 说法，每条 1-1.5s，< 1MB） | 2026-03-15 |
+| KD-12 | 语音输入双轨：系统听写（短期）+ 录音上传 ASR（中期） | 系统 `presentTextInputController` 不能强制跳到语音页（需用户手动切），体验不够 voice-first；中期改为一键录音 → 上传后端 ASR，短指令延迟约 2-5s 可接受 | 2026-03-15 |
 
 ## Timeline
 
@@ -206,6 +208,11 @@ Apple 与 Anthropic/OpenAI 官方合作，Claude Agent 是第一方适配的 age
 |------|------|
 | 2026-03-10 | Discussion（铲屎官 × claude.ai 宪宪），灵感来源 |
 | 2026-03-15 | 立项，铲屎官苹果手表到货 |
+| 2026-03-15 | Phase A autoplay fix committed to main |
+| 2026-03-15 | Phase B wireframe 完成（Pencil） |
+| 2026-03-15 | Phase C watchOS MVP 部署到真机成功（砚砚协助解决设备发现 + 签名 + 部署） |
+| 2026-03-15 | KD-9 修正：本地 Speech 不可用，改录音上传方案 |
+| 2026-03-15 | KD-11/12：铲屎官提出延迟遮罩 + 录音双轨方案 |
 
 ## Review Gate
 
