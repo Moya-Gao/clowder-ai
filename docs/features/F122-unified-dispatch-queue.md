@@ -228,10 +228,10 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | A2A handoff 应该走 queue（用户可 steer）还是保持自动推进（用户只管自己的消息）？铲屎官 2026-03-14 确认的期望是"A2A 跑完再处理我的消息"（排队语义），但没明确说"我要 steer A2A"。 | ⬜ 待铲屎官定 |
-| OQ-2 | multi_mention 是否也应入 queue？当前 anti-cascade guard 已防止无限回环，但语义上它仍是一个独立的分发平面。 | ⬜ 待讨论 |
+| OQ-1 | A2A handoff 走 queue + auto-execute？ | ✅ 已定（ADR-018）：入 queue + auto-execute，可见可控可 steer |
+| OQ-2 | multi_mention 入 queue？ | ✅ 已定（ADR-018）：跟 OQ-1，统一入 queue |
 | OQ-3 | QueuePanel processing 态的 UI 设计——是和 queued 混在一起，还是单独区域？ | ⬜ 待设计 |
-| OQ-4 | Connector 判忙是 slot 级（`has(threadId, catId)`）还是应改为 thread 级（`has(threadId)`）？slot 级意味着猫A在忙时，发给猫B的 connector 消息不排队直接执行——这符合铲屎官"猫猫在忙就排队"的全局语义吗？ | ⬜ 待铲屎官定 |
+| OQ-4 | 判忙 slot 级 vs thread 级？ | ✅ 已定（ADR-018）：保持 slot 级，支持 by the way 场景 |
 
 ## Key Decisions
 
@@ -254,6 +254,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-15 | 铲屎官反馈用户消息能打断 A2A；三猫独立排查确认 TOCTOU 竞态（P1） |
 | 2026-03-15 | Phase A.1 方案锁定：tryStartThread + messages.ts 降级 + multi_mention 占位前移 |
 | 2026-03-15 | Phase A.1 merged (PR #462) — AC-A8~A12 全部完成，TOCTOU 竞态已关闭 |
+| 2026-03-15 | 铲屎官拍板 OQ-1/2/4（ADR-018）：A2A+multi_mention 入 queue auto-execute，保持 slot 级判忙 |
 
 ## Review Gate
 
