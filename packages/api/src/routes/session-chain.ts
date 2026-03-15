@@ -16,6 +16,7 @@ import { backfillBoundSessionHistory } from '../domains/cats/services/session/Bo
 import type { TranscriptReader } from '../domains/cats/services/session/TranscriptReader.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
+import type { ISessionSealer } from '../domains/cats/services/session/SessionSealer.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
@@ -28,10 +29,11 @@ interface SessionChainRouteOptions extends FastifyPluginOptions {
   threadStore: IThreadStore;
   messageStore?: IMessageStore;
   transcriptReader?: TranscriptReader;
+  sessionSealer?: ISessionSealer;
 }
 
 export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChainRouteOptions): Promise<void> {
-  const { sessionChainStore, threadStore, messageStore, transcriptReader } = opts;
+  const { sessionChainStore, threadStore, messageStore, transcriptReader, sessionSealer } = opts;
 
   app.get<{
     Params: { threadId: string };
@@ -127,15 +129,32 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
 
     const active = await sessionChainStore.getActive(session.catId, session.threadId);
     if (active && active.id !== session.id) {
-      // Auto-seal the blocking active session so unseal can proceed.
-      // This handles the case where auto-seal created an empty replacement
-      // session that now blocks manual recovery of the original.
-      await sessionChainStore.update(active.id, {
-        status: 'sealed',
-        sealReason: 'unseal_displacement',
-        sealedAt: Date.now(),
-        updatedAt: Date.now(),
-      });
+      // Only displace the active session if it's empty (no messages).
+      // A non-empty active session is real work — refuse to destroy it.
+      if ((active.messageCount ?? 0) > 0) {
+        reply.status(409);
+        return {
+          error: 'Another active session with messages already exists for this cat/thread',
+          activeSessionId: active.id,
+        };
+      }
+      // Empty replacement (e.g., auto-seal created it) → safe to displace.
+      // Use sessionSealer when available for consistent seal semantics.
+      if (sessionSealer) {
+        try {
+          await sessionSealer.requestSeal({ sessionId: active.id, reason: 'unseal_displacement' });
+          sessionSealer.finalize({ sessionId: active.id }).catch(() => {});
+        } catch {
+          /* best-effort — empty session, no data to lose */
+        }
+      } else {
+        await sessionChainStore.update(active.id, {
+          status: 'sealed',
+          sealReason: 'unseal_displacement',
+          sealedAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
     }
 
     const reopened = await sessionChainStore.create({

@@ -249,11 +249,31 @@ describe('Session Chain Routes', () => {
     assert.equal(body.session.seq, 1);
   });
 
-  it('POST /api/sessions/:sessionId/unseal returns 409 when another active session already exists', async () => {
+  it('POST /api/sessions/:sessionId/unseal displaces empty active session', async () => {
     const store = await setup();
     const sealed = store.create({ cliSessionId: 'cli-old', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
     store.update(sealed.id, { status: 'sealed', sealReason: 'threshold', sealedAt: Date.now(), updatedAt: Date.now() });
+    // Empty active session (messageCount 0 or undefined) — safe to displace
+    store.create({ cliSessionId: 'cli-new', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sealed.id}/unseal`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.mode, 'reopened');
+    assert.equal(body.fromSessionId, sealed.id);
+  });
+
+  it('POST /api/sessions/:sessionId/unseal returns 409 when active session has messages', async () => {
+    const store = await setup();
+    const sealed = store.create({ cliSessionId: 'cli-old', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(sealed.id, { status: 'sealed', sealReason: 'threshold', sealedAt: Date.now(), updatedAt: Date.now() });
+    // Non-empty active session — must not be displaced
     const active = store.create({ cliSessionId: 'cli-new', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(active.id, { messageCount: 5 });
 
     const res = await app.inject({
       method: 'POST',
