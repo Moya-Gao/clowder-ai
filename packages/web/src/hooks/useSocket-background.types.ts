@@ -26,6 +26,10 @@ export interface BackgroundAgentMessage {
   extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
   /** F057-C2: Whether this message mentions the user (@user / @铲屎官) */
   mentionsUser?: boolean;
+  /** F121: Reply-to message ID */
+  replyTo?: string;
+  /** F121: Server-hydrated reply preview */
+  replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
   timestamp: number;

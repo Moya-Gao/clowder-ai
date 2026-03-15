@@ -77,6 +77,8 @@ export interface StoredMessage {
   deliveredAt?: number;
   /** F117: Delivery lifecycle status. undefined = legacy (treated as delivered) */
   deliveryStatus?: 'queued' | 'delivered' | 'canceled';
+  /** F121: ID of the message this is replying to (same thread only) */
+  replyTo?: string;
   /** ADR-008 D3: Soft delete timestamp (present = deleted) */
   deletedAt?: number;
   /** ADR-008 D3: Who deleted this message */
@@ -523,4 +525,32 @@ export class MessageStore {
   get size(): number {
     return this.messages.length;
   }
+}
+
+/** F121: Reply preview for frontend rendering */
+export interface ReplyPreview {
+  senderCatId: CatId | null;
+  content: string;
+  deleted?: true;
+}
+
+const PREVIEW_MAX_LENGTH = 80;
+
+/**
+ * F121: Hydrate a reply preview from message store.
+ * Returns null if the referenced message doesn't exist.
+ * Returns { deleted: true } if the parent was soft/hard-deleted.
+ */
+export async function hydrateReplyPreview(store: IMessageStore, replyToId: string): Promise<ReplyPreview | null> {
+  const parent = await store.getById(replyToId);
+  if (!parent) return null;
+
+  if (parent.deletedAt || parent._tombstone) {
+    return { senderCatId: parent.catId, content: '', deleted: true };
+  }
+
+  const truncated =
+    parent.content.length > PREVIEW_MAX_LENGTH ? parent.content.slice(0, PREVIEW_MAX_LENGTH) : parent.content;
+
+  return { senderCatId: parent.catId, content: truncated };
 }

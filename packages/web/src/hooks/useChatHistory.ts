@@ -306,6 +306,8 @@ export function useChatHistory(threadId: string) {
             source?: { connector: string; label: string; icon: string; url?: string };
             mentionsUser?: boolean;
             deliveredAt?: number;
+            replyTo?: string;
+            replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
           }) =>
             ({
               id: m.id,
@@ -337,6 +339,8 @@ export function useChatHistory(threadId: string) {
               ...(m.deliveredAt ? { deliveredAt: m.deliveredAt } : {}),
               ...(m.source ? { source: m.source } : {}),
               ...(m.mentionsUser ? { mentionsUser: true } : {}),
+              ...(m.replyTo ? { replyTo: m.replyTo } : {}),
+              ...(m.replyPreview ? { replyPreview: m.replyPreview } : {}),
               // #80: Restore streaming indicator for draft messages recovered from Redis
               ...(m.isDraft ? { isStreaming: true } : {}),
               timestamp: m.timestamp,
@@ -529,7 +533,6 @@ export function useChatHistory(threadId: string) {
     abortRef.current = new AbortController();
     loadingRef.current = false;
     const controller = abortRef.current;
-
 
     // Check if this thread has cached messages in the threadStates map.
     // If so, the store's setCurrentThread already restored them — skip API fetch.

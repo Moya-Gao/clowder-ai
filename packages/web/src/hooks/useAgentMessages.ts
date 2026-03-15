@@ -30,6 +30,10 @@ interface AgentMsg {
   mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
   extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  /** F121: Reply-to message ID */
+  replyTo?: string;
+  /** F121: Server-hydrated reply preview */
+  replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
 }
@@ -388,6 +392,8 @@ export function useAgentMessages() {
               ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+              ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+              ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
             });
             activeRefs.current.delete(msg.catId);
             if (invocationId) {
@@ -406,6 +412,8 @@ export function useAgentMessages() {
               ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+              ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+              ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
               timestamp: Date.now(),
             });
           }
@@ -519,10 +527,7 @@ export function useAgentMessages() {
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
           } else {
-            const catSlot = findLatestActiveInvocationIdForCat(
-              useChatStore.getState().activeInvocations,
-              msg.catId,
-            );
+            const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
             if (catSlot) {
               removeActiveInvocation(catSlot);
             } else {
@@ -863,10 +868,7 @@ export function useAgentMessages() {
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
           } else {
-            const catSlot = findLatestActiveInvocationIdForCat(
-              useChatStore.getState().activeInvocations,
-              msg.catId,
-            );
+            const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
             if (catSlot) {
               removeActiveInvocation(catSlot);
             } else {

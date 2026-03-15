@@ -986,8 +986,23 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             },
           }
         : {}),
+      ...(m.replyTo ? { replyTo: m.replyTo } : {}),
       timestamp: m.timestamp,
     }));
+
+    // F121: Hydrate reply previews for messages with replyTo
+    const replyItems = chatItems.filter((item) => item.replyTo);
+    if (replyItems.length > 0) {
+      const { hydrateReplyPreview } = await import('../domains/cats/services/stores/ports/MessageStore.js');
+      await Promise.all(
+        replyItems.map(async (item) => {
+          const preview = await hydrateReplyPreview(opts.messageStore, item.replyTo as string);
+          if (preview) {
+            item.replyPreview = preview;
+          }
+        }),
+      );
+    }
 
     // #80: Merge active streaming drafts (first page only — no before cursor)
     if (!before && opts.draftStore) {

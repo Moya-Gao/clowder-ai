@@ -19,7 +19,7 @@ import type { IHindsightClient } from '../domains/cats/services/orchestration/Hi
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
-import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import { hydrateReplyPreview, type IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore, VotingStateV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
@@ -365,6 +365,20 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     const extraParts = { ...richExtra, ...crossPostExtra, ...targetCatsExtra };
     const extra = Object.keys(extraParts).length > 0 ? extraParts : undefined;
 
+    // F121: Validate replyTo — must exist in the same thread
+    let validatedReplyTo: string | undefined;
+    if (replyTo) {
+      const parentMsg = await messageStore.getById(replyTo);
+      if (parentMsg && parentMsg.threadId === effectiveThreadId) {
+        validatedReplyTo = replyTo;
+      } else {
+        app.log.warn(
+          { replyTo, effectiveThreadId, parentThreadId: parentMsg?.threadId },
+          '[callbacks/post-message] replyTo rejected: not found or wrong thread',
+        );
+      }
+    }
+
     // Store the message (scoped to the effective thread)
     const storedMsg = await messageStore.append({
       userId: record.userId,
@@ -376,7 +390,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       timestamp: Date.now(),
       threadId: effectiveThreadId,
       ...(extra ? { extra } : {}),
+      ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
     });
+
+    // F121: Hydrate reply preview for broadcast
+    const replyPreview = validatedReplyTo ? await hydrateReplyPreview(messageStore, validatedReplyTo) : undefined;
 
     socketManager.broadcastAgentMessage(
       {
@@ -397,6 +415,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
             }
           : {}),
         ...(mentionsUser ? { mentionsUser } : {}),
+        ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
+        ...(replyPreview ? { replyPreview } : {}),
         timestamp: Date.now(),
       },
       effectiveThreadId,

@@ -292,6 +292,8 @@ export function handleBackgroundAgentMessage(
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
           ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
           ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+          ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+          ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
         });
         options.bgStreamRefs.delete(streamKey);
         options.replacedInvocations.set(streamKey, replacementTarget.invocationId);
@@ -306,6 +308,8 @@ export function handleBackgroundAgentMessage(
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
           ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
           ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+          ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+          ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
           timestamp: msg.timestamp,
           origin: 'callback',
         });

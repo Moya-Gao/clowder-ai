@@ -237,6 +237,10 @@ export interface ChatMessage {
   revealedAt?: number;
   /** F057-C2: Whether this message mentions the user (@user / @铲屎官) */
   mentionsUser?: boolean;
+  /** F121: ID of the message this is replying to */
+  replyTo?: string;
+  /** F121: Server-hydrated reply preview (sender + truncated content) */
+  replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
 }
 
 export type ChatMessagePatch = Omit<Partial<ChatMessage>, 'id' | 'type'>;

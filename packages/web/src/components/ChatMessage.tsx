@@ -18,6 +18,7 @@ import { EvidencePanel } from './EvidencePanel';
 import { Lightbox } from './Lightbox';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
+import { ReplyPill } from './ReplyPill';
 import { RichBlocks } from './rich/RichBlocks';
 import { SummaryCard } from './SummaryCard';
 import { ThinkingContent } from './ThinkingContent';
@@ -247,6 +248,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 {isRevealed ? '已揭秘' : `悄悄话 → ${message.whisperTo?.join(', ') ?? ''}`}
               </span>
             )}
+            {message.replyTo && message.replyPreview && (
+              <ReplyPill replyPreview={message.replyPreview} replyToId={message.replyTo} getCatById={getCatById} />
+            )}
             <span className="text-xs text-gray-400">{formatDualTime(message.timestamp, message.deliveredAt)}</span>
             <span className="text-xs font-semibold text-owner-dark">铲屎官</span>
           </div>
@@ -309,6 +313,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 </span>
               )}
               {!isWhisper && direction && <DirectionPill direction={direction} getCatById={getCatById} />}
+              {message.replyTo && message.replyPreview && (
+                <ReplyPill replyPreview={message.replyPreview} replyToId={message.replyTo} getCatById={getCatById} />
+              )}
               {hasTextContent && !message.isStreaming && (
                 <TtsPlayButton
                   messageId={message.id}
