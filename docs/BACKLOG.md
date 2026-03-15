@@ -43,7 +43,7 @@ created: 2026-02-26
 | F095 | Thread Sidebar 导航体验升级 | in-progress | 布偶猫 | internal | [F095](features/F095-sidebar-collapse-memory.md) |
 | F100 | Self-Evolution — 猫猫自我进化机制（行为层 + 知识对象化） | in-progress | 布偶猫 | internal | [F100](features/F100-self-evolution.md) |
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | in-progress | 布偶猫 | internal | [F102](features/F102-memory-adapter-refactor.md) |
-| F103 | 猫猫独立声线 — Per-Cat Voice Identity | in-progress | 布偶猫 | internal | [F103](features/F103-per-cat-voice-identity.md) |
+| F103 | 猫猫独立声线 — Per-Cat Voice Identity | done | 布偶猫 | internal | [F103](features/F103-per-cat-voice-identity.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | internal | [F104](features/F104-local-omni-perception.md) |
 | F107 | 脑门贴词 — 坏猫战术推理游戏 #1 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
 | F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | in-progress | 布偶猫 | internal | [F108](features/F108-side-dispatch-concurrent-invocation.md) |

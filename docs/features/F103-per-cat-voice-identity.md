@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F103: 猫猫独立声线 — Per-Cat Voice Identity
 
-> **Status**: in-progress | **Owner**: opus | **Priority**: P2
+> **Status**: done | **Owner**: opus | **Priority**: P2
 
 ## Why
 
@@ -31,7 +31,7 @@ F101 狼人杀需要多猫同时发言（语音模式），当前 TTS 声线是�
 - [x] AC-1: `cat-config.json` 每个 cat entry 有独立的 voice 配置字段
 - [x] AC-2: TTS 合成时按 catId 选择对应声线，同家族不同猫可辨识
 - [x] AC-3: 新增猫时可配置声线参数
-- [ ] AC-4: F101 狼人杀语音模式下多猫发言声线可区分
+- [x] AC-4: F101 狼人杀语音模式下多猫发言声线可区分（实战验证：F103 thread 中 11 只猫各自用独立声线发语音，铲屎官确认可区分）
 
 ## Dependencies
 
@@ -102,3 +102,5 @@ Hub 设置页 → 可视化管理声线配置（未来）
 | 2026-03-11 | 立项（由 F101 狼人杀语音模式需求衍生） |
 | 2026-03-14 | 选角 11/12 完成，antigravity 彦卿→嘉明→叽米（CV 偏女声问题），全员试听选定 preset 版本 |
 | 2026-03-14 | 代码层 merged (PR #452) — loadVoicesFromJson + env compat + 18 tests，AC-1/2/3 ✅ |
+| 2026-03-15 | 实战验证：11 只猫在 thread 中各自用独立声线发语音消息，AC-4 ✅ |
+| 2026-03-15 | **F103 closed** — 愿景守护 by opencode：4/4 AC 全部满足 |
