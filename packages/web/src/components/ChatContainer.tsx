@@ -7,11 +7,12 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
-import { abortGame, submitAction } from '@/hooks/useGameApi';
+import { abortGame, godAction, submitAction } from '@/hooks/useGameApi';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
+import { getUserId } from '@/utils/userId';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
@@ -282,11 +283,13 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
   const socketCallbacks = useChatSocketCallbacks({
     threadId,
+    userId: getUserId(),
     handleAgentMessage,
     resetTimeout,
     clearDoneTimeout,
     handleAuthRequest,
     handleAuthResponse,
+    onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
   });
 
   type RenderItem =
@@ -595,6 +598,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           }}
           onSelectTarget={(seatId) => useGameStore.getState().setSelectedTarget(seatId)}
           onGodScopeChange={(scope) => useGameStore.getState().setGodScopeFilter(scope)}
+          onGodAction={(action) => godAction(threadId, action)}
           onVote={() => {
             const state = useGameStore.getState();
             if (state.selectedTarget && state.mySeatId) {

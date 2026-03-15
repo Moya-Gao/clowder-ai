@@ -24,6 +24,7 @@ interface GameOverlayConnectorProps {
   onClose: () => void;
   onSelectTarget: (seatId: SeatId) => void;
   onGodScopeChange: (scope: string) => void;
+  onGodAction?: (action: string) => void;
   onVote: () => void;
   onSpeak: (content: string) => void;
   onConfirmAction: () => void;
@@ -48,6 +49,7 @@ export function GameOverlayConnector({
   onClose,
   onSelectTarget,
   onGodScopeChange,
+  onGodAction,
   onVote,
   onSpeak,
   onConfirmAction,
@@ -73,6 +75,7 @@ export function GameOverlayConnector({
       onClose={onClose}
       onSelectTarget={onSelectTarget}
       onGodScopeChange={onGodScopeChange}
+      onGodAction={onGodAction}
       onVote={onVote}
       onSpeak={onSpeak}
       onConfirmAction={onConfirmAction}

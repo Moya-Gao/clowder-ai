@@ -82,7 +82,7 @@ export interface GameRuntime {
   round: number;
   eventLog: GameEvent[];
   pendingActions: Record<string, GameAction>;
-  status: 'lobby' | 'playing' | 'finished';
+  status: 'lobby' | 'playing' | 'paused' | 'finished';
   winner?: string;
   config: GameConfig;
   phaseStartedAt?: number;
@@ -122,7 +122,7 @@ export interface GameView {
   gameId: string;
   threadId: string;
   gameType: string;
-  status: 'lobby' | 'playing' | 'finished';
+  status: 'lobby' | 'playing' | 'paused' | 'finished';
   currentPhase: string;
   round: number;
   seats: SeatView[];
@@ -130,6 +130,28 @@ export interface GameView {
   myActions?: GameAction[];
   winner?: string;
   config: Pick<GameConfig, 'timeoutMs' | 'voiceMode' | 'humanRole'> & { humanSeat?: SeatId };
+  /** Filled when status === 'finished' — per-player stats + MVP */
+  gameStats?: GameResultStats;
+}
+
+/** Post-game result stats for display in the result screen */
+export interface GameResultStats {
+  winner: string;
+  rounds: number;
+  duration: number;
+  mvpSeatId: string;
+  mvpReason: string;
+  players: Array<{
+    seatId: string;
+    actorId: string;
+    role: string;
+    faction: string;
+    survived: boolean;
+    won: boolean;
+    killCount: number;
+    savedCount: number;
+    divineCount: number;
+  }>;
 }
 
 export interface SeatView {

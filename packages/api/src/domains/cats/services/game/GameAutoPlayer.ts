@@ -68,7 +68,15 @@ export class GameAutoPlayer {
       if (!this.activeLoops.has(gameId)) return;
 
       const runtime = await this.store.getGame(gameId);
-      if (!runtime || runtime.status !== 'playing') return;
+      if (!runtime || runtime.status === 'finished') return;
+
+      // Paused: wait without acting, loop continues for when game resumes
+      if (runtime.status === 'paused') {
+        await sleep(TICK_MS * 2);
+        continue;
+      }
+
+      if (runtime.status !== 'playing') return;
 
       // For resolve/announce phases, use tick() to auto-advance
       if (SKIP_PHASES.has(runtime.currentPhase)) {

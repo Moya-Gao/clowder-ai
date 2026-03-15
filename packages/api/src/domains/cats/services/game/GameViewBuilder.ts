@@ -6,6 +6,7 @@
  */
 
 import type { EventScope, GameRuntime, GameView, SeatId, SeatView } from '@cat-cafe/shared';
+import { GameStatsRecorder } from './GameStatsRecorder.js';
 
 export class GameViewBuilder {
   /** Build a scoped view for a specific viewer */
@@ -61,6 +62,30 @@ export class GameViewBuilder {
       },
     };
     if (runtime.winner) view.winner = runtime.winner;
+
+    // Attach detailed stats when game is finished
+    if (runtime.status === 'finished') {
+      const detailed = GameStatsRecorder.extractDetailedStats(runtime);
+      view.gameStats = {
+        winner: detailed.winner,
+        rounds: detailed.rounds,
+        duration: detailed.duration,
+        mvpSeatId: detailed.mvpSeatId,
+        mvpReason: detailed.mvpReason,
+        players: detailed.players.map((p) => ({
+          seatId: p.seatId,
+          actorId: p.actorId,
+          role: p.role,
+          faction: p.faction,
+          survived: p.survived,
+          won: p.won,
+          killCount: p.killCount,
+          savedCount: p.savedCount,
+          divineCount: p.divineCount,
+        })),
+      };
+    }
+
     return view;
   }
 

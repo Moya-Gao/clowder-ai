@@ -142,6 +142,7 @@ export type {
   GameDefinition,
   GameEvent,
   GameRuntime,
+  GameResultStats,
   GameView,
   PhaseDefinition,
   RoleDefinition,

@@ -104,11 +104,24 @@ function createStubRegistry() {
 }
 
 function createStubThreadStore() {
+  let nextId = 1;
   return {
     async get(id) {
       return { id, title: 'Test Thread', deletedAt: null };
     },
     async updateTitle() {},
+    async create(userId, title, projectPath) {
+      const id = `thread_game_${nextId++}`;
+      return {
+        id,
+        title,
+        projectPath,
+        createdBy: userId,
+        participants: [],
+        lastActiveAt: Date.now(),
+        createdAt: Date.now(),
+      };
+    },
   };
 }
 
@@ -156,16 +169,19 @@ describe('/game command bridge in POST /api/messages', () => {
     const body = res.json();
     assert.equal(body.status, 'game_started');
     assert.ok(body.gameId, 'should return gameId');
+    assert.ok(body.gameThreadId, 'should return gameThreadId for the independent game thread');
     assert.ok(body.userMessageId, 'should return userMessageId');
 
-    // User message stored in chat history
+    // User message stored in the game thread (not source thread)
     assert.equal(messageStore.messages.length, 1);
     assert.equal(messageStore.messages[0].content, '/game werewolf god-view voice');
+    assert.equal(messageStore.messages[0].threadId, body.gameThreadId);
 
-    // Game created in store
+    // Game created in store — runs in the new game thread
     assert.equal(gameStore.games.size, 1);
     const game = [...gameStore.games.values()][0];
-    assert.equal(game.threadId, 'thread-test-1');
+    assert.equal(game.threadId, body.gameThreadId, 'game should run in the new game thread');
+    assert.notEqual(game.threadId, 'thread-test-1', 'game should NOT run in the source thread');
     assert.equal(game.status, 'playing');
     assert.equal(game.config.voiceMode, true);
     assert.equal(game.config.humanRole, 'god-view');
@@ -212,10 +228,16 @@ describe('/game command bridge in POST /api/messages', () => {
     const body = res.json();
     assert.equal(body.status, 'game_started');
 
-    // Should have game:started broadcast
+    // Should have game:thread_created broadcast to source thread
+    const threadCreatedEvents = socketStub.events.filter((e) => e.event === 'game:thread_created');
+    assert.ok(threadCreatedEvents.length >= 1, 'should broadcast game:thread_created to source thread');
+    assert.equal(threadCreatedEvents[0].room, 'thread:thread-test-3');
+    assert.equal(threadCreatedEvents[0].data.initiatorUserId, 'lysander', 'should include initiatorUserId for frontend guard');
+
+    // Should have game:started broadcast to the NEW game thread
     const startedEvents = socketStub.events.filter((e) => e.event === 'game:started');
     assert.equal(startedEvents.length, 1);
-    assert.equal(startedEvents[0].room, 'thread:thread-test-3');
+    assert.ok(startedEvents[0].room.startsWith('thread:thread_game_'), 'game:started should be on game thread');
 
     // Should have game:state_update for each seat
     const stateEvents = socketStub.events.filter((e) => e.event === 'game:state_update');
@@ -236,7 +258,9 @@ describe('/game command bridge in POST /api/messages', () => {
     const body = res.json();
     assert.equal(body.status, 'game_started');
 
-    const game = [...gameStore.games.values()].find((g) => g.threadId === 'thread-test-4');
+    // Find the game created for this request (latest one)
+    const game = [...gameStore.games.values()].find((g) => g.gameId === body.gameId);
+    assert.ok(game, 'should find the created game');
     assert.equal(game.config.humanRole, 'player');
     assert.equal(game.config.humanSeat, 'P1');
     assert.equal(game.config.voiceMode, false);
@@ -245,32 +269,32 @@ describe('/game command bridge in POST /api/messages', () => {
     assert.equal(game.seats[0].actorId, 'lysander');
   });
 
-  it('returns 409 when thread already has an active game', async () => {
-    // First game — should succeed
+  it('each /game command creates a separate game thread (no 409 conflict)', async () => {
+    // First game
     const res1 = await app.inject({
       method: 'POST',
       url: '/api/messages',
       headers: { 'x-cat-cafe-user': 'lysander' },
       payload: {
         content: '/game werewolf player',
-        threadId: 'thread-test-conflict',
+        threadId: 'thread-test-multi',
       },
     });
     assert.equal(res1.json().status, 'game_started');
+    const threadId1 = res1.json().gameThreadId;
 
-    // Second game on same thread — should get 409, not 500
+    // Second game from same source — should also succeed (new thread)
     const res2 = await app.inject({
       method: 'POST',
       url: '/api/messages',
       headers: { 'x-cat-cafe-user': 'lysander' },
       payload: {
         content: '/game werewolf god-view',
-        threadId: 'thread-test-conflict',
+        threadId: 'thread-test-multi',
       },
     });
-    assert.equal(res2.statusCode, 409);
-    const body = res2.json();
-    assert.ok(body.error);
-    assert.match(body.error, /active game/i);
+    assert.equal(res2.json().status, 'game_started');
+    const threadId2 = res2.json().gameThreadId;
+    assert.notEqual(threadId1, threadId2, 'each game should get its own thread');
   });
 });

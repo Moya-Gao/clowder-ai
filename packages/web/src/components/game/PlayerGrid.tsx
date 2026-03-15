@@ -2,13 +2,27 @@
 
 import type { SeatId, SeatView } from '@cat-cafe/shared';
 
+interface SeatStatusInput {
+  alive: boolean;
+  ready?: boolean;
+  gameStatus?: string;
+}
+
+export function deriveSeatStatus(input: SeatStatusInput): string {
+  if (!input.alive) return '死亡';
+  if (input.gameStatus === 'lobby') return input.ready ? '准备中' : '加载中…';
+  if (input.gameStatus === 'paused') return '暂停';
+  return '等待';
+}
+
 interface PlayerGridProps {
   seats: SeatView[];
   activeSeatId?: SeatId | null;
+  gameStatus?: string;
   onSeatClick?: (seatId: SeatId) => void;
 }
 
-export function PlayerGrid({ seats, activeSeatId, onSeatClick }: PlayerGridProps) {
+export function PlayerGrid({ seats, activeSeatId, gameStatus, onSeatClick }: PlayerGridProps) {
   return (
     <div
       data-testid="player-grid"
@@ -41,7 +55,7 @@ export function PlayerGrid({ seats, activeSeatId, onSeatClick }: PlayerGridProps
               {seat.seatId} {seat.displayName}
             </span>
             <span className={`text-[8px] font-mono ${isActive ? 'text-[#0A0F1C] font-semibold' : 'text-[#475569]'}`}>
-              {isDead ? '死亡' : isActive ? '发言中' : '等待'}
+              {isActive ? '发言中' : deriveSeatStatus({ alive: seat.alive, gameStatus })}
             </span>
           </button>
         );

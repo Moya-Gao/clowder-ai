@@ -116,7 +116,19 @@ export function useSendMessage(activeThreadId?: string) {
         }
       }
 
-      const reconcileQueuedResponse = (body: { status?: string; userMessageId?: string } | null) => {
+      const reconcileQueuedResponse = (body: { status?: string; userMessageId?: string; gameThreadId?: string } | null) => {
+        // Game started in independent thread — remove optimistic message from source
+        // and clear loading/invocation flags (game runs in its own thread, source is idle).
+        // Always use thread-scoped APIs here: by the time the HTTP response arrives,
+        // the user may have navigated to the game thread (via game:thread_created),
+        // so the source thread may no longer be active. Thread-scoped APIs check
+        // currentThreadId at call-time, correctly targeting flat or background state.
+        if (body?.status === 'game_started' && body.gameThreadId) {
+          removeThreadMessage(threadId, optimisticMessageId);
+          setThreadLoading(threadId, false);
+          setThreadHasActiveInvocation(threadId, false);
+          return true;
+        }
         if (body?.status !== 'queued' || isQueueSend) return false;
         if (threadId !== activeThread) {
           removeThreadMessage(threadId, optimisticMessageId);

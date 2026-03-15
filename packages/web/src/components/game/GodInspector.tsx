@@ -18,7 +18,23 @@ interface GodInspectorProps {
   seats: SeatMatrixRow[];
   nightSteps: NightStep[];
   scopeFilter: string;
+  gameStatus?: string;
   onScopeChange: (scope: string) => void;
+  onGodAction?: (action: string) => void;
+}
+
+export interface GodButtonVisibility {
+  showPause: boolean;
+  showResume: boolean;
+  showSkip: boolean;
+}
+
+export function deriveGodButtons(status: string): GodButtonVisibility {
+  return {
+    showPause: status === 'playing',
+    showResume: status === 'paused',
+    showSkip: status === 'playing',
+  };
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -47,7 +63,15 @@ function getRoleColor(faction?: string): string {
   return ROLE_COLORS[faction] ?? '#94A3B8';
 }
 
-export function GodInspector({ seats, nightSteps, scopeFilter, onScopeChange }: GodInspectorProps) {
+export function GodInspector({
+  seats,
+  nightSteps,
+  scopeFilter,
+  gameStatus,
+  onScopeChange,
+  onGodAction,
+}: GodInspectorProps) {
+  const buttons = deriveGodButtons(gameStatus ?? '');
   return (
     <div
       data-testid="god-inspector"
@@ -138,6 +162,46 @@ export function GodInspector({ seats, nightSteps, scopeFilter, onScopeChange }: 
           );
         })}
       </div>
+
+      {/* Section 4: God Actions */}
+      {(buttons.showPause || buttons.showResume || buttons.showSkip) && (
+        <>
+          <div className="h-px bg-[#1E293B] w-full" />
+          <span className="text-[#64748B] text-[10px] font-bold font-mono tracking-widest">GOD ACTIONS</span>
+          <div data-testid="god-actions" className="flex gap-2">
+            {buttons.showPause && (
+              <button
+                type="button"
+                data-testid="god-pause"
+                onClick={() => onGodAction?.('pause')}
+                className="flex-1 text-[11px] font-bold rounded-md px-3 py-2 bg-[#F59E0B] text-[#0A0F1C] hover:bg-[#D97706] transition-colors"
+              >
+                暂停
+              </button>
+            )}
+            {buttons.showResume && (
+              <button
+                type="button"
+                data-testid="god-resume"
+                onClick={() => onGodAction?.('resume')}
+                className="flex-1 text-[11px] font-bold rounded-md px-3 py-2 bg-[#22D3EE] text-[#0A0F1C] hover:bg-[#06B6D4] transition-colors"
+              >
+                继续
+              </button>
+            )}
+            {buttons.showSkip && (
+              <button
+                type="button"
+                data-testid="god-skip"
+                onClick={() => onGodAction?.('skip_phase')}
+                className="flex-1 text-[11px] font-bold rounded-md px-3 py-2 bg-[#1E293B] text-[#94A3B8] hover:bg-[#334155] transition-colors"
+              >
+                跳过阶段
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

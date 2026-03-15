@@ -207,7 +207,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     // F101: /game command interception — start game directly, skip AI routing
     const parsedGame = parseGameCommand(content);
-    if (parsedGame && opts.gameStore) {
+    if (parsedGame && opts.gameStore && opts.threadStore) {
       const DEFAULT_PLAYER_COUNT = 7;
       const allCatIds = getAllCatIdsFromConfig();
       const sanitized = parsedGame.catIds ? sanitizeCatIds(parsedGame.catIds, allCatIds) : [];
@@ -221,20 +221,33 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         playerCount,
       });
 
-      // Store user message (shows in chat history)
+      // Phase D: Create independent game thread with project categorization
+      const gameTitle = `狼人杀 — ${playerCount}人局`;
+      const gameThread = await opts.threadStore.create(userId, gameTitle, `games/${parsedGame.gameType}`);
+      const gameThreadId = gameThread.id;
+
+      // Notify source thread about the new game thread (include initiator for frontend guard)
+      opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'game:thread_created', {
+        gameThreadId,
+        gameTitle,
+        initiatorUserId: userId,
+        timestamp: Date.now(),
+      });
+
+      // Store user message in the game thread
       const userMessage = await opts.messageStore.append({
         userId,
         catId: null,
         content,
         mentions: [],
         timestamp: Date.now(),
-        threadId: resolvedThreadId,
+        threadId: gameThreadId,
       });
 
       // Use WerewolfLobby for role assignment, then orchestrator for persistence + broadcast
       const lobby = new WerewolfLobby();
       const lobbyRuntime = lobby.createLobby({
-        threadId: resolvedThreadId,
+        threadId: gameThreadId,
         playerCount,
         players: seats.map((s) => ({ actorType: s.actorType, actorId: s.actorId })),
       });
@@ -248,7 +261,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       let gameRuntime;
       try {
         gameRuntime = await orchestrator.startGame({
-          threadId: resolvedThreadId,
+          threadId: gameThreadId,
           definition: lobbyRuntime.definition,
           seats: lobbyRuntime.seats,
           config: {
@@ -280,6 +293,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       return {
         status: 'game_started',
         gameId: gameRuntime.gameId,
+        gameThreadId,
         userMessageId: userMessage.id,
       };
     }

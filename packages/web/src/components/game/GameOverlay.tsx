@@ -3,6 +3,7 @@
 import type { GameView, SeatId } from '@cat-cafe/shared';
 import { ActionDock } from './ActionDock';
 import { EventFlow } from './EventFlow';
+import { GameResultScreen } from './GameResultScreen';
 import { GameShell } from './GameShell';
 import { GodInspector } from './GodInspector';
 import { NightActionCard } from './NightActionCard';
@@ -35,6 +36,7 @@ interface GameOverlayProps {
   onClose: () => void;
   onSelectTarget: (seatId: SeatId) => void;
   onGodScopeChange: (scope: string) => void;
+  onGodAction?: (action: string) => void;
   onVote: () => void;
   onSpeak: (content: string) => void;
   onConfirmAction: () => void;
@@ -63,11 +65,21 @@ export function GameOverlay({
   onClose,
   onSelectTarget,
   onGodScopeChange,
+  onGodAction,
   onVote,
   onSpeak,
   onConfirmAction,
   onConfirmAltAction,
 }: GameOverlayProps) {
+  // Show result screen when game is finished with stats
+  if (view.status === 'finished' && view.gameStats) {
+    return (
+      <GameShell onClose={onClose} isNight={false}>
+        <GameResultScreen stats={view.gameStats} onClose={onClose} />
+      </GameShell>
+    );
+  }
+
   const phases = buildPhaseEntries(view);
   const timeLeftMs = view.config.timeoutMs;
 
@@ -81,7 +93,7 @@ export function GameOverlay({
         onClose={onClose}
       />
       <PhaseTimeline phases={phases} currentIndex={0} />
-      <PlayerGrid seats={view.seats} />
+      <PlayerGrid seats={view.seats} gameStatus={view.status} />
 
       <div className="flex flex-1 min-h-0">
         {/* Main content area */}
@@ -117,7 +129,9 @@ export function GameOverlay({
             seats={godSeats}
             nightSteps={godNightSteps}
             scopeFilter={godScopeFilter}
+            gameStatus={view.status}
             onScopeChange={onGodScopeChange}
+            onGodAction={onGodAction}
           />
         )}
       </div>

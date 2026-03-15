@@ -214,6 +214,48 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     }
   });
 
+  // POST /api/threads/:threadId/game/god-action — God actions (pause/resume/skip)
+  app.post<{ Params: { threadId: string } }>('/api/threads/:threadId/game/god-action', async (request, reply) => {
+    const { threadId } = request.params;
+    const runtime = await gameStore.getActiveGame(threadId);
+    if (!runtime) {
+      reply.status(404);
+      return { error: 'No active game in this thread' };
+    }
+
+    if (runtime.config.humanRole !== 'god-view') {
+      reply.status(403);
+      return { error: 'God actions require god-view mode' };
+    }
+
+    const body = request.body as { action?: string };
+    if (!body?.action) {
+      reply.status(400);
+      return { error: 'Missing action field' };
+    }
+
+    try {
+      switch (body.action) {
+        case 'pause':
+          await orchestrator.pauseGame(runtime.gameId);
+          return { ok: true, action: 'pause' };
+        case 'resume':
+          await orchestrator.resumeGame(runtime.gameId);
+          return { ok: true, action: 'resume' };
+        case 'skip_phase':
+          await orchestrator.skipPhase(runtime.gameId);
+          return { ok: true, action: 'skip_phase' };
+        default:
+          reply.status(400);
+          return { error: `Unknown god action: ${body.action}` };
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      reply.status(400);
+      return { error: message };
+    }
+  });
+
   // DELETE /api/threads/:threadId/game — Abort game
   app.delete<{ Params: { threadId: string } }>('/api/threads/:threadId/game', async (request, reply) => {
     const { threadId } = request.params;

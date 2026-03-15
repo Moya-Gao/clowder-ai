@@ -181,7 +181,8 @@ function deriveFromView(
     gameView: view,
     gameId,
     threadId,
-    isGameActive: view.status === 'playing' || view.status === 'lobby',
+    isGameActive:
+      view.status === 'playing' || view.status === 'lobby' || view.status === 'paused' || view.status === 'finished',
     isNight,
     selectedTarget: null,
     godScopeFilter: 'all',
