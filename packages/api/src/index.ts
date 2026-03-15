@@ -628,6 +628,7 @@ async function main(): Promise<void> {
     threadStore,
     messageStore,
     transcriptReader,
+    sessionSealer,
   });
   await app.register(sessionTranscriptRoutes, { sessionChainStore, threadStore, transcriptReader });
   const hookToken = process.env.CAT_CAFE_HOOK_TOKEN || '';

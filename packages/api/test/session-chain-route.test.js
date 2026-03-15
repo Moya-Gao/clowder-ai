@@ -37,7 +37,11 @@ describe('Session Chain Routes', () => {
         'unknown-thread': { id: 'unknown-thread', createdBy: 'user-1' },
       });
     app = Fastify();
-    await app.register(sessionChainRoutes, { sessionChainStore: store, threadStore });
+    const mockSealer = {
+      requestSeal: async () => ({ accepted: true }),
+      finalize: async () => {},
+    };
+    await app.register(sessionChainRoutes, { sessionChainStore: store, threadStore, sessionSealer: mockSealer });
     await app.ready();
     return store;
   }
