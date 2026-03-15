@@ -2,14 +2,16 @@
 feature_ids: [F101]
 related_features: [F011, F107]
 topics: [mode, game, werewolf, game-engine]
-doc_kind: done
+doc_kind: in-progress
 created: 2026-03-11
-completed: 2026-03-12
+reopened: 2026-03-14
 ---
 
 # F101: Mode v2 — 游戏系统引擎 + 狼人杀
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-12
+> **Status**: in-progress (reopened) | **Owner**: 布偶猫 | **Priority**: P1 | **Reopened**: 2026-03-14
+>
+> **重新打开原因**：2026-03-12 声称 done 并通过愿景守护，但铲屎官 2026-03-14 实际启动 dev 点开狼人杀后发现：(1) 无关闭/返回按钮，用户被困在全屏游戏界面；(2) 无大厅/配置流程，7 只猫自动塞入无法选择；(3) 猫猫不会自动行动，游戏永远卡在 night_guard 等待中；(4) 整体不可用。92 个单元测试全绿但零 E2E 真实验证。教训见 LL-032。
 
 ## Why
 
@@ -113,15 +115,21 @@ completed: 2026-03-12
 - [x] AC-A5: 旧三 mode 代码完全删除，前端入口重写为游戏模式
 - [x] AC-A6: 信息泄漏红线测试：不同 scope 的 actor 看不到不该看的事件
 
-### Phase B（狼人杀 v1）✅
-- [x] AC-B1: 7 人局可完整跑通（lobby→deal→night/day 循环→结局）
+### Phase B（狼人杀 v1）⚠️ 重新打开
+- [x] AC-B1: 7 人局可完整跑通（lobby→deal→night/day 循环→结局）— ⚠️ 单元测试通过但 E2E 未验证
 - [x] AC-B2: 铲屎官可选 player 或 god-view 参与
-- [x] AC-B3: 猫猫 AI 玩家能合理发言和执行夜间动作
+- [ ] AC-B3: 猫猫 AI 玩家能合理发言和执行夜间动作 — ❌ **猫猫不会自动行动，游戏卡在等待**
 - [x] AC-B4: 信息隔离：村民看不到狼队夜聊、玩家看不到他人私密技能结果
 - [x] AC-B5: 非法动作被拒绝（死人不能投票、白天不能用夜间技能等）
 - [x] AC-B6: 断线重连后可恢复游戏状态（v1 简单刷 GameView）
 - [x] AC-B7: PlayerGrid + PhaseTimeline 前端组件可用
 - [x] AC-B8: 语音模式可选，猫猫用 audio rich block 发言
+
+### Phase C（2026-03-14 补充 — 可用性修复）🔴
+- [ ] AC-C1: GameShell 有关闭/返回按钮，用户可退出游戏回到聊天界面
+- [ ] AC-C2: 大厅流程 — 选板子（6/7/9/12人局）+ 配置参赛猫 + 确认开始
+- [ ] AC-C3: 猫猫 AI 自动行动 — 夜间技能 + 白天发言/投票由 AI 驱动，游戏可推进
+- [ ] AC-C4: **E2E 验收标准** — codex 或 gpt52 启动 dev 环境，铲屎官能真正进入并完成一局游戏
 
 ## 需求点 Checklist
 
@@ -266,6 +274,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-13 | AC-A5 修复：恢复游戏入口 — 两层菜单 + SVG 图标 (PR #426) |
 | 2026-03-14 | Bug fix: outside-click handler React 18 flush 竞态 (PR #444) |
 | 2026-03-14 | Bug fix: /game command bridge — intercept chat command to start game (PR #446) |
+| 2026-03-14 | **重新打开** — 铲屎官实际测试发现不可用：无关闭按钮/无大厅/猫不行动（LL-032） |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
