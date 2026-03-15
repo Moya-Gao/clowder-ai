@@ -8,7 +8,7 @@ created: 2026-03-15
 
 # F125: Alpha 验收通道 — main-test 升级为正式 alpha 测试基础设施
 
-> **Status**: spec | **Owner**: 缅因猫(gpt52) + 布偶猫(opus) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 缅因猫(gpt52) + 布偶猫(opus) | **Priority**: P1
 
 ## Why
 
@@ -25,7 +25,7 @@ created: 2026-03-15
 
 ## What
 
-### Phase A: 基础设施改名 + 脚本落入 main
+### Phase A: 基础设施改名 + 脚本落入 main ✅
 
 - `main-test-worktree.sh` → `alpha-worktree.sh`
 - `main-test-worktree.test.sh` → `alpha-worktree.test.sh`
@@ -48,11 +48,11 @@ created: 2026-03-15
 ## Acceptance Criteria
 
 ### Phase A（基础设施改名）
-- [ ] AC-A1: `pnpm alpha:start` 能拉起 3011/3012/4111/6398 隔离环境
-- [ ] AC-A2: `pnpm alpha:sync` 能 ff-only 同步 origin/main
-- [ ] AC-A3: `pnpm alpha:status` 显示环境状态含 api_running
-- [ ] AC-A4: `pnpm alpha:test` 测试全绿
-- [ ] AC-A5: 旧 `main-test` worktree 能被自动迁移到 `alpha/main-sync`
+- [x] AC-A1: `pnpm alpha:start` 能拉起 3011/3012/4111/6398 隔离环境
+- [x] AC-A2: `pnpm alpha:sync` 能 ff-only 同步 origin/main
+- [x] AC-A3: `pnpm alpha:status` 显示环境状态含 api_running
+- [x] AC-A4: `pnpm alpha:test` 测试全绿
+- [x] AC-A5: 旧 `main-test` worktree 能被自动迁移到 `alpha/main-sync`
 
 ### Phase B（SOP + 提示词）
 - [ ] AC-B1: CLAUDE.md 含 alpha 通道规则
@@ -78,3 +78,4 @@ created: 2026-03-15
 | 日期 | 事件 |
 |------|------|
 | 2026-03-15 | 立项；砚砚 main-test 脚本已 review 通过 |
+| 2026-03-15 | Phase A merged (PR #475) |
