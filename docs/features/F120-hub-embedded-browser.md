@@ -79,17 +79,28 @@ Cat Café 目前的差距：
 
 ### Phase C: 增强体验（P1 — Phase A 稳定后）
 
-1. **DevTools 精简版**
+1. **猫主动打开浏览器**
+   - 猫通过 API/MCP 触发 `preview:auto-open` socket 事件 → 前端直接打开 browser panel（跳过 toast 确认）
+   - 支持指定 port + path，猫说"看看首页效果"→ 自动切到 browser panel 并加载
+   - 猫也可以发送生成的 HTML → 后端临时托管 → 自动打开浏览器渲染
+
+2. **内联可视化 Widget（html_widget rich block）**
+   - 新增 rich block kind = `html_widget`，payload 包含 HTML/JS/CSS 代码
+   - 前端用 sandboxed iframe 渲染（`sandbox="allow-scripts"`，禁止 same-origin）
+   - 适合简单可视化：图表、计算器、动画等纯前端组件
+   - 类似 Claude.ai 的 `visualize:show_widget` 能力
+
+3. **DevTools 精简版**
    - Console 输出面板：显示 iframe 内页面的 console.log/warn/error
    - Network 概览：请求列表（URL、状态码、耗时）
    - 不做完整 DevTools，够定位问题即可
 
-2. **截图与分享**
+4. **截图与分享**
    - 一键截图当前 browser panel 内容
    - 截图自动附到对话中（复用 F060 图片能力）
    - 铲屎官可以在截图上标注"这里有问题"
 
-3. **多 Tab 浏览**
+5. **多 Tab 浏览**
    - 同时打开多个 localhost 页面（前端 + 后端 Swagger 等）
    - Tab 切换，每个 tab 独立 URL 和状态
 
@@ -108,9 +119,11 @@ Cat Café 目前的差距：
 - [x] AC-B3: 禁止访问 Cat Café 自身 API 端口（可配置排除列表）
 
 ### Phase C（增强体验）
-- [ ] AC-C1: browser panel 下方可查看页面的 console 输出
-- [ ] AC-C2: 一键截图 browser panel 并附到聊天消息
-- [ ] AC-C3: 支持同时打开多个 localhost tab
+- [ ] AC-C1: 猫可通过 API 触发 `preview:auto-open`，前端自动打开 browser panel（无需用户点击 toast）
+- [ ] AC-C2: 新增 `html_widget` rich block，猫发送的 HTML/JS 代码在聊天中以 sandboxed iframe 内联渲染
+- [ ] AC-C3: browser panel 下方可查看页面的 console 输出
+- [ ] AC-C4: 一键截图 browser panel 并附到聊天消息
+- [ ] AC-C5: 支持同时打开多个 localhost tab
 
 ## 需求点 Checklist
 
