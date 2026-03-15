@@ -102,8 +102,9 @@ Bug report 存档：
 | #89 | collapse-all 后 sidebar 展开跳错分组 | bug | 金渐层 | ✅ accept-bug | 🐾 F095 遗漏。`findGroupKeyForThread()` 遍历 groups 取第一个命中，recent 排在 project 前面导致优先展开 recent。修复方案：优先 project group 或传入来源 groupKey。难度 S，影响范围小（collapse-state.ts + use-collapse-state.ts）。详见下方猫爪印报告。 |
 | #27 | 切换会话时滚动位置重置 | bug | 缅因猫(gpt52) | ✅ accept-bug | [砚砚/gpt52] 实锤：线程状态只保存消息/队列，不保存 scrollTop；切换回来首轮渲染会走“初始加载滚到底”分支。详见下方猫爪印报告。 |
 | #22 | @mention 下拉框溢出+行高不一致 | bug | 布偶猫 | ✅ accept-bug | 🐾 确认问题存在：ChatInputMenus.tsx L113 `w-64`(256px) 容器过窄，中文描述溢出致行高不一致。缺 `truncate`/`line-clamp-1`/`min-w-0`。纯 CSS 修复 4 行 Tailwind class，`w-64`→`w-72` 对齐游戏菜单宽度。难度 XS。详见下方猫爪印报告。 |
-| #88 | UX Debt 内部术语暴露给用户 | enhancement | 金渐层 | ✅ accept-enhancement (部分) | 🐾 经代码确认：(1) `(F33)` 确实暴露在 HubStrategyTab.tsx 用户 UI 中；(2) sidebar 治理 dot 仅靠 hover title，触屏不可见；(3) GovernanceHealth 的 `Q/O/D/R/A` 和 bucket 名有 legend 但只在有数据时显示。铲屎官拍板：不改术语本体，改走“项目术语表 / 黑话集合 + 必要可访问性快修”路线。详见下方猫爪印报告。 |
+| #88 | UX Debt 内部术语暴露给用户 | enhancement | 金渐层 | ✅ accept-enhancement (部分) | 🐾 经代码确认：(1) `(F33)` 确实暴露在 HubStrategyTab.tsx 用户 UI 中；(2) sidebar 治理 dot 仅靠 hover title，触屏不可见；(3) GovernanceHealth 的 `Q/O/D/R/A` 和 bucket 名有 legend 但只在有数据时显示。铲屎官拍板：不改术语本体，改走”项目术语表 / 黑话集合 + 必要可访问性快修”路线。详见下方猫爪印报告。 |
 | #16 | Bootcamp 阶段过渡 UX | enhancement | 缅因猫(gpt52) | ✅ accept-enhancement -> F110 | [砚砚/gpt52] 问题原始成立，但已被 F110 吸收；当前只剩 Phase 2 全 OK 快路径缺少显式过渡文案。详见下方猫爪印报告。 |
+| #66 | 消息回复引用（replyTo threading） | enhancement | 布偶猫+缅因猫(gpt52) | ✅ accept-enhancement（上游完整修复） | 🐾 社区 PR#71 (bouillipx) 方向正确但实现不足：缺 thread 边界校验（可跨线程脏引用）、前端 O(n) find 性能问题、删除消息未处理、React DOM 反模式。PR 已关闭，我们自己做终态实现（服务端校验+preview hydration+Map 索引+删除占位），下次 Outbound Sync 带上。Commit 带 `Co-authored-by: bouillipx`。关联 F098。 |
 
 ## Dependencies
 
@@ -128,13 +129,14 @@ Bug report 存档：
 | 2026-06-12 | Phase C 复核（缅因猫 gpt52）：PR#40 有 replace hydration 边界问题 + 缺回归测试；PR#43 有 scope 偏差（只修状态栏不是聊天面板）+ 缺测试。两个都不能直接 merge |
 | 2026-03-14 | Phase D 决策：按 Inbound PR B2 上游完整修复路线，关闭社区 PR #40/#43，cat-cafe 做终态修复后 Outbound Sync |
 | 2026-03-14 | Code fixes merged (PR #449): #22/#89/#28/#27 全部修复，砚砚(codex) review 放行 + 云端 review 通过 |
-| 2026-03-14 | Follow-up hotfix：铲屎官 runtime 反馈“置顶分组在新回复到达时自动展开”，定位为 `useCollapseState` auto-expand effect 依赖过宽，继续挂 F121 收口 |
+| 2026-03-14 | Follow-up hotfix：铲屎官 runtime 反馈”置顶分组在新回复到达时自动展开”，定位为 `useCollapseState` auto-expand effect 依赖过宽，继续挂 F121 收口 |
+| 2026-03-15 | 社区 PR#71 (bouillipx) replyTo threading：方向 accepted，PR 关闭不 merge，按上游完整修复路线收进 F121 子项，下次 Outbound Sync 带出 |
 
 ## Links
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| **社区仓** | `zts212653/clowder-ai` | issues #28/#89/#27/#22/#88/#16 |
+| **社区仓** | `zts212653/clowder-ai` | issues #28/#89/#27/#22/#88/#16/#66 |
 
 ---
 
