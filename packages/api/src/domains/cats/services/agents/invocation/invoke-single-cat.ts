@@ -403,18 +403,27 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             const MAX_CONSECUTIVE_FAILURES = 3;
             const isOverflow = (activeRec.consecutiveRestoreFailures ?? 0) >= MAX_CONSECUTIVE_FAILURES;
             if (isOverflow && deps.sessionSealer) {
+              let sealOk = false;
               try {
-                await deps.sessionSealer.requestSeal({
+                const result = await deps.sessionSealer.requestSeal({
                   sessionId: activeRec.id,
                   reason: 'overflow_circuit_breaker',
                 });
-                // Must finalize to write transcript + digest to disk,
-                // otherwise session recall tools get 404 (no data on disk).
-                deps.sessionSealer.finalize({ sessionId: activeRec.id }).catch(() => {});
+                sealOk = result.accepted;
+                if (sealOk) {
+                  // Must finalize to write transcript + digest to disk,
+                  // otherwise session recall tools get 404 (no data on disk).
+                  deps.sessionSealer.finalize({ sessionId: activeRec.id }).catch(() => {});
+                }
               } catch {
                 /* best-effort seal */
               }
-              sessionId = undefined;
+              // Only drop sessionId if seal succeeded — otherwise resume with existing
+              if (sealOk) {
+                sessionId = undefined;
+              } else {
+                sessionId = activeRec.cliSessionId;
+              }
             } else {
               // Active record's cliSessionId is authoritative (includes F33 manual bind)
               sessionId = activeRec.cliSessionId;
@@ -648,13 +657,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                 // CLI session changed → old context is lost (resume failed / CLI restarted).
                 // Use requestSeal + finalize to ensure transcript/digest are written,
                 // not bare update(status:'sealed') which skips flush.
+                let sealAccepted = false;
                 if (deps.sessionSealer) {
                   try {
-                    await deps.sessionSealer.requestSeal({
+                    const result = await deps.sessionSealer.requestSeal({
                       sessionId: existing.id,
                       reason: 'cli_session_replaced',
                     });
-                    deps.sessionSealer.finalize({ sessionId: existing.id }).catch(() => {});
+                    sealAccepted = result.accepted;
+                    if (sealAccepted) {
+                      deps.sessionSealer.finalize({ sessionId: existing.id }).catch(() => {});
+                    }
                   } catch {
                     /* best-effort seal */
                   }
@@ -667,13 +680,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                     sealedAt: now,
                     updatedAt: now,
                   });
+                  sealAccepted = true;
                 }
-                await deps.sessionChainStore.create({
-                  cliSessionId: msg.sessionId,
-                  threadId,
-                  catId,
-                  userId,
-                });
+                // Only create new active record if old one was successfully sealed.
+                // Otherwise we'd have two active records — a dirty state.
+                if (sealAccepted || !deps.sessionSealer) {
+                  await deps.sessionChainStore.create({
+                    cliSessionId: msg.sessionId,
+                    threadId,
+                    catId,
+                    userId,
+                  });
+                }
               }
             } else {
               // No active session (first invocation or previous was sealed)
@@ -736,6 +754,23 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           .catch((err) => {
             console.warn(`[audit] ${auditType} write failed`, { threadId, invocationId, err });
           });
+
+        // Increment session messageCount (best-effort).
+        // This counter is critical for unseal safety: empty sessions (0 messages)
+        // can be displaced, but sessions with messages must not be silently sealed.
+        if (deps.sessionChainStore && sessionChainActive) {
+          try {
+            const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
+            if (activeRec) {
+              await deps.sessionChainStore.update(activeRec.id, {
+                messageCount: (activeRec.messageCount ?? 0) + 1,
+                updatedAt: Date.now(),
+              });
+            }
+          } catch {
+            /* best-effort: messageCount miss won't break invocation */
+          }
+        }
 
         // Push completion metrics for frontend status panel
         outputs.push({
