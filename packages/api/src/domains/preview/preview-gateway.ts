@@ -1,4 +1,5 @@
 import http from 'node:http';
+// @ts-expect-error — optional dep, only present when preview gateway is enabled
 import httpProxy from 'http-proxy';
 import { validatePort } from './port-validator.js';
 
@@ -40,7 +41,8 @@ export class PreviewGateway {
     });
 
     // Strip iframe-blocking headers from proxied responses
-    this.proxy.on('proxyRes', (proxyRes) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.proxy.on('proxyRes', (proxyRes: any) => {
       delete proxyRes.headers['x-frame-options'];
       const csp = proxyRes.headers['content-security-policy'];
       if (typeof csp === 'string') {
@@ -83,7 +85,8 @@ export class PreviewGateway {
       req.url = url.pathname + (url.search === '?' ? '' : url.search);
 
       const target = `http://${parsed.host}:${parsed.port}`;
-      this.proxy.web(req, res, { target }, (err) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.proxy.web(req, res, { target }, (err: any) => {
         if (!res.headersSent) {
           res.writeHead(502, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Proxy error', message: err.message }));

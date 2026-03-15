@@ -82,6 +82,7 @@ async function createSqliteServices(config: MemoryConfig): Promise<MemoryService
 
     // Load sqlite-vec + ensure vec0 table (decoupled from migration, fail-open)
     try {
+      // @ts-expect-error — optional dep, only present when vector search is enabled
       const sqliteVecMod = await import('sqlite-vec');
       sqliteVecMod.load(store.getDb());
       const ok = ensureVectorTable(store.getDb(), embedConfig.embedDim);
