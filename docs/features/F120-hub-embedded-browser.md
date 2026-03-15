@@ -129,12 +129,12 @@ Cat Café 目前的差距：
 - [x] AC-B2: iframe 内页面无法访问 Hub 的 Cookie/Storage/DOM
 - [x] AC-B3: 禁止访问 Cat Café 自身 API 端口（可配置排除列表）
 
-### Phase C（增强体验）— AC-C1/C2 ✅
+### Phase C（增强体验） ✅
 - [x] AC-C1: 猫可通过 API 触发 `preview:auto-open`，前端自动打开 browser panel（无需用户点击 toast）
 - [x] AC-C2: 新增 `html_widget` rich block，猫发送的 HTML/JS 代码在聊天中以 sandboxed iframe 内联渲染
-- [ ] AC-C3: browser panel 下方可查看页面的 console 输出
-- [ ] AC-C4: 一键截图 browser panel 并附到聊天消息
-- [ ] AC-C5: 支持同时打开多个 localhost tab
+- [x] AC-C3: browser panel 下方可查看页面的 console 输出
+- [x] AC-C4: 一键截图 browser panel 并附到聊天消息
+- [x] AC-C5: 支持同时打开多个 localhost tab
 
 ## 需求点 Checklist
 
@@ -205,6 +205,7 @@ Cat Café 目前的差距：
 | 2026-03-14 | 铲屎官看到 Claude.ai `visualize:show_widget`，提出内联可视化 + 猫主动打开浏览器需求 |
 | 2026-03-14 | Phase C spec 更新：AC-C1（auto-open）+ AC-C2（html_widget）纳入，KD-6/7 决策记录 |
 | 2026-03-15 | Phase C AC-C1/C2 merged (PR #458)，砚砚 3 轮 review 后放行 |
+| 2026-03-15 | Phase C AC-C3/C4/C5 + socket room scoping merged (PR #461)，砚砚 review 放行 + 云端 review 通过 |
 
 ## Review Gate
 
