@@ -64,6 +64,17 @@ const catVariantSchema = z.object({
   avatar: z.string().min(1).optional(), // F32-b P4c: override breed avatar
   color: colorSchema.optional(), // F32-b P4c: override breed color
   contextBudget: contextBudgetSchema.optional(),
+  voiceConfig: z // F103: per-cat TTS voice configuration
+    .object({
+      voice: z.string().min(1),
+      langCode: z.string().min(1),
+      speed: z.number().positive().optional(),
+      refAudio: z.string().min(1).optional(),
+      refText: z.string().min(1).optional(),
+      instruct: z.string().min(1).optional(),
+      temperature: z.number().min(0).max(2).optional(),
+    })
+    .optional(),
   teamStrengths: z.string().optional(), // F-Ground-3: human-readable strengths
   caution: z.string().nullable().optional(), // F-Ground-3: null = explicit no-caution (R1 fix)
 });
