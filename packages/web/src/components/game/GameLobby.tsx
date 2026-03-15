@@ -5,12 +5,12 @@ import type { CatData } from '@/hooks/useCatData';
 
 /** Available board presets — mirrors WEREWOLF_PRESETS on backend */
 const BOARD_PRESETS = [
-  { count: 6, label: '6人局', desc: '1狼 1预言 1女巫 3村民' },
-  { count: 7, label: '7人局', desc: '2狼 1预言 1女巫 3村民' },
-  { count: 8, label: '8人局', desc: '2狼 1预言 1女巫 1猎人 3村民' },
-  { count: 9, label: '9人局', desc: '2狼 1预言 1女巫 1猎人 1守卫 3村民' },
-  { count: 10, label: '10人局', desc: '3狼 1预言 1女巫 1猎人 1守卫 3村民' },
-  { count: 12, label: '12人局', desc: '4狼 1预言 1女巫 1猎人 1守卫 1白痴 3村民' },
+  { count: 6, label: '6人局', desc: '2狼 1预言 1女巫 2村民' },
+  { count: 7, label: '7人局', desc: '2狼 1预言 1女巫 1猎人 2村民' },
+  { count: 8, label: '8人局', desc: '3狼 1预言 1女巫 1猎人 2村民' },
+  { count: 9, label: '9人局', desc: '3狼 1预言 1女巫 1猎人 3村民' },
+  { count: 10, label: '10人局', desc: '3狼 1预言 1女巫 1猎人 4村民' },
+  { count: 12, label: '12人局', desc: '4狼 1预言 1女巫 1猎人 1守卫 4村民' },
 ] as const;
 
 interface GameLobbyProps {
