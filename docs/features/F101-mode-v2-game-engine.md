@@ -176,6 +176,11 @@ reopened: 2026-03-14
 - [ ] AC-D5: 狼人猫猫风 UX（可爱+暗色调+猫猫 cosplay 狼人）— 需暹罗猫参与视觉资产
 - [x] AC-D6: 结算画面 — 胜负 + 各玩家统计 + MVP 评选
 
+### Phase E（后续增强 — backlog）⬜
+- [ ] AC-E1: 上帝推理模式（Detective Mode）— 观战者开局选定一只猫，只能看到该玩家的身份和信息权限，其余座位只看到公开信息。铲屎官原话："只能选择一只猫看他身份，狼人杀观战模式那种"
+  - 视觉：塔罗牌卡背 + 灵魂链接光效 + 翻牌仪式（烁烁提案）
+  - 技术：`GameViewBuilder` 新增 `detective` 视角，绑定 seatId 后继承该座位信息域
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -196,6 +201,7 @@ reopened: 2026-03-14
 | R14 | "展示真实状态，不是假动画" | AC-D4 | manual | [x] |
 | R15 | "猫猫装狼人那种可爱的带点黑色的风格" | AC-D5 | manual+design | [ ] |
 | R16 | "要战绩统计 + MVP" | AC-D6 | manual | [x] |
+| R17 | "只能选择一只猫看他身份，狼人杀观战模式那种" | AC-E1 | manual | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -276,6 +282,7 @@ reopened: 2026-03-14
 | KD-21 | 展示真实 ready 状态，不做假动画 | 铲屎官担心猫猫卡住看不到 | 2026-03-14 |
 | KD-22 | 狼人猫猫风 UX = 可爱+暗色调+猫猫 cosplay 狼人 | 铲屎官："猫猫装狼人那种可爱的带点黑色的风格" | 2026-03-14 |
 | KD-23 | 结算画面：胜负+统计+MVP | 铲屎官确认 | 2026-03-14 |
+| KD-24 | 上帝推理模式（Detective Mode）列入 Phase E | 观战者绑定单座位视角，增加悬念和代入感，不在 Phase D scope | 2026-03-15 |
 
 ## 头像系统调查（KD-14 依据）
 
@@ -338,6 +345,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-14 | Phase C merged (PR #454) — close button, lobby, AI auto-play, security hardening (codex review 2 rounds) |
 | 2026-03-14 | **Phase D 愿景采访** — 铲屎官 1v1 回答 6 个关键问题，定案独立 thread + 猫猫身份保留 + 上帝面板 + 狼人猫猫风 + 战绩 MVP |
 | 2026-03-15 | Phase D merged (PR #463) — 独立 thread + 上帝面板(pause/resume/skip) + 结算 MVP + win condition + ready state + race fix (codex review 3 rounds) |
+| 2026-03-15 | AC-D5 视觉设计稿完成 — 4 屏狼人猫猫风主题（三猫讨论收敛 + 布偶猫画 pen），Phase E backlog 加入上帝推理模式 |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
@@ -355,7 +363,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | **Discussion** | Thread `thread_mmmt16riklhir6e4` | 2026-03-11 四猫讨论 |
 | **Design doc** | `docs/plans/2026-02-10-f11-mode-system-design.md` | 旧 mode 设计文档 |
 | **Research** | `docs/research/2026-03-11-netease-werewolf-rules.md` | 网易狼人杀规则（实现基准） |
-| **UX Design** | `designs/f101-werewolf-game-ui.pen` | 3屏 Pencil wireframe（Player Day/Night + God View） |
+| **UX Design** | `designs/f101-werewolf-game-ui.pen` | 7屏 Pencil（3 wireframe + 4 themed: Day/Night/God/Result 狼人猫猫风） |
 | **Avatar system** | `packages/web/src/components/CatAvatar.tsx` | 头像渲染组件（fallback 到 `/avatars/{catId}.png`） |
 | **Avatar data** | `packages/web/src/hooks/useCatData.ts` | catId→avatar 数据获取 |
 | **Mention panel** | `packages/web/src/components/ChatInputMenus.tsx:50` | @ 面板头像展示 |
