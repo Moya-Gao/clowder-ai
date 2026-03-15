@@ -237,4 +237,29 @@ describe('SlotTracker: per-thread-per-cat isolation', () => {
     assert.deepEqual(tracker.getCatIds('t1', 'opus'), ['opus', 'gemini']);
     assert.deepEqual(tracker.getCatIds('t1', 'codex'), ['codex']);
   });
+
+  // F122 Phase A.1: tryStartThread — non-preemptive thread-level busy gate
+  it('tryStartThread returns null when another slot is active in same thread', () => {
+    const tracker = new InvocationTracker();
+    tracker.start('t1', 'catA', 'user1');
+    const result = tracker.tryStartThread('t1', 'catB', 'user1');
+    assert.equal(result, null, 'should return null when thread is busy');
+    assert.equal(tracker.has('t1', 'catA'), true, 'catA slot should still be active');
+  });
+
+  it('tryStartThread succeeds when thread is idle', () => {
+    const tracker = new InvocationTracker();
+    const controller = tracker.tryStartThread('t1', 'catA', 'user1', ['catA']);
+    assert.ok(controller, 'should return AbortController when thread is idle');
+    assert.equal(tracker.has('t1', 'catA'), true, 'slot should be registered');
+  });
+
+  it('tryStartThread returns null when thread is deleting', () => {
+    const tracker = new InvocationTracker();
+    const guard = tracker.guardDelete('t1');
+    assert.equal(guard.acquired, true);
+    const result = tracker.tryStartThread('t1', 'catA', 'user1');
+    assert.equal(result, null, 'should return null when thread is deleting');
+    guard.release();
+  });
 });

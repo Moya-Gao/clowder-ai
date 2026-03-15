@@ -109,42 +109,38 @@ async function dispatchToTarget(
 
   const intent = parseIntent(messageContent, 1);
 
-  // Create invocation record
-  const createResult = await invocationRecordStore.create({
-    threadId,
-    userId,
-    targetCats: [targetCatId],
-    intent: intent.intent,
-    idempotencyKey: `mm-${requestId}-${targetCatId}`,
-  });
-
-  if (createResult.outcome === 'duplicate') {
-    log.info({ requestId, targetCatId }, '[F086] Dispatch skipped: duplicate invocation');
-    return;
-  }
-
-  await invocationRecordStore.update(createResult.invocationId, {
-    status: 'running',
-  });
-
   // Collect response text from the routing execution
   let responseText = '';
   const toolsUsed: string[] = [];
 
-  // F108 made InvocationTracker slot-aware, so multi-mention dispatches can safely
-  // register as active per (threadId, catId) slot without preempting siblings.
-  // This restores the same "thread is active" semantics that drive queue/steer UI.
-  // F122 AC-A7: outer try/finally ensures tracker slot is ALWAYS released,
-  // even if registerDispatch throws or early return on pre-aborted controller.
+  // F122 AC-A9: Occupy tracker slot BEFORE create to close TOCTOU window.
+  // Entire create/execute lifecycle wrapped in outer try/finally for guaranteed release.
+  // F108 slot-aware: multi-mention dispatches register per (threadId, catId) slot.
   const controller = invocationTracker?.start(threadId, targetCatId, userId, [targetCatId]) ?? new AbortController();
   try {
     if (controller.signal.aborted) {
-      await invocationRecordStore.update(createResult.invocationId, {
-        status: 'canceled',
-      });
-      log.info({ requestId, targetCatId }, '[F086] Multi-mention dispatch canceled before start');
+      log.info({ requestId, targetCatId }, '[F086] Multi-mention dispatch canceled before start (deleting)');
       return;
     }
+
+    // Create invocation record (now protected by tracker slot)
+    const createResult = await invocationRecordStore.create({
+      threadId,
+      userId,
+      targetCats: [targetCatId],
+      intent: intent.intent,
+      idempotencyKey: `mm-${requestId}-${targetCatId}`,
+    });
+
+    if (createResult.outcome === 'duplicate') {
+      log.info({ requestId, targetCatId }, '[F086] Dispatch skipped: duplicate invocation');
+      return; // finally will release slot (AC-A12)
+    }
+
+    await invocationRecordStore.update(createResult.invocationId, {
+      status: 'running',
+    });
+
     orch.registerDispatch(requestId, targetCatId, controller);
 
     try {

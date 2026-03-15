@@ -414,24 +414,130 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       // Fall through to immediate execution below
     }
 
-    // ① Atomic create InvocationRecord (Lua in Redis, sync Map in memory)
+    // ① F122 A.1: Occupy tracker slot BEFORE creating InvocationRecord to close TOCTOU window.
+    // Non-force paths use tryStartThread (non-preemptive); force uses start() (preemptive, already cancelled above).
     if (opts.invocationRecordStore) {
-      const createResult = await opts.invocationRecordStore.create({
-        threadId: resolvedThreadId,
-        userId,
-        targetCats,
-        intent: intent.intent,
-        idempotencyKey: resolvedIdempotencyKey,
-      });
+      let controller: AbortController | undefined;
+
+      if (mode !== 'force' && opts.invocationTracker) {
+        // F122 AC-A8: Atomic thread-level busy gate + slot registration.
+        // If thread became busy since initial has() check at line 306, degrade to queue.
+        const tryResult = opts.invocationTracker.tryStartThread(resolvedThreadId, primaryCat, userId, targetCats);
+        if (tryResult === null) {
+          // TOCTOU: thread became busy between has() and here — degrade to queue
+          if (opts.invocationQueue) {
+            const enqueueResult = opts.invocationQueue.enqueue({
+              threadId: resolvedThreadId,
+              userId,
+              content,
+              source: 'user',
+              targetCats,
+              intent: intent.intent,
+            });
+            if (enqueueResult.outcome === 'full') {
+              opts.socketManager.emitToUser(userId, 'queue_full_warning', {
+                threadId: resolvedThreadId,
+                source: 'user',
+                queueSize: opts.invocationQueue.size(resolvedThreadId, userId),
+                queue: opts.invocationQueue.list(resolvedThreadId, userId),
+              });
+              reply.status(429);
+              return { error: '消息队列已满', code: 'QUEUE_FULL' };
+            }
+            // F122 R1-gpt52 P1-1: Wrap append+backfill in try/catch with rollback,
+            // matching original queue path (lines 340-374) to prevent ghost queue entries.
+            let toctouUserMessage: { id: string };
+            try {
+              toctouUserMessage = await opts.messageStore.append({
+                userId,
+                catId: null,
+                content,
+                mentions: targetCats,
+                timestamp: Date.now(),
+                threadId: resolvedThreadId,
+                deliveryStatus: 'queued',
+                ...(contentBlocks ? { contentBlocks } : {}),
+                ...(whisperVisibility && whisperRecipients
+                  ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
+                  : {}),
+              });
+              const queueEntryId = enqueueResult.entry?.id;
+              if (queueEntryId) {
+                if (enqueueResult.outcome === 'enqueued') {
+                  opts.invocationQueue.backfillMessageId(resolvedThreadId, userId, queueEntryId, toctouUserMessage.id);
+                } else {
+                  opts.invocationQueue.appendMergedMessageId(
+                    resolvedThreadId,
+                    userId,
+                    queueEntryId,
+                    toctouUserMessage.id,
+                  );
+                }
+              }
+            } catch (err) {
+              // Write failed → rollback queue entry (no ghost data)
+              const queueEntryId = enqueueResult.entry?.id;
+              if (queueEntryId && enqueueResult.outcome === 'enqueued') {
+                opts.invocationQueue.rollbackEnqueue(resolvedThreadId, userId, queueEntryId);
+              } else if (queueEntryId) {
+                opts.invocationQueue.rollbackMerge(resolvedThreadId, userId, queueEntryId);
+              }
+              throw err;
+            }
+            opts.socketManager.emitToUser(userId, 'queue_updated', {
+              threadId: resolvedThreadId,
+              queue: opts.invocationQueue.list(resolvedThreadId, userId),
+              action: enqueueResult.outcome,
+            });
+            reply.status(202);
+            return {
+              status: 'queued',
+              queuePosition: enqueueResult.queuePosition,
+              entryId: enqueueResult.entry?.id,
+              merged: enqueueResult.outcome === 'merged',
+              userMessageId: toctouUserMessage.id,
+            };
+          }
+          // No queue available — thread is busy but we can't queue. Reject.
+          reply.status(409);
+          return { error: '猫猫正在忙', code: 'THREAD_BUSY' };
+        }
+        controller = tryResult;
+      }
+
+      // F122 R1 P1: Wrap create/update/append in try/catch to release slot on error.
+      // The background coroutine has its own finally for normal completion, but if we
+      // throw before entering it, the slot would leak (thread stuck as "busy").
+      let createResult: { outcome: string; invocationId: string };
+      try {
+        createResult = await opts.invocationRecordStore.create({
+          threadId: resolvedThreadId,
+          userId,
+          targetCats,
+          intent: intent.intent,
+          idempotencyKey: resolvedIdempotencyKey,
+        });
+      } catch (createErr) {
+        // Release slot occupied by tryStartThread — prevent "假忙" leak
+        if (controller) {
+          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+        }
+        throw createErr;
+      }
 
       if (createResult.outcome === 'duplicate') {
-        // Deduplicated — no start(), no abort, just return existing ID
+        // AC-A11: tryStartThread succeeded but create returned duplicate — release slot
+        if (controller) {
+          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+        }
         reply.status(200);
         return { status: 'duplicate', invocationId: createResult.invocationId };
       }
 
-      // Not duplicate → safe to start() (may abort prior invocation for this thread)
-      const controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
+      // Force path: still uses start() (preemptive — cancel already happened above)
+      if (!controller) {
+        controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
+      }
 
       // Race: thread entered deleting between isDeleting() and start()
       if (controller?.signal.aborted) {
@@ -446,24 +552,39 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         };
       }
 
-      // ② Write user message (decoupled from cat execution)
-      const storedUserMessage = await opts.messageStore.append({
-        userId,
-        catId: null,
-        content,
-        mentions: targetCats,
-        timestamp: Date.now(),
-        threadId: resolvedThreadId,
-        ...(contentBlocks ? { contentBlocks } : {}),
-        ...(whisperVisibility && whisperRecipients
-          ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
-          : {}),
-      });
+      // F122 R1 P1 cont: wrap message write + update before background coroutine.
+      // If any of these throw, release the slot to prevent "假忙" leak.
+      let storedUserMessage: { id: string };
+      try {
+        // ② Write user message (decoupled from cat execution)
+        storedUserMessage = await opts.messageStore.append({
+          userId,
+          catId: null,
+          content,
+          mentions: targetCats,
+          timestamp: Date.now(),
+          threadId: resolvedThreadId,
+          ...(contentBlocks ? { contentBlocks } : {}),
+          ...(whisperVisibility && whisperRecipients
+            ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
+            : {}),
+        });
 
-      // ③ Backfill InvocationRecord.userMessageId
-      await opts.invocationRecordStore.update(createResult.invocationId, {
-        userMessageId: storedUserMessage.id,
-      });
+        // ③ Backfill InvocationRecord.userMessageId
+        await opts.invocationRecordStore.update(createResult.invocationId, {
+          userMessageId: storedUserMessage.id,
+        });
+      } catch (preExecErr) {
+        // Release slot — we haven't entered background coroutine yet
+        opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+        // Mark record as failed if it was created
+        try {
+          await opts.invocationRecordStore?.update(createResult.invocationId, { status: 'failed' });
+        } catch {
+          /* best-effort cleanup */
+        }
+        throw preExecErr;
+      }
 
       // ④ Reply with invocationId
       reply.send({
@@ -698,7 +819,17 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       })();
     } else {
       // Fallback: no invocationRecordStore (legacy path, uses route())
-      const controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
+      // F122 A.1: Try non-preemptive first. Legacy path has no InvocationQueue so it
+      // cannot degrade to queue — fall back to preemptive start() as temporary compat.
+      // TODO(F122 Phase B): Legacy path should be removed or given queue support.
+      let controller: AbortController | undefined;
+      if (mode !== 'force' && opts.invocationTracker) {
+        controller =
+          opts.invocationTracker.tryStartThread(resolvedThreadId, primaryCat, userId, targetCats) ??
+          opts.invocationTracker.start(resolvedThreadId, primaryCat, userId, targetCats);
+      } else {
+        controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
+      }
       if (controller?.signal.aborted) {
         reply.status(409);
         return {
@@ -922,8 +1053,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         });
       }
       chatItems.sort((a, b) => {
-        const ta = (typeof a.deliveredAt === 'number' ? a.deliveredAt : a.timestamp);
-        const tb = (typeof b.deliveredAt === 'number' ? b.deliveredAt : b.timestamp);
+        const ta = typeof a.deliveredAt === 'number' ? a.deliveredAt : a.timestamp;
+        const tb = typeof b.deliveredAt === 'number' ? b.deliveredAt : b.timestamp;
         return ta - tb;
       });
     }

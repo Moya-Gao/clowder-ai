@@ -56,6 +56,28 @@ export class InvocationTracker {
   }
 
   /**
+   * F122 Phase A.1: Non-preemptive thread-level start.
+   * Atomically checks if ANY slot in the thread is active (or deleting),
+   * then registers the new slot — all in one synchronous operation.
+   *
+   * Returns AbortController on success, null if thread is busy or deleting.
+   * Unlike start(), this NEVER aborts existing invocations.
+   */
+  tryStartThread(
+    threadId: string,
+    catId: string,
+    userId: string = 'unknown',
+    catIds: string[] = [],
+  ): AbortController | null {
+    if (this.deleting.has(threadId)) return null;
+    if (this.has(threadId)) return null;
+    const controller = new AbortController();
+    const key = this.slotKey(threadId, catId);
+    this.active.set(key, { controller, userId, catId, catIds });
+    return controller;
+  }
+
+  /**
    * Atomically check-and-guard for thread deletion.
    * Synchronous: checks ALL slots + marks deleting in one tick.
    * Caller MUST call release() in a finally block after delete completes.
