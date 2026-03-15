@@ -138,6 +138,25 @@ describe('QueueProcessor', () => {
     assert.ok(result.entry);
   });
 
+  it('queued execution broadcasts intent_mode with invocationId when processing starts', async () => {
+    const entry = enqueueEntry(deps.queue, { targetCats: ['codex'], intent: 'execute' });
+    deps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');
+
+    const result = await processor.processNext('t1', 'u1');
+    assert.equal(result.started, true);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const intentCall = deps.socketManager.broadcastToRoom.mock.calls.find((c) => c.arguments[1] === 'intent_mode');
+    assert.ok(intentCall, 'should broadcast intent_mode for queued execution');
+    assert.deepEqual(intentCall.arguments[2], {
+      threadId: 't1',
+      mode: 'execute',
+      targetCats: ['codex'],
+      invocationId: 'inv-stub',
+    });
+  });
+
   it('processNext returns started=false when queue empty', async () => {
     const result = await processor.processNext('t1', 'u1');
     assert.equal(result.started, false);

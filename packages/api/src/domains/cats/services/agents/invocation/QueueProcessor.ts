@@ -305,7 +305,15 @@ export class QueueProcessor {
         status: 'running',
       });
 
-      // 5. Emit queue_updated (processing)
+      // 5. Broadcast invocation state for queued execution.
+      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
+        threadId,
+        mode: intent,
+        targetCats,
+        invocationId,
+      });
+
+      // 6. Emit queue_updated (processing)
       socketManager.emitToUser(userId, 'queue_updated', {
         threadId,
         queue: queue.list(threadId, userId),
@@ -356,7 +364,7 @@ export class QueueProcessor {
         });
       }
 
-      // 6. Route execution
+      // 7. Route execution
       const cursorBoundaries = new Map<string, string>();
 
       // F039 remaining: queued image messages must be visible to cats.
@@ -395,7 +403,7 @@ export class QueueProcessor {
         socketManager.broadcastAgentMessage({ ...msg, ...(invocationId ? { invocationId } : {}) }, threadId);
       }
 
-      // 7. Ack cursors + mark succeeded
+      // 8. Ack cursors + mark succeeded
       await router.ackCollectedCursors(userId, threadId, cursorBoundaries);
       await invocationRecordStore.update(invocationId, {
         status: 'succeeded',

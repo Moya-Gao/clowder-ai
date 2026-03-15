@@ -89,6 +89,27 @@ function createMockInvocationRecordStore() {
   };
 }
 
+function createMockInvocationTracker() {
+  const starts = [];
+  const completes = [];
+  return {
+    start(threadId, catId, userId, catIds) {
+      const controller = new AbortController();
+      starts.push({ threadId, catId, userId, catIds, controller });
+      return controller;
+    },
+    complete(threadId, catId, controller) {
+      completes.push({ threadId, catId, controller });
+    },
+    getStarts() {
+      return starts;
+    },
+    getCompletes() {
+      return completes;
+    },
+  };
+}
+
 function createMockRouter(responses = {}) {
   const executions = [];
   return {
@@ -114,6 +135,7 @@ describe('Multi-Mention Routes', () => {
   let mockSocket;
   let mockMessageStore;
   let mockInvocationRecordStore;
+  let mockInvocationTracker;
   let mockRouter;
   let creds;
 
@@ -124,6 +146,7 @@ describe('Multi-Mention Routes', () => {
     mockSocket = createMockSocketManager();
     mockMessageStore = createMockMessageStore();
     mockInvocationRecordStore = createMockInvocationRecordStore();
+    mockInvocationTracker = createMockInvocationTracker();
     mockRouter = createMockRouter({ codex: 'Codex says hello', gemini: 'Gemini says hi' });
 
     // Register a caller invocation (opus calling)
@@ -139,6 +162,7 @@ describe('Multi-Mention Routes', () => {
       socketManager: mockSocket,
       router: mockRouter,
       invocationRecordStore: mockInvocationRecordStore,
+      invocationTracker: mockInvocationTracker,
     });
 
     await app.ready();
@@ -242,6 +266,51 @@ describe('Multi-Mention Routes', () => {
     assert.equal(executions.length, 2);
     assert.ok(executions.some((e) => e.targetCats[0] === 'codex'));
     assert.ok(executions.some((e) => e.targetCats[0] === 'gemini'));
+  });
+
+  test('broadcasts intent_mode and tracks active slots for dispatched targets', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/multi-mention',
+      payload: {
+        invocationId: creds.invocationId,
+        callbackToken: creds.callbackToken,
+        targets: ['codex', 'gemini'],
+        question: 'Review this design',
+        callbackTo: 'opus',
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    const starts = mockInvocationTracker.getStarts();
+    assert.equal(starts.length, 2);
+    assert.deepEqual(
+      starts.map((entry) => entry.catId).sort(),
+      ['codex', 'gemini'],
+    );
+
+    const roomEvents = mockSocket.getRoomEvents().filter((event) => event.event === 'intent_mode');
+    assert.equal(roomEvents.length, 2);
+    assert.deepEqual(
+      roomEvents.map((event) => event.data.targetCats[0]).sort(),
+      ['codex', 'gemini'],
+    );
+    for (const event of roomEvents) {
+      assert.equal(event.data.threadId, 'thread-1');
+      assert.ok(event.data.invocationId, 'intent_mode should include invocationId');
+    }
+
+    const agentMessages = mockSocket
+      .getMessages()
+      .filter((message) => ['text', 'done'].includes(message.type) && ['codex', 'gemini'].includes(message.catId));
+    assert.ok(agentMessages.length >= 4, 'expected streamed text+done messages for both targets');
+    for (const message of agentMessages) {
+      assert.ok(message.invocationId, 'streamed multi-mention events should carry invocationId');
+    }
+
+    const completes = mockInvocationTracker.getCompletes();
+    assert.equal(completes.length, 2);
   });
 
   test('includes multi-mention prefix in dispatched message', async () => {

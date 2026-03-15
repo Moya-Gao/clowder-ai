@@ -98,7 +98,7 @@ async function dispatchToTarget(
   log: FastifyBaseLogger,
 ): Promise<void> {
   const orch = getMultiMentionOrchestrator();
-  const { router, invocationRecordStore, socketManager } = deps;
+  const { router, invocationRecordStore, socketManager, invocationTracker } = deps;
 
   try {
     // Build the message for this target
@@ -132,14 +132,27 @@ async function dispatchToTarget(
     let responseText = '';
     const toolsUsed: string[] = [];
 
-    // Each dispatch gets its OWN AbortController, registered with the orchestrator.
-    // This avoids InvocationTracker's per-thread singleton constraint (which aborts
-    // concurrent dispatches), while still allowing thread-level cancel (stop button)
-    // and delete guard to propagate via orchestrator.abortByThread().
-    const controller = new AbortController();
+    // F108 made InvocationTracker slot-aware, so multi-mention dispatches can safely
+    // register as active per (threadId, catId) slot without preempting siblings.
+    // This restores the same "thread is active" semantics that drive queue/steer UI.
+    const controller = invocationTracker?.start(threadId, targetCatId, userId, [targetCatId]) ?? new AbortController();
+    if (controller.signal.aborted) {
+      await invocationRecordStore.update(createResult.invocationId, {
+        status: 'canceled',
+      });
+      log.info({ requestId, targetCatId }, '[F086] Multi-mention dispatch canceled before start');
+      return;
+    }
     orch.registerDispatch(requestId, targetCatId, controller);
 
     try {
+      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
+        threadId,
+        mode: intent.intent,
+        targetCats: [targetCatId],
+        invocationId: createResult.invocationId,
+      });
+
       for await (const msg of router.routeExecution(
         userId,
         messageContent,
@@ -160,7 +173,7 @@ async function dispatchToTarget(
           }
         }
 
-        socketManager.broadcastAgentMessage(msg, threadId);
+        socketManager.broadcastAgentMessage({ ...msg, invocationId: createResult.invocationId }, threadId);
       }
 
       await invocationRecordStore.update(createResult.invocationId, {
@@ -168,6 +181,7 @@ async function dispatchToTarget(
       });
     } finally {
       orch.unregisterDispatch(requestId, targetCatId);
+      invocationTracker?.complete(threadId, targetCatId, controller);
     }
 
     // If aborted (stop button / preempt / thread cancel), do NOT record response

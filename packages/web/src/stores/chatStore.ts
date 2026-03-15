@@ -310,6 +310,7 @@ interface ChatState {
 
   // ── Multi-thread actions (new) ──
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
+  removeThreadMessage: (threadId: string, messageId: string) => void;
   replaceThreadMessageId: (threadId: string, fromId: string, toId: string) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
@@ -909,6 +910,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
             messages: [...existing.messages, msg],
             unreadCount: existing.unreadCount + 1,
             hasUserMention: existing.hasUserMention || !!msg.mentionsUser,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  removeThreadMessage: (threadId, messageId) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        const nextMessages = state.messages.filter((m) => m.id !== messageId);
+        if (nextMessages.length === state.messages.length) return state;
+        revokeRemovedBlobUrls(state.messages, nextMessages);
+        return { messages: nextMessages };
+      }
+
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+      const nextMessages = existing.messages.filter((m) => m.id !== messageId);
+      if (nextMessages.length === existing.messages.length) return state;
+      revokeRemovedBlobUrls(existing.messages, nextMessages);
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            messages: nextMessages,
             lastActivity: Date.now(),
           },
         },

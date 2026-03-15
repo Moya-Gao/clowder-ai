@@ -23,6 +23,8 @@ export function useSendMessage(activeThreadId?: string) {
   const {
     addMessage,
     addMessageToThread,
+    removeMessage,
+    removeThreadMessage,
     replaceThreadMessageId,
     setLoading,
     setHasActiveInvocation,
@@ -114,6 +116,16 @@ export function useSendMessage(activeThreadId?: string) {
         }
       }
 
+      const reconcileQueuedResponse = (body: { status?: string; userMessageId?: string } | null) => {
+        if (body?.status !== 'queued' || isQueueSend) return false;
+        if (threadId !== activeThread) {
+          removeThreadMessage(threadId, optimisticMessageId);
+        } else {
+          removeMessage(optimisticMessageId);
+        }
+        return true;
+      };
+
       try {
         const deliveryModePayload = deliveryMode ? { deliveryMode } : {};
 
@@ -141,7 +153,7 @@ export function useSendMessage(activeThreadId?: string) {
             throw new Error(body?.detail ?? `Server error: ${res.status}`);
           }
           const body = await res.json().catch(() => null);
-          if (body?.userMessageId) {
+          if (!reconcileQueuedResponse(body) && body?.userMessageId) {
             replaceThreadMessageId(threadId, optimisticMessageId, body.userMessageId);
           }
         } else {
@@ -161,7 +173,7 @@ export function useSendMessage(activeThreadId?: string) {
             throw new Error(body?.detail ?? `Server error: ${res.status}`);
           }
           const body = await res.json().catch(() => null);
-          if (body?.userMessageId) {
+          if (!reconcileQueuedResponse(body) && body?.userMessageId) {
             replaceThreadMessageId(threadId, optimisticMessageId, body.userMessageId);
           }
         }
@@ -203,6 +215,8 @@ export function useSendMessage(activeThreadId?: string) {
       processCommand,
       addMessage,
       addMessageToThread,
+      removeMessage,
+      removeThreadMessage,
       replaceThreadMessageId,
       setLoading,
       setHasActiveInvocation,
