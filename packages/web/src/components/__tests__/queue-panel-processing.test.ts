@@ -1,8 +1,6 @@
 /**
- * F122 AC-A4: QueuePanel shows processing entries with distinct styling
- * - Processing entries are visible (not filtered out)
- * - Processing entries show "处理中" indicator
- * - Processing entries do NOT have steer/remove/move controls
+ * QueuePanel: processing entries should NOT be visible
+ * (processing = already executing, user sees it in chat area)
  */
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -38,7 +36,7 @@ const PROCESSING_ENTRY: QueueEntry = {
   status: 'processing',
 };
 
-describe('QueuePanel processing state (F122 AC-A4)', () => {
+describe('QueuePanel hides processing entries', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -71,53 +69,27 @@ describe('QueuePanel processing state (F122 AC-A4)', () => {
     vi.clearAllMocks();
   });
 
-  it('renders processing entries as visible', () => {
+  it('does NOT render processing-only queue', () => {
     useChatStore.setState({ queue: [PROCESSING_ENTRY] });
     act(() => {
       root.render(React.createElement(QueuePanel, { threadId: 'thread-1' }));
     });
 
-    // Processing entry content must be visible
-    expect(container.innerHTML).toContain('processing message');
+    // Processing entry should not be visible — panel should be empty/hidden
+    expect(container.innerHTML).not.toContain('processing message');
   });
 
-  it('shows "处理中" indicator for processing entries', () => {
-    useChatStore.setState({ queue: [PROCESSING_ENTRY] });
-    act(() => {
-      root.render(React.createElement(QueuePanel, { threadId: 'thread-1' }));
-    });
-
-    expect(container.innerHTML).toContain('处理中');
-  });
-
-  it('does NOT show steer/remove controls for processing entries', () => {
-    useChatStore.setState({ queue: [PROCESSING_ENTRY] });
-    act(() => {
-      root.render(React.createElement(QueuePanel, { threadId: 'thread-1' }));
-    });
-
-    // No steer button
-    expect(container.querySelector('[data-testid="steer-q-proc"]')).toBeNull();
-    // No remove button (aria-label="撤回")
-    expect(container.querySelector('[aria-label="撤回"]')).toBeNull();
-    // No move buttons
-    expect(container.querySelector('[aria-label="Move up"]')).toBeNull();
-    expect(container.querySelector('[aria-label="Move down"]')).toBeNull();
-  });
-
-  it('renders both queued and processing entries together', () => {
+  it('renders queued entries but hides processing entries', () => {
     useChatStore.setState({ queue: [PROCESSING_ENTRY, QUEUED_ENTRY] });
     act(() => {
       root.render(React.createElement(QueuePanel, { threadId: 'thread-1' }));
     });
 
     const html = container.innerHTML;
-    // Both entries visible
-    expect(html).toContain('processing message');
+    // Only queued entry visible
     expect(html).toContain('queued message');
-    // Processing has indicator, queued has steer
-    expect(html).toContain('处理中');
+    expect(html).not.toContain('processing message');
+    // Steer button for queued entry
     expect(container.querySelector('[data-testid="steer-q1"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="steer-q-proc"]')).toBeNull();
   });
 });

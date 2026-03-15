@@ -137,8 +137,8 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
   // Don't render when queue is empty
   if (queue.length === 0) return null;
 
-  // F122 AC-A4: show both queued and processing entries (processing entries get distinct UI)
-  const visibleEntries = queue.filter((e) => e.status === 'queued' || e.status === 'processing');
+  // Only show queued entries — processing entries are already executing and visible in chat
+  const visibleEntries = queue.filter((e) => e.status === 'queued');
   if (visibleEntries.length === 0 && !queuePaused) return null;
 
   const pauseLabel = queuePauseReason === 'canceled' ? '当前调用已取消' : '当前调用失败';
@@ -276,10 +276,8 @@ function QueueEntryRow({
         </div>
       </div>
 
-      {entry.status === 'processing' ? (
-        /* F122 AC-A4: processing entries show indicator, no controls */
-        <span className="text-xs text-gray-400 animate-pulse shrink-0">处理中</span>
-      ) : (
+      {/* Reorder + action buttons (only queued entries reach here) */}
+      {(
         <>
           {/* Reorder buttons */}
           <div className="flex flex-col gap-0.5 shrink-0">
