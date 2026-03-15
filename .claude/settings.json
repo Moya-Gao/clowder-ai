@@ -57,9 +57,29 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pretool-evidence-guard.sh",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/posttool-evidence-marker.sh",
+            "timeout": 3
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [
