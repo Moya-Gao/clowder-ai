@@ -16,6 +16,7 @@ import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.j
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { resolveAnthropicRuntimeProfile } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
+import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
@@ -42,6 +43,29 @@ import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './
 
 /** F118: Module-level singleton — guards per-cliSessionId serialization */
 const sessionMutex = new SessionMutex();
+
+/**
+ * F089: Race an async iterator's .next() against an AbortSignal.
+ * Returns the iterator result, or throws the abort reason if the signal fires first.
+ * This is necessary because `for await` blocks on gen.next() and cannot be interrupted.
+ */
+function abortableNext<T>(iter: AsyncIterator<T>, signal: AbortSignal): Promise<IteratorResult<T>> {
+  if (signal.aborted) return Promise.reject(signal.reason ?? new Error('aborted'));
+  return new Promise<IteratorResult<T>>((resolve, reject) => {
+    const onAbort = (): void => reject(signal.reason ?? new Error('aborted'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    iter.next().then(
+      (result) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(result);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      },
+    );
+  });
+}
 
 const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
 const ANTHROPIC_PROFILE_MODE_API_KEY = 'api_key';
@@ -161,9 +185,33 @@ export interface InvocationParams {
  */
 export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationParams): AsyncIterable<AgentMessage> {
   const { registry, sessionManager, threadStore, apiUrl } = deps;
-  const { catId, service, prompt, userId, threadId, isLastCat, signal } = params;
+  const { catId, service, prompt, userId, threadId, isLastCat, signal: callerSignal } = params;
 
   const { invocationId, callbackToken } = registry.create(userId, catId, threadId, params.parentInvocationId);
+
+  // F089: Invocation-level hard timeout — independent of NDJSON stream / CLI timeout.
+  // Must be > CLI_TIMEOUT_MS to avoid racing the inner timeout.
+  // When CLI_TIMEOUT_MS=0 (disable), fall back to DEFAULT (5min) so invocation still has a ceiling.
+  const INVOCATION_TIMEOUT_MULTIPLIER = 2;
+  const cliTimeoutMs = resolveCliTimeoutMs(undefined);
+  const invocationTimeoutMs =
+    (cliTimeoutMs > 0 ? cliTimeoutMs : DEFAULT_CLI_TIMEOUT_MS) * INVOCATION_TIMEOUT_MULTIPLIER;
+  const invocationAc = new AbortController();
+  const invocationTimer = setTimeout(() => {
+    console.error('[invoke-single-cat] invocation hard timeout fired', {
+      invocationId,
+      catId,
+      threadId,
+      timeoutMs: invocationTimeoutMs,
+    });
+    invocationAc.abort(new Error('invocation_timeout'));
+  }, invocationTimeoutMs);
+  invocationTimer.unref();
+
+  // Merge caller signal (user cancel) with invocation timeout — neither loses semantics.
+  const signal: AbortSignal | undefined = callerSignal
+    ? AbortSignal.any([callerSignal, invocationAc.signal])
+    : invocationAc.signal;
 
   // DIAG: ghost-thread bug — log invocation creation with thread binding
   console.info('[DIAG/ghost-thread] invokeSingleCat: created invocation', {
@@ -392,8 +440,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       // Reaper: reconcile any sessions stuck in 'sealing' > 5 minutes (best-effort).
       if (deps.sessionSealer && 'reconcileStuck' in deps.sessionSealer) {
         try {
-          await (deps.sessionSealer as { reconcileStuck: (catId: string, threadId: string) => Promise<number> }).reconcileStuck(catId, threadId);
-        } catch { /* best-effort reconcile */ }
+          await (
+            deps.sessionSealer as { reconcileStuck: (catId: string, threadId: string) => Promise<number> }
+          ).reconcileStuck(catId, threadId);
+        } catch {
+          /* best-effort reconcile */
+        }
       }
       try {
         const chain = await deps.sessionChainStore.getChain(catId, threadId);
@@ -1040,7 +1092,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       let shouldRetryOnTransientCliExit = false;
       let attemptHasContentOutput = false;
 
-      for await (const msg of service.invoke(effectivePrompt, options)) {
+      // F089: Use abortableNext instead of `for await` so the invocation timeout
+      // can break out even when the service generator is stuck on an unresolvable await.
+      const serviceIter = service.invoke(effectivePrompt, options)[Symbol.asyncIterator]();
+      for (;;) {
+        const iterResult = await abortableNext(serviceIter, signal);
+        if (iterResult.done) break;
+        const msg = iterResult.value;
         if (shouldTrackGeminiResumeFailures && options.sessionId && msg.type === 'error') {
           const failureKind = classifyResumeFailure(msg.error);
           if (failureKind) {
@@ -1325,6 +1383,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     await finalizeTaskProgress();
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
   } finally {
+    // F089: Clear invocation hard timeout
+    clearTimeout(invocationTimer);
+
     // F118: Release session mutex (idempotent — safe if never acquired)
     sessionMutexRelease?.();
 
