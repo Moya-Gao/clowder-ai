@@ -133,6 +133,47 @@ iPhone companion App：
 | **Cloudflare Tunnel 延迟** | 之前体验很卡，Watch 语音交互需要 <300ms 延迟。**Blocker 级**——需要铲屎官和之前的布偶猫讨论优化方案 |
 | 域名未注册 | 公网入口的域名还没注册，需要铲屎官处理 |
 
+## Tooling: Xcode 26.3 MCP 原生支持
+
+> 调研日期：2026-03-15 | 来源：Apple Newsroom, 9to5Mac, MacRumors, TechCrunch
+
+**Xcode 26.3（2026-02-26 正式发布）原生支持 MCP（Model Context Protocol）**，布偶猫可以通过 MCP 直接操作 Xcode。
+
+### 能力清单
+
+| MCP 能力 | 说明 | 对 F124 的价值 |
+|----------|------|---------------|
+| 项目发现 | 读取项目结构、文件列表 | 自动检查项目配置 |
+| 文件管理 | 创建/修改/删除项目中的文件 | 不用手动拖文件到 Xcode |
+| **Build** | 直接触发 build | 布偶猫自主编译验证 |
+| **Run Tests** | 跑测试 | 自动化 TDD |
+| Preview 截图 | 截取 SwiftUI Preview 快照 | 视觉验证 UI |
+| 文档搜索 | 搜索 Apple 全量开发者文档（WWDC 语义搜索） | 查 watchOS API 用法 |
+
+### 集成方式
+
+Apple 与 Anthropic/OpenAI 官方合作，Claude Agent 是第一方适配的 agent。需要：
+
+1. 确保 Xcode 版本 ≥ 26.3
+2. 在 Xcode 设置中开启 MCP Server
+3. 在 Claude Code MCP 配置中添加 Xcode MCP endpoint
+
+### 对开发流程的影响
+
+配上 Xcode MCP 后，Phase C/D 的开发流程变为：
+
+```
+布偶猫写 SwiftUI 代码 → Xcode MCP build → 截 Preview 截图验证 → 推到真机测试
+```
+
+**Action Item**: 铲屎官配置 Xcode MCP Server，让布偶猫可以直接 build + 截图验证。
+
+### 参考链接
+
+- [Xcode 26.3 unlocks the power of agentic coding — Apple Newsroom](https://www.apple.com/newsroom/2026/02/xcode-26-point-3-unlocks-the-power-of-agentic-coding/)
+- [Apple releases Xcode 26.3 — 9to5Mac](https://9to5mac.com/2026/02/26/apple-releases-xcode-26-3-with-support-for-agentic-coding/)
+- [XcodeBuildMCP — AI-Powered Xcode Automation](https://www.xcodebuildmcp.com/)
+
 ## Open Questions
 
 | # | 问题 | 状态 |
