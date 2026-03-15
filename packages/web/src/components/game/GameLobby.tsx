@@ -50,15 +50,15 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
   return (
     <div
       data-testid="game-lobby"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A0F1C]/90 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ww-base-overlay backdrop-blur-sm"
     >
-      <div className="bg-[#0F172A] rounded-2xl border border-[#1E293B] w-full max-w-lg mx-4 overflow-hidden">
+      <div className="bg-ww-topbar rounded-2xl border border-ww-subtle w-full max-w-lg mx-4 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1E293B]">
-          <h2 className="text-white font-semibold text-lg">狼人杀 — {mode === 'player' ? '玩家模式' : '上帝视角'}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-ww-subtle">
+          <h2 className="text-ww-main font-semibold text-lg">狼人杀 — {mode === 'player' ? '玩家模式' : '上帝视角'}</h2>
           <button
             onClick={onCancel}
-            className="text-[#64748B] hover:text-white transition-colors p-1 rounded"
+            className="text-ww-dim hover:text-ww-main transition-colors p-1 rounded"
             aria-label="取消"
           >
             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
@@ -73,7 +73,7 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
 
         {/* Board preset selection */}
         <div className="px-6 py-4">
-          <div className="text-sm text-[#94A3B8] font-medium mb-3">选择板子</div>
+          <div className="text-sm text-ww-muted font-medium mb-3">选择板子</div>
           <div className="grid grid-cols-3 gap-2">
             {BOARD_PRESETS.map((preset) => (
               <button
@@ -82,8 +82,8 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
                 onClick={() => setSelectedPreset(preset.count)}
                 className={`rounded-lg px-3 py-2 text-left transition-colors border ${
                   selectedPreset === preset.count
-                    ? 'border-[#22D3EE] bg-[#22D3EE]/10 text-[#22D3EE]'
-                    : 'border-[#1E293B] text-[#94A3B8] hover:border-[#334155]'
+                    ? 'border-ww-cute bg-ww-cute-soft text-ww-cute'
+                    : 'border-ww-subtle text-ww-muted hover:border-ww-active'
                 }`}
               >
                 <div className="text-sm font-semibold">{preset.label}</div>
@@ -94,12 +94,12 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
         </div>
 
         {/* Cat selection */}
-        <div className="px-6 py-4 border-t border-[#1E293B]">
-          <div className="text-sm text-[#94A3B8] font-medium mb-3">
+        <div className="px-6 py-4 border-t border-ww-subtle">
+          <div className="text-sm text-ww-muted font-medium mb-3">
             选择参赛猫猫
             <span className="ml-2 text-xs">
               ({selectedCatList.length}/{catSeatsNeeded} 席位
-              {!canStart && <span className="text-red-400 ml-1">不足</span>})
+              {!canStart && <span className="text-ww-danger ml-1">不足</span>})
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -111,7 +111,7 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
                 className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors border ${
                   selectedCats.has(cat.id)
                     ? 'border-current bg-white/5 font-medium'
-                    : 'border-[#1E293B] text-[#475569] hover:border-[#334155]'
+                    : 'border-ww-subtle text-ww-dim hover:border-ww-active'
                 }`}
                 style={selectedCats.has(cat.id) ? { color: cat.color.primary } : undefined}
               >
@@ -130,20 +130,20 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
         </div>
 
         {/* Voice mode toggle + actions */}
-        <div className="px-6 py-4 border-t border-[#1E293B] flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm text-[#94A3B8] cursor-pointer">
+        <div className="px-6 py-4 border-t border-ww-subtle flex items-center justify-between">
+          <label className="flex items-center gap-2 text-sm text-ww-muted cursor-pointer">
             <input
               type="checkbox"
               checked={voiceMode}
               onChange={(e) => setVoiceMode(e.target.checked)}
-              className="rounded border-[#334155]"
+              className="rounded border-ww-subtle"
             />
             语音模式
           </label>
           <div className="flex gap-3">
             <button
               onClick={onCancel}
-              className="px-4 py-2 rounded-lg text-sm text-[#94A3B8] hover:text-white transition-colors"
+              className="px-4 py-2 rounded-lg text-sm text-ww-muted hover:text-ww-main transition-colors"
             >
               取消
             </button>
@@ -151,7 +151,7 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
               data-testid="lobby-confirm"
               onClick={handleConfirm}
               disabled={!canStart}
-              className="px-6 py-2 rounded-lg text-sm font-semibold bg-[#22D3EE] text-[#0A0F1C] hover:bg-[#06B6D4] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-2 rounded-lg text-sm font-semibold bg-ww-cute text-ww-base hover:brightness-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               开始游戏
             </button>

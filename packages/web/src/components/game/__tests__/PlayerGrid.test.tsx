@@ -38,7 +38,7 @@ describe('PlayerGrid', () => {
     expect(html).toContain('data-testid="seat-P2"');
     // Check the button containing P2 has the active class
     const p2Match = html.match(/data-testid="seat-P2"[^>]*class="([^"]+)"/);
-    expect(p2Match?.[1]).toContain('bg-[#22D3EE]');
+    expect(p2Match?.[1]).toContain('bg-ww-cute');
   });
 
   it('dims dead seat with opacity-40', () => {

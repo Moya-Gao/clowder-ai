@@ -52,6 +52,11 @@ module.exports = {
           seer: 'var(--ww-role-seer)',
           witch: 'var(--ww-role-witch)',
           guard: 'var(--ww-role-guard)',
+          'danger-soft': 'var(--ww-danger-soft)',
+          'info-soft': 'var(--ww-info-soft)',
+          'subtle-soft': 'var(--ww-subtle-soft)',
+          'cute-soft': 'var(--ww-cute-soft)',
+          'base-overlay': 'var(--ww-base-overlay)',
         },
       },
       textColor: {
@@ -65,6 +70,8 @@ module.exports = {
         ww: {
           subtle: 'var(--ww-border-subtle)',
           active: 'var(--ww-border-active)',
+          'info-soft': 'var(--ww-info-soft)',
+          'subtle-soft': 'var(--ww-subtle-soft)',
         },
       },
       boxShadowColor: {

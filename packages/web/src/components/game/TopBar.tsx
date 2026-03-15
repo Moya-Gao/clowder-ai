@@ -19,16 +19,13 @@ export function TopBar({ phaseName, roundInfo, timeLeftMs, isNight, onClose }: T
   const phaseIcon = isNight ? '🌙' : '☀️';
 
   return (
-    <div
-      data-testid="top-bar"
-      className={`flex items-center justify-between px-6 h-12 w-full ${isNight ? 'bg-[#070B14]' : 'bg-[#0F172A]'}`}
-    >
+    <div data-testid="top-bar" className="flex items-center justify-between px-6 h-12 w-full bg-ww-topbar">
       <div className="flex items-center gap-3">
         {onClose && (
           <button
             data-testid="game-close-btn"
             onClick={onClose}
-            className="text-[#64748B] hover:text-white transition-colors p-1 -ml-1 rounded"
+            className="text-ww-dim hover:text-ww-main transition-colors p-1 -ml-1 rounded"
             aria-label="退出游戏"
             title="退出游戏"
           >
@@ -41,17 +38,17 @@ export function TopBar({ phaseName, roundInfo, timeLeftMs, isNight, onClose }: T
             </svg>
           </button>
         )}
-        <span className={`text-sm font-semibold ${isNight ? 'text-[#94A3B8]' : 'text-white'}`}>
+        <span className={`text-sm font-semibold ${isNight ? 'text-ww-muted' : 'text-ww-main'}`}>
           {phaseIcon} {phaseName}
         </span>
       </div>
       <span
         data-testid="countdown"
-        className="bg-[#1E293B] text-[#22D3EE] px-3 py-0 h-7 flex items-center rounded-md text-xs font-mono font-semibold"
+        className="bg-ww-card text-ww-danger px-3 py-0 h-7 flex items-center rounded-md text-xs font-mono font-semibold"
       >
         {formatTime(timeLeftMs)}
       </span>
-      <span className="text-[#64748B] text-xs font-medium">{roundInfo}</span>
+      <span className="text-ww-dim text-xs font-medium">{roundInfo}</span>
     </div>
   );
 }

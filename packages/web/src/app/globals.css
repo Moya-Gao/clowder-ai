@@ -135,6 +135,13 @@ body {
   --ww-faction-wolf: var(--ww-accent-danger);
   --ww-faction-village: var(--ww-accent-success);
 
+  /* Translucent variants (explicit, no /opacity modifier) */
+  --ww-danger-soft: rgba(212, 90, 106, 0.1); /* Claw Red 10% — wolf row bg */
+  --ww-info-soft: rgba(230, 195, 106, 0.3); /* Lantern Gold 30% — MVP border */
+  --ww-subtle-soft: rgba(242, 183, 168, 0.08); /* Cat Peach 8% — table dividers */
+  --ww-cute-soft: rgba(242, 183, 168, 0.1); /* Cat Peach 10% — selected preset */
+  --ww-base-overlay: rgba(11, 16, 32, 0.9); /* Moon Indigo 90% — modal backdrop */
+
   /* Borders & shadows */
   --ww-border-subtle: rgba(242, 183, 168, 0.15); /* Cat Peach 15% */
   --ww-border-active: rgba(242, 183, 168, 0.4); /* Cat Peach 40% */

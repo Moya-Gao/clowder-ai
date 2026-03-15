@@ -47,7 +47,7 @@ describe('GodInspector', () => {
   it('wolf seats have red background', () => {
     const html = render();
     const p3Match = html.match(/data-testid="matrix-P3"[^>]*class="([^"]+)"/);
-    expect(p3Match?.[1]).toContain('bg-[#2D1619]');
+    expect(p3Match?.[1]).toContain('bg-ww-danger-soft');
   });
 
   it('dead seats have reduced opacity', () => {
@@ -82,6 +82,6 @@ describe('GodInspector', () => {
   it('active scope tab is highlighted', () => {
     const html = render({ scopeFilter: 'all' });
     const allMatch = html.match(/data-testid="scope-all"[^>]*class="([^"]+)"/);
-    expect(allMatch?.[1]).toContain('bg-[#22D3EE]');
+    expect(allMatch?.[1]).toContain('bg-ww-danger');
   });
 });
