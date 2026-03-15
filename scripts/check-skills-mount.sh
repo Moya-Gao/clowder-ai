@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # check-skills-mount.sh — Cat Café Skills 挂载看板
 # 检查 cat-cafe-skills/ 下所有 skill 是否正确 symlink 到三猫的 skills 目录
+# 注：OpenCode（金渐层）读取 ~/.claude/ 配置，Claude 挂了 = OpenCode 也挂了
 # 并校验 BOOTSTRAP.md 注册一致性
 # 用法: pnpm check:skills
 
@@ -31,7 +32,7 @@ manifest_failures=0
 
 printf "\n${BOLD}Cat Café Skills 挂载看板${NC}\n"
 printf "源目录: %s\n\n" "$SKILLS_SRC"
-printf "%-35s  %-8s  %-8s  %-8s\n" "Skill" "Claude" "Codex" "Gemini"
+printf "%-35s  %-8s  %-8s  %-8s\n" "Skill" "Claude*" "Codex" "Gemini"
 printf "%-35s  %-8s  %-8s  %-8s\n" "-----------------------------------" "--------" "--------" "--------"
 
 # Collect all source skill names
@@ -144,6 +145,7 @@ else
     printf "  ln -s %s/{skill-name} ~/.claude/skills/{skill-name}\n" "$SKILLS_SRC"
     printf "  ln -s %s/{skill-name} ~/.codex/skills/{skill-name}\n" "$SKILLS_SRC"
     printf "  ln -s %s/{skill-name} ~/.gemini/skills/{skill-name}\n\n" "$SKILLS_SRC"
+    printf "  * Claude 列同时覆盖 OpenCode（金渐层读取 ~/.claude/ 配置）\n\n"
   fi
   if [ "$reg_warnings" -gt 0 ]; then
     printf "修复注册: 编辑 cat-cafe-skills/BOOTSTRAP.md 添加/移除对应条目\n\n"

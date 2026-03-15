@@ -9,6 +9,8 @@
 #   4. HOME 级  ~/.codex/skills/           （Codex）
 #   5. HOME 级  ~/.gemini/skills/          （Gemini）
 #
+# 注：OpenCode（金渐层）读取 ~/.claude/ 配置，无需单独同步
+#
 # 用法: pnpm sync:skills [--dry-run]
 
 set -euo pipefail
@@ -123,7 +125,7 @@ done
 
 # ─── Part 2: HOME-level (absolute symlinks) ───
 
-printf "\n${BOLD}[HOME]${NC} ~/.{claude,codex,gemini}/skills/\n"
+printf "\n${BOLD}[HOME]${NC} ~/.{claude,codex,gemini}/skills/ (OpenCode via ~/.claude/)\n"
 for skill_name in "${skill_names[@]}"; do
   sync_link "$skill_name" "$HOME_CLAUDE" "$SKILLS_SRC/$skill_name"
   sync_link "$skill_name" "$HOME_CODEX"  "$SKILLS_SRC/$skill_name"

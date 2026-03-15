@@ -70,7 +70,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 1. 在 `cat-cafe-skills/{name}/` 创建 SKILL.md
 2. 在 `manifest.yaml` 添加路由条目
-3. 创建 symlink：`ln -s .../cat-cafe-skills/{name} ~/.{claude,codex,gemini}/skills/{name}`
+3. 创建 symlink：`ln -s .../cat-cafe-skills/{name} ~/.{claude,codex,gemini}/skills/{name}`（OpenCode 读 `~/.claude/`，自动覆盖）
 4. 运行 `pnpm check:skills` 验证
 
 IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
