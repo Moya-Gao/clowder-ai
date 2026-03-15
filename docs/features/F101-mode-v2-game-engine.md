@@ -173,7 +173,7 @@ reopened: 2026-03-14
 - [x] AC-D2: 猫猫保留咖啡馆身份（宪宪/砚砚/烁烁），复用现有头像系统
 - [x] AC-D3: 上帝面板三按钮（发牌、暂停/恢复、跳过阶段），无踢人功能
 - [x] AC-D4: 每只猫展示真实 ready 状态 + 卡住时有 loading 指示
-- [ ] AC-D5: 狼人猫猫风 UX（可爱+暗色调+猫猫 cosplay 狼人）— 需暹罗猫参与视觉资产
+- [x] AC-D5: 狼人猫猫风 UX（可爱+暗色调+猫猫 cosplay 狼人）— 需暹罗猫参与视觉资产
 - [x] AC-D6: 结算画面 — 胜负 + 各玩家统计 + MVP 评选
 
 ### Phase E（后续增强 — backlog）⬜
@@ -199,7 +199,7 @@ reopened: 2026-03-14
 | R12 | "还是猫猫咖啡的猫猫！！！" | AC-D2 | manual | [x] |
 | R13 | "发牌✅ 暂停✅ 踢人❌ 跳过超时✅" | AC-D3 | manual | [x] |
 | R14 | "展示真实状态，不是假动画" | AC-D4 | manual | [x] |
-| R15 | "猫猫装狼人那种可爱的带点黑色的风格" | AC-D5 | manual+design | [ ] |
+| R15 | "猫猫装狼人那种可爱的带点黑色的风格" | AC-D5 | manual+design | [x] |
 | R16 | "要战绩统计 + MVP" | AC-D6 | manual | [x] |
 | R17 | "只能选择一只猫看他身份，狼人杀观战模式那种" | AC-E1 | manual | [ ] |
 
@@ -347,6 +347,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-15 | Phase D merged (PR #463) — 独立 thread + 上帝面板(pause/resume/skip) + 结算 MVP + win condition + ready state + race fix (codex review 3 rounds) |
 | 2026-03-15 | AC-D5 视觉设计稿完成 — 4 屏狼人猫猫风主题（三猫讨论收敛 + 布偶猫画 pen），Phase E backlog 加入上帝推理模式 |
 | 2026-03-15 | AC-D5 PR-A merged (PR #466) — token-only CSS vars + data-theme/data-phase 挂载（零视觉变化，PR-B 待做组件替换） |
+| 2026-03-15 | AC-D5 PR-B merged (PR #467) — 12 组件 token 替换 + 5 soft token + GameLobby/NightActionCard 全量迁移（codex review 3 rounds） |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
