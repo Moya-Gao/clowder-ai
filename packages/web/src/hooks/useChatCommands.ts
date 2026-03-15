@@ -940,6 +940,45 @@ export function useChatCommands() {
         return true;
       }
 
+      // /game — intercept to avoid "布偶猫思考中..." loading state
+      // Backend already handles /game in messages route; we just need to
+      // POST directly and let socket events (game:thread_created, game:state_update)
+      // drive the UI transition, without the default loading/invocation flags.
+      if (isCommandInvocation(trimmed, '/game')) {
+        const threadId = getThreadId();
+        if (!threadId) {
+          addSystemError('没有活跃的对话');
+          return true;
+        }
+        addMessage({
+          id: `game-${Date.now()}`,
+          type: 'system',
+          variant: 'info',
+          content: '🎮 正在开局…',
+          timestamp: Date.now(),
+        });
+        apiFetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: trimmed,
+            threadId,
+            userId: getUserId(),
+          }),
+        })
+          .then(async (res) => {
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              addSystemError(`开局失败: ${data.error ?? `HTTP ${res.status}`}`);
+            }
+            // Success: game:thread_created socket event handles navigation
+          })
+          .catch((err) => {
+            addSystemError(`开局失败: ${err instanceof Error ? err.message : 'Unknown'}`);
+          });
+        return true;
+      }
+
       return false;
     },
     [addMessage],
