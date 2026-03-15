@@ -36,6 +36,7 @@ import {
   classifyResumeFailure,
   extractTaskProgress,
   isMissingClaudeSessionError,
+  isPromptTokenLimitExceededError,
   isTransientCliExitCode1,
 } from './invoke-helpers.js';
 import { SessionMutex } from './SessionMutex.js';
@@ -1071,9 +1072,36 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       return outputs;
     };
 
+    const streamProcessedOutputs = async function* (sourceMsg: AgentMessage | undefined): AsyncIterable<AgentMessage> {
+      if (!sourceMsg) return;
+      for (const out of await processMessage(sourceMsg)) {
+        if (out.type === 'error') {
+          hadError = true;
+          terminalTaskProgressStatus = 'interrupted';
+          terminalInterruptReason = 'error';
+        }
+        await maybePersistTaskProgress(out);
+        if (out.type === 'done' && terminalTaskProgressStatus === null) {
+          if (hadError) {
+            terminalTaskProgressStatus = 'interrupted';
+            terminalInterruptReason = 'error';
+          } else if (signal?.aborted) {
+            terminalTaskProgressStatus = 'interrupted';
+            terminalInterruptReason = 'aborted';
+          } else {
+            terminalTaskProgressStatus = 'completed';
+            terminalInterruptReason = null;
+          }
+        }
+        if (out.type === 'done') await finalizeTaskProgress();
+        yield out;
+      }
+    };
+
     // Self-heal policy (at most one retry total):
     // 1) stale --resume session: "No conversation found with session ID ..."
-    // 2) transient CLI bootstrap exit: "CLI 异常退出 (code: 1, signal: none)"
+    // 2) poisoned --resume session: "prompt token count ... exceeds the limit ..."
+    // 3) transient CLI bootstrap exit: "CLI 异常退出 (code: 1, signal: none)"
     const initialResumeSessionId = sessionId;
     const shouldTrackGeminiResumeFailures = catId === 'gemini' && Boolean(initialResumeSessionId);
     const resumeFailureCounts: Partial<Record<ResumeFailureKind, number>> = {};
@@ -1087,6 +1115,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         ...baseOptions,
       };
       let suppressedMissingSessionError: AgentMessage | undefined;
+      let suppressedPromptLimitError: AgentMessage | undefined;
       let suppressedTransientCliError: AgentMessage | undefined;
       let shouldRetryWithoutSession = false;
       let shouldRetryOnTransientCliExit = false;
@@ -1111,6 +1140,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           continue;
         }
         if (
+          allowSessionRetry &&
+          !attemptHasContentOutput &&
+          msg.type === 'error' &&
+          isPromptTokenLimitExceededError(msg.error)
+        ) {
+          suppressedPromptLimitError = msg;
+          continue;
+        }
+        if (
           allowTransientRetry &&
           !attemptHasContentOutput &&
           msg.type === 'error' &&
@@ -1120,85 +1158,34 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           continue;
         }
 
-        if (suppressedMissingSessionError || suppressedTransientCliError) {
+        if (suppressedMissingSessionError || suppressedPromptLimitError || suppressedTransientCliError) {
           if (msg.type === 'done') {
-            shouldRetryWithoutSession = Boolean(suppressedMissingSessionError);
+            shouldRetryWithoutSession = Boolean(suppressedMissingSessionError || suppressedPromptLimitError);
             shouldRetryOnTransientCliExit = Boolean(suppressedTransientCliError);
             break;
           }
 
           if (suppressedMissingSessionError) {
-            for (const out of await processMessage(suppressedMissingSessionError)) {
-              if (out.type === 'error') {
-                hadError = true;
-                terminalTaskProgressStatus = 'interrupted';
-                terminalInterruptReason = 'error';
-              }
-              await maybePersistTaskProgress(out);
-              if (out.type === 'done' && terminalTaskProgressStatus === null) {
-                if (hadError) {
-                  terminalTaskProgressStatus = 'interrupted';
-                  terminalInterruptReason = 'error';
-                } else if (signal?.aborted) {
-                  terminalTaskProgressStatus = 'interrupted';
-                  terminalInterruptReason = 'aborted';
-                } else {
-                  terminalTaskProgressStatus = 'completed';
-                  terminalInterruptReason = null;
-                }
-              }
-              if (out.type === 'done') await finalizeTaskProgress();
+            for await (const out of streamProcessedOutputs(suppressedMissingSessionError)) {
               yield out;
             }
             suppressedMissingSessionError = undefined;
           }
+          if (suppressedPromptLimitError) {
+            for await (const out of streamProcessedOutputs(suppressedPromptLimitError)) {
+              yield out;
+            }
+            suppressedPromptLimitError = undefined;
+          }
           if (suppressedTransientCliError) {
-            for (const out of await processMessage(suppressedTransientCliError)) {
-              if (out.type === 'error') {
-                hadError = true;
-                terminalTaskProgressStatus = 'interrupted';
-                terminalInterruptReason = 'error';
-              }
-              await maybePersistTaskProgress(out);
-              if (out.type === 'done' && terminalTaskProgressStatus === null) {
-                if (hadError) {
-                  terminalTaskProgressStatus = 'interrupted';
-                  terminalInterruptReason = 'error';
-                } else if (signal?.aborted) {
-                  terminalTaskProgressStatus = 'interrupted';
-                  terminalInterruptReason = 'aborted';
-                } else {
-                  terminalTaskProgressStatus = 'completed';
-                  terminalInterruptReason = null;
-                }
-              }
-              if (out.type === 'done') await finalizeTaskProgress();
+            for await (const out of streamProcessedOutputs(suppressedTransientCliError)) {
               yield out;
             }
             suppressedTransientCliError = undefined;
           }
         }
 
-        for (const out of await processMessage(msg)) {
-          if (out.type === 'error') {
-            hadError = true;
-            terminalTaskProgressStatus = 'interrupted';
-            terminalInterruptReason = 'error';
-          }
-          await maybePersistTaskProgress(out);
-          if (out.type === 'done' && terminalTaskProgressStatus === null) {
-            if (hadError) {
-              terminalTaskProgressStatus = 'interrupted';
-              terminalInterruptReason = 'error';
-            } else if (signal?.aborted) {
-              terminalTaskProgressStatus = 'interrupted';
-              terminalInterruptReason = 'aborted';
-            } else {
-              terminalTaskProgressStatus = 'completed';
-              terminalInterruptReason = null;
-            }
-          }
-          if (out.type === 'done') await finalizeTaskProgress();
+        for await (const out of streamProcessedOutputs(msg)) {
           yield out;
         }
         if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
@@ -1283,50 +1270,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
 
       if (suppressedMissingSessionError) {
-        for (const out of await processMessage(suppressedMissingSessionError)) {
-          if (out.type === 'error') {
-            hadError = true;
-            terminalTaskProgressStatus = 'interrupted';
-            terminalInterruptReason = 'error';
-          }
-          await maybePersistTaskProgress(out);
-          if (out.type === 'done' && terminalTaskProgressStatus === null) {
-            if (hadError) {
-              terminalTaskProgressStatus = 'interrupted';
-              terminalInterruptReason = 'error';
-            } else if (signal?.aborted) {
-              terminalTaskProgressStatus = 'interrupted';
-              terminalInterruptReason = 'aborted';
-            } else {
-              terminalTaskProgressStatus = 'completed';
-              terminalInterruptReason = null;
-            }
-          }
-          if (out.type === 'done') await finalizeTaskProgress();
+        for await (const out of streamProcessedOutputs(suppressedMissingSessionError)) {
+          yield out;
+        }
+      }
+      if (suppressedPromptLimitError) {
+        for await (const out of streamProcessedOutputs(suppressedPromptLimitError)) {
           yield out;
         }
       }
       if (suppressedTransientCliError) {
-        for (const out of await processMessage(suppressedTransientCliError)) {
-          if (out.type === 'error') {
-            hadError = true;
-            terminalTaskProgressStatus = 'interrupted';
-            terminalInterruptReason = 'error';
-          }
-          await maybePersistTaskProgress(out);
-          if (out.type === 'done' && terminalTaskProgressStatus === null) {
-            if (hadError) {
-              terminalTaskProgressStatus = 'interrupted';
-              terminalInterruptReason = 'error';
-            } else if (signal?.aborted) {
-              terminalTaskProgressStatus = 'interrupted';
-              terminalInterruptReason = 'aborted';
-            } else {
-              terminalTaskProgressStatus = 'completed';
-              terminalInterruptReason = null;
-            }
-          }
-          if (out.type === 'done') await finalizeTaskProgress();
+        for await (const out of streamProcessedOutputs(suppressedTransientCliError)) {
           yield out;
         }
       }
