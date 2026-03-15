@@ -112,6 +112,32 @@ Commit: {sha} — {message}
 
 **云端 review 修了 P1/P2 → 必须 re-trigger 云端 review，不能自判通过直接合入。**
 
+## Reviewer 验证 UX/前端改动（硬规则）
+
+> 教训（F121 狼人杀）：reviewer 只看代码没打开浏览器，author 连续 9 轮瞎猜修都没被发现。
+
+**涉及 UX/前端/交互的改动，reviewer 必须实际打开浏览器操作验证**，不能只看代码和测试输出。
+
+```
+验证清单：
+1. 打开浏览器（Playwright/Chrome MCP）访问对应页面
+2. 按 AC 或 bug 复现步骤实际操作
+3. 截图/录屏作为验证证据
+4. 如果和设计稿（.pen）有出入，标注差异
+```
+
+没有浏览器验证的前端 review = 走过场。
+
+## TAKEOVER 降级（同线程同任务）
+
+Reviewer 在 review 过程中发现 author 触发以下任一条件，可直接发起 TAKEOVER（详见 shared-rules §18）：
+
+1. 连续 3 轮无有效证据增量；
+2. 连续 2 次假绿（声明 fixed 但复验失败）；
+3. 你（reviewer）被迫对同一验收点重复验证 2 次。
+
+**触发后**：在 thread 显式宣布 TAKEOVER → 原 author 停止试错 → 你或另一只猫接手修复。
+
 ## Common Mistakes
 
 | 错误 | 正确做法 |
@@ -123,6 +149,7 @@ Commit: {sha} — {message}
 | 全盘接受，零 push back | 有技术理由必须说出来 |
 | 愿景级问题用代码 patch | STOP，升级铲屎官，不要硬修 |
 | 云端 P1 修完不 re-trigger | 必须重新触发云端 review |
+| 前端改动只看代码不开浏览器 | 涉及 UX 必须打开浏览器实操验证 |
 
 ## 和其他 skill 的区别
 
