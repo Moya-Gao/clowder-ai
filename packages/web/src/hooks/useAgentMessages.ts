@@ -512,11 +512,22 @@ export function useAgentMessages() {
         if (msg.isFinal) {
           clearDoneTimeout();
           setLoading(false);
-          // F108: Remove specific invocation slot; fall back to clearing all if no invocationId
+          // F108: Remove specific invocation slot; fall back to cat-scoped lookup.
+          // Steer/force cancel broadcasts done(isFinal) without invocationId — find and
+          // remove only this cat's latest active slot to avoid clearing other cats' slots
+          // during multi-cat concurrent dispatch.
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
           } else {
-            setHasActiveInvocation(false);
+            const catSlot = findLatestActiveInvocationIdForCat(
+              useChatStore.getState().activeInvocations,
+              msg.catId,
+            );
+            if (catSlot) {
+              removeActiveInvocation(catSlot);
+            } else {
+              setHasActiveInvocation(false);
+            }
           }
           setIntentMode(null);
           clearCatStatuses();
@@ -848,11 +859,19 @@ export function useAgentMessages() {
         if (msg.isFinal) {
           clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
           setLoading(false);
-          // F108: clear all invocation slots on terminal error
+          // F108: clear this cat's invocation slot on terminal error
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
           } else {
-            clearAllActiveInvocations();
+            const catSlot = findLatestActiveInvocationIdForCat(
+              useChatStore.getState().activeInvocations,
+              msg.catId,
+            );
+            if (catSlot) {
+              removeActiveInvocation(catSlot);
+            } else {
+              setHasActiveInvocation(false);
+            }
           }
           setIntentMode(null);
           // Clear ALL remaining streaming refs — global catch uses catId='opus' which may

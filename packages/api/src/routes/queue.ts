@@ -16,7 +16,7 @@ import type { InvocationQueue } from '../domains/cats/services/agents/invocation
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js';
 
@@ -205,6 +205,16 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
           return { error: '当前有其他用户的调用在执行，无法立即执行', code: 'INVOCATION_ACTIVE' };
         }
         const cancelResult = invocationTracker.cancel(threadId, steerCatId, guard.userId, 'preempted');
+        // Broadcast cancel+done so frontend clears old invocation's "正在回复中" state.
+        // Without this, activeInvocations retains the old invocationId permanently.
+        // Scope to steerCatId only — cancelResult.catIds may include co-dispatched cats
+        // whose separate invocations should not be terminated.
+        if (cancelResult.cancelled) {
+          const scopedResult = { ...cancelResult, catIds: [steerCatId] };
+          for (const m of buildCancelMessages(scopedResult)) {
+            socketManager.broadcastAgentMessage(m, threadId);
+          }
+        }
         // F108 P1-4 fix: abort only the target cat's dispatches, not the entire thread
         getMultiMentionOrchestrator().abortBySlot(threadId, steerCatId as CatId);
         if (!cancelResult.cancelled && invocationTracker.has(threadId, steerCatId)) {

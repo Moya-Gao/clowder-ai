@@ -1628,5 +1628,29 @@ describe('background thread socket handling', () => {
       expect(Object.keys(ts.activeInvocations)).toHaveLength(0);
       expect(ts.hasActiveInvocation).toBe(false);
     });
+
+    it('catA cancel (done without invocationId) does not clear catB active slot', () => {
+      // Two cats running concurrently on background thread
+      useChatStore.getState().addThreadActiveInvocation('thread-bg', 'inv-opus', 'opus', 'execute');
+      useChatStore.getState().addThreadActiveInvocation('thread-bg', 'inv-codex', 'codex', 'execute');
+      let ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(Object.keys(ts.activeInvocations)).toHaveLength(2);
+
+      // Steer cancels opus — done(isFinal) arrives without invocationId
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: Date.now(),
+        // No invocationId — this is the cancel broadcast path
+      });
+
+      // codex slot must survive
+      ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.activeInvocations['inv-codex']).toEqual({ catId: 'codex', mode: 'execute' });
+      expect(ts.activeInvocations['inv-opus']).toBeUndefined();
+      expect(ts.hasActiveInvocation).toBe(true); // codex still active
+    });
   });
 });

@@ -247,11 +247,19 @@ function markThreadInvocationActive(msg: BackgroundAgentMessage, options: Handle
 function markThreadInvocationComplete(msg: BackgroundAgentMessage, options: HandleBackgroundMessageOptions): void {
   options.store.setThreadLoading(msg.threadId, false);
   options.store.setThreadCatInvocation(msg.threadId, msg.catId, { invocationId: undefined });
-  // F108: slot-aware — remove specific invocation if ID available
+  // F108: slot-aware — remove specific invocation if ID available.
+  // Cancel fallback: find and remove only this cat's latest active slot to avoid
+  // clearing other cats' slots during multi-cat concurrent dispatch.
   if (msg.invocationId) {
     options.store.removeThreadActiveInvocation(msg.threadId, msg.invocationId);
   } else {
-    options.store.setThreadHasActiveInvocation(msg.threadId, false);
+    const threadState = options.store.getThreadState(msg.threadId);
+    const catSlot = findLatestActiveInvocationIdForCat(threadState.activeInvocations, msg.catId);
+    if (catSlot) {
+      options.store.removeThreadActiveInvocation(msg.threadId, catSlot);
+    } else {
+      options.store.setThreadHasActiveInvocation(msg.threadId, false);
+    }
   }
 }
 

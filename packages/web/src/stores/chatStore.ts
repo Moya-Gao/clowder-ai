@@ -5,8 +5,8 @@ import type {
   CatInvocationInfo,
   CatStatusType,
   ChatMessage,
-  ChatMessagePatch,
   ChatMessageMetadata,
+  ChatMessagePatch,
   GameState,
   QueueEntry,
   RichBlock,
@@ -22,8 +22,8 @@ export type {
   CatInvocationInfo,
   CatStatusType,
   ChatMessage,
-  ChatMessagePatch,
   ChatMessageMetadata,
+  ChatMessagePatch,
   EvidenceData,
   EvidenceResultData,
   GameState,
@@ -386,6 +386,8 @@ interface ChatState {
   addThreadActiveInvocation: (threadId: string, invocationId: string, catId: string, mode: string) => void;
   /** F108: Remove an active invocation from a thread; derives hasActiveInvocation */
   removeThreadActiveInvocation: (threadId: string, invocationId: string) => void;
+  /** F108: Clear all active invocations for a thread (cancel fallback when invocationId unknown) */
+  clearAllThreadActiveInvocations: (threadId: string) => void;
   setThreadIntentMode: (threadId: string, mode: 'execute' | 'ideate' | null) => void;
   setThreadTargetCats: (threadId: string, cats: string[]) => void;
   getThreadState: (threadId: string) => ThreadState;
@@ -1216,6 +1218,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...existing,
             activeInvocations: rest,
             hasActiveInvocation: Object.keys(rest).length > 0,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  /** F108: Clear all active invocations for a thread (cancel fallback when invocationId unknown). */
+  clearAllThreadActiveInvocations: (threadId) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return { activeInvocations: {}, hasActiveInvocation: false };
+      }
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            activeInvocations: {},
+            hasActiveInvocation: false,
             lastActivity: Date.now(),
           },
         },
