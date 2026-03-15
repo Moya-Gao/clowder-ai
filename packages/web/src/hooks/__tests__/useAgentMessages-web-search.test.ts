@@ -10,6 +10,9 @@ const mockAppendRichBlock = vi.fn();
 const mockSetStreaming = vi.fn();
 const mockSetLoading = vi.fn();
 const mockSetHasActiveInvocation = vi.fn();
+const mockClearAllActiveInvocations = vi.fn(() => {
+  mockSetHasActiveInvocation(false);
+});
 const mockSetIntentMode = vi.fn();
 const mockSetCatStatus = vi.fn();
 const mockClearCatStatuses = vi.fn();
@@ -41,6 +44,7 @@ const storeState = {
   setStreaming: mockSetStreaming,
   setLoading: mockSetLoading,
   setHasActiveInvocation: mockSetHasActiveInvocation,
+  clearAllActiveInvocations: mockClearAllActiveInvocations,
   setIntentMode: mockSetIntentMode,
   setCatStatus: mockSetCatStatus,
   clearCatStatuses: mockClearCatStatuses,
@@ -92,8 +96,12 @@ describe('useAgentMessages system_info web_search', () => {
     root = createRoot(container);
     captured = undefined;
     storeState.messages = [];
-    mockAddMessage.mockClear();
+    mockAddMessage.mockReset();
+    mockAddMessage.mockImplementation((message) => {
+      storeState.messages = [...storeState.messages, message];
+    });
     mockAppendToolEvent.mockClear();
+    mockClearAllActiveInvocations.mockClear();
   });
 
   afterEach(() => {

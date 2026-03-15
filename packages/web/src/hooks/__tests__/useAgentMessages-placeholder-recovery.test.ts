@@ -1,6 +1,7 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { configureDebug, ensureWindowDebugApi } from '@/debug/invocationEventDebug';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 
 const mockAddMessage = vi.fn();
@@ -97,6 +98,8 @@ describe('useAgentMessages placeholder recovery', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     captured = undefined;
+    configureDebug({ enabled: false });
+    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
     storeState.messages = [];
     storeState.catInvocations = {};
     storeState.activeInvocations = {};
@@ -110,6 +113,8 @@ describe('useAgentMessages placeholder recovery', () => {
       root.unmount();
     });
     container.remove();
+    configureDebug({ enabled: false });
+    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
   });
 
   it('reuses an existing streaming bubble when thinking arrives after active refs were lost', () => {
@@ -197,6 +202,49 @@ describe('useAgentMessages placeholder recovery', () => {
         extra: { stream: { invocationId: 'inv-active-1' } },
       }),
     );
+  });
+
+  it('records bubble timeline when activeInvocations late-binds a new stream bubble', () => {
+    configureDebug({ enabled: true });
+    ensureWindowDebugApi();
+    storeState.activeInvocations = {
+      'inv-active-1': { catId: 'opus', mode: 'execute' },
+    };
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        toolName: 'command_execution',
+        toolInput: { command: 'git status' },
+      });
+    });
+
+    const debugApi = (
+      window as typeof window & {
+        __catCafeDebug?: { dumpBubbleTimeline?: (options?: { rawThreadId?: boolean }) => string };
+      }
+    ).__catCafeDebug;
+    const dump = JSON.parse(debugApi!.dumpBubbleTimeline!({ rawThreadId: true })) as {
+      events: Array<Record<string, unknown>>;
+    };
+
+    expect(dump.events).toEqual([
+      expect.objectContaining({
+        event: 'bubble_lifecycle',
+        threadId: 'thread-1',
+        action: 'create',
+        reason: 'active_late_bind',
+        catId: 'opus',
+        invocationId: 'inv-active-1',
+        origin: 'stream',
+      }),
+    ]);
+    expect(dump.events[0]?.messageId).toEqual(expect.any(String));
   });
 
   it('recovers when replace hydration swaps the local stream id to a persisted server id mid-stream', () => {

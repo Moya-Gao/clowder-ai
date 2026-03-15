@@ -239,6 +239,8 @@ export interface ChatMessage {
   mentionsUser?: boolean;
 }
 
+export type ChatMessagePatch = Omit<Partial<ChatMessage>, 'id' | 'type'>;
+
 export interface Thread {
   id: string;
   projectPath: string;

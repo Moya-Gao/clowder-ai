@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 
@@ -75,6 +76,8 @@ export function useAgentMessages() {
     appendToMessage,
     appendToolEvent,
     appendRichBlock,
+    replaceMessageId,
+    patchMessage,
     setStreaming,
     setLoading,
     setHasActiveInvocation,
@@ -93,6 +96,8 @@ export function useAgentMessages() {
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
   const activeRefs = useRef<Map<string, { id: string; catId: string }>>(new Map());
+  /** Track callback-replaced invocations so delayed stream chunks do not recreate ghost bubbles. */
+  const replacedInvocationsRef = useRef<Map<string, string>>(new Map());
 
   /** Bug C P2: Track whether stream data was received per cat (avoids false catch-up on callback-only flows) */
   const sawStreamDataRef = useRef<Set<string>>(new Set());
@@ -181,12 +186,43 @@ export function useAgentMessages() {
     [],
   );
 
-  const getCurrentInvocationIdForCat = useCallback((catId: string): string | undefined => {
-    const state = useChatStore.getState();
-    return (
-      state.catInvocations?.[catId]?.invocationId ?? findLatestActiveInvocationIdForCat(state.activeInvocations, catId)
-    );
+  const getCurrentInvocationStateForCat = useCallback(
+    (catId: string): { invocationId?: string; source: 'catInvocations' | 'activeInvocations' | 'none' } => {
+      const state = useChatStore.getState();
+      const direct = state.catInvocations?.[catId]?.invocationId;
+      if (direct) {
+        return { invocationId: direct, source: 'catInvocations' };
+      }
+      const active = findLatestActiveInvocationIdForCat(state.activeInvocations, catId);
+      if (active) {
+        return { invocationId: active, source: 'activeInvocations' };
+      }
+      return { source: 'none' };
+    },
+    [],
+  );
+
+  const recordLateBindBubbleCreate = useCallback((catId: string, messageId: string, invocationId?: string) => {
+    if (!invocationId) return;
+    recordDebugEvent({
+      event: 'bubble_lifecycle',
+      threadId: useChatStore.getState().currentThreadId,
+      timestamp: Date.now(),
+      action: 'create',
+      reason: 'active_late_bind',
+      catId,
+      messageId,
+      invocationId,
+      origin: 'stream',
+    });
   }, []);
+
+  const getCurrentInvocationIdForCat = useCallback(
+    (catId: string): string | undefined => {
+      return getCurrentInvocationStateForCat(catId).invocationId;
+    },
+    [getCurrentInvocationStateForCat],
+  );
 
   const findRecoverableAssistantMessage = useCallback(
     (catId: string) => {
@@ -212,6 +248,22 @@ export function useAgentMessages() {
     },
     [getCurrentInvocationIdForCat],
   );
+
+  const findCallbackReplacementTarget = useCallback((catId: string, invocationId: string): { id: string } | null => {
+    const currentMessages = useChatStore.getState().messages;
+    for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
+      const msg = currentMessages[i];
+      if (
+        msg?.type === 'assistant' &&
+        msg.catId === catId &&
+        msg.origin === 'stream' &&
+        msg.extra?.stream?.invocationId === invocationId
+      ) {
+        return { id: msg.id };
+      }
+    }
+    return null;
+  }, []);
 
   const getOrRecoverActiveAssistantMessageId = useCallback(
     (catId: string, metadata?: AgentMsg['metadata'], options?: { ensureStreaming?: boolean }): string | null => {
@@ -254,7 +306,8 @@ export function useAgentMessages() {
       }
 
       const id = `msg-${Date.now()}-${catId}`;
-      const invocationId = getCurrentInvocationIdForCat(catId);
+      const invocation = getCurrentInvocationStateForCat(catId);
+      const invocationId = invocation.invocationId;
       activeRefs.current.set(catId, { id, catId });
       addMessage({
         id,
@@ -268,9 +321,38 @@ export function useAgentMessages() {
         timestamp: Date.now(),
         isStreaming: true,
       });
+      if (invocation.source === 'activeInvocations') {
+        recordLateBindBubbleCreate(catId, id, invocationId);
+      }
       return id;
     },
-    [addMessage, getCurrentInvocationIdForCat, getOrRecoverActiveAssistantMessageId],
+    [addMessage, getCurrentInvocationStateForCat, getOrRecoverActiveAssistantMessageId, recordLateBindBubbleCreate],
+  );
+
+  const shouldSuppressLateStreamChunk = useCallback(
+    (catId: string, invocationId?: string): boolean => {
+      const replacedInvocationId = replacedInvocationsRef.current.get(catId);
+      if (!replacedInvocationId) return false;
+
+      const currentInvocationId = invocationId ?? getCurrentInvocationIdForCat(catId);
+      if (currentInvocationId && currentInvocationId !== replacedInvocationId) {
+        replacedInvocationsRef.current.delete(catId);
+        return false;
+      }
+
+      recordDebugEvent({
+        event: 'bubble_lifecycle',
+        threadId: useChatStore.getState().currentThreadId,
+        timestamp: Date.now(),
+        action: 'drop',
+        reason: 'late_stream_after_callback_replace',
+        catId,
+        invocationId: replacedInvocationId,
+        origin: 'stream',
+      });
+      return true;
+    },
+    [getCurrentInvocationIdForCat],
   );
 
   const handleAgentMessage = useCallback(
@@ -279,6 +361,9 @@ export function useAgentMessages() {
       resetTimeout();
 
       if (msg.type === 'text' && msg.content) {
+        if (msg.origin !== 'callback' && shouldSuppressLateStreamChunk(msg.catId, msg.invocationId)) {
+          return;
+        }
         setCatStatus(msg.catId, 'streaming');
         // F118: Clear liveness warning when cat resumes output
         setCatInvocation(msg.catId, { livenessWarning: undefined });
@@ -287,21 +372,43 @@ export function useAgentMessages() {
         }
 
         if (msg.origin === 'callback') {
-          // MCP callback message: always a separate bubble (never merge into stream)
-          // Use backend messageId when available for rich_block correlation (#83 P2)
-          const id = msg.messageId ?? `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
-          addMessage({
-            id,
-            type: 'assistant',
-            catId: msg.catId,
-            content: msg.content,
-            origin: 'callback',
-            ...(msg.metadata ? { metadata: msg.metadata } : {}),
-            ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
-            ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-            ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
-            timestamp: Date.now(),
-          });
+          const invocationId = msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId);
+          const replacementTarget = invocationId ? findCallbackReplacementTarget(msg.catId, invocationId) : null;
+
+          if (replacementTarget) {
+            const finalId = msg.messageId ?? replacementTarget.id;
+            if (finalId !== replacementTarget.id) {
+              replaceMessageId(replacementTarget.id, finalId);
+            }
+            patchMessage(finalId, {
+              content: msg.content,
+              origin: 'callback',
+              isStreaming: false,
+              ...(msg.metadata ? { metadata: msg.metadata } : {}),
+              ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+              ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+            });
+            activeRefs.current.delete(msg.catId);
+            if (invocationId) {
+              replacedInvocationsRef.current.set(msg.catId, invocationId);
+            }
+          } else {
+            // Use backend messageId when available for rich_block correlation (#83 P2)
+            const id = msg.messageId ?? `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
+            addMessage({
+              id,
+              type: 'assistant',
+              catId: msg.catId,
+              content: msg.content,
+              origin: 'callback',
+              ...(msg.metadata ? { metadata: msg.metadata } : {}),
+              ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+              ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+              timestamp: Date.now(),
+            });
+          }
         } else {
           // CLI stream message (thinking): append to active stream bubble
           const messageId = getOrRecoverActiveAssistantMessageId(msg.catId, msg.metadata, { ensureStreaming: true });
@@ -310,7 +417,8 @@ export function useAgentMessages() {
           } else {
             // New stream message for this cat
             const id = `msg-${Date.now()}-${msg.catId}`;
-            const invocationId = getCurrentInvocationIdForCat(msg.catId);
+            const invocation = getCurrentInvocationStateForCat(msg.catId);
+            const invocationId = invocation.invocationId;
             activeRefs.current.set(msg.catId, { id, catId: msg.catId });
             addMessage({
               id,
@@ -324,6 +432,9 @@ export function useAgentMessages() {
               timestamp: Date.now(),
               isStreaming: true,
             });
+            if (invocation.source === 'activeInvocations') {
+              recordLateBindBubbleCreate(msg.catId, id, invocationId);
+            }
           }
         }
       } else if (msg.type === 'tool_use') {
@@ -768,11 +879,18 @@ export function useAgentMessages() {
       setCatInvocation,
       setMessageThinking,
       setMessageStreamInvocation,
+      replaceMessageId,
+      patchMessage,
       resetTimeout,
       clearDoneTimeout,
+      findCallbackReplacementTarget,
       getCurrentInvocationIdForCat,
+      getCurrentInvocationStateForCat,
       getOrRecoverActiveAssistantMessageId,
       ensureActiveAssistantMessage,
+      recordLateBindBubbleCreate,
+      shouldSuppressLateStreamChunk,
+      setHasActiveInvocation,
       setMessageUsage,
       requestStreamCatchUp,
     ],
@@ -807,12 +925,14 @@ export function useAgentMessages() {
         setStreaming(ref.id, false);
       }
       activeRefs.current.clear();
+      replacedInvocationsRef.current.clear();
     },
     [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
   );
 
   const resetRefs = useCallback(() => {
     activeRefs.current.clear();
+    replacedInvocationsRef.current.clear();
   }, []);
 
   return { handleAgentMessage, handleStop, resetRefs, resetTimeout, clearDoneTimeout };

@@ -2,6 +2,7 @@ import type {
   CatInvocationInfo,
   CatStatusType,
   ChatMessage,
+  ChatMessagePatch,
   ChatMessageMetadata,
   RichBlock,
   ThreadState,
@@ -77,11 +78,14 @@ export interface BackgroundStoreLike {
   }) => void;
   clearThreadActiveInvocation: (threadId: string) => void;
   getThreadState: (threadId: string) => ThreadState;
+  replaceThreadMessageId: (threadId: string, fromId: string, toId: string) => void;
+  patchThreadMessage: (threadId: string, messageId: string, patch: ChatMessagePatch) => void;
 }
 
 export interface HandleBackgroundMessageOptions {
   store: BackgroundStoreLike;
   bgStreamRefs: Map<string, BackgroundStreamRef>;
+  replacedInvocations: Map<string, string>;
   nextBgSeq: () => number;
   addToast: (toast: BackgroundToastInput) => void;
   /** #80 fix-C: Clear the done-timeout guard when a background thread completes */

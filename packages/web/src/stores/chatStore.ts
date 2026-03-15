@@ -1,9 +1,11 @@
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 import { create } from 'zustand';
+import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type {
   CatInvocationInfo,
   CatStatusType,
   ChatMessage,
+  ChatMessagePatch,
   ChatMessageMetadata,
   GameState,
   QueueEntry,
@@ -20,6 +22,7 @@ export type {
   CatInvocationInfo,
   CatStatusType,
   ChatMessage,
+  ChatMessagePatch,
   ChatMessageMetadata,
   EvidenceData,
   EvidenceResultData,
@@ -150,16 +153,69 @@ function revokeRemovedBlobUrls(previousMessages: ChatMessage[], nextMessages: Ch
   }
 }
 
-function replaceMessageIdInList(messages: ChatMessage[], fromId: string, toId: string): ChatMessage[] {
-  if (fromId === toId) return messages;
-  const fromIndex = messages.findIndex((msg) => msg.id === fromId);
-  if (fromIndex === -1) return messages;
+type ReplaceMessageIdResult = {
+  messages: ChatMessage[];
+  droppedMessage?: ChatMessage;
+  retainedMessage?: ChatMessage;
+};
 
-  if (messages.some((msg) => msg.id === toId)) {
-    return messages.filter((msg) => msg.id !== fromId);
+function replaceMessageIdInList(messages: ChatMessage[], fromId: string, toId: string): ReplaceMessageIdResult {
+  if (fromId === toId) return { messages };
+  const fromIndex = messages.findIndex((msg) => msg.id === fromId);
+  if (fromIndex === -1) return { messages };
+
+  const fromMessage = messages[fromIndex];
+  const retainedMessage = messages.find((msg) => msg.id === toId);
+  if (retainedMessage) {
+    return {
+      messages: messages.filter((msg) => msg.id !== fromId),
+      droppedMessage: fromMessage,
+      retainedMessage,
+    };
   }
 
-  return messages.map((msg) => (msg.id === fromId ? { ...msg, id: toId } : msg));
+  return { messages: messages.map((msg) => (msg.id === fromId ? { ...msg, id: toId } : msg)) };
+}
+
+function recordMessageIdDedupDrop(
+  threadId: string,
+  droppedMessage: ChatMessage | undefined,
+  retainedMessage: ChatMessage | undefined,
+  toId: string,
+) {
+  if (!droppedMessage || !retainedMessage) return;
+  recordDebugEvent({
+    event: 'bubble_lifecycle',
+    threadId,
+    timestamp: Date.now(),
+    action: 'drop',
+    reason: 'replace_message_id_dedup',
+    catId: droppedMessage.catId ?? retainedMessage.catId,
+    messageId: toId,
+    invocationId: droppedMessage.extra?.stream?.invocationId ?? retainedMessage.extra?.stream?.invocationId,
+    origin: droppedMessage.origin ?? retainedMessage.origin,
+  });
+}
+
+function applyMessagePatch(message: ChatMessage, patch: ChatMessagePatch): ChatMessage {
+  return {
+    ...message,
+    ...patch,
+    ...(patch.extra ? { extra: { ...message.extra, ...patch.extra } } : {}),
+    ...(patch.metadata
+      ? { metadata: message.metadata ? { ...message.metadata, ...patch.metadata } : patch.metadata }
+      : {}),
+  };
+}
+
+function patchMessageInList(messages: ChatMessage[], id: string, patch: ChatMessagePatch): ChatMessage[] {
+  let changed = false;
+  const nextMessages = messages.map((msg) => {
+    if (msg.id !== id) return msg;
+    changed = true;
+    return applyMessagePatch(msg, patch);
+  });
+  return changed ? nextMessages : messages;
 }
 
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the owner */
@@ -258,6 +314,7 @@ interface ChatState {
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
   replaceMessages: (msgs: ChatMessage[], hasMore: boolean) => void;
   replaceMessageId: (fromId: string, toId: string) => void;
+  patchMessage: (id: string, patch: ChatMessagePatch) => void;
   appendToLastMessage: (content: string) => void;
   appendToMessage: (id: string, content: string) => void;
   appendToolEvent: (id: string, event: ToolEvent) => void;
@@ -312,6 +369,7 @@ interface ChatState {
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
   removeThreadMessage: (threadId: string, messageId: string) => void;
   replaceThreadMessageId: (threadId: string, fromId: string, toId: string) => void;
+  patchThreadMessage: (threadId: string, messageId: string, patch: ChatMessagePatch) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
   /** F22: Append a rich block to a message in a specific thread */
@@ -665,9 +723,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   replaceMessageId: (fromId, toId) =>
     set((state) => {
-      const nextMessages = replaceMessageIdInList(state.messages, fromId, toId);
+      const result = replaceMessageIdInList(state.messages, fromId, toId);
+      if (result.messages === state.messages) return state;
+      recordMessageIdDedupDrop(state.currentThreadId, result.droppedMessage, result.retainedMessage, toId);
+      revokeRemovedBlobUrls(state.messages, result.messages);
+      return { messages: result.messages };
+    }),
+
+  patchMessage: (id, patch) =>
+    set((state) => {
+      const nextMessages = patchMessageInList(state.messages, id, patch);
       if (nextMessages === state.messages) return state;
-      revokeRemovedBlobUrls(state.messages, nextMessages);
       return { messages: nextMessages };
     }),
 
@@ -948,29 +1014,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
   replaceThreadMessageId: (threadId, fromId, toId) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        const nextMessages = replaceMessageIdInList(state.messages, fromId, toId);
-        if (nextMessages === state.messages) return state;
-        revokeRemovedBlobUrls(state.messages, nextMessages);
-        return { messages: nextMessages };
+        const result = replaceMessageIdInList(state.messages, fromId, toId);
+        if (result.messages === state.messages) return state;
+        recordMessageIdDedupDrop(threadId, result.droppedMessage, result.retainedMessage, toId);
+        revokeRemovedBlobUrls(state.messages, result.messages);
+        return { messages: result.messages };
       }
 
       const existing = state.threadStates[threadId];
       if (!existing) return state;
 
-      const nextMessages = replaceMessageIdInList(existing.messages, fromId, toId);
-      if (nextMessages === existing.messages) return state;
-      revokeRemovedBlobUrls(existing.messages, nextMessages);
+      const result = replaceMessageIdInList(existing.messages, fromId, toId);
+      if (result.messages === existing.messages) return state;
+      recordMessageIdDedupDrop(threadId, result.droppedMessage, result.retainedMessage, toId);
+      revokeRemovedBlobUrls(existing.messages, result.messages);
       return {
         threadStates: {
           ...state.threadStates,
           [threadId]: {
             ...existing,
-            messages: nextMessages,
+            messages: result.messages,
             lastActivity: Date.now(),
           },
         },
       };
     }),
+
+  patchThreadMessage: (threadId, messageId, patch) =>
+    set((state) => updateThreadMessage(state, threadId, messageId, (m) => applyMessagePatch(m, patch))),
 
   /** Append chunk content to a specific message in a specific thread. */
   appendToThreadMessage: (threadId, messageId, content) =>
