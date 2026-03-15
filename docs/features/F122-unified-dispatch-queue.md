@@ -132,7 +132,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 - [x] AC-A6: 回归测试覆盖：connector 消息在 active slot 下 → 必须 queued；steer → 必须 immediate
 - [x] AC-A7: multi_mention target 崩溃/超时时，caller 的 InvocationTracker slot 必须正确释放，不能锁死铲屎官
 
-### Phase A.1（TOCTOU 竞态修复）
+### Phase A.1（TOCTOU 竞态修复）✅
 > 铲屎官 2026-03-15 反馈：用户消息能打断 A2A 链。三猫（opus+codex+gpt52）独立排查确认为 P1 竞态。
 > 必须先修，否则 OQ-1/2/4 的产品讨论基础不稳。
 
@@ -148,11 +148,11 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 3. `multi_mention` 占位前移：`start()` 在 `create invocation record` 之前，全路径包在 outer try/finally。
 4. duplicate 路径：`tryStartThread()` 成功但 `create()` 返回 duplicate → 必须 `complete()` 回收占位。
 
-- [ ] AC-A8: `messages.ts` 非 force immediate 路径使用 `tryStartThread`，TOCTOU 窗口穿透时降级 queue
-- [ ] AC-A9: `multi_mention` 占位前移到 create 之前，全路径 outer try/finally 保证释放
-- [ ] AC-A10: 回归测试：`has()=false` 后 thread 变 busy → 用户消息必须 queued
-- [ ] AC-A11: 回归测试：`tryStartThread` 成功但 create 返回 duplicate → slot 必释放
-- [ ] AC-A12: 回归测试：multi_mention create/update 抛错 → slot 必释放
+- [x] AC-A8: `messages.ts` 非 force immediate 路径使用 `tryStartThread`，TOCTOU 窗口穿透时降级 queue
+- [x] AC-A9: `multi_mention` 占位前移到 create 之前，全路径 outer try/finally 保证释放
+- [x] AC-A10: 回归测试：`has()=false` 后 thread 变 busy → 用户消息必须 queued
+- [x] AC-A11: 回归测试：`tryStartThread` 成功但 create 返回 duplicate → slot 必释放
+- [x] AC-A12: 回归测试：multi_mention create/update 抛错 → slot 必释放
 
 ### Phase B（语义收敛，待 OQ-1 决策后定义）
 - [ ] AC-B1: TBD（取决于产品方向决策）
@@ -253,6 +253,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-15 | Phase A merged (PR #459) — AC-A1~A7 全部完成 |
 | 2026-03-15 | 铲屎官反馈用户消息能打断 A2A；三猫独立排查确认 TOCTOU 竞态（P1） |
 | 2026-03-15 | Phase A.1 方案锁定：tryStartThread + messages.ts 降级 + multi_mention 占位前移 |
+| 2026-03-15 | Phase A.1 merged (PR #462) — AC-A8~A12 全部完成，TOCTOU 竞态已关闭 |
 
 ## Review Gate
 
