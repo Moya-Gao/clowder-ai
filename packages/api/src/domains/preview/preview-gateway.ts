@@ -1,5 +1,5 @@
 import http from 'node:http';
-// @ts-expect-error — optional dep, only present when preview gateway is enabled
+// @ts-ignore — optional dep, may or may not be installed
 import httpProxy from 'http-proxy';
 import { validatePort } from './port-validator.js';
 
