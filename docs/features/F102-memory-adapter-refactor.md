@@ -272,6 +272,70 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 
 语义 rerank 仅对 FTS5 候选集做重排序（不替代 lexical 召回），保证 fail-open 时链路不断。
 
+### Phase D: 激活 — Hindsight 清理 + 数据源扩大 + 检索协议 + 提示词集成
+
+> **触发**：铲屎官指示"Hindsight 去掉，把记忆组件跑起来"。
+> **外部输入**：Artem Zhutov《Grep Is Dead》— QMD 本地检索层方案（collection 分层 + BM25/vec/hybrid + `/recall` 协议）。
+> **两猫共识**：F102 引擎和 QMD 同构（都是 SQLite FTS5 + sqlite-vec + RRF），不引入 QMD，扩大 F102 数据源 + 给猫猫检索协议。
+> **铲屎官核心指示**：功能做完必须修改提示词/skills，让猫猫感知到并主动使用。否则建了也白建。
+
+**D-1. Hindsight 全量清理（三层拆解）**
+
+| 层 | 范围 | 说明 |
+|----|------|------|
+| Runtime | routes 的 Hindsight 分支、factory `'hindsight'` 类型、HindsightClient/Adapter | 切断运行链路 |
+| Config | `hindsight-runtime-config.ts`、ConfigSnapshot、env-registry 12 个 `HINDSIGHT_*` 变量、前端 config-viewer tab | 清理配置面 |
+| Legacy | `docker-compose.hindsight.yml`、`scripts/hindsight/`、P0 import pipeline、~26 test files | 归档资产 |
+
+**D-2. 启动自动 rebuild + 可观测**
+
+- 进程启动后自动执行 `indexBuilder.rebuild()`（带锁防并发）
+- `search_evidence` MCP 工具默认走 SQLite FTS5（不是 grep fallback）
+- Memory status 可观测：`docs_count` / `last_rebuild_at` / `backend=sqlite`
+
+**D-3. 数据源扩大：thread digest → evidence_docs**
+
+- `IndexBuilder.discoverFiles()` 增加 session digest 数据源
+- Session digest 已有结构（topics/decisions/participants），直接 parse 进 `evidence_docs`
+- `kind='session'` 默认权重低于 feature/decision（避免聊天噪音淹没文档）
+- **分层检索策略**（summary-first, raw-on-demand）：
+  1. 先搜 `docs + memory`（feature/decision/plan/lesson/memory）
+  2. 不够再搜 `threads-summary`（kind=session）
+  3. 还不够才下钻 raw transcript（通过现有 MCP `cat_cafe_get_thread_context`）
+
+**D-4. 检索协议升级**
+
+```typescript
+// search 接口增强
+search(query, {
+  kind: ['feature', 'decision'],           // 过滤层
+  mode: 'lexical' | 'semantic' | 'hybrid', // 检索模式
+  scope: 'docs' | 'memory' | 'threads' | 'all' // 快捷分层
+})
+```
+
+检索路由策略：
+- 找 feature / ADR / 明确术语 → `lexical`（BM25 first）
+- 找"我们当时为什么这么决定" → `lexical + semantic`
+- 找长聊天里隐含的同义表达 → `semantic` 或 `hybrid`
+- 找源码 symbol / API 实现 → 继续 code search，不走记忆组件
+
+**D-5. 提示词 + Skill 集成（铲屎官重点指示：最重要的一步）**
+
+> 铲屎官原话："就算你们做一个超酷的功能，你们自己没有感知到，你们也是不会用的。"
+
+**这不是"有了再说"的事——这是 Phase D 的验收门槛。**
+
+- **系统提示词注入**：在 CLAUDE.md / AGENTS.md 中告知猫猫"你有记忆组件，该这样用"
+  - 类似 Claude 的 memory 机制：系统提示词里告诉 agent 它有 memory、该怎么查
+  - 包含检索策略表（什么场景用什么模式）
+- **Recall Skill**：写一个 `recall` skill（或融入现有 skill），让猫猫开工前自动检索
+  - 取当前任务标题 / feature_id / thread topic
+  - 先查 docs + memory，不够再查 threads-summary
+  - 只注入 5-10 条最相关的 snippet 到上下文
+- **feat-lifecycle 集成**：立项/状态变更/关闭时自动 `incrementalUpdate`
+- **SOP 更新**：在 `docs/SOP.md` 中加入"开工前先 recall"的步骤
+
 ## Acceptance Criteria
 
 ### Phase A（6 接口 + SQLite 基座 + 解耦）
@@ -307,6 +371,21 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 - [x] AC-C7: shadow 期 A/B（`dim=128/256`），复用 `memory_eval_corpus.yaml` 对比 Recall@k
 - [x] AC-C8: 语义 rerank 对 FTS5 候选集重排序（不替代 lexical 召回）
 - [ ] AC-C9: `evidence_passages` 表按需启用（passage 级检索粒度，1000+ docs 后评估）— **deferred per spec**
+
+### Phase D（激活 — Hindsight 清理 + 数据源扩大 + 检索协议 + 提示词集成）
+- [ ] AC-D1: 运行链路中无 Hindsight 调用分支，factory 只有 `sqlite` 路径
+- [ ] AC-D2: 12 个 `HINDSIGHT_*` 环境变量、ConfigSnapshot hindsight 段、前端 config-viewer hindsight tab 全部移除
+- [ ] AC-D3: Hindsight legacy 资产归档（docker-compose、scripts、P0 import、~26 tests）
+- [ ] AC-D4: 启动 60 秒内 `evidence.sqlite` 存在且 `evidence_docs > 0`（自动 rebuild）
+- [ ] AC-D5: `search_evidence` MCP 工具默认走 SQLite FTS5，至少 3 条 canary query 稳定返回预期 anchor
+- [ ] AC-D6: Session digest 索引为 `kind='session'`，默认检索权重低于 feature/decision
+- [ ] AC-D7: 检索接口支持 `mode`（lexical/semantic/hybrid）和 `scope`（docs/memory/threads/all）参数
+- [ ] AC-D8: Memory status 可观测（docs_count / last_rebuild_at / backend）
+- [ ] AC-D9: **CLAUDE.md / AGENTS.md 提示词更新**——告知猫猫记忆组件存在、检索策略、使用方式
+- [ ] AC-D10: **Recall Skill 或等效 SOP 集成**——猫猫开工前自动/主动检索相关上下文
+- [ ] AC-D11: feat-lifecycle 集成——立项/状态变更/关闭时自动 `incrementalUpdate`
+- [ ] AC-D12: 修改 feature 文档后 30 秒内可检索到新标题/摘要（增量 freshness）
+- [ ] AC-D13: Embedding load 失败时检索成功率不下降（fail-open lexical 保底）
 
 ## Dependencies
 
@@ -363,6 +442,10 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 | KD-20 | **三态开关 `off\|shadow\|on`** + fail-open 到 lexical | codex review：增强层不能拖累基础能力 | 2026-03-12 |
 | KD-21 | **单一向量真相源** `evidence_vectors`（vec0 虚拟表），不在 `evidence_docs` 加 embedding 列 | codex review：避免双真相源 | 2026-03-12 |
 | KD-22 | **可复现版本锚** `embedding_meta` 表：`model_id/model_rev/dim` 变更 → 全量 re-embed | codex review：禁止静默混跑不同模型/维度的向量 | 2026-03-12 |
+| KD-23 | **不引入 QMD 外部依赖**——F102 引擎与 QMD 同构（SQLite FTS5 + sqlite-vec + RRF），扩大数据源即可 | 两猫共识：双轨维护成本 > 收益，违反 KD-1 | 2026-03-16 |
+| KD-24 | **thread 检索 summary-first, raw-on-demand**——默认搜 session digest，不搜 raw transcript | 聊天噪音会淹没文档；Artem 方案的核心也是分层 | 2026-03-16 |
+| KD-25 | **检索路由 BM25-first**——大多数查询先 lexical，semantic 是增强层不是主路 | 冷启动快、稳定、三猫并发友好 | 2026-03-16 |
+| KD-26 | **提示词/Skill 集成是验收门槛**——功能做完必须修改系统提示词，否则猫猫不会用 | 铲屎官直接指示："就算做了超酷功能，没有感知到也不会用" | 2026-03-16 |
 
 ## Timeline
 
@@ -385,6 +468,9 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 | 2026-03-13 | codex review：2 P1（anchor owner 迁移 + delete 回填），修复后放行 |
 | 2026-03-13 | 云端 review 放行（0 P1/P2） |
 | 2026-03-14 | **PR #431 squash merged** — Phase C ✅（AC-C9 deferred per spec） |
+| 2026-03-14 | 布偶猫+缅因猫激活讨论：Hindsight 清理 + MVP 定义（零分歧） |
+| 2026-03-16 | 铲屎官输入：Artem《Grep Is Dead》+ thread 检索升级 + **提示词/Skill 集成是验收门槛** |
+| 2026-03-16 | 布偶猫+缅因猫(GPT-5.4)独立思考：不引入 QMD，扩大 F102 数据源，Phase D spec 更新 |
 
 ## Review Gate
 
@@ -401,4 +487,5 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 | **Research** | `docs/research/2026-02-25-memory-design/memory-bench-mark.md` | Benchmark 调研 |
 | **ADR** | `docs/decisions/005-hindsight-integration-decisions.md` | 知识共享决策（单 bank） |
 | **Research** | `docs/research/2026-03-11-f102-memory-adapter-gpt-pro-consult.md` | 云端 GPT Pro 咨询（含 Part 1 提问 + Part 2 回答 + Part 3 综合） |
+| **Research** | `docs/research/2026-03-16-f102-memory-alignment-proposal.md` | Artem QMD 方案对齐 + 铲屎官 proposal |
 | **Feature** | `docs/features/F024-session-chain.md` | Session Chain（数据源） |
