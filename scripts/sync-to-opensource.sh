@@ -218,7 +218,23 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" 
           fi
         done
         if [ "$HAS_UNREVIEWED" = true ]; then
-          echo -e "  ${RED}✗ BLOCKED: $UNREVIEWED_COUNT unreviewed community commit(s) in target${NC}"
+          # Distinguish "not recorded at all" vs "recorded but ledger not advanced"
+          RECORDED_SHAS=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); l.entries.filter(e=>e.target_merge_commit).forEach(e=>console.log(e.target_merge_commit))" 2>/dev/null || true)
+          ALL_RECORDED=true
+          for c in $COMMITS_SINCE; do
+            MSG_CHK=$(git log --format=%s -1 "$c" 2>/dev/null || true)
+            if echo "$MSG_CHK" | grep -q "^sync: cat-cafe"; then continue; fi
+            if ! echo "$RECORDED_SHAS" | grep -q "^${c}$"; then
+              ALL_RECORDED=false
+              break
+            fi
+          done
+          if [ "$ALL_RECORDED" = true ]; then
+            echo -e "  ${YELLOW}⚠ BLOCKED: All community commits are recorded in ledger, but ledger water mark not advanced${NC}"
+            echo -e "  ${YELLOW}  Fix: bash scripts/intake-from-opensource.sh --advance-ledger${NC}"
+          else
+            echo -e "  ${RED}✗ BLOCKED: $UNREVIEWED_COUNT unrecorded community commit(s) in target${NC}"
+          fi
           echo -e "  ${YELLOW}  Ledger reviewed up to: ${LEDGER_HEAD:0:12}${NC}"
           echo -e "  ${YELLOW}  Current target HEAD:   ${CURRENT_TARGET_HEAD:0:12}${NC}"
           echo ""
@@ -228,7 +244,8 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" 
           echo -e "  ${YELLOW}  To proceed safely:${NC}"
           echo -e "  ${YELLOW}    1. Run: bash scripts/intake-from-opensource.sh --pr <N> --mode=plan${NC}"
           echo -e "  ${YELLOW}    2. Review and absorb valuable changes${NC}"
-          echo -e "  ${YELLOW}    3. Update ledger, then re-run sync${NC}"
+          echo -e "  ${YELLOW}    3. Run: bash scripts/intake-from-opensource.sh --record --pr <N> --decision <D>${NC}"
+          echo -e "  ${YELLOW}       (auto-advances ledger after last PR)${NC}"
           echo -e "  ${YELLOW}  To force (DANGEROUS — loses community work):${NC}"
           echo -e "  ${YELLOW}    --force-overwrite${NC}"
           echo ""
@@ -301,10 +318,18 @@ for root in "${MANAGED_ROOTS[@]}"; do
   fi
 done
 
-# 2b: 排除 managed_roots 内的 excluded 文件（从 manifest 读取）
+# 2b: 排除 managed_roots 内的 excluded 文件和子目录（从 manifest 读取）
 for excl in "${EXCLUDED_ITEMS[@]}"; do
-  # 跳过目录级别排除（docs/, designs/ 等）——它们不在 managed_roots 里
-  [[ "$excl" == */ ]] && continue
+  if [[ "$excl" == */ ]]; then
+    # 目录级排除：删除 managed_roots 内匹配的子目录
+    if [ -d "$FILTERED_DIR/$excl" ]; then
+      count=$(find "$FILTERED_DIR/$excl" -type f 2>/dev/null | wc -l | tr -d ' ')
+      rm -rf "$FILTERED_DIR/$excl"
+      EXCLUDED=$((EXCLUDED + count))
+      echo "  ✗ excluded dir: $excl ($count files)"
+    fi
+    continue
+  fi
   # 处理 glob 通配符（*.pen, .env.*, story-export*.png 等）
   if [[ "$excl" == *'*'* || "$excl" == *'?'* ]]; then
     while IFS= read -r match; do

@@ -131,9 +131,12 @@ if [ "$RECORD_DECISION" = true ]; then
     });
     fs.writeFileSync('$INTAKE_LEDGER', JSON.stringify(ledger, null, 2) + '\n');
     console.log('✓ Recorded PR #$PR_NUMBER → $DECISION (merge: ${PR_MERGE_SHA:0:12})');
-    console.log('  Run --advance-ledger to advance the sync gate.');
   "
-  exit 0
+  # Auto-attempt advance-ledger after successful record
+  echo ""
+  echo -e "${BLUE}── Auto-attempting ledger advance ──${NC}"
+  bash "$0" --advance-ledger
+  exit $?
 fi
 
 # ── Advance ledger ──
