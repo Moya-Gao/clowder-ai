@@ -190,7 +190,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal: callerSignal } = params;
 
-  const { invocationId, callbackToken } = registry.create(userId, catId, threadId, params.parentInvocationId, params.a2aTriggerMessageId);
+  const { invocationId, callbackToken } = registry.create(
+    userId,
+    catId,
+    threadId,
+    params.parentInvocationId,
+    params.a2aTriggerMessageId,
+  );
 
   // F089: Invocation-level hard timeout — independent of NDJSON stream / CLI timeout.
   // Must be > CLI_TIMEOUT_MS to avoid racing the inner timeout.
@@ -441,11 +447,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const sessionChainActive = isSessionChainEnabled(catId);
     if (deps.sessionChainStore && sessionChainActive) {
       // Reaper: reconcile any sessions stuck in 'sealing' > 5 minutes (best-effort).
-      if (deps.sessionSealer && 'reconcileStuck' in deps.sessionSealer) {
+      if (deps.sessionSealer) {
         try {
-          await (
-            deps.sessionSealer as { reconcileStuck: (catId: string, threadId: string) => Promise<number> }
-          ).reconcileStuck(catId, threadId);
+          await deps.sessionSealer.reconcileStuck(catId, threadId);
         } catch {
           /* best-effort reconcile */
         }

@@ -224,8 +224,31 @@ CLI 挂了 (liveness, Phase A+B ✅)
 
 ### 剩余非阻塞 hardening（避免遗忘）
 
-- [ ] 把 `reconcileStuck()` 从“invoke 前按当前 `catId/threadId` best-effort 扫描”升级成启动时 / 定时的全局 reaper。当前实现只能在同一 thread 再次被 invoke 时自愈，长期无人触碰的旧 thread 仍可能保留 `sealing` 终态垃圾。
-- [ ] 把 `reconcileStuck()` 正式纳入 `ISessionSealer` 契约，移除调用侧的 `'reconcileStuck' in deps.sessionSealer` + type cast，收干净类型层和运行时能力的漂移。
+- [x] 把 `reconcileStuck()` 从"invoke 前按当前 `catId/threadId` best-effort 扫描"升级成启动时 / 定时的全局 reaper。当前实现只能在同一 thread 再次被 invoke 时自愈，长期无人触碰的旧 thread 仍可能保留 `sealing` 终态垃圾。 → `reconcileAllStuck()` + `listSealingSessions()` + startup sweep + 5min periodic timer (feat/f118-hardening)
+- [x] 把 `reconcileStuck()` 正式纳入 `ISessionSealer` 契约，移除调用侧的 `'reconcileStuck' in deps.sessionSealer` + type cast，收干净类型层和运行时能力的漂移。 → `ISessionSealer` 接口扩展 + invoke-single-cat.ts 类型安全调用 (feat/f118-hardening)
+
+## Known Gaps
+
+### GAP-1: 跨猫交接时的初始上下文注入溢出（2026-03-16）
+
+**现象**：在 F118 hardening review 过程中，@codex（砚砚）因为首次被 @mention 加入讨论时注入了过多上下文（完整 thread 历史 + 审计报告 + 代码 diff），导致 Codex CLI context window 溢出崩溃。
+
+**与 F118 现有机制的关系**：
+- F118 的 overflow circuit breaker（AC-C6, `consecutiveRestoreFailures >= 3` → auto-seal）针对的是 **session resume 时的上下文恢复失败**——即已有 session 在 `resume` 路径上因历史消息过多导致溢出。
+- 此 gap 是 **initial context injection** 场景——猫猫之前没有参与该 thread 的讨论，被 @mention 时 Cat Café 会注入 thread 上下文作为首条消息，这不走 `resume` 路径，因此 overflow circuit breaker 不生效。
+
+**影响**：
+- 没有参与过讨论的猫突然被 @mention，如果 thread 历史很长，可能直接溢出
+- 铲屎官经验："猫猫如果他之前没参与讨论，你突然喊他一下给他加入太多上下文直接挂了"
+
+**当前缓解**：
+- 手动选择有上下文的猫（如 @gpt52 参与过 F118 讨论，比 @codex 更适合 review）
+- 发 review 请求时精简上下文，不要 dump 完整 thread 历史
+
+**未来可能的修复方向**：
+- 首次 @mention 注入 thread 上下文时，检查 token 量并截断/摘要化
+- 类似 AC-C6 的 circuit breaker 扩展到 initial context injection 路径
+- 按猫的 context window 大小动态裁剪注入内容
 
 ## Key Decisions
 
@@ -248,6 +271,8 @@ CLI 挂了 (liveness, Phase A+B ✅)
 | 2026-03-14 | Phase C merged (PR #448) — 前端预警 UI + session recovery (AC-C1~C6) |
 | 2026-03-14 | Feature closed — 愿景守护放行 (GPT-5.4), 全 AC 完成 |
 | 2026-03-14 | Post-close hardening chain merged — sealing 事故补丁串（`88084b54` → `66b20e0f` → `60cdd082` → `168fcf97` → `19e54ad9` → `d28d5177` → `d288fa4c` → `d18bd771`）完成，`Follow-up Hardening` 剩余两项转持续跟踪 |
+| 2026-03-16 | Hardening PR #492 — `reconcileAllStuck()` 全局 reaper + `ISessionSealer` 接口收干净 + `.catch()` 审计日志防护 |
+| 2026-03-16 | GAP-1 记录 — @codex review 时因初始上下文注入溢出崩溃，记录为已知缺口（overflow breaker 不覆盖 initial context injection 路径） |
 
 ## Review Gate
 
