@@ -110,7 +110,7 @@ describe('sendGameCommand respects sendTemporarilyDisabled', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('opens lobby when upload is idle, calls game API on confirm', () => {
+  it('opens lobby when upload is idle, calls game API on confirm', async () => {
     const onSend = vi.fn();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ status: 'game_started', gameId: 'g1', gameThreadId: 'gt1' }), {
@@ -143,10 +143,22 @@ describe('sendGameCommand respects sendTemporarilyDisabled', () => {
     expect(onSend).not.toHaveBeenCalled();
     expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
 
+    // Select at least one cat (required for confirm to be enabled)
+    const catToggle = container.querySelector('[data-testid="cat-toggle-opus"]') as HTMLButtonElement;
+    expect(catToggle).toBeTruthy();
+    act(() => {
+      catToggle.click();
+    });
+
     // Confirm in lobby calls game API directly (not onSend)
     const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
     act(() => {
       confirmBtn.click();
+    });
+
+    // Wait for async startGame to complete
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
     });
 
     // Should NOT call onSend — game start bypasses message pipeline
@@ -306,7 +318,7 @@ describe('game start failure handling (P1-1)', () => {
 });
 
 describe('game start calls dedicated API (not message pipeline)', () => {
-  it('calls /api/game/start regardless of hasActiveInvocation', () => {
+  it('calls /api/game/start regardless of hasActiveInvocation', async () => {
     const onSend = vi.fn();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ status: 'game_started', gameId: 'g1', gameThreadId: 'gt1' }), {
@@ -337,9 +349,22 @@ describe('game start calls dedicated API (not message pipeline)', () => {
 
     // Lobby opens, confirm to trigger game API call
     expect(container.querySelector('[data-testid="game-lobby"]')).toBeTruthy();
+
+    // Select at least one cat (required for confirm to be enabled)
+    const catToggle = container.querySelector('[data-testid="cat-toggle-opus"]') as HTMLButtonElement;
+    expect(catToggle).toBeTruthy();
+    act(() => {
+      catToggle.click();
+    });
+
     const confirmBtn = container.querySelector('[data-testid="lobby-confirm"]') as HTMLButtonElement;
     act(() => {
       confirmBtn.click();
+    });
+
+    // Wait for async startGame to complete
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
     });
 
     // Game start bypasses message pipeline entirely

@@ -375,7 +375,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     }).catch((err) => {
       console.debug('[F069] read ack failed:', err);
     });
-  }, [threadId]);
+  }, [threadId, _messageCount]);
 
   const handleStop = useCallback(
     (overrideThreadId?: unknown) => {

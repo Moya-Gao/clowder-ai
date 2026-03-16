@@ -373,7 +373,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           {/* F097: Content first, then Thinking (reasoning before execution), then CLI output */}
           {/* 1. Content — callback messages or non-stream text shown as normal content.
               If CLI block exists, text is already inside it — never render outside. */}
-          {hasCliBlock ? null : !isStreamOrigin && hasBlocks ? (
+          {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
             <MarkdownContent content={message.content} className={catStyle?.font} />

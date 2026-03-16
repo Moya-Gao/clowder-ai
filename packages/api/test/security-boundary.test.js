@@ -79,7 +79,7 @@ test('API binds to 127.0.0.1 by default', async (t) => {
   });
 
   try {
-    const { match } = await waitForMatch(child, /Server listening at http:\/\/([^:]+):(\d+)/, { timeoutMs: 5000 });
+    const { match } = await waitForMatch(child, /Server (?:listening at|running on) http:\/\/([^:]+):(\d+)/, { timeoutMs: 5000 });
 
     const host = match[1];
     const port = Number(match[2]);
