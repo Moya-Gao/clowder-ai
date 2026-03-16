@@ -2,13 +2,14 @@
 feature_ids: [F115]
 related_features: [F059]
 topics: [runtime, startup, devex, infrastructure]
-doc_kind: spec
+doc_kind: in-progress
 created: 2026-03-14
+reopened: 2026-03-16
 ---
 
 # F115: Runtime 启动链优化
 
-> **Status**: done | **Owner**: 宪宪/Opus | **Priority**: P1 | **Completed**: 2026-03-14
+> **Status**: in-review (reopened, Phase E) | **Owner**: 缅因猫/gpt52 | **Priority**: P1 | **Reopened**: 2026-03-16
 
 ## Why
 
@@ -42,6 +43,12 @@ created: 2026-03-14
 - `start-dev.sh` 只检查、报错、给下一步命令
 - 可选显式 `--install-missing` 触发安装，默认不安装
 
+### Phase E: Proxy Upstream Hardening（community manual-port）
+
+- 保留 Phase C 的 connect-only timeout，不能回退到“整个 fetch 生命周期都限时”的实现
+- 为网络级瞬时错误补有限 retry 和结构化 `causeCode` / `retryable` 诊断
+- 在 request body 经 thinking-strip 改写后，移除错误的 `content-length` / `transfer-encoding`
+
 ## Acceptance Criteria
 
 ### Phase A（Profile 化） ✅
@@ -66,11 +73,16 @@ created: 2026-03-14
 - [x] AC-D2: `--install-missing` 可自动安装到 venv
 - [x] AC-D3: `start-dev.sh` 检测到 ENABLED=1 但依赖缺失时报错而非静默跳过
 
+### Phase E（Proxy Upstream Hardening） 🚧
+- [x] AC-E1: request body 经 `stripThinkingFromRequest()` 改写后，转发不再因 `content-length` / `transfer-encoding` 错配而失败
+- [x] AC-E2: 网络级瞬时 upstream 错误在 proxy 内有限重试，且不影响现有 429/529 retry
+- [x] AC-E3: proxy 错误响应包含 `causeCode` / `retryable`，同时保留 slow-SSE 不截断保护
+
 ## Dependencies
 
 - **Evolved from**: F059（同步验收中发现的 runtime 问题）
 - **Related**: ADR-016（否决决策：不分叉脚本/不静默安装等）
-- **Community input**: clowder-ai#46（proxy 不可达无 fallback）、clowder-ai#52（upstream fetch 无超时）
+- **Community input**: clowder-ai#46（proxy 不可达无 fallback）、clowder-ai#52（upstream fetch 无超时/诊断不足）、clowder-ai#107（manual-port 线索）
 
 ## Risk
 
@@ -78,6 +90,7 @@ created: 2026-03-14
 |------|------|
 | Profile 化改动影响家里现有 runtime | 改动同 commit 补家里 `.env` 显式值 + 真实启动验收（LL-030） |
 | Proxy retry 可能与 thinking block 签名冲突 | Phase C 明确保护 thinking/signature 事件不做 round-trip |
+| Phase E network retry 回退 slow-SSE 保护 | 明确禁止把 `AbortSignal.timeout(...)` 包回整个 `fetch()`；保留 connect-only timeout 测试 |
 
 ## Open Questions
 
@@ -107,6 +120,8 @@ created: 2026-03-14
 | 2026-03-14 | Phase D merged (PR #437) — interactive setup + check_sidecar_dep |
 | 2026-03-14 | 愿景守護 by gpt52 — 5/5 痛点匹配，放行 |
 | 2026-03-14 | Feature closed ✅ |
+| 2026-03-16 | Feature reopened: 社区 PR `clowder-ai#107` 暴露 Phase C 之后仍有两块缺口（network retry/diagnostics + content-length mismatch），按 manual-port 收进 Phase E，由 gpt52 负责 |
+| 2026-03-16 | Phase E code ready: `scripts/anthropic-proxy.mjs` 补 network retry + `causeCode` + request header fix；issue #52 / PR #107 已留 maintainer comment，等待 peer review |
 
 ## Links
 
@@ -116,3 +131,5 @@ created: 2026-03-14
 | **Discussion** | `docs/discussions/2026-03-13-f059-sync-runtime-postmortem.md` | Runtime 事故复盘 |
 | **Lesson** | `docs/lessons-learned.md` LL-030 | 共享脚本改默认值教训 |
 | **Feature** | `docs/features/F059-open-source-plan.md` | 母 feature（同步计划） |
+| **Plan** | `docs/plans/2026-03-16-f115-phase-e-proxy-upstream-hardening.md` | Phase E 实施计划 |
+| **Bug Report** | `docs/bug-report/2026-03-16-f115-phase-e-proxy-upstream-hardening/bug-report.md` | Phase E 诊断胶囊 |

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer } from 'node:http';
+import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
@@ -15,12 +16,13 @@ import { after, before, describe, it } from 'node:test';
 const PROXY_SCRIPT = resolve(import.meta.dirname, '../../../scripts/anthropic-proxy.mjs');
 
 /** Start proxy pointing to given upstreams config, with given timeout. */
-async function startProxy(upstreamsPath, timeoutMs) {
-  const port = 19870 + Math.floor(Math.random() * 100);
+async function startProxy(upstreamsPath, timeoutMs, envOverrides = {}) {
+  const port = await getFreePort();
   const proc = spawn('node', [PROXY_SCRIPT, '--port', String(port), '--upstreams', upstreamsPath], {
     env: {
       ...process.env,
       ANTHROPIC_PROXY_UPSTREAM_TIMEOUT_MS: String(timeoutMs),
+      ...envOverrides,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -40,6 +42,43 @@ async function startProxy(upstreamsPath, timeoutMs) {
   });
 
   return { port, proc };
+}
+
+function requestViaHttp({ port, path, method = 'GET', headers = {}, body = '' }) {
+  return new Promise((resolve, reject) => {
+    const req = fetch(`http://127.0.0.1:${port}${path}`, {
+      method,
+      headers,
+      body: body || undefined,
+      signal: AbortSignal.timeout(3000),
+    });
+    req.then(async (res) => {
+      resolve({
+        statusCode: res.status,
+        headers: Object.fromEntries(res.headers.entries()),
+        body: await res.text(),
+      });
+    }, reject);
+  });
+}
+
+async function getFreePort() {
+  const server = createNetServer();
+  try {
+    return await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', () => {
+        const address = server.address();
+        if (!address || typeof address !== 'object') {
+          reject(new Error('failed to allocate port'));
+          return;
+        }
+        resolve(address.port);
+      });
+    });
+  } finally {
+    await new Promise((resolve) => server.close(() => resolve()));
+  }
 }
 
 describe('anthropic-proxy upstream timeout (AC-C4)', () => {
@@ -147,5 +186,145 @@ describe('anthropic-proxy does NOT truncate slow streaming (P1 review fix)', () 
     // Must contain BOTH events — stream was not truncated
     assert.ok(body.includes('event: ping'), 'should contain first event');
     assert.ok(body.includes('event: message_stop'), 'should contain final event (not truncated)');
+  });
+});
+
+describe('anthropic-proxy Phase E upstream hardening', () => {
+  it('retries transient upstream socket failures and succeeds on retry', async () => {
+    let attempts = 0;
+    const upstream = createHttpServer((req, res) => {
+      attempts += 1;
+      if (attempts === 1) {
+        req.socket.destroy();
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, attempts }));
+    });
+    await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+    const upstreamPort = upstream.address().port;
+
+    const tmpDir = mkdtempSync(join(tmpdir(), 'proxy-network-retry-'));
+    const catCafeDir = join(tmpDir, '.cat-cafe');
+    mkdirSync(catCafeDir, { recursive: true });
+    const upstreamsPath = join(catCafeDir, 'proxy-upstreams.json');
+    writeFileSync(upstreamsPath, JSON.stringify({ sponsor: `http://127.0.0.1:${upstreamPort}` }));
+
+    const proxy = await startProxy(upstreamsPath, 500, { ANTHROPIC_PROXY_MAX_RETRIES: '1' });
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${proxy.port}/sponsor/v1/messages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'test', messages: [] }),
+        signal: AbortSignal.timeout(3000),
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(attempts, 2);
+      assert.deepEqual(await res.json(), { ok: true, attempts: 2 });
+    } finally {
+      proxy.proc.kill('SIGTERM');
+      await new Promise((resolve) => proxy.proc.on('close', resolve));
+      upstream.close();
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('includes causeCode for terminal network failures', async () => {
+    const upstreamPort = await getFreePort();
+    const tmpDir = mkdtempSync(join(tmpdir(), 'proxy-cause-code-'));
+    const catCafeDir = join(tmpDir, '.cat-cafe');
+    mkdirSync(catCafeDir, { recursive: true });
+    const upstreamsPath = join(catCafeDir, 'proxy-upstreams.json');
+    writeFileSync(upstreamsPath, JSON.stringify({ sponsor: `http://127.0.0.1:${upstreamPort}` }));
+
+    const proxy = await startProxy(upstreamsPath, 500, { ANTHROPIC_PROXY_MAX_RETRIES: '0' });
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${proxy.port}/sponsor/v1/messages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'test', messages: [] }),
+        signal: AbortSignal.timeout(3000),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 502);
+      assert.equal(body.error.type, 'proxy_error');
+      assert.equal(body.error.causeCode, 'ECONNREFUSED');
+      assert.equal(body.error.retryable, true);
+    } finally {
+      proxy.proc.kill('SIGTERM');
+      await new Promise((resolve) => proxy.proc.on('close', resolve));
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves request forwarding when sanitization changes body length', async () => {
+    const requests = [];
+    const upstream = createHttpServer((req, res) => {
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        requests.push({
+          headers: req.headers,
+          body: Buffer.concat(chunks).toString('utf8'),
+        });
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      });
+    });
+    await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+    const upstreamPort = upstream.address().port;
+
+    const tmpDir = mkdtempSync(join(tmpdir(), 'proxy-content-length-'));
+    const catCafeDir = join(tmpDir, '.cat-cafe');
+    mkdirSync(catCafeDir, { recursive: true });
+    const upstreamsPath = join(catCafeDir, 'proxy-upstreams.json');
+    writeFileSync(upstreamsPath, JSON.stringify({ sponsor: `http://127.0.0.1:${upstreamPort}` }));
+
+    const proxy = await startProxy(upstreamsPath, 1000, { ANTHROPIC_PROXY_MAX_RETRIES: '0' });
+
+    const requestPayload = {
+      model: 'claude-opus-4-6',
+      max_tokens: 1,
+      messages: [
+        {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: 'private reasoning', signature: 'sig' },
+            { type: 'text', text: 'visible context' },
+          ],
+        },
+        { role: 'user', content: 'ping' },
+      ],
+    };
+    const requestBody = JSON.stringify(requestPayload);
+
+    try {
+      const response = await requestViaHttp({
+        port: proxy.port,
+        path: '/sponsor/v1/messages',
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(Buffer.byteLength(requestBody)),
+        },
+        body: requestBody,
+      });
+
+      assert.equal(response.statusCode, 200);
+      assert.equal(requests.length, 1);
+
+      const forwardedPayload = JSON.parse(requests[0].body);
+      assert.deepEqual(forwardedPayload.messages[0].content, [{ type: 'text', text: 'visible context' }]);
+      assert.equal(requests[0].headers['content-length'], String(Buffer.byteLength(requests[0].body)));
+    } finally {
+      proxy.proc.kill('SIGTERM');
+      await new Promise((resolve) => proxy.proc.on('close', resolve));
+      upstream.close();
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
