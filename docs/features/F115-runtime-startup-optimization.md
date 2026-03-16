@@ -2,14 +2,13 @@
 feature_ids: [F115]
 related_features: [F059]
 topics: [runtime, startup, devex, infrastructure]
-doc_kind: in-progress
+doc_kind: spec
 created: 2026-03-14
-reopened: 2026-03-16
 ---
 
 # F115: Runtime 启动链优化
 
-> **Status**: in-review (reopened, Phase E) | **Owner**: 缅因猫/gpt52 | **Priority**: P1 | **Reopened**: 2026-03-16
+> **Status**: done | **Owner**: 缅因猫/gpt52 | **Priority**: P1 | **Completed**: 2026-03-16
 
 ## Why
 
@@ -73,7 +72,7 @@ reopened: 2026-03-16
 - [x] AC-D2: `--install-missing` 可自动安装到 venv
 - [x] AC-D3: `start-dev.sh` 检测到 ENABLED=1 但依赖缺失时报错而非静默跳过
 
-### Phase E（Proxy Upstream Hardening） 🚧
+### Phase E（Proxy Upstream Hardening） ✅
 - [x] AC-E1: request body 经 `stripThinkingFromRequest()` 改写后，转发不再因 `content-length` / `transfer-encoding` 错配而失败
 - [x] AC-E2: 网络级瞬时 upstream 错误在 proxy 内有限重试，且不影响现有 429/529 retry
 - [x] AC-E3: proxy 错误响应包含 `causeCode` / `retryable`，同时保留 slow-SSE 不截断保护
@@ -121,7 +120,7 @@ reopened: 2026-03-16
 | 2026-03-14 | 愿景守護 by gpt52 — 5/5 痛点匹配，放行 |
 | 2026-03-14 | Feature closed ✅ |
 | 2026-03-16 | Feature reopened: 社区 PR `clowder-ai#107` 暴露 Phase C 之后仍有两块缺口（network retry/diagnostics + content-length mismatch），按 manual-port 收进 Phase E，由 gpt52 负责 |
-| 2026-03-16 | Phase E code ready: `scripts/anthropic-proxy.mjs` 补 network retry + `causeCode` + request header fix；issue #52 / PR #107 已留 maintainer comment，等待 peer review |
+| 2026-03-16 | Phase E merged (PR #484) — proxy upstream hardening、`causeCode`/`retryable` 诊断、`content-length` forwarding fix；feature re-closed ✅ |
 
 ## Links
 
