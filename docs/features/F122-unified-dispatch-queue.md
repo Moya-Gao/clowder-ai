@@ -154,10 +154,10 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 - [x] AC-A11: 回归测试：`tryStartThread` 成功但 create 返回 duplicate → slot 必释放
 - [x] AC-A12: 回归测试：multi_mention create/update 抛错 → slot 必释放
 
-### Phase B（语义收敛）🚧
-> OQ-1/2/4 已由铲屎官拍板（ADR-018），Phase B 开始实施。
+### Phase B（语义收敛 — 后端核心）✅
+> OQ-1/2/4 已由铲屎官拍板（ADR-018），Phase B 后端核心已合入。
 
-**已完成（PR pending review）：**
+**已完成（PR #499 merged）：**
 - [x] AC-B1: QueueEntry 支持 `source: 'agent'` + `autoExecute` + `callerCatId`
 - [x] AC-B2: QueueProcessor `tryAutoExecute` — agent 条目入队后目标猫 slot 空闲时立即执行
 - [x] AC-B3: A2A callback (`enqueueA2ATargets`) 通过 InvocationQueue 产出 agent entry（替代 pushToWorklist）
@@ -271,12 +271,13 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-15 | 铲屎官拍板 OQ-1/2/4（ADR-018）：A2A+multi_mention 入 queue auto-execute，保持 slot 级判忙 |
 | 2026-03-16 | Phase B 后端核心实施：QueueEntry agent source + tryAutoExecute + A2A enqueue + wiring（PR pending） |
 | 2026-03-16 | Phase B deferred: multi_mention queue integration + 前端 UX（AC-B6~B10）记录到 feature doc |
+| 2026-03-16 | Phase B 后端核心 merged (PR #499) — AC-B1~B5 全部完成，codex R5→R6 放行 |
 
 ## Review Gate
 
 - Phase A: 跨家族 review（缅因猫优先，codex 或 gpt52）✅
 - Phase A.1: 跨家族 review（codex 或 gpt52）✅
-- Phase B: 跨家族 review（codex 或 gpt52）
+- Phase B: 跨家族 review（codex R5→R6 放行）✅
 
 ## Links
 
