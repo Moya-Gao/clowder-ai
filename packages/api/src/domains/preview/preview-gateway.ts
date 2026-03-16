@@ -3,6 +3,7 @@ import { createGunzip, createInflate } from 'node:zlib';
 import httpProxy from 'http-proxy';
 import { BRIDGE_SCRIPT } from './bridge-script.js';
 import { validatePort } from './port-validator.js';
+import { buildWsPatchScript } from './ws-patch-script.js';
 
 export interface PreviewGatewayOptions {
   /** 0 = random port */
@@ -54,7 +55,7 @@ export class PreviewGateway {
       }
     });
 
-    // Handle proxied responses: strip iframe headers + inject bridge script into HTML
+    // Handle proxied responses: strip iframe headers + inject bridge + WS patch scripts into HTML
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.proxy.on('proxyRes', (proxyRes: any, _req: any, res: any) => {
       const clientRes = res as http.ServerResponse;
@@ -105,13 +106,17 @@ export class PreviewGateway {
       stream.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
       stream.on('end', () => {
         let html = Buffer.concat(chunks).toString('utf-8');
+        // Build injection payload: bridge script + WS port patch for HMR
+        const targetPort = (_req as Record<string, unknown>).__catCafeTargetPort as number | undefined;
+        const wsPatch = targetPort ? buildWsPatchScript(targetPort) : '';
+        const injection = wsPatch + BRIDGE_SCRIPT;
         // Inject before </head> or before </body> or at end
         if (html.includes('</head>')) {
-          html = html.replace('</head>', `${BRIDGE_SCRIPT}</head>`);
+          html = html.replace('</head>', `${injection}</head>`);
         } else if (html.includes('<body')) {
-          html = html.replace(/<body([^>]*)>/, `<body$1>${BRIDGE_SCRIPT}`);
+          html = html.replace(/<body([^>]*)>/, `<body$1>${injection}`);
         } else {
-          html = BRIDGE_SCRIPT + html;
+          html = injection + html;
         }
         // Remove content-encoding (we've decompressed) and update content-length
         const headers = { ...proxyRes.headers };
@@ -147,6 +152,9 @@ export class PreviewGateway {
         res.end(JSON.stringify({ error: validation.reason }));
         return;
       }
+
+      // Store target port for proxyRes handler (before stripping params)
+      (req as unknown as Record<string, unknown>).__catCafeTargetPort = parsed.port;
 
       // Strip preview params from forwarded URL
       const url = new URL(req.url!, `http://${req.headers.host}`);

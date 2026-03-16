@@ -9,6 +9,7 @@ import { useChatHistory } from '@/hooks/useChatHistory';
 import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
 import { abortGame, godAction, submitAction } from '@/hooks/useGameApi';
 import { usePersistedState } from '@/hooks/usePersistedState';
+import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
@@ -89,6 +90,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const isResearchMode = searchParams?.get('research') === 'multi';
   const { clearTasks } = useTaskStore();
   const { getCatById } = useCatData();
+  const workspaceWorktreeId = useChatStore((s) => s.workspaceWorktreeId);
+  usePreviewAutoOpen(workspaceWorktreeId);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusPanelOpen, setStatusPanelOpen] = useState(true);
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);

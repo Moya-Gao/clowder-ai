@@ -110,4 +110,28 @@ describe('PreviewGateway', () => {
     const res = await httpGet(url);
     assert.equal(res.status, 502);
   });
+
+  it('injects WebSocket port patch script into HTML responses', async () => {
+    const url = `http://127.0.0.1:${gateway.actualPort}/?__preview_port=${fakeDevServer.port}`;
+    const res = await httpGet(url);
+    assert.equal(res.status, 200);
+    // The injected script should contain the target port for WS patching
+    assert.ok(
+      res.body.includes('__preview_port'),
+      `HTML should contain WS patch with __preview_port, got: ${res.body.slice(0, 300)}`,
+    );
+    assert.ok(
+      res.body.includes(`${fakeDevServer.port}`),
+      `WS patch script should contain target port ${fakeDevServer.port}`,
+    );
+    assert.ok(res.body.includes('WebSocket'), 'WS patch script should reference WebSocket constructor');
+  });
+
+  it('WS patch script contains WebSocket constructor override with correct port', async () => {
+    const url = `http://127.0.0.1:${gateway.actualPort}/?__preview_port=${fakeDevServer.port}`;
+    const res = await httpGet(url);
+    // The WS patch must override the WebSocket constructor so HMR connections
+    // include __preview_port, allowing the gateway to proxy them correctly
+    assert.ok(res.body.includes('cat-cafe-ws-patch'), 'Should inject ws-patch script tag');
+  });
 });

@@ -451,6 +451,11 @@ interface ChatState {
   restoreWorkspaceTabs: (tabs: string[], openFile: string | null) => void;
   setWorkspaceEditToken: (token: string | null, expiresIn?: number) => void;
 
+  // ── F120: Preview auto-open (always-mounted listener) ──
+  pendingPreviewAutoOpen: { port: number; path: string } | null;
+  setPendingPreviewAutoOpen: (data: { port: number; path: string }) => void;
+  consumePreviewAutoOpen: () => { port: number; path: string } | null;
+
   // ── F63-AC15: Code-to-chat reference ──
   pendingChatInsert: { threadId: string; text: string } | null;
   setPendingChatInsert: (insert: { threadId: string; text: string } | null) => void;
@@ -678,6 +683,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       workspaceEditToken: token,
       workspaceEditTokenExpiry: token && expiresIn ? Date.now() + expiresIn * 1000 : null,
     }),
+
+  // ── F120: Preview auto-open ──
+  pendingPreviewAutoOpen: null,
+  setPendingPreviewAutoOpen: (data) => set({ pendingPreviewAutoOpen: data, rightPanelMode: 'workspace' }),
+  consumePreviewAutoOpen: () => {
+    const pending = get().pendingPreviewAutoOpen;
+    if (pending) set({ pendingPreviewAutoOpen: null });
+    return pending;
+  },
 
   // ── F63-AC15: Code-to-chat reference ──
   pendingChatInsert: null,
