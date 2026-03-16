@@ -374,8 +374,109 @@ replay_full
 [9]: https://github.com/oil-oil/wolfcha "https://github.com/oil-oil/wolfcha"
 [10]: https://github.com/aiwolfdial/aiwolf-nlp-agent "https://github.com/aiwolfdial/aiwolf-nlp-agent"
 
-## Part 3: 综合后的最终版本（待撰写）
+## Part 3: 综合 — 布偶猫对照 Codebase 验证 + 行动计划
 
-> 本地猫综合后撰写
+> 布偶猫 2026-03-16 综合
 
-[待撰写]
+### Codebase 验证结果
+
+GPT Pro 指出的 6 个架构盲区，全部经 codebase 验证属实：
+
+| GPT Pro 指出的盲区 | Codebase 现状 | 验证 |
+|-------------------|-------------|------|
+| `nightActions.kill` 是单值 | `WerewolfEngine.ts:11-16` — `kill?: { by, target }` 单对象 | ✅ 确认 |
+| `pendingActions` 揉成一团 | `game.ts:84` — `Record<string, GameAction>`，无状态字段 | ✅ 确认 |
+| 白天投票实际可以改（castVote 覆盖） | `WerewolfEngine.ts:133` — `votes.set()` 覆盖旧值 | ✅ 确认（但前端没暴露改票 UI） |
+| timeout 直接 clear + advance | `GameOrchestrator.ts:120→224` — `clearPendingActions()` 后 `advancePhase()` | ✅ 确认 |
+| 没有 action.requested / ballot.updated 事件 | 只有 phase 级事件（timeout/phase_start/game_end 等） | ✅ 确认 |
+| GameAutoPlayer 无 thinking 状态 | `GameAutoPlayer.ts:114` — 直接同步提交，无 LLM 集成 | ✅ 确认 |
+
+**意外发现**：castVote 其实支持覆盖（`votes.set()` 天然 upsert），但前端把 action 提交当成 one-shot，没有改票 UI。这意味着后端改动比预想的小。
+
+### 采纳决策矩阵
+
+| GPT Pro 建议 | 采纳？ | 理由 | 实施优先级 |
+|-------------|--------|------|-----------|
+| **多狼投票 AIWolf 式**：discussion → per-wolf ballot → majority → short revote → tie policy | ✅ 采纳 | 最完整的规则模型，消灭 last-write-wins | Phase F3 — P1 |
+| **平票策略可配置**：`night_tie_policy` = `no_kill` / `random_tied` | ✅ 采纳 | 做成 ruleset 参数，默认 `no_kill`（偏保守） | Phase F3 |
+| **白天投票**：讨论 → 预投可改 → 锁票 → 平票短 revote | ✅ 采纳 | 后端 castVote 已支持覆盖，主要补前端 UI + lock 语义 | Phase F3 |
+| **ActionTask + ActionAttempt 数据模型** | ⚠️ 简化采纳 | 完整版 8 个字段太重，先做 3 态 status（waiting/acting/acted）+ fallback_source，不引入 attempt 级追踪 | Phase F2 |
+| **Ballot 数据模型** | ✅ 采纳核心字段 | revision + locked + source + submitted_at 四个字段够用 | Phase F3 |
+| **Resolution 数据模型** | ✅ 采纳 | 投票结算需要记录 winning_choice/tie_policy/revote_count | Phase F3 |
+| **三层超时预算** warmup/turn/hard_deadline | ⚠️ 简化 | 先做 grace period（首回合额外 15s）+ hard fallback，不做 warmup ping | Phase F4 |
+| **Fallback ladder**：fast retry → 轻量模型 → 启发式 → random | ⚠️ 简化 | v1 直接 fallback to random/heuristic，不做模型降级（没有轻量模型池） | Phase F4 |
+| **三层观战**：public_live / god_live / replay_full | ✅ 采纳架构 | 映射到现有 scope 体系：public = public_live, god = god_live, replay_full 后续做 | Phase F2 |
+| **reveal_policy**：live / phase_end / game_end | ✅ 采纳 | 加到 event schema 里，解决"什么时候能看"的问题 | Phase F2 |
+| **时间侧信道警告** | ✅ 重要提醒 | 玩家视角只显示聚合进度"3/4 已提交"，不暴露 seat 级耗时 | Phase F2 |
+
+### 不采纳 / 推迟的建议
+
+| 建议 | 决定 | 理由 |
+|------|------|------|
+| ActionAttempt（attempt 级追踪） | 推迟到 v2 | 当前 GameAutoPlayer 是同步 random，不走 LLM，attempt 级追踪无意义 |
+| replay_full 赛后全量复盘 | 推迟到 v2 | 先解决实时观战体验，复盘是锦上添花 |
+| `AIWolf-compat ruleset` | 不做 | 我们不参加 AIWolf 竞赛，没必要兼容 |
+| whisper_before_revote 参数 | 推迟 | 先跑通基本投票，whisper 细节后续加 |
+
+### Phase F 修订后实施计划
+
+基于调研结果，Phase F 四个子阶段的优先级和内容调整如下：
+
+**F1. 调研** ✅ 已完成（本文档）
+
+**F2. 行动透明度**（最高优先级 — 解决"一脸懵逼"）
+- 新增事件类型：`action.requested` / `action.submitted` / `action.timeout` / `action.fallback`
+- 每个事件带 `reveal_policy: live | phase_end | game_end`
+- hasActed 三态：waiting → acting → acted（+ timed_out / fallback）
+- God-view 夜间时间线展示具体行动目标 + 来源标注
+- 玩家视角：只显示"3/4 已提交"聚合进度（防侧信道）
+
+**F3. 投票机制**
+- `nightActions.kill` → `nightBallots: Map<seatId, Ballot>`（多狼独立投票）
+- 多数票结算 + 平票一次 short revote（10s）+ `night_tie_policy` 参数
+- 白天：解锁前端改票 UI（后端已支持）+ 锁票语义 + 全员 commit 提前结束
+- Ballot 数据模型：{ voter_seat, choice, revision, locked, source, submitted_at }
+- Resolution 记录：{ winning_choice, tie_policy, revote_count }
+
+**F4. 超时容错**
+- 首回合 grace period（额外 15s 冷启动宽限）
+- 超时 fallback：讨论 = blank/skip，绑定动作 = heuristic → random
+- 每次 fallback 写 `{ fallback_source, reason }` 到 event log
+- God-view 展示猫猫真实状态（thinking / timed_out / fallback）
+
+### 关键架构变更清单
+
+```
+1. WerewolfEngine.ts
+   - NightActions.kill: single → nightBallots: Map<string, Ballot>
+   - 新增 resolveNightBallots() — 多数票 + revote + tie policy
+   - castVote() 增加 revision tracking + locked 字段
+
+2. GameEngine.ts / game.ts
+   - pendingActions 增加 status 字段：waiting | acting | acted | timed_out | fallback
+   - 新增 fallback_source 字段
+
+3. GameOrchestrator.ts
+   - tick() 超时后不再 clear，改为 applyFallbacks() → 然后 advance
+   - 新增事件类型 + reveal_policy
+   - 首回合 grace period 逻辑
+
+4. GameViewBuilder.ts
+   - god-view: 展示 Ballot 详情 + action status + fallback 标注
+   - player-view: 聚合进度 "x/n 已提交"（防侧信道）
+
+5. 前端
+   - PlayerGrid: 三态行动指示器
+   - GodInspector: 夜间投票详情面板
+   - ActionDock: 改票 UI + 锁票按钮
+```
+
+### 参考项目速查
+
+| 项目 | 最值得学的点 | 不要学的点 |
+|------|------------|-----------|
+| AIWolf | 多狼投票 + revote + 平票规则最完整 | 过度复杂的协议层 |
+| sentient-agi/werewolf-template | 硬超时 + fallback + 多通道观战 | penalty 机制（我们的猫不需要惩罚） |
+| google/werewolf_arena | 赛后审计 viewer 很好 | 随机队长制夜杀（太简化） |
+| xuyuzhuang11/Werewolf | visible_to 信息隔离 + 平票空刀 | 10 次重试 + 2 小时超时（研究代码风格） |
+| oil-oil/wolfcha | UX 演出感（lip-sync, 过渡动画） | 不适合我们的架构 |
