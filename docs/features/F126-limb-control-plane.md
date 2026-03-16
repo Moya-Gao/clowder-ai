@@ -209,6 +209,7 @@ Cat Café（大脑 / 灵魂议会）
 - **Related**: F102（Memory Adapter — durable knowledge vs runtime state 的分界）
 - **Related**: F118（CLI Liveness Watchdog — Presence 的种子，Phase A 整合）
 - **Related**: F124（Apple Ecosystem — Phase D 的应用场景，合并执行）
+- **Blocked by (Phase C)**: F050 Phase 3（A2A/ACP 协议适配 — 远程 Agent 类四肢需要 A2A 协议，MCP 只够哑设备）
 - **Depends on (soft)**: Unified Session Contract（F126 消费，不拥有）
 - **Out of scope**: 全局 per-cat tool policy（tool family allow/deny — 独立推进）
 - **Out of scope**: Agent-Driven UI 泛化（中长期方向，不在 F126 内）
@@ -233,6 +234,7 @@ Cat Café（大脑 / 灵魂议会）
 | OQ-2 | 四肢能力的权限模型？ | ✅ 已定：三级授权 free/leased/gated |
 | OQ-3 | Session truth boundary 归属？ | ✅ 已定：独立于 F126，F126 只消费 session contract |
 | OQ-4 | Per-cat tool policy 归属？ | ✅ 已定：全局 policy 独立，limb access policy（catId×nodeId×cap）在 F126 Phase B |
+| OQ-5 | 远程 Agent 类四肢用 A2A 还是 ACP？ | ⬜ 待调研：铲屎官听到 ACP 概念，Phase B 完成后需 deep-research A2A vs ACP 再决定 Phase C 协议选型 |
 
 ## Key Decisions
 
@@ -245,6 +247,8 @@ Cat Café（大脑 / 灵魂议会）
 | KD-5 | 三级授权模型：free / leased / gated | 金渐层提案：每次审批太重，一次性授权太危险 | 2026-03-16 |
 | KD-6 | MCP tool 动态暴露四肢能力，不注入 system prompt | 金渐层提案：四肢动态上下线，prompt 是 session 级静态的 | 2026-03-16 |
 | KD-7 | Runtime 活状态不进 F102，只有 durable knowledge 走 materialize | 砚砚提案：防止 runtime 噪音污染长期记忆 | 2026-03-16 |
+| KD-8 | 执行顺序：F126 A → B → F050 Phase 3（A2A/ACP）→ F126 C → F126 D（F124） | 铲屎官拍板：远程 Agent 需要 A2A/ACP 协议，Phase C 前先做 F050 P3 | 2026-03-16 |
+| KD-9 | 哑四肢用 MCP，有脑四肢（远程 Agent）用 A2A/ACP — 两条协议路径 | 铲屎官确认：Windows 上有 Agent 时 MCP 不够 | 2026-03-16 |
 
 ## Timeline
 
