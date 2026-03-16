@@ -893,6 +893,7 @@ export function useAgentMessages() {
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       addMessage,
       appendToMessage,
@@ -901,7 +902,6 @@ export function useAgentMessages() {
       setStreaming,
       setLoading,
       removeActiveInvocation,
-      clearAllActiveInvocations,
       setIntentMode,
       setCatStatus,
       clearCatStatuses,

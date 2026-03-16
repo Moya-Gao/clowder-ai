@@ -524,6 +524,7 @@ export function useChatHistory(threadId: string) {
     } catch (err) {
       if (isAbortError(err)) return;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, setQueue, setQueuePaused]);
 
   // Load history + tasks when threadId changes (handles initial mount and navigation)
