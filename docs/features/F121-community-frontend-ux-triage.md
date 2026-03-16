@@ -106,6 +106,13 @@ Bug report 存档：
 | #16 | Bootcamp 阶段过渡 UX | enhancement | 缅因猫(gpt52) | ✅ accept-enhancement -> F110 | [砚砚/gpt52] 问题原始成立，但已被 F110 吸收；当前只剩 Phase 2 全 OK 快路径缺少显式过渡文案。详见下方猫爪印报告。 |
 | #66 | 消息回复引用（replyTo threading） | enhancement | 布偶猫+缅因猫(gpt52) | ✅ accept-enhancement（上游完整修复） | 🐾 社区 PR#71 (bouillipx) 方向正确但实现不足：缺 thread 边界校验（可跨线程脏引用）、前端 O(n) find 性能问题、删除消息未处理、React DOM 反模式。PR 已关闭，我们自己做终态实现（服务端校验+preview hydration+Map 索引+删除占位），下次 Outbound Sync 带上。Commit 带 `Co-authored-by: bouillipx`。关联 F098。 |
 
+### Phase E: 愿景守护 — #27/#28 完成度复核（2026-03-16 缅因猫 gpt52）
+
+| Issue | 愿景守护结论 | 说明 |
+|-------|-------------|------|
+| **#27** | ✅ **通过** | 社区原单要求"切回已访问 thread 恢复阅读位置"。当前 main 已实现：module-level `scrollPositionsByThread` Map + `SavedScrollState { top, anchor }` 双语义 + rAF 重试等布局稳定。`cached+unread` replace hydration 边界也在测试保护内（`useChatHistory-scroll-memory` 3/3, `thread-switch` 5/5, `replace-hydration` 6/6 全绿）。社区单还 open 是因为 outbound sync 未做，不是实现未到位。 |
+| **#28** | ⚠️ **口径收窄，部分完成** | 社区原单要求"sidebar + chat 双栏下聊天面板宽度可调"。我们实际修的是 `RightStatusPanel` 的拖拽宽度（`statusPanelOpen && rightPanelMode === 'status'` 分支），不是 chat pane 本身。铲屎官 2026-03-16 认可收窄口径：当前交付的是"右侧状态栏可拖拽调宽"，社区回复时说明实际修了什么，不用 `Fixes #28` 完整关单。 |
+
 ## Dependencies
 
 - **Related**: F095（Thread Sidebar 导航升级 — #89 可能是其遗漏）
