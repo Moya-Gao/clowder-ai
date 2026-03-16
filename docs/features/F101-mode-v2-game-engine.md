@@ -352,6 +352,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-15 | Phase E detective mode merged (PR #474) — scoped observer view, GameViewBuilder detective viewer, lobby binding UI (codex 1-round local + 2-round cloud review) |
 | 2026-03-15 | i18n + lobby fix merged (PR #477) — 游戏 UI 中文化 + lobby 默认不全选猫猫 |
 | 2026-03-15 | 3x P1 game state fixes merged (PR #478) — observer broadcast + real countdown + seat hasActed status + info-isolation regression tests (codex 1-round local + 3-round cloud review) |
+| 2026-03-16 | Bug fix: auto-skip empty phases merged (PR #481) — GameOrchestrator.skipEmptyPhases() skips action phases when no alive seat matches actingRole (codex 1-round local + cloud review) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
