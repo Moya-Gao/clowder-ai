@@ -37,12 +37,44 @@ Hub 内置了嵌入式浏览器面板（F120），可以直接预览运行中的
 ### 猫主动打开浏览器（Phase C — 必须掌握）
 铲屎官说过："别手动让我输入，你最好打开浏览器，把页面放出来。"
 
-**猫应该主动替铲屎官打开浏览器**，不要等铲屎官点 toast 或手动输 URL：
-- 调用 `POST /api/preview/auto-open` → 后端 emit `preview:auto-open` socket 事件 → 前端自动打开 browser panel
-- 请求体：`{ port, path?, worktreeId? }`
-  - `port`（必填）：dev server 端口号
-  - `path`（可选）：页面路径，默认 `/`
-  - `worktreeId`（**当前 thread 绑定了 worktree 时必传**）：当前 worktree ID。前端只接受匹配自己 worktreeId 的事件，不传 = 事件发到 global room 但已绑定 worktree 的 session 会拒收 = 打不开
+**猫应该主动替铲屎官打开浏览器**，不要等铲屎官点 toast 或手动输 URL。
+
+#### 调用步骤（按顺序执行，不要跳步）
+
+```
+Step 1: 确认目标服务器在跑
+  curl -s -o /dev/null -w "%{http_code}" http://localhost:PORT
+  → 200/301/304 = 可以继续
+  → 000/connection refused = 服务器没起来，先启动再说
+
+Step 2: 调用 auto-open API
+  curl -X POST http://localhost:API_PORT/api/preview/auto-open \
+    -H "Content-Type: application/json" \
+    -d '{"port": PORT}'
+
+Step 3: 等 1-2 秒，右侧 Browser panel 应自动打开
+  → 如果没反应，检查 Step 1 是否真的返回了 200
+```
+
+#### API 参数
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `port` | **是** | dev server 端口号 |
+| `path` | 否 | 页面路径，默认 `/` |
+| `worktreeId` | **建议传** | 传了保证精确送达；不传也能工作（走 global broadcast），但多 tab 场景可能误触其他 session |
+
+> **怎么获取 worktreeId**：就是你当前工作的 worktree 目录名。例如你在 `cat-cafe-f120-fix` 目录里工作，worktreeId 就是 `cat-cafe-f120-fix`。如果你在主仓库 `cat-cafe` 里，就不需要传。
+
+#### 常见错误
+
+| 现象 | 原因 | 修法 |
+|------|------|------|
+| 右侧无反应 | 目标服务器没在跑 | 先 `curl localhost:PORT` 确认 |
+| `{"error":"Proxy error","message":"socket hang up"}` | 目标服务器已退出 | 重启服务器，再刷新 Browser panel |
+| 打开了系统 Chrome | 用了 Playwright/Chrome MCP 等外部工具 | **不要用外部浏览器工具！** auto-open 是 Hub 内嵌预览，不是系统浏览器 |
+| 两个重复 tab | React Strict Mode（已修复） | 升级到最新代码 |
+
 - 适用场景：写完前端代码后、铲屎官说"看看效果"、需要展示复杂页面
 - ⚠️ **不要传 `html` 参数**（后端不支持）；简单 HTML 可视化用 `html_widget` rich block
 
@@ -81,6 +113,8 @@ Hub 内置了嵌入式浏览器面板（F120），可以直接预览运行中的
 
 ## 不要做的事
 
+- **不要跳过 Step 1（验证服务器）直接调 auto-open** — 服务器没跑 = proxy error
+- **不要用 Playwright / Chrome MCP / `open` 命令打开系统浏览器** — F120 是 Hub 内嵌预览，走 iframe，不走系统浏览器
 - 不要手动去构造 gateway URL（让 Hub 前端处理）
 - 不要尝试预览外部 URL（只支持 localhost）
 - 不要预览 Cat Cafe 自身服务端口（会被端口验证拦截）
