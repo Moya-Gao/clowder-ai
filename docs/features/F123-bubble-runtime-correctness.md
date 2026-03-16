@@ -71,6 +71,24 @@ created: 2026-03-14
 - [x] AC-C3: 提供 bubble provenance / timeline dump 的最小可用调试能力，能导出一次 invocation 的关键 lifecycle
 - [ ] AC-C4: F123 完成时，剩余未解问题必须明确分流为 provider/runtime 问题或 follow-up feature，不能再以“散装 bug”留在空气里
 
+## Current State Snapshot（2026-03-16）
+
+当前代码已经 merge 的是 3 个切片，不是整条 F123 的完成态：
+
+| PR | Merge Commit | 实际落地 | 对齐 AC |
+|----|--------------|----------|---------|
+| #460 | `1862e4f1` | active/background 首批 fixture、callback 替换 stream、late-stream suppression、`dumpBubbleTimeline()` | AC-A2, AC-B4, AC-C3 |
+| #464 | `74e4663e` | hydration reconcile 中 `callback > stream` 的 phase priority | 部分推进 AC-C1（未完成） |
+| #465 | `5c3f9ac4` | 保持 late-stream suppression 到观察到不同 `invocationId` 为止，封住 #464 merge 后的 ghost bubble 回归 | 部分推进 AC-C1（未完成） |
+
+因此，F123 当前是：
+
+- **已明显压住高频双影症状**，尤其是同 invocation 下 callback/stream 并存
+- **已补上最小可用的 bubble timeline dump**
+- **但仍不能 close**，因为 truth model、统一 identity contract、store/invariant 断言、F5/thread-switch 的完整 replay suite 还没完成
+
+换句话说：我们已经证明了几条关键路径有效，但还没有证明“这条线已经系统性收口”。
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
