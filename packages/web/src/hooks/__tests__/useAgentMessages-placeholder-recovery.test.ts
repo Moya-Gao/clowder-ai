@@ -294,4 +294,32 @@ describe('useAgentMessages placeholder recovery', () => {
     expect(mockSetStreaming).toHaveBeenCalledWith('msg-server-1', true);
     expect(mockAppendToMessage).toHaveBeenCalledWith('msg-server-1', ' world');
   });
+
+  it('preserves reply threading metadata on new stream bubbles', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'codex',
+        content: '收到，我来处理',
+        origin: 'stream',
+        replyTo: 'msg-parent-1',
+        replyPreview: { senderCatId: 'opus', content: '@缅因猫 帮忙看一下' },
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assistant',
+        catId: 'codex',
+        origin: 'stream',
+        replyTo: 'msg-parent-1',
+        replyPreview: { senderCatId: 'opus', content: '@缅因猫 帮忙看一下' },
+      }),
+    );
+  });
 });

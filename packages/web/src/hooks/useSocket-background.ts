@@ -337,6 +337,12 @@ export function handleBackgroundAgentMessage(
           streaming: !msg.isFinal,
           catStatus: msg.isFinal ? 'done' : 'streaming',
         });
+        if (msg.replyTo || msg.replyPreview) {
+          options.store.patchThreadMessage(msg.threadId, messageId, {
+            ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+            ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+          });
+        }
         if (msg.isFinal) {
           options.bgStreamRefs.delete(streamKey);
         }
@@ -351,6 +357,8 @@ export function handleBackgroundAgentMessage(
           content: msg.content,
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
           ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
+          ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+          ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
           timestamp: msg.timestamp,
           isStreaming: !msg.isFinal,
           origin: 'stream',

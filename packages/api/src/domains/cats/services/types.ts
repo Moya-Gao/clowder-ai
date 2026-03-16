@@ -131,6 +131,10 @@ export interface AgentMessage {
   messageId?: string;
   /** F52: Cross-thread origin metadata (set for cross-thread callback messages) */
   extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string }; targetCats?: string[] };
+  /** F121: ID of the message this message is replying to */
+  replyTo?: string;
+  /** F121: Hydrated preview of the replied-to message */
+  replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F061: Whether this message mentions the owner (@user/@铲屎官/configured patterns) */
   mentionsUser?: boolean;
   /** F108: Invocation ID — allows frontend to distinguish messages from concurrent invocations */

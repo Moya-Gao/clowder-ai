@@ -422,6 +422,12 @@ export function useAgentMessages() {
           const messageId = getOrRecoverActiveAssistantMessageId(msg.catId, msg.metadata, { ensureStreaming: true });
           if (messageId) {
             appendToMessage(messageId, msg.content);
+            if (msg.replyTo || msg.replyPreview) {
+              patchMessage(messageId, {
+                ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+                ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+              });
+            }
           } else {
             // New stream message for this cat
             const id = `msg-${Date.now()}-${msg.catId}`;
@@ -437,6 +443,8 @@ export function useAgentMessages() {
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
               ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+              ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+              ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
               timestamp: Date.now(),
               isStreaming: true,
             });

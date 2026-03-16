@@ -34,6 +34,10 @@ interface AgentMessage {
   metadata?: { provider: string; model: string; sessionId?: string; usage?: import('../stores/chat-types').TokenUsage };
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
+  /** F121: ID of the message this message is replying to */
+  replyTo?: string;
+  /** F121: Hydrated preview of the replied-to message */
+  replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
   timestamp: number;

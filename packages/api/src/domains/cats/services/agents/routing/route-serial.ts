@@ -25,7 +25,7 @@ import {
 import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
-import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
+import { hydrateReplyPreview, type StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
@@ -148,6 +148,8 @@ export async function* routeSerial(
         catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
       const teammates = [...new Set(worklist.filter((id) => id !== catId))];
       const directMessageFrom = worklistEntry.a2aFrom.get(catId);
+      const streamReplyTo = worklistEntry.a2aTriggerMessageId.get(catId);
+      const streamReplyPreview = streamReplyTo ? await hydrateReplyPreview(deps.messageStore, streamReplyTo) : undefined;
       let mentionRoutingFeedback = null;
       if (deps.invocationDeps.threadStore) {
         try {
@@ -449,7 +451,14 @@ export async function* routeSerial(
           doneMsg = msg; // Buffer — yield after A2A detection
         } else {
           // Tag CLI stdout text with origin: 'stream' (thinking/internal)
-          yield msg.type === 'text' ? { ...msg, origin: 'stream' as const } : msg;
+          yield msg.type === 'text'
+            ? {
+                ...msg,
+                origin: 'stream' as const,
+                ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
+                ...(streamReplyPreview ? { replyPreview: streamReplyPreview } : {}),
+              }
+            : msg;
         }
       }
 
@@ -598,6 +607,7 @@ export async function* routeSerial(
             ...(thinkingContent ? { thinking: thinkingContent } : {}),
             ...(firstMetadata ? { metadata: firstMetadata } : {}),
             ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
+            ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
             extra: {
               ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
               ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
@@ -733,6 +743,7 @@ export async function* routeSerial(
             origin: 'stream',
             timestamp: Date.now(),
             threadId,
+            ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
             ...(thinkingContent ? { thinking: thinkingContent } : {}),
             ...(firstMetadata ? { metadata: firstMetadata } : {}),
             ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
@@ -791,6 +802,7 @@ export async function* routeSerial(
             origin: 'stream',
             timestamp: Date.now(),
             threadId,
+            ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
             ...(firstMetadata ? { metadata: firstMetadata } : {}),
             toolEvents: collectedToolEvents,
             ...(ownInvocationId ? { extra: { stream: { invocationId: ownInvocationId } } } : {}),
