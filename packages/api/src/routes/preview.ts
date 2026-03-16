@@ -93,9 +93,17 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
       if (!result.allowed) {
         return result;
       }
-      // Emit to worktree-scoped room (or global fallback)
-      const room = worktreeId ? `worktree:${worktreeId}` : 'preview:global';
-      opts.socketEmit?.('preview:auto-open', { port, path, threadId, worktreeId }, room);
+      // Dual-broadcast: when worktreeId is provided, emit to both the scoped room
+      // AND preview:global so the matching session always receives the event
+      // regardless of frontend room-join timing. The frontend's shouldAcceptAutoOpen
+      // filter (fail-closed) prevents cross-session leakage.
+      const eventData = { port, path, threadId, worktreeId };
+      if (worktreeId) {
+        opts.socketEmit?.('preview:auto-open', eventData, `worktree:${worktreeId}`);
+        opts.socketEmit?.('preview:auto-open', eventData, 'preview:global');
+      } else {
+        opts.socketEmit?.('preview:auto-open', eventData, 'preview:global');
+      }
       auditLog
         .append({
           type: AuditEventTypes.BROWSER_PREVIEW_OPEN,

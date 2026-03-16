@@ -73,14 +73,18 @@ export function BrowserPanel({ initialPort, initialPath }: BrowserPanelProps) {
     const path = initialPath ?? '/';
     const title = `localhost:${initialPort}${path !== '/' ? path : ''}`;
     // Find existing tab with same port
-    const existing = tabs.find((t) => t.port === initialPort);
-    if (existing) {
-      setActiveTabId(existing.id);
-    } else {
+    // Use functional update to guard against React Strict Mode double execution.
+    // The find check inside setTabs ensures we never create a duplicate tab.
+    setTabs((prev) => {
+      const existing = prev.find((t) => t.port === initialPort);
+      if (existing) {
+        setActiveTabId(existing.id);
+        return prev;
+      }
       const id = `tab-${++tabIdCounter.current}`;
-      setTabs((prev) => [...prev, { id, port: initialPort, path, title }]);
       setActiveTabId(id);
-    }
+      return [...prev, { id, port: initialPort, path, title }];
+    });
     activateView(initialPort, path);
   }, [initialPort, initialPath, activateView]); // eslint-disable-line react-hooks/exhaustive-deps
 

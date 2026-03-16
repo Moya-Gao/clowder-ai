@@ -6,12 +6,11 @@ import { API_URL } from '@/utils/api-client';
  * Fail-closed filter: determines if an auto-open event should be accepted.
  * Exported for testing.
  */
-export function shouldAcceptAutoOpen(
-  sessionWorktreeId: string | null,
-  eventWorktreeId: string | undefined,
-): boolean {
+export function shouldAcceptAutoOpen(sessionWorktreeId: string | null, eventWorktreeId: string | undefined): boolean {
   if (sessionWorktreeId) {
-    // Session has worktree → only accept exact match
+    // Session has worktree → fail-closed: only exact match.
+    // API dual-broadcasts to both preview:global and worktree:${id},
+    // so the matching session always receives via its worktree room.
     return eventWorktreeId === sessionWorktreeId;
   }
   // Session has no worktree → only accept global events (no worktreeId)
@@ -40,14 +39,14 @@ export function usePreviewAutoOpen(worktreeId: string | null) {
       const apiUrl = new URL(API_URL);
       const socket = io(`${apiUrl.protocol}//${apiUrl.host}`, { transports: ['websocket'] });
 
-      // Only join the room matching our session scope.
-      // Sessions with worktreeId join ONLY their worktree room (not global),
-      // preventing cross-session event fan-out at the transport layer.
-      // Sessions without worktreeId join ONLY preview:global.
+      // Always join preview:global so we receive broadcasts from auto-open
+      // calls that omit worktreeId (common: cat calls API before session
+      // has worktreeId, or simply omits it). Additionally join worktree room
+      // if session is scoped. shouldAcceptAutoOpen() filters out cross-session
+      // events as defence-in-depth.
+      socket.emit('join_room', 'preview:global');
       if (worktreeId) {
         socket.emit('join_room', `worktree:${worktreeId}`);
-      } else {
-        socket.emit('join_room', 'preview:global');
       }
 
       const handler = (data: { port: number; path?: string; worktreeId?: string }) => {

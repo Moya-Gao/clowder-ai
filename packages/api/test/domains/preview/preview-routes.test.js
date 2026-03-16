@@ -146,10 +146,12 @@ describe('POST /api/preview/auto-open', () => {
     assert.equal(body.allowed, true);
     assert.equal(body.port, 5173);
     assert.equal(body.path, '/dashboard');
+    // Without worktreeId: single emit to preview:global
     assert.equal(emitted.length, 1);
     assert.equal(emitted[0].event, 'preview:auto-open');
     assert.equal(emitted[0].data.port, 5173);
     assert.equal(emitted[0].data.path, '/dashboard');
+    assert.equal(emitted[0].room, 'preview:global');
   });
 
   it('rejects excluded port (6399)', async () => {
@@ -164,7 +166,7 @@ describe('POST /api/preview/auto-open', () => {
     assert.equal(emitted.length, 0); // no socket emit for rejected port
   });
 
-  it('includes worktreeId in emitted event for scope filtering', async () => {
+  it('dual-broadcasts when worktreeId is provided (worktree room + global)', async () => {
     emitted.length = 0;
     const res = await app2.inject({
       method: 'POST',
@@ -172,8 +174,13 @@ describe('POST /api/preview/auto-open', () => {
       payload: { port: 5173, path: '/settings', worktreeId: 'wt-abc' },
     });
     assert.equal(res.statusCode, 200);
+    // Should emit to BOTH rooms
+    assert.equal(emitted.length, 2, 'should dual-broadcast to worktree room and preview:global');
+    assert.equal(emitted[0].room, 'worktree:wt-abc');
     assert.equal(emitted[0].data.worktreeId, 'wt-abc');
     assert.equal(emitted[0].data.path, '/settings');
+    assert.equal(emitted[1].room, 'preview:global');
+    assert.equal(emitted[1].data.worktreeId, 'wt-abc');
   });
 
   it('works without path (port-only)', async () => {
@@ -190,18 +197,7 @@ describe('POST /api/preview/auto-open', () => {
     assert.equal(emitted[0].data.path, undefined);
   });
 
-  it('emits to worktree room when worktreeId is provided', async () => {
-    emitted.length = 0;
-    const res = await app2.inject({
-      method: 'POST',
-      url: '/api/preview/auto-open',
-      payload: { port: 5173, worktreeId: 'wt-room-test' },
-    });
-    assert.equal(res.statusCode, 200);
-    assert.equal(emitted[0].room, 'worktree:wt-room-test');
-  });
-
-  it('emits to preview:global room when worktreeId is absent', async () => {
+  it('emits only to preview:global when worktreeId is absent', async () => {
     emitted.length = 0;
     const res = await app2.inject({
       method: 'POST',
@@ -209,6 +205,7 @@ describe('POST /api/preview/auto-open', () => {
       payload: { port: 5173 },
     });
     assert.equal(res.statusCode, 200);
+    assert.equal(emitted.length, 1);
     assert.equal(emitted[0].room, 'preview:global');
   });
 });

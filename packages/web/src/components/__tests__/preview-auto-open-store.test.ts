@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { useChatStore } from '@/stores/chatStore';
 import { shouldAcceptAutoOpen } from '@/hooks/usePreviewAutoOpen';
+import { useChatStore } from '@/stores/chatStore';
 
 describe('preview auto-open store', () => {
   afterEach(() => {
@@ -51,7 +51,7 @@ describe('shouldAcceptAutoOpen (room scope filter)', () => {
     expect(shouldAcceptAutoOpen('wt-123', 'wt-456')).toBe(false);
   });
 
-  it('rejects global event when session has worktreeId (cross-session leakage prevention)', () => {
+  it('rejects global event when session has worktreeId (fail-closed, API dual-broadcasts to worktree room)', () => {
     expect(shouldAcceptAutoOpen('wt-123', undefined)).toBe(false);
   });
 
