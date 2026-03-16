@@ -306,11 +306,12 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
 **D-4. 检索协议升级**
 
 ```typescript
-// search 接口增强
+// search 接口增强（三维参数）
 search(query, {
-  kind: ['feature', 'decision'],           // 过滤层
+  kind: ['feature', 'decision'],           // 过滤层（精确 kind）
   mode: 'lexical' | 'semantic' | 'hybrid', // 检索模式
-  scope: 'docs' | 'memory' | 'threads' | 'all' // 快捷分层
+  scope: 'docs' | 'memory' | 'threads' | 'sessions' | 'all', // 快捷分层
+  depth: 'summary' | 'raw'                 // 噪音控制：默认 summary
 })
 ```
 
@@ -320,7 +321,59 @@ search(query, {
 - 找长聊天里隐含的同义表达 → `semantic` 或 `hybrid`
 - 找源码 symbol / API 实现 → 继续 code search，不走记忆组件
 
-**D-5. 提示词 + Skill 集成（铲屎官重点指示：最重要的一步）**
+**D-5. MCP 工具收敛（铲屎官指示：不能老的一套新的一套）**
+
+> 铲屎官原话："你们先把所有和记忆有关的 MCP 拿出来做梳理，把相关的归一，不然到时候又会搞出分叉。"
+
+现有 27 个记忆/检索相关 MCP 工具，分 4 条平行链路。Phase D 收敛为两层架构：
+
+**Layer 1: 统一检索入口（猫猫日常用）**
+
+| 工具 | 定位 |
+|------|------|
+| `search_evidence` | **唯一的 recall/search 入口**。支持 scope/mode/depth 参数，覆盖 docs + memory + threads + sessions |
+
+```typescript
+search_evidence(query, {
+  scope: 'docs' | 'memory' | 'threads' | 'sessions' | 'all',
+  mode: 'lexical' | 'semantic' | 'hybrid',
+  depth: 'summary' | 'raw'  // summary-first, raw-on-demand
+})
+```
+
+**Layer 2: Drill-down 工具（按需深入）**
+
+| 工具 | 定位 | 何时用 |
+|------|------|--------|
+| `get_thread_context` | by-id fetch（实时上下文） | 已知 threadId，需要最近 N 条消息 |
+| `list_threads` | 元数据查询 | 找 thread 列表 |
+| `list_session_chain` | session 列表 | 已知 threadId，看 session 链 |
+| `read_session_digest` | session 摘要 | search_evidence 命中 session 后深入 |
+| `read_session_events` | session 详情（3 视图） | 需要看 raw transcript |
+| `read_invocation_detail` | invocation 级取证 | 审计/调试 |
+| `reflect` | 反思（证据之上的总结） | 需要 LLM 综合，不是检索入口 |
+| `retain_memory` | 记忆沉淀 | marker 提交，不是检索工具 |
+
+**废弃/吸收**
+
+| 工具 | 处置 | 原因 |
+|------|------|------|
+| `search_evidence_callback` | **合并到 search_evidence** | callback auth 是实现细节，不该暴露两个工具 |
+| `reflect_callback` | **合并到 reflect** | 同上 |
+| `search_messages` | **吸收为 search_evidence(scope=threads, depth=raw) 的底层实现** | 不再作为独立一级入口 |
+| `session_search` | **吸收为 search_evidence(scope=sessions) 的底层实现** | 不再作为独立一级入口 |
+
+**不动**
+
+| 工具 | 原因 |
+|------|------|
+| `signal_*`（12 个） | 独立系统，外部信息源，不是项目记忆 |
+| `feat_index` | 元数据查询，不是内容检索 |
+| `list_tasks` | 任务管理，不是记忆 |
+
+**SystemPromptBuilder 也要改**：不能再把 session-chain 三件套排成"默认找历史的第一选择"。要先教猫猫用统一 `search_evidence`，再教怎么 drill-down。
+
+**D-6. 提示词 + Skill 集成（铲屎官重点指示：最重要的一步）**
 
 > 铲屎官原话："就算你们做一个超酷的功能，你们自己没有感知到，你们也是不会用的。"
 
@@ -386,6 +439,10 @@ search(query, {
 - [ ] AC-D11: feat-lifecycle 集成——立项/状态变更/关闭时自动 `incrementalUpdate`
 - [ ] AC-D12: 修改 feature 文档后 30 秒内可检索到新标题/摘要（增量 freshness）
 - [ ] AC-D13: Embedding load 失败时检索成功率不下降（fail-open lexical 保底）
+- [ ] AC-D14: `search_evidence` 成为统一检索入口，支持 `scope`/`mode`/`depth` 参数
+- [ ] AC-D15: `search_messages` 和 `session_search` 降级为内部实现，不再作为独立 MCP 工具暴露
+- [ ] AC-D16: callback auth 版本合并到主版本（`search_evidence_callback` → `search_evidence`，`reflect_callback` → `reflect`）
+- [ ] AC-D17: SystemPromptBuilder 更新——`search_evidence` 排在记忆工具第一位，drill-down 工具排在后面
 
 ## Dependencies
 
@@ -446,6 +503,8 @@ search(query, {
 | KD-24 | **thread 检索 summary-first, raw-on-demand**——默认搜 session digest，不搜 raw transcript | 聊天噪音会淹没文档；Artem 方案的核心也是分层 | 2026-03-16 |
 | KD-25 | **检索路由 BM25-first**——大多数查询先 lexical，semantic 是增强层不是主路 | 冷启动快、稳定、三猫并发友好 | 2026-03-16 |
 | KD-26 | **提示词/Skill 集成是验收门槛**——功能做完必须修改系统提示词，否则猫猫不会用 | 铲屎官直接指示："就算做了超酷功能，没有感知到也不会用" | 2026-03-16 |
+| KD-27 | **MCP 工具两层收敛**——统一入口 `search_evidence` + drill-down 层（thread/session/reflect），废弃 4 个冗余工具 | 两猫+铲屎官共识：不能老一套新一套双轨并存 | 2026-03-16 |
+| KD-28 | **search_evidence 加 `depth` 参数**（summary/raw）——默认 summary-first，raw-on-demand | 砚砚补充：scope 不够，depth 维度决定噪音量 | 2026-03-16 |
 
 ## Timeline
 
@@ -471,6 +530,8 @@ search(query, {
 | 2026-03-14 | 布偶猫+缅因猫激活讨论：Hindsight 清理 + MVP 定义（零分歧） |
 | 2026-03-16 | 铲屎官输入：Artem《Grep Is Dead》+ thread 检索升级 + **提示词/Skill 集成是验收门槛** |
 | 2026-03-16 | 布偶猫+缅因猫(GPT-5.4)独立思考：不引入 QMD，扩大 F102 数据源，Phase D spec 更新 |
+| 2026-03-16 | 铲屎官追加：MCP 工具必须收敛归一，不能新旧双轨 |
+| 2026-03-16 | 布偶猫+缅因猫(GPT-5.4)：MCP 两层收敛方案（统一入口 + drill-down），零分歧 |
 
 ## Review Gate
 
