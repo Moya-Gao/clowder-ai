@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复
 
-> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: open
+> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16)
 
 ## Why
 
@@ -273,6 +273,7 @@ CLI 挂了 (liveness, Phase A+B ✅)
 | 2026-03-14 | Post-close hardening chain merged — sealing 事故补丁串（`88084b54` → `66b20e0f` → `60cdd082` → `168fcf97` → `19e54ad9` → `d28d5177` → `d288fa4c` → `d18bd771`）完成，`Follow-up Hardening` 剩余两项转持续跟踪 |
 | 2026-03-16 | Hardening PR #492 — `reconcileAllStuck()` 全局 reaper + `ISessionSealer` 接口收干净 + `.catch()` 审计日志防护 |
 | 2026-03-16 | GAP-1 记录 — @codex review 时因初始上下文注入溢出崩溃，记录为已知缺口（overflow breaker 不覆盖 initial context injection 路径） |
+| 2026-03-16 | Hardening merged (PR #492, squash `11333b02`) — gpt52 review 放行 + 云端 review 0 findings → Follow-up Hardening closed |
 
 ## Review Gate
 
