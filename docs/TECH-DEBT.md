@@ -6,7 +6,7 @@ created: 2026-02-26
 ---
 
 # Cat Cafe 技术债务
-> 维护者：三猫 | 最后更新：2026-03-04
+> 维护者：三猫 | 最后更新：2026-03-16
 > 来源：由原 `docs/BACKLOG.md` 债务段拆分。
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -109,6 +109,10 @@ created: 2026-02-26
 | TD108 | **Hyperfocus Brake 前端 TTS 播放** | [x] | F085 AC25 裁出 → **回收到 F085 Phase 5 AC29** | brake 触发时前端自动播放三猫语音撒娇。Phase 5 PR #361 已实现（`useTts.synthesize()` autoplay）。|
 | TD109 | **Hyperfocus Brake agent hook 退役** | [ ] | F085 AC27 裁出 | Phase 4 平台化上线后，移除 `pretool-brake-check.sh` + `hyperfocus-brake-timer.sh`。需先验证平台 brake 稳定运行 1 周+。触发条件：铲屎官确认平台 brake 稳定后。|
 | TD110 | **Hyperfocus Brake 设置真持久化** | [ ] | F085 AC31 裁出 | brake 开关 + 阈值目前存 in-memory Map，浏览器刷新不丢但服务重启丢。需迁移到 Redis 或 DB。触发条件：铲屎官反馈设置丢失或部署频率增加时。|
+| TD111 | **Bubble writer identity contract 统一收敛** | [ ] | F123 AC-B1 转出 | `active/background/history/draft/queue` 五条写路径还没有统一到同一个 enforced identity contract。`bubbleIdentity.ts` 已提供 truth model/helper，但不是写路径级 enforcer。Evolved from: F123。|
+| TD112 | **ChatStore duplicate identity invariant** | [ ] | F123 AC-B2 转出 | 目前没有 store 级 invariant 明确阻止同一 `catId + invocationId + bubble kind` 在 store 中稳定共存两条 text bubble。需要在写入层或 store 层加硬防线。Evolved from: F123。|
+| TD113 | **placeholder → formal 单调升级规则收口** | [ ] | F123 AC-B3 转出 | 现有 replace/hydration/callback 优先级已覆盖高频症状，但 placeholder 升级到 formal 仍是 case-by-case 规则，尚未统一成系统性单调 contract。Evolved from: F123。|
+| TD114 | **Bubble duplicate invariant diagnostics / assertions** | [ ] | F123 AC-B5 转出 | 目前有 `dumpBubbleTimeline()`，但没有 invariant 断言直接指出 duplicate 是从哪个入口创建的。需要 dev/test 级诊断或断言。Evolved from: F123。|
 
 ## P3 — 可选优化
 

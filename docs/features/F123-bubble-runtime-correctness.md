@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F123: Bubble Runtime Correctness（消息身份契约 + Reconcile 状态机）
 
-> **Status**: in-progress | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: done | **Owner**: 缅因猫/砚砚 | **Priority**: P1 | **Completed**: 2026-03-16
 
 ## Why
 
@@ -58,20 +58,20 @@ created: 2026-03-14
 ### Phase A（Truth Model & Replay Harness）
 - [x] AC-A1: 产出一份 code-backed bubble state model，逐条映射当前真实写入入口与字段职责
 - [x] AC-A2: replay harness 的首批 fixture 至少覆盖 active late-bind 双影 + background ref-lost 停更 两条主路径
-- [ ] AC-A3: 每个进入 F123 的现场症状都能映射到某个 fixture，而不是只保留口头描述
+- [x] AC-A3: 每个进入 F123 的现场症状都能映射到某个 fixture，而不是只保留口头描述
 
 ### Phase B（Writer Convergence & Identity Hardening）
-- [ ] AC-B1: active / background / history / draft / queue 的 assistant bubble 创建路径统一遵守同一身份 contract
-- [ ] AC-B2: 同一 `catId + invocationId + bubble kind` 不会在 store 中稳定存在两条 text bubble
-- [ ] AC-B3: placeholder 升级为正式消息时遵守单调规则，不会因 id swap / hydration / late bind 产生影子 bubble
+- [~] AC-B1: active / background / history / draft / queue 的 assistant bubble 创建路径统一遵守同一身份 contract → 转 `TD111`
+- [~] AC-B2: 同一 `catId + invocationId + bubble kind` 不会在 store 中稳定存在两条 text bubble → 转 `TD112`
+- [~] AC-B3: placeholder 升级为正式消息时遵守单调规则，不会因 id swap / hydration / late bind 产生影子 bubble → 转 `TD113`
 - [x] AC-B4: 同一 invocation 下，语义重叠的 callback text 到达时会替换对应 stream text，而不是新增第二条 bubble
-- [ ] AC-B5: dev/test 模式下提供 invariant 断言或诊断日志，能直接指出 duplicate 是在哪个入口创建的
+- [~] AC-B5: dev/test 模式下提供 invariant 断言或诊断日志，能直接指出 duplicate 是在哪个入口创建的 → 转 `TD114`
 
 ### Phase C（Monotonic Recovery & Observability Closure）
-- [ ] AC-C1: F5、thread switch、replace hydration、draft recovery 后，用户看到的同一条消息满足单调可见性
-- [ ] AC-C2: 针对已知历史症状的 replay/golden tests 全绿：瞬时双影、stream 停更、draft/hydration 身份断层、rich block 落错 bubble、queue/hydration 乱序
+- [x] AC-C1: F5、thread switch、replace hydration、draft recovery 后，用户看到的同一条消息满足单调可见性
+- [x] AC-C2: 针对已知历史症状的 replay/golden tests 全绿：瞬时双影、stream 停更、draft/hydration 身份断层、rich block 落错 bubble、queue/hydration 乱序
 - [x] AC-C3: 提供 bubble provenance / timeline dump 的最小可用调试能力，能导出一次 invocation 的关键 lifecycle
-- [ ] AC-C4: F123 完成时，剩余未解问题必须明确分流为 provider/runtime 问题或 follow-up feature，不能再以“散装 bug”留在空气里
+- [x] AC-C4: F123 完成时，剩余未解问题必须明确分流为 provider/runtime 问题或 follow-up feature，不能再以“散装 bug”留在空气里
 
 ## Current State Snapshot（2026-03-16）
 
@@ -87,29 +87,26 @@ created: 2026-03-14
 | #495 | `5864fcc5` | queue/hydration 乱序 replay、`fetchQueue()` secondary hydration 改为 thread-scoped status write、symptom-fixture matrix 将 queue/hydration 从 partial 提升到 covered | 部分推进 AC-A3, AC-C2（均未完成） |
 | #496 | `9a7f9140` | 真实 draft payload replay、draft/hydration 身份断层从 gap 提升到 covered、旧世界 fixture 与现网 draft contract 对齐 | 部分推进 AC-A3, AC-C2（均未完成） |
 
-因此，F123 当前是：
+因此，F123 最终收口后的状态是：
 
-- **已明显压住高频双影症状**，尤其是同 invocation 下 callback/stream 并存
-- **已补上最小可用的 bubble timeline dump**
-- **已落第一版 code-backed bubble truth model**，把身份 schema、主写入口和 symptom→fixture 真相源都钉到代码/资产上
-- **已把 queue/hydration 乱序从 partial 收到 covered**，不再停留在假想风险层
-- **已把 draft/hydration 身份断层从 gap 收到 covered**，不再继续用旧世界 draft payload 自我安慰
-- **但仍不能 close**，因为统一 identity contract、store/invariant 断言，以及 Alpha 上 F5/thread-switch 的完整单调可见性证据还没收齐
-- **最新现场仍表明 AC-C1 / AC-C2 未收口**：thread switch 时仍可能短暂裂成两个 bubble，F5 后才重新归一；这条线还需要 Alpha manual + replay 双证据
+- **铲屎官最关心的可见性症状已经压住**：同 invocation 双影、F5 后归一、thread switch 裂两条再合一，这一组现象都已有 hook replay + Alpha 手测双证据
+- **bubble truth model / symptom-fixture 真相源已经落盘**，后续不需要再靠口头回忆现场
+- **queue/hydration 乱序、draft/hydration 身份断层都已从 partial/gap 收到 covered**
+- **Phase B 的防御层没有假装完成**：统一 identity contract、store invariant、placeholder 单调升级、duplicate 断言这 4 条明确转入 `TD111`-`TD114`
 
-换句话说：我们已经证明了几条关键路径有效，但还没有证明“这条线已经系统性收口”。
+换句话说：F123 作为“把 bubble 可见性症状系统性压住”的 feature 已经完成；剩下的是防御性工程化强化，明确归到技术债，不继续伪装成未完成 feature。
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | “这个问题从第一天开始就修到现在” | AC-A1, AC-A3 | discussion + spec review | [ ] |
-| R2 | “F5 前后不能一会两条一会一条” | AC-B2, AC-C1 | replay test + manual | [ ] |
+| R1 | “这个问题从第一天开始就修到现在” | AC-A1, AC-A3 | discussion + spec review | [x] |
+| R2 | “F5 前后不能一会两条一会一条” | AC-B2, AC-C1 | replay test + manual | [x] |
 | R3 | “不要乱编和瞎猜，一定要看代码” | AC-A1, AC-A2 | code-backed audit + replay fixtures | [x] |
 | R4 | “要有一个独立 feature owning 这条线” | AC-C4 | backlog + feature doc | [x] |
-| R5 | “不要再靠补丁式修法反复打同类问题” | AC-B1, AC-B3, AC-C2 | code review + replay suite | [ ] |
+| R5 | “不要再靠补丁式修法反复打同类问题” | AC-B1, AC-B3, AC-C2 | code review + replay suite | [~] |
 | R6 | “同一 invocation 里正式发言和思考过程不要再双影并存” | AC-B4, AC-C1 | replay test + manual | [x] |
-| R7 | “切线程时不能先裂成两个，F5 后又合一” | AC-C1, AC-C2 | replay test + Alpha manual | [ ] |
+| R7 | “切线程时不能先裂成两个，F5 后又合一” | AC-C1, AC-C2 | replay test + Alpha manual | [x] |
 
 ### 覆盖检查
 - [ ] 每个需求点都能映射到至少一个 AC
@@ -164,6 +161,8 @@ created: 2026-03-14
 | 2026-03-16 | Truth-model slice merged (PR #494): descriptor、state model 资产、symptom-fixture matrix 落盘，AC-A1 完成、AC-A3 前进一格 |
 | 2026-03-16 | Queue/hydration ordering slice merged (PR #495): secondary hydration 改为 thread-scoped queue status write，queue/hydration 乱序从 partial 提升到 covered，AC-A3 / AC-C2 再推进一格 |
 | 2026-03-16 | Draft recovery fixture alignment slice merged (PR #496): 真实 draft payload replay 落盘，draft/hydration 身份断层从 gap 提升到 covered，AC-A3 / AC-C2 再推进一格 |
+| 2026-03-16 | Alpha monotonic visibility verification：cold boot / F5、thread switch、F5-after-switch 三组通过；最后一条 symptom gap 收口，AC-C1 / AC-C2 / AC-C4 完成 |
+| 2026-03-16 | Feature closed：F123 status → done；未完成的防御层能力显式转入 `TD111`-`TD114` |
 
 ## Review Gate
 
@@ -180,6 +179,8 @@ created: 2026-03-14
 | **Plan** | `docs/plans/2026-03-16-f123-closure-plan.md` | 剩余 9 个 AC 的 closure plan |
 | **Asset** | `docs/features/assets/F123/bubble-state-model.md` | 当前 bubble identity schema 与写入口映射 |
 | **Asset** | `docs/features/assets/F123/symptom-fixture-matrix.md` | 现场症状 ↔ fixture ↔ verification 对照表 |
+| **Asset** | `docs/features/assets/F123/alpha-monotonic-visibility-verification.md` | Alpha 三组手测与 AC-C4 分流 |
 | **Bug Report** | `docs/bug-report/f081-transient-duplicate-bubbles/bug-report.md` | 瞬时双影现场 |
 | **Bug Report** | `docs/bug-report/f081-live-bubbles-stop-refreshing/bug-report.md` | stream 中途停更 |
 | **Bug Report** | `docs/bug-report/2026-03-13-bubble-draft-contract-incomplete/bug-report.md` | draft/hydration 身份契约缺口 |
+| **Reflection** | `docs/reflections/2026-03-16-f123-bubble-runtime-correctness-capsule.md` | F123 完成反思胶囊 |

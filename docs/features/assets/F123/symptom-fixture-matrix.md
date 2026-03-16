@@ -24,10 +24,10 @@ topics: [bubble, replay, fixture, truth-model]
 | draft / hydration 身份断层 | R1, R5 | `packages/web/src/hooks/__tests__/useChatHistory-replace-hydration.test.ts` | covered | 真实 draft payload（含 `origin:'stream'`、`extra.stream.invocationId`、`thinking`、`toolEvents`）在 hydration 后会收成单一 formal message，不再停留在 duplicate-only 的旧世界 fixture |
 | rich block 落错 bubble | R1, R5 | `packages/web/src/hooks/__tests__/useAgentMessages-richblock-correlation.test.ts` | covered | rich_block 无 `messageId` 时必须附着到 formal callback，而不是误绑到 streaming bubble |
 | queue / hydration 乱序 | R2, R5 | `packages/web/src/hooks/__tests__/useChatHistory-thread-switch.test.ts` + `packages/web/src/hooks/__tests__/useChatHistory-queue.test.ts` | covered | secondary queue hydrate 先于 `setCurrentThread()` 回来时，server 确认的 processing 状态必须写回目标 thread，而不是停在预填的 `pending` |
-| F5 / thread switch 后单调可见性全链路 | R2, R7 | — | gap | 需要 Alpha 手测 + replay/golden 双证据 |
+| F5 / thread switch 后单调可见性全链路 | R2, R7 | `docs/features/assets/F123/alpha-monotonic-visibility-verification.md` + `packages/web/src/hooks/__tests__/useChatHistory-thread-switch.test.ts` + `packages/web/src/hooks/__tests__/useChatHistory-replace-hydration.test.ts` | covered | Alpha cold boot/F5、thread switch、switch 后再 F5 三组通过；直播态 branch 仍由既有 hook replay 覆盖 |
 
 ## Gap Summary
 
-- 目前已经落地的是高频双影与 thread switch / hydration 主路径。
-- 还没系统封口的是 Alpha 场景下的 F5 / thread switch 单调可见性。
-- 这份矩阵是 F123 `AC-A3` 的真相源；新增现场症状时，先补这一页，再补 fixture。
+- F123 当前 symptom-fixture matrix 已经全 covered。
+- 这份矩阵是 F123 `AC-A3 / AC-C2` 的真相源；后续若再出现 bubble 可见性新症状，先补这一页，再决定是 follow-up feature 还是 TD。
+- 现阶段剩余的不是 symptom gap，而是防御层技术债：统一 identity contract、store invariant、placeholder 单调升级、duplicate 断言（见 `TD111`-`TD114`）。
