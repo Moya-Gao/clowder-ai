@@ -22,12 +22,12 @@ topics: [bubble, replay, fixture, truth-model]
 | thread switch 裂成两个，F5 后归一 | R2, R7 | `packages/web/src/hooks/__tests__/useChatHistory-thread-switch.test.ts` + `packages/web/src/hooks/__tests__/useChatHistory-replace-hydration.test.ts` | covered | cached duplicate invocation pair → switch 时强制 replace hydration |
 | callback replacement 后 late stream ghost bubble | R2, R5 | `packages/web/src/hooks/__tests__/useAgentMessages-richblock-correlation.test.ts` + `packages/web/src/hooks/__tests__/useSocket-background.test.ts` | covered | unlabeled late chunk 必须持续被 suppression 挡住，直到观察到不同 invocationId |
 | draft / hydration 身份断层 | R1, R5 | — | gap | 下一轮补 draft recovery fixture |
-| rich block 落错 bubble | R1, R5 | — | gap | 需要单独 replay rich block 与 bubble correlation |
-| queue / hydration 乱序 | R2, R5 | `packages/web/src/hooks/__tests__/useChatHistory-queue.test.ts` | partial | 目前只覆盖 queue hydrate 邻近回归，缺完整 symptom replay |
+| rich block 落错 bubble | R1, R5 | `packages/web/src/hooks/__tests__/useAgentMessages-richblock-correlation.test.ts` | covered | rich_block 无 `messageId` 时必须附着到 formal callback，而不是误绑到 streaming bubble |
+| queue / hydration 乱序 | R2, R5 | `packages/web/src/hooks/__tests__/useChatHistory-thread-switch.test.ts` + `packages/web/src/hooks/__tests__/useChatHistory-queue.test.ts` | covered | secondary queue hydrate 先于 `setCurrentThread()` 回来时，server 确认的 processing 状态必须写回目标 thread，而不是停在预填的 `pending` |
 | F5 / thread switch 后单调可见性全链路 | R2, R7 | — | gap | 需要 Alpha 手测 + replay/golden 双证据 |
 
 ## Gap Summary
 
 - 目前已经落地的是高频双影与 thread switch / hydration 主路径。
-- 还没系统封口的是 draft recovery、rich block correlation、queue/hydration 乱序全链路，以及 Alpha 场景下的 F5 / thread switch 单调可见性。
+- 还没系统封口的是 draft recovery，以及 Alpha 场景下的 F5 / thread switch 单调可见性。
 - 这份矩阵是 F123 `AC-A3` 的真相源；新增现场症状时，先补这一页，再补 fixture。

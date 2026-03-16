@@ -193,6 +193,7 @@ export function useChatHistory(threadId: string) {
     clearMessages,
     setCatInvocation,
     setThreadTargetCats,
+    updateThreadCatStatus,
     setQueue,
     setQueuePaused,
   } = useChatStore();
@@ -520,7 +521,7 @@ export function useChatHistory(threadId: string) {
       if (data.activeInvocations && data.activeInvocations.length > 0) {
         setThreadTargetCats(fetchForThread, data.activeInvocations);
         for (const catId of data.activeInvocations) {
-          store.setCatStatus(catId, 'streaming');
+          updateThreadCatStatus(fetchForThread, catId, 'streaming');
         }
         store.setThreadHasActiveInvocation(fetchForThread, true);
       } else {
@@ -535,7 +536,7 @@ export function useChatHistory(threadId: string) {
       if (isAbortError(err)) return;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId, setQueue, setQueuePaused]);
+  }, [threadId, setQueue, setQueuePaused, updateThreadCatStatus]);
 
   // Load history + tasks when threadId changes (handles initial mount and navigation)
   useEffect(() => {
