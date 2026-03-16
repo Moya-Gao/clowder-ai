@@ -39,8 +39,12 @@ Hub 内置了嵌入式浏览器面板（F120），可以直接预览运行中的
 
 **猫应该主动替铲屎官打开浏览器**，不要等铲屎官点 toast 或手动输 URL：
 - 调用 `POST /api/preview/auto-open` → 后端 emit `preview:auto-open` socket 事件 → 前端自动打开 browser panel
-- 支持 `{ port, path?, html? }`：`port + path` 打开指定页面；`html` 临时托管猫生成的 HTML
+- 请求体：`{ port, path?, worktreeId? }`
+  - `port`（必填）：dev server 端口号
+  - `path`（可选）：页面路径，默认 `/`
+  - `worktreeId`（**当前 thread 绑定了 worktree 时必传**）：当前 worktree ID。前端只接受匹配自己 worktreeId 的事件，不传 = 事件发到 global room 但已绑定 worktree 的 session 会拒收 = 打不开
 - 适用场景：写完前端代码后、铲屎官说"看看效果"、需要展示复杂页面
+- ⚠️ **不要传 `html` 参数**（后端不支持）；简单 HTML 可视化用 `html_widget` rich block
 
 ### 两层可视化策略
 铲屎官拍板："简单的用富文本，复杂的用猫主动打开浏览器。"

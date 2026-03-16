@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
+import { shouldAcceptAutoOpen } from '@/hooks/usePreviewAutoOpen';
 
 describe('preview auto-open store', () => {
   afterEach(() => {
@@ -37,5 +38,29 @@ describe('preview auto-open store', () => {
   it('consumePreviewAutoOpen returns null when nothing pending', () => {
     const consumed = useChatStore.getState().consumePreviewAutoOpen();
     expect(consumed).toBeNull();
+  });
+});
+
+describe('shouldAcceptAutoOpen (room scope filter)', () => {
+  // Session HAS worktreeId → fail-closed: only exact match
+  it('accepts when session worktreeId matches event worktreeId', () => {
+    expect(shouldAcceptAutoOpen('wt-123', 'wt-123')).toBe(true);
+  });
+
+  it('rejects when session has worktreeId but event has different worktreeId', () => {
+    expect(shouldAcceptAutoOpen('wt-123', 'wt-456')).toBe(false);
+  });
+
+  it('rejects global event when session has worktreeId (cross-session leakage prevention)', () => {
+    expect(shouldAcceptAutoOpen('wt-123', undefined)).toBe(false);
+  });
+
+  // Session has NO worktreeId → accept global only
+  it('accepts global event when session has no worktreeId', () => {
+    expect(shouldAcceptAutoOpen(null, undefined)).toBe(true);
+  });
+
+  it('rejects worktree-scoped event when session has no worktreeId', () => {
+    expect(shouldAcceptAutoOpen(null, 'wt-123')).toBe(false);
   });
 });
