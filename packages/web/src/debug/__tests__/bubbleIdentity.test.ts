@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ChatMessage } from '@/stores/chat-types';
 import {
+  describeBubbleIdentity,
   getBubbleIdentityKey,
   getBubbleInvocationId,
   shouldForceReplaceHydrationForCachedMessages,
@@ -82,5 +83,44 @@ describe('bubbleIdentity', () => {
     ];
 
     expect(shouldForceReplaceHydrationForCachedMessages(messages)).toBe(false);
+  });
+
+  it('describes draft bubbles as local text identities', () => {
+    const msg = makeAssistantMessage({
+      id: 'draft-inv-7',
+      content: 'draft reply',
+      isStreaming: false,
+    });
+
+    expect(describeBubbleIdentity(msg)).toEqual({
+      bubbleKind: 'text',
+      catId: 'opus',
+      invocationId: 'inv-7',
+      isAuthoritative: false,
+      isLocalOnly: true,
+      isUnstable: true,
+      originPhase: 'draft',
+      key: 'opus:inv-7:text',
+    });
+  });
+
+  it('describes callback history bubbles as authoritative text identities', () => {
+    const msg = makeAssistantMessage({
+      id: 'callback-2',
+      origin: 'callback',
+      deliveredAt: 123,
+      extra: { stream: { invocationId: 'inv-8' } },
+    });
+
+    expect(describeBubbleIdentity(msg)).toEqual({
+      bubbleKind: 'text',
+      catId: 'opus',
+      invocationId: 'inv-8',
+      isAuthoritative: true,
+      isLocalOnly: false,
+      isUnstable: false,
+      originPhase: 'callback',
+      key: 'opus:inv-8:text',
+    });
   });
 });
