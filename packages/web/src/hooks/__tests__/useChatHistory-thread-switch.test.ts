@@ -182,6 +182,61 @@ describe('useChatHistory thread switch ordering', () => {
     expect(historyCall).toBeUndefined();
   });
 
+  it('forces replace hydration when cached thread already contains duplicate same-invocation bubbles', () => {
+    const now = Date.now();
+    useChatStore.setState({
+      currentThreadId: 'thread-e',
+      threadStates: {
+        'thread-e': {
+          messages: [
+            {
+              id: 'stream-e-1',
+              type: 'assistant',
+              catId: 'opus',
+              content: 'partial stream bubble',
+              origin: 'stream',
+              timestamp: now - 2_000,
+              extra: { stream: { invocationId: 'inv-e-1' } },
+            },
+            {
+              id: 'callback-e-1',
+              type: 'assistant',
+              catId: 'opus',
+              content: 'final callback bubble',
+              origin: 'callback',
+              timestamp: now - 1_000,
+              extra: { stream: { invocationId: 'inv-e-1' } },
+            },
+          ],
+          isLoading: false,
+          isLoadingHistory: false,
+          hasMore: true,
+          hasActiveInvocation: false,
+          intentMode: null,
+          targetCats: [],
+          catStatuses: {},
+          catInvocations: {},
+          currentGame: null,
+
+          unreadCount: 0,
+          hasUserMention: false,
+          lastActivity: now,
+          queue: [],
+          queuePaused: false,
+          queueFull: false,
+        },
+      },
+    });
+
+    act(() => {
+      root.render(React.createElement(HookHost, { threadId: 'thread-e' }));
+    });
+
+    const calls = apiFetchMock.mock.calls;
+    const historyCall = calls.find(([url]) => typeof url === 'string' && url.includes('/api/messages'));
+    expect(historyCall).toBeDefined();
+  });
+
   it('#80 fix-A: thread with cached messages AND activeInvocation still triggers fetchHistory', () => {
     // Set up: thread-b has cached messages + activeInvocation (streaming in background)
     useChatStore.setState({

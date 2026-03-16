@@ -324,6 +324,76 @@ describe('useChatHistory replace hydration', () => {
     );
   });
 
+  it('thread switch rehydrates a cached duplicate invocation pair down to one formal callback bubble', async () => {
+    const history = installDeferredHistoryResponse();
+    const now = Date.now();
+    mountReplaceHydrationThread({
+      messages: [
+        {
+          id: 'stream-e-1',
+          type: 'assistant',
+          catId: 'opus',
+          content: 'partial stream bubble',
+          origin: 'stream',
+          timestamp: now - 2_000,
+          extra: { stream: { invocationId: 'inv-e-1' } },
+        },
+        {
+          id: 'callback-e-1',
+          type: 'assistant',
+          catId: 'opus',
+          content: 'stale callback bubble from cached snapshot',
+          origin: 'callback',
+          timestamp: now - 1_000,
+          extra: { stream: { invocationId: 'inv-e-1' } },
+        },
+      ],
+      isLoading: false,
+      isLoadingHistory: false,
+      hasMore: true,
+      hasActiveInvocation: false,
+      intentMode: null,
+      targetCats: [],
+      catStatuses: {},
+      catInvocations: {},
+      currentGame: null,
+      unreadCount: 0,
+      hasUserMention: false,
+      lastActivity: now,
+      queue: [],
+      queuePaused: false,
+      queuePauseReason: undefined,
+      queueFull: false,
+      queueFullSource: undefined,
+    });
+
+    await history.waitUntilPending();
+    history.expectPending();
+
+    await history.resolve({
+      messages: [
+        {
+          id: 'server-callback-e-1',
+          catId: 'opus',
+          content: 'authoritative callback bubble',
+          origin: 'callback',
+          timestamp: now,
+          extra: { stream: { invocationId: 'inv-e-1' } },
+        },
+      ],
+      hasMore: false,
+    });
+
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['server-callback-e-1']);
+    expect(useChatStore.getState().messages.find((m) => m.id === 'server-callback-e-1')).toEqual(
+      expect.objectContaining({
+        origin: 'callback',
+        content: 'authoritative callback bubble',
+        extra: { stream: { invocationId: 'inv-e-1' } },
+      }),
+    );
+  });
+
   it('reconciles a completed draft bubble with its formal message (Bug B: no duplicate)', async () => {
     const history = installDeferredHistoryResponse();
     const cachedAssistantTs = Date.now() - 1000;

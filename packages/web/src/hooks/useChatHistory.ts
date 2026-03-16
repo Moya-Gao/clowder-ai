@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import { getBubbleInvocationId, shouldForceReplaceHydrationForCachedMessages } from '@/debug/bubbleIdentity';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type { QueueEntry, TaskProgressItem } from '@/stores/chat-types';
 import { type CatInvocationInfo, type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
@@ -52,9 +53,7 @@ type ReplaceHydrationMergeResult = {
 };
 
 function getHistoryInvocationId(msg: ChatMessageData): string | undefined {
-  if (msg.extra?.stream?.invocationId) return msg.extra.stream.invocationId;
-  if (msg.id.startsWith('draft-')) return msg.id.slice('draft-'.length);
-  return undefined;
+  return getBubbleInvocationId(msg);
 }
 
 function getLocalPlaceholderInvocationId(
@@ -84,11 +83,22 @@ function getMessagePhasePriority(msg: ChatMessageData): number {
   return 0;
 }
 
+function getMessageOrderTimestamp(msg: ChatMessageData): number {
+  return msg.deliveredAt ?? msg.timestamp;
+}
+
 function shouldPreferCurrentMessage(current: ChatMessageData, history: ChatMessageData): boolean {
   const currentPhasePriority = getMessagePhasePriority(current);
   const historyPhasePriority = getMessagePhasePriority(history);
   if (currentPhasePriority !== historyPhasePriority) {
     return currentPhasePriority > historyPhasePriority;
+  }
+
+  // Once both sides are already at callback phase, authoritative server history
+  // should win unless the local callback is strictly newer. This prevents a stale
+  // cached callback bubble from surviving thread-switch hydration until the next F5.
+  if (currentPhasePriority === 2) {
+    return getMessageOrderTimestamp(current) > getMessageOrderTimestamp(history);
   }
 
   const currentRichness = getMessageRichness(current);
@@ -546,6 +556,7 @@ export function useChatHistory(threadId: string) {
     // so that DraftStore drafts are merged into the response. Without this,
     // switching away and back shows stale cached messages (no streaming draft).
     const hasActiveInvocation = cached?.hasActiveInvocation === true;
+    const hasUnstableBubbleIdentity = cached ? shouldForceReplaceHydrationForCachedMessages(cached.messages) : false;
     let secondaryHydrationStarted = false;
     const hydrateSecondaryPanels = () => {
       if (secondaryHydrationStarted) return;
@@ -570,7 +581,7 @@ export function useChatHistory(threadId: string) {
             clearMessages();
           }
           await fetchHistory();
-        } else if (hasActiveInvocation || (cached && cached.unreadCount > 0)) {
+        } else if (hasActiveInvocation || (cached && cached.unreadCount > 0) || hasUnstableBubbleIdentity) {
           // #80 fix-A P1: Force-refresh with replace mode — the async response handler
           // will clear stale cache after setCurrentThread has run, then set fresh data
           // including DraftStore drafts in correct timestamp order.
@@ -578,6 +589,10 @@ export function useChatHistory(threadId: string) {
           // the cached message list may lack the server's latest real messages, causing
           // the read-ack in ChatContainer to send an old sortable ID — the server still
           // counts messages after that ID as unread, and the badge reappears.
+          // F123: If the cached snapshot already contains unstable bubble identity
+          // (duplicate same-invocation bubbles or local-only draft/stream state),
+          // thread switch must reconcile against authoritative history instead of
+          // trusting the cached timeline until a later F5.
           await fetchHistory(undefined, { replace: true });
         }
       } finally {
