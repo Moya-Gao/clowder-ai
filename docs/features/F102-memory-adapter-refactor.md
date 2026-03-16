@@ -398,6 +398,52 @@ search_evidence(query, {
 - **feat-lifecycle 集成**：立项/状态变更/关闭时自动 `incrementalUpdate`
 - **SOP 更新**：在 `docs/SOP.md` 中加入"开工前先 recall"的步骤
 
+## Phase D 完成后的预期效果
+
+> 铲屎官指示：做完后要讲清楚"铲屎官日常使用感受到什么优化"和"猫猫自己感受到什么优化"。跑一段时间才知道做得好不好。
+
+### 铲屎官视角（日常使用中的变化）
+
+**之前**：
+- 铲屎官问"我们之前怎么决定的？"→ 猫猫 grep docs/ → 翻一堆文件 → 可能漏掉关键讨论
+- 铲屎官问"上次那个 Redis 坑是怎么回事？"→ 猫猫不记得在哪个 thread → grep 关键词 → 找到 threadId → 拉全量消息 → 人肉翻
+- 铲屎官让猫做新 feature → 猫从零开始，不知道历史上类似功能踩过什么坑
+- 改了一个 ADR → 没人提醒依赖这个 ADR 的 3 个 feature docs 需要同步更新
+
+**之后**：
+- 铲屎官问"我们之前怎么决定的？"→ 猫猫自动 `search_evidence("memory adapter 决策", scope=docs)` → 直接返回 ADR-005 + F102 spec + 相关讨论摘要，带 score 排序
+- 铲屎官问"上次那个 Redis 坑？"→ 猫猫 `search_evidence("Redis 坑", scope=all)` → 命中 LL-001 lesson + session digest → 一步到位，不用先找 threadId
+- 铲屎官让猫做新 feature → **开工前自动 recall**（系统提示词 + skill 驱动）→ 猫带着历史上下文开始工作，不重蹈覆辙
+- 改了 ADR → `incrementalUpdate` 自动查 edges → 提醒"F042/F088 依赖这个 ADR，需要 review"
+
+**铲屎官最直观的感受**：猫猫回答问题时不再说"让我搜搜看"然后翻半天。它们开工时自带上下文，像一个有记忆的同事而不是每次都从零开始的实习生。
+
+### 猫猫视角（自身工作流的变化）
+
+**之前**：
+- 4 条平行检索链路（evidence/session/thread/grep），不知道该用哪个
+- `search_evidence` 搜空库（evidence.sqlite 从没被创建）
+- 想找历史讨论 → grep → 噪音大 → 经常找不到关键信息
+- 接手不熟悉的 feature → 读 spec → 漏掉相关讨论和教训
+
+**之后**：
+- **一个入口**：`search_evidence` 覆盖 docs + memory + threads + sessions
+- **开工前自动 recall**：系统提示词告诉猫"你有记忆组件"，skill 引导猫开工前先搜
+- **搜到即用**：FTS5 + 向量 rerank，中英混排，命中结果带 source_path + score
+- **知识不过期**：edges 自动维护，文档变更自动标依赖文档 `needs_review`
+- **不重蹈覆辙**：lessons-learned、教训、踩坑经验都在索引里，recall 时自动浮现
+
+### 可量化的验收指标
+
+| 指标 | 目标 |
+|------|------|
+| 启动到可检索 | ≤60 秒 |
+| Canary query 命中率 | 3/3 固定 query 稳定返回预期 anchor |
+| 增量 freshness | 改 doc 后 ≤30 秒可检索新内容 |
+| Embedding fail-open | 检索成功率不下降 |
+| MCP 工具数量 | 从 4 条平行链路 → 1 个入口 + 8 个 drill-down |
+| 猫猫检索步骤 | 从"grep → threadId → grab → 人肉翻"→ "search_evidence 一步" |
+
 ## Acceptance Criteria
 
 ### Phase A（6 接口 + SQLite 基座 + 解耦）
