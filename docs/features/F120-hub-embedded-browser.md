@@ -208,6 +208,7 @@ Cat Café 目前的差距：
 | 2026-03-15 | Phase C AC-C3/C4/C5 + socket room scoping merged (PR #461)，砚砚 review 放行 + 云端 review 通过 |
 | 2026-03-15 | fix: preview port validation + Hub URL warning (PR #472)，VITE_PORT 加入端口排除 + Hub URL 误输入琥珀提示。砚砚(codex) review 放行 + 云端 review 通过 |
 | 2026-03-16 | fix: auto-open in status mode + HMR WebSocket patch (PR #482)。auto-open listener 提升到 ChatContainer + WS 构造器补丁注入。砚砚(codex) review 放行 |
+| 2026-03-16 | fix: room routing + hardcoded port + skill contract (PR #483)。fail-closed room scope + API port 从 frontend port 推导 + browser-preview skill worktreeId 必传。砚砚(gpt52) review 放行 + 云端 review P1 修复 |
 
 ## Review Gate
 
