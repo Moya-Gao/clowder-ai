@@ -83,7 +83,9 @@ gh pr merge {N} --repo zts212653/clowder-ai --squash
 
 ## B3: Intake Gate `[cat-cafe]`
 
-PR merge 进 clowder-ai 后，**必须做 intake 登记**（即使决定不回流）。
+PR merge 进 clowder-ai 后，**必须做 intake 登记闭环**（即使决定不回流）。
+这里的闭环不是“只 record 一笔”。
+**`--record` 和 `--advance-ledger` 视为同一检查点：record 完立刻尝试 advance。**
 
 ### Step 1: Plan — 分析 PR 文件
 
@@ -100,27 +102,37 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 
 目前 V1 需要手工 cherry-pick safe 文件 + 手工 port manual 文件。
 
-### Step 3: Record — 登记决策
+### Step 3: Record + Immediate Advance — 登记决策并立刻尝试推进门禁
 
 ```bash
 bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed
 # 或: --decision public-only
 # 或: --decision rejected
+bash scripts/intake-from-opensource.sh --advance-ledger
 ```
 
-### Step 4: Advance Ledger — 推进门禁
+如果 `--advance-ledger` 失败，说明**还有别的社区 PR 没登记**，不能把当前 PR 停在“已吸收但没推进水位”的半状态。
+先把遗漏 PR 补 record，再重新跑 advance。
+
+### Step 4: Sync Gate 排错 — 区分“没登记”还是“水位没推进”
+
+如果 `sync-to-opensource.sh --dry-run` 报 ledger gate 卡住：
+
+1. 先看 `docs/ops/opensource-intake-ledger.json` 里是否已经有对应 `target_merge_commit`
+2. 如果 merge commit 已经在 `entries[]` 里，说明不是“没吸收”，而是 `last_reviewed_target_head` 没推进
+3. 直接补跑：
 
 ```bash
 bash scripts/intake-from-opensource.sh --advance-ledger
 ```
 
-如果有未登记的社区 commit，会报错并列出遗漏的 PR。
+只有 merge commit 不在 ledger 里时，才说明这条社区 PR 真的还没完成 intake record。
 
 ## 完整链路
 
 ```
 Issue accept → Merge Gate (B1) → Merge (B2) → Intake Plan (B3.1)
-  → Cherry-pick/Port (B3.2) → Record (B3.3) → Advance Ledger (B3.4)
+  → Cherry-pick/Port (B3.2) → Record + Immediate Advance (B3.3)
 ```
 
-每一步断了都不能跳——不 record 就无法 advance，无法 advance 就卡住下次 sync。
+每一步断了都不能跳。只 record 不 advance，ledger 水位一样会卡住下次 sync。

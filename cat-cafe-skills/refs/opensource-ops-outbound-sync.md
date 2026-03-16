@@ -23,6 +23,11 @@ Pre-sync gate 检查：
 - Target (clowder-ai) clean?
 - 有无未登记的 inbound 社区 commit?（ledger gate）
 
+如果 ledger gate 报错，不要立刻假设“社区改动还没吸收”。
+先检查 `docs/ops/opensource-intake-ledger.json`：
+- merge commit 不在 `entries[]` 里：说明真的没做 intake record
+- merge commit 已在 `entries[]` 里：说明 record 做了，但 `last_reviewed_target_head` 还没推进，先跑 `bash scripts/intake-from-opensource.sh --advance-ledger`
+
 ### Step 2: Diff Preview `[cat-cafe]`
 
 Dry-run 会输出：

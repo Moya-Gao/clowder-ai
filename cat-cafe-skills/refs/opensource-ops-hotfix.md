@@ -80,15 +80,17 @@ git cherry-pick {hotfix-commit-sha}
 # 或者在 main 上重新做修复
 ```
 
-## Step 5: Intake 登记 `[cat-cafe]`
+## Step 5: Intake Record + Advance `[cat-cafe]`
 
-Hotfix PR merge 后，也需要走 intake 登记（即使是我们自己提的）：
+Hotfix PR merge 后，也需要走 intake 登记闭环（即使是我们自己提的）：
 
 ```bash
 # 等 PR merge 后
 bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed
 bash scripts/intake-from-opensource.sh --advance-ledger
 ```
+
+不要停在 `--record`。如果 `--advance-ledger` 失败，先把别的漏记 PR 补齐，再回来推进水位。
 
 ## Step 6: 清理 `[cat-cafe]`
 

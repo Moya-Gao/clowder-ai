@@ -52,7 +52,7 @@ description: >
 
 1. `[clowder-ai]` **Merge Gate**：accepted issue? → 质量? → 方向? → intake 预判?
 2. `[clowder-ai]` Merge 执行（Patch 自主 / Feature 升级铲屎官）
-3. `[cat-cafe]` **Intake Gate**：`intake-from-opensource.sh --pr N --mode=plan` → record → advance-ledger
+3. `[cat-cafe]` **Intake Gate**：`intake-from-opensource.sh --pr N --mode=plan` → 执行吸收 → `record + 立刻尝试 advance-ledger`（同一检查点）
 4. 详细步骤 → [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md)
 
 ### C: Outbound PR
@@ -80,7 +80,7 @@ description: >
 
 1. `[cat-cafe]` Worktree 基于 sync tag → 修 bug
 2. `[cat-cafe → clowder-ai]` `sync-hotfix.sh` → clowder-ai PR
-3. `[cat-cafe]` Cherry-pick 回 main → intake record + advance-ledger
+3. `[cat-cafe]` Cherry-pick 回 main → intake `record + 立刻尝试 advance-ledger`
 4. 详细步骤 → [Hotfix 文档](../refs/opensource-ops-hotfix.md)
 
 ## 关键原则
@@ -90,6 +90,7 @@ description: >
 3. **Merge 前预判 Intake 类型**：`absorbed` / `public-only` / `manual-port`
 4. **Patch 自主 merge 4 条件**：① accepted issue ② safe-cherry-pick 或 public-only ③ CI 过 ④ 不涉及工具链/安全。否则升级铲屎官
 5. **一条线不断裂**：Issue accept → Merge decision → Merge → Intake decision → Ledger record
+6. **Record + Advance 是一个闭环**：做完 `--record` 就立刻尝试 `--advance-ledger`；如果 advance 失败，说明还有别的 PR 没登记，不能停在半路
 
 ## 和其他 skill 的区别
 
