@@ -63,6 +63,7 @@ managed_scripts:
   - scripts/llm-postprocess-server.sh
   - scripts/llm-postprocess-api.py
   # 安装向导
+  - scripts/install.sh
   - scripts/setup.sh
 
 # ── docs/ 生成型导出（由脚本生成，不直出原始文件）──────────────
