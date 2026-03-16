@@ -294,6 +294,7 @@ target_owned_files:
   - .github/ISSUE_TEMPLATE/
   - .github/DISCUSSION_TEMPLATE/
   - CHANGELOG.md
+  - MAINTAINERS.md           # 公开版 maintainer 指南（只在开源仓维护）
   - docs/community/
 
 # ── Provenance（同步元数据）────────────────────────────────────
