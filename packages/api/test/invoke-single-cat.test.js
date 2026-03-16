@@ -2588,6 +2588,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   it('F062-fix: skips auto-seal for api_key mode when context health is approx', async () => {
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const root = await mkdtemp(join(tmpdir(), 'f062-approx-no-seal-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     await createProviderProfile(root, {
       provider: 'anthropic',
       name: 'sponsor-gateway',
@@ -2605,6 +2608,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       seq: 0,
       status: 'active',
       compressionCount: 0,
+      cliSessionId: 'cli-approx-no-seal',
     };
 
     const sealRequests = [];
@@ -2646,14 +2650,15 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const deps = {
       ...makeDeps(),
-      threadStore: {
-        get: async () => ({ projectPath: root }),
-      },
       sessionChainStore,
       sessionSealer,
     };
 
+    const previousCwd = process.cwd();
+    const previousProxyEnabled = process.env.ANTHROPIC_PROXY_ENABLED;
     try {
+      process.env.ANTHROPIC_PROXY_ENABLED = '0';
+      process.chdir(apiDir);
       const msgs = await collect(
         invokeSingleCat(deps, {
           catId: 'opus',
@@ -2688,6 +2693,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.equal(hasSealRequested, false, 'should not emit session_seal_requested on approx api_key telemetry');
       assert.equal(sealRequests.length, 0, 'should not request seal on approx api_key telemetry');
     } finally {
+      process.chdir(previousCwd);
+      if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
+      else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
       await rm(root, { recursive: true, force: true });
     }
   });
@@ -2704,6 +2712,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       safetyMargin: 4000,
     });
     const root = await mkdtemp(join(tmpdir(), 'f062-exact-no-seal-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     await createProviderProfile(root, {
       provider: 'anthropic',
       name: 'sponsor-gateway',
@@ -2721,6 +2732,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       seq: 0,
       status: 'active',
       compressionCount: 0,
+      cliSessionId: 'cli-exact-no-seal',
     };
 
     const sealRequests = [];
@@ -2761,14 +2773,15 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const deps = {
       ...makeDeps(),
-      threadStore: {
-        get: async () => ({ projectPath: root }),
-      },
       sessionChainStore,
       sessionSealer,
     };
 
+    const previousCwd = process.cwd();
+    const previousProxyEnabled = process.env.ANTHROPIC_PROXY_ENABLED;
     try {
+      process.env.ANTHROPIC_PROXY_ENABLED = '0';
+      process.chdir(apiDir);
       const msgs = await collect(
         invokeSingleCat(deps, {
           catId: 'opus',
@@ -2804,6 +2817,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.equal(hasSealRequested, false, 'should not emit session_seal_requested in api_key mode');
       assert.equal(sealRequests.length, 0, 'should not request seal in api_key mode');
     } finally {
+      process.chdir(previousCwd);
+      if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
+      else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
       _clearTestStrategyOverrides();
       await rm(root, { recursive: true, force: true });
     }
@@ -2821,6 +2837,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       safetyMargin: 4000,
     });
     const root = await mkdtemp(join(tmpdir(), 'f062-exact-handoff-seal-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     await createProviderProfile(root, {
       provider: 'anthropic',
       name: 'sponsor-gateway',
@@ -2838,6 +2857,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       seq: 0,
       status: 'active',
       compressionCount: 0,
+      cliSessionId: 'cli-exact-handoff-seal',
     };
 
     const sealRequests = [];
@@ -2877,14 +2897,15 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const deps = {
       ...makeDeps(),
-      threadStore: {
-        get: async () => ({ projectPath: root }),
-      },
       sessionChainStore,
       sessionSealer,
     };
 
+    const previousCwd = process.cwd();
+    const previousProxyEnabled = process.env.ANTHROPIC_PROXY_ENABLED;
     try {
+      process.env.ANTHROPIC_PROXY_ENABLED = '0';
+      process.chdir(apiDir);
       const msgs = await collect(
         invokeSingleCat(deps, {
           catId: 'opus',
@@ -2907,6 +2928,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.ok(sealEvent, 'should emit session_seal_requested in handoff mode');
       assert.equal(sealRequests.length, 1, 'should request seal in handoff mode');
     } finally {
+      process.chdir(previousCwd);
+      if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
+      else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
       _clearTestStrategyOverrides();
       await rm(root, { recursive: true, force: true });
     }

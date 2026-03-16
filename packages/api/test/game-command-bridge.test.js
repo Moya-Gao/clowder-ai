@@ -87,11 +87,17 @@ function createStubRouter() {
     },
     async resolveTargetsAndIntent() {
       routeCalled = true;
-      return { targetCats: ['opus'], intent: { intent: 'execute', promptTags: [] } };
+      return { targetCats: ['opus'], intent: { intent: 'execute', explicit: false, promptTags: [] } };
     },
     async *routeExecution() {
       routeCalled = true;
+      yield { type: 'done', catId: 'opus', timestamp: Date.now() };
     },
+    async *route() {
+      routeCalled = true;
+      yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+    },
+    async ackCollectedCursors() {},
   };
 }
 
@@ -146,6 +152,17 @@ describe('/game command bridge in POST /api/messages', () => {
       router: routerStub,
       threadStore: createStubThreadStore(),
       gameStore,
+      invocationTracker: {
+        has: () => false,
+        isDeleting: () => false,
+        tryStartThread: () => new AbortController(),
+        start: () => new AbortController(),
+        complete: () => {},
+      },
+      invocationRecordStore: {
+        create: async () => ({ outcome: 'created', invocationId: 'inv-stub' }),
+        update: async () => {},
+      },
     });
 
     await app.ready();
@@ -239,9 +256,9 @@ describe('/game command bridge in POST /api/messages', () => {
     assert.equal(startedEvents.length, 1);
     assert.ok(startedEvents[0].room.startsWith('thread:thread_game_'), 'game:started should be on game thread');
 
-    // Should have game:state_update for each seat
+    // Should have game:state_update for each seat (≥7: initial broadcast + auto-play may add more)
     const stateEvents = socketStub.events.filter((e) => e.event === 'game:state_update');
-    assert.equal(stateEvents.length, 7, 'should broadcast state to all 7 seats');
+    assert.ok(stateEvents.length >= 7, `should broadcast state to all 7 seats (got ${stateEvents.length})`);
   });
 
   it('sets humanSeat=P1 for player mode', async () => {
