@@ -174,6 +174,8 @@ export interface InvocationParams {
   readonly systemPrompt?: string;
   /** F108 fix: InvocationRecordStore's parent invocation ID for worklist key alignment */
   readonly parentInvocationId?: string;
+  /** F121: The A2A trigger message ID for auto-replyTo */
+  readonly a2aTriggerMessageId?: string;
 }
 
 /**
@@ -188,7 +190,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal: callerSignal } = params;
 
-  const { invocationId, callbackToken } = registry.create(userId, catId, threadId, params.parentInvocationId);
+  const { invocationId, callbackToken } = registry.create(userId, catId, threadId, params.parentInvocationId, params.a2aTriggerMessageId);
 
   // F089: Invocation-level hard timeout — independent of NDJSON stream / CLI timeout.
   // Must be > CLI_TIMEOUT_MS to avoid racing the inner timeout.

@@ -126,6 +126,8 @@ describe('auto-replyTo for A2A invocations', () => {
     assert.equal(broadcastMsg.replyPreview.senderCatId, 'opus');
   });
 
+  // Worklist path tests → auto-reply-to-worklist.test.js (file size cap)
+
   test('explicit replyTo takes precedence over auto-fill', async () => {
     // Trigger message
     const triggerMsg = messageStore.append({

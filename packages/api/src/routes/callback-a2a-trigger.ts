@@ -65,7 +65,7 @@ export async function enqueueA2ATargets(
 
   // F27: Try to push to parent worklist first
   if (hasWorklist(threadId)) {
-    const pushResult = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId);
+    const pushResult = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId, triggerMessageId);
     const enqueued = pushResult.added;
     if (enqueued.length > 0) {
       if (deliveryCursorStore) {

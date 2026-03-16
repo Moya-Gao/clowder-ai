@@ -177,6 +177,8 @@ describe('WorklistRegistry', () => {
     }
   });
 
+  // F121 a2aTriggerMessageId tests → worklist-registry-f121.test.js (file size cap)
+
   test('multiple threads are independent', async () => {
     const { registerWorklist, unregisterWorklist, pushToWorklist, getWorklist } = await import(
       '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'

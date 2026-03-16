@@ -368,17 +368,22 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // F121: Validate replyTo — must exist in the same thread
     let validatedReplyTo: string | undefined;
     // F121 enhancement: Auto-fill replyTo for A2A-triggered invocations.
-    // When a cat is invoked via @mention, the system knows the trigger message —
-    // the cat should not need to explicitly pass replyTo.
+    // Priority: 1) explicit replyTo  2) a2aTriggerMessageId (worklist path)  3) InvocationRecordStore fallback
     let autoFilledReplyTo: string | undefined;
-    if (!replyTo && record.parentInvocationId && invocationRecordStore) {
-      const parentRecord = (await invocationRecordStore.get(record.parentInvocationId)) as {
-        userMessageId?: string | null;
-        threadId?: string | null;
-      } | null;
-      // P3-2 hardening: only trust userMessageId if parentRecord's threadId matches
-      if (parentRecord?.userMessageId && (!parentRecord.threadId || parentRecord.threadId === effectiveThreadId)) {
-        autoFilledReplyTo = parentRecord.userMessageId;
+    if (!replyTo) {
+      // Worklist path: a2aTriggerMessageId is set by route-serial from WorklistEntry
+      if (record.a2aTriggerMessageId) {
+        autoFilledReplyTo = record.a2aTriggerMessageId;
+      } else if (record.parentInvocationId && invocationRecordStore) {
+        // Fallback path (standalone invocation): look up InvocationRecordStore
+        const parentRecord = (await invocationRecordStore.get(record.parentInvocationId)) as {
+          userMessageId?: string | null;
+          threadId?: string | null;
+        } | null;
+        // P3-2 hardening: only trust userMessageId if parentRecord's threadId matches
+        if (parentRecord?.userMessageId && (!parentRecord.threadId || parentRecord.threadId === effectiveThreadId)) {
+          autoFilledReplyTo = parentRecord.userMessageId;
+        }
       }
     }
     const effectiveReplyTo = replyTo ?? autoFilledReplyTo;

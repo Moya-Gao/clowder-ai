@@ -40,6 +40,11 @@ export interface WorklistEntry {
    * Used to inject "Direct message from ...; reply to ..." into the target's prompt.
    */
   a2aFrom: Map<CatId, CatId>;
+  /**
+   * A2A trigger message mapping — for each enqueued target, record which message triggered it.
+   * Used by auto-replyTo to thread replies back to the triggering @mention message.
+   */
+  a2aTriggerMessageId: Map<CatId, string>;
 }
 
 /** Primary registry: registryKey → WorklistEntry */
@@ -74,6 +79,7 @@ export function registerWorklist(
     maxDepth,
     executedIndex: 0,
     a2aFrom: new Map(),
+    a2aTriggerMessageId: new Map(),
   };
   registry.set(key, entry);
 
@@ -130,6 +136,7 @@ export function pushToWorklist(
   cats: CatId[],
   callerCatId?: CatId,
   parentInvocationId?: string,
+  triggerMessageId?: string,
 ): PushResult {
   const key = registryKey(threadId, parentInvocationId);
   const entry = registry.get(key);
@@ -159,6 +166,9 @@ export function pushToWorklist(
       if (callerCatId !== undefined) {
         entry.a2aFrom.set(cat, callerCatId);
       }
+      if (triggerMessageId !== undefined) {
+        entry.a2aTriggerMessageId.set(cat, triggerMessageId);
+      }
     } else if (callerCatId !== undefined) {
       // Target already pending:
       // - original targets must keep replying to user (no A2A sender override)
@@ -167,6 +177,10 @@ export function pushToWorklist(
       const isOriginalPendingTarget = existingIndex !== -1 && existingIndex < entry.originalCount;
       if (!isOriginalPendingTarget) {
         entry.a2aFrom.set(cat, callerCatId);
+        // F121: Keep triggerMessageId in sync with a2aFrom (same "latest sender" semantics)
+        if (triggerMessageId !== undefined) {
+          entry.a2aTriggerMessageId.set(cat, triggerMessageId);
+        }
       }
     }
   }
