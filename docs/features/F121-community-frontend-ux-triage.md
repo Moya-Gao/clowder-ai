@@ -142,6 +142,7 @@ Bug report 存档：
 | 2026-03-16 | #66 replyTo auto-fill merged (PR #485): A2A 触发的猫猫回复自动填充 replyTo，无需手动传参；含响应回显+threadId 硬化校验，codex review 放行+云端 review 通过 |
 | 2026-03-16 | #66 replyTo worklist path fix merged (PR #487): worklist 路径使用 A2A trigger message 而非 user message 作为 replyTo，修复 alpha 测试发现的 ReplyPill 不显示问题，codex 三审放行+云端 review 4 轮通过 |
 | 2026-03-16 | #66 replyTo response-text path fix merged (PR #489): CLI 输出 @mention 路径补齐 a2aTriggerMessageId，两条 @mention 路径 ReplyPill 行为统一，codex review 放行+云端 review 通过 |
+| 2026-03-16 | #66 stream replyTo threading merged (PR #490): stream yield+持久化+前端 active/background 全链路补齐 replyTo/replyPreview，CLI @mention 路径 ReplyPill 完整打通。根因定位：砚砚/GPT-5.4，codex review 放行 |
 
 ## Links
 
