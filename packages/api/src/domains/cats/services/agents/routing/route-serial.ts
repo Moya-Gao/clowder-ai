@@ -328,7 +328,9 @@ export async function* routeSerial(
         ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
         ...(options.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
         // F121: Pass A2A trigger message ID for auto-replyTo threading
-        ...(worklistEntry.a2aTriggerMessageId.get(catId) ? { a2aTriggerMessageId: worklistEntry.a2aTriggerMessageId.get(catId) } : {}),
+        ...(worklistEntry.a2aTriggerMessageId.get(catId)
+          ? { a2aTriggerMessageId: worklistEntry.a2aTriggerMessageId.get(catId) }
+          : {}),
         isLastCat: false,
       })) {
         // F39 bugfix: stop yielding after cancel (pipe buffer may still drain)
@@ -582,8 +584,9 @@ export async function* routeSerial(
 
         // Store with actual mentions — degrade on failure to ensure done reaches frontend
         // (缅因猫 review P1-2: Redis failure must not block done yield)
+        let storedMsgId: string | undefined;
         try {
-          await deps.messageStore.append({
+          const storedMsg = await deps.messageStore.append({
             userId,
             catId,
             content: storedContent,
@@ -600,6 +603,7 @@ export async function* routeSerial(
               ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
             },
           });
+          storedMsgId = storedMsg.id;
           // F088-P3: Stash rich blocks for outbound delivery
           if (options.persistenceContext && allRichBlocks.length > 0) {
             options.persistenceContext.richBlocks = allRichBlocks;
@@ -651,6 +655,8 @@ export async function* routeSerial(
               // Keep original user-selected targets replying to user, not to another cat.
               if (!pendingOriginalTargets.includes(nextCat)) {
                 worklistEntry.a2aFrom.set(nextCat, catId);
+                // F121: response-text path — set trigger message for auto-replyTo
+                if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
               }
               continue;
             }
@@ -659,6 +665,8 @@ export async function* routeSerial(
             worklistEntry.a2aCount++;
             pendingTail.push(nextCat); // Keep dedup view in sync
             worklistEntry.a2aFrom.set(nextCat, catId);
+            // F121: response-text path — set trigger message for auto-replyTo
+            if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
           }
         }
 

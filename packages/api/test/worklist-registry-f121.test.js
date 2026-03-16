@@ -53,6 +53,39 @@ describe('WorklistRegistry: a2aTriggerMessageId (F121)', () => {
     }
   });
 
+  test('response-text path: direct a2aTriggerMessageId.set on worklist entry', async () => {
+    // This mirrors what route-serial.ts does for response-text @mentions:
+    // it directly sets a2aTriggerMessageId on the entry (not via pushToWorklist).
+    const { registerWorklist, unregisterWorklist } = await import(
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
+    );
+
+    const threadId = 'test-response-text-trigger';
+    const entry = registerWorklist(threadId, ['opus', 'codex'], 10);
+
+    try {
+      // Simulate: opus runs, its stored message has id 'opus-msg-1',
+      // and its response text contains @codex.
+      // route-serial directly sets the trigger message on the entry.
+      const storedMsgId = 'opus-msg-1';
+      entry.a2aTriggerMessageId.set('codex', storedMsgId);
+      entry.a2aFrom.set('codex', 'opus');
+
+      assert.equal(entry.a2aTriggerMessageId.get('codex'), 'opus-msg-1');
+      assert.equal(entry.a2aFrom.get('codex'), 'opus');
+
+      // Simulate: opus also @mentions sonnet (new cat, pushed to worklist)
+      entry.a2aTriggerMessageId.set('sonnet', storedMsgId);
+      entry.a2aFrom.set('sonnet', 'opus');
+      assert.equal(entry.a2aTriggerMessageId.get('sonnet'), 'opus-msg-1');
+
+      // Original target (opus) should NOT have a trigger message
+      assert.equal(entry.a2aTriggerMessageId.get('opus'), undefined);
+    } finally {
+      unregisterWorklist(threadId, entry);
+    }
+  });
+
   test('original pending target does NOT get triggerMessageId overwritten', async () => {
     const { registerWorklist, unregisterWorklist, pushToWorklist } = await import(
       '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
