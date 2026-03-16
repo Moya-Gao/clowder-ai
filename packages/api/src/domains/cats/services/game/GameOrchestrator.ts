@@ -60,6 +60,9 @@ export class GameOrchestrator {
       updatedAt: now,
     };
 
+    // Auto-skip initial phase(s) if no actors for the role (system-driven, not cat-driven)
+    this.skipEmptyPhases(runtime);
+
     const created = await this.store.createGame(runtime);
 
     this.socket.broadcastToRoom(`thread:${input.threadId}`, 'game:started', {
@@ -265,6 +268,49 @@ export class GameOrchestrator {
         winner,
         timestamp: Date.now(),
       });
+      return;
+    }
+
+    // Auto-skip if new phase has no actors (system-driven, not cat-driven)
+    this.skipEmptyPhases(runtime);
+  }
+
+  /** Skip consecutive phases that have no alive actors for the acting role.
+   *  System (judge) handles this — cats should never wait for a non-existent role. */
+  private skipEmptyPhases(runtime: GameRuntime): void {
+    const phases = runtime.definition.phases;
+    let safety = phases.length; // prevent infinite loops
+    while (safety-- > 0) {
+      const phase = phases.find((p) => p.name === runtime.currentPhase);
+      if (!phase) break;
+      const role = phase.actingRole;
+      if (!role || role === '*') break; // wildcard phases always have actors
+      if (runtime.seats.some((s) => s.alive && s.role === role)) break; // has actors
+
+      // No alive seat for this role — skip
+      const skipped = runtime.currentPhase;
+      const curIdx = phases.findIndex((p) => p.name === runtime.currentPhase);
+      const nextIdx = curIdx + 1;
+      const next = nextIdx < phases.length ? phases[nextIdx] : phases[0];
+      if (!next) break;
+
+      const isNewRound = nextIdx >= phases.length;
+      if (isNewRound) runtime.round++;
+
+      runtime.eventLog.push({
+        eventId: `evt-skip-${Date.now()}-${skipped}`,
+        round: runtime.round,
+        phase: skipped,
+        type: 'phase_skip',
+        scope: 'public' as import('@cat-cafe/shared').EventScope,
+        payload: { skippedPhase: skipped, reason: 'no_actors_for_role' },
+        timestamp: Date.now(),
+      });
+
+      runtime.currentPhase = next.name;
+      runtime.phaseStartedAt = Date.now();
+      runtime.version++;
+      runtime.updatedAt = Date.now();
     }
   }
 }
