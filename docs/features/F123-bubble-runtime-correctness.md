@@ -75,7 +75,7 @@ created: 2026-03-14
 
 ## Current State Snapshot（2026-03-16）
 
-当前代码已经 merge 的是 5 个切片，不是整条 F123 的完成态：
+当前代码已经 merge 的是 6 个切片，不是整条 F123 的完成态：
 
 | PR | Merge Commit | 实际落地 | 对齐 AC |
 |----|--------------|----------|---------|
@@ -84,14 +84,16 @@ created: 2026-03-14
 | #465 | `5c3f9ac4` | 保持 late-stream suppression 到观察到不同 `invocationId` 为止，封住 #464 merge 后的 ghost bubble 回归 | 部分推进 AC-C1（未完成） |
 | #493 | `b7123839` | `bubbleIdentity.ts` truth-model helper、thread switch 遇到 unstable cache 时强制 replace hydration、callback↔callback authoritative ordering、R7 现场 replay | 部分推进 AC-A1, AC-C1, AC-C2（均未完成） |
 | #494 | `aba1e8c2` | truth-model descriptor、bubble state model 资产、symptom-fixture matrix | AC-A1，部分推进 AC-A3 |
+| #495 | `5864fcc5` | queue/hydration 乱序 replay、`fetchQueue()` secondary hydration 改为 thread-scoped status write、symptom-fixture matrix 将 queue/hydration 从 partial 提升到 covered | 部分推进 AC-A3, AC-C2（均未完成） |
 
 因此，F123 当前是：
 
 - **已明显压住高频双影症状**，尤其是同 invocation 下 callback/stream 并存
 - **已补上最小可用的 bubble timeline dump**
 - **已落第一版 code-backed bubble truth model**，把身份 schema、主写入口和 symptom→fixture 真相源都钉到代码/资产上
-- **但仍不能 close**，因为 symptom-fixture 覆盖还没补齐，统一 identity contract、store/invariant 断言、F5/thread-switch 的完整 replay suite 也还没完成
-- **最新现场仍表明 AC-C1 / AC-C2 未收口**：thread switch 时仍可能短暂裂成两个 bubble，F5 后才重新归一
+- **已把 queue/hydration 乱序从 partial 收到 covered**，不再停留在假想风险层
+- **但仍不能 close**，因为 draft recovery、统一 identity contract、store/invariant 断言，以及 Alpha 上 F5/thread-switch 的完整单调可见性证据还没收齐
+- **最新现场仍表明 AC-C1 / AC-C2 未收口**：thread switch 时仍可能短暂裂成两个 bubble，F5 后才重新归一；这条线还需要 Alpha manual + replay 双证据
 
 换句话说：我们已经证明了几条关键路径有效，但还没有证明“这条线已经系统性收口”。
 
@@ -158,6 +160,7 @@ created: 2026-03-14
 | 2026-03-15 | Hotfix merged (PR #465): 恢复 late-stream suppression 到“观察到不同 invocationId”为止，封住 #464 merge 后被云端抓到的 ghost bubble 回归 |
 | 2026-03-16 | Monotonic recovery contract slice merged (PR #493): `bubbleIdentity.ts` 落盘、thread-switch unstable cache 强制 replace hydration、callback↔callback 按 authoritative ordering 恢复、R7 replay 补强 |
 | 2026-03-16 | Truth-model slice merged (PR #494): descriptor、state model 资产、symptom-fixture matrix 落盘，AC-A1 完成、AC-A3 前进一格 |
+| 2026-03-16 | Queue/hydration ordering slice merged (PR #495): secondary hydration 改为 thread-scoped queue status write，queue/hydration 乱序从 partial 提升到 covered，AC-A3 / AC-C2 再推进一格 |
 
 ## Review Gate
 
