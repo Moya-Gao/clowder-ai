@@ -140,6 +140,7 @@ Bug report 存档：
 | 2026-03-15 | 社区 PR#71 (bouillipx) replyTo threading：方向 accepted，PR 关闭不 merge，按上游完整修复路线收进 F121 子项，下次 Outbound Sync 带出 |
 | 2026-03-15 | #66 replyTo threading merged (PR #480): 服务端校验+preview hydration+ReplyPill 组件，codex review 放行+云端 review 通过 |
 | 2026-03-16 | #66 replyTo auto-fill merged (PR #485): A2A 触发的猫猫回复自动填充 replyTo，无需手动传参；含响应回显+threadId 硬化校验，codex review 放行+云端 review 通过 |
+| 2026-03-16 | #66 replyTo worklist path fix merged (PR #487): worklist 路径使用 A2A trigger message 而非 user message 作为 replyTo，修复 alpha 测试发现的 ReplyPill 不显示问题，codex 三审放行+云端 review 4 轮通过 |
 
 ## Links
 
