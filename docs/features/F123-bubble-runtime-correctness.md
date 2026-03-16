@@ -75,18 +75,20 @@ created: 2026-03-14
 
 ## Current State Snapshot（2026-03-16）
 
-当前代码已经 merge 的是 3 个切片，不是整条 F123 的完成态：
+当前代码已经 merge 的是 4 个切片，不是整条 F123 的完成态：
 
 | PR | Merge Commit | 实际落地 | 对齐 AC |
 |----|--------------|----------|---------|
 | #460 | `1862e4f1` | active/background 首批 fixture、callback 替换 stream、late-stream suppression、`dumpBubbleTimeline()` | AC-A2, AC-B4, AC-C3 |
 | #464 | `74e4663e` | hydration reconcile 中 `callback > stream` 的 phase priority | 部分推进 AC-C1（未完成） |
 | #465 | `5c3f9ac4` | 保持 late-stream suppression 到观察到不同 `invocationId` 为止，封住 #464 merge 后的 ghost bubble 回归 | 部分推进 AC-C1（未完成） |
+| #493 | `b7123839` | `bubbleIdentity.ts` truth-model helper、thread switch 遇到 unstable cache 时强制 replace hydration、callback↔callback authoritative ordering、R7 现场 replay | 部分推进 AC-A1, AC-C1, AC-C2（均未完成） |
 
 因此，F123 当前是：
 
 - **已明显压住高频双影症状**，尤其是同 invocation 下 callback/stream 并存
 - **已补上最小可用的 bubble timeline dump**
+- **已开始把 thread-switch / hydration 的恢复语义收成 code-backed truth model**，不再只靠局部 hotfix
 - **但仍不能 close**，因为 truth model、统一 identity contract、store/invariant 断言、F5/thread-switch 的完整 replay suite 还没完成
 - **最新现场仍表明 AC-C1 / AC-C2 未收口**：thread switch 时仍可能短暂裂成两个 bubble，F5 后才重新归一
 
@@ -153,6 +155,7 @@ created: 2026-03-14
 | 2026-03-15 | Phase A/B slice merged (PR #460): active/background fixture 落盘、callback replacement hardening、late-stream suppression、bubble timeline dump |
 | 2026-03-15 | Hydration reconcile slice merged (PR #464): callback-over-stream hydrate priority、R2 fixture 补强、active/background unlabeled-first-chunk guard 落盘 |
 | 2026-03-15 | Hotfix merged (PR #465): 恢复 late-stream suppression 到“观察到不同 invocationId”为止，封住 #464 merge 后被云端抓到的 ghost bubble 回归 |
+| 2026-03-16 | Monotonic recovery contract slice merged (PR #493): `bubbleIdentity.ts` 落盘、thread-switch unstable cache 强制 replace hydration、callback↔callback 按 authoritative ordering 恢复、R7 replay 补强 |
 
 ## Review Gate
 
