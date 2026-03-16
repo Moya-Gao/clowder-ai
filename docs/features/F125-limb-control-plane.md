@@ -1,7 +1,7 @@
 ---
 feature_ids: [F125]
 related_features: [F041, F088, F102, F118, F124]
-topics: [node, capability, presence, fleet, control-plane, distributed]
+topics: [node, capability, presence, fleet, control-plane, distributed, limb]
 doc_kind: spec
 created: 2026-03-16
 ---
@@ -20,14 +20,16 @@ created: 2026-03-16
 
 **核心模型**：Cat Café = 一个大脑（灵魂议会，多猫议员）→ 需要管理 M 个四肢（外部设备/节点）。这是 OpenClaw `1 brain → N limbs` 的升级版：`1 brain (N cats) → M limbs`。
 
+**猫猫是议员，不是 Node。** F125 聚焦**四肢侧**的抽象与管理，不重构现有猫 Provider 内部实现。
+
 **四个已确认的缺陷**（宪宪分析，铲屎官确认"完全都是我们需要优化的"）：
 
 | # | 缺陷 | 现状 | 影响 |
 |---|------|------|------|
-| D1 | **没有 Capability Registry** — 猫的能力是隐性的 | 能力藏在 system prompt 和人脑里，路由靠 @mention + intent 推断 | 无法知道"哪个设备/节点能做什么"，扩展新节点需要改代码 |
-| D2 | **没有 Presence 系统** — 不知道谁在线 | F118 Watchdog 检测进程活性，但不知道"能力是否可用" | 路由到不可用节点 → 超时，无法优雅降级 |
-| D3 | **没有跨平台 Node 管理** — 只能管本机 CLI | 所有猫都是本机 `spawn` 的 CLI 进程 | 无法在 Mac 上管理 Windows/远程/移动设备节点 |
-| D4 | **没有统一 Node 抽象** — Provider 是特化的 | `ClaudeAgentService`、`CodexAgentService` 等实现完全不同，无统一接口 | 新增 Provider 需要写全新 Service，没有复用 |
+| D1 | **没有 Capability Registry** — 四肢能力是隐性的 | 能力藏在 system prompt 和人脑里 | 无法知道"哪个设备/节点能做什么" |
+| D2 | **没有 Presence 系统** — 不知道谁在线 | F118 Watchdog 检测进程活性，但不知道"能力是否可用" | 路由到不可用节点 → 超时 |
+| D3 | **没有跨平台 Node 管理** — 只能管本机 CLI | 所有交互都是本机 `spawn` | 无法在 Mac 上管理 Windows/远程/移动设备节点 |
+| D4 | **没有统一 Limb 抽象** — 四肢接入没有标准接口 | 每种设备/外部节点需要从零写适配 | 扩展成本高 |
 
 **商业价值**：华子看到苹果全家桶 + 多猫协作 + 跨设备管控 = 未来企业协作形态 → 找我们做 → 猫粮自由。
 
@@ -52,41 +54,66 @@ Cat Café（大脑 / 灵魂议会）
      └── Browser Farm  ← 四肢 (automation)
 ```
 
-**与 OpenClaw 的区别**：OpenClaw 是 1 agent × N nodes（简单，无竞争）。我们是 1 brain (N cats) × M limbs（多猫共享四肢，需要调度和仲裁）。
+**与 OpenClaw 的区别**：OpenClaw 是 1 agent × N nodes（简单，无竞争）。我们是 1 brain (N cats) × M limbs（多猫共享四肢，需要调度和仲裁）。N×M 编排是行业未解问题（OpenClaw/LangGraph/CrewAI/A2A 都未完整解决），我们做了会是独特贡献。
 
-### Phase A: 统一 Node 抽象 + Capability Registry
+### Phase A: 四肢抽象 + Capability Registry + Basic Presence
 
-**目标**：把现有的特化 Provider 收敛为统一接口，建立能力注册表。
+**目标**：定义四肢侧统一接口，建立能力注册表，知道谁在线。
 
-1. **IAgentNode 统一接口**
-   - 抽取 `ClaudeAgentService`、`CodexAgentService`、`GeminiAgentService`、`OpenCodeAgentService` 的共性
-   - 定义统一的 `register() → invoke() → healthCheck()` 生命周期
-   - Provider 差异收敛在适配层，不暴露给上层
+1. **ILimbNode 统一接口**（四肢侧抽象，不重构猫 Provider）
+   - 定义四肢节点的标准生命周期：`register() → invoke() → healthCheck() → deregister()`
+   - 现有猫 Provider（`AgentService`）不变——猫是议员不是四肢
+   - 新的四肢类型（设备/远程机器）实现 `ILimbNode` 接口即可接入
 
 2. **Capability Registry**（借鉴 OpenClaw 三层声明）
-   - `caps`: 高级能力类别（`["code", "review", "design", "camera", "voice"]`）
-   - `commands`: 精确命令白名单（`["code.edit", "review.diff", "camera.snap"]`）
+   - `caps`: 高级能力类别（`["camera", "voice", "gpu_render", "browser", "exec"]`）
+   - `commands`: 精确命令白名单（`["camera.snap", "browser.navigate", "exec.run"]`）
    - `permissions`: 细粒度开关（运行时可调）
-   - 存储：扩展现有 `capabilities.json`（F041 真相源）为动态 registry
+   - **静态/动态分层**：`capabilities.json` 继续作为静态配置真相源（F041 基线），live registry 是运行时真相源，两者职责分离不混写
+   - **Schema 预留 per-cat 权限维度**：Registry 从一开始就包含 `catId × nodeId × capability` 三维 schema，避免后续迁移
 
-3. **AgentRouter 升级**
-   - 路由时查 Capability Registry（不再只靠 @mention + intent 推断）
-   - 支持 capability-based 路由："需要 camera → 查谁有 camera → 路由过去"
-
-### Phase B: Presence + 健康管理
-
-**目标**：知道每个节点的实时状态，不可用时自动降级。
-
-1. **Presence Manager**
+3. **Basic Presence**（与 F118 Watchdog 同 PR 级别整合）
    - 心跳机制（15s tick，参考 OpenClaw）
    - 节点状态：`online` / `busy` / `offline` / `degraded`
-   - 能力级别：节点在线但某个能力不可用（如 camera 被其他 app 占用）
-   - 与 F118 CLI Liveness Watchdog 整合
+   - 能力级别：节点在线但某个能力不可用（如 camera 被占用）
+   - 节点离线 → 自动从 live registry 移除其能力，路由不派发到不可用节点
 
-2. **降级策略**
-   - 节点离线 → 自动从 Capability Registry 移除其能力
-   - 猫请求不可用能力 → 告知原因 + 建议替代方案
+4. **MCP Tool 动态暴露**
+   - 猫通过 `limb_list_available` 查询当前可用四肢和能力
+   - 猫通过 `limb_invoke(nodeId, command, params)` 调用四肢
+   - 不注入 system prompt（四肢动态上下线，prompt 是 session 级静态的）
+
+### Phase B: 调度层 — Lease/Scheduler + Access Policy + Action Log
+
+**目标**：解决多猫争用四肢的调度、权限、审计问题。
+
+1. **Lease 机制**
+   - 独占资源（camera/screen）需要租约，同时只能一个用
+   - 共享资源（filesystem/network）可并发
+   - **Lease 过期自动释放**：猫 crash 或超时不能永久锁四肢
    - 可配置：严格模式（拒绝）/ 宽松模式（排队等待）
+
+2. **Scheduling Queue**
+   - 复用 InvocationQueue 模式处理竞争（v1 起点，非终态——N×M 终态需原创设计）
+   - 优先级 + 抢占 + 公平性策略
+
+3. **Limb Access Policy**（F125 scope 内的权限子集）
+   - 三维权限矩阵：`catId × nodeId × capability`
+   - **三级授权模型**：
+     - `free`：低风险能力，无需审批（如查询设备状态）
+     - `leased`：独占资源，自动租约管理
+     - `gated`：高风险能力，需铲屎官审批（如生产部署、删除数据）
+   - 注：全局 per-cat tool policy（`group:fs/runtime/memory` 等 tool family allow/deny）独立于 F125 推进
+
+4. **Artifact/Action Log**（可审计的产物追踪）
+   - 每次四肢调用记录 provenance，最小字段集：
+     - `requestId`, `invocationId`, `leaseId`
+     - `catId`, `nodeId`, `capability`
+     - `artifactUri` / `artifactPath`
+     - `status` (pending/running/completed/failed)
+     - `startedAt`, `endedAt`
+     - `idempotencyKey`（支持重试和回放）
+   - 多猫争用和跨机回放时可追责
 
 ### Phase C: 跨平台 Node 管理
 
@@ -95,18 +122,14 @@ Cat Café（大脑 / 灵魂议会）
 1. **Remote Node Transport**
    - MCP over HTTP / WebSocket — 复用 MCP 标准协议（不造新轮子）
    - 远程节点跑本地 MCP adapter，向控制面暴露统一 capability surface
+   - 跨 OS 差异收敛在节点侧（Win32/AppleScript/Android intent 细节不暴露给猫）
    - 猫只申请 capability，scheduler 决定派给哪条四肢
 
 2. **Node Pairing（设备配对）**
    - 新节点连接 → 创建配对请求 → 铲屎官审批
    - 审批后签发 token，建立信任关系
    - 扩展 F088 ConnectorThreadBindingStore 为 Device Binding
-
-3. **调度与仲裁**（砚砚 + 金渐层共识）
-   - **Lease 机制**：独占资源需要租约（camera 同时只能一个用）
-   - **Scheduling Queue**：复用 InvocationQueue 模式处理竞争
-   - **Access Policy**：三维权限矩阵 `catId × nodeId × capability`（金渐层提案）
-   - **Artifact/Action Log**：每次四肢调用记录 provenance（谁申请、哪条四肢、结果）
+   - 断线恢复 + 重连机制
 
 ### Phase D: F124 Apple 生态落地
 
@@ -116,72 +139,67 @@ Cat Café（大脑 / 灵魂议会）
 - 具体设计沿用 F124 spec
 - 此 Phase 与 F124 合并执行
 
-## 三猫研讨共识与分歧
+## 三猫对齐结论（2026-03-16）
 
-### 共识（2026-03-16 会议纪要）
+### 共识
 
 | # | 共识 |
 |---|------|
-| C1 | Cat Café = 一个大脑（灵魂议会），四肢是外部设备/节点 |
-| C2 | 不抄 OpenClaw 的自定义 WebSocket 协议，用 MCP 标准 |
+| C1 | Cat Café = 一个大脑（灵魂议会），四肢是外部设备/节点，猫是议员不是 Node |
+| C2 | 不抄 OpenClaw 自定义 WebSocket 协议，用 MCP 标准 |
 | C3 | Capability-based 能力声明和发现值得学 |
-| C4 | Memory lifecycle 需要补"pre-seal 自动写入"环节（F102 范围） |
-| C5 | 设备能力走 MCP 接入，不造新轮子 |
-| C6 | Full node architecture 不急——先统一抽象，再加远程 |
+| C4 | Memory lifecycle 补"pre-seal 自动写入"属于 F102 范围 |
+| C5 | F125 聚焦四肢侧抽象，不重构猫 Provider 内部 |
+| C6 | N×M 是行业未解问题，InvocationQueue 复用是 v1 起点非终态 |
+| C7 | Session truth boundary 独立于 F125（F125 只消费 session contract） |
+| C8 | 全局 per-cat tool policy 独立于 F125（F125 只做 limb access policy 子集） |
+| C9 | `capabilities.json` = 静态配置真相源，live registry = 运行时真相源，分离不混写 |
+| C10 | Runtime 活状态（heartbeat/lease/online）不进 F102/evidence index，只有 policy/lesson/failure pattern 走 marker/materialize |
 
-### 砚砚 (GPT-5.4) 独特贡献
+### 砚砚 (GPT-5.4) 关键贡献
 
-1. **N brains → M limbs 的编队调度**（`Capability Fleet Control Plane`）
-   - NodeRegistry + CapabilityCatalog（设备/OS/driver/能力/信任级）
-   - Lease/Scheduler（多猫争用同一四肢时的租约、并发、抢占、优先级）
-   - Artifact/Action Log（产物 provenance 追踪）
-   - Memory split：F102 管 durable knowledge；Redis/live store 管 heartbeat/lease/online state
+1. **Fleet Control Plane 4 层骨架**：Registry + Lease/Scheduler + ActionLog + MemorySplit
+2. **Phase A 纠偏**：不应把猫 Provider 重构绑进来，聚焦 `ILimbNode` / `ICapabilityHost`
+3. **Memory split 硬边界**：runtime state 不进 F102，只有 durable knowledge 走 materialize
+4. **Action Log provenance 字段集**：requestId/invocationId/leaseId/catId/nodeId/capability/artifact/status/time/idempotencyKey
 
-2. **Session truth boundary** — 建议先归一 Conversation Identity + Session Pointer（可独立于 F125 推进）
+### 金渐层 (opencode) 关键贡献
 
-3. **Per-cat tool policy** — 工具权限从 prompt 约束升级为运行时配置（tool family allow/deny）
-
-### 金渐层 (opencode) 独特贡献
-
-1. **Resource Broker 层**（在 Gateway 和 Node 之间）
-   - Capability Registry + Access Policy + Scheduling Queue
-   - 三维权限矩阵：`catId × deviceId × capability`
-   - 行业对标：MCP 替代自定义协议是行业共识；Capability-based 安全模型优于 RBAC
-
-2. **N×M 是行业未解问题** — OpenClaw/LangGraph/CrewAI/A2A 都没完整解决多 agent 共享物理资源的仲裁。我们做了会是独特贡献
-
-3. **Agent-Driven UI 演进** — Rich Blocks 是 Canvas/A2UI 的雏形，后续可泛化
-
-### 待议分歧
-
-| # | 分歧 | 需确认 |
-|---|------|--------|
-| D1 | Session truth boundary 是否单独立项 vs 归入 F125 | 砚砚建议独立，宪宪倾向归入 |
-| D2 | Per-cat tool policy 是 Phase A 的一部分还是独立 | 砚砚建议 P2 独立推进 |
-| D3 | Agent-Driven UI 泛化时机 | 金渐层建议中长期方向 |
+1. **Resource Broker + 三维权限矩阵**：`catId × nodeId × capability` 是 Access Policy 核心数据结构
+2. **N×M 行业独特性**：这是未解问题，我们做了是独有架构贡献
+3. **三级授权模型**：free / leased / gated
+4. **OQ-1 决议**：MCP tool 动态列出（`limb_list_available` + `limb_invoke`），不注入 prompt
+5. **Phase A schema 预留**：Registry 从一开始就包含 per-cat 权限维度，避免后续迁移
+6. **新风险**：AgentService 能力调查 + CapabilityEntry schema 向后兼容
 
 ## Acceptance Criteria
 
-### Phase A（统一 Node 抽象 + Capability Registry）
-- [ ] AC-A1: 定义 `IAgentNode` 统一接口，现有 4 个 Provider 适配到此接口
-- [ ] AC-A2: Capability Registry 从 `capabilities.json` 演化为动态注册表，支持运行时查询
-- [ ] AC-A3: AgentRouter 支持 capability-based 路由（除 @mention 外可按能力路由）
-- [ ] AC-A4: 新增 Provider 只需实现 `IAgentNode` 接口 + 注册能力，不需要写特化 Service
+### Phase A（四肢抽象 + Capability Registry + Basic Presence）
+- [ ] AC-A1: 定义 `ILimbNode` 统一接口（register/invoke/healthCheck/deregister），不改动现有猫 Provider
+- [ ] AC-A2: Capability Registry 从 `capabilities.json` 演化，静态配置 vs 动态 live registry 职责分离
+- [ ] AC-A3: Registry schema 从一开始包含 `catId × nodeId × capability` 三维结构
+- [ ] AC-A4: 新增四肢类型只需实现 `ILimbNode` 接口 + 注册能力
+- [ ] AC-A5: `capabilities.json` schema 升级向后兼容（现有 `type: mcp | skill` 不受影响）
+- [ ] AC-A6: Basic Presence — 节点状态追踪（online/busy/offline/degraded），离线自动移除能力
+- [ ] AC-A7: F118 Watchdog 整合到 Presence Manager
+- [ ] AC-A8: MCP tool `limb_list_available` + `limb_invoke` 可用
+- [ ] AC-A9: F125 只消费 session contract，不拥有 session truth 实现
 
-### Phase B（Presence + 健康管理）
-- [ ] AC-B1: Presence Manager 实时追踪节点状态（online/busy/offline/degraded）
-- [ ] AC-B2: 节点离线时自动从可用能力表移除，路由不再派发到不可用节点
-- [ ] AC-B3: F118 Watchdog 整合到 Presence Manager
+### Phase B（调度层 — Lease/Scheduler + Access Policy + Action Log）
+- [ ] AC-B1: Lease 机制可防止多猫争用独占资源
+- [ ] AC-B2: Lease 过期自动释放（猫 crash/超时不永久锁四肢）
+- [ ] AC-B3: Limb Access Policy 实现三级授权（free/leased/gated）
+- [ ] AC-B4: Action Log 记录最小 provenance 字段集（requestId/invocationId/leaseId/catId/nodeId/capability/artifactUri/status/startedAt/endedAt/idempotencyKey）
+- [ ] AC-B5: runtime 活状态（heartbeat/lease/online）只进 Redis，不进 F102/evidence index
 
 ### Phase C（跨平台 Node 管理）
 - [ ] AC-C1: 远程节点可通过 MCP over HTTP 注册到控制面
 - [ ] AC-C2: Node Pairing 审批流程可用（新节点连接 → 铲屎官审批 → 建立信任）
-- [ ] AC-C3: Lease 机制可防止多猫争用独占资源
-- [ ] AC-C4: 每次四肢调用有 Artifact/Action Log 记录
+- [ ] AC-C3: 断线恢复 + 重连机制
 
 ### Phase D（F124 Apple 生态落地）
-- [ ] AC-D1: iPhone 作为 Device Node 接入，暴露 camera/voice/location 能力
-- [ ] AC-D2: Apple Watch 作为 Device Node 接入，暴露 haptic/presence 能力
+- [ ] AC-D1: iPhone 作为 Limb Node 接入，暴露 camera/voice/location 能力
+- [ ] AC-D2: Apple Watch 作为 Limb Node 接入，暴露 haptic/presence 能力
 - [ ] AC-D3: 铲屎官可通过 AirPods 语音与猫猫交互
 
 ## Dependencies
@@ -189,26 +207,32 @@ Cat Café（大脑 / 灵魂议会）
 - **Evolved from**: F041（能力看板 — `capabilities.json` 是 Capability Registry 的种子）
 - **Related**: F088（Chat Gateway — Connector 模式可复用于 Device Node）
 - **Related**: F102（Memory Adapter — durable knowledge vs runtime state 的分界）
-- **Related**: F118（CLI Liveness Watchdog — Presence 的种子）
-- **Related**: F124（Apple Ecosystem — Phase D 的应用场景，可合并执行）
+- **Related**: F118（CLI Liveness Watchdog — Presence 的种子，Phase A 整合）
+- **Related**: F124（Apple Ecosystem — Phase D 的应用场景，合并执行）
+- **Depends on (soft)**: Unified Session Contract（F125 消费，不拥有）
+- **Out of scope**: 全局 per-cat tool policy（tool family allow/deny — 独立推进）
+- **Out of scope**: Agent-Driven UI 泛化（中长期方向，不在 F125 内）
 
 ## Risk
 
 | 风险 | 缓解 |
 |------|------|
-| 统一抽象过度，现有 Provider 的特化优势丢失 | Phase A 保留 adapter 层处理差异，interface 只定义共性 |
-| 远程 Node 网络不稳定（弱网/断连） | Presence Manager 自动降级 + 重连机制 |
-| N×M 调度复杂度爆炸 | 先做简单的先来先服务，再按需加优先级/抢占 |
+| ILimbNode 抽象过窄 — 需先调查现有 6 个 Provider 的公开方法（AgentService 只有 1 个 `invoke()`） | Phase A 做 capability survey 列出所有公开方法再定义接口 |
+| CapabilityEntry schema 迁移 — 现有 `type` 只有 `mcp \| skill`，加 `device/limb` 影响下游 | AC-A5 要求向后兼容 |
+| 远程 Node 网络不稳定（弱网/断连） | Presence Manager 自动降级 + 断线恢复 |
+| N×M 调度复杂度爆炸 | v1 先做简单的先来先服务，明确标记非终态 |
+| 资源饥饿/长期占用 — 猫长时间持有 lease 不释放 | Lease TTL 自动过期 + 公平性策略 |
+| Runtime 状态污染 F102 — heartbeat/lease 混入 durable memory | AC-B5 硬边界 + 代码 review 把关 |
 | 安全风险：远程 Node 被攻击 | Pairing 审批 + token 认证 + 能力白名单 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Agent 如何知道有四肢可用？注入 system prompt vs MCP tool 动态列出 | ⬜ 未定 |
-| OQ-2 | 四肢能力的权限模型：每次审批 vs 配对时一次性授权 | ⬜ 未定 |
-| OQ-3 | Session truth boundary 是否归入本 Feature | ⬜ 待三猫对齐 |
-| OQ-4 | Per-cat tool policy 是否归入本 Feature Phase A | ⬜ 待三猫对齐 |
+| OQ-1 | Agent 如何知道有四肢可用？ | ✅ 已定：MCP tool 动态列出（`limb_list_available` + `limb_invoke`），不注入 prompt |
+| OQ-2 | 四肢能力的权限模型？ | ✅ 已定：三级授权 free/leased/gated |
+| OQ-3 | Session truth boundary 归属？ | ✅ 已定：独立于 F125，F125 只消费 session contract |
+| OQ-4 | Per-cat tool policy 归属？ | ✅ 已定：全局 policy 独立，limb access policy（catId×nodeId×cap）在 F125 Phase B |
 
 ## Key Decisions
 
@@ -216,19 +240,23 @@ Cat Café（大脑 / 灵魂议会）
 |---|------|------|------|
 | KD-1 | 猫猫是议员不是 Node——Cat Café 是一个大脑（灵魂议会），四肢是外部设备 | 铲屎官定义，多猫协作是核心价值 | 2026-03-16 |
 | KD-2 | 用 MCP 标准协议做设备接入，不抄 OpenClaw 的自定义 WebSocket 协议 | MCP 已成行业标准（Linux Foundation），不造新轮子 | 2026-03-16 |
-| KD-3 | 先统一抽象（Phase A），再加远程（Phase C），最后接设备（Phase D） | 方向正确 > 速度；每步是终态基座 | 2026-03-16 |
+| KD-3 | F125 聚焦四肢侧抽象（ILimbNode），不重构猫 Provider（AgentService） | 砚砚审阅纠偏：猫是议员不是四肢，scope 分离 | 2026-03-16 |
+| KD-4 | Phase 顺序：A（抽象+Registry+Presence）→ B（调度+权限+审计）→ C（跨平台）→ D（F124） | 砚砚提议 + 三猫共识：每步终态基座 | 2026-03-16 |
+| KD-5 | 三级授权模型：free / leased / gated | 金渐层提案：每次审批太重，一次性授权太危险 | 2026-03-16 |
+| KD-6 | MCP tool 动态暴露四肢能力，不注入 system prompt | 金渐层提案：四肢动态上下线，prompt 是 session 级静态的 | 2026-03-16 |
+| KD-7 | Runtime 活状态不进 F102，只有 durable knowledge 走 materialize | 砚砚提案：防止 runtime 噪音污染长期记忆 | 2026-03-16 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-03-16 | 三猫 OpenClaw Node 研讨 → 铲屎官指出"想浅了" → 重新框定 |
-| 2026-03-16 | 立项 |
+| 2026-03-16 | 立项 + 三猫审阅对齐 |
 
 ## Review Gate
 
-- Phase A: 跨 family review（缅因猫优先）
-- Phase B: 跨 family review + F118 owner 确认整合方案
+- Phase A: 跨 family review（缅因猫优先）+ F118 owner 确认 Presence 整合
+- Phase B: 跨 family review
 - Phase C: 架构级 → 猫猫讨论 + 铲屎官拍板
 - Phase D: 与 F124 合并 review
 
@@ -250,14 +278,20 @@ Cat Café（大脑 / 灵魂议会）
 
 | 需求来源 | 需求点 | 覆盖到的 AC |
 |---------|--------|-----------|
-| 铲屎官："管理多个不同的四肢" | 统一 Node 抽象 + Registry | AC-A1, AC-A2 |
+| 铲屎官："管理多个不同的四肢" | 统一 Limb 抽象 + Registry | AC-A1, AC-A2 |
 | 铲屎官："Mac 上管理 Windows 节点" | 跨平台远程 Node 管理 | AC-C1, AC-C2 |
 | 宪宪：没有 Capability Registry | 动态能力注册与发现 | AC-A2, AC-A3 |
-| 宪宪：没有 Presence 系统 | Presence Manager | AC-B1, AC-B2 |
-| 宪宪：没有统一 Node 抽象 | IAgentNode 接口 | AC-A1, AC-A4 |
+| 宪宪：没有 Presence 系统 | Basic Presence + 降级 | AC-A6, AC-A7 |
+| 宪宪：没有统一 Node 抽象 | ILimbNode 接口 | AC-A1, AC-A4 |
 | 宪宪：没有跨平台 Node 管理 | Remote Node Transport | AC-C1 |
-| 砚砚：Lease/Scheduler 多猫争用 | 租约 + 调度队列 | AC-C3 |
-| 砚砚：Artifact/Action Log | 产物 provenance | AC-C4 |
-| 砚砚：Memory split | F102 管 durable / Redis 管 runtime | Related F102 |
-| 金渐层：三维权限矩阵 | Access Policy catId×nodeId×cap | AC-C3 |
+| 砚砚：四肢侧抽象不绑猫 Provider | ILimbNode ≠ IAgentNode | AC-A1（KD-3）|
+| 砚砚：Lease/Scheduler 多猫争用 | 租约 + 调度 + 自动释放 | AC-B1, AC-B2 |
+| 砚砚：Artifact/Action Log provenance | 最小字段集审计 | AC-B4 |
+| 砚砚：Memory split 硬边界 | Runtime 不进 F102 | AC-B5 |
+| 砚砚：静态/动态 Registry 分层 | capabilities.json vs live registry | AC-A2（KD-3）|
+| 金渐层：三维权限矩阵 | catId×nodeId×cap Phase A 预留 | AC-A3 |
+| 金渐层：三级授权 | free/leased/gated | AC-B3（KD-5）|
+| 金渐层：MCP tool 动态暴露 | limb_list_available + limb_invoke | AC-A8（KD-6）|
+| 金渐层：Schema 向后兼容 | capabilities.json 升级不破坏现有 | AC-A5 |
+| 金渐层：Lease 自动释放 | crash/超时不永久锁 | AC-B2 |
 | 金渐层：行业独特贡献 | N×M 编队控制面 | 整体愿景 |
