@@ -183,7 +183,7 @@ Apple 与 Anthropic/OpenAI 官方合作，Claude Agent 是第一方适配的 age
 | OQ-3 | 后端鉴权方案——现有 session 还是新增 API key/token？ | ⬜ 未定 |
 | OQ-4 | ~~watchOS 最低支持版本？~~ | ✅ Ultra 3 = 最新 watchOS，无兼容性顾虑 |
 | OQ-5 | Cloudflare Tunnel 延迟优化方案？之前很卡，需 <300ms | ⬜ 铲屎官找之前的布偶猫讨论 |
-| OQ-6 | 公网域名注册 | ⬜ 铲屎官处理 |
+| OQ-6 | ~~公网域名注册~~ | ✅ 已注册 `clowder-ai.com`（2026-03-16 铲屎官确认） |
 
 ## Key Decisions
 
