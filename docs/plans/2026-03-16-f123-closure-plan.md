@@ -15,7 +15,7 @@
 - AC-C2: 针对已知历史症状的 replay/golden tests 全绿：瞬时双影、stream 停更、draft/hydration 身份断层、rich block 落错 bubble、queue/hydration 乱序  
 - AC-C3: 提供 bubble provenance / timeline dump 的最小可用调试能力，能导出一次 invocation 的关键 lifecycle  
 - AC-C4: F123 完成时，剩余未解问题必须明确分流为 provider/runtime 问题或 follow-up feature，不能再以“散装 bug”留在空气里  
-**Architecture:** 先补 code-backed truth model 和 symptom→fixture 映射，再把 identity contract/invariant 下沉到共享 helper 与 store 诊断，最后用 replay suite 封住 F5/thread switch/draft/queue 等恢复路径。`MessageWriter` 不是前置，只有 shared helper 在 3+ 入口同构复用时才升级。  
+**Architecture:** 先补 code-backed truth model 和 symptom→fixture 映射，再把 identity contract/invariant 下沉到共享 helper 与 store 诊断，最后用 replay suite 封住 F5/thread switch/draft/queue 等恢复路径。`MessageWriter` 不是前置，只有 shared helper 在 3+ 入口同构复用时才升级。当前现场的“thread switch 时裂成两个，F5 后归一”要被当成同一套 monotonic recovery 失败来处理，不单开绕路热修。  
 **Tech Stack:** React hooks, Zustand chat store, Vitest, existing invocation debug timeline.  
 **前端验证:** Yes — reviewer 必须用浏览器在 Alpha 环境验证 F5 / thread switch / callback replacement 的真实表现。  
 
@@ -25,6 +25,7 @@
 
 - **Finish line**：F123 close 时，我们能拿代码、fixture、timeline 和浏览器证据证明 bubble 这条线已经系统性收口，而不是只修掉几个高频 case。
 - **不做的事**：不在本轮引入大一统 `MessageWriter` 重构；不把 provider/runtime hang 混进 F123；不把测试临时工件治理混进这条线。
+- **不做的事**：不做整页刷新、偷偷 F5、thread-scoped reload 之类把症状藏起来的绕路操作；修复必须落在 identity contract / reconcile / recovery 本身。
 - **终态 schema**：
   - `BubbleIdentity = { catId, invocationId, bubbleKind, originPhase }`
   - `BubbleLifecycle = create → append → replace → finalize → hydrate-recover`
@@ -62,6 +63,7 @@
 **Plan:**
 1. 先把现有 active/background 两条 fixture 提炼成 shared replay helper
 2. 再补剩余历史症状：
+   - thread switch 时裂成两个，F5 后归一（当前 Alpha 现场）
    - F5 后双影 / 单调可见性
    - thread switch 后 hydrate 不一致
    - draft/hydration 身份断层
@@ -109,6 +111,7 @@
 2. 对未带 `invocationId`、late chunk、history callback-over-stream、queue cancel/restart 做统一恢复语义
 3. 用 Alpha 环境做浏览器实测，重点看：
    - F5 前后是否仍一会两条一会一条
+   - thread switch 当下是否先裂成两个，随后再被 hydration 合一
    - thread switch 回来后是否出现影子 bubble
    - queue steer/cancel 后 loading 是否残留
 

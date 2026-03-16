@@ -20,6 +20,8 @@ created: 2026-03-14
 
 这说明我们现在需要的不是“再修一个 bubble bug”，而是一个从 `F081` 演进而来的第二阶段 feature：把 bubble 的身份模型、写入规则、恢复语义和可观测性真正收口。
 
+最新现场症状也说明了这点：**切线程时气泡仍可能先裂成两个，随后在 F5 后重新合成一个**。这不是一个值得用“偷偷刷新”去掩盖的 UI 小毛病，而是同一条 bubble 在 thread switch / hydration / reconcile 之间没有满足单调可见性的表现，属于 F123 的核心攻击面。
+
 ## What
 
 ### Phase A: Truth Model & Replay Harness
@@ -86,6 +88,7 @@ created: 2026-03-14
 - **已明显压住高频双影症状**，尤其是同 invocation 下 callback/stream 并存
 - **已补上最小可用的 bubble timeline dump**
 - **但仍不能 close**，因为 truth model、统一 identity contract、store/invariant 断言、F5/thread-switch 的完整 replay suite 还没完成
+- **最新现场仍表明 AC-C1 / AC-C2 未收口**：thread switch 时仍可能短暂裂成两个 bubble，F5 后才重新归一
 
 换句话说：我们已经证明了几条关键路径有效，但还没有证明“这条线已经系统性收口”。
 
@@ -99,6 +102,7 @@ created: 2026-03-14
 | R4 | “要有一个独立 feature owning 这条线” | AC-C4 | backlog + feature doc | [x] |
 | R5 | “不要再靠补丁式修法反复打同类问题” | AC-B1, AC-B3, AC-C2 | code review + replay suite | [ ] |
 | R6 | “同一 invocation 里正式发言和思考过程不要再双影并存” | AC-B4, AC-C1 | replay test + manual | [x] |
+| R7 | “切线程时不能先裂成两个，F5 后又合一” | AC-C1, AC-C2 | replay test + Alpha manual | [ ] |
 
 ### 覆盖检查
 - [ ] 每个需求点都能映射到至少一个 AC
