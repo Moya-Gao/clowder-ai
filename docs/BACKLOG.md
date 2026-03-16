@@ -55,4 +55,4 @@ created: 2026-02-26
 | F121 | Community Frontend UX Triage — 社区前端交互体验侦查与分诊 | in-progress | 三猫 | community [#28](https://github.com/zts212653/clowder-ai/issues/28) [#89](https://github.com/zts212653/clowder-ai/issues/89) [#27](https://github.com/zts212653/clowder-ai/issues/27) [#22](https://github.com/zts212653/clowder-ai/issues/22) [#88](https://github.com/zts212653/clowder-ai/issues/88) [#16](https://github.com/zts212653/clowder-ai/issues/16) | [F121](features/F121-community-frontend-ux-triage.md) |
 | F122 | 执行通道统一 — A2A/multi_mention 入 Dispatch Queue | in-progress | 布偶猫 | internal | [F122](features/F122-unified-dispatch-queue.md) |
 | F124 | Apple Ecosystem × Cat Café 语音交互系统 — iOS/watchOS/AirPods | spec | 布偶猫 | internal | [F124](features/F124-apple-ecosystem-voice-interaction.md) |
-| F125 | 四肢控制面 — Cat Café Limb Control Plane | spec | 布偶猫 | internal | [F125](features/F125-limb-control-plane.md) |
+| F126 | 四肢控制面 — Cat Café Limb Control Plane | spec | 布偶猫 | internal | [F126](features/F126-limb-control-plane.md) |

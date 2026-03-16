@@ -1,5 +1,5 @@
 ---
-feature_ids: [F010, F088, F102, F124, F125]
+feature_ids: [F010, F088, F102, F124, F126]
 related_features: [F033, F041, F044, F065, F118]
 topics: [openclaw, node, capability, architecture, research]
 doc_kind: meeting-notes

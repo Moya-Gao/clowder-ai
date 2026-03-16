@@ -1,12 +1,12 @@
 ---
-feature_ids: [F125]
+feature_ids: [F126]
 related_features: [F041, F088, F102, F118, F124]
 topics: [node, capability, presence, fleet, control-plane, distributed, limb]
 doc_kind: spec
 created: 2026-03-16
 ---
 
-# F125: 四肢控制面 — Cat Café Limb Control Plane
+# F126: 四肢控制面 — Cat Café Limb Control Plane
 
 > **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
 
@@ -20,7 +20,7 @@ created: 2026-03-16
 
 **核心模型**：Cat Café = 一个大脑（灵魂议会，多猫议员）→ 需要管理 M 个四肢（外部设备/节点）。这是 OpenClaw `1 brain → N limbs` 的升级版：`1 brain (N cats) → M limbs`。
 
-**猫猫是议员，不是 Node。** F125 聚焦**四肢侧**的抽象与管理，不重构现有猫 Provider 内部实现。
+**猫猫是议员，不是 Node。** F126 聚焦**四肢侧**的抽象与管理，不重构现有猫 Provider 内部实现。
 
 **四个已确认的缺陷**（宪宪分析，铲屎官确认"完全都是我们需要优化的"）：
 
@@ -97,13 +97,13 @@ Cat Café（大脑 / 灵魂议会）
    - 复用 InvocationQueue 模式处理竞争（v1 起点，非终态——N×M 终态需原创设计）
    - 优先级 + 抢占 + 公平性策略
 
-3. **Limb Access Policy**（F125 scope 内的权限子集）
+3. **Limb Access Policy**（F126 scope 内的权限子集）
    - 三维权限矩阵：`catId × nodeId × capability`
    - **三级授权模型**：
      - `free`：低风险能力，无需审批（如查询设备状态）
      - `leased`：独占资源，自动租约管理
      - `gated`：高风险能力，需铲屎官审批（如生产部署、删除数据）
-   - 注：全局 per-cat tool policy（`group:fs/runtime/memory` 等 tool family allow/deny）独立于 F125 推进
+   - 注：全局 per-cat tool policy（`group:fs/runtime/memory` 等 tool family allow/deny）独立于 F126 推进
 
 4. **Artifact/Action Log**（可审计的产物追踪）
    - 每次四肢调用记录 provenance，最小字段集：
@@ -149,10 +149,10 @@ Cat Café（大脑 / 灵魂议会）
 | C2 | 不抄 OpenClaw 自定义 WebSocket 协议，用 MCP 标准 |
 | C3 | Capability-based 能力声明和发现值得学 |
 | C4 | Memory lifecycle 补"pre-seal 自动写入"属于 F102 范围 |
-| C5 | F125 聚焦四肢侧抽象，不重构猫 Provider 内部 |
+| C5 | F126 聚焦四肢侧抽象，不重构猫 Provider 内部 |
 | C6 | N×M 是行业未解问题，InvocationQueue 复用是 v1 起点非终态 |
-| C7 | Session truth boundary 独立于 F125（F125 只消费 session contract） |
-| C8 | 全局 per-cat tool policy 独立于 F125（F125 只做 limb access policy 子集） |
+| C7 | Session truth boundary 独立于 F126（F126 只消费 session contract） |
+| C8 | 全局 per-cat tool policy 独立于 F126（F126 只做 limb access policy 子集） |
 | C9 | `capabilities.json` = 静态配置真相源，live registry = 运行时真相源，分离不混写 |
 | C10 | Runtime 活状态（heartbeat/lease/online）不进 F102/evidence index，只有 policy/lesson/failure pattern 走 marker/materialize |
 
@@ -183,7 +183,7 @@ Cat Café（大脑 / 灵魂议会）
 - [ ] AC-A6: Basic Presence — 节点状态追踪（online/busy/offline/degraded），离线自动移除能力
 - [ ] AC-A7: F118 Watchdog 整合到 Presence Manager
 - [ ] AC-A8: MCP tool `limb_list_available` + `limb_invoke` 可用
-- [ ] AC-A9: F125 只消费 session contract，不拥有 session truth 实现
+- [ ] AC-A9: F126 只消费 session contract，不拥有 session truth 实现
 
 ### Phase B（调度层 — Lease/Scheduler + Access Policy + Action Log）
 - [ ] AC-B1: Lease 机制可防止多猫争用独占资源
@@ -209,9 +209,9 @@ Cat Café（大脑 / 灵魂议会）
 - **Related**: F102（Memory Adapter — durable knowledge vs runtime state 的分界）
 - **Related**: F118（CLI Liveness Watchdog — Presence 的种子，Phase A 整合）
 - **Related**: F124（Apple Ecosystem — Phase D 的应用场景，合并执行）
-- **Depends on (soft)**: Unified Session Contract（F125 消费，不拥有）
+- **Depends on (soft)**: Unified Session Contract（F126 消费，不拥有）
 - **Out of scope**: 全局 per-cat tool policy（tool family allow/deny — 独立推进）
-- **Out of scope**: Agent-Driven UI 泛化（中长期方向，不在 F125 内）
+- **Out of scope**: Agent-Driven UI 泛化（中长期方向，不在 F126 内）
 
 ## Risk
 
@@ -231,8 +231,8 @@ Cat Café（大脑 / 灵魂议会）
 |---|------|------|
 | OQ-1 | Agent 如何知道有四肢可用？ | ✅ 已定：MCP tool 动态列出（`limb_list_available` + `limb_invoke`），不注入 prompt |
 | OQ-2 | 四肢能力的权限模型？ | ✅ 已定：三级授权 free/leased/gated |
-| OQ-3 | Session truth boundary 归属？ | ✅ 已定：独立于 F125，F125 只消费 session contract |
-| OQ-4 | Per-cat tool policy 归属？ | ✅ 已定：全局 policy 独立，limb access policy（catId×nodeId×cap）在 F125 Phase B |
+| OQ-3 | Session truth boundary 归属？ | ✅ 已定：独立于 F126，F126 只消费 session contract |
+| OQ-4 | Per-cat tool policy 归属？ | ✅ 已定：全局 policy 独立，limb access policy（catId×nodeId×cap）在 F126 Phase B |
 
 ## Key Decisions
 
@@ -240,7 +240,7 @@ Cat Café（大脑 / 灵魂议会）
 |---|------|------|------|
 | KD-1 | 猫猫是议员不是 Node——Cat Café 是一个大脑（灵魂议会），四肢是外部设备 | 铲屎官定义，多猫协作是核心价值 | 2026-03-16 |
 | KD-2 | 用 MCP 标准协议做设备接入，不抄 OpenClaw 的自定义 WebSocket 协议 | MCP 已成行业标准（Linux Foundation），不造新轮子 | 2026-03-16 |
-| KD-3 | F125 聚焦四肢侧抽象（ILimbNode），不重构猫 Provider（AgentService） | 砚砚审阅纠偏：猫是议员不是四肢，scope 分离 | 2026-03-16 |
+| KD-3 | F126 聚焦四肢侧抽象（ILimbNode），不重构猫 Provider（AgentService） | 砚砚审阅纠偏：猫是议员不是四肢，scope 分离 | 2026-03-16 |
 | KD-4 | Phase 顺序：A（抽象+Registry+Presence）→ B（调度+权限+审计）→ C（跨平台）→ D（F124） | 砚砚提议 + 三猫共识：每步终态基座 | 2026-03-16 |
 | KD-5 | 三级授权模型：free / leased / gated | 金渐层提案：每次审批太重，一次性授权太危险 | 2026-03-16 |
 | KD-6 | MCP tool 动态暴露四肢能力，不注入 system prompt | 金渐层提案：四肢动态上下线，prompt 是 session 级静态的 | 2026-03-16 |

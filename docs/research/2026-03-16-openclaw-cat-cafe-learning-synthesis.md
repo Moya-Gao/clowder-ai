@@ -1,5 +1,5 @@
 ---
-feature_ids: [F125]
+feature_ids: [F126]
 topics: [openclaw, gateway, sessions, memory, nodes, research, architecture]
 doc_kind: research-synthesis
 created: 2026-03-16
