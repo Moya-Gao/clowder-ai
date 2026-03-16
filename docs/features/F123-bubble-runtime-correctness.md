@@ -56,7 +56,7 @@ created: 2026-03-14
 ## Acceptance Criteria
 
 ### Phase A（Truth Model & Replay Harness）
-- [ ] AC-A1: 产出一份 code-backed bubble state model，逐条映射当前真实写入入口与字段职责
+- [x] AC-A1: 产出一份 code-backed bubble state model，逐条映射当前真实写入入口与字段职责
 - [x] AC-A2: replay harness 的首批 fixture 至少覆盖 active late-bind 双影 + background ref-lost 停更 两条主路径
 - [ ] AC-A3: 每个进入 F123 的现场症状都能映射到某个 fixture，而不是只保留口头描述
 
@@ -75,7 +75,7 @@ created: 2026-03-14
 
 ## Current State Snapshot（2026-03-16）
 
-当前代码已经 merge 的是 4 个切片，不是整条 F123 的完成态：
+当前代码已经 merge 的是 5 个切片，不是整条 F123 的完成态：
 
 | PR | Merge Commit | 实际落地 | 对齐 AC |
 |----|--------------|----------|---------|
@@ -83,13 +83,14 @@ created: 2026-03-14
 | #464 | `74e4663e` | hydration reconcile 中 `callback > stream` 的 phase priority | 部分推进 AC-C1（未完成） |
 | #465 | `5c3f9ac4` | 保持 late-stream suppression 到观察到不同 `invocationId` 为止，封住 #464 merge 后的 ghost bubble 回归 | 部分推进 AC-C1（未完成） |
 | #493 | `b7123839` | `bubbleIdentity.ts` truth-model helper、thread switch 遇到 unstable cache 时强制 replace hydration、callback↔callback authoritative ordering、R7 现场 replay | 部分推进 AC-A1, AC-C1, AC-C2（均未完成） |
+| #494 | `aba1e8c2` | truth-model descriptor、bubble state model 资产、symptom-fixture matrix | AC-A1，部分推进 AC-A3 |
 
 因此，F123 当前是：
 
 - **已明显压住高频双影症状**，尤其是同 invocation 下 callback/stream 并存
 - **已补上最小可用的 bubble timeline dump**
-- **已开始把 thread-switch / hydration 的恢复语义收成 code-backed truth model**，不再只靠局部 hotfix
-- **但仍不能 close**，因为 truth model、统一 identity contract、store/invariant 断言、F5/thread-switch 的完整 replay suite 还没完成
+- **已落第一版 code-backed bubble truth model**，把身份 schema、主写入口和 symptom→fixture 真相源都钉到代码/资产上
+- **但仍不能 close**，因为 symptom-fixture 覆盖还没补齐，统一 identity contract、store/invariant 断言、F5/thread-switch 的完整 replay suite 也还没完成
 - **最新现场仍表明 AC-C1 / AC-C2 未收口**：thread switch 时仍可能短暂裂成两个 bubble，F5 后才重新归一
 
 换句话说：我们已经证明了几条关键路径有效，但还没有证明“这条线已经系统性收口”。
@@ -100,7 +101,7 @@ created: 2026-03-14
 |----|---------------------------|---------|----------|------|
 | R1 | “这个问题从第一天开始就修到现在” | AC-A1, AC-A3 | discussion + spec review | [ ] |
 | R2 | “F5 前后不能一会两条一会一条” | AC-B2, AC-C1 | replay test + manual | [ ] |
-| R3 | “不要乱编和瞎猜，一定要看代码” | AC-A1, AC-A2 | code-backed audit + replay fixtures | [ ] |
+| R3 | “不要乱编和瞎猜，一定要看代码” | AC-A1, AC-A2 | code-backed audit + replay fixtures | [x] |
 | R4 | “要有一个独立 feature owning 这条线” | AC-C4 | backlog + feature doc | [x] |
 | R5 | “不要再靠补丁式修法反复打同类问题” | AC-B1, AC-B3, AC-C2 | code review + replay suite | [ ] |
 | R6 | “同一 invocation 里正式发言和思考过程不要再双影并存” | AC-B4, AC-C1 | replay test + manual | [x] |
@@ -156,6 +157,7 @@ created: 2026-03-14
 | 2026-03-15 | Hydration reconcile slice merged (PR #464): callback-over-stream hydrate priority、R2 fixture 补强、active/background unlabeled-first-chunk guard 落盘 |
 | 2026-03-15 | Hotfix merged (PR #465): 恢复 late-stream suppression 到“观察到不同 invocationId”为止，封住 #464 merge 后被云端抓到的 ghost bubble 回归 |
 | 2026-03-16 | Monotonic recovery contract slice merged (PR #493): `bubbleIdentity.ts` 落盘、thread-switch unstable cache 强制 replace hydration、callback↔callback 按 authoritative ordering 恢复、R7 replay 补强 |
+| 2026-03-16 | Truth-model slice merged (PR #494): descriptor、state model 资产、symptom-fixture matrix 落盘，AC-A1 完成、AC-A3 前进一格 |
 
 ## Review Gate
 
