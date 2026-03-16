@@ -154,8 +154,22 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 - [x] AC-A11: 回归测试：`tryStartThread` 成功但 create 返回 duplicate → slot 必释放
 - [x] AC-A12: 回归测试：multi_mention create/update 抛错 → slot 必释放
 
-### Phase B（语义收敛，待 OQ-1 决策后定义）
-- [ ] AC-B1: TBD（取决于产品方向决策）
+### Phase B（语义收敛）🚧
+> OQ-1/2/4 已由铲屎官拍板（ADR-018），Phase B 开始实施。
+
+**已完成（PR pending review）：**
+- [x] AC-B1: QueueEntry 支持 `source: 'agent'` + `autoExecute` + `callerCatId`
+- [x] AC-B2: QueueProcessor `tryAutoExecute` — agent 条目入队后目标猫 slot 空闲时立即执行
+- [x] AC-B3: A2A callback (`enqueueA2ATargets`) 通过 InvocationQueue 产出 agent entry（替代 pushToWorklist）
+- [x] AC-B4: steer 可以管控 agent-sourced queue entries（promote + immediate 均验证通过）
+- [x] AC-B5: `invocationQueue` dep 注入到 callback routes → 生产环境激活 F122B 路径
+
+**Deferred（Phase B.1 follow-up）：**
+- [ ] AC-B6: multi_mention dispatch 改走 InvocationQueue（MultiMentionOrchestrator 的 response 聚合需要 QueueProcessor 回调机制，复杂度高，单独 PR）
+- [ ] AC-B7: QueuePanel 前端渲染 agent-sourced entries（显示"猫A → 猫B handoff"格式）
+- [ ] AC-B8: Thread 执行状态指示（per-cat 活跃状态 + 头像 indicator）
+- [ ] AC-B9: Per-cat Stop 按钮
+- [ ] AC-B10: 双模发送 UX（锁头悄悄话 + 广播排队）— 需暹罗猫设计参与
 
 ## Roadmap（F108 × F122 统一执行计划）
 
@@ -255,11 +269,14 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-15 | Phase A.1 方案锁定：tryStartThread + messages.ts 降级 + multi_mention 占位前移 |
 | 2026-03-15 | Phase A.1 merged (PR #462) — AC-A8~A12 全部完成，TOCTOU 竞态已关闭 |
 | 2026-03-15 | 铲屎官拍板 OQ-1/2/4（ADR-018）：A2A+multi_mention 入 queue auto-execute，保持 slot 级判忙 |
+| 2026-03-16 | Phase B 后端核心实施：QueueEntry agent source + tryAutoExecute + A2A enqueue + wiring（PR pending） |
+| 2026-03-16 | Phase B deferred: multi_mention queue integration + 前端 UX（AC-B6~B10）记录到 feature doc |
 
 ## Review Gate
 
-- Phase A: 跨家族 review（缅因猫优先，codex 或 gpt52）
-- Phase A.1: 跨家族 review（codex 或 gpt52）
+- Phase A: 跨家族 review（缅因猫优先，codex 或 gpt52）✅
+- Phase A.1: 跨家族 review（codex 或 gpt52）✅
+- Phase B: 跨家族 review（codex 或 gpt52）
 
 ## Links
 
