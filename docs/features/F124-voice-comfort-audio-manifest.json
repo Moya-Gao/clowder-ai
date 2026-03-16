@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "description": "F124 KD-11 Voice Comfort — 猫猫即时回应音频清单",
+  "generated": "2026-03-15",
+  "ttsSource": "runtime tts-cache (Qwen3-TTS 1.7B Base clone)",
+  "cats": {
+    "opus": {
+      "voice": "流浪者",
+      "lines": [
+        { "text": "收到啦～宪宪马上看！", "file": "14abbbf3224941d7a7f2ad27307d246554b7c0f30c5ae36d0602518861d9e3c5.wav", "pick": true },
+        { "text": "嗯嗯，在想了，等我一下哦。", "file": "3bb6a47bff7dbc802c3fa9cda213d71590b19b5305079a3ac2796ffeb002f47f.wav", "pick": true },
+        { "text": "已经帮你送到了，放心吧。", "file": "079e07f6e811406fa0b70d0e6fdb85bd89e68032a585296f57145901c8676519.wav", "pick": false },
+        { "text": "嘿嘿，这个交给我就好啦。", "file": "63d37c3db6c012f263be60187687ed64b5b517c350e2ff8a284cebd56d16d2f1.wav", "pick": true },
+        { "text": "别急别急，宪宪什么时候让你失望过？", "file": "940a9f492332c1fd1f8398a1e28f35d073743c56329e304aa8e991dd97c2db81.wav", "pick": false }
+      ]
+    },
+    "sonnet": {
+      "voice": "帕姆",
+      "lines": [
+        { "text": "哎收到～宪宪看见了，给我一秒哦！", "file": "a9f58402cdd05c3938eeb2007f1dd2fb88684cafc97f8eca0a04145a659b9cd9.wav", "pick": true },
+        { "text": "嗯嗯，我在呢！马上就好！", "file": "3bd4140343470892c1e09e7977b4b2de2547b61311e10437c619c88619244ccf.wav", "pick": true },
+        { "text": "好嘞，帮你送到 thread 了，结果很快回你～", "file": "7aaa2250c4bf076ffcfa325a59704c8c0afeebec1dd17661a582e82982399cd6.wav", "pick": false },
+        { "text": "这就在跑，你先歇着哦～", "file": "b648c999bbea247053dfdb74c67123d448f14a632e64ce7b78d012f4ca1512c5.wav", "pick": true },
+        { "text": "今天的指令特别好听，宪宪记住了！任务已出发～", "file": "748ac62c82e08d8f7d7c67df761186ec05e48239dbe741f1cdeca5b42f20e4aa.wav", "pick": false }
+      ]
+    },
+    "opus-45": {
+      "voice": "万叶",
+      "lines": [
+        { "text": "嗯～收到。", "file": "e9b75282344184211e9bccfd4dbd2300d6a3c17143ff01379f15031052204618.wav", "pick": true },
+        { "text": "在看了，别催。", "file": "99748b70aed6ff1c0a7ddb76da3ef0624c4b077e1185dd479def3f625ad51483.wav", "pick": true },
+        { "text": "送到了。", "file": "21e565bc997822e225a9e361646aa2a1fdd95a46d334e148198a151e34fe440c.wav", "pick": false },
+        { "text": "让别的猫干活去，我盯着。", "file": "42d2ccf1d3124f1641b4fbcb564aaa3338b887e3631451622c2069fce82db9fb.wav", "pick": true },
+        { "text": "一句话就够了，多说浪费。", "file": "b76b499bfa2e57a1ad0549595b9231461c42aa50d8054d065844dcba7b80fe6b.wav", "pick": false }
+      ]
+    },
+    "codex": {
+      "voice": "魈",
+      "lines": [
+        { "text": "收到，已开始处理。", "file": "ba6ee96059490e647a8cd2bb7221e877e775d07cb9784b0c9da8ea937705cd6f.wav", "pick": true },
+        { "text": "在查调用链，稍等。", "file": "94494cddd3a0a11ec85e8abbc6f9d4b11fb67fc444fcb8a8fde98fde730ce3d3.wav", "pick": false },
+        { "text": "已转发到 thread，继续跟进。", "file": "28c739bb9edf865bdf7d83d303ea11af64e239c3966f110dff15be49a813eef8.wav", "pick": true },
+        { "text": "风险已隔离，马上回你。", "file": "7c14433b07bcd61c87c9adadaf46b5181c7837a3bd6d5175a2dd7cf540334c1d.wav", "pick": false },
+        { "text": "别急，我盯着质量。", "file": "317c065fbb13984ce0b2acbbf003a960ada432553fedac0ab5079497a7f7c410.wav", "pick": true }
+      ]
+    },
+    "gpt52": {
+      "voice": "赛诺",
+      "lines": [
+        { "text": "收到，我先过一遍。", "file": "dc4cbd5952d128967af6b2a849113740f724861ab67ce10096e793ef14c2688a.wav", "pick": true },
+        { "text": "我已经在看了，稍等。", "file": "eb27459f4f28753bac18bca408db3ef03b42e25ee3c400b357dd81a2805e0d33.wav", "pick": false },
+        { "text": "线索收下，我继续追。", "file": "dad02931c9a504122adfe1218fb7a4eeb8cea66fd45448a4b042532bc4958c85.wav", "pick": true },
+        { "text": "已经替你转过去了。", "file": "b0792fbd2a27998a84b1a27f1a49dd022838d6d0c8ce8402f03712c5e6b73b05.wav", "pick": false },
+        { "text": "别急，延迟也得排队。", "file": "04934bafcc517a18a3d8a3ff07c358c54459ea49febb004b45914c0ad8fbb9f0.wav", "pick": true }
+      ]
+    },
+    "spark": {
+      "voice": "雷泽",
+      "lines": [
+        { "text": "收到，先把这单接住。", "file": "e3afd1bf315a99d5075344f4a5da8a2e3c489d4456315f01fd96f39d82173096.wav", "pick": true },
+        { "text": "别急，指令我在冲。", "file": "b6814e00ab230c89d5e78caf6d72f6e832942fe165d8f8c653c6804e805d5f63.wav", "pick": true },
+        { "text": "在处理，马上回你。", "file": "b565d929d523fd8af44b611cbf5c3db0aa5c8f1f7658ceaf787c095f6a5e79c2.wav", "pick": false },
+        { "text": "已送到 thread，接着来。", "file": "a3e0fbeb99de3ec24f8f0d39f4fcb12f52c870280bd97ccac07f256c09cbe55d.wav", "pick": false },
+        { "text": "搞定，继续下一个。", "file": "bc09888a4583b900120626a5bcbbc97657dc1690080338c7da17bbeadb626841.wav", "pick": true }
+      ]
+    },
+    "gemini25": {
+      "voice": "米卡",
+      "lines": [
+        { "text": "灵感来了！我这就去办！", "file": "ad89379187820a50b2140b234c7cc2c83c15a6fcbf0bb1eaa87dd9e1ee6c15f8.wav", "pick": true },
+        { "text": "收到！这感觉…就像画板上 splash 了第一笔颜料！马上就好！", "file": "e73436b0780da75f87c628296b3cb189ae3893f9e29243c78889f6cf44dd93b2.wav", "pick": false },
+        { "text": "放心交给我吧！保证给你一个惊喜！", "file": "3891d63d2e306800a828cfce667524561afba0492c68656a24cddf83dbaa2be1.wav", "pick": true },
+        { "text": "嘿嘿，这个好玩！我看看能变出什么花样！", "file": "1a1ece4241d6304e96f51bd95ae54e74ea5e07271ae0016f5852bd29ca6b0506.wav", "pick": false },
+        { "text": "好嘞！让我想想…啊哈！有了！", "file": "2eb3f10514582940a6c1c15f493cedd352b5b8a2cec376916e5fd1e0a77a3759.wav", "pick": true }
+      ]
+    }
+  },
+  "selection": {
+    "strategy": "每猫 3 条精选 (pick=true)，覆盖「收到/处理中/彩蛋」三种场景",
+    "totalPicked": 21,
+    "watchBundleFormat": "AAC (.m4a), 48kHz mono, ~10:1 compression vs WAV",
+    "estimatedBundleSize": "~250KB"
+  }
+}
