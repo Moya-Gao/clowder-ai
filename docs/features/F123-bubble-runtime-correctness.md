@@ -162,6 +162,7 @@ created: 2026-03-14
 |------|------|------|
 | **Feature** | `docs/features/F081-bubble-continuity-observability.md` | 第一阶段主线，F123 从这里演进 |
 | **Discussion** | `docs/discussions/2026-03-14-f123-bubble-runtime-followup/README.md` | 三猫收敛与修复分层 |
+| **Plan** | `docs/plans/2026-03-16-f123-closure-plan.md` | 剩余 9 个 AC 的 closure plan |
 | **Bug Report** | `docs/bug-report/f081-transient-duplicate-bubbles/bug-report.md` | 瞬时双影现场 |
 | **Bug Report** | `docs/bug-report/f081-live-bubbles-stop-refreshing/bug-report.md` | stream 中途停更 |
 | **Bug Report** | `docs/bug-report/2026-03-13-bubble-draft-contract-incomplete/bug-report.md` | draft/hydration 身份契约缺口 |
