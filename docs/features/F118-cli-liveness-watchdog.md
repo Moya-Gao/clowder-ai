@@ -229,26 +229,18 @@ CLI 挂了 (liveness, Phase A+B ✅)
 
 ## Known Gaps
 
-### GAP-1: 跨猫交接时的初始上下文注入溢出（2026-03-16）
+### GAP-1: 跨猫交接时的初始上下文注入溢出（2026-03-16）✅ Fixed
 
-**现象**：在 F118 hardening review 过程中，@codex（砚砚）因为首次被 @mention 加入讨论时注入了过多上下文（完整 thread 历史 + 审计报告 + 代码 diff），导致 Codex CLI context window 溢出崩溃。
+**现象**：在 F118 hardening review 过程中，砚砚因为首次被 @mention 加入讨论时注入了过多上下文（完整 thread 历史 + 审计报告 + 代码 diff），导致 Codex CLI context window 溢出崩溃。
 
-**与 F118 现有机制的关系**：
-- F118 的 overflow circuit breaker（AC-C6, `consecutiveRestoreFailures >= 3` → auto-seal）针对的是 **session resume 时的上下文恢复失败**——即已有 session 在 `resume` 路径上因历史消息过多导致溢出。
-- 此 gap 是 **initial context injection** 场景——猫猫之前没有参与该 thread 的讨论，被 @mention 时 Cat Café 会注入 thread 上下文作为首条消息，这不走 `resume` 路径，因此 overflow circuit breaker 不生效。
+**根因**：`assembleIncrementalContext()` 在 `route-helpers.ts` 中没有总消息数或 token 预算守卫。当 `cursor=undefined`（首次参与的猫）或 cursor 过期时，`fetchAfterCursor()` 返回全部 thread 消息，无截断地注入。
 
-**影响**：
-- 没有参与过讨论的猫突然被 @mention，如果 thread 历史很长，可能直接溢出
-- 铲屎官经验："猫猫如果他之前没参与讨论，你突然喊他一下给他加入太多上下文直接挂了"
+**修复（PR #498, squash `7621d25b`）**：
+- **第一刀**：无条件 `maxMessages` 尾截（`relevant.slice(-budget.maxMessages)`）
+- **第二刀**：Aggregate token budget guard — 逐行 token 预计算 + 线性扫描从最旧开始丢弃，至少保留 1 条消息
+- **第三刀**：`IncrementalContextResult.degradation` 字段 + route-serial/route-parallel 的 `system_info` yield
 
-**当前缓解**：
-- 手动选择有上下文的猫（如 @gpt52 参与过 F118 讨论，比 @codex 更适合 review）
-- 发 review 请求时精简上下文，不要 dump 完整 thread 历史
-
-**未来可能的修复方向**：
-- 首次 @mention 注入 thread 上下文时，检查 token 量并截断/摘要化
-- 类似 AC-C6 的 circuit breaker 扩展到 initial context injection 路径
-- 按猫的 context window 大小动态裁剪注入内容
+**测试覆盖**：14 个测试（10 count-cap + 4 token-budget），覆盖 cursor=undefined、stale cursor 大批量、fallback 注入不回归、极端 token 压力（200 条长消息 ~500K tokens >> 160K budget）
 
 ## Key Decisions
 
@@ -272,8 +264,9 @@ CLI 挂了 (liveness, Phase A+B ✅)
 | 2026-03-14 | Feature closed — 愿景守护放行 (GPT-5.4), 全 AC 完成 |
 | 2026-03-14 | Post-close hardening chain merged — sealing 事故补丁串（`88084b54` → `66b20e0f` → `60cdd082` → `168fcf97` → `19e54ad9` → `d28d5177` → `d288fa4c` → `d18bd771`）完成，`Follow-up Hardening` 剩余两项转持续跟踪 |
 | 2026-03-16 | Hardening PR #492 — `reconcileAllStuck()` 全局 reaper + `ISessionSealer` 接口收干净 + `.catch()` 审计日志防护 |
-| 2026-03-16 | GAP-1 记录 — @codex review 时因初始上下文注入溢出崩溃，记录为已知缺口（overflow breaker 不覆盖 initial context injection 路径） |
+| 2026-03-16 | GAP-1 记录 — 砚砚 review 时因初始上下文注入溢出崩溃，记录为已知缺口（overflow breaker 不覆盖 initial context injection 路径） |
 | 2026-03-16 | Hardening merged (PR #492, squash `11333b02`) — gpt52 review 放行 + 云端 review 0 findings → Follow-up Hardening closed |
+| 2026-03-16 | GAP-1 修复 merged (PR #498, squash `7621d25b`) — assembleIncrementalContext 三刀预算守卫：maxMessages 尾截 + aggregate token budget + degradation notice。gpt52 local review 放行 + 云端 review R3 0 findings |
 
 ## Review Gate
 
