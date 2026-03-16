@@ -529,6 +529,7 @@ async function main(): Promise<void> {
     prTrackingStore,
     ...(workflowSopStore ? { workflowSopStore } : {}),
     queueProcessor,
+    invocationQueue,
     ...(memoryServices
       ? {
           evidenceStore: memoryServices.evidenceStore,
