@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "1cc0bce142a76365a328542479ebefe67bc70398",
+  "last_reviewed_target_head": "2fecc26c6e5f07183dbb4193506d729e54dbf77b",
   "entries": [
     {
       "pr_number": 90,
@@ -19,6 +19,30 @@
       "target_merge_commit": "3ad1ce316e81b1a00935e51cc4a56a64e76bbc36",
       "decision": "absorbed",
       "timestamp": "2026-03-16T11:21:12.236Z"
+    },
+    {
+      "pr_number": 102,
+      "target_merge_commit": "2fecc26c6e5f07183dbb4193506d729e54dbf77b",
+      "decision": "absorbed",
+      "timestamp": "2026-03-16T17:03:41.798Z"
+    },
+    {
+      "pr_number": 114,
+      "target_merge_commit": "0e2e5a4ce45c77894490d40548c9a0288e7e137e",
+      "decision": "rejected",
+      "timestamp": "2026-03-16T17:05:43.014Z"
+    },
+    {
+      "pr_number": 108,
+      "target_merge_commit": "50e44bb4a06dd3a78a849bd42f802d4dd4a131d2",
+      "decision": "public-only",
+      "timestamp": "2026-03-16T17:05:43.018Z"
+    },
+    {
+      "target_merge_commit": "dd0d702c5e424f4b649d8d55f4124a2ec6a363ad",
+      "decision": "rejected",
+      "timestamp": "2026-03-16T17:08:00.000Z",
+      "notes": "Direct clowder-ai maintainer commit audited during F113 intake; rejected because MAINTAINERS.md would duplicate the opensource-ops truth source in cat-cafe."
     }
   ]
 }
