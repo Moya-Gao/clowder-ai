@@ -176,10 +176,44 @@ reopened: 2026-03-14
 - [x] AC-D5: 狼人猫猫风 UX（可爱+暗色调+猫猫 cosplay 狼人）— 需暹罗猫参与视觉资产
 - [x] AC-D6: 结算画面 — 胜负 + 各玩家统计 + MVP 评选
 
-### Phase E（后续增强 — backlog）🚧
+### Phase E（Detective Mode 视觉增强）🚧
 - [x] AC-E1: 上帝推理模式（Detective Mode）— 观战者开局选定一只猫，只能看到该玩家的身份和信息权限，其余座位只看到公开信息。铲屎官原话："只能选择一只猫看他身份，狼人杀观战模式那种"
   - 视觉：塔罗牌卡背 + 灵魂链接光效 + 翻牌仪式（烁烁提案）— ⬜ 视觉资产待暹罗猫
   - 技术：`GameViewBuilder` 新增 `detective` 视角，绑定 seatId 后继承该座位信息域 ✅
+  - 前端视觉：紫色侦探主题 + soul-link-pulse + tarot-back — 🔄 PR review 中
+
+### Phase F（核心体验修复 — 投票/透明度/超时）
+- [ ] AC-F1: GitHub agent werewolf 调研报告完成，覆盖 ≥3 个项目
+- [ ] AC-F2: God-view 夜晚时间线实时展示每个角色的具体行动目标
+- [ ] AC-F3: 已行动状态从二态改为三态（waiting/acting/acted）
+- [ ] AC-F4: 多狼独立投票 + 多数票结算 + 平票处理
+- [ ] AC-F5: 白天投票可改票 + 全员 commit 提前结束
+- [ ] AC-F6: 超时未行动自动 fallback，游戏不卡住
+- [ ] AC-F7: 慢启动猫猫有 grace period + god-view 展示真实连接状态
+- [ ] AC-F8: 铲屎官在 god-view 能清楚理解"正在发生什么"（不再一脸懵逼）
+
+### Phase F: 核心体验修复 — 投票/透明度/超时/行动真实性（2026-03-16）
+
+铲屎官 2026-03-16 实测发现的核心体验 bug。先调研 GitHub agent 狼人杀项目（AIWolf 等），再设计修复方案。
+
+**F1. 调研 + 设计**
+- GitHub agent werewolf 项目竞品调研（AIWolf、LLM werewolf 等）
+- 重点：多狼投票协调、观战者信息透明度、超时处理、改票机制、行动真实性
+- 输出调研报告 `docs/research/2026-03-16-agent-werewolf-survey/`
+
+**F2. 行动透明度 + God-View 信息丰富**
+- 夜间行动提交时立刻写入 event log（scope: `faction:wolf` / `god` / `seat:x`）
+- God-view 夜晚时间线实时展示具体行动目标（不只是"已行动"）
+- `hasActed` 从二态改为三态：`waiting` / `acting` / `acted`
+
+**F3. 多狼投票 + 白天投票改票**
+- 多狼场景：每只狼独立提交 kill target，多数票结算，平票处理
+- 白天投票：可改票 + 全员 commit 提前结束 + 实时可见
+
+**F4. 超时 Fallback + 慢猫容错**
+- 超时未行动 → 自动 fallback（wolf: 随机杀、seer: 随机查、村民: 弃票）
+- 慢启动猫猫（Gemini 等）增加 warmup grace period
+- God-view 展示猫猫真实状态：connecting / thinking / timed-out
 
 ## 需求点 Checklist
 
@@ -202,6 +236,11 @@ reopened: 2026-03-14
 | R15 | "猫猫装狼人那种可爱的带点黑色的风格" | AC-D5 | manual+design | [x] |
 | R16 | "要战绩统计 + MVP" | AC-D6 | manual | [x] |
 | R17 | "只能选择一只猫看他身份，狼人杀观战模式那种" | AC-E1 | manual | [x] |
+| R18 | "看不到他们投了谁" | AC-F2 | manual + screenshot | [ ] |
+| R19 | "gemini 还没启动起来…30s到及时结束gemini还没行动整个游戏又卡了" | AC-F6, AC-F7 | test + manual | [ ] |
+| R20 | "太不透明了…真的有输出吗？几乎秒行动" | AC-F3, AC-F8 | manual + screenshot | [ ] |
+| R21 | "到底我们现在是出bug了还是猫猫在吗了" | AC-F8, AC-F7 | manual | [ ] |
+| R22 | "票数一样就随机？可以一直改票？以timeout为准？全部commit？" | AC-F4, AC-F5 | test + manual | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -254,6 +293,9 @@ reopened: 2026-03-14
 | OQ-9 | Phase D 独立 thread 如何创建和归档？ | ⬜ 需调研现有 thread/project 分类系统 |
 | OQ-10 | 上帝面板 UX 细节（发牌/暂停/跳过的交互） | ⬜ 需设计 |
 | OQ-11 | 狼人猫猫风视觉资产（头像装扮/氛围图） | ⬜ 可能需要暹罗猫参与设计 |
+| OQ-12 | 平票时随机 vs 按座位序 vs 重新投票（PK）？ | ⬜ 待调研 |
+| OQ-13 | 白天投票实名公开还是匿名后揭晓？ | ⬜ 待铲屎官定 |
+| OQ-14 | 狼人内部讨论要不要做成聊天形式（faction channel）？ | ⬜ 未定 |
 
 ## Key Decisions
 
@@ -353,6 +395,8 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-15 | i18n + lobby fix merged (PR #477) — 游戏 UI 中文化 + lobby 默认不全选猫猫 |
 | 2026-03-15 | 3x P1 game state fixes merged (PR #478) — observer broadcast + real countdown + seat hasActed status + info-isolation regression tests (codex 1-round local + 3-round cloud review) |
 | 2026-03-16 | Bug fix: auto-skip empty phases merged (PR #481) — GameOrchestrator.skipEmptyPhases() skips action phases when no alive seat matches actingRole (codex 1-round local + cloud review) |
+| 2026-03-16 | Phase E detective visuals PR 提交 — soul-link-pulse + tarot-back + purple theme（codex review 中） |
+| 2026-03-16 | **Phase F 立项** — 铲屎官实测反馈：投票不透明/行动真实性存疑/超时卡游戏/Gemini 启动慢。启动 GitHub agent werewolf 调研 |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
