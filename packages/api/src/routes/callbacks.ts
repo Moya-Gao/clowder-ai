@@ -367,11 +367,28 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     // F121: Validate replyTo — must exist in the same thread
     let validatedReplyTo: string | undefined;
-    if (replyTo) {
-      const parentMsg = await messageStore.getById(replyTo);
+    // F121 enhancement: Auto-fill replyTo for A2A-triggered invocations.
+    // When a cat is invoked via @mention, the system knows the trigger message —
+    // the cat should not need to explicitly pass replyTo.
+    let autoFilledReplyTo: string | undefined;
+    if (!replyTo && record.parentInvocationId && invocationRecordStore) {
+      const parentRecord = (await invocationRecordStore.get(record.parentInvocationId)) as {
+        userMessageId?: string | null;
+        threadId?: string | null;
+      } | null;
+      // P3-2 hardening: only trust userMessageId if parentRecord's threadId matches
+      if (parentRecord?.userMessageId && (!parentRecord.threadId || parentRecord.threadId === effectiveThreadId)) {
+        autoFilledReplyTo = parentRecord.userMessageId;
+      }
+    }
+    const effectiveReplyTo = replyTo ?? autoFilledReplyTo;
+    if (effectiveReplyTo) {
+      const parentMsg = await messageStore.getById(effectiveReplyTo);
       if (parentMsg && parentMsg.threadId === effectiveThreadId) {
-        validatedReplyTo = replyTo;
-      } else {
+        validatedReplyTo = effectiveReplyTo;
+      } else if (replyTo) {
+        // Only warn for explicit replyTo failures — auto-fill mismatches are expected
+        // (e.g. cross-thread A2A where trigger is in a different thread)
         app.log.warn(
           { replyTo, effectiveThreadId, parentThreadId: parentMsg?.threadId },
           '[callbacks/post-message] replyTo rejected: not found or wrong thread',
@@ -463,7 +480,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     return {
       status: 'ok',
       threadId: effectiveThreadId,
-      replyTo,
+      ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
       ...(clientMessageId ? { clientMessageId } : {}),
     };
   });
