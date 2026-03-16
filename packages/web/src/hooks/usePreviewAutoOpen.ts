@@ -8,10 +8,11 @@ import { API_URL } from '@/utils/api-client';
  */
 export function shouldAcceptAutoOpen(sessionWorktreeId: string | null, eventWorktreeId: string | undefined): boolean {
   if (sessionWorktreeId) {
-    // Session has worktree → fail-closed: only exact match.
-    // API dual-broadcasts to both preview:global and worktree:${id},
-    // so the matching session always receives via its worktree room.
-    return eventWorktreeId === sessionWorktreeId;
+    // Session has worktree → accept exact match OR global broadcast (no worktreeId).
+    // Reject events from OTHER worktrees (defence-in-depth against cross-session leakage).
+    // Global broadcasts are common: cat calls auto-open without worktreeId,
+    // or session's worktreeId was set after the first auto-open call.
+    return eventWorktreeId === sessionWorktreeId || !eventWorktreeId;
   }
   // Session has no worktree → only accept global events (no worktreeId)
   return !eventWorktreeId;

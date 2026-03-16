@@ -42,7 +42,7 @@ describe('preview auto-open store', () => {
 });
 
 describe('shouldAcceptAutoOpen (room scope filter)', () => {
-  // Session HAS worktreeId → fail-closed: only exact match
+  // Session HAS worktreeId → accept exact match or global, reject other worktrees
   it('accepts when session worktreeId matches event worktreeId', () => {
     expect(shouldAcceptAutoOpen('wt-123', 'wt-123')).toBe(true);
   });
@@ -51,8 +51,8 @@ describe('shouldAcceptAutoOpen (room scope filter)', () => {
     expect(shouldAcceptAutoOpen('wt-123', 'wt-456')).toBe(false);
   });
 
-  it('rejects global event when session has worktreeId (fail-closed, API dual-broadcasts to worktree room)', () => {
-    expect(shouldAcceptAutoOpen('wt-123', undefined)).toBe(false);
+  it('accepts global event when session has worktreeId (cat may omit worktreeId)', () => {
+    expect(shouldAcceptAutoOpen('wt-123', undefined)).toBe(true);
   });
 
   // Session has NO worktreeId → accept global only
