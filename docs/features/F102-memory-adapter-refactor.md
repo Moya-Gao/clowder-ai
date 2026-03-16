@@ -303,6 +303,15 @@ metadata filter → FTS5 search → edges 1-hop expand → [embedding rerank] �
   2. 不够再搜 `threads-summary`（kind=session）
   3. 还不够才下钻 raw transcript（通过现有 MCP `cat_cafe_get_thread_context`）
 
+**D-3b. 自动 edges 提取 + Memory invalidation（GitNexus 理念吸收）**
+
+> **来源**：GitNexus 研讨（thread_mmst8x2uru65azwu），三猫+铲屎官共识。
+> **原则**：吸收"预计算结构 + 变更影响检测"，不吸收图数据库/AST/聚类算法。
+> **砚砚红线**：edges 只能来自**显式锚点**（frontmatter），不能从语义相似度推断。推断关系不可信。
+
+- **自动 edges 提取**：`IIndexBuilder.rebuild()` 时从 frontmatter `related_features`/`feature_ids`/`decision_id` 交叉引用自动 upsert edges（零手工维护）
+- **Memory invalidation**：`incrementalUpdate()` 检测到文档变更时，反向查询 edges 找依赖文档，标记为 `needs_review`（翻译自 GitNexus 的 `detect_changes`）
+
 **D-4. 检索协议升级**
 
 ```typescript
@@ -443,6 +452,8 @@ search_evidence(query, {
 - [ ] AC-D15: `search_messages` 和 `session_search` 降级为内部实现，不再作为独立 MCP 工具暴露
 - [ ] AC-D16: callback auth 版本合并到主版本（`search_evidence_callback` → `search_evidence`，`reflect_callback` → `reflect`）
 - [ ] AC-D17: SystemPromptBuilder 更新——`search_evidence` 排在记忆工具第一位，drill-down 工具排在后面
+- [ ] AC-D18: `IIndexBuilder.rebuild()` 自动从 frontmatter 交叉引用（`related_features`/`feature_ids`/`decision_id`）提取 edges（零手工维护）
+- [ ] AC-D19: `incrementalUpdate()` 变更检测 → edges 反向查询 → 依赖文档标 `needs_review`（memory invalidation）
 
 ## Dependencies
 
@@ -505,6 +516,9 @@ search_evidence(query, {
 | KD-26 | **提示词/Skill 集成是验收门槛**——功能做完必须修改系统提示词，否则猫猫不会用 | 铲屎官直接指示："就算做了超酷功能，没有感知到也不会用" | 2026-03-16 |
 | KD-27 | **MCP 工具两层收敛**——统一入口 `search_evidence` + drill-down 层（thread/session/reflect），废弃 4 个冗余工具 | 两猫+铲屎官共识：不能老一套新一套双轨并存 | 2026-03-16 |
 | KD-28 | **search_evidence 加 `depth` 参数**（summary/raw）——默认 summary-first，raw-on-demand | 砚砚补充：scope 不够，depth 维度决定噪音量 | 2026-03-16 |
+| KD-29 | **edges 只从显式锚点提取**（frontmatter），不从语义相似度推断——推断关系不可信 | 砚砚红线：错边会把猫带去错误历史 | 2026-03-16 |
+| KD-30 | **Memory invalidation 翻译自 GitNexus detect_changes**——不做 code impact，做 knowledge invalidation | 三猫共识：对 F102 更有价值的是"改了 ADR → 标依赖文档 needs_review" | 2026-03-16 |
+| KD-31 | **不做代码图谱**——图数据库/Tree-sitter/Leiden/Cypher 是代码智能方案，不是记忆方案 | 三猫+铲屎官共识："太重了"，解的是错层问题 | 2026-03-16 |
 
 ## Timeline
 
@@ -532,6 +546,7 @@ search_evidence(query, {
 | 2026-03-16 | 布偶猫+缅因猫(GPT-5.4)独立思考：不引入 QMD，扩大 F102 数据源，Phase D spec 更新 |
 | 2026-03-16 | 铲屎官追加：MCP 工具必须收敛归一，不能新旧双轨 |
 | 2026-03-16 | 布偶猫+缅因猫(GPT-5.4)：MCP 两层收敛方案（统一入口 + drill-down），零分歧 |
+| 2026-03-16 | GitNexus 研讨（三猫）：不做代码图谱，吸收"预计算 edges + memory invalidation"（KD-29~31） |
 
 ## Review Gate
 
@@ -549,4 +564,5 @@ search_evidence(query, {
 | **ADR** | `docs/decisions/005-hindsight-integration-decisions.md` | 知识共享决策（单 bank） |
 | **Research** | `docs/research/2026-03-11-f102-memory-adapter-gpt-pro-consult.md` | 云端 GPT Pro 咨询（含 Part 1 提问 + Part 2 回答 + Part 3 综合） |
 | **Research** | `docs/research/2026-03-16-f102-memory-alignment-proposal.md` | Artem QMD 方案对齐 + 铲屎官 proposal |
+| **Discussion** | thread `thread_mmst8x2uru65azwu` | GitNexus 研讨（三猫：不做代码图谱，吸收预计算 edges + invalidation） |
 | **Feature** | `docs/features/F024-session-chain.md` | Session Chain（数据源） |
