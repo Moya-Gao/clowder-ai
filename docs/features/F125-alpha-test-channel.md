@@ -8,15 +8,15 @@ created: 2026-03-15
 
 # F125: Alpha 验收通道 — main-test 升级为正式 alpha 测试基础设施
 
-> **Status**: in-progress | **Owner**: 缅因猫(gpt52) + 布偶猫(opus) | **Priority**: P1
+> **Status**: done | **Owner**: 缅因猫(gpt52) + 布偶猫(opus) | **Priority**: P1 | **Completed**: 2026-03-16
 
 ## Why
 
-铲屎官希望有一套长期可用的、和 runtime 完全隔离的测试环境，用于验收最新 main 上的改动，避免在 runtime（3001/3002/6399）上测试导致不稳定。砚砚已经写好了 `main-test-worktree.sh` 一键脚本（已 review 通过），现在需要：
+铲屎官希望有一套长期可用的、和 runtime 完全隔离的测试环境，用于验收已合入 `main` 的改动，避免在 runtime（3001/3002/6399）上测试导致不稳定。F125 将临时 `main-test` 工具升级为正式 alpha 通道，并把 alpha 的使用边界同步到 SOP / quality-gate / 三份提示词。
 
 1. 从 `main-test` 改名为 `alpha`，成为正式基础设施
-2. 更新 SOP / quality-gate / worktree skill，让猫猫们知道"开发完了可以拉 alpha 自测"
-3. 更新 CLAUDE.md + AGENTS.md + GEMINI.md，加入 alpha 通道规则
+2. 更新 SOP / quality-gate / 提示词，让所有猫知道 `alpha = origin/main` 镜像，只用于已合入 `main` 的验收
+3. 明确 runtime 不能冒充 alpha；未合入改动仍在 feature worktree 上自测
 
 铲屎官原话：
 > "我要！给他搞个一键启动脚本！然后和 runtime 那样每次启动自动同步 main！"
@@ -36,14 +36,13 @@ created: 2026-03-15
 - 日志前缀: `[main-test-worktree]` → `[alpha-worktree]`
 - 脚本 commit 进 main
 
-### Phase B: SOP + Skill + 提示词更新
+### Phase B: SOP + Skill + 提示词更新 ✅
 
-- SOP.md: 加 alpha 通道说明
-- quality-gate skill: 验收证据优先取自 alpha
-- worktree skill: 提示开发完可以 `pnpm alpha:start` 自测
+- SOP.md: 加 alpha 通道说明（命令表 + 使用场景 + 铁律）
+- quality-gate skill: 验证已合入 `main` 的改动时，验收证据优先取自 alpha
 - CLAUDE.md: 加 alpha 验收通道铁律
 - AGENTS.md: 同步 alpha 规则
-- GEMINI.md: 同步 alpha 规则（暹罗猫不写代码但需要知道验收流程）
+- GEMINI.md: 同步 alpha 规则（暹罗猫不写代码，但需要知道验收流程）
 
 ## Acceptance Criteria
 
@@ -55,11 +54,11 @@ created: 2026-03-15
 - [x] AC-A5: 旧 `main-test` worktree 能被自动迁移到 `alpha/main-sync`
 
 ### Phase B（SOP + 提示词）
-- [ ] AC-B1: CLAUDE.md 含 alpha 通道规则
-- [ ] AC-B2: AGENTS.md 含 alpha 通道规则
-- [ ] AC-B3: GEMINI.md 含 alpha 通道规则
-- [ ] AC-B4: SOP.md 含 alpha 通道使用说明
-- [ ] AC-B5: quality-gate skill 提及 alpha 验收证据
+- [x] AC-B1: CLAUDE.md 含 alpha 通道规则
+- [x] AC-B2: AGENTS.md 含 alpha 通道规则
+- [x] AC-B3: GEMINI.md 含 alpha 通道规则
+- [x] AC-B4: SOP.md 含 alpha 通道使用说明
+- [x] AC-B5: quality-gate skill 提及 alpha 验收证据
 
 ## Dependencies
 
@@ -79,3 +78,15 @@ created: 2026-03-15
 |------|------|
 | 2026-03-15 | 立项；砚砚 main-test 脚本已 review 通过 |
 | 2026-03-15 | Phase A merged (PR #475) |
+| 2026-03-15 | Phase B merged (PR #476) |
+| 2026-03-16 | 金渐层(opencode) 愿景守护通过：可 close |
+| 2026-03-16 | Feature closed ✅ |
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **PR** | https://github.com/zts212653/cat-cafe/pull/475 | Phase A：alpha worktree launcher |
+| **PR** | https://github.com/zts212653/cat-cafe/pull/476 | Phase B：提示词 / SOP / quality-gate 同步 alpha 规则 |
+| **Vision Guard** | `thread_mmrtohi8vg81rd5y / 0001773651760315-001149-5578bd6a` | 金渐层(opencode) 愿景守护：可 close |
+| **Reflection** | `docs/reflections/2026-03-16-f125-alpha-channel-capsule.md` | F125 完成反思胶囊 |

@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-15
+> 维护者：三猫 | 最后更新：2026-03-16
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -56,4 +56,3 @@ created: 2026-02-26
 | F122 | 执行通道统一 — A2A/multi_mention 入 Dispatch Queue | in-progress | 布偶猫 | internal | [F122](features/F122-unified-dispatch-queue.md) |
 | F123 | Bubble Runtime Correctness — 消息身份契约 + Reconcile 状态机 | in-progress | 缅因猫 | internal | [F123](features/F123-bubble-runtime-correctness.md) |
 | F124 | Apple Ecosystem × Cat Café 语音交互系统 — iOS/watchOS/AirPods | spec | 布偶猫 | internal | [F124](features/F124-apple-ecosystem-voice-interaction.md) |
-| F125 | Alpha 验收通道 — main-test 升级为正式 alpha 测试基础设施 | in-progress | 缅因猫 + 布偶猫 | internal | [F125](features/F125-alpha-test-channel.md) |
