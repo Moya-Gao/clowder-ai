@@ -8,7 +8,7 @@ created: 2026-03-16
 
 # F126: 四肢控制面 — Cat Café Limb Control Plane
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -192,16 +192,16 @@ Cat Café（大脑 / 灵魂议会）
 
 ## Acceptance Criteria
 
-### Phase A（四肢抽象 + Capability Registry + Basic Presence）
-- [ ] AC-A1: 定义 `ILimbNode` 统一接口（register/invoke/healthCheck/deregister），不改动现有猫 Provider
-- [ ] AC-A2: Capability Registry 从 `capabilities.json` 演化，静态配置 vs 动态 live registry 职责分离
-- [ ] AC-A3: Registry schema 从一开始包含 `catId × nodeId × capability` 三维结构
-- [ ] AC-A4: 新增四肢类型只需实现 `ILimbNode` 接口 + 注册能力
-- [ ] AC-A5: `capabilities.json` schema 升级向后兼容（现有 `type: mcp | skill` 不受影响）
-- [ ] AC-A6: Basic Presence — 节点状态追踪（online/busy/offline/degraded），离线自动移除能力
-- [ ] AC-A7: F118 Watchdog 状态映射函数（`mapProbeStateToLimbStatus`）预埋到 Presence Manager（完整整合含事件接线在 Phase B）
-- [ ] AC-A8: MCP tool `limb_list_available` + `limb_invoke` 定义 + callback route 端到端可用
-- [ ] AC-A9: F126 只消费 session contract，不拥有 session truth 实现
+### Phase A（四肢抽象 + Capability Registry + Basic Presence）✅
+- [x] AC-A1: 定义 `ILimbNode` 统一接口（register/invoke/healthCheck/deregister），不改动现有猫 Provider
+- [x] AC-A2: Capability Registry 从 `capabilities.json` 演化，静态配置 vs 动态 live registry 职责分离
+- [x] AC-A3: Registry schema 从一开始包含 `catId × nodeId × capability` 三维结构
+- [x] AC-A4: 新增四肢类型只需实现 `ILimbNode` 接口 + 注册能力
+- [x] AC-A5: `capabilities.json` schema 升级向后兼容（现有 `type: mcp | skill` 不受影响）
+- [x] AC-A6: Basic Presence — 节点状态追踪（online/busy/offline/degraded），离线自动移除能力
+- [x] AC-A7: F118 Watchdog 状态映射函数（`mapProbeStateToLimbStatus`）预埋到 Presence Manager（完整整合含事件接线在 Phase B）
+- [x] AC-A8: MCP tool `limb_list_available` + `limb_invoke` 定义 + callback route 端到端可用
+- [x] AC-A9: F126 只消费 session contract，不拥有 session truth 实现
 
 ### Phase B（调度层 — Lease/Scheduler + Access Policy + Action Log）
 - [ ] AC-B1: Lease 机制可防止多猫争用独占资源
@@ -274,6 +274,7 @@ Cat Café（大脑 / 灵魂议会）
 |------|------|
 | 2026-03-16 | 三猫 OpenClaw Node 研讨 → 铲屎官指出"想浅了" → 重新框定 |
 | 2026-03-16 | 立项 + 三猫审阅对齐 |
+| 2026-03-17 | Phase A merged (PR #507) — 砚砚 3 轮 review，云端 0 P1/P2 |
 
 ## Review Gate
 
