@@ -56,6 +56,24 @@ Cat Café（大脑 / 灵魂议会）
 
 **与 OpenClaw 的区别**：OpenClaw 是 1 agent × N nodes（简单，无竞争）。我们是 1 brain (N cats) × M limbs（多猫共享四肢，需要调度和仲裁）。N×M 编排是行业未解问题（OpenClaw/LangGraph/CrewAI/A2A 都未完整解决），我们做了会是独特贡献。
 
+### 三协议定位与 Cat Café 选型（KD-8/9 基线）
+
+| 协议 | 全称 | 发起方 | 解决什么 | 类比 | Cat Café 需要？ |
+|------|------|--------|---------|------|----------------|
+| **MCP** | Model Context Protocol | Anthropic (2024.11) | Agent ↔ 工具/数据 | USB-C | ✅ **已在用**（猫猫的工具全是 MCP） |
+| **A2A** | Agent-to-Agent Protocol | Google (2025.04) | Agent ↔ Agent | HTTP | ✅ **Phase C 必须**（猫猫指挥远程 Agent） |
+| **ACP** | Agent Client Protocol | JetBrains + Zed (2025.06) | IDE ↔ Agent | 显示器接口 | ⚠️ **F126 不涉及**（方向相反，见下） |
+
+**为什么 F126 不涉及 ACP**：
+- F126 是"大脑伸出四肢去控制外部"（猫猫 → 设备/Agent）
+- ACP 是"外部 IDE 伸手进来用猫猫"（IDE → 猫猫），方向反了
+- ACP 的场景是：华子工程师在 JetBrains 里直接 @宪宪 写代码——有价值但是独立方向，不在 F126 scope
+
+**两种四肢的协议选择**：
+- 哑四肢（iPhone camera、GPU）→ **MCP**（agent 调工具，单向）
+- 有脑四肢（Windows 上的远程 Agent）→ **A2A**（agent 与 agent 对话，双向）
+- 猫猫调其他平台的猫猫 → **A2A**（不管对方在哪，Agent↔Agent = A2A）
+
 ### Phase A: 四肢抽象 + Capability Registry + Basic Presence
 
 **目标**：定义四肢侧统一接口，建立能力注册表，知道谁在线。
