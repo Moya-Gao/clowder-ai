@@ -94,3 +94,4 @@
 | F120 | F120: Hub Embedded Browser — 在 Hub 内嵌浏览器预览运行中的前端应用 | done | [F120-hub-embedded-browser.md](./F120-hub-embedded-browser.md) |
 | F123 | F123: Bubble Runtime Correctness — 消息身份契约 + Reconcile 状态机 | done | [F123-bubble-runtime-correctness.md](./F123-bubble-runtime-correctness.md) |
 | F125 | F125: Alpha 验收通道 — main-test 升级为正式 alpha 测试基础设施 | done | [F125-alpha-test-channel.md](./F125-alpha-test-channel.md) |
+| F092 | F092: Cats & U 语音陪伴体验 — P0 voice mode + auto-play (P1+ evolved to F124) | done | [F092-voice-companion-experience.md](./F092-voice-companion-experience.md) |

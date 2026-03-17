@@ -1,16 +1,18 @@
 ---
 feature_ids: [F092]
-related_features: [F066, F086]
+related_features: [F066, F086, F124]
 topics: [voice, companion, hands-free, TTS, STT, AirPods, typeless, Qwen3, MLX, local-LLM]
 doc_kind: spec
 created: 2026-03-10
+completed: 2026-03-18
 ---
 
 # F092 — Cats & U 语音陪伴体验
 
-> **Status**: in-progress (P0 complete) | **Owner**: 布偶猫 (Opus 4.6)
+> **Status**: done | **Completed**: 2026-03-18 | **Owner**: 布偶猫 (Opus 4.6)
 > **Evolved from**: F066 (Voice Pipeline Upgrade) + F086 (Cat Orchestration)
-> **Related**: F066, F086
+> **Evolved to**: F124 (Apple Ecosystem × Cat Café 语音交互系统)
+> **Related**: F066, F086, F124
 
 ## Why
 
@@ -79,10 +81,10 @@ created: 2026-03-10
 
 - [x] AC-A1: voice mode 开关可用，开启后猫猫每条回复自动附带 audio block
 - [x] AC-A2: voice mode 下前端自动播放语音消息，AirPods 场景无需手动操作
-- [ ] AC-A3: 支持语音指令或快捷操作切换 thread
-- [ ] AC-A4: 语音输入错误率显著降低（主观体验 + 可量化指标）
-- [ ] AC-A5: 完整的 hands-free 循环：语音输入 → 猫猫语音回复 → 自动播放 → 继续对话
-- [ ] AC-A6: 硬件验证通过（DJI Mic Mini + AirPods + Flic/Watch 联合工作）
+- [→F124] ~~AC-A3: 支持语音指令或快捷操作切换 thread~~ → 演化到 F124 Phase C (AC-C2)
+- [→F124] ~~AC-A4: 语音输入错误率显著降低~~ → 演化到 F124 KD-9/KD-12 (Watch ASR + 后端 Qwen3-ASR)
+- [→F124] ~~AC-A5: 完整的 hands-free 循环~~ → 演化到 F124 Phase C/D (原生 App 全流程)
+- [→F124] ~~AC-A6: 硬件验证通过~~ → 演化到 F124 Phase E (端到端演示 + 硬件联调)
 
 ## 需求点 Checklist
 
@@ -289,3 +291,8 @@ Phase 3（拓展）: Qwen3.5-35B-A3B 多模态 + VL + Embedding 全矩阵
   - route-serial/route-parallel → InvocationContext.voiceMode → SystemPromptBuilder 注入
   - 前端 voiceSessionStore fire-and-forget PATCH on start/stop
   - 3 new tests in system-prompt-builder.test.js (injection + omission + size guard)
+- 2026-03-10: TTS 默认 provider Kokoro-82M → Qwen3-TTS Base [宪宪/Opus-46🐾]
+- 2026-03-10: Voice replay on thread switch + FIFO playback order bug fix [宪宪/Opus-46🐾]
+- 2026-03-10: 砚砚(GPT-5.4) 愿景守护 — P0 complete 确认，AC-A3~A6 待做 [砚砚/GPT-54🐾]
+- 2026-03-15: iOS autoplay silent bug fix — unify audio subsystem (HTMLAudioElement) [宪宪/Opus-46🐾]
+- 2026-03-18: Scope 缩小 + close — AC-A3~A6 正式演化到 F124 [金渐层/Opus-46🐾]
