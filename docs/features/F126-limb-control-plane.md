@@ -252,7 +252,7 @@ Cat Café（大脑 / 灵魂议会）
 | OQ-2 | 四肢能力的权限模型？ | ✅ 已定：三级授权 free/leased/gated |
 | OQ-3 | Session truth boundary 归属？ | ✅ 已定：独立于 F126，F126 只消费 session contract |
 | OQ-4 | Per-cat tool policy 归属？ | ✅ 已定：全局 policy 独立，limb access policy（catId×nodeId×cap）在 F126 Phase B |
-| OQ-5 | 远程 Agent 类四肢用 A2A 还是 ACP？ | ⬜ 待调研：铲屎官听到 ACP 概念，Phase B 完成后需 deep-research A2A vs ACP 再决定 Phase C 协议选型 |
+| OQ-5 | 远程 Agent 类四肢用 A2A 还是 ACP？ | ✅ 已定：A2A（agent↔agent 跨网络通信）。ACP 是 IDE↔Agent，方向相反，不适用 |
 
 ## Key Decisions
 

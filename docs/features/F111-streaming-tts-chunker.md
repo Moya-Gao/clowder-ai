@@ -34,8 +34,9 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
    - 中文适配：`Intl.Segmenter` 分词 + 中文标点识别
 
 2. **Streaming Synthesis API**
-   - 新增端点：`/api/tts/stream`（WebSocket 或 SSE，Design Gate 时决策）
-   - 前端逐段接收 audio chunk → 逐段播放
+   - 新增端点：`/api/tts/stream`（SSE，前端用 `fetch` + `ReadableStream` 消费）
+   - 鉴权：不用浏览器原生 `EventSource`（不支持自定义 header），改用 `fetch` + `ReadableStream` 读取 SSE 流，保留现有 `X-Cat-Cafe-User` header 鉴权链路，无需引入 token/query 鉴权
+   - 前端逐段接收 audio chunk（Base64 编码）→ 解码 → 逐段播放
    - 保持与现有 `/api/tts/synthesize` 的兼容（非流式仍可用）
 
 3. **AudioBlock 升级**
@@ -71,8 +72,8 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 流式协议用 WebSocket 还是 SSE？ | ✅ **已决：SSE**。单向推送足够（后端→前端），复杂度远低于 WebSocket，我们已有 SSE 模式（callback 路由 #83）。Binary chunk 用 Base64 编码，每 chunk 0.6-3s 音频约 20-100KB，overhead 可接受。社区主流方案（CloudWells、vLLM-Omni Gradio）也用 HTTP chunked streaming。决策者：金渐层 (2026-03-16) |
-| OQ-2 | Qwen3-TTS 是否原生支持 streaming output？ | ✅ **已决：模型原生支持，但 mlx-audio SDK 的 `generate_audio()` 不支持**。Qwen3-TTS 论文明确 "dual-track LM for real-time synthesis"，12Hz tokenizer 首包 97ms。但官方 `qwen-tts` SDK 和 `mlx-audio` 的 generate 方法返回完整 waveform。社区方案：KV-cache step-by-step（CloudWells/qwen3-tts-realtime-streaming），vLLM-Omni `/v1/audio/speech/stream` 端点。实施时建议：先用方案 C（Node 层 Chunker 分段调用全量合成，伪流式）快速验证体验，后续可升级到 vLLM-Omni 真流式。决策者：金渐层 (2026-03-16) |
+| OQ-1 | 流式协议用 WebSocket 还是 SSE？ | ✅ **已决：SSE**（前端用 `fetch` + `ReadableStream` 消费，非 `EventSource`）。单向推送足够（后端→前端），复杂度远低于 WebSocket，我们有实时推送经验（socket.io 广播）。Binary chunk 用 Base64 编码，每 chunk 0.6-3s 音频约 20-100KB，overhead 可接受。社区主流方案（CloudWells、vLLM-Omni Gradio）也用 HTTP chunked streaming。鉴权方案：`fetch` 保留自定义 header（`X-Cat-Cafe-User`），无需 `EventSource` 的 token/query 折衷。决策者：金渐层 (2026-03-16) |
+| OQ-2 | Qwen3-TTS 是否原生支持 streaming output？ | ✅ **已决：模型原生支持，但 mlx-audio SDK 的 `generate_audio()` 不支持**。Qwen3-TTS 论文明确 "dual-track LM for real-time synthesis"，12Hz tokenizer 首包 97ms。但官方 `qwen-tts` SDK 和 `mlx-audio` 的 generate 方法返回完整 waveform。社区方案：KV-cache step-by-step（CloudWells/qwen3-tts-realtime-streaming），vLLM-Omni `/v1/audio/speech/stream` 端点。实施路径：先 C（Node 层 Chunker 分段调用全量合成，伪流式）快速验证体验；**退出条件：若 C 达不到 AC-A1（首发 < 2s）或 AC-A2（延迟降 50%+），直接切方案 A（vLLM-Omni 真流式）**；B（KV-cache 手动 step）保留为研究备胎，不作为主线。决策者：金渐层 (2026-03-16) |
 
 ## Links
 
