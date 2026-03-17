@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F111: Streaming TTS Chunker — 流式分句合成管线
 
-> **Status**: spec | **Owner**: 布偶猫 (Opus 4.6) | **Priority**: P1
+> **Status**: spec | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
 
 ## Why
 
@@ -64,15 +64,15 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | 风险 | 缓解 |
 |------|------|
 | 流式分句对中文分词不准 | `Intl.Segmenter` + 中文标点硬断点双重保障 |
-| WebSocket 复杂度高于 SSE | Design Gate 时对比决策；SSE 更简单但单向 |
-| Qwen3-TTS 不支持真正的流式输出 | 降级为"分段合成 + 拼接播放"（伪流式），体验仍优于全文等待 |
+| ~~WebSocket 复杂度高于 SSE~~ | **已决**：选 SSE（单向足够，复杂度低） |
+| Qwen3-TTS mlx-audio SDK 不支持流式 generate | 三路可选：A) vLLM-Omni serving（真流式）B) KV-cache 手动 step（社区方案）C) Node 层分段调用全量合成（伪流式，最简单） |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 流式协议用 WebSocket 还是 SSE？ | ⬜ 未定（Design Gate 决策） |
-| OQ-2 | Qwen3-TTS 是否原生支持 streaming output？ | ⬜ 需调研 |
+| OQ-1 | 流式协议用 WebSocket 还是 SSE？ | ✅ **已决：SSE**。单向推送足够（后端→前端），复杂度远低于 WebSocket，我们已有 SSE 模式（callback 路由 #83）。Binary chunk 用 Base64 编码，每 chunk 0.6-3s 音频约 20-100KB，overhead 可接受。社区主流方案（CloudWells、vLLM-Omni Gradio）也用 HTTP chunked streaming。决策者：金渐层 (2026-03-16) |
+| OQ-2 | Qwen3-TTS 是否原生支持 streaming output？ | ✅ **已决：模型原生支持，但 mlx-audio SDK 的 `generate_audio()` 不支持**。Qwen3-TTS 论文明确 "dual-track LM for real-time synthesis"，12Hz tokenizer 首包 97ms。但官方 `qwen-tts` SDK 和 `mlx-audio` 的 generate 方法返回完整 waveform。社区方案：KV-cache step-by-step（CloudWells/qwen3-tts-realtime-streaming），vLLM-Omni `/v1/audio/speech/stream` 端点。实施时建议：先用方案 C（Node 层 Chunker 分段调用全量合成，伪流式）快速验证体验，后续可升级到 vLLM-Omni 真流式。决策者：金渐层 (2026-03-16) |
 
 ## Links
 

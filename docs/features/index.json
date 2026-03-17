@@ -681,13 +681,13 @@
     {
       "id": "F111",
       "name": "Streaming TTS Chunker — 流式分句合成管线",
-      "status": "spec | **Owner**: 布偶猫 (Opus 4.6) | **Priority**: P1",
+      "status": "spec | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1",
       "file": "F111-streaming-tts-chunker.md"
     },
     {
       "id": "F112",
       "name": "Voice Playback Queue — 语音播放队列 + Intent 调度",
-      "status": "spec | **Owner**: 布偶猫 (Opus 4.6) | **Priority**: P2",
+      "status": "spec | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P2",
       "file": "F112-voice-playback-queue.md"
     },
     {

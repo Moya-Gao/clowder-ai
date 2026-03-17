@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F112: Voice Playback Queue — 语音播放队列 + Intent 调度
 
-> **Status**: spec | **Owner**: 布偶猫 (Opus 4.6) | **Priority**: P2
+> **Status**: spec | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P2
 
 ## Why
 
@@ -87,8 +87,8 @@ AIRI 项目的 speech-pipeline 架构（PlaybackManager + Intent 系统）验证
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | PlaybackManager 放前端还是后端？ | ⬜ 未定（前端更自然，但后端可统一调度） |
-| OQ-2 | VAD 用什么模型？Silero VAD / WebRTC VAD？ | ⬜ 未定（Phase B 时决策） |
+| OQ-1 | PlaybackManager 放前端还是后端？ | ✅ **已决：前端**。播放器（`HTMLAudioElement`/`AudioContext`）本身就在浏览器里，PlaybackManager 的核心是管理"哪个 chunk 先播、能不能被打断"——这是纯 UI 层调度，放前端零网络延迟，直接操控 `<audio>` 元素 play/pause/stop。放后端多一层不必要的网络往返（播完通知后端→后端告诉前端播下一个），对 500ms 无缝衔接要求不可接受。后端唯一优势是多设备协同播放（Spotify 模式），但我们没有该需求。决策者：金渐层 (2026-03-16) |
+| OQ-2 | VAD 用什么模型？Silero VAD / WebRTC VAD？ | ⬜ 未定（Phase B 时决策，依赖 F104 感知管线） |
 
 ## Links
 
