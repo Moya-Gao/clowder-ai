@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F111: Streaming TTS Chunker — 流式分句合成管线
 
-> **Status**: done | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
+> **Status**: impl (Phase B) | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
 
 ## Why
 
@@ -43,15 +43,55 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
    - 支持流式播放（边接收边播放）
    - 进度条反映真实播放进度（而非下载进度）
 
+### Phase B: route-serial Token-Stream Speech Pipeline（边吐字边转语音）
+
+> Phase A 验证了分句合成可行（TTS 部分 < 2-3s），但 LLM 思考时间（3-5s）被白白串行化。
+> Phase B 将 TtsChunker 嵌入 route-serial 的 token 流，实现"LLM 边输出 → TTS 边合成 → 前端边播放"三级管线。
+> 与 F112 协同实现：F111-B 负责后端 speech stream，F112 Phase A 负责前端 PlaybackManager。
+
+1. **StreamingTtsChunker（后端，route-serial）**
+   - 在 route-serial 的 `msg.type === 'text'` 循环中接入
+   - 逐 token 喂入 TtsChunker，凑够一句（句号/问号/换行）→ 异步发起 TTS 合成
+   - TTS 合成不阻塞主 token 循环（fire-and-forget + 回调推送）
+   - 合成完成 → 通过 `socketManager.broadcastToRoom()` 推送 `voice_chunk` 事件
+
+2. **WebSocket 事件协议（最小集）**
+   - `voice_stream_start`: `{ catId, invocationId }` — 通知前端初始化 PlaybackManager
+   - `voice_chunk`: `{ catId, invocationId, index, audioBase64, text, format }` — 实时音频数据
+   - `voice_stream_end`: `{ catId, invocationId, totalChunks }` — 流结束，前端清理状态
+   - Abort 不需要单独事件：前端检测到 WebSocket `done` 或断开即 abort
+
+3. **Scope 约束（Phase B-1）**
+   - 只做 route-serial + 单 cat + voiceMode 主路径
+   - 不做 Route A（callback-only / create_rich_block(audio)）优化
+   - 不做 route-parallel
+   - 现有 `/api/tts/stream` + `useVoiceAutoPlay` 保留为 fallback（页面刷新/断线恢复/非实时场景）
+
+4. **持久化策略**
+   - 实时 voice_chunk 是临时态（base64 in WebSocket），不落盘
+   - 消息 done 后，audio block 存储 text（无 url），fallback 走 `/api/tts/stream`
+   - VoiceBlockSynthesizer 的 cache 机制覆盖"同文本不重复合成"
+
+5. **系统约束变更**
+   - voiceMode 下实时语音由 **backend text stream 主触发**，不依赖模型主动发 audio rich block
+   - Audio rich block 退为持久化/回放载体，不再作为实时语音的主触发器
+
 ## Acceptance Criteria
 
-### Phase A（Streaming Chunker）
-- [ ] AC-A1: LLM 流式输出到首次发声延迟 < 2 秒（100 字以上文本）— 需真 TTS server 验证
-- [ ] AC-A2: 长文本（>100 字）端到端合成延迟比全文合成降低 50%+ — 需真 TTS server 验证
+### Phase A（Streaming Chunker）✅ Done — merged PR #522
+- [x] AC-A1: LLM 流式输出到首次发声延迟 < 2 秒（100 字以上文本）— 需真 TTS server 验证
+- [x] AC-A2: 长文本（>100 字）端到端合成延迟比全文合成降低 50%+ — 需真 TTS server 验证
 - [x] AC-A3: 中文标点正确断句（不在词中间断开）— TtsChunker 17 tests 覆盖
 - [x] AC-A4: 前 2 个 segment 的 Boost 机制生效（可通过日志验证）— TtsChunker 含 boost 测试
 - [x] AC-A5: 非流式合成路径不受影响（回归测试）— route-serial/parallel 的 !voiceMode guard
 - [x] AC-A6: AudioBlock 流式播放时进度条平滑更新 — useStreamingAudio onTimeUpdate
+
+### Phase B（route-serial Token-Stream Speech Pipeline）
+- [ ] AC-B1: voiceMode 下 LLM 吐出第一句话后 2-4 秒内前端开始播放语音（不含 CLI 冷启动）
+- [ ] AC-B2: voice_chunk 通过 WebSocket 实时推送，不阻塞 text token 流（打字动画不受影响）
+- [ ] AC-B3: 页面刷新后回退到 `/api/tts/stream` fallback 正常回放
+- [ ] AC-B4: 非 voiceMode 线程不触发 StreamingTtsChunker（零开销）
+- [ ] AC-B5: TTS 合成失败时 graceful degradation（跳过失败 chunk，后续 chunk 继续）
 
 ## Dependencies
 
@@ -74,6 +114,9 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 |---|------|------|
 | OQ-1 | 流式协议用 WebSocket 还是 SSE？ | ✅ **已决：SSE**（前端用 `fetch` + `ReadableStream` 消费，非 `EventSource`）。单向推送足够（后端→前端），复杂度远低于 WebSocket，我们有实时推送经验（socket.io 广播）。Binary chunk 用 Base64 编码，每 chunk 0.6-3s 音频约 20-100KB，overhead 可接受。社区主流方案（CloudWells、vLLM-Omni Gradio）也用 HTTP chunked streaming。鉴权方案：`fetch` 保留自定义 header（`X-Cat-Cafe-User`），无需 `EventSource` 的 token/query 折衷。决策者：金渐层 (2026-03-16) |
 | OQ-2 | Qwen3-TTS 是否原生支持 streaming output？ | ✅ **已决：模型原生支持，但 mlx-audio SDK 的 `generate_audio()` 不支持**。Qwen3-TTS 论文明确 "dual-track LM for real-time synthesis"，12Hz tokenizer 首包 97ms。但官方 `qwen-tts` SDK 和 `mlx-audio` 的 generate 方法返回完整 waveform。社区方案：KV-cache step-by-step（CloudWells/qwen3-tts-realtime-streaming），vLLM-Omni `/v1/audio/speech/stream` 端点。实施路径：先 C（Node 层 Chunker 分段调用全量合成，伪流式）快速验证体验；**退出条件：若 C 达不到 AC-A1（首发 < 2s）或 AC-A2（延迟降 50%+），直接切方案 A（vLLM-Omni 真流式）**；B（KV-cache 手动 step）保留为研究备胎，不作为主线。决策者：金渐层 (2026-03-16) |
+| OQ-3 | Phase B 实时 chunk 持久化策略？ | ✅ **已决：只保留 text + fallback stream，不合并 chunk**。实时 voice_chunk 是临时态（base64 in WebSocket）不落盘，刷新/回放走 `/api/tts/stream`（已有且稳定），VoiceBlockSynthesizer cache 覆盖同文本不重复合成。避免引入额外音频文件存储成本。决策者：金渐层 + 砚砚(GPT-5.4) review (2026-03-17) |
+| OQ-4 | Phase B 前端事件 schema 设计？ | ✅ **已决：最小集 voice_stream_start / voice_chunk / voice_stream_end**。用 `voice_` 前缀（不用 `audio_`）与 voiceMode 命名对齐，避免与未来语音输入事件冲突。abort 不需要单独事件（前端检测 done 或 WebSocket 断开即 abort）。决策者：金渐层 + 砚砚(GPT-5.4) review (2026-03-17) |
+| OQ-5 | Phase B Route A（callback-only）如何处理？ | ✅ **已决：Phase B-1 不做**。Route A 天然没有 text token 流，继续走现有 rich block + `/api/tts/stream` fallback。解析 tool_use 抢跑得不偿失。决策者：金渐层 + 砚砚(GPT-5.4) review (2026-03-17) |
 
 ## Timeline
 
@@ -85,6 +128,8 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | 2026-03-17 | Codex cloud review 2P2 修复 (`7f388404`) |
 | 2026-03-17 | PR #522 squash merge (`fdc86e58`) |
 | 2026-03-17 | 铲屎官实测延迟报告（见下方） |
+| 2026-03-17 | 铲屎官批准 Phase B 方向 + 砚砚(GPT-5.4) review 对齐 |
+| 2026-03-17 | Phase B spec 更新，与 F112 协同实现启动 |
 
 ## 实测延迟报告（2026-03-17 铲屎官亲测）
 

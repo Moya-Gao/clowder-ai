@@ -46,7 +46,8 @@ created: 2026-02-26
 | F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | in-progress | 布偶猫 | internal | [F108](features/F108-side-dispatch-concurrent-invocation.md) |
 | F109 | Message Actions 修复与增强 — 软删除/Branch/编辑/通知 | spec | 布偶猫 | internal | [F109](features/F109-message-actions-overhaul.md) |
 | F110 | 训练营愿景引导增强 — CVO 需求挖掘 + SOP 显式加载 | spec | 布偶猫 | internal | [F110](features/F110-bootcamp-vision-elicitation.md) |
-| F112 | Voice Playback Queue — 语音播放队列 + Intent 调度 | spec | 金渐层 | internal | [F112](features/F112-voice-playback-queue.md) |
+| F112 | Voice Playback Queue — 语音播放队列 + Intent 调度 | impl | 金渐层 | internal | [F112](features/F112-voice-playback-queue.md) |
+| F111 | Streaming TTS Chunker — 流式分句合成管线 (Phase B) | impl | 金渐层 | internal | [F111](features/F111-streaming-tts-chunker.md) |
 | F113 | Multi-Platform One-Click Deploy — 多平台一键部署 | spec | community | community [#14](https://github.com/zts212653/clowder-ai/issues/14) | [F113](features/F113-multi-platform-one-click-deploy.md) |
 | F119 | 谁是卧底 — 坏猫战术推理游戏 #2 | spec | 布偶猫 | internal | [F119](features/F119-who-is-spy-game.md) |
 | F118 | CLI Liveness Watchdog — CLI 进程活性守卫 + Follow-up Hardening | in-progress | 布偶猫 + 缅因猫 | internal | [F118](features/F118-cli-liveness-watchdog.md) |
