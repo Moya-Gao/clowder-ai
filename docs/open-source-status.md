@@ -214,9 +214,9 @@ created: 2026-03-12
 
 ## 社区 PR Review 进度
 
-> **更新时间**: 2026-03-17 (Round 2) | **执行猫**: 金渐层/opencode (claude-opus-4-6) [金渐层/Opus-46🐾]
+> **更新时间**: 2026-03-17 (Round 3 — final) | **执行猫**: 金渐层/opencode (claude-opus-4-6) [金渐层/Opus-46🐾]
 
-### 已关闭（7 个）
+### 已关闭 PR（12 个）
 
 | PR | 作者 | 原因 | 关闭时间 |
 |----|------|------|----------|
@@ -224,11 +224,35 @@ created: 2026-03-12
 | #47 | bouillipx | 代理回退，家里已有 tcpProbe | 2026-03-17 |
 | #80 | bouillipx | CLAUDE.md 修改，家里版本已远超 | 2026-03-17 |
 | #25 | mindfn | 隐藏排队消息，家里已有 F117+F098-D | 2026-03-17 |
-| #44 | mindfn | tooltip 功能 → intake 到家里实现，同步过去 | 2026-03-17 |
+| #44 | mindfn | tooltip 功能 → intake 到家里实现（ThreadItem.tsx） | 2026-03-17 |
 | #60 | bouillipx | 同步 transform 已实现等效功能（PR 有合并冲突） | 2026-03-17 |
 | #67 | bouillipx | Lint 失败 + 同步脚本已修命名 bug + 会被覆盖 | 2026-03-17 |
+| #78 | bouillipx | 重启通知 — F048 A+ 已实现等效功能 | 2026-03-17 |
+| #106 | bouillipx | 拆分为 #121 + #122 | 2026-03-17 |
+| #107 | bouillipx | 代理弹性 — 家里已有等效实现（#52 CLOSED） | 2026-03-17 |
+| #121 | bouillipx | done-guarantee — 已在家里实现并 commit（8a28d74c），带 co-author | 2026-03-17 |
+| #122 | bouillipx | CLI timeout — 需求关联到 #109/F127 | 2026-03-17 |
+| #73 | bouillipx | API key 检测 — 被 F117 Provider Profile 系统覆盖 | 2026-03-17 |
 
-### 已处理完成（3 个 — 原"待决策"）
+### 已关闭 Issue（关联处理）
+
+| Issue | 标题 | 原因 |
+|-------|------|------|
+| #30 | done/isFinal 丢失 | 已被 commit 8b06b5cd + 8a28d74c 完全修复 |
+| #45 | 44 个 pre-existing CI 测试失败 | 过时——多次同步后测试状态已完全不同 |
+| #51 | Claude API-key 认证不生效 | F117 Provider Profile 系统已解决 |
+| #52 | 代理 502 | 家里已实现 fetchWithTimeout + retry |
+| #77 | 重启静默吞消息 | F048 A+ StartupReconciler 已解决 |
+| #104 | Provider auth 配置统一 | F117 已解决 |
+
+### 已 Intake 到家里（验证完成）
+
+| PR | 功能 | 家里证据 |
+|----|------|---------|
+| #44 | 线程悬停 tooltip | ThreadItem.tsx line 91-105: `title={tooltip}` (标题+参与者+时间) |
+| #121 | done-guarantee 安全网 | route-serial.ts + route-parallel.ts: `yieldedFinalDone` + finally/post-loop safety net (commit 8a28d74c) |
+
+### 决策记录（3 个 — 历史归档）
 
 #### PR #44 — 线程列表悬停提示 (mindfn, 1 file) — ✅ Intake 到家里
 
@@ -261,15 +285,24 @@ created: 2026-03-12
 
 验证结果：`bash -n` / `perl -c` / dry-run 全部通过。
 
-### 待深入分析
+### 仍 OPEN 的社区 PR（2 个）
 
 | PR | 作者 | 内容 | 状态 |
 |----|------|------|------|
-| #113 | mindfn | Windows 一键部署 | HOLD (开发中) |
+| #113 | mindfn | Windows 一键部署 (F113) | HOLD — 社区开发中 |
+| #85 | bouillipx | cat_cafe_create_thread MCP 工具 (F115) | `needs-maintainer-decision` — 需铲屎官立项决策 |
 
-### 深入分析完成（6 个）
+### 仍 OPEN 的重点 Issue
 
-#### PR #106 — done(isFinal) 保证 + CLI 超时 10分钟 (bouillipx, 7 files) — 🟢 推荐 Intake
+| Issue | 标题 | 备注 |
+|-------|------|------|
+| #109 | 猫猫管理重构 (F127) | 社区小伙伴领取 + CLI timeout 配置化需求已关联 |
+| #116 | CLI done 事件在 NDJSON 管道丢失 | commit 8a28d74c 部分覆盖 |
+| #82 | 猫创建 thread API | 关联 PR #85 |
+
+### 深入分析记录（归档 — 均已处理）
+
+#### PR #106 — done(isFinal) 保证 + CLI 超时 10分钟 (bouillipx, 7 files) — ✅ 已处理（拆分为 #121 + #122）
 
 **两个独立改动**：
 1. **done(isFinal=true) 保证**：route-serial.ts 增加 `yieldedFinalDone` 追踪变量 + finally 块合成终端 done 事件。**家里没有**（line 876 仅 `if (doneMsg)` 无保底）。这是真 bug fix：如果 agent 不 yield done 或 abort，前端永远转圈。带 4 个测试。
@@ -279,7 +312,7 @@ created: 2026-03-12
 **判断**：三项均为有价值改进且家里没有。建议 intake 到 cat-cafe，PR #106 可直接 merge 到 clowder-ai（代码质量好、有测试）。
 **注意**：route-serial.ts 家里版本 (889行) 和 PR 基于的旧版有差异，intake 需手动 port。
 
-#### PR #78 — 进程重启可见错误通知 (bouillipx, 3 files) — 🟢 推荐 Intake
+#### PR #78 — 进程重启可见错误通知 (bouillipx, 3 files) — ✅ 已关闭（F048 A+ 覆盖）
 
 **做了什么**：StartupReconciler 扫到孤儿 invocation 后，向受影响的 thread 发送可见错误消息 + WebSocket 广播。
 - 新增 `messageStore` + `socketManager` 可选依赖
@@ -292,7 +325,7 @@ created: 2026-03-12
 
 **判断**：非常有用的 UX 改进。家里确实缺这个。建议 intake。代码质量好，接口设计（optional deps + 降级）符合家里的风格。
 
-#### PR #73 — API Key 认证冲突检测 (bouillipx, 4 files) — 🟢 推荐 Intake
+#### PR #73 — API Key 认证冲突检测 (bouillipx, 4 files) — ✅ 已关闭（F117 覆盖）
 
 **做了什么**：
 1. 新增 `auth-mode-detector.ts`：启动时检测 ANTHROPIC_API_KEY env + ~/.claude/settings.json 与 subscription profile 的冲突
@@ -347,7 +380,7 @@ created: 2026-03-12
 - **风险**：猫可以无限制创建 thread，没有 rate limiting
 - **建议**：有价值但需要铲屎官立项决策，不宜静默 intake
 
-#### PR #107 — Proxy 上游弹性 (bouillipx, 2 files) — 🟢 已有等效实现
+#### PR #107 — Proxy 上游弹性 (bouillipx, 2 files) — ✅ 已关闭（家里已有等效实现）
 
 **做了什么**：anthropic-proxy.mjs 增加：
 1. `fetchWithTimeout()` 替换原生 fetch（超时控制）
