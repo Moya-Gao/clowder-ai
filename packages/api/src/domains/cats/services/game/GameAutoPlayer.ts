@@ -87,40 +87,45 @@ export class GameAutoPlayer {
     return recovered;
   }
 
-  private async runLoop(gameId: string): Promise<void> {
-    const TICK_MS = 800;
-    const MAX_TICKS = 500; // Safety: ~6.5 minutes max
+  static readonly TICK_MS = 800;
+  static readonly MAX_WALL_CLOCK_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-    for (let tick = 0; tick < MAX_TICKS; tick++) {
+  private async runLoop(gameId: string): Promise<void> {
+    const loopStart = Date.now();
+
+    for (;;) {
       if (!this.activeLoops.has(gameId)) return;
+      if (Date.now() - loopStart > GameAutoPlayer.MAX_WALL_CLOCK_MS) {
+        console.warn(
+          `[GameAutoPlayer] ${gameId} wall-clock safety limit reached (${GameAutoPlayer.MAX_WALL_CLOCK_MS}ms), exiting loop`,
+        );
+        return;
+      }
 
       const runtime = await this.store.getGame(gameId);
       if (!runtime || runtime.status === 'finished') return;
 
-      // Paused: wait without acting, loop continues for when game resumes
       if (runtime.status === 'paused') {
-        await sleep(TICK_MS * 2);
+        await sleep(GameAutoPlayer.TICK_MS * 2);
         continue;
       }
 
       if (runtime.status !== 'playing') return;
 
-      // For resolve/announce phases, use tick() to auto-advance
       if (SKIP_PHASES.has(runtime.currentPhase)) {
         await this.orchestrator.tick(gameId);
-        await sleep(TICK_MS / 2);
+        await sleep(GameAutoPlayer.TICK_MS / 2);
         continue;
       }
 
       const acted = await this.actForPhase(runtime);
       if (acted) {
         console.log(
-          `[GameAutoPlayer] ${gameId} tick=${tick} phase=${runtime.currentPhase} round=${runtime.round} — actions submitted`,
+          `[GameAutoPlayer] ${gameId} phase=${runtime.currentPhase} round=${runtime.round} — actions submitted`,
         );
       }
 
-      // Small delay between ticks — let phase transitions settle
-      await sleep(acted ? TICK_MS : TICK_MS * 2);
+      await sleep(acted ? GameAutoPlayer.TICK_MS : GameAutoPlayer.TICK_MS * 2);
     }
   }
 
