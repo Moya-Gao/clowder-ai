@@ -183,7 +183,7 @@ reopened: 2026-03-14
   - 前端视觉：紫色侦探主题 + soul-link-pulse + tarot-back — 🔄 PR review 中
 
 ### Phase F（核心体验修复 — 投票/透明度/超时）✅
-- [ ] AC-F1: GitHub agent werewolf 调研报告完成，覆盖 ≥3 个项目
+- [x] AC-F1: GitHub agent werewolf 调研报告完成，覆盖 ≥3 个项目
 - [x] AC-F2: God-view 夜晚时间线实时展示每个角色的具体行动目标
 - [x] AC-F3: 已行动状态从二态改为五态（waiting/acting/acted/timed_out/fallback）
 - [x] AC-F4: 多狼独立投票 + 多数票结算 + 平票处理
