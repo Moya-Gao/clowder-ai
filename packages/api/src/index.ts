@@ -317,6 +317,19 @@ async function main(): Promise<void> {
   });
   app.log.info('[api] F102: SQLite memory services initialized');
 
+  // F102 D-2: Auto-rebuild evidence index on startup (AC-D4)
+  if (memoryServices.indexBuilder) {
+    const startMs = Date.now();
+    try {
+      const result = await memoryServices.indexBuilder.rebuild();
+      app.log.info(
+        `[api] F102: evidence index rebuilt — ${result.docsIndexed} indexed, ${result.docsSkipped} skipped (${Date.now() - startMs}ms)`,
+      );
+    } catch (err) {
+      app.log.warn(`[api] F102: evidence index rebuild failed (non-fatal): ${err}`);
+    }
+  }
+
   // ── F32-b: Populate CatRegistry from cat-config.json (all variants) ──
   // Must happen BEFORE AgentRouter construction (parseMentions reads catRegistry)
   try {
