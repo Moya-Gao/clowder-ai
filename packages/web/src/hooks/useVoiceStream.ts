@@ -24,6 +24,11 @@ function getOrCreateManager(): PlaybackManager {
   return managerInstance;
 }
 
+/** Get the shared PlaybackManager instance (creates if needed). Usable outside React. */
+export function getPlaybackManager(): PlaybackManager {
+  return getOrCreateManager();
+}
+
 function matchesActiveSession(event: { threadId: string; catId: string }): boolean {
   const { session } = useVoiceSessionStore.getState();
   if (!session?.voiceMode) return false;
