@@ -54,3 +54,4 @@ created: 2026-02-26
 | F122 | 执行通道统一 — A2A/multi_mention 入 Dispatch Queue | in-progress | 布偶猫 | internal | [F122](features/F122-unified-dispatch-queue.md) |
 | F124 | Apple Ecosystem × Cat Café 语音交互系统 — iOS/watchOS/AirPods | spec | 布偶猫 | internal | [F124](features/F124-apple-ecosystem-voice-interaction.md) |
 | F126 | 四肢控制面 — Cat Café Limb Control Plane | spec | 布偶猫 | internal | [F126](features/F126-limb-control-plane.md) |
+| F127 | 猫猫管理重构 — 账户配置与猫猫实例分离，动态创建猫 + 自定义别名 @ 路由 | spec | 待定 | community [#109](https://github.com/zts212653/clowder-ai/issues/109) | [F127](features/F127-cat-instance-management.md) |
