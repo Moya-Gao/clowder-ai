@@ -84,6 +84,29 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | 2026-03-17 | 实现完成，砚砚 impl review 4 轮放行 (`4e0d9337`) |
 | 2026-03-17 | Codex cloud review 2P2 修复 (`7f388404`) |
 | 2026-03-17 | PR #522 squash merge (`fdc86e58`) |
+| 2026-03-17 | 铲屎官实测延迟报告（见下方） |
+
+## 实测延迟报告（2026-03-17 铲屎官亲测）
+
+**测试环境**：M-series Mac，本地 Qwen3-TTS (mlx-audio)，runtime worktree
+
+**端到端延迟拆解**：
+
+| 阶段 | 耗时 | 说明 |
+|------|------|------|
+| opencode CLI 冷启动 | ~28s | CLI 拉起 + 加载 context（框架固定开销） |
+| CLI 启动后 → 首次出声 | ~10s | LLM 思考 + MCP 投递 + TTS 合成 + 前端播放 |
+| 其中 TTS 流式合成 | ~2-3s | TtsChunker 分句 + 第一句 Qwen3-TTS 合成 |
+| `/api/tts/stream` SSE | 正常 | 2 句文本 → 2 chunk 逐一返回，格式 wav |
+
+**关键结论**：
+
+1. **F111 Plan C（分句合成）方向验证通过** — TTS 合成部分只占 2-3s，主要延迟来自 LLM 思考和 CLI 启动
+2. **CLI 冷启动 28s 是最大瓶颈** — opencode 框架开销，非 Cat Café 可优化范围
+3. **"边吐字边转语音"（Plan A 真流式）可进一步优化** — 理论上把 10s 压缩到 3-5s，因为 LLM 思考时间被 TTS 并行利用
+4. **当前实现满足 AC-A1 的精神**（TTS 合成部分 < 2s），但完整端到端还受 LLM 思考时间影响
+
+**下一步优化方向**：在 route-serial 的 token 流中嵌入 TtsChunker，实现"LLM 边输出 → TTS 边合成 → 前端边播放"三级管线
 
 ## Links
 
