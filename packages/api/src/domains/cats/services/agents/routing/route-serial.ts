@@ -497,12 +497,17 @@ export async function* routeSerial(
 
         // F34-b: Resolve voice blocks (audio with text, no url) — Route B path.
         // Route A blocks were already resolved in the callback handler.
-        const voiceSynth = getVoiceBlockSynthesizer();
-        if (voiceSynth && allRichBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
-          try {
-            allRichBlocks = await voiceSynth.resolveVoiceBlocks(allRichBlocks, catId as string);
-          } catch (err) {
-            console.error(`[routeSerial] Voice block synthesis failed for ${catId as string}:`, err);
+        // F111: When voiceMode is active, skip full synthesis so audio blocks
+        // arrive at the frontend with text but no url — the frontend will use
+        // /api/tts/stream for chunked streaming playback (<2s first-audio).
+        if (!voiceMode) {
+          const voiceSynth = getVoiceBlockSynthesizer();
+          if (voiceSynth && allRichBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
+            try {
+              allRichBlocks = await voiceSynth.resolveVoiceBlocks(allRichBlocks, catId as string);
+            } catch (err) {
+              console.error(`[routeSerial] Voice block synthesis failed for ${catId as string}:`, err);
+            }
           }
         }
 

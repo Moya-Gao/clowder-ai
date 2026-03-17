@@ -5,6 +5,7 @@ import type { RichAudioBlock } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useVoiceSessionStore } from '@/stores/voiceSessionStore';
 import { apiFetch } from '@/utils/api-client';
+import { base64ToBlob, streamTts } from '@/utils/tts-stream';
 
 /**
  * F092: Auto-play incoming audio blocks when Voice Companion is active.
@@ -19,10 +20,15 @@ import { apiFetch } from '@/utils/api-client';
  * to hardware output (speakers/AirPods) even though screen recording
  * captures it.  We now create a persistent hidden `<audio>` element in the
  * DOM and reuse it for all auto-play, matching how AudioBlock.tsx works.
+ *
+ * F111: When a voice block has `text` but no `url`, uses /api/tts/stream
+ * for chunked streaming playback (<2s first-audio latency).
  */
 
 let autoplayAudio: HTMLAudioElement | null = null;
 let autoplayBlobUrl: string | null = null;
+let streamingAbort: AbortController | null = null;
+let streamingBlobUrls: string[] = [];
 
 /** Get or create a persistent, DOM-attached audio element for autoplay. */
 function getAutoplayAudio(): HTMLAudioElement {
@@ -37,16 +43,96 @@ function getAutoplayAudio(): HTMLAudioElement {
 }
 
 function cleanupAutoplay(): void {
+  streamingAbort?.abort();
+  streamingAbort = null;
   if (autoplayAudio) {
     autoplayAudio.pause();
     autoplayAudio.removeAttribute('src');
     autoplayAudio.onended = null;
     autoplayAudio.onerror = null;
-    // Keep the element in the DOM — reuse across plays
   }
   if (autoplayBlobUrl) {
     URL.revokeObjectURL(autoplayBlobUrl);
     autoplayBlobUrl = null;
+  }
+  for (const url of streamingBlobUrls) {
+    URL.revokeObjectURL(url);
+  }
+  streamingBlobUrls = [];
+}
+
+function hasStreamableText(block: RichAudioBlock): boolean {
+  return !!block.text?.trim() && !block.url;
+}
+
+async function streamAndPlay(block: RichAudioBlock, originSessionId: string): Promise<void> {
+  cleanupAutoplay();
+
+  const { markPlayed, setPlaybackState, confirmAutoplayUnlocked } = useVoiceSessionStore.getState();
+
+  function isSessionStale(): boolean {
+    const { session } = useVoiceSessionStore.getState();
+    return !session?.voiceMode || session.sessionId !== originSessionId;
+  }
+
+  streamingAbort = new AbortController();
+  const audio = getAutoplayAudio();
+  const queue: string[] = [];
+  let firstChunkPlayed = false;
+  let streamDone = false;
+
+  const playNext = () => {
+    if (queue.length === 0) {
+      if (streamDone) setPlaybackState('idle');
+      return;
+    }
+    const nextUrl = queue.shift()!;
+    audio.src = nextUrl;
+    audio.play().catch(() => setPlaybackState('idle'));
+  };
+
+  audio.onended = playNext;
+  audio.onerror = () => setPlaybackState('idle');
+
+  try {
+    setPlaybackState('playing');
+
+    for await (const event of streamTts(
+      {
+        text: block.text!,
+        catId: useVoiceSessionStore.getState().session?.activeCatId,
+      },
+      streamingAbort.signal,
+    )) {
+      if (streamingAbort.signal.aborted || isSessionStale()) break;
+
+      if (event.type === 'chunk' && event.audioBase64) {
+        const mimeType = event.format === 'mp3' ? 'audio/mpeg' : 'audio/wav';
+        const blob = base64ToBlob(event.audioBase64, mimeType);
+        const blobUrl = URL.createObjectURL(blob);
+        streamingBlobUrls.push(blobUrl);
+
+        if (!firstChunkPlayed) {
+          firstChunkPlayed = true;
+          audio.src = blobUrl;
+          await audio.play();
+          confirmAutoplayUnlocked();
+          markPlayed(block.id);
+        } else {
+          queue.push(blobUrl);
+          if (audio.ended) playNext();
+        }
+      }
+    }
+
+    streamDone = true;
+    if (queue.length === 0 && (!firstChunkPlayed || audio.ended)) {
+      setPlaybackState('idle');
+    }
+  } catch {
+    if (!streamingAbort?.signal.aborted) {
+      setPlaybackState('idle');
+    }
   }
 }
 
@@ -55,7 +141,6 @@ async function fetchAndPlay(block: RichAudioBlock, originSessionId: string): Pro
 
   const { markPlayed, setPlaybackState, confirmAutoplayUnlocked } = useVoiceSessionStore.getState();
 
-  /** Check that the session that triggered this play is still the active one */
   function isSessionStale(): boolean {
     const { session } = useVoiceSessionStore.getState();
     return !session?.voiceMode || session.sessionId !== originSessionId;
@@ -95,7 +180,6 @@ async function fetchAndPlay(block: RichAudioBlock, originSessionId: string): Pro
     };
 
     await audio.play();
-    // First successful play confirms autoplay is truly unlocked
     confirmAutoplayUnlocked();
     markPlayed(block.id);
   } catch {
@@ -124,6 +208,14 @@ function findUnplayedAudioBlock(
   return null;
 }
 
+function playBlock(block: RichAudioBlock, sessionId: string): void {
+  if (hasStreamableText(block)) {
+    streamAndPlay(block, sessionId);
+  } else {
+    fetchAndPlay(block, sessionId);
+  }
+}
+
 export function useVoiceAutoPlay(): void {
   const messages = useChatStore((s) => s.messages);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
@@ -140,9 +232,7 @@ export function useVoiceAutoPlay(): void {
       return;
     }
 
-    // Guard: only auto-play when viewing the bound thread
     if (currentThreadId !== session.boundThreadId) {
-      // Thread switched away — reset prevCount so returning doesn't replay
       prevMessageCountRef.current = 0;
       prevThreadIdRef.current = currentThreadId;
       return;
@@ -151,8 +241,6 @@ export function useVoiceAutoPlay(): void {
     const threadChanged = prevThreadIdRef.current !== currentThreadId;
     prevThreadIdRef.current = currentThreadId;
 
-    // If we just switched back to the bound thread, reset message tracking
-    // to current length to avoid replaying old messages
     if (threadChanged) {
       prevMessageCountRef.current = messages.length;
       return;
@@ -162,25 +250,21 @@ export function useVoiceAutoPlay(): void {
     prevSessionIdRef.current = session.sessionId;
 
     if (isNewSession) {
-      // Voice companion just activated — scan ALL existing messages for
-      // the latest unplayed audio block and play it immediately.
       const block = findUnplayedAudioBlock(messages);
       prevMessageCountRef.current = messages.length;
-      if (block) fetchAndPlay(block, session.sessionId);
+      if (block) playBlock(block, session.sessionId);
       return;
     }
 
-    // Ongoing session — only look at newly added messages
     const prevCount = prevMessageCountRef.current;
     prevMessageCountRef.current = messages.length;
 
     if (messages.length <= prevCount) return;
 
     const block = findUnplayedAudioBlock(messages.slice(prevCount));
-    if (block) fetchAndPlay(block, session.sessionId);
+    if (block) playBlock(block, session.sessionId);
   }, [messages, session, currentThreadId]);
 
-  // Cleanup on unmount or voice mode stop
   useEffect(() => {
     if (!session?.voiceMode) {
       cleanupAutoplay();

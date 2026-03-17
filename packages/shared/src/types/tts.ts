@@ -51,3 +51,23 @@ export interface ITtsProvider {
   readonly model: string;
   synthesize(request: TtsSynthesizeRequest): Promise<TtsSynthesizeResult>;
 }
+
+// F111: Streaming TTS types
+export interface TtsStreamRequest {
+  readonly text: string;
+  readonly catId?: string;
+  readonly voice?: string;
+  readonly langCode?: string;
+  readonly speed?: number;
+}
+
+export interface TtsStreamEvent {
+  readonly type: 'chunk' | 'done' | 'error';
+  readonly index?: number;
+  readonly total?: number;
+  readonly audioBase64?: string;
+  readonly text?: string;
+  readonly durationSec?: number;
+  readonly format?: string;
+  readonly error?: string;
+}

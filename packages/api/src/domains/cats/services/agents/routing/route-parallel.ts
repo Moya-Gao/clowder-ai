@@ -445,12 +445,15 @@ export async function* routeParallel(
         const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
         let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
         // F34-b: synthesize text-only audio blocks (voice messages)
-        const voiceSynth = getVoiceBlockSynthesizer();
-        if (voiceSynth && allRichBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
-          try {
-            allRichBlocks = await voiceSynth.resolveVoiceBlocks(allRichBlocks, msg.catId as string);
-          } catch (err) {
-            console.error(`[routeParallel] Voice block synthesis failed for ${msg.catId as string}:`, err);
+        // F111: skip synthesis in voiceMode — frontend streams via /api/tts/stream
+        if (!voiceMode) {
+          const voiceSynth = getVoiceBlockSynthesizer();
+          if (voiceSynth && allRichBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
+            try {
+              allRichBlocks = await voiceSynth.resolveVoiceBlocks(allRichBlocks, msg.catId as string);
+            } catch (err) {
+              console.error(`[routeParallel] Voice block synthesis failed for ${msg.catId as string}:`, err);
+            }
           }
         }
         const catTools = catToolEvents.get(msg.catId);

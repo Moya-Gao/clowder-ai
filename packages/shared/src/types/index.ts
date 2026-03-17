@@ -88,18 +88,6 @@ export type {
   McpToolInfo,
   SkillHealthSummary,
 } from './capability.js';
-// Limb types (F126 四肢控制面)
-export type {
-  ILimbNode,
-  LimbAccessEntry,
-  LimbActionLogEntry,
-  LimbAuthLevel,
-  LimbCapability,
-  LimbInvokeResult,
-  LimbLease,
-  LimbNodeRecord,
-  LimbNodeStatus,
-} from './limb.js';
 // Cat types
 export type {
   CatColor,
@@ -166,8 +154,8 @@ export type {
   GameConfig,
   GameDefinition,
   GameEvent,
-  GameRuntime,
   GameResultStats,
+  GameRuntime,
   GameView,
   PendingAction,
   PhaseDefinition,
@@ -235,6 +223,18 @@ export type {
   StreakCat,
   WorkStats,
 } from './leaderboard.js';
+// Limb types (F126 四肢控制面)
+export type {
+  ILimbNode,
+  LimbAccessEntry,
+  LimbActionLogEntry,
+  LimbAuthLevel,
+  LimbCapability,
+  LimbInvokeResult,
+  LimbLease,
+  LimbNodeRecord,
+  LimbNodeStatus,
+} from './limb.js';
 // Memory types (F3-lite 显式记忆)
 export type {
   MemoryEntry,
@@ -363,6 +363,8 @@ export type {
 // TTS types (F34 TTS Provider)
 export type {
   ITtsProvider,
+  TtsStreamEvent,
+  TtsStreamRequest,
   TtsSynthesizeRequest,
   TtsSynthesizeResult,
   VoiceConfig,
