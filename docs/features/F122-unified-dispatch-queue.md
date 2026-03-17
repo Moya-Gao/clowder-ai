@@ -166,7 +166,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 
 **Deferred（Phase B.1 follow-up）：**
 - [ ] AC-B6: multi_mention dispatch 改走 InvocationQueue（MultiMentionOrchestrator 的 response 聚合需要 QueueProcessor 回调机制，复杂度高，单独 PR）
-- [ ] AC-B6-P1: **A2A 消息上下文可见性修复**（P1 前置，铲屎官 2026-03-16 提出）— 详见下方「已知问题」
+- [x] AC-B6-P1: **A2A 消息上下文可见性修复**（PR #502 merged）— 详见下方「已知问题」
 - [ ] AC-B7: QueuePanel 前端渲染 agent-sourced entries（显示"猫A → 猫B handoff"格式）— 设计稿已完成 `designs/F122-queue-panel-agent-entries.pen`
 - [ ] AC-B8: Thread 执行状态指示（per-cat 活跃状态 + 头像 indicator）— 复用 F108 设计稿 Scene 3
 - [ ] AC-B9: Per-cat Stop 按钮 — 复用 F108 设计稿 Scene 4
@@ -294,6 +294,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-16 | Phase B 后端核心实施：QueueEntry agent source + tryAutoExecute + A2A enqueue + wiring（PR pending） |
 | 2026-03-16 | Phase B deferred: multi_mention queue integration + 前端 UX（AC-B6~B10）记录到 feature doc |
 | 2026-03-16 | Phase B 后端核心 merged (PR #499) — AC-B1~B5 全部完成，codex R5→R6 放行 |
+| 2026-03-16 | AC-B6-P1 merged (PR #502) — A2A 消息上下文可见性修复，codex R1→R4 放行 |
 
 ## Review Gate
 
