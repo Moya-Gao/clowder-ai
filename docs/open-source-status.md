@@ -302,7 +302,7 @@ created: 2026-03-12
 | #14 | Windows/Linux/Mac 裸机支持 | F113 | 未做 | 社区 PR #113 在做 (mindfn) |
 | #64 | Windows CLI spawn ENOENT | F113,bug | 未做 | F113 子任务 |
 | #82 | 猫创建 thread API | question | 未做 | bouillipx 在做完整版 (PR #85) |
-| #84 | setCatStatus 高频爆栈 | bug | **未修** | chatStore.ts line 844 无节流，建议优先修 |
+| #84 | setCatStatus 高频爆栈 | bug | **✅ 已修** | PR #527 merged (idempotent guard, 2026-03-17) |
 | #88 | UX 术语暴露 | enhancement | 未做 | 前端术语规范，不紧急 |
 | #92 | Windows 侧栏 UI 差异 | F113 | 未做 | 跟随 F113 |
 | #94 | Governance per-worktree | bug,needs-decision | 未修 | GovernanceRegistry 仍 per-worktree |
@@ -336,7 +336,7 @@ created: 2026-03-12
 
 > 更新: 2026-07-15 | 金渐层 vs 砚砚(GPT-5.4) 分歧仲裁后定稿
 
-1. **#84** — setCatStatus 爆栈（`chatStore.ts` L844 无节流，高频 SSE 事件打爆 Zustand）
+1. **#84** — ✅ setCatStatus 更新风暴 — **已修** PR #527 merged (idempotent guard, 非 throttle)
 2. **#87/#55** — .env.example 端口不一致（开源用户照抄会端口冲突）
 3. **#123** — governance preflight 阻断新项目（GovernanceRegistry 用 catCafeRoot 路径，新 clone 直接 throw）
 4. **#97** — governance 泄漏端口默认值（家里内部端口号硬编码到 governance 配置）
