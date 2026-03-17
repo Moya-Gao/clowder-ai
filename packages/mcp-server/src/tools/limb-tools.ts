@@ -67,6 +67,33 @@ export async function handleLimbInvoke(args: {
   });
 }
 
+// ─── Phase C: Pairing Tools ──────────────────────────────────
+
+export const limbPairListInputSchema = {
+  type: 'object' as const,
+  properties: {},
+};
+
+export const limbPairApproveInputSchema = {
+  type: 'object' as const,
+  properties: {
+    requestId: { type: 'string', description: '配对请求 ID' },
+  },
+  required: ['requestId'],
+};
+
+export async function handleLimbPairList(): Promise<ToolResult> {
+  const config = getCallbackConfig();
+  if (!config) return errorResult(NO_CONFIG_ERROR);
+  return callbackPost('/api/callback/limb/pair/list', {});
+}
+
+export async function handleLimbPairApprove(args: { requestId: string }): Promise<ToolResult> {
+  const config = getCallbackConfig();
+  if (!config) return errorResult(NO_CONFIG_ERROR);
+  return callbackPost('/api/callback/limb/pair/approve', { requestId: args.requestId });
+}
+
 // ─── Tool Definitions ────────────────────────────────────────
 
 export const limbTools = [
@@ -85,5 +112,17 @@ export const limbTools = [
       '例如: limb_invoke(nodeId="iphone-1", command="camera.snap")',
     inputSchema: limbInvokeInputSchema,
     handler: handleLimbInvoke,
+  },
+  {
+    name: 'limb_pair_list',
+    description: '列出待审批的四肢配对请求。远程设备注册后需要铲屎官审批才能接入。',
+    inputSchema: limbPairListInputSchema,
+    handler: handleLimbPairList,
+  },
+  {
+    name: 'limb_pair_approve',
+    description: '审批一个四肢配对请求。审批后远程设备自动注册到 Registry，猫猫可以调用。',
+    inputSchema: limbPairApproveInputSchema,
+    handler: handleLimbPairApprove,
   },
 ] as const;

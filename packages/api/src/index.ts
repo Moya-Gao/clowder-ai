@@ -605,6 +605,12 @@ async function main(): Promise<void> {
     actionLog: new LimbActionLog(),
   });
 
+  // F126 Phase C: Pairing store + limb node routes for remote devices
+  const { LimbPairingStore } = await import('./domains/limb/LimbPairingStore.js');
+  const { registerLimbNodeRoutes } = await import('./routes/limb-node-routes.js');
+  const limbPairingStore = new LimbPairingStore();
+  registerLimbNodeRoutes(app, { limbRegistry, pairingStore: limbPairingStore });
+
   await app.register(callbacksRoutes, {
     registry,
     messageStore,
@@ -624,6 +630,7 @@ async function main(): Promise<void> {
     markerQueue: memoryServices.markerQueue,
     reflectionService: memoryServices.reflectionService,
     limbRegistry,
+    limbPairingStore,
   });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)

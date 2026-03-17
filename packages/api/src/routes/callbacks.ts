@@ -72,6 +72,8 @@ export interface CallbackRoutesOptions {
   invocationQueue?: import('../domains/cats/services/agents/invocation/InvocationQueue.js').InvocationQueue;
   /** F126: Limb node registry for device/hardware capability management */
   limbRegistry?: import('../domains/limb/LimbRegistry.js').LimbRegistry;
+  /** F126 Phase C: Limb pairing store for remote device approval */
+  limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
 }
 
 const postMessageSchema = callbackAuthSchema.extend({
@@ -1119,6 +1121,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     registerCallbackLimbRoutes(app, {
       limbRegistry: opts.limbRegistry,
       invocationRegistry: registry,
+      pairingStore: opts.limbPairingStore,
     });
   }
 

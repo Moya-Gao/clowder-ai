@@ -8,7 +8,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import type { LimbPairingStore } from '../domains/limb/LimbPairingStore.js';
 import type { LimbRegistry } from '../domains/limb/LimbRegistry.js';
+import { RemoteLimbNode } from '../domains/limb/RemoteLimbNode.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 
@@ -22,14 +24,19 @@ const limbInvokeSchema = callbackAuthSchema.extend({
   params: z.record(z.unknown()).optional(),
 });
 
+const limbPairApproveSchema = callbackAuthSchema.extend({
+  requestId: z.string().min(1),
+});
+
 export interface CallbackLimbRoutesOptions {
   limbRegistry: LimbRegistry;
   invocationRegistry: InvocationRegistry;
+  pairingStore?: LimbPairingStore;
 }
 
 export function registerCallbackLimbRoutes(
   app: FastifyInstance,
-  { limbRegistry, invocationRegistry }: CallbackLimbRoutesOptions,
+  { limbRegistry, invocationRegistry, pairingStore }: CallbackLimbRoutesOptions,
 ): void {
   app.post('/api/callback/limb/list', async (request, reply) => {
     const parsed = limbListSchema.safeParse(request.body);
@@ -70,4 +77,43 @@ export function registerCallbackLimbRoutes(
     });
     return reply.send(result);
   });
+
+  // Phase C: Pairing callback routes (for MCP tools)
+  if (pairingStore) {
+    app.post('/api/callback/limb/pair/list', async (request, reply) => {
+      const parsed = callbackAuthSchema.safeParse(request.body);
+      if (!parsed.success) return reply.status(400).send({ error: parsed.error.message });
+
+      const record = invocationRegistry.verify(parsed.data.invocationId, parsed.data.callbackToken);
+      if (!record) return reply.status(403).send({ error: EXPIRED_CREDENTIALS_ERROR });
+
+      return reply.send({ requests: pairingStore.getPending() });
+    });
+
+    app.post('/api/callback/limb/pair/approve', async (request, reply) => {
+      const parsed = limbPairApproveSchema.safeParse(request.body);
+      if (!parsed.success) return reply.status(400).send({ error: parsed.error.message });
+
+      const record = invocationRegistry.verify(parsed.data.invocationId, parsed.data.callbackToken);
+      if (!record) return reply.status(403).send({ error: EXPIRED_CREDENTIALS_ERROR });
+
+      const req = pairingStore.approve(parsed.data.requestId);
+      if (!req) return reply.status(404).send({ error: 'Pairing request not found' });
+
+      // Register RemoteLimbNode if not already registered
+      if (!limbRegistry.getNode(req.nodeId)) {
+        const remoteNode = new RemoteLimbNode({
+          nodeId: req.nodeId,
+          displayName: req.displayName,
+          platform: req.platform,
+          capabilities: req.capabilities,
+          endpointUrl: req.endpointUrl,
+          apiKey: req.apiKey,
+        });
+        await limbRegistry.register(remoteNode);
+      }
+
+      return reply.send({ status: 'approved', nodeId: req.nodeId });
+    });
+  }
 }
