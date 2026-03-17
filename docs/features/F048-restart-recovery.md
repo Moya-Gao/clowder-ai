@@ -8,10 +8,10 @@ created: 2026-02-28
 
 # F048: Restart Recovery — 重启自愈（Invocation/Queue 恢复）
 
-> **Status**: Phase A done / Phase A+ in-progress / Phase B idea | **Owner**: 布偶猫 → 金渐层（Phase A+）
+> **Status**: Phase A done / Phase A+ done / Phase B idea | **Owner**: 布偶猫 → 金渐层（Phase A+）
 > **Created**: 2026-02-28
-> **Priority**: P1（Phase A 已交付，Phase A+ 进行中）
-> **Phase**: A ✅ / A+ 🔄 / B idle
+> **Priority**: P1（Phase A+A+ 已交付）
+> **Phase**: A ✅ / A+ ✅ / B idle
 
 ---
 
@@ -57,12 +57,12 @@ Phase A 只做了后台清理（用户不可见），Phase A+ 补上用户可见
 
 ## Acceptance Criteria — Phase A+（用户通知，intake 自社区 PR #78）
 
-- [ ] AC-A+1: sweep 完成后，给每个受影响的 thread 发一条可见错误消息（列出被中断的猫猫）
-- [ ] AC-A+2: 消息持久化走 `source` 字段（如 `startup-reconciler`），不走 `catId: null`，确保 WS 和历史回放语义一致
-- [ ] AC-A+3: thread 级去重 — 同一 thread 的多个孤儿 invocation 合并为一条通知
-- [ ] AC-A+4: append/broadcast best-effort — 通知失败不影响启动主流程
-- [ ] AC-A+5: messageStore 和 socketManager 是 optional deps — memory mode 下正常跳过
-- [ ] AC-A+6: 有测试覆盖：模拟 sweep 后验证通知发送、去重、失败不阻塞
+- [x] AC-A+1: sweep 完成后，给每个受影响的 thread 发一条可见错误消息（列出被中断的猫猫）
+- [x] AC-A+2: 消息持久化走 `source` 字段（如 `startup-reconciler`），不走 `catId: null`，确保 WS 和历史回放语义一致
+- [x] AC-A+3: thread 级去重 — 同一 thread 的多个孤儿 invocation 合并为一条通知
+- [x] AC-A+4: append/broadcast best-effort — 通知失败不影响启动主流程
+- [x] AC-A+5: messageStore 和 socketManager 是 optional deps — memory mode 下正常跳过
+- [x] AC-A+6: 有测试覆盖：模拟 sweep 后验证通知发送、去重、失败不阻塞
 
 ## Acceptance Criteria — Phase B（后续）
 
@@ -131,6 +131,11 @@ Phase A 只做了后台清理（用户不可见），Phase A+ 补上用户可见
 | R1→R5 | codex（本地） | 放行（P1×4 全修） | 2026-03-06 |
 | R1→R2 | gpt52（本地） | 放行（P1×1 全修） | 2026-03-06 |
 | R1 | codex（云端） | 1 P2（已修）| 2026-03-06 |
+| Phase A+ R1 | codex（本地） | P1+P2 退回 | 2026-03-17 |
+| Phase A+ R2 | codex（本地） | 放行（P1+P2 全修） | 2026-03-17 |
+| Phase A+ R3 | codex（本地） | 放行（云审 P2 补丁确认） | 2026-03-17 |
+| Phase A+ Cloud R1 | codex（云端） | 1 P2（已修） | 2026-03-17 |
+| Phase A+ Cloud R2 | codex（云端） | 👍 通过 | 2026-03-17 |
 
 ## Timeline
 
@@ -141,3 +146,5 @@ Phase A 只做了后台清理（用户不可见），Phase A+ 补上用户可见
 - 2026-03-06: Phase A 实现 + codex R1→R5 + gpt52 R1→R2 + 云端 R1 → PR #249 squash merged
 - 2026-03-06: Phase A done，Phase B idle（队列持久化，待需求驱动）
 - 2026-07-14: 社区 PR #78 / Issue #77 → Phase A+ 立项（用户可见通知），intake 含持久化语义修正
+- 2026-03-17: Phase A+ 实现 + codex R1→R3 + 云端 R1→R2 → PR #517 squash merged
+- 2026-03-17: Phase A+ done（AC-A+1~A+6 全部 ✅），Phase B idle
