@@ -210,10 +210,10 @@ Cat Café（大脑 / 灵魂议会）
 - [x] AC-B4: Action Log 记录最小 provenance 字段集（requestId/invocationId/leaseId/catId/nodeId/capability/artifactUri/status/startedAt/endedAt/idempotencyKey）
 - [x] AC-B5: runtime 活状态（heartbeat/lease/online）只进内存，不进 F102/evidence index（Redis 适配是 follow-up）
 
-### Phase C（跨平台 Node 管理）
-- [ ] AC-C1: 远程节点可通过 MCP over HTTP 注册到控制面
-- [ ] AC-C2: Node Pairing 审批流程可用（新节点连接 → 铲屎官审批 → 建立信任）
-- [ ] AC-C3: 断线恢复 + 重连机制
+### Phase C（跨平台 Node 管理）✅
+- [x] AC-C1: 远程节点可通过 MCP over HTTP 注册到控制面
+- [x] AC-C2: Node Pairing 审批流程可用（新节点连接 → 铲屎官审批 → 建立信任）
+- [x] AC-C3: 断线恢复 + 重连机制
 
 ### Phase D（F124 Apple 生态落地）
 - [ ] AC-D1: iPhone 作为 Limb Node 接入，暴露 camera/voice/location 能力
@@ -276,6 +276,7 @@ Cat Café（大脑 / 灵魂议会）
 | 2026-03-16 | 立项 + 三猫审阅对齐 |
 | 2026-03-17 | Phase A merged (PR #507) — 砚砚 3 轮 review，云端 0 P1/P2 |
 | 2026-03-17 | Phase B merged (PR #514) — 砚砚 2 轮 review，云端 0 P1/P2 |
+| 2026-03-17 | Phase C merged (PR #528) — 砚砚 3 轮 review + 云端安全修复，0 P1/P2 |
 
 ## Review Gate
 
