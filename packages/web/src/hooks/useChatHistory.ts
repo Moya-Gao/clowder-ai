@@ -192,7 +192,7 @@ export function useChatHistory(threadId: string) {
     setLoadingHistory,
     clearMessages,
     setCatInvocation,
-    setThreadTargetCats,
+    replaceThreadTargetCats,
     updateThreadCatStatus,
     setQueue,
     setQueuePaused,
@@ -484,13 +484,13 @@ export function useChatHistory(threadId: string) {
         // intent_mode socket events when the HTTP response arrives late.
         const currentTargets = useChatStore.getState().targetCats;
         if (restoredCats.length > 0 && currentTargets.length === 0) {
-          setThreadTargetCats(fetchForThread, restoredCats);
+          replaceThreadTargetCats(fetchForThread, restoredCats);
         }
       }
     } catch (err) {
       if (isAbortError(err)) return;
     }
-  }, [threadId, setCatInvocation, setThreadTargetCats]);
+  }, [threadId, setCatInvocation, replaceThreadTargetCats]);
 
   // F39 Bug 1: Fetch queue state on mount/thread-switch to survive F5 refresh
   const fetchQueue = useCallback(async () => {
@@ -519,7 +519,7 @@ export function useChatHistory(threadId: string) {
       // and always overwrites stale snapshots restored by setCurrentThread().
       const store = useChatStore.getState();
       if (data.activeInvocations && data.activeInvocations.length > 0) {
-        setThreadTargetCats(fetchForThread, data.activeInvocations);
+        replaceThreadTargetCats(fetchForThread, data.activeInvocations);
         for (const catId of data.activeInvocations) {
           updateThreadCatStatus(fetchForThread, catId, 'streaming');
         }
@@ -530,12 +530,12 @@ export function useChatHistory(threadId: string) {
         // clearThreadActiveInvocation clears BOTH hasActiveInvocation boolean
         // AND the activeInvocations slot map, preventing re-derivation bugs.
         store.clearThreadActiveInvocation(fetchForThread);
-        setThreadTargetCats(fetchForThread, []);
+        replaceThreadTargetCats(fetchForThread, []);
       }
     } catch (err) {
       if (isAbortError(err)) return;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, setQueue, setQueuePaused, updateThreadCatStatus]);
 
   // Load history + tasks when threadId changes (handles initial mount and navigation)
