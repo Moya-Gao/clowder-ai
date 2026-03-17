@@ -107,12 +107,12 @@ created: 2026-03-12
 - [x] AC-A6: 页面刷新后 fallback 到 `/api/tts/stream` 正常回放
 - [x] AC-A7: Voice mode 关闭时队列清空 + 播放停止
 
-### Phase B（播放器统一 — PodcastPlayer → PlaybackManager）
-- [ ] AC-B1: PodcastPlayer 播放播客时使用 PlaybackManager 队列，不再手搓 `new Audio()`
-- [ ] AC-B2: 播客播放支持 pause/resume/skip（来自 PlaybackManager）
-- [ ] AC-B3: PlaybackManager 新增 `enqueueUrl()` 方法，接受 audioUrl 并正确入队播放
-- [ ] AC-B4: voiceMode 语音和播客播放互不冲突（互斥或排队）
-- [ ] AC-B5: PodcastPlayer 内部不再维护独立的 Audio 实例和播放状态
+### Phase B（播放器统一 — PodcastPlayer → PlaybackManager）✅ Done — merged PR #535
+- [x] AC-B1: PodcastPlayer 播放播客时使用 PlaybackManager 队列，不再手搓 `new Audio()`
+- [x] AC-B2: 播客播放支持 pause/resume/skip（来自 PlaybackManager）
+- [x] AC-B3: PlaybackManager 新增 `enqueueUrl()` 方法，接受 audioUrl 并正确入队播放
+- [x] AC-B4: voiceMode 语音和播客播放互不冲突（互斥或排队）
+- [x] AC-B5: PodcastPlayer 内部不再维护独立的 Audio 实例和播放状态
 
 ### Phase B-Future（replace + Intent + 双猫实时编排，未来备选）
 - [ ] AC-BF1: 双猫对话稿可按 queue 模式交替播放，无重叠
@@ -159,6 +159,9 @@ created: 2026-03-12
 | 2026-03-18 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review 通过 |
 | 2026-03-18 | PR #529 squash merge — Phase A done |
 | 2026-03-19 | Phase B 重定义：原始设计（replace/intent/双猫实时编排）归档为未来备选；新 Phase B = 播放器统一（PodcastPlayer → PlaybackManager） |
+| 2026-03-20 | Phase B 实现完成 — 5 commits: enqueueUrl/startBatch/batchId cancellation/fetch rejection guard/runIdRef stale promise guard |
+| 2026-03-20 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review R2 通过 (0 P1/P2) |
+| 2026-03-20 | PR #535 squash merge — Phase B done |
 
 ## Links
 
@@ -168,3 +171,4 @@ created: 2026-03-12
 | **Co-implemented** | `docs/features/F111-streaming-tts-chunker.md` | Phase B 后端 speech stream |
 | **Reference** | `docs/features/F054-hci-preheat-infra.md` | AIRI speech-pipeline 参考 |
 | **PR** | [#529](https://github.com/zts212653/cat-cafe/pull/529) | Phase A: PlaybackManager + useVoiceStream |
+| **PR** | [#535](https://github.com/zts212653/cat-cafe/pull/535) | Phase B: PodcastPlayer → PlaybackManager 播放器统一 |
