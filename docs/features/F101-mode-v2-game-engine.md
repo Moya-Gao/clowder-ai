@@ -192,6 +192,17 @@ reopened: 2026-03-14
 - [x] AC-F7: 慢启动猫猫有 grace period + god-view 展示真实连接状态
 - [x] AC-F8: 铲屎官在 god-view 能清楚理解"正在发生什么"（不再一脸懵逼）
 
+### Phase G（AutoPlayer 存活性 — loop 恢复 + 运行时日志）
+- [ ] AC-G1: API 启动时扫描活跃游戏（Redis status=playing），自动恢复 `startLoop()`
+- [ ] AC-G2: `GameAutoPlayer` 有运行时日志（loop started/tick/action submitted/error/exited）
+- [ ] AC-G3: 铲屎官开局后 API 重启，游戏自动恢复推进（不卡在"全员等待"）
+
+**根因（2026-03-16 砚砚 GPT-5.4 + 宪宪联合定位）**：
+- `GameAutoPlayer.startLoop()` 是纯内存异步循环，只在创建游戏时挂一次
+- API 进程退出/崩溃后，Redis 里游戏状态还在，但驱动循环丢失
+- 前端倒计时是纯本地 `setInterval`，API 死了照样倒到 0，造成"倒计时结束无事发生"假象
+- 当前自动行动是本地随机逻辑（`pickRandom`），不是 CLI/LLM — 所以不是"Gemini 启动慢"
+
 ### Phase F: 核心体验修复 — 投票/透明度/超时/行动真实性（2026-03-16）
 
 铲屎官 2026-03-16 实测发现的核心体验 bug。先调研 GitHub agent 狼人杀项目（AIWolf 等），再设计修复方案。
