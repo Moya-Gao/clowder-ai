@@ -199,8 +199,8 @@ Cat Café（大脑 / 灵魂议会）
 - [ ] AC-A4: 新增四肢类型只需实现 `ILimbNode` 接口 + 注册能力
 - [ ] AC-A5: `capabilities.json` schema 升级向后兼容（现有 `type: mcp | skill` 不受影响）
 - [ ] AC-A6: Basic Presence — 节点状态追踪（online/busy/offline/degraded），离线自动移除能力
-- [ ] AC-A7: F118 Watchdog 整合到 Presence Manager
-- [ ] AC-A8: MCP tool `limb_list_available` + `limb_invoke` 可用
+- [ ] AC-A7: F118 Watchdog 状态映射函数（`mapProbeStateToLimbStatus`）预埋到 Presence Manager（完整整合含事件接线在 Phase B）
+- [ ] AC-A8: MCP tool `limb_list_available` + `limb_invoke` 定义 + callback route 端到端可用
 - [ ] AC-A9: F126 只消费 session contract，不拥有 session truth 实现
 
 ### Phase B（调度层 — Lease/Scheduler + Access Policy + Action Log）
