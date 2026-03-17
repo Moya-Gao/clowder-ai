@@ -35,6 +35,7 @@ import { MessageNavigator } from './MessageNavigator';
 import { MobileStatusSheet } from './MobileStatusSheet';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
+import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { RightStatusPanel } from './RightStatusPanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { SplitPaneView } from './SplitPaneView';
@@ -560,6 +561,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           </div>
         )}
 
+        <ThreadExecutionBar />
         <QueuePanel threadId={threadId} />
         <VoteActiveBar threadId={threadId} onEnd={() => {}} />
 
