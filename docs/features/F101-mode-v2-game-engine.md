@@ -192,10 +192,10 @@ reopened: 2026-03-14
 - [x] AC-F7: 慢启动猫猫有 grace period + god-view 展示真实连接状态
 - [x] AC-F8: 铲屎官在 god-view 能清楚理解"正在发生什么"（不再一脸懵逼）
 
-### Phase G（AutoPlayer 存活性 — loop 恢复 + 运行时日志）
-- [ ] AC-G1: API 启动时扫描活跃游戏（Redis status=playing），自动恢复 `startLoop()`
-- [ ] AC-G2: `GameAutoPlayer` 有运行时日志（loop started/tick/action submitted/error/exited）
-- [ ] AC-G3: 铲屎官开局后 API 重启，游戏自动恢复推进（不卡在"全员等待"）
+### Phase G（AutoPlayer 存活性 — loop 恢复 + 运行时日志）✅
+- [x] AC-G1: API 启动时扫描活跃游戏（Redis status=playing），自动恢复 `startLoop()`
+- [x] AC-G2: `GameAutoPlayer` 有运行时日志（loop started/tick/action submitted/error/exited）
+- [x] AC-G3: 铲屎官开局后 API 重启，游戏自动恢复推进（不卡在"全员等待"）
 
 **根因（2026-03-16 砚砚 GPT-5.4 + 宪宪联合定位）**：
 - `GameAutoPlayer.startLoop()` 是纯内存异步循环，只在创建游戏时挂一次
@@ -413,6 +413,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-16 | Phase E detective visuals PR 提交 — soul-link-pulse + tarot-back + purple theme（codex review 中） |
 | 2026-03-16 | **Phase F 立项** — 铲屎官实测反馈：投票不透明/行动真实性存疑/超时卡游戏/Gemini 启动慢。启动 GitHub agent werewolf 调研 |
 | 2026-03-16 | Phase F gameplay fixes merged (PR #491) — resolution bridge, multi-wolf ballot, day vote transparency, timeout fallback, grace period, god-view ballot panel (codex 2-round local + 5-round cloud review) |
+| 2026-03-16 | Phase G AutoPlayer recovery merged (PR #505) — startLoop recovery on API startup + runtime logs + keyPrefix fix (codex 1-round local + 1-round cloud review) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
