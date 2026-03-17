@@ -174,6 +174,20 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
   - ⚠️ 同上打磨：猫名 + 颜色需要和 B8 一起修
 - [ ] AC-B10: 双模发送 UX（锁头悄悄话 + 广播排队）— 复用 F108 设计稿 Scene 1/2/5
 
+#### 观察到的现象：A2A agent entry 卡在队列（runtime 环境，待验证）
+
+> 铲屎官 2026-03-17 00:00 报告（runtime 环境，非最新 main）：
+> "小金 at 了缅因，消息进入队列。小金早干完了，但队列里的消息永远到不了。"
+
+**现象**：opencode @ codex 的 A2A agent entry 在 QueuePanel 里排队，"猫猫正在回复中" 持续显示，但实际上 opencode 已完成执行。entry 不会被自动出队。
+
+**可能根因**（待新 session 用 debugging skill 验证）：
+1. `tryAutoExecute` 在 enqueue 时调了一次，目标猫 slot 忙 → 跳过。之后没有重试机制
+2. `onInvocationComplete` 的链式调度（`tryExecuteNextAcrossUsers`）可能没有覆盖 agent entry
+3. `activeInvocations` 前端残留（和 PR #470 修的 steer stuck loading 同类）
+
+**注意**：此现象在 runtime 环境观察到，runtime 可能未同步最新 main（含 PR #499/#502 等 F122B 改动）。需要先确认 runtime 代码版本再定位。
+
 #### 已知问题：A2A 消息上下文提前可见（P1，AC-B6 前置修复）
 
 > 铲屎官 2026-03-16 17:07 提出：
