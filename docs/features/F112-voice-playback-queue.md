@@ -1,12 +1,12 @@
 ---
 feature_ids: [F112]
 related_features: [F066, F034, F021, F111]
-topics: [voice, tts, playback, queue, intent, podcast]
+topics: [voice, tts, playback, queue, podcast, unification]
 doc_kind: spec
 created: 2026-03-12
 ---
 
-# F112: Voice Playback Queue — 语音播放队列 + Intent 调度
+# F112: Voice Playback Queue — 语音播放队列 + 播放器统一
 
 > **Status**: in-progress | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
 
@@ -54,18 +54,39 @@ created: 2026-03-12
    - 页面刷新后没有 voice_chunk 流 → 检测 audio block 有 text 无 url → 触发 `/api/tts/stream` fallback
    - `useVoiceAutoPlay` 现有逻辑保留，作为 PlaybackManager 不可用时的降级
 
-### Phase B: 播客编排 + replace + Intent（后置）
+### Phase B: 播放器统一 — PodcastPlayer → PlaybackManager（第二刀）
 
-1. **双猫播客支持**（服务 F021 R5）
+> **Scope 重定义（2026-03-19）**：原始 Phase B（replace + Intent + 双猫实时编排）暂无真实场景，降级为未来备选。新 Phase B 聚焦实际需求 — 将 Signal Study 播客播放器迁移到 PlaybackManager，消除重复的 Audio 管理代码。
+
+1. **PodcastPlayer 播放逻辑迁移**
+   - 现状：`PodcastPlayer.tsx` 使用 `usePlayAll()` 手搓 for 循环 + `new Audio()` 播放预生成播客
+   - 目标：播放逻辑委托给 PlaybackManager，PodcastPlayer 只负责 UI 展示
+   - PlaybackManager 新增 `enqueueUrl(url)` 方法：fetch audioUrl → blob → blobUrl → 入队列
+
+2. **统一播放控制**
+   - PodcastPlayer 免费获得 pause/resume/skip/interrupt 能力（来自 PlaybackManager）
+   - 消除 PodcastPlayer 内部的 `isPlaying` / `currentIndex` 手动状态管理
+   - voiceMode 语音与播客共享同一个播放器实例（互斥：播客播放时 voiceMode 语音排队等候）
+
+3. **保持的边界**
+   - 播客后端（`podcast-generator.ts`）完全不动 — 仍是 LLM → TTS → JSON → audioUrl
+   - PodcastPlayer UI 组件保留（进度条、segment 列表等），只替换内部播放引擎
+
+### Phase B-Future: replace + Intent + 双猫实时编排（未来备选方案，暂无场景）
+
+> **归档原因（2026-03-19）**：route-serial 目前只支持单猫输出，没有双猫同时实时语音的场景。replace/intent 行为也暂无使用方。设计保留以备未来语音陪伴模式扩展。
+
+1. **双猫播客实时编排**（原 Phase B-1）
    - 两只猫的语音片段按 `queue` 行为交替播放
    - 每段播放完自动切到下一只猫的片段
    - 播客模式下自动设为 `normal` 优先级
+   - ⚠️ 与 Signal Study 播客不同：这里是**实时**双猫对话编排，Signal Study 是**离线预生成**
 
-2. **replace 行为**
+2. **replace 行为**（原 Phase B-2）
    - 替换同 intent 的语音（例如纠正刚说的话）
    - 需要 Intent 系统配合
 
-3. **Intent 系统**
+3. **Intent 系统**（原 Phase B-3）
    - 每段语音带 intent 标签（如 `greeting` / `answer` / `podcast-segment`）
    - `replace` 行为只替换同 intent 的语音
 
@@ -86,10 +107,16 @@ created: 2026-03-12
 - [x] AC-A6: 页面刷新后 fallback 到 `/api/tts/stream` 正常回放
 - [x] AC-A7: Voice mode 关闭时队列清空 + 播放停止
 
-### Phase B（播客编排 + replace + Intent，后置）
-- [ ] AC-B1: 双猫对话稿可按 queue 模式交替播放，无重叠
-- [ ] AC-B2: 播客模式下两猫语音无缝衔接（间隔 < 500ms）
-- [ ] AC-B3: `replace` 行为只替换同 intent 的语音，不影响其他 intent
+### Phase B（播放器统一 — PodcastPlayer → PlaybackManager）
+- [ ] AC-B1: PodcastPlayer 播放播客时使用 PlaybackManager 队列，不再手搓 `new Audio()`
+- [ ] AC-B2: 播客播放支持 pause/resume/skip（来自 PlaybackManager）
+- [ ] AC-B3: PlaybackManager 新增 `enqueueUrl()` 方法，接受 audioUrl 并正确入队播放
+- [ ] AC-B4: voiceMode 语音和播客播放互不冲突（互斥或排队）
+- [ ] AC-B5: PodcastPlayer 内部不再维护独立的 Audio 实例和播放状态
+
+### Phase B-Future（replace + Intent + 双猫实时编排，未来备选）
+- [ ] AC-BF1: 双猫对话稿可按 queue 模式交替播放，无重叠
+- [ ] AC-BF2: `replace` 行为只替换同 intent 的语音，不影响其他 intent
 
 ### Phase C（VAD，可选）
 - [ ] AC-C1: 用户说话时猫自动停嘴（VAD interrupt）
@@ -131,6 +158,7 @@ created: 2026-03-12
 | 2026-03-18 | Phase A 实现完成，与 F111 Phase B 一起提交 PR #529 |
 | 2026-03-18 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review 通过 |
 | 2026-03-18 | PR #529 squash merge — Phase A done |
+| 2026-03-19 | Phase B 重定义：原始设计（replace/intent/双猫实时编排）归档为未来备选；新 Phase B = 播放器统一（PodcastPlayer → PlaybackManager） |
 
 ## Links
 
