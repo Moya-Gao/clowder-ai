@@ -1,7 +1,7 @@
 // F102: SQLite implementation of IEvidenceStore
 
 import Database from 'better-sqlite3';
-import type { Edge, EvidenceItem, IEmbeddingService, IEvidenceStore, SearchOptions } from './interfaces.js';
+import type { Edge, EvidenceItem, EvidenceKind, IEmbeddingService, IEvidenceStore, SearchOptions } from './interfaces.js';
 import { SemanticReranker } from './SemanticReranker.js';
 import { applyMigrations } from './schema.js';
 import type { VectorStore } from './VectorStore.js';
@@ -42,6 +42,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     const trimmed = query.trim();
     if (!trimmed) return [];
 
+    // Phase D: resolve scope → kind filter
+    // scope='threads'/'sessions' → only search kind='session'
+    // scope='docs'/'memory' → exclude sessions (feature/decision/plan/lesson + future memory entries)
+    // scope='all' → no filter
+    const effectiveKind = options?.kind ?? (
+      options?.scope === 'threads' || options?.scope === 'sessions' ? 'session' as EvidenceKind : undefined
+    );
+    const excludeSession = options?.scope === 'docs' || options?.scope === 'memory';
     // ── Exact-anchor bypass ──────────────────────────────────────────
     // FTS5 unicode61 tokenizer splits "F042" → "F"+"042" and "ADR-005" → "ADR"+"005".
     // For anchor-shaped queries, do a direct lookup so precision isn't lost.
@@ -50,9 +58,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 
     let anchorSql = 'SELECT * FROM evidence_docs WHERE anchor = ? COLLATE NOCASE';
     const anchorParams: unknown[] = [trimmed];
-    if (options?.kind) {
+    if (effectiveKind) {
       anchorSql += ' AND kind = ?';
-      anchorParams.push(options.kind);
+      anchorParams.push(effectiveKind);
+    }
+    if (excludeSession) {
+      anchorSql += " AND kind != 'session'";
     }
     if (options?.status) {
       anchorSql += ' AND status = ?';
@@ -85,9 +96,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 			`;
         const params: unknown[] = [ftsQuery];
 
-        if (options?.kind) {
+        if (effectiveKind) {
           sql += ' AND d.kind = ?';
-          params.push(options.kind);
+          params.push(effectiveKind);
+        }
+        if (excludeSession) {
+          sql += " AND d.kind != 'session'";
         }
         if (options?.status) {
           sql += ' AND d.status = ?';
@@ -122,9 +136,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         const kwConditions = words.map(() => 'keywords LIKE ?');
         let kwSql = `SELECT * FROM evidence_docs WHERE (${kwConditions.join(' OR ')})`;
         const kwParams: unknown[] = words.map((w) => `%${w.toLowerCase()}%`);
-        if (options?.kind) {
+        if (effectiveKind) {
           kwSql += ' AND kind = ?';
-          kwParams.push(options.kind);
+          kwParams.push(effectiveKind);
+        }
+        if (excludeSession) {
+          kwSql += " AND kind != 'session'";
         }
         if (options?.status) {
           kwSql += ' AND status = ?';

@@ -10,10 +10,13 @@ import { z } from 'zod';
 import type { IEvidenceStore } from '../domains/memory/interfaces.js';
 import type { EvidenceResult } from './evidence-helpers.js';
 
-/** Accepted query parameters */
+/** Accepted query parameters — Phase D: scope/mode/depth added */
 const searchSchema = z.object({
   q: z.string().min(1),
   limit: z.coerce.number().int().min(1).max(20).optional(),
+  scope: z.enum(['docs', 'memory', 'threads', 'sessions', 'all']).optional(),
+  mode: z.enum(['lexical', 'semantic', 'hybrid']).optional(),
+  depth: z.enum(['summary', 'raw']).optional(),
 });
 
 export type { EvidenceConfidence, EvidenceSourceType } from './evidence-helpers.js';
@@ -54,11 +57,11 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       return { error: 'Invalid query parameters', details: parseResult.error.issues };
     }
 
-    const { q, limit } = parseResult.data;
+    const { q, limit, scope, mode, depth } = parseResult.data;
 
     const effectiveLimit = limit ?? 5;
     try {
-      const items = await opts.evidenceStore.search(q, { limit: effectiveLimit });
+      const items = await opts.evidenceStore.search(q, { limit: effectiveLimit, scope, mode, depth });
       const results: EvidenceResult[] = items.map((item) => ({
         title: item.title,
         anchor: item.anchor,

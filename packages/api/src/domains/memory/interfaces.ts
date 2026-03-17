@@ -67,7 +67,12 @@ export interface SearchOptions {
   status?: EvidenceStatus;
   keywords?: string[];
   limit?: number;
-  scope?: 'global' | 'project' | 'workspace';
+  /** Phase D: collection scope — which data layer to search */
+  scope?: 'docs' | 'memory' | 'threads' | 'sessions' | 'all';
+  /** Phase D: retrieval mode */
+  mode?: 'lexical' | 'semantic' | 'hybrid';
+  /** Phase D: result depth — summary (default) or raw detail */
+  depth?: 'summary' | 'raw';
 }
 
 export interface MarkerFilter {
