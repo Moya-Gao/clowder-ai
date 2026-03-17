@@ -219,6 +219,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-16: Phase 9 hotfix (32ffc250) — 迁移笔记相对路径解析修复（isAbsolute + sidecarDir join）
 - 2026-03-16: Phase 10 kickoff — 两个 bug：① 文章正文只有标题（webpage fetcher 不提取内容）② "在对话中讨论"应创建 study thread 而非跳 default
 - 2026-03-17: Phase 10 merged (PR #512) — WebpageFetcher 正文提取 + POST /discuss 创建专属 study thread。Codex review R1→R2 放行 + 云端通过
+- 2026-03-17: Phase 11 merged (PR #515) — Secondary fetch for webpage articles + backfill empty content。修复 Anthropic 文章只有标题无正文的根因（self-href 漏解析 + 无二次抓取）。云端 review 3 轮（P1: timeout propagation + path traversal validation + regex alignment 全修），金渐层 + 缅因猫合作完成
 
 ## Phase 5: 播客真正可用（2026-03-11） ✅
 
@@ -299,6 +300,20 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-P10-1: WebpageFetcher 提取文章正文（不只是标题），存入 markdown 文件
 - [x] AC-P10-2: "在对话中讨论"按钮点击时创建专属 study thread（复用 `resolveStudyThread` 模式）并跳转
 - [x] AC-P10-3: 新创建的 thread 自动命名为 `Study: {articleTitle}` + 链接到 article meta + 加 opus 为参与者
+
+## Phase 11: Secondary Fetch + Backfill（2026-03-17） ✅
+
+> **Status**: done | **Owner**: 金渐层 + 缅因猫
+
+铲屎官 21:54 报告：Phase 10 只修了列表页提取，19 篇 Anthropic Engineering 文章仍然只有标题没有正文。根因：listing page 只有卡片/链接，没有文章正文——需要二次抓取每篇文章的独立 URL。
+
+### Phase 11 AC
+- [x] AC-P11-1: WebpageFetcher 二次抓取无内容文章的独立页面（`enrichWithSecondaryFetch`）
+- [x] AC-P11-2: Self-href 解析修复（selector 匹配 `<a>` 自身时 `.find('a[href]')` 漏解析）
+- [x] AC-P11-3: `<article>` → `<main>` fallback 内容提取（`extractArticleBody`）
+- [x] AC-P11-4: Backfill API endpoint `POST /api/signals/backfill` + service 对已有空文章重新抓取
+- [x] AC-P11-5: 二次抓取传递 AbortSignal 尊重 source timeout（云端 P1 修复）
+- [x] AC-P11-6: backfill sourceId 路径遍历防护（regex + resolve containment，云端 P1 修复）
 
 ## UX Wireframe 设计说明
 
