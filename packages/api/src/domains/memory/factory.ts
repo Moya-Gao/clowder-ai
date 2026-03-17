@@ -1,7 +1,7 @@
 // F102: Memory service factory — creates SQLite-backed memory services
 
 import { EmbeddingService } from './EmbeddingService.js';
-import { IndexBuilder } from './IndexBuilder.js';
+import { IndexBuilder, type ThreadListFn } from './IndexBuilder.js';
 import type {
   EmbedConfig,
   IEmbeddingService,
@@ -44,6 +44,8 @@ export interface MemoryConfig {
   transcriptDataDir?: string;
   /** Phase C: embedding configuration */
   embed?: Partial<EmbedConfig>;
+  /** Phase E-1: callback that returns all threads for summary indexing */
+  threadListFn?: ThreadListFn;
 }
 
 export async function createMemoryServices(config: MemoryConfig): Promise<MemoryServices> {
@@ -83,7 +85,7 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
   }
 
   const embedDeps = embeddingService && vectorStore ? { embedding: embeddingService, vectorStore } : undefined;
-  const indexBuilder = new IndexBuilder(store, docsRoot, embedDeps, config.transcriptDataDir);
+  const indexBuilder = new IndexBuilder(store, docsRoot, embedDeps, config.transcriptDataDir, config.threadListFn);
 
   // Wire rerank deps into store for search-time
   if (embedDeps) {
@@ -92,7 +94,9 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
 
   const markerQueue = new MarkerQueue(markersDir);
   const materializationService = new MaterializationService(markerQueue, docsRoot);
-  const reflectionService = new ReflectionService(async () => '');
+  const reflectionService = new ReflectionService(
+    async () => '[reflect not configured — use search_evidence to find project knowledge]',
+  );
   const knowledgeResolver = new KnowledgeResolver({ projectStore: store });
 
   return {

@@ -808,3 +808,101 @@ Brand new.
     assert.equal(embedCallCount - firstEmbedCount, 1, 'embed called only for new doc');
   });
 });
+
+// ── Phase E: Thread summary indexing ──────────────────────────────
+describe('IndexBuilder thread summary (E1/E2)', () => {
+  let tmpDir;
+  let docsDir;
+  let store;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `f102-e-test-${randomUUID().slice(0, 8)}`);
+    docsDir = join(tmpDir, 'docs');
+    mkdirSync(join(docsDir, 'features'), { recursive: true });
+
+    const { SqliteEvidenceStore } = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
+    store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('E1: indexes thread summaries from threadListFn', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const mockThreads = [
+      {
+        id: 'thread_abc123',
+        title: 'Redis pitfall discussion',
+        participants: ['opus', 'codex'],
+        threadMemory: { summary: 'Discussed Redis keyPrefix pitfall with ioredis eval commands.' },
+        lastActiveAt: Date.now(),
+        featureIds: ['F113'],
+      },
+    ];
+
+    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => mockThreads);
+    await builder.rebuild();
+
+    const item = await store.getByAnchor('thread-thread_abc123');
+    assert.ok(item, 'thread should be indexed');
+    assert.equal(item.kind, 'thread');
+    assert.equal(item.title, 'Redis pitfall discussion');
+    assert.ok(item.summary.includes('Redis keyPrefix'));
+  });
+
+  it('E1: threadListFn error does not delete existing thread anchors', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    // First: index a thread successfully
+    const builder1 = new IndexBuilder(store, docsDir, undefined, undefined, () => [{
+      id: 'thread_keep',
+      title: 'Important thread',
+      participants: ['opus'],
+      threadMemory: { summary: 'This should survive errors.' },
+      lastActiveAt: Date.now(),
+    }]);
+    await builder1.rebuild();
+    assert.ok(await store.getByAnchor('thread-thread_keep'), 'thread should exist after first rebuild');
+
+    // Second: rebuild with a failing threadListFn
+    const builder2 = new IndexBuilder(store, docsDir, undefined, undefined, () => {
+      throw new Error('Redis connection lost');
+    });
+    await builder2.rebuild();
+
+    // Thread should NOT be deleted
+    const after = await store.getByAnchor('thread-thread_keep');
+    assert.ok(after, 'thread should survive threadListFn error (P1 regression)');
+    assert.equal(after.kind, 'thread');
+  });
+
+  it('E2: markThreadDirty + flushDirtyThreads updates index', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    let version = 'v1';
+    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => [{
+      id: 'thread_dirty',
+      title: 'Dirty thread',
+      participants: ['opus'],
+      threadMemory: { summary: `Content ${version}` },
+      lastActiveAt: Date.now(),
+    }]);
+
+    await builder.rebuild();
+    const before = await store.getByAnchor('thread-thread_dirty');
+    assert.ok(before.summary.includes('v1'));
+
+    // Simulate update
+    version = 'v2';
+    builder.markThreadDirty('thread_dirty');
+    const flushed = await builder.flushDirtyThreads();
+    assert.equal(flushed, 1, 'should flush 1 dirty thread');
+
+    const after = await store.getByAnchor('thread-thread_dirty');
+    assert.ok(after.summary.includes('v2'), 'summary should be updated to v2');
+  });
+});

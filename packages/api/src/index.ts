@@ -324,6 +324,18 @@ async function main(): Promise<void> {
     sqlitePath: process.env.EVIDENCE_DB ?? resolve(repoRoot, 'evidence.sqlite'),
     docsRoot: process.env.DOCS_ROOT ?? resolve(repoRoot, 'docs'),
     transcriptDataDir: process.env.TRANSCRIPT_DATA_DIR ?? resolve(repoRoot, 'data', 'transcripts'),
+    // Phase E-1: thread summary indexing — provide a callback that lists all threads
+    threadListFn: async () => {
+      const threads = await threadStore.list('default-user');
+      return threads.map((t) => ({
+        id: t.id,
+        title: t.title,
+        participants: t.participants as string[],
+        threadMemory: t.threadMemory ? { summary: t.threadMemory.summary } : null,
+        lastActiveAt: t.lastActiveAt,
+        featureIds: t.backlogItemId ? [t.backlogItemId] : undefined,
+      }));
+    },
   });
   app.log.info('[api] F102: SQLite memory services initialized');
 
@@ -337,6 +349,48 @@ async function main(): Promise<void> {
       );
     } catch (err) {
       app.log.warn(`[api] F102: evidence index rebuild failed (non-fatal): ${err}`);
+    }
+  }
+
+  // Phase E-2: Dirty-thread debounce — flush modified thread summaries every 30s
+  const DIRTY_THREAD_FLUSH_INTERVAL_MS = 30_000;
+  if (memoryServices.indexBuilder) {
+    const { IndexBuilder } = await import('./domains/memory/IndexBuilder.js');
+    const ib = memoryServices.indexBuilder;
+    if (ib instanceof IndexBuilder) {
+      // Hook: mark thread dirty on POST /api/messages (message creation)
+      app.addHook('onResponse', (request, _reply, done) => {
+        if (request.method === 'POST' && request.url.startsWith('/api/messages')) {
+          const body = request.body as { threadId?: string } | undefined;
+          if (body?.threadId) {
+            ib.markThreadDirty(body.threadId);
+          }
+        }
+        done();
+      });
+
+      // Hook: also mark dirty on POST /api/callbacks/post-message (cat messages)
+      app.addHook('onResponse', (request, _reply, done) => {
+        if (request.method === 'POST' && request.url.includes('/post-message')) {
+          const body = request.body as { threadId?: string } | undefined;
+          if (body?.threadId) {
+            ib.markThreadDirty(body.threadId);
+          }
+        }
+        done();
+      });
+
+      const dirtyFlushTimer = setInterval(async () => {
+        try {
+          const flushed = await ib.flushDirtyThreads();
+          if (flushed > 0) {
+            app.log.info(`[api] F102 E-2: flushed ${flushed} dirty thread(s) to evidence index`);
+          }
+        } catch {
+          // best-effort
+        }
+      }, DIRTY_THREAD_FLUSH_INTERVAL_MS);
+      dirtyFlushTimer.unref();
     }
   }
 

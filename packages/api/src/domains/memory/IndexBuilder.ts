@@ -28,14 +28,36 @@ const KIND_PRIORITY: Record<EvidenceKind, number> = {
   plan: 2,
   session: 1,
   lesson: 1,
+  thread: 1,
 };
 
+/**
+ * Minimal thread snapshot for indexing — avoids coupling to full IThreadStore interface.
+ * The caller (factory/index.ts) provides a callback that returns these.
+ */
+export interface ThreadSnapshot {
+  id: string;
+  title: string | null;
+  participants: string[];
+  threadMemory?: { summary: string } | null;
+  lastActiveAt: number;
+  /** Feature IDs associated with this thread (from phase, backlogItemId, etc.) */
+  featureIds?: string[];
+}
+
+/** Callback that returns all threads for indexing. */
+export type ThreadListFn = () => ThreadSnapshot[] | Promise<ThreadSnapshot[]>;
+
 export class IndexBuilder implements IIndexBuilder {
+  /** E-2: Set of threadIds that have been modified since last flush */
+  private dirtyThreads = new Set<string>();
+
   constructor(
     private readonly store: SqliteEvidenceStore,
     private readonly docsRoot: string,
     private embedDeps?: { embedding: IEmbeddingService; vectorStore: VectorStore },
     private readonly transcriptDataDir?: string,
+    private readonly threadListFn?: ThreadListFn,
   ) {}
 
   setEmbedDeps(deps: { embedding: IEmbeddingService; vectorStore: VectorStore }): void {
@@ -131,12 +153,59 @@ export class IndexBuilder implements IIndexBuilder {
       }
     }
 
+    // Phase E-1: Index thread summaries
+    let threadListFailed = false;
+    if (this.threadListFn) {
+      let threads: ThreadSnapshot[];
+      try {
+        threads = await this.threadListFn();
+      } catch {
+        threads = [];
+        threadListFailed = true;
+      }
+
+      for (const thread of threads) {
+        const summary = thread.threadMemory?.summary;
+        if (!summary) continue;
+
+        const anchor = `thread-${thread.id}`;
+        const title = thread.title ?? `Thread ${thread.id.slice(0, 12)}`;
+        const keywords = [...thread.participants, ...(thread.featureIds ?? [])];
+        const sourceHash = createHash('sha256').update(summary).digest('hex').slice(0, 16);
+
+        currentAnchors.add(anchor);
+        if (!options?.force) {
+          const existing = await this.store.getByAnchor(anchor);
+          if (existing?.sourceHash === sourceHash) {
+            skipped++;
+            continue;
+          }
+        }
+        const item: EvidenceItem = {
+          anchor,
+          kind: 'thread',
+          status: 'active',
+          title,
+          summary,
+          keywords: keywords.length > 0 ? keywords : undefined,
+          sourcePath: `threads/${thread.id}`,
+          sourceHash,
+          updatedAt: new Date(thread.lastActiveAt).toISOString(),
+        };
+        await this.store.upsert([item]);
+        indexedItems.push(item);
+        indexed++;
+      }
+    }
+
     // Remove stale anchors that no longer exist on disk
+    // P1 fix: if threadListFn failed, preserve existing thread-* anchors (don't delete on transient error)
     const db = this.store.getDb();
     const allAnchors = db.prepare('SELECT anchor FROM evidence_docs').all() as Array<{ anchor: string }>;
     const removedAnchors: string[] = [];
     for (const row of allAnchors) {
       if (!currentAnchors.has(row.anchor)) {
+        if (threadListFailed && row.anchor.startsWith('thread-')) continue;
         await this.store.deleteByAnchor(row.anchor);
         this.embedDeps?.vectorStore.delete(row.anchor);
         removedAnchors.push(row.anchor);
@@ -397,6 +466,81 @@ export class IndexBuilder implements IIndexBuilder {
     }
 
     return results;
+  }
+
+  // ── E-2: Dirty-thread debounce infrastructure ──────────────────────
+
+  /** Mark a thread as dirty (its summary has changed). Called externally after messageStore.append. */
+  markThreadDirty(threadId: string): void {
+    this.dirtyThreads.add(threadId);
+  }
+
+  /** Flush dirty threads: re-index only the threads that have been marked dirty. */
+  async flushDirtyThreads(): Promise<number> {
+    if (this.dirtyThreads.size === 0 || !this.threadListFn) return 0;
+
+    const dirtyIds = [...this.dirtyThreads];
+    this.dirtyThreads.clear();
+
+    let flushed = 0;
+    let threads: ThreadSnapshot[];
+    try {
+      threads = await this.threadListFn();
+    } catch {
+      return 0;
+    }
+
+    const threadMap = new Map(threads.map((t) => [t.id, t]));
+
+    for (const threadId of dirtyIds) {
+      const thread = threadMap.get(threadId);
+      if (!thread) continue;
+
+      const summary = thread.threadMemory?.summary;
+      const anchor = `thread-${threadId}`;
+
+      if (!summary) {
+        // Thread lost its summary — remove from index
+        await this.store.deleteByAnchor(anchor);
+        this.embedDeps?.vectorStore.delete(anchor);
+        continue;
+      }
+
+      const title = thread.title ?? `Thread ${threadId.slice(0, 12)}`;
+      const keywords = [...thread.participants, ...(thread.featureIds ?? [])];
+      const sourceHash = createHash('sha256').update(summary).digest('hex').slice(0, 16);
+
+      const existing = await this.store.getByAnchor(anchor);
+      if (existing?.sourceHash === sourceHash) continue; // unchanged
+
+      const item: EvidenceItem = {
+        anchor,
+        kind: 'thread',
+        status: 'active',
+        title,
+        summary,
+        keywords: keywords.length > 0 ? keywords : undefined,
+        sourcePath: `threads/${threadId}`,
+        sourceHash,
+        updatedAt: new Date(thread.lastActiveAt).toISOString(),
+      };
+
+      await this.store.upsert([item]);
+
+      // Embed if available
+      if (this.embedDeps?.embedding.isReady()) {
+        try {
+          const [vec] = await this.embedDeps.embedding.embed([`${title} ${summary}`]);
+          this.embedDeps.vectorStore.upsert(anchor, vec);
+        } catch {
+          // fail-open
+        }
+      }
+
+      flushed++;
+    }
+
+    return flushed;
   }
 
   private parseFile(filePath: string): EvidenceItem | null {
