@@ -97,6 +97,22 @@ export class IndexBuilder implements IIndexBuilder {
     const currentAnchors = new Set<string>();
     const indexedItems: EvidenceItem[] = [];
 
+    // E8: Split lessons-learned.md into per-lesson entries for better recall
+    const lessonItems = this.splitLessonsLearned();
+    for (const item of lessonItems) {
+      currentAnchors.add(item.anchor);
+      if (!options?.force) {
+        const existing = await this.store.getByAnchor(item.anchor);
+        if (existing?.sourceHash === item.sourceHash) {
+          skipped++;
+          continue;
+        }
+      }
+      await this.store.upsert([item]);
+      indexedItems.push(item);
+      indexed++;
+    }
+
     for (const file of files) {
       const parsed = this.parseFile(file.path);
       if (!parsed) {
@@ -449,6 +465,55 @@ export class IndexBuilder implements IIndexBuilder {
       }
     } catch {
       // skip
+    }
+
+    return results;
+  }
+
+  /**
+   * E8: Split lessons-learned.md into per-lesson evidence items for better recall.
+   * Each ### LL-NNN section becomes a separate evidence_docs entry.
+   */
+  private splitLessonsLearned(): EvidenceItem[] {
+    const filePath = join(this.docsRoot, 'lessons-learned.md');
+    let content: string;
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      return [];
+    }
+
+    const results: EvidenceItem[] = [];
+    const sections = content.split(/^### /m).slice(1); // split on ### headings, skip preamble
+
+    for (const section of sections) {
+      const titleMatch = section.match(/^(LL-\d+):\s*(.+)/);
+      if (!titleMatch) continue;
+
+      const llId = titleMatch[1]; // e.g., LL-015
+      const title = `${llId}: ${titleMatch[2].trim()}`;
+      const body = section.slice(section.indexOf('\n') + 1).trim();
+      const summary = body.length > 300 ? `${body.slice(0, 297)}...` : body;
+      const sourceHash = createHash('sha256').update(section).digest('hex').slice(0, 16);
+
+      // Extract keywords from the section
+      const keywords: string[] = [];
+      const kwMatch = body.match(/关联：(.+)/);
+      if (kwMatch) {
+        keywords.push(...kwMatch[1].split(/[|,]/).map((s) => s.trim()).filter(Boolean));
+      }
+
+      results.push({
+        anchor: llId,
+        kind: 'lesson',
+        status: 'active',
+        title,
+        summary,
+        keywords: keywords.length > 0 ? keywords : undefined,
+        sourcePath: 'lessons-learned.md',
+        sourceHash,
+        updatedAt: new Date().toISOString(),
+      });
     }
 
     return results;

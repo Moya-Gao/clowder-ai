@@ -278,7 +278,8 @@ async function main(): Promise<void> {
 
   const sessionChainStore = createSessionChainStore(redis);
   // F24: Transcript Writer/Reader for session chain
-  const transcriptDataDir = process.env.TRANSCRIPT_DATA_DIR ?? './data/transcripts';
+  // E7 fix: resolve relative to monorepo root, not CWD (same fix as docsRoot in PR #524)
+  const transcriptDataDir = process.env.TRANSCRIPT_DATA_DIR ?? `${findMonorepoRoot(process.cwd())}/data/transcripts`;
   const transcriptWriter = new TranscriptWriter({ dataDir: transcriptDataDir });
   const transcriptReader = new TranscriptReader({ dataDir: transcriptDataDir });
   // F065 Phase C: HandoffConfig for LLM-generated digest on seal
@@ -324,7 +325,7 @@ async function main(): Promise<void> {
     type: 'sqlite',
     sqlitePath: process.env.EVIDENCE_DB ?? resolve(repoRoot, 'evidence.sqlite'),
     docsRoot: process.env.DOCS_ROOT ?? resolve(repoRoot, 'docs'),
-    transcriptDataDir: process.env.TRANSCRIPT_DATA_DIR ?? resolve(repoRoot, 'data', 'transcripts'),
+    transcriptDataDir, // reuse the same resolved path as Writer/Reader (line 282)
     // Phase E-2: message passage indexing — provide a callback that reads thread messages
     messageListFn: async (threadId: string, limit?: number) => {
       const messages = await messageStore.getByThread(threadId, limit ?? 2000, 'default-user');
