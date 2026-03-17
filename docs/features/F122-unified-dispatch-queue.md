@@ -188,6 +188,14 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 
 **注意**：此现象在 runtime 环境观察到，runtime 可能未同步最新 main（含 PR #499/#502 等 F122B 改动）。需要先确认 runtime 代码版本再定位。
 
+#### 观察到的现象：Steer agent entry 后气泡显示为铲屎官发的（runtime 环境）
+
+> 铲屎官 2026-03-17 00:05 报告：Steer 推送 agent entry 后，小金的消息气泡显示成铲屎官发的。F5 刷新后纠正。
+
+**可能根因**：agent entry 的 `userId` 继承了触发用户的 userId。Steer 推送后 QueueProcessor 用 entry 的 userId 广播 → 前端用 userId 判断气泡方向 → 误显示为铲屎官。刷新后从 messageStore 读的是正确的 catId 所以纠正。
+
+**同上注意**：runtime 环境观察到，待确认代码版本。
+
 #### 已知问题：A2A 消息上下文提前可见（P1，AC-B6 前置修复）
 
 > 铲屎官 2026-03-16 17:07 提出：
