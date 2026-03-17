@@ -395,6 +395,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     }
 
     // Store the message (scoped to the effective thread)
+    // AC-B6-P1: When A2A mentions will be enqueued (invocationQueue available),
+    // store with deliveryStatus:'queued' so ContextAssembler excludes this message
+    // from other invocations' context until QueueProcessor.executeEntry marks it delivered.
+    const hasA2AMentions = mentions.length > 0 && router && invocationRecordStore && effectiveThreadId;
+    const willEnqueueToQueue = hasA2AMentions && opts.invocationQueue;
     const storedMsg = await messageStore.append({
       userId: record.userId,
       catId: record.catId,
@@ -406,6 +411,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       threadId: effectiveThreadId,
       ...(extra ? { extra } : {}),
       ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
+      ...(willEnqueueToQueue ? { deliveryStatus: 'queued' as const } : {}),
     });
 
     // F121: Hydrate reply preview for broadcast
@@ -453,7 +459,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     // F27: Enqueue @mentioned cats into parent worklist (unified A2A path)
     if (mentions.length > 0 && router && invocationRecordStore && effectiveThreadId) {
-      await enqueueA2ATargets(
+      const a2aResult = await enqueueA2ATargets(
         {
           router,
           invocationRecordStore,
@@ -474,6 +480,19 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           parentInvocationId: record.parentInvocationId,
         },
       );
+
+      // AC-B6-P1: If message was stored as 'queued' but no targets were actually enqueued
+      // (depth/dedup/full rejected all), recover by marking delivered to prevent ghost message.
+      if (willEnqueueToQueue && a2aResult.enqueued.length === 0) {
+        try {
+          await messageStore.markDelivered?.(storedMsg.id, Date.now());
+        } catch (err) {
+          app.log.warn(
+            { messageId: storedMsg.id, threadId: effectiveThreadId, err },
+            '[AC-B6-P1] Failed to recover ghost message — markDelivered rejected (best-effort)',
+          );
+        }
+      }
     }
 
     return {
