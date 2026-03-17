@@ -430,7 +430,7 @@ export interface ThreadState {
   /** Whether the thread has an active invocation (broader than isLoading — stays true during A2A chains) */
   hasActiveInvocation: boolean;
   /** F108: Per-invocation slot tracking — key=invocationId, value=slot info */
-  activeInvocations: Record<string, { catId: string; mode: string }>;
+  activeInvocations: Record<string, { catId: string; mode: string; startedAt?: number }>;
   intentMode: 'execute' | 'ideate' | null;
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;

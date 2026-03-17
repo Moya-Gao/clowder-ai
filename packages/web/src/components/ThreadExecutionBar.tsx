@@ -11,7 +11,7 @@ export function ThreadExecutionBar() {
   const [, setTick] = useState(0);
 
   // Extract unique active cats from invocations
-  const activeCats = Object.values(activeInvocations).reduce(
+  const activeCats = Object.values(activeInvocations ?? {}).reduce(
     (acc, inv) => {
       if (!acc.some((c) => c.catId === inv.catId)) {
         acc.push({ catId: inv.catId, startedAt: inv.startedAt ?? Date.now() });
@@ -74,7 +74,11 @@ function CatStatusChip({
   catId,
   startedAt,
   onStop,
-}: { catId: string; startedAt: number; onStop: (catId: string) => void }) {
+}: {
+  catId: string;
+  startedAt: number;
+  onStop: (catId: string) => void;
+}) {
   const elapsed = Math.floor((Date.now() - startedAt) / 1000);
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
