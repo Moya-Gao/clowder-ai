@@ -284,3 +284,65 @@ describe('GET /api/evidence/status', () => {
     assert.equal(body.reason, 'query_error');
   });
 });
+
+// ── POST /api/evidence/reindex (AC-D11/D12/D19) ──────────────────
+describe('POST /api/evidence/reindex', () => {
+  it('calls incrementalUpdate and returns ok', async () => {
+    const app = Fastify();
+    let capturedPaths;
+    const mockIndexBuilder = {
+      incrementalUpdate: async (paths) => { capturedPaths = paths; },
+      rebuild: async () => ({ docsIndexed: 0, docsSkipped: 0, durationMs: 0 }),
+      checkConsistency: async () => ({ ok: true, docCount: 0, ftsCount: 0, mismatches: [] }),
+    };
+    const evidenceStore = createMockEvidenceStore();
+    await app.register(evidenceRoutes, { evidenceStore, indexBuilder: mockIndexBuilder });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/evidence/reindex',
+      payload: { paths: ['docs/features/F042.md'] },
+      remoteAddress: '127.0.0.1',
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.ok, true);
+    assert.deepEqual(capturedPaths, ['docs/features/F042.md']);
+  });
+
+  it('returns 400 for invalid body', async () => {
+    const app = Fastify();
+    const mockIndexBuilder = {
+      incrementalUpdate: async () => {},
+      rebuild: async () => ({ docsIndexed: 0, docsSkipped: 0, durationMs: 0 }),
+      checkConsistency: async () => ({ ok: true, docCount: 0, ftsCount: 0, mismatches: [] }),
+    };
+    const evidenceStore = createMockEvidenceStore();
+    await app.register(evidenceRoutes, { evidenceStore, indexBuilder: mockIndexBuilder });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/evidence/reindex',
+      payload: { paths: [] },
+      remoteAddress: '127.0.0.1',
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('returns 503 when indexBuilder unavailable', async () => {
+    const app = Fastify();
+    const evidenceStore = createMockEvidenceStore();
+    await app.register(evidenceRoutes, { evidenceStore }); // no indexBuilder
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/evidence/reindex',
+      payload: { paths: ['docs/features/F042.md'] },
+      remoteAddress: '127.0.0.1',
+    });
+    assert.equal(res.statusCode, 503);
+  });
+});

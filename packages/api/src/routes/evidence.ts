@@ -7,7 +7,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { IEvidenceStore } from '../domains/memory/interfaces.js';
+import type { IEvidenceStore, IIndexBuilder } from '../domains/memory/interfaces.js';
 import type { EvidenceResult } from './evidence-helpers.js';
 
 /** Accepted query parameters — Phase D: scope/mode/depth added */
@@ -47,6 +47,8 @@ export interface EvidenceRoutesOptions {
   docsRoot?: string;
   /** F102: SQLite evidence store — the only backend */
   evidenceStore: IEvidenceStore;
+  /** F102 D-11: IndexBuilder for incremental reindex */
+  indexBuilder?: IIndexBuilder;
 }
 
 export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
@@ -106,6 +108,75 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       };
     } catch {
       return { backend: 'sqlite', healthy: false, reason: 'query_error' };
+    }
+  });
+
+  // F102 D-11/D-12: Incremental reindex endpoint (AC-D11, AC-D12)
+  // Internal-only: called by feat-lifecycle or local processes that modify docs
+  const reindexSchema = z.object({
+    paths: z.array(z.string().min(1)).min(1).max(50),
+  });
+
+  app.post('/api/evidence/reindex', async (request, reply) => {
+    // P1 fix: localhost-only guard — this mutates index state
+    const remoteIp = request.ip;
+    if (remoteIp !== '127.0.0.1' && remoteIp !== '::1' && remoteIp !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'reindex only allowed from localhost' };
+    }
+
+    if (!opts.indexBuilder) {
+      reply.status(503);
+      return { error: 'indexBuilder not available' };
+    }
+    const parsed = reindexSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    try {
+      // P1 fix: collect anchors BEFORE incrementalUpdate (deletion would remove them)
+      const preAnchors: string[] = [];
+      const db = (opts.evidenceStore as { getDb?: () => unknown }).getDb?.() as
+        | { prepare: (sql: string) => { all: (...args: unknown[]) => Array<Record<string, unknown>> } }
+        | undefined;
+      if (db) {
+        for (const filePath of parsed.data.paths) {
+          const rows = db
+            .prepare('SELECT anchor FROM evidence_docs WHERE source_path = ?')
+            .all(filePath.replace(/^docs\//, '')) as Array<{ anchor: string }>;
+          for (const { anchor } of rows) {
+            preAnchors.push(anchor);
+          }
+        }
+      }
+
+      await opts.indexBuilder.incrementalUpdate(parsed.data.paths);
+
+      // D-19: Memory invalidation — find dependents of pre-change anchors via edges
+      const invalidated: string[] = [];
+      if (db && preAnchors.length > 0) {
+        for (const anchor of preAnchors) {
+          const deps = db
+            .prepare('SELECT from_anchor FROM edges WHERE to_anchor = ? AND relation IN (?, ?)')
+            .all(anchor, 'related', 'evolved_from') as Array<{ from_anchor: string }>;
+          for (const dep of deps) {
+            if (!invalidated.includes(dep.from_anchor)) {
+              invalidated.push(dep.from_anchor);
+            }
+          }
+        }
+      }
+
+      return {
+        ok: true,
+        paths: parsed.data.paths,
+        invalidated: invalidated.length > 0 ? invalidated : undefined,
+      };
+    } catch (err) {
+      reply.status(500);
+      return { error: 'reindex failed', message: String(err) };
     }
   });
 };

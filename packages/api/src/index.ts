@@ -685,9 +685,10 @@ async function main(): Promise<void> {
   const { voteRoutes } = await import('./routes/votes.js');
   await app.register(voteRoutes, { threadStore, socketManager, messageStore });
 
-  // Evidence search (SQLite)
+  // Evidence search (SQLite) + reindex endpoint (D-11)
   await app.register(evidenceRoutes, {
     evidenceStore: memoryServices.evidenceStore,
+    indexBuilder: memoryServices.indexBuilder,
   });
 
   // Reflect (SQLite-backed reflection)
