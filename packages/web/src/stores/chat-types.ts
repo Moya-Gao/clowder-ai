@@ -398,11 +398,15 @@ export interface QueueEntry {
   content: string;
   messageId: string | null;
   mergedMessageIds: string[];
-  source: 'user' | 'connector';
+  source: 'user' | 'connector' | 'agent';
   targetCats: string[];
   intent: string;
   status: 'queued' | 'processing';
   createdAt: number;
+  /** F122B: auto-execute without waiting for steer */
+  autoExecute?: boolean;
+  /** F122B: which cat initiated this entry (for A2A handoff display) */
+  callerCatId?: string;
 }
 
 /** F39: Message delivery mode — undefined = smart default, 'queue' = enqueue, 'force' = cancel + execute */
