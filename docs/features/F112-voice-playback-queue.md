@@ -136,12 +136,12 @@ created: 2026-03-12
 - [ ] AC-BF1: 双猫对话稿可按 queue 模式交替播放，无重叠
 - [ ] AC-BF2: `replace` 行为只替换同 intent 的语音，不影响其他 intent
 
-### Phase C（VAD 打断 — 用户开口猫停嘴）
-- [ ] AC-C1: voiceMode 开启时 VAD 自动检测用户说话并 interrupt 播放
-- [ ] AC-C2: VAD 检测延迟 < 300ms（从用户开口到猫停嘴）
-- [ ] AC-C3: VAD 不干扰现有录音功能（useVoiceInput 正常工作）
-- [ ] AC-C4: voiceMode 关闭时 VAD 释放麦克风资源
-- [ ] AC-C5: Silero VAD v5 ONNX 模型正确加载并在浏览器中运行
+### Phase C（VAD 打断 — 用户开口猫停嘴）✅ Done — merged PR #538
+- [x] AC-C1: voiceMode 开启时 VAD 自动检测用户说话并 interrupt 播放
+- [x] AC-C2: VAD 检测延迟 < 300ms（从用户开口到猫停嘴）
+- [x] AC-C3: VAD 不干扰现有录音功能（useVoiceInput 正常工作）
+- [x] AC-C4: voiceMode 关闭时 VAD 释放麦克风资源
+- [x] AC-C5: Silero VAD v5 ONNX 模型正确加载并在浏览器中运行
 
 ## Dependencies
 
@@ -187,6 +187,9 @@ created: 2026-03-12
 | 2026-03-20 | PR #535 squash merge — Phase B done |
 | 2026-03-20 | Phase C 技术选型已决：`@ricky0123/vad-web`（Silero VAD v5），移除 F104 假依赖，OQ-2 关闭 |
 | 2026-03-20 | Phase C 实现启动 |
+| 2026-03-20 | Phase C 实现完成 — useVadInterrupt hook + unified stopAllAudio via voiceSessionStore |
+| 2026-03-20 | 砚砚(Codex) R1 放行 + Cloud R1-R3 review（R1: 1 P1 修, R2: 1 P1 修, R3: 0 P1/P2 通过）|
+| 2026-03-20 | PR #538 squash merge — Phase C done |
 
 ## Links
 
@@ -197,3 +200,4 @@ created: 2026-03-12
 | **Reference** | `docs/features/F054-hci-preheat-infra.md` | AIRI speech-pipeline 参考 |
 | **PR** | [#529](https://github.com/zts212653/cat-cafe/pull/529) | Phase A: PlaybackManager + useVoiceStream |
 | **PR** | [#535](https://github.com/zts212653/cat-cafe/pull/535) | Phase B: PodcastPlayer → PlaybackManager 播放器统一 |
+| **PR** | [#538](https://github.com/zts212653/cat-cafe/pull/538) | Phase C: VAD interrupt — user speech stops cat playback via Silero v5 |
