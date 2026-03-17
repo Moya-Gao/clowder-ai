@@ -35,6 +35,7 @@ export class IndexBuilder implements IIndexBuilder {
     private readonly store: SqliteEvidenceStore,
     private readonly docsRoot: string,
     private embedDeps?: { embedding: IEmbeddingService; vectorStore: VectorStore },
+    private readonly transcriptDataDir?: string,
   ) {}
 
   setEmbedDeps(deps: { embedding: IEmbeddingService; vectorStore: VectorStore }): void {
@@ -109,6 +110,24 @@ export class IndexBuilder implements IIndexBuilder {
             await this.store.addEdge({ fromAnchor: anchor, toAnchor: ref, relation: 'related' });
           }
         }
+      }
+    }
+
+    // Phase D-6: Index session digests (kind=session)
+    if (this.transcriptDataDir) {
+      const sessionItems = this.discoverSessionDigests();
+      for (const item of sessionItems) {
+        currentAnchors.add(item.anchor);
+        if (!options?.force) {
+          const existing = await this.store.getByAnchor(item.anchor);
+          if (existing?.sourceHash === item.sourceHash) {
+            skipped++;
+            continue;
+          }
+        }
+        await this.store.upsert([item]);
+        indexedItems.push(item);
+        indexed++;
       }
     }
 
@@ -272,6 +291,108 @@ export class IndexBuilder implements IIndexBuilder {
         }
       } catch {
         // Directory doesn't exist — skip
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * D6: Discover sealed session digests from transcript data directory.
+   * Scans dataDir/threads/{threadId}/{catId}/sessions/{sessionId}/digest.extractive.json
+   */
+  private discoverSessionDigests(): EvidenceItem[] {
+    if (!this.transcriptDataDir) return [];
+    const results: EvidenceItem[] = [];
+    const threadsDir = join(this.transcriptDataDir, 'threads');
+
+    let threadIds: string[];
+    try {
+      threadIds = readdirSync(threadsDir).filter((e) => {
+        try {
+          return statSync(join(threadsDir, e)).isDirectory();
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      return results;
+    }
+
+    for (const threadId of threadIds) {
+      const threadPath = join(threadsDir, threadId);
+      let catIds: string[];
+      try {
+        catIds = readdirSync(threadPath).filter((e) => {
+          try {
+            return statSync(join(threadPath, e)).isDirectory();
+          } catch {
+            return false;
+          }
+        });
+      } catch {
+        continue;
+      }
+
+      for (const catId of catIds) {
+        const sessionsPath = join(threadPath, catId, 'sessions');
+        let sessionIds: string[];
+        try {
+          sessionIds = readdirSync(sessionsPath).filter((e) => {
+            try {
+              return statSync(join(sessionsPath, e)).isDirectory();
+            } catch {
+              return false;
+            }
+          });
+        } catch {
+          continue;
+        }
+
+        for (const sessionId of sessionIds) {
+          const digestPath = join(sessionsPath, sessionId, 'digest.extractive.json');
+          try {
+            const raw = readFileSync(digestPath, 'utf-8');
+            const digest = JSON.parse(raw) as {
+              sessionId: string;
+              threadId: string;
+              catId: string;
+              seq: number;
+              time: { createdAt: number; sealedAt: number };
+              invocations?: Array<{ toolNames?: string[] }>;
+              filesTouched?: Array<{ path: string }>;
+            };
+
+            const toolNames = (digest.invocations ?? [])
+              .flatMap((inv) => inv.toolNames ?? [])
+              .filter((v, i, a) => a.indexOf(v) === i);
+            const files = (digest.filesTouched ?? []).map((f) => f.path);
+            const summary = [
+              `Session ${digest.seq} by ${digest.catId}`,
+              toolNames.length > 0 ? `Tools: ${toolNames.join(', ')}` : '',
+              files.length > 0 ? `Files: ${files.slice(0, 5).join(', ')}${files.length > 5 ? ` (+${files.length - 5})` : ''}` : '',
+            ]
+              .filter(Boolean)
+              .join('. ');
+
+            const sourceHash = createHash('sha256').update(raw).digest('hex').slice(0, 16);
+            const anchor = `session-${sessionId}`;
+
+            results.push({
+              anchor,
+              kind: 'session',
+              status: 'active',
+              title: `Session ${digest.seq} — ${digest.catId} @ ${threadId.slice(0, 12)}`,
+              summary,
+              keywords: toolNames,
+              sourcePath: `transcripts/threads/${threadId}/${catId}/sessions/${sessionId}`,
+              sourceHash,
+              updatedAt: new Date(digest.time.sealedAt).toISOString(),
+            });
+          } catch {
+            // digest doesn't exist or parse error — skip
+          }
+        }
       }
     }
 

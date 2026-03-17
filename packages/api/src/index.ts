@@ -314,6 +314,7 @@ async function main(): Promise<void> {
     type: 'sqlite',
     sqlitePath: process.env.EVIDENCE_DB ?? 'evidence.sqlite',
     docsRoot: process.env.DOCS_ROOT ?? 'docs',
+    transcriptDataDir: process.env.TRANSCRIPT_DATA_DIR ?? './data/transcripts',
   });
   app.log.info('[api] F102: SQLite memory services initialized');
 

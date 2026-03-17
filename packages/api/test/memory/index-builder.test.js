@@ -492,6 +492,109 @@ doc_kind: spec
   });
 });
 
+// ── Phase D-6: Session digest indexing ─────────────────────────────
+describe('IndexBuilder with session digests (D6)', () => {
+  let tmpDir;
+  let docsDir;
+  let transcriptDir;
+  let store;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `f102-d6-test-${randomUUID().slice(0, 8)}`);
+    docsDir = join(tmpDir, 'docs');
+    transcriptDir = join(tmpDir, 'transcripts');
+    mkdirSync(join(docsDir, 'features'), { recursive: true });
+
+    const { SqliteEvidenceStore } = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
+    store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('indexes session digests from transcript directory', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    // Create synthetic digest
+    const sessionId = randomUUID();
+    const threadId = 'thread_test123';
+    const catId = 'opus';
+    const digestDir = join(transcriptDir, 'threads', threadId, catId, 'sessions', sessionId);
+    mkdirSync(digestDir, { recursive: true });
+
+    writeFileSync(
+      join(digestDir, 'digest.extractive.json'),
+      JSON.stringify({
+        v: 1,
+        sessionId,
+        threadId,
+        catId,
+        seq: 3,
+        time: { createdAt: 1700000000000, sealedAt: 1700003600000 },
+        invocations: [{ toolNames: ['Edit', 'Bash', 'Read'] }],
+        filesTouched: [{ path: 'packages/api/src/index.ts', ops: ['edit'] }],
+        errors: [],
+      }),
+    );
+
+    const builder = new IndexBuilder(store, docsDir, undefined, transcriptDir);
+    const result = await builder.rebuild();
+
+    assert.ok(result.docsIndexed >= 1, 'should index at least the session digest');
+
+    // Search for it
+    const items = await store.search('Edit Bash', { scope: 'threads' });
+    assert.ok(items.length >= 1, 'should find session by tool names');
+    assert.equal(items[0].kind, 'session');
+    assert.ok(items[0].anchor.startsWith('session-'));
+  });
+
+  it('skips session digests when transcriptDataDir is not provided', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const builder = new IndexBuilder(store, docsDir); // no transcriptDataDir
+    const result = await builder.rebuild();
+    assert.equal(result.docsIndexed, 0);
+
+    const db = store.getDb();
+    const count = db.prepare("SELECT count(*) as c FROM evidence_docs WHERE kind = 'session'").get();
+    assert.equal(count.c, 0);
+  });
+
+  it('P1 regression: different sessionIds produce unique anchors (no collision)', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const threadId = 'thread_collision_test';
+    const catId = 'opus';
+    // Two sessions with different UUIDs
+    const sessionId1 = 'abcdef12-1111-4000-8000-000000000001';
+    const sessionId2 = 'abcdef12-1112-4000-8000-000000000002';
+
+    for (const [sid, seq] of [[sessionId1, 1], [sessionId2, 2]]) {
+      const digestDir = join(transcriptDir, 'threads', threadId, catId, 'sessions', sid);
+      mkdirSync(digestDir, { recursive: true });
+      writeFileSync(
+        join(digestDir, 'digest.extractive.json'),
+        JSON.stringify({
+          v: 1, sessionId: sid, threadId, catId, seq,
+          time: { createdAt: 1700000000000, sealedAt: 1700003600000 },
+          invocations: [], filesTouched: [], errors: [],
+        }),
+      );
+    }
+
+    const builder = new IndexBuilder(store, docsDir, undefined, transcriptDir);
+    await builder.rebuild({ force: true });
+
+    const db = store.getDb();
+    const sessionCount = db.prepare("SELECT count(*) as c FROM evidence_docs WHERE kind = 'session'").get();
+    assert.equal(sessionCount.c, 2, 'Both sessions should be indexed (no anchor collision)');
+  });
+});
+
 // ── Phase C: IndexBuilder + embedding integration ─────────────────
 describe('IndexBuilder with embedding', () => {
   let tmpDir;

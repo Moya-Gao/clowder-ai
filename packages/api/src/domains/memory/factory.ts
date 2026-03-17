@@ -40,6 +40,8 @@ export interface MemoryConfig {
   docsRoot?: string;
   /** For sqlite: markers directory (docs/markers/) */
   markersDir?: string;
+  /** Phase D-6: transcript data directory for session digest indexing */
+  transcriptDataDir?: string;
   /** Phase C: embedding configuration */
   embed?: Partial<EmbedConfig>;
 }
@@ -81,7 +83,7 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
   }
 
   const embedDeps = embeddingService && vectorStore ? { embedding: embeddingService, vectorStore } : undefined;
-  const indexBuilder = new IndexBuilder(store, docsRoot, embedDeps);
+  const indexBuilder = new IndexBuilder(store, docsRoot, embedDeps, config.transcriptDataDir);
 
   // Wire rerank deps into store for search-time
   if (embedDeps) {
