@@ -120,8 +120,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
           params.push(...options.keywords.map((kw) => `%"${kw}"%`));
         }
 
-        // Superseded items sort last (KD-16)
-        sql += ' ORDER BY (d.superseded_by IS NOT NULL), rank';
+        // Superseded items sort last (KD-16), archive results deprioritized (P2 fix)
+        sql += " ORDER BY (d.superseded_by IS NOT NULL), (d.source_path LIKE 'archive/%'), rank";
         sql += ' LIMIT ?';
         params.push(limit);
 
@@ -159,7 +159,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
           kwSql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
           kwParams.push(...options.keywords.map((kw) => `%"${kw}"%`));
         }
-        kwSql += ' ORDER BY (superseded_by IS NOT NULL), updated_at DESC LIMIT ?';
+        kwSql += " ORDER BY (superseded_by IS NOT NULL), (source_path LIKE 'archive/%'), updated_at DESC LIMIT ?";
         kwParams.push(limit);
         try {
           const kwRows = this.db?.prepare(kwSql).all(...kwParams) as RowShape[];

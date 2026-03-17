@@ -1,7 +1,7 @@
 // F102: IIndexBuilder — scan docs, parse frontmatter, build/rebuild evidence index
 
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import type {
   ConsistencyReport,
@@ -19,6 +19,15 @@ const KIND_DIRS: Record<string, EvidenceKind> = {
   decisions: 'decision',
   plans: 'plan',
   lessons: 'lesson',
+  discussions: 'discussion',
+  research: 'research',
+  phases: 'plan',
+  reflections: 'lesson',
+  methods: 'lesson',
+  episodes: 'lesson',
+  postmortems: 'lesson',
+  guides: 'plan',
+  stories: 'lesson', // 猫猫的 soul — 名字故事、经历、成长记忆
 };
 
 /** Higher number = higher priority for anchor ownership */
@@ -26,6 +35,8 @@ const KIND_PRIORITY: Record<EvidenceKind, number> = {
   feature: 4,
   decision: 3,
   plan: 2,
+  discussion: 2,
+  research: 2,
   session: 1,
   lesson: 1,
   thread: 1,
@@ -371,20 +382,73 @@ export class IndexBuilder implements IIndexBuilder {
   private discoverFiles(): Array<{ path: string; kind: EvidenceKind }> {
     const results: Array<{ path: string; kind: EvidenceKind }> = [];
 
-    for (const [dir, kind] of Object.entries(KIND_DIRS)) {
-      const dirPath = join(this.docsRoot, dir);
+    // Helper: recursively scan a directory for .md files
+    const scanDir = (dirPath: string, kind: EvidenceKind, depth = 0) => {
+      if (depth > 10) return; // prevent infinite recursion
       try {
         const entries = readdirSync(dirPath);
         for (const entry of entries) {
-          if (!entry.endsWith('.md')) continue;
           const fullPath = join(dirPath, entry);
-          if (statSync(fullPath).isFile()) {
-            results.push({ path: fullPath, kind });
+          try {
+            // P2 fix: skip symlinks to prevent directory loops
+            const lst = lstatSync(fullPath);
+            if (lst.isSymbolicLink()) continue;
+
+            if (lst.isFile() && entry.endsWith('.md')) {
+              results.push({ path: fullPath, kind });
+            } else if (lst.isDirectory()) {
+              scanDir(fullPath, kind, depth + 1);
+            }
+          } catch {
+            // skip inaccessible entries
           }
         }
       } catch {
         // Directory doesn't exist — skip
       }
+    };
+
+    // Scan primary docs directories
+    for (const [dir, kind] of Object.entries(KIND_DIRS)) {
+      scanDir(join(this.docsRoot, dir), kind);
+    }
+
+    // Scan archive directories (same structure as docs/)
+    const archiveRoot = join(this.docsRoot, 'archive');
+    try {
+      const archiveEntries = readdirSync(archiveRoot);
+      for (const dateDir of archiveEntries) {
+        const datePath = join(archiveRoot, dateDir);
+        try {
+          if (!statSync(datePath).isDirectory()) continue;
+          // Each archive date folder mirrors docs/ structure
+          for (const [dir, kind] of Object.entries(KIND_DIRS)) {
+            scanDir(join(datePath, dir), kind);
+          }
+        } catch {
+          // skip
+        }
+      }
+    } catch {
+      // archive doesn't exist — skip
+    }
+
+    // Also scan top-level .md files in docs/ (VISION.md, SOP.md, BACKLOG.md, etc.)
+    try {
+      const topFiles = readdirSync(this.docsRoot);
+      for (const entry of topFiles) {
+        if (!entry.endsWith('.md')) continue;
+        const fullPath = join(this.docsRoot, entry);
+        try {
+          if (statSync(fullPath).isFile()) {
+            results.push({ path: fullPath, kind: 'plan' as EvidenceKind });
+          }
+        } catch {
+          // skip
+        }
+      }
+    } catch {
+      // skip
     }
 
     return results;
@@ -620,17 +684,17 @@ export class IndexBuilder implements IIndexBuilder {
     }
 
     const frontmatter = extractFrontmatter(content);
-    if (!frontmatter) return null;
+    // Files without frontmatter: generate collision-safe path-based anchor
+    // Use full relative path (with / preserved as /) to avoid a-b/c vs a/b-c collisions
+    const anchor = (frontmatter ? extractAnchor(frontmatter) : null)
+      ?? `doc:${relative(this.docsRoot, filePath).replace(/\.md$/, '')}`;
 
-    const anchor = extractAnchor(frontmatter);
-    if (!anchor) return null;
-
-    const kind = inferKind(frontmatter, filePath);
+    const kind = frontmatter ? inferKind(frontmatter, filePath) : inferKindFromPath(filePath);
     const title = extractTitle(content);
     const summary = extractSummary(content);
     const sourceHash = createHash('sha256').update(content).digest('hex').slice(0, 16);
 
-    const status = (typeof frontmatter.status === 'string' ? frontmatter.status : 'active') as EvidenceItem['status'];
+    const status = (frontmatter && typeof frontmatter.status === 'string' ? frontmatter.status : 'active') as EvidenceItem['status'];
 
     const item: EvidenceItem = {
       anchor,
@@ -641,7 +705,7 @@ export class IndexBuilder implements IIndexBuilder {
       sourcePath: relative(this.docsRoot, filePath),
     };
     if (summary) item.summary = summary;
-    const topics = frontmatter.topics;
+    const topics = frontmatter?.topics;
     if (Array.isArray(topics)) item.keywords = topics as string[];
     item.sourceHash = sourceHash;
 
@@ -696,9 +760,20 @@ function extractAnchor(fm: Record<string, unknown>): string | null {
 function inferKind(fm: Record<string, unknown>, filePath: string): EvidenceKind {
   const docKind = fm.doc_kind;
   if (docKind === 'decision' || filePath.includes('/decisions/')) return 'decision';
-  if (docKind === 'plan' || filePath.includes('/plans/')) return 'plan';
-  if (docKind === 'lesson') return 'lesson';
-  return 'feature';
+  if (docKind === 'plan' || filePath.includes('/plans/') || filePath.includes('/phases/') || filePath.includes('/guides/')) return 'plan';
+  if (docKind === 'lesson' || filePath.includes('/lessons/') || filePath.includes('/reflections/') || filePath.includes('/postmortems/') || filePath.includes('/stories/')) return 'lesson';
+  if (docKind === 'discussion' || filePath.includes('/discussions/')) return 'discussion';
+  if (docKind === 'research' || filePath.includes('/research/')) return 'research';
+  if (docKind === 'spec' || filePath.includes('/features/')) return 'feature';
+  return 'plan'; // default for unknown docs
+}
+
+/** Infer kind from file path alone (no frontmatter available) */
+function inferKindFromPath(filePath: string): EvidenceKind {
+  for (const [dir, kind] of Object.entries(KIND_DIRS)) {
+    if (filePath.includes(`/${dir}/`)) return kind;
+  }
+  return 'plan'; // default
 }
 
 function extractTitle(content: string): string | null {

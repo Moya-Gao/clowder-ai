@@ -38,7 +38,7 @@ export async function handleReflect(input: { query: string }): Promise<ToolResul
 
     if (data.degraded) {
       return successResult(
-        `[DEGRADED] Hindsight unavailable (${data.degradeReason ?? 'unknown'}). Cannot generate reflection.`,
+        `[DEGRADED] Reflection service unavailable (${data.degradeReason ?? 'unknown'}). Use search_evidence instead.`,
       );
     }
 
@@ -53,8 +53,8 @@ export const reflectTools = [
   {
     name: 'cat_cafe_reflect',
     description:
-      'Ask a reflective question about the project. Uses Hindsight LLM reflection to synthesize insights from stored project knowledge. ' +
-      'Supports both public and callback auth.',
+      'Ask a reflective question about the project. Synthesizes insights from stored project knowledge (SQLite-backed). ' +
+      'Note: currently returns degradation message — use search_evidence for project knowledge recall.',
     inputSchema: reflectInputSchema,
     handler: handleReflect,
   },

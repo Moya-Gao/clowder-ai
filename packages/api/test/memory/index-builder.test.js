@@ -80,12 +80,15 @@ Decision about using Hindsight.
     assert.equal(item.kind, 'decision');
   });
 
-  it('rebuild skips files without frontmatter', async () => {
+  it('rebuild indexes files without frontmatter using path-based anchor', async () => {
     writeFileSync(join(docsDir, 'features', 'no-frontmatter.md'), '# Just a title\n\nNo frontmatter here.');
 
     const result = await builder.rebuild();
-    assert.equal(result.docsIndexed, 0);
-    assert.equal(result.docsSkipped, 1);
+    assert.equal(result.docsIndexed, 1);
+
+    const item = await store.getByAnchor('doc:features/no-frontmatter');
+    assert.ok(item, 'should have indexed with path-based anchor (doc: prefix)');
+    assert.equal(item.title, 'Just a title');
   });
 
   it('incrementalUpdate only re-indexes changed paths', async () => {
