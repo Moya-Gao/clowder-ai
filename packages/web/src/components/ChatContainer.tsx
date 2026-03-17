@@ -8,6 +8,7 @@ import { useCatData } from '@/hooks/useCatData';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
 import { abortGame, godAction, submitAction } from '@/hooks/useGameApi';
+import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
 import { useSendMessage } from '@/hooks/useSendMessage';
@@ -35,11 +36,11 @@ import { MessageNavigator } from './MessageNavigator';
 import { MobileStatusSheet } from './MobileStatusSheet';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
-import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { RightStatusPanel } from './RightStatusPanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { SplitPaneView } from './SplitPaneView';
 import { ThinkingIndicator } from './ThinkingIndicator';
+import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { ThreadSidebar } from './ThreadSidebar';
 import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
@@ -270,6 +271,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     }
     // First mount — sync threadId to store without save/restore
     setCurrentThread(threadId);
+    // F101: Recover game state for the new thread (or clear stale game from previous thread)
+    reconnectGame(threadId).catch(() => {});
   }, [
     threadId,
     clearTasks, // Clean up non-thread-scoped refs
@@ -587,6 +590,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <GameOverlayConnector
           gameView={gameView}
           isGameActive={isGameActive}
+          currentThreadId={threadId}
           isNight={isNight}
           selectedTarget={selectedTarget}
           godScopeFilter={godScopeFilter}
