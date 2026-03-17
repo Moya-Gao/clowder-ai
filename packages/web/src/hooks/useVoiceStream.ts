@@ -21,6 +21,9 @@ function getOrCreateManager(): PlaybackManager {
       }
     },
   });
+  useVoiceSessionStore.getState().registerStopCallback('playback-manager', () => {
+    managerInstance?.interrupt();
+  });
   return managerInstance;
 }
 

@@ -51,9 +51,18 @@ interface VoiceSessionActions {
   hasPlayed: (blockId: string) => boolean;
   setLiveStreamActive: (active: boolean, invocationId?: string) => void;
   isLiveStreamedInvocation: (invocationId: string) => boolean;
+  /**
+   * F112-C: Register a stop callback so VAD can interrupt any active playback path.
+   * Both PlaybackManager (live stream) and useVoiceAutoPlay (fallback) register here.
+   * Returns an unregister function.
+   */
+  registerStopCallback: (id: string, fn: () => void) => () => void;
+  /** F112-C: Invoke all registered stop callbacks (called by VAD on speech detection). */
+  stopAllAudio: () => void;
 }
 
 let sessionCounter = 0;
+const stopCallbacks = new Map<string, () => void>();
 
 export const useVoiceSessionStore = create<VoiceSessionActions>((set, get) => ({
   session: null,
@@ -122,5 +131,18 @@ export const useVoiceSessionStore = create<VoiceSessionActions>((set, get) => ({
   isLiveStreamedInvocation: (invocationId) => {
     const { session } = get();
     return session?.liveStreamedInvocationIds.has(invocationId) ?? false;
+  },
+
+  registerStopCallback: (id, fn) => {
+    stopCallbacks.set(id, fn);
+    return () => {
+      stopCallbacks.delete(id);
+    };
+  },
+
+  stopAllAudio: () => {
+    for (const fn of stopCallbacks.values()) {
+      fn();
+    }
   },
 }));

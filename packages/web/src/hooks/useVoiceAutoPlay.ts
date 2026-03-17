@@ -29,6 +29,7 @@ let autoplayAudio: HTMLAudioElement | null = null;
 let autoplayBlobUrl: string | null = null;
 let streamingAbort: AbortController | null = null;
 let streamingBlobUrls: string[] = [];
+let unregisterStop: (() => void) | null = null;
 
 /** Get or create a persistent, DOM-attached audio element for autoplay. */
 function getAutoplayAudio(): HTMLAudioElement {
@@ -45,6 +46,8 @@ function getAutoplayAudio(): HTMLAudioElement {
 function cleanupAutoplay(): void {
   streamingAbort?.abort();
   streamingAbort = null;
+  unregisterStop?.();
+  unregisterStop = null;
   if (autoplayAudio) {
     autoplayAudio.pause();
     autoplayAudio.removeAttribute('src');
@@ -67,6 +70,7 @@ function hasStreamableText(block: RichAudioBlock): boolean {
 
 async function streamAndPlay(block: RichAudioBlock, originSessionId: string): Promise<void> {
   cleanupAutoplay();
+  registerAutoplayStop();
 
   const { markPlayed, setPlaybackState, confirmAutoplayUnlocked } = useVoiceSessionStore.getState();
 
@@ -138,6 +142,7 @@ async function streamAndPlay(block: RichAudioBlock, originSessionId: string): Pr
 
 async function fetchAndPlay(block: RichAudioBlock, originSessionId: string): Promise<void> {
   cleanupAutoplay();
+  registerAutoplayStop();
 
   const { markPlayed, setPlaybackState, confirmAutoplayUnlocked } = useVoiceSessionStore.getState();
 
@@ -220,6 +225,14 @@ function findUnplayedAudioBlock(
     }
   }
   return null;
+}
+
+function registerAutoplayStop(): void {
+  unregisterStop?.();
+  unregisterStop = useVoiceSessionStore.getState().registerStopCallback('autoplay', () => {
+    cleanupAutoplay();
+    useVoiceSessionStore.getState().setPlaybackState('idle');
+  });
 }
 
 function playBlock(block: RichAudioBlock, sessionId: string): void {
