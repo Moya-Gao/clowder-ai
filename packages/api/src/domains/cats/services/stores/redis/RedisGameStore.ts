@@ -49,8 +49,13 @@ export class RedisGameStore implements IGameStore {
     if (!existing) throw new Error(`Game ${gameId} not found`);
 
     const current = JSON.parse(existing) as GameRuntime;
-    if (current.version !== runtime.version - 1) {
-      throw new Error(`Version conflict for game ${gameId}: expected ${current.version}, got ${runtime.version - 1}`);
+    // OCC: reject if Redis version moved forward since we read (concurrent write).
+    // A single handlePlayerAction/tick may increment version multiple times
+    // (appendEvent × N + submitAction), so we check >= not ===+1.
+    if (runtime.version <= current.version) {
+      throw new Error(
+        `Version conflict for game ${gameId}: runtime version ${runtime.version} must be greater than stored version ${current.version}`,
+      );
     }
 
     await this.redis.set(GameKeys.detail(gameId), JSON.stringify(runtime));
