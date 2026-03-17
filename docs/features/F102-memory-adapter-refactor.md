@@ -524,7 +524,7 @@ search_evidence(query, {
 - [x] AC-C6: `embedding_meta` 版本锚——模型/维度变更触发全量 re-embed（禁止静默混跑）
 - [x] AC-C7: shadow 期 A/B（`dim=128/256`），复用 `memory_eval_corpus.yaml` 对比 Recall@k
 - [x] AC-C8: 语义 rerank 对 FTS5 候选集重排序（不替代 lexical 召回）
-- [ ] AC-C9: `evidence_passages` 表按需启用（passage 级检索粒度，1000+ docs 后评估）— **deferred per spec**
+- [x] AC-C9: `evidence_passages` 表按需启用（passage 级检索粒度，1000+ docs 后评估）— **Phase E PR #531 实现（thread passages）**
 
 ### Phase D（激活 — Hindsight 清理 + 数据源扩大 + 检索协议 + 提示词集成）
 - [x] AC-D1: 运行链路中无 Hindsight 调用分支，factory 只有 `sqlite` 路径 — **PR #501 merged**
@@ -550,12 +550,12 @@ search_evidence(query, {
 ### Phase E（Thread 内容索引 — 从"空壳"到"300 thread 可搜"）
 - [x] AC-E1: Thread summary 索引为 `kind='thread'`（`anchor=thread-{threadId}`，`summary=threadMemory.summary`） — **PR #526 merged**
 - [x] AC-E2: dirty-thread + 30s debounce flush 基础设施（messageStore.append → dirty → 30s batch flush） — **PR #526 merged**
-- [ ] AC-E3: `evidence_passages` 表启用（Schema V3）+ sealed transcript chat 文本切 passage
-- [ ] AC-E4: live MessageStore 未封存增量切 passage 入库
-- [ ] AC-E5: `scope=threads` + `depth=raw` 搜 passages 并聚合回 thread
+- [x] AC-E3: `evidence_passages` 表启用（Schema V3）+ sealed transcript chat 文本切 passage — **PR #531 merged**
+- [x] AC-E4: live MessageStore 未封存增量切 passage 入库 — **PR #531 merged**
+- [x] AC-E5: `scope=threads` + `depth=raw` 搜 passages 并聚合回 thread — **PR #531 merged**
 - [x] AC-E6: reflect 返回显式降级消息（不再返回空字符串） — **PR #526 merged**
-- [ ] AC-E7: session digest 路径修复（transcriptDataDir 解析确认正确）
-- [ ] AC-E8: lesson/pitfall 召回质量改进
+- [x] AC-E7: session digest 路径修复（transcriptDataDir 解析确认正确） — **PR #537 merged**
+- [x] AC-E8: lesson/pitfall 召回质量改进 — **PR #537 merged（splitLessonsLearned 32 个独立条目）**
 
 ## Dependencies
 
@@ -667,6 +667,10 @@ search_evidence(query, {
 | 2026-03-18 | 布偶猫+砚砚(GPT-5.4) 终态设计讨论：三层真相源 + dirty-thread + evidence_passages |
 | 2026-03-18 | Phase E 立项：Thread 内容索引（8 AC） |
 | 2026-03-18 | **PR #526 squash merged** — AC-E1 + AC-E2 + AC-E6 ✅（thread summary + debounce + reflect fix） |
+| 2026-03-18 | **PR #531 squash merged** — AC-E3 + AC-E4 + AC-E5 + AC-C9 ✅（evidence_passages + thread message search） |
+| 2026-03-18 | **PR #534 squash merged** — 索引覆盖 127→413 docs + 4 skills recall guidance + Hindsight 最后残留清理 |
+| 2026-03-18 | **PR #537 squash merged** — AC-E7 + AC-E8 ✅（session digest 路径统一 + lessons-learned 32 条拆分） |
+| 2026-03-18 | **Phase E 完成：8/8 AC ✅，4 PRs merged** |
 
 ## Review Gate
 
