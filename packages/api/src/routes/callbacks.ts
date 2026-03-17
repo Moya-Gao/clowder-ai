@@ -66,7 +66,12 @@ export interface CallbackRoutesOptions {
   /** Queue auto-dequeue on A2A invocation completion */
   queueProcessor?: {
     onInvocationComplete(threadId: string, catId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
-    tryAutoExecute?(threadId: string): Promise<void>;
+    tryAutoExecute(threadId: string): Promise<void>;
+    registerEntryCompleteHook(
+      entryId: string,
+      hook: (entryId: string, status: 'succeeded' | 'failed' | 'canceled', responseText: string) => void,
+    ): void;
+    unregisterEntryCompleteHook(entryId: string): void;
   };
   /** F122B: InvocationQueue for agent-sourced A2A entries */
   invocationQueue?: import('../domains/cats/services/agents/invocation/InvocationQueue.js').InvocationQueue;
@@ -1134,6 +1139,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       router,
       invocationRecordStore,
       ...(invocationTracker ? { invocationTracker } : {}),
+      ...(opts.invocationQueue ? { invocationQueue: opts.invocationQueue } : {}),
+      ...(queueProcessor ? { queueProcessor } : {}),
     });
     // Wire orchestrator into SocketManager for cancel propagation (P1-1 fix)
     if (typeof socketManager.setMultiMentionOrchestrator === 'function') {

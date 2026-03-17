@@ -129,6 +129,8 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
       const messageIds = [entry.messageId, ...(entry.mergedMessageIds ?? [])].filter(Boolean) as string[];
 
       const removed = invocationQueue.remove(threadId, guard.userId, entryId);
+      // F122B B6 P2: Clean up completion hook to prevent leak when entry removed before execution
+      queueProcessor.unregisterEntryCompleteHook?.(entryId);
       socketManager.emitToUser(guard.userId, 'queue_updated', {
         threadId,
         queue: invocationQueue.list(threadId, guard.userId),
@@ -292,6 +294,7 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
     const allMessageIds: string[] = [];
     for (const e of entriesBeforeClear) {
       if (e.status === 'processing') continue;
+      queueProcessor.unregisterEntryCompleteHook?.(e.id);
       if (e.messageId) allMessageIds.push(e.messageId);
       if (e.mergedMessageIds) allMessageIds.push(...e.mergedMessageIds);
     }
