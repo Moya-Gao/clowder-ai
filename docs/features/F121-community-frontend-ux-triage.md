@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F121: Community Frontend UX Triage — 社区前端交互体验侦查与分诊
 
-> **Status**: in-progress (community fixes merged + follow-up hotfix in review, pending outbound sync) | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: done | **Owner**: 三猫 | **Priority**: P2 | **Completed**: 2026-03-16
 
 ## Why
 
@@ -143,12 +143,14 @@ Bug report 存档：
 | 2026-03-16 | #66 replyTo worklist path fix merged (PR #487): worklist 路径使用 A2A trigger message 而非 user message 作为 replyTo，修复 alpha 测试发现的 ReplyPill 不显示问题，codex 三审放行+云端 review 4 轮通过 |
 | 2026-03-16 | #66 replyTo response-text path fix merged (PR #489): CLI 输出 @mention 路径补齐 a2aTriggerMessageId，两条 @mention 路径 ReplyPill 行为统一，codex review 放行+云端 review 通过 |
 | 2026-03-16 | #66 stream replyTo threading merged (PR #490): stream yield+持久化+前端 active/background 全链路补齐 replyTo/replyPreview，CLI @mention 路径 ReplyPill 完整打通。根因定位：砚砚/GPT-5.4，codex review 放行 |
+| 2026-03-16 | **Feature close**: 金渐层扫描 32 open issues 确认无漏网项；#88 术语表拆为独立社区 issue 跟踪（去掉 `feature:F121` 标签）；铲屎官确认收口 |
 
 ## Links
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **社区仓** | `zts212653/clowder-ai` | issues #28/#89/#27/#22/#88/#16/#66 |
+| **反思胶囊** | `docs/reflections/2026-03-16-f121-community-frontend-ux-triage-capsule.md` | completion reflection |
 
 ---
 
