@@ -481,7 +481,7 @@ search_evidence(query, {
 - [ ] AC-C9: `evidence_passages` 表按需启用（passage 级检索粒度，1000+ docs 后评估）— **deferred per spec**
 
 ### Phase D（激活 — Hindsight 清理 + 数据源扩大 + 检索协议 + 提示词集成）
-- [ ] AC-D1: 运行链路中无 Hindsight 调用分支，factory 只有 `sqlite` 路径
+- [x] AC-D1: 运行链路中无 Hindsight 调用分支，factory 只有 `sqlite` 路径 — **PR #501 merged**
 - [ ] AC-D2: 12 个 `HINDSIGHT_*` 环境变量、ConfigSnapshot hindsight 段、前端 config-viewer hindsight tab 全部移除
 - [ ] AC-D3: Hindsight legacy 资产归档（docker-compose、scripts、P0 import、~26 tests）
 - [ ] AC-D4: 启动 60 秒内 `evidence.sqlite` 存在且 `evidence_docs > 0`（自动 rebuild）
@@ -593,6 +593,8 @@ search_evidence(query, {
 | 2026-03-16 | 铲屎官追加：MCP 工具必须收敛归一，不能新旧双轨 |
 | 2026-03-16 | 布偶猫+缅因猫(GPT-5.4)：MCP 两层收敛方案（统一入口 + drill-down），零分歧 |
 | 2026-03-16 | GitNexus 研讨（三猫）：不做代码图谱，吸收"预计算 edges + memory invalidation"（KD-29~31） |
+| 2026-03-16 | Phase D-1a 实现：Hindsight runtime 全量清理（-1800 lines，3 轮 codex review） |
+| 2026-03-17 | **PR #501 squash merged** — AC-D1 ✅ |
 
 ## Review Gate
 
