@@ -690,6 +690,7 @@ fi
 if [ -f "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts" ]; then
   sedi \
     -e "s/- \\*\\*Port 3001\\*\\* is reserved for Cat Cafe frontend. Use 3002+ for other dev servers./- **Public local defaults**: use frontend 3004 and API 3003 to avoid colliding with another local runtime./g" \
+    -e "s/- \\*\\*Redis port 6399\\*\\* is Cat Cafe's production Redis. Never connect to it from external projects. Use 6398 for dev\\/test./- **Redis port 6379** is the default production Redis. Never connect to it from external projects. Use 6380 for dev\\/test./g" \
     "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts"
 fi
 echo "  ✓ public default ports (3003/3004) applied"

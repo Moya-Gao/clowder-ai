@@ -3,10 +3,15 @@
  *
  * Defines the managed block content that gets injected into
  * external project CLAUDE.md/AGENTS.md/GEMINI.md files.
+ *
+ * Port values use internal defaults (3001/6399/6398).
+ * The sync-to-opensource pipeline transforms these to public
+ * defaults (3004/6379/6380) via _sanitize-rules.pl and
+ * sync-to-opensource.sh Step 3k-3b.
  */
 import { createHash } from 'node:crypto';
 
-export const GOVERNANCE_PACK_VERSION = '1.2.0';
+export const GOVERNANCE_PACK_VERSION = '1.3.0';
 
 export const MANAGED_BLOCK_START = '<!-- CAT-CAFE-GOVERNANCE-START -->';
 export const MANAGED_BLOCK_END = '<!-- CAT-CAFE-GOVERNANCE-END -->';
