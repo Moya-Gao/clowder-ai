@@ -164,8 +164,8 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 - [x] AC-B4: steer 可以管控 agent-sourced queue entries（promote + immediate 均验证通过）
 - [x] AC-B5: `invocationQueue` dep 注入到 callback routes → 生产环境激活 F122B 路径
 
-**Deferred（Phase B.1 follow-up）：**
-- [ ] AC-B6: multi_mention dispatch 改走 InvocationQueue（MultiMentionOrchestrator 的 response 聚合需要 QueueProcessor 回调机制，复杂度高，单独 PR）
+**Phase B.1 follow-up（全部完成）：**
+- [x] AC-B6: multi_mention dispatch 改走 InvocationQueue（MultiMentionOrchestrator 的 response 聚合需要 QueueProcessor 回调机制，PR #536 merged `646d6aa4`）
 - [x] AC-B6-P1: **A2A 消息上下文可见性修复**（PR #502 merged）— 详见下方「已知问题」
 - [x] AC-B7: QueuePanel 前端渲染 agent-sourced entries（PR #504 merged）— 设计稿 `designs/F122-queue-panel-agent-entries.pen`
 - [x] AC-B8: Thread 执行状态指示（PR #508 merged）— ThreadExecutionBar per-cat 活跃状态 + 经过时间
@@ -322,12 +322,16 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-16 | AC-B7 merged (PR #504) — QueuePanel agent entries 渲染，codex R4 放行 |
 | 2026-03-16 | AC-B8 merged (PR #508) — ThreadExecutionBar per-cat 状态，codex R1→R2 放行 |
 | 2026-03-16 | AC-B9 merged (PR #510) — per-cat Stop + cancel API，cloud review 通过 |
+| 2026-03-17 | AC-B8/B9 polish + B10 merged (PR #533) — ThreadExecutionBar 动态猫名/颜色 + whisper 执行中猫 chip 禁用，codex R1→R2 放行 |
+| 2026-03-17 | AC-B6 merged (PR #536 `646d6aa4`) — multi_mention dispatch via InvocationQueue + EntryCompleteHook 回调聚合，codex R3→R4→R5 放行（P1 abort→succeeded + P2 hook leak + R4-P1 duplicate finalStatus 三个 bug 修复）|
 
 ## Review Gate
 
 - Phase A: 跨家族 review（缅因猫优先，codex 或 gpt52）✅
 - Phase A.1: 跨家族 review（codex 或 gpt52）✅
 - Phase B: 跨家族 review（codex R5→R6 放行）✅
+- Phase B.1 (B6): 跨家族 review（codex R3→R4→R5 放行）✅
+- Phase B.1 (B8/B9/B10): 跨家族 review（codex R1→R2 放行）✅
 
 ## Links
 
