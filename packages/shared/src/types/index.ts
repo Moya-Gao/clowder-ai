@@ -77,6 +77,16 @@ export type {
   McpToolInfo,
   SkillHealthSummary,
 } from './capability.js';
+// Limb types (F126 四肢控制面)
+export type {
+  ILimbNode,
+  LimbAccessEntry,
+  LimbAuthLevel,
+  LimbCapability,
+  LimbInvokeResult,
+  LimbNodeRecord,
+  LimbNodeStatus,
+} from './limb.js';
 // Cat types
 export type {
   CatColor,

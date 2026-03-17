@@ -518,6 +518,10 @@ async function main(): Promise<void> {
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
   const prTrackingStore = new MemoryPrTrackingStore();
 
+  // F126: Create LimbRegistry for device/hardware capability management
+  const { LimbRegistry } = await import('./domains/limb/LimbRegistry.js');
+  const limbRegistry = new LimbRegistry();
+
   await app.register(callbacksRoutes, {
     registry,
     messageStore,
@@ -536,6 +540,7 @@ async function main(): Promise<void> {
     evidenceStore: memoryServices.evidenceStore,
     markerQueue: memoryServices.markerQueue,
     reflectionService: memoryServices.reflectionService,
+    limbRegistry,
   });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)

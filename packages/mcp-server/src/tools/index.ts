@@ -70,6 +70,13 @@ export {
   sessionSearchInputSchema,
 } from './session-chain-tools.js';
 
+export {
+  handleLimbInvoke,
+  handleLimbListAvailable,
+  limbInvokeInputSchema,
+  limbListAvailableInputSchema,
+  limbTools,
+} from './limb-tools.js';
 export { signalStudyTools } from './signal-study-tools.js';
 export {
   handleSignalGetArticle,

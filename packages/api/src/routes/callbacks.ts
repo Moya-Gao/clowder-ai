@@ -30,6 +30,7 @@ import { enqueueA2ATargets } from './callback-a2a-trigger.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
@@ -69,6 +70,8 @@ export interface CallbackRoutesOptions {
   };
   /** F122B: InvocationQueue for agent-sourced A2A entries */
   invocationQueue?: import('../domains/cats/services/agents/invocation/InvocationQueue.js').InvocationQueue;
+  /** F126: Limb node registry for device/hardware capability management */
+  limbRegistry?: import('../domains/limb/LimbRegistry.js').LimbRegistry;
 }
 
 const postMessageSchema = callbackAuthSchema.extend({
@@ -1110,6 +1113,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     markerQueue: opts.markerQueue,
     reflectionService: opts.reflectionService,
   });
+
+  // F126: Limb node callback routes
+  if (opts.limbRegistry) {
+    registerCallbackLimbRoutes(app, {
+      limbRegistry: opts.limbRegistry,
+      invocationRegistry: registry,
+    });
+  }
 
   // F086: Multi-mention orchestration routes
   if (router && invocationRecordStore) {
