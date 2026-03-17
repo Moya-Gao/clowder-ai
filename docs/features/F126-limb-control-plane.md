@@ -208,7 +208,7 @@ Cat Café（大脑 / 灵魂议会）
 - [ ] AC-B2: Lease 过期自动释放（猫 crash/超时不永久锁四肢）
 - [ ] AC-B3: Limb Access Policy 实现三级授权（free/leased/gated）
 - [ ] AC-B4: Action Log 记录最小 provenance 字段集（requestId/invocationId/leaseId/catId/nodeId/capability/artifactUri/status/startedAt/endedAt/idempotencyKey）
-- [ ] AC-B5: runtime 活状态（heartbeat/lease/online）只进 Redis，不进 F102/evidence index
+- [ ] AC-B5: runtime 活状态（heartbeat/lease/online）只进内存，不进 F102/evidence index（Redis 适配是 follow-up）
 
 ### Phase C（跨平台 Node 管理）
 - [ ] AC-C1: 远程节点可通过 MCP over HTTP 注册到控制面
