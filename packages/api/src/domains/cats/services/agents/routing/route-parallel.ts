@@ -281,6 +281,7 @@ export async function* routeParallel(
   // F22 R2 P1-1: Capture own invocationId per cat from stream
   const catInvocationId = new Map<string, string>();
   let completedCount = 0;
+  let yieldedFinalDone = false;
 
   // #80: Per-cat draft flush state
   const catFlushTime = new Map<string, number>();
@@ -750,9 +751,20 @@ export async function* routeParallel(
       }
 
       yield { ...msg, isFinal };
+      if (isFinal) yieldedFinalDone = true;
     } else {
       yield msg;
     }
+  }
+
+  // done-guarantee safety net: synthesize final done if loop exited without one
+  if (!yieldedFinalDone && targetCats.length > 0) {
+    yield {
+      type: 'done' as AgentMessageType,
+      catId: targetCats[targetCats.length - 1]!,
+      isFinal: true,
+      timestamp: Date.now(),
+    } as AgentMessage;
   }
 
   // Issue #83: Stop keepalive timer — streaming loop has exited.

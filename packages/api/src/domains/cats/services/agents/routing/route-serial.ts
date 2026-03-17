@@ -82,6 +82,9 @@ export async function* routeSerial(
   const worklistEntry = registerWorklist(threadId, worklist, maxDepth, options.parentInvocationId);
 
   let index = 0;
+  // done-guarantee: Track whether we yielded a done(isFinal=true) so the finally block can
+  // synthesize one if the loop exits early (e.g. signal.aborted break at top of while).
+  let yieldedFinalDone = false;
   // F27: Track how many worklist entries have had a2a_handoff emitted
   let handoffEmitted = targetCats.length; // Original targets don't get handoff events
   // F042 Wave 3: Fetch thread participant activity once before loop (threadId doesn't change).
@@ -879,7 +882,9 @@ export async function* routeSerial(
       // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)
       // MUST always reach here regardless of append success (缅因猫 review P1-2)
       if (doneMsg) {
-        yield { ...doneMsg, ...(mentionsUser ? { mentionsUser } : {}), isFinal: index === worklist.length - 1 };
+        const isFinal = index === worklist.length - 1;
+        yield { ...doneMsg, ...(mentionsUser ? { mentionsUser } : {}), isFinal };
+        if (isFinal) yieldedFinalDone = true;
       }
 
       // F27: Advance executedIndex so pushToWorklist knows which cats are done
@@ -890,5 +895,18 @@ export async function* routeSerial(
     // F27: Always unregister worklist, even on error/abort.
     // Pass owner ref so preempting new invocation's worklist is not deleted (缅因猫 R1 P1-1)
     unregisterWorklist(threadId, worklistEntry, options.parentInvocationId);
+
+    // done-guarantee safety net: If loop exited without yielding a final done
+    // (e.g. signal.aborted break at top of while, or provider threw before done),
+    // synthesize one so the frontend always receives isFinal=true and clears its timer.
+    if (!yieldedFinalDone && worklist.length > 0) {
+      const lastCatId = worklist[Math.min(index, worklist.length - 1)]!;
+      yield {
+        type: 'done' as AgentMessageType,
+        catId: lastCatId,
+        isFinal: true,
+        timestamp: Date.now(),
+      } as AgentMessage;
+    }
   }
 }
