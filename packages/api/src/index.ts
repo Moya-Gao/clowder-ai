@@ -309,12 +309,21 @@ async function main(): Promise<void> {
   );
 
   // F102: Memory services — SQLite-only
+  // P1 fix: resolve paths relative to repo root, not CWD (which may be packages/api)
+  const { existsSync } = await import('node:fs');
+  const { resolve } = await import('node:path');
+  const repoRoot = existsSync(resolve(process.cwd(), 'docs', 'features'))
+    ? process.cwd()
+    : existsSync(resolve(process.cwd(), '..', '..', 'docs', 'features'))
+      ? resolve(process.cwd(), '..', '..')
+      : process.cwd();
+
   const { createMemoryServices } = await import('./domains/memory/factory.js');
   const memoryServices = await createMemoryServices({
     type: 'sqlite',
-    sqlitePath: process.env.EVIDENCE_DB ?? 'evidence.sqlite',
-    docsRoot: process.env.DOCS_ROOT ?? 'docs',
-    transcriptDataDir: process.env.TRANSCRIPT_DATA_DIR ?? './data/transcripts',
+    sqlitePath: process.env.EVIDENCE_DB ?? resolve(repoRoot, 'evidence.sqlite'),
+    docsRoot: process.env.DOCS_ROOT ?? resolve(repoRoot, 'docs'),
+    transcriptDataDir: process.env.TRANSCRIPT_DATA_DIR ?? resolve(repoRoot, 'data', 'transcripts'),
   });
   app.log.info('[api] F102: SQLite memory services initialized');
 
