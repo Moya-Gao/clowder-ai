@@ -487,14 +487,14 @@ search_evidence(query, {
 - [x] AC-D4: 启动 60 秒内 `evidence.sqlite` 存在且 `evidence_docs > 0`（自动 rebuild） — **PR #503 merged**
 - [x] AC-D5: `search_evidence` MCP 工具默认走 SQLite FTS5，至少 3 条 canary query 稳定返回预期 anchor — **PR #509 merged**
 - [ ] AC-D6: Session digest 索引为 `kind='session'`，默认检索权重低于 feature/decision
-- [ ] AC-D7: 检索接口支持 `mode`（lexical/semantic/hybrid）和 `scope`（docs/memory/threads/all）参数
+- [x] AC-D7: 检索接口支持 `mode`（lexical/semantic/hybrid）和 `scope`（docs/memory/threads/all）参数 — **PR #513 merged**
 - [x] AC-D8: Memory status 可观测（docs_count / last_rebuild_at / backend） — **PR #511 merged**
 - [x] AC-D9: **CLAUDE.md / AGENTS.md 提示词更新**——告知猫猫记忆组件存在、检索策略、使用方式 — **PR #509 merged**
 - [x] AC-D10: **Recall Skill 或等效 SOP 集成**——猫猫开工前自动/主动检索相关上下文 — **PR #509 merged（等效 SOP：CLAUDE.md/AGENTS.md 策略表）**
 - [ ] AC-D11: feat-lifecycle 集成——立项/状态变更/关闭时自动 `incrementalUpdate`
 - [ ] AC-D12: 修改 feature 文档后 30 秒内可检索到新标题/摘要（增量 freshness）
 - [x] AC-D13: Embedding load 失败时检索成功率不下降（fail-open lexical 保底） — **Phase C AC-C4 已实现，PR #511 验证**
-- [ ] AC-D14: `search_evidence` 成为统一检索入口，支持 `scope`/`mode`/`depth` 参数
+- [x] AC-D14: `search_evidence` 成为统一检索入口，支持 `scope`/`mode`/`depth` 参数 — **PR #513 merged**
 - [ ] AC-D15: `search_messages` 和 `session_search` 降级为内部实现，不再作为独立 MCP 工具暴露
 - [ ] AC-D16: callback auth 版本合并到主版本（`search_evidence_callback` → `search_evidence`，`reflect_callback` → `reflect`）
 - [ ] AC-D17: SystemPromptBuilder 更新——`search_evidence` 排在记忆工具第一位，drill-down 工具排在后面
@@ -600,6 +600,7 @@ search_evidence(query, {
 | 2026-03-17 | Phase D2：搜索质量改进 + 自动 edges + CLAUDE.md/AGENTS.md 记忆提示词 |
 | 2026-03-17 | **PR #509 squash merged** — AC-D5 + AC-D9 + AC-D10 + AC-D18 ✅ |
 | 2026-03-17 | **PR #511 squash merged** — AC-D8 + AC-D13 ✅ |
+| 2026-03-17 | **PR #513 squash merged** — AC-D7 + AC-D14 ✅（scope/mode/depth 检索协议） |
 
 ## Review Gate
 
