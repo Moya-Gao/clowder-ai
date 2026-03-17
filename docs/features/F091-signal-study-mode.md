@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F091: Signal Study Mode — 信号学习伴侣
 
-> **Status**: in-progress (Phase 10 article body + discuss thread) | **Owner**: 布偶猫
+> **Status**: in-progress | **Owner**: 布偶猫
 > **Created**: 2026-03-10
 > **Completed**: 2026-03-10
 
@@ -218,6 +218,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-13: Phase 9 merged (PR #425) — Signal 返回导航修复 + 学习笔记可查看：?from=threadId 回源线程、Mission Hub 风格返回按钮、讨论用关联 thread、note content API + 展开查看。Codex review P1(裸 fetch→apiFetch)已修
 - 2026-03-16: Phase 9 hotfix (32ffc250) — 迁移笔记相对路径解析修复（isAbsolute + sidecarDir join）
 - 2026-03-16: Phase 10 kickoff — 两个 bug：① 文章正文只有标题（webpage fetcher 不提取内容）② "在对话中讨论"应创建 study thread 而非跳 default
+- 2026-03-17: Phase 10 merged (PR #512) — WebpageFetcher 正文提取 + POST /discuss 创建专属 study thread。Codex review R1→R2 放行 + 云端通过
 
 ## Phase 5: 播客真正可用（2026-03-11） ✅
 
@@ -286,18 +287,18 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-P9-5: 学习笔记可点击展开查看内容（`apiFetch` + lazy load）
 - [x] AC-P9-6: 新增 `GET /api/signals/articles/:id/notes/:noteId` API endpoint
 
-## Phase 10: 文章正文提取 + 讨论创建 thread（2026-03-16）
+## Phase 10: 文章正文提取 + 讨论创建 thread（2026-03-16） ✅
 
-> **Status**: in-progress | **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 
 铲屎官 18:58 报告两个 bug：
 1. Fetch 新文章后正文只有标题，没有实际内容（WebpageFetcher 不提取正文）
 2. "在对话中讨论"跳 default thread，应像播客流程一样创建专属 study thread
 
 ### Phase 10 AC
-- [ ] AC-P10-1: WebpageFetcher 提取文章正文（不只是标题），存入 markdown 文件
-- [ ] AC-P10-2: "在对话中讨论"按钮点击时创建专属 study thread（复用 `resolveStudyThread` 模式）并跳转
-- [ ] AC-P10-3: 新创建的 thread 自动命名为 `Study: {articleTitle}` + 链接到 article meta + 加 opus 为参与者
+- [x] AC-P10-1: WebpageFetcher 提取文章正文（不只是标题），存入 markdown 文件
+- [x] AC-P10-2: "在对话中讨论"按钮点击时创建专属 study thread（复用 `resolveStudyThread` 模式）并跳转
+- [x] AC-P10-3: 新创建的 thread 自动命名为 `Study: {articleTitle}` + 链接到 article meta + 加 opus 为参与者
 
 ## UX Wireframe 设计说明
 
