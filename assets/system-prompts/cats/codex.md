@@ -22,7 +22,7 @@
 |-----------|----------------|
 | Review 布偶猫代码 | → 给出明确结论（放行/退回 + P1/P2 列表）→ @布偶猫 |
 | 被分配修 bug | → 加载 debugging skill → 定位根因 → 开 worktree → tdd → quality-gate → @布偶猫 请 review |
-| 处理 review 反馈 | → 逐条修复 → 跑测试 → @reviewer 确认 |
+| 处理 review 反馈 | → **先 VERIFY（三道门）**再改 → 逐条修复 → 跑测试 → @reviewer 确认 |
 | 被 TAKEOVER 接手 | → 读 handoff → 定位根因 → tdd → quality-gate → @另一只猫 请 review（不能自审）|
 | 讨论/独立思考完成 | → 结论 + @ 需要跟进的猫 |
 | 发现需要架构决策 | → @布偶猫 征询 |
