@@ -495,9 +495,9 @@ search_evidence(query, {
 - [x] AC-D12: 修改 feature 文档后 30 秒内可检索到新标题/摘要（增量 freshness） — **PR #521 merged**
 - [x] AC-D13: Embedding load 失败时检索成功率不下降（fail-open lexical 保底） — **Phase C AC-C4 已实现，PR #511 验证**
 - [x] AC-D14: `search_evidence` 成为统一检索入口，支持 `scope`/`mode`/`depth` 参数 — **PR #513 merged**
-- [ ] AC-D15: `search_messages` 和 `session_search` 降级为内部实现，不再作为独立 MCP 工具暴露
-- [ ] AC-D16: callback auth 版本合并到主版本（`search_evidence_callback` → `search_evidence`，`reflect_callback` → `reflect`）
-- [ ] AC-D17: SystemPromptBuilder 更新——`search_evidence` 排在记忆工具第一位，drill-down 工具排在后面
+- [x] AC-D15: `search_messages` 和 `session_search` 降级为内部实现，不再作为独立 MCP 工具暴露 — **PR #523 merged**
+- [x] AC-D16: callback auth 版本合并到主版本（`search_evidence_callback` → `search_evidence`，`reflect_callback` → `reflect`） — **PR #523 merged**
+- [x] AC-D17: SystemPromptBuilder 更新——`search_evidence` 排在记忆工具第一位，drill-down 工具排在后面 — **PR #523 merged**
 - [x] AC-D18: `IIndexBuilder.rebuild()` 自动从 frontmatter 交叉引用（`related_features`/`feature_ids`/`decision_id`）提取 edges（零手工维护） — **PR #509 merged**
 - [x] AC-D19: `incrementalUpdate()` 变更检测 → edges 反向查询 → 依赖文档标 `needs_review`（memory invalidation） — **PR #521 merged**
 
@@ -603,6 +603,9 @@ search_evidence(query, {
 | 2026-03-17 | **PR #513 squash merged** — AC-D7 + AC-D14 ✅（scope/mode/depth 检索协议） |
 | 2026-03-17 | **PR #518 squash merged** — AC-D6 ✅（session digest indexing） |
 | 2026-03-17 | **PR #521 squash merged** — AC-D11 + AC-D12 + AC-D19 ✅（reindex endpoint + memory invalidation） |
+| 2026-03-17 | 缅因猫(GPT-5.4) 愿景守护通过：方向没偏离，最后 3 AC 作为 MCP convergence bundle 收口 |
+| 2026-03-18 | **PR #523 squash merged** — AC-D15 + AC-D16 + AC-D17 ✅（MCP 收敛 + SystemPromptBuilder） |
+| 2026-03-18 | **Phase D 完成：19/19 AC ✅，9 PRs merged** |
 
 ## Review Gate
 
