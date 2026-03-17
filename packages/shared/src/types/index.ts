@@ -3,6 +3,17 @@
  * 导出所有类型定义
  */
 
+// A2A Protocol types (F050 Phase 3)
+export type {
+  A2AAgentCard,
+  A2AAgentConfig,
+  A2AArtifact,
+  A2AJsonRpcResponse,
+  A2AMessage,
+  A2APart,
+  A2ATask,
+  A2ATaskStatus,
+} from './a2a.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,

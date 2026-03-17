@@ -379,6 +379,17 @@ async function main(): Promise<void> {
       case 'opencode':
         service = new OpenCodeAgentService({ catId });
         break;
+      case 'a2a': {
+        const { A2AAgentService } = await import('./domains/cats/services/agents/providers/A2AAgentService.js');
+        const envKey = `CAT_${(id as string).toUpperCase()}_A2A_URL`;
+        const a2aUrl = process.env[envKey] ?? '';
+        if (!a2aUrl) {
+          app.log.warn(`[api] A2A cat "${id as string}" missing ${envKey} env var. It will not be routable.`);
+          continue;
+        }
+        service = new A2AAgentService({ catId, config: { url: a2aUrl } });
+        break;
+      }
       default:
         app.log.warn(`[api] Unknown provider "${provider}" for cat "${id as string}". It will not be routable.`);
         continue;
