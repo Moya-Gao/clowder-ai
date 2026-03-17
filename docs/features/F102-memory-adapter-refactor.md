@@ -482,9 +482,9 @@ search_evidence(query, {
 
 ### Phase D（激活 — Hindsight 清理 + 数据源扩大 + 检索协议 + 提示词集成）
 - [x] AC-D1: 运行链路中无 Hindsight 调用分支，factory 只有 `sqlite` 路径 — **PR #501 merged**
-- [ ] AC-D2: 12 个 `HINDSIGHT_*` 环境变量、ConfigSnapshot hindsight 段、前端 config-viewer hindsight tab 全部移除
-- [ ] AC-D3: Hindsight legacy 资产归档（docker-compose、scripts、P0 import、~26 tests）
-- [ ] AC-D4: 启动 60 秒内 `evidence.sqlite` 存在且 `evidence_docs > 0`（自动 rebuild）
+- [x] AC-D2: 12 个 `HINDSIGHT_*` 环境变量、ConfigSnapshot hindsight 段、前端 config-viewer hindsight tab 全部移除 — **PR #503 merged**
+- [x] AC-D3: Hindsight legacy 资产归档（docker-compose、scripts、P0 import、~26 tests） — **PR #503 merged**
+- [x] AC-D4: 启动 60 秒内 `evidence.sqlite` 存在且 `evidence_docs > 0`（自动 rebuild） — **PR #503 merged**
 - [ ] AC-D5: `search_evidence` MCP 工具默认走 SQLite FTS5，至少 3 条 canary query 稳定返回预期 anchor
 - [ ] AC-D6: Session digest 索引为 `kind='session'`，默认检索权重低于 feature/decision
 - [ ] AC-D7: 检索接口支持 `mode`（lexical/semantic/hybrid）和 `scope`（docs/memory/threads/all）参数
@@ -595,6 +595,8 @@ search_evidence(query, {
 | 2026-03-16 | GitNexus 研讨（三猫）：不做代码图谱，吸收"预计算 edges + memory invalidation"（KD-29~31） |
 | 2026-03-16 | Phase D-1a 实现：Hindsight runtime 全量清理（-1800 lines，3 轮 codex review） |
 | 2026-03-17 | **PR #501 squash merged** — AC-D1 ✅ |
+| 2026-03-17 | Phase D-1b/c + D-2：Hindsight config/legacy 全量清理（-3457 lines）+ 启动自动 rebuild |
+| 2026-03-17 | **PR #503 squash merged** — AC-D2 + AC-D3 + AC-D4 ✅ |
 
 ## Review Gate
 
