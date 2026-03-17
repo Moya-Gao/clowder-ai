@@ -90,11 +90,29 @@ created: 2026-03-12
    - 每段语音带 intent 标签（如 `greeting` / `answer` / `podcast-segment`）
    - `replace` 行为只替换同 intent 的语音
 
-### Phase C: VAD 打断（可选）
+### Phase C: VAD 打断 — 用户开口猫停嘴（第三刀）
 
-1. **VAD（Voice Activity Detection）打断**
-   - 检测用户开始说话 → 发出 interrupt 信号 → 猫停嘴
-   - 需要浏览器 AudioContext + VAD 模型（依赖 F104 本地感知升级）
+> **技术选型已决（2026-03-20）**：使用 `@ricky0123/vad-web`（底层 Silero VAD v5 ONNX + onnxruntime-web）。纯浏览器前端闭环，不依赖后端 ASR/TTS 模型，不依赖 F104。
+
+1. **VAD 检测 → PlaybackManager interrupt**
+   - 使用 `@ricky0123/vad-web` 的 `MicVAD` 接入麦克风
+   - `onSpeechStart` 回调 → `getPlaybackManager().interrupt()` → 猫猫立刻停嘴
+   - `onSpeechEnd` 回调 → 可选：恢复播放 / 不恢复（取决于 UX 决策）
+
+2. **与现有麦克风接入共存**
+   - 现有 `useVoiceInput` 使用 `getUserMedia` → `MediaRecorder` 录音送 Whisper ASR
+   - VAD 使用独立的 `MicVAD`（内部也是 `getUserMedia` + `AudioWorklet`）
+   - 两者可共享同一个 mic stream 或各自独立获取（浏览器会复用物理设备）
+
+3. **模型加载策略**
+   - Silero VAD v5 ONNX 模型 ~2MB，首次加载后缓存
+   - `onnxruntime-web` WASM 通过 CDN 或 static assets 提供
+   - VAD 仅在 voiceMode 开启时初始化，关闭时释放
+
+4. **UX 控制**
+   - voiceMode 开启 → VAD 自动启用（默认行为）
+   - 可选：设置面板增加"开口即停"开关（预留，Phase C 先硬编码开启）
+   - VAD 灵敏度阈值：使用 vad-web 默认的 `positiveSpeechThreshold: 0.5`（可后续调优）
 
 ## Acceptance Criteria
 
@@ -118,8 +136,12 @@ created: 2026-03-12
 - [ ] AC-BF1: 双猫对话稿可按 queue 模式交替播放，无重叠
 - [ ] AC-BF2: `replace` 行为只替换同 intent 的语音，不影响其他 intent
 
-### Phase C（VAD，可选）
-- [ ] AC-C1: 用户说话时猫自动停嘴（VAD interrupt）
+### Phase C（VAD 打断 — 用户开口猫停嘴）
+- [ ] AC-C1: voiceMode 开启时 VAD 自动检测用户说话并 interrupt 播放
+- [ ] AC-C2: VAD 检测延迟 < 300ms（从用户开口到猫停嘴）
+- [ ] AC-C3: VAD 不干扰现有录音功能（useVoiceInput 正常工作）
+- [ ] AC-C4: voiceMode 关闭时 VAD 释放麦克风资源
+- [ ] AC-C5: Silero VAD v5 ONNX 模型正确加载并在浏览器中运行
 
 ## Dependencies
 
@@ -128,7 +150,6 @@ created: 2026-03-12
 - **Co-implemented with**: F111 Phase B（route-serial token-stream speech pipeline）
 - **Related**: F034（TTS 架构基础 — ITtsProvider / TtsRegistry）
 - **Related**: F021（Signal Study Mode — Phase B 播客功能是核心使用场景）
-- **Related**: F104（本地全感知升级 — Phase C VAD 可能依赖其感知管线）
 
 ## Risk
 
@@ -137,13 +158,15 @@ created: 2026-03-12
 | PlaybackManager 与 useVoiceAutoPlay 职责重叠 | Phase A 中 PlaybackManager 接管 voiceMode 实时播放，useVoiceAutoPlay 退为 fallback（刷新回放） |
 | WebSocket voice_chunk 积压（TTS 比播放快） | PlaybackManager 内部队列 + backpressure：队列过长（>10 chunks）时不阻塞后端，前端 skip stale chunks |
 | 浏览器 autoplay policy 阻止首次播放 | 复用现有 confirmAutoplayUnlocked 机制（用户首次点击解锁） |
+| VAD 误触发（环境噪声被识别为说话）| Silero VAD v5 双阈值机制（positive 0.5 / negative 0.35），实测后可调优 |
+| VAD + 录音同时占用麦克风 | 浏览器允许多个 getUserMedia 共享同一物理设备，或可共享同一 MediaStream |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | PlaybackManager 放前端还是后端？ | ✅ **已决：前端**。播放器本身在浏览器里，PlaybackManager 是纯 UI 层调度，放前端零网络延迟。决策者：金渐层 (2026-03-16) |
-| OQ-2 | VAD 用什么模型？Silero VAD / WebRTC VAD？ | ⬜ 未定（Phase C 时决策，依赖 F104 感知管线） |
+| OQ-2 | VAD 用什么模型？Silero VAD / WebRTC VAD？ | ✅ **已决：`@ricky0123/vad-web`（Silero VAD v5 ONNX）**。npm 周下载 62K，浏览器原生 AudioWorklet + WASM，API 极简。WebRTC VAD 是 GMM 老架构，噪声环境准确率不如 Silero。不依赖 F104 —— VAD 是纯前端闭环（mic → AudioWorklet → ONNX 推理 → interrupt），与后端 ASR/TTS 模型选型无关。决策者：金渐层 + 铲屎官 (2026-03-20) |
 | OQ-3 | 实时语音的主触发器是什么？ | ✅ **已决：backend text stream（route-serial token 流）**。voiceMode 下不依赖模型主动发 audio rich block，后端 text stream 是主触发器。Audio rich block 退为持久化/回放载体。决策者：金渐层 + 砚砚(GPT-5.4) (2026-03-17) |
 
 ## Timeline
@@ -162,6 +185,8 @@ created: 2026-03-12
 | 2026-03-20 | Phase B 实现完成 — 5 commits: enqueueUrl/startBatch/batchId cancellation/fetch rejection guard/runIdRef stale promise guard |
 | 2026-03-20 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review R2 通过 (0 P1/P2) |
 | 2026-03-20 | PR #535 squash merge — Phase B done |
+| 2026-03-20 | Phase C 技术选型已决：`@ricky0123/vad-web`（Silero VAD v5），移除 F104 假依赖，OQ-2 关闭 |
+| 2026-03-20 | Phase C 实现启动 |
 
 ## Links
 
