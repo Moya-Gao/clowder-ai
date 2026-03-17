@@ -79,4 +79,30 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       } satisfies Partial<EvidenceSearchResponse>;
     }
   });
+
+  // F102 D-2/D-8: Memory status (AC-D8)
+  app.get('/api/evidence/status', async () => {
+    try {
+      const db = (opts.evidenceStore as { getDb?: () => unknown }).getDb?.() as
+        | { prepare: (sql: string) => { get: () => Record<string, unknown> } }
+        | undefined;
+      if (!db) return { backend: 'sqlite', healthy: false, reason: 'no_db' };
+
+      const docCount = (db.prepare('SELECT count(*) AS c FROM evidence_docs').get() as { c: number }).c;
+      const edgeCount = (db.prepare('SELECT count(*) AS c FROM edges').get() as { c: number }).c;
+      const lastUpdated = (
+        db.prepare('SELECT max(updated_at) AS t FROM evidence_docs').get() as { t: string | null }
+      ).t;
+
+      return {
+        backend: 'sqlite',
+        healthy: true,
+        docs_count: docCount,
+        edges_count: edgeCount,
+        last_rebuild_at: lastUpdated,
+      };
+    } catch {
+      return { backend: 'sqlite', healthy: false, reason: 'query_error' };
+    }
+  });
 };

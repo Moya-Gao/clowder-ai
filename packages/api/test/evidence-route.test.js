@@ -216,3 +216,71 @@ describe('GET /api/evidence/search', () => {
     assert.equal(body.results[3].sourceType, 'discussion');
   });
 });
+
+// ── GET /api/evidence/status (AC-D8) ──────────────────────────────────
+describe('GET /api/evidence/status', () => {
+  it('returns status with doc/edge counts from store with getDb()', async () => {
+    const app = Fastify();
+    const mockDb = {
+      prepare: (sql) => ({
+        get: () => {
+          if (sql.includes('evidence_docs') && sql.includes('count'))
+            return { c: 42 };
+          if (sql.includes('edges') && sql.includes('count'))
+            return { c: 10 };
+          if (sql.includes('max(updated_at)'))
+            return { t: '2026-03-17T00:00:00Z' };
+          return {};
+        },
+      }),
+    };
+    const evidenceStore = {
+      ...createMockEvidenceStore(),
+      getDb: () => mockDb,
+    };
+    await app.register(evidenceRoutes, { evidenceStore });
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/evidence/status' });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.backend, 'sqlite');
+    assert.equal(body.healthy, true);
+    assert.equal(body.docs_count, 42);
+    assert.equal(body.edges_count, 10);
+    assert.equal(body.last_rebuild_at, '2026-03-17T00:00:00Z');
+  });
+
+  it('returns healthy=false when getDb is unavailable', async () => {
+    const app = Fastify();
+    const evidenceStore = createMockEvidenceStore(); // no getDb
+    await app.register(evidenceRoutes, { evidenceStore });
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/evidence/status' });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.backend, 'sqlite');
+    assert.equal(body.healthy, false);
+    assert.equal(body.reason, 'no_db');
+  });
+
+  it('returns healthy=false on query error', async () => {
+    const app = Fastify();
+    const evidenceStore = {
+      ...createMockEvidenceStore(),
+      getDb: () => ({
+        prepare: () => { throw new Error('db locked'); },
+      }),
+    };
+    await app.register(evidenceRoutes, { evidenceStore });
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/evidence/status' });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.backend, 'sqlite');
+    assert.equal(body.healthy, false);
+    assert.equal(body.reason, 'query_error');
+  });
+});
