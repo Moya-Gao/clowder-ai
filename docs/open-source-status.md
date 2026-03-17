@@ -209,3 +209,157 @@ created: 2026-03-12
 - [ ] 重新同步到 `clowder-ai`
 - [ ] 再扫一轮 docs/skills 私有路径残留
 - [ ] 补 `README` / `SETUP` 的 MCP 与设计能力说明
+
+---
+
+## 社区 PR Review 进度
+
+> **更新时间**: 2026-03-17 (Round 2) | **执行猫**: 金渐层/opencode (claude-opus-4-6) [金渐层/Opus-46🐾]
+
+### 已关闭（7 个）
+
+| PR | 作者 | 原因 | 关闭时间 |
+|----|------|------|----------|
+| #34 | zts212653 | 旧同步 PR，被 #112/#118 取代 | 2026-03-17 |
+| #47 | bouillipx | 代理回退，家里已有 tcpProbe | 2026-03-17 |
+| #80 | bouillipx | CLAUDE.md 修改，家里版本已远超 | 2026-03-17 |
+| #25 | mindfn | 隐藏排队消息，家里已有 F117+F098-D | 2026-03-17 |
+| #44 | mindfn | tooltip 功能 → intake 到家里实现，同步过去 | 2026-03-17 |
+| #60 | bouillipx | 同步 transform 已实现等效功能（PR 有合并冲突） | 2026-03-17 |
+| #67 | bouillipx | Lint 失败 + 同步脚本已修命名 bug + 会被覆盖 | 2026-03-17 |
+
+### 已处理完成（3 个 — 原"待决策"）
+
+#### PR #44 — 线程列表悬停提示 (mindfn, 1 file) — ✅ Intake 到家里
+
+- **PR 做了什么**：ThreadItem.tsx 加 `title={tooltip}`（完整标题+参与者+时间），7 行代码
+- **铲屎官决策**：引进到 cat-cafe
+- **处理方式**：关闭 PR，在家里 ThreadItem.tsx 实现等效功能后同步
+- **待办**：在家里实现 tooltip（走 worktree）
+
+#### PR #60 — pnpm start + .env + Redis 降级 (bouillipx, 3 files) — ✅ Sync Transform 实现
+
+- **改动 1 (package.json)**：`pnpm start` 改为直接调 start-dev.sh — 开源版适合
+- **改动 2 (start-dev.sh)**：首次启动从 .env.example 自动创建 .env — 开源版适合
+- **改动 3 (start-dev.sh)**：Redis 失败自动降级到内存模式 — opensource profile 限定
+- **铲屎官意见**：应该在同步脚本加 transform 保护开源特有改动
+- **下一步**：与砚砚讨论同步脚本 transform 方案
+
+#### PR #67 — 预提交守卫 (bouillipx, 8 files) — 🟡 发现同步脚本 bug
+
+- **功能**：.githooks/pre-commit（worktree 隔离 + shared-state 守卫）
+- **命名差异**：PR 正确使用 ROADMAP.md（开源版命名），非 bug
+- **发现 bug**：`_sanitize-rules.pl` 只对 docs/cat-cafe-skills/ 做 BACKLOG→ROADMAP 替换（已由砚砚修复）
+- **处理方式**：关闭 PR（Lint 失败 + 同步覆盖），pre-commit hook 想法好，考虑从家里实现
+
+### 同步脚本修复（已完成）
+
+`_sanitize-rules.pl` 的 BACKLOG→ROADMAP 替换范围已由砚砚扩大到全局（不再限于 docs/cat-cafe-skills/）。
+同时新增 PR #60 的开源侧 transform（`sync-to-opensource.sh`），包括：
+- `package.json` 的 `pnpm start` → `./scripts/start-dev.sh --profile=opensource`
+- `start-dev.sh` 的 `.env` 自动创建 + Redis 降级（限 opensource profile）
+
+验证结果：`bash -n` / `perl -c` / dry-run 全部通过。
+
+### 待深入分析
+
+| PR | 作者 | 内容 | 状态 |
+|----|------|------|------|
+| #113 | mindfn | Windows 一键部署 | HOLD (开发中) |
+
+### 深入分析完成（6 个）
+
+#### PR #106 — done(isFinal) 保证 + CLI 超时 10分钟 (bouillipx, 7 files) — 🟢 推荐 Intake
+
+**两个独立改动**：
+1. **done(isFinal=true) 保证**：route-serial.ts 增加 `yieldedFinalDone` 追踪变量 + finally 块合成终端 done 事件。**家里没有**（line 876 仅 `if (doneMsg)` 无保底）。这是真 bug fix：如果 agent 不 yield done 或 abort，前端永远转圈。带 4 个测试。
+2. **CLI 超时 5→10 分钟**：cli-timeout.ts + useAgentMessages.ts DONE_TIMEOUT_MS 同步改。**家里仍是 5 分钟**。随 Claude CLI 模型越来越强、工具链越来越长，10 分钟更合理。
+3. **useAgentMessages 上下文感知超时消息**：区分「已看到工具事件」和「纯等待」，中文/英文不同提示。**家里没有**。
+
+**判断**：三项均为有价值改进且家里没有。建议 intake 到 cat-cafe，PR #106 可直接 merge 到 clowder-ai（代码质量好、有测试）。
+**注意**：route-serial.ts 家里版本 (889行) 和 PR 基于的旧版有差异，intake 需手动 port。
+
+#### PR #78 — 进程重启可见错误通知 (bouillipx, 3 files) — 🟢 推荐 Intake
+
+**做了什么**：StartupReconciler 扫到孤儿 invocation 后，向受影响的 thread 发送可见错误消息 + WebSocket 广播。
+- 新增 `messageStore` + `socketManager` 可选依赖
+- 新增 `notifyAffectedThreads()` 方法
+- 新增 `notifiedThreads` 计数在 sweep 结果
+- index.ts 注入 messageStore/socketManager
+- 3 个新测试 (正常通知、同线程去重、无 deps 时降级)
+
+**家里现状**：StartupReconciler 只做静默 sweep（line 15-20: `StartupSweepResult` 无 `notifiedThreads` 字段）。用户进程重启后看不到任何错误提示，只能手动重发。
+
+**判断**：非常有用的 UX 改进。家里确实缺这个。建议 intake。代码质量好，接口设计（optional deps + 降级）符合家里的风格。
+
+#### PR #73 — API Key 认证冲突检测 (bouillipx, 4 files) — 🟢 推荐 Intake
+
+**做了什么**：
+1. 新增 `auth-mode-detector.ts`：启动时检测 ANTHROPIC_API_KEY env + ~/.claude/settings.json 与 subscription profile 的冲突
+2. index.ts 增加启动检测调用（best-effort，不阻塞启动）
+3. setup.sh 增加 Step 3: 认证模式选择（subscription vs api_key），自动写入 provider-profiles
+4. 4 个测试
+
+**家里现状**：`auth-mode-detector.ts` 不存在。`provider-profiles.types.ts` 存在（类型已有）。setup.sh 没有认证步骤选择。
+
+**判断**：
+- `auth-mode-detector.ts` 对开源用户很有用（很多人会搞混 subscription vs api_key）— 建议 intake
+- `setup.sh` 改动与 PR #26 的 setup.sh 修改有冲突（都改了步骤编号），但方向正确
+- **注意**：setup.sh 使用了 `readFile(settingsPath)` 读 `~/.claude/settings.json`，隐私安全可接受（只检测 key 存在性，不读取 key 值）
+
+#### PR #26 — Skills symlink in setup wizard (mindfn, 9 files) — 🟡 部分 Intake
+
+**做了什么**：
+1. 新增 `scripts/sync-skills.sh`：创建 symlink 从 ~/.{claude,codex,gemini}/skills/ → cat-cafe-skills/
+2. 新增 `scripts/check-skills-mount.sh`：检查挂载状态
+3. setup.sh 增加 Step 3: Skills 挂载
+4. test:public 排除列表更新（加了 ~12 个新排除项）
+5. workspace-project-context.test.js git config 修复
+6. 几个 JSX 格式化修复（CatCafeHub, ChatInputActionButton, ToastContainer, VoteConfigModal）
+
+**家里现状**：`sync-skills.sh` 和 `check-skills-mount.sh` **已存在**（有更新的版本）。setup.sh 也有不同的改动。
+
+**判断**：
+- sync-skills.sh / check-skills-mount.sh → **已有等效或更新版本**，不需要
+- test:public 排除列表 → **有价值**，但列表已过时（家里的排除列表已不同）
+- workspace-project-context.test.js git config 修复 → **有价值**，小 fix 可以 cherry-pick
+- JSX 格式化 → **lint/prettier 自动修复**，下次同步会自动处理
+- setup.sh → 与 PR #73 冲突，需要合并考虑
+
+#### PR #85 — cat_cafe_create_thread MCP 工具 (bouillipx, 8 files) — 🟡 需要讨论
+
+**做了什么**：完整的 F115 实现：
+1. 新增 `callback-create-thread-routes.ts`：POST /api/callbacks/create-thread
+2. 新增 MCP 工具 `cat_cafe_create_thread` in callback-tools.ts
+3. SystemPromptBuilder 增加工具描述
+4. callbacks.ts 注册路由
+5. tool-registration.test.js 更新
+6. 新增 callback-create-thread.test.js（6 个测试）
+7. 新增 docs/features/F115-cat-create-thread.md spec
+8. 新增 BACKLOG.md（开源版用）
+
+**家里现状**：`cat_cafe_create_thread` **不存在**（grep 无结果）。callback-create-thread-routes.ts **不存在**。
+
+**判断**：
+- 这是一个完整的新功能（F115），代码质量高，有 spec + 测试 + 完整路由
+- **但**：这是功能性新增而非 bug fix，需要铲屎官决策是否引入
+- BACKLOG.md 文件不应该 merge（开源版用 ROADMAP.md，且我们家里有 docs/BACKLOG.md）
+- **风险**：猫可以无限制创建 thread，没有 rate limiting
+- **建议**：有价值但需要铲屎官立项决策，不宜静默 intake
+
+#### PR #107 — Proxy 上游弹性 (bouillipx, 2 files) — 🟢 已有等效实现
+
+**做了什么**：anthropic-proxy.mjs 增加：
+1. `fetchWithTimeout()` 替换原生 fetch（超时控制）
+2. 网络错误重试（ECONNREFUSED, ECONNRESET, UPSTREAM_TIMEOUT 等）
+3. `serializeProxyError()` 结构化错误响应（causeCode + retryable 标记）
+4. 修复 content-length 在 sanitization 后不匹配的问题
+5. 310 行新测试 (anthropic-proxy.test.js)
+
+**家里现状**：`anthropic-proxy.mjs` **已有** MAX_RETRIES, UPSTREAM_TIMEOUT_MS, fetchWithTimeout 等等（grep 找到 13 处匹配）。
+
+**判断**：**家里已经实现了等效功能**（很可能是同一个作者的改动已经通过其他途径合入）。差异点：
+- 家里 `UPSTREAM_TIMEOUT_MS` 默认 60000ms，PR 默认 30000ms
+- 家里有 `fetchWithTimeout` 但实现可能略有不同
+- **不需要 intake**，但 PR 的测试 (anthropic-proxy.test.js) 可能有参考价值
+- 关闭即可，说明家里已有等效实现
