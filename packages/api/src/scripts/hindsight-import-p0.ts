@@ -10,7 +10,6 @@ import {
 } from '../domains/cats/services/hindsight-import/p0-importer.js';
 import { writeP0SyncWatermark } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
-import { createHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
 
 interface CliArgs {
   dryRun: boolean;
@@ -80,7 +79,9 @@ async function main(): Promise<void> {
   if (!sourceCommit) {
     throw new Error('failed to resolve git HEAD commit');
   }
-  const client = createHindsightClient();
+  // Hindsight client removed in D-1 cleanup — this script is deprecated.
+  // Kept for reference; run will fail at retain() if not in dry-run mode.
+  const client = null as { retain(bank: string, items: unknown[], opts: unknown): Promise<void> } | null;
   const auditLog = getEventAuditLog();
 
   let totalItems = 0;
@@ -112,6 +113,7 @@ async function main(): Promise<void> {
       continue;
     }
 
+    if (!client) throw new Error('Hindsight client removed — this script is deprecated (D-1 cleanup)');
     await client.retain(args.bank, items, buildP0RetainOptions(items[0]?.tags));
     console.log(`[retain] ${sourcePath}: ${items.length} chunks`);
   }

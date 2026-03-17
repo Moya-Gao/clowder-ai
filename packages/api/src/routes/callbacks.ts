@@ -13,9 +13,7 @@ import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/R
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
 import { buildVoteNotification } from '../domains/cats/services/agents/routing/vote-intercept.js';
-import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
-import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
@@ -48,14 +46,6 @@ export interface CallbackRoutesOptions {
   backlogStore?: IBacklogStore;
   /** For thinking mode filtering in thread-context */
   threadStore?: IThreadStore;
-  hindsightClient?: IHindsightClient;
-  sharedBank?: string;
-  freshnessProvider?: () => Promise<P0Freshness>;
-  reimportTriggerProvider?: (freshness: P0Freshness) => Promise<{
-    status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed';
-    reason?: string;
-    nextAllowedAt?: string;
-  }>;
   /** For post_message @mention → invocation triggering */
   router?: AgentRouter;
   invocationRecordStore?: IInvocationRecordStore;
@@ -69,9 +59,9 @@ export interface CallbackRoutesOptions {
   /** F073 P1: workflow SOP store for bulletin board */
   workflowSopStore?: import('../domains/cats/services/stores/ports/WorkflowSopStore.js').IWorkflowSopStore;
   /** F102: DI memory services — when provided, routes use SQLite path instead of Hindsight */
-  evidenceStore?: IEvidenceStore;
-  markerQueue?: IMarkerQueue;
-  reflectionService?: IReflectionService;
+  evidenceStore: IEvidenceStore;
+  markerQueue: IMarkerQueue;
+  reflectionService: IReflectionService;
   /** Queue auto-dequeue on A2A invocation completion */
   queueProcessor?: {
     onInvocationComplete(threadId: string, catId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
@@ -1095,28 +1085,12 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     registerCallbackBootcampRoutes(app, { registry, threadStore: opts.threadStore });
   }
 
-  const memoryDeps: {
-    registry: InvocationRegistry;
-    hindsightClient?: IHindsightClient;
-    sharedBank?: string;
-    freshnessProvider?: () => Promise<P0Freshness>;
-    reimportTriggerProvider?: (freshness: P0Freshness) => Promise<{
-      status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed';
-      reason?: string;
-      nextAllowedAt?: string;
-    }>;
-    evidenceStore?: IEvidenceStore;
-    markerQueue?: IMarkerQueue;
-    reflectionService?: IReflectionService;
-  } = { registry };
-  if (opts.hindsightClient) memoryDeps.hindsightClient = opts.hindsightClient;
-  if (opts.sharedBank) memoryDeps.sharedBank = opts.sharedBank;
-  if (opts.freshnessProvider) memoryDeps.freshnessProvider = opts.freshnessProvider;
-  if (opts.reimportTriggerProvider) memoryDeps.reimportTriggerProvider = opts.reimportTriggerProvider;
-  if (opts.evidenceStore) memoryDeps.evidenceStore = opts.evidenceStore;
-  if (opts.markerQueue) memoryDeps.markerQueue = opts.markerQueue;
-  if (opts.reflectionService) memoryDeps.reflectionService = opts.reflectionService;
-  await registerCallbackMemoryRoutes(app, memoryDeps);
+  await registerCallbackMemoryRoutes(app, {
+    registry,
+    evidenceStore: opts.evidenceStore,
+    markerQueue: opts.markerQueue,
+    reflectionService: opts.reflectionService,
+  });
 
   // F086: Multi-mention orchestration routes
   if (router && invocationRecordStore) {

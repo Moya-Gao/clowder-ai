@@ -1,4 +1,17 @@
-import type { RetainItem, RetainOptions } from '../orchestration/HindsightClient.js';
+// Legacy types inlined after HindsightClient removal (D-1 cleanup)
+export interface RetainItem {
+  document_id?: string;
+  content: string;
+  tags?: string[];
+  metadata?: Record<string, string>;
+  timestamp?: number;
+}
+
+export interface RetainOptions {
+  async?: boolean;
+  document_tags?: string[];
+}
+
 import {
   buildP0Anchor,
   buildP0DocumentId,
