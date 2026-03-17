@@ -398,6 +398,52 @@ search_evidence(query, {
 - **feat-lifecycle 集成**：立项/状态变更/关闭时自动 `incrementalUpdate`
 - **SOP 更新**：在 `docs/SOP.md` 中加入"开工前先 recall"的步骤
 
+### Phase E: Thread 内容索引 — 从"空壳"到"300 thread 可搜"
+
+> **触发**：Phase D runtime 测试暴露核心 gap——thread 对话内容不可搜。
+> **砚砚(GPT-5.4) 愿景守护结论**：Phase D AC 文档闭合度 90%，runtime 验收完成度 60%。
+> **铲屎官核心需求**："把我们的整个 thread 检索归一到记忆组件"
+> **三层真相源设计**（两猫共识）：threadMemory.summary + sealed transcript events.jsonl + live MessageStore
+
+**当前 Gap（Phase D 测试 thread 暴露）**
+
+| 优先级 | Gap | 根因 |
+|--------|-----|------|
+| P1 | scope=threads/sessions 返回 0 结果 | session digest 路径解析问题（类似 docsRoot CWD bug，PR #524 修了 docs 但 transcriptDataDir 可能仍有问题） |
+| P1 | 300 个 thread 对话内容不可搜 | thread 消息在 Redis（TTL=0 永久），但从未被索引到 evidence.sqlite |
+| P2 | reflect 返回空 | ReflectionService 仍是空壳 `async () => ''` |
+| P2 | lesson/pitfall 召回偏 | redis pitfall 命中无关 F048 |
+
+**E-1. Thread Summary Layer（Step 1）**
+
+目标：让 thread 在统一入口里"有摘要层可命中"。不是"thread 内容可搜已完成"。
+
+- 新增 `kind='thread'`（区别于 `session` = sealed session digest）
+- `anchor = thread-{threadId}`
+- `title = thread.title`
+- `summary = threadMemory.summary`（现成的滚动摘要，不需要 LLM）
+- `keywords = [参与者 catId, backlogItemId, feature_ids]`
+- **dirty-thread + 30s debounce flush** 基础设施
+  - `messageStore.append()` 后标记 threadId dirty
+  - 每 30 秒批量刷新 dirty threads 到 SQLite
+  - 启动时全量 catch-up
+
+**E-2. Thread Raw Passage Layer（Step 2）**
+
+目标：让"Redis 坑在第 47 条消息"也能命中。这才是真正兑现"thread 内容可搜"。
+
+- 启用 `evidence_passages` 表（Schema V3）
+- 数据源：sealed transcript `events.jsonl` chat 文本 + live `MessageStore` 未封存增量
+- 切 passage 策略：按 turn/消息，每条消息一个 passage
+- `depth=raw` 时搜 passages，聚合回 `thread-{threadId}`
+- FTS5 索引扩展到 passages 表
+
+**E-3. 辅修**
+
+- reflect 返回显式降级消息（不再返回空字符串）
+- lesson/pitfall 召回质量改进（keywords 补充 + FTS5 索引调优）
+- session digest 路径修复（确认 transcriptDataDir 解析正确）
+
 ## Phase D 完成后的预期效果
 
 > 铲屎官指示：做完后要讲清楚"铲屎官日常使用感受到什么优化"和"猫猫自己感受到什么优化"。跑一段时间才知道做得好不好。
@@ -500,6 +546,16 @@ search_evidence(query, {
 - [x] AC-D17: SystemPromptBuilder 更新——`search_evidence` 排在记忆工具第一位，drill-down 工具排在后面 — **PR #523 merged**
 - [x] AC-D18: `IIndexBuilder.rebuild()` 自动从 frontmatter 交叉引用（`related_features`/`feature_ids`/`decision_id`）提取 edges（零手工维护） — **PR #509 merged**
 - [x] AC-D19: `incrementalUpdate()` 变更检测 → edges 反向查询 → 依赖文档标 `needs_review`（memory invalidation） — **PR #521 merged**
+
+### Phase E（Thread 内容索引 — 从"空壳"到"300 thread 可搜"）
+- [ ] AC-E1: Thread summary 索引为 `kind='thread'`（`anchor=thread-{threadId}`，`summary=threadMemory.summary`）
+- [ ] AC-E2: dirty-thread + 30s debounce flush 基础设施（messageStore.append → dirty → 30s batch flush）
+- [ ] AC-E3: `evidence_passages` 表启用（Schema V3）+ sealed transcript chat 文本切 passage
+- [ ] AC-E4: live MessageStore 未封存增量切 passage 入库
+- [ ] AC-E5: `scope=threads` + `depth=raw` 搜 passages 并聚合回 thread
+- [ ] AC-E6: reflect 返回显式降级消息（不再返回空字符串）
+- [ ] AC-E7: session digest 路径修复（transcriptDataDir 解析确认正确）
+- [ ] AC-E8: lesson/pitfall 召回质量改进
 
 ## Dependencies
 
@@ -606,6 +662,10 @@ search_evidence(query, {
 | 2026-03-17 | 缅因猫(GPT-5.4) 愿景守护通过：方向没偏离，最后 3 AC 作为 MCP convergence bundle 收口 |
 | 2026-03-18 | **PR #523 squash merged** — AC-D15 + AC-D16 + AC-D17 ✅（MCP 收敛 + SystemPromptBuilder） |
 | 2026-03-18 | **Phase D 完成：19/19 AC ✅，9 PRs merged** |
+| 2026-03-18 | Runtime 测试 thread 暴露 P1：thread 内容不可搜、session digest 未入库 |
+| 2026-03-18 | **PR #524 merged** — docsRoot CWD bug 修复 + MCP schema 升级 |
+| 2026-03-18 | 布偶猫+砚砚(GPT-5.4) 终态设计讨论：三层真相源 + dirty-thread + evidence_passages |
+| 2026-03-18 | Phase E 立项：Thread 内容索引（8 AC） |
 
 ## Review Gate
 
