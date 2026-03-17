@@ -313,12 +313,12 @@ created: 2026-03-12
 | Issue | 标题 | 类型 | 家里状态 | 同步前优先级 |
 |-------|------|------|---------|-------------|
 | #124 | 目录选择器改自定义组件 | enhancement | DirectoryPickerModal 已存在 (F124 新需求) | 🟡 可以做 |
-| #123 | governance preflight 阻断新项目 | bug | 未修 | 🟢 **影响首次体验** |
+| #123 | governance preflight 阻断新项目 | bug | **✅ 已修** | ~~🟢 **影响首次体验**~~ PR #532 merged |
 | #120 | 临时文件管理规范 | enhancement | 未做 | 🟡 规范类 |
 | #116 | CLI done 事件 NDJSON 丢失 | bug | 部分覆盖 (8a28d74c) | 🟡 已部分解决 |
 | #109 | 猫猫管理重构 F127 | enhancement | 未做 | ⚪ 大重构，社区领取 |
 | #101 | 更新 thread projectPath | feature | 未做 | 🟡 |
-| #97 | governance 泄漏端口默认值 | bug | 未修 | 🟢 **影响外部项目** |
+| #97 | governance 泄漏端口默认值 | bug | **✅ 已修** | ~~🟢 **影响外部项目**~~ PR #532 merged |
 | #93 | thread 后台任务管理器 | enhancement | 未做 | ⚪ 大功能 |
 | #87 | .env.example defaults drift | bug | 未修 | 🟢 **新用户陷阱** |
 | #81 | Marketplace 外部 Skills 仓库 | enhancement | 未做 | ⚪ 长期 |
@@ -329,7 +329,7 @@ created: 2026-03-12
 | #56 | 端口默认值不一致（中文） | bug | 未修 | 🔴 与 #55 重复 |
 | #55 | port defaults inconsistency | bug | 未修 | 🟢 **与 #87 关联** |
 | #50 | pnpm start 默认直启 | enhancement | 已做 (--profile=opensource) | 🔴 **可关闭** |
-| #21 | setup wizard 缺 skills symlink | bug | 已做 (sync-skills.sh 存在) | 🔴 **可关闭** |
+| #21 | setup wizard 缺 skills symlink | bug | **✅ 已修** | ~~🔴 **可关闭**~~ PR #532 merged |
 | #1 | Welcome Beta Testers | — | — | ⚪ 置顶帖 |
 
 ### 开源前必做 — Tier 1（5 个，含仲裁修正）
@@ -338,12 +338,9 @@ created: 2026-03-12
 
 1. **#84** — ✅ setCatStatus 更新风暴 — **已修** PR #527 merged (idempotent guard, 非 throttle)
 2. **#87/#55** — .env.example 端口不一致（开源用户照抄会端口冲突）
-3. **#123** — governance preflight 阻断新项目（GovernanceRegistry 用 catCafeRoot 路径，新 clone 直接 throw）
-4. **#97** — governance 泄漏端口默认值（家里内部端口号硬编码到 governance 配置）
-5. **#21** — setup.sh 缺 skills sync 步骤 ⚠️ **仲裁修正：从"可关闭"升级为 P1**
-   - `setup.sh` (413行) grep "skill" 零命中，交互式向导完全没有 skills 步骤
-   - `install.sh` L273-281 有 skills symlink 逻辑，但 setup.sh 是开源用户的入口，两者不互通
-   - 砚砚说得对："脚本存在 ≠ 流程闭环"
+3. **#123** — ✅ governance preflight 阻断新项目 — **已修** PR #532 merged (needsBootstrap/needsConfirmation/bootstrapCommand)
+4. **#97** — ✅ governance 泄漏端口默认值 — **已修** PR #532 merged (sync-pipeline transforms, pack v1.3.0)
+5. **#21** — ✅ setup.sh 缺 skills sync 步骤 — **已修** PR #532 merged (Step 5/6 skills symlink creation)
 
 ### 第二梯队 — Tier 2（4 个，可做不紧急）
 
