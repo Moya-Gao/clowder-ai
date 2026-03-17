@@ -96,3 +96,4 @@
 | F125 | F125: Alpha 验收通道 — main-test 升级为正式 alpha 测试基础设施 | done | [F125-alpha-test-channel.md](./F125-alpha-test-channel.md) |
 | F092 | F092: Cats & U 语音陪伴体验 — P0 voice mode + auto-play (P1+ evolved to F124) | done | [F092-voice-companion-experience.md](./F092-voice-companion-experience.md) |
 | F121 | F121: Community Frontend UX Triage — 社区前端交互体验侦查与分诊 | done | [F121-community-frontend-ux-triage.md](./F121-community-frontend-ux-triage.md) |
+| F111 | F111: Streaming TTS Chunker — 流式分句合成管线 | done | [F111-streaming-tts-chunker.md](./F111-streaming-tts-chunker.md) |

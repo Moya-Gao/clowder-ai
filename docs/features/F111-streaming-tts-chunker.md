@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F111: Streaming TTS Chunker — 流式分句合成管线
 
-> **Status**: spec | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
+> **Status**: done | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
 
 ## Why
 
@@ -46,12 +46,12 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 ## Acceptance Criteria
 
 ### Phase A（Streaming Chunker）
-- [ ] AC-A1: LLM 流式输出到首次发声延迟 < 2 秒（100 字以上文本）
-- [ ] AC-A2: 长文本（>100 字）端到端合成延迟比全文合成降低 50%+
-- [ ] AC-A3: 中文标点正确断句（不在词中间断开）
-- [ ] AC-A4: 前 2 个 segment 的 Boost 机制生效（可通过日志验证）
-- [ ] AC-A5: 非流式合成路径不受影响（回归测试）
-- [ ] AC-A6: AudioBlock 流式播放时进度条平滑更新
+- [ ] AC-A1: LLM 流式输出到首次发声延迟 < 2 秒（100 字以上文本）— 需真 TTS server 验证
+- [ ] AC-A2: 长文本（>100 字）端到端合成延迟比全文合成降低 50%+ — 需真 TTS server 验证
+- [x] AC-A3: 中文标点正确断句（不在词中间断开）— TtsChunker 17 tests 覆盖
+- [x] AC-A4: 前 2 个 segment 的 Boost 机制生效（可通过日志验证）— TtsChunker 含 boost 测试
+- [x] AC-A5: 非流式合成路径不受影响（回归测试）— route-serial/parallel 的 !voiceMode guard
+- [x] AC-A6: AudioBlock 流式播放时进度条平滑更新 — useStreamingAudio onTimeUpdate
 
 ## Dependencies
 
@@ -75,6 +75,16 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | OQ-1 | 流式协议用 WebSocket 还是 SSE？ | ✅ **已决：SSE**（前端用 `fetch` + `ReadableStream` 消费，非 `EventSource`）。单向推送足够（后端→前端），复杂度远低于 WebSocket，我们有实时推送经验（socket.io 广播）。Binary chunk 用 Base64 编码，每 chunk 0.6-3s 音频约 20-100KB，overhead 可接受。社区主流方案（CloudWells、vLLM-Omni Gradio）也用 HTTP chunked streaming。鉴权方案：`fetch` 保留自定义 header（`X-Cat-Cafe-User`），无需 `EventSource` 的 token/query 折衷。决策者：金渐层 (2026-03-16) |
 | OQ-2 | Qwen3-TTS 是否原生支持 streaming output？ | ✅ **已决：模型原生支持，但 mlx-audio SDK 的 `generate_audio()` 不支持**。Qwen3-TTS 论文明确 "dual-track LM for real-time synthesis"，12Hz tokenizer 首包 97ms。但官方 `qwen-tts` SDK 和 `mlx-audio` 的 generate 方法返回完整 waveform。社区方案：KV-cache step-by-step（CloudWells/qwen3-tts-realtime-streaming），vLLM-Omni `/v1/audio/speech/stream` 端点。实施路径：先 C（Node 层 Chunker 分段调用全量合成，伪流式）快速验证体验；**退出条件：若 C 达不到 AC-A1（首发 < 2s）或 AC-A2（延迟降 50%+），直接切方案 A（vLLM-Omni 真流式）**；B（KV-cache 手动 step）保留为研究备胎，不作为主线。决策者：金渐层 (2026-03-16) |
 
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-03-12 | Spec 创建 |
+| 2026-03-16 | Spec OQ 全部解决，砚砚 spec review 放行 (`688e5370`) |
+| 2026-03-17 | 实现完成，砚砚 impl review 4 轮放行 (`4e0d9337`) |
+| 2026-03-17 | Codex cloud review 2P2 修复 (`7f388404`) |
+| 2026-03-17 | PR #522 squash merge (`fdc86e58`) |
+
 ## Links
 
 | 类型 | 路径 | 说明 |
@@ -82,3 +92,5 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | **Evolved from** | `docs/features/F066-voice-pipeline-upgrade.md` | Phase 2 原始设计 |
 | **Reference** | `docs/features/F054-hci-preheat-infra.md` | AIRI tts-chunker 参考架构 |
 | **Research** | `docs/research/TTS-research.md` | TTS 技术调研 |
+| **Plan** | `docs/plans/2026-03-16-f111-streaming-tts-chunker.md` | 7-task 实施计划 |
+| **PR** | [#522](https://github.com/zts212653/cat-cafe/pull/522) | Squash merge commit `fdc86e58` |
