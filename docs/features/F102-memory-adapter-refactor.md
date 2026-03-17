@@ -548,12 +548,12 @@ search_evidence(query, {
 - [x] AC-D19: `incrementalUpdate()` 变更检测 → edges 反向查询 → 依赖文档标 `needs_review`（memory invalidation） — **PR #521 merged**
 
 ### Phase E（Thread 内容索引 — 从"空壳"到"300 thread 可搜"）
-- [ ] AC-E1: Thread summary 索引为 `kind='thread'`（`anchor=thread-{threadId}`，`summary=threadMemory.summary`）
-- [ ] AC-E2: dirty-thread + 30s debounce flush 基础设施（messageStore.append → dirty → 30s batch flush）
+- [x] AC-E1: Thread summary 索引为 `kind='thread'`（`anchor=thread-{threadId}`，`summary=threadMemory.summary`） — **PR #526 merged**
+- [x] AC-E2: dirty-thread + 30s debounce flush 基础设施（messageStore.append → dirty → 30s batch flush） — **PR #526 merged**
 - [ ] AC-E3: `evidence_passages` 表启用（Schema V3）+ sealed transcript chat 文本切 passage
 - [ ] AC-E4: live MessageStore 未封存增量切 passage 入库
 - [ ] AC-E5: `scope=threads` + `depth=raw` 搜 passages 并聚合回 thread
-- [ ] AC-E6: reflect 返回显式降级消息（不再返回空字符串）
+- [x] AC-E6: reflect 返回显式降级消息（不再返回空字符串） — **PR #526 merged**
 - [ ] AC-E7: session digest 路径修复（transcriptDataDir 解析确认正确）
 - [ ] AC-E8: lesson/pitfall 召回质量改进
 
@@ -666,6 +666,7 @@ search_evidence(query, {
 | 2026-03-18 | **PR #524 merged** — docsRoot CWD bug 修复 + MCP schema 升级 |
 | 2026-03-18 | 布偶猫+砚砚(GPT-5.4) 终态设计讨论：三层真相源 + dirty-thread + evidence_passages |
 | 2026-03-18 | Phase E 立项：Thread 内容索引（8 AC） |
+| 2026-03-18 | **PR #526 squash merged** — AC-E1 + AC-E2 + AC-E6 ✅（thread summary + debounce + reflect fix） |
 
 ## Review Gate
 
