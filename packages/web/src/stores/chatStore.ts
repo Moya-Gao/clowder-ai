@@ -841,7 +841,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { targetCats: merged, catStatuses: statuses };
     }),
 
-  setCatStatus: (catId, status) => set((state) => ({ catStatuses: { ...state.catStatuses, [catId]: status } })),
+  setCatStatus: (catId, status) =>
+    set((state) => {
+      if (state.catStatuses[catId] === status) return state;
+      return { catStatuses: { ...state.catStatuses, [catId]: status } };
+    }),
 
   clearCatStatuses: () => set({ targetCats: [], catStatuses: {} }),
 
@@ -1211,11 +1215,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   addThreadActiveInvocation: (threadId, invocationId, catId, mode) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        const activeInvocations = { ...state.activeInvocations, [invocationId]: { catId, mode, startedAt: Date.now() } };
+        const activeInvocations = {
+          ...state.activeInvocations,
+          [invocationId]: { catId, mode, startedAt: Date.now() },
+        };
         return { activeInvocations, hasActiveInvocation: true };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
-      const activeInvocations = { ...existing.activeInvocations, [invocationId]: { catId, mode, startedAt: Date.now() } };
+      const activeInvocations = {
+        ...existing.activeInvocations,
+        [invocationId]: { catId, mode, startedAt: Date.now() },
+      };
       return {
         threadStates: {
           ...state.threadStates,
@@ -1442,12 +1452,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   /** Update a specific cat's status in a background thread (for sidebar indicators) */
   updateThreadCatStatus: (threadId, catId, status) =>
     set((state) => {
-      // Active thread — update flat catStatuses directly
       if (threadId === state.currentThreadId) {
+        if (state.catStatuses[catId] === status) return state;
         return { catStatuses: { ...state.catStatuses, [catId]: status } };
       }
-      // Background thread — update in map
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      if (existing.catStatuses[catId] === status) return state;
       return {
         threadStates: {
           ...state.threadStates,
@@ -1473,21 +1483,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
 
       if (threadId === state.currentThreadId) {
+        const statusChanged = state.catStatuses[catId] !== catStatus;
         return {
           messages: state.messages.map(applyMessageUpdate),
-          catStatuses: { ...state.catStatuses, [catId]: catStatus },
+          ...(statusChanged ? { catStatuses: { ...state.catStatuses, [catId]: catStatus } } : {}),
         };
       }
 
       const existing = state.threadStates[threadId];
       if (!existing) return state;
+      const statusChanged = existing.catStatuses[catId] !== catStatus;
       return {
         threadStates: {
           ...state.threadStates,
           [threadId]: {
             ...existing,
             messages: existing.messages.map(applyMessageUpdate),
-            catStatuses: { ...existing.catStatuses, [catId]: catStatus },
+            ...(statusChanged ? { catStatuses: { ...existing.catStatuses, [catId]: catStatus } } : {}),
             lastActivity: Date.now(),
           },
         },
