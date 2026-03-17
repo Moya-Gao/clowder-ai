@@ -8,10 +8,10 @@ created: 2026-02-28
 
 # F048: Restart Recovery — 重启自愈（Invocation/Queue 恢复）
 
-> **Status**: Phase A done / Phase B idea | **Owner**: 布偶猫
+> **Status**: Phase A done / Phase A+ in-progress / Phase B idea | **Owner**: 布偶猫 → 金渐层（Phase A+）
 > **Created**: 2026-02-28
-> **Priority**: P1（Phase A 已交付）
-> **Phase**: A ✅ / B idle
+> **Priority**: P1（Phase A 已交付，Phase A+ 进行中）
+> **Phase**: A ✅ / A+ 🔄 / B idle
 
 ---
 
@@ -31,7 +31,13 @@ created: 2026-02-28
 
 API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records → 标为 `failed(error=process_restart)` → 清理对应 TaskProgress → 写 audit log。
 
-**为什么现在就要做**：`InvocationRecordStore` 在有 Redis 时已是持久化的（`RedisInvocationRecordStore`，TTL 7 天）。执行开始后状态写成 `running`，如果 API 在终态前崩掉，record 会跨重启保留。retry 端点只允许 `failed/queued`，`running` 返回 409 → 用户看到”在跑”但永远不会结束，且无法 retry。
+**为什么现在就要做**：`InvocationRecordStore` 在有 Redis 时已是持久化的（`RedisInvocationRecordStore`，TTL 7 天）。执行开始后状态写成 `running`，如果 API 在终态前崩掉，record 会跨重启保留。retry 端点只允许 `failed/queued`，`running` 返回 409 → 用户看到"在跑"但永远不会结束，且无法 retry。
+
+### Phase A+ — 用户可见通知（Phase A 的自然延伸，intake 自社区 PR #78）
+
+Phase A 只做了后台清理（用户不可见），Phase A+ 补上用户可见层：sweep 完成后，给受影响的 thread 发可见错误消息。
+
+**来源**：开源社区 clowder-ai PR #78 / Issue #77（bouillipx 提交）。手动 port 含两处修正。
 
 ### Phase B — 队列持久化（重型，后做）
 
@@ -49,6 +55,15 @@ API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records �
 - [x] retry 端点在 sweep 后能正常工作（status=`failed` → 可 retry）
 - [x] 有测试覆盖：模拟 stale running record → 启动 sweep → 验证状态收敛
 
+## Acceptance Criteria — Phase A+（用户通知，intake 自社区 PR #78）
+
+- [ ] AC-A+1: sweep 完成后，给每个受影响的 thread 发一条可见错误消息（列出被中断的猫猫）
+- [ ] AC-A+2: 消息持久化走 `source` 字段（如 `startup-reconciler`），不走 `catId: null`，确保 WS 和历史回放语义一致
+- [ ] AC-A+3: thread 级去重 — 同一 thread 的多个孤儿 invocation 合并为一条通知
+- [ ] AC-A+4: append/broadcast best-effort — 通知失败不影响启动主流程
+- [ ] AC-A+5: messageStore 和 socketManager 是 optional deps — memory mode 下正常跳过
+- [ ] AC-A+6: 有测试覆盖：模拟 sweep 后验证通知发送、去重、失败不阻塞
+
 ## Acceptance Criteria — Phase B（后续）
 
 - [ ] 重启后：队列不丢（queued 条目可恢复）
@@ -62,12 +77,15 @@ API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records �
 | Discussion | `docs/discussions/2026-02-28-restart-recovery/README.md` | 立项来源（铲屎官口述） |
 | Evolved from | `docs/features/F039-message-queue-delivery.md` | 队列交付后的自然演进 |
 | Plan | `docs/plans/2026-03-06-f048-phase-a-startup-sweep.md` | Phase A 实施计划 |
+| Community PR | `clowder-ai PR #78` | Phase A+ 社区来源（bouillipx） |
+| Community Issue | `clowder-ai Issue #77` | process_restart 静默吞消息 |
 
 ## Key Decisions
 
-- **A/B 分段交付（2026-03-06 三猫讨论）**：不再坚持”要做就做完整体验”。Phase A 先补 correctness 缺口（启动收尸），Phase B 再做队列持久化
-- **收尸策略用 `failed` 而非新增 `interrupted` 状态**：避免前端新增渲染分支，直接清除 TaskProgress 让前端回到”无进度”态。error 字段标注 `process_restart` 作为区分
+- **A/B 分段交付（2026-03-06 三猫讨论）**：不再坚持"要做就做完整体验"。Phase A 先补 correctness 缺口（启动收尸），Phase B 再做队列持久化
+- **收尸策略用 `failed` 而非新增 `interrupted` 状态**：避免前端新增渲染分支，直接清除 TaskProgress 让前端回到"无进度"态。error 字段标注 `process_restart` 作为区分
 - **不扫 ndjson 推断死亡**（否决旧分支 `fix/invocation-restart-guard` 的方案）：直接在启动时 sweep Redis stale records，更直接可靠
+- **Phase A+ 持久化走 `source` 不走 `catId: null`**（2026-07-14 三猫 review 收敛）：因为历史接口 `messages.ts:956` 把 `catId=null && !source` 映射成 `user`，直接写库会导致刷新后变成"用户消息"。走 `source` 字段（如 `startup-reconciler`）则映射为 `connector`，语义正确
 
 ## Evidence（三猫讨论关键证据）
 
@@ -103,7 +121,7 @@ API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records �
 ## Open Questions
 
 1. Phase A sweep 阈值：`running` record 的 `updatedAt` 距今多久算 stale？（建议：启动时 **全量 sweep running**，因为重启 = 所有子进程必死；`queued` 则看创建时间 > 5min）
-2. Phase A 是否需要 WebSocket 通知前端？（建议：先不做，前端下次 poll 时自然看到 `failed`）
+2. ~~Phase A 是否需要 WebSocket 通知前端？~~（已决：Phase A+ 补上通知，含 WS broadcast + 消息持久化）
 3. Phase B 的触发条件：当 InvocationQueue 有明确的 Redis 迁移需求时再启动
 
 ## Review Gate
@@ -122,3 +140,4 @@ API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records �
 - 2026-03-06: Status: idea → spec，Phase A ready for implementation
 - 2026-03-06: Phase A 实现 + codex R1→R5 + gpt52 R1→R2 + 云端 R1 → PR #249 squash merged
 - 2026-03-06: Phase A done，Phase B idle（队列持久化，待需求驱动）
+- 2026-07-14: 社区 PR #78 / Issue #77 → Phase A+ 立项（用户可见通知），intake 含持久化语义修正
