@@ -46,18 +46,45 @@ export class GameAutoPlayer {
   startLoop(gameId: string): void {
     if (this.activeLoops.has(gameId)) return;
     this.activeLoops.add(gameId);
+    console.log(`[GameAutoPlayer] Loop started for ${gameId}`);
     this.runLoop(gameId)
       .catch((err) => {
         console.error(`[GameAutoPlayer] Loop error for ${gameId}:`, err);
       })
       .finally(() => {
         this.activeLoops.delete(gameId);
+        console.log(`[GameAutoPlayer] Loop exited for ${gameId}`);
       });
   }
 
   /** Stop tracking a game loop */
   stopLoop(gameId: string): void {
     this.activeLoops.delete(gameId);
+  }
+
+  /** Check if a loop is active for a game */
+  isLoopActive(gameId: string): boolean {
+    return this.activeLoops.has(gameId);
+  }
+
+  /** Recover auto-play loops for all active games in store (AC-G1).
+   *  Call at API startup to resume games after process restart. */
+  async recoverActiveGames(): Promise<number> {
+    const activeGames = await this.store.listActiveGames();
+    let recovered = 0;
+    for (const game of activeGames) {
+      if (game.status === 'playing') {
+        console.log(
+          `[GameAutoPlayer] Recovering loop for ${game.gameId} (phase=${game.currentPhase}, round=${game.round})`,
+        );
+        this.startLoop(game.gameId);
+        recovered++;
+      }
+    }
+    if (recovered > 0) {
+      console.log(`[GameAutoPlayer] Recovered ${recovered} active game(s)`);
+    }
+    return recovered;
   }
 
   private async runLoop(gameId: string): Promise<void> {
@@ -86,6 +113,11 @@ export class GameAutoPlayer {
       }
 
       const acted = await this.actForPhase(runtime);
+      if (acted) {
+        console.log(
+          `[GameAutoPlayer] ${gameId} tick=${tick} phase=${runtime.currentPhase} round=${runtime.round} — actions submitted`,
+        );
+      }
 
       // Small delay between ticks — let phase transitions settle
       await sleep(acted ? TICK_MS : TICK_MS * 2);

@@ -829,6 +829,23 @@ async function main(): Promise<void> {
     app.log.warn(`[api] CLI config regeneration failed (best-effort): ${String(err)}`);
   }
 
+  // F101 Phase G: Recover auto-play loops for active games after restart.
+  // Without this, games in Redis with status=playing have no driving loop.
+  if (f101GameStore && socketManager) {
+    const { GameAutoPlayer } = await import('./domains/cats/services/game/GameAutoPlayer.js');
+    const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
+    const recoveryOrchestrator = new GameOrchestrator({ gameStore: f101GameStore, socketManager });
+    const recoveryPlayer = new GameAutoPlayer({ gameStore: f101GameStore, orchestrator: recoveryOrchestrator });
+    try {
+      const recovered = await recoveryPlayer.recoverActiveGames();
+      if (recovered > 0) {
+        app.log.info(`[api] F101 auto-play recovery: restored ${recovered} active game loop(s)`);
+      }
+    } catch (err) {
+      app.log.warn(`[api] F101 auto-play recovery failed (best-effort): ${String(err)}`);
+    }
+  }
+
   // Phase 3b: connector invoke trigger (auto-invoke cat after review email routing)
   const frontendBaseUrl = resolveFrontendBaseUrl(process.env, app.log);
   const invokeTrigger = new ConnectorInvokeTrigger({

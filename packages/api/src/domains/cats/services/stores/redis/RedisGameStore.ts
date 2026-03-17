@@ -56,6 +56,23 @@ export class RedisGameStore implements IGameStore {
     await this.redis.set(GameKeys.detail(gameId), JSON.stringify(runtime));
   }
 
+  async listActiveGames(): Promise<GameRuntime[]> {
+    // IMPORTANT: ioredis keyPrefix does NOT auto-apply to keys()/scan().
+    // Must manually prepend prefix for pattern matching, then strip it for get().
+    const prefix = (this.redis.options as { keyPrefix?: string }).keyPrefix ?? '';
+    const keys = await this.redis.keys(`${prefix}game:thread:*:active`);
+    const games: GameRuntime[] = [];
+    for (const key of keys) {
+      // Strip prefix before passing to get() (which auto-applies prefix)
+      const bareKey = prefix ? key.slice(prefix.length) : key;
+      const gameId = await this.redis.get(bareKey);
+      if (!gameId) continue;
+      const game = await this.getGame(gameId);
+      if (game) games.push(game);
+    }
+    return games;
+  }
+
   async endGame(gameId: string, winner: string): Promise<void> {
     const existing = await this.redis.get(GameKeys.detail(gameId));
     if (!existing) throw new Error(`Game ${gameId} not found`);
