@@ -53,7 +53,8 @@ export const reflectTools = [
   {
     name: 'cat_cafe_reflect',
     description:
-      'Ask a reflective question about the project. Uses Hindsight LLM reflection to synthesize insights from stored project knowledge.',
+      'Ask a reflective question about the project. Uses Hindsight LLM reflection to synthesize insights from stored project knowledge. ' +
+      'Supports both public and callback auth.',
     inputSchema: reflectInputSchema,
     handler: handleReflect,
   },

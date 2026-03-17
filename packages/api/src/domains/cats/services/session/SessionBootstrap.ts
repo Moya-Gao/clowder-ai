@@ -166,9 +166,11 @@ export async function buildSessionBootstrap(
   const toolLines: string[] = [];
   toolLines.push('');
   toolLines.push('[Session Recall — Available Tools]');
-  toolLines.push('You have access to these tools for retrieving context from previous sessions:');
+  toolLines.push('You have access to these tools for retrieving context:');
+  toolLines.push('- cat_cafe_search_evidence: **Start here** — search project knowledge base');
+  toolLines.push('');
+  toolLines.push('Drill-down tools (after search_evidence hits):');
   toolLines.push('- cat_cafe_list_session_chain: List all sessions in this thread');
-  toolLines.push('- cat_cafe_session_search: Search across session transcripts and digests');
   toolLines.push('- cat_cafe_read_session_digest: Read summary of a specific session');
   toolLines.push(
     '- cat_cafe_read_session_events: Read detailed events (use view=handoff for per-invocation summaries)',
@@ -176,7 +178,7 @@ export async function buildSessionBootstrap(
   toolLines.push('- cat_cafe_read_invocation_detail: Read all events for a specific invocation');
   toolLines.push('');
   toolLines.push('When unsure about previous decisions, file changes, or context:');
-  toolLines.push('1. Use cat_cafe_session_search to find relevant prior sessions');
+  toolLines.push('1. Use cat_cafe_search_evidence to find relevant knowledge');
   toolLines.push('2. Use cat_cafe_read_session_events(view=handoff) for per-invocation summaries');
   toolLines.push('3. Use cat_cafe_read_invocation_detail to drill into a specific invocation');
   toolLines.push('Do NOT guess about what happened in previous sessions.');

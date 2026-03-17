@@ -197,11 +197,23 @@ const PROVIDER_LABELS: Record<string, string> = {
  */
 const MCP_TOOLS_SECTION = `
 MCP 工具用于异步汇报等场景（token 有效期有限）：
+
+**记忆工具（先搜后问）：**
+- cat_cafe_search_evidence: **首选入口** — 搜索项目知识库（决策/讨论/教训/phase history）
+- cat_cafe_reflect: 反思性问题 — 从项目知识中合成洞察
+
+**记忆 drill-down 工具（search_evidence 命中后深入）：**
+- cat_cafe_list_session_chain: 列出 thread 的 session 链
+- cat_cafe_read_session_digest: 读 session 摘要（sealed 后可用）
+- cat_cafe_read_session_events: 读 session 事件（支持 raw/chat/handoff 视图）
+- cat_cafe_read_invocation_detail: 读某次 invocation 的所有事件
+
+**协作工具：**
 - cat_cafe_post_message: 异步消息
 - cat_cafe_register_pr_tracking: 注册 PR tracking（review 路由）
 - cat_cafe_get_pending_mentions: 获取 @提及
 - cat_cafe_get_thread_context: 获取对话上下文
-- cat_cafe_search_messages: 检索消息
+- cat_cafe_list_threads: 列出 thread 摘要
 - cat_cafe_update_task: 更新任务状态
 - cat_cafe_create_rich_block: 创建 rich block
 - cat_cafe_get_rich_block_rules: 获取 rich block 规则（fallback）

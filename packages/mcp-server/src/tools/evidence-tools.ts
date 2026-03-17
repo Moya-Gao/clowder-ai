@@ -93,7 +93,9 @@ export const evidenceTools = [
   {
     name: 'cat_cafe_search_evidence',
     description:
-      'Search project knowledge base for decisions, discussions, phase history, and other evidence. Uses Hindsight Recall with local docs fallback.',
+      'Search project knowledge base (decisions, discussions, phase history, lessons learned). ' +
+      'This is the PRIMARY entry point for all memory recall — start here before drilling down. ' +
+      'Uses Hindsight Recall with local docs fallback. Supports both public and callback auth.',
     inputSchema: searchEvidenceInputSchema,
     handler: handleSearchEvidence,
   },
