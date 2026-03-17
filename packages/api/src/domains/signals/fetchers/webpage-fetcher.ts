@@ -67,11 +67,23 @@ function parseWebpageArticles(html: string, source: SignalSource, fetchedAt: str
     const publishedAt = normalizeText(element.find('time[datetime]').first().attr('datetime')) ?? fetchedAt;
     const summary = normalizeText(element.find('p').first().text());
 
+    // Extract body content: all text from paragraphs, lists, blockquotes, etc.
+    // Exclude heading text (already captured as title) and link-only elements.
+    const bodyParts: string[] = [];
+    element.find('p, li, blockquote, pre, td, dd').each((_, el) => {
+      const text = normalizeText($(el).text());
+      if (text && text !== title) {
+        bodyParts.push(text);
+      }
+    });
+    const content = bodyParts.length > 0 ? bodyParts.join('\n\n') : undefined;
+
     articles.push({
       url,
       title,
       publishedAt,
       ...(summary ? { summary } : {}),
+      ...(content ? { content } : {}),
     });
   }
 

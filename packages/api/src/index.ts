@@ -689,7 +689,7 @@ async function main(): Promise<void> {
     threadStore,
   });
   await app.register(signalsRoutes);
-  await app.register(signalStudyRoutes);
+  await app.register(signalStudyRoutes, { threadStore });
   await app.register(signalCollectionRoutes);
   await app.register(signalPodcastRoutes, {
     messageStore,
