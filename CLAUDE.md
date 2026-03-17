@@ -63,6 +63,37 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 3. **不能冒充其他猫** — 身份是硬约束常量
 4. **Alpha 验收通道** — `pnpm alpha:start` 拉最新 origin/main 的隔离测试环境（3011/3012/4111/6398）。已合入 main 的改动用 alpha 验收（愿景守护/铲屎官测试），不得用 runtime（3001/3002）冒充；未合入改动的自测仍在 feature worktree 上做
 
+## 记忆系统（F102 — 开工前先 recall！）
+
+你有一个**本地记忆组件**：`evidence.sqlite`，启动时自动从 `docs/` 重建索引，包含所有 feature specs、ADRs、plans、lessons 的全文检索 + 向量语义 rerank。
+
+### 开工前先搜（必做！）
+
+**接到任务后、写代码前**，先用 `search_evidence` 搜一下相关上下文：
+
+```
+search_evidence("F102 memory adapter")     # 找 feature / ADR / 明确术语
+search_evidence("redis pitfall")           # 找教训 / 踩坑经验
+search_evidence("session chain design")    # 找历史讨论 / 决策
+```
+
+**为什么**：你的上下文窗口每次都是新的，但项目的知识在索引里。不搜就开工 = 从零开始，可能重蹈覆辙。
+
+### 检索策略
+
+| 找什么 | 怎么搜 |
+|--------|--------|
+| Feature / ADR / 明确术语 | `search_evidence("F042")` — FTS5 精确匹配 |
+| "我们当时为什么这么决定" | `search_evidence("memory adapter 决策")` — 关键词 + 语义 |
+| 历史聊天里的讨论 | `search_evidence("redis 坑")` → 命中后用 `read_session_digest` 深入 |
+| 源码 / API 实现 | **继续用 Grep/LSP**，不走记忆组件 |
+
+### 什么时候不用搜
+
+- Trivial 改动（≤5 行、纯格式）
+- 你已经在当前 session 里读过相关 spec
+- 纯代码实现（用 Grep/LSP 更精确）
+
 ## 流程闭环检查点（压缩后必读！）
 
 | 时机 | 检查 |

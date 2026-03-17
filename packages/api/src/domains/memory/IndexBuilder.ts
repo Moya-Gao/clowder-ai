@@ -86,6 +86,32 @@ export class IndexBuilder implements IIndexBuilder {
       indexed++;
     }
 
+    // Phase D: auto-extract edges from frontmatter cross-references (AC-D18, KD-29)
+    // Clear stale auto-generated 'related' edges before re-extracting (P1 fix: only-increase bug)
+    this.store.getDb().prepare("DELETE FROM edges WHERE relation = 'related'").run();
+
+    for (const file of files) {
+      let content: string;
+      try {
+        content = readFileSync(file.path, 'utf-8');
+      } catch {
+        continue;
+      }
+      const fm = extractFrontmatter(content);
+      if (!fm) continue;
+      const anchor = extractAnchor(fm);
+      if (!anchor) continue;
+
+      const relatedFeatures = fm.related_features;
+      if (Array.isArray(relatedFeatures)) {
+        for (const ref of relatedFeatures) {
+          if (typeof ref === 'string' && ref !== anchor) {
+            await this.store.addEdge({ fromAnchor: anchor, toAnchor: ref, relation: 'related' });
+          }
+        }
+      }
+    }
+
     // Remove stale anchors that no longer exist on disk
     const db = this.store.getDb();
     const allAnchors = db.prepare('SELECT anchor FROM evidence_docs').all() as Array<{ anchor: string }>;
@@ -349,9 +375,17 @@ function extractTitle(content: string): string | null {
 }
 
 function extractSummary(content: string): string | null {
-  // First non-empty paragraph after the title
+  // First meaningful paragraph after the title — skip blockquotes, status lines, and metadata
   const afterTitle = content.replace(/^---[\s\S]*?---\s*/, '').replace(/^#.*$/m, '');
-  const paragraphs = afterTitle.split(/\n\n+/).filter((p) => p.trim() && !p.startsWith('#'));
+  const paragraphs = afterTitle.split(/\n\n+/).filter((p) => {
+    const t = p.trim();
+    if (!t) return false;
+    if (t.startsWith('#')) return false;
+    if (t.startsWith('>')) return false; // blockquotes (often status lines)
+    if (t.startsWith('|')) return false; // tables
+    if (t.startsWith('```')) return false; // code blocks
+    return true;
+  });
   const first = paragraphs[0];
   if (!first) return null;
   const trimmed = first.trim().replace(/\n/g, ' ');

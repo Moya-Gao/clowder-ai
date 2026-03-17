@@ -115,6 +115,41 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       }
     }
 
+    // ── Keyword fallback: search keywords/topics JSON when FTS5 misses ──
+    if (results.length <= 1) {
+      const words = trimmed.split(/\s+/).filter(Boolean);
+      if (words.length > 0) {
+        const kwConditions = words.map(() => 'keywords LIKE ?');
+        let kwSql = `SELECT * FROM evidence_docs WHERE (${kwConditions.join(' OR ')})`;
+        const kwParams: unknown[] = words.map((w) => `%${w.toLowerCase()}%`);
+        if (options?.kind) {
+          kwSql += ' AND kind = ?';
+          kwParams.push(options.kind);
+        }
+        if (options?.status) {
+          kwSql += ' AND status = ?';
+          kwParams.push(options.status);
+        }
+        if (options?.keywords?.length) {
+          kwSql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
+          kwParams.push(...options.keywords.map((kw) => `%"${kw}"%`));
+        }
+        kwSql += ' ORDER BY (superseded_by IS NOT NULL), updated_at DESC LIMIT ?';
+        kwParams.push(limit);
+        try {
+          const kwRows = this.db?.prepare(kwSql).all(...kwParams) as RowShape[];
+          for (const row of kwRows) {
+            if (!seenAnchors.has(row.anchor)) {
+              results.push(rowToItem(row));
+              seenAnchors.add(row.anchor);
+            }
+          }
+        } catch {
+          // keyword search failed — continue with existing results
+        }
+      }
+    }
+
     let lexicalResults = results.slice(0, limit);
 
     // Phase C: semantic rerank
