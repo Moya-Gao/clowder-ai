@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F111: Streaming TTS Chunker — 流式分句合成管线
 
-> **Status**: impl (Phase B) | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
+> **Status**: done | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
 
 ## Why
 
@@ -86,12 +86,12 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 - [x] AC-A5: 非流式合成路径不受影响（回归测试）— route-serial/parallel 的 !voiceMode guard
 - [x] AC-A6: AudioBlock 流式播放时进度条平滑更新 — useStreamingAudio onTimeUpdate
 
-### Phase B（route-serial Token-Stream Speech Pipeline）
-- [ ] AC-B1: voiceMode 下 LLM 吐出第一句话后 2-4 秒内前端开始播放语音（不含 CLI 冷启动）
-- [ ] AC-B2: voice_chunk 通过 WebSocket 实时推送，不阻塞 text token 流（打字动画不受影响）
-- [ ] AC-B3: 页面刷新后回退到 `/api/tts/stream` fallback 正常回放
-- [ ] AC-B4: 非 voiceMode 线程不触发 StreamingTtsChunker（零开销）
-- [ ] AC-B5: TTS 合成失败时 graceful degradation（跳过失败 chunk，后续 chunk 继续）
+### Phase B（route-serial Token-Stream Speech Pipeline）✅ Done — merged PR #529
+- [x] AC-B1: voiceMode 下 LLM 吐出第一句话后 2-4 秒内前端开始播放语音（不含 CLI 冷启动）
+- [x] AC-B2: voice_chunk 通过 WebSocket 实时推送，不阻塞 text token 流（打字动画不受影响）
+- [x] AC-B3: 页面刷新后回退到 `/api/tts/stream` fallback 正常回放
+- [x] AC-B4: 非 voiceMode 线程不触发 StreamingTtsChunker（零开销）
+- [x] AC-B5: TTS 合成失败时 graceful degradation（跳过失败 chunk，后续 chunk 继续）
 
 ## Dependencies
 
@@ -130,6 +130,9 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | 2026-03-17 | 铲屎官实测延迟报告（见下方） |
 | 2026-03-17 | 铲屎官批准 Phase B 方向 + 砚砚(GPT-5.4) review 对齐 |
 | 2026-03-17 | Phase B spec 更新，与 F112 协同实现启动 |
+| 2026-03-18 | Phase B + F112-A 实现完成，砚砚(GPT-5.4) 4 轮 review 放行 |
+| 2026-03-18 | Codex cloud review 通过（0 P1/P2） |
+| 2026-03-18 | PR #529 squash merge — F111 all phases done |
 
 ## 实测延迟报告（2026-03-17 铲屎官亲测）
 
@@ -161,4 +164,5 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | **Reference** | `docs/features/F054-hci-preheat-infra.md` | AIRI tts-chunker 参考架构 |
 | **Research** | `docs/research/TTS-research.md` | TTS 技术调研 |
 | **Plan** | `docs/plans/2026-03-16-f111-streaming-tts-chunker.md` | 7-task 实施计划 |
-| **PR** | [#522](https://github.com/zts212653/cat-cafe/pull/522) | Squash merge commit `fdc86e58` |
+| **PR** | [#522](https://github.com/zts212653/cat-cafe/pull/522) | Phase A: Squash merge commit `fdc86e58` |
+| **PR** | [#529](https://github.com/zts212653/cat-cafe/pull/529) | Phase B: Squash merge — streaming voice pipeline |

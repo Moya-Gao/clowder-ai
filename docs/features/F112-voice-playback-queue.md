@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F112: Voice Playback Queue — 语音播放队列 + Intent 调度
 
-> **Status**: impl | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
 
 ## Why
 
@@ -77,14 +77,14 @@ created: 2026-03-12
 
 ## Acceptance Criteria
 
-### Phase A（PlaybackManager for Realtime Chunks）
-- [ ] AC-A1: voiceMode 下 voice_chunk 到达后立即开始播放第一个 chunk（无需等 done）
-- [ ] AC-A2: 用户可暂停/跳过正在播放的语音
-- [ ] AC-A3: `interrupt` 行为能立即停止当前播放并开始新片段
-- [ ] AC-A4: 优先级 `high` 的语音能打断 `normal` 优先级
-- [ ] AC-A5: 新 invocation 到来时自动 interrupt 上一个的播放
-- [ ] AC-A6: 页面刷新后 fallback 到 `/api/tts/stream` 正常回放
-- [ ] AC-A7: Voice mode 关闭时队列清空 + 播放停止
+### Phase A（PlaybackManager for Realtime Chunks）✅ Done — merged PR #529
+- [x] AC-A1: voiceMode 下 voice_chunk 到达后立即开始播放第一个 chunk（无需等 done）
+- [x] AC-A2: 用户可暂停/跳过正在播放的语音
+- [x] AC-A3: `interrupt` 行为能立即停止当前播放并开始新片段
+- [x] AC-A4: 优先级 `high` 的语音能打断 `normal` 优先级
+- [x] AC-A5: 新 invocation 到来时自动 interrupt 上一个的播放
+- [x] AC-A6: 页面刷新后 fallback 到 `/api/tts/stream` 正常回放
+- [x] AC-A7: Voice mode 关闭时队列清空 + 播放停止
 
 ### Phase B（播客编排 + replace + Intent，后置）
 - [ ] AC-B1: 双猫对话稿可按 queue 模式交替播放，无重叠
@@ -128,6 +128,9 @@ created: 2026-03-12
 | 2026-03-17 | F111 Phase A 合入 → F112 解锁 |
 | 2026-03-17 | Phase A 重定义：从 "audio block 播放队列" 改为 "realtime voice_chunk 播放队列"（砚砚 GPT-5.4 review） |
 | 2026-03-17 | 与 F111 Phase B 协同实现启动 |
+| 2026-03-18 | Phase A 实现完成，与 F111 Phase B 一起提交 PR #529 |
+| 2026-03-18 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review 通过 |
+| 2026-03-18 | PR #529 squash merge — Phase A done |
 
 ## Links
 
@@ -136,3 +139,4 @@ created: 2026-03-12
 | **Evolved from** | `docs/features/F066-voice-pipeline-upgrade.md` | Phase 3 原始设计 |
 | **Co-implemented** | `docs/features/F111-streaming-tts-chunker.md` | Phase B 后端 speech stream |
 | **Reference** | `docs/features/F054-hci-preheat-infra.md` | AIRI speech-pipeline 参考 |
+| **PR** | [#529](https://github.com/zts212653/cat-cafe/pull/529) | Phase A: PlaybackManager + useVoiceStream |
