@@ -1,13 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatCatName, useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
-/** F122B AC-B8+B9: Per-cat execution status bar with stop controls. */
+/** F122B AC-B8+B9: Per-cat execution status bar with stop controls.
+ *  B8/B9 polish: cat names use formatCatName() — "品种（variant）" format, colors from cat-config. */
 export function ThreadExecutionBar() {
   const activeInvocations = useChatStore((s) => s.activeInvocations);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
+  const { getCatById } = useCatData();
   const [, setTick] = useState(0);
 
   // Extract unique active cats from invocations
@@ -20,6 +23,23 @@ export function ThreadExecutionBar() {
     },
     [] as Array<{ catId: string; startedAt: number }>,
   );
+
+  // Build display info from cat-config (dynamic, not hardcoded)
+  const catDisplayMap = useMemo(() => {
+    const map = new Map<string, { label: string; color: string }>();
+    for (const { catId } of activeCats) {
+      const cat = getCatById(catId);
+      if (cat) {
+        map.set(catId, {
+          label: formatCatName(cat),
+          color: cat.color.primary,
+        });
+      } else {
+        map.set(catId, { label: catId, color: '#9B7EBD' });
+      }
+    }
+    return map;
+  }, [activeCats, getCatById]);
 
   // Auto-update elapsed time every second when cats are active
   useEffect(() => {
@@ -46,9 +66,19 @@ export function ThreadExecutionBar() {
   return (
     <div className="flex items-center gap-2 px-4 py-1.5 text-xs border-b border-[#9B7EBD]/10">
       <span className="text-gray-400 font-medium shrink-0">执行中</span>
-      {activeCats.map(({ catId, startedAt }) => (
-        <CatStatusChip key={catId} catId={catId} startedAt={startedAt} onStop={handleStopCat} />
-      ))}
+      {activeCats.map(({ catId, startedAt }) => {
+        const info = catDisplayMap.get(catId) ?? { label: catId, color: '#9B7EBD' };
+        return (
+          <CatStatusChip
+            key={catId}
+            catId={catId}
+            label={info.label}
+            color={info.color}
+            startedAt={startedAt}
+            onStop={handleStopCat}
+          />
+        );
+      })}
       {activeCats.length > 1 && (
         <button
           type="button"
@@ -62,20 +92,16 @@ export function ThreadExecutionBar() {
   );
 }
 
-const CAT_COLORS: Record<string, string> = {
-  opus: '#9B7EBD',
-  sonnet: '#9B7EBD',
-  codex: '#4CAF50',
-  gpt52: '#4CAF50',
-  gemini: '#E91E63',
-};
-
 function CatStatusChip({
   catId,
+  label,
+  color,
   startedAt,
   onStop,
 }: {
   catId: string;
+  label: string;
+  color: string;
   startedAt: number;
   onStop: (catId: string) => void;
 }) {
@@ -83,12 +109,11 @@ function CatStatusChip({
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
   const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  const color = CAT_COLORS[catId] ?? '#9B7EBD';
 
   return (
     <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/50">
       <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: color }} />
-      <span className="text-gray-600 font-medium">{catId}</span>
+      <span className="text-gray-600 font-medium">{label}</span>
       <span className="text-gray-400 tabular-nums">{timeStr}</span>
       <button
         type="button"
