@@ -64,6 +64,7 @@ import { createTaskStore } from './domains/cats/services/stores/factories/TaskSt
 import { createThreadStore } from './domains/cats/services/stores/factories/ThreadStoreFactory.js';
 import { createWorkflowSopStore } from './domains/cats/services/stores/factories/WorkflowSopStoreFactory.js';
 import { MlxAudioTtsProvider } from './domains/cats/services/tts/MlxAudioTtsProvider.js';
+import { initStreamingTtsRegistry } from './domains/cats/services/tts/StreamingTtsChunker.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
@@ -816,6 +817,7 @@ async function main(): Promise<void> {
   const ttsCacheDir = process.env.TTS_CACHE_DIR ?? './data/tts-cache';
   await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });
   initVoiceBlockSynthesizer(ttsRegistry, ttsCacheDir);
+  initStreamingTtsRegistry(ttsRegistry);
   startTtsCacheCleaner(ttsCacheDir);
 
   // C1+C2: Web Push Notifications (optional — requires VAPID keys)

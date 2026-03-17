@@ -14,6 +14,7 @@ import type { CatConfig, CatId } from '@cat-cafe/shared';
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
+import { getCatVoice } from '../../../../../config/cat-voices.js';
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
@@ -27,6 +28,7 @@ import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAudi
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
 import { hydrateReplyPreview, type StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import { getStreamingTtsRegistry, StreamingTtsChunker } from '../../tts/StreamingTtsChunker.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
@@ -316,6 +318,8 @@ export async function* routeSerial(
       const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
       // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
       let ownInvocationId: string | undefined;
+      // F111 Phase B: Streaming TTS chunker for real-time voice (voiceMode only)
+      let voiceChunker: StreamingTtsChunker | undefined;
 
       // #80: Draft flush state — periodic persistence for F5 recovery
       let lastFlushTime = Date.now();
@@ -358,6 +362,21 @@ export async function* routeSerial(
             const parsed = JSON.parse(msg.content);
             if (parsed.type === 'invocation_created') {
               ownInvocationId = parsed.invocationId;
+              // F111 Phase B: Start streaming TTS when we have an invocationId
+              if (voiceMode && deps.socketManager) {
+                const ttsRegistry = getStreamingTtsRegistry();
+                if (ttsRegistry) {
+                  voiceChunker = new StreamingTtsChunker({
+                    catId: catId as string,
+                    invocationId: ownInvocationId!,
+                    threadId,
+                    voiceConfig: getCatVoice(catId as string),
+                    broadcaster: deps.socketManager,
+                    ttsRegistry,
+                    signal,
+                  });
+                }
+              }
               // Issue #83: Start keepalive timer once we have an invocationId.
               // This ensures draft TTL is renewed even during long silent tool calls.
               if (deps.draftStore && !keepaliveTimer) {
@@ -373,6 +392,7 @@ export async function* routeSerial(
         }
         if (msg.type === 'text' && msg.content) {
           textContent += msg.content;
+          voiceChunker?.feed(msg.content);
         }
         // F045: Accumulate thinking blocks for persistence (F5 recovery)
         if (msg.type === 'system_info' && msg.content) {
@@ -479,6 +499,27 @@ export async function* routeSerial(
       if (keepaliveTimer) {
         clearInterval(keepaliveTimer);
         keepaliveTimer = undefined;
+      }
+
+      // F111 Phase B: Flush remaining buffered text and send voice_stream_end
+      let voiceTotalChunks = 0;
+      if (voiceChunker) {
+        try {
+          voiceTotalChunks = await voiceChunker.flush();
+        } catch (err) {
+          console.error(`[routeSerial] Voice chunker flush failed:`, err);
+        }
+        if (deps.socketManager && voiceChunker.hasStarted()) {
+          const aborted = signal?.aborted ?? false;
+          deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'voice_stream_end', {
+            type: 'voice_stream_end',
+            catId: catId as string,
+            invocationId: ownInvocationId ?? '',
+            threadId,
+            totalChunks: aborted ? -1 : voiceTotalChunks,
+          });
+        }
+        voiceChunker = undefined;
       }
 
       let a2aMentions: CatId[] = [];

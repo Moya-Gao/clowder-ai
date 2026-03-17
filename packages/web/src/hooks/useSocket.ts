@@ -20,6 +20,7 @@ import {
   handleBackgroundAgentMessage,
 } from './useSocket-background';
 import { loadJoinedRoomsFromSession, saveJoinedRoomsToSession } from './useSocket-persistence';
+import { handleVoiceChunk, handleVoiceStreamEnd, handleVoiceStreamStart } from './useVoiceStream';
 
 interface AgentMessage {
   type: string;
@@ -91,7 +92,12 @@ export interface SocketCallbacks {
   /** F101: Game state update */
   onGameStateUpdate?: (data: { gameId: string; view: unknown; timestamp: number }) => void;
   /** F101 Phase D: Independent game thread created */
-  onGameThreadCreated?: (data: { gameThreadId: string; gameTitle: string; initiatorUserId: string; timestamp: number }) => void;
+  onGameThreadCreated?: (data: {
+    gameThreadId: string;
+    gameTitle: string;
+    initiatorUserId: string;
+    timestamp: number;
+  }) => void;
   /** #80 fix-C: Clear the done-timeout guard (called when background thread completes) */
   clearDoneTimeout?: (threadId?: string) => void;
   /** F39: Queue updated */
@@ -485,9 +491,17 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     // F101 Phase D: Independent game thread created
-    socket.on('game:thread_created', (data: { gameThreadId: string; gameTitle: string; initiatorUserId: string; timestamp: number }) => {
-      callbacksRef.current.onGameThreadCreated?.(data);
-    });
+    socket.on(
+      'game:thread_created',
+      (data: { gameThreadId: string; gameTitle: string; initiatorUserId: string; timestamp: number }) => {
+        callbacksRef.current.onGameThreadCreated?.(data);
+      },
+    );
+
+    // F111 Phase B + F112 Phase A: Real-time voice stream events
+    socket.on('voice_stream_start', handleVoiceStreamStart);
+    socket.on('voice_chunk', handleVoiceChunk);
+    socket.on('voice_stream_end', handleVoiceStreamEnd);
 
     socket.on('connect_error', (error: Error & { description?: unknown; context?: unknown }) => {
       console.error('[ws] connect_error', {

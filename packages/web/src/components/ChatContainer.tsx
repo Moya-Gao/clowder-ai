@@ -15,6 +15,7 @@ import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
+import { useVoiceStream } from '@/hooks/useVoiceStream';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -342,6 +343,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
   // F092: Voice Companion auto-play
   useVoiceAutoPlay();
+  // F111/F112: Real-time voice stream playback
+  useVoiceStream();
 
   useSplitPaneKeys();
   const splitPaneThreadIds = useChatStore((s) => s.splitPaneThreadIds);

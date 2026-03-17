@@ -367,7 +367,11 @@ export type {
   TtsStreamRequest,
   TtsSynthesizeRequest,
   TtsSynthesizeResult,
+  VoiceChunkEvent,
   VoiceConfig,
+  VoiceStreamEndEvent,
+  VoiceStreamEvent,
+  VoiceStreamStartEvent,
 } from './tts.js';
 // Workflow SOP types (F073 告示牌)
 export type {

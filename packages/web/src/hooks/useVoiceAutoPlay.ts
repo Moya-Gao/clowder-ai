@@ -189,7 +189,10 @@ async function fetchAndPlay(block: RichAudioBlock, originSessionId: string): Pro
 
 /** Scan messages for the oldest unplayed audio block (FIFO playback order). */
 function findUnplayedAudioBlock(
-  newMessages: ReadonlyArray<{ type: string; extra?: { rich?: { blocks: Array<{ kind: string; id: string }> } } }>,
+  newMessages: ReadonlyArray<{
+    type: string;
+    extra?: { rich?: { blocks: Array<{ kind: string; id: string }> }; stream?: { invocationId?: string } };
+  }>,
 ): RichAudioBlock | null {
   for (let i = 0; i < newMessages.length; i++) {
     const msg = newMessages[i];
@@ -197,6 +200,17 @@ function findUnplayedAudioBlock(
 
     const blocks = msg.extra?.rich?.blocks;
     if (!blocks) continue;
+
+    // Skip audio blocks from invocations that already had live streaming
+    const msgInvocationId = msg.extra?.stream?.invocationId;
+    if (msgInvocationId && useVoiceSessionStore.getState().isLiveStreamedInvocation(msgInvocationId)) {
+      for (const block of blocks) {
+        if (block.kind === 'audio') {
+          useVoiceSessionStore.getState().markPlayed(block.id);
+        }
+      }
+      continue;
+    }
 
     const audioBlocks = blocks.filter((b): b is RichAudioBlock => b.kind === 'audio');
     for (const block of audioBlocks) {
@@ -229,6 +243,11 @@ export function useVoiceAutoPlay(): void {
       prevMessageCountRef.current = messages.length;
       prevSessionIdRef.current = null;
       prevThreadIdRef.current = currentThreadId;
+      return;
+    }
+
+    if (session.liveStreamActive) {
+      prevMessageCountRef.current = messages.length;
       return;
     }
 
