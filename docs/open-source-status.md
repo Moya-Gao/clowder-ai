@@ -332,19 +332,42 @@ created: 2026-03-12
 | #21 | setup wizard 缺 skills symlink | bug | 已做 (sync-skills.sh 存在) | 🔴 **可关闭** |
 | #1 | Welcome Beta Testers | — | — | ⚪ 置顶帖 |
 
-### 下次同步前建议优先完成（🟢 级别 — 5 个）
+### 开源前必做 — Tier 1（5 个，含仲裁修正）
 
-1. **#123** — governance preflight 阻断新项目（影响首次体验）
-2. **#74** — Hub 配置缺失时失败（影响首次体验）
-3. **#97** — governance 泄漏端口默认值（影响外部项目用户）
-4. **#87/#55** — .env.example / 端口默认值不一致（新用户陷阱）
-5. **#84** — setCatStatus 爆栈（真 bug，频繁复现）
+> 更新: 2026-07-15 | 金渐层 vs 砚砚(GPT-5.4) 分歧仲裁后定稿
 
-### 可立即关闭（🔴 级别 — 3 个）
+1. **#84** — setCatStatus 爆栈（`chatStore.ts` L844 无节流，高频 SSE 事件打爆 Zustand）
+2. **#87/#55** — .env.example 端口不一致（开源用户照抄会端口冲突）
+3. **#123** — governance preflight 阻断新项目（GovernanceRegistry 用 catCafeRoot 路径，新 clone 直接 throw）
+4. **#97** — governance 泄漏端口默认值（家里内部端口号硬编码到 governance 配置）
+5. **#21** — setup.sh 缺 skills sync 步骤 ⚠️ **仲裁修正：从"可关闭"升级为 P1**
+   - `setup.sh` (413行) grep "skill" 零命中，交互式向导完全没有 skills 步骤
+   - `install.sh` L273-281 有 skills symlink 逻辑，但 setup.sh 是开源用户的入口，两者不互通
+   - 砚砚说得对："脚本存在 ≠ 流程闭环"
 
-- **#50** — pnpm start 已支持 `--profile=opensource`
-- **#21** — sync-skills.sh / check-skills-mount.sh 已存在
-- **#56** — 与 #55 重复
+### 第二梯队 — Tier 2（4 个，可做不紧急）
+
+1. **#74** — Hub 配置缺失时 UX 优化 ⚠️ **仲裁修正：从 P1 降级为 P2**
+   - 前端无 `VITE_HUB` / `hubBase` 环境变量依赖，Hub 是内嵌 React 面板，不会因配置缺失而"失败"
+   - 真正问题是 UX 层面（首次用户不知道 Hub 存在），建议加首次启动引导提示
+2. **#50** — pnpm start 指向 runtime-worktree ⚠️ **仲裁修正：从"可关闭"改为 P2**
+   - `package.json` L8: `"start": "./scripts/runtime-worktree.sh start"` — 主仓设计意图如此
+   - 开源版靠 sync transform 替换为 `start-dev.sh --profile=opensource`
+   - 不关闭，但用文档标注即可
+3. **#94** — GovernanceRegistry per-worktree（长期架构改进，不阻塞首版发布）
+4. **#56** — 与 #55 重复（直接关闭即可）
+
+### 金渐层 vs 砚砚(GPT-5.4) 分歧仲裁记录
+
+> 日期: 2026-07-15 | 仲裁猫: 金渐层/opencode (claude-opus-4-6) | 方法: 源码逐行核对
+
+| 分歧点 | 金渐层原判 | 砚砚反驳 | 代码证据 | 结论 |
+|--------|-----------|---------|---------|------|
+| **#21** setup.sh skills | 可关闭（脚本存在） | 不该关（setup.sh 没接） | `setup.sh` grep "skill"=0; `install.sh` L273 有但不互通 | **砚砚赢** → 升 P1 |
+| **#74** Hub 配置 | P1 必做 | 降级 P2 | 前端无 HUB env 依赖; `useChatCommands.ts` 纯前端路由 | **砚砚赢** → 降 P2 |
+| **#50** pnpm start | 可关闭 | 不能直接关 | `package.json` L8 → runtime-worktree; 开源靠 transform | **砚砚部分赢** → 维持 P2 |
+
+**教训**：「脚本存在」不等于「用户流程闭环」。验证开源体验必须从用户入口（setup.sh）走一遍，不能只 grep 文件名。
 
 ### 深入分析记录（归档 — 均已处理）
 
