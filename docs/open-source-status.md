@@ -290,15 +290,61 @@ created: 2026-03-12
 | PR | 作者 | 内容 | 状态 |
 |----|------|------|------|
 | #113 | mindfn | Windows 一键部署 (F113) | HOLD — 社区开发中 |
-| #85 | bouillipx | cat_cafe_create_thread MCP 工具 (F115) | `needs-maintainer-decision` — 需铲屎官立项决策 |
+| #85 | bouillipx | cat_cafe_create_thread MCP 工具 (F115) | bouillipx 在做完整版本，到时候我们 review + 优化 |
 
-### 仍 OPEN 的重点 Issue
+### Triaged Issue 盘点（8 个 OPEN — 全部"还没做"）
 
-| Issue | 标题 | 备注 |
-|-------|------|------|
-| #109 | 猫猫管理重构 (F127) | 社区小伙伴领取 + CLI timeout 配置化需求已关联 |
-| #116 | CLI done 事件在 NDJSON 管道丢失 | commit 8a28d74c 部分覆盖 |
-| #82 | 猫创建 thread API | 关联 PR #85 |
+> 更新: 2026-03-17 Round 3 | 最后全量同步: PR #118 (2026-03-17, commit 0a43ca11)
+> 结论：无"同步了没关"的遗漏，8 个全是还没在家里实现的
+
+| Issue | 标题 | 标签 | 家里状态 | 处理建议 |
+|-------|------|------|---------|---------|
+| #14 | Windows/Linux/Mac 裸机支持 | F113 | 未做 | 社区 PR #113 在做 (mindfn) |
+| #64 | Windows CLI spawn ENOENT | F113,bug | 未做 | F113 子任务 |
+| #82 | 猫创建 thread API | question | 未做 | bouillipx 在做完整版 (PR #85) |
+| #84 | setCatStatus 高频爆栈 | bug | **未修** | chatStore.ts line 844 无节流，建议优先修 |
+| #88 | UX 术语暴露 | enhancement | 未做 | 前端术语规范，不紧急 |
+| #92 | Windows 侧栏 UI 差异 | F113 | 未做 | 跟随 F113 |
+| #94 | Governance per-worktree | bug,needs-decision | 未修 | GovernanceRegistry 仍 per-worktree |
+| #95 | Gemini CLI OAuth 断连 | bug,needs-decision | 无法修 | 上游问题 (Google) |
+
+### 非 Triaged 的 OPEN Issue 盘点（19 个）
+
+| Issue | 标题 | 类型 | 家里状态 | 同步前优先级 |
+|-------|------|------|---------|-------------|
+| #124 | 目录选择器改自定义组件 | enhancement | DirectoryPickerModal 已存在 (F124 新需求) | 🟡 可以做 |
+| #123 | governance preflight 阻断新项目 | bug | 未修 | 🟢 **影响首次体验** |
+| #120 | 临时文件管理规范 | enhancement | 未做 | 🟡 规范类 |
+| #116 | CLI done 事件 NDJSON 丢失 | bug | 部分覆盖 (8a28d74c) | 🟡 已部分解决 |
+| #109 | 猫猫管理重构 F127 | enhancement | 未做 | ⚪ 大重构，社区领取 |
+| #101 | 更新 thread projectPath | feature | 未做 | 🟡 |
+| #97 | governance 泄漏端口默认值 | bug | 未修 | 🟢 **影响外部项目** |
+| #93 | thread 后台任务管理器 | enhancement | 未做 | ⚪ 大功能 |
+| #87 | .env.example defaults drift | bug | 未修 | 🟢 **新用户陷阱** |
+| #81 | Marketplace 外部 Skills 仓库 | enhancement | 未做 | ⚪ 长期 |
+| #79 | EnterWorktree 路径错误 | bug | 未确认 | 🟡 |
+| #75 | Hub 配置可编辑 | enhancement | 未做 | 🟡 |
+| #74 | Hub 配置缺失时失败 | bug | 未修 | 🟢 **影响首次体验** |
+| #63 | worktree 纪律强制执行 | bug | 未做 | 🟡 |
+| #56 | 端口默认值不一致（中文） | bug | 未修 | 🔴 与 #55 重复 |
+| #55 | port defaults inconsistency | bug | 未修 | 🟢 **与 #87 关联** |
+| #50 | pnpm start 默认直启 | enhancement | 已做 (--profile=opensource) | 🔴 **可关闭** |
+| #21 | setup wizard 缺 skills symlink | bug | 已做 (sync-skills.sh 存在) | 🔴 **可关闭** |
+| #1 | Welcome Beta Testers | — | — | ⚪ 置顶帖 |
+
+### 下次同步前建议优先完成（🟢 级别 — 5 个）
+
+1. **#123** — governance preflight 阻断新项目（影响首次体验）
+2. **#74** — Hub 配置缺失时失败（影响首次体验）
+3. **#97** — governance 泄漏端口默认值（影响外部项目用户）
+4. **#87/#55** — .env.example / 端口默认值不一致（新用户陷阱）
+5. **#84** — setCatStatus 爆栈（真 bug，频繁复现）
+
+### 可立即关闭（🔴 级别 — 3 个）
+
+- **#50** — pnpm start 已支持 `--profile=opensource`
+- **#21** — sync-skills.sh / check-skills-mount.sh 已存在
+- **#56** — 与 #55 重复
 
 ### 深入分析记录（归档 — 均已处理）
 
