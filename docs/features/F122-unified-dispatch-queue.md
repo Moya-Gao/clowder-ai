@@ -169,7 +169,9 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 - [x] AC-B6-P1: **A2A 消息上下文可见性修复**（PR #502 merged）— 详见下方「已知问题」
 - [x] AC-B7: QueuePanel 前端渲染 agent-sourced entries（PR #504 merged）— 设计稿 `designs/F122-queue-panel-agent-entries.pen`
 - [x] AC-B8: Thread 执行状态指示（PR #508 merged）— ThreadExecutionBar per-cat 活跃状态 + 经过时间
+  - ⚠️ 打磨待做：猫名显示中文组合格式（如"布偶猫-opus"），颜色从 cat-config 动态读取（铲屎官 2026-03-16 23:49 确认）
 - [x] AC-B9: Per-cat Stop 按钮（PR #510 merged）— cancel API + ThreadExecutionBar × 按钮
+  - ⚠️ 同上打磨：猫名 + 颜色需要和 B8 一起修
 - [ ] AC-B10: 双模发送 UX（锁头悄悄话 + 广播排队）— 复用 F108 设计稿 Scene 1/2/5
 
 #### 已知问题：A2A 消息上下文提前可见（P1，AC-B6 前置修复）
