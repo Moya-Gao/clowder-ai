@@ -75,7 +75,7 @@ created: 2026-03-14
 
 ## Current State Snapshot（2026-03-16）
 
-当前代码已经 merge 的是 7 个切片，不是整条 F123 的完成态：
+当前代码已经 merge 的是 8 个切片，不是整条 F123 的完成态：
 
 | PR | Merge Commit | 实际落地 | 对齐 AC |
 |----|--------------|----------|---------|
@@ -86,12 +86,14 @@ created: 2026-03-14
 | #494 | `aba1e8c2` | truth-model descriptor、bubble state model 资产、symptom-fixture matrix | AC-A1，部分推进 AC-A3 |
 | #495 | `5864fcc5` | queue/hydration 乱序 replay、`fetchQueue()` secondary hydration 改为 thread-scoped status write、symptom-fixture matrix 将 queue/hydration 从 partial 提升到 covered | 部分推进 AC-A3, AC-C2（均未完成） |
 | #496 | `9a7f9140` | 真实 draft payload replay、draft/hydration 身份断层从 gap 提升到 covered、旧世界 fixture 与现网 draft contract 对齐 | 部分推进 AC-A3, AC-C2（均未完成） |
+| #506 | `70082cb7` | CLI Output / rich-block-only 首事件的 invocationless stream 占位在 callback text 到达时直接升级为 formal bubble，不再额外生成第二个 assistant 气泡 | 对 F123 已关闭症状的窄口热修；`rich block 落错 bubble` / CLI Output duplicate 现场继续保持 covered |
 
 因此，F123 最终收口后的状态是：
 
 - **铲屎官最关心的可见性症状已经压住**：同 invocation 双影、F5 后归一、thread switch 裂两条再合一，这一组现象都已有 hook replay + Alpha 手测双证据
 - **bubble truth model / symptom-fixture 真相源已经落盘**，后续不需要再靠口头回忆现场
 - **queue/hydration 乱序、draft/hydration 身份断层都已从 partial/gap 收到 covered**
+- **CLI Output duplicate bubble 现场已被窄口热修压住**：无 `invocationId` 的 rich-block 占位在 callback text 到达时会被就地升级，不再裂成两条 assistant 气泡
 - **Phase B 的防御层没有假装完成**：统一 identity contract、store invariant、placeholder 单调升级、duplicate 断言这 4 条明确转入 `TD111`-`TD114`
 
 换句话说：F123 作为“把 bubble 可见性症状系统性压住”的 feature 已经完成；剩下的是防御性工程化强化，明确归到技术债，不继续伪装成未完成 feature。
@@ -163,6 +165,7 @@ created: 2026-03-14
 | 2026-03-16 | Draft recovery fixture alignment slice merged (PR #496): 真实 draft payload replay 落盘，draft/hydration 身份断层从 gap 提升到 covered，AC-A3 / AC-C2 再推进一格 |
 | 2026-03-16 | Alpha monotonic visibility verification：cold boot / F5、thread switch、F5-after-switch 三组通过；最后一条 symptom gap 收口，AC-C1 / AC-C2 / AC-C4 完成 |
 | 2026-03-16 | Feature closed：F123 status → done；未完成的防御层能力显式转入 `TD111`-`TD114` |
+| 2026-03-16 | CLI Output duplicate bubble hotfix merged (PR #506): callback text 现在会回收无 `invocationId` 的 rich-block stream 占位，避免同一条逻辑消息裂成两个 assistant 气泡 |
 
 ## Review Gate
 

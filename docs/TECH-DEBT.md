@@ -111,7 +111,7 @@ created: 2026-02-26
 | TD110 | **Hyperfocus Brake 设置真持久化** | [ ] | F085 AC31 裁出 | brake 开关 + 阈值目前存 in-memory Map，浏览器刷新不丢但服务重启丢。需迁移到 Redis 或 DB。触发条件：铲屎官反馈设置丢失或部署频率增加时。|
 | TD111 | **Bubble writer identity contract 统一收敛** | [ ] | F123 AC-B1 转出 | `active/background/history/draft/queue` 五条写路径还没有统一到同一个 enforced identity contract。`bubbleIdentity.ts` 已提供 truth model/helper，但不是写路径级 enforcer。Evolved from: F123。|
 | TD112 | **ChatStore duplicate identity invariant** | [ ] | F123 AC-B2 转出 | 目前没有 store 级 invariant 明确阻止同一 `catId + invocationId + bubble kind` 在 store 中稳定共存两条 text bubble。需要在写入层或 store 层加硬防线。Evolved from: F123。|
-| TD113 | **placeholder → formal 单调升级规则收口** | [ ] | F123 AC-B3 转出 | 现有 replace/hydration/callback 优先级已覆盖高频症状，但 placeholder 升级到 formal 仍是 case-by-case 规则，尚未统一成系统性单调 contract。Evolved from: F123。|
+| TD113 | **placeholder → formal 单调升级规则收口** | [ ] | F123 AC-B3 转出 | 现有 replace/hydration/callback 优先级已覆盖高频症状；`PR #506` 又补了一条 CLI Output 窄口热修（callback text 回收无 `invocationId` 的 rich-block placeholder），但 placeholder 升级到 formal 仍是 case-by-case 规则，尚未统一成系统性单调 contract。Evolved from: F123。|
 | TD114 | **Bubble duplicate invariant diagnostics / assertions** | [ ] | F123 AC-B5 转出 | 目前有 `dumpBubbleTimeline()`，但没有 invariant 断言直接指出 duplicate 是从哪个入口创建的。需要 dev/test 级诊断或断言。Evolved from: F123。|
 
 ## P3 — 可选优化
