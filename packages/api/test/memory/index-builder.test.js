@@ -906,3 +906,103 @@ describe('IndexBuilder thread summary (E1/E2)', () => {
     assert.ok(after.summary.includes('v2'), 'summary should be updated to v2');
   });
 });
+
+// ── Phase E Step 2: Passage indexing + search ──────────────────────
+describe('IndexBuilder passage indexing (E3/E4/E5)', () => {
+  let tmpDir;
+  let docsDir;
+  let store;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `f102-e3-test-${randomUUID().slice(0, 8)}`);
+    docsDir = join(tmpDir, 'docs');
+    mkdirSync(join(docsDir, 'features'), { recursive: true });
+
+    const { SqliteEvidenceStore } = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
+    store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('E3+E4: indexes thread messages as passages in evidence_passages', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const mockThreads = [
+      {
+        id: 'thread_pass1',
+        title: 'Redis discussion',
+        participants: ['opus', 'codex'],
+        threadMemory: { summary: 'Discussed Redis keyPrefix behavior.' },
+        lastActiveAt: Date.now(),
+      },
+    ];
+
+    const mockMessages = [
+      { id: 'msg_001', content: 'What happens with keyPrefix in eval?', catId: undefined, threadId: 'thread_pass1', timestamp: Date.now() - 2000 },
+      { id: 'msg_002', content: 'ioredis keyPrefix does not apply inside eval scripts.', catId: 'opus', threadId: 'thread_pass1', timestamp: Date.now() - 1000 },
+      { id: 'msg_003', content: 'Good catch, lets document this as a lesson.', catId: 'codex', threadId: 'thread_pass1', timestamp: Date.now() },
+    ];
+
+    const messageListFn = (threadId) => {
+      if (threadId === 'thread_pass1') return mockMessages;
+      return [];
+    };
+
+    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => mockThreads, messageListFn);
+    await builder.rebuild();
+
+    // Verify passages were inserted
+    const db = store.getDb();
+    const passages = db.prepare('SELECT * FROM evidence_passages WHERE doc_anchor = ? ORDER BY position').all('thread-thread_pass1');
+    assert.equal(passages.length, 3, 'should have 3 passages');
+    assert.equal(passages[0].passage_id, 'msg-msg_001');
+    assert.equal(passages[0].speaker, 'user');  // no catId → 'user'
+    assert.equal(passages[0].position, 0);
+    assert.equal(passages[1].passage_id, 'msg-msg_002');
+    assert.equal(passages[1].speaker, 'opus');
+    assert.equal(passages[2].speaker, 'codex');
+  });
+
+  it('E5: searchPassages finds passages via FTS and search() merges them with depth=raw', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const mockThreads = [
+      {
+        id: 'thread_search1',
+        title: 'Architecture chat',
+        participants: ['opus'],
+        threadMemory: { summary: 'General architecture discussion.' },
+        lastActiveAt: Date.now(),
+      },
+    ];
+
+    const mockMessages = [
+      { id: 'msg_s1', content: 'The SystemPromptBuilder needs refactoring for modularity.', catId: 'opus', threadId: 'thread_search1', timestamp: Date.now() - 1000 },
+      { id: 'msg_s2', content: 'Agreed, the prompt sections should be pluggable.', threadId: 'thread_search1', timestamp: Date.now() },
+    ];
+
+    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => mockThreads, (tid) => {
+      if (tid === 'thread_search1') return mockMessages;
+      return [];
+    });
+    await builder.rebuild();
+
+    // Direct passage search
+    const passages = store.searchPassages('SystemPromptBuilder');
+    assert.ok(passages.length >= 1, 'should find passage by content');
+    assert.equal(passages[0].docAnchor, 'thread-thread_search1');
+    assert.equal(passages[0].speaker, 'opus');
+
+    // Full search with depth=raw should merge passage results
+    const results = await store.search('SystemPromptBuilder', { depth: 'raw', scope: 'all' });
+    assert.ok(results.length >= 1, 'depth=raw search should include passage-matched docs');
+    // The result should reference the thread
+    const threadResult = results.find(r => r.anchor === 'thread-thread_search1');
+    assert.ok(threadResult, 'should find the thread doc via passage match');
+    assert.ok(threadResult.summary.includes('[passage match]'), 'summary should indicate passage match');
+  });
+});

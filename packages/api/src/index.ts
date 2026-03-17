@@ -324,6 +324,17 @@ async function main(): Promise<void> {
     sqlitePath: process.env.EVIDENCE_DB ?? resolve(repoRoot, 'evidence.sqlite'),
     docsRoot: process.env.DOCS_ROOT ?? resolve(repoRoot, 'docs'),
     transcriptDataDir: process.env.TRANSCRIPT_DATA_DIR ?? resolve(repoRoot, 'data', 'transcripts'),
+    // Phase E-2: message passage indexing — provide a callback that reads thread messages
+    messageListFn: async (threadId: string, limit?: number) => {
+      const messages = await messageStore.getByThread(threadId, limit ?? 2000, 'default-user');
+      return messages.map((m: { id: string; content: string; catId?: string | null; threadId: string; timestamp: number }) => ({
+        id: m.id,
+        content: m.content,
+        catId: m.catId ?? undefined,
+        threadId: m.threadId,
+        timestamp: m.timestamp,
+      }));
+    },
     // Phase E-1: thread summary indexing — provide a callback that lists all threads
     threadListFn: async () => {
       const threads = await threadStore.list('default-user');

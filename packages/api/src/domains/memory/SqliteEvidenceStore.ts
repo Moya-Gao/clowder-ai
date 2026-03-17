@@ -6,6 +6,14 @@ import { SemanticReranker } from './SemanticReranker.js';
 import { applyMigrations } from './schema.js';
 import type { VectorStore } from './VectorStore.js';
 
+export interface PassageResult {
+  docAnchor: string;
+  passageId: string;
+  content: string;
+  speaker?: string;
+  position?: number;
+}
+
 export interface EmbedDeps {
   embedding: IEmbeddingService;
   vectorStore: VectorStore;
@@ -167,6 +175,26 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       }
     }
 
+    // Phase E: passage search when depth=raw and scope includes threads
+    if (options?.depth === 'raw' && (!options?.scope || options.scope === 'all' || options.scope === 'threads')) {
+      const passages = this.searchPassages(trimmed, limit);
+      for (const p of passages) {
+        if (!seenAnchors.has(p.docAnchor)) {
+          // Synthesize an EvidenceItem from the passage's parent doc anchor
+          const parentDoc = this.db?.prepare('SELECT * FROM evidence_docs WHERE anchor = ?').get(p.docAnchor) as
+            | RowShape
+            | undefined;
+          if (parentDoc) {
+            const item = rowToItem(parentDoc);
+            // Enrich summary with passage match context
+            item.summary = `[passage match] ${p.speaker ? `${p.speaker}: ` : ''}${p.content.slice(0, 200)}`;
+            results.push(item);
+            seenAnchors.add(p.docAnchor);
+          }
+        }
+      }
+    }
+
     let lexicalResults = results.slice(0, limit);
 
     // Phase C: semantic rerank
@@ -281,6 +309,55 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     this.db
       ?.prepare('DELETE FROM edges WHERE from_anchor = ? AND to_anchor = ? AND relation = ?')
       .run(edge.fromAnchor, edge.toAnchor, edge.relation);
+  }
+
+  // ── Passage operations ─────────────────────────────────────────────
+
+  /** Search passage_fts and return matching passages with doc context. */
+  searchPassages(query: string, limit = 10): PassageResult[] {
+    this.ensureOpen();
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const ftsQuery = trimmed
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => `"${w.replace(/"/g, '""')}"`)
+      .join(' ');
+
+    if (!ftsQuery) return [];
+
+    try {
+      const rows = this.db
+        ?.prepare(
+          `SELECT p.doc_anchor, p.passage_id, p.content, p.speaker, p.position,
+                  bm25(passage_fts) AS rank
+           FROM passage_fts f
+           JOIN evidence_passages p ON p.rowid = f.rowid
+           WHERE passage_fts MATCH ?
+           ORDER BY rank
+           LIMIT ?`,
+        )
+        .all(ftsQuery, limit) as Array<{
+        doc_anchor: string;
+        passage_id: string;
+        content: string;
+        speaker: string | null;
+        position: number | null;
+        rank: number;
+      }>;
+
+      return (rows ?? []).map((r) => ({
+        docAnchor: r.doc_anchor,
+        passageId: r.passage_id,
+        content: r.content,
+        speaker: r.speaker ?? undefined,
+        position: r.position ?? undefined,
+      }));
+    } catch {
+      // FTS5 syntax error — degrade gracefully
+      return [];
+    }
   }
 
   close(): void {

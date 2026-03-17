@@ -48,6 +48,18 @@ export interface ThreadSnapshot {
 /** Callback that returns all threads for indexing. */
 export type ThreadListFn = () => ThreadSnapshot[] | Promise<ThreadSnapshot[]>;
 
+/** Snapshot of a single message for passage indexing. */
+export interface StoredMessageSnapshot {
+  id: string;
+  content: string;
+  catId?: string;
+  threadId: string;
+  timestamp: number;
+}
+
+/** Callback that returns messages for a given thread. */
+export type MessageListFn = (threadId: string, limit?: number) => StoredMessageSnapshot[] | Promise<StoredMessageSnapshot[]>;
+
 export class IndexBuilder implements IIndexBuilder {
   /** E-2: Set of threadIds that have been modified since last flush */
   private dirtyThreads = new Set<string>();
@@ -58,6 +70,7 @@ export class IndexBuilder implements IIndexBuilder {
     private embedDeps?: { embedding: IEmbeddingService; vectorStore: VectorStore },
     private readonly transcriptDataDir?: string,
     private readonly threadListFn?: ThreadListFn,
+    private readonly messageListFn?: MessageListFn,
   ) {}
 
   setEmbedDeps(deps: { embedding: IEmbeddingService; vectorStore: VectorStore }): void {
@@ -196,6 +209,17 @@ export class IndexBuilder implements IIndexBuilder {
         indexedItems.push(item);
         indexed++;
       }
+    }
+
+    // Phase E-3: Index thread message passages
+    if (this.messageListFn && this.threadListFn && !threadListFailed) {
+      let threads: ThreadSnapshot[];
+      try {
+        threads = await this.threadListFn();
+      } catch {
+        threads = [];
+      }
+      await this.indexPassages(threads);
     }
 
     // Remove stale anchors that no longer exist on disk
@@ -541,6 +565,50 @@ export class IndexBuilder implements IIndexBuilder {
     }
 
     return flushed;
+  }
+
+  /**
+   * E-3: Index thread messages as passages in evidence_passages table.
+   * For each thread, fetches messages via messageListFn and upserts into evidence_passages.
+   */
+  private async indexPassages(threads: ThreadSnapshot[]): Promise<void> {
+    if (!this.messageListFn) return;
+    const db = this.store.getDb();
+
+    const upsertStmt = db.prepare(`
+      INSERT OR REPLACE INTO evidence_passages
+      (doc_anchor, passage_id, content, speaker, position, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    // P1 fix: clear stale passages before re-inserting (passage only-increase bug)
+    const deleteByAnchorStmt = db.prepare('DELETE FROM evidence_passages WHERE doc_anchor = ?');
+
+    for (const thread of threads) {
+      let messages: StoredMessageSnapshot[];
+      try {
+        messages = await this.messageListFn(thread.id, 2000);
+      } catch {
+        continue;
+      }
+
+      const tx = db.transaction((msgs: StoredMessageSnapshot[]) => {
+        // Clear old passages for this thread before inserting current ones
+        deleteByAnchorStmt.run(`thread-${thread.id}`);
+        for (let i = 0; i < msgs.length; i++) {
+          const msg = msgs[i];
+          upsertStmt.run(
+            `thread-${thread.id}`,
+            `msg-${msg.id}`,
+            msg.content,
+            msg.catId ?? 'user',
+            i,
+            new Date(msg.timestamp).toISOString(),
+          );
+        }
+      });
+
+      tx(messages);
+    }
   }
 
   private parseFile(filePath: string): EvidenceItem | null {
