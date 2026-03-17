@@ -486,7 +486,7 @@ search_evidence(query, {
 - [x] AC-D3: Hindsight legacy 资产归档（docker-compose、scripts、P0 import、~26 tests） — **PR #503 merged**
 - [x] AC-D4: 启动 60 秒内 `evidence.sqlite` 存在且 `evidence_docs > 0`（自动 rebuild） — **PR #503 merged**
 - [x] AC-D5: `search_evidence` MCP 工具默认走 SQLite FTS5，至少 3 条 canary query 稳定返回预期 anchor — **PR #509 merged**
-- [ ] AC-D6: Session digest 索引为 `kind='session'`，默认检索权重低于 feature/decision
+- [x] AC-D6: Session digest 索引为 `kind='session'`，默认检索权重低于 feature/decision — **PR #518 merged**
 - [x] AC-D7: 检索接口支持 `mode`（lexical/semantic/hybrid）和 `scope`（docs/memory/threads/all）参数 — **PR #513 merged**
 - [x] AC-D8: Memory status 可观测（docs_count / last_rebuild_at / backend） — **PR #511 merged**
 - [x] AC-D9: **CLAUDE.md / AGENTS.md 提示词更新**——告知猫猫记忆组件存在、检索策略、使用方式 — **PR #509 merged**
@@ -601,6 +601,7 @@ search_evidence(query, {
 | 2026-03-17 | **PR #509 squash merged** — AC-D5 + AC-D9 + AC-D10 + AC-D18 ✅ |
 | 2026-03-17 | **PR #511 squash merged** — AC-D8 + AC-D13 ✅ |
 | 2026-03-17 | **PR #513 squash merged** — AC-D7 + AC-D14 ✅（scope/mode/depth 检索协议） |
+| 2026-03-17 | **PR #518 squash merged** — AC-D6 ✅（session digest indexing） |
 
 ## Review Gate
 
