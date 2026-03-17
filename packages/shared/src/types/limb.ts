@@ -73,6 +73,37 @@ export interface ILimbNode {
   deregister(): Promise<void>;
 }
 
+// ─── Lease (Phase B) ─────────────────────────────────────────
+
+/** 租约记录 — 独占资源的锁 */
+export interface LimbLease {
+  leaseId: string;
+  nodeId: string;
+  capability: string;
+  catId: string;
+  acquiredAt: number;
+  expiresAt: number;
+  renewCount: number;
+}
+
+// ─── Action Log (Phase B) ────────────────────────────────────
+
+/** Action Log 条目 — 最小 provenance 字段集 */
+export interface LimbActionLogEntry {
+  requestId: string;
+  invocationId: string;
+  leaseId: string | null;
+  catId: string;
+  nodeId: string;
+  capability: string;
+  command: string;
+  artifactUri: string | null;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startedAt: number;
+  endedAt: number | null;
+  idempotencyKey: string | null;
+}
+
 // ─── Registry Record ─────────────────────────────────────────
 
 /** Registry 中的节点记录（运行时状态） */

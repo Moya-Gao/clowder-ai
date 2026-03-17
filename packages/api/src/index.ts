@@ -518,9 +518,17 @@ async function main(): Promise<void> {
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
   const prTrackingStore = new MemoryPrTrackingStore();
 
-  // F126: Create LimbRegistry for device/hardware capability management
+  // F126: Create LimbRegistry + Phase B deps for device/hardware capability management
   const { LimbRegistry } = await import('./domains/limb/LimbRegistry.js');
+  const { LimbAccessPolicy } = await import('./domains/limb/LimbAccessPolicy.js');
+  const { LimbLeaseManager } = await import('./domains/limb/LimbLeaseManager.js');
+  const { LimbActionLog } = await import('./domains/limb/LimbActionLog.js');
   const limbRegistry = new LimbRegistry();
+  limbRegistry.setDeps({
+    accessPolicy: new LimbAccessPolicy(),
+    leaseManager: new LimbLeaseManager(),
+    actionLog: new LimbActionLog(),
+  });
 
   await app.register(callbacksRoutes, {
     registry,

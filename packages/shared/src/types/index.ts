@@ -81,9 +81,11 @@ export type {
 export type {
   ILimbNode,
   LimbAccessEntry,
+  LimbActionLogEntry,
   LimbAuthLevel,
   LimbCapability,
   LimbInvokeResult,
+  LimbLease,
   LimbNodeRecord,
   LimbNodeStatus,
 } from './limb.js';

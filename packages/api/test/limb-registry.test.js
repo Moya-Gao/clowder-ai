@@ -196,3 +196,126 @@ describe('LimbRegistry', () => {
     assert.ok(result.error.includes('offline'));
   });
 });
+
+// ─── Phase B Pipeline Tests ──────────────────────────────────
+
+import { LimbAccessPolicy } from '../dist/domains/limb/LimbAccessPolicy.js';
+import { LimbLeaseManager } from '../dist/domains/limb/LimbLeaseManager.js';
+import { LimbActionLog } from '../dist/domains/limb/LimbActionLog.js';
+
+describe('LimbRegistry invoke pipeline (Phase B)', () => {
+  let registry;
+  let policy;
+  let leaseManager;
+  let actionLog;
+
+  beforeEach(() => {
+    registry = new LimbRegistry();
+    policy = new LimbAccessPolicy();
+    leaseManager = new LimbLeaseManager({ defaultTtlMs: 5000 });
+    actionLog = new LimbActionLog();
+    registry.setDeps({ accessPolicy: policy, leaseManager, actionLog });
+  });
+
+  it('free capability succeeds without lease', async () => {
+    await registry.register(mockNode({
+      capabilities: [{ cap: 'location', commands: ['location.get'], authLevel: 'free' }],
+    }));
+
+    const result = await registry.invoke('iphone-1', 'location.get', {}, { catId: 'opus' });
+    assert.equal(result.success, true);
+    assert.equal(leaseManager.size, 0); // no lease acquired
+  });
+
+  it('leased capability acquires and auto-releases lease after invoke', async () => {
+    await registry.register(mockNode({
+      capabilities: [{ cap: 'camera', commands: ['camera.snap'], authLevel: 'leased' }],
+    }));
+
+    const result = await registry.invoke('iphone-1', 'camera.snap', {}, { catId: 'opus' });
+    assert.equal(result.success, true);
+    // Lease auto-released after single invoke
+    assert.equal(leaseManager.size, 0);
+  });
+
+  it('leased capability allows sequential invokes from different cats (auto-release)', async () => {
+    await registry.register(mockNode({
+      capabilities: [{ cap: 'camera', commands: ['camera.snap'], authLevel: 'leased' }],
+    }));
+
+    // First cat invokes — lease acquired then released
+    const r1 = await registry.invoke('iphone-1', 'camera.snap', {}, { catId: 'opus' });
+    assert.equal(r1.success, true);
+
+    // Second cat can invoke because lease was auto-released
+    const r2 = await registry.invoke('iphone-1', 'camera.snap', {}, { catId: 'codex' });
+    assert.equal(r2.success, true);
+  });
+
+  it('unknown command rejected by whitelist', async () => {
+    await registry.register(mockNode({
+      capabilities: [{ cap: 'camera', commands: ['camera.snap'], authLevel: 'free' }],
+    }));
+
+    const result = await registry.invoke('iphone-1', 'camera.unknown', {}, { catId: 'opus' });
+    assert.equal(result.success, false);
+    assert.ok(result.error.includes('not in any capability whitelist'));
+  });
+
+  it('gated capability rejects', async () => {
+    await registry.register(mockNode({
+      capabilities: [{ cap: 'sms', commands: ['sms.send'], authLevel: 'gated' }],
+    }));
+
+    const result = await registry.invoke('iphone-1', 'sms.send', {}, { catId: 'opus' });
+    assert.equal(result.success, false);
+    assert.ok(result.error.includes('gated'));
+  });
+
+  it('policy override changes auth level', async () => {
+    await registry.register(mockNode({
+      capabilities: [{ cap: 'camera', commands: ['camera.snap'], authLevel: 'leased' }],
+    }));
+    // Override: make camera free for opus
+    policy.setPolicy({ catId: 'opus', nodeId: 'iphone-1', capability: 'camera', authLevel: 'free' });
+
+    const result = await registry.invoke('iphone-1', 'camera.snap', {}, { catId: 'opus' });
+    assert.equal(result.success, true);
+    assert.equal(leaseManager.size, 0); // no lease needed because policy says free
+  });
+
+  it('invoke records action log entry on success', async () => {
+    await registry.register(mockNode({
+      capabilities: [{ cap: 'camera', commands: ['camera.snap'], authLevel: 'free' }],
+    }));
+
+    await registry.invoke('iphone-1', 'camera.snap', {}, { catId: 'opus', invocationId: 'inv-123' });
+    const entries = actionLog.getByCat('opus');
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].status, 'completed');
+    assert.equal(entries[0].catId, 'opus');
+    assert.equal(entries[0].nodeId, 'iphone-1');
+    assert.equal(entries[0].command, 'camera.snap');
+    assert.equal(entries[0].invocationId, 'inv-123');
+  });
+
+  it('invoke records action log entry on failure', async () => {
+    await registry.register(mockNode({
+      invoke: async () => ({ success: false, error: 'lens broken' }),
+      capabilities: [{ cap: 'camera', commands: ['camera.snap'], authLevel: 'free' }],
+    }));
+
+    await registry.invoke('iphone-1', 'camera.snap', {}, { catId: 'opus' });
+    const entries = actionLog.getByCat('opus');
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].status, 'failed');
+  });
+
+  it('invoke without deps works like Phase A (backward compatible)', async () => {
+    const plainRegistry = new LimbRegistry(); // no deps
+    await plainRegistry.register(mockNode());
+
+    const result = await plainRegistry.invoke('iphone-1', 'camera.snap', {});
+    assert.equal(result.success, true);
+  });
+});

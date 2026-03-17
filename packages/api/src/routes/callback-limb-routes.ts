@@ -64,7 +64,10 @@ export function registerCallbackLimbRoutes(
       return reply.status(403).send({ error: EXPIRED_CREDENTIALS_ERROR });
     }
 
-    const result = await limbRegistry.invoke(nodeId, command, params ?? {});
+    const result = await limbRegistry.invoke(nodeId, command, params ?? {}, {
+      catId: record.catId,
+      invocationId: record.invocationId,
+    });
     return reply.send(result);
   });
 }
