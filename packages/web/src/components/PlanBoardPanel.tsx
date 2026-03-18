@@ -34,6 +34,12 @@ function TaskStatusIcon({ status }: { status: 'completed' | 'in_progress' | 'pen
   );
 }
 
+function taskStatusA11yText(status: 'completed' | 'in_progress' | 'pending'): string {
+  if (status === 'completed') return '已完成';
+  if (status === 'in_progress') return '进行中';
+  return '待处理';
+}
+
 /* ── Per-cat plan card ────────────────────────────────────── */
 
 function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; inv: CatInvocationInfo }) {
@@ -85,16 +91,23 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
         )}
       </div>
       <div className="space-y-0.5 ml-3.5">
-        {tasks.map((t) => (
-          <div key={t.id} className="flex items-start gap-1 text-[11px] leading-tight">
+        {tasks.map((t) => {
+          const taskText = t.status === 'in_progress' ? (t.activeForm ?? t.subject) : t.subject;
+          return (
+            <div
+              key={t.id}
+              className="flex items-start gap-1 text-[11px] leading-tight"
+              aria-label={`${taskStatusA11yText(t.status)} ${taskText}`}
+            >
             <span className="mt-px flex-shrink-0" aria-hidden="true">
               <TaskStatusIcon status={t.status} />
             </span>
             <span className={t.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-700'}>
-              {t.status === 'in_progress' ? (t.activeForm ?? t.subject) : t.subject}
+              {taskText}
             </span>
           </div>
-        ))}
+          );
+        })}
       </div>
       <div className="mt-1 ml-3.5 h-1 bg-gray-200 rounded-full overflow-hidden">
         <div
