@@ -252,7 +252,7 @@ created: 2026-03-12
 
 | PR | 功能 | 家里证据 |
 |----|------|---------|
-| #44 | 线程悬停 tooltip | ThreadItem.tsx line 91-105: `title={tooltip}` (标题+参与者+时间) |
+| #44 | 线程悬停 tooltip | ThreadItem.tsx line 91-99: `title={tooltip}` (标题+参与者+时间) — commit 0a0f44bc + clowder-ai PR #134 |
 | #121 | done-guarantee 安全网 | route-serial.ts + route-parallel.ts: `yieldedFinalDone` + finally/post-loop safety net (commit 8a28d74c) |
 
 ### 决策记录（3 个 — 历史归档）
@@ -261,8 +261,8 @@ created: 2026-03-12
 
 - **PR 做了什么**：ThreadItem.tsx 加 `title={tooltip}`（完整标题+参与者+时间），7 行代码
 - **铲屎官决策**：引进到 cat-cafe
-- **处理方式**：关闭 PR，在家里 ThreadItem.tsx 实现等效功能后同步
-- **待办**：在家里实现 tooltip（走 worktree）
+- **处理方式**：家里实现等效功能（commit 0a0f44bc）+ hotfix lane 同步到社区（clowder-ai PR #134）
+- **完成**：✅ 家里 main + 社区 hotfix PR 已创建
 
 #### PR #60 — pnpm start + .env + Redis 降级 (bouillipx, 3 files) — ✅ Sync Transform 实现
 
