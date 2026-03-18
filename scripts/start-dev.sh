@@ -74,7 +74,6 @@ load_dare_env_from_local() {
 
     local key raw value
     for key in \
-        REDIS_URL \
         DARE_PATH \
         DARE_ADAPTER \
         DARE_API_KEY \
@@ -454,22 +453,6 @@ setup_storage() {
 
     ensure_redis_dirs
     archive_redis_snapshot "pre-start"
-
-    # 如果 REDIS_URL 已通过 .env 配置，尊重用户设置，提取端口用于连通性检查
-    if [ -n "$REDIS_URL" ]; then
-        local configured_port
-        configured_port=$(echo "$REDIS_URL" | sed -E 's|.*:([0-9]+)/?$|\1|')
-        if redis-cli -p "$configured_port" ping &> /dev/null; then
-            echo -e "${GREEN}  ✓ Redis 已运行 (端口 $configured_port, 来自 REDIS_URL)${NC}"
-            REDIS_PORT="$configured_port"
-            export REDIS_URL
-            print_redis_runtime_info
-            return
-        else
-            echo -e "${RED}  ✗ REDIS_URL 配置的 Redis (端口 $configured_port) 无法连接${NC}"
-            exit 1
-        fi
-    fi
 
     # 默认: 尝试 Redis 持久化 (专属端口，避免与系统 Redis 冲突)
     if redis-cli -p "$REDIS_PORT" ping &> /dev/null; then
