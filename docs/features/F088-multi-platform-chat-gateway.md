@@ -109,7 +109,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-6**: `/thread` 命令缺失 — 用户发 `/thread <id> <msg>` 想路由消息到指定 thread，但 CommandLayer 不识别，静默 fallthrough 当普通消息投递给当前 session。**✅ PR #542 修复**。
 - **ISSUE-7**: `/threads` 列表 shortId 全部显示 `[thread_m]` — `slice(0,8)` 截断后 `thread_` 前缀相同导致无区分度。**✅ PR #542 修复**。
 - **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**提议**：引入 IM Hub thread（控制面），所有 `/命令` 在 hub 处理和存档，对话 thread 只存对话。待设计。
-- **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — 用户在飞书发消息触发布偶猫 + 缅因猫同时回复，Web UI 里两只猫都有消息，但飞书只收到布偶猫的卡片，缅因猫的回复丢失。根因待查：OutboundDeliveryHook 可能只 hook 了第一只猫的 invocation，或多猫回复的第二只猫走了不同的出站路径。
+- **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 修复**：per-cat outbound delivery，每只猫各自 deliver 一次。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属。
 
 ## Open Questions (resolved)
 
@@ -129,6 +129,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-11 | Phase 5b Feishu native upload + media cleanup merged (PR #364) |
 | 2026-03-11 | Phase E merged: 飞书多猫卡片身份标识 ISSUE-5 fix (PR #389) |
 | 2026-03-17 | ISSUE-6/7 fix: `/thread` command + full thread ID display (PR #542) |
+| 2026-03-18 | ISSUE-9 fix: per-cat outbound delivery for multi-cat A2A responses (PR #545) |
 
 ## 参考文件
 
