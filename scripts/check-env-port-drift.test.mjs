@@ -80,49 +80,75 @@ describe('.env.example.opensource port consistency', () => {
   });
 });
 
-describe('Home-side port defaults are internally consistent', () => {
-  it('start-dev.sh API fallback is 3002', () => {
+// In the home repo (cat-cafe), code defaults are 3002/3001.
+// In the open-source repo (clowder-ai), sync transforms them to 3003/3004.
+// Detect context so the same test file works in both repos.
+const isHomeRepo = existsSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'));
+const expectedApiPort = isHomeRepo ? '3002' : '3003';
+const expectedFrontendPort = isHomeRepo ? '3001' : '3004';
+const repoLabel = isHomeRepo ? 'home' : 'open-source';
+
+describe(`Code-side port defaults are internally consistent (${repoLabel}: API=${expectedApiPort}, Frontend=${expectedFrontendPort})`, () => {
+  it(`start-dev.sh API fallback is ${expectedApiPort}`, () => {
     const fallback = readScriptFallback('scripts/start-dev.sh', 'API_PORT');
-    assert.equal(fallback, '3002', `start-dev.sh API_PORT fallback should be 3002, got ${fallback}`);
+    assert.equal(
+      fallback,
+      expectedApiPort,
+      `start-dev.sh API_PORT fallback should be ${expectedApiPort}, got ${fallback}`,
+    );
   });
 
-  it('start-dev.sh Frontend fallback is 3001', () => {
+  it(`start-dev.sh Frontend fallback is ${expectedFrontendPort}`, () => {
     const fallback = readScriptFallback('scripts/start-dev.sh', 'WEB_PORT');
-    assert.equal(fallback, '3001', `start-dev.sh WEB_PORT fallback should be 3001, got ${fallback}`);
+    assert.equal(
+      fallback,
+      expectedFrontendPort,
+      `start-dev.sh WEB_PORT fallback should be ${expectedFrontendPort}, got ${fallback}`,
+    );
   });
 
-  it('index.ts API port fallback is 3002', () => {
+  it(`index.ts API port fallback is ${expectedApiPort}`, () => {
     const fallback = readTsFallback('packages/api/src/index.ts', /API_SERVER_PORT\s*\?\?\s*'(\d+)'/);
-    assert.equal(fallback, '3002', `index.ts API fallback should be 3002, got ${fallback}`);
+    assert.equal(fallback, expectedApiPort, `index.ts API fallback should be ${expectedApiPort}, got ${fallback}`);
   });
 
-  it('env-registry.ts API_SERVER_PORT defaultValue is 3002', () => {
+  it(`env-registry.ts API_SERVER_PORT defaultValue is ${expectedApiPort}`, () => {
     const fallback = readTsFallback(
       'packages/api/src/config/env-registry.ts',
       /name:\s*'API_SERVER_PORT',\s*defaultValue:\s*'(\d+)'/,
     );
-    assert.equal(fallback, '3002', `env-registry API_SERVER_PORT default should be 3002, got ${fallback}`);
+    assert.equal(
+      fallback,
+      expectedApiPort,
+      `env-registry API_SERVER_PORT default should be ${expectedApiPort}, got ${fallback}`,
+    );
   });
 
-  it('ConfigRegistry.ts API port fallback is 3002', () => {
+  it(`ConfigRegistry.ts API port fallback is ${expectedApiPort}`, () => {
     const fallback = readTsFallback('packages/api/src/config/ConfigRegistry.ts', /API_SERVER_PORT\s*\?\?\s*'(\d+)'/);
-    assert.equal(fallback, '3002', `ConfigRegistry API fallback should be 3002, got ${fallback}`);
+    assert.equal(
+      fallback,
+      expectedApiPort,
+      `ConfigRegistry API fallback should be ${expectedApiPort}, got ${fallback}`,
+    );
   });
 
-  it('frontend-origin.ts DEFAULT_FRONTEND_BASE_URL uses port 3001', () => {
+  it(`frontend-origin.ts DEFAULT_FRONTEND_BASE_URL uses port ${expectedFrontendPort}`, () => {
     const fallback = readTsFallback(
       'packages/api/src/config/frontend-origin.ts',
       /DEFAULT_FRONTEND_BASE_URL\s*=\s*'http:\/\/localhost:(\d+)'/,
     );
-    assert.equal(fallback, '3001', `frontend-origin DEFAULT_FRONTEND_BASE_URL should use 3001, got ${fallback}`);
+    assert.equal(
+      fallback,
+      expectedFrontendPort,
+      `frontend-origin DEFAULT_FRONTEND_BASE_URL should use ${expectedFrontendPort}, got ${fallback}`,
+    );
   });
 });
 
-const hasSyncInfra = existsSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'));
-
 describe(
   'Sync transform rules match convention',
-  { skip: !hasSyncInfra && 'sync infrastructure not present (open-source repo)' },
+  { skip: !isHomeRepo && 'sync infrastructure not present (open-source repo)' },
   () => {
     it('_sanitize-rules.pl transforms 3002→3003 (API)', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/_sanitize-rules.pl'), 'utf-8');
