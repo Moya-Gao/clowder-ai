@@ -123,7 +123,7 @@ created: 2026-03-04
 - ReviewRouter / ConnectorRouter / ConnectorMessageFormatter 去除 emoji
 - 设计资产：`public/images/connectors/`（IM PNG）+ `icons/ConnectorIcons.tsx`（SVG 组件）
 
-**B0-Wave2（待做，砚砚分工）**：
+**B0-Wave2（已完成，砚砚执行）**：
 - Bootcamp 任务卡片 emoji → SVG icon set（16 个任务类型）
 - 成就/排行榜 emoji → 成就徽章 SVG
 - 系统消息 ⚠️/❌/✅ → alert/error/success SVG
@@ -157,8 +157,8 @@ created: 2026-03-04
 
 ### Phase B-0
 - [x] AC-B0-W1: Connector 气泡图标全部替换为设计图标（PNG/SVG），向后兼容
-- [ ] AC-B0-W2: Bootcamp 任务卡片/成就/排行榜 emoji → SVG（砚砚负责）
-- [ ] AC-B0-W3: 系统消息/纯文本 formatter emoji → 设计方案确认
+- [x] AC-B0-W2: Bootcamp 任务卡片/成就/排行榜 emoji → SVG（砚砚负责）
+- [x] AC-B0-W3: 系统消息/前端零散 emoji → 文本标签 + SVG（砚砚负责）
 
 ### Phase B
 - [ ] AC-B1: 聊天界面全面应用新设计语言
@@ -241,4 +241,5 @@ created: 2026-03-04
 | 2026-03-04 | 铲屎官定调：砚砚版胜出，"理解、语言、完成度、认真做的最好" |
 | 2026-03-04 | 分工调整：砚砚(GPT-5.2)主导设计执行 + 布偶猫工程架构 + 烁烁概念方向 |
 | 2026-03-18 | 铲屎官发现全站 emoji 泛滥，要求彻底清扫（R7） |
-| 2026-03-18 | Phase B-0 Wave1 完成：Connector 气泡图标全替换为 PNG/SVG |
+| 2026-03-18 | Phase B-0 Wave1 merged (PR #547)：Connector 气泡图标全替换为 PNG/SVG |
+| 2026-03-18 | Phase B-0 Wave2 merged (PR #550)：Bootcamp/成就/系统消息/前端零散 emoji 全清理 |
