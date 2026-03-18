@@ -2,19 +2,15 @@
  * Project Directory Browser Routes
  * GET /api/projects/browse        - 浏览目录结构
  * GET /api/projects/cwd           - 获取服务器工作目录
- * POST /api/projects/pick-directory - 打开系统原生文件选择器
+ * POST /api/projects/pick-directory - (deprecated, use browse instead)
  */
 
-import { execFile } from 'node:child_process';
-import { readdir, realpath, stat } from 'node:fs/promises';
+import { readdir, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
-import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
 import { getAllowedRoots, isUnderAllowedRoot, validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
-
-const execFileAsync = promisify(execFile);
 
 export type PickDirectoryResult =
   | { status: 'picked'; path: string }
@@ -22,25 +18,13 @@ export type PickDirectoryResult =
   | { status: 'error'; message: string };
 
 /**
- * Shell out to macOS osascript to open native folder picker (NSOpenPanel).
- * Returns a discriminated result: picked / cancelled / error.
+ * F113: Deprecated — previously used macOS osascript to open native folder picker.
+ * The frontend now uses the web-based DirectoryBrowser (GET /api/projects/browse).
+ * This function is kept for backward compatibility but returns an error directing
+ * clients to use the browse endpoint instead.
  */
 export async function execPickDirectory(): Promise<PickDirectoryResult> {
-  try {
-    const { stdout } = await execFileAsync('osascript', ['-e', 'POSIX path of (choose folder)'], { timeout: 120_000 });
-    const picked = stdout.trim().replace(/\/$/, '');
-    if (!picked) return { status: 'cancelled' };
-    const s = await stat(picked);
-    if (!s.isDirectory()) return { status: 'error', message: 'Selected path is not a directory' };
-    return { status: 'picked', path: picked };
-  } catch (err: unknown) {
-    // osascript reports "User canceled. (-128)" in stderr when user presses Cancel.
-    // Exit code 1 is generic — also used for permission denial, script errors, etc.
-    // Only treat explicit "User canceled" as cancellation.
-    const stderr = String((err as { stderr?: unknown }).stderr ?? '');
-    if (stderr.includes('User canceled')) return { status: 'cancelled' };
-    return { status: 'error', message: stderr || (err instanceof Error ? err.message : 'Unknown error') };
-  }
+  return { status: 'error', message: 'Native picker unavailable. Use GET /api/projects/browse instead.' };
 }
 
 /** Swappable reference for testing — route calls this instead of execPickDirectory directly */
@@ -186,16 +170,16 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       // Sort alphabetically
       dirs.sort((a, b) => a.name.localeCompare(b.name));
 
-      // Compute parent (use validatedPath which is already canonicalized)
-      const parentParts = validatedPath.split('/');
-      parentParts.pop();
-      const parent = parentParts.length > 0 ? parentParts.join('/') || '/' : null;
-      const canGoUp = parent !== null && isUnderAllowedRoot(parent);
+      // Compute parent — use path.dirname() for cross-platform separator handling
+      const parentDir = dirname(validatedPath);
+      const isAtRoot = parentDir === validatedPath; // dirname('/') === '/'
+      const canGoUp = !isAtRoot && isUnderAllowedRoot(parentDir);
 
       return {
         current: validatedPath,
         name: basename(validatedPath),
-        parent: canGoUp ? parent : null,
+        parent: canGoUp ? parentDir : null,
+        homePath: homedir(),
         entries: dirs,
       };
     } catch (err) {

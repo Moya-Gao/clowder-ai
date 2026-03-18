@@ -751,7 +751,9 @@ describe('StartupReconciler', () => {
   });
 
   test('P1-C: messagesRecovered is 0 when messageStore has no markDelivered', async () => {
-    store.seed(makeRecord({ id: 'no-md1', status: 'queued', userMessageId: 'umsg-x', createdAt: Date.now() - 10 * 60_000 }));
+    store.seed(
+      makeRecord({ id: 'no-md1', status: 'queued', userMessageId: 'umsg-x', createdAt: Date.now() - 10 * 60_000 }),
+    );
 
     const messageStore = {
       append(msg) {

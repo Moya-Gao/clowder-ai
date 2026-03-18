@@ -80,4 +80,61 @@ describe('POST /api/projects/pick-directory', () => {
     const res = await app.inject({ method: 'GET', url: '/api/projects/pick-directory' });
     assert.equal(res.statusCode, 404);
   });
+
+  it('F113: default impl returns error (osascript removed)', async () => {
+    // Don't mock — test the real (deprecated) implementation
+    const app = await buildApp();
+    const res = await app.inject({ method: 'POST', url: '/api/projects/pick-directory', headers: AUTH_HEADERS });
+    assert.equal(res.statusCode, 500);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error.includes('browse'));
+  });
+});
+
+describe('GET /api/projects/browse (F113 cross-platform)', () => {
+  it('returns home directory listing by default', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/projects/browse' });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.current, homedir());
+    assert.equal(typeof body.name, 'string');
+    assert.ok(Array.isArray(body.entries));
+    // Home directory should have subdirectories
+    assert.ok(body.entries.length > 0);
+    // All entries should be directories
+    for (const entry of body.entries) {
+      assert.equal(entry.isDirectory, true);
+      assert.equal(typeof entry.name, 'string');
+      assert.equal(typeof entry.path, 'string');
+    }
+  });
+
+  it('returns parent path for navigation', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: `/api/projects/browse?path=${encodeURIComponent(homedir())}` });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    // Home should have a parent (e.g., /Users on macOS, /home on Linux)
+    // parent can be null if at root of allowed roots, which is also valid
+    assert.ok(body.parent === null || typeof body.parent === 'string');
+  });
+
+  it('returns 403 for path outside allowed roots', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/projects/browse?path=/nonexistent/evil' });
+    assert.equal(res.statusCode, 403);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error);
+  });
+
+  it('filters out hidden directories and node_modules', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: `/api/projects/browse?path=${encodeURIComponent(homedir())}` });
+    const body = JSON.parse(res.body);
+    for (const entry of body.entries) {
+      assert.ok(!entry.name.startsWith('.'), `should hide: ${entry.name}`);
+      assert.notEqual(entry.name, 'node_modules');
+    }
+  });
 });

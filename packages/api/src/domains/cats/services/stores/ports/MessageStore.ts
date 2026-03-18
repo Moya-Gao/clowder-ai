@@ -193,7 +193,10 @@ export class MessageStore {
   /** F102 KD-34: Listener called after every successful append (fire-and-forget) */
   onAppend?: (msg: Pick<StoredMessage, 'id' | 'threadId' | 'timestamp'>) => void;
 
-  constructor(options?: { maxMessages?: number; onAppend?: (msg: Pick<StoredMessage, 'id' | 'threadId' | 'timestamp'>) => void }) {
+  constructor(options?: {
+    maxMessages?: number;
+    onAppend?: (msg: Pick<StoredMessage, 'id' | 'threadId' | 'timestamp'>) => void;
+  }) {
     this.maxMessages = options?.maxMessages ?? MAX_MESSAGES;
     this.onAppend = options?.onAppend;
   }
@@ -252,7 +255,11 @@ export class MessageStore {
     // F102 KD-34: fire-and-forget append listener for thread index updates
     // P2 fix: try-catch handles sync throws; Promise.resolve handles async rejections
     if (this.onAppend) {
-      try { void Promise.resolve(this.onAppend(stored)).catch(() => {}); } catch { /* best-effort */ }
+      try {
+        void Promise.resolve(this.onAppend(stored)).catch(() => {});
+      } catch {
+        /* best-effort */
+      }
     }
 
     return stored;

@@ -27,7 +27,10 @@ export function createMessageStore(
 ): AnyMessageStore {
   if (redis) {
     const ttlSeconds = resolveMessageTtlSeconds();
-    return new RedisMessageStore(redis, { ...(ttlSeconds !== undefined ? { ttlSeconds } : {}), onAppend: options?.onAppend });
+    return new RedisMessageStore(redis, {
+      ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
+      onAppend: options?.onAppend,
+    });
   }
   return new MessageStore({ onAppend: options?.onAppend });
 }

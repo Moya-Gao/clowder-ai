@@ -10,10 +10,22 @@ type AchievementDef = Omit<Achievement, 'unlockedAt'>;
 const CVO_ACHIEVEMENTS: AchievementDef[] = [
   { id: 'cvo-first-review', icon: 'search', label: '初审官', description: '完成第一次 code review', category: 'cvo' },
   { id: 'cvo-5-reviews', icon: 'test', label: '审计达人', description: '完成 5 次 code review', category: 'cvo' },
-  { id: 'cvo-first-merge', icon: 'shuffle', label: '合入初体验', description: '第一个 PR 被合入 main', category: 'cvo' },
+  {
+    id: 'cvo-first-merge',
+    icon: 'shuffle',
+    label: '合入初体验',
+    description: '第一个 PR 被合入 main',
+    category: 'cvo',
+  },
   { id: 'cvo-10-commits', icon: 'code', label: '码力全开', description: '累计 10 次 commit', category: 'cvo' },
   { id: 'cvo-bug-hunter', icon: 'bug', label: '捉虫猎手', description: '修复 3 个 bug', category: 'cvo' },
-  { id: 'cvo-architect', icon: 'architecture', label: '架构师', description: '主导一个 feature 从立项到合入', category: 'cvo' },
+  {
+    id: 'cvo-architect',
+    icon: 'architecture',
+    label: '架构师',
+    description: '主导一个 feature 从立项到合入',
+    category: 'cvo',
+  },
   { id: 'cvo-mentor', icon: 'graduation', label: '带教官', description: '帮助其他猫完成第一个 PR', category: 'cvo' },
 ];
 
@@ -44,7 +56,13 @@ const DAILY_ACHIEVEMENTS: AchievementDef[] = [
   { id: 'daily-streak-30', icon: 'bolt', label: '月度铁人', description: '连续 30 天活跃', category: 'daily' },
   { id: 'daily-chatty', icon: 'chat', label: '话痨猫猫', description: '单日消息超过 50 条', category: 'daily' },
   { id: 'daily-game-mvp', icon: 'trophy', label: '游戏 MVP', description: '在猫猫杀中获得 MVP', category: 'daily' },
-  { id: 'daily-shame-king', icon: 'cross', label: '社死之王', description: '在谁是卧底中被投出 3 次', category: 'daily' },
+  {
+    id: 'daily-shame-king',
+    icon: 'cross',
+    label: '社死之王',
+    description: '在谁是卧底中被投出 3 次',
+    category: 'daily',
+  },
 ];
 
 export const ALL_ACHIEVEMENTS: ReadonlyMap<string, AchievementDef> = new Map(

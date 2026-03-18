@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import { CatSelector } from './CatSelector';
+import { DirectoryBrowser } from './DirectoryBrowser';
 import { projectDisplayName } from './thread-utils';
 
 /** F33: Session binding passed alongside thread creation */
@@ -39,7 +40,7 @@ export function DirectoryPickerModal({
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [bindExpanded, setBindExpanded] = useState(false);
   const [cwdPath, setCwdPath] = useState<string | null>(null);
-  const [isPicking, setIsPicking] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
   const [pathInput, setPathInput] = useState('');
   const [pathError, setPathError] = useState<string | null>(null);
   const { getCatById } = useCatData();
@@ -105,26 +106,14 @@ export function DirectoryPickerModal({
     selectWithOptions(selectedPath === 'lobby' ? undefined : selectedPath);
   }, [selectedPath, selectWithOptions]);
 
-  // F068: Open native macOS folder picker via backend osascript
-  const pickDirectory = useCallback(async () => {
-    setIsPicking(true);
-    setPathError(null);
-    try {
-      const res = await apiFetch('/api/projects/pick-directory', { method: 'POST' });
-      if (res.status === 204) return; // User cancelled
-      if (!res.ok) {
-        const data = await res.json();
-        setPathError(data.error || '选择失败');
-        return;
-      }
-      const data = await res.json();
-      handleSelectPath(data.path);
-    } catch {
-      setPathError('无法连接到服务器');
-    } finally {
-      setIsPicking(false);
-    }
-  }, [handleSelectPath]);
+  // F113: Handle directory selection from the web-based browser
+  const handleBrowserSelect = useCallback(
+    (path: string) => {
+      handleSelectPath(path);
+      setShowBrowser(false);
+    },
+    [handleSelectPath],
+  );
 
   // F068: Submit path from text input — validate via browse endpoint before accepting
   const handlePathSubmit = useCallback(async () => {
@@ -363,23 +352,30 @@ export function DirectoryPickerModal({
           </div>
         )}
 
-        {/* ── Bottom: folder picker + path input + confirm ── */}
+        {/* ── F113: Inline directory browser (replaces osascript picker) ── */}
+        {showBrowser && (
+          <div className="border-t border-gray-100 h-[360px] flex flex-col">
+            <DirectoryBrowser
+              initialPath={cwdPath ?? undefined}
+              activeProjectPath={cwdPath ?? undefined}
+              onSelect={handleBrowserSelect}
+              onCancel={() => setShowBrowser(false)}
+            />
+          </div>
+        )}
+
+        {/* ── Bottom: browse button + path input + confirm ── */}
         <div className="px-5 py-3 border-t border-gray-100 space-y-2">
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={pickDirectory}
-              disabled={isPicking}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium transition-colors disabled:opacity-60"
+              onClick={() => setShowBrowser((v) => !v)}
+              className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
+                showBrowser ? 'bg-owner-primary text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
             >
-              {isPicking ? (
-                <span className="animate-pulse">等待选择...</span>
-              ) : (
-                <>
-                  <FolderOpenIcon />
-                  <span>选择文件夹...</span>
-                </>
-              )}
+              <FolderOpenIcon />
+              <span>{showBrowser ? '收起浏览' : '浏览文件夹...'}</span>
             </button>
             <input
               type="text"
