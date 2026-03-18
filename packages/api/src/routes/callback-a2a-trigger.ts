@@ -89,10 +89,7 @@ export async function enqueueA2ATargets(
       }
       // Guard 2: Duplicate detection — skip cats already queued as agent entries
       if (deps.invocationQueue.hasQueuedAgentForCat(threadId, catId)) {
-        log.info(
-          { threadId, triggerMessageId, catId },
-          '[F122B] A2A callback: skipping duplicate agent entry for cat',
-        );
+        log.info({ threadId, triggerMessageId, catId }, '[F122B] A2A callback: skipping duplicate agent entry for cat');
         continue;
       }
       const result = deps.invocationQueue.enqueue({
@@ -123,17 +120,12 @@ export async function enqueueA2ATargets(
     if (deliveryCursorStore && enqueued.length > 0) {
       const ackTargets = enqueued.filter((catId) => opts.triggerMessage.mentions.includes(catId));
       await Promise.allSettled(
-        ackTargets.map((catId) =>
-          deliveryCursorStore.ackMentionCursor(opts.userId, catId, threadId, triggerMessageId),
-        ),
+        ackTargets.map((catId) => deliveryCursorStore.ackMentionCursor(opts.userId, catId, threadId, triggerMessageId)),
       );
     }
     // Trigger auto-execute for entries whose target slot is free
     await deps.queueProcessor?.tryAutoExecute?.(threadId);
-    log.info(
-      { threadId, triggerMessageId, enqueued, targetCats },
-      '[F122B] A2A callback: enqueued to InvocationQueue',
-    );
+    log.info({ threadId, triggerMessageId, enqueued, targetCats }, '[F122B] A2A callback: enqueued to InvocationQueue');
     return { enqueued, fallback: false };
   }
 

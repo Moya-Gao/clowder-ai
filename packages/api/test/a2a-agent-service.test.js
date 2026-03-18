@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createCatId } from '@cat-cafe/shared';
 import { A2AAgentService } from '../dist/domains/cats/services/agents/providers/A2AAgentService.js';
-import { extractTextFromParts, transformA2ATaskToMessages } from '../dist/domains/cats/services/agents/providers/a2a-event-transform.js';
+import {
+  extractTextFromParts,
+  transformA2ATaskToMessages,
+} from '../dist/domains/cats/services/agents/providers/a2a-event-transform.js';
 
 const TEST_CAT_ID = createCatId('test-a2a');
 
@@ -159,7 +162,9 @@ describe('A2AAgentService', () => {
     const service = new A2AAgentService({
       catId: TEST_CAT_ID,
       config: { url: 'http://mock.local' },
-      fetchFn: async () => { throw new Error('ECONNREFUSED'); },
+      fetchFn: async () => {
+        throw new Error('ECONNREFUSED');
+      },
     });
 
     const messages = [];
@@ -185,7 +190,9 @@ describe('A2AAgentService', () => {
       },
     });
 
-    for await (const _msg of service.invoke('test')) { /* consume */ }
+    for await (const _msg of service.invoke('test')) {
+      /* consume */
+    }
     assert.equal(capturedHeaders['Authorization'], 'Bearer test-key-123');
   });
 
@@ -203,7 +210,9 @@ describe('A2AAgentService', () => {
       },
     });
 
-    for await (const _msg of service.invoke('Hello A2A')) { /* consume */ }
+    for await (const _msg of service.invoke('Hello A2A')) {
+      /* consume */
+    }
     assert.equal(capturedBody.jsonrpc, '2.0');
     assert.equal(capturedBody.method, 'tasks/send');
     assert.equal(capturedBody.params.message.role, 'user');

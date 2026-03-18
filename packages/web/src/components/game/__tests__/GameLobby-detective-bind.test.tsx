@@ -17,7 +17,7 @@ const fakeCats = [
   { id: 'opus', displayName: '布偶猫', avatar: '/opus.png', color: { primary: '#7c3aed' } },
   { id: 'codex', displayName: '缅因猫', avatar: '/codex.png', color: { primary: '#f59e0b' } },
   { id: 'gemini', displayName: '暹罗猫', avatar: '/gemini.png', color: { primary: '#06b6d4' } },
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ] as any[];
 
 describe('GameLobby detective mode', () => {

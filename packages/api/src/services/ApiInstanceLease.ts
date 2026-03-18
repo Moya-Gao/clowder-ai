@@ -133,9 +133,7 @@ export class ApiInstanceLease {
 
     const existingHolder = this.parseHolder(existingRaw);
     if (existingHolder && this.canSteal(existingHolder)) {
-      const stolen = Number(
-        await this.redis.eval(STEAL_LEASE_LUA, 1, this.key, existingRaw, raw, String(this.ttlMs)),
-      );
+      const stolen = Number(await this.redis.eval(STEAL_LEASE_LUA, 1, this.key, existingRaw, raw, String(this.ttlMs)));
       if (stolen === 1) {
         this.setCurrentLease(raw, holder);
         return { acquired: true, holder };

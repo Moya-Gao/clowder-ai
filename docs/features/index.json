@@ -285,7 +285,7 @@
     {
       "id": "F048",
       "name": "Restart Recovery — 重启自愈（Invocation/Queue 恢复）",
-      "status": "Phase A done / Phase B idea | **Owner**: 布偶猫",
+      "status": "Phase A done / Phase A+ done / Phase B idea | **Owner**: 布偶猫 → 金渐层（Phase A+）",
       "file": "F048-restart-recovery.md"
     },
     {
@@ -561,13 +561,13 @@
     {
       "id": "F091",
       "name": "Signal Study Mode — 信号学习伴侣",
-      "status": "in-progress (Phase 9 signal nav + notes viewable done) | **Owner**: 布偶猫",
+      "status": "in-progress | **Owner**: 布偶猫",
       "file": "F091-signal-study-mode.md"
     },
     {
       "id": "F092",
       "name": "— Cats & U 语音陪伴体验",
-      "status": "in-progress (P0 complete) | **Owner**: 布偶猫 (Opus 4.6)",
+      "status": "done | **Completed**: 2026-03-18 | **Owner**: 布偶猫 (Opus 4.6)",
       "file": "F092-voice-companion-experience.md"
     },
     {
@@ -585,7 +585,7 @@
     {
       "id": "F095",
       "name": "Thread Sidebar 导航体验升级",
-      "status": "in-progress (Phase D) | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F095-sidebar-collapse-memory.md"
     },
     {
@@ -681,13 +681,13 @@
     {
       "id": "F111",
       "name": "Streaming TTS Chunker — 流式分句合成管线",
-      "status": "spec | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1",
+      "status": "done | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1",
       "file": "F111-streaming-tts-chunker.md"
     },
     {
       "id": "F112",
-      "name": "Voice Playback Queue — 语音播放队列 + Intent 调度",
-      "status": "spec | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P2",
+      "name": "Voice Playback Queue — 语音播放队列 + 播放器统一",
+      "status": "in-progress | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1",
       "file": "F112-voice-playback-queue.md"
     },
     {
@@ -705,7 +705,7 @@
     {
       "id": "F115",
       "name": "Runtime 启动链优化",
-      "status": "done | **Owner**: 宪宪/Opus | **Priority**: P1 | **Completed**: 2026-03-14",
+      "status": "done | **Owner**: 缅因猫/gpt52 | **Priority**: P1 | **Completed**: 2026-03-16",
       "file": "F115-runtime-startup-optimization.md"
     },
     {
@@ -723,7 +723,7 @@
     {
       "id": "F118",
       "name": "CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复",
-      "status": "done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: open",
+      "status": "done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16)",
       "file": "F118-cli-liveness-watchdog.md"
     },
     {
@@ -735,13 +735,13 @@
     {
       "id": "F120",
       "name": "Hub Embedded Browser — 在 Hub 内嵌浏览器预览运行中的前端应用",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-15",
       "file": "F120-hub-embedded-browser.md"
     },
     {
       "id": "F121",
       "name": "Community Frontend UX Triage — 社区前端交互体验侦查与分诊",
-      "status": "in-progress (community fixes merged + follow-up hotfix in review, pending outbound sync) | **Owner**: 布偶猫 | **Priority**: P2",
+      "status": "done | **Owner**: 三猫 | **Priority**: P2 | **Completed**: 2026-03-16",
       "file": "F121-community-frontend-ux-triage.md"
     },
     {
@@ -753,9 +753,39 @@
     {
       "id": "F123",
       "name": "Bubble Runtime Correctness（消息身份契约 + Reconcile 状态机）",
-      "status": "in-progress | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "status": "done | **Owner**: 缅因猫/砚砚 | **Priority**: P1 | **Completed**: 2026-03-16",
       "file": "F123-bubble-runtime-correctness.md"
+    },
+    {
+      "id": "F124",
+      "name": "Apple Ecosystem × Cat Café 语音交互系统",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F124-apple-ecosystem-voice-interaction.md"
+    },
+    {
+      "id": "F124",
+      "name": "🐾 猫猫语音召集令：Watch 即时回应录制",
+      "status": "unknown",
+      "file": "F124-voice-comfort-callout.md"
+    },
+    {
+      "id": "F125",
+      "name": "Alpha 验收通道 — main-test 升级为正式 alpha 测试基础设施",
+      "status": "done | **Owner**: 缅因猫(gpt52) + 布偶猫(opus) | **Priority**: P1 | **Completed**: 2026-03-16",
+      "file": "F125-alpha-test-channel.md"
+    },
+    {
+      "id": "F126",
+      "name": "四肢控制面 — Cat Café Limb Control Plane",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F126-limb-control-plane.md"
+    },
+    {
+      "id": "F127",
+      "name": "猫猫管理重构 — 账户配置与猫猫实例分离，支持动态创建猫 + 自定义别名 @ 路由",
+      "status": "spec | **Owner**: 待定 | **Priority**: P1",
+      "file": "F127-cat-instance-management.md"
     }
   ],
-  "generated_at": "2026-03-15T07:09:51.599Z"
+  "generated_at": "2026-03-18T01:35:00.137Z"
 }

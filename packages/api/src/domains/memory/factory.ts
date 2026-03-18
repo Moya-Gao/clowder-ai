@@ -87,7 +87,14 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
   }
 
   const embedDeps = embeddingService && vectorStore ? { embedding: embeddingService, vectorStore } : undefined;
-  const indexBuilder = new IndexBuilder(store, docsRoot, embedDeps, config.transcriptDataDir, config.threadListFn, config.messageListFn);
+  const indexBuilder = new IndexBuilder(
+    store,
+    docsRoot,
+    embedDeps,
+    config.transcriptDataDir,
+    config.threadListFn,
+    config.messageListFn,
+  );
 
   // Wire rerank deps into store for search-time
   if (embedDeps) {

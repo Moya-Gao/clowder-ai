@@ -561,9 +561,7 @@ describe('Queue Management API', () => {
     assert.equal(body.cancelled, true);
 
     // Should broadcast done for opus
-    const doneCalls = deps.socketManager.broadcastAgentMessage.mock.calls.filter(
-      (c) => c.arguments[0].type === 'done',
-    );
+    const doneCalls = deps.socketManager.broadcastAgentMessage.mock.calls.filter((c) => c.arguments[0].type === 'done');
     assert.equal(doneCalls.length, 1);
     assert.equal(doneCalls[0].arguments[0].catId, 'opus');
   });

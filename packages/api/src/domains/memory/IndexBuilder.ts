@@ -69,7 +69,10 @@ export interface StoredMessageSnapshot {
 }
 
 /** Callback that returns messages for a given thread. */
-export type MessageListFn = (threadId: string, limit?: number) => StoredMessageSnapshot[] | Promise<StoredMessageSnapshot[]>;
+export type MessageListFn = (
+  threadId: string,
+  limit?: number,
+) => StoredMessageSnapshot[] | Promise<StoredMessageSnapshot[]>;
 
 export class IndexBuilder implements IIndexBuilder {
   /** E-2: Set of threadIds that have been modified since last flush */
@@ -500,7 +503,12 @@ export class IndexBuilder implements IIndexBuilder {
       const keywords: string[] = [];
       const kwMatch = body.match(/关联：(.+)/);
       if (kwMatch) {
-        keywords.push(...kwMatch[1].split(/[|,]/).map((s) => s.trim()).filter(Boolean));
+        keywords.push(
+          ...kwMatch[1]
+            .split(/[|,]/)
+            .map((s) => s.trim())
+            .filter(Boolean),
+        );
       }
 
       results.push({
@@ -592,7 +600,9 @@ export class IndexBuilder implements IIndexBuilder {
             const summary = [
               `Session ${digest.seq} by ${digest.catId}`,
               toolNames.length > 0 ? `Tools: ${toolNames.join(', ')}` : '',
-              files.length > 0 ? `Files: ${files.slice(0, 5).join(', ')}${files.length > 5 ? ` (+${files.length - 5})` : ''}` : '',
+              files.length > 0
+                ? `Files: ${files.slice(0, 5).join(', ')}${files.length > 5 ? ` (+${files.length - 5})` : ''}`
+                : '',
             ]
               .filter(Boolean)
               .join('. ');
@@ -751,15 +761,18 @@ export class IndexBuilder implements IIndexBuilder {
     const frontmatter = extractFrontmatter(content);
     // Files without frontmatter: generate collision-safe path-based anchor
     // Use full relative path (with / preserved as /) to avoid a-b/c vs a/b-c collisions
-    const anchor = (frontmatter ? extractAnchor(frontmatter) : null)
-      ?? `doc:${relative(this.docsRoot, filePath).replace(/\.md$/, '')}`;
+    const anchor =
+      (frontmatter ? extractAnchor(frontmatter) : null) ??
+      `doc:${relative(this.docsRoot, filePath).replace(/\.md$/, '')}`;
 
     const kind = frontmatter ? inferKind(frontmatter, filePath) : inferKindFromPath(filePath);
     const title = extractTitle(content);
     const summary = extractSummary(content);
     const sourceHash = createHash('sha256').update(content).digest('hex').slice(0, 16);
 
-    const status = (frontmatter && typeof frontmatter.status === 'string' ? frontmatter.status : 'active') as EvidenceItem['status'];
+    const status = (
+      frontmatter && typeof frontmatter.status === 'string' ? frontmatter.status : 'active'
+    ) as EvidenceItem['status'];
 
     const item: EvidenceItem = {
       anchor,
@@ -825,8 +838,21 @@ function extractAnchor(fm: Record<string, unknown>): string | null {
 function inferKind(fm: Record<string, unknown>, filePath: string): EvidenceKind {
   const docKind = fm.doc_kind;
   if (docKind === 'decision' || filePath.includes('/decisions/')) return 'decision';
-  if (docKind === 'plan' || filePath.includes('/plans/') || filePath.includes('/phases/') || filePath.includes('/guides/')) return 'plan';
-  if (docKind === 'lesson' || filePath.includes('/lessons/') || filePath.includes('/reflections/') || filePath.includes('/postmortems/') || filePath.includes('/stories/')) return 'lesson';
+  if (
+    docKind === 'plan' ||
+    filePath.includes('/plans/') ||
+    filePath.includes('/phases/') ||
+    filePath.includes('/guides/')
+  )
+    return 'plan';
+  if (
+    docKind === 'lesson' ||
+    filePath.includes('/lessons/') ||
+    filePath.includes('/reflections/') ||
+    filePath.includes('/postmortems/') ||
+    filePath.includes('/stories/')
+  )
+    return 'lesson';
   if (docKind === 'discussion' || filePath.includes('/discussions/')) return 'discussion';
   if (docKind === 'research' || filePath.includes('/research/')) return 'research';
   if (docKind === 'spec' || filePath.includes('/features/')) return 'feature';

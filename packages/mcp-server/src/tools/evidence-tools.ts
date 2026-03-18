@@ -18,7 +18,9 @@ export const searchEvidenceInputSchema = {
   scope: z
     .enum(['docs', 'memory', 'threads', 'sessions', 'all'])
     .optional()
-    .describe('Collection scope: docs (features/ADRs/plans/lessons), threads/sessions (chat history), all (everything)'),
+    .describe(
+      'Collection scope: docs (features/ADRs/plans/lessons), threads/sessions (chat history), all (everything)',
+    ),
   mode: z
     .enum(['lexical', 'semantic', 'hybrid'])
     .optional()

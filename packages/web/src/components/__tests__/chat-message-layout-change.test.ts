@@ -133,7 +133,9 @@ describe('ChatMessage layout-change event timing', () => {
     });
 
     // F097: now uses CliOutputBlock summary line instead of ToolEventsPanel
-    const cliToggle = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('CLI Output'));
+    const cliToggle = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('CLI Output'),
+    );
     expect(cliToggle).toBeTruthy();
 
     act(() => {

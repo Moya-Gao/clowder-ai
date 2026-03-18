@@ -29,7 +29,10 @@ describe('GENSHIN_VOICE_DIR backward compat (P1)', () => {
     clearVoiceCache();
     const voice = getCatVoice('opus');
     if (voice.refAudio) {
-      assert.ok(voice.refAudio.startsWith('/custom/character-models'), `refAudio should use CHARACTER_VOICE_DIR, got: ${voice.refAudio}`);
+      assert.ok(
+        voice.refAudio.startsWith('/custom/character-models'),
+        `refAudio should use CHARACTER_VOICE_DIR, got: ${voice.refAudio}`,
+      );
     }
   });
 
@@ -38,7 +41,10 @@ describe('GENSHIN_VOICE_DIR backward compat (P1)', () => {
     clearVoiceCache();
     const voice = getCatVoice('opus');
     if (voice.refAudio) {
-      assert.ok(voice.refAudio.startsWith('/my/custom/path/'), `refAudio should derive base from GENSHIN_VOICE_DIR parent, got: ${voice.refAudio}`);
+      assert.ok(
+        voice.refAudio.startsWith('/my/custom/path/'),
+        `refAudio should derive base from GENSHIN_VOICE_DIR parent, got: ${voice.refAudio}`,
+      );
     }
   });
 
@@ -47,7 +53,10 @@ describe('GENSHIN_VOICE_DIR backward compat (P1)', () => {
     clearVoiceCache();
     const voice = getCatVoice('sonnet');
     if (voice.refAudio && voice.refAudio.includes('honkai-starrail')) {
-      assert.ok(voice.refAudio.startsWith('/my/custom/path/honkai-starrail'), `honkai-starrail path should resolve from GENSHIN_VOICE_DIR parent, got: ${voice.refAudio}`);
+      assert.ok(
+        voice.refAudio.startsWith('/my/custom/path/honkai-starrail'),
+        `honkai-starrail path should resolve from GENSHIN_VOICE_DIR parent, got: ${voice.refAudio}`,
+      );
     }
   });
 });

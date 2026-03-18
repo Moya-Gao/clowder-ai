@@ -64,7 +64,10 @@ export class InvocationQueue {
    * 同源同目标的连续消息自动合并。
    */
   enqueue(
-    input: Omit<QueueEntry, 'id' | 'status' | 'createdAt' | 'mergedMessageIds' | 'messageId' | 'autoExecute' | 'callerCatId'> & {
+    input: Omit<
+      QueueEntry,
+      'id' | 'status' | 'createdAt' | 'mergedMessageIds' | 'messageId' | 'autoExecute' | 'callerCatId'
+    > & {
       autoExecute?: boolean;
       callerCatId?: string;
     },

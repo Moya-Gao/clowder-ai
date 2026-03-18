@@ -1,7 +1,14 @@
 // F102: SQLite implementation of IEvidenceStore
 
 import Database from 'better-sqlite3';
-import type { Edge, EvidenceItem, EvidenceKind, IEmbeddingService, IEvidenceStore, SearchOptions } from './interfaces.js';
+import type {
+  Edge,
+  EvidenceItem,
+  EvidenceKind,
+  IEmbeddingService,
+  IEvidenceStore,
+  SearchOptions,
+} from './interfaces.js';
 import { SemanticReranker } from './SemanticReranker.js';
 import { applyMigrations } from './schema.js';
 import type { VectorStore } from './VectorStore.js';
@@ -54,9 +61,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     // scope='threads'/'sessions' → only search kind='session'
     // scope='docs'/'memory' → exclude sessions (feature/decision/plan/lesson + future memory entries)
     // scope='all' → no filter
-    const effectiveKind = options?.kind ?? (
-      options?.scope === 'threads' || options?.scope === 'sessions' ? 'session' as EvidenceKind : undefined
-    );
+    const effectiveKind =
+      options?.kind ??
+      (options?.scope === 'threads' || options?.scope === 'sessions' ? ('session' as EvidenceKind) : undefined);
     const excludeSession = options?.scope === 'docs' || options?.scope === 'memory';
     // ── Exact-anchor bypass ──────────────────────────────────────────
     // FTS5 unicode61 tokenizer splits "F042" → "F"+"042" and "ADR-005" → "ADR"+"005".

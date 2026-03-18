@@ -576,15 +576,24 @@ describe('IndexBuilder with session digests (D6)', () => {
     const sessionId1 = 'abcdef12-1111-4000-8000-000000000001';
     const sessionId2 = 'abcdef12-1112-4000-8000-000000000002';
 
-    for (const [sid, seq] of [[sessionId1, 1], [sessionId2, 2]]) {
+    for (const [sid, seq] of [
+      [sessionId1, 1],
+      [sessionId2, 2],
+    ]) {
       const digestDir = join(transcriptDir, 'threads', threadId, catId, 'sessions', sid);
       mkdirSync(digestDir, { recursive: true });
       writeFileSync(
         join(digestDir, 'digest.extractive.json'),
         JSON.stringify({
-          v: 1, sessionId: sid, threadId, catId, seq,
+          v: 1,
+          sessionId: sid,
+          threadId,
+          catId,
+          seq,
           time: { createdAt: 1700000000000, sealedAt: 1700003600000 },
-          invocations: [], filesTouched: [], errors: [],
+          invocations: [],
+          filesTouched: [],
+          errors: [],
         }),
       );
     }
@@ -861,13 +870,15 @@ describe('IndexBuilder thread summary (E1/E2)', () => {
     const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
 
     // First: index a thread successfully
-    const builder1 = new IndexBuilder(store, docsDir, undefined, undefined, () => [{
-      id: 'thread_keep',
-      title: 'Important thread',
-      participants: ['opus'],
-      threadMemory: { summary: 'This should survive errors.' },
-      lastActiveAt: Date.now(),
-    }]);
+    const builder1 = new IndexBuilder(store, docsDir, undefined, undefined, () => [
+      {
+        id: 'thread_keep',
+        title: 'Important thread',
+        participants: ['opus'],
+        threadMemory: { summary: 'This should survive errors.' },
+        lastActiveAt: Date.now(),
+      },
+    ]);
     await builder1.rebuild();
     assert.ok(await store.getByAnchor('thread-thread_keep'), 'thread should exist after first rebuild');
 
@@ -887,13 +898,15 @@ describe('IndexBuilder thread summary (E1/E2)', () => {
     const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
 
     let version = 'v1';
-    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => [{
-      id: 'thread_dirty',
-      title: 'Dirty thread',
-      participants: ['opus'],
-      threadMemory: { summary: `Content ${version}` },
-      lastActiveAt: Date.now(),
-    }]);
+    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => [
+      {
+        id: 'thread_dirty',
+        title: 'Dirty thread',
+        participants: ['opus'],
+        threadMemory: { summary: `Content ${version}` },
+        lastActiveAt: Date.now(),
+      },
+    ]);
 
     await builder.rebuild();
     const before = await store.getByAnchor('thread-thread_dirty');
@@ -945,9 +958,27 @@ describe('IndexBuilder passage indexing (E3/E4/E5)', () => {
     ];
 
     const mockMessages = [
-      { id: 'msg_001', content: 'What happens with keyPrefix in eval?', catId: undefined, threadId: 'thread_pass1', timestamp: Date.now() - 2000 },
-      { id: 'msg_002', content: 'ioredis keyPrefix does not apply inside eval scripts.', catId: 'opus', threadId: 'thread_pass1', timestamp: Date.now() - 1000 },
-      { id: 'msg_003', content: 'Good catch, lets document this as a lesson.', catId: 'codex', threadId: 'thread_pass1', timestamp: Date.now() },
+      {
+        id: 'msg_001',
+        content: 'What happens with keyPrefix in eval?',
+        catId: undefined,
+        threadId: 'thread_pass1',
+        timestamp: Date.now() - 2000,
+      },
+      {
+        id: 'msg_002',
+        content: 'ioredis keyPrefix does not apply inside eval scripts.',
+        catId: 'opus',
+        threadId: 'thread_pass1',
+        timestamp: Date.now() - 1000,
+      },
+      {
+        id: 'msg_003',
+        content: 'Good catch, lets document this as a lesson.',
+        catId: 'codex',
+        threadId: 'thread_pass1',
+        timestamp: Date.now(),
+      },
     ];
 
     const messageListFn = (threadId) => {
@@ -960,10 +991,12 @@ describe('IndexBuilder passage indexing (E3/E4/E5)', () => {
 
     // Verify passages were inserted
     const db = store.getDb();
-    const passages = db.prepare('SELECT * FROM evidence_passages WHERE doc_anchor = ? ORDER BY position').all('thread-thread_pass1');
+    const passages = db
+      .prepare('SELECT * FROM evidence_passages WHERE doc_anchor = ? ORDER BY position')
+      .all('thread-thread_pass1');
     assert.equal(passages.length, 3, 'should have 3 passages');
     assert.equal(passages[0].passage_id, 'msg-msg_001');
-    assert.equal(passages[0].speaker, 'user');  // no catId → 'user'
+    assert.equal(passages[0].speaker, 'user'); // no catId → 'user'
     assert.equal(passages[0].position, 0);
     assert.equal(passages[1].passage_id, 'msg-msg_002');
     assert.equal(passages[1].speaker, 'opus');
@@ -984,14 +1017,32 @@ describe('IndexBuilder passage indexing (E3/E4/E5)', () => {
     ];
 
     const mockMessages = [
-      { id: 'msg_s1', content: 'The SystemPromptBuilder needs refactoring for modularity.', catId: 'opus', threadId: 'thread_search1', timestamp: Date.now() - 1000 },
-      { id: 'msg_s2', content: 'Agreed, the prompt sections should be pluggable.', threadId: 'thread_search1', timestamp: Date.now() },
+      {
+        id: 'msg_s1',
+        content: 'The SystemPromptBuilder needs refactoring for modularity.',
+        catId: 'opus',
+        threadId: 'thread_search1',
+        timestamp: Date.now() - 1000,
+      },
+      {
+        id: 'msg_s2',
+        content: 'Agreed, the prompt sections should be pluggable.',
+        threadId: 'thread_search1',
+        timestamp: Date.now(),
+      },
     ];
 
-    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => mockThreads, (tid) => {
-      if (tid === 'thread_search1') return mockMessages;
-      return [];
-    });
+    const builder = new IndexBuilder(
+      store,
+      docsDir,
+      undefined,
+      undefined,
+      () => mockThreads,
+      (tid) => {
+        if (tid === 'thread_search1') return mockMessages;
+        return [];
+      },
+    );
     await builder.rebuild();
 
     // Direct passage search
@@ -1004,7 +1055,7 @@ describe('IndexBuilder passage indexing (E3/E4/E5)', () => {
     const results = await store.search('SystemPromptBuilder', { depth: 'raw', scope: 'all' });
     assert.ok(results.length >= 1, 'depth=raw search should include passage-matched docs');
     // The result should reference the thread
-    const threadResult = results.find(r => r.anchor === 'thread-thread_search1');
+    const threadResult = results.find((r) => r.anchor === 'thread-thread_search1');
     assert.ok(threadResult, 'should find the thread doc via passage match');
     assert.ok(threadResult.summary.includes('[passage match]'), 'summary should indicate passage match');
   });

@@ -304,9 +304,30 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     const threadId = 'thread-cursor-deliver';
 
     // Simulate: msg1 sent at base, msg2 sent at base+1, msg3 (queued) sent at base+2
-    const msg1 = await store.append({ userId: 'u', catId: null, content: 'msg1', mentions: [], timestamp: base, threadId });
-    const msg2 = await store.append({ userId: 'u', catId: null, content: 'msg2', mentions: [], timestamp: base + 1, threadId });
-    const msg3 = await store.append({ userId: 'u', catId: null, content: 'msg3-queued', mentions: [], timestamp: base + 2, threadId });
+    const msg1 = await store.append({
+      userId: 'u',
+      catId: null,
+      content: 'msg1',
+      mentions: [],
+      timestamp: base,
+      threadId,
+    });
+    const msg2 = await store.append({
+      userId: 'u',
+      catId: null,
+      content: 'msg2',
+      mentions: [],
+      timestamp: base + 1,
+      threadId,
+    });
+    const msg3 = await store.append({
+      userId: 'u',
+      catId: null,
+      content: 'msg3-queued',
+      mentions: [],
+      timestamp: base + 2,
+      threadId,
+    });
 
     // msg3 was queued and delivered later — its score shifts forward
     await store.markDelivered(msg3.id, base + 500);
@@ -328,8 +349,22 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     const threadId = 'thread-cursor-same-score';
 
     // msg1 sent at base, msg2 sent at base+1
-    const msg1 = await store.append({ userId: 'u', catId: null, content: 'early', mentions: [], timestamp: base, threadId });
-    const msg2 = await store.append({ userId: 'u', catId: null, content: 'late-queued', mentions: [], timestamp: base + 1, threadId });
+    const msg1 = await store.append({
+      userId: 'u',
+      catId: null,
+      content: 'early',
+      mentions: [],
+      timestamp: base,
+      threadId,
+    });
+    const msg2 = await store.append({
+      userId: 'u',
+      catId: null,
+      content: 'late-queued',
+      mentions: [],
+      timestamp: base + 1,
+      threadId,
+    });
 
     // Both delivered at the same deliveredAt time
     await store.markDelivered(msg1.id, base + 100);

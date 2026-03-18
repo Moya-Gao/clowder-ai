@@ -62,7 +62,13 @@ export class InvocationRegistry {
    * Create a new invocation and return the auth credentials.
    * The caller should pass these as env vars to the CLI subprocess.
    */
-  create(userId: string, catId: CatId, threadId: string = 'default', parentInvocationId?: string, a2aTriggerMessageId?: string): { invocationId: string; callbackToken: string } {
+  create(
+    userId: string,
+    catId: CatId,
+    threadId: string = 'default',
+    parentInvocationId?: string,
+    a2aTriggerMessageId?: string,
+  ): { invocationId: string; callbackToken: string } {
     this.cleanup();
 
     // Evict oldest if at capacity

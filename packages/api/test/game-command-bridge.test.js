@@ -249,7 +249,11 @@ describe('/game command bridge in POST /api/messages', () => {
     const threadCreatedEvents = socketStub.events.filter((e) => e.event === 'game:thread_created');
     assert.ok(threadCreatedEvents.length >= 1, 'should broadcast game:thread_created to source thread');
     assert.equal(threadCreatedEvents[0].room, 'thread:thread-test-3');
-    assert.equal(threadCreatedEvents[0].data.initiatorUserId, 'lysander', 'should include initiatorUserId for frontend guard');
+    assert.equal(
+      threadCreatedEvents[0].data.initiatorUserId,
+      'lysander',
+      'should include initiatorUserId for frontend guard',
+    );
 
     // Should have game:started broadcast to the NEW game thread
     const startedEvents = socketStub.events.filter((e) => e.event === 'game:started');

@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS evidence_passages (
 
 // Phase E: passage_fts virtual table — executed separately (tokenchars needs careful quoting)
 export const SCHEMA_V3_FTS =
-  "CREATE VIRTUAL TABLE IF NOT EXISTS passage_fts USING fts5(content, content=evidence_passages, content_rowid=rowid, tokenize=\"unicode61 tokenchars '_-'\")";
+  'CREATE VIRTUAL TABLE IF NOT EXISTS passage_fts USING fts5(content, content=evidence_passages, content_rowid=rowid, tokenize="unicode61 tokenchars \'_-\'")';
 
 // FTS5 external-content sync triggers for passage_fts — executed one statement at a time
 export const PASSAGE_FTS_TRIGGER_STATEMENTS = [

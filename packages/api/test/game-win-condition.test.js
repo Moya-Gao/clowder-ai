@@ -10,10 +10,20 @@ import { describe, it } from 'node:test';
 function createStubStore() {
   const games = new Map();
   return {
-    async createGame(runtime) { games.set(runtime.gameId, structuredClone(runtime)); return runtime; },
-    async getGame(gameId) { const g = games.get(gameId); return g ? structuredClone(g) : null; },
-    async updateGame(gameId, runtime) { games.set(gameId, structuredClone(runtime)); },
-    async deleteGame(gameId) { games.delete(gameId); },
+    async createGame(runtime) {
+      games.set(runtime.gameId, structuredClone(runtime));
+      return runtime;
+    },
+    async getGame(gameId) {
+      const g = games.get(gameId);
+      return g ? structuredClone(g) : null;
+    },
+    async updateGame(gameId, runtime) {
+      games.set(gameId, structuredClone(runtime));
+    },
+    async deleteGame(gameId) {
+      games.delete(gameId);
+    },
     _games: games,
   };
 }
@@ -22,8 +32,12 @@ function createStubStore() {
 function createStubSocket() {
   const events = [];
   return {
-    broadcastToRoom(room, event, data) { events.push({ room, event, data }); },
-    emitToUser(userId, event, data) { events.push({ userId, event, data }); },
+    broadcastToRoom(room, event, data) {
+      events.push({ room, event, data });
+    },
+    emitToUser(userId, event, data) {
+      events.push({ userId, event, data });
+    },
     events,
   };
 }
@@ -59,7 +73,15 @@ function buildWolvesDeadRuntime(gameId = 'game-win-1') {
     currentPhase: 'day_vote',
     round: 2,
     eventLog: [
-      { eventId: 'e1', round: 2, phase: 'day_vote', type: 'vote_result', scope: 'public', payload: { exiled: 'P1' }, timestamp: 1000 },
+      {
+        eventId: 'e1',
+        round: 2,
+        phase: 'day_vote',
+        type: 'vote_result',
+        scope: 'public',
+        payload: { exiled: 'P1' },
+        timestamp: 1000,
+      },
     ],
     pendingActions: {},
     status: 'playing',

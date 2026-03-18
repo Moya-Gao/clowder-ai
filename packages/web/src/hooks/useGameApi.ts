@@ -45,10 +45,7 @@ export async function submitAction(
   }
 }
 
-export async function godAction(
-  threadId: string,
-  action: string,
-): Promise<{ success: boolean; error?: string }> {
+export async function godAction(threadId: string, action: string): Promise<{ success: boolean; error?: string }> {
   try {
     await apiFetch(`/api/threads/${threadId}/game/god-action`, {
       method: 'POST',

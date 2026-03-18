@@ -162,7 +162,9 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     expect(container.textContent).toContain('CLI Output');
 
     // Click to expand → content visible in terminal substrate
-    const cliButton = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('CLI Output'));
+    const cliButton = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('CLI Output'),
+    );
     expect(cliButton).toBeTruthy();
     act(() => {
       cliButton?.click();

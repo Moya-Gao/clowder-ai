@@ -299,7 +299,12 @@ async function dispatchToTarget(
         });
       } catch (updateErr) {
         log.warn(
-          { requestId, targetCatId, invocationId, err: updateErr instanceof Error ? updateErr.message : String(updateErr) },
+          {
+            requestId,
+            targetCatId,
+            invocationId,
+            err: updateErr instanceof Error ? updateErr.message : String(updateErr),
+          },
           '[F086] Failed to converge InvocationRecord after dispatch error',
         );
       }

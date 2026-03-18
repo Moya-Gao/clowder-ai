@@ -330,13 +330,15 @@ async function main(): Promise<void> {
     // Phase E-2: message passage indexing — provide a callback that reads thread messages
     messageListFn: async (threadId: string, limit?: number) => {
       const messages = await messageStore.getByThread(threadId, limit ?? 2000, 'default-user');
-      return messages.map((m: { id: string; content: string; catId?: string | null; threadId: string; timestamp: number }) => ({
-        id: m.id,
-        content: m.content,
-        catId: m.catId ?? undefined,
-        threadId: m.threadId,
-        timestamp: m.timestamp,
-      }));
+      return messages.map(
+        (m: { id: string; content: string; catId?: string | null; threadId: string; timestamp: number }) => ({
+          id: m.id,
+          content: m.content,
+          catId: m.catId ?? undefined,
+          threadId: m.threadId,
+          timestamp: m.timestamp,
+        }),
+      );
     },
     // Phase E-1: thread summary indexing — provide a callback that lists all threads
     threadListFn: async () => {

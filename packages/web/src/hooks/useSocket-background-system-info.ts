@@ -163,7 +163,9 @@ export function consumeBackgroundSystemInfo(
 
       // Prefer messageId correlation from callback post-message path
       if (parsed.messageId) {
-        const found = options.store.getThreadState(msg.threadId).messages.find((m: { id: string }) => m.id === parsed.messageId);
+        const found = options.store
+          .getThreadState(msg.threadId)
+          .messages.find((m: { id: string }) => m.id === parsed.messageId);
         if (found) targetId = found.id;
       }
 

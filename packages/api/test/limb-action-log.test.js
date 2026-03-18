@@ -95,17 +95,52 @@ describe('LimbActionLog', () => {
   });
 
   it('getByNode returns entries for node', () => {
-    log.start({ invocationId: 'i1', leaseId: null, catId: 'opus', nodeId: 'iphone-1', capability: 'camera', command: 'camera.snap' });
-    log.start({ invocationId: 'i2', leaseId: null, catId: 'opus', nodeId: 'server-1', capability: 'gpu', command: 'render.run' });
-    log.start({ invocationId: 'i3', leaseId: null, catId: 'codex', nodeId: 'iphone-1', capability: 'location', command: 'location.get' });
+    log.start({
+      invocationId: 'i1',
+      leaseId: null,
+      catId: 'opus',
+      nodeId: 'iphone-1',
+      capability: 'camera',
+      command: 'camera.snap',
+    });
+    log.start({
+      invocationId: 'i2',
+      leaseId: null,
+      catId: 'opus',
+      nodeId: 'server-1',
+      capability: 'gpu',
+      command: 'render.run',
+    });
+    log.start({
+      invocationId: 'i3',
+      leaseId: null,
+      catId: 'codex',
+      nodeId: 'iphone-1',
+      capability: 'location',
+      command: 'location.get',
+    });
 
     const phoneEntries = log.getByNode('iphone-1');
     assert.equal(phoneEntries.length, 2);
   });
 
   it('getByCat returns entries for cat', () => {
-    log.start({ invocationId: 'i1', leaseId: null, catId: 'opus', nodeId: 'iphone-1', capability: 'camera', command: 'camera.snap' });
-    log.start({ invocationId: 'i2', leaseId: null, catId: 'codex', nodeId: 'iphone-1', capability: 'camera', command: 'camera.snap' });
+    log.start({
+      invocationId: 'i1',
+      leaseId: null,
+      catId: 'opus',
+      nodeId: 'iphone-1',
+      capability: 'camera',
+      command: 'camera.snap',
+    });
+    log.start({
+      invocationId: 'i2',
+      leaseId: null,
+      catId: 'codex',
+      nodeId: 'iphone-1',
+      capability: 'camera',
+      command: 'camera.snap',
+    });
 
     assert.equal(log.getByCat('opus').length, 1);
     assert.equal(log.getByCat('codex').length, 1);
@@ -117,7 +152,14 @@ describe('LimbActionLog', () => {
 
   it('evicts oldest when at capacity', () => {
     const smallLog = new LimbActionLog(2);
-    const first = smallLog.start({ invocationId: 'i1', leaseId: null, catId: 'opus', nodeId: 'n1', capability: 'c', command: 'cmd' });
+    const first = smallLog.start({
+      invocationId: 'i1',
+      leaseId: null,
+      catId: 'opus',
+      nodeId: 'n1',
+      capability: 'c',
+      command: 'cmd',
+    });
     smallLog.start({ invocationId: 'i2', leaseId: null, catId: 'opus', nodeId: 'n1', capability: 'c', command: 'cmd' });
     smallLog.start({ invocationId: 'i3', leaseId: null, catId: 'opus', nodeId: 'n1', capability: 'c', command: 'cmd' });
 

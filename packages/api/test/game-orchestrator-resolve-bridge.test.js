@@ -127,9 +127,7 @@ describe('P1-2: action.submitted carries target', () => {
     });
 
     const updated = await store.getGame(runtime.gameId);
-    const submitted = updated.eventLog.find(
-      (e) => e.type === 'action.submitted' && e.payload.seatId === 'P3',
-    );
+    const submitted = updated.eventLog.find((e) => e.type === 'action.submitted' && e.payload.seatId === 'P3');
     assert.ok(submitted, 'should have action.submitted event');
     assert.equal(submitted.payload.target, 'P4', 'action.submitted must include target');
   });
@@ -278,15 +276,9 @@ describe('P2-1: fallback actionName uses phase-specific definition', () => {
     await orchestrator.tick(runtime.gameId);
 
     const updated = await store.getGame(runtime.gameId);
-    const fallback = updated.eventLog.find(
-      (e) => e.type === 'action.fallback' && e.payload.seatId === 'P3',
-    );
+    const fallback = updated.eventLog.find((e) => e.type === 'action.fallback' && e.payload.seatId === 'P3');
     assert.ok(fallback, 'should have fallback for guard');
-    assert.equal(
-      fallback.payload.actionName,
-      'guard',
-      'fallback actionName should be "guard", not "vote"',
-    );
+    assert.equal(fallback.payload.actionName, 'guard', 'fallback actionName should be "guard", not "vote"');
   });
 
   it('wolf fallback uses actionName="kill"', async () => {
@@ -297,9 +289,7 @@ describe('P2-1: fallback actionName uses phase-specific definition', () => {
     await orchestrator.tick(runtime.gameId);
 
     const updated = await store.getGame(runtime.gameId);
-    const fallback = updated.eventLog.find(
-      (e) => e.type === 'action.fallback' && e.payload.seatId === 'P1',
-    );
+    const fallback = updated.eventLog.find((e) => e.type === 'action.fallback' && e.payload.seatId === 'P1');
     assert.ok(fallback, 'should have fallback for wolf');
     // Check the pending action's actionName (not just event payload)
     const pendingP1 = updated.pendingActions?.['P1'];
@@ -340,9 +330,7 @@ describe('Cloud P1: ballot.updated emitted at submission time (not batched at re
     const updated = await store.getGame(runtime.gameId);
     assert.equal(updated.currentPhase, 'day_vote', 'should still be in day_vote (not all voted)');
 
-    const ballotEvents = updated.eventLog.filter(
-      (e) => e.type === 'ballot.updated' && e.payload.voterSeat === 'P3',
-    );
+    const ballotEvents = updated.eventLog.filter((e) => e.type === 'ballot.updated' && e.payload.voterSeat === 'P3');
     assert.ok(ballotEvents.length >= 1, 'ballot.updated should be emitted immediately on vote, not batched');
     assert.equal(ballotEvents[0].scope, 'public', 'ballot.updated should be public (KD-26)');
     assert.equal(ballotEvents[0].payload.choice, 'P1', 'should carry the vote target');
@@ -454,9 +442,7 @@ describe('Cloud P2: fallback day votes emit ballot.updated', () => {
     await orchestrator.tick(runtime.gameId);
 
     const updated = await store.getGame(runtime.gameId);
-    const p5Ballots = updated.eventLog.filter(
-      (e) => e.type === 'ballot.updated' && e.payload.voterSeat === 'P5',
-    );
+    const p5Ballots = updated.eventLog.filter((e) => e.type === 'ballot.updated' && e.payload.voterSeat === 'P5');
     assert.equal(p5Ballots.length, 0, 'revealed idiot should have no ballot.updated');
   });
 });

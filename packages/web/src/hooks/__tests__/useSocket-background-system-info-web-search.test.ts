@@ -168,9 +168,7 @@ describe('consumeBackgroundSystemInfo rich_block placeholder', () => {
   it('appends rich block to existing callback bubble without creating placeholder', () => {
     const options = createMockOptions({
       getThreadState: vi.fn(() => ({
-        messages: [
-          { id: 'cb-msg-1', type: 'assistant', catId: 'opus', origin: 'callback', content: 'done' },
-        ],
+        messages: [{ id: 'cb-msg-1', type: 'assistant', catId: 'opus', origin: 'callback', content: 'done' }],
         catStatuses: {},
         catInvocations: {},
       })),

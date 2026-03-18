@@ -7,14 +7,7 @@ interface EventFlowProps {
   events: GameEvent[];
 }
 
-const SYSTEM_EVENT_TYPES = new Set([
-  'phase_change',
-  'death',
-  'vote_result',
-  'game_start',
-  'game_end',
-  'announce',
-]);
+const SYSTEM_EVENT_TYPES = new Set(['phase_change', 'death', 'vote_result', 'game_start', 'game_end', 'announce']);
 
 function isSystemEvent(type: string): boolean {
   return SYSTEM_EVENT_TYPES.has(type) || type.startsWith('action.') || type.startsWith('ballot.');

@@ -95,9 +95,8 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
 
       const docCount = (db.prepare('SELECT count(*) AS c FROM evidence_docs').get() as { c: number }).c;
       const edgeCount = (db.prepare('SELECT count(*) AS c FROM edges').get() as { c: number }).c;
-      const lastUpdated = (
-        db.prepare('SELECT max(updated_at) AS t FROM evidence_docs').get() as { t: string | null }
-      ).t;
+      const lastUpdated = (db.prepare('SELECT max(updated_at) AS t FROM evidence_docs').get() as { t: string | null })
+        .t;
 
       return {
         backend: 'sqlite',

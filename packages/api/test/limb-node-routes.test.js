@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
-import { LimbRegistry } from '../dist/domains/limb/LimbRegistry.js';
 import { LimbPairingStore } from '../dist/domains/limb/LimbPairingStore.js';
+import { LimbRegistry } from '../dist/domains/limb/LimbRegistry.js';
 import { registerLimbNodeRoutes } from '../dist/routes/limb-node-routes.js';
 
 const REG_BODY = {
@@ -129,7 +129,11 @@ describe('limb-node-routes (Fastify injection)', () => {
     await app.inject({ method: 'POST', url: '/api/limb/deregister', payload: { apiKey, nodeId: 'iphone-1' } });
     assert.equal(limbRegistry.getNode('iphone-1'), undefined);
 
-    const reconnectRes = await app.inject({ method: 'POST', url: '/api/limb/register', payload: { ...REG_BODY, apiKey } });
+    const reconnectRes = await app.inject({
+      method: 'POST',
+      url: '/api/limb/register',
+      payload: { ...REG_BODY, apiKey },
+    });
     assert.equal(JSON.parse(reconnectRes.payload).status, 'approved');
     assert.ok(limbRegistry.getNode('iphone-1'));
   });
@@ -184,7 +188,11 @@ describe('limb-node-routes (Fastify injection)', () => {
     const { requestId } = JSON.parse(regRes.payload);
     pairingStore.approve(requestId);
 
-    const res = await app.inject({ method: 'POST', url: '/api/limb/register', payload: { ...REG_BODY, apiKey: 'wrong-key' } });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/limb/register',
+      payload: { ...REG_BODY, apiKey: 'wrong-key' },
+    });
     assert.equal(res.statusCode, 403);
   });
 

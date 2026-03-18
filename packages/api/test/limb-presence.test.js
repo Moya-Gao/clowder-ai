@@ -1,19 +1,14 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
+import { LimbPresenceManager, mapProbeStateToLimbStatus } from '../dist/domains/limb/LimbPresenceManager.js';
 import { LimbRegistry } from '../dist/domains/limb/LimbRegistry.js';
-import {
-  LimbPresenceManager,
-  mapProbeStateToLimbStatus,
-} from '../dist/domains/limb/LimbPresenceManager.js';
 
 function mockNode(overrides = {}) {
   return {
     nodeId: 'iphone-1',
     displayName: 'iPhone 15 Pro',
     platform: 'ios',
-    capabilities: [
-      { cap: 'camera', commands: ['camera.snap'], authLevel: 'leased' },
-    ],
+    capabilities: [{ cap: 'camera', commands: ['camera.snap'], authLevel: 'leased' }],
     register: async () => {},
     invoke: async () => ({ success: true }),
     healthCheck: async () => 'online',
@@ -29,7 +24,7 @@ describe('LimbPresenceManager', () => {
   beforeEach(() => {
     registry = new LimbRegistry();
     presence = new LimbPresenceManager(registry, {
-      timeoutMs: 50,       // 50ms for fast tests
+      timeoutMs: 50, // 50ms for fast tests
       checkIntervalMs: 10, // 10ms
     });
   });

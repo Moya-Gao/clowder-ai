@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import { DEFAULT_EXCLUDED_PORTS, collectRuntimePorts, validatePort } from '../../../dist/domains/preview/port-validator.js';
+import {
+  collectRuntimePorts,
+  DEFAULT_EXCLUDED_PORTS,
+  validatePort,
+} from '../../../dist/domains/preview/port-validator.js';
 
 describe('validatePort', () => {
   it('allows a normal dev server port', () => {
@@ -124,7 +128,14 @@ describe('collectRuntimePorts', () => {
 
   afterEach(() => {
     // Restore env vars
-    for (const key of ['API_SERVER_PORT', 'FRONTEND_PORT', 'MCP_SERVER_PORT', 'PREVIEW_GATEWAY_PORT', 'REDIS_PORT', 'VITE_PORT']) {
+    for (const key of [
+      'API_SERVER_PORT',
+      'FRONTEND_PORT',
+      'MCP_SERVER_PORT',
+      'PREVIEW_GATEWAY_PORT',
+      'REDIS_PORT',
+      'VITE_PORT',
+    ]) {
       if (envSnapshot[key] !== undefined) {
         process.env[key] = envSnapshot[key];
       } else {

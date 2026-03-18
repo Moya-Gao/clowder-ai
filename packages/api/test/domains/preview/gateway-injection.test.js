@@ -68,11 +68,13 @@ describe('gateway bridge script injection', () => {
   it('injects bridge into HTML with Content-Encoding: identity', async () => {
     const { body } = await new Promise((resolve, reject) => {
       const url = `http://127.0.0.1:${gateway.actualPort}/html-identity?__preview_port=${targetPort}`;
-      http.get(url, { headers: { 'Accept-Encoding': 'identity' } }, (res) => {
-        const chunks = [];
-        res.on('data', (c) => chunks.push(c));
-        res.on('end', () => resolve({ body: Buffer.concat(chunks).toString(), headers: res.headers }));
-      }).on('error', reject);
+      http
+        .get(url, { headers: { 'Accept-Encoding': 'identity' } }, (res) => {
+          const chunks = [];
+          res.on('data', (c) => chunks.push(c));
+          res.on('end', () => resolve({ body: Buffer.concat(chunks).toString(), headers: res.headers }));
+        })
+        .on('error', reject);
     });
     assert.ok(body.includes('__catCafeBridge'), 'should inject bridge into identity-encoded HTML');
     assert.ok(body.includes('<title>Identity</title>'), 'should preserve original content');
@@ -82,11 +84,13 @@ describe('gateway bridge script injection', () => {
     // Use raw http.get to avoid fetch's automatic brotli decompression
     const { body, headers } = await new Promise((resolve, reject) => {
       const url = `http://127.0.0.1:${gateway.actualPort}/html-br?__preview_port=${targetPort}`;
-      http.get(url, { headers: { 'Accept-Encoding': 'identity' } }, (res) => {
-        const chunks = [];
-        res.on('data', (c) => chunks.push(c));
-        res.on('end', () => resolve({ body: Buffer.concat(chunks).toString(), headers: res.headers }));
-      }).on('error', reject);
+      http
+        .get(url, { headers: { 'Accept-Encoding': 'identity' } }, (res) => {
+          const chunks = [];
+          res.on('data', (c) => chunks.push(c));
+          res.on('end', () => resolve({ body: Buffer.concat(chunks).toString(), headers: res.headers }));
+        })
+        .on('error', reject);
     });
     // Should NOT contain bridge script (can't decode br)
     assert.ok(!body.includes('__catCafeBridge'), 'should not inject into br-encoded HTML');

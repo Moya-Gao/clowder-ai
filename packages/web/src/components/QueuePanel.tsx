@@ -5,6 +5,7 @@ import { type QueueEntry, useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { type SteerMode, SteerQueuedEntryModal } from './SteerQueuedEntryModal';
+
 interface QueuePanelProps {
   threadId: string;
 }
@@ -293,7 +294,7 @@ function QueueEntryRow({
       </div>
 
       {/* Reorder + action buttons (only queued entries reach here) */}
-      {(
+      {
         <>
           {/* Reorder buttons */}
           <div className="flex flex-col gap-0.5 shrink-0">
@@ -358,7 +359,7 @@ function QueueEntryRow({
             </svg>
           </button>
         </>
-      )}
+      }
     </div>
   );
 }

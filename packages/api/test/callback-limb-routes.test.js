@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
-import { LimbRegistry } from '../dist/domains/limb/LimbRegistry.js';
 import { InvocationRegistry } from '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js';
+import { LimbRegistry } from '../dist/domains/limb/LimbRegistry.js';
 import { registerCallbackLimbRoutes } from '../dist/routes/callback-limb-routes.js';
 
 function mockNode(overrides = {}) {

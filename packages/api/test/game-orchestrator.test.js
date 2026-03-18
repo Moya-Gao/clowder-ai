@@ -414,9 +414,7 @@ describe('GameOrchestrator', () => {
       assert.equal(game.currentPhase, 'night_wolf', 'Should auto-skip to night_wolf');
 
       // Should have a phase_skip event for the skipped phase
-      const skipEvent = game.eventLog.find(
-        (e) => e.type === 'phase_skip' && e.payload?.skippedPhase === 'night_guard',
-      );
+      const skipEvent = game.eventLog.find((e) => e.type === 'phase_skip' && e.payload?.skippedPhase === 'night_guard');
       assert.ok(skipEvent, 'Should log a phase_skip event for night_guard');
     });
 

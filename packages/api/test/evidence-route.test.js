@@ -224,12 +224,9 @@ describe('GET /api/evidence/status', () => {
     const mockDb = {
       prepare: (sql) => ({
         get: () => {
-          if (sql.includes('evidence_docs') && sql.includes('count'))
-            return { c: 42 };
-          if (sql.includes('edges') && sql.includes('count'))
-            return { c: 10 };
-          if (sql.includes('max(updated_at)'))
-            return { t: '2026-03-17T00:00:00Z' };
+          if (sql.includes('evidence_docs') && sql.includes('count')) return { c: 42 };
+          if (sql.includes('edges') && sql.includes('count')) return { c: 10 };
+          if (sql.includes('max(updated_at)')) return { t: '2026-03-17T00:00:00Z' };
           return {};
         },
       }),
@@ -270,7 +267,9 @@ describe('GET /api/evidence/status', () => {
     const evidenceStore = {
       ...createMockEvidenceStore(),
       getDb: () => ({
-        prepare: () => { throw new Error('db locked'); },
+        prepare: () => {
+          throw new Error('db locked');
+        },
       }),
     };
     await app.register(evidenceRoutes, { evidenceStore });
@@ -291,7 +290,9 @@ describe('POST /api/evidence/reindex', () => {
     const app = Fastify();
     let capturedPaths;
     const mockIndexBuilder = {
-      incrementalUpdate: async (paths) => { capturedPaths = paths; },
+      incrementalUpdate: async (paths) => {
+        capturedPaths = paths;
+      },
       rebuild: async () => ({ docsIndexed: 0, docsSkipped: 0, durationMs: 0 }),
       checkConsistency: async () => ({ ok: true, docCount: 0, ftsCount: 0, mismatches: [] }),
     };

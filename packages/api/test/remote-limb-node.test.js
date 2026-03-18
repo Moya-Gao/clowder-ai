@@ -33,7 +33,9 @@ describe('RemoteLimbNode', () => {
   it('invoke returns error on network failure', async () => {
     const node = new RemoteLimbNode({
       ...BASE_CONFIG,
-      fetchFn: async () => { throw new Error('ECONNREFUSED'); },
+      fetchFn: async () => {
+        throw new Error('ECONNREFUSED');
+      },
     });
 
     const result = await node.invoke('exec.run', {});
@@ -64,7 +66,9 @@ describe('RemoteLimbNode', () => {
   it('healthCheck returns offline on network failure', async () => {
     const node = new RemoteLimbNode({
       ...BASE_CONFIG,
-      fetchFn: async () => { throw new Error('ETIMEDOUT'); },
+      fetchFn: async () => {
+        throw new Error('ETIMEDOUT');
+      },
     });
 
     assert.equal(await node.healthCheck(), 'offline');

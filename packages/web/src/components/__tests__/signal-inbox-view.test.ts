@@ -136,9 +136,7 @@ describe('SignalInboxView', () => {
     expect(sourceOption).not.toBeNull();
 
     // Switch status to "已读" via tab button
-    const readTabButton = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === '已读',
-    );
+    const readTabButton = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '已读');
     expect(readTabButton).toBeTruthy();
     await act(async () => {
       readTabButton!.click();

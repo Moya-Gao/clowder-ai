@@ -995,8 +995,12 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
         enqueueCalls.push(input);
         return { outcome: 'enqueued', entry: { id: 'q-1', ...input, status: 'queued', createdAt: Date.now() } };
       },
-      countAgentEntriesForThread() { return 0; },
-      hasQueuedAgentForCat() { return false; },
+      countAgentEntriesForThread() {
+        return 0;
+      },
+      hasQueuedAgentForCat() {
+        return false;
+      },
       backfillMessageId() {},
       appendMergedMessageId() {},
     };
@@ -1014,7 +1018,15 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
         router: { async *routeExecution() {} },
         invocationRecordStore: { create() {}, update() {} },
         socketManager: { broadcastAgentMessage() {}, broadcastToRoom() {} },
-        invocationTracker: { has() { return false; }, start() { return new AbortController(); }, complete() {} },
+        invocationTracker: {
+          has() {
+            return false;
+          },
+          start() {
+            return new AbortController();
+          },
+          complete() {},
+        },
         queueProcessor: mockQueueProcessor,
         invocationQueue: mockInvocationQueue,
         log: { info() {}, warn() {}, error() {} },
@@ -1059,8 +1071,21 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
         router: { async *routeExecution() {} },
         invocationRecordStore: { create() {}, update() {} },
         socketManager: { broadcastAgentMessage() {}, broadcastToRoom() {} },
-        invocationTracker: { has() { return false; }, start() { return new AbortController(); }, complete() {} },
-        queueProcessor: { onInvocationComplete() {}, tryAutoExecute() { return Promise.resolve(); } },
+        invocationTracker: {
+          has() {
+            return false;
+          },
+          start() {
+            return new AbortController();
+          },
+          complete() {},
+        },
+        queueProcessor: {
+          onInvocationComplete() {},
+          tryAutoExecute() {
+            return Promise.resolve();
+          },
+        },
         invocationQueue: mockInvocationQueue,
         log: { info() {}, warn() {}, error() {} },
       },
@@ -1087,7 +1112,9 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
         enqueueCalls.push(input);
         return { outcome: 'enqueued', entry: { id: 'q-1', ...input } };
       },
-      countAgentEntriesForThread() { return 0; },
+      countAgentEntriesForThread() {
+        return 0;
+      },
       // opus already has a queued agent entry
       hasQueuedAgentForCat(_threadId, catId) {
         return catId === 'opus';
@@ -1100,8 +1127,21 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
         router: { async *routeExecution() {} },
         invocationRecordStore: { create() {}, update() {} },
         socketManager: { broadcastAgentMessage() {}, broadcastToRoom() {} },
-        invocationTracker: { has() { return false; }, start() { return new AbortController(); }, complete() {} },
-        queueProcessor: { onInvocationComplete() {}, tryAutoExecute() { return Promise.resolve(); } },
+        invocationTracker: {
+          has() {
+            return false;
+          },
+          start() {
+            return new AbortController();
+          },
+          complete() {},
+        },
+        queueProcessor: {
+          onInvocationComplete() {},
+          tryAutoExecute() {
+            return Promise.resolve();
+          },
+        },
         invocationQueue: mockInvocationQueue,
         log: { info() {}, warn() {}, error() {} },
       },
@@ -1132,8 +1172,12 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
         depth++; // simulate entry being added
         return { outcome: 'enqueued', entry: { id: `q-${depth}`, ...input } };
       },
-      countAgentEntriesForThread() { return depth; },
-      hasQueuedAgentForCat() { return false; },
+      countAgentEntriesForThread() {
+        return depth;
+      },
+      hasQueuedAgentForCat() {
+        return false;
+      },
       backfillMessageId() {},
       appendMergedMessageId() {},
     };
@@ -1142,8 +1186,21 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
         router: { async *routeExecution() {} },
         invocationRecordStore: { create() {}, update() {} },
         socketManager: { broadcastAgentMessage() {}, broadcastToRoom() {} },
-        invocationTracker: { has() { return false; }, start() { return new AbortController(); }, complete() {} },
-        queueProcessor: { onInvocationComplete() {}, tryAutoExecute() { return Promise.resolve(); } },
+        invocationTracker: {
+          has() {
+            return false;
+          },
+          start() {
+            return new AbortController();
+          },
+          complete() {},
+        },
+        queueProcessor: {
+          onInvocationComplete() {},
+          tryAutoExecute() {
+            return Promise.resolve();
+          },
+        },
         invocationQueue: mockInvocationQueue,
         log: { info() {}, warn() {}, error() {} },
       },
@@ -1171,8 +1228,12 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
       enqueue(input) {
         return { outcome: 'enqueued', entry: { id: 'q-1', ...input, status: 'queued', createdAt: Date.now() } };
       },
-      countAgentEntriesForThread() { return 0; },
-      hasQueuedAgentForCat() { return false; },
+      countAgentEntriesForThread() {
+        return 0;
+      },
+      hasQueuedAgentForCat() {
+        return false;
+      },
       backfillMessageId(threadId, userId, entryId, messageId) {
         backfillCalls.push({ threadId, userId, entryId, messageId });
       },
@@ -1183,8 +1244,21 @@ describe('enqueueA2ATargets F122B (InvocationQueue path)', () => {
         router: { async *routeExecution() {} },
         invocationRecordStore: { create() {}, update() {} },
         socketManager: { broadcastAgentMessage() {}, broadcastToRoom() {} },
-        invocationTracker: { has() { return false; }, start() { return new AbortController(); }, complete() {} },
-        queueProcessor: { onInvocationComplete() {}, tryAutoExecute() { return Promise.resolve(); } },
+        invocationTracker: {
+          has() {
+            return false;
+          },
+          start() {
+            return new AbortController();
+          },
+          complete() {},
+        },
+        queueProcessor: {
+          onInvocationComplete() {},
+          tryAutoExecute() {
+            return Promise.resolve();
+          },
+        },
         invocationQueue: mockInvocationQueue,
         log: { info() {}, warn() {}, error() {} },
       },

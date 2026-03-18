@@ -142,13 +142,7 @@ describe('auto-replyTo: worklist path (a2aTriggerMessageId)', () => {
       threadId: 'thread-1',
     });
 
-    const { invocationId, callbackToken } = registry.create(
-      'user-1',
-      'sonnet',
-      'thread-1',
-      'parent-inv-1',
-      catBMsg.id,
-    );
+    const { invocationId, callbackToken } = registry.create('user-1', 'sonnet', 'thread-1', 'parent-inv-1', catBMsg.id);
 
     const app = await createApp();
     const response = await app.inject({

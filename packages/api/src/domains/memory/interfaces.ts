@@ -25,7 +25,16 @@ export const MARKER_STATUSES = [
 
 export type MarkerStatus = (typeof MARKER_STATUSES)[number];
 
-export const EVIDENCE_KINDS = ['feature', 'decision', 'plan', 'session', 'lesson', 'thread', 'discussion', 'research'] as const;
+export const EVIDENCE_KINDS = [
+  'feature',
+  'decision',
+  'plan',
+  'session',
+  'lesson',
+  'thread',
+  'discussion',
+  'research',
+] as const;
 
 export type EvidenceKind = (typeof EVIDENCE_KINDS)[number];
 
