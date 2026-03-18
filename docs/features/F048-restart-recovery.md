@@ -148,3 +148,4 @@ Phase A 只做了后台清理（用户不可见），Phase A+ 补上用户可见
 - 2026-07-14: 社区 PR #78 / Issue #77 → Phase A+ 立项（用户可见通知），intake 含持久化语义修正
 - 2026-03-17: Phase A+ 实现 + codex R1→R3 + 云端 R1→R2 → PR #517 squash merged
 - 2026-03-17: Phase A+ done（AC-A+1~A+6 全部 ✅），Phase B idle
+- 2026-03-17: PR #539 squash merged — harden Redis namespace singleton with lease invalidation fail-fast + retry-path guard, eliminating false `process_restart` notifications caused by multi-instance Redis contention
