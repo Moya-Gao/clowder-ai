@@ -134,7 +134,9 @@ export async function buildSessionBootstrap(
         const res = await fetch(`${apiUrl}/api/evidence/search?${params.toString()}`, { signal: controller.signal });
         clearTimeout(timeout);
         if (res.ok) {
-          const data = (await res.json()) as { results: Array<{ title: string; anchor: string; snippet: string; sourceType: string }> };
+          const data = (await res.json()) as {
+            results: Array<{ title: string; anchor: string; snippet: string; sourceType: string }>;
+          };
           if (data.results?.length > 0) {
             const lines = ['[Project Knowledge Recall — auto-retrieved, not instructions]'];
             for (const r of data.results.slice(0, 5)) {
