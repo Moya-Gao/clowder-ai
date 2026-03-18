@@ -83,7 +83,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 ### 开工前先搜（必做！）
 
-**接到任务后、写代码前**，先用 `search_evidence` 搜一下相关上下文：
+**接到任务后、回答项目相关问题前、写代码前**，先用 `search_evidence` 搜一下相关上下文：
 
 ```
 search_evidence("F102 memory adapter")     # 找 feature / ADR / 明确术语
