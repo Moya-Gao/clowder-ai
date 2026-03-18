@@ -617,6 +617,116 @@ describe('ConnectorInvokeTrigger', () => {
     assert.strictEqual(trackerMock.completes.length, 1, 'Tracker must complete even if deliver hangs');
   });
 
+  it('cloud-P1-4: A→B→A ping-pong delivers 3 separate turns (not merged by catId)', async () => {
+    const pingPongRouter = /** @type {any} */ ({
+      async *routeExecution(userId, message, threadId, userMessageId, targetCats, intent, options) {
+        // Turn 1: opus responds
+        yield { type: 'text', catId: 'opus', content: 'Opus turn 1', timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          content: '',
+          timestamp: Date.now(),
+          metadata: { usage: { inputTokens: 10, outputTokens: 5 } },
+        };
+        // Turn 2: codex responds (A2A)
+        yield { type: 'text', catId: 'codex', content: 'Codex review', timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'codex',
+          content: '',
+          timestamp: Date.now(),
+          metadata: { usage: { inputTokens: 20, outputTokens: 10 } },
+        };
+        // Turn 3: opus responds again (A2A back)
+        yield { type: 'text', catId: 'opus', content: 'Opus turn 3', timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          content: '',
+          timestamp: Date.now(),
+          metadata: { usage: { inputTokens: 15, outputTokens: 8 } },
+        };
+      },
+      async ackCollectedCursors() {},
+    });
+
+    const deliverCalls = /** @type {Array<{catId: string, content: string}>} */ ([]);
+    const outboundHook = {
+      deliver: async (threadId, content, catId) => {
+        deliverCalls.push({ catId, content });
+      },
+    };
+
+    const trigger = createTrigger({ router: pingPongRouter, outboundHook });
+    trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
+    await waitForTrigger();
+
+    // Should deliver 3 separate turns, not 2 (with opus merged)
+    assert.strictEqual(deliverCalls.length, 3, 'Should deliver 3 turns for A→B→A');
+    assert.strictEqual(deliverCalls[0].catId, 'opus');
+    assert.strictEqual(deliverCalls[0].content, 'Opus turn 1');
+    assert.strictEqual(deliverCalls[1].catId, 'codex');
+    assert.strictEqual(deliverCalls[1].content, 'Codex review');
+    assert.strictEqual(deliverCalls[2].catId, 'opus');
+    assert.strictEqual(deliverCalls[2].content, 'Opus turn 3');
+  });
+
+  it('cloud-P1-5: richBlocks-only re-entry after silent cat gets own turn', async () => {
+    // A→B(silent)→A(richBlocks-only): opus text+done, codex silent done, opus richBlocks+done
+    const reentryRouter = /** @type {any} */ ({
+      async *routeExecution(userId, message, threadId, userMessageId, targetCats, intent, options) {
+        // Turn 1: opus responds with text
+        yield { type: 'text', catId: 'opus', content: 'Opus first', timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          content: '',
+          timestamp: Date.now(),
+          metadata: { usage: { inputTokens: 10, outputTokens: 5 } },
+        };
+        // Turn 2: codex is silent (only done, no text/richBlocks)
+        yield {
+          type: 'done',
+          catId: 'codex',
+          content: '',
+          timestamp: Date.now(),
+          metadata: { usage: { inputTokens: 5, outputTokens: 0 } },
+        };
+        // Turn 3: opus re-enters with richBlocks only (no text)
+        if (options?.persistenceContext) {
+          options.persistenceContext.richBlocks = [{ type: 'code', language: 'js', content: 'return 42;' }];
+        }
+        yield {
+          type: 'done',
+          catId: 'opus',
+          content: '',
+          timestamp: Date.now(),
+          metadata: { usage: { inputTokens: 8, outputTokens: 3 } },
+        };
+      },
+      async ackCollectedCursors() {},
+    });
+
+    const deliverCalls = /** @type {Array<{catId: string, content: string, richBlocks: any}>} */ ([]);
+    const outboundHook = {
+      deliver: async (threadId, content, catId, richBlocks) => {
+        deliverCalls.push({ catId, content, richBlocks });
+      },
+    };
+
+    const trigger = createTrigger({ router: reentryRouter, outboundHook });
+    trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
+    await waitForTrigger();
+
+    // Should deliver 2 turns: opus text + opus richBlocks (separate, not merged)
+    assert.strictEqual(deliverCalls.length, 2, 'Should deliver 2 separate turns');
+    assert.strictEqual(deliverCalls[0].catId, 'opus');
+    assert.strictEqual(deliverCalls[0].content, 'Opus first');
+    assert.strictEqual(deliverCalls[1].catId, 'opus');
+    assert.ok(deliverCalls[1].richBlocks?.length > 0, 'Second turn should have richBlocks');
+  });
+
   it('cloud-P1-3: silent first cat → second cat reply uses actual speaker catId', async () => {
     // opus is silent (no text, no richBlocks), codex responds
     const silentFirstRouter = /** @type {any} */ ({
