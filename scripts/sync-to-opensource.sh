@@ -734,6 +734,26 @@ TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
 # 3k-4 through 3p: (merged into 3-UNIFIED comprehensive sanitizer below)
 
+# 3k-5: Logo file rename — cat-cafe-logo-* → clowder-ai-logo-*
+# Source repo keeps internal names; open-source repo gets brand-consistent names.
+# See docs/design/naming-contract.md §2 "Logo 文件" row.
+for logo_src in "$FILTERED_DIR"/assets/icons/cat-cafe-logo-*; do
+  [ -f "$logo_src" ] || continue
+  logo_base=$(basename "$logo_src")
+  logo_dst=$(echo "$logo_base" | sed 's/^cat-cafe-logo/clowder-ai-logo/')
+  mv "$logo_src" "$(dirname "$logo_src")/$logo_dst"
+  echo "  ✓ Logo rename: $logo_base → $logo_dst"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+done
+# Also fix README.md logo reference if present
+if [ -f "$FILTERED_DIR/README.md" ]; then
+  sedi \
+    -e 's/cat-cafe-logo-v2-clean\.svg/clowder-ai-logo-v2-clean.svg/g' \
+    -e 's/cat-cafe-logo-lineart-stroke\.svg/clowder-ai-logo-lineart-stroke.svg/g' \
+    -e 's/cat-cafe-logo-lineart\.svg/clowder-ai-logo-lineart.svg/g' \
+    "$FILTERED_DIR/README.md"
+fi
+
 # 3m: docs/ROADMAP.md — 从 BACKLOG 生成公开版（copy + title rename only; sanitization by 3-UNIFIED）
 if [ -f "$STAGING_DIR/docs/BACKLOG.md" ]; then
   mkdir -p "$FILTERED_DIR/docs"

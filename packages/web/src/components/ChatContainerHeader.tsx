@@ -114,7 +114,13 @@ function ThreadIndicator({ threadId }: { threadId: string }) {
   }
 
   const title = currentThread?.title ?? '未命名对话';
-  const projectName = currentThread?.projectPath?.split('/').pop() ?? '';
+  const rawPath = currentThread?.projectPath ?? '';
+  // 'default' is a sentinel for threads without a real projectPath — match exact value, not basename
+  const rawBasename = rawPath === 'default' ? '' : (rawPath.split('/').pop() ?? '');
+  // Map known internal repo basenames to brand name; preserve real project paths for multi-workspace
+  const INTERNAL_BASENAMES = ['cat-cafe', 'cat-cafe-runtime', 'clowder-ai'];
+  const brandName = process.env.NEXT_PUBLIC_BRAND_NAME ?? '';
+  const projectName = INTERNAL_BASENAMES.includes(rawBasename) && brandName ? brandName : rawBasename;
 
   return (
     <p className="text-xs text-gray-500 truncate" title={`${title}${projectName ? ` · ${projectName}` : ''}`}>

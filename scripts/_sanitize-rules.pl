@@ -45,6 +45,39 @@ s#localhost:9000#<local-browser-automation-endpoint>#g;
 s#/Users/[^\s,"'}\]]+/cat-cafe\b#/path/to/project#g;
 s#/Users/[^\s,"'}\]]+#/home/user#g;
 
+# ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source code only) ──
+# Only applies to .ts/.tsx/.js files — user-visible strings like <title>, <h1>, aria-label.
+# Does NOT touch: @cat-cafe/* imports, cat-cafe-skills/, cat-cafe: keys, cat_cafe_* tools.
+if ($ARGV =~ m{\.(tsx?|js)$} && $ARGV !~ m{/__tests__/|\.test\.}) {
+  # Page metadata and header titles
+  s/title: 'Cat Cafe'/title: 'Clowder AI'/g;
+  s/'Cat Cafe'/'Clowder AI'/g;
+  # Double-quoted variants
+  s/"Cat Cafe"/"Clowder AI"/g;
+  # Template literals and display strings
+  s/Cat Cafe 运行配置/Clowder AI Config/g;
+  # Thread indicator default text
+  s/三只 AI 猫猫的协作空间/Your AI team collaboration space/g;
+  # Pixel brawl demo label
+  s/Cat Caf\&eacute; Fighting Demo/Clowder AI Fighting Demo/g;
+  # Voice input context (whisper prompt)
+  s/这是 Cat Cafe 猫猫协作项目的对话。宪宪是布偶猫（Claude Opus），砚砚是缅因猫（Codex）。/This is a Clowder AI team conversation./g;
+  # Story export label and JSX content
+  s/>Cat Cafe</>Clowder AI</g;
+  # "Cat Café" with accent (Hub labels, aria-labels, titles, warnings)
+  s/Cat Café Hub/Clowder AI Hub/g;
+  s/Cat Café/Clowder AI/g;
+  # Chinese welcome message (unquoted in JSX)
+  s/欢迎来到 Cat Cafe!/Welcome to Clowder AI!/g;
+  # Push settings Chinese text → English
+  s/iPhone 用户请将 Cat Cafe 添加到主屏幕后再开启推送（Safari 普通标签页不支持 Web Push）。/On iPhone, add Clowder AI to your home screen before enabling push (Safari tabs do not support Web Push)./g;
+  s/开启后，猫猫回复、权限请求等会推送到系统通知栏（即使不在 Cat Cafe 页面）。/When enabled, replies and permission requests push to system notifications (even when not on the Clowder AI page)./g;
+  # JSDoc comments
+  s/Unified API client for Cat Cafe frontend/Unified API client for Clowder AI frontend/g;
+  # Capability tab skill category labels
+  s/Cat Cafe Skills/Clowder AI Skills/g;
+}
+
 # ── KD-5: Remove opensource-ops from public-facing files ──
 if ($ARGV =~ m{cat-cafe-skills/manifest\.yaml$}) {
   $_ = "" if /^  # ── .*(?:opensource-ops|开源社区运营)/;
