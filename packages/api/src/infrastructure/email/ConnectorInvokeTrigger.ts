@@ -34,6 +34,8 @@ export interface ConnectorInvokeTriggerOptions {
   readonly outboundHook?: OutboundDeliveryHook;
   readonly streamingHook?: StreamingOutboundHook;
   readonly threadMetaLookup?: (threadId: string) => ThreadMeta | undefined | Promise<ThreadMeta | undefined>;
+  /** Per-cat outbound deliver timeout in ms (default 10000). Prevents hanging deliver from blocking cleanup. */
+  readonly deliverTimeoutMs?: number;
   readonly log: FastifyBaseLogger;
 }
 
@@ -297,6 +299,9 @@ export class ConnectorInvokeTrigger {
       const collectedUsage = new Map<string, TokenUsage>();
       const collectedTextParts: string[] = [];
 
+      // ISSUE-9: Track per-cat content for individual outbound delivery
+      const perCatContent = new Map<string, { textParts: string[]; richBlocks?: PersistenceContext['richBlocks'] }>();
+
       // Phase 4: Start streaming placeholder on external platforms
       // Fire-and-forget for the loop, but save the promise so onStreamEnd can await it
       // to prevent race (onStreamEnd before onStreamStart finishes registering sessions).
@@ -319,12 +324,28 @@ export class ConnectorInvokeTrigger {
       })) {
         // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
         if (controller?.signal.aborted) break;
-        if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
-          collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
+        if (msg.type === 'done' && msg.catId) {
+          if (msg.metadata?.usage) {
+            collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
+          }
+          // ISSUE-9: snapshot richBlocks for this cat before next cat overwrites
+          // Cloud-P1 fix: only create entry when richBlocks exist (avoid empty delivery for silent cats)
+          if (persistenceContext.richBlocks) {
+            const catEntry = perCatContent.get(msg.catId) ?? { textParts: [] };
+            catEntry.richBlocks = [...persistenceContext.richBlocks];
+            persistenceContext.richBlocks = undefined;
+            perCatContent.set(msg.catId, catEntry);
+          }
         }
         // Collect text content for outbound delivery (final-only)
         if (msg.type === 'text' && typeof msg.content === 'string') {
           collectedTextParts.push(msg.content);
+          // ISSUE-9: per-cat text collection
+          if (msg.catId) {
+            const entry = perCatContent.get(msg.catId) ?? { textParts: [] };
+            entry.textParts.push(msg.content);
+            perCatContent.set(msg.catId, entry);
+          }
           // Phase 4: Stream accumulated text to external platforms
           if (this.opts.streamingHook) {
             const accumulated = collectedTextParts.join('');
@@ -365,7 +386,6 @@ export class ConnectorInvokeTrigger {
         finalStatus = 'succeeded';
 
         // ⑥ Outbound delivery: send final text + rich blocks to bound external chats
-        const richBlocks = persistenceContext.richBlocks;
         const finalContent = collectedTextParts.join('');
 
         // Phase 4: Finalize streaming — ensure start completed before ending
@@ -382,14 +402,15 @@ export class ConnectorInvokeTrigger {
           });
         }
 
-        if (this.opts.outboundHook && (collectedTextParts.length > 0 || (richBlocks && richBlocks.length > 0))) {
+        // R1-P1 fix: restore OR condition — richBlocks-only replies must also trigger delivery
+        const hasContent = collectedTextParts.length > 0 || perCatContent.size > 0;
+        if (this.opts.outboundHook && hasContent) {
           // Best-effort threadMeta lookup — must not block invocation completion
           let threadMeta;
           try {
             const LOOKUP_TIMEOUT_MS = 2000;
             const rawResult = this.opts.threadMetaLookup?.(threadId);
             if (rawResult) {
-              // Guard late rejections after timeout wins the race
               const lookupPromise = Promise.resolve(rawResult).catch((err: unknown) => {
                 log.warn({ err, threadId }, '[ConnectorInvokeTrigger] threadMetaLookup late rejection');
                 return undefined;
@@ -405,9 +426,35 @@ export class ConnectorInvokeTrigger {
               '[ConnectorInvokeTrigger] threadMetaLookup failed, falling back to plain reply',
             );
           }
-          this.opts.outboundHook.deliver(threadId, finalContent, catId, richBlocks, threadMeta).catch((err) => {
-            log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
-          });
+
+          // ISSUE-9: deliver per-cat (each cat gets its own card on external platforms)
+          // R1-P2 fix: sequential to preserve cat order
+          // Cloud-P1 fix: timeout to prevent blocking cleanup on hanging deliver
+          const DELIVER_TIMEOUT_MS = this.opts.deliverTimeoutMs ?? 10_000;
+          if (perCatContent.size > 1) {
+            for (const [deliverCatId, { textParts, richBlocks }] of perCatContent) {
+              if (textParts.length === 0 && (!richBlocks || richBlocks.length === 0)) continue;
+              const catContent = textParts.join('');
+              try {
+                await Promise.race([
+                  this.opts.outboundHook.deliver(threadId, catContent, deliverCatId as CatId, richBlocks, threadMeta),
+                  new Promise<void>((_, reject) =>
+                    setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS),
+                  ),
+                ]);
+              } catch (err) {
+                log.error({ err, threadId, catId: deliverCatId }, '[ConnectorInvokeTrigger] Outbound delivery error');
+              }
+            }
+          } else {
+            // Single-cat path: use actual speaker catId (may differ from trigger cat in A2A)
+            const singleEntry = perCatContent.entries().next().value;
+            const actualCatId = singleEntry ? (singleEntry[0] as CatId) : catId;
+            const richBlocks = persistenceContext.richBlocks ?? singleEntry?.[1]?.richBlocks;
+            this.opts.outboundHook.deliver(threadId, finalContent, actualCatId, richBlocks, threadMeta).catch((err) => {
+              log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
+            });
+          }
         }
       }
 
