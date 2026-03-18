@@ -11,7 +11,7 @@
  *   npx tsx scripts/sync-system-prompts.ts --apply --dry-run  # Show rendered output only
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -250,7 +250,53 @@ function applySync(target: SyncTarget, dryRun: boolean): void {
   }
 
   writeFileSync(target.targetPath, rendered, 'utf-8');
+  // Hook scripts need execute permission
+  if (target.targetPath.endsWith('.sh')) {
+    chmodSync(target.targetPath, 0o755);
+  }
   console.log(`✅ ${target.name} → ${target.targetPath}`);
+}
+
+// --- Hook Sync ---
+
+/**
+ * Read a user-level hook script from the project's reference copy.
+ * Source: .claude/hooks/user-level/{name}
+ */
+function readUserHook(projectRoot: string, name: string): string {
+  const path = join(projectRoot, '.claude', 'hooks', 'user-level', name);
+  return readFileSync(path, 'utf-8');
+}
+
+/**
+ * Render Codex CLI hooks.json — references the same scripts in ~/.claude/hooks/
+ */
+function renderCodexHooksJson(root: string): string {
+  const config = {
+    hooks: {
+      SessionStart: [
+        {
+          hooks: [
+            {
+              type: 'command',
+              command: join(root, '.claude', 'hooks', 'session-start-recall.sh'),
+            },
+          ],
+        },
+      ],
+      Stop: [
+        {
+          hooks: [
+            {
+              type: 'command',
+              command: join(root, '.claude', 'hooks', 'session-stop-check.sh'),
+            },
+          ],
+        },
+      ],
+    },
+  };
+  return JSON.stringify(config, null, 2) + '\n';
 }
 
 // --- CLI ---
@@ -261,6 +307,7 @@ function applySync(target: SyncTarget, dryRun: boolean): void {
  */
 export function buildTargets(shardsDir: string, targetRoot?: string): SyncTarget[] {
   const root = targetRoot ?? homedir();
+  const projectRoot = join(shardsDir, '..', '..');
   return [
     {
       name: 'codex',
@@ -271,6 +318,21 @@ export function buildTargets(shardsDir: string, targetRoot?: string): SyncTarget
       name: 'gemini',
       render: () => renderForGemini(shardsDir),
       targetPath: join(root, '.gemini', 'GEMINI.md'),
+    },
+    {
+      name: 'hooks/session-start',
+      render: () => readUserHook(projectRoot, 'session-start-recall.sh'),
+      targetPath: join(root, '.claude', 'hooks', 'session-start-recall.sh'),
+    },
+    {
+      name: 'hooks/session-stop',
+      render: () => readUserHook(projectRoot, 'session-stop-check.sh'),
+      targetPath: join(root, '.claude', 'hooks', 'session-stop-check.sh'),
+    },
+    {
+      name: 'codex-hooks',
+      render: () => renderCodexHooksJson(root),
+      targetPath: join(root, '.codex', 'hooks.json'),
     },
   ];
 }
