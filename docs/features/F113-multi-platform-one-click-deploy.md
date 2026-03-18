@@ -43,14 +43,21 @@ UX 要点：
 
 ## Acceptance Criteria
 
-- [ ] AC-D1: 目录选择器不依赖任何 OS 特定 API（无 osascript / zenity / PowerShell）
-- [ ] AC-D2: 面包屑导航可在任意层级间跳转
-- [ ] AC-D3: 手动输入路径可直接跳转到目标目录
-- [ ] AC-D4: 现有功能不退化（项目列表、CWD 推荐、路径校验）
+- [x] AC-D1: 目录选择器不依赖任何 OS 特定 API（无 osascript / zenity / PowerShell）
+- [x] AC-D2: 面包屑导航可在任意层级间跳转
+- [x] AC-D3: 手动输入路径可直接跳转到目标目录
+- [x] AC-D4: 现有功能不退化（项目列表、CWD 推荐、路径校验）
 - [ ] AC-1: Linux 用户执行单条命令完成全部安装并能启动服务
 - [ ] AC-2: macOS 用户同上
 - [ ] AC-3: Windows 用户有明确引导（脚本或 WSL 说明）
 - [ ] AC-4: 脚本幂等，重复运行不破坏已有安装
+
+## Timeline
+
+| Date | Event |
+|------|-------|
+| 2026-03-13 | Spec created (community request clowder-ai #14) |
+| 2026-03-18 | Phase D: design + implementation + review + merge (PR #554) |
 
 ## Notes
 
