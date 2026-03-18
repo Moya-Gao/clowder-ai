@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "b3e3b0e40af07f64c85ac1dfcb9b75d27e6fee60",
+  "last_reviewed_target_head": "3b5ceb8b2df34932e9eba46d50de241f9b9846ec",
   "entries": [
     {
       "pr_number": 90,
@@ -43,6 +43,20 @@
       "decision": "rejected",
       "timestamp": "2026-03-16T17:08:00.000Z",
       "notes": "Direct clowder-ai maintainer commit audited during F113 intake; rejected because MAINTAINERS.md would duplicate the opensource-ops truth source in cat-cafe."
+    },
+    {
+      "pr_number": 134,
+      "target_merge_commit": "3b5ceb8b2df34932e9eba46d50de241f9b9846ec",
+      "decision": "absorbed",
+      "timestamp": "2026-03-18T08:14:27.531Z"
+    },
+    {
+      "action": "force_advance",
+      "from": "b3e3b0e40af07f64c85ac1dfcb9b75d27e6fee60",
+      "to": "75411fd52efa6a2fc44c14944267f7b4489f5fa0",
+      "skipped_community_commits": 1,
+      "timestamp": "2026-03-18T08:14:48.737Z",
+      "notes": "Force-advanced without per-PR review"
     }
   ]
 }
