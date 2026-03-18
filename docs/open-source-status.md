@@ -214,7 +214,7 @@ created: 2026-03-12
 
 ## 社区 PR Review 进度
 
-> **更新时间**: 2026-03-17 (Round 3 — final) | **执行猫**: 金渐层/opencode (claude-opus-4-6) [金渐层/Opus-46🐾]
+> **更新时间**: 2026-03-18 (Tier 1 完成) | **执行猫**: 金渐层/opencode (claude-opus-4-6) [金渐层/Opus-46🐾]
 
 ### 已关闭 PR（12 个）
 
@@ -244,6 +244,9 @@ created: 2026-03-12
 | #52 | 代理 502 | 家里已实现 fetchWithTimeout + retry |
 | #77 | 重启静默吞消息 | F048 A+ StartupReconciler 已解决 |
 | #104 | Provider auth 配置统一 | F117 已解决 |
+| #87 | .env.example defaults drift | PR #540 merged — 端口交换修复 + drift guard 测试 |
+| #55 | port defaults inconsistency | PR #540 merged — 与 #87 同根因 |
+| #56 | 端口默认值不一致 | 与 #55 重复，已关闭 |
 
 ### 已 Intake 到家里（验证完成）
 
@@ -320,14 +323,14 @@ created: 2026-03-12
 | #101 | 更新 thread projectPath | feature | 未做 | 🟡 |
 | #97 | governance 泄漏端口默认值 | bug | **✅ 已修** | ~~🟢 **影响外部项目**~~ PR #532 merged |
 | #93 | thread 后台任务管理器 | enhancement | 未做 | ⚪ 大功能 |
-| #87 | .env.example defaults drift | bug | 未修 | 🟢 **新用户陷阱** |
+| #87 | .env.example defaults drift | bug | **✅ 已修** | ~~🟢 **新用户陷阱**~~ PR #540 merged |
 | #81 | Marketplace 外部 Skills 仓库 | enhancement | 未做 | ⚪ 长期 |
 | #79 | EnterWorktree 路径错误 | bug | 未确认 | 🟡 |
 | #75 | Hub 配置可编辑 | enhancement | 未做 | 🟡 |
 | #74 | Hub 配置缺失时失败 | bug | 未修 | 🟢 **影响首次体验** |
 | #63 | worktree 纪律强制执行 | bug | 未做 | 🟡 |
-| #56 | 端口默认值不一致（中文） | bug | 未修 | 🔴 与 #55 重复 |
-| #55 | port defaults inconsistency | bug | 未修 | 🟢 **与 #87 关联** |
+| #56 | 端口默认值不一致（中文） | bug | **✅ 已修** | ~~🔴 与 #55 重复~~ 已关闭 (dup of #55) |
+| #55 | port defaults inconsistency | bug | **✅ 已修** | ~~🟢 **与 #87 关联**~~ PR #540 merged |
 | #50 | pnpm start 默认直启 | enhancement | 已做 (--profile=opensource) | 🔴 **可关闭** |
 | #21 | setup wizard 缺 skills symlink | bug | **✅ 已修** | ~~🔴 **可关闭**~~ PR #532 merged |
 | #1 | Welcome Beta Testers | — | — | ⚪ 置顶帖 |
@@ -337,12 +340,12 @@ created: 2026-03-12
 > 更新: 2026-07-15 | 金渐层 vs 砚砚(GPT-5.4) 分歧仲裁后定稿
 
 1. **#84** — ✅ setCatStatus 更新风暴 — **已修** PR #527 merged (idempotent guard, 非 throttle)
-2. **#87/#55** — .env.example 端口不一致（开源用户照抄会端口冲突）
+2. **#87/#55/#56** — ✅ .env.example 端口不一致 — **已修** PR #540 merged (port swap fix + drift guard test, 14 assertions)
 3. **#123** — ✅ governance preflight 阻断新项目 — **已修** PR #532 merged (needsBootstrap/needsConfirmation/bootstrapCommand)
 4. **#97** — ✅ governance 泄漏端口默认值 — **已修** PR #532 merged (sync-pipeline transforms, pack v1.3.0)
 5. **#21** — ✅ setup.sh 缺 skills sync 步骤 — **已修** PR #532 merged (Step 5/6 skills symlink creation)
 
-### 第二梯队 — Tier 2（4 个，可做不紧急）
+### 第二梯队 — Tier 2（3 个，可做不紧急）
 
 1. **#74** — Hub 配置缺失时 UX 优化 ⚠️ **仲裁修正：从 P1 降级为 P2**
    - 前端无 `VITE_HUB` / `hubBase` 环境变量依赖，Hub 是内嵌 React 面板，不会因配置缺失而"失败"
@@ -352,7 +355,6 @@ created: 2026-03-12
    - 开源版靠 sync transform 替换为 `start-dev.sh --profile=opensource`
    - 不关闭，但用文档标注即可
 3. **#94** — GovernanceRegistry per-worktree（长期架构改进，不阻塞首版发布）
-4. **#56** — 与 #55 重复（直接关闭即可）
 
 ### 金渐层 vs 砚砚(GPT-5.4) 分歧仲裁记录
 
