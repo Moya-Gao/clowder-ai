@@ -195,7 +195,7 @@ export class ReviewRouter {
     const reviewTypeLabel = formatReviewType(event.reviewType);
 
     const content = [
-      `**GitHub Review 通知** 🔔`,
+      `**GitHub Review 通知**`,
       ``,
       `PR #${event.prNumber}: ${event.title}`,
       `仓库: ${event.repository}`,
@@ -210,7 +210,7 @@ export class ReviewRouter {
     const source: ConnectorSource = {
       connector: 'github-review',
       label: 'GitHub Review',
-      icon: '🔔',
+      icon: 'github',
       url: `https://github.com/${event.repository}/pull/${event.prNumber}`,
     };
 
@@ -234,7 +234,7 @@ export class ReviewRouter {
     const userId = this.resolveUserId();
 
     const content = [
-      `**GitHub Review 需要分派** ⚠️`,
+      `**GitHub Review 需要分派**`,
       ``,
       `PR #${event.prNumber}: ${event.title}`,
       `仓库: ${event.repository}`,
@@ -250,7 +250,7 @@ export class ReviewRouter {
     const source: ConnectorSource = {
       connector: 'github-review',
       label: 'GitHub Review',
-      icon: '⚠️',
+      icon: 'github',
       url: `https://github.com/${event.repository}/pull/${event.prNumber}`,
     };
 
@@ -318,14 +318,14 @@ export class ReviewRouter {
 function formatReviewType(type: string): string {
   switch (type) {
     case 'approved':
-      return '✅ Approved';
+      return 'Approved';
     case 'changes_requested':
-      return '🔴 Changes Requested';
+      return 'Changes Requested';
     case 'commented':
-      return '💬 Commented';
+      return 'Commented';
     case 'reviewed':
-      return '🧾 Reviewed';
+      return 'Reviewed';
     default:
-      return `❓ ${type}`;
+      return type;
   }
 }
