@@ -1,0 +1,711 @@
+{
+  "version": "2.9",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "YdLvn",
+      "x": 0,
+      "y": 0,
+      "name": "F113 Directory Picker",
+      "width": 520,
+      "fill": "#FFFFFF",
+      "cornerRadius": 16,
+      "effect": {
+        "type": "shadow",
+        "shadowType": "outer",
+        "color": "#00000018",
+        "offset": {
+          "x": 0,
+          "y": 8
+        },
+        "blur": 32
+      },
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "i54FM",
+          "name": "Header",
+          "width": "fill_container",
+          "height": 52,
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "#f0e6de"
+          },
+          "padding": [
+            0,
+            20
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "yEjQQ",
+              "name": "title",
+              "fill": "#1e1e24",
+              "content": "选择目录",
+              "fontFamily": "Outfit",
+              "fontSize": 15,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "VDQL0",
+              "name": "closeBtn",
+              "width": 28,
+              "height": 28,
+              "fill": "#fdf8f3",
+              "cornerRadius": 6,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "WzYML",
+                  "name": "closeIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "x",
+                  "iconFontFamily": "lucide",
+                  "fill": "#999999"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "TL3M0",
+          "name": "Breadcrumb",
+          "width": "fill_container",
+          "height": 40,
+          "fill": "#fdf8f3",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "#f0e6de"
+          },
+          "gap": 4,
+          "padding": [
+            0,
+            20
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "YH201",
+              "name": "bcHome",
+              "gap": 4,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "Z7u00",
+                  "name": "bcHIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "house",
+                  "iconFontFamily": "lucide",
+                  "fill": "#e29578"
+                },
+                {
+                  "type": "text",
+                  "id": "4OTVi",
+                  "name": "bcHTxt",
+                  "fill": "#e29578",
+                  "content": "Home",
+                  "fontFamily": "Outfit",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "icon_font",
+              "id": "FRoMe",
+              "name": "sep1",
+              "width": 12,
+              "height": 12,
+              "iconFontName": "chevron-right",
+              "iconFontFamily": "lucide",
+              "fill": "#d4c0b3"
+            },
+            {
+              "type": "text",
+              "id": "mXQJe",
+              "name": "bcP",
+              "fill": "#e29578",
+              "content": "projects",
+              "fontFamily": "Outfit",
+              "fontSize": 12,
+              "fontWeight": "500"
+            },
+            {
+              "type": "icon_font",
+              "id": "0dmS8",
+              "name": "sep2",
+              "width": 12,
+              "height": 12,
+              "iconFontName": "chevron-right",
+              "iconFontFamily": "lucide",
+              "fill": "#d4c0b3"
+            },
+            {
+              "type": "text",
+              "id": "SKqC9",
+              "name": "bcCur",
+              "fill": "#1e1e24",
+              "content": "relay-station",
+              "fontFamily": "Outfit",
+              "fontSize": 12,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "KJNyX",
+          "name": "Directory List",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 2,
+          "padding": [
+            8,
+            12
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "bSxb3",
+              "name": "Row - cat-cafe",
+              "width": "fill_container",
+              "height": 40,
+              "fill": "#fff5f2",
+              "cornerRadius": 8,
+              "gap": 10,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "s31bu",
+                  "name": "r1i",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "folder",
+                  "iconFontFamily": "lucide",
+                  "fill": "#e29578"
+                },
+                {
+                  "type": "text",
+                  "id": "2YfHA",
+                  "name": "r1n",
+                  "fill": "#1e1e24",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "cat-cafe",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "a9ocP",
+                  "name": "r1h",
+                  "fill": "#e29578",
+                  "content": "当前项目",
+                  "fontFamily": "Outfit",
+                  "fontSize": 10,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "icon_font",
+                  "id": "ENLne",
+                  "name": "r1a",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "chevron-right",
+                  "iconFontFamily": "lucide",
+                  "fill": "#d4c0b3"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "juyDc",
+              "name": "Row - tutorials",
+              "width": "fill_container",
+              "height": 40,
+              "cornerRadius": 8,
+              "gap": 10,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "gbFyT",
+                  "name": "r2i",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "folder",
+                  "iconFontFamily": "lucide",
+                  "fill": "#c4a882"
+                },
+                {
+                  "type": "text",
+                  "id": "zOkO9",
+                  "name": "r2n",
+                  "fill": "#1e1e24",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "cat-cafe-tutorials",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "icon_font",
+                  "id": "f2y6I",
+                  "name": "r2a",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "chevron-right",
+                  "iconFontFamily": "lucide",
+                  "fill": "#d4c0b3"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "znpEU",
+              "name": "Row - clowder-ai",
+              "width": "fill_container",
+              "height": 40,
+              "cornerRadius": 8,
+              "gap": 10,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "0lKjb",
+                  "name": "r3i",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "folder",
+                  "iconFontFamily": "lucide",
+                  "fill": "#c4a882"
+                },
+                {
+                  "type": "text",
+                  "id": "x6SFm",
+                  "name": "r3n",
+                  "fill": "#1e1e24",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "clowder-ai",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "icon_font",
+                  "id": "fYBa2",
+                  "name": "r3a",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "chevron-right",
+                  "iconFontFamily": "lucide",
+                  "fill": "#d4c0b3"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hRnmb",
+              "name": "Row - cat-cafe-skills",
+              "width": "fill_container",
+              "height": 40,
+              "cornerRadius": 8,
+              "gap": 10,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "q58kd",
+                  "name": "r4i",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "folder",
+                  "iconFontFamily": "lucide",
+                  "fill": "#c4a882"
+                },
+                {
+                  "type": "text",
+                  "id": "XdVrr",
+                  "name": "r4n",
+                  "fill": "#1e1e24",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "cat-cafe-skills",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "icon_font",
+                  "id": "9xQ1n",
+                  "name": "r4a",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "chevron-right",
+                  "iconFontFamily": "lucide",
+                  "fill": "#d4c0b3"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "xNoWD",
+              "name": "Row - side-projects",
+              "width": "fill_container",
+              "height": 40,
+              "cornerRadius": 8,
+              "gap": 10,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "ef2Sy",
+                  "name": "r5i",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "folder",
+                  "iconFontFamily": "lucide",
+                  "fill": "#c4a882"
+                },
+                {
+                  "type": "text",
+                  "id": "P3NoD",
+                  "name": "r5n",
+                  "fill": "#1e1e24",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "side-projects",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "icon_font",
+                  "id": "9DYC7",
+                  "name": "r5a",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "chevron-right",
+                  "iconFontFamily": "lucide",
+                  "fill": "#d4c0b3"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "5zRKf",
+              "name": "Row - experiments",
+              "width": "fill_container",
+              "height": 40,
+              "cornerRadius": 8,
+              "gap": 10,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "na0MN",
+                  "name": "r6i",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "folder",
+                  "iconFontFamily": "lucide",
+                  "fill": "#c4a882"
+                },
+                {
+                  "type": "text",
+                  "id": "VXR2P",
+                  "name": "r6n",
+                  "fill": "#1e1e24",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "experiments",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "icon_font",
+                  "id": "CePqr",
+                  "name": "r6a",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "chevron-right",
+                  "iconFontFamily": "lucide",
+                  "fill": "#d4c0b3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "lvDHE",
+          "name": "Path Input Section",
+          "width": "fill_container",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1
+            },
+            "fill": "#f0e6de"
+          },
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            12,
+            20
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "gzofx",
+              "name": "Path Input Row",
+              "width": "fill_container",
+              "height": 36,
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "o6AM1",
+                  "name": "pIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "terminal",
+                  "iconFontFamily": "lucide",
+                  "fill": "#999999"
+                },
+                {
+                  "type": "frame",
+                  "id": "rVngH",
+                  "name": "Path Input",
+                  "width": "fill_container",
+                  "height": 36,
+                  "fill": "#fdf8f3",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#e8d9cf"
+                  },
+                  "padding": [
+                    0,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "kfikZ",
+                      "name": "pTxt",
+                      "fill": "#999999",
+                      "content": "/Users/lysander/projects/relay-station",
+                      "fontFamily": "Outfit",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "AtH2v",
+                  "name": "pGoBtn",
+                  "width": 36,
+                  "height": 36,
+                  "fill": "#fdf8f3",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#e8d9cf"
+                  },
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "gSY0p",
+                      "name": "pGoIcn",
+                      "width": 14,
+                      "height": 14,
+                      "iconFontName": "arrow-right",
+                      "iconFontFamily": "lucide",
+                      "fill": "#666666"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "T0WR3",
+          "name": "Action Bar",
+          "width": "fill_container",
+          "height": 56,
+          "fill": "#fdf8f3",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1
+            },
+            "fill": "#f0e6de"
+          },
+          "gap": 10,
+          "padding": [
+            0,
+            20
+          ],
+          "justifyContent": "end",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "OaoNX",
+              "name": "selHint",
+              "width": "fill_container",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "ORzkG",
+                  "name": "hIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "circle-check",
+                  "iconFontFamily": "lucide",
+                  "fill": "#e29578"
+                },
+                {
+                  "type": "text",
+                  "id": "rFbA0",
+                  "name": "hTxt",
+                  "fill": "#666666",
+                  "content": "已选：relay-station",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "zchml",
+              "name": "canBtn",
+              "height": 36,
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#e8d9cf"
+              },
+              "padding": [
+                0,
+                16
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "lcPBI",
+                  "name": "canTxt",
+                  "fill": "#666666",
+                  "content": "取消",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Rvgbp",
+              "name": "selBtn",
+              "height": 36,
+              "fill": "#e29578",
+              "cornerRadius": 8,
+              "padding": [
+                0,
+                20
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "N9igZ",
+                  "name": "selTxt",
+                  "fill": "#FFFFFF",
+                  "content": "选择此目录",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
