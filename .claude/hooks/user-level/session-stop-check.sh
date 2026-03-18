@@ -5,7 +5,7 @@
 
 # 读取 stdin（hook 协议要求）
 INPUT=$(cat)
-CWD=$(echo "$INPUT" | grep -o '"cwd":"[^"]*"' | head -1 | cut -d'"' -f4)
+CWD=$(echo "$INPUT" | grep -oE '"cwd"\s*:\s*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 [ -z "$CWD" ] && CWD="$(pwd)"
 
 # 只在 git 仓库里生效

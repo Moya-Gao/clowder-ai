@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { buildTargets, checkDrift, renderForCodex, renderForGemini, type SyncTarget } from './sync-system-prompts.js';
 
@@ -152,9 +152,9 @@ describe('sync-system-prompts', () => {
 
     it('should detect no drift after apply to custom targetRoot', () => {
       const targets = buildTargets(SHARDS_DIR, tmpDir);
-      // Simulate apply: write rendered content to target
+      // Simulate apply: create all necessary directories and write rendered content
       for (const target of targets) {
-        const dir = join(tmpDir, target.name === 'codex' ? '.codex' : '.gemini');
+        const dir = dirname(target.targetPath);
         mkdirSync(dir, { recursive: true });
         writeFileSync(target.targetPath, target.render(), 'utf-8');
       }
@@ -163,6 +163,14 @@ describe('sync-system-prompts', () => {
         const result = checkDrift(target);
         assert.equal(result.drifted, false, `${target.name} should not be drifted after apply`);
       }
+    });
+
+    it('should include hook targets in buildTargets', () => {
+      const targets = buildTargets(SHARDS_DIR, tmpDir);
+      const names = targets.map((t) => t.name);
+      assert.ok(names.includes('hooks/session-start'), 'missing session-start hook target');
+      assert.ok(names.includes('hooks/session-stop'), 'missing session-stop hook target');
+      assert.ok(names.includes('codex-hooks'), 'missing codex-hooks target');
     });
   });
 });
