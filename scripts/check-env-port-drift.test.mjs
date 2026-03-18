@@ -17,6 +17,11 @@ import { describe, it } from 'node:test';
 
 const ROOT = resolve(process.cwd());
 
+// Detect repo context early — used by multiple describe blocks.
+// Home repo has sync-to-opensource.sh; open-source repo does not.
+const isHomeRepo = existsSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'));
+const hasEnvExampleOpensource = existsSync(resolve(ROOT, '.env.example.opensource'));
+
 function readEnvFile(relPath) {
   const content = readFileSync(resolve(ROOT, relPath), 'utf-8');
   const vars = {};
@@ -46,44 +51,49 @@ function readTsFallback(relPath, pattern) {
   return m ? m[1] : null;
 }
 
-describe('.env.example.opensource port consistency', () => {
-  const env = readEnvFile('.env.example.opensource');
+describe(
+  '.env.example.opensource port consistency',
+  { skip: !hasEnvExampleOpensource && '.env.example.opensource not present (open-source repo uses .env.example)' },
+  () => {
+    const env = readEnvFile('.env.example.opensource');
 
-  it('API_SERVER_PORT matches sync convention (3003)', () => {
-    assert.equal(
-      env.API_SERVER_PORT,
-      '3003',
-      `API_SERVER_PORT should be 3003 (open-source convention), got ${env.API_SERVER_PORT}`,
-    );
-  });
+    it('API_SERVER_PORT matches sync convention (3003)', () => {
+      assert.equal(
+        env.API_SERVER_PORT,
+        '3003',
+        `API_SERVER_PORT should be 3003 (open-source convention), got ${env.API_SERVER_PORT}`,
+      );
+    });
 
-  it('FRONTEND_PORT matches sync convention (3004)', () => {
-    assert.equal(
-      env.FRONTEND_PORT,
-      '3004',
-      `FRONTEND_PORT should be 3004 (open-source convention), got ${env.FRONTEND_PORT}`,
-    );
-  });
+    it('FRONTEND_PORT matches sync convention (3004)', () => {
+      assert.equal(
+        env.FRONTEND_PORT,
+        '3004',
+        `FRONTEND_PORT should be 3004 (open-source convention), got ${env.FRONTEND_PORT}`,
+      );
+    });
 
-  it('NEXT_PUBLIC_API_URL uses API port (3003)', () => {
-    assert.equal(
-      env.NEXT_PUBLIC_API_URL,
-      'http://localhost:3003',
-      `NEXT_PUBLIC_API_URL should point to API port 3003, got ${env.NEXT_PUBLIC_API_URL}`,
-    );
-  });
+    it('NEXT_PUBLIC_API_URL uses API port (3003)', () => {
+      assert.equal(
+        env.NEXT_PUBLIC_API_URL,
+        'http://localhost:3003',
+        `NEXT_PUBLIC_API_URL should point to API port 3003, got ${env.NEXT_PUBLIC_API_URL}`,
+      );
+    });
 
-  it('.env.example.opensource comment header documents correct ports', () => {
-    const content = readFileSync(resolve(ROOT, '.env.example.opensource'), 'utf-8');
-    // The comment should say frontend=3004, API=3003
-    assert.ok(content.includes('3004') && content.includes('3003'), 'Comment header should mention both 3003 and 3004');
-  });
-});
+    it('.env.example.opensource comment header documents correct ports', () => {
+      const content = readFileSync(resolve(ROOT, '.env.example.opensource'), 'utf-8');
+      // The comment should say frontend=3004, API=3003
+      assert.ok(
+        content.includes('3004') && content.includes('3003'),
+        'Comment header should mention both 3003 and 3004',
+      );
+    });
+  },
+);
 
 // In the home repo (cat-cafe), code defaults are 3002/3001.
 // In the open-source repo (clowder-ai), sync transforms them to 3003/3004.
-// Detect context so the same test file works in both repos.
-const isHomeRepo = existsSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'));
 const expectedApiPort = isHomeRepo ? '3002' : '3003';
 const expectedFrontendPort = isHomeRepo ? '3001' : '3004';
 const repoLabel = isHomeRepo ? 'home' : 'open-source';

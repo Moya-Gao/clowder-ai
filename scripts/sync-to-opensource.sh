@@ -673,6 +673,11 @@ if [ -f "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts" ]; then
     -e "s/const port = parseInt(env.API_SERVER_PORT ?? '3002', 10);/const port = parseInt(env.API_SERVER_PORT ?? '3003', 10);/g" \
     "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts"
 fi
+if [ -f "$FILTERED_DIR/packages/api/src/index.ts" ]; then
+  sedi \
+    -e "s/const PORT = parseInt(process.env.API_SERVER_PORT ?? '3002', 10);/const PORT = parseInt(process.env.API_SERVER_PORT ?? '3003', 10);/g" \
+    "$FILTERED_DIR/packages/api/src/index.ts"
+fi
 if [ -f "$FILTERED_DIR/packages/api/src/config/env-registry.ts" ]; then
   sedi \
     -e "s/{ name: 'API_SERVER_PORT', defaultValue: '3002'/{ name: 'API_SERVER_PORT', defaultValue: '3003'/g" \
