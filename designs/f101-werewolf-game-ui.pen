@@ -1,11 +1,11 @@
 {
-  "version": "2.8",
+  "version": "2.9",
   "children": [
     {
       "type": "frame",
       "id": "bi8Au",
-      "x": 0,
-      "y": 0,
+      "x": 51,
+      "y": -224,
       "name": "IM Platform Icons",
       "clip": true,
       "width": 960,
@@ -3939,7 +3939,8 @@
                       "width": "fill_container",
                       "content": "我昨晚验了 P7，是好人。建议我们集中火力投可疑的 P2 和 P6。",
                       "fontFamily": "Inter",
-                      "fontSize": 13
+                      "fontSize": 13,
+                      "fontWeight": "normal"
                     }
                   ]
                 }
@@ -3990,7 +3991,8 @@
                       "width": "fill_container",
                       "content": "同意砚砚的判断。P2 昨天的发言逻辑不通，投 P2。",
                       "fontFamily": "Inter",
-                      "fontSize": 13
+                      "fontSize": 13,
+                      "fontWeight": "normal"
                     }
                   ]
                 }
@@ -6455,7 +6457,7 @@
                         "type": "image",
                         "enabled": true,
                         "url": "./images/gpt52-face.png",
-                        "mode": "fill"
+                        "mode": "fit"
                       },
                       "cornerRadius": 28
                     },
