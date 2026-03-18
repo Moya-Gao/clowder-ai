@@ -7,14 +7,14 @@
 #   Step 3: Transforms (sanitize + generate)
 #   Step 4: Security scan (denylist + secrets + /Users/ + internal patterns + endpoints)
 #   Step 5: Sync (target-owned backup → diff preview → rsync → restore)
-#   Step 6: Post-sync validation (install + build + port check)
+#   Step 6: Post-sync validation (install + static gates + build + acceptance)
 #
 # Usage:
 #   bash scripts/sync-to-opensource.sh                    # 完整同步（含 post-sync 验证）
 #   bash scripts/sync-to-opensource.sh --dry-run          # 只导出到临时目录，不同步
-#   bash scripts/sync-to-opensource.sh --validate         # 导出 + install + build（不同步）
+#   bash scripts/sync-to-opensource.sh --validate         # 导出 + static gates + install/build（不同步）
 #   bash scripts/sync-to-opensource.sh --skip-validate    # 同步但跳过 post-sync 验证
-#   bash scripts/sync-to-opensource.sh --fast-validate    # 同步 + install/build（跳过 full startup acceptance）
+#   bash scripts/sync-to-opensource.sh --fast-validate    # 同步 + static gates + install/build/test（跳过 full startup acceptance）
 #   bash scripts/sync-to-opensource.sh --yes              # 非交互模式（猫猫/CI 用，跳过确认提示）
 #   bash scripts/sync-to-opensource.sh --force-overwrite  # 强制覆盖未吸收的社区 commit（危险！）
 #   bash scripts/sync-to-opensource.sh --module=docs      # 模块级同步（V1: Step 5/6 按模块，Step 1-4 仍全量）
@@ -53,6 +53,30 @@ step_start() {
 step_done() {
   local elapsed=$(( $(date +%s) - STEP_START_TIME ))
   echo -e "  ${BLUE}⏱ ${elapsed}s${NC}"
+}
+
+run_static_quality_gates() {
+  local autofix="${1:-false}"
+
+  if [ "$autofix" = true ]; then
+    echo "  Biome autofix (best effort)..."
+    if ! pnpm check:fix 2>&1 | tail -5; then
+      echo -e "  ${RED}✗ pnpm check:fix failed${NC}"
+      return 1
+    fi
+  fi
+
+  echo "  Biome check..."
+  if ! pnpm check 2>&1 | tail -5; then
+    echo -e "  ${RED}✗ pnpm check failed${NC}"
+    return 1
+  fi
+
+  echo "  TypeScript lint..."
+  if ! pnpm lint 2>&1 | tail -5; then
+    echo -e "  ${RED}✗ pnpm lint failed${NC}"
+    return 1
+  fi
 }
 
 # ── 参数 ──────────────────────────────────────────────────────
@@ -975,11 +999,15 @@ PROV_EOF
 
 if [ "$VALIDATE" = true ]; then
   echo ""
-  echo -e "${GREEN}[Step 5/6] Validate (install + build + port check)...${NC}"
+  echo -e "${GREEN}[Step 5/6] Validate (install + static gates + build + port check)...${NC}"
   cd "$FILTERED_DIR"
   if command -v pnpm >/dev/null 2>&1; then
     echo "  Installing dependencies..."
     pnpm install --frozen-lockfile 2>&1 | tail -3
+    if ! run_static_quality_gates true; then
+      trap - EXIT
+      exit 1
+    fi
     echo "  Building..."
     pnpm --filter @cat-cafe/shared build 2>&1 | tail -3
     pnpm --filter @cat-cafe/api build 2>&1 | tail -3
@@ -1237,9 +1265,9 @@ elif [ "$SYNC_MODULE" != "all" ]; then
   echo -e "${YELLOW}[Step 6] Post-sync validation SKIPPED (module sync — run full sync for final gate)${NC}"
 else
   if [ "$FAST_VALIDATE" = true ]; then
-    step_start "Step 6" "Post-sync fast validation (install + build + test)..."
+    step_start "Step 6" "Post-sync fast validation (install + static gates + build + test)..."
   else
-    step_start "Step 6" "Post-sync full acceptance (D2d)..."
+    step_start "Step 6" "Post-sync full acceptance (static gates + D2d)..."
   fi
   cd "$TARGET_DIR"
   STEP6_FAIL=false
@@ -1257,6 +1285,9 @@ else
     echo "  Installing dependencies..."
     if ! pnpm install --frozen-lockfile 2>&1 | tail -5; then
       echo -e "  ${RED}✗ pnpm install failed${NC}"
+      STEP6_FAIL=true
+    fi
+    if ! run_static_quality_gates false; then
       STEP6_FAIL=true
     fi
     echo "  Building..."
