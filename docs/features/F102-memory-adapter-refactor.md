@@ -625,6 +625,7 @@ search_evidence(query, {
 | KD-31 | **不做代码图谱**——图数据库/Tree-sitter/Leiden/Cypher 是代码智能方案，不是记忆方案 | 三猫+铲屎官共识："太重了"，解的是错层问题 | 2026-03-16 |
 | KD-32 | **Thread 索引不导出 markdown**——直接从 messageStore 读消息内容编译索引，不转中间层 md 文件 | 铲屎官明确否决 + 砚砚方案共识：真相源在 Redis（TTL=0 永久），索引是编译产物，导出 md = 重复真相源 | 2026-03-18 |
 | KD-33 | **Thread 索引不靠 threadMemory.summary**——340 thread 中 326 个 summary 为空，必须从消息内容本身提取可搜文本 | 铲屎官指出"threadMemory.summary 不靠谱"，回溯 QMD proposal 确认：正确做法是 turn-by-turn 消息拼接 | 2026-03-18 |
+| KD-34 | **Thread 索引增量更新必须覆盖所有 messageStore.append 调用点（36 个）**——不能只 hook 2 条 HTTP 路由，必须在 messageStore 内部加 post-append callback | 铲屎官问"好几天不重启怎么办"，代价分析：IO/CPU 可忽略（<5ms/thread），真实代价只是"确保覆盖所有写入路径" | 2026-03-18 |
 
 ## Timeline
 
