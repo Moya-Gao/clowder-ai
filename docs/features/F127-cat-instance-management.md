@@ -36,7 +36,7 @@ community_issue: "#109"
 | 账户类型 | 配置项 | 示例 |
 |---------|--------|------|
 | Claude 订阅 (OAuth) | 订阅类型 | Max Plan |
-| Claude API Key | apiKey + baseUrl + 可选 modelOverride | `sk-ant-...` + `https://api.anthropic.com` |
+| Claude API Key | apiKey + baseUrl + 可选 modelOverride | `<your-api-key>` + `https://api.anthropic.com` |
 | Codex 订阅 (OAuth) | 订阅类型 | ChatGPT Pro |
 | Codex API Key | apiKey + baseUrl | `sk-...` + `https://api.openai.com` |
 | Gemini 订阅 | CLI 内部 auth | — |
@@ -69,7 +69,7 @@ community_issue: "#109"
 账户配置:
   ├── "claude-max"     → Claude OAuth 订阅
   ├── "openai-pro"     → Codex OAuth 订阅
-  ├── "my-anthropic"   → Anthropic API Key (sk-ant-xxx)
+  ├── "my-anthropic"   → Anthropic API Key (<your-key>)
   └── "my-glm"         → 自定义 API Key (https://api.zhipu.ai, sk-yyy)
 
 猫猫实例:
