@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F122: 执行通道统一 — A2A/multi_mention 入 Dispatch Queue
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-18
 
 ## Why
 
@@ -324,6 +324,7 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | 2026-03-16 | AC-B9 merged (PR #510) — per-cat Stop + cancel API，cloud review 通过 |
 | 2026-03-17 | AC-B8/B9 polish + B10 merged (PR #533) — ThreadExecutionBar 动态猫名/颜色 + whisper 执行中猫 chip 禁用，codex R1→R2 放行 |
 | 2026-03-17 | AC-B6 merged (PR #536 `646d6aa4`) — multi_mention dispatch via InvocationQueue + EntryCompleteHook 回调聚合，codex R3→R4→R5 放行（P1 abort→succeeded + P2 hook leak + R4-P1 duplicate finalStatus 三个 bug 修复）|
+| 2026-03-18 | Feature close：移出 BACKLOG + 加入已完成索引 + 反思胶囊沉淀（F122-CLOSE） |
 
 ## Review Gate
 
@@ -340,5 +341,6 @@ QueuePanel 只显示 `status='queued'` 的条目（`QueuePanel.tsx:142`），条
 | **Feature** | `docs/features/F108-concurrent-cat-isolation.md` | slot-aware InvocationTracker（F122 基础设施） |
 | **Feature** | `docs/features/F117-message-delivery-lifecycle.md` | 用户消息投递生命周期 |
 | **Bug Report** | `docs/bug-report/f051-a2a-queue-fairness-starvation/` | A2A queue 公平性（历史相关） |
+| **Reflection** | `docs/reflections/2026-03-18-f122-unified-dispatch-queue-capsule.md` | F122 完成反思胶囊（CLOSE） |
 | **Hot Fix** | commit `a95e02ef` | parentInvocationId 链路闭环 |
 | **Hot Fix** | commit `1d2b2ce6` | multi_mention 接 InvocationTracker + queued intent_mode |
