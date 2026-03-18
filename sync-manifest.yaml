@@ -45,6 +45,7 @@ managed_scripts:
   - scripts/check-dir-size.sh
   - scripts/start-dev.sh
   - scripts/check-feature-truth.mjs
+  - scripts/check-env-port-drift.test.mjs
   - scripts/generate-feature-index.mjs
   - scripts/audit-feature-doc-template.mjs
   - scripts/check-frontmatter.mjs
