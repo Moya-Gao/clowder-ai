@@ -2,7 +2,11 @@
 
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { extractSeverityFindings, getMaxSeverity } from '../dist/infrastructure/email/ReviewContentFetcher.js';
+import {
+  extractSeverityFindings,
+  getMaxSeverity,
+  selectLatestReview,
+} from '../dist/infrastructure/email/ReviewContentFetcher.js';
 import { buildReviewMessageContent } from '../dist/infrastructure/email/ReviewRouter.js';
 
 // ─── extractSeverityFindings ──────────────────────────────────────────
@@ -225,5 +229,76 @@ describe('buildReviewMessageContent', () => {
     };
     const msg = buildReviewMessageContent(baseEvent, 'Commented', content);
     assert.ok(!msg.includes('未能完整拉取'), 'no warning when fetch succeeded');
+  });
+
+  // ── Incremental window display ─────────────────────────────────
+
+  it('shows incremental window when since is present', () => {
+    /** @type {import('../dist/infrastructure/email/ReviewContentFetcher.js').ReviewContent} */
+    const content = {
+      findings: [{ severity: 'P1', excerpt: 'issue', source: 'review_body' }],
+      maxSeverity: 'P1',
+      fetchFailed: false,
+      since: '2026-03-18T20:05:00Z',
+    };
+    const msg = buildReviewMessageContent(baseEvent, 'Reviewed', content);
+    assert.ok(msg.includes('最新 review'), 'should mention incremental scope');
+  });
+
+  it('does NOT show window when since is absent', () => {
+    /** @type {import('../dist/infrastructure/email/ReviewContentFetcher.js').ReviewContent} */
+    const content = {
+      findings: [],
+      maxSeverity: null,
+      fetchFailed: false,
+    };
+    const msg = buildReviewMessageContent(baseEvent, 'Commented', content);
+    assert.ok(!msg.includes('最新 review'), 'no window info for full scan');
+  });
+});
+
+// ─── selectLatestReview ──────────────────────────────────────────
+
+describe('selectLatestReview', () => {
+  it('returns the review with the latest submitted_at', () => {
+    const reviews = [
+      { body: 'old review', submitted_at: '2026-03-18T10:00:00Z' },
+      { body: 'latest P1 here', submitted_at: '2026-03-18T20:00:00Z' },
+      { body: 'middle review', submitted_at: '2026-03-18T15:00:00Z' },
+    ];
+    const result = selectLatestReview(reviews);
+    assert.strictEqual(result?.body, 'latest P1 here');
+    assert.strictEqual(result?.submittedAt, '2026-03-18T20:00:00Z');
+  });
+
+  it('returns null for empty array', () => {
+    assert.strictEqual(selectLatestReview([]), null);
+  });
+
+  it('uses latest timestamp even when latest body is empty (cloud P1-2 fix)', () => {
+    const reviews = [
+      { body: '', submitted_at: '2026-03-18T20:00:00Z' },
+      { body: null, submitted_at: '2026-03-18T19:00:00Z' },
+      { body: 'real content P2', submitted_at: '2026-03-18T18:00:00Z' },
+    ];
+    const result = selectLatestReview(reviews);
+    assert.strictEqual(result?.submittedAt, '2026-03-18T20:00:00Z', 'timestamp from absolute latest');
+    assert.strictEqual(result?.body, 'real content P2', 'body from latest with content');
+  });
+
+  it('returns empty body when all reviews have empty bodies', () => {
+    const reviews = [
+      { body: '', submitted_at: '2026-03-18T20:00:00Z' },
+      { body: null, submitted_at: '2026-03-18T19:00:00Z' },
+    ];
+    const result = selectLatestReview(reviews);
+    assert.strictEqual(result?.submittedAt, '2026-03-18T20:00:00Z');
+    assert.strictEqual(result?.body, '');
+  });
+
+  it('handles single review', () => {
+    const reviews = [{ body: 'only one', submitted_at: '2026-03-18T12:00:00Z' }];
+    const result = selectLatestReview(reviews);
+    assert.strictEqual(result?.body, 'only one');
   });
 });

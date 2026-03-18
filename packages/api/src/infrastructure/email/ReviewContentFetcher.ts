@@ -27,6 +27,8 @@ export interface ReviewContent {
   readonly maxSeverity: Severity | null;
   /** True if one or both API calls failed — "no findings" may be unreliable. */
   readonly fetchFailed: boolean;
+  /** ISO timestamp of the latest review — marks incremental window start. */
+  readonly since?: string;
 }
 
 /** Dependency-injection port for testing (replaces real gh CLI calls). */
@@ -88,6 +90,39 @@ export function getMaxSeverity(findings: SeverityFinding[]): Severity | null {
   return findings.reduce((max, f) => (SEVERITY_ORDER[f.severity] < SEVERITY_ORDER[max.severity] ? f : max)).severity;
 }
 
+// ─── Incremental review selection ────────────────────────────────────
+
+export interface RawReview {
+  readonly body: string | null;
+  readonly submitted_at: string;
+}
+
+export interface SelectedReview {
+  readonly body: string;
+  readonly submittedAt: string;
+}
+
+/**
+ * Select the latest review for incremental windowing.
+ * Returns the newest review's submittedAt (for since-filtering comments)
+ * and the newest review body that has content (for severity scanning).
+ *
+ * Key: submittedAt always comes from the absolute latest review (even if
+ * its body is empty, e.g. an approval), so the since window stays current.
+ * Body comes from the latest review that has content to scan.
+ */
+export function selectLatestReview(reviews: RawReview[]): SelectedReview | null {
+  if (reviews.length === 0) return null;
+  const sorted = [...reviews].sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
+  const latestTimestamp = sorted[0]!.submitted_at;
+  // Find the latest review with actual body content for severity scanning
+  const withBody = sorted.find((r) => r.body != null && r.body !== '');
+  return {
+    body: withBody?.body ?? '',
+    submittedAt: latestTimestamp,
+  };
+}
+
 // ─── gh CLI implementation ───────────────────────────────────────────
 
 /** Timeout for gh CLI calls — prevents notification blockage (砚砚 P2-1). */
@@ -106,31 +141,33 @@ export class GhCliReviewContentFetcher implements IReviewContentFetcher {
   }
 
   async fetch(repository: string, prNumber: number): Promise<ReviewContent> {
-    // Use allSettled so partial failure still yields whatever we got (砚砚 P1-2).
-    const [reviewResult, commentsResult] = await Promise.allSettled([
-      this.fetchReviewBodies(repository, prNumber),
-      this.fetchInlineComments(repository, prNumber),
-    ]);
-
     let fetchFailed = false;
-    const reviewBodies = reviewResult.status === 'fulfilled' ? reviewResult.value : [];
-    const inlineComments = commentsResult.status === 'fulfilled' ? commentsResult.value : [];
 
-    if (reviewResult.status === 'rejected') {
+    // Step 1: fetch all reviews to find the latest one (incremental window)
+    let latestReview: SelectedReview | null = null;
+    try {
+      const rawReviews = await this.fetchRawReviews(repository, prNumber);
+      latestReview = selectLatestReview(rawReviews);
+    } catch (err) {
       fetchFailed = true;
-      this.log.warn(`[ReviewContentFetcher] reviews failed for ${repository}#${prNumber}: ${String(reviewResult.reason)}`);
-    }
-    if (commentsResult.status === 'rejected') {
-      fetchFailed = true;
-      this.log.warn(
-        `[ReviewContentFetcher] inline comments failed for ${repository}#${prNumber}: ${String(commentsResult.reason)}`,
-      );
+      this.log.warn(`[ReviewContentFetcher] reviews failed for ${repository}#${prNumber}: ${String(err)}`);
     }
 
-    const fragments: TextFragment[] = [
-      ...reviewBodies.map((body) => ({ text: body, source: 'review_body' as const })),
-      ...inlineComments.map((c) => ({ text: c.body, source: 'inline_comment' as const, path: c.path })),
-    ];
+    // Step 2: fetch inline comments since the latest review (incremental)
+    let inlineComments: Array<{ body: string; path: string }> = [];
+    try {
+      inlineComments = await this.fetchInlineComments(repository, prNumber, latestReview?.submittedAt);
+    } catch (err) {
+      fetchFailed = true;
+      this.log.warn(`[ReviewContentFetcher] inline comments failed for ${repository}#${prNumber}: ${String(err)}`);
+    }
+
+    // Step 3: extract severity from latest review body + recent comments only
+    const fragments: TextFragment[] = [];
+    if (latestReview?.body) {
+      fragments.push({ text: latestReview.body, source: 'review_body' });
+    }
+    fragments.push(...inlineComments.map((c) => ({ text: c.body, source: 'inline_comment' as const, path: c.path })));
 
     const findings = extractSeverityFindings(fragments);
 
@@ -138,14 +175,12 @@ export class GhCliReviewContentFetcher implements IReviewContentFetcher {
       findings,
       maxSeverity: getMaxSeverity(findings),
       fetchFailed,
+      since: latestReview?.submittedAt,
     };
   }
 
-  /**
-   * Fetch review bodies with --paginate (砚砚 P1-1) and --timeout (砚砚 P2-1).
-   * Errors propagate to caller — fetch() uses allSettled for partial-failure handling.
-   */
-  private async fetchReviewBodies(repo: string, prNumber: number): Promise<string[]> {
+  /** Fetch all reviews with submitted_at for incremental selection. */
+  private async fetchRawReviews(repo: string, prNumber: number): Promise<RawReview[]> {
     const { stdout } = await execFileAsync(
       'gh',
       [
@@ -153,7 +188,7 @@ export class GhCliReviewContentFetcher implements IReviewContentFetcher {
         '--paginate',
         `repos/${repo}/pulls/${prNumber}/reviews`,
         '--jq',
-        '.[] | .body | select(. != null and . != "") | @json',
+        '.[] | {body, submitted_at} | @json',
       ],
       { timeout: GH_TIMEOUT_MS },
     );
@@ -162,22 +197,21 @@ export class GhCliReviewContentFetcher implements IReviewContentFetcher {
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map((line) => JSON.parse(line) as string);
+      .map((line) => JSON.parse(line) as RawReview);
   }
 
-  /**
-   * Fetch inline comments with --paginate (砚砚 P1-1) and --timeout (砚砚 P2-1).
-   */
-  private async fetchInlineComments(repo: string, prNumber: number): Promise<Array<{ body: string; path: string }>> {
+  /** Fetch inline comments, optionally filtered by `since` timestamp. */
+  private async fetchInlineComments(
+    repo: string,
+    prNumber: number,
+    since?: string,
+  ): Promise<Array<{ body: string; path: string }>> {
+    const endpoint = since
+      ? `repos/${repo}/pulls/${prNumber}/comments?since=${since}`
+      : `repos/${repo}/pulls/${prNumber}/comments`;
     const { stdout } = await execFileAsync(
       'gh',
-      [
-        'api',
-        '--paginate',
-        `repos/${repo}/pulls/${prNumber}/comments`,
-        '--jq',
-        '.[] | {body, path} | @json',
-      ],
+      ['api', '--paginate', endpoint, '--jq', '.[] | {body, path} | @json'],
       { timeout: GH_TIMEOUT_MS },
     );
     if (!stdout.trim()) return [];
