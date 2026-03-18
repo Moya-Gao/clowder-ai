@@ -11,7 +11,7 @@
  *   Open-source: API=3003, Frontend=3004
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -118,36 +118,42 @@ describe('Home-side port defaults are internally consistent', () => {
   });
 });
 
-describe('Sync transform rules match convention', () => {
-  it('_sanitize-rules.pl transforms 3002→3003 (API)', () => {
-    const content = readFileSync(resolve(ROOT, 'scripts/_sanitize-rules.pl'), 'utf-8');
-    assert.ok(
-      content.includes('s#localhost:3002#localhost:3003#g'),
-      'sanitize rules should transform localhost:3002 → localhost:3003',
-    );
-  });
+const hasSyncInfra = existsSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'));
 
-  it('_sanitize-rules.pl transforms 3001→3004 (Frontend)', () => {
-    const content = readFileSync(resolve(ROOT, 'scripts/_sanitize-rules.pl'), 'utf-8');
-    assert.ok(
-      content.includes('s#localhost:3001#localhost:3004#g'),
-      'sanitize rules should transform localhost:3001 → localhost:3004',
-    );
-  });
+describe(
+  'Sync transform rules match convention',
+  { skip: !hasSyncInfra && 'sync infrastructure not present (open-source repo)' },
+  () => {
+    it('_sanitize-rules.pl transforms 3002→3003 (API)', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/_sanitize-rules.pl'), 'utf-8');
+      assert.ok(
+        content.includes('s#localhost:3002#localhost:3003#g'),
+        'sanitize rules should transform localhost:3002 → localhost:3003',
+      );
+    });
 
-  it('sync-to-opensource.sh transforms start-dev.sh API fallback to 3003', () => {
-    const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
-    assert.ok(
-      content.includes("'s/API_PORT=${API_SERVER_PORT:-3002}/API_PORT=${API_SERVER_PORT:-3003}/g'"),
-      'sync script should transform start-dev.sh API fallback 3002→3003',
-    );
-  });
+    it('_sanitize-rules.pl transforms 3001→3004 (Frontend)', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/_sanitize-rules.pl'), 'utf-8');
+      assert.ok(
+        content.includes('s#localhost:3001#localhost:3004#g'),
+        'sanitize rules should transform localhost:3001 → localhost:3004',
+      );
+    });
 
-  it('sync-to-opensource.sh transforms start-dev.sh Frontend fallback to 3004', () => {
-    const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
-    assert.ok(
-      content.includes("'s/WEB_PORT=${FRONTEND_PORT:-3001}/WEB_PORT=${FRONTEND_PORT:-3004}/g'"),
-      'sync script should transform start-dev.sh Frontend fallback 3001→3004',
-    );
-  });
-});
+    it('sync-to-opensource.sh transforms start-dev.sh API fallback to 3003', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.ok(
+        content.includes("'s/API_PORT=${API_SERVER_PORT:-3002}/API_PORT=${API_SERVER_PORT:-3003}/g'"),
+        'sync script should transform start-dev.sh API fallback 3002→3003',
+      );
+    });
+
+    it('sync-to-opensource.sh transforms start-dev.sh Frontend fallback to 3004', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.ok(
+        content.includes("'s/WEB_PORT=${FRONTEND_PORT:-3001}/WEB_PORT=${FRONTEND_PORT:-3004}/g'"),
+        'sync script should transform start-dev.sh Frontend fallback 3001→3004',
+      );
+    });
+  },
+);
