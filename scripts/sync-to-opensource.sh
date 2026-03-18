@@ -667,6 +667,37 @@ if [ -f "$FILTERED_DIR/scripts/start-dev.sh" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
+# 3k-3a2: setup.sh — generated .env uses home ports; transform to open-source defaults
+if [ -f "$FILTERED_DIR/scripts/setup.sh" ]; then
+  sedi \
+    -e 's/FRONTEND_PORT=3001/FRONTEND_PORT=3004/g' \
+    -e 's/API_SERVER_PORT=3002/API_SERVER_PORT=3003/g' \
+    -e 's#NEXT_PUBLIC_API_URL=http://localhost:3002#NEXT_PUBLIC_API_URL=http://localhost:3003#g' \
+    -e 's#Open http://localhost:3001#Open http://localhost:3004#g' \
+    -e 's#打开 http://localhost:3001#打开 http://localhost:3004#g' \
+    "$FILTERED_DIR/scripts/setup.sh"
+  echo "  ✓ setup.sh (public ports 3003/3004)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3k-3a3: runtime-worktree.sh — API port default 3002→3003
+if [ -f "$FILTERED_DIR/scripts/runtime-worktree.sh" ]; then
+  sedi \
+    -e 's/API_SERVER_PORT:-3002/API_SERVER_PORT:-3003/g' \
+    "$FILTERED_DIR/scripts/runtime-worktree.sh"
+  echo "  ✓ runtime-worktree.sh (API port 3003)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3k-3a4: AgentRouter.ts — API port fallback 3002→3003
+if [ -f "$FILTERED_DIR/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts" ]; then
+  sedi \
+    -e "s/process.env.API_SERVER_PORT ?? '3002'/process.env.API_SERVER_PORT ?? '3003'/g" \
+    "$FILTERED_DIR/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts"
+  echo "  ✓ AgentRouter.ts (API port 3003)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 # 3k-3b: Public default ports — exported repo should avoid runtime defaults 3001/3002
 if [ -f "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts" ]; then
   sedi \
