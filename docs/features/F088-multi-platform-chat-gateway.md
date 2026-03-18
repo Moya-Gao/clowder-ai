@@ -25,7 +25,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 ```
 ┌─ 平台无关公共层 ─────────────────────────────────────┐
 │  ConnectorMessageFormatter → MessageEnvelope          │
-│  ConnectorCommandLayer → /new /threads /use /where    │
+│  ConnectorCommandLayer → /new /threads /use /where /thread │
 │  ConnectorRouter → dedup → binding → store → invoke   │
 │  OutboundDeliveryHook / StreamingOutboundHook          │
 │  IConnectorThreadBindingStore (Redis)                  │
@@ -106,6 +106,9 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-4**: Connector 媒体文件是本地缓存，非持久 artifact — MediaCleanupJob 24h TTL 后删除，历史消息中的本地 URL 会失效。原件仍在 Feishu/Telegram 平台。如需持久化，应存 platform key 而非本地 URL。
 
 - **ISSUE-5**: 飞书多猫回复气泡合并无区分度 — 所有猫共用同一 Feishu Bot，plain text 回复被飞书 UI 合并成连续气泡，不同猫的回复视觉上混在一起。**Phase E 修复**：统一走 interactive card，每条消息独立卡片 + 猫名头部。
+- **ISSUE-6**: `/thread` 命令缺失 — 用户发 `/thread <id> <msg>` 想路由消息到指定 thread，但 CommandLayer 不识别，静默 fallthrough 当普通消息投递给当前 session。**修复中**：新增 `/thread` 命令 + `forwardContent` 路由。
+- **ISSUE-7**: `/threads` 列表 shortId 全部显示 `[thread_m]` — `slice(0,8)` 截断后 `thread_` 前缀相同导致无区分度。**修复中**：改为展示完整 thread ID。
+- **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**提议**：引入 IM Hub thread（控制面），所有 `/命令` 在 hub 处理和存档，对话 thread 只存对话。待设计。
 
 ## Open Questions (resolved)
 
