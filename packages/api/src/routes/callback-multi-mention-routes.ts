@@ -190,6 +190,7 @@ async function dispatchToTarget(
   // Collect response text from the routing execution
   let responseText = '';
   const toolsUsed: string[] = [];
+  let invocationId: string | undefined;
 
   // F122 AC-A9: Occupy tracker slot BEFORE create to close TOCTOU window.
   // Entire create/execute lifecycle wrapped in outer try/finally for guaranteed release.
@@ -215,7 +216,9 @@ async function dispatchToTarget(
       return; // finally will release slot (AC-A12)
     }
 
-    await invocationRecordStore.update(createResult.invocationId, {
+    invocationId = createResult.invocationId;
+
+    await invocationRecordStore.update(invocationId, {
       status: 'running',
     });
 
@@ -233,10 +236,10 @@ async function dispatchToTarget(
         userId,
         messageContent,
         threadId,
-        createResult.invocationId,
+        invocationId,
         [targetCatId],
         intent,
-        { signal: controller.signal, parentInvocationId: createResult.invocationId },
+        { signal: controller.signal, parentInvocationId: invocationId },
       )) {
         if (controller.signal.aborted) break;
 
@@ -249,10 +252,10 @@ async function dispatchToTarget(
           }
         }
 
-        socketManager.broadcastAgentMessage({ ...msg, invocationId: createResult.invocationId }, threadId);
+        socketManager.broadcastAgentMessage({ ...msg, invocationId }, threadId);
       }
 
-      await invocationRecordStore.update(createResult.invocationId, {
+      await invocationRecordStore.update(invocationId, {
         status: controller.signal.aborted ? 'canceled' : 'succeeded',
       });
     } finally {
@@ -288,6 +291,19 @@ async function dispatchToTarget(
       { requestId, targetCatId, err: err instanceof Error ? err.message : String(err) },
       '[F086] Multi-mention dispatch failed for target',
     );
+    if (invocationId) {
+      try {
+        await invocationRecordStore.update(invocationId, {
+          status: controller.signal.aborted ? 'canceled' : 'failed',
+          error: controller.signal.aborted ? undefined : 'dispatch_error',
+        });
+      } catch (updateErr) {
+        log.warn(
+          { requestId, targetCatId, invocationId, err: updateErr instanceof Error ? updateErr.message : String(updateErr) },
+          '[F086] Failed to converge InvocationRecord after dispatch error',
+        );
+      }
+    }
     // Record failure response in orchestrator
     orch.recordResponse(
       requestId,

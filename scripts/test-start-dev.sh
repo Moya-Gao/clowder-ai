@@ -173,6 +173,40 @@ resolve_config "ANTHROPIC_PROXY_ENABLED"
 unset ANTHROPIC_PROXY_ENABLED
 echo "PASS: .env override beats profile default (AC-A4)"
 
+# Test 13b: default Redis port is 6398 for non-runtime dev
+PROD_WEB=false
+default_port=$(default_redis_port)
+[ "$default_port" = "6398" ] || { echo "FAIL: dev default Redis port should be 6398, got: $default_port"; exit 1; }
+echo "PASS: dev default Redis port is 6398"
+
+# Test 13c: default Redis port is 6399 for runtime/prod-web
+PROD_WEB=true
+default_port=$(default_redis_port)
+[ "$default_port" = "6399" ] || { echo "FAIL: prod-web default Redis port should be 6399, got: $default_port"; exit 1; }
+PROD_WEB=false
+echo "PASS: runtime default Redis port is 6399"
+
+# Test 13d: non-runtime explicit 6399 is rejected
+set +e
+(
+    USE_REDIS=true
+    PROD_WEB=false
+    REDIS_PORT=6399
+    guard_runtime_redis_sanctuary 2>/dev/null
+)
+rc=$?
+set -e
+[ "$rc" -ne 0 ] || { echo "FAIL: non-runtime 6399 should fail fast"; exit 1; }
+echo "PASS: non-runtime 6399 is rejected"
+
+# Test 13e: runtime may use 6399
+USE_REDIS=true
+PROD_WEB=true
+REDIS_PORT=6399
+guard_runtime_redis_sanctuary 2>/dev/null
+PROD_WEB=false
+echo "PASS: runtime 6399 is allowed"
+
 # ── F115 Phase B: Sidecar 状態分層 ──
 
 # Save original wait_for_port before overriding

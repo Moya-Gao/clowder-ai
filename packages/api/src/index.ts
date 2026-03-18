@@ -152,6 +152,7 @@ import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
+import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
 
@@ -863,15 +864,67 @@ async function main(): Promise<void> {
   const connectorWebhookHandlers = new Map<string, import('./routes/connector-webhooks.js').ConnectorWebhookHandler>();
   await app.register(connectorWebhookRoutes, { handlers: connectorWebhookHandlers });
 
+  let apiInstanceLease: ApiInstanceLease | undefined;
+  let shutdownForLeaseLoss: ((signal: string) => Promise<void>) | null = null;
+  let forcedLeaseLossExitTimer: ReturnType<typeof setTimeout> | null = null;
+  const handleLeaseInvalidation = (event: ApiInstanceLeaseInvalidation): void => {
+    const errorDetail = event.error ? ` error=${String(event.error)}` : '';
+    app.log.error(
+      `[api] API namespace lease invalidated (${event.reason}) for ${event.holder.instanceId} pid=${event.holder.pid} host=${event.holder.hostname} port=${event.holder.apiPort}; shutting down to preserve Redis singleton.${errorDetail}`,
+    );
+    if (!forcedLeaseLossExitTimer) {
+      forcedLeaseLossExitTimer = setTimeout(() => {
+        app.log.error('[api] Lease-loss shutdown timed out; forcing process exit');
+        process.exit(1);
+      }, 5_000);
+      forcedLeaseLossExitTimer.unref?.();
+    }
+    if (shutdownForLeaseLoss) {
+      void shutdownForLeaseLoss(`API_INSTANCE_LEASE_${event.reason.toUpperCase()}`);
+      return;
+    }
+    process.exitCode = 1;
+    setImmediate(() => process.exit(1));
+  };
+  if (redis) {
+    apiInstanceLease = new ApiInstanceLease(redis, {
+      apiPort: PORT,
+      cwd: process.cwd(),
+      startedAt: PROCESS_START_AT,
+      onLeaseInvalidated: handleLeaseInvalidation,
+    });
+    const leaseResult = await apiInstanceLease.acquire();
+    if (!leaseResult.acquired) {
+      await apiInstanceLease.release().catch(() => {});
+      await redis.quit().catch(() => {});
+      const holder = leaseResult.holder;
+      const holderHint = holder
+        ? ` holder=${holder.instanceId} pid=${holder.pid} host=${holder.hostname} port=${holder.apiPort}`
+        : '';
+      throw new Error(`[api] Redis namespace already has a live API instance; refusing to start.${holderHint}`);
+    }
+    app.log.info(
+      `[api] API namespace lease acquired (${leaseResult.holder?.instanceId ?? 'unknown'}) on redis=${redisUrl ?? 'memory'}`,
+    );
+  }
+
   // Start listening
-  const address = await app.listen({ port: PORT, host: HOST });
+  let address: string;
+  try {
+    address = await app.listen({ port: PORT, host: HOST });
+  } catch (err) {
+    await apiInstanceLease?.release().catch(() => {});
+    throw err;
+  }
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
 
   // F048 Phase A: Sweep orphaned invocations from previous process crash.
-  // Runs AFTER app.listen succeeds — a process that fails to bind the port
-  // (EADDRINUSE) will never reach this point, preventing accidental sweep
-  // of a live instance's running invocations.
+  // Runs only after the API has both:
+  // 1) acquired the Redis namespace lease, and
+  // 2) successfully bound its HTTP port.
+  // This prevents a second worktree/runtime instance from sweeping another
+  // live process that happens to share the same Redis namespace.
   if (redis) {
     const { StartupReconciler } = await import('./domains/cats/services/agents/invocation/StartupReconciler.js');
     const reconciler = new StartupReconciler({
@@ -1084,14 +1137,27 @@ async function main(): Promise<void> {
 
       // Close Fastify server
       await app.close();
+
+      try {
+        await apiInstanceLease?.release();
+      } catch (err) {
+        exitCode = 1;
+        app.log.error(`[api] API namespace lease release failed: ${String(err)}`);
+      }
+
       app.log.info('[api] Shutdown complete');
     } catch (err) {
       exitCode = 1;
       app.log.error(`[api] Shutdown failed: ${String(err)}`);
     } finally {
+      if (forcedLeaseLossExitTimer) {
+        clearTimeout(forcedLeaseLossExitTimer);
+        forcedLeaseLossExitTimer = null;
+      }
       process.exit(exitCode);
     }
   };
+  shutdownForLeaseLoss = shutdown;
 
   process.once('SIGTERM', () => {
     void shutdown('SIGTERM');
