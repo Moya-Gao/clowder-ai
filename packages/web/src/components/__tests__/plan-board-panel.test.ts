@@ -181,7 +181,7 @@ describe('F055: PlanBoardPanel (猫猫祟祟)', () => {
     expect(text).not.toContain('⬚');
   });
 
-  it('exposes per-task status in accessible labels for screen readers', async () => {
+  it('exposes per-task status as screen-reader-only text without invalid aria-label', async () => {
     await renderPanel('thread-1', {
       opus: makeInvocation({
         taskProgress: {
@@ -196,10 +196,12 @@ describe('F055: PlanBoardPanel (猫猫祟祟)', () => {
       }),
     });
 
-    const labels = Array.from(container.querySelectorAll('div[aria-label]')).map((el) => el.getAttribute('aria-label'));
-    expect(labels).toContain('已完成 Step 1');
-    expect(labels).toContain('进行中 Step 2中...');
-    expect(labels).toContain('待处理 Step 3');
+    expect(container.querySelectorAll('div[aria-label]')).toHaveLength(0);
+
+    const srOnlyTexts = Array.from(container.querySelectorAll('.sr-only')).map((el) => el.textContent?.trim());
+    expect(srOnlyTexts).toContain('已完成');
+    expect(srOnlyTexts).toContain('进行中');
+    expect(srOnlyTexts).toContain('待处理');
   });
 
   it('AC-4: running cats appear first, completed fold to bottom', async () => {
