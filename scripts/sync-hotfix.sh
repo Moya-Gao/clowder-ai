@@ -6,6 +6,7 @@
 #   bash scripts/sync-hotfix.sh fix/xxx <file1> [file2] ...
 #
 # Flags: --dry-run --tag=NAME --no-sanitize --push --force-unsafe-source
+#        --cat-sig="[宪宪/Opus-46🐾]" --co-author="Name <email>" (repeatable)
 # See: docs/discussions/2026-03-14-sync-hotfix-lane-design.md
 
 set -euo pipefail
@@ -32,6 +33,8 @@ AUTO_PUSH=false
 FORCE_UNSAFE_SOURCE=false
 BRANCH_NAME=""
 FILES=()
+CO_AUTHORS=()
+CAT_SIG=""
 
 for arg in "$@"; do
   case "$arg" in
@@ -40,6 +43,8 @@ for arg in "$@"; do
     --no-sanitize) NO_SANITIZE=true ;;
     --push) AUTO_PUSH=true ;;
     --force-unsafe-source) FORCE_UNSAFE_SOURCE=true ;;
+    --co-author=*) CO_AUTHORS+=("${arg#--co-author=}") ;;
+    --cat-sig=*) CAT_SIG="${arg#--cat-sig=}" ;;
     -*)
       echo -e "${RED}Unknown flag: $arg${NC}"
       echo "Usage: $0 <branch-name> <file1> [file2] ..."
@@ -320,11 +325,25 @@ else
   if git diff --cached --quiet; then
     echo -e "  ${YELLOW}⚠ No changes to commit (files identical after sanitization)${NC}"
   else
-    git commit -m "fix: hotfix via sync-hotfix.sh (branch: $BRANCH_NAME)
+    HOTFIX_MSG="fix: hotfix via sync-hotfix.sh (branch: $BRANCH_NAME)
 
 Files: ${COPIED_FILES[*]}
 Base tag: $SYNC_TAG
 Source: cat-cafe"
+    if [ -n "$CAT_SIG" ]; then
+      HOTFIX_MSG="${HOTFIX_MSG}
+
+${CAT_SIG}"
+    fi
+    if [ ${#CO_AUTHORS[@]} -gt 0 ]; then
+      HOTFIX_MSG="${HOTFIX_MSG}
+"
+      for ca in "${CO_AUTHORS[@]}"; do
+        HOTFIX_MSG="${HOTFIX_MSG}
+Co-authored-by: ${ca}"
+      done
+    fi
+    git commit -m "$HOTFIX_MSG"
     echo -e "  ${GREEN}✓ Committed${NC}"
 
     if [ "$AUTO_PUSH" = true ]; then

@@ -19,6 +19,8 @@
 #   bash scripts/sync-to-opensource.sh --force-overwrite  # 强制覆盖未吸收的社区 commit（危险！）
 #   bash scripts/sync-to-opensource.sh --module=docs      # 模块级同步（V1: Step 5/6 按模块，Step 1-4 仍全量）
 #   bash scripts/sync-to-opensource.sh --module=api       # 模块级同步（同上）
+#   bash scripts/sync-to-opensource.sh --cat-sig="[金渐层/Opus-46🐾]"  # 猫猫签名
+#   bash scripts/sync-to-opensource.sh --co-author="Name <email>"      # 社区贡献者署名（可重复）
 #   Modules: all root docs shared api web mcp skills
 #   NOTE: V1 模块化仅影响 Step 5 rsync 和 Step 6 validate。
 #         Step 1-4（export/transform/scan）始终全量执行。V2 再按模块裁剪。
@@ -61,6 +63,8 @@ FAST_VALIDATE=false
 AUTO_YES=false
 FORCE_OVERWRITE=false
 SYNC_MODULE="all"
+CO_AUTHORS=()
+CAT_SIG=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
@@ -70,6 +74,8 @@ for arg in "$@"; do
     --yes|-y) AUTO_YES=true ;;
     --force-overwrite) FORCE_OVERWRITE=true ;;
     --module=*) SYNC_MODULE="${arg#--module=}" ;;
+    --co-author=*) CO_AUTHORS+=("${arg#--co-author=}") ;;
+    --cat-sig=*) CAT_SIG="${arg#--cat-sig=}" ;;
   esac
 done
 
@@ -1188,6 +1194,19 @@ if [ -d "$TARGET_DIR/.git" ]; then
     SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai (manifest v3)"
   else
     SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai [$SYNC_MODULE] (manifest v3)"
+  fi
+  if [ -n "$CAT_SIG" ]; then
+    SYNC_MSG="${SYNC_MSG}
+
+${CAT_SIG}"
+  fi
+  if [ ${#CO_AUTHORS[@]} -gt 0 ]; then
+    SYNC_MSG="${SYNC_MSG}
+"
+    for ca in "${CO_AUTHORS[@]}"; do
+      SYNC_MSG="${SYNC_MSG}
+Co-authored-by: ${ca}"
+    done
   fi
   git commit -m "$SYNC_MSG" --allow-empty 2>&1 | tail -3
   # Provenance: record the pre-sync HEAD (the base before our sync commit).
