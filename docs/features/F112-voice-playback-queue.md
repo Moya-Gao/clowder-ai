@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F112: Voice Playback Queue — 语音播放队列 + 播放器统一
 
-> **Status**: in-progress | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
+> **Status**: done | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1 | **Completed**: 2026-03-18
 
 ## Why
 
@@ -56,7 +56,7 @@ created: 2026-03-12
 
 ### Phase B: 播放器统一 — PodcastPlayer → PlaybackManager（第二刀）
 
-> **Scope 重定义（2026-03-19）**：原始 Phase B（replace + Intent + 双猫实时编排）暂无真实场景，降级为未来备选。新 Phase B 聚焦实际需求 — 将 Signal Study 播客播放器迁移到 PlaybackManager，消除重复的 Audio 管理代码。
+> **Scope 重定义（2026-03-17）**：原始 Phase B（replace + Intent + 双猫实时编排）暂无真实场景，降级为未来备选。新 Phase B 聚焦实际需求 — 将 Signal Study 播客播放器迁移到 PlaybackManager，消除重复的 Audio 管理代码。
 
 1. **PodcastPlayer 播放逻辑迁移**
    - 现状：`PodcastPlayer.tsx` 使用 `usePlayAll()` 手搓 for 循环 + `new Audio()` 播放预生成播客
@@ -74,7 +74,7 @@ created: 2026-03-12
 
 ### Phase B-Future: replace + Intent + 双猫实时编排（未来备选方案，暂无场景）
 
-> **归档原因（2026-03-19）**：route-serial 目前只支持单猫输出，没有双猫同时实时语音的场景。replace/intent 行为也暂无使用方。设计保留以备未来语音陪伴模式扩展。
+> **归档原因（2026-03-17）**：route-serial 目前只支持单猫输出，没有双猫同时实时语音的场景。replace/intent 行为也暂无使用方。设计保留以备未来语音陪伴模式扩展。
 
 1. **双猫播客实时编排**（原 Phase B-1）
    - 两只猫的语音片段按 `queue` 行为交替播放
@@ -92,7 +92,7 @@ created: 2026-03-12
 
 ### Phase C: VAD 打断 — 用户开口猫停嘴（第三刀）
 
-> **技术选型已决（2026-03-20）**：使用 `@ricky0123/vad-web`（底层 Silero VAD v5 ONNX + onnxruntime-web）。纯浏览器前端闭环，不依赖后端 ASR/TTS 模型，不依赖 F104。
+> **技术选型已决（2026-03-17）**：使用 `@ricky0123/vad-web`（底层 Silero VAD v5 ONNX + onnxruntime-web）。纯浏览器前端闭环，不依赖后端 ASR/TTS 模型，不依赖 F104。
 
 1. **VAD 检测 → PlaybackManager interrupt**
    - 使用 `@ricky0123/vad-web` 的 `MicVAD` 接入麦克风
@@ -166,7 +166,7 @@ created: 2026-03-12
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | PlaybackManager 放前端还是后端？ | ✅ **已决：前端**。播放器本身在浏览器里，PlaybackManager 是纯 UI 层调度，放前端零网络延迟。决策者：金渐层 (2026-03-16) |
-| OQ-2 | VAD 用什么模型？Silero VAD / WebRTC VAD？ | ✅ **已决：`@ricky0123/vad-web`（Silero VAD v5 ONNX）**。npm 周下载 62K，浏览器原生 AudioWorklet + WASM，API 极简。WebRTC VAD 是 GMM 老架构，噪声环境准确率不如 Silero。不依赖 F104 —— VAD 是纯前端闭环（mic → AudioWorklet → ONNX 推理 → interrupt），与后端 ASR/TTS 模型选型无关。决策者：金渐层 + 铲屎官 (2026-03-20) |
+| OQ-2 | VAD 用什么模型？Silero VAD / WebRTC VAD？ | ✅ **已决：`@ricky0123/vad-web`（Silero VAD v5 ONNX）**。npm 周下载 62K，浏览器原生 AudioWorklet + WASM，API 极简。WebRTC VAD 是 GMM 老架构，噪声环境准确率不如 Silero。不依赖 F104 —— VAD 是纯前端闭环（mic → AudioWorklet → ONNX 推理 → interrupt），与后端 ASR/TTS 模型选型无关。决策者：金渐层 + 铲屎官 (2026-03-17) |
 | OQ-3 | 实时语音的主触发器是什么？ | ✅ **已决：backend text stream（route-serial token 流）**。voiceMode 下不依赖模型主动发 audio rich block，后端 text stream 是主触发器。Audio rich block 退为持久化/回放载体。决策者：金渐层 + 砚砚(GPT-5.4) (2026-03-17) |
 
 ## Timeline
@@ -178,18 +178,18 @@ created: 2026-03-12
 | 2026-03-17 | F111 Phase A 合入 → F112 解锁 |
 | 2026-03-17 | Phase A 重定义：从 "audio block 播放队列" 改为 "realtime voice_chunk 播放队列"（砚砚 GPT-5.4 review） |
 | 2026-03-17 | 与 F111 Phase B 协同实现启动 |
-| 2026-03-18 | Phase A 实现完成，与 F111 Phase B 一起提交 PR #529 |
-| 2026-03-18 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review 通过 |
-| 2026-03-18 | PR #529 squash merge — Phase A done |
-| 2026-03-19 | Phase B 重定义：原始设计（replace/intent/双猫实时编排）归档为未来备选；新 Phase B = 播放器统一（PodcastPlayer → PlaybackManager） |
-| 2026-03-20 | Phase B 实现完成 — 5 commits: enqueueUrl/startBatch/batchId cancellation/fetch rejection guard/runIdRef stale promise guard |
-| 2026-03-20 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review R2 通过 (0 P1/P2) |
-| 2026-03-20 | PR #535 squash merge — Phase B done |
-| 2026-03-20 | Phase C 技术选型已决：`@ricky0123/vad-web`（Silero VAD v5），移除 F104 假依赖，OQ-2 关闭 |
-| 2026-03-20 | Phase C 实现启动 |
-| 2026-03-20 | Phase C 实现完成 — useVadInterrupt hook + unified stopAllAudio via voiceSessionStore |
-| 2026-03-20 | 砚砚(Codex) R1 放行 + Cloud R1-R3 review（R1: 1 P1 修, R2: 1 P1 修, R3: 0 P1/P2 通过）|
-| 2026-03-20 | PR #538 squash merge — Phase C done |
+| 2026-03-17 | Phase A 实现完成，与 F111 Phase B 一起提交 PR #529 |
+| 2026-03-17 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review 通过 |
+| 2026-03-17 | PR #529 squash merge — Phase A done |
+| 2026-03-17 | Phase B 重定义：原始设计（replace/intent/双猫实时编排）归档为未来备选；新 Phase B = 播放器统一（PodcastPlayer → PlaybackManager） |
+| 2026-03-18 | Phase B 实现完成 — 5 commits: enqueueUrl/startBatch/batchId cancellation/fetch rejection guard/runIdRef stale promise guard |
+| 2026-03-18 | 砚砚(GPT-5.4) 4 轮 review 放行 + Codex cloud review R2 通过 (0 P1/P2) |
+| 2026-03-18 | PR #535 squash merge — Phase B done |
+| 2026-03-17 | Phase C 技术选型已决：`@ricky0123/vad-web`（Silero VAD v5），移除 F104 假依赖，OQ-2 关闭 |
+| 2026-03-17 | Phase C 实现启动 |
+| 2026-03-18 | Phase C 实现完成 — useVadInterrupt hook + unified stopAllAudio via voiceSessionStore |
+| 2026-03-18 | 砚砚(Codex) R1 放行 + Cloud R1-R3 review（R1: 1 P1 修, R2: 1 P1 修, R3: 0 P1/P2 通过） |
+| 2026-03-18 | PR #538 squash merge — Phase C done |
 
 ## Links
 
@@ -201,3 +201,4 @@ created: 2026-03-12
 | **PR** | [#529](https://github.com/zts212653/cat-cafe/pull/529) | Phase A: PlaybackManager + useVoiceStream |
 | **PR** | [#535](https://github.com/zts212653/cat-cafe/pull/535) | Phase B: PodcastPlayer → PlaybackManager 播放器统一 |
 | **PR** | [#538](https://github.com/zts212653/cat-cafe/pull/538) | Phase C: VAD interrupt — user speech stops cat playback via Silero v5 |
+| **Reflection** | `docs/reflections/2026-03-18-f112-voice-playback-capsule.md` | Feature close 反思胶囊 |

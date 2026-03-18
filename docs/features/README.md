@@ -97,4 +97,5 @@
 | F092 | F092: Cats & U 语音陪伴体验 — P0 voice mode + auto-play (P1+ evolved to F124) | done | [F092-voice-companion-experience.md](./F092-voice-companion-experience.md) |
 | F121 | F121: Community Frontend UX Triage — 社区前端交互体验侦查与分诊 | done | [F121-community-frontend-ux-triage.md](./F121-community-frontend-ux-triage.md) |
 | F122 | F122: 执行通道统一 — A2A/multi_mention 入 Dispatch Queue | done | [F122-unified-dispatch-queue.md](./F122-unified-dispatch-queue.md) |
-| F111 | F111: Streaming TTS Chunker — 流式分句合成管线 | impl (Phase B) | [F111-streaming-tts-chunker.md](./F111-streaming-tts-chunker.md) |
+| F111 | F111: Streaming TTS Chunker — 流式分句合成管线 | done | [F111-streaming-tts-chunker.md](./F111-streaming-tts-chunker.md) |
+| F112 | F112: Voice Playback Queue — 语音播放队列 + 播放器统一 | done | [F112-voice-playback-queue.md](./F112-voice-playback-queue.md) |

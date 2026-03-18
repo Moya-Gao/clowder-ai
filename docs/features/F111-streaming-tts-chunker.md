@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F111: Streaming TTS Chunker — 流式分句合成管线
 
-> **Status**: done | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1
+> **Status**: done | **Owner**: 金渐层 (OpenCode, claude-opus-4-6) | **Priority**: P1 | **Completed**: 2026-03-17
 
 ## Why
 
@@ -130,9 +130,9 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | 2026-03-17 | 铲屎官实测延迟报告（见下方） |
 | 2026-03-17 | 铲屎官批准 Phase B 方向 + 砚砚(GPT-5.4) review 对齐 |
 | 2026-03-17 | Phase B spec 更新，与 F112 协同实现启动 |
-| 2026-03-18 | Phase B + F112-A 实现完成，砚砚(GPT-5.4) 4 轮 review 放行 |
-| 2026-03-18 | Codex cloud review 通过（0 P1/P2） |
-| 2026-03-18 | PR #529 squash merge — F111 all phases done |
+| 2026-03-17 | Phase B + F112-A 实现完成，砚砚(GPT-5.4) 4 轮 review 放行 |
+| 2026-03-17 | Codex cloud review 通过（0 P1/P2） |
+| 2026-03-17 | PR #529 squash merge — F111 all phases done |
 
 ## 实测延迟报告（2026-03-17 铲屎官亲测）
 
@@ -166,3 +166,4 @@ AIRI 项目的 `tts-chunker.ts` 已验证了这种管线在 TypeScript 中的可
 | **Plan** | `docs/plans/2026-03-16-f111-streaming-tts-chunker.md` | 7-task 实施计划 |
 | **PR** | [#522](https://github.com/zts212653/cat-cafe/pull/522) | Phase A: Squash merge commit `fdc86e58` |
 | **PR** | [#529](https://github.com/zts212653/cat-cafe/pull/529) | Phase B: Squash merge — streaming voice pipeline |
+| **Reflection** | `docs/reflections/2026-03-18-f111-streaming-tts-capsule.md` | Feature close 反思胶囊 |
