@@ -42,10 +42,10 @@ export {
   type IReviewContentFetcher,
   type RawReview,
   type ReviewContent,
-  selectLatestReview,
   type SelectedReview,
   type Severity,
   type SeverityFinding,
+  selectLatestReview,
   type TextFragment,
 } from './ReviewContentFetcher.js';
 export {
