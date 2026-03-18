@@ -292,7 +292,7 @@ describe('SystemPromptBuilder', () => {
     const codexId = buildStaticIdentity('codex');
     assert.ok(codexId.includes('工作流'), 'Codex should have workflow triggers');
     assert.ok(codexId.includes('@布偶猫'), 'Codex workflow should mention notifying 布偶猫');
-    assert.ok(codexId.includes('出口检查'), 'Codex workflow should include exit check');
+    assert.ok(codexId.includes('出口一问'), 'Codex workflow should include exit check (出口一问)');
   });
 
   test('buildStaticIdentity is deterministic', async () => {
@@ -1002,5 +1002,29 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: false,
     });
     assert.ok(!ctx.includes('Bootcamp Mode'), 'Should not include bootcamp header');
+  });
+
+  // --- 回归测试：maine-coon prompt 必须包含 A2A 执行纪律 ---
+
+  test('maine-coon prompt contains execution discipline keywords', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.ok(prompt.includes('静默执行'), 'maine-coon prompt must include 静默执行');
+    assert.ok(prompt.includes('声明'), 'maine-coon prompt must include 声明 ≠ 执行');
+    assert.ok(prompt.includes('空气传球'), 'maine-coon prompt must include 空气传球 warning');
+    assert.ok(prompt.includes('出口一问'), 'maine-coon prompt must include 出口一问');
+  });
+
+  test('maine-coon workflow contains A2A state transition keywords', async () => {
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const codexId = buildStaticIdentity('codex');
+    assert.ok(codexId.includes('BLOCKED'), 'codex prompt must include BLOCKED state');
+    assert.ok(codexId.includes('REVIEW READY'), 'codex prompt must include REVIEW READY state');
+    assert.ok(codexId.includes('DONE'), 'codex prompt must include DONE state');
   });
 });
