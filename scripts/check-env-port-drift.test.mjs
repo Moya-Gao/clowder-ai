@@ -285,7 +285,7 @@ describe(
   'Sync validation enforces static quality gates',
   { skip: !isHomeRepo && 'sync infrastructure not present (open-source repo)' },
   () => {
-    it('validate mode runs Biome autofix, Biome check, and TypeScript lint', () => {
+    it('validate mode stays aligned with post-sync static gates', () => {
       const content = readSyncScript();
       const staticGateFn = readFunctionBody(content, 'run_static_quality_gates');
       const validateBlock = content.match(
@@ -299,8 +299,8 @@ describe(
       );
       assert.ok(validateBlock, 'expected to find the validate block in sync-to-opensource.sh');
       assert.ok(
-        validateBlock.includes('run_static_quality_gates true'),
-        'validate mode should invoke run_static_quality_gates with autofix enabled',
+        validateBlock.includes('run_static_quality_gates false'),
+        'validate mode should invoke the same non-mutating static gates as the post-sync path',
       );
     });
 

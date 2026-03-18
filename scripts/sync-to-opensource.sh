@@ -1004,7 +1004,7 @@ if [ "$VALIDATE" = true ]; then
   if command -v pnpm >/dev/null 2>&1; then
     echo "  Installing dependencies..."
     pnpm install --frozen-lockfile 2>&1 | tail -3
-    if ! run_static_quality_gates true; then
+    if ! run_static_quality_gates false; then
       trap - EXIT
       exit 1
     fi
