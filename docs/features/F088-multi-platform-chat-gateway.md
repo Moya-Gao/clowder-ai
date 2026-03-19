@@ -115,6 +115,20 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 + #551 修复**：per-cat outbound delivery → per-turn ordered delivery（outboundTurns[] 替代 perCatContent Map），A→B→A ping-pong 正确分发 3 条独立消息。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属、turn boundary 检测。
 - **ISSUE-10**: 飞书流式编辑完全不工作 — `sendPlaceholder` 发 `msg_type: 'text'`，但 `im.message.patch` 只支持编辑 `interactive`（卡片）消息，导致所有 `editMessage` 调用被飞书 API 拒绝（错误被 `.catch()` 静默吞掉）。Phase 4 设计时可能在 Telegram 上测的（Telegram editMessage 支持编辑任何类型），未在飞书验证。**PR #567 修复**：sendPlaceholder 改发 interactive card（`update_multi: true`），editMessage 改发 card JSON，新增 deleteMessage 清理占位卡片避免与 outbound card 重复。
 
+## Phase G+ Follow-up（8A 已合入后的增量改进）
+
+> 记录于 2026-03-19，铲屎官确认需要跟进。优先级由 GPT-5.4 R3 评估。
+
+### 高优（铲屎官可见性承诺的自然延伸）
+1. **Hub thread badge in ThreadItem** — 普通 thread 列表里 Hub thread 没有标识，可见性不够完整。应在 ThreadItem 组件加条件渲染标签（类似 pin/star 图标）。
+2. **`lastCommandAt` 命令时间戳** — Hub 列表缺少"最近活跃时间"，审计价值弱。需要在 `ConnectorRouter.storeCommandExchange()` 写入时更新时间戳 + Hub API 返回 + HubListModal 展示。
+
+### 中优（操作型增强）
+3. **Manual rebinding action** — 用户"绑错 thread / 想手动纠正"的场景。等 badge 和 `lastCommandAt` 完成后再做。
+
+### 低优（代码整洁预埋）
+4. **`inferThreadKind()` 纯函数** — 抽取 `connectorHubState` / `bootcampState` 判断逻辑。不单独立项，在做 badge/list 逻辑时顺手抽出来。
+
 ## Open Questions (resolved)
 
 1. ~~MVP 先做飞书还是 Slack？~~ → 飞书 + Telegram

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { BootcampIcon } from '../icons/BootcampIcon';
+import { HubIcon } from '../icons/HubIcon';
 import { TaskPanel } from '../TaskPanel';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
@@ -414,7 +415,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
                 title="IM Hub"
                 data-testid="sidebar-hub"
               >
-                📡
+                <HubIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
               </button>
             )}
             <button

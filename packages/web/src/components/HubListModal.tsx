@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { HubIcon } from './icons/HubIcon';
 
 const CONNECTOR_LABELS: Record<string, string> = {
   feishu: '飞书',
@@ -74,7 +75,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
       <div className="bg-white rounded-2xl shadow-xl w-[480px] max-h-[80vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
-            <span className="text-lg">📡</span>
+            <HubIcon className="w-5 h-5 text-blue-600" />
             <span className="text-lg font-semibold text-gray-900">IM Hub</span>
           </div>
           <button
