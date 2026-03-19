@@ -41,6 +41,7 @@ UX 要点：
 - **Phase B**: macOS（`install-mac.sh`）—— Homebrew 前置检测 + 依赖安装
 - **Phase C**: Windows（`install.ps1` / WSL 引导）—— PowerShell 脚本或引导用 WSL
   - 2026-03-19：已吸收 `clowder-ai#113` 的 Windows 一键部署与 CLI spawn 修复（cat-cafe PR #572），manual-port 时保留家里 runtime 口径（`3001/3002/6399`），并锁定开源出口口径为 `Frontend 3003 / API 3004 / Redis 6399`
+  - 2026-03-19：outbound sync follow-up（cat-cafe PR #573）已合入，补齐 Windows deploy 脚本导出 allowlist，并修正 sync parser 对 YAML `#` 的处理，避免公开仓同步时误删脚本或截断合法路径
 
 脚本应具备：幂等性（重复运行不报错）、版本检测（已安装不重装）、清晰的进度提示。
 
@@ -64,6 +65,7 @@ UX 要点：
 | 2026-03-19 | Phase A: absorbed Linux installer/runtime hardening from `clowder-ai#128` (PR #565) |
 | 2026-03-19 | Phase A follow-up: `/workspace` profile-sharing + installer port-hint hardening merged (PR #566) |
 | 2026-03-19 | Phase C: absorbed `clowder-ai#113` Windows installer/startup fixes and locked public port normalization to `3003/3004/6399` (PR #572) |
+| 2026-03-19 | Phase C follow-up: kept Windows deploy scripts in outbound sync allowlist and aligned sync YAML `#` parsing (PR #573) |
 
 ## Notes
 
