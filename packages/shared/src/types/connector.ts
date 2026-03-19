@@ -59,6 +59,8 @@ export interface ConnectorThreadBinding {
   readonly threadId: string;
   readonly userId: string;
   readonly createdAt: number;
+  /** IM Hub thread for command isolation (ISSUE-8 Phase 8A). Lazily created on first IM command. */
+  readonly hubThreadId?: string;
 }
 
 /** Target for outbound delivery after agent execution completes. */

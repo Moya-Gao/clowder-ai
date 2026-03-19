@@ -15,15 +15,13 @@ import { useCollapseState } from './use-collapse-state';
 import { useProjectPins } from './use-project-pins';
 
 interface ThreadSidebarProps {
-  /** Called to close the sidebar drawer on mobile */
   onClose?: () => void;
-  /** Override root width class (default: w-60). Use w-full when parent controls width. */
   className?: string;
-  /** F106: Open bootcamp list modal instead of creating directly */
   onBootcampClick?: () => void;
+  onHubClick?: () => void;
 }
 
-export function ThreadSidebar({ onClose, className, onBootcampClick }: ThreadSidebarProps) {
+export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick }: ThreadSidebarProps) {
   const router = useRouter();
   const {
     threads,
@@ -408,6 +406,17 @@ export function ThreadSidebar({ onClose, className, onBootcampClick }: ThreadSid
             >
               <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
             </button>
+            {onHubClick && (
+              <button
+                type="button"
+                onClick={onHubClick}
+                className="text-xs px-2 py-1 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                title="IM Hub"
+                data-testid="sidebar-hub"
+              >
+                📡
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowPicker(true)}

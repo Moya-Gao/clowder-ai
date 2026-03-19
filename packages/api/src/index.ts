@@ -106,6 +106,7 @@ import {
   claudeRescueRoutes,
   commandsRoutes,
   configRoutes,
+  connectorHubRoutes,
   connectorMediaRoutes,
   evidenceRoutes,
   executionDigestRoutes,
@@ -594,6 +595,7 @@ async function main(): Promise<void> {
   await app.register(leaderboardRoutes, { messageStore, gameStore, achievementStore });
   await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
   await app.register(bootcampRoutes, { threadStore });
+  await app.register(connectorHubRoutes, { threadStore });
   await app.register(brakeRoutes, { activityTracker });
 
   // F101: Game routes (store created earlier for /game command interception)
