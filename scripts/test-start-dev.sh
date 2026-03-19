@@ -69,6 +69,29 @@ echo "PASS: sanitize_lockfiles removes provided lockfile path"
 sanitize_lockfiles "$tmp_lock" 2>/dev/null
 echo "PASS: sanitize_lockfiles is safe when file does not exist"
 
+# Test 4b: build failures should print full log, not just tail lines
+fail_script="$(mktemp)"
+cat >"$fail_script" <<'EOF'
+#!/bin/bash
+for i in $(seq 1 12); do
+    printf 'line-%02d\n' "$i"
+done
+exit 23
+EOF
+chmod +x "$fail_script"
+
+set +e
+fail_output=$(run_logged_step "failure-test" 3 "$fail_script" 2>&1)
+rc=$?
+set -e
+
+rm -f "$fail_script"
+
+[ "$rc" -eq 23 ] || { echo "FAIL: run_logged_step should preserve exit code, got: $rc"; exit 1; }
+echo "$fail_output" | grep -q "line-01" || { echo "FAIL: failure output should include first line of log"; exit 1; }
+echo "$fail_output" | grep -q "line-12" || { echo "FAIL: failure output should include last line of log"; exit 1; }
+echo "PASS: run_logged_step prints full failure log"
+
 # ── F115 Phase A: Profile 化 ──
 
 # Test 5: apply_profile_defaults sets correct values for "dev"
@@ -206,6 +229,22 @@ REDIS_PORT=6399
 guard_runtime_redis_sanctuary 2>/dev/null
 PROD_WEB=false
 echo "PASS: runtime 6399 is allowed"
+
+# Test 13f: managed port cleanup includes preview gateway
+kill_port_calls=""
+kill_port() { kill_port_calls="${kill_port_calls}|$1:$2"; }
+API_PORT=3002
+WEB_PORT=3001
+PREVIEW_GATEWAY_PORT=4100
+ANTHROPIC_PROXY_ENABLED=0
+ASR_ENABLED=0
+TTS_ENABLED=0
+LLM_POSTPROCESS_ENABLED=0
+kill_managed_ports
+echo "$kill_port_calls" | grep -q "|3002:API" || { echo "FAIL: should kill API port"; exit 1; }
+echo "$kill_port_calls" | grep -q "|3001:Frontend" || { echo "FAIL: should kill frontend port"; exit 1; }
+echo "$kill_port_calls" | grep -q "|4100:Preview Gateway" || { echo "FAIL: should kill preview gateway port"; exit 1; }
+echo "PASS: managed port cleanup includes preview gateway"
 
 # ── F115 Phase B: Sidecar 状態分層 ──
 

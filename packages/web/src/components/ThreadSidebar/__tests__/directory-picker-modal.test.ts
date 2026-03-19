@@ -13,9 +13,6 @@ vi.mock('@/utils/api-client', () => ({
 function jsonOk(data: unknown) {
   return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) });
 }
-function noContent() {
-  return Promise.resolve({ ok: false, status: 204, json: () => Promise.resolve({}) });
-}
 function jsonFail(status = 500, error = 'fail') {
   return Promise.resolve({ ok: false, status, json: () => Promise.resolve({ error }) });
 }
