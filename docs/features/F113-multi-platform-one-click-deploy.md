@@ -36,6 +36,7 @@ UX 要点：
 ### Phase A–C: 一键部署脚本（后续）
 
 - **Phase A**: Linux（`install.sh`）—— 自动检测发行版、安装依赖、配置环境变量、启动服务
+  - 2026-03-19：已吸收 `clowder-ai#128` 的 Linux TTY/install/runtime 修复（cat-cafe PR #565），保留内部 runtime 语义并补齐回归测试
 - **Phase B**: macOS（`install-mac.sh`）—— Homebrew 前置检测 + 依赖安装
 - **Phase C**: Windows（`install.ps1` / WSL 引导）—— PowerShell 脚本或引导用 WSL
 
@@ -58,6 +59,7 @@ UX 要点：
 |------|-------|
 | 2026-03-13 | Spec created (community request clowder-ai #14) |
 | 2026-03-18 | Phase D: design + implementation + review + merge (PR #554) |
+| 2026-03-19 | Phase A: absorbed Linux installer/runtime hardening from `clowder-ai#128` (PR #565) |
 
 ## Notes
 
