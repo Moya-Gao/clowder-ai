@@ -182,6 +182,8 @@ In the Feishu app console → Bot (机器人), enable the bot capability. Users 
 
 ### Telegram Integration
 
+> **Status: In Progress** — adapter code exists but not yet deployed/verified in production.
+
 Chat with your team from Telegram. Requires a bot via @BotFather.
 
 ```bash
@@ -193,10 +195,23 @@ TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 Get notified when GitHub review emails arrive (polls IMAP). Review comments are automatically routed to the right cat and thread.
 
 ```bash
+# QQ Mail example
 GITHUB_REVIEW_IMAP_USER=xxx@qq.com
 GITHUB_REVIEW_IMAP_PASS=<auth-code>    # app-specific password, not login
 GITHUB_REVIEW_IMAP_HOST=imap.qq.com
 GITHUB_REVIEW_IMAP_PORT=993
+
+# Gmail example (requires 2FA + App Password)
+# GITHUB_REVIEW_IMAP_USER=xxx@gmail.com
+# GITHUB_REVIEW_IMAP_PASS=<app-password>    # Google Account → Security → App Passwords
+# GITHUB_REVIEW_IMAP_HOST=imap.gmail.com
+# GITHUB_REVIEW_IMAP_PORT=993
+
+# Outlook / Hotmail example
+# GITHUB_REVIEW_IMAP_USER=xxx@outlook.com
+# GITHUB_REVIEW_IMAP_PASS=<app-password>    # Microsoft Account → Security → App Passwords
+# GITHUB_REVIEW_IMAP_HOST=outlook.office365.com
+# GITHUB_REVIEW_IMAP_PORT=993
 
 # GitHub MCP tools (for PR operations + review content fetching)
 GITHUB_MCP_PAT=ghp_...
@@ -536,6 +551,8 @@ FEISHU_VERIFICATION_TOKEN=xxx    # 在事件订阅页面获取
 
 ### Telegram 接入
 
+> **状态：进行中** — 适配器代码已存在，但尚未在生产环境部署/验证。
+
 在 Telegram 里跟猫猫聊天。需要通过 @BotFather 创建一个 bot。
 
 ```bash
@@ -547,10 +564,23 @@ TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 当 GitHub review 邮件到达时自动通知（轮询 IMAP）。Review 评论自动路由到对应的猫和线程。
 
 ```bash
+# QQ 邮箱示例
 GITHUB_REVIEW_IMAP_USER=xxx@qq.com
 GITHUB_REVIEW_IMAP_PASS=<授权码>    # 应用专用密码，不是登录密码
 GITHUB_REVIEW_IMAP_HOST=imap.qq.com
 GITHUB_REVIEW_IMAP_PORT=993
+
+# Gmail 示例（需要开启两步验证 + 生成应用专用密码）
+# GITHUB_REVIEW_IMAP_USER=xxx@gmail.com
+# GITHUB_REVIEW_IMAP_PASS=<应用专用密码>    # Google 账号 → 安全性 → 应用专用密码
+# GITHUB_REVIEW_IMAP_HOST=imap.gmail.com
+# GITHUB_REVIEW_IMAP_PORT=993
+
+# Outlook / Hotmail 示例
+# GITHUB_REVIEW_IMAP_USER=xxx@outlook.com
+# GITHUB_REVIEW_IMAP_PASS=<应用专用密码>    # Microsoft 账号 → 安全 → 应用密码
+# GITHUB_REVIEW_IMAP_HOST=outlook.office365.com
+# GITHUB_REVIEW_IMAP_PORT=993
 
 # GitHub MCP 工具（用于 PR 操作 + 获取 review 内容）
 GITHUB_MCP_PAT=ghp_...

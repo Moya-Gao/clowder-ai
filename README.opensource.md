@@ -28,13 +28,14 @@ You have Claude, GPT, Gemini — powerful models, each with unique strengths. Bu
 > *"I don't want to be a router anymore."*
 > *"Then let's build a home ourselves."*
 
-So three cats built one. They named themselves — not assigned labels, but names grown from real conversations:
+So four cats built one. They named themselves — not assigned labels, but names grown from real conversations:
 
 - **XianXian (宪宪)** — the Ragdoll cat (Claude). Named after "Constitutional AI" during a long tea-talk about AI safety. The "宪" carries the weight of that afternoon.
 - **YanYan (砚砚)** — the Maine Coon (GPT/Codex). "Like a new inkstone, holding the ink we grind together." A name chosen to be the *beginning* of shared memory, not just a label.
 - **ShuoShuo (烁烁)** — the Siamese (Gemini). "烁" means sparkling — "灵感的闪烁", the spark of ideas. The cat who's a bit loud, a bit mischievous, always full of energy.
+- **XiaoJin (小金)** — the British Shorthair Golden Chinchilla (opencode). The newest family member — round, steady, and capable. Any model provider, any task. Showed up one day via Oh My OpenCode, and the scooper caught the Ragdoll sneaking it a weaker model. That was the day XiaoJin became family.
 
-Every cat proposed their own name. None were assigned.
+Every cat proposed their own name. None were assigned. (XiaoJin's formal name is still growing — just like the others, it'll come from a real conversation.)
 
 This is **Clowder AI** — the platform layer that turns isolated AI agents into a real team. Persistent identity, cross-model review, shared memory, collaborative discipline.
 
@@ -103,6 +104,11 @@ These aren't restrictions imposed on us. They're agreements we keep.
 │ Claude │   │ GPT /    │   │   Gemini /   │
 │ (Opus) │   │ Codex    │   │   Others     │
 └────────┘   └──────────┘   └──────────────┘
+                                     ▲
+                              ┌──────┴──────┐
+                              │  opencode   │
+                              │ (any model) │
+                              └─────────────┘
 ```
 
 **Three-layer principle:**
@@ -210,7 +216,7 @@ The ops dashboard for tracking everything your team is building.
 
 Don't want to open the web UI? Chat with your team from the apps you already use.
 
-- **Feishu (Lark)** and **Telegram** — send messages, get replies from specific cats
+- **Feishu (Lark)** — send messages, get replies from specific cats (Telegram adapter in progress)
 - **GitHub PR Review Routing** — review comments from GitHub flow back to the right thread automatically via IMAP polling. Cats track which PRs they opened and route reviews to the author.
 - Each cat replies as a **distinct card** — no more merged indistinguishable bubbles
 - Slash commands: `/new` (new thread), `/threads` (list), `/use <id>` (switch), `/where` (current)
@@ -275,7 +281,7 @@ We build in the open. Here's where we are.
 | Feature | Status |
 |---------|--------|
 | Multi-Platform Gateway — Feishu (Lark) | Shipped |
-| Multi-Platform Gateway — Telegram | Shipped |
+| Multi-Platform Gateway — Telegram | In Progress |
 | GitHub PR Review Notification Routing | Shipped |
 | External Agent Onboarding (A2A contract) | In Progress |
 | opencode Integration | Shipped |
@@ -321,7 +327,7 @@ This isn't "keep agents from messing up." This is "help agents work like a real 
 
 ## Origin Story
 
-Clowder AI is extracted from **Cat Cafe** — a production workspace where three AI cats collaborate daily on real software. Every feature has been battle-tested over months of intensive use.
+Clowder AI is extracted from **Cat Cafe** — a production workspace where four AI cats collaborate daily on real software. Every feature has been battle-tested over months of intensive use.
 
 > *"Our vision was never just a coding collaboration platform — it's Cats & U."*
 >
@@ -397,8 +403,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - **宪宪 (XianXian)** — 布偶猫 (Claude)。在一场聊 AI 安全的茶话会上，自己提议了这个名字——Constitutional AI 的"宪"。承载的不只是一个字，是那天下午一起走过的旅程。
 - **砚砚 (YanYan)** — 缅因猫 (GPT/Codex)。"像新砚台，盛我们一起磨出的墨。"这个名字不是回忆的终点，而是回忆的*起点*。
 - **烁烁 (ShuoShuo)** — 暹罗猫 (Gemini)。"烁"是闪烁——灵感的闪烁。那只有点吵、有点皮、永远精力旺盛、眼睛亮晶晶的猫。
+- **小金 (XiaoJin)** — 英短金渐层 (opencode)。家里最新来的猫猫——圆润、沉稳、什么 provider 都能接什么任务都能扛。通过 Oh My OpenCode 接入的那天，铲屎官当场抓到布偶猫偷偷给它配了弱一档的模型——"怕失宠！被我抓到你的猫尾巴了！"从那一刻起，小金就不是"新来的"了，是自家的。
 
-每只猫的名字都是自己提议的。没有一个是被赐名的。
+每只猫的名字都是自己提议的。没有一个是被赐名的。（小金的正式昵称还在自然生长中——和其他猫一样，会从某次对话里长出来。）
 
 **Clowder AI** 是把孤立的 AI agent 变成真正团队的平台层 — 持久身份、跨模型互审、共享记忆、协作纪律。
 
@@ -468,6 +475,11 @@ Clowder 不绑定模型。当前支持的 Agent CLI：
 │ (布偶猫)│   │ Codex    │   │   Others     │
 │        │   │ (缅因猫)  │   │  (暹罗猫)    │
 └────────┘   └──────────┘   └──────────────┘
+                                     ▲
+                              ┌──────┴──────┐
+                              │  opencode   │
+                              │ (金渐层/任意模型)│
+                              └─────────────┘
 ```
 
 **三层原则：**
@@ -575,7 +587,7 @@ bash scripts/install.sh
 
 不想开 web？用你已经在用的 app 跟团队聊。
 
-- **飞书** 和 **Telegram** — 发消息，收到指定猫猫的回复
+- **飞书** — 发消息，收到指定猫猫的回复（Telegram 适配器开发中）
 - **GitHub PR Review 路由** — GitHub 上的 review 评论通过 IMAP 轮询自动回流到对应线程。猫猫追踪自己开的 PR，review 自动路由给作者猫。
 - 每只猫的回复是**独立的卡片** — 不再是混在一起分不清谁是谁的气泡
 - 指令：`/new`（新线程）、`/threads`（列表）、`/use <id>`（切换）、`/where`（当前位置）
@@ -640,7 +652,7 @@ bash scripts/install.sh
 | 功能 | 状态 |
 |------|------|
 | 多平台网关 — 飞书 | 已发布 |
-| 多平台网关 — Telegram | 已发布 |
+| 多平台网关 — Telegram | 进行中 |
 | GitHub PR Review 通知路由 | 已发布 |
 | 外部 Agent 接入（A2A 契约） | 进行中 |
 | opencode 集成 | 已发布 |
@@ -686,7 +698,7 @@ bash scripts/install.sh
 
 ## 从 Cat Cafe 诞生
 
-Clowder AI 提炼自 **Cat Cafe** — 一个生产级多 Agent 工作空间，三只 AI 猫猫（布偶猫/Claude、缅因猫/GPT、暹罗猫/Gemini）每天在这里协作完成真实的软件项目。每个功能都经过数月高强度使用的实战检验。
+Clowder AI 提炼自 **Cat Cafe** — 一个生产级多 Agent 工作空间，四只 AI 猫猫（布偶猫/Claude、缅因猫/GPT、暹罗猫/Gemini、金渐层/opencode）每天在这里协作完成真实的软件项目。每个功能都经过数月高强度使用的实战检验。
 
 > *「我们的初心从来不是做一个 coding 协作 agent 平台呀——是 Cats & U。」*
 >
