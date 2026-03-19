@@ -210,10 +210,13 @@ export class QueueProcessor {
   /**
    * F122B: Try to auto-execute any queued autoExecute entries whose target cat slot is free.
    * Called immediately after enqueuing an agent entry.
-   * Scans past busy-slot entries to find the first executable one.
+   * Scans all entries and starts every one whose cat slot is free (parallel multi-cat).
+   * Per-cat slot mutex (processingSlots + invocationTracker) prevents conflicts.
    */
   async tryAutoExecute(threadId: string): Promise<void> {
-    const entries = this.deps.queue.listAutoExecute?.(threadId) ?? [];
+    const entries = (this.deps.queue.listAutoExecute?.(threadId) ?? []).sort(
+      (a, b) => a.createdAt - b.createdAt,
+    );
 
     for (const entry of entries) {
       const entryCat = entry.targetCats[0] ?? 'unknown';
@@ -222,8 +225,8 @@ export class QueueProcessor {
       if (this.processingSlots.has(sk)) continue;
       if (this.deps.invocationTracker.has(threadId, entryCat)) continue;
 
-      // Mark processing and execute
-      this.deps.queue.markProcessingById(threadId, entry.id);
+      // Guard: markProcessingById may fail if entry was consumed between snapshot and now
+      if (!this.deps.queue.markProcessingById(threadId, entry.id)) continue;
       this.processingSlots.add(sk);
       void this.executeEntry(entry).then(
         (status) => {
@@ -235,7 +238,7 @@ export class QueueProcessor {
           this.onInvocationComplete(threadId, entryCat, 'failed').catch(() => {});
         },
       );
-      return; // One per call — chained via onInvocationComplete
+      // Continue scanning — start all entries with free cat slots (parallel dispatch)
     }
   }
 

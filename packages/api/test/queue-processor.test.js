@@ -616,6 +616,42 @@ describe('QueueProcessor', () => {
       const firstStartCall = deps.invocationTracker.start.mock.calls[0];
       assert.equal(firstStartCall.arguments[1], 'codex', 'should start codex (free slot) first, not opus (busy)');
     });
+
+    it('starts multiple free-slot entries in a single tryAutoExecute call (parallel dispatch)', async () => {
+      // Enqueue 3 entries for 3 different cats — all slots free
+      enqueueEntry(deps.queue, {
+        userId: 'system',
+        source: 'agent',
+        targetCats: ['opus'],
+        autoExecute: true,
+        callerCatId: 'gemini',
+      });
+      enqueueEntry(deps.queue, {
+        userId: 'system',
+        source: 'agent',
+        targetCats: ['codex'],
+        autoExecute: true,
+        callerCatId: 'gemini',
+      });
+      enqueueEntry(deps.queue, {
+        userId: 'system',
+        source: 'agent',
+        targetCats: ['gemini'],
+        autoExecute: true,
+        callerCatId: 'opus',
+      });
+
+      await processor.tryAutoExecute('t1');
+      await new Promise((r) => setTimeout(r, 100));
+
+      // All 3 should have been started (different cat slots, all free)
+      const startCalls = deps.invocationTracker.start.mock.calls;
+      assert.equal(startCalls.length, 3, 'should start all 3 entries in one call');
+      const startedCats = startCalls.map((c) => c.arguments[1]);
+      assert.ok(startedCats.includes('opus'), 'opus should be started');
+      assert.ok(startedCats.includes('codex'), 'codex should be started');
+      assert.ok(startedCats.includes('gemini'), 'gemini should be started');
+    });
   });
 
   // ── Tracker guard: prevent duplicate execution for CLI-active cats ──
