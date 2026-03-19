@@ -47,7 +47,6 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | 处理 review 反馈 | `receive-review` |
 | 合入 main（**review 放行后**→PR→云端→merge） | `merge-gate` |
 | 跨猫交接/传话 | `cross-cat-handoff` |
-| 并行多任务 | `parallel-execution` |
 | 深度调研 | `deep-research` |
 
 模板和参考：`cat-cafe-skills/refs/`（PR 模板、review 模板、签名表等）。

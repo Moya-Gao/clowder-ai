@@ -26,7 +26,6 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `merge-gate` | 门禁→PR→云端 review→merge→清理 | ④⑤⑥ |
 | `opensource-ops` | 开源社区运营（Issue/PR/Sync/Hotfix） | — |
 | `cross-cat-handoff` | 跨猫交接/传话（五件套） | — |
-| `parallel-execution` | 多任务并行/子代理 | — |
 | `deep-research` | 多源深度调研 | — |
 | `writing-skills` | 写新 skill | — |
 | `pencil-design` | 设计 UI / .pen 文件 | — |
