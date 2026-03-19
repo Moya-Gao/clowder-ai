@@ -1002,7 +1002,11 @@ async function main(): Promise<void> {
     const { GameAutoPlayer } = await import('./domains/cats/services/game/GameAutoPlayer.js');
     const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
     const recoveryOrchestrator = new GameOrchestrator({ gameStore: f101GameStore, socketManager, messageStore });
-    const recoveryPlayer = new GameAutoPlayer({ gameStore: f101GameStore, orchestrator: recoveryOrchestrator });
+    const recoveryPlayer = new GameAutoPlayer({
+      gameStore: f101GameStore,
+      orchestrator: recoveryOrchestrator,
+      messageStore,
+    });
     app.addHook('onClose', async () => {
       recoveryPlayer.stopAllLoops();
     });

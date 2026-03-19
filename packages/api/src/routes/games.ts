@@ -124,7 +124,7 @@ const gameStartSchema = z.object({
 export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opts) => {
   const { gameStore, socketManager, threadStore, messageStore } = opts;
   const orchestrator = new GameOrchestrator({ gameStore, socketManager, messageStore });
-  const autoPlayer = opts.autoPlayer ?? new GameAutoPlayer({ gameStore, orchestrator });
+  const autoPlayer = opts.autoPlayer ?? new GameAutoPlayer({ gameStore, orchestrator, messageStore });
 
   app.addHook('onClose', async () => {
     autoPlayer.stopAllLoops();

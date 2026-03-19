@@ -119,7 +119,12 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       })
     : null;
   const gameAutoPlayer = gameOrchestrator
-    ? (opts.autoPlayer ?? new GameAutoPlayer({ gameStore: opts.gameStore!, orchestrator: gameOrchestrator }))
+    ? (opts.autoPlayer ??
+      new GameAutoPlayer({
+        gameStore: opts.gameStore!,
+        orchestrator: gameOrchestrator,
+        messageStore: opts.messageStore,
+      }))
     : null;
 
   if (gameAutoPlayer) {
