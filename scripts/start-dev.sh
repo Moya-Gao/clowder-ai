@@ -553,7 +553,7 @@ cleanup() {
     echo ""
     echo "正在关闭服务..."
     kill $(jobs -p) 2>/dev/null || true
-    # 关闭我们启动的专属 Redis (不影响系统默认 6379)
+    # 关闭我们启动的专属 Redis (不影响其他 Redis 实例)
     if [ "$USE_REDIS" = true ] && [ "$STARTED_REDIS" = true ] && redis-cli -p "$REDIS_PORT" ping &> /dev/null 2>&1; then
         archive_redis_snapshot "pre-stop"
         redis-cli -p "$REDIS_PORT" shutdown save &> /dev/null || true

@@ -7,9 +7,9 @@ set -euo pipefail
 #
 # Usage:
 #   ./scripts/redis-forensics.sh
-#   ./scripts/redis-forensics.sh --ports "6379,6399" --dump /path/to/dump.rdb --dump ./dump.rdb
+#   ./scripts/redis-forensics.sh --ports "6398,6399" --dump /path/to/dump.rdb --dump ./dump.rdb
 
-PORTS="6379,6399"
+PORTS="6398,6399"
 declare -a DUMPS=()
 
 while [[ $# -gt 0 ]]; do

@@ -248,7 +248,7 @@ else
         echo "    1) Install Redis locally (recommended / 推荐)"; echo "    2) Use external Redis URL / 使用外部 Redis"
         tty_read "    Choose [1/2] (default: 1): " REDIS_CHOICE
         if [[ "${REDIS_CHOICE:-1}" == "2" ]]; then
-            tty_read "    Redis URL (e.g. redis://user:pass@host:6379): " REDIS_EXT_URL
+            tty_read "    Redis URL (e.g. redis://user:pass@host:6399): " REDIS_EXT_URL
             if [[ -n "$REDIS_EXT_URL" ]]; then
                 ok "External Redis URL saved — will write to .env in step 8"; REDIS_EXTERNAL=true
             else warn "No URL — falling back to local install"; fi
