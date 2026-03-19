@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> **Status**: Phase 1-6+A+B+C+D+E done | **Owner**: 布偶猫
+> **Status**: Phase 1-6+A+B+C+D+E+G(8A) done | **Owner**: 布偶猫
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
 > Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 
@@ -111,7 +111,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-5**: 飞书多猫回复气泡合并无区分度 — 所有猫共用同一 Feishu Bot，plain text 回复被飞书 UI 合并成连续气泡，不同猫的回复视觉上混在一起。**Phase E 修复**：统一走 interactive card，每条消息独立卡片 + 猫名头部。
 - **ISSUE-6**: `/thread` 命令缺失 — 用户发 `/thread <id> <msg>` 想路由消息到指定 thread，但 CommandLayer 不识别，静默 fallthrough 当普通消息投递给当前 session。**✅ PR #542 修复**。
 - **ISSUE-7**: `/threads` 列表 shortId 全部显示 `[thread_m]` — `slice(0,8)` 截断后 `thread_` 前缀相同导致无区分度。**✅ PR #542 修复**。
-- **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**已立项 → Phase G/H/I（三阶段）**：引入 IM Hub thread（控制面/对话面双绑定）。8A 命令隔离（纯控制命令只写 hubThreadId、不触发猫）→ 8B 模糊意图规则分流（无猫，系统卡片让用户选）→ 8C 猫参与 triage（可配置开关，兜底才喊猫）。bindingStore 增加 hubThreadId（懒创建）。**设计修正（铲屎官 2026-03-19）**：Hub thread **不能隐藏**，必须完全可见——铲屎官需要在 Web UI 看到所有命令历史，不能有黑盒。Hub thread 需要像猫猫训练营一样有专门入口（侧边栏按钮 + 列表页），不是普通 thread 混在对话列表里。**已确认设计（2026-03-20）**：(1) Thread 标记：`connectorHubState?: ConnectorHubStateV1` — 跟 `bootcampState` 同模式（铲屎官授权技术自决），含 `{ v: 1, connectorId, externalChatId, createdAt }`。(2) 侧边栏入口：🎓 按钮旁加 📡 Hub 按钮 → `HubListModal`（无 IM 面板，新建）。(3) Hub 列表页：按 connector 分组（飞书 Hub / Telegram Hub），显示绑定外部聊天（`lastCommandAt` 命令时间戳为 Phase G+ follow-up，8A 暂不含）。
+- **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**已立项 → Phase G/H/I（三阶段）**：引入 IM Hub thread（控制面/对话面双绑定）。8A 命令隔离（纯控制命令只写 hubThreadId、不触发猫）→ 8B 模糊意图规则分流（无猫，系统卡片让用户选）→ 8C 猫参与 triage（可配置开关，兜底才喊猫）。bindingStore 增加 hubThreadId（懒创建）。**设计修正（铲屎官 2026-03-19）**：Hub thread **不能隐藏**，必须完全可见——铲屎官需要在 Web UI 看到所有命令历史，不能有黑盒。Hub thread 需要像猫猫训练营一样有专门入口（侧边栏按钮 + 列表页），不是普通 thread 混在对话列表里。**已确认设计（2026-03-20）**：(1) Thread 标记：`connectorHubState?: ConnectorHubStateV1` — 跟 `bootcampState` 同模式（铲屎官授权技术自决），含 `{ v: 1, connectorId, externalChatId, createdAt }`。(2) 侧边栏入口：🎓 按钮旁加 📡 Hub 按钮 → `HubListModal`（无 IM 面板，新建）。(3) Hub 列表页：按 connector 分组（飞书 Hub / Telegram Hub），显示绑定外部聊天（`lastCommandAt` 命令时间戳为 Phase G+ follow-up，8A 暂不含）。**✅ 8A merged PR #570**：命令隔离 + Hub thread 懒创建 + ConnectorHubStateV1 + 📡 侧边栏入口 + HubListModal + .strict() schema 防护。
 - **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 + #551 修复**：per-cat outbound delivery → per-turn ordered delivery（outboundTurns[] 替代 perCatContent Map），A→B→A ping-pong 正确分发 3 条独立消息。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属、turn boundary 检测。
 - **ISSUE-10**: 飞书流式编辑完全不工作 — `sendPlaceholder` 发 `msg_type: 'text'`，但 `im.message.patch` 只支持编辑 `interactive`（卡片）消息，导致所有 `editMessage` 调用被飞书 API 拒绝（错误被 `.catch()` 静默吞掉）。Phase 4 设计时可能在 Telegram 上测的（Telegram editMessage 支持编辑任何类型），未在飞书验证。**PR #567 修复**：sendPlaceholder 改发 interactive card（`update_multi: true`），editMessage 改发 card JSON，新增 deleteMessage 清理占位卡片避免与 outbound card 重复。
 
@@ -136,6 +136,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-18 | ISSUE-9 fix: per-cat outbound delivery for multi-cat A2A responses (PR #545) |
 | 2026-03-18 | ISSUE-9 fix v2: per-turn ordered delivery — outboundTurns[] replaces perCatContent Map (PR #551) |
 | 2026-03-19 | ISSUE-10 fix: Feishu streaming uses interactive cards for edit-in-place (PR #567) |
+| 2026-03-19 | ISSUE-8 Phase G 8A merged: IM Hub thread command isolation + 📡 sidebar entry (PR #570) |
 
 ## 参考文件
 
