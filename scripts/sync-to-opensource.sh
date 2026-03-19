@@ -1311,8 +1311,8 @@ else
     else
     # 6d: Full startup acceptance — API + frontend, probe health, lsof diff
     echo "  Startup acceptance (full stack)..."
-    ACCEPT_API_PORT=${API_SERVER_PORT:-3003}
-    ACCEPT_WEB_PORT=${FRONTEND_PORT:-3004}
+    ACCEPT_API_PORT=${API_SERVER_PORT:-3004}
+    ACCEPT_WEB_PORT=${FRONTEND_PORT:-3003}
     FORBIDDEN_PORTS="3001|3002"
 
     # Record listening ports BEFORE startup (baseline)
