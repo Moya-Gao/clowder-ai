@@ -97,6 +97,29 @@ gh pr merge {PR_NUMBER} --squash --delete-branch
 git checkout main && git pull origin main
 git worktree remove ../cat-cafe-{feature-name}
 git branch -d {branch-name} && git worktree prune
+
+# 8.5 回收 review 沙盒（review-target-id 与 request-review 约定一致）
+REVIEW_TARGET_ID="{review-target-id}"  # e.g. f113 or fix-redis-keyprefix
+REVIEW_BASE="/tmp/cat-cafe-review/${REVIEW_TARGET_ID}"
+if [ -d "$REVIEW_BASE" ]; then
+  for sandbox in "$REVIEW_BASE"/*/; do
+    [ ! -d "$sandbox" ] && continue
+    # no-force 铁律（LL-012）：有未保存改动 → 报阻塞，不硬删
+    if git worktree list 2>/dev/null | grep -q "$sandbox"; then
+      STATUS=$(cd "$sandbox" && git status --porcelain 2>/dev/null)
+      if [ -n "$STATUS" ]; then
+        echo "⚠️ Review 沙盒 $sandbox 有未保存改动，跳过"
+        continue
+      fi
+      git worktree remove "$sandbox"
+    else
+      rm -rf "$sandbox"
+    fi
+  done
+  rmdir "$REVIEW_BASE" 2>/dev/null
+  echo "✅ Review 沙盒已回收: $REVIEW_BASE"
+fi
+git worktree prune  # 清理 dangling worktree references
 ```
 
 ### 云端 review 处理规则
@@ -184,6 +207,7 @@ gh api --paginate repos/{OWNER}/{REPO}/pulls/{PR_NUMBER}/comments \
 | 本地 merge 后 `gh pr close` | `gh pr close` = 放弃，`gh pr merge` = 合入 |
 | 不等云端 review 直接合入 | 必须等 0 P1/P2 |
 | Merge 后不更新 feature doc | Step 7.5 Phase 文档同步（每次 merge 必做！） |
+| Merge 后不清理 review 沙盒 | Step 8.5 按 review-target-id 回收 `/tmp/cat-cafe-review/` |
 
 ### **⚠️⚠️ 反面案例（PR #160）— 必须记住**
 
