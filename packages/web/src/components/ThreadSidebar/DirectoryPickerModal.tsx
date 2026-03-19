@@ -203,8 +203,8 @@ export function DirectoryPickerModal({
           />
         </div>
 
-        {/* ── Project list (PRIMARY ACTION — takes most space) ── */}
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1 min-h-[180px]">
+        {/* ── Project list (PRIMARY ACTION — takes most space, hidden when browser is open) ── */}
+        <div className={`overflow-y-auto px-5 py-3 space-y-1 ${showBrowser ? 'hidden' : 'flex-1 min-h-[180px]'}`}>
           <div className="text-[10px] text-gray-400 font-medium mb-1">选择项目</div>
 
           {cwdPath && !existingProjects.includes(cwdPath) && (
@@ -249,8 +249,10 @@ export function DirectoryPickerModal({
           </button>
         </div>
 
-        {/* ── Options bar: feat + pin + cats toggle ── */}
-        <div className="px-5 py-2 border-t border-gray-100 flex items-center gap-3 flex-wrap">
+        {/* ── Options bar: feat + pin + cats toggle (hidden when browser is open) ── */}
+        <div
+          className={`px-5 py-2 border-t border-gray-100 flex items-center gap-3 flex-wrap ${showBrowser ? 'hidden' : ''}`}
+        >
           {backlogItems.length > 0 && (
             <div className="flex-1 min-w-[140px]">
               <select
@@ -298,8 +300,8 @@ export function DirectoryPickerModal({
           </button>
         </div>
 
-        {/* ── Cat selector (collapsed by default) ── */}
-        {catsExpanded && (
+        {/* ── Cat selector (collapsed by default, hidden when browser is open) ── */}
+        {catsExpanded && !showBrowser && (
           <div className="px-5 py-2 border-t border-gray-100">
             <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
             {/* F33: Session binding */}
@@ -354,7 +356,7 @@ export function DirectoryPickerModal({
 
         {/* ── F113: Inline directory browser (replaces osascript picker) ── */}
         {showBrowser && (
-          <div className="border-t border-gray-100 h-[360px] flex flex-col">
+          <div className="border-t border-gray-100 flex-1 min-h-0 flex flex-col">
             <DirectoryBrowser
               initialPath={cwdPath ?? undefined}
               activeProjectPath={cwdPath ?? undefined}
@@ -365,7 +367,7 @@ export function DirectoryPickerModal({
         )}
 
         {/* ── Bottom: browse button + path input + confirm ── */}
-        <div className="px-5 py-3 border-t border-gray-100 space-y-2">
+        <div className="px-5 py-3 border-t border-gray-100 space-y-2 flex-shrink-0">
           <div className="flex gap-2">
             <button
               type="button"

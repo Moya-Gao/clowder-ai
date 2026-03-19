@@ -38,10 +38,7 @@ interface DirectoryBrowserProps {
  * segments from the allowed root, using the parent field for "go up".
  * Handles both / and \ separators for cross-platform support.
  */
-function pathToSegments(
-  absPath: string,
-  homePath: string,
-): { label: string; path: string }[] {
+function pathToSegments(absPath: string, homePath: string): { label: string; path: string }[] {
   const sep = absPath.includes('\\') ? '\\' : '/';
 
   // Case 1: path is at or under home — use "Home" as root label
@@ -127,9 +124,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
     if (trimmed) fetchDirectory(trimmed);
   }, [pathInput, fetchDirectory]);
 
-  const segments = browseResult
-    ? pathToSegments(browseResult.current, browseResult.homePath)
-    : [];
+  const segments = browseResult ? pathToSegments(browseResult.current, browseResult.homePath) : [];
 
   return (
     <div className="flex flex-col h-full">
@@ -228,7 +223,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
       </div>
 
       {/* ── Path input ── */}
-      <div className="px-5 py-3 border-t border-[#f0e6de] space-y-2">
+      <div className="px-5 py-3 border-t border-[#f0e6de] space-y-2 flex-shrink-0">
         <div className="flex gap-2">
           <TerminalIcon />
           <input
