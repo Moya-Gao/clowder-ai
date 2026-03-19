@@ -36,6 +36,22 @@ export interface IReviewContentFetcher {
   fetch(repository: string, prNumber: number): Promise<ReviewContent>;
 }
 
+// ─── Text normalization ──────────────────────────────────────────────
+
+/**
+ * Strip Codex cloud review badge markdown so severity excerpts are readable.
+ * Transforms: `**<sub><sub>![P2 Badge](url)</sub></sub>  Title**` → `P2: Title`
+ */
+export function normalizeReviewText(text: string): string {
+  return (
+    text
+      // Replace full badge line including trailing **: **<sub>..![PN Badge](url)..</sub>  Title**
+      .replace(/\*\*<sub><sub>!\[P([0-3]) Badge\]\([^)]*\)<\/sub><\/sub>\s*(.*?)\*\*/gi, 'P$1: $2')
+      // Strip any remaining <sub>/<\/sub> tags
+      .replace(/<\/?sub>/gi, '')
+  );
+}
+
 // ─── Pure severity extraction ────────────────────────────────────────
 
 /**
@@ -162,12 +178,18 @@ export class GhCliReviewContentFetcher implements IReviewContentFetcher {
       this.log.warn(`[ReviewContentFetcher] inline comments failed for ${repository}#${prNumber}: ${String(err)}`);
     }
 
-    // Step 3: extract severity from latest review body + recent comments only
+    // Step 3: normalize text (strip Codex badge markup) then extract severity
     const fragments: TextFragment[] = [];
     if (latestReview?.body) {
-      fragments.push({ text: latestReview.body, source: 'review_body' });
+      fragments.push({ text: normalizeReviewText(latestReview.body), source: 'review_body' });
     }
-    fragments.push(...inlineComments.map((c) => ({ text: c.body, source: 'inline_comment' as const, path: c.path })));
+    fragments.push(
+      ...inlineComments.map((c) => ({
+        text: normalizeReviewText(c.body),
+        source: 'inline_comment' as const,
+        path: c.path,
+      })),
+    );
 
     const findings = extractSeverityFindings(fragments);
 

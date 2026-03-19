@@ -40,12 +40,13 @@ export {
   GhCliReviewContentFetcher,
   getMaxSeverity,
   type IReviewContentFetcher,
+  normalizeReviewText,
   type RawReview,
   type ReviewContent,
   type SelectedReview,
+  selectLatestReview,
   type Severity,
   type SeverityFinding,
-  selectLatestReview,
   type TextFragment,
 } from './ReviewContentFetcher.js';
 export {

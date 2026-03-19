@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import {
   extractSeverityFindings,
   getMaxSeverity,
+  normalizeReviewText,
   selectLatestReview,
 } from '../dist/infrastructure/email/ReviewContentFetcher.js';
 import { buildReviewMessageContent } from '../dist/infrastructure/email/ReviewRouter.js';
@@ -79,6 +80,20 @@ describe('extractSeverityFindings', () => {
     assert.strictEqual(findings.length, 2);
     assert.strictEqual(findings[0].severity, 'P1', 'should normalize to uppercase');
     assert.strictEqual(findings[1].severity, 'P2');
+  });
+
+  it('produces clean excerpt from Codex badge-formatted comment', () => {
+    const codexBody =
+      '**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  ' +
+      "Don't hide the current project selection in browser mode**\n\n" +
+      'When showBrowser is true we now hide the entire quick-pick list.';
+    const normalized = normalizeReviewText(codexBody);
+    const findings = extractSeverityFindings([{ text: normalized, source: 'inline_comment', path: 'Modal.tsx' }]);
+    assert.strictEqual(findings.length, 1);
+    assert.strictEqual(findings[0].severity, 'P2');
+    assert.ok(!findings[0].excerpt.includes('<sub>'), 'excerpt should not contain HTML tags');
+    assert.ok(!findings[0].excerpt.includes('!['), 'excerpt should not contain markdown image syntax');
+    assert.ok(findings[0].excerpt.includes('Don'), 'excerpt should contain actual finding text');
   });
 
   it('does not match MP3 or P1234', () => {
@@ -300,5 +315,41 @@ describe('selectLatestReview', () => {
     const reviews = [{ body: 'only one', submitted_at: '2026-03-18T12:00:00Z' }];
     const result = selectLatestReview(reviews);
     assert.strictEqual(result?.body, 'only one');
+  });
+});
+
+// ─── normalizeReviewText ─────────────────────────────────────────
+
+describe('normalizeReviewText', () => {
+  it('strips Codex badge markdown and preserves severity + title', () => {
+    const raw =
+      '**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  ' +
+      "Don't hide the current project selection in browser mode**\n\n" +
+      'When showBrowser is true we now hide the list.';
+    const clean = normalizeReviewText(raw);
+    assert.ok(clean.includes('P2'), 'should preserve severity marker');
+    assert.ok(clean.includes('Don'), 'should preserve title text');
+    assert.ok(!clean.includes('<sub>'), 'should strip HTML sub tags');
+    assert.ok(!clean.includes('!['), 'should strip badge image markdown');
+    assert.ok(!clean.includes('img.shields.io'), 'should strip badge URL');
+  });
+
+  it('handles text without badges (passthrough)', () => {
+    const plain = 'No issues found. Looks good.';
+    assert.strictEqual(normalizeReviewText(plain), plain);
+  });
+
+  it('handles multiple badge comments in sequence', () => {
+    const raw =
+      '**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  First issue**\n' +
+      'Details about first.\n' +
+      '**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Second issue**\n' +
+      'Details about second.';
+    const clean = normalizeReviewText(raw);
+    assert.ok(clean.includes('P1'), 'should have P1 marker');
+    assert.ok(clean.includes('P2'), 'should have P2 marker');
+    assert.ok(clean.includes('First issue'), 'should keep first title');
+    assert.ok(clean.includes('Second issue'), 'should keep second title');
+    assert.ok(!clean.includes('<sub>'), 'no HTML tags');
   });
 });
