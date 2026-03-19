@@ -231,6 +231,20 @@ delete_env_key() {
     mv "$tmp" .env
 }
 env_has_key() { grep -q "^${1}=" .env 2>/dev/null; }
+read_env_key() {
+    local key="$1" line value
+    line="$(grep "^${key}=" .env 2>/dev/null | tail -n 1)" || return 1
+    value="${line#*=}"
+    if [[ "$value" =~ ^\'(.*)\'$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    if [[ "$value" =~ ^\"(.*)\"$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    printf '%s\n' "$value"
+}
 pnpm_install_with_fallback() {
     pnpm install --frozen-lockfile && return 0; [[ -n "$NPM_REGISTRY" ]] && return 1
     warn "pnpm install failed — retrying with npmmirror"; use_registry "https://registry.npmmirror.com"
@@ -263,7 +277,7 @@ resolve_project_dir() {
     fi
 }
 default_project_allowed_roots() {
-    printf '%s\n' "$HOME" '/tmp' '/private/tmp'
+    printf '%s\n' "$HOME" '/tmp' '/private/tmp' '/workspace'
     [[ "$(uname -s)" == "Darwin" ]] && printf '%s\n' '/Volumes'
 }
 project_allowed_roots() {
@@ -343,6 +357,10 @@ candidate_root_is_allowed() {
     done < <(project_allowed_roots)
     return 1
 }
+provider_profiles_candidate_root_is_allowed() {
+    local candidate="$1"
+    candidate_root_is_allowed "$candidate"
+}
 resolve_provider_profiles_dir() {
     local git_entry="$PROJECT_DIR/.git"
     if [[ ! -e "$git_entry" ]]; then
@@ -382,7 +400,7 @@ resolve_provider_profiles_dir() {
 
         candidate="$(dirname "$common_git_dir_resolved")"
         candidate="$(normalize_path_for_compare "$candidate" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
-        candidate_root_is_allowed "$candidate" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        provider_profiles_candidate_root_is_allowed "$candidate" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
         printf '%s/.cat-cafe\n' "$candidate"; return
     fi
     printf '%s/.cat-cafe\n' "$PROJECT_DIR"
@@ -402,6 +420,15 @@ maybe_write_docker_api_host() {
         write_env_key "API_SERVER_HOST" "0.0.0.0"
         ok "Docker detected — added API_SERVER_HOST=0.0.0.0 (was missing from existing .env)"
     fi
+}
+
+default_frontend_url() {
+    local frontend_port=""
+    if [[ -f .env ]]; then
+        frontend_port="$(read_env_key FRONTEND_PORT || true)"
+    fi
+    frontend_port="${frontend_port:-${FRONTEND_PORT:-3001}}"
+    printf 'http://localhost:%s\n' "$frontend_port"
 }
 
 ENV_KEYS=(); ENV_VALUES=(); ENV_DELETE_KEYS=()
@@ -744,7 +771,7 @@ chmod 600 .env 2>/dev/null || true
 step "[9/9] Installation complete! / 安装完成！"
 echo -e "\n  ${GREEN}══ Clowder AI is ready! 猫猫咖啡已就绪！══${NC}\n  Project: $PROJECT_DIR"
 START_CMD="cd $PROJECT_DIR && pnpm start"; [[ "$MEMORY_MODE" == true ]] && START_CMD+=" --memory"
-echo -e "  Start: $START_CMD\n  Open:  http://localhost:3003\n"
+echo -e "  Start: $START_CMD\n  Open:  $(default_frontend_url)\n"
 if [[ "$AUTO_START" == true ]]; then
     echo -e "${CYAN}Starting service (--start)...${NC}"; echo ""
     if [[ "$MEMORY_MODE" == true ]]; then exec pnpm start --memory; else exec pnpm start; fi

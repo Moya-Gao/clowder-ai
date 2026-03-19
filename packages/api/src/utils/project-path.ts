@@ -13,23 +13,23 @@ import { relative, resolve } from 'node:path';
 /**
  * Allowed root directories for project paths.
  *
- * Default: homedir + /tmp + /private/tmp + /Volumes (macOS only).
+ * Default: homedir + /tmp + /private/tmp + /workspace + /Volumes (macOS only).
  *
  * PROJECT_ALLOWED_ROOTS (colon-separated):
  *   - Default behaviour: **replaces** built-in defaults (backward compat).
  *   - Set PROJECT_ALLOWED_ROOTS_APPEND=true to merge with defaults instead.
  */
 const DEFAULT_ROOTS = (): string[] => {
-  const roots = [homedir(), '/tmp', '/private/tmp'];
+  const roots = [homedir(), '/tmp', '/private/tmp', '/workspace'];
   if (platform() === 'darwin') roots.push('/Volumes');
   return roots;
 };
 
 const ALLOWED_ROOTS = (): string[] => {
-  const envRoots = process.env['PROJECT_ALLOWED_ROOTS'];
+  const envRoots = process.env.PROJECT_ALLOWED_ROOTS;
   if (envRoots?.trim()) {
     const custom = envRoots.split(':').filter(Boolean);
-    const append = process.env['PROJECT_ALLOWED_ROOTS_APPEND'] === 'true';
+    const append = process.env.PROJECT_ALLOWED_ROOTS_APPEND === 'true';
     return append ? [...new Set([...DEFAULT_ROOTS(), ...custom])] : custom;
   }
   return DEFAULT_ROOTS();
@@ -68,6 +68,11 @@ export async function validateProjectPath(rawPath: string): Promise<string | nul
   }
 }
 
+export function isPathWithinRoot(root: string, absPath: string): boolean {
+  const rel = relative(root, absPath);
+  return rel === '' || (!rel.startsWith('..') && !rel.startsWith('/'));
+}
+
 /**
  * Check if a path string (without fs access) is plausibly under an allowed root.
  * Uses separator-aware relative() check instead of naive startsWith().
@@ -76,12 +81,7 @@ export async function validateProjectPath(rawPath: string): Promise<string | nul
  */
 export function isUnderAllowedRoot(absPath: string): boolean {
   for (const root of ALLOWED_ROOTS()) {
-    // path.relative(root, target): if target is under root,
-    // the result won't start with '..'
-    const rel = relative(root, absPath);
-    if (rel === '' || (!rel.startsWith('..') && !rel.startsWith('/'))) {
-      return true;
-    }
+    if (isPathWithinRoot(root, absPath)) return true;
   }
   return false;
 }

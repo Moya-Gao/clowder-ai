@@ -31,9 +31,9 @@ describe('execPickDirectory()', () => {
 });
 
 describe('POST /api/projects/pick-directory', () => {
-  it('returns 401 without identity header', async () => {
+  it('returns 401 when only a spoofed userId query param is provided', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: '/api/projects/pick-directory' });
+    const res = await app.inject({ method: 'POST', url: '/api/projects/pick-directory?userId=spoofed' });
     assert.equal(res.statusCode, 401);
     const body = JSON.parse(res.body);
     assert.ok(body.error.includes('Identity required'));
@@ -92,9 +92,17 @@ describe('POST /api/projects/pick-directory', () => {
 });
 
 describe('GET /api/projects/browse (F113 cross-platform)', () => {
+  it('returns 401 when only a spoofed userId query param is provided', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'GET', url: '/api/projects/browse?userId=spoofed' });
+    assert.equal(res.statusCode, 401);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error.includes('Identity required'));
+  });
+
   it('returns home directory listing by default', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: '/api/projects/browse' });
+    const res = await app.inject({ method: 'GET', url: '/api/projects/browse', headers: AUTH_HEADERS });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
     assert.equal(body.current, homedir());
@@ -112,7 +120,11 @@ describe('GET /api/projects/browse (F113 cross-platform)', () => {
 
   it('returns parent path for navigation', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/projects/browse?path=${encodeURIComponent(homedir())}` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/projects/browse?path=${encodeURIComponent(homedir())}`,
+      headers: AUTH_HEADERS,
+    });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
     // Home should have a parent (e.g., /Users on macOS, /home on Linux)
@@ -122,7 +134,11 @@ describe('GET /api/projects/browse (F113 cross-platform)', () => {
 
   it('returns 403 for path outside allowed roots', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: '/api/projects/browse?path=/nonexistent/evil' });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/projects/browse?path=/nonexistent/evil',
+      headers: AUTH_HEADERS,
+    });
     assert.equal(res.statusCode, 403);
     const body = JSON.parse(res.body);
     assert.ok(body.error);
@@ -130,7 +146,11 @@ describe('GET /api/projects/browse (F113 cross-platform)', () => {
 
   it('filters out hidden directories and node_modules', async () => {
     const app = await buildApp();
-    const res = await app.inject({ method: 'GET', url: `/api/projects/browse?path=${encodeURIComponent(homedir())}` });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/projects/browse?path=${encodeURIComponent(homedir())}`,
+      headers: AUTH_HEADERS,
+    });
     const body = JSON.parse(res.body);
     for (const entry of body.entries) {
       assert.ok(!entry.name.startsWith('.'), `should hide: ${entry.name}`);

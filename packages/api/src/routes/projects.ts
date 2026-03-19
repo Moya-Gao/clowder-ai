@@ -8,9 +8,9 @@
 import { readdir, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { getAllowedRoots, isUnderAllowedRoot, validateProjectPath } from '../utils/project-path.js';
-import { resolveUserId } from '../utils/request-identity.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 export type PickDirectoryResult =
   | { status: 'picked'; path: string }
@@ -39,6 +39,15 @@ export interface ProjectEntry {
   isDirectory: boolean;
 }
 
+function requireTrustedProjectIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
+  const userId = resolveHeaderUserId(request);
+  if (!userId) {
+    reply.status(401);
+    return null;
+  }
+  return userId;
+}
+
 export const projectsRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/projects/cwd - return server's working directory
   app.get('/api/projects/cwd', async () => {
@@ -48,10 +57,8 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/projects/pick-directory - open native macOS folder picker
   app.post('/api/projects/pick-directory', async (request, reply) => {
-    const userId = resolveUserId(request);
-    if (!userId) {
-      reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    if (!requireTrustedProjectIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
     const result = await _pickDirectoryImpl();
     if (result.status === 'cancelled') {
@@ -76,6 +83,9 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/projects/complete?prefix=src/comp&cwd=/path/to/project&limit=10
   app.get('/api/projects/complete', async (request, reply) => {
+    if (!requireTrustedProjectIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+    }
     const query = request.query as { prefix?: string; cwd?: string; limit?: string };
     if (!query.prefix && query.prefix !== '') {
       reply.status(400);
@@ -136,6 +146,9 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/projects/browse?path=/some/dir - list subdirectories
   app.get('/api/projects/browse', async (request, reply) => {
+    if (!requireTrustedProjectIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+    }
     const query = request.query as { path?: string };
     const targetPath = query.path || homedir();
 
