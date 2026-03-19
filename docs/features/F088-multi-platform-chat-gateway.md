@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> **Status**: Phase 1-6+A+B+C+E done, Phase D in-progress | **Owner**: 布偶猫
+> **Status**: Phase 1-6+A+B+C+D+E done | **Owner**: 布偶猫
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
 > Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 
@@ -55,7 +55,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **B** | IM 命令集 `/new /threads /use /where` + deep link | ✅ | #349 |
 | **4** | 消息编辑模拟流式（placeholder → edits → final） | ✅ | [#350](https://github.com/zts212653/cat-cafe/pull/350) |
 | **C** | 架构归一：命令管道统一 + 跨平台 thread | ✅ | [#353](https://github.com/zts212653/cat-cafe/pull/353) |
-| **D** | `/use` 模糊匹配：feat号 + title关键词 + 列表序号 | 🚧 in-progress | — |
+| **D** | `/use` 模糊匹配：feat号 + title关键词 + 列表序号 | ✅ | [#355](https://github.com/zts212653/cat-cafe/pull/355) |
 | **5** | 图片/文件收发（双向） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
 | **6** | 语音消息（STT/TTS） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
 | **E** | 飞书卡片身份标识：所有回复走 interactive card + 猫名头部，消除多猫气泡合并 | ✅ | [#389](https://github.com/zts212653/cat-cafe/pull/389) |
@@ -68,7 +68,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 
 ## Acceptance Criteria
 
-- [x] AC-A1: Phase 1-6+A+B+C 已交付，Phase D 进行中（详见 `assets/F088/acceptance-criteria.md`）
+- [x] AC-A1: Phase 1-6+A+B+C+D+E 已交付（详见 `assets/F088/acceptance-criteria.md`）
 
 ## MVP Scope 硬边界
 
@@ -109,7 +109,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-6**: `/thread` 命令缺失 — 用户发 `/thread <id> <msg>` 想路由消息到指定 thread，但 CommandLayer 不识别，静默 fallthrough 当普通消息投递给当前 session。**✅ PR #542 修复**。
 - **ISSUE-7**: `/threads` 列表 shortId 全部显示 `[thread_m]` — `slice(0,8)` 截断后 `thread_` 前缀相同导致无区分度。**✅ PR #542 修复**。
 - **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**提议**：引入 IM Hub thread（控制面），所有 `/命令` 在 hub 处理和存档，对话 thread 只存对话。待设计。
-- **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 修复**：per-cat outbound delivery，每只猫各自 deliver 一次。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属。
+- **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 + #551 修复**：per-cat outbound delivery → per-turn ordered delivery（outboundTurns[] 替代 perCatContent Map），A→B→A ping-pong 正确分发 3 条独立消息。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属、turn boundary 检测。
 
 ## Open Questions (resolved)
 
@@ -130,6 +130,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-11 | Phase E merged: 飞书多猫卡片身份标识 ISSUE-5 fix (PR #389) |
 | 2026-03-17 | ISSUE-6/7 fix: `/thread` command + full thread ID display (PR #542) |
 | 2026-03-18 | ISSUE-9 fix: per-cat outbound delivery for multi-cat A2A responses (PR #545) |
+| 2026-03-18 | ISSUE-9 fix v2: per-turn ordered delivery — outboundTurns[] replaces perCatContent Map (PR #551) |
 
 ## 参考文件
 
