@@ -9,7 +9,7 @@
  * playable without requiring full LLM integration.
  */
 
-import type { GameAction, GameRuntime, SeatId } from '@cat-cafe/shared';
+import type { GameAction, GameRuntime, Seat, SeatId } from '@cat-cafe/shared';
 import type { IGameStore } from '../stores/ports/GameStore.js';
 import type { GameOrchestrator } from './GameOrchestrator.js';
 
@@ -29,8 +29,11 @@ const PHASE_ACTION_MAP: Record<string, { actionName: string; actingRole: string 
   day_hunter: { actionName: 'shoot', actingRole: 'hunter' },
 };
 
-/** Resolve phases and announce phases need no player action */
-const SKIP_PHASES = new Set(['night_resolve', 'day_announce', 'day_last_words', 'day_exile', 'day_pk', 'lobby']);
+/** Phases that resolve instantly — no player action, no delay */
+const SKIP_PHASES = new Set(['night_resolve', 'day_pk', 'lobby']);
+
+/** Phases that tick through after a brief pause — shows announcements before advancing */
+const ANNOUNCE_PHASES = new Set(['day_announce', 'day_last_words', 'day_exile']);
 
 export class GameAutoPlayer {
   private readonly store: IGameStore;
@@ -133,6 +136,12 @@ export class GameAutoPlayer {
         continue;
       }
 
+      if (ANNOUNCE_PHASES.has(runtime.currentPhase)) {
+        await this.orchestrator.tick(gameId);
+        await sleep(GameAutoPlayer.TICK_MS * 2, signal);
+        continue;
+      }
+
       const acted = await this.actForPhase(runtime);
       if (acted) {
         console.log(
@@ -232,13 +241,29 @@ export class GameAutoPlayer {
       }
 
       case 'speak': {
-        // Discussion: submit a speak action (no target needed)
-        return { seatId, actionName: 'speak', submittedAt: now };
+        // H2: Template speech — generate placeholder text until AI bridge (H3/H4)
+        const speechText = this.generateTemplateSpeech(runtime, seat, seatId);
+        return { seatId, actionName: 'speak', params: { speechText }, submittedAt: now };
       }
 
       default:
         return null;
     }
+  }
+  /** H2: Generate template speech text for a cat seat.
+   *  Will be replaced by LLM in Phase H3/H4. */
+  private generateTemplateSpeech(runtime: GameRuntime, seat: Seat, seatId: SeatId): string {
+    const actorId = seat.actorId;
+    const aliveOthers = runtime.seats.filter((s) => s.alive && s.seatId !== seatId);
+    const suspect = aliveOthers.length > 0 ? pickRandom(aliveOthers) : null;
+
+    const templates = [
+      `我是${actorId}，目前没有特殊信息可以分享。`,
+      `我觉得${suspect ? suspect.seatId : '某人'}有嫌疑，大家注意一下。`,
+      `昨晚没什么特别的发现，先听听其他人的看法。`,
+      `我建议大家冷静分析，不要被情绪左右投票。`,
+    ];
+    return templates[Math.floor(Math.random() * templates.length)]!;
   }
 }
 

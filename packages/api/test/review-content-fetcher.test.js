@@ -74,9 +74,7 @@ describe('extractSeverityFindings', () => {
   });
 
   it('matches lowercase p1/p2 (case-insensitive, 砚砚 P2)', () => {
-    const findings = extractSeverityFindings([
-      { text: 'found a p1 issue and a p2 nit', source: 'review_body' },
-    ]);
+    const findings = extractSeverityFindings([{ text: 'found a p1 issue and a p2 nit', source: 'review_body' }]);
     assert.strictEqual(findings.length, 2);
     assert.strictEqual(findings[0].severity, 'P1', 'should normalize to uppercase');
     assert.strictEqual(findings[1].severity, 'P2');

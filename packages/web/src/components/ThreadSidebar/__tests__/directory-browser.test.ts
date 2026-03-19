@@ -92,10 +92,14 @@ describe('DirectoryBrowser', () => {
   it('fetches home directory on mount and shows entries', async () => {
     mockApiFetch.mockReturnValue(
       jsonOk(
-        makeBrowseResult(HOME, [
-          { name: 'projects', path: `${HOME}/projects` },
-          { name: 'Documents', path: `${HOME}/Documents` },
-        ], null),
+        makeBrowseResult(
+          HOME,
+          [
+            { name: 'projects', path: `${HOME}/projects` },
+            { name: 'Documents', path: `${HOME}/Documents` },
+          ],
+          null,
+        ),
       ),
     );
     render();
@@ -112,11 +116,7 @@ describe('DirectoryBrowser', () => {
   it('navigates into a subdirectory when clicking a folder row', async () => {
     // Initial: home
     mockApiFetch.mockReturnValueOnce(
-      jsonOk(
-        makeBrowseResult(HOME, [
-          { name: 'projects', path: `${HOME}/projects` },
-        ], null),
-      ),
+      jsonOk(makeBrowseResult(HOME, [{ name: 'projects', path: `${HOME}/projects` }], null)),
     );
     render();
     await flush();
@@ -164,10 +164,14 @@ describe('DirectoryBrowser', () => {
     // Click "Home" breadcrumb to go back to home
     mockApiFetch.mockReturnValueOnce(
       jsonOk(
-        makeBrowseResult(HOME, [
-          { name: 'projects', path: `${HOME}/projects` },
-          { name: 'Desktop', path: `${HOME}/Desktop` },
-        ], null),
+        makeBrowseResult(
+          HOME,
+          [
+            { name: 'projects', path: `${HOME}/projects` },
+            { name: 'Desktop', path: `${HOME}/Desktop` },
+          ],
+          null,
+        ),
       ),
     );
     const homeBtn = findButtonByText('Home');
@@ -195,11 +199,7 @@ describe('DirectoryBrowser', () => {
 
     // Click "projects" breadcrumb (mid-level)
     mockApiFetch.mockReturnValueOnce(
-      jsonOk(
-        makeBrowseResult(`${HOME}/projects`, [
-          { name: 'cat-cafe', path: `${HOME}/projects/cat-cafe` },
-        ]),
-      ),
+      jsonOk(makeBrowseResult(`${HOME}/projects`, [{ name: 'cat-cafe', path: `${HOME}/projects/cat-cafe` }])),
     );
     const projectsBtn = findButtonByText('projects');
     expect(projectsBtn).toBeTruthy();
@@ -208,17 +208,13 @@ describe('DirectoryBrowser', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      `/api/projects/browse?path=${encodeURIComponent(`${HOME}/projects`)}`,
-    );
+    expect(mockApiFetch).toHaveBeenCalledWith(`/api/projects/browse?path=${encodeURIComponent(`${HOME}/projects`)}`);
   });
 
   // ── Select and cancel ─────────────────────────────────
 
   it('calls onSelect with current path when "选择此目录" is clicked', async () => {
-    mockApiFetch.mockReturnValueOnce(
-      jsonOk(makeBrowseResult(`${HOME}/projects`, [], HOME)),
-    );
+    mockApiFetch.mockReturnValueOnce(jsonOk(makeBrowseResult(`${HOME}/projects`, [], HOME)));
     const fns = render({ initialPath: `${HOME}/projects` });
     await flush();
 
@@ -232,9 +228,7 @@ describe('DirectoryBrowser', () => {
   });
 
   it('calls onCancel when "取消" is clicked', async () => {
-    mockApiFetch.mockReturnValueOnce(
-      jsonOk(makeBrowseResult(HOME, [], null)),
-    );
+    mockApiFetch.mockReturnValueOnce(jsonOk(makeBrowseResult(HOME, [], null)));
     const fns = render();
     await flush();
 
@@ -278,9 +272,7 @@ describe('DirectoryBrowser', () => {
   // ── Empty directory ───────────────────────────────────
 
   it('shows "No subdirectories" for empty directory', async () => {
-    mockApiFetch.mockReturnValueOnce(
-      jsonOk(makeBrowseResult(`${HOME}/empty`, [])),
-    );
+    mockApiFetch.mockReturnValueOnce(jsonOk(makeBrowseResult(`${HOME}/empty`, [])));
     render({ initialPath: `${HOME}/empty` });
     await flush();
 
@@ -323,9 +315,7 @@ describe('DirectoryBrowser', () => {
     const input = container.querySelector('input[type="text"]') as HTMLInputElement;
     expect(input).toBeTruthy();
 
-    mockApiFetch.mockReturnValueOnce(
-      jsonOk(makeBrowseResult('/tmp/test', [{ name: 'data', path: '/tmp/test/data' }])),
-    );
+    mockApiFetch.mockReturnValueOnce(jsonOk(makeBrowseResult('/tmp/test', [{ name: 'data', path: '/tmp/test/data' }])));
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
       setter.call(input, '/tmp/test');
@@ -376,7 +366,9 @@ describe('DirectoryBrowser', () => {
     const selectBtn = findButtonByText('选择此目录');
     expect(selectBtn).toBeTruthy();
     expect(selectBtn!.disabled).toBe(false);
-    act(() => { selectBtn!.click(); });
+    act(() => {
+      selectBtn!.click();
+    });
     expect(fns.onSelect).toHaveBeenCalledWith(`${HOME}/projects`);
   });
 

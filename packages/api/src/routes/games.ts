@@ -123,7 +123,7 @@ const gameStartSchema = z.object({
 
 export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opts) => {
   const { gameStore, socketManager, threadStore, messageStore } = opts;
-  const orchestrator = new GameOrchestrator({ gameStore, socketManager });
+  const orchestrator = new GameOrchestrator({ gameStore, socketManager, messageStore });
   const autoPlayer = opts.autoPlayer ?? new GameAutoPlayer({ gameStore, orchestrator });
 
   app.addHook('onClose', async () => {
@@ -211,7 +211,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
           humanRole,
           ...(humanRole === 'player' ? { humanSeat: 'P1' as const } : {}),
           ...(resolvedDetectiveSeatId ? { detectiveSeatId: resolvedDetectiveSeatId } : {}),
-          ...(humanRole !== 'player' ? { observerUserId: userId } : {}),
+          observerUserId: userId, // H2 fix: always set — messageStore dual-write needs userId for thread visibility
         },
       });
     } catch (err: unknown) {

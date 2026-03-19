@@ -634,10 +634,12 @@ describe('QueueProcessor', () => {
       await new Promise((r) => setTimeout(r, 50));
 
       // executeEntry must NOT have been called
-      assert.equal(deps.invocationTracker.start.mock.calls.length, 0,
-        'must not call executeEntry (tracker.start not called)');
-      assert.equal(deps.router.routeExecution.mock.calls.length, 0,
-        'must not call routeExecution');
+      assert.equal(
+        deps.invocationTracker.start.mock.calls.length,
+        0,
+        'must not call executeEntry (tracker.start not called)',
+      );
+      assert.equal(deps.router.routeExecution.mock.calls.length, 0, 'must not call routeExecution');
 
       // Entry must be rolled back to queued (not stuck as processing)
       const queue = deps.queue.list('t1', 'u1');
@@ -658,10 +660,12 @@ describe('QueueProcessor', () => {
 
       assert.equal(result.started, false, 'must not start when tracker has active invocation');
       // executeEntry must NOT have been called
-      assert.equal(deps.invocationTracker.start.mock.calls.length, 0,
-        'must not call executeEntry (tracker.start not called)');
-      assert.equal(deps.router.routeExecution.mock.calls.length, 0,
-        'must not call routeExecution');
+      assert.equal(
+        deps.invocationTracker.start.mock.calls.length,
+        0,
+        'must not call executeEntry (tracker.start not called)',
+      );
+      assert.equal(deps.router.routeExecution.mock.calls.length, 0, 'must not call routeExecution');
 
       // Entry must still be queued (never marked processing since guard fires before markProcessing)
       const queue = deps.queue.list('t1', 'u1');

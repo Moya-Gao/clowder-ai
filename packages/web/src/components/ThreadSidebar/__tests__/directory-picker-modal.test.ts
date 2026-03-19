@@ -168,7 +168,9 @@ describe('DirectoryPickerModal', () => {
     setupCwdSuccess();
     render();
     await flush();
-    const browseBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('浏览文件夹'));
+    const browseBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('浏览文件夹'),
+    );
     expect(browseBtn).toBeTruthy();
   });
 

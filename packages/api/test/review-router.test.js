@@ -690,7 +690,9 @@ describe('ReviewRouter', () => {
       const mockFetcher = {
         async fetch() {
           return {
-            findings: [{ severity: 'P1', excerpt: 'race condition in flush', source: 'inline_comment', path: 'src/x.ts' }],
+            findings: [
+              { severity: 'P1', excerpt: 'race condition in flush', source: 'inline_comment', path: 'src/x.ts' },
+            ],
             maxSeverity: 'P1',
             fetchFailed: false,
           };

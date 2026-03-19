@@ -312,8 +312,9 @@ test('pickGitBashPathFromWhere accepts nonstandard bash.exe locations returned b
     'C:\\Program Files\\Git\\bin\\bash.exe',
   ].join('\r\n');
 
-  const resolved = pickGitBashPathFromWhere(whereOutput, (candidate) =>
-    candidate === 'C:\\Users\\lang\\scoop\\apps\\git\\current\\bin\\bash.exe',
+  const resolved = pickGitBashPathFromWhere(
+    whereOutput,
+    (candidate) => candidate === 'C:\\Users\\lang\\scoop\\apps\\git\\current\\bin\\bash.exe',
   );
 
   assert.equal(resolved, 'C:\\Users\\lang\\scoop\\apps\\git\\current\\bin\\bash.exe');
@@ -325,9 +326,11 @@ test('pickGitBashPathFromWhere skips System32 bash.exe when a Git Bash candidate
     'C:\\Users\\lang\\scoop\\apps\\git\\current\\bin\\bash.exe',
   ].join('\r\n');
 
-  const resolved = pickGitBashPathFromWhere(whereOutput, (candidate) =>
-    candidate === 'C:\\Windows\\System32\\bash.exe' ||
-    candidate === 'C:\\Users\\lang\\scoop\\apps\\git\\current\\bin\\bash.exe',
+  const resolved = pickGitBashPathFromWhere(
+    whereOutput,
+    (candidate) =>
+      candidate === 'C:\\Windows\\System32\\bash.exe' ||
+      candidate === 'C:\\Users\\lang\\scoop\\apps\\git\\current\\bin\\bash.exe',
   );
 
   assert.equal(resolved, 'C:\\Users\\lang\\scoop\\apps\\git\\current\\bin\\bash.exe');

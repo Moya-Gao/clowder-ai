@@ -205,13 +205,7 @@ export class GhCliReviewContentFetcher implements IReviewContentFetcher {
   private async fetchRawReviews(repo: string, prNumber: number): Promise<RawReview[]> {
     const { stdout } = await execFileAsync(
       'gh',
-      [
-        'api',
-        '--paginate',
-        `repos/${repo}/pulls/${prNumber}/reviews`,
-        '--jq',
-        '.[] | {body, submitted_at} | @json',
-      ],
+      ['api', '--paginate', `repos/${repo}/pulls/${prNumber}/reviews`, '--jq', '.[] | {body, submitted_at} | @json'],
       { timeout: GH_TIMEOUT_MS },
     );
     if (!stdout.trim()) return [];
