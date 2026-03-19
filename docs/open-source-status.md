@@ -22,8 +22,9 @@ created: 2026-03-12
   - public docs/export 脚本
 - `clowder-ai` 已同步代码、skills、公开 docs、治理文件
 - `clowder-ai` 本地可启动：
-  - API: `3003`
-  - Frontend: `3004`
+  - Frontend: `3003`
+  - API: `3004`
+  - Redis: `6399`
   - memory mode 可用
 - `clowder-ai` 当前门禁状态：
   - `pnpm install --frozen-lockfile` ✅

@@ -2,29 +2,116 @@
  * Project Directory Browser Routes
  * GET /api/projects/browse        - 浏览目录结构
  * GET /api/projects/cwd           - 获取服务器工作目录
- * POST /api/projects/pick-directory - (deprecated, use browse instead)
+ * POST /api/projects/pick-directory - 打开系统原生文件选择器
  */
 
-import { readdir, realpath } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, dirname, resolve } from 'node:path';
+import { basename, posix, resolve, win32 } from 'node:path';
+import { promisify } from 'node:util';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { getAllowedRoots, isUnderAllowedRoot, validateProjectPath } from '../utils/project-path.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
+
+const execFileAsync = promisify(execFile);
+
+const WINDOWS_PICK_DIRECTORY_SCRIPT = [
+  'Add-Type -AssemblyName System.Windows.Forms',
+  '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
+  '$dialog.ShowNewFolderButton = $false',
+  '$dialog.Description = "Select project directory"',
+  'if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {',
+  '  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
+  '  Write-Output $dialog.SelectedPath',
+  '}',
+].join('; ');
 
 export type PickDirectoryResult =
   | { status: 'picked'; path: string }
   | { status: 'cancelled' }
   | { status: 'error'; message: string };
 
+export interface NativeDirectoryPickerCommand {
+  command: string;
+  args: string[];
+}
+
+export function normalizePickedDirectoryPath(rawPath: string): string {
+  const trimmed = rawPath.trim();
+  if (/^[A-Za-z]:[\\/]?$/.test(trimmed)) {
+    return `${trimmed[0]}:\\`;
+  }
+  return trimmed.replace(/[\\/]$/, '');
+}
+
+export function getPickDirectoryCommand(platformName = process.platform): NativeDirectoryPickerCommand | null {
+  switch (platformName) {
+    case 'darwin':
+      return { command: 'osascript', args: ['-e', 'POSIX path of (choose folder)'] };
+    case 'win32':
+      return {
+        command: 'powershell.exe',
+        args: ['-NoProfile', '-STA', '-Command', WINDOWS_PICK_DIRECTORY_SCRIPT],
+      };
+    default:
+      return null;
+  }
+}
+
+function getPathApi(platformName = process.platform) {
+  return platformName === 'win32' ? win32 : posix;
+}
+
+export function splitProjectCompletePrefix(
+  prefix: string,
+  cwd: string,
+  platformName = process.platform,
+): { parentDir: string; fragment: string } {
+  const pathApi = getPathApi(platformName);
+  const expandedPrefix =
+    prefix.startsWith('~/') || (platformName === 'win32' && prefix.startsWith('~\\'))
+      ? homedir() + prefix.slice(1)
+      : prefix;
+  const absPrefix = pathApi.resolve(cwd, expandedPrefix);
+  const hasTrailingSeparator = platformName === 'win32' ? /[\\/]$/.test(prefix) : prefix.endsWith('/');
+  return {
+    parentDir: hasTrailingSeparator ? absPrefix : pathApi.dirname(absPrefix),
+    fragment: hasTrailingSeparator ? '' : pathApi.basename(absPrefix),
+  };
+}
+
+export function getProjectBrowseParent(validatedPath: string, platformName = process.platform): string | null {
+  const pathApi = getPathApi(platformName);
+  const parent = pathApi.dirname(validatedPath);
+  return parent === validatedPath ? null : parent;
+}
+
 /**
- * F113: Deprecated — previously used macOS osascript to open native folder picker.
- * The frontend now uses the web-based DirectoryBrowser (GET /api/projects/browse).
- * This function is kept for backward compatibility but returns an error directing
- * clients to use the browse endpoint instead.
+ * Shell out to the host OS native folder picker.
+ * Returns a discriminated result: picked / cancelled / error.
  */
 export async function execPickDirectory(): Promise<PickDirectoryResult> {
-  return { status: 'error', message: 'Native picker unavailable. Use GET /api/projects/browse instead.' };
+  const picker = getPickDirectoryCommand();
+  if (!picker) {
+    return {
+      status: 'error',
+      message: `Native directory picker is not supported on ${process.platform}. Enter the project path manually.`,
+    };
+  }
+
+  try {
+    const { stdout } = await execFileAsync(picker.command, picker.args, { timeout: 120_000 });
+    const picked = normalizePickedDirectoryPath(stdout);
+    if (!picked) return { status: 'cancelled' };
+    const pickedStat = await stat(picked);
+    if (!pickedStat.isDirectory()) return { status: 'error', message: 'Selected path is not a directory' };
+    return { status: 'picked', path: picked };
+  } catch (err: unknown) {
+    const stderr = String((err as { stderr?: unknown }).stderr ?? '');
+    if (stderr.includes('User canceled')) return { status: 'cancelled' };
+    return { status: 'error', message: stderr || (err instanceof Error ? err.message : 'Unknown error') };
+  }
 }
 
 /** Swappable reference for testing — route calls this instead of execPickDirectory directly */
@@ -55,7 +142,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     return { path: cwd, name: basename(cwd) };
   });
 
-  // POST /api/projects/pick-directory - open native macOS folder picker
+  // POST /api/projects/pick-directory - open native folder picker
   app.post('/api/projects/pick-directory', async (request, reply) => {
     if (!requireTrustedProjectIdentity(request, reply)) {
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
@@ -94,14 +181,8 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     const prefix = query.prefix;
     const limit = Math.min(Math.max(parseInt(query.limit || '10', 10) || 10, 1), 50);
 
-    // Resolve prefix: expand ~ to homedir, then resolve relative paths
     const cwd = query.cwd || process.cwd();
-    const expandedPrefix = prefix.startsWith('~/') ? homedir() + prefix.slice(1) : prefix;
-    const absPrefix = resolve(cwd, expandedPrefix);
-
-    // Split into parent directory + name fragment
-    const parentDir = prefix.endsWith('/') ? absPrefix : dirname(absPrefix);
-    const fragment = prefix.endsWith('/') ? '' : basename(absPrefix);
+    const { parentDir, fragment } = splitProjectCompletePrefix(prefix, cwd);
 
     // Validate parent directory
     const validatedParent = await validateProjectPath(parentDir);
@@ -183,10 +264,8 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       // Sort alphabetically
       dirs.sort((a, b) => a.name.localeCompare(b.name));
 
-      // Compute parent — use path.dirname() for cross-platform separator handling
-      const parentDir = dirname(validatedPath);
-      const isAtRoot = parentDir === validatedPath; // dirname('/') === '/'
-      const canGoUp = !isAtRoot && isUnderAllowedRoot(parentDir);
+      const parentDir = getProjectBrowseParent(validatedPath);
+      const canGoUp = parentDir !== null && isUnderAllowedRoot(parentDir);
 
       return {
         current: validatedPath,

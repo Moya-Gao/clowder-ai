@@ -710,6 +710,36 @@ if [ -f "$FILTERED_DIR/scripts/setup.sh" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
+# 3k-3a2b: Windows install/start/stop scripts — public ports + Redis standard
+if [ -f "$FILTERED_DIR/scripts/install.ps1" ]; then
+  sedi \
+    -e 's/FRONTEND_PORT=3001/FRONTEND_PORT=3003/g' \
+    -e 's/API_SERVER_PORT=3002/API_SERVER_PORT=3004/g' \
+    -e 's#NEXT_PUBLIC_API_URL=http://localhost:3002#NEXT_PUBLIC_API_URL=http://localhost:3004#g' \
+    -e 's/\$frontendPort = "3001"/$frontendPort = "3003"/g' \
+    "$FILTERED_DIR/scripts/install.ps1"
+  echo "  ✓ install.ps1 (public API/frontend ports)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+if [ -f "$FILTERED_DIR/scripts/start-windows.ps1" ]; then
+  sedi \
+    -e 's/else { "3002" }/else { "3004" }/g' \
+    -e 's/else { "3001" }/else { "3003" }/g' \
+    "$FILTERED_DIR/scripts/start-windows.ps1"
+  echo "  ✓ start-windows.ps1 (public API/frontend ports)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+if [ -f "$FILTERED_DIR/scripts/stop-windows.ps1" ]; then
+  sedi \
+    -e 's/\$ApiPort = 3002/$ApiPort = 3004/g' \
+    -e 's/\$WebPort = 3001/$WebPort = 3003/g' \
+    "$FILTERED_DIR/scripts/stop-windows.ps1"
+  echo "  ✓ stop-windows.ps1 (public API/frontend ports)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 # 3k-3a3: runtime-worktree.sh — API port default 3002→3004
 if [ -f "$FILTERED_DIR/scripts/runtime-worktree.sh" ]; then
   sedi \

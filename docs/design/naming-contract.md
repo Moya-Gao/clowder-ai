@@ -40,7 +40,7 @@
 - CONTRIBUTING.md, SETUP.md → 替换为开源版
 - CLAUDE.md, AGENTS.md, GEMINI.md → 生成通用版
 - cat-config.json → 脱敏版
-- 端口映射 3001/3002 → 3004/3003
+- 端口映射 3001/3002 → 3003/3004
 - Redis 端口：不转换，开源仓也用 6399/6398
 - 个人信息脱敏（Landy → Owner 等）
 - 内部路径/猫名通用化（docs 层）

@@ -9,6 +9,7 @@
  * Convention (set by _sanitize-rules.pl + sync-to-opensource.sh):
  *   Home:        API=3002, Frontend=3001
  *   Open-source: API=3004, Frontend=3003
+ *   Redis:       stays 6399 in both repos
  *   (API = Frontend + 1 in both environments)
  */
 import assert from 'node:assert/strict';
@@ -47,6 +48,12 @@ function readScriptFallback(relPath, varName) {
 }
 
 function readTsFallback(relPath, pattern) {
+  const content = readFileSync(resolve(ROOT, relPath), 'utf-8');
+  const m = content.match(pattern);
+  return m ? m[1] : null;
+}
+
+function readPowerShellFallback(relPath, pattern) {
   const content = readFileSync(resolve(ROOT, relPath), 'utf-8');
   const m = content.match(pattern);
   return m ? m[1] : null;
@@ -96,6 +103,18 @@ describe(
       );
     });
 
+    it('REDIS_PORT stays on 6399', () => {
+      assert.equal(env.REDIS_PORT, '6399', `REDIS_PORT should stay 6399, got ${env.REDIS_PORT}`);
+    });
+
+    it('REDIS_URL stays on localhost:6399', () => {
+      assert.equal(
+        env.REDIS_URL,
+        'redis://localhost:6399',
+        `REDIS_URL should stay on localhost:6399, got ${env.REDIS_URL}`,
+      );
+    });
+
     it('.env.example.opensource comment header documents correct ports', () => {
       const content = readFileSync(resolve(ROOT, '.env.example.opensource'), 'utf-8');
       // The comment should say Frontend=3003, API=3004
@@ -107,8 +126,8 @@ describe(
   },
 );
 
-// In the home repo (cat-cafe), code defaults are 3002/3001.
-// In the open-source repo (clowder-ai), sync transforms them to 3004/3003.
+// In the home repo (cat-cafe), code defaults are API=3002 / Frontend=3001.
+// In the open-source repo (clowder-ai), sync transforms them to Frontend=3003 / API=3004.
 const expectedApiPort = isHomeRepo ? '3002' : '3004';
 const expectedFrontendPort = isHomeRepo ? '3001' : '3003';
 const repoLabel = isHomeRepo ? 'home' : 'open-source';
@@ -214,6 +233,94 @@ describe(`Code-side port defaults are internally consistent (${repoLabel}: API=$
       `AgentRouter.ts API fallback should be ${expectedApiPort}, got ${fallback}`,
     );
   });
+
+  it(`start-windows.ps1 API fallback is ${expectedApiPort}`, () => {
+    const fallback = readPowerShellFallback(
+      'scripts/start-windows.ps1',
+      /\$ApiPort = if \(\$env:API_SERVER_PORT\) \{ \$env:API_SERVER_PORT \} else \{ "(\d+)" \}/,
+    );
+    assert.equal(
+      fallback,
+      expectedApiPort,
+      `start-windows.ps1 API fallback should be ${expectedApiPort}, got ${fallback}`,
+    );
+  });
+
+  it(`start-windows.ps1 Frontend fallback is ${expectedFrontendPort}`, () => {
+    const fallback = readPowerShellFallback(
+      'scripts/start-windows.ps1',
+      /\$WebPort = if \(\$env:FRONTEND_PORT\) \{ \$env:FRONTEND_PORT \} else \{ "(\d+)" \}/,
+    );
+    assert.equal(
+      fallback,
+      expectedFrontendPort,
+      `start-windows.ps1 Frontend fallback should be ${expectedFrontendPort}, got ${fallback}`,
+    );
+  });
+
+  it('start-windows.ps1 Redis fallback uses repo-local default', () => {
+    const fallback = readPowerShellFallback(
+      'scripts/start-windows.ps1',
+      /\$RedisPort = if \(\$env:REDIS_PORT\) \{ \$env:REDIS_PORT \} else \{ "(\d+)" \}/,
+    );
+    assert.equal(fallback, '6399');
+  });
+
+  it(`stop-windows.ps1 API fallback is ${expectedApiPort}`, () => {
+    const fallback = readPowerShellFallback('scripts/stop-windows.ps1', /\$ApiPort = (\d+)/);
+    assert.equal(
+      fallback,
+      expectedApiPort,
+      `stop-windows.ps1 API fallback should be ${expectedApiPort}, got ${fallback}`,
+    );
+  });
+
+  it(`stop-windows.ps1 Frontend fallback is ${expectedFrontendPort}`, () => {
+    const fallback = readPowerShellFallback('scripts/stop-windows.ps1', /\$WebPort = (\d+)/);
+    assert.equal(
+      fallback,
+      expectedFrontendPort,
+      `stop-windows.ps1 Frontend fallback should be ${expectedFrontendPort}, got ${fallback}`,
+    );
+  });
+
+  it('stop-windows.ps1 Redis fallback uses repo-local default', () => {
+    const fallback = readPowerShellFallback('scripts/stop-windows.ps1', /\$RedisPort = (\d+)/);
+    assert.equal(fallback, '6399');
+  });
+
+  it(`install.ps1 minimal .env fallback uses API ${expectedApiPort} and Frontend ${expectedFrontendPort}`, () => {
+    const content = readFileSync(resolve(ROOT, 'scripts/install.ps1'), 'utf-8');
+    assert.ok(
+      content.includes(`FRONTEND_PORT=${expectedFrontendPort}`),
+      `install.ps1 minimal .env should set FRONTEND_PORT=${expectedFrontendPort}`,
+    );
+    assert.ok(
+      content.includes(`API_SERVER_PORT=${expectedApiPort}`),
+      `install.ps1 minimal .env should set API_SERVER_PORT=${expectedApiPort}`,
+    );
+    assert.ok(
+      content.includes(`NEXT_PUBLIC_API_URL=http://localhost:${expectedApiPort}`),
+      `install.ps1 minimal .env should set NEXT_PUBLIC_API_URL to localhost:${expectedApiPort}`,
+    );
+  });
+
+  it('install.ps1 Redis fallback uses repo-local default', () => {
+    const content = readFileSync(resolve(ROOT, 'scripts/install.ps1'), 'utf-8');
+    assert.ok(content.includes('REDIS_PORT=6399'));
+  });
+
+  it(`install.ps1 post-install open URL fallback uses frontend port ${expectedFrontendPort}`, () => {
+    const fallback = readPowerShellFallback(
+      'scripts/install.ps1',
+      /if \(-not \$frontendPort\) \{ \$frontendPort = "(\d+)" \}/,
+    );
+    assert.equal(
+      fallback,
+      expectedFrontendPort,
+      `install.ps1 final frontend fallback should be ${expectedFrontendPort}, got ${fallback}`,
+    );
+  });
 });
 
 describe(
@@ -270,6 +377,33 @@ describe(
         content.includes("'s/API_SERVER_PORT:-3002/API_SERVER_PORT:-3004/g'"),
         'sync script should transform runtime-worktree.sh API port 3002→3004',
       );
+    });
+
+    it('sync-to-opensource.sh transforms install.ps1 to public defaults', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.ok(content.includes("'s/FRONTEND_PORT=3001/FRONTEND_PORT=3003/g'"));
+      assert.ok(content.includes("'s/API_SERVER_PORT=3002/API_SERVER_PORT=3004/g'"));
+      assert.ok(content.includes('$frontendPort = "3003"'));
+    });
+
+    it('sync-to-opensource.sh transforms start-windows.ps1 API/frontend defaults', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.ok(content.includes('s/else { "3002" }/else { "3004" }/g'));
+      assert.ok(content.includes('s/else { "3001" }/else { "3003" }/g'));
+    });
+
+    it('sync-to-opensource.sh transforms stop-windows.ps1 API/frontend defaults', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.ok(content.includes('s/\\$ApiPort = 3002/$ApiPort = 3004/g'));
+      assert.ok(content.includes('s/\\$WebPort = 3001/$WebPort = 3003/g'));
+    });
+
+    it('sync-to-opensource.sh keeps Windows Redis defaults unchanged', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.ok(!content.includes("'s/REDIS_PORT=6399/REDIS_PORT=6379/g'"));
+      assert.ok(!content.includes('s/else { "6399" }/else { "6379" }/g'));
+      assert.ok(!content.includes('s/\\$RedisPort = 6399/$RedisPort = 6379/g'));
+      assert.ok(!content.includes('s/\\$redisPort = "6399"/$redisPort = "6379"/g'));
     });
 
     it('sync-to-opensource.sh transforms AgentRouter.ts API port to 3004', () => {

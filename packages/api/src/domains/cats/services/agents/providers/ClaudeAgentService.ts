@@ -26,6 +26,7 @@ import type { SpawnFn } from '../../../../../utils/cli-types.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
+import { findGitBashPath } from './claude-agent-win.js';
 import { extractClaudeUsage, isResultErrorEvent, transformClaudeEvent } from './claude-ndjson-parser.js';
 
 const PERMISSION_MODE = 'bypassPermissions';
@@ -50,16 +51,30 @@ function formatThinkingSignatureRescueError(sessionId: string | undefined): stri
   ].join(' ');
 }
 
-function buildClaudeEnvOverrides(callbackEnv?: Record<string, string>): Record<string, string | null> | undefined {
-  if (!callbackEnv) return undefined;
-  const env: Record<string, string | null> = { ...callbackEnv };
-  const mode = callbackEnv[ANTHROPIC_PROFILE_MODE_KEY];
+const IS_WINDOWS = process.platform === 'win32';
+
+export { pickGitBashPathFromWhere } from './claude-agent-win.js';
+
+function buildClaudeEnvOverrides(callbackEnv?: Record<string, string>): Record<string, string | null> {
+  const env: Record<string, string | null> = { ...(callbackEnv ?? {}) };
+
+  env.CLAUDECODE = null;
+  env.CLAUDE_CODE_ENTRYPOINT = null;
+
+  if (IS_WINDOWS) {
+    const gitBash = findGitBashPath();
+    if (gitBash) {
+      env.CLAUDE_CODE_GIT_BASH_PATH = gitBash;
+    }
+  }
+
+  const mode = callbackEnv?.[ANTHROPIC_PROFILE_MODE_KEY];
   if (mode === 'api_key') {
-    const apiKey = callbackEnv[ANTHROPIC_PROFILE_API_KEY]?.trim();
-    const baseUrl = callbackEnv[ANTHROPIC_PROFILE_BASE_URL]?.trim();
+    const apiKey = callbackEnv?.[ANTHROPIC_PROFILE_API_KEY]?.trim();
+    const baseUrl = callbackEnv?.[ANTHROPIC_PROFILE_BASE_URL]?.trim();
     if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
     if (baseUrl) env.ANTHROPIC_BASE_URL = baseUrl;
-  } else {
+  } else if (mode === 'subscription') {
     // Subscription mode: explicitly clear inherited key-based env vars.
     env.ANTHROPIC_API_KEY = null;
     env.ANTHROPIC_BASE_URL = null;
@@ -196,7 +211,7 @@ export class ClaudeAgentService implements AgentService {
         command: 'claude' as const,
         args,
         ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
-        ...(envOverrides ? { env: envOverrides } : {}),
+        env: envOverrides,
         ...(options?.signal ? { signal: options.signal } : {}),
         ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
         ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
