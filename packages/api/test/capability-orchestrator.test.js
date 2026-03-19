@@ -13,7 +13,9 @@ import {
   generateCliConfigs,
   migrateLegacyCatCafeCapability,
   orchestrate,
+  PENCIL_BINARY_SUFFIX,
   readCapabilitiesConfig,
+  resolvePencilBinary,
   resolveServersForCat,
   writeCapabilitiesConfig,
 } from '../dist/config/capabilities/capability-orchestrator.js';
@@ -223,6 +225,37 @@ describe('discoverExternalMcpServers', () => {
 
     assert.equal(servers.length, 1);
     assert.equal(servers[0].name, 'filesystem');
+  });
+});
+
+// ────────── resolvePencilBinary ──────────
+
+describe('resolvePencilBinary', () => {
+  it('PENCIL_BINARY_SUFFIX must not start with / (deterministic regression guard)', () => {
+    assert.ok(
+      !PENCIL_BINARY_SUFFIX.startsWith('/'),
+      `PENCIL_BINARY_SUFFIX is '${PENCIL_BINARY_SUFFIX}' — leading '/' causes path.resolve() to discard all prefix segments`,
+    );
+  });
+
+  it('returns a full path under ~/.antigravity/extensions when Pencil is installed', async () => {
+    const result = await resolvePencilBinary();
+    if (result === null) {
+      // No Pencil installation — skip gracefully (CI / environments without Antigravity)
+      return;
+    }
+    assert.ok(
+      !result.startsWith('/out/'),
+      `resolvePencilBinary() returned '${result}' — looks like PENCIL_BINARY_SUFFIX has a leading '/' that breaks path.resolve()`,
+    );
+    assert.ok(
+      result.includes('.antigravity/extensions'),
+      `resolvePencilBinary() should return a path under ~/.antigravity/extensions, got '${result}'`,
+    );
+    assert.ok(
+      result.includes('/out/mcp-server-'),
+      `resolvePencilBinary() should include the binary suffix, got '${result}'`,
+    );
   });
 });
 

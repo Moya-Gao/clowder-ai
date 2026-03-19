@@ -30,7 +30,8 @@ const CAT_CAFE_DIR = '.cat-cafe';
 
 const PENCIL_EXTENSIONS_DIR = resolve(homedir(), '.antigravity/extensions');
 const PENCIL_DIR_PREFIX = 'highagency.pencildev-';
-const PENCIL_BINARY_SUFFIX = '/out/mcp-server-darwin-arm64';
+/** @internal Exported for testing only */
+export const PENCIL_BINARY_SUFFIX = 'out/mcp-server-darwin-arm64';
 
 /** Provider → CLI config writer mapping */
 const PROVIDER_WRITERS = {
