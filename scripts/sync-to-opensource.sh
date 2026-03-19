@@ -686,14 +686,20 @@ if [ -f "$FILTERED_DIR/packages/api/src/config/env-registry.ts" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3k-3: P1-2 — start-dev.sh: don't kill proxy port when proxy is disabled
+# 3k-3: P1-2 — start-dev.sh: public ports + proxy guard + Redis port remap
 if [ -f "$FILTERED_DIR/scripts/start-dev.sh" ]; then
   sedi \
     -e 's/API_PORT=${API_SERVER_PORT:-3002}/API_PORT=${API_SERVER_PORT:-3003}/g' \
     -e 's/WEB_PORT=${FRONTEND_PORT:-3001}/WEB_PORT=${FRONTEND_PORT:-3004}/g' \
     -e 's/kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/[ "${ANTHROPIC_PROXY_ENABLED:-1}" != "0" ] \&\& kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/g' \
+    -e 's/echo "6399"/echo "6379"/g' \
+    -e 's/echo "6398"/echo "6380"/g' \
+    -e 's/REDIS_PORT" = "6399"/REDIS_PORT" = "6379"/g' \
+    -e 's/Redis 6399 圣域/Redis 6379 (production)/g' \
+    -e 's/6399 只给 runtime\/prod-web 使用。普通开发实例默认应走 6398。/6379 is for runtime\/prod-web only. Dev instances should use 6380./g' \
+    -e 's/REDIS_PORT=6398/REDIS_PORT=6380/g' \
     "$FILTERED_DIR/scripts/start-dev.sh"
-  echo "  ✓ start-dev.sh (public ports + proxy kill guarded)"
+  echo "  ✓ start-dev.sh (public ports + proxy kill guarded + Redis 6399→6379, 6398→6380)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
@@ -705,8 +711,9 @@ if [ -f "$FILTERED_DIR/scripts/setup.sh" ]; then
     -e 's#NEXT_PUBLIC_API_URL=http://localhost:3002#NEXT_PUBLIC_API_URL=http://localhost:3003#g' \
     -e 's#Open http://localhost:3001#Open http://localhost:3004#g' \
     -e 's#打开 http://localhost:3001#打开 http://localhost:3004#g' \
+    -e 's/REDIS_PORT=6399/REDIS_PORT=6379/g' \
     "$FILTERED_DIR/scripts/setup.sh"
-  echo "  ✓ setup.sh (public ports 3003/3004)"
+  echo "  ✓ setup.sh (public ports 3003/3004 + Redis 6399→6379)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
