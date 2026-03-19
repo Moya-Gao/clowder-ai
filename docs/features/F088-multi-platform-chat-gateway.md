@@ -113,7 +113,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-7**: `/threads` 列表 shortId 全部显示 `[thread_m]` — `slice(0,8)` 截断后 `thread_` 前缀相同导致无区分度。**✅ PR #542 修复**。
 - **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**已立项 → Phase G/H/I（三阶段）**：引入 IM Hub thread（控制面/对话面双绑定）。8A 命令隔离（纯控制命令只写 hubThreadId、不触发猫）→ 8B 模糊意图规则分流（无猫，系统卡片让用户选）→ 8C 猫参与 triage（可配置开关，兜底才喊猫）。bindingStore 增加 hubThreadId（懒创建），Web UI 隐藏 Hub thread。设计共识见布偶猫+缅因猫讨论（2026-03-19）。
 - **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 + #551 修复**：per-cat outbound delivery → per-turn ordered delivery（outboundTurns[] 替代 perCatContent Map），A→B→A ping-pong 正确分发 3 条独立消息。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属、turn boundary 检测。
-- **ISSUE-10**: 飞书流式编辑完全不工作 — `StreamingOutboundHook.editMessage` 使用 `im.message.patch` API（只支持更新 interactive 卡片），但 `sendPlaceholder` 发的是 text 类型消息，导致所有编辑调用被飞书 API 拒绝（错误被 `.catch()` 静默吞掉）。用户看到：占位消息 "🤔 思考中..." 出现但从不更新，最终卡片在全部猫回答完后才一起出现。**根因**：Phase 4 设计时可能在 Telegram 上测的（Telegram editMessage 支持编辑任何类型），未在飞书上验证。**修复方向**：占位消息改用 interactive card，使 `im.message.patch` 可以正常编辑；流式更新和最终输出统一为 card 格式。
+- **ISSUE-10**: 飞书流式编辑完全不工作 — `sendPlaceholder` 发 `msg_type: 'text'`，但 `im.message.patch` 只支持编辑 `interactive`（卡片）消息，导致所有 `editMessage` 调用被飞书 API 拒绝（错误被 `.catch()` 静默吞掉）。Phase 4 设计时可能在 Telegram 上测的（Telegram editMessage 支持编辑任何类型），未在飞书验证。**PR #567 修复**：sendPlaceholder 改发 interactive card（`update_multi: true`），editMessage 改发 card JSON，新增 deleteMessage 清理占位卡片避免与 outbound card 重复。
 
 ## Open Questions (resolved)
 
