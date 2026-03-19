@@ -59,7 +59,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **5** | 图片/文件收发（双向） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
 | **6** | 语音消息（STT/TTS） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
 | **E** | 飞书卡片身份标识：所有回复走 interactive card + 猫名头部，消除多猫气泡合并 | ✅ | [#389](https://github.com/zts212653/cat-cafe/pull/389) |
-| **G (8A)** | IM Hub thread：命令隔离（控制面/对话面分离，双绑定） | 📋 planned | — |
+| **G (8A)** | IM Hub thread：命令隔离（控制面/对话面分离，双绑定）+ Hub thread 可见入口 | 🚧 in-progress | [#570](https://github.com/zts212653/cat-cafe/pull/570) |
 | **H (8B)** | 模糊意图规则分流：无 binding / 低置信度消息走 Hub，系统卡片选择（无猫） | 📋 planned | — |
 | **I (8C)** | 猫参与 triage：用户点"帮我判断"或连续无法决策时触发 triage 猫（可配置开关） | 📋 planned | — |
 | **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
@@ -111,7 +111,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-5**: 飞书多猫回复气泡合并无区分度 — 所有猫共用同一 Feishu Bot，plain text 回复被飞书 UI 合并成连续气泡，不同猫的回复视觉上混在一起。**Phase E 修复**：统一走 interactive card，每条消息独立卡片 + 猫名头部。
 - **ISSUE-6**: `/thread` 命令缺失 — 用户发 `/thread <id> <msg>` 想路由消息到指定 thread，但 CommandLayer 不识别，静默 fallthrough 当普通消息投递给当前 session。**✅ PR #542 修复**。
 - **ISSUE-7**: `/threads` 列表 shortId 全部显示 `[thread_m]` — `slice(0,8)` 截断后 `thread_` 前缀相同导致无区分度。**✅ PR #542 修复**。
-- **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**已立项 → Phase G/H/I（三阶段）**：引入 IM Hub thread（控制面/对话面双绑定）。8A 命令隔离（纯控制命令只写 hubThreadId、不触发猫）→ 8B 模糊意图规则分流（无猫，系统卡片让用户选）→ 8C 猫参与 triage（可配置开关，兜底才喊猫）。bindingStore 增加 hubThreadId（懒创建），Web UI 隐藏 Hub thread。设计共识见布偶猫+缅因猫讨论（2026-03-19）。
+- **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**已立项 → Phase G/H/I（三阶段）**：引入 IM Hub thread（控制面/对话面双绑定）。8A 命令隔离（纯控制命令只写 hubThreadId、不触发猫）→ 8B 模糊意图规则分流（无猫，系统卡片让用户选）→ 8C 猫参与 triage（可配置开关，兜底才喊猫）。bindingStore 增加 hubThreadId（懒创建）。**设计修正（铲屎官 2026-03-19）**：Hub thread **不能隐藏**，必须完全可见——铲屎官需要在 Web UI 看到所有命令历史，不能有黑盒。Hub thread 需要像猫猫训练营一样有专门入口（侧边栏按钮 + 列表页），不是普通 thread 混在对话列表里。**待定设计**：(1) Thread 模型加 `connectorHubState` 标记？还是用 `threadTag`/`threadKind`？(2) 侧边栏入口形态：独立按钮 vs. IM Hub 面板？(3) Hub 列表页：按 connector 分组（飞书 Hub / Telegram Hub）？需 Design Gate 确认后再继续实现。
 - **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 + #551 修复**：per-cat outbound delivery → per-turn ordered delivery（outboundTurns[] 替代 perCatContent Map），A→B→A ping-pong 正确分发 3 条独立消息。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属、turn boundary 检测。
 - **ISSUE-10**: 飞书流式编辑完全不工作 — `sendPlaceholder` 发 `msg_type: 'text'`，但 `im.message.patch` 只支持编辑 `interactive`（卡片）消息，导致所有 `editMessage` 调用被飞书 API 拒绝（错误被 `.catch()` 静默吞掉）。Phase 4 设计时可能在 Telegram 上测的（Telegram editMessage 支持编辑任何类型），未在飞书验证。**PR #567 修复**：sendPlaceholder 改发 interactive card（`update_multi: true`），editMessage 改发 card JSON，新增 deleteMessage 清理占位卡片避免与 outbound card 重复。
 
