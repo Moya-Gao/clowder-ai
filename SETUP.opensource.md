@@ -327,6 +327,19 @@ pnpm threads:sync       # Sync thread exports
 pnpm threads:status     # Check thread export status
 pnpm threads:export:redis              # Export threads from Redis
 pnpm threads:export:redis:dry-run      # Dry-run export
+
+# Thread auto-save (cron-based)
+pnpm threads:autosave:install          # Install autosave cron job
+pnpm threads:autosave:run              # Run autosave now
+pnpm threads:autosave:status           # Check autosave status
+pnpm threads:autosave:uninstall        # Remove autosave cron job
+
+# === Alpha Worktree (pre-release testing) ===
+pnpm alpha:init         # Create alpha worktree (../cat-cafe-alpha)
+pnpm alpha:sync         # Sync alpha worktree to origin/main
+pnpm alpha:start        # Start alpha environment (ports 3011/3012)
+pnpm alpha:status       # Show alpha worktree status
+pnpm alpha:test         # Run alpha integration tests
 ```
 
 ## Troubleshooting
@@ -668,6 +681,19 @@ pnpm threads:sync       # 同步线程导出
 pnpm threads:status     # 查看线程导出状态
 pnpm threads:export:redis              # 从 Redis 导出线程
 pnpm threads:export:redis:dry-run      # 模拟导出
+
+# 线程自动保存（cron 方式）
+pnpm threads:autosave:install          # 安装自动保存定时任务
+pnpm threads:autosave:run              # 立即执行自动保存
+pnpm threads:autosave:status           # 查看自动保存状态
+pnpm threads:autosave:uninstall        # 移除自动保存定时任务
+
+# === Alpha Worktree（预发布测试）===
+pnpm alpha:init         # 创建 alpha worktree（../cat-cafe-alpha）
+pnpm alpha:sync         # 同步 alpha worktree 到 origin/main
+pnpm alpha:start        # 启动 alpha 环境（端口 3011/3012）
+pnpm alpha:status       # 查看 alpha worktree 状态
+pnpm alpha:test         # 运行 alpha 集成测试
 ```
 
 ## 常见问题
