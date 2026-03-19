@@ -275,7 +275,7 @@ We build in the open. Here's where we are.
 | Feature | Status |
 |---------|--------|
 | Multi-Platform Gateway — Feishu (Lark) | Shipped |
-| Multi-Platform Gateway — Telegram | In Progress |
+| Multi-Platform Gateway — Telegram | Shipped |
 | GitHub PR Review Notification Routing | Shipped |
 | External Agent Onboarding (A2A contract) | In Progress |
 | opencode Integration | Shipped |
@@ -640,7 +640,7 @@ bash scripts/install.sh
 | 功能 | 状态 |
 |------|------|
 | 多平台网关 — 飞书 | 已发布 |
-| 多平台网关 — Telegram | 进行中 |
+| 多平台网关 — Telegram | 已发布 |
 | GitHub PR Review 通知路由 | 已发布 |
 | 外部 Agent 接入（A2A 契约） | 进行中 |
 | opencode 集成 | 已发布 |

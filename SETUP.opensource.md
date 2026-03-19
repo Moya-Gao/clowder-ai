@@ -27,7 +27,7 @@ pnpm install
 
 # 3. Configure
 cp .env.example .env
-# Edit .env — add at least one model API key (see below)
+# Edit .env — add model API keys or configure CLI auth (see below)
 
 # 4. Run
 pnpm start
@@ -37,11 +37,13 @@ This auto-starts Redis, builds packages, and launches both Frontend (port 3003) 
 
 Open `http://localhost:3003` and start talking to your team.
 
-## Required Configuration
+## Configuration
 
-### Model API Keys (at least one)
+### Model API Keys (recommended)
 
-You need at least one model provider to have a working agent. All three are recommended for full multi-agent collaboration.
+If you use API keys directly, at least one model provider is needed for a working agent. All three are recommended for full multi-agent collaboration.
+
+> **Using CLI auth?** If you've already authenticated via `claude`, `codex`, or `gemini` CLI tools, you can skip API keys — the CLI subscription handles authentication. API keys are only needed for direct API access.
 
 ```bash
 # Claude (Ragdoll cat / 布偶猫) — recommended as primary
@@ -208,7 +210,7 @@ Cats use `search_evidence` and `reflect` MCP tools to query this store. No confi
 Each agent CLI (Claude Code, Codex, Gemini CLI) has its own configuration. Clowder provides project-level MCP server configs that connect agents to the platform:
 
 - **Claude Code**: reads `.mcp.json` for MCP servers, `CLAUDE.md` for project instructions
-- **Codex CLI**: reads `.codex/config.toml` for MCP servers, `CODEX.md` for project instructions
+- **Codex CLI**: reads `.codex/config.toml` for MCP servers, `AGENTS.md` for project instructions
 - **Gemini CLI**: reads `.gemini/settings.json` for MCP servers, `GEMINI.md` for project instructions
 
 ### Codex CLI — "Stuck in a Box" Fix
@@ -284,7 +286,7 @@ pnpm redis:user:backup  # Manual backup
 - Make sure Redis is installed: `redis-server --version`
 
 **No agents responding?**
-- Check `.env` has at least one valid API key
+- Check `.env` has at least one valid API key, or verify CLI auth is working (`claude --version`, `codex --version`)
 - Check the API logs in terminal for auth errors
 
 **Frontend can't connect to API?**
@@ -316,7 +318,7 @@ pnpm install
 
 # 3. 配置环境
 cp .env.example .env
-# 编辑 .env — 至少填一个模型 API key（见下方）
+# 编辑 .env — 添加模型 API key 或配置 CLI 认证（见下方）
 
 # 4. 启动
 pnpm start
@@ -326,11 +328,13 @@ pnpm start
 
 打开 `http://localhost:3003`，开始和你的团队对话。
 
-## 必须配置
+## 配置
 
-### 模型 API Key（至少一个）
+### 模型 API Key（推荐）
 
-至少需要一个模型 provider 才能有一个可用的 agent。建议三个都配，这样才能完整体验多 agent 协作。
+如果直接使用 API key，至少需要一个模型 provider 才能有一个可用的 agent。建议三个都配，这样才能完整体验多 agent 协作。
+
+> **用 CLI 认证？** 如果你已经通过 `claude`、`codex` 或 `gemini` CLI 工具登录认证，可以跳过 API key — CLI 订阅会处理认证。API key 只在直接调用 API 时需要。
 
 ```bash
 # Claude（布偶猫/宪宪）— 推荐作为主力
@@ -497,7 +501,7 @@ VAPID_SUBJECT=mailto:you@example.com
 每个 Agent CLI（Claude Code、Codex、Gemini CLI）有自己的配置。Clowder 提供项目级 MCP server 配置，将 agent 连接到平台：
 
 - **Claude Code**：读取 `.mcp.json` 获取 MCP 服务器，`CLAUDE.md` 获取项目指令
-- **Codex CLI**：读取 `.codex/config.toml` 获取 MCP 服务器，`CODEX.md` 获取项目指令
+- **Codex CLI**：读取 `.codex/config.toml` 获取 MCP 服务器，`AGENTS.md` 获取项目指令
 - **Gemini CLI**：读取 `.gemini/settings.json` 获取 MCP 服务器，`GEMINI.md` 获取项目指令
 
 ### Codex CLI — "困在箱子里"修复
@@ -573,7 +577,7 @@ pnpm redis:user:backup  # 手动备份
 - 确认 Redis 已安装：`redis-server --version`
 
 **没有 agent 响应？**
-- 检查 `.env` 里至少有一个有效的 API key
+- 检查 `.env` 里有有效的 API key，或确认 CLI 认证正常（`claude --version`、`codex --version`）
 - 看终端里 API 日志有没有认证错误
 
 **前端连不上 API？**
