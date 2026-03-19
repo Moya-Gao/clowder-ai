@@ -33,7 +33,7 @@ cp .env.example .env
 pnpm start
 ```
 
-This auto-starts Redis, builds packages, and launches both API (port 3004) and Frontend (port 3003).
+This auto-starts Redis, builds packages, and launches both Frontend (port 3003) and API (port 3004).
 
 Open `http://localhost:3003` and start talking to your team.
 
@@ -248,7 +248,7 @@ cp .env.example .env
 pnpm start
 ```
 
-自动启动 Redis，构建包，启动 API（端口 3004）和前端（端口 3003）。
+自动启动 Redis，构建包，启动前端（端口 3003）和 API（端口 3004）。
 
 打开 `http://localhost:3003`，开始和你的团队对话。
 

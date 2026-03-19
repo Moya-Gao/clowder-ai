@@ -8,7 +8,8 @@
  *
  * Convention (set by _sanitize-rules.pl + sync-to-opensource.sh):
  *   Home:        API=3002, Frontend=3001
- *   Open-source: API=3003, Frontend=3004
+ *   Open-source: API=3004, Frontend=3003
+ *   (API = Frontend + 1 in both environments)
  */
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -71,33 +72,33 @@ describe(
   () => {
     const env = readEnvFile('.env.example.opensource');
 
-    it('API_SERVER_PORT matches sync convention (3003)', () => {
+    it('API_SERVER_PORT matches sync convention (3004)', () => {
       assert.equal(
         env.API_SERVER_PORT,
-        '3003',
-        `API_SERVER_PORT should be 3003 (open-source convention), got ${env.API_SERVER_PORT}`,
+        '3004',
+        `API_SERVER_PORT should be 3004 (open-source convention), got ${env.API_SERVER_PORT}`,
       );
     });
 
-    it('FRONTEND_PORT matches sync convention (3004)', () => {
+    it('FRONTEND_PORT matches sync convention (3003)', () => {
       assert.equal(
         env.FRONTEND_PORT,
-        '3004',
-        `FRONTEND_PORT should be 3004 (open-source convention), got ${env.FRONTEND_PORT}`,
+        '3003',
+        `FRONTEND_PORT should be 3003 (open-source convention), got ${env.FRONTEND_PORT}`,
       );
     });
 
-    it('NEXT_PUBLIC_API_URL uses API port (3003)', () => {
+    it('NEXT_PUBLIC_API_URL uses API port (3004)', () => {
       assert.equal(
         env.NEXT_PUBLIC_API_URL,
-        'http://localhost:3003',
-        `NEXT_PUBLIC_API_URL should point to API port 3003, got ${env.NEXT_PUBLIC_API_URL}`,
+        'http://localhost:3004',
+        `NEXT_PUBLIC_API_URL should point to API port 3004, got ${env.NEXT_PUBLIC_API_URL}`,
       );
     });
 
     it('.env.example.opensource comment header documents correct ports', () => {
       const content = readFileSync(resolve(ROOT, '.env.example.opensource'), 'utf-8');
-      // The comment should say frontend=3004, API=3003
+      // The comment should say Frontend=3003, API=3004
       assert.ok(
         content.includes('3004') && content.includes('3003'),
         'Comment header should mention both 3003 and 3004',
@@ -107,9 +108,9 @@ describe(
 );
 
 // In the home repo (cat-cafe), code defaults are 3002/3001.
-// In the open-source repo (clowder-ai), sync transforms them to 3003/3004.
-const expectedApiPort = isHomeRepo ? '3002' : '3003';
-const expectedFrontendPort = isHomeRepo ? '3001' : '3004';
+// In the open-source repo (clowder-ai), sync transforms them to 3004/3003.
+const expectedApiPort = isHomeRepo ? '3002' : '3004';
+const expectedFrontendPort = isHomeRepo ? '3001' : '3003';
 const repoLabel = isHomeRepo ? 'home' : 'open-source';
 
 describe(`Code-side port defaults are internally consistent (${repoLabel}: API=${expectedApiPort}, Frontend=${expectedFrontendPort})`, () => {
@@ -219,63 +220,63 @@ describe(
   'Sync transform rules match convention',
   { skip: !isHomeRepo && 'sync infrastructure not present (open-source repo)' },
   () => {
-    it('_sanitize-rules.pl transforms 3002→3003 (API)', () => {
+    it('_sanitize-rules.pl transforms 3002→3004 (API)', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/_sanitize-rules.pl'), 'utf-8');
       assert.ok(
-        content.includes('s#localhost:3002#localhost:3003#g'),
-        'sanitize rules should transform localhost:3002 → localhost:3003',
+        content.includes('s#localhost:3002#localhost:3004#g'),
+        'sanitize rules should transform localhost:3002 → localhost:3004',
       );
     });
 
-    it('_sanitize-rules.pl transforms 3001→3004 (Frontend)', () => {
+    it('_sanitize-rules.pl transforms 3001→3003 (Frontend)', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/_sanitize-rules.pl'), 'utf-8');
       assert.ok(
-        content.includes('s#localhost:3001#localhost:3004#g'),
-        'sanitize rules should transform localhost:3001 → localhost:3004',
+        content.includes('s#localhost:3001#localhost:3003#g'),
+        'sanitize rules should transform localhost:3001 → localhost:3003',
       );
     });
 
-    it('sync-to-opensource.sh transforms start-dev.sh API fallback to 3003', () => {
+    it('sync-to-opensource.sh transforms start-dev.sh API fallback to 3004', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
-      const expected = "'s/API_PORT=$" + '{API_SERVER_PORT:-3002}/API_PORT=$' + "{API_SERVER_PORT:-3003}/g'";
-      assert.ok(content.includes(expected), 'sync script should transform start-dev.sh API fallback 3002→3003');
+      const expected = "'s/API_PORT=$" + '{API_SERVER_PORT:-3002}/API_PORT=$' + "{API_SERVER_PORT:-3004}/g'";
+      assert.ok(content.includes(expected), 'sync script should transform start-dev.sh API fallback 3002→3004');
     });
 
-    it('sync-to-opensource.sh transforms start-dev.sh Frontend fallback to 3004', () => {
+    it('sync-to-opensource.sh transforms start-dev.sh Frontend fallback to 3003', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
-      const expected = "'s/WEB_PORT=$" + '{FRONTEND_PORT:-3001}/WEB_PORT=$' + "{FRONTEND_PORT:-3004}/g'";
-      assert.ok(content.includes(expected), 'sync script should transform start-dev.sh Frontend fallback 3001→3004');
+      const expected = "'s/WEB_PORT=$" + '{FRONTEND_PORT:-3001}/WEB_PORT=$' + "{FRONTEND_PORT:-3003}/g'";
+      assert.ok(content.includes(expected), 'sync script should transform start-dev.sh Frontend fallback 3001→3003');
     });
 
-    it('sync-to-opensource.sh transforms setup.sh API port to 3003', () => {
+    it('sync-to-opensource.sh transforms setup.sh API port to 3004', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
       assert.ok(
-        content.includes("'s/API_SERVER_PORT=3002/API_SERVER_PORT=3003/g'"),
-        'sync script should transform setup.sh API_SERVER_PORT 3002→3003',
+        content.includes("'s/API_SERVER_PORT=3002/API_SERVER_PORT=3004/g'"),
+        'sync script should transform setup.sh API_SERVER_PORT 3002→3004',
       );
     });
 
-    it('sync-to-opensource.sh transforms setup.sh Frontend port to 3004', () => {
+    it('sync-to-opensource.sh transforms setup.sh Frontend port to 3003', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
       assert.ok(
-        content.includes("'s/FRONTEND_PORT=3001/FRONTEND_PORT=3004/g'"),
-        'sync script should transform setup.sh FRONTEND_PORT 3001→3004',
+        content.includes("'s/FRONTEND_PORT=3001/FRONTEND_PORT=3003/g'"),
+        'sync script should transform setup.sh FRONTEND_PORT 3001→3003',
       );
     });
 
-    it('sync-to-opensource.sh transforms runtime-worktree.sh API port to 3003', () => {
+    it('sync-to-opensource.sh transforms runtime-worktree.sh API port to 3004', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
       assert.ok(
-        content.includes("'s/API_SERVER_PORT:-3002/API_SERVER_PORT:-3003/g'"),
-        'sync script should transform runtime-worktree.sh API port 3002→3003',
+        content.includes("'s/API_SERVER_PORT:-3002/API_SERVER_PORT:-3004/g'"),
+        'sync script should transform runtime-worktree.sh API port 3002→3004',
       );
     });
 
-    it('sync-to-opensource.sh transforms AgentRouter.ts API port to 3003', () => {
+    it('sync-to-opensource.sh transforms AgentRouter.ts API port to 3004', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
       assert.ok(
-        content.includes("process.env.API_SERVER_PORT ?? '3003'"),
-        'sync script should transform AgentRouter.ts API port 3002→3003',
+        content.includes("process.env.API_SERVER_PORT ?? '3004'"),
+        'sync script should transform AgentRouter.ts API port 3002→3004',
       );
     });
   },

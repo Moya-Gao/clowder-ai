@@ -28,16 +28,18 @@ s/suces-MacBook[^ ]*/dev-machine/g;
 s/6399 圣域/production Redis (sacred)/g;
 
 # ── Port remapping (all files) ──
-s#http://localhost:3002#http://localhost:3003#g;
-s#http://localhost:3001#http://localhost:3004#g;
+# Convention: internal 3001(Frontend)→3003, internal 3002(API)→3004
+# So that API = Frontend + 1 holds in both environments.
+s#http://localhost:3002#http://localhost:3004#g;
+s#http://localhost:3001#http://localhost:3003#g;
 s#http://127\.0\.0\.1:3002#your local Clowder API URL#g;
-s#http://127\.0\.0\.1:3001#http://127.0.0.1:3004#g;
-s#localhost:3002#localhost:3003#g;
-s#localhost:3001#localhost:3004#g;
-s#127\.0\.0\.1:3002#127.0.0.1:3003#g;
-s#127\.0\.0\.1:3001#127.0.0.1:3004#g;
-s#3002/3001#3003/3004#g;
-s#3001/3002#3004/3003#g;
+s#http://127\.0\.0\.1:3001#http://127.0.0.1:3003#g;
+s#localhost:3002#localhost:3004#g;
+s#localhost:3001#localhost:3003#g;
+s#127\.0\.0\.1:3002#127.0.0.1:3004#g;
+s#127\.0\.0\.1:3001#127.0.0.1:3003#g;
+s#3002/3001#3004/3003#g;
+s#3001/3002#3003/3004#g;
 s#localhost:18060#<local-integration-endpoint>#g;
 s#localhost:9000#<local-browser-automation-endpoint>#g;
 
@@ -130,11 +132,11 @@ if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
   s#feature-feature-discussions/#feature-discussions/#g;
   s#feature-feature-specs/#feature-specs/#g;
   s#internal-internal-archive/#internal-archive/#g;
-  # Port pair normalization
-  s#localhost:3004/3002#localhost:3004/3003#g;
-  s#localhost:3003/3004#localhost:3004/3003#g;
-  s#3004/3002#3004/3003#g;
-  s#3003/3004#3004/3003#g;
+  # Port pair normalization (ensure Frontend/API order is 3003/3004)
+  s#localhost:3003/3002#localhost:3003/3004#g;
+  s#localhost:3004/3003#localhost:3003/3004#g;
+  s#3003/3002#3003/3004#g;
+  s#3004/3003#3003/3004#g;
   # Config path normalization
   s#`\.env\.local`#`.env`#g;
   s#\.env\.local#.env#g;

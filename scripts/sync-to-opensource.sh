@@ -689,8 +689,8 @@ fi
 # 3k-3: P1-2 — start-dev.sh: public API/frontend ports + proxy guard
 if [ -f "$FILTERED_DIR/scripts/start-dev.sh" ]; then
   sedi \
-    -e 's/API_PORT=${API_SERVER_PORT:-3002}/API_PORT=${API_SERVER_PORT:-3003}/g' \
-    -e 's/WEB_PORT=${FRONTEND_PORT:-3001}/WEB_PORT=${FRONTEND_PORT:-3004}/g' \
+    -e 's/API_PORT=${API_SERVER_PORT:-3002}/API_PORT=${API_SERVER_PORT:-3004}/g' \
+    -e 's/WEB_PORT=${FRONTEND_PORT:-3001}/WEB_PORT=${FRONTEND_PORT:-3003}/g' \
     -e 's/kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/[ "${ANTHROPIC_PROXY_ENABLED:-1}" != "0" ] \&\& kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/g' \
     "$FILTERED_DIR/scripts/start-dev.sh"
   echo "  ✓ start-dev.sh (public ports + proxy kill guarded)"
@@ -700,65 +700,65 @@ fi
 # 3k-3a2: setup.sh — generated .env uses home ports; transform to open-source defaults
 if [ -f "$FILTERED_DIR/scripts/setup.sh" ]; then
   sedi \
-    -e 's/FRONTEND_PORT=3001/FRONTEND_PORT=3004/g' \
-    -e 's/API_SERVER_PORT=3002/API_SERVER_PORT=3003/g' \
-    -e 's#NEXT_PUBLIC_API_URL=http://localhost:3002#NEXT_PUBLIC_API_URL=http://localhost:3003#g' \
-    -e 's#Open http://localhost:3001#Open http://localhost:3004#g' \
-    -e 's#打开 http://localhost:3001#打开 http://localhost:3004#g' \
+    -e 's/FRONTEND_PORT=3001/FRONTEND_PORT=3003/g' \
+    -e 's/API_SERVER_PORT=3002/API_SERVER_PORT=3004/g' \
+    -e 's#NEXT_PUBLIC_API_URL=http://localhost:3002#NEXT_PUBLIC_API_URL=http://localhost:3004#g' \
+    -e 's#Open http://localhost:3001#Open http://localhost:3003#g' \
+    -e 's#打开 http://localhost:3001#打开 http://localhost:3003#g' \
     "$FILTERED_DIR/scripts/setup.sh"
-  echo "  ✓ setup.sh (public ports 3003/3004)"
+  echo "  ✓ setup.sh (public ports: Frontend=3003, API=3004)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3k-3a3: runtime-worktree.sh — API port default 3002→3003
+# 3k-3a3: runtime-worktree.sh — API port default 3002→3004
 if [ -f "$FILTERED_DIR/scripts/runtime-worktree.sh" ]; then
   sedi \
-    -e 's/API_SERVER_PORT:-3002/API_SERVER_PORT:-3003/g' \
+    -e 's/API_SERVER_PORT:-3002/API_SERVER_PORT:-3004/g' \
     "$FILTERED_DIR/scripts/runtime-worktree.sh"
-  echo "  ✓ runtime-worktree.sh (API port 3003)"
+  echo "  ✓ runtime-worktree.sh (API port 3004)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3k-3a4: AgentRouter.ts — API port fallback 3002→3003
+# 3k-3a4: AgentRouter.ts — API port fallback 3002→3004
 if [ -f "$FILTERED_DIR/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts" ]; then
   sedi \
-    -e "s/process.env.API_SERVER_PORT ?? '3002'/process.env.API_SERVER_PORT ?? '3003'/g" \
+    -e "s/process.env.API_SERVER_PORT ?? '3002'/process.env.API_SERVER_PORT ?? '3004'/g" \
     "$FILTERED_DIR/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts"
-  echo "  ✓ AgentRouter.ts (API port 3003)"
+  echo "  ✓ AgentRouter.ts (API port 3004)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
 # 3k-3b: Public default ports — exported repo should avoid runtime defaults 3001/3002
 if [ -f "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts" ]; then
   sedi \
-    -e "s/const port = parseInt(env.API_SERVER_PORT ?? '3002', 10);/const port = parseInt(env.API_SERVER_PORT ?? '3003', 10);/g" \
+    -e "s/const port = parseInt(env.API_SERVER_PORT ?? '3002', 10);/const port = parseInt(env.API_SERVER_PORT ?? '3004', 10);/g" \
     "$FILTERED_DIR/packages/api/src/config/ConfigRegistry.ts"
 fi
 if [ -f "$FILTERED_DIR/packages/api/src/index.ts" ]; then
   sedi \
-    -e "s/const PORT = parseInt(process.env.API_SERVER_PORT ?? '3002', 10);/const PORT = parseInt(process.env.API_SERVER_PORT ?? '3003', 10);/g" \
+    -e "s/const PORT = parseInt(process.env.API_SERVER_PORT ?? '3002', 10);/const PORT = parseInt(process.env.API_SERVER_PORT ?? '3004', 10);/g" \
     "$FILTERED_DIR/packages/api/src/index.ts"
 fi
 if [ -f "$FILTERED_DIR/packages/api/src/config/env-registry.ts" ]; then
   sedi \
-    -e "s/{ name: 'API_SERVER_PORT', defaultValue: '3002'/{ name: 'API_SERVER_PORT', defaultValue: '3003'/g" \
-    -e "s/defaultValue: '3000',/defaultValue: '3004',/g" \
-    -e "s/defaultValue: 'http:\/\/localhost:3002'/defaultValue: 'http:\/\/localhost:3003'/g" \
+    -e "s/{ name: 'API_SERVER_PORT', defaultValue: '3002'/{ name: 'API_SERVER_PORT', defaultValue: '3004'/g" \
+    -e "s/defaultValue: '3000',/defaultValue: '3003',/g" \
+    -e "s/defaultValue: 'http:\/\/localhost:3002'/defaultValue: 'http:\/\/localhost:3004'/g" \
     "$FILTERED_DIR/packages/api/src/config/env-registry.ts"
 fi
 if [ -f "$FILTERED_DIR/packages/api/src/config/frontend-origin.ts" ]; then
   sedi \
-    -e "s#const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3001';#const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3004';#g" \
-    -e "s#const DEFAULT_CORS_ORIGINS = \\['http://localhost:3000', 'http://localhost:3001', 'https://cafe.clowder-ai.com'\\];#const DEFAULT_CORS_ORIGINS = ['http://localhost:3000', 'http://localhost:3004', 'https://cafe.clowder-ai.com'];#g" \
-    -e "s/fallback to localhost:3001/fallback to localhost:3004/g" \
+    -e "s#const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3001';#const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3003';#g" \
+    -e "s#const DEFAULT_CORS_ORIGINS = \\['http://localhost:3000', 'http://localhost:3001', 'https://cafe.clowder-ai.com'\\];#const DEFAULT_CORS_ORIGINS = ['http://localhost:3000', 'http://localhost:3003', 'https://cafe.clowder-ai.com'];#g" \
+    -e "s/fallback to localhost:3001/fallback to localhost:3003/g" \
     "$FILTERED_DIR/packages/api/src/config/frontend-origin.ts"
 fi
 if [ -f "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts" ]; then
   sedi \
-    -e "s/- \\*\\*Port 3001\\*\\* is reserved for Cat Cafe frontend. Use 3002+ for other dev servers./- **Public local defaults**: use frontend 3004 and API 3003 to avoid colliding with another local runtime./g" \
+    -e "s/- \\*\\*Port 3001\\*\\* is reserved for Cat Cafe frontend. Use 3002+ for other dev servers./- **Public local defaults**: use frontend 3003 and API 3004 to avoid colliding with another local runtime./g" \
     "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts"
 fi
-echo "  ✓ public default ports (3003/3004) applied"
+echo "  ✓ public default ports (Frontend=3003, API=3004) applied"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
 # 3k-4 through 3p: (merged into 3-UNIFIED comprehensive sanitizer below)

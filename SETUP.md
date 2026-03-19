@@ -91,7 +91,7 @@ Do not assume the default runtime ports are free in your environment.
 For isolated local runs, set explicit ports, for example:
 
 ```bash
-API_SERVER_PORT=3003 FRONTEND_PORT=3004 pnpm start:direct --memory
+API_SERVER_PORT=3004 FRONTEND_PORT=3003 pnpm start:direct --memory
 ```
 
 ## 7. Troubleshooting
