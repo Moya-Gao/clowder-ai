@@ -60,7 +60,8 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **6** | 语音消息（STT/TTS） | ✅ | [#362](https://github.com/zts212653/cat-cafe/pull/362) |
 | **E** | 飞书卡片身份标识：所有回复走 interactive card + 猫名头部，消除多猫气泡合并 | ✅ | [#389](https://github.com/zts212653/cat-cafe/pull/389) |
 | **G (8A)** | IM Hub thread：命令隔离（控制面/对话面分离，双绑定） | 📋 planned | — |
-| **H (8B)** | 模糊意图分流：无 binding / 低置信度消息走 Hub + 可选猫 triage | 📋 planned | — |
+| **H (8B)** | 模糊意图规则分流：无 binding / 低置信度消息走 Hub，系统卡片选择（无猫） | 📋 planned | — |
+| **I (8C)** | 猫参与 triage：用户点"帮我判断"或连续无法决策时触发 triage 猫（可配置开关） | 📋 planned | — |
 | **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
 | **7** | 群聊 + 多人 + 权限隔离 | 📋 planned | — |
 | **8** | 更多平台 + OAuth + 配置 UI | 📋 planned | — |
@@ -110,7 +111,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-5**: 飞书多猫回复气泡合并无区分度 — 所有猫共用同一 Feishu Bot，plain text 回复被飞书 UI 合并成连续气泡，不同猫的回复视觉上混在一起。**Phase E 修复**：统一走 interactive card，每条消息独立卡片 + 猫名头部。
 - **ISSUE-6**: `/thread` 命令缺失 — 用户发 `/thread <id> <msg>` 想路由消息到指定 thread，但 CommandLayer 不识别，静默 fallthrough 当普通消息投递给当前 session。**✅ PR #542 修复**。
 - **ISSUE-7**: `/threads` 列表 shortId 全部显示 `[thread_m]` — `slice(0,8)` 截断后 `thread_` 前缀相同导致无区分度。**✅ PR #542 修复**。
-- **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**已立项 → Phase G (8A) + H (8B)**：引入 IM Hub thread（控制面/对话面双绑定），8A 先做命令隔离（纯控制命令只写 hubThreadId、不触发猫），8B 再做模糊意图分流（无 binding / 低置信度 → Hub triage，可选猫参与意图识别）。设计共识见布偶猫+缅因猫讨论（2026-03-19）。
+- **ISSUE-8**: IM 命令污染对话 thread — `/threads`、`/where` 等元命令的消息存入当前对话 thread，混淆导航和对话内容。**已立项 → Phase G/H/I（三阶段）**：引入 IM Hub thread（控制面/对话面双绑定）。8A 命令隔离（纯控制命令只写 hubThreadId、不触发猫）→ 8B 模糊意图规则分流（无猫，系统卡片让用户选）→ 8C 猫参与 triage（可配置开关，兜底才喊猫）。bindingStore 增加 hubThreadId（懒创建），Web UI 隐藏 Hub thread。设计共识见布偶猫+缅因猫讨论（2026-03-19）。
 - **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 + #551 修复**：per-cat outbound delivery → per-turn ordered delivery（outboundTurns[] 替代 perCatContent Map），A→B→A ping-pong 正确分发 3 条独立消息。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属、turn boundary 检测。
 
 ## Open Questions (resolved)
