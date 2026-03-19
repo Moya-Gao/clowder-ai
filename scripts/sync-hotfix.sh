@@ -105,7 +105,7 @@ yaml_list() {
   local key="$1"
   awk -v k="$key:" '
     BEGIN{f=0} f&&/^[^ #-]/{exit}
-    f&&/^  - /{l=$0;sub(/^  - /,"",l);sub(/#.*/,"",l);gsub(/^[[:space:]]+/,"",l);gsub(/[[:space:]]+$/,"",l);gsub(/"/,"",l);if(length(l)>0)print l;next}
+    f&&/^  - /{l=$0;sub(/^  - /,"",l);sub(/[[:space:]]#.*/,"",l);gsub(/^[[:space:]]+/,"",l);gsub(/[[:space:]]+$/,"",l);gsub(/"/,"",l);if(length(l)>0)print l;next}
     $0~"^"k{f=1}
   ' "$MANIFEST"
 }

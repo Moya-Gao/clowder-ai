@@ -59,6 +59,50 @@ function readPowerShellFallback(relPath, pattern) {
   return m ? m[1] : null;
 }
 
+function normalizeYamlListItem(line) {
+  return line
+    .replace(/\s+#.*$/, '')
+    .replaceAll('"', '')
+    .trim();
+}
+
+function readYamlTopLevelKey(line) {
+  return line.match(/^([A-Za-z0-9_-]+):\s*$/)?.[1] ?? null;
+}
+
+function parseYamlTopLevelList(content, sectionName) {
+  const lines = content.split('\n');
+  const values = [];
+  let inSection = false;
+
+  for (const line of lines) {
+    const topLevelKey = readYamlTopLevelKey(line);
+    if (topLevelKey === sectionName) {
+      inSection = true;
+      continue;
+    }
+    if (topLevelKey && inSection) {
+      break;
+    }
+
+    if (!inSection) continue;
+
+    const listItem = line.match(/^ {2}- (.+)$/)?.[1];
+    if (listItem) {
+      const normalized = normalizeYamlListItem(listItem);
+      if (normalized.length > 0) {
+        values.push(normalized);
+      }
+    }
+  }
+
+  return values;
+}
+
+function readYamlTopLevelList(relPath, sectionName) {
+  return parseYamlTopLevelList(readFileSync(resolve(ROOT, relPath), 'utf-8'), sectionName);
+}
+
 function readSyncScript() {
   return readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
 }
@@ -404,6 +448,52 @@ describe(
       assert.ok(!content.includes('s/else { "6399" }/else { "6379" }/g'));
       assert.ok(!content.includes('s/\\$RedisPort = 6399/$RedisPort = 6379/g'));
       assert.ok(!content.includes('s/\\$redisPort = "6399"/$redisPort = "6379"/g'));
+    });
+
+    it('sync shell parsers preserve # inside YAML values but strip inline comments', () => {
+      const outbound = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      const hotfix = readFileSync(resolve(ROOT, 'scripts/sync-hotfix.sh'), 'utf-8');
+
+      assert.match(outbound, /sub\(\/\[\[:space:\]\]#\.\*\/,\s*"",\s*line\)/);
+      assert.match(hotfix, /sub\(\/\[\[:space:\]\]#\.\*\/,\s*"",\s*l\)/);
+    });
+
+    it('YAML parser scopes list membership to managed_scripts only', () => {
+      const fixture = `
+managed_scripts:
+  - scripts/install.ps1 # keep this in sync
+  - scripts/start-windows.ps1
+  - scripts/foo#1.ps1
+excluded:
+  - scripts/install.ps1
+`;
+
+      assert.deepEqual(parseYamlTopLevelList(fixture, 'managed_scripts'), [
+        'scripts/install.ps1',
+        'scripts/start-windows.ps1',
+        'scripts/foo#1.ps1',
+      ]);
+    });
+
+    it('sync-manifest exports the Windows deploy scripts needed by F113', () => {
+      const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
+      const requiredScripts = [
+        'scripts/install-auth-config.mjs',
+        'scripts/install-windows-helpers.ps1',
+        'scripts/install.ps1',
+        'scripts/start-windows.ps1',
+        'scripts/start.bat',
+        'scripts/stop-windows.ps1',
+        'scripts/windows-command-helpers.ps1',
+        'scripts/windows-installer-ui.ps1',
+      ];
+
+      for (const scriptPath of requiredScripts) {
+        assert.ok(
+          managedScripts.includes(scriptPath),
+          `sync-manifest should export ${scriptPath} instead of deleting it from clowder-ai`,
+        );
+      }
     });
 
     it('sync-to-opensource.sh transforms AgentRouter.ts API port to 3004', () => {

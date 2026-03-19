@@ -144,7 +144,7 @@ yaml_list() {
     found && /^  - / {
       line = $0
       sub(/^  - /, "", line)
-      sub(/#.*/, "", line)
+      sub(/[[:space:]]#.*/, "", line)
       gsub(/^[[:space:]]+/, "", line)
       gsub(/[[:space:]]+$/, "", line)
       gsub(/"/, "", line)

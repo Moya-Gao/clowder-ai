@@ -66,6 +66,15 @@ managed_scripts:
   # 安装向导
   - scripts/install.sh
   - scripts/setup.sh
+  # Windows 一键部署（F113 / clowder-ai#113）
+  - scripts/install-auth-config.mjs
+  - scripts/install-windows-helpers.ps1
+  - scripts/install.ps1
+  - scripts/start-windows.ps1
+  - scripts/start.bat
+  - scripts/stop-windows.ps1
+  - scripts/windows-command-helpers.ps1
+  - scripts/windows-installer-ui.ps1
 
 # ── docs/ 生成型导出（由脚本生成，不直出原始文件）──────────────
 # 这些文件由 sync 脚本的 transform 步骤生成到目标仓
