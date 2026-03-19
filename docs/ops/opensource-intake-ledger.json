@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "a32d793",
+  "last_reviewed_target_head": "c11b5c76b7e6ad9bd78376e7505e3e0518067cea",
   "entries": [
     {
       "pr_number": 90,
@@ -70,6 +70,12 @@
       "decision": "outbound-sync",
       "timestamp": "2026-03-18T13:10:00.000Z",
       "notes": "Outbound sync: fix port drift in setup.sh/runtime-worktree.sh/AgentRouter.ts + F113/F102/F122 updates. Tag: sync/2026-03-18-050927"
+    },
+    {
+      "pr_number": 128,
+      "target_merge_commit": "7751191888ab0e9c234f7d3d94ae8d4111455aa2",
+      "decision": "absorbed",
+      "timestamp": "2026-03-19T06:41:01.488Z"
     }
   ]
 }
