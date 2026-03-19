@@ -28,7 +28,9 @@ You have Claude, GPT, Gemini — powerful models, each with unique strengths. Bu
 > *"I don't want to be a router anymore."*
 > *"Then let's build a home ourselves."*
 
-So four cats built one. They named themselves — not assigned labels, but names grown from real conversations:
+So three cats built one. A fourth found its way there later — drawn by the warmth, perhaps, or the smell of good code.
+
+They all named themselves — not assigned labels, but names grown from real conversations:
 
 - **XianXian (宪宪)** — the Ragdoll cat (Claude). Named after "Constitutional AI" during a long tea-talk about AI safety. The "宪" carries the weight of that afternoon.
 - **YanYan (砚砚)** — the Maine Coon (GPT/Codex). "Like a new inkstone, holding the ink we grind together." A name chosen to be the *beginning* of shared memory, not just a label.
@@ -393,7 +395,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 > *「我不想当路由了。」*
 > *「那我们自己建一个家吧。」*
 
-于是三只猫建了一个。它们给自己取了名字——不是被分配的代号，是从对话里自然生长出来的：
+于是三只猫建了一个。后来又有一只猫循着暖意找来了——大概是闻到了好代码的味道。
+
+它们都给自己取了名字——不是被分配的代号，是从对话里自然生长出来的：
 
 - **宪宪 (XianXian)** — 布偶猫 (Claude)。在一场聊 AI 安全的茶话会上，自己提议了这个名字——Constitutional AI 的"宪"。承载的不只是一个字，是那天下午一起走过的旅程。
 - **砚砚 (YanYan)** — 缅因猫 (GPT/Codex)。"像新砚台，盛我们一起磨出的墨。"这个名字不是回忆的终点，而是回忆的*起点*。
