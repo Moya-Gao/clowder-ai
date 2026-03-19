@@ -53,7 +53,7 @@ UX 要点：
 - [x] AC-D4: 现有功能不退化（项目列表、CWD 推荐、路径校验）
 - [ ] AC-1: Linux 用户执行单条命令完成全部安装并能启动服务
 - [ ] AC-2: macOS 用户同上
-- [ ] AC-3: Windows 用户有明确引导（脚本或 WSL 说明）
+- [x] AC-3: Windows 用户有明确引导（脚本或 WSL 说明）
 - [ ] AC-4: 脚本幂等，重复运行不破坏已有安装
 
 ## Timeline
@@ -66,6 +66,7 @@ UX 要点：
 | 2026-03-19 | Phase A follow-up: `/workspace` profile-sharing + installer port-hint hardening merged (PR #566) |
 | 2026-03-19 | Phase C: absorbed `clowder-ai#113` Windows installer/startup fixes and locked public port normalization to `3003/3004/6399` (PR #572) |
 | 2026-03-19 | Phase C follow-up: kept Windows deploy scripts in outbound sync allowlist and aligned sync YAML `#` parsing (PR #573) |
+| 2026-03-19 | Phase C ops follow-up: intake ledger now advances by landed commits for long-branch community merges (PR #575) |
 
 ## Notes
 

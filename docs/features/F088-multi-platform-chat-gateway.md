@@ -151,6 +151,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-18 | ISSUE-9 fix v2: per-turn ordered delivery — outboundTurns[] replaces perCatContent Map (PR #551) |
 | 2026-03-19 | ISSUE-10 fix: Feishu streaming uses interactive cards for edit-in-place (PR #567) |
 | 2026-03-19 | ISSUE-8 Phase G 8A merged: IM Hub thread command isolation + 📡 sidebar entry (PR #570) |
+| 2026-03-19 | Sync follow-up backport merged: connector-hub trusted identity + Hub thread race guards returned to cat-cafe truth source (PR #574) |
 
 ## 参考文件
 
