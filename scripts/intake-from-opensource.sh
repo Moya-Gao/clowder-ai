@@ -155,16 +155,18 @@ if [ "$ADVANCE_LEDGER" = true ]; then
     echo -e "${GREEN}✓ Ledger already at target HEAD ($CURRENT_HEAD)${NC}"
     exit 0
   fi
-  # Enumerate non-sync commits; check each against entries[] merge_commit coverage
+  # Enumerate landed non-sync commits on the target repo mainline (first-parent only).
+  # A long community PR may merge multiple branch commits under one recorded merge commit;
+  # those child commits should not block advance-ledger.
   UNREVIEWED=""
   UNREVIEWED_COUNT=0
   if [ -n "$OLD_HEAD" ]; then
     # Build set of recorded merge commits from entries[]
     RECORDED_SHAS=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); l.entries.filter(e=>e.target_merge_commit).forEach(e=>console.log(e.target_merge_commit))" 2>/dev/null || true)
-    for c in $(git -C "$TARGET_DIR" rev-list "$OLD_HEAD".."$CURRENT_HEAD" 2>/dev/null); do
+    for c in $(git -C "$TARGET_DIR" rev-list --first-parent "$OLD_HEAD".."$CURRENT_HEAD" 2>/dev/null); do
       MSG=$(git -C "$TARGET_DIR" log --format=%s -1 "$c" 2>/dev/null || true)
       if echo "$MSG" | grep -q "^sync: cat-cafe"; then continue; fi
-      # Check if this commit is covered by an entries[] record
+      # Check if this landed mainline commit is covered by an entries[] record
       if echo "$RECORDED_SHAS" | grep -q "^${c}$"; then continue; fi
       UNREVIEWED_COUNT=$((UNREVIEWED_COUNT + 1))
       SHORT=$(git -C "$TARGET_DIR" log --format="%h %s" -1 "$c" 2>/dev/null)
