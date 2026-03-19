@@ -135,6 +135,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-17 | ISSUE-6/7 fix: `/thread` command + full thread ID display (PR #542) |
 | 2026-03-18 | ISSUE-9 fix: per-cat outbound delivery for multi-cat A2A responses (PR #545) |
 | 2026-03-18 | ISSUE-9 fix v2: per-turn ordered delivery — outboundTurns[] replaces perCatContent Map (PR #551) |
+| 2026-03-19 | ISSUE-10 fix: Feishu streaming uses interactive cards for edit-in-place (PR #567) |
 
 ## 参考文件
 
