@@ -192,6 +192,20 @@ reopened: 2026-03-14
 - [x] AC-F7: 慢启动猫猫有 grace period + god-view 展示真实连接状态
 - [x] AC-F8: 铲屎官在 god-view 能清楚理解"正在发生什么"（不再一脸懵逼）
 
+### Phase H1+H2（报幕层 + 模板发言 + messageStore 双写）✅
+
+- [x] AC-H1: 天亮公告 — `day_announce` 阶段产出 `scope: 'public'` 的 dawn_announce 事件 + messageStore 双写
+- [x] AC-H2: 模板发言 — 讨论阶段每只猫提交带文本的 speech 事件 + messageStore 双写
+- [x] AC-H8: 规则引擎 bug RB-1~RB-8 修复（SKIP_PHASES 拆分、announce 事件、遗言、exile 公告）
+- [x] AC-H9: 所有报幕/发言/投票结果写入 gameThread 的 messageStore
+
+**改动概要**：
+- `GameAutoPlayer.ts`: SKIP_PHASES → ANNOUNCE_PHASES 分离 + 模板发言
+- `GameOrchestrator.ts`: writeAnnounce/writeSpeech 双写 + resolveLastWords（entering 时机）
+- `WerewolfDefinition.ts`: 阶段重排 day_last_words+day_hunter 在 day_exile 之后
+- 3 处 messageStore 注入（games.ts / messages.ts / index.ts）+ observerUserId
+- 4 个新 regression guard 测试
+
 ### Phase G（AutoPlayer 存活性 — loop 恢复 + 运行时日志）✅
 - [x] AC-G1: API 启动时扫描活跃游戏（Redis status=playing），自动恢复 `startLoop()`
 - [x] AC-G2: `GameAutoPlayer` 有运行时日志（loop started/tick/action submitted/error/exited）
@@ -414,6 +428,8 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-16 | **Phase F 立项** — 铲屎官实测反馈：投票不透明/行动真实性存疑/超时卡游戏/Gemini 启动慢。启动 GitHub agent werewolf 调研 |
 | 2026-03-16 | Phase F gameplay fixes merged (PR #491) — resolution bridge, multi-wolf ballot, day vote transparency, timeout fallback, grace period, god-view ballot panel (codex 2-round local + 5-round cloud review) |
 | 2026-03-16 | Phase G AutoPlayer recovery merged (PR #505) — startLoop recovery on API startup + runtime logs + keyPrefix fix (codex 1-round local + 1-round cloud review) |
+| 2026-03-17 | **Phase H 立项** — 铲屎官实测：1s 出全部结果/无天亮公告/发言空壳/消息无承载。三层架构设计（报幕层 + AI 行动层 + 发言层） |
+| 2026-03-19 | Phase H1+H2 merged (PR #576) — announce layer + template speech + messageStore dual-write + phase order fix + observerUserId fix (codex 6-round local review) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
