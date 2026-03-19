@@ -192,6 +192,20 @@ reopened: 2026-03-14
 - [x] AC-F7: 慢启动猫猫有 grace period + god-view 展示真实连接状态
 - [x] AC-F8: 铲屎官在 god-view 能清楚理解"正在发生什么"（不再一脸懵逼）
 
+### Phase H3+H4（LLM AI Bridge + AI Speech with Context）✅
+
+- [x] AC-H3: 夜间动作通过 LLM 推理决定（不再是 pickRandom），10s 超时 fallback
+- [x] AC-H4: 讨论/遗言/投票理由通过 LLM 生成真实中文文本，有角色特征
+- [x] AC-H7: LLM 超时 10s 后降级到 random，游戏不卡住
+- [x] AC-H11: LLM 上下文连贯 — 后发言猫的 context 包含前面猫的发言
+
+**改动概要**：
+- `LlmAIProvider.ts`（新增）: Anthropic/OpenAI/Google HTTP API 路由，10s 超时
+- `GameAutoPlayer.ts`: buildAction 先 LLM 后 random，phase+role 白名单校验
+- WerewolfAIPlayer（死代码）激活，连接到 GameAutoPlayer
+- messageStore 注入 GameAutoPlayer（3 处）用于 H4 对话上下文
+- 237 tests（+2 new regression guards）
+
 ### Phase H1+H2（报幕层 + 模板发言 + messageStore 双写）✅
 
 - [x] AC-H1: 天亮公告 — `day_announce` 阶段产出 `scope: 'public'` 的 dawn_announce 事件 + messageStore 双写
@@ -430,6 +444,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-16 | Phase G AutoPlayer recovery merged (PR #505) — startLoop recovery on API startup + runtime logs + keyPrefix fix (codex 1-round local + 1-round cloud review) |
 | 2026-03-17 | **Phase H 立项** — 铲屎官实测：1s 出全部结果/无天亮公告/发言空壳/消息无承载。三层架构设计（报幕层 + AI 行动层 + 发言层） |
 | 2026-03-19 | Phase H1+H2 merged (PR #576) — announce layer + template speech + messageStore dual-write + phase order fix + observerUserId fix (codex 6-round local review) |
+| 2026-03-19 | Phase H3+H4 merged (PR #577) — LLM AI bridge + AI speech with messageStore context + phase+role whitelist + route-level tests (codex 3-round local review) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
