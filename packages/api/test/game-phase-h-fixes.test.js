@@ -276,51 +276,49 @@ describe('Phase H P1 Fixes — definition-level regression guards', () => {
     const { default: Fastify } = await import('fastify');
     const { messagesRoutes } = await import('../dist/routes/messages.js');
     const routeStore = createStubGameStore();
-    const routeSocket = createStubSocket();
     const routeMsgStore = createSpyMessageStore();
 
+    let threadCounter = 0;
     const app = Fastify();
     await app.register(messagesRoutes, {
+      registry: { get() { return undefined; } },
       messageStore: routeMsgStore,
-      gameStore: routeStore,
-      socketManager: routeSocket,
-      threadStore: {
-        async create(userId, title, category) {
-          return { id: `game-thread-msg-${Date.now()}`, userId, title, category, createdAt: Date.now() };
-        },
-        async get() {
-          return null;
-        },
-        async list() {
-          return [];
-        },
-        async update() {},
-        async delete() {},
+      socketManager: { broadcastToRoom() {}, emitToUser() {}, broadcastAgentMessage() {} },
+      router: {
+        async resolveTargetsAndIntent() { return { targetCats: ['opus'], intent: { intent: 'execute', explicit: false, promptTags: [] } }; },
+        async *routeExecution() { yield { type: 'done', catId: 'opus', timestamp: Date.now() }; },
+        async *route() { yield { type: 'done', catId: 'opus', timestamp: Date.now() }; },
+        async ackCollectedCursors() {},
       },
-      draftStore: null,
-      catOrchestrationService: null,
+      threadStore: {
+        async get(id) { return { id, title: 'Test', deletedAt: null }; },
+        async updateTitle() {},
+        async create(userId, title, projectPath) {
+          return { id: `thread_game_${++threadCounter}`, title, projectPath, createdBy: userId, participants: [], lastActiveAt: Date.now(), createdAt: Date.now() };
+        },
+      },
+      gameStore: routeStore,
+      invocationTracker: { has: () => false, isDeleting: () => false, tryStartThread: () => new AbortController(), start: () => new AbortController(), complete: () => {} },
+      invocationRecordStore: { create: async () => ({ outcome: 'created', invocationId: 'inv-stub' }), update: async () => {} },
     });
+    await app.ready();
 
     const resp = await app.inject({
       method: 'POST',
       url: '/api/messages',
       headers: { 'x-cat-cafe-user': 'msg-route-user' },
-      payload: { content: '/game werewolf god', threadId: 'thread-msg-test' },
+      payload: { content: '/game werewolf god-view', threadId: 'thread-msg-test' },
     });
 
-    if (resp.statusCode === 200) {
-      const body = JSON.parse(resp.body);
-      if (body.gameId) {
-        const game = routeStore.games?.get?.(body.gameId) ?? (await routeStore.getGame(body.gameId));
-        assert.ok(game, 'Game should exist in store');
-        assert.equal(
-          game.config.observerUserId,
-          'msg-route-user',
-          '/api/messages /game command must inject observerUserId from auth header',
-        );
-      }
-    }
-    // If route returns non-200 (missing deps), skip gracefully — the source assertion above is the guard
+    assert.equal(resp.statusCode, 200, `Expected 200, got ${resp.statusCode}: ${resp.body}`);
+    const body = JSON.parse(resp.body);
+    // /api/messages game response uses status='game_started' + gameId
+    assert.ok(body.gameId || body.status === 'game_started',
+      `Response must include gameId or game_started status (got: ${JSON.stringify(body).slice(0, 200)})`);
+    const game = routeStore.games?.get?.(body.gameId) ?? (await routeStore.getGame(body.gameId));
+    assert.ok(game, 'Game should exist in store');
+    assert.equal(game.config.observerUserId, 'msg-route-user',
+      '/api/messages /game command must inject observerUserId from auth header');
     await app.close();
   });
 });
