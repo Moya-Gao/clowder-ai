@@ -41,7 +41,7 @@
 - CLAUDE.md, AGENTS.md, GEMINI.md → 生成通用版
 - cat-config.json → 脱敏版
 - 端口映射 3001/3002 → 3004/3003
-- Redis 端口 6399/6398 → 6379/6380
+- Redis 端口：不转换，开源仓也用 6399/6398
 - 个人信息脱敏（Landy → Owner 等）
 - 内部路径/猫名通用化（docs 层）
 

@@ -686,20 +686,14 @@ if [ -f "$FILTERED_DIR/packages/api/src/config/env-registry.ts" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
-# 3k-3: P1-2 — start-dev.sh: public ports + proxy guard + Redis port remap
+# 3k-3: P1-2 — start-dev.sh: public API/frontend ports + proxy guard
 if [ -f "$FILTERED_DIR/scripts/start-dev.sh" ]; then
   sedi \
     -e 's/API_PORT=${API_SERVER_PORT:-3002}/API_PORT=${API_SERVER_PORT:-3003}/g' \
     -e 's/WEB_PORT=${FRONTEND_PORT:-3001}/WEB_PORT=${FRONTEND_PORT:-3004}/g' \
     -e 's/kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/[ "${ANTHROPIC_PROXY_ENABLED:-1}" != "0" ] \&\& kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"/g' \
-    -e 's/echo "6399"/echo "6379"/g' \
-    -e 's/echo "6398"/echo "6380"/g' \
-    -e 's/REDIS_PORT" = "6399"/REDIS_PORT" = "6379"/g' \
-    -e 's/Redis 6399 圣域/Redis 6379 (production)/g' \
-    -e 's/6399 只给 runtime\/prod-web 使用。普通开发实例默认应走 6398。/6379 is for runtime\/prod-web only. Dev instances should use 6380./g' \
-    -e 's/REDIS_PORT=6398/REDIS_PORT=6380/g' \
     "$FILTERED_DIR/scripts/start-dev.sh"
-  echo "  ✓ start-dev.sh (public ports + proxy kill guarded + Redis 6399→6379, 6398→6380)"
+  echo "  ✓ start-dev.sh (public ports + proxy kill guarded)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
@@ -711,9 +705,8 @@ if [ -f "$FILTERED_DIR/scripts/setup.sh" ]; then
     -e 's#NEXT_PUBLIC_API_URL=http://localhost:3002#NEXT_PUBLIC_API_URL=http://localhost:3003#g' \
     -e 's#Open http://localhost:3001#Open http://localhost:3004#g' \
     -e 's#打开 http://localhost:3001#打开 http://localhost:3004#g' \
-    -e 's/REDIS_PORT=6399/REDIS_PORT=6379/g' \
     "$FILTERED_DIR/scripts/setup.sh"
-  echo "  ✓ setup.sh (public ports 3003/3004 + Redis 6399→6379)"
+  echo "  ✓ setup.sh (public ports 3003/3004)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
@@ -763,7 +756,6 @@ fi
 if [ -f "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts" ]; then
   sedi \
     -e "s/- \\*\\*Port 3001\\*\\* is reserved for Cat Cafe frontend. Use 3002+ for other dev servers./- **Public local defaults**: use frontend 3004 and API 3003 to avoid colliding with another local runtime./g" \
-    -e "s/- \\*\\*Redis port 6399\\*\\* is Cat Cafe's production Redis. Never connect to it from external projects. Use 6398 for dev\\/test./- **Redis port 6379** is the default production Redis. Never connect to it from external projects. Use 6380 for dev\\/test./g" \
     "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts"
 fi
 echo "  ✓ public default ports (3003/3004) applied"
@@ -952,8 +944,8 @@ fi
 echo "  Scanning for internal endpoints (docs + config)..."
 found=$(grep -rEn 'localhost:[0-9]{4,5}|127\.0\.0\.1|192\.168\.|10\.[0-9]+\.[0-9]+\.|\.internal[^a-z]|\.local[^a-z]|\.corp[^a-z]' \
   "$FILTERED_DIR/docs" "$FILTERED_DIR/cat-cafe-skills" 2>/dev/null \
-  | grep -v 'redis://localhost:6379' \
-  | grep -v 'redis://localhost:6380' \
+  | grep -v 'redis://localhost:6399' \
+  | grep -v 'redis://localhost:6398' \
   | grep -v 'localhost:3000' \
   | grep -v 'localhost:3003' \
   | grep -v 'localhost:3004' \
@@ -1023,7 +1015,7 @@ if [ "$VALIDATE" = true ]; then
     # D2d: Port verification — ensure no internal ports leak into config
     echo "  Port verification (D2d)..."
     PORT_FAIL=false
-    for bad_port in 3001 3002 6399; do
+    for bad_port in 3001 3002; do
       found=$(grep -rn "[:=]${bad_port}\b" "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.sh' --include='*.yaml' --include='*.md' 2>/dev/null \
         | grep -v 'node_modules' | grep -v '.sync-provenance' | grep -v 'CORS' | head -3 || true)
       if [ -n "$found" ]; then
@@ -1037,7 +1029,7 @@ if [ "$VALIDATE" = true ]; then
       trap - EXIT
       exit 1
     fi
-    echo "  ✓ Port verification passed (no 3001/3002/6399)"
+    echo "  ✓ Port verification passed (no 3001/3002)"
     echo -e "  ${GREEN}✓ Validate passed${NC}"
   else
     echo -e "  ${YELLOW}⚠ pnpm not found, skipping validate${NC}"
@@ -1321,7 +1313,7 @@ else
     echo "  Startup acceptance (full stack)..."
     ACCEPT_API_PORT=${API_SERVER_PORT:-3003}
     ACCEPT_WEB_PORT=${FRONTEND_PORT:-3004}
-    FORBIDDEN_PORTS="3001|3002|6399"
+    FORBIDDEN_PORTS="3001|3002"
 
     # Record listening ports BEFORE startup (baseline)
     PORTS_BEFORE=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
@@ -1391,7 +1383,7 @@ else
     # 6e: Port verification (static scan)
     echo "  Port verification (static scan)..."
     PORT_FAIL=false
-    for bad_port in 3001 3002 6399; do
+    for bad_port in 3001 3002; do
       found=$(grep -rn "[:=]${bad_port}\b" "$TARGET_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.sh' --include='*.yaml' --include='*.md' 2>/dev/null \
         | grep -v 'node_modules' | grep -v '.sync-provenance' | grep -v '.git/' | grep -v 'CORS' | head -3 || true)
       if [ -n "$found" ]; then

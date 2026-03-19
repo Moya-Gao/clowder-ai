@@ -22,9 +22,9 @@ s/Landy/Owner/g;
 s/lysander/owner/g;
 s/suces-MacBook[^ ]*/dev-machine/g;
 
-# ── Redis ports (all files) ──
-s#redis://localhost:6399#redis://localhost:6379#g;
-s#redis://localhost:6398#redis://localhost:6380#g;
+# ── Redis ports ──
+# Opensource uses same ports as internal (6399 prod, 6398 dev).
+# Only the Chinese label needs translation.
 s/6399 圣域/production Redis (sacred)/g;
 
 # ── Port remapping (all files) ──

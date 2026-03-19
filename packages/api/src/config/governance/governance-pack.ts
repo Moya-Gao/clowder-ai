@@ -5,9 +5,8 @@
  * external project CLAUDE.md/AGENTS.md/GEMINI.md files.
  *
  * Port values use internal defaults (3001/6399/6398).
- * The sync-to-opensource pipeline transforms these to public
- * defaults (3004/6379/6380) via _sanitize-rules.pl and
- * sync-to-opensource.sh Step 3k-3b.
+ * The sync-to-opensource pipeline transforms API/frontend ports
+ * to public defaults (3003/3004). Redis ports stay as-is (6399/6398).
  */
 import { createHash } from 'node:crypto';
 
