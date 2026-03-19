@@ -40,7 +40,7 @@ UX 要点：
   - 2026-03-19：post-review follow-up（cat-cafe PR #566）已合入，补齐 `/workspace` provider-profile sharing 边界，并修正 installer completion banner 的家里端口口径
 - **Phase B**: macOS（`install-mac.sh`）—— Homebrew 前置检测 + 依赖安装
 - **Phase C**: Windows（`install.ps1` / WSL 引导）—— PowerShell 脚本或引导用 WSL
-  - 2026-03-19：正在吸收 `clowder-ai#113` 的 Windows 一键部署与 CLI spawn 修复，manual-port 时保持家里 runtime 口径（`3001/3002/6399`），并锁定开源出口口径为 `Frontend 3003 / API 3004 / Redis 6399`
+  - 2026-03-19：已吸收 `clowder-ai#113` 的 Windows 一键部署与 CLI spawn 修复（cat-cafe PR #572），manual-port 时保留家里 runtime 口径（`3001/3002/6399`），并锁定开源出口口径为 `Frontend 3003 / API 3004 / Redis 6399`
 
 脚本应具备：幂等性（重复运行不报错）、版本检测（已安装不重装）、清晰的进度提示。
 
@@ -63,7 +63,7 @@ UX 要点：
 | 2026-03-18 | Phase D: design + implementation + review + merge (PR #554) |
 | 2026-03-19 | Phase A: absorbed Linux installer/runtime hardening from `clowder-ai#128` (PR #565) |
 | 2026-03-19 | Phase A follow-up: `/workspace` profile-sharing + installer port-hint hardening merged (PR #566) |
-| 2026-03-19 | Phase C: intake in progress for `clowder-ai#113` Windows installer/startup fixes, with public port normalization locked to `3003/3004/6399` |
+| 2026-03-19 | Phase C: absorbed `clowder-ai#113` Windows installer/startup fixes and locked public port normalization to `3003/3004/6399` (PR #572) |
 
 ## Notes
 
