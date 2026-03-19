@@ -12,7 +12,7 @@
 |------|---------|---------|
 | **Node.js** | >= 20.0.0 | [nodejs.org](https://nodejs.org/) |
 | **pnpm** | >= 9.0.0 | `npm install -g pnpm` |
-| **Redis** | >= 7.0 | `brew install redis` (macOS) or [redis.io](https://redis.io/download/) |
+| **Redis** | >= 7.0 | `brew install redis` (macOS) or [redis.io](https://redis.io/download/) — *optional: use `--memory` flag to skip* |
 | **Git** | any recent | Comes with most systems |
 
 ## Quick Start
@@ -33,9 +33,33 @@ cp .env.example .env
 pnpm start
 ```
 
-This auto-starts Redis, builds packages, and launches both Frontend (port 3003) and API (port 3004).
+`pnpm start` uses the **runtime worktree** architecture: it creates an isolated `../cat-cafe-runtime` worktree (on first run), syncs it to `origin/main`, builds, starts Redis, and launches Frontend (port 3003) + API (port 3004). This keeps your development checkout clean.
 
 Open `http://localhost:3003` and start talking to your team.
+
+> **Alternative — One-line installer (Linux):** `bash scripts/install.sh` handles Node, pnpm, Redis, dependencies, `.env`, and first launch in one step. On **Windows**, use `scripts/install.ps1` then `scripts/start-windows.ps1`.
+
+## How `pnpm start` Works (Runtime Worktree)
+
+Clowder uses a **runtime worktree** to keep your dev checkout clean:
+
+```
+your-projects/
+├── clowder-ai/             # Your development checkout (feature branches, edits)
+└── cat-cafe-runtime/       # Auto-created runtime worktree (tracks origin/main)
+```
+
+| Command | What it does |
+|---------|-------------|
+| `pnpm start` | Init (first time) → sync to origin/main → build → start Redis + API + Frontend |
+| `pnpm start --memory` | Same, but skip Redis (in-memory store, data lost on restart) |
+| `pnpm start --quick` | Same, but skip rebuild (use existing `dist/`) |
+| `pnpm start:direct` | Bypass worktree — run dev server directly in current checkout |
+| `pnpm runtime:init` | Only create the runtime worktree (no start) |
+| `pnpm runtime:sync` | Only sync worktree to origin/main (no start) |
+| `pnpm runtime:status` | Show worktree path, branch, HEAD, ahead/behind |
+
+First run creates `../cat-cafe-runtime` automatically. Subsequent runs do a fast-forward sync then start.
 
 ## Configuration
 
@@ -76,7 +100,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3004
 
 ## Optional Features
 
-Clowder works out of the box with just model API keys and Redis. Everything below is opt-in.
+Clowder works out of the box with model access (API keys or CLI auth) and Redis (or `--memory` mode). Everything below is opt-in.
 
 ### Voice Input / Output
 
@@ -260,23 +284,49 @@ Full Windows support is available via PowerShell scripts.
 ## Useful Commands
 
 ```bash
+# === Startup ===
 pnpm start              # Start everything (Redis + API + Frontend) via runtime worktree
 pnpm start --memory     # No Redis, in-memory mode
 pnpm start --quick      # Skip rebuild, use existing dist/
 pnpm start:direct       # Start dev server directly (bypasses worktree)
 
+# === Runtime Worktree ===
+pnpm runtime:init       # Create runtime worktree (first time only)
+pnpm runtime:sync       # Sync worktree to origin/main
+pnpm runtime:start      # Sync + start from worktree
+pnpm runtime:status     # Show worktree status
+
+# === Build & Test ===
 pnpm build              # Build all packages
 pnpm dev                # Run all packages in parallel dev mode
 pnpm test               # Run all tests
 
+# === Code Quality ===
 pnpm check              # Biome lint + format + feature doc + env-port drift checks
 pnpm check:fix          # Auto-fix lint issues
 pnpm lint               # TypeScript type check (per-package)
+pnpm check:deps         # Dependency graph check (depcruise)
+pnpm check:lockfile     # Verify lockfile integrity
+pnpm check:features     # Feature doc compliance check
+pnpm check:env-ports    # Env-port drift detection
 
+# === Redis ===
 pnpm redis:user:start   # Start Redis manually
 pnpm redis:user:stop    # Stop Redis
 pnpm redis:user:status  # Check Redis status
 pnpm redis:user:backup  # Manual backup
+
+# Redis auto-backup (cron-based)
+pnpm redis:user:autobackup:install    # Install autobackup cron job
+pnpm redis:user:autobackup:run        # Run backup now
+pnpm redis:user:autobackup:status     # Check autobackup status
+pnpm redis:user:autobackup:uninstall  # Remove autobackup cron job
+
+# === Thread Exports ===
+pnpm threads:sync       # Sync thread exports
+pnpm threads:status     # Check thread export status
+pnpm threads:export:redis              # Export threads from Redis
+pnpm threads:export:redis:dry-run      # Dry-run export
 ```
 
 ## Troubleshooting
@@ -303,7 +353,7 @@ pnpm redis:user:backup  # Manual backup
 |------|------|---------|
 | **Node.js** | >= 20.0.0 | [nodejs.org](https://nodejs.org/) |
 | **pnpm** | >= 9.0.0 | `npm install -g pnpm` |
-| **Redis** | >= 7.0 | `brew install redis`（macOS）或 [redis.io](https://redis.io/download/) |
+| **Redis** | >= 7.0 | `brew install redis`（macOS）或 [redis.io](https://redis.io/download/) — *可选：用 `--memory` 标志跳过* |
 | **Git** | 任意近期版本 | 大多数系统自带 |
 
 ## 快速开始
@@ -324,9 +374,33 @@ cp .env.example .env
 pnpm start
 ```
 
-自动启动 Redis，构建包，启动前端（端口 3003）和 API（端口 3004）。
+`pnpm start` 使用**运行时 worktree** 架构：首次运行时自动创建隔离的 `../cat-cafe-runtime` worktree，同步到 `origin/main`，构建，启动 Redis，然后启动前端（端口 3003）+ API（端口 3004）。这样你的开发目录保持干净。
 
 打开 `http://localhost:3003`，开始和你的团队对话。
+
+> **替代方案 — 一键安装（Linux）：** `bash scripts/install.sh` 一步搞定 Node、pnpm、Redis、依赖、`.env` 和首次启动。**Windows** 用户请使用 `scripts/install.ps1`，然后 `scripts/start-windows.ps1`。
+
+## `pnpm start` 的工作原理（运行时 Worktree）
+
+Clowder 使用**运行时 worktree** 保持开发目录干净：
+
+```
+your-projects/
+├── clowder-ai/             # 你的开发目录（feature 分支、编辑）
+└── cat-cafe-runtime/       # 自动创建的运行时 worktree（跟踪 origin/main）
+```
+
+| 命令 | 作用 |
+|------|------|
+| `pnpm start` | 初始化（首次）→ 同步到 origin/main → 构建 → 启动 Redis + API + 前端 |
+| `pnpm start --memory` | 同上，但跳过 Redis（纯内存，重启数据丢失） |
+| `pnpm start --quick` | 同上，但跳过重编译（用已有 `dist/`） |
+| `pnpm start:direct` | 跳过 worktree — 直接在当前目录启动 dev server |
+| `pnpm runtime:init` | 只创建运行时 worktree（不启动） |
+| `pnpm runtime:sync` | 只同步 worktree 到 origin/main（不启动） |
+| `pnpm runtime:status` | 显示 worktree 路径、分支、HEAD、ahead/behind |
+
+首次运行自动创建 `../cat-cafe-runtime`。后续运行做 fast-forward 同步后启动。
 
 ## 配置
 
@@ -367,7 +441,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3004
 
 ## 可选功能
 
-只要有模型 API key + Redis，Clowder 就能开箱即用。以下功能全是可选的。
+只要有模型访问（API key 或 CLI 认证）+ Redis（或 `--memory` 模式），Clowder 就能开箱即用。以下功能全是可选的。
 
 ### 语音输入 / 输出
 
@@ -551,23 +625,49 @@ Windows 通过 PowerShell 脚本完整支持。
 ## 常用命令
 
 ```bash
+# === 启动 ===
 pnpm start              # 启动全部（Redis + API + 前端），通过运行时 worktree
 pnpm start --memory     # 无 Redis，纯内存模式
 pnpm start --quick      # 跳过重编译，用已有 dist/
 pnpm start:direct       # 直接启动 dev server（跳过 worktree）
 
+# === 运行时 Worktree ===
+pnpm runtime:init       # 创建运行时 worktree（仅首次）
+pnpm runtime:sync       # 同步 worktree 到 origin/main
+pnpm runtime:start      # 同步 + 从 worktree 启动
+pnpm runtime:status     # 查看 worktree 状态
+
+# === 构建和测试 ===
 pnpm build              # 构建所有包
 pnpm dev                # 所有包并行 dev 模式
 pnpm test               # 运行所有测试
 
+# === 代码质量 ===
 pnpm check              # Biome lint + 格式检查 + Feature 文档 + 端口漂移检测
 pnpm check:fix          # 自动修复 lint 问题
 pnpm lint               # TypeScript 类型检查（按包）
+pnpm check:deps         # 依赖图检查（depcruise）
+pnpm check:lockfile     # 校验 lockfile 完整性
+pnpm check:features     # Feature 文档合规检查
+pnpm check:env-ports    # 环境变量端口漂移检测
 
+# === Redis ===
 pnpm redis:user:start   # 手动启动 Redis
 pnpm redis:user:stop    # 停止 Redis
 pnpm redis:user:status  # 检查 Redis 状态
 pnpm redis:user:backup  # 手动备份
+
+# Redis 自动备份（cron 方式）
+pnpm redis:user:autobackup:install    # 安装自动备份定时任务
+pnpm redis:user:autobackup:run        # 立即执行备份
+pnpm redis:user:autobackup:status     # 查看自动备份状态
+pnpm redis:user:autobackup:uninstall  # 移除自动备份定时任务
+
+# === 线程导出 ===
+pnpm threads:sync       # 同步线程导出
+pnpm threads:status     # 查看线程导出状态
+pnpm threads:export:redis              # 从 Redis 导出线程
+pnpm threads:export:redis:dry-run      # 模拟导出
 ```
 
 ## 常见问题
