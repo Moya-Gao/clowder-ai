@@ -411,7 +411,11 @@ export function DirectoryPickerModal({
           <div className="flex items-center gap-2 pt-1">
             {selectedPath && (
               <span
-                className="text-[11px] text-gray-500 truncate flex-1"
+                className={`truncate flex-1 ${
+                  showBrowser
+                    ? 'text-xs font-medium text-owner-primary bg-owner-bg px-2 py-1 rounded-md'
+                    : 'text-[11px] text-gray-500'
+                }`}
                 title={selectedPath === 'lobby' ? '大厅' : selectedPath}
               >
                 已选：{selectedPath === 'lobby' ? '大厅 (无项目)' : projectDisplayName(selectedPath)}
