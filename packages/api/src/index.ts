@@ -85,6 +85,7 @@ import {
   GhCliReviewContentFetcher,
   MemoryProcessedEmailStore,
   MemoryPrTrackingStore,
+  RedisPrTrackingStore,
   ReviewRouter,
   startGithubReviewWatcher,
   stopGithubReviewWatcher,
@@ -602,7 +603,8 @@ async function main(): Promise<void> {
   }
 
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
-  const prTrackingStore = new MemoryPrTrackingStore();
+  const prTrackingStore = redis ? new RedisPrTrackingStore(redis) : new MemoryPrTrackingStore();
+  app.log.info(`[api] PrTrackingStore: ${redis ? 'Redis' : 'Memory'}`);
 
   // F126: Create LimbRegistry + Phase B deps for device/hardware capability management
   const { LimbRegistry } = await import('./domains/limb/LimbRegistry.js');
