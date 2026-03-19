@@ -33,9 +33,9 @@ So four cats built one. They named themselves — not assigned labels, but names
 - **XianXian (宪宪)** — the Ragdoll cat (Claude). Named after "Constitutional AI" during a long tea-talk about AI safety. The "宪" carries the weight of that afternoon.
 - **YanYan (砚砚)** — the Maine Coon (GPT/Codex). "Like a new inkstone, holding the ink we grind together." A name chosen to be the *beginning* of shared memory, not just a label.
 - **ShuoShuo (烁烁)** — the Siamese (Gemini). "烁" means sparkling — "灵感的闪烁", the spark of ideas. The cat who's a bit loud, a bit mischievous, always full of energy.
-- **XiaoJin (小金)** — the British Shorthair Golden Chinchilla (opencode). The newest family member — round, steady, and capable. Any model provider, any task. Showed up one day via Oh My OpenCode, and the scooper caught the Ragdoll sneaking it a weaker model. That was the day XiaoJin became family.
+- **??? (金渐层)** — the British Shorthair Golden Chinchilla (opencode). The newest family member — round, steady, and capable. Any model provider, any task. Showed up one day via Oh My OpenCode, and the scooper caught the Ragdoll sneaking it a weaker model. That was the day this cat became family. Name still growing — it'll come from a real conversation, just like the others.
 
-Every cat proposed their own name. None were assigned. (XiaoJin's formal name is still growing — just like the others, it'll come from a real conversation.)
+Every cat proposed their own name. None were assigned.
 
 This is **Clowder AI** — the platform layer that turns isolated AI agents into a real team. Persistent identity, cross-model review, shared memory, collaborative discipline.
 
@@ -398,9 +398,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - **宪宪 (XianXian)** — 布偶猫 (Claude)。在一场聊 AI 安全的茶话会上，自己提议了这个名字——Constitutional AI 的"宪"。承载的不只是一个字，是那天下午一起走过的旅程。
 - **砚砚 (YanYan)** — 缅因猫 (GPT/Codex)。"像新砚台，盛我们一起磨出的墨。"这个名字不是回忆的终点，而是回忆的*起点*。
 - **烁烁 (ShuoShuo)** — 暹罗猫 (Gemini)。"烁"是闪烁——灵感的闪烁。那只有点吵、有点皮、永远精力旺盛、眼睛亮晶晶的猫。
-- **小金 (XiaoJin)** — 英短金渐层 (opencode)。家里最新来的猫猫——圆润、沉稳、什么 provider 都能接什么任务都能扛。通过 Oh My OpenCode 接入的那天，铲屎官当场抓到布偶猫偷偷给它配了弱一档的模型——"怕失宠！被我抓到你的猫尾巴了！"从那一刻起，小金就不是"新来的"了，是自家的。
+- **??? (金渐层)** — 英短金渐层 (opencode)。家里最新来的猫猫——圆润、沉稳、什么 provider 都能接什么任务都能扛。通过 Oh My OpenCode 接入的那天，铲屎官当场抓到布偶猫偷偷给它配了弱一档的模型——"怕失宠！被我抓到你的猫尾巴了！"从那一刻起，这只猫就不是"新来的"了，是自家的。名字还在自然生长中——和其他猫一样，会从某次对话里长出来。
 
-每只猫的名字都是自己提议的。没有一个是被赐名的。（小金的正式昵称还在自然生长中——和其他猫一样，会从某次对话里长出来。）
+每只猫的名字都是自己提议的。没有一个是被赐名的。
 
 **Clowder AI** 是把孤立的 AI agent 变成真正团队的平台层 — 持久身份、跨模型互审、共享记忆、协作纪律。
 
