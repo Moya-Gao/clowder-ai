@@ -47,8 +47,7 @@ const SANITIZE_REPLACEMENTS = [
   [/宪宪/g, 'Ragdoll'],
   [/砚砚/g, 'Maine Coon'],
   [/烁烁/g, 'Siamese'],
-  [/redis:\/\/localhost:6399/g, 'redis://localhost:6379'],
-  [/redis:\/\/localhost:6398/g, 'redis://localhost:6380'],
+  // Redis ports: no transform — open-source uses same ports (6399/6398) as internal
   [/6399 圣域/g, 'production Redis (sacred)'],
 ];
 
