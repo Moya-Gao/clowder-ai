@@ -216,7 +216,7 @@ reopened: 2026-03-14
 **改动概要**：
 - `GameAutoPlayer.ts`: SKIP_PHASES → ANNOUNCE_PHASES 分离 + 模板发言
 - `GameOrchestrator.ts`: writeAnnounce/writeSpeech 双写 + resolveLastWords（entering 时机）
-- `WerewolfDefinition.ts`: 阶段重排 day_last_words+day_hunter 在 day_exile 之后
+- `WerewolfDefinition.ts`: 阶段重排 day_last_words+day_hunter 在 day_exile 之后（⚠️ day_hunter 编排层当前 auto-skip，引擎层保留，需 special resolve phase 接通）
 - 3 处 messageStore 注入（games.ts / messages.ts / index.ts）+ observerUserId
 - 4 个新 regression guard 测试
 
@@ -298,7 +298,7 @@ reopened: 2026-03-14
 | R6 (纯代码法官) | `GameEngine` 确定性结算，0 LLM 依赖 |
 | R8 (语音模式) | `voiceMode` config + audio rich block 输出 |
 | R9 (网易规则) | `WerewolfDefinition` 遵循网易标准 + 无警长竞选 |
-| R10 (遗言) | `day_last_words` phase + `day_hunter` shoot |
+| R10 (遗言) | `day_last_words` phase ✅ + `day_hunter` shoot ⚠️ deferred（引擎层支持但编排层需 special resolve phase，见 TODO） |
 
 ## Dependencies
 
@@ -335,6 +335,7 @@ reopened: 2026-03-14
 | OQ-12 | 平票时随机 vs 按座位序 vs 重新投票（PK）？ | ✅ no_kill（空刀），铲屎官确认"一般是这样"（KD-25） |
 | OQ-13 | 白天投票实名公开还是匿名后揭晓？ | ✅ 实名公开，"推理的重要信息"（KD-26） |
 | OQ-14 | 狼人内部讨论要不要做成聊天形式（faction channel）？ | ✅ 要做，只在夜间，讨论时间待定（KD-27） |
+| OQ-15 | 猎人死亡开枪（day_hunter death-trigger）如何实现？ | ⚠️ **v1 降级**：引擎层 `hunterShoot()` 已实现，但编排层需要 special resolve phase（死座位不能提交 action）。当前 auto-skip，不卡局。需要在 `skipEmptyPhases` 之外新建死后触发机制。GPT-5.4 review 2026-03-19 确认。 |
 
 ## Key Decisions
 
