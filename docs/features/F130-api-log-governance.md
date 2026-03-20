@@ -31,7 +31,7 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 | 审计层 | `data/audit-logs/*.ndjson` | 90 天 | 关键业务事件，不可变（已有） |
 | 取证层 | `data/cli-raw-archive/` | 3-7 天 | CLI 原始事件重放（已有） |
 | **运行层** | `data/logs/api/*.log` | 14 天 | **Pino 结构化 runtime log（新增）** |
-| **进程层** | `data/logs/process/` | 7 天 | **start-dev.sh stdout/stderr capture（新增）** |
+| **进程层** | `data/logs/process/` | 7 天 | **start-dev.sh stderr capture + 未迁移 console 兜底（新增）** |
 
 ### Phase A: 止血 — Runtime Log 落盘
 
@@ -49,9 +49,10 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
    const app = Fastify({ logger: customLogger });
    ```
 
-3. **改 `scripts/start-dev.sh`** — 进程层 stdout/stderr capture
-   - 独立落盘到 `data/logs/process/`，不与运行层混
-   - 接住 tsx watch 输出、初始化前异常、尚未迁移的 console.*
+3. **改 `scripts/start-dev.sh`** — 进程层 stderr capture + 未迁移 console 兜底
+   - stderr 落盘到 `data/logs/process/`，接住 tsx watch 输出、crash dump、初始化前异常
+   - 未迁移的 `console.*` 通过 monkey-patch 重定向到 stderr，确保进程层兜底
+   - 不使用 `tee` 管道（macOS bash 下所有 tee 方案均会产生孤儿进程，破坏 `kill $(jobs -p)` 清理）
 
 4. **迁移 4 个核心模块的 `console.*`**：
    - `EventAuditLog.ts` — 去掉审计后多余的 console echo
@@ -80,7 +81,7 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 - [ ] AC-A1: Fastify 使用自建 Pino 实例，stdout + file 双写
 - [ ] AC-A2: 运行日志落盘到 `data/logs/api/`，按天轮转，14 天保留
 - [ ] AC-A3: Pino redaction 配置覆盖敏感字段（authorization, cookie, token, apiKey, secret）
-- [ ] AC-A4: start-dev.sh 进程层 stdout/stderr 独立落盘到 `data/logs/process/`
+- [ ] AC-A4: start-dev.sh 进程层 stderr 独立落盘到 `data/logs/process/`（含未迁移 console 兜底）
 - [ ] AC-A5: EventAuditLog 不再 console.log echo（审计层和运行层分离）
 - [ ] AC-A6: invoke-single-cat, route-serial, route-parallel, SocketManager 迁移到 logger
 - [ ] AC-A7: LOG_LEVEL 环境变量控制日志级别（默认 info）
@@ -106,6 +107,7 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 | 风险 | 缓解 |
 |------|------|
 | pino-roll 在 worker thread 中写文件，崩溃时可能丢最后几条 | 进程层 capture 作为外层保险 |
+| Phase A 未迁移的 ~80 处 console.log 无文件持久化 | monkey-patch console 到 stderr 兜底；Phase B 全量迁移后 gap 归零 |
 | Phase A console 迁移范围膨胀 | 严格控制只迁 4 个核心模块，其余留 Phase B |
 | Redaction 遗漏导致敏感信息落盘 | Phase C 补充审计脚本扫描日志文件 |
 
@@ -119,6 +121,7 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 | KD-4 | Phase A 范围严格控制，不做热路径大扫除 | 止血 PR 要 review 友好，大量 console 迁移留 Phase B | 2026-03-20 |
 | KD-5 | Redaction 必须随 Phase A 同步上线 | 日志落盘等于把泄露面从终端复制到磁盘，必须同步脱敏 | 2026-03-20 |
 | KD-6 | MCP server 保留 console.error | stdio transport 协议要求，stderr 是 MCP 的正确日志通道 | 2026-03-20 |
+| KD-7 | 进程层只做 stderr redirect（不用 tee pipeline） | macOS bash 下 `cmd \| tee` / `> >(tee)` / `exec > >(tee)` 均产生孤儿进程，`kill $(jobs -p)` 无法清理。Pino stdout transport 已覆盖结构化日志的终端+文件双写；未迁移 console.* 通过 monkey-patch 重定向到 stderr 兜底。Phase B 全量迁移后 gap 归零 | 2026-03-21 |
 
 ## Timeline
 

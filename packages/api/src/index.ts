@@ -180,11 +180,8 @@ export function getSocketManager(): SocketManager {
 const PROCESS_START_AT = Date.now();
 
 async function main(): Promise<void> {
-  const app = Fastify({
-    logger: {
-      timestamp: () => `,"time":"${new Date().toISOString()}"`,
-    },
-  });
+  const { logger: customLogger } = await import('./infrastructure/logger.js');
+  const app = Fastify({ logger: customLogger as unknown as import('fastify').FastifyBaseLogger });
 
   // CORS for frontend
   await app.register(cors, {

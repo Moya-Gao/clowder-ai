@@ -731,7 +731,8 @@ main() {
 
     # API Server
     echo "  启动 API Server (端口 $API_PORT)..."
-    (cd packages/api && pnpm run dev) &
+    mkdir -p data/logs/process
+    (cd packages/api && pnpm run dev) 2>> "$PROJECT_DIR/data/logs/process/api-$(date +%Y-%m-%d).log" &
     sleep 2
 
     # Frontend
