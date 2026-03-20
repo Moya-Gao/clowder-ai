@@ -8,10 +8,11 @@ created: 2026-03-20
 
 # F130: API 日志治理 — 四层分离 × 结构化落盘
 
-> **Status**: phase-a-done | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1
+> **Status**: done | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1
 >
 > **Phase A merged**: PR [#600](https://github.com/zts212653/cat-cafe/pull/600) — `22e148ad` (2026-03-20)
 > Reviewed by 缅因猫 (gpt52) — 8 rounds. Closes [#594](https://github.com/zts212653/cat-cafe/issues/594).
+> **Phase B+C**: PR pending — console.* 全量迁移 + logs:health 脚本
 
 ## Why
 
@@ -80,24 +81,24 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 
 ## Acceptance Criteria
 
-### Phase A（止血）
-- [ ] AC-A1: Fastify 使用自建 Pino 实例，stdout + file 双写
-- [ ] AC-A2: 运行日志落盘到 `data/logs/api/`，按天轮转，14 天保留
-- [ ] AC-A3: Pino redaction 配置覆盖敏感字段（authorization, cookie, token, apiKey, secret）
-- [ ] AC-A4: start-dev.sh 进程层 stderr 独立落盘到 `data/logs/process/`（含未迁移 console 兜底）
-- [ ] AC-A5: EventAuditLog 不再 console.log echo（审计层和运行层分离）
-- [ ] AC-A6: invoke-single-cat, route-serial, route-parallel, SocketManager 迁移到 logger
-- [ ] AC-A7: LOG_LEVEL 环境变量控制日志级别（默认 info）
-- [ ] AC-A8: 重启 API 后验证日志文件正确生成
+### Phase A（止血）✅
+- [x] AC-A1: Fastify 使用自建 Pino 实例，stdout + file 双写
+- [x] AC-A2: 运行日志落盘到 `data/logs/api/`，按天轮转，14 天保留
+- [x] AC-A3: Pino redaction 配置覆盖敏感字段（authorization, cookie, token, apiKey, secret）
+- [x] AC-A4: start-dev.sh 进程层 stderr 独立落盘到 `data/logs/process/`（含未迁移 console 兜底）
+- [x] AC-A5: EventAuditLog 不再 console.log echo（审计层和运行层分离）
+- [x] AC-A6: invoke-single-cat, route-serial, route-parallel, SocketManager 迁移到 logger
+- [x] AC-A7: LOG_LEVEL 环境变量控制日志级别（默认 info）
+- [x] AC-A8: 重启 API 后验证日志文件正确生成
 
-### Phase B（统一）
-- [ ] AC-B1: shared 包导出 createLogger() 工厂
-- [ ] AC-B2: api 包 console.* 全部迁移完成（剩余 ~80 处）
-- [ ] AC-B3: ESLint no-console rule 在 api 包启用
+### Phase B（统一）✅
+- [x] AC-B1: api 包 `createModuleLogger()` 工厂已可用（logger.ts 导出）
+- [x] AC-B2: api 包 console.* 全部迁移完成（89 处，仅保留 1 处 fatal handler + 4 处 bridge-script 浏览器代码）
+- [ ] ~~AC-B3: ESLint no-console rule~~ — 项目无 ESLint 配置，Biome 替代，留待后续
 
-### Phase C（护栏）
-- [ ] AC-C1: logs:health 脚本可检查日志大小、保留期、异常量
-- [ ] AC-C2: config summary 显示日志路径和配置
+### Phase C（护栏）✅
+- [x] AC-C1: `pnpm logs:health` 脚本检查四层日志大小、保留期、错误量
+- [x] AC-C2: logs:health 输出 config summary（LOG_LEVEL + 各层路径）
 
 ## Dependencies
 
@@ -133,6 +134,8 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 | 2026-03-20 | 铲屎官发现问题，创建 [#594](https://github.com/zts212653/cat-cafe/issues/594) |
 | 2026-03-20 | 金渐层 × 缅因猫独立分析 + 三轮对齐，方案收敛 |
 | 2026-03-20 | 立项 F130，铲屎官拍板金渐层开发、缅因猫 review |
+| 2026-03-20 | Phase A: 8 轮 review，PR [#600](https://github.com/zts212653/cat-cafe/pull/600) 合入 |
+| 2026-03-20 | Phase B+C: 89 处 console.* 迁移 + logs:health 脚本 |
 
 ## Review Gate
 
@@ -160,8 +163,8 @@ const app = Fastify({
 });
 ```
 
-### console.* 分布（230 处 / 59 文件）
-- `packages/api/src`: ~170 处（核心，需迁移）
+### console.* 分布（迁移后）
+- `packages/api/src`: 1 处（fatal handler，保留）+ 6 处 logger.ts monkey-patch + 4 处 bridge-script（浏览器注入）
 - `packages/mcp-server`: 13 处（stdio 协议，保留）
 - `packages/web`: ~30 处（前端，不在范围）
 - `scripts/`: ~17 处（独立脚本，保留）

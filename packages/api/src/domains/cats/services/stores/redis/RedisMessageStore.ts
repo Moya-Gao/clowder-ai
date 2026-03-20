@@ -14,6 +14,7 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AppendMessageInput, StoredMessage } from '../ports/MessageStore.js';
 import { DEFAULT_THREAD_ID, generateSortableId, isDelivered } from '../ports/MessageStore.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
@@ -25,6 +26,8 @@ import {
   safeParseMetadata,
   safeParseToolEvents,
 } from './redis-message-parsers.js';
+
+const log = createModuleLogger('redis-message-store');
 
 const DEFAULT_LIMIT = 50;
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -248,9 +251,7 @@ export class RedisMessageStore {
     if (effectiveAfter) {
       const rank = await this.redis.zrank(mentionKey, effectiveAfter);
       if (rank === null) {
-        console.warn(
-          `[MentionAck] cursor ${effectiveAfter} not in mention set for ${catId}, falling back to full pending`,
-        );
+        log.warn({ cursor: effectiveAfter, catId }, 'cursor not in mention set, falling back to full pending');
         effectiveAfter = undefined;
       }
     }

@@ -9,6 +9,10 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { getDefaultCatId } from '../config/cat-config-loader.js';
+import { createModuleLogger } from '../infrastructure/logger.js';
+
+const log = createModuleLogger('routes/invocations');
+
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { AgentRouter } from '../domains/cats/services/agents/routing/AgentRouter.js';
@@ -223,7 +227,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
           finalStatus = 'succeeded';
         }
       } catch (err) {
-        console.error('[invocations] Retry execution error:', err);
+        log.error({ err }, 'Retry execution error');
         const errorMsg = err instanceof Error ? err.message : 'Unknown error';
         await opts.invocationRecordStore.update(id, {
           status: 'failed',

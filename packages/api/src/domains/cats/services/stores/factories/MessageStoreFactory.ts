@@ -5,8 +5,11 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { MessageStore } from '../ports/MessageStore.js';
 import { RedisMessageStore } from '../redis/RedisMessageStore.js';
+
+const log = createModuleLogger('message-store-factory');
 
 export type AnyMessageStore = MessageStore | RedisMessageStore;
 
@@ -15,7 +18,7 @@ function resolveMessageTtlSeconds(): number | undefined {
   if (!raw) return undefined;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) {
-    console.warn(`[MessageStoreFactory] Invalid MESSAGE_TTL_SECONDS='${raw}', using default`);
+    log.warn({ raw }, 'Invalid MESSAGE_TTL_SECONDS, using default');
     return undefined;
   }
   return Math.trunc(parsed);
