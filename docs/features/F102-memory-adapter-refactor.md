@@ -536,9 +536,19 @@ search_evidence(query, {
 **Candidate 硬边界（砚砚红线）**：
 - 只允许 3 类：`decision` / `lesson` / `method`——硬编码枚举
 - 必须带 `evidence`（sessionId + 原文 span）和 `relatedAnchors`
-- `confidence: "explicit"` → 默认 `normalized`；`"inferred"` → 默认 `needs_review`
+- `confidence: "explicit"` → 默认 `normalized`；`"inferred"` → 默认 `needs_review`；**一律不直接 `approved`**
+- **`explicit` 判定必须收窄**（砚砚 R2）：仅以下三种情况才算 explicit——(a) 铲屎官/owner 明确拍板；(b) session 内有明确共识语句且可被 transcript 直接引用；(c) 已对应到 merged doc/merged code 事实。"说得像决定"的讨论不算 explicit
 - **禁止提取**：未定方案/brainstorm 分支、临时 TODO/WIP、只对当前 thread 有意义的碎片、没有证据的"模型总结性发挥"
 - Prompt 定位是"**抽取器**"不是"总结器"——"只抽取可跨 session 复用、未来重新看到仍有价值的内容"
+
+**Skip Path（砚砚 R2 补充）——不是每个 sealed session 都值得调 Opus**：
+
+如果 session 只有闲聊/路由/极少量操作，只保留 extractive digest，不跑 abstractive + candidate extraction。触发 Opus 调用需满足任一条件：
+- touched files >= 1
+- explicit decision markers >= 1（session 内有"决定"/"agreed"等标记）
+- task status changed
+- error → fix 闭环存在
+- session event count 超过阈值（默认 20）
 
 **API 接入（金渐层确认）**：
 
@@ -559,7 +569,7 @@ const profile = await resolveAnthropicRuntimeProfile(projectRoot);
 |----|------|------|------|
 | **实时拼接层** | dirty-thread flush（<100ms） | `summaryType=concat`，现有拼接 | 零 |
 | **Seal 摘要层** | session seal 事件 | `summaryType=abstractive` + `candidates[]` | 1 次 Opus/session |
-| **周期凝结层** | 5+ sealed session digest 积累后 | `summaryType=condensed`（thread 级概括） | 1 次 Opus/凝结批 |
+| **周期凝结层** | 双阈值：sessions>=5 或 tokens>=1500 + quiet window>=10min | `summaryType=condensed`（thread 级概括） | 1 次 Opus/凝结批 |
 
 调度优先级：
 1. 新 session seal → 立即入队
@@ -581,6 +591,21 @@ const profile = await resolveAnthropicRuntimeProfile(projectRoot);
 
 没有这几个水位线，一定会重复摘要、重复入队、或旧摘要覆盖新摘要。
 
+**凝结层 Provenance（砚砚 R2 补充——不可审计 = 不可信）**：
+
+```typescript
+// condensed summary 必须带来源追溯
+{
+  sourceSessionSeqRange: [number, number]; // e.g., [0, 4]
+  sourceSessionIds: string[];
+  modelId: string;          // e.g., 'claude-opus-4-6'
+  promptVersion: string;    // e.g., 'g2-condense-v1'
+  condensedAt: string;      // ISO timestamp
+}
+```
+
+如果 condensed summary 看起来不对，能回溯"它是拿哪几段 session digest 凝出来的、用什么 prompt 版本"。
+
 **G-3. ThreadMemory 两层化（KD-40）**
 
 当前 `buildThreadMemory` 是 append-to-head + trim-from-tail 的滚动文本——老 session 信息会被彻底删除。
@@ -589,7 +614,11 @@ const profile = await resolveAnthropicRuntimeProfile(projectRoot);
 - **近期详细层**：最近 2-3 个 session 的完整摘要行（和现在一样）
 - **远期凝结层**：更早 session 合并为概括（带 sessionId 指针，可穿透回原始 transcript）
 
-凝结触发：thread 积累 5 个 sealed session 后首次凝结，之后每新增 3 个再凝结一次。凝结输入是 session abstractive digests（G-2 seal 层产物），不是 thread 原文。
+凝结触发（砚砚 R2：N=5 作为默认经验值，实现用双阈值）：
+- **数量门槛**：thread 积累 5 个 sealed session 后首次凝结，之后每新增 3 个再凝结
+- **Token 门槛**：积累的 session digest tokens >= 1500~2000 时也触发（覆盖"session 少但每个很重"的情况）
+- **Quiet window**：lastSealAt > 10min（避免连续 seal 时反复凝结）
+- 凝结输入是 session abstractive digests（G-2 seal 层产物），不是 thread 原文
 
 **G-4. 搜索结果穿透路标**
 
