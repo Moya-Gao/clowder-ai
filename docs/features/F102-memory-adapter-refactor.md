@@ -489,6 +489,87 @@ search_evidence(query, {
 - 跨项目检索（在 dare 里搜 cat-cafe 的教训）
 - frontmatter 自动补全工具
 
+### Phase G: Abstractive Summary + Durable Memory Lifecycle（待实现）
+
+> **触发**：铲屎官发起 Lossless Claw（LCM）调研，三猫（opus + opencode + gpt52）协作对比 LC 与 session chain / F102，收敛出可学习的改进点。
+> **调研文档**：[Lossless Claw vs Session Chain 调研](../research/2026-03-19-lossless-claw-session-chain-comparison.md)
+> **核心学习**：从 LC 学到的不是 DAG 数据结构，是"压缩不等于丢弃，摘要必须可穿透"的理念。
+> **三猫共识**：LC 最对标的是 F065 Session Continuity，不是 F102。但 F065→F102 的写路径（pre-seal → durable knowledge）是核心改进点。
+
+**G-1. Seal-time Abstractive Digest（KD-37）**
+
+当前 seal 时只产出 extractive digest（工具名/文件/错误，零 LLM）。新增 abstractive digest，回答"讨论了什么、决定了什么"。
+
+- 模型：**Opus 4.6 128k**（通过金渐层/反代 API）——铲屎官明确指示，不用 Haiku（实测结论：Haiku 带坑里，Sonnet 需推断，Opus 完全准确）
+- 产物：`digest.abstractive.json`（与现有 `digest.extractive.json` 并存）
+- 存入 `evidence_docs.summary` 替换拼接文本
+- **fail-open**：API 调用失败不阻塞 seal，回落到 extractive
+
+**G-2. Pre-seal Durable Memory Flush（KD-38）**
+
+在 session 即将 seal 时，从对话内容中提取有价值的候选知识：
+
+```
+session 即将 seal
+  → extractive digest（已有，免费）
+  → abstractive digest（G-1）
+  → durable candidate 提取（新增）
+  → marker 候选层 → F102 materialization 审核
+```
+
+候选类型：决策（→ADR）、教训（→lesson）、方法论（→skill 提案）。
+不直写长期真相源——走现有 marker → review → materialize 流程。
+
+**G-3. Abstractive Summary 批处理调度**
+
+存量 + 增量分层策略：
+
+| 场景 | 策略 |
+|------|------|
+| 存量历史 thread | 一次性批处理脚本（有 abstractive summary 跳过，否则调 API） |
+| 运行时增量 | 实时路径不改（拼接写 evidence_docs，<100ms）|
+| 后台批处理 | 每 30 分钟或 dirty thread >= 3 时触发 Opus API 生成 abstractive summary |
+| seal 事件 | 该 thread 优先进摘要队列 |
+
+调度方式：API 启动时 `setInterval`（兜底）+ seal 钩子 `summaryQueue.enqueue()`（优先触发）。
+
+**G-4. ThreadMemory 两层化**
+
+当前 `buildThreadMemory` 是 append-to-head + trim-from-tail 的滚动文本——老 session 信息会被彻底删除。
+
+升级为两层结构：
+- **近期详细层**：最近 2-3 个 session 的完整摘要行（和现在一样）
+- **远期凝结层**：更早 session 合并为概括（带 sessionId 指针，可穿透回原始 transcript）
+
+凝结规则式即可（不需 LLM）：当行数超过 N 时，最老的 M 行合成一行"Sessions #1-#3 概述：做了 XYZ"。
+
+**G-5. 搜索结果穿透路标**
+
+`search_evidence` 命中 `kind=session` 或 `kind=thread` 结果时，返回值增加 `drillDown` 字段：
+
+```typescript
+interface EvidenceItemWithDrillDown extends EvidenceItem {
+  drillDown?: {
+    tool: string;           // e.g., 'read_session_events'
+    params: Record<string, string>;  // e.g., { sessionId, view: 'handoff' }
+    hint: string;           // e.g., '可用此工具查看完整对话'
+  };
+}
+```
+
+让猫从"搜到但不知怎么看详情"变成"搜到→一键下钻"。
+
+**G-6. Conversation Identity 统一语义边界（ADR 待立项）**
+
+五个概念（Thread / Session Chain / Active Slot / Connector Binding / CLI Resume）各自定义清晰，但缺少"它们如何协同"的统一叙事。需要一份 ADR 把端到端流转路径画清楚：
+
+```
+用户消息 → connector binding 找 thread → thread 找猫的 active slot
+  → active slot 找 session → 事件写入 session → seal → digest → F102 索引
+```
+
+此项不在 F102 内实现，作为独立 ADR 立项，link 回 F102 + F065 + F088。
+
 ## Phase D 完成后的预期效果
 
 > 铲屎官指示：做完后要讲清楚"铲屎官日常使用感受到什么优化"和"猫猫自己感受到什么优化"。跑一段时间才知道做得好不好。
@@ -748,3 +829,5 @@ search_evidence(query, {
 | **Research** | `docs/research/2026-03-16-f102-memory-alignment-proposal.md` | Artem QMD 方案对齐 + 铲屎官 proposal |
 | **Discussion** | thread `thread_mmst8x2uru65azwu` | GitNexus 研讨（三猫：不做代码图谱，吸收预计算 edges + invalidation） |
 | **Feature** | `docs/features/F024-session-chain.md` | Session Chain（数据源） |
+| **Research** | `docs/research/2026-03-19-lossless-claw-session-chain-comparison.md` | Lossless Claw vs Session Chain 调研对比（三猫协作） |
+| **Research** | `docs/research/2026-03-16-openclaw-cat-cafe-learning-synthesis.md` | OpenClaw 深度研究综合 |
