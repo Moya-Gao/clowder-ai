@@ -26,7 +26,7 @@ const FEATURE_FILENAME_MAP = new Map([
   ['F037', 'F037-agent-swarm.md'],
   ['F038', 'F038-skills-discovery.md'],
   ['F039', 'F039-message-queue-delivery.md'],
-  ['F040', 'F40-backlog-reorganization.md'],
+  ['F040', 'F040-backlog-reorganization.md'],
 ]);
 
 const STOPWORDS = new Set([

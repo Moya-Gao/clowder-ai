@@ -33,7 +33,7 @@ created: 2026-02-26
 | 温层（轻量索引）| features/FXX.md（聚合器）|
 | 冷层（需要搜索）| plans/discussions/bug-reports |
 
-我已经创建了 `docs/features/F40-backlog-reorganization.md` 作为第一个示范，里面有模板草稿。
+我已经创建了 `docs/features/F040-backlog-reorganization.md` 作为第一个示范，里面有模板草稿。
 
 ## 开放问题（希望你独立思考后给意见）
 
@@ -60,7 +60,7 @@ created: 2026-02-26
 
 ## 相关文档
 
-- **F40 聚合文件**：`docs/features/F40-backlog-reorganization.md`
+- **F40 聚合文件**：`docs/features/F040-backlog-reorganization.md`
 - **记忆系统 proposal**：`docs/research/2026-02-25-memory-design/proposal.md`
 - **当前 BACKLOG**：`docs/BACKLOG.md`
 

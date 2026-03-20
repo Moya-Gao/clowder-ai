@@ -8,14 +8,14 @@ created: 2026-02-26
 ## Review 请求: F40 元数据迁移 + BACKLOG 拆分落地
 
 ### 背景
-落地 `docs/features/F40-backlog-reorganization.md` 的执行项：
+落地 `docs/features/F040-backlog-reorganization.md` 的执行项：
 1. 全量文档 frontmatter contract（含 archive）
 2. BACKLOG 与 TECH-DEBT 拆分
 3. Feature/Tech Debt 编号规范化（`Fxxx` / `TDxxx`）
 4. 生成机器索引 `docs/features/index.json`
 
 ### 设计文档
-- Spec: `docs/features/F40-backlog-reorganization.md`
+- Spec: `docs/features/F040-backlog-reorganization.md`
 - SOP: `docs/SOP.md`
 
 ### Spec Compliance 自检

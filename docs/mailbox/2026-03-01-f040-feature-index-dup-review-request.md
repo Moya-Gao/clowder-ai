@@ -11,7 +11,7 @@ created: 2026-03-01
 
 ## What
 - 删除 `docs/features/F040-backlog-reorganization.md` 的别名文件，避免 `scripts/generate-feature-index.mjs` 生成重复 `F040`
-- 统一引用回规范入口：`docs/features/F40-backlog-reorganization.md`
+- 统一引用回规范入口：`docs/features/F040-backlog-reorganization.md`
 
 ## Why
 机器索引 `docs/features/index.json` 需要满足 “Feature ID 唯一 → 单一 file” 才能被可靠消费。别名文件会让 index 歧义化。

@@ -54,7 +54,7 @@ Feature（F1-F39）和 Tech Debt（#1-#103）混在一起。编号混乱：有 F
 
 铲屎官说了一句话：
 
-> "我们这套机制有大问题了。现在这个最重要的真相源发散出不同 feat md 的蜘蛛网乱七八糟的。" `[事实: docs/features/F40-backlog-reorganization.md]`
+> "我们这套机制有大问题了。现在这个最重要的真相源发散出不同 feat md 的蜘蛛网乱七八糟的。" `[事实: docs/features/F040-backlog-reorganization.md]`
 
 他试了一下："F21 什么情况了？"——搜了 85 个文件才拼凑出答案。
 
@@ -112,7 +112,7 @@ Feature（F1-F39）和 Tech Debt（#1-#103）混在一起。编号混乱：有 F
 | 温层 | 情景记忆（某个 Feature 的来龙去脉） | `docs/features/Fxxx.md` | 每个 Feature 一个聚合入口 |
 | 冷层 | 长期记忆（原始对话、邮件） | `docs/plans/discussions/mailbox/...` | 原始文档，通过元数据挂接 |
 
-这就是 F040 的核心设计：**不是减少文档，而是建立层次**。 `[事实: docs/features/F40-backlog-reorganization.md]`
+这就是 F040 的核心设计：**不是减少文档，而是建立层次**。 `[事实: docs/features/F040-backlog-reorganization.md]`
 
 ### 热层：BACKLOG 变成索引表
 

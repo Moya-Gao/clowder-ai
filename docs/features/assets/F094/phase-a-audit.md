@@ -75,7 +75,7 @@ created: 2026-03-11
 | F037 | `F037-agent-swarm.md` | 100% | 0 |
 | F038 | `F038-skills-discovery.md` | 100% | 0 |
 | F039 | `F039-message-queue-delivery.md` | 100% | 0 |
-| F040 | `F40-backlog-reorganization.md` | 100% | 0 |
+| F040 | `F040-backlog-reorganization.md` | 100% | 0 |
 | F041 | `F041-capability-dashboard.md` | 100% | 0 |
 | F042 | `F042-prompt-engineering-audit.md` | 100% | 0 |
 | F043 | `F043-mcp-unification.md` | 100% | 0 |

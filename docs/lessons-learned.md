@@ -480,7 +480,7 @@ created: 2026-02-26
 - 防护：ADR-011 明确记录此决策 + `feat-kickoff` / `feat-completion` skill 不在普通文档生成 `stage` 字段。
 - 来源锚点：
   - `docs/decisions/011-metadata-contract.md` §D
-  - `docs/features/F40-backlog-reorganization.md` Frontmatter Contract 章节
+  - `docs/features/F040-backlog-reorganization.md` Frontmatter Contract 章节
   - 2026-02-26 三猫讨论（4.6 提出此问题）
 - 原理：单点真相源原则——任何状态信息都应该只有一个权威来源。多点写入 = 同步负担 + 不一致风险。静态关联可以多点存（因为不变），动态状态必须单点存。
 

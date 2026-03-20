@@ -178,7 +178,7 @@ F094 立项时，家里共有 97 个 Feature 文档，质量参差不齐。F086/
 - 最新审计：`97 份 = Green 57 / Yellow 40 / Red 0`
 
 ### Phase B 第四批执行结果（2026-03-10）
-- Yellow 第三批 14 份已完成：`F031 + F033~F046`（含 `F40-backlog-reorganization.md`）
+- Yellow 第三批 14 份已完成：`F031 + F033~F046`（含 `F040-backlog-reorganization.md`）
 - 本批策略：延续高频项修复（Status 行 + AC 格式 + Dependencies 标签 + Risk）
 - 最新审计：`97 份 = Green 71 / Yellow 26 / Red 0`
 

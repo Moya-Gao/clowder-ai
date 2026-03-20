@@ -41,7 +41,7 @@
 | F034 | F034: Voice Block 语音消息 | done | [F034-voice-message.md](./F034-voice-message.md) |
 | F035 | F035: Whisper 消息可见性（悄悄话） | done | [F035-whisper-visibility.md](./F035-whisper-visibility.md) |
 | F039 | F039: 消息排队投递 — 用户操作三模式 | done | [F039-message-queue-delivery.md](./F039-message-queue-delivery.md) |
-| F040 | F40: BACKLOG 整理与 Feature 聚合体系 | done | [F40-backlog-reorganization.md](./F40-backlog-reorganization.md) |
+| F040 | F040: BACKLOG 整理与 Feature 聚合体系 | done | [F040-backlog-reorganization.md](./F040-backlog-reorganization.md) |
 | F041 | F041: 能力看板 — Hub MCP/Skills 统一管理 | done | [F041-capability-dashboard.md](./F041-capability-dashboard.md) |
 | F042 | F042: 提示词 & Skills 系统性优化 | done | [F042-prompt-engineering-audit.md](./F042-prompt-engineering-audit.md) |
 | F045 | F045: NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化 | done | [F045-ndjson-observability.md](./F045-ndjson-observability.md) |

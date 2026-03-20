@@ -61,7 +61,7 @@ test('feature doc with non-padded filename still indexes by feature_ids frontmat
   try {
     await createRepoSkeleton(root);
     await writeFile(
-      join(root, 'docs', 'features', 'F40-backlog-reorganization.md'),
+      join(root, 'docs', 'features', 'F040-backlog-reorganization.md'),
       [
         '---',
         'feature_ids: [F040]',

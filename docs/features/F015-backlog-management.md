@@ -26,7 +26,7 @@ created: 2026-02-26
 
 ## Links
 - [brainstorm 2026-02-10](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
-- [F040](./F40-backlog-reorganization.md)
+- [F040](./F040-backlog-reorganization.md)
 
 ## Key Decisions
 - “BACKLOG 管理”拆成两层：
