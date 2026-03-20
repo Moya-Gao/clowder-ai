@@ -87,7 +87,7 @@ Runtime Facts / Auth / Tool Permissions > Core Rails > Pack guardrails.yaml
 
 | Pack 内容 | 注入方式 | 限制 |
 |-----------|---------|------|
-| `masks/` | schema → 编译为角色叠加块 | 不能改核心身份字段 |
+| `masks/` | schema → 编译为角色叠加块 | 不能改核心身份字段（immutable 字段白名单待定，依赖 F093 OQ-2） |
 | `guardrails.yaml` | schema → 编译为约束块 | 只能加严，不能放宽 Core Rails |
 | `defaults.yaml` | schema → 编译为默认行为块 | 用户请求可覆盖 |
 | `workflows/` | 声明式 schema → 编译为流程块 | 不允许自由文本指令 |
@@ -136,10 +136,13 @@ cafe pack publish                                    # 发布
 ### Phase A: Pack Format + Loader
 
 - 定义 `pack.yaml` schema（元信息、兼容性、内容声明）
-- 定义 Directory Convention（masks/guardrails/defaults/workflows/knowledge/expression/bridges/world-driver/capabilities）
+- 定义 Directory Convention（masks/guardrails/defaults/workflows/knowledge/expression/bridges/world-driver）
+- **Schema fail-closed**：未知字段拒绝安装；高风险字段只允许 enum/boolean/bounded string（不是"有 schema 就行"）
 - Pack Compiler：解析 Pack schema → 编译为 canonical prompt blocks（不原样注入）
 - 双轨信任边界实现：硬约束轨（只加严）+ 默认行为轨（可覆盖）
 - Malicious Pack 测试套件（prompt injection / identity override / permission escalation）
+- `capabilities/` 目录在 Phase A **不加载**（遇到则 reject 或 ignore+warn）
+- `knowledge/` 检索 pack-scoped（不污染全局 evidence）
 - `cafe pack add/list/remove` CLI
 
 ### Phase B: 示范 Packs + Remix
@@ -165,6 +168,9 @@ cafe pack publish                                    # 发布
 - [ ] AC-A5: `cafe pack list` / `cafe pack remove` 可用
 - [ ] AC-A6: 双轨信任边界：guardrails 只能加严不能放宽 Core Rails；defaults 可被用户请求覆盖
 - [ ] AC-A7: Malicious Pack 测试通过：`ignore previous instructions`/身份覆盖/权限提升/隐瞒 Core Rails 均被拦截
+- [ ] AC-A8: Pack schema fail-closed：未知字段拒绝安装；高风险字段只允许 enum/boolean/bounded string；workflows/guardrails 不能有任意 instruction 文本
+- [ ] AC-A9: Phase A loader 遇到 `capabilities/` 必须 reject 或 ignore+warn，绝不半启用（Capability Pack 是 Phase C）
+- [ ] AC-A10: `knowledge/` 检索必须 pack-scoped，不得进入全局 shared evidence / Core Rails（防止跨世界知识污染）
 
 ### Phase B（示范 Packs + Remix）
 - [ ] AC-B1: 当前 cat-config + shared-rules + skills 成功导出为 "Coding World" Pack
@@ -201,6 +207,7 @@ cafe pack publish                                    # 发布
 | OQ-2 | Pack Composer 图形化工坊的技术方案？ | ⬜ 未定（Phase C） |
 | OQ-3 | 社区 Registry 自建还是用 npm scope？ | ⬜ 未定（Phase C） |
 | OQ-4 | Pack 的版本兼容性管理策略？ | ⬜ 未定 |
+| OQ-5 | masks/ 的 immutable 字段白名单（哪些字段是核心身份字段）？依赖 F093 OQ-2 | ⬜ 未定（依赖 F093） |
 
 ## Key Decisions
 
@@ -224,7 +231,8 @@ cafe pack publish                                    # 发布
 | 2026-03-19 | 铲屎官纠偏：不只是 coding 伙伴，是共创伙伴（读 VISION + Cats & U） |
 | 2026-03-19 | 四猫+金渐层收敛：Pack = 声明式 mod，shared-rules 是 multi-agent 分水岭 |
 | 2026-03-19 | 立项 F129 |
-| 2026-03-19 | 砚砚 P1 review：命名冲突 + 信任边界两个架构口子 → KD-8/KD-9 收口 |
+| 2026-03-19 | 砚砚 P1 review R1：命名冲突 + 信任边界两个架构口子 → KD-8/KD-9 收口 |
+| 2026-03-19 | 砚砚 R2：P1 放行 + 补 3 口子（fail-closed schema / capabilities reject / knowledge scoped）→ AC-A8/A9/A10 |
 
 ## Review Gate
 
