@@ -396,6 +396,11 @@ interface ChatState {
   clearUnread: (threadId: string) => void;
   /** F072: Clear unread badges for all threads at once */
   clearAllUnread: () => void;
+  /** #586: Confirm any successful ack — clears suppression unconditionally.
+   *  /read/latest is idempotent: any successful POST means server cursor is current. */
+  confirmUnreadAck: (threadId: string) => void;
+  /** #586: Re-arm unread suppression before each ack attempt */
+  armUnreadSuppression: (threadId: string) => void;
   /** F069: Initialize unread state from API (page load recovery) */
   initThreadUnread: (threadId: string, unreadCount: number, hasUserMention: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
@@ -847,7 +852,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { catStatuses: { ...state.catStatuses, [catId]: status } };
     }),
 
-  clearCatStatuses: () => set({ targetCats: [], catStatuses: {} }),
+  clearCatStatuses: () =>
+    set((state) => {
+      // #586 Bug 2: Mark stale catInvocations taskProgress as completed so
+      // RightStatusPanel stays consistent with catStatuses being cleared.
+      // Cloud review P1: Only touch 'running' snapshots — preserve 'interrupted'
+      // which is a distinct semantic state (user-initiated cancel, etc.).
+      const cleanedInvocations: Record<string, import('./chat-types').CatInvocationInfo> = {};
+      for (const [catId, info] of Object.entries(state.catInvocations)) {
+        if (info.taskProgress?.snapshotStatus === 'running') {
+          cleanedInvocations[catId] = {
+            ...info,
+            taskProgress: { ...info.taskProgress, snapshotStatus: 'completed' },
+          };
+        } else {
+          cleanedInvocations[catId] = info;
+        }
+      }
+      return { targetCats: [], catStatuses: {}, catInvocations: cleanedInvocations };
+    }),
 
   setCatInvocation: (catId, info) =>
     set((state) => ({
@@ -1401,8 +1424,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       const ts = state.threadStates[threadId];
       if (!ts || (ts.unreadCount === 0 && !ts.hasUserMention)) return state;
-      // Suppress re-hydration from API for 10s to prevent ack race
-      const suppressUntil = Date.now() + 10_000;
+      // #586 Bug 3: Use Infinity instead of 10s timeout. Suppression persists
+      // until confirmUnreadAck() is called after POST /read/latest succeeds,
+      // preventing stale server unread counts from overwriting cleared state.
       return {
         threadStates: {
           ...state.threadStates,
@@ -1410,7 +1434,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
         _unreadSuppressedUntil: {
           ...state._unreadSuppressedUntil,
-          [threadId]: suppressUntil,
+          [threadId]: Infinity,
         },
       };
     }),
@@ -1418,7 +1442,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearAllUnread: () =>
     set((state) => {
       const updated: Record<string, ThreadState> = {};
-      const suppressUntil = Date.now() + 10_000;
+      // #586 P1-1 fix: clearAllUnread is called AFTER POST /mark-all succeeds
+      // (server cursors already updated), so a short grace window suffices.
+      // Using Infinity here would permanently block initThreadUnread for threads
+      // the user never opens (no ChatContainer ack effect to release them).
+      const suppressUntil = Date.now() + 30_000;
       const suppressed: Record<string, number> = { ...state._unreadSuppressedUntil };
       let changed = false;
       for (const [tid, ts] of Object.entries(state.threadStates)) {
@@ -1432,6 +1460,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       return changed ? { threadStates: updated, _unreadSuppressedUntil: suppressed } : state;
     }),
+
+  confirmUnreadAck: (threadId) =>
+    set((state) => {
+      // Cloud review P1 (round 5): /read/latest is idempotent — any successful
+      // POST means the server cursor points to the latest message at processing
+      // time. So any successful ack (even an "older" overlapping one) is valid.
+      // No generation check needed.
+      if (!state._unreadSuppressedUntil[threadId]) return state;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [threadId]: _removed, ...rest } = state._unreadSuppressedUntil;
+      return { _unreadSuppressedUntil: rest };
+    }),
+
+  armUnreadSuppression: (threadId) =>
+    set((state) => ({
+      _unreadSuppressedUntil: {
+        ...state._unreadSuppressedUntil,
+        [threadId]: Infinity,
+      },
+    })),
 
   initThreadUnread: (threadId, unreadCount, hasUserMention) =>
     set((state) => {
