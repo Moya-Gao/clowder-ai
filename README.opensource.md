@@ -70,6 +70,35 @@ Clowder is model-agnostic. Each agent CLI plugs in via a unified output adapter:
 
 > Clowder doesn't replace your agent CLI — it's the layer *above* it that makes agents work as a team.
 
+## Quick Start
+
+> **CVO Bootcamp is live!** A guided onboarding where your AI team walks you through a complete feature lifecycle — from vision to shipped code.
+
+![CVO Bootcamp onboarding](https://github.com/user-attachments/assets/9d9c8d89-27fe-4788-812a-ffc28f47d3f9)
+
+**Prerequisites:** [Node.js 20+](https://nodejs.org/) · [pnpm 9+](https://pnpm.io/) · [Redis 7+](https://redis.io/) *(optional — use `--memory` to skip)* · Git
+
+```bash
+# 1. Clone
+git clone https://github.com/zts212653/clowder-ai.git
+cd clowder-ai
+
+# 2. Install dependencies
+pnpm install
+
+# 3. Configure — add at least one model API key
+cp .env.example .env
+
+# 4. Start (auto-creates runtime worktree, starts Redis + API + Frontend)
+pnpm start
+```
+
+Open `http://localhost:3003` and start talking to your team.
+
+> **One-line alternative (Linux):** `bash scripts/install.sh` handles Node, pnpm, Redis, dependencies, `.env`, and first launch in one step. Options: `--start` (auto-start), `--memory` (skip Redis), `--registry=URL` (custom npm mirror). On **Windows**, use `scripts/install.ps1` then `scripts/start-windows.ps1`.
+
+**Full setup guide** (API keys, CLI auth, voice, Feishu/Telegram, troubleshooting): **[SETUP.md](SETUP.md)**
+
 ## The Iron Laws
 
 Four promises we made — enforced at both prompt and code layer:
@@ -141,35 +170,6 @@ Clowder isn't just a coding platform. Your AI team can:
 | **Voice companion** | Hands-free conversation — talk to your team while running, commuting, or just thinking out loud |
 
 You don't need to be a developer. You need to know what you want — and who you want to build it with.
-
-## Quick Start
-
-> **CVO Bootcamp is live!** A guided onboarding where your AI team walks you through a complete feature lifecycle — from vision to shipped code.
-
-![CVO Bootcamp onboarding](https://github.com/user-attachments/assets/9d9c8d89-27fe-4788-812a-ffc28f47d3f9)
-
-**Prerequisites:** [Node.js 20+](https://nodejs.org/) · [pnpm 9+](https://pnpm.io/) · [Redis 7+](https://redis.io/) *(optional — use `--memory` to skip)* · Git
-
-```bash
-# 1. Clone
-git clone https://github.com/zts212653/clowder-ai.git
-cd clowder-ai
-
-# 2. Install dependencies
-pnpm install
-
-# 3. Configure — add at least one model API key
-cp .env.example .env
-
-# 4. Start (auto-creates runtime worktree, starts Redis + API + Frontend)
-pnpm start
-```
-
-Open `http://localhost:3003` and start talking to your team.
-
-> **One-line alternative (Linux):** `bash scripts/install.sh` handles Node, pnpm, Redis, dependencies, `.env`, and first launch in one step. Options: `--start` (auto-start), `--memory` (skip Redis), `--registry=URL` (custom npm mirror). On **Windows**, use `scripts/install.ps1` then `scripts/start-windows.ps1`.
-
-**Full setup guide** (API keys, CLI auth, voice, Feishu/Telegram, troubleshooting): **[SETUP.md](SETUP.md)**
 
 ## Usage Guide
 
@@ -481,6 +481,35 @@ Clowder 不绑定模型。当前支持的 Agent CLI：
 
 > Clowder 不替代你的 Agent CLI — 它是 CLI *之上*的那一层，让 agent 们作为团队协作。
 
+## 快速开始
+
+> **CVO 训练营已上线！** AI 团队亲自带你走完一个完整的 feature 生命周期 — 从愿景表达到代码上线。
+
+![CVO 训练营](https://github.com/user-attachments/assets/9d9c8d89-27fe-4788-812a-ffc28f47d3f9)
+
+**前置要求：** [Node.js 20+](https://nodejs.org/) · [pnpm 9+](https://pnpm.io/) · [Redis 7+](https://redis.io/) *（可选 — 用 `--memory` 跳过）* · Git
+
+```bash
+# 1. 克隆
+git clone https://github.com/zts212653/clowder-ai.git
+cd clowder-ai
+
+# 2. 安装依赖
+pnpm install
+
+# 3. 配置 — 至少添加一个模型 API key
+cp .env.example .env
+
+# 4. 启动（自动创建运行时 worktree，启动 Redis + API + 前端）
+pnpm start
+```
+
+打开 `http://localhost:3003`，开始和你的团队对话。
+
+> **一键替代方案（Linux）：** `bash scripts/install.sh` 一步搞定 Node、pnpm、Redis、依赖、`.env` 和首次启动。可选参数：`--start`（自动启动）、`--memory`（跳过 Redis）、`--registry=URL`（国内镜像）。**Windows** 用户请使用 `scripts/install.ps1`，然后 `scripts/start-windows.ps1`。
+
+**完整安装指南**（API key 配置、CLI 认证、语音、飞书/Telegram、常见问题）：**[SETUP.md](SETUP.md)**
+
 ## 四条铁律
 
 四个我们自己守住的约定——在 prompt 层和代码层双重执行：
@@ -553,35 +582,6 @@ Clowder 不只是一个编程平台。你的 AI 团队还能：
 | **语音陪伴** | 解放双手 — 跑步、通勤、或者只是想出声聊聊的时候，跟团队对话 |
 
 你不需要会写代码。你需要知道自己想要什么 — 以及想和谁一起去实现它。
-
-## 快速开始
-
-> **CVO 训练营已上线！** AI 团队亲自带你走完一个完整的 feature 生命周期 — 从愿景表达到代码上线。
-
-![CVO 训练营](https://github.com/user-attachments/assets/9d9c8d89-27fe-4788-812a-ffc28f47d3f9)
-
-**前置要求：** [Node.js 20+](https://nodejs.org/) · [pnpm 9+](https://pnpm.io/) · [Redis 7+](https://redis.io/) *（可选 — 用 `--memory` 跳过）* · Git
-
-```bash
-# 1. 克隆
-git clone https://github.com/zts212653/clowder-ai.git
-cd clowder-ai
-
-# 2. 安装依赖
-pnpm install
-
-# 3. 配置 — 至少添加一个模型 API key
-cp .env.example .env
-
-# 4. 启动（自动创建运行时 worktree，启动 Redis + API + 前端）
-pnpm start
-```
-
-打开 `http://localhost:3003`，开始和你的团队对话。
-
-> **一键替代方案（Linux）：** `bash scripts/install.sh` 一步搞定 Node、pnpm、Redis、依赖、`.env` 和首次启动。可选参数：`--start`（自动启动）、`--memory`（跳过 Redis）、`--registry=URL`（国内镜像）。**Windows** 用户请使用 `scripts/install.ps1`，然后 `scripts/start-windows.ps1`。
-
-**完整安装指南**（API key 配置、CLI 认证、语音、飞书/Telegram、常见问题）：**[SETUP.md](SETUP.md)**
 
 ## 使用指南
 
