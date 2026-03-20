@@ -496,25 +496,28 @@ search_evidence(query, {
 > **核心学习**：从 LC 学到的不是 DAG 数据结构，是"压缩不等于丢弃，摘要必须可穿透"的理念。
 > **三猫共识**：LC 最对标的是 F065 Session Continuity，不是 F102。但 F065→F102 的写路径（pre-seal → durable knowledge）是核心改进点。
 
-**G-1. Seal-time Abstractive Digest + Durable Candidate Extraction（KD-37/38）**
+**G-1. Thread-level Abstractive Digest + Durable Candidate Extraction（KD-37/38/41）**
 
-> **砚砚(GPT-5.4) 关键收紧**：digest 和 candidate extraction 合并成**一次 Opus 调用**，不分两步。输入是 sealed session 的 transcript + extractive digest + task snapshot + touched files/anchors（不是整个 thread）。
+> **铲屎官关键修正（KD-41）**：摘要单元是 **thread**（不是 session），触发方式是**定时任务**（不是 seal）。理由：(a) session strategy 可配置（compress/handoff/hybrid），不一定有 seal；(b) thread 是所有猫共享的对话空间，对每只猫的 session 分别摘要 = 同一段对话重复摘要；(c) 定时任务比事件驱动更稳健。
+>
+> **砚砚(GPT-5.4) 关键收紧**：digest 和 candidate extraction 合并成**一次 Opus 调用**。输出 schema、candidate 硬边界、skip path 仍然适用。
 
 一次调用同时产出两样东西：
 
-- **Abstractive digest**：回答"这段 session 讨论了什么、决定了什么、风险和下一步"
+- **Abstractive digest**：回答"这个 thread 最近讨论了什么、决定了什么、风险和下一步"
 - **Durable candidates[]**：回答"这里面哪些内容值得升格为长期知识"
 
 模型：**Opus 4.6**（通过 F062 provider-profiles 反代 API，零新增基础设施）——铲屎官明确指示不用 Haiku。
-产物：`digest.abstractive.json`（与现有 `digest.extractive.json` 并存）
-**fail-open**：API 调用失败不阻塞 seal，回落到 extractive digest。
+**fail-open**：API 调用失败不影响现有拼接摘要，下次定时任务重试。
 
-**Output Schema（砚砚定义，三猫共识）**
+**输入**：thread 消息增量（`lastSummarizedMessageId` 水位线之后的新消息），不是某只猫的 session transcript。所有猫在同一个 thread 的对话**只摘要一次**。
+
+**Output Schema（砚砚定义，thread 化适配）**
 
 ```json
 {
   "digest": {
-    "title": "本 session 做了什么",
+    "title": "本 thread 最近讨论了什么",
     "summary": "200-400 字，讲清讨论/决定/风险/下一步"
   },
   "candidates": [
@@ -524,7 +527,7 @@ search_evidence(query, {
       "claim": "运行时 dirty thread 只做拼接，Opus 摘要走异步批处理",
       "why_durable": "这是后续实现和运维都要遵守的规则",
       "evidence": [
-        {"sessionId": "session_xxx", "span": "原文摘录"}
+        {"threadId": "thread_xxx", "messageId": "msg_xxx", "span": "原文摘录"}
       ],
       "relatedAnchors": ["F102", "F065"],
       "confidence": "explicit | inferred"
@@ -533,22 +536,23 @@ search_evidence(query, {
 }
 ```
 
-**Candidate 硬边界（砚砚红线）**：
+注意 evidence 改为 `threadId + messageId`（不是 sessionId），因为摘要单元是 thread。
+
+**Candidate 硬边界（砚砚红线，不变）**：
 - 只允许 3 类：`decision` / `lesson` / `method`——硬编码枚举
-- 必须带 `evidence`（sessionId + 原文 span）和 `relatedAnchors`
+- 必须带 `evidence`（threadId + messageId + 原文 span）和 `relatedAnchors`
 - `confidence: "explicit"` → 默认 `normalized`；`"inferred"` → 默认 `needs_review`；**一律不直接 `approved`**
-- **`explicit` 判定必须收窄**（砚砚 R2）：仅以下三种情况才算 explicit——(a) 铲屎官/owner 明确拍板；(b) session 内有明确共识语句且可被 transcript 直接引用；(c) 已对应到 merged doc/merged code 事实。"说得像决定"的讨论不算 explicit
-- **禁止提取**：未定方案/brainstorm 分支、临时 TODO/WIP、只对当前 thread 有意义的碎片、没有证据的"模型总结性发挥"
-- Prompt 定位是"**抽取器**"不是"总结器"——"只抽取可跨 session 复用、未来重新看到仍有价值的内容"
+- **`explicit` 判定收窄**（砚砚 R2）：仅 (a) 铲屎官/owner 明确拍板；(b) 有明确共识语句可直接引用；(c) 已对应到 merged doc/code 事实。"说得像决定"不算 explicit
+- **禁止提取**：未定方案/brainstorm、临时 TODO/WIP、碎片上下文、"模型总结性发挥"
+- Prompt 定位是"**抽取器**"不是"总结器"
 
-**Skip Path（砚砚 R2 补充）——不是每个 sealed session 都值得调 Opus**：
+**Skip Path（砚砚 R2，thread 化适配）**——不是每个 thread 增量都值得调 Opus：
 
-如果 session 只有闲聊/路由/极少量操作，只保留 extractive digest，不跑 abstractive + candidate extraction。触发 Opus 调用需满足任一条件：
-- touched files >= 1
-- explicit decision markers >= 1（session 内有"决定"/"agreed"等标记）
-- task status changed
-- error → fix 闭环存在
-- session event count 超过阈值（默认 20）
+定时扫描时，thread 满足任一条件才触发 Opus 调用：
+- 增量消息数 >= 20（水位线之后的新消息）
+- 增量中包含代码讨论（提及 file path / PR / commit）
+- 增量中包含决策标记（"决定"/"agreed"/"KD-"等）
+- 纯闲聊/路由 thread 继续只用拼接 summary
 
 **API 接入（金渐层确认）**：
 
@@ -559,71 +563,62 @@ const profile = await resolveAnthropicRuntimeProfile(projectRoot);
 // model: 'claude-opus-4-6', max_tokens: 1024
 ```
 
-**待铲屎官确认**：反代 rate limit（决定批处理并发度和退避策略）；是否需要 dedicated profile 避免影响日常使用。
+Rate limit 5000 次/天（铲屎官确认），日常消耗远低于限额。
 
-**G-2. 三层摘要产物架构（KD-39，砚砚收紧版）**
+**G-2. 两层摘要产物架构（KD-39/41，铲屎官修正版）**
 
-> **砚砚关键改进**：不是"每个 dirty thread 调 Opus 重算"，而是三层各有触发时机和成本模型。凝结层输入是 session digests，不是重新喂整个 thread 原文——避免 thread 越长成本越高。
+> **铲屎官修正**：去掉 "Seal 摘要层"——摘要不和 session chain 绑定。改为两层：实时拼接 + 定时任务 abstractive。
+> **砚砚的三层架构精神保留**：实时保可用 + 定时保语义，但触发方式全部基于 thread 消息增量。
 
 | 层 | 触发 | 产物 | 成本 |
 |----|------|------|------|
 | **实时拼接层** | dirty-thread flush（<100ms） | `summaryType=concat`，现有拼接 | 零 |
-| **Seal 摘要层** | session seal 事件 | `summaryType=abstractive` + `candidates[]` | 1 次 Opus/session |
-| **周期凝结层** | 双阈值：sessions>=5 或 tokens>=1500 + quiet window>=10min | `summaryType=condensed`（thread 级概括） | 1 次 Opus/凝结批 |
+| **定时摘要层** | 定时任务（默认 30min）扫描增量达标的 thread | `summaryType=abstractive` + `candidates[]` | 1 次 Opus/thread 增量 |
 
-**调度策略（铲屎官确认反代 5000 次/天，rate limit 不是瓶颈）**：
+**调度策略**（铲屎官确认 5000 次/天）：
 
-日常运行估算 30-60 次/天（seal ~20-50 + 凝结 ~5-10），远低于限额。因此简化调度——**去掉队列和定时器，seal 完成后直接（但 fail-open）调用 Opus API**：
+```
+定时任务（每 30 分钟）
+  → 扫描所有 summaryType=concat 或 abstractive 的 thread
+  → 筛选：lastSummarizedMessageId 之后有新消息且满足 skip path 条件
+  → 调 Opus API 生成 abstractive summary + candidates
+  → 更新 evidence_docs（summary + summaryType=abstractive）
+  → 存量 backfill：首次启动时对历史 thread 做一轮全量
+```
 
-1. **Seal 摘要**：session seal 完成后立即调用（满足 skip path 条件时）
-2. **凝结检查**：seal 完成后顺便检查双阈值，满足就立即凝结
-3. **存量 backfill**：启动时或手动触发，串行跑，每次间隔 2s（礼貌性限速）
+**不依赖 session chain / seal / session strategy**——只看 thread 消息增量。不管猫配的是 compress、handoff、hybrid 还是什么策略，thread 消息永远在 messageStore 里。
 
-不需要 dedicated profile，日常调用和批处理共享同一个 provider-profile。
-
-纯 Hub 聊天（无 session seal 的 thread）继续只用拼接 summary，不为"摘要漂亮"拖慢实时链路。
-
-**水位线字段（砚砚提出，必须有）**：
+**水位线字段（砚砚提出，thread 化适配）**：
 
 ```typescript
-// evidence_docs 或独立 summary_state 表
+// evidence_docs 扩展或独立 summary_state 表
 {
-  lastSummarizedMessageId: string;   // 拼接层水位
-  lastCondensedSessionSeq: number;   // 凝结层水位
-  summaryType: 'concat' | 'abstractive' | 'condensed';
+  lastSummarizedMessageId: string;   // 上次摘要覆盖到的消息 ID
+  summaryType: 'concat' | 'abstractive';
+  lastAbstractiveAt?: string;        // 上次 abstractive 摘要时间
 }
 ```
 
-没有这几个水位线，一定会重复摘要、重复入队、或旧摘要覆盖新摘要。
-
-**凝结层 Provenance（砚砚 R2 补充——不可审计 = 不可信）**：
+**Provenance（砚砚 R2，thread 化适配）**：
 
 ```typescript
-// condensed summary 必须带来源追溯
+// abstractive summary 必须带来源追溯
 {
-  sourceSessionSeqRange: [number, number]; // e.g., [0, 4]
-  sourceSessionIds: string[];
+  sourceMessageRange: [string, string]; // [firstMsgId, lastMsgId]
+  messageCount: number;
   modelId: string;          // e.g., 'claude-opus-4-6'
-  promptVersion: string;    // e.g., 'g2-condense-v1'
-  condensedAt: string;      // ISO timestamp
+  promptVersion: string;    // e.g., 'g1-thread-abstract-v1'
+  generatedAt: string;      // ISO timestamp
 }
 ```
 
-如果 condensed summary 看起来不对，能回溯"它是拿哪几段 session digest 凝出来的、用什么 prompt 版本"。
+**G-3. ThreadMemory 增强（KD-40，铲屎官修正版）**
 
-**G-3. ThreadMemory 两层化（KD-40）**
+当前 `buildThreadMemory` 是 append-to-head + trim-from-tail 的滚动文本——老信息会被彻底删除。
 
-当前 `buildThreadMemory` 是 append-to-head + trim-from-tail 的滚动文本——老 session 信息会被彻底删除。
+升级：当 thread 有 `summaryType=abstractive` 的摘要时，bootstrap 直接用 abstractive summary 而不是拼接文本。近期消息仍然带原文（和现在一样），远期部分由 abstractive summary 覆盖。
 
-升级为两层结构：
-- **近期详细层**：最近 2-3 个 session 的完整摘要行（和现在一样）
-- **远期凝结层**：更早 session 合并为概括（带 sessionId 指针，可穿透回原始 transcript）
-
-凝结触发（砚砚 R2：N=5 作为默认经验值，实现用双阈值）：
-- **数量门槛**：thread 积累 5 个 sealed session 后首次凝结，之后每新增 3 个再凝结
-- **Token 门槛**：积累的 session digest tokens >= 1500~2000 时也触发（覆盖"session 少但每个很重"的情况）
-- **Quiet window**：lastSealAt > 10min（避免连续 seal 时反复凝结）
-- 凝结输入是 session abstractive digests（G-2 seal 层产物），不是 thread 原文
+不再需要独立的"凝结层"——因为定时任务每次跑的时候，输入是水位线之后的**增量**消息，和上一次的 abstractive summary **合并**产出新的 summary。这本身就是渐进凝结，不需要额外的凝结步骤。
 
 **G-4. 搜索结果穿透路标**
 
@@ -836,8 +831,9 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 | KD-36 | **遗留项目需要 frontmatter formatter**——老项目 .md 文件可能没有 frontmatter（feature_ids/doc_kind/topics），需要一个工具自动扫描并补充 metadata，提升 kind 推断和检索质量 | 铲屎官提出"接手垃圾项目也需要 formatter 那个 metadata" | 2026-03-19 |
 | KD-37 | **Abstractive digest 模型用 Opus 4.6**（金渐层/反代 API，复用 F062 provider-profiles），不用 Haiku | 铲屎官引用实测：Haiku 带坑里，Sonnet 需推断，Opus 完全准确 | 2026-03-19 |
 | KD-38 | **Pre-seal durable memory flush**——digest + candidate extraction 合并为一次 Opus 调用；candidate 只允许 decision/lesson/method，必须带证据，不直写长期真相源 | 三猫共识（LC 调研 + 砚砚收紧）：吸收 LC"lifecycle 节点触发 durable write"，保留 marker→materialize 门禁 | 2026-03-19 |
-| KD-39 | **Seal 后直接调用 Opus（不走后台定时批处理）**——反代 5000 次/天，日常消耗 ~30-60 次，rate limit 不是瓶颈 | 铲屎官确认 rate limit 充裕，简化调度：去掉队列和定时器，seal 完成后立即 fail-open 调用 | 2026-03-19 |
-| KD-40 | **ThreadMemory 两层化 + 凝结双阈值**——近期详细层（2-3 session）+ 远期凝结层；触发：sessions>=5 或 tokens>=1500 + quiet window>=10min | 三猫一致（LC 调研 + 砚砚 R2：N=5 是经验值，双阈值防偏差） | 2026-03-19 |
+| KD-39 | **定时任务跑 thread 增量摘要**——每 30min 扫描增量达标的 thread 调 Opus，不和 session seal 绑定 | 铲屎官修正：session strategy 可配置（不一定有 seal），绑定 seal = 绑定特定策略；定时任务更稳健 | 2026-03-20 |
+| KD-40 | **ThreadMemory 用 abstractive summary 替代拼接**——有 abstractive 时 bootstrap 直接用，不需要独立凝结层 | 简化：定时任务每次合并增量 + 上次摘要 = 渐进凝结，不需要额外步骤 | 2026-03-20 |
+| KD-41 | **摘要单元是 thread（不是 session）**——thread 是所有猫共享的对话空间，对每只猫的 session 分别摘要 = 同一段对话重复摘要 | 铲屎官指出：多猫 session 有重合，保存多份很奇怪；thread 概念全部猫都用，应该基于 thread 而不是 session | 2026-03-20 |
 
 ## Timeline
 
