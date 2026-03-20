@@ -148,24 +148,28 @@ You don't need to be a developer. You need to know what you want — and who you
 
 ![CVO Bootcamp onboarding](https://github.com/user-attachments/assets/9d9c8d89-27fe-4788-812a-ffc28f47d3f9)
 
+**Prerequisites:** [Node.js 20+](https://nodejs.org/) · [pnpm 9+](https://pnpm.io/) · [Redis 7+](https://redis.io/) *(optional — use `--memory` to skip)* · Git
+
 ```bash
+# 1. Clone
 git clone https://github.com/zts212653/clowder-ai.git
 cd clowder-ai
-bash scripts/install.sh
+
+# 2. Install dependencies
+pnpm install
+
+# 3. Configure — add at least one model API key
+cp .env.example .env
+
+# 4. Start (auto-creates runtime worktree, starts Redis + API + Frontend)
+pnpm start
 ```
 
-The script handles everything: Node.js, pnpm, Redis, project build, AI CLI tools (Claude / Codex / Gemini), and authentication — with interactive prompts to guide you through each step.
-It is a repo-local setup helper: clone or download `clowder-ai` first, then run it from that directory. It is not a bare-metal `curl | bash` bootstrapper.
-Downloaded archives (without `.git`) also work — git-dependent features like diff view and worktree management will be unavailable, but core functionality is unaffected.
+Open `http://localhost:3003` and start talking to your team.
 
-Options:
-- `--start` — auto-start services after install
-- `--memory` — skip Redis (use in-memory store)
-- `--registry=URL` — custom npm registry (e.g. for China mirrors)
+> **One-line alternative (Linux):** `bash scripts/install.sh` handles Node, pnpm, Redis, dependencies, `.env`, and first launch in one step. Options: `--start` (auto-start), `--memory` (skip Redis), `--registry=URL` (custom npm mirror). On **Windows**, use `scripts/install.ps1` then `scripts/start-windows.ps1`.
 
-Then open `http://localhost:3003` and start talking to your team.
-
-**Full setup guide** (manual install, advanced config, voice, IM platforms): **[SETUP.md](SETUP.md)**
+**Full setup guide** (API keys, CLI auth, voice, Feishu/Telegram, troubleshooting): **[SETUP.md](SETUP.md)**
 
 ## Usage Guide
 
@@ -556,24 +560,28 @@ Clowder 不只是一个编程平台。你的 AI 团队还能：
 
 ![CVO 训练营](https://github.com/user-attachments/assets/9d9c8d89-27fe-4788-812a-ffc28f47d3f9)
 
+**前置要求：** [Node.js 20+](https://nodejs.org/) · [pnpm 9+](https://pnpm.io/) · [Redis 7+](https://redis.io/) *（可选 — 用 `--memory` 跳过）* · Git
+
 ```bash
+# 1. 克隆
 git clone https://github.com/zts212653/clowder-ai.git
 cd clowder-ai
-bash scripts/install.sh
+
+# 2. 安装依赖
+pnpm install
+
+# 3. 配置 — 至少添加一个模型 API key
+cp .env.example .env
+
+# 4. 启动（自动创建运行时 worktree，启动 Redis + API + 前端）
+pnpm start
 ```
 
-安装脚本自动处理一切：Node.js、pnpm、Redis、项目构建、AI CLI 工具（Claude / Codex / Gemini）和认证配置 — 全程交互式引导。
-这是一个 repo 内安装助手：先 clone 或下载 `clowder-ai`，再在目录里运行。它不是 bare-metal 的 `curl | bash` 引导脚本。
-下载的压缩包（没有 `.git`）同样可用 — diff 视图和 worktree 管理等 git 相关功能不可用，但核心功能不受影响。
+打开 `http://localhost:3003`，开始和你的团队对话。
 
-可选参数：
-- `--start` — 安装完成后自动启动服务
-- `--memory` — 跳过 Redis（使用内存模式）
-- `--registry=URL` — 自定义 npm 镜像源（适用于国内网络）
+> **一键替代方案（Linux）：** `bash scripts/install.sh` 一步搞定 Node、pnpm、Redis、依赖、`.env` 和首次启动。可选参数：`--start`（自动启动）、`--memory`（跳过 Redis）、`--registry=URL`（国内镜像）。**Windows** 用户请使用 `scripts/install.ps1`，然后 `scripts/start-windows.ps1`。
 
-然后打开 `http://localhost:3003`，开始和你的团队对话。
-
-**完整安装指南**（手动安装、高级配置、语音、IM 平台）：**[SETUP.md](SETUP.md)**
+**完整安装指南**（API key 配置、CLI 认证、语音、飞书/Telegram、常见问题）：**[SETUP.md](SETUP.md)**
 
 ## 使用指南
 
