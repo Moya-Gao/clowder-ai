@@ -546,13 +546,23 @@ search_evidence(query, {
 - **禁止提取**：未定方案/brainstorm、临时 TODO/WIP、碎片上下文、"模型总结性发挥"
 - Prompt 定位是"**抽取器**"不是"总结器"
 
-**Skip Path（砚砚 R2，thread 化适配）**——不是每个 thread 增量都值得调 Opus：
+**Eligibility Rule（砚砚 R3 统一，G-1 和 G-2 共用同一套规则）**：
 
-定时扫描时，thread 满足任一条件才触发 Opus 调用：
-- 增量消息数 >= 20（水位线之后的新消息）
-- 增量中包含代码讨论（提及 file path / PR / commit）
-- 增量中包含决策标记（"决定"/"agreed"/"KD-"等）
-- 纯闲聊/路由 thread 继续只用拼接 summary
+```
+eligible =
+  quietWindow >= 10min
+  AND (
+    pendingMessages >= 20
+    OR pendingTokens >= 1500
+    OR decision/code/error-fix markers hit    ← 高价值信号 bypass 消息数
+  )
+  AND (
+    cooldown >= 2h
+    OR high-signal bypass                     ← 重要决策不等 2h
+  )
+```
+
+纯闲聊/路由 thread（无高价值信号且消息数/token 均未达标）继续只用拼接 summary。
 
 **API 接入（金渐层确认）**：
 
@@ -594,10 +604,10 @@ summary_segments           ← append-only ledger（每次 L1/L2 摘要都插入
 
 定时任务（每 30 分钟，per-tick 最多处理 5 个 thread）
   → 读 pendingMessageCount
-  → 三条件全满足才触发 L1 摘要：
-     (a) pendingMessageCount >= 20
-     (b) 距上次 abstractive >= 2h
-     (c) 安静窗口 >= 10min（thread 最近 10min 无新消息）
+  → 统一 eligibility rule 判断（G-1 共用）：
+     quietWindow >= 10min
+     AND (pending >= 20 OR tokens >= 1500 OR high-signal)
+     AND (cooldown >= 2h OR high-signal bypass)
   → 输入：上次 evidence_docs.summary + 水位线后的增量消息
   → 输出：新的 abstractive summary + candidates
   → (1) INSERT summary_segment（append-only，永不删除）
@@ -628,45 +638,53 @@ summary_segments           ← append-only ledger（每次 L1/L2 摘要都插入
 }
 ```
 
-**summary_state 水位线**：
+**summary_state 水位线**（砚砚 R3：补 token + signal，不然调度器实现不了 eligibility rule）：
 
 ```typescript
 // evidence_docs 扩展或独立表
 {
   lastSummarizedMessageId: string;   // 上次摘要覆盖到的消息 ID
-  pendingMessageCount: number;       // dirty flush 累积的增量计数
+  pendingMessageCount: number;       // dirty flush 累积的增量消息数
+  pendingTokenCount: number;         // dirty flush 累积的增量 token 估算
+  pendingSignalFlags: number;        // bitflags: decision=1, code=2, error-fix=4
   summaryType: 'concat' | 'abstractive';
   lastAbstractiveAt?: string;        // 上次 L1 摘要时间
   abstractiveTokenCount?: number;    // 当前摘要长度（监控漂移信号）
 }
 ```
 
-发现摘要偏了 → 从 summary_segments 审计哪一段出问题 → 从原始消息 rebuild 该段以后的所有摘要。
-
-发现摘要偏了 → 可从 provenance 回溯输入范围 → 从原始消息 rebuild（WAL 重放）。
+发现摘要偏了 → 从 summary_segments 审计哪一段出问题 → 从原始消息 rebuild 该段以后的所有摘要（WAL 重放）。
 
 **三个可配置常量**（砚砚 nit：不要散成裸字面量）：
 
 ```typescript
 const SUMMARY_CONFIG = {
-  pendingThreshold: 20,         // 消息数门槛
-  cooldownHours: 2,             // 距上次摘要最小间隔
-  quietWindowMinutes: 10,       // 安静窗口
-  perTickBudget: 5,             // 每次定时任务最多处理几个 thread
-  backfillIntervalMs: 2000,     // 存量 backfill 间隔
+  pendingMessageThreshold: 20,   // 消息数门槛
+  pendingTokenThreshold: 1500,   // token 门槛（覆盖"消息少但重"的情况）
+  cooldownHours: 2,              // 距上次摘要最小间隔
+  quietWindowMinutes: 10,        // 安静窗口
+  perTickBudget: 5,              // 每次定时任务最多处理几个 thread
+  backfillIntervalMs: 2000,      // 存量 backfill 间隔
+  driftAlertTokenThreshold: 800, // Phase 2 升级监控：连续 3 次 > 此值 = 漂移信号
 };
 ```
 
-**Phase 2 预留：砚砚的分段模型（如果漂移成真）**
+**Phase 2 预留：砚砚的分段模型——可观测升级触发器（砚砚 R3 收紧）**
 
-如果跑了几个月发现超长 thread 的摘要质量退化（abstractiveTokenCount 持续膨胀、信息逐渐稀释），升级为 segment-based compaction：
+升级为 segment-based compaction（L1 独立 delta → L2 rollup）当且仅当**任一可观测条件命中**：
 
-- 每次 L1 产出独立 `summary_segment`（level=1, delta）
+1. **漂移信号**：某 thread 的 `abstractiveTokenCount` 连续 3 次 L1 摘要后上升且 > 800 tokens
+2. **质量信号**：canary thread 的摘要人工抽检连续 2 次失败（计划：每月抽 3 个活跃 thread）
+3. **事故信号**：出现 1 次明确的"摘要漂移导致错误 recall"的事故（记入 lessons-learned）
+
+升级后的方案：
+- 每次 L1 产出独立 `summary_segment`（level=1, delta），不再覆写 evidence_docs.summary
 - 积累后合并为 L2 `summary_segment`（level=2, rollup, supersedes L1 segments）
 - Bootstrap 用：最新 L2 + 若干最近 L1 + raw tail
+- evidence_docs.summary 仍由定时任务从最新 L2 + 最近 L1 合成（read model）
 - 坏段可丢弃不影响其他段
 
-此方案已由砚砚详细设计（含 schema），不在 MVP 实现。
+此方案已由砚砚详细设计（含 schema），segment ledger 在 MVP 已存在（summary_segments 表），升级只需改写路径。
 
 **G-3. ThreadMemory 增强（KD-40）**
 
