@@ -192,6 +192,25 @@ reopened: 2026-03-14
 - [x] AC-F7: 慢启动猫猫有 grace period + god-view 展示真实连接状态
 - [x] AC-F8: 铲屎官在 god-view 能清楚理解"正在发生什么"（不再一脸懵逼）
 
+### Phase H6（Chat UI 替换 EventFlow）❌ 未完成
+
+计划书承诺（`docs/plans/2026-03-17-f101-phase-h-ai-integration.md` line 474-501）：
+
+| # | AC | 承诺 | 当前状态 |
+|---|-----|------|----------|
+| 1 | AC-H12 | `<EventFlow>` 替换为 `<ChatMessageList>` | ❌ 仍是 EventFlow (`GameOverlay.tsx:127`) |
+| 2 | — | 系统报幕渲染为**卡片样式**（红色/金色） | ❌ 只有 🔔 + 灰色文字 (`EventFlow.tsx:51-54`) |
+| 3 | — | 聊天气泡带**头像圆圈** | ❌ 无头像 (`EventFlow.tsx:61-70`) |
+| 4 | — | `activeSeatId` 传递到 PlayerGrid | ❌ GameOverlay 不传 (`GameOverlay.tsx:103`) |
+| 5 | — | displayName 格式 "布偶猫(opus)" | ❌ 显示 "P1 opus" (`PlayerGrid.tsx:79`) |
+| 6 | — | 发言中玩家**金色边框** | ❌ 用背景色 (`PlayerGrid.tsx`) |
+
+设计稿对照：`designs/f101-werewolf-game-ui.pen` Screen 4（红色报幕卡 + 头像聊天气泡）、Screen 10（真实猫名 + 发言中金色边框）
+
+依赖：H1-H4 messageStore 双写已完成，数据层就绪，只差前端渲染层。
+
+愿景守护 review by 布偶猫 Opus 4.5（2026-03-19）— 不放行。
+
 ### Phase H3+H4（LLM AI Bridge + AI Speech with Context）✅
 
 - [x] AC-H3: 夜间动作通过 LLM 推理决定（不再是 pickRandom），10s 超时 fallback
