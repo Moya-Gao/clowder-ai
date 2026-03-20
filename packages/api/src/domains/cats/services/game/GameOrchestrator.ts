@@ -641,7 +641,9 @@ export class GameOrchestrator {
 
   /** Skip consecutive phases that have no alive actors for the acting role.
    *  System (judge) handles this — cats should never wait for a non-existent role.
-   *  Special case: day_hunter only triggers when hunterCanShoot (dead hunter with shoot rights). */
+   *  Note: day_hunter death-trigger needs special architecture (dead seat can't
+   *  submit actions). Currently disabled — hunter shoot is auto-skipped.
+   *  TODO(H-next): implement hunter death-trigger as a special resolve phase. */
   private skipEmptyPhases(runtime: GameRuntime): void {
     const phases = runtime.definition.phases;
     let safety = phases.length; // prevent infinite loops
@@ -650,23 +652,7 @@ export class GameOrchestrator {
       if (!phase) break;
       const role = phase.actingRole;
       if (!role || role === '*') break; // wildcard phases always have actors
-
-      // day_hunter: only keep phase if a hunter just died and has shoot rights
-      if (phase.name === 'day_hunter') {
-        const lastResolve = [...runtime.eventLog].reverse().find((e) => e.type === 'night_resolved');
-        const nightCanShoot = (lastResolve?.payload as Record<string, unknown> | undefined)?.hunterCanShoot === true;
-        const lastExile = [...runtime.eventLog].reverse().find(
-          (e) => e.round === runtime.round && e.type === 'vote_resolved',
-        );
-        const exiledSeat = (lastExile?.payload as Record<string, unknown> | undefined)?.exiled as string | undefined;
-        const exiledIsHunter = exiledSeat
-          ? runtime.seats.some((s) => s.seatId === exiledSeat && s.role === 'hunter')
-          : false;
-        if (nightCanShoot || exiledIsHunter) break; // keep phase — hunter needs to shoot
-        // No hunter needs to shoot — fall through to skip logic below
-      } else if (runtime.seats.some((s) => s.alive && s.role === role)) {
-        break; // has actors — keep phase
-      }
+      if (runtime.seats.some((s) => s.alive && s.role === role)) break; // has actors
 
       // No alive seat for this role — skip
       const skipped = runtime.currentPhase;

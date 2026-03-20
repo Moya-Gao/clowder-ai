@@ -123,6 +123,13 @@ interface BuildSeatsInput {
  */
 export function buildGameSeats(input: BuildSeatsInput): Seat[] {
   const { humanRole, userId, catIds, playerCount } = input;
+
+  // Enforce minimum cat count — no seat duplication allowed
+  const catSlotsNeeded = humanRole === 'player' ? playerCount - 1 : playerCount;
+  if (catIds.length < catSlotsNeeded) {
+    throw new Error(`Not enough cats: need ${catSlotsNeeded} but got ${catIds.length}. Each seat must have a unique actor.`);
+  }
+
   const seats: Seat[] = [];
 
   if (humanRole === 'player') {
