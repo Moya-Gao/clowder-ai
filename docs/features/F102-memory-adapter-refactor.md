@@ -628,6 +628,7 @@ summary_segments           ← append-only ledger（每次 L1/L2 摘要都插入
 - segments 必须**完整覆盖**当前 batch（不能跳消息）
 - `fromMessageId` 不能早于本次水位线，`toMessageId` 不能晚于 batch 末尾
 - 最多切 **3 段**，避免过碎
+- **最小切分门槛**：batch < 600 tokens 或 < 8 条消息时，强制 1 段（砚砚 R4b）
 - 不确定时**退化成 1 段**（宁可混话题也不乱切）
 - 跨时间窗的话题连续性：**只做 link（relatedSegmentIds），不做 merge/回改旧 segment**
 - 真正的跨时间窗话题合并留给 L2 rollup
@@ -643,7 +644,8 @@ summary_segments           ← append-only ledger（每次 L1/L2 摘要都插入
   toMessageId: string;              // 本段覆盖的消息范围终点
   messageCount: number;
   summary: string;                  // 本段的摘要文本
-  topicKey: string;                 // 话题标识（canonical topic slug，L2 按此 rollup）
+  topicKey: string;                 // 稳定话题 key（canonical slug，L2 按此 rollup/聚类）
+  topicLabel: string;               // 给人看的话题标题（可变，不用于关联）
   boundaryReason: string;           // 为什么在这里切分（可审计）
   boundaryConfidence: 'high' | 'medium' | 'low';
   relatedSegmentIds?: string[];     // 与历史哪些 segment 主题连续（link，不 merge）
