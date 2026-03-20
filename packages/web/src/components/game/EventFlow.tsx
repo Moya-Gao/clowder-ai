@@ -106,10 +106,13 @@ export function EventFlow({ events, catDisplayNames, seatToActor }: EventFlowPro
         // H6: Chat bubbles with avatar circle (design Screen 4)
         const seatId = String(event.payload.seatId ?? '');
         // Resolve actorId: payload may have it directly, or map from seatId
-        const actorId = String(
+        const rawActorId = String(
           event.payload.actorId ?? event.payload.senderName ?? seatToActor?.[seatId] ?? seatId,
         );
-        const displayName = catDisplayNames?.[actorId] ?? actorId;
+        // Human players have userId as actorId — show "铲屎官" instead of raw userId
+        const isHuman = !catDisplayNames?.[rawActorId] && rawActorId !== seatId && rawActorId !== 'system';
+        const actorId = isHuman ? 'owner' : rawActorId;
+        const displayName = isHuman ? '铲屎官' : (catDisplayNames?.[rawActorId] ?? rawActorId);
         const content = String(event.payload.content ?? event.payload.message ?? event.payload.text ?? '');
         const isLastWords = event.type === 'last_words';
 
@@ -123,7 +126,7 @@ export function EventFlow({ events, catDisplayNames, seatToActor }: EventFlowPro
             <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-ww-card border-2 border-ww-subtle">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`/avatars/${actorId}.png`}
+                src={actorId === 'owner' ? '/avatars/owner.jpg' : `/avatars/${actorId}.png`}
                 alt={displayName}
                 className="w-full h-full object-cover"
                 onError={(e) => {
