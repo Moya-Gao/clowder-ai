@@ -1,0 +1,209 @@
+---
+feature_ids: [F129]
+related_features: [F032, F059, F093, F127]
+topics: [ecosystem, open-source, multi-agent, sharing, pack]
+doc_kind: spec
+created: 2026-03-19
+---
+
+# F129: Pack System — Multi-Agent 共创世界的 Mod 生态
+
+> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+
+## Why
+
+> "如果我是一个金融从业者，我用你们如何构建一套金融的猫猫协作？如何分享？如果我是一个喜欢 AI 恋爱的玩家我要怎么样？如果我是一个跑团爱好者？如果我是律师？……me & world & cats，我可以是任何身份的我。"
+> — 铲屎官，2026-03-19
+
+> "好像无意间搞出了团队 skills 或者说 multi-agent 的 skills 体系，和单 agent 的差别在于 shared-rules.md"
+> — 铲屎官，2026-03-19
+
+Cat Café 的 coding 基石已经成熟（120+ features，cat-config + skills + shared-rules 体系经过验证）。但 Cat Café 从来不只是 coding 协作平台——是 **Cats & U**，猫猫和你，一起创造，一起生活。
+
+开源后，用户需要的不是"可扩展的多 agent 编码框架"，而是"带上我的猫，和我们的故事来入住"。金融人、律师、跑团爱好者、AI 恋爱玩家——每个人都有自己的 **Me × World × Cats** 组合。Pack System 让这些组合可定义、可分享、可组合。
+
+### 核心洞察：shared-rules 是 multi-agent 的分水岭
+
+单 agent 系统（Claude Code、Cursor）的 skill = "一个 agent 怎么工作"。
+多 agent 系统的 skill = "一群 agent 怎么协作"。差别就是 **shared-rules**——团队的社会契约。
+
+Pack System 的核心贡献：**让"多 agent 协作规范"可定义、可分享、可组合。**
+
+## What
+
+### 产品公式
+
+```
+Experience = Me（本地私有） × Pack（可分享） + Growth（私有生长）
+```
+
+- **Me** = 用户自己，不打包
+- **Pack** = 一个完整的"多 agent 共创世界"定义
+- **Growth** = 用户和猫猫一起长出来的私有关系/记忆
+
+### 四层架构
+
+| 层 | 是什么 | 可共享？ |
+|---|--------|---------|
+| **Core Rails** | 平台宪法（身份不可污染、陪伴是桥不是笼） | 不可覆盖 |
+| **Pack** | 一个完整的 multi-agent 协作世界定义 | 社区分享 |
+| **World Driver** | Pack 内的世界运转声明（resolver: code/llm/hybrid） | 随 Pack 分享 |
+| **Growth** | 用户和猫猫的私有关系/记忆 | 本地私有 |
+
+### Pack 内部结构（Directory Convention）
+
+```
+my-pack/
+├── pack.yaml               ← 元信息 + 兼容性
+├── masks/                   ← 猫格面具（不改核心身份，叠加专业角色）
+├── shared-rules.md          ← ★ 多猫协作规范（multi-agent 的灵魂）
+├── skills/                  ← 工作流定义（协作编排）
+├── knowledge/               ← 领域知识库
+├── expression/              ← 表达风格（主题/声线/Rich Block 模板/贴纸）
+├── bridges/                 ← 现实连接（Care Loop / Story→Feature / Care→Action）
+├── world-driver.yaml        ← 世界运转声明（resolver: code | llm | hybrid）
+└── capabilities/            ← 可选：MCP server / 代码扩展
+```
+
+**前 7 层零代码（YAML/Markdown）。最后 1 层才是开发者的事。**
+
+### Pack 五种类型
+
+| 类型 | 内容 | 目标用户 | 例子 |
+|------|------|---------|------|
+| **Domain Pack** | 行业知识 + shared-rules + 风控红线 | 专业从业者 | 金融投研、律师、医疗 |
+| **Scenario Pack** | 世界观 + 角色面具 + Canon 规则 + 关怀节奏 | 创作者/玩家 | TRPG 跑团、AI 陪伴、狼人杀 |
+| **Style Pack** | 头像 + 声线 + Rich Block 模板 + 视觉主题 | 设计师 | 赛博朋克主题、治愈系风格 |
+| **Bridge Pack** | 虚拟→现实桥接配方 | 高级用户 | 学习计划追踪、运动打卡、灵感捕获 |
+| **Capability Pack** | MCP server + connector + 工具集成 | 开发者 | Bloomberg API、Roll20 骰子、法律数据库 |
+
+### World Driver Interface
+
+```yaml
+worldDriver:
+  stateSchema: ...            # 世界状态结构
+  roles: ...                  # 角色分配
+  actions: ...                # 可执行动作
+  resolver: code | llm | hybrid  # 运转方式
+  canonRules: ...             # 正典规则
+  memoryPolicy: ...           # 记忆策略
+  bridgeOutputs: ...          # 现实桥接输出
+```
+
+| 场景 | resolver | 说明 |
+|------|----------|------|
+| 金融/法律/医疗 | `code + constrained llm` | 结论链+证据门禁用 code，解释+陪伴用 LLM |
+| 狼人杀/TRPG | `hybrid` | 规则和状态机用 code，NPC 对话和叙事用 LLM |
+| AI 陪伴/深夜电台 | `llm + care rules` | 关系节奏、边界和现实桥接 |
+
+### 分发机制
+
+```bash
+cafe pack add https://github.com/alice/quant-cats   # Git URL 安装
+cafe pack add @community/dnd-5e-world               # 社区索引安装
+cafe pack list                                       # 列出已安装
+cafe pack remove quant-cats                          # 卸载
+cafe pack publish                                    # 发布
+```
+
+### Phase A: Pack Format + Loader
+
+- 定义 `pack.yaml` schema（元信息、兼容性、内容声明）
+- 定义 Directory Convention（masks/shared-rules/skills/knowledge/expression/bridges/world-driver/capabilities）
+- Pack Loader：读取 Pack → 注入 SystemPromptBuilder（masks→角色、rules→shared-rules、skills→manifest）
+- `cafe pack add/list/remove` CLI
+
+### Phase B: 示范 Packs + Remix
+
+- 把当前 cat-config + shared-rules + skills 导出为 "Coding 协作世界" Pack（dogfood）
+- 做 1-2 个非 Coding 示范 Pack（如 TRPG 跑团、深夜陪伴）
+- Pack Remix：下载→修改→再发布的 patch 机制
+- 公共知识流动，私有 Growth 不外泄
+
+### Phase C: Capability Pack + Marketplace
+
+- MCP Capability Pack 运行时加载
+- Pack Composer（零代码图形化捏世界/捏猫/捏流程工坊）
+- 社区 Registry / Marketplace
+
+## Acceptance Criteria
+
+### Phase A（Pack Format + Loader）
+- [ ] AC-A1: `pack.yaml` schema 定义完成，含元信息/兼容性/内容声明
+- [ ] AC-A2: Directory Convention 文档化，所有目录有 README 说明用途和格式
+- [ ] AC-A3: Pack Loader 能读取 Pack 目录并注入 SystemPromptBuilder
+- [ ] AC-A4: `cafe pack add <git-url>` 可安装本地 Pack
+- [ ] AC-A5: `cafe pack list` / `cafe pack remove` 可用
+- [ ] AC-A6: Core Rails 保护：Pack 的 shared-rules 不能覆盖 Core Identity Layer
+
+### Phase B（示范 Packs + Remix）
+- [ ] AC-B1: 当前 cat-config + shared-rules + skills 成功导出为 "Coding World" Pack
+- [ ] AC-B2: 至少 1 个非 Coding 示范 Pack 可运行（如 TRPG 或深夜陪伴）
+- [ ] AC-B3: Pack Remix 机制可用——下载、修改、再发布
+- [ ] AC-B4: Growth Layer（私有关系/记忆）不随 Pack 外发
+
+### Phase C（Capability Pack + Marketplace）
+- [ ] AC-C1: MCP Capability Pack 运行时加载可用
+- [ ] AC-C2: Pack Composer 图形化工坊 MVP 可用
+- [ ] AC-C3: 社区 Registry 上线
+
+## Dependencies
+
+- **Related**: F032（Agent Plugin Architecture — 内部 registry 基座）
+- **Related**: F059（开源计划 — Pack 是开源生态的核心分发单元）
+- **Related**: F093（Cats & U 世界引擎 — World Layer 架构，Pack 是其分享机制）
+- **Related**: F127（猫猫管理重构 — 动态创建猫，Pack masks 的运行时基础）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| Pack 的 shared-rules 被恶意注入 prompt injection | Core Rails 保护层 + 声明式配置不执行代码 + 安装时 schema 校验 |
+| Pack 格式过度设计，社区门槛反而高 | Phase A 只做最小格式，dogfood 验证后再扩展 |
+| Capability Pack（MCP）的安全隔离 | 放 Phase C，等权限模型和审计就绪 |
+| 术语混乱（plugin/mod/pack/seed） | KD-1 已定调：统一用 Pack |
+
+## Open Questions
+
+| # | 问题 | 状态 |
+|---|------|------|
+| OQ-1 | Pack 内 shared-rules 和平台 Core Rails 冲突时的优先级规则？ | ⬜ 未定 |
+| OQ-2 | Pack Composer 图形化工坊的技术方案？ | ⬜ 未定（Phase C） |
+| OQ-3 | 社区 Registry 自建还是用 npm scope？ | ⬜ 未定（Phase C） |
+| OQ-4 | Pack 的版本兼容性管理策略？ | ⬜ 未定 |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | 术语统一为 Pack（不叫 Plugin/Mod/Seed） | 三猫共识：Pack 直观、无歧义、和游戏 mod 类比对齐 | 2026-03-19 |
+| KD-2 | Pack = 声明式 mod，不是代码插件 | 零代码覆盖 90% 创作需求；同权脚本插件在 lesson-07 已列为禁区 | 2026-03-19 |
+| KD-3 | Core Identity Layer 不可插件化 | F093 铁律：身份不可污染，信任是地基 | 2026-03-19 |
+| KD-4 | shared-rules 是 Pack 的灵魂，不是 masks | 铲屎官洞察：multi-agent 和 single-agent 的分水岭是协作规范 | 2026-03-19 |
+| KD-5 | Experience = Me × Pack + Growth | 砚砚提出：Me 不打包、Growth 私有、只有 Pack 可分享 | 2026-03-19 |
+| KD-6 | World Driver 声明 resolver: code/llm/hybrid | 砚砚提出：不同世界有不同运转方式，需要显式声明 | 2026-03-19 |
+| KD-7 | v1 先 Git URL 安装，不做 marketplace | 去中心化更符合"种子自由生长"，降低首发基建成本 | 2026-03-19 |
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-03-19 | 铲屎官发起"插件系统"讨论，四猫+金渐层独立思考 |
+| 2026-03-19 | 铲屎官纠偏：不只是 coding 伙伴，是共创伙伴（读 VISION + Cats & U） |
+| 2026-03-19 | 四猫+金渐层收敛：Pack = 声明式 mod，shared-rules 是 multi-agent 分水岭 |
+| 2026-03-19 | 立项 F129 |
+
+## Review Gate
+
+- Phase A: 跨家族 review（砚砚 GPT-5.4）
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Vision** | `docs/VISION.md` §Cats & U | 万物有灵、Cats & U 愿景 |
+| **Feature** | `docs/features/F032-agent-plugin-architecture.md` | 内部 registry 基座 |
+| **Feature** | `docs/features/F059-open-source-plan.md` | 开源计划 |
+| **Feature** | `docs/features/F093-cats-and-u-world-engine.md` | Cats & U 世界引擎 |
+| **Feature** | `docs/features/F127-cat-instance-management.md` | 猫猫管理重构（动态创建猫） |
+| **Lesson** | `docs/lessons/07-from-cafe-to-platform.md` | 同权脚本插件列为禁区 |
