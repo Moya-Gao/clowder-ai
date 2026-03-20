@@ -158,6 +158,7 @@ describe('Issue #586 Bug 3: Ack-driven unread suppression', () => {
         },
       },
       _unreadSuppressedUntil: {},
+      _pendingAckCount: {},
     });
   });
 
@@ -180,11 +181,9 @@ describe('Issue #586 Bug 3: Ack-driven unread suppression', () => {
     expect(useChatStore.getState().threadStates['thread-B']?.unreadCount).toBe(0);
   });
 
-  it('confirmUnreadAck clears suppression on any successful ack', () => {
+  it('confirmUnreadAck clears suppression when all acks resolve', () => {
     const store = useChatStore.getState();
     store.armUnreadSuppression('thread-B');
-
-    // Any successful ack clears (/read/latest is idempotent)
     store.confirmUnreadAck('thread-B');
 
     expect(useChatStore.getState()._unreadSuppressedUntil['thread-B']).toBeUndefined();
@@ -193,15 +192,26 @@ describe('Issue #586 Bug 3: Ack-driven unread suppression', () => {
     expect(useChatStore.getState().threadStates['thread-B']?.unreadCount).toBe(2);
   });
 
-  it('older overlapping ack can clear suppression (idempotent endpoint, round 5 P1)', () => {
+  it('overlapping acks: suppression holds until ALL resolve (pending count)', () => {
     const store = useChatStore.getState();
-    // Ack #1 fires → arms suppression
+    // User reads the thread
+    store.clearUnread('thread-B');
+    expect(useChatStore.getState().threadStates['thread-B']?.unreadCount).toBe(0);
+
+    // Ack #1 fires
     store.armUnreadSuppression('thread-B');
-    // Ack #2 fires → re-arms suppression
+    // Ack #2 fires (new message arrived)
     store.armUnreadSuppression('thread-B');
 
-    // Ack #1 resolves first — since /read/latest is idempotent,
-    // this successfully updated the server cursor. Clear is valid.
+    // Ack #1 resolves — still 1 pending, suppression holds
+    store.confirmUnreadAck('thread-B');
+    expect(useChatStore.getState()._unreadSuppressedUntil['thread-B']).toBe(Infinity);
+
+    // Stale re-hydration should still be blocked
+    store.initThreadUnread('thread-B', 1, false);
+    expect(useChatStore.getState().threadStates['thread-B']?.unreadCount).toBe(0);
+
+    // Ack #2 resolves — 0 pending, suppression clears
     store.confirmUnreadAck('thread-B');
     expect(useChatStore.getState()._unreadSuppressedUntil['thread-B']).toBeUndefined();
   });
@@ -221,7 +231,7 @@ describe('Issue #586 Bug 3: Ack-driven unread suppression', () => {
     store.initThreadUnread('thread-B', 5, false);
     expect(useChatStore.getState().threadStates['thread-B']?.unreadCount).toBe(0);
 
-    // 4. POST /read/latest succeeds → any successful ack clears
+    // 4. POST /read/latest succeeds → all acks done → suppression clears
     store.confirmUnreadAck('thread-B');
     expect(useChatStore.getState()._unreadSuppressedUntil['thread-B']).toBeUndefined();
 

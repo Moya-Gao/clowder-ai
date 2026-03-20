@@ -303,6 +303,8 @@ interface ChatState {
   currentProjectPath: string;
   /** Transient: suppress initThreadUnread re-hydration for recently-cleared threads */
   _unreadSuppressedUntil: Record<string, number>;
+  /** #586: Count of in-flight ack requests per thread — suppression clears only when 0 */
+  _pendingAckCount: Record<string, number>;
   threads: Thread[];
   isLoadingThreads: boolean;
   /** UI: Whether Thinking blocks should be expanded by default (global preference). */
@@ -396,10 +398,9 @@ interface ChatState {
   clearUnread: (threadId: string) => void;
   /** F072: Clear unread badges for all threads at once */
   clearAllUnread: () => void;
-  /** #586: Confirm any successful ack — clears suppression unconditionally.
-   *  /read/latest is idempotent: any successful POST means server cursor is current. */
+  /** #586: One ack resolved — decrement pending count; clear suppression when 0 */
   confirmUnreadAck: (threadId: string) => void;
-  /** #586: Re-arm unread suppression before each ack attempt */
+  /** #586: Ack about to fire — increment pending count + set Infinity suppression */
   armUnreadSuppression: (threadId: string) => void;
   /** F069: Initialize unread state from API (page load recovery) */
   initThreadUnread: (threadId: string, unreadCount: number, hasUserMention: boolean) => void;
@@ -500,6 +501,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentThreadId: 'default',
   currentProjectPath: 'default',
   _unreadSuppressedUntil: {},
+  _pendingAckCount: {},
   threads: [],
   isLoadingThreads: false,
   uiThinkingExpandedByDefault: loadUiThinkingExpandedByDefault(),
@@ -1463,21 +1465,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   confirmUnreadAck: (threadId) =>
     set((state) => {
-      // Cloud review P1 (round 5): /read/latest is idempotent — any successful
-      // POST means the server cursor points to the latest message at processing
-      // time. So any successful ack (even an "older" overlapping one) is valid.
-      // No generation check needed.
-      if (!state._unreadSuppressedUntil[threadId]) return state;
+      // #586 final: Decrement pending ack count. Only clear suppression when
+      // ALL in-flight acks have resolved — this prevents an early-resolving ack
+      // from clearing suppression while a newer ack is still in flight.
+      const count = Math.max(0, (state._pendingAckCount[threadId] ?? 1) - 1);
+      const newCounts = { ...state._pendingAckCount, [threadId]: count };
+      if (count > 0) {
+        // Still have pending acks — keep suppression, just update counter
+        return { _pendingAckCount: newCounts };
+      }
+      // All acks resolved — safe to clear suppression
+      if (!state._unreadSuppressedUntil[threadId]) return { _pendingAckCount: newCounts };
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [threadId]: _removed, ...rest } = state._unreadSuppressedUntil;
-      return { _unreadSuppressedUntil: rest };
+      return { _unreadSuppressedUntil: rest, _pendingAckCount: newCounts };
     }),
 
   armUnreadSuppression: (threadId) =>
     set((state) => ({
+      // #586 final: Increment pending ack count + set Infinity suppression.
+      // Each ack attempt increments; confirmUnreadAck decrements. Suppression
+      // only clears when counter reaches 0 (all in-flight acks resolved).
       _unreadSuppressedUntil: {
         ...state._unreadSuppressedUntil,
         [threadId]: Infinity,
+      },
+      _pendingAckCount: {
+        ...state._pendingAckCount,
+        [threadId]: (state._pendingAckCount[threadId] ?? 0) + 1,
       },
     })),
 
