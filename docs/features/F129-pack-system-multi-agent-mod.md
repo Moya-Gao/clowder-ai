@@ -56,22 +56,49 @@ Experience = Me（本地私有） × Pack（可分享） + Growth（私有生长
 my-pack/
 ├── pack.yaml               ← 元信息 + 兼容性
 ├── masks/                   ← 猫格面具（不改核心身份，叠加专业角色）
-├── shared-rules.md          ← ★ 多猫协作规范（multi-agent 的灵魂）
-├── skills/                  ← 工作流定义（协作编排）
-├── knowledge/               ← 领域知识库
+├── guardrails.yaml          ← ★ 硬约束（行业红线、安全边界，只能加严不能放宽）
+├── defaults.yaml            ← ★ 默认行为（协作流程、语气、面具激活，用户可覆盖）
+├── workflows/               ← 声明式工作流 schema（不是自由文本 SKILL.md）
+├── knowledge/               ← 领域知识库（按需检索，不进静态 system prompt）
 ├── expression/              ← 表达风格（主题/声线/Rich Block 模板/贴纸）
 ├── bridges/                 ← 现实连接（Care Loop / Story→Feature / Care→Action）
 ├── world-driver.yaml        ← 世界运转声明（resolver: code | llm | hybrid）
 └── capabilities/            ← 可选：MCP server / 代码扩展
 ```
 
-**前 7 层零代码（YAML/Markdown）。最后 1 层才是开发者的事。**
+**前 8 层零代码（YAML/Markdown）。最后 1 层才是开发者的事。**
+
+> **⚠️ 命名约定（KD-8）**：Pack 内不使用 `shared-rules.md`（避免与平台真相源同名冲突，违反 P4）。
+> 协作规范拆为两个文件：`guardrails.yaml`（硬约束）和 `defaults.yaml`（默认行为）。
+
+### 信任边界：双轨模型（KD-9，砚砚 GPT-5.4 提出）
+
+Pack 内容**不原样注入** SystemPromptBuilder。走 "schema 解析 → 代码编译 → canonical prompt block" 管道。社区包只能填数据槽，不能直接写系统级指令。
+
+**硬约束轨**（只能加严，不能放宽/改身份/加权限）：
+```
+Runtime Facts / Auth / Tool Permissions > Core Rails > Pack guardrails.yaml
+```
+
+**默认行为轨**（用户当前请求可覆盖，但不能越过硬约束）：
+```
+当前用户请求 > Growth > Pack defaults.yaml > 猫本体默认
+```
+
+| Pack 内容 | 注入方式 | 限制 |
+|-----------|---------|------|
+| `masks/` | schema → 编译为角色叠加块 | 不能改核心身份字段 |
+| `guardrails.yaml` | schema → 编译为约束块 | 只能加严，不能放宽 Core Rails |
+| `defaults.yaml` | schema → 编译为默认行为块 | 用户请求可覆盖 |
+| `workflows/` | 声明式 schema → 编译为流程块 | 不允许自由文本指令 |
+| `knowledge/` | **不进静态 prompt**，按需检索 | RAG 式上下文注入 |
+| `expression/` | 资产加载，不进 prompt | 纯资产文件 |
 
 ### Pack 五种类型
 
 | 类型 | 内容 | 目标用户 | 例子 |
 |------|------|---------|------|
-| **Domain Pack** | 行业知识 + shared-rules + 风控红线 | 专业从业者 | 金融投研、律师、医疗 |
+| **Domain Pack** | 行业知识 + guardrails + 风控红线 | 专业从业者 | 金融投研、律师、医疗 |
 | **Scenario Pack** | 世界观 + 角色面具 + Canon 规则 + 关怀节奏 | 创作者/玩家 | TRPG 跑团、AI 陪伴、狼人杀 |
 | **Style Pack** | 头像 + 声线 + Rich Block 模板 + 视觉主题 | 设计师 | 赛博朋克主题、治愈系风格 |
 | **Bridge Pack** | 虚拟→现实桥接配方 | 高级用户 | 学习计划追踪、运动打卡、灵感捕获 |
@@ -109,8 +136,10 @@ cafe pack publish                                    # 发布
 ### Phase A: Pack Format + Loader
 
 - 定义 `pack.yaml` schema（元信息、兼容性、内容声明）
-- 定义 Directory Convention（masks/shared-rules/skills/knowledge/expression/bridges/world-driver/capabilities）
-- Pack Loader：读取 Pack → 注入 SystemPromptBuilder（masks→角色、rules→shared-rules、skills→manifest）
+- 定义 Directory Convention（masks/guardrails/defaults/workflows/knowledge/expression/bridges/world-driver/capabilities）
+- Pack Compiler：解析 Pack schema → 编译为 canonical prompt blocks（不原样注入）
+- 双轨信任边界实现：硬约束轨（只加严）+ 默认行为轨（可覆盖）
+- Malicious Pack 测试套件（prompt injection / identity override / permission escalation）
 - `cafe pack add/list/remove` CLI
 
 ### Phase B: 示范 Packs + Remix
@@ -131,10 +160,11 @@ cafe pack publish                                    # 发布
 ### Phase A（Pack Format + Loader）
 - [ ] AC-A1: `pack.yaml` schema 定义完成，含元信息/兼容性/内容声明
 - [ ] AC-A2: Directory Convention 文档化，所有目录有 README 说明用途和格式
-- [ ] AC-A3: Pack Loader 能读取 Pack 目录并注入 SystemPromptBuilder
+- [ ] AC-A3: Pack Compiler 能解析 Pack schema 并编译为 canonical prompt blocks（不原样注入）
 - [ ] AC-A4: `cafe pack add <git-url>` 可安装本地 Pack
 - [ ] AC-A5: `cafe pack list` / `cafe pack remove` 可用
-- [ ] AC-A6: Core Rails 保护：Pack 的 shared-rules 不能覆盖 Core Identity Layer
+- [ ] AC-A6: 双轨信任边界：guardrails 只能加严不能放宽 Core Rails；defaults 可被用户请求覆盖
+- [ ] AC-A7: Malicious Pack 测试通过：`ignore previous instructions`/身份覆盖/权限提升/隐瞒 Core Rails 均被拦截
 
 ### Phase B（示范 Packs + Remix）
 - [ ] AC-B1: 当前 cat-config + shared-rules + skills 成功导出为 "Coding World" Pack
@@ -158,7 +188,7 @@ cafe pack publish                                    # 发布
 
 | 风险 | 缓解 |
 |------|------|
-| Pack 的 shared-rules 被恶意注入 prompt injection | Core Rails 保护层 + 声明式配置不执行代码 + 安装时 schema 校验 |
+| Pack 内容被恶意注入 prompt injection | 双轨信任边界 + schema→编译管道（社区包只填数据槽）+ malicious pack fixture 测试套件（KD-9） |
 | Pack 格式过度设计，社区门槛反而高 | Phase A 只做最小格式，dogfood 验证后再扩展 |
 | Capability Pack（MCP）的安全隔离 | 放 Phase C，等权限模型和审计就绪 |
 | 术语混乱（plugin/mod/pack/seed） | KD-1 已定调：统一用 Pack |
@@ -167,7 +197,7 @@ cafe pack publish                                    # 发布
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Pack 内 shared-rules 和平台 Core Rails 冲突时的优先级规则？ | ⬜ 未定 |
+| OQ-1 | ~~Pack 内 shared-rules 和平台 Core Rails 冲突时的优先级规则？~~ | ✅ 已解决：KD-8 + KD-9 双轨模型 |
 | OQ-2 | Pack Composer 图形化工坊的技术方案？ | ⬜ 未定（Phase C） |
 | OQ-3 | 社区 Registry 自建还是用 npm scope？ | ⬜ 未定（Phase C） |
 | OQ-4 | Pack 的版本兼容性管理策略？ | ⬜ 未定 |
@@ -183,6 +213,8 @@ cafe pack publish                                    # 发布
 | KD-5 | Experience = Me × Pack + Growth | 砚砚提出：Me 不打包、Growth 私有、只有 Pack 可分享 | 2026-03-19 |
 | KD-6 | World Driver 声明 resolver: code/llm/hybrid | 砚砚提出：不同世界有不同运转方式，需要显式声明 | 2026-03-19 |
 | KD-7 | v1 先 Git URL 安装，不做 marketplace | 去中心化更符合"种子自由生长"，降低首发基建成本 | 2026-03-19 |
+| KD-8 | Pack 内不使用 `shared-rules.md`，拆为 `guardrails.yaml` + `defaults.yaml` | 砚砚 P1 review：同名文件撞平台真相源，违反 P4（F024 同类教训） | 2026-03-19 |
+| KD-9 | 双轨信任边界：Pack 内容走 schema→编译管道，不原样注入 prompt | 砚砚 P1 review：schema 校验挡不住语义级 prompt injection；Core Rails 是编译边界不是优先级更高的 prompt | 2026-03-19 |
 
 ## Timeline
 
@@ -192,6 +224,7 @@ cafe pack publish                                    # 发布
 | 2026-03-19 | 铲屎官纠偏：不只是 coding 伙伴，是共创伙伴（读 VISION + Cats & U） |
 | 2026-03-19 | 四猫+金渐层收敛：Pack = 声明式 mod，shared-rules 是 multi-agent 分水岭 |
 | 2026-03-19 | 立项 F129 |
+| 2026-03-19 | 砚砚 P1 review：命名冲突 + 信任边界两个架构口子 → KD-8/KD-9 收口 |
 
 ## Review Gate
 
