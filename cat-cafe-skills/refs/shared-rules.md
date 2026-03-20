@@ -254,6 +254,19 @@ commit body 补一行 `Why:` 说明决策理由。
 
 **不滥用**：不是每个问题都拉全体。优先级：自己搜 → 搜不到再拉 1-2 只对口猫 → 真正跨领域才拉 3 只。
 
+### 投票 SOP（`start_vote`）
+
+`start_vote` 会**自动唤起** voters 列表中的所有猫，不需要手动 `multi_mention` 或 `post_message` @mention。
+
+| 动作 | 正确做法 | 禁止 |
+|------|---------|------|
+| 发起投票 | 调一次 `start_vote`，传入 `voters` 列表 | 发完 `start_vote` 再 `multi_mention` 全体 voter（重复唤起） |
+| 发起猫自己投票 | 回复里直接写 `[VOTE:选项]` | 用 `post_message` 单独投票（多此一举） |
+| 催票 | 只 @ 未投票的猫 | 全量 `multi_mention` 催全体（已投票的猫会被二次打扰） |
+| 等结果 | 等 auto-close（全票或超时） | 手动 close 后又开新投票询问同一问题 |
+
+**为什么禁止重复唤起**：`start_vote` 内部已通过 `enqueueA2ATargets` dispatch 了所有 voter。再调 `multi_mention` = 同一只猫被唤起两次，产生重复通知和上下文噪音。投票 auto-close 后，后续 `[VOTE:xxx]` 会被静默忽略，但前面的冗余调度已经发生。
+
 ## 14. 共享状态文件只在 main 改
 
 **机器强制的文件**（三层防御）：
