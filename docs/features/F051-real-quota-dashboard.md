@@ -4,7 +4,7 @@ related_features: [F042]
 topics: [quota, dashboard, usage, scheduling, degradation, claudebar, gemini, antigravity]
 doc_kind: spec
 created: 2026-03-02
-updated: 2026-03-05
+updated: 2026-03-20
 ---
 
 # F051 — 猫粮看板（Quota Board）
@@ -346,6 +346,12 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 - **愿景守护重点**: 额度粒度是否正确？调度映射是否对？有没有把独立池又合并了？
 - **Reviewer**: 缅因猫 (GPT-5.2) — 验证额度模型与官方页面一致
 
+## 2026-03-20 增量（社区 intake）
+
+- 吸收社区 PR `clowder-ai#145`，把按“日期 × 猫”聚合的日消耗能力带回家里
+- 后端新增 `GET /api/usage/daily`，支持 `days` / `catId` 过滤，`total.invocations` 按 record 计数，per-cat 用 `participations`
+- Hub 的猫粮看板新增“近 7 日猫粮消耗”区域，补齐 quota board 的日级钻取视角
+
 ## Timeline
 
 | 日期 | 事件 |
@@ -364,6 +370,7 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 | **2026-03-04** | **Post-merge hotfix**: 错误消息去重 (`new Set()`) |
 | **2026-03-05** | **v3 数据源纠偏**: 铲屎官指出"你竟然没看 ClaudeBar 源码" |
 | **2026-03-05** | **决策**: 砍掉 Puppeteer+CDP 浏览器方案，改用 ClaudeBar 同源 OAuth API 直连 |
+| **2026-03-20** | **社区 intake 增量合入**: 吸收 `clowder-ai#145`，新增 `/api/usage/daily` 与“近 7 日猫粮消耗”，PR #598 合入 main |
 
 ## Links
 
