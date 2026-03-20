@@ -67,6 +67,7 @@ UX 要点：
 | 2026-03-19 | Phase C: absorbed `clowder-ai#113` Windows installer/startup fixes and locked public port normalization to `3003/3004/6399` (PR #572) |
 | 2026-03-19 | Phase C follow-up: kept Windows deploy scripts in outbound sync allowlist and aligned sync YAML `#` parsing (PR #573) |
 | 2026-03-19 | Phase C ops follow-up: intake ledger now advances by landed commits for long-branch community merges (PR #575) |
+| 2026-03-19 | Phase C ops follow-up: moved `sync/*` publication into a guarded post-merge lane and aligned hotfix baseline selection with landed upstream sync tags (PR #580) |
 
 ## Notes
 
