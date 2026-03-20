@@ -169,12 +169,20 @@ Then open `http://localhost:3003` and start talking to your team.
 
 ## Usage Guide
 
-> 📹 **Full platform walkthrough:** [Overview demo (3:45)](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/overview-preview.mp4)
+> 📹 **Full platform walkthrough (3:45):**
+
+https://github.com/user-attachments/assets/8e470aba-8fe6-4aa5-a476-c2cd81d1630f
 
 ### Chat — Your AI Team in One Place
 
 <!-- demo: multi-cat coding collaboration + rich blocks + voice input -->
-> 📹 **Demo videos:** [Multi-cat coding](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/S1-multi-cat-coding.mp4) · [Rich blocks](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/rich-blocks-demo.mp4) · [Voice input + widgets](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/voice-input-widget-demo.mp4)
+> 📹 **Demo videos:** Multi-cat coding · Rich blocks · Voice input + widgets
+
+https://github.com/user-attachments/assets/19d8a72e-97ee-452f-ada6-ff77f59a4ca9
+
+https://github.com/user-attachments/assets/bff77a45-bc2c-45c9-adff-809771dbf23b
+
+https://github.com/user-attachments/assets/cf75fb92-ce20-4a0d-8b2b-c288ce9bfb48
 
 ![Rich blocks demo](https://github.com/user-attachments/assets/c6c8589d-7c55-44c8-a987-d88c921bcf33)
 
@@ -187,7 +195,9 @@ The main interface is a multi-threaded chat where your AI team lives. Each threa
 ### Hub — Command Center
 
 <!-- demo: Hub command center — mission hub operations -->
-> 📹 **Demo video:** [Hub & Mission Hub walkthrough](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/mission-hub.mp4)
+> 📹 **Demo video:** Hub & Mission Hub walkthrough
+
+https://github.com/user-attachments/assets/6cd2fb10-4f8e-4342-9641-b2ad7c64d2bc
 
 Hit the Hub button to open the floating command center. Tabs include:
 
@@ -202,7 +212,11 @@ Hit the Hub button to open the floating command center. Tabs include:
 ### Mission Hub — Feature Governance
 
 <!-- demo: Mission Hub — feature governance dashboard -->
-> 📹 **Demo video:** [Mission Hub in action](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/mission-hub.mp4) · [Cat leaderboard (fun!)](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/S5-leaderboard.mp4)
+> 📹 **Demo video:** Mission Hub in action · Cat leaderboard (fun!)
+
+https://github.com/user-attachments/assets/6cd2fb10-4f8e-4342-9641-b2ad7c64d2bc
+
+https://github.com/user-attachments/assets/3914ef8e-48ea-4b79-a1e2-f7302b0119c2
 
 ![Mission Hub dashboard](https://github.com/user-attachments/assets/6e45e7e5-76ce-43fd-a784-53c95e5f952f)
 
@@ -217,7 +231,9 @@ The ops dashboard for tracking everything your team is building.
 ### Multi-Platform — Chat From Anywhere
 
 <!-- demo: Feishu multi-platform chat -->
-> 📹 **Demo video:** [Feishu (Lark) multi-cat chat](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/feishu-multi-platform-demo.mp4)
+> 📹 **Demo video:** Feishu (Lark) multi-cat chat
+
+https://github.com/user-attachments/assets/cf8ff631-7098-4816-b27a-e0cc05f38eb0
 
 Don't want to open the web UI? Chat with your team from the apps you already use.
 
@@ -230,7 +246,9 @@ Don't want to open the web UI? Chat with your team from the apps you already use
 ### Voice Companion — Hands-Free Mode
 
 <!-- demo: per-agent TTS voice showcase -->
-> 📹 **Demo video:** [Per-cat TTS voice showcase](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/voice-showcase-compressed.mp4)
+> 📹 **Demo video:** Per-cat TTS voice showcase
+
+https://github.com/user-attachments/assets/f49700cb-d8eb-44d5-bbe8-1666f1be8ad0
 
 ![Per-cat voice showcase](https://github.com/user-attachments/assets/7a7aab6a-4906-4eba-a75b-e5508980cf0c)
 
@@ -264,7 +282,9 @@ A curated feed of AI and tech articles, built into your workspace.
 ### Game Modes — Play With Your Team
 
 <!-- demo: Werewolf game — the accidental one 🐺 -->
-> 📹 **Demo video:** [The accidental Werewolf game 🐺](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/T2-werewolf-compressed.mp4)
+> 📹 **Demo video:** The accidental Werewolf game 🐺
+
+https://github.com/user-attachments/assets/349d53e7-5285-4638-ade2-901766af03e8
 
 Yes, your AI team plays games. Currently shipping:
 
@@ -557,12 +577,20 @@ bash scripts/install.sh
 
 ## 使用指南
 
-> 📹 **平台完整演示：** [Overview demo (3:45)](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/overview-preview.mp4)
+> 📹 **平台完整演示（3:45）：**
+
+https://github.com/user-attachments/assets/8e470aba-8fe6-4aa5-a476-c2cd81d1630f
 
 ### 聊天 — 你的 AI 团队就在这里
 
 <!-- 演示：多猫协作编码 + 富文本卡片 + 语音输入 -->
-> 📹 **演示视频：** [多猫协作编码](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/S1-multi-cat-coding.mp4) · [Rich Blocks 卡片](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/rich-blocks-demo.mp4) · [语音输入 + Widget](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/voice-input-widget-demo.mp4)
+> 📹 **演示视频：** 多猫协作编码 · Rich Blocks 卡片 · 语音输入 + Widget
+
+https://github.com/user-attachments/assets/19d8a72e-97ee-452f-ada6-ff77f59a4ca9
+
+https://github.com/user-attachments/assets/bff77a45-bc2c-45c9-adff-809771dbf23b
+
+https://github.com/user-attachments/assets/cf75fb92-ce20-4a0d-8b2b-c288ce9bfb48
 
 ![富文本演示](https://github.com/user-attachments/assets/c6c8589d-7c55-44c8-a987-d88c921bcf33)
 
@@ -575,7 +603,9 @@ bash scripts/install.sh
 ### Hub — 指挥中心
 
 <!-- 演示：Hub 指挥中心 -->
-> 📹 **演示视频：** [Hub & 作战中枢操作演示](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/mission-hub.mp4)
+> 📹 **演示视频：** Hub & 作战中枢操作演示
+
+https://github.com/user-attachments/assets/6cd2fb10-4f8e-4342-9641-b2ad7c64d2bc
 
 点击 Hub 按钮打开浮动指挥面板：
 
@@ -590,7 +620,11 @@ bash scripts/install.sh
 ### 作战中枢（Mission Hub） — Feature 治理
 
 <!-- 演示：作战中枢 — Feature 治理面板 -->
-> 📹 **演示视频：** [作战中枢实操](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/mission-hub.mp4) · [猫猫排行榜（好玩！）](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/S5-leaderboard.mp4)
+> 📹 **演示视频：** 作战中枢实操 · 猫猫排行榜（好玩！）
+
+https://github.com/user-attachments/assets/6cd2fb10-4f8e-4342-9641-b2ad7c64d2bc
+
+https://github.com/user-attachments/assets/3914ef8e-48ea-4b79-a1e2-f7302b0119c2
 
 ![作战中枢面板](https://github.com/user-attachments/assets/6e45e7e5-76ce-43fd-a784-53c95e5f952f)
 
@@ -605,7 +639,9 @@ bash scripts/install.sh
 ### 多平台 — 在哪都能聊
 
 <!-- 演示：飞书多猫聊天 -->
-> 📹 **演示视频：** [飞书多猫聊天](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/feishu-multi-platform-demo.mp4)
+> 📹 **演示视频：** 飞书多猫聊天
+
+https://github.com/user-attachments/assets/cf8ff631-7098-4816-b27a-e0cc05f38eb0
 
 不想开 web？用你已经在用的 app 跟团队聊。
 
@@ -618,7 +654,9 @@ bash scripts/install.sh
 ### 语音陪伴 — 解放双手
 
 <!-- 演示：每只猫独立声线 TTS -->
-> 📹 **演示视频：** [猫猫们的声线](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/voice-showcase-compressed.mp4)
+> 📹 **演示视频：** 猫猫们的声线
+
+https://github.com/user-attachments/assets/f49700cb-d8eb-44d5-bbe8-1666f1be8ad0
 
 ![猫猫配音](https://github.com/user-attachments/assets/7a7aab6a-4906-4eba-a75b-e5508980cf0c)
 
@@ -652,7 +690,9 @@ bash scripts/install.sh
 ### 游戏模式 — 和团队一起玩
 
 <!-- 演示：意外的狼人杀 🐺 -->
-> 📹 **演示视频：** [意外的狼人杀 🐺](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/T2-werewolf-compressed.mp4)
+> 📹 **演示视频：** 意外的狼人杀 🐺
+
+https://github.com/user-attachments/assets/349d53e7-5285-4638-ade2-901766af03e8
 
 没错，你的 AI 团队会玩游戏。当前已有：
 
