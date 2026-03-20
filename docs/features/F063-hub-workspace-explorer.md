@@ -341,6 +341,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-09 | 愿景守护（布偶猫自检 + 砚砚独立核实放行）：23 PR 全 merged, AC-1~21 全覆盖, R1~R15 全解决, Gap 1~7 全关闭 |
 | 2026-03-09 | **Feature closed** — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 ✅ |
 | 2026-03-12 | **Post-completion enhancement** (PR #402): reveal file in tree when search result clicked + progressive lazy-loading reveal + thread-switch state cleanup. 砚砚 R1 通过 + 云端 R1→R2 (1P1 thread-leak fix→0) |
+| 2026-03-19 | **Bug fix** (PR #584): markdown rendered 模式补全 Add to Chat — selectionchange + anchor/focus 双边界 + editMode deps. 砚砚 R1→R3 (1P1+2P2→0) + 云端 R1→R2 (1P1→0), 4 新测试 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
