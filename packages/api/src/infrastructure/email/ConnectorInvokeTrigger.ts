@@ -313,9 +313,11 @@ export class ConnectorInvokeTrigger {
       // to prevent race (onStreamEnd before onStreamStart finishes registering sessions).
       let streamStartPromise: Promise<void> | undefined;
       if (this.opts.streamingHook) {
-        streamStartPromise = this.opts.streamingHook.onStreamStart(threadId, catId).catch((err) => {
-          log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.onStreamStart failed');
-        });
+        streamStartPromise = this.opts.streamingHook
+          .onStreamStart(threadId, catId, createResult.invocationId)
+          .catch((err) => {
+            log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.onStreamStart failed');
+          });
       }
 
       const intent = { intent: 'execute' as const, explicit: false, promptTags: [] as string[] };
@@ -363,7 +365,7 @@ export class ConnectorInvokeTrigger {
           // Phase 4: Stream accumulated text to external platforms
           if (this.opts.streamingHook) {
             const accumulated = collectedTextParts.join('');
-            this.opts.streamingHook.onStreamChunk(threadId, accumulated).catch((err) => {
+            this.opts.streamingHook.onStreamChunk(threadId, accumulated, createResult.invocationId).catch((err) => {
               log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.onStreamChunk failed');
             });
           }
@@ -411,7 +413,7 @@ export class ConnectorInvokeTrigger {
               new Promise<void>((resolve) => setTimeout(resolve, STREAM_START_TIMEOUT_MS)),
             ]);
           }
-          await this.opts.streamingHook.onStreamEnd(threadId, finalContent).catch((err) => {
+          await this.opts.streamingHook.onStreamEnd(threadId, finalContent, createResult.invocationId).catch((err) => {
             log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.onStreamEnd failed');
           });
         }
@@ -523,7 +525,7 @@ export class ConnectorInvokeTrigger {
 
           // Cloud-P1-R2: only cleanup placeholders if ALL deliveries succeeded
           if (!deliveryFailed && this.opts.streamingHook?.cleanupPlaceholders) {
-            await this.opts.streamingHook.cleanupPlaceholders(threadId).catch((err) => {
+            await this.opts.streamingHook.cleanupPlaceholders(threadId, createResult.invocationId).catch((err) => {
               log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed');
             });
           } else if (deliveryFailed && this.opts.streamingHook?.cleanupPlaceholders) {
@@ -531,10 +533,11 @@ export class ConnectorInvokeTrigger {
             // eventually succeed, clean up placeholder cards so the user doesn't see
             // a stale "thinking…" card alongside the real response.
             const cleanupHook = this.opts.streamingHook;
+            const scopedInvocationId = createResult.invocationId;
             Promise.allSettled(inflightDeliverPromises).then((results) => {
               const allSucceeded = results.every((r) => r.status === 'fulfilled');
               if (allSucceeded) {
-                cleanupHook.cleanupPlaceholders(threadId).catch((err) => {
+                cleanupHook.cleanupPlaceholders(threadId, scopedInvocationId).catch((err) => {
                   log.warn({ err, threadId }, '[ConnectorInvokeTrigger] Late-success placeholder cleanup failed');
                 });
               }
@@ -542,7 +545,7 @@ export class ConnectorInvokeTrigger {
           }
         } else if (this.opts.streamingHook?.cleanupPlaceholders) {
           // Cloud-P1-R3: silent invocation (no content) — still clean up placeholder
-          await this.opts.streamingHook.cleanupPlaceholders(threadId).catch((err) => {
+          await this.opts.streamingHook.cleanupPlaceholders(threadId, createResult.invocationId).catch((err) => {
             log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed (silent)');
           });
         }

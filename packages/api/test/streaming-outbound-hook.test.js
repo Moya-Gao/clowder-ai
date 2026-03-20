@@ -165,4 +165,77 @@ describe('StreamingOutboundHook', () => {
     await hook.onStreamChunk('thread-1', 'typing...');
     assert.ok(adapter._calls.editMessage[0].text.includes('▌'));
   });
+
+  it('cross-invocation isolation: A cleanup does not affect B placeholder', async () => {
+    const adapter = wrapAdapter(createMockAdapter());
+    let placeholderCounter = 0;
+    adapter.sendPlaceholder = async (_chatId, _text) => {
+      placeholderCounter++;
+      return `msg-placeholder-${placeholderCounter}`;
+    };
+    const adapters = new Map([['feishu', adapter]]);
+    const bindingStore = createBindingStore([
+      { connectorId: 'feishu', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+    ]);
+    const log = {
+      warn: () => {},
+      info: () => {},
+      error: () => {},
+      debug: () => {},
+      fatal: () => {},
+      trace: () => {},
+      child: () => log,
+    };
+    const hook = new StreamingOutboundHook({ bindingStore, adapters, log, updateIntervalMs: 0, minDeltaChars: 0 });
+
+    await hook.onStreamStart('thread-1', undefined, 'inv-A');
+    await hook.onStreamStart('thread-1', undefined, 'inv-B');
+    await hook.onStreamEnd('thread-1', 'Final A', 'inv-A');
+    await hook.onStreamEnd('thread-1', 'Final B', 'inv-B');
+
+    await hook.cleanupPlaceholders('thread-1', 'inv-A');
+    assert.equal(adapter._calls.deleteMessage.length, 1);
+    assert.equal(adapter._calls.deleteMessage[0].msgId, 'msg-placeholder-1');
+
+    await hook.cleanupPlaceholders('thread-1', 'inv-B');
+    assert.equal(adapter._calls.deleteMessage.length, 2);
+    assert.equal(adapter._calls.deleteMessage[1].msgId, 'msg-placeholder-2');
+  });
+
+  it('cross-invocation isolation: A late-success cleanup only cleans A placeholders', async () => {
+    const adapter = wrapAdapter(createMockAdapter());
+    let placeholderCounter = 0;
+    adapter.sendPlaceholder = async (_chatId, _text) => {
+      placeholderCounter++;
+      return `msg-placeholder-${placeholderCounter}`;
+    };
+    const adapters = new Map([['feishu', adapter]]);
+    const bindingStore = createBindingStore([
+      { connectorId: 'feishu', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+    ]);
+    const log = {
+      warn: () => {},
+      info: () => {},
+      error: () => {},
+      debug: () => {},
+      fatal: () => {},
+      trace: () => {},
+      child: () => log,
+    };
+    const hook = new StreamingOutboundHook({ bindingStore, adapters, log, updateIntervalMs: 0, minDeltaChars: 0 });
+
+    await hook.onStreamStart('thread-1', undefined, 'inv-A');
+    await hook.onStreamStart('thread-1', undefined, 'inv-B');
+    await hook.onStreamEnd('thread-1', 'Final A', 'inv-A');
+    await hook.onStreamEnd('thread-1', 'Final B', 'inv-B');
+
+    await hook.cleanupPlaceholders('thread-1', 'inv-A');
+    assert.equal(adapter._calls.deleteMessage.length, 1);
+    assert.equal(adapter._calls.deleteMessage[0].msgId, 'msg-placeholder-1');
+
+    // B's placeholder must still be pending (not deleted by A's cleanup)
+    // Calling cleanupPlaceholders for A again is a no-op
+    await hook.cleanupPlaceholders('thread-1', 'inv-A');
+    assert.equal(adapter._calls.deleteMessage.length, 1, 'second A cleanup must be no-op');
+  });
 });
