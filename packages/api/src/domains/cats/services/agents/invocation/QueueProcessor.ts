@@ -639,6 +639,11 @@ export class QueueProcessor {
       // Always cleanup tracker + queue
       invocationTracker.complete(threadId, primaryCat, controller);
       queue.removeProcessedAcrossUsers(threadId, entry.id);
+      socketManager.emitToUser(userId, 'queue_updated', {
+        threadId,
+        queue: queue.list(threadId, userId),
+        action: 'completed',
+      });
       // F122B B6: Fire completion hook (one-shot) and clean up
       const completeHook = this.entryCompleteHooks.get(entry.id);
       if (completeHook) {

@@ -561,7 +561,7 @@
     {
       "id": "F091",
       "name": "Signal Study Mode — 信号学习伴侣",
-      "status": "in-progress | **Owner**: 布偶猫",
+      "status": "done | **Owner**: 布偶猫",
       "file": "F091-signal-study-mode.md"
     },
     {
@@ -805,5 +805,5 @@
       "file": "F130-api-log-governance.md"
     }
   ],
-  "generated_at": "2026-03-20T15:09:46.662Z"
+  "generated_at": "2026-03-20T15:51:05.658Z"
 }

@@ -40,7 +40,12 @@ export interface A2ATriggerDeps {
   /** F122B: InvocationQueue for agent-sourced entries */
   invocationQueue?: Pick<
     InvocationQueue,
-    'enqueue' | 'countAgentEntriesForThread' | 'hasQueuedAgentForCat' | 'backfillMessageId' | 'appendMergedMessageId'
+    | 'enqueue'
+    | 'countAgentEntriesForThread'
+    | 'hasQueuedAgentForCat'
+    | 'backfillMessageId'
+    | 'appendMergedMessageId'
+    | 'list'
   >;
   log: FastifyBaseLogger;
 }
@@ -122,6 +127,13 @@ export async function enqueueA2ATargets(
       await Promise.allSettled(
         ackTargets.map((catId) => deliveryCursorStore.ackMentionCursor(opts.userId, catId, threadId, triggerMessageId)),
       );
+    }
+    if (enqueued.length > 0) {
+      deps.socketManager.emitToUser(opts.userId, 'queue_updated', {
+        threadId,
+        queue: deps.invocationQueue.list(threadId, opts.userId),
+        action: 'enqueued',
+      });
     }
     // Trigger auto-execute for entries whose target slot is free
     await deps.queueProcessor?.tryAutoExecute?.(threadId);
