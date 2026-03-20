@@ -8,9 +8,9 @@ created: 2026-03-10
 
 # F091: Signal Study Mode — 信号学习伴侣
 
-> **Status**: in-progress | **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Created**: 2026-03-10
-> **Completed**: 2026-03-10
+> **Completed**: 2026-03-17
 
 ## Why
 
@@ -116,6 +116,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [Signal 信源缺口审计](../plans/2026-02-20-f21-signal-sources-gap.md)
 - [UX Wireframe](../../designs/mission-hub-f091-signal-study-mode.pen) — 五屏 wireframe（Pencil，在 Mission Hub 画布上）
 - [Implementation Plan](../plans/2026-03-10-f091-signal-study-mode.md) — 7 层 20 个 task 的实施计划
+- [反思胶囊](../reflections/2026-03-10-f091-signal-study-mode-capsule.md) — 11 Phase 全量完成反思
 
 ## 铲屎官原话（2026-03-10 Design Gate）
 
@@ -220,6 +221,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-16: Phase 10 kickoff — 两个 bug：① 文章正文只有标题（webpage fetcher 不提取内容）② "在对话中讨论"应创建 study thread 而非跳 default
 - 2026-03-17: Phase 10 merged (PR #512) — WebpageFetcher 正文提取 + POST /discuss 创建专属 study thread。Codex review R1→R2 放行 + 云端通过
 - 2026-03-17: Phase 11 merged (PR #515) — Secondary fetch for webpage articles + backfill empty content。修复 Anthropic 文章只有标题无正文的根因（self-href 漏解析 + 无二次抓取）。云端 review 3 轮（P1: timeout propagation + path traversal validation + regex alignment 全修），金渐层 + 缅因猫合作完成
+- 2026-03-18: 金渐层执行 feat-lifecycle completion 闭环：愿景守护对照表（10 项全匹配）+ 反思胶囊更新（补 Phase 5-11）+ Status→done + BACKLOG 移除 → **Feature close**
 
 ## Phase 5: 播客真正可用（2026-03-11） ✅
 
