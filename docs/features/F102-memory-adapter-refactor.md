@@ -570,13 +570,20 @@ Rate limit 5000 次/天（铲屎官确认），日常消耗远低于限额。
 > **铲屎官类比**："参考存储是怎么压缩内存的"——LSM-tree（Log-Structured Merge Tree）的分层 compaction 和我们的问题同构。
 > **三猫独立收敛**：三猫都独立想到了 LSM compaction 类比（L0 实时拼接 / L1 定时摘要 / L2 deferred 凝结）。
 > **砚砚提出分段模型（segment-based）**：每次产出独立 summary segment 而不是覆写单一摘要——解决漂移/不可审计/错误放大。
-> **架构决策（KD-42）**：MVP 先用单摘要覆写 + provenance 审计 + rebuild 兜底；如果漂移成为真实问题，升级为砚砚的分段模型。
+> **架构决策（KD-42 修正）**：采纳砚砚的分段 ledger 设计——`evidence_docs.summary` 作为 read model，`summary_segments` 作为 append-only provenance。成本几乎不变（多一张表一次 INSERT），但解决漂移/不可审计/错误放大。L2 凝结仍 deferred。
 
 | 层 | 触发 | 产物 | 状态 |
 |----|------|------|------|
 | **L0 实时拼接** | dirty-thread flush（30s debounce，<100ms） | `summaryType=concat`，现有拼接 | 已有，不改 |
-| **L1 定时摘要** | 定时任务 + 三条件门槛 | `summaryType=abstractive` + `candidates[]` | 新增（MVP） |
-| **L2 分段凝结** | （deferred）如果漂移成为真实问题 | 砚砚的 segment-based compaction | 预留 Phase 2 |
+| **L1 定时摘要** | 定时任务 + 三条件门槛 | L1 summary segment + candidates[] | 新增（MVP） |
+| **L2 分段凝结** | （deferred）L1 segment 积累到一定数量/体积 | L2 rollup segment（supersedes 多个 L1） | 预留，但 segment ledger 让升级成本很低 |
+
+**双写路径**（read model + append-only ledger）：
+
+```
+evidence_docs.summary     ← read model（搜索/bootstrap 直接读这个，始终是"当前最优摘要"）
+summary_segments           ← append-only ledger（每次 L1/L2 摘要都插入一条，永不删除）
+```
 
 **dirty thread 结合方式**（dirty 管 L0，定时任务管 L1，两层解耦）：
 
@@ -591,19 +598,40 @@ Rate limit 5000 次/天（铲屎官确认），日常消耗远低于限额。
      (a) pendingMessageCount >= 20
      (b) 距上次 abstractive >= 2h
      (c) 安静窗口 >= 10min（thread 最近 10min 无新消息）
-  → 输入：上次 abstractive summary + 水位线后的增量消息
+  → 输入：上次 evidence_docs.summary + 水位线后的增量消息
   → 输出：新的 abstractive summary + candidates
-  → 覆写 evidence_docs.summary + 更新水位线 + 重置 pendingCount
+  → (1) INSERT summary_segment（append-only，永不删除）
+  → (2) UPDATE evidence_docs.summary（read model，覆写）
+  → (3) 更新水位线 + 重置 pendingCount
 ```
 
 **不依赖 session chain / seal / session strategy**——只看 thread 消息增量。
 
 **存量 backfill**：首次启动时对历史 thread 做一轮全量，串行跑，每次间隔 2s。
 
-**水位线 + summary_state 字段**：
+**summary_segments 表（砚砚定义，append-only ledger）**：
 
 ```typescript
-// evidence_docs 扩展或独立 summary_state 表
+{
+  id: string;                        // segment UUID
+  threadId: string;
+  level: 1 | 2;                     // L1 = delta, L2 = rollup
+  fromMessageId: string;            // 本段覆盖的消息范围起点
+  toMessageId: string;              // 本段覆盖的消息范围终点
+  messageCount: number;
+  summary: string;                  // 本段的摘要文本
+  candidates?: DurableCandidate[];  // 本段提取的候选知识
+  supersedesSegmentIds?: string[];  // L2 才有：supersede 哪些 L1 segment
+  modelId: string;                  // e.g., 'claude-opus-4-6'
+  promptVersion: string;            // e.g., 'g2-thread-abstract-v1'
+  generatedAt: string;              // ISO timestamp
+}
+```
+
+**summary_state 水位线**：
+
+```typescript
+// evidence_docs 扩展或独立表
 {
   lastSummarizedMessageId: string;   // 上次摘要覆盖到的消息 ID
   pendingMessageCount: number;       // dirty flush 累积的增量计数
@@ -613,17 +641,7 @@ Rate limit 5000 次/天（铲屎官确认），日常消耗远低于限额。
 }
 ```
 
-**Provenance（每次 L1 摘要必须带来源追溯）**：
-
-```typescript
-{
-  sourceMessageRange: [string, string]; // [firstMsgId, lastMsgId]
-  messageCount: number;
-  modelId: string;          // e.g., 'claude-opus-4-6'
-  promptVersion: string;    // e.g., 'g2-thread-abstract-v1'
-  generatedAt: string;      // ISO timestamp
-}
-```
+发现摘要偏了 → 从 summary_segments 审计哪一段出问题 → 从原始消息 rebuild 该段以后的所有摘要。
 
 发现摘要偏了 → 可从 provenance 回溯输入范围 → 从原始消息 rebuild（WAL 重放）。
 
@@ -872,7 +890,7 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 | KD-39 | **定时任务跑 thread 增量摘要**——每 30min 扫描增量达标的 thread 调 Opus，不和 session seal 绑定 | 铲屎官修正：session strategy 可配置（不一定有 seal），绑定 seal = 绑定特定策略；定时任务更稳健 | 2026-03-20 |
 | KD-40 | **ThreadMemory 用 abstractive summary 替代拼接**——有 abstractive 时 bootstrap 直接用，不需要独立凝结层 | 简化：定时任务每次合并增量 + 上次摘要 = 渐进凝结，不需要额外步骤 | 2026-03-20 |
 | KD-41 | **摘要单元是 thread（不是 session）**——thread 是所有猫共享的对话空间，对每只猫的 session 分别摘要 = 同一段对话重复摘要 | 铲屎官指出：多猫 session 有重合，保存多份很奇怪；thread 概念全部猫都用，应该基于 thread 而不是 session | 2026-03-20 |
-| KD-42 | **LSM-style compaction：MVP 单摘要覆写 + provenance，Phase 2 预留分段模型**——三猫独立收敛 LSM 类比；砚砚提分段模型（防漂移），架构决策先简后稳 | 砚砚的漂移/审计/错误放大担忧真实，但 Opus 每次都有原始增量消息做锚点，provenance + rebuild 兜底。观察后决定是否升级 | 2026-03-20 |
+| KD-42 | **LSM-style compaction + 双写（read model + append-only segment ledger）**——`evidence_docs.summary` 是 read model，`summary_segments` 是 append-only provenance。L2 凝结 deferred 但 segment ledger 让升级成本很低 | 砚砚坚持 segment ledger 防漂移/不可审计/错误放大，架构师采纳——成本仅多一张表一次 INSERT，收益是完整可审计性 | 2026-03-20 |
 
 ## Timeline
 
