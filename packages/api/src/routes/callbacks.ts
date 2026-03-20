@@ -889,7 +889,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       .min(1)
       .regex(/^[^/]+\/[^/]+$/, 'Must be owner/repo format'),
     prNumber: z.number().int().positive(),
-    catId: z.string().min(1),
+    catId: z.string().min(1).optional(), // ignored — server uses record.catId
   });
 
   app.post('/api/callbacks/register-pr-tracking', async (request, reply) => {
@@ -904,17 +904,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
 
-    const { invocationId, callbackToken, repoFullName, prNumber, catId } = parsed.data;
+    const { invocationId, callbackToken, repoFullName, prNumber } = parsed.data;
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
       return EXPIRED_CREDENTIALS_ERROR;
     }
 
-    if (!catRegistry.has(catId)) {
-      reply.status(400);
-      return { error: `Unknown catId: ${catId}` };
-    }
+    // Use authoritative catId from invocation record, not caller payload.
+    // LLMs may pass wrong catId (e.g. tool description examples bias).
+    const catId = record.catId;
 
     // Cloud Codex P1-2: ownership protection — reject cross-user overwrites
     const existing = await prTrackingStore.get(repoFullName, prNumber);
