@@ -1077,6 +1077,21 @@ async function main(): Promise<void> {
     if (connectorGatewayHandle) {
       invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);
       invokeTrigger.setStreamingHook(connectorGatewayHandle.streamingHook);
+      queueProcessor.setOutboundHook(
+        connectorGatewayHandle.outboundHook as Parameters<typeof queueProcessor.setOutboundHook>[0],
+      );
+      queueProcessor.setStreamingHook(
+        connectorGatewayHandle.streamingHook as Parameters<typeof queueProcessor.setStreamingHook>[0],
+      );
+      queueProcessor.setThreadMetaLookup(async (threadId) => {
+        const thread = await threadStore.get(threadId);
+        if (!thread) return undefined;
+        return {
+          threadShortId: threadId.slice(0, 15),
+          threadTitle: thread.title ?? undefined,
+          deepLinkUrl: `${frontendBaseUrl}/threads/${threadId}`,
+        };
+      });
       for (const [id, handler] of connectorGatewayHandle.webhookHandlers) {
         connectorWebhookHandlers.set(id, handler);
       }

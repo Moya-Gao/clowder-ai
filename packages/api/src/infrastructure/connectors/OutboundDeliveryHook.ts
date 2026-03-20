@@ -126,6 +126,10 @@ export class OutboundDeliveryHook {
             for (const block of richBlocks) {
               if (block.kind === 'audio' && 'url' in block && block.url) {
                 const absPath = resolve?.(block.url);
+                this.opts.log.info(
+                  { blockKind: block.kind, url: block.url, absPath: absPath ?? null, hasResolver: !!resolve },
+                  '[OutboundDeliveryHook] Phase 6: sending audio block',
+                );
                 await adapter.sendMedia(binding.externalChatId, {
                   type: 'audio',
                   url: block.url,

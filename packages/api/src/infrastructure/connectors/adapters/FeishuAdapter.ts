@@ -232,21 +232,33 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
    * Priority: platform key > upload via absPath > text link fallback.
    */
   async sendMedia(externalChatId: string, payload: FeishuMediaPayload): Promise<void> {
-    // Path 1: Platform key — use native Feishu media API directly
+    this.log.info(
+      {
+        type: payload.type,
+        hasKey: !!(payload.imageKey || payload.fileKey),
+        absPath: payload.absPath,
+        url: payload.url,
+        hasTokenMgr: !!this.tokenManager,
+      },
+      '[FeishuAdapter] sendMedia entry',
+    );
     if (payload.imageKey || payload.fileKey) {
       await this.sendWithPlatformKey(externalChatId, payload);
       return;
     }
-    // Path 2: Upload local file to Feishu → get platform key → send native
     if (payload.absPath && this.tokenManager) {
       const uploaded = await this.uploadToFeishu(payload.absPath, payload.type);
       if (uploaded) {
         await this.sendWithPlatformKey(externalChatId, { ...payload, ...uploaded });
         return;
       }
+      this.log.warn(
+        { absPath: payload.absPath, type: payload.type },
+        '[FeishuAdapter] sendMedia: uploadToFeishu returned null, falling through to text fallback',
+      );
     }
-    // Path 3: URL fallback — send as text link
     if (payload.url) {
+      this.log.warn({ url: payload.url, type: payload.type }, '[FeishuAdapter] sendMedia: Path 3 text fallback');
       const label = payload.type === 'image' ? '🖼️' : payload.type === 'audio' ? '🔊' : '📎';
       await this.sendReply(externalChatId, `${label} ${payload.url}`);
     }
@@ -273,6 +285,10 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     type: 'image' | 'file' | 'audio',
   ): Promise<{ imageKey?: string; fileKey?: string } | null> {
     const token = await this.tokenManager?.getTenantAccessToken();
+    if (!token) {
+      this.log.warn({ absPath, type }, '[FeishuAdapter] uploadToFeishu: no tenant access token');
+      return null;
+    }
     const fileStream = createReadStream(absPath);
     const form = new FormData();
 
@@ -284,18 +300,20 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
         headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const body = await res.text().catch(() => '(unreadable)');
+        this.log.warn({ status: res.status, body, absPath }, '[FeishuAdapter] uploadToFeishu image upload failed');
+        return null;
+      }
       const data = (await res.json()) as { data?: { image_key?: string } };
       const imageKey = data.data?.image_key;
       return imageKey ? { imageKey } : null;
     }
 
-    // file or audio — detect actual format from file extension
     const fileName = absPath.split('/').pop() ?? 'file';
     let fileType: string;
     if (type === 'audio') {
       const ext = fileName.split('.').pop()?.toLowerCase();
-      // Feishu accepts: opus, mp3, ogg, wav
       fileType = ext === 'mp3' ? 'mp3' : ext === 'ogg' ? 'ogg' : ext === 'wav' ? 'wav' : 'opus';
     } else {
       fileType = 'stream';
@@ -308,7 +326,14 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
       headers: { Authorization: `Bearer ${token}` },
       body: form,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.text().catch(() => '(unreadable)');
+      this.log.warn(
+        { status: res.status, body, absPath, fileType },
+        '[FeishuAdapter] uploadToFeishu file upload failed',
+      );
+      return null;
+    }
     const data = (await res.json()) as { data?: { file_key?: string } };
     const fileKey = data.data?.file_key;
     return fileKey ? { fileKey } : null;
