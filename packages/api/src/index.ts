@@ -910,6 +910,13 @@ async function main(): Promise<void> {
     );
   }
 
+  // F101: register onClose hook BEFORE listen (Fastify forbids addHook after listen).
+  // The actual recovery player is assigned post-listen; stopAllLoops is a no-op if null.
+  let f101RecoveryPlayer: { stopAllLoops(): void } | null = null;
+  app.addHook('onClose', async () => {
+    f101RecoveryPlayer?.stopAllLoops();
+  });
+
   // Start listening
   let address: string;
   try {
@@ -1007,9 +1014,9 @@ async function main(): Promise<void> {
       orchestrator: recoveryOrchestrator,
       messageStore,
     });
-    app.addHook('onClose', async () => {
-      recoveryPlayer.stopAllLoops();
-    });
+    // NOTE: stopAllLoops is idempotent; safe to call even if no games were recovered.
+    // We keep a reference so the onClose hook (registered before listen) can access it.
+    f101RecoveryPlayer = recoveryPlayer;
     try {
       const recovered = await recoveryPlayer.recoverActiveGames();
       if (recovered > 0) {
