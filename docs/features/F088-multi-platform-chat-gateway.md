@@ -156,6 +156,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-19 | ISSUE-8 Phase G 8A merged: IM Hub thread command isolation + 📡 sidebar entry (PR #570) |
 | 2026-03-19 | Sync follow-up backport merged: connector-hub trusted identity + Hub thread race guards returned to cat-cafe truth source (PR #574) |
 | 2026-03-20 | Phase G+ merged: Hub badge + lastCommandAt + /unbind + 3 bug fixes (audio/image/streaming) (PR #582) |
+| 2026-03-20 | Cloud-R4-P2 follow-up: late-success delivery deferred placeholder cleanup + 2 regression tests (PR #585) |
 
 ## 参考文件
 
