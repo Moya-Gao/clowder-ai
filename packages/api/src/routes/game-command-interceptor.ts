@@ -35,11 +35,16 @@ function clampToPreset(n: number): number {
 
 /**
  * Filter catIds to only include IDs present in the allowed whitelist.
- * Prevents injection of arbitrary actorIds into game seats.
+ * Deduplicates to prevent same cat filling multiple seats.
  */
 export function sanitizeCatIds(catIds: string[], allowedIds: readonly string[]): string[] {
   const allowed = new Set(allowedIds);
-  return catIds.filter((id) => allowed.has(id));
+  const seen = new Set<string>();
+  return catIds.filter((id) => {
+    if (!allowed.has(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
 export interface ParsedGameCommand {
