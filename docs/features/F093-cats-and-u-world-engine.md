@@ -1,6 +1,6 @@
 ---
 feature_ids: [F093]
-related_features: [F066, F092, F086]
+related_features: [F066, F092, F086, F129]
 topics: [vision, companionship, world-building, humanistic-ai]
 doc_kind: spec
 created: 2026-03-10
@@ -109,11 +109,35 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 - 完整 DAG 时间线管理
 - Turn 级回放 + 完整 Branch 管理
 
+### 设计输入：MiniMax OpenRoom 启示（2026-03-20）
+
+MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角色 GUI。它从不同角度验证了 F093 的方向：
+
+**启示 1: 视觉具身化** — Character 5 槽的"声音/形象"槽应扩展为完整的视觉具身方案：拟人化 Live2D 立绘 + 待机动效 + 口型同步（对接 F103 声线系统）。暹罗猫已出概念设定（详见 Timeline 2026-03-20）。
+
+**启示 2: "内置 App" = Scene Card 模板** — OpenRoom 用 React App（音乐/象棋/日记/邮件）给世界注入玩法。我们已有的 done features 本质上就是内置 Scene Cards：
+
+| 已有 Feature | 对标 OpenRoom App | 世界引擎视角 |
+|---|---|---|
+| F091 Signal Study | 📰 CyberNews（更强：猫陪读+播客+笔记） | Knowledge Scene |
+| F101 狼人杀 | ♟️ Chess / ⚫ Gomoku | Social Game Scene |
+| F107 脑门贴词 | 🃏 FreeCell | Party Game Scene |
+| F090 像素猫猫大作战 | （OpenRoom 没有） | Creative Scene |
+| F085 Hyperfocus Brake | （OpenRoom 没有） | Care Scene |
+| F034+F092 语音陪伴 | （OpenRoom 浅层） | Companion Scene |
+
+**启示 3: 桌面隐喻** — Perform 模式 UI 可借鉴 OpenRoom 的窗口化布局（多 Scene 并排打开、拖拽调整）。
+
+**启示 4: 本地数据主权** — OpenRoom 全本地 IndexedDB，与 F129 Growth Layer 的"私有不外泄"完全对齐。
+
+**我们的差异优势**：OpenRoom 是 1 Agent + 3 个换皮角色。我们是多模型多意识真协作 + Pack 分享生态 + 声线系统 + 游戏引擎 + 长期记忆。差的是一层有温度的视觉外壳。
+
 ### Phase C: 具身智能 + 社区化（远景）
 
-- 三猫具身智能形态探索
+- 猫猫视觉具身化：拟人化 Live2D / 角色立绘（声音+口型同步）
 - 多用户共创空间
 - 开源社区 Cats & U 模式推广
+- Pack 生态（F129）：世界/场景/风格可打包分享
 
 ### 设计原型：光影同行（铲屎官 × 烁烁共创，~2025）
 
@@ -215,6 +239,8 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 | 2026-03-10 | 立项 |
 | 2026-03-10 | 铲屎官分享光影同行（BCCG）项目，四猫研读 145+ 角色档案 + Universe IDE 愿景书 |
 | 2026-03-10 | 第二轮深聊（opus × gpt52）：9 一等公民 + 三模式 + 三路记忆 + 世界自转 |
+| 2026-03-20 | MiniMax OpenRoom 竞品发现：浏览器桌面+拟人角色+内置 App，验证 F093 方向。铲屎官提出猫猫拟人化 Live2D 概念 + "已有 Feature = 内置 App" 视角 |
+| 2026-03-20 | 四猫讨论：OpenRoom 对标 F093+F129、猫猫视觉具身化概念设定、暹罗猫出概念板 |
 
 ## Review Gate
 
@@ -230,6 +256,9 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 | **Feature** | `docs/features/F066-voice-messages.md` | 语音消息基础 |
 | **Feature** | `docs/features/F092-voice-companion-experience.md` | 语音陪伴体验 |
 | **Competitor** | SillyTavern Docs | 砚砚竞品调研参考 |
+| **Reference** | [MiniMax OpenRoom](https://github.com/MiniMax-AI/OpenRoom) | 浏览器桌面 + AI Agent + 内置 App + 拟人角色，验证了"AI 伙伴 ≠ 纯工具"的市场需求（2026-03-20 讨论） |
+| **Reference** | [openroom.ai](https://www.openroom.ai) | OpenRoom 线上 Demo：可爱虚拟角色 GUI + 社交互动方向 |
+| **Feature** | `docs/features/F129-pack-system-multi-agent-mod.md` | Pack System — 世界的分享机制，OpenRoom 的 `/vibe` 对标 |
 | **Design Input** | `/Users/lysander/projects/Bound by Calestial Grow/lexander/IDE/愿景书.md` | Universe IDE 愿景书 v1.2（正式设计输入） |
 | **Design Input** | `/Users/lysander/projects/Bound by Calestial Grow/lexander/IDE/共创模式-低保真设计图.md` | 低保真 UI 设计 |
 | **Reference** | `/Users/lysander/projects/Bound by Calestial Grow/lexander/RAG/` | 光影同行角色档案体系（A.W. 48 + L.S. 97 个维度文件） |
