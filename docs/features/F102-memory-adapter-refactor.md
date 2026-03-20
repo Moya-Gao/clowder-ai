@@ -741,6 +741,51 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 
 此项不在 F102 内实现，作为独立 ADR 立项，link 回 F102 + F065 + F088。
 
+## 已知 Gap（待后续实现的猫猫注意！）
+
+> 以下问题由本线程（f102 记忆组件解耦 thread）在 runtime 测试中发现，记录在此供后续实现的猫猫参考。
+
+### Gap-1: Embedding 未开启（Phase C 代码就绪但默认 off）
+
+**现状**：`EMBED_MODE` 默认 `off`，runtime 跑的是纯 BM25 lexical 检索。Phase C 建的整套向量基础设施（EmbeddingService + VectorStore + SemanticReranker + 三态开关 + fail-open + 版本锚）全部空转。
+
+**影响**：中英混搜弱（搜 "cat naming" 找不到中文"猫名故事"），同义表达不匹配（搜 "标题太长" 找不到 "title truncated"）。
+
+**修法**：设 `EMBED_MODE=on`（或先 `shadow`）。模型 Qwen3-Embedding-0.6B ONNX ~614MB，首次加载下载，之后缓存。Mac 上内存占用 ~1GB，推理 <100ms/条。
+
+**注意**：直接跳 `on` 可能更合理——见 Gap-2。
+
+### Gap-2: Shadow 模式无日志（跑了白跑）
+
+**现状**：`EMBED_MODE=shadow` 时，代码确实跑了向量检索 + rerank，但结果存到 `_reranked` 变量后**直接丢弃**，没有任何日志或对比数据记录。
+
+**代码位置**：`SqliteEvidenceStore.ts` L216-219：
+```typescript
+} else if (this.embedDeps.mode === 'shadow') {
+  const _reranked = reranker.rerankWithDistances(lexicalResults, vecResults);
+  // Silent comparison — actual logging added in eval phase  ← 从没加过
+}
+```
+
+**修法选项**：
+- A: 补 shadow 日志（记录 lexical vs reranked 排序差异，用于 A/B 评估）
+- B: 直接跳过 shadow，上 `on`（Phase C eval corpus 已证明 embedding rerank 对 Recall 的提升）
+- **铲屎官倾向 B**（shadow 没实际产出，浪费 CPU）
+
+### Gap-3: Stories/Lessons 中英混搜需要 embedding
+
+**实测证据**（本线程测试 thread）：
+- 搜 "cat naming origin story"（英文）→ 0 命中。搜 "stories cat-names 名字"（中文+路径）→ 5 命中。
+- 根因：FTS5 unicode61 tokenizer 不做中文分词，中英之间无语义桥接。
+- **只有开启 embedding 才能真正解决**（向量空间里 "cat naming" 和 "猫名故事" 自然靠近）。
+- 临时补 frontmatter topics 能治标但不可持续——每个新文档都要手动加。
+
+### 建议实现顺序
+
+1. 先开 `EMBED_MODE=on`（改环境变量即可，零代码改动）
+2. 验证 Recall 提升（用本线程的 13 题考题 + 中英混搜 case）
+3. 如果要保留 shadow 模式，补上日志（否则直接废弃 shadow）
+
 ## Phase D 完成后的预期效果
 
 > 铲屎官指示：做完后要讲清楚"铲屎官日常使用感受到什么优化"和"猫猫自己感受到什么优化"。跑一段时间才知道做得好不好。
