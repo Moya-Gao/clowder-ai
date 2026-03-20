@@ -652,7 +652,9 @@ export class GameOrchestrator {
       if (!phase) break;
       const role = phase.actingRole;
       if (!role || role === '*') break; // wildcard phases always have actors
-      if (runtime.seats.some((s) => s.alive && s.role === role)) break; // has actors
+      // day_hunter is deferred (v1) — always skip, death-trigger needs special resolve phase
+      if (phase.name === 'day_hunter') { /* fall through to skip logic */ }
+      else if (runtime.seats.some((s) => s.alive && s.role === role)) break; // has actors
 
       // No alive seat for this role — skip
       const skipped = runtime.currentPhase;
