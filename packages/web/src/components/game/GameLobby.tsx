@@ -72,6 +72,7 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
   return (
     <div
       data-testid="game-lobby"
+      data-theme="werewolf-cute"
       className="fixed inset-0 z-50 flex items-center justify-center bg-ww-base-overlay backdrop-blur-sm"
     >
       <div className="bg-ww-topbar rounded-2xl border border-ww-subtle w-full max-w-lg mx-4 overflow-hidden">
