@@ -801,9 +801,9 @@
     {
       "id": "F130",
       "name": "API 日志治理 — 四层分离 × 结构化落盘",
-      "status": "spec | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1",
+      "status": "done | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1",
       "file": "F130-api-log-governance.md"
     }
   ],
-  "generated_at": "2026-03-20T15:51:05.658Z"
+  "generated_at": "2026-03-20T23:34:05.174Z"
 }
