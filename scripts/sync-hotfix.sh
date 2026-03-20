@@ -74,6 +74,7 @@ SOURCE_DIR="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_DIR="${CLOWDER_AI_DIR:-$(cd "$SOURCE_DIR/.." && pwd)/clowder-ai}"
 MANIFEST="$SOURCE_DIR/sync-manifest.yaml"
+TARGET_SYNC_TAG_REFS="refs/cat-cafe-hotfix-sync-tags"
 
 if [ ! -d "$TARGET_DIR/.git" ]; then
   echo -e "${RED}Error: clowder-ai not found at $TARGET_DIR${NC}"
@@ -139,16 +140,81 @@ echo "Branch: $BRANCH_NAME"
 echo "Files:  ${FILES[*]}"
 echo ""
 
+# ── Sync baseline selection uses refreshed source tags + mirrored target commit times ──
+refresh_source_sync_tags() {
+  if ! git -C "$SOURCE_DIR" fetch --quiet --force --prune --prune-tags origin \
+    "+refs/tags/sync/*:refs/tags/sync/*" >/dev/null 2>&1; then
+    echo -e "${RED}Error: failed to refresh cat-cafe sync tags from origin${NC}" >&2
+    return 1
+  fi
+}
+
+refresh_target_sync_tags() {
+  if ! git -C "$TARGET_DIR" fetch --quiet origin main >/dev/null 2>&1; then
+    echo -e "${RED}Error: failed to refresh clowder-ai origin/main${NC}" >&2
+    return 1
+  fi
+
+  if ! git -C "$TARGET_DIR" fetch --quiet --force --prune origin \
+    "+refs/tags/sync/*:$TARGET_SYNC_TAG_REFS/*" >/dev/null 2>&1; then
+    echo -e "${RED}Error: failed to refresh clowder-ai sync tags from origin${NC}" >&2
+    return 1
+  fi
+}
+
+select_latest_sync_tag() {
+  local tag
+  local best_tag=""
+  local best_epoch=""
+
+  while IFS= read -r tag; do
+    [ -z "$tag" ] && continue
+    if ! git -C "$TARGET_DIR" rev-parse --verify "$TARGET_SYNC_TAG_REFS/$tag^{commit}" >/dev/null 2>&1; then
+      continue
+    fi
+    if ! git -C "$TARGET_DIR" merge-base --is-ancestor \
+      "$TARGET_SYNC_TAG_REFS/$tag^{commit}" refs/remotes/origin/main >/dev/null 2>&1; then
+      continue
+    fi
+
+    local epoch
+    epoch=$(git -C "$TARGET_DIR" show -s --format=%ct "$TARGET_SYNC_TAG_REFS/$tag^{commit}" 2>/dev/null || true)
+    [ -z "$epoch" ] && continue
+
+    if [ -z "$best_epoch" ] || [ "$epoch" -gt "$best_epoch" ] || { [ "$epoch" -eq "$best_epoch" ] && [[ "$tag" > "$best_tag" ]]; }; then
+      best_epoch="$epoch"
+      best_tag="$tag"
+    fi
+  done < <(git -C "$SOURCE_DIR" tag -l 'sync/*')
+
+  if [ -n "$best_tag" ]; then
+    printf '%s\n' "$best_tag"
+    return 0
+  fi
+  return 1
+}
+
 # ── Step 1: Find latest sync tag (on cat-cafe, not clowder-ai) ──
 echo -e "${BLUE}[Step 1/7] Finding sync tag on source repo...${NC}"
+refresh_source_sync_tags || exit 1
+refresh_target_sync_tags || exit 1
 if [ -n "$CUSTOM_TAG" ]; then
   SYNC_TAG="$CUSTOM_TAG"
-  if ! git -C "$SOURCE_DIR" rev-parse "refs/tags/$SYNC_TAG" >/dev/null 2>&1; then
+  if ! git -C "$SOURCE_DIR" rev-parse --verify "refs/tags/$SYNC_TAG^{commit}" >/dev/null 2>&1; then
     echo -e "${RED}Error: tag '$SYNC_TAG' not found in source repo (cat-cafe)${NC}"
     exit 1
   fi
+  if ! git -C "$TARGET_DIR" rev-parse --verify "$TARGET_SYNC_TAG_REFS/$SYNC_TAG^{commit}" >/dev/null 2>&1; then
+    echo -e "${RED}Error: tag '$SYNC_TAG' has not landed on clowder-ai origin${NC}"
+    exit 1
+  fi
+  if ! git -C "$TARGET_DIR" merge-base --is-ancestor \
+    "$TARGET_SYNC_TAG_REFS/$SYNC_TAG^{commit}" refs/remotes/origin/main >/dev/null 2>&1; then
+    echo -e "${RED}Error: tag '$SYNC_TAG' is no longer on clowder-ai origin/main${NC}"
+    exit 1
+  fi
 else
-  SYNC_TAG=$(git -C "$SOURCE_DIR" tag -l 'sync/*' --sort=-version:refname | head -1)
+  SYNC_TAG=$(select_latest_sync_tag || true)
   if [ -z "$SYNC_TAG" ]; then
     echo -e "${RED}Error: no sync/* tags found in source repo (cat-cafe)${NC}"
     echo "Run a full sync first: bash scripts/sync-to-opensource.sh"

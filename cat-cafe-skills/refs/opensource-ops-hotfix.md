@@ -18,9 +18,26 @@
 
 ## Step 1: 创建 Worktree（基于 sync tag）`[cat-cafe]`
 
+如果上一次 full sync 刚 merge，但本地还没有新的 `sync/*` tag，先在主仓运行：
+
 ```bash
-# 找到最近的 sync tag（格式是 sync/... 斜杠分隔）
-git tag -l "sync/*" --sort=-version:refname | head -3
+bash scripts/publish-sync-tag.sh \
+  --source-sha {cat_cafe_source_sha} \
+  --target-sha {clowder_ai_sync_commit_sha} \
+  --push
+```
+
+这里两个 SHA 不能手猜：
+- `{clowder_ai_sync_commit_sha}` 必须已经在 `clowder-ai main` 上，而且就是最后一次更新 `.sync-provenance.json` 的那次 landed sync commit，不能拿后续 descendant commit（哪怕 subject 也叫 `sync:`）代替
+- `{cat_cafe_source_sha}` 必须等于该 landed sync commit 内 `.sync-provenance.json` 的 `source_commit_sha`
+- 不传 `--tag` 时，脚本会把 landed sync 的 target commit time 先正规化到 UTC，再推导同名 `sync/YYYY-MM-DD-HHMMSS` tag；不看 provenance 里的 `synced_at`
+- merged 的 `clowder-ai` checkout 用普通 clone 或 worktree 都可以；脚本两种都接受
+- checkout 如果还没拉到最新 main 也没关系，脚本会先 fetch `origin main` 再解析 landed sync commit
+- `sync-hotfix.sh` 自动选 baseline 时，不再按 tag 名字排序；它会对照 `clowder-ai` 上同名 tag 的 commit time 选择最新 landed sync
+
+```bash
+# 查看当前已有的 sync tag（格式是 sync/... 斜杠分隔）
+git tag -l "sync/*" | tail -5
 
 # 基于 sync tag 创建 worktree（{tag} 是完整 tag 名如 sync/v3，直接用）
 git worktree add -b fix/{issue} ../cat-cafe-hotfix-{issue} {tag}

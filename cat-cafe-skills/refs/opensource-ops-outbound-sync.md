@@ -49,6 +49,27 @@ bash scripts/sync-to-opensource.sh --fast-validate
 bash scripts/sync-to-opensource.sh --skip-validate
 ```
 
+注意：
+- `sync-to-opensource.sh` **不会**创建 `sync/*` tag；它只负责导出 + 生成 sync PR
+- `sync-hotfix.sh` 会把最新 `sync/*` tag 当成“已经落地 upstream 的基线”，所以 tag 发布必须放在 **sync PR merge 后**
+- sync PR merge 后，运行：
+
+```bash
+bash scripts/publish-sync-tag.sh \
+  --source-sha {cat_cafe_source_sha} \
+  --target-sha {clowder_ai_sync_commit_sha} \
+  --push
+```
+
+- `--target-sha` 必须是 **已经在 `clowder-ai main` 上**、而且就是最后一次更新 `.sync-provenance.json` 的 landed sync commit，不能拿未 merge 的 sync 分支 tip，也不能拿后续 README/docs 或 `sync:` descendant commit 代替
+- `--source-sha` 必须和 `{clowder_ai_sync_commit_sha}:.sync-provenance.json` 里的 `source_commit_sha` 完全一致，不能手填更靠后的 cat-cafe commit
+- 不传 `--tag` 时，脚本会从 landed sync 的 target commit time 自动推导同名 `sync/YYYY-MM-DD-HHMMSS` tag；这里看的是 upstream 真正落地时间，不是 sync 分支生成时写进 provenance 的 `synced_at`
+- `CLOWDER_AI_DIR` 可以指向普通 clone，也可以指向 merged worktree checkout；脚本两种都接受
+- 即使本地 checkout 还没 pull 到最新 `clowder-ai main`，脚本也会先 fetch `origin main` 再解析 landed sync commit
+- `--push` 前脚本会先检查两边 origin 上的同名 tag 是否已存在且指向正确 SHA，再创建本地 tag，避免本地或单侧 remote 先被推进到新的 sync baseline
+- 这会在 `cat-cafe` 与 `clowder-ai` 两边创建并 push 同名 `sync/YYYY-MM-DD-HHMMSS` tag
+- 这个 tag 记录的是“哪一个 cat-cafe commit 被同步出去，以及它在 clowder-ai 上对应的 merge commit”
+
 ### Step 4: Post-sync Validation `[clowder-ai]`
 
 脚本会自动验证：

@@ -1447,20 +1447,14 @@ fi
 
 TOTAL_ELAPSED=$(( $(date +%s) - SYNC_START_TIME ))
 
-# ── Auto-tag: sync/YYYY-MM-DD-HHMMSS ─────────────────────────
-# After successful sync, tag the SOURCE repo (cat-cafe) to record which
-# commit was synced. Hotfix lane uses this to know what code is "in sync".
-# Each sync gets a unique tag (秒级精度), so multiple syncs per day are preserved.
-if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
-  SYNC_TAG="sync/$(date +%Y-%m-%d-%H%M%S)"
-  echo ""
-  echo -e "${BLUE}Tagging source (cat-cafe): $SYNC_TAG${NC}"
-  git -C "$SOURCE_DIR" tag "$SYNC_TAG" 2>/dev/null && \
-    echo -e "  ${GREEN}✓ Tag $SYNC_TAG created on cat-cafe (local)${NC}" || \
-    echo -e "  ${YELLOW}⚠ Failed to create tag $SYNC_TAG${NC}"
-fi
-
 echo ""
 echo -e "${GREEN}=== Sync complete ===${NC}  [total: ${TOTAL_ELAPSED}s]"
 echo "Target: $TARGET_DIR"
 echo "Next: cd $TARGET_DIR && git push (or create PR)"
+if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
+  PUBLISH_HANDOFF_CMD="bash scripts/publish-sync-tag.sh --source-sha=$(git -C "$SOURCE_DIR" rev-parse HEAD) --push"
+  if [ -n "${CLOWDER_AI_DIR:-}" ]; then
+    PUBLISH_HANDOFF_CMD="CLOWDER_AI_DIR=$(printf '%q' "$TARGET_DIR") $PUBLISH_HANDOFF_CMD"
+  fi
+  echo "After merge: $PUBLISH_HANDOFF_CMD"
+fi
