@@ -669,22 +669,23 @@ const SUMMARY_CONFIG = {
 };
 ```
 
-**Phase 2 预留：砚砚的分段模型——可观测升级触发器（砚砚 R3 收紧）**
+**Phase 2 预留：L2 Rollup + 多段读模型（砚砚 R3 可观测升级触发器）**
 
-升级为 segment-based compaction（L1 独立 delta → L2 rollup）当且仅当**任一可观测条件命中**：
+> **注意**：Phase 1 MVP 已经有 `summary_segments` append-only ledger（每次 L1 都 INSERT）。Phase 2 新增的不是"分段"（已有），而是：(a) L2 rollup 凝结；(b) bootstrap 从多段拼装；(c) 坏段隔离能力。
+
+升级触发条件——**任一可观测条件命中**：
 
 1. **漂移信号**：某 thread 的 `abstractiveTokenCount` 连续 3 次 L1 摘要后上升且 > 800 tokens
 2. **质量信号**：canary thread 的摘要人工抽检连续 2 次失败（计划：每月抽 3 个活跃 thread）
 3. **事故信号**：出现 1 次明确的"摘要漂移导致错误 recall"的事故（记入 lessons-learned）
 
-升级后的方案：
-- 每次 L1 产出独立 `summary_segment`（level=1, delta），不再覆写 evidence_docs.summary
-- 积累后合并为 L2 `summary_segment`（level=2, rollup, supersedes L1 segments）
-- Bootstrap 用：最新 L2 + 若干最近 L1 + raw tail
-- evidence_docs.summary 仍由定时任务从最新 L2 + 最近 L1 合成（read model）
-- 坏段可丢弃不影响其他段
+升级后新增能力：
+- L2 rollup segment：多个 L1 segment 凝结为一个 L2（level=2, supersedes L1 segments）
+- Bootstrap 改为：最新 L2 + 若干最近 L1 + raw tail（而不是单一 evidence_docs.summary）
+- evidence_docs.summary 仍由定时任务从最新 L2 + 最近 L1 合成（read model 不变）
+- 坏段可丢弃不影响其他段（因为 L1 segment 是独立的）
 
-此方案已由砚砚详细设计（含 schema），segment ledger 在 MVP 已存在（summary_segments 表），升级只需改写路径。
+segment ledger 在 Phase 1 已存在，Phase 2 升级只需改**读路径和凝结逻辑**。
 
 **G-3. ThreadMemory 增强（KD-40）**
 
@@ -904,7 +905,7 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 | KD-35 | **多项目记忆分两种策略**：(1) 新项目：猫按家规建标准 docs 体系（feat-lifecycle/Skills 引导），IndexBuilder KIND_DIRS 直接适配；(2) 遗留老项目：通用递归扫描所有 `.md`，不硬编码目录名。两种共存，先标准后兜底 | 铲屎官指出"新项目猫不知道要建 docs 体系"，分两种情况设计 | 2026-03-19 |
 | KD-36 | **遗留项目需要 frontmatter formatter**——老项目 .md 文件可能没有 frontmatter（feature_ids/doc_kind/topics），需要一个工具自动扫描并补充 metadata，提升 kind 推断和检索质量 | 铲屎官提出"接手垃圾项目也需要 formatter 那个 metadata" | 2026-03-19 |
 | KD-37 | **Abstractive digest 模型用 Opus 4.6**（金渐层/反代 API，复用 F062 provider-profiles），不用 Haiku | 铲屎官引用实测：Haiku 带坑里，Sonnet 需推断，Opus 完全准确 | 2026-03-19 |
-| KD-38 | **Pre-seal durable memory flush**——digest + candidate extraction 合并为一次 Opus 调用；candidate 只允许 decision/lesson/method，必须带证据，不直写长期真相源 | 三猫共识（LC 调研 + 砚砚收紧）：吸收 LC"lifecycle 节点触发 durable write"，保留 marker→materialize 门禁 | 2026-03-19 |
+| KD-38 | **Thread-level durable candidate extraction**——digest + candidate extraction 合并为一次 Opus 调用（定时任务触发，不绑 seal）；candidate 只允许 decision/lesson/method，必须带证据，不直写长期真相源 | 三猫共识（LC 调研 + 砚砚收紧 + 铲屎官打回 seal 绑定）：吸收 LC"lifecycle 节点触发 durable write"，保留 marker→materialize 门禁 | 2026-03-20 |
 | KD-39 | **定时任务跑 thread 增量摘要**——每 30min 扫描增量达标的 thread 调 Opus，不和 session seal 绑定 | 铲屎官修正：session strategy 可配置（不一定有 seal），绑定 seal = 绑定特定策略；定时任务更稳健 | 2026-03-20 |
 | KD-40 | **ThreadMemory 用 abstractive summary 替代拼接**——有 abstractive 时 bootstrap 直接用，不需要独立凝结层 | 简化：定时任务每次合并增量 + 上次摘要 = 渐进凝结，不需要额外步骤 | 2026-03-20 |
 | KD-41 | **摘要单元是 thread（不是 session）**——thread 是所有猫共享的对话空间，对每只猫的 session 分别摘要 = 同一段对话重复摘要 | 铲屎官指出：多猫 session 有重合，保存多份很奇怪；thread 概念全部猫都用，应该基于 thread 而不是 session | 2026-03-20 |
