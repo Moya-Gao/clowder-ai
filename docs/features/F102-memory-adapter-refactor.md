@@ -496,44 +496,92 @@ search_evidence(query, {
 > **核心学习**：从 LC 学到的不是 DAG 数据结构，是"压缩不等于丢弃，摘要必须可穿透"的理念。
 > **三猫共识**：LC 最对标的是 F065 Session Continuity，不是 F102。但 F065→F102 的写路径（pre-seal → durable knowledge）是核心改进点。
 
-**G-1. Seal-time Abstractive Digest（KD-37）**
+**G-1. Seal-time Abstractive Digest + Durable Candidate Extraction（KD-37/38）**
 
-当前 seal 时只产出 extractive digest（工具名/文件/错误，零 LLM）。新增 abstractive digest，回答"讨论了什么、决定了什么"。
+> **砚砚(GPT-5.4) 关键收紧**：digest 和 candidate extraction 合并成**一次 Opus 调用**，不分两步。输入是 sealed session 的 transcript + extractive digest + task snapshot + touched files/anchors（不是整个 thread）。
 
-- 模型：**Opus 4.6 128k**（通过金渐层/反代 API）——铲屎官明确指示，不用 Haiku（实测结论：Haiku 带坑里，Sonnet 需推断，Opus 完全准确）
-- 产物：`digest.abstractive.json`（与现有 `digest.extractive.json` 并存）
-- 存入 `evidence_docs.summary` 替换拼接文本
-- **fail-open**：API 调用失败不阻塞 seal，回落到 extractive
+一次调用同时产出两样东西：
 
-**G-2. Pre-seal Durable Memory Flush（KD-38）**
+- **Abstractive digest**：回答"这段 session 讨论了什么、决定了什么、风险和下一步"
+- **Durable candidates[]**：回答"这里面哪些内容值得升格为长期知识"
 
-在 session 即将 seal 时，从对话内容中提取有价值的候选知识：
+模型：**Opus 4.6**（通过 F062 provider-profiles 反代 API，零新增基础设施）——铲屎官明确指示不用 Haiku。
+产物：`digest.abstractive.json`（与现有 `digest.extractive.json` 并存）
+**fail-open**：API 调用失败不阻塞 seal，回落到 extractive digest。
 
+**Output Schema（砚砚定义，三猫共识）**
+
+```json
+{
+  "digest": {
+    "title": "本 session 做了什么",
+    "summary": "200-400 字，讲清讨论/决定/风险/下一步"
+  },
+  "candidates": [
+    {
+      "kind": "decision | lesson | method",
+      "title": "为什么 thread 摘要不能实时调 Opus",
+      "claim": "运行时 dirty thread 只做拼接，Opus 摘要走异步批处理",
+      "why_durable": "这是后续实现和运维都要遵守的规则",
+      "evidence": [
+        {"sessionId": "session_xxx", "span": "原文摘录"}
+      ],
+      "relatedAnchors": ["F102", "F065"],
+      "confidence": "explicit | inferred"
+    }
+  ]
+}
 ```
-session 即将 seal
-  → extractive digest（已有，免费）
-  → abstractive digest（G-1）
-  → durable candidate 提取（新增）
-  → marker 候选层 → F102 materialization 审核
+
+**Candidate 硬边界（砚砚红线）**：
+- 只允许 3 类：`decision` / `lesson` / `method`——硬编码枚举
+- 必须带 `evidence`（sessionId + 原文 span）和 `relatedAnchors`
+- `confidence: "explicit"` → 默认 `normalized`；`"inferred"` → 默认 `needs_review`
+- **禁止提取**：未定方案/brainstorm 分支、临时 TODO/WIP、只对当前 thread 有意义的碎片、没有证据的"模型总结性发挥"
+- Prompt 定位是"**抽取器**"不是"总结器"——"只抽取可跨 session 复用、未来重新看到仍有价值的内容"
+
+**API 接入（金渐层确认）**：
+
+```typescript
+// 复用 F062 provider-profiles，零新增基础设施
+const profile = await resolveAnthropicRuntimeProfile(projectRoot);
+// profile.baseUrl + profile.apiKey → 标准 Anthropic Messages API
+// model: 'claude-opus-4-6', max_tokens: 1024
 ```
 
-候选类型：决策（→ADR）、教训（→lesson）、方法论（→skill 提案）。
-不直写长期真相源——走现有 marker → review → materialize 流程。
+**待铲屎官确认**：反代 rate limit（决定批处理并发度和退避策略）；是否需要 dedicated profile 避免影响日常使用。
 
-**G-3. Abstractive Summary 批处理调度**
+**G-2. 三层摘要产物架构（KD-39，砚砚收紧版）**
 
-存量 + 增量分层策略：
+> **砚砚关键改进**：不是"每个 dirty thread 调 Opus 重算"，而是三层各有触发时机和成本模型。凝结层输入是 session digests，不是重新喂整个 thread 原文——避免 thread 越长成本越高。
 
-| 场景 | 策略 |
-|------|------|
-| 存量历史 thread | 一次性批处理脚本（有 abstractive summary 跳过，否则调 API） |
-| 运行时增量 | 实时路径不改（拼接写 evidence_docs，<100ms）|
-| 后台批处理 | 每 30 分钟或 dirty thread >= 3 时触发 Opus API 生成 abstractive summary |
-| seal 事件 | 该 thread 优先进摘要队列 |
+| 层 | 触发 | 产物 | 成本 |
+|----|------|------|------|
+| **实时拼接层** | dirty-thread flush（<100ms） | `summaryType=concat`，现有拼接 | 零 |
+| **Seal 摘要层** | session seal 事件 | `summaryType=abstractive` + `candidates[]` | 1 次 Opus/session |
+| **周期凝结层** | 5+ sealed session digest 积累后 | `summaryType=condensed`（thread 级概括） | 1 次 Opus/凝结批 |
 
-调度方式：API 启动时 `setInterval`（兜底）+ seal 钩子 `summaryQueue.enqueue()`（优先触发）。
+调度优先级：
+1. 新 session seal → 立即入队
+2. thread 安静窗口超过 N 分钟 → 触发凝结检查
+3. 存量 backfill
 
-**G-4. ThreadMemory 两层化**
+纯 Hub 聊天（无 session seal 的 thread）继续只用拼接 summary，不为"摘要漂亮"拖慢实时链路。
+
+**水位线字段（砚砚提出，必须有）**：
+
+```typescript
+// evidence_docs 或独立 summary_state 表
+{
+  lastSummarizedMessageId: string;   // 拼接层水位
+  lastCondensedSessionSeq: number;   // 凝结层水位
+  summaryType: 'concat' | 'abstractive' | 'condensed';
+}
+```
+
+没有这几个水位线，一定会重复摘要、重复入队、或旧摘要覆盖新摘要。
+
+**G-3. ThreadMemory 两层化（KD-40）**
 
 当前 `buildThreadMemory` 是 append-to-head + trim-from-tail 的滚动文本——老 session 信息会被彻底删除。
 
@@ -541,9 +589,9 @@ session 即将 seal
 - **近期详细层**：最近 2-3 个 session 的完整摘要行（和现在一样）
 - **远期凝结层**：更早 session 合并为概括（带 sessionId 指针，可穿透回原始 transcript）
 
-凝结规则式即可（不需 LLM）：当行数超过 N 时，最老的 M 行合成一行"Sessions #1-#3 概述：做了 XYZ"。
+凝结触发：thread 积累 5 个 sealed session 后首次凝结，之后每新增 3 个再凝结一次。凝结输入是 session abstractive digests（G-2 seal 层产物），不是 thread 原文。
 
-**G-5. 搜索结果穿透路标**
+**G-4. 搜索结果穿透路标**
 
 `search_evidence` 命中 `kind=session` 或 `kind=thread` 结果时，返回值增加 `drillDown` 字段：
 
@@ -559,7 +607,7 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 
 让猫从"搜到但不知怎么看详情"变成"搜到→一键下钻"。
 
-**G-6. Conversation Identity 统一语义边界（ADR 待立项）**
+**G-5. Conversation Identity 统一语义边界（ADR 待立项）**
 
 五个概念（Thread / Session Chain / Active Slot / Connector Binding / CLI Resume）各自定义清晰，但缺少"它们如何协同"的统一叙事。需要一份 ADR 把端到端流转路径画清楚：
 
