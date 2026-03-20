@@ -210,15 +210,21 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     };
   }
 
-  /** Internal: send message via Lark API or injected mock. */
   private async sendLarkMessage(externalChatId: string, msgType: string, content: string): Promise<unknown> {
     const params = { chatId: externalChatId, content, msgType };
     if (this.sendMessageFn) return this.sendMessageFn(params);
 
-    return this.client.im.message.create({
+    const result = await this.client.im.message.create({
       params: { receive_id_type: 'chat_id' },
       data: { receive_id: externalChatId, msg_type: msgType, content },
     });
+
+    const code = (result as { code?: number })?.code;
+    if (code !== undefined && code !== 0) {
+      const msg = (result as { msg?: string })?.msg ?? 'unknown';
+      throw new Error(`Feishu API error ${code}: ${msg}`);
+    }
+    return result;
   }
 
   /**
@@ -284,10 +290,18 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
       return imageKey ? { imageKey } : null;
     }
 
-    // file or audio
-    const fileType = type === 'audio' ? 'opus' : 'stream';
+    // file or audio — detect actual format from file extension
+    const fileName = absPath.split('/').pop() ?? 'file';
+    let fileType: string;
+    if (type === 'audio') {
+      const ext = fileName.split('.').pop()?.toLowerCase();
+      // Feishu accepts: opus, mp3, ogg, wav
+      fileType = ext === 'mp3' ? 'mp3' : ext === 'ogg' ? 'ogg' : ext === 'wav' ? 'wav' : 'opus';
+    } else {
+      fileType = 'stream';
+    }
     form.append('file_type', fileType);
-    form.append('file_name', absPath.split('/').pop() ?? 'file');
+    form.append('file_name', fileName);
     form.append('file', new Blob([await streamToBuffer(fileStream)]));
     const res = await this.uploadFetchFn('https://open.feishu.cn/open-apis/im/v1/files', {
       method: 'POST',

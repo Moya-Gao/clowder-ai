@@ -116,13 +116,17 @@ describe('StreamingOutboundHook', () => {
     assert.equal(adapter._calls.editMessage.length, 0);
   });
 
-  it('onStreamEnd deletes placeholder message (cleanup before outbound card)', async () => {
+  it('onStreamEnd defers deletion for adapters with deleteMessage (Cloud-P1)', async () => {
     const { hook, adapter } = createHook();
     await hook.onStreamStart('thread-1');
     await hook.onStreamEnd('thread-1', 'Final complete response text');
+    // Placeholder NOT deleted yet — deferred until cleanupPlaceholders
+    assert.equal(adapter._calls.deleteMessage.length, 0);
+    assert.equal(adapter._calls.editMessage.length, 0);
+    // Now cleanup
+    await hook.cleanupPlaceholders('thread-1');
     assert.equal(adapter._calls.deleteMessage.length, 1);
     assert.equal(adapter._calls.deleteMessage[0].msgId, 'msg-placeholder-1');
-    assert.equal(adapter._calls.editMessage.length, 0);
   });
 
   it('onStreamEnd falls back to editMessage when deleteMessage not available', async () => {
@@ -141,7 +145,18 @@ describe('StreamingOutboundHook', () => {
     await hook.onStreamStart('thread-1');
     await hook.onStreamEnd('thread-1', 'Done');
     await hook.onStreamEnd('thread-1', 'Done again');
+    // Only one deferred cleanup
+    await hook.cleanupPlaceholders('thread-1');
     assert.equal(adapter._calls.deleteMessage.length, 1);
+  });
+
+  it('placeholder survives if cleanupPlaceholders is never called (delivery failure)', async () => {
+    const { hook, adapter } = createHook();
+    await hook.onStreamStart('thread-1');
+    await hook.onStreamEnd('thread-1', 'Done');
+    // Simulate: outbound delivery fails, cleanup never called
+    assert.equal(adapter._calls.deleteMessage.length, 0);
+    // Placeholder card stays visible in external chat as fallback
   });
 
   it('onStreamChunk appends cursor indicator', async () => {

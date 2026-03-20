@@ -448,6 +448,7 @@ export class ConnectorInvokeTrigger {
             (t) => t.textParts.length > 0 || (t.richBlocks && t.richBlocks.length > 0),
           );
 
+          let deliveryFailed = false;
           if (nonEmptyTurns.length > 1) {
             for (const turn of nonEmptyTurns) {
               const turnContent = turn.textParts.join('');
@@ -465,25 +466,56 @@ export class ConnectorInvokeTrigger {
                   ),
                 ]);
               } catch (err) {
+                deliveryFailed = true;
                 log.error({ err, threadId, catId: turn.catId }, '[ConnectorInvokeTrigger] Outbound delivery error');
               }
             }
           } else if (nonEmptyTurns.length === 1) {
-            // Single-turn path: use actual speaker catId
             const turn = nonEmptyTurns[0];
             const richBlocks = persistenceContext.richBlocks ?? turn.richBlocks;
-            this.opts.outboundHook
-              .deliver(threadId, finalContent, turn.catId as CatId, richBlocks, threadMeta)
-              .catch((err) => {
-                log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
-              });
-          } else {
-            // No turns but hasContent — fallback to original catId (e.g. richBlocks only in persistenceContext)
-            const richBlocks = persistenceContext.richBlocks;
-            this.opts.outboundHook.deliver(threadId, finalContent, catId, richBlocks, threadMeta).catch((err) => {
+            try {
+              await Promise.race([
+                this.opts.outboundHook.deliver(
+                  threadId,
+                  finalContent,
+                  turn.catId as CatId,
+                  richBlocks,
+                  threadMeta,
+                ),
+                new Promise<void>((_, reject) =>
+                  setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS),
+                ),
+              ]);
+            } catch (err) {
+              deliveryFailed = true;
               log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
+            }
+          } else {
+            const richBlocks = persistenceContext.richBlocks;
+            try {
+              await Promise.race([
+                this.opts.outboundHook.deliver(threadId, finalContent, catId, richBlocks, threadMeta),
+                new Promise<void>((_, reject) =>
+                  setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS),
+                ),
+              ]);
+            } catch (err) {
+              deliveryFailed = true;
+              log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
+            }
+          }
+
+          // Cloud-P1-R2: only cleanup placeholders if ALL deliveries succeeded
+          if (!deliveryFailed && this.opts.streamingHook?.cleanupPlaceholders) {
+            await this.opts.streamingHook.cleanupPlaceholders(threadId).catch((err) => {
+              log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed');
             });
           }
+        } else if (this.opts.streamingHook?.cleanupPlaceholders) {
+          // Cloud-P1-R3: silent invocation (no content) — still clean up placeholder
+          await this.opts.streamingHook.cleanupPlaceholders(threadId).catch((err) => {
+            log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed (silent)');
+          });
         }
       }
 

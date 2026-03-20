@@ -24,6 +24,7 @@ export interface StreamingOutboundHookOptions {
 
 export class StreamingOutboundHook {
   private readonly sessions = new Map<string, StreamingSession[]>();
+  private readonly pendingCleanup = new Map<string, StreamingSession[]>();
   private readonly updateIntervalMs: number;
   private readonly minDeltaChars: number;
 
@@ -89,17 +90,39 @@ export class StreamingOutboundHook {
     if (!sessions) return;
     this.sessions.delete(threadId);
 
+    const deferred: StreamingSession[] = [];
     for (const session of sessions) {
       const adapter = this.opts.adapters.get(session.connectorId);
       if (!session.platformMessageId) continue;
-      try {
-        if (adapter?.deleteMessage) {
-          await adapter.deleteMessage(session.platformMessageId);
-        } else if (adapter?.editMessage) {
+      if (adapter?.deleteMessage) {
+        // Defer deletion — keep placeholder as fallback until outbound delivery succeeds
+        deferred.push(session);
+      } else if (adapter?.editMessage) {
+        try {
           await adapter.editMessage(session.externalChatId, session.platformMessageId, finalText);
+        } catch (err) {
+          this.opts.log.warn({ err }, '[StreamingOutbound] onStreamEnd editMessage failed');
         }
+      }
+    }
+    if (deferred.length > 0) {
+      this.pendingCleanup.set(threadId, deferred);
+    }
+  }
+
+  /** Delete streaming placeholders after outbound delivery succeeds. */
+  async cleanupPlaceholders(threadId: string): Promise<void> {
+    const sessions = this.pendingCleanup.get(threadId);
+    if (!sessions) return;
+    this.pendingCleanup.delete(threadId);
+
+    for (const session of sessions) {
+      const adapter = this.opts.adapters.get(session.connectorId);
+      if (!adapter?.deleteMessage || !session.platformMessageId) continue;
+      try {
+        await adapter.deleteMessage(session.platformMessageId);
       } catch (err) {
-        this.opts.log.warn({ err }, '[StreamingOutbound] onStreamEnd cleanup failed');
+        this.opts.log.warn({ err }, '[StreamingOutbound] cleanupPlaceholders failed');
       }
     }
   }
