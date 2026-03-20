@@ -126,7 +126,8 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
               ({selectedCatList.length}/{catSeatsNeeded} 席位
               {selectedCatList.length < catSeatsNeeded && (
                 <span className="text-ww-danger ml-1">还需 {catSeatsNeeded - selectedCatList.length} 只</span>
-              )})
+              )}
+              )
             </span>
           </div>
           <div className="flex flex-wrap gap-2">

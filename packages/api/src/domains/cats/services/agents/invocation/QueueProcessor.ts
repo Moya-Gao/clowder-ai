@@ -214,9 +214,7 @@ export class QueueProcessor {
    * Per-cat slot mutex (processingSlots + invocationTracker) prevents conflicts.
    */
   async tryAutoExecute(threadId: string): Promise<void> {
-    const entries = (this.deps.queue.listAutoExecute?.(threadId) ?? []).sort(
-      (a, b) => a.createdAt - b.createdAt,
-    );
+    const entries = (this.deps.queue.listAutoExecute?.(threadId) ?? []).sort((a, b) => a.createdAt - b.createdAt);
 
     for (const entry of entries) {
       const entryCat = entry.targetCats[0] ?? 'unknown';

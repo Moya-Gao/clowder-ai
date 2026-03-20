@@ -281,25 +281,54 @@ describe('Phase H P1 Fixes — definition-level regression guards', () => {
     let threadCounter = 0;
     const app = Fastify();
     await app.register(messagesRoutes, {
-      registry: { get() { return undefined; } },
+      registry: {
+        get() {
+          return undefined;
+        },
+      },
       messageStore: routeMsgStore,
       socketManager: { broadcastToRoom() {}, emitToUser() {}, broadcastAgentMessage() {} },
       router: {
-        async resolveTargetsAndIntent() { return { targetCats: ['opus'], intent: { intent: 'execute', explicit: false, promptTags: [] } }; },
-        async *routeExecution() { yield { type: 'done', catId: 'opus', timestamp: Date.now() }; },
-        async *route() { yield { type: 'done', catId: 'opus', timestamp: Date.now() }; },
+        async resolveTargetsAndIntent() {
+          return { targetCats: ['opus'], intent: { intent: 'execute', explicit: false, promptTags: [] } };
+        },
+        async *routeExecution() {
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+        },
+        async *route() {
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+        },
         async ackCollectedCursors() {},
       },
       threadStore: {
-        async get(id) { return { id, title: 'Test', deletedAt: null }; },
+        async get(id) {
+          return { id, title: 'Test', deletedAt: null };
+        },
         async updateTitle() {},
         async create(userId, title, projectPath) {
-          return { id: `thread_game_${++threadCounter}`, title, projectPath, createdBy: userId, participants: [], lastActiveAt: Date.now(), createdAt: Date.now() };
+          return {
+            id: `thread_game_${++threadCounter}`,
+            title,
+            projectPath,
+            createdBy: userId,
+            participants: [],
+            lastActiveAt: Date.now(),
+            createdAt: Date.now(),
+          };
         },
       },
       gameStore: routeStore,
-      invocationTracker: { has: () => false, isDeleting: () => false, tryStartThread: () => new AbortController(), start: () => new AbortController(), complete: () => {} },
-      invocationRecordStore: { create: async () => ({ outcome: 'created', invocationId: 'inv-stub' }), update: async () => {} },
+      invocationTracker: {
+        has: () => false,
+        isDeleting: () => false,
+        tryStartThread: () => new AbortController(),
+        start: () => new AbortController(),
+        complete: () => {},
+      },
+      invocationRecordStore: {
+        create: async () => ({ outcome: 'created', invocationId: 'inv-stub' }),
+        update: async () => {},
+      },
     });
     await app.ready();
 
@@ -313,12 +342,17 @@ describe('Phase H P1 Fixes — definition-level regression guards', () => {
     assert.equal(resp.statusCode, 200, `Expected 200, got ${resp.statusCode}: ${resp.body}`);
     const body = JSON.parse(resp.body);
     // /api/messages game response uses status='game_started' + gameId
-    assert.ok(body.gameId || body.status === 'game_started',
-      `Response must include gameId or game_started status (got: ${JSON.stringify(body).slice(0, 200)})`);
+    assert.ok(
+      body.gameId || body.status === 'game_started',
+      `Response must include gameId or game_started status (got: ${JSON.stringify(body).slice(0, 200)})`,
+    );
     const game = routeStore.games?.get?.(body.gameId) ?? (await routeStore.getGame(body.gameId));
     assert.ok(game, 'Game should exist in store');
-    assert.equal(game.config.observerUserId, 'msg-route-user',
-      '/api/messages /game command must inject observerUserId from auth header');
+    assert.equal(
+      game.config.observerUserId,
+      'msg-route-user',
+      '/api/messages /game command must inject observerUserId from auth header',
+    );
     await app.close();
   });
 });

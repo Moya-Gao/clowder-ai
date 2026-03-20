@@ -307,9 +307,7 @@ describe('POST /api/callbacks/start-vote', () => {
 
   test('dispatches voter cats via A2A when router + invocationRecordStore are provided', async () => {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
-    const { InvocationQueue } = await import(
-      '../dist/domains/cats/services/agents/invocation/InvocationQueue.js'
-    );
+    const { InvocationQueue } = await import('../dist/domains/cats/services/agents/invocation/InvocationQueue.js');
 
     const dispatchedCats = [];
     const invocationQueue = new InvocationQueue();
@@ -371,9 +369,7 @@ describe('POST /api/callbacks/start-vote', () => {
 
   test('voters > MAX_QUEUE_DEPTH: first 5 enqueued, remaining fall back to direct dispatch', async () => {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
-    const { InvocationQueue } = await import(
-      '../dist/domains/cats/services/agents/invocation/InvocationQueue.js'
-    );
+    const { InvocationQueue } = await import('../dist/domains/cats/services/agents/invocation/InvocationQueue.js');
 
     const fallbackTargets = [];
     const invocationQueue = new InvocationQueue();
