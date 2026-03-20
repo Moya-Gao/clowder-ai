@@ -307,15 +307,21 @@ export class GameAutoPlayer {
           (m.extra?.targetCats as string[] | undefined)?.includes(seat.actorId),
       );
       if (visible.length > 0) {
+        // Build catId → seatId mapping for consistent prompt identity
+        const catToSeat = new Map<string, string>();
+        for (const s of _runtime.seats) {
+          catToSeat.set(s.actorId, s.seatId);
+        }
         // Inject conversation as synthetic visible events so the prompt includes them
         for (const m of visible) {
+          const speakerSeat = m.catId ? (catToSeat.get(m.catId) ?? m.catId) : 'system';
           view.visibleEvents.push({
             eventId: `msg-${m.id}`,
             round: _runtime.round,
             phase: 'day_discuss',
             type: m.catId ? 'speech' : 'announce',
             scope: 'public' as import('@cat-cafe/shared').EventScope,
-            payload: { seatId: m.catId ?? 'system', text: m.content },
+            payload: { seatId: speakerSeat, text: m.content },
             timestamp: m.timestamp,
           });
         }
