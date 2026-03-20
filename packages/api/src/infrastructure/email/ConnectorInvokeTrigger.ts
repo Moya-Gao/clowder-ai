@@ -449,18 +449,24 @@ export class ConnectorInvokeTrigger {
           );
 
           let deliveryFailed = false;
+          // Cloud-R4-P2: keep references to in-flight deliver promises so we can
+          // schedule late-success cleanup when a delivery times out but later succeeds.
+          const inflightDeliverPromises: Promise<void>[] = [];
+
           if (nonEmptyTurns.length > 1) {
             for (const turn of nonEmptyTurns) {
               const turnContent = turn.textParts.join('');
+              const deliverPromise = this.opts.outboundHook.deliver(
+                threadId,
+                turnContent,
+                turn.catId as CatId,
+                turn.richBlocks,
+                threadMeta,
+              );
+              inflightDeliverPromises.push(deliverPromise);
               try {
                 await Promise.race([
-                  this.opts.outboundHook.deliver(
-                    threadId,
-                    turnContent,
-                    turn.catId as CatId,
-                    turn.richBlocks,
-                    threadMeta,
-                  ),
+                  deliverPromise,
                   new Promise<void>((_, reject) =>
                     setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS),
                   ),
@@ -473,15 +479,17 @@ export class ConnectorInvokeTrigger {
           } else if (nonEmptyTurns.length === 1) {
             const turn = nonEmptyTurns[0];
             const richBlocks = persistenceContext.richBlocks ?? turn.richBlocks;
+            const deliverPromise = this.opts.outboundHook.deliver(
+              threadId,
+              finalContent,
+              turn.catId as CatId,
+              richBlocks,
+              threadMeta,
+            );
+            inflightDeliverPromises.push(deliverPromise);
             try {
               await Promise.race([
-                this.opts.outboundHook.deliver(
-                  threadId,
-                  finalContent,
-                  turn.catId as CatId,
-                  richBlocks,
-                  threadMeta,
-                ),
+                deliverPromise,
                 new Promise<void>((_, reject) =>
                   setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS),
                 ),
@@ -492,9 +500,17 @@ export class ConnectorInvokeTrigger {
             }
           } else {
             const richBlocks = persistenceContext.richBlocks;
+            const deliverPromise = this.opts.outboundHook.deliver(
+              threadId,
+              finalContent,
+              catId,
+              richBlocks,
+              threadMeta,
+            );
+            inflightDeliverPromises.push(deliverPromise);
             try {
               await Promise.race([
-                this.opts.outboundHook.deliver(threadId, finalContent, catId, richBlocks, threadMeta),
+                deliverPromise,
                 new Promise<void>((_, reject) =>
                   setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS),
                 ),
@@ -509,6 +525,19 @@ export class ConnectorInvokeTrigger {
           if (!deliveryFailed && this.opts.streamingHook?.cleanupPlaceholders) {
             await this.opts.streamingHook.cleanupPlaceholders(threadId).catch((err) => {
               log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed');
+            });
+          } else if (deliveryFailed && this.opts.streamingHook?.cleanupPlaceholders) {
+            // Cloud-R4-P2: schedule late-success cleanup — if timed-out deliveries
+            // eventually succeed, clean up placeholder cards so the user doesn't see
+            // a stale "thinking…" card alongside the real response.
+            const cleanupHook = this.opts.streamingHook;
+            Promise.allSettled(inflightDeliverPromises).then((results) => {
+              const allSucceeded = results.every((r) => r.status === 'fulfilled');
+              if (allSucceeded) {
+                cleanupHook.cleanupPlaceholders(threadId).catch((err) => {
+                  log.warn({ err, threadId }, '[ConnectorInvokeTrigger] Late-success placeholder cleanup failed');
+                });
+              }
             });
           }
         } else if (this.opts.streamingHook?.cleanupPlaceholders) {
