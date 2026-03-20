@@ -571,10 +571,15 @@ const profile = await resolveAnthropicRuntimeProfile(projectRoot);
 | **Seal 摘要层** | session seal 事件 | `summaryType=abstractive` + `candidates[]` | 1 次 Opus/session |
 | **周期凝结层** | 双阈值：sessions>=5 或 tokens>=1500 + quiet window>=10min | `summaryType=condensed`（thread 级概括） | 1 次 Opus/凝结批 |
 
-调度优先级：
-1. 新 session seal → 立即入队
-2. thread 安静窗口超过 N 分钟 → 触发凝结检查
-3. 存量 backfill
+**调度策略（铲屎官确认反代 5000 次/天，rate limit 不是瓶颈）**：
+
+日常运行估算 30-60 次/天（seal ~20-50 + 凝结 ~5-10），远低于限额。因此简化调度——**去掉队列和定时器，seal 完成后直接（但 fail-open）调用 Opus API**：
+
+1. **Seal 摘要**：session seal 完成后立即调用（满足 skip path 条件时）
+2. **凝结检查**：seal 完成后顺便检查双阈值，满足就立即凝结
+3. **存量 backfill**：启动时或手动触发，串行跑，每次间隔 2s（礼貌性限速）
+
+不需要 dedicated profile，日常调用和批处理共享同一个 provider-profile。
 
 纯 Hub 聊天（无 session seal 的 thread）继续只用拼接 summary，不为"摘要漂亮"拖慢实时链路。
 
@@ -829,6 +834,10 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 | KD-34 | **Thread 索引增量更新必须覆盖所有 messageStore.append 调用点（36 个）**——不能只 hook 2 条 HTTP 路由，必须在 messageStore 内部加 post-append callback | 铲屎官问"好几天不重启怎么办"，代价分析：IO/CPU 可忽略（<5ms/thread），真实代价只是"确保覆盖所有写入路径" | 2026-03-18 |
 | KD-35 | **多项目记忆分两种策略**：(1) 新项目：猫按家规建标准 docs 体系（feat-lifecycle/Skills 引导），IndexBuilder KIND_DIRS 直接适配；(2) 遗留老项目：通用递归扫描所有 `.md`，不硬编码目录名。两种共存，先标准后兜底 | 铲屎官指出"新项目猫不知道要建 docs 体系"，分两种情况设计 | 2026-03-19 |
 | KD-36 | **遗留项目需要 frontmatter formatter**——老项目 .md 文件可能没有 frontmatter（feature_ids/doc_kind/topics），需要一个工具自动扫描并补充 metadata，提升 kind 推断和检索质量 | 铲屎官提出"接手垃圾项目也需要 formatter 那个 metadata" | 2026-03-19 |
+| KD-37 | **Abstractive digest 模型用 Opus 4.6**（金渐层/反代 API，复用 F062 provider-profiles），不用 Haiku | 铲屎官引用实测：Haiku 带坑里，Sonnet 需推断，Opus 完全准确 | 2026-03-19 |
+| KD-38 | **Pre-seal durable memory flush**——digest + candidate extraction 合并为一次 Opus 调用；candidate 只允许 decision/lesson/method，必须带证据，不直写长期真相源 | 三猫共识（LC 调研 + 砚砚收紧）：吸收 LC"lifecycle 节点触发 durable write"，保留 marker→materialize 门禁 | 2026-03-19 |
+| KD-39 | **Seal 后直接调用 Opus（不走后台定时批处理）**——反代 5000 次/天，日常消耗 ~30-60 次，rate limit 不是瓶颈 | 铲屎官确认 rate limit 充裕，简化调度：去掉队列和定时器，seal 完成后立即 fail-open 调用 | 2026-03-19 |
+| KD-40 | **ThreadMemory 两层化 + 凝结双阈值**——近期详细层（2-3 session）+ 远期凝结层；触发：sessions>=5 或 tokens>=1500 + quiet window>=10min | 三猫一致（LC 调研 + 砚砚 R2：N=5 是经验值，双阈值防偏差） | 2026-03-19 |
 
 ## Timeline
 
