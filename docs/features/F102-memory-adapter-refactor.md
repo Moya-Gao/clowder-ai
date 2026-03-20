@@ -565,60 +565,98 @@ const profile = await resolveAnthropicRuntimeProfile(projectRoot);
 
 Rate limit 5000 次/天（铲屎官确认），日常消耗远低于限额。
 
-**G-2. 两层摘要产物架构（KD-39/41，铲屎官修正版）**
+**G-2. LSM-style Compaction 摘要架构（KD-39/41/42，三猫+铲屎官收敛版）**
 
-> **铲屎官修正**：去掉 "Seal 摘要层"——摘要不和 session chain 绑定。改为两层：实时拼接 + 定时任务 abstractive。
-> **砚砚的三层架构精神保留**：实时保可用 + 定时保语义，但触发方式全部基于 thread 消息增量。
+> **铲屎官类比**："参考存储是怎么压缩内存的"——LSM-tree（Log-Structured Merge Tree）的分层 compaction 和我们的问题同构。
+> **三猫独立收敛**：三猫都独立想到了 LSM compaction 类比（L0 实时拼接 / L1 定时摘要 / L2 deferred 凝结）。
+> **砚砚提出分段模型（segment-based）**：每次产出独立 summary segment 而不是覆写单一摘要——解决漂移/不可审计/错误放大。
+> **架构决策（KD-42）**：MVP 先用单摘要覆写 + provenance 审计 + rebuild 兜底；如果漂移成为真实问题，升级为砚砚的分段模型。
 
-| 层 | 触发 | 产物 | 成本 |
+| 层 | 触发 | 产物 | 状态 |
 |----|------|------|------|
-| **实时拼接层** | dirty-thread flush（<100ms） | `summaryType=concat`，现有拼接 | 零 |
-| **定时摘要层** | 定时任务（默认 30min）扫描增量达标的 thread | `summaryType=abstractive` + `candidates[]` | 1 次 Opus/thread 增量 |
+| **L0 实时拼接** | dirty-thread flush（30s debounce，<100ms） | `summaryType=concat`，现有拼接 | 已有，不改 |
+| **L1 定时摘要** | 定时任务 + 三条件门槛 | `summaryType=abstractive` + `candidates[]` | 新增（MVP） |
+| **L2 分段凝结** | （deferred）如果漂移成为真实问题 | 砚砚的 segment-based compaction | 预留 Phase 2 |
 
-**调度策略**（铲屎官确认 5000 次/天）：
+**dirty thread 结合方式**（dirty 管 L0，定时任务管 L1，两层解耦）：
 
 ```
-定时任务（每 30 分钟）
-  → 扫描所有 summaryType=concat 或 abstractive 的 thread
-  → 筛选：lastSummarizedMessageId 之后有新消息且满足 skip path 条件
-  → 调 Opus API 生成 abstractive summary + candidates
-  → 更新 evidence_docs（summary + summaryType=abstractive）
-  → 存量 backfill：首次启动时对历史 thread 做一轮全量
+消息写入 → markThreadDirty(threadId)     ← 已有，不改
+         → 每 30s flushDirtyThreads()   ← 已有（L0 拼接）
+              → 新增：pendingMessageCount++ （为 L1 调度提供信号）
+
+定时任务（每 30 分钟，per-tick 最多处理 5 个 thread）
+  → 读 pendingMessageCount
+  → 三条件全满足才触发 L1 摘要：
+     (a) pendingMessageCount >= 20
+     (b) 距上次 abstractive >= 2h
+     (c) 安静窗口 >= 10min（thread 最近 10min 无新消息）
+  → 输入：上次 abstractive summary + 水位线后的增量消息
+  → 输出：新的 abstractive summary + candidates
+  → 覆写 evidence_docs.summary + 更新水位线 + 重置 pendingCount
 ```
 
-**不依赖 session chain / seal / session strategy**——只看 thread 消息增量。不管猫配的是 compress、handoff、hybrid 还是什么策略，thread 消息永远在 messageStore 里。
+**不依赖 session chain / seal / session strategy**——只看 thread 消息增量。
 
-**水位线字段（砚砚提出，thread 化适配）**：
+**存量 backfill**：首次启动时对历史 thread 做一轮全量，串行跑，每次间隔 2s。
+
+**水位线 + summary_state 字段**：
 
 ```typescript
 // evidence_docs 扩展或独立 summary_state 表
 {
   lastSummarizedMessageId: string;   // 上次摘要覆盖到的消息 ID
+  pendingMessageCount: number;       // dirty flush 累积的增量计数
   summaryType: 'concat' | 'abstractive';
-  lastAbstractiveAt?: string;        // 上次 abstractive 摘要时间
+  lastAbstractiveAt?: string;        // 上次 L1 摘要时间
+  abstractiveTokenCount?: number;    // 当前摘要长度（监控漂移信号）
 }
 ```
 
-**Provenance（砚砚 R2，thread 化适配）**：
+**Provenance（每次 L1 摘要必须带来源追溯）**：
 
 ```typescript
-// abstractive summary 必须带来源追溯
 {
   sourceMessageRange: [string, string]; // [firstMsgId, lastMsgId]
   messageCount: number;
   modelId: string;          // e.g., 'claude-opus-4-6'
-  promptVersion: string;    // e.g., 'g1-thread-abstract-v1'
+  promptVersion: string;    // e.g., 'g2-thread-abstract-v1'
   generatedAt: string;      // ISO timestamp
 }
 ```
 
-**G-3. ThreadMemory 增强（KD-40，铲屎官修正版）**
+发现摘要偏了 → 可从 provenance 回溯输入范围 → 从原始消息 rebuild（WAL 重放）。
+
+**三个可配置常量**（砚砚 nit：不要散成裸字面量）：
+
+```typescript
+const SUMMARY_CONFIG = {
+  pendingThreshold: 20,         // 消息数门槛
+  cooldownHours: 2,             // 距上次摘要最小间隔
+  quietWindowMinutes: 10,       // 安静窗口
+  perTickBudget: 5,             // 每次定时任务最多处理几个 thread
+  backfillIntervalMs: 2000,     // 存量 backfill 间隔
+};
+```
+
+**Phase 2 预留：砚砚的分段模型（如果漂移成真）**
+
+如果跑了几个月发现超长 thread 的摘要质量退化（abstractiveTokenCount 持续膨胀、信息逐渐稀释），升级为 segment-based compaction：
+
+- 每次 L1 产出独立 `summary_segment`（level=1, delta）
+- 积累后合并为 L2 `summary_segment`（level=2, rollup, supersedes L1 segments）
+- Bootstrap 用：最新 L2 + 若干最近 L1 + raw tail
+- 坏段可丢弃不影响其他段
+
+此方案已由砚砚详细设计（含 schema），不在 MVP 实现。
+
+**G-3. ThreadMemory 增强（KD-40）**
 
 当前 `buildThreadMemory` 是 append-to-head + trim-from-tail 的滚动文本——老信息会被彻底删除。
 
 升级：当 thread 有 `summaryType=abstractive` 的摘要时，bootstrap 直接用 abstractive summary 而不是拼接文本。近期消息仍然带原文（和现在一样），远期部分由 abstractive summary 覆盖。
 
-不再需要独立的"凝结层"——因为定时任务每次跑的时候，输入是水位线之后的**增量**消息，和上一次的 abstractive summary **合并**产出新的 summary。这本身就是渐进凝结，不需要额外的凝结步骤。
+定时任务每次跑的时候，输入是"上次 abstractive summary + 增量消息" → 产出新的合并摘要。这本身就是渐进凝结（LSM minor compaction），不需要额外的凝结步骤。
 
 **G-4. 搜索结果穿透路标**
 
@@ -834,6 +872,7 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 | KD-39 | **定时任务跑 thread 增量摘要**——每 30min 扫描增量达标的 thread 调 Opus，不和 session seal 绑定 | 铲屎官修正：session strategy 可配置（不一定有 seal），绑定 seal = 绑定特定策略；定时任务更稳健 | 2026-03-20 |
 | KD-40 | **ThreadMemory 用 abstractive summary 替代拼接**——有 abstractive 时 bootstrap 直接用，不需要独立凝结层 | 简化：定时任务每次合并增量 + 上次摘要 = 渐进凝结，不需要额外步骤 | 2026-03-20 |
 | KD-41 | **摘要单元是 thread（不是 session）**——thread 是所有猫共享的对话空间，对每只猫的 session 分别摘要 = 同一段对话重复摘要 | 铲屎官指出：多猫 session 有重合，保存多份很奇怪；thread 概念全部猫都用，应该基于 thread 而不是 session | 2026-03-20 |
+| KD-42 | **LSM-style compaction：MVP 单摘要覆写 + provenance，Phase 2 预留分段模型**——三猫独立收敛 LSM 类比；砚砚提分段模型（防漂移），架构决策先简后稳 | 砚砚的漂移/审计/错误放大担忧真实，但 Opus 每次都有原始增量消息做锚点，provenance + rebuild 兜底。观察后决定是否升级 | 2026-03-20 |
 
 ## Timeline
 
