@@ -1,0 +1,33 @@
+#!/bin/bash
+# .githooks/pre-rebase — 三屏前置保护
+#
+# Rebase 前检查 merge.conflictStyle=zdiff3 是否已设置。
+# 没设置 → fail，要求先运行 pnpm guards:install。
+#
+# 为什么在 pre-rebase 拦：铲屎官指出——人类用 Beyond Compare 看三屏
+# （base/ours/theirs），猫也必须看三屏。zdiff3 让冲突标记自动带 base，
+# 不设置就 rebase = 只能看双屏，丢失"原始版本"信息。
+
+CONFLICT_STYLE="$(git config merge.conflictStyle 2>/dev/null || echo "")"
+
+if [ "$CONFLICT_STYLE" != "zdiff3" ]; then
+  echo "" >&2
+  echo "╔══════════════════════════════════════════════════════════════╗" >&2
+  echo "║  🚫 BLOCKED: merge.conflictStyle 未设置为 zdiff3！          ║" >&2
+  echo "║                                                            ║" >&2
+  echo "║  没有 zdiff3，冲突时只能看到 ours/theirs 两段，             ║" >&2
+  echo "║  看不到 base（共同祖先），无法判断"谁改了什么"。            ║" >&2
+  echo "║                                                            ║" >&2
+  echo "║  修复：pnpm guards:install                                 ║" >&2
+  echo "║  或：  git config merge.conflictStyle zdiff3               ║" >&2
+  echo "║                                                            ║" >&2
+  echo "║  三屏对比（冲突时手动查看）：                               ║" >&2
+  echo "║    git show :1:<path>  # BASE（共同祖先）                  ║" >&2
+  echo "║    git show :2:<path>  # OURS（当前分支）                  ║" >&2
+  echo "║    git show :3:<path>  # THEIRS（被合入的分支）             ║" >&2
+  echo "╚══════════════════════════════════════════════════════════════╝" >&2
+  echo "" >&2
+  exit 1
+fi
+
+exit 0

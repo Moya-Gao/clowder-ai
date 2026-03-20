@@ -85,9 +85,7 @@ export function GameOverlay({
   const activeSeatId: SeatId | null = (() => {
     if (view.currentPhase !== 'day_discuss') return null;
     // Find last speech event in this round
-    const speeches = view.visibleEvents.filter(
-      (e) => e.round === view.round && e.type === 'speech',
-    );
+    const speeches = view.visibleEvents.filter((e) => e.round === view.round && e.type === 'speech');
     if (speeches.length === 0) return null;
     const last = speeches[speeches.length - 1]!;
     return (last.payload.seatId as SeatId) ?? null;

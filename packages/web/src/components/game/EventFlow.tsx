@@ -106,9 +106,7 @@ export function EventFlow({ events, catDisplayNames, seatToActor }: EventFlowPro
         // H6: Chat bubbles with avatar circle (design Screen 4)
         const seatId = String(event.payload.seatId ?? '');
         // Resolve actorId: payload may have it directly, or map from seatId
-        const rawActorId = String(
-          event.payload.actorId ?? event.payload.senderName ?? seatToActor?.[seatId] ?? seatId,
-        );
+        const rawActorId = String(event.payload.actorId ?? event.payload.senderName ?? seatToActor?.[seatId] ?? seatId);
         // Human players have userId as actorId — show "铲屎官" instead of raw userId
         const isHuman = !catDisplayNames?.[rawActorId] && rawActorId !== seatId && rawActorId !== 'system';
         const actorId = isHuman ? 'owner' : rawActorId;
