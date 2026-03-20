@@ -8,7 +8,10 @@ created: 2026-03-20
 
 # F130: API 日志治理 — 四层分离 × 结构化落盘
 
-> **Status**: spec | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1
+> **Status**: phase-a-done | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1
+>
+> **Phase A merged**: PR [#600](https://github.com/zts212653/cat-cafe/pull/600) — `22e148ad` (2026-03-20)
+> Reviewed by 缅因猫 (gpt52) — 8 rounds. Closes [#594](https://github.com/zts212653/cat-cafe/issues/594).
 
 ## Why
 
