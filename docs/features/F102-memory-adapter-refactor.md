@@ -609,9 +609,9 @@ summary_segments           ← append-only ledger（每次 L1/L2 摘要都插入
      AND (pending >= 20 OR tokens >= 1500 OR high-signal)
      AND (cooldown >= 2h OR high-signal bypass)
   → 输入：上次 evidence_docs.summary + 水位线后的增量消息
-  → 输出：新的 abstractive summary + candidates
-  → (1) INSERT summary_segment（append-only，永不删除）
-  → (2) UPDATE evidence_docs.summary（read model，覆写）
+  → 输出：1..N 个 topic segments（Opus 按话题切分） + candidates
+  → (1) INSERT 1..N summary_segments（append-only，永不删除）
+  → (2) UPDATE evidence_docs.summary（从所有最新 segments 合成 read model）
   → (3) 更新水位线 + 重置 pendingCount
 ```
 
@@ -619,7 +619,20 @@ summary_segments           ← append-only ledger（每次 L1/L2 摘要都插入
 
 **存量 backfill**：首次启动时对历史 thread 做一轮全量，串行跑，每次间隔 2s。
 
-**summary_segments 表（砚砚定义，append-only ledger）**：
+**Topic Segment 切分规则（铲屎官提出 + 砚砚约束，KD-43）**：
+
+一次 delta batch 可产出 **1..N 个连续 topic segments**（Opus 按话题边界切分），而不是强制一段。
+
+硬约束（砚砚 R4，模型在笼子里工作）：
+- segments 必须**连续、按顺序、互不重叠**
+- segments 必须**完整覆盖**当前 batch（不能跳消息）
+- `fromMessageId` 不能早于本次水位线，`toMessageId` 不能晚于 batch 末尾
+- 最多切 **3 段**，避免过碎
+- 不确定时**退化成 1 段**（宁可混话题也不乱切）
+- 跨时间窗的话题连续性：**只做 link（relatedSegmentIds），不做 merge/回改旧 segment**
+- 真正的跨时间窗话题合并留给 L2 rollup
+
+**summary_segments 表（砚砚定义 + R4 topic 字段，append-only ledger）**：
 
 ```typescript
 {
@@ -630,6 +643,10 @@ summary_segments           ← append-only ledger（每次 L1/L2 摘要都插入
   toMessageId: string;              // 本段覆盖的消息范围终点
   messageCount: number;
   summary: string;                  // 本段的摘要文本
+  topicKey: string;                 // 话题标识（canonical topic slug，L2 按此 rollup）
+  boundaryReason: string;           // 为什么在这里切分（可审计）
+  boundaryConfidence: 'high' | 'medium' | 'low';
+  relatedSegmentIds?: string[];     // 与历史哪些 segment 主题连续（link，不 merge）
   candidates?: DurableCandidate[];  // 本段提取的候选知识
   supersedesSegmentIds?: string[];  // L2 才有：supersede 哪些 L1 segment
   modelId: string;                  // e.g., 'claude-opus-4-6'
@@ -910,6 +927,7 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 | KD-40 | **ThreadMemory 用 abstractive summary 替代拼接**——有 abstractive 时 bootstrap 直接用，不需要独立凝结层 | 简化：定时任务每次合并增量 + 上次摘要 = 渐进凝结，不需要额外步骤 | 2026-03-20 |
 | KD-41 | **摘要单元是 thread（不是 session）**——thread 是所有猫共享的对话空间，对每只猫的 session 分别摘要 = 同一段对话重复摘要 | 铲屎官指出：多猫 session 有重合，保存多份很奇怪；thread 概念全部猫都用，应该基于 thread 而不是 session | 2026-03-20 |
 | KD-42 | **LSM-style compaction + 双写（read model + append-only segment ledger）**——`evidence_docs.summary` 是 read model，`summary_segments` 是 append-only provenance。L2 凝结 deferred 但 segment ledger 让升级成本很低 | 砚砚坚持 segment ledger 防漂移/不可审计/错误放大，架构师采纳——成本仅多一张表一次 INSERT，收益是完整可审计性 | 2026-03-20 |
+| KD-43 | **一次 delta batch 产出 1..N 个 topic segments**（Opus 按话题切分，最多 3 段，不确定退化 1 段）——跨时间窗只 link 不 merge，merge 留给 L2 | 铲屎官提出动态语义窗口（一个增量可能混多个话题），砚砚约束：连续/覆盖/最多 3 段/不回改旧 segment/必须带 topicKey + boundaryReason | 2026-03-20 |
 
 ## Timeline
 
