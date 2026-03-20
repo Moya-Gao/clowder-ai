@@ -99,3 +99,4 @@
 | F122 | F122: 执行通道统一 — A2A/multi_mention 入 Dispatch Queue | done | [F122-unified-dispatch-queue.md](./F122-unified-dispatch-queue.md) |
 | F111 | F111: Streaming TTS Chunker — 流式分句合成管线 | done | [F111-streaming-tts-chunker.md](./F111-streaming-tts-chunker.md) |
 | F112 | F112: Voice Playback Queue — 语音播放队列 + 播放器统一 | done | [F112-voice-playback-queue.md](./F112-voice-playback-queue.md) |
+| F130 | F130: API 日志治理 — 四层分离 × 结构化落盘 | done | [F130-api-log-governance.md](./F130-api-log-governance.md) |

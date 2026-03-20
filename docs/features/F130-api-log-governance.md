@@ -8,11 +8,14 @@ created: 2026-03-20
 
 # F130: API 日志治理 — 四层分离 × 结构化落盘
 
-> **Status**: done | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-03-20 | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1
 >
 > **Phase A merged**: PR [#600](https://github.com/zts212653/cat-cafe/pull/600) — `22e148ad` (2026-03-20)
 > Reviewed by 缅因猫 (gpt52) — 8 rounds. Closes [#594](https://github.com/zts212653/cat-cafe/issues/594).
-> **Phase B+C**: PR pending — console.* 全量迁移 + logs:health 脚本
+> **Phase B+C merged**: PR [#601](https://github.com/zts212653/cat-cafe/pull/601) — `8e89df73` (2026-03-20)
+> Reviewed by 缅因猫 (gpt52) — 2 rounds. console.* 全量迁移 + logs:health 脚本。
+>
+> **反思胶囊**: [2026-03-20-f130-log-governance-capsule.md](../reflections/2026-03-20-f130-log-governance-capsule.md)
 
 ## Why
 
@@ -135,12 +138,13 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 | 2026-03-20 | 金渐层 × 缅因猫独立分析 + 三轮对齐，方案收敛 |
 | 2026-03-20 | 立项 F130，铲屎官拍板金渐层开发、缅因猫 review |
 | 2026-03-20 | Phase A: 8 轮 review，PR [#600](https://github.com/zts212653/cat-cafe/pull/600) 合入 |
-| 2026-03-20 | Phase B+C: 89 处 console.* 迁移 + logs:health 脚本 |
+| 2026-03-20 | Phase B+C: 89 处 console.* 迁移 + logs:health 脚本，PR [#601](https://github.com/zts212653/cat-cafe/pull/601) 合入 |
+| 2026-03-20 | Feature close — 愿景对照 ✅ + 反思胶囊 ✅ + 全部 AC 验收 |
 
 ## Review Gate
 
-- Phase A: 缅因猫(gpt52) review
-- Phase B/C: 待定
+- Phase A: 缅因猫(gpt52) review — 8 rounds, all resolved
+- Phase B/C: 缅因猫(gpt52) review — 2 rounds, all resolved
 
 ## Links
 
