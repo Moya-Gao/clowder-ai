@@ -7,13 +7,18 @@ interface EventFlowProps {
   events: GameEvent[];
 }
 
-const SYSTEM_EVENT_TYPES = new Set(['phase_change', 'death', 'vote_result', 'game_start', 'game_end', 'announce']);
+const SYSTEM_EVENT_TYPES = new Set([
+  'phase_change', 'death', 'vote_result', 'game_start', 'game_end', 'announce',
+  'dawn_announce', 'exile_announce', 'round_announce', 'last_words_announce', 'game_end_announce',
+]);
 
 function isSystemEvent(type: string): boolean {
   return SYSTEM_EVENT_TYPES.has(type) || type.startsWith('action.') || type.startsWith('ballot.');
 }
 
 function formatSystemMessage(event: GameEvent): string {
+  // H1 announce events carry a 'text' field with the formatted message
+  if (event.payload.text) return String(event.payload.text);
   if (event.payload.message) return String(event.payload.message);
   const seat = event.payload.seatId ?? event.payload.voterSeat;
   const seatStr = seat ? String(seat) : '';
