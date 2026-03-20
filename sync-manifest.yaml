@@ -38,6 +38,7 @@ managed_files:
   - docs/VISION.md
   - docs/SOP.md
   - docs/design-system.md
+  - docs/TIPS.md
 
 # ── 脚本导出（managed_scripts）────────────────────────────────
 # CI/构建脚本
