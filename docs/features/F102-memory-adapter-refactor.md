@@ -1034,6 +1034,65 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 | 2026-03-19 | KD-35/36：两种策略（新项目家规引导 + 遗留项目通用扫描 + frontmatter formatter） |
 | 2026-03-19 | Phase F spec 写入：多项目记忆 + 全局知识层 |
 
+## 实现路线图（F/G/Gap 整体规划）
+
+> **当前状态**：Phase A~E ✅ 完成（19+8 AC，13+ PRs）。Phase F/G + Gap-1~3 待实现。
+> **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
+
+### 整体顺序
+
+```
+① 立即  Gap-1: EMBED_MODE=on（改 env，零代码）
+② 第一批  F-1 + F-2（通用扫描 + formatter）  ←─┐ 可并行
+          G-2 + G-3（schema + 定时任务调度器） ←─┘
+③ 第二批  G-1（Opus 调用 + topic segment 切分）← 依赖 G-2/G-3
+④ 第三批  G-4 + G-5（bootstrap + drillDown）  ← 依赖 G-1
+⑤ 最后   F-3 + F-4（全局知识层 + project-init）← 独立但较大
+```
+
+### Gap 处理
+
+| Gap | 处理方式 |
+|-----|---------|
+| Gap-1（embedding off） | 我们的 runtime env 加 `embed: { embedMode: 'on' }`。开源默认仍 `off`（不传即 off）。零代码改动 |
+| Gap-2（shadow 无日志） | 废弃 shadow 模式，直接 off → on。不修 shadow 日志 |
+| Gap-3（中英混搜） | 随 Gap-1 解决（embedding 开启后向量空间自然桥接中英） |
+
+### 开源开关策略
+
+代码级：已有的 `EMBED_MODE` 三态开关覆盖 embedding。Phase F/G 新增功能用 feature flag：
+
+```typescript
+// 在 createMemoryServices 调用处按 env 传参
+{
+  embed: { embedMode: process.env.EMBED_MODE ?? 'off' },           // 已有
+  abstractive: {                                                     // Phase G 新增
+    enabled: process.env.F102_ABSTRACTIVE === 'on',                 // 默认 off
+    topicSegments: process.env.F102_TOPIC_SEGMENTS === 'on',        // 默认 off
+    durableCandidates: process.env.F102_DURABLE_CANDIDATES === 'on', // 默认 off
+  },
+  multiProject: {                                                    // Phase F 新增
+    legacyScan: process.env.F102_LEGACY_SCAN === 'on',              // 默认 off
+    globalKnowledge: process.env.F102_GLOBAL_KNOWLEDGE === 'on',    // 默认 off
+  },
+}
+```
+
+**我们自己 = 全部 `on`。开源仓 = 全部 `off`（不设 env 即 off），README 说明开启条件。**
+
+开启前提：
+
+| Flag | 开启条件 |
+|------|---------|
+| `EMBED_MODE=on` | 首次下载 Qwen3 ONNX ~614MB，内存 ~1GB |
+| `F102_ABSTRACTIVE` | 需要 Anthropic API key（provider-profiles 配置） |
+| `F102_TOPIC_SEGMENTS` | 同上（abstractive 的子功能） |
+| `F102_DURABLE_CANDIDATES` | 同上 + marker/materialization 流水线 |
+| `F102_LEGACY_SCAN` | 无特殊前提（有 .md 就能跑） |
+| `F102_GLOBAL_KNOWLEDGE` | 需要 `~/.cat-cafe/` + Skills 体系 |
+
+**Phase A~E 的全部功能（FTS5 + 向量检索 + thread passages + session chain drill-down）在 flag off 时照常工作。增强功能是 additive，不影响基础能力。**
+
 ## Review Gate
 
 - Phase A: 跨 family review（缅因猫优先）— 接口设计需要多方确认
