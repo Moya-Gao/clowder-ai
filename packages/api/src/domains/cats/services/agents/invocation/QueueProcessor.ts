@@ -193,9 +193,9 @@ export class QueueProcessor {
     const sk = QueueProcessor.slotKey(threadId, catId);
     if (status === 'succeeded') {
       this.pausedSlots.delete(sk);
-      // Auto-dequeue: pick oldest entry across all users
       if (this.deps.queue.hasQueuedForThread(threadId)) {
         await this.tryExecuteNextAcrossUsers(threadId, catId);
+        await this.tryAutoExecute(threadId);
       }
     } else {
       // canceled or failed → pause ONLY if there are queued entries to manage.
