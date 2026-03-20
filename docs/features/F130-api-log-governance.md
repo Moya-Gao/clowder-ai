@@ -1,0 +1,167 @@
+---
+feature_ids: [F130]
+related_features: [F013, F045]
+topics: [observability, infrastructure, logging]
+doc_kind: spec
+created: 2026-07-18
+---
+
+# F130: API 日志治理 — 四层分离 × 结构化落盘
+
+> **Status**: spec | **Owner**: 金渐层 | **Reviewer**: 缅因猫 | **Priority**: P1
+
+## Why
+
+铲屎官在排查飞书语音上传问题时发现（2026-07-17）：Fastify logger 只配了 stdout，没有 file transport。所有运行日志只在终端输出，terminal 关了就没了。一个多月裸奔。
+
+Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
+
+实际病灶比 issue 描述更大：
+- **Fastify logger**（pino）只有 stdout，无文件落盘（`index.ts` L182-186）
+- **230 处 `console.log/error/warn`** 散布在 59 个文件中，完全绕过结构化日志
+- **零 redaction** — API key、token 等敏感信息可能裸露在日志中
+- 审计层（EventAuditLog）和取证层（CliRawArchive）一直在工作，真正缺的是 **运行日志层**
+
+## What
+
+### 日志四层架构（终态）
+
+| 层 | 载体 | 保留期 | 职责 |
+|---|---|---|---|
+| 审计层 | `data/audit-logs/*.ndjson` | 90 天 | 关键业务事件，不可变（已有） |
+| 取证层 | `data/cli-raw-archive/` | 3-7 天 | CLI 原始事件重放（已有） |
+| **运行层** | `data/logs/api/*.log` | 14 天 | **Pino 结构化 runtime log（新增）** |
+| **进程层** | `data/logs/process/` | 7 天 | **start-dev.sh stdout/stderr capture（新增）** |
+
+### Phase A: 止血 — Runtime Log 落盘
+
+最小可交付的止血 PR：
+
+1. **新建 `packages/api/src/infrastructure/logger.ts`** — 自建 Pino 实例
+   - stdout + pino-roll file transport 双写
+   - `pino-roll` 按天轮转，14 天保留
+   - 日志落盘到 `data/logs/api/`
+   - Redaction 配置（authorization, cookie, token, apiKey, secret 等）
+   - LOG_LEVEL 环境变量支持
+
+2. **改 `packages/api/src/index.ts`** — 传自建 logger 给 Fastify
+   ```ts
+   const app = Fastify({ logger: customLogger });
+   ```
+
+3. **改 `scripts/start-dev.sh`** — 进程层 stdout/stderr capture
+   - 独立落盘到 `data/logs/process/`，不与运行层混
+   - 接住 tsx watch 输出、初始化前异常、尚未迁移的 console.*
+
+4. **迁移 4 个核心模块的 `console.*`**：
+   - `EventAuditLog.ts` — 去掉审计后多余的 console echo
+   - `invoke-single-cat.ts` — 猫猫调用全链路（16 处）
+   - `route-serial.ts` / `route-parallel.ts` — 路由编排（17+15 处）
+   - `SocketManager.ts` — WebSocket 状态（8 处）
+
+5. **安装依赖** — `pino-roll`（mcollina 维护的 pino 官方轮转 transport）
+
+### Phase B: 统一 — Console 收编 + Logger 工厂
+
+1. `packages/shared` 新建 `createLogger()` 工厂函数（底层 pino）
+2. 剩余 `console.*` 逐步迁移（api 包约 80 处）
+3. ESLint `no-console` rule（api 包内）
+4. **MCP server 不改**（stdio transport 必须用 stderr）
+
+### Phase C: 护栏 — 治理自动化
+
+1. `pnpm logs:health` 脚本（磁盘占用、保留期检查、异常量告警）
+2. 日志路径暴露到 config summary
+3. `signals-in-app.log` 归位或删除（伪日志→业务 artifact）
+
+## Acceptance Criteria
+
+### Phase A（止血）
+- [ ] AC-A1: Fastify 使用自建 Pino 实例，stdout + file 双写
+- [ ] AC-A2: 运行日志落盘到 `data/logs/api/`，按天轮转，14 天保留
+- [ ] AC-A3: Pino redaction 配置覆盖敏感字段（authorization, cookie, token, apiKey, secret）
+- [ ] AC-A4: start-dev.sh 进程层 stdout/stderr 独立落盘到 `data/logs/process/`
+- [ ] AC-A5: EventAuditLog 不再 console.log echo（审计层和运行层分离）
+- [ ] AC-A6: invoke-single-cat, route-serial, route-parallel, SocketManager 迁移到 logger
+- [ ] AC-A7: LOG_LEVEL 环境变量控制日志级别（默认 info）
+- [ ] AC-A8: 重启 API 后验证日志文件正确生成
+
+### Phase B（统一）
+- [ ] AC-B1: shared 包导出 createLogger() 工厂
+- [ ] AC-B2: api 包 console.* 全部迁移完成（剩余 ~80 处）
+- [ ] AC-B3: ESLint no-console rule 在 api 包启用
+
+### Phase C（护栏）
+- [ ] AC-C1: logs:health 脚本可检查日志大小、保留期、异常量
+- [ ] AC-C2: config summary 显示日志路径和配置
+
+## Dependencies
+
+- **Related**: F013（Audit Log v2 — 审计层已建立）
+- **Related**: F045（NDJSON Observability — 同属可观测性领域）
+- **Related**: LL-022（治理基线必须脚本化）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| pino-roll 在 worker thread 中写文件，崩溃时可能丢最后几条 | 进程层 capture 作为外层保险 |
+| Phase A console 迁移范围膨胀 | 严格控制只迁 4 个核心模块，其余留 Phase B |
+| Redaction 遗漏导致敏感信息落盘 | Phase C 补充审计脚本扫描日志文件 |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | 自建 Pino 实例传给 Fastify，不用 Fastify logger option | 更灵活，Fastify 外部也能用（启动/shutdown/后台任务） | 2026-07-18 |
+| KD-2 | 四层分离（审计/取证/运行/进程），不合并 | 每层职责不同、保留期不同、格式不同 | 2026-07-18 |
+| KD-3 | 进程层 capture 是长期外层保险，不是脚手架 | 接住 tsx watch 输出、初始化前异常、未迁移 console（systemd journal 类比） | 2026-07-18 |
+| KD-4 | Phase A 范围严格控制，不做热路径大扫除 | 止血 PR 要 review 友好，大量 console 迁移留 Phase B | 2026-07-18 |
+| KD-5 | Redaction 必须随 Phase A 同步上线 | 日志落盘等于把泄露面从终端复制到磁盘，必须同步脱敏 | 2026-07-18 |
+| KD-6 | MCP server 保留 console.error | stdio transport 协议要求，stderr 是 MCP 的正确日志通道 | 2026-07-18 |
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-07-17 | 铲屎官发现问题，创建 [#594](https://github.com/zts212653/cat-cafe/issues/594) |
+| 2026-07-18 | 金渐层 × 缅因猫独立分析 + 三轮对齐，方案收敛 |
+| 2026-07-18 | 立项 F130，铲屎官拍板金渐层开发、缅因猫 review |
+
+## Review Gate
+
+- Phase A: 缅因猫(gpt52) review
+- Phase B/C: 待定
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Issue** | [#594](https://github.com/zts212653/cat-cafe/issues/594) | 触发 issue |
+| **Feature** | `docs/features/F013-audit-log-v2.md` | 审计层（已建立） |
+| **Feature** | `docs/features/F045-ndjson-observability.md` | NDJSON 可观测性 |
+| **Lesson** | LL-022 | 治理基线必须脚本化 |
+
+## 代码审计摘要
+
+### 现有 Fastify logger 配置
+```typescript
+// packages/api/src/index.ts L182-186
+const app = Fastify({
+  logger: {
+    timestamp: () => `,"time":"${new Date().toISOString()}"`,
+  },
+});
+```
+
+### console.* 分布（230 处 / 59 文件）
+- `packages/api/src`: ~170 处（核心，需迁移）
+- `packages/mcp-server`: 13 处（stdio 协议，保留）
+- `packages/web`: ~30 处（前端，不在范围）
+- `scripts/`: ~17 处（独立脚本，保留）
+
+### 已有落盘链路
+- 审计层: `data/audit-logs/*.ndjson`（EventAuditLog，按天分片）
+- 取证层: `data/cli-raw-archive/YYYY-MM-DD/*.ndjson`（CliRawArchive，按 invocation 分片）
+- 运行层: ❌ **缺失（本 Feature 补建）**
+- 进程层: ❌ **缺失（本 Feature 补建）**
