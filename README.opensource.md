@@ -146,6 +146,8 @@ You don't need to be a developer. You need to know what you want — and who you
 
 > **CVO Bootcamp is live!** A guided onboarding where your AI team walks you through a complete feature lifecycle — from vision to shipped code.
 
+![CVO Bootcamp onboarding](https://github.com/user-attachments/assets/9d9c8d89-27fe-4788-812a-ffc28f47d3f9)
+
 ```bash
 git clone https://github.com/zts212653/clowder-ai.git
 cd clowder-ai
@@ -174,6 +176,8 @@ Then open `http://localhost:3003` and start talking to your team.
 <!-- demo: multi-cat coding collaboration + rich blocks + voice input -->
 > 📹 **Demo videos:** [Multi-cat coding](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/S1-multi-cat-coding.mp4) · [Rich blocks](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/rich-blocks-demo.mp4) · [Voice input + widgets](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/voice-input-widget-demo.mp4)
 
+![Rich blocks demo](https://github.com/user-attachments/assets/c6c8589d-7c55-44c8-a987-d88c921bcf33)
+
 The main interface is a multi-threaded chat where your AI team lives. Each thread is an isolated workspace — one per feature, bug, or topic.
 
 - **@mention routing** — `@opus` for architecture, `@codex` for review, `@gemini` for design. Messages go to the right agent automatically.
@@ -200,6 +204,10 @@ Hit the Hub button to open the floating command center. Tabs include:
 <!-- demo: Mission Hub — feature governance dashboard -->
 > 📹 **Demo video:** [Mission Hub in action](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/mission-hub.mp4) · [Cat leaderboard (fun!)](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/S5-leaderboard.mp4)
 
+![Mission Hub dashboard](https://github.com/user-attachments/assets/6e45e7e5-76ce-43fd-a784-53c95e5f952f)
+
+![Cat Leaderboard](https://github.com/user-attachments/assets/8c7d133e-74eb-452a-ae9b-78d0c5b8df11)
+
 The ops dashboard for tracking everything your team is building.
 
 - **Feature lifecycle** — every feature moves through: idea → spec → in-progress → review → done
@@ -224,6 +232,8 @@ Don't want to open the web UI? Chat with your team from the apps you already use
 <!-- demo: per-agent TTS voice showcase -->
 > 📹 **Demo video:** [Per-cat TTS voice showcase](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/voice-showcase-compressed.mp4)
 
+![Per-cat voice showcase](https://github.com/user-attachments/assets/7a7aab6a-4906-4eba-a75b-e5508980cf0c)
+
 Working out? Commuting? Turn on Voice Companion and talk to your team through AirPods.
 
 - One-tap activation from the header
@@ -233,13 +243,23 @@ Working out? Commuting? Turn on Voice Companion and talk to your team through Ai
 
 ### Signals — AI Research Feed
 
-<!-- TODO: demo of Signals inbox — waiting for external speaker recording -->
+<!-- demo: Signal Inbox overview + study area with podcast -->
+
+> **Signal Inbox** — browse, filter, and manage curated articles with Tier-based prioritization.
+
+![Signal Inbox overview](https://github.com/user-attachments/assets/420b21c2-9e0f-4c99-ba92-70c371094864)
+
+> **Study Area** — study notes, linked threads, multi-cat research reports, and AI-generated podcast summaries where your cats discuss the paper.
+
+![Signal study area with podcast](https://github.com/user-attachments/assets/f198c8ed-066d-490d-bd0d-71f48e1d45b5)
 
 A curated feed of AI and tech articles, built into your workspace.
 
-- Auto-aggregated from configured sources
+- Auto-aggregated from configured sources (RSS, blog crawlers)
+- **Tier-based triage** — Tier 1–4 priority ranking, filter by source and tier
 - Read, star, annotate, take study notes
-- Generate podcast summaries from articles (your cats discuss the paper)
+- **Multi-cat research** — cats collaboratively analyze articles and produce structured research reports
+- **Podcast generation** — your cats discuss the paper in a synthesized audio conversation (essence or deep mode)
 
 ### Game Modes — Play With Your Team
 
@@ -514,6 +534,8 @@ Clowder 不只是一个编程平台。你的 AI 团队还能：
 
 > **CVO 训练营已上线！** AI 团队亲自带你走完一个完整的 feature 生命周期 — 从愿景表达到代码上线。
 
+![CVO 训练营](https://github.com/user-attachments/assets/9d9c8d89-27fe-4788-812a-ffc28f47d3f9)
+
 ```bash
 git clone https://github.com/zts212653/clowder-ai.git
 cd clowder-ai
@@ -542,6 +564,8 @@ bash scripts/install.sh
 <!-- 演示：多猫协作编码 + 富文本卡片 + 语音输入 -->
 > 📹 **演示视频：** [多猫协作编码](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/S1-multi-cat-coding.mp4) · [Rich Blocks 卡片](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/rich-blocks-demo.mp4) · [语音输入 + Widget](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/voice-input-widget-demo.mp4)
 
+![富文本演示](https://github.com/user-attachments/assets/c6c8589d-7c55-44c8-a987-d88c921bcf33)
+
 主界面是一个多线程聊天空间，你的 AI 团队在这里工作。每个线程是独立的工作区 — 一个功能一个线程。
 
 - **@mention 路由** — `@opus` 做架构、`@codex` 做 review、`@gemini` 做设计，消息自动路由到对的猫
@@ -568,6 +592,10 @@ bash scripts/install.sh
 <!-- 演示：作战中枢 — Feature 治理面板 -->
 > 📹 **演示视频：** [作战中枢实操](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/mission-hub.mp4) · [猫猫排行榜（好玩！）](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/S5-leaderboard.mp4)
 
+![作战中枢面板](https://github.com/user-attachments/assets/6e45e7e5-76ce-43fd-a784-53c95e5f952f)
+
+![猫猫排行榜](https://github.com/user-attachments/assets/8c7d133e-74eb-452a-ae9b-78d0c5b8df11)
+
 追踪团队正在做的所有事情的运营面板。
 
 - **Feature 生命周期** — 每个功能经历：idea → spec → in-progress → review → done
@@ -592,6 +620,8 @@ bash scripts/install.sh
 <!-- 演示：每只猫独立声线 TTS -->
 > 📹 **演示视频：** [猫猫们的声线](https://github.com/zts212653/clowder-ai/releases/download/v0.1.0-media/voice-showcase-compressed.mp4)
 
+![猫猫配音](https://github.com/user-attachments/assets/7a7aab6a-4906-4eba-a75b-e5508980cf0c)
+
 在运动？在通勤？打开语音陪伴，戴上 AirPods 跟团队对话。
 
 - 标题栏一键开启
@@ -601,13 +631,23 @@ bash scripts/install.sh
 
 ### Signals — AI 研究信息流
 
-<!-- TODO: Signal 信息流演示 — 等外放录音 -->
+<!-- 演示：Signal 信息流总览 + 学习区播客 -->
+
+> **Signal Inbox** — 浏览、筛选、管理精选文章，支持 Tier 优先级分类。
+
+![Signal 信息流总览](https://github.com/user-attachments/assets/420b21c2-9e0f-4c99-ba92-70c371094864)
+
+> **学习区** — 学习笔记、关联对话、多猫研究报告，以及 AI 生成的播客摘要（你的猫猫讨论这篇论文）。
+
+![Signal 学习区与播客](https://github.com/user-attachments/assets/f198c8ed-066d-490d-bd0d-71f48e1d45b5)
 
 内嵌在工作空间里的 AI/技术文章聚合。
 
-- 从配置的源自动抓取
+- 从配置的源自动抓取（RSS、博客爬虫）
+- **Tier 分级** — Tier 1–4 优先级排序，按来源和等级筛选
 - 阅读、收藏、标注、写学习笔记
-- 生成播客摘要（你的猫猫们讨论这篇论文）
+- **多猫研究** — 猫猫协作分析文章，产出结构化研究报告
+- **播客生成** — 猫猫以对话形式讨论论文（精华版或深度版）
 
 ### 游戏模式 — 和团队一起玩
 
