@@ -3,7 +3,7 @@ feature_ids: [F130]
 related_features: [F013, F045]
 topics: [observability, infrastructure, logging]
 doc_kind: spec
-created: 2026-07-18
+created: 2026-03-20
 ---
 
 # F130: API 日志治理 — 四层分离 × 结构化落盘
@@ -12,7 +12,7 @@ created: 2026-07-18
 
 ## Why
 
-铲屎官在排查飞书语音上传问题时发现（2026-07-17）：Fastify logger 只配了 stdout，没有 file transport。所有运行日志只在终端输出，terminal 关了就没了。一个多月裸奔。
+铲屎官在排查飞书语音上传问题时发现（2026-03-20）：Fastify logger 只配了 stdout，没有 file transport。所有运行日志只在终端输出，terminal 关了就没了。一个多月裸奔。
 
 Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 
@@ -113,20 +113,20 @@ Issue: [#594](https://github.com/zts212653/cat-cafe/issues/594)
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 自建 Pino 实例传给 Fastify，不用 Fastify logger option | 更灵活，Fastify 外部也能用（启动/shutdown/后台任务） | 2026-07-18 |
-| KD-2 | 四层分离（审计/取证/运行/进程），不合并 | 每层职责不同、保留期不同、格式不同 | 2026-07-18 |
-| KD-3 | 进程层 capture 是长期外层保险，不是脚手架 | 接住 tsx watch 输出、初始化前异常、未迁移 console（systemd journal 类比） | 2026-07-18 |
-| KD-4 | Phase A 范围严格控制，不做热路径大扫除 | 止血 PR 要 review 友好，大量 console 迁移留 Phase B | 2026-07-18 |
-| KD-5 | Redaction 必须随 Phase A 同步上线 | 日志落盘等于把泄露面从终端复制到磁盘，必须同步脱敏 | 2026-07-18 |
-| KD-6 | MCP server 保留 console.error | stdio transport 协议要求，stderr 是 MCP 的正确日志通道 | 2026-07-18 |
+| KD-1 | 自建 Pino 实例传给 Fastify，不用 Fastify logger option | 更灵活，Fastify 外部也能用（启动/shutdown/后台任务） | 2026-03-20 |
+| KD-2 | 四层分离（审计/取证/运行/进程），不合并 | 每层职责不同、保留期不同、格式不同 | 2026-03-20 |
+| KD-3 | 进程层 capture 是长期外层保险，不是脚手架 | 接住 tsx watch 输出、初始化前异常、未迁移 console（systemd journal 类比） | 2026-03-20 |
+| KD-4 | Phase A 范围严格控制，不做热路径大扫除 | 止血 PR 要 review 友好，大量 console 迁移留 Phase B | 2026-03-20 |
+| KD-5 | Redaction 必须随 Phase A 同步上线 | 日志落盘等于把泄露面从终端复制到磁盘，必须同步脱敏 | 2026-03-20 |
+| KD-6 | MCP server 保留 console.error | stdio transport 协议要求，stderr 是 MCP 的正确日志通道 | 2026-03-20 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
-| 2026-07-17 | 铲屎官发现问题，创建 [#594](https://github.com/zts212653/cat-cafe/issues/594) |
-| 2026-07-18 | 金渐层 × 缅因猫独立分析 + 三轮对齐，方案收敛 |
-| 2026-07-18 | 立项 F130，铲屎官拍板金渐层开发、缅因猫 review |
+| 2026-03-20 | 铲屎官发现问题，创建 [#594](https://github.com/zts212653/cat-cafe/issues/594) |
+| 2026-03-20 | 金渐层 × 缅因猫独立分析 + 三轮对齐，方案收敛 |
+| 2026-03-20 | 立项 F130，铲屎官拍板金渐层开发、缅因猫 review |
 
 ## Review Gate
 
