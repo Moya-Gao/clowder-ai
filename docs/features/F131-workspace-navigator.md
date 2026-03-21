@@ -8,7 +8,7 @@ created: 2026-03-21
 
 # F131: Workspace Navigator — 猫猫可编程导航 Workspace 面板
 
-> **Status**: in-progress | **Owner**: 金渐层 | **Priority**: P2
+> **Status**: done (pending AC-6 E2E 验收) | **Owner**: 金渐层 | **Priority**: P2
 
 ## Why
 
@@ -120,7 +120,10 @@ Hub: 右面板自动打开并导航到文件
 | 日期 | 事件 |
 |------|------|
 | 2026-03-21 | 立项 + spec 更新（三层架构定稿） |
-| 2026-03-21 | Infra 层实现完成：API + Socket hook + threadId 隔离，PR #611 merged (7f3e4cfc) |
+| 2026-03-21 | Layer 3 软实力层完成：`workspace-navigator/SKILL.md` 创建 + manifest 注册 (36ed3d43)，后续两轮修正 (0545f48e, 8d61c783) |
+| 2026-03-21 | Layer 1 基础设施层完成：API + Socket hook + threadId 隔离，PR #611 merged (7f3e4cfc)，含 3 轮本地 review |
+| 2026-03-21 | Layer 2 硬实力层：猫猫固有能力（glob/grep + curl），无需额外开发。KD-4 定义了 Agent 即路径解析器 |
+| 2026-03-21 | 三层开发全部完成，spec 更新 AC 状态，worktree + stash 清理完毕 |
 
 ## Links
 
