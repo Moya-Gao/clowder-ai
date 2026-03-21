@@ -435,17 +435,38 @@ async function main(): Promise<void> {
 
       const taskRunner = new TaskRunner({ info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) });
 
-      // Abstractive summary uses a dedicated API config (F102_API_BASE + F102_API_KEY),
-      // NOT the cat's own provider profile. Cat uses subscription/Max plan for chat;
-      // background summary scheduler uses a separate reverse-proxy API key.
+      // Abstractive summary API config resolution (priority order):
+      // 1. F102_API_BASE + F102_API_KEY (explicit override)
+      // 2. ANTHROPIC_API_KEY + local proxy (http://127.0.0.1:{ANTHROPIC_PROXY_PORT}/{first-slug})
+      // 3. null → skip abstractive
       const generateAbstractive = createAbstractiveClient(
         async () => {
-          const baseUrl = process.env.F102_API_BASE;
-          const apiKey = process.env.F102_API_KEY;
-          if (!baseUrl || !apiKey) {
-            return null; // not configured → skip abstractive
+          // Priority 1: explicit F102 config
+          if (process.env.F102_API_BASE && process.env.F102_API_KEY) {
+            return { mode: 'api_key' as const, baseUrl: process.env.F102_API_BASE, apiKey: process.env.F102_API_KEY };
           }
-          return { mode: 'api_key' as const, baseUrl, apiKey };
+          // Priority 2: use existing ANTHROPIC_API_KEY + local proxy
+          const apiKey = process.env.ANTHROPIC_API_KEY;
+          if (!apiKey) return null;
+          const proxyPort = process.env.ANTHROPIC_PROXY_PORT || '9877';
+          // Read first upstream slug from proxy-upstreams.json
+          try {
+            const { readFileSync } = await import('fs');
+            const { resolve: resolvePath } = await import('path');
+            const upstreamsPath = process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH ||
+              resolvePath(process.cwd(), '.cat-cafe', 'proxy-upstreams.json');
+            const upstreams = JSON.parse(readFileSync(upstreamsPath, 'utf-8'));
+            const firstSlug = Object.keys(upstreams)[0];
+            if (!firstSlug) return null;
+            return {
+              mode: 'api_key' as const,
+              baseUrl: `http://127.0.0.1:${proxyPort}/${firstSlug}`,
+              apiKey,
+            };
+          } catch {
+            // No proxy config → try direct with API key
+            return { mode: 'api_key' as const, baseUrl: 'https://api.anthropic.com', apiKey };
+          }
         },
         { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
       );
