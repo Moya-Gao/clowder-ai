@@ -176,7 +176,6 @@ export async function startConnectorGateway(
   const mediaDir = config.connectorMediaDir ?? './data/connector-media';
   const mediaService = new ConnectorMediaService({
     mediaDir,
-    // Platform download functions will be wired after adapters are created
   });
 
   let sttProvider:
@@ -235,6 +234,20 @@ export async function startConnectorGateway(
     feishu._injectTokenManager(feishuTokenManager);
     adapters.set('feishu', feishu);
 
+    mediaService.setFeishuDownloadFn(async (fileKey: string, type: string, messageId?: string) => {
+      if (!messageId) throw new Error('Feishu download requires messageId');
+      const token = await feishuTokenManager.getTenantAccessToken();
+      const resourceType = type === 'image' ? 'image' : 'file';
+      const url = `https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/resources/${fileKey}?type=${resourceType}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error(`Feishu resource download failed: ${res.status} ${res.statusText}`);
+      }
+      return Buffer.from(await res.arrayBuffer());
+    });
+
     // Register webhook handler for the route
     webhookHandlers.set('feishu', {
       connectorId: 'feishu',
@@ -275,6 +288,7 @@ export async function startConnectorGateway(
         const attachments = parsed.attachments?.map((a) => ({
           type: a.type,
           platformKey: a.feishuKey,
+          messageId: parsed.messageId,
           ...(a.fileName ? { fileName: a.fileName } : {}),
           ...(a.duration != null ? { duration: a.duration } : {}),
         }));

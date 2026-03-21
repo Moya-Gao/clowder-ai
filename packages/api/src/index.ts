@@ -741,7 +741,7 @@ async function main(): Promise<void> {
   const limbPairingStore = new LimbPairingStore();
   registerLimbNodeRoutes(app, { limbRegistry, pairingStore: limbPairingStore });
 
-  await app.register(callbacksRoutes, {
+  const callbackOpts = {
     registry,
     messageStore,
     socketManager,
@@ -761,7 +761,8 @@ async function main(): Promise<void> {
     reflectionService: memoryServices.reflectionService,
     limbRegistry,
     limbPairingStore,
-  });
+  } as Parameters<typeof callbacksRoutes>[1];
+  await app.register(callbacksRoutes, callbackOpts);
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)
   const authRuleStore = createAuthorizationRuleStore(redis);
@@ -1202,6 +1203,9 @@ async function main(): Promise<void> {
       queueProcessor.setStreamingHook(
         connectorGatewayHandle.streamingHook as Parameters<typeof queueProcessor.setStreamingHook>[0],
       );
+      // Wire outbound delivery for proactive cat messages (post_message callback)
+      (callbackOpts as { outboundHook?: typeof connectorGatewayHandle.outboundHook }).outboundHook =
+        connectorGatewayHandle.outboundHook;
       queueProcessor.setThreadMetaLookup(async (threadId) => {
         const thread = await threadStore.get(threadId);
         if (!thread) return undefined;
