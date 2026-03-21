@@ -160,6 +160,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-20 | pendingCleanup invocationId scoping: cross-invocation placeholder isolation + 2 regression tests (PR #589) |
 | 2026-03-20 | ISSUE-11 fix: wire OutboundDeliveryHook to QueueProcessor for A2A multi-cat delivery + voice upload diagnostics (PR #591) |
 | 2026-03-20 | ISSUE-12 fix: WAV→OPUS ffmpeg conversion + external URL image download + SSRF guard (PR #595) |
+| 2026-03-21 | Bugfix: wire Feishu image download + post_message outbound delivery + threadMeta (PR #636) |
 
 ## 参考文件
 
