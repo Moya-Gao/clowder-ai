@@ -224,6 +224,8 @@ async function dispatchToTarget(
 
     orch.registerDispatch(requestId, targetCatId, controller);
 
+    let governanceErrorCode: string | undefined;
+
     try {
       socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
         threadId,
@@ -251,21 +253,33 @@ async function dispatchToTarget(
             toolsUsed.push(msg.toolName);
           }
         }
+        if (msg.type === 'done' && msg.errorCode) {
+          governanceErrorCode = msg.errorCode;
+        }
 
         socketManager.broadcastAgentMessage({ ...msg, invocationId }, threadId);
       }
 
+      const finalInvocationStatus = controller.signal.aborted
+        ? 'canceled'
+        : governanceErrorCode
+          ? 'failed'
+          : 'succeeded';
       await invocationRecordStore.update(invocationId, {
-        status: controller.signal.aborted ? 'canceled' : 'succeeded',
+        status: finalInvocationStatus,
+        ...(governanceErrorCode ? { error: governanceErrorCode } : {}),
       });
     } finally {
       orch.unregisterDispatch(requestId, targetCatId);
     }
 
-    // If aborted (stop button / preempt / thread cancel), do NOT record response
+    // If aborted or governance-blocked, do NOT record response
     // or flush result — the partial/empty text would produce a misleading summary.
-    if (controller.signal.aborted) {
-      log.info({ requestId, targetCatId }, '[F086] Multi-mention dispatch aborted, skipping recordResponse');
+    if (controller.signal.aborted || governanceErrorCode) {
+      log.info(
+        { requestId, targetCatId, governanceErrorCode },
+        '[F086] Multi-mention dispatch aborted/blocked, skipping recordResponse',
+      );
       return;
     }
 

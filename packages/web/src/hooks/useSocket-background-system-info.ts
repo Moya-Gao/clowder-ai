@@ -235,6 +235,33 @@ export function consumeBackgroundSystemInfo(
       const warningText = typeof parsed.message === 'string' ? parsed.message : '';
       sysContent = warningText ? `⚠️ ${warningText}` : '⚠️ Warning';
       sysVariant = 'info';
+    } else if (parsed?.type === 'governance_blocked') {
+      const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
+      const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
+      const invId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+      const threadMessages = options.store.getThreadState(msg.threadId).messages;
+      const existing = threadMessages.find(
+        (m: { variant?: string; extra?: { governanceBlocked?: { projectPath?: string } } }) =>
+          m.variant === 'governance_blocked' && m.extra?.governanceBlocked?.projectPath === projectPath,
+      );
+      if (existing) {
+        options.store.removeThreadMessage(msg.threadId, existing.id);
+      }
+      options.store.addMessageToThread(msg.threadId, {
+        id: `gov-blocked-${msg.timestamp}-${options.nextBgSeq()}`,
+        type: 'system',
+        variant: 'governance_blocked',
+        content: `项目 ${projectPath} ${reasonKind === 'needs_bootstrap' ? '尚未初始化治理' : '治理状态异常'}`,
+        timestamp: msg.timestamp,
+        extra: {
+          governanceBlocked: {
+            projectPath,
+            reasonKind: reasonKind as 'needs_bootstrap' | 'needs_confirmation' | 'files_missing',
+            invocationId: invId,
+          },
+        },
+      });
+      consumed = true;
     } else if (parsed?.type === 'strategy_allow_compress' || parsed?.type === 'resume_failure_stats') {
       // Internal telemetry — suppress to avoid raw JSON bubbles in background threads
       consumed = true;

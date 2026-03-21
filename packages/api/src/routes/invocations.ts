@@ -177,6 +177,8 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
         const cursorBoundaries = new Map<string, string>();
         // P1-2: track persistence failures across generator boundary
         const persistenceContext: PersistenceContext = { failed: false, errors: [] };
+        // F070: track governance block errorCode (mirror messages.ts)
+        let governanceErrorCode: string | undefined;
 
         for await (const msg of opts.router.routeExecution(
           record.userId,
@@ -199,6 +201,9 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
             parentInvocationId: id,
           },
         )) {
+          if (msg.type === 'done' && msg.errorCode) {
+            governanceErrorCode = msg.errorCode;
+          }
           opts.socketManager.broadcastAgentMessage({ ...msg, invocationId: id }, record.threadId);
         }
 
@@ -218,6 +223,11 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
             },
             record.threadId,
           );
+        } else if (governanceErrorCode) {
+          await opts.invocationRecordStore.update(id, {
+            status: 'failed',
+            error: governanceErrorCode,
+          });
         } else {
           // ADR-008 S3: ack cursors before marking succeeded so that if ack
           // throws, the catch block sees running→failed (valid transition).
