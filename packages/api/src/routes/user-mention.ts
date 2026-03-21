@@ -1,12 +1,12 @@
 /**
- * F057-C2: Detect owner (@user / @铲屎官 / configured) mention at line start.
+ * F057-C2: Detect co-creator (@co-creator / @铲屎官 / configured) mention at line start.
  *
  * Same convention as cat @mentions: line-start only, code blocks stripped.
  * OQ-1 + R2-P2: Token boundary — reject ASCII letter/digit/underscore continuation
- * (e.g. @user123, @username) but allow CJK text (e.g. @user请看, @铲屎官请看).
+ * (e.g. @co-creator123, @landy123) but allow CJK text (e.g. @co-creator请看, @铲屎官请看).
  *
- * F067 owner-config: patterns read from cat-config.json owner.mentionPatterns,
- * with @user/@铲屎官 always included as backward-compat defaults.
+ * F067 co-creator config: patterns read from cat-config.json coCreator.mentionPatterns,
+ * with @co-creator/@铲屎官 always included as fallback defaults.
  */
 
 import { getCoCreatorMentionPatterns } from '../config/cat-config-loader.js';

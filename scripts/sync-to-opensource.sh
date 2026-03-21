@@ -98,6 +98,55 @@ run_public_acceptance_env() {
     "$@"
 }
 
+resolve_physical_path() {
+  local raw_path="$1"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$raw_path" <<'PY'
+import os
+import sys
+
+print(os.path.realpath(sys.argv[1]))
+PY
+  else
+    node -e "console.log(require('path').resolve(process.argv[1]))" "$raw_path"
+  fi
+}
+
+list_source_worktree_realpaths() {
+  git -C "$SOURCE_DIR" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print substr($0,10)}' | \
+    while IFS= read -r worktree_path; do
+      resolve_physical_path "$worktree_path"
+    done
+}
+
+find_available_port() {
+  local preferred_port="$1"
+  local avoid_port="${2:-}"
+  node - "$preferred_port" "$avoid_port" <<'NODE'
+const net = require('node:net');
+
+const preferred = Number(process.argv[2] || 0);
+const avoid = new Set(process.argv.slice(3).map((value) => Number(value)).filter(Boolean));
+
+function reserve(port) {
+  const server = net.createServer();
+  server.unref();
+  server.on('error', () => reserve(0));
+  server.listen({ host: '127.0.0.1', port }, () => {
+    const actual = server.address().port;
+    if (avoid.has(actual)) {
+      server.close(() => reserve(0));
+      return;
+    }
+    process.stdout.write(String(actual));
+    server.close();
+  });
+}
+
+reserve(preferred && !avoid.has(preferred) ? preferred : 0);
+NODE
+}
+
 # ── 参数 ──────────────────────────────────────────────────────
 DRY_RUN=false
 VALIDATE=false
@@ -146,6 +195,22 @@ fi
 
 SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET_DIR="${CLOWDER_AI_DIR:-$(cd "$SOURCE_DIR/.." && pwd)/clowder-ai}"
+
+# ── Safety guard: 禁止 sync 到内部 cat-cafe worktree ─────────
+# 事故 LL-035: rsync --delete 曾把 runtime worktree 当目标，删了 2057 个文件 + 覆盖 .env
+RESOLVED_TARGET="$(resolve_physical_path "$TARGET_DIR")"
+TARGET_BASENAME="$(basename "$RESOLVED_TARGET")"
+if [[ "$TARGET_BASENAME" == cat-cafe* ]]; then
+  echo -e "${RED}✗ FATAL: TARGET_DIR 指向内部 cat-cafe 目录: $RESOLVED_TARGET${NC}"
+  echo -e "${RED}  此脚本只能同步到开源仓（clowder-ai），不能对着自己家开炮。${NC}"
+  echo -e "${RED}  检查 CLOWDER_AI_DIR 环境变量是否指向正确的开源仓目录。${NC}"
+  exit 1
+fi
+if list_source_worktree_realpaths | grep -qFx "$RESOLVED_TARGET"; then
+  echo -e "${RED}✗ FATAL: TARGET_DIR 是当前仓库的 worktree: $RESOLVED_TARGET${NC}"
+  echo -e "${RED}  rsync --delete 会摧毁 worktree 内容。请指向开源仓目录。${NC}"
+  exit 1
+fi
 
 # ── 读 sync-manifest.yaml（SOT）─────────────────────────────
 MANIFEST="$SOURCE_DIR/sync-manifest.yaml"
@@ -1413,9 +1478,9 @@ else
     else
     # 6d: Full startup acceptance — API + frontend, probe health, lsof diff
     echo "  Startup acceptance (full stack)..."
-    ACCEPT_API_PORT=${API_SERVER_PORT:-3004}
-    ACCEPT_WEB_PORT=${FRONTEND_PORT:-3003}
-    FORBIDDEN_PORTS="3001|3002"
+    ACCEPT_API_PORT="$(find_available_port 3004)"
+    ACCEPT_WEB_PORT="$(find_available_port 3003 "$ACCEPT_API_PORT")"
+    FORBIDDEN_PORTS="3001|3002|3011|3012|4111|6398|6399"
 
     # Record listening ports BEFORE startup (baseline)
     PORTS_BEFORE=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)

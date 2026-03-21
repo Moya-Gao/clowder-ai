@@ -453,7 +453,8 @@ async function main(): Promise<void> {
           try {
             const { readFileSync } = await import('fs');
             const { resolve: resolvePath } = await import('path');
-            const upstreamsPath = process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH ||
+            const upstreamsPath =
+              process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH ||
               resolvePath(process.cwd(), '.cat-cafe', 'proxy-upstreams.json');
             const upstreams = JSON.parse(readFileSync(upstreamsPath, 'utf-8'));
             const firstSlug = Object.keys(upstreams)[0];

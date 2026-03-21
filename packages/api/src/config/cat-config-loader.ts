@@ -266,7 +266,10 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 function isIdArray(arr: unknown[]): arr is HasId[] {
-  return arr.length > 0 && arr.every((item) => isPlainObject(item) && typeof (item as Record<string, unknown>).id === 'string');
+  return (
+    arr.length > 0 &&
+    arr.every((item) => isPlainObject(item) && typeof (item as Record<string, unknown>).id === 'string')
+  );
 }
 
 function mergeById(base: HasId[], overlay: HasId[]): HasId[] {
@@ -801,7 +804,7 @@ let _cachedCoCreator: CoCreatorConfig | null = null;
 
 /**
  * Get coCreator config from cat-config.json.
- * Returns a default config with @user/@铲屎官 patterns when not configured.
+ * Returns a default config with @co-creator/@铲屎官 patterns when not configured.
  */
 export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
   if (_cachedCoCreator && !config) return _cachedCoCreator;
@@ -819,7 +822,7 @@ export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
 
 /**
  * Get all co-creator mention patterns (lowercased, with @ prefix).
- * Always includes @user and @铲屎官 as fallback patterns in addition to configured ones.
+ * Always includes @co-creator and @铲屎官 as fallback patterns in addition to configured ones.
  */
 export function getCoCreatorMentionPatterns(config?: CatCafeConfig): readonly string[] {
   const coCreator = getCoCreatorConfig(config);

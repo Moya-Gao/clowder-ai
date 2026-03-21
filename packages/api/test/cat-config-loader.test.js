@@ -134,7 +134,11 @@ describe('cat-config-loader', () => {
         // Catalog override: displayName comes from catalog
         assert.equal(config.breeds[0].displayName, '运行时布偶猫', 'catalog displayName overrides base');
         // Base preservation: fields absent from catalog are preserved from base
-        assert.equal(config.breeds[0].teamStrengths, 'base-only-strength', 'base breed field preserved when catalog lacks it');
+        assert.equal(
+          config.breeds[0].teamStrengths,
+          'base-only-strength',
+          'base breed field preserved when catalog lacks it',
+        );
         assert.equal(config.breeds[0].caution, 'base-only-caution', 'base caution preserved when catalog lacks it');
       } finally {
         if (saved === undefined) {
