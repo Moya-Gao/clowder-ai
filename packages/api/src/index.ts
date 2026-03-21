@@ -418,9 +418,9 @@ async function main(): Promise<void> {
   }
 
   // ── Phase G: Summary Compaction Scheduler ──
-  // Auto-derive: EMBED_ENABLED=1 also enables abstractive (铲屎官只需设一个变量)
-  const abstractiveEnabled = process.env.F102_ABSTRACTIVE === 'on' || process.env.EMBED_ENABLED === '1';
-  if (abstractiveEnabled && memoryServices.indexBuilder) {
+  // Abstractive requires explicit opt-in — it calls Opus API and costs money.
+  // EMBED_ENABLED only controls local GPU embedding, NOT abstractive summary.
+  if (process.env.F102_ABSTRACTIVE === 'on' && memoryServices.indexBuilder) {
     try {
       const { TaskRunner } = await import('./infrastructure/scheduler/TaskRunner.js');
       const { createSummaryCompactionTask } = await import('./domains/memory/SummaryCompactionTask.js');
@@ -446,7 +446,7 @@ async function main(): Promise<void> {
       const db = memoryServices.store.getDb();
       const summaryTask = createSummaryCompactionTask({
         db,
-        enabled: () => process.env.F102_ABSTRACTIVE === 'on' || process.env.EMBED_ENABLED === '1',
+        enabled: () => process.env.F102_ABSTRACTIVE === 'on',
         getThreadLastActivity: async (threadId) => {
           const msgs = await messageStore.getByThread(threadId, 1, 'default-user');
           if (msgs.length === 0) return null;
