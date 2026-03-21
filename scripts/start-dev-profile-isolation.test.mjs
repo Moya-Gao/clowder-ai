@@ -139,6 +139,7 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
         pkg.scripts['check:start-profile-isolation'],
         'node --test scripts/start-dev-profile-isolation.test.mjs',
       );
+      assert.equal(existsSync(resolve(exportDir, 'cat-template.json')), true);
       assert.match(pkg.scripts.check, /check:start-profile-isolation/);
       assert.equal(existsSync(resolve(exportDir, 'scripts/download-source-overrides.sh')), true);
       assert.equal(existsSync(resolve(exportDir, 'scripts/start-dev-profile-isolation.test.mjs')), true);
@@ -147,6 +148,24 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
         runtimeScript,
         /exec env CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 \.\/scripts\/start-dev\.sh --prod-web --profile=opensource/,
       );
+
+      const envSource = spawnSync(
+        'bash',
+        ['-lc', 'set -euo pipefail\nset -a\nsource ./.env.example\nset +a\nprintf "%s" "$NEXT_PUBLIC_BRAND_NAME"'],
+        {
+          cwd: exportDir,
+          env: {
+            ...process.env,
+            PATH: process.env.PATH ?? '',
+            HOME: process.env.HOME ?? '',
+            TERM: process.env.TERM ?? 'xterm-256color',
+          },
+          encoding: 'utf8',
+        },
+      );
+
+      assert.equal(envSource.status, 0, envSource.stderr || envSource.stdout);
+      assert.equal(envSource.stdout.trim(), 'Clowder AI');
     } finally {
       rmSync(exportDir, { recursive: true, force: true });
     }

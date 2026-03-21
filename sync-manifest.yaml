@@ -21,6 +21,7 @@ managed_roots:
 
 # ── 单文件导出（managed_files）────────────────────────────────
 managed_files:
+  - cat-template.json
   - package.json
   - pnpm-workspace.yaml
   - pnpm-lock.yaml

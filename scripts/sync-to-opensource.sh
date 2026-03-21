@@ -79,6 +79,25 @@ run_static_quality_gates() {
   fi
 }
 
+run_public_acceptance_env() {
+  env \
+    -u REDIS_URL \
+    -u REDIS_PROFILE \
+    -u REDIS_STORAGE_KEY \
+    -u REDIS_DATA_DIR \
+    -u REDIS_BACKUP_DIR \
+    -u REDIS_DBFILE \
+    -u API_SERVER_HOST \
+    -u FRONTEND_PORT \
+    -u API_SERVER_PORT \
+    -u NEXT_PUBLIC_API_URL \
+    -u PREVIEW_GATEWAY_PORT \
+    -u PORT \
+    -u CAT_CAFE_RESPECT_DOTENV_PORTS \
+    -u MEMORY_STORE \
+    "$@"
+}
+
 # ── 参数 ──────────────────────────────────────────────────────
 DRY_RUN=false
 VALIDATE=false
@@ -1380,7 +1399,7 @@ else
       fi
     fi
     echo "  Smoke test (test:public)..."
-    if ! pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5; then
+    if ! run_public_acceptance_env pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5; then
       echo -e "  ${RED}✗ test:public failed${NC}"
       STEP6_FAIL=true
     fi
@@ -1402,15 +1421,15 @@ else
 
     # Start API + frontend in background
     cd "$TARGET_DIR"
-    API_SERVER_PORT=$ACCEPT_API_PORT NODE_ENV=test pnpm --filter @cat-cafe/api start >/dev/null 2>&1 &
+    run_public_acceptance_env API_SERVER_PORT=$ACCEPT_API_PORT MEMORY_STORE=1 NODE_ENV=test pnpm --filter @cat-cafe/api start >/dev/null 2>&1 &
     API_PID=$!
-    PORT=$ACCEPT_WEB_PORT pnpm --filter @cat-cafe/web dev -p $ACCEPT_WEB_PORT >/dev/null 2>&1 &
+    run_public_acceptance_env PORT=$ACCEPT_WEB_PORT pnpm --filter @cat-cafe/web dev -p $ACCEPT_WEB_PORT >/dev/null 2>&1 &
     WEB_PID=$!
 
     # Wait for API health (max 20s)
     API_READY=false
     for i in $(seq 1 20); do
-      if curl -sf "http://localhost:${ACCEPT_API_PORT}/api/health" >/dev/null 2>&1; then
+      if curl -sf "http://localhost:${ACCEPT_API_PORT}/health" >/dev/null 2>&1; then
         API_READY=true
         break
       fi
