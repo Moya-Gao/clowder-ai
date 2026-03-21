@@ -76,13 +76,15 @@ s#/Users/[^\s,"'}\]/]+#/home/user#g;
 # test fixtures (governance-bootstrap.test.js, backlog-routes.test.js) for scaffolding
 # new projects — those MUST stay as BACKLOG.md.
 #
-# Three patterns to catch:
+# Four patterns to catch:
 #   1. 'docs/BACKLOG.md'  → 'docs/ROADMAP.md'  (string path literals)
 #   2. 'docs', 'BACKLOG.md' → 'docs', 'ROADMAP.md'  (join(root, 'docs', 'BACKLOG.md'))
-#   3. Comments mentioning docs/BACKLOG.md also get updated for consistency
+#   3. docs\/BACKLOG\.md → docs\/ROADMAP\.md  (regex patterns like SHARED_STATE_PATTERN)
+#   4. Comments mentioning docs/BACKLOG.md also get updated for consistency
 if ($ARGV =~ m{\.(tsx?|js)$}) {
   s#docs/BACKLOG\.md#docs/ROADMAP.md#g;
   s#'docs', 'BACKLOG\.md'#'docs', 'ROADMAP.md'#g;
+  s#docs\\/BACKLOG\\\.md#docs\\/ROADMAP\\.md#g;
 }
 
 # ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test files) ──

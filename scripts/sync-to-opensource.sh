@@ -1330,11 +1330,42 @@ else
     fi
 
     # 6c: Smoke test (test:public — gate: failure blocks sync)
+    # Push sync commit to a temporary branch first so that shared-state preflight
+    # doesn't block invocations (it checks for unpushed cat-config.json changes).
+    # Without this, tests that create invocations (agent-router, etc.) fail because
+    # the preflight sees the sync commit as "unpushed shared-state changes".
+    SYNC_TEMP_BRANCH="sync/validate-$(date +%s)"
+    SYNC_PUSH_CLEANUP=false
+    SYNC_ORIG_UPSTREAM=""
+    _sync_temp_cleanup() {
+      if [ "$SYNC_PUSH_CLEANUP" = true ]; then
+        git push origin --delete "$SYNC_TEMP_BRANCH" --quiet 2>/dev/null || true
+        if [ -n "$SYNC_ORIG_UPSTREAM" ]; then
+          git branch --set-upstream-to="$SYNC_ORIG_UPSTREAM" 2>/dev/null || true
+        else
+          git branch --unset-upstream 2>/dev/null || true
+        fi
+      fi
+    }
+    trap '_sync_temp_cleanup' EXIT INT TERM
+    if git remote get-url origin >/dev/null 2>&1; then
+      SYNC_ORIG_UPSTREAM=$(git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)" 2>/dev/null || true)
+      if git push origin "HEAD:refs/heads/$SYNC_TEMP_BRANCH" --quiet 2>/dev/null; then
+        git branch --set-upstream-to="origin/$SYNC_TEMP_BRANCH" 2>/dev/null || true
+        SYNC_PUSH_CLEANUP=true
+        echo "  ✓ Pushed sync commit to temp branch for preflight validation"
+      else
+        echo -e "  ${YELLOW}ℹ Could not push temp branch (preflight may block some tests)${NC}"
+      fi
+    fi
     echo "  Smoke test (test:public)..."
     if ! pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5; then
       echo -e "  ${RED}✗ test:public failed${NC}"
       STEP6_FAIL=true
     fi
+    _sync_temp_cleanup
+    trap - EXIT INT TERM
+    SYNC_PUSH_CLEANUP=false
 
     if [ "$FAST_VALIDATE" = true ]; then
       echo -e "  ${YELLOW}ℹ Fast validate: skipping full startup acceptance${NC}"
