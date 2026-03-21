@@ -440,9 +440,9 @@ if [ -f "$STAGING_DIR/cat-config.json" ]; then
 const config = JSON.parse(require("fs").readFileSync(process.argv[2], "utf-8"));
 // 脱敏 owner
 config.owner = {
-  name: "Co-worker",
-  aliases: ["共创伙伴"],
-  mentionPatterns: ["@co-worker", "@owner"]
+  name: "Owner",
+  aliases: [],
+  mentionPatterns: ["@owner"]
 };
 // 去掉 mentionPatterns 中铲屎官相关的 pattern
 const blocked = ["@landy", "@l.s.", "@lysander", "@铲屎官"];

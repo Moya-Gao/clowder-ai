@@ -67,6 +67,13 @@ s#/Users/(?:[^\s,"'}\]/]+/)+([^\s,"'}\]/]+)#/home/user/$1#g;
 # Fallback: bare /Users/username (only 2 segments) → /home/user
 s#/Users/[^\s,"'}\]/]+#/home/user#g;
 
+# ── BACKLOG.md → ROADMAP.md (source + test files) ──
+# The actual file is renamed by sync-to-opensource.sh (docs/BACKLOG.md → docs/ROADMAP.md).
+# All code references must follow suit so gitShowFile / readBacklogContent find the right file.
+if ($ARGV =~ m{\.(tsx?|js)$}) {
+  s/BACKLOG\.md/ROADMAP.md/g;
+}
+
 # ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test files) ──
 # Applies to .ts/.tsx/.js files — user-visible strings like <title>, <h1>, aria-label.
 # Also runs on test files so that assertions match the transformed source output.
