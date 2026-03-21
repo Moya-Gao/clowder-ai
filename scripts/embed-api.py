@@ -227,35 +227,55 @@ def main():
 
     # Try MLX-native first, fallback to sentence-transformers + MPS
     start = time.time()
-    try:
-        from mlx_embeddings.utils import load as mlx_load
-        log.info("Loading model via mlx-embeddings (MLX GPU)...")
-        mlx_model, mlx_tokenizer = mlx_load(model_name)
-        _backend = "mlx-embeddings"
-        model_loaded = True
-        log.info("MLX model loaded in %.1fs! Device: Apple Silicon GPU (Metal)", time.time() - start)
-    except ImportError:
-        log.warning("mlx-embeddings not installed, falling back to sentence-transformers + MPS")
+    def _try_mlx() -> bool:
+        """Try MLX-native load + test embedding. Returns True on success."""
+        global mlx_model, mlx_tokenizer, _backend, model_loaded
+        try:
+            from mlx_embeddings.utils import load as mlx_load
+            log.info("Loading model via mlx-embeddings (MLX GPU)...")
+            mlx_model, mlx_tokenizer = mlx_load(model_name)
+            # Smoke test: actually run one embedding to catch tokenizer bugs
+            log.info("Running MLX smoke test...")
+            _encode_mlx(["test"])
+            _backend = "mlx-embeddings"
+            model_loaded = True
+            log.info("MLX model loaded + verified in %.1fs! Device: Apple Silicon GPU (Metal)", time.time() - start)
+            return True
+        except ImportError:
+            log.warning("mlx-embeddings not installed")
+            return False
+        except Exception as e:
+            log.warning("MLX load/inference failed (%s), falling back to sentence-transformers", e)
+            mlx_model = None
+            mlx_tokenizer = None
+            return False
+
+    def _try_sentence_transformers() -> bool:
+        """Fallback: sentence-transformers + MPS/CUDA/CPU."""
+        global _use_fallback, _st_model, _backend, model_loaded, model_name
         _use_fallback = True
         _backend = "sentence-transformers"
         try:
             import torch
             from sentence_transformers import SentenceTransformer
-            # For fallback, use the non-MLX model ID
             fallback_model = model_name.replace("mlx-community/", "").replace("-4bit-DWQ", "").replace("-4bit", "")
             if "Qwen3-Embedding" in fallback_model:
                 fallback_model = "Qwen/" + fallback_model
             device = "mps" if torch.backends.mps.is_available() else "cpu"
             log.info("Loading model via sentence-transformers (device: %s)...", device)
             _st_model = SentenceTransformer(fallback_model, device=device)
+            model_name = fallback_model  # update displayed model name
             model_loaded = True
-            log.info("Fallback model loaded in %.1fs!", time.time() - start)
+            log.info("Fallback model loaded in %.1fs! (device: %s)", time.time() - start, device)
+            return True
         except Exception:
             log.exception("Failed to load fallback model")
+            return False
+
+    if not _try_mlx():
+        if not _try_sentence_transformers():
+            log.error("All backends failed, exiting")
             sys.exit(1)
-    except Exception:
-        log.exception("Failed to load MLX model '%s'", model_name)
-        sys.exit(1)
 
     log.info("API: http://localhost:%d/v1/embeddings", args.port)
     log.info("Health: http://localhost:%d/health", args.port)
