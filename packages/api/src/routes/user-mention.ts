@@ -9,13 +9,13 @@
  * with @user/@铲屎官 always included as backward-compat defaults.
  */
 
-import { getOwnerMentionPatterns } from '../config/cat-config-loader.js';
+import { getCoCreatorMentionPatterns } from '../config/cat-config-loader.js';
 
 /** Reject if followed by ASCII word character (letter/digit/underscore) */
 const CONTINUATION_RE = /^[a-zA-Z0-9_]/;
 
 export function detectUserMention(text: string): boolean {
-  const patterns = getOwnerMentionPatterns();
+  const patterns = getCoCreatorMentionPatterns();
   // Strip fenced code blocks
   const stripped = text.replace(/```[\s\S]*?```/g, '');
   const lines = stripped.split(/\r?\n/);

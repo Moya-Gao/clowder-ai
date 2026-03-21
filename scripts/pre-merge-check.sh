@@ -96,6 +96,9 @@ echo "── Step 3/4: 全量测试 ──"
 # Worktree 的 .env.local 设置了 REDIS_URL=6398（用于开发），
 # 但全量测试不应依赖 Redis——Redis 集成测试有专门的 test:redis 命令。
 # 这与 CI 行为一致：CI 环境也不设 REDIS_URL。
+#
+# 挂起保护：API test script 配了 --test-timeout=30000，单个测试
+# 超过 30s 会被 node --test 标记为 FAIL 并继续。无需外部 watchdog。
 if ! env -u REDIS_URL pnpm test; then
   echo ""
   echo -e "${RED}❌ 全量测试未通过${NC}"

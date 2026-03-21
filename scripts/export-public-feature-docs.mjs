@@ -38,8 +38,8 @@ const INTERNAL_LINK_PATTERNS = [
 const SANITIZE_REPLACEMENTS = [
   [/铲屎官原话/g, 'team experience'],
   [/铲屎官/g, 'team lead'],
-  [/Landy/g, 'Owner'],
-  [/lysander/g, 'owner'],
+  [/Landy/g, 'You'],
+  [/lysander/g, 'you'],
   [/suces-MacBook[^\s]*/g, 'dev-machine'],
   [/布偶猫/g, 'Ragdoll'],
   [/缅因猫/g, 'Maine Coon'],

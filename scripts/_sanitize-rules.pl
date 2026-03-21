@@ -8,18 +8,18 @@
 
 # ── Personal info (all files) ──
 # 铲屎官：猫圈通用梗（猫主子的仆人），非个人信息，保留不替换
-s/\@Landy/\@owner/g;
-s/\@landy/\@owner/g;
-s/\@Lysander/\@owner/g;
-s/\@lysander/\@owner/g;
-s/\@l\.s\./\@owner/g;
-s/"Landy"/"Owner"/g;
-s/'Landy'/'Owner'/g;
-s/name: "Landy"/name: "Owner"/g;
-s/'landy'/'owner'/g;
-s/'l\.s\.'/'owner'/g;
-s/Landy/Owner/g;
-s/lysander/owner/g;
+s/\@Landy/\@co-creator/g;
+s/\@landy/\@co-creator/g;
+s/\@Lysander/\@co-creator/g;
+s/\@lysander/\@co-creator/g;
+s/\@l\.s\./\@co-creator/g;
+s/"Landy"/"You"/g;
+s/'Landy'/'You'/g;
+s/name: "Landy"/name: "You"/g;
+s/'landy'/'you'/g;
+s/'l\.s\.'/'you'/g;
+s/Landy/You/g;
+s/lysander/you/g;
 s/suces-MacBook[^ ]*/dev-machine/g;
 
 # ── Redis ports ──

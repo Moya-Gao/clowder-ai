@@ -37,8 +37,8 @@ export interface ConnectorGatewayConfig {
   feishuAppId?: string | undefined;
   feishuAppSecret?: string | undefined;
   feishuVerificationToken?: string | undefined;
-  /** Override owner userId for connector threads. Read from DEFAULT_OWNER_USER_ID env. */
-  ownerUserId?: string | undefined;
+  /** Override co-creator userId for connector threads. Read from DEFAULT_OWNER_USER_ID env. */
+  coCreatorUserId?: string | undefined;
   whisperUrl?: string | undefined;
   connectorMediaDir?: string | undefined;
 }
@@ -128,7 +128,7 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     feishuAppId: process.env.FEISHU_APP_ID,
     feishuAppSecret: process.env.FEISHU_APP_SECRET,
     feishuVerificationToken: process.env.FEISHU_VERIFICATION_TOKEN,
-    ownerUserId: process.env.DEFAULT_OWNER_USER_ID,
+    coCreatorUserId: process.env.DEFAULT_OWNER_USER_ID,
     whisperUrl: process.env.WHISPER_URL,
     connectorMediaDir: process.env.CONNECTOR_MEDIA_DIR,
   };
@@ -159,11 +159,11 @@ export async function startConnectorGateway(
   const webhookHandlers = new Map<string, ConnectorWebhookHandler>();
   const stopFns: Array<() => Promise<void>> = [];
 
-  // Use ownerUserId from config (DEFAULT_OWNER_USER_ID env) if set,
+  // Use coCreatorUserId from config (DEFAULT_OWNER_USER_ID env) if set,
   // otherwise fall back to deps.defaultUserId.
   // This ensures connector threads are created with the real owner's userId,
   // making them visible in the frontend thread list. (F088 ISSUE-1 fix)
-  const effectiveUserId = config.ownerUserId || deps.defaultUserId;
+  const effectiveUserId = config.coCreatorUserId || deps.defaultUserId;
 
   const commandLayer = new ConnectorCommandLayer({
     bindingStore,

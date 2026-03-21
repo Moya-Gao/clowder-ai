@@ -274,7 +274,7 @@ function createAvailabilityConfigProject(availabilityOverrides = {}) {
           preferLead: true,
           excludeUnavailable: true,
         },
-        owner: {
+        coCreator: {
           name: 'Co-worker',
           aliases: ['共创伙伴'],
           mentionPatterns: ['@co-worker', '@owner'],

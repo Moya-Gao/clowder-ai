@@ -452,16 +452,17 @@ step_start "Step 3/6" "Transforms..."
 
 TRANSFORM_COUNT=0
 
-# 3a: cat-config.json（从真实配置拷贝 + 脱敏 owner 段）
-# 策略：保留完整猫阵（所有 breed + variant + 性格描述），只脱敏 owner 段
+# 3a: cat-config.json（从真实配置拷贝 + 脱敏 coCreator 段）
+# 策略：保留完整猫阵（所有 breed + variant + 性格描述），只脱敏 coCreator 段
 if [ -f "$STAGING_DIR/cat-config.json" ]; then
   node - "$STAGING_DIR/cat-config.json" "$FILTERED_DIR/cat-config.json" << 'CONFIG_TRANSFORM_EOF'
 const config = JSON.parse(require("fs").readFileSync(process.argv[2], "utf-8"));
-// 脱敏 owner
-config.owner = {
-  name: "Owner",
+// 脱敏 coCreator（兼容旧 owner 键）
+delete config.owner;
+config.coCreator = {
+  name: "You",
   aliases: [],
-  mentionPatterns: ["@owner"]
+  mentionPatterns: ["@co-creator"]
 };
 // 去掉 mentionPatterns 中铲屎官相关的 pattern
 const blocked = ["@landy", "@l.s.", "@lysander", "@铲屎官"];
@@ -484,8 +485,8 @@ for (const [, entry] of Object.entries(config.roster || {})) {
   if (entry.evaluation) {
     entry.evaluation = entry.evaluation
       /* 铲屎官: 猫圈通用梗，保留 */
-      .replace(/Landy/g, "Owner")
-      .replace(/lysander/g, "owner");
+      .replace(/Landy/g, "You")
+      .replace(/lysander/g, "you");
   }
 }
 // personality 中脱敏
@@ -494,7 +495,7 @@ for (const breed of config.breeds || []) {
     if (v.personality) {
       v.personality = v.personality
         /* 铲屎官: 猫圈通用梗，保留 */
-        .replace(/Landy/g, "Owner");
+        .replace(/Landy/g, "You");
     }
   }
 }
@@ -506,7 +507,7 @@ fi
 if command -v pnpm >/dev/null 2>&1; then
   pnpm biome format --write "$FILTERED_DIR/cat-config.json" >/dev/null 2>&1 || true
 fi
-echo "  ✓ cat-config.json (full roster, owner desecreted)"
+echo "  ✓ cat-config.json (full roster, coCreator sanitized)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
 # 3b: CLAUDE.md（通用版）
@@ -681,9 +682,9 @@ fi
 # mention-highlight.ts — owner mention aliases
 if [ -f "$FILTERED_DIR/packages/web/src/lib/mention-highlight.ts" ]; then
   sedi \
-    -e "s/'landy', 'l.s.', 'lysander', '铲屎官'/'owner', 'admin'/g" \
+    -e "s/'landy', 'l.s.', 'lysander', '铲屎官'/'co-creator', 'admin'/g" \
     "$FILTERED_DIR/packages/web/src/lib/mention-highlight.ts"
-  echo "  ✓ mention-highlight.ts (owner mentions sanitized)"
+  echo "  ✓ mention-highlight.ts (co-creator mentions sanitized)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 

@@ -14,9 +14,9 @@ import type {
   CatFeatures,
   CatId,
   CatVariant,
+  CoCreatorConfig,
   ContextBudget,
   MissionHubSelfClaimScope,
-  OwnerConfig,
   ReviewPolicy,
   Roster,
 } from '@cat-cafe/shared';
@@ -180,7 +180,7 @@ const reviewPolicySchema = z.object({
 // Note: Roster, RosterEntry, ReviewPolicy types imported from @cat-cafe/shared above
 
 /** F067: Owner config schema */
-const ownerConfigSchema = z.object({
+const coCreatorConfigSchema = z.object({
   name: z.string().min(1),
   aliases: z.array(z.string().min(1)),
   mentionPatterns: z.array(mentionPatternSchema).min(1),
@@ -194,20 +194,31 @@ const catCafeConfigSchemaV1 = z.object({
   breeds: z.array(catBreedSchema).min(1),
 });
 
-/** Version 2: breeds + roster + reviewPolicy (F032) + owner (F067) */
-const catCafeConfigSchemaV2 = z.object({
-  version: z.literal(2),
-  breeds: z.array(catBreedSchema).min(1),
-  roster: z.record(z.string(), rosterEntrySchema),
-  reviewPolicy: reviewPolicySchema,
-  owner: ownerConfigSchema.optional(),
-});
+/** Version 2: breeds + roster + reviewPolicy (F032) + coCreator (F067) */
+const catCafeConfigSchemaV2 = z
+  .object({
+    version: z.literal(2),
+    breeds: z.array(catBreedSchema).min(1),
+    roster: z.record(z.string(), rosterEntrySchema),
+    reviewPolicy: reviewPolicySchema,
+    coCreator: coCreatorConfigSchema.optional(),
+    /** @deprecated Accepted for backward compat; migrated to coCreator at parse time. */
+    owner: coCreatorConfigSchema.optional(),
+  })
+  .transform((data) => {
+    // Migrate legacy "owner" key → "coCreator" (coCreator takes precedence)
+    const { owner: legacyOwner, ...rest } = data;
+    if (!rest.coCreator && legacyOwner) {
+      return { ...rest, coCreator: legacyOwner };
+    }
+    return rest;
+  });
 
 /** Union of all versions — loader handles migration */
 const catCafeConfigSchema = z.union([catCafeConfigSchemaV1, catCafeConfigSchemaV2]);
 
 /**
- * Try cat-config.json (real runtime config with owner data) first,
+ * Try cat-config.json (real runtime config with coCreator data) first,
  * then fall back to cat-template.json (generic template for new projects).
  */
 function readConfigWithFallback(projectRoot: string, templatePath: string): string {
@@ -635,7 +646,7 @@ export function _resetCachedConfig(): void {
   _defaultCatId = null;
   _cachedRoster = null;
   _cachedReviewPolicy = null;
-  _cachedOwner = null;
+  _cachedCoCreator = null;
 }
 
 // ── F032: Roster + ReviewPolicy accessors ──────────────────────────────
@@ -727,39 +738,39 @@ export function isCatLead(catId: string, config?: CatCafeConfig): boolean {
   return roster[catId]?.lead ?? false;
 }
 
-// ── F067: Owner config accessor ─────────────────────────────────────
+// ── F067: Co-Creator config accessor ────────────────────────────────
 
-/** Default owner mention patterns (backward compat when owner not configured) */
-const DEFAULT_OWNER_MENTION_PATTERNS = ['@user', '@铲屎官'];
+/** Default co-creator mention patterns (backward compat when not configured) */
+const DEFAULT_CO_CREATOR_MENTION_PATTERNS = ['@co-creator', '@铲屎官'];
 
-let _cachedOwner: OwnerConfig | null = null;
+let _cachedCoCreator: CoCreatorConfig | null = null;
 
 /**
- * Get owner config from cat-config.json.
+ * Get coCreator config from cat-config.json.
  * Returns a default config with @user/@铲屎官 patterns when not configured.
  */
-export function getOwnerConfig(config?: CatCafeConfig): OwnerConfig {
-  if (_cachedOwner && !config) return _cachedOwner;
+export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
+  if (_cachedCoCreator && !config) return _cachedCoCreator;
 
   const cfg = config ?? getCachedConfig();
 
-  // v1 config or no owner → return defaults
-  if (!cfg || cfg.version === 1 || !cfg.owner) {
-    return { name: '铲屎官', aliases: [], mentionPatterns: DEFAULT_OWNER_MENTION_PATTERNS };
+  // v1 config or no coCreator → return defaults
+  if (!cfg || cfg.version === 1 || !cfg.coCreator) {
+    return { name: '铲屎官', aliases: [], mentionPatterns: DEFAULT_CO_CREATOR_MENTION_PATTERNS };
   }
 
-  _cachedOwner = cfg.owner;
-  return _cachedOwner;
+  _cachedCoCreator = cfg.coCreator;
+  return _cachedCoCreator;
 }
 
 /**
- * Get all owner mention patterns (lowercased, with @ prefix).
+ * Get all co-creator mention patterns (lowercased, with @ prefix).
  * Always includes @user and @铲屎官 as fallback patterns in addition to configured ones.
  */
-export function getOwnerMentionPatterns(config?: CatCafeConfig): readonly string[] {
-  const owner = getOwnerConfig(config);
-  const patterns = new Set(owner.mentionPatterns.map((p) => p.toLowerCase()));
+export function getCoCreatorMentionPatterns(config?: CatCafeConfig): readonly string[] {
+  const coCreator = getCoCreatorConfig(config);
+  const patterns = new Set(coCreator.mentionPatterns.map((p: string) => p.toLowerCase()));
   // Always include legacy patterns for backward compat
-  for (const p of DEFAULT_OWNER_MENTION_PATTERNS) patterns.add(p);
+  for (const p of DEFAULT_CO_CREATOR_MENTION_PATTERNS) patterns.add(p);
   return [...patterns];
 }

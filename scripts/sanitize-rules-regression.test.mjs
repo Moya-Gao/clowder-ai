@@ -123,16 +123,16 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
   });
 
   describe('personal info sanitization', () => {
-    it('transforms "Landy" → "Owner"', () => {
+    it('transforms "Landy" → "You"', () => {
       const input = `name: "Landy"\n`;
       const result = applySanitizer(input, 'test-name.ts');
-      assert.ok(result.includes('"Owner"'), `expected Owner, got: ${result}`);
+      assert.ok(result.includes('"You"'), `expected You, got: ${result}`);
     });
 
-    it('transforms @Landy → @owner', () => {
+    it('transforms @Landy → @co-creator', () => {
       const input = `mention: '@Landy'\n`;
       const result = applySanitizer(input, 'test-mention.ts');
-      assert.ok(result.includes('@owner'), `expected @owner, got: ${result}`);
+      assert.ok(result.includes('@co-creator'), `expected @co-creator, got: ${result}`);
     });
   });
 });
