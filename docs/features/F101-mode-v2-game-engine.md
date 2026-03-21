@@ -405,6 +405,7 @@ reopened: 2026-03-14
 | KD-32 | 时限从固定相位超时改为每角色预算制 | 砚砚审查发现顺序唤醒猫猫（30-60s/只）会和当前固定 180s/120s 相位超时冲突，导致误 fallback（P1 风险） | 2026-03-20 |
 | KD-33 | 复用现有 `invoke-single-cat.ts` session 管理，同 thread = 同 session chain（自动 resume） | 铲屎官提醒"CLI new session vs resume 别搞错"——游戏在独立 thread，`sessionManager.get(userId, catId, threadId)` 天然按 thread 隔离 session | 2026-03-20 |
 | KD-34 | Session seal 后必须注入完整 re-briefing（不假设猫猫还记得） | resume 时默认不注入 systemPrompt，briefing 放在消息内容里；session seal 后新 session 需完整 resume capsule | 2026-03-20 |
+| KD-35 | Resume capsule = 导航指引 + 关键摘要 + 搜索提示，不做全量状态 dump | 铲屎官指出猫猫有 MCP 搜索 thread 能力（search_evidence / get_thread_context / read_session_events）。Resume 时给关键信息（身份/阶段/存活）+ 提示猫猫主动搜索 thread 历史恢复策略记忆。这考验每只猫的搜索和上下文恢复能力——更像人类凭记忆+回忆玩游戏 | 2026-03-20 |
 
 ## 头像系统调查（KD-14 依据）
 
