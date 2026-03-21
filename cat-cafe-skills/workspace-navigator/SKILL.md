@@ -39,7 +39,7 @@ Step 2: 路径搜索 — 用你的工具找到精确路径
 Step 3: 调 API — 让 Hub 前端导航
   curl -X POST http://localhost:3001/api/workspace/navigate \
     -H "Content-Type: application/json" \
-    -d '{"path": "找到的相对路径", "action": "open"}'
+    -d '{"path": "找到的相对路径", "action": "open", "worktreeId": "目标worktree"}'
 ```
 
 ## Step 2 详解：意图→路径匹配策略
@@ -89,7 +89,7 @@ Step 3: 调 API — 让 Hub 前端导航
 |------|------|------|
 | `path` | **是** | 目标文件或目录的相对路径 |
 | `action` | 否 | `reveal`（展开目录树到目标，默认）或 `open`（打开文件查看器） |
-| `worktreeId` | **建议传** | 指定在哪个 worktree 里导航。不传则用当前默认 worktree |
+| `worktreeId` | **是** | 指定在哪个 worktree 里导航。API 需要此字段来解析路径 |
 
 ### action 选择
 
@@ -105,12 +105,12 @@ Step 3: 调 API — 让 Hub 前端导航
 # 打开日志目录
 curl -X POST http://localhost:3001/api/workspace/navigate \
   -H "Content-Type: application/json" \
-  -d '{"path": "packages/api/data/logs/api/", "action": "reveal"}'
+  -d '{"path": "packages/api/data/logs/api/", "action": "reveal", "worktreeId": "cat-cafe-runtime"}'
 
 # 打开 Feature 文档
 curl -X POST http://localhost:3001/api/workspace/navigate \
   -H "Content-Type: application/json" \
-  -d '{"path": "docs/features/F131-workspace-navigator.md", "action": "open"}'
+  -d '{"path": "docs/features/F131-workspace-navigator.md", "action": "open", "worktreeId": "cat-cafe"}'
 
 # 跨 worktree 打开 runtime 日志
 curl -X POST http://localhost:3001/api/workspace/navigate \
