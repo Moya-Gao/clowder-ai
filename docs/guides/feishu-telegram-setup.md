@@ -61,6 +61,10 @@ topics: [feishu, telegram, setup, gateway]
 2. 搜索并开通以下权限：
    - `im:message`（获取与发送单聊/群聊消息）
    - `im:message:send_as_bot`（以应用身份发消息）
+   - `im:resource`（读取媒体资源：图片、文件）
+   - `im:resource:upload`（上传媒体：语音气泡和图片原生显示必需）
+
+> **提示：** 不开通 `im:resource:upload` 的话，语音和图片只能以文本链接形式发送。服务器需安装 `ffmpeg` 用于语音 WAV→Opus 转码。
 
 ### 步骤 5: 发布应用
 

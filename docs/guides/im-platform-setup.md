@@ -60,6 +60,10 @@ FEISHU_VERIFICATION_TOKEN=xxxxxxxxxx   # 事件订阅页面获取
 **权限管理** 页面，开通：
 - `im:message` — 读取消息
 - `im:message:send_as_bot` — 以机器人身份发消息
+- `im:resource` — 读取媒体资源（图片、文件）
+- `im:resource:upload` — 上传媒体（语音气泡和图片原生显示必需）
+
+> **提示：** 如不开通 `im:resource:upload`，语音消息会以文本链接显示，图片只发送 URL。机器人通过 ffmpeg 将 WAV 转码为 Opus 格式上传飞书，需确保服务器已安装 ffmpeg。
 
 ### Step 6: 发布应用
 
