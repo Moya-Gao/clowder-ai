@@ -223,15 +223,22 @@ reopened: 2026-03-14
 
 铲屎官 2026-03-20 批评：当前 `GameAutoPlayer` + `LlmAIProvider` 只是裸调 LLM API，猫猫根本不知道自己在玩游戏。三猫（金渐层诊断 + 布偶猫架构 + 缅因猫审查）一致同意重做驱动层。
 
+**P0 前置条件（信息隔离安全加固，缅因猫审查门禁：不加就不开工）**：
+- [ ] AC-I-P0a: Session API catId 授权 — `list_session_chain` / `read_session_events` / `read_invocation_detail` 默认只返回调用者自己的 session，防跨猫读取内心独白
+- [ ] AC-I-P0b: Evidence 索引排除游戏 thread — `threadListFn` 过滤 `projectPath.startsWith('games/')`，游戏内容不入检索
+- [ ] AC-I-P0c: 游戏行动走结构化工具 `submit_game_action`（gameId/round/phase/seat/action/target/nonce），引擎端做 phase/seat/role/合法性校验；`post_message` 只用于公开发言和叙事播报
+
+**核心功能**：
 - [ ] AC-I1: 猫猫通过 A2A mention 协议（`post_message` → dispatch → CLI `--resume`）参与游戏，不再裸调 HTTP API
 - [ ] AC-I2: GameNarrator 发叙事消息到游戏 thread（天黑请闭眼 → 守卫请睁眼 → ...），可见节奏
 - [ ] AC-I3: 首次唤醒 Briefing — 猫猫收到完整上下文：身份、队友（如有）、存活状况、行动指引、规则约束
-- [ ] AC-I4: 后续 Resume Capsule — 猫猫收到上轮摘要：谁死了、谁说了什么、上轮自己做了什么、当前约束
+- [ ] AC-I4: 后续 Resume Capsule — 导航指引 + 关键摘要 + 搜索提示（KD-35），不做全量状态 dump
 - [ ] AC-I5: Session seal 后 re-briefing — 如果 CLI session 因上下文溢出被 seal，新 session 注入完整 resume capsule
 - [ ] AC-I6: 讨论环节顺序发言 — 按座位序轮流 @猫猫，后发言者能看到前面猫说了什么
 - [ ] AC-I7: 时限从固定相位超时改为每角色预算制（夜晚 45s/角色，讨论 30s/发言者，投票 20s/投票者）+ 全局单局 30min 天花板
 - [ ] AC-I8: `GameDriver` 接口兼容层 — `GameAutoPlayer` 包装为 `LegacyAutoDriver`，新 `GameNarratorDriver` 实现同接口，feature flag 切换
-- [ ] AC-I9: 端到端验证 — 7 人局完整跑通，猫猫 CLI agent 真正接入，叙事流可观
+- [ ] AC-I9: 游戏 thread 创建时自动设 `thinkingMode: 'play'`（心里话模式），CLI 内思考不广播（KD-36）
+- [ ] AC-I10: 端到端验证 — 7 人局完整跑通，猫猫 CLI agent 真正接入，叙事流可观，信息隔离红线测试通过
 
 ### Phase H1+H2（报幕层 + 模板发言 + messageStore 双写）✅
 
@@ -408,6 +415,9 @@ reopened: 2026-03-14
 | KD-35 | Resume capsule = 导航指引 + 关键摘要 + 搜索提示，不做全量状态 dump | 铲屎官指出猫猫有 MCP 搜索 thread 能力（search_evidence / get_thread_context / read_session_events）。Resume 时给关键信息（身份/阶段/存活）+ 提示猫猫主动搜索 thread 历史恢复策略记忆。这考验每只猫的搜索和上下文恢复能力——更像人类凭记忆+回忆玩游戏 | 2026-03-20 |
 | KD-36 | 信息隔离 = 心里话模式（`thinkingMode: 'play'`），不需要额外 MCP 权限层 | 铲屎官指出：CLI 内 = 心里话（`origin: 'stream'`，play 模式不 broadcast），`post_message` = 说话（`origin: 'callback'`，进入 thread）。游戏 thread 全程 play 模式，猫猫内心推理天然私密，只有 post_message 发出的才是公开/定向消息。比"三层 MCP 过滤"优雅得多 | 2026-03-20 |
 | KD-37 | 游戏 thread 不入 evidence 索引 | 铲屎官指出：写代码的猫搜狼人杀搜出游戏内容很奇怪。`threadListFn` 应过滤 `projectPath.startsWith('games/')` 的 thread，不送入 IndexBuilder | 2026-03-20 |
+| KD-38 | 游戏行动走结构化 MCP 工具 `submit_game_action`，不走 `post_message` whisper | 缅因猫审查：自由文本解析不可靠，whisper scope 和游戏 scope 不完全对齐。结构化工具带 `gameId/round/phase/seat/action/target/nonce`，引擎端做完整校验。`post_message` 只用于公开发言和叙事播报 | 2026-03-20 |
+| KD-39 | Session API 加 catId 授权（P0 安全加固） | 缅因猫审查实锤：`list_session_chain` + `read_session_events` 按 userId 授权不按 catId，狼人可读预言家完整 session 内心独白。必须封堵后才能推进 Phase I | 2026-03-20 |
+| KD-40 | 信息隔离四层架构：play 模式（心里话不广播）+ Session catId 授权 + Evidence 索引排除 + 结构化行动工具 | play 模式只防 WebSocket broadcast（Layer 1），不是唯一隔离层。需要 Session 权限（Layer 2）+ 索引排除（Layer 3）+ 行动分流（Layer 4）形成完整防线。缅因猫门禁：Layer 2+3 不加就不放行 | 2026-03-20 |
 
 ## 头像系统调查（KD-14 依据）
 
