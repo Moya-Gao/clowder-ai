@@ -32,7 +32,7 @@ s/6399 圣域/production Redis (sacred)/g;
 # So that API = Frontend + 1 holds in both environments.
 s#http://localhost:3002#http://localhost:3004#g;
 s#http://localhost:3001#http://localhost:3003#g;
-s#http://127\.0\.0\.1:3002#your local Clowder API URL#g;
+s#http://127\.0\.0\.1:3002#http://127.0.0.1:3004#g;
 s#http://127\.0\.0\.1:3001#http://127.0.0.1:3003#g;
 s#localhost:3002#localhost:3004#g;
 s#localhost:3001#localhost:3003#g;
@@ -40,17 +40,38 @@ s#127\.0\.0\.1:3002#127.0.0.1:3004#g;
 s#127\.0\.0\.1:3001#127.0.0.1:3003#g;
 s#3002/3001#3004/3003#g;
 s#3001/3002#3003/3004#g;
+# Bare port defaults in shell scripts and config (context-aware: bash ${:-N}, env defaults, port assignments)
+s#\bFRONTEND_PORT:-3001\b#FRONTEND_PORT:-3003#g;
+s#\bFRONTEND_PORT:-3002\b#FRONTEND_PORT:-3004#g;
+s#\bFRONTEND_PORT=3001\b#FRONTEND_PORT=3003#g;
+s#\bAPI_SERVER_PORT:-3002\b#API_SERVER_PORT:-3004#g;
+s#\bport 3001\b#port 3003#gi;
+s#\bport 3002\b#port 3004#gi;
+# Port in quoted string defaults (env-registry pattern: defaultValue: '3002')
+s#defaultValue: '3002'#defaultValue: '3004'#g;
+s#defaultValue: '3001'#defaultValue: '3003'#g;
 s#localhost:18060#<local-integration-endpoint>#g;
 s#localhost:9000#<local-browser-automation-endpoint>#g;
 
 # ── /Users/ path scrubbing (all files) ──
+# cat-cafe project path → generic project path
 s#/Users/[^\s,"'}\]]+/cat-cafe\b#/path/to/project#g;
-s#/Users/[^\s,"'}\]]+#/home/user#g;
+# Fix test assertions that check the project name from a scrubbed /Users/.../cat-cafe path
+# Only in files where CWD_PATH was a full /Users/ path (directory-picker-modal)
+if ($ARGV =~ m{directory-picker-modal\.test\.(ts|js)$}) {
+  s#toContain\('cat-cafe'\)#toContain('project')#g;
+  s#toBe\('cat-cafe'\)#toBe('project')#g;
+}
+# First: multi-segment paths → keep last segment
+s#/Users/(?:[^\s,"'}\]/]+/)+([^\s,"'}\]/]+)#/home/user/$1#g;
+# Fallback: bare /Users/username (only 2 segments) → /home/user
+s#/Users/[^\s,"'}\]/]+#/home/user#g;
 
-# ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source code only) ──
-# Only applies to .ts/.tsx/.js files — user-visible strings like <title>, <h1>, aria-label.
+# ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test files) ──
+# Applies to .ts/.tsx/.js files — user-visible strings like <title>, <h1>, aria-label.
+# Also runs on test files so that assertions match the transformed source output.
 # Does NOT touch: @cat-cafe/* imports, cat-cafe-skills/, cat-cafe: keys, cat_cafe_* tools.
-if ($ARGV =~ m{\.(tsx?|js)$} && $ARGV !~ m{/__tests__/|\.test\.}) {
+if ($ARGV =~ m{\.(tsx?|js)$}) {
   # Page metadata and header titles
   s/title: 'Cat Cafe'/title: 'Clowder AI'/g;
   s/'Cat Cafe'/'Clowder AI'/g;
@@ -78,6 +99,14 @@ if ($ARGV =~ m{\.(tsx?|js)$} && $ARGV !~ m{/__tests__/|\.test\.}) {
   s/Unified API client for Cat Cafe frontend/Unified API client for Clowder AI frontend/g;
   # Capability tab skill category labels
   s/Cat Cafe Skills/Clowder AI Skills/g;
+}
+
+# ── Governance-pack test: port assertions align with sync'd source ──
+if ($ARGV =~ m{governance-pack\.test\.(js|ts)$}) {
+  s/block\.includes\('3001'\)/block.includes('3003')/g;
+  s/internal port 3001/port 3003/g;
+  s/block\.includes\('reserved'\)/block.includes('local defaults')/g;
+  s/Port reservation concept should be present/Port defaults guidance should be present/g;
 }
 
 # ── KD-5: Remove opensource-ops from public-facing files ──
