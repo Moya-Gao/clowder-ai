@@ -69,17 +69,74 @@ gh pr merge {N} --repo zts212653/clowder-ai --squash
 - 我的建议: {merge / 不 merge + 理由}
 ```
 
-### 质量不达标但方向正确 — 上游完整修复（推荐）
+### 质量不达标但方向正确 — 上游完整修复
 
-**家规 P1：面向终态。** 不要先 merge 不完善的 PR 再修——那是脚手架，不是终态。直接做到位一次 sync 出去。
+**家规 P1：面向终态。** 不在 clowder-ai 上迭代半成品，在 cat-cafe 做到位再出去。
 
-1. `[clowder-ai]` 在社区 PR 评论："感谢贡献！我们会基于你的方案在上游完成完整修复。" **关闭 PR（不 merge）**
+以下三种策略按成本递增排列，根据情况选择：
+
+---
+
+#### 策略 A：先 Merge 社区 PR → 全量同步覆盖（推荐 ⭐ 低成本）
+
+**适用**：社区 PR 代码质量一般但不会炸，clowder-ai 当前没有活跃用户。
+
+1. `[clowder-ai]` 在社区 PR 评论感谢 + 说明我们会在上游完善
+2. `[cat-cafe]` 走正常开发流程（`worktree` + `tdd`）做到终态
+3. `[clowder-ai]` **直接 merge 社区 PR**（`gh pr merge {N} --repo zts212653/clowder-ai --squash`）
+4. `[cat-cafe → clowder-ai]` 走全量 outbound sync — `rsync --delete` 会把文件覆盖成终态版本
+
+**为什么可行**：全量同步是文件级覆盖（rsync），不是 git merge。社区 PR 的代码被 merge 后虽然短暂存在于 clowder-ai main，但下次全量同步会用我们的终态版本覆盖所有文件。**Git 历史不会丢**——贡献者的 commit 永远留在 `git log` 里，PR 显示 "Merged" 绿标，贡献者 GitHub contribution graph 有绿点。
+
+**注意**：
+- 全量同步的 `--co-author` **不要用**——co-author 挂在整个 sync commit 上语义不精确（张冠李戴）
+- 社区 PR 的 merge commit 本身就精确记录了贡献者归属
+- Merge 后别忘了 intake 登记（B3）
+
+**时序**：merge 社区 PR 和全量同步的先后无所谓——rsync 只看文件内容不看 git 历史
+
+---
+
+#### 策略 B：Push 完善代码到社区 PR 分支 → Merge（高质量归属，中等成本）
+
+**适用**：想让 merge 进去的代码就是终态版本，贡献者和 maintainer 的 commit 都在同一个 PR 里（类似 OpenClaw 的做法）。
+
+1. `[cat-cafe]` 走正常开发流程做到终态
+2. `[clowder-ai]` checkout 社区 PR 分支 → 把终态代码 push 上去（追加 commit）
+3. `[clowder-ai]` merge 社区 PR — PR 里同时有贡献者和 maintainer 的 commit
+4. 全量同步时这部分文件已在 main 上，diff 不变
+
+**前提**：社区 PR 允许 maintainer 编辑（fork PR 需 `maintainer_can_modify: true`，同仓分支 PR 直接有权限）
+
+**额外成本**：需要在 clowder-ai 端手动操作 checkout + cp + commit + push（约 5-10 分钟 + token）
+
+---
+
+#### 策略 C：关闭社区 PR → 全量同步 + Acknowledgment（最低成本，贡献者体验差）
+
+**适用**：社区 PR 代码质量很差 / 方向偏了很多 / 贡献者不在意归属。
+
+1. `[clowder-ai]` 在社区 PR 评论感谢 + 说明原因 → **关闭 PR（不 merge）**
 2. `[clowder-ai]` 关掉重复 issue（如有）
-3. `[cat-cafe]` 走正常开发流程（`worktree` + `tdd`）：完整修复代码 + 文档 + 测试，**做到终态**
-4. `[cat-cafe → clowder-ai]` 走 **Scene D (Outbound Sync)** 同步到开源仓，PR closes 原 issue
-5. commit message 加 `Co-authored-by: {原作者}` — **尊重社区贡献**
+3. `[cat-cafe]` 走正常开发流程做到终态
+4. `[cat-cafe → clowder-ai]` 全量同步，commit body 里写 acknowledgment（不用 `Co-authored-by` trailer）：
+   ```
+   Acknowledgments:
+   - Governance bootstrap card inspired by @bouillipx (clowder-ai#154)
+   ```
 
-又快又不失礼。贡献者的方案被采纳，由我们完成终态实现后一次性发布。
+**缺点**：贡献者看到 PR 被关闭，GitHub 上没有 "Merged" 绿标，没有 contribution 绿点。
+
+---
+
+#### 选择指南
+
+| 条件 | 推荐策略 |
+|------|---------|
+| 社区 PR 不会破坏 clowder-ai + 没有活跃用户 | **A**（merge → 全量覆盖）|
+| 想让 merge 的代码就是终态 + 有精力操作 | **B**（push 完善代码到 PR 分支）|
+| 社区 PR 质量极差 / 方向错 / 安全风险 | **C**（关闭 + acknowledgment）|
+| clowder-ai 有活跃用户在用 main | **B** 或 **C**（不能让半成品留在 main 上）|
 
 ## B3: Intake Gate `[cat-cafe]`
 
