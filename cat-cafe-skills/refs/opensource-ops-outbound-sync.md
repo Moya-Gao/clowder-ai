@@ -29,10 +29,37 @@ pnpm check && pnpm lint
 pnpm --filter @cat-cafe/shared build && pnpm --filter @cat-cafe/api build
 ```
 
-**任何一步失败 → 修复后再回来。不允许带红灯同步。**
+**任何一步失败 → 阻塞同步，走 Step 1.5 修复流程。不允许带红灯同步。**
 
 > 为什么：全量同步的 Step 6 会在目标仓跑 post-sync validation（install + check + lint + build + test:public），
 > 如果源仓 UT 本身就红了，目标仓大概率也红 → 白白浪费一次同步流水线。
+
+#### Step 1.5: 基线修复 `[cat-cafe]`（仅当 Step 1 红灯时）
+
+**红灯不出门 = 不是跳过红灯，而是修绿了才走。**
+
+```bash
+# 1. 拉 feature worktree 修复 UT
+bash scripts/worktree-manager.sh create fix/baseline-ut-green
+
+# 2. 在 worktree 里修复所有挂的测试（包括 pre-existing 的）
+#    修完后确认全量 UT 绿
+pnpm test
+
+# 3. 提 PR，review 通过后 squash merge 到 main
+gh pr create --title "fix: 修复基线 UT 红灯 (同步前置)" --body "..."
+
+# 4. PR 合入后，回到 main 重新验证
+git checkout main && git pull --ff-only origin main
+pnpm test  # 必须全绿
+
+# 5. 确认绿了 → 回到 Step 2 继续同步流程
+```
+
+**修复原则：**
+- 即使是 pre-existing 的红灯（历史遗留），也必须在同步前修绿
+- 修复范围仅限让 UT 通过，不做功能改动（scope 控制）
+- 修完必须走 PR 流程合入 main，不能直接 push
 
 ### Step 2: Pre-sync Gate `[cat-cafe]`
 
@@ -99,6 +126,42 @@ bash scripts/publish-sync-tag.sh \
 - `pnpm install` 成功
 - `pnpm check` + `pnpm lint` 通过
 - 端口可访问
+
+#### Step 5.5: Post-sync Test Fix `[clowder-ai]`（仅当目标仓 UT 红灯时）
+
+**即使源仓基线绿了，sanitizer 转换仍可能引入目标仓 UT 红灯。** 常见原因：
+
+| 类别 | 根因 | 示例 |
+|------|------|------|
+| **路径截断** | sanitizer 把 `/Users/dev/my-project` 缩成 `/home/user`，丢失末段 | test 断言 `projectDisplayName` 返回 `'my-project'` 但实际得到 `'user'` |
+| **Placeholder URL** | sanitizer 把有效 URL 替换成人类可读文本 | `http://127.0.0.1:3002` → `'your local Clowder API URL'`，`new URL()` 抛 `ERR_INVALID_URL` |
+| **裸端口号** | sanitizer 只匹配 `localhost:3001` 模式，漏了数组里的裸端口 | `DEFAULT_EXCLUDED_PORTS = [3001, 3002]` 未被转换为 `[3003, 3004]` |
+| **品牌名遗漏** | sanitizer 排除 test 文件的品牌转换，但 test 断言检查了已转换的源码输出 | test 期望 `'Cat Café Hub'` 但源码已变成 `'Clowder AI Hub'` |
+| **console→pino** | 源码 `console.*` 被转为 pino `log.*`，但 test mock 仍拦截 `console.*` | `assert.ok(console.error.mock.callCount() > 0)` 永远是 0 |
+
+**修复流程：**
+
+```bash
+# 1. 在 clowder-ai sync 分支上跑全量 UT
+cd $CLOWDER_AI_DIR
+pnpm test  # 看哪些红了
+
+# 2. 逐个修复（对照 cat-cafe 源文件理解原始意图）
+#    - 路径截断 → 补全路径段
+#    - placeholder URL → 改成有效 URL (http://127.0.0.1:3004)
+#    - 裸端口号 → 修改源码或测试
+#    - console→pino → 改用行为断言
+
+# 3. 修完后确认全量 UT 绿
+pnpm test  # 必须全绿（Redis 依赖的除外）
+
+# 4. 修复 commit 追加到 sync 分支
+git add -A && git commit -m "fix: post-sync test fixes for sanitizer transform gaps"
+```
+
+**同时回流修复 sanitizer：** 如果发现 sanitizer 规则有 bug（如路径截断、placeholder URL），
+**必须在 cat-cafe 侧修复 `_sanitize-rules.pl`**，这样下次同步不会再产生同样的问题。
+sanitizer 修复走单独的 PR，不阻塞当前同步。
 
 ### Step 6: PR 记录 `[clowder-ai]` 🔴
 
