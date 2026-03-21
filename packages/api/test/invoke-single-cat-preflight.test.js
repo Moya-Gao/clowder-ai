@@ -96,8 +96,8 @@ describe('invokeSingleCat shared-state preflight', () => {
 
     // Commit shared-state file but don't push
     mkdirSync(join(repo, 'docs'), { recursive: true });
-    writeFileSync(join(repo, 'docs/BACKLOG.md'), '# Backlog');
-    execSync('git add docs/BACKLOG.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'docs/ROADMAP.md'), '# Backlog');
+    execSync('git add docs/ROADMAP.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
 
     // chdir so findMonorepoRoot(process.cwd()) resolves to this repo
     process.chdir(repo);
@@ -144,7 +144,7 @@ describe('invokeSingleCat shared-state preflight', () => {
     // Find the 🚫 preflight message
     const blocked = msgs.find((m) => m.type === 'system_info' && m.content?.includes('🚫'));
     assert.ok(blocked, 'should have 🚫 blocked message');
-    assert.ok(blocked.content.includes('docs/BACKLOG.md'), 'blocked message should name the file');
+    assert.ok(blocked.content.includes('docs/ROADMAP.md'), 'blocked message should name the file');
     assert.ok(blocked.content.includes('git push'), 'blocked message should tell user to push');
 
     // Verify order: invocation_created before 🚫 before done
@@ -163,9 +163,9 @@ describe('invokeSingleCat shared-state preflight', () => {
     const bare = addBareRemote(repo);
     tempDirs.push(repo, bare);
 
-    // Stage cat-config.json but don't commit — git diff --cached catches this
-    writeFileSync(join(repo, 'cat-config.json'), '{}');
-    execSync('git add cat-config.json', { cwd: repo, stdio: 'ignore' });
+    // Stage cat-template.json but don't commit — git diff --cached catches this
+    writeFileSync(join(repo, 'cat-template.json'), '{}');
+    execSync('git add cat-template.json', { cwd: repo, stdio: 'ignore' });
 
     process.chdir(repo);
 
@@ -204,7 +204,7 @@ describe('invokeSingleCat shared-state preflight', () => {
 
     const warned = msgs.find((m) => m.type === 'system_info' && m.content?.includes('⚠️'));
     assert.ok(warned, 'should have ⚠️ warning message');
-    assert.ok(warned.content.includes('cat-config.json'), 'warning should name the file');
+    assert.ok(warned.content.includes('cat-template.json'), 'warning should name the file');
 
     // Service SHOULD have been called
     assert.equal(serviceCalled, true, 'service.invoke MUST be called when preflight only warns');

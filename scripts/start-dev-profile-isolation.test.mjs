@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
@@ -134,7 +134,10 @@ describe('sync-to-opensource public launch transforms', () => {
       assert.match(pkg.scripts['start:direct'], /CAT_CAFE_STRICT_PROFILE_DEFAULTS=1/);
       assert.match(pkg.scripts['dev:direct'], /--profile=opensource/);
       assert.match(pkg.scripts['start:direct'], /--profile=opensource/);
-      assert.equal(pkg.scripts['check:start-profile-isolation'], 'node --test scripts/start-dev-profile-isolation.test.mjs');
+      assert.equal(
+        pkg.scripts['check:start-profile-isolation'],
+        'node --test scripts/start-dev-profile-isolation.test.mjs',
+      );
       assert.match(pkg.scripts.check, /check:start-profile-isolation/);
       assert.equal(existsSync(resolve(exportDir, 'scripts/start-dev-profile-isolation.test.mjs')), true);
 

@@ -68,12 +68,12 @@ describe('checkSharedStatePreflight (integration)', () => {
 
     // Commit BACKLOG.md but don't push
     mkdirSync(join(repo, 'docs'), { recursive: true });
-    writeFileSync(join(repo, 'docs/BACKLOG.md'), '# Backlog');
-    execSync('git add docs/BACKLOG.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'docs/ROADMAP.md'), '# Backlog');
+    execSync('git add docs/ROADMAP.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false, 'should detect unpushed shared-state');
-    assert.deepEqual(result.unpushedFiles, ['docs/BACKLOG.md']);
+    assert.deepEqual(result.unpushedFiles, ['docs/ROADMAP.md']);
     assert.equal(result.uncommittedFiles, undefined);
   });
 
@@ -82,13 +82,13 @@ describe('checkSharedStatePreflight (integration)', () => {
     const bare = addBareRemote(repo);
     tempDirs.push(repo, bare);
 
-    // Stage cat-config.json but don't commit — git diff --cached catches this
-    writeFileSync(join(repo, 'cat-config.json'), '{}');
-    execSync('git add cat-config.json', { cwd: repo, stdio: 'ignore' });
+    // Stage cat-template.json but don't commit — git diff --cached catches this
+    writeFileSync(join(repo, 'cat-template.json'), '{}');
+    execSync('git add cat-template.json', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false, 'should detect staged shared-state');
-    assert.deepEqual(result.uncommittedFiles, ['cat-config.json']);
+    assert.deepEqual(result.uncommittedFiles, ['cat-template.json']);
     assert.equal(result.unpushedFiles, undefined);
   });
 
@@ -99,12 +99,12 @@ describe('checkSharedStatePreflight (integration)', () => {
 
     // Stage BACKLOG.md but don't commit
     mkdirSync(join(repo, 'docs'), { recursive: true });
-    writeFileSync(join(repo, 'docs/BACKLOG.md'), '# Backlog');
-    execSync('git add docs/BACKLOG.md', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'docs/ROADMAP.md'), '# Backlog');
+    execSync('git add docs/ROADMAP.md', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false, 'should detect staged shared-state');
-    assert.ok(result.uncommittedFiles?.includes('docs/BACKLOG.md'));
+    assert.ok(result.uncommittedFiles?.includes('docs/ROADMAP.md'));
   });
 
   it('detects both unpushed and uncommitted simultaneously', () => {
@@ -114,17 +114,17 @@ describe('checkSharedStatePreflight (integration)', () => {
 
     // Commit BACKLOG.md but don't push
     mkdirSync(join(repo, 'docs'), { recursive: true });
-    writeFileSync(join(repo, 'docs/BACKLOG.md'), '# Backlog');
-    execSync('git add docs/BACKLOG.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'docs/ROADMAP.md'), '# Backlog');
+    execSync('git add docs/ROADMAP.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
 
-    // Also have staged (uncommitted) cat-config.json
-    writeFileSync(join(repo, 'cat-config.json'), '{}');
-    execSync('git add cat-config.json', { cwd: repo, stdio: 'ignore' });
+    // Also have staged (uncommitted) cat-template.json
+    writeFileSync(join(repo, 'cat-template.json'), '{}');
+    execSync('git add cat-template.json', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false);
-    assert.deepEqual(result.unpushedFiles, ['docs/BACKLOG.md']);
-    assert.deepEqual(result.uncommittedFiles, ['cat-config.json']);
+    assert.deepEqual(result.unpushedFiles, ['docs/ROADMAP.md']);
+    assert.deepEqual(result.uncommittedFiles, ['cat-template.json']);
   });
 
   it('returns ok:true when everything is clean', () => {
@@ -170,12 +170,12 @@ describe('checkSharedStatePreflight (integration)', () => {
     execSync('git branch --unset-upstream', { cwd: repo, stdio: 'ignore' });
 
     // Commit shared-state file
-    writeFileSync(join(repo, 'cat-config.json'), '{}');
-    execSync('git add cat-config.json && git commit -m "add config"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'cat-template.json'), '{}');
+    execSync('git add cat-template.json && git commit -m "add config"', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false);
-    assert.deepEqual(result.unpushedFiles, ['cat-config.json']);
+    assert.deepEqual(result.unpushedFiles, ['cat-template.json']);
   });
 
   it('falls back to merge-base when origin/<branch> does not exist (brand new branch)', () => {
@@ -188,12 +188,12 @@ describe('checkSharedStatePreflight (integration)', () => {
 
     // Commit shared-state file on the new branch
     mkdirSync(join(repo, 'docs'), { recursive: true });
-    writeFileSync(join(repo, 'docs/BACKLOG.md'), '# New');
-    execSync('git add docs/BACKLOG.md && git commit -m "add backlog on new branch"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'docs/ROADMAP.md'), '# New');
+    execSync('git add docs/ROADMAP.md && git commit -m "add backlog on new branch"', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false, 'should detect via merge-base fallback');
-    assert.deepEqual(result.unpushedFiles, ['docs/BACKLOG.md']);
+    assert.deepEqual(result.unpushedFiles, ['docs/ROADMAP.md']);
   });
 
   it('returns ok:true when local is only behind upstream (no local unpushed commits)', () => {
@@ -211,8 +211,8 @@ describe('checkSharedStatePreflight (integration)', () => {
     execSync('git config user.email "a@test.com"', { cwd: cloneA, stdio: 'ignore' });
     execSync('git config user.name "A"', { cwd: cloneA, stdio: 'ignore' });
     mkdirSync(join(cloneA, 'docs'), { recursive: true });
-    writeFileSync(join(cloneA, 'docs/BACKLOG.md'), '# Backlog from A');
-    execSync('git add docs/BACKLOG.md && git commit -m "A adds backlog" && git push', { cwd: cloneA, stdio: 'ignore' });
+    writeFileSync(join(cloneA, 'docs/ROADMAP.md'), '# Backlog from A');
+    execSync('git add docs/ROADMAP.md && git commit -m "A adds backlog" && git push', { cwd: cloneA, stdio: 'ignore' });
 
     // Original repo fetches but doesn't merge — HEAD is behind upstream
     execSync('git fetch origin', { cwd: repo, stdio: 'ignore' });
@@ -230,8 +230,8 @@ describe('checkSharedStatePreflight (integration)', () => {
     execSync('git checkout -b feat/orphan', { cwd: repo, stdio: 'ignore' });
 
     // Commit shared-state file — but since there's no remote, nothing to compare against
-    writeFileSync(join(repo, 'cat-config.json'), '{}');
-    execSync('git add cat-config.json && git commit -m "add config"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'cat-template.json'), '{}');
+    execSync('git add cat-template.json && git commit -m "add config"', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     // Fail-open: no way to determine if it's pushed or not

@@ -1,14 +1,21 @@
 #!/bin/bash
 
-# Cat Cafe 启动脚本
-# 用法:
-#   pnpm start                        — 开发模式 (next dev + Redis 持久化)
-#   pnpm start --profile=dev          — 家里开发默认值 (proxy ON, sidecar ON)
-#   pnpm start --profile=opensource   — 开源仓默认值 (proxy OFF, sidecar OFF)
-#   pnpm start --quick                — 跳过 rebuild
-#   pnpm start --memory               — 使用内存存储 (重启丢数据)
-#   pnpm start --no-redis             — 同 --memory
-#   pnpm start --prod-web             — 前端 production build (PWA + Tailscale 友好)
+# Cat Cafe 启动脚本（底层实现）
+# 用户入口:
+#   pnpm start                        — runtime worktree 稳定启动（由 runtime-worktree.sh 注入 --prod-web）
+#   pnpm start:direct                 — 当前目录稳定启动（package.json 注入 --prod-web + 非 watch API + 优先当前 .env 端口）
+#   pnpm dev:direct                   — 当前目录开发模式 (next dev + 热重载，优先当前 .env 端口)
+#
+# 直接调用脚本:
+#   ./scripts/start-dev.sh            — 开发模式 (next dev + Redis 持久化)
+#   ./scripts/start-dev.sh --prod-web — 前端 production build + next start
+#   ./scripts/start-dev.sh --quick    — 仅跳过重复构建；不改变 dev/prod 模式
+#   ./scripts/start-dev.sh --memory   — 使用内存存储 (重启丢数据)
+#   ./scripts/start-dev.sh --no-redis — 同 --memory
+#   ./scripts/start-dev.sh --profile=dev          — 家里开发默认值 (proxy ON, sidecar ON)
+#   ./scripts/start-dev.sh --profile=opensource   — 开源仓默认值 (proxy OFF, sidecar OFF)
+#   ./scripts/start-dev.sh -- --npm-registry=URL --pip-index-url=URL --hf-endpoint=URL
+#                                               — 显式指定安装/模型下载镜像（仅手动 override）
 #
 # Profile 说明:
 #   dev        — proxy ON, ASR/TTS/LLM ON, TTL=永久, redis-dev
@@ -28,12 +35,15 @@
 #   REDIS_PROFILE=dev
 #   REDIS_DATA_DIR=~/.cat-cafe/redis-dev
 #   REDIS_BACKUP_DIR=~/.cat-cafe/redis-backups/dev
+# Parallel 本地实例若仅改 REDIS_PORT，默认会自动隔离到独立目录:
+#   REDIS_PORT=6389 -> ~/.cat-cafe/redis-dev-6389
 
 set -e
 set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/download-source-overrides.sh"
 cd "$PROJECT_DIR"
 
 echo "🐱 Cat Café 启动"
@@ -57,6 +67,9 @@ for arg in "$@"; do
         --memory|--no-redis) USE_REDIS=false ;;
         --prod-web) PROD_WEB=true ;;
         --profile=*) PROFILE="${arg#*=}" ;;
+        *)
+            parse_manual_download_source_arg "$arg" || true
+            ;;
     esac
 done
 
@@ -75,10 +88,44 @@ clear_inherited_profile_env() {
 
 clear_inherited_profile_env
 
+CLI_FRONTEND_PORT_OVERRIDE="${FRONTEND_PORT-}"
+CLI_API_SERVER_PORT_OVERRIDE="${API_SERVER_PORT-}"
+CLI_REDIS_PORT_OVERRIDE="${REDIS_PORT-}"
+CLI_REDIS_DATA_DIR_OVERRIDE="${REDIS_DATA_DIR-}"
+CLI_REDIS_BACKUP_DIR_OVERRIDE="${REDIS_BACKUP_DIR-}"
+CLI_NEXT_PUBLIC_API_URL_OVERRIDE="${NEXT_PUBLIC_API_URL-}"
+CLI_PREVIEW_GATEWAY_PORT_OVERRIDE="${PREVIEW_GATEWAY_PORT-}"
+CLI_ANTHROPIC_PROXY_PORT_OVERRIDE="${ANTHROPIC_PROXY_PORT-}"
+CLI_WHISPER_PORT_OVERRIDE="${WHISPER_PORT-}"
+CLI_TTS_PORT_OVERRIDE="${TTS_PORT-}"
+CLI_LLM_POSTPROCESS_PORT_OVERRIDE="${LLM_POSTPROCESS_PORT-}"
+PREFER_DOTENV_PORTS="${CAT_CAFE_RESPECT_DOTENV_PORTS:-0}"
+
 if [ -f .env ]; then
     set -a
     source .env
     set +a
+fi
+
+restore_cli_override() {
+    local name="$1"
+    local value="$2"
+    [ -n "$value" ] || return 0
+    export "$name=$value"
+}
+
+if [ "$PREFER_DOTENV_PORTS" != "1" ]; then
+    restore_cli_override "FRONTEND_PORT" "$CLI_FRONTEND_PORT_OVERRIDE"
+    restore_cli_override "API_SERVER_PORT" "$CLI_API_SERVER_PORT_OVERRIDE"
+    restore_cli_override "REDIS_PORT" "$CLI_REDIS_PORT_OVERRIDE"
+    restore_cli_override "REDIS_DATA_DIR" "$CLI_REDIS_DATA_DIR_OVERRIDE"
+    restore_cli_override "REDIS_BACKUP_DIR" "$CLI_REDIS_BACKUP_DIR_OVERRIDE"
+    restore_cli_override "NEXT_PUBLIC_API_URL" "$CLI_NEXT_PUBLIC_API_URL_OVERRIDE"
+    restore_cli_override "PREVIEW_GATEWAY_PORT" "$CLI_PREVIEW_GATEWAY_PORT_OVERRIDE"
+    restore_cli_override "ANTHROPIC_PROXY_PORT" "$CLI_ANTHROPIC_PROXY_PORT_OVERRIDE"
+    restore_cli_override "WHISPER_PORT" "$CLI_WHISPER_PORT_OVERRIDE"
+    restore_cli_override "TTS_PORT" "$CLI_TTS_PORT_OVERRIDE"
+    restore_cli_override "LLM_POSTPROCESS_PORT" "$CLI_LLM_POSTPROCESS_PORT_OVERRIDE"
 fi
 
 load_dare_env_from_local() {
@@ -108,6 +155,7 @@ load_dare_env_from_local() {
 }
 
 load_dare_env_from_local
+apply_manual_download_source_overrides
 
 default_redis_port() {
     if [ "$PROD_WEB" = true ]; then
@@ -218,8 +266,45 @@ resolve_config "REDIS_PROFILE"
 : "${SUMMARY_TTL_SECONDS:=0}"
 : "${REDIS_PROFILE:=dev}"
 
-REDIS_DATA_DIR=${REDIS_DATA_DIR:-"$HOME/.cat-cafe/redis-${REDIS_PROFILE}"}
-REDIS_BACKUP_DIR=${REDIS_BACKUP_DIR:-"$HOME/.cat-cafe/redis-backups/${REDIS_PROFILE}"}
+default_redis_storage_key() {
+    local profile="${1:-$REDIS_PROFILE}"
+    local port="${2:-$REDIS_PORT}"
+    local default_port="${3:-6399}"
+    if [ "$port" = "$default_port" ]; then
+        printf '%s' "$profile"
+    else
+        printf '%s-%s' "$profile" "$port"
+    fi
+}
+
+default_redis_data_dir() {
+    local key
+    key=$(default_redis_storage_key "${1:-$REDIS_PROFILE}" "${2:-$REDIS_PORT}")
+    printf '%s/.cat-cafe/redis-%s' "$HOME" "$key"
+}
+
+default_redis_backup_dir() {
+    local key
+    key=$(default_redis_storage_key "${1:-$REDIS_PROFILE}" "${2:-$REDIS_PORT}")
+    printf '%s/.cat-cafe/redis-backups/%s' "$HOME" "$key"
+}
+
+REDIS_STORAGE_KEY=$(default_redis_storage_key "$REDIS_PROFILE" "$REDIS_PORT")
+if [ -n "$CLI_REDIS_DATA_DIR_OVERRIDE" ]; then
+    REDIS_DATA_DIR="$CLI_REDIS_DATA_DIR_OVERRIDE"
+elif [ -n "$CLI_REDIS_PORT_OVERRIDE" ]; then
+    REDIS_DATA_DIR="$(default_redis_data_dir "$REDIS_PROFILE" "$REDIS_PORT")"
+else
+    REDIS_DATA_DIR=${REDIS_DATA_DIR:-"$(default_redis_data_dir "$REDIS_PROFILE" "$REDIS_PORT")"}
+fi
+
+if [ -n "$CLI_REDIS_BACKUP_DIR_OVERRIDE" ]; then
+    REDIS_BACKUP_DIR="$CLI_REDIS_BACKUP_DIR_OVERRIDE"
+elif [ -n "$CLI_REDIS_PORT_OVERRIDE" ]; then
+    REDIS_BACKUP_DIR="$(default_redis_backup_dir "$REDIS_PROFILE" "$REDIS_PORT")"
+else
+    REDIS_BACKUP_DIR=${REDIS_BACKUP_DIR:-"$(default_redis_backup_dir "$REDIS_PROFILE" "$REDIS_PORT")"}
+fi
 REDIS_DBFILE=${REDIS_DBFILE:-dump.rdb}
 REDIS_PIDFILE="${REDIS_DATA_DIR}/redis-${REDIS_PORT}.pid"
 REDIS_LOGFILE="${REDIS_DATA_DIR}/redis-${REDIS_PORT}.log"
@@ -244,6 +329,11 @@ kill_port() {
             echo "$pids" | xargs kill -9 2>/dev/null || true
             sleep 1
         fi
+        pids=$(lsof -nP -i ":$port" -sTCP:LISTEN -t 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+            echo -e "${RED}  ✗ 端口 $port 仍被占用，无法继续启动 $name${NC}"
+            return 1
+        fi
         echo -e "${GREEN}  ✓ 端口 $port 已释放${NC}"
     fi
 }
@@ -257,7 +347,7 @@ kill_managed_ports() {
         kill_port $preview_gateway_port "Preview Gateway"
     fi
     if [ "${ANTHROPIC_PROXY_ENABLED:-0}" = "1" ]; then
-        kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"
+        [ "${ANTHROPIC_PROXY_ENABLED:-1}" != "0" ] && kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"
     fi
     if [ "${ASR_ENABLED:-0}" = "1" ]; then
         kill_port ${WHISPER_PORT:-9876} "ASR"
@@ -289,6 +379,32 @@ wait_for_port() {
     return 1
 }
 
+wait_for_port_or_exit() {
+    local port=$1
+    local name=$2
+    local pid=$3
+    local max_wait=${4:-15}
+    local elapsed=0
+
+    while [ $elapsed -lt $max_wait ]; do
+        if lsof -nP -i ":$port" -sTCP:LISTEN >/dev/null 2>&1; then
+            echo -e "${GREEN}  ✓ $name 已启动 (端口 $port, ${elapsed}s)${NC}"
+            return 0
+        fi
+
+        if ! kill -0 "$pid" 2>/dev/null; then
+            echo -e "${RED}  ✗ $name 启动失败（进程已退出，端口 $port 未监听）${NC}"
+            return 1
+        fi
+
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    echo -e "${RED}  ✗ $name 启动超时（端口 $port, ${max_wait}s 内未监听）${NC}"
+    return 1
+}
+
 # Sidecar 状态机：disabled → launching → ready | failed
 # 用法: start_sidecar <name> <state_var> <port> <timeout> <launch_cmd...>
 start_sidecar() {
@@ -298,11 +414,37 @@ start_sidecar() {
 
     eval "${state_var}=launching"
     echo "  启动 ${name} (端口 ${port})..."
-    eval "$launch_cmd" &
+    background_eval_with_null_stdin "$launch_cmd"
     if wait_for_port "$port" "$name" "$timeout"; then
         eval "${state_var}=ready"
     else
         eval "${state_var}=failed"
+    fi
+}
+
+# 后台 Node dev 进程（tsx watch / next dev）在 macOS + Node 25 下若继承 TTY stdin，
+# 可能在读取 fd0 时抛出 `TTY.onStreamRead` EIO。统一把后台任务 stdin 切到 /dev/null。
+background_eval_with_null_stdin() {
+    local launch_cmd="$1"
+    (
+        exec </dev/null
+        eval "$launch_cmd"
+    ) &
+}
+
+api_launch_command() {
+    if [ "${CAT_CAFE_DIRECT_NO_WATCH:-0}" = "1" ]; then
+        printf '%s' "cd packages/api && exec pnpm run start"
+    else
+        printf '%s' "cd packages/api && exec pnpm run dev"
+    fi
+}
+
+frontend_launch_command() {
+    if [ "$PROD_WEB" = true ]; then
+        printf 'cd packages/web && PORT=%s exec pnpm exec next start -p %s -H 0.0.0.0' "$WEB_PORT" "$WEB_PORT"
+    else
+        printf 'cd packages/web && NEXT_IGNORE_INCORRECT_LOCKFILE=1 PORT=%s exec pnpm exec next dev -p %s' "$WEB_PORT" "$WEB_PORT"
     fi
 }
 
@@ -378,7 +520,7 @@ prune_redis_backups() {
     local files=()
     while IFS= read -r f; do
         files+=("$f")
-    done < <(ls -1t "$REDIS_BACKUP_DIR"/"${REDIS_PROFILE}"-*.rdb 2>/dev/null || true)
+    done < <(ls -1t "$REDIS_BACKUP_DIR"/"${REDIS_STORAGE_KEY}"-*.rdb 2>/dev/null || true)
 
     if [ "${#files[@]}" -le "$keep" ]; then
         return
@@ -418,9 +560,13 @@ archive_redis_snapshot() {
 
     local stamp
     stamp=$(date '+%Y%m%d-%H%M%S')
-    local target="$REDIS_BACKUP_DIR/${REDIS_PROFILE}-${reason}-${stamp}.rdb"
-    cp -p "$source" "$target"
-    echo -e "${GREEN}  ✓ Redis 快照归档: $target${NC}"
+    local target="$REDIS_BACKUP_DIR/${REDIS_STORAGE_KEY}-${reason}-${stamp}.rdb"
+    if cp -p "$source" "$target" 2>/dev/null || cp "$source" "$target" 2>/dev/null; then
+        echo -e "${GREEN}  ✓ Redis 快照归档: $target${NC}"
+    else
+        echo -e "${YELLOW}  ⚠ Redis 快照归档失败，继续启动: $target${NC}"
+        return 0
+    fi
     prune_redis_backups 20
 }
 
@@ -622,7 +768,7 @@ guard_runtime_redis_sanctuary() {
 
     if [ "$REDIS_PORT" = "6399" ]; then
         echo ""
-        echo -e "${RED}✗ 检测到非 runtime 启动命中 Redis 6399 圣域，已阻止。${NC}"
+        echo -e "${RED}✗ 检测到非 runtime 启动命中 Redis production Redis (sacred)，已阻止。${NC}"
         echo "  6399 只给 runtime/prod-web 使用。普通开发实例默认应走 6398。"
         echo ""
         echo "  正确路径："
@@ -674,7 +820,7 @@ main() {
         if [ -f "scripts/anthropic-proxy.mjs" ]; then
             echo "  启动 Anthropic Proxy (端口 $PROXY_PORT)..."
             PROXY_UPSTREAMS="${ANTHROPIC_PROXY_UPSTREAMS_PATH:-$PROJECT_DIR/.cat-cafe/proxy-upstreams.json}"
-            ANTHROPIC_PROXY_PORT=$PROXY_PORT node scripts/anthropic-proxy.mjs --port $PROXY_PORT --upstreams "$PROXY_UPSTREAMS" &
+            background_eval_with_null_stdin "ANTHROPIC_PROXY_PORT=$PROXY_PORT node scripts/anthropic-proxy.mjs --port $PROXY_PORT --upstreams \"$PROXY_UPSTREAMS\""
             PROXY_PID=$!
             sleep 1
             if kill -0 $PROXY_PID 2>/dev/null; then
@@ -757,18 +903,23 @@ main() {
         fi
     fi
 
+    API_LAUNCH_CMD="$(api_launch_command)"
+    if [ "${CAT_CAFE_DIRECT_NO_WATCH:-0}" = "1" ]; then
+        echo -e "${YELLOW}  ⚠ API 使用非 watch 模式 (CAT_CAFE_DIRECT_NO_WATCH=1)${NC}"
+    fi
+
     # API Server
     echo "  启动 API Server (端口 $API_PORT)..."
-    mkdir -p data/logs/process
-    (cd packages/api && pnpm run dev) 2>> "$PROJECT_DIR/data/logs/process/api-$(date +%Y-%m-%d).log" &
-    sleep 2
+    background_eval_with_null_stdin "$API_LAUNCH_CMD"
+    API_PID=$!
+    wait_for_port_or_exit "$API_PORT" "API Server" "$API_PID" 20 || exit 1
 
     # Frontend
     if [ "$PROD_WEB" = true ]; then
         # Production: next start (PWA + Tailscale 友好)
         echo "  启动 Frontend (端口 $WEB_PORT, production)..."
         if [ -d "packages/web/.next" ]; then
-            (cd packages/web && PORT=$WEB_PORT pnpm exec next start -p $WEB_PORT -H 0.0.0.0) &
+            background_eval_with_null_stdin "$(frontend_launch_command)"
         else
             echo -e "${RED}  ✗ .next 目录不存在，无法以 production 模式启动${NC}"
             echo -e "${RED}    请先不带 --quick 运行以执行 next build${NC}"
@@ -777,9 +928,10 @@ main() {
     else
         # Development: next dev (热重载)
         echo "  启动 Frontend (端口 $WEB_PORT, dev)..."
-        (cd packages/web && NEXT_IGNORE_INCORRECT_LOCKFILE=1 PORT=$WEB_PORT pnpm exec next dev -p $WEB_PORT) &
+        background_eval_with_null_stdin "$(frontend_launch_command)"
     fi
-    sleep 3
+    WEB_PID=$!
+    wait_for_port_or_exit "$WEB_PORT" "Frontend" "$WEB_PID" 30 || exit 1
 
     # 显示存储模式
     if [ -n "$REDIS_URL" ]; then
@@ -801,6 +953,7 @@ main() {
     [ -n "$PROFILE" ] && echo -e "  Profile: ${CYAN}${PROFILE}${NC}"
     echo ""
     print_config_summary
+    print_manual_download_source_summary
     echo ""
     echo "服务地址："
     echo "  - Frontend: http://localhost:$WEB_PORT"

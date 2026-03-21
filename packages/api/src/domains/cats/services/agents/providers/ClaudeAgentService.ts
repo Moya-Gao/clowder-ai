@@ -21,6 +21,7 @@ import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
+import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
@@ -73,7 +74,14 @@ function buildClaudeEnvOverrides(callbackEnv?: Record<string, string>): Record<s
     const apiKey = callbackEnv?.[ANTHROPIC_PROFILE_API_KEY]?.trim();
     const baseUrl = callbackEnv?.[ANTHROPIC_PROFILE_BASE_URL]?.trim();
     if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
-    if (baseUrl) env.ANTHROPIC_BASE_URL = baseUrl;
+    if (baseUrl) {
+      // Claude CLI internally appends /v1 to the base URL.
+      // If the user configured it with /v1 already, strip it to prevent
+      // double /v1/v1 and to avoid the CLI's model validation against
+      // the /v1/models endpoint (which many proxies don't support).
+      const cleanUrl = baseUrl.replace(/\/v1\/?$/, '');
+      env.ANTHROPIC_BASE_URL = cleanUrl;
+    }
   } else if (mode === 'subscription') {
     // Subscription mode: explicitly clear inherited key-based env vars.
     env.ANTHROPIC_API_KEY = null;
@@ -205,10 +213,24 @@ export class ClaudeAgentService implements AgentService {
     };
 
     try {
+      const claudeCommand = resolveCliCommand('claude');
+      if (!claudeCommand) {
+        yield {
+          type: 'error' as const,
+          catId: this.catId,
+          error: formatCliNotFoundError('claude'),
+          metadata,
+          timestamp: Date.now(),
+        };
+        yield { type: 'done' as const, catId: this.catId, metadata, timestamp: Date.now() };
+        return;
+      }
+
       let sawResultError = false;
       const envOverrides = buildClaudeEnvOverrides(options?.callbackEnv);
+
       const cliOpts = {
-        command: 'claude' as const,
+        command: claudeCommand,
         args,
         ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
         env: envOverrides,
