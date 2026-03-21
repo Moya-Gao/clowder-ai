@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "owner": {
+  "coCreator": {
     "name": "Landy",
     "aliases": [
       "L.S.",
@@ -10,7 +10,12 @@
       "@landy",
       "@l.s.",
       "@lysander"
-    ]
+    ],
+    "avatar": "/avatars/owner.jpg",
+    "color": {
+      "primary": "#815b5b",
+      "secondary": "#FFDDD2"
+    }
   },
   "roster": {
     "opus": {
