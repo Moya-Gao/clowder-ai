@@ -337,7 +337,13 @@ async function main(): Promise<void> {
     docsRoot: process.env.DOCS_ROOT ?? resolve(repoRoot, 'docs'),
     transcriptDataDir, // reuse the same resolved path as Writer/Reader (line 282)
     // Gap-1: expose EMBED_MODE env variable (Phase C infra ready, default off for open-source)
-    embed: process.env.EMBED_MODE ? { embedMode: process.env.EMBED_MODE as 'off' | 'shadow' | 'on' } : undefined,
+    // Auto-derive: EMBED_ENABLED=1 implies EMBED_MODE=on (铲屎官不应该设两个变量)
+    embed: (() => {
+      const explicit = process.env.EMBED_MODE;
+      if (explicit) return { embedMode: explicit as 'off' | 'shadow' | 'on' };
+      if (process.env.EMBED_ENABLED === '1') return { embedMode: 'on' as const };
+      return undefined;
+    })(),
     // Phase E-2: message passage indexing — provide a callback that reads thread messages
     messageListFn: async (threadId: string, limit?: number) => {
       const messages = await messageStore.getByThread(threadId, limit ?? 2000, 'default-user');
@@ -412,7 +418,9 @@ async function main(): Promise<void> {
   }
 
   // ── Phase G: Summary Compaction Scheduler ──
-  if (process.env.F102_ABSTRACTIVE === 'on' && memoryServices.indexBuilder) {
+  // Auto-derive: EMBED_ENABLED=1 also enables abstractive (铲屎官只需设一个变量)
+  const abstractiveEnabled = process.env.F102_ABSTRACTIVE === 'on' || process.env.EMBED_ENABLED === '1';
+  if (abstractiveEnabled && memoryServices.indexBuilder) {
     try {
       const { TaskRunner } = await import('./infrastructure/scheduler/TaskRunner.js');
       const { createSummaryCompactionTask } = await import('./domains/memory/SummaryCompactionTask.js');
@@ -438,7 +446,7 @@ async function main(): Promise<void> {
       const db = memoryServices.store.getDb();
       const summaryTask = createSummaryCompactionTask({
         db,
-        enabled: () => process.env.F102_ABSTRACTIVE === 'on',
+        enabled: () => process.env.F102_ABSTRACTIVE === 'on' || process.env.EMBED_ENABLED === '1',
         getThreadLastActivity: async (threadId) => {
           const msgs = await messageStore.getByThread(threadId, 1, 'default-user');
           if (msgs.length === 0) return null;
