@@ -90,6 +90,7 @@ Step 3: 调 API — 让 Hub 前端导航
 | `path` | **是** | 目标文件或目录的相对路径 |
 | `action` | 否 | `reveal`（展开目录树到目标，默认）或 `open`（打开文件查看器） |
 | `worktreeId` | **是** | 指定在哪个 worktree 里导航。API 需要此字段来解析路径 |
+| `threadId` | **建议传** | 当前 thread ID，用于防止多 tab 串扰。传了只有对应 tab 响应 |
 
 ### action 选择
 
