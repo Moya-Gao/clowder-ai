@@ -9,7 +9,7 @@ community_issue: "#109"
 
 # F127: 猫猫管理重构 — 账户配置与猫猫实例分离，支持动态创建猫 + 自定义别名 @ 路由
 
-> **Status**: spec | **Owner**: 待定 | **Priority**: P1
+> **Status**: in-progress (intake done) | **Owner**: 金渐层 + 砚砚 | **Priority**: P1
 
 ## Why
 
@@ -192,6 +192,7 @@ community_issue: "#109"
 | 日期 | 事件 |
 |------|------|
 | 2026-03-17 | 立项 — 社区 issue #109 驱动，F127 聚合文件创建 |
+| 2026-03-21 | Intake 完成 — clowder-ai PR #130 吸收到 cat-cafe PR #626（149 files, +27285/-2031），squash merged to main |
 
 ## Review Gate
 
@@ -203,6 +204,9 @@ community_issue: "#109"
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Community Issue** | [clowder-ai#109](https://github.com/zts212653/clowder-ai/issues/109) | 社区需求源 |
+| **Community PR** | [clowder-ai#130](https://github.com/zts212653/clowder-ai/pull/130) | 社区实现（已 intake） |
+| **Intake PR** | [cat-cafe#626](https://github.com/zts212653/cat-cafe/pull/626) | 吸收到家里 — squash merged |
+| **Internal Issue** | [cat-cafe#621](https://github.com/zts212653/cat-cafe/issues/621) | 家里 intake 跟踪 issue |
 | **Evolved from** | `docs/features/F062-ragdoll-provider-profile-hub.md` | 布偶猫 provider profile（Anthropic-only） |
 | **Related** | `docs/features/F032-agent-plugin-architecture.md` | CatRegistry 基础架构 |
 | **Related** | `docs/features/F050-a2a-external-agent-onboarding.md` | 外部 Agent 接入 |
