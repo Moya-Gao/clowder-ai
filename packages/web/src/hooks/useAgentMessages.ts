@@ -313,11 +313,7 @@ export function useAgentMessages() {
     const finalizedId = finalizedStreamRef.current.get(catId);
     if (finalizedId) {
       const finalized = currentMessages.find(
-        (m) =>
-          m.id === finalizedId &&
-          m.type === 'assistant' &&
-          m.catId === catId &&
-          m.origin === 'stream',
+        (m) => m.id === finalizedId && m.type === 'assistant' && m.catId === catId && m.origin === 'stream',
       );
       if (finalized) {
         return { id: finalized.id };

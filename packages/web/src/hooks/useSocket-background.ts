@@ -195,11 +195,7 @@ function findBackgroundCallbackReplacementTarget(
   const finalizedId = options.finalizedBgRefs.get(streamKey);
   if (finalizedId) {
     const finalized = threadMessages.find(
-      (m) =>
-        m.id === finalizedId &&
-        m.type === 'assistant' &&
-        m.catId === msg.catId &&
-        m.origin === 'stream',
+      (m) => m.id === finalizedId && m.type === 'assistant' && m.catId === msg.catId && m.origin === 'stream',
     );
     if (finalized) {
       return { id: finalized.id, invocationId: invocationId ?? null };
