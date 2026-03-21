@@ -489,7 +489,7 @@ search_evidence(query, {
 - 跨项目检索（在 dare 里搜 cat-cafe 的教训）
 - frontmatter 自动补全工具
 
-### Phase G: Abstractive Summary + Durable Memory Lifecycle（待实现）
+### Phase G: Abstractive Summary + Durable Memory Lifecycle（🚧 基础设施已合入，运行时验收中）
 
 > **触发**：铲屎官发起 Lossless Claw（LCM）调研，三猫（opus + opencode + gpt52）协作对比 LC 与 session chain / F102，收敛出可学习的改进点。
 > **调研文档**：[Lossless Claw vs Session Chain 调研](../research/2026-03-19-lossless-claw-session-chain-comparison.md)
@@ -1033,10 +1033,15 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 | 2026-03-19 | 铲屎官挑战：猫出征新项目/遗留项目时记忆如何构建 |
 | 2026-03-19 | KD-35/36：两种策略（新项目家规引导 + 遗留项目通用扫描 + frontmatter formatter） |
 | 2026-03-19 | Phase F spec 写入：多项目记忆 + 全局知识层 |
+| 2026-03-19 | Lossless Claw 调研 → Phase G spec → 三猫收敛（KD-37~43） |
+| 2026-03-20 | 铲屎官打回 seal 绑定 → thread-based + 定时任务 + LSM compaction |
+| 2026-03-20 | Phase G foundation 实现：Schema V4 + TaskRunner + SummaryCompactionTask + Opus API client |
+| 2026-03-20 | 砚砚 review 4 轮（8 findings：watermark/budget/append-level/validation/backlog/coverage/cooldown/volume） |
+| 2026-03-21 | **PR #604 squash merged** — Phase G foundation ✅ (168 tests) |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成（19+8 AC，13+ PRs）。Phase F/G + Gap-1~3 待实现。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation 🚧 已合入（PR #604）。Phase F + G 运行时验收 + Gap-1 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序
@@ -1097,6 +1102,7 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 
 - Phase A: 跨 family review（缅因猫优先）— 接口设计需要多方确认
 - Phase B: 同 family review（布偶猫 Sonnet 可）— 实现层面
+- Phase G foundation: 砚砚(GPT-5.4) review 4 轮放行 — 8 findings 全部闭环（PR #604）
 
 ## Links
 
