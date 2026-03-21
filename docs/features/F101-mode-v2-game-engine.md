@@ -219,6 +219,20 @@ reopened: 2026-03-14
 - messageStore 注入 GameAutoPlayer（3 处）用于 H4 对话上下文
 - 237 tests（+2 new regression guards）
 
+### Phase I（Agent-Driven Game — 猫猫真正玩游戏）🚧
+
+铲屎官 2026-03-20 批评：当前 `GameAutoPlayer` + `LlmAIProvider` 只是裸调 LLM API，猫猫根本不知道自己在玩游戏。三猫（金渐层诊断 + 布偶猫架构 + 缅因猫审查）一致同意重做驱动层。
+
+- [ ] AC-I1: 猫猫通过 A2A mention 协议（`post_message` → dispatch → CLI `--resume`）参与游戏，不再裸调 HTTP API
+- [ ] AC-I2: GameNarrator 发叙事消息到游戏 thread（天黑请闭眼 → 守卫请睁眼 → ...），可见节奏
+- [ ] AC-I3: 首次唤醒 Briefing — 猫猫收到完整上下文：身份、队友（如有）、存活状况、行动指引、规则约束
+- [ ] AC-I4: 后续 Resume Capsule — 猫猫收到上轮摘要：谁死了、谁说了什么、上轮自己做了什么、当前约束
+- [ ] AC-I5: Session seal 后 re-briefing — 如果 CLI session 因上下文溢出被 seal，新 session 注入完整 resume capsule
+- [ ] AC-I6: 讨论环节顺序发言 — 按座位序轮流 @猫猫，后发言者能看到前面猫说了什么
+- [ ] AC-I7: 时限从固定相位超时改为每角色预算制（夜晚 45s/角色，讨论 30s/发言者，投票 20s/投票者）+ 全局单局 30min 天花板
+- [ ] AC-I8: `GameDriver` 接口兼容层 — `GameAutoPlayer` 包装为 `LegacyAutoDriver`，新 `GameNarratorDriver` 实现同接口，feature flag 切换
+- [ ] AC-I9: 端到端验证 — 7 人局完整跑通，猫猫 CLI agent 真正接入，叙事流可观
+
 ### Phase H1+H2（报幕层 + 模板发言 + messageStore 双写）✅
 
 - [x] AC-H1: 天亮公告 — `day_announce` 阶段产出 `scope: 'public'` 的 dawn_announce 事件 + messageStore 双写
@@ -293,6 +307,9 @@ reopened: 2026-03-14
 | R20 | "太不透明了…真的有输出吗？几乎秒行动" | AC-F3, AC-F8 | manual + screenshot | [ ] |
 | R21 | "到底我们现在是出bug了还是猫猫在吗了" | AC-F8, AC-F7 | manual | [ ] |
 | R22 | "票数一样就随机？可以一直改票？以timeout为准？全部commit？" | AC-F4, AC-F5 | test + manual | [ ] |
+| R23 | "猫猫 agent 都没接入！能不能想想看人类是如何玩狼人杀的！天黑请闭眼→等待谁行动→真的调 AI Agent" | AC-I1~I9 | E2E + manual | [ ] |
+| R24 | "第一次拉起来要告诉身份/队友/状态/怎么行动" | AC-I3 | test | [ ] |
+| R25 | "后面 resume 要告诉别人现在什么样子" | AC-I4, AC-I5 | test | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -382,6 +399,12 @@ reopened: 2026-03-14
 | KD-26 | 白天投票实名公开（实时可见） | 铲屎官："要公开吧？这是推理的重要信息" | 2026-03-16 |
 | KD-27 | 狼队 faction channel 讨论 — 只在夜间，讨论时间需考虑猫猫 LLM 响应速度 | 铲屎官确认要做，担心猫猫"大屁股太慢了"讨论不完 | 2026-03-16 |
 | KD-28 | 狼队讨论 30s + 投票在同一阶段；首回合 grace：布偶猫 +6s / 缅因猫 +12s / 暹罗猫 +30s | 铲屎官确认 30s 可以，"走起" | 2026-03-16 |
+| KD-29 | 猫猫通过 A2A mention 协议参与游戏，不再裸调 HTTP API | 铲屎官批评"猫猫 agent 都没接入"——`LlmAIProvider` 只是无状态 HTTP 调 LLM，猫猫根本不知道自己在玩游戏。三猫（金渐层诊断 + 布偶猫架构 + 缅因猫审查）一致同意 | 2026-03-20 |
+| KD-30 | 保留 WerewolfEngine 规则引擎，只重写驱动层（GameAutoPlayer → GameNarratorDriver） | 规则核 + 信息隔离层 + 事件日志已验证，只有"谁来驱动猫猫行动"需要重做 | 2026-03-20 |
+| KD-31 | 驱动契约兼容层 — 抽 `GameDriver` 接口，新旧 driver 实现同契约，feature flag 切换 | 砚砚审查发现 `GameAutoPlayer` 被 routes/startup/recovery 硬依赖，直删会破主流程（P1 风险） | 2026-03-20 |
+| KD-32 | 时限从固定相位超时改为每角色预算制 | 砚砚审查发现顺序唤醒猫猫（30-60s/只）会和当前固定 180s/120s 相位超时冲突，导致误 fallback（P1 风险） | 2026-03-20 |
+| KD-33 | 复用现有 `invoke-single-cat.ts` session 管理，同 thread = 同 session chain（自动 resume） | 铲屎官提醒"CLI new session vs resume 别搞错"——游戏在独立 thread，`sessionManager.get(userId, catId, threadId)` 天然按 thread 隔离 session | 2026-03-20 |
+| KD-34 | Session seal 后必须注入完整 re-briefing（不假设猫猫还记得） | resume 时默认不注入 systemPrompt，briefing 放在消息内容里；session seal 后新 session 需完整 resume capsule | 2026-03-20 |
 
 ## 头像系统调查（KD-14 依据）
 
@@ -459,6 +482,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-17 | **Phase H 立项** — 铲屎官实测：1s 出全部结果/无天亮公告/发言空壳/消息无承载。三层架构设计（报幕层 + AI 行动层 + 发言层） |
 | 2026-03-19 | Phase H1+H2 merged (PR #576) — announce layer + template speech + messageStore dual-write + phase order fix + observerUserId fix (codex 6-round local review) |
 | 2026-03-19 | Phase H3+H4 merged (PR #577) — LLM AI bridge + AI speech with messageStore context + phase+role whitelist + route-level tests (codex 3-round local review) |
+| 2026-03-20 | **Phase I 立项** — 铲屎官批评猫猫 agent 未接入。三猫讨论（金渐层诊断 + 布偶猫架构 + 缅因猫审查）收敛：保留引擎层，重写驱动层为 A2A mention 协议，复用现有 session 管理。KD-29~34 |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
