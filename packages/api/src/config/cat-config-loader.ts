@@ -237,9 +237,59 @@ function readConfigWithFallback(projectRoot: string, templatePath: string): stri
 }
 
 /**
+ * Deep merge two plain objects. `overlay` fields override `base` fields.
+ * - Objects: recursively merged (base fields preserved if absent from overlay).
+ * - Arrays of objects with `id`: key-based merge (matched by id, then deep-merged).
+ *   Overlay-only items appended; base-only items preserved.
+ * - Other arrays / primitives: overlay replaces base.
+ */
+function deepMergeConfig(base: Record<string, unknown>, overlay: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...base };
+  for (const key of Object.keys(overlay)) {
+    const bVal = base[key];
+    const oVal = overlay[key];
+    if (Array.isArray(oVal) && Array.isArray(bVal) && oVal.length > 0 && isIdArray(oVal) && isIdArray(bVal)) {
+      merged[key] = mergeById(bVal as HasId[], oVal as HasId[]);
+    } else if (isPlainObject(oVal) && isPlainObject(bVal)) {
+      merged[key] = deepMergeConfig(bVal as Record<string, unknown>, oVal as Record<string, unknown>);
+    } else {
+      merged[key] = oVal;
+    }
+  }
+  return merged;
+}
+
+type HasId = Record<string, unknown> & { id: string };
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function isIdArray(arr: unknown[]): arr is HasId[] {
+  return arr.length > 0 && arr.every((item) => isPlainObject(item) && typeof (item as Record<string, unknown>).id === 'string');
+}
+
+function mergeById(base: HasId[], overlay: HasId[]): HasId[] {
+  const baseMap = new Map(base.map((item) => [item.id, item]));
+  const seen = new Set<string>();
+  const result: HasId[] = [];
+  for (const oItem of overlay) {
+    seen.add(oItem.id);
+    const bItem = baseMap.get(oItem.id);
+    result.push(bItem ? (deepMergeConfig(bItem, oItem) as HasId) : oItem);
+  }
+  // Preserve base-only items (new items added to cat-config.json but not yet in catalog)
+  for (const bItem of base) {
+    if (!seen.has(bItem.id)) result.push(bItem);
+  }
+  return result;
+}
+
+/**
  * Load and validate the resolved cat config source.
  * Explicit filePath reads that file directly.
- * Default resolution uses `.cat-cafe/cat-catalog.json` first, then falls back to repo-root `cat-template.json`.
+ * Default resolution: cat-config.json is the base, .cat-cafe/cat-catalog.json is a delta overlay.
+ * Catalog fields override config fields (deep merge); config fields absent from catalog are preserved.
  */
 export function loadCatConfig(filePath?: string): CatCafeConfig {
   let raw: string;
@@ -256,7 +306,11 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
     const projectRoot = dirname(templatePath);
     const catalogRaw = readCatCatalogRaw(projectRoot);
     if (catalogRaw !== null) {
-      raw = catalogRaw;
+      // Catalog exists — use cat-config.json as base, catalog as overlay
+      const baseRaw = readConfigWithFallback(projectRoot, templatePath);
+      const baseJson = JSON.parse(baseRaw) as Record<string, unknown>;
+      const catalogJson = JSON.parse(catalogRaw) as Record<string, unknown>;
+      raw = JSON.stringify(deepMergeConfig(baseJson, catalogJson));
       resolvedPath = resolveCatCatalogPath(projectRoot);
     } else {
       raw = readConfigWithFallback(projectRoot, templatePath);
