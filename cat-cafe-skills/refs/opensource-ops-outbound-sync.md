@@ -11,7 +11,30 @@
 - cat-cafe 积累了多个改动，需要批量 sync 到 clowder-ai
 - 铲屎官要求同步
 
-### Step 1: Pre-sync Gate `[cat-cafe]`
+### Step 1: Baseline Verification `[cat-cafe]`
+
+同步前必须确认源仓代码基线健康。**红灯不出门。**
+
+```bash
+# 1a. 拉取最新 remote main（确保基线是最新的）
+git pull --ff-only origin main
+
+# 1b. 跑全量单元测试（红灯 = 阻塞同步）
+pnpm test
+
+# 1c. 静态检查（biome + tsc）
+pnpm check && pnpm lint
+
+# 1d. 构建验证（确保 build 不挂）
+pnpm --filter @cat-cafe/shared build && pnpm --filter @cat-cafe/api build
+```
+
+**任何一步失败 → 修复后再回来。不允许带红灯同步。**
+
+> 为什么：全量同步的 Step 6 会在目标仓跑 post-sync validation（install + check + lint + build + test:public），
+> 如果源仓 UT 本身就红了，目标仓大概率也红 → 白白浪费一次同步流水线。
+
+### Step 2: Pre-sync Gate `[cat-cafe]`
 
 ```bash
 # 完整同步（含 dry-run 预览）
@@ -28,7 +51,7 @@ Pre-sync gate 检查：
 - merge commit 不在 `entries[]` 里：说明真的没做 intake record
 - merge commit 已在 `entries[]` 里：说明 record 做了，但 `last_reviewed_target_head` 还没推进，先跑 `bash scripts/intake-from-opensource.sh --advance-ledger`
 
-### Step 2: Diff Preview `[cat-cafe]`
+### Step 3: Diff Preview `[cat-cafe]`
 
 Dry-run 会输出：
 - 新增 / 更新 / 删除的文件数
@@ -36,7 +59,7 @@ Dry-run 会输出：
 
 **确认 diff 无问题后再继续。**
 
-### Step 3: 执行 Sync `[cat-cafe]`
+### Step 4: 执行 Sync `[cat-cafe]`
 
 ```bash
 # 带验证的完整同步
@@ -70,14 +93,14 @@ bash scripts/publish-sync-tag.sh \
 - 这会在 `cat-cafe` 与 `clowder-ai` 两边创建并 push 同名 `sync/YYYY-MM-DD-HHMMSS` tag
 - 这个 tag 记录的是“哪一个 cat-cafe commit 被同步出去，以及它在 clowder-ai 上对应的 merge commit”
 
-### Step 4: Post-sync Validation `[clowder-ai]`
+### Step 5: Post-sync Validation `[clowder-ai]`
 
 脚本会自动验证：
 - `pnpm install` 成功
 - `pnpm check` + `pnpm lint` 通过
 - 端口可访问
 
-### Step 5: PR 记录 `[clowder-ai]` 🔴
+### Step 6: PR 记录 `[clowder-ai]` 🔴
 
 **铲屎官要求（KD-6）：PR body 必须列清同步了什么。**
 
@@ -111,11 +134,11 @@ PR body 模板：
 git log --oneline {last_sync_tag}..HEAD --grep="feat\|fix\|refactor\|docs"
 ```
 
-### Step 6: Commit + Push `[clowder-ai]`
+### Step 7: Commit + Push `[clowder-ai]`
 
 脚本通常会自动创建 sync commit，但 PR 需要手动创建或由脚本触发。
 
-### Step 7: Post-Sync Community Reconciliation 🔴
+### Step 8: Post-Sync Community Reconciliation 🔴
 
 **全量同步完成 ≠ 发布闭环完成。** Sync PR merge 后，必须做社区侧复核收口。
 
