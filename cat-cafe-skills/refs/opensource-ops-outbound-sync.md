@@ -129,39 +129,44 @@ bash scripts/publish-sync-tag.sh \
 
 #### Step 5.5: Post-sync Test Fix `[clowder-ai]`（仅当目标仓 UT 红灯时）
 
-**即使源仓基线绿了，sanitizer 转换仍可能引入目标仓 UT 红灯。** 常见原因：
+> **⚠️ 黄金法则：家里绿、社区红 → 先查同步管道，再动测试文件！**
+>
+> 如果 cat-cafe main 全绿，但 clowder-ai 同步后有红灯，**第一反应不是在 clowder-ai 手动修测试**，
+> 而是检查 `scripts/_sanitize-rules.pl` 的转换规则是否有 bug。
+>
+> **判断方法：** `diff` 对比 cat-cafe 和 clowder-ai 的红灯测试文件：
+> - 如果 diff 显示 sanitizer 把值改坏了（路径截断/URL 变占位符/品牌名漏转/端口漏转）→ **修 sanitizer 规则**
+> - 如果 diff 为空（文件完全一样）→ 可能是环境差异或 pre-existing，可以手修目标仓
+>
+> **只手修 clowder-ai = 重复劳动**——下次全量同步会再产生同样的红灯。
+> **修 sanitizer 规则 = 一次修好永远绿**。
 
-| 类别 | 根因 | 示例 |
+**即使源仓基线绿了，sanitizer 转换仍可能引入目标仓 UT 红灯。** 常见 sanitizer bug 类别：
+
+| 类别 | sanitizer 规则缺陷 | 修复目标 |
 |------|------|------|
-| **路径截断** | sanitizer 把 `/Users/dev/my-project` 缩成 `/home/user`，丢失末段 | test 断言 `projectDisplayName` 返回 `'my-project'` 但实际得到 `'user'` |
-| **Placeholder URL** | sanitizer 把有效 URL 替换成人类可读文本 | `http://127.0.0.1:3002` → `'your local Clowder API URL'`，`new URL()` 抛 `ERR_INVALID_URL` |
-| **裸端口号** | sanitizer 只匹配 `localhost:3001` 模式，漏了数组里的裸端口 | `DEFAULT_EXCLUDED_PORTS = [3001, 3002]` 未被转换为 `[3003, 3004]` |
-| **品牌名遗漏** | sanitizer 排除 test 文件的品牌转换，但 test 断言检查了已转换的源码输出 | test 期望 `'Cat Café Hub'` 但源码已变成 `'Clowder AI Hub'` |
-| **console→pino** | 源码 `console.*` 被转为 pino `log.*`，但 test mock 仍拦截 `console.*` | `assert.ok(console.error.mock.callCount() > 0)` 永远是 0 |
+| **路径截断** | `/Users/` 正则贪婪匹配吞掉末段：`/Users/dev/my-project` → `/home/user` | 保留最末路径段：`→ /home/user/my-project` |
+| **Placeholder URL** | `http://127.0.0.1:3002` 被替换成文本 `'your local Clowder API URL'` 而非有效 URL | 在测试/源码中替换为 `http://127.0.0.1:3004`，占位符只用于 docs |
+| **品牌名跳过测试** | `if` 条件 `$ARGV !~ m{/__tests__/\|\.test\.}` 跳过了测试文件的品牌转换 | 移除测试排除条件，或对需要转换的测试单独加规则 |
+| **裸端口号** | 只匹配 `localhost:3001` 模式，漏了数组/注释里的裸 `3001` | 在端口 remap 区域加裸数字或上下文感知规则 |
+| **console→pino** | 非 sanitizer 问题——源码日志迁移导致 test mock 失效 | 在 cat-cafe 源码修（行为断言），不是 sanitizer 的责任 |
 
-**修复流程：**
+**修复流程（优先修管道，兜底修目标仓）：**
 
 ```bash
-# 1. 在 clowder-ai sync 分支上跑全量 UT
-cd $CLOWDER_AI_DIR
-pnpm test  # 看哪些红了
+# 1. 对比红灯文件，定位是 sanitizer bug 还是其他原因
+diff cat-cafe/<path> clowder-ai/<path>
 
-# 2. 逐个修复（对照 cat-cafe 源文件理解原始意图）
-#    - 路径截断 → 补全路径段
-#    - placeholder URL → 改成有效 URL (http://127.0.0.1:3004)
-#    - 裸端口号 → 修改源码或测试
-#    - console→pino → 改用行为断言
+# 2a. 如果是 sanitizer bug → 在 cat-cafe 修 _sanitize-rules.pl
+#     走 worktree + PR 流程，合入 main 后重新同步
+#     这样下次同步自动绿
 
-# 3. 修完后确认全量 UT 绿
+# 2b. 如果确实是目标仓特有问题 → 在 clowder-ai sync 分支上修
+#     追加 commit 到 sync 分支
+
+# 3. 无论哪种，修完后确认全量 UT 绿
 pnpm test  # 必须全绿（Redis 依赖的除外）
-
-# 4. 修复 commit 追加到 sync 分支
-git add -A && git commit -m "fix: post-sync test fixes for sanitizer transform gaps"
 ```
-
-**同时回流修复 sanitizer：** 如果发现 sanitizer 规则有 bug（如路径截断、placeholder URL），
-**必须在 cat-cafe 侧修复 `_sanitize-rules.pl`**，这样下次同步不会再产生同样的问题。
-sanitizer 修复走单独的 PR，不阻塞当前同步。
 
 ### Step 6: PR 记录 `[clowder-ai]` 🔴
 
