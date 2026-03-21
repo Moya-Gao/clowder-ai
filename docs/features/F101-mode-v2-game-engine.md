@@ -406,6 +406,8 @@ reopened: 2026-03-14
 | KD-33 | 复用现有 `invoke-single-cat.ts` session 管理，同 thread = 同 session chain（自动 resume） | 铲屎官提醒"CLI new session vs resume 别搞错"——游戏在独立 thread，`sessionManager.get(userId, catId, threadId)` 天然按 thread 隔离 session | 2026-03-20 |
 | KD-34 | Session seal 后必须注入完整 re-briefing（不假设猫猫还记得） | resume 时默认不注入 systemPrompt，briefing 放在消息内容里；session seal 后新 session 需完整 resume capsule | 2026-03-20 |
 | KD-35 | Resume capsule = 导航指引 + 关键摘要 + 搜索提示，不做全量状态 dump | 铲屎官指出猫猫有 MCP 搜索 thread 能力（search_evidence / get_thread_context / read_session_events）。Resume 时给关键信息（身份/阶段/存活）+ 提示猫猫主动搜索 thread 历史恢复策略记忆。这考验每只猫的搜索和上下文恢复能力——更像人类凭记忆+回忆玩游戏 | 2026-03-20 |
+| KD-36 | 信息隔离 = 心里话模式（`thinkingMode: 'play'`），不需要额外 MCP 权限层 | 铲屎官指出：CLI 内 = 心里话（`origin: 'stream'`，play 模式不 broadcast），`post_message` = 说话（`origin: 'callback'`，进入 thread）。游戏 thread 全程 play 模式，猫猫内心推理天然私密，只有 post_message 发出的才是公开/定向消息。比"三层 MCP 过滤"优雅得多 | 2026-03-20 |
+| KD-37 | 游戏 thread 不入 evidence 索引 | 铲屎官指出：写代码的猫搜狼人杀搜出游戏内容很奇怪。`threadListFn` 应过滤 `projectPath.startsWith('games/')` 的 thread，不送入 IndexBuilder | 2026-03-20 |
 
 ## 头像系统调查（KD-14 依据）
 
