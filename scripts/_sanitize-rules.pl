@@ -70,8 +70,19 @@ s#/Users/[^\s,"'}\]/]+#/home/user#g;
 # ── BACKLOG.md → ROADMAP.md (source + test files) ──
 # The actual file is renamed by sync-to-opensource.sh (docs/BACKLOG.md → docs/ROADMAP.md).
 # All code references must follow suit so gitShowFile / readBacklogContent find the right file.
+#
+# IMPORTANT: Only transform the docs/-prefixed path, NOT bare 'BACKLOG.md'.
+# Bare references are used by governance templates (methodology-templates.ts) and
+# test fixtures (governance-bootstrap.test.js, backlog-routes.test.js) for scaffolding
+# new projects — those MUST stay as BACKLOG.md.
+#
+# Three patterns to catch:
+#   1. 'docs/BACKLOG.md'  → 'docs/ROADMAP.md'  (string path literals)
+#   2. 'docs', 'BACKLOG.md' → 'docs', 'ROADMAP.md'  (join(root, 'docs', 'BACKLOG.md'))
+#   3. Comments mentioning docs/BACKLOG.md also get updated for consistency
 if ($ARGV =~ m{\.(tsx?|js)$}) {
-  s/BACKLOG\.md/ROADMAP.md/g;
+  s#docs/BACKLOG\.md#docs/ROADMAP.md#g;
+  s#'docs', 'BACKLOG\.md'#'docs', 'ROADMAP.md'#g;
 }
 
 # ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test files) ──
