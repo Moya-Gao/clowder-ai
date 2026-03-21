@@ -26,7 +26,7 @@ function resolveMessageTtlSeconds(): number | undefined {
 
 export function createMessageStore(
   redis?: RedisClient,
-  options?: { onAppend?: (msg: { id: string; threadId: string; timestamp: number }) => void },
+  options?: { onAppend?: (msg: { id: string; threadId: string; timestamp: number; content: string }) => void },
 ): AnyMessageStore {
   if (redis) {
     const ttlSeconds = resolveMessageTtlSeconds();

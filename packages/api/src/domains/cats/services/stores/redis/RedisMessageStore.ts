@@ -37,11 +37,14 @@ export class RedisMessageStore {
   /** null means no expiration/pruning (persistent retention). */
   private readonly ttlSeconds: number | null;
   /** F102 KD-34: Listener called after every successful append (fire-and-forget) */
-  onAppend?: (msg: Pick<StoredMessage, 'id' | 'threadId' | 'timestamp'>) => void;
+  onAppend?: (msg: Pick<StoredMessage, 'id' | 'threadId' | 'timestamp' | 'content'>) => void;
 
   constructor(
     redis: RedisClient,
-    options?: { ttlSeconds?: number; onAppend?: (msg: Pick<StoredMessage, 'id' | 'threadId' | 'timestamp'>) => void },
+    options?: {
+      ttlSeconds?: number;
+      onAppend?: (msg: Pick<StoredMessage, 'id' | 'threadId' | 'timestamp' | 'content'>) => void;
+    },
   ) {
     this.redis = redis;
     this.onAppend = options?.onAppend;
