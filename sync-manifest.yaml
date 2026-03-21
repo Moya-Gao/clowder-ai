@@ -44,6 +44,7 @@ managed_files:
 # CI/构建脚本
 managed_scripts:
   - scripts/check-dir-size.sh
+  - scripts/download-source-overrides.sh
   - scripts/start-dev.sh
   - scripts/start-dev-profile-isolation.test.mjs
   - scripts/check-feature-truth.mjs

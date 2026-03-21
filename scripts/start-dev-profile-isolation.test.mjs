@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 
 const ROOT = resolve(process.cwd());
+const SYNC_SCRIPT = resolve(ROOT, 'scripts/sync-to-opensource.sh');
 
 function createSandbox(envFile = '') {
   const dir = mkdtempSync(join(tmpdir(), 'cc-start-dev-profile-'));
@@ -106,9 +107,9 @@ describe('start-dev strict profile isolation', () => {
   });
 });
 
-describe('sync-to-opensource public launch transforms', () => {
+describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC_SCRIPT) }, () => {
   it('exports opensource-pinned direct launch wrappers and runtime startup', () => {
-    const result = spawnSync('bash', ['scripts/sync-to-opensource.sh', '--dry-run', '--yes'], {
+    const result = spawnSync('bash', [SYNC_SCRIPT, '--dry-run', '--yes'], {
       cwd: ROOT,
       env: {
         ...process.env,
@@ -139,6 +140,7 @@ describe('sync-to-opensource public launch transforms', () => {
         'node --test scripts/start-dev-profile-isolation.test.mjs',
       );
       assert.match(pkg.scripts.check, /check:start-profile-isolation/);
+      assert.equal(existsSync(resolve(exportDir, 'scripts/download-source-overrides.sh')), true);
       assert.equal(existsSync(resolve(exportDir, 'scripts/start-dev-profile-isolation.test.mjs')), true);
 
       assert.match(
