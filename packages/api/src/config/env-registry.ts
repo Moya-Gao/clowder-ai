@@ -695,6 +695,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'EMBED_URL',
+    defaultValue: 'http://127.0.0.1:9880',
+    description: 'Embedding 服务地址（独立 Python GPU 进程 scripts/embed-api.py）',
+    category: 'evidence',
+    sensitive: false,
+  },
+  {
     name: 'EVIDENCE_DB',
     defaultValue: '{repoRoot}/evidence.sqlite',
     description: 'F102 SQLite 数据库路径',

@@ -176,6 +176,8 @@ export ANTHROPIC_PROXY_ENABLED=0
 export ASR_ENABLED=0
 export TTS_ENABLED=0
 export LLM_POSTPROCESS_ENABLED=0
+export EMBED_ENABLED=0
+export EMBED_MODE=off
 EOF
 }
 
@@ -207,6 +209,8 @@ apply_alpha_env() {
   export ASR_ENABLED=0
   export TTS_ENABLED=0
   export LLM_POSTPROCESS_ENABLED=0
+  export EMBED_ENABLED=0
+  export EMBED_MODE=off
 }
 
 migrate_legacy_alpha_worktree() {
