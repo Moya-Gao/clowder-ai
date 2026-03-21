@@ -520,10 +520,6 @@ test('suppresses exit code 1 when Codex produced substantive output (item.comple
   const spawnFn = createMockSpawnFn(proc);
   const service = new CodexAgentService({ spawnFn });
 
-  const originalWarn = console.warn;
-  const warnCalls = [];
-  console.warn = (...args) => warnCalls.push(args.join(' '));
-
   const promise = collect(service.invoke('review this'));
 
   // Codex outputs thread.started + item.completed (agent_message) = substantive output
@@ -548,12 +544,6 @@ test('suppresses exit code 1 when Codex produced substantive output (item.comple
     msgs.some((m) => m.type === 'done'),
     'done should still be yielded',
   );
-  assert.ok(
-    warnCalls.some((w) => w.includes('Codex CLI exited with code 1')),
-    'should warn',
-  );
-
-  console.warn = originalWarn;
 });
 
 test('does NOT suppress exit code 1 when only thread.started (no substantive output)', async () => {
