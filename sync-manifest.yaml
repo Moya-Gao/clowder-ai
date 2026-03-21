@@ -45,6 +45,7 @@ managed_files:
 managed_scripts:
   - scripts/check-dir-size.sh
   - scripts/start-dev.sh
+  - scripts/start-dev-profile-isolation.test.mjs
   - scripts/check-feature-truth.mjs
   - scripts/check-env-port-drift.test.mjs
   - scripts/generate-feature-index.mjs

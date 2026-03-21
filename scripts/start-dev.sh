@@ -32,7 +32,7 @@
 set -e
 set -o pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
@@ -62,6 +62,19 @@ done
 
 # 加载环境变量 (放最前面，后续函数需要端口号)
 # 默认读取 .env；.env.local 仅用于 DARE 相关白名单键，避免全量覆盖引发配置漂移。
+clear_inherited_profile_env() {
+    [ "${CAT_CAFE_STRICT_PROFILE_DEFAULTS:-0}" = "1" ] || return 0
+    [ -n "$PROFILE" ] || return 0
+
+    # Public direct-launch wrappers may inherit a dev shell from another checkout.
+    # Clear only profile-controlled vars, then let .env re-apply explicit overrides.
+    unset ANTHROPIC_PROXY_ENABLED ASR_ENABLED TTS_ENABLED LLM_POSTPROCESS_ENABLED EMBED_ENABLED
+    unset MESSAGE_TTL_SECONDS THREAD_TTL_SECONDS TASK_TTL_SECONDS SUMMARY_TTL_SECONDS
+    unset REDIS_PROFILE
+}
+
+clear_inherited_profile_env
+
 if [ -f .env ]; then
     set -a
     source .env

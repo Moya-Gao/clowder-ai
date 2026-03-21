@@ -697,6 +697,26 @@ if [ -f "$FILTERED_DIR/scripts/start-dev.sh" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
+# 3k-3a1: package.json — public direct-launch wrappers pin opensource profile
+if [ -f "$FILTERED_DIR/package.json" ]; then
+  node - "$FILTERED_DIR/package.json" <<'PACKAGE_JSON_TRANSFORM_EOF'
+const fs = require('fs');
+const path = process.argv[2];
+const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+pkg.scripts["start:direct"] =
+  "CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 CAT_CAFE_RESPECT_DOTENV_PORTS=1 CAT_CAFE_DIRECT_NO_WATCH=1 ./scripts/start-dev.sh --prod-web --profile=opensource";
+pkg.scripts["dev:direct"] =
+  "CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 CAT_CAFE_RESPECT_DOTENV_PORTS=1 ./scripts/start-dev.sh --profile=opensource";
+pkg.scripts["check:start-profile-isolation"] = "node --test scripts/start-dev-profile-isolation.test.mjs";
+if (!pkg.scripts.check.includes("pnpm check:start-profile-isolation")) {
+  pkg.scripts.check += " && pnpm check:start-profile-isolation";
+}
+fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
+PACKAGE_JSON_TRANSFORM_EOF
+  echo "  ✓ package.json (public direct-launch wrappers + profile isolation check)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 # 3k-3a2: setup.sh — generated .env uses home ports; transform to open-source defaults
 if [ -f "$FILTERED_DIR/scripts/setup.sh" ]; then
   sedi \
@@ -744,8 +764,9 @@ fi
 if [ -f "$FILTERED_DIR/scripts/runtime-worktree.sh" ]; then
   sedi \
     -e 's/API_SERVER_PORT:-3002/API_SERVER_PORT:-3004/g' \
+    -e 's#exec \./scripts/start-dev\.sh --prod-web #exec env CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 ./scripts/start-dev.sh --prod-web --profile=opensource #g' \
     "$FILTERED_DIR/scripts/runtime-worktree.sh"
-  echo "  ✓ runtime-worktree.sh (API port 3004)"
+  echo "  ✓ runtime-worktree.sh (API port 3004 + opensource profile)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
