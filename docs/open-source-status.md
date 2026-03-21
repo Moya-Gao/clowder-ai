@@ -42,6 +42,28 @@ created: 2026-03-12
 
 > **Clowder AI 现状态**：内测可运行，但还不是公开发布完成态。
 
+### 分支 / 发布口径（2026-03-21 新增）
+
+- `cat-cafe main` = **激进演进 / 真相源 / canary**
+- `clowder-ai main` = **稳定默认分支**
+- `clowder-ai next`（或 nightly tag）= **预览通道**，给愿意提前试新功能的人
+
+**执行规则**
+- 家里的新能力先在 `cat-cafe main` 演进、验证、收口
+- 准备对外给普通用户用的内容，才进入 `clowder-ai main`
+- 想提前公开试水但还不够稳定的改动，不直接压进 `clowder-ai main`，走 `next` / nightly
+- `clowder-ai main` 的目标不是“最新”，而是“默认可装、默认可跑、默认可解释”
+
+### `v0.1.0` 发布门槛（2026-03-21 新增）
+
+在以下 3 项全部通过前，**不切 `v0.1.0`**：
+
+1. 修复 `pnpm dev:direct -- --profile=opensource` 参数透传失真，确保公开仓一键启动脚本按指定 profile 生效
+2. 修复 API watcher 与 Redis live-instance 锁打架，确保 dev 启动日志与进程语义一致，不出现“表面 fatal、实际半活”的假死状态
+3. 按 `clowder-ai` 的 `README` / `SETUP` 在 **macOS 干净环境** 逐步安装验证，确认文档写法真的能把项目装起来并跑通基础烟测
+
+只有这 3 项都过，`clowder-ai main` 才能视为第一个稳定公开版本候选，再考虑切 `v0.1.0`
+
 ---
 
 ## 债务分类
@@ -207,9 +229,13 @@ created: 2026-03-12
 
 - [ ] 在 `cat-cafe` 修 `Directory Size Guard`
 - [ ] 在 `cat-cafe` 修 `Test (Public)`
+- [ ] 记录并修复 `pnpm dev:direct -- --profile=opensource` 参数透传失真
+- [ ] 记录并修复 API watcher / Redis live-instance 锁冲突
+- [ ] 按 `README` / `SETUP` 做一次 macOS 干净安装烟测
 - [ ] 重新同步到 `clowder-ai`
 - [ ] 再扫一轮 docs/skills 私有路径残留
 - [ ] 补 `README` / `SETUP` 的 MCP 与设计能力说明
+- [ ] 满足发布门槛后再评估是否切 `v0.1.0`
 
 ---
 
