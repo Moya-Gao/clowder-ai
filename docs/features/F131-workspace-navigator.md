@@ -8,7 +8,7 @@ created: 2026-03-21
 
 # F131: Workspace Navigator — 猫猫可编程导航 Workspace 面板
 
-> **Status**: spec | **Owner**: 金渐层 | **Priority**: P2
+> **Status**: in-progress | **Owner**: 金渐层 | **Priority**: P2
 
 ## Why
 
@@ -79,11 +79,11 @@ Hub: 右面板自动打开并导航到文件
 
 ## Acceptance Criteria
 
-- [ ] AC-1: 猫猫调用 `POST /api/workspace/navigate` 后，Hub 右面板自动打开 workspace 模式并导航到指定路径
-- [ ] AC-2: 支持 `reveal`（展开目录树到指定节点）和 `open`（打开文件内容）两种 action
-- [ ] AC-3: 支持指定 worktreeId 跨 worktree 导航（如从 main 导航到 runtime 的日志目录）
-- [ ] AC-4: 面板关闭时收到事件能自动打开（参考 usePreviewAutoOpen 的 pending 机制）
-- [ ] AC-5: Skill 文档 `workspace-navigator/SKILL.md` 创建完成，含意图匹配策略、调用步骤、常见场景速查
+- [x] AC-1: 猫猫调用 `POST /api/workspace/navigate` 后，Hub 右面板自动打开 workspace 模式并导航到指定路径 ✅ PR #611
+- [x] AC-2: 支持 `reveal`（展开目录树到指定节点）和 `open`（打开文件内容）两种 action ✅ PR #611
+- [x] AC-3: 支持指定 worktreeId 跨 worktree 导航（如从 main 导航到 runtime 的日志目录） ✅ PR #611 (threadId session isolation)
+- [x] AC-4: 面板关闭时收到事件能自动打开（参考 usePreviewAutoOpen 的 pending 机制） ✅ PR #611 (复用 chatStore.setWorkspaceRevealPath/setWorkspaceOpenFile)
+- [x] AC-5: Skill 文档 `workspace-navigator/SKILL.md` 创建完成，含意图匹配策略、调用步骤、常见场景速查 ✅ commit 8d61c783
 - [ ] AC-6: 端到端验证——铲屎官说"帮我打开日志"，猫猫能自己找到路径 → 调 API → Hub 右面板自动展示日志目录
 
 ## Dependencies
@@ -120,6 +120,7 @@ Hub: 右面板自动打开并导航到文件
 | 日期 | 事件 |
 |------|------|
 | 2026-03-21 | 立项 + spec 更新（三层架构定稿） |
+| 2026-03-21 | Infra 层实现完成：API + Socket hook + threadId 隔离，PR #611 merged (7f3e4cfc) |
 
 ## Links
 
