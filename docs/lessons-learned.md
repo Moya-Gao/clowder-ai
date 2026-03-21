@@ -627,6 +627,23 @@ created: 2026-02-26
 
 ---
 
+### LL-034: Embedding 实现偷懒——有参考架构不参考，in-process CPU 替代独立进程 GPU
+
+- 状态：validated
+- 更新时间：2026-03-21
+- 坑：F102 Phase C 的 embedding 实现用了 `@huggingface/transformers`（Transformers.js ONNX，in-process CPU），而同一项目里 TTS/ASR 已有完整的参考架构（独立 Python 进程 + MLX GPU + HTTP /health + 端口注册 + GPU 锁）。结果：(a) CPU 和 API 进程争抢资源；(b) 无独立端口、无健康检查、dashboard 不可见；(c) 启动时同步阻塞下载 614MB 模型；(d) Mac 有 Apple Silicon GPU 不用，浪费硬件。
+- 根因：布偶猫偷懒走了"最小实现路径"（ONNX + Transformers.js in-process），没有对照同项目已有的 TTS/ASR 架构模式。这是典型的"脚手架"——有终态参考（独立进程 GPU）还做了中间态（in-process CPU）。
+- 触发条件：新增本地模型推理能力时，没有先审视项目里已有的模型服务架构。
+- 防护：
+  - **新增任何本地模型推理 → 先看 TTS/ASR 的实现模式**（独立进程 + GPU + HTTP + /health + 端口注册）
+  - **禁止把模型推理放在 API 主进程内**（CPU 争抢 + 无隔离）
+  - **Mac 上优先用 MLX**（Apple Silicon GPU 原生支持）
+- 正确做法：写一个独立的 `scripts/embed-api.py`（参考 `scripts/tts-api.py`），用 MLX 或 sentence-transformers GPU，暴露 `/embed` + `/health`，Node.js API 只做 HTTP 客户端。
+- 铲屎官原话："你用 cpu！为什么不用 gpu 啊！！你这实现我拒绝。你这不又是脚手架，有其他同样模型的参考实现你还非得实现成现在这样。"
+- 关联：LL-029 交付物验证、F102 Phase C、TTS(scripts/tts-api.py)、ASR(scripts/whisper-api.py)
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
