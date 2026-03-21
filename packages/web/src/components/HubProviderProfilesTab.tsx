@@ -197,7 +197,7 @@ export function HubProviderProfilesTab() {
         onSwitchProject={switchProject}
       />
 
-      <div aria-label="Provider Profile List" className="space-y-4">
+      <div role="group" aria-label="Provider Profile List" className="space-y-4">
         {displayCards.map((profile) => (
           <HubProviderProfileItem
             key={profile.id}

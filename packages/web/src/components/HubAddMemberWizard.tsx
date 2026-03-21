@@ -208,7 +208,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
               </p>
             </div>
             {[CLIENT_ROW_1, CLIENT_ROW_2].map((row, index) => (
-              <div key={index} aria-label={`Client Row ${index + 1}`} className="flex flex-wrap gap-3">
+              <div key={index} role="group" aria-label={`Client Row ${index + 1}`} className="flex flex-wrap gap-3">
                 {row.map((value) => (
                   <PillChoiceButton
                     key={value}
