@@ -784,7 +784,11 @@ async function main(): Promise<void> {
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
   await app.register(capabilitiesRoutes);
-  await app.register(workspaceRoutes);
+  await app.register(workspaceRoutes, {
+    socketEmit: (event, data, room) => {
+      socketManager?.broadcastToRoom(room, event, data);
+    },
+  });
   await app.register(workspaceEditRoutes);
   await app.register(workspaceGitRoutes);
   await app.register(terminalRoutes, {

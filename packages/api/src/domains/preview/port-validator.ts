@@ -28,7 +28,7 @@ export function collectRuntimePorts(): number[] {
     'REDIS_PORT',
     'VITE_PORT',
     'ANTHROPIC_PROXY_PORT', // P1 fix (砚砚 review): proxy port must be excluded
-    'EMBED_PORT',           // P1 fix: custom embed port
+    'EMBED_PORT', // P1 fix: custom embed port
   ];
   const ports: number[] = [];
   for (const key of envKeys) {
