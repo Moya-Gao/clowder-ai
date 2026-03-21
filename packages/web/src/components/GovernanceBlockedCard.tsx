@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { GovernanceShieldIcon } from './icons/GovernanceShieldIcon';
 
 interface GovernanceBlockedCardProps {
   projectPath: string;
@@ -73,7 +74,7 @@ export function GovernanceBlockedCard({ projectPath, reasonKind, invocationId }:
     <div data-testid="governance-blocked-card" className="flex justify-center mb-3">
       <div className="max-w-[85%] w-full rounded-lg border border-amber-200 bg-amber-50 p-4">
         <div className="flex items-start gap-3">
-          <span className="text-xl flex-shrink-0">🔒</span>
+          <GovernanceShieldIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-amber-800">
               项目 <code className="px-1 py-0.5 bg-amber-100 rounded text-xs">{dirName}</code>{' '}
