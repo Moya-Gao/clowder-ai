@@ -435,17 +435,17 @@ async function main(): Promise<void> {
 
       const taskRunner = new TaskRunner({ info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) });
 
+      // Abstractive summary uses a dedicated API config (F102_API_BASE + F102_API_KEY),
+      // NOT the cat's own provider profile. Cat uses subscription/Max plan for chat;
+      // background summary scheduler uses a separate reverse-proxy API key.
       const generateAbstractive = createAbstractiveClient(
         async () => {
-          try {
-            const { resolveAnthropicRuntimeProfile } = await import('./config/provider-profiles.js');
-            const { findMonorepoRoot } = await import('./utils/monorepo-root.js');
-            const profile = await resolveAnthropicRuntimeProfile(findMonorepoRoot());
-            if (profile.mode !== 'api_key') return null;
-            return profile as { mode: 'api_key'; baseUrl: string; apiKey: string };
-          } catch {
-            return null;
+          const baseUrl = process.env.F102_API_BASE;
+          const apiKey = process.env.F102_API_KEY;
+          if (!baseUrl || !apiKey) {
+            return null; // not configured → skip abstractive
           }
+          return { mode: 'api_key' as const, baseUrl, apiKey };
         },
         { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
       );
