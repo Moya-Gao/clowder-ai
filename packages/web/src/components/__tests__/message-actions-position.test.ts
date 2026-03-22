@@ -63,6 +63,7 @@ describe('MessageActions position', () => {
             timestamp: Date.now(),
           },
           threadId: 'thread-1',
+          // eslint-disable-next-line react/no-children-prop -- createElement in test
           // biome-ignore lint/correctness/noChildrenProp: createElement in test
           children: React.createElement('div', null, 'user message'),
         }),
@@ -88,6 +89,7 @@ describe('MessageActions position', () => {
             timestamp: Date.now(),
           },
           threadId: 'thread-1',
+          // eslint-disable-next-line react/no-children-prop -- createElement in test
           // biome-ignore lint/correctness/noChildrenProp: createElement in test
           children: React.createElement('div', null, 'assistant message'),
         }),

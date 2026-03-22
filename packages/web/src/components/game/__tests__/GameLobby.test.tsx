@@ -48,7 +48,7 @@ function render(props: Partial<React.ComponentProps<typeof GameLobby>> = {}): st
   const merged: React.ComponentProps<typeof GameLobby> = {
     mode: 'player',
     cats: mockCats,
-    onConfirm: (_payload) => {},
+    onConfirm: () => {},
     onCancel: () => {},
     ...props,
   };
