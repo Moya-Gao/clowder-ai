@@ -7,8 +7,11 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { describe, mock, test } from 'node:test';
+import { ensureFakeCliOnPath } from './helpers/fake-cli-path.js';
 
 const { GeminiAgentService } = await import('../dist/domains/cats/services/agents/providers/GeminiAgentService.js');
+
+ensureFakeCliOnPath('gemini');
 
 /** Helper: collect all items from async iterable */
 async function collect(iterable) {
@@ -56,13 +59,21 @@ function createMockSpawnFn(proc) {
   return mock.fn(() => proc);
 }
 
+function emitProcessExit(proc, code, signal = null) {
+  process.nextTick(() => {
+    proc._emitter.emit('exit', code, signal);
+  });
+}
+
 /** Write NDJSON events to mock process stdout, then end with exit 0 */
 function emitGeminiEvents(proc, events) {
   for (const event of events) {
     proc.stdout.write(`${JSON.stringify(event)}\n`);
   }
+  proc.stdout.once('finish', () => {
+    emitProcessExit(proc, 0, null);
+  });
   proc.stdout.end();
-  proc._emitter.emit('exit', 0, null);
 }
 
 // ===== gemini-cli adapter tests =====
@@ -149,7 +160,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_API_URL: 'http://localhost:3004',
       CAT_CAFE_INVOCATION_ID: 'inv-789',
       CAT_CAFE_CALLBACK_TOKEN: 'tok-789',
     };
@@ -174,7 +185,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_API_URL: 'http://localhost:3004',
       CAT_CAFE_INVOCATION_ID: 'inv-123',
       CAT_CAFE_CALLBACK_TOKEN: 'tok-456',
     };
@@ -225,7 +236,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
 
     proc.stderr.write('Error: authentication failed\n');
     proc.stdout.end();
-    proc._emitter.emit('exit', 1, null);
+    emitProcessExit(proc, 1, null);
 
     const msgs = await promise;
     const errMsg = msgs.find((m) => m.type === 'error');
@@ -249,7 +260,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     proc.stdout.write(`${JSON.stringify({ type: 'init', session_id: 's1', model: 'auto' })}\n`);
     proc.stdout.write(`${JSON.stringify({ type: 'result', status: 'error' })}\n`);
     proc.stdout.end();
-    proc._emitter.emit('exit', 2, null);
+    emitProcessExit(proc, 2, null);
 
     const msgs = await promise;
     const errMsgs = msgs.filter((m) => m.type === 'error');
@@ -270,7 +281,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
       err.code = 'ENOENT';
       proc._emitter.emit('error', err);
       proc.stdout.end();
-      proc._emitter.emit('exit', null, null);
+      emitProcessExit(proc, null, null);
     });
 
     const msgs = await promise;
@@ -360,7 +371,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
       })}\n`,
     );
     proc.stdout.end();
-    proc._emitter.emit('exit', 1, null);
+    emitProcessExit(proc, 1, null);
 
     const msgs = await promise;
     const errMsgs = msgs.filter((m) => m.type === 'error');
@@ -419,7 +430,7 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_API_URL: 'http://localhost:3004',
       CAT_CAFE_INVOCATION_ID: 'inv-1',
       CAT_CAFE_CALLBACK_TOKEN: 'tok-1',
     };
@@ -447,7 +458,7 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_API_URL: 'http://localhost:3004',
       CAT_CAFE_INVOCATION_ID: 'inv-2',
       CAT_CAFE_CALLBACK_TOKEN: 'tok-2',
     };
@@ -503,7 +514,7 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_API_URL: 'http://localhost:3004',
       CAT_CAFE_INVOCATION_ID: 'inv-async',
       CAT_CAFE_CALLBACK_TOKEN: 'tok-async',
     };
@@ -532,7 +543,7 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_API_URL: 'http://localhost:3004',
       CAT_CAFE_INVOCATION_ID: 'inv-3',
       CAT_CAFE_CALLBACK_TOKEN: 'tok-3',
     };
@@ -563,7 +574,7 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_API_URL: 'http://localhost:3004',
       CAT_CAFE_INVOCATION_ID: 'inv-4',
       CAT_CAFE_CALLBACK_TOKEN: 'tok-4',
     };
@@ -611,7 +622,7 @@ describe('GeminiAgentService (adapter selection)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_API_URL: 'http://localhost:3004',
       CAT_CAFE_INVOCATION_ID: 'inv-5',
       CAT_CAFE_CALLBACK_TOKEN: 'tok-5',
     };
