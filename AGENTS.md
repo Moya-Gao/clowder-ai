@@ -45,6 +45,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | 开 worktree 写代码 | `worktree` |
 | 写测试+实现 | `tdd` |
 | 遇到 bug | `debugging` |
+| 铲屎官说"打开/看XX" | `workspace-navigator` |
 | 开发完了自检 | `quality-gate` |
 | 发 review 请求 | `request-review` |
 | 处理 review 反馈 | `receive-review` |

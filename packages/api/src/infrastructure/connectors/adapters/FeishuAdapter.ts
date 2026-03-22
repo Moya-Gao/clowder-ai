@@ -31,8 +31,6 @@ export interface FeishuAttachment {
   feishuKey: string;
   fileName?: string;
   duration?: number;
-  /** Images inside rich-text (post) messages use a different Feishu download API. */
-  source?: 'post-embedded';
 }
 
 export interface FeishuInboundMessage {
@@ -214,7 +212,6 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
                 attachments.push({
                   type: 'image' as const,
                   feishuKey: n.image_key as string,
-                  source: 'post-embedded' as const,
                 });
               }
             }
