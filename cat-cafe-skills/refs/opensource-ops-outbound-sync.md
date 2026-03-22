@@ -13,7 +13,7 @@
 
 ### Step 1: Baseline Verification `[cat-cafe]`
 
-同步前必须确认源仓代码基线健康。**红灯不出门。**
+同步前必须确认源仓代码基线健康。**红灯不出门。source 绿只是前提，不代表 target/public gate 会绿。**
 
 ```bash
 # 1a. 拉取最新 remote main（确保基线是最新的）
@@ -31,8 +31,8 @@ pnpm --filter @cat-cafe/shared build && pnpm --filter @cat-cafe/api build
 
 **任何一步失败 → 阻塞同步，走 Step 1.5 修复流程。不允许带红灯同步。**
 
-> 为什么：全量同步的 Step 6 会在目标仓跑 post-sync validation（install + check + lint + build + test:public），
-> 如果源仓 UT 本身就红了，目标仓大概率也红 → 白白浪费一次同步流水线。
+> 为什么：full sync 现在会先在 source 侧导出一个 temp target，并在 temp target 跑完整 public gate。
+> 如果源仓 UT 本身就红了，temp target public gate 大概率也红 → 白白浪费一次同步流水线。
 
 #### Step 1.5: 基线修复 `[cat-cafe]`（仅当 Step 1 红灯时）
 
@@ -100,6 +100,9 @@ bash scripts/sync-to-opensource.sh --skip-validate
 ```
 
 注意：
+- `sync-to-opensource.sh` 现在会先把导出产物打到 **temp target**，在 temp target 跑完整 public gate（install + `pnpm check` + `pnpm lint` + `build` + `test:public` + startup acceptance）
+- **只有 temp target public gate 全绿，脚本才允许碰真实 `clowder-ai`**
+- 本机 README/macOS smoke 不属于 full sync 主路径；它是 sync 完成后的独立步骤，必须显式隔离端口/Redis
 - `sync-to-opensource.sh` **不会**创建 `sync/*` tag；它只负责导出 + 生成 sync PR
 - `sync-hotfix.sh` 会把最新 `sync/*` tag 当成“已经落地 upstream 的基线”，所以 tag 发布必须放在 **sync PR merge 后**
 - sync PR merge 后，运行：
@@ -120,26 +123,28 @@ bash scripts/publish-sync-tag.sh \
 - 这会在 `cat-cafe` 与 `clowder-ai` 两边创建并 push 同名 `sync/YYYY-MM-DD-HHMMSS` tag
 - 这个 tag 记录的是“哪一个 cat-cafe commit 被同步出去，以及它在 clowder-ai 上对应的 merge commit”
 
-### Step 5: Post-sync Validation `[clowder-ai]`
+### Step 5: Source-Owned Public Gate `[cat-cafe → temp target]`
 
-脚本会自动验证：
+脚本会自动在 **temp target** 验证：
 - `pnpm install` 成功
 - `pnpm check` + `pnpm lint` 通过
+- `pnpm --filter @cat-cafe/api run test:public` 通过
 - 端口可访问
+- `3001/3002` 等内部端口没有泄漏进导出产物
 
-#### Step 5.5: Post-sync Test Fix `[clowder-ai]`（仅当目标仓 UT 红灯时）
+#### Step 5.5: Temp Target 红灯分流 `[cat-cafe]`（仅当 public gate 红灯时）
 
-> **⚠️ 黄金法则：家里绿、社区红 → 先查同步管道，再动测试文件！**
+> **⚠️ 黄金法则：source 绿、temp target/public gate 红 → 先查 source gate / sync 管道，再动 target。**
 >
-> 如果 cat-cafe main 全绿，但 clowder-ai 同步后有红灯，**第一反应不是在 clowder-ai 手动修测试**，
+> 如果 cat-cafe main 全绿，但 temp target public gate 红，**第一反应不是在 clowder-ai 手动修测试**，
 > 而是检查 `scripts/_sanitize-rules.pl` 的转换规则是否有 bug。
 >
 > **判断方法：** `diff` 对比 cat-cafe 和 clowder-ai 的红灯测试文件：
 > - 如果 diff 显示 sanitizer 把值改坏了（路径截断/URL 变占位符/品牌名漏转/端口漏转）→ **修 sanitizer 规则**
 > - 如果 diff 为空（文件完全一样）→ 可能是环境差异或 pre-existing，可以手修目标仓
 >
-> **只手修 clowder-ai = 重复劳动**——下次全量同步会再产生同样的红灯。
-> **修 sanitizer 规则 = 一次修好永远绿**。
+> **只手修 clowder-ai = 重复劳动**——下次全量同步还会再红。
+> **修 source gate / sanitizer / temp target contract = 一次修好永远绿**。
 
 **即使源仓基线绿了，sanitizer 转换仍可能引入目标仓 UT 红灯。** 常见 sanitizer bug 类别：
 
@@ -210,9 +215,9 @@ git log --oneline {last_sync_tag}..HEAD --grep="feat\|fix\|refactor\|docs"
 
 **全量同步完成 ≠ 发布闭环完成。** Sync PR merge 后，必须做社区侧复核收口。
 
-#### 7.1 Sync Coverage Report
+#### 8.1 Sync Coverage Report
 
-从 Step 5 的 PR body 提取本次同步带出的内容清单：
+从 Step 6 的 PR body 提取本次同步带出的内容清单：
 
 ```bash
 # 列出本次同步的 feature/bugfix
@@ -224,7 +229,7 @@ git log --oneline {last_sync_tag}..{new_sync_tag} --grep="feat\|fix"
 - 带了哪些 bugfix
 - 对应的 sync PR 编号
 
-#### 7.2 Community Reconciliation Draft（按 Feature 分包）
+#### 8.2 Community Reconciliation Draft（按 Feature 分包）
 
 **逐个 Feature 搜索关联社区 issue，不要一锅端：**
 
@@ -252,11 +257,11 @@ gh issue list --repo zts212653/clowder-ai --state open --search "{F118 关键词
 - `keep open` — 未覆盖，保持现状
 - `needs-maintainer-decision` — 不确定，等铲屎官
 
-#### 7.3 两猫达成一致
+#### 8.3 两猫达成一致
 
 两只猫各自独立搜索 + 判断后，对齐每个 Feature 的候选 issue 列表。**半成品不推给铲屎官。**
 
-#### 7.4 逐包推给铲屎官核验
+#### 8.4 逐包推给铲屎官核验
 
 ```
 @lysander
@@ -270,7 +275,7 @@ F118 Community Reconciliation（两猫已对齐）：
 
 铲屎官 OK → 下一个 Feature。**全部 Feature 核验完 → 执行关单/打标签/评论。**
 
-#### 7.5 执行社区动作 `[clowder-ai]`
+#### 8.5 执行社区动作 `[clowder-ai]`
 
 铲屎官逐包核验通过后：
 

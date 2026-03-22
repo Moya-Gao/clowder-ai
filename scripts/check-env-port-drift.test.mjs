@@ -614,11 +614,11 @@ describe(
   'Sync validation enforces static quality gates',
   { skip: !isHomeRepo && 'sync infrastructure not present (open-source repo)' },
   () => {
-    it('validate mode stays aligned with post-sync static gates', () => {
+    it('validate mode runs the source-owned public gate on a temp target', () => {
       const content = readSyncScript();
       const staticGateFn = readFunctionBody(content, 'run_static_quality_gates');
       const validateBlock = content.match(
-        /echo -e "\$\{GREEN\}\[Step 5\/6\] Validate \(install \+ static gates \+ build \+ port check\)\.\.\.\$\{NC\}"[\s\S]*?echo -e " {2}\$\{GREEN\}✓ Validate passed\$\{NC\}"/,
+        /Validate temp target \(source-owned public gate\)[\s\S]*?\[VALIDATE\] Export at:/,
       )?.[0];
 
       assert.match(
@@ -628,24 +628,36 @@ describe(
       );
       assert.ok(validateBlock, 'expected to find the validate block in sync-to-opensource.sh');
       assert.ok(
-        validateBlock.includes('run_static_quality_gates false'),
-        'validate mode should invoke the same non-mutating static gates as the post-sync path',
+        validateBlock.includes('prepare_validation_target'),
+        'validate mode should materialize a temp target before running the public gate',
+      );
+      assert.ok(
+        validateBlock.includes('sync_filtered_into_target "$VALIDATION_TARGET_DIR"'),
+        'validate mode should apply the exact exported payload to the temp target',
+      );
+      assert.ok(
+        validateBlock.includes('run_target_public_gate "$VALIDATION_TARGET_DIR"'),
+        'validate mode should reuse the same target/public gate as a real full sync',
       );
     });
 
-    it('post-sync fast/full validation keeps static gates before startup acceptance split', () => {
+    it('full sync runs the temp target public gate before touching the real target', () => {
       const content = readSyncScript();
-      const step6Block = content.match(/# 6b: Install \+ build[\s\S]*?if \[ "\$FAST_VALIDATE" = true \]; then/)?.[0];
+      const tempGateIndex = content.indexOf('Source-owned public gate (temp target)...');
+      const realSyncIndex = content.indexOf('sync_filtered_into_target "$TARGET_DIR"');
+      const step6SummaryIndex = content.indexOf('[Step 6/6] Sync committed after source-owned public gate passed');
 
-      assert.ok(step6Block, 'expected to find the Step 6 validation block in sync-to-opensource.sh');
+      assert.notEqual(tempGateIndex, -1, 'expected to find the temp target public gate block');
+      assert.notEqual(realSyncIndex, -1, 'expected to find the real target sync call');
       assert.ok(
-        step6Block.includes('run_static_quality_gates false'),
-        'Step 6 should invoke run_static_quality_gates with autofix disabled',
+        tempGateIndex < realSyncIndex,
+        'the real target sync must happen only after the temp target public gate block',
       );
-      assert.ok(
-        step6Block.indexOf('run_static_quality_gates false') <
-          step6Block.indexOf('if [ "$FAST_VALIDATE" = true ]; then'),
-        '--fast-validate should only skip startup acceptance, not static gates',
+      assert.ok(step6SummaryIndex > realSyncIndex, 'the final summary should only run after the real target sync');
+      assert.match(
+        content,
+        /run_target_public_gate "\$VALIDATION_TARGET_DIR"/,
+        'full sync should reuse run_target_public_gate for the temp target check',
       );
     });
   },
@@ -678,22 +690,22 @@ describe(
       const content = readSyncScript();
       assert.doesNotMatch(
         content,
-        /ACCEPT_API_PORT=\$\{API_SERVER_PORT:-3004\}/,
+        /ACCEPT_API_PORT=\$\{API_SERVER_PORT:-3004\}|accept_api_port=\$\{API_SERVER_PORT:-3004\}/,
         'startup acceptance must not inherit API_SERVER_PORT from the parent shell',
       );
       assert.doesNotMatch(
         content,
-        /ACCEPT_WEB_PORT=\$\{FRONTEND_PORT:-3003\}/,
+        /ACCEPT_WEB_PORT=\$\{FRONTEND_PORT:-3003\}|accept_web_port=\$\{FRONTEND_PORT:-3003\}/,
         'startup acceptance must not inherit FRONTEND_PORT from the parent shell',
       );
       assert.match(
         content,
-        /ACCEPT_API_PORT="\$\(find_available_port 3004\)"/,
+        /accept_api_port="\$\(find_available_port 3004\)"/,
         'startup acceptance should choose its API port from a script-owned helper',
       );
       assert.match(
         content,
-        /ACCEPT_WEB_PORT="\$\(find_available_port 3003 "\$ACCEPT_API_PORT"\)"/,
+        /accept_web_port="\$\(find_available_port 3003 "\$accept_api_port"\)"/,
         'startup acceptance should choose a distinct frontend port from a script-owned helper',
       );
     });

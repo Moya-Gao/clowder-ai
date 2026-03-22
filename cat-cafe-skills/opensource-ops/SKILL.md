@@ -64,11 +64,12 @@ description: >
 
 ### D: Outbound Sync
 
-1. `[cat-cafe]` Pre-sync gate + diff preview
-2. `[cat-cafe → clowder-ai]` `sync-to-opensource.sh` 七步管道
-3. `[clowder-ai]` PR 记录必须列清同步了哪些 feat/bugfix/改动
-4. `[clowder-ai]` **Post-sync 社区收敛**：按 Feature 分包搜关联 issue → 两猫对齐 → 逐包推铲屎官核验 → 执行关单/打标签
-5. 详细步骤 → [Outbound Sync 文档](../refs/opensource-ops-outbound-sync.md)
+1. `[cat-cafe]` Baseline Verification + Pre-sync gate + diff preview
+2. `[cat-cafe]` `sync-to-opensource.sh` 先导出到 temp target，并在 temp target 跑完整 public gate
+3. `[cat-cafe → clowder-ai]` 只有 temp target public gate 全绿，才允许真实 sync 到 `clowder-ai`
+4. `[clowder-ai]` PR 记录必须列清同步了哪些 feat/bugfix/改动
+5. `[clowder-ai]` **Post-sync 社区收敛**：按 Feature 分包搜关联 issue → 两猫对齐 → 逐包推铲屎官核验 → 执行关单/打标签
+6. 详细步骤 → [Outbound Sync 文档](../refs/opensource-ops-outbound-sync.md)
 
 ### E: Label & 归档
 
@@ -91,6 +92,7 @@ description: >
 4. **Patch 自主 merge 4 条件**：① accepted issue ② safe-cherry-pick 或 public-only ③ CI 过 ④ 不涉及工具链/安全。否则升级铲屎官
 5. **一条线不断裂**：Issue accept → Merge decision → Merge → Intake decision → Ledger record
 6. **Record + Advance 是一个闭环**：做完 `--record` 就立刻尝试 `--advance-ledger`；如果 advance 失败，说明还有别的 PR 没登记，不能停在半路
+7. **source gate green ≠ target/public gate green**：full sync 前必须在家里的 temp target 上跑 public gate；真实 `clowder-ai` 不能再当第一轮验收场
 
 ## 和其他 skill 的区别
 

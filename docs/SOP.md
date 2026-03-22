@@ -174,6 +174,19 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 
 > 详见 [Hotfix Lane 设计](discussions/2026-03-14-sync-hotfix-lane-design.md)
 
+### Full Sync Gate（Source-Owned）
+
+全量同步到 `clowder-ai` 时，**不能只看家里的 `pnpm gate` 绿不绿**。  
+`source gate green != target/public gate green`。
+
+硬规则：
+1. 先在 `cat-cafe` 导出同一份同步产物到 **temp target**
+2. 在 temp target 跑完整 public gate：`pnpm check`、`pnpm lint`、`build`、`pnpm --filter @cat-cafe/api run test:public`、startup acceptance
+3. **只有 temp target public gate 全绿，才允许碰真实 `clowder-ai`**
+4. 本机 README/macOS smoke 不属于 full sync 主路径；它必须是 sync 完成后的独立步骤，且必须显式隔离端口/Redis
+
+一句话：**不要再把真实 `clowder-ai` 当第一轮验收场，更不能把 runtime 当验收靶子。**
+
 ### 规则
 
 - **社区和内部共用一套 F 编号**：不另起 P/CEP/社区专属编号系列（2026-03-13 决策，详见 F059 spec D6）

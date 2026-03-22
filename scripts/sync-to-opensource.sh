@@ -6,15 +6,15 @@
 #   Step 2: Allowlist filter
 #   Step 3: Transforms (sanitize + generate)
 #   Step 4: Security scan (denylist + secrets + /Users/ + internal patterns + endpoints)
-#   Step 5: Sync (target-owned backup → diff preview → rsync → restore)
-#   Step 6: Post-sync validation (install + static gates + build + acceptance)
+#   Step 5: Source-owned public gate (temp target clone → install + check + lint + build + test:public + acceptance)
+#   Step 6: Sync (target-owned backup → diff preview → rsync → restore)
 #
 # Usage:
-#   bash scripts/sync-to-opensource.sh                    # 完整同步（含 post-sync 验证）
+#   bash scripts/sync-to-opensource.sh                    # 完整同步（含 source-owned public gate）
 #   bash scripts/sync-to-opensource.sh --dry-run          # 只导出到临时目录，不同步
-#   bash scripts/sync-to-opensource.sh --validate         # 导出 + static gates + install/build（不同步）
-#   bash scripts/sync-to-opensource.sh --skip-validate    # 同步但跳过 post-sync 验证
-#   bash scripts/sync-to-opensource.sh --fast-validate    # 同步 + static gates + install/build/test（跳过 full startup acceptance）
+#   bash scripts/sync-to-opensource.sh --validate         # 导出 + temp target public gate（不同步）
+#   bash scripts/sync-to-opensource.sh --skip-validate    # 同步但跳过 source-owned public gate
+#   bash scripts/sync-to-opensource.sh --fast-validate    # 同步 + temp target 静态门禁/test:public（跳过 startup acceptance）
 #   bash scripts/sync-to-opensource.sh --yes              # 非交互模式（猫猫/CI 用，跳过确认提示）
 #   bash scripts/sync-to-opensource.sh --force-overwrite  # 强制覆盖未吸收的社区 commit（危险！）
 #   bash scripts/sync-to-opensource.sh --module=docs      # 模块级同步（V1: Step 5/6 按模块，Step 1-4 仍全量）
@@ -248,6 +248,237 @@ MANAGED_SCRIPTS=()
 while IFS= read -r line; do MANAGED_SCRIPTS+=("$line"); done < <(yaml_list "managed_scripts")
 EXCLUDED_ITEMS=()
 while IFS= read -r line; do EXCLUDED_ITEMS+=("$line"); done < <(yaml_list "excluded")
+TARGET_OWNED=()
+while IFS= read -r line; do TARGET_OWNED+=("$line"); done < <(yaml_list "target_owned_files")
+
+backup_target_owned_items() {
+  local target_dir="$1"
+  local backup_dir="$2"
+  local backed_up=0
+  for owned in "${TARGET_OWNED[@]}"; do
+    if [ -d "$target_dir/$owned" ]; then
+      mkdir -p "$backup_dir/$(dirname "$owned")"
+      cp -R "$target_dir/$owned" "$backup_dir/$owned"
+      backed_up=$((backed_up + 1))
+    elif [ -f "$target_dir/$owned" ]; then
+      mkdir -p "$backup_dir/$(dirname "$owned")"
+      cp "$target_dir/$owned" "$backup_dir/$owned"
+      backed_up=$((backed_up + 1))
+    fi
+  done
+  echo "$backed_up"
+}
+
+restore_target_owned_items() {
+  local target_dir="$1"
+  local backup_dir="$2"
+  local restored=0
+  for owned in "${TARGET_OWNED[@]}"; do
+    if [ -d "$backup_dir/$owned" ]; then
+      mkdir -p "$target_dir/$(dirname "$owned")"
+      cp -R "$backup_dir/$owned" "$target_dir/$owned"
+      restored=$((restored + 1))
+    elif [ -f "$backup_dir/$owned" ]; then
+      mkdir -p "$target_dir/$(dirname "$owned")"
+      cp "$backup_dir/$owned" "$target_dir/$owned"
+      restored=$((restored + 1))
+    fi
+  done
+  echo "$restored"
+}
+
+sync_filtered_into_target() {
+  local target_dir="$1"
+  if [ "$SYNC_MODULE" = "all" ]; then
+    rsync -a --delete \
+      --exclude='.git' \
+      "$FILTERED_DIR/" "$target_dir/"
+    return
+  fi
+
+  local module_root_path
+  module_root_path="$(module_root "$SYNC_MODULE")"
+  if [ -z "$module_root_path" ]; then
+    rsync -a \
+      --exclude='.git' \
+      --exclude='packages/' \
+      --exclude='docs/' \
+      --exclude='cat-cafe-skills/' \
+      --exclude='scripts/' \
+      --exclude='.github/' \
+      --exclude='.sync-provenance.json' \
+      "$FILTERED_DIR/" "$target_dir/"
+    return
+  fi
+
+  if [ -d "$FILTERED_DIR/$module_root_path" ]; then
+    mkdir -p "$target_dir/$module_root_path"
+    rsync -a --delete \
+      "$FILTERED_DIR/$module_root_path" "$target_dir/$module_root_path"
+  fi
+}
+
+VALIDATION_TARGET_DIR=""
+cleanup_validation_target() {
+  if [ -z "${VALIDATION_TARGET_DIR:-}" ]; then
+    return
+  fi
+  if [ -d "$VALIDATION_TARGET_DIR/.git" ] || [ -d "$VALIDATION_TARGET_DIR" ]; then
+    git -C "$TARGET_DIR" worktree remove --force "$VALIDATION_TARGET_DIR" >/dev/null 2>&1 || true
+    rm -rf "$VALIDATION_TARGET_DIR" 2>/dev/null || true
+  fi
+  VALIDATION_TARGET_DIR=""
+}
+
+prepare_validation_target() {
+  if [ ! -d "$TARGET_DIR/.git" ]; then
+    echo -e "  ${RED}✗ Target git repo not found: $TARGET_DIR${NC}"
+    return 1
+  fi
+  local temp_dir
+  temp_dir=$(mktemp -d)
+  rmdir "$temp_dir"
+  VALIDATION_TARGET_DIR="$temp_dir"
+  if ! git -C "$TARGET_DIR" worktree add --detach "$VALIDATION_TARGET_DIR" HEAD >/dev/null 2>&1; then
+    echo -e "  ${RED}✗ Failed to create temp target worktree from $TARGET_DIR${NC}"
+    VALIDATION_TARGET_DIR=""
+    return 1
+  fi
+}
+
+run_target_public_gate() {
+  local gate_target="$1"
+  local step_fail=false
+  local original_dir="$PWD"
+
+  cd "$gate_target"
+
+  if [ -f "$gate_target/.env.example" ] && [ ! -f "$gate_target/.env" ]; then
+    cp "$gate_target/.env.example" "$gate_target/.env"
+    echo "  ✓ Created .env from .env.example"
+  elif [ ! -f "$gate_target/.env.example" ]; then
+    echo -e "  ${RED}✗ .env.example missing — public user cannot bootstrap${NC}"
+    step_fail=true
+  fi
+
+  echo "  Installing dependencies..."
+  if ! pnpm install --frozen-lockfile 2>&1 | tail -5; then
+    echo -e "  ${RED}✗ pnpm install failed${NC}"
+    step_fail=true
+  fi
+  if ! run_static_quality_gates false; then
+    step_fail=true
+  fi
+  echo "  Building..."
+  if ! pnpm --filter @cat-cafe/shared build 2>&1 | tail -3; then
+    echo -e "  ${RED}✗ shared build failed${NC}"
+    step_fail=true
+  fi
+  if ! pnpm --filter @cat-cafe/api build 2>&1 | tail -3; then
+    echo -e "  ${RED}✗ api build failed${NC}"
+    step_fail=true
+  fi
+
+  echo "  Smoke test (test:public)..."
+  if ! run_public_acceptance_env pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5; then
+    echo -e "  ${RED}✗ test:public failed${NC}"
+    step_fail=true
+  fi
+
+  if [ "$FAST_VALIDATE" = true ]; then
+    echo -e "  ${YELLOW}ℹ Fast validate: skipping startup acceptance${NC}"
+  else
+    echo "  Startup acceptance (temp target)..."
+    local accept_api_port
+    local accept_web_port
+    local forbidden_ports
+    local ports_before
+    local ports_after
+    local new_ports
+    local forbidden_found
+
+    accept_api_port="$(find_available_port 3004)"
+    accept_web_port="$(find_available_port 3003 "$accept_api_port")"
+    forbidden_ports="3001|3002|3011|3012|4111|4000|4100|6398|6399"
+    ports_before=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
+
+    run_public_acceptance_env API_SERVER_PORT=$accept_api_port MEMORY_STORE=1 NODE_ENV=test pnpm --filter @cat-cafe/api start >/dev/null 2>&1 &
+    local api_pid=$!
+    run_public_acceptance_env PORT=$accept_web_port pnpm --filter @cat-cafe/web dev -p $accept_web_port >/dev/null 2>&1 &
+    local web_pid=$!
+
+    local api_ready=false
+    local web_ready=false
+    for i in $(seq 1 20); do
+      if curl -sf "http://localhost:${accept_api_port}/health" >/dev/null 2>&1; then
+        api_ready=true
+        break
+      fi
+      sleep 1
+    done
+    if [ "$api_ready" = true ]; then
+      echo "  ✓ API health check passed (port $accept_api_port)"
+    else
+      echo -e "  ${RED}✗ API did not respond on port $accept_api_port within 20s${NC}"
+      step_fail=true
+    fi
+
+    for i in $(seq 1 15); do
+      if curl -sf "http://localhost:${accept_web_port}" >/dev/null 2>&1; then
+        web_ready=true
+        break
+      fi
+      sleep 1
+    done
+    if [ "$web_ready" = true ]; then
+      echo "  ✓ Frontend page responded (port $accept_web_port)"
+    else
+      echo -e "  ${RED}✗ Frontend did not respond on port $accept_web_port within 15s${NC}"
+      step_fail=true
+    fi
+
+    ports_after=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
+    new_ports=$(comm -13 <(echo "$ports_before") <(echo "$ports_after") || true)
+    if [ -n "$new_ports" ]; then
+      echo "  New ports opened: $(echo "$new_ports" | tr '\n' ' ')"
+      forbidden_found=$(echo "$new_ports" | grep -E ":(${forbidden_ports})$" || true)
+      if [ -n "$forbidden_found" ]; then
+        echo -e "  ${RED}✗ Forbidden port(s) opened during startup:${NC}"
+        echo "$forbidden_found" | while read -r port_entry; do echo "    $port_entry"; done
+        step_fail=true
+      fi
+    fi
+
+    kill $api_pid 2>/dev/null || true
+    kill $web_pid 2>/dev/null || true
+    lsof -ti:$accept_api_port 2>/dev/null | xargs kill 2>/dev/null || true
+    lsof -ti:$accept_web_port 2>/dev/null | xargs kill 2>/dev/null || true
+    sleep 1
+  fi
+
+  echo "  Port verification (static scan)..."
+  local port_fail=false
+  for bad_port in 3001 3002; do
+    found=$(grep -rn "[:=]${bad_port}\b" "$gate_target" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.sh' --include='*.yaml' --include='*.md' 2>/dev/null \
+      | grep -v 'node_modules' | grep -v '.sync-provenance' | grep -v '.git/' | grep -v 'CORS' | head -3 || true)
+    if [ -n "$found" ]; then
+      echo -e "    ${RED}✗ Internal port $bad_port found:${NC}"
+      echo "$found" | while read -r file_hit; do echo "      $file_hit"; done
+      port_fail=true
+    fi
+  done
+  if [ "$port_fail" = true ]; then
+    step_fail=true
+  else
+    echo "  ✓ Port verification passed"
+  fi
+
+  cd "$original_dir"
+  if [ "$step_fail" = true ]; then
+    return 1
+  fi
+  return 0
+}
 
 echo -e "${GREEN}=== Cat Café → Clowder AI 开源同步 ===${NC}"
 echo "源仓: $SOURCE_DIR"
@@ -392,7 +623,7 @@ step_done
 step_start "Step 1/6" "Clean tree 导出..."
 
 STAGING_DIR=$(mktemp -d)
-trap 'rm -rf "$STAGING_DIR"' EXIT
+trap 'cleanup_validation_target; rm -rf "${STAGING_DIR:-}" "${FILTERED_DIR:-}"' EXIT
 
 if [ "$DRY_RUN" = true ] || [ "$VALIDATE" = true ]; then
   # 工作目录导出（含未提交改动，用于验证）
@@ -412,9 +643,6 @@ step_done
 step_start "Step 2/6" "Allowlist 过滤..."
 
 FILTERED_DIR=$(mktemp -d)
-if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
-  trap 'rm -rf "$STAGING_DIR" "$FILTERED_DIR"' EXIT
-fi
 
 INCLUDED=0
 EXCLUDED=0
@@ -1130,46 +1358,37 @@ cat > "$FILTERED_DIR/.sync-provenance.json" << PROV_EOF
 }
 PROV_EOF
 
-# ── Step 5: Output / Sync ──────────────────────────────────────
+# ── Step 5: Source-owned public gate / Validate ────────────────
 
 if [ "$VALIDATE" = true ]; then
   echo ""
-  echo -e "${GREEN}[Step 5/6] Validate (install + static gates + build + port check)...${NC}"
-  cd "$FILTERED_DIR"
+  echo -e "${GREEN}[Step 5/6] Validate temp target (source-owned public gate)...${NC}"
+  if ! prepare_validation_target; then
+    trap - EXIT
+    exit 1
+  fi
+  VALIDATION_BACKUP_DIR=$(mktemp -d)
+  backed_up=$(backup_target_owned_items "$VALIDATION_TARGET_DIR" "$VALIDATION_BACKUP_DIR")
+  if [ "$backed_up" -gt 0 ]; then
+    echo "  ✓ Backed up $backed_up target-owned item(s) into temp target"
+  fi
+  sync_filtered_into_target "$VALIDATION_TARGET_DIR"
+  restored=$(restore_target_owned_items "$VALIDATION_TARGET_DIR" "$VALIDATION_BACKUP_DIR")
+  rm -rf "$VALIDATION_BACKUP_DIR"
+  if [ "$restored" -gt 0 ]; then
+    echo "  ✓ Restored $restored target-owned item(s) into temp target"
+  fi
   if command -v pnpm >/dev/null 2>&1; then
-    echo "  Installing dependencies..."
-    pnpm install --frozen-lockfile 2>&1 | tail -3
-    if ! run_static_quality_gates false; then
+    if ! run_target_public_gate "$VALIDATION_TARGET_DIR"; then
+      echo -e "  ${RED}✗ Validate failed in temp target — real clowder-ai was not touched${NC}"
       trap - EXIT
       exit 1
     fi
-    echo "  Building..."
-    pnpm --filter @cat-cafe/shared build 2>&1 | tail -3
-    pnpm --filter @cat-cafe/api build 2>&1 | tail -3
-    echo "  Smoke test (test:public)..."
-    pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5
-    # D2d: Port verification — ensure no internal ports leak into config
-    echo "  Port verification (D2d)..."
-    PORT_FAIL=false
-    for bad_port in 3001 3002; do
-      found=$(grep -rn "[:=]${bad_port}\b" "$FILTERED_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.sh' --include='*.yaml' --include='*.md' 2>/dev/null \
-        | grep -v 'node_modules' | grep -v '.sync-provenance' | grep -v 'CORS' | head -3 || true)
-      if [ -n "$found" ]; then
-        echo -e "    ${RED}✗ Internal port $bad_port found:${NC}"
-        echo "$found" | while read f; do echo "      $f"; done
-        PORT_FAIL=true
-      fi
-    done
-    if [ "$PORT_FAIL" = true ]; then
-      echo -e "  ${RED}✗ Port verification FAILED — internal ports leaked${NC}"
-      trap - EXIT
-      exit 1
-    fi
-    echo "  ✓ Port verification passed (no 3001/3002)"
     echo -e "  ${GREEN}✓ Validate passed${NC}"
   else
     echo -e "  ${YELLOW}⚠ pnpm not found, skipping validate${NC}"
   fi
+  cleanup_validation_target
   echo ""
   echo -e "${GREEN}[VALIDATE] Export at:${NC}"
   echo "  $FILTERED_DIR"
@@ -1189,47 +1408,23 @@ if [ "$DRY_RUN" = true ]; then
 fi
 
 # Real sync
-step_start "Step 5/6" "Syncing to target..."
+step_start "Step 5/6" "Preparing validated sync to target..."
 if [ ! -d "$TARGET_DIR" ]; then
   echo -e "  ${YELLOW}Target dir does not exist: $TARGET_DIR${NC}"
   echo "  Create it with: git init $TARGET_DIR"
   exit 1
 fi
 
-# 5a: Target-owned file backup (D2b)
-# Read target_owned_files from manifest and back them up before rsync
-TARGET_OWNED=()
-while IFS= read -r line; do TARGET_OWNED+=("$line"); done < <(yaml_list "target_owned_files")
-BACKUP_DIR=$(mktemp -d)
-BACKED_UP=0
-for owned in "${TARGET_OWNED[@]}"; do
-  if [ -d "$TARGET_DIR/$owned" ]; then
-    mkdir -p "$BACKUP_DIR/$(dirname "$owned")"
-    cp -R "$TARGET_DIR/$owned" "$BACKUP_DIR/$owned"
-    BACKED_UP=$((BACKED_UP + 1))
-  elif [ -f "$TARGET_DIR/$owned" ]; then
-    mkdir -p "$BACKUP_DIR/$(dirname "$owned")"
-    cp "$TARGET_DIR/$owned" "$BACKUP_DIR/$owned"
-    BACKED_UP=$((BACKED_UP + 1))
-  fi
-done
-if [ "$BACKED_UP" -gt 0 ]; then
-  echo "  ✓ Backed up $BACKED_UP target-owned item(s)"
-fi
-
-# 5b: Diff preview (D2c) — rsync --dry-run + awk single-pass counting
-# NOTE: bash while-read is ~100 lines/s; awk handles 50K+ lines in <1s
+# 5a: Diff preview (D2c) — rsync --dry-run + awk single-pass counting
 echo ""
 echo -e "  ${BLUE}── Diff preview ──${NC}"
 
-# Build owned-prefix pattern for awk (pipe-separated)
 OWNED_PATTERN=""
 for owned in "${TARGET_OWNED[@]}"; do
   [ -n "$OWNED_PATTERN" ] && OWNED_PATTERN="${OWNED_PATTERN}|"
   OWNED_PATTERN="${OWNED_PATTERN}${owned}"
 done
 
-# Single-pass awk: counts add/update/delete, captures first 20 deletes + protected
 DIFF_RESULT_FILE=$(mktemp)
 LC_ALL=C rsync -a --delete --dry-run --itemize-changes \
   --exclude='.git' "$FILTERED_DIR/" "$TARGET_DIR/" 2>/dev/null | \
@@ -1256,14 +1451,12 @@ LC_ALL=C rsync -a --delete --dry-run --itemize-changes \
   END { print "COUNTS:" add " " upd " " del " " prot }
 ' > "$DIFF_RESULT_FILE"
 
-# Parse results
 DIFF_ADD=$(grep '^COUNTS:' "$DIFF_RESULT_FILE" | sed 's/COUNTS://' | awk '{print $1}')
 DIFF_UPDATE=$(grep '^COUNTS:' "$DIFF_RESULT_FILE" | sed 's/COUNTS://' | awk '{print $2}')
 DIFF_DELETE=$(grep '^COUNTS:' "$DIFF_RESULT_FILE" | sed 's/COUNTS://' | awk '{print $3}')
 DIFF_PROTECTED=$(grep '^COUNTS:' "$DIFF_RESULT_FILE" | sed 's/COUNTS://' | awk '{print $4}')
 
 echo -e "  ${GREEN}+${DIFF_ADD} add${NC}  ${BLUE}~${DIFF_UPDATE} update${NC}  ${RED}-${DIFF_DELETE} delete${NC}"
-# Show deletion details (important for human review)
 if [ "$DIFF_DELETE" -gt 0 ]; then
   echo -e "  ${RED}Files to delete:${NC}"
   grep '^DELETE:' "$DIFF_RESULT_FILE" | sed 's/^DELETE:/    - /'
@@ -1271,7 +1464,6 @@ if [ "$DIFF_DELETE" -gt 0 ]; then
     echo "    ... and $((DIFF_DELETE - 20)) more"
   fi
 fi
-# Show protected target-owned files
 if [ "$DIFF_PROTECTED" -gt 0 ]; then
   echo -e "  ${GREEN}Protected (target-owned):${NC}"
   grep '^PROTECTED:' "$DIFF_RESULT_FILE" | sed 's/^PROTECTED:/    🛡 /'
@@ -1279,7 +1471,6 @@ fi
 rm -f "$DIFF_RESULT_FILE"
 if [ $((DIFF_ADD + DIFF_UPDATE + DIFF_DELETE)) -eq 0 ]; then
   echo "  No changes to sync."
-  rm -rf "$BACKUP_DIR"
   exit 0
 fi
 if [ "$AUTO_YES" = false ]; then
@@ -1287,59 +1478,51 @@ if [ "$AUTO_YES" = false ]; then
   read -r SYNC_CONFIRM
   if [ "$SYNC_CONFIRM" != "y" ] && [ "$SYNC_CONFIRM" != "Y" ]; then
     echo "  Aborted."
-    rm -rf "$BACKUP_DIR"
     exit 0
   fi
 else
   echo "  (--yes: auto-proceeding with sync)"
 fi
 
-# 5c: rsync — module-aware sync
-if [ "$SYNC_MODULE" = "all" ]; then
-  # Full sync: target matches filtered output exactly
-  rsync -a --delete \
-    --exclude='.git' \
-    "$FILTERED_DIR/" "$TARGET_DIR/"
+# 5b: Source-owned public gate — validate same export on temp target first
+if [ "$SKIP_VALIDATE" = true ]; then
+  echo -e "  ${YELLOW}ℹ Skipping source-owned public gate (--skip-validate)${NC}"
+elif [ "$SYNC_MODULE" != "all" ]; then
+  echo -e "  ${YELLOW}ℹ Skipping source-owned public gate for module sync${NC}"
 else
-  # Module sync: only sync the module's owned root(s), safe --delete within owned paths
-  MODULE_ROOT="$(module_root "$SYNC_MODULE")"
-  if [ -z "$MODULE_ROOT" ]; then
-    # root module: sync ONLY root-level managed_files (package.json, tsconfig, etc.)
-    # Excludes ALL directory trees — those belong to other modules
-    rsync -a \
-      --exclude='.git' \
-      --exclude='packages/' \
-      --exclude='docs/' \
-      --exclude='cat-cafe-skills/' \
-      --exclude='scripts/' \
-      --exclude='.github/' \
-      --exclude='.sync-provenance.json' \
-      "$FILTERED_DIR/" "$TARGET_DIR/"
-    echo "  ✓ Module 'root': synced root-level files only (no --delete, no subdirs)"
-  elif [ -d "$FILTERED_DIR/$MODULE_ROOT" ]; then
-    # Module with directory root: rsync with --delete (safe — mutually exclusive roots)
-    mkdir -p "$TARGET_DIR/$MODULE_ROOT"
-    rsync -a --delete \
-      "$FILTERED_DIR/$MODULE_ROOT" "$TARGET_DIR/$MODULE_ROOT"
-    echo "  ✓ Module '$SYNC_MODULE': synced $MODULE_ROOT (with --delete)"
-  else
-    echo -e "  ${YELLOW}⚠ Module '$SYNC_MODULE' has no files in export, skipping${NC}"
+  echo "  Source-owned public gate (temp target)..."
+  if ! prepare_validation_target; then
+    exit 1
   fi
+  VALIDATION_BACKUP_DIR=$(mktemp -d)
+  backed_up=$(backup_target_owned_items "$VALIDATION_TARGET_DIR" "$VALIDATION_BACKUP_DIR")
+  if [ "$backed_up" -gt 0 ]; then
+    echo "  ✓ Backed up $backed_up target-owned item(s) into temp target"
+  fi
+  sync_filtered_into_target "$VALIDATION_TARGET_DIR"
+  restored=$(restore_target_owned_items "$VALIDATION_TARGET_DIR" "$VALIDATION_BACKUP_DIR")
+  rm -rf "$VALIDATION_BACKUP_DIR"
+  if [ "$restored" -gt 0 ]; then
+    echo "  ✓ Restored $restored target-owned item(s) into temp target"
+  fi
+  if ! run_target_public_gate "$VALIDATION_TARGET_DIR"; then
+    echo -e "  ${RED}✗ Source-owned public gate failed — real target was not touched${NC}"
+    exit 1
+  fi
+  cleanup_validation_target
+  echo "  ✓ Source-owned public gate passed"
 fi
 
-# 5d: Restore target-owned files
-RESTORED=0
-for owned in "${TARGET_OWNED[@]}"; do
-  if [ -d "$BACKUP_DIR/$owned" ]; then
-    mkdir -p "$TARGET_DIR/$(dirname "$owned")"
-    cp -R "$BACKUP_DIR/$owned" "$TARGET_DIR/$owned"
-    RESTORED=$((RESTORED + 1))
-  elif [ -f "$BACKUP_DIR/$owned" ]; then
-    mkdir -p "$TARGET_DIR/$(dirname "$owned")"
-    cp "$BACKUP_DIR/$owned" "$TARGET_DIR/$owned"
-    RESTORED=$((RESTORED + 1))
-  fi
-done
+# 5c: Sync the already-validated export to the real target
+BACKUP_DIR=$(mktemp -d)
+BACKED_UP=$(backup_target_owned_items "$TARGET_DIR" "$BACKUP_DIR")
+if [ "$BACKED_UP" -gt 0 ]; then
+  echo "  ✓ Backed up $BACKED_UP target-owned item(s)"
+fi
+
+sync_filtered_into_target "$TARGET_DIR"
+
+RESTORED=$(restore_target_owned_items "$TARGET_DIR" "$BACKUP_DIR")
 rm -rf "$BACKUP_DIR"
 if [ "$RESTORED" -gt 0 ]; then
   echo "  ✓ Restored $RESTORED target-owned item(s)"
@@ -1348,8 +1531,7 @@ fi
 echo "  ✓ Synced to $TARGET_DIR"
 step_done
 
-# 5e: Auto-commit + provenance finalization (D3)
-# Commit the sync, then record the resulting target HEAD into provenance
+# 5d: Auto-commit + provenance finalization (D3)
 if [ -d "$TARGET_DIR/.git" ]; then
   cd "$TARGET_DIR"
   git add -A
@@ -1372,10 +1554,6 @@ Co-authored-by: ${ca}"
     done
   fi
   git commit -m "$SYNC_MSG" --allow-empty 2>&1 | tail -3
-  # Provenance: record the pre-sync HEAD (the base before our sync commit).
-  # We do NOT try to embed the sync commit's own hash (chicken-and-egg with amend).
-  # Detection logic uses commit-message matching to distinguish sync vs inbound.
-  # PRE_SYNC_TARGET_HEAD was captured at Step 0 (or defaults to parent if unavailable).
   PRE_SYNC_BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD 2>/dev/null || true)
   if [ -n "$PRE_SYNC_BASE" ] && [ -f "$TARGET_DIR/.sync-provenance.json" ]; then
     node -e "
@@ -1391,195 +1569,19 @@ Co-authored-by: ${ca}"
   cd "$SOURCE_DIR"
 fi
 
-# ── Step 6: Post-sync validation (layered: skip / fast / full) ─
+# ── Step 6: Sync summary ───────────────────────────────────────
+echo ""
 if [ "$SKIP_VALIDATE" = true ]; then
-  echo ""
-  echo -e "${YELLOW}[Step 6] Post-sync validation SKIPPED (--skip-validate)${NC}"
+  echo -e "${YELLOW}[Step 6/6] Source-owned public gate SKIPPED (--skip-validate)${NC}"
 elif [ "$SYNC_MODULE" != "all" ]; then
-  echo ""
-  echo -e "${YELLOW}[Step 6] Post-sync validation SKIPPED (module sync — run full sync for final gate)${NC}"
+  echo -e "${YELLOW}[Step 6/6] Source-owned public gate SKIPPED (module sync — run full sync for public gate)${NC}"
 else
+  echo -e "${GREEN}[Step 6/6] Sync committed after source-owned public gate passed${NC}"
   if [ "$FAST_VALIDATE" = true ]; then
-    step_start "Step 6" "Post-sync fast validation (install + static gates + build + test)..."
+    echo -e "  ${YELLOW}ℹ Startup acceptance was skipped in temp target (--fast-validate)${NC}"
   else
-    step_start "Step 6" "Post-sync full acceptance (static gates + D2d)..."
+    echo "  ✓ Real clowder-ai was only touched after temp target public gate turned green"
   fi
-  cd "$TARGET_DIR"
-  STEP6_FAIL=false
-  if command -v pnpm >/dev/null 2>&1; then
-    # 6a: .env setup (simulate public user first-run)
-    if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
-      cp "$TARGET_DIR/.env.example" "$TARGET_DIR/.env"
-      echo "  ✓ Created .env from .env.example"
-    elif [ ! -f "$TARGET_DIR/.env.example" ]; then
-      echo -e "  ${RED}✗ .env.example missing — public user cannot bootstrap${NC}"
-      STEP6_FAIL=true
-    fi
-
-    # 6b: Install + build
-    echo "  Installing dependencies..."
-    if ! pnpm install --frozen-lockfile 2>&1 | tail -5; then
-      echo -e "  ${RED}✗ pnpm install failed${NC}"
-      STEP6_FAIL=true
-    fi
-    if ! run_static_quality_gates false; then
-      STEP6_FAIL=true
-    fi
-    echo "  Building..."
-    if ! pnpm --filter @cat-cafe/shared build 2>&1 | tail -3; then
-      echo -e "  ${RED}✗ shared build failed${NC}"
-      STEP6_FAIL=true
-    fi
-    if ! pnpm --filter @cat-cafe/api build 2>&1 | tail -3; then
-      echo -e "  ${RED}✗ api build failed${NC}"
-      STEP6_FAIL=true
-    fi
-
-    # 6c: Smoke test (test:public — gate: failure blocks sync)
-    # Push sync commit to a temporary branch first so that shared-state preflight
-    # doesn't block invocations (it checks for unpushed cat-config.json changes).
-    # Without this, tests that create invocations (agent-router, etc.) fail because
-    # the preflight sees the sync commit as "unpushed shared-state changes".
-    SYNC_TEMP_BRANCH="sync/validate-$(date +%s)"
-    SYNC_PUSH_CLEANUP=false
-    SYNC_ORIG_UPSTREAM=""
-    _sync_temp_cleanup() {
-      if [ "$SYNC_PUSH_CLEANUP" = true ]; then
-        git push origin --delete "$SYNC_TEMP_BRANCH" --quiet 2>/dev/null || true
-        if [ -n "$SYNC_ORIG_UPSTREAM" ]; then
-          git branch --set-upstream-to="$SYNC_ORIG_UPSTREAM" 2>/dev/null || true
-        else
-          git branch --unset-upstream 2>/dev/null || true
-        fi
-      fi
-    }
-    trap '_sync_temp_cleanup' EXIT INT TERM
-    if git remote get-url origin >/dev/null 2>&1; then
-      SYNC_ORIG_UPSTREAM=$(git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)" 2>/dev/null || true)
-      if git push origin "HEAD:refs/heads/$SYNC_TEMP_BRANCH" --quiet 2>/dev/null; then
-        git branch --set-upstream-to="origin/$SYNC_TEMP_BRANCH" 2>/dev/null || true
-        SYNC_PUSH_CLEANUP=true
-        echo "  ✓ Pushed sync commit to temp branch for preflight validation"
-      else
-        echo -e "  ${YELLOW}ℹ Could not push temp branch (preflight may block some tests)${NC}"
-      fi
-    fi
-    echo "  Smoke test (test:public)..."
-    if ! run_public_acceptance_env pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5; then
-      echo -e "  ${RED}✗ test:public failed${NC}"
-      STEP6_FAIL=true
-    fi
-    _sync_temp_cleanup
-    trap - EXIT INT TERM
-    SYNC_PUSH_CLEANUP=false
-
-    if [ "$FAST_VALIDATE" = true ]; then
-      echo -e "  ${YELLOW}ℹ Fast validate: skipping full startup acceptance${NC}"
-    else
-    # 6d: Full startup acceptance — API + frontend, probe health, lsof diff
-    echo "  Startup acceptance (full stack)..."
-    ACCEPT_API_PORT="$(find_available_port 3004)"
-    ACCEPT_WEB_PORT="$(find_available_port 3003 "$ACCEPT_API_PORT")"
-    FORBIDDEN_PORTS="3001|3002|3011|3012|4111|6398|6399"
-
-    # Record listening ports BEFORE startup (baseline)
-    PORTS_BEFORE=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
-
-    # Start API + frontend in background
-    cd "$TARGET_DIR"
-    run_public_acceptance_env API_SERVER_PORT=$ACCEPT_API_PORT MEMORY_STORE=1 NODE_ENV=test pnpm --filter @cat-cafe/api start >/dev/null 2>&1 &
-    API_PID=$!
-    run_public_acceptance_env PORT=$ACCEPT_WEB_PORT pnpm --filter @cat-cafe/web dev -p $ACCEPT_WEB_PORT >/dev/null 2>&1 &
-    WEB_PID=$!
-
-    # Wait for API health (max 20s)
-    API_READY=false
-    for i in $(seq 1 20); do
-      if curl -sf "http://localhost:${ACCEPT_API_PORT}/health" >/dev/null 2>&1; then
-        API_READY=true
-        break
-      fi
-      sleep 1
-    done
-    if [ "$API_READY" = true ]; then
-      echo "  ✓ API health check passed (port $ACCEPT_API_PORT)"
-    else
-      echo -e "  ${RED}✗ API did not respond on port $ACCEPT_API_PORT within 20s${NC}"
-      STEP6_FAIL=true
-    fi
-
-    # Wait for frontend (max 15s after API is up)
-    WEB_READY=false
-    for i in $(seq 1 15); do
-      if curl -sf "http://localhost:${ACCEPT_WEB_PORT}" >/dev/null 2>&1; then
-        WEB_READY=true
-        break
-      fi
-      sleep 1
-    done
-    if [ "$WEB_READY" = true ]; then
-      echo "  ✓ Frontend page responded (port $ACCEPT_WEB_PORT)"
-    else
-      echo -e "  ${RED}✗ Frontend did not respond on port $ACCEPT_WEB_PORT within 15s${NC}"
-      STEP6_FAIL=true
-    fi
-
-    # Record listening ports AFTER startup
-    PORTS_AFTER=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
-
-    # before/after diff — detect unexpected new ports
-    NEW_PORTS=$(comm -13 <(echo "$PORTS_BEFORE") <(echo "$PORTS_AFTER") || true)
-    if [ -n "$NEW_PORTS" ]; then
-      echo "  New ports opened: $(echo "$NEW_PORTS" | tr '\n' ' ')"
-      # Check for forbidden ports in newly opened set
-      FORBIDDEN_FOUND=$(echo "$NEW_PORTS" | grep -E ":(${FORBIDDEN_PORTS})$" || true)
-      if [ -n "$FORBIDDEN_FOUND" ]; then
-        echo -e "  ${RED}✗ Forbidden port(s) opened during startup:${NC}"
-        echo "$FORBIDDEN_FOUND" | while read f; do echo "    $f"; done
-        STEP6_FAIL=true
-      fi
-    fi
-
-    # Cleanup: kill API + frontend
-    kill $API_PID 2>/dev/null || true
-    kill $WEB_PID 2>/dev/null || true
-    lsof -ti:$ACCEPT_API_PORT 2>/dev/null | xargs kill 2>/dev/null || true
-    lsof -ti:$ACCEPT_WEB_PORT 2>/dev/null | xargs kill 2>/dev/null || true
-    sleep 1
-
-    # 6e: Port verification (static scan)
-    echo "  Port verification (static scan)..."
-    PORT_FAIL=false
-    for bad_port in 3001 3002; do
-      found=$(grep -rn "[:=]${bad_port}\b" "$TARGET_DIR" --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.sh' --include='*.yaml' --include='*.md' 2>/dev/null \
-        | grep -v 'node_modules' | grep -v '.sync-provenance' | grep -v '.git/' | grep -v 'CORS' | head -3 || true)
-      if [ -n "$found" ]; then
-        echo -e "    ${RED}✗ Internal port $bad_port found:${NC}"
-        echo "$found" | while read f; do echo "      $f"; done
-        PORT_FAIL=true
-      fi
-    done
-    if [ "$PORT_FAIL" = true ]; then
-      STEP6_FAIL=true
-    else
-      echo "  ✓ Port verification passed"
-    fi
-
-    fi  # end of full validation (else branch of fast_validate)
-
-    # Final verdict
-    if [ "$STEP6_FAIL" = true ]; then
-      echo -e "  ${RED}✗ Post-sync acceptance FAILED${NC}"
-      echo -e "  ${YELLOW}  Sync completed but target has issues. Fix before committing.${NC}"
-      cd "$SOURCE_DIR"
-      exit 1
-    fi
-    echo -e "  ${GREEN}✓ Post-sync startup acceptance passed${NC}"
-  else
-    echo -e "  ${YELLOW}⚠ pnpm not found, skipping post-sync validation${NC}"
-  fi
-  step_done
-  cd "$SOURCE_DIR"
 fi
 
 TOTAL_ELAPSED=$(( $(date +%s) - SYNC_START_TIME ))

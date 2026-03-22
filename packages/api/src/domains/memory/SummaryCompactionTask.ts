@@ -100,7 +100,9 @@ export function createSummaryCompactionTask(deps: SummaryCompactionDeps): Schedu
       const isColdStart = neverSummarized.n > 20;
       const budget = isColdStart ? candidates.length : config.perTickBudget;
       if (isColdStart) {
-        deps.logger.info(`[summary-compaction] cold-start detected: ${neverSummarized.n} threads pending, running full batch`);
+        deps.logger.info(
+          `[summary-compaction] cold-start detected: ${neverSummarized.n} threads pending, running full batch`,
+        );
       }
 
       let processed = 0;
@@ -269,7 +271,11 @@ async function processThread(
   if (deps.reEmbed) {
     try {
       const title =
-        (deps.db.prepare('SELECT title FROM evidence_docs WHERE anchor = ?').get(`thread-${state.thread_id}`) as { title: string } | undefined)?.title ?? '';
+        (
+          deps.db.prepare('SELECT title FROM evidence_docs WHERE anchor = ?').get(`thread-${state.thread_id}`) as
+            | { title: string }
+            | undefined
+        )?.title ?? '';
       await deps.reEmbed(`thread-${state.thread_id}`, `${title} ${mergedSummary}`);
     } catch {
       // fail-open
