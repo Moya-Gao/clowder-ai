@@ -25,11 +25,14 @@ cd clowder-ai
 # 2. Install
 pnpm install
 
-# 3. Configure
+# 3. Build (required — creates dist/ for workspace packages)
+pnpm build
+
+# 4. Configure
 cp .env.example .env
 # Edit .env — add model API keys or configure CLI auth (see below)
 
-# 4. Run
+# 5. Run
 pnpm start
 ```
 
@@ -289,7 +292,7 @@ Full Windows support is available via PowerShell scripts.
 .\scripts\stop-windows.ps1
 ```
 
-> **Note**: `scripts/install.sh` is Linux-only (Debian/RHEL). macOS users should install prerequisites manually (`brew install node pnpm redis`) and run `pnpm install && pnpm start`.
+> **Note**: `scripts/install.sh` is Linux-only (Debian/RHEL). macOS users should install prerequisites manually (`brew install node pnpm redis`) and run `pnpm install && pnpm build && pnpm start`.
 
 ## Ports Overview
 
@@ -400,11 +403,14 @@ cd clowder-ai
 # 2. 安装依赖
 pnpm install
 
-# 3. 配置环境
+# 3. 构建（必需 — 为工作区包生成 dist/）
+pnpm build
+
+# 4. 配置环境
 cp .env.example .env
 # 编辑 .env — 添加模型 API key 或配置 CLI 认证（见下方）
 
-# 4. 启动
+# 5. 启动
 pnpm start
 ```
 
@@ -664,7 +670,7 @@ Windows 通过 PowerShell 脚本完整支持。
 .\scripts\stop-windows.ps1
 ```
 
-> **注意**：`scripts/install.sh` 仅适用于 Linux（Debian/RHEL）。macOS 用户请手动安装依赖（`brew install node pnpm redis`）后运行 `pnpm install && pnpm start`。
+> **注意**：`scripts/install.sh` 仅适用于 Linux（Debian/RHEL）。macOS 用户请手动安装依赖（`brew install node pnpm redis`）后运行 `pnpm install && pnpm build && pnpm start`。
 
 ## 端口概览
 

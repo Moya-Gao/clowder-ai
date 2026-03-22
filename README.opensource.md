@@ -82,10 +82,13 @@ cd clowder-ai
 # 2. Install dependencies
 pnpm install
 
-# 3. Configure — add at least one model API key
+# 3. Build all packages (required before first start)
+pnpm build
+
+# 4. Configure — add at least one model API key
 cp .env.example .env
 
-# 4. Start (auto-creates runtime worktree, starts Redis + API + Frontend)
+# 5. Start (auto-creates runtime worktree, starts Redis + API + Frontend)
 pnpm start
 ```
 
@@ -502,10 +505,13 @@ cd clowder-ai
 # 2. 安装依赖
 pnpm install
 
-# 3. 配置 — 至少添加一个模型 API key
+# 3. 构建所有包（首次启动前必需）
+pnpm build
+
+# 4. 配置 — 至少添加一个模型 API key
 cp .env.example .env
 
-# 4. 启动（自动创建运行时 worktree，启动 Redis + API + 前端）
+# 5. 启动（自动创建运行时 worktree，启动 Redis + API + 前端）
 pnpm start
 ```
 
