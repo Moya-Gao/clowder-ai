@@ -87,14 +87,23 @@ export function createSummaryCompactionTask(deps: SummaryCompactionDeps): Schedu
         // fail-open
       }
 
-      // P1 fix (砚砚 review): get ALL threads with pending work, then filter by
-      // full eligibility (quiet/cooldown/signal) BEFORE applying budget.
       const candidates = getEligibleThreads(deps.db, deps, config);
       if (candidates.length === 0) return;
 
+      // Cold-start detection: if most threads have never been summarized,
+      // remove per-tick budget to process all in one pass.
+      const neverSummarized = deps.db
+        .prepare("SELECT count(*) as n FROM summary_state WHERE summary_type = 'concat' AND pending_message_count > 0")
+        .get() as { n: number };
+      const isColdStart = neverSummarized.n > 20;
+      const budget = isColdStart ? candidates.length : config.perTickBudget;
+      if (isColdStart) {
+        deps.logger.info(`[summary-compaction] cold-start detected: ${neverSummarized.n} threads pending, running full batch`);
+      }
+
       let processed = 0;
       for (const state of candidates) {
-        if (processed >= config.perTickBudget) break;
+        if (processed >= budget) break;
         try {
           const didProcess = await processThread(state, deps, config);
           if (didProcess) processed++;
