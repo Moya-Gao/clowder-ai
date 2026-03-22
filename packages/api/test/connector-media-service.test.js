@@ -155,6 +155,34 @@ describe('ConnectorMediaService', () => {
     await rm(tempDir, { recursive: true });
   });
 
+  it('passes source to feishu download function for post-embedded images', async () => {
+    const { ConnectorMediaService } = await import('../dist/infrastructure/connectors/media/ConnectorMediaService.js');
+
+    const tempDir = await mkdtemp(path.join(tmpdir(), 'media-test-'));
+
+    const mockFeishuDownload = mock.fn(async () => Buffer.from('post-img'));
+    const service = new ConnectorMediaService({
+      mediaDir: tempDir,
+      feishuDownloadFn: mockFeishuDownload,
+    });
+
+    await service.download('feishu', {
+      type: 'image',
+      platformKey: 'img_v3_post_001',
+      messageId: 'om_post_msg',
+      source: 'post-embedded',
+    });
+
+    assert.equal(mockFeishuDownload.mock.calls.length, 1);
+    const callArgs = mockFeishuDownload.mock.calls[0].arguments;
+    assert.equal(callArgs[0], 'img_v3_post_001');
+    assert.equal(callArgs[1], 'image');
+    assert.equal(callArgs[2], 'om_post_msg');
+    assert.equal(callArgs[3], 'post-embedded');
+
+    await rm(tempDir, { recursive: true });
+  });
+
   it('throws for unsupported connector', async () => {
     const { ConnectorMediaService } = await import('../dist/infrastructure/connectors/media/ConnectorMediaService.js');
 

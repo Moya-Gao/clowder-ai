@@ -9,6 +9,7 @@ export interface MediaAttachment {
   duration?: number;
   /** Feishu requires the original message_id to download message resources. */
   messageId?: string;
+  source?: 'post-embedded';
 }
 
 export interface DownloadedMedia {
@@ -20,7 +21,7 @@ export interface DownloadedMedia {
 
 export interface ConnectorMediaServiceOptions {
   mediaDir: string;
-  feishuDownloadFn?: (key: string, type: string, messageId?: string) => Promise<Buffer>;
+  feishuDownloadFn?: (key: string, type: string, messageId?: string, source?: 'post-embedded') => Promise<Buffer>;
   telegramDownloadFn?: (fileId: string) => Promise<Buffer>;
 }
 
@@ -39,7 +40,9 @@ export class ConnectorMediaService {
     this.telegramDl = opts.telegramDownloadFn;
   }
 
-  setFeishuDownloadFn(fn: (key: string, type: string, messageId?: string) => Promise<Buffer>): void {
+  setFeishuDownloadFn(
+    fn: (key: string, type: string, messageId?: string, source?: 'post-embedded') => Promise<Buffer>,
+  ): void {
     this.feishuDl = fn;
   }
 
@@ -52,7 +55,7 @@ export class ConnectorMediaService {
 
     let buffer: Buffer;
     if (connectorId === 'feishu' && this.feishuDl) {
-      buffer = await this.feishuDl(attachment.platformKey, attachment.type, attachment.messageId);
+      buffer = await this.feishuDl(attachment.platformKey, attachment.type, attachment.messageId, attachment.source);
     } else if (connectorId === 'telegram' && this.telegramDl) {
       buffer = await this.telegramDl(attachment.platformKey);
     } else {

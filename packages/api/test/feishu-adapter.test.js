@@ -202,8 +202,8 @@ describe('FeishuAdapter', () => {
       assert.equal(result.text, '这是标题\nHello world\n第二段');
       assert.ok(result.attachments, 'should have attachments');
       assert.equal(result.attachments.length, 2);
-      assert.deepEqual(result.attachments[0], { type: 'image', feishuKey: 'img_v3_post_001' });
-      assert.deepEqual(result.attachments[1], { type: 'image', feishuKey: 'img_v3_post_002' });
+      assert.deepEqual(result.attachments[0], { type: 'image', feishuKey: 'img_v3_post_001', source: 'post-embedded' });
+      assert.deepEqual(result.attachments[1], { type: 'image', feishuKey: 'img_v3_post_002', source: 'post-embedded' });
     });
 
     it('extracts text-only post message (no images)', () => {
@@ -267,7 +267,7 @@ describe('FeishuAdapter', () => {
       const result = adapter.parseEvent(event);
       assert.ok(result, 'should handle en_us locale');
       assert.equal(result.text, 'English title\nEnglish content');
-      assert.deepEqual(result.attachments, [{ type: 'image', feishuKey: 'img_v3_en_001' }]);
+      assert.deepEqual(result.attachments, [{ type: 'image', feishuKey: 'img_v3_en_001', source: 'post-embedded' }]);
     });
 
     it('still handles text messages normally', () => {

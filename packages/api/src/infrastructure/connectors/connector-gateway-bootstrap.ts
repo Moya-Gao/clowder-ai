@@ -234,19 +234,33 @@ export async function startConnectorGateway(
     feishu._injectTokenManager(feishuTokenManager);
     adapters.set('feishu', feishu);
 
-    mediaService.setFeishuDownloadFn(async (fileKey: string, type: string, messageId?: string) => {
-      if (!messageId) throw new Error('Feishu download requires messageId');
-      const token = await feishuTokenManager.getTenantAccessToken();
-      const resourceType = type === 'image' ? 'image' : 'file';
-      const url = `https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/resources/${fileKey}?type=${resourceType}`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        throw new Error(`Feishu resource download failed: ${res.status} ${res.statusText}`);
-      }
-      return Buffer.from(await res.arrayBuffer());
-    });
+    mediaService.setFeishuDownloadFn(
+      async (fileKey: string, type: string, messageId?: string, source?: 'post-embedded') => {
+        const token = await feishuTokenManager.getTenantAccessToken();
+
+        if (source === 'post-embedded') {
+          const url = `https://open.feishu.cn/open-apis/im/v1/images/${fileKey}`;
+          const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) {
+            throw new Error(`Feishu image download failed: ${res.status} ${res.statusText}`);
+          }
+          return Buffer.from(await res.arrayBuffer());
+        }
+
+        if (!messageId) throw new Error('Feishu download requires messageId');
+        const resourceType = type === 'image' ? 'image' : 'file';
+        const url = `https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/resources/${fileKey}?type=${resourceType}`;
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          throw new Error(`Feishu resource download failed: ${res.status} ${res.statusText}`);
+        }
+        return Buffer.from(await res.arrayBuffer());
+      },
+    );
 
     // Register webhook handler for the route
     webhookHandlers.set('feishu', {
@@ -309,6 +323,7 @@ export async function startConnectorGateway(
           messageId: parsed.messageId,
           ...(a.fileName ? { fileName: a.fileName } : {}),
           ...(a.duration != null ? { duration: a.duration } : {}),
+          ...(a.source ? { source: a.source } : {}),
         }));
 
         const result = await connectorRouter.route('feishu', parsed.chatId, parsed.text, parsed.messageId, attachments);

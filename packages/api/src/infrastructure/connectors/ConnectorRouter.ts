@@ -94,7 +94,13 @@ export interface ConnectorRouterOptions {
     | {
         download(
           connectorId: string,
-          attachment: { type: 'image' | 'file' | 'audio'; platformKey: string; fileName?: string; duration?: number },
+          attachment: {
+            type: 'image' | 'file' | 'audio';
+            platformKey: string;
+            fileName?: string;
+            duration?: number;
+            source?: 'post-embedded';
+          },
         ): Promise<{ localUrl: string; absPath: string; mimeType: string }>;
       }
     | undefined;
@@ -134,6 +140,7 @@ export class ConnectorRouter {
       fileName?: string;
       duration?: number;
       messageId?: string;
+      source?: 'post-embedded';
     }>,
   ): Promise<RouteResult> {
     const { bindingStore, dedup, messageStore, threadStore, invokeTrigger, socketManager, log } = this.opts;
@@ -292,6 +299,7 @@ export class ConnectorRouter {
       fileName?: string;
       duration?: number;
       messageId?: string;
+      source?: 'post-embedded';
     }>,
   ): Promise<{ text: string; contentBlocks: MessageContent[] }> {
     const parts: string[] = [];
