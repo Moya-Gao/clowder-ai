@@ -209,6 +209,28 @@ function RevealWhispersButton({ threadId }: { threadId: string }) {
   );
 }
 
+function RuntimeLogsButton() {
+  const setWorkspaceRevealPath = useChatStore((s) => s.setWorkspaceRevealPath);
+  const handleClick = useCallback(() => {
+    setWorkspaceRevealPath('packages/api/data/logs/api');
+  }, [setWorkspaceRevealPath]);
+
+  return (
+    <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-gray-700">运行日志</h3>
+        <button
+          onClick={handleClick}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+          title="在 Workspace 面板中打开运行日志目录"
+        >
+          查看日志
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export function RightStatusPanel({
   intentMode,
   targetCats,
@@ -379,6 +401,9 @@ export function RightStatusPanel({
         externalSessionId={viewSessionId}
         onCloseSession={() => setViewSessionId(null)}
       />
+
+      {/* ── F130: Runtime logs quick-access ────────────── */}
+      <RuntimeLogsButton />
     </aside>
   );
 }
