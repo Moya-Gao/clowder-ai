@@ -50,7 +50,7 @@ Step 3: 调 API — 让 Hub 前端导航
 
 | 铲屎官说的 | 搜索策略 | 示例命令 |
 |-----------|----------|---------|
-| "打开日志" / "看日志" | 日志在 `packages/api/data/logs/` 下 | `glob("packages/api/data/logs/**")` |
+| "打开日志" / "看日志" | **快捷方式：右侧状态面板底部「运行日志 → 查看日志」按钮**。也可用 Navigate API | 按钮会自动打开最新 .log 文件 |
 | "看审计日志" | 审计日志在 `packages/api/data/audit/` 下 | `glob("packages/api/data/audit/**")` |
 | "打开 F131 的文档" | Feature 文档在 `docs/features/` 下 | `glob("docs/features/F131*")` |
 | "看看 F131 的设计图" | Pencil 设计文件 | `glob("**/*F131*.pen")` 或 `glob("designs/*F131*")` |
@@ -128,6 +128,16 @@ curl -X POST http://localhost:3001/api/workspace/navigate \
 - 讨论 Feature 时提到 spec → 主动打开 spec 文档
 - Debug 时提到某个文件 → 主动打开让铲屎官和你一起看
 - 铲屎官说"看看设计图" → 找到 .pen 文件并打开
+
+## 面板快捷入口（F130）
+
+右侧状态面板底部有内置快捷按钮，不需要走 Navigate API：
+
+| 按钮 | 位置 | 效果 |
+|------|------|------|
+| **运行日志 → 查看日志** | 右侧状态面板，AuditExplorerPanel 下方 | 自动展开到 `packages/api/data/logs/api/` 并打开最新 `.log` 文件 |
+
+铲屎官说"看日志"时，**告诉铲屎官点右侧面板的按钮**比你调 API 更快。你也可以用 Navigate API 代替。
 
 ## 不要做的事
 
