@@ -72,7 +72,11 @@ export const gameActionTools = [
   {
     name: 'cat_cafe_submit_game_action',
     description:
-      'Submit a game action (kill/guard/divine/vote/speak). Only use when you are woken up for a game action. Validates round/phase/seat/role automatically.',
+      'Submit a game action (kill/guard/divine/vote/speak/last_words). ' +
+      'Only use when you are woken up for a game phase that requires your action. ' +
+      'Server validates round/phase/seat/role automatically — invalid actions are rejected. ' +
+      'GOTCHA: Always include a unique nonce string for idempotency — duplicate nonces are silently deduplicated. ' +
+      'GOTCHA: target is required for kill/guard/divine/vote; text is required for speak/last_words.',
     inputSchema: submitGameActionInputSchema,
     handler: handleSubmitGameAction,
   },

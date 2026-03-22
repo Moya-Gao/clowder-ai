@@ -315,28 +315,46 @@ export const sessionChainTools = [
   {
     name: 'cat_cafe_list_session_chain',
     description:
-      'List session chain for a thread. Shows session IDs, sequence numbers, status, and context health for each cat.',
+      'List session chain for a thread. Shows session IDs, sequence numbers, status, and context health for each cat. ' +
+      'Use when you need to find a specific session ID to drill into (e.g. "what did opus do in thread X?"). ' +
+      'WORKFLOW: list_session_chain → read_session_digest (overview first) → read_session_events (detail). ' +
+      'TIP: Filter by catId to narrow results when a thread has many sessions from different cats.',
     inputSchema: listSessionChainInputSchema,
     handler: handleListSessionChain,
   },
   {
     name: 'cat_cafe_read_session_events',
     description:
-      'Read events from a sealed session transcript. Supports view modes: raw (default, full events), chat (role/content pairs), handoff (per-invocation summaries). Pagination via cursor.',
+      'Read events from a sealed session transcript. Supports view modes: raw (default, full events), chat (role/content pairs), handoff (per-invocation summaries). Pagination via cursor. ' +
+      'VIEW SELECTION: ' +
+      'handoff (RECOMMENDED first) = per-invocation summaries with tool calls and key messages — best overview of what happened. ' +
+      'chat = role/content message pairs — useful when you need to see the actual conversation flow. ' +
+      'raw = full JSONL events — only when you need low-level event details (rarely needed). ' +
+      'GOTCHA: Only sealed (completed) sessions are readable — in-progress sessions return empty. ' +
+      'TIP: Start with view=handoff to get the big picture, then use read_invocation_detail for specific invocations.',
     inputSchema: readSessionEventsInputSchema,
     handler: handleReadSessionEvents,
   },
   {
     name: 'cat_cafe_read_session_digest',
     description:
-      'Read the extractive digest of a sealed session. Contains tool names, files touched, errors, and timing info. Use this first before reading full events.',
+      'Read the extractive digest of a sealed session. Contains tool names, files touched, errors, and timing info. ' +
+      'ALWAYS start here before reading full events — the digest gives you a quick overview ' +
+      'so you know which parts of the session are worth drilling into. ' +
+      'GOTCHA: Returns 404 if the session is not yet sealed (still in progress). ' +
+      'TIP: After reading the digest, use read_session_events with view=handoff for more detail, ' +
+      'or read_invocation_detail if the digest mentions a specific invocationId of interest.',
     inputSchema: readSessionDigestInputSchema,
     handler: handleReadSessionDigest,
   },
   {
     name: 'cat_cafe_read_invocation_detail',
     description:
-      'Read all events for a specific invocation within a sealed session. Use after search_evidence or read_session_events returns an invocationId to inspect what happened.',
+      'Read all events for a specific invocation within a sealed session. ' +
+      'Use AFTER search_evidence or read_session_events (handoff view) returns an invocationId you want to inspect. ' +
+      'This gives you the complete picture of one invocation: every tool call, response, and error. ' +
+      'GOTCHA: You need both sessionId AND invocationId. Get sessionId from list_session_chain, ' +
+      'and invocationId from read_session_events (handoff view) or search_evidence results.',
     inputSchema: readInvocationDetailInputSchema,
     handler: handleReadInvocationDetail,
   },
