@@ -209,11 +209,47 @@ function RevealWhispersButton({ threadId }: { threadId: string }) {
   );
 }
 
+const LOGS_DIR = 'packages/api/data/logs/api';
+
+function parseLogFilename(name: string): { date: string; seq: number } | null {
+  const m = name.match(/^api\.(\d{4}-\d{2}-\d{2})\.(\d+)\.log$/);
+  if (!m) return null;
+  return { date: m[1], seq: Number(m[2]) };
+}
+
 function RuntimeLogsButton() {
-  const setWorkspaceRevealPath = useChatStore((s) => s.setWorkspaceRevealPath);
-  const handleClick = useCallback(() => {
-    setWorkspaceRevealPath('packages/api/data/logs/api');
-  }, [setWorkspaceRevealPath]);
+  const setRevealPath = useChatStore((s) => s.setWorkspaceRevealPath);
+  const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
+
+  const handleClick = useCallback(async () => {
+    setRevealPath(LOGS_DIR);
+
+    try {
+      const wtRes = await apiFetch('/api/workspace/worktrees');
+      if (!wtRes.ok) return;
+      const wtData = await wtRes.json();
+      const wId = (wtData.worktrees ?? [])[0]?.id;
+      if (!wId) return;
+
+      const params = new URLSearchParams({ worktreeId: wId, path: LOGS_DIR, depth: '1' });
+      const res = await apiFetch(`/api/workspace/tree?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const logFiles = (data.tree?.children ?? [])
+        .filter((f: { name: string; type: string }) => f.type === 'file' && f.name.endsWith('.log'))
+        .map((f: { name: string }) => ({ name: f.name, parsed: parseLogFilename(f.name) }))
+        .filter((f: { parsed: unknown }) => f.parsed !== null)
+        .sort((a: { parsed: { date: string; seq: number } }, b: { parsed: { date: string; seq: number } }) => {
+          const dc = b.parsed.date.localeCompare(a.parsed.date);
+          return dc !== 0 ? dc : b.parsed.seq - a.parsed.seq;
+        });
+      if (logFiles.length > 0) {
+        setOpenFile(`${LOGS_DIR}/${logFiles[0].name}`, null, wId);
+      }
+    } catch {
+      // Directory revealed; file open is best-effort
+    }
+  }, [setRevealPath, setOpenFile]);
 
   return (
     <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
