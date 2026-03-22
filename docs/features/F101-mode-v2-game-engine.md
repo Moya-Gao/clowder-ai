@@ -224,9 +224,9 @@ reopened: 2026-03-14
 铲屎官 2026-03-20 批评：当前 `GameAutoPlayer` + `LlmAIProvider` 只是裸调 LLM API，猫猫根本不知道自己在玩游戏。三猫（金渐层诊断 + 布偶猫架构 + 缅因猫审查）一致同意重做驱动层。
 
 **P0 前置条件（信息隔离安全加固，缅因猫审查门禁：不加就不开工）**：
-- [ ] AC-I-P0a: Session API catId 授权 — `list_session_chain` / `read_session_events` / `read_invocation_detail` 默认只返回调用者自己的 session，防跨猫读取内心独白
-- [ ] AC-I-P0b: Evidence 索引排除游戏 thread — `threadListFn` 过滤 `projectPath.startsWith('games/')`，游戏内容不入检索
-- [ ] AC-I-P0c: 游戏行动走结构化工具 `submit_game_action`（gameId/round/phase/seat/action/target/nonce），引擎端做 phase/seat/role/合法性校验；`post_message` 只用于公开发言和叙事播报
+- [x] AC-I-P0a: Session API catId 授权 — `list_session_chain` / `read_session_events` / `read_invocation_detail` 默认只返回调用者自己的 session，防跨猫读取内心独白
+- [x] AC-I-P0b: Evidence 索引排除游戏 thread — `threadListFn` 过滤 `projectPath.startsWith('games/')`，游戏内容不入检索
+- [x] AC-I-P0c: 游戏行动走结构化工具 `submit_game_action`（gameId/round/phase/seat/action/target/nonce），引擎端做 phase/seat/role/合法性校验；`post_message` 只用于公开发言和叙事播报
 
 **核心功能**：
 - [ ] AC-I1: 猫猫通过 A2A mention 协议（`post_message` → dispatch → CLI `--resume`）参与游戏，不再裸调 HTTP API
@@ -236,7 +236,7 @@ reopened: 2026-03-14
 - [ ] AC-I5: Session seal 后 re-briefing — 如果 CLI session 因上下文溢出被 seal，新 session 注入完整 resume capsule
 - [ ] AC-I6: 讨论环节顺序发言 — 按座位序轮流 @猫猫，后发言者能看到前面猫说了什么
 - [ ] AC-I7: 时限从固定相位超时改为每角色预算制（夜晚 45s/角色，讨论 30s/发言者，投票 20s/投票者）+ 全局单局 30min 天花板
-- [ ] AC-I8: `GameDriver` 接口兼容层 — `GameAutoPlayer` 包装为 `LegacyAutoDriver`，新 `GameNarratorDriver` 实现同接口，feature flag 切换
+- [x] AC-I8: `GameDriver` 接口兼容层 — `GameAutoPlayer` 包装为 `LegacyAutoDriver`，新 `GameNarratorDriver` 实现同接口，feature flag 切换
 - [ ] AC-I9: 游戏 thread 创建时自动设 `thinkingMode: 'play'`（心里话模式），CLI 内思考不广播（KD-36）
 - [ ] AC-I10: 端到端验证 — 7 人局完整跑通，猫猫 CLI agent 真正接入，叙事流可观，信息隔离红线测试通过
 
@@ -496,6 +496,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-19 | Phase H1+H2 merged (PR #576) — announce layer + template speech + messageStore dual-write + phase order fix + observerUserId fix (codex 6-round local review) |
 | 2026-03-19 | Phase H3+H4 merged (PR #577) — LLM AI bridge + AI speech with messageStore context + phase+role whitelist + route-level tests (codex 3-round local review) |
 | 2026-03-20 | **Phase I 立项** — 铲屎官批评猫猫 agent 未接入。三猫讨论（金渐层诊断 + 布偶猫架构 + 缅因猫审查）收敛：保留引擎层，重写驱动层为 A2A mention 协议，复用现有 session 管理。KD-29~34 |
+| 2026-03-22 | Phase I P0 security + GameDriver merged (PR #654) — session catId auth, evidence exclusion, submit_game_action three-layer auth, GameDriver interface + LegacyAutoDriver (codex 3-round local review) |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
