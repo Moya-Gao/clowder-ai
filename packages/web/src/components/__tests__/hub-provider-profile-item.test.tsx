@@ -47,6 +47,7 @@ describe('HubProviderProfileItem', () => {
       displayName: 'Claude API',
       name: 'Claude API',
       authType: 'api_key',
+      kind: 'api_key',
       protocol: 'anthropic',
       builtin: false,
       mode: 'api_key',
@@ -71,7 +72,7 @@ describe('HubProviderProfileItem', () => {
     });
 
     expect(onSave).toHaveBeenCalledTimes(1);
-    const payload = onSave.mock.calls[0]?.[1] as ProfileEditPayload;
+    const payload = (onSave.mock.calls[0] as unknown as [string, ProfileEditPayload])[1];
     expect(payload).toMatchObject({
       displayName: 'Claude API',
       baseUrl: 'https://api.anthropic.com',
@@ -87,6 +88,7 @@ describe('HubProviderProfileItem', () => {
       displayName: 'Codex API',
       name: 'Codex API',
       authType: 'api_key',
+      kind: 'api_key',
       protocol: 'openai',
       builtin: false,
       mode: 'api_key',
@@ -118,7 +120,7 @@ describe('HubProviderProfileItem', () => {
       queryButton(container, '保存').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    const payload = onSave.mock.calls[0]?.[1] as ProfileEditPayload;
+    const payload = (onSave.mock.calls[0] as unknown as [string, ProfileEditPayload])[1];
     expect(payload.baseUrl).toBe('');
   });
 
@@ -129,6 +131,7 @@ describe('HubProviderProfileItem', () => {
       displayName: 'Codex (OAuth)',
       name: 'Codex (OAuth)',
       authType: 'oauth',
+      kind: 'builtin',
       protocol: 'openai',
       builtin: true,
       mode: 'subscription',
@@ -157,6 +160,7 @@ describe('HubProviderProfileItem', () => {
       displayName: 'OpenCode (client-auth)',
       name: 'OpenCode (client-auth)',
       authType: 'oauth',
+      kind: 'builtin',
       protocol: 'anthropic',
       builtin: true,
       mode: 'subscription',
@@ -185,6 +189,7 @@ describe('HubProviderProfileItem', () => {
       displayName: 'Codex Sponsor',
       name: 'Codex Sponsor',
       authType: 'api_key',
+      kind: 'api_key',
       protocol: 'openai',
       builtin: false,
       mode: 'api_key',

@@ -19,6 +19,7 @@ describe('mention highlight cache', () => {
         avatar: '/avatars/spark.png',
         roleDescription: '精确点改',
         personality: 'fast',
+        source: 'seed',
         roster: {
           family: 'maine-coon',
           roles: ['coder'],

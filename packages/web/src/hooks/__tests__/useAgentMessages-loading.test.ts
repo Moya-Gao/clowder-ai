@@ -23,7 +23,16 @@ const mockAddMessageToThread = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
 const mockResetThreadInvocationState = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
-const mockGetThreadState = vi.fn(() => ({ messages: [] }));
+const mockGetThreadState = vi.fn((_tid: string) => ({
+  messages: [] as Array<{
+    id: string;
+    type: string;
+    catId?: string;
+    content: string;
+    isStreaming?: boolean;
+    timestamp: number;
+  }>,
+}));
 
 const storeState = {
   messages: [] as Array<{
@@ -108,7 +117,7 @@ describe('useAgentMessages loading lifecycle', () => {
     mockResetThreadInvocationState.mockClear();
     mockSetThreadMessageStreaming.mockClear();
     mockGetThreadState.mockClear();
-    mockGetThreadState.mockImplementation(() => ({ messages: [] }));
+    mockGetThreadState.mockImplementation((_tid: string) => ({ messages: [] }));
     storeState.currentThreadId = 'thread-1';
   });
 
@@ -260,7 +269,7 @@ describe('useAgentMessages loading lifecycle', () => {
 
   it('stopping a background thread does not clear active thread invocation state', () => {
     const cancelInvocation = vi.fn();
-    mockGetThreadState.mockImplementation((tid?: string) => {
+    mockGetThreadState.mockImplementation((tid: string) => {
       if (tid === 'thread-2') {
         return {
           messages: [

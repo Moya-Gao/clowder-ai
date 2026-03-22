@@ -39,7 +39,7 @@ function simulateBackgroundMessage(msg: {
   toolInput?: Record<string, unknown>;
   error?: string;
   isFinal?: boolean;
-  metadata?: { provider: string; model: string };
+  metadata?: { provider: string; model: string; sessionId?: string };
   origin?: 'stream' | 'callback';
   invocationId?: string;
   timestamp: number;
@@ -606,8 +606,6 @@ describe('background thread socket handling', () => {
           type: 'text',
           catId: 'opus',
           threadId: 'thread-bg',
-          content: 'more',
-          timestamp: now + 1,
         },
         testBgStreamRefs,
       );
@@ -646,9 +644,7 @@ describe('background thread socket handling', () => {
           type: 'error',
           catId: 'opus',
           threadId: 'thread-bg',
-          error: 'transient',
           isFinal: false,
-          timestamp: now + 1,
         },
         testBgStreamRefs,
       );

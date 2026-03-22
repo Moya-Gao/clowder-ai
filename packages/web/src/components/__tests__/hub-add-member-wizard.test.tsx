@@ -9,6 +9,7 @@ vi.mock('@/utils/api-client', () => ({
 
 import { HubAddMemberWizard } from '@/components/HubAddMemberWizard';
 import { HubCatEditor } from '@/components/HubCatEditor';
+import type { HubCatEditorDraft } from '@/components/hub-cat-editor.model';
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -58,14 +59,14 @@ function WizardHost() {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onComplete={(nextDraft) => {
-          setDraft(nextDraft as Record<string, string>);
+          setDraft(nextDraft as unknown as Record<string, string>);
           setWizardOpen(false);
           setEditorOpen(true);
         }}
       />
       <HubCatEditor
         open={editorOpen}
-        draft={draft ?? undefined}
+        draft={(draft as unknown as HubCatEditorDraft) ?? undefined}
         onClose={() => setEditorOpen(false)}
         onSaved={vi.fn()}
       />

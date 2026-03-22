@@ -17,6 +17,7 @@ import {
   splitCommandArgs,
   validateModelFormatForClient,
 } from '@/components/hub-cat-editor.model';
+import type { ProfileItem } from '@/components/hub-provider-profiles.types';
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -96,9 +97,10 @@ describe('HubCatEditor', () => {
       caution: '',
       strengths: '',
       client: 'openai',
-      providerProfileId: '',
+      accountRef: '',
       defaultModel: 'gpt-5.4',
       commandArgs: '',
+      cliConfigArgs: [],
       sessionChain: 'true',
       maxPromptTokens: '',
       maxContextTokens: '',
@@ -137,9 +139,10 @@ describe('HubCatEditor', () => {
       caution: '',
       strengths: '',
       client: 'openai',
-      providerProfileId: '',
+      accountRef: '',
       defaultModel: 'gpt-5.4',
       commandArgs: '',
+      cliConfigArgs: [],
       sessionChain: 'true',
       maxPromptTokens: '',
       maxContextTokens: '',
@@ -178,9 +181,10 @@ describe('HubCatEditor', () => {
       caution: '',
       strengths: '',
       client: 'antigravity',
-      providerProfileId: '',
+      accountRef: '',
       defaultModel: 'gemini-bridge',
       commandArgs: '',
+      cliConfigArgs: [],
       sessionChain: 'true',
       maxPromptTokens: '',
       maxContextTokens: '',
@@ -349,7 +353,7 @@ describe('HubCatEditor', () => {
 
     // Save should proceed even with bare model name — validation is soft hint only.
     const postCall = mockApiFetch.mock.calls.find(
-      ([path, init]: [string, RequestInit | undefined]) => path === '/api/cats' && init?.method === 'POST',
+      ([path, init]: [string, RequestInit?]) => path === '/api/cats' && init?.method === 'POST',
     );
     expect(postCall).toBeTruthy();
   });
@@ -505,13 +509,14 @@ describe('HubCatEditor', () => {
   });
 
   it('keeps builtin accounts client-specific while exposing all API key accounts', () => {
-    const profiles = [
+    const profiles: ProfileItem[] = [
       {
         id: 'claude-oauth',
         provider: 'claude-oauth',
         displayName: 'Claude (OAuth)',
         name: 'Claude (OAuth)',
         authType: 'oauth',
+        kind: 'builtin',
         protocol: 'anthropic',
         builtin: true,
         mode: 'subscription',
@@ -526,6 +531,7 @@ describe('HubCatEditor', () => {
         displayName: 'Claude Sponsor',
         name: 'Claude Sponsor',
         authType: 'api_key',
+        kind: 'api_key',
         protocol: 'anthropic',
         builtin: false,
         mode: 'api_key',
@@ -540,6 +546,7 @@ describe('HubCatEditor', () => {
         displayName: 'Codex (OAuth)',
         name: 'Codex (OAuth)',
         authType: 'oauth',
+        kind: 'builtin',
         protocol: 'openai',
         builtin: true,
         mode: 'subscription',
@@ -554,6 +561,7 @@ describe('HubCatEditor', () => {
         displayName: 'Codex Sponsor',
         name: 'Codex Sponsor',
         authType: 'api_key',
+        kind: 'api_key',
         protocol: 'openai',
         builtin: false,
         mode: 'api_key',
