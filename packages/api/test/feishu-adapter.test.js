@@ -270,6 +270,38 @@ describe('FeishuAdapter', () => {
       assert.deepEqual(result.attachments, [{ type: 'image', feishuKey: 'img_v3_en_001', source: 'post-embedded' }]);
     });
 
+    it('handles post content without locale wrapper (direct format)', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const postContent = {
+        title: '直接格式',
+        content: [
+          [
+            { tag: 'text', text: '没有zh_cn包裹' },
+            { tag: 'img', image_key: 'img_v3_direct_001' },
+          ],
+        ],
+      };
+      const event = {
+        header: { event_type: 'im.message.receive_v1' },
+        event: {
+          sender: { sender_id: { open_id: 'ou_sender' } },
+          message: {
+            message_id: 'om_post_direct',
+            chat_id: 'oc_chat',
+            chat_type: 'p2p',
+            content: JSON.stringify(postContent),
+            message_type: 'post',
+          },
+        },
+      };
+      const result = adapter.parseEvent(event);
+      assert.ok(result, 'should handle direct (unwrapped) post format');
+      assert.equal(result.text, '直接格式\n没有zh_cn包裹');
+      assert.deepEqual(result.attachments, [
+        { type: 'image', feishuKey: 'img_v3_direct_001', source: 'post-embedded' },
+      ]);
+    });
+
     it('still handles text messages normally', () => {
       const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
       const event = {

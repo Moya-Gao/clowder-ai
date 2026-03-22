@@ -186,12 +186,19 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
         };
       }
       case 'post': {
-        const locale =
-          (content as Record<string, unknown>).zh_cn ??
-          (content as Record<string, unknown>).en_us ??
-          (content as Record<string, unknown>).ja_jp;
-        if (!locale || typeof locale !== 'object') return null;
-        const loc = locale as { title?: string; content?: unknown[][] };
+        // Feishu sends post content in two formats:
+        // 1. Locale-wrapped: { zh_cn: { title, content }, en_us: ... }
+        // 2. Direct (no locale wrapper): { title, content: [[...]] }
+        const c = content as Record<string, unknown>;
+        const locale = c.zh_cn ?? c.en_us ?? c.ja_jp;
+        const resolved =
+          locale && typeof locale === 'object'
+            ? locale
+            : Array.isArray(c.content) // direct format — content is array of paragraphs
+              ? c
+              : null;
+        if (!resolved || typeof resolved !== 'object') return null;
+        const loc = resolved as { title?: string; content?: unknown[][] };
         const textParts: string[] = [];
         const attachments: FeishuAttachment[] = [];
         if (loc.title) textParts.push(loc.title);
