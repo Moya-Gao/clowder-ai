@@ -236,7 +236,7 @@ reopened: 2026-03-14
 - [ ] AC-I5: Session seal 后 re-briefing — 如果 CLI session 因上下文溢出被 seal，新 session 注入完整 resume capsule
 - [ ] AC-I6: 讨论环节顺序发言 — 按座位序轮流 @猫猫，后发言者能看到前面猫说了什么
 - [ ] AC-I7: 时限从固定相位超时改为每角色预算制（夜晚 45s/角色，讨论 30s/发言者，投票 20s/投票者）+ 全局单局 30min 天花板
-- [x] AC-I8: `GameDriver` 接口兼容层 — `GameAutoPlayer` 包装为 `LegacyAutoDriver`，新 `GameNarratorDriver` 实现同接口，feature flag 切换
+- [ ] AC-I8: `GameDriver` 接口兼容层 — `GameAutoPlayer` 包装为 `LegacyAutoDriver`（✅ PR #654），新 `GameNarratorDriver` 实现同接口，feature flag 切换（待做）
 - [ ] AC-I9: 游戏 thread 创建时自动设 `thinkingMode: 'play'`（心里话模式），CLI 内思考不广播（KD-36）
 - [ ] AC-I10: 端到端验证 — 7 人局完整跑通，猫猫 CLI agent 真正接入，叙事流可观，信息隔离红线测试通过
 
