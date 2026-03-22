@@ -80,12 +80,15 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 
 ### 检索策略
 
-| 找什么 | 怎么搜 |
-|--------|--------|
-| Feature / ADR / 明确术语 | `search_evidence("F042")` — FTS5 精确匹配 |
-| "我们当时为什么这么决定" | `search_evidence("memory adapter 决策")` — 关键词 + 语义 |
-| 历史聊天里的讨论 | `search_evidence("redis 坑")` → 命中后用 `read_session_digest` 深入 |
-| 源码 / API 实现 | **继续用 Grep/LSP**，不走记忆组件 |
+| 找什么 | 怎么搜 | mode |
+|--------|--------|------|
+| Feature / ADR / 精确术语 | `search_evidence("F042")` | `lexical`（默认） |
+| "我们当时为什么这么决定" | `search_evidence("memory adapter 决策", mode="hybrid")` | `hybrid`（推荐日常用） |
+| 跨语言 / 同义表达 | `search_evidence("cat naming origin", mode="semantic")` | `semantic` |
+| 历史聊天里的讨论 | `search_evidence("redis 坑", mode="hybrid")` → 命中后用 `read_session_digest` 深入 | `hybrid` |
+| 源码 / API 实现 | **继续用 Grep/LSP**，不走记忆组件 | — |
+
+> **mode 速查**：不确定用哪个 → 用 `hybrid`。精确 ID 用 `lexical`。英搜中/中搜英用 `semantic`。
 
 ### 什么时候不用搜
 
