@@ -21,6 +21,7 @@
 #   bash scripts/sync-to-opensource.sh --module=api       # 模块级同步（同上）
 #   bash scripts/sync-to-opensource.sh --cat-sig="[金渐层/Opus-46🐾]"  # 猫猫签名
 #   bash scripts/sync-to-opensource.sh --co-author="Name <email>"      # 社区贡献者署名（可重复）
+#   bash scripts/sync-to-opensource.sh --release-tag=v0.1.1            # release-intended full sync（自动打 source snapshot tag）
 #   Modules: all root docs shared api web mcp skills
 #   NOTE: V1 模块化仅影响 Step 5 rsync 和 Step 6 validate。
 #         Step 1-4（export/transform/scan）始终全量执行。V2 再按模块裁剪。
@@ -147,6 +148,65 @@ reserve(preferred && !avoid.has(preferred) ? preferred : 0);
 NODE
 }
 
+validate_release_tag() {
+  local tag="$1"
+  if [[ ! "$tag" =~ ^v[0-9]+(\.[0-9]+){1,2}([-.][0-9A-Za-z.-]+)?$ ]]; then
+    echo -e "${RED}✗ Invalid --release-tag: $tag${NC}"
+    echo "  Expected examples: v0.1.0, v0.1.1, v0.2.0-rc.1"
+    exit 1
+  fi
+}
+
+derive_source_snapshot_tag() {
+  local release_tag="$1"
+  printf 'clowder-%s-source\n' "$release_tag"
+}
+
+json_string_or_null() {
+  local value="$1"
+  if [ -n "$value" ]; then
+    printf '"%s"' "$value"
+  else
+    printf 'null'
+  fi
+}
+
+ensure_source_snapshot_tag() {
+  local tag="$1"
+  local sha="$2"
+  local release_tag="$3"
+  local existing_sha
+  local remote_sha
+
+  if git -C "$SOURCE_DIR" rev-parse --verify "refs/tags/$tag^{commit}" >/dev/null 2>&1; then
+    existing_sha=$(git -C "$SOURCE_DIR" rev-parse "refs/tags/$tag^{commit}")
+    if [ "$existing_sha" != "$sha" ]; then
+      echo -e "${RED}✗ Source snapshot tag $tag already points to ${existing_sha}, not ${sha}${NC}"
+      exit 1
+    fi
+    echo "  ✓ Source snapshot tag already exists locally: $tag -> ${sha:0:12}"
+  else
+    git -C "$SOURCE_DIR" tag -a "$tag" "$sha" -m "source snapshot for clowder-ai $release_tag"
+    echo "  ✓ Created source snapshot tag: $tag -> ${sha:0:12}"
+  fi
+
+  remote_sha=$(
+    git -C "$SOURCE_DIR" ls-remote --tags origin "refs/tags/$tag" "refs/tags/$tag^{}" \
+      | awk '{print $1}' | tail -n1
+  )
+  if [ -n "$remote_sha" ]; then
+    if [ "$remote_sha" != "$sha" ]; then
+      echo -e "${RED}✗ origin tag $tag already points to ${remote_sha}, not ${sha}${NC}"
+      exit 1
+    fi
+    echo "  ✓ Source snapshot tag already on origin: $tag -> ${sha:0:12}"
+    return 0
+  fi
+
+  git -C "$SOURCE_DIR" push origin "refs/tags/$tag"
+  echo "  ✓ Pushed source snapshot tag to origin: $tag"
+}
+
 # ── 参数 ──────────────────────────────────────────────────────
 DRY_RUN=false
 VALIDATE=false
@@ -157,6 +217,8 @@ FORCE_OVERWRITE=false
 SYNC_MODULE="all"
 CO_AUTHORS=()
 CAT_SIG=""
+RELEASE_TAG=""
+SOURCE_SNAPSHOT_TAG=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
@@ -168,6 +230,7 @@ for arg in "$@"; do
     --module=*) SYNC_MODULE="${arg#--module=}" ;;
     --co-author=*) CO_AUTHORS+=("${arg#--co-author=}") ;;
     --cat-sig=*) CAT_SIG="${arg#--cat-sig=}" ;;
+    --release-tag=*) RELEASE_TAG="${arg#--release-tag=}" ;;
   esac
 done
 
@@ -191,6 +254,23 @@ if ! echo "$VALID_MODULES" | grep -qw "$SYNC_MODULE"; then
   echo -e "${RED}✗ Invalid module: $SYNC_MODULE${NC}"
   echo "  Valid modules: $VALID_MODULES"
   exit 1
+fi
+
+if [ -n "$RELEASE_TAG" ]; then
+  validate_release_tag "$RELEASE_TAG"
+  if [ "$DRY_RUN" = true ] || [ "$VALIDATE" = true ]; then
+    echo -e "${RED}✗ --release-tag only applies to real full sync runs${NC}"
+    exit 1
+  fi
+  if [ "$SYNC_MODULE" != "all" ]; then
+    echo -e "${RED}✗ --release-tag requires --module=all${NC}"
+    exit 1
+  fi
+  if [ "$SKIP_VALIDATE" = true ] || [ "$FAST_VALIDATE" = true ]; then
+    echo -e "${RED}✗ --release-tag requires the full source-owned public gate (no --skip-validate/--fast-validate)${NC}"
+    exit 1
+  fi
+  SOURCE_SNAPSHOT_TAG="$(derive_source_snapshot_tag "$RELEASE_TAG")"
 fi
 
 SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -1343,12 +1423,21 @@ echo "  included_file_count: $FILE_COUNT"
 echo "  excluded_file_count: $EXCLUDED"
 echo "  transform_count:     $TRANSFORM_COUNT"
 echo "  secret_scan_result:  clean"
+if [ -n "$RELEASE_TAG" ]; then
+  echo "  release_tag:         $RELEASE_TAG"
+  echo "  source_snapshot_tag: $SOURCE_SNAPSHOT_TAG"
+fi
+
+RELEASE_TAG_JSON=$(json_string_or_null "$RELEASE_TAG")
+SOURCE_SNAPSHOT_TAG_JSON=$(json_string_or_null "$SOURCE_SNAPSHOT_TAG")
 
 # Write provenance file (target_head_sha = pre-sync base, finalized in Step 5e)
 cat > "$FILTERED_DIR/.sync-provenance.json" << PROV_EOF
 {
   "source_commit_sha": "$SOURCE_SHA",
   "target_head_sha": "",
+  "release_tag": $RELEASE_TAG_JSON,
+  "source_snapshot_tag": $SOURCE_SNAPSHOT_TAG_JSON,
   "manifest_version": 3,
   "included_file_count": $FILE_COUNT,
   "excluded_file_count": $EXCLUDED,
@@ -1513,6 +1602,11 @@ else
   echo "  ✓ Source-owned public gate passed"
 fi
 
+if [ -n "$RELEASE_TAG" ]; then
+  echo "  Source snapshot tag..."
+  ensure_source_snapshot_tag "$SOURCE_SNAPSHOT_TAG" "$SOURCE_SHA" "$RELEASE_TAG"
+fi
+
 # 5c: Sync the already-validated export to the real target
 BACKUP_DIR=$(mktemp -d)
 BACKED_UP=$(backup_target_owned_items "$TARGET_DIR" "$BACKUP_DIR")
@@ -1596,4 +1690,7 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
     PUBLISH_HANDOFF_CMD="CLOWDER_AI_DIR=$(printf '%q' "$TARGET_DIR") $PUBLISH_HANDOFF_CMD"
   fi
   echo "After merge: $PUBLISH_HANDOFF_CMD"
+  if [ -n "$RELEASE_TAG" ]; then
+    echo "Release mapping: $RELEASE_TAG ← $SOURCE_SNAPSHOT_TAG ← $(git -C "$SOURCE_DIR" rev-parse --short HEAD)"
+  fi
 fi

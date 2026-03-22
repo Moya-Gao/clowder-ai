@@ -92,6 +92,9 @@ Dry-run 会输出：
 # 带验证的完整同步
 bash scripts/sync-to-opensource.sh
 
+# release-intended 同步（自动打 source snapshot tag）
+bash scripts/sync-to-opensource.sh --release-tag=v0.1.1
+
 # 快速模式（跳过 install + build 验证）
 bash scripts/sync-to-opensource.sh --fast-validate
 
@@ -102,6 +105,7 @@ bash scripts/sync-to-opensource.sh --skip-validate
 注意：
 - `sync-to-opensource.sh` 现在会先把导出产物打到 **temp target**，在 temp target 跑完整 public gate（install + `pnpm check` + `pnpm lint` + `build` + `test:public` + startup acceptance）
 - **只有 temp target public gate 全绿，脚本才允许碰真实 `clowder-ai`**
+- 如果这次 full sync 是为了后续切 release tag，传 `--release-tag=vX.Y.Z`；脚本会在 source-owned public gate 通过后自动打并 push `clowder-vX.Y.Z-source`，同时把 `release_tag` / `source_snapshot_tag` 写进 `.sync-provenance.json`
 - 本机 README/macOS smoke 不属于 full sync 主路径；它是 sync 完成后的独立步骤，必须显式隔离端口/Redis
 - `sync-to-opensource.sh` **不会**创建 `sync/*` tag；它只负责导出 + 生成 sync PR
 - `sync-hotfix.sh` 会把最新 `sync/*` tag 当成“已经落地 upstream 的基线”，所以 tag 发布必须放在 **sync PR merge 后**
@@ -122,6 +126,7 @@ bash scripts/publish-sync-tag.sh \
 - `--push` 前脚本会先检查两边 origin 上的同名 tag 是否已存在且指向正确 SHA，再创建本地 tag，避免本地或单侧 remote 先被推进到新的 sync baseline
 - 这会在 `cat-cafe` 与 `clowder-ai` 两边创建并 push 同名 `sync/YYYY-MM-DD-HHMMSS` tag
 - 这个 tag 记录的是“哪一个 cat-cafe commit 被同步出去，以及它在 clowder-ai 上对应的 merge commit”
+- release-intended sync 另外还有一条 **source snapshot tag**：`clowder-vX.Y.Z-source`。它不是 `sync/*` 基线 tag，而是用来把 `source snapshot → target release tag → backport commit` 三点映射钉进真相源
 
 ### Step 5: Source-Owned Public Gate `[cat-cafe → temp target]`
 

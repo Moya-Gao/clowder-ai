@@ -554,6 +554,45 @@ excluded:
       );
     });
 
+    it('sync-to-opensource.sh supports release-intended source snapshot tags and provenance mapping', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.match(
+        content,
+        /--release-tag=\*\) RELEASE_TAG="\$\{arg#--release-tag=\}" ;;/,
+        'sync-to-opensource should parse --release-tag',
+      );
+      assert.match(
+        content,
+        /SOURCE_SNAPSHOT_TAG="\$\(derive_source_snapshot_tag "\$RELEASE_TAG"\)"/,
+        'sync-to-opensource should derive a source snapshot tag from the release tag',
+      );
+      assert.match(
+        content,
+        /"release_tag": \$RELEASE_TAG_JSON,/,
+        'sync-to-opensource should persist release_tag in .sync-provenance.json',
+      );
+      assert.match(
+        content,
+        /"source_snapshot_tag": \$SOURCE_SNAPSHOT_TAG_JSON,/,
+        'sync-to-opensource should persist source_snapshot_tag in .sync-provenance.json',
+      );
+      assert.match(
+        content,
+        /ensure_source_snapshot_tag "\$SOURCE_SNAPSHOT_TAG" "\$SOURCE_SHA" "\$RELEASE_TAG"/,
+        'sync-to-opensource should auto-create the source snapshot tag before touching the real target',
+      );
+      assert.match(
+        content,
+        /git -C "\$SOURCE_DIR" tag -a "\$tag" "\$sha" -m "source snapshot for clowder-ai \$release_tag"/,
+        'release-intended sync should create an annotated source snapshot tag',
+      );
+      assert.match(
+        content,
+        /git -C "\$SOURCE_DIR" push origin "refs\/tags\/\$tag"/,
+        'release-intended sync should publish the source snapshot tag to origin',
+      );
+    });
+
     it('sync-hotfix.sh selects the latest sync baseline by mirrored target tag commit time', () => {
       const hotfix = readFileSync(resolve(ROOT, 'scripts/sync-hotfix.sh'), 'utf-8');
       assert.match(

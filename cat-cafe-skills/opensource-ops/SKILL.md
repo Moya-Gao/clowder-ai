@@ -93,6 +93,7 @@ description: >
 5. **一条线不断裂**：Issue accept → Merge decision → Merge → Intake decision → Ledger record
 6. **Record + Advance 是一个闭环**：做完 `--record` 就立刻尝试 `--advance-ledger`；如果 advance 失败，说明还有别的 PR 没登记，不能停在半路
 7. **source gate green ≠ target/public gate green**：full sync 前必须在家里的 temp target 上跑 public gate；真实 `clowder-ai` 不能再当第一轮验收场
+8. **release provenance 三点映射必须显式化**：release-intended full sync 要在 source 侧自动打 `clowder-vX.Y.Z-source`，`.sync-provenance.json` 必须记录 `release_tag` / `source_snapshot_tag`，后续 target release tag 和 backport commit 才有锚点
 
 ## 和其他 skill 的区别
 
