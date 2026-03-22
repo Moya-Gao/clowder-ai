@@ -93,10 +93,22 @@ function buildUserPrompt(input: AbstractiveInput): string {
   }
 
   parts.push(`## New Messages (thread: ${input.threadId})\n`);
+  // Truncate each message to 1000 chars and total to ~80K chars (~20K tokens)
+  // to stay within 128K context budget (system prompt + response headroom)
+  const MAX_MSG_CHARS = 1000;
+  const MAX_TOTAL_CHARS = 80000;
+  let totalChars = 0;
   for (const msg of input.messages) {
     const speaker = msg.catId ?? 'user';
     const time = new Date(msg.timestamp).toISOString().slice(0, 19);
-    parts.push(`[${time}] [${speaker}] (${msg.id}): ${msg.content}`);
+    const content = msg.content.length > MAX_MSG_CHARS ? `${msg.content.slice(0, MAX_MSG_CHARS)}...` : msg.content;
+    const line = `[${time}] [${speaker}] (${msg.id}): ${content}`;
+    totalChars += line.length;
+    if (totalChars > MAX_TOTAL_CHARS) {
+      parts.push(`[... ${input.messages.length - parts.length + 1} more messages truncated]`);
+      break;
+    }
+    parts.push(line);
   }
 
   return parts.join('\n');
@@ -148,7 +160,14 @@ export function createAbstractiveClient(
         return null;
       }
 
-      const parsed = JSON.parse(text) as AbstractiveResult;
+      // Model may return JSON wrapped in markdown code blocks or with natural language preamble.
+      // Extract the first JSON object from the response text.
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        logger.error(`[abstractive-client] no JSON found in response: ${text.slice(0, 100)}`);
+        return null;
+      }
+      const parsed = JSON.parse(jsonMatch[0]) as AbstractiveResult;
 
       // P2 fix (砚砚 review): validate structural constraints, not just presence
       const validated = validateSegments(parsed, input.messages, config, logger);
