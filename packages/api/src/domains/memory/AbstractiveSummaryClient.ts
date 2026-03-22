@@ -154,7 +154,8 @@ export function createAbstractiveClient(
       const validated = validateSegments(parsed, input.messages, config, logger);
       return validated;
     } catch (err) {
-      logger.error('[abstractive-client] fetch/parse error', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`[abstractive-client] fetch/parse error: ${msg}`);
       return null;
     }
   };
