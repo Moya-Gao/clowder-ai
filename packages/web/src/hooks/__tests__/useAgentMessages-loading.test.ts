@@ -23,7 +23,20 @@ const mockAddMessageToThread = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
 const mockResetThreadInvocationState = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
-const mockGetThreadState = vi.fn((_tid?: string) => ({
+const mockGetThreadState: ReturnType<
+  typeof vi.fn<
+    (tid?: string) => {
+      messages: Array<{
+        id: string;
+        type: string;
+        catId?: string;
+        content: string;
+        isStreaming?: boolean;
+        timestamp: number;
+      }>;
+    }
+  >
+> = vi.fn(() => ({
   messages: [] as Array<{
     id: string;
     type: string;
