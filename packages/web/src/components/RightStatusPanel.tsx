@@ -235,7 +235,10 @@ function RuntimeLogsButton() {
       const res = await apiFetch(`/api/workspace/tree?${params}`);
       if (!res.ok) return;
       const data = await res.json();
-      const logFiles = (data.tree?.children ?? [])
+      const entries: { name: string; type: string }[] = Array.isArray(data.tree)
+        ? data.tree
+        : (data.tree?.children ?? []);
+      const logFiles = entries
         .filter((f: { name: string; type: string }) => f.type === 'file' && f.name.endsWith('.log'))
         .map((f: { name: string }) => ({ name: f.name, parsed: parseLogFilename(f.name) }))
         .filter((f: { parsed: unknown }) => f.parsed !== null)
