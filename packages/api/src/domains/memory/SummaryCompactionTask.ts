@@ -70,9 +70,25 @@ export function createSummaryCompactionTask(deps: SummaryCompactionDeps): Schedu
     enabled: deps.enabled,
 
     async execute() {
+      // Backfill: seed summary_state for historical threads that have never been seen.
+      // Only threads in evidence_docs but NOT in summary_state get a row.
+      // This ensures all 300+ threads can be scheduled, not just recently-active ones.
+      try {
+        deps.db
+          .prepare(
+            `INSERT OR IGNORE INTO summary_state (thread_id, pending_message_count, pending_token_count, pending_signal_flags, summary_type)
+           SELECT REPLACE(anchor, 'thread-', ''), 100, 5000, 7, 'concat'
+           FROM evidence_docs
+           WHERE kind = 'thread' AND anchor LIKE 'thread-%'
+             AND REPLACE(anchor, 'thread-', '') NOT IN (SELECT thread_id FROM summary_state)`,
+          )
+          .run();
+      } catch {
+        // fail-open
+      }
+
       // P1 fix (砚砚 review): get ALL threads with pending work, then filter by
       // full eligibility (quiet/cooldown/signal) BEFORE applying budget.
-      // Old code truncated to budget first, starving eligible threads behind ineligible ones.
       const candidates = getEligibleThreads(deps.db, deps, config);
       if (candidates.length === 0) return;
 

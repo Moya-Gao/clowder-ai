@@ -103,8 +103,8 @@ function buildUserPrompt(input: AbstractiveInput): string {
 
 // ─── Parse natural language output into structured segments ─────
 function parseNaturalLanguageOutput(text: string, input: AbstractiveInput): AbstractiveResult | null {
-  // Extract title: first line starting with #
-  const titleMatch = text.match(/^#\s+(.+)$/m);
+  // Extract title: first line starting with # or ## or ###
+  const titleMatch = text.match(/^#{1,3}\s+(.+)$/m);
   if (!titleMatch) return null;
 
   const topicLabel = titleMatch[1].trim();
