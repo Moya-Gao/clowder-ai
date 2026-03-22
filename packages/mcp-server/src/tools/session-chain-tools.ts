@@ -16,9 +16,21 @@ import { errorResult, successResult } from './file-tools.js';
 
 const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
 
-/** Resolve userId: env var (invocation-bound, tamper-proof) > default */
 function resolveToolUserId(): string {
   return process.env['CAT_CAFE_USER_ID'] ?? 'default-user';
+}
+
+function resolveToolCatId(): string | undefined {
+  return process.env['CAT_CAFE_CAT_ID'];
+}
+
+function buildAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'x-cat-cafe-user': resolveToolUserId(),
+  };
+  const catId = resolveToolCatId();
+  if (catId) headers['x-cat-id'] = catId;
+  return headers;
 }
 
 // --- list_session_chain ---
@@ -41,7 +53,7 @@ export async function handleListSessionChain(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId() },
+      headers: buildAuthHeaders(),
     });
     if (!res.ok) {
       return errorResult(`Failed to list sessions (${res.status}): ${await res.text()}`);
@@ -88,7 +100,7 @@ export async function handleReadSessionEvents(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId() },
+      headers: buildAuthHeaders(),
     });
     if (!res.ok) {
       return errorResult(`Failed to read events (${res.status}): ${await res.text()}`);
@@ -173,7 +185,7 @@ export async function handleReadSessionDigest(input: { sessionId: string }): Pro
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId() },
+      headers: buildAuthHeaders(),
     });
     if (!res.ok) {
       if (res.status === 404) {
@@ -203,7 +215,7 @@ export async function handleReadInvocationDetail(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId() },
+      headers: buildAuthHeaders(),
     });
     if (!res.ok) {
       if (res.status === 404) {
@@ -256,7 +268,7 @@ export async function handleSessionSearch(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId() },
+      headers: buildAuthHeaders(),
     });
     if (!res.ok) {
       return errorResult(`Search failed (${res.status}): ${await res.text()}`);

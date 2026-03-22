@@ -369,14 +369,24 @@ async function main(): Promise<void> {
     // Phase E-1: thread summary indexing — provide a callback that lists all threads
     threadListFn: async () => {
       const threads = await threadStore.list('default-user');
-      return threads.map((t) => ({
-        id: t.id,
-        title: t.title,
-        participants: t.participants as string[],
-        threadMemory: t.threadMemory ? { summary: t.threadMemory.summary } : null,
-        lastActiveAt: t.lastActiveAt,
-        featureIds: t.backlogItemId ? [t.backlogItemId] : undefined,
-      }));
+      return threads
+        .filter((t) => !t.projectPath.startsWith('games/'))
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          participants: t.participants as string[],
+          threadMemory: t.threadMemory ? { summary: t.threadMemory.summary } : null,
+          lastActiveAt: t.lastActiveAt,
+          featureIds: t.backlogItemId ? [t.backlogItemId] : undefined,
+        }));
+    },
+    excludeThreadIdsFn: async () => {
+      const allThreads = await threadStore.list('default-user');
+      const excluded = new Set<string>();
+      for (const t of allThreads) {
+        if (t.projectPath.startsWith('games/')) excluded.add(t.id);
+      }
+      return excluded;
     },
   });
   app.log.info('[api] F102: SQLite memory services initialized');
@@ -723,6 +733,18 @@ async function main(): Promise<void> {
   // F101: Game routes (store created earlier for /game command interception)
   if (f101GameStore) {
     await app.register(gameRoutes, { gameStore: f101GameStore, socketManager, threadStore, messageStore });
+
+    // Phase I: Structured game action route (AC-I-P0c)
+    const { gameActionRoutes, clearGameNonces } = await import('./routes/game-actions.js');
+    const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
+    const actionOrchestrator = new GameOrchestrator({
+      gameStore: f101GameStore,
+      socketManager,
+      messageStore,
+      onGameEnd: (gameId) => clearGameNonces(gameId),
+    });
+    await app.register(gameActionRoutes, { gameStore: f101GameStore, orchestrator: actionOrchestrator, threadStore });
+
     app.log.info('[api] F101 game routes registered');
   }
 
@@ -1133,10 +1155,10 @@ async function main(): Promise<void> {
   // F101 Phase G: Recover auto-play loops for active games after restart.
   // Without this, games in Redis with status=playing have no driving loop.
   if (f101GameStore && socketManager) {
-    const { GameAutoPlayer } = await import('./domains/cats/services/game/GameAutoPlayer.js');
+    const { LegacyAutoDriver } = await import('./domains/cats/services/game/LegacyAutoDriver.js');
     const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
     const recoveryOrchestrator = new GameOrchestrator({ gameStore: f101GameStore, socketManager, messageStore });
-    const recoveryPlayer = new GameAutoPlayer({
+    const recoveryPlayer = new LegacyAutoDriver({
       gameStore: f101GameStore,
       orchestrator: recoveryOrchestrator,
       messageStore,

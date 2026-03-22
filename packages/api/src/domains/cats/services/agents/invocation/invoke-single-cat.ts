@@ -247,6 +247,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     CAT_CAFE_INVOCATION_ID: invocationId,
     CAT_CAFE_CALLBACK_TOKEN: callbackToken,
     CAT_CAFE_USER_ID: userId,
+    CAT_CAFE_CAT_ID: catId,
     ...(process.env.CAT_CAFE_SIGNAL_USER ? { CAT_CAFE_SIGNAL_USER: process.env.CAT_CAFE_SIGNAL_USER } : {}),
   };
 

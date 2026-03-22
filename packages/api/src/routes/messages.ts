@@ -25,8 +25,9 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
-import { GameAutoPlayer } from '../domains/cats/services/game/GameAutoPlayer.js';
+import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
+import { LegacyAutoDriver } from '../domains/cats/services/game/LegacyAutoDriver.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
@@ -73,7 +74,7 @@ export interface MessagesRoutesOptions {
   /** F101: Game store for /game command interception */
   gameStore?: IGameStore;
   /** F101: Injectable auto-player for lifecycle-safe teardown in tests/routes */
-  autoPlayer?: Pick<GameAutoPlayer, 'startLoop' | 'stopAllLoops'>;
+  autoPlayer?: Pick<GameDriver, 'startLoop' | 'stopAllLoops'>;
 }
 
 const log = createModuleLogger('routes/messages');
@@ -123,7 +124,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     : null;
   const gameAutoPlayer = gameOrchestrator
     ? (opts.autoPlayer ??
-      new GameAutoPlayer({
+      new LegacyAutoDriver({
         gameStore: opts.gameStore!,
         orchestrator: gameOrchestrator,
         messageStore: opts.messageStore,

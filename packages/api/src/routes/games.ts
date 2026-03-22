@@ -8,14 +8,16 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { getAllCatIdsFromConfig } from '../config/cat-config-loader.js';
-import { GameAutoPlayer } from '../domains/cats/services/game/GameAutoPlayer.js';
+import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import { GameViewBuilder } from '../domains/cats/services/game/GameViewBuilder.js';
+import { LegacyAutoDriver } from '../domains/cats/services/game/LegacyAutoDriver.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { IGameStore } from '../domains/cats/services/stores/ports/GameStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { clearGameNonces } from './game-actions.js';
 import { buildGameSeats, sanitizeCatIds } from './game-command-interceptor.js';
 
 interface SocketLike {
@@ -28,7 +30,7 @@ export interface GameRoutesOptions {
   socketManager: SocketLike;
   threadStore: IThreadStore;
   messageStore: IMessageStore;
-  autoPlayer?: Pick<GameAutoPlayer, 'startLoop' | 'stopAllLoops'>;
+  autoPlayer?: Pick<GameDriver, 'startLoop' | 'stopAllLoops'>;
 }
 
 const seatSchema = z.object({
@@ -124,7 +126,7 @@ const gameStartSchema = z.object({
 export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opts) => {
   const { gameStore, socketManager, threadStore, messageStore } = opts;
   const orchestrator = new GameOrchestrator({ gameStore, socketManager, messageStore });
-  const autoPlayer = opts.autoPlayer ?? new GameAutoPlayer({ gameStore, orchestrator, messageStore });
+  const autoPlayer = opts.autoPlayer ?? new LegacyAutoDriver({ gameStore, orchestrator, messageStore });
 
   app.addHook('onClose', async () => {
     autoPlayer.stopAllLoops();
@@ -413,6 +415,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     }
 
     await gameStore.endGame(runtime.gameId, 'aborted');
+    clearGameNonces(runtime.gameId);
 
     socketManager.broadcastToRoom(`thread:${threadId}`, 'game:aborted', {
       gameId: runtime.gameId,
