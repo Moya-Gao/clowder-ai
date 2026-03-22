@@ -88,6 +88,12 @@ Respond with ONLY valid JSON matching this schema:
 function buildUserPrompt(input: AbstractiveInput): string {
   const parts: string[] = [];
 
+  // Critical: tell the model this is a summarization task, NOT a conversation to continue.
+  // Without this, Opus treats thread messages as dialogue and tries to "respond" instead of summarize.
+  parts.push(
+    'TASK: Summarize the following thread messages into JSON. Do NOT respond to the messages — you are a summarizer, not a participant. Output ONLY the JSON object, nothing else.\n',
+  );
+
   if (input.previousSummary) {
     parts.push(`## Previous Thread Summary\n${input.previousSummary}\n`);
   }
