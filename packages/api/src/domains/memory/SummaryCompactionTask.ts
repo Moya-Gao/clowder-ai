@@ -51,6 +51,8 @@ export interface SummaryCompactionDeps {
       candidates?: unknown[];
     }>;
   } | null>;
+  /** Re-embed a thread after summary update (for semantic search). Optional — fail-open. */
+  reEmbed?: (anchor: string, text: string) => Promise<void>;
   /** Logger */
   logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void };
 }
@@ -201,6 +203,8 @@ async function processThread(
   // Dual-write: INSERT segments + UPDATE evidence_docs
   const lastMsg = messages[messages.length - 1]!;
   const now = new Date().toISOString();
+  const mergedSummary = result.segments.map((s) => s.summary).join('\n\n');
+  const totalTokens = mergedSummary.length / 4;
 
   const insertSegment = deps.db.prepare(`
     INSERT INTO summary_segments
@@ -234,10 +238,7 @@ async function processThread(
       );
     }
 
-    // 2. UPDATE evidence_docs.summary (read model = merged summary from all segments)
-    const mergedSummary = result.segments.map((s) => s.summary).join('\n\n');
-    const totalTokens = mergedSummary.length / 4; // rough estimate
-
+    // 2. UPDATE evidence_docs.summary (read model)
     deps.db
       .prepare(
         `UPDATE evidence_docs SET summary = ?, source_hash = ?, updated_at = ?
@@ -263,6 +264,17 @@ async function processThread(
   });
 
   tx();
+
+  // Re-embed this thread with new abstractive summary (for semantic search)
+  if (deps.reEmbed) {
+    try {
+      const title =
+        (deps.db.prepare('SELECT title FROM evidence_docs WHERE anchor = ?').get(`thread-${state.thread_id}`) as { title: string } | undefined)?.title ?? '';
+      await deps.reEmbed(`thread-${state.thread_id}`, `${title} ${mergedSummary}`);
+    } catch {
+      // fail-open
+    }
+  }
 
   // P1 R2 fix (砚砚 review): after compaction, check if there are STILL more messages
   // beyond the new watermark. If so, re-populate pending signal so the thread stays

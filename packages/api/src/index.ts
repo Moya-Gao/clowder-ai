@@ -498,6 +498,13 @@ async function main(): Promise<void> {
           }));
         },
         generateAbstractive,
+        // Re-embed thread after abstractive summary update (semantic search uses vectors)
+        reEmbed: memoryServices.embeddingService?.isReady()
+          ? async (anchor: string, text: string) => {
+              const [vec] = await memoryServices.embeddingService!.embed([text]);
+              memoryServices.vectorStore?.upsert(anchor, vec);
+            }
+          : undefined,
         logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
       });
 
