@@ -225,7 +225,10 @@ export async function sessionTranscriptRoutes(
 
     const { q, cats, sessionIds, limit, scope } = parseResult.data;
 
-    const catsArr = cats?.split(',').filter(Boolean);
+    // P0a enforcement: when x-cat-id header is present, force-filter to caller's own sessions only
+    // Prevents game-playing cats from searching other cats' session content (KD-39)
+    const callerCatId = request.headers['x-cat-id'] as string | undefined;
+    const catsArr = callerCatId ? [callerCatId] : cats?.split(',').filter(Boolean);
     const sessionIdsArr = sessionIds?.split(',').filter(Boolean);
 
     const hits = await transcriptReader.search(threadId, q, {
