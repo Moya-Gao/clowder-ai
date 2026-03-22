@@ -241,8 +241,8 @@ function RuntimeLogsButton() {
       const logFiles = entries
         .filter((f: { name: string; type: string }) => f.type === 'file' && f.name.endsWith('.log'))
         .map((f: { name: string }) => ({ name: f.name, parsed: parseLogFilename(f.name) }))
-        .filter((f: { parsed: unknown }) => f.parsed !== null)
-        .sort((a: { parsed: { date: string; seq: number } }, b: { parsed: { date: string; seq: number } }) => {
+        .filter((f): f is { name: string; parsed: { date: string; seq: number } } => f.parsed !== null)
+        .sort((a, b) => {
           const dc = b.parsed.date.localeCompare(a.parsed.date);
           return dc !== 0 ? dc : b.parsed.seq - a.parsed.seq;
         });
