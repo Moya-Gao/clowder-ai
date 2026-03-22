@@ -115,6 +115,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-9**: 多猫回复只有第一只猫转发到飞书 — ConnectorInvokeTrigger 在 A2A 链完成后只调一次 deliver()，传第一只猫的 catId。**✅ PR #545 + #551 修复**：per-cat outbound delivery → per-turn ordered delivery（outboundTurns[] 替代 perCatContent Map），A→B→A ping-pong 正确分发 3 条独立消息。含 richBlocks-only 支持、deliver timeout、实际 speaker catId 归属、turn boundary 检测。
 - **ISSUE-10**: 飞书流式编辑完全不工作 — `sendPlaceholder` 发 `msg_type: 'text'`，但 `im.message.patch` 只支持编辑 `interactive`（卡片）消息，导致所有 `editMessage` 调用被飞书 API 拒绝（错误被 `.catch()` 静默吞掉）。Phase 4 设计时可能在 Telegram 上测的（Telegram editMessage 支持编辑任何类型），未在飞书验证。**PR #567 修复**：sendPlaceholder 改发 interactive card（`update_multi: true`），editMessage 改发 card JSON，新增 deleteMessage 清理占位卡片避免与 outbound card 重复。
 - **ISSUE-13**: 飞书图片+文字消息静默丢弃 — 飞书发送 text+image 混合消息时 `msg_type` 为 `post`（富文本），`FeishuAdapter.parseEvent()` 无 `case 'post':` handler → `default: return null` → 整条消息静默丢弃（HTTP 200，无日志）。**✅ PR #637 修复**：新增 `case 'post':` handler 遍历 `content[paragraph][node]` 结构，提取 `tag:'text'`/`tag:'a'` 文本和 `tag:'img'` 图片附件，支持 zh_cn/en_us/ja_jp locale fallback。同步增加 webhook diagnostic logging 和 callback vs agent 卡片视觉区分（紫色 `📨 传话` 标识）。
+- **ISSUE-14**: 飞书 post 内嵌图片下载 400 — PR #637 的 `case 'post':` handler 正确解析了 `image_key`，但 `feishuDownloadFn` 统一用 `/im/v1/messages/{msgId}/resources/{key}` 端点下载，该端点对 post 内嵌图片返回 400。post 内嵌图片需用 `/im/v1/images/{key}` 端点。**✅ PR #640 修复**：新增 `source: 'post-embedded'` 标记全链路穿透（FeishuAdapter → ConnectorRouter → ConnectorMediaService → feishuDownloadFn），按 source 分流 API 端点。
 
 ## Phase G+ Follow-up（8A 增量改进）
 
@@ -163,6 +164,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-20 | ISSUE-12 fix: WAV→OPUS ffmpeg conversion + external URL image download + SSRF guard (PR #595) |
 | 2026-03-21 | Bugfix: wire Feishu image download + post_message outbound delivery + threadMeta (PR #636) |
 | 2026-03-22 | Bugfix: handle Feishu `post` msg_type (text+image) + distinguish callback vs agent cards + webhook diagnostic logging (PR #637) |
+| 2026-03-22 | Bugfix: use /im/v1/images/{key} for post-embedded image download (ISSUE-14) (PR #640) |
 
 ## 参考文件
 
