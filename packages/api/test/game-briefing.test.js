@@ -224,4 +224,61 @@ describe('Briefing Capsule Builder', () => {
       assert.ok(!result.includes('你之前获得的信息'), 'should not have knowledge section');
     });
   });
+
+  describe('guard consecutive protection rule', () => {
+    it('guard briefing mentions the consecutive protection restriction', () => {
+      const rt = makeRuntime({
+        currentPhase: 'night_guard',
+        definition: {
+          ...makeRuntime().definition,
+          phases: [
+            ...makeRuntime().definition.phases,
+            { name: 'night_guard', type: 'night_action', actingRole: 'guard', timeoutMs: 45000, autoAdvance: true },
+          ],
+          roles: [
+            ...makeRuntime().definition.roles,
+            { name: 'guard', faction: 'village', description: '每晚守护一名玩家', nightActionPhase: 'night_guard' },
+          ],
+        },
+        seats: [
+          ...makeRuntime().seats.slice(0, 6),
+          { seatId: 'P7', actorType: 'cat', actorId: 'opencode', role: 'guard', alive: true, properties: {} },
+        ],
+      });
+
+      const result = buildFirstWakeBriefing({ gameRuntime: rt, seatId: 'P7' });
+      assert.ok(
+        result.includes('不能连续两晚保护同一人'),
+        'guard briefing should mention consecutive protection restriction',
+      );
+    });
+
+    it('guard resume capsule also mentions the restriction', () => {
+      const rt = makeRuntime({
+        currentPhase: 'night_guard',
+        round: 2,
+        definition: {
+          ...makeRuntime().definition,
+          phases: [
+            ...makeRuntime().definition.phases,
+            { name: 'night_guard', type: 'night_action', actingRole: 'guard', timeoutMs: 45000, autoAdvance: true },
+          ],
+          roles: [
+            ...makeRuntime().definition.roles,
+            { name: 'guard', faction: 'village', description: '每晚守护一名玩家', nightActionPhase: 'night_guard' },
+          ],
+        },
+        seats: [
+          ...makeRuntime().seats.slice(0, 6),
+          { seatId: 'P7', actorType: 'cat', actorId: 'opencode', role: 'guard', alive: true, properties: {} },
+        ],
+      });
+
+      const result = buildResumeCapsule({ gameRuntime: rt, seatId: 'P7' });
+      assert.ok(
+        result.includes('不能连续两晚保护同一人'),
+        'guard resume should mention consecutive protection restriction',
+      );
+    });
+  });
 });

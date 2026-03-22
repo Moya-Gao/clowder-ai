@@ -270,3 +270,94 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
     assert.match(res.json().error, /do not own/);
   });
 });
+
+describe('POST /api/game/:gameId/action — actionNotifier integration', () => {
+  let app;
+  let runtime;
+  let notifiedActions;
+
+  before(async () => {
+    const gameStore = createStubGameStore();
+    const socket = createStubSocket();
+    const { runtime: r, orchestrator } = await setupGameForTest(gameStore, socket);
+    runtime = r;
+    notifiedActions = [];
+
+    const stubNotifier = {
+      onActionReceived(gameId, seatId) {
+        notifiedActions.push({ gameId, seatId });
+      },
+      waitForAction() {
+        return Promise.resolve(true);
+      },
+      waitForAllActions() {
+        return Promise.resolve();
+      },
+      cleanup() {},
+    };
+
+    const threadStore = createStubThreadStore('test-thread', THREAD_OWNER);
+    app = Fastify();
+    await app.register(gameActionRoutes, {
+      gameStore,
+      orchestrator,
+      threadStore,
+      actionNotifier: stubNotifier,
+    });
+    await app.ready();
+  });
+
+  after(async () => {
+    clearGameNonces(runtime.gameId);
+    await app.close();
+  });
+
+  it('calls actionNotifier.onActionReceived after successful action', async () => {
+    const phase = runtime.currentPhase;
+    const phaseToRole = { night_guard: 'guard', night_wolf: 'wolf', night_seer: 'seer', night_witch: 'witch' };
+    const phaseToAction = { night_guard: 'guard', night_wolf: 'kill', night_seer: 'divine', night_witch: 'heal' };
+
+    const expectedRole = phaseToRole[phase];
+    const actionName = phaseToAction[phase];
+    const seat = runtime.seats.find((s) => s.role === expectedRole);
+    const targetSeat = runtime.seats.find((s) => s.seatId !== seat.seatId && s.alive);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/game/${runtime.gameId}/action`,
+      headers: { 'x-cat-id': seat.actorId, 'x-cat-cafe-user': THREAD_OWNER },
+      payload: {
+        round: runtime.round,
+        phase,
+        seat: parseInt(seat.seatId.slice(1)),
+        action: actionName,
+        target: parseInt(targetSeat.seatId.slice(1)),
+        nonce: 'notifier-test-1',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(notifiedActions.length, 1);
+    assert.equal(notifiedActions[0].gameId, runtime.gameId);
+    assert.equal(notifiedActions[0].seatId, seat.seatId);
+  });
+
+  it('does not call actionNotifier on failed action', async () => {
+    const beforeCount = notifiedActions.length;
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/game/${runtime.gameId}/action`,
+      headers: { 'x-cat-id': 'wrong-cat', 'x-cat-cafe-user': THREAD_OWNER },
+      payload: {
+        round: runtime.round,
+        phase: runtime.currentPhase,
+        seat: 1,
+        action: 'kill',
+        target: 2,
+        nonce: 'notifier-test-2',
+      },
+    });
+    assert.notEqual(res.statusCode, 200);
+    assert.equal(notifiedActions.length, beforeCount);
+  });
+});

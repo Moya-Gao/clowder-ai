@@ -737,13 +737,20 @@ async function main(): Promise<void> {
     // Phase I: Structured game action route (AC-I-P0c)
     const { gameActionRoutes, clearGameNonces } = await import('./routes/game-actions.js');
     const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
+    const { EventEmitterActionNotifier } = await import('./domains/cats/services/game/EventEmitterActionNotifier.js');
+    const sharedActionNotifier = new EventEmitterActionNotifier();
     const actionOrchestrator = new GameOrchestrator({
       gameStore: f101GameStore,
       socketManager,
       messageStore,
       onGameEnd: (gameId) => clearGameNonces(gameId),
     });
-    await app.register(gameActionRoutes, { gameStore: f101GameStore, orchestrator: actionOrchestrator, threadStore });
+    await app.register(gameActionRoutes, {
+      gameStore: f101GameStore,
+      orchestrator: actionOrchestrator,
+      threadStore,
+      actionNotifier: sharedActionNotifier,
+    });
 
     app.log.info('[api] F101 game routes registered');
   }

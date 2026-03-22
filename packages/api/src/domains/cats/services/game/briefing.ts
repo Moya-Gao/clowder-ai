@@ -15,7 +15,7 @@ const PHASE_ACTION_MAP: Record<string, { action: string; verb: string; targetReq
   night_wolf: { action: 'kill', verb: '选择要杀害的目标', targetRequired: true },
   night_seer: { action: 'divine', verb: '选择要查验的目标', targetRequired: true },
   night_witch: { action: 'witch_action', verb: '选择使用解药/毒药或跳过', targetRequired: false },
-  night_guard: { action: 'guard', verb: '选择要守护的目标', targetRequired: true },
+  night_guard: { action: 'guard', verb: '选择要守护的目标（不能连续两晚保护同一人）', targetRequired: true },
   day_discuss: { action: 'speak', verb: '发表你的发言', targetRequired: false },
   day_vote: { action: 'vote', verb: '投票选择要放逐的玩家', targetRequired: true },
   day_last_words: { action: 'last_words', verb: '发表遗言', targetRequired: false },
@@ -146,6 +146,7 @@ export function buildResumeCapsule(params: {
   const mapping = PHASE_ACTION_MAP[rt.currentPhase];
   if (mapping) {
     sections.push('');
+    sections.push(`🎯 请${mapping.verb}。`);
     sections.push(toolUsageBlock(rt, seatId, rt.currentPhase));
   }
 

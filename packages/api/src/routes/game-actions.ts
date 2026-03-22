@@ -1,6 +1,7 @@
 import type { GameAction, SeatId } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import type { ActionNotifier } from '../domains/cats/services/game/GameNarratorDriver.js';
 import type { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import type { IGameStore } from '../domains/cats/services/stores/ports/GameStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
@@ -20,6 +21,7 @@ export interface GameActionRoutesOptions {
   gameStore: IGameStore;
   orchestrator: GameOrchestrator;
   threadStore: IThreadStore;
+  actionNotifier?: ActionNotifier;
 }
 
 const submittedNonces = new Map<string, Set<string>>();
@@ -44,7 +46,7 @@ export function clearGameNonces(gameId: string): void {
 }
 
 export const gameActionRoutes: FastifyPluginAsync<GameActionRoutesOptions> = async (app, opts) => {
-  const { gameStore, orchestrator, threadStore } = opts;
+  const { gameStore, orchestrator, threadStore, actionNotifier } = opts;
 
   app.post<{
     Params: { gameId: string };
@@ -131,6 +133,7 @@ export const gameActionRoutes: FastifyPluginAsync<GameActionRoutesOptions> = asy
     try {
       await orchestrator.handlePlayerAction(gameId, seatId, gameAction);
       recordNonce(gameId, nonce);
+      actionNotifier?.onActionReceived(gameId, seatId);
       return { accepted: true };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
