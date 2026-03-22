@@ -148,7 +148,7 @@ export function createAbstractiveClient(
         },
         body: JSON.stringify({
           model: 'claude-opus-4-6',
-          max_tokens: 2048,
+          max_tokens: 8192,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userContent }],
         }),
