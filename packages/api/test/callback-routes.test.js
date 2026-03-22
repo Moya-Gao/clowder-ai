@@ -133,9 +133,9 @@ describe('Callback Routes', () => {
     let deliverCalled = false;
     let deliverArgs = null;
     const outboundHook = {
-      async deliver(threadId, content, catId, richBlocks, threadMeta) {
+      async deliver(threadId, content, catId, richBlocks, threadMeta, origin) {
         deliverCalled = true;
-        deliverArgs = { threadId, content, catId, richBlocks, threadMeta };
+        deliverArgs = { threadId, content, catId, richBlocks, threadMeta, origin };
       },
     };
 
@@ -171,6 +171,7 @@ describe('Callback Routes', () => {
     assert.ok(deliverArgs.threadMeta, 'threadMeta should be passed to deliver');
     assert.ok(deliverArgs.threadMeta.threadShortId, 'threadMeta should have threadShortId');
     assert.ok(deliverArgs.threadMeta.deepLinkUrl, 'threadMeta should have deepLinkUrl');
+    assert.equal(deliverArgs.origin, 'callback', 'origin should be callback for post-message');
   });
 
   test('POST post-message returns 401 for invalid token', async () => {

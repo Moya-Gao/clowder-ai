@@ -252,6 +252,19 @@ export async function startConnectorGateway(
     webhookHandlers.set('feishu', {
       connectorId: 'feishu',
       async handleWebhook(body, _headers): Promise<WebhookHandleResult> {
+        const eventHeader = (body as Record<string, unknown>)?.header as Record<string, unknown> | undefined;
+        const msgType = ((body as Record<string, unknown>)?.event as Record<string, unknown> | undefined)?.message as
+          | Record<string, unknown>
+          | undefined;
+        log.info(
+          {
+            eventType: eventHeader?.event_type,
+            msgType: msgType?.message_type,
+            chatType: msgType?.chat_type,
+          },
+          '[Feishu] Webhook received',
+        );
+
         // Handle verification challenge (no token check — challenge is pre-auth)
         const challenge = feishu.isVerificationChallenge(body);
         if (challenge) {
@@ -260,6 +273,7 @@ export async function startConnectorGateway(
 
         // Verify event token (AC-4: webhook authentication)
         if (!feishu.verifyEventToken(body)) {
+          log.warn('[Feishu] Webhook rejected: invalid verification token');
           return { kind: 'error', status: 403, message: 'Invalid verification token' };
         }
 
@@ -282,6 +296,10 @@ export async function startConnectorGateway(
         // Parse event
         const parsed = feishu.parseEvent(body);
         if (!parsed) {
+          log.warn(
+            { eventType: eventHeader?.event_type, msgType: msgType?.message_type },
+            '[Feishu] Event skipped: parseEvent returned null (unsupported_event)',
+          );
           return { kind: 'skipped', reason: 'unsupported_event' };
         }
 
