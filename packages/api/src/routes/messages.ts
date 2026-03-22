@@ -25,9 +25,9 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
+import { createGameDriver } from '../domains/cats/services/game/createGameDriver.js';
 import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
-import { LegacyAutoDriver } from '../domains/cats/services/game/LegacyAutoDriver.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
@@ -124,10 +124,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     : null;
   const gameAutoPlayer = gameOrchestrator
     ? (opts.autoPlayer ??
-      new LegacyAutoDriver({
-        gameStore: opts.gameStore!,
-        orchestrator: gameOrchestrator,
-        messageStore: opts.messageStore,
+      createGameDriver({
+        gameNarratorEnabled: false,
+        legacyDeps: {
+          gameStore: opts.gameStore!,
+          orchestrator: gameOrchestrator,
+          messageStore: opts.messageStore,
+        },
       }))
     : null;
 

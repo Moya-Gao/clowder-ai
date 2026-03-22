@@ -1155,13 +1155,16 @@ async function main(): Promise<void> {
   // F101 Phase G: Recover auto-play loops for active games after restart.
   // Without this, games in Redis with status=playing have no driving loop.
   if (f101GameStore && socketManager) {
-    const { LegacyAutoDriver } = await import('./domains/cats/services/game/LegacyAutoDriver.js');
+    const { createGameDriver } = await import('./domains/cats/services/game/createGameDriver.js');
     const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
     const recoveryOrchestrator = new GameOrchestrator({ gameStore: f101GameStore, socketManager, messageStore });
-    const recoveryPlayer = new LegacyAutoDriver({
-      gameStore: f101GameStore,
-      orchestrator: recoveryOrchestrator,
-      messageStore,
+    const recoveryPlayer = createGameDriver({
+      gameNarratorEnabled: false,
+      legacyDeps: {
+        gameStore: f101GameStore,
+        orchestrator: recoveryOrchestrator,
+        messageStore,
+      },
     });
     // NOTE: stopAllLoops is idempotent; safe to call even if no games were recovered.
     // We keep a reference so the onClose hook (registered before listen) can access it.
