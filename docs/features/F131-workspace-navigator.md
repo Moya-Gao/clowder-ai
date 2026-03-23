@@ -8,7 +8,7 @@ created: 2026-03-21
 
 # F131: Workspace Navigator — 猫猫可编程导航 Workspace 面板
 
-> **Status**: done (pending AC-6 E2E 验收) | **Owner**: 金渐层 | **Priority**: P2
+> **Status**: done | **Owner**: 金渐层 | **Priority**: P2 | **Completed**: 2026-03-23
 
 ## Why
 
@@ -84,7 +84,7 @@ Hub: 右面板自动打开并导航到文件
 - [x] AC-3: 支持指定 worktreeId 跨 worktree 导航（如从 main 导航到 runtime 的日志目录） ✅ PR #611 (threadId session isolation)
 - [x] AC-4: 面板关闭时收到事件能自动打开（参考 usePreviewAutoOpen 的 pending 机制） ✅ PR #611 (复用 chatStore.setWorkspaceRevealPath/setWorkspaceOpenFile)
 - [x] AC-5: Skill 文档 `workspace-navigator/SKILL.md` 创建完成，含意图匹配策略、调用步骤、常见场景速查 ✅ commit 8d61c783
-- [ ] AC-6: 端到端验证——铲屎官说"帮我打开日志"，猫猫能自己找到路径 → 调 API → Hub 右面板自动展示日志目录
+- [x] AC-6: 端到端验证——铲屎官说"帮我打开日志"，猫猫能自己找到路径 → 调 API → Hub 右面板自动展示日志目录 ✅ 2026-03-23 runtime E2E（含 PR #678 回归）
 
 ## Dependencies
 
@@ -127,6 +127,7 @@ Hub: 右面板自动打开并导航到文件
 | 2026-03-22 | Socket room whitelist fix — `workspace:global$` 加入正则，PR #666 merged (a6b8e42b) |
 | 2026-03-23 | Reveal snapback fix — eventId dedup + grace period suppression，PR #672 merged (a2c59f7f)，3 轮 GPT-5.4 review |
 | 2026-03-23 | Workspace snapback v2 fix — worktreeId guard + thread-scoped first-mount guard + async thread safety，PR #678 merged (d4fb3d49)，7 轮 Codex cloud review |
+| 2026-03-23 | AC-6 runtime E2E 通过：铲屎官确认“打开文件后不再回弹文件树”；Feature 完成闭环（feat close） |
 
 ## Links
 
@@ -137,3 +138,4 @@ Hub: 右面板自动打开并导航到文件
 | **Feature** | `docs/features/F130-api-log-governance.md` | 日志治理 — 日志按钮是 Polish |
 | **Skill** | `cat-cafe-skills/browser-preview/SKILL.md` | browser-preview skill — 设计模板 |
 | **Skill** | `cat-cafe-skills/workspace-navigator/SKILL.md` | workspace-navigator skill — 本 Feature 的软实力层 |
+| **Reflection** | `docs/reflections/2026-03-23-f131-workspace-navigator-capsule.md` | F131 完成反思胶囊（Step 0.5） |
