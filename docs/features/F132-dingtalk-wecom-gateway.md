@@ -246,6 +246,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 |------|------|------|
 | **Evolved from** | `docs/features/F088-multi-platform-chat-gateway.md` | 复用三层架构 |
 | **Architecture** | `docs/features/assets/F088/architecture-unification.md` | 三层架构设计文档 |
+| **Comparison** | `docs/features/assets/F132/platform-capability-comparison.md` | 飞书 vs 钉钉 vs 企微 能力对比 + 难度评估 + 实施顺序 |
 | **Adapter 参考** | `packages/api/src/infrastructure/connectors/adapters/FeishuAdapter.ts` | 飞书 adapter 实现（学习样板） |
 | **Research** | `docs/research/2026-03-22-dingtalk-wecom-gateway-gpt-pro-consult.md` | GPT Pro 调研咨询 + 综合报告 |
 | **Prompt** | `docs/prompts/2026-03-22-dingtalk-wecom-integration-research-prompt.md` | 调研 prompt 存档 |
