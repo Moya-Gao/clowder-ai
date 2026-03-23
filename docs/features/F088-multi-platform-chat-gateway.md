@@ -64,7 +64,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **I (8C)** | 猫参与 triage：用户点"帮我判断"或连续无法决策时触发 triage 猫（可配置开关） | 📋 planned | — |
 | **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
 | **7** | 群聊公共层：ConnectorRouter sender 透传 + ConnectorSource sender 扩展 | 📋 planned | — (联动 [F134](F134-feishu-group-chat.md)) |
-| **8** | 更多平台 + OAuth + 配置 UI | 📋 planned | — |
+| **8** | IM Hub 配置向导 — 平台接入引导 UI（飞书/Telegram/钉钉） | 🚧 design | 设计稿: [`designs/f088-im-hub-config-wizard-ux.pen`](../../designs/f088-im-hub-config-wizard-ux.pen) |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 
 完整 AC 列表见 [各 Phase 详细 AC](assets/F088/acceptance-criteria.md)
@@ -72,6 +72,45 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 ## Acceptance Criteria
 
 - [x] AC-A1: Phase 1-6+A+B+C+D+E 已交付（详见 `assets/F088/acceptance-criteria.md`）
+
+### Phase 8: IM Hub 配置向导 — 平台接入引导 UI
+
+**铲屎官已确认 Screen C 设计方向（2026-03-23）。**
+
+设计稿: [`designs/f088-im-hub-config-wizard-ux.pen`](../../designs/f088-im-hub-config-wizard-ux.pen)
+
+**目标**: 在现有 `HubListModal` 中增加 Tab 导航，让铲屎官可以在 Web UI 中配置平台接入（飞书/Telegram/钉钉），无需手动编辑 `.env` 文件。
+
+#### AC 清单
+
+| AC | 描述 | 验收标准 |
+|----|------|----------|
+| AC-8-1 | HubListModal Tab 导航 | 📡 按钮打开的模态框显示两个 Tab：**系统对话中心**（现有 thread 列表，零改动）和 **平台配置**（新增向导页） |
+| AC-8-2 | 平台配置卡片列表 | 配置 Tab 显示三张平台卡片（飞书/Telegram/钉钉），每张显示：平台名称、图标、当前状态（已配置 ✅ / 未配置 ⚪） |
+| AC-8-3 | 卡片展开/折叠 | 点击卡片展开详情区域，包含：(1) 接入三步骤引导 + 外链（如飞书开放平台文档）(2) 配置表单字段 (3) 折叠后回到卡片列表 |
+| AC-8-4 | 配置表单字段 | 飞书：`FEISHU_APP_ID` + `FEISHU_APP_SECRET` + `FEISHU_VERIFICATION_TOKEN`；Telegram：`TELEGRAM_BOT_TOKEN`；钉钉：`DINGTALK_APP_KEY` + `DINGTALK_APP_SECRET`。表单提交调用 `PATCH /api/config/env` |
+| AC-8-5 | 测试连接 | 每个平台提供"测试连接"按钮。前端调用 `GET /api/connector/status`，返回各平台当前连接状态（connected / not_configured / error） |
+| AC-8-6 | 重启提示 | 修改 connector 环境变量后，显示黄色提示："配置已保存。需重启 API 服务使连接器生效。" |
+| AC-8-7 | 敏感字段脱敏 | 已配置的 sensitive 字段（token/secret）显示 `••••xxxx`（尾 4 位），不回显完整值 |
+| AC-8-8 | 回归安全 | 系统对话中心 Tab 功能完全不变（zero regression） |
+
+#### 技术方案
+
+**前端改动**：
+- `HubListModal.tsx` — 增加 Tab 切换状态，现有 thread list 作为 Tab 1 内容
+- 新建 `HubConnectorConfigTab.tsx` — 平台配置向导组件
+- 使用项目 Tailwind 类（`text-cafe-black`、`bg-cocreator-light` 等），不使用 .pen 设计稿中的外部样式
+
+**后端改动**：
+- `connector-hub.ts` — 新增 `GET /api/connector/status` 端点
+  - 读取当前环境变量，判断各平台配置完整性
+  - 返回 `{ platforms: { feishu: { configured: boolean, fields: [...] }, telegram: {...}, dingtalk: {...} } }`
+- 配置保存复用现有 `PATCH /api/config/env`（无需新端点）
+
+**不在本 Phase 范围**：
+- 热重载 connector gateway（接受手动重启）
+- OAuth 接入流程
+- 多账号/多 workspace
 
 ## MVP Scope 硬边界
 
