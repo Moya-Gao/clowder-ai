@@ -8,7 +8,7 @@ created: 2026-03-24
 
 # F134: Feishu Group Chat — 飞书群聊多用户支持
 
-> **Status**: spec | **Owner**: 金渐层 | **Priority**: P1
+> **Status**: design-gate-passed | **Owner**: 金渐层 | **Priority**: P1
 >
 > **Related**: F088（复用公共层 + Phase 7 公共层扩展）| F132（钉钉/企微，同模式独立 Feature）
 
@@ -58,9 +58,10 @@ userId: this.opts.defaultUserId,  // line 187, 248, 268 等多处
 2. **@机器人检测**：群聊消息只有 @了机器人才处理（避免机器人响应所有群消息）
    - 飞书群消息的 `content.text` 里 @机器人表现为 `@_user_1` 占位符
    - 事件 body 中 `event.message.mentions` 数组包含 `{ key: '@_user_1', id: { open_id: 'xxx' }, name: '机器人名' }` 映射
-   - 需要匹配 bot 自身的 `open_id`（可从飞书 API 或 env 配置获取）
+   - 需要匹配 bot 自身的 `open_id`（双策略获取：API + env，见 KD-5）
    - 匹配到后，从 text 中剥离 `@_user_1` 占位符，得到纯文本
-3. **提取发送者信息**：从 `event.sender` 解析 `senderId`（open_id）和 `senderName`
+   - **@所有人不触发**：`@_all` 的 key 为 `@_all` 而非 `@_user_N`，不匹配 bot open_id（KD-7）
+3. **提取发送者信息**：从 `event.sender.sender_id` 解析 `senderId`（open_id）；通过 `GET /contact/v3/users/:open_id` 异步获取 `senderName`（内存缓存）
 4. **返回 chat_type**：让 ConnectorRouter 知道这是群聊还是 DM
 
 **接口变更**：
@@ -130,6 +131,7 @@ export interface FeishuInboundMessage {
 - [ ] AC-A3: @机器人占位符（`@_user_1`）从 text 中正确剥离
 - [ ] AC-A4: senderId 和 senderName 正确提取并传递
 - [ ] AC-A5: DM 消息行为不变（无回归）
+- [ ] AC-A6: `@所有人`（@_all）不触发 bot 响应，仅明确 @bot 才处理
 
 ### Phase B（公共层 Sender 身份透传）
 - [ ] AC-B1: ConnectorRouter.route() 接受可选 sender 参数
@@ -157,6 +159,8 @@ export interface FeishuInboundMessage {
 | R3 | "区分到底哪个群聊给哪个 thread 发了信息" | AC-B4 | test + manual | [ ] |
 | R4 | 群聊回复应 @发送者（铲屎官确认的改动 3） | AC-C1, AC-C3 | test + manual | [ ] |
 | R5 | 先做 1-3 再做 4（权限后做） | Phase D 暂不开工 | — | [ ] |
+| R6 | "@所有人的时候bot不要响应，明确@bot才响应" | AC-A6 | test | [ ] |
+| R7 | "群聊名字+群聊ID+发送消息的人"在 UI 展示 | AC-B3, AC-B4 | screenshot | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -173,18 +177,20 @@ export interface FeishuInboundMessage {
 
 | 风险 | 缓解 |
 |------|------|
-| 飞书群消息量大，机器人被无关消息刷爆 | @Bot 检测 + Phase D 权限白名单 |
-| Bot 自身 open_id 获取方式可能因飞书 API 变更 | 支持 env 配置 fallback（`FEISHU_BOT_OPEN_ID`） |
+| 飞书群消息量大，机器人被无关消息刷爆 | @Bot 检测 + @all 忽略（KD-7）+ Phase D 权限白名单 |
+| Bot 自身 open_id 获取方式可能因飞书 API 变更 | 双策略：API 查询 + env 配置 fallback（KD-5） |
 | ConnectorSource 扩展 sender 可能影响前端渲染 | sender 字段可选，前端 graceful fallback |
-| 公共层改动（Phase B）影响其他 adapter | sender 参数可选，不传 = 不影响 |
+| 公共层改动（Phase B）影响其他 adapter | sender 参数可选，不传 = 不影响；跨 family review 缅因猫 |
+| 新增飞书权限（contact/chat）需铲屎官手动配置 | 文档中列出具体权限名，提醒铲屎官在开发者后台添加 |
+| 发送者姓名 API 调用频率限制 | 内存 Map 缓存，同一 open_id 只调一次（KD-6） |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Bot 自身 open_id 如何获取：API 查询 vs env 配置？ | ⬜ 需调研飞书 API |
+| OQ-1 | Bot 自身 open_id 如何获取：API 查询 vs env 配置？ | ✅ 双策略：启动时 `GET /bot/v3/info` 自动获取 + `FEISHU_BOT_OPEN_ID` env fallback（见 KD-5） |
 | OQ-2 | 群聊 thread 是否需要与 DM thread 共存？（同一人群聊和私聊是不同 thread） | ✅ 是，externalChatId 不同，自然隔离 |
-| OQ-3 | 群聊中的 /命令（/new /threads /use）如何处理？ | ⬜ 初版可禁用群聊命令，只允许对话 |
+| OQ-3 | 群聊中的 /命令（/new /threads /use）如何处理？ | ✅ 初版群聊禁用 /命令，只允许对话（见 KD-8） |
 
 ## Key Decisions
 
@@ -194,12 +200,115 @@ export interface FeishuInboundMessage {
 | KD-2 | 先做 Phase A-C，Phase D 权限控制后做 | 铲屎官确认："好像可以先做 1-3 然后再做 4" | 2026-03-24 |
 | KD-3 | 群消息必须 @机器人才处理 | 飞书会推送所有群消息给订阅的 bot，不过滤会导致垃圾消息涌入 | 2026-03-24 |
 | KD-4 | 公共层 sender 扩展属于 F088 Phase 7，在 F134 开发中联动推进 | 保持 F088 作为公共层唯一真相源，避免平台特定 Feature 改动公共层接口后忘记更新 F088 | 2026-03-24 |
+| KD-5 | Bot open_id 双策略获取 | 启动时调 `GET /open-apis/bot/v3/info` 自动获取 + `FEISHU_BOT_OPEN_ID` env 兜底。原因：open_id 是 app-scoped（同一 bot 不同 app token 看到不同 open_id，见 openclaw/openclaw#40768），env 兜底防 API 失败 | 2026-03-25 |
+| KD-6 | 发送者姓名通过 Contact API 获取 + 内存缓存 | `event.sender` 只有 `sender_id`（含 open_id/user_id/union_id），无 name 字段。需调 `GET /contact/v3/users/:open_id` 获取。用 Map 缓存避免重复调用。需 `contact:user.base:readonly` 权限 | 2026-03-25 |
+| KD-7 | @所有人（@_all）不触发 bot | 铲屎官确认："我@所有人的时候，bot我觉得应该不要响应，而是要明确@bot时候才响应"。`@_all` 在 mentions 中 key 为 `@_all`，与 `@_user_N` 不同，过滤即可 | 2026-03-25 |
+| KD-8 | 群聊中禁用 /命令，仅允许对话 | 群聊场景下 /new /threads /use 等命令语义不清且可能被误触。初版只在 DM 中允许命令 | 2026-03-25 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-03-24 | 立项，从 F088 拆分飞书群聊为独立 Feature |
+| 2026-03-25 | Design Gate 通过：API 调研完成 + 铲屎官确认 3 项决策（UI展示/sender名/`@all`处理） |
+
+## Design Gate Results（2026-03-25）
+
+### 飞书 API 事件结构发现
+
+通过阅读[飞书官方文档](https://open.larkoffice.com/document/server-docs/im-v1/message/events/receive)及 GitHub 开源实现（openclaw/openclaw、LobsterAI 等）确认：
+
+1. **`event.sender` 无 name 字段** — 只包含 `sender_id: { open_id, user_id, union_id }` + `sender_type` + `tenant_key`
+2. **`event.message.mentions[]` 有 name** — 每个 mention 包含 `{ key: "@_user_1", id: { open_id }, name: "显示名", tenant_key }`，用于 @bot 检测
+3. **群聊名不在事件体中** — 只有 `event.message.chat_id`，需调 `GET /im/v1/chats/:chat_id` 获取群名（需 `im:chat:readonly` 权限）
+4. **发送者姓名** — 需调 `GET /contact/v3/users/:open_id` 获取（需 `contact:user.base:readonly` 权限），用内存 Map 缓存
+5. **Bot open_id** — 用 `GET /open-apis/bot/v3/info` 启动时获取 + env `FEISHU_BOT_OPEN_ID` 兜底
+
+### 已知陷阱
+
+- **open_id 是 app-scoped**（openclaw/openclaw#40768）：同一 bot 在不同 app token 下 open_id 不同，必须用同一个 app 的 token 查
+- **@mention 不被识别**（openclaw/openclaw#34271）：需从 mentions 数组匹配，不能靠 text 中的占位符文本
+- **@all 应忽略**（openclaw/openclaw#37706）：社区最佳实践，`@_all` 的 key 为 `@_all` 而非 `@_user_N`
+
+### 新增飞书权限需求
+
+铲屎官需在飞书开发者后台添加以下权限：
+
+| 权限 | 用途 | 阶段 |
+|------|------|------|
+| `contact:user.base:readonly` | 获取发送者姓名 | Phase A |
+| `im:chat:readonly` | 获取群聊名称 | Phase B |
+
+## Technical Design
+
+### Phase A: FeishuAdapter 群聊解析
+
+```
+飞书 Webhook Event
+  │
+  ├─ chat_type === 'p2p' → 现有 DM 逻辑（不变）
+  │
+  └─ chat_type === 'group'
+       │
+       ├─ mentions[] 中是否有 bot open_id？
+       │     ├─ 无 → return null（静默忽略）
+       │     └─ 有 → 继续处理
+       │
+       ├─ mentions[] 中 key === '@_all'？→ 不算 @bot
+       │
+       ├─ 从 text 中剥离 @bot 占位符（@_user_N → 空字符串）
+       │
+       ├─ 提取 sender: { id: event.sender.sender_id.open_id }
+       │
+       ├─ 异步查询 sender name（Contact API + cache）
+       │
+       └─ 返回 FeishuInboundMessage { chatType: 'group', senderId, senderName?, ... }
+```
+
+**Bot open_id 初始化**（在 connector-gateway-bootstrap.ts）：
+
+```typescript
+// 启动时获取
+const botInfo = await feishuClient.get('/open-apis/bot/v3/info');
+const botOpenId = botInfo?.bot?.open_id ?? process.env.FEISHU_BOT_OPEN_ID;
+// 传给 FeishuAdapter 构造参数
+```
+
+### Phase B: 公共层 Sender 透传
+
+```
+FeishuAdapter.parseEvent()
+  → { chatId, text, messageId, senderId, senderName, chatType }
+       │
+       └─ connector-gateway-bootstrap.ts
+            → connectorRouter.route(connectorId, chatId, text, msgId, attachments,
+                 sender: { id: senderId, name: senderName },  // 新参数
+                 chatType: 'group')
+                   │
+                   ├─ 创建 thread 时标题: chatType==='group' ? `飞书群聊 ${群名}` : '飞书 DM'
+                   │
+                   ├─ ConnectorSource 包含 sender 字段
+                   │     { connector: 'feishu', label: '飞书群聊 · {群名}',
+                   │       sender: { id: 'ou_xxx', name: 'Landy' } }
+                   │
+                   └─ messageStore.append() 携带 source.sender → Web UI 可渲染
+```
+
+### Phase C: 群聊回复 @发送者
+
+```
+猫回复 → OutboundDeliveryHook.deliver()
+  │
+  ├─ 从 message metadata 取 sender info
+  │
+  └─ FeishuAdapter.sendReply()
+       │
+       ├─ chatType === 'group' && sender?
+       │     → 文本前缀: <at user_id="ou_xxx">Landy</at> + 原始回复
+       │
+       └─ chatType === 'p2p'
+             → 不加 @，保持原行为
+```
 
 ## Review Gate
 
