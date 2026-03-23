@@ -100,26 +100,34 @@ Step 3: 调 API — 让 Hub 前端导航
 | 文件（如 `docs/features/F131-workspace-navigator.md`） | `open` | 打开文件查看器显示文件内容 |
 | 不确定 | `reveal` | 安全默认——展开到那里让铲屎官自己看 |
 
+### 获取 API 端口
+
+Cat Cafe API 端口**不要写死**，通过以下方式确定：
+
+1. **约定规则**：`API port = Frontend port + 1`（如 Frontend 3001 → API 3002；Alpha 3011 → API 3012）
+2. **`.env` 配置**：运行态 `.env` 中 `API_SERVER_PORT=3002`（默认）
+3. **验证**：`curl -s http://localhost:${API_PORT}/api/workspace/worktrees` 能返回 JSON 即可
+
+> 注意：3001 是 Hub 前端（Next.js），**不是** API 后端。API 路由注册在 Fastify 服务上（默认 3002）。
+
 ### 调用示例
 
 ```bash
-# 打开日志目录
-curl -X POST http://localhost:3001/api/workspace/navigate \
+# 打开日志目录（API_SERVER_PORT 默认 3002）
+curl -X POST http://localhost:${API_SERVER_PORT:-3002}/api/workspace/navigate \
   -H "Content-Type: application/json" \
   -d '{"path": "packages/api/data/logs/api/", "action": "reveal", "worktreeId": "cat-cafe-runtime"}'
 
 # 打开 Feature 文档
-curl -X POST http://localhost:3001/api/workspace/navigate \
+curl -X POST http://localhost:${API_SERVER_PORT:-3002}/api/workspace/navigate \
   -H "Content-Type: application/json" \
   -d '{"path": "docs/features/F131-workspace-navigator.md", "action": "open", "worktreeId": "cat-cafe"}'
 
 # 跨 worktree 打开 runtime 日志
-curl -X POST http://localhost:3001/api/workspace/navigate \
+curl -X POST http://localhost:${API_SERVER_PORT:-3002}/api/workspace/navigate \
   -H "Content-Type: application/json" \
   -d '{"path": "packages/api/data/logs/api/", "action": "reveal", "worktreeId": "cat-cafe-runtime"}'
 ```
-
-> **怎么获取 API 端口**：Cat Cafe API 默认跑在 3001。如果不确定，可以 `curl -s http://localhost:3001/healthz` 验证。
 
 ## 什么时候主动用
 
