@@ -4,6 +4,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { HubProviderProfileItem, type ProfileEditPayload } from '@/components/HubProviderProfileItem';
 import type { ProfileItem } from '@/components/hub-provider-profiles.types';
 
+const mockConfirm = vi.fn().mockResolvedValue(true);
+vi.mock('@/components/useConfirm', () => ({
+  useConfirm: () => mockConfirm,
+}));
+
 function queryButton(container: HTMLElement, text: string): HTMLButtonElement {
   const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
     candidate.textContent?.includes(text),
@@ -47,7 +52,6 @@ describe('HubProviderProfileItem', () => {
       displayName: 'Claude API',
       name: 'Claude API',
       authType: 'api_key',
-      kind: 'api_key',
       protocol: 'anthropic',
       builtin: false,
       mode: 'api_key',
@@ -72,7 +76,7 @@ describe('HubProviderProfileItem', () => {
     });
 
     expect(onSave).toHaveBeenCalledTimes(1);
-    const payload = (onSave.mock.calls[0] as unknown as [string, ProfileEditPayload])[1];
+    const payload = onSave.mock.calls[0]?.[1] as ProfileEditPayload;
     expect(payload).toMatchObject({
       displayName: 'Claude API',
       baseUrl: 'https://api.anthropic.com',
@@ -88,7 +92,6 @@ describe('HubProviderProfileItem', () => {
       displayName: 'Codex API',
       name: 'Codex API',
       authType: 'api_key',
-      kind: 'api_key',
       protocol: 'openai',
       builtin: false,
       mode: 'api_key',
@@ -120,7 +123,7 @@ describe('HubProviderProfileItem', () => {
       queryButton(container, '保存').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    const payload = (onSave.mock.calls[0] as unknown as [string, ProfileEditPayload])[1];
+    const payload = onSave.mock.calls[0]?.[1] as ProfileEditPayload;
     expect(payload.baseUrl).toBe('');
   });
 
@@ -131,7 +134,6 @@ describe('HubProviderProfileItem', () => {
       displayName: 'Codex (OAuth)',
       name: 'Codex (OAuth)',
       authType: 'oauth',
-      kind: 'builtin',
       protocol: 'openai',
       builtin: true,
       mode: 'subscription',
@@ -160,7 +162,6 @@ describe('HubProviderProfileItem', () => {
       displayName: 'OpenCode (client-auth)',
       name: 'OpenCode (client-auth)',
       authType: 'oauth',
-      kind: 'builtin',
       protocol: 'anthropic',
       builtin: true,
       mode: 'subscription',
@@ -189,7 +190,6 @@ describe('HubProviderProfileItem', () => {
       displayName: 'Codex Sponsor',
       name: 'Codex Sponsor',
       authType: 'api_key',
-      kind: 'api_key',
       protocol: 'openai',
       builtin: false,
       mode: 'api_key',
@@ -200,7 +200,7 @@ describe('HubProviderProfileItem', () => {
       updatedAt: '2026-03-18T00:00:00.000Z',
     };
     const onDelete = vi.fn();
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    mockConfirm.mockResolvedValue(false);
 
     await act(async () => {
       root.render(
@@ -223,14 +223,14 @@ describe('HubProviderProfileItem', () => {
     await act(async () => {
       queryButton(container, '删除').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
     expect(onDelete).not.toHaveBeenCalled();
 
-    confirmSpy.mockReturnValue(true);
+    mockConfirm.mockResolvedValue(true);
     await act(async () => {
       queryButton(container, '删除').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(onDelete).toHaveBeenCalledWith('codex-sponsor');
-    confirmSpy.mockRestore();
+    mockConfirm.mockReset().mockResolvedValue(true);
   });
 });

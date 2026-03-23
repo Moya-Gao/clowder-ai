@@ -7,9 +7,12 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))),
 }));
 
+vi.mock('@/components/useConfirm', () => ({
+  useConfirm: () => () => Promise.resolve(true),
+}));
+
 import { HubAddMemberWizard } from '@/components/HubAddMemberWizard';
 import { HubCatEditor } from '@/components/HubCatEditor';
-import type { HubCatEditorDraft } from '@/components/hub-cat-editor.model';
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -59,14 +62,14 @@ function WizardHost() {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onComplete={(nextDraft) => {
-          setDraft(nextDraft as unknown as Record<string, string>);
+          setDraft(nextDraft as Record<string, string>);
           setWizardOpen(false);
           setEditorOpen(true);
         }}
       />
       <HubCatEditor
         open={editorOpen}
-        draft={(draft as unknown as HubCatEditorDraft) ?? undefined}
+        draft={draft ?? undefined}
         onClose={() => setEditorOpen(false)}
         onSaved={vi.fn()}
       />
@@ -227,7 +230,7 @@ describe('HubAddMemberWizard', () => {
     expect(queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]').value).toBe('gpt-5.4-mini');
   });
 
-  it('allows creating opencode member with bare model (soft validation hint only)', async () => {
+  it('blocks creating opencode member with bare model (requires providerId/modelId)', async () => {
     const onComplete = vi.fn();
 
     await act(async () => {
@@ -244,14 +247,15 @@ describe('HubAddMemberWizard', () => {
     await click(queryButton(container, 'OpenCode'));
     await click(queryButton(container, 'Codex Sponsor'));
 
-    // Soft hint shown because pre-filled model lacks a `/` prefix.
-    expect(container.textContent).toContain('建议使用');
+    // Finish button should be disabled — bare model without providerId/ prefix is rejected.
+    const finishButton = queryButton(container, '创建后继续编辑');
+    expect(finishButton.disabled).toBe(true);
 
-    await click(queryButton(container, '创建后继续编辑'));
+    await click(finishButton);
     await flushEffects();
 
-    // Wizard no longer blocks — bare model is accepted (soft validation).
-    expect(onComplete).toHaveBeenCalled();
+    // Wizard blocks — bare model is not accepted.
+    expect(onComplete).not.toHaveBeenCalled();
   });
 
   it('walks the Antigravity flow with default CLI args and lands in the editor', async () => {

@@ -17,6 +17,7 @@ import {
   type HubCatEditorFormState,
   initialState,
   type StrategyFormState,
+  splitMentionPatterns,
   toCodexRuntimeSettings,
   toStrategyForm,
 } from './hub-cat-editor.model';
@@ -25,6 +26,7 @@ import { AdvancedRuntimeSection } from './hub-cat-editor-advanced';
 import { PersistenceBanner } from './hub-cat-editor-fields';
 import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
 import type { CatStrategyEntry } from './hub-strategy-types';
+import { useConfirm } from './useConfirm';
 
 interface HubCatEditorProps {
   cat?: CatData | null;
@@ -35,6 +37,7 @@ interface HubCatEditorProps {
 }
 
 export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEditorProps) {
+  const confirm = useConfirm();
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [loadingStrategy, setLoadingStrategy] = useState(false);
@@ -45,6 +48,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
   const [codexSettingsError, setCodexSettingsError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
   const [form, setForm] = useState<HubCatEditorFormState>(() => initialState(cat, draft));
   const [strategyForm, setStrategyForm] = useState<StrategyFormState | null>(null);
   const [strategyBaseline, setStrategyBaseline] = useState<StrategyFormState | null>(null);
@@ -67,6 +71,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
   useEffect(() => {
     if (!open) return;
     setForm(initialState(cat, draft));
+    setFieldErrors({});
     setError(null);
     setStrategyError(null);
     setCodexSettingsError(null);
@@ -218,6 +223,15 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
   const patchForm = (patch: Partial<HubCatEditorFormState>) => {
     setHasUnsavedChanges(true);
     setForm((prev) => ({ ...prev, ...patch }));
+    if (patch.mentionPatterns !== undefined) {
+      setFieldErrors((prev) => ({ ...prev, routing: false }));
+    }
+    if (patch.name !== undefined || patch.roleDescription !== undefined) {
+      setFieldErrors((prev) => ({ ...prev, identity: false }));
+    }
+    if (patch.defaultModel !== undefined || patch.client !== undefined) {
+      setFieldErrors((prev) => ({ ...prev, account: false }));
+    }
   };
   const patchStrategy = (patch: Partial<StrategyFormState>) => {
     setHasUnsavedChanges(true);
@@ -231,13 +245,12 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
     }));
   };
 
-  const requestClose = () => {
+  const requestClose = async () => {
     if (!hasUnsavedChanges) {
       onClose();
       return;
     }
-    const ok = window.confirm('有未保存的修改，确定要关闭吗？');
-    if (ok) onClose();
+    if (await confirm({ title: '关闭确认', message: '有未保存的修改，确定要关闭吗？' })) onClose();
   };
 
   const handleAvatarUpload = async (file: File) => {
@@ -253,6 +266,36 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
   };
 
   const handleSave = async () => {
+    const errors: Record<string, boolean> = {};
+    const errorMessages: string[] = [];
+    // Create-only pre-flight: existing cats already passed backend validation.
+    if (!cat) {
+      if (!form.name.trim()) {
+        errors.identity = true;
+        errorMessages.push('名称');
+      }
+      if (!form.roleDescription.trim()) {
+        errors.identity = true;
+        errorMessages.push('角色描述');
+      }
+      if (!form.defaultModel.trim()) {
+        errors.account = true;
+        errorMessages.push('Model');
+      } else if (form.client === 'opencode' && !form.defaultModel.includes('/')) {
+        errors.account = true;
+        errorMessages.push('OpenCode Model 需要 providerId/modelId 格式');
+      }
+      if (splitMentionPatterns(form.mentionPatterns).length === 0) {
+        errors.routing = true;
+        errorMessages.push('别名');
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError(`请填写必填字段：${errorMessages.join('、')}`);
+      return;
+    }
+    setFieldErrors({});
     setSaving(true);
     setError(null);
     const rollbackSteps: Array<() => Promise<void>> = [];
@@ -372,7 +415,12 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
 
   const handleDelete = async () => {
     if (!cat) return;
-    const ok = window.confirm(`确认删除成员「${cat.displayName}」吗？此操作不可撤销。`);
+    const ok = await confirm({
+      title: '删除确认',
+      message: `确认删除成员「${cat.displayName}」吗？此操作不可撤销。`,
+      variant: 'danger',
+      confirmLabel: '删除',
+    });
     if (!ok) return;
     setSaving(true);
     setError(null);
@@ -395,10 +443,10 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4" onClick={requestClose}>
       <div
-        className="flex max-h-[88vh] w-full max-w-[560px] flex-col rounded-[32px] border border-[#F0DDCD] bg-[#FFF8F2] shadow-2xl"
+        className="max-h-[88vh] w-full max-w-[560px] overflow-y-auto rounded-[32px] border border-[#F0DDCD] bg-[#FFF8F2] shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-start justify-between border-b border-[#F0DDCD] px-7 py-5">
+        <div className="flex items-start justify-between border-b border-[#F0DDCD] px-7 py-5">
           <div>
             <p className="text-[13px] font-semibold text-[#77A777]">
               成员协作 &gt; 总览 &gt; {cat ? '编辑成员' : '添加成员'}
@@ -434,22 +482,24 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-7 py-5">
+        <div className="space-y-4 px-7 py-5">
           <IdentitySection
             cat={cat}
             form={form}
+            hasError={fieldErrors.identity}
             avatarUploading={uploadingAvatar}
             onChange={patchForm}
             onAvatarUpload={handleAvatarUpload}
           />
           <AccountSection
             form={form}
+            hasError={fieldErrors.account}
             modelOptions={modelOptions}
             availableProfiles={availableProfiles}
             loadingProfiles={loadingProfiles}
             onChange={patchForm}
           />
-          <RoutingSection form={form} onChange={patchForm} />
+          <RoutingSection form={form} hasError={fieldErrors.routing} onChange={patchForm} />
           <AdvancedRuntimeSection
             cat={cat}
             form={form}
@@ -469,7 +519,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
           {error ? <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p> : null}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-[#F0DDCD] bg-[#FFF3EA] px-7 py-4">
+        <div className="flex items-center justify-between border-t border-[#F0DDCD] bg-[#FFF3EA] px-7 py-4">
           <div className="text-xs leading-5 text-[#8A776B]">
             {buildEditorLoadingNote({ loadingProfiles, loadingStrategy, loadingCodexSettings })}
           </div>
