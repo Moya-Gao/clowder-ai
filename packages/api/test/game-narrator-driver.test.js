@@ -58,10 +58,13 @@ function makeRuntime(overrides = {}) {
 // Stub factories for NarratorDeps
 // ---------------------------------------------------------------------------
 
-/** Creates a stub gameStore that returns `runtime` on getGame, then marks as ended after N calls. */
-function makeGameStore(runtime, { stopAfterCalls = 1 } = {}) {
+/** Creates a stub gameStore. getGame returns `runtime` for the first N calls, then returns ended.
+ *  Note: postNarrative also calls getGame (fresh-read), so each narrative adds 1 to the count. */
+function makeGameStore(runtime, { stopAfterCalls = 50 } = {}) {
   let callCount = 0;
+  const updates = [];
   return {
+    updates,
     getGame: async () => {
       callCount++;
       if (callCount > stopAfterCalls) return { ...runtime, status: 'ended' };
@@ -70,19 +73,19 @@ function makeGameStore(runtime, { stopAfterCalls = 1 } = {}) {
     listActiveGames: async () => [runtime],
     createGame: async (r) => r,
     getActiveGame: async () => runtime,
-    updateGame: async () => {},
+    updateGame: async (_id, rt) => {
+      updates.push(rt);
+    },
     endGame: async () => {},
   };
 }
 
-function makeMessageStore() {
-  const messages = [];
+function makeOrchestrator() {
+  const calls = [];
   return {
-    messages,
-    append: (msg) => {
-      const stored = { id: `msg-${messages.length}`, ...msg };
-      messages.push(stored);
-      return stored;
+    calls,
+    async broadcastGameState(gameId) {
+      calls.push(gameId);
     },
   };
 }
@@ -113,6 +116,11 @@ function makeActionNotifier() {
   };
 }
 
+/** Extract narrative text from runtime.eventLog */
+function getNarrativeTexts(runtime) {
+  return runtime.eventLog.filter((e) => e.type === 'narrative').map((e) => e.payload.text);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -120,14 +128,14 @@ function makeActionNotifier() {
 describe('GameNarratorDriver', () => {
   let runtime;
   let gameStore;
-  let messageStore;
+  let orchestrator;
   let wakeCat;
   let actionNotifier;
 
   beforeEach(() => {
     runtime = makeRuntime();
-    gameStore = makeGameStore(runtime);
-    messageStore = makeMessageStore();
+    gameStore = makeGameStore(runtime, { stopAfterCalls: 4 });
+    orchestrator = makeOrchestrator();
     wakeCat = makeWakeCat();
     actionNotifier = makeActionNotifier();
   });
@@ -135,7 +143,7 @@ describe('GameNarratorDriver', () => {
   // --- Night phase ---
 
   it('night phase: posts narrative, wakes wolf cats, waits for actions, posts close narrative', async () => {
-    const driver = new GameNarratorDriver({ gameStore, messageStore, wakeCat, actionNotifier });
+    const driver = new GameNarratorDriver({ gameStore, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
 
     // Let the async loop run one iteration (night_wolf) then stop
@@ -143,8 +151,8 @@ describe('GameNarratorDriver', () => {
     driver.stopLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
 
-    // Should have posted narrative "狼人请睁眼" and then "狼人请闭眼"
-    const narratives = messageStore.messages.map((m) => m.content);
+    // Should have posted narrative "狼人请睁眼" and then "狼人请闭眼" to eventLog
+    const narratives = getNarrativeTexts(runtime);
     assert.ok(
       narratives.some((n) => n.includes('狼人请睁眼')),
       'should post wolf open narrative',
@@ -168,7 +176,7 @@ describe('GameNarratorDriver', () => {
   });
 
   it('night phase: sends first-wake briefing on round 1', async () => {
-    const driver = new GameNarratorDriver({ gameStore, messageStore, wakeCat, actionNotifier });
+    const driver = new GameNarratorDriver({ gameStore, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 200));
     driver.stopLoop('game-001');
@@ -183,14 +191,13 @@ describe('GameNarratorDriver', () => {
 
   it('night phase: sends resume briefing on round > 1', async () => {
     const rt = makeRuntime({ round: 2, currentPhase: 'night_wolf' });
-    const gs = makeGameStore(rt);
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const gs = makeGameStore(rt, { stopAfterCalls: 4 });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 200));
     driver.stopLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
 
-    // On round > 1, uses buildResumeCapsule which is shorter
     for (const call of wakeCat.calls) {
       assert.ok(call.briefing.length > 0, `resume briefing for ${call.catId} should not be empty`);
     }
@@ -202,8 +209,8 @@ describe('GameNarratorDriver', () => {
       currentPhase: 'night_wolf',
       seats: makeRuntime().seats.map((s) => (s.role === 'wolf' ? { ...s, alive: false } : s)),
     });
-    const gs = makeGameStore(rt);
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const gs = makeGameStore(rt, { stopAfterCalls: 1 });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 200));
     driver.stopLoop('game-001');
@@ -216,15 +223,16 @@ describe('GameNarratorDriver', () => {
 
   it('discuss phase: wakes alive seats sequentially in seat order (AC-I6)', async () => {
     const rt = makeRuntime({ currentPhase: 'day_discuss' });
-    const gs = makeGameStore(rt);
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    // loop-top(1) + dawn narrative getGame(1) + 7 per-seat narrative getGames(7) = 9
+    const gs = makeGameStore(rt, { stopAfterCalls: 9 });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 300));
     driver.stopLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
 
-    // Should post "天亮了" narrative
-    const narratives = messageStore.messages.map((m) => m.content);
+    // Should post "天亮了" narrative to eventLog
+    const narratives = getNarrativeTexts(rt);
     assert.ok(
       narratives.some((n) => n.includes('天亮了')),
       'should post day dawn narrative',
@@ -244,14 +252,14 @@ describe('GameNarratorDriver', () => {
 
   it('discuss phase: posts per-seat narrative prompts', async () => {
     const rt = makeRuntime({ currentPhase: 'day_discuss' });
-    const gs = makeGameStore(rt);
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const gs = makeGameStore(rt, { stopAfterCalls: 9 });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 300));
     driver.stopLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
 
-    const narratives = messageStore.messages.map((m) => m.content);
+    const narratives = getNarrativeTexts(rt);
     assert.ok(
       narratives.some((n) => n.includes('座位1')),
       'should prompt seat 1',
@@ -266,15 +274,15 @@ describe('GameNarratorDriver', () => {
 
   it('vote phase: wakes all voters and waits for all actions (parallel)', async () => {
     const rt = makeRuntime({ currentPhase: 'day_vote' });
-    const gs = makeGameStore(rt);
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const gs = makeGameStore(rt, { stopAfterCalls: 3 });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 200));
     driver.stopLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
 
-    // Should post vote narrative
-    const narratives = messageStore.messages.map((m) => m.content);
+    // Should post vote narrative to eventLog
+    const narratives = getNarrativeTexts(rt);
     assert.ok(
       narratives.some((n) => n.includes('投票')),
       'should post vote narrative',
@@ -298,13 +306,13 @@ describe('GameNarratorDriver', () => {
     const rt = makeRuntime({ createdAt: Date.now() - 31 * 60_000 });
     // Return playing runtime forever (timeout should break the loop)
     const gs = makeGameStore(rt, { stopAfterCalls: 100 });
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 200));
     driver.stopLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
 
-    const narratives = messageStore.messages.map((m) => m.content);
+    const narratives = getNarrativeTexts(rt);
     assert.ok(
       narratives.some((n) => n.includes('30 分钟')),
       'should post global timeout narrative',
@@ -317,7 +325,7 @@ describe('GameNarratorDriver', () => {
   it('stopLoop aborts the running game loop', async () => {
     // Use a store that keeps returning 'playing' forever
     const gs = makeGameStore(runtime, { stopAfterCalls: 100 });
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
     driver.stopLoop('game-001');
@@ -329,7 +337,7 @@ describe('GameNarratorDriver', () => {
 
   it('stopAllLoops aborts all running game loops', async () => {
     const gs = makeGameStore(runtime, { stopAfterCalls: 100 });
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 50));
     driver.stopAllLoops();
@@ -352,7 +360,7 @@ describe('GameNarratorDriver', () => {
       updateGame: async () => {},
       endGame: async () => {},
     };
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     const count = await driver.recoverActiveGames();
     assert.equal(count, 2, 'should return count of recovered games');
 
@@ -360,44 +368,55 @@ describe('GameNarratorDriver', () => {
     await new Promise((r) => setTimeout(r, 200));
   });
 
-  // --- Narrative system messages ---
+  // --- Narrative events structure ---
 
-  it('narrative messages are posted as system (catId: null, userId: system)', async () => {
-    const driver = new GameNarratorDriver({ gameStore, messageStore, wakeCat, actionNotifier });
+  it('narrative events have correct structure (type, scope, payload)', async () => {
+    const driver = new GameNarratorDriver({ gameStore, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 200));
     driver.stopLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
 
-    for (const msg of messageStore.messages) {
-      assert.equal(msg.catId, null, 'narrative catId should be null');
-      assert.equal(msg.userId, 'system', 'narrative userId should be system');
-      assert.equal(msg.threadId, 'thread-001', 'narrative threadId should match game thread');
+    assert.ok(runtime.eventLog.length > 0, 'should have events in eventLog');
+    for (const event of runtime.eventLog.filter((e) => e.type === 'narrative')) {
+      assert.equal(event.type, 'narrative', 'event type should be narrative');
+      assert.equal(event.scope, 'public', 'narrative scope should be public');
+      assert.ok(event.payload.text.length > 0, 'narrative payload.text should not be empty');
+      assert.ok(event.eventId, 'event should have an eventId');
+      assert.equal(event.round, 1, 'event round should match runtime');
+      assert.equal(event.phase, 'night_wolf', 'event phase should match runtime');
+      assert.ok(event.timestamp > 0, 'event should have a timestamp');
     }
   });
 
-  it('narrative messages broadcast via socketManager when provided', async () => {
-    const broadcasts = [];
-    const mockSocket = { broadcastToRoom: (room, event, data) => broadcasts.push({ room, event, data }) };
-    const driver = new GameNarratorDriver({
-      gameStore,
-      messageStore,
-      wakeCat,
-      actionNotifier,
-      socketManager: mockSocket,
-    });
+  it('postNarrative broadcasts game state via orchestrator', async () => {
+    const driver = new GameNarratorDriver({ gameStore, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 200));
     driver.stopLoop('game-001');
     await new Promise((r) => setTimeout(r, 100));
 
-    assert.ok(broadcasts.length > 0, 'should have broadcast narrative messages');
-    for (const b of broadcasts) {
-      assert.equal(b.room, 'thread:thread-001');
-      assert.equal(b.event, 'game:narrative');
-      assert.equal(b.data.message.type, 'system');
-      assert.ok(b.data.message.content.length > 0);
-      assert.ok(b.data.message.id);
+    assert.ok(orchestrator.calls.length > 0, 'should have broadcast game state');
+    for (const gameId of orchestrator.calls) {
+      assert.equal(gameId, 'game-001', 'broadcast should target correct gameId');
+    }
+    assert.ok(orchestrator.calls.length >= 2, 'should broadcast at least twice (open + close)');
+  });
+
+  it('postNarrative reads fresh state and increments version (OCC safe)', async () => {
+    const rt = makeRuntime();
+    const initialVersion = rt.version;
+    const gs = makeGameStore(rt, { stopAfterCalls: 4 });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
+    driver.startLoop('game-001');
+    await new Promise((r) => setTimeout(r, 200));
+    driver.stopLoop('game-001');
+    await new Promise((r) => setTimeout(r, 100));
+
+    assert.ok(rt.version > initialVersion, 'version should be incremented by narrative events');
+    assert.ok(gs.updates.length > 0, 'updateGame should have been called');
+    for (const updated of gs.updates) {
+      assert.ok(updated.version > initialVersion, 'each updateGame call should have incremented version');
     }
   });
 
@@ -409,7 +428,7 @@ describe('GameNarratorDriver', () => {
       getGame: async () => ({ ...runtime, status: 'ended' }),
       listActiveGames: async () => [],
     };
-    const driver = new GameNarratorDriver({ gameStore: gs, messageStore, wakeCat, actionNotifier });
+    const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 200));
 

@@ -3,11 +3,8 @@ import { describe, it } from 'node:test';
 import { createWakeCatFn } from '../dist/domains/cats/services/game/wakeCatImpl.js';
 
 function createMockDeps() {
-  const appendedMessages = [];
   const enqueuedEntries = [];
   const autoExecuteCalls = [];
-  const backfillCalls = [];
-  const appendMergedCalls = [];
 
   let enqueueResult = {
     outcome: 'enqueued',
@@ -17,13 +14,6 @@ function createMockDeps() {
 
   return {
     deps: {
-      messageStore: {
-        append(msg) {
-          const stored = { ...msg, id: `msg-${appendedMessages.length + 1}` };
-          appendedMessages.push(stored);
-          return stored;
-        },
-      },
       threadStore: {
         async get(threadId) {
           return { threadId, createdBy: 'user-landy', title: 'Game Thread' };
@@ -33,12 +23,6 @@ function createMockDeps() {
         enqueue(input) {
           enqueuedEntries.push(input);
           return enqueueResult;
-        },
-        backfillMessageId(threadId, userId, entryId, messageId) {
-          backfillCalls.push({ threadId, userId, entryId, messageId });
-        },
-        appendMergedMessageId(threadId, userId, entryId, messageId) {
-          appendMergedCalls.push({ threadId, userId, entryId, messageId });
         },
       },
       queueProcessor: {
@@ -52,11 +36,8 @@ function createMockDeps() {
         error() {},
       },
     },
-    appendedMessages,
     enqueuedEntries,
     autoExecuteCalls,
-    backfillCalls,
-    appendMergedCalls,
     setEnqueueResult(result) {
       enqueueResult = result;
     },
@@ -64,23 +45,6 @@ function createMockDeps() {
 }
 
 describe('createWakeCatFn', () => {
-  it('posts briefing as whisper message with @mention', async () => {
-    const { deps, appendedMessages } = createMockDeps();
-    const wakeCat = createWakeCatFn(deps);
-
-    await wakeCat({ threadId: 'thread-game-1', catId: 'opus', briefing: 'You are wolf.', timeoutMs: 45000 });
-
-    assert.equal(appendedMessages.length, 1);
-    const msg = appendedMessages[0];
-    assert.equal(msg.content, 'You are wolf.');
-    assert.equal(msg.threadId, 'thread-game-1');
-    assert.deepEqual(msg.mentions, ['opus']);
-    assert.equal(msg.visibility, 'whisper');
-    assert.deepEqual(msg.whisperTo, ['opus']);
-    assert.equal(msg.userId, 'system');
-    assert.equal(msg.catId, null);
-  });
-
   it('enqueues cat in InvocationQueue with correct params', async () => {
     const { deps, enqueuedEntries } = createMockDeps();
     const wakeCat = createWakeCatFn(deps);
@@ -98,29 +62,14 @@ describe('createWakeCatFn', () => {
     assert.equal(entry.autoExecute, true);
   });
 
-  it('backfills messageId after enqueue', async () => {
-    const { deps, backfillCalls } = createMockDeps();
+  it('does not write to messageStore (briefing only via queue)', async () => {
+    const { deps, enqueuedEntries } = createMockDeps();
+    assert.equal(deps.messageStore, undefined, 'WakeCatDeps should not have messageStore');
     const wakeCat = createWakeCatFn(deps);
 
-    await wakeCat({ threadId: 'thread-game-1', catId: 'opus', briefing: 'You are wolf.', timeoutMs: 45000 });
+    await wakeCat({ threadId: 'thread-game-1', catId: 'opus', briefing: 'Secret role info', timeoutMs: 45000 });
 
-    assert.equal(backfillCalls.length, 1);
-    assert.equal(backfillCalls[0].threadId, 'thread-game-1');
-    assert.equal(backfillCalls[0].userId, 'user-landy');
-    assert.equal(backfillCalls[0].entryId, 'entry-1');
-    assert.equal(backfillCalls[0].messageId, 'msg-1');
-  });
-
-  it('uses appendMergedMessageId when queue merges entries', async () => {
-    const { deps, appendMergedCalls, backfillCalls, setEnqueueResult } = createMockDeps();
-    setEnqueueResult({ outcome: 'merged', entry: { id: 'entry-2' } });
-    const wakeCat = createWakeCatFn(deps);
-
-    await wakeCat({ threadId: 'thread-game-1', catId: 'codex', briefing: 'Seer briefing', timeoutMs: 30000 });
-
-    assert.equal(backfillCalls.length, 0);
-    assert.equal(appendMergedCalls.length, 1);
-    assert.equal(appendMergedCalls[0].entryId, 'entry-2');
+    assert.equal(enqueuedEntries.length, 1, 'should enqueue via InvocationQueue only');
   });
 
   it('triggers auto-execute after enqueue', async () => {
@@ -175,17 +124,13 @@ describe('createWakeCatFn', () => {
     assert.equal(enqueuedEntries[0].userId, 'default-user');
   });
 
-  it('handles async messageStore.append', async () => {
-    const { deps, backfillCalls } = createMockDeps();
-    deps.messageStore = {
-      async append(msg) {
-        return { ...msg, id: 'async-msg-1' };
-      },
-    };
+  it('handles merged queue entries without crash', async () => {
+    const { deps, autoExecuteCalls, setEnqueueResult } = createMockDeps();
+    setEnqueueResult({ outcome: 'merged', entry: { id: 'entry-2' } });
     const wakeCat = createWakeCatFn(deps);
 
-    await wakeCat({ threadId: 'thread-game-1', catId: 'opus', briefing: 'Wolf brief', timeoutMs: 45000 });
+    await wakeCat({ threadId: 'thread-game-1', catId: 'codex', briefing: 'Seer briefing', timeoutMs: 30000 });
 
-    assert.equal(backfillCalls[0].messageId, 'async-msg-1');
+    assert.equal(autoExecuteCalls.length, 1, 'should still auto-execute after merge');
   });
 });

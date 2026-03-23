@@ -692,7 +692,6 @@ async function main(): Promise<void> {
     if (gameNarratorEnabled) {
       const { createWakeCatFn } = await import('./domains/cats/services/game/wakeCatImpl.js');
       const wakeCat = createWakeCatFn({
-        messageStore,
         threadStore,
         invocationQueue,
         queueProcessor,
@@ -703,10 +702,9 @@ async function main(): Promise<void> {
         legacyDeps: { gameStore: f101GameStore, orchestrator: sharedOrchestrator, messageStore },
         narratorDeps: {
           gameStore: f101GameStore,
-          messageStore,
           wakeCat,
           actionNotifier: sharedActionNotifier,
-          socketManager,
+          orchestrator: sharedOrchestrator,
         },
       });
       app.log.info('[api] F101 game driver: GameNarratorDriver (agent-driven)');

@@ -56,33 +56,38 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
   it('full night→discuss→vote cycle with all phases dispatched', async () => {
     const phases = ['night_wolf', 'night_seer', 'night_witch', 'day_discuss', 'day_vote'];
     let phaseIndex = 0;
+    let currentRuntime = make7pRuntime(phases[0]);
+    let discussWakeCount = 0;
 
-    const messages = [];
     const wakes = [];
     const waitActions = [];
     const waitAllActions = [];
 
     const gameStore = {
       getGame: async () => {
-        if (phaseIndex >= phases.length) return { ...make7pRuntime('day_vote'), status: 'ended' };
-        const rt = make7pRuntime(phases[phaseIndex]);
-        phaseIndex++;
-        return rt;
+        if (phaseIndex >= phases.length) return { ...currentRuntime, status: 'ended' };
+        return currentRuntime;
       },
       listActiveGames: async () => [],
       createGame: async (r) => r,
       getActiveGame: async () => null,
-      updateGame: async () => {},
+      updateGame: async (_id, rt) => {
+        currentRuntime = rt;
+      },
       endGame: async () => {},
     };
 
-    const messageStore = {
-      append: (msg) => {
-        const stored = { id: `msg-${messages.length}`, ...msg };
-        messages.push(stored);
-        return stored;
-      },
-    };
+    function advancePhase() {
+      phaseIndex++;
+      if (phaseIndex < phases.length) {
+        currentRuntime = make7pRuntime(phases[phaseIndex], {
+          eventLog: [...currentRuntime.eventLog],
+          version: currentRuntime.version,
+        });
+      }
+    }
+
+    const orchestrator = { async broadcastGameState() {} };
 
     const wakeCat = async (params) => {
       wakes.push(params);
@@ -91,22 +96,28 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
     const actionNotifier = {
       waitForAction: async (gameId, seatId, timeout) => {
         waitActions.push({ gameId, seatId, timeout });
+        discussWakeCount++;
+        if (discussWakeCount >= 7) {
+          advancePhase();
+          discussWakeCount = 0;
+        }
         return true;
       },
       waitForAllActions: async (gameId, seatIds, timeout) => {
         waitAllActions.push({ gameId, seatIds, timeout });
+        advancePhase();
       },
       onActionReceived: () => {},
       cleanup: () => {},
     };
 
-    const driver = new GameNarratorDriver({ gameStore, messageStore, wakeCat, actionNotifier });
+    const driver = new GameNarratorDriver({ gameStore, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-e2e-001');
     await new Promise((r) => setTimeout(r, 1500));
     driver.stopLoop('game-e2e-001');
     await new Promise((r) => setTimeout(r, 200));
 
-    const narrativeTexts = messages.map((m) => m.content);
+    const narrativeTexts = currentRuntime.eventLog.filter((e) => e.type === 'narrative').map((e) => e.payload.text);
 
     assert.ok(
       narrativeTexts.some((t) => t.includes('狼人请睁眼')),
@@ -141,9 +152,9 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
       'vote',
     );
 
-    for (const msg of messages) {
-      assert.equal(msg.userId, 'system');
-      assert.equal(msg.catId, null);
+    for (const event of currentRuntime.eventLog.filter((e) => e.type === 'narrative')) {
+      assert.equal(event.scope, 'public');
+      assert.ok(event.eventId);
     }
 
     const wolfWakes = wakes.filter(
@@ -182,7 +193,7 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
       legacyDeps: { gameStore: {}, orchestrator: {}, messageStore: {} },
       narratorDeps: {
         gameStore: { getGame: async () => null, listActiveGames: async () => [] },
-        messageStore: { append: (m) => m },
+        orchestrator: { broadcastGameState: async () => {} },
         wakeCat: async () => {},
         actionNotifier: {
           waitForAction: async () => true,
@@ -204,7 +215,7 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
         getGame: async () => ({ ...make7pRuntime(), status: 'ended' }),
         listActiveGames: async () => [],
       },
-      messageStore: { append: (msg) => msg },
+      orchestrator: { broadcastGameState: async () => {} },
       wakeCat: async (params) => {
         wakes.push(params);
       },
@@ -224,19 +235,15 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
 
   it('wolf briefing does not leak seer/witch identity (info isolation)', async () => {
     const wakes = [];
-    let callCount = 0;
     const rt = make7pRuntime('night_wolf');
 
     const driver = new GameNarratorDriver({
       gameStore: {
-        getGame: async () => {
-          callCount++;
-          if (callCount > 1) return { ...rt, status: 'ended' };
-          return rt;
-        },
+        getGame: async () => rt,
         listActiveGames: async () => [],
+        updateGame: async () => {},
       },
-      messageStore: { append: (msg) => msg },
+      orchestrator: { broadcastGameState: async () => {} },
       wakeCat: async (params) => {
         wakes.push(params);
       },

@@ -1,8 +1,8 @@
 import type { CatId, GameRuntime, SeatId } from '@cat-cafe/shared';
 import type { IGameStore } from '../stores/ports/GameStore.js';
-import type { IMessageStore } from '../stores/ports/MessageStore.js';
 import { buildFirstWakeBriefing, buildResumeCapsule } from './briefing.js';
 import type { GameDriver } from './GameDriver.js';
+import { GameEngine } from './GameEngine.js';
 
 export const TIME_BUDGETS = {
   nightPerRole: 45_000,
@@ -33,16 +33,16 @@ export interface ActionNotifier {
   cleanup(gameId: string): void;
 }
 
-export interface SocketBroadcaster {
-  broadcastToRoom(room: string, event: string, data: unknown): void;
+/** Subset of GameOrchestrator used by narrator driver for state broadcast */
+export interface GameStateBroadcaster {
+  broadcastGameState(gameId: string): Promise<void>;
 }
 
 export interface NarratorDeps {
   gameStore: IGameStore;
-  messageStore: IMessageStore;
   wakeCat: WakeCatFn;
   actionNotifier: ActionNotifier;
-  socketManager?: SocketBroadcaster;
+  orchestrator: GameStateBroadcaster;
 }
 
 export class GameNarratorDriver implements GameDriver {
@@ -85,7 +85,7 @@ export class GameNarratorDriver implements GameDriver {
       if (!runtime || runtime.status !== 'playing') break;
 
       if (this.isGlobalTimeout(runtime)) {
-        await this.postNarrative(runtime.threadId, '⏰ 游戏时间超过 30 分钟，强制结束。');
+        await this.postNarrative(gameId, runtime, '⏰ 游戏时间超过 30 分钟，强制结束。');
         break;
       }
 
@@ -116,7 +116,7 @@ export class GameNarratorDriver implements GameDriver {
     if (seats.length === 0) return;
 
     const narrative = NIGHT_NARRATIVES[actingRole] ?? `${actingRole} 请行动`;
-    await this.postNarrative(runtime.threadId, narrative);
+    await this.postNarrative(runtime.gameId, runtime, narrative);
 
     const teammates = actingRole === 'wolf' ? seats.map((s) => ({ catId: s.actorId, seatId: s.seatId })) : undefined;
 
@@ -142,18 +142,18 @@ export class GameNarratorDriver implements GameDriver {
     await this.deps.actionNotifier.waitForAllActions(runtime.gameId, seatIds, TIME_BUDGETS.nightPerRole);
 
     const closeNarrative = narrative.replace('请睁眼', '请闭眼');
-    await this.postNarrative(runtime.threadId, closeNarrative);
+    await this.postNarrative(runtime.gameId, runtime, closeNarrative);
   }
 
   private async runDayDiscuss(runtime: GameRuntime, signal: AbortSignal): Promise<void> {
     const aliveSeats = runtime.seats.filter((s) => s.alive).sort((a, b) => seatNum(a.seatId) - seatNum(b.seatId));
 
-    await this.postNarrative(runtime.threadId, '☀️ 天亮了！请各位发表看法。');
+    await this.postNarrative(runtime.gameId, runtime, '☀️ 天亮了！请各位发表看法。');
 
     for (const seat of aliveSeats) {
       if (signal.aborted) return;
 
-      await this.postNarrative(runtime.threadId, `请 座位${seat.seatId.slice(1)} 发言`);
+      await this.postNarrative(runtime.gameId, runtime, `请 座位${seat.seatId.slice(1)} 发言`);
 
       const briefing = buildResumeCapsule({ gameRuntime: runtime, seatId: seat.seatId });
       await this.deps.wakeCat({
@@ -170,7 +170,7 @@ export class GameNarratorDriver implements GameDriver {
   private async runDayVote(runtime: GameRuntime, signal: AbortSignal): Promise<void> {
     const aliveSeats = runtime.seats.filter((s) => s.alive);
 
-    await this.postNarrative(runtime.threadId, '🗳️ 投票环节开始！');
+    await this.postNarrative(runtime.gameId, runtime, '🗳️ 投票环节开始！');
 
     for (const seat of aliveSeats) {
       if (signal.aborted) return;
@@ -187,26 +187,21 @@ export class GameNarratorDriver implements GameDriver {
     await this.deps.actionNotifier.waitForAllActions(runtime.gameId, seatIds, TIME_BUDGETS.votePerVoter);
   }
 
-  private async postNarrative(threadId: string, content: string): Promise<void> {
-    const msg = await this.deps.messageStore.append({
-      userId: 'system',
-      catId: null,
-      content,
-      mentions: [],
-      timestamp: Date.now(),
-      threadId,
+  private async postNarrative(gameId: string, _runtime: GameRuntime, content: string): Promise<void> {
+    const fresh = await this.deps.gameStore.getGame(gameId);
+    if (!fresh || fresh.status !== 'playing') return;
+
+    const engine = new GameEngine(fresh);
+    engine.appendEvent({
+      round: fresh.round,
+      phase: fresh.currentPhase,
+      type: 'narrative',
+      scope: 'public',
+      payload: { text: content },
     });
 
-    // messageStore.append does NOT emit socket events — broadcast separately for real-time display
-    this.deps.socketManager?.broadcastToRoom(`thread:${threadId}`, 'game:narrative', {
-      threadId,
-      message: {
-        id: msg.id,
-        type: 'system',
-        content,
-        timestamp: msg.timestamp,
-      },
-    });
+    await this.deps.gameStore.updateGame(gameId, engine.getRuntime());
+    await this.deps.orchestrator.broadcastGameState(gameId);
   }
 
   private isFirstWake(runtime: GameRuntime): boolean {

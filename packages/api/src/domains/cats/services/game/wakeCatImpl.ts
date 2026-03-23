@@ -1,13 +1,14 @@
 /**
  * WakeCatFn production implementation — bridges GameNarratorDriver → A2A dispatch.
  *
- * Flow: wakeCat(catId, briefing) → whisper message → InvocationQueue → CLI session
+ * Flow: wakeCat(catId, briefing) → InvocationQueue → CLI session
+ * Briefing is delivered via InvocationQueue.content (not messageStore) to prevent
+ * leaking game secrets (e.g. "你是狼人") into the thread chat flow.
  */
 
 import type { CatId } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { InvocationQueue } from '../agents/invocation/InvocationQueue.js';
-import type { IMessageStore, StoredMessage } from '../stores/ports/MessageStore.js';
 import type { IThreadStore } from '../stores/ports/ThreadStore.js';
 import type { WakeCatFn } from './GameNarratorDriver.js';
 
@@ -16,7 +17,6 @@ export interface QueueProcessorLike {
 }
 
 export interface WakeCatDeps {
-  messageStore: IMessageStore;
   threadStore: IThreadStore;
   invocationQueue: InvocationQueue;
   queueProcessor: QueueProcessorLike;
@@ -24,26 +24,13 @@ export interface WakeCatDeps {
 }
 
 export function createWakeCatFn(deps: WakeCatDeps): WakeCatFn {
-  const { messageStore, threadStore, invocationQueue, queueProcessor, log } = deps;
+  const { threadStore, invocationQueue, queueProcessor, log } = deps;
 
   return async (params: { threadId: string; catId: CatId; briefing: string; timeoutMs: number }): Promise<void> => {
     const { threadId, catId, briefing } = params;
 
-    // Resolve thread owner for InvocationQueue scope
     const thread = await threadStore.get(threadId);
     const userId = thread?.createdBy ?? 'default-user';
-
-    const storedMsg: StoredMessage | Promise<StoredMessage> = messageStore.append({
-      userId: 'system',
-      catId: null,
-      content: briefing,
-      mentions: [catId],
-      timestamp: Date.now(),
-      threadId,
-      visibility: 'whisper',
-      whisperTo: [catId],
-    });
-    const msg = storedMsg instanceof Promise ? await storedMsg : storedMsg;
 
     const result = invocationQueue.enqueue({
       threadId,
@@ -58,14 +45,6 @@ export function createWakeCatFn(deps: WakeCatDeps): WakeCatFn {
     if (result.outcome === 'full') {
       log.warn({ threadId, catId, gameWake: true }, '[F101] wakeCat: queue full');
       return;
-    }
-
-    if (result.entry) {
-      if (result.outcome === 'enqueued') {
-        invocationQueue.backfillMessageId(threadId, userId, result.entry.id, msg.id);
-      } else {
-        invocationQueue.appendMergedMessageId(threadId, userId, result.entry.id, msg.id);
-      }
     }
 
     await queueProcessor.tryAutoExecute(threadId);

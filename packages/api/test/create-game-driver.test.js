@@ -36,7 +36,7 @@ function makeNarratorDeps() {
       updateGame: async () => {},
       endGame: async () => {},
     },
-    messageStore: { append: (m) => ({ id: 'msg-1', ...m }) },
+    orchestrator: { broadcastGameState: async () => {} },
     wakeCat: async () => {},
     actionNotifier: {
       waitForAction: async () => true,
