@@ -138,6 +138,7 @@ load_dare_env_from_local() {
         DARE_ADAPTER \
         DARE_API_KEY \
         DARE_ENDPOINT \
+        CAT_DARE_MODEL \
         OPENROUTER_API_KEY \
         OPENROUTER_BASE_URL \
         OPENAI_API_KEY \
