@@ -716,7 +716,7 @@ async function main(): Promise<void> {
   }
 
   // Register routes (socketManager injected, no circular import)
-  await app.register(messagesRoutes, {
+  const messagesOpts = {
     registry,
     messageStore,
     socketManager,
@@ -733,7 +733,8 @@ async function main(): Promise<void> {
     queueProcessor,
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
-  });
+  };
+  await app.register(messagesRoutes, messagesOpts);
   await app.register(queueRoutes, {
     threadStore,
     invocationQueue,
@@ -1274,6 +1275,11 @@ async function main(): Promise<void> {
       // Wire outbound delivery for proactive cat messages (post_message callback)
       (callbackOpts as { outboundHook?: typeof connectorGatewayHandle.outboundHook }).outboundHook =
         connectorGatewayHandle.outboundHook;
+      // F088 ISSUE-15: Wire outbound delivery for web immediate path (messages route)
+      (messagesOpts as { outboundHook?: typeof connectorGatewayHandle.outboundHook }).outboundHook =
+        connectorGatewayHandle.outboundHook;
+      (messagesOpts as { streamingHook?: typeof connectorGatewayHandle.streamingHook }).streamingHook =
+        connectorGatewayHandle.streamingHook;
       queueProcessor.setThreadMetaLookup(async (threadId) => {
         const thread = await threadStore.get(threadId);
         if (!thread) return undefined;
