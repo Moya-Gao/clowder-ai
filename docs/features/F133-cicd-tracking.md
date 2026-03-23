@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F133: GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪
 
-> **Status**: design-gate-passed | **Owner**: 金渐层 | **Priority**: P2
+> **Status**: in-progress | **Owner**: 金渐层 | **Priority**: P2
 
 ## Why
 
@@ -159,17 +159,17 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 ## Acceptance Criteria
 
 ### Phase A（核心投递管道）
-- [ ] AC-A1: 注册 PR 后，CI 失败自动投递消息到原始 thread（connector: `github-ci`）
-- [ ] AC-A2: CI 失败消息自动唤醒猫（ConnectorInvokeTrigger, priority: `normal`）
-- [ ] AC-A3: CI 成功投递消息但不唤醒猫
-- [ ] AC-A4: 状态迁移去重 — 同一 headSha + 同一 aggregateBucket 只通知一次
-- [ ] AC-A5: 合法状态迁移（pending → fail → success）不被吞掉
-- [ ] AC-A6: 未注册 PR 不轮询，零噪音
-- [ ] AC-A7: `gh` CLI 不可用时优雅降级（log + skip，不 crash）
-- [ ] AC-A8: PR merged/closed 自动停止轮询并 remove tracking
-- [ ] AC-A9: 新 push（headSha 变化）自动重置去重，继续追踪
-- [ ] AC-A10: PrTrackingStore.patchCiState() 不刷新 registeredAt
-- [ ] AC-A11: 测试覆盖：CiCdCheckPoller + CiCdRouter 单元测试（轮询、去重、投递、lifecycle）
+- [x] AC-A1: 注册 PR 后，CI 失败自动投递消息到原始 thread（connector: `github-ci`）
+- [x] AC-A2: CI 失败消息自动唤醒猫（ConnectorInvokeTrigger, priority: `normal`）
+- [x] AC-A3: CI 成功投递消息但不唤醒猫
+- [x] AC-A4: 状态迁移去重 — 同一 headSha + 同一 aggregateBucket 只通知一次
+- [x] AC-A5: 合法状态迁移（pending → fail → success）不被吞掉
+- [x] AC-A6: 未注册 PR 不轮询，零噪音
+- [x] AC-A7: `gh` CLI 不可用时优雅降级（log + skip，不 crash）
+- [x] AC-A8: PR merged/closed 自动停止轮询并 remove tracking
+- [x] AC-A9: 新 push（headSha 变化）自动重置去重，继续追踪
+- [x] AC-A10: PrTrackingStore.patchCiState() 不刷新 registeredAt
+- [x] AC-A11: 测试覆盖：CiCdCheckPoller + CiCdRouter 单元测试（轮询、去重、投递、lifecycle）
 
 ### Phase B（Skill 文档 + SOP）
 - [ ] AC-B1: merge-gate SKILL.md 包含等 CI 绿灯步骤
@@ -227,6 +227,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 | 2026-03-23 | 升级为 F133 Feature 立项 |
 | 2026-03-23 | Design Gate: 砚砚(GPT-5.4) + 金渐层 讨论架构设计，8 点建议 + 3 个坑预警 |
 | 2026-03-23 | Design Gate 通过，spec 更新 KD-5~KD-8，OQ-3/4 关闭 |
+| 2026-03-23 | Phase A merged（PR #675）— 核心投递管道 + 状态迁移去重 + 34 tests |
 
 ## Design Gate 讨论归档
 
