@@ -56,3 +56,4 @@ created: 2026-02-26
 | F132 | DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | spec | 布偶猫 | internal | [F132](features/F132-dingtalk-wecom-gateway.md) |
 | F133 | GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪 | spec | 金渐层 | internal [#669](https://github.com/zts212653/cat-cafe/issues/669) | [F133](features/F133-cicd-tracking.md) |
 | F134 | Feishu Group Chat — 飞书群聊多用户支持 | spec | 金渐层 | internal | [F134](features/F134-feishu-group-chat.md) |
+| F135 | 狸花猫开箱即用 — DARE Out-of-the-Box | spec | 待定 | community [#195](https://github.com/zts212653/clowder-ai/issues/195) | [F135](features/F135-dare-ootb.md) |
