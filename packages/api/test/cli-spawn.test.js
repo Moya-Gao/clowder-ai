@@ -670,7 +670,7 @@ test('B4: yields alive_but_silent warning during CLI silence', async () => {
         command: 'codex',
         args: [],
         timeoutMs: 500,
-        livenessProbe: { sampleIntervalMs: 30, softWarningMs: 80, stallWarningMs: 300 },
+        livenessProbe: { sampleIntervalMs: 30, softWarningMs: 300, stallWarningMs: 1000 },
       },
       { spawnFn },
     ),

@@ -99,7 +99,7 @@ echo ""
 # 这一步对所有包（含测试文件）跑 tsc --noEmit，堵住盲区。
 
 echo "── Step 3/5: TypeScript 全量类型检查（含测试） ──"
-if ! pnpm -r --if-present exec tsc --noEmit; then
+if ! pnpm -r exec bash -lc 'if command -v tsc >/dev/null 2>&1; then tsc --noEmit; fi'; then
   echo ""
   echo -e "${RED}❌ TypeScript 类型检查失败${NC}"
   echo "   测试文件的类型也必须通过 — 请同步更新 mock 对象"

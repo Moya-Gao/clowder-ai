@@ -809,7 +809,25 @@
       "name": "Workspace Navigator — 猫猫可编程导航 Workspace 面板",
       "status": "done (pending AC-6 E2E 验收) | **Owner**: 金渐层 | **Priority**: P2",
       "file": "F131-workspace-navigator.md"
+    },
+    {
+      "id": "F132",
+      "name": "DingTalk + WeCom Chat Gateway — 钉钉/企微接入",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F132-dingtalk-wecom-gateway.md"
+    },
+    {
+      "id": "F133",
+      "name": "GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪",
+      "status": "in-progress | **Owner**: 金渐层 | **Priority**: P2",
+      "file": "F133-cicd-tracking.md"
+    },
+    {
+      "id": "F134",
+      "name": "Feishu Group Chat — 飞书群聊多用户支持",
+      "status": "design-gate-passed | **Owner**: 金渐层 | **Priority**: P1",
+      "file": "F134-feishu-group-chat.md"
     }
   ],
-  "generated_at": "2026-03-21T20:58:02.956Z"
+  "generated_at": "2026-03-23T11:52:03.860Z"
 }

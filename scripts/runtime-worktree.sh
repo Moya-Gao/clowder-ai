@@ -104,9 +104,49 @@ ensure_remote_exists() {
     || die "remote '$REMOTE_NAME' not found"
 }
 
+probe_port_with_lsof() {
+  local port="$1"
+  lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
+}
+
+probe_port_with_ss() {
+  local port="$1"
+  ss -ltn "( sport = :$port )" 2>/dev/null | awk 'NR > 1 { found = 1; exit } END { exit found ? 0 : 1 }'
+}
+
+probe_port_with_nc() {
+  local port="$1"
+  nc -z 127.0.0.1 "$port" >/dev/null 2>&1 || nc -z localhost "$port" >/dev/null 2>&1
+}
+
+probe_port_with_dev_tcp() {
+  local port="$1"
+  # Bash-only: requires net redirections support (enabled in most mainstream builds).
+  (exec 3<>"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1 || (exec 3<>"/dev/tcp/localhost/$port") >/dev/null 2>&1
+}
+
+port_is_listening() {
+  local port="$1"
+
+  if command -v lsof >/dev/null 2>&1 && probe_port_with_lsof "$port"; then
+    return 0
+  fi
+  if command -v ss >/dev/null 2>&1 && probe_port_with_ss "$port"; then
+    return 0
+  fi
+  if command -v nc >/dev/null 2>&1 && probe_port_with_nc "$port"; then
+    return 0
+  fi
+  if probe_port_with_dev_tcp "$port"; then
+    return 0
+  fi
+
+  return 1
+}
+
 is_api_running() {
   local port="${API_SERVER_PORT:-3002}"
-  lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
+  port_is_listening "$port"
 }
 
 start_arg_present() {
