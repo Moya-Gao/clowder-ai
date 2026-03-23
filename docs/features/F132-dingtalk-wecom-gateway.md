@@ -201,3 +201,5 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | **Reference** | [OpenClaw Feishu Extension](https://github.com/openclaw/openclaw) | 插件架构参考 |
 | **Adapter 参考** | `packages/api/src/infrastructure/connectors/adapters/FeishuAdapter.ts` | 飞书 adapter 实现（学习样板） |
 | **Guide** | `docs/guides/im-platform-setup.md` | 需扩展的用户文档 |
+| **Research** | `docs/research/2026-03-22-dingtalk-wecom-gateway-gpt-pro-consult.md` | GPT Pro 调研咨询（含回填区） |
+| **Prompt** | `docs/prompts/2026-03-22-dingtalk-wecom-integration-research-prompt.md` | 调研 prompt 存档 |
