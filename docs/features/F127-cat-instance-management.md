@@ -200,6 +200,7 @@ community_issue: "#109"
 | 2026-03-21 | catalog merge 修复 — PR #632 将 catalog 读取从整体替换改为字段级 deep merge |
 | 2026-03-21 | model 格式修复 — opencode defaultModel 需要 `provider/model` 格式 |
 | 2026-03-21 | 愿景守护 — 金渐层对 F127 做全面进度评估，更新 AC / OQ / KD / 遗留项 |
+| 2026-03-22 | R-6 修复 — PR #665 修复 Hub 编辑器 X 按钮滚动 bug，3 个 modal 统一 flex-col 布局（金渐层开发，砚砚 review 放行） |
 
 ## 遗留项（未来可能需要调整）
 
@@ -210,7 +211,7 @@ community_issue: "#109"
 | R-3 | **AC-B3 / AC-C2 未端到端验证** — 动态创建猫的 @ 路由和 API key 猫的默认别名，缺少端到端测试 | 低（代码路径存在，但没有集成测试覆盖） | 有人真的通过 Hub 创建 API key 猫时 | 补集成测试 |
 | R-4 | **猫猫模板机制未做** — 社区 issue 里提到的"预设品种→一键创建变体"能力，当前 Hub 只有完全手动填表 | 低（非 MVP 范围） | 用户量增长后 onboarding 体验优化 | 未来 Feature |
 | R-5 | **社区 issue #109 仍 OPEN** — 应同步更新状态 | 低 | 和开源同步时 | 发 comment 说明进度 + 关闭或标为 phase 2 |
-| R-6 | **Hub 编辑器滚动时右上角 X 按钮跟着滚** — X 应该是 fixed/sticky 定位，不该随内容滚动 | 中（UX bug） | 编辑长表单时 | 改 X 按钮为 `position: sticky; top: 0` |
+| R-6 | ~~**Hub 编辑器滚动时右上角 X 按钮跟着滚**~~ — ✅ 已修复（PR #665）。3 个 modal 统一改为 flex-col 布局，header/footer 固定，仅 content 滚动 | ~~中~~ done | — | — |
 | R-7 | **API key 账号需手动逐个填支持的 model 列表** — 应该自动探测或提供预设列表 | 中（UX 痛点） | 添加 API key 账号时 | 自动探测 endpoint 支持的 model（`/v1/models`）或提供常用 model 预设 |
 | R-8 | **切换认证方式（订阅↔API key）没有一键切换** — 要一只猫一只猫改 provider profile binding | 高（UX 痛点） | 铲屎官想批量切换认证方式时 | 加"一键切换所有猫的 provider profile"功能 |
 | R-9 | **nuoda.vip 代理 model name 格式混淆** — API 代理用 `claude-opus-4-6`（Anthropic 原生），但 opencode CLI 需要 `anthropic/claude-opus-4-6`（provider/model 格式），Hub 不知道该用哪个 | 中（配置困惑） | 用第三方 API 代理时 | Hub 编辑器应按 client 类型自动处理 model name 格式 |
