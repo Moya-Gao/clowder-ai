@@ -197,7 +197,19 @@ export function WorkspacePanel() {
     new Map(),
   );
   const prevThreadRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
+  const fileSetAt = useChatStore((s) => s._workspaceFileSetAt);
   useEffect(() => {
+    // On first mount, only skip restore if workspace state was freshly set
+    // by a navigate event for THIS thread (not a different thread's event).
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      const isFreshNavigate = Date.now() - fileSetAt.ts < 500 && fileSetAt.threadId === currentThreadId;
+      if (isFreshNavigate) {
+        prevThreadRef.current = currentThreadId;
+        return;
+      }
+    }
     const prevThread = prevThreadRef.current;
     // Save previous thread's state
     if (prevThread && prevThread !== currentThreadId) {
@@ -417,12 +429,15 @@ export function WorkspacePanel() {
   const treeCallbacks = useMemo(
     () => ({
       onCreateFile: async (dirPath: string, name: string) => {
+        const tid = useChatStore.getState().currentThreadId;
         const path = dirPath ? `${dirPath}/${name}` : name;
         const result = await createFile(path);
         if (result) {
           fetchTree();
-          setOpenFile(path);
-          setEditMode(true); // Auto-enter edit mode for new files
+          if (useChatStore.getState().currentThreadId === tid) {
+            setOpenFile(path, null, null, tid);
+            setEditMode(true);
+          }
         }
         return !!result;
       },
@@ -443,12 +458,15 @@ export function WorkspacePanel() {
         return ok;
       },
       onRename: async (oldPath: string, newName: string) => {
+        const tid = useChatStore.getState().currentThreadId;
         const dir = oldPath.includes('/') ? oldPath.slice(0, oldPath.lastIndexOf('/')) : '';
         const newPath = dir ? `${dir}/${newName}` : newName;
         const ok = await renameItem(oldPath, newPath);
         if (ok) {
           closeTab(oldPath);
-          setOpenFile(newPath);
+          if (useChatStore.getState().currentThreadId === tid) {
+            setOpenFile(newPath, null, null, tid);
+          }
           fetchTree();
         }
         return ok;

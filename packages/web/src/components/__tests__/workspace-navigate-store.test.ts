@@ -8,6 +8,9 @@ describe('workspace navigate store (F131)', () => {
       workspaceRevealPath: null,
       workspaceOpenFilePath: null,
       workspaceOpenFileLine: null,
+      workspaceWorktreeId: null,
+      workspaceOpenTabs: [],
+      _workspaceFileSetAt: { ts: 0, threadId: null },
       rightPanelMode: 'status',
     });
   });
@@ -26,6 +29,66 @@ describe('workspace navigate store (F131)', () => {
     expect(state.workspaceOpenFilePath).toBe('src/index.ts');
     expect(state.workspaceOpenFileLine).toBe(42);
     expect(state.rightPanelMode).toBe('workspace');
+  });
+
+  it('setWorkspaceWorktreeId skips destructive reset when id is unchanged', () => {
+    useChatStore.getState().setWorkspaceOpenFile('src/app.ts', 10, 'cat-cafe');
+    expect(useChatStore.getState().workspaceWorktreeId).toBe('cat-cafe');
+    expect(useChatStore.getState().workspaceOpenFilePath).toBe('src/app.ts');
+    expect(useChatStore.getState().workspaceOpenTabs).toEqual(['src/app.ts']);
+
+    useChatStore.getState().setWorkspaceWorktreeId('cat-cafe');
+
+    const state = useChatStore.getState();
+    expect(state.workspaceWorktreeId).toBe('cat-cafe');
+    expect(state.workspaceOpenFilePath).toBe('src/app.ts');
+    expect(state.workspaceOpenTabs).toEqual(['src/app.ts']);
+  });
+
+  it('setWorkspaceWorktreeId clears file state when switching to a different worktree', () => {
+    useChatStore.getState().setWorkspaceOpenFile('src/app.ts', 10, 'cat-cafe');
+    expect(useChatStore.getState().workspaceOpenFilePath).toBe('src/app.ts');
+
+    useChatStore.getState().setWorkspaceWorktreeId('cat-cafe-runtime');
+
+    const state = useChatStore.getState();
+    expect(state.workspaceWorktreeId).toBe('cat-cafe-runtime');
+    expect(state.workspaceOpenFilePath).toBeNull();
+    expect(state.workspaceOpenTabs).toEqual([]);
+  });
+
+  it('setWorkspaceOpenFile stamps _workspaceFileSetAt with threadId', () => {
+    useChatStore.setState({ currentThreadId: 'thread-x' });
+    const before = Date.now();
+    useChatStore.getState().setWorkspaceOpenFile('src/app.ts', 1);
+    const { _workspaceFileSetAt: stamp } = useChatStore.getState();
+    expect(stamp.ts).toBeGreaterThanOrEqual(before);
+    expect(stamp.ts).toBeLessThanOrEqual(Date.now());
+    expect(stamp.threadId).toBe('thread-x');
+  });
+
+  it('setWorkspaceRevealPath stamps _workspaceFileSetAt with threadId', () => {
+    useChatStore.setState({ currentThreadId: 'thread-y' });
+    const before = Date.now();
+    useChatStore.getState().setWorkspaceRevealPath('docs/README.md');
+    const { _workspaceFileSetAt: stamp } = useChatStore.getState();
+    expect(stamp.ts).toBeGreaterThanOrEqual(before);
+    expect(stamp.ts).toBeLessThanOrEqual(Date.now());
+    expect(stamp.threadId).toBe('thread-y');
+  });
+
+  it('setWorkspaceOpenFile uses originThreadId when provided (async caller safety)', () => {
+    useChatStore.setState({ currentThreadId: 'thread-current' });
+    useChatStore.getState().setWorkspaceOpenFile('src/app.ts', 1, null, 'thread-origin');
+    const { _workspaceFileSetAt: stamp } = useChatStore.getState();
+    expect(stamp.threadId).toBe('thread-origin');
+  });
+
+  it('setWorkspaceRevealPath uses originThreadId when provided', () => {
+    useChatStore.setState({ currentThreadId: 'thread-current' });
+    useChatStore.getState().setWorkspaceRevealPath('docs/', 'thread-origin');
+    const { _workspaceFileSetAt: stamp } = useChatStore.getState();
+    expect(stamp.threadId).toBe('thread-origin');
   });
 });
 

@@ -222,11 +222,16 @@ function RuntimeLogsButton() {
   const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
 
   const handleClick = useCallback(async () => {
-    setRevealPath(LOGS_DIR);
+    // Capture the originating thread BEFORE any awaits so that
+    // workspace stamps attribute actions to the correct thread
+    // even if the user switches threads during the async gap.
+    const originThreadId = useChatStore.getState().currentThreadId;
+    setRevealPath(LOGS_DIR, originThreadId);
 
     try {
       const wtRes = await apiFetch('/api/workspace/worktrees');
       if (!wtRes.ok) return;
+      if (useChatStore.getState().currentThreadId !== originThreadId) return;
       const wtData = await wtRes.json();
       const wId = (wtData.worktrees ?? [])[0]?.id;
       if (!wId) return;
@@ -235,6 +240,7 @@ function RuntimeLogsButton() {
       const res = await apiFetch(`/api/workspace/tree?${params}`);
       if (!res.ok) return;
       const data = await res.json();
+      if (useChatStore.getState().currentThreadId !== originThreadId) return;
       const entries: { name: string; type: string }[] = Array.isArray(data.tree)
         ? data.tree
         : (data.tree?.children ?? []);
@@ -247,7 +253,7 @@ function RuntimeLogsButton() {
           return dc !== 0 ? dc : b.parsed.seq - a.parsed.seq;
         });
       if (logFiles.length > 0) {
-        setOpenFile(`${LOGS_DIR}/${logFiles[0].name}`, null, wId);
+        setOpenFile(`${LOGS_DIR}/${logFiles[0].name}`, null, wId, originThreadId);
       }
     } catch {
       // Directory revealed; file open is best-effort
