@@ -58,3 +58,4 @@ created: 2026-02-26
 | F134 | Feishu Group Chat — 飞书群聊多用户支持 | spec | 金渐层 | internal | [F134](features/F134-feishu-group-chat.md) |
 | F135 | 狸花猫开箱即用 — DARE Out-of-the-Box | spec | bouillipx | community [#195](https://github.com/zts212653/clowder-ai/issues/195) | [F135](features/F135-dare-ootb.md) |
 | F136 | Unified Config Hot Reload — 配置热更新统一管线 | spec | 待定 | internal | [F136](features/F136-unified-config-hot-reload.md) |
+| F137 | WeChat Personal Gateway — 微信个人号 iLink Bot 接入 | spec | 金渐层 | internal | [F137](features/F137-weixin-personal-gateway.md) |
