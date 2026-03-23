@@ -676,6 +676,45 @@ async function main(): Promise<void> {
   const { RedisGameStore } = await import('./domains/cats/services/stores/redis/RedisGameStore.js');
   const f101GameStore = redis ? new RedisGameStore(redis) : undefined;
 
+  // F101 Phase I: Shared ActionNotifier + game driver (narrator or legacy).
+  // Created early so both messagesRoutes and gameRoutes use the same driver instance.
+  const { EventEmitterActionNotifier } = await import('./domains/cats/services/game/EventEmitterActionNotifier.js');
+  const sharedActionNotifier = new EventEmitterActionNotifier();
+  let f101SharedDriver: import('./domains/cats/services/game/GameDriver.js').GameDriver | undefined;
+  if (f101GameStore) {
+    const gameNarratorEnabled = process.env.GAME_NARRATOR_ENABLED === 'true';
+    const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
+    const sharedOrchestrator = new GameOrchestrator({ gameStore: f101GameStore, socketManager, messageStore });
+    const { createGameDriver } = await import('./domains/cats/services/game/createGameDriver.js');
+    if (gameNarratorEnabled) {
+      const { createWakeCatFn } = await import('./domains/cats/services/game/wakeCatImpl.js');
+      const wakeCat = createWakeCatFn({
+        messageStore,
+        threadStore,
+        invocationQueue,
+        queueProcessor,
+        log: app.log,
+      });
+      f101SharedDriver = createGameDriver({
+        gameNarratorEnabled: true,
+        legacyDeps: { gameStore: f101GameStore, orchestrator: sharedOrchestrator, messageStore },
+        narratorDeps: {
+          gameStore: f101GameStore,
+          messageStore,
+          wakeCat,
+          actionNotifier: sharedActionNotifier,
+        },
+      });
+      app.log.info('[api] F101 game driver: GameNarratorDriver (agent-driven)');
+    } else {
+      f101SharedDriver = createGameDriver({
+        gameNarratorEnabled: false,
+        legacyDeps: { gameStore: f101GameStore, orchestrator: sharedOrchestrator, messageStore },
+      });
+      app.log.info('[api] F101 game driver: LegacyAutoDriver');
+    }
+  }
+
   // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
     registry,
@@ -693,6 +732,7 @@ async function main(): Promise<void> {
     invocationQueue,
     queueProcessor,
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
+    ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
   });
   await app.register(queueRoutes, {
     threadStore,
@@ -732,13 +772,16 @@ async function main(): Promise<void> {
 
   // F101: Game routes (store created earlier for /game command interception)
   if (f101GameStore) {
-    await app.register(gameRoutes, { gameStore: f101GameStore, socketManager, threadStore, messageStore });
+    await app.register(gameRoutes, {
+      gameStore: f101GameStore,
+      socketManager,
+      threadStore,
+      messageStore,
+      ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
+    });
 
-    // Phase I: Structured game action route (AC-I-P0c)
     const { gameActionRoutes, clearGameNonces } = await import('./routes/game-actions.js');
     const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
-    const { EventEmitterActionNotifier } = await import('./domains/cats/services/game/EventEmitterActionNotifier.js');
-    const sharedActionNotifier = new EventEmitterActionNotifier();
     const actionOrchestrator = new GameOrchestrator({
       gameStore: f101GameStore,
       socketManager,
@@ -1160,24 +1203,10 @@ async function main(): Promise<void> {
   }
 
   // F101 Phase G: Recover auto-play loops for active games after restart.
-  // Without this, games in Redis with status=playing have no driving loop.
-  if (f101GameStore && socketManager) {
-    const { createGameDriver } = await import('./domains/cats/services/game/createGameDriver.js');
-    const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
-    const recoveryOrchestrator = new GameOrchestrator({ gameStore: f101GameStore, socketManager, messageStore });
-    const recoveryPlayer = createGameDriver({
-      gameNarratorEnabled: false,
-      legacyDeps: {
-        gameStore: f101GameStore,
-        orchestrator: recoveryOrchestrator,
-        messageStore,
-      },
-    });
-    // NOTE: stopAllLoops is idempotent; safe to call even if no games were recovered.
-    // We keep a reference so the onClose hook (registered before listen) can access it.
-    f101RecoveryPlayer = recoveryPlayer;
+  if (f101GameStore && socketManager && f101SharedDriver) {
+    f101RecoveryPlayer = f101SharedDriver;
     try {
-      const recovered = await recoveryPlayer.recoverActiveGames();
+      const recovered = await f101SharedDriver.recoverActiveGames();
       if (recovered > 0) {
         app.log.info(`[api] F101 auto-play recovery: restored ${recovered} active game loop(s)`);
       }
