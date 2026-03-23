@@ -47,12 +47,27 @@ created: 2026-03-12
 - `cat-cafe main` = **激进演进 / 真相源 / canary**
 - `clowder-ai main` = **稳定默认分支**
 - `clowder-ai next`（或 nightly tag）= **预览通道**，给愿意提前试新功能的人
+- `clowder-ai` 的真正稳定承诺 = **GitHub Release tag (`vX.Y.Z`)**
 
 **执行规则**
 - 家里的新能力先在 `cat-cafe main` 演进、验证、收口
 - 准备对外给普通用户用的内容，才进入 `clowder-ai main`
 - 想提前公开试水但还不够稳定的改动，不直接压进 `clowder-ai main`，走 `next` / nightly
 - `clowder-ai main` 的目标不是“最新”，而是“默认可装、默认可跑、默认可解释”
+- 普通用户默认跟 `release tag`；愿意尝鲜的人再跟 `main` / `next`
+- 如果当前没有 active `next` 分支，激进社区特性就保持在 PR / feature branch，或走 prerelease tag，不为了“先合进去”污染 `main`
+
+### 社区激进特性的落点（2026-03-22 新增）
+
+当社区伙伴贡献的新特性**方向对，但还不够稳**时，落点按下面分流：
+
+| 状态 | 落点 | 原则 |
+|------|------|------|
+| 已经足够稳 | `clowder-ai main` | 可以做 rolling stable 默认内容 |
+| 方向对，但稳定性/文档/测试还不够 | `clowder-ai next` / prerelease | 可以给尝鲜用户试，但不做稳定承诺 |
+| 仍在探索 | PR / feature branch | 不强行合进任何默认分支 |
+
+一句话：**`main` 不是实验场，`release tag` 才是稳定承诺，`next/prerelease` 才是激进社区特性的容器。**
 
 ### `v0.1.0` 发布门槛（2026-03-21 新增）
 

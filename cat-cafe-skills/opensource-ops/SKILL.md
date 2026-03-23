@@ -25,6 +25,21 @@ description: >
 **每个操作步骤标注 `[cat-cafe]` 或 `[clowder-ai]`。**
 **所有开源仓评论/操作带猫猫签名（如 `缅因猫-gpt5.4`）。**
 
+## 发布线口径（贯穿规则）
+
+| 线 | 角色 | 允许内容 |
+|---|---|---|
+| `cat-cafe main` | 真相源 / canary / 快速演进 | 家里的新能力、共享逻辑、source-owned 修复 |
+| `clowder-ai main` | rolling stable 默认分支 | 默认可装、默认可跑、默认可解释的公开内容 |
+| `clowder-ai` release tag (`vX.Y.Z`) | 对外稳定承诺 | 给普通用户的稳定版本锚点 |
+| `clowder-ai next` / prerelease | 预览通道 | 激进但未完全稳定的社区特性、RC/nightly |
+
+**执行铁律：**
+- 社区里激进但还不够稳的特性，**不直接进 `clowder-ai main`**
+- 方向对但稳定性/文档/测试还不够 → 走 `next` / prerelease；如果当前没有 active `next`，就保持 PR / feature branch，不强行合并
+- `clowder-ai main` 的目标不是“最新”，而是“默认可装、默认可跑、默认可解释”
+- 普通用户默认跟 `release tag`，不是跟 `main`
+
 ## 场景路由
 
 根据触发条件进入对应场景：
@@ -95,6 +110,8 @@ description: >
 6. **Record + Advance 是一个闭环**：做完 `--record` 就立刻尝试 `--advance-ledger`；如果 advance 失败，说明还有别的 PR 没登记，不能停在半路
 7. **source gate green ≠ target/public gate green**：full sync 前必须在家里的 temp target 上跑 public gate；真实 `clowder-ai` 不能再当第一轮验收场
 8. **release provenance 三点映射必须显式化**：release-intended full sync 要在 source 侧自动打 `clowder-vX.Y.Z-source`，`.sync-provenance.json` 必须记录 `release_tag` / `source_snapshot_tag`，后续 target release tag 和 backport commit 才有锚点
+9. **稳定承诺只由 release tag 给出**：`clowder-ai main` 是 rolling stable；真正的 stable/support 口径以 `vX.Y.Z` release 为准
+10. **release 出 bug 优先走 patch**：shared bug 先回家修再 sync 出 `vX.Y.(Z+1)`；public-only hotfix 可以先在 `clowder-ai` 修，但 sync-managed 文件必须回补到家里
 
 ## 和其他 skill 的区别
 

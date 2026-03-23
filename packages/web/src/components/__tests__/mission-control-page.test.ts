@@ -1,10 +1,10 @@
+import type { CatId } from '@cat-cafe/shared';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MissionControlPage } from '@/components/mission-control/MissionControlPage';
 import { useChatStore } from '@/stores/chatStore';
 import { useMissionControlStore } from '@/stores/missionControlStore';
-import type { CatId } from '@cat-cafe/shared';
 import {
   createMissionControlMockBackend,
   flush,

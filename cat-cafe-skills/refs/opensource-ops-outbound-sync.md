@@ -11,6 +11,22 @@
 - cat-cafe 积累了多个改动，需要批量 sync 到 clowder-ai
 - 铲屎官要求同步
 
+### 先选通道，再谈同步
+
+full sync 默认目标是 **`clowder-ai main`**，所以前提不是“代码存在”，而是“这批内容已经够稳，值得给普通用户默认看到”。
+
+| 目标 | 什么时候用 |
+|------|-----------|
+| `clowder-ai main` | 默认可装、默认可跑、默认可解释；可以作为 rolling stable |
+| `clowder-ai` release tag `vX.Y.Z` | 需要给普通用户稳定锚点时 |
+| `clowder-ai next` / prerelease | 社区激进特性方向对，但稳定性/文档/测试还不够 |
+| 保持 PR / feature branch | 还在探索，不值得进任何默认分支 |
+
+**铁律：**
+- 激进但未完全稳定的社区特性，**不直接进 `clowder-ai main`**
+- 如果当前没有 active `next` 分支，就用 prerelease tag / nightly 或继续保持 PR，不要把 `main` 当试验场
+- `clowder-ai main` 的目标是 rolling stable，不是“永远最新”
+
 ### Step 1: Baseline Verification `[cat-cafe]`
 
 同步前必须确认源仓代码基线健康。**红灯不出门。source 绿只是前提，不代表 target/public gate 会绿。**
@@ -127,6 +143,7 @@ bash scripts/publish-sync-tag.sh \
 - 这会在 `cat-cafe` 与 `clowder-ai` 两边创建并 push 同名 `sync/YYYY-MM-DD-HHMMSS` tag
 - 这个 tag 记录的是“哪一个 cat-cafe commit 被同步出去，以及它在 clowder-ai 上对应的 merge commit”
 - release-intended sync 另外还有一条 **source snapshot tag**：`clowder-vX.Y.Z-source`。它不是 `sync/*` 基线 tag，而是用来把 `source snapshot → target release tag → backport commit` 三点映射钉进真相源
+- 如果这次同步对应社区激进特性的预览发布，优先考虑 `vX.Y.Z-rc.1` 这类 prerelease tag，而不是直接把特性压进 `clowder-ai main`
 
 ### Step 5: Source-Owned Public Gate `[cat-cafe → temp target]`
 
