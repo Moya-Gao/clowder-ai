@@ -145,13 +145,13 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 ## Acceptance Criteria
 
 ### Phase A（DingTalk Adapter）
-- [ ] AC-A1: 钉钉企业内部应用 DM 消息入站解析正确（text + richText）
-- [ ] AC-A2: 猫猫回复通过 DingTalkAdapter 发送到钉钉（text + markdown）
-- [ ] AC-A3: AI Card 正确渲染猫名 header + 正文 + deep link
-- [ ] AC-A4: AI Card 流式（create → streaming update → finish，300ms throttle）
-- [ ] AC-A5: 图片/音频双向收发
-- [ ] AC-A6: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
-- [ ] AC-A7: Stream 连接断线自动重连 + 幂等去重
+- [x] AC-A1: 钉钉企业内部应用 DM 消息入站解析正确（text + richText）
+- [x] AC-A2: 猫猫回复通过 DingTalkAdapter 发送到钉钉（text + markdown）
+- [x] AC-A3: AI Card 正确渲染猫名 header + 正文 + deep link
+- [x] AC-A4: AI Card 流式（create → streaming update → finish，300ms throttle）
+- [x] AC-A5: 图片/音频双向收发
+- [x] AC-A6: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
+- [x] AC-A7: Stream 连接断线自动重连 + 幂等去重
 
 ### Phase B（WeCom Bot Adapter）
 - [ ] AC-B1: 企微 Bot WebSocket 连接 + 心跳 + 重连
@@ -181,7 +181,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "接入钉钉" | AC-A1~A7 | test + manual DM | [ ] |
+| R1 | "接入钉钉" | AC-A1~A7 | test + manual DM | [x] |
 | R2 | "接入企业微信" | AC-B1~B6, AC-C1~C7 | test + manual DM（两种模式） | [ ] |
 | R3 | "必须复用我们的 channel 等等架构设计" | AC-A6, AC-B6, AC-C7 | code review: 公共层 diff = 0 | [ ] |
 | R4 | "学习飞书的接入" | AC-D2~D3 | adapter 结构对照 FeishuAdapter | [ ] |
@@ -236,6 +236,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | 2026-03-22 | 立项，related F088 |
 | 2026-03-22 | GPT Pro 调研完成，F132 spec 修订（企微拆双 connector、钉钉 AI Card 策略） |
 | 2026-03-22 | 分工确定：金渐层实现 → 砚砚 review → 布偶猫愿景守护。Phase A 开工 |
+| 2026-03-23 | Phase A merged (PR #674) — DingTalk adapter: Stream + AI Card + media, 37 tests |
 
 ## Review Gate
 
