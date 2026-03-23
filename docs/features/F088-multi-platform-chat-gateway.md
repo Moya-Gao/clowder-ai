@@ -1,6 +1,6 @@
 ---
 feature_ids: [F088]
-related_features: [F050, F077, F044, F132]
+related_features: [F050, F077, F044, F132, F134]
 topics: [gateway, connector, feishu, telegram, slack, discord, chat-platform]
 doc_kind: spec
 created: 2026-03-09
@@ -63,7 +63,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **H (8B)** | 模糊意图规则分流：无 binding / 低置信度消息走 Hub，系统卡片选择（无猫） | 📋 planned | — |
 | **I (8C)** | 猫参与 triage：用户点"帮我判断"或连续无法决策时触发 triage 猫（可配置开关） | 📋 planned | — |
 | **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
-| **7** | 群聊 + 多人 + 权限隔离 | 📋 planned | — |
+| **7** | 群聊公共层：ConnectorRouter sender 透传 + ConnectorSource sender 扩展 | 📋 planned | — (联动 [F134](F134-feishu-group-chat.md)) |
 | **8** | 更多平台 + OAuth + 配置 UI | 📋 planned | — |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 

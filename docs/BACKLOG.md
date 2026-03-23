@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-21
+> 维护者：三猫 | 最后更新：2026-03-24
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -55,3 +55,4 @@ created: 2026-02-26
 | F129 | Pack System — Multi-Agent 共创世界的 Mod 生态 | spec | 布偶猫 | internal | [F129](features/F129-pack-system-multi-agent-mod.md) |
 | F132 | DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | spec | 布偶猫 | internal | [F132](features/F132-dingtalk-wecom-gateway.md) |
 | F133 | GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪 | spec | 金渐层 | internal [#669](https://github.com/zts212653/cat-cafe/issues/669) | [F133](features/F133-cicd-tracking.md) |
+| F134 | Feishu Group Chat — 飞书群聊多用户支持 | spec | 金渐层 | internal | [F134](features/F134-feishu-group-chat.md) |
