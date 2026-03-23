@@ -16,131 +16,173 @@ Cat Café 已通过 F088 建立了飞书和 Telegram 的双向 DM 通道，但�
 
 铲屎官原话：*"我们需要接入钉钉和企业微信，必须复用我们的 channel 等等架构设计，学习飞书的接入"*
 
-F088 已验证的三层架构（Principal Link / Session Binding / Command Layer）+ adapter-only-protocol 原则天然支持新平台扩展——新增 adapter 无需改动公共层。本 feature 的核心工作是：为钉钉和企微各写一个 adapter，复用 F088 全部公共基础设施。
+F088 已验证的三层架构（Principal Link / Session Binding / Command Layer）+ adapter-only-protocol 原则天然支持新平台扩展——新增 adapter 无需改动公共层。本 feature 的核心工作是：为钉钉和企微写 adapter，复用 F088 全部公共基础设施。
+
+> **设计修订（2026-03-22 GPT Pro 调研后）**：企微拆成两个独立 connector（`wecom-bot` + `wecom-agent`），而非一个统一 adapter。原因见 KD-4。
 
 ## What
 
 ### 架构复用（零改动公共层）
 
 ```
-┌─ F088 平台无关公共层（已有，不改）─────────────────────┐
-│  ConnectorMessageFormatter → MessageEnvelope           │
-│  ConnectorCommandLayer → /new /threads /use /where     │
-│  ConnectorRouter → dedup → binding → store → invoke    │
-│  OutboundDeliveryHook / StreamingOutboundHook           │
-│  IConnectorThreadBindingStore (Redis)                   │
-└────────────────────────────────────────────────────────┘
-        ↕              ↕              ↕             ↕
-  FeishuAdapter   TelegramAdapter  DingTalkAdapter  WeComAdapter
-  (F088 已有)      (F088 已有)      (本 feature)    (本 feature)
+┌─ F088 平台无关公共层（已有，不改）──────────────────────────┐
+│  ConnectorMessageFormatter → MessageEnvelope               │
+│  ConnectorCommandLayer → /new /threads /use /where         │
+│  ConnectorRouter → dedup → binding → store → invoke        │
+│  OutboundDeliveryHook / StreamingOutboundHook               │
+│  IConnectorThreadBindingStore (Redis)                       │
+└─────────────────────────────────────────────────────────────┘
+      ↕            ↕            ↕             ↕            ↕
+ FeishuAdapter  TelegramAd.  DingTalkAd.  WeComBotAd.  WeComAgentAd.
+ (F088 已有)    (F088 已有)   (Phase A)    (Phase B)    (Phase C)
 ```
 
-每个新 adapter 只需实现：`parseEvent()` / `sendReply()` / `sendFormattedReply()` / `sendMedia()`。
+新 adapter 实现 `IOutboundAdapter`（基础）或 `IStreamableOutboundAdapter`（流式），通过 duck typing 自动发现能力。
 
 ### Phase A: DingTalk Adapter — 钉钉企业内部应用
 
-**连接方式**：Stream 模式（钉钉官方长连接，无需公网回调 URL，与飞书 WebSocket 模式类似）。降级方案：HTTP 回调（需公网 URL + 签名验证）。
+**连接方式**：Stream 模式（`dingtalk-stream` 官方 SDK，无需公网 URL）。
 
-**认证**：企业内部应用 `appKey` + `appSecret` → 获取 `access_token`（2h 有效期，需自动续期）。
+**认证**：企业内部应用 `appKey` + `appSecret`。
 
-**入站消息处理** (`parseEvent`):
-- 解析 Stream 事件 / HTTP 回调 JSON
-- 支持消息类型：text、richText、picture、audio、file
-- DM-only（MVP，与 F088 飞书一致）
-- 回调签名校验（HTTP 模式）/ Stream 心跳维护
-
-**出站消息发送** (`sendReply` / `sendFormattedReply`):
-- 文本消息：text / markdown
-- 富文本卡片：互动卡片（ActionCard）— 对标飞书 interactive card
-- 图片/音频：调用钉钉媒体上传 API
-
-**流式支持**：实现 `IStreamableOutboundAdapter`，复用 StreamingOutboundHook 的 placeholder → edit → final 模式（钉钉互动卡片支持更新）。
-
-**SDK**：`@anthropic/dingtalk-sdk` 或 `dingtalk-stream`（钉钉官方 Stream SDK）
-
-### Phase B: WeCom Adapter — 企业微信应用
-
-**连接方式**：HTTP 回调（企业微信标准模式）。需配置回调 URL + Token + EncodingAESKey。
-
-**认证**：`corpid` + 应用 `corpsecret` → 获取 `access_token`（2h 有效期）。
-
-**安全层（WeCom 特有）**：
-- 回调 URL 验证：GET 请求 echostr 解密回传
-- 消息体 AES 加解密（EncodingAESKey，CBC 模式）— 所有入站事件都是加密的
-- 签名校验（msg_signature + timestamp + nonce）
-
-**入站消息处理** (`parseEvent`):
-- AES 解密 → XML 解析（企微用 XML，非 JSON）
-- 支持消息类型：text、image、voice、video、location、file
+**入站** (`parseEvent`):
+- Stream 事件 JSON 解析
+- 消息类型：text、richText、picture、audio、file
 - DM-only（MVP）
+- Stream 心跳 + 断线重连（参考 `largezhou/openclaw-dingtalk` 的 monitor patch）
 
-**出站消息发送** (`sendReply` / `sendFormattedReply`):
-- 文本 / markdown 消息
-- 图文卡片（Text Card / News）— 对标飞书 interactive card
-- 图片/语音/视频：调用企微媒体上传 API（`/cgi-bin/media/upload`）
+**出站双发送策略**（参考 `DingTalk-Real-AI` + `soimy` 的 AI Card 实践）：
+- `sendReply`：text / markdown（保守路径）
+- `sendFormattedReply`：**AI Card 模式** — 独立的富文本发送路径
+  - 创建卡片：`/v1.0/card/instances/createAndDeliver`
+  - 流式更新：`/v1.0/card/streaming`（状态机 PROCESSING → INPUTING → FINISHED）
+  - 300ms throttle + single-flight
+- `sendMedia`：图片/音频/文件上传
 
-**流式支持**：企微原生不支持消息编辑，考虑两种方案：
-1. 仅发最终消息（降级，最简）
-2. 连续发送 + 最后一条标记最终（体验较差，备选）
+**流式**：实现 `IStreamableOutboundAdapter`
+- `sendPlaceholder()` → 创建 AI Card instance
+- `editMessage()` → 卡片 streaming update
+- 完美映射到现有 `StreamingOutboundHook`
 
-**SDK**：`@anthropic/wechat-work-sdk` 或 `@anthropic/wecom-sdk`（可自建轻量封装）
+**SDK**：`dingtalk-stream`（官方 Stream SDK）+ 自建薄 OpenAPI 封装（卡片/媒体）
 
-### Phase C: 跨平台富文本映射增强
+### Phase B: WeCom Bot Adapter — 企微 AI Bot（实时交互）
 
-统一 `MessageEnvelope` → 各平台原生卡片的映射层：
+**连接方式**：WebSocket 长连接（`@wecom/aibot-node-sdk` 官方 SDK）。
 
-| Envelope 字段 | 飞书 (已有) | 钉钉 | 企微 |
-|--------------|-------------|------|------|
-| header + subtitle | Card header | ActionCard title | TextCard title |
-| body (markdown) | Card body | ActionCard markdown | TextCard description |
-| footer (deep link) | Card footer + URL | ActionCard single URL | TextCard URL |
-| media (image) | Image card element | Picture msg | Image msg |
-| media (audio) | Audio upload | Audio msg | Voice msg |
+**认证**：`botId` + `secret`。
 
-### Phase D: Bootstrap + 配置 + 文档
+**入站** (`parseEvent`):
+- WebSocket JSON 帧解析
+- 消息类型：text、image、voice、file
+- DM + 群聊（Bot 天然支持两者）
 
-- `connector-gateway-bootstrap.ts` 注册新 adapter
-- 环境变量：`DINGTALK_APP_KEY`、`DINGTALK_APP_SECRET`、`WECOM_CORP_ID`、`WECOM_APP_SECRET`、`WECOM_ENCODING_AES_KEY`、`WECOM_TOKEN`
-- 用户文档：扩展 `docs/guides/im-platform-setup.md` 和 `docs/guides/im-usage-guide.md`
+**出站**：
+- `sendReply`：text / markdown
+- `sendFormattedReply`：模板卡片发送 + 更新
+- `sendMedia`：SDK 内置媒体上传/下载
+
+**流式**：实现 `IStreamableOutboundAdapter`
+- 原生 `replyStream` 支持（真流式，非 edit 模拟）
+- `sendPlaceholder()` → 开始流式回复
+- `editMessage()` → 追加流式内容
+- 参考 `WecomTeam/wecom-openclaw-plugin` + `YanHaidao/wecom`
+
+**为什么 Bot 优先**：低延迟、原生流式、无需公网 URL、体验最接近飞书。
+
+### Phase C: WeCom Agent Adapter — 企微自建应用（兜底/主动推送）
+
+**连接方式**：HTTP callback（需公网 URL + Cloudflare 隧道）。
+
+**认证**：`corpId` + `agentId` + `agentSecret`，出站需 `access_token` 管理（2h 有效期）。
+
+**安全层**（参考 `toboto/openclaw-wecom-channel` 的 AES/XML 实现）：
+- 回调 URL 验证：GET echostr 解密回传
+- SHA1 签名校验（`msg_signature` + `timestamp` + `nonce`）
+- AES-256-CBC 解密（`EncodingAESKey` → Base64 解码 → IV 取 key 前 16 字节 → PKCS7 去 padding → CorpID 校验）
+- XML 解析：`fast-xml-parser`（adapter 内部转 JSON 后交公共层）
+
+**入站** (`parseEvent`):
+- AES 解密 → XML → JSON 转换
+- 消息类型：text、image、voice、video、location、file
+
+**出站**：
+- `sendReply`：text / markdown（通过 `message/send` API，JSON）
+- `sendFormattedReply`：Text Card / News 图文卡片
+- `sendMedia`：临时素材 API（`media/upload` / `media/get`）
+
+**流式**：**不实现** `IStreamableOutboundAdapter`（classic callback 无 edit 语义）
+- 仅实现 `IOutboundAdapter`，走 final-only 发送
+- 长回复做字节数限制 + 分块发送
+- StreamingOutboundHook 通过 duck typing 自动跳过此 adapter
+
+**定位**：Phase B 的兜底补充——主动推送、媒体补发、兼容老企业接入方式。
+
+### Phase D: Bootstrap + 富文本映射 + 文档
+
+**Bootstrap**：
+- `connector-gateway-bootstrap.ts` 动态注册三个 adapter（有 env var 才启用）
+- 环境变量：
+  - 钉钉：`DINGTALK_APP_KEY`、`DINGTALK_APP_SECRET`
+  - 企微 Bot：`WECOM_BOT_ID`、`WECOM_BOT_SECRET`
+  - 企微 Agent：`WECOM_CORP_ID`、`WECOM_AGENT_ID`、`WECOM_AGENT_SECRET`、`WECOM_TOKEN`、`WECOM_ENCODING_AES_KEY`
+
+**富文本映射**：
+
+| Envelope 字段 | 飞书 | 钉钉 | 企微 Bot | 企微 Agent |
+|--------------|------|------|---------|-----------|
+| header | Card header | AI Card title | 模板卡片 header | TextCard title |
+| body | Card body (md) | AI Card markdown | 流式文本 | description |
+| footer | URL button | Card URL | — | TextCard URL |
+| media | Image element | Picture msg | SDK 上传 | 临时素材 API |
+| streaming | edit card | card streaming | replyStream | ❌ final-only |
+
+**文档**：扩展 `docs/guides/im-platform-setup.md` + `docs/guides/im-usage-guide.md`
 
 ## Acceptance Criteria
 
 ### Phase A（DingTalk Adapter）
 - [ ] AC-A1: 钉钉企业内部应用 DM 消息入站解析正确（text + richText）
 - [ ] AC-A2: 猫猫回复通过 DingTalkAdapter 发送到钉钉（text + markdown）
-- [ ] AC-A3: 互动卡片（ActionCard）正确渲染猫名 header + 正文 + deep link
-- [ ] AC-A4: 流式编辑通过互动卡片 update 实现（placeholder → edits → final）
+- [ ] AC-A3: AI Card 正确渲染猫名 header + 正文 + deep link
+- [ ] AC-A4: AI Card 流式（create → streaming update → finish，300ms throttle）
 - [ ] AC-A5: 图片/音频双向收发
 - [ ] AC-A6: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
-- [ ] AC-A7: Stream 连接断线自动重连
+- [ ] AC-A7: Stream 连接断线自动重连 + 幂等去重
 
-### Phase B（WeCom Adapter）
-- [ ] AC-B1: 回调 URL 验证（echostr challenge）通过
-- [ ] AC-B2: AES 消息加解密正确（入站解密 + 出站无需加密）
-- [ ] AC-B3: 企微 DM 消息入站解析正确（text + image + voice）
-- [ ] AC-B4: 猫猫回复通过 WeComAdapter 发送到企微（text + markdown + 图文卡片）
-- [ ] AC-B5: 图片/语音双向收发
+### Phase B（WeCom Bot Adapter）
+- [ ] AC-B1: 企微 Bot WebSocket 连接 + 心跳 + 重连
+- [ ] AC-B2: Bot DM 消息入站解析正确（text + image + voice）
+- [ ] AC-B3: 猫猫回复通过 `replyStream` 流式发送（真流式）
+- [ ] AC-B4: 模板卡片发送 + 更新
+- [ ] AC-B5: 图片/语音双向收发（SDK 内置）
 - [ ] AC-B6: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
 
-### Phase C（富文本映射）
-- [ ] AC-C1: MessageEnvelope → DingTalk ActionCard 映射完整（header/body/footer/media）
-- [ ] AC-C2: MessageEnvelope → WeCom TextCard 映射完整
-- [ ] AC-C3: Rich blocks（card/diff/checklist）在三个新+旧平台正确降级
+### Phase C（WeCom Agent Adapter）
+- [ ] AC-C1: 回调 URL 验证（echostr challenge + AES 解密）通过
+- [ ] AC-C2: SHA1 签名校验 + AES-256-CBC 消息解密正确
+- [ ] AC-C3: XML → JSON 转换正确（`fast-xml-parser`）
+- [ ] AC-C4: 猫猫回复通过 `message/send` API 发送（text + markdown + 图文卡片）
+- [ ] AC-C5: 图片/语音通过临时素材 API 收发
+- [ ] AC-C6: final-only 模式（无 streaming），长回复分块发送
+- [ ] AC-C7: 公共层零改动
 
-### Phase D（Bootstrap + 文档）
-- [ ] AC-D1: connector-gateway-bootstrap 动态注册（有 env var 才启用，无则跳过）
-- [ ] AC-D2: IM 接入指南文档覆盖钉钉 + 企微的配置步骤
-- [ ] AC-D3: 现有飞书/Telegram 功能无回归
+### Phase D（Bootstrap + 富文本映射 + 文档）
+- [ ] AC-D1: connector-gateway-bootstrap 动态注册三个 adapter（有 env var 才启用）
+- [ ] AC-D2: MessageEnvelope → 各平台原生卡片映射完整
+- [ ] AC-D3: Rich blocks 在所有平台正确降级
+- [ ] AC-D4: IM 接入指南文档覆盖钉钉 + 企微 Bot + 企微 Agent 配置步骤
+- [ ] AC-D5: 现有飞书/Telegram 功能无回归
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
 | R1 | "接入钉钉" | AC-A1~A7 | test + manual DM | [ ] |
-| R2 | "接入企业微信" | AC-B1~B6 | test + manual DM | [ ] |
-| R3 | "必须复用我们的 channel 等等架构设计" | AC-A6, AC-B6 | code review: 公共层 diff = 0 | [ ] |
-| R4 | "学习飞书的接入" | AC-C1~C3 | adapter 结构对照 FeishuAdapter | [ ] |
-| R5 | 参考 OpenClaw 架构 | KD-1 | 设计文档引用 | [ ] |
+| R2 | "接入企业微信" | AC-B1~B6, AC-C1~C7 | test + manual DM（两种模式） | [ ] |
+| R3 | "必须复用我们的 channel 等等架构设计" | AC-A6, AC-B6, AC-C7 | code review: 公共层 diff = 0 | [ ] |
+| R4 | "学习飞书的接入" | AC-D2~D3 | adapter 结构对照 FeishuAdapter | [ ] |
+| R5 | 参考 OpenClaw 生态 | KD-1, KD-4 | 设计文档引用 + 调研综合报告 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -158,39 +200,45 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 
 | 风险 | 缓解 |
 |------|------|
-| 企微消息体 XML 格式（其他平台都是 JSON） | 引入轻量 XML parser（`fast-xml-parser`），adapter 内部转 JSON 后交公共层 |
-| 企微不支持消息编辑，流式体验受限 | Phase B MVP 走 final-only 降级；后续可探索模板消息 + 异步更新 |
-| 钉钉 Stream SDK 成熟度 | 降级方案：HTTP 回调模式（需公网 URL，复用飞书的 Cloudflare 隧道） |
-| 企业应用审核周期（钉钉/企微都需要企业管理员授权） | 文档中明确前置条件 + 开发环境配置指南 |
-| 三平台卡片格式差异大，富文本映射复杂 | Phase C 统一映射层 + 平台 capability flags 标记支持度，优雅降级 |
+| `dingtalk-stream` 有丢消息历史（社区报告） | 复用 F088 `InboundMessageDedup` + reconnect 监控 + 幂等 |
+| 企微 Agent 的 AES/XML 协议复杂度 | 参考 `toboto/openclaw-wecom-channel` 的 crypto.ts 实现，用 Node 原生 `crypto` |
+| 企微包名分叉（`@wecom/` vs `@tencent/`） | 内部 pin 到仓库 + commit + 包版本 |
+| 三个 adapter 的 Session Binding 交叉 | 每个 connector ID 独立绑定，互不干扰 |
+| 企业应用审核周期 | 文档中明确前置条件 + 开发环境配置指南 |
+| 五平台卡片格式差异大 | Phase D 统一映射 + duck typing 能力发现，优雅降级 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 钉钉优先用 Stream 模式还是 HTTP 回调？（Stream 更简单但较新） | ⬜ 未定 |
-| OQ-2 | 企微流式体验如何解决？（不支持 editMessage） | ⬜ 未定 |
-| OQ-3 | 是否需要支持钉钉/企微的群聊（Phase 7 of F088 范围）？ | ⬜ 排除（MVP DM-only） |
+| OQ-1 | 钉钉优先用 Stream 模式还是 HTTP 回调？ | ✅ **调研确认 Stream**（社区共识 + 无需公网 URL） |
+| OQ-2 | 企微流式体验如何解决？ | ✅ **调研确认双平面**：Bot 用 `replyStream`（真流式），Agent 走 final-only |
+| OQ-3 | 是否需要支持钉钉/企微的群聊？ | ⬜ 排除（MVP DM-only，群聊留 F088 Phase 7） |
+| OQ-4 | 企微 Bot 和 Agent 是否需要同时部署？ | ⬜ 未定（推荐 Bot-first, Agent 可选兜底） |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 参考 OpenClaw Feishu 扩展的插件架构，但不引入其 ChannelPlugin 接口 | OpenClaw 无钉钉/企微实现，但其 composable adapter + capability flags 模式验证了我们 F088 的设计方向。我们的三层架构已足够，无需额外抽象层 | 2026-03-22 |
-| KD-2 | adapter-only 扩展，公共层零改动 | F088 架构验证：新平台 = 新 adapter 文件 + bootstrap 注册，不改 Router/CommandLayer/BindingStore | 2026-03-22 |
-| KD-3 | DM-only MVP，群聊留给 F088 Phase 7 | 与 F088 飞书/Telegram 一致的 scope 策略，群聊依赖 F077 多用户安全模型 | 2026-03-22 |
+| KD-1 | 参考 OpenClaw 社区插件架构，不引入 ChannelPlugin 接口 | OpenClaw 社区有成熟钉钉/企微插件（`largezhou`、`YanHaidao`、`toboto` 等），验证了 adapter-only 模式。我们的三层架构已足够 | 2026-03-22 |
+| KD-2 | adapter-only 扩展，公共层零改动 | F088 架构验证 + duck typing 能力发现天然支持 | 2026-03-22 |
+| KD-3 | DM-only MVP，群聊留给 F088 Phase 7 | 与 F088 飞书/Telegram 一致的 scope 策略 | 2026-03-22 |
+| KD-4 | **企微拆两个 connector**：`wecom-bot`（WebSocket + 流式）+ `wecom-agent`（HTTP callback + AES/XML） | GPT Pro 调研确认：身份、协议、流式能力完全不同，硬揉一个 adapter 会把 Principal Link 和 Session Binding 搅成毛线球。OpenClaw 生态的 `YanHaidao/wecom` 已验证 dual-mode 架构 | 2026-03-22 |
+| KD-5 | 钉钉用 AI Card 做流式，不用 plain message edit | 钉钉 plain message 不支持编辑，但 AI Card 支持 create → streaming update → finish 状态机。`soimy/openclaw-channel-dingtalk` 已验证此路径 | 2026-03-22 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-03-22 | 立项，related F088 |
+| 2026-03-22 | GPT Pro 调研完成，F132 spec 修订（企微拆双 connector、钉钉 AI Card 策略） |
 
 ## Review Gate
 
 - Phase A: 跨 family review（缅因猫）
 - Phase B: 跨 family review（缅因猫）
-- Phase C+D: 可合并 review
+- Phase C: 跨 family review（缅因猫）— AES/XML 安全实现需额外审查
+- Phase D: 可与 Phase C 合并 review
 
 ## Links
 
@@ -198,8 +246,13 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 |------|------|------|
 | **Evolved from** | `docs/features/F088-multi-platform-chat-gateway.md` | 复用三层架构 |
 | **Architecture** | `docs/features/assets/F088/architecture-unification.md` | 三层架构设计文档 |
-| **Reference** | [OpenClaw Feishu Extension](https://github.com/openclaw/openclaw) | 插件架构参考 |
 | **Adapter 参考** | `packages/api/src/infrastructure/connectors/adapters/FeishuAdapter.ts` | 飞书 adapter 实现（学习样板） |
-| **Guide** | `docs/guides/im-platform-setup.md` | 需扩展的用户文档 |
-| **Research** | `docs/research/2026-03-22-dingtalk-wecom-gateway-gpt-pro-consult.md` | GPT Pro 调研咨询（含回填区） |
+| **Research** | `docs/research/2026-03-22-dingtalk-wecom-gateway-gpt-pro-consult.md` | GPT Pro 调研咨询 + 综合报告 |
 | **Prompt** | `docs/prompts/2026-03-22-dingtalk-wecom-integration-research-prompt.md` | 调研 prompt 存档 |
+| **Guide** | `docs/guides/im-platform-setup.md` | 需扩展的用户文档 |
+| **参考: 钉钉** | [largezhou/openclaw-dingtalk](https://github.com/largezhou/openclaw-dingtalk) | 最小可用 Stream adapter |
+| **参考: 钉钉 AI Card** | [soimy/openclaw-channel-dingtalk](https://github.com/soimy/openclaw-channel-dingtalk) | AI Card 流式状态机 ⭐⭐⭐ |
+| **参考: 企微 Bot** | [YanHaidao/wecom](https://github.com/YanHaidao/wecom) | Bot + Agent 双平面架构 ⭐⭐⭐ |
+| **参考: 企微 AES/XML** | [toboto/openclaw-wecom-channel](https://github.com/toboto/openclaw-wecom-channel) | AES/XML 协议教科书 ⭐⭐⭐ |
+| **参考: 企微官方** | [WecomTeam/wecom-openclaw-plugin](https://github.com/WecomTeam/wecom-openclaw-plugin) | 腾讯官方企微插件 |
+| **参考: 中国区集合** | [BytePioneer-AI/openclaw-china](https://github.com/BytePioneer-AI/openclaw-china) | 多中国 IM 目录布局参考 |
