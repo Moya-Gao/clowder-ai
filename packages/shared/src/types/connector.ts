@@ -139,6 +139,19 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     },
   },
   {
+    id: 'dingtalk',
+    displayName: '钉钉',
+    icon: '/images/connectors/dingtalk.png',
+    color: { primary: '#3296FA', secondary: '#E8F4FE' },
+    description: '钉钉企业内部应用',
+    tailwindTheme: {
+      avatar: 'bg-blue-100 ring-2 ring-blue-200',
+      label: 'text-blue-700',
+      labelLink: 'text-blue-700 hover:text-blue-900',
+      bubble: 'border border-blue-200 bg-blue-50',
+    },
+  },
+  {
     id: 'system-command',
     displayName: 'Cat Café',
     icon: 'settings',

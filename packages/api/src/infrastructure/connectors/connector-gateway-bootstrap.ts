@@ -15,6 +15,7 @@ import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
+import { DingTalkAdapter } from './adapters/DingTalkAdapter.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
 import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
 import { TelegramAdapter } from './adapters/TelegramAdapter.js';
@@ -37,6 +38,8 @@ export interface ConnectorGatewayConfig {
   feishuAppId?: string | undefined;
   feishuAppSecret?: string | undefined;
   feishuVerificationToken?: string | undefined;
+  dingtalkAppKey?: string | undefined;
+  dingtalkAppSecret?: string | undefined;
   /** Override co-creator userId for connector threads. Read from DEFAULT_OWNER_USER_ID env. */
   coCreatorUserId?: string | undefined;
   whisperUrl?: string | undefined;
@@ -128,6 +131,8 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     feishuAppId: process.env.FEISHU_APP_ID,
     feishuAppSecret: process.env.FEISHU_APP_SECRET,
     feishuVerificationToken: process.env.FEISHU_VERIFICATION_TOKEN,
+    dingtalkAppKey: process.env.DINGTALK_APP_KEY,
+    dingtalkAppSecret: process.env.DINGTALK_APP_SECRET,
     coCreatorUserId: process.env.DEFAULT_OWNER_USER_ID,
     whisperUrl: process.env.WHISPER_URL,
     connectorMediaDir: process.env.CONNECTOR_MEDIA_DIR,
@@ -142,10 +147,11 @@ export async function startConnectorGateway(
 
   const hasTelegram = Boolean(config.telegramBotToken);
   const hasFeishu = Boolean(config.feishuAppId && config.feishuAppSecret && config.feishuVerificationToken);
+  const hasDingTalk = Boolean(config.dingtalkAppKey && config.dingtalkAppSecret);
 
-  if (!hasTelegram && !hasFeishu) {
+  if (!hasTelegram && !hasFeishu && !hasDingTalk) {
     log.info(
-      '[ConnectorGateway] No connectors configured (set TELEGRAM_BOT_TOKEN or FEISHU_APP_ID + FEISHU_APP_SECRET + FEISHU_VERIFICATION_TOKEN)',
+      '[ConnectorGateway] No connectors configured (set TELEGRAM_BOT_TOKEN, FEISHU_APP_ID+SECRET+TOKEN, or DINGTALK_APP_KEY+SECRET)',
     );
     return null;
   }
@@ -326,6 +332,36 @@ export async function startConnectorGateway(
     });
 
     log.info('[ConnectorGateway] Feishu adapter registered (webhook mode)');
+  }
+
+  // ── DingTalk (Stream mode) ──
+  if (hasDingTalk) {
+    const dingtalk = new DingTalkAdapter(log, {
+      appKey: config.dingtalkAppKey!,
+      appSecret: config.dingtalkAppSecret!,
+    });
+    adapters.set('dingtalk', dingtalk);
+
+    mediaService.setDingtalkDownloadFn(async (downloadCode: string) => {
+      const downloadUrl = await dingtalk.downloadMedia(downloadCode);
+      const res = await fetch(downloadUrl);
+      if (!res.ok) throw new Error(`DingTalk media fetch failed: ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    });
+
+    await dingtalk.startStream(async (msg) => {
+      const attachments = msg.attachments?.map((a) => ({
+        type: a.type,
+        platformKey: a.downloadCode ?? '',
+        ...(a.fileName ? { fileName: a.fileName } : {}),
+        ...(a.duration != null ? { duration: a.duration } : {}),
+      }));
+      await connectorRouter.route('dingtalk', msg.chatId, msg.text, msg.messageId, attachments);
+    });
+
+    stopFns.push(async () => dingtalk.stopStream());
+
+    log.info('[ConnectorGateway] DingTalk adapter started (Stream mode)');
   }
 
   // R3-P1: Resolve route URLs to local file paths for real media delivery
