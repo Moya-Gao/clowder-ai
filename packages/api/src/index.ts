@@ -81,13 +81,16 @@ import {
   startConnectorGateway,
 } from './infrastructure/connectors/connector-gateway-bootstrap.js';
 import {
+  CiCdRouter,
   ConnectorInvokeTrigger,
   GhCliReviewContentFetcher,
   MemoryProcessedEmailStore,
   MemoryPrTrackingStore,
   RedisPrTrackingStore,
   ReviewRouter,
+  startGithubCiPoller,
   startGithubReviewWatcher,
+  stopGithubCiPoller,
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
@@ -1244,6 +1247,19 @@ async function main(): Promise<void> {
     invokeTrigger,
   });
 
+  // F133: Start CI/CD check poller (best-effort, after listen)
+  const cicdRouter = new CiCdRouter({
+    prTrackingStore,
+    deliveryDeps: { messageStore, socketManager },
+    log: app.log,
+  });
+  startGithubCiPoller({
+    prTrackingStore,
+    cicdRouter,
+    invokeTrigger,
+    log: app.log,
+  });
+
   // F088: Start connector gateway (best-effort, after listen)
   let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;
   try {
@@ -1340,6 +1356,8 @@ async function main(): Promise<void> {
       } catch (err) {
         app.log.error(`[api] GithubReviewWatcher stop failed: ${String(err)}`);
       }
+
+      stopGithubCiPoller();
 
       // Stop connector gateway
       try {
