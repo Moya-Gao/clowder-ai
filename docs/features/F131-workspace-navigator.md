@@ -124,6 +124,8 @@ Hub: 右面板自动打开并导航到文件
 | 2026-03-21 | Layer 1 基础设施层完成：API + Socket hook + threadId 隔离，PR #611 merged (7f3e4cfc)，含 3 轮本地 review |
 | 2026-03-21 | Layer 2 硬实力层：猫猫固有能力（glob/grep + curl），无需额外开发。KD-4 定义了 Agent 即路径解析器 |
 | 2026-03-21 | 三层开发全部完成，spec 更新 AC 状态，worktree + stash 清理完毕 |
+| 2026-03-22 | Socket room whitelist fix — `workspace:global$` 加入正则，PR #666 merged (a6b8e42b) |
+| 2026-03-23 | Reveal snapback fix — eventId dedup + grace period suppression，PR #672 merged (a2c59f7f)，3 轮 GPT-5.4 review |
 
 ## Links
 
