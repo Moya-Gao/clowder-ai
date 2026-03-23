@@ -53,7 +53,7 @@ echo ""
 
 # ── Step 1: Fetch + Rebase origin/main ──
 
-echo "── Step 1/4: 同步 origin/main 并 rebase ──"
+echo "── Step 1/5: 同步 origin/main 并 rebase ──"
 git fetch origin main --quiet
 echo -e "${GREEN}✓ fetch origin/main${NC}"
 
@@ -80,7 +80,7 @@ echo ""
 
 # ── Step 2: Build ──
 
-echo "── Step 2/4: 全量 build ──"
+echo "── Step 2/5: 全量 build ──"
 if ! pnpm -r --if-present run build; then
   echo ""
   echo -e "${RED}❌ Build 失败${NC}"
@@ -89,9 +89,28 @@ fi
 echo -e "${GREEN}✓ build 通过${NC}"
 echo ""
 
-# ── Step 3: Test（全量，不是 --filter） ──
+# ── Step 3: TypeScript 全量类型检查（含测试文件） ──
+#
+# Next.js build 只对生产代码做 tsc，__tests__/ 目录被跳过。
+# 这导致测试文件的类型错误无法在 gate 阶段被发现——
+# 接口改了但测试 mock 没同步的情况会静默通过 gate，
+# 直到 runtime build 或 CI 才暴露。
+#
+# 这一步对所有包（含测试文件）跑 tsc --noEmit，堵住盲区。
 
-echo "── Step 3/4: 全量测试 ──"
+echo "── Step 3/5: TypeScript 全量类型检查（含测试） ──"
+if ! pnpm -r --if-present exec tsc --noEmit; then
+  echo ""
+  echo -e "${RED}❌ TypeScript 类型检查失败${NC}"
+  echo "   测试文件的类型也必须通过 — 请同步更新 mock 对象"
+  exit 1
+fi
+echo -e "${GREEN}✓ tsc --noEmit 通过（含测试文件）${NC}"
+echo ""
+
+# ── Step 4: Test（全量，不是 --filter） ──
+
+echo "── Step 4/5: 全量测试 ──"
 # 清除 REDIS_URL 以避免触发 Redis 隔离守卫。
 # Worktree 的 .env.local 设置了 REDIS_URL=6398（用于开发），
 # 但全量测试不应依赖 Redis——Redis 集成测试有专门的 test:redis 命令。
@@ -108,9 +127,9 @@ fi
 echo -e "${GREEN}✓ 全量测试通过${NC}"
 echo ""
 
-# ── Step 4: Lint + Check ──
+# ── Step 5: Lint + Check ──
 
-echo "── Step 4/4: lint + check ──"
+echo "── Step 5/5: lint + check ──"
 if ! pnpm lint; then
   echo ""
   echo -e "${RED}❌ lint 失败${NC}"
