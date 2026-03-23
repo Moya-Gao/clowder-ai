@@ -8,7 +8,10 @@ created: 2026-03-22
 
 # F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+>
+> **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
+> 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
 
 ## Why
 
@@ -232,6 +235,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 |------|------|
 | 2026-03-22 | 立项，related F088 |
 | 2026-03-22 | GPT Pro 调研完成，F132 spec 修订（企微拆双 connector、钉钉 AI Card 策略） |
+| 2026-03-22 | 分工确定：金渐层实现 → 砚砚 review → 布偶猫愿景守护。Phase A 开工 |
 
 ## Review Gate
 
