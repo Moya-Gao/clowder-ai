@@ -228,6 +228,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 | 2026-03-23 | Design Gate: 砚砚(GPT-5.4) + 金渐层 讨论架构设计，8 点建议 + 3 个坑预警 |
 | 2026-03-23 | Design Gate 通过，spec 更新 KD-5~KD-8，OQ-3/4 关闭 |
 | 2026-03-23 | Phase A merged（PR #675）— 核心投递管道 + 状态迁移去重 + 34 tests |
+| 2026-03-23 | Phase B merged（PR #677）— refs/cicd-tracking.md + opensource-ops CI 门禁 + SKILL.md scene C/F |
 
 ## Design Gate 讨论归档
 
