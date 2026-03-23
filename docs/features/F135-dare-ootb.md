@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F135: 狸花猫开箱即用（DARE Out-of-the-Box）
 
-> **Status**: spec | **Owner**: 待定 | **Priority**: P2
+> **Status**: spec | **Owner**: bouillipx (社区) | **Priority**: P2
 >
 > **来源**：社区 PR [clowder-ai#192](https://github.com/zts212653/clowder-ai/pull/192) / [clowder-ai#194](https://github.com/zts212653/clowder-ai/pull/194)
 > **Issue**: [clowder-ai#195](https://github.com/zts212653/clowder-ai/issues/195)
