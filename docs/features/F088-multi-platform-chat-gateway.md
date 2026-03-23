@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> **Status**: Phase 1-6+A+B+C+D+E+G(8A) done | **Owner**: 布偶猫
+> **Status**: Phase 1-6+A+B+C+D+E+G(8A)+8 done | **Owner**: 布偶猫
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
 > Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 
@@ -64,7 +64,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **I (8C)** | 猫参与 triage：用户点"帮我判断"或连续无法决策时触发 triage 猫（可配置开关） | 📋 planned | — |
 | **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
 | **7** | 群聊公共层：ConnectorRouter sender 透传 + ConnectorSource sender 扩展 | 📋 planned | — (联动 [F134](F134-feishu-group-chat.md)) |
-| **8** | IM Hub 配置向导 — 平台接入引导 UI（飞书/Telegram/钉钉） | 🚧 design | 设计稿: [`designs/f088-im-hub-config-wizard-ux.pen`](../../designs/f088-im-hub-config-wizard-ux.pen) |
+| **8** | IM Hub 配置向导 — 平台接入引导 UI（飞书/Telegram/钉钉） | ✅ | [#680](https://github.com/zts212653/cat-cafe/pull/680) |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 
 完整 AC 列表见 [各 Phase 详细 AC](assets/F088/acceptance-criteria.md)
@@ -205,6 +205,8 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-21 | Bugfix: wire Feishu image download + post_message outbound delivery + threadMeta (PR #636) |
 | 2026-03-22 | Bugfix: handle Feishu `post` msg_type (text+image) + distinguish callback vs agent cards + webhook diagnostic logging (PR #637) |
 | 2026-03-22 | Bugfix: use /im/v1/images/{key} for post-embedded image download (ISSUE-14) (PR #640) |
+| 2026-03-22 | ISSUE-15 fix: Web-originated messages now trigger outbound delivery to IM platforms (PR #671) |
+| 2026-03-23 | Phase 8 merged: IM Hub 配置向导 UI — platform config cards + connector status API + icon extraction (PR #680) |
 
 ## 参考文件
 
