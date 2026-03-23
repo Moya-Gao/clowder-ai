@@ -2,14 +2,14 @@
 feature_ids: [F101]
 related_features: [F011, F107]
 topics: [mode, game, werewolf, game-engine]
-doc_kind: in-progress
+doc_kind: done
 created: 2026-03-11
 reopened: 2026-03-14
 ---
 
 # F101: Mode v2 — 游戏系统引擎 + 狼人杀
 
-> **Status**: in-progress (reopened) | **Owner**: 布偶猫 | **Priority**: P1 | **Reopened**: 2026-03-14
+> **Status**: done (Phase I in progress) | **Owner**: 布偶猫 | **Priority**: P1 | **Reopened**: 2026-03-14
 >
 > **重新打开原因**：2026-03-12 声称 done 并通过愿景守护，但铲屎官 2026-03-14 实际启动 dev 点开狼人杀后发现：(1) 无关闭/返回按钮，用户被困在全屏游戏界面；(2) 无大厅/配置流程，7 只猫自动塞入无法选择；(3) 猫猫不会自动行动，游戏永远卡在 night_guard 等待中；(4) 整体不可用。92 个单元测试全绿但零 E2E 真实验证。教训见 LL-032。
 
@@ -497,6 +497,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-19 | Phase H3+H4 merged (PR #577) — LLM AI bridge + AI speech with messageStore context + phase+role whitelist + route-level tests (codex 3-round local review) |
 | 2026-03-20 | **Phase I 立项** — 铲屎官批评猫猫 agent 未接入。三猫讨论（金渐层诊断 + 布偶猫架构 + 缅因猫审查）收敛：保留引擎层，重写驱动层为 A2A mention 协议，复用现有 session 管理。KD-29~34 |
 | 2026-03-22 | Phase I P0 security + GameDriver merged (PR #654) — session catId auth, evidence exclusion, submit_game_action three-layer auth, GameDriver interface + LegacyAutoDriver (codex 3-round local review) |
+| 2026-03-23 | Phase I bug fix merged (PR #685) — narrator eventLog routing + briefing info leak fix + OCC stale-runtime fix. 砚砚 2-round code review + 布偶猫愿景守护 + cloud review (P1→P3 downgrade). Squash merged `c1a0d625` |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
