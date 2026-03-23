@@ -111,7 +111,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
    - 新增接口：`patchCiState(repo, pr, ciFields)` — 只更新 CI 相关字段，不刷新注册态
    - 新增字段：`headSha`（PR 最新 commit SHA，poll 时以 GitHub 当前值为准覆盖更新，不只在注册时拉一次）
    - 新增字段：`lastCiFingerprint`（去重键：`headSha:aggregateBucket`）
-   - 新增字段：`lastCiConclusion`（最后一次通知的聚合结论）
+   - 新增字段：`lastCiBucket`（最后一次通知的聚合状态，用 `gh pr checks` 的 bucket 语义：pass/fail/pending，覆盖含 pending 的全状态空间）
    - 新增字段：`lastCiNotifiedAt`（最后一次 CI 通知时间戳）
    - 新增字段：`ciTrackingEnabled`（可选开关，v1 默认 true）
 
@@ -131,6 +131,12 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 6. **Bootstrap**
    - 新建 `github-ci-bootstrap.ts`，在 `index.ts` 里和 review watcher 并排启动
    - lifecycle 和日志独立，不复用 review bootstrap 的名字和语义
+
+7. **测试矩阵**（砚砚 R2 补充，必测场景）
+   - T1: `open→fail→success` 同 SHA 去重 — fail 通知一次，success 通知一次，不重复
+   - T2: `new push` 重置 fingerprint — SHA 变化后即使结论相同也重新通知
+   - T3: `merged/closed` 自动 remove — PR 关闭后从 tracking store 移除，停止轮询
+   - T4: `--required` 为空时 fallback 到 all checks — 未配 branch protection 的仓库不变成"永远无 CI"
 
 ### Phase B: Skill 文档 + 发版 SOP 闭环
 
@@ -237,6 +243,10 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 6. 强调 headSha 必须 poll 时覆盖更新，不能只注册时拉一次
 7. PR lifecycle: open 持续轮询，merged/closed 才停
 8. required checks 为空时 fallback 到 all checks
+
+**砚砚 R2 补充**:
+9. 字段命名：用 `lastCiBucket`（`gh pr checks` 的 bucket 语义 pass/fail/pending），不用 `lastCiConclusion`（覆盖含 pending 的全状态空间）
+10. 必测场景矩阵：T1 同 SHA 去重、T2 new push 重置、T3 merged/closed remove、T4 required 为空 fallback
 
 ## Review Gate
 
