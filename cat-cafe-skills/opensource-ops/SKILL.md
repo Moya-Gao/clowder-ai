@@ -60,7 +60,8 @@ description: >
 1. `[cat-cafe]` 确认 PR 类型 → 查官方 F 编号 → 本地编号对齐
 2. `[cat-cafe]` Feature Doc 校验 + 质量门禁（`pnpm check` + `pnpm lint` + `test:public`）
 3. `[clowder-ai]` 组装 PR（conventional commit 格式）
-4. 详细步骤 → [Outbound PR 文档](../refs/opensource-ops-outbound-pr.md)
+4. `[clowder-ai]` PR 创建后注册 PR tracking（CI 自动追踪，需要 prNumber）
+5. 详细步骤 → [Outbound PR 文档](../refs/opensource-ops-outbound-pr.md)
 
 ### D: Outbound Sync
 
@@ -80,7 +81,7 @@ description: >
 ### F: Hotfix Lane
 
 1. `[cat-cafe]` Worktree 基于 sync tag → 修 bug
-2. `[cat-cafe → clowder-ai]` `sync-hotfix.sh` → clowder-ai PR
+2. `[cat-cafe → clowder-ai]` `sync-hotfix.sh` → clowder-ai PR + 注册 PR tracking（CI 自动追踪）
 3. `[cat-cafe]` Cherry-pick 回 main → intake `record + 立刻尝试 advance-ledger`
 4. 详细步骤 → [Hotfix 文档](../refs/opensource-ops-hotfix.md)
 

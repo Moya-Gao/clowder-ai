@@ -86,6 +86,10 @@ git push -u origin fix/{issue}
 gh pr create --title "fix: {简述}" --body "Fixes #{issue}"  # 同仓 PR body 裸 #N = GitHub auto-close，OK
 ```
 
+PR 创建后注册 tracking（`cat_cafe_register_pr_tracking`），CI/CD 自动追踪启动。
+如果仓库有 GitHub Actions，等 CI 通知（失败则修复后 push）；无 Actions 则依赖本地测试。
+详见 → [refs/cicd-tracking.md](cicd-tracking.md)
+
 ## Step 4: Cherry-pick 回 Main `[cat-cafe]`
 
 Hotfix 修复同样需要回到 main：

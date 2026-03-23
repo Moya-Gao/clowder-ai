@@ -148,6 +148,19 @@ EOF
 )"
 ```
 
+## Step 6.5: 注册 PR Tracking + CI 状态追踪
+
+PR 创建后通过 `cat_cafe_register_pr_tracking` 注册（需要 `repoFullName + prNumber`），CI/CD tracking 自动启动。
+
+| 条件 | 行为 |
+|------|------|
+| 仓库有 GitHub Actions | 系统自动轮询 CI 状态，失败/成功通知到 thread |
+| CI 失败 | 收到通知 → 查看失败检查 → 修复 → push → 等下一轮通知 |
+| CI 全绿 | 收到成功通知，可继续 merge 流程 |
+| 无 Actions / 无额度 | 跳过 CI 等待，依赖本地 `test:public` 结果 |
+
+> 详细通知格式、去重机制、处理策略 → [refs/cicd-tracking.md](cicd-tracking.md)
+
 ## Common Mistakes
 
 | 错误 | 后果 | 修复 |

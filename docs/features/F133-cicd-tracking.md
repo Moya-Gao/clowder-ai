@@ -172,9 +172,9 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 - [x] AC-A11: 测试覆盖：CiCdCheckPoller + CiCdRouter 单元测试（轮询、去重、投递、lifecycle）
 
 ### Phase B（Skill 文档 + SOP）
-- [ ] AC-B1: merge-gate SKILL.md 包含等 CI 绿灯步骤
-- [ ] AC-B2: opensource-ops SKILL.md 的 Outbound PR / Hotfix 流程含 CI 门禁
-- [ ] AC-B3: refs/cicd-tracking.md 新增（通知格式、配置、处理策略）
+- [ ] AC-B1: merge-gate SKILL.md 包含等 CI 绿灯步骤（⏸️ 铲屎官：只在有 Actions 额度时才有意义，暂缓）
+- [x] AC-B2: opensource-ops SKILL.md 的 Outbound PR / Hotfix 流程含 CI 门禁
+- [x] AC-B3: refs/cicd-tracking.md 新增（通知格式、配置、处理策略）
 
 ## Dependencies
 
