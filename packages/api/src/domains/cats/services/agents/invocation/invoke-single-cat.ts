@@ -213,7 +213,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
   // F089: Invocation-level hard timeout — independent of NDJSON stream / CLI timeout.
   // Must be > CLI_TIMEOUT_MS to avoid racing the inner timeout.
-  // When CLI_TIMEOUT_MS=0 (disable), fall back to DEFAULT (5min) so invocation still has a ceiling.
+  // When CLI_TIMEOUT_MS=0 (disable), fall back to DEFAULT (30min) so invocation still has a ceiling.
   const INVOCATION_TIMEOUT_MULTIPLIER = 2;
   const cliTimeoutMs = resolveCliTimeoutMs(undefined);
   const invocationTimeoutMs =

@@ -839,7 +839,13 @@
       "name": "Unified Config Hot Reload — 配置热更新统一管线",
       "status": "spec | **Owner**: 待定 | **Priority**: P1",
       "file": "F136-unified-config-hot-reload.md"
+    },
+    {
+      "id": "F137",
+      "name": "WeChat Personal Gateway — 微信个人号 iLink Bot 接入",
+      "status": "spec | **Owner**: 金渐层 | **Priority**: P1",
+      "file": "F137-weixin-personal-gateway.md"
     }
   ],
-  "generated_at": "2026-03-23T22:00:01.482Z"
+  "generated_at": "2026-03-23T22:56:24.193Z"
 }
