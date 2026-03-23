@@ -89,7 +89,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | AC-8-2 | 平台配置卡片列表 | 配置 Tab 显示三张平台卡片（飞书/Telegram/钉钉），每张显示：平台名称、图标、当前状态（已配置 ✅ / 未配置 ⚪） |
 | AC-8-3 | 卡片展开/折叠 | 点击卡片展开详情区域，包含：(1) 接入三步骤引导 + 外链（如飞书开放平台文档）(2) 配置表单字段 (3) 折叠后回到卡片列表 |
 | AC-8-4 | 配置表单字段 | 飞书：`FEISHU_APP_ID` + `FEISHU_APP_SECRET` + `FEISHU_VERIFICATION_TOKEN`；Telegram：`TELEGRAM_BOT_TOKEN`；钉钉：`DINGTALK_APP_KEY` + `DINGTALK_APP_SECRET`。表单提交调用 `PATCH /api/config/env` |
-| AC-8-5 | 测试连接 | 每个平台提供"测试连接"按钮。前端调用 `GET /api/connector/status`，返回各平台当前连接状态（connected / not_configured / error） |
+| AC-8-5 | 测试连接 | ⏭️ **推迟** — 按钮显示"连接测试功能即将上线"。真正的连接测试需要 connector 热重载能力（配置保存后 gateway 才有新实例可测），依赖 [F136](F136-unified-config-hot-reload.md) Phase 2。当前 `GET /api/connector/status` 只返回配置完整性（`configured: true/false`），不做实际连通性探测 |
 | AC-8-6 | 重启提示 | 修改 connector 环境变量后，显示黄色提示："配置已保存。需重启 API 服务使连接器生效。" |
 | AC-8-7 | 敏感字段脱敏 | 已配置的 sensitive 字段（token/secret）显示 `••••xxxx`（尾 4 位），不回显完整值 |
 | AC-8-8 | 回归安全 | 系统对话中心 Tab 功能完全不变（zero regression） |
