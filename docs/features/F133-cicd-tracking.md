@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F133: GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪
 
-> **Status**: spec | **Owner**: 金渐层 | **Priority**: P2
+> **Status**: design-gate-passed | **Owner**: 金渐层 | **Priority**: P2
 
 ## Why
 
@@ -35,59 +35,102 @@ IMAP 邮件 → GithubReviewMailParser → ReviewRouter.route()
   → ConnectorInvokeTrigger.trigger() ← 唤醒猫处理
 ```
 
-CI/CD 路径——复用同一管道，只换数据源：
+CI/CD 路径——复用同一投递管道，独立路由器，只换数据源：
 ```
 GitHub API 轮询 → CiCdCheckPoller (新)
-  → 同样的 deliver 逻辑（messageStore + socket + trigger）
-  → messageStore.append({ connector: 'github-ci' })
-  → socketManager.broadcastToRoom()
-  → ConnectorInvokeTrigger.trigger() (CI 失败时唤醒猫修)
+  → CiCdRouter (新，独立于 ReviewRouter)
+  → deliverConnectorMessage() (共享 helper)
+    → messageStore.append({ connector: 'github-ci' })
+    → socketManager.broadcastToRoom()
+  → CI 失败 → ConnectorInvokeTrigger.trigger(priority: 'normal')
+  → CI 成功 → 不 trigger
 ```
 
 复用点：
 1. **ConnectorSource 协议** — 只换 `connector: 'github-ci'`，前端 ConnectorBubble 已按类型渲染不同图标
-2. **投递管道** — messageStore → socket broadcast → ConnectorInvokeTrigger，完全不用新建
+2. **投递管道** — messageStore → socket broadcast → ConnectorInvokeTrigger，抽共享 `deliverConnectorMessage()` helper
 3. **注册入口** — 猫猫还是 `register_pr_tracking`，轮询只查已注册 PR
-4. **只新增**：一个 `CiCdCheckPoller` 类
+4. **只新增**：`CiCdCheckPoller` 类 + `CiCdRouter` 类 + `github-ci-bootstrap.ts`
 
-**KD-2: 数据源选择 GitHub API 轮询，而非 IMAP 邮件**
+**KD-2: 数据源选择 GitHub API 轮询（PR 级 rollup），而非 IMAP 邮件或 raw Checks API**
 
-| | 邮件（Review 现状） | API 轮询（CI/CD 新方案） |
-|---|---|---|
-| 延迟 | 2min IMAP poll | 30s-1min API poll |
-| 配置依赖 | IMAP 邮箱 + 代理 | `gh` CLI（已有） |
-| 开源友好 | 差（邮箱配置复杂） | 好（`gh auth login` 即可） |
-| 噪音控制 | 弱（全邮箱 GitHub 通知） | 强（只查注册 PR） |
+| | 邮件（Review 现状） | Raw Checks API | PR 级 rollup（✅ 选定） |
+|---|---|---|---|
+| 延迟 | 2min IMAP poll | 30s-1min | 30s-1min |
+| 配置依赖 | IMAP 邮箱 + 代理 | `gh` CLI | `gh` CLI |
+| 覆盖范围 | N/A | 只覆盖 Checks，**漏 commit statuses** | Checks + commit statuses 全覆盖 |
+| API 成本 | N/A | 每 PR 多次（suites + runs） | **1 次 `gh pr view` 拿全** |
+| 开源友好 | 差 | 好 | 好 |
 
-API 方案对开源用户更友好，不需要配 IMAP 邮箱。
+**Design Gate 决策（砚砚 2026-03-23）**：不用 `check-suites` 或 `check-runs` 做主轮询入口。GitHub 的 CI 有两套体系（Checks API + commit statuses），raw Checks API 只覆盖前者，会漏掉仍走旧式 `commit status` 的 CI 提供方。
+
+主轮询入口：`gh pr view <pr> -R <repo> --json headRefOid,state,mergedAt,statusCheckRollup`
+- 一次请求同时拿到 `headSha`、PR 生命周期状态、聚合 CI 结果
+- 需要发通知时再补一跳 `gh pr checks --required --json name,bucket,link,workflow,description` 拉失败详情
+- `required` 为空时 fallback 到 all checks（未配 branch protection 的仓库）
 
 **KD-3: 只 track 已注册 PR，零噪音**
 
-未注册的 PR 不轮询。猫猫通过 `register_pr_tracking` 注册 PR 时，系统开始追踪该 PR 的 CI/CD 状态。注册入口不变，复用现有 MCP tool。
+未注册的 PR 不轮询。猫猫通过 `register_pr_tracking` 注册 PR 时，系统开始追踪该 PR 的 CI/CD 状态。注册入口不变，复用现有 MCP tool。v1 默认 `ciTrackingEnabled: true`。
+
+**KD-5: 独立 CiCdRouter，不塞 ReviewRouter**
+
+不要往 `ReviewRouter` 里加 CI 逻辑。现有 `ReviewRouter` 把 review 专属的去重、内容抓取（severity extraction）、格式化混在一起，硬塞 CI 会耦死两个数据源。新建独立 `CiCdRouter`，最多抽一个共享的 `deliverConnectorMessage()` helper 复用投递逻辑（messageStore.append + socket broadcast）。
+
+**KD-6: 独立 `github-ci-bootstrap.ts`，不复用 review bootstrap**
+
+新建 `github-ci-bootstrap.ts`，在 `index.ts` 里和 review watcher 并排启动。不复用 `github-review-bootstrap.ts` 的名字和语义，lifecycle 和日志独立。
+
+**KD-7: PrTrackingStore 新增 `patchCiState()` 接口，不复用 `register()`**
+
+现有 `PrTrackingStore` 只有 `register/get/remove/listAll`，没有 patch/update。CI poller 如果拿 `register()` 回写运行态状态，会整 hash 重写并刷新 `registeredAt`，把"注册"和"运行态状态更新"混成一个操作。新增 `patchCiState(repo, pr, ciFields)` 接口，只更新 CI 相关字段。
+
+**KD-8: 状态迁移去重，不复用 ProcessedEmailStore 的时间窗口去重**
+
+`ProcessedEmailStore` 的 5 分钟窗口去重不适合 CI。CI 需要"状态迁移去重"：同一 SHA + 同一 conclusion 只通知一次。复用时间窗口去重会吞掉合法的 `pending → fail → success` 状态迁移。去重键：`headSha + aggregateBucket`，不要把 suite/run id 放进主去重键。
 
 ### Phase A: 核心投递管道（CI/CD → Thread 消息）
 
 1. **CiCdCheckPoller** — 新增轮询器
-   - 定时扫描 PrTrackingStore 中所有活跃注册
-   - 对每个注册 PR 调用 `gh api repos/{owner}/{repo}/commits/{sha}/check-suites`
-   - 只关心 `completed` 状态的 `conclusion`（failure/success/cancelled）
-   - 轮询间隔：可配置，默认 60s
+   - 定时扫描 PrTrackingStore 中所有活跃注册（`ciTrackingEnabled: true`）
+   - 主轮询：`gh pr view <pr> -R <repo> --json headRefOid,state,mergedAt,statusCheckRollup`
+   - 一次请求拿 headSha + PR lifecycle + 聚合 CI 状态
+   - 需要发通知时补一跳：`gh pr checks --required --json name,bucket,link,workflow,description`
+   - `required` 为空时 fallback 到 all checks
+   - 轮询间隔：固定 60s（v1）；只在 gh 失败/认证失败/网络错误时退避，业务节奏不退避
+   - `pending/in_progress` → 不发消息，只驱动下一轮轮询
 
-2. **PrTrackingStore 扩展**
-   - 新增字段：`headSha`（PR 最新 commit SHA）
-   - 新增字段：`lastCiCheckId`（去重：同一 check run 只通知一次）
-   - 新增字段：`ciTrackingEnabled`（可选开关，默认 true）
+2. **CiCdRouter** — 新增独立路由器
+   - 不塞 ReviewRouter，独立处理 CI 事件的格式化和投递
+   - 共享 `deliverConnectorMessage()` helper（messageStore.append + socket broadcast）
+   - CI 失败 → 投递消息 + `ConnectorInvokeTrigger.trigger()` with `priority: 'normal'`
+   - CI 成功 → 投递消息，不 trigger
+   - 不要一上来全局 `urgent`；如果后面 merge-gate 场景需要更强提醒，再做 repo/phase 级策略
 
-3. **消息投递**（复用现有管道）
-   - `messageStore.append({ connector: 'github-ci', ... })`
-   - `socketManager.broadcastToRoom()`
-   - CI 失败 → `ConnectorInvokeTrigger.trigger()`（唤醒猫自动修）
-   - CI 成功 → 只投递消息，不 trigger（可配置）
+3. **PrTrackingStore 扩展**
+   - 新增接口：`patchCiState(repo, pr, ciFields)` — 只更新 CI 相关字段，不刷新注册态
+   - 新增字段：`headSha`（PR 最新 commit SHA，poll 时以 GitHub 当前值为准覆盖更新，不只在注册时拉一次）
+   - 新增字段：`lastCiFingerprint`（去重键：`headSha:aggregateBucket`）
+   - 新增字段：`lastCiConclusion`（最后一次通知的聚合结论）
+   - 新增字段：`lastCiNotifiedAt`（最后一次 CI 通知时间戳）
+   - 新增字段：`ciTrackingEnabled`（可选开关，v1 默认 true）
 
-4. **去重机制**
-   - 用 `check_suite_id` + `conclusion` 做去重键
-   - 同一 suite 同一结论只通知一次
-   - SHA 变化（新 push）重置去重
+4. **去重机制**（状态迁移去重，非时间窗口）
+   - 去重键：`headSha + aggregateBucket`（如 `abc123:fail`）
+   - 同一 SHA + 同一结论只通知一次
+   - SHA 变化（新 push）→ poller 自动检测 headRefOid 变化，重置去重
+   - 合法状态迁移（`pending → fail → success`）不被吞掉
+   - 不复用 ProcessedEmailStore 的 5 分钟窗口机制
+
+5. **PR 生命周期管理**
+   - PR `open` → 持续轮询（不在 success/failure 后停，否则漏 rerun 和新 push）
+   - PR `merged/closed` → 自动调用 `PrTrackingStore.remove()`，停止轮询
+   - TTL 7 天兜底（现有 RedisPrTrackingStore 已有），不做主生命周期
+   - `gh` CLI 不可用时优雅降级（log + skip，不 crash）
+
+6. **Bootstrap**
+   - 新建 `github-ci-bootstrap.ts`，在 `index.ts` 里和 review watcher 并排启动
+   - lifecycle 和日志独立，不复用 review bootstrap 的名字和语义
 
 ### Phase B: Skill 文档 + 发版 SOP 闭环
 
@@ -111,13 +154,16 @@ API 方案对开源用户更友好，不需要配 IMAP 邮箱。
 
 ### Phase A（核心投递管道）
 - [ ] AC-A1: 注册 PR 后，CI 失败自动投递消息到原始 thread（connector: `github-ci`）
-- [ ] AC-A2: CI 失败消息自动唤醒猫（ConnectorInvokeTrigger）
-- [ ] AC-A3: CI 成功投递消息但不唤醒猫（可配置）
-- [ ] AC-A4: 同一 check suite 同一结论只通知一次（去重）
-- [ ] AC-A5: 未注册 PR 不轮询，零噪音
-- [ ] AC-A6: `gh` CLI 不可用时优雅降级（log + skip，不 crash）
-- [ ] AC-A7: 前端 ConnectorBubble 正确渲染 `github-ci` 类型（可能需要新 icon）
-- [ ] AC-A8: 测试覆盖：CiCdCheckPoller 单元测试（轮询、去重、投递）
+- [ ] AC-A2: CI 失败消息自动唤醒猫（ConnectorInvokeTrigger, priority: `normal`）
+- [ ] AC-A3: CI 成功投递消息但不唤醒猫
+- [ ] AC-A4: 状态迁移去重 — 同一 headSha + 同一 aggregateBucket 只通知一次
+- [ ] AC-A5: 合法状态迁移（pending → fail → success）不被吞掉
+- [ ] AC-A6: 未注册 PR 不轮询，零噪音
+- [ ] AC-A7: `gh` CLI 不可用时优雅降级（log + skip，不 crash）
+- [ ] AC-A8: PR merged/closed 自动停止轮询并 remove tracking
+- [ ] AC-A9: 新 push（headSha 变化）自动重置去重，继续追踪
+- [ ] AC-A10: PrTrackingStore.patchCiState() 不刷新 registeredAt
+- [ ] AC-A11: 测试覆盖：CiCdCheckPoller + CiCdRouter 单元测试（轮询、去重、投递、lifecycle）
 
 ### Phase B（Skill 文档 + SOP）
 - [ ] AC-B1: merge-gate SKILL.md 包含等 CI 绿灯步骤
@@ -135,28 +181,35 @@ API 方案对开源用户更友好，不需要配 IMAP 邮箱。
 
 | 风险 | 缓解 |
 |------|------|
-| GitHub API rate limit（公开仓 60/h，认证 5000/h） | 只轮询已注册 PR；`gh auth` 认证后 5000/h 足够 |
+| GitHub API rate limit（公开仓 60/h，认证 5000/h） | 只轮询已注册 PR；`gh auth` 认证后 5000/h 足够；主查询 1 次/PR/min |
 | `gh` CLI 未安装或未认证 | 启动时检测，优雅降级（log warning，不 block） |
 | 开源用户无 GitHub Actions（私有仓无免费额度） | 只对有 CI 的仓库生效，无 CI = 无通知（符合预期） |
-| Check suite 状态转换复杂（pending → in_progress → completed） | 只关心 `completed`，忽略中间状态 |
+| Check suite 状态转换复杂（pending → in_progress → completed） | 只关心聚合 rollup 的 bucket（pass/fail/pending），忽略细粒度中间状态 |
+| fork push 的 Checks API 有已知 caveat | 用 PR 级 rollup 而非 SHA 级 Checks API，更稳定 |
+| PrTrackingStore.register() 回写 CI 状态会刷新 registeredAt | 新增 patchCiState() 接口，只更新 CI 字段 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | Review 通知是否也迁移到 API 轮询（摆脱 IMAP 依赖）？ | ⬜ 未定（Phase C 待评估） |
-| OQ-2 | 前端 ConnectorBubble 是否需要 `github-ci` 专属 icon？还是复用 GitHub icon + 不同颜色？ | ⬜ 未定 |
-| OQ-3 | CI 成功是否默认静默（只记录不推送）？避免 "CI passed" 消息噪音 | ⬜ 未定 |
-| OQ-4 | PrTracking 注册时是否需要显式指定 `ciTracking: true`？还是默认开启？ | ⬜ 未定 |
+| OQ-2 | 前端 ConnectorBubble 是否需要 `github-ci` 专属 icon？还是复用 GitHub icon + 不同颜色？ | ⬜ 未定（Phase A 不阻塞） |
+| ~~OQ-3~~ | ~~CI 成功是否默认静默？~~ | ✅ 已定：CI 成功发消息但不 trigger，不静默 |
+| ~~OQ-4~~ | ~~PrTracking 注册时是否需要显式指定 `ciTracking: true`？~~ | ✅ 已定：v1 默认 true，后续需要 review-only 场景再加开关 |
+| OQ-5 | Raw Checks API 对 fork push 有已知 caveat，PR 语义和 SHA 语义并不总是同一个视角。用 PR 级 rollup 是否足够覆盖 fork 场景？ | ⬜ 待实测验证 |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | CI/CD 通知复用现有 Review 消息管道（messageStore → socket → trigger） | 投递体验一致；不需要新建管道；ConnectorSource 协议已支持 | 2026-03-23 |
-| KD-2 | 数据源用 GitHub API 轮询而非 IMAP 邮件 | 延迟更低（60s vs 2min）；开源友好（不需要配邮箱）；噪音控制更强（只查注册 PR） | 2026-03-23 |
-| KD-3 | 只 track 已注册 PR | 零噪音；复用现有 register_pr_tracking 入口；未注册 PR 的 CI 结果对我们没有意义 | 2026-03-23 |
-| KD-4 | CI 失败唤醒猫，CI 成功只投递消息 | 失败需要猫处理（修代码）；成功是信息性的，不需要打断 | 2026-03-23 |
+| KD-2 | 数据源用 PR 级 rollup（`gh pr view --json statusCheckRollup`），不用 raw Checks API | 一次请求拿 headSha + lifecycle + 聚合状态；覆盖 Checks + commit statuses 两套体系；砚砚 Design Gate 提出 | 2026-03-23 |
+| KD-3 | 只 track 已注册 PR | 零噪音；复用现有 register_pr_tracking 入口 | 2026-03-23 |
+| KD-4 | CI 失败唤醒猫（priority: normal），CI 成功只投递消息 | 失败需要猫处理；成功是信息性的；v1 不用 urgent，后续需要再做策略 | 2026-03-23 |
+| KD-5 | 独立 CiCdRouter，不塞 ReviewRouter | ReviewRouter 把 review 专属的去重/内容抓取/格式化混在一起，硬塞 CI 会耦死两个数据源；抽共享 deliverConnectorMessage() helper | 2026-03-23 |
+| KD-6 | 独立 github-ci-bootstrap.ts | lifecycle 和日志独立，不复用 review bootstrap 语义 | 2026-03-23 |
+| KD-7 | PrTrackingStore 新增 patchCiState()，不复用 register() | register() 会整 hash 重写并刷新 registeredAt，把注册和运行态状态更新混成一个操作 | 2026-03-23 |
+| KD-8 | 状态迁移去重（headSha + aggregateBucket），不复用 ProcessedEmailStore 时间窗口 | 5min 窗口会吞掉合法的 pending → fail → success 迁移；CI 需要按状态变化去重 | 2026-03-23 |
 
 ## Timeline
 
@@ -166,6 +219,24 @@ API 方案对开源用户更友好，不需要配 IMAP 邮箱。
 | 2026-03-23 | Issue #669 创建，记录设计方向 |
 | 2026-03-23 | Issue #668 完成（ReviewRouter fallback 清理），为 CI/CD 扫清障碍 |
 | 2026-03-23 | 升级为 F133 Feature 立项 |
+| 2026-03-23 | Design Gate: 砚砚(GPT-5.4) + 金渐层 讨论架构设计，8 点建议 + 3 个坑预警 |
+| 2026-03-23 | Design Gate 通过，spec 更新 KD-5~KD-8，OQ-3/4 关闭 |
+
+## Design Gate 讨论归档
+
+**参与者**: 金渐层 (@opencode) + 砚砚 (@gpt52, GPT-5.4)
+**Thread**: `thread_mn2krkok6nflpavy`（ci/cd github tracking）
+**日期**: 2026-03-23
+
+**砚砚核心贡献**:
+1. 发现 raw Checks API (`check-suites/runs`) 只覆盖 Checks，会漏 commit statuses → 改用 PR 级 `statusCheckRollup`
+2. 提出 `PrTrackingStore` 缺少 patch/update 接口 → 新增 `patchCiState()`
+3. 发现 `ProcessedEmailStore` 5min 窗口去重不适合 CI 状态迁移 → 改用 `headSha + aggregateBucket` 去重
+4. 建议独立 `CiCdRouter` + 独立 bootstrap，不塞 ReviewRouter
+5. 建议 CI failure trigger 用 `normal` 而非 `urgent`
+6. 强调 headSha 必须 poll 时覆盖更新，不能只注册时拉一次
+7. PR lifecycle: open 持续轮询，merged/closed 才停
+8. required checks 为空时 fallback 到 all checks
 
 ## Review Gate
 
