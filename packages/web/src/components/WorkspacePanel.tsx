@@ -8,6 +8,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { MarkdownContent } from './MarkdownContent';
+import { useConfirm } from './useConfirm';
 import { BrowserPanel } from './workspace/BrowserPanel';
 import { ChangesPanel } from './workspace/ChangesPanel';
 import { CodeViewer } from './workspace/CodeViewer';
@@ -127,6 +128,7 @@ const MenuIcon = () => (
 
 /* ── Main panel ──────────────────────────────── */
 export function WorkspacePanel() {
+  const confirm = useConfirm();
   const {
     worktrees,
     worktreeId,
@@ -197,19 +199,7 @@ export function WorkspacePanel() {
     new Map(),
   );
   const prevThreadRef = useRef<string | null>(null);
-  const mountedRef = useRef(false);
-  const fileSetAt = useChatStore((s) => s._workspaceFileSetAt);
   useEffect(() => {
-    // On first mount, only skip restore if workspace state was freshly set
-    // by a navigate event for THIS thread (not a different thread's event).
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      const isFreshNavigate = Date.now() - fileSetAt.ts < 500 && fileSetAt.threadId === currentThreadId;
-      if (isFreshNavigate) {
-        prevThreadRef.current = currentThreadId;
-        return;
-      }
-    }
     const prevThread = prevThreadRef.current;
     // Save previous thread's state
     if (prevThread && prevThread !== currentThreadId) {
@@ -429,15 +419,12 @@ export function WorkspacePanel() {
   const treeCallbacks = useMemo(
     () => ({
       onCreateFile: async (dirPath: string, name: string) => {
-        const tid = useChatStore.getState().currentThreadId;
         const path = dirPath ? `${dirPath}/${name}` : name;
         const result = await createFile(path);
         if (result) {
           fetchTree();
-          if (useChatStore.getState().currentThreadId === tid) {
-            setOpenFile(path, null, null, tid);
-            setEditMode(true);
-          }
+          setOpenFile(path);
+          setEditMode(true); // Auto-enter edit mode for new files
         }
         return !!result;
       },
@@ -449,7 +436,15 @@ export function WorkspacePanel() {
       },
       onDelete: async (path: string) => {
         const name = path.includes('/') ? path.slice(path.lastIndexOf('/') + 1) : path;
-        if (!window.confirm(`删除 "${name}"？此操作不可撤销。`)) return false;
+        if (
+          !(await confirm({
+            title: '删除确认',
+            message: `删除 "${name}"？此操作不可撤销。`,
+            variant: 'danger',
+            confirmLabel: '删除',
+          }))
+        )
+          return false;
         const ok = await deleteItem(path);
         if (ok) {
           closeTab(path);
@@ -458,15 +453,12 @@ export function WorkspacePanel() {
         return ok;
       },
       onRename: async (oldPath: string, newName: string) => {
-        const tid = useChatStore.getState().currentThreadId;
         const dir = oldPath.includes('/') ? oldPath.slice(0, oldPath.lastIndexOf('/')) : '';
         const newPath = dir ? `${dir}/${newName}` : newName;
         const ok = await renameItem(oldPath, newPath);
         if (ok) {
           closeTab(oldPath);
-          if (useChatStore.getState().currentThreadId === tid) {
-            setOpenFile(newPath, null, null, tid);
-          }
+          setOpenFile(newPath);
           fetchTree();
         }
         return ok;
@@ -479,7 +471,7 @@ export function WorkspacePanel() {
         fetchTree();
       },
     }),
-    [createFile, createDir, deleteItem, renameItem, uploadFile, fetchTree, setOpenFile, closeTab],
+    [createFile, createDir, deleteItem, renameItem, uploadFile, fetchTree, setOpenFile, closeTab, confirm],
   );
 
   const isTokenValid = editToken && editTokenExpiry && editTokenExpiry > Date.now();

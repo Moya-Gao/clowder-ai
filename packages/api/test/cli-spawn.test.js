@@ -110,7 +110,7 @@ test('spawnCli does not yield stderr data', async () => {
   assert.deepEqual(results[0], { type: 'ok' });
 });
 
-test('spawnCli yields parse errors alongside valid JSON', async () => {
+test('spawnCli skips parse errors in stdout', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
 
@@ -124,12 +124,10 @@ test('spawnCli yields parse errors alongside valid JSON', async () => {
 
   const results = await promise;
 
-  // F166: parse errors are now yielded so consumers can decide how to handle them
-  assert.equal(results.length, 3);
+  // Behavioral assertion: parse errors are silently skipped, only valid JSON yielded
+  assert.equal(results.length, 2);
   assert.deepEqual(results[0], { valid: true });
-  assert.equal(results[1].__parseError, true);
-  assert.equal(results[1].line, 'not-json-line');
-  assert.deepEqual(results[2], { also: 'valid' });
+  assert.deepEqual(results[1], { also: 'valid' });
 });
 
 test('parse-error noise does not reset timeout forever', async () => {
@@ -199,7 +197,7 @@ test('CLI_TIMEOUT_MS=0 disables timeout (no auto-kill on silence)', async () => 
   }
 });
 
-test('spawnCli uses 30 minute fallback timeout when CLI_TIMEOUT_MS is unset', async () => {
+test('spawnCli uses 5 minute fallback timeout when CLI_TIMEOUT_MS is unset', async () => {
   const savedEnv = process.env.CLI_TIMEOUT_MS;
   delete process.env.CLI_TIMEOUT_MS;
 
@@ -221,7 +219,7 @@ test('spawnCli uses 30 minute fallback timeout when CLI_TIMEOUT_MS is unset', as
     await promise;
 
     assert.ok(delays.length > 0);
-    assert.equal(delays[0], 1800000);
+    assert.equal(delays[0], 300000);
   } finally {
     global.setTimeout = originalSetTimeout;
     if (savedEnv === undefined) {
@@ -672,7 +670,7 @@ test('B4: yields alive_but_silent warning during CLI silence', async () => {
         command: 'codex',
         args: [],
         timeoutMs: 500,
-        livenessProbe: { sampleIntervalMs: 30, softWarningMs: 300, stallWarningMs: 1000 },
+        livenessProbe: { sampleIntervalMs: 30, softWarningMs: 80, stallWarningMs: 300 },
       },
       { spawnFn },
     ),
