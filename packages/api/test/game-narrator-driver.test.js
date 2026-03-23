@@ -376,6 +376,31 @@ describe('GameNarratorDriver', () => {
     }
   });
 
+  it('narrative messages broadcast via socketManager when provided', async () => {
+    const broadcasts = [];
+    const mockSocket = { broadcastToRoom: (room, event, data) => broadcasts.push({ room, event, data }) };
+    const driver = new GameNarratorDriver({
+      gameStore,
+      messageStore,
+      wakeCat,
+      actionNotifier,
+      socketManager: mockSocket,
+    });
+    driver.startLoop('game-001');
+    await new Promise((r) => setTimeout(r, 200));
+    driver.stopLoop('game-001');
+    await new Promise((r) => setTimeout(r, 100));
+
+    assert.ok(broadcasts.length > 0, 'should have broadcast narrative messages');
+    for (const b of broadcasts) {
+      assert.equal(b.room, 'thread:thread-001');
+      assert.equal(b.event, 'game:narrative');
+      assert.equal(b.data.message.type, 'system');
+      assert.ok(b.data.message.content.length > 0);
+      assert.ok(b.data.message.id);
+    }
+  });
+
   // --- Game ended externally ---
 
   it('loop exits when game status is not playing', async () => {

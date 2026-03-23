@@ -492,6 +492,20 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacksRef.current.onGameStateUpdate?.(data);
     });
 
+    // F101 Phase I: Narrator narrative messages (e.g. "🐺 狼人请睁眼")
+    socket.on(
+      'game:narrative',
+      (data: { threadId: string; message: { id: string; type: string; content: string; timestamp: number } }) => {
+        if (!data?.threadId || !data?.message?.id) return;
+        useChatStore.getState().addMessageToThread(data.threadId, {
+          id: data.message.id,
+          type: 'system',
+          content: data.message.content,
+          timestamp: data.message.timestamp,
+        });
+      },
+    );
+
     // F101 Phase D: Independent game thread created
     socket.on(
       'game:thread_created',

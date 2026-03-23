@@ -33,11 +33,16 @@ export interface ActionNotifier {
   cleanup(gameId: string): void;
 }
 
+export interface SocketBroadcaster {
+  broadcastToRoom(room: string, event: string, data: unknown): void;
+}
+
 export interface NarratorDeps {
   gameStore: IGameStore;
   messageStore: IMessageStore;
   wakeCat: WakeCatFn;
   actionNotifier: ActionNotifier;
+  socketManager?: SocketBroadcaster;
 }
 
 export class GameNarratorDriver implements GameDriver {
@@ -183,13 +188,24 @@ export class GameNarratorDriver implements GameDriver {
   }
 
   private async postNarrative(threadId: string, content: string): Promise<void> {
-    await this.deps.messageStore.append({
+    const msg = await this.deps.messageStore.append({
       userId: 'system',
       catId: null,
       content,
       mentions: [],
       timestamp: Date.now(),
       threadId,
+    });
+
+    // messageStore.append does NOT emit socket events — broadcast separately for real-time display
+    this.deps.socketManager?.broadcastToRoom(`thread:${threadId}`, 'game:narrative', {
+      threadId,
+      message: {
+        id: msg.id,
+        type: 'system',
+        content,
+        timestamp: msg.timestamp,
+      },
     });
   }
 

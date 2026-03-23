@@ -1097,7 +1097,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     // Map chat messages (union type allows summary items to be pushed later)
     type TimelineItem = {
       id: string;
-      type: 'user' | 'assistant' | 'connector' | 'summary';
+      type: 'user' | 'assistant' | 'connector' | 'summary' | 'system';
       catId: string | null;
       content: string;
       timestamp: number;
@@ -1106,7 +1106,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     };
     const chatItems: TimelineItem[] = page.map((m) => ({
       id: m.id,
-      type: (m.catId ? 'assistant' : m.source ? 'connector' : 'user') as 'user' | 'assistant' | 'connector',
+      type: (m.catId
+        ? 'assistant'
+        : m.source
+          ? 'connector'
+          : m.userId === 'system'
+            ? 'system'
+            : 'user') as TimelineItem['type'],
       catId: m.catId,
       content: m.content,
       ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
