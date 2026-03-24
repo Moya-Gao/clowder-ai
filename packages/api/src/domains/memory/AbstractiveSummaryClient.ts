@@ -116,9 +116,10 @@ function parseNaturalLanguageOutput(text: string, input: AbstractiveInput): Abst
   } else {
     // Fallback: use first non-empty line as title, or generate from thread ID
     const firstLine = text.trim().split('\n')[0]?.trim();
-    topicLabel = firstLine && firstLine.length > 5 && firstLine.length < 200
-      ? firstLine.replace(/^[-*>\s]+/, '').slice(0, 80)
-      : `Thread ${input.threadId.slice(7, 19)} Summary`;
+    topicLabel =
+      firstLine && firstLine.length > 5 && firstLine.length < 200
+        ? firstLine.replace(/^[-*>\s]+/, '').slice(0, 80)
+        : `Thread ${input.threadId.slice(7, 19)} Summary`;
     titleEnd = firstLine ? text.indexOf(firstLine) + firstLine.length : 0;
   }
 
@@ -144,7 +145,11 @@ function parseNaturalLanguageOutput(text: string, input: AbstractiveInput): Abst
 
   // If no summary extracted, use the whole text as summary
   if (!summary) {
-    const fallback = text.replace(/^#{1,3}\s+.+$/m, '').replace(/\s+/g, ' ').trim().slice(0, 800);
+    const fallback = text
+      .replace(/^#{1,3}\s+.+$/m, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 800);
     if (!fallback) return null;
     return buildSingleSegment(topicLabel, topicKey, fallback, [], input);
   }

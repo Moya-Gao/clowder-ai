@@ -563,10 +563,7 @@ describe('WeixinAdapter', () => {
         text: async () => '<html>gateway error</html>',
       }));
 
-      await assert.rejects(
-        () => sendAndFlush(adapter, 'user-1', 'hello'),
-        /sendmessage returned non-JSON response/,
-      );
+      await assert.rejects(() => sendAndFlush(adapter, 'user-1', 'hello'), /sendmessage returned non-JSON response/);
       assert.equal(adapter._isTokenConsumed('user-1', 'ctx-1'), false);
     });
 
@@ -578,10 +575,7 @@ describe('WeixinAdapter', () => {
         text: async () => '',
       }));
 
-      await assert.rejects(
-        () => sendAndFlush(adapter, 'user-1', 'hello'),
-        /sendmessage returned empty response body/,
-      );
+      await assert.rejects(() => sendAndFlush(adapter, 'user-1', 'hello'), /sendmessage returned empty response body/);
       assert.equal(adapter._isTokenConsumed('user-1', 'ctx-1'), false);
     });
 
