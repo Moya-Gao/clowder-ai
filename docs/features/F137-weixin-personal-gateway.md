@@ -265,6 +265,8 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 4. 跨 token 隔离：token 变化时先 flush 旧桶，不跨 turn 合并
 5. Compare-and-delete：flush 后仅删与 boundToken 匹配的 contextTokens 条目
 
+**已知 Debt（DEBT-1）**：triple-token rotation during async flush — 当 tokenA 正在异步 flush 时，tokenB 的 sendReply 在 `await flushReply()` 处等待，此时 tokenC 到达并建桶。B 恢复后发现桶的 token 不匹配，当前行为是 `resolve()` 静默跳过（B 内容不发出）。触发条件极端（3 个 token 在一次 flush 的网络时间内连续轮换），日常不会命中，但属于协议正确性 debt。修复方向：pending 按 `(chatId, token)` 双 key 分桶，或引入 per-chatId 发送队列。— 云端 Codex review PR #704 R2 发现，标记为 known debt 待后续处理。
+
 **疑似根因（按可能性排序）**：
 
 1. **`OutboundDeliveryHook.deliver()` 查询到 0 个 binding**：
