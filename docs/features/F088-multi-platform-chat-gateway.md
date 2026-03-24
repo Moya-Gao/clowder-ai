@@ -141,16 +141,18 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 
 **J2 技术决策（铲屎官 2026-03-23 确认）**：
 - **生成工具：Pandoc**（`pandoc` CLI，非 JS 库）— 猫的输出天然是 Markdown，Pandoc 的 `md → pdf` 和 `md → docx` 是一等公民，无需加 npm 依赖
-- 安装：`brew install pandoc`（macOS），PDF 额外需要 LaTeX（`brew install --cask mactex-no-gui` 或 `tectonic`）
-- **必须做 graceful degradation**：运行时检测 `which pandoc`，未安装时降级为发送 .md 原文件 + 提示"安装 pandoc 可获得 PDF/DOCX 导出"
-- 与 Anthropic Claude Code 技术栈对齐（Anthropic best practices 推荐 Pandoc 路线）
+- **安装由我们搞定，不让用户自己装**（铲屎官 2026-03-23 明确要求）：启动脚本 / setup 引导自动检测并安装 pandoc（类似 ffmpeg 的处理方式）
+- macOS: `brew install pandoc`；PDF 额外需要 LaTeX engine（`tectonic` 更轻量，或 `mactex-no-gui`）
+- Docker / CI：Dockerfile 里 `apt-get install pandoc`
+- 运行时仍做 graceful degradation 兜底：万一安装失败 → 降级为发 .md 原文件
+- 与 Anthropic Claude Code 技术栈对齐
 
 **J2 待做**：
-- [ ] Pandoc 可用性检测 + 降级逻辑
+- [ ] 启动脚本 / setup 流程自动安装 pandoc（检测 → 缺失则安装 → 验证）
 - [ ] `execFile('pandoc', ...)` 封装（MD→PDF / MD→DOCX）
+- [ ] 运行时 graceful degradation 兜底（安装失败时降级为 .md）
 - [ ] 临时文件生命周期（生成 → /uploads/ → MediaCleanupJob TTL）
 - [ ] 大小限制策略（飞书 30MB 上限）
-- [ ] 安装引导文档（`docs/guides/` 补 pandoc 安装说明）
 
 ## MVP Scope 硬边界
 
