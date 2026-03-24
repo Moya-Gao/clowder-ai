@@ -179,7 +179,7 @@ created: 2026-03-04
 | R4 | "你这个可以当打样" | AC-A4 | F052 气泡收入设计原则 | [x] |
 | R5 | "对齐设计语言" | AC-A2 | Token 体系 + 组件库 | [/] |
 | R6 | "猫猫头像点击出信息/生活照/心情"（不是工卡，是伙伴名片） | AC-C2 | manual | [ ] |
-| R7 | "飞书系统消息充满丑陋的emoji！你自己画过svg的！"（2026-03-18） | AC-B0-W1, AC-B0-W2 | 截图对比 + grep 验证 | [/] |
+| R7 | "飞书系统消息充满丑陋的emoji！你自己画过svg的！"（2026-03-18）→ 回调：CafeIcons Lucide 风格"又丑又突兀"，需二次审计（KD-9） | AC-B0-W1, AC-B0-W2 | 截图对比 + grep 验证 | [/] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -198,6 +198,7 @@ created: 2026-03-04
 | KD-6 | Phase A 就留 dark mode semantic token | 成本极低但避免后面返工 | 2026-03-04 |
 | KD-7 | 动效上限机制：只在 hover/首次/低频触发 | 砚砚提醒，防止灵动细节拖垮性能 | 2026-03-04 |
 | KD-8 | 禁止新硬编码 hex，组件只用 `bg-cafe-surface` 等 semantic class | Tailwind 映射统一入口 | 2026-03-04 |
+| KD-9 | Icon 风格修正：CafeIcons Lucide monoline 风格与设计语言冲突，Apple emoji 在用户可见 UI 反而更贴合 Cozy Swiss 底盘。方向：用户可见处优先 Apple emoji/filled-rounded SVG，Lucide monoline 仅后台/开发工具 | 铲屎官反馈"又丑又突兀"，社区 PR (F127) 又引入了大量 emoji，触发全面审计 | 2026-03-22 |
 
 ## Dependencies
 
@@ -243,3 +244,5 @@ created: 2026-03-04
 | 2026-03-18 | 铲屎官发现全站 emoji 泛滥，要求彻底清扫（R7） |
 | 2026-03-18 | Phase B-0 Wave1 merged (PR #547)：Connector 气泡图标全替换为 PNG/SVG |
 | 2026-03-18 | Phase B-0 Wave2 merged (PR #550)：Bootcamp/成就/系统消息/前端零散 emoji 全清理 |
+| 2026-03-22 | 铲屎官反馈 CafeIcons Lucide monoline"又丑又突兀"，社区 PR(F127)引入 emoji 触发二次审计。KD-9 方向修正：Apple emoji > Lucide stroke SVG |
+| 2026-03-22 | Phase B-0 回调：Cat Café é 修正 + 猫爪🐾恢复 emoji + 微信/钉钉 connector 头像补全 + emoji 分层策略 |
