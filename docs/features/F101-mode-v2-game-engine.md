@@ -499,6 +499,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-20 | **Phase I 立项** — 铲屎官批评猫猫 agent 未接入。三猫讨论（金渐层诊断 + 布偶猫架构 + 缅因猫审查）收敛：保留引擎层，重写驱动层为 A2A mention 协议，复用现有 session 管理。KD-29~34 |
 | 2026-03-22 | Phase I P0 security + GameDriver merged (PR #654) — session catId auth, evidence exclusion, submit_game_action three-layer auth, GameDriver interface + LegacyAutoDriver (codex 3-round local review) |
 | 2026-03-23 | Phase I bug fix merged (PR #685) — narrator eventLog routing + briefing info leak fix + OCC stale-runtime fix. 砚砚 2-round code review + 布偶猫愿景守护 + cloud review (P1→P3 downgrade). Squash merged `c1a0d625` |
+| 2026-03-25 | Phase I bug fix merged (PR #703) — game thread virtual projectPath (`games/werewolf`) triggered F070 governance gate in invokeSingleCat → cats failed silently. Fix: skip `games/` prefix in workingDirectory resolution. 砚砚 1-round local review + Codex cloud review (0 findings). Squash merged `b6add125` |
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
@@ -533,5 +534,6 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | **PR** | PR #463 | Phase D — 独立 thread + 上帝面板 + 结算 MVP (codex 3-round review) |
 | **PR** | PR #466 | AC-D5 PR-A — token-only CSS vars (werewolf-cute theme layer) |
 | **PR** | PR #471 | Phase D — game startup via dedicated API + HTTP navigation (codex 3-round local + 3-round cloud review) |
+| **PR** | PR #703 | Bug fix — game thread projectPath governance gate bypass (1-line fix + regression test) |
 | **Plan** | `docs/plans/2026-03-12-f101-b8-frontend-game-ui.md` | B8 前端实施计划 |
 | **Reflection** | `docs/reflections/2026-03-12-f101-mode-v2-capsule.md` | 完成反思胶囊 |
