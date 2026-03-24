@@ -65,6 +65,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
 | **7** | 群聊公共层：ConnectorRouter sender 透传 + ConnectorSource sender 扩展 | 📋 planned | — (联动 [F134](F134-feishu-group-chat.md)) |
 | **8** | IM Hub 配置向导 — 平台接入引导 UI（飞书/Telegram/钉钉） | ✅ | [#680](https://github.com/zts212653/cat-cafe/pull/680) |
+| **J** | 文档生成+文件投递：猫生成 PDF/DOCX/MD → 新 RichBlock `file` → OutboundDelivery → 飞书/TG 文件消息 | 📋 planned | — |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 
 完整 AC 列表见 [各 Phase 详细 AC](assets/F088/acceptance-criteria.md)
@@ -111,6 +112,29 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - 热重载 connector gateway（接受手动重启）
 - OAuth 接入流程
 - 多账号/多 workspace
+
+### Phase J: 文档生成 + 文件投递（📋 planned）
+
+**背景**：铲屎官希望猫能生成 PDF/DOCX/MD 等文档并通过飞书/Telegram 发送给用户。金渐层已在飞书测试 thread 中验证过文件生成能力。飞书 API 原生支持 `file_type: pdf/doc/xls/ppt/stream`，上传限制 30MB。
+
+**需求**：
+1. 猫生成文档（PDF/DOCX/MD）→ 保存为本地临时文件
+2. 通过新 RichBlock `kind: "file"` 附着在消息上
+3. OutboundDeliveryHook 识别 file block → 调用 `sendMedia(type: 'file')`
+4. FeishuAdapter 精确映射 `file_type`（PDF→`"pdf"` 而非 `"stream"`，获得飞书原生预览）
+
+**现有基础**：
+- `FeishuAdapter.sendMedia(type: 'file')` — 完整 4 级降级链 ✅
+- `uploadToFeishu()` → `/im/v1/files` ✅
+- 用户从飞书发文件给猫 → 已能接收（`case 'file':` handler）✅
+
+**待补差距**：
+- [ ] PDF 生成库选型（pdf-lib / Puppeteer PDF export / 其他）
+- [ ] DOCX 生成库选型（docx / officegen / 其他）
+- [ ] 新 RichBlock `kind: "file"` 定义（shared types）
+- [ ] OutboundDeliveryHook 增加 file block 投递逻辑
+- [ ] `file_type` 精确映射（按扩展名 → pdf/doc/xls/ppt/stream）
+- [ ] Telegram adapter 文件发送支持（sendDocument API）
 
 ## MVP Scope 硬边界
 
