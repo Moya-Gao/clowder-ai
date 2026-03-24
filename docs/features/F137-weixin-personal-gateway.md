@@ -60,7 +60,7 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | **消息限制** | 单条 2000 字符，超长需分块发送 |
 | **Auth Header** | `AuthorizationType: ilink_bot_token` + `Authorization: Bearer <token>` + `X-WECHAT-UIN: <random>` |
 
-### Phase A: 文本双向 — 扫码登录 + 收发文本消息
+### Phase A: 文本双向 — 扫码登录 + 收发文本消息 ✅
 
 **连接方式**：HTTP 长轮询（`getupdates`，35s timeout）。
 
@@ -117,13 +117,13 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 ## Acceptance Criteria
 
 ### Phase A（文本双向）
-- [ ] AC-A1: 扫码登录流程完整（获取 QR → 扫码 → 获取 bot_token → 持久化）
-- [ ] AC-A2: 微信个人号 DM 消息入站解析正确（文本消息）
-- [ ] AC-A3: 猫猫回复通过 WeixinAdapter 发送到微信（文本，含 context_token 缓存）
-- [ ] AC-A4: 长消息自动分块（>2000 字符）
-- [ ] AC-A5: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
+- [x] AC-A1: 扫码登录流程完整（获取 QR → 扫码 → 获取 bot_token → 持久化）
+- [x] AC-A2: 微信个人号 DM 消息入站解析正确（文本消息）
+- [x] AC-A3: 猫猫回复通过 WeixinAdapter 发送到微信（文本，含 context_token 缓存）
+- [x] AC-A4: 长消息自动分块（>2000 字符）
+- [x] AC-A5: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
 - [ ] AC-A6: /new /threads /use /where 命令在微信内正常工作
-- [ ] AC-A7: `connector.ts` 新增 `'weixin'` ConnectorDefinition，前端 bubble 正确渲染
+- [x] AC-A7: `connector.ts` 新增 `'weixin'` ConnectorDefinition，前端 bubble 正确渲染
 
 ### Phase B（输入状态 + 媒体）
 - [ ] AC-B1: agent 处理期间微信显示"对方正在输入中"
@@ -194,6 +194,7 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 |------|------|
 | 2026-07-19 | 调研 `@tencent-weixin/openclaw-weixin` 包 + iLink Bot 协议完整分析 |
 | 2026-07-19 | 立项 F137，related F088/F132 |
+| 2026-07-19 | Phase A 实现 + 砚砚 review 放行 + 云端 review 通过 → PR #687 squash merge (2cba337b) |
 
 ## Review Gate
 
