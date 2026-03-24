@@ -190,7 +190,7 @@ export interface FeishuInboundMessage {
 |---|------|------|
 | OQ-1 | Bot 自身 open_id 如何获取：API 查询 vs env 配置？ | ✅ 双策略：启动时 `GET /bot/v3/info` 自动获取 + `FEISHU_BOT_OPEN_ID` env fallback（见 KD-5） |
 | OQ-2 | 群聊 thread 是否需要与 DM thread 共存？（同一人群聊和私聊是不同 thread） | ✅ 是，externalChatId 不同，自然隔离 |
-| OQ-3 | 群聊中的 /命令（/new /threads /use）如何处理？ | ✅ 初版群聊禁用 /命令，只允许对话（见 KD-8） |
+| OQ-3 | 群聊中的 /命令（/new /threads /use）如何处理？ | ✅ 群聊支持 /命令，每个群有独立 IM Hub（PR #699 修复） |
 
 ## Key Decisions
 
@@ -203,7 +203,7 @@ export interface FeishuInboundMessage {
 | KD-5 | Bot open_id 双策略获取 | 启动时调 `GET /open-apis/bot/v3/info` 自动获取 + `FEISHU_BOT_OPEN_ID` env 兜底。原因：open_id 是 app-scoped（同一 bot 不同 app token 看到不同 open_id，见 openclaw/openclaw#40768），env 兜底防 API 失败 | 2026-03-25 |
 | KD-6 | 发送者姓名通过 Contact API 获取 + 内存缓存 | `event.sender` 只有 `sender_id`（含 open_id/user_id/union_id），无 name 字段。需调 `GET /contact/v3/users/:open_id` 获取。用 Map 缓存避免重复调用。需 `contact:user.base:readonly` 权限 | 2026-03-25 |
 | KD-7 | @所有人（@_all）不触发 bot | 铲屎官确认："我@所有人的时候，bot我觉得应该不要响应，而是要明确@bot时候才响应"。`@_all` 在 mentions 中 key 为 `@_all`，与 `@_user_N` 不同，过滤即可 | 2026-03-25 |
-| KD-8 | 群聊中禁用 /命令，仅允许对话 | 群聊场景下 /new /threads /use 等命令语义不清且可能被误触。初版只在 DM 中允许命令 | 2026-03-25 |
+| KD-8 | ~~群聊中禁用 /命令~~ → 群聊支持 /命令 + 每群独立 IM Hub | 初版 KD-8 禁用了群聊 /command，铲屎官实测发现 `/threads` 被猫猫"扮演系统"回复。PR #699 移除限制，群聊恢复 /slash 命令支持，Hub 标题含群名（`飞书群聊 · {群名} IM Hub`）区分多群 | 2026-03-25 |
 | KD-9 | `@sender` 采用 message-level 绑定（`source.sender` 写入 messageStore）而非 thread-level lastSender | 原设计的 `lastSender` 是 thread 级覆盖存储，群聊并发时后到消息会覆盖先到的 sender，导致错 @。改用 message-level：每条入站消息的 `ConnectorSource.sender` 已持久化在 messageStore，deliver 时通过 `triggerMessageId` 回溯原始消息的 sender。详见 KD-9 技术设计章节 | 2026-03-25 |
 | KD-10 | Contact API + Chat API 放在 FeishuAdapter，不预抽服务 | `resolveSenderName(openId)` + `resolveChatName(chatId)` 带 TTL Map cache，直接放在 FeishuAdapter 内。只有第二个 connector 也需要时才抽 `FeishuContactService`。需权限：`contact:user.base:readonly` + `im:chat:readonly`（铲屎官已配） | 2026-03-25 |
 | KD-11 | Connector source 队列禁止 merge | `source === 'connector'` 的消息直接禁止 merge（快速稳妥方案）。QueueEntry 新增可选 `senderMeta` 字段用于 UI 展示，但不参与 merge 判断。这避免群聊中不同 sender 的消息被合并 | 2026-03-25 |
@@ -224,6 +224,9 @@ export interface FeishuInboundMessage {
 | 2026-03-25 | Merge gate PASSED (pnpm gate, SHA 01b7d3d2) |
 | 2026-03-24 | PR #697 created, cloud review (codex) PASSED — 0 P1/P2 |
 | 2026-03-24 | PR #697 squash merged → `dc4ef024`, Phase A-C done |
+| 2026-03-25 | 铲屎官飞书群聊实测：发现 KD-8 错误禁用了群聊 /command，猫猫"扮演系统"回复 /threads |
+| 2026-03-25 | PR #699 fix: 群聊恢复 /command + 每群独立 IM Hub（含群名标题），缅因猫 review 放行 |
+| 2026-03-25 | PR #700 test: 群聊 /command 和群 Hub 标题回归测试 |
 
 ## Design Gate Results（2026-03-25）
 
