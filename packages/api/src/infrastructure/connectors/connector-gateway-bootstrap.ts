@@ -10,7 +10,7 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import type { FastifyBaseLogger } from 'fastify';
@@ -396,10 +396,15 @@ export async function startConnectorGateway(
   const ttsCacheDir = resolve(process.env.TTS_CACHE_DIR ?? './data/tts-cache');
   const resolvedMediaDir = resolve(mediaDir);
   const mediaPathResolver = (url: string): string | undefined => {
-    if (url.startsWith('/uploads/')) return join(uploadDir, url.slice('/uploads/'.length));
-    if (url.startsWith('/api/tts/audio/')) return join(ttsCacheDir, url.slice('/api/tts/audio/'.length));
+    // Phase J P1: guard against path traversal (e.g. /uploads/../../etc/passwd)
+    const safeResolve = (base: string, suffix: string): string | undefined => {
+      const resolved = resolve(base, suffix);
+      return resolved.startsWith(base + '/') || resolved === base ? resolved : undefined;
+    };
+    if (url.startsWith('/uploads/')) return safeResolve(uploadDir, url.slice('/uploads/'.length));
+    if (url.startsWith('/api/tts/audio/')) return safeResolve(ttsCacheDir, url.slice('/api/tts/audio/'.length));
     if (url.startsWith('/api/connector-media/'))
-      return join(resolvedMediaDir, url.slice('/api/connector-media/'.length));
+      return safeResolve(resolvedMediaDir, url.slice('/api/connector-media/'.length));
     return undefined;
   };
 

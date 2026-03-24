@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { FeishuAdapter } from '../dist/infrastructure/connectors/adapters/FeishuAdapter.js';
+import { FeishuAdapter, inferFeishuFileType } from '../dist/infrastructure/connectors/adapters/FeishuAdapter.js';
 
 function noopLog() {
   const noop = () => {};
@@ -717,6 +717,48 @@ describe('FeishuAdapter', () => {
       await adapter.deleteMessage('om_msg_to_delete');
       assert.equal(deleteCalls.length, 1);
       assert.equal(deleteCalls[0].messageId, 'om_msg_to_delete');
+    });
+  });
+
+  // Phase J: inferFeishuFileType
+  describe('inferFeishuFileType()', () => {
+    it('maps pdf to pdf', () => {
+      assert.equal(inferFeishuFileType('report.pdf'), 'pdf');
+    });
+
+    it('maps docx to doc', () => {
+      assert.equal(inferFeishuFileType('document.docx'), 'doc');
+    });
+
+    it('maps doc to doc', () => {
+      assert.equal(inferFeishuFileType('old.doc'), 'doc');
+    });
+
+    it('maps xlsx to xls', () => {
+      assert.equal(inferFeishuFileType('sheet.xlsx'), 'xls');
+    });
+
+    it('maps pptx to ppt', () => {
+      assert.equal(inferFeishuFileType('slides.pptx'), 'ppt');
+    });
+
+    it('maps mp4 to mp4', () => {
+      assert.equal(inferFeishuFileType('video.mp4'), 'mp4');
+    });
+
+    it('falls back to stream for unknown extensions', () => {
+      assert.equal(inferFeishuFileType('data.csv'), 'stream');
+      assert.equal(inferFeishuFileType('archive.zip'), 'stream');
+      assert.equal(inferFeishuFileType('readme.md'), 'stream');
+    });
+
+    it('falls back to stream for no extension', () => {
+      assert.equal(inferFeishuFileType('noext'), 'stream');
+    });
+
+    it('is case-insensitive', () => {
+      assert.equal(inferFeishuFileType('REPORT.PDF'), 'pdf');
+      assert.equal(inferFeishuFileType('Doc.DOCX'), 'doc');
     });
   });
 });
