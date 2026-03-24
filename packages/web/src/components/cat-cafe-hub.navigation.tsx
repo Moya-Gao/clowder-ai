@@ -45,6 +45,7 @@ export const HUB_GROUPS: HubGroup[] = [
       { id: 'provider-profiles', label: '账号配置', icon: 'user-cog' },
       { id: 'voice', label: '语音设置', icon: 'mic' },
       { id: 'notify', label: '通知', icon: 'bell' },
+      { id: 'permissions', label: '群聊权限', icon: 'shield-check' },
     ],
   },
   {
