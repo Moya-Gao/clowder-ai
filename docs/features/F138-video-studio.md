@@ -90,7 +90,7 @@ Cat Café 需要**系统化的视频制作能力**，不再是一次性手搓 Re
 ## Acceptance Criteria
 
 ### Phase A（学习 + 基础设施）
-- [ ] AC-A1: waoowaoo 深度调研报告完成，含可借鉴点和不适用点分析
+- [x] AC-A1: waoowaoo 深度调研报告完成，含可借鉴点和不适用点分析 ✅ 2026-03-25
 - [ ] AC-A2: 素材管理规范文档 + 压缩脚本可用
 - [ ] AC-A3: Remotion 项目重构为模板库，至少 3 个可复用场景模板
 - [ ] AC-A4: 字幕系统支持从 JSON 数据导入
@@ -144,6 +144,7 @@ Cat Café 需要**系统化的视频制作能力**，不再是一次性手搓 Re
 | 2026-03-24 | 介绍视频 V4.8 完成 + 制作复盘 |
 | 2026-03-24 | waoowaoo 调研完成 |
 | 2026-03-24 | F138 立项 |
+| 2026-03-25 | waoowaoo 深度调研完成（砚砚主调研 + 金渐层整理） |
 
 ## Links
 
@@ -153,4 +154,5 @@ Cat Café 需要**系统化的视频制作能力**，不再是一次性手搓 Re
 - [waoowaoo GitHub](https://github.com/saturndec/waoowaoo)
 - [F054 HCI 预热基础设施](./F054-hci-preheat-infra.md)
 - [F093 Cats & U 世界引擎](./F093-cats-and-u-world-engine.md)
+- [waoowaoo 深度调研报告](../research/2026-03-25-waoowaoo-deep-dive.md)
 - [Remotion 官方文档](https://www.remotion.dev/docs)
