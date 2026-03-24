@@ -139,11 +139,18 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - [x] 前端 FileBlock 渲染器 + 安全 href 校验
 - [x] Telegram adapter 文件发送已有（sendDocument）
 
-**J2 待补差距**：
-- [ ] PDF 生成库选型（Puppeteer PDF export / pdf-lib）
-- [ ] DOCX 生成库选型（docx npm 包）
-- [ ] 临时文件生命周期管理
-- [ ] 大小限制策略
+**J2 技术决策（铲屎官 2026-03-23 确认）**：
+- **生成工具：Pandoc**（`pandoc` CLI，非 JS 库）— 猫的输出天然是 Markdown，Pandoc 的 `md → pdf` 和 `md → docx` 是一等公民，无需加 npm 依赖
+- 安装：`brew install pandoc`（macOS），PDF 额外需要 LaTeX（`brew install --cask mactex-no-gui` 或 `tectonic`）
+- **必须做 graceful degradation**：运行时检测 `which pandoc`，未安装时降级为发送 .md 原文件 + 提示"安装 pandoc 可获得 PDF/DOCX 导出"
+- 与 Anthropic Claude Code 技术栈对齐（Anthropic best practices 推荐 Pandoc 路线）
+
+**J2 待做**：
+- [ ] Pandoc 可用性检测 + 降级逻辑
+- [ ] `execFile('pandoc', ...)` 封装（MD→PDF / MD→DOCX）
+- [ ] 临时文件生命周期（生成 → /uploads/ → MediaCleanupJob TTL）
+- [ ] 大小限制策略（飞书 30MB 上限）
+- [ ] 安装引导文档（`docs/guides/` 补 pandoc 安装说明）
 
 ## MVP Scope 硬边界
 
