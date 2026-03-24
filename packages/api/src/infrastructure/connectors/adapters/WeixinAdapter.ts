@@ -23,6 +23,8 @@ const WEIXIN_MAX_MESSAGE_LENGTH = 400;
 const WEIXIN_CHUNK_DELAY_MS = 300;
 /** Debounce window for aggregating multi-cat replies into one outbound message (ms) */
 const WEIXIN_REPLY_DEBOUNCE_MS = 3_000;
+/** Typing keepalive interval (ms) — openclaw v2 uses 5s */
+const TYPING_KEEPALIVE_MS = 5_000;
 /** errcode -14 means session expired — need re-login */
 const ERRCODE_SESSION_EXPIRED = -14;
 /** QR code status poll interval (ms) */
@@ -180,6 +182,9 @@ export class WeixinAdapter implements IOutboundAdapter {
   >();
   private fetchFn: typeof fetch = globalThis.fetch;
   private sessionExpiredCallback: (() => void) | null = null;
+  private readonly typingTickets = new Map<string, string>();
+  private readonly typingTimers = new Map<string, ReturnType<typeof setInterval>>();
+  private readonly typingEpoch = new Map<string, number>();
 
   constructor(botToken: string, log: FastifyBaseLogger) {
     this.botToken = botToken;
@@ -370,6 +375,17 @@ export class WeixinAdapter implements IOutboundAdapter {
               '[WeixinAdapter] Inbound token cached',
             );
 
+            // Start typing indicator (non-blocking, epoch-guarded against stale starts)
+            const epoch = (this.typingEpoch.get(msg.chatId) ?? 0) + 1;
+            this.typingEpoch.set(msg.chatId, epoch);
+            this.fetchTypingTicket(msg.chatId, msg.contextToken)
+              .then(() => {
+                if (this.typingEpoch.get(msg.chatId) === epoch) {
+                  this.startTyping(msg.chatId);
+                }
+              })
+              .catch(() => {});
+
             try {
               await handler(msg);
             } catch (err) {
@@ -405,7 +421,85 @@ export class WeixinAdapter implements IOutboundAdapter {
     this.polling = false;
     this.pollAbortController?.abort();
     this.pollAbortController = null;
+    // Clean up all typing timers
+    for (const chatId of this.typingTimers.keys()) {
+      this.stopTyping(chatId);
+    }
     this.log.info('[WeixinAdapter] Long polling stopped');
+  }
+
+  // ── Typing indicator (iLink protocol: getconfig → sendtyping keepalive) ──
+
+  async fetchTypingTicket(chatId: string, contextToken: string): Promise<void> {
+    try {
+      const res = await this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/getconfig`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          ilink_user_id: chatId,
+          context_token: contextToken,
+          base_info: { channel_version: '1.0.0' },
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) {
+        this.log.warn({ status: res.status }, '[WeixinAdapter] getconfig HTTP error');
+        return;
+      }
+      const data = (await res.json()) as { typing_ticket?: string; ret?: number };
+      if (data.typing_ticket) {
+        this.typingTickets.set(chatId, data.typing_ticket);
+        this.log.info({ chatId }, '[WeixinAdapter] typing_ticket acquired');
+      }
+    } catch (err) {
+      this.log.warn({ err }, '[WeixinAdapter] getconfig failed (non-fatal)');
+    }
+  }
+
+  startTyping(chatId: string): void {
+    const ticket = this.typingTickets.get(chatId);
+    if (!ticket) return;
+    // Clear any existing keepalive timer for this chatId (no CANCEL — just stop the old interval)
+    const oldTimer = this.typingTimers.get(chatId);
+    if (oldTimer) clearInterval(oldTimer);
+    const send = () => {
+      this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/sendtyping`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          ilink_user_id: chatId,
+          typing_ticket: ticket,
+          status: 1,
+          base_info: { channel_version: '1.0.0' },
+        }),
+        signal: AbortSignal.timeout(5_000),
+      }).catch((err) => this.log.debug({ err }, '[WeixinAdapter] sendTyping error (non-fatal)'));
+    };
+    send();
+    this.typingTimers.set(chatId, setInterval(send, TYPING_KEEPALIVE_MS));
+  }
+
+  stopTyping(chatId: string): void {
+    // Bump epoch to invalidate any pending fetchTypingTicket→startTyping chain
+    this.typingEpoch.set(chatId, (this.typingEpoch.get(chatId) ?? 0) + 1);
+    const timer = this.typingTimers.get(chatId);
+    if (timer) {
+      clearInterval(timer);
+      this.typingTimers.delete(chatId);
+    }
+    const ticket = this.typingTickets.get(chatId);
+    if (!ticket) return;
+    this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/sendtyping`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        ilink_user_id: chatId,
+        typing_ticket: ticket,
+        status: 2,
+        base_info: { channel_version: '1.0.0' },
+      }),
+      signal: AbortSignal.timeout(5_000),
+    }).catch(() => {});
   }
 
   // ── Outbound: Send reply ──
@@ -487,6 +581,7 @@ export class WeixinAdapter implements IOutboundAdapter {
         { chatId: externalChatId, reason, tokenHash },
         '[WeixinAdapter] Cannot send — context_token unavailable or consumed',
       );
+      this.stopTyping(externalChatId);
       for (const r of resolvers) r.resolve();
       return;
     }
@@ -504,6 +599,7 @@ export class WeixinAdapter implements IOutboundAdapter {
       if (this.contextTokens.get(externalChatId) === boundToken) {
         this.contextTokens.delete(externalChatId);
       }
+      this.stopTyping(externalChatId);
       this.log.info(
         { chatId: externalChatId, chunks: chunks.length, tokenHash },
         '[WeixinAdapter] flushReply() completed — token consumed',
@@ -511,6 +607,7 @@ export class WeixinAdapter implements IOutboundAdapter {
 
       for (const r of resolvers) r.resolve();
     } catch (err) {
+      this.stopTyping(externalChatId);
       this.log.error({ err, chatId: externalChatId }, '[WeixinAdapter] flushReply() failed');
       for (const r of resolvers) r.reject(err instanceof Error ? err : new Error(String(err)));
     }
