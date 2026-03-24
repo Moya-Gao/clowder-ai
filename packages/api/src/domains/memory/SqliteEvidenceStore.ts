@@ -298,7 +298,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     // Apply ALL SearchOptions filters (P1 fix: semantic must respect status/keywords too)
     const effectiveKind =
       options?.kind ??
-        (options?.scope === 'threads' ? 'thread' : options?.scope === 'sessions' ? 'session' : undefined);
+      (options?.scope === 'threads' ? 'thread' : options?.scope === 'sessions' ? 'session' : undefined);
     const excludeSession = options?.scope === 'docs' || options?.scope === 'memory';
     if (effectiveKind) {
       sql += ' AND kind = ?';

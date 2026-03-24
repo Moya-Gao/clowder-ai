@@ -17,7 +17,7 @@ export function isCommandInvocation(input: string, command: string): boolean {
 
 /** Format ConfigSnapshot into readable multi-line text for /config display */
 function formatConfigForDisplay(config: ConfigSnapshot): string {
-  const lines: string[] = ['[配置] Cat Cafe 运行配置', ''];
+  const lines: string[] = ['[配置] Cat Café 运行配置', ''];
 
   // Per-cat budgets first (the actual limits used)
   if (config.perCatBudgets) {

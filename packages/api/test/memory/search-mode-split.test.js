@@ -267,8 +267,22 @@ describe('G-4: drillDown hints', () => {
     store.initialize();
 
     store.upsert([
-      { anchor: 'thread-t1', kind: 'thread', status: 'active', title: 'Thread One', summary: 'foo bar', updatedAt: new Date().toISOString() },
-      { anchor: 'session-s1', kind: 'session', status: 'active', title: 'Session One', summary: 'foo bar', updatedAt: new Date().toISOString() },
+      {
+        anchor: 'thread-t1',
+        kind: 'thread',
+        status: 'active',
+        title: 'Thread One',
+        summary: 'foo bar',
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        anchor: 'session-s1',
+        kind: 'session',
+        status: 'active',
+        title: 'Session One',
+        summary: 'foo bar',
+        updatedAt: new Date().toISOString(),
+      },
     ]);
 
     const results = await store.search('foo', { scope: 'threads', limit: 5 });
@@ -279,7 +293,7 @@ describe('G-4: drillDown hints', () => {
       assert.equal(r.kind, 'thread', 'scope=threads should only return kind=thread');
     }
     // drillDown should be present on thread results
-    const t = results.find(r => r.anchor === 'thread-t1');
+    const t = results.find((r) => r.anchor === 'thread-t1');
     assert.ok(t, 'thread-t1 should be in results');
     assert.ok(t.drillDown, 'thread result should have drillDown');
     assert.equal(t.drillDown.tool, 'cat_cafe_get_thread_context');

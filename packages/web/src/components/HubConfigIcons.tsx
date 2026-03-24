@@ -35,28 +35,20 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
       </svg>
     ),
   },
-  dingtalk: {
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
-    icon: (
-      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" stroke="currentColor" {...SVG_PROPS}>
-        <path d="M12 8V4H8" />
-        <rect width="16" height="12" x="4" y="8" rx="2" />
-        <path d="M2 14h2" />
-        <path d="M20 14h2" />
-        <path d="M15 13v2" />
-        <path d="M9 13v2" />
-      </svg>
-    ),
-  },
   weixin: {
-    iconBg: '#DCFCE7',
+    iconBg: '#D1FAE5',
     iconColor: '#07C160',
     icon: (
-      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" stroke="currentColor" {...SVG_PROPS}>
-        <path d="M14.5 3C10.358 3 7 5.91 7 9.5c0 1.26.447 2.43 1.214 3.415L7 16l3.287-1.316C11.235 15.06 12.337 15.5 13.5 15.5h1c4.142 0 7.5-2.91 7.5-6.5S18.642 3 14.5 3Z" />
-        <path d="M10 12.5c-3.59 0-6.5 2.462-6.5 5.5 0 1.064.378 2.055 1.028 2.888L3.5 23.5l2.782-1.113c.787.39 1.7.613 2.718.613h.5c3.59 0 6.5-2.462 6.5-5.5S13.59 12.5 10 12.5Z" />
-      </svg>
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src="/images/connectors/weixin.png" alt="WeChat" className="w-[18px] h-[18px]" />
+    ),
+  },
+  dingtalk: {
+    iconBg: '#DBEAFE',
+    iconColor: '#3296FA',
+    icon: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src="/images/connectors/dingtalk.png" alt="DingTalk" className="w-[18px] h-[18px]" />
     ),
   },
 };

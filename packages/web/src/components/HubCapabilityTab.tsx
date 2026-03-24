@@ -170,7 +170,7 @@ export function HubCapabilityTab() {
           value={filterSource}
           options={[
             { value: 'all', label: '全部' },
-            { value: 'cat-cafe', label: 'Cat Cafe' },
+            { value: 'cat-cafe', label: 'Cat Café' },
             { value: 'external', label: '外部' },
           ]}
           onChange={(v) => setFilterSource(v as FilterSource)}
@@ -197,7 +197,7 @@ export function HubCapabilityTab() {
           key={group.category}
           icon={<SectionIconSkill />}
           title={group.category}
-          subtitle="Cat Cafe Skills"
+          subtitle="Cat Café Skills"
           items={group.items}
           catFamilies={catFamilies}
           toggling={toggling}

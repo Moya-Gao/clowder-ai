@@ -644,7 +644,7 @@ describe('WeixinAdapter', () => {
 
     it('breaks at newlines when possible', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
-      const text = 'A'.repeat(15) + '\n' + 'B'.repeat(10);
+      const text = `${'A'.repeat(15)}\n${'B'.repeat(10)}`;
       const chunks = adapter.chunkMessage(text, 20);
       assert.equal(chunks.length, 2);
       assert.equal(chunks[0], 'A'.repeat(15));
@@ -653,7 +653,7 @@ describe('WeixinAdapter', () => {
 
     it('breaks at spaces as fallback', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
-      const text = 'A'.repeat(15) + ' ' + 'B'.repeat(10);
+      const text = `${'A'.repeat(15)} ${'B'.repeat(10)}`;
       const chunks = adapter.chunkMessage(text, 20);
       assert.equal(chunks.length, 2);
       assert.equal(chunks[0], 'A'.repeat(15));
