@@ -117,15 +117,18 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
    - 在配置面板内展示 QR 码图片（qrUrl 直连）
    - 底部显示"请用微信扫描二维码"提示
 
-3. **扫码状态轮询**：
-   - 自动轮询 `GET /api/connector/weixin/qrcode-status?qrPayload=<hex>` 
+3. **扫码状态轮询（⚠️ 铁律：必须全自动，零用户干预）**：
+   - **QR 码获取成功后立即自动启动 poll**（`setInterval` / `useEffect`），用户不需要点任何额外按钮或发任何消息
+   - 轮询 `GET /api/connector/weixin/qrcode-status?qrPayload=<hex>`，间隔 2~3s
    - 状态映射：`0` → 等待扫码 → `1` → 已扫码待确认 → `4` → 成功
    - 超时处理：60s 无扫码自动过期，提示重新获取
+   - 铲屎官原话：*"扫码之后得自动 poll！不要我还要给你发个消息才能 poll"*
 
-4. **扫码完成 → 激活**：
-   - 扫码成功后自动调用 `POST /api/connector/weixin/activate`
-   - 激活后卡片切换为"已连接"状态
+4. **扫码完成 → 自动激活（零用户干预）**：
+   - poll 到 `confirmed` 后自动调用 `POST /api/connector/weixin/activate`
+   - 激活后卡片自动切换为"已连接"状态
    - 显示连接时间和轮询状态
+   - 整条链路：点击生成二维码 → 展示 QR → 用户扫码 → 自动检测 → 自动激活 → 完成。**用户只需做两件事：①点按钮 ②扫码**
 
 5. **已有后端 API**（Phase A 已实现，无需改动）：
    ```
