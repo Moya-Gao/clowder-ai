@@ -428,9 +428,12 @@ prepare_validation_target() {
 
 run_target_public_gate() {
   local gate_target="$1"
+  local gate_target_real
   local step_fail=false
   local original_dir="$PWD"
+  local test_public_log=""
 
+  gate_target_real="$(resolve_physical_path "$gate_target")"
   cd "$gate_target"
 
   if [ -f "$gate_target/.env.example" ] && [ ! -f "$gate_target/.env" ]; then
@@ -460,9 +463,17 @@ run_target_public_gate() {
   fi
 
   echo "  Smoke test (test:public)..."
-  if ! run_public_acceptance_env pnpm --filter @cat-cafe/api run test:public 2>&1 | tail -5; then
-    echo -e "  ${RED}✗ test:public failed${NC}"
+  test_public_log=$(mktemp "${TMPDIR:-/tmp}/cat-cafe-testpublic.XXXXXX")
+  if ! run_public_acceptance_env \
+    PROJECT_ALLOWED_ROOTS_APPEND=true \
+    PROJECT_ALLOWED_ROOTS="$gate_target_real" \
+    pnpm --filter @cat-cafe/api run test:public >"$test_public_log" 2>&1; then
+    echo -e "  ${RED}✗ test:public failed${NC} (full log: $test_public_log)"
+    tail -20 "$test_public_log"
     step_fail=true
+  else
+    tail -5 "$test_public_log"
+    rm -f "$test_public_log"
   fi
 
   if [ "$FAST_VALIDATE" = true ]; then
@@ -479,10 +490,16 @@ run_target_public_gate() {
 
     accept_api_port="$(find_available_port 3004)"
     accept_web_port="$(find_available_port 3003 "$accept_api_port")"
-    forbidden_ports="3001|3002|3011|3012|4111|4000|4100|6398|6399"
+    # 4100 is the public Preview Gateway default (F120), so treat it as an
+    # exported surface, not an internal-port leak.
+    forbidden_ports="3001|3002|3011|3012|4111|4000|6398|6399"
     ports_before=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
 
-    run_public_acceptance_env API_SERVER_PORT=$accept_api_port MEMORY_STORE=1 NODE_ENV=test pnpm --filter @cat-cafe/api start >/dev/null 2>&1 &
+    run_public_acceptance_env \
+      PROJECT_ALLOWED_ROOTS_APPEND=true \
+      PROJECT_ALLOWED_ROOTS="$gate_target_real" \
+      API_SERVER_PORT=$accept_api_port MEMORY_STORE=1 NODE_ENV=test \
+      pnpm --filter @cat-cafe/api start >/dev/null 2>&1 &
     local api_pid=$!
     run_public_acceptance_env PORT=$accept_web_port pnpm --filter @cat-cafe/web dev -p $accept_web_port >/dev/null 2>&1 &
     local web_pid=$!

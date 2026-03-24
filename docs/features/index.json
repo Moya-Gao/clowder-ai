@@ -621,7 +621,7 @@
     {
       "id": "F101",
       "name": "Mode v2 — 游戏系统引擎 + 狼人杀",
-      "status": "in-progress (reopened) | **Owner**: 布偶猫 | **Priority**: P1 | **Reopened**: 2026-03-14",
+      "status": "in-progress (Phase I in progress) | **Owner**: 布偶猫 | **Priority**: P1 | **Reopened**: 2026-03-14",
       "file": "F101-mode-v2-game-engine.md"
     },
     {
@@ -843,9 +843,9 @@
     {
       "id": "F137",
       "name": "WeChat Personal Gateway — 微信个人号 iLink Bot 接入",
-      "status": "spec | **Owner**: 金渐层 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 金渐层 | **Priority**: P1",
       "file": "F137-weixin-personal-gateway.md"
     }
   ],
-  "generated_at": "2026-03-23T22:56:24.193Z"
+  "generated_at": "2026-03-24T02:44:17.392Z"
 }

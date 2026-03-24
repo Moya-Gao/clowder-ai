@@ -270,6 +270,7 @@ server.listen(3002,'127.0.0.1',()=>setInterval(()=>{},1000));`,
       encoding: 'utf8',
       env: {
         ...process.env,
+        API_SERVER_PORT: '3002',
         PATH: `${binDir}:${process.env.PATH}`,
         RUNTIME_TEST_PNPM_LOG: logFile,
       },

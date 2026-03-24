@@ -699,6 +699,49 @@ describe(
         'full sync should reuse run_target_public_gate for the temp target check',
       );
     });
+
+    it('temp target public gate appends the validation checkout to PROJECT_ALLOWED_ROOTS', () => {
+      const gate = readFunctionBody(readSyncScript(), 'run_target_public_gate');
+      assert.match(
+        gate,
+        /gate_target_real="\$\(resolve_physical_path "\$gate_target"\)"/,
+        'run_target_public_gate should canonicalize the temp target root before exporting PROJECT_ALLOWED_ROOTS',
+      );
+      assert.match(
+        gate,
+        /PROJECT_ALLOWED_ROOTS_APPEND=true[\s\\]+PROJECT_ALLOWED_ROOTS="\$gate_target_real"[\s\\]+pnpm --filter @cat-cafe\/api run test:public/,
+        'test:public in the temp target should treat the validation checkout as an allowed project root',
+      );
+      assert.match(
+        gate,
+        /PROJECT_ALLOWED_ROOTS_APPEND=true[\s\\]+PROJECT_ALLOWED_ROOTS="\$gate_target_real"[\s\\]+API_SERVER_PORT=\$accept_api_port MEMORY_STORE=1 NODE_ENV=test/,
+        'API startup acceptance should reuse the same temp-target allow-root so projectPath-based dispatch stays representative',
+      );
+    });
+
+    it('temp target public gate preserves full test:public output before tailing', () => {
+      const gate = readFunctionBody(readSyncScript(), 'run_target_public_gate');
+      assert.match(
+        gate,
+        /test_public_log=\$\(mktemp "\$\{TMPDIR:-\/tmp\}\/cat-cafe-testpublic\.XXXXXX"\)/,
+        'run_target_public_gate should capture test:public output in a dedicated temp log',
+      );
+      assert.match(
+        gate,
+        /pnpm --filter @cat-cafe\/api run test:public >"\$test_public_log" 2>&1/,
+        'test:public should write its full output to a log file before summary tailing',
+      );
+      assert.match(
+        gate,
+        /tail -20 "\$test_public_log"/,
+        'failure path should print a larger tail from the captured test:public log',
+      );
+      assert.doesNotMatch(
+        gate,
+        /pnpm --filter @cat-cafe\/api run test:public 2>&1 \| tail -5/,
+        'test:public should not pipe directly into tail, or failures become opaque',
+      );
+    });
   },
 );
 
@@ -746,6 +789,40 @@ describe(
         content,
         /accept_web_port="\$\(find_available_port 3003 "\$accept_api_port"\)"/,
         'startup acceptance should choose a distinct frontend port from a script-owned helper',
+      );
+    });
+
+    it('startup acceptance does not treat the public Preview Gateway port as forbidden leakage', () => {
+      const gate = readFunctionBody(readSyncScript(), 'run_target_public_gate');
+      assert.match(
+        gate,
+        /forbidden_ports="3001\|3002\|3011\|3012\|4111\|4000\|6398\|6399"/,
+        'startup acceptance should only block internal/runtime ports, not the public Preview Gateway default',
+      );
+      assert.doesNotMatch(
+        gate,
+        /forbidden_ports=.*4100/,
+        'startup acceptance must not reject the exported Preview Gateway default port 4100',
+      );
+    });
+  },
+);
+
+describe(
+  'Public-facing skill docs avoid home-only API defaults',
+  { skip: !isHomeRepo && 'sync infrastructure not present (open-source repo)' },
+  () => {
+    it('workspace-navigator uses API_SERVER_PORT env instead of hardcoded 3002 fallbacks', () => {
+      const content = readFileSync(resolve(ROOT, 'cat-cafe-skills/workspace-navigator/SKILL.md'), 'utf-8');
+      assert.doesNotMatch(
+        content,
+        /API_SERVER_PORT=3002|API_SERVER_PORT:-3002/,
+        'workspace-navigator should not hardcode the home-only API default in public-facing usage guidance',
+      );
+      assert.match(
+        content,
+        /API_PORT="\$\{API_SERVER_PORT:\?set API_SERVER_PORT before calling Navigate API\}"/,
+        'workspace-navigator should teach readers to source the API port from the runtime environment',
       );
     });
   },

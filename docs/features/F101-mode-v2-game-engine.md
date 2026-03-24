@@ -2,14 +2,15 @@
 feature_ids: [F101]
 related_features: [F011, F107]
 topics: [mode, game, werewolf, game-engine]
-doc_kind: done
+doc_kind: spec
 created: 2026-03-11
 reopened: 2026-03-14
+updated: 2026-03-23
 ---
 
 # F101: Mode v2 — 游戏系统引擎 + 狼人杀
 
-> **Status**: done (Phase I in progress) | **Owner**: 布偶猫 | **Priority**: P1 | **Reopened**: 2026-03-14
+> **Status**: in-progress (Phase I in progress) | **Owner**: 布偶猫 | **Priority**: P1 | **Reopened**: 2026-03-14
 >
 > **重新打开原因**：2026-03-12 声称 done 并通过愿景守护，但铲屎官 2026-03-14 实际启动 dev 点开狼人杀后发现：(1) 无关闭/返回按钮，用户被困在全屏游戏界面；(2) 无大厅/配置流程，7 只猫自动塞入无法选择；(3) 猫猫不会自动行动，游戏永远卡在 night_guard 等待中；(4) 整体不可用。92 个单元测试全绿但零 E2E 真实验证。教训见 LL-032。
 
