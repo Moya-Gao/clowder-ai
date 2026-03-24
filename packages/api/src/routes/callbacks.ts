@@ -355,12 +355,17 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // #83: Extract cc_rich blocks from post_message content (Route B for callback path)
     const { cleanText: storedContent, blocks: extractedBlocks } = extractRichFromText(content);
 
+    // F088-J hotfix: Consume any buffered rich blocks (e.g. file blocks from generate_document).
+    // CLI agents don't go through route-serial, so the buffer must be consumed here.
+    // For route-serial agents, the buffer is already consumed before post_message — this is a no-op.
+    const bufferedBlocks = getRichBlockBuffer().consume(effectiveThreadId, record.catId as string, invocationId);
+
     // F34-b: Resolve voice blocks (audio with text, no url) before storing
     const synthesizer = getVoiceBlockSynthesizer();
-    let richBlocks = extractedBlocks;
-    if (synthesizer && extractedBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
+    let richBlocks = [...extractedBlocks, ...bufferedBlocks];
+    if (synthesizer && richBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
       try {
-        richBlocks = await synthesizer.resolveVoiceBlocks(extractedBlocks, record.catId as string);
+        richBlocks = await synthesizer.resolveVoiceBlocks(richBlocks, record.catId as string);
       } catch (err) {
         app.log.error({ err }, '[callbacks/post-message] Voice block synthesis failed');
       }
