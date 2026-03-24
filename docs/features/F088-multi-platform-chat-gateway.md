@@ -66,7 +66,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **7** | 群聊公共层：ConnectorRouter sender 透传 + ConnectorSource sender 扩展 | 📋 planned | — (联动 [F134](F134-feishu-group-chat.md)) |
 | **8** | IM Hub 配置向导 — 平台接入引导 UI（飞书/Telegram/钉钉） | ✅ | [#680](https://github.com/zts212653/cat-cafe/pull/680) |
 | **J1** | file block 全链路 + outbound 投递 + 安全防护（URL 白名单 + path traversal guard + fileName 透传） | ✅ | [#689](https://github.com/zts212653/cat-cafe/pull/689) |
-| **J2** | 文档生成服务：PDF/DOCX/MD 生成 + 临时文件生命周期 + 大小限制策略 | 📋 planned | — |
+| **J2** | Pandoc 文档生成服务 + MCP tool + 自动安装（init-cafe.sh / install.sh） | ✅ | [#693](https://github.com/zts212653/cat-cafe/pull/693) |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 
 完整 AC 列表见 [各 Phase 详细 AC](assets/F088/acceptance-criteria.md)
@@ -147,12 +147,16 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - 运行时仍做 graceful degradation 兜底：万一安装失败 → 降级为发 .md 原文件
 - 与 Anthropic Claude Code 技术栈对齐
 
-**J2 待做**：
-- [ ] 启动脚本 / setup 流程自动安装 pandoc（检测 → 缺失则安装 → 验证）
-- [ ] `execFile('pandoc', ...)` 封装（MD→PDF / MD→DOCX）
-- [ ] 运行时 graceful degradation 兜底（安装失败时降级为 .md）
-- [ ] 临时文件生命周期（生成 → /uploads/ → MediaCleanupJob TTL）
-- [ ] 大小限制策略（飞书 30MB 上限）
+**J2 已完成（PR #693）**：
+- [x] 启动脚本自动安装 pandoc（init-cafe.sh brew / install.sh apt+dnf）
+- [x] PandocService: `execFile('pandoc', ...)` 封装 + 检测缓存
+- [x] 降级链 graceful degradation（PDF→DOCX→MD）
+- [x] MCP tool `cat_cafe_generate_document` + callback endpoint
+- [x] 临时文件清理（copy 后 unlink，randomBytes 防碰撞）
+
+**J 系列后续可选**：
+- [ ] 大小限制策略（飞书 30MB 上限）— 当前无硬性需求
+- [ ] LaTeX 自动安装（PDF 原生输出，当前降级为 DOCX）
 
 ## MVP Scope 硬边界
 
@@ -250,6 +254,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-22 | ISSUE-15 fix: Web-originated messages now trigger outbound delivery to IM platforms (PR #671) |
 | 2026-03-23 | Phase 8 merged: IM Hub 配置向导 UI — platform config cards + connector status API + icon extraction (PR #680) |
 | 2026-03-24 | Phase J1 merged: file block full-stack + outbound delivery + security (URL whitelist, path traversal guard, fileName passthrough) (PR #689) |
+| 2026-03-24 | Phase J2 merged: Pandoc document generation service + MCP tool + auto-install (PR #693) |
 
 ## 参考文件
 
