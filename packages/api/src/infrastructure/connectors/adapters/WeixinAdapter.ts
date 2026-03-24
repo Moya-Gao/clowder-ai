@@ -169,7 +169,15 @@ export class WeixinAdapter implements IOutboundAdapter {
   private readonly contextTokens = new Map<string, string>();
   /** Per-chatId: last consumed token — bounded by chatId count, naturally evicted when new token arrives */
   private readonly lastConsumedToken = new Map<string, string>();
-  private readonly pendingReplies = new Map<string, { token: string; parts: string[]; timer: ReturnType<typeof setTimeout>; resolvers: Array<{ resolve: () => void; reject: (err: Error) => void }> }>();
+  private readonly pendingReplies = new Map<
+    string,
+    {
+      token: string;
+      parts: string[];
+      timer: ReturnType<typeof setTimeout>;
+      resolvers: Array<{ resolve: () => void; reject: (err: Error) => void }>;
+    }
+  >();
   private fetchFn: typeof fetch = globalThis.fetch;
   private sessionExpiredCallback: (() => void) | null = null;
 

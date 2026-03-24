@@ -417,7 +417,9 @@ describe('WeixinAdapter', () => {
 
       // Gate token-A's fetch so we control when it completes
       let releaseFetchA;
-      const fetchGate = new Promise((r) => { releaseFetchA = r; });
+      const fetchGate = new Promise((r) => {
+        releaseFetchA = r;
+      });
       const calls = [];
       adapter._injectFetch(async (_url, opts) => {
         const body = JSON.parse(opts.body);
@@ -444,8 +446,14 @@ describe('WeixinAdapter', () => {
       await Promise.allSettled([pA, pB, pC]);
 
       // A sent with token-A, C sent with token-C. B refused to merge (different token bucket)
-      assert.ok(calls.some((c) => c.token === 'token-A' && c.text.includes('reply-A')), 'A must be sent');
-      assert.ok(calls.some((c) => c.token === 'token-C' && c.text.includes('reply-C')), 'C must be sent');
+      assert.ok(
+        calls.some((c) => c.token === 'token-A' && c.text.includes('reply-A')),
+        'A must be sent',
+      );
+      assert.ok(
+        calls.some((c) => c.token === 'token-C' && c.text.includes('reply-C')),
+        'C must be sent',
+      );
       assert.ok(!calls.some((c) => c.text.includes('reply-B') && c.token === 'token-C'), 'B must NOT be merged into C');
     });
 
@@ -545,10 +553,7 @@ describe('WeixinAdapter', () => {
         text: async () => 'server error',
       }));
 
-      await assert.rejects(
-        () => sendAndFlush(adapter, 'user-1', 'test'),
-        /sendmessage HTTP 500/,
-      );
+      await assert.rejects(() => sendAndFlush(adapter, 'user-1', 'test'), /sendmessage HTTP 500/);
     });
 
     it('throws on errcode -14 from sendmessage', async () => {
@@ -559,10 +564,7 @@ describe('WeixinAdapter', () => {
         json: async () => ({ errcode: -14, errmsg: 'session expired' }),
       }));
 
-      await assert.rejects(
-        () => sendAndFlush(adapter, 'user-1', 'test'),
-        /errcode -14/,
-      );
+      await assert.rejects(() => sendAndFlush(adapter, 'user-1', 'test'), /errcode -14/);
     });
 
     it('throws on ret -14 from sendmessage', async () => {
@@ -573,10 +575,7 @@ describe('WeixinAdapter', () => {
         json: async () => ({ ret: -14, errmsg: 'session expired' }),
       }));
 
-      await assert.rejects(
-        () => sendAndFlush(adapter, 'user-1', 'test'),
-        /errcode -14/,
-      );
+      await assert.rejects(() => sendAndFlush(adapter, 'user-1', 'test'), /errcode -14/);
     });
   });
 
