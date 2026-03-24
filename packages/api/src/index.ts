@@ -770,7 +770,8 @@ async function main(): Promise<void> {
   await app.register(leaderboardRoutes, { messageStore, gameStore, achievementStore });
   await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
   await app.register(bootcampRoutes, { threadStore });
-  await app.register(connectorHubRoutes, { threadStore });
+  const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
+  await app.register(connectorHubRoutes, connectorHubOpts);
   await app.register(brakeRoutes, { activityTracker });
 
   // F101: Game routes (store created earlier for /game command interception)
@@ -1307,6 +1308,10 @@ async function main(): Promise<void> {
       for (const [id, handler] of connectorGatewayHandle.webhookHandlers) {
         connectorWebhookHandlers.set(id, handler);
       }
+      // F137: Wire WeChat adapter to hub routes for QR login
+      (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = connectorGatewayHandle.weixinAdapter;
+      (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling =
+        connectorGatewayHandle.startWeixinPolling;
       app.log.info('[api] Connector gateway started');
     }
   } catch (err) {

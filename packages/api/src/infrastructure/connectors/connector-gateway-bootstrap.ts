@@ -19,6 +19,7 @@ import { DingTalkAdapter } from './adapters/DingTalkAdapter.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
 import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
 import { TelegramAdapter } from './adapters/TelegramAdapter.js';
+import { WeixinAdapter } from './adapters/WeixinAdapter.js';
 import { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorRouter } from './ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
@@ -40,6 +41,7 @@ export interface ConnectorGatewayConfig {
   feishuVerificationToken?: string | undefined;
   dingtalkAppKey?: string | undefined;
   dingtalkAppSecret?: string | undefined;
+  weixinBotToken?: string | undefined;
   /** Override co-creator userId for connector threads. Read from DEFAULT_OWNER_USER_ID env. */
   coCreatorUserId?: string | undefined;
   whisperUrl?: string | undefined;
@@ -122,6 +124,8 @@ export interface ConnectorGatewayHandle {
   readonly outboundHook: OutboundDeliveryHook;
   readonly streamingHook: StreamingOutboundHook;
   readonly webhookHandlers: Map<string, ConnectorWebhookHandler>;
+  readonly weixinAdapter: InstanceType<typeof WeixinAdapter> | null;
+  readonly startWeixinPolling: () => void;
   stop(): Promise<void>;
 }
 
@@ -133,6 +137,7 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     feishuVerificationToken: process.env.FEISHU_VERIFICATION_TOKEN,
     dingtalkAppKey: process.env.DINGTALK_APP_KEY,
     dingtalkAppSecret: process.env.DINGTALK_APP_SECRET,
+    weixinBotToken: process.env.WEIXIN_BOT_TOKEN,
     coCreatorUserId: process.env.DEFAULT_OWNER_USER_ID,
     whisperUrl: process.env.WHISPER_URL,
     connectorMediaDir: process.env.CONNECTOR_MEDIA_DIR,
@@ -148,12 +153,10 @@ export async function startConnectorGateway(
   const hasTelegram = Boolean(config.telegramBotToken);
   const hasFeishu = Boolean(config.feishuAppId && config.feishuAppSecret && config.feishuVerificationToken);
   const hasDingTalk = Boolean(config.dingtalkAppKey && config.dingtalkAppSecret);
+  const hasWeixin = Boolean(config.weixinBotToken);
 
-  if (!hasTelegram && !hasFeishu && !hasDingTalk) {
-    log.info(
-      '[ConnectorGateway] No connectors configured (set TELEGRAM_BOT_TOKEN, FEISHU_APP_ID+SECRET+TOKEN, or DINGTALK_APP_KEY+SECRET)',
-    );
-    return null;
+  if (!hasTelegram && !hasFeishu && !hasDingTalk && !hasWeixin) {
+    log.info('[ConnectorGateway] No pre-configured connectors — gateway created for WeChat QR login support');
   }
 
   const bindingStore = deps.redis
@@ -364,6 +367,30 @@ export async function startConnectorGateway(
     log.info('[ConnectorGateway] DingTalk adapter started (Stream mode)');
   }
 
+  // ── WeChat Personal (iLink Bot long polling) ──
+  // Always create the adapter instance (for QR login routes); only start polling if we have a token.
+  const weixin = new WeixinAdapter(config.weixinBotToken ?? '', log);
+  adapters.set('weixin', weixin);
+
+  const startWeixinPolling = () => {
+    weixin.startPolling(async (msg) => {
+      await connectorRouter.route('weixin', msg.chatId, msg.text, msg.messageId);
+    });
+  };
+
+  if (hasWeixin) {
+    startWeixinPolling();
+    log.info('[ConnectorGateway] WeChat adapter started (iLink Bot long polling)');
+  } else {
+    log.info('[ConnectorGateway] WeChat adapter registered (awaiting QR login)');
+  }
+
+  weixin.setOnSessionExpired(() => {
+    log.warn('[ConnectorGateway] WeChat session expired — user must re-scan QR code');
+  });
+
+  stopFns.push(async () => weixin.stopPolling());
+
   // R3-P1: Resolve route URLs to local file paths for real media delivery
   const uploadDir = resolve(process.env.UPLOAD_DIR ?? './uploads');
   const ttsCacheDir = resolve(process.env.TTS_CACHE_DIR ?? './data/tts-cache');
@@ -411,6 +438,8 @@ export async function startConnectorGateway(
     outboundHook,
     streamingHook,
     webhookHandlers,
+    weixinAdapter: weixin,
+    startWeixinPolling,
     async stop() {
       cleanupJob.stop();
       await Promise.allSettled(stopFns.map((fn) => fn()));

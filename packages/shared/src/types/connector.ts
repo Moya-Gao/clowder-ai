@@ -152,6 +152,19 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     },
   },
   {
+    id: 'weixin',
+    displayName: '微信',
+    icon: '/images/connectors/weixin.png',
+    color: { primary: '#07C160', secondary: '#E8F8EE' },
+    description: '微信个人号 iLink Bot',
+    tailwindTheme: {
+      avatar: 'bg-green-100 ring-2 ring-green-200',
+      label: 'text-green-700',
+      labelLink: 'text-green-700 hover:text-green-900',
+      bubble: 'border border-green-200 bg-green-50',
+    },
+  },
+  {
     id: 'system-command',
     displayName: 'Cat Café',
     icon: 'settings',

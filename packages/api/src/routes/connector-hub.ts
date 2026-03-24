@@ -1,9 +1,18 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { DEFAULT_THREAD_ID, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
-interface ConnectorHubRoutesOptions {
+export interface ConnectorHubRoutesOptions {
   threadStore: IThreadStore;
+  /**
+   * Lazy reference to the WeChat adapter instance.
+   * Set after connector gateway starts (which happens post-listen).
+   * Null when gateway not started or WeChat not available.
+   */
+  weixinAdapter?: WeixinAdapter | null;
+  /** Called after successful QR login to start the WeChat polling loop */
+  startWeixinPolling?: () => void;
 }
 
 function requireTrustedHubIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
@@ -78,6 +87,14 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       '填写以下配置并保存，重启 API 服务后生效',
     ],
   },
+  {
+    id: 'weixin',
+    name: '微信',
+    nameEn: 'WeChat Personal',
+    fields: [],
+    docsUrl: 'https://chatbot.weixin.qq.com/',
+    steps: ['点击「生成二维码」按钮', '使用微信扫描二维码并确认授权', '授权成功后自动连接，无需重启服务'],
+  },
 ];
 
 /** Mask a sensitive value: show only that it is set, no suffix. Aligns with env-registry *** policy. */
@@ -103,7 +120,6 @@ export interface PlatformStatus {
   steps: string[];
 }
 
-/** Read current env vars and build per-platform status. Pure function for testability. */
 export function buildConnectorStatus(env: Record<string, string | undefined> = process.env): PlatformStatus[] {
   return CONNECTOR_PLATFORMS.map((platform) => {
     const fields: PlatformFieldStatus[] = platform.fields.map((f) => {
@@ -116,7 +132,8 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
         currentValue: isSet ? (f.sensitive ? maskSensitiveValue(raw) : raw) : null,
       };
     });
-    const configured = fields.every((f) => f.currentValue !== null);
+    // WeChat uses QR login (no env fields) — default to false; route handler overrides with live adapter state
+    const configured = platform.fields.length > 0 ? fields.every((f) => f.currentValue !== null) : false;
     return {
       id: platform.id,
       name: platform.name,
@@ -131,8 +148,6 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
 
 export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> = async (app, opts) => {
   const { threadStore } = opts;
-
-  // ── Existing: list Hub threads ──
 
   app.get('/api/connector/hub-threads', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
@@ -155,13 +170,91 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     };
   });
 
-  // ── New: connector platform status ──
-
   app.get('/api/connector/status', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) {
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
-    return { platforms: buildConnectorStatus() };
+    const status = buildConnectorStatus();
+    // F137: WeChat "configured" is based on adapter having a live bot_token, not env vars
+    const weixinStatus = status.find((p) => p.id === 'weixin');
+    if (weixinStatus) {
+      const adapter = opts.weixinAdapter;
+      weixinStatus.configured = adapter != null && adapter.hasBotToken() && adapter.isPolling();
+    }
+    return { platforms: status };
+  });
+
+  // ── F137: WeChat QR code login routes ──
+
+  app.post('/api/connector/weixin/qrcode', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    try {
+      const { WeixinAdapter: WA } = await import('../infrastructure/connectors/adapters/WeixinAdapter.js');
+      const result = await WA.fetchQrCode();
+      return { qrUrl: result.qrUrl, qrPayload: result.qrPayload };
+    } catch (err) {
+      app.log.error({ err }, '[WeChat QR] Failed to fetch QR code');
+      reply.status(502);
+      return { error: 'Failed to fetch QR code from WeChat' };
+    }
+  });
+
+  app.get('/api/connector/weixin/qrcode-status', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const { qrPayload } = request.query as { qrPayload?: string };
+    if (!qrPayload) {
+      reply.status(400);
+      return { error: 'qrPayload query parameter required' };
+    }
+
+    try {
+      const { WeixinAdapter: WA } = await import('../infrastructure/connectors/adapters/WeixinAdapter.js');
+      const status = await WA.pollQrCodeStatus(qrPayload);
+
+      if (status.status === 'confirmed') {
+        const adapter = opts.weixinAdapter;
+        if (!adapter) {
+          app.log.error('[WeChat QR] QR confirmed but adapter not available — token would be lost');
+          reply.status(503);
+          return { error: 'WeChat adapter not ready — please retry shortly' };
+        }
+        adapter.setBotToken(status.botToken);
+        opts.startWeixinPolling?.();
+        app.log.info('[WeChat QR] Auto-activated — bot_token set server-side, polling started');
+        return { status: 'confirmed' };
+      }
+
+      return status;
+    } catch (err) {
+      app.log.error({ err }, '[WeChat QR] Failed to poll QR status');
+      reply.status(502);
+      return { error: 'Failed to poll QR code status' };
+    }
+  });
+
+  app.post('/api/connector/weixin/activate', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const adapter = opts.weixinAdapter;
+    if (!adapter) {
+      reply.status(503);
+      return { error: 'WeChat adapter not available (connector gateway not started)' };
+    }
+
+    if (!adapter.hasBotToken()) {
+      reply.status(409);
+      return { error: 'No bot_token available — complete QR code login first' };
+    }
+
+    opts.startWeixinPolling?.();
+    app.log.info('[WeChat QR] Manual activate — polling started');
+
+    return { ok: true, polling: adapter.isPolling() };
   });
 };
