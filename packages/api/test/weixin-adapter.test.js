@@ -20,15 +20,14 @@ describe('WeixinAdapter', () => {
     it('parses text messages from getupdates response', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       const raw = {
-        errcode: 0,
+        ret: 0,
         get_updates_buf: 'cursor-abc',
-        messages: [
+        msgs: [
           {
-            msg_id: 'msg-001',
-            from_user_name: { str: 'user-wx-123' },
-            content: { str: '你好猫猫' },
+            message_id: 1001,
+            from_user_id: 'user-wx-123',
             context_token: 'ctx-token-abc',
-            msg_type: 1,
+            item_list: [{ type: 1, text_item: { text: '你好猫猫' } }],
           },
         ],
       };
@@ -41,7 +40,7 @@ describe('WeixinAdapter', () => {
       const msg = result.messages[0];
       assert.equal(msg.chatId, 'user-wx-123');
       assert.equal(msg.text, '你好猫猫');
-      assert.equal(msg.messageId, 'msg-001');
+      assert.equal(msg.messageId, '1001');
       assert.equal(msg.senderId, 'user-wx-123');
       assert.equal(msg.contextToken, 'ctx-token-abc');
     });
@@ -55,9 +54,18 @@ describe('WeixinAdapter', () => {
       assert.equal(result.messages.length, 0);
     });
 
-    it('handles empty messages array', () => {
+    it('returns sessionExpired=true on ret -14', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
-      const raw = { errcode: 0, get_updates_buf: 'cursor-new', messages: [] };
+      const raw = { ret: -14, errmsg: 'session expired' };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.sessionExpired, true);
+      assert.equal(result.messages.length, 0);
+    });
+
+    it('handles empty msgs array', () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = { ret: 0, get_updates_buf: 'cursor-new', msgs: [] };
 
       const result = adapter.parseUpdates(raw);
       assert.equal(result.messages.length, 0);
@@ -74,11 +82,20 @@ describe('WeixinAdapter', () => {
       assert.equal(result.sessionExpired, false);
     });
 
-    it('skips messages without from_user_name', () => {
+    it('handles non-zero ret (non-session-expired)', () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = { ret: -1, errmsg: 'unknown error' };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.messages.length, 0);
+      assert.equal(result.sessionExpired, false);
+    });
+
+    it('skips messages without from_user_id', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       const raw = {
-        errcode: 0,
-        messages: [{ msg_id: 'msg-001', content: { str: 'text' }, context_token: 'ctx' }],
+        ret: 0,
+        msgs: [{ message_id: 1001, context_token: 'ctx', item_list: [{ type: 1, text_item: { text: 'hello' } }] }],
       };
 
       const result = adapter.parseUpdates(raw);
@@ -88,8 +105,19 @@ describe('WeixinAdapter', () => {
     it('skips messages without context_token', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       const raw = {
-        errcode: 0,
-        messages: [{ msg_id: 'msg-001', from_user_name: { str: 'user1' }, content: { str: 'text' } }],
+        ret: 0,
+        msgs: [{ message_id: 1001, from_user_id: 'user1', item_list: [{ type: 1, text_item: { text: 'hello' } }] }],
+      };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.messages.length, 0);
+    });
+
+    it('skips messages with empty item_list', () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = {
+        ret: 0,
+        msgs: [{ message_id: 1001, from_user_id: 'user1', context_token: 'ctx', item_list: [] }],
       };
 
       const result = adapter.parseUpdates(raw);
@@ -99,14 +127,13 @@ describe('WeixinAdapter', () => {
     it('parses image messages as placeholder text', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       const raw = {
-        errcode: 0,
-        messages: [
+        ret: 0,
+        msgs: [
           {
-            msg_id: 'msg-002',
-            from_user_name: { str: 'user1' },
+            message_id: 1002,
+            from_user_id: 'user1',
             context_token: 'ctx-2',
-            msg_type: 3,
-            cdn_img_url: 'https://cdn.weixin.qq.com/image/123',
+            item_list: [{ type: 2, image_item: { url: 'https://cdn.weixin.qq.com/image/123' } }],
           },
         ],
       };
@@ -115,18 +142,38 @@ describe('WeixinAdapter', () => {
       assert.equal(result.messages.length, 1);
       assert.equal(result.messages[0].text, '[图片]');
       assert.equal(result.messages[0].attachments?.[0]?.type, 'image');
+      assert.equal(result.messages[0].attachments?.[0]?.mediaUrl, 'https://cdn.weixin.qq.com/image/123');
     });
 
-    it('parses voice messages as placeholder text', () => {
+    it('parses voice messages with transcribed text', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       const raw = {
-        errcode: 0,
-        messages: [
+        ret: 0,
+        msgs: [
           {
-            msg_id: 'msg-003',
-            from_user_name: { str: 'user1' },
+            message_id: 1003,
+            from_user_id: 'user1',
             context_token: 'ctx-3',
-            msg_type: 34,
+            item_list: [{ type: 3, voice_item: { text: '语音转文字内容' } }],
+          },
+        ],
+      };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.messages.length, 1);
+      assert.equal(result.messages[0].text, '语音转文字内容');
+    });
+
+    it('parses voice messages without transcription as placeholder', () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = {
+        ret: 0,
+        msgs: [
+          {
+            message_id: 1003,
+            from_user_id: 'user1',
+            context_token: 'ctx-3',
+            item_list: [{ type: 3, voice_item: {} }],
           },
         ],
       };
@@ -136,25 +183,63 @@ describe('WeixinAdapter', () => {
       assert.equal(result.messages[0].text, '[语音]');
     });
 
+    it('parses voice messages with empty transcription as placeholder', () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = {
+        ret: 0,
+        msgs: [
+          {
+            message_id: 1033,
+            from_user_id: 'user1',
+            context_token: 'ctx-voice-empty',
+            item_list: [{ type: 3, voice_item: { text: '' } }],
+          },
+        ],
+      };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.messages.length, 1);
+      assert.equal(result.messages[0].text, '[语音]');
+    });
+
+    it('parses file messages with filename', () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = {
+        ret: 0,
+        msgs: [
+          {
+            message_id: 1004,
+            from_user_id: 'user1',
+            context_token: 'ctx-4',
+            item_list: [{ type: 4, file_item: { file_name: 'report.pdf' } }],
+          },
+        ],
+      };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.messages.length, 1);
+      assert.equal(result.messages[0].text, '[文件] report.pdf');
+      assert.equal(result.messages[0].attachments?.[0]?.type, 'file');
+      assert.equal(result.messages[0].attachments?.[0]?.fileName, 'report.pdf');
+    });
+
     it('parses multiple messages in one update', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       const raw = {
-        errcode: 0,
+        ret: 0,
         get_updates_buf: 'cursor-multi',
-        messages: [
+        msgs: [
           {
-            msg_id: 'msg-a',
-            from_user_name: { str: 'user-a' },
-            content: { str: 'first' },
+            message_id: 2001,
+            from_user_id: 'user-a',
             context_token: 'ctx-a',
-            msg_type: 1,
+            item_list: [{ type: 1, text_item: { text: 'first' } }],
           },
           {
-            msg_id: 'msg-b',
-            from_user_name: { str: 'user-b' },
-            content: { str: 'second' },
+            message_id: 2002,
+            from_user_id: 'user-b',
             context_token: 'ctx-b',
-            msg_type: 1,
+            item_list: [{ type: 1, text_item: { text: 'second' } }],
           },
         ],
       };
@@ -164,10 +249,36 @@ describe('WeixinAdapter', () => {
       assert.equal(result.messages[0].text, 'first');
       assert.equal(result.messages[1].text, 'second');
     });
+
+    it('generates fallback messageId when message_id is missing', () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = {
+        ret: 0,
+        msgs: [
+          {
+            from_user_id: 'user1',
+            context_token: 'ctx-1',
+            item_list: [{ type: 1, text_item: { text: 'no id' } }],
+          },
+        ],
+      };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.messages.length, 1);
+      assert.ok(result.messages[0].messageId.startsWith('weixin-'));
+    });
+
+    it('handles response with both ret and errcode (errcode wins for session expired)', () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = { errcode: -14, ret: 0 };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.sessionExpired, true);
+    });
   });
 
   describe('sendReply', () => {
-    it('sends text message via iLink sendmessage API', async () => {
+    it('sends text message via iLink sendmessage API with msg wrapper', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-token-1');
 
@@ -176,17 +287,20 @@ describe('WeixinAdapter', () => {
       adapter._injectFetch(async (url, opts) => {
         capturedUrl = url;
         capturedBody = JSON.parse(opts.body);
-        return { ok: true, json: async () => ({ errcode: 0 }) };
+        return { ok: true, json: async () => ({ ret: 0 }) };
       });
 
       await adapter.sendReply('user-1', 'Hello from Cat Café!');
 
       assert.ok(capturedUrl.includes('/ilink/bot/sendmessage'));
-      assert.equal(capturedBody.context_token, 'ctx-token-1');
-      assert.equal(capturedBody.to_user_name, 'user-1');
-      assert.equal(capturedBody.content.str, 'Hello from Cat Café!');
-      assert.equal(capturedBody.msg_type, 1);
-      assert.equal(capturedBody.message_state, 2);
+      assert.ok(capturedBody.msg, 'body must have msg wrapper');
+      assert.equal(capturedBody.msg.context_token, 'ctx-token-1');
+      assert.equal(capturedBody.msg.to_user_id, 'user-1');
+      assert.equal(capturedBody.msg.message_state, 2);
+      assert.equal(capturedBody.msg.item_list.length, 1);
+      assert.equal(capturedBody.msg.item_list[0].type, 1);
+      assert.equal(capturedBody.msg.item_list[0].text_item.text, 'Hello from Cat Café!');
+      assert.ok(capturedBody.base_info, 'body must include base_info');
     });
 
     it('silently skips when no context_token cached', async () => {
@@ -194,7 +308,7 @@ describe('WeixinAdapter', () => {
       let fetchCalled = false;
       adapter._injectFetch(async () => {
         fetchCalled = true;
-        return { ok: true, json: async () => ({ errcode: 0 }) };
+        return { ok: true, json: async () => ({ ret: 0 }) };
       });
 
       await adapter.sendReply('unknown-user', 'This should not send');
@@ -207,8 +321,9 @@ describe('WeixinAdapter', () => {
 
       const sentChunks = [];
       adapter._injectFetch(async (_url, opts) => {
-        sentChunks.push(JSON.parse(opts.body).content.str);
-        return { ok: true, json: async () => ({ errcode: 0 }) };
+        const body = JSON.parse(opts.body);
+        sentChunks.push(body.msg.item_list[0].text_item.text);
+        return { ok: true, json: async () => ({ ret: 0 }) };
       });
 
       const longText = 'A'.repeat(3500);
@@ -238,6 +353,17 @@ describe('WeixinAdapter', () => {
       adapter._injectFetch(async () => ({
         ok: true,
         json: async () => ({ errcode: -14, errmsg: 'session expired' }),
+      }));
+
+      await assert.rejects(() => adapter.sendReply('user-1', 'test'), /errcode -14/);
+    });
+
+    it('throws on ret -14 from sendmessage', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      adapter._injectFetch(async () => ({
+        ok: true,
+        json: async () => ({ ret: -14, errmsg: 'session expired' }),
       }));
 
       await assert.rejects(() => adapter.sendReply('user-1', 'test'), /errcode -14/);
@@ -305,7 +431,7 @@ describe('WeixinAdapter', () => {
 
     it('returns new cursor from getupdates response', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
-      const result = adapter.parseUpdates({ errcode: 0, get_updates_buf: 'new-cursor', messages: [] });
+      const result = adapter.parseUpdates({ ret: 0, get_updates_buf: 'new-cursor', msgs: [] });
       assert.equal(result.newCursor, 'new-cursor');
     });
   });
