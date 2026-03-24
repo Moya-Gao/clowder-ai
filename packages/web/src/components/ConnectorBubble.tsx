@@ -123,6 +123,7 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
           ) : (
             <span className={`text-xs font-semibold ${theme.label}`}>{source.label}</span>
           )}
+          {source.sender && <span className="text-xs text-gray-500">{source.sender.name || source.sender.id} 说</span>}
           <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
         </div>
         <div

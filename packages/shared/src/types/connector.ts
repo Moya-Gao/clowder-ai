@@ -22,6 +22,8 @@ export interface ConnectorSource {
   readonly url?: string;
   /** Connector-specific metadata (not rendered, for debugging/routing) */
   readonly meta?: Readonly<Record<string, unknown>>;
+  /** F134: Original sender info for group chat messages (message-level binding, not thread-level) */
+  readonly sender?: { readonly id: string; readonly name?: string };
 }
 
 // ── Connector Definition (registry entry) ──

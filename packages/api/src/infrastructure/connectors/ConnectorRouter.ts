@@ -78,6 +78,8 @@ export interface ConnectorRouterOptions {
       message: string,
       messageId: string,
       contentBlocks?: readonly MessageContent[],
+      policy?: unknown,
+      sender?: { id: string; name?: string },
     ): void;
   };
   readonly socketManager?:
@@ -140,6 +142,9 @@ export class ConnectorRouter {
       duration?: number;
       messageId?: string;
     }>,
+    sender?: { id: string; name?: string },
+    chatType?: 'p2p' | 'group',
+    chatName?: string,
   ): Promise<RouteResult> {
     const { bindingStore, dedup, messageStore, threadStore, invokeTrigger, socketManager, log } = this.opts;
 
@@ -150,7 +155,8 @@ export class ConnectorRouter {
     }
 
     // 1b. Command interception — handle /commands before agent routing
-    if (this.opts.commandLayer && text.trim().startsWith('/')) {
+    // KD-8 (F134): group chats skip command interception — only allow conversation
+    if (this.opts.commandLayer && chatType !== 'group' && text.trim().startsWith('/')) {
       const cmdResult = await this.opts.commandLayer.handle(connectorId, externalChatId, this.opts.defaultUserId, text);
       if (cmdResult.kind !== 'not-command' && cmdResult.response) {
         const adapter = this.opts.adapters?.get(connectorId);
@@ -222,7 +228,10 @@ export class ConnectorRouter {
     let binding = await bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) {
       const def = getConnectorDefinition(connectorId);
-      const title = `${def?.displayName ?? connectorId} DM`;
+      const title =
+        chatType === 'group'
+          ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}`
+          : `${def?.displayName ?? connectorId} DM`;
       const thread = await threadStore.create(this.opts.defaultUserId, title);
       binding = await bindingStore.bind(connectorId, externalChatId, thread.id, this.opts.defaultUserId);
       log.info(
@@ -235,8 +244,10 @@ export class ConnectorRouter {
     const def = getConnectorDefinition(connectorId);
     const source: ConnectorSource = {
       connector: connectorId,
-      label: def?.displayName ?? connectorId,
+      label:
+        chatType === 'group' ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}` : (def?.displayName ?? connectorId),
       icon: def?.icon ?? 'message',
+      ...(sender ? { sender } : {}),
     };
 
     // Parse @-mentions to determine target cat
@@ -269,6 +280,8 @@ export class ConnectorRouter {
       resolvedText,
       stored.id,
       contentBlocks,
+      undefined,
+      sender,
     );
 
     log.info(

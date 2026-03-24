@@ -93,6 +93,7 @@ export interface CallbackRoutesOptions {
       richBlocks?: RichBlock[],
       threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
       origin?: 'callback' | 'agent' | 'system',
+      triggerMessageId?: string,
     ): Promise<void>;
   };
 }
@@ -558,6 +559,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           richBlocks.length > 0 ? richBlocks : undefined,
           threadMeta,
           'callback',
+          validatedReplyTo,
         )
         .catch((err: unknown) => {
           app.log.error({ err, threadId: effectiveThreadId }, '[callbacks/post-message] Outbound delivery failed');
