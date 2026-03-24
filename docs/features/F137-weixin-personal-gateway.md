@@ -166,11 +166,18 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 - [ ] AC-B4: `sendMedia` 接口实现正确
 
 ### Phase C（IM Hub + 健壮性）
-- [ ] AC-C1: IM Hub 配置向导可添加微信个人号（QR 展示 + 扫码流程）
+- [x] AC-C1: IM Hub 配置向导可添加微信个人号（QR 展示 + 扫码流程）
 - [ ] AC-C2: Session 过期（errcode -14）自动检测 + 提醒重新扫码
 - [ ] AC-C3: 长轮询断线自动重连 + 指数退避
 - [ ] AC-C4: 幂等去重（InboundMessageDedup 复用）
 - [ ] AC-C5: 现有飞书/Telegram/钉钉功能无回归
+
+### Phase C AC-C1 验证证据
+- PR #713: `WeixinQrPanel.tsx` (152 行) — 全自动 QR 状态机
+- 7 测试覆盖所有状态转换 (idle→fetching→waiting→scanned→confirmed→error→expired)
+- 自动轮询铁律：`setInterval(2500ms)` + `setTimeout(60000ms)`，扫码后零用户干预
+- Pencil 绘制 SVG 图标，无 emoji
+- 砚砚 (codex) R2 放行 + 云端 Codex review 无 P1/P2
 
 ## 需求点 Checklist
 
@@ -179,13 +186,13 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | R1 | "把我们的猫猫接入微信" | AC-A1~A7 | test + manual DM | [ ] |
 | R2 | "你也得复用那些基础设施，就不要自己做一套" | AC-A5, AC-C4 | code review: 公共层 diff = 0 | [ ] |
 | R3 | "也得接入我们的消息管线，都得是一样的" | AC-A5, AC-A6 | /new /threads /use /where 可用 | [ ] |
-| R4 | "如果有配置需要配置...在那边能够显示" | AC-C1 | IM Hub 配置向导可见 | [ ] |
+| R4 | "如果有配置需要配置...在那边能够显示" | AC-C1 | IM Hub 配置向导可见 | [x] |
 | R5 | "按照我们的开发速度，不需要一天" | Phase A 优先 | Phase A 独立可用 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（若适用）— Phase C IM Hub 需要
+- [x] 前端需求已准备需求→证据映射表（若适用）— Phase C IM Hub AC-C1 已完成
 
 ## Dependencies
 
@@ -321,6 +328,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-07-24 | 禁用分块 — 单条 sendmessage 发送全部内容 → PR #710 squash merge (8f1e7fe9)。排除了 chunking 假设，收敛到协议字段不匹配 |
 | 2026-07-24 | 对齐官方 sendmessage body（补 `client_id/message_type/from_user_id`）+ 响应硬化 → PR #711 squash merge (61f6baf4)。砚砚(GPT-5.4) 实现，砚砚(Codex) review |
 | 2026-07-24 | **E2E 三轮验证全部通过** — 第 1/2/3 轮消息均成功投递到微信。BUG-2 confirmed fixed ✅ |
+| 2026-07-24 | Phase C AC-C1: WeChat QR login UI in IM Hub → PR #713 砚砚 R2 放行 + 云端 Codex review 通过 → squash merge (78c65c97) |
 
 ## Review Gate
 
