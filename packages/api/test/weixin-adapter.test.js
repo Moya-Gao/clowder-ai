@@ -523,6 +523,68 @@ describe('WeixinAdapter', () => {
       assert.equal(capturedText, 'Hello from Cat Café!');
     });
 
+    it('sends official sendmessage fields expected by openclaw protocol', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+
+      let capturedMsg = null;
+      adapter._injectFetch(async (_url, opts) => {
+        const body = JSON.parse(opts.body);
+        capturedMsg = body.msg;
+        return { ok: true, json: async () => ({ ret: 0 }) };
+      });
+
+      await sendAndFlush(adapter, 'user-1', 'hello');
+
+      assert.equal(capturedMsg.from_user_id, '');
+      assert.equal(capturedMsg.to_user_id, 'user-1');
+      assert.equal(capturedMsg.message_type, 2);
+      assert.equal(capturedMsg.message_state, 2);
+      assert.equal(capturedMsg.context_token, 'ctx-1');
+      assert.match(capturedMsg.client_id, /^cat-cafe-weixin-/);
+    });
+
+    it('parses raw text sendmessage responses without requiring res.json()', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      adapter._injectFetch(async () => ({
+        ok: true,
+        text: async () => JSON.stringify({ ret: 0, errmsg: 'ok' }),
+      }));
+
+      await sendAndFlush(adapter, 'user-1', 'hello');
+    });
+
+    it('throws on non-JSON 200 sendmessage response', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      adapter._injectFetch(async () => ({
+        ok: true,
+        text: async () => '<html>gateway error</html>',
+      }));
+
+      await assert.rejects(
+        () => sendAndFlush(adapter, 'user-1', 'hello'),
+        /sendmessage returned non-JSON response/,
+      );
+      assert.equal(adapter._isTokenConsumed('user-1', 'ctx-1'), false);
+    });
+
+    it('throws on empty 200 sendmessage response body', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      adapter._injectFetch(async () => ({
+        ok: true,
+        text: async () => '',
+      }));
+
+      await assert.rejects(
+        () => sendAndFlush(adapter, 'user-1', 'hello'),
+        /sendmessage returned empty response body/,
+      );
+      assert.equal(adapter._isTokenConsumed('user-1', 'ctx-1'), false);
+    });
+
     it('sends all content in a single sendmessage call (no chunking)', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-1');

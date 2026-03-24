@@ -11,6 +11,7 @@
  * F137 WeChat Personal Gateway
  */
 
+import crypto from 'node:crypto';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
 
@@ -32,6 +33,10 @@ const QRCODE_POLL_INTERVAL_MS = 2_000;
 const QRCODE_STATUS_POLL_TIMEOUT_MS = 40_000;
 /** QR code timeout (5 minutes) */
 const QRCODE_TIMEOUT_MS = 5 * 60 * 1000;
+
+function generateClientId(): string {
+  return `cat-cafe-weixin-${crypto.randomUUID()}`;
+}
 
 // ── iLink Bot API types ──
 
@@ -637,7 +642,10 @@ export class WeixinAdapter implements IOutboundAdapter {
   private async sendMessageApi(chatId: string, text: string, contextToken: string): Promise<void> {
     const body = {
       msg: {
+        from_user_id: '',
         to_user_id: chatId,
+        client_id: generateClientId(),
+        message_type: 2,
         context_token: contextToken,
         message_state: MessageState.FINISH,
         item_list: [
@@ -664,8 +672,33 @@ export class WeixinAdapter implements IOutboundAdapter {
       throw new Error(`sendmessage HTTP ${res.status}: ${errorText}`);
     }
 
-    const data = (await res.json()) as ILinkSendResponse;
+    let rawText = '';
+    let data: ILinkSendResponse = {};
+    if (typeof res.text === 'function') {
+      rawText = await res.text().catch(() => '');
+      if (!rawText.trim()) {
+        this.log.error({ chatId }, '[WeixinAdapter] sendMessageApi() returned empty body');
+        throw new Error('sendmessage returned empty response body');
+      }
+      try {
+        data = JSON.parse(rawText) as ILinkSendResponse;
+      } catch (error) {
+        this.log.error(
+          { chatId, rawText, error: String(error) },
+          '[WeixinAdapter] sendMessageApi() returned non-JSON body',
+        );
+        throw new Error(`sendmessage returned non-JSON response: ${rawText}`);
+      }
+    } else if (typeof res.json === 'function') {
+      data = (await res.json()) as ILinkSendResponse;
+      rawText = JSON.stringify(data);
+    } else {
+      this.log.error({ chatId }, '[WeixinAdapter] sendMessageApi() response body reader missing');
+      throw new Error('sendmessage response body unreadable');
+    }
+
     const errorCode = data.errcode ?? data.ret;
+    this.log.debug({ chatId, rawText }, '[WeixinAdapter] sendMessageApi() raw response');
     this.log.info(
       { chatId, errcode: errorCode, errmsg: data.errmsg },
       '[WeixinAdapter] sendMessageApi() response received',
