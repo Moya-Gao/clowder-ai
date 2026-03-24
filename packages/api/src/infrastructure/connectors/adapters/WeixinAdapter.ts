@@ -18,9 +18,8 @@ const ILINK_BASE_URL = 'https://ilinkai.weixin.qq.com';
 const GETUPDATES_TIMEOUT_MS = 35_000;
 const POLL_ERROR_BACKOFF_MS = 3_000;
 const POLL_MAX_BACKOFF_MS = 60_000;
-const WEIXIN_MAX_MESSAGE_LENGTH = 400;
-/** Delay between sending multiple chunks to avoid iLink-side throttling (ms) */
-const WEIXIN_CHUNK_DELAY_MS = 300;
+// Chunking disabled: iLink only delivers the first sendmessage per context_token turn.
+// All content is sent in a single call. See BUG-3 in F137 spec.
 /** Debounce window for aggregating multi-cat replies into one outbound message (ms) */
 const WEIXIN_REPLY_DEBOUNCE_MS = 3_000;
 /** Typing keepalive interval (ms) — openclaw v2 uses 5s */
@@ -588,11 +587,10 @@ export class WeixinAdapter implements IOutboundAdapter {
 
     try {
       const plainContent = WeixinAdapter.stripMarkdownForWeixin(merged);
-      const chunks = this.chunkMessage(plainContent, WEIXIN_MAX_MESSAGE_LENGTH);
-      for (let i = 0; i < chunks.length; i++) {
-        if (i > 0) await this.sleep(WEIXIN_CHUNK_DELAY_MS);
-        await this.sendMessageApi(externalChatId, chunks[i], boundToken);
-      }
+      // iLink only delivers the FIRST sendmessage per context_token turn.
+      // Send everything in one call — no chunking. If iLink has a hard limit,
+      // it will truncate server-side, but at least the message arrives.
+      await this.sendMessageApi(externalChatId, plainContent, boundToken);
 
       this.lastConsumedToken.set(externalChatId, boundToken);
       // Compare-and-delete: only remove if still the same token (a newer token may have arrived)
@@ -601,7 +599,7 @@ export class WeixinAdapter implements IOutboundAdapter {
       }
       this.stopTyping(externalChatId);
       this.log.info(
-        { chatId: externalChatId, chunks: chunks.length, tokenHash },
+        { chatId: externalChatId, textLen: plainContent.length, tokenHash },
         '[WeixinAdapter] flushReply() completed — token consumed',
       );
 

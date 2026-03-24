@@ -523,24 +523,24 @@ describe('WeixinAdapter', () => {
       assert.equal(capturedText, 'Hello from Cat Café!');
     });
 
-    it('adds inter-chunk delay for multi-chunk messages', async () => {
+    it('sends all content in a single sendmessage call (no chunking)', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-1');
 
-      const sendTimestamps = [];
+      let callCount = 0;
+      let capturedTextLen = 0;
       adapter._injectFetch(async (_url, opts) => {
-        sendTimestamps.push(Date.now());
+        callCount++;
+        const body = JSON.parse(opts.body);
+        capturedTextLen = body.msg.item_list[0].text_item.text.length;
         return { ok: true, json: async () => ({ ret: 0 }) };
       });
 
-      const longText = 'A'.repeat(1200);
+      const longText = 'A'.repeat(8000);
       await sendAndFlush(adapter, 'user-1', longText);
 
-      assert.ok(sendTimestamps.length >= 3, `Expected >= 3 chunks, got ${sendTimestamps.length}`);
-      for (let i = 1; i < sendTimestamps.length; i++) {
-        const gap = sendTimestamps[i] - sendTimestamps[i - 1];
-        assert.ok(gap >= 200, `Gap between chunk ${i - 1} and ${i} was only ${gap}ms, expected >= 200ms`);
-      }
+      assert.equal(callCount, 1, 'must be exactly 1 sendmessage call, no chunking');
+      assert.equal(capturedTextLen, 8000, 'full text sent in single call');
     });
 
     it('throws on HTTP error from sendmessage', async () => {
