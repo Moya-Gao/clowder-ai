@@ -255,6 +255,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-23 | Phase 8 merged: IM Hub 配置向导 UI — platform config cards + connector status API + icon extraction (PR #680) |
 | 2026-03-24 | Phase J1 merged: file block full-stack + outbound delivery + security (URL whitelist, path traversal guard, fileName passthrough) (PR #689) |
 | 2026-03-24 | Phase J2 merged: Pandoc document generation service + MCP tool + auto-install (PR #693) |
+| 2026-03-24 | Bugfix: CLI file delivery — post_message consumes RichBlockBuffer for outbound + voice synthesis merge fix (PR #695) |
 
 ## 参考文件
 
