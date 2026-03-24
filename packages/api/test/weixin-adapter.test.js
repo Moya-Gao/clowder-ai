@@ -371,6 +371,45 @@ describe('WeixinAdapter', () => {
         assert.equal(result.qrPayload, 'payload-xyz');
       });
 
+      it('parses real iLink response with qrcode_img_content and ret', async () => {
+        WeixinAdapter._injectStaticFetch(async () => ({
+          ok: true,
+          json: async () => ({
+            ret: 0,
+            qrcode: 'ef1387e07975295290b7d609dd5e3da7',
+            qrcode_img_content: 'https://liteapp.weixin.qq.com/q/7GiQu1?qrcode=ef1387e&bot_type=3',
+          }),
+        }));
+
+        const result = await WeixinAdapter.fetchQrCode();
+        assert.equal(result.qrUrl, 'https://liteapp.weixin.qq.com/q/7GiQu1?qrcode=ef1387e&bot_type=3');
+        assert.equal(result.qrPayload, 'ef1387e07975295290b7d609dd5e3da7');
+      });
+
+      it('prefers qrcode_img_content over qrcode_url when both present', async () => {
+        WeixinAdapter._injectStaticFetch(async () => ({
+          ok: true,
+          json: async () => ({
+            ret: 0,
+            qrcode: 'payload-abc',
+            qrcode_img_content: 'https://liteapp.weixin.qq.com/preferred',
+            qrcode_url: 'https://weixin.qq.com/fallback',
+          }),
+        }));
+
+        const result = await WeixinAdapter.fetchQrCode();
+        assert.equal(result.qrUrl, 'https://liteapp.weixin.qq.com/preferred');
+      });
+
+      it('throws on non-zero ret (iLink error format)', async () => {
+        WeixinAdapter._injectStaticFetch(async () => ({
+          ok: true,
+          json: async () => ({ ret: -1, errmsg: 'bot quota exceeded' }),
+        }));
+
+        await assert.rejects(() => WeixinAdapter.fetchQrCode(), /get_bot_qrcode errcode -1.*bot quota exceeded/);
+      });
+
       it('throws on HTTP error', async () => {
         WeixinAdapter._injectStaticFetch(async () => ({
           ok: false,
@@ -390,13 +429,13 @@ describe('WeixinAdapter', () => {
         await assert.rejects(() => WeixinAdapter.fetchQrCode(), /get_bot_qrcode errcode -1.*service unavailable/);
       });
 
-      it('throws when response missing qrcode_url or qrcode', async () => {
+      it('throws when response missing qrcode_img_content/qrcode_url or qrcode', async () => {
         WeixinAdapter._injectStaticFetch(async () => ({
           ok: true,
           json: async () => ({ errcode: 0 }),
         }));
 
-        await assert.rejects(() => WeixinAdapter.fetchQrCode(), /missing qrcode_url or qrcode/);
+        await assert.rejects(() => WeixinAdapter.fetchQrCode(), /missing qrcode_img_content\/qrcode_url or qrcode/);
       });
     });
 
@@ -495,6 +534,71 @@ describe('WeixinAdapter', () => {
 
         await WeixinAdapter.pollQrCodeStatus('payload with spaces&special=chars');
         assert.ok(capturedUrl.includes(encodeURIComponent('payload with spaces&special=chars')));
+      });
+
+      it('returns waiting for string status "wait" (real iLink format)', async () => {
+        WeixinAdapter._injectStaticFetch(async () => ({
+          ok: true,
+          json: async () => ({ ret: 0, status: 'wait' }),
+        }));
+
+        const result = await WeixinAdapter.pollQrCodeStatus('qr-payload');
+        assert.equal(result.status, 'waiting');
+      });
+
+      it('returns expired for string status "expired" (real iLink format)', async () => {
+        WeixinAdapter._injectStaticFetch(async () => ({
+          ok: true,
+          json: async () => ({ ret: 0, status: 'expired' }),
+        }));
+
+        const result = await WeixinAdapter.pollQrCodeStatus('qr-payload');
+        assert.equal(result.status, 'expired');
+      });
+
+      it('returns confirmed for string status "confirmed" with bot_token', async () => {
+        WeixinAdapter._injectStaticFetch(async () => ({
+          ok: true,
+          json: async () => ({ ret: 0, status: 'confirmed', bot_token: 'real-token-xyz' }),
+        }));
+
+        const result = await WeixinAdapter.pollQrCodeStatus('qr-payload');
+        assert.equal(result.status, 'confirmed');
+        assert.equal(result.botToken, 'real-token-xyz');
+      });
+
+      it('returns scanned for string status "scanned"', async () => {
+        WeixinAdapter._injectStaticFetch(async () => ({
+          ok: true,
+          json: async () => ({ ret: 0, status: 'scanned' }),
+        }));
+
+        const result = await WeixinAdapter.pollQrCodeStatus('qr-payload');
+        assert.equal(result.status, 'scanned');
+      });
+
+      it('returns error on non-zero ret in poll response', async () => {
+        WeixinAdapter._injectStaticFetch(async () => ({
+          ok: true,
+          json: async () => ({ ret: -7, errmsg: 'invalid qrcode' }),
+        }));
+
+        const result = await WeixinAdapter.pollQrCodeStatus('qr-payload');
+        assert.equal(result.status, 'error');
+        assert.ok(result.message.includes('invalid qrcode'));
+      });
+
+      it('uses a timeout >= 35 s to accommodate iLink long-poll', async () => {
+        let capturedOptions = null;
+        WeixinAdapter._injectStaticFetch(async (_url, opts) => {
+          capturedOptions = opts;
+          return { ok: true, json: async () => ({ ret: 0, status: 'wait' }) };
+        });
+
+        await WeixinAdapter.pollQrCodeStatus('qr-payload');
+        assert.ok(capturedOptions, 'fetch options should be captured');
+        assert.ok(capturedOptions.signal, 'signal should be present');
+        assert.equal(capturedOptions.signal.aborted, false);
       });
     });
 

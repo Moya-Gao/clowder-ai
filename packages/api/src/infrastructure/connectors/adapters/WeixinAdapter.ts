@@ -23,6 +23,8 @@ const WEIXIN_MAX_MESSAGE_LENGTH = 2000;
 const ERRCODE_SESSION_EXPIRED = -14;
 /** QR code status poll interval (ms) */
 const QRCODE_POLL_INTERVAL_MS = 2_000;
+/** iLink get_qrcode_status is a ~30 s long-poll; timeout must exceed that */
+const QRCODE_STATUS_POLL_TIMEOUT_MS = 40_000;
 /** QR code timeout (5 minutes) */
 const QRCODE_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -84,14 +86,17 @@ export type WeixinQrCodeStatus =
 interface ILinkQrCodeResponse {
   errcode?: number;
   errmsg?: string;
+  ret?: number;
   qrcode_url?: string;
+  qrcode_img_content?: string;
   qrcode?: string;
 }
 
 interface ILinkQrCodeStatusResponse {
   errcode?: number;
   errmsg?: string;
-  status?: number;
+  ret?: number;
+  status?: number | string;
   bot_token?: string;
 }
 
@@ -449,13 +454,15 @@ export class WeixinAdapter implements IOutboundAdapter {
       throw new Error(`get_bot_qrcode HTTP ${res.status}: ${res.statusText}`);
     }
     const data = (await res.json()) as ILinkQrCodeResponse;
-    if (data.errcode && data.errcode !== 0) {
-      throw new Error(`get_bot_qrcode errcode ${data.errcode}: ${data.errmsg ?? 'unknown'}`);
+    const errorCode = data.errcode ?? data.ret;
+    if (errorCode && errorCode !== 0) {
+      throw new Error(`get_bot_qrcode errcode ${errorCode}: ${data.errmsg ?? 'unknown'}`);
     }
-    const qrUrl = data.qrcode_url;
+    // iLink API returns qrcode_img_content (not qrcode_url) — accept both for resilience
+    const qrUrl = data.qrcode_img_content ?? data.qrcode_url;
     const qrPayload = data.qrcode;
     if (!qrUrl || !qrPayload) {
-      throw new Error('get_bot_qrcode: missing qrcode_url or qrcode in response');
+      throw new Error('get_bot_qrcode: missing qrcode_img_content/qrcode_url or qrcode in response');
     }
     return { qrUrl, qrPayload };
   }
@@ -464,30 +471,36 @@ export class WeixinAdapter implements IOutboundAdapter {
     const url = `${ILINK_BASE_URL}/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(qrPayload)}`;
     const res = await WeixinAdapter.staticFetchFn(url, {
       method: 'GET',
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(QRCODE_STATUS_POLL_TIMEOUT_MS),
     });
     if (!res.ok) {
       return { status: 'error', message: `HTTP ${res.status}` };
     }
     const data = (await res.json()) as ILinkQrCodeStatusResponse;
-    if (data.errcode && data.errcode !== 0) {
-      return { status: 'error', message: data.errmsg ?? `errcode ${data.errcode}` };
+    const errorCode = data.errcode ?? data.ret;
+    if (errorCode && errorCode !== 0) {
+      return { status: 'error', message: data.errmsg ?? `errcode ${errorCode}` };
     }
-    // status: 0 = waiting, 1 = scanned, 2 = confirmed, 3 = expired
-    switch (data.status) {
+    // iLink API returns status as number (0/1/2/3) or string ("wait"/"scanned"/"confirmed"/"expired")
+    const s = data.status;
+    switch (s) {
       case 0:
+      case 'wait':
         return { status: 'waiting' };
       case 1:
+      case 'scanned':
         return { status: 'scanned' };
       case 2:
+      case 'confirmed':
         if (!data.bot_token) {
           return { status: 'error', message: 'confirmed but no bot_token in response' };
         }
         return { status: 'confirmed', botToken: data.bot_token };
       case 3:
+      case 'expired':
         return { status: 'expired' };
       default:
-        return { status: 'error', message: `unknown status ${data.status}` };
+        return { status: 'error', message: `unknown status ${s}` };
     }
   }
 
