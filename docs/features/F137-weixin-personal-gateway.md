@@ -195,6 +195,7 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | 2026-07-19 | 调研 `@tencent-weixin/openclaw-weixin` 包 + iLink Bot 协议完整分析 |
 | 2026-07-19 | 立项 F137，related F088/F132 |
 | 2026-07-19 | Phase A 实现 + 砚砚 review 放行 + 云端 review 通过 → PR #687 squash merge (2cba337b) |
+| 2026-07-20 | Hotfix: QR field name + string status + long-poll timeout → PR #688 squash merge (73af3e0a) |
 
 ## Review Gate
 
