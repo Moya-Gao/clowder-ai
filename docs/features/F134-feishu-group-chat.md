@@ -206,7 +206,7 @@ export interface FeishuInboundMessage {
 | KD-8 | 群聊中禁用 /命令，仅允许对话 | 群聊场景下 /new /threads /use 等命令语义不清且可能被误触。初版只在 DM 中允许命令 | 2026-03-25 |
 | KD-9 | `@sender` 采用 message-level 绑定（`source.sender` 写入 messageStore）而非 thread-level lastSender | 原设计的 `lastSender` 是 thread 级覆盖存储，群聊并发时后到消息会覆盖先到的 sender，导致错 @。改用 message-level：每条入站消息的 `ConnectorSource.sender` 已持久化在 messageStore，deliver 时通过 `triggerMessageId` 回溯原始消息的 sender。详见 KD-9 技术设计章节 | 2026-03-25 |
 | KD-10 | Contact API + Chat API 放在 FeishuAdapter，不预抽服务 | `resolveSenderName(openId)` + `resolveChatName(chatId)` 带 TTL Map cache，直接放在 FeishuAdapter 内。只有第二个 connector 也需要时才抽 `FeishuContactService`。需权限：`contact:user.base:readonly` + `im:chat:readonly`（铲屎官已配） | 2026-03-25 |
-| KD-11 | Connector source 队列 merge 增加 sender 感知 | InvocationQueue merge 条件增加对 `sender.id` 的校验：不同 sender 的消息不合并。这避免群聊中 A 的消息被追加到 B 的 queue entry 里。实现方式：在 QueueEntry 新增可选 `senderMeta` 字段，merge 时比对 | 2026-03-25 |
+| KD-11 | Connector source 队列禁止 merge | `source === 'connector'` 的消息直接禁止 merge（快速稳妥方案）。QueueEntry 新增可选 `senderMeta` 字段用于 UI 展示，但不参与 merge 判断。这避免群聊中不同 sender 的消息被合并 | 2026-03-25 |
 
 ## Timeline
 
@@ -521,9 +521,10 @@ private enqueueWhileActive(
 }
 ```
 
-上游调用 `enqueueWhileActive` 的 3 处（trigger/handleUrgentTrigger/handleNewTrigger）都已有 sender 来源：
-- `trigger()` 从 `ConnectorRouter.route()` 返回的 `routeResult.sender` 获取
-- 或从 bootstrap 层传入（parseEvent 解析出 senderName 后组装）
+上游调用 `enqueueWhileActive` 的 2 处（`trigger` 和 `handleUrgentTrigger`）sender 来源：
+- `sender` 由 `ConnectorRouter.route()` 的入参向下透传给 `invokeTrigger.trigger(..., sender)`
+- `trigger()` 再透传给 `enqueueWhileActive(..., sender)` 和 `handleUrgentTrigger(..., sender)`
+- 最上游：bootstrap 层从 `parseEvent()` 解析出 `senderId`，通过 `resolveSenderName()` 获取 name，组装 `{ id, name }` 后传入 `route()`
 
 #### 全链路 triggerMessageId 传递（deliver 调用点）
 
