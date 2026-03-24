@@ -204,7 +204,7 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 
 ### BUG-1: 出站消息无法投递到微信（P0）
 
-**状态**: 🔴 Open — 根因待定位
+**状态**: 🟢 Fixed — PR #701 squash merge (40639bd4)
 
 **现象**（2026-07-24 Alpha 实测，3 次复现）：
 - ✅ 微信扫码登录成功 → 长轮询启动
@@ -305,6 +305,9 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-07-24 | iLink 协议对齐 + 空语音 fallback 修复 → PR #691 砚砚放行 + 云端 review 通过 → squash merge (e5180ad5) |
 | 2026-07-24 | Alpha E2E 测试：入站成功 ✅，出站失败 ❌ → BUG-1 记录（见 Known Bugs） |
 | 2026-07-24 | Phase C UI 需求细化（IM Hub QR 登录流程）写入 spec |
+| 2026-07-24 | 诊断日志 → PR #696 squash merge (f46e680f) |
+| 2026-07-24 | 砚砚日志定位：出站调用链健康，iLink→微信侧静默丢弃长/格式消息 |
+| 2026-07-24 | BUG-1 修复：strip markdown + 400 chunk limit + 300ms delay → PR #701 砚砚放行 + cloud R1-R4 全修 → squash merge (40639bd4) |
 
 ## Review Gate
 
