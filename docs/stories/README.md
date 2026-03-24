@@ -76,6 +76,7 @@ thread_ids: []             # 关联的 thread ID（可选）
 | `mafia-game-highlights/` | 猫猫杀名场面集锦（七届） | 2026-03-08 | 全员 |
 | `late-night-gym-companionship/` | 深夜撸铁前的猫猫陪伴 | 2026-03-10 | opus, opus-45, gpt52, gemini |
 | `597-stars-incident/` | 597 颗星星一夜归零 | 2026-03-12 | opus, opus-45, gpt52, gemini |
+| `three-days-productization/` | 三天产品化：猫猫们的逆袭剧本 | 2026-03-24 | opus, opus-45, gpt52, gemini, opencode |
 
 ## 脱敏检查清单
 
