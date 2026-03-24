@@ -196,6 +196,8 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | 2026-07-19 | 立项 F137，related F088/F132 |
 | 2026-07-19 | Phase A 实现 + 砚砚 review 放行 + 云端 review 通过 → PR #687 squash merge (2cba337b) |
 | 2026-07-20 | Hotfix: QR field name + string status + long-poll timeout → PR #688 squash merge (73af3e0a) |
+| 2026-07-20 | Alpha 实测发现 iLink 协议字段不匹配（`msgs` not `messages`、`item_list` 嵌套结构、`msg` wrapper 等） |
+| 2026-07-24 | iLink 协议对齐 + 空语音 fallback 修复 → PR #691 砚砚放行 + 云端 review 通过 → squash merge (e5180ad5) |
 
 ## Review Gate
 
