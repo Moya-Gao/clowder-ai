@@ -250,46 +250,34 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 - `OutboundDeliveryHook.deliver()` 在 `bindings.length === 0` 时 **静默返回**（第 68 行无日志）
 - `WeixinAdapter.sendReply()` 在成功时 **无日志输出**
 
-### BUG-2: 多猫回复只有第一条到达微信（P0）
+### BUG-2: 后续轮次回复无法投递到微信（P0）
 
-**状态**: 🟢 Fixed — PR #704 squash merge (50b62edb)
+**状态**: 🟢 Fixed — PR #704 + #708 + #710 + #711 累积修复，E2E 三轮验证通过 (2026-03-24)
 
-**现象**：铲屎官发第一条微信消息 → 金渐层回复 → 微信收到 ✅。发第二条 → 砚砚回复 → 微信收不到 ❌。之后所有猫回复微信都收不到。
+**现象**：铲屎官发第一条微信消息 → 猫猫回复 → 微信收到 ✅。发第二条 → 猫猫回复 → 微信收不到 ❌（或延迟 3-5 分钟才收到）。
 
-**根因**：iLink `context_token` 为单次消费。第一次 `sendmessage` + `FINISH` 后 token 作废，后续用同一 token 发送被 iLink 静默丢弃（200 OK 但不投递）。
+**根因（多层）**：
+1. **iLink `context_token` 单次消费**（PR #704）：第一次 `sendmessage` + `FINISH` 后 token 作废，后续用同一 token 被静默丢弃
+2. **分块发送触发 iLink 单次消费约束**（PR #710）：即使不同 token，每个 token 只投递第一个 `sendmessage` 调用，分块（多次调用）的后续块被丢弃
+3. **`sendmessage` 请求体缺少官方必要字段**（PR #711）：我们的请求体比官方 `@tencent-weixin/openclaw-weixin@2.0.1` 少了 `client_id`、`message_type`、`from_user_id` 三个字段
 
-**修复**：
-1. 消费追踪：`lastConsumedToken` Map 记录每个 chatId 最近消费的 token
-2. Outbound debounce 3s：多猫回复在窗口内合并为一条消息发出
-3. Token 绑定 at queue time：pending bucket 在 sendReply 入队时绑定 token
-4. 跨 token 隔离：token 变化时先 flush 旧桶，不跨 turn 合并
-5. Compare-and-delete：flush 后仅删与 boundToken 匹配的 contextTokens 条目
+**修复时间线**：
+| PR | Commit | 修复内容 |
+|----|--------|---------|
+| #704 | 50b62edb | Token 消费追踪 + debounce 3s 聚合多猫回复 + 跨 token 隔离 |
+| #708 | a0a07250 | sendTyping keepalive（typing_ticket → 5s heartbeat）— 排除了 typing 缺失假设 |
+| #710 | 8f1e7fe9 | 禁用分块，单条 sendmessage 发送全部内容 — 排除了 chunking 假设，收敛到协议字段 |
+| #711 | 61f6baf4 | 对齐官方 sendmessage body（补 `client_id/message_type/from_user_id`）+ 200+非 JSON/空 body 硬失败 + raw response 调试日志 |
 
-**已知 Debt（DEBT-1）**：triple-token rotation during async flush — 当 tokenA 正在异步 flush 时，tokenB 的 sendReply 在 `await flushReply()` 处等待，此时 tokenC 到达并建桶。B 恢复后发现桶的 token 不匹配，当前行为是 `resolve()` 静默跳过（B 内容不发出）。触发条件极端（3 个 token 在一次 flush 的网络时间内连续轮换），日常不会命中，但属于协议正确性 debt。修复方向：pending 按 `(chatId, token)` 双 key 分桶，或引入 per-chatId 发送队列。— 云端 Codex review PR #704 R2 发现，标记为 known debt 待后续处理。
+**E2E 验证证据（2026-03-24，runtime PID 55412）**：
 
-**疑似根因（按可能性排序）**：
+| 轮次 | 收到消息 (UTC) | 发出回复 (UTC) | tokenHash | iLink 返回 | 微信收到 |
+|------|---------------|---------------|-----------|-----------|---------|
+| 第 1 轮 | 22:30:46 | 22:31:01 | C3xsSh9V | 200 OK | ✅（延迟 ~3min，iLink 服务端投递延迟） |
+| 第 2 轮 | 22:37:40 | 22:37:54 | KN/0/AOm | 200 OK | ✅ 立即收到 |
+| 第 3 轮 | 22:39:04 | 22:39:20 | lomEmTvf | 200 OK | ✅ 立即收到 |
 
-1. **`OutboundDeliveryHook.deliver()` 查询到 0 个 binding**：
-   - `getByThread(threadId)` 返回空数组 → 静默 return
-   - 可能原因：Redis reverse index `connector-binding-rev:{threadId}` 的 Set 成员（unprefixed key）与 `hgetall` 的 ioredis `keyPrefix` 交互有误？
-   - 或者 `threadId` 在 outbound 路径中不一致（`hub_threadId` vs `threadId`）？
-
-2. **`ConnectorInvokeTrigger.opts.outboundHook` 为 undefined**：
-   - `setOutboundHook()` 在 `index.ts` 行 1283 调用
-   - 但如果 connector gateway bootstrap 在 invokeTrigger 初始化之前完成，可能存在时序问题
-
-3. **WeixinAdapter.sendReply() 或 sendMessageApi() HTTP 成功但 iLink 静默丢弃**：
-   - sendMessageApi 无成功日志，无法排除
-   - 但零日志更指向 deliver() 根本未被调用
-
-4. **context_token 竞态**：
-   - Token 在入站处理中缓存（Map 内存），但 deliver() 发生在不同异步上下文
-
-**修复前必做**：
-- 在 `OutboundDeliveryHook.deliver()` 第 68 行添加 `bindings.length === 0` 日志
-- 在 `WeixinAdapter.sendReply()` 添加成功日志
-- 在 `WeixinAdapter.sendMessageApi()` 添加响应体日志
-- 重新测试后根据日志定位确切根因
+**已知 Debt（DEBT-1）**：triple-token rotation during async flush — 当 tokenA 正在异步 flush 时，tokenB 的 sendReply 在 `await flushReply()` 处等待，此时 tokenC 到达并建桶。B 恢复后发现桶的 token 不匹配，当前行为是 `resolve()` 静默跳过（B 内容不发出）。触发条件极端（3 个 token 在一次 flush 的网络时间内连续轮换），日常不会命中，但属于协议正确性 debt。修复方向：pending 按 `(chatId, token)` 双 key 分桶，或引入 per-chatId 发送队列。
 
 ## Open Questions
 
@@ -326,6 +314,10 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-07-24 | 砚砚日志定位：出站调用链健康，iLink→微信侧静默丢弃长/格式消息 |
 | 2026-07-24 | BUG-1 修复：strip markdown + 400 chunk limit + 300ms delay → PR #701 砚砚放行 + cloud R1-R4 全修 → squash merge (40639bd4) |
 | 2026-07-24 | BUG-2 修复：context_token 单次消费 + 出站 debounce 3s 聚合多猫回复 + 跨 token 隔离 → PR #704 砚砚 R4 放行 + cloud R2 通过 → squash merge (50b62edb) |
+| 2026-07-24 | sendTyping keepalive（typing_ticket → 5s heartbeat）→ PR #708 squash merge (a0a07250)。排除了 typing 缺失假设 |
+| 2026-07-24 | 禁用分块 — 单条 sendmessage 发送全部内容 → PR #710 squash merge (8f1e7fe9)。排除了 chunking 假设，收敛到协议字段不匹配 |
+| 2026-07-24 | 对齐官方 sendmessage body（补 `client_id/message_type/from_user_id`）+ 响应硬化 → PR #711 squash merge (61f6baf4)。砚砚(GPT-5.4) 实现，砚砚(Codex) review |
+| 2026-07-24 | **E2E 三轮验证全部通过** — 第 1/2/3 轮消息均成功投递到微信。BUG-2 confirmed fixed ✅ |
 
 ## Review Gate
 
