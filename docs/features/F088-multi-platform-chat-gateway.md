@@ -65,7 +65,8 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **F** | iMessage 接入（OpenClaw + BlueBubbles） | 📋 planned | — |
 | **7** | 群聊公共层：ConnectorRouter sender 透传 + ConnectorSource sender 扩展 | 📋 planned | — (联动 [F134](F134-feishu-group-chat.md)) |
 | **8** | IM Hub 配置向导 — 平台接入引导 UI（飞书/Telegram/钉钉） | ✅ | [#680](https://github.com/zts212653/cat-cafe/pull/680) |
-| **J** | 文档生成+文件投递：猫生成 PDF/DOCX/MD → 新 RichBlock `file` → OutboundDelivery → 飞书/TG 文件消息 | 📋 planned | — |
+| **J1** | file block 全链路 + outbound 投递 + 安全防护（URL 白名单 + path traversal guard + fileName 透传） | ✅ | [#689](https://github.com/zts212653/cat-cafe/pull/689) |
+| **J2** | 文档生成服务：PDF/DOCX/MD 生成 + 临时文件生命周期 + 大小限制策略 | 📋 planned | — |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 
 完整 AC 列表见 [各 Phase 详细 AC](assets/F088/acceptance-criteria.md)
@@ -128,13 +129,21 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - `uploadToFeishu()` → `/im/v1/files` ✅
 - 用户从飞书发文件给猫 → 已能接收（`case 'file':` handler）✅
 
-**待补差距**：
-- [ ] PDF 生成库选型（pdf-lib / Puppeteer PDF export / 其他）
-- [ ] DOCX 生成库选型（docx / officegen / 其他）
-- [ ] 新 RichBlock `kind: "file"` 定义（shared types）
-- [ ] OutboundDeliveryHook 增加 file block 投递逻辑
-- [ ] `file_type` 精确映射（按扩展名 → pdf/doc/xls/ppt/stream）
-- [ ] Telegram adapter 文件发送支持（sendDocument API）
+**J1 已完成（PR #689）**：
+- [x] 新 RichBlock `kind: "file"` 定义（shared types）
+- [x] OutboundDeliveryHook 增加 file block 投递逻辑
+- [x] `file_type` 精确映射（按扩展名 → pdf/doc/xls/ppt/stream）
+- [x] URL 白名单安全防护（/uploads/ | /api/ | https://）
+- [x] mediaPathResolver path traversal guard
+- [x] fileName 透传到 Feishu upload（absPath + https:// 两条链路）
+- [x] 前端 FileBlock 渲染器 + 安全 href 校验
+- [x] Telegram adapter 文件发送已有（sendDocument）
+
+**J2 待补差距**：
+- [ ] PDF 生成库选型（Puppeteer PDF export / pdf-lib）
+- [ ] DOCX 生成库选型（docx npm 包）
+- [ ] 临时文件生命周期管理
+- [ ] 大小限制策略
 
 ## MVP Scope 硬边界
 
@@ -231,6 +240,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-22 | Bugfix: use /im/v1/images/{key} for post-embedded image download (ISSUE-14) (PR #640) |
 | 2026-03-22 | ISSUE-15 fix: Web-originated messages now trigger outbound delivery to IM platforms (PR #671) |
 | 2026-03-23 | Phase 8 merged: IM Hub 配置向导 UI — platform config cards + connector status API + icon extraction (PR #680) |
+| 2026-03-24 | Phase J1 merged: file block full-stack + outbound delivery + security (URL whitelist, path traversal guard, fileName passthrough) (PR #689) |
 
 ## 参考文件
 
