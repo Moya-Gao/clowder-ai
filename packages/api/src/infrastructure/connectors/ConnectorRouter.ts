@@ -155,8 +155,7 @@ export class ConnectorRouter {
     }
 
     // 1b. Command interception — handle /commands before agent routing
-    // KD-8 (F134): group chats skip command interception — only allow conversation
-    if (this.opts.commandLayer && chatType !== 'group' && text.trim().startsWith('/')) {
+    if (this.opts.commandLayer && text.trim().startsWith('/')) {
       const cmdResult = await this.opts.commandLayer.handle(connectorId, externalChatId, this.opts.defaultUserId, text);
       if (cmdResult.kind !== 'not-command' && cmdResult.response) {
         const adapter = this.opts.adapters?.get(connectorId);
@@ -169,7 +168,10 @@ export class ConnectorRouter {
           }
         }
         // ISSUE-8 (8A): Store command exchange in Hub thread, not conversation thread
-        const hubThreadId = await this.resolveHubThread(connectorId, externalChatId);
+        const chatLabel = chatType === 'group'
+          ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}`
+          : undefined;
+        const hubThreadId = await this.resolveHubThread(connectorId, externalChatId, chatLabel);
         const stored = await this.storeCommandExchange(connectorId, hubThreadId, text, cmdResult.response);
         log.info(
           { connectorId, command: cmdResult.kind, hubThreadId },
@@ -345,7 +347,7 @@ export class ConnectorRouter {
     return { text: parts.length > 0 ? parts.join('\n') : originalText, contentBlocks };
   }
 
-  private async resolveHubThread(connectorId: string, externalChatId: string): Promise<string | undefined> {
+  private async resolveHubThread(connectorId: string, externalChatId: string, chatLabel?: string): Promise<string | undefined> {
     const key = `${connectorId}:${externalChatId}`;
     const inFlight = this.hubThreadResolvers.get(key);
     if (inFlight) return inFlight;
@@ -357,7 +359,7 @@ export class ConnectorRouter {
     const inFlightAfterRead = this.hubThreadResolvers.get(key);
     if (inFlightAfterRead) return inFlightAfterRead;
 
-    const creation = this.resolveHubThreadOnce(connectorId, externalChatId).finally(() => {
+    const creation = this.resolveHubThreadOnce(connectorId, externalChatId, chatLabel).finally(() => {
       if (this.hubThreadResolvers.get(key) === creation) {
         this.hubThreadResolvers.delete(key);
       }
@@ -366,7 +368,7 @@ export class ConnectorRouter {
     return creation;
   }
 
-  private async resolveHubThreadOnce(connectorId: string, externalChatId: string): Promise<string | undefined> {
+  private async resolveHubThreadOnce(connectorId: string, externalChatId: string, chatLabel?: string): Promise<string | undefined> {
     const { bindingStore, threadStore, log } = this.opts;
     const binding = await bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) return undefined;
@@ -374,7 +376,8 @@ export class ConnectorRouter {
 
     const def = getConnectorDefinition(connectorId);
     const label = def?.displayName ?? connectorId;
-    const hubThread = await threadStore.create(this.opts.defaultUserId, `${label} IM Hub`);
+    const hubTitle = chatLabel ? `${chatLabel} IM Hub` : `${label} IM Hub`;
+    const hubThread = await threadStore.create(this.opts.defaultUserId, hubTitle);
     await threadStore.updateConnectorHubState(hubThread.id, {
       v: 1,
       connectorId,
