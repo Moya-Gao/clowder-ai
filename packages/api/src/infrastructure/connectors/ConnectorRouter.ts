@@ -19,10 +19,10 @@ import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorMessageFormatter } from './ConnectorMessageFormatter.js';
+import type { IConnectorPermissionStore } from './ConnectorPermissionStore.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import type { InboundMessageDedup } from './InboundMessageDedup.js';
 import { parseMentions } from './mention-parser.js';
-import type { IConnectorPermissionStore } from './ConnectorPermissionStore.js';
 import type { IOutboundAdapter } from './OutboundDeliveryHook.js';
 
 export type RouteResult =
@@ -184,7 +184,13 @@ export class ConnectorRouter {
           return { kind: 'skipped', reason: 'command_admin_only' };
         }
       }
-      const cmdResult = await this.opts.commandLayer.handle(connectorId, externalChatId, this.opts.defaultUserId, text, sender?.id);
+      const cmdResult = await this.opts.commandLayer.handle(
+        connectorId,
+        externalChatId,
+        this.opts.defaultUserId,
+        text,
+        sender?.id,
+      );
       if (cmdResult.kind !== 'not-command' && cmdResult.response) {
         const adapter = this.opts.adapters?.get(connectorId);
         if (adapter) {

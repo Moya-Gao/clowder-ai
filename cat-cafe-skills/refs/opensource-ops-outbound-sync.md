@@ -134,6 +134,20 @@ bash scripts/publish-sync-tag.sh \
   --push
 ```
 
+- 如果这是一次 **release-intended** sync，在 sync tag 发布后，再运行：
+
+```bash
+bash scripts/publish-release-tag.sh \
+  --release-tag=vX.Y.Z \
+  --target-sha {clowder_ai_release_commit_sha} \
+  --push
+```
+
+- `publish-release-tag.sh` 会强制校验三点映射：
+  - `clowder-vX.Y.Z-source` 必须已经存在于 `cat-cafe`
+  - `clowder-ai` 上最近可追溯的 `.sync-provenance.json` 必须记录同一个 `release_tag` / `source_snapshot_tag`
+  - 只有这两边对得上，才允许在 `clowder-ai` 发布 `vX.Y.Z`
+
 - `--target-sha` 必须是 **已经在 `clowder-ai main` 上**、而且就是最后一次更新 `.sync-provenance.json` 的 landed sync commit，不能拿未 merge 的 sync 分支 tip，也不能拿后续 README/docs 或 `sync:` descendant commit 代替
 - `--source-sha` 必须和 `{clowder_ai_sync_commit_sha}:.sync-provenance.json` 里的 `source_commit_sha` 完全一致，不能手填更靠后的 cat-cafe commit
 - 不传 `--tag` 时，脚本会从 landed sync 的 target commit time 自动推导同名 `sync/YYYY-MM-DD-HHMMSS` tag；这里看的是 upstream 真正落地时间，不是 sync 分支生成时写进 provenance 的 `synced_at`
@@ -143,6 +157,7 @@ bash scripts/publish-sync-tag.sh \
 - 这会在 `cat-cafe` 与 `clowder-ai` 两边创建并 push 同名 `sync/YYYY-MM-DD-HHMMSS` tag
 - 这个 tag 记录的是“哪一个 cat-cafe commit 被同步出去，以及它在 clowder-ai 上对应的 merge commit”
 - release-intended sync 另外还有一条 **source snapshot tag**：`clowder-vX.Y.Z-source`。它不是 `sync/*` 基线 tag，而是用来把 `source snapshot → target release tag → backport commit` 三点映射钉进真相源
+- `clowder-ai` 的 `vX.Y.Z` release tag 由 `publish-release-tag.sh` 发布；不要手工打 tag 再事后补 provenance 校验
 - 如果这次同步对应社区激进特性的预览发布，优先考虑 `vX.Y.Z-rc.1` 这类 prerelease tag，而不是直接把特性压进 `clowder-ai main`
 
 ### Step 5: Source-Owned Public Gate `[cat-cafe → temp target]`

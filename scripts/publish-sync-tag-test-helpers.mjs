@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach } from 'node:test';
 
-const SOURCE_SCRIPT = resolve(process.cwd(), 'scripts/publish-sync-tag.sh');
+const SOURCE_SYNC_TAG_SCRIPT = resolve(process.cwd(), 'scripts/publish-sync-tag.sh');
+const SOURCE_RELEASE_TAG_SCRIPT = resolve(process.cwd(), 'scripts/publish-release-tag.sh');
 
 export function createFixtureTracker() {
   const fixtures = [];
@@ -55,6 +56,7 @@ export function commitSyncProvenance(repoRoot, sourceSha, message, options = {})
     target_head_sha: '',
     manifest_version: 3,
     synced_at: options.syncedAt ?? '2026-03-19T00:00:00Z',
+    ...(options.extraFields ?? {}),
   };
   return commitFile(
     repoRoot,
@@ -85,8 +87,10 @@ export function makeFixture() {
   git(targetRoot, 'remote', 'add', 'origin', targetOrigin);
 
   mkdirSync(join(sourceRoot, 'scripts'), { recursive: true });
-  cpSync(SOURCE_SCRIPT, join(sourceRoot, 'scripts/publish-sync-tag.sh'));
+  cpSync(SOURCE_SYNC_TAG_SCRIPT, join(sourceRoot, 'scripts/publish-sync-tag.sh'));
   chmodSync(join(sourceRoot, 'scripts/publish-sync-tag.sh'), 0o755);
+  cpSync(SOURCE_RELEASE_TAG_SCRIPT, join(sourceRoot, 'scripts/publish-release-tag.sh'));
+  chmodSync(join(sourceRoot, 'scripts/publish-release-tag.sh'), 0o755);
 
   commitFile(sourceRoot, 'README.md', 'source base\n', 'chore: source base');
   git(sourceRoot, 'push', '-u', 'origin', 'main');
@@ -106,6 +110,21 @@ export function capturePublishFailure(sourceRoot, targetRoot, ...args) {
   try {
     runPublish(sourceRoot, targetRoot, ...args);
     assert.fail('expected publish-sync-tag.sh to fail');
+  } catch (error) {
+    return error;
+  }
+}
+
+export function runReleasePublish(sourceRoot, targetRoot, ...args) {
+  return run('bash', ['scripts/publish-release-tag.sh', ...args], sourceRoot, {
+    CLOWDER_AI_DIR: targetRoot,
+  });
+}
+
+export function captureReleasePublishFailure(sourceRoot, targetRoot, ...args) {
+  try {
+    runReleasePublish(sourceRoot, targetRoot, ...args);
+    assert.fail('expected publish-release-tag.sh to fail');
   } catch (error) {
     return error;
   }

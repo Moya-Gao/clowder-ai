@@ -2,7 +2,16 @@ import type { IConnectorPermissionStore } from './ConnectorPermissionStore.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 
 export interface CommandResult {
-  readonly kind: 'new' | 'threads' | 'use' | 'where' | 'thread' | 'unbind' | 'allow-group' | 'deny-group' | 'not-command';
+  readonly kind:
+    | 'new'
+    | 'threads'
+    | 'use'
+    | 'where'
+    | 'thread'
+    | 'unbind'
+    | 'allow-group'
+    | 'deny-group'
+    | 'not-command';
   readonly response?: string;
   readonly newActiveThreadId?: string;
   /** Thread context for storing command exchange in messageStore */
@@ -45,7 +54,13 @@ export interface ConnectorCommandLayerDeps {
 export class ConnectorCommandLayer {
   constructor(private readonly deps: ConnectorCommandLayerDeps) {}
 
-  async handle(connectorId: string, externalChatId: string, userId: string, text: string, senderId?: string): Promise<CommandResult> {
+  async handle(
+    connectorId: string,
+    externalChatId: string,
+    userId: string,
+    text: string,
+    senderId?: string,
+  ): Promise<CommandResult> {
     const trimmed = text.trim();
     if (!trimmed.startsWith('/')) return { kind: 'not-command' };
 

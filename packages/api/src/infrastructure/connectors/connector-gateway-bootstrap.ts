@@ -21,7 +21,11 @@ import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
 import { TelegramAdapter } from './adapters/TelegramAdapter.js';
 import { WeixinAdapter } from './adapters/WeixinAdapter.js';
 import { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
-import { MemoryConnectorPermissionStore, RedisConnectorPermissionStore, type IConnectorPermissionStore } from './ConnectorPermissionStore.js';
+import {
+  type IConnectorPermissionStore,
+  MemoryConnectorPermissionStore,
+  RedisConnectorPermissionStore,
+} from './ConnectorPermissionStore.js';
 import { ConnectorRouter } from './ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
@@ -190,7 +194,10 @@ export async function startConnectorGateway(
 
   // F134 Phase D: Permission store + admin config
   const adminOpenIds = config.feishuAdminOpenIds
-    ? config.feishuAdminOpenIds.split(',').map((s) => s.trim()).filter(Boolean)
+    ? config.feishuAdminOpenIds
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
   const permissionStore: IConnectorPermissionStore = deps.redis
     ? new RedisConnectorPermissionStore(deps.redis)
@@ -199,7 +206,10 @@ export async function startConnectorGateway(
     const alreadyConfigured = await permissionStore.hasAdminConfig('feishu');
     if (!alreadyConfigured) {
       await permissionStore.setAdminOpenIds('feishu', adminOpenIds);
-      log.info({ adminCount: adminOpenIds.length }, '[ConnectorGateway] Feishu admin open_ids seeded from env (first boot)');
+      log.info(
+        { adminCount: adminOpenIds.length },
+        '[ConnectorGateway] Feishu admin open_ids seeded from env (first boot)',
+      );
     } else {
       log.info('[ConnectorGateway] Feishu admin config already persisted, env seed skipped');
     }

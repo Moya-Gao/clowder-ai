@@ -129,8 +129,12 @@ export class MemoryConnectorPermissionStore implements IConnectorPermissionStore
 export class RedisConnectorPermissionStore implements IConnectorPermissionStore {
   constructor(private readonly redis: RedisClient) {}
 
-  private configKey(cid: string): string { return `connector-perm:${cid}`; }
-  private groupsKey(cid: string): string { return `connector-perm-groups:${cid}`; }
+  private configKey(cid: string): string {
+    return `connector-perm:${cid}`;
+  }
+  private groupsKey(cid: string): string {
+    return `connector-perm-groups:${cid}`;
+  }
 
   async isGroupAllowed(connectorId: string, externalChatId: string): Promise<boolean> {
     const enabled = await this.redis.hget(this.configKey(connectorId), 'whitelistEnabled');

@@ -664,8 +664,13 @@ describe('ConnectorRouter', () => {
 
     it('AC-D1: blocks group messages when group not in whitelist', async () => {
       const result = await permRouter.route(
-        'feishu', 'blocked-group', 'hello', 'ext-perm-1',
-        undefined, { id: 'user-1' }, 'group',
+        'feishu',
+        'blocked-group',
+        'hello',
+        'ext-perm-1',
+        undefined,
+        { id: 'user-1' },
+        'group',
       );
       assert.equal(result.kind, 'skipped');
       assert.equal(result.reason, 'group_not_allowed');
@@ -676,8 +681,13 @@ describe('ConnectorRouter', () => {
     it('AC-D1: allows group messages when group is whitelisted', async () => {
       bindingStore.bind('feishu', 'allowed-group', 'thread-allowed', 'owner-1');
       const result = await permRouter.route(
-        'feishu', 'allowed-group', 'hello', 'ext-perm-2',
-        undefined, { id: 'user-1' }, 'group',
+        'feishu',
+        'allowed-group',
+        'hello',
+        'ext-perm-2',
+        undefined,
+        { id: 'user-1' },
+        'group',
       );
       assert.equal(result.kind, 'routed');
       assert.equal(permTrigger.calls.length, 1);
@@ -686,8 +696,13 @@ describe('ConnectorRouter', () => {
     it('AC-D3: blocks /command from non-admin in group', async () => {
       bindingStore.bind('feishu', 'allowed-group', 'thread-allowed2', 'owner-1');
       const result = await permRouter.route(
-        'feishu', 'allowed-group', '/where', 'ext-perm-3',
-        undefined, { id: 'non-admin-user' }, 'group',
+        'feishu',
+        'allowed-group',
+        '/where',
+        'ext-perm-3',
+        undefined,
+        { id: 'non-admin-user' },
+        'group',
       );
       assert.equal(result.kind, 'skipped');
       assert.equal(result.reason, 'command_admin_only');
@@ -697,25 +712,32 @@ describe('ConnectorRouter', () => {
     it('AC-D3: allows /command from admin in group', async () => {
       bindingStore.bind('feishu', 'allowed-group', 'thread-allowed3', 'owner-1');
       const result = await permRouter.route(
-        'feishu', 'allowed-group', '/where', 'ext-perm-4',
-        undefined, { id: 'admin-user-1' }, 'group',
+        'feishu',
+        'allowed-group',
+        '/where',
+        'ext-perm-4',
+        undefined,
+        { id: 'admin-user-1' },
+        'group',
       );
       assert.equal(result.kind, 'command');
     });
 
     it('AC-D5: DM messages bypass whitelist (no restriction on @bot)', async () => {
-      const result = await permRouter.route(
-        'feishu', 'dm-chat', 'hello', 'ext-perm-5',
-        undefined, undefined, 'p2p',
-      );
+      const result = await permRouter.route('feishu', 'dm-chat', 'hello', 'ext-perm-5', undefined, undefined, 'p2p');
       assert.equal(result.kind, 'routed');
     });
 
     it('AC-D5: DM /commands bypass admin check', async () => {
       bindingStore.bind('feishu', 'dm-chat-cmd', 'thread-dm-cmd', 'owner-1');
       const result = await permRouter.route(
-        'feishu', 'dm-chat-cmd', '/where', 'ext-perm-6',
-        undefined, undefined, 'p2p',
+        'feishu',
+        'dm-chat-cmd',
+        '/where',
+        'ext-perm-6',
+        undefined,
+        undefined,
+        'p2p',
       );
       assert.equal(result.kind, 'command');
     });

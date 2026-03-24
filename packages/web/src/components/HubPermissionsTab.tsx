@@ -46,7 +46,9 @@ export default function HubPermissionsTab() {
     }
   }, []);
 
-  useEffect(() => { fetchConfig(); }, [fetchConfig]);
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
 
   const saveConfig = async (patch: Partial<PermissionConfig>) => {
     setSaving(true);
@@ -74,14 +76,17 @@ export default function HubPermissionsTab() {
 
   const addGroup = () => {
     if (!newGroupId.trim()) return;
-    const updated = [...config.allowedGroups, { externalChatId: newGroupId.trim(), label: newGroupLabel.trim() || undefined, addedAt: Date.now() }];
+    const updated = [
+      ...config.allowedGroups,
+      { externalChatId: newGroupId.trim(), label: newGroupLabel.trim() || undefined, addedAt: Date.now() },
+    ];
     saveConfig({ allowedGroups: updated });
     setNewGroupId('');
     setNewGroupLabel('');
   };
 
   const removeGroup = (chatId: string) => {
-    const updated = config.allowedGroups.filter(g => g.externalChatId !== chatId);
+    const updated = config.allowedGroups.filter((g) => g.externalChatId !== chatId);
     saveConfig({ allowedGroups: updated });
   };
 
@@ -93,7 +98,7 @@ export default function HubPermissionsTab() {
   };
 
   const removeAdmin = (openId: string) => {
-    const updated = config.adminOpenIds.filter(id => id !== openId);
+    const updated = config.adminOpenIds.filter((id) => id !== openId);
     saveConfig({ adminOpenIds: updated });
   };
 
@@ -132,36 +137,48 @@ export default function HubPermissionsTab() {
                 className={`relative w-10 h-5 rounded-full transition-colors ${config.whitelistEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
                 disabled={saving}
               >
-                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.whitelistEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                <div
+                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.whitelistEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}
+                />
               </button>
             </div>
             <p className="text-xs text-gray-500">开启后，仅白名单内的群可使用 bot</p>
 
             {config.whitelistEnabled && (
               <div className="space-y-1.5">
-                {config.allowedGroups.map(g => (
-                  <div key={g.externalChatId} className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs">
+                {config.allowedGroups.map((g) => (
+                  <div
+                    key={g.externalChatId}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs"
+                  >
                     <span className="text-blue-500">👥</span>
                     <span className="flex-1 truncate text-gray-700 dark:text-gray-300">
-                      {g.label || g.externalChatId} {g.label ? <span className="text-gray-400">{g.externalChatId.slice(-8)}</span> : null}
+                      {g.label || g.externalChatId}{' '}
+                      {g.label ? <span className="text-gray-400">{g.externalChatId.slice(-8)}</span> : null}
                     </span>
-                    <button onClick={() => removeGroup(g.externalChatId)} className="text-red-400 hover:text-red-600">✕</button>
+                    <button onClick={() => removeGroup(g.externalChatId)} className="text-red-400 hover:text-red-600">
+                      ✕
+                    </button>
                   </div>
                 ))}
                 <div className="flex gap-2">
                   <input
                     value={newGroupId}
-                    onChange={e => setNewGroupId(e.target.value)}
+                    onChange={(e) => setNewGroupId(e.target.value)}
                     placeholder="chat_id"
                     className="flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-transparent"
                   />
                   <input
                     value={newGroupLabel}
-                    onChange={e => setNewGroupLabel(e.target.value)}
+                    onChange={(e) => setNewGroupLabel(e.target.value)}
                     placeholder="群名（可选）"
                     className="flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-transparent"
                   />
-                  <button onClick={addGroup} disabled={!newGroupId.trim()} className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg disabled:opacity-40">
+                  <button
+                    onClick={addGroup}
+                    disabled={!newGroupId.trim()}
+                    className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg disabled:opacity-40"
+                  >
                     添加
                   </button>
                 </div>
@@ -181,22 +198,35 @@ export default function HubPermissionsTab() {
 
             <div className="space-y-1.5">
               {config.adminOpenIds.map((id, i) => (
-                <div key={id} className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs">
+                <div
+                  key={id}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs"
+                >
                   <span className="text-amber-500">👑</span>
                   <span className="flex-1 truncate text-gray-700 dark:text-gray-300">{id}</span>
-                  {i === 0 && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-semibold">Owner</span>}
-                  <button onClick={() => removeAdmin(id)} className="text-red-400 hover:text-red-600">✕</button>
+                  {i === 0 && (
+                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-semibold">
+                      Owner
+                    </span>
+                  )}
+                  <button onClick={() => removeAdmin(id)} className="text-red-400 hover:text-red-600">
+                    ✕
+                  </button>
                 </div>
               ))}
               <div className="flex gap-2">
                 <input
                   value={newAdminId}
-                  onChange={e => setNewAdminId(e.target.value)}
+                  onChange={(e) => setNewAdminId(e.target.value)}
                   placeholder="open_id (ou_xxxx...)"
                   className="flex-1 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-transparent"
-                  onKeyDown={e => e.key === 'Enter' && addAdmin()}
+                  onKeyDown={(e) => e.key === 'Enter' && addAdmin()}
                 />
-                <button onClick={addAdmin} disabled={!newAdminId.trim()} className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg disabled:opacity-40">
+                <button
+                  onClick={addAdmin}
+                  disabled={!newAdminId.trim()}
+                  className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg disabled:opacity-40"
+                >
                   添加
                 </button>
               </div>
@@ -217,7 +247,9 @@ export default function HubPermissionsTab() {
                 className={`relative w-10 h-5 rounded-full transition-colors ${config.commandAdminOnly ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
                 disabled={saving}
               >
-                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.commandAdminOnly ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                <div
+                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${config.commandAdminOnly ? 'translate-x-5' : 'translate-x-0.5'}`}
+                />
               </button>
             </div>
             <p className="text-xs text-gray-500">开启后，非管理员在群聊发 /threads /new /use 会收到提示</p>
