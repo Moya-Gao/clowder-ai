@@ -204,6 +204,9 @@ export interface FeishuInboundMessage {
 | KD-6 | 发送者姓名通过 Contact API 获取 + 内存缓存 | `event.sender` 只有 `sender_id`（含 open_id/user_id/union_id），无 name 字段。需调 `GET /contact/v3/users/:open_id` 获取。用 Map 缓存避免重复调用。需 `contact:user.base:readonly` 权限 | 2026-03-25 |
 | KD-7 | @所有人（@_all）不触发 bot | 铲屎官确认："我@所有人的时候，bot我觉得应该不要响应，而是要明确@bot时候才响应"。`@_all` 在 mentions 中 key 为 `@_all`，与 `@_user_N` 不同，过滤即可 | 2026-03-25 |
 | KD-8 | 群聊中禁用 /命令，仅允许对话 | 群聊场景下 /new /threads /use 等命令语义不清且可能被误触。初版只在 DM 中允许命令 | 2026-03-25 |
+| KD-9 | `@sender` 采用 message-level 绑定（`source.sender` 写入 messageStore）而非 thread-level lastSender | 原设计的 `lastSender` 是 thread 级覆盖存储，群聊并发时后到消息会覆盖先到的 sender，导致错 @。改用 message-level：每条入站消息的 `ConnectorSource.sender` 已持久化在 messageStore，deliver 时通过 `triggerMessageId` 回溯原始消息的 sender。详见 KD-9 技术设计章节 | 2026-03-25 |
+| KD-10 | Contact API + Chat API 放在 FeishuAdapter，不预抽服务 | `resolveSenderName(openId)` + `resolveChatName(chatId)` 带 TTL Map cache，直接放在 FeishuAdapter 内。只有第二个 connector 也需要时才抽 `FeishuContactService`。需权限：`contact:user.base:readonly` + `im:chat:readonly`（铲屎官已配） | 2026-03-25 |
+| KD-11 | Connector source 队列 merge 增加 sender 感知 | InvocationQueue merge 条件增加对 `sender.id` 的校验：不同 sender 的消息不合并。这避免群聊中 A 的消息被追加到 B 的 queue entry 里。实现方式：在 QueueEntry 新增可选 `senderMeta` 字段，merge 时比对 | 2026-03-25 |
 
 ## Timeline
 
@@ -211,6 +214,10 @@ export interface FeishuInboundMessage {
 |------|------|
 | 2026-03-24 | 立项，从 F088 拆分飞书群聊为独立 Feature |
 | 2026-03-25 | Design Gate 通过：API 调研完成 + 铲屎官确认 3 项决策（UI展示/sender名/`@all`处理） |
+| 2026-03-25 | Review Gate Round 1: 缅因猫发现 3 P1（lastSender 竞态 / wiring 缺失 / spec 不一致），退回 |
+| 2026-03-25 | Review Gate Round 2: P1-1 修复（getByThread wiring），P1-2/P1-3 升级铲屎官决策 |
+| 2026-03-25 | 铲屎官决策：不降级 spec，本轮修复 P1-2 + P1-3 + 新增 KD-9/10/11 |
+| 2026-03-25 | 铲屎官配好飞书 bot 权限（contact:user.base:readonly + im:chat:readonly） |
 
 ## Design Gate Results（2026-03-25）
 
@@ -327,3 +334,244 @@ FeishuAdapter.parseEvent()
 | **ConnectorSource** | `packages/shared/src/types/connector.ts` | 需扩展 sender 字段 |
 | **Bootstrap** | `packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts` | 飞书 webhook handler 入口 |
 | **兄弟 Feature** | `docs/features/F132-dingtalk-wecom-gateway.md` | 同模式拆分样板 |
+
+---
+
+## KD-9 技术设计：Message-Level Sender 绑定 + 全链路 @sender
+
+> 此章节记录 Review Round 1-2 发现的 P1 问题及最终技术方案（铲屎官拍板不降级 spec）。
+
+### 问题根因
+
+原设计使用 thread-level `lastSender`（ConnectorThreadBindingStore 中按 thread 存储最后一个 sender），存在三个致命缺陷：
+
+1. **并发覆盖**：群聊中 A 发消息、B 紧接着发消息 → `lastSender` 被 B 覆盖 → A 的回复错误 @ 了 B
+2. **时序竞态**：`trigger()` 先于 `updateLastSender()` 执行（fire-and-forget），同一轮内可能读到旧 sender
+3. **脏数据残留**：Memory/Redis store 中 sender 缺失时不清旧 `lastSenderName`，出现"新 id + 旧 name"
+
+### 核心设计：sender 随消息存储，deliver 时回溯
+
+```
+飞书群聊消息
+  │
+  ├─ FeishuAdapter.parseEvent()
+  │     → { chatId, text, messageId, senderId, senderName?, chatType }
+  │
+  ├─ FeishuAdapter.resolveSenderName(openId)  ← KD-10: Contact API + TTL cache
+  │
+  ├─ FeishuAdapter.resolveChatName(chatId)    ← KD-10: Chat API + TTL cache
+  │
+  └─ connector-gateway-bootstrap.ts
+       → connectorRouter.route(connectorId, chatId, text, msgId, attachments,
+            sender: { id, name },   ← NEW
+            chatType: 'group')      ← NEW
+            │
+            ├─ ConnectorSource 包含 sender 字段
+            │     { connector: 'feishu',
+            │       label: '飞书群聊 · {群名}',
+            │       sender: { id: 'ou_xxx', name: 'Landy' } }
+            │
+            ├─ messageStore.append(source: { ...source, sender })
+            │     → stored.id = "msg_abc123"  ← triggerMessageId
+            │
+            └─ invokeTrigger.trigger(threadId, catId, userId, text, stored.id)
+                 │
+                 │  ... agent 执行 ...
+                 │
+                 └─ outboundHook.deliver(threadId, content, catId, ..., triggerMessageId?)
+                      │
+                      ├─ 从 messageStore 回溯 triggerMessageId 的 source.sender
+                      │     → { id: 'ou_xxx', name: 'Landy' }
+                      │
+                      └─ FeishuAdapter.sendFormattedReply(chatId, envelope, replyToSender?)
+                           → 群聊: card header 加 @<at ...>Landy</at>
+                           → DM: 不加 @（保持原行为）
+```
+
+### 改动清单（5 层 × 代码变更）
+
+#### Layer 1: 共享类型（packages/shared）
+
+```typescript
+// packages/shared/src/types/connector.ts
+export interface ConnectorSource {
+  // ...existing fields
+  readonly sender?: {
+    readonly id: string;
+    readonly name?: string;
+  };
+}
+```
+
+#### Layer 2: FeishuAdapter（飞书特定）
+
+```typescript
+// FeishuAdapter.ts — 扩展 parseEvent + 新增 API 方法
+interface FeishuInboundMessage {
+  chatId: string;
+  text: string;
+  messageId: string;
+  senderId: string;
+  senderName?: string;         // NEW
+  chatType?: 'p2p' | 'group';  // NEW
+  chatName?: string;            // NEW: 群名
+  attachments?: FeishuAttachment[];
+}
+
+// 新增：通过 Contact API 获取用户名（带 TTL cache）
+async resolveSenderName(openId: string): Promise<string | undefined>
+
+// 新增：通过 Chat API 获取群名（带 TTL cache）
+async resolveChatName(chatId: string): Promise<string | undefined>
+```
+
+**parseEvent 改动**：
+- 移除 `if (message.chat_type !== 'p2p') return null` 
+- 群聊消息：检查 mentions 中是否有 bot openId → @bot 检测
+- 群聊消息：从 text 中剥离 @bot 占位符
+- 提取 chatType + senderId
+- 返回扩展的 FeishuInboundMessage
+
+#### Layer 3: ConnectorRouter（公共层）
+
+```typescript
+// ConnectorRouter.ts — route() 签名扩展
+async route(
+  connectorId: string,
+  externalChatId: string,
+  text: string,
+  externalMessageId: string,
+  attachments?: Array<...>,
+  sender?: { id: string; name?: string },   // NEW
+  chatType?: 'p2p' | 'group',               // NEW
+  chatName?: string,                          // NEW
+): Promise<RouteResult>
+```
+
+**route() 内部变更**：
+- Thread 创建标题：`chatType==='group' ? \`飞书群聊 · ${chatName || chatId}\` : '飞书 DM'`
+- ConnectorSource 携带 sender 字段
+- messageStore.append() 的 source 包含 sender → 持久化到消息存储
+
+#### Layer 4: OutboundDeliveryHook（出站）
+
+```typescript
+// OutboundDeliveryHook.ts — deliver() 签名扩展
+async deliver(
+  threadId: string,
+  content: string,
+  catId?: CatId,
+  richBlocks?: RichBlock[],
+  threadMeta?: ThreadMeta,
+  origin?: MessageOrigin,
+  triggerMessageId?: string,  // NEW: 用于回溯原始 sender
+): Promise<void>
+```
+
+**deliver() 内部变更**：
+- 若 `triggerMessageId` 存在 → 从 messageStore 查询原始消息的 `source.sender`
+- 若 sender 存在且 chatType==='group' → 传给 adapter 的 metadata 中包含 `replyToSender`
+- adapter 的 sendFormattedReply / sendReply 据此决定是否 @ 发送者
+
+#### Layer 5: InvocationQueue merge 感知
+
+```typescript
+// InvocationQueue.ts — 新增 senderMeta 字段
+interface QueueEntry {
+  // ...existing fields
+  senderMeta?: { id: string; name?: string };  // NEW: connector 入站时的 sender
+}
+```
+
+**merge 条件新增**：
+```typescript
+// 现有条件: source === input.source && intent === input.intent && targetCats match
+// 新增: senderMeta?.id 必须相同才能 merge
+if (tail.senderMeta?.id !== input.senderMeta?.id) {
+  // 不同 sender → 不 merge，创建新 queue entry
+}
+```
+
+#### 全链路 triggerMessageId 传递（deliver 调用点）
+
+| 调用点 | 文件 | 如何获取 triggerMessageId |
+|--------|------|--------------------------|
+| ConnectorInvokeTrigger | `ConnectorInvokeTrigger.ts:463-525` | `createResult.userMessageId`（已有） |
+| QueueProcessor | `QueueProcessor.ts:735-780` | `entry.messageId`（已有） |
+| messages.ts (Web UI) | `messages.ts:1345-1374` | `stored.id`（非 connector，不需要 sender） |
+| callbacks.ts | `callbacks.ts:548` | `record.userMessageId`（已有） |
+
+### 不需要改的部分
+
+1. **InvocationQueue scopeKey** — 保持 `threadId:userId`，不需要改为 `threadId:senderId`（connector 仍然用 defaultUserId）
+2. **ConnectorThreadBindingStore** — 不再存 lastSender（改用 message-level），可以删除或保留不用
+3. **RedisConnectorThreadBindingStore** — 同上，lastSender 相关字段可废弃
+
+### FeishuAdapter @sender 飞书语法
+
+群聊回复时，在 card 或 text 中 @ 发送者：
+
+```json
+// Interactive Card (sendFormattedReply)
+{
+  "header": { "title": { "tag": "plain_text", "content": "🐱 回复 @Landy" } },
+  "elements": [
+    { "tag": "markdown", "content": "<at id=ou_xxx></at> 你好，回答如下..." }
+  ]
+}
+
+// Plain Text (sendReply fallback)
+{ "text": "<at user_id=\"ou_xxx\">Landy</at> 你好，回答如下..." }
+```
+
+### KD-10: Contact API + Chat API 方案
+
+**放在 FeishuAdapter 内**，不预抽服务：
+
+```typescript
+class FeishuAdapter {
+  private senderNameCache = new Map<string, { name: string; expiresAt: number }>();
+  private chatNameCache = new Map<string, { name: string; expiresAt: number }>();
+  private static CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+
+  async resolveSenderName(openId: string): Promise<string | undefined> {
+    const cached = this.senderNameCache.get(openId);
+    if (cached && cached.expiresAt > Date.now()) return cached.name;
+    
+    // GET /open-apis/contact/v3/users/:open_id?user_id_type=open_id
+    const token = await this.tokenManager?.getTenantAccessToken();
+    if (!token) return undefined;
+    const res = await fetch(`https://open.feishu.cn/open-apis/contact/v3/users/${openId}?user_id_type=open_id`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    const name = data?.data?.user?.name;
+    if (name) {
+      this.senderNameCache.set(openId, { name, expiresAt: Date.now() + FeishuAdapter.CACHE_TTL_MS });
+    }
+    return name;
+  }
+
+  async resolveChatName(chatId: string): Promise<string | undefined> {
+    const cached = this.chatNameCache.get(chatId);
+    if (cached && cached.expiresAt > Date.now()) return cached.name;
+    
+    // GET /open-apis/im/v1/chats/:chat_id
+    const token = await this.tokenManager?.getTenantAccessToken();
+    if (!token) return undefined;
+    const res = await fetch(`https://open.feishu.cn/open-apis/im/v1/chats/${chatId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    const name = data?.data?.name;
+    if (name) {
+      this.chatNameCache.set(chatId, { name, expiresAt: Date.now() + FeishuAdapter.CACHE_TTL_MS });
+    }
+    return name;
+  }
+}
+```
+
+**权限**：铲屎官已在飞书开发者后台配好 `contact:user.base:readonly` + `im:chat:readonly`。
