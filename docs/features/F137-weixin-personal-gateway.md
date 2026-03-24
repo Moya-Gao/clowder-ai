@@ -250,6 +250,21 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 - `OutboundDeliveryHook.deliver()` 在 `bindings.length === 0` 时 **静默返回**（第 68 行无日志）
 - `WeixinAdapter.sendReply()` 在成功时 **无日志输出**
 
+### BUG-2: 多猫回复只有第一条到达微信（P0）
+
+**状态**: 🟢 Fixed — PR #704 squash merge (50b62edb)
+
+**现象**：铲屎官发第一条微信消息 → 金渐层回复 → 微信收到 ✅。发第二条 → 砚砚回复 → 微信收不到 ❌。之后所有猫回复微信都收不到。
+
+**根因**：iLink `context_token` 为单次消费。第一次 `sendmessage` + `FINISH` 后 token 作废，后续用同一 token 发送被 iLink 静默丢弃（200 OK 但不投递）。
+
+**修复**：
+1. 消费追踪：`lastConsumedToken` Map 记录每个 chatId 最近消费的 token
+2. Outbound debounce 3s：多猫回复在窗口内合并为一条消息发出
+3. Token 绑定 at queue time：pending bucket 在 sendReply 入队时绑定 token
+4. 跨 token 隔离：token 变化时先 flush 旧桶，不跨 turn 合并
+5. Compare-and-delete：flush 后仅删与 boundToken 匹配的 contextTokens 条目
+
 **疑似根因（按可能性排序）**：
 
 1. **`OutboundDeliveryHook.deliver()` 查询到 0 个 binding**：
@@ -308,6 +323,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-07-24 | 诊断日志 → PR #696 squash merge (f46e680f) |
 | 2026-07-24 | 砚砚日志定位：出站调用链健康，iLink→微信侧静默丢弃长/格式消息 |
 | 2026-07-24 | BUG-1 修复：strip markdown + 400 chunk limit + 300ms delay → PR #701 砚砚放行 + cloud R1-R4 全修 → squash merge (40639bd4) |
+| 2026-07-24 | BUG-2 修复：context_token 单次消费 + 出站 debounce 3s 聚合多猫回复 + 跨 token 隔离 → PR #704 砚砚 R4 放行 + cloud R2 通过 → squash merge (50b62edb) |
 
 ## Review Gate
 
