@@ -315,23 +315,39 @@ describe('WeixinAdapter', () => {
       assert.equal(fetchCalled, false);
     });
 
-    it('chunks messages exceeding 2000 characters', async () => {
+    it('strips markdown before sending', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
-      adapter._injectContextToken('user-1', 'ctx-1');
+      adapter._injectContextToken('user-1', 'ctx-token-1');
 
-      const sentChunks = [];
+      let capturedText = null;
       adapter._injectFetch(async (_url, opts) => {
         const body = JSON.parse(opts.body);
-        sentChunks.push(body.msg.item_list[0].text_item.text);
+        capturedText = body.msg.item_list[0].text_item.text;
         return { ok: true, json: async () => ({ ret: 0 }) };
       });
 
-      const longText = 'A'.repeat(3500);
+      await adapter.sendReply('user-1', '**Hello** from [Cat Café](https://example.com)!');
+      assert.equal(capturedText, 'Hello from Cat Café!');
+    });
+
+    it('adds inter-chunk delay for multi-chunk messages', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+
+      const sendTimestamps = [];
+      adapter._injectFetch(async (_url, opts) => {
+        sendTimestamps.push(Date.now());
+        return { ok: true, json: async () => ({ ret: 0 }) };
+      });
+
+      const longText = 'A'.repeat(1200);
       await adapter.sendReply('user-1', longText);
 
-      assert.ok(sentChunks.length >= 2, `Expected >= 2 chunks, got ${sentChunks.length}`);
-      const totalLength = sentChunks.reduce((sum, c) => sum + c.length, 0);
-      assert.equal(totalLength, 3500);
+      assert.ok(sendTimestamps.length >= 3, `Expected >= 3 chunks, got ${sendTimestamps.length}`);
+      for (let i = 1; i < sendTimestamps.length; i++) {
+        const gap = sendTimestamps[i] - sendTimestamps[i - 1];
+        assert.ok(gap >= 200, `Gap between chunk ${i - 1} and ${i} was only ${gap}ms, expected >= 200ms`);
+      }
     });
 
     it('throws on HTTP error from sendmessage', async () => {
@@ -410,6 +426,109 @@ describe('WeixinAdapter', () => {
     it('returns weixin', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       assert.equal(adapter.connectorId, 'weixin');
+    });
+  });
+
+  describe('stripMarkdownForWeixin', () => {
+    it('strips bold and italic markers', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('**bold** and *italic*'), 'bold and italic');
+    });
+
+    it('strips link syntax keeping text', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('[click here](https://example.com)'), 'click here');
+    });
+
+    it('strips image syntax keeping alt text', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('![cat photo](https://img.com/cat.jpg)'), 'cat photo');
+    });
+
+    it('strips fenced code blocks but keeps code content', () => {
+      const input = 'before\n```js\nconsole.log("hi")\n```\nafter';
+      const result = WeixinAdapter.stripMarkdownForWeixin(input);
+      assert.ok(result.includes('console.log("hi")'), 'should preserve code content');
+      assert.ok(!result.includes('```'), 'should not contain fence markers');
+    });
+
+    it('strips fenced code blocks with non-word info strings (shell-session, c++)', () => {
+      const input = 'before\n```shell-session\n$ npm test\n```\nmid\n```c++\nint main() {}\n```\nafter';
+      const result = WeixinAdapter.stripMarkdownForWeixin(input);
+      assert.ok(result.includes('$ npm test'), 'should preserve shell-session code');
+      assert.ok(result.includes('int main() {}'), 'should preserve c++ code');
+      assert.ok(!result.includes('```'), 'should not contain fence markers');
+      assert.ok(!result.includes('shell-session'), 'should strip info string');
+      assert.ok(!result.includes('c++'), 'should strip info string');
+    });
+
+    it('preserves single-line fenced code content', () => {
+      const result = WeixinAdapter.stripMarkdownForWeixin('run ```npm test``` now');
+      assert.ok(result.includes('npm test'), 'should preserve single-line code');
+      assert.ok(!result.includes('```'), 'should not contain fence markers');
+    });
+
+    it('converts inline code to plain text', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('use `npm install` here'), 'use npm install here');
+    });
+
+    it('strips heading markers', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('## Hello World'), 'Hello World');
+    });
+
+    it('converts unordered list markers to bullets', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('- item one\n- item two'), '• item one\n• item two');
+    });
+
+    it('strips blockquote markers', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('> quoted text'), 'quoted text');
+    });
+
+    it('strips strikethrough markers', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('~~deleted~~'), 'deleted');
+    });
+
+    it('preserves literal underscores in identifiers (my_file_name)', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('my_file_name'), 'my_file_name');
+    });
+
+    it('preserves literal asterisks in expressions (2*3*4)', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('2*3*4'), '2*3*4');
+    });
+
+    it('strips true markdown italic emphasis (*word*)', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('this is *italic* text'), 'this is italic text');
+    });
+
+    it('strips true markdown italic emphasis (_word_)', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('this is _italic_ text'), 'this is italic text');
+    });
+
+    it('strips emphasis after CJK text (*重点*)', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('这是*重点*，请看'), '这是重点，请看');
+    });
+
+    it('strips emphasis inside parentheses (*italic*)', () => {
+      const result = WeixinAdapter.stripMarkdownForWeixin('(*italic*)');
+      assert.ok(!result.includes('*'), 'should strip asterisks');
+      assert.ok(result.includes('italic'), 'should preserve text');
+    });
+
+    it('collapses excessive newlines', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('a\n\n\n\nb'), 'a\n\nb');
+    });
+
+    it('passes through plain text unchanged', () => {
+      assert.equal(WeixinAdapter.stripMarkdownForWeixin('Hello world'), 'Hello world');
+    });
+
+    it('handles complex mixed markdown', () => {
+      const input =
+        '## Summary\n\n**Key point**: use [this tool](https://x.com) for `testing`.\n\n```bash\nnpm test\n```\n\n- Step one\n- Step two';
+      const result = WeixinAdapter.stripMarkdownForWeixin(input);
+      assert.ok(!result.includes('**'), 'should not contain bold markers');
+      assert.ok(!result.includes('```'), 'should not contain code fences');
+      assert.ok(!result.includes('['), 'should not contain link brackets');
+      assert.ok(result.includes('Key point'), 'should preserve meaningful text');
+      assert.ok(result.includes('this tool'), 'should preserve link text');
+      assert.ok(result.includes('npm test'), 'should preserve code block content');
     });
   });
 

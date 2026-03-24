@@ -18,7 +18,9 @@ const ILINK_BASE_URL = 'https://ilinkai.weixin.qq.com';
 const GETUPDATES_TIMEOUT_MS = 35_000;
 const POLL_ERROR_BACKOFF_MS = 3_000;
 const POLL_MAX_BACKOFF_MS = 60_000;
-const WEIXIN_MAX_MESSAGE_LENGTH = 2000;
+const WEIXIN_MAX_MESSAGE_LENGTH = 400;
+/** Delay between sending multiple chunks to avoid iLink-side throttling (ms) */
+const WEIXIN_CHUNK_DELAY_MS = 300;
 /** errcode -14 means session expired — need re-login */
 const ERRCODE_SESSION_EXPIRED = -14;
 /** QR code status poll interval (ms) */
@@ -390,11 +392,6 @@ export class WeixinAdapter implements IOutboundAdapter {
 
   // ── Outbound: Send reply ──
 
-  /**
-   * Send a text reply to a WeChat user.
-   * Requires a cached context_token for the target chatId.
-   * Auto-chunks messages exceeding 2000 characters.
-   */
   async sendReply(externalChatId: string, content: string): Promise<void> {
     const contextToken = this.contextTokens.get(externalChatId);
     this.log.info(
@@ -414,14 +411,36 @@ export class WeixinAdapter implements IOutboundAdapter {
       return;
     }
 
-    const chunks = this.chunkMessage(content, WEIXIN_MAX_MESSAGE_LENGTH);
-    for (const chunk of chunks) {
-      await this.sendMessageApi(externalChatId, chunk, contextToken);
+    const plainContent = WeixinAdapter.stripMarkdownForWeixin(content);
+    const chunks = this.chunkMessage(plainContent, WEIXIN_MAX_MESSAGE_LENGTH);
+    for (let i = 0; i < chunks.length; i++) {
+      if (i > 0) await this.sleep(WEIXIN_CHUNK_DELAY_MS);
+      await this.sendMessageApi(externalChatId, chunks[i], contextToken);
     }
     this.log.info(
-      { chatId: externalChatId, chunks: chunks.length },
+      { chatId: externalChatId, chunks: chunks.length, originalLen: content.length, plainLen: plainContent.length },
       '[WeixinAdapter] sendReply() completed successfully',
     );
+  }
+
+  static stripMarkdownForWeixin(text: string): string {
+    return text
+      .replace(/```[^\n]*\n([\s\S]*?)```/g, '$1') // multi-line fence → keep code body
+      .replace(/```(.+?)```/g, '$1') // single-line fence → keep content
+      .replace(/`([^`]+)`/g, '$1') // inline code → plain
+      .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1') // ![alt](url) → alt (must precede link regex)
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [text](url) → text
+      .replace(/^#{1,6}\s+/gm, '') // strip heading markers
+      .replace(/(\*\*|__)(.*?)\1/g, '$2') // bold → plain
+      .replace(/(?<!\w)\*(?=\S)(.*?\S)\*(?!\w)/gm, '$1') // italic *word* → plain (not inside identifiers)
+      .replace(/(?<!\w)_(?=\S)(.*?\S)_(?!\w)/gm, '$1') // italic _word_ → plain (not inside identifiers)
+      .replace(/~~(.*?)~~/g, '$1') // strikethrough → plain
+      .replace(/^[>\s]*>\s?/gm, '') // blockquote markers
+      .replace(/^[-*+]\s+/gm, '• ') // unordered list → bullet
+      .replace(/^\d+\.\s+/gm, '') // ordered list markers
+      .replace(/^---+$/gm, '') // horizontal rules
+      .replace(/\n{3,}/g, '\n\n') // collapse excessive newlines
+      .trim();
   }
 
   /**
