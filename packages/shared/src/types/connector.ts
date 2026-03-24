@@ -87,6 +87,19 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     },
   },
   {
+    id: 'github-ci',
+    displayName: 'GitHub CI/CD',
+    icon: 'github',
+    color: { primary: '#2563EB', secondary: '#EFF6FF' },
+    description: 'GitHub CI/CD 状态通知',
+    tailwindTheme: {
+      avatar: 'bg-slate-100 ring-2 ring-slate-200',
+      label: 'text-slate-700',
+      labelLink: 'text-slate-700 hover:text-slate-900',
+      bubble: 'border border-slate-200 bg-slate-50',
+    },
+  },
+  {
     id: 'vote-result',
     displayName: '投票结果',
     icon: 'ballot',
