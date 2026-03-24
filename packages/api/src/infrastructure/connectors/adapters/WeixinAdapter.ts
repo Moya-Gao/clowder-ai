@@ -21,6 +21,8 @@ const POLL_MAX_BACKOFF_MS = 60_000;
 const WEIXIN_MAX_MESSAGE_LENGTH = 400;
 /** Delay between sending multiple chunks to avoid iLink-side throttling (ms) */
 const WEIXIN_CHUNK_DELAY_MS = 300;
+/** Debounce window for aggregating multi-cat replies into one outbound message (ms) */
+const WEIXIN_REPLY_DEBOUNCE_MS = 3_000;
 /** errcode -14 means session expired — need re-login */
 const ERRCODE_SESSION_EXPIRED = -14;
 /** QR code status poll interval (ms) */
@@ -165,6 +167,9 @@ export class WeixinAdapter implements IOutboundAdapter {
   private consecutiveErrors = 0;
   private getUpdatesBuf = '';
   private readonly contextTokens = new Map<string, string>();
+  /** Per-chatId: last consumed token — bounded by chatId count, naturally evicted when new token arrives */
+  private readonly lastConsumedToken = new Map<string, string>();
+  private readonly pendingReplies = new Map<string, { token: string; parts: string[]; timer: ReturnType<typeof setTimeout>; resolvers: Array<{ resolve: () => void; reject: (err: Error) => void }> }>();
   private fetchFn: typeof fetch = globalThis.fetch;
   private sessionExpiredCallback: (() => void) | null = null;
 
@@ -350,7 +355,12 @@ export class WeixinAdapter implements IOutboundAdapter {
           this.consecutiveErrors = 0;
 
           for (const msg of messages) {
+            const tokenHash = msg.contextToken.slice(-8);
             this.contextTokens.set(msg.chatId, msg.contextToken);
+            this.log.info(
+              { chatId: msg.chatId, tokenHash, consumed: this.lastConsumedToken.get(msg.chatId) === msg.contextToken },
+              '[WeixinAdapter] Inbound token cached',
+            );
 
             try {
               await handler(msg);
@@ -393,34 +403,109 @@ export class WeixinAdapter implements IOutboundAdapter {
   // ── Outbound: Send reply ──
 
   async sendReply(externalChatId: string, content: string): Promise<void> {
-    const contextToken = this.contextTokens.get(externalChatId);
+    const currentToken = this.contextTokens.get(externalChatId) ?? '';
     this.log.info(
-      {
-        chatId: externalChatId,
-        hasContextToken: !!contextToken,
-        contentLen: content.length,
-        cachedTokenCount: this.contextTokens.size,
-      },
-      '[WeixinAdapter] sendReply() called',
+      { chatId: externalChatId, contentLen: content.length, tokenHash: currentToken.slice(-8) || 'none' },
+      '[WeixinAdapter] sendReply() queued for debounce',
     );
-    if (!contextToken) {
+
+    // No token and no existing pending bucket → skip immediately (don't poison future buckets)
+    if (!currentToken && !this.pendingReplies.has(externalChatId)) {
       this.log.warn(
         { chatId: externalChatId },
-        '[WeixinAdapter] No context_token cached for chatId — cannot send reply. User must send a message first.',
+        '[WeixinAdapter] No context_token and no pending bucket — skipping reply',
       );
       return;
     }
 
-    const plainContent = WeixinAdapter.stripMarkdownForWeixin(content);
-    const chunks = this.chunkMessage(plainContent, WEIXIN_MAX_MESSAGE_LENGTH);
-    for (let i = 0; i < chunks.length; i++) {
-      if (i > 0) await this.sleep(WEIXIN_CHUNK_DELAY_MS);
-      await this.sendMessageApi(externalChatId, chunks[i], contextToken);
+    // If pending exists with a DIFFERENT token → flush old bucket first (isolate turns)
+    const existing = this.pendingReplies.get(externalChatId);
+    if (existing && currentToken && existing.token !== currentToken) {
+      this.log.info(
+        { chatId: externalChatId, oldTokenHash: existing.token.slice(-8), newTokenHash: currentToken.slice(-8) },
+        '[WeixinAdapter] Token changed mid-debounce — flushing old bucket',
+      );
+      clearTimeout(existing.timer);
+      await this.flushReply(externalChatId);
     }
+
+    return new Promise<void>((resolve, reject) => {
+      const pending = this.pendingReplies.get(externalChatId);
+      if (pending && pending.token === currentToken) {
+        // Same token — safe to merge into existing bucket
+        pending.parts.push(content);
+        pending.resolvers.push({ resolve, reject });
+        clearTimeout(pending.timer);
+        pending.timer = setTimeout(() => this.flushReply(externalChatId), WEIXIN_REPLY_DEBOUNCE_MS);
+      } else if (pending) {
+        // Different token bucket exists (created by concurrent sendReply during our flush await)
+        // Refuse cross-token merge — content is still in the thread, not lost
+        this.log.warn(
+          { chatId: externalChatId, ownTokenHash: currentToken.slice(-8), bucketTokenHash: pending.token.slice(-8) },
+          '[WeixinAdapter] Token mismatch during debounce — refusing cross-token merge',
+        );
+        resolve();
+      } else {
+        const timer = setTimeout(() => this.flushReply(externalChatId), WEIXIN_REPLY_DEBOUNCE_MS);
+        this.pendingReplies.set(externalChatId, {
+          token: currentToken,
+          parts: [content],
+          timer,
+          resolvers: [{ resolve, reject }],
+        });
+      }
+    });
+  }
+
+  private async flushReply(externalChatId: string): Promise<void> {
+    const pending = this.pendingReplies.get(externalChatId);
+    if (!pending) return;
+    this.pendingReplies.delete(externalChatId);
+
+    const { token: boundToken, parts, resolvers } = pending;
+    const merged = parts.join('\n\n');
+
+    const tokenHash = boundToken ? boundToken.slice(-8) : 'none';
+    const isConsumed = this.lastConsumedToken.get(externalChatId) === boundToken;
+
     this.log.info(
-      { chatId: externalChatId, chunks: chunks.length, originalLen: content.length, plainLen: plainContent.length },
-      '[WeixinAdapter] sendReply() completed successfully',
+      { chatId: externalChatId, partsCount: parts.length, mergedLen: merged.length, tokenHash, isConsumed },
+      '[WeixinAdapter] flushReply() — sending aggregated reply',
     );
+
+    if (!boundToken || isConsumed) {
+      const reason = !boundToken ? 'no token' : 'token already consumed';
+      this.log.warn(
+        { chatId: externalChatId, reason, tokenHash },
+        '[WeixinAdapter] Cannot send — context_token unavailable or consumed',
+      );
+      for (const r of resolvers) r.resolve();
+      return;
+    }
+
+    try {
+      const plainContent = WeixinAdapter.stripMarkdownForWeixin(merged);
+      const chunks = this.chunkMessage(plainContent, WEIXIN_MAX_MESSAGE_LENGTH);
+      for (let i = 0; i < chunks.length; i++) {
+        if (i > 0) await this.sleep(WEIXIN_CHUNK_DELAY_MS);
+        await this.sendMessageApi(externalChatId, chunks[i], boundToken);
+      }
+
+      this.lastConsumedToken.set(externalChatId, boundToken);
+      // Compare-and-delete: only remove if still the same token (a newer token may have arrived)
+      if (this.contextTokens.get(externalChatId) === boundToken) {
+        this.contextTokens.delete(externalChatId);
+      }
+      this.log.info(
+        { chatId: externalChatId, chunks: chunks.length, tokenHash },
+        '[WeixinAdapter] flushReply() completed — token consumed',
+      );
+
+      for (const r of resolvers) r.resolve();
+    } catch (err) {
+      this.log.error({ err, chatId: externalChatId }, '[WeixinAdapter] flushReply() failed');
+      for (const r of resolvers) r.reject(err instanceof Error ? err : new Error(String(err)));
+    }
   }
 
   static stripMarkdownForWeixin(text: string): string {
@@ -559,6 +644,21 @@ export class WeixinAdapter implements IOutboundAdapter {
   /** @internal Test helper: get the current cursor. */
   _getCursor(): string {
     return this.getUpdatesBuf;
+  }
+
+  /** @internal Test helper: flush all pending debounced replies immediately. */
+  async _flushAllPending(): Promise<void> {
+    const chatIds = [...this.pendingReplies.keys()];
+    for (const chatId of chatIds) {
+      const pending = this.pendingReplies.get(chatId);
+      if (pending) clearTimeout(pending.timer);
+      await this.flushReply(chatId);
+    }
+  }
+
+  /** @internal Test helper: check if a token was the last consumed for its chatId. */
+  _isTokenConsumed(chatId: string, token: string): boolean {
+    return this.lastConsumedToken.get(chatId) === token;
   }
 
   // ── QR Code Login (static — no adapter instance needed) ──
