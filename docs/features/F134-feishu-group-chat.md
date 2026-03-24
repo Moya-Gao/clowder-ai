@@ -483,29 +483,76 @@ interface QueueEntry {
 }
 ```
 
-**merge 条件新增**：
+**merge 策略（采用缅因猫 review 的"快速稳妥"方案）**：
 ```typescript
-// 现有条件: source === input.source && intent === input.intent && targetCats match
-// 新增: senderMeta?.id 必须相同才能 merge
-if (tail.senderMeta?.id !== input.senderMeta?.id) {
-  // 不同 sender → 不 merge，创建新 queue entry
+// source === 'connector' 直接禁止 merge（不同群用户消息绝不合并）
+// 这比精细 sender 比较更安全，避免任何跨发送者合并风险
+if (
+  tail &&
+  tail.status === 'queued' &&
+  tail.source === input.source &&
+  tail.source !== 'connector' &&  // NEW: connector 消息不 merge
+  tail.intent === input.intent &&
+  arraysEqual(sorted(tail.targetCats), sorted(input.targetCats))
+) {
+  // merge
 }
 ```
+
+**sender 链路打通**（解决缅因猫 P1：enqueue 入参缺 sender）：
+```typescript
+// ConnectorInvokeTrigger.enqueueWhileActive() — 新增 sender 参数
+private enqueueWhileActive(
+  threadId: string,
+  catId: CatId,
+  userId: string,
+  message: string,
+  messageId: string,
+  sender?: { id: string; name?: string },  // NEW
+): 'full' | 'enqueued' | 'merged' {
+  const result = invocationQueue.enqueue({
+    threadId, userId, content: message,
+    source: 'connector',
+    targetCats: [catId],
+    intent: 'execute',
+    senderMeta: sender,  // NEW: 传入 sender 信息
+  });
+  // ...
+}
+```
+
+上游调用 `enqueueWhileActive` 的 3 处（trigger/handleUrgentTrigger/handleNewTrigger）都已有 sender 来源：
+- `trigger()` 从 `ConnectorRouter.route()` 返回的 `routeResult.sender` 获取
+- 或从 bootstrap 层传入（parseEvent 解析出 senderName 后组装）
 
 #### 全链路 triggerMessageId 传递（deliver 调用点）
 
 | 调用点 | 文件 | 如何获取 triggerMessageId |
 |--------|------|--------------------------|
-| ConnectorInvokeTrigger | `ConnectorInvokeTrigger.ts:463-525` | `createResult.userMessageId`（已有） |
+| ConnectorInvokeTrigger | `ConnectorInvokeTrigger.ts:244-290` | 函数参数 `messageId`（已有，即 connector 入站消息 ID） |
 | QueueProcessor | `QueueProcessor.ts:735-780` | `entry.messageId`（已有） |
 | messages.ts (Web UI) | `messages.ts:1345-1374` | `stored.id`（非 connector，不需要 sender） |
-| callbacks.ts | `callbacks.ts:548` | `record.userMessageId`（已有） |
+| callbacks.ts | `callbacks.ts:548` | `validatedReplyTo ?? autoFilledReplyTo`（回溯 parent invocation 的触发消息，非 connector 场景不需要 sender） |
+
+**类型声明层同步**（P2，缅因猫 review 补充）：
+除业务调用点外，以下类型接口也需同步扩展 `triggerMessageId` 参数：
+- `messages.ts` 的 `OutboundDeliveryHookLike` 接口
+- `callbacks.ts` 的 `CallbackRoutesOptions.outboundHook.deliver` 类型
+- `QueueProcessor` 的 `OutboundDeliveryHookLike` 类型
+- `connector-gateway-bootstrap` 注入依赖（按 messageId lookup，不做 thread 扫描）
 
 ### 不需要改的部分
 
 1. **InvocationQueue scopeKey** — 保持 `threadId:userId`，不需要改为 `threadId:senderId`（connector 仍然用 defaultUserId）
-2. **ConnectorThreadBindingStore** — 不再存 lastSender（改用 message-level），可以删除或保留不用
-3. **RedisConnectorThreadBindingStore** — 同上，lastSender 相关字段可废弃
+2. **ConnectorThreadBindingStore** — `lastSender` 代码路径删除（不再读写），Redis 历史字段容忍残留不清理（后续单独做迁移）
+3. **RedisConnectorThreadBindingStore** — 同上，代码接口移除 `lastSender`，不再写入
+
+### ConnectorBubble 展示规范（缅因猫 review 确认）
+
+群聊消息气泡展示：
+- 主标签：`飞书群聊 · {chatName || chatIdSuffix}`
+- 副标签：`{senderName || senderId} 说`
+- **必须有 fallback**：name 缺失时回退到 id，避免 UI 空洞
 
 ### FeishuAdapter @sender 飞书语法
 
