@@ -399,6 +399,26 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
   );
 }
 
+/** F088 Phase J2: Generate a document (PDF/DOCX/MD) from Markdown content */
+export const generateDocumentInputSchema = {
+  markdown: z.string().min(1).describe('Markdown content to convert into a document'),
+  format: z.enum(['pdf', 'docx', 'md']).describe('Output format: pdf, docx, or md'),
+  baseName: z.string().min(1).max(200).describe('Display name for the file (without extension), e.g. "调研报告"'),
+};
+
+export async function handleGenerateDocument(input: {
+  markdown: string;
+  format: string;
+  baseName: string;
+}): Promise<ToolResult> {
+  const result = await callbackPost('/api/callbacks/generate-document', {
+    markdown: input.markdown,
+    format: input.format,
+    baseName: input.baseName,
+  });
+  return result;
+}
+
 export const requestPermissionInputSchema = {
   action: z.string().min(1).describe('The action requiring permission (e.g. "git_commit", "file_delete")'),
   reason: z.string().min(1).describe('Why you need this permission'),
@@ -774,6 +794,17 @@ export const callbackTools = [
       'If callback auth fails, falls back to cc_rich text encoding automatically.',
     inputSchema: createRichBlockInputSchema,
     handler: handleCreateRichBlock,
+  },
+  {
+    name: 'cat_cafe_generate_document',
+    description:
+      'Generate a document (PDF/DOCX/MD) from Markdown content using Pandoc. ' +
+      'The generated file is automatically saved and attached to the current message as a file RichBlock. ' +
+      'If Pandoc is not installed, gracefully degrades to .md output. ' +
+      'PDF requires a LaTeX engine (tectonic); if unavailable, degrades to DOCX then MD. ' +
+      'Use when the user asks for a report, document export, or file generation.',
+    inputSchema: generateDocumentInputSchema,
+    handler: handleGenerateDocument,
   },
   {
     name: 'cat_cafe_request_permission',
