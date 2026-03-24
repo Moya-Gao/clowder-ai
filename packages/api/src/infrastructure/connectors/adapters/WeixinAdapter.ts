@@ -397,6 +397,15 @@ export class WeixinAdapter implements IOutboundAdapter {
    */
   async sendReply(externalChatId: string, content: string): Promise<void> {
     const contextToken = this.contextTokens.get(externalChatId);
+    this.log.info(
+      {
+        chatId: externalChatId,
+        hasContextToken: !!contextToken,
+        contentLen: content.length,
+        cachedTokenCount: this.contextTokens.size,
+      },
+      '[WeixinAdapter] sendReply() called',
+    );
     if (!contextToken) {
       this.log.warn(
         { chatId: externalChatId },
@@ -409,6 +418,10 @@ export class WeixinAdapter implements IOutboundAdapter {
     for (const chunk of chunks) {
       await this.sendMessageApi(externalChatId, chunk, contextToken);
     }
+    this.log.info(
+      { chatId: externalChatId, chunks: chunks.length },
+      '[WeixinAdapter] sendReply() completed successfully',
+    );
   }
 
   /**
@@ -430,6 +443,8 @@ export class WeixinAdapter implements IOutboundAdapter {
       base_info: { channel_version: '1.0.0' },
     };
 
+    this.log.info({ chatId, textLen: text.length }, '[WeixinAdapter] sendMessageApi() calling iLink API');
+
     const res = await this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/sendmessage`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -438,11 +453,16 @@ export class WeixinAdapter implements IOutboundAdapter {
 
     if (!res.ok) {
       const errorText = await res.text().catch(() => '');
+      this.log.error({ chatId, status: res.status, errorText }, '[WeixinAdapter] sendMessageApi() HTTP error');
       throw new Error(`sendmessage HTTP ${res.status}: ${errorText}`);
     }
 
     const data = (await res.json()) as ILinkSendResponse;
     const errorCode = data.errcode ?? data.ret;
+    this.log.info(
+      { chatId, errcode: errorCode, errmsg: data.errmsg },
+      '[WeixinAdapter] sendMessageApi() response received',
+    );
     if (errorCode && errorCode !== 0) {
       if (errorCode === ERRCODE_SESSION_EXPIRED) {
         this.log.error('[WeixinAdapter] Session expired during sendmessage (errcode -14)');

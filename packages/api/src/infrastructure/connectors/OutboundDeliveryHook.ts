@@ -73,8 +73,22 @@ export class OutboundDeliveryHook {
     origin?: MessageOrigin,
     triggerMessageId?: string,
   ): Promise<void> {
+    this.opts.log.info(
+      { threadId, catId, contentLen: content.length, hasRichBlocks: !!(richBlocks && richBlocks.length) },
+      '[OutboundDeliveryHook] deliver() called',
+    );
     const bindings = await this.opts.bindingStore.getByThread(threadId);
-    if (bindings.length === 0) return;
+    if (bindings.length === 0) {
+      this.opts.log.warn(
+        { threadId },
+        '[OutboundDeliveryHook] No bindings found for thread — skipping outbound delivery',
+      );
+      return;
+    }
+    this.opts.log.info(
+      { threadId, bindingCount: bindings.length, connectors: bindings.map((b) => b.connectorId) },
+      '[OutboundDeliveryHook] Found bindings, delivering',
+    );
 
     // F134: Resolve sender from the trigger message for group chat @sender replies
     let replyToSender: { id: string; name?: string } | undefined;

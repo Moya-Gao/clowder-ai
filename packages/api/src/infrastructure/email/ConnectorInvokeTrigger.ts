@@ -426,6 +426,17 @@ export class ConnectorInvokeTrigger {
 
         // R1-P1 fix: restore OR condition — richBlocks-only replies must also trigger delivery
         const hasContent = collectedTextParts.length > 0 || outboundTurns.length > 0;
+        log.info(
+          {
+            threadId,
+            hasOutboundHook: !!this.opts.outboundHook,
+            hasContent,
+            textPartsCount: collectedTextParts.length,
+            outboundTurnsCount: outboundTurns.length,
+            finalContentLen: collectedTextParts.join('').length,
+          },
+          '[ConnectorInvokeTrigger] Outbound delivery check',
+        );
         if (this.opts.outboundHook && hasContent) {
           // Best-effort threadMeta lookup — must not block invocation completion
           let threadMeta;
