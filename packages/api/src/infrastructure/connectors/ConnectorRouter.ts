@@ -168,9 +168,7 @@ export class ConnectorRouter {
           }
         }
         // ISSUE-8 (8A): Store command exchange in Hub thread, not conversation thread
-        const chatLabel = chatType === 'group'
-          ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}`
-          : undefined;
+        const chatLabel = chatType === 'group' ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}` : undefined;
         const hubThreadId = await this.resolveHubThread(connectorId, externalChatId, chatLabel);
         const stored = await this.storeCommandExchange(connectorId, hubThreadId, text, cmdResult.response);
         log.info(
@@ -347,7 +345,11 @@ export class ConnectorRouter {
     return { text: parts.length > 0 ? parts.join('\n') : originalText, contentBlocks };
   }
 
-  private async resolveHubThread(connectorId: string, externalChatId: string, chatLabel?: string): Promise<string | undefined> {
+  private async resolveHubThread(
+    connectorId: string,
+    externalChatId: string,
+    chatLabel?: string,
+  ): Promise<string | undefined> {
     const key = `${connectorId}:${externalChatId}`;
     const inFlight = this.hubThreadResolvers.get(key);
     if (inFlight) return inFlight;
@@ -368,7 +370,11 @@ export class ConnectorRouter {
     return creation;
   }
 
-  private async resolveHubThreadOnce(connectorId: string, externalChatId: string, chatLabel?: string): Promise<string | undefined> {
+  private async resolveHubThreadOnce(
+    connectorId: string,
+    externalChatId: string,
+    chatLabel?: string,
+  ): Promise<string | undefined> {
     const { bindingStore, threadStore, log } = this.opts;
     const binding = await bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) return undefined;

@@ -401,9 +401,20 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
 
 /** F088 Phase J2: Generate a document (PDF/DOCX/MD) from Markdown content */
 export const generateDocumentInputSchema = {
-  markdown: z.string().min(1).describe('Markdown content to convert into a document'),
-  format: z.enum(['pdf', 'docx', 'md']).describe('Output format: pdf, docx, or md'),
-  baseName: z.string().min(1).max(200).describe('Display name for the file (without extension), e.g. "调研报告"'),
+  markdown: z
+    .string()
+    .min(1)
+    .describe('Full Markdown content for the document. Supports headings, tables, lists, code blocks, etc.'),
+  format: z
+    .enum(['pdf', 'docx', 'md'])
+    .describe('Output format. Recommend "docx" (most compatible). "pdf" needs LaTeX, "md" always works.'),
+  baseName: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'Display name without extension (e.g. "调研报告", "GTC2026-具身智能调研"). Will appear as filename in IM.',
+    ),
 };
 
 export async function handleGenerateDocument(input: {
@@ -798,11 +809,12 @@ export const callbackTools = [
   {
     name: 'cat_cafe_generate_document',
     description:
-      'Generate a document (PDF/DOCX/MD) from Markdown content using Pandoc. ' +
-      'The generated file is automatically saved and attached to the current message as a file RichBlock. ' +
-      'If Pandoc is not installed, gracefully degrades to .md output. ' +
-      'PDF requires a LaTeX engine (tectonic); if unavailable, degrades to DOCX then MD. ' +
-      'Use when the user asks for a report, document export, or file generation.',
+      'Generate a document (PDF/DOCX/MD) from Markdown and deliver to IM platforms (Feishu/Telegram). ' +
+      'Use when: user asks to "生成报告", "导出文档", "发PDF", "写份文档给我", "export to DOCX", or any document generation request. ' +
+      'NOT for: sending an existing file you already have (use create_rich_block with kind:"file" + url pointing to /uploads/). ' +
+      'Output: file saved to /uploads/, attached as file RichBlock, automatically delivered to bound IM chats. Web UI shows download link. ' +
+      'GOTCHA: Do NOT manually run pandoc + create_rich_block — that skips IM delivery and the file will NOT reach Feishu/Telegram. Always use this tool. ' +
+      'Degradation: PDF needs LaTeX engine → falls back to DOCX → falls back to MD. No pandoc → .md only.',
     inputSchema: generateDocumentInputSchema,
     handler: handleGenerateDocument,
   },

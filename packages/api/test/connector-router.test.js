@@ -556,8 +556,13 @@ describe('ConnectorRouter', () => {
     it('handles /commands in group chats (F134)', async () => {
       bindingStore.bind('feishu', 'group-chat-1', 'thread-grp-1', 'owner-1');
       const result = await commandRouter.route(
-        'feishu', 'group-chat-1', '/where', 'ext-grp-cmd-1',
-        undefined, undefined, 'group',
+        'feishu',
+        'group-chat-1',
+        '/where',
+        'ext-grp-cmd-1',
+        undefined,
+        undefined,
+        'group',
       );
       assert.equal(result.kind, 'command');
       assert.equal(adapterSendCalls.length, 1);
@@ -585,15 +590,18 @@ describe('ConnectorRouter', () => {
       });
 
       const result = await hubRouter.route(
-        'feishu', 'grp-hub-1', '/where', 'ext-grp-hub-1',
-        undefined, undefined, 'group', '猫猫咖啡测试群',
+        'feishu',
+        'grp-hub-1',
+        '/where',
+        'ext-grp-hub-1',
+        undefined,
+        undefined,
+        'group',
+        '猫猫咖啡测试群',
       );
       const hubThread = threadStore.threads.get(result.threadId);
       assert.ok(hubThread);
-      assert.ok(
-        hubThread.title.includes('猫猫咖啡测试群'),
-        `expected chatName in Hub title, got: ${hubThread.title}`,
-      );
+      assert.ok(hubThread.title.includes('猫猫咖啡测试群'), `expected chatName in Hub title, got: ${hubThread.title}`);
       assert.ok(hubThread.title.includes('IM Hub'));
     });
   });
