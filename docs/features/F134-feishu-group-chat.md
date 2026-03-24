@@ -8,7 +8,7 @@ created: 2026-03-24
 
 # F134: Feishu Group Chat — 飞书群聊多用户支持
 
-> **Status**: design-gate-passed | **Owner**: 金渐层 | **Priority**: P1
+> **Status**: done (Phase A-C) | **Owner**: 金渐层 | **Priority**: P1 | **PR**: #697 merged `dc4ef024`
 >
 > **Related**: F088（复用公共层 + Phase 7 公共层扩展）| F132（钉钉/企微，同模式独立 Feature）
 
@@ -125,25 +125,25 @@ export interface FeishuInboundMessage {
 
 ## Acceptance Criteria
 
-### Phase A（群聊入站 + @Bot 检测）
-- [ ] AC-A1: 飞书群聊消息在 @机器人时正确解析入站（text + image + post）
-- [ ] AC-A2: 群聊消息未 @机器人时静默忽略（不处理、不报错）
-- [ ] AC-A3: @机器人占位符（`@_user_1`）从 text 中正确剥离
-- [ ] AC-A4: senderId 和 senderName 正确提取并传递
-- [ ] AC-A5: DM 消息行为不变（无回归）
-- [ ] AC-A6: `@所有人`（@_all）不触发 bot 响应，仅明确 @bot 才处理
+### Phase A（群聊入站 + @Bot 检测） ✅
+- [x] AC-A1: 飞书群聊消息在 @机器人时正确解析入站（text + image + post）
+- [x] AC-A2: 群聊消息未 @机器人时静默忽略（不处理、不报错）
+- [x] AC-A3: @机器人占位符（`@_user_1`）从 text 中正确剥离
+- [x] AC-A4: senderId 和 senderName 正确提取并传递
+- [x] AC-A5: DM 消息行为不变（无回归）
+- [x] AC-A6: `@所有人`（@_all）不触发 bot 响应，仅明确 @bot 才处理
 
-### Phase B（公共层 Sender 身份透传）
-- [ ] AC-B1: ConnectorRouter.route() 接受可选 sender 参数
-- [ ] AC-B2: ConnectorSource 携带 sender 信息存入 messageStore
-- [ ] AC-B3: Cat Café Web UI 展示 sender 信息（"来自飞书群聊的 Landy"）
-- [ ] AC-B4: 群聊自动创建 thread 标题为 `飞书群聊` 而非 `飞书 DM`
-- [ ] AC-B5: 现有 DM / Telegram / 钉钉消息路由不受影响（sender 可选，不传 = 不展示）
+### Phase B（公共层 Sender 身份透传） ✅
+- [x] AC-B1: ConnectorRouter.route() 接受可选 sender 参数
+- [x] AC-B2: ConnectorSource 携带 sender 信息存入 messageStore
+- [x] AC-B3: Cat Café Web UI 展示 sender 信息（"来自飞书群聊的 Landy"）
+- [x] AC-B4: 群聊自动创建 thread 标题为 `飞书群聊` 而非 `飞书 DM`
+- [x] AC-B5: 现有 DM / Telegram / 钉钉消息路由不受影响（sender 可选，不传 = 不展示）
 
-### Phase C（群聊回复 @发送者）
-- [ ] AC-C1: 猫回复群聊消息时，飞书侧正确 @原始发送者
-- [ ] AC-C2: 猫回复 DM 消息时，不添加 @（保持原行为）
-- [ ] AC-C3: 多人在群里 @机器人，各自的回复正确 @各自的发送者
+### Phase C（群聊回复 @发送者） ✅
+- [x] AC-C1: 猫回复群聊消息时，飞书侧正确 @原始发送者
+- [x] AC-C2: 猫回复 DM 消息时，不添加 @（保持原行为）
+- [x] AC-C3: 多人在群里 @机器人，各自的回复正确 @各自的发送者
 
 ### Phase D（权限控制 — 暂不开工）
 - [ ] AC-D1: 可配置哪些群允许/禁止机器人响应
@@ -154,18 +154,18 @@ export interface FeishuInboundMessage {
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "飞书机器人加入多个群" | AC-A1, AC-A5 | test + manual | [ ] |
-| R2 | "不同的人 at 你，我们需要区分不同的用户" | AC-A4, AC-B2, AC-B3 | test + screenshot | [ ] |
-| R3 | "区分到底哪个群聊给哪个 thread 发了信息" | AC-B4 | test + manual | [ ] |
-| R4 | 群聊回复应 @发送者（铲屎官确认的改动 3） | AC-C1, AC-C3 | test + manual | [ ] |
-| R5 | 先做 1-3 再做 4（权限后做） | Phase D 暂不开工 | — | [ ] |
-| R6 | "@所有人的时候bot不要响应，明确@bot才响应" | AC-A6 | test | [ ] |
-| R7 | "群聊名字+群聊ID+发送消息的人"在 UI 展示 | AC-B3, AC-B4 | screenshot | [ ] |
+| R1 | "飞书机器人加入多个群" | AC-A1, AC-A5 | test + manual | [x] |
+| R2 | "不同的人 at 你，我们需要区分不同的用户" | AC-A4, AC-B2, AC-B3 | test + screenshot | [x] |
+| R3 | "区分到底哪个群聊给哪个 thread 发了信息" | AC-B4 | test + manual | [x] |
+| R4 | 群聊回复应 @发送者（铲屎官确认的改动 3） | AC-C1, AC-C3 | test + manual | [x] |
+| R5 | 先做 1-3 再做 4（权限后做） | Phase D 暂不开工 | — | [x] |
+| R6 | "@所有人的时候bot不要响应，明确@bot才响应" | AC-A6 | test | [x] |
+| R7 | "群聊名字+群聊ID+发送消息的人"在 UI 展示 | AC-B3, AC-B4 | screenshot | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（若适用）— Phase B 有前端展示需求
+- [x] 前端需求已准备需求→证据映射表（若适用）— Phase B 有前端展示需求
 
 ## Dependencies
 
@@ -218,6 +218,12 @@ export interface FeishuInboundMessage {
 | 2026-03-25 | Review Gate Round 2: P1-1 修复（getByThread wiring），P1-2/P1-3 升级铲屎官决策 |
 | 2026-03-25 | 铲屎官决策：不降级 spec，本轮修复 P1-2 + P1-3 + 新增 KD-9/10/11 |
 | 2026-03-25 | 铲屎官配好飞书 bot 权限（contact:user.base:readonly + im:chat:readonly） |
+| 2026-03-25 | 实现 Phase A-C（Layers 1-5 + Bootstrap + UI），布偶猫 bulk + 金渐层 wiring |
+| 2026-03-25 | 缅因猫 local review Round 1: 2 P1（AC-C2 DM @误触 + callbacks replyTo 未验证） |
+| 2026-03-25 | P1 修复 + 4 回归测试，缅因猫 re-review APPROVED |
+| 2026-03-25 | Merge gate PASSED (pnpm gate, SHA 01b7d3d2) |
+| 2026-03-24 | PR #697 created, cloud review (codex) PASSED — 0 P1/P2 |
+| 2026-03-24 | PR #697 squash merged → `dc4ef024`, Phase A-C done |
 
 ## Design Gate Results（2026-03-25）
 
