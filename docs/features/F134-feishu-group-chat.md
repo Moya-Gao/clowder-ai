@@ -8,7 +8,7 @@ created: 2026-03-24
 
 # F134: Feishu Group Chat — 飞书群聊多用户支持
 
-> **Status**: Phase A-C done, Phase D in progress | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697 merged `dc4ef024`, #699, #700
+> **Status**: done (Phase A-D) | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705
 >
 > **Related**: F088（复用公共层 + Phase 7 公共层扩展）| F132（钉钉/企微，同模式独立 Feature）
 
@@ -156,12 +156,12 @@ export interface FeishuInboundMessage {
 - [x] AC-C2: 猫回复 DM 消息时，不添加 @（保持原行为）
 - [x] AC-C3: 多人在群里 @机器人，各自的回复正确 @各自的发送者
 
-### Phase D（权限控制）
-- [ ] AC-D1: 群白名单 — 未授权群的 @bot 消息静默忽略或回复权限提示
-- [ ] AC-D2: `/allow-group` `/deny-group` 管理命令可用（仅管理员）
-- [ ] AC-D3: `/threads` `/new` `/use` 等管理命令仅管理员可用，非管理员回复提示
-- [ ] AC-D4: 管理员身份通过 `FEISHU_ADMIN_OPEN_IDS` env 配置
-- [ ] AC-D5: @bot 对话不受限（群里所有人都能 @bot 提问）
+### Phase D（权限控制） ✅
+- [x] AC-D1: 群白名单 — 未授权群的 @bot 消息静默忽略或回复权限提示
+- [x] AC-D2: `/allow-group` `/deny-group` 管理命令可用（仅管理员）
+- [x] AC-D3: `/threads` `/new` `/use` 等管理命令仅管理员可用，非管理员回复提示
+- [x] AC-D4: 管理员身份通过 `FEISHU_ADMIN_OPEN_IDS` env 配置（首次启动 seed，持久化到 Redis）
+- [x] AC-D5: @bot 对话不受限（群里所有人都能 @bot 提问）
 
 ## 需求点 Checklist
 
@@ -242,6 +242,10 @@ export interface FeishuInboundMessage {
 | 2026-03-25 | PR #699 fix: 群聊恢复 /command + 每群独立 IM Hub（含群名标题），缅因猫 review 放行 |
 | 2026-03-25 | PR #700 test: 群聊 /command 和群 Hub 标题回归测试 |
 | 2026-03-25 | 铲屎官确认 Phase D 三层权限模型（KD-12）：群白名单 + @bot 全开放 + /command 仅管理员 |
+| 2026-03-25 | Phase D 实现：PermissionStore (Memory+Redis) + Router 权限检查 + /allow-group /deny-group 命令 + Hub UI |
+| 2026-03-25 | 缅因猫 review Round 1: 2 P1（admin 双源 + 内存不持久化），修复后 Round 2 approved |
+| 2026-03-25 | 云端 review: P1 (admin seed 覆盖) → 修复 → P2 (length vs hexists) → 修复 → 0 P1/P2 通过 |
+| 2026-03-25 | PR #705 squash merged → `bd664695`, Phase A-D all done |
 
 ## Design Gate Results（2026-03-25）
 
