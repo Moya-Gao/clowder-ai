@@ -297,9 +297,9 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 
 **代码证据**：`ConnectorInvokeTrigger.ts:475` 逐 turn `await deliver()`，但 `sendReply` 的 Promise 在 `flushReply` 完成后（3s）才 resolve。Turn A flush 后 `contextTokens.delete(chatId)` → Turn B 到达 → `!currentToken && !pendingReplies` → silent return。
 
-**修复**：`ConnectorInvokeTrigger` 检测到 WeChat binding 且 `nonEmptyTurns > 1` 时，合并所有 turn 内容（带猫名前缀）为单次 `deliver()` 调用。非 WeChat 连接器保持原有逐 turn 投递逻辑。
+**修复**：`ConnectorInvokeTrigger` 检测到 WeChat binding 且 `nonEmptyTurns > 1` 时，合并所有 turn 内容（带猫名前缀）为单次 `deliver()` 调用。非 WeChat 连接器保持原有逐 turn 投递逻辑。richBlocks 渲染为纯文本嵌入合并内容（避免 adapter fallback 重复追加）。混合 connector 绑定（如 weixin+feishu）回退到逐 turn 投递。
 
-**验证**：2 条新增测试覆盖合并路径 + 非 WeChat 回归测试。40/40 全绿。
+**验证**：4 条新增测试覆盖合并路径 + richBlocks 保留 + 混合 connector 回归 + 非 WeChat 回归。42/42 全绿。PR #717 merged（2026-03-25，commit 2be35f8a）。
 
 ## Open Questions
 
@@ -341,6 +341,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-07-24 | 对齐官方 sendmessage body（补 `client_id/message_type/from_user_id`）+ 响应硬化 → PR #711 squash merge (61f6baf4)。砚砚(GPT-5.4) 实现，砚砚(Codex) review |
 | 2026-07-24 | **E2E 三轮验证全部通过** — 第 1/2/3 轮消息均成功投递到微信。BUG-2 confirmed fixed ✅ |
 | 2026-07-24 | Phase C AC-C1: WeChat QR login UI in IM Hub → PR #713 砚砚 R2 放行 + 云端 Codex review 通过 → squash merge (78c65c97) |
+| 2026-07-25 | BUG-4 修复：A→B→C 接力链合并投递 → PR #717 云端 R3 通过 → squash merge (2be35f8a)。含 R1 P1+P2 + R2 P2 三轮 review 修复 |
 
 ## Review Gate
 
