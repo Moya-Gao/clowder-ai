@@ -597,15 +597,18 @@ export class WeixinAdapter implements IOutboundAdapter {
       // it will truncate server-side, but at least the message arrives.
       await this.sendMessageApi(externalChatId, plainContent, boundToken);
 
-      this.lastConsumedToken.set(externalChatId, boundToken);
-      // Compare-and-delete: only remove if still the same token (a newer token may have arrived)
-      if (this.contextTokens.get(externalChatId) === boundToken) {
-        this.contextTokens.delete(externalChatId);
-      }
+      // BUG-5 EXPERIMENT: Do NOT consume/delete token — test if iLink allows multiple sendmessage per token.
+      // If experiment succeeds (all cats' replies arrive), remove lastConsumedToken + contextTokens.delete entirely.
+      // If experiment fails (only first reply arrives), revert and implement cross-invocation merge buffer.
+      // Original code:
+      //   this.lastConsumedToken.set(externalChatId, boundToken);
+      //   if (this.contextTokens.get(externalChatId) === boundToken) {
+      //     this.contextTokens.delete(externalChatId);
+      //   }
       this.stopTyping(externalChatId);
       this.log.info(
         { chatId: externalChatId, textLen: plainContent.length, tokenHash },
-        '[WeixinAdapter] flushReply() completed — token consumed',
+        '[WeixinAdapter] flushReply() completed — token RETAINED (BUG-5 experiment)',
       );
 
       for (const r of resolvers) r.resolve();
