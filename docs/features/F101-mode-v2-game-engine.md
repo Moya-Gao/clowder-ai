@@ -500,6 +500,31 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-22 | Phase I P0 security + GameDriver merged (PR #654) — session catId auth, evidence exclusion, submit_game_action three-layer auth, GameDriver interface + LegacyAutoDriver (codex 3-round local review) |
 | 2026-03-23 | Phase I bug fix merged (PR #685) — narrator eventLog routing + briefing info leak fix + OCC stale-runtime fix. 砚砚 2-round code review + 布偶猫愿景守护 + cloud review (P1→P3 downgrade). Squash merged `c1a0d625` |
 | 2026-03-25 | Phase I bug fix merged (PR #703) — game thread virtual projectPath (`games/werewolf`) triggered F070 governance gate in invokeSingleCat → cats failed silently. Fix: skip `games/` prefix in workingDirectory resolution. 砚砚 1-round local review + Codex cloud review (0 findings). Squash merged `b6add125` |
+| 2026-03-26 | **铲屎官实测 Phase I — 四个 runtime 问题（布偶猫自查）** |
+
+### Phase I Runtime Bugs（2026-03-26 铲屎官实测）
+
+铲屎官开局后发现四个问题（thread_mn5nlufmcgjalg2j）：
+
+**Bug I-R1（P0）：猫猫 MCP 调不通**
+- 现象：缅因猫被成功唤醒（不再 "completed without textual output"），但调 `submit_game_action` 失败
+- 已确认根因之一：briefing 里写 `submit_game_action` 但 MCP 工具注册名是 `cat_cafe_submit_game_action`（`briefing.ts:68`）。猫猫可能调了错误的工具名
+- 待排查：是否还有其他原因（env var 传递、MCP server 连接等）
+
+**Bug I-R2（P0，依赖 R1）：游戏界面无事发生**
+- 现象：天黑请闭眼后 30 秒，游戏 UI 空白
+- 原因：猫猫 MCP 调不通 → 行动提交失败 → ActionNotifier 等不到 action → narrator 卡在 waitForAllActions → 游戏不推进
+- 修好 R1 后应自动解决
+
+**Bug I-R3（P1）：聊天界面和游戏界面不通**
+- 现象：猫猫的回应在聊天视图可见，但游戏 UI（GameShell z-50 全屏遮罩）看不到；从聊天界面点返回回不到游戏界面
+- 根因：GameShell 的关闭按钮调用 `abortGame()`（发 DELETE 请求）直接结束游戏，不是"最小化"
+- KD-13 原始设计："中间：事件流（公共事件+发言）"——事件流应同时显示叙事和猫猫发言
+- 当 MCP 正常工作后，猫猫通过 `submit_game_action({ action: 'speak' })` 提交的发言会作为 speech 事件出现在 eventLog → EventFlow 已有 chat bubble 渲染逻辑。但当前因 R1 阻塞无法验证
+
+**Bug I-R4（P2）：游戏进入时空头像**
+- 现象：游戏一进去就有一个空头像和奇怪的发言
+- 待排查：可能是 EventFlow 渲染了缺少 actorId/seatId 的事件
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
