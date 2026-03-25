@@ -549,7 +549,7 @@ describe('ConnectorInvokeTrigger', () => {
     );
   });
 
-  it('BUG-4 P2: mixed weixin+feishu bindings delivers per-turn (not merged)', async () => {
+  it('BUG-4b: mixed weixin+feishu bindings still merges (protects single-token WeChat)', async () => {
     const multiCatRouter = /** @type {any} */ ({
       async *routeExecution(userId, message, threadId, userMessageId, targetCats, intent, options) {
         yield { type: 'text', catId: 'opus', content: 'Hello from opus!', timestamp: Date.now() };
@@ -572,7 +572,7 @@ describe('ConnectorInvokeTrigger', () => {
       async ackCollectedCursors() {},
     });
 
-    const deliverCalls = /** @type {Array<{threadId: string, content: string, catId: string}>} */ ([]);
+    const deliverCalls = /** @type {Array<{threadId: string, content: string, catId: any}>} */ ([]);
     const outboundHook = {
       deliver: async (threadId, content, catId) => {
         deliverCalls.push({ threadId, content, catId });
@@ -584,9 +584,12 @@ describe('ConnectorInvokeTrigger', () => {
     trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'Hello', 'msg-1');
     await waitForTrigger();
 
-    assert.strictEqual(deliverCalls.length, 2, 'Mixed connectors should deliver per-turn, not merge');
-    assert.strictEqual(deliverCalls[0].catId, 'opus');
-    assert.strictEqual(deliverCalls[1].catId, 'codex');
+    // BUG-4b fix: mixed bindings must merge to protect WeChat's single-token constraint.
+    // Feishu receives the merged message too (acceptable — cat headers preserve attribution).
+    assert.strictEqual(deliverCalls.length, 1, 'Mixed connectors with weixin must merge (BUG-4b)');
+    assert.strictEqual(deliverCalls[0].catId, undefined, 'Merged delivery has no single catId');
+    assert.ok(deliverCalls[0].content.includes('opus'), 'Merged content contains opus');
+    assert.ok(deliverCalls[0].content.includes('codex'), 'Merged content contains codex');
   });
 
   it('BUG-4 regression: non-WeChat multi-turn still delivers per-turn', async () => {

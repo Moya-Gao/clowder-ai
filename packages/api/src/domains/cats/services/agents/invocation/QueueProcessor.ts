@@ -7,6 +7,8 @@
  * - processNext（用户级）：铲屎官手动触发处理自己的下一条
  */
 
+import { catRegistry } from '@cat-cafe/shared';
+import { renderAllRichBlocksPlaintext } from '../../../../../infrastructure/connectors/rich-block-plaintext.js';
 import type { IMessageStore } from '../../stores/ports/MessageStore.js';
 import type { InvocationQueue, QueueEntry } from './InvocationQueue.js';
 
@@ -59,6 +61,8 @@ export interface OutboundDeliveryHookLike {
     origin?: string,
     triggerMessageId?: string,
   ): Promise<void>;
+  /** BUG-4c: needed for single-token connector merge detection */
+  getConnectorIds?(threadId: string): Promise<string[]>;
 }
 
 /** Minimal streaming outbound interface — avoids importing full StreamingOutboundHook. */
@@ -738,7 +742,70 @@ export class QueueProcessor {
       let deliveryFailed = false;
       const inflightDeliverPromises: Promise<void>[] = [];
 
-      if (nonEmptyTurns.length > 1) {
+      // BUG-4c: Merge multi-turn delivery for single-token connectors (WeChat iLink).
+      // Mirror of ConnectorInvokeTrigger BUG-4 logic — QueueProcessor was missing this.
+      const SINGLE_TOKEN_CONNECTORS = new Set(['weixin']);
+      let mustMergeTurns = false;
+      if (nonEmptyTurns.length > 1 && this.deps.outboundHook.getConnectorIds) {
+        try {
+          const connectorIds = await this.deps.outboundHook.getConnectorIds(threadId);
+          mustMergeTurns = connectorIds.length > 0 && connectorIds.some((id) => SINGLE_TOKEN_CONNECTORS.has(id));
+          log.info(
+            { threadId, connectorIds, mustMergeTurns, turnCount: nonEmptyTurns.length },
+            '[QueueProcessor] BUG-4c: merge decision',
+          );
+        } catch (err) {
+          log.warn({ err, threadId }, '[QueueProcessor] getConnectorIds failed — falling back to per-turn');
+        }
+      }
+
+      if (mustMergeTurns && nonEmptyTurns.length > 1) {
+        const mergedParts: string[] = [];
+        for (const turn of nonEmptyTurns) {
+          const entry = catRegistry.tryGet(turn.catId);
+          const catName = entry?.config.displayName ?? turn.catId;
+          const turnTextParts: string[] = [];
+          const textContent = turn.textParts.join('');
+          if (textContent) turnTextParts.push(textContent);
+          // P1 fix (cloud review): render richBlocks as plaintext so they survive merge
+          if (turn.richBlocks && turn.richBlocks.length > 0) {
+            turnTextParts.push(
+              renderAllRichBlocksPlaintext(
+                turn.richBlocks as unknown as Parameters<typeof renderAllRichBlocksPlaintext>[0],
+              ),
+            );
+          }
+          if (turnTextParts.length > 0) {
+            mergedParts.push(`【${catName}🐱】\n${turnTextParts.join('\n')}`);
+          }
+        }
+        const mergedContent = mergedParts.join('\n\n─────────\n\n');
+        log.info(
+          { threadId, turnCount: nonEmptyTurns.length, mergedLen: mergedContent.length },
+          '[QueueProcessor] BUG-4c: merging multi-turn for single-token connector',
+        );
+        const deliverPromise = this.deps.outboundHook.deliver(
+          threadId,
+          mergedContent,
+          undefined as unknown as string,
+          undefined,
+          threadMeta,
+          undefined,
+          triggerMessageId,
+        );
+        inflightDeliverPromises.push(deliverPromise);
+        try {
+          await Promise.race([
+            deliverPromise,
+            new Promise<void>((_, reject) =>
+              setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS),
+            ),
+          ]);
+        } catch (err) {
+          deliveryFailed = true;
+          log.error({ err, threadId }, '[QueueProcessor] Outbound delivery error (merged)');
+        }
+      } else if (nonEmptyTurns.length > 1) {
         for (const turn of nonEmptyTurns) {
           const turnContent = turn.textParts.join('');
           const deliverPromise = this.deps.outboundHook.deliver(

@@ -476,12 +476,20 @@ export class ConnectorInvokeTrigger {
           // BUG-4 (F137): WeChat's iLink context_token is single-use — only the first
           // sendmessage per token gets delivered. When A→B→C relay chains produce multiple
           // turns, merge all turns into one message before delivery.
+          // BUG-4b: Use `some` not `every` — mixed bindings (weixin+feishu) must still
+          // merge, otherwise per-turn delivery consumes the token on Turn 1 and silently
+          // drops Turn 2+. Feishu receives the merged message (acceptable — cat headers
+          // preserve attribution).
           const SINGLE_TOKEN_CONNECTORS = new Set(['weixin']);
           let mustMergeTurns = false;
           if (nonEmptyTurns.length > 1) {
             try {
               const connectorIds = await this.opts.outboundHook.getConnectorIds(threadId);
-              mustMergeTurns = connectorIds.length > 0 && connectorIds.every((id) => SINGLE_TOKEN_CONNECTORS.has(id));
+              mustMergeTurns = connectorIds.length > 0 && connectorIds.some((id) => SINGLE_TOKEN_CONNECTORS.has(id));
+              log.info(
+                { threadId, connectorIds, mustMergeTurns, turnCount: nonEmptyTurns.length },
+                '[ConnectorInvokeTrigger] BUG-4: merge decision',
+              );
             } catch (err) {
               log.warn({ err, threadId }, '[ConnectorInvokeTrigger] getConnectorIds failed — falling back to per-turn');
             }
@@ -537,6 +545,10 @@ export class ConnectorInvokeTrigger {
               log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error (merged)');
             }
           } else if (nonEmptyTurns.length > 1) {
+            log.info(
+              { threadId, turnCount: nonEmptyTurns.length, mustMergeTurns },
+              '[ConnectorInvokeTrigger] BUG-4: per-turn delivery (merge NOT triggered)',
+            );
             for (const turn of nonEmptyTurns) {
               const turnContent = turn.textParts.join('');
               const deliverPromise = this.opts.outboundHook.deliver(

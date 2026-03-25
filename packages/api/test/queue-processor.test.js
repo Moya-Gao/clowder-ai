@@ -840,6 +840,100 @@ describe('QueueProcessor', () => {
       assert.equal(deliverCalls[1].content, 'Codex chimes in.', 'codex content should match');
     });
 
+    it('BUG-4c: WeChat multi-turn merges into single deliver call', async () => {
+      const deliverCalls = [];
+      const outboundHook = {
+        deliver: mock.fn(async (threadId, content, catId) => {
+          deliverCalls.push({ threadId, content, catId });
+        }),
+        getConnectorIds: mock.fn(async () => ['weixin']),
+      };
+      const streamingHook = {
+        onStreamStart: mock.fn(async () => {}),
+        onStreamChunk: mock.fn(async () => {}),
+        onStreamEnd: mock.fn(async () => {}),
+        cleanupPlaceholders: mock.fn(async () => {}),
+      };
+
+      const hookDeps = stubDeps({
+        router: {
+          routeExecution: mock.fn(async function* () {
+            yield { type: 'text', catId: 'opus', content: 'Opus says hi. ', timestamp: Date.now() };
+            yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+            yield { type: 'text', catId: 'codex', content: 'Codex chimes in.', timestamp: Date.now() };
+            yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+          }),
+          ackCollectedCursors: mock.fn(async () => {}),
+        },
+        outboundHook,
+        streamingHook,
+        threadMetaLookup: mock.fn(async () => undefined),
+      });
+      const hookProcessor = new QueueProcessor(hookDeps);
+
+      const entry = enqueueEntry(hookDeps.queue, { targetCats: ['opus'] });
+      hookDeps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');
+
+      await hookProcessor.processNext('t1', 'u1');
+      await waitFor(() => deliverCalls.length >= 1);
+
+      assert.equal(deliverCalls.length, 1, 'WeChat should merge multi-turn into single deliver');
+      assert.ok(deliverCalls[0].content.includes('Opus says hi.'), 'Merged content contains opus text');
+      assert.ok(deliverCalls[0].content.includes('Codex chimes in.'), 'Merged content contains codex text');
+      assert.ok(deliverCalls[0].content.includes('【'), 'Merged content has cat name prefix');
+    });
+
+    it('BUG-4c P1: WeChat merge preserves richBlocks as plaintext', async () => {
+      const deliverCalls = [];
+      const outboundHook = {
+        deliver: mock.fn(async (threadId, content, catId) => {
+          deliverCalls.push({ threadId, content, catId });
+        }),
+        getConnectorIds: mock.fn(async () => ['weixin']),
+      };
+      const streamingHook = {
+        onStreamStart: mock.fn(async () => {}),
+        onStreamChunk: mock.fn(async () => {}),
+        onStreamEnd: mock.fn(async () => {}),
+        cleanupPlaceholders: mock.fn(async () => {}),
+      };
+
+      const hookDeps = stubDeps({
+        router: {
+          routeExecution: mock.fn(async function* (_u, _m, _t, _mid, _cats, _intent, opts) {
+            yield { type: 'text', catId: 'opus', content: 'Opus text. ', timestamp: Date.now() };
+            // Simulate richBlocks set by route-serial before done
+            if (opts?.persistenceContext) {
+              opts.persistenceContext.richBlocks = [
+                { kind: 'checklist', title: 'todo', items: [{ text: 'x', checked: false }] },
+              ];
+            }
+            yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+            yield { type: 'text', catId: 'codex', content: 'Codex text.', timestamp: Date.now() };
+            yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+          }),
+          ackCollectedCursors: mock.fn(async () => {}),
+        },
+        outboundHook,
+        streamingHook,
+        threadMetaLookup: mock.fn(async () => undefined),
+      });
+      const hookProcessor = new QueueProcessor(hookDeps);
+
+      const entry = enqueueEntry(hookDeps.queue, { targetCats: ['opus'] });
+      hookDeps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');
+
+      await hookProcessor.processNext('t1', 'u1');
+      await waitFor(() => deliverCalls.length >= 1);
+
+      assert.equal(deliverCalls.length, 1, 'Should merge into single deliver');
+      assert.ok(deliverCalls[0].content.includes('Opus text.'), 'Has opus text');
+      assert.ok(deliverCalls[0].content.includes('Codex text.'), 'Has codex text');
+      // P1: richBlocks must be rendered as plaintext in merged content
+      assert.ok(deliverCalls[0].content.includes('todo'), 'Rich block checklist title preserved');
+      assert.ok(deliverCalls[0].content.includes('☐'), 'Rich block checklist item rendered');
+    });
+
     it('no outboundHook: execution completes normally without delivery', async () => {
       const entry = enqueueEntry(deps.queue);
       deps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');
