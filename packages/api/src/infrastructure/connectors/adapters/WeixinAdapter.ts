@@ -616,6 +616,129 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
   }
 
+  // ── Media send (Phase B): CDN upload → sendmessage with media item ──
+
+  async sendMedia(
+    externalChatId: string,
+    payload: {
+      type: 'image' | 'file' | 'audio';
+      absPath?: string;
+      url?: string;
+      fileName?: string;
+      [key: string]: unknown;
+    },
+  ): Promise<void> {
+    const filePath = payload.absPath ?? payload.url;
+    if (!filePath) {
+      this.log.warn({ chatId: externalChatId, type: payload.type }, '[WeixinAdapter] sendMedia: no file path');
+      return;
+    }
+
+    // Only use a fresh (unconsumed) token — iLink single-token constraint
+    const contextToken = this.contextTokens.get(externalChatId) ?? '';
+    if (!contextToken) {
+      this.log.warn(
+        { chatId: externalChatId, hasConsumed: this.lastConsumedToken.has(externalChatId) },
+        '[WeixinAdapter] sendMedia: no active context_token — skipping (token already consumed by sendReply)',
+      );
+      return;
+    }
+
+    const { uploadMediaToCdn, UploadMediaType } = await import('./weixin-cdn.js');
+    const cdnBaseUrl = 'https://filecdnweixin.weixin.qq.com';
+    const mediaTypeMap = {
+      image: UploadMediaType.IMAGE,
+      file: UploadMediaType.FILE,
+      audio: UploadMediaType.VOICE,
+    } as const;
+
+    this.log.info(
+      { chatId: externalChatId, type: payload.type, filePath },
+      '[WeixinAdapter] sendMedia: uploading to CDN',
+    );
+
+    const uploaded = await uploadMediaToCdn({
+      filePath,
+      toUserId: externalChatId,
+      mediaType: mediaTypeMap[payload.type],
+      botToken: this.botToken,
+      cdnBaseUrl,
+      log: this.log,
+      fetchFn: this.fetchFn,
+    });
+
+    const itemType =
+      payload.type === 'image'
+        ? MessageItemType.IMAGE
+        : payload.type === 'audio'
+          ? MessageItemType.VOICE
+          : MessageItemType.FILE;
+    const mediaRef = {
+      encrypt_query_param: uploaded.downloadEncryptedQueryParam,
+      aes_key: Buffer.from(uploaded.aeskey, 'hex').toString('base64'),
+      encrypt_type: 1,
+    };
+
+    const mediaItem: Record<string, unknown> = { type: itemType };
+    if (payload.type === 'image') {
+      mediaItem.image_item = { media: mediaRef, mid_size: uploaded.fileSizeCiphertext };
+    } else if (payload.type === 'audio') {
+      mediaItem.voice_item = { media: mediaRef };
+    } else {
+      mediaItem.file_item = { media: mediaRef, file_name: payload.fileName ?? 'file' };
+    }
+
+    const body = {
+      msg: {
+        from_user_id: '',
+        to_user_id: externalChatId,
+        client_id: generateClientId(),
+        message_type: 2,
+        context_token: contextToken,
+        message_state: MessageState.FINISH,
+        item_list: [mediaItem],
+      },
+      base_info: { channel_version: '1.0.0' },
+    };
+
+    const res = await this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/sendmessage`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '');
+      throw new Error(`sendMedia HTTP ${res.status}: ${errorText}`);
+    }
+
+    const rawText = await res.text().catch(() => '');
+    if (!rawText.trim()) {
+      throw new Error('sendMedia returned empty response body');
+    }
+    let data: ILinkSendResponse;
+    try {
+      data = JSON.parse(rawText) as ILinkSendResponse;
+    } catch {
+      throw new Error(`sendMedia returned non-JSON response: ${rawText}`);
+    }
+    const errorCode = data.errcode ?? data.ret;
+    if (errorCode && errorCode !== 0) {
+      throw new Error(`sendMedia errcode ${errorCode}: ${data.errmsg ?? 'unknown'}`);
+    }
+
+    // Mark token as consumed (same lifecycle as flushReply)
+    this.lastConsumedToken.set(externalChatId, contextToken);
+    if (this.contextTokens.get(externalChatId) === contextToken) {
+      this.contextTokens.delete(externalChatId);
+    }
+
+    this.log.info(
+      { chatId: externalChatId, type: payload.type, filekey: uploaded.filekey },
+      '[WeixinAdapter] sendMedia: delivered — token consumed',
+    );
+  }
+
   static stripMarkdownForWeixin(text: string): string {
     return text
       .replace(/```[^\n]*\n([\s\S]*?)```/g, '$1') // multi-line fence → keep code body

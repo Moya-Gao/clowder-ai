@@ -1159,4 +1159,29 @@ describe('WeixinAdapter', () => {
       });
     });
   });
+
+  describe('sendMedia', () => {
+    it('skips when no context_token', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      let fetchCalled = false;
+      adapter._injectFetch(async () => {
+        fetchCalled = true;
+        return { ok: true, json: async () => ({}) };
+      });
+      await adapter.sendMedia('user-1', { type: 'image', absPath: '/tmp/test.png' });
+      assert.equal(fetchCalled, false);
+    });
+
+    it('skips when no file path', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      let fetchCalled = false;
+      adapter._injectFetch(async () => {
+        fetchCalled = true;
+        return { ok: true, json: async () => ({}) };
+      });
+      await adapter.sendMedia('user-1', { type: 'image' });
+      assert.equal(fetchCalled, false);
+    });
+  });
 });

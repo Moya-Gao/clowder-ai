@@ -159,8 +159,21 @@ export class OutboundDeliveryHook {
               catDisplayName || 'Cat',
               outMeta,
             );
+          } else if (
+            hasRichBlocks &&
+            adapter.sendMedia &&
+            richBlocks.some((b) => b.kind === 'audio' || b.kind === 'file' || b.kind === 'media_gallery')
+          ) {
+            // Media-capable adapter without sendRichMessage (e.g. WeChat):
+            // Skip text sendReply ONLY when sendable media blocks exist —
+            // audio/file/media_gallery will be sent below via sendMedia,
+            // which needs a fresh context_token (iLink single-token constraint).
+            this.opts.log.info(
+              { connectorId: binding.connectorId },
+              '[OutboundDeliveryHook] Skipping sendReply — sendable media blocks will use the token',
+            );
           } else if (hasRichBlocks) {
-            // Fallback: append plaintext-rendered blocks to text
+            // Fallback for adapters without sendMedia: render blocks as plaintext
             const blockText = renderAllRichBlocksPlaintext(richBlocks);
             await adapter.sendReply(binding.externalChatId, `${finalContent}\n\n${blockText}`, outMeta);
           } else {
