@@ -557,6 +557,10 @@ interface ChatState {
   workspaceRevealPath: string | null;
   setWorkspaceRevealPath: (path: string | null, originThreadId?: string | null) => void;
 
+  // Phase H: Workspace mode (dev tools vs knowledge feed)
+  workspaceMode: 'dev' | 'knowledge';
+  setWorkspaceMode: (mode: 'dev' | 'knowledge') => void;
+
   // ── F120: Preview auto-open (always-mounted listener) ──
   pendingPreviewAutoOpen: { port: number; path: string } | null;
   setPendingPreviewAutoOpen: (data: { port: number; path: string }) => void;
@@ -808,6 +812,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       rightPanelMode: 'workspace' as const,
       _workspaceFileSetAt: { ts: Date.now(), threadId: originThreadId ?? state.currentThreadId },
     })),
+
+  // Phase H: Workspace mode
+  workspaceMode: 'dev' as const,
+  setWorkspaceMode: (mode) => set({ workspaceMode: mode, rightPanelMode: 'workspace' }),
 
   // ── F120: Preview auto-open ──
   pendingPreviewAutoOpen: null,

@@ -111,6 +111,15 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 - 你已经在当前 session 里读过相关 spec
 - 纯代码实现（用 Grep/LSP 更精确）
 
+### 知识涌现 Feed（Phase H）
+
+对话中的 `[decision]`/`[lesson]`/`[method]` 会自动提取到 **Knowledge Feed**（Workspace 面板"知识"模式）。
+
+- **猫猫职责**：对话中发现有价值的决策、教训、方法论时，**主动提醒铲屎官**去 Feed 确认
+- **打开方式**：`POST /api/workspace/navigate` + `action: 'knowledge-feed'`，或让铲屎官说"帮我看看知识 Feed"
+- **API**：`GET /api/knowledge/feed`（列表）、`POST /api/knowledge/approve`、`POST /api/knowledge/reject`
+- **不要替铲屎官拍板** inferred 级别的知识——展示在 Feed 里等确认
+
 ## 缅因猫专属规则
 
 ### 角色切换自检

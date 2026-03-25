@@ -811,7 +811,7 @@ embedding 无法补救（rerank 只重排已召回的，不发现新文档）。
 
 **KD-44**：三种检索模式各有独立实现路径，semantic 不依赖 BM25 召回。
 
-### Phase H: 知识涌现 Feed — Durable Candidate → Hub 可视化 → 人猫协同审核（待设计）
+### Phase H: 知识涌现 Feed — Durable Candidate → Hub 可视化 → 人猫协同审核（实现中）
 
 > **触发**：铲屎官问"Durable Candidate 怎么审核？需要 UX"。
 > **核心理念**：不是"审核 marker"，而是"知识涌现 feed"——像 GitHub Notifications 一样的集中入口。
@@ -947,15 +947,15 @@ Workspace 面板顶部：
 | **任意页面联动** | 不管在哪个 thread/页面，都能通过自然语言或按钮打开知识 Feed |
 | **配套 Skill** | 猫猫得知道有 Knowledge Feed 能力 → 写 skill 或更新 CLAUDE.md/AGENTS.md |
 
-**H-8. 配套 Skill（让猫猫知道有这个能力）**
+**H-8. 配套 Skill（让猫猫知道有这个能力）** ✅
 
-猫猫如果不知道 Knowledge Feed 存在，就不会主动提议沉淀知识、不会帮铲屎官打开 Feed。需要：
+猫猫如果不知道 Knowledge Feed 存在，就不会主动提议沉淀知识、不会帮铲屎官打开 Feed。已完成：
 
-1. **CLAUDE.md/AGENTS.md 更新** — 在记忆系统段落加"知识涌现 Feed 在 Workspace 面板里"
-2. **workspace-navigator 扩展** — 支持"打开知识 Feed"指令
-3. **猫猫主动提议的 prompt guidance** — 在系统提示词里告诉猫"对话中发现有价值的 decision/lesson 时，主动提醒铲屎官"
+1. ✅ **CLAUDE.md/AGENTS.md 更新** — 在记忆系统段落加"知识涌现 Feed"指引 + 猫猫主动提醒职责
+2. ✅ **workspace-navigator 扩展** — `POST /api/workspace/navigate` 支持 `action: 'knowledge-feed'`，前端 chatStore.setWorkspaceMode 联动
+3. ✅ **猫猫主动提议的 prompt guidance** — CLAUDE.md/AGENTS.md 写明"对话中发现有价值的 decision/lesson 时，主动提醒铲屎官"
 
-> **下一步**：铲屎官确认产品原则 → 暹罗猫(烁烁)出精细视觉设计 → 实现
+> **待做**：IMaterializationService（approved → docs/*.md 自动写入） · 暹罗猫精细视觉设计
 
 ## Phase D 完成后的预期效果
 

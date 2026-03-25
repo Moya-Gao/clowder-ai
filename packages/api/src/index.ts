@@ -155,6 +155,7 @@ import {
   workspaceGitRoutes,
   workspaceRoutes,
 } from './routes/index.js';
+import { knowledgeFeedRoutes } from './routes/knowledge-feed.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
@@ -518,6 +519,24 @@ async function main(): Promise<void> {
               memoryServices.vectorStore?.upsert(anchor, vec);
             }
           : undefined,
+        // H-3: Submit durable candidates to knowledge emergence pipeline
+        submitCandidate: async (candidate) => {
+          const marker = await memoryServices.markerQueue.submit({
+            content: `[${candidate.kind}] ${candidate.title}: ${candidate.claim}`,
+            source: `thread:${candidate.threadId}`,
+            status: 'captured',
+            // method → lesson: EvidenceKind has no 'method' variant; methods are stored as lessons
+            targetKind: candidate.kind === 'decision' ? 'decision' : 'lesson',
+          });
+          // Auto-approve explicit candidates (铲屎官不需要每条都审)
+          if (candidate.confidence === 'explicit') {
+            await memoryServices.markerQueue.transition(marker.id, 'normalized');
+            await memoryServices.markerQueue.transition(marker.id, 'approved');
+            app.log.info(`[knowledge-emergence] auto-approved: [${candidate.kind}] ${candidate.title}`);
+          } else {
+            app.log.info(`[knowledge-emergence] submitted for review: [${candidate.kind}] ${candidate.title}`);
+          }
+        },
         logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
       });
 
@@ -982,6 +1001,12 @@ async function main(): Promise<void> {
   // Reflect (SQLite-backed reflection)
   await app.register(reflectRoutes, {
     reflectionService: memoryServices.reflectionService,
+  });
+
+  // Phase H: Knowledge Emergence Feed API
+  await knowledgeFeedRoutes(app, {
+    markerQueue: memoryServices.markerQueue,
+    db: memoryServices.store.getDb(),
   });
 
   // Memory governance (publish workflow)

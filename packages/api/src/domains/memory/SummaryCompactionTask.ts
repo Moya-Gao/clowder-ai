@@ -53,6 +53,14 @@ export interface SummaryCompactionDeps {
   } | null>;
   /** Re-embed a thread after summary update (for semantic search). Optional — fail-open. */
   reEmbed?: (anchor: string, text: string) => Promise<void>;
+  /** H-3: Submit durable candidate to MarkerQueue for knowledge emergence pipeline. Optional — fail-open. */
+  submitCandidate?: (candidate: {
+    kind: string;
+    title: string;
+    claim: string;
+    confidence: string;
+    threadId: string;
+  }) => Promise<void>;
   /** Logger */
   logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void };
 }
@@ -279,6 +287,32 @@ async function processThread(
       await deps.reEmbed(`thread-${state.thread_id}`, `${title} ${mergedSummary}`);
     } catch {
       // fail-open
+    }
+  }
+
+  // H-3: Submit durable candidates to MarkerQueue for knowledge emergence pipeline
+  if (deps.submitCandidate) {
+    for (const seg of result.segments) {
+      const candidates = (seg.candidates ?? []) as Array<{
+        kind: string;
+        title: string;
+        claim: string;
+        confidence?: string;
+      }>;
+      for (const c of candidates) {
+        try {
+          await deps.submitCandidate({
+            kind: c.kind,
+            title: c.title,
+            claim: c.claim,
+            confidence: c.confidence ?? 'inferred',
+            threadId: state.thread_id,
+          });
+          deps.logger.info(`[summary-compaction] submitted candidate: [${c.kind}] ${c.title}`);
+        } catch {
+          // fail-open: candidate submission failure doesn't block compaction
+        }
+      }
     }
   }
 
