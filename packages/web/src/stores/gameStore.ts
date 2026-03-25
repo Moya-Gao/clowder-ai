@@ -212,7 +212,10 @@ function deriveFromView(
   view: GameView,
   gameId: string,
   threadId: string,
-): Omit<GameStoreState, 'setGameView' | 'clearGame' | 'setSelectedTarget' | 'setGodScopeFilter' | 'minimizeOverlay' | 'restoreOverlay'> {
+): Omit<
+  GameStoreState,
+  'setGameView' | 'clearGame' | 'setSelectedTarget' | 'setGodScopeFilter' | 'minimizeOverlay' | 'restoreOverlay'
+> {
   const humanSeat = view.config.humanSeat ?? null;
   const isGodView = view.config.humanRole === 'god-view';
   const isDetective = view.config.humanRole === 'detective';
@@ -259,7 +262,12 @@ export const useGameStore = create<GameStoreState>((set) => ({
   setGameView: (view, gameId, threadId) => {
     const derived = deriveFromView(view, gameId, threadId);
     // Preserve user-set fields (selectedTarget, godScopeFilter)
-    set((prev) => ({ ...derived, selectedTarget: prev.selectedTarget, godScopeFilter: prev.godScopeFilter, overlayMinimized: prev.overlayMinimized }));
+    set((prev) => ({
+      ...derived,
+      selectedTarget: prev.selectedTarget,
+      godScopeFilter: prev.godScopeFilter,
+      overlayMinimized: prev.overlayMinimized,
+    }));
   },
 
   clearGame: () => set({ ...CLEAR_STATE }),
