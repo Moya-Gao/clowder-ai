@@ -133,6 +133,36 @@ cafe pack remove quant-cats                          # 卸载
 cafe pack publish                                    # 发布
 ```
 
+### Ecosystem Compatibility（KD-10）
+
+> 两轮独立调研（布偶猫 Opus + 砚砚 GPT-5.4）+ 云端 GPT Pro Deep Research 交叉验证。Pin 到 OpenClaw `v2026.3.23`（2026-03-23）和 SillyTavern official docs snapshot as of 2026-03-25。
+
+#### OpenClaw（小龙虾）
+
+OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking changes），插件系统从单体 `extension-api` 重构为模块化 `plugin-sdk/*`。当前插件体系有两条轨：
+
+| 轨道 | 格式 | 兼容 F129？ | 策略 |
+|------|------|------------|------|
+| **Bundle** | Content + metadata packs（Codex/Claude/Cursor-compatible layout → OpenClaw feature mapping） | ✅ 主要兼容目标 | Bundle 的 narrower trust boundary 与 Pack schema→compile 管道天然对齐 |
+| **SKILL.md** | YAML frontmatter + Markdown 指令（ClawHub 13,000+ skills） | ✅ Bundle 的内容子集 | SKILL.md → Pack workflows/defaults 映射 |
+| **Native Plugin** | `openclaw.plugin.json` + runtime module, in-process | ❌ 不做 | API 仍在剧变（runtime sidecars 本周还在修）；in-process 执行与 KD-9 安全模型冲突 |
+
+**关键修正**（砚砚 GPT-5.4 第二轮核验）：OpenClaw 官方已将 Bundle 定义为"把外部生态内容映射成本地能力"的机制——与 F129 Pack 同方向。兼容目标应是 **Bundle surface**，不只是 SKILL.md。
+
+#### SillyTavern（酒馆）
+
+| 内容类型 | 格式 | 兼容 F129？ | 映射目标 |
+|----------|------|------------|---------|
+| **Character Cards** | V2/V3 PNG + embedded JSON | ✅ | → Pack `masks/` |
+| **World Books / Lorebooks** | JSON | ✅ | → Pack `knowledge/` |
+| **Extensions** | Browser JS / Node.js | ❌ 不做 | 运行时插件，与声明式模型不兼容 |
+
+#### 共同原则
+
+1. **Content import yes, runtime compatibility no**（两猫独立验证 + 云端报告一致）
+2. 先做 **importer**（Phase B），不承诺 native plugin 兼容
+3. Pin 到公开稳定版本语义，不追 bleeding edge
+
 ### Phase A: Pack Format + Loader
 
 - 定义 `pack.yaml` schema（元信息、兼容性、内容声明）
@@ -177,6 +207,9 @@ cafe pack publish                                    # 发布
 - [ ] AC-B2: 至少 1 个非 Coding 示范 Pack 可运行（如 TRPG 或深夜陪伴）
 - [ ] AC-B3: Pack Remix 机制可用——下载、修改、再发布
 - [ ] AC-B4: Growth Layer（私有关系/记忆）不随 Pack 外发
+- [ ] AC-B5: OpenClaw Bundle importer MVP（至少支持 SKILL.md subtype，映射到 workflows/defaults/masks）
+- [ ] AC-B6: SillyTavern Character Card V2/V3 + World Book → Pack importer MVP（映射到 masks/knowledge）
+- [ ] AC-B7: Pack export / remix 默认不包含 Growth 原始数据；只允许导出蒸馏后的方法论补丁或模板变更（KD-11 硬边界）
 
 ### Phase C（Capability Pack + Marketplace）
 - [ ] AC-C1: MCP Capability Pack 运行时加载可用
@@ -198,6 +231,7 @@ cafe pack publish                                    # 发布
 | Pack 格式过度设计，社区门槛反而高 | Phase A 只做最小格式，dogfood 验证后再扩展 |
 | Capability Pack（MCP）的安全隔离 | 放 Phase C，等权限模型和审计就绪 |
 | 术语混乱（plugin/mod/pack/seed） | KD-1 已定调：统一用 Pack |
+| 为追求可分享，把本该属于 Growth 的私有关系/记忆过度 pack 化 | Pack/Growth 类型边界 + export blocker + distill-only 回流路径（W5：经验回流，原始数据不回流）（KD-11） |
 
 ## Open Questions
 
@@ -222,6 +256,8 @@ cafe pack publish                                    # 发布
 | KD-7 | v1 先 Git URL 安装，不做 marketplace | 去中心化更符合"种子自由生长"，降低首发基建成本 | 2026-03-19 |
 | KD-8 | Pack 内不使用 `shared-rules.md`，拆为 `guardrails.yaml` + `defaults.yaml` | 砚砚 P1 review：同名文件撞平台真相源，违反 P4（F024 同类教训） | 2026-03-19 |
 | KD-9 | 双轨信任边界：Pack 内容走 schema→编译管道，不原样注入 prompt | 砚砚 P1 review：schema 校验挡不住语义级 prompt injection；Core Rails 是编译边界不是优先级更高的 prompt | 2026-03-19 |
+| KD-10 | 生态兼容策略：Bundle-first（OpenClaw）+ Content-first（SillyTavern），不做 native runtime compatibility | 布偶猫 + 砚砚独立调研 + 云端 GPT Pro 交叉验证一致：内容层稳定可映射，代码层剧变且与 KD-9 安全模型冲突 | 2026-03-25 |
+| KD-11 | Pack = 可分享的文化种子；Growth = 本地私有的关系生长。Pack 只定义亲密协作发生的条件，不承诺承载亲密协作本身。Growth 不可直接打包外发，只能经蒸馏后回流为方法论/模板 | 云端调研碰撞后涌现：共享记忆塑造视角（模型不同但观点趋同）；Pack/Growth 边界 = "能分享的文化种子" vs "只能长出来的关系果实"（W5：只回流方法论不回流数据） | 2026-03-25 |
 
 ## Timeline
 
@@ -233,6 +269,8 @@ cafe pack publish                                    # 发布
 | 2026-03-19 | 立项 F129 |
 | 2026-03-19 | 砚砚 P1 review R1：命名冲突 + 信任边界两个架构口子 → KD-8/KD-9 收口 |
 | 2026-03-19 | 砚砚 R2：P1 放行 + 补 3 口子（fail-closed schema / capabilities reject / knowledge scoped）→ AC-A8/A9/A10 |
+| 2026-03-25 | 生态兼容调研：布偶猫 + 砚砚 GPT-5.4 独立调研 OpenClaw v2026.3.23 / SillyTavern → KD-10 + AC-B5/B6 |
+| 2026-03-25 | 云端 GPT Pro Deep Research + 本地两猫碰撞 → 涌现发现"共享记忆塑造视角" → KD-11 + AC-B7 |
 
 ## Review Gate
 
