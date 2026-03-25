@@ -811,7 +811,7 @@ embedding 无法补救（rerank 只重排已召回的，不发现新文档）。
 
 **KD-44**：三种检索模式各有独立实现路径，semantic 不依赖 BM25 召回。
 
-### Phase H: 知识涌现 Feed — Durable Candidate → Hub 可视化 → 人猫协同审核（实现中）
+### Phase H: 知识涌现 Feed — Durable Candidate → Hub 可视化 → 人猫协同审核（✅ H-1/H-2/H-3/H-8 merged）
 
 > **触发**：铲屎官问"Durable Candidate 怎么审核？需要 UX"。
 > **核心理念**：不是"审核 marker"，而是"知识涌现 feed"——像 GitHub Notifications 一样的集中入口。
@@ -1210,10 +1210,17 @@ Workspace 面板顶部：
 | 2026-03-20 | Phase G foundation 实现：Schema V4 + TaskRunner + SummaryCompactionTask + Opus API client |
 | 2026-03-20 | 砚砚 review 4 轮（8 findings：watermark/budget/append-level/validation/backlog/coverage/cooldown/volume） |
 | 2026-03-21 | **PR #604 squash merged** — Phase G foundation ✅ (168 tests) |
+| 2026-03-22 | Knowledge Emergence brainstorm（布偶猫+砚砚）→ 产品定义 + 4 原则 |
+| 2026-03-23 | 铲屎官确认 Workspace 集成方案（不加 Hub Tab，用 mode switcher） |
+| 2026-03-23 | Pencil 设计稿完成：Feed page + Workspace integration（2 张 .pen） |
+| 2026-03-25 | Phase H 实现：Knowledge Feed API + KnowledgeFeed 组件 + workspace navigate + cat guidance |
+| 2026-03-25 | 砚砚 review 3 findings（P1 explicit dead path, P1 threadId broadcast, P2 tab placeholder）→ 修复放行 |
+| 2026-03-25 | 云端 review 3 轮（P1 boundary regex, P1 mode reset, P2 method mapping）→ 全部修复，第 3 轮 0 P1/P2 |
+| 2026-03-25 | **PR #737 squash merged** — Phase H (H-1/H-2/H-3/H-8) ✅ |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation 🚧 已合入（PR #604）。Phase F + G 运行时验收 + Gap-1 待开。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）。Phase F + G 运行时验收 + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序
