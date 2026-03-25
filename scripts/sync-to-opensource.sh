@@ -1039,6 +1039,13 @@ if [ -f "$STAGING_DIR/README.opensource.md" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
+# 3i-1b: README.zh-CN.md — 复制开源版中文 README
+if [ -f "$STAGING_DIR/README.opensource.zh-CN.md" ]; then
+  cp "$STAGING_DIR/README.opensource.zh-CN.md" "$FILTERED_DIR/README.zh-CN.md"
+  echo "  ✓ README.zh-CN.md (opensource CN version, $(wc -l < "$STAGING_DIR/README.opensource.zh-CN.md") lines)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 # 3i-2: CONTRIBUTING.md — 复制开源版替换内部版
 if [ -f "$STAGING_DIR/CONTRIBUTING.opensource.md" ]; then
   cp "$STAGING_DIR/CONTRIBUTING.opensource.md" "$FILTERED_DIR/CONTRIBUTING.md"
@@ -1050,6 +1057,13 @@ fi
 if [ -f "$STAGING_DIR/SETUP.opensource.md" ]; then
   cp "$STAGING_DIR/SETUP.opensource.md" "$FILTERED_DIR/SETUP.md"
   echo "  ✓ SETUP.md (opensource version, $(wc -l < "$STAGING_DIR/SETUP.opensource.md") lines)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3i-3b: SETUP.zh-CN.md — 复制开源版中文 SETUP
+if [ -f "$STAGING_DIR/SETUP.opensource.zh-CN.md" ]; then
+  cp "$STAGING_DIR/SETUP.opensource.zh-CN.md" "$FILTERED_DIR/SETUP.zh-CN.md"
+  echo "  ✓ SETUP.zh-CN.md (opensource CN version, $(wc -l < "$STAGING_DIR/SETUP.opensource.zh-CN.md") lines)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
