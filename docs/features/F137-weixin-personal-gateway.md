@@ -371,6 +371,12 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 
 **验证**：4 条新增测试覆盖合并路径 + richBlocks 保留 + 混合 connector 回归 + 非 WeChat 回归。42/42 全绿。PR #717 merged（2026-03-25，commit 2be35f8a）。
 
+**BUG-4b/4c 后续修复**（PR #740，2026-03-25，commit 08c663fb）：
+- **BUG-4b**：`ConnectorInvokeTrigger` 合并判断 `every()` → `some()`。原逻辑要求所有绑定 connector 都是单 token 才合并，但 weixin+feishu 混合绑定时 `every()` 返回 false，导致不合并。修正为 `some()` — 只要有一个是 weixin 就合并。
+- **BUG-4c**：`QueueProcessor` 完全缺失 BUG-4 合并逻辑。当 queued invocations 产出多 turn WeChat 输出时，每个 turn 独立 deliver，第一个消费 token 后后续静默丢失。新增完整合并路径（含 `getConnectorIds` 检测 + `SINGLE_TOKEN_CONNECTORS` + 猫名前缀 + 分隔线）。
+- **BUG-4c P1**（云端 review 发现）：QueueProcessor merge 路径丢弃 richBlocks。修复：合并循环中用 `renderAllRichBlocksPlaintext` 将 richBlocks 渲染为纯文本后嵌入合并内容。
+- **验证**：83 pass（42 ConnectorInvokeTrigger + 41 QueueProcessor）。Gate 全绿，云端 review 两轮通过。
+
 ## Open Questions
 
 | # | 问题 | 状态 |
@@ -412,6 +418,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-07-24 | **E2E 三轮验证全部通过** — 第 1/2/3 轮消息均成功投递到微信。BUG-2 confirmed fixed ✅ |
 | 2026-07-24 | Phase C AC-C1: WeChat QR login UI in IM Hub → PR #713 砚砚 R2 放行 + 云端 Codex review 通过 → squash merge (78c65c97) |
 | 2026-07-25 | BUG-4 修复：A→B→C 接力链合并投递 → PR #717 云端 R3 通过 → squash merge (2be35f8a)。含 R1 P1+P2 + R2 P2 三轮 review 修复 |
+| 2026-03-25 | BUG-4b/4c 修复：`every→some` + QueueProcessor 合并路径 + richBlocks 保留 → PR #740 云端 review 两轮通过 → squash merge (08c663fb)。83 tests pass |
 
 ## Review Gate
 
