@@ -229,11 +229,11 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 
 ### Phase B（输入状态 + 媒体）
 - [x] AC-B1: agent 处理期间微信显示"对方正在输入中" — PR #708 已实现 sendTyping keepalive
-- [ ] AC-B2: 图片发送到微信 — `getuploadurl` → AES-128-ECB 加密 → CDN 上传 → `sendmessage` with `image_item`
-- [ ] AC-B3: 图片从微信接收并下载 — CDN 下载 → AES-128-ECB 解密 → 本地文件
-- [ ] AC-B4: `sendMedia` 接口实现 — `WeixinAdapter.sendMedia(chatId, { type, absPath })` 路由到对应上传+发送流程
-- [ ] AC-B5: 文件发送到微信 — `uploadFileAttachmentToWeixin` + `sendFileMessageWeixin` 流程
-- [ ] AC-B6: 文件从微信接收并解析 — CDN 下载 → 解密 → 附件存储
+- [x] AC-B2: 图片发送到微信 — PR #732: `weixin-cdn.ts` AES-128-ECB + CDN upload + `sendMedia(image_item)`
+- [ ] AC-B3: 图片从微信接收并下载 — CDN 下载 → AES-128-ECB 解密 → 本地文件（待做）
+- [x] AC-B4: `sendMedia` 接口实现 — PR #732: `WeixinAdapter.sendMedia(chatId, { type, absPath })` 路由 image/file/audio
+- [x] AC-B5: 文件发送到微信 — PR #732: `uploadMediaToCdn` + `sendmessage` with `file_item`
+- [ ] AC-B6: 文件从微信接收并解析 — CDN 下载 → 解密 → 附件存储（待做）
 
 ### Phase C（IM Hub + 健壮性）
 - [x] AC-C1: IM Hub 配置向导可添加微信个人号（QR 展示 + 扫码流程）
