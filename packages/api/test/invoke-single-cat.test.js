@@ -2932,6 +2932,17 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     const prevGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    const registrySnapshot = catRegistry.getAllConfigs();
+    const originalConfig = catRegistry.tryGet('codex')?.config;
+    assert.ok(originalConfig, 'codex config should exist in registry');
+    const { accountRef: _accountRef, providerProfileId: _providerProfileId, ...unboundConfig } = originalConfig;
+    const unboundCatId = 'codex-env-auth-test';
+    catRegistry.register(unboundCatId, {
+      ...unboundConfig,
+      id: unboundCatId,
+      mentionPatterns: [`@${unboundCatId}`],
+      provider: 'openai',
+    });
 
     const optionsSeen = [];
     const service = {
@@ -2947,7 +2958,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       process.chdir(apiDir);
       await collect(
         invokeSingleCat(deps, {
-          catId: 'codex',
+          catId: unboundCatId,
           service,
           prompt: 'test',
           userId: 'user-f127-openai-env-auth',
@@ -2957,6 +2968,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       );
     } finally {
       process.chdir(previousCwd);
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
       if (prevGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
       await rm(root, { recursive: true, force: true });
