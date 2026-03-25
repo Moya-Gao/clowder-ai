@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F133: GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪
 
-> **Status**: in-progress | **Owner**: 金渐层 | **Priority**: P2
+> **Status**: done | **Owner**: 金渐层 | **Priority**: P2 | **Completed**: 2026-03-25
 
 ## Why
 
@@ -172,7 +172,7 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 - [x] AC-A11: 测试覆盖：CiCdCheckPoller + CiCdRouter 单元测试（轮询、去重、投递、lifecycle）
 
 ### Phase B（Skill 文档 + SOP）
-- [ ] AC-B1: merge-gate SKILL.md 包含等 CI 绿灯步骤（⏸️ 铲屎官：只在有 Actions 额度时才有意义，暂缓）
+- [x] AC-B1: ~~merge-gate SKILL.md 包含等 CI 绿灯步骤~~ → **N/A**（铲屎官确认：只在有 Actions 额度时才有意义，暂缓。转 OQ 待 Phase C 时重新评估）
 - [x] AC-B2: opensource-ops SKILL.md 的 Outbound PR / Hotfix 流程含 CI 门禁
 - [x] AC-B3: refs/cicd-tracking.md 新增（通知格式、配置、处理策略）
 
@@ -230,6 +230,8 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 | 2026-03-23 | Phase A merged（PR #675）— 核心投递管道 + 状态迁移去重 + 34 tests |
 | 2026-03-23 | Phase B merged（PR #677）— refs/cicd-tracking.md + opensource-ops CI 门禁 + SKILL.md scene C/F |
 | 2026-03-24 | 铲屎官确认决策：CI failure trigger 改为 `urgent`，与 `github-review` 抢占行为归一 |
+| 2026-03-25 | KD-4 修正 PR #724 merged — `CiCdCheckPoller.ts:83` priority `normal` → `urgent` |
+| 2026-03-25 | 愿景守护通过（金渐层自检 + 砚砚独立核验），feat close |
 
 ## Design Gate 讨论归档
 
@@ -267,4 +269,5 @@ GitHub API 轮询 → CiCdCheckPoller (新)
 | **Code** | `packages/api/src/infrastructure/email/ConnectorInvokeTrigger.ts` | 现有投递触发器（复用） |
 | **Code** | `packages/api/src/infrastructure/email/PrTrackingStore.ts` | PR 注册存储（需扩展） |
 | **Skill** | `cat-cafe-skills/merge-gate/SKILL.md` | PR tracking 使用说明（需更新） |
+| **Reflection** | [`docs/reflections/2026-03-25-f133-cicd-tracking-capsule.md`](../reflections/2026-03-25-f133-cicd-tracking-capsule.md) | 反思胶囊 |
 | **Skill** | `cat-cafe-skills/opensource-ops/SKILL.md` | 发版 SOP（需更新） |

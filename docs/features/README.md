@@ -101,3 +101,4 @@
 | F112 | F112: Voice Playback Queue — 语音播放队列 + 播放器统一 | done | [F112-voice-playback-queue.md](./F112-voice-playback-queue.md) |
 | F130 | F130: API 日志治理 — 四层分离 × 结构化落盘 | done | [F130-api-log-governance.md](./F130-api-log-governance.md) |
 | F131 | F131: Workspace Navigator — 猫猫可编程导航 Workspace 面板 | done | [F131-workspace-navigator.md](./F131-workspace-navigator.md) |
+| F133 | F133: GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪 | done | [F133-cicd-tracking.md](./F133-cicd-tracking.md) |
