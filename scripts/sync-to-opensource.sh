@@ -207,6 +207,20 @@ ensure_source_snapshot_tag() {
   echo "  ✓ Pushed source snapshot tag to origin: $tag"
 }
 
+require_release_source_commit_on_main() {
+  local sha="$1"
+  if ! git -C "$SOURCE_DIR" fetch --no-tags origin main >/dev/null 2>&1; then
+    echo -e "${RED}✗ Failed to refresh cat-cafe origin/main before release-intended sync${NC}"
+    exit 1
+  fi
+  if ! git -C "$SOURCE_DIR" merge-base --is-ancestor "$sha" refs/remotes/origin/main; then
+    echo -e "${RED}✗ --release-tag requires the source commit to be reachable from origin/main${NC}"
+    echo -e "${RED}  Current source commit: $sha${NC}"
+    echo -e "${RED}  Land the source-side release commits on main first, then rerun the full sync.${NC}"
+    exit 1
+  fi
+}
+
 # ── 参数 ──────────────────────────────────────────────────────
 DRY_RUN=false
 VALIDATE=false
@@ -605,6 +619,10 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
     exit 1
   fi
   echo "  ✓ Source repo clean"
+  if [ -n "$RELEASE_TAG" ]; then
+    require_release_source_commit_on_main "$SOURCE_SHA"
+    echo "  ✓ Release source commit is reachable from origin/main"
+  fi
 fi
 
 # 0b: Target repo state check (skip for dry-run/validate)
