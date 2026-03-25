@@ -501,6 +501,8 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-23 | Phase I bug fix merged (PR #685) — narrator eventLog routing + briefing info leak fix + OCC stale-runtime fix. 砚砚 2-round code review + 布偶猫愿景守护 + cloud review (P1→P3 downgrade). Squash merged `c1a0d625` |
 | 2026-03-25 | Phase I bug fix merged (PR #703) — game thread virtual projectPath (`games/werewolf`) triggered F070 governance gate in invokeSingleCat → cats failed silently. Fix: skip `games/` prefix in workingDirectory resolution. 砚砚 1-round local review + Codex cloud review (0 findings). Squash merged `b6add125` |
 | 2026-03-26 | **铲屎官实测 Phase I — 四个 runtime 问题（布偶猫自查）** |
+| 2026-03-25 | Phase I bug fix merged (PR #729) — briefing tool name `submit_game_action` → `cat_cafe_submit_game_action` (R1) + overlay minimize instead of abort (R3) + "返回游戏" button with thread scope. 砚砚 local review + Codex cloud review |
+| 2026-03-25 | Phase I bug fix merged (PR #743) — `GET /api/threads/:threadId/game` returns 200/null instead of 404 for non-game threads. Eliminates `reconnectGame()` 404 noise on every thread switch. 砚砚 local review + Codex cloud review (0 findings) |
 
 ### Phase I Runtime Bugs（2026-03-26 铲屎官实测）
 
@@ -525,6 +527,11 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 **Bug I-R4（P2）：游戏进入时空头像**
 - 现象：游戏一进去就有一个空头像和奇怪的发言
 - 待排查：可能是 EventFlow 渲染了缺少 actorId/seatId 的事件
+
+**Bug I-R5（P3）：非游戏 thread 切换时 reconnectGame 404 噪声**
+- 现象：每次切换到非游戏 thread，控制台/网络面板出现 404
+- 根因：金渐层 `ec24045c` 在 ChatContainer useEffect 里无条件对所有 thread 调 `reconnectGame(threadId)` → `GET /api/threads/:threadId/game` → 无活跃游戏 → 404
+- 修复（PR #743）：API 语义修正，"查询无结果"从 404 改为 200/null。DELETE/POST 等写操作保持 404
 
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
@@ -560,5 +567,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | **PR** | PR #466 | AC-D5 PR-A — token-only CSS vars (werewolf-cute theme layer) |
 | **PR** | PR #471 | Phase D — game startup via dedicated API + HTTP navigation (codex 3-round local + 3-round cloud review) |
 | **PR** | PR #703 | Bug fix — game thread projectPath governance gate bypass (1-line fix + regression test) |
+| **PR** | PR #729 | Bug fix — briefing tool name + overlay minimize (R1+R3) |
+| **PR** | PR #743 | Bug fix — reconnectGame 404→200/null for non-game threads (R5) |
 | **Plan** | `docs/plans/2026-03-12-f101-b8-frontend-game-ui.md` | B8 前端实施计划 |
 | **Reflection** | `docs/reflections/2026-03-12-f101-mode-v2-capsule.md` | 完成反思胶囊 |
