@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { before, describe, it, mock } from 'node:test';
+import { afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 import { catRegistry } from '@cat-cafe/shared';
 
 async function collect(iterable) {
@@ -20,6 +20,27 @@ async function collect(iterable) {
 // Shared temp dir — singleton EventAuditLog only initializes once
 let tempDir;
 let invokeSingleCat;
+let originalGlobalConfigRoot;
+let testGlobalConfigRoot;
+
+before(() => {
+  originalGlobalConfigRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+});
+
+beforeEach(async () => {
+  // Provider profiles are global; each test gets its own isolated global store.
+  testGlobalConfigRoot = await mkdtemp(join(tmpdir(), 'invoke-single-cat-global-'));
+  process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = testGlobalConfigRoot;
+});
+
+afterEach(async () => {
+  if (testGlobalConfigRoot) {
+    await rm(testGlobalConfigRoot, { recursive: true, force: true });
+    testGlobalConfigRoot = undefined;
+  }
+  if (originalGlobalConfigRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+  else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = originalGlobalConfigRoot;
+});
 
 describe('invokeSingleCat audit events (P1 fix)', () => {
   before(async () => {
