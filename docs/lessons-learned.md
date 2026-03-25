@@ -696,7 +696,7 @@ created: 2026-02-26
 - 触发条件：多猫独立思考/brainstorm 场景——当两只本地猫意见过度一致时，不要急于下结论是"互相附和"，也不要急于下结论是"充分验证"，需要引入无共享记忆的外部视角交叉校验。
 - 修复：F129 生态调研中增加了云端 GPT Pro Deep Research 作为独立视角；本地两猫 + 云端猫三方碰撞后才做综合。
 - 防护：
-  - 多猫 brainstorm 时，有意识地引入至少一个无共享记忆的视角（云端猫、新加入的猫、不同项目的猫）
+  - 高 stakes 的多猫独立思考，默认在扇入前引入至少 1 个无共享记忆视角；该视角第一轮只看原问题和最小中性背景，不看本地综合（锁死时序：先独立出结论，再碰撞）
   - 本地猫趋同时显式标注"⚠️ 可能受共享记忆影响"，不直接等价于"独立验证通过"
 - 来源锚点：`docs/discussions/2026-03-25-shared-rules-growth-and-intimate-collaboration.md` §3 + `docs/research/2026-03-25-openclaw-clawhub-ecosystem/research-prompt.md` §Local Synthesis
 - 原理：团队文化是一种隐性的 prompt——shared-rules、共同教训、协作习惯构成了比 system prompt 更深层的"预训练"。这不是坏事（恰恰说明团队文化在起作用），但在需要多元视角时必须意识到这个偏置。
