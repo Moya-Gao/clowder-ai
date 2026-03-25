@@ -198,6 +198,7 @@ bash scripts/publish-release-tag.sh \
 | **Placeholder URL** | `http://127.0.0.1:3002` 被替换成文本 `'your local Clowder API URL'` 而非有效 URL | 在测试/源码中替换为 `http://127.0.0.1:3004`，占位符只用于 docs |
 | **品牌名跳过测试** | `if` 条件 `$ARGV !~ m{/__tests__/\|\.test\.}` 跳过了测试文件的品牌转换 | 移除测试排除条件，或对需要转换的测试单独加规则 |
 | **裸端口号** | 只匹配 `localhost:3001` 模式，漏了数组/注释里的裸 `3001` | 在端口 remap 区域加裸数字或上下文感知规则 |
+| **Intake 品牌反流** | Intake（cherry-pick/copy）时忘记还原 sanitizer 产物中的品牌名（Clowder AI → Cat Cafe） | **不是 sanitizer 的问题——是 intake 缺少 Inbound Guard。** 跑 `bash scripts/intake-from-opensource.sh --validate-inbound`。见 inbound-pr.md Step 1.5 |
 | **console→pino** | 非 sanitizer 问题——源码日志迁移导致 test mock 失效 | 在 cat-cafe 源码修（行为断言），不是 sanitizer 的责任 |
 
 **修复流程（优先修管道，兜底修目标仓）：**

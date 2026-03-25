@@ -24,6 +24,26 @@ fi
 # 获取暂存区中的共享状态文件
 SHARED_STATE_FILES=$(git diff --cached --name-only | grep -E '^(docs/BACKLOG\.md|cat-config\.json)$')
 
+# ── Brand Guard: detect brand-sensitive staged files ──
+BRAND_SENSITIVE_STAGED=$(git diff --cached --name-only | grep -E '^packages/web/src/app/layout\.tsx$|^packages/web/public/manifest\.json$|^packages/web/src/components/(SplitPaneView|ChatContainerHeader)\.tsx$|^packages/web/src/utils/api-client\.ts$|^packages/web/public/icons/' || true)
+
+if [ -n "$BRAND_SENSITIVE_STAGED" ]; then
+  echo "" >&2
+  echo "🛡 BRAND GUARD: brand-sensitive files staged, running validation..." >&2
+  echo "$BRAND_SENSITIVE_STAGED" | sed 's/^/  - /' >&2
+  echo "" >&2
+  if [ -f "scripts/intake-from-opensource.sh" ]; then
+    if ! bash scripts/intake-from-opensource.sh --validate-inbound --from-index >&2; then
+      echo "" >&2
+      echo "🚫 Brand Guard failed! Fix brand contamination before committing." >&2
+      echo "   See: bash scripts/intake-from-opensource.sh --validate-inbound" >&2
+      exit 1
+    fi
+  else
+    echo "⚠ Brand validation script not found, skipping guard." >&2
+  fi
+fi
+
 if [ -n "$SHARED_STATE_FILES" ]; then
   echo "" >&2
   echo "🚫 SHARED-STATE GUARD: 共享状态文件不能在非 main 分支提交！" >&2

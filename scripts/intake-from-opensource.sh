@@ -27,6 +27,8 @@ ADVANCE_LEDGER=false
 FORCE_OVERWRITE=false
 RECORD_DECISION=false
 DECISION=""
+VALIDATE_INBOUND=false
+FROM_INDEX=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -37,6 +39,8 @@ for arg in "$@"; do
     --advance-ledger) ADVANCE_LEDGER=true ;;
     --force-overwrite) FORCE_OVERWRITE=true ;;
     --record) RECORD_DECISION=true ;;
+    --validate-inbound) VALIDATE_INBOUND=true ;;
+    --from-index) FROM_INDEX=true ;;
   esac
 done
 # Handle --pr N and --decision D (space-separated)
@@ -93,6 +97,123 @@ is_manual_port() {
 # Everything else = safe to cherry-pick (only cosmetic sanitization applied)
 # packages/api/**, packages/web/**, packages/shared/**, packages/mcp-server/**
 
+# ── Brand-sensitive files (Inbound Guard) ──
+# These files contain brand identity that the outbound sanitizer transforms
+# (Cat Cafe → Clowder AI). Intake must NOT blindly cherry-pick these files.
+# See SKILL.md principle 12-13 for the full Brand Identity Protection List.
+BRAND_SENSITIVE_PATTERNS=(
+  "packages/web/src/app/layout.tsx"
+  "packages/web/public/manifest.json"
+  "packages/web/src/components/SplitPaneView.tsx"
+  "packages/web/src/components/ChatContainerHeader.tsx"
+  "packages/web/src/utils/api-client.ts"
+)
+
+is_brand_sensitive() {
+  local path="$1"
+  for pattern in "${BRAND_SENSITIVE_PATTERNS[@]}"; do
+    if [ "$path" = "$pattern" ]; then return 0; fi
+  done
+  # Also catch icon files
+  case "$path" in
+    packages/web/public/icons/*) return 0 ;;
+  esac
+  return 1
+}
+
+# ── Brand Expectations (single source of truth) ──
+# Format: file|check_type|pattern|description
+# check_type: must_not_contain, must_contain, file_exists
+# Both --validate-inbound and pre-commit hook consume this list.
+BRAND_EXPECTATIONS=(
+  # layout.tsx
+  "packages/web/src/app/layout.tsx|must_not_contain|Clowder AI|title should be Cat Cafe"
+  "packages/web/src/app/layout.tsx|must_not_contain|Your AI team collaboration space|description should be Chinese"
+  "packages/web/src/app/layout.tsx|must_contain|favicon.svg|favicon declaration required"
+  "packages/web/src/app/layout.tsx|must_contain|icon-192x192.png|PWA icon declaration required"
+  # SplitPaneView.tsx
+  "packages/web/src/components/SplitPaneView.tsx|must_not_contain|Clowder AI|brand should be Cat Cafe"
+  # manifest.json
+  "packages/web/public/manifest.json|must_not_contain|Clowder|name should be Cat Cafe"
+  # ChatContainerHeader.tsx — surface text AND semantic fields
+  "packages/web/src/components/ChatContainerHeader.tsx|must_not_contain|Clowder AI|brand should be Cat Cafe"
+  "packages/web/src/components/ChatContainerHeader.tsx|must_contain|Cat Caf|must have Cat Cafe brand"
+  "packages/web/src/components/ChatContainerHeader.tsx|must_contain|'cat-cafe'|INTERNAL_BASENAMES must include cat-cafe"
+  "packages/web/src/components/ChatContainerHeader.tsx|must_contain|'cat-cafe-runtime'|INTERNAL_BASENAMES must include cat-cafe-runtime"
+  # api-client.ts — comment AND real brand identity
+  "packages/web/src/utils/api-client.ts|must_not_contain|client for Clowder AI|comment should reference Cat Cafe"
+  "packages/web/src/utils/api-client.ts|must_contain|X-Cat-Cafe-User|identity header must use Cat Cafe brand"
+  # favicon.svg file
+  "packages/web/public/icons/favicon.svg|file_exists||favicon SVG must exist"
+)
+
+# ── Validate Inbound (Brand Guard) ──
+# Checks files for brand contamination from clowder-ai.
+# --from-index: read staged (index) content instead of working tree.
+#   This is critical for pre-commit hooks where index and worktree may differ.
+_BRAND_VIOLATION_COUNT=0
+
+# Index-aware file helpers
+_brand_file_exists() {
+  if [ "$FROM_INDEX" = true ]; then
+    git ls-files --stage -- "$1" 2>/dev/null | grep -q .
+  else
+    [ -f "$1" ]
+  fi
+}
+
+_brand_file_contains() {
+  local file="$1" pattern="$2"
+  if [ "$FROM_INDEX" = true ]; then
+    git show :"$file" 2>/dev/null | grep -q "$pattern"
+  else
+    grep -q "$pattern" "$file" 2>/dev/null
+  fi
+}
+
+run_brand_validation() {
+  _BRAND_VIOLATION_COUNT=0
+  for expectation in "${BRAND_EXPECTATIONS[@]}"; do
+    IFS='|' read -r file check_type pattern desc <<< "$expectation"
+    case "$check_type" in
+      must_not_contain)
+        if _brand_file_exists "$file" && _brand_file_contains "$file" "$pattern"; then
+          echo -e "${RED}  ✗ $file: contains '$pattern' ($desc)${NC}"
+          _BRAND_VIOLATION_COUNT=$((_BRAND_VIOLATION_COUNT + 1))
+        fi
+        ;;
+      must_contain)
+        if _brand_file_exists "$file" && ! _brand_file_contains "$file" "$pattern"; then
+          echo -e "${RED}  ✗ $file: missing '$pattern' ($desc)${NC}"
+          _BRAND_VIOLATION_COUNT=$((_BRAND_VIOLATION_COUNT + 1))
+        fi
+        ;;
+      file_exists)
+        if ! _brand_file_exists "$file"; then
+          echo -e "${RED}  ✗ $file: file missing ($desc)${NC}"
+          _BRAND_VIOLATION_COUNT=$((_BRAND_VIOLATION_COUNT + 1))
+        fi
+        ;;
+    esac
+  done
+}
+
+if [ "$VALIDATE_INBOUND" = true ]; then
+  echo -e "${GREEN}=== 🛡 Inbound Brand Guard ===${NC}"
+  echo ""
+  run_brand_validation
+  if [ "$_BRAND_VIOLATION_COUNT" -gt 0 ]; then
+    echo ""
+    echo -e "${RED}✗ Found $_BRAND_VIOLATION_COUNT brand violation(s)!${NC}"
+    echo "  These files contain clowder-ai brand strings that should be cat-cafe values."
+    echo "  Fix them before committing. See SKILL.md principle 12-13 for reference values."
+    exit 1
+  else
+    echo -e "${GREEN}✓ No brand violations detected. Safe to commit.${NC}"
+    exit 0
+  fi
+fi
+
 # ── Record decision (happy path) ──
 # Records a per-PR decision in entries[]. Does NOT advance last_reviewed_target_head.
 # Use --advance-ledger after recording all PRs to advance the gate.
@@ -102,6 +223,19 @@ if [ "$RECORD_DECISION" = true ]; then
   fi
   if [ -z "$DECISION" ]; then
     echo -e "${RED}✗ --record requires --decision <absorbed|public-only|rejected>${NC}"; exit 1
+  fi
+  # P2 fix: mandatory Brand Guard before recording absorbed intake
+  if [ "$DECISION" = "absorbed" ]; then
+    echo -e "${BLUE}── Mandatory Brand Guard (pre-record) ──${NC}"
+    run_brand_validation
+    if [ "$_BRAND_VIOLATION_COUNT" -gt 0 ]; then
+      echo ""
+      echo -e "${RED}✗ $_BRAND_VIOLATION_COUNT brand violation(s) detected. Fix before recording absorbed intake.${NC}"
+      echo "  Run: bash scripts/intake-from-opensource.sh --validate-inbound  (for details)"
+      exit 1
+    fi
+    echo -e "${GREEN}✓ Brand Guard passed.${NC}"
+    echo ""
   fi
   case "$DECISION" in
     absorbed|public-only|rejected) ;;
@@ -222,6 +356,8 @@ if [ -z "$PR_NUMBER" ]; then
   echo "  bash scripts/intake-from-opensource.sh --pr <N> --mode=plan              # Analyze PR"
   echo "  bash scripts/intake-from-opensource.sh --record --pr <N> --decision <D>  # Record decision"
   echo "  bash scripts/intake-from-opensource.sh --advance-ledger                  # Advance ledger (sync-only commits)"
+  echo "  bash scripts/intake-from-opensource.sh --validate-inbound                # 🛡 Check brand contamination (working tree)"
+  echo "  bash scripts/intake-from-opensource.sh --validate-inbound --from-index   # 🛡 Check brand contamination (staged/index)"
   echo ""
   echo "Decisions: absorbed | public-only | rejected"
   exit 1
@@ -277,12 +413,17 @@ MANUAL_FILES=""
 MANUAL_COUNT=0
 PUBLIC_FILES=""
 PUBLIC_COUNT=0
+BRAND_FILES=""
+BRAND_COUNT=0
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   if is_public_only "$file"; then
     PUBLIC_FILES="${PUBLIC_FILES}  ${file}\n"
     PUBLIC_COUNT=$((PUBLIC_COUNT + 1))
+  elif is_brand_sensitive "$file"; then
+    BRAND_FILES="${BRAND_FILES}  ${file}\n"
+    BRAND_COUNT=$((BRAND_COUNT + 1))
   elif is_manual_port "$file"; then
     MANUAL_FILES="${MANUAL_FILES}  ${file}\n"
     MANUAL_COUNT=$((MANUAL_COUNT + 1))
@@ -301,6 +442,14 @@ if [ "$SAFE_COUNT" -gt 0 ]; then
   echo -e "$SAFE_FILES"
 fi
 
+if [ "$BRAND_COUNT" -gt 0 ]; then
+  echo -e "${RED}🛡 BRAND GUARD ($BRAND_COUNT files)${NC} — contains brand identity, DO NOT cherry-pick directly!"
+  echo -e "$BRAND_FILES"
+  echo -e "  ${YELLOW}→ Must diff-merge manually: take logic changes, keep cat-cafe brand values${NC}"
+  echo -e "  ${YELLOW}→ After merge, run: bash scripts/intake-from-opensource.sh --validate-inbound${NC}"
+  echo ""
+fi
+
 if [ "$MANUAL_COUNT" -gt 0 ]; then
   echo -e "${YELLOW}⚠ manual-port ($MANUAL_COUNT files)${NC} — has outbound transforms, review diff manually"
   echo -e "$MANUAL_FILES"
@@ -313,14 +462,22 @@ fi
 
 echo ""
 echo -e "${BLUE}── Summary ──${NC}"
-echo "  Total files: $((SAFE_COUNT + MANUAL_COUNT + PUBLIC_COUNT))"
+echo "  Total files: $((SAFE_COUNT + BRAND_COUNT + MANUAL_COUNT + PUBLIC_COUNT))"
 echo -e "  ${GREEN}Safe:${NC}   $SAFE_COUNT  (auto-absorbable)"
+if [ "$BRAND_COUNT" -gt 0 ]; then
+  echo -e "  ${RED}Brand:${NC} $BRAND_COUNT  (🛡 manual diff-merge only!)"
+fi
 echo -e "  ${YELLOW}Manual:${NC} $MANUAL_COUNT  (needs human review)"
 echo -e "  ${BLUE}Skip:${NC}   $PUBLIC_COUNT  (public-only)"
 
 if [ "$MODE" = "plan" ]; then
   echo ""
   echo -e "${BLUE}── Recommended Actions ──${NC}"
+  if [ "$BRAND_COUNT" -gt 0 ]; then
+    echo -e "  ${RED}0. 🛡 BRAND GUARD: Manually diff-merge $BRAND_COUNT brand-sensitive file(s)${NC}"
+    echo "     Compare clowder-ai version with cat-cafe version, keep cat-cafe brand values"
+    echo "     Run: bash scripts/intake-from-opensource.sh --validate-inbound"
+  fi
   if [ "$SAFE_COUNT" -gt 0 ]; then
     echo "  1. Cherry-pick safe files from clowder-ai PR #$PR_NUMBER"
     echo "     (V2 will automate this with --mode=apply)"

@@ -155,9 +155,35 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 - ⚠️ manual-port（需人工对照 diff）
 - ○ public-only（跳过）
 
+### Step 1.5: 🛡 Inbound Brand Guard（Plan 输出有 ⚠️ 时必做）
+
+**事故背景**：`a0c5f8ca`（absorb clowder-ai#183）在 intake 时直接覆盖了 `layout.tsx`，把 outbound sanitizer 产生的 `Clowder AI` 品牌名和精简的 icon 配置带回了家里，导致 Tab 标题变成 "Clowder AI"、favicon 消失。
+
+**根因**：outbound 有 sanitizer（Cat Cafe → Clowder AI），但 inbound 没有反向守卫。
+
+**规则**：Plan 输出中标记为 `🛡 BRAND GUARD` 的文件，**禁止直接 cherry-pick / copy**。必须：
+
+1. `git diff` 对比开源仓版本和家里版本
+2. 只取**逻辑改动**（新组件 import、bug fix、功能代码）
+3. **保留家里的品牌值**（title、description、icons 声明、品牌名）
+4. 手动合并后确认：
+   ```bash
+   # 快速检查：品牌值是否被覆盖
+   bash scripts/intake-from-opensource.sh --validate-inbound
+   ```
+
+**Brand-sensitive 文件清单**（完整列表见 SKILL.md 原则 13）：
+- `packages/web/src/app/layout.tsx` — title、description、icons、appleWebApp
+- `packages/web/public/manifest.json` — name、short_name、description
+- `packages/web/src/components/SplitPaneView.tsx` — h1 品牌名
+- `packages/web/src/components/ChatContainerHeader.tsx` — INTERNAL_BASENAMES
+- `packages/web/src/utils/api-client.ts` — CORS origins
+- `packages/web/public/icons/*` — logo 文件
+
 ### Step 2: 执行吸收（如果 absorbed）
 
 目前 V1 需要手工 cherry-pick safe 文件 + 手工 port manual 文件。
+**Brand Guard 文件必须走 Step 1.5 的手工 diff-merge 路径，不能直接 cherry-pick。**
 
 ### Step 3: Record + Immediate Advance — 登记决策并立刻尝试推进门禁
 

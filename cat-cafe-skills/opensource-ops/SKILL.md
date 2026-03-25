@@ -37,7 +37,7 @@ description: >
 **执行铁律：**
 - 社区里激进但还不够稳的特性，**不直接进 `clowder-ai main`**
 - 方向对但稳定性/文档/测试还不够 → 走 `next` / prerelease；如果当前没有 active `next`，就保持 PR / feature branch，不强行合并
-- `clowder-ai main` 的目标不是“最新”，而是“默认可装、默认可跑、默认可解释”
+- `clowder-ai main` 的目标不是"最新"，而是"默认可装、默认可跑、默认可解释"
 - 普通用户默认跟 `release tag`，不是跟 `main`
 
 ## 场景路由
@@ -112,7 +112,18 @@ description: >
 8. **release provenance 三点映射必须显式化**：release-intended full sync 要在 source 侧自动打 `clowder-vX.Y.Z-source`，`.sync-provenance.json` 必须记录 `release_tag` / `source_snapshot_tag`，后续 target release tag 和 backport commit 才有锚点
 9. **稳定承诺只由 release tag 给出**：`clowder-ai main` 是 rolling stable；真正的 stable/support 口径以 `vX.Y.Z` release 为准
 10. **release 出 bug 优先走 patch**：shared bug 先回家修再 sync 出 `vX.Y.(Z+1)`；public-only hotfix 可以先在 `clowder-ai` 修，但 sync-managed 文件必须回补到家里
-11. **full sync 是长跑门禁，不是中途 checkpoint**：一旦 `sync-to-opensource.sh` 进入 temp target public gate（install / `pnpm check` / `pnpm lint` / `build` / `test:public` / startup acceptance），执行中的猫必须持续等待到脚本给出明确成功或失败结果；禁止在 `Step 5` 半路以“到 `test:public` 了”“CI 还没开”之类的中间状态退出或汇报完成
+11. **full sync 是长跑门禁，不是中途 checkpoint**：一旦 `sync-to-opensource.sh` 进入 temp target public gate（install / `pnpm check` / `pnpm lint` / `build` / `test:public` / startup acceptance），执行中的猫必须持续等待到脚本给出明确成功或失败结果；禁止在 `Step 5` 半路以"到 `test:public` 了""CI 还没开"之类的中间状态退出或汇报完成
+12. **🛡 Intake 必须跑 Inbound Guard（Brand Guard）**：outbound sync 有 sanitizer（Cat Cafe → Clowder AI），intake 必须有**反向守卫**——cherry-pick/port 进来的文件不能带着开源仓的品牌覆盖家里的品牌标识。`intake-from-opensource.sh --pr N --mode=plan` 会自动检测 brand-sensitive 文件并发出 `🛡 BRAND GUARD` 警告。手工 cherry-pick 也必须在 commit 前跑 `bash scripts/intake-from-opensource.sh --validate-inbound`
+13. **Brand Identity 保护清单**：以下文件包含家里的品牌标识，intake 时**绝不能**用开源仓版本直接覆盖，必须手工对照 diff 只取逻辑改动、保留家里的品牌值：
+
+| 文件 | 保护内容 | 家里的值 | 开源仓的值（sanitizer 产物） |
+|------|---------|---------|---------------------------|
+| `packages/web/src/app/layout.tsx` | `title` / `description` / `icons` / `appleWebApp.title` | `Cat Cafe` / 三只 AI 猫猫的协作空间 / favicon+icon 声明 | `Clowder AI` / English desc / 只有 apple-touch-icon |
+| `packages/web/public/manifest.json` | `name` / `short_name` / `description` | `Cat Cafe` / `猫猫` / 三只 AI 猫猫的协作空间 | 可能被替换 |
+| `packages/web/src/components/SplitPaneView.tsx` | `<h1>` 品牌名 | `Cat Cafe` 相关 | `Clowder AI` |
+| `packages/web/src/components/ChatContainerHeader.tsx` | `INTERNAL_BASENAMES` 数组 | 包含 `cat-cafe` | 可能被修改 |
+| `packages/web/src/utils/api-client.ts` | CORS origins / 域名 | 双仓域名共存 | 可能只有开源仓域名 |
+| `packages/web/public/icons/*` | favicon.svg / icon-*.png | 家里的三猫 logo | 可能不同 |
 
 ## 和其他 skill 的区别
 
