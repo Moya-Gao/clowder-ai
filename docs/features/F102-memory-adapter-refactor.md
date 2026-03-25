@@ -931,7 +931,9 @@ Workspace 面板顶部：
 知识模式 = 知识涌现 Feed（待确认/已沉淀/高频/升级）
 ```
 
-- 设计稿：`designs/F102-knowledge-emergence-feed.pen`（Before/After 对比）
+- 设计稿 1：`designs/F102-knowledge-emergence-feed.pen` — Feed 页面全貌（Header + 4 Tab + 两种卡片 + 统计栏 + 自然语言输入栏）
+- 设计稿 2：`designs/F102-knowledge-emergence-workspace-integration.pen` — Workspace Before/After 对比（[开发]/[知识] 模式切换器）
+- SVG/图标资产：Lucide icon set（sparkles/check/file-text/lightbulb/bell/search/send）— 实现前从 .pen 导出
 - 任意页面/任意 thread 都能联动打开知识 Feed（和 Workspace 其他功能一样）
 - 铲屎官说"帮我看看知识"→ 猫猫用 workspace-navigator 切到知识模式
 
