@@ -811,6 +811,85 @@ embedding 无法补救（rerank 只重排已召回的，不发现新文档）。
 
 **KD-44**：三种检索模式各有独立实现路径，semantic 不依赖 BM25 召回。
 
+### Phase H: 知识涌现 Feed — Durable Candidate → Hub 可视化 → 人猫协同审核（待设计）
+
+> **触发**：铲屎官问"Durable Candidate 怎么审核？需要 UX"。
+> **核心理念**：不是"审核 marker"，而是"知识涌现 feed"——像 GitHub Notifications 一样的集中入口。
+> **铲屎官原话**："人是需要一个信息总入口以及可视化界面的，散落在各处的东西我如何搜集？"
+> **架构参考**：我们的 Workspace 面板 + 自然语言导航 + Preview 浏览器交互体验。
+> **设计原则**：终态产品形态，不是脚手架。
+
+**H-1. 知识涌现 Feed（Hub 前端页面）**
+
+Hub 里新增一个"知识动态"页面，集中展示所有从 thread 对话中涌现的 decision/lesson/method：
+
+```
+📋 本周涌现的知识 (5 条)
+
+🔵 [decision] 摘要单元是 thread 不是 session
+   来源：f102 学习 lossless claw thread · 3 只猫共识 · 铲屎官拍板
+   置信度：explicit → 已自动写入 docs/decisions/ADR-020.md ✓
+   [撤回] [编辑]
+
+🟡 [lesson] embedding 不能偷懒用 in-process CPU
+   来源：铲屎官"你这实现我拒绝" · LL-034
+   置信度：explicit → 已自动写入 docs/lessons-learned.md ✓
+   [撤回] [编辑]
+
+🟢 [method] 让模型说人话程序加格式
+   来源：铲屎官验证有效
+   置信度：inferred → 待确认
+   [写入 Skills] [写入 Lessons] [忽略]
+```
+
+**核心 UX**：
+- **explicit（铲屎官拍板/明确共识）**→ 自动沉淀到 docs/，Feed 里标 ✓，铲屎官只需"撤回"错的
+- **inferred（模型推断）**→ 展示在 Feed 等确认，铲屎官选去向或忽略
+- **不是每条都审**——默认信任 explicit，异常才介入
+
+**H-2. 自然语言联动（Workspace Navigator 集成）**
+
+铲屎官说"帮我看看这周有什么新知识" → 猫猫用 workspace-navigator 打开知识 Feed 页面。
+铲屎官说"把那条 lesson 写入 Skills" → 猫猫调 IMaterializationService 执行。
+
+**H-3. 后端：Candidate → MarkerQueue → Materialization 全链路**
+
+```
+Opus 摘要提取 [decision]/[lesson]/[method]
+  ↓
+parseNaturalLanguageOutput() → DurableCandidate
+  ↓
+MarkerQueue.submit() → status: 'captured'
+  ↓
+自动 normalize → status: 'normalized'
+  ↓
+explicit → auto-approve → materialize → docs/*.md → reindex
+inferred → Hub Feed 展示 → 铲屎官确认/忽略
+  ↓
+approved → IMaterializationService.materialize()
+  → 写 docs/lessons/LL-xxx.md 或 docs/decisions/ADR-xxx.md
+  → git commit → trigger reindex → evidence.sqlite 更新
+```
+
+**H-4. 用户角色（跨项目终态）**
+
+| 角色 | 体验 |
+|------|------|
+| **项目 Owner（铲屎官）** | Feed 里看涌现知识 · 一键确认/撤回 · 自然语言操作 |
+| **猫猫团队** | auto-recall 自动引用已沉淀知识 · 不重蹈覆辙 |
+| **新人/新猫** | Onboarding 自动化 · "这个项目的核心决策是什么？" → 搜到 ADR/LL |
+| **跨项目的猫** | 全局层 global_knowledge.sqlite 带着走 · 在新项目搜到旧教训 |
+
+**H-5. 待头脑风暴的问题**
+
+1. 铲屎官可能自己都没发现的需求是什么？人猫协同下，什么样的知识系统用起来"很爽"？
+2. Feed 的信息密度如何控制？知识候选太多时怎么不变成噪音？
+3. 猫猫能不能主动提出"这条知识应该沉淀"而不只是被动提取？
+4. 知识之间的关联关系（edges）如何在 Feed 里可视化？
+5. 知识过期/失效的检测和通知？
+
+> **下一步**：布偶猫 + 砚砚头脑风暴 → 收敛产品设计 → Design Gate → 实现
+
 ## Phase D 完成后的预期效果
 
 > 铲屎官指示：做完后要讲清楚"铲屎官日常使用感受到什么优化"和"猫猫自己感受到什么优化"。跑一段时间才知道做得好不好。
