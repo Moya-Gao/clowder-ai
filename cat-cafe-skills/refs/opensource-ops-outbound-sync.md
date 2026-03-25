@@ -121,6 +121,8 @@ bash scripts/sync-to-opensource.sh --skip-validate
 注意：
 - `sync-to-opensource.sh` 现在会先把导出产物打到 **temp target**，在 temp target 跑完整 public gate（install + `pnpm check` + `pnpm lint` + `build` + `test:public` + startup acceptance）
 - **只有 temp target public gate 全绿，脚本才允许碰真实 `clowder-ai`**
+- **一旦 full sync 进入 temp target public gate，执行中的猫必须持续等待脚本退出**：允许汇报的状态只有两种——`=== Sync complete ===` 成功，或明确的红灯失败。`Step 5` 里的 `Biome check...`、`Smoke test (test:public)...`、`Startup acceptance...` 都不是 checkpoint，不能在这些中间状态结束当前执行
+- 如果需要观察长静默阶段（尤其是 `test:public`），可以轮询同一个前台会话；但**不能**把“会话还在 / CI 还没开”当成阶段完成，更不能在 temp target public gate 还没收口前就退出
 - 如果这次 full sync 是为了后续切 release tag，传 `--release-tag=vX.Y.Z`；脚本会在 source-owned public gate 通过后自动打并 push `clowder-vX.Y.Z-source`，同时把 `release_tag` / `source_snapshot_tag` 写进 `.sync-provenance.json`
 - 本机 README/macOS smoke 不属于 full sync 主路径；它是 sync 完成后的独立步骤，必须显式隔离端口/Redis
 - `sync-to-opensource.sh` **不会**创建 `sync/*` tag；它只负责导出 + 生成 sync PR
@@ -168,6 +170,11 @@ bash scripts/publish-release-tag.sh \
 - `pnpm --filter @cat-cafe/api run test:public` 通过
 - 端口可访问
 - `3001/3002` 等内部端口没有泄漏进导出产物
+
+**执行纪律：**
+- 这是 release 主路径上的**阻塞长跑**，不是“看到 `test:public` 开始了就算推进到了下一步”
+- 只有脚本自己打印 `✓ Source-owned public gate passed`，才算 Step 5 真正结束
+- 在这之前，执行中的猫不能宣称“同步在跑 CI”或“只差 PR 了”，因为真实 target 还没被碰到
 
 #### Step 5.5: Temp Target 红灯分流 `[cat-cafe]`（仅当 public gate 红灯时）
 

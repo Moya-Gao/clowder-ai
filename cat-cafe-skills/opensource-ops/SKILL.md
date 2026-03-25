@@ -112,6 +112,7 @@ description: >
 8. **release provenance 三点映射必须显式化**：release-intended full sync 要在 source 侧自动打 `clowder-vX.Y.Z-source`，`.sync-provenance.json` 必须记录 `release_tag` / `source_snapshot_tag`，后续 target release tag 和 backport commit 才有锚点
 9. **稳定承诺只由 release tag 给出**：`clowder-ai main` 是 rolling stable；真正的 stable/support 口径以 `vX.Y.Z` release 为准
 10. **release 出 bug 优先走 patch**：shared bug 先回家修再 sync 出 `vX.Y.(Z+1)`；public-only hotfix 可以先在 `clowder-ai` 修，但 sync-managed 文件必须回补到家里
+11. **full sync 是长跑门禁，不是中途 checkpoint**：一旦 `sync-to-opensource.sh` 进入 temp target public gate（install / `pnpm check` / `pnpm lint` / `build` / `test:public` / startup acceptance），执行中的猫必须持续等待到脚本给出明确成功或失败结果；禁止在 `Step 5` 半路以“到 `test:public` 了”“CI 还没开”之类的中间状态退出或汇报完成
 
 ## 和其他 skill 的区别
 
