@@ -255,7 +255,7 @@ bg-red-500         -> accent-danger | status-danger | brand-accent
 
 `thread` 现在出现在：
 - 前端路由：`app/thread/[threadId]/page.tsx`
-- API 路径：`/api/queue` 等接口的 thread 参数
+- API 路由：`routes/threads.ts`、`routes/thread-branch.ts`、`threadStore` 贯穿 games/queue 等多个路由
 - 共享存储：`packages/shared/src/utils/redis.ts` 的 key 前缀
 
 **结论**：本次重构只做 **UI Glossary Override**。如果企业 fork 想连路由和 API 都改，那是另一个 Feature 的事。否则铲屎官很容易把 "thread 改名" 理解成全栈概念重命名，直接把设计系统重构抬成大手术。
@@ -281,7 +281,7 @@ Layer 0: Governance — ESLint gate + visual baseline + "迁移完成"定义
 | **P4: Shell + 共享层迁移** | app shell、导航、表单、toast/empty/loading/error、dialog/overlay 迁移到 primitive + token；**Playwright 视觉回归测试搭建**（10-15 个关键页面截图基线） | P2 + P3 | 共享 UI 统一 + 视觉回归基线 | 中高（视觉回归） |
 | **P5: Patterns** | 提取猫咖特色组合件（CatBubble、AgentBadge、ThreadItem 等） | P3 | `components/patterns/` | 中 |
 | **P6: Theme System** | ThemeProvider + useTheme + useCatTheme（含品牌 token resolver）；dark mode 可切换 | P4 | 运行时主题切换 | 中 |
-| **P7: Enterprise Kit** | next-intl 接入 + terminology overrides（仅 UI glossary，不含 route/API rename）+ tenant.config + branding assets 可配 + **壳层资产**（`viewport.themeColor`、manifest.json、favicon、PWA metadata——当前 `layout.tsx` 硬编码咖色 `#FDF8F3`） | P5 + P6 | fork-friendly 定制面 | 中 |
+| **P7: Enterprise Kit** | next-intl 接入 + terminology overrides（仅 UI glossary，不含 route/API rename）+ tenant.config + branding assets 可配 + **壳层资产**（当前壳层 metadata 仍写死品牌值：`themeColor=#E29578`、manifest/icons 也固定——见 `layout.tsx:11`） | P5 + P6 | fork-friendly 定制面 | 中 |
 | **P8: Long Tail** | 逐模块迁移 chat/game/signals/mission-control/audit 到 token + primitive | P4 | 全站 token 覆盖 | 低（前面已铺路） |
 
 ### 关于"是否顺带升级 Tailwind 4"
