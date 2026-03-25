@@ -506,9 +506,9 @@ describe('InvocationQueue', () => {
     assert.equal(queue.hasQueuedAgentForCat('t1', 'codex'), false);
   });
 
-  // ── hasActiveOrQueuedAgentForCat: checks both queued AND processing (route-serial dedup) ──
+  // ── hasActiveOrQueuedAgentForCat: processing + fresh queued block, stale queued does not ──
 
-  it('hasActiveOrQueuedAgentForCat returns true for queued entry', () => {
+  it('hasActiveOrQueuedAgentForCat returns true for fresh queued entry (cross-path dedup)', () => {
     queue.enqueue({
       threadId: 't1',
       userId: 'system',
@@ -519,7 +519,32 @@ describe('InvocationQueue', () => {
       autoExecute: true,
       callerCatId: 'opus',
     });
-    assert.equal(queue.hasActiveOrQueuedAgentForCat('t1', 'codex'), true);
+    assert.equal(
+      queue.hasActiveOrQueuedAgentForCat('t1', 'codex'),
+      true,
+      'fresh queued entry must block text-scan to prevent double-trigger',
+    );
+  });
+
+  it('hasActiveOrQueuedAgentForCat returns false for stale queued entry (> threshold)', () => {
+    queue.enqueue({
+      threadId: 't1',
+      userId: 'system',
+      content: 'handoff',
+      source: 'agent',
+      targetCats: ['codex'],
+      intent: 'execute',
+      autoExecute: true,
+      callerCatId: 'opus',
+    });
+    // Simulate stale by backdating createdAt
+    const q = queue.list('t1', 'system');
+    q[0].createdAt = Date.now() - 120_000; // 2 minutes ago
+    assert.equal(
+      queue.hasActiveOrQueuedAgentForCat('t1', 'codex'),
+      false,
+      'stale queued entry (>60s) must NOT block text-scan A2A — may never execute',
+    );
   });
 
   it('hasActiveOrQueuedAgentForCat returns true for processing entry (prevents text-scan double-trigger)', () => {

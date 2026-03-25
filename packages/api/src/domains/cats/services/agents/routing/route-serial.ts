@@ -736,11 +736,11 @@ export async function* routeSerial(
           const pendingOriginalTargets = targetCats.slice(index + 1);
           for (const nextCat of a2aMentions) {
             if (worklistEntry.a2aCount >= maxDepth) break;
-            // A2A cross-path dedup: skip if this cat was already dispatched via callback (InvocationQueue)
+            // A2A cross-path dedup: skip if this cat is actively processing via callback (InvocationQueue)
             if (hasQueuedOrActiveAgentForCat && hasQueuedOrActiveAgentForCat(threadId, nextCat)) {
               log.info(
                 { threadId, catId: nextCat, fromCat: catId },
-                'A2A text-scan dedup: cat already in InvocationQueue, skipping',
+                'A2A text-scan dedup: cat actively processing in InvocationQueue, skipping',
               );
               continue;
             }

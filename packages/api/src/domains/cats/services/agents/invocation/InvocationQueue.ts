@@ -403,18 +403,27 @@ export class InvocationQueue {
     return false;
   }
 
-  /** Cross-path dedup: checks both queued AND processing agent entries.
-   *  Used by route-serial to prevent text-scan @mention when callback already dispatched. */
+  /**
+   * Cross-path dedup: checks processing + fresh queued agent entries.
+   * Used by route-serial to prevent text-scan @mention when callback already dispatched.
+   *
+   * 'processing' entries always block (actively executing).
+   * 'queued' entries only block if created within STALE_THRESHOLD_MS — fresh entries
+   * are legitimate pending dispatches that tryAutoExecute will pick up.
+   * Stale queued entries (older than threshold) are ignored — they may never execute
+   * (tryAutoExecute can fail to start them if the slot stays busy), and blocking
+   * on them causes permanent A2A deadlock.
+   */
+  static readonly STALE_QUEUED_THRESHOLD_MS = 60_000;
+
   hasActiveOrQueuedAgentForCat(threadId: string, catId: string): boolean {
+    const now = Date.now();
     for (const [key, q] of this.queues) {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
-        if (
-          e.source === 'agent' &&
-          (e.status === 'queued' || e.status === 'processing') &&
-          e.targetCats.includes(catId)
-        )
-          return true;
+        if (e.source !== 'agent' || !e.targetCats.includes(catId)) continue;
+        if (e.status === 'processing') return true;
+        if (e.status === 'queued' && now - e.createdAt < InvocationQueue.STALE_QUEUED_THRESHOLD_MS) return true;
       }
     }
     return false;
