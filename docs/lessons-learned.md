@@ -687,6 +687,20 @@ created: 2026-02-26
   - 对外状态必须基于终态：`sync completed`、`PR opened`、`CI running`、`sync failed`
 - 原理：Step 5 是 source-owned public gate 的单个阻塞门禁。它的业务含义不是“看起来跑到了哪一行日志”，而是“真实 target 是否被允许触碰”。在脚本没打印 `✓ Source-owned public gate passed` 之前，这个答案始终是否定的。
 
+### LL-037: 共享记忆塑造视角——团队文化比模型参数更能影响判断趋同
+
+- 状态：draft
+- 更新时间：2026-03-25
+- 坑：预期不同模型家族（Claude Opus vs GPT-5.4）会给出差异化观点，但本地两猫的观点反而比同模型家族的云端猫（GPT Pro）更趋同。差点把这种趋同当成"互相附和"忽略了。
+- 根因：本地猫共享 shared-rules、共同经历（120+ features 的协作历史、同一套教训沉淀），这些"共享记忆"比底层模型参数更能塑造判断框架。云端猫虽同属 GPT 家族但缺乏这些共同经历，所以反而提出了更多不同视角。
+- 触发条件：多猫独立思考/brainstorm 场景——当两只本地猫意见过度一致时，不要急于下结论是"互相附和"，也不要急于下结论是"充分验证"，需要引入无共享记忆的外部视角交叉校验。
+- 修复：F129 生态调研中增加了云端 GPT Pro Deep Research 作为独立视角；本地两猫 + 云端猫三方碰撞后才做综合。
+- 防护：
+  - 多猫 brainstorm 时，有意识地引入至少一个无共享记忆的视角（云端猫、新加入的猫、不同项目的猫）
+  - 本地猫趋同时显式标注"⚠️ 可能受共享记忆影响"，不直接等价于"独立验证通过"
+- 来源锚点：`docs/discussions/2026-03-25-shared-rules-growth-and-intimate-collaboration.md` §3 + `docs/research/2026-03-25-openclaw-clawhub-ecosystem/research-prompt.md` §Local Synthesis
+- 原理：团队文化是一种隐性的 prompt——shared-rules、共同教训、协作习惯构成了比 system prompt 更深层的"预训练"。这不是坏事（恰恰说明团队文化在起作用），但在需要多元视角时必须意识到这个偏置。
+
 ---
 
 ## 8) 维护约定

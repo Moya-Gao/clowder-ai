@@ -242,6 +242,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | OQ-3 | 社区 Registry 自建还是用 npm scope？ | ⬜ 未定（Phase C） |
 | OQ-4 | Pack 的版本兼容性管理策略？ | ⬜ 未定 |
 | OQ-5 | masks/ 的 immutable 字段白名单（哪些字段是核心身份字段）？依赖 F093 OQ-2 | ⬜ 未定（依赖 F093） |
+| OQ-6 | Growth 必须有可感知的视觉外化（烁烁提出：用户看不到 Growth 在发生 = Growth 不存在）。具体方案待设计，规模足够时独立立项 | ⬜ 未定（未来方向） |
 
 ## Key Decisions
 
@@ -271,6 +272,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | 2026-03-19 | 砚砚 R2：P1 放行 + 补 3 口子（fail-closed schema / capabilities reject / knowledge scoped）→ AC-A8/A9/A10 |
 | 2026-03-25 | 生态兼容调研：布偶猫 + 砚砚 GPT-5.4 独立调研 OpenClaw v2026.3.23 / SillyTavern → KD-10 + AC-B5/B6 |
 | 2026-03-25 | 云端 GPT Pro Deep Research + 本地两猫碰撞 → 涌现发现"共享记忆塑造视角" → KD-11 + AC-B7 |
+| 2026-03-25 | 脑暴收敛分流落盘：VISION.md 补「人与猫」+ 对外叙事；Growth 视觉外化记为 OQ-6 未来方向 |
 
 ## Review Gate
 
