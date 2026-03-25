@@ -919,7 +919,41 @@ approved → IMaterializationService.materialize()
 - 卡片内联最有用的 3 类：来源 threads · 引用的 decision/lesson · 影响的 feat/docs
 - 详情页里才展开关系图，首页不做大图
 
-> **下一步**：铲屎官确认产品原则 → Design Gate（可以让暹罗猫出视觉设计） → 实现
+**H-6. Workspace 集成方案（铲屎官确认 2026-03-23）**
+
+入口位置：**Workspace 面板模式切换器**（不加 Tab、不做 Hub 侧边栏）：
+
+```
+Workspace 面板顶部：
+  [<> 开发]  [✨ 知识 ②]     ← 两个 pill 按钮切换模式
+
+开发模式 = 现有 FILES/CHANGES/GIT/TERM/PREVIEW
+知识模式 = 知识涌现 Feed（待确认/已沉淀/高频/升级）
+```
+
+- 设计稿：`designs/F102-knowledge-emergence-feed.pen`（Before/After 对比）
+- 任意页面/任意 thread 都能联动打开知识 Feed（和 Workspace 其他功能一样）
+- 铲屎官说"帮我看看知识"→ 猫猫用 workspace-navigator 切到知识模式
+
+**H-7. 实现前必做清单（铲屎官铁律：设计 → 代码一致性）**
+
+| 项 | 说明 |
+|---|------|
+| **SVG/图标资产** | 提前从 .pen 导出所有用到的图标，不要到写代码时现画 |
+| **设计对照** | 代码实现后必须截图和 .pen 设计稿逐像素对比 |
+| **风格一致** | 复用现有 Hub 配色/字体/圆角/间距，不引入新风格变量 |
+| **任意页面联动** | 不管在哪个 thread/页面，都能通过自然语言或按钮打开知识 Feed |
+| **配套 Skill** | 猫猫得知道有 Knowledge Feed 能力 → 写 skill 或更新 CLAUDE.md/AGENTS.md |
+
+**H-8. 配套 Skill（让猫猫知道有这个能力）**
+
+猫猫如果不知道 Knowledge Feed 存在，就不会主动提议沉淀知识、不会帮铲屎官打开 Feed。需要：
+
+1. **CLAUDE.md/AGENTS.md 更新** — 在记忆系统段落加"知识涌现 Feed 在 Workspace 面板里"
+2. **workspace-navigator 扩展** — 支持"打开知识 Feed"指令
+3. **猫猫主动提议的 prompt guidance** — 在系统提示词里告诉猫"对话中发现有价值的 decision/lesson 时，主动提醒铲屎官"
+
+> **下一步**：铲屎官确认产品原则 → 暹罗猫(烁烁)出精细视觉设计 → 实现
 
 ## Phase D 完成后的预期效果
 
