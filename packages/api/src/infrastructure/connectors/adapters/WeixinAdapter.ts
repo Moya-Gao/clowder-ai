@@ -19,8 +19,8 @@ const ILINK_BASE_URL = 'https://ilinkai.weixin.qq.com';
 const GETUPDATES_TIMEOUT_MS = 35_000;
 const POLL_ERROR_BACKOFF_MS = 3_000;
 const POLL_MAX_BACKOFF_MS = 60_000;
-// Chunking disabled: iLink only delivers the first sendmessage per context_token turn.
-// All content is sent in a single call. See BUG-3 in F137 spec.
+// BUG-5 (2026-03-25): iLink context_token supports multiple sendmessage calls.
+// Previous BUG-3 "single-use token" conclusion was a misdiagnosis — see F137 spec.
 /** Debounce window for aggregating multi-cat replies into one outbound message (ms) */
 const WEIXIN_REPLY_DEBOUNCE_MS = 3_000;
 /** Typing keepalive interval (ms) — openclaw v2 uses 5s */
@@ -592,23 +592,17 @@ export class WeixinAdapter implements IOutboundAdapter {
 
     try {
       const plainContent = WeixinAdapter.stripMarkdownForWeixin(merged);
-      // iLink only delivers the FIRST sendmessage per context_token turn.
-      // Send everything in one call — no chunking. If iLink has a hard limit,
-      // it will truncate server-side, but at least the message arrives.
+      // BUG-5: iLink context_token supports multiple sendmessage calls (verified 2026-03-25).
+      // Token is NOT consumed after first send — retain for subsequent cat replies.
+      // Previous BUG-3 "single-use" assumption was a misdiagnosis.
       await this.sendMessageApi(externalChatId, plainContent, boundToken);
 
-      // BUG-5 EXPERIMENT: Do NOT consume/delete token — test if iLink allows multiple sendmessage per token.
-      // If experiment succeeds (all cats' replies arrive), remove lastConsumedToken + contextTokens.delete entirely.
-      // If experiment fails (only first reply arrives), revert and implement cross-invocation merge buffer.
-      // Original code:
-      //   this.lastConsumedToken.set(externalChatId, boundToken);
-      //   if (this.contextTokens.get(externalChatId) === boundToken) {
-      //     this.contextTokens.delete(externalChatId);
-      //   }
+      // Token intentionally NOT consumed/deleted — allows relay chain A→B→C
+      // to deliver each cat's reply as a separate WeChat message.
       this.stopTyping(externalChatId);
       this.log.info(
         { chatId: externalChatId, textLen: plainContent.length, tokenHash },
-        '[WeixinAdapter] flushReply() completed — token RETAINED (BUG-5 experiment)',
+        '[WeixinAdapter] flushReply() completed — token retained for potential follow-up replies',
       );
 
       for (const r of resolvers) r.resolve();

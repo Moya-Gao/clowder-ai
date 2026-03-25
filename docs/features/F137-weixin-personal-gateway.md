@@ -377,6 +377,30 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 - **BUG-4c P1**（云端 review 发现）：QueueProcessor merge 路径丢弃 richBlocks。修复：合并循环中用 `renderAllRichBlocksPlaintext` 将 richBlocks 渲染为纯文本后嵌入合并内容。
 - **验证**：83 pass（42 ConnectorInvokeTrigger + 41 QueueProcessor）。Gate 全绿，云端 review 两轮通过。
 
+### BUG-5：context_token "单次消费"是误判 — 实际可重复使用
+
+**状态**: 🟢 Verified — 实验成功 (2026-03-25)
+
+**现象**：BUG-3/BUG-4 系列修复都基于"iLink context_token 单次消费"假设，但 A→B→C 接龙链仍然失败——因为跨 invocation 的 deliver 分批到达，第一批消费 token 后后续批次无 token 可用。
+
+**调查**：
+1. 社区协议文档（[epiral/weixin-bot](https://github.com/epiral/weixin-bot)、[hao-ji-xing/openclaw-weixin](https://github.com/hao-ji-xing/openclaw-weixin)）描述"发送含图片的消息时，先发 TEXT 再发 IMAGE，分两次 sendmessage"——如果 token 单次消费，第二次调用怎么成功？
+2. 协议 spec 中没有明确说 token 是单次消费的
+3. BUG-3 当时分块失败的根因可能是消息格式缺字段（`client_id`/`message_type`/`from_user_id`，后续 PR #711 修复），不是 token 单次消费
+
+**实验设计**：`flushReply()` 发送成功后，不再执行 `lastConsumedToken.set()` 和 `contextTokens.delete()`——保留 token 给后续 sendReply 调用。
+
+**实验结果**（2026-03-25 16:41 实测）：
+- 布偶猫回复 → 两条消息分别到达微信 ✅
+- 金渐层 + 缅因猫回复 → 也成功到达微信 ✅
+- **同一个 context_token 支持多次 sendmessage 调用！**
+
+**修复**：将实验代码正式化——`flushReply()` 不再消费/删除 token。每只猫的回复作为独立微信消息发送。
+
+**影响**：
+- BUG-4 系列的 merge 逻辑（ConnectorInvokeTrigger + QueueProcessor 合并多 turn）不再是 WeChat 接龙的必要条件——但保留为可选的用户体验优化（合并消息 vs 多条碎片消息）
+- `SINGLE_TOKEN_CONNECTORS` 常量和相关 merge 判断可以后续清理
+
 ## Open Questions
 
 | # | 问题 | 状态 |
