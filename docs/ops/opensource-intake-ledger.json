@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "24a28cc6cb968bff3b4ee7765b8193b5db8805f1",
+  "last_reviewed_target_head": "21b2edb1c8eebe31b3eea79f28f8b0e335a6fc34",
   "entries": [
     {
       "pr_number": 90,
@@ -162,6 +162,27 @@
       "decision": "absorbed",
       "timestamp": "2026-03-25T02:57:08Z",
       "notes": "Absorbed before v0.3.0 full sync; source already used @cat-cafe/shared/utils import path in migrate-signals CLI."
+    },
+    {
+      "pr_number": 220,
+      "target_merge_commit": "d04ddc396c3e7151d1953861182c926f537c0aac",
+      "decision": "absorbed",
+      "timestamp": "2026-03-25T06:38:05.536Z",
+      "notes": "Absorbed after upstream added streamableHttp discovery/provider-gating/writer regression coverage; source intake preserved Cat Cafe naming and reran capability orchestration tests."
+    },
+    {
+      "pr_number": 221,
+      "target_merge_commit": "fef64616f4759a62c2ce80c056650024b3f11a88",
+      "decision": "absorbed",
+      "timestamp": "2026-03-25T06:38:14.541Z",
+      "notes": "Absorbed after upstream fixed global provider-profile merge migration, sibling worktree delete protection, and secrets chmod(0600); source intake reran provider-profile/runtime-binding/invoke regression suites."
+    },
+    {
+      "pr_number": 222,
+      "target_merge_commit": "200f04152b9a881ab9497e3f347faf7cb8734832",
+      "decision": "absorbed",
+      "timestamp": "2026-03-25T06:38:35.712Z",
+      "notes": "Absorbed as a narrow credential-hardening patch removing host process.env fallbacks from Codex/Dare/OpenCode AgentServices; source intake revalidated callbackEnv-based tests."
     }
   ]
 }
