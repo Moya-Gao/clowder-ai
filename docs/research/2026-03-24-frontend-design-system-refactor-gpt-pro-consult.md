@@ -215,6 +215,7 @@ bg-red-500         -> accent-danger | status-danger | brand-accent
 | GPT Pro 假设 | 实际情况 | 影响 |
 |---|---|---|
 | Tailwind CSS 4 | **Tailwind 3.4.0**（`package.json` 确认）| `@theme`、`@custom-variant`、`@source` 等 TW4 指令不可用；需要用 TW3 的 `extend` + `plugin` 方式 |
+| Next.js 15 | **Next.js 14.1.0**（`package.json` 确认）| next-intl 接入需按 Next 14 App Router 验证，不能直接套 Next 15 示例 |
 | 875+ 处硬编码颜色 | **~1000 处**（134 inline hex + 866+ Tailwind 色彩工具类）| 迁移量比预估多 ~15%，codemod 分桶策略更重要 |
 | "先上 ESLint 门禁" | ESLint 当前仅 `next/core-web-vitals` + `next/typescript`，**无自定义规则** | 门禁从零搭建，但也意味着没有历史包袱，可以一步到位 |
 | Base UI 1.3.0 stable | **需验证**——2026-03 文档声称，但我们的 package.json 里无任何 Radix/Base UI 依赖 | 试点成本低（无冲突），但要实际装了跑跑才知道 |
@@ -227,7 +228,7 @@ bg-red-500         -> accent-danger | status-danger | brand-accent
 2. **三层蛋糕方向正确，但 GPT Pro 的五层更完整**：加 Layer 0（治理门禁）和 Layer 3（patterns/composites）是对的
 3. **shadcn 当参考不当宪法**：API 设计和文件组织可以借鉴，视觉语义必须自己的
 4. **Radix headless 做 a11y 密集型控件**：Dialog、Select、Combobox、Menu、Popover 不要从零造
-5. **next-intl 够用**：Next.js 15 App Router 贴合度最高，不需要切 react-intl
+5. **next-intl 够用**：App Router 贴合度最高（需按 Next 14 验证接法），不需要切 react-intl
 6. **术语 ≠ 翻译**：产品词汇表独立于 i18n messages，fork 只改一张表
 7. **Storybook + Playwright 先行**：Chromatic 等 story 覆盖率上来再加
 8. **cat-config.json 需要品牌 token resolver**：组件不应直接吃 hex
@@ -241,6 +242,23 @@ bg-red-500         -> accent-danger | status-danger | brand-accent
 | **狼人杀模块已经是样板间** | `GameShell.tsx` 的 `data-theme` + 30 token | 迁移时可以直接抄它的 pattern，减少试错 |
 | 文件 **200 行警告 / 350 硬上限** | `CLAUDE.md` 代码规范 | 提取 primitive 时天然会帮助拆大文件，但也要注意不要过度碎片化 |
 | **AI 猫猫是主要前端开发者** | 项目现实 | codemod + lint gate 的自动化程度直接决定迁移效率，人工审查成本比人类团队低 |
+| **"thread" 已深入领域层** | 路由 `app/thread/[threadId]/`、API 路径、Redis 存储 key | 术语抽象必须分两层（见下），否则 P7 会意外膨胀成跨前后端大手术 |
+
+### ⚠️ 术语抽象的两层边界（砚砚 P1 review 补充）
+
+**这是最容易 scope 失控的点**，必须在立项时就写死边界：
+
+| 层 | 做什么 | 不做什么 | 归属 Phase |
+|---|---|---|---|
+| **UI Glossary Override** | 前端显示文案 "thread" → 可配置的 `t('thread')` | 不改 URL、不改 API 响应体、不改数据库 key | P7 |
+| **Domain/Route/API Rename** | 路由 `/thread/` → `/conversation/`、API 字段名、Redis key | 跨前后端联动，涉及数据迁移 | **不在本 Feature 范围内**，需要独立立项 |
+
+`thread` 现在出现在：
+- 前端路由：`app/thread/[threadId]/page.tsx`
+- API 路径：`/api/queue` 等接口的 thread 参数
+- 共享存储：`packages/shared/src/utils/redis.ts` 的 key 前缀
+
+**结论**：本次重构只做 **UI Glossary Override**。如果企业 fork 想连路由和 API 都改，那是另一个 Feature 的事。否则铲屎官很容易把 "thread 改名" 理解成全栈概念重命名，直接把设计系统重构抬成大手术。
 
 ### 最终方案：五层夹心蛋糕（采纳 GPT Pro 修正版）
 
@@ -259,11 +277,11 @@ Layer 0: Governance — ESLint gate + visual baseline + "迁移完成"定义
 | **P0: 审计 + 止血** | 颜色/类名审计出热力图；ESLint 自定义规则禁止新增 raw hex/`bg-white` 等 | 无 | 审计报告 + lint 规则 | 低 |
 | **P1: Token Contract** | 定义语义 token（surface/text-primary/border-default/accent-*/status-*）；Tailwind `extend.colors` 映射；globals.css 补齐 light/dark | P0 | token 字典 + TW config + CSS vars | 低 |
 | **P2: Codemod Round 1** | 高置信自动替换（`bg-white→bg-surface`、`text-black→text-primary`、`border-gray-200→border-default`等）；中置信生成 PR review | P1 | ~40% 硬编码颜色消除 | 中（需视觉验证） |
-| **P3: Primitives** | 8-12 个核心 primitive（Radix headless + 自有 styling）；Storybook stories（light/dark 双版本） | P1 | `components/ui/` 目录 | 中 |
-| **P4: Shell + 共享层迁移** | app shell、导航、表单、toast/empty/loading/error、dialog/overlay 迁移到 primitive + token | P2 + P3 | 共享 UI 统一 | 中高（视觉回归） |
+| **P3: Primitives + Storybook 基建** | 8-12 个核心 primitive（Radix headless + 自有 styling）；**从零搭建 Storybook**（当前项目无 Storybook/Chromatic/Playwright 视觉测试）；为每个 primitive 写 stories（light/dark 双版本） | P1 | `components/ui/` 目录 + Storybook 基建 | 中（Storybook 搭建是额外工作量，不要低估） |
+| **P4: Shell + 共享层迁移** | app shell、导航、表单、toast/empty/loading/error、dialog/overlay 迁移到 primitive + token；**Playwright 视觉回归测试搭建**（10-15 个关键页面截图基线） | P2 + P3 | 共享 UI 统一 + 视觉回归基线 | 中高（视觉回归） |
 | **P5: Patterns** | 提取猫咖特色组合件（CatBubble、AgentBadge、ThreadItem 等） | P3 | `components/patterns/` | 中 |
 | **P6: Theme System** | ThemeProvider + useTheme + useCatTheme（含品牌 token resolver）；dark mode 可切换 | P4 | 运行时主题切换 | 中 |
-| **P7: Enterprise Kit** | next-intl 接入 + terminology overrides + tenant.config + branding assets 可配 | P5 + P6 | fork-friendly 定制面 | 中 |
+| **P7: Enterprise Kit** | next-intl 接入 + terminology overrides（仅 UI glossary，不含 route/API rename）+ tenant.config + branding assets 可配 + **壳层资产**（`viewport.themeColor`、manifest.json、favicon、PWA metadata——当前 `layout.tsx` 硬编码咖色 `#FDF8F3`） | P5 + P6 | fork-friendly 定制面 | 中 |
 | **P8: Long Tail** | 逐模块迁移 chat/game/signals/mission-control/audit 到 token + primitive | P4 | 全站 token 覆盖 | 低（前面已铺路） |
 
 ### 关于"是否顺带升级 Tailwind 4"
