@@ -562,6 +562,171 @@ describe('DingTalkAdapter', () => {
     });
   });
 
+  // ── AC-A1.1~A1.5: Phase A.1 — Native media sending via upload + mediaId ──
+  describe('sendMedia() — Phase A.1 native upload', () => {
+    // AC-A1.1: Audio sends natively via sampleAudio msgKey (not text fallback)
+    it('uploads audio file and sends via sampleAudio with mediaId + duration', async () => {
+      const adapter = makeAdapter();
+      const uploadCalls = [];
+      const sendCalls = [];
+
+      adapter._injectUploadMedia(async ({ filePath, type }) => {
+        uploadCalls.push({ filePath, type });
+        return 'media_audio_001';
+      });
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('staff_001', {
+        type: 'audio',
+        absPath: '/tmp/voice.mp3',
+        duration: 5200,
+      });
+
+      assert.equal(uploadCalls.length, 1);
+      assert.equal(uploadCalls[0].filePath, '/tmp/voice.mp3');
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'sampleAudio');
+      const parsed = JSON.parse(sendCalls[0].content);
+      assert.equal(parsed.mediaId, 'media_audio_001');
+      assert.equal(parsed.duration, '5200');
+    });
+
+    // AC-A1.2: File sends natively via sampleFile msgKey (not text fallback)
+    it('uploads file and sends via sampleFile with mediaId + fileName + fileType', async () => {
+      const adapter = makeAdapter();
+      const uploadCalls = [];
+      const sendCalls = [];
+
+      adapter._injectUploadMedia(async ({ filePath, type }) => {
+        uploadCalls.push({ filePath, type });
+        return 'media_file_001';
+      });
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('staff_001', {
+        type: 'file',
+        absPath: '/tmp/report.pdf',
+        fileName: 'report.pdf',
+      });
+
+      assert.equal(uploadCalls.length, 1);
+      assert.equal(uploadCalls[0].filePath, '/tmp/report.pdf');
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'sampleFile');
+      const parsed = JSON.parse(sendCalls[0].content);
+      assert.equal(parsed.mediaId, 'media_file_001');
+      assert.equal(parsed.fileName, 'report.pdf');
+      assert.equal(parsed.fileType, 'pdf');
+    });
+
+    // AC-A1.3: Image with absPath uploads and sends via sampleImageMsg
+    it('uploads image from absPath and sends via sampleImageMsg', async () => {
+      const adapter = makeAdapter();
+      const uploadCalls = [];
+      const sendCalls = [];
+
+      adapter._injectUploadMedia(async ({ filePath, type }) => {
+        uploadCalls.push({ filePath, type });
+        return 'media_img_001';
+      });
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('staff_001', {
+        type: 'image',
+        absPath: '/tmp/generated-photo.png',
+      });
+
+      assert.equal(uploadCalls.length, 1);
+      assert.equal(uploadCalls[0].filePath, '/tmp/generated-photo.png');
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'sampleImageMsg');
+      const parsed = JSON.parse(sendCalls[0].content);
+      assert.ok(parsed.photoURL, 'Must include photoURL (mediaId as photoURL)');
+    });
+
+    // AC-A1.5: Image with URL still sends via sampleImageMsg (fast path preserved)
+    it('image with URL still uses the direct photoURL fast path', async () => {
+      const adapter = makeAdapter();
+      const sendCalls = [];
+
+      // No upload injected — should use direct URL path
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('staff_001', { type: 'image', url: 'https://example.com/cat.jpg' });
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'image');
+      assert.ok(sendCalls[0].content.includes('https://example.com/cat.jpg'));
+    });
+
+    // AC-A1.5: Upload failure gracefully falls back to text
+    it('falls back to text if upload fails', async () => {
+      const adapter = makeAdapter();
+      const sendCalls = [];
+
+      adapter._injectUploadMedia(async () => {
+        throw new Error('upload network error');
+      });
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('staff_001', {
+        type: 'audio',
+        absPath: '/tmp/voice.mp3',
+        url: 'https://example.com/voice.mp3',
+      });
+
+      // Should fall back to text with the URL
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'text');
+      assert.ok(sendCalls[0].content.includes('🔊'));
+      assert.ok(sendCalls[0].content.includes('https://example.com/voice.mp3'));
+    });
+
+    // AC-A1.4: File extension extraction for sampleFile
+    it('extracts file extension correctly for sampleFile fileType', async () => {
+      const adapter = makeAdapter();
+      const sendCalls = [];
+
+      adapter._injectUploadMedia(async () => 'media_doc_001');
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('staff_001', {
+        type: 'file',
+        absPath: '/tmp/presentation.pptx',
+        fileName: 'presentation.pptx',
+      });
+
+      assert.equal(sendCalls.length, 1);
+      const parsed = JSON.parse(sendCalls[0].content);
+      assert.equal(parsed.fileType, 'pptx');
+    });
+
+    // AC-A1.5: Audio with URL but no absPath — falls back to text (no upload without absPath)
+    it('audio with URL only falls back to text when no upload function available', async () => {
+      const adapter = makeAdapter();
+      const sendCalls = [];
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+      });
+
+      await adapter.sendMedia('staff_001', { type: 'audio', url: 'https://example.com/voice.mp3' });
+      assert.equal(sendCalls.length, 1);
+      assert.equal(sendCalls[0].msgType, 'text');
+      assert.ok(sendCalls[0].content.includes('🔊'));
+    });
+  });
+
   describe('downloadMedia()', () => {
     it('returns download URL from injected function', async () => {
       const adapter = makeAdapter();

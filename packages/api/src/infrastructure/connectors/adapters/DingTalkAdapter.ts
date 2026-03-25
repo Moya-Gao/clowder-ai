@@ -91,6 +91,7 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     | null = null;
   private accessTokenFn: (() => Promise<string>) | null = null;
   private downloadMediaFn: ((downloadCode: string) => Promise<string>) | null = null;
+  private uploadMediaFn: ((params: { filePath: string; type: string }) => Promise<string>) | null = null;
 
   constructor(log: FastifyBaseLogger, options: DingTalkAdapterOptions) {
     this.log = log;
@@ -334,22 +335,46 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
       url?: string;
       absPath?: string;
       fileName?: string;
+      duration?: number;
       [key: string]: unknown;
     },
   ): Promise<void> {
     const url = typeof payload.url === 'string' && payload.url.length > 0 ? payload.url : undefined;
+    const absPath = typeof payload.absPath === 'string' && payload.absPath.length > 0 ? payload.absPath : undefined;
+
+    // Path 1: Image with URL — direct photoURL fast path (no upload needed)
+    if (payload.type === 'image' && url && !absPath) {
+      await this.sendDingTalkImageMessage(externalChatId, url);
+      return;
+    }
+
+    // Path 2: Has absPath → native media sending via upload
+    if (absPath) {
+      try {
+        const mediaId = await this.uploadToDingTalk(absPath, payload.type);
+        if (mediaId) {
+          await this.sendDingTalkMediaMessage(externalChatId, payload.type, mediaId, {
+            fileName: payload.fileName ?? basename(absPath),
+            duration: payload.duration,
+          });
+          return;
+        }
+      } catch (err) {
+        this.log.warn(
+          { err, type: payload.type, absPath },
+          '[DingTalkAdapter] sendMedia: upload failed, falling through',
+        );
+      }
+    }
+
+    // Path 3: Fallback — text link
     const mediaReference =
       url ??
       (typeof payload.fileName === 'string' && payload.fileName.length > 0
         ? payload.fileName
-        : typeof payload.absPath === 'string' && payload.absPath.length > 0
-          ? basename(payload.absPath)
+        : absPath
+          ? basename(absPath)
           : undefined);
-
-    if (payload.type === 'image' && url) {
-      await this.sendDingTalkImageMessage(externalChatId, url);
-      return;
-    }
 
     if (mediaReference) {
       const label = payload.type === 'image' ? '🖼️' : payload.type === 'audio' ? '🔊' : '📎';
@@ -530,6 +555,103 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     return res.json();
   }
 
+  private async uploadToDingTalk(absPath: string, type: string): Promise<string | null> {
+    if (this.uploadMediaFn) {
+      return this.uploadMediaFn({ filePath: absPath, type });
+    }
+
+    const accessToken = await this.getAccessToken();
+    const uploadUrl = 'https://api.dingtalk.com/v1.0/robot/messageFiles/upload';
+
+    const { readFile } = await import('node:fs/promises');
+    const fileBuffer = await readFile(absPath);
+    const fileName = basename(absPath);
+
+    const formData = new FormData();
+    formData.append('robotCode', this.robotCode);
+    formData.append('mediaType', type === 'image' ? 'image' : 'file');
+    formData.append('file', new Blob([fileBuffer]), fileName);
+
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 'x-acs-dingtalk-access-token': accessToken },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '(unreadable)');
+      this.log.warn({ status: res.status, body }, '[DingTalkAdapter] uploadToDingTalk failed');
+      return null;
+    }
+
+    const data = (await res.json()) as { mediaId?: string };
+    return data.mediaId ?? null;
+  }
+
+  private async sendDingTalkMediaMessage(
+    staffId: string,
+    type: 'image' | 'file' | 'audio',
+    mediaId: string,
+    meta: { fileName?: string; duration?: number },
+  ): Promise<unknown> {
+    const msgKeyMap: Record<string, { msgKey: string; buildParam: () => Record<string, unknown> }> = {
+      audio: {
+        msgKey: 'sampleAudio',
+        buildParam: () => ({ mediaId, duration: String(meta.duration ?? 0) }),
+      },
+      file: {
+        msgKey: 'sampleFile',
+        buildParam: () => ({
+          mediaId,
+          fileName: meta.fileName ?? 'file',
+          fileType: (meta.fileName ?? 'file').split('.').pop() ?? '',
+        }),
+      },
+      image: {
+        msgKey: 'sampleImageMsg',
+        buildParam: () => ({ photoURL: mediaId }),
+      },
+    };
+
+    const entry = msgKeyMap[type];
+    if (!entry) throw new Error(`Unsupported media type for DingTalk: ${type}`);
+
+    const msgParam = entry.buildParam();
+
+    if (this.sendMessageFn) {
+      return this.sendMessageFn({
+        chatId: staffId,
+        content: JSON.stringify(msgParam),
+        msgType: entry.msgKey,
+      });
+    }
+
+    const accessToken = await this.getAccessToken();
+    const apiUrl = 'https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend';
+    const payload = {
+      robotCode: this.robotCode,
+      userIds: [staffId],
+      msgKey: entry.msgKey,
+      msgParam: JSON.stringify(msgParam),
+    };
+
+    const sendRes = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-acs-dingtalk-access-token': accessToken,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!sendRes.ok) {
+      const body = await sendRes.text().catch(() => '(unreadable)');
+      throw new Error(`DingTalk media send error ${sendRes.status}: ${body}`);
+    }
+
+    return sendRes.json();
+  }
+
   /**
    * Create an AI Card instance and deliver it.
    * POST /v1.0/card/instances/createAndDeliver
@@ -695,5 +817,10 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
   /** @internal */
   _injectDownloadMedia(fn: (downloadCode: string) => Promise<string>): void {
     this.downloadMediaFn = fn;
+  }
+
+  /** @internal */
+  _injectUploadMedia(fn: (params: { filePath: string; type: string }) => Promise<string>): void {
+    this.uploadMediaFn = fn;
   }
 }
