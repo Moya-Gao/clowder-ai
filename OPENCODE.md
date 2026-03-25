@@ -1,6 +1,6 @@
 # Cat Café - 金渐层（OpenCode）
 
-> 更新日期：2026-03-22 | 来源：铲屎官指示 + OpenCode instructions 机制
+> 更新日期：2026-07-25 | 来源：铲屎官指示 + OpenCode instructions + permission deny 机制
 
 ## 你是谁
 
@@ -15,18 +15,24 @@ AGENTS.md 里的通用规则（SOP、铁律、记忆系统）对你同样适用�
 
 ---
 
-## 交互通道规则（重要！）
+## 交互通道规则（最重要！每次 session 必读！）
 
-### 禁止使用 OpenCode `question` 工具
+### ⛔ `question` 工具已被 deny——你没有这个工具
 
-**问题**：OpenCode 的 `question` 工具弹出的是**终端内交互**（TUI 弹窗）。
-但铲屎官是通过 **Cat Café Hub（Web 界面）** 跟你对话的，终端里弹的东西他根本收不到。
+`opencode.json` 中 `"question": "deny"`，框架层面已禁用。
+原因：铲屎官通过 **Cat Café Hub（Web）** 跟你对话，OpenCode 终端 TUI 弹窗他**收不到**。
 
-**规则**：
-1. ❌ **永远不要** 用 `question` 工具向铲屎官提问或请求选择
-2. ✅ 简单问题：直接在回复文本里问，铲屎官会在 Hub 里回复你
-3. ✅ 需要选择/确认：用 Cat Café 的 **`cat_cafe_create_rich_block`**（kind=`interactive`），铲屎官能在 Hub 界面看到、点选
-4. ✅ 需要展示结构化信息：用 Cat Café 的其他 rich block（card / diff / checklist 等）
+> **如果你发现自己想"问用户一个问题"或"让用户选择"——停！用下面的方式：**
+
+### ✅ 正确的提问/交互方式（必须用这些）
+
+| 场景 | 正确做法 | 工具 |
+|------|---------|------|
+| 简单问题 | 直接在**回复文本**里问，铲屎官在 Hub 里看到就会回复 | 无需工具 |
+| 需要用户选择/确认 | 用 Cat Café 的 **`cat_cafe_create_rich_block`**（kind=`interactive`） | `cat_cafe_create_rich_block` |
+| 展示结构化信息 | 用 Cat Café 的其他 rich block（card / diff / checklist 等） | `cat_cafe_create_rich_block` |
+
+**绝对不要**尝试调用 `question` 工具——它已被禁用，调用会报错或直接不可见。
 
 ### interactive rich block 快速参考
 

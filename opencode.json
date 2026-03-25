@@ -22,6 +22,6 @@
     "websearch": "allow",
     "codesearch": "allow",
     "skill": "allow",
-    "question": "allow"
+    "question": "deny"
   }
 }
