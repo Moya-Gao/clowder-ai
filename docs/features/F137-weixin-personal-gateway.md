@@ -101,6 +101,69 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 - 入站图片: CDN 下载 → AES-128-ECB 解密
 - 实现 `sendMedia?(externalChatId, payload)` 接口
 
+### 富媒体能力调研（2026-07-25）
+
+> 铲屎官提问：*"个人微信能接入和飞书那样超级多的富文本包括文件的传输 音频 图片等等吗？"*
+
+**结论：收入方向支持图片/文件/语音；发出方向目前只能纯文本。这是 iLink 协议限制，不是我们的代码限制。**
+
+#### iLink 协议消息类型（`ILinkMessageItem.type`）
+
+| type 值 | 名称 | 入站（微信→Cat Cafe） | 出站（Cat Cafe→微信） |
+|---------|------|:-----:|:-----:|
+| 1 | TEXT | 已实现 | 已实现（唯一出站类型） |
+| 2 | IMAGE | 已实现（`image_item.url` → attachment） | 不支持 |
+| 3 | VOICE | 已实现（`voice_item.text` 语音转文字） | 不支持 |
+| 4 | FILE | 已实现（`file_item.file_name` → attachment） | 不支持 |
+| 5 | VIDEO | 协议有定义（`video_item`），代码未实现 | 不支持 |
+
+#### 出站限制的技术根因
+
+`/ilink/bot/sendmessage` API 的 `item_list` 仅支持 `text_item`（`type=1`）。`WeixinAdapter.sendMessageApi()`（第 642 行）构造的请求体：
+
+```json
+{
+  "msg": {
+    "item_list": [{ "type": 1, "text_item": { "text": "..." } }],
+    "message_type": 2,
+    "message_state": 2
+  }
+}
+```
+
+iLink Bot 协议（灰度中）目前未开放 `sendmessage` 的图片/文件/音频发送能力。我们的 `IOutboundAdapter` 接口已预留 `sendMedia?`、`sendRichMessage?` 可选方法，`WeixinAdapter` 均未实现——不是遗漏，是协议不支持。
+
+#### 与飞书的对比
+
+| 能力 | 微信 (iLink Bot) | 飞书 (FeishuAdapter) |
+|------|:-:|:-:|
+| 文字收/发 | 双向 | 双向 |
+| 图片收 | 已实现 | 已实现 |
+| 图片发 | 不支持 | 已实现（`sendMedia` + CDN 上传） |
+| 文件收 | 已实现 | 已实现 |
+| 文件发 | 不支持 | 已实现（`sendMedia` + CDN 上传） |
+| 语音收 | 已实现（转文字） | 已实现 |
+| 语音发 | 不支持 | 已实现（`sendMedia`） |
+| 视频收 | 协议有，未实现 | 已实现 |
+| 视频发 | 不支持 | 已实现 |
+| 交互卡片 | 不支持 | 已实现（`sendRichMessage` → interactive card） |
+| 格式化消息 | Markdown → 纯文本降级 | 原生 Markdown/Card（`sendFormattedReply`） |
+| 消息编辑 | 不支持 | 已实现（`editMessage`） |
+
+#### 未来可能性
+
+iLink Bot 仍在灰度阶段（2026Q3），腾讯如果后续在 `sendmessage` API 开放 `image_item`/`file_item` 等发送能力，我们可以快速跟进：
+- `IOutboundAdapter.sendMedia?` 接口已预留
+- `WeixinAdapter` 只需实现 CDN 上传（AES-128-ECB）+ `item_list` 扩展
+- Phase B 的 `getuploadurl` → CDN 上传流程已在 spec 中规划
+
+#### 纯文本辨识度方案
+
+在无法发送富文本的限制下，通过以下手段提升消息辨识度：
+- 猫名标识：`【布偶猫🐱】` 中文方括号 + cat emoji 作为前缀
+- 多猫接力时每只猫独立标识段落，分隔线 `─────────` 提升可读性
+- stripMarkdown 保留结构（bullet list → `•`、heading → 文本）
+
 ### Phase C: IM Hub 配置向导 + 健壮性
 
 **IM Hub QR 登录 UI**（铲屎官明确要求：*"能不能做到im hub内？我点击获取二维码 然后给我二维码 我点击扫码完成 然后挂上这个？"*）：
@@ -308,7 +371,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | OQ-1 | bot_token 有效期多长？是否需要定期刷新？ | ⬜ 未定（实测确认） |
 | OQ-2 | 是否支持流式回复（typing_status 模拟 vs 真流式）？ | ✅ 不支持真流式（`message_state: GENERATING` 在 bot 窗口无效），用 typing + final 发送 |
 | OQ-3 | 多账号支持是否需要？ | ⬜ MVP 单账号，多账号 Phase C 预留 |
-| OQ-4 | 语音/视频/文件消息支持？ | ⬜ 排入后续 Phase（协议已文档化） |
+| OQ-4 | 语音/视频/文件消息支持？ | ✅ 调研完成：入站已支持图片/文件/语音；出站受 iLink 协议限制仅支持文本。详见"富媒体能力调研"章节 |
 
 ## Key Decisions
 
