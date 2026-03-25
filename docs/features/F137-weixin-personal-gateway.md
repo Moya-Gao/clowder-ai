@@ -289,6 +289,18 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 
 **已知 Debt（DEBT-1）**：triple-token rotation during async flush — 当 tokenA 正在异步 flush 时，tokenB 的 sendReply 在 `await flushReply()` 处等待，此时 tokenC 到达并建桶。B 恢复后发现桶的 token 不匹配，当前行为是 `resolve()` 静默跳过（B 内容不发出）。触发条件极端（3 个 token 在一次 flush 的网络时间内连续轮换），日常不会命中，但属于协议正确性 debt。修复方向：pending 按 `(chatId, token)` 双 key 分桶，或引入 per-chatId 发送队列。
 
+### BUG-4：A→B→C 接力链只送达 A，B/C 静默丢失
+
+**现象**：铲屎官在微信端发消息触发 A→B→C 猫猫接力链时，只收到 A 的回复，B 和 C 的回复静默丢失。iLink API 均返回 200 OK。
+
+**根因**：`context_token` 单次消费（iLink 协议约束）+ 3s debounce 阻塞 deliver loop。A 的 `flushReply()` 消费 token 后删除，B/C 的 `sendReply()` 到达时已无 token，静默跳过（`WeixinAdapter.ts:519-524`）。
+
+**代码证据**：`ConnectorInvokeTrigger.ts:475` 逐 turn `await deliver()`，但 `sendReply` 的 Promise 在 `flushReply` 完成后（3s）才 resolve。Turn A flush 后 `contextTokens.delete(chatId)` → Turn B 到达 → `!currentToken && !pendingReplies` → silent return。
+
+**修复**：`ConnectorInvokeTrigger` 检测到 WeChat binding 且 `nonEmptyTurns > 1` 时，合并所有 turn 内容（带猫名前缀）为单次 `deliver()` 调用。非 WeChat 连接器保持原有逐 turn 投递逻辑。
+
+**验证**：2 条新增测试覆盖合并路径 + 非 WeChat 回归测试。40/40 全绿。
+
 ## Open Questions
 
 | # | 问题 | 状态 |
