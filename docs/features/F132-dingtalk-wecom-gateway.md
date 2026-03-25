@@ -217,14 +217,14 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 - [x] AC-A1.5: 上传优先链与飞书一致：platform key > absPath upload > URL download+upload > text fallback
 - [x] AC-A1.6: 公共层零改动
 
-### Phase A.2（DingTalk 群聊支持）
-- [ ] AC-A2.1: 群聊消息入站解析正确（移除 DM-only 过滤）
-- [ ] AC-A2.2: 群组消息通过 `orgGroupSend` API 发送
-- [ ] AC-A2.3: AI Card 在群聊中正确投递（`imGroupOpenDeliverModel`）
-- [ ] AC-A2.4: 群聊回复带 @sender 提及
-- [ ] AC-A2.5: 用户名/群名解析 + TTL 缓存
-- [ ] AC-A2.6: 复用 IM Hub 群聊抽象（bootstrap routing + ConnectorRouter + OutboundDeliveryHook）
-- [ ] AC-A2.7: 公共层零改动
+### Phase A.2（DingTalk 群聊支持）✅ PR #723 merged
+- [x] AC-A2.1: 群聊消息入站解析正确（移除 DM-only 过滤）
+- [x] AC-A2.2: 群组消息通过 `orgGroupSend` API 发送
+- [x] AC-A2.3: AI Card 在群聊中正确投递（`imGroupOpenDeliverModel`）
+- [x] AC-A2.4: 群聊回复带 @sender 提及
+- [x] AC-A2.5: 用户名/群名解析 + TTL 缓存
+- [x] AC-A2.6: 复用 IM Hub 群聊抽象（bootstrap routing + ConnectorRouter + OutboundDeliveryHook）
+- [x] AC-A2.7: 公共层零改动
 
 ### Phase B（WeCom Bot Adapter）
 - [ ] AC-B1: 企微 Bot WebSocket 连接 + 心跳 + 重连
@@ -260,7 +260,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | R4 | "学习飞书的接入" | AC-D2~D3 | adapter 结构对照 FeishuAdapter | [ ] |
 | R5 | 参考 OpenClaw 生态 | KD-1, KD-4 | 设计文档引用 + 调研综合报告 | [ ] |
 | R6 | "富文本/媒体原生发送都支持完整" | AC-A1.1~A1.5 | 语音/文件/图片原生发送，不降级 | [x] |
-| R7 | "群聊对接飞书 IM Hub 抽象" | AC-A2.1~A2.7 | 群聊收发 + @回复 + 名称解析 | [ ] |
+| R7 | "群聊对接飞书 IM Hub 抽象" | AC-A2.1~A2.7 | 群聊收发 + @回复 + 名称解析 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -316,6 +316,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | 2026-03-23 | 铲屎官确认：先补齐媒体原生发送(A.1)，再做群聊(A.2)。须对齐飞书 IM Hub 抽象 |
 | 2026-03-23 | F132 spec 修订：新增 Phase A.1 + A.2，更新 KD-3/KD-6/OQ-3/R6/R7。Phase A.1 开工 |
 | 2026-03-23 | Phase A.1 merged (PR #720) — DingTalk 媒体原生发送：upload API + sampleAudio/sampleFile/sampleImageMsg, 46 DingTalk tests |
+| 2026-03-24 | Phase A.2 merged (PR #723) — DingTalk 群聊支持：parseEvent group, orgGroupSend/batchSendOTO dispatch, AI Card group delivery, @sender replies, name/title resolution, Redis persistence for cold-start survival. 76 tests. 4-round review (砚砚) + cloud review clean |
 
 ## Review Gate
 
