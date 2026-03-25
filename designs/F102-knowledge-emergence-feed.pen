@@ -1,0 +1,945 @@
+{
+  "version": "2.9",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "UYpec",
+      "x": 0,
+      "y": 0,
+      "name": "WeChat Icon 24x24",
+      "width": 24,
+      "height": 24,
+      "layout": "none",
+      "children": [
+        {
+          "type": "path",
+          "id": "Z7NyF",
+          "x": 0,
+          "y": 0,
+          "name": "back-bubble",
+          "geometry": "M14.5 3c-4.142 0-7.5 2.91-7.5 6.5 0 1.26 0.447 2.43 1.214 3.415l-1.214 3.085 3.287-1.316c0.948 0.376 2.05 0.816 3.213 0.816h1c4.142 0 7.5-2.91 7.5-6.5s-3.358-6-7.5-6z",
+          "width": 24,
+          "height": 24,
+          "stroke": {
+            "thickness": 1.5,
+            "join": "round",
+            "cap": "round",
+            "fill": "#000000"
+          }
+        },
+        {
+          "type": "path",
+          "id": "JD1uc",
+          "x": 0,
+          "y": 0,
+          "name": "front-bubble",
+          "geometry": "M10 12.5c-3.59 0-6.5 2.462-6.5 5.5 0 1.064 0.378 2.055 1.028 2.888l-1.028 2.612 2.782-1.113c0.787 0.39 1.7 0.613 2.718 0.613h0.5c3.59 0 6.5-2.462 6.5-5.5s-2.41-5-6-5z",
+          "width": 24,
+          "height": 24,
+          "stroke": {
+            "thickness": 1.5,
+            "join": "round",
+            "cap": "round",
+            "fill": "#000000"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "IrS7w",
+      "x": -14,
+      "y": 885,
+      "name": "Cat Cafe Concept",
+      "width": 1280,
+      "height": 720,
+      "fill": {
+        "type": "image",
+        "enabled": true,
+        "url": "./images/generated-1774395074321.png",
+        "mode": "fill"
+      }
+    },
+    {
+      "type": "frame",
+      "id": "7qAO7",
+      "x": 0,
+      "y": 0,
+      "name": "F102 — Knowledge Emergence Feed",
+      "width": 420,
+      "fill": "#F8F7F5",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "naoml",
+          "name": "header",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "#E8E7E4"
+          },
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            20,
+            24
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "hzPtP",
+              "name": "headerRow",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "oQytJ",
+                  "name": "titleText",
+                  "fill": "#1A1918",
+                  "content": "知识涌现",
+                  "fontFamily": "Outfit",
+                  "fontSize": 22,
+                  "fontWeight": "600",
+                  "letterSpacing": -0.3
+                },
+                {
+                  "type": "icon_font",
+                  "id": "6MsPb",
+                  "name": "bellIcon",
+                  "width": 20,
+                  "height": 20,
+                  "iconFontName": "bell",
+                  "iconFontFamily": "lucide",
+                  "fill": "#9C9B99"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "7DIaa",
+              "name": "subtitleText",
+              "fill": "#6D6C6A",
+              "content": "本周 5 条新知识 · 2 条待确认",
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "7n3My",
+          "name": "tabs",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "#E8E7E4"
+          },
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "gNCGl",
+              "name": "tab1",
+              "stroke": {
+                "align": "inside",
+                "thickness": {
+                  "bottom": 2
+                },
+                "fill": "#7C3AED"
+              },
+              "gap": 6,
+              "padding": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "P0NZ9",
+                  "name": "tab1Text",
+                  "fill": "#7C3AED",
+                  "content": "待确认",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "e3ats",
+                  "name": "tab1Badge",
+                  "fill": "#7C3AED",
+                  "cornerRadius": 100,
+                  "padding": [
+                    1,
+                    6
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "YTulf",
+                      "name": "tab1Num",
+                      "fill": "#FFFFFF",
+                      "content": "2",
+                      "fontFamily": "Outfit",
+                      "fontSize": 10,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RS0ls",
+              "name": "tab2",
+              "gap": 4,
+              "padding": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "8zw0h",
+                  "name": "tab2Text",
+                  "fill": "#9C9B99",
+                  "content": "已沉淀",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uhGZl",
+              "name": "tab3",
+              "gap": 4,
+              "padding": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "AowmC",
+                  "name": "tab3Text",
+                  "fill": "#9C9B99",
+                  "content": "高频命中",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Vw8mh",
+              "name": "tab4",
+              "gap": 4,
+              "padding": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "IYze8",
+                  "name": "tab4Text",
+                  "fill": "#9C9B99",
+                  "content": "值得升级",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "vX9Ay",
+          "name": "Feed List",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "children": [
+            {
+              "type": "frame",
+              "id": "LrjyM",
+              "name": "Card — Inferred",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E8E7E4"
+              },
+              "layout": "vertical",
+              "gap": 12,
+              "padding": [
+                16,
+                18
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Ayod5",
+                  "name": "card1Top",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "aZD8V",
+                      "name": "card1KindBadge",
+                      "fill": "#FEF3C7",
+                      "cornerRadius": 100,
+                      "gap": 4,
+                      "padding": [
+                        3,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "30sku",
+                          "name": "card1KindIcon",
+                          "width": 12,
+                          "height": 12,
+                          "iconFontName": "lightbulb",
+                          "iconFontFamily": "lucide",
+                          "fill": "#D97706"
+                        },
+                        {
+                          "type": "text",
+                          "id": "yKvO2",
+                          "name": "card1KindText",
+                          "fill": "#D97706",
+                          "content": "method",
+                          "fontFamily": "Outfit",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Uoyzv",
+                      "name": "card1Confidence",
+                      "fill": "#FFF7ED",
+                      "cornerRadius": 100,
+                      "gap": 3,
+                      "padding": [
+                        2,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "s7kFL",
+                          "name": "card1ConfIcon",
+                          "width": 10,
+                          "height": 10,
+                          "iconFontName": "help-circle",
+                          "iconFontFamily": "lucide",
+                          "fill": "#EA580C"
+                        },
+                        {
+                          "type": "text",
+                          "id": "obLQF",
+                          "name": "card1ConfText",
+                          "fill": "#EA580C",
+                          "content": "inferred",
+                          "fontFamily": "Outfit",
+                          "fontSize": 10,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "oAxC4",
+                  "name": "card1Title",
+                  "fill": "#1A1918",
+                  "content": "让模型说人话程序加格式",
+                  "lineHeight": 1.3,
+                  "fontFamily": "Outfit",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "QoY0n",
+                  "name": "card1Summary",
+                  "fill": "#6D6C6A",
+                  "content": "不要强迫模型输出 JSON，让 Opus 输出自然语言（# 标题 + 正文 + [decision] 标记），格式由程序解析填充。",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Outfit",
+                  "fontSize": 13
+                },
+                {
+                  "type": "frame",
+                  "id": "za8Bf",
+                  "name": "card1Meta",
+                  "width": "fill_container",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "xOxa6",
+                      "name": "card1SourceIcon",
+                      "width": 12,
+                      "height": 12,
+                      "iconFontName": "message-circle",
+                      "iconFontFamily": "lucide",
+                      "fill": "#9C9B99"
+                    },
+                    {
+                      "type": "text",
+                      "id": "KaxPN",
+                      "name": "card1Source",
+                      "fill": "#9C9B99",
+                      "content": "f102 学习 lossless claw · 铲屎官验证有效",
+                      "fontFamily": "Outfit",
+                      "fontSize": 11
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VMWku",
+                  "name": "card1Why",
+                  "width": "fill_container",
+                  "fill": "#F5F3FF",
+                  "cornerRadius": 8,
+                  "gap": 6,
+                  "padding": [
+                    6,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "UB9va",
+                      "name": "card1WhyIcon",
+                      "width": 12,
+                      "height": 12,
+                      "iconFontName": "sparkles",
+                      "iconFontFamily": "lucide",
+                      "fill": "#7C3AED"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZNgjx",
+                      "name": "card1WhyText",
+                      "fill": "#7C3AED",
+                      "content": "铲屎官亲自验证后提出，3 只猫确认有效",
+                      "fontFamily": "Outfit",
+                      "fontSize": 11,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "aBNy8",
+                  "name": "card1Actions",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "justifyContent": "end",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "cc9Nn",
+                      "name": "card1BtnSkills",
+                      "fill": "#7C3AED",
+                      "cornerRadius": 8,
+                      "gap": 4,
+                      "padding": [
+                        8,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "7AxW8",
+                          "name": "card1BtnSkillsText",
+                          "fill": "#FFFFFF",
+                          "content": "写入 Skills",
+                          "fontFamily": "Outfit",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "rbVo1",
+                      "name": "card1BtnLesson",
+                      "fill": "#F5F3FF",
+                      "cornerRadius": 8,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#7C3AED"
+                      },
+                      "gap": 4,
+                      "padding": [
+                        8,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "p9tD3",
+                          "name": "card1BtnLessonText",
+                          "fill": "#7C3AED",
+                          "content": "写入 Lessons",
+                          "fontFamily": "Outfit",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "W18UM",
+                      "name": "card1BtnDismiss",
+                      "fill": "#00000000",
+                      "cornerRadius": 8,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "2VSVu",
+                          "name": "card1BtnDismissText",
+                          "fill": "#9C9B99",
+                          "content": "忽略",
+                          "fontFamily": "Outfit",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "JozCv",
+              "name": "Card — Explicit (已沉淀)",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E8E7E4"
+              },
+              "layout": "vertical",
+              "gap": 10,
+              "padding": [
+                16,
+                18
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "3lXJE",
+                  "name": "card2Top",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "NqIJT",
+                      "name": "card2KindBadge",
+                      "fill": "#DBEAFE",
+                      "cornerRadius": 100,
+                      "gap": 4,
+                      "padding": [
+                        3,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "DHDKf",
+                          "name": "card2KindIcon",
+                          "width": 12,
+                          "height": 12,
+                          "iconFontName": "check-circle",
+                          "iconFontFamily": "lucide",
+                          "fill": "#2563EB"
+                        },
+                        {
+                          "type": "text",
+                          "id": "qCUJO",
+                          "name": "card2KindText",
+                          "fill": "#2563EB",
+                          "content": "decision",
+                          "fontFamily": "Outfit",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "fnnSM",
+                      "name": "card2Status",
+                      "fill": "#ECFDF5",
+                      "cornerRadius": 100,
+                      "gap": 3,
+                      "padding": [
+                        2,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "h7sVU",
+                          "name": "card2StatusIcon",
+                          "width": 10,
+                          "height": 10,
+                          "iconFontName": "check",
+                          "iconFontFamily": "lucide",
+                          "fill": "#059669"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Ev0ap",
+                          "name": "card2StatusText",
+                          "fill": "#059669",
+                          "content": "已沉淀",
+                          "fontFamily": "Outfit",
+                          "fontSize": 10,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "C1Aht",
+                  "name": "card2Title",
+                  "fill": "#1A1918",
+                  "content": "摘要单元是 thread 不是 session",
+                  "lineHeight": 1.3,
+                  "fontFamily": "Outfit",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "Mb0WH",
+                  "name": "card2Summary",
+                  "fill": "#6D6C6A",
+                  "content": "多猫 session 有重合部分，按 session 分别摘要 = 同一段对话重复摘要。Thread 是所有猫共享的对话空间。",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Outfit",
+                  "fontSize": 13
+                },
+                {
+                  "type": "frame",
+                  "id": "1to9l",
+                  "name": "card2Settled",
+                  "width": "fill_container",
+                  "fill": "#F0FDF4",
+                  "cornerRadius": 8,
+                  "gap": 6,
+                  "padding": [
+                    6,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "Y8glk",
+                      "name": "card2SettledIcon",
+                      "width": 12,
+                      "height": 12,
+                      "iconFontName": "file-text",
+                      "iconFontFamily": "lucide",
+                      "fill": "#059669"
+                    },
+                    {
+                      "type": "text",
+                      "id": "WHU5U",
+                      "name": "card2SettledText",
+                      "fill": "#059669",
+                      "content": "已写入 docs/decisions/ADR-020.md",
+                      "fontFamily": "Outfit",
+                      "fontSize": 11,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sJU1e",
+                  "name": "card2Meta",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "hpttZ",
+                      "name": "card2Source",
+                      "fill": "#9C9B99",
+                      "content": "3 只猫共识 · 铲屎官拍板 · KD-41",
+                      "fontFamily": "Outfit",
+                      "fontSize": 11
+                    },
+                    {
+                      "type": "text",
+                      "id": "KnuGl",
+                      "name": "card2Undo",
+                      "fill": "#7C3AED",
+                      "content": "撤回",
+                      "fontFamily": "Outfit",
+                      "fontSize": 11,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "RMdmK",
+          "name": "Stats Bar",
+          "width": "fill_container",
+          "fill": "#FAFAF8",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1
+            },
+            "fill": "#E8E7E4"
+          },
+          "gap": 16,
+          "padding": [
+            12,
+            24
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "0U90L",
+              "name": "stat1",
+              "gap": 4,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "w0Ufc",
+                  "name": "stat1Num",
+                  "fill": "#2563EB",
+                  "content": "50",
+                  "fontFamily": "Outfit",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "WaYUm",
+                  "name": "stat1Label",
+                  "fill": "#9C9B99",
+                  "content": "decisions",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Dd0LV",
+              "name": "stat2",
+              "gap": 4,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "DL73g",
+                  "name": "stat2Num",
+                  "fill": "#D97706",
+                  "content": "35",
+                  "fontFamily": "Outfit",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "qvSRE",
+                  "name": "stat2Label",
+                  "fill": "#9C9B99",
+                  "content": "lessons",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "xfWj7",
+              "name": "stat3",
+              "gap": 4,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "XMhNE",
+                  "name": "stat3Num",
+                  "fill": "#059669",
+                  "content": "20",
+                  "fontFamily": "Outfit",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "MAcN7",
+                  "name": "stat3Label",
+                  "fill": "#9C9B99",
+                  "content": "methods",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "5P98h",
+          "name": "Natural Language Bar",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1
+            },
+            "fill": "#E8E7E4"
+          },
+          "gap": 8,
+          "padding": [
+            12,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "WmScZ",
+              "name": "inputField",
+              "width": "fill_container",
+              "fill": "#F5F4F1",
+              "cornerRadius": 100,
+              "gap": 8,
+              "padding": [
+                10,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "eAXS5",
+                  "name": "inputIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "search",
+                  "iconFontFamily": "lucide",
+                  "fill": "#9C9B99"
+                },
+                {
+                  "type": "text",
+                  "id": "Ot885",
+                  "name": "inputText",
+                  "fill": "#9C9B99",
+                  "content": "帮我看看这周有什么新知识...",
+                  "fontFamily": "Outfit",
+                  "fontSize": 13
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "PqhSe",
+              "name": "sendBtn",
+              "width": 36,
+              "height": 36,
+              "fill": "#7C3AED",
+              "cornerRadius": 100,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "T0gB7",
+                  "name": "sendIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "send",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

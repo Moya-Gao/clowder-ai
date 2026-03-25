@@ -37,7 +37,7 @@ while read local_ref local_sha remote_ref remote_sha; do
     fi
 
     # 允许的例外：纯文档/共享状态/技能文档/Agent配置同步（shared-rules §14）
-    # 严格白名单：docs/ + cat-config.json + opencode.json + cat-cafe-skills/ + .claude/skills/（symlink）
+    # 严格白名单：docs/ + designs/ + cat-config.json + opencode.json + cat-cafe-skills/ + .claude/skills/（symlink）
     #   + 根目录所有 *.md 文档 + .githooks/
     # 应用代码一律走 PR
     CHANGED_FILES="$(git diff --name-only "$DIFF_BASE".."$local_sha" 2>/dev/null)"
@@ -45,7 +45,7 @@ while read local_ref local_sha remote_ref remote_sha; do
       # diff 成功但无改动（remote_sha 已验证存在），真的无改动，放行
       continue
     fi
-    NON_DOC_FILES="$(echo "$CHANGED_FILES" | grep -v -E '^(docs/|cat-config\.json$|opencode\.json$|cat-cafe-skills/|\.claude/skills/|\.githooks/|[^/]*\.md$)' || true)"
+    NON_DOC_FILES="$(echo "$CHANGED_FILES" | grep -v -E '^(docs/|designs/|cat-config\.json$|opencode\.json$|cat-cafe-skills/|\.claude/skills/|\.githooks/|[^/]*\.md$)' || true)"
 
     if [ -z "$NON_DOC_FILES" ]; then
       # 只有文档/共享状态/技能文档变更，允许直接 push
