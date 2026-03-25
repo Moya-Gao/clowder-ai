@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "928829ad403d93b18e56b7d568c4e9baacf13b7d",
+  "last_reviewed_target_head": "24a28cc6cb968bff3b4ee7765b8193b5db8805f1",
   "entries": [
     {
       "pr_number": 90,
@@ -148,6 +148,20 @@
       "target_merge_commit": "928829ad403d93b18e56b7d568c4e9baacf13b7d",
       "decision": "absorbed",
       "timestamp": "2026-03-23T14:54:04.136Z"
+    },
+    {
+      "pr_number": 202,
+      "target_merge_commit": "ec22816c97dd46278aec968fff8d07772dea4bc3",
+      "decision": "absorbed",
+      "timestamp": "2026-03-25T02:57:08Z",
+      "notes": "Absorbed before v0.3.0 full sync; source already contained REDIS_KEY_PREFIX support and migrate-signals createRedisClient usage."
+    },
+    {
+      "pr_number": 218,
+      "target_merge_commit": "24a28cc6cb968bff3b4ee7765b8193b5db8805f1",
+      "decision": "absorbed",
+      "timestamp": "2026-03-25T02:57:08Z",
+      "notes": "Absorbed before v0.3.0 full sync; source already used @cat-cafe/shared/utils import path in migrate-signals CLI."
     }
   ]
 }
