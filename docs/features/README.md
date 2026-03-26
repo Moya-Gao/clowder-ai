@@ -102,3 +102,4 @@
 | F130 | F130: API 日志治理 — 四层分离 × 结构化落盘 | done | [F130-api-log-governance.md](./F130-api-log-governance.md) |
 | F131 | F131: Workspace Navigator — 猫猫可编程导航 Workspace 面板 | done | [F131-workspace-navigator.md](./F131-workspace-navigator.md) |
 | F133 | F133: GitHub CI/CD Tracking — 已注册 PR 的 CI/CD 执行结果自动追踪 | done | [F133-cicd-tracking.md](./F133-cicd-tracking.md) |
+| F137 | F137: WeChat Personal Gateway — 微信个人号 iLink Bot 接入 | done | [F137-weixin-personal-gateway.md](./F137-weixin-personal-gateway.md) |

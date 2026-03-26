@@ -8,7 +8,7 @@ created: 2026-07-19
 
 # F137: WeChat Personal Gateway — 微信个人号 iLink Bot 接入
 
-> **Status**: in-progress | **Owner**: 金渐层 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-03-25 | **Owner**: 金渐层 | **Priority**: P1
 >
 > **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
 > 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
@@ -105,17 +105,19 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 
 > 铲屎官提问：*"个人微信能接入和飞书那样超级多的富文本包括文件的传输 音频 图片等等吗？"*
 
-**结论：收入方向支持图片/文件/语音；发出方向目前只能纯文本。这是 iLink 协议限制，不是我们的代码限制。**
+**~~结论（已过时）：收入方向支持图片/文件/语音；发出方向目前只能纯文本。~~**
+
+**更正（2026-03-25）**：iLink `sendmessage` API 支持图片/文件/语音/视频出站（CDN 上传 + `image_item`/`file_item`/`voice_item`）。已实现：图片发送、文件发送、语音发送。详见下方能力矩阵。
 
 #### iLink 协议消息类型（`ILinkMessageItem.type`）
 
 | type 值 | 名称 | 入站（微信→Cat Cafe） | 出站（Cat Cafe→微信） |
 |---------|------|:-----:|:-----:|
-| 1 | TEXT | 已实现 | 已实现（唯一出站类型） |
-| 2 | IMAGE | 已实现（`image_item.url` → attachment） | 不支持 |
-| 3 | VOICE | 已实现（`voice_item.text` 语音转文字） | 不支持 |
-| 4 | FILE | 已实现（`file_item.file_name` → attachment） | 不支持 |
-| 5 | VIDEO | 协议有定义（`video_item`），代码未实现 | 不支持 |
+| 1 | TEXT | 已实现 | 已实现 |
+| 2 | IMAGE | 已实现（CDN 下载 + AES 解密） | 已实现（CDN 上传 + `image_item`） |
+| 3 | VOICE | 已实现（`voice_item.text` 语音转文字） | 已实现（CDN 上传 + `voice_item`） |
+| 4 | FILE | 已实现（CDN 下载 + AES 解密） | 已实现（CDN 上传 + `file_item`） |
+| 5 | VIDEO | 协议有定义（`video_item`），代码未实现 | 协议支持，代码未实现 |
 
 #### 出站限制的技术根因
 
@@ -445,6 +447,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-03-25 | BUG-4b/4c 修复：`every→some` + QueueProcessor 合并路径 + richBlocks 保留 → PR #740 云端 review 两轮通过 → squash merge (08c663fb)。83 tests pass |
 | 2026-03-25 | BUG-5 验证：context_token 可复用，不是单次消费。移除 `lastConsumedToken` + `SINGLE_TOKEN_CONNECTORS` 合并逻辑。实现 AC-B3/B6 媒体接收（CDN 下载 + AES 解密） |
 | 2026-03-25 | F137 cleanup PR #744 merged — BUG-5 dead code removal + media receiving + P1/P2 review fixes (aes_key encoding + FILE empty guard)。砚砚 R6 放行 + 云端 Codex 0 P1/P2。AC 全部 ✅ |
+| 2026-03-25 | **F137 feat-close** — 愿景守护：布偶猫(opus) 三问 + 证物对照表全 ✅，缅因猫(gpt52) 独立验证放行。19/19 AC done。反思胶囊已写 |
 
 ## Review Gate
 
