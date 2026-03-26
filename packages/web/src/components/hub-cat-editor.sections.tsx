@@ -255,7 +255,6 @@ export function AccountSection({
   const accountOptions = availableProfiles;
   const selectedProfile = availableProfiles.find((p) => p.id === form.accountRef);
   const callHint = buildCallHint(form.client, selectedProfile, form.defaultModel);
-
   return (
     <SectionCard title="认证与模型" tone={hasError ? 'error' : 'neutral'}>
       <div className="space-y-2">
@@ -287,7 +286,7 @@ export function AccountSection({
         ) : (
           <>
             <SelectField
-              label="Provider"
+              label="认证信息"
               value={form.accountRef}
               options={[
                 { value: '', label: loadingProfiles ? '加载中…' : '请选择认证方式' },
@@ -332,13 +331,6 @@ export function AccountSection({
                 }
               />
             )}
-            {form.client === 'opencode' && form.defaultModel.trim() && !form.defaultModel.includes('/') ? (
-              <div className="rounded-[10px] border border-dashed border-[#DCC9B8] bg-[#F7F3F0] px-3 py-2">
-                <p className="text-[11px] leading-4 text-[#8A776B]">
-                  建议使用 `providerId/modelId` 格式（例如 `openai/gpt-5.4`），部分 provider 需要前缀才能正确路由。
-                </p>
-              </div>
-            ) : null}
           </>
         )}
       </div>

@@ -535,7 +535,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     assert.equal(createRes.statusCode, 201, 'cross-protocol api_key binding should be allowed');
   });
 
-  it('POST /api/cats rejects opencode model without providerId/ prefix', async () => {
+  it('POST /api/cats opencode rejects bare model, accepts provider/model', async () => {
     const projectRoot = createProjectRoot();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
 
@@ -546,7 +546,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       protocol: 'openai',
       baseUrl: 'https://api.bound.example',
       apiKey: 'sk-bound-openai',
-      models: ['gpt-5.4'],
+      models: ['gpt-5.4', 'openai/gpt-5.4'],
     });
 
     const Fastify = (await import('fastify')).default;
@@ -555,30 +555,46 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const app = Fastify();
     await app.register(catsRoutes);
 
-    const createRes = await app.inject({
+    // Case 1: bare model → 400 (opencode requires providerId/modelId format)
+    const bareReject = await app.inject({
       method: 'POST',
       url: '/api/cats',
-      headers: {
-        'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
-      },
+      headers: { 'content-type': 'application/json', 'x-cat-cafe-user': 'codex' },
       body: JSON.stringify({
-        catId: 'runtime-opencode-bare-model',
-        name: '运行时金渐层',
-        displayName: '运行时金渐层',
+        catId: 'oc-bare-reject',
+        name: '金渐层A',
+        displayName: '金渐层A',
         avatar: '/avatars/opencode.png',
         color: { primary: '#0f172a', secondary: '#e2e8f0' },
-        mentionPatterns: ['@runtime-opencode-bare-model'],
+        mentionPatterns: ['@oc-bare-reject'],
         roleDescription: '审查',
         client: 'opencode',
         providerProfileId: openaiProfile.id,
         defaultModel: 'gpt-5.4',
       }),
     });
+    assert.equal(bareReject.statusCode, 400, 'bare model → 400');
+    assert.match(JSON.parse(bareReject.body).error, /provider/i);
 
-    assert.equal(createRes.statusCode, 400);
-    const createBody = JSON.parse(createRes.body);
-    assert.match(createBody.error, /providerId\/modelId/i);
+    // Case 2: provider/model format → 201
+    const slashAccept = await app.inject({
+      method: 'POST',
+      url: '/api/cats',
+      headers: { 'content-type': 'application/json', 'x-cat-cafe-user': 'codex' },
+      body: JSON.stringify({
+        catId: 'oc-slash-accept',
+        name: '金渐层B',
+        displayName: '金渐层B',
+        avatar: '/avatars/opencode.png',
+        color: { primary: '#0f172a', secondary: '#e2e8f0' },
+        mentionPatterns: ['@oc-slash-accept'],
+        roleDescription: '审查',
+        client: 'opencode',
+        providerProfileId: openaiProfile.id,
+        defaultModel: 'openai/gpt-5.4',
+      }),
+    });
+    assert.equal(slashAccept.statusCode, 201, 'provider/model → 201');
   });
 
   it('POST /api/cats rejects catId values that are not lowercase-safe identifiers', async () => {

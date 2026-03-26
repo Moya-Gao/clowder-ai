@@ -2963,6 +2963,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       id: unboundCatId,
       mentionPatterns: [`@${unboundCatId}`],
       provider: 'openai',
+      defaultModel: 'gpt-5.4',
     });
 
     const optionsSeen = [];
