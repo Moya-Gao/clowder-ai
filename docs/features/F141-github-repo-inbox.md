@@ -118,8 +118,8 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 - [x] AC-A6: ConnectorSource `github-repo-event` 注册，ConnectorBubble 正确渲染
 - [x] AC-A7: 投递走 deliverConnectorMessage() 统一消息管线
 - [x] AC-A8: 测试覆盖：GitHubWebhookAdapter 单元测试
-- [ ] AC-A9: opensource-ops SKILL.md 更新 triage 流程
-- [ ] AC-A10: refs/repo-inbox.md 新增（含 webhook 配置指南）
+- [x] AC-A9: opensource-ops SKILL.md 更新 triage 流程
+- [x] AC-A10: refs/repo-inbox.md 新增（含 webhook 配置指南）
 
 ### Phase B（Reconciliation）
 - [ ] AC-B1: RepoScanTaskSpec 注册为 F139 TaskSpec_P1 consumer（profile=poller, actor=repo-watcher）

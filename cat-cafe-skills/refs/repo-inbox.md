@@ -87,7 +87,7 @@ gh pr view {N} --repo {owner/repo}
 
 ### Webhook Secret 存储
 
-webhook secret 存储在 connector 配置中，通过 `cat-config.json` 的 connector 条目或环境变量注入。
+webhook secret 通过环境变量 `GITHUB_WEBHOOK_SECRET` 注入（OQ-4 已定，不走 cat-config.json）。
 
 ### 故障恢复
 

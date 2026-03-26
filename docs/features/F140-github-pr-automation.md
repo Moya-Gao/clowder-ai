@@ -80,9 +80,23 @@ created: 2026-03-26
 - `opensource-ops` SKILL.md：maintainer 处理社区 PR 的冲突/review 状态
 - `refs/pr-signals.md`：新增——PR Signals 通知格式、处理策略、配置说明
 
-### Phase B: 猫自动处理
+### Phase B: 自动响应引导层 (Auto-response Guidance)
 
-猫收到冲突/review feedback 通知后的自动响应能力：
+猫收到冲突/review feedback 通知后的操作引导——消息级 action hints + Skill 行为决策树，猫据此知道该做什么并按 Skill 流程执行：
+
+**1. 冲突 action hint**
+- 冲突消息附带 rebase 操作指引（KD-13: 全自动 + 事后通知）
+- Skill 层（merge-gate / pr-signals）定义简单/复杂冲突分级决策树
+
+**2. Review feedback action hint**
+- Review feedback 消息按 decision 类型（CHANGES_REQUESTED / APPROVED / COMMENTED）附带分流操作指引
+- Skill 层（receive-review / pr-signals）定义 review 处理入口
+
+> **注**：Phase B 是引导层——猫看到 action hint 后仍需按 Skill 流程手动执行操作。真正的零点击自动执行器（代码层面自动 rebase + push + 处理 review）见 Phase C。
+
+### Phase C: 自动执行器 (Auto-executor)（未开工）
+
+猫收到通知后**零人工干预自动执行**：
 
 **1. 冲突自动 resolve**
 - 猫收到冲突通知 → 在 worktree 中 `git fetch origin main && git rebase origin/main`
@@ -90,8 +104,8 @@ created: 2026-03-26
 - 复杂冲突（无法自动 resolve）→ 通知铲屎官
 
 **2. Review feedback 自动处理**
-- 猫收到 review feedback 通知 → 读取内容 → 按 receive-review 模式处理
-- 区分 review decision：requested changes / approve / comment → 不同处理策略
+- 猫收到 review feedback 通知 → 自动加载 receive-review 模式 → 逐项处理
+- 区分 review decision：requested changes / approve / comment → 不同自动处理策略
 
 ## Acceptance Criteria
 
@@ -108,10 +122,15 @@ created: 2026-03-26
 - [x] AC-A10: merge-gate / receive-review / opensource-ops SKILL.md 更新
 - [x] AC-A11: refs/pr-signals.md 新增
 
-### Phase B（猫自动处理）✅
-- [x] AC-B1: 猫收到冲突通知后能自动尝试 rebase resolve
-- [x] AC-B2: 简单冲突自动 resolve + push，复杂冲突通知铲屎官
-- [x] AC-B3: 猫收到 review feedback 后按 receive-review 模式自动处理
+### Phase B（自动响应引导层）✅
+- [x] AC-B1: 冲突消息附带 rebase action hint + Skill 行为决策树
+- [x] AC-B2: pr-signals.md 定义简单/复杂冲突分级（≤3 文件 vs 复杂）
+- [x] AC-B3: Review feedback 消息按 decision 类型附带分流 action hint
+
+### Phase C（自动执行器）
+- [ ] AC-C1: 猫收到冲突通知后零人工干预自动 rebase + push
+- [ ] AC-C2: 简单冲突自动 resolve，复杂冲突通知铲屎官附冲突文件列表
+- [ ] AC-C3: 猫收到 review feedback 后自动加载 receive-review 模式处理
 
 ## Dependencies
 
