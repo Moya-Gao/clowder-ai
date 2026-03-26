@@ -46,6 +46,7 @@ description: >
 
 | 触发 | 场景 | 详细文档 |
 |------|------|---------|
+| **Repo Inbox 通知到达**（F141） | **首反 SOP → A 或 B** | [refs/repo-inbox.md](../refs/repo-inbox.md) |
 | 社区 issue 来了 | **A: Issue Triage** | [refs/opensource-ops-issue-triage.md](../refs/opensource-ops-issue-triage.md) |
 | 社区 PR 提交到 clowder-ai | **B: Inbound PR** | [refs/opensource-ops-inbound-pr.md](../refs/opensource-ops-inbound-pr.md) |
 | 我们往开源仓提 PR | **C: Outbound PR** | [refs/opensource-ops-outbound-pr.md](../refs/opensource-ops-outbound-pr.md) |
@@ -58,14 +59,14 @@ description: >
 ### A: Issue Triage
 
 1. `[clowder-ai]` 读 issue → 判断类型（bug / feature / enhancement / duplicate）
-2. `[clowder-ai]` 关联检测（ref `feat-lifecycle` Step 0）→ 是否已有 Feature 覆盖
+2. `[cat-cafe]` + `[clowder-ai]` **主人翁 Gate**（含关联检测）→ 五问判定 → WELCOME / NEEDS-DISCUSSION / POLITELY-DECLINE
 3. `[clowder-ai]` 打标签 + 互链相关 issue
 4. `[cat-cafe]` 如果是新 Feature：BACKLOG 加条目（Source=community）
-5. 详细步骤 → [Issue Triage 文档](../refs/opensource-ops-issue-triage.md)
+5. 详细步骤 → [Issue Triage 文档](../refs/opensource-ops-issue-triage.md) | 判定卡 → [主人翁五问](../refs/ownership-gate.md)
 
 ### B: Inbound PR（评估 → 合入 → 吸收）
 
-1. `[clowder-ai]` **Merge Gate**：accepted issue? → 质量? → 方向? → intake 预判?
+1. `[clowder-ai]` **Merge Gate**：accepted issue? → **方向(五问)?** → 质量? → intake 预判?
 2. `[clowder-ai]` Merge 执行（Patch 自主 / Feature 升级铲屎官）
 3. `[cat-cafe]` **Intake Gate**：`intake-from-opensource.sh --pr N --mode=plan` → 执行吸收 → `record + 立刻尝试 advance-ledger`（同一检查点）
 4. 详细步骤 → [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md)

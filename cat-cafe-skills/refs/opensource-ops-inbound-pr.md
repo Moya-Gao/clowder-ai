@@ -13,7 +13,8 @@
 
 ## B1: Merge Gate `[clowder-ai]`
 
-**按顺序逐条检查，任一不过 = 不 merge：**
+**按顺序逐条检查，任一不过 = 不 merge。**
+**顺序原则（家规 P3）**：先过方向再审质量——方向错的 PR 不值得花时间看代码。
 
 ### Checklist
 
@@ -22,14 +23,19 @@
   - 检查方法：`gh issue view {N} --repo zts212653/clowder-ai --json labels,state` → 有 `triaged` + 类型标签 + state=OPEN + 无 `needs-maintainer-decision` + 无 `needs-info`
   - 无 accepted issue → 请贡献者先开 issue，猫猫做 triage 后再提 PR
   - Feature 类：需确认有 F 编号（`feature:Fxxx` 标签）+ 关联检测已过
-- [ ] **② 质量**：
+- [ ] **② 方向（主人翁五问）**：
+  > 详细判定标准 → [refs/ownership-gate.md](./ownership-gate.md)
+  - 跑主人翁五问判定卡（Q1-Q5 逐问填结论 + 证据）
+  - Q1 愿景对齐 + Q2 Feature 不冲突 = 硬门（fail → DECLINE）
+  - Q3 真实需求 + Q4 技术栈 fit + Q5 负债可控 = 软门
+  - Feature：F 编号正确、Feature Doc 存在且 AC 对应
+  - Patch：修复内容和 issue 描述一致
+  - **Verdict POLITELY-DECLINE → 停止，用[话术模板](./ownership-gate.md#话术模板)回复，不进入 ③**
+  - **Verdict NEEDS-DISCUSSION → 打 `needs-maintainer-decision`，暂停等铲屎官**
+- [ ] **③ 质量**（方向通过后才审）：
   - CI / 测试通过
   - 代码规范（`pnpm check` + `pnpm lint`）
   - 无安全隐患（敏感路径、hardcoded secrets）
-- [ ] **③ 方向**：
-  - Feature：F 编号正确、Feature Doc 存在且 AC 对应
-  - Patch：修复内容和 issue 描述一致
-  - 不和我们正在做的工作冲突
 - [ ] **④ Intake 预判**：
 
 ```bash

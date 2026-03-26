@@ -130,6 +130,10 @@ GitHub webhook POST → GitHubWebhookAdapter
 | KD-3 | Issue discovery 和 PR discovery 在同一个 Repo Inbox | 都是"仓库新事件"，统一发现层 | 2026-03-26 |
 | KD-4 | 独立立项不合并进 F140 | F140 = 追踪层（已注册 PR 信号），F141 = 发现层（新事件感知），不同抽象层级；铲屎官确认分开立项 | 2026-03-26 |
 | KD-5 | 投递走 deliverConnectorMessage() 统一消息管线 | 与 F133/F140 体验一致，复用基础设施 | 2026-03-26 |
+| KD-6 | 主人翁五问 Gate 作为 triage 质量门禁 | 铲屎官明确指出猫猫默认倾向接纳是大问题；fail-closed 设计对冲接纳偏向 | 2026-03-26 |
+| KD-7 | Fail-closed 默认：无证据 = 不通过，unknown 不能进 WELCOME | 三猫讨论共识，防止形式主义打勾 | 2026-03-26 |
+| KD-8 | Scene B Merge Gate 重排：方向(五问) 在质量之前 | 家规 P3"方向正确 > 速度"——方向错的 PR 不值得花时间审代码 | 2026-03-26 |
+| KD-9 | 拒绝"方案"不否定"问题"：decline PR ≠ 否定底层问题 | 社区温度 + 问题仍挂 design anchor 追踪 | 2026-03-26 |
 
 ## Timeline
 
@@ -137,6 +141,8 @@ GitHub webhook POST → GitHubWebhookAdapter
 |------|------|
 | 2026-03-26 | F140 讨论中发现 maintainer 最大痛点是"发现层缺失" |
 | 2026-03-26 | 铲屎官确认 F141 独立立项，可与 F140 并发开发 |
+| 2026-03-26 | 三猫讨论（布偶猫 + 缅因猫 codex + 缅因猫 gpt52）收敛 triage 配套设计：主人翁五问 Gate + 首反 SOP |
+| 2026-03-26 | 铲屎官确认方向，落到 Skill 文档 |
 
 ## Review Gate
 
@@ -151,3 +157,5 @@ GitHub webhook POST → GitHubWebhookAdapter
 | **Feature** | `docs/features/F133-cicd-tracking.md` | CI Signals |
 | **Feature** | `docs/features/F139-unified-schedule-abstraction.md` | TaskSpec 框架 |
 | **Code** | `packages/api/src/routes/connector-webhooks.ts` | 通用 webhook 端点（复用传输层） |
+| **Skill** | `cat-cafe-skills/refs/ownership-gate.md` | 主人翁五问判定卡 |
+| **Skill** | `cat-cafe-skills/refs/repo-inbox.md` | Repo Inbox 通知格式 + 首反 SOP |

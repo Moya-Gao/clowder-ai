@@ -49,14 +49,40 @@ gh issue view {N} --repo zts212653/clowder-ai
 
 **信息不足时不要急着打类型标签**，先追问再判断。追问后等回复，回复后继续 Step 2+。
 
-## Step 2: 关联检测 `[cat-cafe]` + `[clowder-ai]`
+## Step 2: 主人翁 Gate（含关联检测）`[cat-cafe]` + `[clowder-ai]`
 
-**必须做，防止重复立项。** 流程同 `feat-lifecycle` Step 0。
+> **默认存疑，必须过五问才接纳。** 详细判定标准 → [refs/ownership-gate.md](./ownership-gate.md)
+
+### Step 2a: 跑主人翁五问判定卡
+
+逐问填写 `结论 / 证据`，无证据记 `unknown`（`unknown` 不能进 `WELCOME`）：
+
+| # | 问 | 证据来源 |
+|---|-----|---------|
+| Q1 | 和愿景冲突吗？ | `docs/VISION.md` |
+| Q2 | 和已有 Feature/决策冲突吗？ | `docs/BACKLOG.md` + `docs/features/*.md` + `docs/decisions/` |
+| Q3 | 是我们需要的吗？ | maintainer 痛点 / roadmap / 重复需求信号 |
+| Q4 | 技术栈优雅吗？ | 构建链 / 运行时 / 模块边界 |
+| Q5 | 引入什么负债？ | build/test/支持/安全/sync/文档成本 |
+
+**Q2 的搜索即为关联检测**（流程同 `feat-lifecycle` Step 0），不需要另外再做一遍：
 
 ```bash
 # [cat-cafe] 扫描现有 Feature
 grep -i "{关键词}" docs/BACKLOG.md docs/features/*.md
 ```
+
+### Step 2b: 判定 + 路由
+
+| Verdict | 触发条件 | 动作 |
+|---------|---------|------|
+| **WELCOME** | 五问全 pass，负债低，有 owner | 继续 Step 3+ 正常 triage |
+| **NEEDS-DISCUSSION** | 无硬拒绝，但 ≥2 不通过或有 `unknown` | 打 `needs-maintainer-decision`，48h SLA 内转 WELCOME 或 DECLINE |
+| **POLITELY-DECLINE** | Q1 或 Q2 硬拒绝触发 | 用[话术模板](./ownership-gate.md#话术模板)回复 + 打 `wontfix` + 关闭 |
+
+**DECLINE 时必须**：填 reason_code + 附可行缩小版建议（如果有）+ 如果问题有价值，挂到正确的 design anchor。
+
+### Step 2c: 关联检测结果处置（WELCOME 后）
 
 | 检测结果 | 处置 |
 |---------|------|
