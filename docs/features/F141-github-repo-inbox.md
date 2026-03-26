@@ -40,11 +40,13 @@ created: 2026-03-26
 
 ### Phase A: GitHub Webhook Adapter + Repo Inbox 投递
 
-**1. GitHubWebhookAdapter**
+**1. GitHubRepoWebhookHandler**（实现 `ConnectorWebhookHandler` 接口）
 - 复用现有 `POST /api/connectors/:connectorId/webhook` 通用端点
-- 新增 `github-repo` webhook handler
-- 校验：`X-Hub-Signature-256`、`X-GitHub-Event`、`X-GitHub-Delivery`
-- `X-GitHub-Delivery` id 去重
+- handler id = connector source id = **`github-repo-event`**（KD-12：三处统一）
+- 校验：`X-Hub-Signature-256` HMAC-SHA256（**基于 raw body + timingSafeEqual**，KD-11）
+- `X-GitHub-Event` header 过滤：只处理 `pull_request`（opened/ready_for_review）和 `issues`（opened）
+- **repo allowlist**：`GITHUB_REPO_ALLOWLIST` 环境变量过滤非授权仓库
+- `X-GitHub-Delivery` id 去重：**Redis SET NX EX + claim/confirm/rollback**（KD-13）
 - 事件归一化为 `RepoInboxSignal`
 
 **2. 覆盖的 GitHub 事件**
@@ -54,18 +56,35 @@ created: 2026-03-26
 
 **3. 投递路径**
 ```
-GitHub webhook POST → GitHubWebhookAdapter
-  → 校验签名 + delivery id 去重
+GitHub webhook POST → /api/connectors/github-repo-event/webhook
+  → raw body 提取（Fastify rawBody 配置）
+  → HMAC-SHA256 签名校验（raw body + timingSafeEqual）
+  → repo allowlist 检查
+  → Redis delivery id claim（SET NX EX）
   → 归一化 RepoInboxSignal
-  → deliverConnectorMessage()          ← 统一消息管线
-  → 投递到 maintainer inbox thread
-  → 猫决定是否认领 → register_pr_tracking → 进入 F140 追踪
+  → ConnectorThreadBindingStore 查 per-repo inbox thread（无则创建）
+  → deliverConnectorMessage()（mention GITHUB_REPO_INBOX_CAT_ID）
+  → Redis delivery id confirm
+  → 猫收到通知 → 主人翁五问 triage → 认领 → register_pr_tracking → F140
 ```
 
 **4. ConnectorSource 注册**
-- `github-repo-event`：仓库事件 connector（GitHub 品牌色主题）
+- `github-repo-event`：仓库事件 connector（GitHub 品牌色 #24292e）
+- `sender`: `{ id: String(sender.id), name: sender.login }`（GitHub actor）
+- `meta` 最小集：`repoFullName, subjectType(pr|issue), number, action, deliveryId, authorAssociation`
+- `url`: GitHub PR/Issue 页面链接
 
-**5. Skill/SOP 更新**
+**5. Thread 绑定**
+- **per-repo 专用 "Repo Inbox" thread**（KD-14）
+- 复用 `ConnectorThreadBindingStore`：`connectorId=github-repo-event`, `externalChatId=owner/repo`
+- 首次事件自动创建 thread，标题 `Repo Inbox · {owner/repo}`
+- thread owner = 真实 maintainer userId（不造 system thread）
+
+**6. Cat Mention**
+- Phase A：`GITHUB_REPO_INBOX_CAT_ID` 环境变量指定收件猫（KD-16）
+- 单点收件，triage 后在 thread 内 handoff
+
+**7. Skill/SOP 更新**
 - `opensource-ops` SKILL.md：maintainer 收到 Repo Inbox 通知后的 triage 流程
 - `refs/repo-inbox.md`：新增——Repo Inbox 通知格式、webhook 配置指南
 
@@ -128,10 +147,10 @@ GitHub webhook POST → GitHubWebhookAdapter
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | maintainer inbox thread 是专门的"收件箱"thread 还是通知到 maintainer 的现有 thread？ | 待 Design Gate |
+| OQ-1 | maintainer inbox thread 是专门的"收件箱"thread 还是通知到 maintainer 的现有 thread？ | ✅ **per-repo 专用 thread**，复用 ConnectorThreadBindingStore（`externalChatId=owner/repo`） |
 | OQ-2 | Issue 后续信号（comment、close、label）是否需要类似 F140 的追踪层？ | 以后 |
-| OQ-3 | 多仓库支持：每个仓库一个 webhook 配置还是统一入口？ | 待 Design Gate |
-| OQ-4 | webhook secret 配置存储在哪？cat-config.json 还是环境变量？ | 待 Design Gate |
+| OQ-3 | 多仓库支持：每个仓库一个 webhook 配置还是统一入口？ | ✅ **单 connector `github-repo-event`**，payload 区分 repo，**repo allowlist** 过滤非授权仓库 |
+| OQ-4 | webhook secret 配置存储在哪？cat-config.json 还是环境变量？ | ✅ **环境变量** `GITHUB_WEBHOOK_SECRET` + `GITHUB_REPO_ALLOWLIST`（逗号分隔） |
 
 ## Key Decisions
 
@@ -147,6 +166,12 @@ GitHub webhook POST → GitHubWebhookAdapter
 | KD-8 | Scene B Merge Gate 重排：方向(五问) 在质量之前 | 家规 P3"方向正确 > 速度"——方向错的 PR 不值得花时间审代码 | 2026-03-26 |
 | KD-9 | 拒绝"方案"不否定"问题"：decline PR ≠ 否定底层问题 | 社区温度 + 问题仍挂 design anchor 追踪 | 2026-03-26 |
 | KD-10 | Phase B RepoScanTaskSpec 复用 F139 已有 poller consumer 模式 | F139 Phase 1a/1b 已 merged，4 个 consumer 验证了模式；repo-watcher + cheap 与 cicd-check 一致 | 2026-03-26 |
+| KD-11 | HMAC 签名校验需要 raw body：扩展 ConnectorWebhookHandler 接口加 `rawBody?: Buffer` | 砚砚 P1：GitHub 签名对原始字节流签名，parsed JSON stringify 不可靠 | 2026-03-26 |
+| KD-12 | handler id / source id / registry 三处统一为 `github-repo-event` | 砚砚 P1：通用 webhook route 要求 URL connectorId = 已注册 connector，不能拆名字 | 2026-03-26 |
+| KD-13 | delivery id 去重用 Redis SET NX EX + claim/confirm/rollback 语义 | 砚砚 P1：内存 Map fire-and-forget 会在投递失败时毒死 GitHub retry | 2026-03-26 |
+| KD-14 | per-repo inbox thread 用 ConnectorThreadBindingStore 持久绑定 | 砚砚 P2：不能靠标题猜线程，重启后会长垃圾 thread | 2026-03-26 |
+| KD-15 | transport dedup（delivery id）和 business dedup（Phase B reconciliation）分开存储和 key | 砚砚安全审查：两个问题域，不该复用 | 2026-03-26 |
+| KD-16 | Phase A cat mention 用配置 `GITHUB_REPO_INBOX_CAT_ID`，不做 actor.role 解析 | 砚砚建议：先单点收件，triage thread 里再 handoff | 2026-03-26 |
 
 ## Timeline
 
@@ -156,6 +181,7 @@ GitHub webhook POST → GitHubWebhookAdapter
 | 2026-03-26 | 铲屎官确认 F141 独立立项，可与 F140 并发开发 |
 | 2026-03-26 | 三猫讨论（布偶猫 + 缅因猫 codex + 缅因猫 gpt52）收敛 triage 配套设计：主人翁五问 Gate + 首反 SOP |
 | 2026-03-26 | 铲屎官确认方向，落到 Skill 文档 |
+| 2026-03-26 | Design Gate 通过 — 砚砚（gpt52）4 个约束补入 spec（raw body / 统一 ID / Redis claim-rollback / 持久绑定） |
 
 ## Review Gate
 
