@@ -31,7 +31,11 @@ created: 2026-03-25
 - **subjectKey 统一锚点**：lease / cursor / dedupe / dispatch / run-ledger 共用主键
 - **run ledger**：SQLite 记录每次调度结果（SKIP_NO_SIGNAL / RUN_DELIVERED / RUN_FAILED）
 - **Task profiles**：`awareness`（宽松）/ `poller`（精确）预设，防组合爆炸
-- **迁移 SummaryCompactionTask**：从 boolean isEligible → typed signal gate
+- **具体 consumer（铲屎官要求统一，不再加独立 setInterval）**：
+  - `summary-compact` — 迁移 F102 SummaryCompactionTask（boolean → typed signal）
+  - `cicd-check` — 迁移 F133 CiCdCheckPoller（第一个验证用例）
+  - `conflict-check` — 新增 PR 冲突检测（push to main → mergeable 状态变化）
+  - `review-comments` — 新增 PR comments 检测（人类 + 猫的 GitHub comments）
 
 ### Phase 1b: Actor + Cat Wake
 
@@ -59,8 +63,10 @@ created: 2026-03-25
 - [ ] AC-A2: subjectKey 贯穿 lease/cursor/dedupe/ledger 全链路
 - [ ] AC-A3: run ledger SQLite 表结构 + 写入逻辑
 - [ ] AC-A4: SummaryCompactionTask 迁移到新 TaskSpec（红→绿）
-- [ ] AC-A5: awareness / poller 两种 profile 可用
-- [ ] AC-A6: 现有 TaskRunner 行为不回归
+- [ ] AC-A5: CiCdCheckPoller 迁移到新 TaskSpec（红→绿）
+- [ ] AC-A6: conflict-check + review-comments TaskSpec 注册可用
+- [ ] AC-A7: awareness / poller 两种 profile 可用
+- [ ] AC-A8: 现有 TaskRunner 行为不回归，三套独立 setInterval 收敛为统一调度
 
 ### Phase 1b（Actor + Cat Wake）
 - [ ] AC-B1: actor.role resolver 从 cat-config.json 匹配猫
@@ -121,6 +127,7 @@ created: 2026-03-25
 | 2026-03-25 | GPT Pro 外部咨询 → 六维度模型成型 |
 | 2026-03-25 | ADR-022 起草 + 砚砚两轮 review + 图审通过 |
 | 2026-03-25 | 立项 F139 |
+| 2026-03-25 | 跨线程通知：三套 setInterval 技术债 + 社区需求（冲突/comments 检测）→ Phase 1a 紧迫 |
 
 ## Review Gate
 
