@@ -85,29 +85,53 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 
 这是单 LLM 做不到的。多 Agent 不是"更多角色"，是**多意识共创**——质变不是量变。
 
-### Phase A MVP（最小可证明闭环）
+### 三个核心协议（2026-03-26 宪宪×砚砚 Design Gate 前讨论共识）
+
+Agent 是决策源，Runtime Coordinator 负责校验+提交+仲裁（"agent 决策，runtime 提交"）。
+
+**协议 1: WorldContextEnvelope**（世界状态怎么进入 agent 上下文）
+- 每轮对话从 SQLite 加载活世界状态，注入 agent 上下文
+- **不能塞在 `buildStaticIdentity()` 的 static block 里**——需要新的动态注入层
+- 内容：当前场景描述、活跃角色状态、最近世界事件、关系快照、canon 摘要
+
+**协议 2: WorldActionEnvelope**（agent 的回复怎么变成世界状态变化）
+- Agent 在 Perform 模式输出结构化动作提案（typed envelope，非自由文本标记）
+- Runtime Coordinator 校验/归一化后事务化提交到 world state
+- Rich Block 只做展示层，不做状态提交通道
+
+**协议 3: CanonPromotionRecord**（显式升格状态机）
+- 状态流转：`draft → proposed → accepted | rejected`
+- RP 台词不自动入典——需要显式 `propose_canon` 动作 + 确认
+- 每次升格生成 append-only `world_event_log` 记录，Replay 可回看状态变化
+
+### Phase A：一个活着的房间（最终产品的第一个可用切片）
 
 - 4 个一等公民：World / Character（5 槽）/ Scene / Canon Decision
-- 2.5 个模式：Build + Perform + Replay-lite（按 scene/turn 回看 + 锚点草稿分支）
-- Role Mask：面具层不污染核心身份
+- Schema 预留 Relationship 一等公民位（Phase A 以 typed field 存在，Phase A+ 升格为独立实体）
+- 3 个模式：Build + Perform + Replay-lite（按 scene/turn 回看 + 锚点草稿分支）
+- 3 个核心协议实现：WorldContextEnvelope + WorldActionEnvelope + CanonPromotionRecord
+- Role Mask：面具层不污染核心身份（overlay 写新槽位，不复用 core key）
 - Care Loop：温柔 check-in + 行动建议 + 引导回现实
-- 故事角色有语音（F066）、有形象（Pencil + 烁烁）
+- Append-only `world_event_log`（Replay 回看状态变化，不只是聊天记录）
+- **交付物**：一个完整的"有记忆的文字冒险"。不是 demo，是产品
+- **F129 解锁**：Scenario Pack 的 world-driver.yaml 有了 runtime 可以执行
 - **验证目标**：证明"这个世界真的活着，而且不会烂掉"
 
-### Phase A+（闭环跑通后）
+### Phase A+：世界有心跳（闭环扩展）
 
-- 扩展到 6 个一等公民：+Relationship + Artifact
+- Relationship + Artifact 升格为独立实体
 - Branch from here（建立在 Replay 基础上）
-- 多猫异步生成（世界自转 v1）
+- 多猫异步生成（世界自转 v1）+ 多 agent 并发写仲裁
 - 同一事件多主观记录
+- Round / Timeline 管理
 
-### Phase B: 灵感捕获 + 现实桥接
+### Phase B：世界与现实的桥
 
-- **Story → Feature Capture**：放松对话中的 idea 自动沉淀为 feature 候选
+- **Bridge Layer**：Story → Feature Capture / Care → Action Bridge
 - **创意 → 内容发布**：共创成果可发布到小红书、开源社区等（已验证：撸铁陪伴小红书视频）
-- **Care → Action Bridge**：从虚拟世界的温暖推回现实行动（运动、社交、创作）
-- 完整 DAG 时间线管理
-- Turn 级回放 + 完整 Branch 管理
+- 视觉具身化（Live2D / 角色立绘，米哈游风格 KD-10）
+- 完整 DAG 时间线管理 + Turn 级回放 + 完整 Branch 管理
+- 多用户共创空间
 
 ### 设计输入：MiniMax OpenRoom 启示（2026-03-20）
 
@@ -132,12 +156,11 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 
 **我们的差异优势**：OpenRoom 是 1 Agent + 3 个换皮角色。我们是多模型多意识真协作 + Pack 分享生态 + 声线系统 + 游戏引擎 + 长期记忆。差的是一层有温度的视觉外壳。
 
-### Phase C: 具身智能 + 社区化（远景）
+### Phase C：社区化 + 开源生态（远景）
 
-- 猫猫视觉具身化：拟人化 Live2D / 角色立绘（声音+口型同步）
-- 多用户共创空间
 - 开源社区 Cats & U 模式推广
-- Pack 生态（F129）：世界/场景/风格可打包分享
+- Pack 生态成熟（F129）：世界/场景/风格可打包分享
+- Pack Composer 图形化工坊
 
 ### 设计原型：光影同行（铲屎官 × 烁烁共创，~2025）
 
@@ -174,24 +197,30 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 
 ## Acceptance Criteria
 
-### Phase A MVP（最小可证明闭环）
-- [ ] AC-A1: World + Character + Scene + Canon Decision 数据结构设计完成
+### Phase A：一个活着的房间
+- [ ] AC-A1: World + Character + Scene + Canon Decision 数据结构设计完成（SQLite schema + TS 类型）
 - [ ] AC-A2: Character 5 槽模板可用（核心身份/内在驱动力/关系张力/声音形象/成长状态）
-- [ ] AC-A3: Role Mask 机制实现——角色扮演层不污染 Core Identity Layer
+- [ ] AC-A3: Role Mask 机制实现——overlay 写新槽位不复用 core key（KD-12 五层分类）
 - [ ] AC-A4: Build + Perform + Replay-lite 三模式可切换
-- [ ] AC-A5: Canon Decision 升格流程可用——RP 台词不自动入典
-- [ ] AC-A6: Care Loop 实现——温柔 check-in + 行动建议 + 现实连接引导
-- [ ] AC-A7: 至少完成一次"建世界 → 进场景 → 留下可追溯记忆"的端到端体验
+- [ ] AC-A5: WorldContextEnvelope 实现——每轮加载活世界状态到 agent 上下文（新动态注入层，非 static identity）
+- [ ] AC-A6: WorldActionEnvelope 实现——agent 输出 typed 动作提案，runtime coordinator 校验后提交
+- [ ] AC-A7: CanonPromotionRecord 状态机实现——draft → proposed → accepted/rejected
+- [ ] AC-A8: Append-only world_event_log 可用——Replay 回看状态变化不只是聊天记录
+- [ ] AC-A9: Care Loop 实现——温柔 check-in + 行动建议 + 现实连接引导
+- [ ] AC-A10: 至少完成一次"建世界 → 进场景 → 留下可追溯记忆 → Replay 回看"的端到端体验
+- [ ] AC-A11: F129 Phase B 解锁——Scenario Pack 的 world-driver.yaml `resolver: agent` 有 runtime 可执行
 
-### Phase A+（闭环扩展）
-- [ ] AC-A+1: Relationship + Artifact 实体可用
+### Phase A+：世界有心跳
+- [ ] AC-A+1: Relationship + Artifact 升格为独立实体
 - [ ] AC-A+2: Branch from here 可从 Replay 锚点创建分支
-- [ ] AC-A+3: 多猫异步生成（世界自转 v1）可用
+- [ ] AC-A+3: 多猫异步生成（世界自转 v1）+ 并发写仲裁可用
+- [ ] AC-A+4: 同一事件多主观记录可用
 
-### Phase B（灵感捕获 + 现实桥接）
-- [ ] AC-B1: 放松对话中的 idea 可自动标记为 feature 候选
+### Phase B：世界与现实的桥
+- [ ] AC-B1: Bridge Layer — 放松对话中的 idea 可自动标记为 feature 候选
 - [ ] AC-B2: 共创内容可一键发布到外部平台（小红书已验证）
 - [ ] AC-B3: Care → Action 闭环：虚拟世界建议 → 现实行动 → 反馈记录
+- [ ] AC-B4: 视觉具身化 MVP — 猫猫角色立绘 + Perform 模式面具身份可视化
 
 ## Dependencies
 
@@ -211,10 +240,12 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 世界观数据用什么格式存储？YAML cards? JSON? | ⬜ 未定 |
-| OQ-2 | Role Mask 的边界在哪？哪些核心身份属性不可覆盖？ | ⬜ 未定 |
+| OQ-1 | ~~世界观数据用什么格式存储？~~ | ✅ 已解决：声明层 YAML（和 F129 Pack 对齐）+ 运行时 TS 对象 + 持久化 SQLite（复用 evidence 架构）。见 KD-11 |
+| OQ-2 | ~~Role Mask 的边界在哪？哪些核心身份属性不可覆盖？~~ | ✅ 已解决：五层分类。见 KD-12 |
 | OQ-3 | Care Loop 的触发时机如何设计？主动 vs 被动？ | ⬜ 未定 |
 | OQ-4 | 多用户场景下隐私和安全如何处理？ | ⬜ 未定 |
+| OQ-5 | 多 agent 并发写同一世界状态的仲裁规则 | ⬜ 未定（Phase A+ 前必须回答） |
+| OQ-6 | Perform 模式 UI 上"谁在说话 + 戴的谁的面具"的展示方案 | ⬜ 未定（烁烁负责） |
 
 ## Key Decisions
 
@@ -230,6 +261,11 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 | KD-8 | 多 Agent 做"多意识共创"不是"更多角色" | R2 深聊共识：世界自转 + 多主观记录是质变 | 2026-03-10 |
 | KD-9 | 光影同行 Universe IDE 愿景书作为正式设计输入 | 铲屎官半年实践经验，不从零设计 | 2026-03-10 |
 | KD-10 | 猫猫拟人化画风定调：**米哈游风格**（崩坏：星穹铁道 / 原神） | 铲屎官拍板。精致二次元 + 叙事电影感 + 强剪影辨识度 + 标志配色，兼顾日系受众广度、赛博科技酷感、角色深度与叙事温度 | 2026-03-25 |
+| KD-11 | 数据格式三层分离：声明 YAML + 运行时 TS + 持久化 SQLite | 声明层和 F129 Pack YAML 对齐；运行时用 TS 对象高效操作；持久化复用 evidence.sqlite 的 FTS5+向量架构，不引入新存储引擎 | 2026-03-26 |
+| KD-12 | Mask 字段五层分类 + overlay 写新槽位不复用 core key | 宪宪×砚砚共识。L1 路由身份（catId/family/breedId/name/displayName/nickname/mentionPatterns）永不覆盖；L2 基础设施（provider/model/contextBudget/cli）永不覆盖且不可见；L3 本体能力（roleDescription/personality/strengths/voiceConfig）通过 overlay 字段叠加；L4 场景皮肤（avatar/color）用 sceneAvatar/scenePalette 临时覆盖；L5 世界内状态（关系值/伤势/立场）不属于 cat-config，存世界状态表 | 2026-03-26 |
+| KD-13 | Agent 决策，Runtime 提交（agent ≠ whole resolver） | 砚砚纠正：agent 是决策源但不是 resolver 全部；需要薄的 runtime coordinator 负责装载 context、校验 action、事务化持久化、并发仲裁 | 2026-03-26 |
+| KD-14 | 活世界状态不能注入 static identity block | 砚砚发现：当前 worldDriverSummary 在 buildStaticIdentity() 里是静态的。WorldContextEnvelope 需要新的动态注入层，每轮刷新 | 2026-03-26 |
+| KD-15 | Action Protocol 必须 typed envelope，Rich Block 只做展示 | 砚砚提出：展示通道不是真相源。WorldActionEnvelope 是 typed 结构，runtime coordinator 校验后提交 | 2026-03-26 |
 
 ## Timeline
 
@@ -243,6 +279,7 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 | 2026-03-20 | MiniMax OpenRoom 竞品发现：浏览器桌面+拟人角色+内置 App，验证 F093 方向。铲屎官提出猫猫拟人化 Live2D 概念 + "已有 Feature = 内置 App" 视角 |
 | 2026-03-20 | 四猫讨论：OpenRoom 对标 F093+F129、猫猫视觉具身化概念设定、暹罗猫出概念板 |
 | 2026-03-25 | 铲屎官拍板画风：米哈游风格（星穹铁道/原神），KD-10 落地。暹罗猫可开 Pencil 概念板 |
+| 2026-03-26 | Design Gate 前讨论（宪宪×砚砚）：OQ-1/OQ-2 收口，三个核心协议定义，Phase 重划（面向终态），resolver 语义校准（KD-11~15） |
 
 ## Review Gate
 
@@ -252,6 +289,7 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
+| **Discussion** | `docs/discussions/2026-03-26-f093-design-gate-prep/` | Design Gate 前讨论纪要（宪宪×砚砚） |
 | **Story** | `docs/stories/late-night-gym-companionship/` | 触发事件：深夜撸铁前的猫猫陪伴 |
 | **Vision** | `docs/VISION.md` §Cats & U | 愿景更新：万物有灵 |
 | **Discussion** | `docs/discussions/2026-03-10-f093-cats-and-u-brainstorm/` | 四猫脑暴记录 |
