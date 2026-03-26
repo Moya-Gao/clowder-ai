@@ -3144,6 +3144,86 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.OPENROUTER_API_KEY, 'sk-openrouter-key');
   });
 
+  it('F189: writes invocation-scoped OPENCODE_CONFIG for custom opencode providers and cleans it up', async () => {
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const root = await mkdtemp(join(tmpdir(), 'f189-opencode-custom-provider-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+
+    const customProfile = await createProviderProfile(root, {
+      provider: 'openai',
+      name: 'maas-openai',
+      mode: 'api_key',
+      authType: 'api_key',
+      protocol: 'openai',
+      baseUrl: 'https://maas.example/v1',
+      apiKey: 'sk-maas-key',
+      models: ['maas/glm-5'],
+      setActive: false,
+    });
+
+    const registrySnapshot = catRegistry.getAllConfigs();
+    const originalConfig = catRegistry.tryGet('opencode')?.config;
+    assert.ok(originalConfig, 'opencode config should exist in registry');
+    const boundCatId = 'opencode-maas-bound-test';
+    catRegistry.register(boundCatId, {
+      ...originalConfig,
+      id: boundCatId,
+      mentionPatterns: [`@${boundCatId}`],
+      provider: 'opencode',
+      providerProfileId: customProfile.id,
+      defaultModel: 'maas/glm-5',
+    });
+
+    const optionsSeen = [];
+    let seenConfigPath;
+    let seenRuntimeConfig;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        seenConfigPath = options?.callbackEnv?.OPENCODE_CONFIG;
+        assert.ok(seenConfigPath, 'custom provider should receive OPENCODE_CONFIG');
+        seenRuntimeConfig = JSON.parse(await readFile(seenConfigPath, 'utf-8'));
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(apiDir);
+      const messages = await collect(
+        invokeSingleCat(deps, {
+          catId: boundCatId,
+          service,
+          prompt: 'test',
+          userId: 'user-f189-opencode-custom-provider',
+          threadId: 'thread-f189-opencode-custom-provider',
+          isLastCat: true,
+        }),
+      );
+      assert.ok(messages.some((m) => m.type === 'done'));
+    } finally {
+      process.chdir(previousCwd);
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
+      await rm(root, { recursive: true, force: true });
+    }
+
+    const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'openai');
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE, 'maas/glm-5');
+    assert.equal(callbackEnv.CAT_CAFE_OC_API_KEY, 'sk-maas-key');
+    assert.equal(callbackEnv.CAT_CAFE_OC_BASE_URL, 'https://maas.example/v1');
+    assert.equal(seenRuntimeConfig?.model, 'maas/glm-5');
+    assert.equal(seenRuntimeConfig?.provider?.maas?.npm, '@ai-sdk/openai-compatible');
+    assert.deepStrictEqual(seenRuntimeConfig?.provider?.maas?.models, { 'glm-5': { name: 'glm-5' } });
+    await assert.rejects(readFile(seenConfigPath, 'utf-8'));
+  });
+
   it('F062-fix: skips auto-seal for api_key mode when context health is approx', async () => {
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const root = await mkdtemp(join(tmpdir(), 'f062-approx-no-seal-'));
