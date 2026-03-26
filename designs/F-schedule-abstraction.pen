@@ -39,7 +39,8 @@
               "fill": "#78716C",
               "content": "从 setInterval 到值守台  |  Unified Schedule Abstraction",
               "fontFamily": "JetBrains Mono",
-              "fontSize": 13
+              "fontSize": 13,
+              "fontWeight": "normal"
             }
           ]
         },
@@ -114,7 +115,8 @@
                   "content": "\"帮我设一个每天 9 点的日报巡检\"\n猫猫理解意图 → 生成 checklist + 提议 spec",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 13
+                  "fontSize": 13,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -163,7 +165,8 @@
                   "content": "查看活跃任务 · 运行历史\n暂停/恢复 · 编辑 checklist",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 13
+                  "fontSize": 13,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -212,7 +215,8 @@
                   "content": "TypeScript / YAML 注册\n内部开发 · Pack 生态插件",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 13
+                  "fontSize": 13,
+                  "fontWeight": "normal"
                 }
               ]
             }
@@ -228,14 +232,15 @@
           "content": "▼",
           "textAlign": "center",
           "fontFamily": "DM Sans",
-          "fontSize": 18
+          "fontSize": 18,
+          "fontWeight": "normal"
         },
         {
           "type": "text",
           "id": "8ILhd",
           "name": "specLabel",
           "fill": "#A8A29E",
-          "content": "TaskSpec 五维度 — FIVE ORTHOGONAL DIMENSIONS",
+          "content": "TaskSpec 六维度 — SIX ORTHOGONAL DIMENSIONS",
           "fontFamily": "JetBrains Mono",
           "fontSize": 11,
           "fontWeight": "600",
@@ -285,7 +290,8 @@
                   "lineHeight": 1.4,
                   "textAlign": "center",
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -326,7 +332,47 @@
                   "lineHeight": 1.4,
                   "textAlign": "center",
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ezkPD",
+              "name": "Context",
+              "width": "fill_container",
+              "fill": "#0d9488",
+              "cornerRadius": 12,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                16,
+                14
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "8Z7qk",
+                  "name": "title",
+                  "fill": "#ffffff",
+                  "content": "Context",
+                  "fontFamily": "DM Sans",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "aXEtL",
+                  "name": "desc",
+                  "fill": "#ffffffcc",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "执行上下文\nsession × materialization\nPhase 2",
+                  "fontFamily": "DM Sans",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -367,7 +413,8 @@
                   "lineHeight": 1.4,
                   "textAlign": "center",
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -408,7 +455,8 @@
                   "lineHeight": 1.4,
                   "textAlign": "center",
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -449,7 +497,8 @@
                   "lineHeight": 1.4,
                   "textAlign": "center",
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             }
@@ -546,7 +595,8 @@
           "content": "▼",
           "textAlign": "center",
           "fontFamily": "DM Sans",
-          "fontSize": 18
+          "fontSize": 18,
+          "fontWeight": "normal"
         },
         {
           "type": "text",
@@ -820,7 +870,8 @@
           "content": "▼",
           "textAlign": "center",
           "fontFamily": "DM Sans",
-          "fontSize": 18
+          "fontSize": 18,
+          "fontWeight": "normal"
         },
         {
           "type": "text",
@@ -890,7 +941,8 @@
                   "content": "setInterval · node-cron\nF102 摘要 · PR/CI 轮询 · MediaCleanup\n进程内同步执行",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 12
+                  "fontSize": 12,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -948,7 +1000,8 @@
                   "content": "Role Resolver → Lease → post_message\n猫猫巡检 · 定期唤醒 · 深度分析\n异步 handoff + dispatch receipt 追踪",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 12
+                  "fontSize": 12,
+                  "fontWeight": "normal"
                 },
                 {
                   "type": "frame",
@@ -1089,7 +1142,8 @@
                   "content": "HEARTBEAT.md → checklist 备忘录\nHEARTBEAT_OK → outcome.drop\nevery: 30m → trigger.interval\nactiveHours → admission.activeHours\nisolatedSession → context.new-thread",
                   "lineHeight": 1.6,
                   "fontFamily": "JetBrains Mono",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1128,7 +1182,8 @@
                   "content": "Actor/Placement — 多猫调度\ntyped signal gate — 结构化信号\n电闸/备忘录分离 — 安全边界\ndispatch receipt — MCP 异步追踪\n成本感知 — costTier hint\nrun ledger — SQLite 全记录\nUI 配置 — Hub 面板 + 自然语言",
                   "lineHeight": 1.6,
                   "fontFamily": "JetBrains Mono",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             }
@@ -1191,7 +1246,8 @@
                   "content": "统一内部 poller\n5 步流水线 + ledger\nF102 gate 升级",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1226,7 +1282,8 @@
                   "content": "Actor + 唤醒猫\nMCP dispatch\ndispatch receipt",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1261,7 +1318,8 @@
                   "content": "Cron + 持久化\nHub UI 面板\n自然语言配置",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1296,7 +1354,8 @@
                   "content": "制度级自主\nGovernance\nPack 生态 task slot",
                   "lineHeight": 1.5,
                   "fontFamily": "DM Sans",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             }
@@ -1317,7 +1376,8 @@
               "fill": "#A8A29E",
               "content": "Cat Cafe  |  宪宪/Opus × 砚砚/GPT-5.4  |  2026-03-25",
               "fontFamily": "JetBrains Mono",
-              "fontSize": 10
+              "fontSize": 10,
+              "fontWeight": "normal"
             },
             {
               "type": "text",
@@ -1326,7 +1386,8 @@
               "fill": "#A8A29E",
               "content": "Consulted: GPT Pro  |  Researched: OpenClaw Heartbeat",
               "fontFamily": "JetBrains Mono",
-              "fontSize": 10
+              "fontSize": 10,
+              "fontWeight": "normal"
             }
           ]
         }
