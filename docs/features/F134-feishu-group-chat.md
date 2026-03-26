@@ -8,9 +8,11 @@ created: 2026-03-24
 
 # F134: Feishu Group Chat — 飞书群聊多用户支持
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745
+> **Status**: done | **Completed**: 2026-03-26 | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745
 >
 > **Related**: F088（复用公共层 + Phase 7 公共层扩展）| F132（钉钉/企微，同模式独立 Feature）
+>
+> **Reflection**: [`2026-03-26-f134-feishu-group-chat-capsule.md`](../reflections/2026-03-26-f134-feishu-group-chat-capsule.md)
 
 ## Why
 
