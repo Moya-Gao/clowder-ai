@@ -93,6 +93,13 @@ function outcomeColor(outcome: string): string {
   return 'text-gray-400';
 }
 
+function outcomeLabel(outcome: string): string {
+  if (outcome === 'RUN_DELIVERED') return 'delivered';
+  if (outcome === 'RUN_FAILED') return 'failed';
+  if (outcome.startsWith('SKIP_')) return 'idle';
+  return outcome.toLowerCase();
+}
+
 function extractThreadId(subjectKey: string): string | null {
   if (subjectKey.startsWith('thread-')) return subjectKey.slice(7);
   if (subjectKey.startsWith('thread:')) return subjectKey.slice(7);
@@ -252,20 +259,22 @@ export function SchedulePanel() {
                     {task.lastRun ? (
                       <>
                         <span className={`text-xs font-medium ${outcomeColor(task.lastRun.outcome)}`}>
-                          {outcomeIcon(task.lastRun.outcome)}
+                          {outcomeIcon(task.lastRun.outcome)} {outcomeLabel(task.lastRun.outcome)}
                         </span>
                         <span className="text-[10px] text-[#9A866F]">{timeAgo(task.lastRun.started_at)}</span>
-                        <span className="text-[10px] text-[#B8A594] truncate max-w-[120px]">
-                          {humanizeSubject(task.lastRun.subject_key)}
-                        </span>
+                        {task.lastRun.subject_key !== task.id && (
+                          <span className="text-[10px] text-[#B8A594] truncate max-w-[140px]">
+                            {humanizeSubject(task.lastRun.subject_key)}
+                          </span>
+                        )}
                       </>
                     ) : (
                       <span className="text-[10px] text-[#9A866F] italic">never run</span>
                     )}
-                    <span className="ml-auto text-[10px] text-[#9A866F]">
-                      {task.runStats.delivered}/{task.runStats.total} runs
-                    </span>
-                    {!task.enabled && <span className="text-[9px] text-red-400 font-medium">PAUSED</span>}
+                    {task.runStats.delivered > 0 && (
+                      <span className="ml-auto text-[10px] text-emerald-600">{task.runStats.delivered} delivered</span>
+                    )}
+                    {!task.enabled && <span className="ml-auto text-[9px] text-red-400 font-medium">PAUSED</span>}
                   </div>
                 </div>
               );
