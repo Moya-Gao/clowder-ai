@@ -134,11 +134,13 @@ created: 2026-03-25
 | 2026-03-25 | 跨线程通知：三套 setInterval 技术债 + 社区需求（冲突/comments 检测）→ Phase 1a 紧迫 |
 | 2026-03-26 | Phase 1a merged (PR #747) — 砚砚 local review 2 rounds + cloud review passed |
 | 2026-03-26 | Phase 1b merged (PR #750) — actor.role resolver + costTier + execute routing + V1 cleanup |
+| 2026-03-26 | Phase 2 UX V2 设计稿确认 — 扁平列表 + 标签 + NL 入口（铲屎官确认） |
 
 ## Review Gate
 
 - Phase A: 砚砚 review（跨 family 优先）
 - Phase B: 砚砚 review + MCP dispatch 集成测试
+- Phase C (Phase 2): 砚砚 review + **设计→代码保真度对照**（UX V2 设计稿 vs 实现截图，铲屎官明确要求）
 
 ## Links
 
@@ -149,3 +151,5 @@ created: 2026-03-25
 | **调研** | `docs/research/2026-03-25-schedule-abstraction-gpt-pro-consult.md` | 三猫调研 + GPT Pro 咨询 + 综合 |
 | **Feature** | `docs/features/F102-memory-adapter-refactor.md` | TaskRunner MVP 来源 |
 | **Feature** | `docs/features/F122-unified-dispatch-queue.md` | 相关：invocation dispatch |
+| **UX V1** | `designs/F-schedule-abstraction.pen` Scene 1-2 (y=0) | ~~Thread 硬分组~~（已废弃，被 V2 替代） |
+| **UX V2** | `designs/F-schedule-abstraction.pen` V2 (y=1821) | 扁平列表 + 彩色标签 + 自然语言入口（铲屎官 2026-03-26 确认✅） |
