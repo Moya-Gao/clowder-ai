@@ -42,7 +42,8 @@
           "fill": "#71717A",
           "content": "Multi-Agent 共创世界的声明式 Mod 生态",
           "fontFamily": "Inter",
-          "fontSize": 16
+          "fontSize": 16,
+          "fontWeight": "normal"
         },
         {
           "type": "frame",
@@ -149,7 +150,8 @@
                   "fill": "#B91C1C",
                   "content": "身份不可污染  ·  陪伴是桥不是笼  ·  信任是地基",
                   "fontFamily": "Inter",
-                  "fontSize": 14
+                  "fontSize": 14,
+                  "fontWeight": "normal"
                 },
                 {
                   "type": "text",
@@ -507,165 +509,166 @@
                   "fontFamily": "Inter",
                   "fontSize": 12,
                   "fontWeight": "500"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "enGj4",
-              "name": "Layer 3: World Driver",
-              "width": "fill_container",
-              "fill": "#E0E7FF",
-              "cornerRadius": 16,
-              "stroke": {
-                "align": "inside",
-                "thickness": 2,
-                "fill": "#4F46E5"
-              },
-              "layout": "vertical",
-              "gap": 8,
-              "padding": [
-                20,
-                24
-              ],
-              "children": [
+                },
                 {
                   "type": "frame",
-                  "id": "A8kAO",
-                  "name": "wdHeader",
+                  "id": "enGj4",
+                  "name": "Layer 3: World Driver",
                   "width": "fill_container",
-                  "gap": 12,
-                  "alignItems": "center",
+                  "fill": "#E0E7FF",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 2,
+                    "fill": "#4F46E5"
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    20,
+                    24
+                  ],
                   "children": [
                     {
                       "type": "frame",
-                      "id": "fonDV",
-                      "name": "wdBadge",
-                      "fill": "#4F46E5",
-                      "cornerRadius": 8,
-                      "padding": [
-                        4,
-                        12
-                      ],
-                      "justifyContent": "center",
+                      "id": "A8kAO",
+                      "name": "wdHeader",
+                      "width": "fill_container",
+                      "gap": 12,
                       "alignItems": "center",
                       "children": [
                         {
+                          "type": "frame",
+                          "id": "fonDV",
+                          "name": "wdBadge",
+                          "fill": "#4F46E5",
+                          "cornerRadius": 8,
+                          "padding": [
+                            4,
+                            12
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "0EScU",
+                              "name": "wdBadgeText",
+                              "fill": "#FFFFFF",
+                              "content": "随 Pack 分享",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
                           "type": "text",
-                          "id": "0EScU",
-                          "name": "wdBadgeText",
-                          "fill": "#FFFFFF",
-                          "content": "随 Pack 分享",
+                          "id": "F4hU9",
+                          "name": "wdTitle",
+                          "fill": "#312E81",
+                          "content": "World Driver — 世界运转声明",
                           "fontFamily": "Inter",
-                          "fontSize": 12,
+                          "fontSize": 18,
                           "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gmMCy",
+                      "name": "wdResolvers",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "NhxKC",
+                          "name": "r1",
+                          "fill": "#C7D2FE",
+                          "cornerRadius": 8,
+                          "padding": [
+                            6,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "mRrUh",
+                              "name": "r1t",
+                              "fill": "#3730A3",
+                              "content": "code",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fsSGT",
+                          "name": "r2",
+                          "fill": "#C7D2FE",
+                          "cornerRadius": 8,
+                          "padding": [
+                            6,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "3xllk",
+                              "name": "r2t",
+                              "fill": "#3730A3",
+                              "content": "llm",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "yJJPN",
+                          "name": "r3",
+                          "fill": "#C7D2FE",
+                          "cornerRadius": 8,
+                          "padding": [
+                            6,
+                            14
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "VRXtz",
+                              "name": "r3t",
+                              "fill": "#3730A3",
+                              "content": "hybrid",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
                         }
                       ]
                     },
                     {
                       "type": "text",
-                      "id": "F4hU9",
-                      "name": "wdTitle",
-                      "fill": "#312E81",
-                      "content": "World Driver — 世界运转声明",
+                      "id": "vbzjo",
+                      "name": "wdDesc",
+                      "fill": "#71717A",
+                      "content": "resolver 声明世界运转方式：金融用 code，TRPG 用 hybrid，AI 陪伴用 llm",
                       "fontFamily": "Inter",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                      "fontSize": 12,
+                      "fontWeight": "normal"
                     }
                   ]
-                },
-                {
-                  "type": "frame",
-                  "id": "gmMCy",
-                  "name": "wdResolvers",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "NhxKC",
-                      "name": "r1",
-                      "fill": "#C7D2FE",
-                      "cornerRadius": 8,
-                      "padding": [
-                        6,
-                        14
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "mRrUh",
-                          "name": "r1t",
-                          "fill": "#3730A3",
-                          "content": "code",
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "600"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "fsSGT",
-                      "name": "r2",
-                      "fill": "#C7D2FE",
-                      "cornerRadius": 8,
-                      "padding": [
-                        6,
-                        14
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "3xllk",
-                          "name": "r2t",
-                          "fill": "#3730A3",
-                          "content": "llm",
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "600"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "yJJPN",
-                      "name": "r3",
-                      "fill": "#C7D2FE",
-                      "cornerRadius": 8,
-                      "padding": [
-                        6,
-                        14
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "VRXtz",
-                          "name": "r3t",
-                          "fill": "#3730A3",
-                          "content": "hybrid",
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "600"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "text",
-                  "id": "vbzjo",
-                  "name": "wdDesc",
-                  "fill": "#71717A",
-                  "content": "resolver 声明世界运转方式：金融用 code，TRPG 用 hybrid，AI 陪伴用 llm",
-                  "fontFamily": "Inter",
-                  "fontSize": 12
                 }
               ]
             },
@@ -740,7 +743,8 @@
                   "fill": "#047857",
                   "content": "用户和猫猫一起长出来的私有关系 / 记忆。不可打包外发，只能经蒸馏后回流为方法论。",
                   "fontFamily": "Inter",
-                  "fontSize": 14
+                  "fontSize": 14,
+                  "fontWeight": "normal"
                 },
                 {
                   "type": "text",
@@ -828,7 +832,8 @@
           "fill": "#71717A",
           "content": "Pack 内容不原样注入 SystemPromptBuilder，走 schema → 编译 → canonical prompt block 管道",
           "fontFamily": "Inter",
-          "fontSize": 14
+          "fontSize": 14,
+          "fontWeight": "normal"
         },
         {
           "type": "frame",
@@ -929,7 +934,8 @@
                       "fill": "#FCA5A5",
                       "content": "最高优先级 — 不可被任何层覆盖",
                       "fontFamily": "Inter",
-                      "fontSize": 11
+                      "fontSize": 11,
+                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -974,7 +980,8 @@
                       "fill": "#FCA5A5",
                       "content": "平台宪法 — 身份不可污染",
                       "fontFamily": "Inter",
-                      "fontSize": 11
+                      "fontSize": 11,
+                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -1019,7 +1026,8 @@
                       "fill": "#FEE2E2",
                       "content": "社区 Pack 只能加严，不能放宽上层",
                       "fontFamily": "Inter",
-                      "fontSize": 11
+                      "fontSize": 11,
+                      "fontWeight": "normal"
                     }
                   ]
                 }
@@ -1117,7 +1125,8 @@
                       "fill": "#BBF7D0",
                       "content": "最高覆盖优先级（但不能越过硬约束）",
                       "fontFamily": "Inter",
-                      "fontSize": 11
+                      "fontSize": 11,
+                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -1162,7 +1171,8 @@
                       "fill": "#BBF7D0",
                       "content": "用户与猫猫的个性化积累",
                       "fontFamily": "Inter",
-                      "fontSize": 11
+                      "fontSize": 11,
+                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -1207,7 +1217,8 @@
                       "fill": "#166534",
                       "content": "Pack 作者设定的默认行为",
                       "fontFamily": "Inter",
-                      "fontSize": 11
+                      "fontSize": 11,
+                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -1252,7 +1263,8 @@
                       "fill": "#166534",
                       "content": "最低优先级 — 猫猫的原始性格",
                       "fontFamily": "Inter",
-                      "fontSize": 11
+                      "fontSize": 11,
+                      "fontWeight": "normal"
                     }
                   ]
                 }
@@ -1296,7 +1308,8 @@
               "fill": "#71717A",
               "content": "  社区 Pack 只能填数据槽，不能写系统级指令",
               "fontFamily": "Inter",
-              "fontSize": 13
+              "fontSize": 13,
+              "fontWeight": "normal"
             },
             {
               "type": "text",
@@ -1305,7 +1318,8 @@
               "fill": "#71717A",
               "content": "  guardrails 只能加严，不能放宽 Core Rails、改身份、加权限",
               "fontFamily": "Inter",
-              "fontSize": 13
+              "fontSize": 13,
+              "fontWeight": "normal"
             },
             {
               "type": "text",
@@ -1314,7 +1328,8 @@
               "fill": "#71717A",
               "content": "  Schema fail-closed：未知字段拒绝安装",
               "fontFamily": "Inter",
-              "fontSize": 13
+              "fontSize": 13,
+              "fontWeight": "normal"
             }
           ]
         }
@@ -1349,7 +1364,8 @@
           "fill": "#71717A",
           "content": "cafe pack add → schema 校验 → 编译 → canonical prompt blocks → SystemPromptBuilder",
           "fontFamily": "Inter",
-          "fontSize": 14
+          "fontSize": 14,
+          "fontWeight": "normal"
         },
         {
           "type": "frame",
@@ -1402,7 +1418,8 @@
                   "fill": "#71717A",
                   "content": "下载 Pack",
                   "fontFamily": "Inter",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1459,7 +1476,8 @@
                   "fill": "#71717A",
                   "content": "fail-closed",
                   "fontFamily": "Inter",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1516,7 +1534,8 @@
                   "fill": "#71717A",
                   "content": "schema → blocks",
                   "fontFamily": "Inter",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1573,7 +1592,8 @@
                   "fill": "#71717A",
                   "content": "注入 blocks",
                   "fontFamily": "Inter",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1630,7 +1650,8 @@
                   "fill": "#71717A",
                   "content": "安全执行",
                   "fontFamily": "Inter",
-                  "fontSize": 11
+                  "fontSize": 11,
+                  "fontWeight": "normal"
                 }
               ]
             }
@@ -1679,7 +1700,8 @@
                   "fill": "#71717A",
                   "content": "→ 角色叠加块",
                   "fontFamily": "Inter",
-                  "fontSize": 12
+                  "fontSize": 12,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1718,7 +1740,8 @@
                   "fill": "#71717A",
                   "content": "→ 约束块",
                   "fontFamily": "Inter",
-                  "fontSize": 12
+                  "fontSize": 12,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1757,7 +1780,8 @@
                   "fill": "#71717A",
                   "content": "→ 默认行为块",
                   "fontFamily": "Inter",
-                  "fontSize": 12
+                  "fontSize": 12,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1796,7 +1820,8 @@
                   "fill": "#71717A",
                   "content": "→ 流程块",
                   "fontFamily": "Inter",
-                  "fontSize": 12
+                  "fontSize": 12,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -1835,7 +1860,165 @@
                   "fill": "#A1A1AA",
                   "content": "不进 prompt",
                   "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "8iTIr",
+              "name": "m6",
+              "fill": "#F8FAFC",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E4E4E7"
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FEwtP",
+                  "name": "m6t",
+                  "fill": "#A855F7",
+                  "content": "expression/",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "9PqoT",
+                  "name": "m6d",
+                  "fill": "#A1A1AA",
+                  "content": "纯资产加载",
+                  "fontFamily": "Inter",
                   "fontSize": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "laoJP",
+              "name": "m7",
+              "fill": "#F8FAFC",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E4E4E7"
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Q4T2p",
+                  "name": "m7t",
+                  "fill": "#A855F7",
+                  "content": "bridges/",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "liCFQ",
+                  "name": "m7d",
+                  "fill": "#A1A1AA",
+                  "content": "纯资产加载",
+                  "fontFamily": "Inter",
+                  "fontSize": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "2VEn8",
+              "name": "m8",
+              "fill": "#F8FAFC",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E4E4E7"
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "EBR07",
+                  "name": "m8t",
+                  "fill": "#4F46E5",
+                  "content": "world-driver",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "BA7eK",
+                  "name": "m8d",
+                  "fill": "#71717A",
+                  "content": "→ 运转声明块",
+                  "fontFamily": "Inter",
+                  "fontSize": 12
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "utaZT",
+              "name": "m9",
+              "fill": "#FEF2F2",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1.5,
+                "fill": "#EF4444"
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "AFBXV",
+                  "name": "m9t",
+                  "fill": "#EF4444",
+                  "content": "capabilities/",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "VueYz",
+                  "name": "m9d",
+                  "fill": "#991B1B",
+                  "content": "❌ Phase A reject",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
                 }
               ]
             }

@@ -240,10 +240,10 @@ graph TB
 | 维度 | OpenClaw / SillyTavern | Cursor / Claude Code | **Cat Café Pack** |
 |------|----------------------|---------------------|-------------------|
 | Agent 数量 | 单 agent | 单 agent | **多 agent** |
-| 协作规范 | 无 | 无 | **shared-rules 拆为 guardrails + defaults** |
+| 协作规范 | 无一等公民多 agent 协作规范 | 无一等公民多 agent 协作规范 | **shared-rules 拆为 guardrails + defaults** |
 | 内容模型 | 代码插件 + 角色卡 | CLAUDE.md / .cursorrules | **声明式 YAML/MD（零代码 90%）** |
 | 信任边界 | 同权执行 | 同权注入 | **双轨编译管道（KD-9）** |
-| 关系层 | 静态角色 | 无 | **Growth 私有层 + 蒸馏回流** |
+| 关系层 | 静态角色（几乎没有被产品化为一等公民） | 几乎没有被产品化为一等公民 | **Growth 私有层 + 蒸馏回流** |
 | 对外叙事 | 配置 agent | 配置 agent | **领养团队，一起长出世界** |
 
 ## Consequences
