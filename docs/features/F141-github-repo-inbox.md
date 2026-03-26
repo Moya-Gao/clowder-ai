@@ -121,11 +121,11 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 - [x] AC-A9: opensource-ops SKILL.md 更新 triage 流程
 - [x] AC-A10: refs/repo-inbox.md 新增（含 webhook 配置指南）
 
-### Phase B（Reconciliation）
-- [ ] AC-B1: RepoScanTaskSpec 注册为 F139 TaskSpec_P1 consumer（profile=poller, actor=repo-watcher）
-- [ ] AC-B2: gate 查 open PRs/Issues，过滤已通知对象，返回 typed signal
-- [ ] AC-B3: webhook 丢失事件后，reconciliation 补发通知（与 Phase A 共用 deliverConnectorMessage）
-- [ ] AC-B4: run ledger 记录每次扫描结果
+### Phase B（Reconciliation）✅
+- [x] AC-B1: RepoScanTaskSpec 注册为 F139 TaskSpec_P1 consumer（profile=poller, actor=repo-watcher）
+- [x] AC-B2: gate 查 open PRs/Issues，过滤已通知对象，返回 typed signal
+- [x] AC-B3: webhook 丢失事件后，reconciliation 补发通知（与 Phase A 共用 deliverConnectorMessage）
+- [x] AC-B4: run ledger 记录每次扫描结果
 
 ## Dependencies
 
@@ -189,11 +189,12 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 | 2026-03-26 | 铲屎官确认方向，落到 Skill 文档 |
 | 2026-03-26 | Design Gate 通过 — 砚砚（gpt52）4 个约束 + 砚砚（codex）4 个补充约束补入 spec |
 | 2026-03-26 | Phase A merged (PR #755) — webhook adapter + dedup + thread binding + 27 tests |
+| 2026-03-26 | Phase B merged (PR #762) — RepoScanTaskSpec + ReconciliationDedup + Phase A bridge + 18 tests |
 
 ## Review Gate
 
 - Phase A: 砚砚 (codex/gpt52) cross-family review
-- Phase B: 待定
+- Phase B: 砚砚 (codex/Spark) cross-family review — P1 pushback accepted, P2 fixed
 
 ## Links
 
