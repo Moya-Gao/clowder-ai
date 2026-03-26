@@ -524,6 +524,29 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: true,
   },
 
+  // --- GitHub Repo Inbox (F141) ---
+  {
+    name: 'GITHUB_WEBHOOK_SECRET',
+    defaultValue: '(未设置 → 不启用)',
+    description: 'GitHub webhook HMAC-SHA256 shared secret（F141 Repo Inbox）',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'GITHUB_REPO_ALLOWLIST',
+    defaultValue: '(未设置)',
+    description: '允许的仓库列表，逗号分隔（如 zts212653/clowder-ai）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'GITHUB_REPO_INBOX_CAT_ID',
+    defaultValue: '(未设置)',
+    description: '接收 Repo Inbox 事件的猫 ID',
+    category: 'connector',
+    sensitive: false,
+  },
+
   // --- codex ---
   {
     name: 'CAT_CODEX_SANDBOX_MODE',

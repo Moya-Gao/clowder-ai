@@ -128,6 +128,19 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     },
   },
   {
+    id: 'github-repo-event',
+    displayName: 'Repo Inbox',
+    icon: 'github',
+    color: { primary: '#24292e', secondary: '#F6F8FA' },
+    description: 'GitHub 仓库事件通知（新 PR / 新 Issue）',
+    tailwindTheme: {
+      avatar: 'bg-gray-100 ring-2 ring-gray-300',
+      label: 'text-gray-800',
+      labelLink: 'text-gray-800 hover:text-black',
+      bubble: 'border border-gray-300 bg-gray-50',
+    },
+  },
+  {
     id: 'vote-result',
     displayName: '投票结果',
     icon: 'ballot',

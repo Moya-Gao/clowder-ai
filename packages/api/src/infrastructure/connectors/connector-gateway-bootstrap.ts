@@ -16,6 +16,7 @@ import type { RedisClient } from '@cat-cafe/shared/utils';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
+import { deliverConnectorMessage } from '../email/deliver-connector-message.js';
 import { DingTalkAdapter } from './adapters/DingTalkAdapter.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
 import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
@@ -29,6 +30,8 @@ import {
 } from './ConnectorPermissionStore.js';
 import { ConnectorRouter } from './ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
+import { GitHubRepoWebhookHandler } from './github-repo-event/GitHubRepoWebhookHandler.js';
+import { RedisDeliveryDedup } from './github-repo-event/RedisDeliveryDedup.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
 import { ConnectorMediaService } from './media/ConnectorMediaService.js';
 import { MediaCleanupJob } from './media/MediaCleanupJob.js';
@@ -489,6 +492,40 @@ export async function startConnectorGateway(
 
       log.info('[ConnectorGateway] Feishu adapter registered (webhook mode)');
     }
+  }
+
+  // ── F141: GitHub Repo Inbox webhook handler ──
+  const ghWebhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
+  const ghRepoAllowlist = process.env.GITHUB_REPO_ALLOWLIST;
+  const ghInboxCatId = process.env.GITHUB_REPO_INBOX_CAT_ID;
+
+  if (ghWebhookSecret && ghRepoAllowlist && ghInboxCatId && deps.redis) {
+    const ghDedup = new RedisDeliveryDedup(deps.redis as import('./github-repo-event/RedisDeliveryDedup.js').RedisLike);
+    const ghHandler = new GitHubRepoWebhookHandler(
+      {
+        webhookSecret: ghWebhookSecret,
+        repoAllowlist: ghRepoAllowlist.split(',').map((r) => r.trim()),
+        inboxCatId: ghInboxCatId,
+        defaultUserId: effectiveUserId, // P1-2: use effective owner for thread visibility (F088 pattern)
+      },
+      {
+        bindingStore,
+        threadStore: deps.threadStore,
+        deliverFn: deliverConnectorMessage,
+        invokeTrigger: deps.invokeTrigger,
+        dedup: ghDedup,
+        redis: deps.redis as import('./github-repo-event/RedisDeliveryDedup.js').RedisLike, // KD-20: inbox thread creation lock
+        deliveryDeps: {
+          messageStore:
+            deps.messageStore as import('../../domains/cats/services/stores/ports/MessageStore.js').IMessageStore,
+          socketManager: deps.socketManager,
+        },
+      },
+    );
+    webhookHandlers.set('github-repo-event', ghHandler);
+    log.info('[F141] GitHub Repo Inbox webhook handler registered');
+  } else if (ghWebhookSecret || ghRepoAllowlist || ghInboxCatId) {
+    log.warn('[F141] GitHub Repo Inbox partially configured — set all 3 env vars + Redis to enable');
   }
 
   // ── DingTalk (Stream mode) ──
