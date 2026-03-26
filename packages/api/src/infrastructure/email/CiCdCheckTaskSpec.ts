@@ -5,7 +5,7 @@
  * Execute: fetchPrStatus → route → optional trigger (same logic as pollOne).
  */
 import type { CatId } from '@cat-cafe/shared';
-import type { TaskSpec_P1 } from '../scheduler/types.js';
+import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import { CiCdCheckPoller } from './CiCdCheckPoller.js';
 import type { CiCdRouter } from './CiCdRouter.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
@@ -58,7 +58,7 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
     run: {
       overlap: 'skip',
       timeoutMs: 30_000,
-      async execute(entry: PrTrackingEntry, _subjectKey: string) {
+      async execute(entry: PrTrackingEntry, _subjectKey: string, _ctx: ExecuteContext) {
         // Replicate pollOne logic: fetch → route → optional trigger
         const pollResult = await poller.fetchPrStatus(entry.repoFullName, entry.prNumber);
         if (!pollResult) return;
@@ -83,5 +83,6 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
     state: { runLedger: 'sqlite' },
     outcome: { whenNoSignal: 'record' },
     enabled: () => true,
+    actor: { role: 'repo-watcher', costTier: 'cheap' },
   };
 }

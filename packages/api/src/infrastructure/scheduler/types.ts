@@ -1,21 +1,4 @@
-/**
- * Minimal scheduled task interface (legacy — used by TaskRunner V1).
- *
- * MVP: tasks are run by a simple setInterval-based TaskRunner.
- * For new tasks, use TaskSpec_P1 + TaskRunnerV2 (F139).
- */
-export interface ScheduledTask {
-  /** Unique task name for logging and dedup */
-  name: string;
-  /** Interval in milliseconds between ticks */
-  intervalMs: number;
-  /** Check if this task is enabled (e.g. feature flag) */
-  enabled: () => boolean;
-  /** Execute one tick. Errors are caught by TaskRunner, never crash the process. */
-  execute: () => Promise<void>;
-}
-
-// ─── F139: Unified Schedule Abstraction (Phase 1a) ────────────────────
+// ─── F139: Unified Schedule Abstraction ────────────────────
 
 /** Single work item returned by gate — one per subject */
 export interface WorkItem<Signal = unknown> {
@@ -42,6 +25,24 @@ export type TaskProfile = 'awareness' | 'poller';
 /** Run ledger outcome */
 export type RunOutcome = 'SKIP_NO_SIGNAL' | 'SKIP_DISABLED' | 'SKIP_OVERLAP' | 'RUN_DELIVERED' | 'RUN_FAILED';
 
+/** Actor capability namespace (Phase 1b) — NOT roster identity roles */
+export type ActorRole = 'memory-curator' | 'repo-watcher' | 'health-monitor';
+
+/** Cost tier hint for actor resolution */
+export type CostTier = 'cheap' | 'deep';
+
+/** Actor dimension (Phase 1b) — declares what kind of cat a task needs */
+export interface ActorSpec {
+  role: ActorRole;
+  costTier: CostTier;
+}
+
+/** Phase 1b: context passed to execute — carries actor resolution result */
+export interface ExecuteContext {
+  /** Cat resolved by ActorResolver, or null if no actor spec / no match */
+  assignedCatId: string | null;
+}
+
 /**
  * Phase 1a TaskSpec — six dimensions minus Context (Phase 2).
  * Gate returns workItems[] for per-subject execute + ledger.
@@ -57,7 +58,7 @@ export interface TaskSpec_P1<Signal = unknown> {
   run: {
     overlap: 'skip';
     timeoutMs: number;
-    execute: (signal: Signal, subjectKey: string) => Promise<void>;
+    execute: (signal: Signal, subjectKey: string, ctx: ExecuteContext) => Promise<void>;
   };
   state: {
     runLedger: 'sqlite';
@@ -66,6 +67,8 @@ export interface TaskSpec_P1<Signal = unknown> {
     whenNoSignal: 'drop' | 'record';
   };
   enabled: () => boolean;
+  /** Phase 1b: actor resolution — which cat capability this task needs */
+  actor?: ActorSpec;
 }
 
 /** Run ledger row */
@@ -76,4 +79,6 @@ export interface RunLedgerRow {
   signal_summary: string | null;
   duration_ms: number;
   started_at: string;
+  /** Phase 1b: which cat was assigned to handle this run */
+  assigned_cat_id: string | null;
 }

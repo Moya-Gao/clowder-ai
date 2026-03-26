@@ -22,11 +22,13 @@ describe('RunLedger', () => {
       signal_summary: '20 pending messages',
       duration_ms: 1234,
       started_at: new Date().toISOString(),
+      assigned_cat_id: null,
     });
     const rows = ledger.query('summary-compact', 10);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].outcome, 'RUN_DELIVERED');
     assert.equal(rows[0].subject_key, 'thread-abc');
+    assert.equal(rows[0].assigned_cat_id, null);
   });
 
   it('writes SKIP_NO_SIGNAL with null signal_summary', () => {
@@ -37,6 +39,7 @@ describe('RunLedger', () => {
       signal_summary: null,
       duration_ms: 5,
       started_at: new Date().toISOString(),
+      assigned_cat_id: null,
     });
     const rows = ledger.query('cicd-check', 10);
     assert.equal(rows.length, 1);
@@ -52,10 +55,26 @@ describe('RunLedger', () => {
         signal_summary: null,
         duration_ms: i,
         started_at: new Date(Date.now() + i * 1000).toISOString(),
+        assigned_cat_id: null,
       });
     }
     const rows = ledger.query('t1', 3);
     assert.equal(rows.length, 3);
     assert.equal(rows[0].duration_ms, 4);
+  });
+
+  it('records and queries assigned_cat_id for receipt tracking', () => {
+    ledger.record({
+      task_id: 'conflict-check',
+      subject_key: 'pr-a/b#42',
+      outcome: 'RUN_DELIVERED',
+      signal_summary: 'CONFLICTING',
+      duration_ms: 500,
+      started_at: new Date().toISOString(),
+      assigned_cat_id: 'codex',
+    });
+    const rows = ledger.query('conflict-check', 10);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].assigned_cat_id, 'codex');
   });
 });

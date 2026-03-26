@@ -2,15 +2,25 @@
  * F139: ConflictCheckTaskSpec — detect PR merge conflicts via injectable check.
  *
  * Gate: list tracked PRs → checkMergeable per PR → filter CONFLICTING → workItems.
- * Execute: log notification (notification routing deferred to wiring phase).
+ * Execute: deliver connector message notifying the thread of merge conflict.
  */
-import type { TaskSpec_P1 } from '../scheduler/types.js';
+import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { IPrTrackingStore, PrTrackingEntry } from './PrTrackingStore.js';
+
+export interface DeliverMessageInput {
+  threadId: string;
+  userId: string;
+  catId: string;
+  content: string;
+  source: string;
+}
 
 export interface ConflictCheckTaskSpecOptions {
   readonly prTrackingStore: IPrTrackingStore;
   /** Injectable merge-state checker — returns GitHub mergeStateStatus string */
   readonly checkMergeable: (repoFullName: string, prNumber: number) => Promise<string>;
+  /** Injectable message delivery — posts connector message to thread */
+  readonly deliverMessage?: (input: DeliverMessageInput) => Promise<{ messageId: string; content: string }>;
   readonly log: {
     info: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
@@ -64,12 +74,25 @@ export function createConflictCheckTaskSpec(opts: ConflictCheckTaskSpecOptions):
     run: {
       overlap: 'skip',
       timeoutMs: 30_000,
-      async execute(signal: ConflictSignal, subjectKey: string) {
-        opts.log.info(`[conflict-check] ${subjectKey}: merge state = ${signal.mergeState}`);
+      async execute(signal: ConflictSignal, subjectKey: string, ctx: ExecuteContext) {
+        const { entry, mergeState } = signal;
+        if (opts.deliverMessage) {
+          const targetCatId = ctx.assignedCatId ?? entry.catId;
+          const content = `⚠️ PR #${entry.prNumber} (${entry.repoFullName}) has merge conflict (state: ${mergeState}). Please rebase.`;
+          await opts.deliverMessage({
+            threadId: entry.threadId,
+            userId: entry.userId,
+            catId: targetCatId,
+            content,
+            source: 'github_conflict_check',
+          });
+        }
+        opts.log.info(`[conflict-check] ${subjectKey}: notified — ${mergeState}`);
       },
     },
     state: { runLedger: 'sqlite' },
     outcome: { whenNoSignal: 'record' },
     enabled: () => true,
+    actor: { role: 'repo-watcher', costTier: 'cheap' },
   };
 }

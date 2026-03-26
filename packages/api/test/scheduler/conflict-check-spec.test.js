@@ -59,6 +59,48 @@ describe('ConflictCheckTaskSpec', () => {
     assert.equal(result.run, false);
   });
 
+  it('execute delivers connector message for conflicting PR', async () => {
+    const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
+    const delivered = [];
+    const entry = { repoFullName: 'a/b', prNumber: 42, threadId: 't1', catId: 'opus', userId: 'u1' };
+    const spec = createConflictCheckTaskSpec({
+      prTrackingStore: { listAll: async () => [entry] },
+      checkMergeable: async () => 'CONFLICTING',
+      deliverMessage: async (input) => {
+        delivered.push(input);
+        return { messageId: 'msg-1', content: input.content };
+      },
+      log: { info: () => {}, error: () => {}, warn: () => {} },
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    await spec.run.execute(result.workItems[0].signal, result.workItems[0].subjectKey, { assignedCatId: null });
+    assert.equal(delivered.length, 1);
+    assert.ok(delivered[0].content.includes('merge conflict'));
+    assert.equal(delivered[0].threadId, 't1');
+    assert.equal(delivered[0].catId, 'opus');
+  });
+
+  it('execute uses actor-resolved catId when provided', async () => {
+    const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
+    const delivered = [];
+    const entry = { repoFullName: 'a/b', prNumber: 42, threadId: 't1', catId: 'opus', userId: 'u1' };
+    const spec = createConflictCheckTaskSpec({
+      prTrackingStore: { listAll: async () => [entry] },
+      checkMergeable: async () => 'CONFLICTING',
+      deliverMessage: async (input) => {
+        delivered.push(input);
+        return { messageId: 'msg-1', content: input.content };
+      },
+      log: { info: () => {}, error: () => {}, warn: () => {} },
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    await spec.run.execute(result.workItems[0].signal, result.workItems[0].subjectKey, { assignedCatId: 'codex' });
+    assert.equal(delivered.length, 1);
+    assert.equal(delivered[0].catId, 'codex', 'should use actor-resolved catId over entry.catId');
+  });
+
   it('gate skips PRs where checkMergeable throws (fail-open)', async () => {
     const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
     const mockPrs = [

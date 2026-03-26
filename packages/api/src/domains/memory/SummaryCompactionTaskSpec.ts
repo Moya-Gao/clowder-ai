@@ -2,10 +2,10 @@
  * F139: SummaryCompactionTaskSpec — typed signal gate wrapper for SummaryCompactionTask.
  *
  * Gate returns per-thread workItems (with budget). Execute processes a single thread.
- * Replaces the old ScheduledTask boolean-gate pattern.
+ * Uses TaskSpec_P1 typed signal gate pattern (F139).
  */
 import type Database from 'better-sqlite3';
-import type { TaskSpec_P1 } from '../../infrastructure/scheduler/types.js';
+import type { ExecuteContext, TaskSpec_P1 } from '../../infrastructure/scheduler/types.js';
 import { processThread, type SummaryCompactionDeps } from './SummaryCompactionTask.js';
 import { hasHighValueSignal, SUMMARY_CONFIG } from './summary-config.js';
 
@@ -121,12 +121,13 @@ export function createSummaryCompactionTaskSpec(deps: SummaryCompactionDeps): Ta
     run: {
       overlap: 'skip',
       timeoutMs: 120_000,
-      async execute(state: SummarySignal, _subjectKey: string) {
+      async execute(state: SummarySignal, _subjectKey: string, _ctx: ExecuteContext) {
         await processThread(state, deps, config);
       },
     },
     state: { runLedger: 'sqlite' },
     outcome: { whenNoSignal: 'drop' },
     enabled: deps.enabled,
+    actor: { role: 'memory-curator', costTier: 'deep' },
   };
 }

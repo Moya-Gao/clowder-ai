@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 // Phase C: embedding metadata (model/dim version anchor)
 export const SCHEMA_V2 = `
@@ -168,6 +168,11 @@ ALTER TABLE evidence_docs ADD COLUMN pack_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_evidence_docs_pack ON evidence_docs(pack_id);
 `;
 
+// F139 Phase 1b: actor receipt tracking
+export const SCHEMA_V7 = `
+ALTER TABLE task_run_ledger ADD COLUMN assigned_cat_id TEXT;
+`;
+
 /**
  * Apply all schema migrations up to CURRENT_SCHEMA_VERSION.
  * Safe to call on empty DB (creates schema_version table first).
@@ -220,6 +225,11 @@ export function applyMigrations(db: Database.Database): void {
     }
     db.exec('CREATE INDEX IF NOT EXISTS idx_evidence_docs_pack ON evidence_docs(pack_id)');
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(6, new Date().toISOString());
+  }
+
+  if (currentVersion < 7) {
+    db.exec(SCHEMA_V7);
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(7, new Date().toISOString());
   }
 }
 

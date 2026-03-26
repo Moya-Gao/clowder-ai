@@ -7,7 +7,7 @@
  *
  * Cursor is in-memory (Phase 1a); SQLite cursor persistence is Phase 2.
  */
-import type { TaskSpec_P1 } from '../scheduler/types.js';
+import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { IPrTrackingStore, PrTrackingEntry } from './PrTrackingStore.js';
 
 export interface PrComment {
@@ -23,10 +23,20 @@ export interface ReviewCommentsSignal {
   commitCursor: () => void;
 }
 
+export interface DeliverMessageInput {
+  threadId: string;
+  userId: string;
+  catId: string;
+  content: string;
+  source: string;
+}
+
 export interface ReviewCommentsTaskSpecOptions {
   readonly prTrackingStore: IPrTrackingStore;
   /** Injectable comment fetcher — returns all comments for a PR (review + conversation) */
   readonly fetchComments: (repoFullName: string, prNumber: number) => Promise<PrComment[]>;
+  /** Injectable message delivery — posts connector message to thread */
+  readonly deliverMessage?: (input: DeliverMessageInput) => Promise<{ messageId: string; content: string }>;
   readonly log: {
     info: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
@@ -90,14 +100,31 @@ export function createReviewCommentsTaskSpec(opts: ReviewCommentsTaskSpecOptions
     run: {
       overlap: 'skip',
       timeoutMs: 30_000,
-      async execute(signal: ReviewCommentsSignal, subjectKey: string) {
+      async execute(signal: ReviewCommentsSignal, subjectKey: string, ctx: ExecuteContext) {
+        const { entry, newComments } = signal;
+        if (opts.deliverMessage) {
+          const targetCatId = ctx.assignedCatId ?? entry.catId;
+          const preview = newComments
+            .slice(0, 3)
+            .map((c) => `> ${c.body.slice(0, 80)}`)
+            .join('\n');
+          const content = `💬 PR #${entry.prNumber} (${entry.repoFullName}): ${newComments.length} new comment(s)\n${preview}`;
+          await opts.deliverMessage({
+            threadId: entry.threadId,
+            userId: entry.userId,
+            catId: targetCatId,
+            content,
+            source: 'github_review_comments',
+          });
+        }
         opts.log.info(`[review-comments] ${subjectKey}: ${signal.newComments.length} new comment(s)`);
-        // Advance cursor only after successful processing
+        // Advance cursor only after successful delivery + processing
         signal.commitCursor();
       },
     },
     state: { runLedger: 'sqlite' },
     outcome: { whenNoSignal: 'record' },
     enabled: () => true,
+    actor: { role: 'repo-watcher', costTier: 'cheap' },
   };
 }

@@ -442,11 +442,15 @@ async function main(): Promise<void> {
   // ── F139: Unified Scheduler (TaskRunnerV2) ──
   const { TaskRunnerV2 } = await import('./infrastructure/scheduler/TaskRunnerV2.js');
   const { RunLedger } = await import('./infrastructure/scheduler/RunLedger.js');
+  const { createActorResolver } = await import('./infrastructure/scheduler/ActorResolver.js');
+  const { getRoster } = await import('./config/cat-config-loader.js');
   const schedulerDb = memoryServices.store.getDb();
   const runLedger = new RunLedger(schedulerDb);
+  const actorResolver = createActorResolver(getRoster);
   const taskRunnerV2 = new TaskRunnerV2({
     logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
     ledger: runLedger,
+    actorResolver,
   });
 
   // ── Phase G: Summary Compaction (registers into unified scheduler) ──
@@ -1297,10 +1301,27 @@ async function main(): Promise<void> {
     const { createCiCdCheckTaskSpec } = await import('./infrastructure/email/CiCdCheckTaskSpec.js');
     const { createConflictCheckTaskSpec } = await import('./infrastructure/email/ConflictCheckTaskSpec.js');
     const { createReviewCommentsTaskSpec } = await import('./infrastructure/email/ReviewCommentsTaskSpec.js');
+    const { deliverConnectorMessage } = await import('./infrastructure/email/deliver-connector-message.js');
+
+    const connectorDeliveryDeps = { messageStore, socketManager };
+    const deliverMessage = (input: {
+      threadId: string;
+      userId: string;
+      catId: string;
+      content: string;
+      source: string;
+    }) =>
+      deliverConnectorMessage(connectorDeliveryDeps, {
+        threadId: input.threadId,
+        userId: input.userId,
+        catId: input.catId,
+        content: input.content,
+        source: { connector: input.source, label: input.source, icon: '🔔' },
+      });
 
     const cicdRouter = new CiCdRouter({
       prTrackingStore,
-      deliveryDeps: { messageStore, socketManager },
+      deliveryDeps: connectorDeliveryDeps,
       log: app.log,
     });
 
@@ -1308,6 +1329,7 @@ async function main(): Promise<void> {
     taskRunnerV2.register(
       createConflictCheckTaskSpec({
         prTrackingStore,
+        deliverMessage,
         checkMergeable: async (repo, pr) => {
           const { execFile } = await import('node:child_process');
           const { promisify } = await import('node:util');
@@ -1326,6 +1348,7 @@ async function main(): Promise<void> {
     taskRunnerV2.register(
       createReviewCommentsTaskSpec({
         prTrackingStore,
+        deliverMessage,
         fetchComments: async (repo, pr) => {
           const { execFile } = await import('node:child_process');
           const { promisify } = await import('node:util');

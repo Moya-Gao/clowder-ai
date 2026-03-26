@@ -75,6 +75,53 @@ describe('ReviewCommentsTaskSpec', () => {
     assert.equal(r3.run, false, 'after commitCursor, old comments should be filtered');
   });
 
+  it('execute delivers connector message with comment preview', async () => {
+    const { createReviewCommentsTaskSpec } = await import('../../dist/infrastructure/email/ReviewCommentsTaskSpec.js');
+    const delivered = [];
+    const entry = { repoFullName: 'a/b', prNumber: 42, threadId: 't1', catId: 'opus', userId: 'u1' };
+    const spec = createReviewCommentsTaskSpec({
+      prTrackingStore: { listAll: async () => [entry] },
+      fetchComments: async () => [
+        { id: 101, body: 'Please fix the timeout handling', createdAt: '2026-03-25T00:00:00Z' },
+        { id: 102, body: 'Also check the edge case', createdAt: '2026-03-25T00:01:00Z' },
+      ],
+      deliverMessage: async (input) => {
+        delivered.push(input);
+        return { messageId: 'msg-1', content: input.content };
+      },
+      log: { info: () => {}, error: () => {}, warn: () => {} },
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    await spec.run.execute(result.workItems[0].signal, result.workItems[0].subjectKey, { assignedCatId: null });
+    assert.equal(delivered.length, 1);
+    assert.ok(delivered[0].content.includes('2 new comment(s)'));
+    assert.ok(delivered[0].content.includes('timeout handling'));
+    assert.equal(delivered[0].threadId, 't1');
+  });
+
+  it('cursor NOT advanced when deliverMessage throws', async () => {
+    const { createReviewCommentsTaskSpec } = await import('../../dist/infrastructure/email/ReviewCommentsTaskSpec.js');
+    const entry = { repoFullName: 'a/b', prNumber: 42, threadId: 't1', catId: 'opus', userId: 'u1' };
+    const spec = createReviewCommentsTaskSpec({
+      prTrackingStore: { listAll: async () => [entry] },
+      fetchComments: async () => [{ id: 101, body: 'fix this', createdAt: '2026-03-25T00:00:00Z' }],
+      deliverMessage: async () => {
+        throw new Error('delivery failed');
+      },
+      log: { info: () => {}, error: () => {}, warn: () => {} },
+    });
+    const r1 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(r1.run, true);
+    // Execute should throw — cursor should NOT advance
+    await assert.rejects(() =>
+      spec.run.execute(r1.workItems[0].signal, r1.workItems[0].subjectKey, { assignedCatId: null }),
+    );
+    // Gate again — comment should still be visible (cursor not advanced)
+    const r2 = await spec.admission.gate({ taskId: spec.id, lastRunAt: Date.now(), tickCount: 2 });
+    assert.equal(r2.run, true, 'cursor should not advance on delivery failure');
+  });
+
   it('gate skips PRs where fetchComments throws (fail-open)', async () => {
     const { createReviewCommentsTaskSpec } = await import('../../dist/infrastructure/email/ReviewCommentsTaskSpec.js');
     const mockPrs = [

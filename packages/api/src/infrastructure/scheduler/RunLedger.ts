@@ -11,16 +11,24 @@ export class RunLedger {
   record(row: RunLedgerRow): void {
     this.db
       .prepare(
-        `INSERT INTO task_run_ledger (task_id, subject_key, outcome, signal_summary, duration_ms, started_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO task_run_ledger (task_id, subject_key, outcome, signal_summary, duration_ms, started_at, assigned_cat_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(row.task_id, row.subject_key, row.outcome, row.signal_summary, row.duration_ms, row.started_at);
+      .run(
+        row.task_id,
+        row.subject_key,
+        row.outcome,
+        row.signal_summary,
+        row.duration_ms,
+        row.started_at,
+        row.assigned_cat_id,
+      );
   }
 
   query(taskId: string, limit: number): RunLedgerRow[] {
     return this.db
       .prepare(
-        `SELECT task_id, subject_key, outcome, signal_summary, duration_ms, started_at
+        `SELECT task_id, subject_key, outcome, signal_summary, duration_ms, started_at, assigned_cat_id
          FROM task_run_ledger WHERE task_id = ? ORDER BY id DESC LIMIT ?`,
       )
       .all(taskId, limit) as RunLedgerRow[];

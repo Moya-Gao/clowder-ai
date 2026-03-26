@@ -1,9 +1,11 @@
 import type { RunLedger } from './RunLedger.js';
-import type { GateCtx, RunOutcome, TaskSpec_P1 } from './types.js';
+import type { ActorRole, CostTier, GateCtx, RunOutcome, TaskSpec_P1 } from './types.js';
 
 export interface TaskRunnerV2Options {
   logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void };
   ledger: RunLedger;
+  /** Phase 1b: optional actor resolver — maps role + costTier to catId */
+  actorResolver?: (role: ActorRole, costTier: CostTier) => string | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,10 +19,12 @@ export class TaskRunnerV2 {
   private lastRunAt = new Map<string, number | null>();
   private logger: TaskRunnerV2Options['logger'];
   private ledger: RunLedger;
+  private actorResolver: TaskRunnerV2Options['actorResolver'];
 
   constructor(opts: TaskRunnerV2Options) {
     this.logger = opts.logger;
     this.ledger = opts.ledger;
+    this.actorResolver = opts.actorResolver;
   }
 
   register(task: AnyTaskSpec): void {
@@ -107,6 +111,7 @@ export class TaskRunnerV2 {
         signal_summary: null,
         duration_ms: Date.now() - startMs,
         started_at: new Date(startMs).toISOString(),
+        assigned_cat_id: null,
       });
       return;
     }
@@ -131,10 +136,15 @@ export class TaskRunnerV2 {
             signal_summary: null,
             duration_ms: Date.now() - startMs,
             started_at: new Date(startMs).toISOString(),
+            assigned_cat_id: null,
           });
         }
         return;
       }
+
+      // Phase 1b: Actor resolution — resolve once per task tick, not per workItem
+      const assignedCatId =
+        task.actor && this.actorResolver ? this.actorResolver(task.actor.role, task.actor.costTier) : null;
 
       // Step 4 + 5: Execute per workItem → ledger per subject
       // Track raw execute promises so we can await them before releasing the running lock
@@ -144,7 +154,7 @@ export class TaskRunnerV2 {
       for (const item of gateResult.workItems) {
         const itemStartMs = Date.now();
         let outcome: RunOutcome = 'RUN_DELIVERED';
-        const rawExecute = task.run.execute(item.signal, item.subjectKey);
+        const rawExecute = task.run.execute(item.signal, item.subjectKey, { assignedCatId });
         pendingExecutes.push(rawExecute.catch(() => {})); // swallow for allSettled tracking
         try {
           await this.withTimeout(rawExecute, task.run.timeoutMs, task.id);
@@ -160,6 +170,7 @@ export class TaskRunnerV2 {
           signal_summary: typeof item.signal === 'string' ? item.signal : JSON.stringify(item.signal).slice(0, 200),
           duration_ms: Date.now() - itemStartMs,
           started_at: new Date(itemStartMs).toISOString(),
+          assigned_cat_id: assignedCatId,
         });
       }
 

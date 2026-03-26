@@ -1,5 +1,4 @@
 import type Database from 'better-sqlite3';
-import type { ScheduledTask } from '../../infrastructure/scheduler/types.js';
 import { hasHighValueSignal, SUMMARY_CONFIG } from './summary-config.js';
 
 interface SummaryStateRow {
@@ -65,71 +64,6 @@ export interface SummaryCompactionDeps {
   logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void };
 }
 
-/**
- * Phase G: LSM-style summary compaction task.
- *
- * Runs periodically, checks eligibility for each thread, generates
- * abstractive summaries via Opus API, and writes to summary_segments + evidence_docs.
- */
-export function createSummaryCompactionTask(deps: SummaryCompactionDeps): ScheduledTask {
-  const config = SUMMARY_CONFIG;
-
-  return {
-    name: 'summary-compaction',
-    intervalMs: config.schedulerIntervalMs,
-    enabled: deps.enabled,
-
-    async execute() {
-      // Backfill: seed summary_state for historical threads that have never been seen.
-      // Only threads in evidence_docs but NOT in summary_state get a row.
-      // This ensures all 300+ threads can be scheduled, not just recently-active ones.
-      try {
-        deps.db
-          .prepare(
-            `INSERT OR IGNORE INTO summary_state (thread_id, pending_message_count, pending_token_count, pending_signal_flags, summary_type)
-           SELECT REPLACE(anchor, 'thread-', ''), 100, 5000, 7, 'concat'
-           FROM evidence_docs
-           WHERE kind = 'thread' AND anchor LIKE 'thread-%'
-             AND REPLACE(anchor, 'thread-', '') NOT IN (SELECT thread_id FROM summary_state)`,
-          )
-          .run();
-      } catch {
-        // fail-open
-      }
-
-      const candidates = getEligibleThreads(deps.db, deps, config);
-      if (candidates.length === 0) return;
-
-      // Cold-start detection: if most threads have never been summarized,
-      // remove per-tick budget to process all in one pass.
-      const neverSummarized = deps.db
-        .prepare("SELECT count(*) as n FROM summary_state WHERE summary_type = 'concat' AND pending_message_count > 0")
-        .get() as { n: number };
-      const isColdStart = neverSummarized.n > 20;
-      const budget = isColdStart ? candidates.length : config.perTickBudget;
-      if (isColdStart) {
-        deps.logger.info(
-          `[summary-compaction] cold-start detected: ${neverSummarized.n} threads pending, running full batch`,
-        );
-      }
-
-      let processed = 0;
-      for (const state of candidates) {
-        if (processed >= budget) break;
-        try {
-          const didProcess = await processThread(state, deps, config);
-          if (didProcess) processed++;
-        } catch (err) {
-          deps.logger.error(`[summary-compaction] thread ${state.thread_id} failed`, err);
-        }
-      }
-      if (processed > 0) {
-        deps.logger.info(`[summary-compaction] processed ${processed}/${candidates.length} threads`);
-      }
-    },
-  };
-}
-
 /** Check eligibility rule (KD-43 unified): quietWindow AND (count OR tokens OR signal) AND (cooldown OR signal-bypass) */
 function isEligible(
   state: SummaryStateRow,
@@ -167,17 +101,6 @@ function isEligible(
   }
 
   return true;
-}
-
-function getEligibleThreads(
-  db: Database.Database,
-  _deps: SummaryCompactionDeps,
-  _config: typeof SUMMARY_CONFIG,
-): SummaryStateRow[] {
-  const rows = db.prepare('SELECT * FROM summary_state WHERE pending_message_count > 0').all() as SummaryStateRow[];
-  // Eligibility is checked per-thread in processThread to allow async lastActivity lookup
-  // Here we just return threads with pending work; full eligibility check happens in execute loop
-  return rows;
 }
 
 /** Exported for F139 SummaryCompactionTaskSpec to reuse per-thread processing */

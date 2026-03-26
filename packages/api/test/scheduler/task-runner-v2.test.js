@@ -307,4 +307,61 @@ describe('TaskRunnerV2', () => {
     const skipRows = rows.filter((r) => r.outcome === 'SKIP_OVERLAP');
     assert.equal(skipRows.length, 1, 'second trigger should get SKIP_OVERLAP');
   });
+
+  it('actor resolver sets assigned_cat_id in ledger when task has actor spec', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runnerWithResolver = new TaskRunnerV2({
+      logger: silentLogger,
+      ledger,
+      actorResolver: (role, costTier) => {
+        if (role === 'repo-watcher' && costTier === 'cheap') return 'codex';
+        return null;
+      },
+    });
+    runnerWithResolver.register({
+      id: 'actor-test',
+      profile: 'poller',
+      trigger: { type: 'interval', ms: 999999 },
+      admission: {
+        gate: async () => ({ run: true, workItems: [{ signal: 'go', subjectKey: 'pr-1' }] }),
+      },
+      run: { overlap: 'skip', timeoutMs: 5000, execute: async () => {} },
+      state: { runLedger: 'sqlite' },
+      outcome: { whenNoSignal: 'drop' },
+      enabled: () => true,
+      actor: { role: 'repo-watcher', costTier: 'cheap' },
+    });
+    await runnerWithResolver.triggerNow('actor-test');
+    const rows = ledger.query('actor-test', 10);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].assigned_cat_id, 'codex');
+    runnerWithResolver.stop();
+  });
+
+  it('no actor spec → assigned_cat_id is null', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runnerWithResolver = new TaskRunnerV2({
+      logger: silentLogger,
+      ledger,
+      actorResolver: () => 'opus',
+    });
+    runnerWithResolver.register({
+      id: 'no-actor-test',
+      profile: 'poller',
+      trigger: { type: 'interval', ms: 999999 },
+      admission: {
+        gate: async () => ({ run: true, workItems: [{ signal: 'go', subjectKey: 'k' }] }),
+      },
+      run: { overlap: 'skip', timeoutMs: 5000, execute: async () => {} },
+      state: { runLedger: 'sqlite' },
+      outcome: { whenNoSignal: 'drop' },
+      enabled: () => true,
+      // no actor field
+    });
+    await runnerWithResolver.triggerNow('no-actor-test');
+    const rows = ledger.query('no-actor-test', 10);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].assigned_cat_id, null);
+    runnerWithResolver.stop();
+  });
 });
