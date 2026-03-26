@@ -592,6 +592,8 @@ describe('QueueProcessor', () => {
         autoExecute: true,
         callerCatId: 'codex',
       });
+      // list() returns shallow-copied array with reference elements — mutating
+      // createdAt here reaches the real entry inside the queue (coupling on purpose).
       const queued = deps.queue.list('t1', 'system');
       queued[0].createdAt = Date.now() - 120_000;
 

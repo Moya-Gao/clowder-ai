@@ -528,6 +528,8 @@ describe('InvocationQueue', () => {
       callerCatId: 'opus',
     });
 
+    // list() returns shallow-copied array with reference elements — mutating
+    // createdAt here reaches the real entry inside the queue (coupling on purpose).
     const listed = queue.list('t1', 'system');
     listed[1].createdAt = Date.now() - InvocationQueue.STALE_QUEUED_THRESHOLD_MS - 1;
 

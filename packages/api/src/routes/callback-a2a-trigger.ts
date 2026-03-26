@@ -84,7 +84,7 @@ export async function enqueueA2ATargets(
     const enqueued: CatId[] = [];
     const queueDiagnostics: Array<{
       catId: CatId;
-      outcome: 'enqueued' | 'merged' | 'full';
+      outcome: string; // enqueue() returns 'enqueued'|'merged'; 'full' unreachable here (depth guard breaks first)
       entryId?: string;
       createdAt?: number;
     }> = [];
