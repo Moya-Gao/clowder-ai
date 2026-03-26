@@ -1,5 +1,6 @@
+import { getNextCronMs } from './cron-utils.js';
 import type { RunLedger } from './RunLedger.js';
-import type { ActorRole, CostTier, GateCtx, RunOutcome, TaskSpec_P1 } from './types.js';
+import type { ActorRole, CostTier, GateCtx, RunOutcome, ScheduleTaskSummary, TaskSpec_P1 } from './types.js';
 
 export interface TaskRunnerV2Options {
   logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void };
@@ -13,7 +14,7 @@ type AnyTaskSpec = TaskSpec_P1<any>;
 
 export class TaskRunnerV2 {
   private tasks: AnyTaskSpec[] = [];
-  private timers = new Map<string, ReturnType<typeof setInterval>>();
+  private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private running = new Map<string, boolean>();
   private tickCounts = new Map<string, number>();
   private lastRunAt = new Map<string, number | null>();
@@ -41,24 +42,50 @@ export class TaskRunnerV2 {
       this.tickCounts.set(task.id, 0);
       this.lastRunAt.set(task.id, null);
 
-      const runTick = () => {
-        this.executePipeline(task).catch((err) => {
-          this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
-        });
-      };
-
-      // Fire first tick asynchronously, then start interval
-      setTimeout(runTick, 0);
-      const timer = setInterval(runTick, task.trigger.ms);
-      if (typeof timer === 'object' && 'unref' in timer) timer.unref();
-
-      this.timers.set(task.id, timer);
-      this.logger.info(`[scheduler] ${task.id}: registered (profile=${task.profile}, interval=${task.trigger.ms}ms)`);
+      if (task.trigger.type === 'cron') {
+        this.scheduleCronTick(task);
+      } else {
+        const runTick = () => {
+          this.executePipeline(task).catch((err) => {
+            this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
+          });
+        };
+        // Fire first tick asynchronously, then start interval
+        setTimeout(runTick, 0);
+        const timer = setInterval(runTick, task.trigger.ms);
+        if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+        this.timers.set(task.id, timer);
+        this.logger.info(`[scheduler] ${task.id}: registered (profile=${task.profile}, interval=${task.trigger.ms}ms)`);
+      }
     }
+  }
+
+  /** Schedule next cron tick via setTimeout chain */
+  private scheduleCronTick(task: AnyTaskSpec): void {
+    if (task.trigger.type !== 'cron') return;
+    const ms = getNextCronMs(task.trigger.expression, task.trigger.timezone);
+    const timer = setTimeout(() => {
+      this.executePipeline(task)
+        .catch((err) => {
+          this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
+        })
+        .finally(() => {
+          // Schedule next occurrence
+          if (this.timers.has(task.id)) {
+            this.scheduleCronTick(task);
+          }
+        });
+    }, ms);
+    if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+    this.timers.set(task.id, timer);
+    this.logger.info(
+      `[scheduler] ${task.id}: registered (profile=${task.profile}, cron="${task.trigger.expression}", next in ${ms}ms)`,
+    );
   }
 
   stop(): void {
     for (const [id, timer] of this.timers) {
+      clearTimeout(timer);
       clearInterval(timer);
       this.logger.info(`[scheduler] ${id}: stopped`);
     }
@@ -73,6 +100,29 @@ export class TaskRunnerV2 {
 
   getRegisteredTasks(): string[] {
     return this.tasks.map((t) => t.id);
+  }
+
+  /** Phase 2: Full task summaries for schedule panel API */
+  getTaskSummaries(): ScheduleTaskSummary[] {
+    return this.tasks.map((task) => {
+      const lastRuns = this.ledger.query(task.id, 1);
+      const stats = this.ledger.stats(task.id);
+      return {
+        id: task.id,
+        profile: task.profile,
+        trigger: task.trigger,
+        enabled: task.enabled(),
+        actor: task.actor,
+        context: task.context,
+        lastRun: lastRuns[0] ?? null,
+        runStats: stats,
+      };
+    });
+  }
+
+  /** Expose ledger for route handlers */
+  getLedger(): RunLedger {
+    return this.ledger;
   }
 
   private withTimeout(promise: Promise<void>, ms: number, taskId: string): Promise<void> {
@@ -147,15 +197,17 @@ export class TaskRunnerV2 {
         task.actor && this.actorResolver ? this.actorResolver(task.actor.role, task.actor.costTier) : null;
 
       // Step 4 + 5: Execute per workItem → ledger per subject
-      // Track raw execute promises so we can await them before releasing the running lock
-      // (timeout only races the outcome — it cannot cancel the underlying execute)
       const pendingExecutes: Promise<void>[] = [];
 
       for (const item of gateResult.workItems) {
         const itemStartMs = Date.now();
         let outcome: RunOutcome = 'RUN_DELIVERED';
-        const rawExecute = task.run.execute(item.signal, item.subjectKey, { assignedCatId });
-        pendingExecutes.push(rawExecute.catch(() => {})); // swallow for allSettled tracking
+        // Phase 2: pass context spec through ExecuteContext
+        const rawExecute = task.run.execute(item.signal, item.subjectKey, {
+          assignedCatId,
+          context: task.context,
+        });
+        pendingExecutes.push(rawExecute.catch(() => {}));
         try {
           await this.withTimeout(rawExecute, task.run.timeoutMs, task.id);
         } catch (err) {
@@ -179,9 +231,6 @@ export class TaskRunnerV2 {
         `[scheduler] ${task.id}: tick completed, ${gateResult.workItems.length} items (${Date.now() - startMs}ms)`,
       );
 
-      // Wait for any timed-out executes to actually settle before releasing the lock.
-      // Without this, a timed-out but still-running execute would allow the next tick
-      // to pass the overlap guard and cause concurrent reentry.
       await Promise.allSettled(pendingExecutes);
     } finally {
       this.running.set(task.id, false);

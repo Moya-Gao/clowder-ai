@@ -455,6 +455,10 @@ async function main(): Promise<void> {
     actorResolver,
   });
 
+  // ── F139 Phase 2: Schedule panel API routes ──
+  const { scheduleRoutes } = await import('./routes/schedule.js');
+  await app.register(scheduleRoutes, { taskRunner: taskRunnerV2 });
+
   // ── Phase G: Summary Compaction (registers into unified scheduler) ──
   if (process.env.F102_ABSTRACTIVE === 'on' && memoryServices.indexBuilder) {
     try {

@@ -22,6 +22,15 @@ export interface GateCtx {
 /** Task profile presets (ADR-022 KD-1) */
 export type TaskProfile = 'awareness' | 'poller';
 
+/** Phase 2: Trigger spec — interval or cron */
+export type TriggerSpec = { type: 'interval'; ms: number } | { type: 'cron'; expression: string; timezone?: string };
+
+/** Phase 2: Context dimension — session × materialization */
+export interface ContextSpec {
+  session: 'new-thread' | 'same-thread';
+  materialization: 'light' | 'full';
+}
+
 /** Run ledger outcome */
 export type RunOutcome = 'SKIP_NO_SIGNAL' | 'SKIP_DISABLED' | 'SKIP_OVERLAP' | 'RUN_DELIVERED' | 'RUN_FAILED';
 
@@ -37,10 +46,12 @@ export interface ActorSpec {
   costTier: CostTier;
 }
 
-/** Phase 1b: context passed to execute — carries actor resolution result */
+/** Phase 1b+2: context passed to execute — carries actor resolution + context spec */
 export interface ExecuteContext {
   /** Cat resolved by ActorResolver, or null if no actor spec / no match */
   assignedCatId: string | null;
+  /** Phase 2: session × materialization context, if task declares one */
+  context?: ContextSpec;
 }
 
 /**
@@ -51,7 +62,7 @@ export interface ExecuteContext {
 export interface TaskSpec_P1<Signal = unknown> {
   id: string;
   profile: TaskProfile;
-  trigger: { type: 'interval'; ms: number };
+  trigger: TriggerSpec;
   admission: {
     gate: (ctx: GateCtx) => Promise<GateResult<Signal>>;
   };
@@ -69,6 +80,28 @@ export interface TaskSpec_P1<Signal = unknown> {
   enabled: () => boolean;
   /** Phase 1b: actor resolution — which cat capability this task needs */
   actor?: ActorSpec;
+  /** Phase 2: context dimension — session × materialization */
+  context?: ContextSpec;
+}
+
+/** Run ledger stats summary */
+export interface RunStats {
+  total: number;
+  delivered: number;
+  failed: number;
+  skipped: number;
+}
+
+/** Schedule panel task summary (API response shape) */
+export interface ScheduleTaskSummary {
+  id: string;
+  profile: TaskProfile;
+  trigger: TriggerSpec;
+  enabled: boolean;
+  actor?: ActorSpec;
+  context?: ContextSpec;
+  lastRun: RunLedgerRow | null;
+  runStats: RunStats;
 }
 
 /** Run ledger row */

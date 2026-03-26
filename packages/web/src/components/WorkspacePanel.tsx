@@ -18,6 +18,7 @@ import { JsxPreview } from './workspace/JsxPreview';
 import { KnowledgeFeed } from './workspace/KnowledgeFeed';
 import { LinkedRootRemoveButton, LinkedRootsManager } from './workspace/LinkedRootsManager';
 import { ResizeHandle } from './workspace/ResizeHandle';
+import { SchedulePanel } from './workspace/SchedulePanel';
 import { TerminalTab } from './workspace/TerminalTab';
 import { WorkspaceTree } from './workspace/WorkspaceTree';
 
@@ -673,11 +674,27 @@ export function WorkspacePanel() {
         >
           <span className="text-xs">✨</span> 知识
         </button>
+        <button
+          type="button"
+          onClick={() => setWorkspaceMode('schedule')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
+            workspaceMode === 'schedule'
+              ? 'bg-cocreator-bg text-cocreator-dark border border-cocreator-light/60'
+              : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+          }`}
+        >
+          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0a8 8 0 110 16A8 8 0 018 0zm0 2a6 6 0 100 12A6 6 0 008 2zm.5 2v4.25l2.85 2.85a.5.5 0 01-.7.7L7.8 8.95A.5.5 0 017.5 8.6V4a.5.5 0 011 0z" />
+          </svg>
+          调度
+        </button>
       </div>
 
-      {/* Knowledge mode: show feed instead of file tabs */}
+      {/* Knowledge / Schedule / Dev mode routing */}
       {workspaceMode === 'knowledge' ? (
         <KnowledgeFeed />
+      ) : workspaceMode === 'schedule' ? (
+        <SchedulePanel />
       ) : (
         <>
           {/* Files / Changes toggle */}
