@@ -131,6 +131,20 @@ export function buildReviewFeedbackContent(signal: ReviewFeedbackSignal): string
     }
   }
 
+  // Phase B: Action hint for auto-response
+  lines.push('', '---', '🔧 **自动处理**', `- 目标: ${signal.repoFullName}#${signal.prNumber}`);
+
+  const hasChangesRequested = signal.newDecisions.some((d) => d.state === 'CHANGES_REQUESTED');
+  const hasApproved = signal.newDecisions.some((d) => d.state === 'APPROVED');
+
+  if (hasChangesRequested) {
+    lines.push('- 操作: 加载 `receive-review` 模式，逐项处理 review 意见（Red→Green）');
+  } else if (hasApproved) {
+    lines.push('- 操作: PR 已被批准，检查 CI 和冲突状态，准备 merge');
+  } else {
+    lines.push('- 操作: 阅读评论内容，需要回复则回复，需要修改则按 `receive-review` 模式处理');
+  }
+
   return lines.join('\n');
 }
 

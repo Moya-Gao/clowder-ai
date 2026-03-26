@@ -215,4 +215,17 @@ describe('buildConflictMessageContent', () => {
     assert.ok(content.includes('PR #42'));
     assert.ok(content.includes('abc1234'));
   });
+
+  it('includes action hint metadata for auto-response (AC-B1)', () => {
+    const content = buildConflictMessageContent({
+      repoFullName: 'owner/repo',
+      prNumber: 42,
+      headSha: 'abc1234567890',
+      mergeState: 'CONFLICTING',
+    });
+    assert.ok(content.includes('自动处理'), 'should include action hint section');
+    assert.ok(content.includes('git fetch origin main'), 'should include rebase command');
+    assert.ok(content.includes('owner/repo#42'), 'should include PR reference');
+    assert.ok(content.includes('KD-13'), 'should reference the design decision');
+  });
 });

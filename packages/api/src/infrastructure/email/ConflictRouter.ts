@@ -113,6 +113,13 @@ export function buildConflictMessageContent(signal: ConflictSignal): string {
     `Commit: \`${signal.headSha.slice(0, 7)}\``,
     '',
     '当前分支与 base 存在冲突，需要 rebase 或手动解决。',
+    '',
+    '---',
+    '🔧 **自动处理**（KD-13: 全自动 + 事后通知）',
+    `- 目标: ${signal.repoFullName}#${signal.prNumber}`,
+    '- 操作: 在对应 worktree 执行 `git fetch origin main && git rebase origin/main`',
+    '- rebase 成功: push 并通知铲屎官已自动解决',
+    '- rebase 冲突: 评估复杂度 → 简单则尝试解决 → 复杂则通知铲屎官附冲突文件列表',
   ];
   return lines.join('\n');
 }

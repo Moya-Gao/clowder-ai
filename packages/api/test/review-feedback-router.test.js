@@ -210,4 +210,27 @@ describe('buildReviewFeedbackContent', () => {
     assert.ok(!content.includes(longBody), 'full body should be truncated');
     assert.ok(content.includes('x'.repeat(120)), 'first 120 chars should be present');
   });
+
+  it('includes action hint for CHANGES_REQUESTED (AC-B3)', () => {
+    const content = buildReviewFeedbackContent({
+      repoFullName: 'owner/repo',
+      prNumber: 42,
+      newDecisions: [{ id: 1, author: 'alice', state: 'CHANGES_REQUESTED', body: 'fix it', submittedAt: '2026-03-26' }],
+      newComments: [],
+    });
+    assert.ok(content.includes('自动处理'), 'should include action hint section');
+    assert.ok(content.includes('receive-review'), 'CHANGES_REQUESTED should reference receive-review mode');
+    assert.ok(content.includes('owner/repo#42'), 'should include PR reference');
+  });
+
+  it('includes action hint for APPROVED (AC-B3)', () => {
+    const content = buildReviewFeedbackContent({
+      repoFullName: 'owner/repo',
+      prNumber: 42,
+      newDecisions: [{ id: 1, author: 'alice', state: 'APPROVED', body: 'lgtm', submittedAt: '2026-03-26' }],
+      newComments: [],
+    });
+    assert.ok(content.includes('自动处理'), 'should include action hint section');
+    assert.ok(content.includes('merge'), 'APPROVED should mention merge readiness');
+  });
 });

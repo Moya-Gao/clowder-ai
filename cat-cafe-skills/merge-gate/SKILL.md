@@ -66,6 +66,12 @@ EOF
 #   - PR 冲突检测（CONFLICTING）→ github-conflict connector（urgent 唤醒）
 #   - Review feedback（comments + decisions）→ github-review-feedback connector
 # 详见 refs/pr-signals.md
+#
+# 收到冲突通知时（F140 Phase B）：
+# - 暂停当前工作，处理冲突优先（冲突是 merge blocker）
+# - 在对应 worktree 执行 rebase（参见 refs/pr-signals.md Phase B）
+# - rebase 成功后继续原工作流
+# - 复杂冲突 → 通知铲屎官，等指示后再继续
 
 # 4. PR body 防呆检查（禁止任何 @句柄出现在 body）
 PR_BODY="$(gh pr view {PR_NUMBER} --json body --jq '.body')" || \

@@ -8,7 +8,7 @@
  * Execute: ReviewFeedbackRouter → ConnectorInvokeTrigger → commitCursor.
  */
 import type { CatId } from '@cat-cafe/shared';
-import type { TaskSpec_P1 } from '../scheduler/types.js';
+import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
 import type { IPrTrackingStore, PrTrackingEntry } from './PrTrackingStore.js';
 import type { PrFeedbackComment, PrReviewDecision, ReviewFeedbackRouter } from './ReviewFeedbackRouter.js';
@@ -100,7 +100,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
     run: {
       overlap: 'skip',
       timeoutMs: 30_000,
-      async execute(signal: ReviewFeedbackSignal, _subjectKey: string) {
+      async execute(signal: ReviewFeedbackSignal, _subjectKey: string, _ctx: ExecuteContext) {
         const routeResult = await opts.reviewFeedbackRouter.route(
           {
             repoFullName: signal.entry.repoFullName,
@@ -144,5 +144,6 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
     state: { runLedger: 'sqlite' },
     outcome: { whenNoSignal: 'record' },
     enabled: () => true,
+    actor: { role: 'repo-watcher', costTier: 'cheap' },
   };
 }
