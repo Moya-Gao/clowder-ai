@@ -1360,6 +1360,18 @@ async function main(): Promise<void> {
     );
 
     // F140: review-feedback with ReviewFeedbackRouter (KD-11 replaces review-comments)
+    // Resolve authenticated GitHub login once for echo filter (author + body check)
+    let selfGitHubLogin: string | undefined;
+    try {
+      const { execFile } = await import('node:child_process');
+      const { promisify } = await import('node:util');
+      const { stdout } = await promisify(execFile)('gh', ['api', '/user', '--jq', '.login'], { timeout: 10_000 });
+      selfGitHubLogin = stdout.trim() || undefined;
+      app.log.info(`[api] F140: echo filter will match author=${selfGitHubLogin}`);
+    } catch {
+      app.log.warn('[api] F140: could not resolve GitHub login for echo filter — filter will match body only');
+    }
+
     const fetchPaginated = async (endpoint: string) => {
       const { execFile } = await import('node:child_process');
       const { promisify } = await import('node:util');
@@ -1417,6 +1429,12 @@ async function main(): Promise<void> {
         reviewFeedbackRouter,
         invokeTrigger,
         log: app.log,
+        // Echo filter: skip review trigger comments posted by OUR account (author + body).
+        // Without author check, external reviewers writing "@xxx review" would be silently dropped.
+        isEchoComment: (c) =>
+          (selfGitHubLogin ? c.author === selfGitHubLogin : false) &&
+          c.commentType === 'conversation' &&
+          /^@\w+\s+review\b/i.test(c.body),
       }),
     );
     app.log.info('[api] F139/F140: cicd-check, conflict-check, review-feedback specs registered');

@@ -207,6 +207,130 @@ describe('ReviewFeedbackTaskSpec', () => {
     assert.equal(triggerCalls[0][6].priority, 'urgent');
   });
 
+  it('gate filters out echo comments via isEchoComment predicate', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => [
+        {
+          id: 1,
+          author: 'zts212653',
+          body: '@codex review\n\nPlease review latest commit abc123',
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+        {
+          id: 2,
+          author: 'alice',
+          body: 'Looks good, minor nit on line 42',
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isEchoComment: (c) => /^@\w+\s+review\b/i.test(c.body),
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    assert.equal(result.workItems[0].signal.newComments.length, 1);
+    assert.equal(result.workItems[0].signal.newComments[0].author, 'alice');
+  });
+
+  it('gate skips PR entirely when all comments are echo', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => [
+        {
+          id: 1,
+          author: 'zts212653',
+          body: '@codex review\n\nPlease review latest commit abc123',
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isEchoComment: (c) => /^@\w+\s+review\b/i.test(c.body),
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, false);
+  });
+
+  it('echo filter still advances cursor for filtered comments', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    let fetchCount = 0;
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => {
+        fetchCount++;
+        return [
+          {
+            id: 10,
+            author: 'zts212653',
+            body: '@codex review\n\nPlease review abc',
+            createdAt: '2026-01-01',
+            commentType: 'conversation',
+          },
+        ];
+      },
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isEchoComment: (c) => /^@\w+\s+review\b/i.test(c.body),
+    });
+
+    // First gate: echo comment filtered, run=false, but cursor should advance past it
+    const r1 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(r1.run, false);
+
+    // Second gate: same echo comment should not reappear (cursor advanced)
+    const r2 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 2 });
+    assert.equal(r2.run, false);
+  });
+
+  it('echo filter with author check does not filter external reviewer comments (P1 regression)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const selfLogin = 'zts212653';
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => [
+        {
+          id: 1,
+          author: 'external-reviewer',
+          body: '@opus review this PR please',
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+        {
+          id: 2,
+          author: selfLogin,
+          body: '@codex review\n\nPlease review latest commit abc123',
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      // Author + body: only OUR account's trigger comments are echo
+      isEchoComment: (c) =>
+        c.author === selfLogin && c.commentType === 'conversation' && /^@\w+\s+review\b/i.test(c.body),
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    // External reviewer's comment MUST pass through — not filtered
+    assert.equal(result.workItems[0].signal.newComments.length, 1);
+    assert.equal(result.workItems[0].signal.newComments[0].author, 'external-reviewer');
+  });
+
   it('execute does not commit cursor when router skips', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const { router } = stubRouter('skipped');

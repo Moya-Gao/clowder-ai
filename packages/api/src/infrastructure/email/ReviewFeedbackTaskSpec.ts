@@ -32,6 +32,8 @@ export interface ReviewFeedbackTaskSpecOptions {
     warn: (...args: unknown[]) => void;
   };
   readonly pollIntervalMs?: number;
+  /** Predicate to identify echo comments (e.g. review trigger templates posted by cats themselves). Matched comments are silently skipped and their cursor advanced. */
+  readonly isEchoComment?: (comment: PrFeedbackComment) => boolean;
 }
 
 export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions): TaskSpec_P1<ReviewFeedbackSignal> {
@@ -64,13 +66,26 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const commentCursor = commentCursors.get(prKey) ?? 0;
             const reviewCursor = reviewCursors.get(prKey) ?? 0;
 
-            const newComments = comments.filter((c) => c.id > commentCursor);
+            const allNewComments = comments.filter((c) => c.id > commentCursor);
             const newDecisions = reviews.filter((r) => r.id > reviewCursor);
 
-            if (newComments.length === 0 && newDecisions.length === 0) continue;
+            // Echo filter: skip comments that match the echo predicate (e.g. review trigger templates).
+            // Cursor still advances past them so they don't reappear next cycle.
+            const echoFilter = opts.isEchoComment;
+            const newComments = echoFilter ? allNewComments.filter((c) => !echoFilter(c)) : allNewComments;
 
-            const maxCommentId = newComments.length > 0 ? Math.max(...newComments.map((c) => c.id)) : commentCursor;
+            // Cursor must cover ALL fetched comments (including echoes) to avoid re-processing
+            const maxCommentId =
+              allNewComments.length > 0 ? Math.max(...allNewComments.map((c) => c.id)) : commentCursor;
             const maxReviewId = newDecisions.length > 0 ? Math.max(...newDecisions.map((r) => r.id)) : reviewCursor;
+
+            // Advance cursor past echo-only batches so they don't reappear
+            if (allNewComments.length > 0 && newComments.length === 0 && newDecisions.length === 0) {
+              commentCursors.set(prKey, maxCommentId);
+              continue;
+            }
+
+            if (newComments.length === 0 && newDecisions.length === 0) continue;
 
             workItems.push({
               signal: {
