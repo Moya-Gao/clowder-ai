@@ -63,14 +63,15 @@ interface ScheduledTask {
 
 ## Decision
 
-### 1. 五维度 TaskSpec + 五步流水线
+### 1. 六维度 TaskSpec + 五步流水线
 
-砚砚提出的 5 维度正交模型，经 GPT Pro 审阅后微调：
+砚砚提出的正交模型，经 GPT Pro 审阅 + 砚砚 review 后微调（原 5 维度，恢复 Context）：
 
 ```
 TaskSpec（任务语义）
   ├─ Trigger     何时触发（interval / cron / event / hybrid）
   ├─ Admission   准入判断（activeHours + gate → typed signal）
+  ├─ Context     执行上下文（session × materialization，Phase 2）
   ├─ Run         执行策略（overlap / timeout / retry）
   ├─ State       状态持久（cursor + run ledger + registration）
   └─ Outcome     结果契约（whenNoSignal: drop/record + sink）
@@ -78,6 +79,8 @@ TaskSpec（任务语义）
   + Actor（可选）  谁来干（role + strategy + cost tier）
   + Governance（横切面，Phase 3）  谁能改
 ```
+
+> **Context（Phase 2）**：GPT Pro 提出的执行上下文维度，拆为两轴：`session`（`new-thread` / `same-thread`，对应龙虾 `isolatedSession`）和 `materialization`（`light` / `full`，gate 前用 light，execute 按需升级）。Phase 1a 默认 `same-thread` + `light`，不暴露此维度。
 
 五步流水线：
 
@@ -108,6 +111,8 @@ gate: (ctx: GateCtx) => Promise<
 
 **Why**：消除二次扫描。F102 的 `isEligible()` 返回 boolean 后 `execute()` 又重新读 `pendingMessageCount`/`signal_flags`。
 
+**硬规则**：`subjectKey` 是所有有状态操作的统一锚点 — lease / cursor / dedupe / dispatch-receipt / run-ledger 共用此主键。gate 返回的 `subjectKey` 直接贯穿下游全链路，不允许下游另起 key。
+
 #### D-2: 调度到 role，不是 model
 
 ```typescript
@@ -120,6 +125,8 @@ actor: {
 ```
 
 **Why**：多猫场景下，`opus` 是 runtime binding 不是真相源。resolver 根据 roster/availability/thread affinity/cost hint 选猫。
+
+**注**：`role` 是**能力命名空间**（`memory-curator` / `repo-watcher` / `health-monitor`），不是 roster 身份角色（`architect` / `peer-reviewer`）。resolver 路径：能力角色 → cat-config.json roster 匹配 → 可用性 + 亲和 + 成本 → 选猫。
 
 #### D-3: MCP dispatch = 异步 handoff，不是同步执行
 
@@ -236,6 +243,7 @@ my-pack/
 | `broadcast` 只适合只读任务 | 有 side effect 的必须 singleton/sharded |
 | awareness 任务默认加 jitter | 避免整点全猫齐醒 |
 | 猫改 checklist（备忘录），不改 spec（电闸） | 安全边界 |
+| `subjectKey` 贯穿 lease/cursor/dedupe/dispatch/ledger | 统一锚点，防主键分裂 |
 
 ### 6. anti-feedback-loop
 
@@ -322,3 +330,4 @@ interface TaskSpec_P1<Signal = unknown> {
 ---
 
 *起草：宪宪/Opus-46 | 审阅：砚砚/GPT-5.4 | 外部咨询：GPT Pro | 2026-03-25*
+*rev-1：采纳砚砚 review — 恢复 Context 维度 + subjectKey 统一锚点 + actor.role 能力命名空间*
