@@ -69,10 +69,10 @@ created: 2026-03-25
 - [x] AC-A7: awareness / poller 两种 profile 可用
 - [x] AC-A8: 现有 TaskRunner 行为不回归，纯 interval pollers 收敛为统一调度（GithubReviewWatcher 保留 IMAP idle + reconnect fallback，不在 interval 收敛范围）
 
-### Phase 1b（Actor + Cat Wake）
-- [ ] AC-B1: actor.role resolver 从 cat-config.json 匹配猫
-- [ ] AC-B2: MCP dispatch + receipt tracking 端到端
-- [ ] AC-B3: costTier hint 影响选猫策略
+### Phase 1b（Actor + Cat Wake）✅
+- [x] AC-B1: actor.role resolver 从 cat-config.json 匹配猫
+- [x] AC-B2: MCP dispatch + receipt tracking 端到端
+- [x] AC-B3: costTier hint 影响选猫策略
 
 ### Phase 2（Cron + UI + Context）
 - [ ] AC-C1: cron/event trigger 可用
@@ -130,6 +130,7 @@ created: 2026-03-25
 | 2026-03-25 | 立项 F139 |
 | 2026-03-25 | 跨线程通知：三套 setInterval 技术债 + 社区需求（冲突/comments 检测）→ Phase 1a 紧迫 |
 | 2026-03-26 | Phase 1a merged (PR #747) — 砚砚 local review 2 rounds + cloud review passed |
+| 2026-03-26 | Phase 1b merged (PR #750) — actor.role resolver + costTier + execute routing + V1 cleanup |
 
 ## Review Gate
 
