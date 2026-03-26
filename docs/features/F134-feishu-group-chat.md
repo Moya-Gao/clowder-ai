@@ -8,7 +8,7 @@ created: 2026-03-24
 
 # F134: Feishu Group Chat — 飞书群聊多用户支持
 
-> **Status**: done (Phase A-D), planned (Phase E) | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745
 >
 > **Related**: F088（复用公共层 + Phase 7 公共层扩展）| F132（钉钉/企微，同模式独立 Feature）
 
@@ -228,14 +228,14 @@ if (connectionMode === 'websocket') {
 - [x] AC-D4: 管理员身份通过 `FEISHU_ADMIN_OPEN_IDS` env 配置（首次启动 seed，持久化到 Redis）
 - [x] AC-D5: @bot 对话不受限（群里所有人都能 @bot 提问）
 
-### Phase E（WebSocket 长连接模式） 🔲
-- [ ] AC-E1: `FEISHU_CONNECTION_MODE=websocket` 时，通过 WebSocket 长连接正常收发消息（DM + 群聊）
-- [ ] AC-E2: `FEISHU_CONNECTION_MODE=webhook`（默认）时，现有 Webhook 行为不变（无回归）
-- [ ] AC-E3: IM Hub 配置面板可见「连接模式」选择项（webhook / websocket），不仅是 env 变量
-- [ ] AC-E4: WebSocket 模式下不要求 `FEISHU_VERIFICATION_TOKEN`（长连接不需要 webhook 验证）
-- [ ] AC-E5: WebSocket 断线后自动重连（SDK 内置能力，确认 + 日志可观测）
-- [ ] AC-E6: 引导步骤（Hub 面板 steps）根据所选模式动态展示不同配置指引
-- [ ] AC-E7: 两种模式共用同一个 FeishuAdapter 实例，群聊 / DM / @bot 检测 / 权限控制全部复用
+### Phase E（WebSocket 长连接模式） ✅
+- [x] AC-E1: `FEISHU_CONNECTION_MODE=websocket` 时，通过 WebSocket 长连接正常收发消息（DM + 群聊）
+- [x] AC-E2: `FEISHU_CONNECTION_MODE=webhook`（默认）时，现有 Webhook 行为不变（无回归）
+- [x] AC-E3: IM Hub 配置面板可见「连接模式」选择项（webhook / websocket），不仅是 env 变量
+- [x] AC-E4: WebSocket 模式下不要求 `FEISHU_VERIFICATION_TOKEN`（长连接不需要 webhook 验证）
+- [x] AC-E5: WebSocket 断线后自动重连（SDK 内置能力，确认 + 日志可观测）
+- [x] AC-E6: 引导步骤（Hub 面板 steps）根据所选模式动态展示不同配置指引
+- [x] AC-E7: 两种模式共用同一个 FeishuAdapter 实例，群聊 / DM / @bot 检测 / 权限控制全部复用
 
 ## 需求点 Checklist
 
@@ -248,7 +248,7 @@ if (connectionMode === 'websocket') {
 | R5 | 先做 1-3 再做 4（权限后做） | Phase D 暂不开工 | — | [x] |
 | R6 | "@所有人的时候bot不要响应，明确@bot才响应" | AC-A6 | test | [x] |
 | R7 | "群聊名字+群聊ID+发送消息的人"在 UI 展示 | AC-B3, AC-B4 | screenshot | [x] |
-| R8 | "飞书支持长连接吗？应该两种都支持，在配置里让铲屎官选" | AC-E1~E7 | test + manual | [ ] |
+| R8 | "飞书支持长连接吗？应该两种都支持，在配置里让铲屎官选" | AC-E1~E7 | test + manual | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -328,6 +328,9 @@ if (connectionMode === 'websocket') {
 | 2026-03-25 | 云端 review: P1 (admin seed 覆盖) → 修复 → P2 (length vs hexists) → 修复 → 0 P1/P2 通过 |
 | 2026-03-25 | PR #705 squash merged → `bd664695`, Phase A-D all done |
 | 2026-07-24 | 铲屎官提出飞书应同时支持 Webhook + WebSocket 长连接，在 IM Hub 配置面板可选（KD-13），纳入 Phase E |
+| 2026-03-26 | Phase E 实现：WSClient 双模式 + IM Hub 连接模式选择器 + mode-aware steps + 非法值归一化 |
+| 2026-03-26 | 缅因猫 review: P1 (AC-E6 steps 不按模式变) + P2 (normalization + WSClient mock) → 修复 → Round 2 放行 |
+| 2026-03-26 | PR #745 squash merged, Phase A-E all done |
 
 ## Design Gate Results（2026-03-25）
 
