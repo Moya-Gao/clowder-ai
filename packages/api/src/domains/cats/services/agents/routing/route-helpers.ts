@@ -30,6 +30,8 @@ export interface RouteStrategyDeps {
   draftStore?: IDraftStore;
   /** F079 Bug 2: Optional broadcaster for real-time vote result delivery */
   socketManager?: RouteBroadcaster;
+  /** F129: Pack store for loading active packs at invocation time */
+  packStore?: import('../../../../packs/PackStore.js').PackStore;
 }
 
 /** Mutable context for tracking persistence failures across the generator boundary.

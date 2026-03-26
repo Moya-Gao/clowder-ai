@@ -122,6 +122,7 @@ import {
   memoryRoutes,
   messageActionsRoutes,
   messagesRoutes,
+  packsRoutes,
   projectsRoutes,
   providerProfilesRoutes,
   pushRoutes,
@@ -661,6 +662,11 @@ async function main(): Promise<void> {
     }
   });
 
+  // F129: Pack store — shared between router (invocation) and routes (API)
+  const { PackStore } = await import('./domains/packs/PackStore.js');
+  const packStoreDir = join(findMonorepoRoot(process.cwd()), '.cat-cafe', 'packs');
+  const packStore = new PackStore(packStoreDir);
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -682,6 +688,7 @@ async function main(): Promise<void> {
     ...(tmuxGateway ? { tmuxGateway } : {}),
     ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
     signalArticleLookup: createSignalArticleLookup({ transcriptReader }),
+    packStore,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
@@ -1001,6 +1008,15 @@ async function main(): Promise<void> {
     evidenceStore: memoryServices.evidenceStore,
     indexBuilder: memoryServices.indexBuilder,
   });
+
+  // F129: Pack system routes (reuse shared packStore from above)
+  {
+    const { PackSecurityGuard } = await import('./domains/packs/PackSecurityGuard.js');
+    const { PackLoader } = await import('./domains/packs/PackLoader.js');
+    const packGuard = new PackSecurityGuard();
+    const packLoader = new PackLoader(packStore, packGuard);
+    await app.register(packsRoutes, { packLoader });
+  }
 
   // Reflect (SQLite-backed reflection)
   await app.register(reflectRoutes, {

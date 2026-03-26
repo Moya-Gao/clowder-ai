@@ -58,7 +58,11 @@ describe('Schema V2 migration', () => {
     applyMigrations(db);
     applyMigrations(db);
     const version = db.prepare('SELECT MAX(version) as v FROM schema_version').get();
-    assert.equal(version.v, CURRENT_SCHEMA_VERSION, `schema version should be ${CURRENT_SCHEMA_VERSION}, got ${version.v}`);
+    assert.equal(
+      version.v,
+      CURRENT_SCHEMA_VERSION,
+      `schema version should be ${CURRENT_SCHEMA_VERSION}, got ${version.v}`,
+    );
   });
 
   it('schema_version table is created even on empty DB (P1 fix)', async () => {
@@ -67,7 +71,11 @@ describe('Schema V2 migration', () => {
     // This should NOT throw "no such table: schema_version"
     applyMigrations(freshDb);
     const version = freshDb.prepare('SELECT MAX(version) as v FROM schema_version').get();
-    assert.equal(version.v, CURRENT_SCHEMA_VERSION, `schema version should be ${CURRENT_SCHEMA_VERSION}, got ${version.v}`);
+    assert.equal(
+      version.v,
+      CURRENT_SCHEMA_VERSION,
+      `schema version should be ${CURRENT_SCHEMA_VERSION}, got ${version.v}`,
+    );
   });
 
   it('CURRENT_SCHEMA_VERSION is at least 4', async () => {

@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 // Phase C: embedding metadata (model/dim version anchor)
 export const SCHEMA_V2 = `
@@ -162,6 +162,12 @@ CREATE INDEX IF NOT EXISTS idx_run_ledger_task ON task_run_ledger(task_id);
 CREATE INDEX IF NOT EXISTS idx_run_ledger_subject ON task_run_ledger(subject_key);
 `;
 
+// F129 Phase A: pack-scoped knowledge isolation
+export const SCHEMA_V6 = `
+ALTER TABLE evidence_docs ADD COLUMN pack_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_evidence_docs_pack ON evidence_docs(pack_id);
+`;
+
 /**
  * Apply all schema migrations up to CURRENT_SCHEMA_VERSION.
  * Safe to call on empty DB (creates schema_version table first).
@@ -203,6 +209,17 @@ export function applyMigrations(db: Database.Database): void {
   if (currentVersion < 5) {
     db.exec(SCHEMA_V5);
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(5, new Date().toISOString());
+  }
+
+  if (currentVersion < 6) {
+    // ALTER TABLE cannot be combined; execute each statement separately
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN pack_id TEXT');
+    } catch {
+      // Column may already exist from a partial migration
+    }
+    db.exec('CREATE INDEX IF NOT EXISTS idx_evidence_docs_pack ON evidence_docs(pack_id)');
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(6, new Date().toISOString());
   }
 }
 
