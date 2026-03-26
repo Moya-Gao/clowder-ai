@@ -233,8 +233,9 @@ export async function processThread(
             threadId: state.thread_id,
           });
           deps.logger.info(`[summary-compaction] submitted candidate: [${c.kind}] ${c.title}`);
-        } catch {
+        } catch (err) {
           // fail-open: candidate submission failure doesn't block compaction
+          deps.logger.error(`[summary-compaction] submitCandidate failed for [${c.kind}] ${c.title}: ${err}`);
         }
       }
     }

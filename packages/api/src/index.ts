@@ -359,6 +359,7 @@ async function main(): Promise<void> {
     type: 'sqlite',
     sqlitePath: process.env.EVIDENCE_DB ?? resolve(repoRoot, 'evidence.sqlite'),
     docsRoot: process.env.DOCS_ROOT ?? resolve(repoRoot, 'docs'),
+    markersDir: resolve(repoRoot, 'docs', 'markers'),
     transcriptDataDir, // reuse the same resolved path as Writer/Reader (line 282)
     // Gap-1: expose EMBED_MODE env variable (Phase C infra ready, default off for open-source)
     embed: process.env.EMBED_MODE ? { embedMode: process.env.EMBED_MODE as 'off' | 'shadow' | 'on' } : undefined,
@@ -562,6 +563,48 @@ async function main(): Promise<void> {
 
       taskRunnerV2.register(summarySpec);
       app.log.info('[api] F139: summary-compact spec registered');
+
+      // H-3 backfill: replay lost candidates from summary_segments into MarkerQueue.
+      // Before the mkdirSync fix, submit() silently failed (ENOENT). This one-shot
+      // replay recovers those candidates. Idempotent via content-based dedup: each
+      // candidate is skipped if a marker with identical content already exists.
+      const existingMarkers = await memoryServices.markerQueue.list();
+      const existingContents = new Set(existingMarkers.map((m) => m.content));
+      const rows = db
+        .prepare('SELECT thread_id, candidates FROM summary_segments WHERE candidates IS NOT NULL')
+        .all() as Array<{ thread_id: string; candidates: string }>;
+      let backfilled = 0;
+      for (const row of rows) {
+        try {
+          const candidates = JSON.parse(row.candidates) as Array<{
+            kind: string;
+            title: string;
+            claim: string;
+            confidence?: string;
+          }>;
+          for (const c of candidates) {
+            const content = `[${c.kind}] ${c.title}: ${c.claim}`;
+            if (existingContents.has(content)) continue;
+            const marker = await memoryServices.markerQueue.submit({
+              content,
+              source: `thread:${row.thread_id}`,
+              status: 'captured',
+              targetKind: c.kind === 'decision' ? 'decision' : 'lesson',
+            });
+            if ((c.confidence ?? 'inferred') === 'explicit') {
+              await memoryServices.markerQueue.transition(marker.id, 'normalized');
+              await memoryServices.markerQueue.transition(marker.id, 'approved');
+            }
+            existingContents.add(content);
+            backfilled++;
+          }
+        } catch (backfillErr) {
+          app.log.error(`[knowledge-backfill] failed for thread ${row.thread_id}: ${backfillErr}`);
+        }
+      }
+      if (backfilled > 0) {
+        app.log.info(`[knowledge-backfill] replayed ${backfilled} lost candidates into MarkerQueue`);
+      }
     } catch (err) {
       app.log.warn(`[api] F102 Phase G: scheduler init failed (non-fatal): ${err}`);
     }
