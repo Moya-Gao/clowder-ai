@@ -147,6 +147,8 @@ created: 2026-03-26
 | Comments 量大导致消息洪水 | cursor 去重 + 同一 PR 聚合通知（不逐条） |
 | 自动 rebase 可能引入问题 | Phase B：复杂冲突不自动处理，通知铲屎官 |
 | Fork PR 的 comments 权限差异 | `gh api` fallback 到公开 API |
+| **🔴 回声过滤缺失** | ReviewFeedbackTaskSpec gate 只看 cursor 不看 author，猫自己发的 comment（如 review trigger）会被当成"新 review feedback"投递出来 → A2A 重复调度队友。需在 gate 里过滤 bot 账号 + trigger 模板 comment |
+| **🔴 ConnectorIcon 遗漏** | `github-conflict` / `github-review-feedback` 未加入 ConnectorIcon switch，渲染成文字 fallback（✅ 已修 PR #757 后 hotfix） |
 
 ## Open Questions
 
@@ -188,6 +190,8 @@ created: 2026-03-26
 | 2026-03-26 | A2A routing bug 修复 (PR #754) — 金渐层误触发事件的三件套修复 |
 | 2026-03-26 | Phase B Design Gate 通过 — OQ-3 铲屎官拍板选项 C（全自动+事后通知），KD-13 记录 |
 | 2026-03-26 | Phase B merged (PR #757) — Action hints + Skill behavior guides + F139 1b alignment |
+| 2026-03-26 | 砚砚 GPT-5.4 review 发现 Phase B overclaim → 修正为「自动响应引导层」+ Phase C stub |
+| 2026-03-26 | 🔴 铲屎官发现两个 bug：ConnectorIcon 渲染 fallback（已修）+ 回声过滤缺失（待修） |
 
 ## Design Gate 讨论归档
 
