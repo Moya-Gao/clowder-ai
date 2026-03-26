@@ -111,6 +111,7 @@ created: 2026-03-25
 | KD-4 | actor.role = 能力命名空间 | 砚砚 review open question 收敛 | 2026-03-25 |
 | KD-5 | UI + 自然语言配置（非 markdown 编辑） | 铲屎官明确要求 | 2026-03-25 |
 | KD-6 | 龙虾兼容但不照搬 | 事件驱动我们更好，只学主动自省语义 | 2026-03-25 |
+| KD-7 | 调度面板 = Workspace 顶级 Tab（和"开发""知识"平齐） | 铲屎官确认，不是子 Tab；展示在 Workspace，配置在对话区自然语言；Tab 图标用 SVG 不用 emoji | 2026-03-25 |
 
 ## Timeline
 
