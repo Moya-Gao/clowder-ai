@@ -51,6 +51,13 @@ const CATEGORY_STYLES: Record<TaskCategory, string> = {
   Custom: 'bg-purple-100 text-purple-700',
 };
 
+const CATEGORY_DOT: Record<TaskCategory, string> = {
+  PR: 'bg-[#E8913A]',
+  Repo: 'bg-emerald-500',
+  System: 'bg-amber-500',
+  Custom: 'bg-purple-500',
+};
+
 function categorize(taskId: string): TaskCategory {
   if (taskId.includes('review') || taskId.includes('conflict')) return 'PR';
   if (taskId.includes('cicd') || taskId.includes('repo') || taskId.includes('issue')) return 'Repo';
@@ -168,8 +175,9 @@ export function SchedulePanel() {
     }
   }, [nlInput, fetchTasks]);
 
-  const totalRuns = tasks.reduce((sum, t) => sum + t.runStats.total, 0);
-  const totalDelivered = tasks.reduce((sum, t) => sum + t.runStats.delivered, 0);
+  const activeCount = tasks.filter((t) => t.enabled).length;
+  const pausedCount = tasks.length - activeCount;
+  const totalFailed = tasks.reduce((sum, t) => sum + t.runStats.failed, 0);
 
   if (loading) {
     return <div className="flex-1 flex items-center justify-center text-sm text-[#9A866F]">Loading schedule...</div>;
@@ -202,9 +210,17 @@ export function SchedulePanel() {
           Current Thread
         </button>
         <span className="ml-auto text-[10px] text-[#9A866F]">
-          {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
+          {tasks.length} tasks · {activeCount} active{pausedCount > 0 ? ` · ${pausedCount} paused` : ''}
         </span>
       </div>
+
+      {/* Current Thread context banner (V2 design) */}
+      {scope === 'current-thread' && currentThreadId && (
+        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-[#F5EDE3]/60 border-b border-[#E8DFD4]">
+          <span className="text-[10px] text-[#9A866F]">Showing tasks for:</span>
+          <span className="text-[10px] font-medium text-[#5C4B3A]">{currentThreadId.slice(0, 12)}</span>
+        </div>
+      )}
 
       {/* Task list */}
       <div className="flex-1 overflow-y-auto">
@@ -217,6 +233,8 @@ export function SchedulePanel() {
               return (
                 <div key={task.id} className="px-4 py-3 hover:bg-[#F5EDE3]/50 transition-colors">
                   <div className="flex items-center gap-2">
+                    {/* Color dot (V2 design) */}
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${CATEGORY_DOT[category]}`} />
                     {/* Type tag */}
                     <span
                       className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${CATEGORY_STYLES[category]}`}
@@ -230,7 +248,7 @@ export function SchedulePanel() {
                   </div>
 
                   {/* Status row */}
-                  <div className="flex items-center gap-2 mt-1 ml-[42px]">
+                  <div className="flex items-center gap-2 mt-1 ml-[52px]">
                     {task.lastRun ? (
                       <>
                         <span className={`text-xs font-medium ${outcomeColor(task.lastRun.outcome)}`}>
@@ -256,11 +274,13 @@ export function SchedulePanel() {
         )}
       </div>
 
-      {/* Footer stats */}
-      <div className="px-4 py-1.5 border-t border-[#E8DFD4] text-[10px] text-[#9A866F] flex items-center gap-3">
-        <span>{tasks.length} registered</span>
+      {/* Footer stats (V2 design) */}
+      <div className="px-4 py-1.5 border-t border-[#E8DFD4] text-[10px] text-[#9A866F] flex items-center">
         <span>
-          {totalDelivered}/{totalRuns} delivered
+          {tasks.length} tasks · {activeCount} active{pausedCount > 0 ? ` · ${pausedCount} paused` : ''}
+        </span>
+        <span className={`ml-auto font-medium ${totalFailed > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+          {totalFailed > 0 ? `${totalFailed} failed` : 'All healthy'}
         </span>
       </div>
 
@@ -269,7 +289,7 @@ export function SchedulePanel() {
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="Tell me what to automate..."
+            placeholder="用自然语言添加任务..."
             className="flex-1 px-3 py-2 rounded-lg bg-white/80 text-sm text-[#5C4B3A] placeholder-[#9A866F] border border-[#E8DFD4] focus:border-[#D4A574] focus:outline-none transition-colors"
             value={nlInput}
             onChange={(e) => setNlInput(e.target.value)}
@@ -282,7 +302,7 @@ export function SchedulePanel() {
             onClick={handleNlSubmit}
             className="px-3 py-2 rounded-lg bg-[#D4A574] text-white text-sm font-medium hover:bg-[#C49564] transition-colors"
           >
-            Configure
+            添加
           </button>
         </div>
       </div>
