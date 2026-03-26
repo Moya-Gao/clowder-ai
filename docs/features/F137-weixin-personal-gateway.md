@@ -240,7 +240,7 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 - [x] AC-C2: Session 过期（errcode -14）自动检测 + 提醒重新扫码 — `ERRCODE_SESSION_EXPIRED` + `sessionExpiredCallback` 已实现
 - [x] AC-C3: 长轮询断线自动重连 + 指数退避 — 3s→60s 指数退避 + consecutiveErrors 计数
 - [x] AC-C4: 幂等去重（InboundMessageDedup 复用）— ConnectorRouter.route() 统一 dedup，weixin 无需额外处理
-- [ ] AC-C5: 现有飞书/Telegram/钉钉功能无回归
+- [x] AC-C5: 现有飞书/Telegram/钉钉功能无回归 — 5660 tests pass / 0 fail (full regression clean)
 
 ### Phase C AC-C1 验证证据
 - PR #713: `WeixinQrPanel.tsx` (152 行) — 全自动 QR 状态机
@@ -444,6 +444,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-07-25 | BUG-4 修复：A→B→C 接力链合并投递 → PR #717 云端 R3 通过 → squash merge (2be35f8a)。含 R1 P1+P2 + R2 P2 三轮 review 修复 |
 | 2026-03-25 | BUG-4b/4c 修复：`every→some` + QueueProcessor 合并路径 + richBlocks 保留 → PR #740 云端 review 两轮通过 → squash merge (08c663fb)。83 tests pass |
 | 2026-03-25 | BUG-5 验证：context_token 可复用，不是单次消费。移除 `lastConsumedToken` + `SINGLE_TOKEN_CONNECTORS` 合并逻辑。实现 AC-B3/B6 媒体接收（CDN 下载 + AES 解密） |
+| 2026-03-25 | F137 cleanup PR #744 merged — BUG-5 dead code removal + media receiving + P1/P2 review fixes (aes_key encoding + FILE empty guard)。砚砚 R6 放行 + 云端 Codex 0 P1/P2。AC 全部 ✅ |
 
 ## Review Gate
 
