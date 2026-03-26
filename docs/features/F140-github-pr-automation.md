@@ -108,10 +108,10 @@ created: 2026-03-26
 - [x] AC-A10: merge-gate / receive-review / opensource-ops SKILL.md 更新
 - [x] AC-A11: refs/pr-signals.md 新增
 
-### Phase B（猫自动处理）
-- [ ] AC-B1: 猫收到冲突通知后能自动尝试 rebase resolve
-- [ ] AC-B2: 简单冲突自动 resolve + push，复杂冲突通知铲屎官
-- [ ] AC-B3: 猫收到 review feedback 后按 receive-review 模式自动处理
+### Phase B（猫自动处理）✅
+- [x] AC-B1: 猫收到冲突通知后能自动尝试 rebase resolve
+- [x] AC-B2: 简单冲突自动 resolve + push，复杂冲突通知铲屎官
+- [x] AC-B3: 猫收到 review feedback 后按 receive-review 模式自动处理
 
 ## Dependencies
 
@@ -168,6 +168,7 @@ created: 2026-03-26
 | 2026-03-26 | Phase A merged (PR #752) — 冲突检测 + Review Feedback 全来源投递 + Skill 更新 |
 | 2026-03-26 | A2A routing bug 修复 (PR #754) — 金渐层误触发事件的三件套修复 |
 | 2026-03-26 | Phase B Design Gate 通过 — OQ-3 铲屎官拍板选项 C（全自动+事后通知），KD-13 记录 |
+| 2026-03-26 | Phase B merged (PR #757) — Action hints + Skill behavior guides + F139 1b alignment |
 
 ## Design Gate 讨论归档
 
@@ -187,7 +188,7 @@ created: 2026-03-26
 ## Review Gate
 
 - Phase A: 砚砚 (codex/gpt52) cross-family review
-- Phase B: 待定
+- Phase B: 砚砚 (codex/spark) cross-family review — 放行, 无 P1/P2
 
 ## Links
 
