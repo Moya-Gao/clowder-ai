@@ -38,6 +38,49 @@ function aesEcbPaddedSize(plaintextSize: number): number {
   return Math.ceil((plaintextSize + 1) / 16) * 16;
 }
 
+// ── CDN Download Pipeline ──
+
+/**
+ * Download encrypted media from WeChat CDN and decrypt.
+ * `platformKey` is a JSON-encoded string: { encryptQueryParam, aesKey }.
+ */
+export async function downloadMediaFromCdn(params: {
+  platformKey: string;
+  cdnBaseUrl: string;
+  log: FastifyBaseLogger;
+  fetchFn?: typeof fetch;
+}): Promise<Buffer> {
+  const { platformKey, cdnBaseUrl, log, fetchFn = globalThis.fetch } = params;
+
+  const { encryptQueryParam, aesKey } = JSON.parse(platformKey) as {
+    encryptQueryParam: string;
+    aesKey: string;
+  };
+
+  const cdnUrl = `${cdnBaseUrl}/download?encrypted_query_param=${encodeURIComponent(encryptQueryParam)}`;
+  log.info({ cdnUrl: cdnUrl.slice(0, 80) }, '[weixin-cdn] Downloading media from CDN');
+
+  const res = await fetchFn(cdnUrl, {
+    method: 'GET',
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`CDN download HTTP ${res.status}: ${errText}`);
+  }
+
+  const ciphertext = Buffer.from(await res.arrayBuffer());
+  // iLink protocol uses base64 for aes_key; our upload pipeline uses hex internally.
+  // Detect: 32 hex chars → hex, otherwise → base64.
+  const key = /^[0-9a-f]{32}$/i.test(aesKey) ? Buffer.from(aesKey, 'hex') : Buffer.from(aesKey, 'base64');
+  const plaintext = decryptAesEcb(ciphertext, key);
+
+  log.info({ ciphertextLen: ciphertext.length, plaintextLen: plaintext.length }, '[weixin-cdn] Media decrypted');
+
+  return plaintext;
+}
+
 // ── CDN Upload Pipeline ──
 
 export async function uploadMediaToCdn(params: {

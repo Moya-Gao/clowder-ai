@@ -140,14 +140,14 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | 能力 | iLink 协议 | Cat Cafe 实现 | 状态 |
 |------|:-:|:-:|:-:|
 | 文字收/发 | ✅ | ✅ | Phase A 已完成 |
-| 图片收 | ✅ CDN URL | ⚠️ 只解析 URL，没下载 | Phase B 待做 |
-| 图片发 | ✅ CDN 上传 + `image_item` | ❌ `sendMedia()` 未实现 | Phase B 待做 |
-| 语音收 | ✅ CDN | ⚠️ 只解析元数据/转文字 | Phase B 待做 |
-| 语音发 | ✅ CDN 上传 | ❌ | Phase B 待做 |
-| 文件收 | ✅ CDN | ⚠️ 只解析文件名 | Phase B 待做 |
-| 文件发 | ✅ CDN 上传 | ❌ | Phase B 待做 |
-| 视频收 | ✅ 协议定义 | ❌ 完全没做 | Phase B 待做 |
-| 视频发 | ✅ CDN 上传 | ❌ | Phase B 待做 |
+| 图片收 | ✅ CDN URL | ✅ CDN 下载 + AES 解密 | Phase B 完成 |
+| 图片发 | ✅ CDN 上传 + `image_item` | ✅ `sendMedia()` 已实现 | Phase B 完成 |
+| 语音收 | ✅ CDN | ⚠️ 语音转文字已实现，CDN 下载未接入 | Phase B 部分 |
+| 语音发 | ✅ CDN 上传 | ✅ `sendMedia(audio)` 已实现 | Phase B 完成 |
+| 文件收 | ✅ CDN | ✅ CDN 下载 + AES 解密 | Phase B 完成 |
+| 文件发 | ✅ CDN 上传 | ✅ `sendMedia(file)` 已实现 | Phase B 完成 |
+| 视频收 | ✅ 协议定义 | ❌ 完全没做 | 低优先级 |
+| 视频发 | ✅ CDN 上传 | ❌ | 低优先级 |
 | 交互卡片 | ❌ 协议不支持 | — | 微信本身限制 |
 | 消息编辑 | ❌ 协议不支持 | — | 微信本身限制 |
 | 群聊 | ⚠️ `group_id` 字段存在但灰度未开放 | — | 等腾讯 |
@@ -224,22 +224,22 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 - [x] AC-A3: 猫猫回复通过 WeixinAdapter 发送到微信（文本，含 context_token 缓存）
 - [x] AC-A4: 长消息自动分块（>2000 字符）
 - [x] AC-A5: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
-- [ ] AC-A6: /new /threads /use /where 命令在微信内正常工作
+- [x] AC-A6: /new /threads /use /where 命令在微信内正常工作 — ConnectorCommandLayer 对所有 connector 统一处理，无 weixin 排除逻辑
 - [x] AC-A7: `connector.ts` 新增 `'weixin'` ConnectorDefinition，前端 bubble 正确渲染
 
 ### Phase B（输入状态 + 媒体）
 - [x] AC-B1: agent 处理期间微信显示"对方正在输入中" — PR #708 已实现 sendTyping keepalive
 - [x] AC-B2: 图片发送到微信 — PR #732: `weixin-cdn.ts` AES-128-ECB + CDN upload + `sendMedia(image_item)`
-- [ ] AC-B3: 图片从微信接收并下载 — CDN 下载 → AES-128-ECB 解密 → 本地文件（待做）
+- [x] AC-B3: 图片从微信接收并下载 — `downloadMediaFromCdn` + AES-128-ECB 解密 + ConnectorMediaService 集成
 - [x] AC-B4: `sendMedia` 接口实现 — PR #732: `WeixinAdapter.sendMedia(chatId, { type, absPath })` 路由 image/file/audio
 - [x] AC-B5: 文件发送到微信 — PR #732: `uploadMediaToCdn` + `sendmessage` with `file_item`
-- [ ] AC-B6: 文件从微信接收并解析 — CDN 下载 → 解密 → 附件存储（待做）
+- [x] AC-B6: 文件从微信接收并解析 — 同 AC-B3 管线，file_item CDN media key 提取 + 解密下载
 
 ### Phase C（IM Hub + 健壮性）
 - [x] AC-C1: IM Hub 配置向导可添加微信个人号（QR 展示 + 扫码流程）
-- [ ] AC-C2: Session 过期（errcode -14）自动检测 + 提醒重新扫码
-- [ ] AC-C3: 长轮询断线自动重连 + 指数退避
-- [ ] AC-C4: 幂等去重（InboundMessageDedup 复用）
+- [x] AC-C2: Session 过期（errcode -14）自动检测 + 提醒重新扫码 — `ERRCODE_SESSION_EXPIRED` + `sessionExpiredCallback` 已实现
+- [x] AC-C3: 长轮询断线自动重连 + 指数退避 — 3s→60s 指数退避 + consecutiveErrors 计数
+- [x] AC-C4: 幂等去重（InboundMessageDedup 复用）— ConnectorRouter.route() 统一 dedup，weixin 无需额外处理
 - [ ] AC-C5: 现有飞书/Telegram/钉钉功能无回归
 
 ### Phase C AC-C1 验证证据
@@ -253,11 +253,11 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "把我们的猫猫接入微信" | AC-A1~A7 | test + manual DM | [ ] |
-| R2 | "你也得复用那些基础设施，就不要自己做一套" | AC-A5, AC-C4 | code review: 公共层 diff = 0 | [ ] |
-| R3 | "也得接入我们的消息管线，都得是一样的" | AC-A5, AC-A6 | /new /threads /use /where 可用 | [ ] |
+| R1 | "把我们的猫猫接入微信" | AC-A1~A7 | test + manual DM | [x] |
+| R2 | "你也得复用那些基础设施，就不要自己做一套" | AC-A5, AC-C4 | code review: 公共层 diff = 0 | [x] |
+| R3 | "也得接入我们的消息管线，都得是一样的" | AC-A5, AC-A6 | /new /threads /use /where 可用 | [x] |
 | R4 | "如果有配置需要配置...在那边能够显示" | AC-C1 | IM Hub 配置向导可见 | [x] |
-| R5 | "按照我们的开发速度，不需要一天" | Phase A 优先 | Phase A 独立可用 | [ ] |
+| R5 | "按照我们的开发速度，不需要一天" | Phase A 优先 | Phase A 独立可用 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -443,6 +443,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-07-24 | Phase C AC-C1: WeChat QR login UI in IM Hub → PR #713 砚砚 R2 放行 + 云端 Codex review 通过 → squash merge (78c65c97) |
 | 2026-07-25 | BUG-4 修复：A→B→C 接力链合并投递 → PR #717 云端 R3 通过 → squash merge (2be35f8a)。含 R1 P1+P2 + R2 P2 三轮 review 修复 |
 | 2026-03-25 | BUG-4b/4c 修复：`every→some` + QueueProcessor 合并路径 + richBlocks 保留 → PR #740 云端 review 两轮通过 → squash merge (08c663fb)。83 tests pass |
+| 2026-03-25 | BUG-5 验证：context_token 可复用，不是单次消费。移除 `lastConsumedToken` + `SINGLE_TOKEN_CONNECTORS` 合并逻辑。实现 AC-B3/B6 媒体接收（CDN 下载 + AES 解密） |
 
 ## Review Gate
 

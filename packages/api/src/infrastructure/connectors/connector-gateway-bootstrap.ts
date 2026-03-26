@@ -498,7 +498,12 @@ export async function startConnectorGateway(
 
   const startWeixinPolling = () => {
     weixin.startPolling(async (msg) => {
-      await connectorRouter.route('weixin', msg.chatId, msg.text, msg.messageId);
+      const attachments = msg.attachments?.map((a) => ({
+        type: a.type,
+        platformKey: a.mediaUrl,
+        ...(a.fileName ? { fileName: a.fileName } : {}),
+      }));
+      await connectorRouter.route('weixin', msg.chatId, msg.text, msg.messageId, attachments);
     });
   };
 
@@ -511,6 +516,16 @@ export async function startConnectorGateway(
 
   weixin.setOnSessionExpired(() => {
     log.warn('[ConnectorGateway] WeChat session expired — user must re-scan QR code');
+  });
+
+  // Register weixin CDN download function for inbound media
+  mediaService.setWeixinDownloadFn(async (platformKey: string) => {
+    const { downloadMediaFromCdn } = await import('./adapters/weixin-cdn.js');
+    return downloadMediaFromCdn({
+      platformKey,
+      cdnBaseUrl: 'https://filecdnweixin.weixin.qq.com',
+      log,
+    });
   });
 
   stopFns.push(async () => weixin.stopPolling());

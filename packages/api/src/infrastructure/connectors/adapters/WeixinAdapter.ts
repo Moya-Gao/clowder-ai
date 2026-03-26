@@ -173,8 +173,7 @@ export class WeixinAdapter implements IOutboundAdapter {
   private consecutiveErrors = 0;
   private getUpdatesBuf = '';
   private readonly contextTokens = new Map<string, string>();
-  /** Per-chatId: last consumed token — bounded by chatId count, naturally evicted when new token arrives */
-  private readonly lastConsumedToken = new Map<string, string>();
+  // BUG-5: lastConsumedToken removed — iLink context_token is reusable (verified 2026-03-25).
   private readonly pendingReplies = new Map<
     string,
     {
@@ -286,14 +285,18 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
 
     if (itemType === MessageItemType.IMAGE) {
-      const imageUrl = firstItem.image_item?.url ?? '';
+      const media = firstItem.image_item?.media;
+      const mediaKey =
+        media?.encrypt_query_param && media?.aes_key
+          ? JSON.stringify({ encryptQueryParam: media.encrypt_query_param, aesKey: media.aes_key })
+          : '';
       return {
         chatId: senderId,
         text: '[图片]',
         messageId: msgId,
         senderId,
         contextToken,
-        attachments: imageUrl ? [{ type: 'image', mediaUrl: imageUrl }] : undefined,
+        attachments: mediaKey ? [{ type: 'image' as const, mediaUrl: mediaKey }] : undefined,
       };
     }
 
@@ -308,13 +311,20 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
 
     if (itemType === MessageItemType.FILE) {
+      const media = firstItem.file_item?.media;
+      const mediaKey =
+        media?.encrypt_query_param && media?.aes_key
+          ? JSON.stringify({ encryptQueryParam: media.encrypt_query_param, aesKey: media.aes_key })
+          : '';
       return {
         chatId: senderId,
         text: `[文件] ${firstItem.file_item?.file_name ?? ''}`.trim(),
         messageId: msgId,
         senderId,
         contextToken,
-        attachments: [{ type: 'file', mediaUrl: '', fileName: firstItem.file_item?.file_name }],
+        attachments: mediaKey
+          ? [{ type: 'file' as const, mediaUrl: mediaKey, fileName: firstItem.file_item?.file_name }]
+          : undefined,
       };
     }
 
@@ -374,10 +384,7 @@ export class WeixinAdapter implements IOutboundAdapter {
           for (const msg of messages) {
             const tokenHash = msg.contextToken.slice(-8);
             this.contextTokens.set(msg.chatId, msg.contextToken);
-            this.log.info(
-              { chatId: msg.chatId, tokenHash, consumed: this.lastConsumedToken.get(msg.chatId) === msg.contextToken },
-              '[WeixinAdapter] Inbound token cached',
-            );
+            this.log.info({ chatId: msg.chatId, tokenHash }, '[WeixinAdapter] Inbound token cached');
 
             // Start typing indicator (non-blocking, epoch-guarded against stale starts)
             const epoch = (this.typingEpoch.get(msg.chatId) ?? 0) + 1;
@@ -572,19 +579,14 @@ export class WeixinAdapter implements IOutboundAdapter {
     const merged = parts.join('\n\n');
 
     const tokenHash = boundToken ? boundToken.slice(-8) : 'none';
-    const isConsumed = this.lastConsumedToken.get(externalChatId) === boundToken;
 
     this.log.info(
-      { chatId: externalChatId, partsCount: parts.length, mergedLen: merged.length, tokenHash, isConsumed },
+      { chatId: externalChatId, partsCount: parts.length, mergedLen: merged.length, tokenHash },
       '[WeixinAdapter] flushReply() — sending aggregated reply',
     );
 
-    if (!boundToken || isConsumed) {
-      const reason = !boundToken ? 'no token' : 'token already consumed';
-      this.log.warn(
-        { chatId: externalChatId, reason, tokenHash },
-        '[WeixinAdapter] Cannot send — context_token unavailable or consumed',
-      );
+    if (!boundToken) {
+      this.log.warn({ chatId: externalChatId, tokenHash }, '[WeixinAdapter] Cannot send — no context_token bound');
       this.stopTyping(externalChatId);
       for (const r of resolvers) r.resolve();
       return;
@@ -631,13 +633,9 @@ export class WeixinAdapter implements IOutboundAdapter {
       return;
     }
 
-    // Only use a fresh (unconsumed) token — iLink single-token constraint
     const contextToken = this.contextTokens.get(externalChatId) ?? '';
     if (!contextToken) {
-      this.log.warn(
-        { chatId: externalChatId, hasConsumed: this.lastConsumedToken.has(externalChatId) },
-        '[WeixinAdapter] sendMedia: no active context_token — skipping (token already consumed by sendReply)',
-      );
+      this.log.warn({ chatId: externalChatId }, '[WeixinAdapter] sendMedia: no context_token — skipping');
       return;
     }
 
@@ -724,15 +722,10 @@ export class WeixinAdapter implements IOutboundAdapter {
       throw new Error(`sendMedia errcode ${errorCode}: ${data.errmsg ?? 'unknown'}`);
     }
 
-    // Mark token as consumed (same lifecycle as flushReply)
-    this.lastConsumedToken.set(externalChatId, contextToken);
-    if (this.contextTokens.get(externalChatId) === contextToken) {
-      this.contextTokens.delete(externalChatId);
-    }
-
+    // BUG-5: token is reusable — do NOT consume/delete.
     this.log.info(
       { chatId: externalChatId, type: payload.type, filekey: uploaded.filekey },
-      '[WeixinAdapter] sendMedia: delivered — token consumed',
+      '[WeixinAdapter] sendMedia: delivered — token retained',
     );
   }
 
@@ -910,11 +903,6 @@ export class WeixinAdapter implements IOutboundAdapter {
       if (pending) clearTimeout(pending.timer);
       await this.flushReply(chatId);
     }
-  }
-
-  /** @internal Test helper: check if a token was the last consumed for its chatId. */
-  _isTokenConsumed(chatId: string, token: string): boolean {
-    return this.lastConsumedToken.get(chatId) === token;
   }
 
   // ── QR Code Login (static — no adapter instance needed) ──

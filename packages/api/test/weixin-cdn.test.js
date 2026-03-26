@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { decryptAesEcb, encryptAesEcb } from '../dist/infrastructure/connectors/adapters/weixin-cdn.js';
+import {
+  decryptAesEcb,
+  downloadMediaFromCdn,
+  encryptAesEcb,
+} from '../dist/infrastructure/connectors/adapters/weixin-cdn.js';
 
 describe('weixin-cdn AES-128-ECB', () => {
   it('encrypts and decrypts round-trip', () => {
@@ -32,5 +36,83 @@ describe('weixin-cdn AES-128-ECB', () => {
     const c1 = encryptAesEcb(plaintext, key1);
     const c2 = encryptAesEcb(plaintext, key2);
     assert.notDeepEqual(c1, c2);
+  });
+});
+
+describe('downloadMediaFromCdn', () => {
+  const noop = () => {};
+  const noopLog = { info: noop, warn: noop, error: noop, debug: noop, trace: noop, fatal: noop, child: () => noopLog };
+
+  it('downloads and decrypts CDN media', async () => {
+    const key = Buffer.alloc(16, 0xab);
+    const originalContent = Buffer.from('Hello image data');
+    const ciphertext = encryptAesEcb(originalContent, key);
+
+    const mockFetch = async (_url, _opts) => ({
+      ok: true,
+      arrayBuffer: async () =>
+        ciphertext.buffer.slice(ciphertext.byteOffset, ciphertext.byteOffset + ciphertext.length),
+    });
+
+    const platformKey = JSON.stringify({
+      encryptQueryParam: 'test-eqp',
+      aesKey: key.toString('hex'),
+    });
+
+    const result = await downloadMediaFromCdn({
+      platformKey,
+      cdnBaseUrl: 'https://cdn.example.com',
+      log: /** @type {any} */ (noopLog),
+      fetchFn: /** @type {any} */ (mockFetch),
+    });
+
+    assert.deepEqual(result, originalContent);
+  });
+
+  it('downloads and decrypts with base64-encoded aesKey', async () => {
+    const key = Buffer.alloc(16, 0xab);
+    const originalContent = Buffer.from('base64 key test');
+    const ciphertext = encryptAesEcb(originalContent, key);
+
+    const mockFetch = async (_url, _opts) => ({
+      ok: true,
+      arrayBuffer: async () =>
+        ciphertext.buffer.slice(ciphertext.byteOffset, ciphertext.byteOffset + ciphertext.length),
+    });
+
+    const platformKey = JSON.stringify({
+      encryptQueryParam: 'test-eqp-b64',
+      aesKey: key.toString('base64'),
+    });
+
+    const result = await downloadMediaFromCdn({
+      platformKey,
+      cdnBaseUrl: 'https://cdn.example.com',
+      log: /** @type {any} */ (noopLog),
+      fetchFn: /** @type {any} */ (mockFetch),
+    });
+
+    assert.deepEqual(result, originalContent);
+  });
+
+  it('throws on HTTP error', async () => {
+    const mockFetch = async () => ({
+      ok: false,
+      status: 403,
+      text: async () => 'Forbidden',
+    });
+
+    const platformKey = JSON.stringify({ encryptQueryParam: 'x', aesKey: Buffer.alloc(16).toString('hex') });
+
+    await assert.rejects(
+      () =>
+        downloadMediaFromCdn({
+          platformKey,
+          cdnBaseUrl: 'https://cdn.example.com',
+          log: /** @type {any} */ (noopLog),
+          fetchFn: /** @type {any} */ (mockFetch),
+        }),
+      /CDN download HTTP 403/,
+    );
   });
 });
