@@ -133,8 +133,8 @@ created: 2026-03-26
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 冲突通知的 priority 应该是 urgent 还是 normal？（冲突不如 CI 失败紧急？） | 待 Design Gate |
-| OQ-2 | Review comments 是否需要区分 inline comment vs PR body comment vs review summary？ | 待 Design Gate |
+| ~~OQ-1~~ | ~~冲突通知 priority~~ | ✅ 已定：`urgent`。冲突和 CI failure 同级，都是 merge blocker（Design Gate 共识） |
+| ~~OQ-2~~ | ~~Review comments 类型区分~~ | ✅ 已定：聚合通知分三区（Review Decisions / Inline Comments / PR Conversation），不逐条发（Design Gate 共识） |
 | OQ-3 | Phase B 自动 rebase 的触发条件是否需要铲屎官确认？ | 待 Phase B |
 
 ## Key Decisions
@@ -148,6 +148,11 @@ created: 2026-03-26
 | KD-5 | review decision state（approved/requested changes/dismissed）进 Phase A | 比 label/assignee 更有行动价值：contributor 看到 requested changes 才知道"现在该改"，maintainer 看到 approved 才知道"可能 ready" | 2026-03-26 |
 | KD-6 | Skill/SOP 更新是 Phase A 必须组件 | 铲屎官指出：技术管道建了没有行为引导 = 通知发了猫不知道怎么处理 = 等于没做。F133 Phase B 就是做这件事 | 2026-03-26 |
 | KD-7 | F140 定位为追踪层（PR Signals），发现层（Repo Inbox）独立为 F141 | 铲屎官确认分开立项，可并发开发 | 2026-03-26 |
+| KD-8 | PrComment → PrFeedbackComment（richer model：+author/filePath/line/commentType） | 砚砚 P1：现有 PrComment 只有 id/body/createdAt，支撑不了分区展示的消息格式 | 2026-03-26 |
+| KD-9 | Conflict fingerprint 在 MERGEABLE 时清除 | 砚砚 P2：同一 headSha 因 base 变化再次冲突会被误 dedupe。检测到 MERGEABLE → 清 lastConflictFingerprint，下次 CONFLICTING 重新通知 | 2026-03-26 |
+| KD-10 | Cursor commit 在 delivery 成功后，trigger 是 best-effort | 砚砚 P3：delivery 成功 = 主 side-effect 完成 → 立即 commitCursor。trigger() 失败不阻塞 cursor 推进，避免重发已投递消息 | 2026-03-26 |
+| KD-11 | ReviewFeedbackTaskSpec 新建替换 ReviewCommentsTaskSpec | 最便宜的改名窗口，继续保留旧名字会造成语义债 | 2026-03-26 |
+| KD-12 | patchConflictState() 独立新增，不复用 patchCiState() | CI/conflict 状态语义不同，硬塞一起变成"大杂烩 patch" | 2026-03-26 |
 
 ## Timeline
 
@@ -158,6 +163,22 @@ created: 2026-03-26
 | 2026-03-26 | 与砚砚讨论：命名体系（GitHub PR Signals）+ 角色需求矩阵 + ReviewFeedbackRouter |
 | 2026-03-26 | 铲屎官指出 Skill/SOP 软文化层缺失，补入 Phase A |
 | 2026-03-26 | 与砚砚讨论触发模型：三层架构收敛（发现/认领/追踪），F141 独立立项 |
+| 2026-03-26 | Design Gate 通过（砚砚 GPT-5.4）：3 个隐藏约束补入 KD-8/9/10，OQ-1/2 关闭 |
+
+## Design Gate 讨论归档
+
+**参与者**: 布偶猫 (@opus) + 砚砚 (@gpt52, GPT-5.4)
+**日期**: 2026-03-26
+**结论**: **通过**，with 3 条约束补入 spec
+
+**砚砚核心贡献**:
+1. 确认文件结构：ConflictRouter + ReviewFeedbackRouter 独立，不合并
+2. 建议 ReviewFeedbackTaskSpec 新建替换而非就地改名（语义债）
+3. 发现 PrComment 太瘦，需要 richer model（author/filePath/line/commentType）
+4. 发现 conflict fingerprint 在 base 变化后同 SHA 再冲突的误 dedupe 风险
+5. 指出 cursor commit 与 trigger 的事务边界：delivery 成功即 commit，trigger 是 best-effort
+6. 同意 OQ-1 urgent + OQ-2 聚合三分区
+7. 同意 patchConflictState 独立新增
 
 ## Review Gate
 
