@@ -286,4 +286,5 @@ graph TB
 | Discussion | `docs/discussions/2026-03-25-shared-rules-growth-and-intimate-collaboration.md` |
 | Research | `docs/research/2026-03-25-openclaw-clawhub-ecosystem/research-prompt.md` |
 | Lesson | `docs/lessons-learned.md` §LL-037 |
+| Design | `designs/F129-pack-system-architecture.pen`（Pencil 高保真架构图：四层总览 + 双轨信任 + 编译管道） |
 | Related ADR | ADR-009（Skills Distribution）、ADR-020（Memory Architecture） |
