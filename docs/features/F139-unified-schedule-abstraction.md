@@ -78,7 +78,9 @@ created: 2026-03-25
 - [ ] AC-C1: cron/event trigger 可用
 - [ ] AC-C2: Context dimension（session × materialization）可配置
 - [ ] AC-C3: Hub panel 展示任务列表 + 运行状态
-- [ ] AC-C3b: 调度面板支持按 thread 筛选/聚合（"这个 thread 上有哪些活跃任务"）— 社区需求 ⚠️ 待砚砚确认
+- [ ] AC-C3b-1: 调度 API 返回 threadId（可空）用于每条任务实例展示（subjectKey → threadId join）
+- [ ] AC-C3b-2: 调度面板支持 scope 切换（All / Current Thread / 指定 Thread）一键过滤
+- [ ] AC-C3b-3: 无 thread 关联任务明确落在「No thread」分组，不丢失
 - [ ] AC-C4: 自然语言→TaskSpec 转换可用
 
 ### Phase 3（Governance + Pack）
