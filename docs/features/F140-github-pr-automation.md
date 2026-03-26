@@ -127,10 +127,13 @@ created: 2026-03-26
 - [x] AC-B2: pr-signals.md 定义简单/复杂冲突分级（≤3 文件 vs 复杂）
 - [x] AC-B3: Review feedback 消息按 decision 类型附带分流 action hint
 
-### Phase C（自动执行器）
-- [ ] AC-C1: 猫收到冲突通知后零人工干预自动 rebase + push
-- [ ] AC-C2: 简单冲突自动 resolve，复杂冲突通知铲屎官附冲突文件列表
-- [ ] AC-C3: 猫收到 review feedback 后自动加载 receive-review 模式处理
+### Phase C（自动执行器）— 计划：`docs/plans/2026-03-26-f140-phase-c-auto-executor.md`
+- [ ] AC-C1: 猫收到冲突通知后零人工干预自动 rebase + push（clean rebase 场景）
+- [ ] AC-C2: 简单冲突（≤3 文件，non-binary）自动 resolve，复杂冲突通知铲屎官附冲突文件列表
+- [ ] AC-C3: 猫收到 review feedback 后自动加载 receive-review 模式处理（CHANGES_REQUESTED 场景）
+- [ ] AC-C4: TriggerIntent 流水线——intent 从 trigger → AgentRouter → SystemPromptBuilder 贯通
+- [ ] AC-C5: ConflictAutoExecutor 测试覆盖：clean / simple-conflict / complex-escalation / worktree-not-found
+- [ ] AC-C6: 安全护栏——只操作 feature worktree，绝不碰 main/runtime，操作超时 abort
 
 ## Dependencies
 
