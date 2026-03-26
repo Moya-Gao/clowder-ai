@@ -74,14 +74,14 @@ created: 2026-03-25
 - [x] AC-B2: MCP dispatch + receipt tracking 端到端
 - [x] AC-B3: costTier hint 影响选猫策略
 
-### Phase 2（Cron + UI + Context）
-- [ ] AC-C1: cron/event trigger 可用
-- [ ] AC-C2: Context dimension（session × materialization）可配置
-- [ ] AC-C3: Hub panel 展示任务列表 + 运行状态
-- [ ] AC-C3b-1: 调度 API 返回 threadId（可空）用于每条任务实例展示（subjectKey → threadId join）
-- [ ] AC-C3b-2: 调度面板支持 scope 切换（All / Current Thread / 指定 Thread）一键过滤
-- [ ] AC-C3b-3: 无 thread 关联任务明确落在「No thread」分组，不丢失
-- [ ] AC-C4: 自然语言→TaskSpec 转换可用
+### Phase 2（Cron + UI + Context）✅
+- [x] AC-C1: cron/event trigger 可用
+- [x] AC-C2: Context dimension（session × materialization）可配置
+- [x] AC-C3: Hub panel 展示任务列表 + 运行状态
+- [x] AC-C3b-1: 调度 API 返回 threadId（可空）用于每条任务实例展示（subjectKey → threadId join）
+- [x] AC-C3b-2: 调度面板支持 scope 切换（All / Current Thread / 指定 Thread）一键过滤
+- [x] AC-C3b-3: 无 thread 关联任务明确落在「No thread」分组，不丢失
+- [x] AC-C4: 自然语言→TaskSpec 转换可用
 
 ### Phase 3（Governance + Pack）
 - [ ] AC-D1: 电闸/备忘录分离权限模型
@@ -135,6 +135,7 @@ created: 2026-03-25
 | 2026-03-26 | Phase 1a merged (PR #747) — 砚砚 local review 2 rounds + cloud review passed |
 | 2026-03-26 | Phase 1b merged (PR #750) — actor.role resolver + costTier + execute routing + V1 cleanup |
 | 2026-03-26 | Phase 2 UX V2 设计稿确认 — 扁平列表 + 标签 + NL 入口（铲屎官确认） |
+| 2026-03-26 | Phase 2 merged (PR #756) — cron triggers + SchedulePanel UI + NL config; 砚砚 review 2 rounds (2×P1 + 2×P2 fixed) |
 
 ## Review Gate
 
