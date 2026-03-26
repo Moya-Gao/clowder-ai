@@ -8,7 +8,7 @@ created: 2026-03-19
 
 # F129: Pack System — Multi-Agent 共创世界的 Mod 生态
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -163,7 +163,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 2. 先做 **importer**（Phase B），不承诺 native plugin 兼容
 3. Pin 到公开稳定版本语义，不追 bleeding edge
 
-### Phase A: Pack Format + Loader
+### Phase A: Pack Format + Loader ✅
 
 - 定义 `pack.yaml` schema（元信息、兼容性、内容声明）
 - 定义 Directory Convention（masks/guardrails/defaults/workflows/knowledge/expression/bridges/world-driver）
@@ -191,16 +191,16 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 ## Acceptance Criteria
 
 ### Phase A（Pack Format + Loader）
-- [ ] AC-A1: `pack.yaml` schema 定义完成，含元信息/兼容性/内容声明
-- [ ] AC-A2: Directory Convention 文档化，所有目录有 README 说明用途和格式
-- [ ] AC-A3: Pack Compiler 能解析 Pack schema 并编译为 canonical prompt blocks（不原样注入）
-- [ ] AC-A4: `cafe pack add <git-url>` 可安装本地 Pack
-- [ ] AC-A5: `cafe pack list` / `cafe pack remove` 可用
-- [ ] AC-A6: 双轨信任边界：guardrails 只能加严不能放宽 Core Rails；defaults 可被用户请求覆盖
-- [ ] AC-A7: Malicious Pack 测试通过：`ignore previous instructions`/身份覆盖/权限提升/隐瞒 Core Rails 均被拦截
-- [ ] AC-A8: Pack schema fail-closed：未知字段拒绝安装；高风险字段只允许 enum/boolean/bounded string；workflows/guardrails 不能有任意 instruction 文本
-- [ ] AC-A9: Phase A loader 遇到 `capabilities/` 必须 reject 或 ignore+warn，绝不半启用（Capability Pack 是 Phase C）
-- [ ] AC-A10: `knowledge/` 检索必须 pack-scoped，不得进入全局 shared evidence / Core Rails（防止跨世界知识污染）
+- [x] AC-A1: `pack.yaml` schema 定义完成，含元信息/兼容性/内容声明
+- [x] AC-A2: Directory Convention 文档化，所有目录有 README 说明用途和格式
+- [x] AC-A3: Pack Compiler 能解析 Pack schema 并编译为 canonical prompt blocks（不原样注入）
+- [x] AC-A4: `cafe pack add <git-url>` 可安装本地 Pack
+- [x] AC-A5: `cafe pack list` / `cafe pack remove` 可用
+- [x] AC-A6: 双轨信任边界：guardrails 只能加严不能放宽 Core Rails；defaults 可被用户请求覆盖
+- [x] AC-A7: Malicious Pack 测试通过：`ignore previous instructions`/身份覆盖/权限提升/隐瞒 Core Rails 均被拦截
+- [x] AC-A8: Pack schema fail-closed：未知字段拒绝安装；高风险字段只允许 enum/boolean/bounded string；workflows/guardrails 不能有任意 instruction 文本
+- [x] AC-A9: Phase A loader 遇到 `capabilities/` 必须 reject 或 ignore+warn，绝不半启用（Capability Pack 是 Phase C）
+- [x] AC-A10: `knowledge/` 检索必须 pack-scoped，不得进入全局 shared evidence / Core Rails（防止跨世界知识污染）
 
 ### Phase B（示范 Packs + Remix）
 - [ ] AC-B1: 当前 cat-config + shared-rules + skills 成功导出为 "Coding World" Pack
@@ -273,6 +273,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | 2026-03-25 | 生态兼容调研：布偶猫 + 砚砚 GPT-5.4 独立调研 OpenClaw v2026.3.23 / SillyTavern → KD-10 + AC-B5/B6 |
 | 2026-03-25 | 云端 GPT Pro Deep Research + 本地两猫碰撞 → 涌现发现"共享记忆塑造视角" → KD-11 + AC-B7 |
 | 2026-03-25 | 脑暴收敛分流落盘：VISION.md 补「人与猫」+ 对外叙事；Growth 视觉外化记为 OQ-6 未来方向 |
+| 2026-03-26 | Phase A merged (PR #748) — schema + loader + compiler + runtime wiring, 141 tests, codex R1 review |
 
 ## Review Gate
 
