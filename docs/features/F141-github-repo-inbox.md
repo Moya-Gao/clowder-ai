@@ -64,6 +64,7 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
   → 归一化 RepoInboxSignal
   → ConnectorThreadBindingStore 查 per-repo inbox thread（无则创建）
   → deliverConnectorMessage()（mention GITHUB_REPO_INBOX_CAT_ID）
+  → invokeTrigger.trigger()（唤醒猫执行 triage，KD-17）
   → Redis delivery id confirm
   → 猫收到通知 → 主人翁五问 triage → 认领 → register_pr_tracking → F140
 ```
@@ -172,6 +173,10 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 | KD-14 | per-repo inbox thread 用 ConnectorThreadBindingStore 持久绑定 | 砚砚 P2：不能靠标题猜线程，重启后会长垃圾 thread | 2026-03-26 |
 | KD-15 | transport dedup（delivery id）和 business dedup（Phase B reconciliation）分开存储和 key | 砚砚安全审查：两个问题域，不该复用 | 2026-03-26 |
 | KD-16 | Phase A cat mention 用配置 `GITHUB_REPO_INBOX_CAT_ID`，不做 actor.role 解析 | 砚砚建议：先单点收件，triage thread 里再 handoff | 2026-03-26 |
+| KD-17 | deliver 后必须 `invokeTrigger.trigger()` 触发猫执行 | 砚砚(codex) P1：deliverConnectorMessage 只落消息+广播，不触发猫调用；不加 trigger = 通知沉没 | 2026-03-26 |
+| KD-18 | `github-repo-event` 必须注册到 shared connector registry + env-registry.ts | 砚砚(codex) P1+P2：未注册会被 404 拦；env vars 注册后运营可见 | 2026-03-26 |
+| KD-19 | ConnectorBubble 前端需新增 `github-repo-event` 图标分支 | 砚砚(codex) P2：否则显示成文本 fallback | 2026-03-26 |
+| KD-20 | 首次事件并发创建 inbox thread 需加 repo 级短锁（compare-and-bind） | 砚砚(codex) P2：防并发重复创建线程 | 2026-03-26 |
 
 ## Timeline
 
@@ -181,7 +186,7 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 | 2026-03-26 | 铲屎官确认 F141 独立立项，可与 F140 并发开发 |
 | 2026-03-26 | 三猫讨论（布偶猫 + 缅因猫 codex + 缅因猫 gpt52）收敛 triage 配套设计：主人翁五问 Gate + 首反 SOP |
 | 2026-03-26 | 铲屎官确认方向，落到 Skill 文档 |
-| 2026-03-26 | Design Gate 通过 — 砚砚（gpt52）4 个约束补入 spec（raw body / 统一 ID / Redis claim-rollback / 持久绑定） |
+| 2026-03-26 | Design Gate 通过 — 砚砚（gpt52）4 个约束 + 砚砚（codex）4 个补充约束补入 spec |
 
 ## Review Gate
 
