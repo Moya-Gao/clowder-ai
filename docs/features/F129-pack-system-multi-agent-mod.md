@@ -241,7 +241,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | OQ-2 | Pack Composer 图形化工坊的技术方案？ | ⬜ 未定（Phase C） |
 | OQ-3 | 社区 Registry 自建还是用 npm scope？ | ⬜ 未定（Phase C） |
 | OQ-4 | Pack 的版本兼容性管理策略？ | ⬜ 未定 |
-| OQ-5 | masks/ 的 immutable 字段白名单（哪些字段是核心身份字段）？依赖 F093 OQ-2 | ⬜ 未定（依赖 F093） |
+| OQ-5 | masks/ 的 immutable 字段白名单（哪些字段是核心身份字段）？依赖 F093 OQ-2 | ✅ 已解锁：F093 KD-12 五层分类收口（L1 路由身份+L2 基础设施=永不覆盖；L3 本体能力=overlay 叠加；L4 场景皮肤=临时覆盖）→ PackSecurityGuard IMMUTABLE_FIELDS 可扩展到完整 L1+L2 |
 | OQ-6 | Growth 必须有可感知的视觉外化（烁烁提出：用户看不到 Growth 在发生 = Growth 不存在）。具体方案待设计，规模足够时独立立项 | ⬜ 未定（未来方向） |
 
 ## Key Decisions
@@ -274,6 +274,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | 2026-03-25 | 云端 GPT Pro Deep Research + 本地两猫碰撞 → 涌现发现"共享记忆塑造视角" → KD-11 + AC-B7 |
 | 2026-03-25 | 脑暴收敛分流落盘：VISION.md 补「人与猫」+ 对外叙事；Growth 视觉外化记为 OQ-6 未来方向 |
 | 2026-03-26 | Phase A merged (PR #748) — schema + loader + compiler + runtime wiring, 141 tests, codex R1 review |
+| 2026-03-26 | OQ-5 解锁：F093 KD-12 五层字段分类收口，masks immutable 白名单可对齐 L1+L2 |
 
 ## Review Gate
 
