@@ -57,4 +57,4 @@ created: 2026-02-26
 | F135 | 狸花猫开箱即用 — DARE Out-of-the-Box | spec | bouillipx | community [#195](https://github.com/zts212653/clowder-ai/issues/195) | [F135](features/F135-dare-ootb.md) |
 | F136 | Unified Config Hot Reload — 配置热更新统一管线 | spec | 待定 | internal | [F136](features/F136-unified-config-hot-reload.md) |
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
-| F139 | Unified Schedule Abstraction — 统一调度抽象 | spec | 布偶猫 | internal | [F139](features/F139-unified-schedule-abstraction.md) |
+| F139 | Unified Schedule Abstraction — 统一调度抽象 | in-progress | 布偶猫 | internal | [F139](features/F139-unified-schedule-abstraction.md) |
