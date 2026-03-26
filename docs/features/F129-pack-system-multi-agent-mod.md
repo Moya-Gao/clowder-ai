@@ -282,7 +282,8 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| **Vision** | `docs/VISION.md` §Cats & U | 万物有灵、Cats & U 愿景 |
+| **ADR** | `docs/decisions/021-f129-pack-system-architecture.md` | 架构决策 + Mermaid 架构图 |
+| **Vision** | `docs/VISION.md` §Cats & U + §人与猫 | 万物有灵、Cats & U 愿景、协作上限由人决定 |
 | **Feature** | `docs/features/F032-agent-plugin-architecture.md` | 内部 registry 基座 |
 | **Feature** | `docs/features/F059-open-source-plan.md` | 开源计划 |
 | **Feature** | `docs/features/F093-cats-and-u-world-engine.md` | Cats & U 世界引擎 |
