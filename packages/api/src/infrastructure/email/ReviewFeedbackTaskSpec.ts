@@ -1,0 +1,148 @@
+/**
+ * F140: ReviewFeedbackTaskSpec — detect new PR review feedback (comments + decisions).
+ *
+ * KD-11: Replaces ReviewCommentsTaskSpec with richer model.
+ * KD-10: Cursor commits only after delivery success; trigger is best-effort.
+ *
+ * Gate: list tracked PRs → fetch comments + reviews → filter by cursor → workItems.
+ * Execute: ReviewFeedbackRouter → ConnectorInvokeTrigger → commitCursor.
+ */
+import type { CatId } from '@cat-cafe/shared';
+import type { TaskSpec_P1 } from '../scheduler/types.js';
+import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
+import type { IPrTrackingStore, PrTrackingEntry } from './PrTrackingStore.js';
+import type { PrFeedbackComment, PrReviewDecision, ReviewFeedbackRouter } from './ReviewFeedbackRouter.js';
+
+export interface ReviewFeedbackSignal {
+  entry: PrTrackingEntry;
+  newComments: PrFeedbackComment[];
+  newDecisions: PrReviewDecision[];
+  commitCursor: () => void;
+}
+
+export interface ReviewFeedbackTaskSpecOptions {
+  readonly prTrackingStore: IPrTrackingStore;
+  readonly fetchComments: (repoFullName: string, prNumber: number) => Promise<PrFeedbackComment[]>;
+  readonly fetchReviews: (repoFullName: string, prNumber: number) => Promise<PrReviewDecision[]>;
+  readonly reviewFeedbackRouter: ReviewFeedbackRouter;
+  readonly invokeTrigger?: ConnectorInvokeTrigger;
+  readonly log: {
+    info: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+  };
+  readonly pollIntervalMs?: number;
+}
+
+export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions): TaskSpec_P1<ReviewFeedbackSignal> {
+  // In-memory cursors: highest seen comment ID and review ID per PR
+  const commentCursors = new Map<string, number>();
+  const reviewCursors = new Map<string, number>();
+
+  return {
+    id: 'review-feedback',
+    profile: 'poller',
+    trigger: { type: 'interval', ms: opts.pollIntervalMs ?? 60_000 },
+    admission: {
+      async gate() {
+        const entries = await opts.prTrackingStore.listAll();
+        if (entries.length === 0) {
+          return { run: false, reason: 'no tracked PRs' };
+        }
+
+        const workItems: { signal: ReviewFeedbackSignal; subjectKey: string }[] = [];
+
+        for (const entry of entries) {
+          try {
+            const prKey = `${entry.repoFullName}#${entry.prNumber}`;
+
+            const [comments, reviews] = await Promise.all([
+              opts.fetchComments(entry.repoFullName, entry.prNumber),
+              opts.fetchReviews(entry.repoFullName, entry.prNumber),
+            ]);
+
+            const commentCursor = commentCursors.get(prKey) ?? 0;
+            const reviewCursor = reviewCursors.get(prKey) ?? 0;
+
+            const newComments = comments.filter((c) => c.id > commentCursor);
+            const newDecisions = reviews.filter((r) => r.id > reviewCursor);
+
+            if (newComments.length === 0 && newDecisions.length === 0) continue;
+
+            const maxCommentId = newComments.length > 0 ? Math.max(...newComments.map((c) => c.id)) : commentCursor;
+            const maxReviewId = newDecisions.length > 0 ? Math.max(...newDecisions.map((r) => r.id)) : reviewCursor;
+
+            workItems.push({
+              signal: {
+                entry,
+                newComments,
+                newDecisions,
+                // KD-10: cursor advances only in execute, after delivery success
+                commitCursor: () => {
+                  commentCursors.set(prKey, maxCommentId);
+                  reviewCursors.set(prKey, maxReviewId);
+                },
+              },
+              subjectKey: `pr-${entry.repoFullName}#${entry.prNumber}`,
+            });
+          } catch {
+            // fail-open: skip PRs where fetch fails
+          }
+        }
+
+        if (workItems.length === 0) {
+          return { run: false, reason: 'no new feedback' };
+        }
+
+        return { run: true, workItems };
+      },
+    },
+    run: {
+      overlap: 'skip',
+      timeoutMs: 30_000,
+      async execute(signal: ReviewFeedbackSignal, _subjectKey: string) {
+        const routeResult = await opts.reviewFeedbackRouter.route(
+          {
+            repoFullName: signal.entry.repoFullName,
+            prNumber: signal.entry.prNumber,
+            newComments: signal.newComments,
+            newDecisions: signal.newDecisions,
+          },
+          { threadId: signal.entry.threadId, catId: signal.entry.catId, userId: signal.entry.userId },
+        );
+
+        if (routeResult.kind !== 'notified') return;
+
+        // KD-10: delivery succeeded → commit cursor immediately
+        signal.commitCursor();
+
+        // Trigger is best-effort (KD-10)
+        if (opts.invokeTrigger) {
+          try {
+            const hasChangesRequested = signal.newDecisions.some((d) => d.state === 'CHANGES_REQUESTED');
+            const policy: ConnectorTriggerPolicy = {
+              priority: hasChangesRequested ? 'urgent' : 'normal',
+              reason: 'github_review_feedback',
+            };
+            opts.invokeTrigger.trigger(
+              routeResult.threadId,
+              routeResult.catId as CatId,
+              signal.entry.userId,
+              routeResult.content,
+              routeResult.messageId,
+              undefined,
+              policy,
+            );
+          } catch {
+            opts.log.warn(
+              `[review-feedback] trigger failed for ${signal.entry.repoFullName}#${signal.entry.prNumber} (best-effort)`,
+            );
+          }
+        }
+      },
+    },
+    state: { runLedger: 'sqlite' },
+    outcome: { whenNoSignal: 'record' },
+    enabled: () => true,
+  };
+}

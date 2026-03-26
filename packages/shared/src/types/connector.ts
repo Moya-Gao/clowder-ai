@@ -102,6 +102,32 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     },
   },
   {
+    id: 'github-conflict',
+    displayName: 'PR Conflict',
+    icon: 'github',
+    color: { primary: '#D97706', secondary: '#FFFBEB' },
+    description: 'GitHub PR 冲突状态通知',
+    tailwindTheme: {
+      avatar: 'bg-amber-100 ring-2 ring-amber-200',
+      label: 'text-amber-700',
+      labelLink: 'text-amber-700 hover:text-amber-900',
+      bubble: 'border border-amber-200 bg-amber-50',
+    },
+  },
+  {
+    id: 'github-review-feedback',
+    displayName: 'Review Feedback',
+    icon: 'github',
+    color: { primary: '#475569', secondary: '#F8FAFC' },
+    description: 'GitHub PR review feedback 通知',
+    tailwindTheme: {
+      avatar: 'bg-slate-100 ring-2 ring-slate-200',
+      label: 'text-slate-700',
+      labelLink: 'text-slate-700 hover:text-slate-900',
+      bubble: 'border border-slate-200 bg-slate-50',
+    },
+  },
+  {
     id: 'vote-result',
     displayName: '投票结果',
     icon: 'ballot',

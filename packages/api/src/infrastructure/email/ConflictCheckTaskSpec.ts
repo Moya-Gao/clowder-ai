@@ -1,26 +1,23 @@
 /**
- * F139: ConflictCheckTaskSpec — detect PR merge conflicts via injectable check.
+ * F139/F140: ConflictCheckTaskSpec — detect PR merge conflicts via injectable check.
  *
- * Gate: list tracked PRs → checkMergeable per PR → filter CONFLICTING → workItems.
- * Execute: deliver connector message notifying the thread of merge conflict.
+ * Gate: list tracked PRs → checkMergeable per PR → build ConflictSignals.
+ * Execute: ConflictRouter handles dedup/delivery → ConnectorInvokeTrigger wakes cat.
+ *
+ * KD-9: Gate passes ALL mergeState results (including MERGEABLE) so ConflictRouter
+ *       can clear fingerprints for re-conflict detection.
  */
+import type { CatId } from '@cat-cafe/shared';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
-import type { IPrTrackingStore, PrTrackingEntry } from './PrTrackingStore.js';
-
-export interface DeliverMessageInput {
-  threadId: string;
-  userId: string;
-  catId: string;
-  content: string;
-  source: string;
-}
+import type { ConflictRouter, ConflictSignal } from './ConflictRouter.js';
+import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
+import type { IPrTrackingStore } from './PrTrackingStore.js';
 
 export interface ConflictCheckTaskSpecOptions {
   readonly prTrackingStore: IPrTrackingStore;
-  /** Injectable merge-state checker — returns GitHub mergeStateStatus string */
-  readonly checkMergeable: (repoFullName: string, prNumber: number) => Promise<string>;
-  /** Injectable message delivery — posts connector message to thread */
-  readonly deliverMessage?: (input: DeliverMessageInput) => Promise<{ messageId: string; content: string }>;
+  readonly checkMergeable: (repoFullName: string, prNumber: number) => Promise<{ mergeState: string; headSha: string }>;
+  readonly conflictRouter: ConflictRouter;
+  readonly invokeTrigger?: ConnectorInvokeTrigger;
   readonly log: {
     info: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
@@ -29,12 +26,12 @@ export interface ConflictCheckTaskSpecOptions {
   readonly pollIntervalMs?: number;
 }
 
-interface ConflictSignal {
-  entry: PrTrackingEntry;
-  mergeState: string;
+interface ConflictWorkItem {
+  signal: ConflictSignal;
+  entry: { userId: string };
 }
 
-export function createConflictCheckTaskSpec(opts: ConflictCheckTaskSpecOptions): TaskSpec_P1<ConflictSignal> {
+export function createConflictCheckTaskSpec(opts: ConflictCheckTaskSpecOptions): TaskSpec_P1<ConflictWorkItem> {
   return {
     id: 'conflict-check',
     profile: 'poller',
@@ -46,48 +43,53 @@ export function createConflictCheckTaskSpec(opts: ConflictCheckTaskSpecOptions):
           return { run: false, reason: 'no tracked PRs' };
         }
 
-        const conflicting: { entry: PrTrackingEntry; mergeState: string }[] = [];
+        const workItems: { signal: ConflictWorkItem; subjectKey: string }[] = [];
         for (const entry of entries) {
           try {
-            const state = await opts.checkMergeable(entry.repoFullName, entry.prNumber);
-            if (state === 'CONFLICTING') {
-              conflicting.push({ entry, mergeState: state });
-            }
+            const { mergeState, headSha } = await opts.checkMergeable(entry.repoFullName, entry.prNumber);
+            workItems.push({
+              signal: {
+                signal: {
+                  repoFullName: entry.repoFullName,
+                  prNumber: entry.prNumber,
+                  headSha,
+                  mergeState,
+                },
+                entry: { userId: entry.userId },
+              },
+              subjectKey: `pr-${entry.repoFullName}#${entry.prNumber}`,
+            });
           } catch {
             // fail-open: skip PRs where check fails
           }
         }
 
-        if (conflicting.length === 0) {
-          return { run: false, reason: 'no conflicting PRs' };
+        if (workItems.length === 0) {
+          return { run: false, reason: 'no tracked PRs with checkable state' };
         }
 
-        return {
-          run: true,
-          workItems: conflicting.map((c) => ({
-            signal: c,
-            subjectKey: `pr-${c.entry.repoFullName}#${c.entry.prNumber}`,
-          })),
-        };
+        return { run: true, workItems };
       },
     },
     run: {
       overlap: 'skip',
       timeoutMs: 30_000,
-      async execute(signal: ConflictSignal, subjectKey: string, ctx: ExecuteContext) {
-        const { entry, mergeState } = signal;
-        if (opts.deliverMessage) {
-          const targetCatId = ctx.assignedCatId ?? entry.catId;
-          const content = `⚠️ PR #${entry.prNumber} (${entry.repoFullName}) has merge conflict (state: ${mergeState}). Please rebase.`;
-          await opts.deliverMessage({
-            threadId: entry.threadId,
-            userId: entry.userId,
-            catId: targetCatId,
-            content,
-            source: 'github_conflict_check',
-          });
+      async execute(workItem: ConflictWorkItem, _subjectKey: string, _ctx: ExecuteContext) {
+        const routeResult = await opts.conflictRouter.route(workItem.signal);
+
+        if (routeResult.kind === 'notified' && opts.invokeTrigger) {
+          const policy: ConnectorTriggerPolicy = { priority: 'urgent', reason: 'github_pr_conflict' };
+          opts.invokeTrigger.trigger(
+            routeResult.threadId,
+            routeResult.catId as CatId,
+            workItem.entry.userId,
+            routeResult.content,
+            routeResult.messageId,
+            undefined,
+            policy,
+          );
+          opts.log.info(`[conflict-check] Triggered ${routeResult.catId} for PR conflict`);
         }
-        opts.log.info(`[conflict-check] ${subjectKey}: notified — ${mergeState}`);
       },
     },
     state: { runLedger: 'sqlite' },

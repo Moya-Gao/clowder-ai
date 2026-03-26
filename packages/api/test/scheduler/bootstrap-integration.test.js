@@ -17,7 +17,7 @@ describe('TaskRunnerV2 bootstrap integration', () => {
     const { createSummaryCompactionTaskSpec } = await import('../../dist/domains/memory/SummaryCompactionTaskSpec.js');
     const { createCiCdCheckTaskSpec } = await import('../../dist/infrastructure/email/CiCdCheckTaskSpec.js');
     const { createConflictCheckTaskSpec } = await import('../../dist/infrastructure/email/ConflictCheckTaskSpec.js');
-    const { createReviewCommentsTaskSpec } = await import('../../dist/infrastructure/email/ReviewCommentsTaskSpec.js');
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
 
     const ledger = new RunLedger(db);
     const runner = new TaskRunnerV2({
@@ -43,13 +43,16 @@ describe('TaskRunnerV2 bootstrap integration', () => {
 
     const conflictSpec = createConflictCheckTaskSpec({
       prTrackingStore: { listAll: async () => [] },
-      checkMergeable: async () => 'MERGEABLE',
+      checkMergeable: async () => ({ mergeState: 'MERGEABLE', headSha: 'sha0' }),
+      conflictRouter: { route: async () => ({ kind: 'skipped', reason: 'stub' }) },
       log: { info: () => {}, error: () => {}, warn: () => {} },
     });
 
-    const reviewSpec = createReviewCommentsTaskSpec({
+    const reviewSpec = createReviewFeedbackTaskSpec({
       prTrackingStore: { listAll: async () => [] },
       fetchComments: async () => [],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: { route: async () => ({ kind: 'skipped', reason: 'stub' }) },
       log: { info: () => {}, error: () => {}, warn: () => {} },
     });
 
@@ -59,7 +62,7 @@ describe('TaskRunnerV2 bootstrap integration', () => {
     runner.register(reviewSpec);
 
     const ids = runner.getRegisteredTasks();
-    assert.deepEqual(ids.sort(), ['cicd-check', 'conflict-check', 'review-comments', 'summary-compact']);
+    assert.deepEqual(ids.sort(), ['cicd-check', 'conflict-check', 'review-feedback', 'summary-compact']);
   });
 
   it('rejects duplicate task id', async () => {

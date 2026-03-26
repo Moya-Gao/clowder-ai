@@ -82,11 +82,13 @@ import {
 } from './infrastructure/connectors/connector-gateway-bootstrap.js';
 import {
   CiCdRouter,
+  ConflictRouter,
   ConnectorInvokeTrigger,
   GhCliReviewContentFetcher,
   MemoryProcessedEmailStore,
   MemoryPrTrackingStore,
   RedisPrTrackingStore,
+  ReviewFeedbackRouter,
   ReviewRouter,
   startGithubReviewWatcher,
   stopGithubReviewWatcher,
@@ -1300,89 +1302,116 @@ async function main(): Promise<void> {
   {
     const { createCiCdCheckTaskSpec } = await import('./infrastructure/email/CiCdCheckTaskSpec.js');
     const { createConflictCheckTaskSpec } = await import('./infrastructure/email/ConflictCheckTaskSpec.js');
-    const { createReviewCommentsTaskSpec } = await import('./infrastructure/email/ReviewCommentsTaskSpec.js');
-    const { deliverConnectorMessage } = await import('./infrastructure/email/deliver-connector-message.js');
+    const { createReviewFeedbackTaskSpec } = await import('./infrastructure/email/ReviewFeedbackTaskSpec.js');
 
-    const connectorDeliveryDeps = { messageStore, socketManager };
-    const deliverMessage = (input: {
-      threadId: string;
-      userId: string;
-      catId: string;
-      content: string;
-      source: string;
-    }) =>
-      deliverConnectorMessage(connectorDeliveryDeps, {
-        threadId: input.threadId,
-        userId: input.userId,
-        catId: input.catId,
-        content: input.content,
-        source: { connector: input.source, label: input.source, icon: '🔔' },
-      });
+    const deliveryDeps = { messageStore, socketManager };
 
     const cicdRouter = new CiCdRouter({
       prTrackingStore,
-      deliveryDeps: connectorDeliveryDeps,
+      deliveryDeps,
+      log: app.log,
+    });
+
+    // F140: ConflictRouter (state-transition dedup + KD-9 fingerprint reset)
+    const conflictRouter = new ConflictRouter({
+      prTrackingStore,
+      deliveryDeps,
+      log: app.log,
+    });
+
+    // F140: ReviewFeedbackRouter (three-section aggregated messages)
+    const reviewFeedbackRouter = new ReviewFeedbackRouter({
+      deliveryDeps,
       log: app.log,
     });
 
     taskRunnerV2.register(createCiCdCheckTaskSpec({ prTrackingStore, cicdRouter, invokeTrigger, log: app.log }));
+
+    // F140: conflict-check with ConflictRouter + urgent trigger
+    const checkMergeable = async (repo: string, pr: number) => {
+      const { execFile } = await import('node:child_process');
+      const { promisify } = await import('node:util');
+      const execFileAsync = promisify(execFile);
+      const { stdout } = await execFileAsync(
+        'gh',
+        ['pr', 'view', String(pr), '-R', repo, '--json', 'mergeStateStatus'],
+        { timeout: 15_000 },
+      );
+      const data = JSON.parse(stdout);
+      return data.mergeStateStatus ?? 'UNKNOWN';
+    };
+
     taskRunnerV2.register(
       createConflictCheckTaskSpec({
         prTrackingStore,
-        deliverMessage,
-        checkMergeable: async (repo, pr) => {
-          const { execFile } = await import('node:child_process');
-          const { promisify } = await import('node:util');
-          const execFileAsync = promisify(execFile);
-          const { stdout } = await execFileAsync(
-            'gh',
-            ['pr', 'view', String(pr), '-R', repo, '--json', 'mergeStateStatus'],
-            { timeout: 15_000 },
-          );
-          const data = JSON.parse(stdout);
-          return data.mergeStateStatus ?? 'UNKNOWN';
-        },
+        checkMergeable,
+        conflictRouter,
+        invokeTrigger,
         log: app.log,
       }),
     );
+
+    // F140: review-feedback with ReviewFeedbackRouter (KD-11 replaces review-comments)
+    const fetchPaginated = async (endpoint: string) => {
+      const { execFile } = await import('node:child_process');
+      const { promisify } = await import('node:util');
+      const execFileAsync = promisify(execFile);
+      const { stdout } = await execFileAsync('gh', ['api', endpoint, '--paginate', '--jq', '.[]'], {
+        timeout: 30_000,
+      });
+      if (!stdout.trim()) return [];
+      return stdout
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+    };
+
     taskRunnerV2.register(
-      createReviewCommentsTaskSpec({
+      createReviewFeedbackTaskSpec({
         prTrackingStore,
-        deliverMessage,
         fetchComments: async (repo, pr) => {
-          const { execFile } = await import('node:child_process');
-          const { promisify } = await import('node:util');
-          const execFileAsync = promisify(execFile);
-          // P1-2: Fetch both review comments (/pulls/comments) and conversation comments (/issues/comments)
-          // Use --paginate --jq '.[]' to safely handle multi-page results:
-          // --jq '.[]' unwraps each page's array into newline-delimited JSON objects,
-          // then we wrap back into a single array for parsing.
-          const fetchPaginated = async (endpoint: string) => {
-            const { stdout } = await execFileAsync('gh', ['api', endpoint, '--paginate', '--jq', '.[]'], {
-              timeout: 30_000,
-            });
-            if (!stdout.trim()) return [];
-            // --jq '.[]' outputs one JSON object per line
-            return stdout
-              .trim()
-              .split('\n')
-              .map((line) => JSON.parse(line)) as { id: number; body: string; created_at: string }[];
-          };
           const [reviewComments, issueComments] = await Promise.all([
             fetchPaginated(`/repos/${repo}/pulls/${pr}/comments`),
             fetchPaginated(`/repos/${repo}/issues/${pr}/comments`),
           ]);
-          const all = [...reviewComments, ...issueComments];
-          return all.map((c) => ({
-            id: c.id,
-            body: c.body,
-            createdAt: c.created_at,
-          }));
+          return [...reviewComments, ...issueComments].map(
+            (c: {
+              id: number;
+              body: string;
+              created_at: string;
+              user?: { login: string };
+              path?: string;
+              line?: number;
+              pull_request_review_id?: number;
+            }) => ({
+              id: c.id,
+              author: c.user?.login ?? 'unknown',
+              body: c.body,
+              createdAt: c.created_at,
+              commentType: c.pull_request_review_id ? ('inline' as const) : ('conversation' as const),
+              ...(c.path ? { filePath: c.path } : {}),
+              ...(c.line ? { line: c.line } : {}),
+            }),
+          );
         },
+        fetchReviews: async (repo, pr) => {
+          const reviews = await fetchPaginated(`/repos/${repo}/pulls/${pr}/reviews`);
+          return reviews.map(
+            (r: { id: number; user?: { login: string }; state: string; body: string; submitted_at: string }) => ({
+              id: r.id,
+              author: r.user?.login ?? 'unknown',
+              state: r.state as 'APPROVED' | 'CHANGES_REQUESTED' | 'DISMISSED' | 'COMMENTED',
+              body: r.body,
+              submittedAt: r.submitted_at,
+            }),
+          );
+        },
+        reviewFeedbackRouter,
+        invokeTrigger,
         log: app.log,
       }),
     );
-    app.log.info('[api] F139: cicd-check, conflict-check, review-comments specs registered');
+    app.log.info('[api] F139/F140: cicd-check, conflict-check, review-feedback specs registered');
   }
 
   // F139: Start unified scheduler (all registered specs)

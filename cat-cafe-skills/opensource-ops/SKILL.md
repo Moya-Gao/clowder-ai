@@ -47,6 +47,8 @@ description: >
 | 触发 | 场景 | 详细文档 |
 |------|------|---------|
 | **Repo Inbox 通知到达**（F141） | **首反 SOP → A 或 B** | [refs/repo-inbox.md](../refs/repo-inbox.md) |
+| PR 冲突通知 (`github-conflict`) | **处理冲突** | 尝试 rebase，复杂冲突通知铲屎官。详见 [refs/pr-signals.md](../refs/pr-signals.md) |
+| Review feedback 通知 (`github-review-feedback`) | **处理 review** | 按 `receive-review` 流程处理。详见 [refs/pr-signals.md](../refs/pr-signals.md) |
 | 社区 issue 来了 | **A: Issue Triage** | [refs/opensource-ops-issue-triage.md](../refs/opensource-ops-issue-triage.md) |
 | 社区 PR 提交到 clowder-ai | **B: Inbound PR** | [refs/opensource-ops-inbound-pr.md](../refs/opensource-ops-inbound-pr.md) |
 | 我们往开源仓提 PR | **C: Outbound PR** | [refs/opensource-ops-outbound-pr.md](../refs/opensource-ops-outbound-pr.md) |
