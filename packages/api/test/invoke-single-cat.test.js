@@ -3225,6 +3225,86 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await assert.rejects(readFile(seenConfigPath, 'utf-8'));
   });
 
+  it('F189: bare model + ocProviderName assembles composite model for custom provider routing', async () => {
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const root = await mkdtemp(join(tmpdir(), 'f189-oc-bare-model-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+
+    const customProfile = await createProviderProfile(root, {
+      provider: 'openai',
+      name: 'minimax-api',
+      mode: 'api_key',
+      authType: 'api_key',
+      protocol: 'openai',
+      baseUrl: 'https://api.minimax.io/v1',
+      apiKey: 'sk-minimax-key',
+      models: ['MiniMax-M2.7'],
+      setActive: false,
+    });
+
+    const registrySnapshot = catRegistry.getAllConfigs();
+    const originalConfig = catRegistry.tryGet('opencode')?.config;
+    assert.ok(originalConfig, 'opencode config should exist in registry');
+    const boundCatId = 'opencode-minimax-bare';
+    catRegistry.register(boundCatId, {
+      ...originalConfig,
+      id: boundCatId,
+      mentionPatterns: [`@${boundCatId}`],
+      provider: 'opencode',
+      providerProfileId: customProfile.id,
+      defaultModel: 'MiniMax-M2.7',
+      ocProviderName: 'minimax',
+    });
+
+    let seenConfigPath;
+    let seenRuntimeConfig;
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        seenConfigPath = options?.callbackEnv?.OPENCODE_CONFIG;
+        assert.ok(seenConfigPath, 'bare model + ocProviderName should receive OPENCODE_CONFIG');
+        seenRuntimeConfig = JSON.parse(await readFile(seenConfigPath, 'utf-8'));
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(apiDir);
+      const messages = await collect(
+        invokeSingleCat(deps, {
+          catId: boundCatId,
+          service,
+          prompt: 'test bare model routing',
+          userId: 'user-f189-bare-model',
+          threadId: 'thread-f189-bare-model',
+          isLastCat: true,
+        }),
+      );
+      assert.ok(messages.some((m) => m.type === 'done'));
+    } finally {
+      process.chdir(previousCwd);
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
+      await rm(root, { recursive: true, force: true });
+    }
+
+    const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE, 'minimax/MiniMax-M2.7');
+    assert.equal(callbackEnv.CAT_CAFE_OC_API_KEY, 'sk-minimax-key');
+    assert.equal(callbackEnv.CAT_CAFE_OC_BASE_URL, 'https://api.minimax.io/v1');
+    assert.equal(seenRuntimeConfig?.model, 'minimax/MiniMax-M2.7');
+    assert.equal(seenRuntimeConfig?.provider?.minimax?.npm, '@ai-sdk/openai-compatible');
+    assert.ok(seenRuntimeConfig?.provider?.minimax?.models?.['MiniMax-M2.7']);
+    await assert.rejects(readFile(seenConfigPath, 'utf-8'));
+  });
+
   it('F062-fix: skips auto-seal for api_key mode when context health is approx', async () => {
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const root = await mkdtemp(join(tmpdir(), 'f062-approx-no-seal-'));

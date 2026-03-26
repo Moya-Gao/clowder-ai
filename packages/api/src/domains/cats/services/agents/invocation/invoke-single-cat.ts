@@ -733,27 +733,35 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
 
     const trimmedDefaultModel = typeof defaultModel === 'string' ? defaultModel.trim() : undefined;
+    const ocProviderName = catConfig?.ocProviderName?.trim() || undefined;
     const parsedOpenCodeModel =
       provider === 'opencode' && trimmedDefaultModel ? parseOpenCodeModel(trimmedDefaultModel) : null;
+    // F189: When ocProviderName is set (bare model), assemble composite model for routing
+    const effectiveProviderName = parsedOpenCodeModel?.providerName ?? (ocProviderName || undefined);
+    const effectiveModel = parsedOpenCodeModel
+      ? trimmedDefaultModel!
+      : ocProviderName && trimmedDefaultModel
+        ? `${ocProviderName}/${trimmedDefaultModel}`
+        : undefined;
     if (
       provider === 'opencode' &&
       resolvedAccount?.authType === 'api_key' &&
-      trimmedDefaultModel &&
-      parsedOpenCodeModel &&
-      !BUILTIN_OPENCODE_PROVIDERS.has(parsedOpenCodeModel.providerName)
+      effectiveModel &&
+      effectiveProviderName &&
+      !BUILTIN_OPENCODE_PROVIDERS.has(effectiveProviderName)
     ) {
-      callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = trimmedDefaultModel;
+      callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = effectiveModel;
       const apiType: 'openai' | 'anthropic' | 'google' =
         resolvedAccount.protocol === 'anthropic'
           ? 'anthropic'
           : resolvedAccount.protocol === 'google'
             ? 'google'
             : 'openai';
-      const rawModels = resolvedAccount.models?.length ? resolvedAccount.models : [trimmedDefaultModel];
+      const rawModels = resolvedAccount.models?.length ? resolvedAccount.models : [effectiveModel];
       openCodeRuntimeConfigPath = writeOpenCodeRuntimeConfig(projectRoot, catId as string, invocationId, {
-        providerName: parsedOpenCodeModel.providerName,
+        providerName: effectiveProviderName,
         models: rawModels,
-        defaultModel: trimmedDefaultModel,
+        defaultModel: effectiveModel,
         apiType,
         hasBaseUrl: Boolean(resolvedAccount.baseUrl),
       });
