@@ -622,7 +622,7 @@ export async function startConnectorGateway(
     const { downloadMediaFromCdn } = await import('./adapters/weixin-cdn.js');
     return downloadMediaFromCdn({
       platformKey,
-      cdnBaseUrl: 'https://filecdnweixin.weixin.qq.com',
+      cdnBaseUrl: 'https://novac2c.cdn.weixin.qq.com/c2c',
       log,
     });
   });

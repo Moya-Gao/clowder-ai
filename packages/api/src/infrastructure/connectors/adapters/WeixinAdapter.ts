@@ -640,7 +640,7 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
 
     const { uploadMediaToCdn, UploadMediaType } = await import('./weixin-cdn.js');
-    const cdnBaseUrl = 'https://filecdnweixin.weixin.qq.com';
+    const cdnBaseUrl = 'https://novac2c.cdn.weixin.qq.com/c2c';
     const mediaTypeMap = {
       image: UploadMediaType.IMAGE,
       file: UploadMediaType.FILE,
