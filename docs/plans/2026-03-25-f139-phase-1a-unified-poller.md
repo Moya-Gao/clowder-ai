@@ -4,7 +4,7 @@
 **Goal:** 将现有三套独立 setInterval 收敛为统一 TaskSpec_P1 调度模型，typed signal gate 消除二次扫描，run ledger 记录每次调度结果
 **Acceptance Criteria:**
 - AC-A1: TaskSpec_P1 interface 实现，含 typed signal gate
-- AC-A2: subjectKey 贯穿 lease/cursor/dedupe/ledger 全链路
+- AC-A2: subjectKey 贯穿 execute/cursor/dedupe/ledger 全链路（lease 仍为 task-level，subject-level lease 延后到 Phase 1b）
 - AC-A3: run ledger SQLite 表结构 + 写入逻辑
 - AC-A4: SummaryCompactionTask 迁移到新 TaskSpec（红→绿）
 - AC-A5: CiCdCheckPoller 迁移到新 TaskSpec（红→绿）
@@ -112,7 +112,7 @@ CREATE INDEX IF NOT EXISTS idx_run_ledger_subject ON task_run_ledger(subject_key
 TaskRunnerV2 replaces TaskRunner. Same external API (`register`, `start`, `stop`, `triggerNow`, `getRegisteredTasks`) but internally runs the five-step pipeline:
 
 1. **Wakeup** — setInterval fires tick
-2. **Lease** — task-level overlap guard (`running` map, keyed by `task.id`); if overlap → write `SKIP_OVERLAP` to ledger
+2. **Lease** — task-level overlap guard (`running` map, keyed by `task.id`); if overlap → write `SKIP_OVERLAP` to ledger. Note: Phase 1a lease is task-level intentionally — subject-level lease deferred to Phase 1b to keep runner complexity low
 3. **Gate** — call `admission.gate(ctx)` → `GateResult` with `workItems[]`
 4. **Execute** — for each `workItem`: call `run.execute(item.signal, item.subjectKey)` → per-subject ledger entry
 5. **Outcome** — write `RUN_DELIVERED` / `RUN_FAILED` to run ledger per workItem, keyed by `item.subjectKey`
@@ -748,7 +748,7 @@ export class TaskRunnerV2 {
 export { TaskRunner } from './TaskRunner.js';
 export { TaskRunnerV2 } from './TaskRunnerV2.js';
 export { RunLedger } from './RunLedger.js';
-export type { ScheduledTask, TaskSpec_P1, GateResult, GateCtx, TaskProfile, RunOutcome, RunLedgerRow } from './types.js';
+export type { ScheduledTask, TaskSpec_P1, WorkItem, GateResult, GateCtx, TaskProfile, RunOutcome, RunLedgerRow } from './types.js';
 ```
 
 **Step 5: Build and run tests**
@@ -976,7 +976,7 @@ feat(F139): add SummaryCompactionTaskSpec — boolean gate → typed signal [布
 - Create: `packages/api/src/infrastructure/email/CiCdCheckTaskSpec.ts`
 - Test: `packages/api/test/scheduler/cicd-check-spec.test.js`
 
-The existing `CiCdCheckPoller` manages its own `setInterval`. We create a `CiCdCheckTaskSpec` that wraps the polling logic as a `TaskSpec_P1`. The gate checks if there are tracked PRs, the execute runs `pollAll`.
+The existing `CiCdCheckPoller` manages its own `setInterval`. We create a `CiCdCheckTaskSpec` that wraps the polling logic as a `TaskSpec_P1`. The gate checks if there are tracked PRs and returns one `workItem` per active PR. Execute calls the existing `pollOne` logic for a single PR.
 
 **Step 1: Write failing test**
 
@@ -1168,7 +1168,7 @@ feat(F139): wire TaskRunnerV2 bootstrap — converge pure-interval pollers into 
 | AC | Covered by Task |
 |----|----------------|
 | AC-A1: TaskSpec_P1 + typed signal gate | Task 1 |
-| AC-A2: subjectKey 全链路 | Task 1 (types) + Task 3 (engine uses subjectKey in ledger) |
+| AC-A2: subjectKey execute/cursor/dedupe/ledger（lease=task-level） | Task 1 (types) + Task 3 (engine per-workItem ledger) |
 | AC-A3: run ledger SQLite | Task 2 |
 | AC-A4: SummaryCompaction 迁移 | Task 5 |
 | AC-A5: CiCdCheckPoller 迁移 | Task 6 |
@@ -1185,3 +1185,9 @@ feat(F139): wire TaskRunnerV2 bootstrap — converge pure-interval pollers into 
 1. **P1: GateResult 升级为 `workItems[]`** — 原设计单 `subjectKey` 打穿 ADR-022 统一锚点规则。修正：gate 返回 `WorkItem[]`，runner 对每个 item 独立 execute → ledger，subjectKey 真贯穿。summary-compact 按 per-thread、cicd-check 按 per-PR 出 workItems。
 2. **P1: AC-A8 口径对齐** — 原写"三套 setInterval 收敛"但 GithubReviewWatcher 保留在 scope 外。修正：AC-A8 改为"纯 interval pollers 收敛"，明确 IMAP idle + reconnect fallback 不在收敛范围。
 3. **P2: SKIP_OVERLAP 写 ledger** — 原设计 overlap 静默 return，Phase 2 UI 会看到盲区。修正：overlap guard 写 `SKIP_OVERLAP` 到 ledger（SKIP_DISABLED 保持 drop，避免高频刷爆）。
+
+**rev-3 (2026-03-25)** — 砚砚 re-review 修正 1P1 + 2 nits：
+
+1. **P1: AC-A2 lease 口径降级** — 原 AC-A2 宣称 subjectKey 贯穿 lease/cursor/dedupe/ledger，但 Phase 1a runner 的 overlap guard 实际是 task-level。修正：AC-A2 改为"subjectKey 贯穿 execute/cursor/dedupe/ledger"，lease 仍为 task-level，subject-level lease 延后到 Phase 1b。pipeline step 2 加注释说明。
+2. **nit: Task 3 barrel export 补 WorkItem** — 示例代码漏了 WorkItem 类型导出。
+3. **nit: Task 6 开头 pollAll → pollOne** — 描述与 per-PR workItems 改动不一致。

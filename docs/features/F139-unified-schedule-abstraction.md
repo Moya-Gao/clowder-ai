@@ -61,7 +61,7 @@ created: 2026-03-25
 
 ### Phase 1a（统一内部 Poller）
 - [ ] AC-A1: TaskSpec_P1 interface 实现，含 typed signal gate
-- [ ] AC-A2: subjectKey 贯穿 lease/cursor/dedupe/ledger 全链路
+- [ ] AC-A2: subjectKey 贯穿 execute/cursor/dedupe/ledger 全链路（lease 仍为 task-level，subject-level lease 延后到 Phase 1b）
 - [ ] AC-A3: run ledger SQLite 表结构 + 写入逻辑
 - [ ] AC-A4: SummaryCompactionTask 迁移到新 TaskSpec（红→绿）
 - [ ] AC-A5: CiCdCheckPoller 迁移到新 TaskSpec（红→绿）
