@@ -57,7 +57,7 @@ graph TB
 
     subgraph "可分享"
         PK["Pack<br/>多 agent 共创世界定义<br/>masks · guardrails · defaults · workflows<br/>knowledge · expression · bridges · world-driver"]
-        WD["World Driver<br/>世界运转声明<br/>resolver: code | llm | hybrid"]
+        WD["World Driver<br/>世界运转声明<br/>resolver: code | agent | hybrid"]
     end
 
     subgraph "本地私有"
@@ -142,7 +142,7 @@ sequenceDiagram
     participant Loader as Pack Loader
     participant Compiler as Pack Compiler
     participant SPB as SystemPromptBuilder
-    participant LLM as 猫猫 (LLM)
+    participant Agent as 猫猫 (Agent)
 
     User->>CLI: cafe pack add <url>
     CLI->>Loader: 下载 + schema 校验
@@ -156,7 +156,7 @@ sequenceDiagram
     Note over Compiler: masks → 角色叠加块<br/>guardrails → 约束块<br/>defaults → 默认行为块<br/>workflows → 流程块<br/>knowledge → 不进 prompt
 
     Compiler->>SPB: 注入编译后的 blocks
-    SPB->>LLM: 完整 system prompt
+    SPB->>Agent: 完整 system prompt
     Note over SPB: Core Rails > Pack guardrails<br/>> Pack defaults
 ```
 

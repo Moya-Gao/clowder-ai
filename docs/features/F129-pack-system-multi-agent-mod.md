@@ -47,7 +47,7 @@ Experience = Me（本地私有） × Pack（可分享） + Growth（私有生长
 |---|--------|---------|
 | **Core Rails** | 平台宪法（身份不可污染、陪伴是桥不是笼） | 不可覆盖 |
 | **Pack** | 一个完整的 multi-agent 协作世界定义 | 社区分享 |
-| **World Driver** | Pack 内的世界运转声明（resolver: code/llm/hybrid） | 随 Pack 分享 |
+| **World Driver** | Pack 内的世界运转声明（resolver: code/agent/hybrid） | 随 Pack 分享 |
 | **Growth** | 用户和猫猫的私有关系/记忆 | 本地私有 |
 
 ### Pack 内部结构（Directory Convention）
@@ -62,7 +62,7 @@ my-pack/
 ├── knowledge/               ← 领域知识库（按需检索，不进静态 system prompt）
 ├── expression/              ← 表达风格（主题/声线/Rich Block 模板/贴纸）
 ├── bridges/                 ← 现实连接（Care Loop / Story→Feature / Care→Action）
-├── world-driver.yaml        ← 世界运转声明（resolver: code | llm | hybrid）
+├── world-driver.yaml        ← 世界运转声明（resolver: code | agent | hybrid）
 └── capabilities/            ← 可选：MCP server / 代码扩展
 ```
 
@@ -111,7 +111,7 @@ worldDriver:
   stateSchema: ...            # 世界状态结构
   roles: ...                  # 角色分配
   actions: ...                # 可执行动作
-  resolver: code | llm | hybrid  # 运转方式
+  resolver: code | agent | hybrid  # 运转方式
   canonRules: ...             # 正典规则
   memoryPolicy: ...           # 记忆策略
   bridgeOutputs: ...          # 现实桥接输出
@@ -119,9 +119,9 @@ worldDriver:
 
 | 场景 | resolver | 说明 |
 |------|----------|------|
-| 金融/法律/医疗 | `code + constrained llm` | 结论链+证据门禁用 code，解释+陪伴用 LLM |
-| 狼人杀/TRPG | `hybrid` | 规则和状态机用 code，NPC 对话和叙事用 LLM |
-| AI 陪伴/深夜电台 | `llm + care rules` | 关系节奏、边界和现实桥接 |
+| 金融/法律/医疗 | `code + constrained agent` | 结论链+证据门禁用 code，解释+陪伴由 agent 决策推进 |
+| 狼人杀/TRPG | `hybrid` | 规则和状态机用 code，NPC 对话和叙事由 agent 驱动 |
+| AI 陪伴/深夜电台 | `agent + care rules` | agent 主导关系节奏，care rules 约束边界和现实桥接 |
 
 ### 分发机制
 
@@ -253,7 +253,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | KD-3 | Core Identity Layer 不可插件化 | F093 铁律：身份不可污染，信任是地基 | 2026-03-19 |
 | KD-4 | shared-rules 是 Pack 的灵魂，不是 masks | 铲屎官洞察：multi-agent 和 single-agent 的分水岭是协作规范 | 2026-03-19 |
 | KD-5 | Experience = Me × Pack + Growth | 砚砚提出：Me 不打包、Growth 私有、只有 Pack 可分享 | 2026-03-19 |
-| KD-6 | World Driver 声明 resolver: code/llm/hybrid | 砚砚提出：不同世界有不同运转方式，需要显式声明 | 2026-03-19 |
+| KD-6 | World Driver 声明 resolver: code/agent/hybrid | 砚砚提出：不同世界有不同运转方式，需要显式声明。`agent`（非 `llm`）：Cat Café 是 multi-agent 架构，世界推进由猫猫 agent 决策，不是裸调 LLM API | 2026-03-19 |
 | KD-7 | v1 先 Git URL 安装，不做 marketplace | 去中心化更符合"种子自由生长"，降低首发基建成本 | 2026-03-19 |
 | KD-8 | Pack 内不使用 `shared-rules.md`，拆为 `guardrails.yaml` + `defaults.yaml` | 砚砚 P1 review：同名文件撞平台真相源，违反 P4（F024 同类教训） | 2026-03-19 |
 | KD-9 | 双轨信任边界：Pack 内容走 schema→编译管道，不原样注入 prompt | 砚砚 P1 review：schema 校验挡不住语义级 prompt injection；Core Rails 是编译边界不是优先级更高的 prompt | 2026-03-19 |
