@@ -11,6 +11,7 @@ import type {
   ConnectorDeliveryResult,
 } from '../../email/deliver-connector-message.js';
 import type { IConnectorThreadBindingStore } from '../ConnectorThreadBindingStore.js';
+import type { ReconciliationDedup } from './ReconciliationDedup.js';
 import type { RedisDeliveryDedup, RedisLike } from './RedisDeliveryDedup.js';
 import type { GitHubRepoInboxConfig, RepoInboxSignal } from './types.js';
 import { verifyGitHubSignature } from './verify-signature.js';
@@ -34,6 +35,7 @@ export interface GitHubRepoHandlerDeps {
   readonly dedup: RedisDeliveryDedup;
   readonly deliveryDeps?: ConnectorDeliveryDeps;
   readonly redis?: RedisLike; // KD-20: per-repo inbox thread creation lock
+  readonly reconciliationDedup?: Pick<ReconciliationDedup, 'markNotified'>; // Phase B bridge
 }
 
 export class GitHubRepoWebhookHandler {
@@ -93,10 +95,9 @@ export class GitHubRepoWebhookHandler {
     // If delivery fails → rollback (safe: message not sent, GitHub can retry).
     // If confirm fails → do NOT rollback (message delivered, claim stays to block retries).
     let delivered: ConnectorDeliveryResult;
+    // 7. Normalize (hoisted for Phase B bridge access after confirm)
+    const signal = this.normalize(eventType, action, payload, subject, deliveryId);
     try {
-      // 7. Normalize
-      const signal = this.normalize(eventType, action, payload, subject, deliveryId);
-
       // 8. Find or create per-repo inbox thread (KD-14, KD-20)
       const threadId = await this.ensureInboxThread(signal.repoFullName);
 
@@ -152,6 +153,14 @@ export class GitHubRepoWebhookHandler {
       await this.deps.dedup.confirm(deliveryId);
     } catch {
       // Best-effort: claimed key persists, preventing duplicate delivery
+    }
+
+    // 14. Mark business dedup (Phase B bridge — KD-15)
+    // Best-effort: failure here doesn't affect Phase A delivery.
+    try {
+      await this.deps.reconciliationDedup?.markNotified(signal.repoFullName, signal.subjectType, signal.number);
+    } catch {
+      // Phase B reconciliation will still work — it just won't skip this item
     }
 
     return { kind: 'processed', messageId: delivered.messageId };

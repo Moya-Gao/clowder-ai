@@ -1422,6 +1422,88 @@ async function main(): Promise<void> {
     app.log.info('[api] F139/F140: cicd-check, conflict-check, review-feedback specs registered');
   }
 
+  // F141 Phase B: Reconciliation scan —补偿 webhook 漏掉的 open PRs/Issues
+  {
+    const ghRepoAllowlist = process.env.GITHUB_REPO_ALLOWLIST;
+    const ghInboxCatId = process.env.GITHUB_REPO_INBOX_CAT_ID;
+
+    if (ghRepoAllowlist && ghInboxCatId && redisClient) {
+      const { createRepoScanTaskSpec } = await import(
+        './infrastructure/connectors/github-repo-event/RepoScanTaskSpec.js'
+      );
+      const { ReconciliationDedup } = await import(
+        './infrastructure/connectors/github-repo-event/ReconciliationDedup.js'
+      );
+      const { deliverConnectorMessage } = await import('./infrastructure/email/deliver-connector-message.js');
+      const { RedisConnectorThreadBindingStore } = await import(
+        './infrastructure/connectors/RedisConnectorThreadBindingStore.js'
+      );
+
+      const reconciliationDedup = new ReconciliationDedup(
+        redisClient as import('./infrastructure/connectors/github-repo-event/ReconciliationDedup.js').ReconciliationRedisLike,
+      );
+
+      const allowlist = ghRepoAllowlist.split(',').map((r: string) => r.trim());
+
+      const fetchGhApi = async (args: string[]): Promise<string> => {
+        const { execFile } = await import('node:child_process');
+        const { promisify } = await import('node:util');
+        const execFileAsync = promisify(execFile);
+        const { stdout } = await execFileAsync('gh', args, { timeout: 30_000 });
+        return stdout;
+      };
+
+      const fetchOpenPRs = async (repo: string) => {
+        const stdout = await fetchGhApi([
+          'api',
+          `/repos/${repo}/pulls`,
+          '--jq',
+          '.[] | {number, title, html_url, user: .user.login, author_association, draft}',
+          '--paginate',
+        ]);
+        if (!stdout.trim()) return [];
+        return stdout
+          .trim()
+          .split('\n')
+          .map((line: string) => JSON.parse(line));
+      };
+
+      const fetchOpenIssues = async (repo: string) => {
+        const stdout = await fetchGhApi([
+          'api',
+          `/repos/${repo}/issues`,
+          '--jq',
+          '.[] | select(.pull_request == null) | {number, title, html_url, user: .user.login, author_association}',
+          '--paginate',
+        ]);
+        if (!stdout.trim()) return [];
+        return stdout
+          .trim()
+          .split('\n')
+          .map((line: string) => JSON.parse(line));
+      };
+
+      const effectiveUserId = process.env.DEFAULT_OWNER_USER_ID || 'default-user';
+
+      taskRunnerV2.register(
+        createRepoScanTaskSpec({
+          repoAllowlist: allowlist,
+          inboxCatId: ghInboxCatId,
+          defaultUserId: effectiveUserId,
+          reconciliationDedup,
+          bindingStore: new RedisConnectorThreadBindingStore(redisClient),
+          deliverFn: deliverConnectorMessage,
+          deliveryDeps: { messageStore, socketManager },
+          invokeTrigger,
+          fetchOpenPRs,
+          fetchOpenIssues,
+          log: app.log,
+        }),
+      );
+      app.log.info('[api] F141 Phase B: repo-scan spec registered');
+    }
+  }
+
   // F139: Start unified scheduler (all registered specs)
   taskRunnerV2.start();
   app.log.info(`[api] F139: unified scheduler started (${taskRunnerV2.getRegisteredTasks().join(', ')})`);

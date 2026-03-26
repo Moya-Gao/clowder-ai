@@ -140,6 +140,7 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 |------|------|
 | GitHub webhook 配置需要 public URL | 文档引导 ngrok / cloudflare tunnel 方案；Phase B reconciliation 作为 fallback |
 | webhook 丢事件（GitHub 不保证 exactly-once） | Phase B reconciliation 补偿扫描 |
+| Phase B 只投递到已有 inbox thread 的 repo | 设计边界：Phase B 是"补偿"不是"替代"。若某 repo 从未收到 webhook（Phase A 未创建 binding），Phase B 跳过并 warn log。覆盖该场景需 Phase C 扩展 |
 | GitHub 不是 chat connector，语义不同 | 不硬塞 chat gateway 语义，独立 webhook handler |
 | Fork 仓库的 webhook 权限 | 只配置在我们 maintain 的仓库上 |
 | 多仓库事件量大 | 只转发 opened/ready_for_review 事件，其余 skip |

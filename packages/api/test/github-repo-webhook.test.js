@@ -511,4 +511,41 @@ describe('GitHubRepoWebhookHandler', () => {
     assert.equal(result.kind, 'error');
     assert.equal(result.status, 400);
   });
+
+  // ── Phase B bridge: marks business dedup after delivery ──
+  it('marks reconciliation dedup after successful delivery (Phase B bridge)', async () => {
+    const { deps, deliveredMessages } = createMockDeps();
+    const markCalls = [];
+    deps.reconciliationDedup = {
+      async markNotified(repo, type, number) {
+        markCalls.push({ repo, type, number });
+      },
+    };
+
+    const handler = new GitHubRepoWebhookHandler(CONFIG, deps);
+    const body = makePRPayload('opened');
+    const { headers, raw } = makeHeaders('pull_request', 'delivery-recon-1', body);
+
+    const result = await handler.handleWebhook(body, headers, raw);
+
+    assert.equal(result.kind, 'processed');
+    assert.equal(markCalls.length, 1);
+    assert.deepEqual(markCalls[0], {
+      repo: 'zts212653/clowder-ai',
+      type: 'pr',
+      number: 42,
+    });
+  });
+
+  it('works without reconciliation dedup (backward compat)', async () => {
+    const { deps, deliveredMessages } = createMockDeps();
+    // No reconciliationDedup set — should work fine
+    const handler = new GitHubRepoWebhookHandler(CONFIG, deps);
+    const body = makePRPayload('opened');
+    const { headers, raw } = makeHeaders('pull_request', 'delivery-no-recon', body);
+
+    const result = await handler.handleWebhook(body, headers, raw);
+    assert.equal(result.kind, 'processed');
+    assert.equal(deliveredMessages.length, 1);
+  });
 });

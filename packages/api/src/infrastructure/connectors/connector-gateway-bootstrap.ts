@@ -31,6 +31,7 @@ import {
 import { ConnectorRouter } from './ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { GitHubRepoWebhookHandler } from './github-repo-event/GitHubRepoWebhookHandler.js';
+import { ReconciliationDedup } from './github-repo-event/ReconciliationDedup.js';
 import { RedisDeliveryDedup } from './github-repo-event/RedisDeliveryDedup.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
 import { ConnectorMediaService } from './media/ConnectorMediaService.js';
@@ -501,6 +502,9 @@ export async function startConnectorGateway(
 
   if (ghWebhookSecret && ghRepoAllowlist && ghInboxCatId && deps.redis) {
     const ghDedup = new RedisDeliveryDedup(deps.redis as import('./github-repo-event/RedisDeliveryDedup.js').RedisLike);
+    const ghReconciliationDedup = new ReconciliationDedup(
+      deps.redis as import('./github-repo-event/ReconciliationDedup.js').ReconciliationRedisLike,
+    );
     const ghHandler = new GitHubRepoWebhookHandler(
       {
         webhookSecret: ghWebhookSecret,
@@ -514,6 +518,7 @@ export async function startConnectorGateway(
         deliverFn: deliverConnectorMessage,
         invokeTrigger: deps.invokeTrigger,
         dedup: ghDedup,
+        reconciliationDedup: ghReconciliationDedup, // Phase B bridge (KD-15)
         redis: deps.redis as import('./github-repo-event/RedisDeliveryDedup.js').RedisLike, // KD-20: inbox thread creation lock
         deliveryDeps: {
           messageStore:
