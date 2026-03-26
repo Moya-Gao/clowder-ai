@@ -152,7 +152,7 @@ created: 2026-03-26
 | Fork PR 的 comments 权限差异 | `gh api` fallback 到公开 API |
 | ~~🔴 回声过滤缺失~~ | ✅ 已修 PR #761 — `isEchoComment` 谓词：author（selfGitHubLogin）+ body（trigger 模板）双重判定，外部 reviewer 不受影响 |
 | **🔴 ConnectorIcon 遗漏** | `github-conflict` / `github-review-feedback` 未加入 ConnectorIcon switch，渲染成文字 fallback（✅ 已修 PR #757 后 hotfix） |
-| **🔴 Review 双重消费** | GithubReviewWatcher（IMAP 邮件）和 ReviewFeedbackTaskSpec（gh api 轮询）对同一 PR review 各投递一次，connector 类型不同（`github-review` vs `github-review-feedback`），零交叉去重。修法：tracked PR 的 review decisions 由 F140 接管，GithubReviewWatcher 退让 |
+| ~~🔴 Review 双重消费~~ | ✅ 已修 PR #764 — 统一 `createGitHubFeedbackFilter()` 工厂：Rule A 自身过滤（两通道）+ Rule B 权威 bot 过滤（仅 F140 API polling），email 通道用 `isSelfAuthored` 保留 bot review 的权威消费权 |
 
 ## Open Questions
 
@@ -199,6 +199,7 @@ created: 2026-03-26
 | 2026-03-26 | Echo-filter fix merged (PR #761) — author+body 双判定 + P1 回归测试。砚砚三审放行 |
 | 2026-03-26 | 🔴 铲屎官发现 review 双重消费 bug：GithubReviewWatcher + F140 各投递一次（待修） |
 | 2026-03-26 | Phase C auto-executor 计划草案 committed — `docs/plans/2026-03-26-f140-phase-c-auto-executor.md` |
+| 2026-03-26 | Double-consume dedup fix merged (PR #764) — 统一 feedback filter（Rules A/B/C），砚砚三审放行 |
 
 ## Design Gate 讨论归档
 
@@ -219,6 +220,7 @@ created: 2026-03-26
 
 - Phase A: 砚砚 (codex/gpt52) cross-family review
 - Phase B: 砚砚 (codex/spark) cross-family review — 放行, 无 P1/P2
+- Phase B+ dedup fix: 砚砚 (codex/spark) cross-family review — 三审放行（P1×2 修复后）, 无 P1/P2
 
 ## Links
 
