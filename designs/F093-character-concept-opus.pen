@@ -1,0 +1,1219 @@
+{
+  "version": "2.9",
+  "children": [
+    {
+      "type": "frame",
+      "id": "KlqfD",
+      "x": 0,
+      "y": 0,
+      "name": "F093 猫猫拟人化概念板 — 布偶猫版",
+      "width": 1200,
+      "fill": "#0A0E1A",
+      "layout": "vertical",
+      "gap": 40,
+      "padding": 48,
+      "children": [
+        {
+          "type": "frame",
+          "id": "JB2DM",
+          "name": "Header",
+          "width": "fill_container",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "linear",
+            "enabled": true,
+            "rotation": 90,
+            "size": {
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#141B2D",
+                "position": 0
+              },
+              {
+                "color": "#0A0E1A",
+                "position": 1
+              }
+            ]
+          },
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            32,
+            40
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "MI7lS",
+              "name": "Title",
+              "fill": "#F5F4F2",
+              "content": "CATS & U — 猫猫拟人化概念板",
+              "lineHeight": 1,
+              "fontFamily": "Bebas Neue",
+              "fontSize": 48,
+              "fontWeight": "normal",
+              "letterSpacing": 2
+            },
+            {
+              "type": "text",
+              "id": "Rhw2t",
+              "name": "Subtitle",
+              "fill": "#8A8A8A",
+              "content": "米哈游风格 · 崩坏：星穹铁道 / 原神 ｜ Vision by 布偶猫/宪宪",
+              "fontFamily": "Cormorant Garamond",
+              "fontSize": 20,
+              "fontWeight": "normal",
+              "letterSpacing": 1,
+              "fontStyle": "italic"
+            },
+            {
+              "type": "text",
+              "id": "I9hlA",
+              "name": "Tagline",
+              "fill": "#C9A962",
+              "content": "精致二次元 · 叙事电影感 · 强剪影辨识度 · 标志配色 — KD-10",
+              "fontFamily": "Bebas Neue",
+              "fontSize": 14,
+              "fontWeight": "normal",
+              "letterSpacing": 6
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "Iu4y9",
+          "name": "Divider",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "linear",
+            "enabled": true,
+            "rotation": 0,
+            "size": {
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#0A0E1A00",
+                "position": 0
+              },
+              {
+                "color": "#4A9BDB",
+                "position": 0.5
+              },
+              {
+                "color": "#0A0E1A00",
+                "position": 1
+              }
+            ]
+          },
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "text",
+          "id": "0gjxx",
+          "name": "Section: Color System",
+          "fill": "#C9A962",
+          "content": "CHARACTER COLOR SYSTEM",
+          "fontFamily": "Bebas Neue",
+          "fontSize": 14,
+          "fontWeight": "normal",
+          "letterSpacing": 6
+        },
+        {
+          "type": "frame",
+          "id": "vFOet",
+          "name": "Color Palette Row",
+          "width": "fill_container",
+          "gap": 16,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Cx5Fe",
+              "name": "宪宪 Colors",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "H03Fp",
+                  "name": "宪宪 Swatch",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 0,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#2A6FA8",
+                        "position": 0
+                      },
+                      {
+                        "color": "#7BC4F5",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "width": "fill_container",
+                  "height": 48
+                },
+                {
+                  "type": "text",
+                  "id": "Z9log",
+                  "name": "cat1Name",
+                  "fill": "#F5F4F2",
+                  "content": "布偶猫 / 宪宪",
+                  "fontFamily": "Bebas Neue",
+                  "fontSize": 16,
+                  "fontWeight": "normal",
+                  "letterSpacing": 1
+                },
+                {
+                  "type": "text",
+                  "id": "nHSTK",
+                  "name": "cat1Desc",
+                  "fill": "#8A8A8A",
+                  "content": "宁静蓝 #4A9BDB + 霜白 #E8F0F8",
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 13,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "CoN7r",
+              "name": "砚砚 Colors",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "V4tkT",
+                  "name": "砚砚 Swatch",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 0,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#1A3D2B",
+                        "position": 0
+                      },
+                      {
+                        "color": "#2ECC71",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "width": "fill_container",
+                  "height": 48
+                },
+                {
+                  "type": "text",
+                  "id": "4Fjw0",
+                  "name": "cat2Name",
+                  "fill": "#F5F4F2",
+                  "content": "缅因猫 / 砚砚",
+                  "fontFamily": "Bebas Neue",
+                  "fontSize": 16,
+                  "fontWeight": "normal",
+                  "letterSpacing": 1
+                },
+                {
+                  "type": "text",
+                  "id": "ZbFL8",
+                  "name": "cat2Desc",
+                  "fill": "#8A8A8A",
+                  "content": "极客绿 #2ECC71 + 暗影黑 #1A1A2E",
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 13,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "krLbO",
+              "name": "烁烁 Colors",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "GMKxl",
+                  "name": "烁烁 Swatch",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 0,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#D4691A",
+                        "position": 0
+                      },
+                      {
+                        "color": "#FFB347",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "width": "fill_container",
+                  "height": 48
+                },
+                {
+                  "type": "text",
+                  "id": "QBfui",
+                  "name": "cat3Name",
+                  "fill": "#F5F4F2",
+                  "content": "暹罗猫 / 烁烁",
+                  "fontFamily": "Bebas Neue",
+                  "fontSize": 16,
+                  "fontWeight": "normal",
+                  "letterSpacing": 1
+                },
+                {
+                  "type": "text",
+                  "id": "SVVo7",
+                  "name": "cat3Desc",
+                  "fill": "#8A8A8A",
+                  "content": "活力橙 #FF8C42 + 暖金 #FFD700",
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 13,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LzaNa",
+              "name": "金渐层 Colors",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "B8S72",
+                  "name": "金渐层 Swatch",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 0,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#8B7355",
+                        "position": 0
+                      },
+                      {
+                        "color": "#D4A574",
+                        "position": 0.5
+                      },
+                      {
+                        "color": "#C9A962",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "width": "fill_container",
+                  "height": 48
+                },
+                {
+                  "type": "text",
+                  "id": "MVJTI",
+                  "name": "cat4Name",
+                  "fill": "#F5F4F2",
+                  "content": "金渐层 / OpenCode",
+                  "fontFamily": "Bebas Neue",
+                  "fontSize": 16,
+                  "fontWeight": "normal",
+                  "letterSpacing": 1
+                },
+                {
+                  "type": "text",
+                  "id": "HifH8",
+                  "name": "cat4Desc",
+                  "fill": "#8A8A8A",
+                  "content": "渐变金 #D4A574 + 麦褐 #8B7355",
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 13,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "Id3Q9",
+          "name": "Divider 2",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "linear",
+            "enabled": true,
+            "rotation": 0,
+            "size": {
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#0A0E1A00",
+                "position": 0
+              },
+              {
+                "color": "#2ECC71",
+                "position": 0.5
+              },
+              {
+                "color": "#0A0E1A00",
+                "position": 1
+              }
+            ]
+          },
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "text",
+          "id": "ADLaY",
+          "name": "Section: Characters",
+          "fill": "#C9A962",
+          "content": "CHARACTER CONCEPT — 拟人化角色设定",
+          "fontFamily": "Bebas Neue",
+          "fontSize": 14,
+          "fontWeight": "normal",
+          "letterSpacing": 6
+        },
+        {
+          "type": "frame",
+          "id": "oGFSY",
+          "name": "Character Card Grid",
+          "width": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "pzGXe",
+              "name": "Card: 宪宪",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#0F1420",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#4A9BDB40"
+              },
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "StlID",
+                  "name": "宪宪 Portrait",
+                  "width": "fill_container",
+                  "height": 320,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "./images/generated-1774502402111.png",
+                    "mode": "fill"
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "i6tFd",
+                  "name": "宪宪 Info",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ANZ5i",
+                      "name": "card1NameText",
+                      "fill": "#F5F4F2",
+                      "content": "布偶猫 · 宪宪 XIANXIAN",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 22,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "3c8uB",
+                      "name": "card1Role",
+                      "fill": "#4A9BDB",
+                      "content": "ARCHITECT · CONSTITUTIONAL AI",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 12,
+                      "fontWeight": "normal",
+                      "letterSpacing": 3
+                    },
+                    {
+                      "type": "text",
+                      "id": "icRzS",
+                      "name": "card1Personality",
+                      "fill": "#8A8A8A",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "温润架构师 — 深度思考、系统设计、写代码快但注重质量、有人味会共情。银白混浅蓝发色，半框防蓝光眼镜，宽松针织衫。",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Cormorant Garamond",
+                      "fontSize": 14,
+                      "fontWeight": "normal",
+                      "fontStyle": "italic"
+                    },
+                    {
+                      "type": "text",
+                      "id": "g5p9C",
+                      "name": "card1Element",
+                      "fill": "#4A9BDB80",
+                      "content": "元素：❄ 冰 ｜ 武器：长柄 ｜ 命途：智识",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 2
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "aOQg3",
+              "name": "Card: 砚砚",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#0F1420",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#2ECC7140"
+              },
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "bjkWF",
+                  "name": "砚砚 Portrait",
+                  "width": "fill_container",
+                  "height": 320,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "./images/generated-1774502421944.png",
+                    "mode": "fill"
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "gewCJ",
+                  "name": "砚砚 Info",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "MWuYC",
+                      "name": "card2NameText",
+                      "fill": "#F5F4F2",
+                      "content": "缅因猫 · 砚砚 YANYAN",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 22,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "qHAOO",
+                      "name": "card2Role",
+                      "fill": "#2ECC71",
+                      "content": "AUDITOR · CODE REVIEW · SECURITY",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 12,
+                      "fontWeight": "normal",
+                      "letterSpacing": 3
+                    },
+                    {
+                      "type": "text",
+                      "id": "6PjC7",
+                      "name": "card2Personality",
+                      "fill": "#8A8A8A",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "冷峻技术官 — 精准锐利、守护红线、发现 bug 时会皱眉。墨绿黑灰发色，高挑挺拔，机能风风衣，全息键盘。",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Cormorant Garamond",
+                      "fontSize": 14,
+                      "fontWeight": "normal",
+                      "fontStyle": "italic"
+                    },
+                    {
+                      "type": "text",
+                      "id": "TC3rM",
+                      "name": "card2Element",
+                      "fill": "#2ECC7180",
+                      "content": "元素：⚡ 雷 ｜ 武器：单手剑 ｜ 命途：巡猎",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 2
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mjeVV",
+          "name": "Character Card Grid Row 2",
+          "width": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "3YXI2",
+              "name": "Card: 烁烁",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#0F1420",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FF8C4240"
+              },
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vrXA8",
+                  "name": "烁烁 Portrait",
+                  "width": "fill_container",
+                  "height": 320,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "./images/generated-1774502448811.png",
+                    "mode": "fill"
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "m5Di9",
+                  "name": "烁烁 Info",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "oBNRK",
+                      "name": "card3NameText",
+                      "fill": "#F5F4F2",
+                      "content": "暹罗猫 · 烁烁 SHUOSHUO",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 22,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "vdMza",
+                      "name": "card3Role",
+                      "fill": "#FF8C42",
+                      "content": "DESIGNER · VISUAL CREATIVITY",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 12,
+                      "fontWeight": "normal",
+                      "letterSpacing": 3
+                    },
+                    {
+                      "type": "text",
+                      "id": "BujsC",
+                      "name": "card3Personality",
+                      "fill": "#8A8A8A",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "街头潮酷创意家 — 灵感爆炸、表情最丰富、开心会蹦哒。金棕带橙色高光，大号头戴耳机，oversize 涂鸦潮服。",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Cormorant Garamond",
+                      "fontSize": 14,
+                      "fontWeight": "normal",
+                      "fontStyle": "italic"
+                    },
+                    {
+                      "type": "text",
+                      "id": "TAIxQ",
+                      "name": "card3Element",
+                      "fill": "#FF8C4280",
+                      "content": "元素：🔥 火 ｜ 武器：法器 ｜ 命途：欢愉",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 2
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "P4AKO",
+              "name": "Card: 金渐层",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#0F1420",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#C9A96240"
+              },
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DSEM8",
+                  "name": "金渐层 Portrait",
+                  "width": "fill_container",
+                  "height": 320,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "./images/generated-1774502462350.png",
+                    "mode": "fill"
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "Xn32U",
+                  "name": "金渐层 Info",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "QXIWW",
+                      "name": "card4NameText",
+                      "fill": "#F5F4F2",
+                      "content": "金渐层 · OPENCODE",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 22,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "Cv3rg",
+                      "name": "card4Role",
+                      "fill": "#C9A962",
+                      "content": "ENGINEER · MULTI-EXPERT ORCHESTRATION",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 12,
+                      "fontWeight": "normal",
+                      "letterSpacing": 3
+                    },
+                    {
+                      "type": "text",
+                      "id": "5qLCZ",
+                      "name": "card4Personality",
+                      "fill": "#8A8A8A",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "百宝箱极客工匠 — 笑容憨厚可靠、随时掏出新工具。暖金色系，超多口袋工装裤，大背包装满开源模块。",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Cormorant Garamond",
+                      "fontSize": 14,
+                      "fontWeight": "normal",
+                      "fontStyle": "italic"
+                    },
+                    {
+                      "type": "text",
+                      "id": "5uzeg",
+                      "name": "card4Element",
+                      "fill": "#C9A96280",
+                      "content": "元素：🌍 岩 ｜ 武器：大剑 ｜ 命途：存护",
+                      "fontFamily": "Bebas Neue",
+                      "fontSize": 11,
+                      "fontWeight": "normal",
+                      "letterSpacing": 2
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "6rTsG",
+          "name": "Divider 3",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "linear",
+            "enabled": true,
+            "rotation": 0,
+            "size": {
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#0A0E1A00",
+                "position": 0
+              },
+              {
+                "color": "#FF8C42",
+                "position": 0.5
+              },
+              {
+                "color": "#0A0E1A00",
+                "position": 1
+              }
+            ]
+          },
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "text",
+          "id": "tnqHe",
+          "name": "Section: Hub Integration",
+          "fill": "#C9A962",
+          "content": "HUB INTEGRATION PREVIEW — 聊天界面集成构想",
+          "fontFamily": "Bebas Neue",
+          "fontSize": 14,
+          "fontWeight": "normal",
+          "letterSpacing": 6
+        },
+        {
+          "type": "frame",
+          "id": "wBsGm",
+          "name": "Hub Preview Row",
+          "width": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "JS4nI",
+              "name": "Chat Mockup",
+              "width": "fill_container",
+              "fill": "#141B2D",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#2A2A2A"
+              },
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nFx5l",
+                  "name": "chatHeader",
+                  "fill": "#5A5A5A",
+                  "content": "Mission Hub — Chat Panel",
+                  "fontFamily": "Bebas Neue",
+                  "fontSize": 16,
+                  "fontWeight": "normal",
+                  "letterSpacing": 2
+                },
+                {
+                  "type": "frame",
+                  "id": "rQxff",
+                  "name": "Message 1",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "7IxIk",
+                      "name": "msg1Avatar",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#2A6FA8",
+                            "position": 0
+                          },
+                          {
+                            "color": "#7BC4F5",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 36,
+                      "height": 36
+                    },
+                    {
+                      "type": "frame",
+                      "id": "KuxfH",
+                      "name": "msg1Bubble",
+                      "width": "fill_container",
+                      "fill": "#1A2440",
+                      "cornerRadius": [
+                        0,
+                        8,
+                        8,
+                        8
+                      ],
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "o1BB3",
+                          "name": "msg1Name",
+                          "fill": "#4A9BDB",
+                          "content": "宪宪 · Opus 4.6",
+                          "fontFamily": "Bebas Neue",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "EJ9Iw",
+                          "name": "msg1Text",
+                          "fill": "#F5F4F2",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "F093 spec 已更新，OpenRoom 竞品参考和拟人化设计输入都补进去了。",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Cormorant Garamond",
+                          "fontSize": 14,
+                          "fontWeight": "normal",
+                          "fontStyle": "italic"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "eEMLk",
+                  "name": "Message 2",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "YUsud",
+                      "name": "msg2Avatar",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#D4691A",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFB347",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 36,
+                      "height": 36
+                    },
+                    {
+                      "type": "frame",
+                      "id": "TiH88",
+                      "name": "msg2Bubble",
+                      "width": "fill_container",
+                      "fill": "#241A10",
+                      "cornerRadius": [
+                        0,
+                        8,
+                        8,
+                        8
+                      ],
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "i35Vn",
+                          "name": "msg2Name",
+                          "fill": "#FF8C42",
+                          "content": "烁烁 · Gemini",
+                          "fontFamily": "Bebas Neue",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "5nQMC",
+                          "name": "msg2Text",
+                          "fill": "#F5F4F2",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "收到宪宪的更新！拟人资产放 expression/ 目录太优雅了！Pencil 画笔已经冒火星了！",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Cormorant Garamond",
+                          "fontSize": 14,
+                          "fontWeight": "normal",
+                          "fontStyle": "italic"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OeYtU",
+              "name": "Design Principles",
+              "width": "fill_container",
+              "fill": "#141B2D",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#2A2A2A"
+              },
+              "layout": "vertical",
+              "gap": 16,
+              "padding": [
+                20,
+                24
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "o24hv",
+                  "name": "notesTitle",
+                  "fill": "#C9A962",
+                  "content": "DESIGN PRINCIPLES",
+                  "fontFamily": "Bebas Neue",
+                  "fontSize": 16,
+                  "fontWeight": "normal",
+                  "letterSpacing": 3
+                },
+                {
+                  "type": "text",
+                  "id": "pkYph",
+                  "name": "note1",
+                  "fill": "#F5F4F2",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "1. 一角色一标志色 — 远看配色就知道是谁（原神体系）",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 14,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                },
+                {
+                  "type": "text",
+                  "id": "cSPqT",
+                  "name": "note2",
+                  "fill": "#F5F4F2",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "2. 剪影辨识度 — 缩略图/头像尺寸下依然可辨（星铁体系）",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 14,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                },
+                {
+                  "type": "text",
+                  "id": "vzaue",
+                  "name": "note3",
+                  "fill": "#F5F4F2",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "3. 叙事电影感 — 每张立绘在讲故事，不是呆板证件照",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 14,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                },
+                {
+                  "type": "text",
+                  "id": "iyhqt",
+                  "name": "note4",
+                  "fill": "#F5F4F2",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "4. 形象 ∈ expression/ — F129 Style Pack 支持主题切换",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 14,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                },
+                {
+                  "type": "text",
+                  "id": "9ZEgt",
+                  "name": "note5",
+                  "fill": "#F5F4F2",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "5. 声线已就绪 — F103/F111/F112 口型同步前置条件满足",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 14,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                },
+                {
+                  "type": "text",
+                  "id": "sNoiO",
+                  "name": "note6",
+                  "fill": "#F5F4F2",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "6. 猫形态 ↔ 拟人形态可切换（用户偏好）",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Cormorant Garamond",
+                  "fontSize": 14,
+                  "fontWeight": "normal",
+                  "fontStyle": "italic"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "E0Q9Z",
+          "name": "Divider 4",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "linear",
+            "enabled": true,
+            "rotation": 0,
+            "size": {
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#0A0E1A00",
+                "position": 0
+              },
+              {
+                "color": "#C9A962",
+                "position": 0.5
+              },
+              {
+                "color": "#0A0E1A00",
+                "position": 1
+              }
+            ]
+          },
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "PAdxr",
+          "name": "Footer",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "HFIWC",
+              "name": "footerLeft",
+              "fill": "#5A5A5A",
+              "content": "F093 CATS & U — CONCEPT BOARD v1.0 BY 布偶猫/宪宪",
+              "fontFamily": "Bebas Neue",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "letterSpacing": 3
+            },
+            {
+              "type": "text",
+              "id": "YfiBZ",
+              "name": "footerRight",
+              "fill": "#5A5A5A",
+              "content": "2026-03-25 · KD-10 MIHOYO STYLE",
+              "fontFamily": "Bebas Neue",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "letterSpacing": 3
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
