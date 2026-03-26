@@ -119,7 +119,7 @@ community_issue: "#109"
 ### Phase B（猫猫实例管理）
 - [x] AC-B1: Hub 里可以创建新的猫猫实例，绑定到某个账户配置
 - [x] AC-B2: CatRegistry 支持运行时增删改猫猫实例
-- [ ] AC-B3: 动态创建的猫可以正常被 @ 调用、正常响应 — **未验证：动态创建的猫需要重启 CLI 才能被 @ 调用**
+- [ ] AC-B3: 动态创建的猫可以正常被 @ 调用、正常响应 — **未完成端到端验收**（API 路由层 registry-first 已确认，但 resumed session 的 prompt reinjection 边界需 E2E 验证）
 - [x] AC-B4: 现有预设猫（opus/codex/gemini 等）作为 seed 数据保留，不受影响
 
 ### Phase C（动态别名 @ 路由）
@@ -177,7 +177,7 @@ community_issue: "#109"
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 动态猫猫配置持久化方案（文件 vs 数据库 vs Redis）| ✅ 已决定：文件（`.cat-cafe/cat-catalog.json`）。详见 KD-2 |
-| OQ-2 | 运行时新增猫是否需要重启 CLI 进程 | ⚠️ 当前需要重启。CatRegistry 运行时 mutation 仅更新 API 层内存 + catalog 文件，CLI 进程不会热重载。社区愿景是免重启，但当前实现未达到 |
+| OQ-2 | 运行时新增猫是否需要重启 CLI 进程 | ⚠️ **未完成端到端验收**。API 路由层（A2A 解析 / connector routing / SystemPromptBuilder）均为 registry-first，新会话理论上可即时路由动态猫。风险点在 resumed session：`invoke-single-cat.ts` 的 `canSkipOnResume` 逻辑可能跳过 system prompt reinjection，导致 roster 过时。需 E2E 验证（见验收矩阵） |
 | OQ-3 | 是否需要"猫猫模板"机制（预设品种 → 一键创建变体） | ⬜ 未做。当前 Hub 的"新建猫"是完全手动填表，没有品种模板一键创建 |
 | OQ-4 | cat-config.json Iron Law #3（禁止运行时修改）如何与动态层共存 | ✅ 已决定：cat-config.json 作为 seed/base，catalog 作为 delta overlay，loader 做字段级 deep merge（PR #632）。Iron Law #3 保持——运行时改动只写 catalog，不碰 cat-config.json |
 
@@ -200,22 +200,35 @@ community_issue: "#109"
 | 2026-03-21 | catalog merge 修复 — PR #632 将 catalog 读取从整体替换改为字段级 deep merge |
 | 2026-03-21 | model 格式修复 — opencode defaultModel 需要 `provider/model` 格式 |
 | 2026-03-21 | 愿景守护 — 金渐层对 F127 做全面进度评估，更新 AC / OQ / KD / 遗留项 |
-| 2026-03-22 | R-6 修复 — PR #665 修复 Hub 编辑器 X 按钮滚动 bug，3 个 modal 统一 flex-col 布局（金渐层开发，砚砚 review 放行） |
+| 2026-03-22 | R-6 初版修复 — PR #665 修复 Hub 编辑器 X 按钮滚动 bug，3 个 modal 统一 flex-col 布局（金渐层开发，砚砚 review 放行） |
+| 2026-03-25 | R-6 二修 — PR #714 补全修复（砚砚开发） |
+| 2026-03-25 | AC-B3 分析修正 — 铲屎官质疑 + GPT-5.4 代码审查确认：根因不在 A2A parser fallback，而在 resumed session prompt reinjection 边界。增加验收矩阵 |
 
 ## 遗留项（未来可能需要调整）
 
 | # | 遗留项 | 影响 | 触发点 | 建议处理 |
 |---|--------|------|--------|----------|
 | R-1 | **持久化层用文件而非 Redis** — 双 JSON 文件的复杂度已通过 deep merge 缓解，但仍比单一 Redis 存储多一层。社区 PR 选文件是合理的（零外部依赖），但如果未来需要多节点/分布式部署，文件方案不够 | 低（单节点够用） | 多节点部署需求 | 可在未来版本将 catalog 迁移到 Redis，接口层已解耦 |
-| R-2 | **动态创建猫仍需重启 CLI** — CatRegistry 运行时 mutation 只更新 API 进程内存 + catalog 文件，CLI 子进程不会热重载新猫 | 中（社区愿景是免重启） | 用户真的要通过 Hub 动态加猫时 | 需要 CLI hot-reload 或 IPC 通知机制，scope 较大，建议独立 Feature |
+| R-2 | **resumed session 下动态猫 roster 可能过时** — API 路由层（A2A / connector / SystemPromptBuilder）均 registry-first，动态猫即时可见。但 resumed session 中 `invoke-single-cat.ts` 的 `canSkipOnResume` 可能跳过 system prompt reinjection，导致猫的 roster 上下文不含新猫。新会话无此问题 | 中（影响 resume 场景） | 用户通过 Hub 动态加猫 + 已有猫在 resume 会话中 | 需 E2E 验证（见验收矩阵）。若确认失效，可通过 forceReinjection 机制修复，scope 较小 |
 | R-3 | **AC-B3 / AC-C2 未端到端验证** — 动态创建猫的 @ 路由和 API key 猫的默认别名，缺少端到端测试 | 低（代码路径存在，但没有集成测试覆盖） | 有人真的通过 Hub 创建 API key 猫时 | 补集成测试 |
 | R-4 | **猫猫模板机制未做** — 社区 issue 里提到的"预设品种→一键创建变体"能力，当前 Hub 只有完全手动填表 | 低（非 MVP 范围） | 用户量增长后 onboarding 体验优化 | 未来 Feature |
 | R-5 | **社区 issue #109 仍 OPEN** — 应同步更新状态 | 低 | 和开源同步时 | 发 comment 说明进度 + 关闭或标为 phase 2 |
-| R-6 | ~~**Hub 编辑器滚动时右上角 X 按钮跟着滚**~~ — ✅ 已修复（PR #665）。3 个 modal 统一改为 flex-col 布局，header/footer 固定，仅 content 滚动 | ~~中~~ done | — | — |
+| R-6 | ~~**Hub 编辑器滚动时右上角 X 按钮跟着滚**~~ — ✅ 已修复（PR #665 初版 + PR #714 二修）。3 个 modal 统一改为 flex-col 布局，header/footer 固定，仅 content 滚动 | ~~中~~ done | — | — |
 | R-7 | **API key 账号需手动逐个填支持的 model 列表** — 应该自动探测或提供预设列表 | 中（UX 痛点） | 添加 API key 账号时 | 自动探测 endpoint 支持的 model（`/v1/models`）或提供常用 model 预设 |
 | R-8 | **切换认证方式（订阅↔API key）没有一键切换** — 要一只猫一只猫改 provider profile binding | 高（UX 痛点） | 铲屎官想批量切换认证方式时 | 加"一键切换所有猫的 provider profile"功能 |
 | R-9 | **nuoda.vip 代理 model name 格式混淆** — API 代理用 `claude-opus-4-6`（Anthropic 原生），但 opencode CLI 需要 `anthropic/claude-opus-4-6`（provider/model 格式），Hub 不知道该用哪个 | 中（配置困惑） | 用第三方 API 代理时 | Hub 编辑器应按 client 类型自动处理 model name 格式 |
 | R-10 | **本地反代 `anthropic-proxy.mjs` 的 upstream 配置未初始化** — `start-dev.sh` 启动的反代（端口 9877）依赖 `.cat-cafe/proxy-upstreams.json` 配置上游，但 F127 intake 后 runtime 里该文件不存在。API key profile 创建应自动注册 upstream 到反代 | 中（反代功能不可用） | 配置 API key profile 用本地反代时 | profile 创建/更新时自动写 `proxy-upstreams.json` |
+
+## AC-B3 验收矩阵（E2E 验证清单）
+
+| # | 场景 | 预期 | 状态 |
+|---|------|------|------|
+| V-1 | 新会话：Hub 创建动态猫后，新对话中 @ 该猫 | API 路由成功，猫正常响应 | ⬜ 待验证 |
+| V-2 | resume 会话（无 reinjection）：已有 session 中 @ 新动态猫 | 需确认 roster 是否包含新猫 | ⬜ 待验证 |
+| V-3 | resume + forceReinjection（压缩触发）：压缩后 @ 新动态猫 | reinjection 刷新 roster，路由成功 | ⬜ 待验证 |
+| V-4 | API 路由链（connector/A2A）：外部消息 @ 动态猫 | catRegistry 实时生效，路由成功 | ⬜ 待验证 |
+
+> **F127 close 前提**：V-1 ~ V-4 至少完成 V-1 和 V-4 的端到端验证。
 
 ## Review Gate
 
@@ -231,6 +244,7 @@ community_issue: "#109"
 | **Intake PR** | [cat-cafe#626](https://github.com/zts212653/cat-cafe/pull/626) | 吸收到家里 — squash merged |
 | **Fix PR** | [cat-cafe#631](https://github.com/zts212653/cat-cafe/pull/631) | owner→coCreator 重命名 + avatar/color 修复 |
 | **Fix PR** | [cat-cafe#632](https://github.com/zts212653/cat-cafe/pull/632) | catalog 读取改为字段级 deep merge |
+| **Fix PR** | [cat-cafe#714](https://github.com/zts212653/cat-cafe/pull/714) | R-6 二修：modal close button 固定 |
 | **Internal Issue** | [cat-cafe#621](https://github.com/zts212653/cat-cafe/issues/621) | 家里 intake 跟踪 issue |
 | **Evolved from** | `docs/features/F062-ragdoll-provider-profile-hub.md` | 布偶猫 provider profile（Anthropic-only） |
 | **Related** | `docs/features/F032-agent-plugin-architecture.md` | CatRegistry 基础架构 |
