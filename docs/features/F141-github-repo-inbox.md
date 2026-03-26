@@ -8,7 +8,7 @@ created: 2026-03-26
 
 # F141: GitHub Repo Inbox — 仓库事件自动发现
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## 三层架构定位
 
@@ -38,7 +38,7 @@ created: 2026-03-26
 
 ## What
 
-### Phase A: GitHub Webhook Adapter + Repo Inbox 投递
+### Phase A: GitHub Webhook Adapter + Repo Inbox 投递 ✅
 
 **1. GitHubRepoWebhookHandler**（实现 `ConnectorWebhookHandler` 接口）
 - 复用现有 `POST /api/connectors/:connectorId/webhook` 通用端点
@@ -109,15 +109,15 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 
 ## Acceptance Criteria
 
-### Phase A（Webhook Adapter + Repo Inbox）
-- [ ] AC-A1: GitHub webhook `pull_request.opened` 事件自动投递到 maintainer inbox thread
-- [ ] AC-A2: GitHub webhook `issues.opened` 事件自动投递
-- [ ] AC-A3: GitHub webhook `pull_request.ready_for_review` 事件自动投递
-- [ ] AC-A4: `X-Hub-Signature-256` 签名校验通过才处理
-- [ ] AC-A5: `X-GitHub-Delivery` delivery id 去重
-- [ ] AC-A6: ConnectorSource `github-repo-event` 注册，ConnectorBubble 正确渲染
-- [ ] AC-A7: 投递走 deliverConnectorMessage() 统一消息管线
-- [ ] AC-A8: 测试覆盖：GitHubWebhookAdapter 单元测试
+### Phase A（Webhook Adapter + Repo Inbox）✅
+- [x] AC-A1: GitHub webhook `pull_request.opened` 事件自动投递到 maintainer inbox thread
+- [x] AC-A2: GitHub webhook `issues.opened` 事件自动投递
+- [x] AC-A3: GitHub webhook `pull_request.ready_for_review` 事件自动投递
+- [x] AC-A4: `X-Hub-Signature-256` 签名校验通过才处理
+- [x] AC-A5: `X-GitHub-Delivery` delivery id 去重
+- [x] AC-A6: ConnectorSource `github-repo-event` 注册，ConnectorBubble 正确渲染
+- [x] AC-A7: 投递走 deliverConnectorMessage() 统一消息管线
+- [x] AC-A8: 测试覆盖：GitHubWebhookAdapter 单元测试
 - [ ] AC-A9: opensource-ops SKILL.md 更新 triage 流程
 - [ ] AC-A10: refs/repo-inbox.md 新增（含 webhook 配置指南）
 
@@ -187,6 +187,7 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 | 2026-03-26 | 三猫讨论（布偶猫 + 缅因猫 codex + 缅因猫 gpt52）收敛 triage 配套设计：主人翁五问 Gate + 首反 SOP |
 | 2026-03-26 | 铲屎官确认方向，落到 Skill 文档 |
 | 2026-03-26 | Design Gate 通过 — 砚砚（gpt52）4 个约束 + 砚砚（codex）4 个补充约束补入 spec |
+| 2026-03-26 | Phase A merged (PR #755) — webhook adapter + dedup + thread binding + 27 tests |
 
 ## Review Gate
 
