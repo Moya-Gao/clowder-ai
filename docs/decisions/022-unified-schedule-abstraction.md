@@ -1,5 +1,5 @@
 ---
-feature_ids: [F102, F104, F085]
+feature_ids: [F139, F102, F104, F085]
 related_features: [F118, F032, F129]
 topics: [schedule, heartbeat, cron, task-runner, autonomy, openclaw-compat]
 doc_kind: decision
@@ -9,7 +9,7 @@ decision_id: ADR-022
 
 # ADR-022: 统一调度抽象 — 从 setInterval 到值守台
 
-> **Status**: draft
+> **Status**: accepted
 > **Deciders**: 铲屎官 + 布偶猫(opus) + 缅因猫(gpt52)
 > **Date**: 2026-03-25
 > **Consult**: GPT Pro (云端审阅), 金渐层(opencode)
