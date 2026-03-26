@@ -78,6 +78,7 @@ created: 2026-03-25
 - [ ] AC-C1: cron/event trigger 可用
 - [ ] AC-C2: Context dimension（session × materialization）可配置
 - [ ] AC-C3: Hub panel 展示任务列表 + 运行状态
+- [ ] AC-C3b: 调度面板支持按 thread 筛选/聚合（"这个 thread 上有哪些活跃任务"）— 社区需求 ⚠️ 待砚砚确认
 - [ ] AC-C4: 自然语言→TaskSpec 转换可用
 
 ### Phase 3（Governance + Pack）
