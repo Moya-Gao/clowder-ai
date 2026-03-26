@@ -825,7 +825,7 @@
     {
       "id": "F134",
       "name": "Feishu Group Chat — 飞书群聊多用户支持",
-      "status": "done (Phase A-D), planned (Phase E) | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705",
+      "status": "done | **Completed**: 2026-03-26 | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745",
       "file": "F134-feishu-group-chat.md"
     },
     {
@@ -859,5 +859,5 @@
       "file": "F139-unified-schedule-abstraction.md"
     }
   ],
-  "generated_at": "2026-03-26T03:36:04.017Z"
+  "generated_at": "2026-03-26T05:21:57.633Z"
 }
