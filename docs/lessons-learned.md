@@ -703,6 +703,51 @@ created: 2026-02-26
 
 ---
 
+### LL-038: Promise timeout 不等于 Promise 取消——并发重入的隐蔽根因
+
+- 状态：validated
+- 更新时间：2026-03-26
+
+- 坑：F139 Phase 1a 的 TaskRunnerV2 实现了 `withTimeout()` 用 `Promise.race` 给 execute 加超时。timeout reject 后 `finally` 释放了 `running` 锁，但底层 execute 仍在运行——下一个 tick 绕过 overlap guard 进入了同一 task 的并发执行。砚砚第二轮 review 抓出此 P1。
+- 根因：JS Promise 无法取消。`Promise.race([execute, timeout])` 只决定哪个先 settle 调用方，但输掉 race 的 promise 仍然在跑。如果 timeout 赢了就释放锁，等于告诉调度器"这个 task 空闲了"，而实际 execute 还在占用资源。
+- 触发条件：任何用 Promise.race/setTimeout 做 timeout 的场景，如果 timeout 后释放了互斥资源（锁、信号量、连接池 slot）。
+- 修复：
+  - 引入 `pendingExecutes[]` 收集所有 raw execute promise
+  - timeout 后照常记账 `RUN_FAILED`，但 `finally` 块在释放 `running` 锁前先 `await Promise.allSettled(pendingExecutes)`
+  - 代价：`triggerNow` 在超时场景不会立即返回（可接受的 tradeoff）
+- 防护：
+  - **规则**：Promise timeout wrapper 不得在 finally 中直接释放互斥资源——必须等底层 promise settle
+  - **测试**：`task-runner-v2.test.js` "concurrent reentry" 用例：gate 返回信号 + execute 永远 pending + timeout 触发 → 验证第二个 tick 被 overlap guard 拦截
+- 来源锚点：
+  - `packages/api/src/infrastructure/scheduler/TaskRunnerV2.ts` L139, L169
+  - 砚砚 Round 2 review (2026-03-25): "timeout reject → finally → running=false，但 execute 还在飞"
+- 原理：Promise 是 completion token，不是 cancellation token。race 只决定 observer 的视角，不影响 producer 的生命周期。在 JS 没有原生 AbortSignal 深度集成之前，timeout 和资源释放必须解耦。
+
+- 关联：F139 Phase 1a PR #747 | ADR-022
+
+---
+
+### LL-039: gate 里推进 cursor 等于"还没干活就划卡"——execute 失败后事件丢失
+
+- 状态：validated
+- 更新时间：2026-03-26
+
+- 坑：ReviewCommentsTaskSpec 的 gate 在筛选新评论时顺手推进了 `lastSeenCommentId` cursor。如果 execute 失败（网络超时、处理异常），这批评论就永远丢了——cursor 已经越过它们，下次 gate 不会再返回。
+- 根因：gate 和 execute 是 TaskRunnerV2 pipeline 的两个独立阶段，gate 的职责是"判断有没有活"，不是"确认活干完了"。把 cursor 推进放在 gate = 乐观假设 execute 一定成功。
+- 触发条件：任何 gate 阶段推进 cursor/offset/watermark 的模式，当 execute 可能失败时。
+- 修复：`commitCursor()` 闭包模式——gate 计算新 cursor 值但不写入，把 commit 函数作为 signal 的一部分传给 execute，execute 成功后调用 `signal.commitCursor()`。
+- 防护：
+  - **规则**：gate 只读 cursor 做筛选，cursor 推进必须在 execute 成功路径上
+  - **测试**：`review-comments-spec.test.js` "cursor not advanced on execute failure" 用例
+- 来源锚点：
+  - `packages/api/src/infrastructure/email/ReviewCommentsTaskSpec.ts` L81, L96
+  - 砚砚 Round 1 review P2-1: "gate 里推进 cursor 是 over-optimistic"
+- 原理：cursor/watermark 是"已确认处理完成"的标记，语义上等价于 Kafka consumer commit。Kafka 的 at-least-once 保证也要求 commit 在 process 之后，不在 poll 时自动推进。
+
+- 关联：F139 Phase 1a PR #747 | ReviewCommentsTaskSpec
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
