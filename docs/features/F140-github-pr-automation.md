@@ -135,7 +135,7 @@ created: 2026-03-26
 |---|------|------|
 | ~~OQ-1~~ | ~~冲突通知 priority~~ | ✅ 已定：`urgent`。冲突和 CI failure 同级，都是 merge blocker（Design Gate 共识） |
 | ~~OQ-2~~ | ~~Review comments 类型区分~~ | ✅ 已定：聚合通知分三区（Review Decisions / Inline Comments / PR Conversation），不逐条发（Design Gate 共识） |
-| OQ-3 | Phase B 自动 rebase 的触发条件是否需要铲屎官确认？ | 待 Phase B |
+| ~~OQ-3~~ | ~~Phase B 自动 rebase 的触发条件是否需要铲屎官确认？~~ | ✅ 已定：选项 C「全自动 + 事后通知」。猫收到冲突通知 → 直接 rebase → 成功 push 后通知铲屎官。worktree 隔离低风险，失败不影响 main（铲屎官 2026-03-26 确认） |
 
 ## Key Decisions
 
@@ -153,6 +153,7 @@ created: 2026-03-26
 | KD-10 | Cursor commit 在 delivery 成功后，trigger 是 best-effort | 砚砚 P3：delivery 成功 = 主 side-effect 完成 → 立即 commitCursor。trigger() 失败不阻塞 cursor 推进，避免重发已投递消息 | 2026-03-26 |
 | KD-11 | ReviewFeedbackTaskSpec 新建替换 ReviewCommentsTaskSpec | 最便宜的改名窗口，继续保留旧名字会造成语义债 | 2026-03-26 |
 | KD-12 | patchConflictState() 独立新增，不复用 patchCiState() | CI/conflict 状态语义不同，硬塞一起变成"大杂烩 patch" | 2026-03-26 |
+| KD-13 | 自动 rebase 采用「全自动 + 事后通知」（OQ-3 选项 C） | worktree 隔离低风险；半自动每次需人工确认违背自动化愿景；全自动无通知铲屎官不知情。选项 C 兼顾速度和可见性 | 2026-03-26 |
 
 ## Timeline
 
@@ -165,6 +166,8 @@ created: 2026-03-26
 | 2026-03-26 | 与砚砚讨论触发模型：三层架构收敛（发现/认领/追踪），F141 独立立项 |
 | 2026-03-26 | Design Gate 通过（砚砚 GPT-5.4）：3 个隐藏约束补入 KD-8/9/10，OQ-1/2 关闭 |
 | 2026-03-26 | Phase A merged (PR #752) — 冲突检测 + Review Feedback 全来源投递 + Skill 更新 |
+| 2026-03-26 | A2A routing bug 修复 (PR #754) — 金渐层误触发事件的三件套修复 |
+| 2026-03-26 | Phase B Design Gate 通过 — OQ-3 铲屎官拍板选项 C（全自动+事后通知），KD-13 记录 |
 
 ## Design Gate 讨论归档
 
