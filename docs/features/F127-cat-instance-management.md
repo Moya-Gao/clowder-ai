@@ -228,7 +228,7 @@ community_issue: "#109"
 | V-3 | resume + forceReinjection（压缩触发）：压缩后 @ 新动态猫 | reinjection 刷新 roster，路由成功 | ⬜ 待验证 |
 | V-4 | API 路由链（connector/A2A）：外部消息 @ 动态猫 | catRegistry 实时生效，路由成功 | ⬜ 待验证 |
 
-> **F127 close 前提**：V-1 ~ V-4 至少完成 V-1 和 V-4 的端到端验证。
+> **F127 close 前提**：V-1 + V-2 必测（核心风险在 resume 边界，不测 = 绕过已知风险）。V-3/V-4 为增强验证，可选。若不测 V-2，需铲屎官显式风险接受后才可 close。
 
 ## Review Gate
 
