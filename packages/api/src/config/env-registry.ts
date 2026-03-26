@@ -554,6 +554,14 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'connector',
     sensitive: false,
   },
+  {
+    name: 'GITHUB_AUTHORITATIVE_REVIEW_LOGINS',
+    defaultValue: 'chatgpt-codex-connector[bot]',
+    description:
+      'Comma-separated GitHub logins whose review feedback is handled by the email channel (authoritative source). F140 API polling skips these to avoid double-delivery.',
+    category: 'connector',
+    sensitive: false,
+  },
 
   // --- codex ---
   {

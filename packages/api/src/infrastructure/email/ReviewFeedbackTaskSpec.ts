@@ -32,8 +32,10 @@ export interface ReviewFeedbackTaskSpecOptions {
     warn: (...args: unknown[]) => void;
   };
   readonly pollIntervalMs?: number;
-  /** Predicate to identify echo comments (e.g. review trigger templates posted by cats themselves). Matched comments are silently skipped and their cursor advanced. */
+  /** Predicate to identify comments that should be skipped (self-authored, authoritative bot, etc.). Matched comments are silently skipped and their cursor advanced. */
   readonly isEchoComment?: (comment: PrFeedbackComment) => boolean;
+  /** Predicate to identify review decisions that should be skipped (self-authored, authoritative bot, etc.). Matched reviews are silently skipped and their cursor advanced. */
+  readonly isEchoReview?: (review: PrReviewDecision) => boolean;
 }
 
 export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions): TaskSpec_P1<ReviewFeedbackSignal> {
@@ -67,21 +69,26 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const reviewCursor = reviewCursors.get(prKey) ?? 0;
 
             const allNewComments = comments.filter((c) => c.id > commentCursor);
-            const newDecisions = reviews.filter((r) => r.id > reviewCursor);
+            const allNewReviews = reviews.filter((r) => r.id > reviewCursor);
 
-            // Echo filter: skip comments that match the echo predicate (e.g. review trigger templates).
+            // Echo filter: skip comments/reviews that match the predicates (self-authored, authoritative bot, etc.).
             // Cursor still advances past them so they don't reappear next cycle.
-            const echoFilter = opts.isEchoComment;
-            const newComments = echoFilter ? allNewComments.filter((c) => !echoFilter(c)) : allNewComments;
+            const commentFilter = opts.isEchoComment;
+            const reviewFilter = opts.isEchoReview;
+            const newComments = commentFilter ? allNewComments.filter((c) => !commentFilter(c)) : allNewComments;
+            const newDecisions = reviewFilter ? allNewReviews.filter((r) => !reviewFilter(r)) : allNewReviews;
 
-            // Cursor must cover ALL fetched comments (including echoes) to avoid re-processing
+            // Cursor must cover ALL fetched items (including echoes) to avoid re-processing
             const maxCommentId =
               allNewComments.length > 0 ? Math.max(...allNewComments.map((c) => c.id)) : commentCursor;
-            const maxReviewId = newDecisions.length > 0 ? Math.max(...newDecisions.map((r) => r.id)) : reviewCursor;
+            const maxReviewId = allNewReviews.length > 0 ? Math.max(...allNewReviews.map((r) => r.id)) : reviewCursor;
 
             // Advance cursor past echo-only batches so they don't reappear
-            if (allNewComments.length > 0 && newComments.length === 0 && newDecisions.length === 0) {
+            const allSkipped = newComments.length === 0 && newDecisions.length === 0;
+            const hadNewItems = allNewComments.length > 0 || allNewReviews.length > 0;
+            if (hadNewItems && allSkipped) {
               commentCursors.set(prKey, maxCommentId);
+              reviewCursors.set(prKey, maxReviewId);
               continue;
             }
 

@@ -1299,11 +1299,34 @@ async function main(): Promise<void> {
     log: app.log,
   });
 
+  // F140: Shared feedback filter (Rule C) — used by BOTH email watcher and API polling
+  const { createGitHubFeedbackFilter } = await import('./infrastructure/email/github-feedback-filter.js');
+  let selfGitHubLogin: string | undefined;
+  try {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const { stdout } = await promisify(execFile)('gh', ['api', '/user', '--jq', '.login'], { timeout: 10_000 });
+    selfGitHubLogin = stdout.trim() || undefined;
+    app.log.info(`[api] F140: feedback filter self=${selfGitHubLogin}`);
+  } catch {
+    app.log.warn('[api] F140: could not resolve GitHub login — self-filter disabled');
+  }
+  const authoritativeLogins = (process.env.GITHUB_AUTHORITATIVE_REVIEW_LOGINS || 'chatgpt-codex-connector[bot]')
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+  const feedbackFilter = createGitHubFeedbackFilter({
+    selfGitHubLogin,
+    authoritativeReviewLogins: authoritativeLogins,
+  });
+  app.log.info(`[api] F140: authoritative review logins=${authoritativeLogins.join(', ')}`);
+
   // Start email watcher AFTER listen (non-blocking, best-effort)
   await startGithubReviewWatcher({
     log: app.log,
     reviewRouter,
     invokeTrigger,
+    feedbackFilter,
   });
 
   // F139: Register PR-related TaskSpecs into unified scheduler
@@ -1360,17 +1383,7 @@ async function main(): Promise<void> {
     );
 
     // F140: review-feedback with ReviewFeedbackRouter (KD-11 replaces review-comments)
-    // Resolve authenticated GitHub login once for echo filter (author + body check)
-    let selfGitHubLogin: string | undefined;
-    try {
-      const { execFile } = await import('node:child_process');
-      const { promisify } = await import('node:util');
-      const { stdout } = await promisify(execFile)('gh', ['api', '/user', '--jq', '.login'], { timeout: 10_000 });
-      selfGitHubLogin = stdout.trim() || undefined;
-      app.log.info(`[api] F140: echo filter will match author=${selfGitHubLogin}`);
-    } catch {
-      app.log.warn('[api] F140: could not resolve GitHub login for echo filter — filter will match body only');
-    }
+    // feedbackFilter already created above (shared with email watcher — Rule C)
 
     const fetchPaginated = async (endpoint: string) => {
       const { execFile } = await import('node:child_process');
@@ -1429,12 +1442,9 @@ async function main(): Promise<void> {
         reviewFeedbackRouter,
         invokeTrigger,
         log: app.log,
-        // Echo filter: skip review trigger comments posted by OUR account (author + body).
-        // Without author check, external reviewers writing "@xxx review" would be silently dropped.
-        isEchoComment: (c) =>
-          (selfGitHubLogin ? c.author === selfGitHubLogin : false) &&
-          c.commentType === 'conversation' &&
-          /^@\w+\s+review\b/i.test(c.body),
+        // Unified feedback filter (Rule A: self-authored, Rule B: authoritative review bot)
+        isEchoComment: (c) => feedbackFilter.shouldSkipComment(c),
+        isEchoReview: (r) => feedbackFilter.shouldSkipReview(r),
       }),
     );
     app.log.info('[api] F139/F140: cicd-check, conflict-check, review-feedback specs registered');

@@ -355,4 +355,128 @@ describe('ReviewFeedbackTaskSpec', () => {
 
     assert.equal(cursorCommitted, false, 'cursor should not advance when delivery skipped');
   });
+
+  // ── F140 double-consume fix: shared feedback filter tests ──
+
+  it('self-authored ordinary comment is filtered (Rule A)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const self = 'zts212653';
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => [
+        { id: 1, author: self, body: 'LGTM, looks good to me', createdAt: '2026-01-01', commentType: 'conversation' },
+        { id: 2, author: 'alice', body: 'Please fix the typo', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isEchoComment: (c) => c.author === self,
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    assert.equal(result.workItems[0].signal.newComments.length, 1);
+    assert.equal(result.workItems[0].signal.newComments[0].author, 'alice');
+  });
+
+  it('self-authored review decision is filtered (Rule A + isEchoReview)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const self = 'zts212653';
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => [],
+      fetchReviews: async () => [
+        { id: 1, author: self, state: 'COMMENTED', body: 'Looks fine', submittedAt: '2026-01-01' },
+        { id: 2, author: 'bob', state: 'APPROVED', body: 'Ship it', submittedAt: '2026-01-01' },
+      ],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isEchoReview: (r) => r.author === self,
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    assert.equal(result.workItems[0].signal.newDecisions.length, 1);
+    assert.equal(result.workItems[0].signal.newDecisions[0].author, 'bob');
+  });
+
+  it('external human "@opus review ..." is NOT filtered (Rule A negative)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const self = 'zts212653';
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => [
+        {
+          id: 1,
+          author: 'external-dev',
+          body: '@opus review this change',
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isEchoComment: (c) => c.author === self,
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    assert.equal(result.workItems[0].signal.newComments.length, 1);
+    assert.equal(result.workItems[0].signal.newComments[0].author, 'external-dev');
+  });
+
+  it('authoritative bot (codex) comment + review are filtered in F140 (Rule B)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const bot = 'chatgpt-codex-connector[bot]';
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => [
+        {
+          id: 1,
+          author: bot,
+          body: "Codex Review: Didn't find any major issues.",
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+      ],
+      fetchReviews: async () => [
+        { id: 1, author: bot, state: 'COMMENTED', body: 'Codex Review', submittedAt: '2026-01-01' },
+      ],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isEchoComment: (c) => c.author === bot,
+      isEchoReview: (r) => r.author === bot,
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, false, 'all-bot batch should be skipped');
+  });
+
+  it('non-authoritative bot comment is NOT filtered (Rule B negative)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const authBot = 'chatgpt-codex-connector[bot]';
+    const spec = createReviewFeedbackTaskSpec({
+      prTrackingStore: { listAll: async () => [mockEntry] },
+      fetchComments: async () => [
+        {
+          id: 1,
+          author: 'dependabot[bot]',
+          body: 'Bumps lodash from 4.17.20 to 4.17.21',
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      // Only skip the authoritative bot, not all bots
+      isEchoComment: (c) => c.author === authBot,
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    assert.equal(result.workItems[0].signal.newComments.length, 1);
+    assert.equal(result.workItems[0].signal.newComments[0].author, 'dependabot[bot]');
+  });
 });
