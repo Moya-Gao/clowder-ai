@@ -67,7 +67,7 @@ created: 2026-03-25
 - [ ] AC-A5: CiCdCheckPoller 迁移到新 TaskSpec（红→绿）
 - [ ] AC-A6: conflict-check + review-comments TaskSpec 注册可用
 - [ ] AC-A7: awareness / poller 两种 profile 可用
-- [ ] AC-A8: 现有 TaskRunner 行为不回归，三套独立 setInterval 收敛为统一调度
+- [ ] AC-A8: 现有 TaskRunner 行为不回归，纯 interval pollers 收敛为统一调度（GithubReviewWatcher 保留 IMAP idle + reconnect fallback，不在 interval 收敛范围）
 
 ### Phase 1b（Actor + Cat Wake）
 - [ ] AC-B1: actor.role resolver 从 cat-config.json 匹配猫

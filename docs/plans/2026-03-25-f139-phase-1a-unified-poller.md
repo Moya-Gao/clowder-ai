@@ -10,7 +10,7 @@
 - AC-A5: CiCdCheckPoller 迁移到新 TaskSpec（红→绿）
 - AC-A6: conflict-check + review-comments TaskSpec 注册可用
 - AC-A7: awareness / poller 两种 profile 可用
-- AC-A8: 现有 TaskRunner 行为不回归，三套独立 setInterval 收敛为统一调度
+- AC-A8: 现有 TaskRunner 行为不回归，纯 interval pollers 收敛为统一调度（GithubReviewWatcher 保留 IMAP idle + reconnect fallback，不在 interval 收敛范围）
 **Architecture:** TaskSpec_P1 六维度模型（ADR-022），五步流水线（Wakeup→Lease→Gate→Execute→Outcome），TaskRunnerV2 引擎统一调度所有 poller。Gate 返回 typed signal 替代 boolean，run ledger 写入 SQLite。GithubReviewWatcher（IMAP idle）不在本 Phase 范围。
 **Tech Stack:** TypeScript, better-sqlite3, node:test
 **前端验证:** No — Phase 1a 纯后端
@@ -24,10 +24,17 @@
 ```typescript
 // packages/api/src/infrastructure/scheduler/types.ts
 
+/** Single work item returned by gate — one per subject */
+export interface WorkItem<Signal = unknown> {
+  signal: Signal;
+  subjectKey: string;
+  dedupeKey?: string;
+}
+
 /** Typed signal gate result — replaces boolean */
 export type GateResult<Signal = unknown> =
   | { run: false; reason: string }
-  | { run: true; signal: Signal; subjectKey: string; dedupeKey?: string };
+  | { run: true; workItems: WorkItem<Signal>[] };
 
 /** Gate context passed to admission gate */
 export interface GateCtx {
@@ -50,11 +57,11 @@ export interface TaskSpec_P1<Signal = unknown> {
   profile: TaskProfile;
   /** Trigger dimension */
   trigger: { type: 'interval'; ms: number };
-  /** Admission dimension — typed signal gate */
+  /** Admission dimension — typed signal gate returns workItems[] */
   admission: {
     gate: (ctx: GateCtx) => Promise<GateResult<Signal>>;
   };
-  /** Run dimension */
+  /** Run dimension — execute called once per workItem */
   run: {
     overlap: 'skip';
     timeoutMs: number;
@@ -105,10 +112,10 @@ CREATE INDEX IF NOT EXISTS idx_run_ledger_subject ON task_run_ledger(subject_key
 TaskRunnerV2 replaces TaskRunner. Same external API (`register`, `start`, `stop`, `triggerNow`, `getRegisteredTasks`) but internally runs the five-step pipeline:
 
 1. **Wakeup** — setInterval fires tick
-2. **Lease** — overlap guard (`running` map, keyed by `task.id`)
-3. **Gate** — call `admission.gate(ctx)` → typed `GateResult`
-4. **Execute** — if `run: true`, call `run.execute(signal, subjectKey)`
-5. **Outcome** — write to run ledger
+2. **Lease** — task-level overlap guard (`running` map, keyed by `task.id`); if overlap → write `SKIP_OVERLAP` to ledger
+3. **Gate** — call `admission.gate(ctx)` → `GateResult` with `workItems[]`
+4. **Execute** — for each `workItem`: call `run.execute(item.signal, item.subjectKey)` → per-subject ledger entry
+5. **Outcome** — write `RUN_DELIVERED` / `RUN_FAILED` to run ledger per workItem, keyed by `item.subjectKey`
 
 ### Profile Defaults
 
@@ -134,9 +141,15 @@ Add `GateResult`, `GateCtx`, `TaskProfile`, `RunOutcome`, `TaskSpec_P1`, `RunLed
 ```typescript
 // Add after existing ScheduledTask interface:
 
+export interface WorkItem<Signal = unknown> {
+  signal: Signal;
+  subjectKey: string;
+  dedupeKey?: string;
+}
+
 export type GateResult<Signal = unknown> =
   | { run: false; reason: string }
-  | { run: true; signal: Signal; subjectKey: string; dedupeKey?: string };
+  | { run: true; workItems: WorkItem<Signal>[] };
 
 export interface GateCtx {
   taskId: string;
@@ -188,7 +201,7 @@ Expected: All 7 tests PASS (existing ScheduledTask interface unchanged)
 
 In `packages/api/src/infrastructure/scheduler/index.ts`, add:
 ```typescript
-export type { TaskSpec_P1, GateResult, GateCtx, TaskProfile, RunOutcome, RunLedgerRow } from './types.js';
+export type { TaskSpec_P1, WorkItem, GateResult, GateCtx, TaskProfile, RunOutcome, RunLedgerRow } from './types.js';
 ```
 
 **Step 4: Type check**
@@ -458,52 +471,68 @@ describe('TaskRunnerV2', () => {
     assert.equal(rows.length, 0);
   });
 
-  it('gate run:true → execute called → RUN_DELIVERED in ledger', async () => {
-    let receivedSignal = null;
-    let receivedKey = null;
+  it('gate run:true with workItems → execute called per item → RUN_DELIVERED per subject', async () => {
+    const calls = [];
     runner.register({
       id: 'run-test', profile: 'poller',
       trigger: { type: 'interval', ms: 999999 },
       admission: {
-        gate: async () => ({ run: true, signal: { count: 3 }, subjectKey: 'pr-42' }),
+        gate: async () => ({
+          run: true,
+          workItems: [
+            { signal: { count: 3 }, subjectKey: 'pr-42' },
+            { signal: { count: 1 }, subjectKey: 'pr-99' },
+          ],
+        }),
       },
       run: {
         overlap: 'skip', timeoutMs: 5000,
-        execute: async (signal, key) => { receivedSignal = signal; receivedKey = key; },
+        execute: async (signal, key) => { calls.push({ signal, key }); },
       },
       state: { runLedger: 'sqlite' },
       outcome: { whenNoSignal: 'drop' },
       enabled: () => true,
     });
     await runner.triggerNow('run-test');
-    assert.deepEqual(receivedSignal, { count: 3 });
-    assert.equal(receivedKey, 'pr-42');
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0].signal, { count: 3 });
+    assert.equal(calls[0].key, 'pr-42');
+    assert.equal(calls[1].key, 'pr-99');
     const rows = ledger.query('run-test', 10);
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0].outcome, 'RUN_DELIVERED');
-    assert.equal(rows[0].subject_key, 'pr-42');
+    assert.equal(rows.length, 2);
+    // Both subjects have independent ledger entries
+    const subjects = rows.map(r => r.subject_key).sort();
+    assert.deepEqual(subjects, ['pr-42', 'pr-99']);
+    assert.ok(rows.every(r => r.outcome === 'RUN_DELIVERED'));
   });
 
-  it('execute throws → RUN_FAILED in ledger', async () => {
+  it('execute throws for one workItem → RUN_FAILED for that subject, others still RUN_DELIVERED', async () => {
     runner.register({
-      id: 'fail-test', profile: 'poller',
+      id: 'partial-fail', profile: 'poller',
       trigger: { type: 'interval', ms: 999999 },
       admission: {
-        gate: async () => ({ run: true, signal: 'go', subjectKey: 'x' }),
+        gate: async () => ({
+          run: true,
+          workItems: [
+            { signal: 'ok', subjectKey: 'a' },
+            { signal: 'boom', subjectKey: 'b' },
+          ],
+        }),
       },
       run: {
         overlap: 'skip', timeoutMs: 5000,
-        execute: async () => { throw new Error('boom'); },
+        execute: async (signal) => { if (signal === 'boom') throw new Error('boom'); },
       },
       state: { runLedger: 'sqlite' },
       outcome: { whenNoSignal: 'drop' },
       enabled: () => true,
     });
-    // triggerNow should NOT propagate — swallowed like TaskRunner
-    await runner.triggerNow('fail-test');
-    const rows = ledger.query('fail-test', 10);
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0].outcome, 'RUN_FAILED');
+    await runner.triggerNow('partial-fail');
+    const rows = ledger.query('partial-fail', 10);
+    assert.equal(rows.length, 2);
+    const bySubject = Object.fromEntries(rows.map(r => [r.subject_key, r.outcome]));
+    assert.equal(bySubject['a'], 'RUN_DELIVERED');
+    assert.equal(bySubject['b'], 'RUN_FAILED');
   });
 
   it('disabled task → SKIP_DISABLED, no execute', async () => {
@@ -511,7 +540,7 @@ describe('TaskRunnerV2', () => {
     runner.register({
       id: 'disabled-test', profile: 'awareness',
       trigger: { type: 'interval', ms: 999999 },
-      admission: { gate: async () => ({ run: true, signal: 'x', subjectKey: 'y' }) },
+      admission: { gate: async () => ({ run: true, workItems: [{ signal: 'x', subjectKey: 'y' }] }) },
       run: { overlap: 'skip', timeoutMs: 5000, execute: async () => { ran = true; } },
       state: { runLedger: 'sqlite' },
       outcome: { whenNoSignal: 'record' },
@@ -519,16 +548,16 @@ describe('TaskRunnerV2', () => {
     });
     await runner.triggerNow('disabled-test');
     assert.ok(!ran);
-    // SKIP_DISABLED not recorded (same as old TaskRunner behavior)
+    // SKIP_DISABLED not recorded (high-frequency tick would spam ledger)
   });
 
-  it('overlap guard — concurrent tick skipped', async () => {
+  it('overlap guard — concurrent tick skipped + SKIP_OVERLAP in ledger', async () => {
     let callCount = 0;
     runner.register({
       id: 'overlap-test', profile: 'poller',
       trigger: { type: 'interval', ms: 999999 },
       admission: {
-        gate: async () => ({ run: true, signal: 'go', subjectKey: 'k' }),
+        gate: async () => ({ run: true, workItems: [{ signal: 'go', subjectKey: 'k' }] }),
       },
       run: {
         overlap: 'skip', timeoutMs: 5000,
@@ -546,6 +575,10 @@ describe('TaskRunnerV2', () => {
     const p2 = runner.triggerNow('overlap-test');
     await Promise.all([p1, p2]);
     assert.equal(callCount, 1, 'second trigger should be skipped');
+    // SKIP_OVERLAP should be recorded in ledger for diagnostics
+    const rows = ledger.query('overlap-test', 10);
+    const skipRows = rows.filter(r => r.outcome === 'SKIP_OVERLAP');
+    assert.equal(skipRows.length, 1);
   });
 });
 ```
@@ -634,15 +667,24 @@ export class TaskRunnerV2 {
     // Step 1: Enabled check
     if (!task.enabled()) return;
 
-    // Step 2: Overlap guard
+    // Step 2: Overlap guard (task-level — prevents gate re-entry)
     if (this.running.get(task.id)) {
       this.logger.info(`[scheduler] ${task.id}: still running, skipping tick`);
+      // P2 fix: record SKIP_OVERLAP for diagnostics visibility
+      this.ledger.record({
+        task_id: task.id,
+        subject_key: task.id,
+        outcome: 'SKIP_OVERLAP',
+        signal_summary: null,
+        duration_ms: Date.now() - startMs,
+        started_at: new Date(startMs).toISOString(),
+      });
       return;
     }
     this.running.set(task.id, true);
 
     try {
-      // Step 3: Gate
+      // Step 3: Gate — returns workItems[]
       const ctx: GateCtx = {
         taskId: task.id,
         lastRunAt: this.lastRunAt.get(task.id) ?? null,
@@ -665,29 +707,33 @@ export class TaskRunnerV2 {
         return;
       }
 
-      // Step 4: Execute
-      const subjectKey = gateResult.subjectKey;
-      let outcome: RunOutcome = 'RUN_DELIVERED';
-      try {
-        await task.run.execute(gateResult.signal, subjectKey);
-        this.lastRunAt.set(task.id, Date.now());
-        this.logger.info(`[scheduler] ${task.id}: tick completed (${Date.now() - startMs}ms)`);
-      } catch (err) {
-        outcome = 'RUN_FAILED';
-        this.logger.error(`[scheduler] ${task.id}: tick failed (${Date.now() - startMs}ms)`, err);
+      // Step 4 + 5: Execute per workItem → ledger per subject
+      for (const item of gateResult.workItems) {
+        const itemStartMs = Date.now();
+        let outcome: RunOutcome = 'RUN_DELIVERED';
+        try {
+          await task.run.execute(item.signal, item.subjectKey);
+        } catch (err) {
+          outcome = 'RUN_FAILED';
+          this.logger.error(`[scheduler] ${task.id}/${item.subjectKey}: failed`, err);
+        }
+
+        this.ledger.record({
+          task_id: task.id,
+          subject_key: item.subjectKey,
+          outcome,
+          signal_summary: typeof item.signal === 'string'
+            ? item.signal
+            : JSON.stringify(item.signal).slice(0, 200),
+          duration_ms: Date.now() - itemStartMs,
+          started_at: new Date(itemStartMs).toISOString(),
+        });
       }
 
-      // Step 5: Outcome — write ledger
-      this.ledger.record({
-        task_id: task.id,
-        subject_key: subjectKey,
-        outcome,
-        signal_summary: typeof gateResult.signal === 'string'
-          ? gateResult.signal
-          : JSON.stringify(gateResult.signal).slice(0, 200),
-        duration_ms: Date.now() - startMs,
-        started_at: new Date(startMs).toISOString(),
-      });
+      this.lastRunAt.set(task.id, Date.now());
+      this.logger.info(
+        `[scheduler] ${task.id}: tick completed, ${gateResult.workItems.length} items (${Date.now() - startMs}ms)`
+      );
     } finally {
       this.running.set(task.id, false);
     }
@@ -872,8 +918,9 @@ describe('SummaryCompactionTaskSpec', () => {
 
     const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
     assert.equal(result.run, true);
-    assert.equal(result.subjectKey, 'summary-compact');
-    assert.ok(result.signal.eligibleThreadIds.length > 0);
+    assert.ok(result.workItems.length > 0);
+    // Each workItem is a single thread with per-thread subjectKey
+    assert.match(result.workItems[0].subjectKey, /^thread-/);
   });
 
   it('has correct id and profile', async () => {
@@ -905,9 +952,10 @@ Expected: FAIL — module not found
 Create `packages/api/src/domains/memory/SummaryCompactionTaskSpec.ts`. This wraps the existing compaction logic but with a typed signal gate. The gate scans eligible threads and returns them as the signal. The execute function runs the existing processing logic.
 
 Key changes from old `SummaryCompactionTask`:
-- `isEligible()` boolean → gate returns `{ run: true, signal: { eligibleThreadIds }, subjectKey: 'summary-compact' }`
-- `execute()` receives the signal (thread list) instead of re-scanning
-- Same internal logic (backfill, cold-start, processThread) — just wired differently
+- `isEligible()` boolean → gate returns `{ run: true, workItems: [{ signal: threadState, subjectKey: 'thread-{id}' }, ...] }` — one workItem per eligible thread
+- `execute(signal, subjectKey)` processes a single thread (not batch) — budget logic moves to gate (gate only returns `budget` number of workItems)
+- subjectKey is per-thread (`thread-abc`), not task-global — ledger tracks each thread independently
+- Same internal logic (backfill, cold-start, processThread) — just wired per-thread via workItems
 
 **Step 4: Build and run tests**
 
@@ -977,8 +1025,9 @@ describe('CiCdCheckTaskSpec', () => {
     });
     const result = await spec.admission.gate({ taskId: 'cicd-check', lastRunAt: null, tickCount: 1 });
     assert.equal(result.run, true);
-    assert.equal(result.subjectKey, 'cicd-check');
-    assert.equal(result.signal.activePrCount, 1);
+    assert.equal(result.workItems.length, 1);
+    assert.equal(result.workItems[0].subjectKey, 'pr-a/b#1');
+    assert.ok(result.workItems[0].signal);
   });
 });
 ```
@@ -989,7 +1038,7 @@ Expected: FAIL
 
 **Step 3: Implement CiCdCheckTaskSpec**
 
-Gate checks `prTrackingStore.listAll()` → filter active → if empty, `run: false`. If non-empty, `run: true` with signal `{ activePrCount, entries }`. Execute iterates entries and calls the existing `pollOne` logic (extracted from CiCdCheckPoller).
+Gate checks `prTrackingStore.listAll()` → filter active → if empty, `run: false`. If non-empty, `run: true` with one `workItem` per PR (`subjectKey: 'pr-{repo}#{number}'`). Execute calls the existing `pollOne` logic (extracted from CiCdCheckPoller) for a single PR.
 
 **Step 4: Build and run tests**
 
@@ -1037,7 +1086,7 @@ feat(F139): add conflict-check TaskSpec — PR mergeable state detection [布偶
 - Create: `packages/api/src/infrastructure/email/ReviewCommentsTaskSpec.ts`
 - Test: `packages/api/test/scheduler/review-comments-spec.test.js`
 
-Gate: check tracked PRs → `gh api /repos/{owner}/{repo}/pulls/{number}/comments` → if new comments since last cursor, signal = comment list. Uses `subjectKey` per PR for per-PR cursor tracking.
+Gate: check tracked PRs → `gh api /repos/{owner}/{repo}/pulls/{number}/comments` → if new comments since last cursor, one `workItem` per PR with new comments (`subjectKey: 'pr-{repo}#{number}'`). Per-PR cursor tracking via in-memory Map.
 
 **Step 1: Write failing test**
 
@@ -1101,7 +1150,7 @@ Expected: PASS
 **Step 6: Commit**
 
 ```
-feat(F139): wire TaskRunnerV2 bootstrap — converge 3 setInterval into unified scheduler [布偶猫🐾]
+feat(F139): wire TaskRunnerV2 bootstrap — converge pure-interval pollers into unified scheduler [布偶猫🐾]
 ```
 
 ---
@@ -1125,4 +1174,14 @@ feat(F139): wire TaskRunnerV2 bootstrap — converge 3 setInterval into unified 
 | AC-A5: CiCdCheckPoller 迁移 | Task 6 |
 | AC-A6: conflict-check + review-comments | Task 7 + Task 8 |
 | AC-A7: awareness / poller profiles | Task 4 |
-| AC-A8: 三套收敛为统一调度 | Task 9 |
+| AC-A8: 纯 interval pollers 收敛为统一调度 | Task 9 |
+
+---
+
+## Revision Log
+
+**rev-2 (2026-03-25)** — 砚砚 plan review 修正 2P1 + 1P2：
+
+1. **P1: GateResult 升级为 `workItems[]`** — 原设计单 `subjectKey` 打穿 ADR-022 统一锚点规则。修正：gate 返回 `WorkItem[]`，runner 对每个 item 独立 execute → ledger，subjectKey 真贯穿。summary-compact 按 per-thread、cicd-check 按 per-PR 出 workItems。
+2. **P1: AC-A8 口径对齐** — 原写"三套 setInterval 收敛"但 GithubReviewWatcher 保留在 scope 外。修正：AC-A8 改为"纯 interval pollers 收敛"，明确 IMAP idle + reconnect fallback 不在收敛范围。
+3. **P2: SKIP_OVERLAP 写 ledger** — 原设计 overlap 静默 return，Phase 2 UI 会看到盲区。修正：overlap guard 写 `SKIP_OVERLAP` 到 ledger（SKIP_DISABLED 保持 drop，避免高频刷爆）。
