@@ -8,7 +8,7 @@ created: 2026-03-24
 
 # F134: Feishu Group Chat — 飞书群聊多用户支持
 
-> **Status**: done (Phase A-D) | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705
+> **Status**: done (Phase A-D), planned (Phase E) | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705
 >
 > **Related**: F088（复用公共层 + Phase 7 公共层扩展）| F132（钉钉/企微，同模式独立 Feature）
 
@@ -134,6 +134,71 @@ export interface FeishuInboundMessage {
    - 管理员身份：匹配铲屎官的飞书 open_id（env 配置 `FEISHU_ADMIN_OPEN_IDS`）
    - 非管理员发 /command → 回复"只有管理员可以使用此命令"
 
+### Phase E: WebSocket 长连接模式支持（双模式共存）
+
+> 铲屎官 2026-07-24 提出：飞书应同时支持 Webhook 和 WebSocket 长连接两种模式，由铲屎官在 IM Hub 配置面板选择，而不是非此即彼推翻现有实现。
+
+**背景**：
+- 当前 Cat Café 飞书接入仅支持 **Webhook 模式**（需要公网 IP / 反向代理）
+- 飞书官方提供 **WebSocket 长连接模式**（不需要公网 IP，客户端主动连飞书服务器）
+- `@larksuiteoapi/node-sdk`（我们已引入的 SDK）原生支持 `WSClient` 长连接
+- Lark（飞书国际版）**不支持**长连接，只能用 Webhook
+
+**设计原则**：
+- **两种模式并存**，不推翻现有 Webhook 实现
+- **配置驱动**：通过 `FEISHU_CONNECTION_MODE` 选择 `webhook`（默认）或 `websocket`
+- **IM Hub 可见**：配置项在 Hub 连接器配置面板可视化选择，而非仅藏在 env（铲屎官明确要求）
+- **Inbound 差异化，Outbound 不变**：只有收消息的方式变了（webhook route vs WSClient），发消息仍走 REST API
+
+**改动范围**：
+
+1. **connector-gateway-bootstrap.ts** — 根据 `FEISHU_CONNECTION_MODE` 选择启动方式：
+   - `webhook`（默认）：保持现有逻辑，注册 webhook handler
+   - `websocket`：用 `@larksuiteoapi/node-sdk` 的 `WSClient` 建立长连接，监听 `im.message.receive_v1` 事件
+   - 两种模式共用同一个 `FeishuAdapter` 实例（parseEvent / sendReply / sendFormattedReply 完全复用）
+
+2. **connector-hub.ts（CONNECTOR_PLATFORMS）** — 飞书平台配置更新：
+   - 新增 `FEISHU_CONNECTION_MODE` 字段（`webhook` / `websocket` 下拉选择）
+   - `websocket` 模式下 `FEISHU_VERIFICATION_TOKEN` 变为非必填（长连接不需要 webhook 验证）
+   - 引导步骤（steps）根据所选模式动态展示：
+     - webhook 模式步骤保持现有
+     - websocket 模式步骤：「在飞书开放平台的『事件与回调』中选择『使用长连接接收事件』」
+
+3. **env-registry.ts** — 注册 `FEISHU_CONNECTION_MODE` 环境变量
+
+4. **HubConnectorConfigTab.tsx** — 前端配置面板支持模式选择 UI
+
+5. **docs/guides/im-platform-setup.md** — 文档更新，说明两种模式的配置差异
+
+**接口**：
+
+```typescript
+// connector-gateway-bootstrap.ts
+const connectionMode = config.feishuConnectionMode ?? 'webhook'; // 默认 webhook，向后兼容
+
+if (connectionMode === 'websocket') {
+  // 使用 @larksuiteoapi/node-sdk WSClient
+  const wsClient = new lark.WSClient({
+    appId: config.feishuAppId!,
+    appSecret: config.feishuAppSecret!,
+    loggerLevel: lark.LoggerLevel.WARN,
+  });
+  wsClient.start({
+    eventDispatcher: new lark.EventDispatcher({}).register({
+      'im.message.receive_v1': async (data) => {
+        // 复用 feishu.parseEvent(data) → connectorRouter.route(...)
+      },
+    }),
+  });
+  stopFns.push(async () => wsClient.close?.());
+  log.info('[ConnectorGateway] Feishu adapter started (WebSocket long-connection mode)');
+} else {
+  // 保持现有 webhook handler 注册逻辑
+  webhookHandlers.set('feishu', { ... });
+  log.info('[ConnectorGateway] Feishu adapter registered (webhook mode)');
+}
+```
+
 ## Acceptance Criteria
 
 ### Phase A（群聊入站 + @Bot 检测） ✅
@@ -163,6 +228,15 @@ export interface FeishuInboundMessage {
 - [x] AC-D4: 管理员身份通过 `FEISHU_ADMIN_OPEN_IDS` env 配置（首次启动 seed，持久化到 Redis）
 - [x] AC-D5: @bot 对话不受限（群里所有人都能 @bot 提问）
 
+### Phase E（WebSocket 长连接模式） 🔲
+- [ ] AC-E1: `FEISHU_CONNECTION_MODE=websocket` 时，通过 WebSocket 长连接正常收发消息（DM + 群聊）
+- [ ] AC-E2: `FEISHU_CONNECTION_MODE=webhook`（默认）时，现有 Webhook 行为不变（无回归）
+- [ ] AC-E3: IM Hub 配置面板可见「连接模式」选择项（webhook / websocket），不仅是 env 变量
+- [ ] AC-E4: WebSocket 模式下不要求 `FEISHU_VERIFICATION_TOKEN`（长连接不需要 webhook 验证）
+- [ ] AC-E5: WebSocket 断线后自动重连（SDK 内置能力，确认 + 日志可观测）
+- [ ] AC-E6: 引导步骤（Hub 面板 steps）根据所选模式动态展示不同配置指引
+- [ ] AC-E7: 两种模式共用同一个 FeishuAdapter 实例，群聊 / DM / @bot 检测 / 权限控制全部复用
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -174,6 +248,7 @@ export interface FeishuInboundMessage {
 | R5 | 先做 1-3 再做 4（权限后做） | Phase D 暂不开工 | — | [x] |
 | R6 | "@所有人的时候bot不要响应，明确@bot才响应" | AC-A6 | test | [x] |
 | R7 | "群聊名字+群聊ID+发送消息的人"在 UI 展示 | AC-B3, AC-B4 | screenshot | [x] |
+| R8 | "飞书支持长连接吗？应该两种都支持，在配置里让铲屎官选" | AC-E1~E7 | test + manual | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -196,6 +271,9 @@ export interface FeishuInboundMessage {
 | 公共层改动（Phase B）影响其他 adapter | sender 参数可选，不传 = 不影响；跨 family review 缅因猫 |
 | 新增飞书权限（contact/chat）需铲屎官手动配置 | 文档中列出具体权限名，提醒铲屎官在开发者后台添加 |
 | 发送者姓名 API 调用频率限制 | 内存 Map 缓存，同一 open_id 只调一次（KD-6） |
+| WebSocket 长连接模式下飞书侧中断 | SDK 内置自动重连 + 日志可观测；Webhook 模式作为 fallback 始终可用 |
+| Lark 国际版不支持 WebSocket | 双模式共存设计，Lark 用户配置 `webhook` 模式即可 |
+| 两种模式并存增加测试矩阵 | 共用 FeishuAdapter，差异仅在 inbound 接入层；核心逻辑一套测试覆盖 |
 
 ## Open Questions
 
@@ -204,6 +282,8 @@ export interface FeishuInboundMessage {
 | OQ-1 | Bot 自身 open_id 如何获取：API 查询 vs env 配置？ | ✅ 双策略：启动时 `GET /bot/v3/info` 自动获取 + `FEISHU_BOT_OPEN_ID` env fallback（见 KD-5） |
 | OQ-2 | 群聊 thread 是否需要与 DM thread 共存？（同一人群聊和私聊是不同 thread） | ✅ 是，externalChatId 不同，自然隔离 |
 | OQ-3 | 群聊中的 /命令（/new /threads /use）如何处理？ | ✅ 群聊支持 /命令，每个群有独立 IM Hub（PR #699 修复） |
+| OQ-4 | `@larksuiteoapi/node-sdk` WSClient 的 `im.message.receive_v1` 事件体结构是否与 Webhook 推送一致？ | 🔲 Phase E 调研确认（预期一致，SDK 做了统一抽象） |
+| OQ-5 | WSClient 断线重连策略（指数退避参数、最大重试次数）是否可配？ | 🔲 Phase E 调研确认 |
 
 ## Key Decisions
 
@@ -221,6 +301,7 @@ export interface FeishuInboundMessage {
 | KD-10 | Contact API + Chat API 放在 FeishuAdapter，不预抽服务 | `resolveSenderName(openId)` + `resolveChatName(chatId)` 带 TTL Map cache，直接放在 FeishuAdapter 内。只有第二个 connector 也需要时才抽 `FeishuContactService`。需权限：`contact:user.base:readonly` + `im:chat:readonly`（铲屎官已配） | 2026-03-25 |
 | KD-11 | Connector source 队列禁止 merge | `source === 'connector'` 的消息直接禁止 merge（快速稳妥方案）。QueueEntry 新增可选 `senderMeta` 字段用于 UI 展示，但不参与 merge 判断。这避免群聊中不同 sender 的消息被合并 | 2026-03-25 |
 | KD-12 | Phase D 三层权限模型 | 第一层：群白名单（`/allow-group` `/deny-group`）；第二层：@bot 对话全开放不限制；第三层：/command 管理命令仅管理员可用（`FEISHU_ADMIN_OPEN_IDS` env）。铲屎官场景：演示时防别人刷 token、乱切 thread | 2026-03-25 |
+| KD-13 | WebSocket 长连接 + Webhook 双模式共存 | 飞书官方支持 WebSocket 长连接（不需要公网 IP），`@larksuiteoapi/node-sdk` 原生支持 `WSClient`。铲屎官明确要求两种模式都支持、在 IM Hub 配置面板可选（不能只藏在 env）、默认 webhook 向后兼容。Lark 国际版不支持长连接，webhook 必须保留 | 2026-07-24 |
 
 ## Timeline
 
@@ -246,6 +327,7 @@ export interface FeishuInboundMessage {
 | 2026-03-25 | 缅因猫 review Round 1: 2 P1（admin 双源 + 内存不持久化），修复后 Round 2 approved |
 | 2026-03-25 | 云端 review: P1 (admin seed 覆盖) → 修复 → P2 (length vs hexists) → 修复 → 0 P1/P2 通过 |
 | 2026-03-25 | PR #705 squash merged → `bd664695`, Phase A-D all done |
+| 2026-07-24 | 铲屎官提出飞书应同时支持 Webhook + WebSocket 长连接，在 IM Hub 配置面板可选（KD-13），纳入 Phase E |
 
 ## Design Gate Results（2026-03-25）
 
