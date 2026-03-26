@@ -8,7 +8,7 @@ created: 2026-03-25
 
 # F139: Unified Schedule Abstraction — 统一调度抽象
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -59,15 +59,15 @@ created: 2026-03-25
 
 ## Acceptance Criteria
 
-### Phase 1a（统一内部 Poller）
-- [ ] AC-A1: TaskSpec_P1 interface 实现，含 typed signal gate
-- [ ] AC-A2: subjectKey 贯穿 execute/cursor/dedupe/ledger 全链路（lease 仍为 task-level，subject-level lease 延后到 Phase 1b）
-- [ ] AC-A3: run ledger SQLite 表结构 + 写入逻辑
-- [ ] AC-A4: SummaryCompactionTask 迁移到新 TaskSpec（红→绿）
-- [ ] AC-A5: CiCdCheckPoller 迁移到新 TaskSpec（红→绿）
-- [ ] AC-A6: conflict-check + review-comments TaskSpec 注册可用
-- [ ] AC-A7: awareness / poller 两种 profile 可用
-- [ ] AC-A8: 现有 TaskRunner 行为不回归，纯 interval pollers 收敛为统一调度（GithubReviewWatcher 保留 IMAP idle + reconnect fallback，不在 interval 收敛范围）
+### Phase 1a（统一内部 Poller）✅
+- [x] AC-A1: TaskSpec_P1 interface 实现，含 typed signal gate
+- [x] AC-A2: subjectKey 贯穿 execute/cursor/dedupe/ledger 全链路（lease 仍为 task-level，subject-level lease 延后到 Phase 1b）
+- [x] AC-A3: run ledger SQLite 表结构 + 写入逻辑
+- [x] AC-A4: SummaryCompactionTask 迁移到新 TaskSpec（红→绿）
+- [x] AC-A5: CiCdCheckPoller 迁移到新 TaskSpec（红→绿）
+- [x] AC-A6: conflict-check + review-comments TaskSpec 注册可用
+- [x] AC-A7: awareness / poller 两种 profile 可用
+- [x] AC-A8: 现有 TaskRunner 行为不回归，纯 interval pollers 收敛为统一调度（GithubReviewWatcher 保留 IMAP idle + reconnect fallback，不在 interval 收敛范围）
 
 ### Phase 1b（Actor + Cat Wake）
 - [ ] AC-B1: actor.role resolver 从 cat-config.json 匹配猫
@@ -129,6 +129,7 @@ created: 2026-03-25
 | 2026-03-25 | ADR-022 起草 + 砚砚两轮 review + 图审通过 |
 | 2026-03-25 | 立项 F139 |
 | 2026-03-25 | 跨线程通知：三套 setInterval 技术债 + 社区需求（冲突/comments 检测）→ Phase 1a 紧迫 |
+| 2026-03-26 | Phase 1a merged (PR #747) — 砚砚 local review 2 rounds + cloud review passed |
 
 ## Review Gate
 
