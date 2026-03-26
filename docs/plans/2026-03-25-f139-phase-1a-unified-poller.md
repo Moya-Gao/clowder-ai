@@ -136,7 +136,7 @@ Profiles provide defaults; individual TaskSpec fields override them.
 
 **Step 1: Write the new types**
 
-Add `GateResult`, `GateCtx`, `TaskProfile`, `RunOutcome`, `TaskSpec_P1`, `RunLedgerRow` to `types.ts`. Keep the old `ScheduledTask` interface (TaskRunnerV2 will bridge it in Task 3).
+Add `WorkItem`, `GateResult`, `GateCtx`, `TaskProfile`, `RunOutcome`, `TaskSpec_P1`, `RunLedgerRow` to `types.ts`. Keep the old `ScheduledTask` interface (bootstrap switches to `TaskRunnerV2` in Task 9; old `TaskRunner` stays in codebase for backward compat).
 
 ```typescript
 // Add after existing ScheduledTask interface:
