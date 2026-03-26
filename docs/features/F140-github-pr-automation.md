@@ -152,6 +152,7 @@ created: 2026-03-26
 | Fork PR 的 comments 权限差异 | `gh api` fallback 到公开 API |
 | **🔴 回声过滤缺失** | ReviewFeedbackTaskSpec gate 只看 cursor 不看 author，猫自己发的 comment（如 review trigger）会被当成"新 review feedback"投递出来 → A2A 重复调度队友。需在 gate 里过滤 bot 账号 + trigger 模板 comment |
 | **🔴 ConnectorIcon 遗漏** | `github-conflict` / `github-review-feedback` 未加入 ConnectorIcon switch，渲染成文字 fallback（✅ 已修 PR #757 后 hotfix） |
+| **🔴 Review 双重消费** | GithubReviewWatcher（IMAP 邮件）和 ReviewFeedbackTaskSpec（gh api 轮询）对同一 PR review 各投递一次，connector 类型不同（`github-review` vs `github-review-feedback`），零交叉去重。修法：tracked PR 的 review decisions 由 F140 接管，GithubReviewWatcher 退让 |
 
 ## Open Questions
 
