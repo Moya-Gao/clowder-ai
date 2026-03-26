@@ -22,9 +22,9 @@ created: 2026-03-25
 
 ## What
 
-### Phase 1a: 统一内部 Poller
+### Phase 1a: 统一内部 Poller（纯后端，无前端 UI）
 
-将现有 TaskRunner 升级为六维度 TaskSpec 模型（ADR-022）：
+将现有 TaskRunner 升级为六维度 TaskSpec 模型（ADR-022）。**纯后端交付**——Phase 1a 落地后社区和其他猫可以直接基于 TaskSpec_P1 注册新 consumer（不需要等前端）。前端展示（Workspace 调度 Tab）在 Phase 2 统一做，届时把所有已注册任务 + run ledger 展示出来：
 
 - **TaskSpec_P1 interface**：Trigger / Admission / Run / State / Outcome 五维度（Context Phase 2 实现）
 - **typed signal gate**：gate 返回结构化 signal（不再 boolean），消除 F102 的二次扫描
@@ -45,9 +45,10 @@ created: 2026-03-25
 
 ### Phase 2: Cron + Persistence + UI + Context
 
+- **Workspace 调度 Tab（KD-7）**：和"开发""知识"平齐的顶级 Tab，展示所有 Phase 1a/1b 已注册的任务 + run ledger + 状态。Phase 1a 纯后端先行，Phase 2 补前端把全部任务可视化
 - **Cron / event / hybrid triggers**：超越 interval-only
 - **Context dimension**：session（new-thread / same-thread）× materialization（light / full）
-- **Hub panel UI + 自然语言配置**：用户说"每天早上 9 点检查 stale issue"→ 猫翻译成 TaskSpec
+- **自然语言配置**：用户说"每天早上 9 点检查 stale issue"→ 猫翻译成 TaskSpec
 - **Task profiles 扩展**：`precise` 预设（cron 精度）
 
 ### Phase 3: Governance + Pack Ecosystem
