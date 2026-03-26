@@ -71,11 +71,21 @@ GitHub webhook POST → GitHubWebhookAdapter
 
 ### Phase B: Reconciliation 补偿扫描
 
-**1. RepoScanTaskSpec**（F139 TaskSpec）
-- 低频扫描（每 5-10min）
-- `gh api` 查 open PRs / Issues
-- 发现未在 tracking 中的新对象 → 补发通知
-- 防 webhook 丢事件、防部署窗口漏消息
+**1. RepoScanTaskSpec**（基于 F139 TaskSpec_P1，Phase 1a/1b 已 merged）
+
+按 F139 已有 consumer 模式（CiCdCheckTaskSpec、ConflictCheckTaskSpec 等）构建：
+
+| 维度 | 设计 |
+|------|------|
+| **profile** | `poller`（同其他 repo-watcher 任务） |
+| **trigger** | `interval: 300_000`（5min，低频补偿即可） |
+| **gate** | `gh api` 查 open PRs/Issues → 过滤已通知（delivery id 去重表）→ 返回 `WorkItem<RepoInboxSignal>[]` |
+| **subjectKey** | `repo-{owner/repo}#{type}-{number}`（如 `repo-zts212653/clowder-ai#pr-259`） |
+| **execute** | `deliverConnectorMessage()` 投递到 inbox thread（与 Phase A 共用投递路径） |
+| **actor** | `role: 'repo-watcher'`, `costTier: 'cheap'` |
+| **outcome** | `whenNoSignal: 'record'`（记录空闲周期，可观测） |
+
+**去重关键**：Phase A webhook 已投递的事件通过 delivery id 去重表排除，reconciliation 只补发漏网之鱼。
 
 ## Acceptance Criteria
 
@@ -92,14 +102,16 @@ GitHub webhook POST → GitHubWebhookAdapter
 - [ ] AC-A10: refs/repo-inbox.md 新增（含 webhook 配置指南）
 
 ### Phase B（Reconciliation）
-- [ ] AC-B1: RepoScanTaskSpec 低频扫描发现未追踪的 open PRs/Issues
-- [ ] AC-B2: webhook 丢失事件后，reconciliation 补发通知
+- [ ] AC-B1: RepoScanTaskSpec 注册为 F139 TaskSpec_P1 consumer（profile=poller, actor=repo-watcher）
+- [ ] AC-B2: gate 查 open PRs/Issues，过滤已通知对象，返回 typed signal
+- [ ] AC-B3: webhook 丢失事件后，reconciliation 补发通知（与 Phase A 共用 deliverConnectorMessage）
+- [ ] AC-B4: run ledger 记录每次扫描结果
 
 ## Dependencies
 
 - **Sibling**: F140（PR Signals 追踪层——认领后进入 F140）
 - **Related**: F133（CI Signals——追踪层的一部分）
-- **Related**: F139（TaskSpec 框架——Phase B reconciliation 使用）
+- **Related**: F139（TaskSpec 框架——Phase B reconciliation 使用）— **Phase 1a/1b 已 merged，TaskSpec_P1 可用**
 - **Infra**: `POST /api/connectors/:connectorId/webhook`（通用 webhook 端点——复用传输层）
 
 ## Risk
@@ -134,6 +146,7 @@ GitHub webhook POST → GitHubWebhookAdapter
 | KD-7 | Fail-closed 默认：无证据 = 不通过，unknown 不能进 WELCOME | 三猫讨论共识，防止形式主义打勾 | 2026-03-26 |
 | KD-8 | Scene B Merge Gate 重排：方向(五问) 在质量之前 | 家规 P3"方向正确 > 速度"——方向错的 PR 不值得花时间审代码 | 2026-03-26 |
 | KD-9 | 拒绝"方案"不否定"问题"：decline PR ≠ 否定底层问题 | 社区温度 + 问题仍挂 design anchor 追踪 | 2026-03-26 |
+| KD-10 | Phase B RepoScanTaskSpec 复用 F139 已有 poller consumer 模式 | F139 Phase 1a/1b 已 merged，4 个 consumer 验证了模式；repo-watcher + cheap 与 cicd-check 一致 | 2026-03-26 |
 
 ## Timeline
 
