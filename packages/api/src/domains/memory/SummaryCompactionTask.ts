@@ -180,7 +180,8 @@ function getEligibleThreads(
   return rows;
 }
 
-async function processThread(
+/** Exported for F139 SummaryCompactionTaskSpec to reuse per-thread processing */
+export async function processThread(
   state: SummaryStateRow,
   deps: SummaryCompactionDeps,
   config: typeof SUMMARY_CONFIG,

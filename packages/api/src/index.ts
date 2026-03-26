@@ -88,9 +88,7 @@ import {
   MemoryPrTrackingStore,
   RedisPrTrackingStore,
   ReviewRouter,
-  startGithubCiPoller,
   startGithubReviewWatcher,
-  stopGithubCiPoller,
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
@@ -440,14 +438,21 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── Phase G: Summary Compaction Scheduler ──
+  // ── F139: Unified Scheduler (TaskRunnerV2) ──
+  const { TaskRunnerV2 } = await import('./infrastructure/scheduler/TaskRunnerV2.js');
+  const { RunLedger } = await import('./infrastructure/scheduler/RunLedger.js');
+  const schedulerDb = memoryServices.store.getDb();
+  const runLedger = new RunLedger(schedulerDb);
+  const taskRunnerV2 = new TaskRunnerV2({
+    logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
+    ledger: runLedger,
+  });
+
+  // ── Phase G: Summary Compaction (registers into unified scheduler) ──
   if (process.env.F102_ABSTRACTIVE === 'on' && memoryServices.indexBuilder) {
     try {
-      const { TaskRunner } = await import('./infrastructure/scheduler/TaskRunner.js');
-      const { createSummaryCompactionTask } = await import('./domains/memory/SummaryCompactionTask.js');
+      const { createSummaryCompactionTaskSpec } = await import('./domains/memory/SummaryCompactionTaskSpec.js');
       const { createAbstractiveClient } = await import('./domains/memory/AbstractiveSummaryClient.js');
-
-      const taskRunner = new TaskRunner({ info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) });
 
       // Abstractive summary API config resolution (priority order):
       // 1. F102_API_BASE + F102_API_KEY (explicit override)
@@ -487,7 +492,7 @@ async function main(): Promise<void> {
       );
 
       const db = memoryServices.store.getDb();
-      const summaryTask = createSummaryCompactionTask({
+      const summarySpec = createSummaryCompactionTaskSpec({
         db,
         enabled: () => process.env.F102_ABSTRACTIVE === 'on',
         getThreadLastActivity: async (threadId) => {
@@ -540,9 +545,8 @@ async function main(): Promise<void> {
         logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
       });
 
-      taskRunner.register(summaryTask);
-      taskRunner.start();
-      app.log.info('[api] F102 Phase G: summary compaction scheduler started');
+      taskRunnerV2.register(summarySpec);
+      app.log.info('[api] F139: summary-compact spec registered');
     } catch (err) {
       app.log.warn(`[api] F102 Phase G: scheduler init failed (non-fatal): ${err}`);
     }
@@ -1272,18 +1276,79 @@ async function main(): Promise<void> {
     invokeTrigger,
   });
 
-  // F133: Start CI/CD check poller (best-effort, after listen)
-  const cicdRouter = new CiCdRouter({
-    prTrackingStore,
-    deliveryDeps: { messageStore, socketManager },
-    log: app.log,
-  });
-  startGithubCiPoller({
-    prTrackingStore,
-    cicdRouter,
-    invokeTrigger,
-    log: app.log,
-  });
+  // F139: Register PR-related TaskSpecs into unified scheduler
+  {
+    const { createCiCdCheckTaskSpec } = await import('./infrastructure/email/CiCdCheckTaskSpec.js');
+    const { createConflictCheckTaskSpec } = await import('./infrastructure/email/ConflictCheckTaskSpec.js');
+    const { createReviewCommentsTaskSpec } = await import('./infrastructure/email/ReviewCommentsTaskSpec.js');
+
+    const cicdRouter = new CiCdRouter({
+      prTrackingStore,
+      deliveryDeps: { messageStore, socketManager },
+      log: app.log,
+    });
+
+    taskRunnerV2.register(createCiCdCheckTaskSpec({ prTrackingStore, cicdRouter, invokeTrigger, log: app.log }));
+    taskRunnerV2.register(
+      createConflictCheckTaskSpec({
+        prTrackingStore,
+        checkMergeable: async (repo, pr) => {
+          const { execFile } = await import('node:child_process');
+          const { promisify } = await import('node:util');
+          const execFileAsync = promisify(execFile);
+          const { stdout } = await execFileAsync(
+            'gh',
+            ['pr', 'view', String(pr), '-R', repo, '--json', 'mergeStateStatus'],
+            { timeout: 15_000 },
+          );
+          const data = JSON.parse(stdout);
+          return data.mergeStateStatus ?? 'UNKNOWN';
+        },
+        log: app.log,
+      }),
+    );
+    taskRunnerV2.register(
+      createReviewCommentsTaskSpec({
+        prTrackingStore,
+        fetchComments: async (repo, pr) => {
+          const { execFile } = await import('node:child_process');
+          const { promisify } = await import('node:util');
+          const execFileAsync = promisify(execFile);
+          // P1-2: Fetch both review comments (/pulls/comments) and conversation comments (/issues/comments)
+          // Use --paginate --jq '.[]' to safely handle multi-page results:
+          // --jq '.[]' unwraps each page's array into newline-delimited JSON objects,
+          // then we wrap back into a single array for parsing.
+          const fetchPaginated = async (endpoint: string) => {
+            const { stdout } = await execFileAsync('gh', ['api', endpoint, '--paginate', '--jq', '.[]'], {
+              timeout: 30_000,
+            });
+            if (!stdout.trim()) return [];
+            // --jq '.[]' outputs one JSON object per line
+            return stdout
+              .trim()
+              .split('\n')
+              .map((line) => JSON.parse(line)) as { id: number; body: string; created_at: string }[];
+          };
+          const [reviewComments, issueComments] = await Promise.all([
+            fetchPaginated(`/repos/${repo}/pulls/${pr}/comments`),
+            fetchPaginated(`/repos/${repo}/issues/${pr}/comments`),
+          ]);
+          const all = [...reviewComments, ...issueComments];
+          return all.map((c) => ({
+            id: c.id,
+            body: c.body,
+            createdAt: c.created_at,
+          }));
+        },
+        log: app.log,
+      }),
+    );
+    app.log.info('[api] F139: cicd-check, conflict-check, review-comments specs registered');
+  }
+
+  // F139: Start unified scheduler (all registered specs)
+  taskRunnerV2.start();
+  app.log.info(`[api] F139: unified scheduler started (${taskRunnerV2.getRegisteredTasks().join(', ')})`);
 
   // F088: Start connector gateway (best-effort, after listen)
   let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;
@@ -1394,7 +1459,7 @@ async function main(): Promise<void> {
         app.log.error(`[api] GithubReviewWatcher stop failed: ${String(err)}`);
       }
 
-      stopGithubCiPoller();
+      taskRunnerV2.stop();
 
       // Stop connector gateway
       try {
