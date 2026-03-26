@@ -8,7 +8,7 @@ created: 2026-03-26
 
 # F140: GitHub PR Signals — 冲突检测 + Review Feedback 全来源感知
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## 三层架构定位
 
@@ -95,18 +95,18 @@ created: 2026-03-26
 
 ## Acceptance Criteria
 
-### Phase A（投递管道 + 消息路由 + 行为引导）
-- [ ] AC-A1: PR mergeable 状态从 MERGEABLE → CONFLICTING 时，冲突消息投递到注册 PR 的 thread
-- [ ] AC-A2: 冲突消息通过 ConnectorInvokeTrigger urgent 唤醒猫
-- [ ] AC-A3: GitHub PR 上的新 comments（不限来源）投递到注册 PR 的 thread
-- [ ] AC-A4: Review decision 变化（approved / requested changes / dismissed）投递到 thread
-- [ ] AC-A5: Review feedback 唤醒猫处理
-- [ ] AC-A6: ConnectorSource `github-conflict` 和 `github-review-feedback` 注册，ConnectorBubble 正确渲染图标
-- [ ] AC-A7: 冲突状态迁移去重 — CONFLICTING 后 push 新 commit 回到 MERGEABLE 不重复通知
-- [ ] AC-A8: Comments/review cursor 去重 — 同一 comment/review 只通知一次，cursor 仅在 execute 成功后推进
-- [ ] AC-A9: 测试覆盖：ConflictRouter + ReviewFeedbackRouter 单元测试
-- [ ] AC-A10: merge-gate / receive-review / opensource-ops SKILL.md 更新
-- [ ] AC-A11: refs/pr-signals.md 新增
+### Phase A（投递管道 + 消息路由 + 行为引导）✅
+- [x] AC-A1: PR mergeable 状态从 MERGEABLE → CONFLICTING 时，冲突消息投递到注册 PR 的 thread
+- [x] AC-A2: 冲突消息通过 ConnectorInvokeTrigger urgent 唤醒猫
+- [x] AC-A3: GitHub PR 上的新 comments（不限来源）投递到注册 PR 的 thread
+- [x] AC-A4: Review decision 变化（approved / requested changes / dismissed）投递到 thread
+- [x] AC-A5: Review feedback 唤醒猫处理
+- [x] AC-A6: ConnectorSource `github-conflict` 和 `github-review-feedback` 注册，ConnectorBubble 正确渲染图标
+- [x] AC-A7: 冲突状态迁移去重 — CONFLICTING 后 push 新 commit 回到 MERGEABLE 不重复通知
+- [x] AC-A8: Comments/review cursor 去重 — 同一 comment/review 只通知一次，cursor 仅在 execute 成功后推进
+- [x] AC-A9: 测试覆盖：ConflictRouter + ReviewFeedbackRouter 单元测试
+- [x] AC-A10: merge-gate / receive-review / opensource-ops SKILL.md 更新
+- [x] AC-A11: refs/pr-signals.md 新增
 
 ### Phase B（猫自动处理）
 - [ ] AC-B1: 猫收到冲突通知后能自动尝试 rebase resolve
@@ -164,6 +164,7 @@ created: 2026-03-26
 | 2026-03-26 | 铲屎官指出 Skill/SOP 软文化层缺失，补入 Phase A |
 | 2026-03-26 | 与砚砚讨论触发模型：三层架构收敛（发现/认领/追踪），F141 独立立项 |
 | 2026-03-26 | Design Gate 通过（砚砚 GPT-5.4）：3 个隐藏约束补入 KD-8/9/10，OQ-1/2 关闭 |
+| 2026-03-26 | Phase A merged (PR #752) — 冲突检测 + Review Feedback 全来源投递 + Skill 更新 |
 
 ## Design Gate 讨论归档
 
