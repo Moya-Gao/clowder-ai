@@ -14,6 +14,7 @@ decision_id: ADR-023
 > **Date**: 2026-03-27
 > **Consult**: GPT Pro (云端审阅)
 > **Research**: `docs/research/2026-03-27-hostable-agent-runtime-abstraction-gpt-pro-consult.md`
+> **Architecture Diagram**: `designs/F143-hostable-agent-runtime.pen`
 
 ## Context
 
