@@ -63,10 +63,13 @@ export function useScrollAnchor(
 ) {
   const anchorRef = useRef<ScrollAnchor | null>(null);
   const pendingRestoreRef = useRef<number | null>(readPersistedScrollTop());
+  /** Tracks the last known scrollTop — safe to read even after DOM detach. */
+  const lastScrollTopRef = useRef(readPersistedScrollTop() ?? 0);
 
   const persistScrollTop = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
+    lastScrollTopRef.current = container.scrollTop;
     writePersistedScrollTop(container.scrollTop);
   }, [containerRef]);
 
@@ -99,12 +102,13 @@ export function useScrollAnchor(
     captureAnchor();
   }, [captureAnchor, persistScrollTop]);
 
-  /** Preserve the latest position even if the sidebar unmounts immediately after a click. */
+  /** Preserve the latest position even if the sidebar unmounts immediately after a click.
+   *  Writes from lastScrollTopRef — NOT from containerRef which may be detached. */
   useEffect(
     () => () => {
-      persistScrollTop();
+      writePersistedScrollTop(lastScrollTopRef.current);
     },
-    [persistScrollTop],
+    [],
   );
 
   /**
@@ -121,9 +125,15 @@ export function useScrollAnchor(
     if (Math.abs(container.scrollTop - pendingTop) > DRIFT_TOLERANCE_PX) {
       container.scrollTop = pendingTop;
     }
-    captureAnchor();
-    persistScrollTop();
-    pendingRestoreRef.current = null;
+
+    // Only clear pending + persist if the assignment actually took effect.
+    // If the container is too short (e.g., groups collapsed), keep pending for the
+    // next effect run (triggered when threadGroups identity changes after API fetch).
+    if (Math.abs(container.scrollTop - pendingTop) <= DRIFT_TOLERANCE_PX) {
+      captureAnchor();
+      persistScrollTop();
+      pendingRestoreRef.current = null;
+    }
   }, [containerRef, captureAnchor, persistScrollTop, threadGroups]);
 
   /**

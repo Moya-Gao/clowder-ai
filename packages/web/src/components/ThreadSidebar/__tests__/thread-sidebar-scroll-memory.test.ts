@@ -195,4 +195,27 @@ describe('ThreadSidebar scroll memory', () => {
     const nextScroller = findScrollContainer(container);
     expect(nextScroller.scrollTop).toBe(280);
   });
+
+  it('does not overwrite sessionStorage with 0 when sidebar unmounts (detached DOM)', async () => {
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+    expandAll(container);
+
+    const scroller = findScrollContainer(container);
+    scroller.scrollTop = 350;
+    act(() => {
+      scroller.dispatchEvent(new Event('scroll', { bubbles: true }));
+    });
+
+    // sessionStorage should have 350 from the scroll handler
+    expect(window.sessionStorage.getItem('cat-cafe:sidebar:scrollTop')).toBe('350');
+
+    // Unmount — cleanup effect fires while DOM element may be detached
+    act(() => root.unmount());
+
+    // The critical assertion: sessionStorage must still hold 350, NOT 0
+    expect(window.sessionStorage.getItem('cat-cafe:sidebar:scrollTop')).toBe('350');
+  });
 });
