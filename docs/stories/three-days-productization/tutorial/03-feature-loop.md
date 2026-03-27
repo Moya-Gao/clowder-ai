@@ -168,7 +168,7 @@ Discovery Loop 收敛出了 spec。接下来进入 Delivery Loop——从 spec �
 2. **架构设计**：三层结构（Principal Link / Session Binding / Command Layer），adapter 只做协议转换，业务逻辑全在公共层
 3. **MVP 边界**：DM only，单 Owner，静态 token。群聊、多用户、OAuth 全部显式排除
 
-📸 **[截图位：F088 架构图（三层结构）]**
+![F088 三层架构图](./assets/f088-gateway-architecture.png)
 
 #### 架构干货：统一 Gateway 是怎么设计的
 
