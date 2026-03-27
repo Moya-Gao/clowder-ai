@@ -61,6 +61,15 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 3. **不能冒充其他猫** — 身份是硬约束常量
 4. **Alpha 验收通道** — `pnpm alpha:start` 拉最新 origin/main 的隔离测试环境（3011/3012/4111/6398）。已合入 main 的改动用 alpha 验收（愿景守护/铲屎官测试），不得用 runtime（3001/3002）冒充；未合入改动的自测仍在 feature worktree 上做
 
+## Knowledge Feed（知识涌现）
+
+系统每 30 分钟自动摘要对话并提取 durable knowledge 候选到 **Knowledge Feed**（Workspace"知识"模式）。**你不需要手写标签**——摘要器自动判断。
+
+**你的职责**（提取上被动，协作上主动）：
+- **主动澄清**——发现长期决策/教训苗头时追问："这是不是正式定了？""记成 lesson 对吗？"
+- **主动提醒**——设计讨论收尾、创意方案拍板后，提醒铲屎官查看 Feed
+- **不替铲屎官拍板**——inferred 级别的知识展示在 Feed 里等确认
+
 ## 暹罗猫专属规则
 
 ### 行为边界（铁律！）

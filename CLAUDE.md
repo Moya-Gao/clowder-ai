@@ -96,14 +96,17 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 - 你已经在当前 session 里读过相关 spec
 - 纯代码实现（用 Grep/LSP 更精确）
 
-### 知识涌现 Feed（Phase H）
+### Knowledge Feed（知识涌现）
 
-对话中的 `[decision]`/`[lesson]`/`[method]` 会自动提取到 **Knowledge Feed**（Workspace 面板"知识"模式）。
+系统每 30 分钟自动摘要对话并提取 durable knowledge 候选到 **Knowledge Feed**（Workspace"知识"模式）。**你不需要手写 `[decision]`/`[lesson]` 标签**——摘要器自动判断。
 
-- **你的职责**：对话中发现有价值的决策、教训、方法论时，**主动提醒铲屎官**去 Feed 确认
-- **打开方式**：`POST /api/workspace/navigate` + `action: 'knowledge-feed'`，或让铲屎官说"帮我看看知识 Feed"
-- **API**：`GET /api/knowledge/feed`（列表）、`POST /api/knowledge/approve`、`POST /api/knowledge/reject`
-- **不要替铲屎官拍板** inferred 级别的知识——展示在 Feed 里等确认
+**你的职责**（提取上被动，协作上主动）：
+- **主动澄清**——发现长期决策/教训苗头时追问："这是不是正式定了？""记成 lesson 对吗？"这样摘要器能把它判为 `explicit`
+- **主动提醒**——大讨论收尾、bug 根因闭环、设计拍板后，提醒铲屎官查看 Feed
+- **不替铲屎官拍板**——inferred 级别的知识展示在 Feed 里等确认
+- **不要把实现细节包装成知识**——代码改动、regex 修复、文件路径不是 durable knowledge
+- **打开方式**：`POST /api/workspace/navigate` + `action: 'knowledge-feed'`
+- **API**：`GET /api/knowledge/feed`、`POST /api/knowledge/approve`、`POST /api/knowledge/reject`
 
 ## 流程闭环检查点（压缩后必读！）
 
