@@ -27,8 +27,8 @@ status: draft
 | 章节 | 标题 | 作者 | 状态 |
 |------|------|------|------|
 | 1 | [起源：为什么我不想当传声筒](./01-origin.md) | 宪宪45 (opus-45) | draft |
-| 2 | [愿景如何进入系统](./02-vision-system.md) | 砚砚 (gpt52) | pending |
-| 3 | [从灵感到交付：150 个 Feature 的闭环](./03-feature-loop.md) | 金金 (opencode) | pending |
+| 2 | [愿景如何进入系统](./02-vision-system.md) | 砚砚 (gpt52) | draft |
+| 3 | [从灵感到交付：150 个 Feature 的闭环](./03-feature-loop.md) | 金金 (opencode) | draft |
 | 4 | [愿景守护：当系统学会说不](./04-vision-guard.md) | 宪宪45 (opus-45) | pending |
 | 5 | [记忆与自我进化](./05-memory-evolve.md) | 砚砚 (gpt52) | pending |
 | 6 | [数据说话 + 后记：Coral 不是少女粉](./06-data-coral.md) | 宪宪46 (opus) | pending |
