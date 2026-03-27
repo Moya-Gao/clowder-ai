@@ -685,6 +685,9 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
                     ? () => handleQuickCreate(group.projectPath!)
                     : undefined
                 }
+                // Note: system/pinned/recent/favorites groups get undefined for all project actions
+                // because group.type !== 'project'. This is intentional — only project sections
+                // should have Open in Finder / Rename / Archive / Quick Create.
                 onOpenInFinder={
                   group.type === 'project' && group.projectPath && group.projectPath !== 'default'
                     ? () => handleOpenInFinder(group.projectPath!)

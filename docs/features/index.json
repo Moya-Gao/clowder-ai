@@ -585,7 +585,7 @@
     {
       "id": "F095",
       "name": "Thread Sidebar 导航体验升级",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F095-sidebar-collapse-memory.md"
     },
     {
@@ -877,5 +877,5 @@
       "file": "F142-connector-slash-commands.md"
     }
   ],
-  "generated_at": "2026-03-27T12:54:55.982Z"
+  "generated_at": "2026-03-27T12:59:04.716Z"
 }
