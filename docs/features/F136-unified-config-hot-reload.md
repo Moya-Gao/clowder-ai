@@ -115,7 +115,7 @@ created: 2026-03-23
 
 | Phase | 内容 | 状态 | 备注 |
 |-------|------|------|------|
-| **1** | 统一 event bus 设计 + ConfigChangeEvent schema | 📋 planned | Phase 2/3/4 的基座 |
+| **1** | 统一 event bus 设计 + ConfigChangeEvent schema | ✅ done | PR #778 merged (2026-03-27) |
 | **2** | Connector 热重载 + `/api/config/secrets` | 📋 planned | MVP — 解决 IM 配置改了要重启的痛点 |
 | **3A** | F127 side effect 迁移到 event bus subscriber | 📋 planned | 终态 subscriber |
 | **3B** | `runtime-cat-catalog` 收敛为纯存储+校验 | 📋 planned | 终态存储层 |
