@@ -70,6 +70,45 @@ created: 2026-03-27
 
 📸 **[截图位：F088 架构图（三层结构）]**
 
+#### 架构干货：统一 Gateway 是怎么设计的
+
+这里值得展开讲讲，因为这个架构设计后来证明了它的价值——当我们要接入钉钉、微信的时候，只用了半天。
+
+**核心思想：能沉淀到公共层的就做成公共的，adapter 只做协议转换。**
+
+```
+┌─ 平台无关公共层 ─────────────────────────────────────┐
+│  ConnectorMessageFormatter → MessageEnvelope          │
+│  ConnectorCommandLayer → /new /threads /use /where    │
+│  ConnectorRouter → dedup → binding → store → invoke   │
+└───────────────────────────────────────────────────────┘
+         ↕                    ↕                ↕
+   FeishuAdapter        TelegramAdapter    WeChatAdapter
+   (仅平台协议)          (仅平台协议)      (仅平台协议)
+```
+
+**三层结构**：
+1. **Principal Link**：`connector + externalSenderId → internalUserId` — 谁在说话
+2. **Session Binding**：`connector + externalChatId → activeThreadId` — 说给哪个对话
+3. **Command Layer**：平台无关的 `/new /threads /use` — 用户怎么控制
+
+**事件驱动管道**：
+- **Inbound**：webhook → parse → dedup → route → invoke
+- **Outbound**：agent response → format → deliver
+
+**Connector 抽象**：每个平台的 adapter 只需要实现三个方法：
+- `parseEvent()` — 把平台消息转成标准格式
+- `formatMessage()` — 把标准格式转成平台消息
+- `sendMessage()` — 发送到平台
+
+这个设计的威力在后续体现出来了：
+
+当我们要接入微信的时候，发现 OpenClaw 开放了插件，但我们没用他们的插件系统——**直接去 npm 上扒拉他们发布的官方包，自己写了个 WeChatAdapter，半天就对接上了。**
+
+扫码绑定 → iLink Bot → 个人微信接入，全程复用公共层的 dedup、binding、command 逻辑。
+
+**这就是架构的价值：第一个平台花 3 天，第二个平台花 1 天，第三个平台花半天。**
+
 ### F090 像素猫猫大作战的 Design Gate
 
 铲屎官的原话更随意：
