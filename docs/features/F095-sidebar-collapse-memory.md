@@ -188,8 +188,8 @@ IM Hub 连接器等系统级 thread 需要专属管理，不应丢到"未分类"
 ### Phase G（系统级 Thread 分类 + 删除保护）
 - [ ] AC-G1: Sidebar 有"系统"分区，IM Hub 连接器 thread 自动归入
 - [ ] AC-G2: 系统级 thread 有视觉标识区分（图标/标签）
-- [ ] AC-G3: 系统级 thread 不显示删除按钮
-- [ ] AC-G4: 强制删除系统级 thread 需打字输入 thread 名称确认
+- [ ] AC-G3: 系统级 thread 删除需打字确认保护（GitHub 模式：按钮可见 + typed confirm）
+- [ ] AC-G4: 后端强制保护：DELETE /api/threads/:id 对系统 thread 需 ?force=true
 
 ## 需求点 Checklist
 
