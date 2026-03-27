@@ -467,6 +467,20 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     try {
       const thread = await threadStore.get(id);
 
+      // F095 Phase G: Protect system threads (connectorHubState) from casual deletion.
+      // Requires explicit ?force=true query param to proceed.
+      if (thread?.connectorHubState) {
+        const { force } = request.query as { force?: string };
+        if (force !== 'true') {
+          reply.status(403);
+          return {
+            error: 'System thread protected',
+            detail: '系统级 thread 需要确认才能删除',
+            code: 'SYSTEM_THREAD_PROTECTED',
+          };
+        }
+      }
+
       // F095 Phase D: Soft-delete instead of hard delete — data preserved for trash bin
       const deleted = await threadStore.softDelete(id);
       if (!deleted) {

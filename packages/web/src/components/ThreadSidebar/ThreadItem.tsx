@@ -101,6 +101,7 @@ export function ThreadItem({
 
   return (
     <div
+      data-thread-id={id}
       className={`group relative ${indented ? 'pl-7 pr-3' : 'px-3'} py-2.5 border-b border-gray-50 transition-colors cursor-pointer ${
         isActive ? 'bg-cocreator-bg' : 'hover:bg-gray-50'
       }`}

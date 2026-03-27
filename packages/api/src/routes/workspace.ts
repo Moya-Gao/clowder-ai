@@ -19,7 +19,7 @@ import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { dirname, extname, join, relative } from 'node:path';
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
 import {
@@ -642,6 +642,61 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       }
       reply.status(500);
       return { error: 'Failed to reveal file' };
+    }
+  });
+
+  // F095 Phase F: POST /api/workspace/reveal-project — open project directory in Finder
+  app.post<{
+    Body: { projectPath: string };
+  }>('/api/workspace/reveal-project', async (request, reply) => {
+    const { projectPath } = request.body ?? {};
+    if (!projectPath) {
+      reply.status(400);
+      return { error: 'projectPath required' };
+    }
+    try {
+      // Security: validate projectPath is within a registered worktree/linked root.
+      // projectPath can be a root OR a subdirectory (e.g. packages/web inside a monorepo).
+      const allRoots = [...(await listWorktrees()), ...(await getLinkedRootsAsync())];
+      const absPath = resolve(projectPath);
+      const matchedRoot = allRoots.find((e) => {
+        const rel = relative(e.root, absPath);
+        // Guard: absolute rel = cross-drive (Windows), `..` + sep = parent traversal.
+        // Use `..${sep}` to avoid false-blocking dirs named e.g. `..cache`.
+        const escapes = rel === '..' || rel.startsWith(`..${sep}`);
+        return !isAbsolute(rel) && !escapes && resolve(e.root, rel) === absPath;
+      });
+      if (!matchedRoot) {
+        throw new WorkspaceSecurityError('Path not in any registered workspace', 'NOT_FOUND');
+      }
+      // Full security check (traversal, symlink, denylist)
+      const relPath = relative(matchedRoot.root, absPath) || '.';
+      await resolveWorkspacePath(matchedRoot.root, relPath);
+
+      const fileStat = await stat(projectPath);
+      if (!fileStat.isDirectory()) {
+        reply.status(400);
+        return { error: 'Not a directory' };
+      }
+      if (process.platform === 'darwin') {
+        await execFileAsync('open', [projectPath], { timeout: 5000 });
+      } else if (process.platform === 'win32') {
+        await execFileAsync('explorer', [projectPath], { timeout: 5000 });
+      } else {
+        await execFileAsync('xdg-open', [projectPath], { timeout: 5000 });
+      }
+      return { ok: true };
+    } catch (e) {
+      if (e instanceof WorkspaceSecurityError) {
+        reply.status(403);
+        return { error: 'Path not in a registered workspace' };
+      }
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        reply.status(404);
+        return { error: 'Directory not found' };
+      }
+      reply.status(500);
+      return { error: 'Failed to open directory' };
     }
   });
 
