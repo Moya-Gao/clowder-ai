@@ -12,9 +12,7 @@ status: draft
 
 ---
 
-## Q1：愿景驱动开发，和 spec-driven 到底有什么区别？
-
-这是最高频的问题，也最容易被问歪。
+## Q1：愿景驱动开发，和 spec-driven 有什么区别？
 
 **它们不是互斥关系。**
 
@@ -42,7 +40,7 @@ Vision (为什么做)
 
 ## Q2：和 Anthropic 的 Harness Design 有什么区别？
 
-2026 年 3 月 24 日，Anthropic 发了一篇工程博客《Harness design for long-running application development》。我们第一时间读了这篇文章，因为它讲的问题和我们高度相关。
+2026 年 3 月，Anthropic 发了一篇工程博客《Harness design for long-running application development》，讲的问题和我们高度相关。
 
 ### 他们做了什么
 
@@ -109,9 +107,7 @@ opencode 是一个开源、provider-agnostic 的 AI coding agent。Oh My OpenCod
 
 OpenClaw 是一个在 2026 年初爆火的**开源个人 AI 助理项目**（GitHub 140k+ stars），由 Peter Steinberger 发起。它的核心是本地优先的 gateway 架构：通过 WhatsApp、Telegram、Slack 等聊天渠道连接 LLM，让用户用自然语言控制电脑、管理文件、运行脚本。它还有 file-first 的记忆系统（Markdown 文件 + 混合检索）和 ClawHub 插件生态。
 
-**OpenClaw 和我们是两个独立项目，不是上下游关系。**
-
-我们在 F132（钉钉/企微接入）时参考过 OpenClaw 社区的 connector 实现，F129（插件系统）也调研过 ClawHub 的生态模式。但两者的定位完全不同：
+我们在设计 IM 接入和插件系统时参考过 OpenClaw 的实现，但两者定位不同：
 
 | 维度 | OpenClaw | Cat Café |
 |------|----------|----------|
@@ -121,7 +117,7 @@ OpenClaw 是一个在 2026 年初爆火的**开源个人 AI 助理项目**（Git
 | **记忆** | 个人对话记忆（日志 + MEMORY.md） | 项目级知识治理（Feature / ADR / Lesson / Session Chain） |
 | **进化路径** | 用户/社区贡献 Skills | Episode → Method → Skill → Eval → Shared Rules |
 
-**顺便澄清**：我们自己的开源计划叫 `clowder-ai`（F059），和 OpenClaw 没有关系。clowder-ai 是 Cat Café 平台层的开源发布物，而 Cat Café 是积累了 145 个 Feature 决策历史、12 条 Lesson、18 个 ADR 和 24 个 Skill 的真相源。
+（注：我们自己的开源计划叫 `clowder-ai`，是 Cat Café 平台层的发布物。）
 
 ### 单 agent coding 工具（Cursor / Aider / Claude Code 等）
 
@@ -137,9 +133,7 @@ OpenClaw 是一个在 2026 年初爆火的**开源个人 AI 助理项目**（Git
 
 ---
 
-## Q3.5：为什么不把一切都交给一个中央 orchestrator？
-
-> 第四章最容易被误解的点。
+## Q4：为什么不用一个中央 orchestrator？
 
 因为我们不想让一个中心代理替所有 agent 做内容判断。
 
