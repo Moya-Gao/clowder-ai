@@ -12,7 +12,6 @@ import {
   StatusDotConnected,
   StatusDotIdle,
   StepBadge,
-  TriangleAlertIcon,
   WifiIcon,
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
@@ -78,21 +77,21 @@ export function HubConnectorConfigTab() {
   };
 
   const handleSave = async (platform: PlatformStatus) => {
-    // Sensitive fields must be set in .env manually — only non-sensitive can be patched
+    // F136 Phase 2: all connector fields go through /api/config/secrets (hot-reload enabled)
     const updates = platform.fields
-      .filter((f) => !f.sensitive && fieldValues[f.envName] !== undefined)
-      .map((f) => ({ name: f.envName, value: fieldValues[f.envName] }));
+      .filter((f) => fieldValues[f.envName] !== undefined)
+      .map((f) => ({ name: f.envName, value: fieldValues[f.envName] || null }));
 
     if (updates.length === 0) {
-      setSaveResult({ type: 'error', message: '请填写至少一个非敏感配置项（敏感字段需手动编辑 .env）' });
+      setSaveResult({ type: 'error', message: '请填写至少一个配置项' });
       return;
     }
 
     setSaving(true);
     setSaveResult(null);
     try {
-      const res = await apiFetch('/api/config/env', {
-        method: 'PATCH',
+      const res = await apiFetch('/api/config/secrets', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates }),
       });
@@ -101,7 +100,7 @@ export function HubConnectorConfigTab() {
         setSaveResult({ type: 'error', message: data.error ?? '保存失败' });
         return;
       }
-      setSaveResult({ type: 'success', message: '配置已保存。需重启 API 服务使连接器生效。' });
+      setSaveResult({ type: 'success', message: '配置已保存，连接器正在自动重连...' });
       setFieldValues({});
       await fetchStatus();
     } catch {
@@ -222,12 +221,7 @@ export function HubConnectorConfigTab() {
                             </span>
                           )}
                         </label>
-                        {field.sensitive ? (
-                          <div className="w-full h-9 flex items-center px-3 text-[13px] bg-gray-50 border border-gray-200 rounded-lg text-gray-400">
-                            {field.currentValue ?? '••••••••••••••••'}
-                            <span className="ml-auto text-[10px] text-amber-600 whitespace-nowrap">编辑 .env</span>
-                          </div>
-                        ) : field.envName === 'FEISHU_CONNECTION_MODE' ? (
+                        {field.envName === 'FEISHU_CONNECTION_MODE' ? (
                           <select
                             id={`config-${field.envName}`}
                             value={fieldValues[field.envName] ?? field.currentValue ?? 'webhook'}
@@ -241,8 +235,14 @@ export function HubConnectorConfigTab() {
                         ) : (
                           <input
                             id={`config-${field.envName}`}
-                            type="text"
-                            placeholder={field.currentValue ?? '未设置'}
+                            type={field.sensitive ? 'password' : 'text'}
+                            placeholder={
+                              field.sensitive
+                                ? field.currentValue
+                                  ? '已设置（输入新值覆盖）'
+                                  : '未设置'
+                                : (field.currentValue ?? '未设置')
+                            }
                             value={fieldValues[field.envName] ?? ''}
                             onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
                             className="w-full h-9 px-3 text-[13px] bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors"
@@ -280,27 +280,15 @@ export function HubConnectorConfigTab() {
                       <WifiIcon />
                       测试连接
                     </button>
-                    {platform.fields.some((f) => !f.sensitive) ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSave(platform)}
-                        disabled={saving}
-                        className="px-4 py-2 text-[13px] font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50"
-                        data-testid={`save-${platform.id}`}
-                      >
-                        {saving ? '保存中...' : '保存配置'}
-                      </button>
-                    ) : (
-                      <div className="flex-1 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-700">
-                        <p className="font-medium flex items-center gap-1">
-                          <LockIcon /> 所有凭证为敏感字段，请手动配置：
-                        </p>
-                        <code className="block mt-1 text-[11px] bg-amber-100 rounded px-2 py-1 font-mono select-all">
-                          {platform.fields.map((f) => `${f.envName}=your_value`).join('\n')}
-                        </code>
-                        <p className="mt-1 text-[11px]">写入 .env 文件后重启 API 服务生效</p>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleSave(platform)}
+                      disabled={saving}
+                      className="px-4 py-2 text-[13px] font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50"
+                      data-testid={`save-${platform.id}`}
+                    >
+                      {saving ? '保存中...' : '保存配置'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -309,9 +297,9 @@ export function HubConnectorConfigTab() {
         );
       })}
 
-      <div className="flex items-center gap-2 bg-amber-50 border border-yellow-300 rounded-[10px] px-3.5 py-2.5">
-        <TriangleAlertIcon />
-        <span className="text-xs font-medium text-amber-800">修改配置后需重启 API 生效</span>
+      <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-[10px] px-3.5 py-2.5">
+        <StatusDotConnected />
+        <span className="text-xs font-medium text-green-700">配置保存后自动生效，无需重启</span>
       </div>
     </div>
   );
