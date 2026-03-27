@@ -90,16 +90,16 @@ created: 2026-03-25
 - [x] AC-E4: SchedulePanel 前端改为纯渲染：`task.display?.label ?? fallback`，删除 `humanizeSubject()` / `categorize()` 猜测逻辑（保留 fallback 兼容）
 - [x] AC-E5: `subjectPreview === null` 时前端展示 `display.description`，不展示原始 subjectKey
 
-### Phase 3A（对话式任务注册 + 面板最终态 — 核心愿景交付）
-- [ ] AC-F1: 删除 NL 输入框，替换为"对话入口 CTA"——引导用户在 thread 里和猫对话注册任务
-- [ ] AC-F2: Footer 改为当前健康摘要（`All healthy` / `Attention needed`），不再显示历史累计 failed 数
-- [ ] AC-F3: RunLedger 增加 `error_summary` 字段，`RUN_FAILED` 时写入人类可读失败原因
-- [ ] AC-F4: Task row 显示最近一次运行状态（idle / delivered / failed），点开可查最近 N 次运行历史 + 失败原因
-- [ ] AC-G1: 猫在对话中识别"调度注册意图"（如"每天九点发 anthropic 新闻"），命中受支持的任务模板
-- [ ] AC-G2: 生成 `ScheduleRegistrationDraft`（templateId + trigger + target + deliveryThreadId + actor + display），展示给用户确认
-- [ ] AC-G3: 用户确认后写入持久化表（SQLite），registry 从持久化表 materialize 动态任务
-- [ ] AC-G4: 动态任务与代码注册任务统一管理（展示/暂停/删除/运行历史）
-- [ ] AC-G5: MVP 模板集（≥3 个：news-digest / repo-watch / stale-issue-cleanup 或同等）
+### Phase 3A（对话式任务注册 + 面板最终态 — 核心愿景交付） ✅
+- [x] AC-F1: 删除 NL 输入框，替换为"对话入口 CTA"——引导用户在 thread 里和猫对话注册任务
+- [x] AC-F2: Footer 改为当前健康摘要（`All healthy` / `Attention needed`），不再显示历史累计 failed 数
+- [x] AC-F3: RunLedger 增加 `error_summary` 字段，`RUN_FAILED` 时写入人类可读失败原因
+- [x] AC-F4: Task row 显示最近一次运行状态（idle / delivered / failed），点开可查最近 N 次运行历史 + 失败原因
+- [x] AC-G1: 猫在对话中识别"调度注册意图"（如"每天九点发 anthropic 新闻"），命中受支持的任务模板
+- [x] AC-G2: 生成 `ScheduleRegistrationDraft`（templateId + trigger + target + deliveryThreadId + actor + display），展示给用户确认
+- [x] AC-G3: 用户确认后写入持久化表（SQLite），registry 从持久化表 materialize 动态任务
+- [x] AC-G4: 动态任务与代码注册任务统一管理（展示/暂停/删除/运行历史）
+- [x] AC-G5: MVP 模板集（≥3 个：news-digest / repo-watch / stale-issue-cleanup 或同等）
 
 ### Phase 3B（Governance + Pack）
 - [ ] AC-D1: 电闸/备忘录分离权限模型
@@ -163,6 +163,7 @@ created: 2026-03-25
 | 2026-03-26 | Phase 2.5 design converged — 宪宪 × 砚砚(gpt52) 讨论收敛：display contract + subjectPreview + 5 任务同批迁完 |
 | 2026-03-27 | Phase 2.5 merged (PR #775) — TaskDisplayMeta + subjectPreview + 5 任务 display 声明 + SchedulePanel 纯渲染; 砚砚 local review 2 rounds (2×P1 fixed: SKIP_NO_SIGNAL key leak + repo-scan format) + cloud review passed |
 | 2026-03-27 | **愿景审视**：铲屎官发现 NL 输入框不可用 + footer "3 failed" 无可操作性。AC-C4 回退，Phase 重排为 2.6→3A→3B（宪宪 × 砚砚 收敛） |
+| 2026-03-27 | Phase 3A merged (PR #780) — 对话式任务注册 + 面板最终态; 砚砚 local review 2 rounds (4×P1 fixed) + cloud review passed |
 
 ## Review Gate
 
