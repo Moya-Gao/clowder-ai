@@ -79,6 +79,7 @@ F143 与 F126 的区别：F126 管理**四肢**（外部设备/节点，被动�
 ```
 AgentRuntime = Transport × Binding × RuntimeContract × EventAdapter
                             + Supervisor (sidecar)
+                            + Discovery/Registry (sidecar)
                             + AgentDescriptor (static capability)
 ```
 
@@ -110,15 +111,47 @@ interface Supervisor {
 
 **为什么独立**：现有 `spawnCli()` 的 timeout/liveness/SIGTERM→SIGKILL 逻辑是 battle-tested 的，不能被"通用化"吃掉。Supervisor 复用现有实现，不重写。
 
-### 3. AgentDescriptorV1 — 稀疏 6 轴静态描述
+**职责边界硬规则**（砚砚 review 补充）：
+
+| 组件 | 职责 | 不管 |
+|------|------|------|
+| **Transport** | I/O 生命周期（连接建立、字节收发、连接关闭） | 不管超时、不管故障分类、不管进程终止 |
+| **Supervisor** | liveness / timeout / failure classification / teardown escalation | 不直接操作 I/O 字节流 |
+
+- `cancel()` 和 `close()` **必须幂等**——多次调用 = 只执行一次副作用
+- Local provider 的 `kill` 归 Supervisor；remote provider 的 `abort/close` 也归 Supervisor policy
+- Transport 发现连接断开 → 通知 Supervisor → Supervisor 决定 retry/escalate/teardown
+
+### 3. Discovery/Registry — 独立 sidecar（砚砚 review 补充）
+
+`Descriptor` 是 **静态声明**（agent 说"我能做什么"），`Discovery` 是 **动态机制**（probe/registration/capability refresh/endpoint identity）。两者不是一回事，不能合并。
+
+Discovery/Registry 和 Supervisor 一样，是 runtime 外侧的 sidecar，不是第五维：
+
+```typescript
+interface DiscoveryRegistry {
+  /** 注册新 agent（填表 or API） */
+  register(config: AgentConfig): Promise<AgentDescriptorV1>;
+  /** 探测 agent 能力（自动填充 descriptor） */
+  probe(endpoint: AgentEndpoint): Promise<ProbeResult>;
+  /** 刷新能力（agent 升级后重新探测） */
+  refresh(agentId: string): Promise<AgentDescriptorV1>;
+  /** 列出已注册 agent */
+  list(): AgentRegistryEntry[];
+}
+```
+
+**与 F126 的借鉴关系**：F126 的 `ILimbNode → Registry → Capability Discovery → Lease/Presence` 模式直接启发了这个设计。区别是 F126 管四肢（被动），F143 管 agent provider（有自主性）。
+
+### 4. AgentDescriptorV1 — 稀疏 6 轴静态描述
 
 每个 agent provider 声明自己的 static capabilities，V1 只有 6 轴（不膨胀）：
 
 ```typescript
 interface AgentDescriptorV1 {
-  /** 交互模式：chat | code-edit | autonomous | tool-only */
-  interaction: InteractionMode;
-  /** 控制通道能力：stdin-control | http-control | none */
+  /** 调用形态：fire_and_forget | streaming | bidirectional */
+  invocationShape: InvocationShape;
+  /** 控制通道能力（语义轴，不泄漏 transport）：none | request_response | full_duplex */
   controlChannel: ControlChannelKind;
   /** resume 能力 */
   resume: ResumeDescriptor;
@@ -130,6 +163,11 @@ interface AgentDescriptorV1 {
   modelOverride: ModelOverrideDescriptor;
 }
 ```
+
+**V1 修正**（砚砚 review）：
+
+- ~~`controlChannel: stdin-control | http-control | none`~~ → `none | request_response | full_duplex`。原版把 transport 细节泄漏进 descriptor，违背正交性。语义轴只描述"能不能双向通信"，具体跑在 stdio/HTTP/WebSocket 是 runtime config 的事。
+- ~~`interaction: chat | code-edit | autonomous | tool-only`~~ → 挪到 **catalog metadata**（产品/目录层，不在 runtime descriptor 里）。原版和 `RuntimeContract` 概念重叠（"一边说 task/session，一边又说 chat/autonomous"）。替换为 `invocationShape`：描述调用的数据流形态，这才是 runtime 关心的。
 
 **稀疏**：每个轴可以是 `null`（"我不支持这个"）。新轴只有 3+ agent 需要时才加。
 
@@ -144,7 +182,7 @@ type ResumeKind =
   | null;                 // 不支持 resume
 ```
 
-### 4. RunHandleV1 — 内核 run 控制面
+### 5. RunHandleV1 — 内核 run 控制面
 
 RunHandle 是一次 agent 调用的控制句柄，桥接 runtime 内核与北向 `AgentService.invoke()` façade：
 
@@ -163,7 +201,7 @@ interface RunHandleV1 {
 
 **北向 façade 不动**：`AgentService.invoke()` → `AsyncIterable<AgentMessage>` 保持不变，HostedAgentService 壳将 RunHandle 桥接到这个接口。上层路由器/UI/IM gateway 继续吃同一个接口。
 
-### 5. 两档 agent 分类
+### 6. 两档 agent 分类
 
 | 档位 | 接入方式 | 适用 |
 |------|---------|------|
@@ -172,7 +210,7 @@ interface RunHandleV1 {
 
 不幻想所有 CLI 都自然归一。Legacy provider 先补 static descriptor（描述能力），不改逻辑；按价值排序逐步迁入新栈。
 
-### 6. 先统一控制面，不统一 parser
+### 7. 先统一控制面，不统一 parser
 
 **控制面乱了全平台出血，parser 脏一点没关系。**
 
@@ -184,10 +222,15 @@ interface RunHandleV1 {
 
 | Phase | 内容 | 铁律 |
 |-------|------|------|
-| **A** | 类型定义（Descriptor + RunHandle + Supervisor 接口）+ 本 ADR | 不重写现有 provider |
-| **B** | 两个新栈 provider：ACP-style local + A2A remote | 验证 session/task 两种 contract |
-| **C** | Hub UI 接入表单 + 自动 probe | 零代码接入目标 |
+| **A** | 类型定义（Descriptor + RunHandle + Supervisor + Discovery 接口）+ 本 ADR | 不重写现有 provider |
+| **B1** | **先**做一个新栈 local provider（ACP-style），验证 SessionContract + full_duplex | 不要三件事一起爆 |
+| **B2** | **再**给 A2A 做薄包装，验证 TaskContract + request_response | B1 稳定后才开 B2 |
+| **C** | Hub UI 接入表单 + 自动 probe | **先冻结 probe/descriptor 契约，再做 UI** |
 | **D** | 现有 provider 渐进迁入（先补 descriptor，再迁 1-2 个） | spawnCli() 不拆散 |
+
+**Phase 风险收紧**（砚砚 review 补充）：
+- Phase B 原版"同时做 ACP-style + A2A 重做"风险太高 → 拆成 B1/B2，先 local 后 remote
+- Phase C 的 UI 表单必须建立在**稳定的 probe 输出 shape** 之上，否则 descriptor/binding 语义一改，Hub 先化石化 → 门禁：probe/descriptor 契约冻结后才开 C
 
 ## 否决方案
 
@@ -254,4 +297,5 @@ interface RunHandleV1 {
 - **共同设计**：缅因猫（GPT-5.4 本地）
 - **云端咨询**：GPT Pro
 - **Proposed**: 2026-03-27
+- **Review**: 缅因猫（GPT-5.4）— 4 个 P2 全部采纳（Discovery sidecar / Supervisor 边界 / controlChannel 语义轴 / Phase B/C 收紧）
 - **等待铲屎官拍板 → accepted**
