@@ -252,6 +252,19 @@
       "decision": "absorbed",
       "timestamp": "2026-03-26T09:06:02.806Z",
       "notes": "Absorbed via source-owned manual-port: kept Cat Cafe provider/model semantics for opencode, ported invocation-scoped custom-provider runtime config + cleanup, and intentionally did not import target-only ocProviderName/UI contract changes."
+    },
+    {
+      "pr_number": 265,
+      "target_merge_commit": "6cdce2624c582f86e9a130e64947752aefe11bf6",
+      "decision": "absorbed",
+      "timestamp": "2026-03-26T14:08:52.201Z"
+    },
+    {
+      "pr_number": 269,
+      "target_merge_commit": "5cb36dd9b91474202eb7c352541d98a152084833",
+      "decision": "absorbed",
+      "timestamp": "2026-03-26T14:09:47.750Z",
+      "notes": "Absorbed via source-owned manual-port: copied only the UTF-8 console/runspace encoding lines into start-windows.ps1 and intentionally did not treat scripts/ as safe-cherry-pick."
     }
   ]
 }
