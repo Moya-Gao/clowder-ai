@@ -3,7 +3,7 @@ feature_ids: [F137]
 related_features: [F088, F132]
 topics: [gateway, connector, weixin, wechat, personal-im, ilink-bot, chat-platform]
 doc_kind: spec
-created: 2026-07-19
+created: 2026-03-23
 ---
 
 # F137: WeChat Personal Gateway — 微信个人号 iLink Bot 接入
@@ -15,7 +15,7 @@ created: 2026-07-19
 
 ## Why
 
-F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微信），但铲屎官的个人微信——12 亿用户量级的国民级 IM——一直无法接入。2026 年 7 月，腾讯微信正式开放 **iLink Bot 协议**（灰度中），允许个人微信号直接与 AI Bot 交互（扫码登录、长轮询收消息、HTTP 发消息），无需企业资质、无需公网 URL、无需 XML/AES 加解密。
+F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微信），但铲屎官的个人微信——12 亿用户量级的国民级 IM——一直无法接入。2026 年 3 月，腾讯微信正式开放 **iLink Bot 协议**（灰度中），允许个人微信号直接与 AI Bot 交互（扫码登录、长轮询收消息、HTTP 发消息），无需企业资质、无需公网 URL、无需 XML/AES 加解密。
 
 铲屎官原话：*"那我们是不是可以学习 @tencent-weixin/openclaw-weixin 这个的实现模式！把我们的猫猫接入微信！！？"*
 
@@ -101,7 +101,7 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 - 入站图片: CDN 下载 → AES-128-ECB 解密
 - 实现 `sendMedia?(externalChatId, payload)` 接口
 
-### 富媒体能力调研（2026-07-25）
+### 富媒体能力调研（2026-03-25）
 
 > 铲屎官提问：*"个人微信能接入和飞书那样超级多的富文本包括文件的传输 音频 图片等等吗？"*
 
@@ -288,7 +288,7 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 
 **状态**: 🟢 Fixed — PR #701 squash merge (40639bd4)
 
-**现象**（2026-07-24 Alpha 实测，3 次复现）：
+**现象**（2026-03-24 Alpha 实测，3 次复现）：
 - ✅ 微信扫码登录成功 → 长轮询启动
 - ✅ 微信发消息 → iLink `getupdates` 正常接收 → ConnectorRouter 路由 → 创建 thread + binding → 猫猫 invocation 创建 → 猫猫处理完成
 - ❌ 猫猫回复 **从未** 到达微信端 — 微信 DM 窗口无任何新消息
@@ -416,34 +416,34 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 独立 Feature（不合入 F132） | 个人微信 vs 企业微信：协议（iLink HTTP vs WS/callback）、认证（扫码 vs appKey）、能力完全不同 | 2026-07-19 |
-| KD-2 | 直接实现 iLink 协议，不引入 `weixin-agent-sdk` | SDK 太薄（仅封装 fetch），我们需要完整控制长轮询生命周期 + ConnectorRouter 集成 | 2026-07-19 |
-| KD-3 | 仅实现 `IOutboundAdapter`，不实现 `IStreamableOutboundAdapter` | iLink Bot 不支持消息编辑/流式更新，`message_state: GENERATING` 在 bot 窗口无效。用 typing 状态 + final 发送 | 2026-07-19 |
-| KD-4 | adapter-only 扩展，公共层零改动 | F088/F132 已验证，duck typing 能力发现天然支持 | 2026-07-19 |
-| KD-5 | Phase A 优先文本双向，媒体和 IM Hub 放后续 Phase | 铲屎官期望快速可用（"两小时后就能用"），文本覆盖 90% 日常场景 | 2026-07-19 |
+| KD-1 | 独立 Feature（不合入 F132） | 个人微信 vs 企业微信：协议（iLink HTTP vs WS/callback）、认证（扫码 vs appKey）、能力完全不同 | 2026-03-23 |
+| KD-2 | 直接实现 iLink 协议，不引入 `weixin-agent-sdk` | SDK 太薄（仅封装 fetch），我们需要完整控制长轮询生命周期 + ConnectorRouter 集成 | 2026-03-23 |
+| KD-3 | 仅实现 `IOutboundAdapter`，不实现 `IStreamableOutboundAdapter` | iLink Bot 不支持消息编辑/流式更新，`message_state: GENERATING` 在 bot 窗口无效。用 typing 状态 + final 发送 | 2026-03-23 |
+| KD-4 | adapter-only 扩展，公共层零改动 | F088/F132 已验证，duck typing 能力发现天然支持 | 2026-03-23 |
+| KD-5 | Phase A 优先文本双向，媒体和 IM Hub 放后续 Phase | 铲屎官期望快速可用（"两小时后就能用"），文本覆盖 90% 日常场景 | 2026-03-23 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
-| 2026-07-19 | 调研 `@tencent-weixin/openclaw-weixin` 包 + iLink Bot 协议完整分析 |
-| 2026-07-19 | 立项 F137，related F088/F132 |
-| 2026-07-19 | Phase A 实现 + 砚砚 review 放行 + 云端 review 通过 → PR #687 squash merge (2cba337b) |
-| 2026-07-20 | Hotfix: QR field name + string status + long-poll timeout → PR #688 squash merge (73af3e0a) |
-| 2026-07-20 | Alpha 实测发现 iLink 协议字段不匹配（`msgs` not `messages`、`item_list` 嵌套结构、`msg` wrapper 等） |
-| 2026-07-24 | iLink 协议对齐 + 空语音 fallback 修复 → PR #691 砚砚放行 + 云端 review 通过 → squash merge (e5180ad5) |
-| 2026-07-24 | Alpha E2E 测试：入站成功 ✅，出站失败 ❌ → BUG-1 记录（见 Known Bugs） |
-| 2026-07-24 | Phase C UI 需求细化（IM Hub QR 登录流程）写入 spec |
-| 2026-07-24 | 诊断日志 → PR #696 squash merge (f46e680f) |
-| 2026-07-24 | 砚砚日志定位：出站调用链健康，iLink→微信侧静默丢弃长/格式消息 |
-| 2026-07-24 | BUG-1 修复：strip markdown + 400 chunk limit + 300ms delay → PR #701 砚砚放行 + cloud R1-R4 全修 → squash merge (40639bd4) |
-| 2026-07-24 | BUG-2 修复：context_token 单次消费 + 出站 debounce 3s 聚合多猫回复 + 跨 token 隔离 → PR #704 砚砚 R4 放行 + cloud R2 通过 → squash merge (50b62edb) |
-| 2026-07-24 | sendTyping keepalive（typing_ticket → 5s heartbeat）→ PR #708 squash merge (a0a07250)。排除了 typing 缺失假设 |
-| 2026-07-24 | 禁用分块 — 单条 sendmessage 发送全部内容 → PR #710 squash merge (8f1e7fe9)。排除了 chunking 假设，收敛到协议字段不匹配 |
-| 2026-07-24 | 对齐官方 sendmessage body（补 `client_id/message_type/from_user_id`）+ 响应硬化 → PR #711 squash merge (61f6baf4)。砚砚(GPT-5.4) 实现，砚砚(Codex) review |
-| 2026-07-24 | **E2E 三轮验证全部通过** — 第 1/2/3 轮消息均成功投递到微信。BUG-2 confirmed fixed ✅ |
-| 2026-07-24 | Phase C AC-C1: WeChat QR login UI in IM Hub → PR #713 砚砚 R2 放行 + 云端 Codex review 通过 → squash merge (78c65c97) |
-| 2026-07-25 | BUG-4 修复：A→B→C 接力链合并投递 → PR #717 云端 R3 通过 → squash merge (2be35f8a)。含 R1 P1+P2 + R2 P2 三轮 review 修复 |
+| 2026-03-23 | 调研 `@tencent-weixin/openclaw-weixin` 包 + iLink Bot 协议完整分析 |
+| 2026-03-23 | 立项 F137，related F088/F132 |
+| 2026-03-23 | Phase A 实现 + 砚砚 review 放行 + 云端 review 通过 → PR #687 squash merge (2cba337b) |
+| 2026-03-23 | Hotfix: QR field name + string status + long-poll timeout → PR #688 squash merge (73af3e0a) |
+| 2026-03-23 | Alpha 实测发现 iLink 协议字段不匹配（`msgs` not `messages`、`item_list` 嵌套结构、`msg` wrapper 等） |
+| 2026-03-24 | iLink 协议对齐 + 空语音 fallback 修复 → PR #691 砚砚放行 + 云端 review 通过 → squash merge (e5180ad5) |
+| 2026-03-24 | Alpha E2E 测试：入站成功 ✅，出站失败 ❌ → BUG-1 记录（见 Known Bugs） |
+| 2026-03-24 | Phase C UI 需求细化（IM Hub QR 登录流程）写入 spec |
+| 2026-03-24 | 诊断日志 → PR #696 squash merge (f46e680f) |
+| 2026-03-24 | 砚砚日志定位：出站调用链健康，iLink→微信侧静默丢弃长/格式消息 |
+| 2026-03-24 | BUG-1 修复：strip markdown + 400 chunk limit + 300ms delay → PR #701 砚砚放行 + cloud R1-R4 全修 → squash merge (40639bd4) |
+| 2026-03-24 | BUG-2 修复：context_token 单次消费 + 出站 debounce 3s 聚合多猫回复 + 跨 token 隔离 → PR #704 砚砚 R4 放行 + cloud R2 通过 → squash merge (50b62edb) |
+| 2026-03-24 | sendTyping keepalive（typing_ticket → 5s heartbeat）→ PR #708 squash merge (a0a07250)。排除了 typing 缺失假设 |
+| 2026-03-24 | 禁用分块 — 单条 sendmessage 发送全部内容 → PR #710 squash merge (8f1e7fe9)。排除了 chunking 假设，收敛到协议字段不匹配 |
+| 2026-03-24 | 对齐官方 sendmessage body（补 `client_id/message_type/from_user_id`）+ 响应硬化 → PR #711 squash merge (61f6baf4)。砚砚(GPT-5.4) 实现，砚砚(Codex) review |
+| 2026-03-24 | **E2E 三轮验证全部通过** — 第 1/2/3 轮消息均成功投递到微信。BUG-2 confirmed fixed ✅ |
+| 2026-03-24 | Phase C AC-C1: WeChat QR login UI in IM Hub → PR #713 砚砚 R2 放行 + 云端 Codex review 通过 → squash merge (78c65c97) |
+| 2026-03-25 | BUG-4 修复：A→B→C 接力链合并投递 → PR #717 云端 R3 通过 → squash merge (2be35f8a)。含 R1 P1+P2 + R2 P2 三轮 review 修复 |
 | 2026-03-25 | BUG-4b/4c 修复：`every→some` + QueueProcessor 合并路径 + richBlocks 保留 → PR #740 云端 review 两轮通过 → squash merge (08c663fb)。83 tests pass |
 | 2026-03-25 | BUG-5 验证：context_token 可复用，不是单次消费。移除 `lastConsumedToken` + `SINGLE_TOKEN_CONNECTORS` 合并逻辑。实现 AC-B3/B6 媒体接收（CDN 下载 + AES 解密） |
 | 2026-03-25 | F137 cleanup PR #744 merged — BUG-5 dead code removal + media receiving + P1/P2 review fixes (aes_key encoding + FILE empty guard)。砚砚 R6 放行 + 云端 Codex 0 P1/P2。AC 全部 ✅ |
