@@ -88,15 +88,15 @@ Hub 有完整可视化界面（侧边栏、面板、命令速查），slash 命�
 - [x] AC-A7: `/cats` 口径绑定 AgentRouter 现有逻辑，有快照测试覆盖
 - [x] AC-A8: 现有 connector 命令（`/where` `/new` `/threads` `/use`）行为无回退
 
-### Phase B（Skill 声明式注册 + 统一解析）
-- [ ] AC-B1: `manifest.yaml` 支持 `slashCommands` 字段，后端启动时通过 capabilities 链路自动发现并注册
-- [ ] AC-B2: skill 命令不能覆盖 core 命令（冲突即拒绝注册 + 启动告警日志）
-- [ ] AC-B3: `slashCommands` 字段 zod 校验：命令名白名单正则 + 可选 subcommands 数组、描述长度上限 200 字符、纯文本（禁止 HTML/脚本注入）
-- [ ] AC-B4: skill 命令执行统一走服务端命令网关，禁止前端直接拼 skill 调用绕过权限
-- [ ] AC-B5: 命令发现使用启动缓存 + 文件变更增量刷新，不在每次输入时触发磁盘扫描
-- [ ] AC-B6: 统一命令解析器替换现有混合解析方式，有解析器单元测试
-- [ ] AC-B7: slash 执行审计事件（命令名、surface、source、耗时、成功/失败）可在日志中追溯
-- [ ] AC-B8: `CommandDefinition` 包含 `surface` + `source` 字段，`/commands` 按 surface 过滤
+### Phase B（Skill 声明式注册 + 统一解析） ✅
+- [x] AC-B1: `manifest.yaml` 支持 `slashCommands` 字段，后端启动时通过 capabilities 链路自动发现并注册
+- [x] AC-B2: skill 命令不能覆盖 core 命令（冲突即拒绝注册 + 启动告警日志）
+- [x] AC-B3: `slashCommands` 字段 zod 校验：命令名白名单正则 + 可选 subcommands 数组、描述长度上限 200 字符、纯文本（禁止 HTML/脚本注入）
+- [x] AC-B4: skill 命令执行统一走服务端命令网关，禁止前端直接拼 skill 调用绕过权限
+- [x] AC-B5: 命令发现使用启动缓存 + 文件变更增量刷新，不在每次输入时触发磁盘扫描
+- [x] AC-B6: 统一命令解析器替换现有混合解析方式，有解析器单元测试
+- [x] AC-B7: slash 执行审计事件（命令名、surface、source、耗时、成功/失败）可在日志中追溯
+- [x] AC-B8: `CommandDefinition` 包含 `surface` + `source` 字段，`/commands` 按 surface 过滤
 
 ## 需求点 Checklist
 
@@ -161,6 +161,7 @@ Hub 有完整可视化界面（侧边栏、面板、命令速查），slash 命�
 | 2026-03-27 | 砚砚 review spec v1（3P1+2P2）→ v2；砚砚 review v2（2P1+2P2）→ v3 收敛 |
 | 2026-03-27 | Phase A 实现完成，砚砚 code review 放行 + 云端 review 通过 |
 | 2026-03-27 | Phase A merged → main（PR #781, squash commit `f558d69ed6`） |
+| 2026-03-27 | Phase B merged → main（PR #783） |
 
 ## Review Gate
 
