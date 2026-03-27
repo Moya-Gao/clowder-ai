@@ -8,7 +8,7 @@ created: 2026-03-26
 
 # F141: GitHub Repo Inbox — 仓库事件自动发现
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-27
 
 ## 三层架构定位
 
@@ -89,7 +89,7 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 - `opensource-ops` SKILL.md：maintainer 收到 Repo Inbox 通知后的 triage 流程
 - `refs/repo-inbox.md`：新增——Repo Inbox 通知格式、webhook 配置指南
 
-### Phase B: Reconciliation 补偿扫描
+### Phase B: Reconciliation 补偿扫描 ✅
 
 **1. RepoScanTaskSpec**（基于 F139 TaskSpec_P1，Phase 1a/1b 已 merged）
 
@@ -190,6 +190,7 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 | 2026-03-26 | Design Gate 通过 — 砚砚（gpt52）4 个约束 + 砚砚（codex）4 个补充约束补入 spec |
 | 2026-03-26 | Phase A merged (PR #755) — webhook adapter + dedup + thread binding + 27 tests |
 | 2026-03-26 | Phase B merged (PR #762) — RepoScanTaskSpec + ReconciliationDedup + Phase A bridge + 18 tests |
+| 2026-03-27 | **Feature closed** — 愿景守护通过：发现层主通道（webhook）+ 补偿层（reconciliation）+ triage 配套文档全部闭环，移出 BACKLOG |
 
 ## Review Gate
 
@@ -206,3 +207,4 @@ GitHub webhook POST → /api/connectors/github-repo-event/webhook
 | **Code** | `packages/api/src/routes/connector-webhooks.ts` | 通用 webhook 端点（复用传输层） |
 | **Skill** | `cat-cafe-skills/refs/ownership-gate.md` | 主人翁五问判定卡 |
 | **Skill** | `cat-cafe-skills/refs/repo-inbox.md` | Repo Inbox 通知格式 + 首反 SOP |
+| **Reflection** | `docs/reflections/2026-03-27-f141-repo-inbox-capsule.md` | 愿景守护 + feature close 反思胶囊 |

@@ -105,3 +105,4 @@
 | F137 | F137: WeChat Personal Gateway — 微信个人号 iLink Bot 接入 | done | [F137-weixin-personal-gateway.md](./F137-weixin-personal-gateway.md) |
 | F134 | F134: Feishu Group Chat — 飞书群聊多用户支持 | done | [F134-feishu-group-chat.md](./F134-feishu-group-chat.md) |
 | F140 | F140: GitHub PR Signals — 冲突检测 + Review Feedback 全来源感知 | done | [F140-github-pr-automation.md](./F140-github-pr-automation.md) |
+| F141 | F141: GitHub Repo Inbox — 仓库事件自动发现 | done | [F141-github-repo-inbox.md](./F141-github-repo-inbox.md) |

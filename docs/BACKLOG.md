@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-26
+> 维护者：三猫 | 最后更新：2026-03-27
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -58,5 +58,4 @@ created: 2026-02-26
 | F136 | Unified Config Hot Reload — 配置热更新统一管线 | spec | 待定 | internal | [F136](features/F136-unified-config-hot-reload.md) |
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F139 | Unified Schedule Abstraction — 统一调度抽象 | in-progress | 布偶猫 | internal | [F139](features/F139-unified-schedule-abstraction.md) |
-| F141 | GitHub Repo Inbox — 仓库事件自动发现（webhook + 补偿扫描） | phase-b-done | 布偶猫 | internal | [F141](features/F141-github-repo-inbox.md) |
 | F142 | Connector Slash Commands — 跨平台 /slash 扩展框架 | spec | 布偶猫 | internal | [F142](features/F142-connector-slash-commands.md) |
