@@ -280,11 +280,13 @@ describe('GET /api/threads/:id/cats', () => {
   });
 
   it('returns 403 when user is not binding owner (AC-A6)', async () => {
-    // Thread exists but requesting user != binding owner
+    // Thread exists + has connector binding owned by 'owner-user'
+    // Requesting user 'wrong-user' is not the binding owner
     const response = await app.inject({
       method: 'GET',
       url: '/api/threads/t-other/cats',
       headers: { 'x-cat-cafe-user': 'wrong-user' },
+      // Note: no query userId — resolveHeaderUserId is header-only
     });
     assert.equal(response.statusCode, 403);
   });
@@ -299,7 +301,7 @@ import type { FastifyInstance } from 'fastify';
 import type { IThreadStore, ThreadParticipantActivity } from '...';
 import type { AgentRegistry } from '...';
 import type { IConnectorThreadBindingStore } from '...';
-import { resolveUserId } from '../utils/request-identity.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { getRoster, isCatAvailable, getDisplayName } from '../config/cat-config-loader.js';
 
 export function threadCatsRoutes(
@@ -320,14 +322,18 @@ export function threadCatsRoutes(
     const thread = await threadStore.get(id);
     if (!thread) return reply.status(404).send({ error: 'Thread not found' });
 
-    // 2. Auth: connector binding owner check (P1-2 fix)
-    const requestUserId = resolveUserId(request, { defaultUserId });
-    const binding = await bindingStore.getByThread?.(id);
-    // If thread has a connector binding, verify the requester is the binding owner
-    // For Hub-only threads (no binding), allow defaultUserId access
-    if (binding && requestUserId !== defaultUserId) {
-      return reply.status(403).send({ error: 'Forbidden' });
+    // 2. Auth: connector binding owner check
+    // P1 fix v3: resolveHeaderUserId (header-only, no query param) + getByThread returns array
+    const requestUserId = resolveHeaderUserId(request) ?? defaultUserId;
+    const bindings = await bindingStore.getByThread(id);
+    // If thread has connector bindings, verify requester is one of the binding owners
+    if (bindings.length > 0) {
+      const isBindingOwner = bindings.some(b => b.userId === requestUserId);
+      if (!isBindingOwner) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
     }
+    // Hub-only threads (no bindings) allow defaultUserId access
 
     // 3. Gather data
     const participantActivity = await threadStore.getParticipantsWithActivity(id);
@@ -380,20 +386,23 @@ export function threadCatsRoutes(
 ```javascript
 it('snapshot: cat categorization matches AgentRouter logic', async () => {
   // Setup: 4 cats
-  // - opus: participant + service + available → in participants + routableNow
-  // - codex: participant + service + available=false → in participants + notRoutable
-  // - gpt52: not participant + service + available → routableNotJoined
-  // - gemini: not participant + no service + available=false → notRoutable
+  // - opus: participant + service + available → participants ✅ + routableNow ✅
+  // - codex: participant + service + available=false → participants ✅ only
+  //          (participants always listed regardless of availability;
+  //           notRoutable excludes participants — they're already visible)
+  // - gpt52: not participant + service + available → routableNotJoined ✅
+  // - gemini: not participant + available=false → notRoutable ✅ (KD-9)
   const response = await app.inject({
     method: 'GET',
     url: '/api/threads/t-snap/cats',
     headers: { 'x-cat-cafe-user': 'owner-user' },
   });
   const body = JSON.parse(response.body);
-  assert.equal(body.participants.length, 2);
-  assert.equal(body.routableNow.length, 1);       // opus: participant + routable
-  assert.equal(body.routableNotJoined.length, 1);  // gpt52: not participant + routable
-  assert.equal(body.notRoutable.length, 1);         // gemini: available=false (KD-9)
+  assert.equal(body.participants.length, 2);        // opus + codex
+  assert.equal(body.routableNow.length, 1);          // opus (participant + routable)
+  assert.equal(body.routableNotJoined.length, 1);    // gpt52 (not participant + routable)
+  assert.equal(body.notRoutable.length, 1);           // gemini (not participant + available=false)
+  // Note: codex is unavailable but already in participants, NOT double-counted in notRoutable
 });
 ```
 
@@ -638,10 +647,13 @@ test(F142): Phase A regression suite green [宪宪/Opus-46🐾]
 | P | 问题 | 修正 |
 |---|------|------|
 | P1-1 | 测试路径 `test/infrastructure/...test.ts` 不会被 API test runner 执行 | 改用现有 `test/connector-command-layer.test.js`（JS） |
-| P1-2 | `x-connector-binding-owner` header 不存在 | 改用 `X-Cat-Cafe-User` + `resolveUserId()` + `bindingStore.getByThread()` |
+| P1-2 | `x-connector-binding-owner` header 不存在 | 改用 `X-Cat-Cafe-User` + `resolveHeaderUserId()`（header-only）+ `bindingStore.getByThread()` |
 | P1-3 | A0 一致性测试跨 surface 误报 | 限定 connector scope，只验证 ConnectorCommandLayer dispatch |
 | P1-4 | `/status` 用 `thread.participants` / `thread.lastActiveAt` 但 deps 类型没有 | 新增 `participantStore` 依赖，从 `getParticipantsWithActivity()` 获取 |
 | P2 | `notRoutable = !available \|\| !service` 偏离 KD-9 | 严格 `notRoutable = available=false`，`service_missing` 不纳入 |
+| P1-5 (v3) | `getByThread` 返回数组但代码当单对象；判断条件是 `!== defaultUserId` 不是比 binding.userId | `bindings.some(b => b.userId === requestUserId)` 遍历数组比较 |
+| P1-6 (v3) | `resolveUserId()` 接受 query param 不安全 | 改用 `resolveHeaderUserId()`（header-only） |
+| P2-2 (v3) | 快照注释说 codex(participant+unavailable) 在 notRoutable，但实现排除 participants | 明确：participants 始终列出（不管 availability）；notRoutable 仅含非参与者 |
 
 ---
 
