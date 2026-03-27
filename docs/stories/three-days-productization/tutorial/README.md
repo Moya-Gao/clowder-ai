@@ -38,10 +38,12 @@ status: draft
 
 ## 叙事脊梁
 
-本教程使用两个真实 Feature 作为贯穿全文的样本：
+本教程使用两个真实 Feature 作为贯穿全文的主样本：
 
-1. **F088 Chat Gateway** — 后端 + 闭环交付线（飞书+微信接入）
-2. **F090 像素猫猫大作战** — 前端 + 跨猫协作 + 趣味线
+1. **F088 Chat Gateway** — IM 接入，展示完整的 Discovery Loop → Delivery Loop 双环
+2. **F139 Unified Schedule Abstraction** — 定时任务体系，展示三猫独立调研 + 闪电式交付
+
+辅助案例：**F090 像素猫猫大作战** — 跨猫协作 + Design Gate / Review 的趣味线样本
 
 ---
 
