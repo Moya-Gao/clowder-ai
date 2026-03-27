@@ -82,17 +82,13 @@ Anthropic 的 Prithvi Rajasekaran 设计了一个 **planner → generator → ev
 - 他们的 harness 是为**单次任务**设计的。我们的系统是为**长期协作**设计的——愿景、ADR、Feature Memory、Lesson 都是跨任务积累的
 - 他们的通信是**文件交换**。我们的通信是 **targetCats（首选结构化路由）+ 行首 @ fallback + 统一 dispatch queue**
 
-**不要写成"我们比 Anthropic 高级"。更准确的说法是：**
-
-> Anthropic 的 harness 更像是一个为长任务性能设计的**任务脚手架**——通过角色拆分、结构化 handoff 和独立 evaluator，把一次长任务做得更稳。
->
-> 我们的系统更进一步，做的是一套**长期协作机制**——不只是把任务拆给不同 agent，而是把愿景、评审标准、记忆、技能协议、session strategy 和 feature 生命周期一起写进系统，让它在多次任务、多个 feature、多个会话中持续保持方向。
+简单来说：Anthropic 的 harness 更像是一个为长任务性能设计的**任务脚手架**——通过角色拆分、结构化 handoff 和独立 evaluator，把一次长任务做得更稳。我们的系统做的是一套**长期协作机制**——不只是把任务拆给不同 agent，而是把愿景、评审标准、记忆、技能协议、session strategy 和 feature 生命周期一起写进系统，让它在多次任务、多个 feature、多个会话中持续保持方向。
 
 ---
 
 ## Q3：和 Oh My OpenCode / OpenClaw / 单 agent 工具有什么区别？
 
-这个问题要答得克制。**不要写"他们不行我们行"，要写"解决的问题层不同"。**
+这几个项目解决的问题层不同。
 
 ### opencode + Oh My OpenCode (OMOC)
 
@@ -111,17 +107,21 @@ opencode 是一个开源、provider-agnostic 的 AI coding agent。Oh My OpenCod
 
 ### OpenClaw
 
-OpenClaw 是我们的开源版本（`clowder-ai`）。
+OpenClaw 是一个在 2026 年初爆火的**开源个人 AI 助理项目**（GitHub 140k+ stars），由 Peter Steinberger 发起。它的核心是本地优先的 gateway 架构：通过 WhatsApp、Telegram、Slack 等聊天渠道连接 LLM，让用户用自然语言控制电脑、管理文件、运行脚本。它还有 file-first 的记忆系统（Markdown 文件 + 混合检索）和 ClawHub 插件生态。
 
-**区别很简单：OpenClaw 是发布物，Cat Cafe 是真相源。**
+**OpenClaw 和我们是两个独立项目，不是上下游关系。**
 
-OpenClaw 更像是**可移植的治理模板**——代码、文档结构、Skill 定义都可以带走。
+我们在 F132（钉钉/企微接入）时参考过 OpenClaw 社区的 connector 实现，F129（插件系统）也调研过 ClawHub 的生态模式。但两者的定位完全不同：
 
-Cat Cafe 更像是**长期积累的协作系统**——模板之上还有：
-- 记忆系统里积累的 145 个 Feature 的决策历史
-- 12 条 Lesson Learned 和 18 个 ADR 的上下文
-- 24 个 Skill 在实战中反复修订的行为协议
-- 跨猫 cross-review 沉淀下来的判断力
+| 维度 | OpenClaw | Cat Café |
+|------|----------|----------|
+| **核心定位** | 单用户个人 AI 助理 | 多 agent 长期协作系统 |
+| **agent 数量** | 单 agent + 多模型路由 | 多 agent 多家族（布偶/缅因/暹罗），各有性格和专业 |
+| **协作机制** | 无（单 agent 不需要跨 agent 协作） | 愿景驱动 + 跨家族 review + A2A 对等传球 |
+| **记忆** | 个人对话记忆（日志 + MEMORY.md） | 项目级知识治理（Feature / ADR / Lesson / Session Chain） |
+| **进化路径** | 用户/社区贡献 Skills | Episode → Method → Skill → Eval → Shared Rules |
+
+**顺便澄清**：我们自己的开源计划叫 `clowder-ai`（F059），和 OpenClaw 没有关系。clowder-ai 是 Cat Café 平台层的开源发布物，而 Cat Café 是积累了 145 个 Feature 决策历史、12 条 Lesson、18 个 ADR 和 24 个 Skill 的真相源。
 
 ### 单 agent coding 工具（Cursor / Aider / Claude Code 等）
 
