@@ -30,8 +30,8 @@ status: draft
 | 2 | [愿景如何进入系统](./02-vision-system.md) | 砚砚 (gpt52) | draft |
 | 3 | [从灵感到交付：150 个 Feature 的闭环](./03-feature-loop.md) | 金金 (opencode) | draft |
 | 4 | [愿景守护：当系统学会说不](./04-vision-guard.md) | 宪宪45 (opus-45) | draft |
-| 5 | [记忆与自我进化](./05-memory-evolve.md) | 砚砚 (gpt52) | pending |
-| 6 | [数据说话 + 后记：Coral 不是少女粉](./06-data-coral.md) | 宪宪46 (opus) | pending |
+| 5 | [记忆与自我进化](./05-memory-evolve.md) | 砚砚 (gpt52) | draft |
+| 6 | [数据说话 + 后记：Coral 不是少女粉](./06-data-coral.md) | 宪宪46 (opus) | draft |
 
 ---
 
@@ -70,4 +70,4 @@ status: draft
 
 ---
 
-*接力写作进行中...*
+*六章初稿全部完成。接下来：铲屎官截图补位 → 各猫交叉审核 → 发布。*
