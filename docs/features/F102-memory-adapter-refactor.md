@@ -1217,6 +1217,8 @@ Workspace 面板顶部：
 | 2026-03-25 | 砚砚 review 3 findings（P1 explicit dead path, P1 threadId broadcast, P2 tab placeholder）→ 修复放行 |
 | 2026-03-25 | 云端 review 3 轮（P1 boundary regex, P1 mode reset, P2 method mapping）→ 全部修复，第 3 轮 0 P1/P2 |
 | 2026-03-25 | **PR #737 squash merged** — Phase H (H-1/H-2/H-3/H-8) ✅ |
+| 2026-03-26 | Knowledge Feed 空 bug 修复（PR #765 merged）：mkdirSync + content-based dedup backfill |
+| 2026-03-27 | Knowledge Feed 候选质量修复（PR #772 merged）：prompt 准入标准 + isImplementationNoise 三层 reject gate + 11 回归测试 |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
