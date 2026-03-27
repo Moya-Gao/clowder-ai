@@ -1217,4 +1217,24 @@ describe('ConnectorCommandLayer + CommandRegistry (F142-B)', () => {
     const result = await layer.handle('feishu', 'chat1', 'user1', '/unknown-skill-cmd hello');
     assert.equal(result.kind, 'not-command', 'unrecognized slash commands should pass through to cat');
   });
+
+  it('/thread CORE_COMMANDS usage matches handler error hint (P2 regression)', async () => {
+    // Lock: CORE_COMMANDS says "/thread <thread_id> <message>" — handler must agree
+    const { CORE_COMMANDS } = await import('@cat-cafe/shared');
+    const threadDef = CORE_COMMANDS.find((c) => c.name === '/thread');
+    assert.ok(threadDef, '/thread must exist in CORE_COMMANDS');
+    assert.equal(threadDef.usage, '/thread <thread_id> <message>');
+
+    // Handler's own usage hint must match
+    const layer = new ConnectorCommandLayer({
+      bindingStore: stubStore(),
+      threadStore: stubThreadStore(),
+      frontendBaseUrl: 'https://cafe.example.com',
+    });
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/thread');
+    assert.ok(
+      result.response.includes('/thread <thread_id> <message>'),
+      `handler error hint must match CORE_COMMANDS usage, got: ${result.response}`,
+    );
+  });
 });

@@ -1,3 +1,4 @@
+import { parseCommand } from '@cat-cafe/shared';
 import type { CommandRegistry } from '../commands/CommandRegistry.js';
 import type { IConnectorPermissionStore } from './ConnectorPermissionStore.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
@@ -107,19 +108,22 @@ export class ConnectorCommandLayer {
     trimmed: string,
     senderId?: string,
   ): Promise<CommandResult> {
-    const [rawCmd, ...args] = trimmed.split(/\s+/);
-    const cmd = rawCmd?.toLowerCase();
+    // F142-B AC-B6: unified parser (longest-match, subcommand-aware)
+    const registry = this.deps.commandRegistry;
+    const parsed = registry ? parseCommand(trimmed, registry.getAll()) : null;
+    const cmd = parsed?.name ?? trimmed.split(/\s+/)[0]?.toLowerCase();
+    const cmdArgs = parsed?.args ?? trimmed.split(/\s+/).slice(1).join(' ');
     switch (cmd) {
       case '/where':
         return this.handleWhere(connectorId, externalChatId);
       case '/new':
-        return this.handleNew(connectorId, externalChatId, userId, args.join(' '));
+        return this.handleNew(connectorId, externalChatId, userId, cmdArgs);
       case '/threads':
         return this.handleThreads(connectorId, externalChatId, userId);
       case '/use':
-        return this.handleUse(connectorId, externalChatId, userId, args.join(' '));
+        return this.handleUse(connectorId, externalChatId, userId, cmdArgs);
       case '/thread':
-        return this.handleThread(connectorId, externalChatId, userId, args);
+        return this.handleThread(connectorId, externalChatId, userId, cmdArgs.split(/\s+/));
       case '/commands':
         return buildCommandsList(this.deps.commandRegistry);
       case '/cats':
@@ -129,10 +133,10 @@ export class ConnectorCommandLayer {
       case '/unbind':
         return this.handleUnbind(connectorId, externalChatId);
       case '/allow-group':
-        return this.handleAllowGroup(connectorId, externalChatId, senderId, args.join(' '));
+        return this.handleAllowGroup(connectorId, externalChatId, senderId, cmdArgs);
       case '/deny-group':
-        return this.handleDenyGroup(connectorId, externalChatId, senderId, args.join(' '));
-      default: // F142-B: skill commands also return not-command → flow to cat (AC-B4)
+        return this.handleDenyGroup(connectorId, externalChatId, senderId, cmdArgs);
+      default: // F142-B: unrecognized commands flow to cat (AC-B4)
         return { kind: 'not-command' };
     }
   }
