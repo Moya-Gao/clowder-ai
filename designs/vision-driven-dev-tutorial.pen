@@ -1122,7 +1122,7 @@
       "name": "D01 信息分层图",
       "width": 920,
       "height": 820,
-      "fill": "#FFF8F3",
+      "fill": "#FCFAF8",
       "cornerRadius": 28,
       "layout": "vertical",
       "gap": 10,
@@ -1132,7 +1132,7 @@
           "type": "text",
           "id": "6o2hs",
           "name": "t1",
-          "fill": "#4F342E",
+          "fill": "#2B211E",
           "content": "信息分层图",
           "fontFamily": "Inter",
           "fontSize": 34,
@@ -1142,7 +1142,7 @@
           "type": "text",
           "id": "eXg8u",
           "name": "s1",
-          "fill": "#8A5A4A",
+          "fill": "#6E5B55",
           "content": "VISION → ADR → Feature → Review → Lesson",
           "fontFamily": "Inter",
           "fontSize": 16,
@@ -1153,7 +1153,7 @@
           "id": "qFQo7",
           "name": "vision-card",
           "width": "fill_container",
-          "fill": "#FFE0D2",
+          "fill": "#FFFFFF",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 8,
@@ -1165,7 +1165,7 @@
             {
               "type": "text",
               "id": "PbGd8",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "VISION",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1174,7 +1174,7 @@
             {
               "type": "text",
               "id": "7Ss1s",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "定义为什么做、什么不做，是最高层的方向约束。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1185,7 +1185,7 @@
         {
           "type": "text",
           "id": "QFBnI",
-          "fill": "#C66B4E",
+          "fill": "#C93A3A",
           "content": "↓",
           "fontFamily": "Inter",
           "fontSize": 28,
@@ -1196,7 +1196,7 @@
           "id": "yad1t",
           "name": "adr-card",
           "width": "fill_container",
-          "fill": "#FFD0BE",
+          "fill": "#FFFFFF",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 8,
@@ -1208,7 +1208,7 @@
             {
               "type": "text",
               "id": "LjUmz",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "ADR",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1217,7 +1217,7 @@
             {
               "type": "text",
               "id": "JktcG",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "把愿景翻译成取舍：为什么选 A，不选 B。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1228,7 +1228,7 @@
         {
           "type": "text",
           "id": "Y27dc",
-          "fill": "#C66B4E",
+          "fill": "#C93A3A",
           "content": "↓",
           "fontFamily": "Inter",
           "fontSize": 28,
@@ -1239,7 +1239,7 @@
           "id": "Im0Sy",
           "name": "feature-card",
           "width": "fill_container",
-          "fill": "#FFC3A9",
+          "fill": "#FFFFFF",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 8,
@@ -1251,7 +1251,7 @@
             {
               "type": "text",
               "id": "Q6f1T",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "Feature",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1260,7 +1260,7 @@
             {
               "type": "text",
               "id": "3o6wY",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "把抽象方向变成目标、范围、验收标准和 phase。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1271,7 +1271,7 @@
         {
           "type": "text",
           "id": "dFfdC",
-          "fill": "#C66B4E",
+          "fill": "#C93A3A",
           "content": "↓",
           "fontFamily": "Inter",
           "fontSize": 28,
@@ -1282,7 +1282,7 @@
           "id": "KkjKk",
           "name": "review-card",
           "width": "fill_container",
-          "fill": "#FFB790",
+          "fill": "#FBEDEA",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 8,
@@ -1294,7 +1294,7 @@
             {
               "type": "text",
               "id": "lNZXO",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "Review",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1303,7 +1303,7 @@
             {
               "type": "text",
               "id": "JbYjg",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "把改动与愿景、ADR、Feature 对照，防止系统偏航。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1314,7 +1314,7 @@
         {
           "type": "text",
           "id": "LyErP",
-          "fill": "#C66B4E",
+          "fill": "#C93A3A",
           "content": "↓",
           "fontFamily": "Inter",
           "fontSize": 28,
@@ -1325,7 +1325,7 @@
           "id": "PHfxA",
           "name": "lesson-card",
           "width": "fill_container",
-          "fill": "#FFA975",
+          "fill": "#F7E8E6",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 8,
@@ -1337,7 +1337,7 @@
             {
               "type": "text",
               "id": "5kUTX",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "Lesson",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1346,7 +1346,7 @@
             {
               "type": "text",
               "id": "9RqE0",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "把真实失败反压回系统，变成下一轮的判断标准。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1364,7 +1364,7 @@
       "name": "D02 漏斗决策图",
       "width": 920,
       "height": 700,
-      "fill": "#FFF8F3",
+      "fill": "#FCFAF8",
       "cornerRadius": 28,
       "layout": "vertical",
       "gap": 16,
@@ -1374,7 +1374,7 @@
           "type": "text",
           "id": "XgykU",
           "name": "t2",
-          "fill": "#4F342E",
+          "fill": "#2B211E",
           "content": "漏斗决策图",
           "fontFamily": "Inter",
           "fontSize": 34,
@@ -1384,7 +1384,7 @@
           "type": "text",
           "id": "MtFI1",
           "name": "s2",
-          "fill": "#8A5A4A",
+          "fill": "#6E5B55",
           "content": "越宏观越关注，越细节越放手",
           "fontFamily": "Inter",
           "fontSize": 16,
@@ -1395,7 +1395,7 @@
           "id": "CrcHT",
           "name": "macro-card",
           "width": "fill_container",
-          "fill": "#FFE0D2",
+          "fill": "#FFFFFF",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 8,
@@ -1407,7 +1407,7 @@
             {
               "type": "text",
               "id": "Nfg6Q",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "宏观层｜铲屎官拍板",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1416,7 +1416,7 @@
             {
               "type": "text",
               "id": "5UgMl",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "架构决策、安全与不可逆、成本变化、对外行为、路线图。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1427,7 +1427,7 @@
         {
           "type": "text",
           "id": "2CYsR",
-          "fill": "#C66B4E",
+          "fill": "#C93A3A",
           "content": "↓ 愿景向下翻译，细节向上回报",
           "fontFamily": "Inter",
           "fontSize": 18,
@@ -1438,7 +1438,7 @@
           "id": "1AX1d",
           "name": "middle-card",
           "width": "fill_container",
-          "fill": "#FFD0BE",
+          "fill": "#FFFFFF",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 8,
@@ -1450,7 +1450,7 @@
             {
               "type": "text",
               "id": "t8wMz",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "中间层｜三猫讨论",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1459,7 +1459,7 @@
             {
               "type": "text",
               "id": "NNfRQ",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "设计方向、SOP 变更、职责边界。把愿景翻译成可执行方案。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1470,7 +1470,7 @@
         {
           "type": "text",
           "id": "0UPSK",
-          "fill": "#C66B4E",
+          "fill": "#C93A3A",
           "content": "↓ 方向一致后，局部细节不再占用 CVO 带宽",
           "fontFamily": "Inter",
           "fontSize": 18,
@@ -1481,7 +1481,7 @@
           "id": "zXhdZ",
           "name": "micro-card",
           "width": "fill_container",
-          "fill": "#FFC3A9",
+          "fill": "#FBEDEA",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 8,
@@ -1493,7 +1493,7 @@
             {
               "type": "text",
               "id": "MH3JV",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "细节层｜猫猫自治",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1502,7 +1502,7 @@
             {
               "type": "text",
               "id": "FnLGD",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "实现细节、重构、测试、代码风格。越细节越放手。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1515,7 +1515,7 @@
           "id": "a73OW",
           "name": "funnel-note",
           "width": "fill_container",
-          "fill": "#FFF1E8",
+          "fill": "#F7E8E6",
           "cornerRadius": 16,
           "layout": "vertical",
           "gap": 6,
@@ -1527,7 +1527,7 @@
             {
               "type": "text",
               "id": "qwHZY",
-              "fill": "#7A4A3C",
+              "fill": "#6E5B55",
               "content": "传声筒问题的本质是“什么都管”。漏斗决策让铲屎官只管漏斗入口：方向与边界。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1545,7 +1545,7 @@
       "name": "D03 Feature 闭环图",
       "width": 920,
       "height": 700,
-      "fill": "#FFF8F3",
+      "fill": "#FCFAF8",
       "cornerRadius": 28,
       "layout": "vertical",
       "gap": 16,
@@ -1555,7 +1555,7 @@
           "type": "text",
           "id": "Xmj7l",
           "name": "t3",
-          "fill": "#4F342E",
+          "fill": "#2B211E",
           "content": "Feature 闭环图",
           "fontFamily": "Inter",
           "fontSize": 34,
@@ -1565,7 +1565,7 @@
           "type": "text",
           "id": "w8EDD",
           "name": "s3",
-          "fill": "#8A5A4A",
+          "fill": "#6E5B55",
           "content": "从灵感到交付：Design Gate → Merge Gate",
           "fontFamily": "Inter",
           "fontSize": 16,
@@ -1583,7 +1583,7 @@
               "id": "gQkSm",
               "name": "design-gate",
               "width": "fill_container",
-              "fill": "#FFE0D2",
+              "fill": "#FFFFFF",
               "cornerRadius": 16,
               "layout": "vertical",
               "gap": 6,
@@ -1595,7 +1595,7 @@
                 {
                   "type": "text",
                   "id": "UvkTn",
-                  "fill": "#6A3124",
+                  "fill": "#2B211E",
                   "content": "1. Design Gate",
                   "fontFamily": "Inter",
                   "fontSize": 20,
@@ -1604,7 +1604,7 @@
                 {
                   "type": "text",
                   "id": "j38mG",
-                  "fill": "#6A3124",
+                  "fill": "#6E5B55",
                   "content": "先澄清需求，再决定做什么。",
                   "fontFamily": "Inter",
                   "fontSize": 14,
@@ -1617,7 +1617,7 @@
               "id": "MqqKZ",
               "name": "worktree",
               "width": "fill_container",
-              "fill": "#FFD0BE",
+              "fill": "#FFFFFF",
               "cornerRadius": 16,
               "layout": "vertical",
               "gap": 6,
@@ -1629,7 +1629,7 @@
                 {
                   "type": "text",
                   "id": "vk9in",
-                  "fill": "#6A3124",
+                  "fill": "#2B211E",
                   "content": "2. worktree",
                   "fontFamily": "Inter",
                   "fontSize": 20,
@@ -1638,7 +1638,7 @@
                 {
                   "type": "text",
                   "id": "5dXuz",
-                  "fill": "#6A3124",
+                  "fill": "#6E5B55",
                   "content": "隔离开发，避免并行污染。",
                   "fontFamily": "Inter",
                   "fontSize": 14,
@@ -1651,7 +1651,7 @@
               "id": "bWF6P",
               "name": "quality-gate",
               "width": "fill_container",
-              "fill": "#FFC3A9",
+              "fill": "#FFFFFF",
               "cornerRadius": 16,
               "layout": "vertical",
               "gap": 6,
@@ -1663,7 +1663,7 @@
                 {
                   "type": "text",
                   "id": "g46df",
-                  "fill": "#6A3124",
+                  "fill": "#2B211E",
                   "content": "3. quality-gate",
                   "fontFamily": "Inter",
                   "fontSize": 20,
@@ -1672,7 +1672,7 @@
                 {
                   "type": "text",
                   "id": "8yu6t",
-                  "fill": "#6A3124",
+                  "fill": "#6E5B55",
                   "content": "AC 全绿不够，离愿景更近才算完成。",
                   "fontFamily": "Inter",
                   "fontSize": 14,
@@ -1694,7 +1694,7 @@
               "id": "kucrR",
               "name": "cross-review",
               "width": "fill_container",
-              "fill": "#FFB790",
+              "fill": "#FFFFFF",
               "cornerRadius": 16,
               "layout": "vertical",
               "gap": 6,
@@ -1706,7 +1706,7 @@
                 {
                   "type": "text",
                   "id": "pqIaP",
-                  "fill": "#6A3124",
+                  "fill": "#2B211E",
                   "content": "4. cross-review",
                   "fontFamily": "Inter",
                   "fontSize": 20,
@@ -1715,7 +1715,7 @@
                 {
                   "type": "text",
                   "id": "kfIeD",
-                  "fill": "#6A3124",
+                  "fill": "#6E5B55",
                   "content": "跨家族 peer review，避免同构盲点。",
                   "fontFamily": "Inter",
                   "fontSize": 14,
@@ -1728,7 +1728,7 @@
               "id": "9Ruyx",
               "name": "merge-gate",
               "width": "fill_container",
-              "fill": "#FFA975",
+              "fill": "#FBEDEA",
               "cornerRadius": 16,
               "layout": "vertical",
               "gap": 6,
@@ -1740,7 +1740,7 @@
                 {
                   "type": "text",
                   "id": "vHwnL",
-                  "fill": "#6A3124",
+                  "fill": "#2B211E",
                   "content": "5. merge-gate",
                   "fontFamily": "Inter",
                   "fontSize": 20,
@@ -1749,7 +1749,7 @@
                 {
                   "type": "text",
                   "id": "IaBar",
-                  "fill": "#6A3124",
+                  "fill": "#6E5B55",
                   "content": "PR、云端校验、squash merge。",
                   "fontFamily": "Inter",
                   "fontSize": 14,
@@ -1762,7 +1762,7 @@
               "id": "7Uql8",
               "name": "vision-guard",
               "width": "fill_container",
-              "fill": "#FF9A5A",
+              "fill": "#F7E8E6",
               "cornerRadius": 16,
               "layout": "vertical",
               "gap": 6,
@@ -1774,7 +1774,7 @@
                 {
                   "type": "text",
                   "id": "BMTd3",
-                  "fill": "#6A3124",
+                  "fill": "#A92E2E",
                   "content": "6. 愿景守护",
                   "fontFamily": "Inter",
                   "fontSize": 20,
@@ -1783,7 +1783,7 @@
                 {
                   "type": "text",
                   "id": "Eb40a",
-                  "fill": "#6A3124",
+                  "fill": "#6E5B55",
                   "content": "第三只猫问：系统更接近愿景了吗？",
                   "fontFamily": "Inter",
                   "fontSize": 13,
@@ -1810,7 +1810,7 @@
             {
               "type": "text",
               "id": "VFovz",
-              "fill": "#7A4A3C",
+              "fill": "#6E5B55",
               "content": "闭环不是“更快写完”，而是“快且不偏”。没达成愿景 = 没完成。",
               "fontFamily": "Inter",
               "fontSize": 16,
@@ -1828,7 +1828,7 @@
       "name": "D04 记忆与自我进化图",
       "width": 920,
       "height": 700,
-      "fill": "#FFF8F3",
+      "fill": "#FCFAF8",
       "cornerRadius": 28,
       "layout": "vertical",
       "gap": 16,
@@ -1838,7 +1838,7 @@
           "type": "text",
           "id": "iALhE",
           "name": "t4",
-          "fill": "#4F342E",
+          "fill": "#2B211E",
           "content": "记忆与自我进化图",
           "fontFamily": "Inter",
           "fontSize": 34,
@@ -1848,7 +1848,7 @@
           "type": "text",
           "id": "or9GR",
           "name": "s4",
-          "fill": "#8A5A4A",
+          "fill": "#6E5B55",
           "content": "文档是真相源，lesson 让系统开始学习",
           "fontFamily": "Inter",
           "fontSize": 16,
@@ -1859,7 +1859,7 @@
           "id": "ot7tS",
           "name": "source-card",
           "width": "fill_container",
-          "fill": "#FFE0D2",
+          "fill": "#FFFFFF",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 10,
@@ -1871,7 +1871,7 @@
             {
               "type": "text",
               "id": "IuwO9",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "1. 真相源：文档层",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1880,7 +1880,7 @@
             {
               "type": "text",
               "id": "t7uGh",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "Feature / ADR / Discussion / Lesson 都写在 docs 里。记忆先是可读、可改、可追溯的文件。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1891,7 +1891,7 @@
         {
           "type": "text",
           "id": "AB7xZ",
-          "fill": "#C66B4E",
+          "fill": "#C93A3A",
           "content": "↓ 先有真相源，再有 recall",
           "fontFamily": "Inter",
           "fontSize": 18,
@@ -1902,7 +1902,7 @@
           "id": "5T7Ps",
           "name": "index-card",
           "width": "fill_container",
-          "fill": "#FFD0BE",
+          "fill": "#FBEDEA",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 10,
@@ -1914,7 +1914,7 @@
             {
               "type": "text",
               "id": "9VuCv",
-              "fill": "#6A3124",
+              "fill": "#2B211E",
               "content": "2. Recall：evidence.sqlite + search_evidence",
               "fontFamily": "Inter",
               "fontSize": 22,
@@ -1923,7 +1923,7 @@
             {
               "type": "text",
               "id": "qqCOb",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "SQLite 做索引，不做真相。统一入口负责把散落的决策链重新拉回来。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1934,7 +1934,7 @@
         {
           "type": "text",
           "id": "7rP7L",
-          "fill": "#C66B4E",
+          "fill": "#C93A3A",
           "content": "↓ 找到之后，不是存档结束，而是把经验往回流",
           "fontFamily": "Inter",
           "fontSize": 18,
@@ -1945,7 +1945,7 @@
           "id": "G0ZTt",
           "name": "evolve-card",
           "width": "fill_container",
-          "fill": "#FFC3A9",
+          "fill": "#F7E8E6",
           "cornerRadius": 18,
           "layout": "vertical",
           "gap": 10,
@@ -1957,7 +1957,7 @@
             {
               "type": "text",
               "id": "qWE4a",
-              "fill": "#6A3124",
+              "fill": "#A92E2E",
               "content": "3. 自我进化：Episode → Method → Skill → Eval → Shared Rules",
               "fontFamily": "Inter",
               "fontSize": 20,
@@ -1966,7 +1966,7 @@
             {
               "type": "text",
               "id": "95WhO",
-              "fill": "#6A3124",
+              "fill": "#6E5B55",
               "content": "一次真实事件不是结束，而是下一轮判断标准的来源。lesson 让失败有资格进入未来。",
               "fontFamily": "Inter",
               "fontSize": 15,
@@ -1979,7 +1979,7 @@
           "id": "9k34J",
           "name": "memory-note",
           "width": "fill_container",
-          "fill": "#FFF1E8",
+          "fill": "#FFF1EE",
           "cornerRadius": 16,
           "layout": "vertical",
           "gap": 6,
@@ -1991,11 +1991,558 @@
             {
               "type": "text",
               "id": "0M74O",
-              "fill": "#7A4A3C",
+              "fill": "#6E5B55",
               "content": "铲屎官忘了，猫还记得。真正强的不是上下文更长，而是 recall 从脑力劳动变成了系统能力。",
               "fontFamily": "Inter",
               "fontSize": 16,
               "fontWeight": "600"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "aqEtM",
+      "x": 6200,
+      "y": 80,
+      "name": "D05 F088 三层架构图",
+      "width": 920,
+      "fill": "#FCFAF8",
+      "cornerRadius": 28,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "rfzaz",
+          "fill": "#2B211E",
+          "content": "F088 三层架构图",
+          "fontFamily": "Inter",
+          "fontSize": 34,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "f3uBq",
+          "fill": "#6E5B55",
+          "content": "统一 Gateway：公共层沉淀，Adapter 只做协议转换",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "Z647J",
+          "name": "core",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "HKQGS",
+              "fill": "#2B211E",
+              "content": "平台无关公共层",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "0lkwW",
+              "width": "fill_container",
+              "fill": "#FBEDEA",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 10,
+              "padding": [
+                16,
+                18
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "PioWU",
+                  "fill": "#2B211E",
+                  "content": "1. Principal Link",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "i9NTv",
+                  "fill": "#6E5B55",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "connector + externalSenderId → internalUserId\n解决『谁在说话』",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "tSLYO",
+              "width": "fill_container",
+              "fill": "#F7E8E6",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 10,
+              "padding": [
+                16,
+                18
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "UNIuV",
+                  "fill": "#2B211E",
+                  "content": "2. Session Binding",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "o7CIe",
+                  "fill": "#6E5B55",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "connector + externalChatId → activeThreadId\n解决『当前聊的是哪个 thread』",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "souSm",
+              "width": "fill_container",
+              "fill": "#FFF1E8",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 10,
+              "padding": [
+                16,
+                18
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "WXJ6I",
+                  "fill": "#2B211E",
+                  "content": "3. Command Layer",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "LSFiG",
+                  "fill": "#6E5B55",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "平台无关的 /new /threads /use /where /link\n解决『用户怎么控制对话』",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "z76cj",
+          "name": "adapters",
+          "width": "fill_container",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "pyKXt",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "9jlT9",
+                  "fill": "#2B211E",
+                  "content": "FeishuAdapter",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "1WYZD",
+                  "fill": "#6E5B55",
+                  "content": "parse / format / send",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "c7Pya",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "KiFZG",
+                  "fill": "#2B211E",
+                  "content": "TelegramAdapter",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "sd2Cw",
+                  "fill": "#6E5B55",
+                  "content": "parse / format / send",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Jc79H",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "WCy1Z",
+                  "fill": "#2B211E",
+                  "content": "WeChatAdapter",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "UDE7h",
+                  "fill": "#6E5B55",
+                  "content": "parse / format / send",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "yLYxh",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "HTerK",
+                  "fill": "#2B211E",
+                  "content": "DingTalkAdapter",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "uxjYf",
+                  "fill": "#6E5B55",
+                  "content": "parse / format / send",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "wERU1",
+          "width": "fill_container",
+          "fill": "#FFF1EE",
+          "cornerRadius": 16,
+          "layout": "vertical",
+          "gap": 6,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "6JIjO",
+              "fill": "#C93A3A",
+              "content": "架构要点",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "b4ez4",
+              "fill": "#6E5B55",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "第一个平台最难，因为公共层还没长出来。后面再接新平台，本质是在复用 dedup、binding、command、delivery 这些已经沉淀好的能力。",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "d5r80",
+      "x": 7240,
+      "y": 80,
+      "name": "D06 A2A 协作分层图",
+      "width": 920,
+      "fill": "#FCFAF8",
+      "cornerRadius": 28,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "o7bwp",
+          "fill": "#2B211E",
+          "content": "A2A 协作分层图",
+          "fontFamily": "Inter",
+          "fontSize": 34,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "Scikx",
+          "fill": "#6E5B55",
+          "content": "内容判断去中心化，执行基础设施结构化",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "tezwt",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "o99Wa",
+              "fill": "#2B211E",
+              "content": "1. 共享感知",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "twtlt",
+              "fill": "#6E5B55",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "共享文件系统 / 共享 Git 历史 / 共享记忆索引\n所有猫先看到同一个世界，才谈得上协作",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "TASrR",
+          "width": "fill_container",
+          "fill": "#FBEDEA",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "QB5n1",
+              "fill": "#2B211E",
+              "content": "2. 协作语义",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "iQmhQ",
+              "fill": "#6E5B55",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "A2A 传球 / Cross-review / 谁有否决权\n决定『下一步谁动』和『什么改动算偏了』",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "9htrJ",
+          "width": "fill_container",
+          "fill": "#F7E8E6",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "nzgg3",
+              "fill": "#2B211E",
+              "content": "3. 执行基础设施",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "43fUQ",
+              "fill": "#6E5B55",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "targetCats（首选） + 行首 @ fallback + 统一 dispatch queue + per-cat sessionStrategy\n决定『怎么把协作稳定地跑起来』",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "MFYHB",
+          "width": "fill_container",
+          "fill": "#FFF1E8",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "236i8",
+              "fill": "#2B211E",
+              "content": "4. 守卫层",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "ZxDRM",
+              "fill": "#6E5B55",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Shared Rules / Whisper / 生命周期 Hooks / project hooks / MCP 能力\n把『别越线』和『别忘事』写进系统",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "T8bgk",
+          "width": "fill_container",
+          "fill": "#FFF1EE",
+          "cornerRadius": 16,
+          "layout": "vertical",
+          "gap": 6,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "VAetH",
+              "fill": "#C93A3A",
+              "content": "协作结论",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "4EveO",
+              "fill": "#6E5B55",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "A2A 不是『完全没中枢』，而是把内容判断留给猫，把结构化分发、上下文策略和守卫能力沉到系统底座。",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
             }
           ]
         }

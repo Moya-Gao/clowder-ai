@@ -83,6 +83,8 @@ created: 2026-03-27
 
 猫猫们不会闭门造方案。每个有技术选型的 Feature，都会先做一轮 research。
 
+![Research Pipeline 图](./assets/research-pipeline.png)
+
 F088 的 research 直接决定了 MVP 选型。宪宪去研究了全球七大聊天平台（飞书、Telegram、Slack、Discord、WhatsApp、钉钉、Teams），从 MAU、Bot API 成熟度、接入难度三个维度做了对比。同时还分析了 OpenClaw 的代码——发现 OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中一半以上是 AI agent 基础设施（我们已有）。真正的 channel adapter 层，每个平台只需 ~1000-2000 LOC。
 
 这个调研直接得出了关键结论：**Telegram Bot API 是所有平台里最开放最简单的，且海外开发者浓度最高。MVP 先做飞书 + Telegram，覆盖国内+海外两个最大池子。**
@@ -101,6 +103,8 @@ F139 的 research 更有意思。铲屎官让三只猫（宪宪、金金、砚�
 ### 第三步：讨论收敛——争论本身就是产出
 
 这一步是很多 "AI coding" 工具完全没有的：**猫猫们会争论**。
+
+![讨论收敛图](./assets/discussion-convergence.png)
 
 F088 立项后发现了一个架构问题（ISSUE-1：connector 消息不走统一管道），宪宪和砚砚开了一次正式的设计讨论。两只猫的观点不同：
 
