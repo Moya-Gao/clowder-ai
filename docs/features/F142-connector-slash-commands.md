@@ -137,6 +137,7 @@ Hub 有完整可视化界面（侧边栏、面板、命令速查），slash 命�
 |---|------|------|
 | OQ-1 | Phase B 是否需要支持 MCP 工具注册命令？ | ⬜ 未定（先做 skill 声明式，预留接口） |
 | OQ-2 | `/cats` 返回的 notRoutable 猫是否需要区分"离线"vs"忙"？当前 `/api/cats/:id/status` 仍返回占位 `idle`，需要上游先支持 | ⬜ 未定 |
+| OQ-3 | `notRoutable` 是否需要 `reason` 字段（`available_false` / `service_missing`）？当前定义仅覆盖 `available=false`，可能漏掉"有配置但 service 未注册"的猫（砚砚 v3 P3） | ⬜ 未定 |
 
 ## Key Decisions
 
