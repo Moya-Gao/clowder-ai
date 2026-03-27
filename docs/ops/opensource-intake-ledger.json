@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "5cb36dd9b91474202eb7c352541d98a152084833",
+  "last_reviewed_target_head": "832f574b27ec9d4b43eeb849232153e14e11b192",
   "entries": [
     {
       "pr_number": 90,
@@ -265,6 +265,12 @@
       "decision": "absorbed",
       "timestamp": "2026-03-26T14:09:47.750Z",
       "notes": "Absorbed via source-owned manual-port: copied only the UTF-8 console/runspace encoding lines into start-windows.ps1 and intentionally did not treat scripts/ as safe-cherry-pick."
+    },
+    {
+      "pr_number": 268,
+      "target_merge_commit": "f0ab9963c23a702ad27e751ef868d0810e13c7fd",
+      "decision": "absorbed",
+      "timestamp": "2026-03-27T03:50:59.592Z"
     }
   ]
 }
