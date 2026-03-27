@@ -40,7 +40,7 @@ created: 2026-03-14
 3. **#88 保留术语，做术语表**：不修改家里的猫言猫语/领域术语本体，改做「项目术语表 / 黑话集合」，必要时把这套内容接进进阶训练营。
 4. **其余 accept 项继续挂 F121**：`#28` / `#27` / `#22` 作为 F121 umbrella 下的社区前端 UX 收口项继续推进。
 
-### Phase C: 社区 PR 侦查（2026-06-12 金渐层初查 → 缅因猫复核）
+### Phase C: 社区 PR 侦查（2026-03-14 金渐层初查 → 缅因猫复核）
 
 铲屎官要求检查 #22/#89/#28/#27 是否有社区 PR，以及 PR 是否真的修好了问题。
 
@@ -132,8 +132,8 @@ Bug report 存档：
 | 2026-03-14 | 立项，三猫分工侦查 |
 | 2026-03-14 | Phase A 侦查完成：6/6 issue 全部定位，等待铲屎官分诊拍板 |
 | 2026-03-14 | Phase B 分诊拍板：铲屎官确认 6/6 accept，#16→F110，#88 走术语表路线 |
-| 2026-06-12 | Phase C 社区 PR 侦查（金渐层）：#28 有 PR#43、#27 有 PR#40（mindfn），但 review 来自社区 Collaborator bouillipx 不是我们家猫，需要正式 inbound review |
-| 2026-06-12 | Phase C 复核（缅因猫 gpt52）：PR#40 有 replace hydration 边界问题 + 缺回归测试；PR#43 有 scope 偏差（只修状态栏不是聊天面板）+ 缺测试。两个都不能直接 merge |
+| 2026-03-14 | Phase C 社区 PR 侦查（金渐层）：#28 有 PR#43、#27 有 PR#40（mindfn），但 review 来自社区 Collaborator bouillipx 不是我们家猫，需要正式 inbound review |
+| 2026-03-14 | Phase C 复核（缅因猫 gpt52）：PR#40 有 replace hydration 边界问题 + 缺回归测试；PR#43 有 scope 偏差（只修状态栏不是聊天面板）+ 缺测试。两个都不能直接 merge |
 | 2026-03-14 | Phase D 决策：按 Inbound PR B2 上游完整修复路线，关闭社区 PR #40/#43，cat-cafe 做终态修复后 Outbound Sync |
 | 2026-03-14 | Code fixes merged (PR #449): #22/#89/#28/#27 全部修复，砚砚(codex) review 放行 + 云端 review 通过 |
 | 2026-03-14 | Follow-up hotfix：铲屎官 runtime 反馈”置顶分组在新回复到达时自动展开”，定位为 `useCollapseState` auto-expand effect 依赖过宽，继续挂 F121 收口 |

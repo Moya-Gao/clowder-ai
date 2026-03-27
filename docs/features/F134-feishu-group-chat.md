@@ -138,7 +138,7 @@ export interface FeishuInboundMessage {
 
 ### Phase E: WebSocket 长连接模式支持（双模式共存）
 
-> 铲屎官 2026-07-24 提出：飞书应同时支持 Webhook 和 WebSocket 长连接两种模式，由铲屎官在 IM Hub 配置面板选择，而不是非此即彼推翻现有实现。
+> 铲屎官 2026-03-25 提出：飞书应同时支持 Webhook 和 WebSocket 长连接两种模式，由铲屎官在 IM Hub 配置面板选择，而不是非此即彼推翻现有实现。
 
 **背景**：
 - 当前 Cat Café 飞书接入仅支持 **Webhook 模式**（需要公网 IP / 反向代理）
@@ -303,7 +303,7 @@ if (connectionMode === 'websocket') {
 | KD-10 | Contact API + Chat API 放在 FeishuAdapter，不预抽服务 | `resolveSenderName(openId)` + `resolveChatName(chatId)` 带 TTL Map cache，直接放在 FeishuAdapter 内。只有第二个 connector 也需要时才抽 `FeishuContactService`。需权限：`contact:user.base:readonly` + `im:chat:readonly`（铲屎官已配） | 2026-03-25 |
 | KD-11 | Connector source 队列禁止 merge | `source === 'connector'` 的消息直接禁止 merge（快速稳妥方案）。QueueEntry 新增可选 `senderMeta` 字段用于 UI 展示，但不参与 merge 判断。这避免群聊中不同 sender 的消息被合并 | 2026-03-25 |
 | KD-12 | Phase D 三层权限模型 | 第一层：群白名单（`/allow-group` `/deny-group`）；第二层：@bot 对话全开放不限制；第三层：/command 管理命令仅管理员可用（`FEISHU_ADMIN_OPEN_IDS` env）。铲屎官场景：演示时防别人刷 token、乱切 thread | 2026-03-25 |
-| KD-13 | WebSocket 长连接 + Webhook 双模式共存 | 飞书官方支持 WebSocket 长连接（不需要公网 IP），`@larksuiteoapi/node-sdk` 原生支持 `WSClient`。铲屎官明确要求两种模式都支持、在 IM Hub 配置面板可选（不能只藏在 env）、默认 webhook 向后兼容。Lark 国际版不支持长连接，webhook 必须保留 | 2026-07-24 |
+| KD-13 | WebSocket 长连接 + Webhook 双模式共存 | 飞书官方支持 WebSocket 长连接（不需要公网 IP），`@larksuiteoapi/node-sdk` 原生支持 `WSClient`。铲屎官明确要求两种模式都支持、在 IM Hub 配置面板可选（不能只藏在 env）、默认 webhook 向后兼容。Lark 国际版不支持长连接，webhook 必须保留 | 2026-03-25 |
 
 ## Timeline
 
@@ -329,7 +329,7 @@ if (connectionMode === 'websocket') {
 | 2026-03-25 | 缅因猫 review Round 1: 2 P1（admin 双源 + 内存不持久化），修复后 Round 2 approved |
 | 2026-03-25 | 云端 review: P1 (admin seed 覆盖) → 修复 → P2 (length vs hexists) → 修复 → 0 P1/P2 通过 |
 | 2026-03-25 | PR #705 squash merged → `bd664695`, Phase A-D all done |
-| 2026-07-24 | 铲屎官提出飞书应同时支持 Webhook + WebSocket 长连接，在 IM Hub 配置面板可选（KD-13），纳入 Phase E |
+| 2026-03-25 | 铲屎官提出飞书应同时支持 Webhook + WebSocket 长连接，在 IM Hub 配置面板可选（KD-13），纳入 Phase E |
 | 2026-03-26 | Phase E 实现：WSClient 双模式 + IM Hub 连接模式选择器 + mode-aware steps + 非法值归一化 |
 | 2026-03-26 | 缅因猫 review: P1 (AC-E6 steps 不按模式变) + P2 (normalization + WSClient mock) → 修复 → Round 2 放行 |
 | 2026-03-26 | PR #745 squash merged, Phase A-E all done |

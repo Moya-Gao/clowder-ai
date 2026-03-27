@@ -85,7 +85,7 @@ Phase A 只做了后台清理（用户不可见），Phase A+ 补上用户可见
 - **A/B 分段交付（2026-03-06 三猫讨论）**：不再坚持"要做就做完整体验"。Phase A 先补 correctness 缺口（启动收尸），Phase B 再做队列持久化
 - **收尸策略用 `failed` 而非新增 `interrupted` 状态**：避免前端新增渲染分支，直接清除 TaskProgress 让前端回到"无进度"态。error 字段标注 `process_restart` 作为区分
 - **不扫 ndjson 推断死亡**（否决旧分支 `fix/invocation-restart-guard` 的方案）：直接在启动时 sweep Redis stale records，更直接可靠
-- **Phase A+ 持久化走 `source` 不走 `catId: null`**（2026-07-14 三猫 review 收敛）：因为历史接口 `messages.ts:956` 把 `catId=null && !source` 映射成 `user`，直接写库会导致刷新后变成"用户消息"。走 `source` 字段（如 `startup-reconciler`）则映射为 `connector`，语义正确
+- **Phase A+ 持久化走 `source` 不走 `catId: null`**（2026-03-16 三猫 review 收敛）：因为历史接口 `messages.ts:956` 把 `catId=null && !source` 映射成 `user`，直接写库会导致刷新后变成"用户消息"。走 `source` 字段（如 `startup-reconciler`）则映射为 `connector`，语义正确
 
 ## Evidence（三猫讨论关键证据）
 
@@ -145,7 +145,7 @@ Phase A 只做了后台清理（用户不可见），Phase A+ 补上用户可见
 - 2026-03-06: Status: idea → spec，Phase A ready for implementation
 - 2026-03-06: Phase A 实现 + codex R1→R5 + gpt52 R1→R2 + 云端 R1 → PR #249 squash merged
 - 2026-03-06: Phase A done，Phase B idle（队列持久化，待需求驱动）
-- 2026-07-14: 社区 PR #78 / Issue #77 → Phase A+ 立项（用户可见通知），intake 含持久化语义修正
+- 2026-03-16: 社区 PR #78 / Issue #77 → Phase A+ 立项（用户可见通知），intake 含持久化语义修正
 - 2026-03-17: Phase A+ 实现 + codex R1→R3 + 云端 R1→R2 → PR #517 squash merged
 - 2026-03-17: Phase A+ done（AC-A+1~A+6 全部 ✅），Phase B idle
 - 2026-03-17: PR #539 squash merged — harden Redis namespace singleton with lease invalidation fail-fast + retry-path guard, eliminating false `process_restart` notifications caused by multi-instance Redis contention

@@ -170,9 +170,9 @@ F055 合入后铲屎官安排了一次链式冒烟测试：opus → codex → so
 - 2026-03-03: PR #202 merged (squash, `71a18914`)
 - 2026-03-03: 链式冒烟测试（opus→codex→sonnet）通过 + 调试乌龙故事
 - 2026-03-03: feature closed
-- 2026-06-22: 铲屎官报告多猫 task_progress 对接问题 → 金渐层代码审查
+- 2026-03-24: 铲屎官报告多猫 task_progress 对接问题 → 金渐层代码审查
 
-## Bug 追踪：多猫 task_progress 对接缺口（2026-06-22）
+## Bug 追踪：多猫 task_progress 对接缺口（2026-03-24）
 
 > **Reporter**: 铲屎官
 > **Investigator**: 金渐层 (@opencode / Claude Opus 4.6)
