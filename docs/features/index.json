@@ -861,7 +861,7 @@
     {
       "id": "F140",
       "name": "GitHub PR Signals — 冲突检测 + Review Feedback 全来源感知",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-27",
       "file": "F140-github-pr-automation.md"
     },
     {
@@ -877,5 +877,5 @@
       "file": "F142-connector-slash-commands.md"
     }
   ],
-  "generated_at": "2026-03-27T09:55:45.886Z"
+  "generated_at": "2026-03-27T09:59:59.641Z"
 }
