@@ -585,7 +585,7 @@
     {
       "id": "F095",
       "name": "Thread Sidebar 导航体验升级",
-      "status": "done | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F095-sidebar-collapse-memory.md"
     },
     {
@@ -837,7 +837,7 @@
     {
       "id": "F136",
       "name": "Unified Config Hot Reload — 配置热更新统一管线",
-      "status": "spec | **Owner**: 待定 | **Priority**: P1",
+      "status": "spec | **Owner**: @opus | **Priority**: P1",
       "file": "F136-unified-config-hot-reload.md"
     },
     {
@@ -877,5 +877,5 @@
       "file": "F142-connector-slash-commands.md"
     }
   ],
-  "generated_at": "2026-03-27T09:59:59.641Z"
+  "generated_at": "2026-03-27T12:14:43.888Z"
 }

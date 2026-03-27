@@ -233,7 +233,7 @@ export function CatCafeHub() {
               ) : null)}
             {tab === 'system' &&
               (config ? (
-                <SystemTab config={config} />
+                <SystemTab config={config} onConfigChange={fetchData} />
               ) : !fetchError ? (
                 <p className="text-sm text-gray-400">加载中...</p>
               ) : null)}

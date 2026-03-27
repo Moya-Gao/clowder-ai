@@ -102,6 +102,8 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
 
   useEffect(() => {
     void loadThreads();
+    // Fetch global bubble display defaults from Config Hub on mount
+    void useChatStore.getState().fetchGlobalBubbleDefaults();
   }, [loadThreads]);
 
   // F070: Fetch governance health for all registered external projects

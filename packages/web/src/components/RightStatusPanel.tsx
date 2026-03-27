@@ -123,23 +123,61 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
   );
 }
 
-/** Global UI preference: default expand/collapse for Thinking blocks */
-function ThinkingDefaultExpandToggle() {
-  const expanded = useChatStore((s) => s.uiThinkingExpandedByDefault);
-  const setExpanded = useChatStore((s) => s.setUiThinkingExpandedByDefault);
-  const toggle = useCallback(() => setExpanded(!expanded), [expanded, setExpanded]);
+const BUBBLE_LABELS: Record<string, string> = {
+  global: '跟随全局',
+  expanded: '展开',
+  collapsed: '折叠',
+};
+const BUBBLE_CYCLE: Record<string, 'expanded' | 'collapsed' | 'global'> = {
+  global: 'expanded',
+  expanded: 'collapsed',
+  collapsed: 'global',
+};
+
+/** Thread-level bubble display override (three-state: global / expanded / collapsed) */
+function BubbleDisplayToggle({
+  threadId,
+  label,
+  field,
+}: {
+  threadId: string;
+  label: string;
+  field: 'bubbleThinking' | 'bubbleCli';
+}) {
+  const thread = useChatStore((s) => s.threads.find((t) => t.id === threadId));
+  const updateLocal = useChatStore((s) => s.updateThreadBubbleDisplay);
+  const current = thread?.[field] ?? 'global';
+  const pendingRef = useRef(false);
+
+  const cycle = useCallback(async () => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    const next = BUBBLE_CYCLE[current] ?? 'global';
+    updateLocal(threadId, field, next);
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: next }),
+      });
+      if (!res.ok) updateLocal(threadId, field, current);
+    } catch {
+      updateLocal(threadId, field, current);
+    } finally {
+      pendingRef.current = false;
+    }
+  }, [threadId, field, current, updateLocal]);
 
   return (
     <div className="flex items-center justify-between">
       <span>
-        Thinking 默认: <span className="font-medium">{expanded ? '📖 展开' : '🧻 折叠'}</span>
+        {label}: <span className="font-medium">{BUBBLE_LABELS[current]}</span>
       </span>
       <button
-        onClick={toggle}
+        onClick={cycle}
         className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
-        title={expanded ? '切换为默认折叠（减少滚动）' : '切换为默认展开（便于调试）'}
       >
-        {expanded ? '默认折叠' : '默认展开'}
+        {BUBBLE_LABELS[BUBBLE_CYCLE[current] ?? 'global']}
       </button>
     </div>
   );
@@ -433,7 +471,8 @@ export function RightStatusPanel({
               {truncateId(threadId, 12)}
             </button>
           </div>
-          <ThinkingDefaultExpandToggle />
+          <BubbleDisplayToggle threadId={threadId} label="Thinking" field="bubbleThinking" />
+          <BubbleDisplayToggle threadId={threadId} label="CLI 气泡" field="bubbleCli" />
           <ThinkingModeToggle threadId={threadId} />
 
           <RevealWhispersButton threadId={threadId} />

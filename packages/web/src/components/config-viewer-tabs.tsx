@@ -1,5 +1,7 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
 import type { CatData } from '@/hooks/useCatData';
+import { useChatStore } from '@/stores/chatStore';
+import { apiFetch } from '@/utils/api-client';
 import type { ConfigData } from './config-viewer-types';
 import { HubCoCreatorOverviewCard, HubMemberOverviewCard, HubOverviewToolbar } from './HubMemberOverviewCard';
 
@@ -64,9 +66,80 @@ export function CatOverviewTab({
   );
 }
 
-export function SystemTab({ config }: { config: ConfigData }) {
+type BubbleDefault = 'expanded' | 'collapsed';
+
+function BubbleToggle({
+  label,
+  value,
+  configKey,
+  onChanged,
+}: {
+  label: string;
+  value: BubbleDefault;
+  configKey: string;
+  onChanged: () => void;
+}) {
+  const pendingRef = useRef(false);
+  const [optimistic, setOptimistic] = useState<BubbleDefault | null>(null);
+  const display = optimistic ?? value;
+
+  const toggle = useCallback(async () => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    const next: BubbleDefault = display === 'collapsed' ? 'expanded' : 'collapsed';
+    setOptimistic(next);
+    try {
+      const res = await apiFetch('/api/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: configKey, value: next }),
+      });
+      if (res.ok) {
+        setOptimistic(null);
+        onChanged();
+        void useChatStore.getState().fetchGlobalBubbleDefaults();
+      } else setOptimistic(null);
+    } catch {
+      setOptimistic(null);
+    } finally {
+      pendingRef.current = false;
+    }
+  }, [display, configKey, onChanged]);
+
+  return (
+    <div className="flex items-center justify-between text-xs text-gray-700">
+      <span>{label}</span>
+      <button
+        onClick={toggle}
+        className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+      >
+        {display === 'expanded' ? '展开' : '折叠'}
+      </button>
+    </div>
+  );
+}
+
+export function SystemTab({ config, onConfigChange }: { config: ConfigData; onConfigChange?: () => void }) {
+  const handleChanged = useCallback(() => onConfigChange?.(), [onConfigChange]);
+
   return (
     <>
+      <Section title="气泡显示">
+        <div className="space-y-1.5">
+          <BubbleToggle
+            label="Thinking 默认"
+            value={config.ui?.bubbleDefaults?.thinking ?? 'collapsed'}
+            configKey="ui.bubble.thinking"
+            onChanged={handleChanged}
+          />
+          <BubbleToggle
+            label="CLI 气泡默认"
+            value={config.ui?.bubbleDefaults?.cliOutput ?? 'collapsed'}
+            configKey="ui.bubble.cliOutput"
+            onChanged={handleChanged}
+          />
+        </div>
+      </Section>
       <Section title="A2A 猫猫互调">
         <div className="space-y-1.5">
           <KV label="启用" value={config.a2a.enabled} />

@@ -7,7 +7,7 @@ import { useTts } from '@/hooks/useTts';
 import { hexToRgba, tintedLight } from '@/lib/color-utils';
 import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { parseDirection } from '@/lib/parse-direction';
-import { type ChatMessage as ChatMessageType, useChatStore } from '@/stores/chatStore';
+import { type ChatMessage as ChatMessageType, resolveBubbleExpanded, useChatStore } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { ConnectorBubble } from './ConnectorBubble';
 import { ContentBlocks } from './ContentBlocks';
@@ -57,7 +57,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const router = useRouter();
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
   const threads = useChatStore((s) => s.threads);
-  const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
+  const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
   const isUser = message.type === 'user' && !message.catId;
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
@@ -339,7 +339,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               content={message.thinking}
               className={catStyle?.font}
               label="Thinking"
-              defaultExpanded={uiThinkingExpandedByDefault}
+              defaultExpanded={resolveBubbleExpanded(currentThread?.bubbleThinking, globalBubbleDefaults.thinking)}
               expandInExport={false}
               breedColor={catData?.color.primary}
             />
@@ -349,7 +349,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               events={cliEvents}
               status={cliStatus}
               thinkingMode={currentThread?.thinkingMode}
-              defaultExpanded={uiThinkingExpandedByDefault}
+              defaultExpanded={resolveBubbleExpanded(currentThread?.bubbleCli, globalBubbleDefaults.cliOutput)}
               breedColor={catData?.color.primary}
             />
           )}

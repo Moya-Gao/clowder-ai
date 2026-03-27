@@ -117,6 +117,28 @@ function persistUiThinkingExpandedByDefault(next: boolean) {
   }
 }
 
+export type BubbleExpandState = 'expanded' | 'collapsed';
+export type BubbleOverride = 'global' | 'expanded' | 'collapsed';
+
+export interface GlobalBubbleDefaults {
+  thinking: BubbleExpandState;
+  cliOutput: BubbleExpandState;
+}
+
+/**
+ * Resolve whether a bubble type should be expanded.
+ * Priority: thread override > global config > fallback (collapsed).
+ */
+export function resolveBubbleExpanded(
+  threadOverride: BubbleOverride | undefined,
+  globalDefault: BubbleExpandState,
+): boolean {
+  if (threadOverride && threadOverride !== 'global') {
+    return threadOverride === 'expanded';
+  }
+  return globalDefault === 'expanded';
+}
+
 function revokeBlobUrls(messages: ChatMessage[]) {
   for (const msg of messages) {
     if (msg.contentBlocks) {
@@ -397,6 +419,8 @@ interface ChatState {
   isLoadingThreads: boolean;
   /** UI: Whether Thinking blocks should be expanded by default (global preference). */
   uiThinkingExpandedByDefault: boolean;
+  /** Global bubble display defaults from Config Hub (server-side). */
+  globalBubbleDefaults: GlobalBubbleDefaults;
 
   // ── Active-thread actions (operate on flat state) ──
   addMessage: (msg: ChatMessage) => void;
@@ -453,6 +477,9 @@ interface ChatState {
   updateThreadThinkingMode: (threadId: string, mode: 'debug' | 'play') => void;
 
   updateThreadPreferredCats: (threadId: string, preferredCats: string[]) => void;
+  updateThreadBubbleDisplay: (threadId: string, field: 'bubbleThinking' | 'bubbleCli', value: BubbleOverride) => void;
+  setGlobalBubbleDefaults: (defaults: GlobalBubbleDefaults) => void;
+  fetchGlobalBubbleDefaults: () => Promise<void>;
   setUiThinkingExpandedByDefault: (next: boolean) => void;
 
   // ── Multi-thread actions (new) ──
@@ -608,6 +635,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
   threads: [],
   isLoadingThreads: false,
   uiThinkingExpandedByDefault: loadUiThinkingExpandedByDefault(),
+  globalBubbleDefaults: {
+    // Use old localStorage value as initial fallback for thinking; CLI defaults to collapsed
+    thinking: loadUiThinkingExpandedByDefault() ? 'expanded' : 'collapsed',
+    cliOutput: 'collapsed',
+  },
+
+  setGlobalBubbleDefaults: (defaults) => set({ globalBubbleDefaults: defaults }),
+
+  fetchGlobalBubbleDefaults: async () => {
+    try {
+      const { apiFetch } = await import('@/utils/api-client');
+      const res = await apiFetch('/api/config');
+      if (!res.ok) return;
+      const data = await res.json();
+      const ui = data.config?.ui;
+      if (ui?.bubbleDefaults) {
+        set({
+          globalBubbleDefaults: {
+            thinking: ui.bubbleDefaults.thinking ?? 'collapsed',
+            cliOutput: ui.bubbleDefaults.cliOutput ?? 'collapsed',
+          },
+        });
+      }
+    } catch {
+      // Fallback to existing defaults on network error
+    }
+  },
+
+  updateThreadBubbleDisplay: (threadId, field, value) =>
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId ? { ...t, [field]: value === 'global' ? undefined : value } : t,
+      ),
+    })),
 
   setUiThinkingExpandedByDefault: (next) => {
     persistUiThinkingExpandedByDefault(next);

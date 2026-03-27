@@ -59,6 +59,18 @@ const CONFIG_KEY_DEFINITIONS: Record<string, ConfigKeyDefinition> = {
     validate: (value) => ['true', 'false'].includes(value),
     riskLevel: 'high',
   },
+  'ui.bubble.thinking': {
+    envKey: 'UI_BUBBLE_THINKING_DEFAULT',
+    snapshotPath: ['ui', 'bubbleDefaults', 'thinking'],
+    validate: (value) => ['expanded', 'collapsed'].includes(value),
+    riskLevel: 'standard',
+  },
+  'ui.bubble.cliOutput': {
+    envKey: 'UI_BUBBLE_CLI_OUTPUT_DEFAULT',
+    snapshotPath: ['ui', 'bubbleDefaults', 'cliOutput'],
+    validate: (value) => ['expanded', 'collapsed'].includes(value),
+    riskLevel: 'standard',
+  },
 };
 
 class ConfigStoreImpl {
