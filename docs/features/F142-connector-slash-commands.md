@@ -8,7 +8,7 @@ created: 2026-03-27
 
 # F142: Connector Slash Commands — 跨平台 /slash 扩展框架
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -79,14 +79,14 @@ Hub 有完整可视化界面（侧边栏、面板、命令速查），slash 命�
 ## Acceptance Criteria
 
 ### Phase A（漂移清理 + Connector 核心命令）
-- [ ] AC-A1: 飞书/Telegram connector 中输入 `/commands` 返回当前 connector 可用命令的文字列表
-- [ ] AC-A2: `/cats` 在 connector 中返回：participants（已加入）+ routableNow + routableNotJoined + notRoutable（available=false），口径 = `registeredService ∩ isCatAvailable`
-- [ ] AC-A3: `/status` 在 connector 中返回 thread 标题、创建时间、参与猫数、最近活跃时间
-- [ ] AC-A4: 清理幽灵命令（`/game status`、`/game end` 等，仅从 registry 删除，不加新条目），注册表-执行器一致性测试通过
-- [ ] AC-A5: `GET /api/threads/:id/cats` 聚合 API 可用，返回上述结构
-- [ ] AC-A6: `/api/threads/:id/cats` 有 connector binding owner 权限校验（thread participants 是猫 ID 非人类用户），非授权请求返回 403
-- [ ] AC-A7: `/cats` 口径绑定 AgentRouter 现有逻辑，有快照测试覆盖
-- [ ] AC-A8: 现有 connector 命令（`/where` `/new` `/threads` `/use`）行为无回退
+- [x] AC-A1: 飞书/Telegram connector 中输入 `/commands` 返回当前 connector 可用命令的文字列表
+- [x] AC-A2: `/cats` 在 connector 中返回：participants（已加入）+ routableNow + routableNotJoined + notRoutable（available=false），口径 = `registeredService ∩ isCatAvailable`
+- [x] AC-A3: `/status` 在 connector 中返回 thread 标题、创建时间、参与猫数、最近活跃时间
+- [x] AC-A4: 清理幽灵命令（`/game status`、`/game end` 等，仅从 registry 删除，不加新条目），注册表-执行器一致性测试通过
+- [x] AC-A5: `GET /api/threads/:id/cats` 聚合 API 可用，返回上述结构
+- [x] AC-A6: `/api/threads/:id/cats` 有 connector binding owner 权限校验（thread participants 是猫 ID 非人类用户），非授权请求返回 403
+- [x] AC-A7: `/cats` 口径绑定 AgentRouter 现有逻辑，有快照测试覆盖
+- [x] AC-A8: 现有 connector 命令（`/where` `/new` `/threads` `/use`）行为无回退
 
 ### Phase B（Skill 声明式注册 + 统一解析）
 - [ ] AC-B1: `manifest.yaml` 支持 `slashCommands` 字段，后端启动时通过 capabilities 链路自动发现并注册
@@ -159,6 +159,8 @@ Hub 有完整可视化界面（侧边栏、面板、命令速查），slash 命�
 |------|------|
 | 2026-03-27 | 立项，铲屎官 + 宪宪 + 砚砚讨论确认 scope |
 | 2026-03-27 | 砚砚 review spec v1（3P1+2P2）→ v2；砚砚 review v2（2P1+2P2）→ v3 收敛 |
+| 2026-03-27 | Phase A 实现完成，砚砚 code review 放行 + 云端 review 通过 |
+| 2026-03-27 | Phase A merged → main（PR #781, squash commit `f558d69ed6`） |
 
 ## Review Gate
 
