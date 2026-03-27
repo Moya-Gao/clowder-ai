@@ -8,7 +8,7 @@ created: 2026-03-26
 
 # F140: GitHub PR Signals — 冲突检测 + Review Feedback 全来源感知
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-27
 
 ## 三层架构定位
 
@@ -218,6 +218,8 @@ created: 2026-03-26
 | 2026-03-26 | Double-consume dedup fix merged (PR #764) — 统一 feedback filter（Rules A/B/C），砚砚三审放行 |
 | 2026-03-26 | 铲屎官发现 CI pass 未唤醒猫 bug，确认与 Phase C 捆绑修复 |
 | 2026-03-27 | Phase C merged (PR #770) — ConflictAutoExecutor + CI pass wake-up + TriggerIntent pipeline。砚砚 R1 review 3 P1 修复后放行，云端 Codex R2 通过 |
+| 2026-03-27 | Phase D merged (PR #773) — PR tracking 注册校验护栏（`gh repo view` 通用校验）。云端 P1 修复后通过 |
+| 2026-03-27 | **Feature closed** — 愿景守护（砚砚 GPT-5.4）放行。4 Phase 全部完成 |
 
 ## Design Gate 讨论归档
 
@@ -240,6 +242,7 @@ created: 2026-03-26
 - Phase B: 砚砚 (codex/spark) cross-family review — 放行, 无 P1/P2
 - Phase B+ dedup fix: 砚砚 (codex/spark) cross-family review — 三审放行（P1×2 修复后）, 无 P1/P2
 - Phase C: 砚砚 (codex/spark) R1 review — 3 P1 发现 + 修复确认放行。云端 Codex R2 — "No major issues"
+- Phase D: 砚砚 (codex/spark) cross-family review — 放行, 无 P1/P2。云端 Codex R1 1 P1（catch-all→区分 infra failure）修复后 R2 通过
 
 ## Links
 
