@@ -468,13 +468,15 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     await generateCliConfigs(config, getCliConfigPaths(projectRoot));
 
     // 2. Discover skills (filesystem scan — separate from MCP)
-    // null = scan failed (readdir error); [] = directory exists but empty
+    // null = scan failed (readdir/read error); [] = directory exists but empty.
+    // Use listSkillSubdirs() for provider dirs so stale/broken symlinks do not
+    // resurrect deleted skills in the board.
     const projectSkillsDir = join(projectRoot, '.claude', 'skills');
     const [claudeProjectSkills, claudeUserSkills, codexSkills, geminiSkills] = await Promise.all([
-      listSubdirs(projectSkillsDir),
-      listSubdirs(join(home, '.claude', 'skills')),
-      listSubdirs(join(home, '.codex', 'skills'), ['.system']),
-      listSubdirs(join(home, '.gemini', 'skills')),
+      listSkillSubdirs(projectSkillsDir),
+      listSkillSubdirs(join(home, '.claude', 'skills')),
+      listSkillSubdirs(join(home, '.codex', 'skills'), ['.system']),
+      listSkillSubdirs(join(home, '.gemini', 'skills')),
     ]);
 
     // F041 bug fix: Also scan cat-cafe-skills/ for project-level skill detection.
