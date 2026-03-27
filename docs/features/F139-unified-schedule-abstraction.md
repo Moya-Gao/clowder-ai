@@ -101,10 +101,10 @@ created: 2026-03-25
 - [x] AC-G4: 动态任务与代码注册任务统一管理（展示/暂停/删除/运行历史）
 - [x] AC-G5: MVP 模板集（≥3 个：news-digest / repo-watch / stale-issue-cleanup 或同等）
 
-### Phase 3B（Governance + Pack）
-- [ ] AC-D1: 电闸/备忘录分离权限模型
-- [ ] AC-D2: anti-feedback-loop 防回声
-- [ ] AC-D3: Pack 任务模板安装/卸载
+### Phase 3B（Governance + Pack） ✅
+- [x] AC-D1: 电闸/备忘录分离权限模型
+- [x] AC-D2: anti-feedback-loop 防回声
+- [x] AC-D3: Pack 任务模板安装/卸载
 
 ## Dependencies
 
@@ -164,6 +164,7 @@ created: 2026-03-25
 | 2026-03-27 | Phase 2.5 merged (PR #775) — TaskDisplayMeta + subjectPreview + 5 任务 display 声明 + SchedulePanel 纯渲染; 砚砚 local review 2 rounds (2×P1 fixed: SKIP_NO_SIGNAL key leak + repo-scan format) + cloud review passed |
 | 2026-03-27 | **愿景审视**：铲屎官发现 NL 输入框不可用 + footer "3 failed" 无可操作性。AC-C4 回退，Phase 重排为 2.6→3A→3B（宪宪 × 砚砚 收敛） |
 | 2026-03-27 | Phase 3A merged (PR #780) — 对话式任务注册 + 面板最终态; 砚砚 local review 2 rounds (4×P1 fixed) + cloud review passed |
+| 2026-03-27 | Phase 3B merged (PR #785) — Governance (global pause + task overrides + effectiveEnabled) + EmissionStore (self-echo suppression with full R/W loop) + Pack templates (install/uninstall with runtime registry sync); 砚砚 local review 3 rounds (3×P1 + 1×P1 + 1×P2 fixed) + cloud review passed |
 
 ## Review Gate
 
