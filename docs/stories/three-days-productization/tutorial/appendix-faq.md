@@ -156,9 +156,7 @@ OpenClaw 是一个在 2026 年初爆火的**开源个人 AI 助理项目**（Git
 
 2026 年，各家都在做"可分发的能力打包"：
 
-- **Codex Plugin**：MCP tools + Skill + App/Connector 打成 bundle，解决"一个 agent 带什么能力出门"
-- **OpenClaw Bundle**：把外部生态内容映射成本地能力，兼容 Cursor/Claude Code/Codex 格式
-- **ClawHub SKILL.md**：单文件 skill 定义（YAML frontmatter + Markdown 指令），13,000+ 社区贡献
+以 Codex / ChatGPT Apps 生态为代表，这类 plugin / connector 更接近把工具、技能和接入能力组合给**单个 agent** 使用。OpenClaw 的 Bundle 机制也是类似方向——把外部生态内容映射成本地能力。ClawHub 上已有 13,000+ 社区贡献的 SKILL.md。
 
 这些方案的共同点是：**它们打包的是单 agent 的能力。**
 

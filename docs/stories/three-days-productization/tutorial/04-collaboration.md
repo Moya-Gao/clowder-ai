@@ -206,7 +206,7 @@ Experience = Me（本地私有） × Pack（可分享的协作世界） + Growth
 
 安全靠**双轨信任模型**保证：社区 Pack 的内容不是原样注入 system prompt，而是走 schema 解析 → 编译 → canonical prompt block 管道。硬约束只能加严，核心身份不可覆盖。
 
-这个设计和 2026 年各家推的 Plugin/Bundle 思路有本质区别——附录 Q5 会展开对比。
+它不是在回答"一个 agent 带什么能力出门"，而是在回答"一群 agent 怎么长期协作"——附录 Q5 会展开。
 
 ---
 
