@@ -102,11 +102,11 @@ Hub 有完整可视化界面（侧边栏、面板、命令速查），slash 命�
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "查询有什么 /slash" | AC-A1 | connector 端实际输入测试 | [ ] |
-| R2 | "查询某个 thread 现在有多少猫猫可以使用（已加入）以及可调度的猫猫" | AC-A2, AC-A5, AC-A7 | connector 端实际输入 + API 快照测试 | [ ] |
-| R3 | "支持自定义 /slash" | AC-B1 | manifest 声明命令 → connector 可用 | [ ] |
-| R4 | "通过插件或容易的方式集成" | AC-B1, AC-B2 | 写 manifest 即扩展，无需改核心代码 | [ ] |
-| R5 | scope 收敛到 connector 端（飞书/微信） | AC-A8, AC-B8 | Hub 无变化，connector 有增强 | [ ] |
+| R1 | "查询有什么 /slash" | AC-A1 | connector 端实际输入测试 | [x] |
+| R2 | "查询某个 thread 现在有多少猫猫可以使用（已加入）以及可调度的猫猫" | AC-A2, AC-A5, AC-A7 | connector 端实际输入 + API 快照测试 | [x] |
+| R3 | "支持自定义 /slash" | AC-B1 | manifest 声明命令 → connector 可用 | [x] |
+| R4 | "通过插件或容易的方式集成" | AC-B1, AC-B2 | 写 manifest 即扩展，无需改核心代码 | [x] |
+| R5 | scope 收敛到 connector 端（飞书/微信） | AC-A8, AC-B8 | Hub 无变化，connector 有增强 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -163,6 +163,7 @@ Hub 有完整可视化界面（侧边栏、面板、命令速查），slash 命�
 | 2026-03-27 | Phase A merged → main（PR #781, squash commit `f558d69ed6`） |
 | 2026-03-27 | Phase B merged → main（PR #783） |
 | 2026-03-27 | 愿景守护 fix merged → main（PR #786）：CORE_COMMANDS 补齐 + parseCommand wiring + /thread metadata 对齐 |
+| 2026-03-27 | 金渐层愿景守护 PASS — 5/5 需求对齐 + 运行时链路完整。F142 closed |
 
 ## Review Gate
 
