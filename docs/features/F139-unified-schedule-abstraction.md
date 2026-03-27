@@ -83,12 +83,12 @@ created: 2026-03-25
 - [x] AC-C3b-3: 无 thread 关联任务明确落在「No thread」分组，不丢失
 - [x] AC-C4: 自然语言→TaskSpec 转换可用
 
-### Phase 2.5（Display Contract 显示契约收口）
-- [ ] AC-E1: `TaskSpec_P1` 新增 `display?: TaskDisplayMeta`（label + category + description + subjectKind）
-- [ ] AC-E2: `ScheduleTaskSummary` 透传 `display` + 新增 `subjectPreview: string | null`（后端计算，前端不解析 subjectKey）
-- [ ] AC-E3: 5 个现有任务（summary-compact / cicd-check / conflict-check / review-feedback / repo-scan）全部补齐 `display` 声明
-- [ ] AC-E4: SchedulePanel 前端改为纯渲染：`task.display?.label ?? fallback`，删除 `humanizeSubject()` / `categorize()` 猜测逻辑（保留 fallback 兼容）
-- [ ] AC-E5: `subjectPreview === null` 时前端展示 `display.description`，不展示原始 subjectKey
+### Phase 2.5（Display Contract 显示契约收口）✅
+- [x] AC-E1: `TaskSpec_P1` 新增 `display?: TaskDisplayMeta`（label + category + description + subjectKind）
+- [x] AC-E2: `ScheduleTaskSummary` 透传 `display` + 新增 `subjectPreview: string | null`（后端计算，前端不解析 subjectKey）
+- [x] AC-E3: 5 个现有任务（summary-compact / cicd-check / conflict-check / review-feedback / repo-scan）全部补齐 `display` 声明
+- [x] AC-E4: SchedulePanel 前端改为纯渲染：`task.display?.label ?? fallback`，删除 `humanizeSubject()` / `categorize()` 猜测逻辑（保留 fallback 兼容）
+- [x] AC-E5: `subjectPreview === null` 时前端展示 `display.description`，不展示原始 subjectKey
 
 ### Phase 3（Governance + Pack）
 - [ ] AC-D1: 电闸/备忘录分离权限模型
@@ -146,6 +146,7 @@ created: 2026-03-25
 | 2026-03-26 | Phase 2 UX V2 设计稿确认 — 扁平列表 + 标签 + NL 入口（铲屎官确认） |
 | 2026-03-26 | Phase 2 merged (PR #756) — cron triggers + SchedulePanel UI + NL config; 砚砚 review 2 rounds (2×P1 + 2×P2 fixed) |
 | 2026-03-26 | Phase 2.5 design converged — 宪宪 × 砚砚(gpt52) 讨论收敛：display contract + subjectPreview + 5 任务同批迁完 |
+| 2026-03-27 | Phase 2.5 merged (PR #775) — TaskDisplayMeta + subjectPreview + 5 任务 display 声明 + SchedulePanel 纯渲染; 砚砚 local review 2 rounds (2×P1 fixed: SKIP_NO_SIGNAL key leak + repo-scan format) + cloud review passed |
 
 ## Review Gate
 
