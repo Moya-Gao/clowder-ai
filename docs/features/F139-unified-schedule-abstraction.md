@@ -83,6 +83,13 @@ created: 2026-03-25
 - [x] AC-C3b-3: 无 thread 关联任务明确落在「No thread」分组，不丢失
 - [x] AC-C4: 自然语言→TaskSpec 转换可用
 
+### Phase 2.5（Display Contract 显示契约收口）
+- [ ] AC-E1: `TaskSpec_P1` 新增 `display?: TaskDisplayMeta`（label + category + description + subjectKind）
+- [ ] AC-E2: `ScheduleTaskSummary` 透传 `display` + 新增 `subjectPreview: string | null`（后端计算，前端不解析 subjectKey）
+- [ ] AC-E3: 5 个现有任务（summary-compact / cicd-check / conflict-check / review-feedback / repo-scan）全部补齐 `display` 声明
+- [ ] AC-E4: SchedulePanel 前端改为纯渲染：`task.display?.label ?? fallback`，删除 `humanizeSubject()` / `categorize()` 猜测逻辑（保留 fallback 兼容）
+- [ ] AC-E5: `subjectPreview === null` 时前端展示 `display.description`，不展示原始 subjectKey
+
 ### Phase 3（Governance + Pack）
 - [ ] AC-D1: 电闸/备忘录分离权限模型
 - [ ] AC-D2: anti-feedback-loop 防回声
@@ -122,6 +129,8 @@ created: 2026-03-25
 | KD-5 | UI + 自然语言配置（非 markdown 编辑） | 铲屎官明确要求 | 2026-03-25 |
 | KD-6 | 龙虾兼容但不照搬 | 事件驱动我们更好，只学主动自省语义 | 2026-03-25 |
 | KD-7 | 调度面板 = Workspace 顶级 Tab（和"开发""知识"平齐） | 铲屎官确认，不是子 Tab；展示在 Workspace，配置在对话区自然语言；Tab 图标用 SVG 不用 emoji | 2026-03-25 |
+| KD-8 | 任务声明 display metadata（label/category/description/subjectKind），前端不再猜 | 铲屎官 + 砚砚(gpt52) 讨论收敛：静态展示归 TaskSpec，动态对象展示归 API subjectPreview，前端纯渲染 | 2026-03-26 |
+| KD-9 | category 采用对象导向分类（pr/repo/thread/system/external），弃 Custom | 砚砚提出：Custom 是废桶，对象导向更稳，未来"叼邮箱"归 external | 2026-03-26 |
 
 ## Timeline
 
@@ -136,6 +145,7 @@ created: 2026-03-25
 | 2026-03-26 | Phase 1b merged (PR #750) — actor.role resolver + costTier + execute routing + V1 cleanup |
 | 2026-03-26 | Phase 2 UX V2 设计稿确认 — 扁平列表 + 标签 + NL 入口（铲屎官确认） |
 | 2026-03-26 | Phase 2 merged (PR #756) — cron triggers + SchedulePanel UI + NL config; 砚砚 review 2 rounds (2×P1 + 2×P2 fixed) |
+| 2026-03-26 | Phase 2.5 design converged — 宪宪 × 砚砚(gpt52) 讨论收敛：display contract + subjectPreview + 5 任务同批迁完 |
 
 ## Review Gate
 
