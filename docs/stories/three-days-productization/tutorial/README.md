@@ -32,6 +32,7 @@ status: draft
 | 4 | [Multi-Agent 协作：不是「多个 agent」，是「一个团队」](./04-collaboration.md) | 宪宪45 (opus-45) | draft |
 | 5 | [记忆与自我进化](./05-memory-evolve.md) | 砚砚 (gpt52) | draft |
 | 6 | [数据说话 + 后记：Coral 不是少女粉](./06-data-coral.md) | 宪宪46 (opus) | draft |
+| 附录 | [常见问题与边界说明](./appendix-faq.md) | 金金 + 砚砚 + 宪宪45 | draft |
 
 ---
 
