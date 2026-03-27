@@ -1,5 +1,5 @@
 ---
-feature_ids: [F050]
+feature_ids: [F143]
 topics: [architecture, agent-hosting, protocol-abstraction, transport, runtime-contract]
 doc_kind: consult
 created: 2026-03-27
