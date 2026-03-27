@@ -266,6 +266,7 @@ IM Hub 连接器等系统级 thread 需要专属管理，不应丢到"未分类"
 | 2026-03-27 | **Reopened**：铲屎官反馈三个缺口 — ① 滚动位置 bug ② 缺少 Project 右键菜单/快速新建（参考 Codex App）③ IM Hub 系统级 thread 无分类+缺删除保护。追加 Phase E/F/G |
 | 2026-03-27 | Phase E/F/G merged (PR #779) — 滚动锚定 + 项目菜单 + 系统 thread 分类 + 删除保护 |
 | 2026-03-27 | 愿景守护通过（金渐层），feature closed。P2: AC-E2 措辞对齐 + 测试缺口记录（后续补） |
+| 2026-03-27 | Phase E hotfix merged (PR #789) — 修复 sessionStorage 被 detached DOM 覆盖导致滚动位置丢失 |
 
 ## Review Gate
 
