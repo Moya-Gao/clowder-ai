@@ -1079,12 +1079,14 @@ export function WorkspacePanel() {
                             </div>
                           )
                         ) : isMarkdown && markdownRendered && !editMode ? (
-                          <div className="relative flex-1 overflow-auto bg-cafe-white p-4" ref={mdContainerRef}>
-                            <MarkdownContent
-                              content={file.content}
-                              disableCommandPrefix
-                              basePath={openFilePath ? openFilePath.split('/').slice(0, -1).join('/') : undefined}
-                            />
+                          <div className="relative flex-1 min-h-0">
+                            <div className="h-full overflow-auto bg-cafe-white p-4" ref={mdContainerRef}>
+                              <MarkdownContent
+                                content={file.content}
+                                disableCommandPrefix
+                                basePath={openFilePath ? openFilePath.split('/').slice(0, -1).join('/') : undefined}
+                              />
+                            </div>
                             {mdHasSelection && (
                               <button
                                 type="button"
