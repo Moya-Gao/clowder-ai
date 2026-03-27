@@ -11,10 +11,11 @@
  */
 
 import { resolve } from 'node:path';
-import type { CatId, ConnectorSource } from '@cat-cafe/shared';
+import { CAT_CONFIGS, type CatId, type ConnectorSource } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
+import { isCatAvailable } from '../../config/cat-config-loader.js';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
 import { deliverConnectorMessage } from '../email/deliver-connector-message.js';
 import { DingTalkAdapter } from './adapters/DingTalkAdapter.js';
@@ -22,14 +23,14 @@ import { FeishuAdapter } from './adapters/FeishuAdapter.js';
 import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
 import { TelegramAdapter } from './adapters/TelegramAdapter.js';
 import { WeixinAdapter } from './adapters/WeixinAdapter.js';
-import { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
+import { ConnectorCommandLayer, type ConnectorCommandLayerDeps } from './ConnectorCommandLayer.js';
 import {
   type IConnectorPermissionStore,
   MemoryConnectorPermissionStore,
   RedisConnectorPermissionStore,
 } from './ConnectorPermissionStore.js';
 import { ConnectorRouter } from './ConnectorRouter.js';
-import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
+import { type IConnectorThreadBindingStore, MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { GitHubRepoWebhookHandler } from './github-repo-event/GitHubRepoWebhookHandler.js';
 import { ReconciliationDedup } from './github-repo-event/ReconciliationDedup.js';
 import { RedisDeliveryDedup } from './github-repo-event/RedisDeliveryDedup.js';
@@ -112,6 +113,12 @@ export interface ConnectorGatewayDeps {
       threadId: string,
       state: { v: 1; connectorId: string; externalChatId: string; createdAt: number; lastCommandAt?: number } | null,
     ): void | Promise<void>;
+    /** F142: participant activity for /cats and /status */
+    getParticipantsWithActivity?(
+      threadId: string,
+    ):
+      | Array<{ catId: string; lastMessageAt: number; messageCount: number }>
+      | Promise<Array<{ catId: string; lastMessageAt: number; messageCount: number }>>;
   };
   /** Phase D: optional backlog store for feat-number matching in /use */
   readonly backlogStore?: {
@@ -140,6 +147,10 @@ export interface ConnectorGatewayDeps {
   readonly redis?: RedisClient | undefined;
   readonly log: FastifyBaseLogger;
   readonly frontendBaseUrl?: string | undefined;
+  /** F142: agent service registry for /cats command */
+  readonly agentRegistry?: { has(catId: string): boolean };
+  /** F142: shared binding store — if provided, gateway reuses it instead of creating a new instance */
+  readonly bindingStore?: IConnectorThreadBindingStore;
   /** @internal Test-only: override WSClient factory to avoid real SDK connections */
   readonly _wsClientFactory?:
     | ((opts: { appId: string; appSecret: string }) => {
@@ -195,9 +206,8 @@ export async function startConnectorGateway(
     log.info('[ConnectorGateway] No pre-configured connectors — gateway created for WeChat QR login support');
   }
 
-  const bindingStore = deps.redis
-    ? new RedisConnectorThreadBindingStore(deps.redis)
-    : new MemoryConnectorThreadBindingStore();
+  const bindingStore = deps.bindingStore
+    ?? (deps.redis ? new RedisConnectorThreadBindingStore(deps.redis) : new MemoryConnectorThreadBindingStore());
   const dedup = new InboundMessageDedup();
   log.info({ store: deps.redis ? 'redis' : 'memory' }, '[ConnectorGateway] Binding store initialized');
   const adapters = new Map<string, IOutboundAdapter>();
@@ -233,12 +243,27 @@ export async function startConnectorGateway(
     }
   }
 
+  // F142: build catRoster from config for /cats and /status display names + availability
+  // F142: build catRoster from CAT_CONFIGS (displayName) + roster (available)
+  const catRoster = Object.fromEntries(
+    Object.entries(CAT_CONFIGS).map(([id, config]) => [
+      id,
+      { displayName: config.displayName, available: isCatAvailable(id) },
+    ]),
+  );
+
   const commandLayer = new ConnectorCommandLayer({
     bindingStore,
     threadStore: deps.threadStore,
     ...(deps.backlogStore ? { backlogStore: deps.backlogStore } : {}),
     frontendBaseUrl: deps.frontendBaseUrl ?? 'http://localhost:3001',
     permissionStore,
+    // F142: wire /cats and /status deps (threadStore has getParticipantsWithActivity at runtime)
+    ...(deps.threadStore.getParticipantsWithActivity
+      ? { participantStore: deps.threadStore as unknown as ConnectorCommandLayerDeps['participantStore'] }
+      : {}),
+    agentRegistry: deps.agentRegistry,
+    catRoster,
   });
 
   // Phase 5+6: Media service + STT provider (optional)

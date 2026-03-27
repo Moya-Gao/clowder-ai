@@ -67,8 +67,6 @@ export const COMMANDS: CommandDefinition[] = [
 
   // --- game (F101) ---
   { name: '/game', usage: '/game werewolf [player|god-view] [voice]', description: '开始狼人杀游戏', category: 'game' },
-  { name: '/game status', usage: '/game status', description: '查看当前游戏状态', category: 'game' },
-  { name: '/game end', usage: '/game end', description: '结束当前游戏', category: 'game' },
 
   // --- connector (F088, Telegram/飞书等跨平台命令) ---
   { name: '/where', usage: '/where', description: '查看当前绑定的 thread', category: 'connector' },

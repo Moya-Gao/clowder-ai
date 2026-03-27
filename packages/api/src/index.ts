@@ -13,7 +13,13 @@ import Fastify from 'fastify';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
-import { bootstrapDefaultCatCatalog, getConfigSessionStrategy, toAllCatConfigs } from './config/cat-config-loader.js';
+import {
+  bootstrapDefaultCatCatalog,
+  getAllCatIdsFromConfig,
+  getConfigSessionStrategy,
+  isCatAvailable,
+  toAllCatConfigs,
+} from './config/cat-config-loader.js';
 import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { resolveAnthropicRuntimeProfile, resolveRuntimeProviderProfileForClient } from './config/provider-profiles.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
@@ -147,6 +153,7 @@ import {
   summariesRoutes,
   tasksRoutes,
   threadBranchRoutes,
+  threadCatsRoutes,
   threadsRoutes,
   ttsRoutes,
   uploadsRoutes,
@@ -995,6 +1002,27 @@ async function main(): Promise<void> {
     socketManager,
   });
   await app.register(threadExportRoutes, { threadStore });
+  // F142: shared connector binding store — reused by threadCatsRoutes AND connector gateway
+  const { RedisConnectorThreadBindingStore } = await import(
+    './infrastructure/connectors/RedisConnectorThreadBindingStore.js'
+  );
+  const { MemoryConnectorThreadBindingStore } = await import(
+    './infrastructure/connectors/ConnectorThreadBindingStore.js'
+  );
+  const connectorBindingStore = redisClient
+    ? new RedisConnectorThreadBindingStore(redisClient)
+    : new MemoryConnectorThreadBindingStore();
+  {
+    const allCatConfigs = catRegistry.getAllConfigs();
+    await app.register(threadCatsRoutes, {
+      threadStore,
+      agentRegistry,
+      bindingStore: connectorBindingStore,
+      getCatDisplayName: (catId: string) => allCatConfigs[catId]?.displayName ?? catId,
+      getAllCatIds: () => Object.keys(allCatConfigs),
+      isCatAvailable: (catId: string) => isCatAvailable(catId),
+    });
+  }
   await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
@@ -1639,6 +1667,8 @@ async function main(): Promise<void> {
       defaultCatId: 'opus' as CatId,
       redis: redisClient ?? undefined,
       log: app.log,
+      agentRegistry,
+      bindingStore: connectorBindingStore,
     });
     if (connectorGatewayHandle) {
       invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);
