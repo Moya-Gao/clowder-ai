@@ -188,6 +188,7 @@ export function WorkspacePanel() {
   const [portDiscoveryToast, setPortDiscoveryToast] = useState<{ port: number; framework?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename' | 'all'>('all');
+  const [didSearch, setDidSearch] = useState(false);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   /** Progressive reveal: store target path, expand ancestors as tree loads deeper. */
   const [pendingRevealPath, setPendingRevealPath] = useState<string | null>(null);
@@ -304,6 +305,7 @@ export function WorkspacePanel() {
     (path: string) => {
       setOpenFile(path);
       setSearchResults([]);
+      setDidSearch(false);
       setEditMode(false);
     },
     [setOpenFile, setSearchResults],
@@ -312,9 +314,16 @@ export function WorkspacePanel() {
   const handleSearchSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (searchQuery.trim()) search(searchQuery.trim(), searchMode);
+      const trimmedQuery = searchQuery.trim();
+      if (!trimmedQuery) {
+        setDidSearch(false);
+        setSearchResults([]);
+        return;
+      }
+      setDidSearch(true);
+      void search(trimmedQuery, searchMode);
     },
-    [searchQuery, searchMode, search],
+    [searchQuery, searchMode, search, setSearchResults],
   );
 
   const revealInTree = useCallback((filePath: string) => {
@@ -357,6 +366,7 @@ export function WorkspacePanel() {
     (path: string, line: number) => {
       setOpenFile(path, line);
       setSearchResults([]);
+      setDidSearch(false);
       setEditMode(false);
       revealInTree(path);
     },
@@ -617,7 +627,11 @@ export function WorkspacePanel() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setDidSearch(false);
+              if (!e.target.value.trim()) setSearchResults([]);
+            }}
             placeholder={
               searchMode === 'content'
                 ? '搜索代码内容...'
@@ -789,63 +803,79 @@ export function WorkspacePanel() {
           ) : (
             <>
               {/* Search results — grouped when in 'all' mode */}
-              {searchResults.length > 0 &&
+              {(didSearch || searchResults.length > 0) &&
+                !loading &&
+                !error &&
                 (() => {
                   const fileHits = searchResults.filter((r) => r.matchType === 'filename');
                   const contentHits = searchResults.filter((r) => r.matchType === 'content');
                   const isGrouped = fileHits.length > 0 || contentHits.length > 0;
                   return (
                     <div className="border-b border-cocreator-light/40 max-h-64 overflow-y-auto">
-                      {isGrouped && fileHits.length > 0 && (
+                      {searchResults.length > 0 ? (
                         <>
-                          <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
-                            文件名匹配 ({fileHits.length})
-                          </div>
-                          {fileHits.map((r, i) => (
-                            <SearchResultItem
-                              key={`f:${r.path}:${i}`}
-                              path={r.path}
-                              line={0}
-                              content=""
-                              query={searchQuery}
-                              onClick={() => handleSearchResultClick(r.path, 0)}
-                            />
-                          ))}
+                          {isGrouped && fileHits.length > 0 && (
+                            <>
+                              <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                                文件名匹配 ({fileHits.length})
+                              </div>
+                              {fileHits.map((r, i) => (
+                                <SearchResultItem
+                                  key={`f:${r.path}:${i}`}
+                                  path={r.path}
+                                  line={0}
+                                  content=""
+                                  query={searchQuery}
+                                  onClick={() => handleSearchResultClick(r.path, 0)}
+                                />
+                              ))}
+                            </>
+                          )}
+                          {isGrouped && contentHits.length > 0 && (
+                            <>
+                              <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                                内容匹配 ({contentHits.length})
+                              </div>
+                              {contentHits.map((r, i) => (
+                                <SearchResultItem
+                                  key={`c:${r.path}:${r.line}:${i}`}
+                                  path={r.path}
+                                  line={r.line}
+                                  content={r.content}
+                                  query={searchQuery}
+                                  onClick={() => handleSearchResultClick(r.path, r.line)}
+                                />
+                              ))}
+                            </>
+                          )}
+                          {!isGrouped && (
+                            <>
+                              <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                                {searchResults.length} 个结果
+                              </div>
+                              {searchResults.map((r, i) => (
+                                <SearchResultItem
+                                  key={`${r.path}:${r.line}:${i}`}
+                                  path={r.path}
+                                  line={r.line}
+                                  content={r.content}
+                                  query={searchQuery}
+                                  onClick={() => handleSearchResultClick(r.path, r.line)}
+                                />
+                              ))}
+                            </>
+                          )}
                         </>
-                      )}
-                      {isGrouped && contentHits.length > 0 && (
-                        <>
-                          <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
-                            内容匹配 ({contentHits.length})
+                      ) : (
+                        <div className="px-3 py-3 text-xs text-cocreator-dark/70">
+                          <div className="font-medium text-cafe-black">
+                            未在 {currentWorktree?.branch ?? '当前工作区'} 中找到 “{searchQuery.trim()}”
                           </div>
-                          {contentHits.map((r, i) => (
-                            <SearchResultItem
-                              key={`c:${r.path}:${r.line}:${i}`}
-                              path={r.path}
-                              line={r.line}
-                              content={r.content}
-                              query={searchQuery}
-                              onClick={() => handleSearchResultClick(r.path, r.line)}
-                            />
-                          ))}
-                        </>
-                      )}
-                      {!isGrouped && (
-                        <>
-                          <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
-                            {searchResults.length} 个结果
+                          <div className="mt-1 text-[11px] text-cocreator-dark/55">
+                            当前模式：{searchMode === 'all' ? '全部' : searchMode === 'filename' ? '文件名' : '内容'}
+                            {searchMode === 'content' ? '。可以试试切到 File 或 All。' : '。'}
                           </div>
-                          {searchResults.map((r, i) => (
-                            <SearchResultItem
-                              key={`${r.path}:${r.line}:${i}`}
-                              path={r.path}
-                              line={r.line}
-                              content={r.content}
-                              query={searchQuery}
-                              onClick={() => handleSearchResultClick(r.path, r.line)}
-                            />
-                          ))}
-                        </>
+                        </div>
                       )}
                     </div>
                   );

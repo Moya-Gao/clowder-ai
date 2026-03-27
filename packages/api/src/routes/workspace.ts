@@ -39,6 +39,25 @@ const MAX_FILE_SIZE = 1024 * 1024; // 1 MB text preview
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB image preview
 const MAX_SEARCH_RESULTS = 100;
 const MAX_TREE_DEPTH = 5;
+const MAX_CONTENT_SEARCH_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per searchable text file
+
+const CONTENT_SEARCH_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.json',
+  '.md',
+  '.mdx',
+  '.txt',
+  '.css',
+  '.html',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.sh',
+  '.py',
+]);
 
 const MIME_MAP: Record<string, string> = {
   '.ts': 'text/typescript',
@@ -89,6 +108,110 @@ interface TreeNode {
 }
 
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist', '.git', '.turbo', 'coverage']);
+
+interface WorkspaceSearchResult {
+  path: string;
+  line: number;
+  content: string;
+  contextBefore: string;
+  contextAfter: string;
+}
+
+async function listWorkspaceFiles(root: string): Promise<string[]> {
+  const { stdout } = await execFileAsync(
+    'find',
+    [
+      root,
+      '-type',
+      'f',
+      '-not',
+      '-path',
+      '*/node_modules/*',
+      '-not',
+      '-path',
+      '*/.git/*',
+      '-not',
+      '-path',
+      '*/.next/*',
+      '-not',
+      '-path',
+      '*/dist/*',
+      '-not',
+      '-path',
+      '*/secrets/*',
+      '-not',
+      '-name',
+      '.env*',
+      '-not',
+      '-name',
+      '*.pem',
+      '-not',
+      '-name',
+      '*.key',
+      '-not',
+      '-name',
+      'id_rsa*',
+    ],
+    { timeout: 5000, maxBuffer: 5 * 1024 * 1024 },
+  );
+
+  return stdout
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function isContentSearchable(relPath: string): boolean {
+  return CONTENT_SEARCH_EXTENSIONS.has(extname(relPath).toLowerCase());
+}
+
+async function searchWorkspaceContent(
+  root: string,
+  query: string,
+  limit: number,
+): Promise<{ results: WorkspaceSearchResult[]; truncated: boolean }> {
+  const files = await listWorkspaceFiles(root);
+  const normalizedQuery = query.toLowerCase();
+  const results: WorkspaceSearchResult[] = [];
+  let truncated = false;
+
+  for (const fullPath of files) {
+    if (results.length >= limit) {
+      truncated = true;
+      break;
+    }
+
+    const relPath = relative(root, fullPath);
+    if (isDenylisted(relPath) || !isContentSearchable(relPath)) continue;
+
+    const fileStat = await stat(fullPath).catch(() => null);
+    if (!fileStat || fileStat.size > MAX_CONTENT_SEARCH_FILE_SIZE) continue;
+
+    let text = '';
+    try {
+      text = await readFile(fullPath, 'utf-8');
+    } catch {
+      continue;
+    }
+
+    const lines = text.split(/\r?\n/);
+    for (let index = 0; index < lines.length; index += 1) {
+      if (!lines[index]?.toLowerCase().includes(normalizedQuery)) continue;
+
+      results.push({
+        path: relPath,
+        line: index + 1,
+        content: lines[index]?.trim() ?? '',
+        contextBefore: lines.slice(Math.max(0, index - 2), index).join('\n'),
+        contextAfter: lines.slice(index + 1, index + 3).join('\n'),
+      });
+      break;
+    }
+  }
+
+  return { results, truncated };
+}
 
 async function buildTree(root: string, dirPath: string, depth: number, maxDepth: number): Promise<TreeNode[]> {
   if (depth >= maxDepth) return [];
@@ -317,48 +440,9 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
         // We avoid using find's -path for the query because it matches against
         // the absolute path — if the worktree root itself contains the query
         // string, nearly every file would match (P2 from cloud review).
-        const { stdout } = await execFileAsync(
-          'find',
-          [
-            root,
-            '-type',
-            'f',
-            '-not',
-            '-path',
-            '*/node_modules/*',
-            '-not',
-            '-path',
-            '*/.git/*',
-            '-not',
-            '-path',
-            '*/.next/*',
-            '-not',
-            '-path',
-            '*/dist/*',
-            '-not',
-            '-path',
-            '*/secrets/*',
-            '-not',
-            '-name',
-            '.env*',
-            '-not',
-            '-name',
-            '*.pem',
-            '-not',
-            '-name',
-            '*.key',
-            '-not',
-            '-name',
-            'id_rsa*',
-          ],
-          { timeout: 5000, maxBuffer: 1024 * 1024 },
-        );
-
+        const files = await listWorkspaceFiles(root);
         const lowerQuery = query.toLowerCase();
-        const results = stdout
-          .trim()
-          .split('\n')
-          .filter(Boolean)
+        const results = files
           .map((fullPath) => relative(root, fullPath))
           .filter((relPath) => !isDenylisted(relPath) && relPath.toLowerCase().includes(lowerQuery))
           .slice(0, limit)
@@ -373,81 +457,13 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
         return { query, results, totalMatches: results.length, truncated: false };
       }
 
-      // Content search using grep -rn with context
-      let grepOutput = '';
-      try {
-        const { stdout } = await execFileAsync(
-          'grep',
-          [
-            '-rn',
-            '-B2',
-            '-A2',
-            '--include=*.ts',
-            '--include=*.tsx',
-            '--include=*.js',
-            '--include=*.jsx',
-            '--include=*.json',
-            '--include=*.md',
-            '--include=*.css',
-            '--include=*.html',
-            '--include=*.yaml',
-            '--include=*.yml',
-            query,
-            root,
-          ],
-          { timeout: 10000, maxBuffer: 5 * 1024 * 1024 },
-        );
-        grepOutput = stdout;
-      } catch {
-        // grep exits 1 when no matches — that's fine
-      }
-
-      const results: Array<{
-        path: string;
-        line: number;
-        content: string;
-        contextBefore: string;
-        contextAfter: string;
-      }> = [];
-
-      const groups = grepOutput.split('--\n');
-      for (const group of groups) {
-        if (results.length >= limit) break;
-        const lines = group.trim().split('\n').filter(Boolean);
-
-        // Find the actual match line (not context lines which use -)
-        const matchLine = lines.find((l) => {
-          const m = l.match(/^(.+?):(\d+):/);
-          return m != null;
-        });
-        if (!matchLine) continue;
-
-        const match = matchLine.match(/^(.+?):(\d+):(.*)$/);
-        if (!match) continue;
-
-        const [, fullPath, lineStr, content] = match;
-        const relPath = relative(root, fullPath!);
-
-        if (relPath.includes('node_modules') || relPath.includes('.git') || isDenylisted(relPath)) continue;
-
-        const matchIdx = lines.indexOf(matchLine);
-        const beforeLines = lines.slice(0, matchIdx);
-        const afterLines = lines.slice(matchIdx + 1);
-
-        results.push({
-          path: relPath,
-          line: parseInt(lineStr!, 10),
-          content: content?.trim(),
-          contextBefore: beforeLines.map((l) => l.replace(/^.+?:\d+[:-]/, '')).join('\n'),
-          contextAfter: afterLines.map((l) => l.replace(/^.+?:\d+[:-]/, '')).join('\n'),
-        });
-      }
+      const { results, truncated } = await searchWorkspaceContent(root, query, limit);
 
       return {
         query,
         results,
         totalMatches: results.length,
-        truncated: results.length >= limit,
+        truncated,
       };
     } catch (e) {
       if (e instanceof WorkspaceSecurityError) {

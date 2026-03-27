@@ -179,7 +179,10 @@ export function useWorkspace() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ worktreeId, query, type }),
       });
-      if (!res.ok) return [];
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: 'Failed to search workspace' }));
+        throw new Error(data.error ?? 'Failed to search workspace');
+      }
       const data = await res.json();
       return (data.results ?? []) as SearchResult[];
     },
@@ -209,7 +212,8 @@ export function useWorkspace() {
           setSearchResults(results);
         }
       } catch {
-        /* ignore */
+        setSearchResults([]);
+        setError('Failed to search workspace');
       } finally {
         setLoading(false);
       }
