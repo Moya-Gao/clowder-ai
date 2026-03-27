@@ -466,10 +466,20 @@ async function main(): Promise<void> {
   const schedulerDb = memoryServices.store.getDb();
   const runLedger = new RunLedger(schedulerDb);
   const actorResolver = createActorResolver(getRoster);
+  // ── F139 Phase 3B: Governance + Emission stores ──
+  const { GlobalControlStore } = await import('./infrastructure/scheduler/GlobalControlStore.js');
+  const { EmissionStore } = await import('./infrastructure/scheduler/EmissionStore.js');
+  const { PackTemplateStore } = await import('./infrastructure/scheduler/PackTemplateStore.js');
+  const globalControlStore = new GlobalControlStore(schedulerDb);
+  const emissionStore = new EmissionStore(schedulerDb);
+  const packTemplateStore = new PackTemplateStore(schedulerDb);
+
   const taskRunnerV2 = new TaskRunnerV2({
     logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
     ledger: runLedger,
     actorResolver,
+    globalControlStore,
+    emissionStore,
   });
 
   // ── F139 Phase 3A: Dynamic task store + template registry ──
@@ -477,9 +487,15 @@ async function main(): Promise<void> {
   const { templateRegistry } = await import('./infrastructure/scheduler/templates/registry.js');
   const dynamicTaskStore = new DynamicTaskStore(schedulerDb);
 
-  // ── F139 Phase 2+3A: Schedule panel API routes ──
+  // ── F139 Phase 2+3A+3B: Schedule panel API routes ──
   const { scheduleRoutes } = await import('./routes/schedule.js');
-  await app.register(scheduleRoutes, { taskRunner: taskRunnerV2, dynamicTaskStore, templateRegistry });
+  await app.register(scheduleRoutes, {
+    taskRunner: taskRunnerV2,
+    dynamicTaskStore,
+    templateRegistry,
+    globalControlStore,
+    packTemplateStore,
+  });
 
   // ── Phase G: Summary Compaction (registers into unified scheduler) ──
   if (process.env.F102_ABSTRACTIVE === 'on' && memoryServices.indexBuilder) {
@@ -1662,6 +1678,28 @@ async function main(): Promise<void> {
       app.log.info('[api] F141 Phase B: repo-scan spec registered');
     }
   }
+
+  // F139 Phase 3B: Hydrate pack templates from SQLite into TemplateRegistry
+  const packDefs = packTemplateStore.listAll();
+  let packHydrated = 0;
+  for (const def of packDefs) {
+    const builtin = templateRegistry.get(def.builtinTemplateRef);
+    if (builtin) {
+      templateRegistry.register({
+        templateId: def.templateId,
+        label: def.label,
+        category: def.category,
+        description: def.description,
+        subjectKind: def.subjectKind,
+        defaultTrigger: def.defaultTrigger,
+        paramSchema:
+          def.paramSchema as import('./infrastructure/scheduler/templates/types.js').TaskTemplate['paramSchema'],
+        createSpec: builtin.createSpec,
+      });
+      packHydrated++;
+    }
+  }
+  if (packHydrated > 0) app.log.info(`[api] F139: hydrated ${packHydrated} pack template(s)`);
 
   // F139 Phase 3A: Hydrate dynamic tasks from SQLite before starting
   const hydrated = taskRunnerV2.hydrateDynamic(dynamicTaskStore, templateRegistry);

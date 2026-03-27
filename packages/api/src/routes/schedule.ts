@@ -1,19 +1,26 @@
 /**
- * Schedule Panel API Routes (F139 Phase 2 + Phase 3A)
+ * Schedule Panel API Routes (F139 Phase 2 + Phase 3A + Phase 3B)
  *
  * GET  /api/schedule/tasks              → list registered tasks + summaries
  * GET  /api/schedule/tasks/:id/runs     → run history (optional ?threadId= filter)
- * POST /api/schedule/tasks/:id/trigger  → manual trigger
+ * POST /api/schedule/tasks/:id/trigger  → manual trigger (bypasses governance)
  * GET  /api/schedule/templates          → list available templates (AC-G1)
  * POST /api/schedule/tasks              → create dynamic task (AC-G3)
  * DELETE /api/schedule/tasks/:id        → remove dynamic task (AC-G4)
  * PATCH /api/schedule/tasks/:id         → toggle enabled (AC-G4)
+ * GET  /api/schedule/control            → global state + task overrides (AC-D1)
+ * PATCH /api/schedule/control           → toggle global enabled (AC-D1)
+ * PUT  /api/schedule/control/tasks/:id  → set task override (AC-D1)
+ * DELETE /api/schedule/control/tasks/:id → remove task override (AC-D1)
  */
 
 import type { FastifyPluginAsync } from 'fastify';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
+import type { GlobalControlStore } from '../infrastructure/scheduler/GlobalControlStore.js';
+import type { PackTemplateStore } from '../infrastructure/scheduler/PackTemplateStore.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { TriggerSpec } from '../infrastructure/scheduler/types.js';
+import { governanceRoutes } from './schedule-governance.js';
 
 export interface ScheduleRoutesOptions {
   taskRunner: TaskRunnerV2;
@@ -21,7 +28,13 @@ export interface ScheduleRoutesOptions {
   templateRegistry?: {
     get: (id: string) => import('../infrastructure/scheduler/templates/types.js').TaskTemplate | null;
     list: () => import('../infrastructure/scheduler/templates/types.js').TaskTemplate[];
+    register?: (template: import('../infrastructure/scheduler/templates/types.js').TaskTemplate) => void;
+    unregister?: (templateId: string) => boolean;
   };
+  /** Phase 3B (AC-D1): governance store */
+  globalControlStore?: GlobalControlStore;
+  /** Phase 3B (AC-D3): pack template store */
+  packTemplateStore?: PackTemplateStore;
 }
 
 /** Extract threadId from subjectKey — handles both thread-xxx (real tasks) and thread:xxx formats */
@@ -32,7 +45,7 @@ export function extractThreadId(subjectKey: string): string | null {
 }
 
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner, dynamicTaskStore, templateRegistry } = opts;
+  const { taskRunner, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore } = opts;
 
   // GET /api/schedule/tasks
   app.get('/api/schedule/tasks', async () => {
@@ -85,7 +98,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: 'Task not found' };
     }
 
-    await taskRunner.triggerNow(id);
+    await taskRunner.triggerNow(id, { manual: true });
     return { success: true, taskId: id };
   });
 
@@ -277,5 +290,13 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     return { success: true, enabled: body.enabled };
+  });
+
+  // ─── Governance + Pack Templates (AC-D1/D3) — extracted for file size ──
+  await app.register(governanceRoutes, {
+    globalControlStore,
+    packTemplateStore,
+    templateRegistry,
+    dynamicTaskStore,
   });
 };

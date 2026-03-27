@@ -11,6 +11,10 @@ class TemplateRegistry {
     this.templates.set(template.templateId, template);
   }
 
+  unregister(templateId: string): boolean {
+    return this.templates.delete(templateId);
+  }
+
   get(templateId: string): TaskTemplate | null {
     return this.templates.get(templateId) ?? null;
   }

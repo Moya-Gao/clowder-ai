@@ -1,13 +1,12 @@
 import { getNextCronMs } from './cron-utils.js';
 import type { DynamicTaskStore } from './DynamicTaskStore.js';
+import { executeTaskPipeline } from './execute-pipeline.js';
 import type { RunLedger } from './RunLedger.js';
 import type { TaskTemplate } from './templates/types.js';
 import type {
   ActorRole,
   CostTier,
-  GateCtx,
   RunLedgerRow,
-  RunOutcome,
   ScheduleTaskSummary,
   SubjectKind,
   TaskSource,
@@ -19,6 +18,10 @@ export interface TaskRunnerV2Options {
   ledger: RunLedger;
   /** Phase 1b: optional actor resolver — maps role + costTier to catId */
   actorResolver?: (role: ActorRole, costTier: CostTier) => string | null;
+  /** Phase 3B (AC-D1): governance store for global pause + task overrides */
+  globalControlStore?: import('./GlobalControlStore.js').GlobalControlStore;
+  /** Phase 3B (AC-D2): emission store for self-echo suppression */
+  emissionStore?: import('./EmissionStore.js').EmissionStore;
 }
 
 /** Phase 2.5: Compute human-readable subject preview from subjectKind + lastRun (AC-E2) */
@@ -71,11 +74,15 @@ export class TaskRunnerV2 {
   private logger: TaskRunnerV2Options['logger'];
   private ledger: RunLedger;
   private actorResolver: TaskRunnerV2Options['actorResolver'];
+  private globalControlStore: TaskRunnerV2Options['globalControlStore'];
+  private emissionStore: TaskRunnerV2Options['emissionStore'];
 
   constructor(opts: TaskRunnerV2Options) {
     this.logger = opts.logger;
     this.ledger = opts.ledger;
     this.actorResolver = opts.actorResolver;
+    this.globalControlStore = opts.globalControlStore;
+    this.emissionStore = opts.emissionStore;
   }
 
   register(task: AnyTaskSpec): void {
@@ -192,10 +199,10 @@ export class TaskRunnerV2 {
     this.timers.clear();
   }
 
-  async triggerNow(taskId: string): Promise<void> {
+  async triggerNow(taskId: string, opts?: { manual?: boolean }): Promise<void> {
     const task = this.tasks.find((t) => t.id === taskId);
     if (!task) throw new Error(`TaskRunnerV2: unknown task "${taskId}"`);
-    await this.executePipeline(task);
+    await this.executePipeline(task, opts?.manual);
   }
 
   getRegisteredTasks(): string[] {
@@ -204,15 +211,25 @@ export class TaskRunnerV2 {
 
   /** Phase 2: Full task summaries for schedule panel API */
   getTaskSummaries(): ScheduleTaskSummary[] {
+    const globalEnabled = this.globalControlStore ? this.globalControlStore.getGlobalEnabled() : true;
     return this.tasks.map((task) => {
       const lastRuns = this.ledger.query(task.id, 1);
       const stats = this.ledger.stats(task.id);
       const dynDefId = this.dynamicTaskIds.get(task.id);
+      const taskEnabled = task.enabled();
+      // AC-D1: effectiveEnabled reflects global pause + task override + task.enabled
+      let effectiveEnabled = taskEnabled;
+      if (effectiveEnabled && this.globalControlStore) {
+        if (!globalEnabled) effectiveEnabled = false;
+        const override = this.globalControlStore.getTaskOverride(task.id);
+        if (override && !override.enabled) effectiveEnabled = false;
+      }
       return {
         id: task.id,
         profile: task.profile,
         trigger: task.trigger,
-        enabled: task.enabled(),
+        enabled: taskEnabled,
+        effectiveEnabled,
         actor: task.actor,
         context: task.context,
         lastRun: lastRuns[0] ?? null,
@@ -230,120 +247,18 @@ export class TaskRunnerV2 {
     return this.ledger;
   }
 
-  private withTimeout(promise: Promise<void>, ms: number, taskId: string): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`[scheduler] ${taskId}: execute timed out after ${ms}ms`));
-      }, ms);
-      promise.then(
-        () => {
-          clearTimeout(timer);
-          resolve();
-        },
-        (err) => {
-          clearTimeout(timer);
-          reject(err);
-        },
-      );
+  private async executePipeline(task: AnyTaskSpec, isManualTrigger?: boolean): Promise<void> {
+    await executeTaskPipeline({
+      task,
+      ledger: this.ledger,
+      logger: this.logger,
+      running: this.running,
+      tickCounts: this.tickCounts,
+      lastRunAt: this.lastRunAt,
+      actorResolver: this.actorResolver,
+      globalControlStore: this.globalControlStore,
+      emissionStore: this.emissionStore,
+      isManualTrigger,
     });
-  }
-
-  private async executePipeline(task: AnyTaskSpec): Promise<void> {
-    const startMs = Date.now();
-    const tickCount = (this.tickCounts.get(task.id) ?? 0) + 1;
-    this.tickCounts.set(task.id, tickCount);
-
-    // Step 1: Enabled check
-    if (!task.enabled()) return;
-
-    // Step 2: Overlap guard (task-level — prevents gate re-entry)
-    if (this.running.get(task.id)) {
-      this.logger.info(`[scheduler] ${task.id}: still running, skipping tick`);
-      this.ledger.record({
-        task_id: task.id,
-        subject_key: task.id,
-        outcome: 'SKIP_OVERLAP',
-        signal_summary: null,
-        duration_ms: Date.now() - startMs,
-        started_at: new Date(startMs).toISOString(),
-        assigned_cat_id: null,
-        error_summary: null,
-      });
-      return;
-    }
-    this.running.set(task.id, true);
-
-    try {
-      // Step 3: Gate — returns workItems[]
-      const ctx: GateCtx = {
-        taskId: task.id,
-        lastRunAt: this.lastRunAt.get(task.id) ?? null,
-        tickCount,
-      };
-
-      const gateResult = await task.admission.gate(ctx);
-
-      if (!gateResult.run) {
-        if (task.outcome.whenNoSignal === 'record') {
-          this.ledger.record({
-            task_id: task.id,
-            subject_key: task.id,
-            outcome: 'SKIP_NO_SIGNAL',
-            signal_summary: null,
-            duration_ms: Date.now() - startMs,
-            started_at: new Date(startMs).toISOString(),
-            assigned_cat_id: null,
-            error_summary: null,
-          });
-        }
-        return;
-      }
-
-      // Phase 1b: Actor resolution — resolve once per task tick, not per workItem
-      const assignedCatId =
-        task.actor && this.actorResolver ? this.actorResolver(task.actor.role, task.actor.costTier) : null;
-
-      // Step 4 + 5: Execute per workItem → ledger per subject
-      const pendingExecutes: Promise<void>[] = [];
-
-      for (const item of gateResult.workItems) {
-        const itemStartMs = Date.now();
-        let outcome: RunOutcome = 'RUN_DELIVERED';
-        // Phase 2: pass context spec through ExecuteContext
-        const rawExecute = task.run.execute(item.signal, item.subjectKey, {
-          assignedCatId,
-          context: task.context,
-        });
-        pendingExecutes.push(rawExecute.catch(() => {}));
-        let errorSummary: string | null = null;
-        try {
-          await this.withTimeout(rawExecute, task.run.timeoutMs, task.id);
-        } catch (err) {
-          outcome = 'RUN_FAILED';
-          errorSummary = err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500);
-          this.logger.error(`[scheduler] ${task.id}/${item.subjectKey}: failed`, err);
-        }
-
-        this.ledger.record({
-          task_id: task.id,
-          subject_key: item.subjectKey,
-          outcome,
-          signal_summary: typeof item.signal === 'string' ? item.signal : JSON.stringify(item.signal).slice(0, 200),
-          duration_ms: Date.now() - itemStartMs,
-          started_at: new Date(itemStartMs).toISOString(),
-          assigned_cat_id: assignedCatId,
-          error_summary: errorSummary,
-        });
-      }
-
-      this.lastRunAt.set(task.id, Date.now());
-      this.logger.info(
-        `[scheduler] ${task.id}: tick completed, ${gateResult.workItems.length} items (${Date.now() - startMs}ms)`,
-      );
-
-      await Promise.allSettled(pendingExecutes);
-    } finally {
-      this.running.set(task.id, false);
-    }
   }
 }

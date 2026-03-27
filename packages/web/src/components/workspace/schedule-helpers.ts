@@ -33,11 +33,28 @@ export interface TaskDisplayMeta {
 
 export type TaskSource = 'builtin' | 'dynamic';
 
+/** Phase 3B (AC-D1): Governance control state */
+export interface GlobalControlState {
+  enabled: boolean;
+  reason: string | null;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface TaskOverrideState {
+  taskId: string;
+  enabled: boolean;
+  updatedBy: string;
+  updatedAt: string;
+}
+
 export interface ScheduleTask {
   id: string;
   profile: string;
   trigger: TriggerSpec;
   enabled: boolean;
+  /** AC-D1: effective enabled state considering global pause + task overrides */
+  effectiveEnabled?: boolean;
   actor?: { role: string; costTier: string };
   context?: { session: string; materialization: string };
   lastRun: RunLedgerRow | null;

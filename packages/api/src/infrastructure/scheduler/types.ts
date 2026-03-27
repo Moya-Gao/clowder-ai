@@ -32,7 +32,15 @@ export interface ContextSpec {
 }
 
 /** Run ledger outcome */
-export type RunOutcome = 'SKIP_NO_SIGNAL' | 'SKIP_DISABLED' | 'SKIP_OVERLAP' | 'RUN_DELIVERED' | 'RUN_FAILED';
+export type RunOutcome =
+  | 'SKIP_NO_SIGNAL'
+  | 'SKIP_DISABLED'
+  | 'SKIP_OVERLAP'
+  | 'SKIP_GLOBAL_PAUSE'
+  | 'SKIP_TASK_OVERRIDE'
+  | 'SKIP_SELF_ECHO'
+  | 'RUN_DELIVERED'
+  | 'RUN_FAILED';
 
 /** Actor capability namespace (Phase 1b) — NOT roster identity roles */
 export type ActorRole = 'memory-curator' | 'repo-watcher' | 'health-monitor';
@@ -117,6 +125,8 @@ export interface ScheduleTaskSummary {
   profile: TaskProfile;
   trigger: TriggerSpec;
   enabled: boolean;
+  /** Phase 3B (AC-D1): effective enabled state considering global pause + task overrides */
+  effectiveEnabled: boolean;
   actor?: ActorSpec;
   context?: ContextSpec;
   lastRun: RunLedgerRow | null;

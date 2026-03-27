@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
-import type { RunLedgerRow, ScheduleTask } from './schedule-helpers';
+import type { GlobalControlState, RunLedgerRow, ScheduleTask } from './schedule-helpers';
 import {
   CATEGORY_LABELS,
   CATEGORY_STYLES,
@@ -32,6 +32,7 @@ export function SchedulePanel() {
   const [scope, setScope] = useState<ScopeFilter>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [runHistory, setRunHistory] = useState<RunLedgerRow[]>([]);
+  const [globalControl, setGlobalControl] = useState<GlobalControlState | null>(null);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
 
   const fetchTasks = useCallback(async () => {
@@ -48,11 +49,42 @@ export function SchedulePanel() {
     }
   }, []);
 
+  const fetchControl = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/schedule/control');
+      if (res.ok) {
+        const json = await res.json();
+        setGlobalControl(json.global ?? null);
+      }
+    } catch {
+      // fail-open — governance not configured
+    }
+  }, []);
+
   useEffect(() => {
     fetchTasks();
-    const timer = setInterval(fetchTasks, 30000);
+    fetchControl();
+    const timer = setInterval(() => {
+      fetchTasks();
+      fetchControl();
+    }, 30000);
     return () => clearInterval(timer);
-  }, [fetchTasks]);
+  }, [fetchTasks, fetchControl]);
+
+  const handleGlobalToggle = useCallback(async () => {
+    if (!globalControl) return;
+    const next = !globalControl.enabled;
+    try {
+      await apiFetch('/api/schedule/control', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next, reason: next ? null : 'Paused from panel', updatedBy: 'user' }),
+      });
+      fetchControl();
+    } catch {
+      /* fail-open */
+    }
+  }, [globalControl, fetchControl]);
 
   // AC-C3b-2: scope filtering — Current Thread shows only thread-associated tasks matching currentThreadId
   // AC-C3b-3: non-thread tasks (pr-, repo-) only visible in All view (threadId 可空 per AC)
@@ -115,7 +147,7 @@ export function SchedulePanel() {
     [fetchTasks],
   );
 
-  const activeCount = tasks.filter((t) => t.enabled).length;
+  const activeCount = tasks.filter((t) => t.effectiveEnabled ?? t.enabled).length;
   const pausedCount = tasks.length - activeCount;
   // Health: check if ANY task's most recent run failed (not cumulative total)
   const hasAttention = tasks.some((t) => t.lastRun?.outcome === 'RUN_FAILED');
@@ -154,6 +186,36 @@ export function SchedulePanel() {
           {tasks.length} tasks · {activeCount} active{pausedCount > 0 ? ` · ${pausedCount} paused` : ''}
         </span>
       </div>
+
+      {/* AC-D1: Global governance toggle */}
+      {globalControl && (
+        <div
+          className={`flex items-center gap-2 px-4 py-1.5 border-b border-[#E8DFD4] ${
+            globalControl.enabled ? 'bg-[#FDFAF6]' : 'bg-red-50'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={handleGlobalToggle}
+            className={`relative w-7 h-4 rounded-full transition-colors ${
+              globalControl.enabled ? 'bg-emerald-400' : 'bg-red-300'
+            }`}
+            title={globalControl.enabled ? 'Scheduler active — click to pause' : 'Scheduler paused — click to resume'}
+          >
+            <span
+              className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${
+                globalControl.enabled ? 'left-3.5' : 'left-0.5'
+              }`}
+            />
+          </button>
+          <span className={`text-[10px] font-medium ${globalControl.enabled ? 'text-emerald-700' : 'text-red-600'}`}>
+            {globalControl.enabled ? 'Scheduler active' : 'Scheduler paused'}
+          </span>
+          {!globalControl.enabled && globalControl.reason && (
+            <span className="text-[10px] text-red-400 truncate max-w-[160px]">{globalControl.reason}</span>
+          )}
+        </div>
+      )}
 
       {/* Current Thread context banner (V2 design) */}
       {scope === 'current-thread' && currentThreadId && (
@@ -235,7 +297,9 @@ export function SchedulePanel() {
                           {task.runStats.delivered} delivered
                         </span>
                       )}
-                      {!task.enabled && <span className="ml-auto text-[9px] text-red-400 font-medium">PAUSED</span>}
+                      {!(task.effectiveEnabled ?? task.enabled) && (
+                        <span className="ml-auto text-[9px] text-red-400 font-medium">PAUSED</span>
+                      )}
                     </div>
                   </div>
                   {/* AC-F4: expandable detail panel with run history */}
