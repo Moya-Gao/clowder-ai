@@ -12,6 +12,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
+import { configEventBus, createChangeSetId } from '../config/config-event-bus.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
 import { buildEnvSummary, ENV_CATEGORIES, isEditableEnvVarName } from '../config/env-registry.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
@@ -269,6 +270,12 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       updates.set(update.name, update.value);
     }
 
+    // Snapshot old values for no-op detection
+    const oldValues = new Map<string, string | undefined>();
+    for (const name of updates.keys()) {
+      oldValues.set(name, process.env[name]);
+    }
+
     const current = existsSync(envFilePath) ? readFileSync(envFilePath, 'utf8') : '';
     const next = applyEnvUpdatesToFile(current, updates);
     writeFileSync(envFilePath, next, 'utf8');
@@ -276,6 +283,20 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     for (const [name, value] of updates) {
       if (value == null || value === '') delete process.env[name];
       else process.env[name] = value;
+    }
+
+    // Only emit if at least one key actually changed
+    const changedKeys = [...updates.entries()]
+      .filter(([name, value]) => (value ?? '') !== (oldValues.get(name) ?? ''))
+      .map(([name]) => name);
+    if (changedKeys.length > 0) {
+      configEventBus.emitChange({
+        source: 'env',
+        scope: 'key',
+        changedKeys,
+        changeSetId: createChangeSetId(),
+        timestamp: Date.now(),
+      });
     }
 
     try {
