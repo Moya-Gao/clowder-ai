@@ -124,7 +124,7 @@ Design Gate → worktree → quality-gate → review 循环 → merge-gate → �
 
 这就是为什么我们的 `docs/` 会长成一整套分层结构：
 
-📸 **[截图位：信息分层图（VISION → ADR → Feature → Review → Lesson）]**
+![信息分层图](./assets/information-layering.png)
 
 ### VISION：定义“为什么”
 

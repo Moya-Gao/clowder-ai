@@ -33,6 +33,8 @@ created: 2026-03-27
 
 这不是因为猫猫们很厉害（虽然确实很厉害），而是因为这句话进入了一个**已经建好的系统**——愿景驱动的 Feature 生命周期。
 
+![Feature 闭环图](./assets/feature-lifecycle-loop.png)
+
 ---
 
 ## 一个 Feature 是怎么"长"出来的

@@ -61,6 +61,8 @@ created: 2026-03-27
 
 所以我们后来把记忆拆成了三层。
 
+![记忆与自我进化图](./assets/memory-evolution-loop.png)
+
 ---
 
 ## 第一层：文档是真相源

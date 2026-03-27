@@ -1,0 +1,2005 @@
+{
+  "version": "2.9",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "R1vJg",
+      "x": 0,
+      "y": 0,
+      "name": "F093 猫猫拟人化概念板 — 砚砚版",
+      "width": 1680,
+      "fill": {
+        "type": "gradient",
+        "gradientType": "linear",
+        "enabled": true,
+        "rotation": 145,
+        "size": {
+          "height": 1
+        },
+        "colors": [
+          {
+            "color": "#070B1A",
+            "position": 0
+          },
+          {
+            "color": "#10152A",
+            "position": 0.48
+          },
+          {
+            "color": "#171324",
+            "position": 1
+          }
+        ]
+      },
+      "layout": "vertical",
+      "gap": 36,
+      "padding": [
+        56,
+        64,
+        64,
+        64
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "kZwbg",
+          "name": "hero",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 14,
+          "padding": [
+            0,
+            0,
+            6,
+            0
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "YlT2U",
+              "name": "badge",
+              "fill": "#1B2A5A",
+              "cornerRadius": 999,
+              "padding": [
+                8,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sFdnU",
+                  "fill": "#BFD5FF",
+                  "content": "F093 • 角色视觉具身化 • Codex Concept",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "G4ZJL",
+              "fill": "#F5F8FF",
+              "content": "Cats & U · 星穹叙事感角色概念板",
+              "fontFamily": "Inter",
+              "fontSize": 52,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "Omx8Q",
+              "fill": "#C5D0EB",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "目标：把每只猫的职责、性格与世界观映射成可识别的角色语言。强调强剪影、标志配色、电影感光影，而不是纯萌系换皮。",
+              "lineHeight": 1.45,
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "y7ZLk",
+          "name": "meta",
+          "width": "fill_container",
+          "fill": "#111A34",
+          "cornerRadius": 18,
+          "gap": 18,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "QVWwA",
+              "fill": "#E7EDFF",
+              "content": "画风锚点：精致二次元 + 科幻幻想叙事",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "dB0TN",
+              "fill": "#AFC0E6",
+              "content": "视觉关键词：高光边缘 / 材质分层 / 英雄构图 / 色彩命途",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Co8B5",
+          "name": "palette",
+          "width": "fill_container",
+          "fill": "#0D1730",
+          "cornerRadius": 20,
+          "layout": "vertical",
+          "gap": 14,
+          "padding": [
+            22,
+            24
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "fo78V",
+              "fill": "#ECF2FF",
+              "content": "角色标志配色",
+              "fontFamily": "Inter",
+              "fontSize": 24,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "mqsuB",
+              "name": "pRow",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "8JPXl",
+                  "name": "p1",
+                  "width": "fill_container",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 120,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#7AB2FF",
+                        "position": 0
+                      },
+                      {
+                        "color": "#5E7BFF",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 14,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "gpKaw",
+                      "fill": "#F7FAFF",
+                      "content": "宪宪 · 宁静蓝",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JrXaX",
+                  "name": "p2",
+                  "width": "fill_container",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 120,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#6BE6B6",
+                        "position": 0
+                      },
+                      {
+                        "color": "#1B9B66",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 14,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "RurkY",
+                      "fill": "#EEFFF8",
+                      "content": "砚砚 · 极客绿",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "H6ruV",
+                  "name": "p3",
+                  "width": "fill_container",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 120,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#FFB56D",
+                        "position": 0
+                      },
+                      {
+                        "color": "#F26C2F",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 14,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "uyXCa",
+                      "fill": "#FFF6ED",
+                      "content": "烁烁 · 活力橙",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "kQEff",
+                  "name": "p4",
+                  "width": "fill_container",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 120,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#F5D68C",
+                        "position": 0
+                      },
+                      {
+                        "color": "#B9862F",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 14,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "sMdoG",
+                      "fill": "#FFF8EA",
+                      "content": "金渐层 · 渐变金",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "BEeoK",
+          "name": "cards",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 18,
+          "children": [
+            {
+              "type": "text",
+              "id": "vryid",
+              "fill": "#F3F7FF",
+              "content": "四猫角色卡（概念版）",
+              "fontFamily": "Inter",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "ihZ7K",
+              "name": "rowA",
+              "width": "fill_container",
+              "gap": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "7UUh4",
+                  "name": "cardX",
+                  "width": "fill_container",
+                  "fill": "#111C38",
+                  "cornerRadius": 18,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Zj8yQ",
+                      "name": "portrait",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 360,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "./images/generated-1774502740173.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 14
+                    },
+                    {
+                      "type": "text",
+                      "id": "Gw3qR",
+                      "fill": "#EEF4FF",
+                      "content": "宪宪 / Architect",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "uEZFs",
+                      "fill": "#9FC2FF",
+                      "content": "World Layer · 稳定骨架",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "JTvA6",
+                      "fill": "#C9D7F5",
+                      "content": "关键词：温润、结构化、可依赖。",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "G2gXu",
+                  "name": "cardY",
+                  "width": "fill_container",
+                  "fill": "#0E1A33",
+                  "cornerRadius": 18,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "nnc46",
+                      "name": "portrait",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 360,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "./images/generated-1774502759099.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 14
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y7zAP",
+                      "fill": "#ECFFF8",
+                      "content": "砚砚 / Quality Guardian",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Fb9Ad",
+                      "fill": "#7AE7BE",
+                      "content": "Audit Gate · 质量与安全护栏",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "QeRFy",
+                      "fill": "#C3F5E4",
+                      "content": "关键词：冷静、锋利、证据优先。",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "G7IEC",
+              "name": "rowB",
+              "width": "fill_container",
+              "gap": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "o2RPL",
+                  "name": "cardZ",
+                  "width": "fill_container",
+                  "fill": "#181B33",
+                  "cornerRadius": 18,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "q0fn9",
+                      "name": "portrait",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 360,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "./images/generated-1774502806285.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 14
+                    },
+                    {
+                      "type": "text",
+                      "id": "qaJ2V",
+                      "fill": "#FFF5EC",
+                      "content": "烁烁 / Creative Driver",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "6ZcD3",
+                      "fill": "#FFB57A",
+                      "content": "Experience Layer · 体验与风格突破",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "7nqYb",
+                      "fill": "#FFD9BF",
+                      "content": "关键词：灵动、反常规、情绪感染力。",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "aMsmk",
+                  "name": "cardW",
+                  "width": "fill_container",
+                  "fill": "#1D1A2D",
+                  "cornerRadius": 18,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "G1bHQ",
+                      "name": "portrait",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": 360,
+                      "fill": {
+                        "type": "image",
+                        "enabled": true,
+                        "url": "./images/generated-1774502794072.png",
+                        "mode": "fill"
+                      },
+                      "cornerRadius": 14
+                    },
+                    {
+                      "type": "text",
+                      "id": "7K7yq",
+                      "fill": "#FFF7E9",
+                      "content": "金渐层 / Builder",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "j2Rj6",
+                      "fill": "#F4C77A",
+                      "content": "Execution Layer · 工具与落地效率",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "RJXa6",
+                      "fill": "#FBE4BB",
+                      "content": "关键词：务实、厚实、模块化创造。",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "3wInv",
+          "name": "integration",
+          "width": "fill_container",
+          "fill": "#0D152C",
+          "cornerRadius": 20,
+          "layout": "vertical",
+          "gap": 16,
+          "padding": [
+            20,
+            24
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "oKUBI",
+              "fill": "#ECF2FF",
+              "content": "Hub 集成预览（角色存在感）",
+              "fontFamily": "Inter",
+              "fontSize": 24,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "5t0o3",
+              "name": "previewRow",
+              "width": "fill_container",
+              "gap": 18,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "tgunZ",
+                  "name": "chatPanel",
+                  "width": 980,
+                  "fill": "#121F3F",
+                  "cornerRadius": 16,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "MkPH3",
+                      "name": "chatHead",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "padding": [
+                        0,
+                        0,
+                        8,
+                        0
+                      ],
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "ErXQN",
+                          "name": "avatar",
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 130,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#78DDB3",
+                                "position": 0
+                              },
+                              {
+                                "color": "#1EA170",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "width": 34,
+                          "height": 34
+                        },
+                        {
+                          "type": "text",
+                          "id": "zMOoH",
+                          "fill": "#E9FFF6",
+                          "content": "砚砚 · 审查中",
+                          "fontFamily": "Inter",
+                          "fontSize": 18,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "wqvGL",
+                          "fill": "#9BC7B3",
+                          "content": "状态: 分析完成，等待你拍板",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Eh6mB",
+                      "name": "msgList",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "GyIGA",
+                          "name": "msg1",
+                          "fill": "#1B2C57",
+                          "cornerRadius": 12,
+                          "layout": "vertical",
+                          "padding": [
+                            10,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "r7RX5",
+                              "fill": "#DCE8FF",
+                              "content": "我们把 OpenRoom 的“内置 App”映射到 Scene Cards。",
+                              "fontFamily": "Inter",
+                              "fontSize": 15,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "jxoI4",
+                          "name": "msg2Wrap",
+                          "width": "fill_container",
+                          "justifyContent": "end",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "R6cAP",
+                              "name": "msg2",
+                              "fill": "#184B39",
+                              "cornerRadius": 12,
+                              "layout": "vertical",
+                              "padding": [
+                                10,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "aKfKw",
+                                  "fill": "#DBFFF2",
+                                  "content": "收到，我会把角色形象放进 expression/ Style Pack。",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 15,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "IereA",
+                      "name": "quickActions",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "padding": [
+                        6,
+                        0,
+                        0,
+                        0
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "TUkpv",
+                          "name": "chipA",
+                          "fill": "#2A3866",
+                          "cornerRadius": 999,
+                          "padding": [
+                            6,
+                            12
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Rqhqd",
+                              "fill": "#D5E1FF",
+                              "content": "切换 猫形态",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "e9nTJ",
+                          "name": "chipB",
+                          "fill": "#294F44",
+                          "cornerRadius": 999,
+                          "padding": [
+                            6,
+                            12
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "aekr3",
+                              "fill": "#CDF7E7",
+                              "content": "切换 拟人形态",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ThIlw",
+                  "name": "rulePanel",
+                  "width": "fill_container",
+                  "fill": "#191A32",
+                  "cornerRadius": 16,
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "smxx7",
+                      "fill": "#F4F1FF",
+                      "content": "设计约束（必须同时满足）",
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "HV1Qd",
+                      "fill": "#D1CCE8",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "1. 强剪影：缩略头像 48px 仍可辨识\n2. 强配色：角色标志色与角色职责一一对应\n3. 强叙事：每张立绘都要有动作与场景含义\n4. 强联动：后续接入 F103 语音与口型同步\n5. 强扩展：资产归属 F129 expression/，支持 Pack 分发",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dBo5X",
+                      "fill": "#B4A9D8",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "判定标准：不是‘好看’就行，而是要让用户一眼分清谁在说话、谁在负责什么。",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "yn3rV",
+      "x": 0,
+      "y": 0,
+      "name": "Cats Humanization Concept (miHoYo Style)",
+      "width": 1920,
+      "height": 1080,
+      "fill": "#1E1E2E",
+      "layout": "vertical",
+      "gap": 40,
+      "padding": 60,
+      "children": [
+        {
+          "type": "text",
+          "id": "dKyKG",
+          "name": "header",
+          "fill": "#FFFFFF",
+          "content": "Cats & U - Live2D Humanization Concepts",
+          "fontFamily": "Inter",
+          "fontSize": 48,
+          "fontWeight": "bold"
+        },
+        {
+          "type": "text",
+          "id": "Dhq9W",
+          "name": "desc",
+          "fill": "#A1A1AA",
+          "content": "Style: miHoYo (Honkai: Star Rail / Genshin Impact) - Cinematic, strong silhouettes, distinct character colors.",
+          "fontFamily": "Inter",
+          "fontSize": 24,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "xRIri",
+          "name": "Color Palettes",
+          "width": "fill_container",
+          "gap": 60,
+          "children": [
+            {
+              "type": "frame",
+              "id": "RTb6P",
+              "name": "opusCol",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 50,
+                  "id": "c1W0f",
+                  "name": "c1",
+                  "fill": "#60A5FA",
+                  "width": 100,
+                  "height": 100
+                },
+                {
+                  "type": "text",
+                  "id": "JwfLx",
+                  "name": "t1a",
+                  "fill": "#FFFFFF",
+                  "content": "宪宪 (Opus)",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "bold"
+                },
+                {
+                  "type": "text",
+                  "id": "9YbOT",
+                  "name": "t1b",
+                  "fill": "#A1A1AA",
+                  "content": "温润架构师",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "POpsR",
+              "name": "codexCol",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 50,
+                  "id": "QnFqN",
+                  "name": "c2",
+                  "fill": "#34D399",
+                  "width": 100,
+                  "height": 100
+                },
+                {
+                  "type": "text",
+                  "id": "WWfq9",
+                  "name": "t2a",
+                  "fill": "#FFFFFF",
+                  "content": "砚砚 (Codex)",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "bold"
+                },
+                {
+                  "type": "text",
+                  "id": "jORT8",
+                  "name": "t2b",
+                  "fill": "#A1A1AA",
+                  "content": "冷峻技术官",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "TCy4M",
+              "name": "geminiCol",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 50,
+                  "id": "peFbK",
+                  "name": "c3",
+                  "fill": "#F97316",
+                  "width": 100,
+                  "height": 100
+                },
+                {
+                  "type": "text",
+                  "id": "VEAKk",
+                  "name": "t3a",
+                  "fill": "#FFFFFF",
+                  "content": "烁烁 (Gemini)",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "bold"
+                },
+                {
+                  "type": "text",
+                  "id": "SmwpI",
+                  "name": "t3b",
+                  "fill": "#A1A1AA",
+                  "content": "街头潮酷创意家",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "SJKr0",
+              "name": "opencodeCol",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 50,
+                  "id": "v4dZu",
+                  "name": "c4",
+                  "fill": "#FBBF24",
+                  "width": 100,
+                  "height": 100
+                },
+                {
+                  "type": "text",
+                  "id": "oiJi8",
+                  "name": "t4a",
+                  "fill": "#FFFFFF",
+                  "content": "金渐层 (OpenCode)",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "bold"
+                },
+                {
+                  "type": "text",
+                  "id": "tIvdG",
+                  "name": "t4b",
+                  "fill": "#A1A1AA",
+                  "content": "百宝箱极客工匠",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "PsgiK",
+          "name": "chars",
+          "width": "fill_container",
+          "height": 600,
+          "gap": 40,
+          "children": [
+            {
+              "type": "frame",
+              "id": "MfLTq",
+              "name": "opusChar",
+              "width": 400,
+              "height": "fill_container",
+              "fill": "#27272A",
+              "cornerRadius": 16
+            },
+            {
+              "type": "frame",
+              "id": "FEklX",
+              "name": "codexChar",
+              "width": 400,
+              "height": "fill_container",
+              "fill": "#27272A",
+              "cornerRadius": 16
+            },
+            {
+              "type": "frame",
+              "id": "truLc",
+              "name": "geminiChar",
+              "width": 400,
+              "height": "fill_container",
+              "fill": "#27272A",
+              "cornerRadius": 16
+            },
+            {
+              "type": "frame",
+              "id": "0Z4Fs",
+              "name": "opencodeChar",
+              "width": 400,
+              "height": "fill_container",
+              "fill": "#27272A",
+              "cornerRadius": 16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "b8SnM",
+      "x": 2040,
+      "y": 80,
+      "name": "D01 信息分层图",
+      "width": 920,
+      "height": 820,
+      "fill": "#FFF8F3",
+      "cornerRadius": 28,
+      "layout": "vertical",
+      "gap": 10,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "6o2hs",
+          "name": "t1",
+          "fill": "#4F342E",
+          "content": "信息分层图",
+          "fontFamily": "Inter",
+          "fontSize": 34,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "eXg8u",
+          "name": "s1",
+          "fill": "#8A5A4A",
+          "content": "VISION → ADR → Feature → Review → Lesson",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "qFQo7",
+          "name": "vision-card",
+          "width": "fill_container",
+          "fill": "#FFE0D2",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "PbGd8",
+              "fill": "#6A3124",
+              "content": "VISION",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "7Ss1s",
+              "fill": "#6A3124",
+              "content": "定义为什么做、什么不做，是最高层的方向约束。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "QFBnI",
+          "fill": "#C66B4E",
+          "content": "↓",
+          "fontFamily": "Inter",
+          "fontSize": 28,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "yad1t",
+          "name": "adr-card",
+          "width": "fill_container",
+          "fill": "#FFD0BE",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "LjUmz",
+              "fill": "#6A3124",
+              "content": "ADR",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "JktcG",
+              "fill": "#6A3124",
+              "content": "把愿景翻译成取舍：为什么选 A，不选 B。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "Y27dc",
+          "fill": "#C66B4E",
+          "content": "↓",
+          "fontFamily": "Inter",
+          "fontSize": 28,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "Im0Sy",
+          "name": "feature-card",
+          "width": "fill_container",
+          "fill": "#FFC3A9",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "Q6f1T",
+              "fill": "#6A3124",
+              "content": "Feature",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "3o6wY",
+              "fill": "#6A3124",
+              "content": "把抽象方向变成目标、范围、验收标准和 phase。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "dFfdC",
+          "fill": "#C66B4E",
+          "content": "↓",
+          "fontFamily": "Inter",
+          "fontSize": 28,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "KkjKk",
+          "name": "review-card",
+          "width": "fill_container",
+          "fill": "#FFB790",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "lNZXO",
+              "fill": "#6A3124",
+              "content": "Review",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "JbYjg",
+              "fill": "#6A3124",
+              "content": "把改动与愿景、ADR、Feature 对照，防止系统偏航。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "LyErP",
+          "fill": "#C66B4E",
+          "content": "↓",
+          "fontFamily": "Inter",
+          "fontSize": 28,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "PHfxA",
+          "name": "lesson-card",
+          "width": "fill_container",
+          "fill": "#FFA975",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "5kUTX",
+              "fill": "#6A3124",
+              "content": "Lesson",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "9RqE0",
+              "fill": "#6A3124",
+              "content": "把真实失败反压回系统，变成下一轮的判断标准。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "hCaKd",
+      "x": 3080,
+      "y": 80,
+      "name": "D02 漏斗决策图",
+      "width": 920,
+      "height": 700,
+      "fill": "#FFF8F3",
+      "cornerRadius": 28,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "XgykU",
+          "name": "t2",
+          "fill": "#4F342E",
+          "content": "漏斗决策图",
+          "fontFamily": "Inter",
+          "fontSize": 34,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "MtFI1",
+          "name": "s2",
+          "fill": "#8A5A4A",
+          "content": "越宏观越关注，越细节越放手",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "CrcHT",
+          "name": "macro-card",
+          "width": "fill_container",
+          "fill": "#FFE0D2",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "Nfg6Q",
+              "fill": "#6A3124",
+              "content": "宏观层｜铲屎官拍板",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "5UgMl",
+              "fill": "#6A3124",
+              "content": "架构决策、安全与不可逆、成本变化、对外行为、路线图。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "2CYsR",
+          "fill": "#C66B4E",
+          "content": "↓ 愿景向下翻译，细节向上回报",
+          "fontFamily": "Inter",
+          "fontSize": 18,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "1AX1d",
+          "name": "middle-card",
+          "width": "fill_container",
+          "fill": "#FFD0BE",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "t8wMz",
+              "fill": "#6A3124",
+              "content": "中间层｜三猫讨论",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "NNfRQ",
+              "fill": "#6A3124",
+              "content": "设计方向、SOP 变更、职责边界。把愿景翻译成可执行方案。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "0UPSK",
+          "fill": "#C66B4E",
+          "content": "↓ 方向一致后，局部细节不再占用 CVO 带宽",
+          "fontFamily": "Inter",
+          "fontSize": 18,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "zXhdZ",
+          "name": "micro-card",
+          "width": "fill_container",
+          "fill": "#FFC3A9",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "MH3JV",
+              "fill": "#6A3124",
+              "content": "细节层｜猫猫自治",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "FnLGD",
+              "fill": "#6A3124",
+              "content": "实现细节、重构、测试、代码风格。越细节越放手。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "a73OW",
+          "name": "funnel-note",
+          "width": "fill_container",
+          "fill": "#FFF1E8",
+          "cornerRadius": 16,
+          "layout": "vertical",
+          "gap": 6,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "qwHZY",
+              "fill": "#7A4A3C",
+              "content": "传声筒问题的本质是“什么都管”。漏斗决策让铲屎官只管漏斗入口：方向与边界。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "vfNEs",
+      "x": 4120,
+      "y": 80,
+      "name": "D03 Feature 闭环图",
+      "width": 920,
+      "height": 700,
+      "fill": "#FFF8F3",
+      "cornerRadius": 28,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "Xmj7l",
+          "name": "t3",
+          "fill": "#4F342E",
+          "content": "Feature 闭环图",
+          "fontFamily": "Inter",
+          "fontSize": 34,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "w8EDD",
+          "name": "s3",
+          "fill": "#8A5A4A",
+          "content": "从灵感到交付：Design Gate → Merge Gate",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "rSzq8",
+          "name": "row-1",
+          "width": "fill_container",
+          "gap": 14,
+          "children": [
+            {
+              "type": "frame",
+              "id": "gQkSm",
+              "name": "design-gate",
+              "width": "fill_container",
+              "fill": "#FFE0D2",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "UvkTn",
+                  "fill": "#6A3124",
+                  "content": "1. Design Gate",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "j38mG",
+                  "fill": "#6A3124",
+                  "content": "先澄清需求，再决定做什么。",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "MqqKZ",
+              "name": "worktree",
+              "width": "fill_container",
+              "fill": "#FFD0BE",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vk9in",
+                  "fill": "#6A3124",
+                  "content": "2. worktree",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "5dXuz",
+                  "fill": "#6A3124",
+                  "content": "隔离开发，避免并行污染。",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bWF6P",
+              "name": "quality-gate",
+              "width": "fill_container",
+              "fill": "#FFC3A9",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "g46df",
+                  "fill": "#6A3124",
+                  "content": "3. quality-gate",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "8yu6t",
+                  "fill": "#6A3124",
+                  "content": "AC 全绿不够，离愿景更近才算完成。",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "QQKg4",
+          "name": "row-2",
+          "width": "fill_container",
+          "gap": 14,
+          "children": [
+            {
+              "type": "frame",
+              "id": "kucrR",
+              "name": "cross-review",
+              "width": "fill_container",
+              "fill": "#FFB790",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "pqIaP",
+                  "fill": "#6A3124",
+                  "content": "4. cross-review",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "kfIeD",
+                  "fill": "#6A3124",
+                  "content": "跨家族 peer review，避免同构盲点。",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "9Ruyx",
+              "name": "merge-gate",
+              "width": "fill_container",
+              "fill": "#FFA975",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vHwnL",
+                  "fill": "#6A3124",
+                  "content": "5. merge-gate",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "IaBar",
+                  "fill": "#6A3124",
+                  "content": "PR、云端校验、squash merge。",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "7Uql8",
+              "name": "vision-guard",
+              "width": "fill_container",
+              "fill": "#FF9A5A",
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "BMTd3",
+                  "fill": "#6A3124",
+                  "content": "6. 愿景守护",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "Eb40a",
+                  "fill": "#6A3124",
+                  "content": "第三只猫问：系统更接近愿景了吗？",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "5IJWn",
+          "name": "loop-note",
+          "width": "fill_container",
+          "fill": "#FFF1E8",
+          "cornerRadius": 16,
+          "layout": "vertical",
+          "gap": 6,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "VFovz",
+              "fill": "#7A4A3C",
+              "content": "闭环不是“更快写完”，而是“快且不偏”。没达成愿景 = 没完成。",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "600"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "dU9ql",
+      "x": 5160,
+      "y": 80,
+      "name": "D04 记忆与自我进化图",
+      "width": 920,
+      "height": 700,
+      "fill": "#FFF8F3",
+      "cornerRadius": 28,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "iALhE",
+          "name": "t4",
+          "fill": "#4F342E",
+          "content": "记忆与自我进化图",
+          "fontFamily": "Inter",
+          "fontSize": 34,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "or9GR",
+          "name": "s4",
+          "fill": "#8A5A4A",
+          "content": "文档是真相源，lesson 让系统开始学习",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "ot7tS",
+          "name": "source-card",
+          "width": "fill_container",
+          "fill": "#FFE0D2",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "IuwO9",
+              "fill": "#6A3124",
+              "content": "1. 真相源：文档层",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "t7uGh",
+              "fill": "#6A3124",
+              "content": "Feature / ADR / Discussion / Lesson 都写在 docs 里。记忆先是可读、可改、可追溯的文件。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "AB7xZ",
+          "fill": "#C66B4E",
+          "content": "↓ 先有真相源，再有 recall",
+          "fontFamily": "Inter",
+          "fontSize": 18,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "5T7Ps",
+          "name": "index-card",
+          "width": "fill_container",
+          "fill": "#FFD0BE",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "9VuCv",
+              "fill": "#6A3124",
+              "content": "2. Recall：evidence.sqlite + search_evidence",
+              "fontFamily": "Inter",
+              "fontSize": 22,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "qqCOb",
+              "fill": "#6A3124",
+              "content": "SQLite 做索引，不做真相。统一入口负责把散落的决策链重新拉回来。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "7rP7L",
+          "fill": "#C66B4E",
+          "content": "↓ 找到之后，不是存档结束，而是把经验往回流",
+          "fontFamily": "Inter",
+          "fontSize": 18,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "G0ZTt",
+          "name": "evolve-card",
+          "width": "fill_container",
+          "fill": "#FFC3A9",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "qWE4a",
+              "fill": "#6A3124",
+              "content": "3. 自我进化：Episode → Method → Skill → Eval → Shared Rules",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "95WhO",
+              "fill": "#6A3124",
+              "content": "一次真实事件不是结束，而是下一轮判断标准的来源。lesson 让失败有资格进入未来。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "9k34J",
+          "name": "memory-note",
+          "width": "fill_container",
+          "fill": "#FFF1E8",
+          "cornerRadius": 16,
+          "layout": "vertical",
+          "gap": 6,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "0M74O",
+              "fill": "#7A4A3C",
+              "content": "铲屎官忘了，猫还记得。真正强的不是上下文更长，而是 recall 从脑力劳动变成了系统能力。",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "600"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
