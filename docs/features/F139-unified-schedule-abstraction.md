@@ -74,14 +74,14 @@ created: 2026-03-25
 - [x] AC-B2: MCP dispatch + receipt tracking 端到端
 - [x] AC-B3: costTier hint 影响选猫策略
 
-### Phase 2（Cron + UI + Context）✅
+### Phase 2（Cron + UI + Context）⚠️ C4 未达成愿景
 - [x] AC-C1: cron/event trigger 可用
 - [x] AC-C2: Context dimension（session × materialization）可配置
 - [x] AC-C3: Hub panel 展示任务列表 + 运行状态
 - [x] AC-C3b-1: 调度 API 返回 threadId（可空）用于每条任务实例展示（subjectKey → threadId join）
 - [x] AC-C3b-2: 调度面板支持 scope 切换（All / Current Thread / 指定 Thread）一键过滤
 - [x] AC-C3b-3: 无 thread 关联任务明确落在「No thread」分组，不丢失
-- [x] AC-C4: 自然语言→TaskSpec 转换可用
+- [ ] ~~AC-C4: 自然语言→TaskSpec 转换可用~~ → 回退：只实现了正则解析层，未打通注册，前端无反馈。愿景是"对话式注册"不是"NL 输入框"。拆分到 Phase 2.6 + Phase 3A
 
 ### Phase 2.5（Display Contract 显示契约收口）✅
 - [x] AC-E1: `TaskSpec_P1` 新增 `display?: TaskDisplayMeta`（label + category + description + subjectKind）
@@ -90,7 +90,20 @@ created: 2026-03-25
 - [x] AC-E4: SchedulePanel 前端改为纯渲染：`task.display?.label ?? fallback`，删除 `humanizeSubject()` / `categorize()` 猜测逻辑（保留 fallback 兼容）
 - [x] AC-E5: `subjectPreview === null` 时前端展示 `display.description`，不展示原始 subjectKey
 
-### Phase 3（Governance + Pack）
+### Phase 2.6（止血：面板可信度 + 对话入口引导）
+- [ ] AC-F1: 删除 NL 输入框，替换为"对话入口 CTA"——引导用户在 thread 里和猫对话注册任务（面板只管展示/管理，注册发生在对话里）
+- [ ] AC-F2: Footer 改为当前健康摘要（`All healthy` / `Attention needed`），不再显示历史累计 failed 数
+- [ ] AC-F3: RunLedger 增加 `error_summary` 字段，`RUN_FAILED` 时写入人类可读失败原因
+- [ ] AC-F4: Task row 显示最近一次运行状态（idle / delivered / failed），点开可查最近 N 次运行历史 + 失败原因
+
+### Phase 3A（对话式任务注册 — 核心愿景交付）
+- [ ] AC-G1: 猫在对话中识别"调度注册意图"（如"每天九点发 anthropic 新闻"），命中受支持的任务模板
+- [ ] AC-G2: 生成 `ScheduleRegistrationDraft`（templateId + trigger + target + deliveryThreadId + actor + display），展示给用户确认
+- [ ] AC-G3: 用户确认后写入持久化表（SQLite），registry 从持久化表 materialize 动态任务
+- [ ] AC-G4: 动态任务与代码注册任务统一管理（展示/暂停/删除/运行历史）
+- [ ] AC-G5: MVP 模板集（≥3 个：news-digest / repo-watch / stale-issue-cleanup 或同等）
+
+### Phase 3B（Governance + Pack）
 - [ ] AC-D1: 电闸/备忘录分离权限模型
 - [ ] AC-D2: anti-feedback-loop 防回声
 - [ ] AC-D3: Pack 任务模板安装/卸载
@@ -109,7 +122,8 @@ created: 2026-03-25
 | 过度抽象：8 个任务用六维度模型 overkill | Phase 1a 只实现核心 5 维度 + 2 profile，按需展开 |
 | TaskRunner 迁移回归 | 红→绿 TDD，先有失败测试再改 |
 | MCP dispatch 异步丢消息 | Phase 1b receipt tracking + run ledger 双重记录 |
-| UI 配置复杂度 | 自然语言兜底，用户不需要理解 TaskSpec 细节 |
+| UI 配置复杂度 | 对话式注册兜底，用户不需要理解 TaskSpec 细节 |
+| AC 过度声称 | Phase 2 的 AC-C4 被标完成但未达愿景（只有正则解析，没有注册）。教训：AC 标完成前必须端到端验证用户可用 |
 
 ## Open Questions
 
@@ -131,6 +145,9 @@ created: 2026-03-25
 | KD-7 | 调度面板 = Workspace 顶级 Tab（和"开发""知识"平齐） | 铲屎官确认，不是子 Tab；展示在 Workspace，配置在对话区自然语言；Tab 图标用 SVG 不用 emoji | 2026-03-25 |
 | KD-8 | 任务声明 display metadata（label/category/description/subjectKind），前端不再猜 | 铲屎官 + 砚砚(gpt52) 讨论收敛：静态展示归 TaskSpec，动态对象展示归 API subjectPreview，前端纯渲染 | 2026-03-26 |
 | KD-9 | category 采用对象导向分类（pr/repo/thread/system/external），弃 Custom | 砚砚提出：Custom 是废桶，对象导向更稳，未来"叼邮箱"归 external | 2026-03-26 |
+| KD-10 | 任务注册 = 对话驱动，不是 NL 输入框；面板只管展示/管理 | 铲屎官明确指出：W1 猫是 Agent 不是 API，用户在 thread 里和猫说话注册任务。NL 输入框违背愿景 | 2026-03-27 |
+| KD-11 | 对话式注册先做模板化（受支持模板），不做任意 NL→TaskSpec 生成 | 砚砚(gpt52) 建议：任意生成无审计线、无确认边界、重启丢失。模板化 = Draft/Confirm/Persist/Load 四步 | 2026-03-27 |
+| KD-12 | Phase 重排：2.6（止血）→ 3A（对话注册）→ 3B（Governance+Pack） | 动态注册是 Pack 的前置依赖，Pack 建在不能动态注册的系统上是空壳 | 2026-03-27 |
 
 ## Timeline
 
@@ -147,6 +164,7 @@ created: 2026-03-25
 | 2026-03-26 | Phase 2 merged (PR #756) — cron triggers + SchedulePanel UI + NL config; 砚砚 review 2 rounds (2×P1 + 2×P2 fixed) |
 | 2026-03-26 | Phase 2.5 design converged — 宪宪 × 砚砚(gpt52) 讨论收敛：display contract + subjectPreview + 5 任务同批迁完 |
 | 2026-03-27 | Phase 2.5 merged (PR #775) — TaskDisplayMeta + subjectPreview + 5 任务 display 声明 + SchedulePanel 纯渲染; 砚砚 local review 2 rounds (2×P1 fixed: SKIP_NO_SIGNAL key leak + repo-scan format) + cloud review passed |
+| 2026-03-27 | **愿景审视**：铲屎官发现 NL 输入框不可用 + footer "3 failed" 无可操作性。AC-C4 回退，Phase 重排为 2.6→3A→3B（宪宪 × 砚砚 收敛） |
 
 ## Review Gate
 
