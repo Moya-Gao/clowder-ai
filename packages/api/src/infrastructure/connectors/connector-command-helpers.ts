@@ -3,6 +3,7 @@
  * Extracted to keep the main class file under the 350-line limit.
  */
 
+import type { CommandRegistry } from '../commands/CommandRegistry.js';
 import type { CommandResult } from './ConnectorCommandLayer.js';
 
 // --- F142: command info handlers ---
@@ -25,18 +26,40 @@ export interface CommandInfoDeps {
   frontendBaseUrl: string;
 }
 
-export function buildCommandsList(): CommandResult {
-  const commands = [
-    { cmd: '/commands', desc: '列出所有可用命令' },
-    { cmd: '/cats', desc: '查看当前 thread 的猫猫' },
-    { cmd: '/status', desc: '查看当前 thread 状态' },
-    { cmd: '/where', desc: '查看当前绑定的 thread' },
-    { cmd: '/new [标题]', desc: '创建新 thread 并切换' },
-    { cmd: '/threads', desc: '列出最近的 threads' },
-    { cmd: '/use <F号|序号|关键词>', desc: '切换到指定 thread' },
-    { cmd: '/thread <id> <消息>', desc: '切换并发送消息' },
-    { cmd: '/unbind', desc: '解除当前绑定' },
-  ];
+/** AC-B7: structured audit log for slash command execution */
+export function auditSlashCommand(trimmed: string, duration: number, registry?: CommandRegistry): void {
+  const cmd = trimmed.split(/\s+/)[0]?.toLowerCase();
+  const src = (cmd && registry?.get(cmd)?.source) ?? 'core';
+  console.log(
+    JSON.stringify({
+      event: 'slash_command',
+      command: cmd,
+      surface: 'connector',
+      source: src,
+      duration,
+      success: true,
+    }),
+  );
+}
+
+/** Hardcoded fallback when no registry is available */
+const FALLBACK_COMMANDS = [
+  { cmd: '/commands', desc: '列出所有可用命令' },
+  { cmd: '/cats', desc: '查看当前 thread 的猫猫' },
+  { cmd: '/status', desc: '查看当前 thread 状态' },
+  { cmd: '/where', desc: '查看当前绑定的 thread' },
+  { cmd: '/new [标题]', desc: '创建新 thread 并切换' },
+  { cmd: '/threads', desc: '列出最近的 threads' },
+  { cmd: '/use <F号|序号|关键词>', desc: '切换到指定 thread' },
+  { cmd: '/thread <id> <消息>', desc: '切换并发送消息' },
+  { cmd: '/unbind', desc: '解除当前绑定' },
+];
+
+export function buildCommandsList(registry?: CommandRegistry): CommandResult {
+  // F142-B: dynamic listing from registry when available
+  const commands = registry
+    ? registry.listBySurface('connector').map((c) => ({ cmd: c.usage || c.name, desc: c.description }))
+    : FALLBACK_COMMANDS;
   const lines = commands.map((c) => `  ${c.cmd} — ${c.desc}`);
   return { kind: 'commands', response: `📋 可用命令：\n\n${lines.join('\n')}` };
 }

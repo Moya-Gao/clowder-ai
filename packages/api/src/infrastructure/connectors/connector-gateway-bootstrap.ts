@@ -149,6 +149,8 @@ export interface ConnectorGatewayDeps {
   readonly frontendBaseUrl?: string | undefined;
   /** F142: agent service registry for /cats command */
   readonly agentRegistry?: { has(catId: string): boolean };
+  /** F142-B: unified command registry for /commands listing + audit */
+  readonly commandRegistry?: import('../commands/CommandRegistry.js').CommandRegistry;
   /** F142: shared binding store — if provided, gateway reuses it instead of creating a new instance */
   readonly bindingStore?: IConnectorThreadBindingStore;
   /** @internal Test-only: override WSClient factory to avoid real SDK connections */
@@ -265,6 +267,7 @@ export async function startConnectorGateway(
       : {}),
     agentRegistry: deps.agentRegistry,
     catRoster,
+    commandRegistry: deps.commandRegistry,
   });
 
   // Phase 5+6: Media service + STT provider (optional)

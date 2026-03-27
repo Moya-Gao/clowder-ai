@@ -1,6 +1,8 @@
+import type { CommandRegistry } from '../commands/CommandRegistry.js';
 import type { IConnectorPermissionStore } from './ConnectorPermissionStore.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import {
+  auditSlashCommand,
   buildCatsInfo,
   buildCommandsList,
   buildStatusInfo,
@@ -75,6 +77,8 @@ export interface ConnectorCommandLayerDeps {
   readonly agentRegistry?: { has(catId: string): boolean };
   /** F142: cat roster for display names + availability. Keys = catIds. */
   readonly catRoster?: Record<string, { displayName: string; available?: boolean }>;
+  /** F142-B: unified command registry for /commands listing + skill detection + audit */
+  readonly commandRegistry?: CommandRegistry;
 }
 
 export class ConnectorCommandLayer {
@@ -90,6 +94,19 @@ export class ConnectorCommandLayer {
     const trimmed = text.trim();
     if (!trimmed.startsWith('/')) return { kind: 'not-command' };
 
+    const t0 = Date.now();
+    const result = await this.dispatch(connectorId, externalChatId, userId, trimmed, senderId);
+    if (result.kind !== 'not-command') auditSlashCommand(trimmed, Date.now() - t0, this.deps.commandRegistry);
+    return result;
+  }
+
+  private async dispatch(
+    connectorId: string,
+    externalChatId: string,
+    userId: string,
+    trimmed: string,
+    senderId?: string,
+  ): Promise<CommandResult> {
     const [rawCmd, ...args] = trimmed.split(/\s+/);
     const cmd = rawCmd?.toLowerCase();
     switch (cmd) {
@@ -104,7 +121,7 @@ export class ConnectorCommandLayer {
       case '/thread':
         return this.handleThread(connectorId, externalChatId, userId, args);
       case '/commands':
-        return buildCommandsList();
+        return buildCommandsList(this.deps.commandRegistry);
       case '/cats':
         return this.handleCats(connectorId, externalChatId);
       case '/status':
@@ -115,7 +132,7 @@ export class ConnectorCommandLayer {
         return this.handleAllowGroup(connectorId, externalChatId, senderId, args.join(' '));
       case '/deny-group':
         return this.handleDenyGroup(connectorId, externalChatId, senderId, args.join(' '));
-      default:
+      default: // F142-B: skill commands also return not-command → flow to cat (AC-B4)
         return { kind: 'not-command' };
     }
   }

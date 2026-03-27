@@ -119,6 +119,13 @@ export type {
   Roster,
   RosterEntry,
 } from './cat-breed.js';
+// Command types (F142 Phase B — slash command framework)
+export type {
+  CommandSource,
+  CommandSurface,
+  ParsedCommand,
+  SlashCommandDefinition,
+} from './command.js';
 // Connector types (F97 外部信息源抽象)
 export type {
   ConnectorDefinition,

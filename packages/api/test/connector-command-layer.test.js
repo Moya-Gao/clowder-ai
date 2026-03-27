@@ -1071,3 +1071,150 @@ describe('ConnectorCommandLayer', () => {
     });
   });
 });
+
+// --- F142 Phase B: registry-powered integration tests ---
+
+describe('ConnectorCommandLayer + CommandRegistry (F142-B)', () => {
+  let ConnectorCommandLayer;
+  let CommandRegistry;
+
+  before(async () => {
+    const mod = await import('../dist/infrastructure/connectors/ConnectorCommandLayer.js');
+    ConnectorCommandLayer = mod.ConnectorCommandLayer;
+    const regMod = await import('../dist/infrastructure/commands/CommandRegistry.js');
+    CommandRegistry = regMod.CommandRegistry;
+  });
+
+  function buildRegistry(extraSkill) {
+    const core = [
+      {
+        name: '/where',
+        usage: '/where',
+        description: '查看绑定',
+        category: 'connector',
+        surface: 'connector',
+        source: 'core',
+      },
+      {
+        name: '/new',
+        usage: '/new [标题]',
+        description: '创建 thread',
+        category: 'connector',
+        surface: 'connector',
+        source: 'core',
+      },
+      {
+        name: '/commands',
+        usage: '/commands',
+        description: '列出命令',
+        category: 'connector',
+        surface: 'connector',
+        source: 'core',
+      },
+    ];
+    const registry = new CommandRegistry(core);
+    if (extraSkill) {
+      registry.registerSkillCommands(extraSkill.id, extraSkill.commands, { warn: () => {} });
+    }
+    return registry;
+  }
+
+  it('/commands with registry shows registered skill commands', async () => {
+    const registry = buildRegistry({
+      id: 'debugging',
+      commands: [
+        {
+          name: '/debug',
+          usage: '/debug [query]',
+          description: 'Debug helper',
+          category: 'general',
+          surface: 'connector',
+          source: 'skill',
+        },
+      ],
+    });
+    const layer = new ConnectorCommandLayer({
+      bindingStore: stubStore(),
+      threadStore: stubThreadStore(),
+      frontendBaseUrl: 'https://cafe.example.com',
+      commandRegistry: registry,
+    });
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/commands');
+    assert.equal(result.kind, 'commands');
+    assert.ok(result.response.includes('/debug'), '/commands output must include skill command');
+    assert.ok(result.response.includes('Debug helper'), '/commands output must include skill description');
+  });
+
+  it('core command conflict: skill /where rejected', async () => {
+    const core = [
+      {
+        name: '/where',
+        usage: '/where',
+        description: '查看绑定',
+        category: 'connector',
+        surface: 'connector',
+        source: 'core',
+      },
+    ];
+    const registry = new CommandRegistry(core);
+    const warnings = [];
+    registry.registerSkillCommands(
+      'evil-skill',
+      [
+        {
+          name: '/where',
+          usage: '/where',
+          description: 'Hijack',
+          category: 'general',
+          surface: 'connector',
+          source: 'skill',
+        },
+      ],
+      { warn: (msg) => warnings.push(msg) },
+    );
+    assert.equal(warnings.length, 1);
+    assert.ok(warnings[0].includes('conflicts with core command'));
+    // Original core command should still work
+    const entry = registry.get('/where');
+    assert.equal(entry.source, 'core');
+  });
+
+  it('audit log fires for recognized commands (AC-B7)', async () => {
+    const registry = buildRegistry();
+    const layer = new ConnectorCommandLayer({
+      bindingStore: stubStore(),
+      threadStore: stubThreadStore(),
+      frontendBaseUrl: 'https://cafe.example.com',
+      commandRegistry: registry,
+    });
+    const logs = [];
+    const origLog = console.log;
+    console.log = (msg) => {
+      if (typeof msg === 'string' && msg.includes('"slash_command"')) logs.push(msg);
+    };
+    try {
+      await layer.handle('feishu', 'chat1', 'user1', '/commands');
+      assert.equal(logs.length, 1, 'should emit exactly one audit log');
+      const entry = JSON.parse(logs[0]);
+      assert.equal(entry.event, 'slash_command');
+      assert.equal(entry.command, '/commands');
+      assert.equal(entry.surface, 'connector');
+      assert.equal(entry.source, 'core');
+      assert.equal(entry.success, true);
+    } finally {
+      console.log = origLog;
+    }
+  });
+
+  it('unknown /slash still returns not-command (skill passthrough AC-B4)', async () => {
+    const registry = buildRegistry();
+    const layer = new ConnectorCommandLayer({
+      bindingStore: stubStore(),
+      threadStore: stubThreadStore(),
+      frontendBaseUrl: 'https://cafe.example.com',
+      commandRegistry: registry,
+    });
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/unknown-skill-cmd hello');
+    assert.equal(result.kind, 'not-command', 'unrecognized slash commands should pass through to cat');
+  });
+});

@@ -4,7 +4,7 @@
  */
 
 import { join } from 'node:path';
-import { type CatConfig, type CatId, catRegistry } from '@cat-cafe/shared';
+import { type CatConfig, type CatId, CORE_COMMANDS, catRegistry } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import cors from '@fastify/cors';
@@ -82,6 +82,8 @@ import { PreviewGateway } from './domains/preview/preview-gateway.js';
 import { createSignalArticleLookup } from './domains/signals/services/signal-thread-lookup.js';
 import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
 import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
+import { CommandRegistry } from './infrastructure/commands/CommandRegistry.js';
+import { parseManifestSlashCommands } from './infrastructure/commands/manifest-commands.js';
 import {
   loadConnectorGatewayConfig,
   startConnectorGateway,
@@ -1148,6 +1150,27 @@ async function main(): Promise<void> {
   const governanceStore = new MemoryGovernanceStore();
   await app.register(memoryPublishRoutes, { governanceStore });
 
+  // F142-B: Build unified command registry at startup (AC-B5)
+  const commandRegistry = new CommandRegistry(CORE_COMMANDS);
+  const skillsDir = join(findMonorepoRoot(process.cwd()), 'cat-cafe-skills');
+  const skillCommandMap = await parseManifestSlashCommands(skillsDir);
+  for (const [skillId, cmds] of skillCommandMap) {
+    commandRegistry.registerSkillCommands(
+      skillId,
+      cmds.map((c) => ({
+        ...c,
+        usage: c.usage ?? c.name,
+        source: 'skill' as const,
+        category: 'connector',
+        skillId,
+      })),
+      app.log,
+    );
+  }
+  app.log.info(
+    `[api] F142-B: CommandRegistry loaded (${commandRegistry.getAll().length} commands, ${skillCommandMap.size} skills)`,
+  );
+
   // Commands route needs opus service for task extraction
   const opusService = new ClaudeAgentService();
   await app.register(commandsRoutes, {
@@ -1156,6 +1179,7 @@ async function main(): Promise<void> {
     socketManager,
     opusService,
     threadStore,
+    registry: commandRegistry,
   });
   await app.register(signalsRoutes);
   await app.register(signalStudyRoutes, { threadStore });
@@ -1669,6 +1693,7 @@ async function main(): Promise<void> {
     redis: redisClient ?? undefined,
     log: app.log,
     agentRegistry,
+    commandRegistry,
     bindingStore: connectorBindingStore,
   };
 

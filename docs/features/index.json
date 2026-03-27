@@ -837,7 +837,7 @@
     {
       "id": "F136",
       "name": "Unified Config Hot Reload — 配置热更新统一管线",
-      "status": "spec | **Owner**: @opus | **Priority**: P1",
+      "status": "in-progress | **Owner**: @opus | **Priority**: P1",
       "file": "F136-unified-config-hot-reload.md"
     },
     {
@@ -881,7 +881,13 @@
       "name": "Hostable Agent Runtime — 统一宿主抽象",
       "status": "spec | **Owner**: 布偶猫 Opus 4.6 | **Priority**: P1",
       "file": "F143-hostable-agent-runtime.md"
+    },
+    {
+      "id": "F144",
+      "name": "PPT Forge — AI 演示文稿生成引擎",
+      "status": "spec | **Owner**: 三猫 | **Priority**: P2",
+      "file": "F144-ppt-forge.md"
     }
   ],
-  "generated_at": "2026-03-27T15:06:41.724Z"
+  "generated_at": "2026-03-27T15:21:53.196Z"
 }
