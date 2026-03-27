@@ -106,6 +106,13 @@ created: 2026-03-25
 - [x] AC-D2: anti-feedback-loop 防回声
 - [x] AC-D3: Pack 任务模板安装/卸载
 
+### Phase 4（Template Execution + Builtin Control — 最后一公里）
+- [ ] AC-H1: reminder 模板真实执行——到达 cron 时刻后向 deliveryThreadId 投递提醒消息，ledger 记录 RUN_DELIVERED
+- [ ] AC-H2: web-digest 模板真实执行——抓取 URL 内容 + 生成摘要，投递到 deliveryThreadId
+- [ ] AC-H3: repo-activity 模板真实执行——查询 GitHub repo 新 issue/PR（cursor 追踪已见），投递到 deliveryThreadId
+- [ ] AC-H4: Builtin 任务面板控制——所有任务（不限 dynamic）在 SchedulePanel 支持 pause/resume，后端复用 task override API
+- [ ] AC-H5: 端到端验证——铲屎官在 thread 说"每天九点提醒我喝水"，任务注册、到点执行、消息投递、面板可控，全链路走通
+
 ## Dependencies
 
 - **Evolved from**: F102（TaskRunner MVP + SummaryCompactionTask 是现有调度基座）
