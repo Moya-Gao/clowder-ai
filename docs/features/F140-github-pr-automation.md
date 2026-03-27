@@ -145,11 +145,11 @@ created: 2026-03-26
 - [x] AC-C5: ConflictAutoExecutor 测试覆盖：clean / simple-conflict / complex-escalation / worktree-not-found
 - [x] AC-C6: 安全护栏——只操作 feature worktree，绝不碰 main/runtime，操作超时 abort
 
-### Phase D（注册校验护栏）
-- [ ] AC-D1: `register-pr-tracking` 写入前校验 `repoFullName` 指向真实存在且调用者有权限的 GitHub 仓库（`gh repo view` 可解析）
-- [ ] AC-D2: 校验不硬编码当前仓库——任何合法 GitHub 仓库都可注册，只拦截不存在/无权限的
-- [ ] AC-D3: 两条注册路径（`/api/pr-tracking` + `/api/callbacks/register-pr-tracking`）都加校验
-- [ ] AC-D4: 测试覆盖：合法 repo 通过、不存在 repo 拒绝、格式错误 repo 拒绝
+### Phase D（注册校验护栏）✅ — PR #773 merged 2026-03-27
+- [x] AC-D1: `register-pr-tracking` 写入前校验 `repoFullName` 指向真实存在且调用者有权限的 GitHub 仓库（`gh repo view` 可解析）
+- [x] AC-D2: 校验不硬编码当前仓库——任何合法 GitHub 仓库都可注册，只拦截不存在/无权限的
+- [x] AC-D3: 两条注册路径（`/api/pr-tracking` + `/api/callbacks/register-pr-tracking`）都加校验
+- [x] AC-D4: 测试覆盖：合法 repo 通过、不存在 repo 拒绝、格式错误 repo 拒绝
 
 ## Dependencies
 
