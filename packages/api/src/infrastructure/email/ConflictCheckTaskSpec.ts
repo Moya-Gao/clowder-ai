@@ -113,5 +113,11 @@ export function createConflictCheckTaskSpec(opts: ConflictCheckTaskSpecOptions):
     outcome: { whenNoSignal: 'record' },
     enabled: () => true,
     actor: { role: 'repo-watcher', costTier: 'cheap' },
+    display: {
+      label: '冲突检测',
+      category: 'pr',
+      description: '检测 tracked PR 是否有合并冲突',
+      subjectKind: 'pr',
+    },
   };
 }

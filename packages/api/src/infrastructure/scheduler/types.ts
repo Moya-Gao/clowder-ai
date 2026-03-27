@@ -46,6 +46,20 @@ export interface ActorSpec {
   costTier: CostTier;
 }
 
+/** Phase 2.5: Display contract — task declares its own display metadata (KD-8) */
+export type DisplayCategory = 'pr' | 'repo' | 'thread' | 'system' | 'external';
+
+/** Phase 2.5: Subject kind for subjectPreview computation (KD-9) */
+export type SubjectKind = 'pr' | 'repo' | 'thread' | 'external' | 'none';
+
+/** Phase 2.5: Static display metadata declared by each task (AC-E1) */
+export interface TaskDisplayMeta {
+  label: string;
+  category: DisplayCategory;
+  description?: string;
+  subjectKind?: SubjectKind;
+}
+
 /** Phase 1b+2: context passed to execute — carries actor resolution + context spec */
 export interface ExecuteContext {
   /** Cat resolved by ActorResolver, or null if no actor spec / no match */
@@ -82,6 +96,8 @@ export interface TaskSpec_P1<Signal = unknown> {
   actor?: ActorSpec;
   /** Phase 2: context dimension — session × materialization */
   context?: ContextSpec;
+  /** Phase 2.5: display metadata — label, category, description, subjectKind (AC-E1) */
+  display?: TaskDisplayMeta;
 }
 
 /** Run ledger stats summary */
@@ -102,6 +118,10 @@ export interface ScheduleTaskSummary {
   context?: ContextSpec;
   lastRun: RunLedgerRow | null;
   runStats: RunStats;
+  /** Phase 2.5: display metadata from TaskSpec (AC-E2) */
+  display?: TaskDisplayMeta;
+  /** Phase 2.5: human-readable subject preview, computed by backend (AC-E2) */
+  subjectPreview: string | null;
 }
 
 /** Run ledger row */

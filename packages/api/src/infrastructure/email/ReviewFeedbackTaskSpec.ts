@@ -173,5 +173,11 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
     outcome: { whenNoSignal: 'record' },
     enabled: () => true,
     actor: { role: 'repo-watcher', costTier: 'cheap' },
+    display: {
+      label: 'Review 反馈',
+      category: 'pr',
+      description: '聚合 PR review comments 通知猫猫',
+      subjectKind: 'pr',
+    },
   };
 }

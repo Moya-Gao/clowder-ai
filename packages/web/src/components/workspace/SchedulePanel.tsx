@@ -29,6 +29,13 @@ interface TriggerSpec {
   expression?: string;
 }
 
+interface TaskDisplayMeta {
+  label: string;
+  category: DisplayCategory;
+  description?: string;
+  subjectKind?: string;
+}
+
 interface ScheduleTask {
   id: string;
   profile: string;
@@ -38,31 +45,45 @@ interface ScheduleTask {
   context?: { session: string; materialization: string };
   lastRun: RunLedgerRow | null;
   runStats: RunStats;
+  display?: TaskDisplayMeta;
+  subjectPreview: string | null;
 }
 
 /* ── Helpers ──────────────────────────────────── */
 
-type TaskCategory = 'PR' | 'Repo' | 'System' | 'Custom';
+type DisplayCategory = 'pr' | 'repo' | 'thread' | 'system' | 'external';
 
-const CATEGORY_STYLES: Record<TaskCategory, string> = {
-  PR: 'bg-blue-100 text-blue-700',
-  Repo: 'bg-emerald-100 text-emerald-700',
-  System: 'bg-amber-100 text-amber-700',
-  Custom: 'bg-purple-100 text-purple-700',
+const CATEGORY_STYLES: Record<DisplayCategory, string> = {
+  pr: 'bg-blue-100 text-blue-700',
+  repo: 'bg-emerald-100 text-emerald-700',
+  thread: 'bg-violet-100 text-violet-700',
+  system: 'bg-amber-100 text-amber-700',
+  external: 'bg-purple-100 text-purple-700',
 };
 
-const CATEGORY_DOT: Record<TaskCategory, string> = {
-  PR: 'bg-[#E8913A]',
-  Repo: 'bg-emerald-500',
-  System: 'bg-amber-500',
-  Custom: 'bg-purple-500',
+const CATEGORY_DOT: Record<DisplayCategory, string> = {
+  pr: 'bg-[#E8913A]',
+  repo: 'bg-emerald-500',
+  thread: 'bg-violet-500',
+  system: 'bg-amber-500',
+  external: 'bg-purple-500',
 };
 
-function categorize(taskId: string): TaskCategory {
-  if (taskId.includes('review') || taskId.includes('conflict')) return 'PR';
-  if (taskId.includes('cicd') || taskId.includes('repo') || taskId.includes('issue')) return 'Repo';
-  if (taskId.includes('summary') || taskId.includes('compact') || taskId.includes('health')) return 'System';
-  return 'Custom';
+const CATEGORY_LABELS: Record<DisplayCategory, string> = {
+  pr: 'PR',
+  repo: 'Repo',
+  thread: 'Thread',
+  system: 'System',
+  external: 'External',
+};
+
+/** Fallback for tasks without display metadata (legacy compat) */
+function fallbackCategory(taskId: string): DisplayCategory {
+  if (taskId.includes('review') || taskId.includes('conflict') || taskId.includes('cicd')) return 'pr';
+  if (taskId.includes('repo') || taskId.includes('issue')) return 'repo';
+  if (taskId.includes('summary') || taskId.includes('compact')) return 'thread';
+  if (taskId.includes('health')) return 'system';
+  return 'system';
 }
 
 function formatTrigger(trigger: TriggerSpec): string {
@@ -106,18 +127,9 @@ function extractThreadId(subjectKey: string): string | null {
   return null;
 }
 
+/** Fallback for tasks without display.label */
 function humanizeId(id: string): string {
   return id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function humanizeSubject(subjectKey: string): string {
-  if (subjectKey.startsWith('thread-') || subjectKey.startsWith('thread:')) {
-    const id = subjectKey.slice(7);
-    return id ? `Thread ${id.slice(0, 8)}` : 'Thread';
-  }
-  if (subjectKey.startsWith('pr-')) return subjectKey.slice(3);
-  if (subjectKey.startsWith('repo:')) return subjectKey.slice(5);
-  return subjectKey;
 }
 
 /* ── Component ───────────────────────────────── */
@@ -236,25 +248,23 @@ export function SchedulePanel() {
         ) : (
           <div className="divide-y divide-[#E8DFD4]">
             {filteredTasks.map((task) => {
-              const category = categorize(task.id);
+              const category = task.display?.category ?? fallbackCategory(task.id);
+              const label = task.display?.label ?? humanizeId(task.id);
+              // AC-E5: subjectPreview from API, fallback to display.description
+              const preview = task.subjectPreview ?? task.display?.description ?? null;
               return (
                 <div key={task.id} className="px-4 py-3 hover:bg-[#F5EDE3]/50 transition-colors">
                   <div className="flex items-center gap-2">
-                    {/* Color dot (V2 design) */}
                     <span className={`w-2 h-2 rounded-full shrink-0 ${CATEGORY_DOT[category]}`} />
-                    {/* Type tag */}
                     <span
                       className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${CATEGORY_STYLES[category]}`}
                     >
-                      {category}
+                      {CATEGORY_LABELS[category]}
                     </span>
-                    {/* Task name */}
-                    <span className="text-xs font-medium text-[#5C4B3A] truncate flex-1">{humanizeId(task.id)}</span>
-                    {/* Trigger badge */}
+                    <span className="text-xs font-medium text-[#5C4B3A] truncate flex-1">{label}</span>
                     <span className="text-[10px] text-[#9A866F] font-mono">{formatTrigger(task.trigger)}</span>
                   </div>
 
-                  {/* Status row */}
                   <div className="flex items-center gap-2 mt-1 ml-[52px]">
                     {task.lastRun ? (
                       <>
@@ -262,10 +272,8 @@ export function SchedulePanel() {
                           {outcomeIcon(task.lastRun.outcome)} {outcomeLabel(task.lastRun.outcome)}
                         </span>
                         <span className="text-[10px] text-[#9A866F]">{timeAgo(task.lastRun.started_at)}</span>
-                        {task.lastRun.subject_key !== task.id && (
-                          <span className="text-[10px] text-[#B8A594] truncate max-w-[140px]">
-                            {humanizeSubject(task.lastRun.subject_key)}
-                          </span>
+                        {preview && (
+                          <span className="text-[10px] text-[#B8A594] truncate max-w-[140px]">{preview}</span>
                         )}
                       </>
                     ) : (

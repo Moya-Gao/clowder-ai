@@ -1,12 +1,57 @@
 import { getNextCronMs } from './cron-utils.js';
 import type { RunLedger } from './RunLedger.js';
-import type { ActorRole, CostTier, GateCtx, RunOutcome, ScheduleTaskSummary, TaskSpec_P1 } from './types.js';
+import type {
+  ActorRole,
+  CostTier,
+  GateCtx,
+  RunLedgerRow,
+  RunOutcome,
+  ScheduleTaskSummary,
+  SubjectKind,
+  TaskSpec_P1,
+} from './types.js';
 
 export interface TaskRunnerV2Options {
   logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void };
   ledger: RunLedger;
   /** Phase 1b: optional actor resolver — maps role + costTier to catId */
   actorResolver?: (role: ActorRole, costTier: CostTier) => string | null;
+}
+
+/** Phase 2.5: Compute human-readable subject preview from subjectKind + lastRun (AC-E2) */
+export function computeSubjectPreview(
+  subjectKind: SubjectKind | undefined,
+  lastRun: RunLedgerRow | null,
+): string | null {
+  if (!lastRun || !subjectKind || subjectKind === 'none') return null;
+  const key = lastRun.subject_key;
+  // Strict prefix matching: unrecognized keys (e.g. task.id from SKIP_NO_SIGNAL) → null
+  switch (subjectKind) {
+    case 'pr': {
+      if (!key.startsWith('pr-')) return null;
+      return key.slice(3);
+    }
+    case 'thread': {
+      if (key.startsWith('thread-')) return formatThreadPreview(key.slice(7));
+      if (key.startsWith('thread:')) return formatThreadPreview(key.slice(7));
+      return null;
+    }
+    case 'repo': {
+      // F141 real format: "repo-owner/repo#pr-42" or "repo:owner/name"
+      if (key.startsWith('repo-')) return key.slice(5);
+      if (key.startsWith('repo:')) return key.slice(5);
+      return null;
+    }
+    case 'external': {
+      return key;
+    }
+    default:
+      return null;
+  }
+}
+
+function formatThreadPreview(id: string): string {
+  return id ? `Thread ${id.slice(0, 8)}…` : 'Thread';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -116,6 +161,8 @@ export class TaskRunnerV2 {
         context: task.context,
         lastRun: lastRuns[0] ?? null,
         runStats: stats,
+        display: task.display,
+        subjectPreview: computeSubjectPreview(task.display?.subjectKind, lastRuns[0] ?? null),
       };
     });
   }

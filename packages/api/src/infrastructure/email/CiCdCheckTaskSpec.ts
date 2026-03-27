@@ -92,5 +92,11 @@ export function createCiCdCheckTaskSpec(opts: CiCdCheckTaskSpecOptions): TaskSpe
     outcome: { whenNoSignal: 'record' },
     enabled: () => true,
     actor: { role: 'repo-watcher', costTier: 'cheap' },
+    display: {
+      label: 'CI/CD 检查',
+      category: 'pr',
+      description: '监控 tracked PR 的 CI 状态变化',
+      subjectKind: 'pr',
+    },
   };
 }
