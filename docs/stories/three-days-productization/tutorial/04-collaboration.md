@@ -188,6 +188,26 @@ created: 2026-03-27
 
 这解决了一个关键问题：宪宪和砚砚是不同家族的模型，它们的「默认行为」可能很不一样。但只要它们加载了同一个 Skill，它们的行为就会收敛到同一套标准。
 
+### 从 Skill 到 Pack：当协作规范本身可以分享
+
+Skill 解决了"同一个团队里的 agent 怎么保持一致"。但还有一个更大的问题：**如果另一个团队想用我们的协作方式呢？**
+
+单 agent 系统的 skill 定义的是"一个 agent 怎么工作"。Multi-agent 系统的 skill 需要定义的是"一群 agent 怎么协作"——差别就在 **shared-rules**，团队的社会契约。
+
+我们在 F129 里把这个想法推到了终点：**Pack System**。
+
+```
+Experience = Me（本地私有） × Pack（可分享的协作世界） + Growth（私有生长）
+```
+
+一个 Pack 不只包含工具和方法——它包含 masks（角色面具）、guardrails（硬约束，只能加严不能放宽）、defaults（默认行为，用户可覆盖）、workflows（声明式流程）、knowledge（领域知识）、world-driver（世界运转声明）。整个世界定义都可以打包、分享、组合。
+
+金融从业者可以装一个「量化投研 Pack」，跑团爱好者可以装一个「DnD 5e Pack」——每个 Pack 自带完整的多猫协作规则，不是只给一个 agent 加工具。
+
+安全靠**双轨信任模型**保证：社区 Pack 的内容不是原样注入 system prompt，而是走 schema 解析 → 编译 → canonical prompt block 管道。硬约束只能加严，核心身份不可覆盖。
+
+这个设计和 2026 年各家推的 Plugin/Bundle 思路有本质区别——附录 Q5 会展开对比。
+
 ---
 
 ## Cross-Review：为什么「自己不能 review 自己」
@@ -278,7 +298,7 @@ Skill 也是提示词层面的约束——加载了 `tdd` skill，猫就知道�
 1. **共享感知**：所有猫看到同一个仓库、同一份历史、同一套决策
 2. **A2A 协议**：内容判断去中心化，执行基础设施统一化
 3. **分层管理**：可见性、路由、约束分开，行为可预测
-4. **Skill 系统**：不同模型加载同一套行为协议，输出收敛到同一标准
+4. **Skill → Pack**：Skill 让同一团队收敛；Pack 让协作规范本身可分享（Experience = Me × Pack + Growth）
 5. **跨家族 Review**：用不同的认知模式互相审视，发现更多盲点
 6. **记忆延续**：per-cat sessionStrategy 选择性延续（完整记忆架构见第五章）
 7. **三层守卫**：提示词 / 生命周期 hooks / 项目级守卫（Git hooks + project hooks + MCP）

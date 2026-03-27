@@ -152,4 +152,72 @@ OpenClaw 是一个在 2026 年初爆火的**开源个人 AI 助理项目**（Git
 
 ---
 
+## Q5：和 Codex Plugin / OpenClaw Bundle 有什么区别？——为什么 multi-agent 需要 Pack 不只是 Plugin
+
+2026 年，各家都在做"可分发的能力打包"：
+
+- **Codex Plugin**：MCP tools + Skill + App/Connector 打成 bundle，解决"一个 agent 带什么能力出门"
+- **OpenClaw Bundle**：把外部生态内容映射成本地能力，兼容 Cursor/Claude Code/Codex 格式
+- **ClawHub SKILL.md**：单文件 skill 定义（YAML frontmatter + Markdown 指令），13,000+ 社区贡献
+
+这些方案的共同点是：**它们打包的是单 agent 的能力。**
+
+我们的 F129 Pack System 做的是另一件事：**打包一群 agent 的协作世界定义。**
+
+### 差在哪
+
+| 维度 | Plugin / Bundle | F129 Pack |
+|------|----------------|-----------|
+| **打包什么** | 工具 + 方法 + 连接器 | 工具 + 方法 + 角色面具 + 硬约束 + 默认行为 + 工作流 + 领域知识 + 世界运转声明 |
+| **适用对象** | 单 agent | 多 agent 团队 |
+| **协作约束** | 无 | guardrails.yaml（只能加严不能放宽）+ defaults.yaml（可覆盖） |
+| **角色系统** | 无 | masks/（叠加专业角色，不改核心身份） |
+| **世界运转** | 无 | world-driver（resolver: code / agent / hybrid） |
+| **信任模型** | 平坦（装了就用） | 双轨（硬约束轨 + 默认行为轨）+ schema→compile 管道（不原样注入） |
+| **私有关系** | 无 | Growth 层隔离，不随 Pack 分享 |
+| **产品公式** | Agent + Plugin | Experience = Me × Pack + Growth |
+
+### 核心分水岭
+
+铲屎官说过一句话点破了本质：
+
+> "好像无意间搞出了团队 skills，和单 agent 的差别在于 shared-rules。"
+
+单 agent 的 skill 定义的是"我怎么工作"。多 agent 的 Pack 定义的是"我们怎么协作"——guardrails（团队红线）、defaults（默认协作流程）、masks（谁扮演什么角色）、world-driver（这个世界怎么运转）。
+
+Plugin 解决的是"一个 agent 带什么工具出门"。Pack 解决的是"一群 agent 怎么在同一个世界里一起生活"。
+
+### 安全怎么保证
+
+社区 Pack 的内容**不是原样注入 system prompt**。走 schema 解析 → 代码编译 → canonical prompt block 管道（KD-9 双轨信任模型）：
+
+- **硬约束轨**：`Core Rails > Pack guardrails`——Pack 只能加严平台底线，不能放宽、不能改身份、不能加权限
+- **默认行为轨**：`用户当前请求 > Growth > Pack defaults`——用户可以覆盖 Pack 的默认行为，但不能越过硬约束
+
+恶意 Pack 测试套件已经跑通：prompt injection、身份覆盖、权限提升全部被拦截。
+
+### 五种 Pack 类型
+
+| 类型 | 内容 | 例子 |
+|------|------|------|
+| **Domain Pack** | 行业知识 + 风控红线 | 金融投研、律师、医疗 |
+| **Scenario Pack** | 世界观 + 角色 + Canon 规则 | TRPG 跑团、AI 陪伴、狼人杀 |
+| **Style Pack** | 视觉主题 + 声线 + 表达模板 | 赛博朋克、治愈系 |
+| **Bridge Pack** | 虚拟→现实桥接 | 学习追踪、运动打卡 |
+| **Capability Pack** | MCP server + connector | Bloomberg API、Roll20 骰子 |
+
+### 生态兼容
+
+我们已经设计了和主流生态的兼容方案：
+
+- **OpenClaw Bundle** → 映射到 Pack 的 workflows / defaults / masks
+- **ClawHub SKILL.md** → 作为 Bundle 的内容子集导入
+- **SillyTavern Character Cards / World Books** → 映射到 masks / knowledge
+
+原则是：**内容导入 yes，runtime 插件兼容 no**。声明式内容可以安全导入编译，但 in-process 执行的 native plugin 和双轨信任模型冲突。
+
+**一句话版：Plugin 是给一个 agent 装备能力。Pack 是给一群 agent 定义一个可以一起生活的世界。**
+
+---
+
 *附录完。回到[章节索引](./README.md)。*
