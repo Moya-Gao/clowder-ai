@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F136: Unified Config Hot Reload — 配置热更新统一管线
 
-> **Status**: spec | **Owner**: @opus | **Priority**: P1
+> **Status**: in-progress | **Owner**: @opus | **Priority**: P1
 
 ## Vision
 
@@ -116,10 +116,18 @@ created: 2026-03-23
 | Phase | 内容 | 状态 | 备注 |
 |-------|------|------|------|
 | **1** | 统一 event bus 设计 + ConfigChangeEvent schema | ✅ done | PR #778 merged (2026-03-27) |
-| **2** | Connector 热重载 + `/api/config/secrets` | 📋 planned | MVP — 解决 IM 配置改了要重启的痛点 |
+| **2** | Connector 热重载 + `/api/config/secrets` | ✅ done | PR #784 merged (2026-03-27) |
 | **3A** | F127 side effect 迁移到 event bus subscriber | 📋 planned | 终态 subscriber |
 | **3B** | `runtime-cat-catalog` 收敛为纯存储+校验 | 📋 planned | 终态存储层 |
 | **3C** | 删除 F127 ad-hoc 热更新死代码 | 📋 planned | 清理 |
 | **4** | Provider Profiles 热重载 | 📋 planned | — |
 
 **MVP = Phase 1 + 2**：做完这两个，Hub 配置向导改 IM 配置就能热生效，不用重启。
+
+## Timeline
+
+| Date | Event |
+|------|-------|
+| 2026-03-23 | Feature kickoff |
+| 2026-03-27 | Phase 1 merged (PR #778) — ConfigEventBus + event schema |
+| 2026-03-27 | Phase 2 merged (PR #784) — Connector hot-reload + secrets endpoint |
