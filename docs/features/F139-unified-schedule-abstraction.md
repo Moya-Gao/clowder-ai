@@ -90,13 +90,11 @@ created: 2026-03-25
 - [x] AC-E4: SchedulePanel 前端改为纯渲染：`task.display?.label ?? fallback`，删除 `humanizeSubject()` / `categorize()` 猜测逻辑（保留 fallback 兼容）
 - [x] AC-E5: `subjectPreview === null` 时前端展示 `display.description`，不展示原始 subjectKey
 
-### Phase 2.6（止血：面板可信度 + 对话入口引导）
-- [ ] AC-F1: 删除 NL 输入框，替换为"对话入口 CTA"——引导用户在 thread 里和猫对话注册任务（面板只管展示/管理，注册发生在对话里）
+### Phase 3A（对话式任务注册 + 面板最终态 — 核心愿景交付）
+- [ ] AC-F1: 删除 NL 输入框，替换为"对话入口 CTA"——引导用户在 thread 里和猫对话注册任务
 - [ ] AC-F2: Footer 改为当前健康摘要（`All healthy` / `Attention needed`），不再显示历史累计 failed 数
 - [ ] AC-F3: RunLedger 增加 `error_summary` 字段，`RUN_FAILED` 时写入人类可读失败原因
 - [ ] AC-F4: Task row 显示最近一次运行状态（idle / delivered / failed），点开可查最近 N 次运行历史 + 失败原因
-
-### Phase 3A（对话式任务注册 — 核心愿景交付）
 - [ ] AC-G1: 猫在对话中识别"调度注册意图"（如"每天九点发 anthropic 新闻"），命中受支持的任务模板
 - [ ] AC-G2: 生成 `ScheduleRegistrationDraft`（templateId + trigger + target + deliveryThreadId + actor + display），展示给用户确认
 - [ ] AC-G3: 用户确认后写入持久化表（SQLite），registry 从持久化表 materialize 动态任务
@@ -147,7 +145,7 @@ created: 2026-03-25
 | KD-9 | category 采用对象导向分类（pr/repo/thread/system/external），弃 Custom | 砚砚提出：Custom 是废桶，对象导向更稳，未来"叼邮箱"归 external | 2026-03-26 |
 | KD-10 | 任务注册 = 对话驱动，不是 NL 输入框；面板只管展示/管理 | 铲屎官明确指出：W1 猫是 Agent 不是 API，用户在 thread 里和猫说话注册任务。NL 输入框违背愿景 | 2026-03-27 |
 | KD-11 | 对话式注册先做模板化（受支持模板），不做任意 NL→TaskSpec 生成 | 砚砚(gpt52) 建议：任意生成无审计线、无确认边界、重启丢失。模板化 = Draft/Confirm/Persist/Load 四步 | 2026-03-27 |
-| KD-12 | Phase 重排：2.6（止血）→ 3A（对话注册）→ 3B（Governance+Pack） | 动态注册是 Pack 的前置依赖，Pack 建在不能动态注册的系统上是空壳 | 2026-03-27 |
+| KD-12 | Phase 重排：3A（对话注册 + 面板最终态）→ 3B（Governance+Pack）。铲屎官指示：不止血，直接面向最终状态开发 | 动态注册是 Pack 的前置依赖。止血是浪费，一步到位 | 2026-03-27 |
 
 ## Timeline
 
