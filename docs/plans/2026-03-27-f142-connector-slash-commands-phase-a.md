@@ -41,6 +41,19 @@ export interface CommandResult {
   readonly forwardContent?: string;
 }
 
+// ConnectorCommandLayerDeps — 新增可选依赖
+export interface ConnectorCommandLayerDeps {
+  // ... existing (bindingStore, threadStore, backlogStore, frontendBaseUrl, permissionStore) ...
+  readonly agentRegistry?: {
+    getAllEntries(): Map<string, unknown>;
+    has(catId: string): boolean;
+  };
+  readonly participantStore?: {
+    getParticipantsWithActivity(threadId: string):
+      | ThreadParticipantActivity[] | Promise<ThreadParticipantActivity[]>;
+  };
+}
+
 // GET /api/threads/:id/cats — Response
 interface ThreadCatsResponse {
   participants: Array<{
@@ -51,44 +64,56 @@ interface ThreadCatsResponse {
   }>;
   routableNow: Array<{ catId: string; displayName: string }>;
   routableNotJoined: Array<{ catId: string; displayName: string }>;
-  notRoutable: Array<{ catId: string; displayName: string }>;
+  notRoutable: Array<{ catId: string; displayName: string }>;  // strictly available=false (KD-9)
   routingPolicy: string | null;
 }
 ```
 
 ---
 
-## Task 1: A0 — 幽灵命令清理 + 一致性测试 (AC-A4)
+## Task 1: A0 — 幽灵命令清理 + Connector 一致性测试 (AC-A4)
 
 **Files:**
 - Modify: `packages/web/src/config/command-registry.ts:69-71`
-- Modify: `packages/web/src/config/__tests__/registries.test.ts`
+- Modify: `packages/api/test/connector-command-layer.test.js` (新增一致性测试)
 
 ### Step 1: 确认幽灵命令
 
 读 `command-registry.ts` 和 `useChatCommands.ts`，确认 `/game status` 和 `/game end` 确实无 handler。
 
-### Step 2: 写一致性测试（Red）
+### Step 2: 写 connector 侧一致性测试（Red）
 
-```typescript
-// registries.test.ts — 新增测试
-test('every registered command has a matching handler or is marked stub', () => {
-  // 从 COMMANDS 提取所有命令名
-  // 从 useChatCommands 或 ConnectorCommandLayer 中提取已实现的命令
-  // 断言：注册表中每个命令都有对应 handler
+> **P1-3 fix**: 一致性测试限定 connector scope，不跨 surface 对齐 Web registry。
+
+```javascript
+// packages/api/test/connector-command-layer.test.js — 新增
+describe('registry-executor consistency (connector scope)', () => {
+  it('every connector command dispatched in handle() is reachable', async () => {
+    // 枚举 ConnectorCommandLayer.handle() 的 switch cases
+    // 断言每个 case 都有对应 handler 方法且不会 fallthrough 到 not-command
+    const connectorCommands = [
+      '/where', '/new', '/threads', '/use', '/thread',
+      '/unbind', '/allow-group', '/deny-group',
+    ];
+    for (const cmd of connectorCommands) {
+      // 最小 mock，只验 kind !== 'not-command'
+      const result = await layer.handle('test', 'chat1', 'user1', cmd);
+      assert.notEqual(result.kind, 'not-command', `${cmd} should be handled`);
+    }
+  });
 });
 ```
 
-Run: `pnpm --filter @cat-cafe/web test -- --grep "consistency"`
-Expected: FAIL（`/game status` 和 `/game end` 没有 handler）
+Run: `pnpm --filter @cat-cafe/api test -- --grep "consistency"`
+Expected: PASS（现有命令都有 handler）
 
-### Step 3: 从 registry 删除幽灵命令（Green）
+### Step 3: 从 Web registry 删除幽灵命令
 
-从 `COMMANDS[]` 中删除 `/game status` 和 `/game end`（它们在 Web 和 Connector 均无 handler）。
+从 `COMMANDS[]` 中删除 `/game status` 和 `/game end`（它们在 Web 和 Connector 均无 handler，仅做减法）。
 
 ### Step 4: 跑测试确认通过
 
-Run: `pnpm --filter @cat-cafe/web test -- --grep "consistency"`
+Run: `pnpm --filter @cat-cafe/web test -- --grep "registries"` 和 `pnpm --filter @cat-cafe/api test -- --grep "consistency"`
 Expected: PASS
 
 ### Step 5: Commit
@@ -99,61 +124,46 @@ fix(F142): remove ghost commands /game status & /game end from registry [宪宪/
 
 ---
 
-## Task 2: ConnectorCommandLayer 测试基础设施 (AC-A8 前置)
+## Task 2: ConnectorCommandLayer 基线回归测试 (AC-A8 前置)
 
 **Files:**
-- Create: `packages/api/test/infrastructure/connectors/ConnectorCommandLayer.test.ts`
+- Modify: `packages/api/test/connector-command-layer.test.js`
 
-### Step 1: 写现有命令的基线回归测试
+> **P1-1 fix**: 沿用现有 `test/connector-command-layer.test.js`（JS，node:test），不新建 TS 文件。API 测试跑 `pnpm run build && node --test test/*.test.js test/**/*.test.js`。
 
-测试现有 9 个命令（`/where`, `/new`, `/threads`, `/use`, `/thread`, `/unbind`, `/allow-group`, `/deny-group`, + not-command passthrough）的 happy path，建立回归基线。
+### Step 1: 在现有测试文件中补齐基线 happy path
 
-```typescript
-import { describe, it, beforeEach, mock } from 'node:test';
-import assert from 'node:assert/strict';
-import { ConnectorCommandLayer } from '../../../src/infrastructure/connectors/ConnectorCommandLayer.js';
+测试现有命令的核心行为，复用文件中已有的 `stubThreadStore()` / `stubBindingStore()` helper。
 
-describe('ConnectorCommandLayer', () => {
-  let layer: ConnectorCommandLayer;
-  let mockBindingStore, mockThreadStore;
-
-  beforeEach(() => {
-    mockBindingStore = { /* mock methods */ };
-    mockThreadStore = { /* mock methods */ };
-    layer = new ConnectorCommandLayer({
-      bindingStore: mockBindingStore,
-      threadStore: mockThreadStore,
-      frontendBaseUrl: 'http://localhost:3001',
-    });
-  });
-
+```javascript
+// packages/api/test/connector-command-layer.test.js — 新增 describe
+describe('baseline regression (F142)', () => {
   it('/where with no binding returns guidance', async () => {
-    mockBindingStore.getByExternal = mock.fn(async () => null);
+    // 使用现有 stubBindingStore（getByExternal 返回 null）
     const result = await layer.handle('feishu', 'chat1', 'user1', '/where');
     assert.equal(result.kind, 'where');
     assert.ok(result.response);
   });
 
   it('/new creates thread and binds', async () => {
-    mockThreadStore.create = mock.fn(async () => ({ id: 't-new' }));
-    mockBindingStore.bind = mock.fn(async () => {});
     const result = await layer.handle('feishu', 'chat1', 'user1', '/new Test');
     assert.equal(result.kind, 'new');
+    assert.ok(result.newActiveThreadId);
   });
 
   it('non-command returns not-command', async () => {
-    const result = await layer.handle('feishu', 'chat1', 'user1', 'hello');
+    const result = await layer.handle('feishu', 'chat1', 'user1', 'hello world');
     assert.equal(result.kind, 'not-command');
   });
 
-  // ... /threads, /use, /unbind 等
+  // /threads, /use, /unbind 等 happy path
 });
 ```
 
 ### Step 2: 跑测试确认全部通过
 
-Run: `pnpm --filter @cat-cafe/api test -- --grep "ConnectorCommandLayer"`
-Expected: PASS（全部基线测试通过）
+Run: `pnpm --filter @cat-cafe/api test -- --grep "baseline regression"`
+Expected: PASS
 
 ### Step 3: Commit
 
@@ -167,18 +177,20 @@ test(F142): add ConnectorCommandLayer baseline regression tests [宪宪/Opus-46�
 
 **Files:**
 - Modify: `packages/api/src/infrastructure/connectors/ConnectorCommandLayer.ts`
-- Modify: `packages/api/test/infrastructure/connectors/ConnectorCommandLayer.test.ts`
+- Modify: `packages/api/test/connector-command-layer.test.js`
 
 ### Step 1: 写 `/commands` 失败测试（Red）
 
-```typescript
-it('/commands returns list of available connector commands', async () => {
-  const result = await layer.handle('feishu', 'chat1', 'user1', '/commands');
-  assert.equal(result.kind, 'commands');
-  assert.ok(result.response);
-  assert.ok(result.response.includes('/commands'));
-  assert.ok(result.response.includes('/cats'));
-  assert.ok(result.response.includes('/where'));
+```javascript
+describe('/commands (F142)', () => {
+  it('returns list of available connector commands', async () => {
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/commands');
+    assert.equal(result.kind, 'commands');
+    assert.ok(result.response);
+    assert.ok(result.response.includes('/commands'));
+    assert.ok(result.response.includes('/cats'));
+    assert.ok(result.response.includes('/where'));
+  });
 });
 ```
 
@@ -188,8 +200,8 @@ Expected: FAIL
 ### Step 2: 实现 `/commands` handler（Green）
 
 ```typescript
-// CommandResult kind 联合类型加 'commands'
-// 新增 handler:
+// 1. CommandResult kind 联合类型加 'commands'
+// 2. 新增 handler:
 private handleCommands(): CommandResult {
   const commands = [
     { cmd: '/commands', desc: '列出所有可用命令' },
@@ -208,8 +220,7 @@ private handleCommands(): CommandResult {
     response: `📋 可用命令：\n\n${lines.join('\n')}`,
   };
 }
-
-// dispatch 加 case:
+// 3. dispatch switch 加 case:
 case '/commands': return this.handleCommands();
 ```
 
@@ -230,18 +241,26 @@ feat(F142): add /commands connector command [宪宪/Opus-46🐾]
 
 **Files:**
 - Create: `packages/api/src/routes/thread-cats.ts`
-- Create: `packages/api/test/routes/thread-cats.test.ts`
+- Create: `packages/api/test/thread-cats.test.js`
 - Modify: `packages/api/src/routes/index.ts` (注册路由)
+
+> **P1-1 fix**: 测试文件 `test/thread-cats.test.js`（JS），遵循现有 API 测试约定。
+> **P1-2 fix**: 权限走 `X-Cat-Cafe-User` header（通过 `resolveUserId()`），+ `bindingStore.getByThread(threadId)` 比对 binding owner。
+> **P2 fix**: `notRoutable` 严格遵循 KD-9，仅包含 `available=false` 的猫。
 
 ### Step 1: 写 API 测试（Red）
 
-```typescript
+```javascript
+// packages/api/test/thread-cats.test.js
+const { describe, it, beforeEach } = require('node:test');
+const assert = require('node:assert/strict');
+
 describe('GET /api/threads/:id/cats', () => {
   it('returns structured cat data for thread', async () => {
-    // Setup: thread with participants, some cats available, some not
     const response = await app.inject({
       method: 'GET',
       url: '/api/threads/t-test/cats',
+      headers: { 'x-cat-cafe-user': 'owner-user' },
     });
     assert.equal(response.statusCode, 200);
     const body = JSON.parse(response.body);
@@ -255,17 +274,17 @@ describe('GET /api/threads/:id/cats', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/api/threads/t-nonexistent/cats',
+      headers: { 'x-cat-cafe-user': 'any-user' },
     });
     assert.equal(response.statusCode, 404);
   });
 
-  it('returns 403 for unauthorized user', async () => {
-    // Setup: thread owned by different user
-    // Request without matching connector binding
+  it('returns 403 when user is not binding owner (AC-A6)', async () => {
+    // Thread exists but requesting user != binding owner
     const response = await app.inject({
       method: 'GET',
       url: '/api/threads/t-other/cats',
-      headers: { 'x-connector-binding-owner': 'wrong-user' },
+      headers: { 'x-cat-cafe-user': 'wrong-user' },
     });
     assert.equal(response.statusCode, 403);
   });
@@ -275,15 +294,24 @@ describe('GET /api/threads/:id/cats', () => {
 ### Step 2: 实现路由（Green）
 
 ```typescript
-// thread-cats.ts
+// packages/api/src/routes/thread-cats.ts
+import type { FastifyInstance } from 'fastify';
+import type { IThreadStore, ThreadParticipantActivity } from '...';
+import type { AgentRegistry } from '...';
+import type { IConnectorThreadBindingStore } from '...';
+import { resolveUserId } from '../utils/request-identity.js';
+import { getRoster, isCatAvailable, getDisplayName } from '../config/cat-config-loader.js';
+
 export function threadCatsRoutes(
   app: FastifyInstance,
   opts: {
     threadStore: IThreadStore;
     agentRegistry: AgentRegistry;
+    bindingStore: IConnectorThreadBindingStore;
+    defaultUserId: string;
   },
 ) {
-  const { threadStore, agentRegistry } = opts;
+  const { threadStore, agentRegistry, bindingStore, defaultUserId } = opts;
 
   app.get('/api/threads/:id/cats', async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -292,39 +320,44 @@ export function threadCatsRoutes(
     const thread = await threadStore.get(id);
     if (!thread) return reply.status(404).send({ error: 'Thread not found' });
 
-    // 2. Auth check (connector binding owner)
-    // ... (check request context against thread ownership)
+    // 2. Auth: connector binding owner check (P1-2 fix)
+    const requestUserId = resolveUserId(request, { defaultUserId });
+    const binding = await bindingStore.getByThread?.(id);
+    // If thread has a connector binding, verify the requester is the binding owner
+    // For Hub-only threads (no binding), allow defaultUserId access
+    if (binding && requestUserId !== defaultUserId) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
 
     // 3. Gather data
     const participantActivity = await threadStore.getParticipantsWithActivity(id);
     const registeredServices = agentRegistry.getAllEntries();
     const roster = getRoster();
     const allCatIds = Object.keys(roster);
-
     const participantIds = new Set(participantActivity.map(p => p.catId));
 
-    // 4. Categorize
-    const routableNow: CatSummary[] = [];
-    const routableNotJoined: CatSummary[] = [];
-    const notRoutable: CatSummary[] = [];
+    // 4. Categorize (KD-9: notRoutable = strictly available=false)
+    const routableNow = [];
+    const routableNotJoined = [];
+    const notRoutable = [];
 
     for (const catId of allCatIds) {
       const hasService = registeredServices.has(catId);
       const available = isCatAvailable(catId);
-      const isParticipant = participantIds.has(catId as CatId);
+      const isParticipant = participantIds.has(catId);
 
-      if (hasService && available) {
-        if (!isParticipant) routableNotJoined.push(toCatSummary(catId));
-        // participants handled separately with activity data
-      } else {
-        if (!isParticipant) notRoutable.push(toCatSummary(catId));
+      if (!available) {
+        // KD-9: notRoutable = available=false only
+        if (!isParticipant) notRoutable.push({ catId, displayName: getDisplayName(catId) });
+      } else if (hasService && !isParticipant) {
+        routableNotJoined.push({ catId, displayName: getDisplayName(catId) });
       }
     }
 
-    // routableNow = participants that are also routable
+    // routableNow = participants that have service + available
     const routableNowList = participantActivity
       .filter(p => registeredServices.has(p.catId) && isCatAvailable(p.catId))
-      .map(p => toCatSummary(p.catId));
+      .map(p => ({ catId: p.catId, displayName: getDisplayName(p.catId) }));
 
     return {
       participants: participantActivity.map(p => ({
@@ -344,18 +377,23 @@ export function threadCatsRoutes(
 
 ### Step 3: 写快照测试 (AC-A7)
 
-```typescript
+```javascript
 it('snapshot: cat categorization matches AgentRouter logic', async () => {
-  // Setup: 4 cats — 1 participant+routable, 1 participant+not-routable,
-  //        1 not-participant+routable, 1 not-participant+not-routable
-  const response = await app.inject({ method: 'GET', url: '/api/threads/t-snap/cats' });
+  // Setup: 4 cats
+  // - opus: participant + service + available → in participants + routableNow
+  // - codex: participant + service + available=false → in participants + notRoutable
+  // - gpt52: not participant + service + available → routableNotJoined
+  // - gemini: not participant + no service + available=false → notRoutable
+  const response = await app.inject({
+    method: 'GET',
+    url: '/api/threads/t-snap/cats',
+    headers: { 'x-cat-cafe-user': 'owner-user' },
+  });
   const body = JSON.parse(response.body);
-
-  // Snapshot assertions
   assert.equal(body.participants.length, 2);
-  assert.equal(body.routableNow.length, 1);      // participant + has service + available
-  assert.equal(body.routableNotJoined.length, 1); // not participant + has service + available
-  assert.equal(body.notRoutable.length, 1);       // not participant + !available or !service
+  assert.equal(body.routableNow.length, 1);       // opus: participant + routable
+  assert.equal(body.routableNotJoined.length, 1);  // gpt52: not participant + routable
+  assert.equal(body.notRoutable.length, 1);         // gemini: available=false (KD-9)
 });
 ```
 
@@ -376,64 +414,58 @@ feat(F142): add GET /api/threads/:id/cats aggregation API [宪宪/Opus-46🐾]
 
 **Files:**
 - Modify: `packages/api/src/infrastructure/connectors/ConnectorCommandLayer.ts`
-- Modify: `packages/api/test/infrastructure/connectors/ConnectorCommandLayer.test.ts`
+- Modify: `packages/api/test/connector-command-layer.test.js`
 
 ### Step 1: 写 `/cats` 失败测试（Red）
 
-```typescript
-it('/cats returns formatted cat list for bound thread', async () => {
-  // Setup: binding exists, thread has participants
-  mockBindingStore.getByExternal = mock.fn(async () => ({
-    threadId: 't-bound', connectorId: 'feishu', externalChatId: 'chat1',
-  }));
-  const result = await layer.handle('feishu', 'chat1', 'user1', '/cats');
-  assert.equal(result.kind, 'cats');
-  assert.ok(result.response);
-  assert.ok(result.response.includes('参与猫'));
-});
+```javascript
+describe('/cats (F142)', () => {
+  it('returns formatted cat list for bound thread', async () => {
+    stubBindingStore.getByExternal = async () => ({
+      threadId: 't-bound', connectorId: 'feishu', externalChatId: 'chat1',
+    });
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/cats');
+    assert.equal(result.kind, 'cats');
+    assert.ok(result.response);
+    assert.ok(result.response.includes('参与猫'));
+  });
 
-it('/cats with no binding returns guidance', async () => {
-  mockBindingStore.getByExternal = mock.fn(async () => null);
-  const result = await layer.handle('feishu', 'chat1', 'user1', '/cats');
-  assert.equal(result.kind, 'cats');
-  assert.ok(result.response?.includes('没有绑定'));
+  it('with no binding returns guidance', async () => {
+    stubBindingStore.getByExternal = async () => null;
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/cats');
+    assert.equal(result.kind, 'cats');
+    assert.ok(result.response?.includes('没有绑定'));
+  });
 });
 ```
 
-### Step 2: 扩展 ConnectorCommandLayerDeps
+### Step 2: 扩展 ConnectorCommandLayerDeps + 实现 handler
 
 ```typescript
-// 新增依赖
-export interface ConnectorCommandLayerDeps {
-  // ... existing ...
-  readonly agentRegistry?: {
-    getAllEntries(): Map<string, unknown>;
-    has(catId: string): boolean;
-  };
-}
+// Deps 新增 participantStore（可选，向后兼容）
+readonly participantStore?: {
+  getParticipantsWithActivity(threadId: string):
+    ThreadParticipantActivity[] | Promise<ThreadParticipantActivity[]>;
+};
+readonly agentRegistry?: {
+  has(catId: string): boolean;
+};
 ```
 
-### Step 3: 实现 `/cats` handler（Green）
+> **P1-4 fix**: 不依赖 `threadStore.get()` 的 `participants` 字段（类型没有），改用 `participantStore.getParticipantsWithActivity()` 获取参与者数据。
+> **P2 fix**: `notRoutable` 严格 = `available=false`（KD-9），不含 `service_missing`。
 
 ```typescript
-private async handleCats(
-  connectorId: string,
-  externalChatId: string,
-  userId: string,
-): Promise<CommandResult> {
+private async handleCats(connectorId: string, externalChatId: string): Promise<CommandResult> {
   const binding = await this.deps.bindingStore.getByExternal(connectorId, externalChatId);
   if (!binding) {
-    return {
-      kind: 'cats',
-      response: '⚠️ 当前没有绑定 thread，请先用 /new 创建或 /use 切换。',
-    };
+    return { kind: 'cats', response: '⚠️ 当前没有绑定 thread，请先用 /new 创建或 /use 切换。' };
   }
 
-  const threadId = binding.threadId;
-  const participantActivity = await this.deps.threadStore.getParticipantsWithActivity?.(threadId) ?? [];
+  const participantActivity = await this.deps.participantStore
+    ?.getParticipantsWithActivity(binding.threadId) ?? [];
   const roster = getRoster();
   const allCatIds = Object.keys(roster);
-
   const participantIds = new Set(participantActivity.map(p => p.catId));
   const lines: string[] = [];
 
@@ -441,52 +473,36 @@ private async handleCats(
   if (participantActivity.length > 0) {
     lines.push('🐾 参与猫：');
     for (const p of participantActivity) {
-      const available = isCatAvailable(p.catId);
-      const hasService = this.deps.agentRegistry?.has(p.catId) ?? false;
-      const tag = available && hasService ? '✅' : '⚠️';
-      lines.push(`  ${tag} ${getDisplayName(p.catId)}（${p.messageCount} 条消息）`);
+      const routable = isCatAvailable(p.catId) && (this.deps.agentRegistry?.has(p.catId) ?? false);
+      lines.push(`  ${routable ? '✅' : '⚠️'} ${getDisplayName(p.catId)}（${p.messageCount} 条消息）`);
     }
   }
 
-  // Routable but not joined
+  // Routable not joined
   const routableNotJoined = allCatIds.filter(id =>
-    !participantIds.has(id as CatId)
-    && isCatAvailable(id)
-    && (this.deps.agentRegistry?.has(id) ?? false)
-  );
+    !participantIds.has(id) && isCatAvailable(id) && (this.deps.agentRegistry?.has(id) ?? false));
   if (routableNotJoined.length > 0) {
     lines.push('\n📡 可调度（未加入）：');
-    for (const id of routableNotJoined) {
-      lines.push(`  ${getDisplayName(id)}`);
-    }
+    for (const id of routableNotJoined) lines.push(`  ${getDisplayName(id)}`);
   }
 
-  // Not routable
-  const notRoutable = allCatIds.filter(id =>
-    !participantIds.has(id as CatId)
-    && (!isCatAvailable(id) || !(this.deps.agentRegistry?.has(id) ?? false))
-  );
+  // Not routable — KD-9: strictly available=false
+  const notRoutable = allCatIds.filter(id => !participantIds.has(id) && !isCatAvailable(id));
   if (notRoutable.length > 0) {
     lines.push('\n💤 不可调度：');
-    for (const id of notRoutable) {
-      lines.push(`  ${getDisplayName(id)}`);
-    }
+    for (const id of notRoutable) lines.push(`  ${getDisplayName(id)}`);
   }
 
-  return {
-    kind: 'cats',
-    response: lines.join('\n') || '没有找到猫猫。',
-    contextThreadId: threadId,
-  };
+  return { kind: 'cats', response: lines.join('\n') || '没有找到猫猫。', contextThreadId: binding.threadId };
 }
 ```
 
-### Step 4: 跑测试
+### Step 3: 跑测试
 
 Run: `pnpm --filter @cat-cafe/api test -- --grep "/cats"`
 Expected: PASS
 
-### Step 5: Commit
+### Step 4: Commit
 
 ```
 feat(F142): add /cats connector command [宪宪/Opus-46🐾]
@@ -498,50 +514,48 @@ feat(F142): add /cats connector command [宪宪/Opus-46🐾]
 
 **Files:**
 - Modify: `packages/api/src/infrastructure/connectors/ConnectorCommandLayer.ts`
-- Modify: `packages/api/test/infrastructure/connectors/ConnectorCommandLayer.test.ts`
+- Modify: `packages/api/test/connector-command-layer.test.js`
+
+> **P1-4 fix**: `threadStore.get()` 返回 `{ id, title?, createdAt? }`——没有 `participants` 和 `lastActiveAt`。参与猫数通过 `participantStore.getParticipantsWithActivity()` 获取；最近活跃从 participant activity 的 `max(lastMessageAt)` 推导。
 
 ### Step 1: 写 `/status` 失败测试（Red）
 
-```typescript
-it('/status returns thread overview', async () => {
-  mockBindingStore.getByExternal = mock.fn(async () => ({
-    threadId: 't-bound', connectorId: 'feishu', externalChatId: 'chat1',
-  }));
-  mockThreadStore.get = mock.fn(async () => ({
-    id: 't-bound',
-    title: 'F142 开发',
-    createdAt: Date.now() - 86400000,
-    participants: ['opus', 'codex'],
-    lastActiveAt: Date.now(),
-  }));
-  const result = await layer.handle('feishu', 'chat1', 'user1', '/status');
-  assert.equal(result.kind, 'status');
-  assert.ok(result.response?.includes('F142 开发'));
-  assert.ok(result.response?.includes('2'));  // participant count
-});
+```javascript
+describe('/status (F142)', () => {
+  it('returns thread overview', async () => {
+    stubBindingStore.getByExternal = async () => ({
+      threadId: 't-bound', connectorId: 'feishu', externalChatId: 'chat1',
+    });
+    stubThreadStore.get = async () => ({
+      id: 't-bound', title: 'F142 开发', createdAt: Date.now() - 86400000,
+    });
+    // participantStore 返回 2 个参与者
+    stubParticipantStore.getParticipantsWithActivity = async () => [
+      { catId: 'opus', lastMessageAt: Date.now(), messageCount: 5, lastResponseHealthy: true },
+      { catId: 'codex', lastMessageAt: Date.now() - 3600000, messageCount: 3, lastResponseHealthy: true },
+    ];
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/status');
+    assert.equal(result.kind, 'status');
+    assert.ok(result.response?.includes('F142 开发'));
+    assert.ok(result.response?.includes('2'));  // participant count
+  });
 
-it('/status with no binding returns guidance', async () => {
-  mockBindingStore.getByExternal = mock.fn(async () => null);
-  const result = await layer.handle('feishu', 'chat1', 'user1', '/status');
-  assert.equal(result.kind, 'status');
-  assert.ok(result.response?.includes('没有绑定'));
+  it('with no binding returns guidance', async () => {
+    stubBindingStore.getByExternal = async () => null;
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/status');
+    assert.equal(result.kind, 'status');
+    assert.ok(result.response?.includes('没有绑定'));
+  });
 });
 ```
 
 ### Step 2: 实现 `/status` handler（Green）
 
 ```typescript
-private async handleStatus(
-  connectorId: string,
-  externalChatId: string,
-  userId: string,
-): Promise<CommandResult> {
+private async handleStatus(connectorId: string, externalChatId: string): Promise<CommandResult> {
   const binding = await this.deps.bindingStore.getByExternal(connectorId, externalChatId);
   if (!binding) {
-    return {
-      kind: 'status',
-      response: '⚠️ 当前没有绑定 thread，请先用 /new 创建或 /use 切换。',
-    };
+    return { kind: 'status', response: '⚠️ 当前没有绑定 thread，请先用 /new 创建或 /use 切换。' };
   }
 
   const thread = await this.deps.threadStore.get(binding.threadId);
@@ -549,12 +563,16 @@ private async handleStatus(
     return { kind: 'status', response: '⚠️ 绑定的 thread 已不存在。' };
   }
 
+  // P1-4 fix: get participant data from participantStore, not threadStore.get()
+  const participants = await this.deps.participantStore
+    ?.getParticipantsWithActivity(binding.threadId) ?? [];
+  const participantCount = participants.length;
+  const lastActive = participants.length > 0
+    ? timeAgo(Math.max(...participants.map(p => p.lastMessageAt)))
+    : '未知';
+
   const title = thread.title || '(无标题)';
   const created = new Date(thread.createdAt ?? 0).toLocaleDateString('zh-CN');
-  const participantCount = thread.participants?.length ?? 0;
-  const lastActive = thread.lastActiveAt
-    ? timeAgo(thread.lastActiveAt)
-    : '未知';
   const link = `${this.deps.frontendBaseUrl}/threads/${binding.threadId}`;
 
   return {
@@ -592,21 +610,38 @@ feat(F142): add /status connector command [宪宪/Opus-46🐾]
 Run: `pnpm --filter @cat-cafe/api test -- --grep "ConnectorCommandLayer"`
 Expected: 全部 PASS（含 Task 2 基线 + Task 3-6 新增）
 
-### Step 2: 跑 Web 端 registry 测试
+### Step 2: 跑 API 端 thread-cats 测试
+
+Run: `pnpm --filter @cat-cafe/api test -- --grep "thread-cats"`
+Expected: PASS
+
+### Step 3: 跑 Web 端 registry 测试
 
 Run: `pnpm --filter @cat-cafe/web test -- --grep "registries"`
-Expected: PASS（含 Task 1 一致性测试）
+Expected: PASS
 
-### Step 3: 跑 gate 检查
+### Step 4: 跑 gate 检查
 
 Run: `pnpm check && pnpm lint`
 Expected: PASS
 
-### Step 4: Final commit（如有小修）
+### Step 5: Final commit（如有小修）
 
 ```
 test(F142): Phase A regression suite green [宪宪/Opus-46🐾]
 ```
+
+---
+
+## 砚砚 Review 修订记录
+
+| P | 问题 | 修正 |
+|---|------|------|
+| P1-1 | 测试路径 `test/infrastructure/...test.ts` 不会被 API test runner 执行 | 改用现有 `test/connector-command-layer.test.js`（JS） |
+| P1-2 | `x-connector-binding-owner` header 不存在 | 改用 `X-Cat-Cafe-User` + `resolveUserId()` + `bindingStore.getByThread()` |
+| P1-3 | A0 一致性测试跨 surface 误报 | 限定 connector scope，只验证 ConnectorCommandLayer dispatch |
+| P1-4 | `/status` 用 `thread.participants` / `thread.lastActiveAt` 但 deps 类型没有 | 新增 `participantStore` 依赖，从 `getParticipantsWithActivity()` 获取 |
+| P2 | `notRoutable = !available \|\| !service` 偏离 KD-9 | 严格 `notRoutable = available=false`，`service_missing` 不纳入 |
 
 ---
 
@@ -618,12 +653,6 @@ Task 2 (基线测试) ─────┬── Task 3 (/commands) ─┤
                        ├── Task 5 (/cats cmd)  ─┤── Task 7 (回归)
 Task 4 (API endpoint) ─┘── Task 6 (/status)   ─┘
 ```
-
-- Task 1 和 Task 2 可并行（不同 package）
-- Task 3 最简单先做，验证 CommandLayer 扩展模式
-- Task 4 (API) 和 Task 5 (/cats cmd) 有依赖：API 先行
-- Task 6 (/status) 独立，可在 Task 3 之后任意位置
-- Task 7 全部完成后做
 
 ## 实施顺序
 
