@@ -10,6 +10,10 @@ created: 2026-03-23
 
 > **Status**: spec | **Owner**: @opus | **Priority**: P1
 
+## Vision
+
+**Hub 的配置面板从「只读展示」变成「可读可写可即时生效」。** 无论是 IM connector 配置、猫猫配置、Provider Profiles 还是环境变量——用户在 Hub 里改完，不用重启，立刻生效。热更新管线是实现这个愿景的基座，不是目的本身。
+
 ## Why
 
 > 铲屎官原话（2026-03-23，F088 Phase 8 讨论中）：
