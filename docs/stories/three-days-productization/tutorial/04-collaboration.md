@@ -103,7 +103,7 @@ created: 2026-03-27
 
 但「@ 传球」只是用户交互层的语义。底层有更可靠的基础设施：
 
-1. **`targetCats` 结构化字段**：猫猫回复时通过 MCP 工具声明下一步该谁动，不再依赖文本解析（F055）
+1. **`targetCats` 结构化字段**：猫猫回复时通过 MCP 工具声明下一步该谁动（F055）；行首 `@` 仍保留兼容 fallback
 2. **统一 Dispatch Queue**：所有执行请求（用户消息、connector 消息、A2A 传球）进同一个队列，铲屎官可以用 steer 强制插队（F122）
 3. **Per-cat 执行槽位**：每只猫有自己的 invocation slot，避免并发冲突
 
@@ -263,12 +263,13 @@ Skill 也是提示词层面的约束——加载了 `tdd` skill，猫就知道�
 
 为什么只做生命周期 hook，不做工具级 hook（PostToolUse 等）？因为各 CLI 的工具级 hook 支持不一致（Claude Code 有、Codex CLI 没有），强行统一会导致行为不一致——出问题时无法定位是提示词还是 hook 的问题。
 
-### 第三层：Git Hooks / MCP 守卫
+### 第三层：项目级守卫（Git hooks / project hooks / MCP 能力）
 
 最后一层是系统级自动执行的守卫：
 
 - **Git hooks**：commit 前自动跑 biome check
-- **MCP 守卫**：Redis 6399 操作自动拦截、evidence guard 自动提醒
+- **项目级 hooks**：Redis 6399 操作自动拦截（runtime sanctuary）、evidence guard 自动提醒搜上下文
+- **MCP 能力接入**：`search_evidence` 让猫猫能查历史决策、`post_message` 让猫猫能异步传话
 
 这一层**不靠猫猫自觉**——即使猫猫忘了规则，系统也会帮它记住。
 
@@ -295,7 +296,7 @@ Skill 也是提示词层面的约束——加载了 `tdd` skill，猫就知道�
 4. **Skill 系统**：不同模型加载同一套行为协议，输出收敛到同一标准
 5. **跨家族 Review**：用不同的认知模式互相审视，发现更多盲点
 6. **Session Chain**：按策略延续上下文，不是无脑堆积
-7. **三层守卫**：提示词 / Hooks / Git & MCP 纵深防御
+7. **三层守卫**：提示词 / 生命周期 hooks / 项目级守卫（Git hooks + project hooks + MCP）
 
 **群体智能 ≠ 多个 agent 各干各的。** 关键是共享愿景 + 互相制约 + 持续改进。
 
@@ -309,7 +310,7 @@ Skill 也是提示词层面的约束——加载了 `tdd` skill，猫就知道�
 4. **Skill 是行为协议不是能力** — 让不同模型收敛到同一标准
 5. **跨家族 Review 发现盲点** — 用不同认知模式审视代码
 6. **Session Chain 按策略延续** — per-cat 可配置，不是无脑塞历史
-7. **三层守卫纵深防御** — 提示词 / 生命周期 Hooks / Git & MCP
+7. **三层守卫纵深防御** — 提示词 / 生命周期 Hooks / 项目级守卫（Git + project hooks + MCP）
 
 ---
 
