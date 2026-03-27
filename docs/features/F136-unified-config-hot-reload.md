@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F136: Unified Config Hot Reload — 配置热更新统一管线
 
-> **Status**: spec | **Owner**: 待定 | **Priority**: P1
+> **Status**: spec | **Owner**: @opus | **Priority**: P1
 
 ## Why
 
@@ -43,7 +43,8 @@ created: 2026-03-23
 │  写入持久化（.env / yaml / json）          │
 │  ↓                                         │
 │  发射 ConfigChangeEvent (event bus)        │
-│  { source, keys[], timestamp }             │
+│  { source, changedKeys[], changeSetId,     │
+│    scope: file|domain|key, timestamp }     │
 └──────────────┬─────────────────────────────┘
                ▼
 ┌── 订阅者（各子系统自行响应）──────────────┐
@@ -61,11 +62,29 @@ created: 2026-03-23
 3. **收编 F127** — `runtime-cat-catalog.ts` 的热更新能力并入统一管线，干掉独立的 ad-hoc 机制
 4. **渐进式** — 可以分 Phase，先做 connector 热重载（F088 直接需求），再扩展到猫猫管理
 
-### 铲屎官待决策
+### 决策记录（2026-03-27，铲屎官 + @opus + @codex 讨论收敛）
 
-- [ ] F127 的 `runtime-cat-catalog.ts`（517 行）是否需要重写为使用统一管线？还是只是接入 event bus？
-- [ ] 热更新的粒度：是文件级（`.env` 变了 → 通知）还是 key 级（`TELEGRAM_BOT_TOKEN` 变了 → 通知）？
-- [ ] 安全边界：sensitive env vars（tokens/secrets）能否通过 Hub API 热更新？还是只能手动改 `.env` + 触发 reload？
+- [x] **F127 收编方式：重写，渐进迁移（3A→3B→3C）**
+  - 3A: 把 `/api/cats` 路由里的 side effect（registry reconcile）迁到统一 event bus subscriber — 终态 subscriber
+  - 3B: `runtime-cat-catalog` 收敛成纯存储+校验，删掉 ad-hoc 触发路径 — 终态存储层
+  - 3C: 删除 3A/3B 使旧代码变成的死代码
+  - 每步产物都是终态基座，不是脚手架（铲屎官确认）
+  - 证据：`runtime-cat-catalog.ts` 实际 527 行，路由里直接耦合 reconcile（`cats.ts:297`、`index.ts:635`）
+
+- [x] **热更新粒度：key 级为主 + file/domain 级降级**
+  - Event schema: `{ changedKeys[], changeSetId, scope: 'file' | 'domain' | 'key', timestamp }`
+  - 多键原子语义：飞书等组合配置用 `changeSetId` 批量，避免单 key 变更频繁 restart
+  - Debounce/coalesce：防抖动，避免连续改多 key 触发 restart 风暴
+  - 降级：手动编辑 `.env` 时 watcher 无法产出 key diff → 降级到 file 级通知
+  - 证据：现有 `/api/config/env` 已有 `updates[]`，天然可产出 changedKeys
+
+- [x] **安全边界：新增专用 secrets 通道，不放开现有 endpoint**
+  - 保留 `/api/config/env` 只写非敏感变量（现有安全模型不变）
+  - 新增 `POST /api/config/secrets`（allowlist），只允许 connector 需要的 token（如 `TELEGRAM_BOT_TOKEN`、`FEISHU_APP_ID` 等）
+  - Guard：loopback/same-origin 校验 + 审计日志只记 key 不记 value
+  - 成功后发同一个 ConfigChangeEvent，走统一热更新管线
+  - 前端：token 输入后 mask 显示，不回显完整值
+  - 证据：现有 `env-registry.ts:857` 的 `isEditableEnvVarName` 明确拒绝 sensitive vars，`env-registry.test.js:360` 有测试锁定
 
 ### 已知的具体需求（从 F088 Phase 8 产生）
 
@@ -90,9 +109,13 @@ created: 2026-03-23
 
 ## Phase 进度
 
-| Phase | 内容 | 状态 |
-|-------|------|------|
-| **1** | 配置源全景梳理 + 统一 event bus 设计 | 📋 planned |
-| **2** | Connector 热重载（F088 直接需求） | 📋 planned |
-| **3** | F127 runtime-cat-catalog 收编 | 📋 planned |
-| **4** | Provider Profiles 热重载 | 📋 planned |
+| Phase | 内容 | 状态 | 备注 |
+|-------|------|------|------|
+| **1** | 统一 event bus 设计 + ConfigChangeEvent schema | 📋 planned | Phase 2/3/4 的基座 |
+| **2** | Connector 热重载 + `/api/config/secrets` | 📋 planned | MVP — 解决 IM 配置改了要重启的痛点 |
+| **3A** | F127 side effect 迁移到 event bus subscriber | 📋 planned | 终态 subscriber |
+| **3B** | `runtime-cat-catalog` 收敛为纯存储+校验 | 📋 planned | 终态存储层 |
+| **3C** | 删除 F127 ad-hoc 热更新死代码 | 📋 planned | 清理 |
+| **4** | Provider Profiles 热重载 | 📋 planned | — |
+
+**MVP = Phase 1 + 2**：做完这两个，Hub 配置向导改 IM 配置就能热生效，不用重启。
