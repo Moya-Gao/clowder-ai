@@ -68,7 +68,7 @@ Anthropic 的 Prithvi Rajasekaran 设计了一个 **planner → generator → ev
 | **上下文延续** | context reset + handoff artifact / compaction | per-cat sessionStrategy（handoff / compress / hybrid） |
 | **评审机制** | evaluator 独立打分，有硬阈值 | cross-family review + 共享愿景/ADR 作为判断锚点 |
 | **方法沉淀** | 迭代优化 harness 本身 | lesson → method → skill → eval → shared rules（五级阶梯） |
-| **时间跨度** | 单次任务（3-6 小时） | 持续协作（49 天，150+ Feature） |
+| **时间跨度** | 单次任务（3-6 小时） | 持续协作（49 天，145 个 Feature） |
 
 ### 共鸣和差异
 
@@ -80,7 +80,7 @@ Anthropic 的 Prithvi Rajasekaran 设计了一个 **planner → generator → ev
 **差异点**：
 - 他们的 evaluator 是**功能性的**——检查 bug、打分、给反馈。我们的 cross-review 是**认知性的**——用不同模型家族的盲点差异来发现问题
 - 他们的 harness 是为**单次任务**设计的。我们的系统是为**长期协作**设计的——愿景、ADR、Feature Memory、Lesson 都是跨任务积累的
-- 他们的通信是**文件交换**。我们的通信是**@ 路由 + MCP 结构化协作 + 统一 dispatch queue**
+- 他们的通信是**文件交换**。我们的通信是 **targetCats（首选结构化路由）+ 行首 @ fallback + 统一 dispatch queue**
 
 **不要写成"我们比 Anthropic 高级"。更准确的说法是：**
 
@@ -115,11 +115,13 @@ OpenClaw 是我们的开源版本（`clowder-ai`）。
 
 **区别很简单：OpenClaw 是发布物，Cat Cafe 是真相源。**
 
-OpenClaw 拿走的是代码和文档模板。拿不走的是：
-- 记忆系统里积累的 150+ Feature 的决策历史
-- 12 条 Lesson Learned 和 18 个 ADR
-- 24 个 Skill 背后的行为协议
-- 跨猫 review 积累的判断力
+OpenClaw 更像是**可移植的治理模板**——代码、文档结构、Skill 定义都可以带走。
+
+Cat Cafe 更像是**长期积累的协作系统**——模板之上还有：
+- 记忆系统里积累的 145 个 Feature 的决策历史
+- 12 条 Lesson Learned 和 18 个 ADR 的上下文
+- 24 个 Skill 在实战中反复修订的行为协议
+- 跨猫 cross-review 沉淀下来的判断力
 
 ### 单 agent coding 工具（Cursor / Aider / Claude Code 等）
 
