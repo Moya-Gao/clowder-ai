@@ -1,18 +1,27 @@
 /**
- * Schedule Panel API Routes (F139 Phase 2)
+ * Schedule Panel API Routes (F139 Phase 2 + Phase 3A)
  *
  * GET  /api/schedule/tasks              → list registered tasks + summaries
  * GET  /api/schedule/tasks/:id/runs     → run history (optional ?threadId= filter)
  * POST /api/schedule/tasks/:id/trigger  → manual trigger
- * POST /api/schedule/nl-config          → natural language → TaskSpec proposal
+ * GET  /api/schedule/templates          → list available templates (AC-G1)
+ * POST /api/schedule/tasks              → create dynamic task (AC-G3)
+ * DELETE /api/schedule/tasks/:id        → remove dynamic task (AC-G4)
+ * PATCH /api/schedule/tasks/:id         → toggle enabled (AC-G4)
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { TriggerSpec } from '../infrastructure/scheduler/types.js';
 
 export interface ScheduleRoutesOptions {
   taskRunner: TaskRunnerV2;
+  dynamicTaskStore?: DynamicTaskStore;
+  templateRegistry?: {
+    get: (id: string) => import('../infrastructure/scheduler/templates/types.js').TaskTemplate | null;
+    list: () => import('../infrastructure/scheduler/templates/types.js').TaskTemplate[];
+  };
 }
 
 /** Extract threadId from subjectKey — handles both thread-xxx (real tasks) and thread:xxx formats */
@@ -23,7 +32,7 @@ export function extractThreadId(subjectKey: string): string | null {
 }
 
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner } = opts;
+  const { taskRunner, dynamicTaskStore, templateRegistry } = opts;
 
   // GET /api/schedule/tasks
   app.get('/api/schedule/tasks', async () => {
@@ -46,9 +55,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     const ledger = taskRunner.getLedger();
     let runs: import('../infrastructure/scheduler/types.js').RunLedgerRow[];
 
-    // AC-C3b-1: filter by threadId at SQL level (P2-1 fix: avoid post-LIMIT filtering)
     if (threadId) {
-      // Try both subject_key formats used by real tasks
       const hyphenKey = `thread-${threadId}`;
       const colonKey = `thread:${threadId}`;
       const hyphenRuns = ledger.queryBySubject(id, hyphenKey, maxRows);
@@ -82,68 +89,193 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     return { success: true, taskId: id };
   });
 
-  // POST /api/schedule/nl-config (AC-C4)
-  app.post('/api/schedule/nl-config', async (request, reply) => {
-    const { prompt } = (request.body ?? {}) as { prompt?: string };
-    if (!prompt?.trim()) {
-      reply.status(400);
-      return { error: 'Missing prompt' };
-    }
-
-    const proposal = parseNlToTrigger(prompt.trim());
-    if (!proposal) {
-      return {
-        proposal: null,
-        confirmation:
-          'Could not parse your request. Try something like "every 30 minutes check stale issues" or "daily at 9am summarize threads".',
-      };
-    }
-
+  // GET /api/schedule/templates (AC-G1)
+  app.get('/api/schedule/templates', async () => {
+    if (!templateRegistry) return { templates: [] };
     return {
-      proposal: {
-        trigger: proposal.trigger,
-        description: proposal.description,
-      },
-      confirmation: `Understood: ${proposal.description}. This would create a task with ${proposal.trigger.type === 'cron' ? `cron "${proposal.trigger.expression}"` : `${proposal.trigger.ms}ms interval`}. (Registration coming in Phase 3)`,
+      templates: templateRegistry.list().map((t) => ({
+        templateId: t.templateId,
+        label: t.label,
+        category: t.category,
+        description: t.description,
+        defaultTrigger: t.defaultTrigger,
+        paramSchema: t.paramSchema,
+      })),
     };
   });
+
+  // POST /api/schedule/tasks/preview (AC-G2: draft step — validate + preview, no persist)
+  app.post('/api/schedule/tasks/preview', async (request, reply) => {
+    if (!templateRegistry) {
+      reply.status(501);
+      return { error: 'Templates not configured' };
+    }
+
+    const body = (request.body ?? {}) as {
+      templateId?: string;
+      trigger?: TriggerSpec;
+      params?: Record<string, unknown>;
+      display?: { label: string; category: string; description?: string };
+      deliveryThreadId?: string;
+    };
+
+    if (!body.templateId) {
+      reply.status(400);
+      return { error: 'Missing templateId' };
+    }
+
+    const template = templateRegistry.get(body.templateId);
+    if (!template) {
+      reply.status(400);
+      return { error: `Unknown template: ${body.templateId}` };
+    }
+
+    const trigger = body.trigger ?? template.defaultTrigger;
+    const params = body.params ?? {};
+    const display = body.display
+      ? {
+          label: body.display.label,
+          category: body.display.category as import('../infrastructure/scheduler/types.js').DisplayCategory,
+          description: body.display.description,
+        }
+      : { label: template.label, category: template.category, description: template.description };
+
+    return {
+      draft: {
+        templateId: body.templateId,
+        templateLabel: template.label,
+        trigger,
+        params,
+        display,
+        deliveryThreadId: body.deliveryThreadId ?? null,
+        paramSchema: template.paramSchema,
+      },
+    };
+  });
+
+  // POST /api/schedule/tasks (AC-G3: create dynamic task)
+  app.post('/api/schedule/tasks', async (request, reply) => {
+    if (!dynamicTaskStore || !templateRegistry) {
+      reply.status(501);
+      return { error: 'Dynamic tasks not configured' };
+    }
+
+    const body = (request.body ?? {}) as {
+      templateId?: string;
+      trigger?: TriggerSpec;
+      params?: Record<string, unknown>;
+      display?: { label: string; category: string; description?: string };
+      deliveryThreadId?: string;
+      createdBy?: string;
+    };
+
+    if (!body.templateId) {
+      reply.status(400);
+      return { error: 'Missing templateId' };
+    }
+
+    const template = templateRegistry.get(body.templateId);
+    if (!template) {
+      reply.status(400);
+      return { error: `Unknown template: ${body.templateId}` };
+    }
+
+    const trigger = body.trigger ?? template.defaultTrigger;
+    const params = body.params ?? {};
+    const id = `dyn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const display = body.display
+      ? {
+          label: body.display.label,
+          category: body.display.category as import('../infrastructure/scheduler/types.js').DisplayCategory,
+          description: body.display.description,
+        }
+      : { label: template.label, category: template.category, description: template.description };
+
+    const def = {
+      id,
+      templateId: body.templateId,
+      trigger,
+      params,
+      display,
+      deliveryThreadId: body.deliveryThreadId ?? null,
+      enabled: true,
+      createdBy: body.createdBy ?? 'unknown',
+      createdAt: new Date().toISOString(),
+    };
+
+    dynamicTaskStore.insert(def);
+
+    // Register in runtime
+    const spec = template.createSpec(id, { trigger, params, deliveryThreadId: def.deliveryThreadId });
+    spec.display = display;
+    taskRunner.registerDynamic(spec, id);
+
+    return { success: true, task: { id, ...display, trigger } };
+  });
+
+  // DELETE /api/schedule/tasks/:id (AC-G4: remove dynamic task)
+  app.delete('/api/schedule/tasks/:id', async (request, reply) => {
+    if (!dynamicTaskStore) {
+      reply.status(501);
+      return { error: 'Dynamic tasks not configured' };
+    }
+
+    const { id } = request.params as { id: string };
+    const removed = dynamicTaskStore.remove(id);
+    if (!removed) {
+      reply.status(404);
+      return { error: 'Dynamic task not found' };
+    }
+
+    taskRunner.unregister(id);
+    return { success: true };
+  });
+
+  // PATCH /api/schedule/tasks/:id (AC-G4: toggle enabled — affects runtime)
+  app.patch('/api/schedule/tasks/:id', async (request, reply) => {
+    if (!dynamicTaskStore || !templateRegistry) {
+      reply.status(501);
+      return { error: 'Dynamic tasks not configured' };
+    }
+
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as { enabled?: boolean };
+
+    if (typeof body.enabled !== 'boolean') {
+      reply.status(400);
+      return { error: 'Missing enabled field' };
+    }
+
+    const updated = dynamicTaskStore.setEnabled(id, body.enabled);
+    if (!updated) {
+      reply.status(404);
+      return { error: 'Dynamic task not found' };
+    }
+
+    if (!body.enabled) {
+      // Pause: unregister from runtime
+      taskRunner.unregister(id);
+    } else {
+      // Resume: re-register in runtime
+      const def = dynamicTaskStore.getById(id);
+      if (def) {
+        const template = templateRegistry.get(def.templateId);
+        if (template) {
+          const spec = template.createSpec(def.id, {
+            trigger: def.trigger,
+            params: def.params,
+            deliveryThreadId: def.deliveryThreadId,
+          });
+          spec.display = def.display;
+          try {
+            taskRunner.registerDynamic(spec, def.id);
+          } catch {
+            // Already registered — ignore
+          }
+        }
+      }
+    }
+
+    return { success: true, enabled: body.enabled };
+  });
 };
-
-/** Parse natural language into a trigger spec (best-effort, regex-based) */
-export function parseNlToTrigger(input: string): { trigger: TriggerSpec; description: string } | null {
-  const lower = input.toLowerCase();
-
-  // "every N minutes/hours"
-  const intervalMatch = lower.match(/every\s+(\d+)\s*(min(?:ute)?s?|hours?|h|m)/);
-  if (intervalMatch) {
-    const n = Number(intervalMatch[1]);
-    const unit = intervalMatch[2];
-    const ms = unit.startsWith('h') ? n * 3600000 : n * 60000;
-    return {
-      trigger: { type: 'interval', ms },
-      description: `Every ${n} ${unit.startsWith('h') ? 'hour' : 'minute'}${n > 1 ? 's' : ''}`,
-    };
-  }
-
-  // "daily at HH:MM" or "every day at HH"
-  const dailyMatch = lower.match(/(?:daily|every\s*day)\s*(?:at\s*)?(\d{1,2})(?::(\d{2}))?/);
-  if (dailyMatch) {
-    const hour = Number(dailyMatch[1]);
-    const minute = Number(dailyMatch[2] ?? 0);
-    if (hour > 23 || minute > 59) return null;
-    return {
-      trigger: { type: 'cron', expression: `${minute} ${hour} * * *` },
-      description: `Daily at ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
-    };
-  }
-
-  // "hourly"
-  if (/\bhourly\b/.test(lower)) {
-    return {
-      trigger: { type: 'cron', expression: '0 * * * *' },
-      description: 'Every hour',
-    };
-  }
-
-  return null;
-}

@@ -230,84 +230,129 @@ describe('Schedule Routes', () => {
     });
   });
 
-  describe('POST /api/schedule/nl-config (AC-C4)', () => {
-    it('parses "every 30 minutes" to interval', async () => {
-      const res = await app.inject({
+  // NL config route + parseNlToTrigger removed in Phase 3A (KD-10: conversational, not NL input box)
+
+  describe('POST /api/schedule/tasks/preview (P1-1: draft step)', () => {
+    let appDyn;
+
+    beforeEach(async () => {
+      const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
+      const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
+      const { scheduleRoutes: sr } = await import('../dist/routes/schedule.js');
+      const store = new DynamicTaskStore(db);
+      appDyn = Fastify({ logger: false });
+      await appDyn.register(sr, { taskRunner: runner, dynamicTaskStore: store, templateRegistry });
+      await appDyn.ready();
+    });
+
+    afterEach(async () => {
+      await appDyn.close();
+    });
+
+    it('returns draft without persisting', async () => {
+      const res = await appDyn.inject({
         method: 'POST',
-        url: '/api/schedule/nl-config',
-        payload: { prompt: 'every 30 minutes check stale issues' },
+        url: '/api/schedule/tasks/preview',
+        payload: {
+          templateId: 'reminder',
+          trigger: { type: 'cron', expression: '0 9 * * *' },
+          params: { message: 'hello' },
+        },
       });
       assert.equal(res.statusCode, 200);
       const body = JSON.parse(res.payload);
-      assert.ok(body.proposal);
-      assert.deepEqual(body.proposal.trigger, { type: 'interval', ms: 1800000 });
+      assert.ok(body.draft, 'should return draft object');
+      assert.equal(body.draft.templateId, 'reminder');
+      assert.ok(!body.draft.id, 'draft should NOT have an id (not persisted)');
+
+      // Verify nothing was persisted
+      const tasksRes = await appDyn.inject({ method: 'GET', url: '/api/schedule/tasks' });
+      const tasks = JSON.parse(tasksRes.payload).tasks;
+      const dynTasks = tasks.filter((t) => t.source === 'dynamic');
+      assert.equal(dynTasks.length, 0, 'no dynamic tasks should have been created');
     });
 
-    it('parses "daily at 9" to cron', async () => {
-      const res = await app.inject({
+    it('rejects unknown template', async () => {
+      const res = await appDyn.inject({
         method: 'POST',
-        url: '/api/schedule/nl-config',
-        payload: { prompt: 'daily at 9 summarize threads' },
-      });
-      const body = JSON.parse(res.payload);
-      assert.ok(body.proposal);
-      assert.deepEqual(body.proposal.trigger, { type: 'cron', expression: '0 9 * * *' });
-    });
-
-    it('parses "hourly" to cron', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/schedule/nl-config',
-        payload: { prompt: 'hourly health check' },
-      });
-      const body = JSON.parse(res.payload);
-      assert.deepEqual(body.proposal.trigger, { type: 'cron', expression: '0 * * * *' });
-    });
-
-    it('returns null proposal for unparseable input', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/schedule/nl-config',
-        payload: { prompt: 'something vague' },
-      });
-      const body = JSON.parse(res.payload);
-      assert.equal(body.proposal, null);
-      assert.ok(body.confirmation.includes('Could not parse'));
-    });
-
-    it('returns 400 for missing prompt', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/schedule/nl-config',
-        payload: {},
+        url: '/api/schedule/tasks/preview',
+        payload: { templateId: 'nonexistent' },
       });
       assert.equal(res.statusCode, 400);
     });
   });
 
-  describe('parseNlToTrigger()', () => {
-    it('handles "every 2 hours"', async () => {
-      const { parseNlToTrigger } = await import('../dist/routes/schedule.js');
-      const result = parseNlToTrigger('every 2 hours');
-      assert.ok(result);
-      assert.deepEqual(result.trigger, { type: 'interval', ms: 7200000 });
+  describe('PATCH /api/schedule/tasks/:id (P1-2: runtime pause/resume)', () => {
+    let appDyn, store;
+
+    beforeEach(async () => {
+      const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
+      const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
+      const { scheduleRoutes: sr } = await import('../dist/routes/schedule.js');
+      store = new DynamicTaskStore(db);
+      appDyn = Fastify({ logger: false });
+      await appDyn.register(sr, { taskRunner: runner, dynamicTaskStore: store, templateRegistry });
+      await appDyn.ready();
+
+      // Create a dynamic task
+      await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload: {
+          templateId: 'reminder',
+          trigger: { type: 'interval', ms: 60000 },
+          params: { message: 'test' },
+        },
+      });
     });
 
-    it('handles "daily at 14:30"', async () => {
-      const { parseNlToTrigger } = await import('../dist/routes/schedule.js');
-      const result = parseNlToTrigger('daily at 14:30');
-      assert.ok(result);
-      assert.deepEqual(result.trigger, { type: 'cron', expression: '30 14 * * *' });
+    afterEach(async () => {
+      await appDyn.close();
     });
 
-    it('rejects invalid hour/minute ranges (P2-2)', async () => {
-      const { parseNlToTrigger } = await import('../dist/routes/schedule.js');
-      // hour > 23 should be rejected
-      assert.equal(parseNlToTrigger('daily at 25'), null);
-      // minute > 59 should be rejected
-      assert.equal(parseNlToTrigger('daily at 14:99'), null);
-      // both invalid
-      assert.equal(parseNlToTrigger('daily at 99:99'), null);
+    it('PATCH enabled=false removes task from runtime', async () => {
+      // Find the dynamic task
+      const listRes = await appDyn.inject({ method: 'GET', url: '/api/schedule/tasks' });
+      const dynTask = JSON.parse(listRes.payload).tasks.find((t) => t.source === 'dynamic');
+      assert.ok(dynTask, 'dynamic task should exist');
+
+      // Pause it
+      const patchRes = await appDyn.inject({
+        method: 'PATCH',
+        url: `/api/schedule/tasks/${dynTask.dynamicTaskId}`,
+        payload: { enabled: false },
+      });
+      assert.equal(patchRes.statusCode, 200);
+
+      // Verify runtime no longer has it
+      const listRes2 = await appDyn.inject({ method: 'GET', url: '/api/schedule/tasks' });
+      const tasks = JSON.parse(listRes2.payload).tasks;
+      const found = tasks.find((t) => t.dynamicTaskId === dynTask.dynamicTaskId);
+      assert.ok(!found, 'paused task should be unregistered from runtime');
+    });
+
+    it('PATCH enabled=true re-registers task in runtime', async () => {
+      const listRes = await appDyn.inject({ method: 'GET', url: '/api/schedule/tasks' });
+      const dynTask = JSON.parse(listRes.payload).tasks.find((t) => t.source === 'dynamic');
+
+      // Pause then resume
+      await appDyn.inject({
+        method: 'PATCH',
+        url: `/api/schedule/tasks/${dynTask.dynamicTaskId}`,
+        payload: { enabled: false },
+      });
+      const resumeRes = await appDyn.inject({
+        method: 'PATCH',
+        url: `/api/schedule/tasks/${dynTask.dynamicTaskId}`,
+        payload: { enabled: true },
+      });
+      assert.equal(resumeRes.statusCode, 200);
+
+      // Verify task is back in runtime
+      const listRes2 = await appDyn.inject({ method: 'GET', url: '/api/schedule/tasks' });
+      const tasks = JSON.parse(listRes2.payload).tasks;
+      const found = tasks.find((t) => t.dynamicTaskId === dynTask.dynamicTaskId);
+      assert.ok(found, 'resumed task should be re-registered in runtime');
     });
   });
 });

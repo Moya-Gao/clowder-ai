@@ -460,9 +460,14 @@ async function main(): Promise<void> {
     actorResolver,
   });
 
-  // ── F139 Phase 2: Schedule panel API routes ──
+  // ── F139 Phase 3A: Dynamic task store + template registry ──
+  const { DynamicTaskStore } = await import('./infrastructure/scheduler/DynamicTaskStore.js');
+  const { templateRegistry } = await import('./infrastructure/scheduler/templates/registry.js');
+  const dynamicTaskStore = new DynamicTaskStore(schedulerDb);
+
+  // ── F139 Phase 2+3A: Schedule panel API routes ──
   const { scheduleRoutes } = await import('./routes/schedule.js');
-  await app.register(scheduleRoutes, { taskRunner: taskRunnerV2 });
+  await app.register(scheduleRoutes, { taskRunner: taskRunnerV2, dynamicTaskStore, templateRegistry });
 
   // ── Phase G: Summary Compaction (registers into unified scheduler) ──
   if (process.env.F102_ABSTRACTIVE === 'on' && memoryServices.indexBuilder) {
@@ -1601,6 +1606,10 @@ async function main(): Promise<void> {
       app.log.info('[api] F141 Phase B: repo-scan spec registered');
     }
   }
+
+  // F139 Phase 3A: Hydrate dynamic tasks from SQLite before starting
+  const hydrated = taskRunnerV2.hydrateDynamic(dynamicTaskStore, templateRegistry);
+  if (hydrated > 0) app.log.info(`[api] F139: hydrated ${hydrated} dynamic task(s)`);
 
   // F139: Start unified scheduler (all registered specs)
   taskRunnerV2.start();

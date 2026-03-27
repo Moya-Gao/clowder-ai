@@ -1,5 +1,7 @@
 import { getNextCronMs } from './cron-utils.js';
+import type { DynamicTaskStore } from './DynamicTaskStore.js';
 import type { RunLedger } from './RunLedger.js';
+import type { TaskTemplate } from './templates/types.js';
 import type {
   ActorRole,
   CostTier,
@@ -8,6 +10,7 @@ import type {
   RunOutcome,
   ScheduleTaskSummary,
   SubjectKind,
+  TaskSource,
   TaskSpec_P1,
 } from './types.js';
 
@@ -63,6 +66,8 @@ export class TaskRunnerV2 {
   private running = new Map<string, boolean>();
   private tickCounts = new Map<string, number>();
   private lastRunAt = new Map<string, number | null>();
+  /** Phase 3A: track dynamic task IDs → DynamicTaskDef.id mapping */
+  private dynamicTaskIds = new Map<string, string>();
   private logger: TaskRunnerV2Options['logger'];
   private ledger: RunLedger;
   private actorResolver: TaskRunnerV2Options['actorResolver'];
@@ -78,6 +83,56 @@ export class TaskRunnerV2 {
       throw new Error(`TaskRunnerV2: duplicate task id "${task.id}"`);
     }
     this.tasks.push(task);
+  }
+
+  /** Phase 3A: register a dynamic task and track its def ID */
+  registerDynamic(task: AnyTaskSpec, dynamicDefId: string): void {
+    this.register(task);
+    this.dynamicTaskIds.set(task.id, dynamicDefId);
+  }
+
+  /** Phase 3A: unregister a task by spec ID (stops timer if running) */
+  unregister(taskId: string): boolean {
+    const idx = this.tasks.findIndex((t) => t.id === taskId);
+    if (idx === -1) return false;
+    this.tasks.splice(idx, 1);
+    const timer = this.timers.get(taskId);
+    if (timer) {
+      clearTimeout(timer);
+      this.timers.delete(taskId);
+    }
+    this.running.delete(taskId);
+    this.tickCounts.delete(taskId);
+    this.lastRunAt.delete(taskId);
+    this.dynamicTaskIds.delete(taskId);
+    return true;
+  }
+
+  /** Phase 3A: hydrate dynamic tasks from persistent store (AC-G3) */
+  hydrateDynamic(store: DynamicTaskStore, templateGetter: { get: (id: string) => TaskTemplate | null }): number {
+    const defs = store.getAll().filter((d) => d.enabled);
+    let loaded = 0;
+    for (const def of defs) {
+      const template = templateGetter.get(def.templateId);
+      if (!template) {
+        this.logger.error(`[scheduler] hydrate: unknown template "${def.templateId}" for def ${def.id}`);
+        continue;
+      }
+      const spec = template.createSpec(def.id, {
+        trigger: def.trigger,
+        params: def.params,
+        deliveryThreadId: def.deliveryThreadId,
+      });
+      // Override display with persisted display
+      spec.display = def.display;
+      try {
+        this.registerDynamic(spec, def.id);
+        loaded++;
+      } catch {
+        // Duplicate — skip
+      }
+    }
+    return loaded;
   }
 
   start(): void {
@@ -152,6 +207,7 @@ export class TaskRunnerV2 {
     return this.tasks.map((task) => {
       const lastRuns = this.ledger.query(task.id, 1);
       const stats = this.ledger.stats(task.id);
+      const dynDefId = this.dynamicTaskIds.get(task.id);
       return {
         id: task.id,
         profile: task.profile,
@@ -163,6 +219,8 @@ export class TaskRunnerV2 {
         runStats: stats,
         display: task.display,
         subjectPreview: computeSubjectPreview(task.display?.subjectKind, lastRuns[0] ?? null),
+        source: (dynDefId ? 'dynamic' : 'builtin') as TaskSource,
+        dynamicTaskId: dynDefId,
       };
     });
   }
@@ -209,6 +267,7 @@ export class TaskRunnerV2 {
         duration_ms: Date.now() - startMs,
         started_at: new Date(startMs).toISOString(),
         assigned_cat_id: null,
+        error_summary: null,
       });
       return;
     }
@@ -234,6 +293,7 @@ export class TaskRunnerV2 {
             duration_ms: Date.now() - startMs,
             started_at: new Date(startMs).toISOString(),
             assigned_cat_id: null,
+            error_summary: null,
           });
         }
         return;
@@ -255,10 +315,12 @@ export class TaskRunnerV2 {
           context: task.context,
         });
         pendingExecutes.push(rawExecute.catch(() => {}));
+        let errorSummary: string | null = null;
         try {
           await this.withTimeout(rawExecute, task.run.timeoutMs, task.id);
         } catch (err) {
           outcome = 'RUN_FAILED';
+          errorSummary = err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500);
           this.logger.error(`[scheduler] ${task.id}/${item.subjectKey}: failed`, err);
         }
 
@@ -270,6 +332,7 @@ export class TaskRunnerV2 {
           duration_ms: Date.now() - itemStartMs,
           started_at: new Date(itemStartMs).toISOString(),
           assigned_cat_id: assignedCatId,
+          error_summary: errorSummary,
         });
       }
 

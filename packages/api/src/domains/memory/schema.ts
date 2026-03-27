@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 // Phase C: embedding metadata (model/dim version anchor)
 export const SCHEMA_V2 = `
@@ -173,6 +173,21 @@ export const SCHEMA_V7 = `
 ALTER TABLE task_run_ledger ADD COLUMN assigned_cat_id TEXT;
 `;
 
+// F139 Phase 3A: dynamic task definitions + error tracking
+export const SCHEMA_V8_DYNAMIC_TASKS = `
+CREATE TABLE IF NOT EXISTS dynamic_task_defs (
+  id TEXT PRIMARY KEY,
+  template_id TEXT NOT NULL,
+  trigger_json TEXT NOT NULL,
+  params_json TEXT NOT NULL,
+  display_json TEXT NOT NULL,
+  delivery_thread_id TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+`;
+
 /**
  * Apply all schema migrations up to CURRENT_SCHEMA_VERSION.
  * Safe to call on empty DB (creates schema_version table first).
@@ -230,6 +245,16 @@ export function applyMigrations(db: Database.Database): void {
   if (currentVersion < 7) {
     db.exec(SCHEMA_V7);
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(7, new Date().toISOString());
+  }
+
+  if (currentVersion < 8) {
+    db.exec(SCHEMA_V8_DYNAMIC_TASKS);
+    try {
+      db.exec('ALTER TABLE task_run_ledger ADD COLUMN error_summary TEXT');
+    } catch {
+      // Column may already exist from a partial migration
+    }
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(8, new Date().toISOString());
   }
 }
 

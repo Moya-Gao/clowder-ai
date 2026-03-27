@@ -4,133 +4,19 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
-/* ── Types ───────────────────────────────────── */
-
-interface RunLedgerRow {
-  task_id: string;
-  subject_key: string;
-  outcome: string;
-  signal_summary: string | null;
-  duration_ms: number;
-  started_at: string;
-  assigned_cat_id: string | null;
-}
-
-interface RunStats {
-  total: number;
-  delivered: number;
-  failed: number;
-  skipped: number;
-}
-
-interface TriggerSpec {
-  type: 'interval' | 'cron';
-  ms?: number;
-  expression?: string;
-}
-
-interface TaskDisplayMeta {
-  label: string;
-  category: DisplayCategory;
-  description?: string;
-  subjectKind?: string;
-}
-
-interface ScheduleTask {
-  id: string;
-  profile: string;
-  trigger: TriggerSpec;
-  enabled: boolean;
-  actor?: { role: string; costTier: string };
-  context?: { session: string; materialization: string };
-  lastRun: RunLedgerRow | null;
-  runStats: RunStats;
-  display?: TaskDisplayMeta;
-  subjectPreview: string | null;
-}
-
-/* ── Helpers ──────────────────────────────────── */
-
-type DisplayCategory = 'pr' | 'repo' | 'thread' | 'system' | 'external';
-
-const CATEGORY_STYLES: Record<DisplayCategory, string> = {
-  pr: 'bg-blue-100 text-blue-700',
-  repo: 'bg-emerald-100 text-emerald-700',
-  thread: 'bg-violet-100 text-violet-700',
-  system: 'bg-amber-100 text-amber-700',
-  external: 'bg-purple-100 text-purple-700',
-};
-
-const CATEGORY_DOT: Record<DisplayCategory, string> = {
-  pr: 'bg-[#E8913A]',
-  repo: 'bg-emerald-500',
-  thread: 'bg-violet-500',
-  system: 'bg-amber-500',
-  external: 'bg-purple-500',
-};
-
-const CATEGORY_LABELS: Record<DisplayCategory, string> = {
-  pr: 'PR',
-  repo: 'Repo',
-  thread: 'Thread',
-  system: 'System',
-  external: 'External',
-};
-
-/** Fallback for tasks without display metadata (legacy compat) */
-function fallbackCategory(taskId: string): DisplayCategory {
-  if (taskId.includes('review') || taskId.includes('conflict') || taskId.includes('cicd')) return 'pr';
-  if (taskId.includes('repo') || taskId.includes('issue')) return 'repo';
-  if (taskId.includes('summary') || taskId.includes('compact')) return 'thread';
-  if (taskId.includes('health')) return 'system';
-  return 'system';
-}
-
-function formatTrigger(trigger: TriggerSpec): string {
-  if (trigger.type === 'cron') return `cron: ${trigger.expression}`;
-  const ms = trigger.ms ?? 0;
-  if (ms >= 3600000) return `${Math.round(ms / 3600000)}h`;
-  if (ms >= 60000) return `${Math.round(ms / 60000)}m`;
-  return `${Math.round(ms / 1000)}s`;
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60000) return 'just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return `${Math.floor(diff / 86400000)}d ago`;
-}
-
-function outcomeIcon(outcome: string): string {
-  if (outcome === 'RUN_DELIVERED') return '\u2713';
-  if (outcome === 'RUN_FAILED') return '\u2717';
-  return '\u2013';
-}
-
-function outcomeColor(outcome: string): string {
-  if (outcome === 'RUN_DELIVERED') return 'text-emerald-600';
-  if (outcome === 'RUN_FAILED') return 'text-red-500';
-  return 'text-gray-400';
-}
-
-function outcomeLabel(outcome: string): string {
-  if (outcome === 'RUN_DELIVERED') return 'delivered';
-  if (outcome === 'RUN_FAILED') return 'failed';
-  if (outcome.startsWith('SKIP_')) return 'idle';
-  return outcome.toLowerCase();
-}
-
-function extractThreadId(subjectKey: string): string | null {
-  if (subjectKey.startsWith('thread-')) return subjectKey.slice(7);
-  if (subjectKey.startsWith('thread:')) return subjectKey.slice(7);
-  return null;
-}
-
-/** Fallback for tasks without display.label */
-function humanizeId(id: string): string {
-  return id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
+import type { RunLedgerRow, ScheduleTask } from './schedule-helpers';
+import {
+  CATEGORY_LABELS,
+  CATEGORY_STYLES,
+  extractThreadId,
+  fallbackCategory,
+  formatTrigger,
+  humanizeId,
+  outcomeColor,
+  outcomeIcon,
+  outcomeLabel,
+  timeAgo,
+} from './schedule-helpers';
 
 /* ── Component ───────────────────────────────── */
 
@@ -144,7 +30,8 @@ export function SchedulePanel() {
   const [tasks, setTasks] = useState<ScheduleTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<ScopeFilter>('all');
-  const [nlInput, setNlInput] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [runHistory, setRunHistory] = useState<RunLedgerRow[]>([]);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
 
   const fetchTasks = useCallback(async () => {
@@ -179,24 +66,59 @@ export function SchedulePanel() {
     });
   }, [tasks, scope, currentThreadId]);
 
-  const handleNlSubmit = useCallback(async () => {
-    if (!nlInput.trim()) return;
-    try {
-      await apiFetch('/api/schedule/nl-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: nlInput.trim() }),
-      });
-      setNlInput('');
-      fetchTasks();
-    } catch {
-      // fail-open
-    }
-  }, [nlInput, fetchTasks]);
+  const handleToggleExpand = useCallback(
+    async (taskId: string) => {
+      if (expandedId === taskId) {
+        setExpandedId(null);
+        setRunHistory([]);
+        return;
+      }
+      setExpandedId(taskId);
+      try {
+        const res = await apiFetch(`/api/schedule/tasks/${encodeURIComponent(taskId)}/runs?limit=5`);
+        if (res.ok) {
+          const json = await res.json();
+          setRunHistory(json.runs ?? []);
+        }
+      } catch {
+        setRunHistory([]);
+      }
+    },
+    [expandedId],
+  );
+
+  const handleToggleEnabled = useCallback(
+    async (taskId: string, enabled: boolean) => {
+      try {
+        await apiFetch(`/api/schedule/tasks/${encodeURIComponent(taskId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled }),
+        });
+        fetchTasks();
+      } catch {
+        /* fail-open */
+      }
+    },
+    [fetchTasks],
+  );
+
+  const handleDeleteDynamic = useCallback(
+    async (taskId: string) => {
+      try {
+        const res = await apiFetch(`/api/schedule/tasks/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
+        if (res.ok) fetchTasks();
+      } catch {
+        /* fail-open */
+      }
+    },
+    [fetchTasks],
+  );
 
   const activeCount = tasks.filter((t) => t.enabled).length;
   const pausedCount = tasks.length - activeCount;
-  const totalFailed = tasks.reduce((sum, t) => sum + t.runStats.failed, 0);
+  // Health: check if ANY task's most recent run failed (not cumulative total)
+  const hasAttention = tasks.some((t) => t.lastRun?.outcome === 'RUN_FAILED');
 
   if (loading) {
     return <div className="flex-1 flex items-center justify-center text-sm text-[#9A866F]">Loading schedule...</div>;
@@ -250,40 +172,120 @@ export function SchedulePanel() {
             {filteredTasks.map((task) => {
               const category = task.display?.category ?? fallbackCategory(task.id);
               const label = task.display?.label ?? humanizeId(task.id);
-              // AC-E5: subjectPreview from API, fallback to display.description
               const preview = task.subjectPreview ?? task.display?.description ?? null;
+              // Status dot: green=healthy, red=last run failed, gray=never run
+              const statusDot = !task.lastRun
+                ? 'bg-gray-300'
+                : task.lastRun.outcome === 'RUN_FAILED'
+                  ? 'bg-red-400'
+                  : 'bg-emerald-400';
+              const isExpanded = expandedId === task.id;
               return (
-                <div key={task.id} className="px-4 py-3 hover:bg-[#F5EDE3]/50 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${CATEGORY_DOT[category]}`} />
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${CATEGORY_STYLES[category]}`}
-                    >
-                      {CATEGORY_LABELS[category]}
-                    </span>
-                    <span className="text-xs font-medium text-[#5C4B3A] truncate flex-1">{label}</span>
-                    <span className="text-[10px] text-[#9A866F] font-mono">{formatTrigger(task.trigger)}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 mt-1 ml-[52px]">
-                    {task.lastRun ? (
-                      <>
-                        <span className={`text-xs font-medium ${outcomeColor(task.lastRun.outcome)}`}>
-                          {outcomeIcon(task.lastRun.outcome)} {outcomeLabel(task.lastRun.outcome)}
+                <div key={task.id}>
+                  <div
+                    className="px-4 py-3 hover:bg-[#F5EDE3]/50 transition-colors cursor-pointer"
+                    onClick={() => handleToggleExpand(task.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleToggleExpand(task.id)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${statusDot}`}
+                        title={task.lastRun?.outcome ?? 'never run'}
+                      />
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${CATEGORY_STYLES[category]}`}
+                      >
+                        {CATEGORY_LABELS[category]}
+                      </span>
+                      <span className="text-xs font-medium text-[#5C4B3A] truncate flex-1">{label}</span>
+                      {task.source === 'dynamic' && (
+                        <span className="px-1 py-0.5 rounded text-[8px] font-medium bg-violet-50 text-violet-500">
+                          user
                         </span>
-                        <span className="text-[10px] text-[#9A866F]">{timeAgo(task.lastRun.started_at)}</span>
-                        {preview && (
-                          <span className="text-[10px] text-[#B8A594] truncate max-w-[140px]">{preview}</span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-[10px] text-[#9A866F] italic">never run</span>
-                    )}
-                    {task.runStats.delivered > 0 && (
-                      <span className="ml-auto text-[10px] text-emerald-600">{task.runStats.delivered} delivered</span>
-                    )}
-                    {!task.enabled && <span className="ml-auto text-[9px] text-red-400 font-medium">PAUSED</span>}
+                      )}
+                      <span className="text-[10px] text-[#9A866F] font-mono">{formatTrigger(task.trigger)}</span>
+                      <span className="text-[10px] text-[#9A866F]">{isExpanded ? '\u25B4' : '\u25BE'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 ml-[52px]">
+                      {task.lastRun ? (
+                        <>
+                          <span className={`text-xs font-medium ${outcomeColor(task.lastRun.outcome)}`}>
+                            {outcomeIcon(task.lastRun.outcome)} {outcomeLabel(task.lastRun.outcome)}
+                          </span>
+                          <span className="text-[10px] text-[#9A866F]">{timeAgo(task.lastRun.started_at)}</span>
+                          {task.lastRun.outcome === 'RUN_FAILED' && task.lastRun.error_summary && (
+                            <span
+                              className="text-[10px] text-red-400 truncate max-w-[160px]"
+                              title={task.lastRun.error_summary}
+                            >
+                              {task.lastRun.error_summary}
+                            </span>
+                          )}
+                          {preview && task.lastRun.outcome !== 'RUN_FAILED' && (
+                            <span className="text-[10px] text-[#B8A594] truncate max-w-[140px]">{preview}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-[#9A866F] italic">never run</span>
+                      )}
+                      {task.runStats.delivered > 0 && (
+                        <span className="ml-auto text-[10px] text-emerald-600">
+                          {task.runStats.delivered} delivered
+                        </span>
+                      )}
+                      {!task.enabled && <span className="ml-auto text-[9px] text-red-400 font-medium">PAUSED</span>}
+                    </div>
                   </div>
+                  {/* AC-F4: expandable detail panel with run history */}
+                  {isExpanded && (
+                    <div className="px-4 pb-3 ml-[52px] space-y-2">
+                      {/* Controls for dynamic tasks */}
+                      {task.source === 'dynamic' && task.dynamicTaskId && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleEnabled(task.dynamicTaskId!, !task.enabled);
+                            }}
+                            className="text-[10px] text-[#5C4B3A] hover:text-[#D4A574] transition-colors"
+                          >
+                            {task.enabled ? '\u23F8 Pause' : '\u25B6 Resume'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteDynamic(task.dynamicTaskId!);
+                            }}
+                            className="text-[10px] text-[#9A866F] hover:text-red-500 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                      {/* Run history */}
+                      <div className="text-[10px] text-[#9A866F] font-medium">Recent runs:</div>
+                      {runHistory.length === 0 ? (
+                        <div className="text-[10px] text-[#9A866F] italic">No run history</div>
+                      ) : (
+                        <div className="space-y-1">
+                          {runHistory.map((r, i) => (
+                            <div key={i} className="flex items-center gap-2 text-[10px]">
+                              <span className={outcomeColor(r.outcome)}>{outcomeIcon(r.outcome)}</span>
+                              <span className="text-[#9A866F]">{timeAgo(r.started_at)}</span>
+                              <span className="text-[#9A866F]">{r.duration_ms}ms</span>
+                              {r.error_summary && (
+                                <span className="text-red-400 truncate max-w-[200px]">{r.error_summary}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -291,37 +293,22 @@ export function SchedulePanel() {
         )}
       </div>
 
-      {/* Footer stats (V2 design) */}
+      {/* Footer: health summary (AC-F1) */}
       <div className="px-4 py-1.5 border-t border-[#E8DFD4] text-[10px] text-[#9A866F] flex items-center">
         <span>
           {tasks.length} tasks · {activeCount} active{pausedCount > 0 ? ` · ${pausedCount} paused` : ''}
         </span>
-        <span className={`ml-auto font-medium ${totalFailed > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-          {totalFailed > 0 ? `${totalFailed} failed` : 'All healthy'}
+        <span className={`ml-auto font-medium ${hasAttention ? 'text-red-500' : 'text-emerald-600'}`}>
+          {hasAttention ? 'Attention needed' : 'All healthy'}
         </span>
       </div>
 
-      {/* NL config CTA (AC-C4) */}
-      <div className="px-4 py-3 bg-[#F5EDE3] border-t border-[#E8DFD4]">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="用自然语言添加任务..."
-            className="flex-1 px-3 py-2 rounded-lg bg-white/80 text-sm text-[#5C4B3A] placeholder-[#9A866F] border border-[#E8DFD4] focus:border-[#D4A574] focus:outline-none transition-colors"
-            value={nlInput}
-            onChange={(e) => setNlInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleNlSubmit();
-            }}
-          />
-          <button
-            type="button"
-            onClick={handleNlSubmit}
-            className="px-3 py-2 rounded-lg bg-[#D4A574] text-white text-sm font-medium hover:bg-[#C49564] transition-colors"
-          >
-            添加
-          </button>
-        </div>
+      {/* Conversational CTA (AC-G5: replaces NL input — W1 vision) */}
+      <div className="px-4 py-2.5 bg-[#F5EDE3] border-t border-[#E8DFD4]">
+        <p className="text-[11px] text-[#9A866F] text-center">
+          Want to add a scheduled task? Tell any cat in the chat — e.g.
+          <span className="text-[#5C4B3A] font-medium"> &quot;every morning at 9, check Anthropic news&quot;</span>
+        </p>
       </div>
     </div>
   );

@@ -108,6 +108,9 @@ export interface RunStats {
   skipped: number;
 }
 
+/** Phase 3A: task source — builtin (code-registered) vs dynamic (user-registered) */
+export type TaskSource = 'builtin' | 'dynamic';
+
 /** Schedule panel task summary (API response shape) */
 export interface ScheduleTaskSummary {
   id: string;
@@ -122,6 +125,10 @@ export interface ScheduleTaskSummary {
   display?: TaskDisplayMeta;
   /** Phase 2.5: human-readable subject preview, computed by backend (AC-E2) */
   subjectPreview: string | null;
+  /** Phase 3A: builtin vs dynamic task (AC-G4) */
+  source: TaskSource;
+  /** Phase 3A: dynamic_task_defs.id for CRUD (only for dynamic tasks) */
+  dynamicTaskId?: string;
 }
 
 /** Run ledger row */
@@ -134,4 +141,6 @@ export interface RunLedgerRow {
   started_at: string;
   /** Phase 1b: which cat was assigned to handle this run */
   assigned_cat_id: string | null;
+  /** Phase 3A: human-readable failure reason (AC-F3) */
+  error_summary: string | null;
 }

@@ -245,4 +245,57 @@ describe('F139 Phase 2.5 — Display Contract', () => {
     const [summary] = runner.getTaskSummaries();
     assert.equal(summary.subjectPreview, null);
   });
+
+  // --- Task 4: error_summary capture (AC-F3) ---
+
+  it('RUN_FAILED records error_summary in ledger', async () => {
+    runner.register({
+      id: 'error-summary-test',
+      profile: 'awareness',
+      trigger: { type: 'interval', ms: 999999 },
+      admission: {
+        gate: async () => ({
+          run: true,
+          workItems: [{ signal: 'boom', subjectKey: 'test-key' }],
+        }),
+      },
+      run: {
+        overlap: 'skip',
+        timeoutMs: 5000,
+        execute: async () => {
+          throw new Error('something broke badly');
+        },
+      },
+      state: { runLedger: 'sqlite' },
+      outcome: { whenNoSignal: 'drop' },
+      enabled: () => true,
+    });
+    await runner.triggerNow('error-summary-test');
+    const runs = ledger.query('error-summary-test', 1);
+    assert.equal(runs[0].outcome, 'RUN_FAILED');
+    assert.ok(runs[0].error_summary, 'error_summary should be populated');
+    assert.match(runs[0].error_summary, /something broke badly/);
+  });
+
+  it('RUN_DELIVERED has null error_summary', async () => {
+    runner.register({
+      id: 'success-summary-test',
+      profile: 'awareness',
+      trigger: { type: 'interval', ms: 999999 },
+      admission: {
+        gate: async () => ({
+          run: true,
+          workItems: [{ signal: 'ok', subjectKey: 'test-key' }],
+        }),
+      },
+      run: { overlap: 'skip', timeoutMs: 5000, execute: async () => {} },
+      state: { runLedger: 'sqlite' },
+      outcome: { whenNoSignal: 'drop' },
+      enabled: () => true,
+    });
+    await runner.triggerNow('success-summary-test');
+    const runs = ledger.query('success-summary-test', 1);
+    assert.equal(runs[0].outcome, 'RUN_DELIVERED');
+    assert.equal(runs[0].error_summary, null);
+  });
 });
