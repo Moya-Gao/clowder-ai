@@ -1408,12 +1408,17 @@ async function main(): Promise<void> {
       const execFileAsync = promisify(execFile);
       const { stdout } = await execFileAsync(
         'gh',
-        ['pr', 'view', String(pr), '-R', repo, '--json', 'mergeStateStatus'],
+        ['pr', 'view', String(pr), '-R', repo, '--json', 'mergeable,headRefOid'],
         { timeout: 15_000 },
       );
       const data = JSON.parse(stdout);
-      return data.mergeStateStatus ?? 'UNKNOWN';
+      // Use `mergeable` (CONFLICTING/MERGEABLE/UNKNOWN) — not `mergeStateStatus` (DIRTY/CLEAN/...)
+      // ConflictRouter checks for exact string 'CONFLICTING'
+      return { mergeState: data.mergeable ?? 'UNKNOWN', headSha: data.headRefOid ?? '' };
     };
+
+    const { ConflictAutoExecutor } = await import('./infrastructure/email/ConflictAutoExecutor.js');
+    const autoExecutor = new ConflictAutoExecutor({ log: app.log });
 
     taskRunnerV2.register(
       createConflictCheckTaskSpec({
@@ -1421,6 +1426,7 @@ async function main(): Promise<void> {
         checkMergeable,
         conflictRouter,
         invokeTrigger,
+        autoExecutor,
         log: app.log,
       }),
     );

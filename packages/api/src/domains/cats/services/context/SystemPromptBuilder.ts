@@ -510,6 +510,12 @@ export function buildInvocationContext(context: InvocationContext): string {
     lines.push('思维方式：批判性分析。挑战假设，找出漏洞，提出反例。', '');
   }
 
+  // F140 Phase C: connector-triggered skill suggestion (hint, not directive)
+  const skillTag = context.promptTags?.find((t) => t.startsWith('skill:'));
+  if (skillTag) {
+    lines.push(`⚡ Signal-triggered action → load skill: ${skillTag.slice(6)}`, '');
+  }
+
   // F042 Wave 3: Active participant hint — re-injected per-invocation, survives compression.
   if (context.activeParticipants && context.activeParticipants.length > 0) {
     const topActive = context.activeParticipants
