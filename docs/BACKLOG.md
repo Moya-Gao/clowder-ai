@@ -60,4 +60,5 @@ created: 2026-02-26
 | F139 | Unified Schedule Abstraction — 统一调度抽象 | in-progress | 布偶猫 | internal | [F139](features/F139-unified-schedule-abstraction.md) |
 | F142 | Connector Slash Commands — 跨平台 /slash 扩展框架 | in-progress | 布偶猫 | internal | [F142](features/F142-connector-slash-commands.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | 布偶猫 | internal | [F143](features/F143-hostable-agent-runtime.md) |
+| F144 | PPT Forge — AI 演示文稿生成引擎 | spec | 三猫 | internal | [F144](features/F144-ppt-forge.md) |
 
