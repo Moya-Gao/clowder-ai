@@ -8,7 +8,7 @@ created: 2026-03-27
 
 # F142: Connector Slash Commands — 跨平台 /slash 扩展框架
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -162,6 +162,7 @@ Hub 有完整可视化界面（侧边栏、面板、命令速查），slash 命�
 | 2026-03-27 | Phase A 实现完成，砚砚 code review 放行 + 云端 review 通过 |
 | 2026-03-27 | Phase A merged → main（PR #781, squash commit `f558d69ed6`） |
 | 2026-03-27 | Phase B merged → main（PR #783） |
+| 2026-03-27 | 愿景守护 fix merged → main（PR #786）：CORE_COMMANDS 补齐 + parseCommand wiring + /thread metadata 对齐 |
 
 ## Review Gate
 

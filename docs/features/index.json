@@ -873,7 +873,7 @@
     {
       "id": "F142",
       "name": "Connector Slash Commands — 跨平台 /slash 扩展框架",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P2",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P2",
       "file": "F142-connector-slash-commands.md"
     },
     {
@@ -889,5 +889,5 @@
       "file": "F144-ppt-forge.md"
     }
   ],
-  "generated_at": "2026-03-27T15:31:24.596Z"
+  "generated_at": "2026-03-27T16:19:27.125Z"
 }

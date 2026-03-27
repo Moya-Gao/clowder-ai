@@ -58,7 +58,7 @@ created: 2026-02-26
 | F136 | Unified Config Hot Reload — 配置热更新统一管线 | in-progress | 布偶猫 | internal | [F136](features/F136-unified-config-hot-reload.md) |
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F139 | Unified Schedule Abstraction — 统一调度抽象 | in-progress | 布偶猫 | internal | [F139](features/F139-unified-schedule-abstraction.md) |
-| F142 | Connector Slash Commands — 跨平台 /slash 扩展框架 | in-progress | 布偶猫 | internal | [F142](features/F142-connector-slash-commands.md) |
+| F142 | Connector Slash Commands — 跨平台 /slash 扩展框架 | done | 布偶猫 | internal | [F142](features/F142-connector-slash-commands.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | 布偶猫 | internal | [F143](features/F143-hostable-agent-runtime.md) |
 | F144 | PPT Forge — AI 演示文稿生成引擎 | spec | 三猫 | internal | [F144](features/F144-ppt-forge.md) |
 
