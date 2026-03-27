@@ -85,7 +85,7 @@ AgentRuntime = Transport × Binding × RuntimeContract × EventAdapter
 
 | 维度 | 职责 | 示例值 |
 |------|------|--------|
-| **Transport** | 字节通道的建立与维护 | StdioTransport / HttpSseTransport / WebSocketTransport |
+| **Transport** | 连接/I-O 生命周期（建立、收发、关闭；Phase A 不强制暴露 raw bytes） | StdioTransport / HttpSseTransport / WebSocketTransport |
 | **Binding** | 在 transport 上的消息编码和 RPC 规约 | JsonRpcBinding / NdJsonBinding / A2AHttpBinding |
 | **RuntimeContract** | agent 生命周期的语义模型 | SessionContract (long-lived) / TaskContract (request-response) |
 | **EventAdapter** | provider-specific 事件 → 统一 AgentMessage | ClaudeAdapter / CodexAdapter / A2AAdapter / GenericJsonRpcAdapter |
@@ -205,7 +205,7 @@ interface RunHandleV1 {
 
 | 档位 | 接入方式 | 适用 |
 |------|---------|------|
-| **Hostable** | 配置接入（填表 → probe → 可用），零代码 | 符合 JSON-RPC 或 A2A 协议的 agent |
+| **Hostable** | 配置接入（填表 → probe → 可用），零代码 | 符合宿主契约（能被 probe、声明 descriptor、提供最小 control/data plane 语义）的 agent；V1 已知实现：JSON-RPC、A2A |
 | **Legacy** | 需要 provider-specific adapter | 现有 7 个 CLI provider + 未来非标 agent |
 
 不幻想所有 CLI 都自然归一。Legacy provider 先补 static descriptor（描述能力），不改逻辑；按价值排序逐步迁入新栈。
@@ -256,7 +256,7 @@ interface RunHandleV1 {
 
 像 GPT Pro 建议的那样在 `ReadableStream<Uint8Array>` 层面抽象 Transport。
 
-**不选原因**：Cat Café 的 CLI provider 产出已经是 string/JSON（由 Node.js child_process 解码），降到 bytes 层增加复杂度但没有收益。Transport 在"消息流"层面抽象（`AsyncIterable<JsonRpcMessage>` / `AsyncIterable<SseEvent>`）更适合我们。
+**不选原因**：Cat Café 的 CLI provider 产出已经是 string/JSON（由 Node.js child_process 解码），降到 bytes 层增加复杂度但没有收益。Transport 概念上管连接/I-O 生命周期，但 Phase A 公共接口不强制暴露 raw bytes——在"消息流"层面抽象（`AsyncIterable<JsonRpcMessage>` / `AsyncIterable<SseEvent>`）更适合我们。
 
 ## Consequences
 
