@@ -206,7 +206,7 @@ Plugin 解决的是"一个 agent 带什么工具出门"。Pack 解决的是"一�
 
 ### 生态兼容
 
-我们已经设计了和主流生态的兼容方案：
+我们在 F129 里预留了和主流生态的兼容路径：
 
 - **OpenClaw Bundle** → 映射到 Pack 的 workflows / defaults / masks
 - **ClawHub SKILL.md** → 作为 Bundle 的内容子集导入
