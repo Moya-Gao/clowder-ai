@@ -206,8 +206,9 @@ export async function startConnectorGateway(
     log.info('[ConnectorGateway] No pre-configured connectors — gateway created for WeChat QR login support');
   }
 
-  const bindingStore = deps.bindingStore
-    ?? (deps.redis ? new RedisConnectorThreadBindingStore(deps.redis) : new MemoryConnectorThreadBindingStore());
+  const bindingStore =
+    deps.bindingStore ??
+    (deps.redis ? new RedisConnectorThreadBindingStore(deps.redis) : new MemoryConnectorThreadBindingStore());
   const dedup = new InboundMessageDedup();
   log.info({ store: deps.redis ? 'redis' : 'memory' }, '[ConnectorGateway] Binding store initialized');
   const adapters = new Map<string, IOutboundAdapter>();

@@ -829,7 +829,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       invocationId,
       ...(sessionId ? { cliSessionId: sessionId } : {}),
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers
-      livenessProbe: {},
+      // #774: stallAutoKill — auto-kill on idle-silent stall (~5min) instead of waiting 30min
+      livenessProbe: { stallAutoKill: true },
       ...(catConfig?.cliConfigArgs?.length ? { cliConfigArgs: catConfig.cliConfigArgs } : {}),
     };
 

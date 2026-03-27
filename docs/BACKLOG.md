@@ -59,4 +59,4 @@ created: 2026-02-26
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F139 | Unified Schedule Abstraction — 统一调度抽象 | in-progress | 布偶猫 | internal | [F139](features/F139-unified-schedule-abstraction.md) |
 | F142 | Connector Slash Commands — 跨平台 /slash 扩展框架 | in-progress | 布偶猫 | internal | [F142](features/F142-connector-slash-commands.md) |
-| F095 | Thread Sidebar 导航体验升级 — Phase E/F/G 追加 | done | 布偶猫 | internal | [F095](features/F095-sidebar-collapse-memory.md) |
+
