@@ -2547,6 +2547,385 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "SLB1H",
+      "x": 8280,
+      "y": 80,
+      "name": "D07 Research Pipeline 图",
+      "width": 920,
+      "height": 860,
+      "fill": "#FCFAF8",
+      "cornerRadius": 28,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "KfBUT",
+          "name": "d07t",
+          "fill": "#2B211E",
+          "content": "Research Pipeline 图",
+          "fontFamily": "Inter",
+          "fontSize": 34,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "4De15",
+          "name": "d07s",
+          "fill": "#6E5B55",
+          "content": "从一句模糊方向，到一个可验证的方案",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "EedSo",
+          "name": "d07c1",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "sHbaP",
+              "fill": "#C93A3A",
+              "content": "1. CVO 采访",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "2CyNc",
+              "fill": "#2B211E",
+              "content": "先追问真实目标、隐藏约束和没有说出口的需求，不把第一句话直接当 spec。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "FO6wk",
+          "fill": "#C93A3A",
+          "content": "↓ 先问清楚要解决什么，再决定去哪里找答案",
+          "fontFamily": "Inter",
+          "fontSize": 18,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "HLCsv",
+          "name": "d07c2",
+          "width": "fill_container",
+          "fill": "#FBEDEA",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "yIlEb",
+              "fill": "#C93A3A",
+              "content": "2. 真相源 + 外部调研",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "qj7oV",
+              "fill": "#2B211E",
+              "content": "一边查我们已有 feature / ADR / lesson，一边读官方文档、源码、SDK、参考项目，把猜想换成证据。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "4ev3n",
+          "fill": "#C93A3A",
+          "content": "↓ 证据进来之后，才开始比较方案",
+          "fontFamily": "Inter",
+          "fontSize": 18,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "fnRgv",
+          "name": "d07c3",
+          "width": "fill_container",
+          "fill": "#F7E8E6",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "ccvsC",
+              "fill": "#C93A3A",
+              "content": "3. 方案比较与架构草图",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "pwsJM",
+              "fill": "#2B211E",
+              "content": "列平台对比、画架构层次、拆风险和工期，把想法外化成可讨论对象。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "sLEjK",
+          "fill": "#C93A3A",
+          "content": "↓ 讨论不是过场，而是把不同判断慢慢磨成共识",
+          "fontFamily": "Inter",
+          "fontSize": 18,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "Dy276",
+          "name": "d07c4",
+          "width": "fill_container",
+          "fill": "#FFF1E8",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "CHTvI",
+              "fill": "#C93A3A",
+              "content": "4. 收敛成 Spec / ADR / 图稿",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "JVLv9",
+              "fill": "#2B211E",
+              "content": "最终产出不是一段聊天记录，而是 Feature Spec、ADR、架构图、UX 稿这些后续所有实现都能消费的真相源。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "P3Z8t",
+      "x": 9320,
+      "y": 80,
+      "name": "D08 讨论收敛图",
+      "width": 920,
+      "height": 860,
+      "fill": "#FCFAF8",
+      "cornerRadius": 28,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 32,
+      "children": [
+        {
+          "type": "text",
+          "id": "KCQss",
+          "fill": "#2B211E",
+          "content": "讨论收敛图",
+          "fontFamily": "Inter",
+          "fontSize": 34,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "RfRn8",
+          "fill": "#6E5B55",
+          "content": "不是谁声音大听谁的，而是不同视角用证据互相校准",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "0A92W",
+          "name": "d08row",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "8LVoM",
+              "name": "d08a",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 18,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 18,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Upvnc",
+                  "fill": "#C93A3A",
+                  "content": "视角 A：问题边界",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "n7Rm2",
+                  "fill": "#2B211E",
+                  "content": "从用户目标和隐藏需求出发，判断什么是真问题，什么只是表面诉求。",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Ugh9a",
+              "name": "d08b",
+              "width": "fill_container",
+              "fill": "#FBEDEA",
+              "cornerRadius": 18,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 18,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ktl9S",
+                  "fill": "#C93A3A",
+                  "content": "视角 B：技术约束",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "AkMzq",
+                  "fill": "#2B211E",
+                  "content": "从架构、成本、复杂度和风险出发，判断方案能不能长期成立。",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "3qNh9",
+              "name": "d08c",
+              "width": "fill_container",
+              "fill": "#F7E8E6",
+              "cornerRadius": 18,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 18,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "9jY8g",
+                  "fill": "#C93A3A",
+                  "content": "视角 C：交互表达",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "66wyr",
+                  "fill": "#2B211E",
+                  "content": "从信息结构和视觉语言出发，判断用户最终会如何理解和使用它。",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "yReSX",
+          "fill": "#C93A3A",
+          "content": "↓ 三条判断线先彼此冲撞，再用真相源和调研结果校准",
+          "fontFamily": "Inter",
+          "fontSize": 18,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "hVxBk",
+          "name": "d08m",
+          "width": "fill_container",
+          "fill": "#FFF1E8",
+          "cornerRadius": 18,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            18,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "xjMhq",
+              "fill": "#C93A3A",
+              "content": "共识不是平均数，而是被证据打磨过的方向",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "gWGPI",
+              "fill": "#2B211E",
+              "content": "收敛之后，猫猫会把结果外化成 Feature Spec、ADR、架构图、UX 稿，让后续实现和 review 有共同锚点。",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
