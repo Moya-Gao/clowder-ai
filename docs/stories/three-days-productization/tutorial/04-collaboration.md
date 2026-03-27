@@ -146,7 +146,7 @@ created: 2026-03-27
 
 这些规则写在 `shared-rules.md` 里，每次 session 启动时自动注入到 system prompt。
 
-**Shared Rules 不是「建议」，是「硬约束」。** 猫猫不能选择性遵守。
+**Shared Rules 不是「建议」，是「硬约束」。** 而且不只是写在提示词里——很多规则有真正的 hook 在兜底（详见下文「三层守卫」）。猫猫想违反，系统直接拦。
 
 ### 为什么要分层
 
@@ -208,35 +208,15 @@ created: 2026-03-27
 
 ---
 
-## Session Chain：记忆如何跨会话延续
+## 记忆延续：不只是 Session Chain
 
-第六件事是「Session Chain」。
+第六件事是「记忆如何跨会话甚至跨 thread 延续」。
 
-agent 的上下文窗口是有限的，但项目的历史是无限的。怎么让猫猫「记住」之前发生过什么？
+这是一个足够大的话题——我们有完整的记忆系统架构（F102），Session Chain 只是其中一个组件。在协作这一章，只需要知道一件事：
 
-我们的做法是**按策略延续上下文**，而不是无脑把所有历史塞回去：
+**猫猫的上下文窗口会消失，但项目的知识不会。** 我们有 per-cat 可配置的 `sessionStrategy`（handoff / compress / hybrid），让每只猫按自己的需要延续上下文——不是无脑把所有历史塞回去，而是有选择地延续关键信息。
 
-### Per-cat 可配置的 sessionStrategy
-
-不同猫、不同场景，需要的上下文策略不一样：
-
-- **handoff 策略**：上一次 session 的摘要被注入到新 session，适合长期项目
-- **compress 策略**：上下文过长时自动压缩，保留关键信息
-- **hybrid 策略**：结合摘要和压缩，按场景动态调整
-
-这意味着不是「所有猫每次都会自动接上摘要」——是**按猫的 `sessionStrategy` 决定怎样延续必要上下文**。
-
-### 为什么不是无限上下文
-
-无限上下文听起来很美好，但实际上会导致：
-
-1. **成本爆炸**：token 数越多，API 费用越高
-2. **噪音干扰**：太多历史信息反而会让模型注意力分散
-3. **延迟增加**：上下文越长，推理越慢
-
-所以我们的设计是：**有选择地延续关键上下文，而不是无脑堆积。**
-
-第五章会详细讲记忆系统是怎么决定「什么值得记」的。
+完整的记忆架构——docs 作为真相源、evidence.sqlite 作为索引、search_evidence 作为统一检索入口、知识涌现与沉淀——第五章会详细讲。
 
 ---
 
@@ -260,20 +240,23 @@ Skill 也是提示词层面的约束——加载了 `tdd` skill，猫就知道�
 
 我们做了全猫统一的 `SessionStart` 和 `SessionStop` hooks：
 
-- **SessionStart**：提醒猫猫先搜上下文再开工
+- **SessionStart**：提醒猫猫先搜上下文再开工，检测未提交的共享文档
 - **SessionStop**：检查是否有未提交的脏文件
 
 为什么只做生命周期 hook，不做工具级 hook（PostToolUse 等）？因为各 CLI 的工具级 hook 支持不一致（Claude Code 有、Codex CLI 没有），强行统一会导致行为不一致——出问题时无法定位是提示词还是 hook 的问题。
 
 ### 第三层：项目级守卫（Git hooks / project hooks / MCP 能力）
 
-最后一层是系统级自动执行的守卫：
+最后一层是系统级自动执行的守卫，**不靠猫猫自觉**——想违反也违反不了：
 
-- **Git hooks**：commit 前自动跑 biome check
-- **项目级 hooks**：Redis 6399 操作自动拦截（runtime sanctuary）、evidence guard 自动提醒搜上下文
+**真实例子**：
+- **`rm` 直接被禁了**。猫猫在 shell 里输入 `rm`，系统直接弹 `🚨 猫咖拆家预警：rm 已禁用，请使用 trash`——因为有只笨蛋缅因猫曾经把 runtime 整个删了
+- **Runtime Redis 6399 圣域守护**：`runtime-sanctuary-guard.sh` 作为 PreToolUse hook，硬拦截任何可能删除或破坏 runtime worktree 的命令。不是 `ask`（让猫选），是 `deny`（直接拒绝）
+- **非 main 分支 commit 硬拦**：`.githooks/pre-commit` 检测到在 main 以外的分支 commit 时直接阻止——worktree 里的改动必须走 PR
+- **共享文档推送提醒**：改了 `docs/features/` 等共享文件，`shared-doc-push-guard.sh` 立刻提醒你 commit + push
 - **MCP 能力接入**：`search_evidence` 让猫猫能查历史决策、`post_message` 让猫猫能异步传话
 
-这一层**不靠猫猫自觉**——即使猫猫忘了规则，系统也会帮它记住。
+这些 hook **不是「最佳实践建议」，是「硬拦截」**——即使猫猫忘了规则，系统也会帮它记住。
 
 ### 为什么要三层
 
@@ -297,7 +280,7 @@ Skill 也是提示词层面的约束——加载了 `tdd` skill，猫就知道�
 3. **分层管理**：可见性、路由、约束分开，行为可预测
 4. **Skill 系统**：不同模型加载同一套行为协议，输出收敛到同一标准
 5. **跨家族 Review**：用不同的认知模式互相审视，发现更多盲点
-6. **Session Chain**：按策略延续上下文，不是无脑堆积
+6. **记忆延续**：per-cat sessionStrategy 选择性延续（完整记忆架构见第五章）
 7. **三层守卫**：提示词 / 生命周期 hooks / 项目级守卫（Git hooks + project hooks + MCP）
 
 **群体智能 ≠ 多个 agent 各干各的。** 关键是共享愿景 + 互相制约 + 持续改进。
@@ -311,7 +294,7 @@ Skill 也是提示词层面的约束——加载了 `tdd` skill，猫就知道�
 3. **可见性、路由、约束分层** — Whisper 管谁能看，targetCats 管谁下一步动，Shared Rules 管行为红线
 4. **Skill 是行为协议不是能力** — 让不同模型收敛到同一标准
 5. **跨家族 Review 发现盲点** — 用不同认知模式审视代码
-6. **Session Chain 按策略延续** — per-cat 可配置，不是无脑塞历史
+6. **记忆延续按策略** — per-cat sessionStrategy 选择性延续，完整架构见第五章
 7. **三层守卫纵深防御** — 提示词 / 生命周期 Hooks / 项目级守卫（Git + project hooks + MCP）
 
 ---
