@@ -86,6 +86,8 @@ import {
   loadConnectorGatewayConfig,
   startConnectorGateway,
 } from './infrastructure/connectors/connector-gateway-bootstrap.js';
+import { restartConnectorGateway } from './infrastructure/connectors/connector-gateway-lifecycle.js';
+import { createConnectorReloadSubscriber } from './infrastructure/connectors/connector-reload-subscriber.js';
 import {
   CiCdRouter,
   ConflictRouter,
@@ -100,6 +102,7 @@ import {
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
+import { configSecretsRoutes } from './routes/config-secrets.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
 import {
@@ -1052,6 +1055,7 @@ async function main(): Promise<void> {
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
+  await app.register(configSecretsRoutes);
   await app.register(featureDocDetailRoutes);
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);
@@ -1644,49 +1648,56 @@ async function main(): Promise<void> {
   app.log.info(`[api] F139: unified scheduler started (${taskRunnerV2.getRegisteredTasks().join(', ')})`);
 
   // F088: Start connector gateway (best-effort, after listen)
+  const gatewayDeps = {
+    messageStore: {
+      async append(input: Parameters<typeof messageStore.append>[0]) {
+        const result = await messageStore.append(input);
+        return { id: result.id };
+      },
+      async getById(id: string) {
+        const msg = messageStore.getById?.(id);
+        if (!msg) return null;
+        const resolved = msg instanceof Promise ? await msg : msg;
+        return resolved ? { source: resolved.source } : null;
+      },
+    },
+    threadStore,
+    invokeTrigger,
+    socketManager,
+    defaultUserId: 'default-user' as const,
+    defaultCatId: 'opus' as CatId,
+    redis: redisClient ?? undefined,
+    log: app.log,
+    agentRegistry,
+    bindingStore: connectorBindingStore,
+  };
+
+  /** Re-wire all hook consumers after gateway (re)start */
+  function wireGatewayHooks(handle: NonNullable<Awaited<ReturnType<typeof startConnectorGateway>>>): void {
+    invokeTrigger.setOutboundHook(handle.outboundHook);
+    invokeTrigger.setStreamingHook(handle.streamingHook);
+    queueProcessor.setOutboundHook(handle.outboundHook as Parameters<typeof queueProcessor.setOutboundHook>[0]);
+    queueProcessor.setStreamingHook(handle.streamingHook as Parameters<typeof queueProcessor.setStreamingHook>[0]);
+    (callbackOpts as { outboundHook?: typeof handle.outboundHook }).outboundHook = handle.outboundHook;
+    (messagesOpts as { outboundHook?: typeof handle.outboundHook }).outboundHook = handle.outboundHook;
+    (messagesOpts as { streamingHook?: typeof handle.streamingHook }).streamingHook = handle.streamingHook;
+    // P1-1 fix: clear stale handlers before re-populating (hot-reload may remove connectors)
+    connectorWebhookHandlers.clear();
+    for (const [id, handler] of handle.webhookHandlers) {
+      connectorWebhookHandlers.set(id, handler);
+    }
+    (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = handle.weixinAdapter;
+    (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling = handle.startWeixinPolling;
+    (connectorHubOpts as { permissionStore?: unknown }).permissionStore = handle.permissionStore;
+  }
+
   let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;
+  let connectorReloadUnsub: (() => void) | null = null;
   try {
     const gatewayConfig = loadConnectorGatewayConfig();
-    connectorGatewayHandle = await startConnectorGateway(gatewayConfig, {
-      messageStore: {
-        async append(input) {
-          const result = await messageStore.append(input);
-          return { id: result.id };
-        },
-        async getById(id: string) {
-          const msg = messageStore.getById?.(id);
-          if (!msg) return null;
-          const resolved = msg instanceof Promise ? await msg : msg;
-          return resolved ? { source: resolved.source } : null;
-        },
-      },
-      threadStore,
-      invokeTrigger,
-      socketManager,
-      defaultUserId: 'default-user',
-      defaultCatId: 'opus' as CatId,
-      redis: redisClient ?? undefined,
-      log: app.log,
-      agentRegistry,
-      bindingStore: connectorBindingStore,
-    });
+    connectorGatewayHandle = await startConnectorGateway(gatewayConfig, gatewayDeps);
     if (connectorGatewayHandle) {
-      invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);
-      invokeTrigger.setStreamingHook(connectorGatewayHandle.streamingHook);
-      queueProcessor.setOutboundHook(
-        connectorGatewayHandle.outboundHook as Parameters<typeof queueProcessor.setOutboundHook>[0],
-      );
-      queueProcessor.setStreamingHook(
-        connectorGatewayHandle.streamingHook as Parameters<typeof queueProcessor.setStreamingHook>[0],
-      );
-      // Wire outbound delivery for proactive cat messages (post_message callback)
-      (callbackOpts as { outboundHook?: typeof connectorGatewayHandle.outboundHook }).outboundHook =
-        connectorGatewayHandle.outboundHook;
-      // F088 ISSUE-15: Wire outbound delivery for web immediate path (messages route)
-      (messagesOpts as { outboundHook?: typeof connectorGatewayHandle.outboundHook }).outboundHook =
-        connectorGatewayHandle.outboundHook;
-      (messagesOpts as { streamingHook?: typeof connectorGatewayHandle.streamingHook }).streamingHook =
-        connectorGatewayHandle.streamingHook;
+      wireGatewayHooks(connectorGatewayHandle);
       queueProcessor.setThreadMetaLookup(async (threadId) => {
         const thread = await threadStore.get(threadId);
         if (!thread) return undefined;
@@ -1696,20 +1707,32 @@ async function main(): Promise<void> {
           deepLinkUrl: `${frontendBaseUrl}/threads/${threadId}`,
         };
       });
-      for (const [id, handler] of connectorGatewayHandle.webhookHandlers) {
-        connectorWebhookHandlers.set(id, handler);
-      }
-      // F137: Wire WeChat adapter to hub routes for QR login
-      (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = connectorGatewayHandle.weixinAdapter;
-      (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling =
-        connectorGatewayHandle.startWeixinPolling;
-      // F134 Phase D: Wire permission store to hub routes
-      (connectorHubOpts as { permissionStore?: unknown }).permissionStore = connectorGatewayHandle.permissionStore;
+
       app.log.info('[api] Connector gateway started');
     }
   } catch (err) {
     app.log.warn(`[api] Connector gateway startup failed (best-effort): ${String(err)}`);
   }
+
+  // F136 Phase 2: Always subscribe — enables self-healing when initial startup fails (P1-2)
+  const reloadSubscriber = createConnectorReloadSubscriber({
+    log: app.log,
+    debounceMs: 500,
+    async onRestart() {
+      app.log.info('[api] F136: Hot-reloading connector gateway...');
+      const newHandle = await restartConnectorGateway(connectorGatewayHandle, async () => {
+        const freshConfig = loadConnectorGatewayConfig();
+        return startConnectorGateway(freshConfig, gatewayDeps);
+      });
+      if (newHandle) {
+        connectorGatewayHandle = newHandle;
+        wireGatewayHooks(newHandle);
+      }
+      app.log.info('[api] F136: Connector gateway hot-reload complete');
+    },
+  });
+  connectorReloadUnsub = () => reloadSubscriber.unsubscribe();
+  app.log.info('[api] Connector hot-reload subscriber active');
 
   // Graceful shutdown handler: persist Redis before exit
   let shuttingDown = false;
@@ -1756,7 +1779,8 @@ async function main(): Promise<void> {
 
       taskRunnerV2.stop();
 
-      // Stop connector gateway
+      // Stop connector gateway + reload subscriber
+      connectorReloadUnsub?.();
       try {
         await connectorGatewayHandle?.stop();
       } catch (err) {

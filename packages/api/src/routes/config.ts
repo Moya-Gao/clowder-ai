@@ -72,7 +72,7 @@ function resolveOperator(raw: unknown): string | null {
   return null;
 }
 
-function formatEnvFileValue(value: string): string {
+export function formatEnvFileValue(value: string): string {
   const escapedControlChars = value.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
   if (/^[A-Za-z0-9_./:@-]+$/.test(escapedControlChars)) return escapedControlChars;
   return `"${escapedControlChars
@@ -82,7 +82,7 @@ function formatEnvFileValue(value: string): string {
     .replace(/`/g, '\\`')}"`;
 }
 
-function applyEnvUpdatesToFile(contents: string, updates: Map<string, string | null>): string {
+export function applyEnvUpdatesToFile(contents: string, updates: Map<string, string | null>): string {
   const lines = contents === '' ? [] : contents.split(/\r?\n/);
   const seen = new Set<string>();
   const nextLines: string[] = [];
