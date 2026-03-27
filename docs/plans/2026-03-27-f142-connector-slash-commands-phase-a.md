@@ -323,17 +323,19 @@ export function threadCatsRoutes(
     if (!thread) return reply.status(404).send({ error: 'Thread not found' });
 
     // 2. Auth: connector binding owner check
-    // P1 fix v3: resolveHeaderUserId (header-only, no query param) + getByThread returns array
-    const requestUserId = resolveHeaderUserId(request) ?? defaultUserId;
+    // P1 fix v4: bindings exist → header mandatory (no fallback to defaultUserId)
     const bindings = await bindingStore.getByThread(id);
-    // If thread has connector bindings, verify requester is one of the binding owners
     if (bindings.length > 0) {
+      const requestUserId = resolveHeaderUserId(request);
+      if (!requestUserId) {
+        return reply.status(401).send({ error: 'Authentication required' });
+      }
       const isBindingOwner = bindings.some(b => b.userId === requestUserId);
       if (!isBindingOwner) {
         return reply.status(403).send({ error: 'Forbidden' });
       }
     }
-    // Hub-only threads (no bindings) allow defaultUserId access
+    // Hub-only threads (no bindings) allow unauthenticated access (same as existing behavior)
 
     // 3. Gather data
     const participantActivity = await threadStore.getParticipantsWithActivity(id);
@@ -654,6 +656,7 @@ test(F142): Phase A regression suite green [宪宪/Opus-46🐾]
 | P1-5 (v3) | `getByThread` 返回数组但代码当单对象；判断条件是 `!== defaultUserId` 不是比 binding.userId | `bindings.some(b => b.userId === requestUserId)` 遍历数组比较 |
 | P1-6 (v3) | `resolveUserId()` 接受 query param 不安全 | 改用 `resolveHeaderUserId()`（header-only） |
 | P2-2 (v3) | 快照注释说 codex(participant+unavailable) 在 notRoutable，但实现排除 participants | 明确：participants 始终列出（不管 availability）；notRoutable 仅含非参与者 |
+| P1-7 (v4) | `resolveHeaderUserId() ?? defaultUserId` 在无 header 时回落到 defaultUserId，若 binding owner 恰为 defaultUserId 则绕过鉴权 | 有 bindings 时 header 强制：无 header → 401，不再 fallback |
 
 ---
 
