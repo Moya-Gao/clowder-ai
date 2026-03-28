@@ -234,14 +234,14 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 - [x] AC-B5: 图片/语音双向收发（SDK 内置）
 - [x] AC-B6: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
 
-### Phase C（WeCom Agent Adapter）
-- [ ] AC-C1: 回调 URL 验证（echostr challenge + AES 解密）通过
-- [ ] AC-C2: SHA1 签名校验 + AES-256-CBC 消息解密正确
-- [ ] AC-C3: XML → JSON 转换正确（`fast-xml-parser`）
-- [ ] AC-C4: 猫猫回复通过 `message/send` API 发送（text + markdown + 图文卡片）
-- [ ] AC-C5: 图片/语音通过临时素材 API 收发
-- [ ] AC-C6: final-only 模式（无 streaming），长回复分块发送
-- [ ] AC-C7: 公共层零改动
+### Phase C（WeCom Agent Adapter）✅ PR #808 merged
+- [x] AC-C1: 回调 URL 验证（echostr challenge + AES 解密）通过
+- [x] AC-C2: SHA1 签名校验 + AES-256-CBC 消息解密正确
+- [x] AC-C3: XML → JSON 转换正确（`fast-xml-parser`）
+- [x] AC-C4: 猫猫回复通过 `message/send` API 发送（text + markdown + 图文卡片）
+- [x] AC-C5: 图片/语音通过临时素材 API 收发
+- [x] AC-C6: final-only 模式（无 streaming），长回复分块发送
+- [x] AC-C7: 公共层零改动
 
 ### Phase D（Bootstrap + 富文本映射 + 文档）
 - [ ] AC-D1: connector-gateway-bootstrap 动态注册三个 adapter（有 env var 才启用）
@@ -321,6 +321,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | 2026-03-24 | Visual fix merged (PR #728) — DingTalk 视觉身份：独立 cyan 主题 + brand PNG icon，消除与飞书的视觉混淆 |
 | 2026-03-27 | 铲屎官确认继续 Phase B（企微 Bot）。新增 KD-7：新 IM 接入 11 步清单。钉钉全部完成（A/A.1/A.2 + visual fix），企微开工 |
 | 2026-03-28 | Phase B merged (PR #804) — WeCom Bot adapter: WebSocket long-connection via @wecom/aibot-node-sdk, replyStream streaming, template card send+update (AC-B4), text/image/voice/file/mixed inbound, media upload/download. 81 adapter tests. 3-round local review (砚砚) + cloud review clean |
+| 2026-03-28 | Phase C merged (PR #808) — WeCom Agent adapter: HTTP callback + AES-256-CBC/SHA1 crypto + XML parsing (fast-xml-parser), echostr challenge, message/send API (text+markdown+TextCard+News), temp media upload/download, byte-aware chunking (2048 byte limit), final-only delivery (no streaming). 95 adapter tests. Cloud review found P1 (query param arg order) — fixed before merge |
 
 ## 新 IM 接入清单（KD-7 — Adapter-Only Extension）
 
