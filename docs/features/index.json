@@ -669,7 +669,7 @@
     {
       "id": "F109",
       "name": "Message Actions 修复与增强 — 软删除/Branch/编辑/通知",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F109-message-actions-overhaul.md"
     },
     {
@@ -901,5 +901,5 @@
       "file": "F146-mcp-marketplace-control-plane.md"
     }
   ],
-  "generated_at": "2026-03-28T13:19:26.856Z"
+  "generated_at": "2026-03-28T13:21:20.853Z"
 }
