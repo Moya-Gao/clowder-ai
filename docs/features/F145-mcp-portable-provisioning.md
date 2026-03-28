@@ -8,7 +8,7 @@ created: 2026-03-27
 
 # F145: MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析
 
-> **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-03-27 | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
 
 ## Why
 
@@ -78,12 +78,12 @@ created: 2026-03-27
 - [x] AC-A6: 现有 capability board 测试全绿 + 新增 resolver 回归测试
 - [x] AC-A7: `hasUsableTransport()` 对 resolver-backed MCP 不误判为 disabled
 
-### Phase B（Manifest requires_mcp + Doctor）
-- [ ] AC-B1: `manifest.yaml` 支持 `requires_mcp` 字段
-- [ ] AC-B2: `check:skills` 对 missing/unresolved MCP 报 warning
-- [ ] AC-B3: 看板能显示 skill 的 MCP 依赖就绪状态
-- [ ] AC-B4: `pnpm mcp:doctor` 输出 ready/missing/unresolved 报告
-- [ ] AC-B5: 新机器 clone + `pnpm install && pnpm mcp:doctor` 后，报告准确反映本机 MCP 状态
+### Phase B（Manifest requires_mcp + Doctor）✅
+- [x] AC-B1: `manifest.yaml` 支持 `requires_mcp` 字段
+- [x] AC-B2: `check:skills` 对 missing/unresolved MCP 报 warning
+- [x] AC-B3: 看板能显示 skill 的 MCP 依赖就绪状态
+- [x] AC-B4: `pnpm mcp:doctor` 输出 ready/missing/unresolved 报告
+- [x] AC-B5: 新机器 clone + `pnpm install && pnpm mcp:doctor` 后，报告准确反映本机 MCP 状态
 
 ## Dependencies
 
@@ -122,6 +122,7 @@ created: 2026-03-27
 |------|------|
 | 2026-03-27 | 立项。铲屎官 + 宪宪 + 砚砚三方讨论确认方向 |
 | 2026-03-27 | Phase A merged (PR #796) |
+| 2026-03-27 | Phase B merged (PR #802)；F145 完成 |
 
 ## Review Gate
 
