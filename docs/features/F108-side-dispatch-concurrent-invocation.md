@@ -133,6 +133,30 @@ created: 2026-03-12
 | 2026-03-14 | Phase A merged (PR #438) |
 | 2026-03-28 | Phase B merged (PR #834) |
 | 2026-03-28 | Phase B P1 fixes: whisper default + ThreadExecutionBar hydration |
+| 2026-03-28 | UX fidelity gap analysis: 功能闭环 ✅，UX 闭环待 Scene 2/5C |
+
+## UX Fidelity Gap（功能闭环 vs UX 闭环）
+
+> **功能闭环**：Phase A+B 运行时能力全部交付（AC-A1~A5, AC-B1~B7 ✅）。
+> **UX 闭环**：前端实现与设计稿 `F108-side-dispatch-phase-b-ux.pen` 逐 Scene 对齐。
+
+### Scene-by-Scene 对照
+
+| Scene | 设计稿内容 | 实现状态 | Gap |
+|-------|-----------|---------|-----|
+| Scene 1: Whisper Mode | 锁头 toggle → 猫选择 chips，默认不选 | ✅ ALIGNED | PR #837 修复默认选中问题 |
+| Scene 2: Cat Selector | **下拉列表**：头像 + 全名 + radio + 状态徽章 | ❌ GAP | 实现为 inline chips（无下拉、无头像、无 radio、无状态徽章） |
+| Scene 3: Execution Bar | "执行中" + 猫色点 + 名称 + 计时 | ✅ ALIGNED | PR #837 修复 hydration |
+| Scene 4: Per-Cat Stop | × 按钮 + "全部停止" | ✅ ALIGNED | — |
+| Scene 5A: Idle Input | 橙色发送按钮 | ✅ ALIGNED | — |
+| Scene 5B: Busy Input | 紫色排队按钮 | ✅ ALIGNED | — |
+| Scene 5C: Force Send | 黄色 "⚡ 强制" 标签按钮 | ⚠️ MINOR | 实现为小红色闪电图标，无黄色背景无文字标签 |
+
+### 待决策
+
+铲屎官需确认：
+1. **Scene 2 下拉选择器**：是否需要实现设计稿的下拉列表？当前 inline chips 功能完整但视觉简化
+2. **Scene 5C 强制按钮**：是否需要改为黄色 + "⚡ 强制" 文字标签？当前小图标功能可用但辨识度低
 
 ## Review Gate
 
