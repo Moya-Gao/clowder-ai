@@ -37,7 +37,8 @@ export function useChatSocketCallbacks({
     setIntentMode,
     setTargetCats,
     addMessage,
-    removeMessage,
+    removeThreadMessage,
+    requestStreamCatchUp,
   } = useChatStore();
   const { addTask, updateTask } = useTaskStore();
 
@@ -86,9 +87,10 @@ export function useChatSocketCallbacks({
       onHeartbeat: (data) => {
         if (data.threadId === threadId) resetTimeout();
       },
-      onMessageDeleted: (data: { messageId: string }) => removeMessage(data.messageId),
-      onMessageRestored: () => {
-        /* re-fetching history if needed */
+      onMessageDeleted: (data: { messageId: string; threadId: string }) =>
+        removeThreadMessage(data.threadId, data.messageId),
+      onMessageRestored: (data: { messageId: string; threadId: string }) => {
+        requestStreamCatchUp(data.threadId);
       },
       onThreadBranched: () => {
         /* branch navigation handled by the action initiator */
@@ -118,7 +120,8 @@ export function useChatSocketCallbacks({
       addTask,
       updateTask,
       addMessage,
-      removeMessage,
+      removeThreadMessage,
+      requestStreamCatchUp,
       resetTimeout,
       clearDoneTimeout,
       handleAuthRequest,

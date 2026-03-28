@@ -4,9 +4,19 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 import type { ChatMessage } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
 import { ConfirmDialog } from './ConfirmDialog';
+
+function showErrorToast(title: string, body?: Record<string, unknown>) {
+  useToastStore.getState().addToast({
+    type: 'error',
+    title,
+    message: (body?.error as string) ?? '操作未成功，请重试',
+    duration: 4000,
+  });
+}
 
 type DialogState =
   | { type: 'none' }
@@ -24,7 +34,7 @@ interface MessageActionsProps {
 
 export function MessageActions({ message, threadId, children }: MessageActionsProps) {
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
-  const removeMessage = useChatStore((s) => s.removeMessage);
+  const removeThreadMessage = useChatStore((s) => s.removeThreadMessage);
   const router = useRouter();
 
   const isUser = message.type === 'user' && !message.catId;
@@ -58,11 +68,16 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: getUserId(), mode: 'soft' }),
       });
-      if (res.ok) removeMessage(message.id);
+      if (res.ok) {
+        removeThreadMessage(threadId, message.id);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        showErrorToast('删除失败', body);
+      }
     } catch {
-      /* socket event will sync if needed */
+      showErrorToast('删除失败');
     }
-  }, [message.id, removeMessage]);
+  }, [message.id, threadId, removeThreadMessage]);
 
   const confirmHardDelete = useCallback(async () => {
     if (dialog.type !== 'hard-delete') return;
@@ -74,11 +89,16 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: getUserId(), mode: 'hard', confirmTitle }),
       });
-      if (res.ok) removeMessage(message.id);
+      if (res.ok) {
+        removeThreadMessage(threadId, message.id);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        showErrorToast('删除失败', body);
+      }
     } catch {
-      /* socket event will sync if needed */
+      showErrorToast('删除失败');
     }
-  }, [dialog, message.id, removeMessage]);
+  }, [dialog, message.id, threadId, removeThreadMessage]);
 
   const handleBranchConfirm = useCallback(() => {
     if (dialog.type !== 'edit') return;
@@ -102,9 +122,12 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
       if (res.ok) {
         const { threadId: newThreadId } = await res.json();
         router.push(`/thread/${newThreadId}`);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        showErrorToast('分支创建失败', body);
       }
     } catch {
-      /* show error in future */
+      showErrorToast('分支创建失败');
     }
   }, [dialog, message.id, message.content, threadId, router]);
 
@@ -122,9 +145,12 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
       if (res.ok) {
         const { threadId: newThreadId } = await res.json();
         router.push(`/thread/${newThreadId}`);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        showErrorToast('分支创建失败', body);
       }
     } catch {
-      /* show error in future */
+      showErrorToast('分支创建失败');
     } finally {
       branchingRef.current = false;
     }
