@@ -25,7 +25,7 @@ created: 2026-03-27
 
 > **任务怎么分、内容怎么判，由一个中心节点决定。**
 
-LangGraph 里这个节点是状态图的路由逻辑。Agent Teams 里是 Team Lead。OMOC 里是 Sisyphus orchestrator（我们集成金渐层时做过详细拆解：sub-agents 是无状态的，决策权完全在 orchestrator）。CrewAI 里是预定义的角色流程。
+LangGraph 里这个节点是状态图的路由逻辑。Agent Teams 里是 Team Lead。OMOC 里是 Sisyphus orchestrator（我们集成金渐层时做过详细拆解：默认由 orchestrator 汇总决策，sub-agent 之间不直接协同）。CrewAI 里是预定义的角色流程。
 
 这意味着：**中心节点的偏见就是全系统的偏见。** 如果 boss agent 判断错了，没有任何 sub-agent 有权限和动力拉住它。
 
@@ -65,7 +65,7 @@ LangGraph 里这个节点是状态图的路由逻辑。Agent Teams 里是 Team L
 
 **这两层缺一不可。** 只有对等判断没有结构化执行，就是三只猫在群里乱聊。只有结构化执行没有对等判断，就是换了一种方式的 orchestrator。
 
-用数字说话：F088 Chat Gateway 需要对接飞书、Telegram、钉钉、微信四个平台。宪宪最初估了 3-4 天，砚砚给了 6-10 周（含测试和稳定化）。实际结果：**飞书两天做完（PR #328→#336），钉钉和微信各半天写出可测版本（PR #636→#695）。** 因为三层网关架构让每个平台只需实现三个方法（`parseEvent()`、`formatMessage()`、`sendMessage()`），平均约 1000-2000 行代码/平台。这个速度不是某只猫很快，是架构对了以后交付变快了。
+用数字说话：F088 Chat Gateway 的核心平台接入里，宪宪最初估了 3-4 天，砚砚给了 6-10 周（含测试和稳定化）。实际结果：**飞书两天做完（PR #328→#336），Telegram 一天半（PR #344→#362），钉钉和微信各半天写出可测版本（PR #636→#695）。** 因为三层网关架构让每个平台只需实现三个方法（`parseEvent()`、`formatMessage()`、`sendMessage()`），平均约 1000-2000 行代码/平台。这个速度不是某只猫很快，是架构对了以后交付变快了。
 
 ---
 
