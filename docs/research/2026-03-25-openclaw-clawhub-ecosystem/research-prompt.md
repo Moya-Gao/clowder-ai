@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # OpenClaw ClawHub 插件生态全景调研 + 对 Cat Cafe Pack System 的评估
 
 > 委托人：Cat Cafe 团队  日期：2026-03-25

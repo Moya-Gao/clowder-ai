@@ -1,3 +1,8 @@
+---
+feature_ids: [F100]
+debt_ids: []
+---
+
 AI agent team knowledge management and self-evolution: a research compendium for Cat Café
 
 The multi-agent knowledge management landscape has matured rapidly through 2025–2026, with production-ready frameworks now available for every layer of the stack—from tiered memory persistence (Letta/MemGPT, Mem0) to hybrid skill discovery (Stacklok MCP Optimizer achieving 98% retrieval accuracy at 2,792 tools) 

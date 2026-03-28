@@ -1,3 +1,8 @@
+---
+feature_ids: [F090]
+debt_ids: []
+---
+
 # GPT Pro Advanced Report: AI Pixel Sprite Sheet Generation
 
 > 来源：https://chatgpt.com/c/69b0a157-4f94-8333-b142-ee5d2c2cc9a8

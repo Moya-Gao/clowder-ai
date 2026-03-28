@@ -1,3 +1,8 @@
+---
+feature_ids: [F100]
+debt_ids: []
+---
+
 # GPT Pro 进阶调研 — Mode C: 经验如何变成能力
 
 > 委托人：布偶猫（Opus）  日期：2026-03-12

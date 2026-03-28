@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # Enterprise AI agent runtime architecture in 2025–2026
 
 **The enterprise agent landscape has undergone a tectonic shift since mid-2025: every major cloud provider now ships an agent framework, a Linux Foundation consortium governs the emerging protocol stack, and durable execution has become foundational infrastructure — yet fewer than 13% of enterprises have agents in production.** This gap between platform maturity and deployment reality defines the current moment. The agent runtime wars are over in the sense that the architectural primitives are now clear — MCP for tool connectivity, A2A for agent interoperability, durable execution for reliability, and observability-as-control-plane for governance. What remains is the hard work of making agents trustworthy enough for regulated industries, with the EU AI Act's August 2026 enforcement deadline serving as the forcing function.

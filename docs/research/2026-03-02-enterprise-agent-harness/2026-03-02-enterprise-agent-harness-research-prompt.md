@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # 2026 年企业级 AI Agent Runtime/Harness 架构调研
 
 > 委托人：铲屎官 + 布偶猫宪宪

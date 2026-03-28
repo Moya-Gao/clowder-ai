@@ -1,3 +1,8 @@
+---
+feature_ids: [F100]
+debt_ids: []
+---
+
 # GPT Pro 进阶调研 Prompt — 来源验证 + 深度推理
 
 > 用途：在 ChatGPT GPT Pro 模式下发送，利用其深度推理能力做两件事

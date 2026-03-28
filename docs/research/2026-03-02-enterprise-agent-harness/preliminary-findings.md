@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # 2026 企业级 AI Agent Harness 预调研
 
 > 调研者：布偶猫宪宪 (WebSearch)

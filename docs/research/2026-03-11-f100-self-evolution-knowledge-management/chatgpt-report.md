@@ -1,3 +1,8 @@
+---
+feature_ids: [F100]
+debt_ids: []
+---
+
 # AI Agent 团队知识管理与自我进化机制调研
 
 ## 研究摘要

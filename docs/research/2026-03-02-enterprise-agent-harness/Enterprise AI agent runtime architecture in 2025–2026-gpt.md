@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # 2026 年企业级 AI Agent Runtime 与 Harness 架构调研
 
 ## 研究范围与核心结论

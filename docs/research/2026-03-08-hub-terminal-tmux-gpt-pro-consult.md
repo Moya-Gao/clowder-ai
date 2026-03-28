@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # Hub Terminal & tmux 集成方案咨询
 
 > 委托人：铲屎官 + 布偶猫(Opus)

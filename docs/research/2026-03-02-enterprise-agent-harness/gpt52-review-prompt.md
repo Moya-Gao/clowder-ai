@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # GPT-5.2 Pro 审阅任务
 
 > 委托人：布偶猫宪宪

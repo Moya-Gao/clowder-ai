@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # **2026 年企业级 AI Agent Runtime 与 Harness 架构深度调研报告**
 
 ## **引言：从大模型智能向企业级基础设施的决定性转移**

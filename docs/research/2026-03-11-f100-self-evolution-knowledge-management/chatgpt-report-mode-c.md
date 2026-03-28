@@ -1,3 +1,8 @@
+---
+feature_ids: [F100]
+debt_ids: []
+---
+
 # AI Agent 知识进化 Mode C：经验如何变成能力
 
 ## Mode C 的问题定义与研究范围

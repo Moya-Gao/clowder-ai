@@ -1,3 +1,8 @@
+---
+feature_ids: []
+debt_ids: []
+---
+
 # GPT-5.2 Pro 审阅报告
 
 ## 1. 逻辑漏洞

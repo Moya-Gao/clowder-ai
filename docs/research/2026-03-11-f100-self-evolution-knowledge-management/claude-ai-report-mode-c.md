@@ -1,3 +1,8 @@
+---
+feature_ids: [F100]
+debt_ids: []
+---
+
 # How AI agent knowledge is born, matures, and becomes capability
 
 **The lifecycle of knowledge in AI agent systems — from raw experience to reusable capability — is now an active research frontier with concrete, implementable patterns.** Cat Café's Mode C three-question test (reusability + non-obviousness + decay-resistance) is well-grounded by academic standards, mapping closely to both patent law's utility/novelty/non-obviousness trinity and the Generative Agents' memory scoring system. However, it lacks two critical dimensions: an **impact/importance threshold** and a **verification gate**. Across 50+ papers surveyed (2023–2026), the most actionable systems — ExpeL, AutoRefine, Voyager, and MemGPT/Letta — converge on a common pattern: separate experience gathering from insight extraction, distinguish procedural from declarative knowledge, and implement tiered promotion with decay detection. The frontier question of whether agents can develop genuine "intuition" has a nuanced answer: functional analogues are achievable through knowledge compilation (à la SOAR chunking) and reflection hierarchies, but true recognition-primed decision-making remains beyond current capabilities.
