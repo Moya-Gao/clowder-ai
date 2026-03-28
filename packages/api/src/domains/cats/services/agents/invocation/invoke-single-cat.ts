@@ -13,17 +13,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent } from '@cat-cafe/shared';
+import {
+  resolveAnthropicRuntimeProfile,
+  resolveBuiltinClientForProvider,
+  resolveForClient,
+  validateRuntimeProviderBinding,
+} from '../../../../../config/account-resolver.js';
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
-import {
-  resolveBuiltinClientForProvider,
-  validateRuntimeProviderBinding,
-} from '../../../../../config/provider-binding-compat.js';
-import {
-  resolveAnthropicRuntimeProfile,
-  resolveRuntimeProviderProfileForClient,
-} from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
@@ -602,7 +600,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const boundAccountRef = resolveBoundAccountRefForCat(projectRoot, catId, catConfig);
     const resolveRuntimeAccount = async () => {
       if (!builtinClient) return null;
-      const runtime = await resolveRuntimeProviderProfileForClient(projectRoot, builtinClient, boundAccountRef);
+      // Yield to event loop so preflight warnings are delivered before account resolution.
+      await Promise.resolve();
+      const runtime = resolveForClient(projectRoot, builtinClient, boundAccountRef);
       if (boundAccountRef && !runtime) {
         throw new Error(`bound account "${boundAccountRef}" not found`);
       }

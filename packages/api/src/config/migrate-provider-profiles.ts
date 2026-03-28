@@ -10,11 +10,31 @@ import { resolve } from 'node:path';
 import type { AccountConfig, AccountProtocol, CredentialEntry } from '@cat-cafe/shared';
 import { readCatCatalog, writeCatCatalog } from './cat-catalog-store.js';
 import { writeCredential } from './credentials.js';
-import type {
-  ProviderProfileMeta,
-  ProviderProfilesMetaFile,
-  ProviderProfilesSecretsFile,
-} from './provider-profiles.types.js';
+
+// Inline legacy types needed for migration (originally from provider-profiles.types.ts)
+interface ProviderProfileMeta {
+  id: string;
+  displayName: string;
+  kind: 'builtin' | 'api_key';
+  authType: 'oauth' | 'api_key';
+  builtin: boolean;
+  client?: string;
+  protocol?: AccountProtocol;
+  baseUrl?: string;
+  models?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+interface ProviderProfilesMetaFile {
+  version: 3;
+  activeProfileId: string | null;
+  providers: ProviderProfileMeta[];
+  bootstrapBindings: Record<string, unknown>;
+}
+interface ProviderProfilesSecretsFile {
+  version: 3;
+  profiles: Record<string, { apiKey?: string }>;
+}
 
 const CAT_CAFE_DIR = '.cat-cafe';
 const META_FILENAME = 'provider-profiles.json';

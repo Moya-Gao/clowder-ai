@@ -8,20 +8,18 @@ import { resolve } from 'node:path';
 import { type CatConfig, type CatProvider, type ContextBudget, catRegistry, type RosterEntry } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import {
+  resolveBuiltinClientForProvider,
+  resolveByAccountRef,
+  resolveForClient,
+  validateModelFormatForProvider,
+  validateRuntimeProviderBinding,
+} from '../config/account-resolver.js';
 import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-binding.js';
 import { bootstrapCatCatalog, resolveCatCatalogPath } from '../config/cat-catalog-store.js';
 import { getRoster, loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
 import { configEventBus, createChangeSetId } from '../config/config-event-bus.js';
 import { resolveProjectTemplatePath } from '../config/project-template-path.js';
-import {
-  resolveBuiltinClientForProvider,
-  validateModelFormatForProvider,
-  validateRuntimeProviderBinding,
-} from '../config/provider-binding-compat.js';
-import {
-  resolveRuntimeProviderProfileById,
-  resolveRuntimeProviderProfileForClient,
-} from '../config/provider-profiles.js';
 import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-cat-catalog.js';
 import { deleteRuntimeOverride, getRuntimeOverride, setRuntimeOverride } from '../config/session-strategy-overrides.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
@@ -206,9 +204,7 @@ function buildEffectiveAccountRefResolver(projectRoot: string) {
 
     let runtimeProfilePromise = inheritedBindingCache.get(builtinClient);
     if (!runtimeProfilePromise) {
-      runtimeProfilePromise = resolveRuntimeProviderProfileForClient(projectRoot, builtinClient).then(
-        (profile) => profile?.id,
-      );
+      runtimeProfilePromise = Promise.resolve(resolveForClient(projectRoot, builtinClient)?.id);
       inheritedBindingCache.set(builtinClient, runtimeProfilePromise);
     }
     return (await runtimeProfilePromise) ?? cat.accountRef;
@@ -231,7 +227,7 @@ async function validateAccountBindingOrThrow(
     throw new Error(`client "${client}" requires a provider binding`);
   }
   if (!trimmedAccountRef) return;
-  const runtimeProfile = await resolveRuntimeProviderProfileById(projectRoot, trimmedAccountRef);
+  const runtimeProfile = resolveByAccountRef(projectRoot, trimmedAccountRef);
   if (!runtimeProfile) {
     throw new Error(`provider "${trimmedAccountRef}" not found`);
   }

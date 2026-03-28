@@ -2587,7 +2587,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F127 P1: falls back to CAT_TEMPLATE_PATH project when thread projectPath is absent', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const templateRoot = await mkdtemp(join(tmpdir(), 'f127-active-template-'));
     await writeFile(join(templateRoot, 'cat-template.json'), '{}', 'utf-8');
     const boundProfile = await createProviderProfile(templateRoot, {
@@ -2653,7 +2653,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F127 P2: ignores unreadable CAT_TEMPLATE_PATH before switching account roots', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const staleTemplateRoot = await mkdtemp(join(tmpdir(), 'f127-stale-template-'));
     const isolatedRepoRoot = await mkdtemp(join(tmpdir(), 'f127-isolated-repo-'));
     const isolatedApiDir = join(isolatedRepoRoot, 'packages', 'api');
@@ -2717,7 +2717,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   it('F127 P2: bootstrapped seed cats follow the current bootstrap binding after activation', async () => {
     const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/cat-catalog-store.js');
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-    const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { activateProviderProfile, createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-seed-bootstrap-binding-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
@@ -2793,7 +2793,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F127 P1: prefers member-bound openai profile over protocol active profile', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-openai-profile-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
@@ -3007,7 +3007,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F127: ignores legacy api_key protocol metadata when the member explicitly selected the client', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-bound-mismatch-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
@@ -3076,7 +3076,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F127: injects OPENROUTER_API_KEY for opencode members bound to openai api_key profiles', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-openrouter-key-injection-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
@@ -3146,7 +3146,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F189: writes invocation-scoped OPENCODE_CONFIG for custom opencode providers and cleans it up', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f189-opencode-custom-provider-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
@@ -3226,7 +3226,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F189: bare model + ocProviderName assembles composite model for custom provider routing', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f189-oc-bare-model-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
@@ -3306,7 +3306,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F062-fix: skips auto-seal for api_key mode when context health is approx', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f062-approx-no-seal-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
@@ -3423,7 +3423,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F062-fix: skips auto-seal for api_key + compress strategy even when context health is exact', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const { _setTestStrategyOverride, _clearTestStrategyOverrides } = await import(
       '../dist/config/session-strategy.js'
     );
@@ -3550,7 +3550,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F062-fix: keeps auto-seal for api_key + handoff strategy on exact budget overflow', async () => {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const { _setTestStrategyOverride, _clearTestStrategyOverrides } = await import(
       '../dist/config/session-strategy.js'
     );

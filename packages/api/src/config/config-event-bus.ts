@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 
 // ── Types ──
 
-export type ConfigChangeSource = 'env' | 'config-store' | 'cat-config' | 'provider-profile' | 'secrets';
+export type ConfigChangeSource = 'env' | 'config-store' | 'cat-config' | 'provider-profile' | 'secrets' | 'accounts';
 
 export type ConfigChangeScope = 'key' | 'domain' | 'file';
 

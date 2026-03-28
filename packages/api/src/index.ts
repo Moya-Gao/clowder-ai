@@ -10,6 +10,7 @@ import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
+import { resolveAnthropicRuntimeProfile, resolveForClient } from './config/account-resolver.js';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
@@ -21,7 +22,6 @@ import {
   toAllCatConfigs,
 } from './config/cat-config-loader.js';
 import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
-import { resolveAnthropicRuntimeProfile, resolveRuntimeProviderProfileForClient } from './config/provider-profiles.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
@@ -330,16 +330,12 @@ async function main(): Promise<void> {
             catId,
             catConfig as CatConfig & { providerProfileId?: string },
           );
-          const runtime = await resolveRuntimeProviderProfileForClient(
-            projectRoot,
-            catConfig.provider,
-            boundAccountRef,
-          );
+          const runtime = resolveForClient(projectRoot, catConfig.provider, boundAccountRef);
           if (!runtime?.apiKey) return null;
           return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || 'https://api.anthropic.com' };
         }
 
-        const runtime = await resolveAnthropicRuntimeProfile(projectRoot);
+        const runtime = resolveAnthropicRuntimeProfile(projectRoot);
         if (!runtime.apiKey) return null;
         return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || 'https://api.anthropic.com' };
       } catch {
@@ -728,6 +724,16 @@ async function main(): Promise<void> {
   const catCatalogSubscriber = createCatCatalogSubscriber({
     async onReconcile() {
       app.log.info('[api] F136: Cat catalog changed, syncing agent registry...');
+      await syncAgentRegistry(catRegistry.getAllConfigs());
+    },
+    log: app.log,
+  });
+
+  // F136 Phase 4c: Account binding subscriber — rebinds provider profiles when accounts change
+  const { createAccountBindingSubscriber } = await import('./config/account-binding-subscriber.js');
+  const accountBindingSubscriber = createAccountBindingSubscriber({
+    async onRebind(changedAccountRefs) {
+      app.log.info(`[api] F136: Accounts changed [${changedAccountRefs.join(', ')}], syncing agent registry...`);
       await syncAgentRegistry(catRegistry.getAllConfigs());
     },
     log: app.log,
@@ -1886,6 +1892,7 @@ async function main(): Promise<void> {
 
       // Stop event bus subscribers
       catCatalogSubscriber.unsubscribe();
+      accountBindingSubscriber.unsubscribe();
       connectorReloadUnsub?.();
       try {
         await connectorGatewayHandle?.stop();

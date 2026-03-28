@@ -3,12 +3,13 @@ feature_ids: [F137]
 related_features: [F088, F132]
 topics: [gateway, connector, weixin, wechat, personal-im, ilink-bot, chat-platform]
 doc_kind: spec
+status: done
 created: 2026-03-23
 ---
 
 # F137: WeChat Personal Gateway — 微信个人号 iLink Bot 接入
 
-> **Status**: in-progress | **Completed**: — | **Owner**: 金渐层 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-03-25 | **Owner**: 金渐层 | **Priority**: P1
 >
 > **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
 > 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。

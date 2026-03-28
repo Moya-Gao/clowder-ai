@@ -495,7 +495,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const projectRoot = createProjectRoot();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
 
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const crossProtocolProfile = await createProviderProfile(projectRoot, {
       displayName: 'OpenAI Key Profile',
       authType: 'api_key',
@@ -541,7 +541,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
 
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const openaiProfile = await createProviderProfile(projectRoot, {
       displayName: 'OpenAI Key Profile',
       authType: 'api_key',
@@ -737,7 +737,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
 
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const legacyProfile = await createProviderProfile(projectRoot, {
       displayName: 'Legacy MaaS Key',
       authType: 'api_key',
@@ -797,7 +797,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
     // But switching accountRef on a legacy member WITHOUT ocProviderName must be rejected —
     // a new binding requires ocProviderName.
-    const { createProviderProfile: createProfile2 } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile: createProfile2 } = await import('./helpers/create-test-account.js');
     const newProfile = await createProfile2(projectRoot, {
       displayName: 'New DeepSeek Key',
       authType: 'api_key',
@@ -925,7 +925,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const projectRoot = createProjectRoot();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
 
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const apiKeyProfile = await createProviderProfile(projectRoot, {
       displayName: 'Gemini Proxy',
       authType: 'api_key',
@@ -972,7 +972,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
 
     const { bootstrapCatCatalog } = await import('../dist/config/cat-catalog-store.js');
-    const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const { activateProviderProfile, createProviderProfile } = await import('./helpers/create-test-account.js');
     bootstrapCatCatalog(projectRoot, process.env.CAT_TEMPLATE_PATH);
     const sponsorProfile = await createProviderProfile(projectRoot, {
       displayName: 'Codex Sponsor',

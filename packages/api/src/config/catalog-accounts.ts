@@ -15,7 +15,17 @@ export function readCatalogAccounts(projectRoot: string): Record<string, Account
 
 export function writeCatalogAccount(projectRoot: string, ref: string, account: AccountConfig): void {
   const catalog = readCatCatalog(projectRoot);
-  if (!catalog) throw new Error('No cat-catalog.json found — cannot write account');
+  if (!catalog) {
+    // Bootstrap a minimal v2 catalog if none exists (e.g. first account created via API)
+    writeCatCatalog(projectRoot, {
+      version: 2,
+      breeds: [],
+      roster: {},
+      reviewPolicy: {},
+      accounts: { [ref]: account },
+    } as unknown as CatCafeConfigV2);
+    return;
+  }
   const v2 = catalog as CatCafeConfigV2;
   const nextAccounts = { ...(v2.accounts ?? {}), [ref]: account };
   writeCatCatalog(projectRoot, { ...v2, accounts: nextAccounts });
