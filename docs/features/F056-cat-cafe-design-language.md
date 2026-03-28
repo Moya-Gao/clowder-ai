@@ -209,8 +209,8 @@ Token contract 落地后，分桶跑 codemod：
 - [x] AC-A2: Design Token (奶油猫咖色板) 在 Pencil 变量落地
 - [ ] AC-A2.5: 高置信 codemod 完成（~40% 硬编码颜色消除）
 - [ ] AC-A3: ≥ 8 个 Primitives + ≥ 5 个 Patterns 有 Storybook stories（light/dark 双版本）
-- [ ] AC-A5: Token 三层架构落地（base palette → semantic tokens → Tailwind config）
-- [ ] AC-A6: Semantic token 色板通过 WCAG AA 对比度检查
+- [x] AC-A5: Token 三层架构落地（base palette → semantic tokens → Tailwind config）
+- [x] AC-A6: Semantic token 色板通过 WCAG AA 对比度检查
 - [x] AC-A4: F052 跨线程气泡作为"打样参考"收入设计原则文档
 
 ### Phase B-0
@@ -326,3 +326,4 @@ Token contract 落地后，分桶跑 codemod：
 | 2026-03-27 | GPT Pro 咨询完成 → 宪宪综合 Part 3 → 砚砚三轮 review 通过 |
 | 2026-03-27 | 铲屎官拍板：扩展 F056，加 Phase A-0/D，五层夹心架构（KD-10~14） |
 | 2026-03-28 | Phase A-0 merged (PR #792)：颜色审计(3993处) + ESLint 门禁 + 迁移完成标准 |
+| 2026-03-28 | Phase A-1 merged (PR #795)：三层 token 架构 + dark mode + WCAG AA 验证脚本 |
