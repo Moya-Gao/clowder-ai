@@ -199,10 +199,10 @@ Token contract 落地后，分桶跑 codemod：
 
 ## Acceptance Criteria
 
-### Phase A-0
-- [ ] AC-A0-1: 颜色审计报告产出（热力图：按文件/按色值分类统计）
-- [ ] AC-A0-2: ESLint 自定义规则上线 CI，新增 raw hex / `bg-white` 等 → CI 报错
-- [ ] AC-A0-3: "迁移完成"标准文档化
+### Phase A-0 ✅
+- [x] AC-A0-1: 颜色审计报告产出（热力图：按文件/按色值分类统计）
+- [x] AC-A0-2: ESLint 自定义规则上线 CI，新增 raw hex / `bg-white` 等 → CI 报错
+- [x] AC-A0-3: "迁移完成"标准文档化
 
 ### Phase A
 - [x] AC-A1: 设计原则文档 (四大宪章) 确立
@@ -325,3 +325,4 @@ Token contract 落地后，分桶跑 codemod：
 | 2026-03-27 | 金渐层+砚砚+宪宪诊断现状：~1000 处硬编码颜色、无 primitive 层、无 ThemeProvider |
 | 2026-03-27 | GPT Pro 咨询完成 → 宪宪综合 Part 3 → 砚砚三轮 review 通过 |
 | 2026-03-27 | 铲屎官拍板：扩展 F056，加 Phase A-0/D，五层夹心架构（KD-10~14） |
+| 2026-03-28 | Phase A-0 merged (PR #792)：颜色审计(3993处) + ESLint 门禁 + 迁移完成标准 |
