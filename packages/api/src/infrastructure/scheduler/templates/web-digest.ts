@@ -16,21 +16,41 @@ export const webDigestTemplate: TaskTemplate = {
   createSpec(instanceId: string, p: DynamicTaskParams): TaskSpec_P1 {
     const url = (p.params.url as string) || '';
     const topic = (p.params.topic as string) || '';
+    const threadId = p.deliveryThreadId;
     return {
       id: instanceId,
       profile: 'awareness',
       trigger: p.trigger,
       admission: {
         async gate() {
-          // Stub template: gate skip until execute is implemented (P1-3)
-          return { run: false, reason: 'template not yet activated' };
+          if (!url) return { run: false, reason: 'no url param' };
+          if (!threadId) return { run: false, reason: 'no deliveryThreadId' };
+          return { run: true, workItems: [{ signal: null, subjectKey: `thread-${threadId}` }] };
         },
       },
       run: {
         overlap: 'skip',
         timeoutMs: 60_000,
-        async execute(_signal, _subjectKey, _ctx) {
-          // Not yet implemented — gate skips execution
+        async execute(_signal, subjectKey, ctx) {
+          if (!ctx.fetchContent) throw new Error('fetchContent not available');
+          if (!ctx.deliver) throw new Error('deliver not available');
+          const tid = subjectKey.startsWith('thread-') ? subjectKey.slice(7) : subjectKey;
+          const result = await ctx.fetchContent(url);
+          if (result.method === 'browser') {
+            throw new Error(
+              `Browser rendering required for ${url} — server-side fetch not supported for this site type`,
+            );
+          }
+          const header = result.title || url;
+          const topicLine = topic ? `\n**Topic:** ${topic}` : '';
+          const truncNote = result.truncated ? '\n_[content truncated]_' : '';
+          const content = `## ${header}${topicLine}\n\n${result.text}${truncNote}`;
+          await ctx.deliver({
+            threadId: tid,
+            content,
+            catId: ctx.assignedCatId ?? 'system',
+            userId: 'scheduler',
+          });
         },
       },
       state: { runLedger: 'sqlite' },

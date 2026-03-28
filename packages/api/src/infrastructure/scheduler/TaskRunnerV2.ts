@@ -6,6 +6,8 @@ import type { TaskTemplate } from './templates/types.js';
 import type {
   ActorRole,
   CostTier,
+  DeliverOpts,
+  FetchResult,
   RunLedgerRow,
   ScheduleTaskSummary,
   SubjectKind,
@@ -22,6 +24,10 @@ export interface TaskRunnerV2Options {
   globalControlStore?: import('./GlobalControlStore.js').GlobalControlStore;
   /** Phase 3B (AC-D2): emission store for self-echo suppression */
   emissionStore?: import('./EmissionStore.js').EmissionStore;
+  /** Phase 4 (AC-H1): deliver message to a thread */
+  deliver?: (opts: DeliverOpts) => Promise<string>;
+  /** Phase 4 (AC-H2): fetch web content with browser-automation routing */
+  fetchContent?: (url: string) => Promise<FetchResult>;
 }
 
 /** Phase 2.5: Compute human-readable subject preview from subjectKind + lastRun (AC-E2) */
@@ -76,6 +82,8 @@ export class TaskRunnerV2 {
   private actorResolver: TaskRunnerV2Options['actorResolver'];
   private globalControlStore: TaskRunnerV2Options['globalControlStore'];
   private emissionStore: TaskRunnerV2Options['emissionStore'];
+  private deliver: TaskRunnerV2Options['deliver'];
+  private fetchContent: TaskRunnerV2Options['fetchContent'];
 
   constructor(opts: TaskRunnerV2Options) {
     this.logger = opts.logger;
@@ -83,6 +91,8 @@ export class TaskRunnerV2 {
     this.actorResolver = opts.actorResolver;
     this.globalControlStore = opts.globalControlStore;
     this.emissionStore = opts.emissionStore;
+    this.deliver = opts.deliver;
+    this.fetchContent = opts.fetchContent;
   }
 
   register(task: AnyTaskSpec): void {
@@ -259,6 +269,8 @@ export class TaskRunnerV2 {
       globalControlStore: this.globalControlStore,
       emissionStore: this.emissionStore,
       isManualTrigger,
+      deliver: this.deliver,
+      fetchContent: this.fetchContent,
     });
   }
 }

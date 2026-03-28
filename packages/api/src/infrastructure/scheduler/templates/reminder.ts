@@ -21,14 +21,22 @@ export const reminderTemplate: TaskTemplate = {
       trigger: p.trigger,
       admission: {
         async gate() {
-          return { run: false, reason: 'template not yet activated' };
+          if (!threadId) return { run: false, reason: 'no deliveryThreadId' };
+          return { run: true, workItems: [{ signal: message, subjectKey: `thread-${threadId}` }] };
         },
       },
       run: {
         overlap: 'skip',
         timeoutMs: 30_000,
-        async execute(_signal, _subjectKey, _ctx) {
-          // Phase 3A MVP: log the reminder; actual thread posting wired in integration
+        async execute(_signal, subjectKey, ctx) {
+          if (!ctx.deliver) throw new Error('deliver not available');
+          const tid = subjectKey.startsWith('thread-') ? subjectKey.slice(7) : subjectKey;
+          await ctx.deliver({
+            threadId: tid,
+            content: message,
+            catId: ctx.assignedCatId ?? 'system',
+            userId: 'scheduler',
+          });
         },
       },
       state: { runLedger: 'sqlite' },

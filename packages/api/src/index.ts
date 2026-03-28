@@ -474,12 +474,20 @@ async function main(): Promise<void> {
   const emissionStore = new EmissionStore(schedulerDb);
   const packTemplateStore = new PackTemplateStore(schedulerDb);
 
+  // Phase 4: delivery + content fetch for template execution
+  const { createDeliverFn } = await import('./infrastructure/scheduler/delivery.js');
+  const { createFetchContentFn } = await import('./infrastructure/scheduler/content-fetcher.js');
+  const schedulerDeliver = createDeliverFn({ messageStore, socketManager });
+  const schedulerFetchContent = createFetchContentFn();
+
   const taskRunnerV2 = new TaskRunnerV2({
     logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
     ledger: runLedger,
     actorResolver,
     globalControlStore,
     emissionStore,
+    deliver: schedulerDeliver,
+    fetchContent: schedulerFetchContent,
   });
 
   // ── F139 Phase 3A: Dynamic task store + template registry ──

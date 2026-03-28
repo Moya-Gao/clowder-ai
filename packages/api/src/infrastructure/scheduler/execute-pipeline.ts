@@ -1,7 +1,7 @@
 import type { EmissionStore } from './EmissionStore.js';
 import type { GlobalControlStore } from './GlobalControlStore.js';
 import type { RunLedger } from './RunLedger.js';
-import type { ActorRole, CostTier, GateCtx, RunOutcome, TaskSpec_P1 } from './types.js';
+import type { ActorRole, CostTier, DeliverOpts, FetchResult, GateCtx, RunOutcome, TaskSpec_P1 } from './types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTaskSpec = TaskSpec_P1<any>;
@@ -20,6 +20,10 @@ export interface PipelineContext {
   emissionStore?: EmissionStore;
   /** Phase 3B (AC-D1): manual triggers bypass global pause + task overrides */
   isManualTrigger?: boolean;
+  /** Phase 4 (AC-H1): deliver message to a thread */
+  deliver?: (opts: DeliverOpts) => Promise<string>;
+  /** Phase 4 (AC-H2): fetch web content with browser-automation routing */
+  fetchContent?: (url: string) => Promise<FetchResult>;
 }
 
 function withTimeout(promise: Promise<void>, ms: number, taskId: string): Promise<void> {
@@ -52,6 +56,8 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
     globalControlStore,
     emissionStore,
     isManualTrigger,
+    deliver,
+    fetchContent,
   } = ctx;
   const startMs = Date.now();
   const tickCount = (tickCounts.get(task.id) ?? 0) + 1;
@@ -166,6 +172,8 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
       const rawExecute = task.run.execute(item.signal, item.subjectKey, {
         assignedCatId,
         context: task.context,
+        deliver,
+        fetchContent,
       });
       pendingExecutes.push(rawExecute.catch(() => {}));
       let errorSummary: string | null = null;

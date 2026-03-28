@@ -73,8 +73,8 @@ describe('TemplateRegistry', () => {
     assert.ok(spec.run.execute);
   });
 
-  // P1-3 round 2: reminder is also a stub — must not fake RUN_DELIVERED
-  test('reminder gate returns run=false (stub, not activated)', async () => {
+  // Phase 4: reminder gate is now live — returns run:true when deliveryThreadId set
+  test('reminder gate returns run=true with deliveryThreadId (Phase 4)', async () => {
     const t = templateRegistry.get('reminder');
     const spec = t.createSpec('dyn-gate-test', {
       trigger: { type: 'cron', expression: '0 9 * * *' },
@@ -82,12 +82,13 @@ describe('TemplateRegistry', () => {
       deliveryThreadId: 'thread-xyz',
     });
     const result = await spec.admission.gate({ taskId: 'dyn-gate-test', lastRunAt: null, tickCount: 0 });
-    assert.equal(result.run, false, 'stub reminder must not fake RUN_DELIVERED');
-    assert.ok(result.reason, 'should include reason for skip');
+    assert.equal(result.run, true, 'reminder gate should be live with deliveryThreadId');
+    assert.equal(result.workItems.length, 1);
+    assert.equal(result.workItems[0].subjectKey, 'thread-thread-xyz');
   });
 
-  // P1-3: stub templates must NOT produce RUN_DELIVERED
-  test('web-digest gate returns run=false (stub, not activated)', async () => {
+  // Phase 4: web-digest gate is now live — returns run:true when url + deliveryThreadId set
+  test('web-digest gate returns run=true with url + deliveryThreadId (Phase 4)', async () => {
     const t = templateRegistry.get('web-digest');
     const spec = t.createSpec('dyn-stub-wd', {
       trigger: { type: 'cron', expression: '0 9 * * *' },
@@ -95,11 +96,12 @@ describe('TemplateRegistry', () => {
       deliveryThreadId: 'thread-xyz',
     });
     const result = await spec.admission.gate({ taskId: 'dyn-stub-wd', lastRunAt: null, tickCount: 0 });
-    assert.equal(result.run, false, 'stub template gate must return run=false');
-    assert.ok(result.reason, 'should include reason for skip');
+    assert.equal(result.run, true, 'web-digest gate should be live with url + deliveryThreadId');
+    assert.equal(result.workItems.length, 1);
   });
 
-  test('repo-activity gate returns run=false (stub, not activated)', async () => {
+  // Phase 4: repo-activity gate is now live
+  test('repo-activity gate returns run=true with repo + deliveryThreadId (Phase 4)', async () => {
     const t = templateRegistry.get('repo-activity');
     const spec = t.createSpec('dyn-stub-ra', {
       trigger: { type: 'interval', ms: 3600000 },
@@ -107,7 +109,7 @@ describe('TemplateRegistry', () => {
       deliveryThreadId: 'thread-xyz',
     });
     const result = await spec.admission.gate({ taskId: 'dyn-stub-ra', lastRunAt: null, tickCount: 0 });
-    assert.equal(result.run, false, 'stub template gate must return run=false');
-    assert.ok(result.reason, 'should include reason for skip');
+    assert.equal(result.run, true, 'repo-activity gate should be live with repo + deliveryThreadId');
+    assert.equal(result.workItems.length, 1);
   });
 });

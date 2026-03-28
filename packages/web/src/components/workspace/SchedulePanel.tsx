@@ -119,20 +119,31 @@ export function SchedulePanel() {
     [expandedId],
   );
 
-  const handleToggleEnabled = useCallback(
-    async (taskId: string, enabled: boolean) => {
+  /** AC-H4: toggle pause/resume for any task — routes to correct API by source */
+  const handleToggleTask = useCallback(
+    async (task: ScheduleTask) => {
+      const isActive = task.effectiveEnabled ?? task.enabled;
       try {
-        await apiFetch(`/api/schedule/tasks/${encodeURIComponent(taskId)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled }),
-        });
+        if (task.source === 'dynamic' && task.dynamicTaskId) {
+          await apiFetch(`/api/schedule/tasks/${encodeURIComponent(task.dynamicTaskId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: !isActive }),
+          });
+        } else {
+          await apiFetch(`/api/schedule/control/tasks/${encodeURIComponent(task.id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: !isActive, updatedBy: 'user' }),
+          });
+        }
         fetchTasks();
+        fetchControl();
       } catch {
         /* fail-open */
       }
     },
-    [fetchTasks],
+    [fetchTasks, fetchControl],
   );
 
   const handleDeleteDynamic = useCallback(
@@ -305,19 +316,19 @@ export function SchedulePanel() {
                   {/* AC-F4: expandable detail panel with run history */}
                   {isExpanded && (
                     <div className="px-4 pb-3 ml-[52px] space-y-2">
-                      {/* Controls for dynamic tasks */}
-                      {task.source === 'dynamic' && task.dynamicTaskId && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleEnabled(task.dynamicTaskId!, !task.enabled);
-                            }}
-                            className="text-[10px] text-[#5C4B3A] hover:text-[#D4A574] transition-colors"
-                          >
-                            {task.enabled ? '\u23F8 Pause' : '\u25B6 Resume'}
-                          </button>
+                      {/* AC-H4: Controls for all tasks — pause/resume universal, delete for dynamic only */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleTask(task);
+                          }}
+                          className="text-[10px] text-[#5C4B3A] hover:text-[#D4A574] transition-colors"
+                        >
+                          {(task.effectiveEnabled ?? task.enabled) ? '\u23F8 Pause' : '\u25B6 Resume'}
+                        </button>
+                        {task.source === 'dynamic' && task.dynamicTaskId && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -328,8 +339,8 @@ export function SchedulePanel() {
                           >
                             Delete
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                       {/* Run history */}
                       <div className="text-[10px] text-[#9A866F] font-medium">Recent runs:</div>
                       {runHistory.length === 0 ? (

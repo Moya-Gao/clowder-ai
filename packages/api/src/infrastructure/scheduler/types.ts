@@ -68,12 +68,33 @@ export interface TaskDisplayMeta {
   subjectKind?: SubjectKind;
 }
 
+/** Phase 4: options for delivering a message to a thread */
+export interface DeliverOpts {
+  threadId: string;
+  content: string;
+  catId: string;
+  userId: string;
+}
+
+/** Phase 4: result of fetching web content */
+export interface FetchResult {
+  text: string;
+  title: string;
+  url: string;
+  method: 'server-fetch' | 'browser';
+  truncated: boolean;
+}
+
 /** Phase 1b+2: context passed to execute — carries actor resolution + context spec */
 export interface ExecuteContext {
   /** Cat resolved by ActorResolver, or null if no actor spec / no match */
   assignedCatId: string | null;
   /** Phase 2: session × materialization context, if task declares one */
   context?: ContextSpec;
+  /** Phase 4: deliver message to a thread */
+  deliver?: (opts: DeliverOpts) => Promise<string>;
+  /** Phase 4: fetch web content with browser-automation routing */
+  fetchContent?: (url: string) => Promise<FetchResult>;
 }
 
 /**

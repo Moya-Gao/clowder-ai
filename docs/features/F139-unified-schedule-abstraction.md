@@ -108,7 +108,8 @@ created: 2026-03-25
 
 ### Phase 4（Template Execution + Builtin Control — 最后一公里）
 - [ ] AC-H1: reminder 模板真实执行——到达 cron 时刻后向 deliveryThreadId 投递提醒消息，ledger 记录 RUN_DELIVERED
-- [ ] AC-H2: web-digest 模板真实执行——通过 browser-automation 路由选择抓取方式（WebFetch 只是后端之一，X/小红书/B站等 JS 重站点需要真实浏览器），生成摘要后投递到 deliveryThreadId
+- [ ] AC-H2a: web-digest 模板真实执行——server-fetch 路径可用（HTML→text 提取+截断+投递），browser-automation 路由正确标记 JS 重站点（needsBrowser 检测），SSRF 防护到位
+- [ ] AC-H2b: _(deferred)_ JS 重站点 browser 后端集成——标记 needs-browser 的 URL 走真实 headless 浏览器抓取+投递（依赖 browser-automation 运行时基建）
 - [ ] AC-H3: repo-activity 模板真实执行——查询 GitHub repo 新 issue/PR（cursor 追踪已见），投递到 deliveryThreadId
 - [ ] AC-H4: Builtin 任务面板控制——所有任务（不限 dynamic）在 SchedulePanel 支持 pause/resume，后端复用 task override API
 - [ ] AC-H5: 端到端验证——铲屎官在 thread 说"每天九点提醒我喝水"，任务注册、到点执行、消息投递、面板可控，全链路走通
