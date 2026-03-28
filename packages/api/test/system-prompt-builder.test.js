@@ -1164,7 +1164,7 @@ describe('SystemPromptBuilder', () => {
 
     // Pin: update this hash whenever you add/remove/rename P* or W* sections
     // in shared-rules.md, AND update GOVERNANCE_L0_DIGEST in SystemPromptBuilder.ts
-    const PINNED_HASH = '6c800d61882f4010';
+    const PINNED_HASH = '81d995fc963e0067';
     if (PINNED_HASH === '${PLACEHOLDER}') {
       // First run — print hash for pinning
       console.log(`[drift-guard] shared-rules headings hash: ${hash} — pin this value`);
