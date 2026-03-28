@@ -18,6 +18,7 @@ import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AppendMessageInput, StoredMessage } from '../ports/MessageStore.js';
 import { DEFAULT_THREAD_ID, generateSortableId, isDelivered } from '../ports/MessageStore.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
+import { isSystemUserMessage } from '../visibility.js';
 import {
   safeParseConnectorSource,
   safeParseContentBlocks,
@@ -372,7 +373,7 @@ export class RedisMessageStore {
   async getByThread(threadId: string, limit?: number, userId?: string): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = MessageKeys.thread(threadId);
-    return this.fetchDeliveredDesc(key, n, userId ? (m) => m.userId === userId : undefined);
+    return this.fetchDeliveredDesc(key, n, userId ? (m) => m.userId === userId || isSystemUserMessage(m) : undefined);
   }
 
   /**
@@ -423,7 +424,7 @@ export class RedisMessageStore {
     const messages = await this.hydrateMessages(ids, { includeDeleted: true });
     const delivered = messages.filter(isDelivered);
     if (!userId) return delivered;
-    return delivered.filter((m) => m.userId === userId);
+    return delivered.filter((m) => m.userId === userId || isSystemUserMessage(m));
   }
 
   async getByThreadBefore(
@@ -435,7 +436,7 @@ export class RedisMessageStore {
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = MessageKeys.thread(threadId);
-    const userFilter = userId ? (m: StoredMessage) => m.userId === userId : undefined;
+    const userFilter = userId ? (m: StoredMessage) => m.userId === userId || isSystemUserMessage(m) : undefined;
 
     if (!beforeId) {
       // F117: Chunked desc scan — collect N delivered, scan until full or exhausted
