@@ -1145,4 +1145,36 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!prompt.includes('角色叠加'), 'Should not inject null masks');
     assert.ok(!prompt.includes('默认行为'), 'Should not inject null defaults');
   });
+
+  // ── Drift guard: shared-rules.md ↔ GOVERNANCE_L0_DIGEST ──────
+  test('GOVERNANCE_L0_DIGEST stays in sync with shared-rules.md world-view headings', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { createHash } = await import('node:crypto');
+
+    // Extract world-view / principle section headings from shared-rules.md
+    const rulesPath = resolve(import.meta.dirname, '../../../cat-cafe-skills/refs/shared-rules.md');
+    const rulesText = readFileSync(rulesPath, 'utf8');
+    const headings = rulesText
+      .split('\n')
+      .filter((l) => /^###?\s+(P\d|W\d)/.test(l))
+      .sort()
+      .join('\n');
+    const hash = createHash('sha256').update(headings).digest('hex').slice(0, 16);
+
+    // Pin: update this hash whenever you add/remove/rename P* or W* sections
+    // in shared-rules.md, AND update GOVERNANCE_L0_DIGEST in SystemPromptBuilder.ts
+    const PINNED_HASH = '6c800d61882f4010';
+    if (PINNED_HASH === '${PLACEHOLDER}') {
+      // First run — print hash for pinning
+      console.log(`[drift-guard] shared-rules headings hash: ${hash} — pin this value`);
+      return; // skip assertion on first run
+    }
+    assert.equal(
+      hash,
+      PINNED_HASH,
+      `shared-rules.md P*/W* headings changed (got ${hash}, pinned ${PINNED_HASH}). ` +
+        'Update GOVERNANCE_L0_DIGEST in SystemPromptBuilder.ts to match, then update PINNED_HASH here.',
+    );
+  });
 });
