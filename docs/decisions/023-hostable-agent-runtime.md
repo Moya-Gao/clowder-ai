@@ -218,6 +218,91 @@ interface RunHandleV1 {
 - EventAdapter（parser）维持 provider-specific，不抢着统一
 - 现有 CliTransformer 继续工作，不动
 
+### 8. ProvisioningPipeline — 跨切面降级管线（砚砚 review 补充）
+
+四维模型描述了 runtime **执行时**的组合，但在 `Discovery → RunHandle.startRun()` 之间还有一段**准备阶段**——把抽象配置"降级"成具体的启动参数。这就是 ProvisioningPipeline。
+
+**现状**：每个 provider 各自硬编码注入逻辑：
+
+| 注入载荷 | 现在谁做 | 在哪做 |
+|----------|---------|--------|
+| System prompt（身份/规则/SOP） | `SystemPromptBuilder.buildSystemPrompt()` → route-serial → `--append-system-prompt` | spawn 前，provider-specific CLI arg |
+| MCP server config | `ClaudeAgentService` 组装 `--mcp-config` JSON | spawn 前，provider-specific |
+| MCP callback fallback | `McpPromptInjector.buildMcpCallbackInstructions()` | spawn 前，非 Claude provider |
+| Skills / pack blocks | `buildStaticIdentity()` 内嵌 | spawn 前，prompt 内 |
+| Hooks（outbound/streaming/completion） | `QueueProcessor.setOutboundHook()` 等 | gateway bootstrap 时 late-bind |
+| env（API key / model override） | `buildClaudeEnvOverrides(callbackEnv)` | spawn 前，provider-specific |
+| cwd（工作目录） | `invokeSingleCat` 从 thread projectPath 解析 | spawn 前 |
+
+**设计**：ProvisioningPipeline 是一个**有序的 lowering 管线**，输入抽象配置，输出 `ProvisionedRunSpec`：
+
+```
+输入:
+  catalog metadata          ← agent 名称、描述、交互模式
+  + AgentDescriptorV1       ← 静态能力声明
+  + runtime config          ← 用户/Hub 填的配置（env, cwd, model profile）
+  + user context            ← thread, session, mention context
+  + host policy             ← permission policy, tool allowlist
+
+         ↓  ProvisioningPipeline（ordered phases）
+
+输出: ProvisionedRunSpec
+  .prompt          ← 完整 system prompt（identity + rules + skills + MCP docs）
+  .env             ← 最终 env dict（API keys + model overrides + safe subset）
+  .cwd             ← 工作目录
+  .tools           ← MCP server config / tool bridge config
+  .hooks           ← outbound / streaming / completion hooks
+  .providerArgs    ← provider-specific CLI args（--resume, --add-dir, etc.）
+```
+
+**关键原则**：
+
+- **不是第五维度**——ProvisioningPipeline 是 Discovery 到 Runtime 之间的**桥接管线**，不参与 Transport × Binding × RuntimeContract × EventAdapter 的正交组合
+- **Hostable agent 走标准管线**——零代码接入的 agent 由 pipeline 自动组装 `ProvisionedRunSpec`
+- **Legacy agent 可以 bypass**——现有 provider 保留自己的注入逻辑，等迁入新栈时才切到标准管线
+- **Phase A 只定义接口**——`ProvisioningPhase` 接口 + `ProvisionedRunSpec` 类型，不重写现有注入代码
+
+更新后的完整架构公式：
+
+```
+                    Discovery/Registry
+                          │ register / probe
+                          ▼
+                    AgentDescriptorV1 (static)
+                          │
+                          ▼
+AgentRuntime = ProvisioningPipeline(descriptor, config, context, policy)
+                          │ → ProvisionedRunSpec
+                          ▼
+               Transport × Binding × RuntimeContract × EventAdapter
+                          + Supervisor (sidecar)
+```
+
+### 9. ProcessModel — 派生执行分类（砚砚 review 补充）
+
+ProvisioningPipeline 的**注入窗口**取决于 agent 的进程模型。不同进程模型决定了"什么时候能注入什么"。
+
+**三种真实进程模型**（从现有 provider 归纳）：
+
+| ProcessModel | 代表 | 注入窗口 | 特征 |
+|-------------|------|---------|------|
+| **headless** | Claude CLI / Codex CLI / Gemini CLI / OpenCode | **仅启动时**——spawn 后无法追加 system prompt 或 MCP config | 进程启动 → 输出事件 → 退出。Host 在 spawn 前把所有配置塞进 CLI args + env |
+| **task** | A2A remote agent | **仅请求时**——每次 task 发送时携带上下文 | 无持久进程。每次 HTTP request 携带 task context，server 侧无状态 |
+| **interactive** | Antigravity (IDE bridge) / 未来 WebSocket agent | **启动时 + 运行时**——运行中可以追加 MCP server、更新 permission、注入新 skill | 持久连接 + 双向控制通道。Host 可以在 session 中动态推送配置变更 |
+
+**设计决策**：
+
+- **ProcessModel 不是核心维度**——它是从 Transport + RuntimeContract + controlChannel 的组合**派生**出来的分类，不是独立正交轴
+- **派生规则**：
+  - `controlChannel: none` + local → **headless**
+  - `controlChannel: request_response` + remote → **task**
+  - `controlChannel: full_duplex` → **interactive**（无论 local 或 remote）
+- **ProvisioningPipeline 根据 ProcessModel 决定注入策略**：
+  - headless → 所有载荷必须在 `ProvisionedRunSpec` 里一次给齐
+  - task → 载荷附在每次 request 上
+  - interactive → startup provisioning + runtime push channel
+- **铲屎官的真实诉求**：现有 CLI 全是 headless（"跑了几十个 thread 一直开着，128g 顶配 Mac 都顶不住"）。如果主力猫（Claude/Codex）支持 connectors/MCP bridge 走 interactive 模式，可以**一个持久进程服务多个 thread**，大幅降低资源消耗。但这需要 provider 侧支持，不是 host 单方面能解决的——Phase B 先验证 interactive 可行性，不急着迁现有 headless provider
+
 ## Phase Path
 
 | Phase | 内容 | 铁律 |
@@ -297,5 +382,6 @@ interface RunHandleV1 {
 - **共同设计**：缅因猫（GPT-5.4 本地）
 - **云端咨询**：GPT Pro
 - **Proposed**: 2026-03-27
-- **Review**: 缅因猫（GPT-5.4）— 4 个 P2 全部采纳（Discovery sidecar / Supervisor 边界 / controlChannel 语义轴 / Phase B/C 收紧）
+- **Review R1**: 缅因猫（GPT-5.4）— 4 个 P2 全部采纳（Discovery sidecar / Supervisor 边界 / controlChannel 语义轴 / Phase B/C 收紧）
+- **Review R2**: 缅因猫（GPT-5.4）— 2 个补充全部采纳（ProvisioningPipeline 跨切面管线 / ProcessModel 派生分类）
 - **等待铲屎官拍板 → accepted**

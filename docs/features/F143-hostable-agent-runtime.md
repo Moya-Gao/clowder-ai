@@ -61,11 +61,13 @@ playground 分支的 ACP 实现验证了"配置接入"的可行性（填表 → 
 ## Acceptance Criteria
 
 ### Phase A（内核骨架）
-- [ ] AC-A1: `AgentDescriptorV1` 类型定义完成，包含 interaction/controlChannel/resume/permissions/toolBridge/modelOverride 6 轴
+- [ ] AC-A1: `AgentDescriptorV1` 类型定义完成，包含 invocationShape/controlChannel/resume/permissions/toolBridge/modelOverride 6 轴
 - [ ] AC-A2: `RunHandleV1` 接口定义完成，包含 events/sendControl/cancel/close
 - [ ] AC-A3: `Supervisor` 接口定义完成，复用现有 spawnCli/ProcessLivenessProbe 逻辑
 - [ ] AC-A4: `HostedAgentService` 壳实现，将 RunHandle 桥接到 AgentService.invoke()
 - [ ] AC-A5: ADR-023 完成并批准
+- [ ] AC-A6: `ProvisioningPipeline` 接口 + `ProvisionedRunSpec` 类型定义完成
+- [ ] AC-A7: `ProcessModel` 派生分类定义（headless/task/interactive），含与 Descriptor 轴的映射规则
 
 ### Phase B（首批新栈 provider）
 - [ ] AC-B1: ACP-style local agent 可通过新栈接入并完成单轮对话
@@ -115,6 +117,8 @@ playground 分支的 ACP 实现验证了"配置接入"的可行性（填表 → 
 | KD-4 | ResumeKind 多类型，不用 boolean | resume 至少有 4 种语义（provider_session/stream_redelivery/host_replay/opaque_token） | 2026-03-27 |
 | KD-5 | AgentService.invoke() 保留为北向 façade | 上层路由器/UI/IM gateway 继续吃这个接口 | 2026-03-27 |
 | KD-6 | 外部 agent 分两档：Hostable（零代码）vs Legacy（需 adapter） | 不幻想所有 CLI 都自然归一 | 2026-03-27 |
+| KD-7 | ProvisioningPipeline 是跨切面降级管线，不是第五维度 | MCP/skills/prompt/hooks/env 都是 provisioning 载荷，不参与 runtime 正交组合 | 2026-03-27 |
+| KD-8 | ProcessModel（headless/task/interactive）从 Descriptor 轴派生，不独立成维度 | 从 controlChannel + transport locality 自然推导，不增加组合爆炸 | 2026-03-27 |
 
 ## Timeline
 
