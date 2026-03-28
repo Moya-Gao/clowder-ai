@@ -575,6 +575,14 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
     hubVisible: false,
   },
+  {
+    name: 'CAT_CAFE_PREFLIGHT_TIMEOUT_MS',
+    defaultValue: '30000',
+    description: 'Pre-flight 操作（Redis/store 读取）的超时毫秒数，超时后降级到无 session 模式',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
 
   // --- proxy ---
   {
