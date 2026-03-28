@@ -544,6 +544,18 @@ export function useChatHistory(threadId: string) {
 
   // Load history + tasks when threadId changes (handles initial mount and navigation)
   useEffect(() => {
+    // PR #794: ChatContainer no longer unmounts on thread switch, so tracking
+    // refs from the previous thread survive. Save scroll state for the departing
+    // thread and reset refs so the scroll-adjustment effect treats the new thread
+    // as an initial load (prevCount===0 → scheduleRestore).
+    const el = scrollContainerRef.current;
+    const departingThread = useChatStore.getState().currentThreadId;
+    if (el && departingThread && departingThread !== threadId) {
+      rememberScrollState(departingThread, el);
+    }
+    prevCountRef.current = 0;
+    prevFirstIdRef.current = null;
+
     // Abort any in-flight requests from previous thread
     abortRef.current?.abort();
     abortRef.current = new AbortController();
