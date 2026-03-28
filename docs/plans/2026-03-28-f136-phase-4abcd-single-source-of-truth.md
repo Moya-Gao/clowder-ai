@@ -125,12 +125,18 @@ cats:
      - 版本门槛：N+1 = hard warning，N+2 = 删 fallback
      - 可验证：`pnpm check:legacy-credentials` 脚本检测旧路径残留
 
-4. **测试**
+4. **跨项目冲突检测 guard（HC-5）**
+   - 启动时扫描 `known-project-roots.json` 中所有项目的 `cat-catalog.json` accounts 区
+   - 同名 accountRef 的 `protocol/baseUrl/authType` 不一致 → hard error + 冲突详情
+   - 同名 + 同配置 = 正常共享（多项目复用同一 API key）
+
+5. **测试**
    - 迁移器：旧格式 → 新格式的端到端测试
    - credentials 读写：权限、原子写入、并发安全
    - cat-config-loader：accounts 区的 schema 校验
+   - **HC-5 冲突检测测试**：两个 known roots 同名 accountRef 不同 protocol → hard error
 
-**AC**: `cat-config.yaml` 有 `accounts` 区，`credentials.json` 可读写，迁移器能转换现有数据。
+**AC**: `cat-catalog.json` 有 `accounts` 区，`credentials.json` 可读写，迁移器能转换现有数据，跨项目冲突检测 guard 就位。
 
 ---
 
