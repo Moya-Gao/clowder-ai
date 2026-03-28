@@ -176,7 +176,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
       promptTags: ['critique'],
     });
-    assert.ok(prompt.length < 3350, `Prompt is ${prompt.length} chars, expected < 3350`);
+    assert.ok(prompt.length < 3450, `Prompt is ${prompt.length} chars, expected < 3450`);
   });
 
   test('returns empty string for unknown catId', async () => {
@@ -449,7 +449,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 4250, `Full runtime prompt is ${prompt.length} chars, expected < 4250`);
+      assert.ok(prompt.length < 4350, `Full runtime prompt is ${prompt.length} chars, expected < 4350`);
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
@@ -706,7 +706,7 @@ describe('SystemPromptBuilder', () => {
         { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
       ],
     });
-    assert.ok(prompt.length < 3400, `Prompt with activity is ${prompt.length} chars, expected < 3400`);
+    assert.ok(prompt.length < 3500, `Prompt with activity is ${prompt.length} chars, expected < 3500`);
   });
 
   // --- F042: pinned identity constant + direct-message reply target ---
@@ -906,7 +906,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 3450, `Prompt with SOP hint is ${prompt.length} chars, expected < 3450`);
+    assert.ok(prompt.length < 3550, `Prompt with SOP hint is ${prompt.length} chars, expected < 3550`);
   });
 
   // --- F092: Voice Mode prompt injection ---

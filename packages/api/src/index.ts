@@ -715,6 +715,16 @@ async function main(): Promise<void> {
   };
   await syncAgentRegistry(catRegistry.getAllConfigs());
 
+  // F136 Phase 3A: Cat catalog subscriber — syncs AgentRegistry when cats CRUD emits cat-config events
+  const { createCatCatalogSubscriber } = await import('./config/cat-catalog-subscriber.js');
+  const catCatalogSubscriber = createCatCatalogSubscriber({
+    async onReconcile() {
+      app.log.info('[api] F136: Cat catalog changed, syncing agent registry...');
+      await syncAgentRegistry(catRegistry.getAllConfigs());
+    },
+    log: app.log,
+  });
+
   // F089 Phase 2: Shared instances for tmux agent pane execution (opt-in)
   const enableTmuxAgent = process.env.CAT_CAFE_TMUX_AGENT === '1';
   let tmuxGateway: TmuxGateway | undefined;
@@ -878,7 +888,7 @@ async function main(): Promise<void> {
     socketManager,
     threadStore,
   });
-  await app.register(catsRoutes, { onCatalogChanged: syncAgentRegistry });
+  await app.register(catsRoutes);
   await app.register(quotaRoutes);
   // F128: Daily token usage aggregation
   await app.register(usageRoutes, { invocationRecordStore });
@@ -1842,7 +1852,8 @@ async function main(): Promise<void> {
 
       taskRunnerV2.stop();
 
-      // Stop connector gateway + reload subscriber
+      // Stop event bus subscribers
+      catCatalogSubscriber.unsubscribe();
       connectorReloadUnsub?.();
       try {
         await connectorGatewayHandle?.stop();

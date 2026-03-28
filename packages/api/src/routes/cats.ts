@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-binding.js';
 import { bootstrapCatCatalog, resolveCatCatalogPath } from '../config/cat-catalog-store.js';
 import { getRoster, loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
+import { configEventBus, createChangeSetId } from '../config/config-event-bus.js';
 import { resolveProjectTemplatePath } from '../config/project-template-path.js';
 import {
   resolveBuiltinClientForProvider,
@@ -294,11 +295,7 @@ async function toCatResponse(
   };
 }
 
-async function reconcileCatRegistry(
-  projectRoot: string,
-  managedIdsBefore: ReadonlySet<string>,
-  onCatalogChanged?: (cats: Record<string, CatConfig>) => Promise<void> | void,
-) {
+async function reconcileCatRegistry(projectRoot: string, managedIdsBefore: ReadonlySet<string>) {
   const runtimeCats = toAllCatConfigs(loadCatConfig(resolve(projectRoot, '.cat-cafe', 'cat-catalog.json')));
   const extraCats = catRegistry.getAllConfigs();
   catRegistry.reset();
@@ -308,9 +305,7 @@ async function reconcileCatRegistry(
   for (const [id, config] of Object.entries(extraCats)) {
     if (!runtimeCats[id] && !managedIdsBefore.has(id)) catRegistry.register(id, config);
   }
-  const allCats = catRegistry.getAllConfigs();
-  await onCatalogChanged?.(allCats);
-  return allCats;
+  return catRegistry.getAllConfigs();
 }
 
 function getManagedCatalogIds(projectRoot: string): Set<string> {
@@ -335,11 +330,7 @@ function getResolvedCats(projectRoot: string) {
   }
 }
 
-interface CatsRoutesOptions {
-  onCatalogChanged?: (cats: Record<string, CatConfig>) => Promise<void> | void;
-}
-
-export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opts) => {
+export const catsRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/cats - 获取所有猫猫配置
   app.get('/api/cats', async () => {
     const projectRoot = resolveProjectRoot();
@@ -458,7 +449,14 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
       return { error: message };
     }
 
-    const resolved = await reconcileCatRegistry(projectRoot, managedIdsBefore, opts.onCatalogChanged);
+    const resolved = await reconcileCatRegistry(projectRoot, managedIdsBefore);
+    await configEventBus.emitChangeAsync({
+      source: 'cat-config',
+      scope: 'domain',
+      changedKeys: [body.catId],
+      changeSetId: createChangeSetId(),
+      timestamp: Date.now(),
+    });
     const cat = resolved[body.catId];
     const metadata = buildCatResponseMetadataResolver(projectRoot);
     const resolveEffectiveAccountRef = buildEffectiveAccountRefResolver(projectRoot);
@@ -595,7 +593,14 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
             : { ocProviderName: body.ocProviderName }
           : {}),
       });
-      const resolved = await reconcileCatRegistry(projectRoot, managedIdsBefore, opts.onCatalogChanged);
+      const resolved = await reconcileCatRegistry(projectRoot, managedIdsBefore);
+      await configEventBus.emitChangeAsync({
+        source: 'cat-config',
+        scope: 'domain',
+        changedKeys: [request.params.id],
+        changeSetId: createChangeSetId(),
+        timestamp: Date.now(),
+      });
       const cat = resolved[request.params.id];
       const metadata = buildCatResponseMetadataResolver(projectRoot);
       return { cat: await toCatResponse(cat, metadata(cat.id), resolveEffectiveAccountRef), updatedBy: operator };
@@ -640,7 +645,14 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
         }
         throw err;
       }
-      await reconcileCatRegistry(projectRoot, managedIdsBefore, opts.onCatalogChanged);
+      await reconcileCatRegistry(projectRoot, managedIdsBefore);
+      await configEventBus.emitChangeAsync({
+        source: 'cat-config',
+        scope: 'domain',
+        changedKeys: [request.params.id],
+        changeSetId: createChangeSetId(),
+        timestamp: Date.now(),
+      });
       return { deleted: true, id: request.params.id, updatedBy: operator };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

@@ -26,7 +26,7 @@ export function createChangeSetId(): string {
 const CONFIG_CHANGE = 'config:change';
 
 class ConfigEventBus extends EventEmitter {
-  /** Emit a config change event. Listener exceptions are caught and logged, never propagated. */
+  /** Emit a config change event (fire-and-forget). Listener exceptions are caught and logged, never propagated. */
   emitChange(event: ConfigChangeEvent): void {
     for (const listener of this.listeners(CONFIG_CHANGE)) {
       try {
@@ -34,6 +34,28 @@ class ConfigEventBus extends EventEmitter {
       } catch (err) {
         console.error('[ConfigEventBus] listener threw during config:change — swallowed to protect caller', err);
       }
+    }
+  }
+
+  /**
+   * Emit and await: calls all listeners, then awaits any that return a Promise.
+   * Fire-and-forget listeners (returning void) are not awaited.
+   * Use this when the caller needs to wait for critical subscribers to finish.
+   */
+  async emitChangeAsync(event: ConfigChangeEvent): Promise<void> {
+    const promises: Promise<void>[] = [];
+    for (const listener of this.listeners(CONFIG_CHANGE)) {
+      try {
+        const result = (listener as (e: ConfigChangeEvent) => void | Promise<void>)(event);
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          promises.push(result as Promise<void>);
+        }
+      } catch (err) {
+        console.error('[ConfigEventBus] listener threw during config:change — swallowed to protect caller', err);
+      }
+    }
+    if (promises.length > 0) {
+      await Promise.all(promises);
     }
   }
 
