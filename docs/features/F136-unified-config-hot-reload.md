@@ -227,8 +227,8 @@ Phase 4 终态（2026-03-28 决策）:
 | **3C** | 删除 F127 ad-hoc 热更新死代码 | ✅ done (no-op) | grep 确认无死代码 |
 | **4a** | 单一真相源：`cat-config.accounts` + `credentials.json` 读写层 | ✅ done | PR #818 merged (2026-03-28) — accounts + credentials + migration + HC-5 conflict guard |
 | **4b** | 统一运行时读取：所有调用链走 `cat-config + credentials`，禁直读 `*_API_KEY` | ✅ done | PR #818 merged (2026-03-28) — unified resolver + route dual-write + LlmAIProvider rewired |
-| **4c** | Provider 热更新：`ProviderProfileSubscriber` + rebind | 📋 planned | 照 Phase 3A subscriber 模式 |
-| **4d** | 下线旧层：删 `provider-profiles.json` 元信息 + `provider-binding-compat.ts` | 📋 planned | 保留一版本迁移兼容窗口 |
+| **4c** | Provider 热更新：`AccountBindingSubscriber` + rebind | ✅ done | PR #824 merged (2026-03-28) — event bus subscriber for account config changes |
+| **4d** | 下线旧层：删 `provider-profiles.ts` + `provider-binding-compat.ts` + tests | ✅ done | PR #824 merged (2026-03-28) — net -2032 lines, all consumers migrated |
 
 **MVP = Phase 1 + 2 + 2b**：✅ 已完成。Hub 配置向导改 IM 配置即时热生效，无需重启。
 
@@ -243,3 +243,4 @@ Phase 4 终态（2026-03-28 决策）:
 | 2026-03-28 | Phase 3A merged (PR #790) — CatCatalogSubscriber consolidates F127 inline sync; 3B/3C confirmed no-op |
 | 2026-03-28 | Phase 4 决策收敛 — 推翻 A*，确认单一真相源终态（铲屎官 + @opus + @codex） |
 | 2026-03-28 | Phase 4a+4b merged (PR #818) — single source of truth: accounts + credentials + resolver + HC-1~5 |
+| 2026-03-28 | Phase 4c+4d merged (PR #824) — AccountBindingSubscriber + delete legacy provider-profiles (-2032 lines) |
