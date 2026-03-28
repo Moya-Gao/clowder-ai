@@ -4,7 +4,7 @@ import type { ConnectorTailwindTheme } from '@cat-cafe/shared';
 import { getConnectorDefinition } from '@cat-cafe/shared';
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { API_URL } from '@/utils/api-client';
-import { ConnectorImage, GitHubIcon, SettingsIcon, UsersIcon } from './icons/ConnectorIcons';
+import { ConnectorImage, GitHubIcon, SchedulerIcon, SettingsIcon, UsersIcon } from './icons/ConnectorIcons';
 import { BallotIcon } from './icons/VoteIcons';
 import { MarkdownContent } from './MarkdownContent';
 import { RichBlocks } from './rich/RichBlocks';
@@ -77,6 +77,8 @@ function ConnectorIcon({ connector, fallbackIcon }: { connector: string; fallbac
       return <BallotIcon className="w-4 h-4" />;
     case 'multi-mention-result':
       return <UsersIcon className="w-4 h-4" />;
+    case 'scheduler':
+      return <SchedulerIcon className="w-4 h-4" />;
     case 'system-command':
       return <SettingsIcon className="w-4 h-4" />;
     default:

@@ -23,9 +23,12 @@ describe('createDeliverFn', () => {
     assert.equal(appendArg.content, 'Hello reminder');
     assert.equal(appendArg.catId, 'opus');
     assert.equal(appendArg.origin, 'callback');
+    assert.equal(appendArg.source.connector, 'scheduler');
+    assert.equal(appendArg.source.label, '定时任务');
     assert.equal(socketManager.broadcastAgentMessage.mock.calls.length, 1);
     const broadcastArg = socketManager.broadcastAgentMessage.mock.calls[0].arguments;
     assert.equal(broadcastArg[0].content, 'Hello reminder');
+    assert.equal(broadcastArg[0].source.connector, 'scheduler');
     assert.equal(broadcastArg[1], 'th-1');
   });
 

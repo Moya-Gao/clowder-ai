@@ -12,6 +12,12 @@ export interface DeliveryDeps {
   socketManager: { broadcastAgentMessage: AnyFn };
 }
 
+const SCHEDULER_SOURCE = {
+  connector: 'scheduler',
+  label: '定时任务',
+  icon: 'scheduler',
+} as const;
+
 export function createDeliverFn(deps: DeliveryDeps): (opts: DeliverOpts) => Promise<string> {
   return async (opts: DeliverOpts): Promise<string> => {
     const stored = await deps.messageStore.append({
@@ -22,6 +28,7 @@ export function createDeliverFn(deps: DeliveryDeps): (opts: DeliverOpts) => Prom
       origin: 'callback',
       timestamp: Date.now(),
       threadId: opts.threadId,
+      source: SCHEDULER_SOURCE,
     });
     deps.socketManager.broadcastAgentMessage(
       {
@@ -31,6 +38,7 @@ export function createDeliverFn(deps: DeliveryDeps): (opts: DeliverOpts) => Prom
         origin: 'callback',
         messageId: stored.id,
         timestamp: Date.now(),
+        source: SCHEDULER_SOURCE,
       },
       opts.threadId,
     );

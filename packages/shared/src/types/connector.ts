@@ -245,6 +245,19 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     },
   },
   {
+    id: 'scheduler',
+    displayName: '定时任务',
+    icon: 'scheduler',
+    color: { primary: '#F59E0B', secondary: '#FFFBEB' },
+    description: '定时任务投递',
+    tailwindTheme: {
+      avatar: 'bg-amber-100 ring-2 ring-amber-200',
+      label: 'text-amber-700',
+      labelLink: 'text-amber-700 hover:text-amber-900',
+      bubble: 'border border-amber-200 bg-amber-50',
+    },
+  },
+  {
     id: 'system-command',
     displayName: 'Cat Café',
     icon: 'settings',
