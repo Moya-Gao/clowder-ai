@@ -721,7 +721,7 @@ export class WeixinAdapter implements IOutboundAdapter {
             : MessageItemType.FILE;
       const mediaRef = {
         encrypt_query_param: uploaded.downloadEncryptedQueryParam,
-        aes_key: Buffer.from(uploaded.aeskey, 'hex').toString('base64'),
+        aes_key: Buffer.from(uploaded.aeskey).toString('base64'),
         encrypt_type: 1,
       };
 
@@ -825,7 +825,15 @@ export class WeixinAdapter implements IOutboundAdapter {
       const { encode } = await import('silk-wasm');
 
       const wavData = await readFile(wavPath);
-      const result = await encode(wavData, 0); // 0 = auto-detect sample rate from WAV header
+      if (
+        wavData.length < 12 ||
+        wavData.toString('ascii', 0, 4) !== 'RIFF' ||
+        wavData.toString('ascii', 8, 12) !== 'WAVE'
+      ) {
+        this.log.warn({ wavPath, len: wavData.length }, '[WeixinAdapter] convertWavToSilk: not a WAV file');
+        return null;
+      }
+      const result = await encode(wavData, 24000);
       const silkPath = join(tmpdir(), `cat-cafe-weixin-${Date.now()}.silk`);
       await writeFile(silkPath, result.data);
       this.log.info({ wavPath, silkPath, duration: result.duration }, '[WeixinAdapter] convertWavToSilk: success');

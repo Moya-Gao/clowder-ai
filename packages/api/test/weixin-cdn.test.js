@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  decodeAesKey,
   decryptAesEcb,
   downloadMediaFromCdn,
   encryptAesEcb,
@@ -202,5 +203,39 @@ describe('downloadMediaFromCdn', () => {
         }),
       /CDN download HTTP 403/,
     );
+  });
+});
+
+describe('decodeAesKey — base64(hex-string) compat', () => {
+  it('decodes base64-encoded 32-char hex string to 16-byte key (official protocol compat)', () => {
+    // Official iLink protocol: aes_key = Buffer.from(hexString).toString('base64')
+    // where hexString is 32 hex chars representing 16 bytes
+    const rawKey = Buffer.alloc(16, 0xab);
+    const hexString = rawKey.toString('hex'); // "abababab..." (32 chars)
+    const officialEncoded = Buffer.from(hexString).toString('base64'); // base64 of the hex TEXT
+
+    // decodeAesKey should handle this and return the original 16-byte key
+    const decoded = decodeAesKey(officialEncoded);
+    assert.equal(decoded.length, 16, 'Must decode to 16 bytes');
+    assert.deepEqual(decoded, rawKey, 'Must match original key');
+  });
+});
+
+describe('outbound aes_key encoding matches official iLink protocol', () => {
+  it('aes_key should be base64 of hex string, not base64 of raw bytes', () => {
+    // Our uploadMediaToCdn returns aeskey as hex string (e.g. "abababab...")
+    const hexAesKey = 'abababababababababababababababab'; // 32 hex chars = 16 bytes
+
+    // Official: Buffer.from(hexString).toString('base64') — encodes the hex TEXT
+    const officialEncoding = Buffer.from(hexAesKey).toString('base64');
+
+    // Wrong (our current): Buffer.from(hexString, 'hex').toString('base64') — encodes raw bytes
+    const ourCurrentEncoding = Buffer.from(hexAesKey, 'hex').toString('base64');
+
+    // These two MUST be different (proving the bug exists)
+    assert.notEqual(officialEncoding, ourCurrentEncoding, 'Encodings differ — confirms protocol mismatch');
+
+    // The correct value should be the official encoding
+    assert.equal(officialEncoding, 'YWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWI=');
   });
 });

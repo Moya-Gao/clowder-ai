@@ -60,6 +60,14 @@ export function decodeAesKey(aesKey: string, log?: FastifyBaseLogger): Buffer {
   const key = Buffer.from(normalized, 'base64');
   if (key.length === 16) return key;
 
+  // 4. Official iLink compat: base64(hex-string) — 32 ASCII hex chars → 16 bytes
+  if (key.length === 32) {
+    const hexStr = key.toString('ascii');
+    if (/^[0-9a-f]{32}$/i.test(hexStr)) {
+      return Buffer.from(hexStr, 'hex');
+    }
+  }
+
   log?.warn(
     { aesKeyLen: aesKey.length, decodedLen: key.length, prefix: aesKey.slice(0, 8) },
     '[weixin-cdn] Invalid AES key length after decode',
