@@ -891,9 +891,9 @@
     {
       "id": "F145",
       "name": "MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析",
-      "status": "spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
       "file": "F145-mcp-portable-provisioning.md"
     }
   ],
-  "generated_at": "2026-03-28T00:23:59.976Z"
+  "generated_at": "2026-03-28T02:44:34.158Z"
 }

@@ -8,7 +8,7 @@ created: 2026-03-27
 
 # F145: MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析
 
-> **Status**: spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
 
 ## Why
 
@@ -27,7 +27,7 @@ created: 2026-03-27
 
 ## What
 
-### Phase A: Pencil Resolver + capabilities.json 去机器态
+### Phase A: Pencil Resolver + capabilities.json 去机器态 ✅
 
 **第一刀**：用 Pencil 作为试点，把"声明式期望态 + 本机解析"的管道跑通。
 
@@ -69,14 +69,14 @@ created: 2026-03-27
 
 ## Acceptance Criteria
 
-### Phase A（Pencil Resolver + 去机器态）
-- [ ] AC-A1: `capabilities.json` 中 pencil 条目不含机器特定绝对路径
-- [ ] AC-A2: Pencil resolver 按 env → Antigravity → VS Code → unresolved 顺序解析
-- [ ] AC-A3: 解析结果存入 `.cat-cafe/mcp-resolved.json`（gitignored）
-- [ ] AC-A4: Unresolved 时不写坏路径进 CLI 配置（`.mcp.json` / `.codex/config.toml` / `.gemini/settings.json`）
-- [ ] AC-A5: Gemini 的 `shouldSkipGeminiProjectServer('pencil')` workaround 删除
-- [ ] AC-A6: 现有 capability board 测试全绿 + 新增 resolver 回归测试
-- [ ] AC-A7: `hasUsableTransport()` 对 resolver-backed MCP 不误判为 disabled
+### Phase A（Pencil Resolver + 去机器态）✅
+- [x] AC-A1: `capabilities.json` 中 pencil 条目不含机器特定绝对路径
+- [x] AC-A2: Pencil resolver 按 env → Antigravity → VS Code → unresolved 顺序解析
+- [x] AC-A3: 解析结果存入 `.cat-cafe/mcp-resolved.json`（gitignored）
+- [x] AC-A4: Unresolved 时不写坏路径进 CLI 配置（`.mcp.json` / `.codex/config.toml` / `.gemini/settings.json`）
+- [x] AC-A5: Gemini 的 `shouldSkipGeminiProjectServer('pencil')` workaround 删除
+- [x] AC-A6: 现有 capability board 测试全绿 + 新增 resolver 回归测试
+- [x] AC-A7: `hasUsableTransport()` 对 resolver-backed MCP 不误判为 disabled
 
 ### Phase B（Manifest requires_mcp + Doctor）
 - [ ] AC-B1: `manifest.yaml` 支持 `requires_mcp` 字段
@@ -120,6 +120,7 @@ created: 2026-03-27
 | 日期 | 事件 |
 |------|------|
 | 2026-03-27 | 立项。铲屎官 + 宪宪 + 砚砚三方讨论确认方向 |
+| 2026-03-27 | Phase A merged (PR #796) |
 
 ## Review Gate
 
