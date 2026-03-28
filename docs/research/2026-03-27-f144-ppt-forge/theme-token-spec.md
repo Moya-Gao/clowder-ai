@@ -316,7 +316,7 @@ function createChartOptions(theme: ThemeTokens, overrides?: Partial<ChartOptions
 
 > 砚砚 P2 review："Inter 在企业环境不一定有"，会把"风格失败"误判为"引擎失败"。
 
-**Phase A 采用双轨制**：系统安全字体作为 fallback 基线，品牌近似字体作为增强模式。
+**Phase A 采用双轨制**：品牌近似字体作为增强模式，系统安全字体作为推荐保底字体（供用户参考，实际替换由 PowerPoint 控制）。
 
 ### 双轨 token 结构
 
@@ -337,13 +337,13 @@ function createChartOptions(theme: ThemeTokens, overrides?: Partial<ChartOptions
 }
 ```
 
-### Export Gate 字体降级规则
+### Export Gate 字体观测规则
 
 | 场景 | 行为 |
 |------|------|
 | 品牌字体已安装 | 使用 Inter/DM Sans/IBM Plex（增强模式） |
-| 品牌字体未安装 | **自动降级到 fallback 字体**（Calibri/Arial），PPT 仍可用 |
-| Export Gate 检查 | 日志输出"使用品牌字体"或"降级到系统字体"，不阻塞导出 |
+| 品牌字体未安装 | pptxgenjs 仍写入 primary 字体名；**实际替换由 PowerPoint 控制**（通常替换为 Calibri/Arial），PPT 仍可用 |
+| Export Gate 检查 | 日志记录 token 中的 primary 字体名 + 推荐保底字体（`fallback` 字段），供用户参考；不阻塞导出 |
 | 铲屎官现场对比 | 提前安装 Inter，确保增强模式生效 |
 
 ### 系统安全字体表（跨平台保底）
@@ -370,11 +370,11 @@ function resolveFontFamily(theme: ThemeTokens, role: 'heading' | 'body' | 'mono'
 }
 ```
 
-**pptxgenjs 不支持字体栈（不能写 `"Inter, Calibri"`）**，PowerPoint 自身在缺字体时会用系统默认字体替换。我们的策略是：
-1. token 中定义 primary + fallback
-2. pptxgenjs 用 primary 生成
-3. Export Gate 记录字体状态
-4. 如果铲屎官要确保增强模式，提前安装字体
+**pptxgenjs 不支持字体栈（不能写 `"Inter, Calibri"`）**，PowerPoint 自身在缺字体时会用系统默认字体替换，替换结果不受我们控制。我们的策略是：
+1. token 中定义 primary（品牌字体）+ fallback（推荐保底字体，仅供参考/观测）
+2. pptxgenjs 始终写入 primary 字体名
+3. Export Gate 日志记录 token 配置，帮助排查字体问题
+4. 如果铲屎官要确保增强模式，提前在演示机上安装 Inter
 
 ## 8. 其他风格 token 预览
 
