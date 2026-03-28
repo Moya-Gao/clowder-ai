@@ -126,7 +126,7 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 - [x] AC-A4: Blueprint 层产出 `deck.blueprint.json`，包含页数预算/layout/元素位/引用位
 - [x] AC-A5: Style 层产出 `theme.tokens.json`，Design Token 三层体系（品牌→语义→Slide Master）
 - [x] AC-A6: Export 层产出原生 .pptx，文字可编辑、可搜索、布局无溢出
-- [ ] AC-A7: 企业风格模板（**huawei-like**）可用，信息密度达到华为参考图水平
+- [x] AC-A7: 企业风格模板（**huawei-like**）可用，信息密度达到华为参考图水平 — 单页 52 boxes（≥50 门槛），`countBoxes()` 自动统计，砚砚复审通过
 - [ ] AC-A8: 五道门禁全部嵌入管线（Research/Narrative/Blueprint/Export/Vision Gate）
 - [x] AC-A9: 密排状态矩阵表格 — 单元格级颜色编码，可编辑
 - [x] AC-A10: （Level 2 stretch / non-blocking）嵌套盒子架构图 — nested-box renderer，只矩形/圆角矩形/侧栏标签，最大 3 层，输入必须是树不是图，不做 connector/自动布线
@@ -210,6 +210,7 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 | 2026-03-27 | Phase A Level 1 骨架 merged (PR #810) — Export 层 + Blueprint V2 schema + huawei-like theme + 4 renderers + 48 tests |
 | 2026-03-28 | Phase A-2 管线打通 merged (PR #811) — Research/Narrative/Blueprint 上层管线 + gates + pipeline orchestrator + 15-slide demo, 80 tests |
 | 2026-03-28 | Phase A-3 DiagramElement merged (PR #815) — nested-box renderer (3+ layers) + depth coloring + adaptive gap + 2 layouts + 94 tests |
+| 2026-03-28 | AC-A7 密度验收通过 — slide-arch-overview 单页 52 boxes（四层×52模块），countBoxes() 自动统计，砚砚复审放行 |
 
 ## Review Gate
 
