@@ -184,6 +184,15 @@ Phase 4 终态（2026-03-28 决策）:
   - Provider 热更新回归通过（改 credentials → 猫 rebind 验证）
   - 全量 `pnpm gate` 通过
 
+- [x] **HC-5: credentials.json 作用域 = 全局，accountRef = 全局唯一命名空间**（@gpt52 review 补项）
+  - `~/.cat-cafe/credentials.json` 保持全局（和现有 provider-profiles 行为一致，多项目共享账户）
+  - accountRef 是全局命名空间：跨项目同名 accountRef 指向同一凭证（by design）
+  - 需要隔离时：用 `CAT_CAFE_GLOBAL_CONFIG_ROOT` 环境变量指向不同目录
+  - 不引入 project-scoped credentials（会丧失多项目共享能力）
+  - 4a/4b 在同一 worktree 连续实施、同一 PR 合入，避免半新半旧双轨
+
+- [x] **文案统一（@gpt52 review 补项）**：用户面对一份配置域（`cat-config`），运行时落盘 `.cat-cafe/cat-catalog.json`，`cat-config.yaml.example` 只做模板不参与运行时——这两句话不矛盾，前者是用户视角，后者是实现细节
+
 ### 已知的具体需求（从 F088 Phase 8 产生）
 
 1. **Connector 热重载**：在 Hub 配置向导里改了 Telegram/飞书/钉钉配置后，不用重启 API 就能生效

@@ -11,9 +11,12 @@ created: 2026-03-28
 
 ## 愿景
 
-用户在一个地方配置所有猫的 provider/model/账户信息（`cat-config.yaml`），
-凭证在一个钥匙串（`~/.cat-cafe/credentials.json`）。
+用户面对一份配置域（`cat-config`），运行时落盘 `.cat-cafe/cat-catalog.json`，
+`cat-config.yaml.example` 只做模板不参与运行时。
+凭证在一个全局钥匙串（`~/.cat-cafe/credentials.json`，accountRef 全局唯一）。
 没有第二个配置真相源，没有"两边打架"的校验层。
+
+**实施约束**：4a + 4b 在同一 worktree 连续实施、同一 PR 合入，避免半新半旧双轨（HC-5）。
 
 ## 终态结构
 
@@ -96,7 +99,7 @@ cats:
    - HC-2：accounts 写入 `cat-catalog.json`，`cat-config.yaml.example` 只做模板示例
 
 2. **新建 `credentials.ts` 读写层**
-   - 路径：`~/.cat-cafe/credentials.json`（复用 `provider-profiles-root.ts` 的全局目录解析）
+   - 路径：`~/.cat-cafe/credentials.json`（全局，HC-5：accountRef 是全局唯一命名空间）
    - 格式（HC-1）：`Record<string, CredentialEntry>`
      ```typescript
      interface CredentialEntry {
