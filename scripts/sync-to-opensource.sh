@@ -1146,9 +1146,9 @@ const fs = require('fs');
 const path = process.argv[2];
 const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
 pkg.scripts["start:direct"] =
-  "CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 CAT_CAFE_RESPECT_DOTENV_PORTS=1 CAT_CAFE_DIRECT_NO_WATCH=1 ./scripts/start-dev.sh --prod-web --profile=opensource";
+  "node ./scripts/start-entry.mjs start:direct --profile=opensource";
 pkg.scripts["dev:direct"] =
-  "CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 CAT_CAFE_RESPECT_DOTENV_PORTS=1 ./scripts/start-dev.sh --profile=opensource";
+  "node ./scripts/start-entry.mjs dev:direct --profile=opensource";
 pkg.scripts["check:start-profile-isolation"] = "node --test scripts/start-dev-profile-isolation.test.mjs";
 if (!pkg.scripts.check.includes("pnpm check:start-profile-isolation")) {
   pkg.scripts.check += " && pnpm check:start-profile-isolation";
