@@ -12,21 +12,22 @@ created: 2026-03-27
 
 ## 行业在做什么
 
-2026 年的 multi-agent 领域，主流方案基本是三个模式：
+2026 年 3 月的 multi-agent 领域，竞争已经从"能不能跑"升级到"能不能扛生产"。我们调研了主流方案（详见项目内部 research 归档），归纳出四种模式：
 
-| 模式 | 代表 | 核心思路 |
-|------|------|---------|
-| 角色 SOP 编排 | MetaGPT | 给每个 agent 一个角色（产品经理、架构师、工程师），按 SOP 顺序执行 |
-| Orchestrator 分发 | AutoGen、Anthropic Harness | 一个"boss agent"或中枢接收任务，分配给 sub-agent 执行 |
-| 顺序 Pipeline | CrewAI | Agent A 做完交给 Agent B，B 做完交给 C，线性流水线 |
+| 模式 | 代表 | 核心思路 | 生产就绪度 |
+|------|------|---------|-----------|
+| 状态图编排 | LangGraph | 把 agent 工作流建模为状态机，内置 checkpoint / resume / time-travel | 公开生产案例最多（Qodo/Klarna 等） |
+| Boss + Sub-agent | Claude Agent Teams、OMOC Sisyphus | 一个 Team Lead 分配任务给 teammates / sub-agents，sub-agents 向上汇报 | Anthropic 有 16-agent 编译器案例 |
+| 角色 Pipeline | CrewAI | 给每个 agent 一个角色，按流程顺序执行，AWS 官方博客背书 | 快速迭代中（周更节奏） |
+| 协议标准化 | Google A2A Protocol、MCP | 不做编排，做 agent 间通信的标准接口 | 协议层，不直接解决编排 |
 
-它们都解决了"不用人类复制粘贴"的问题。但它们有一个共同的隐含假设：
+它们都解决了"不用人类复制粘贴"的问题。但做了同一个架构选择：
 
-> **存在一个中心节点，替所有 agent 做内容判断。**
+> **任务怎么分、内容怎么判，由一个中心节点决定。**
 
-在 orchestrator 模式里，这个节点是 boss agent。在 SOP 模式里，这个节点是 SOP 本身。在 pipeline 里，这个节点是排列顺序。
+LangGraph 里这个节点是状态图的路由逻辑。Agent Teams 里是 Team Lead。OMOC 里是 Sisyphus orchestrator（我们集成金渐层时做过详细拆解：sub-agents 是无状态的，决策权完全在 orchestrator）。CrewAI 里是预定义的角色流程。
 
-这意味着：中心节点的偏见就是全系统的偏见。如果 boss agent 判断错了，没有任何机制能拉住它。
+这意味着：**中心节点的偏见就是全系统的偏见。** 如果 boss agent 判断错了，没有任何 sub-agent 有权限和动力拉住它。
 
 ---
 
@@ -108,14 +109,14 @@ created: 2026-03-27
 
 ## 和主流方案的对比
 
-| 维度 | Orchestrator 模式 | SOP Pipeline | Cat Café |
-|------|-------------------|-------------|----------|
-| 内容判断 | 中心 agent 决定 | SOP 顺序决定 | **每只猫独立判断** |
-| 任务路由 | boss 分配 | 上一步交给下一步 | **猫猫自主 @ 路由** |
-| 能否质疑 | sub-agent 只能回答 boss | 只能往下传 | **任何猫可以否决任何猫** |
-| 单点失败 | boss 挂了系统瘫痪 | 中间断了后面停 | **去掉任何一只猫，降级但不崩** |
-| 偏见放大 | 中心节点偏见 = 系统偏见 | SOP 偏见 = 系统偏见 | **多家族交叉抵消偏见** |
-| 基础设施 | 中心 agent 管一切 | 固定流水线 | **统一队列 + 独立槽位 + 护栏** |
+| 维度 | Boss 模式（Agent Teams / OMOC） | 状态图（LangGraph） | 角色 Pipeline（CrewAI） | Cat Café |
+|------|-------------------------------|-------------------|----------------------|----------|
+| 内容判断 | Team Lead 决定 | 路由逻辑决定 | 角色流程决定 | **每只猫独立判断** |
+| 任务路由 | boss 分配 | 图的 edge 决定 | 上一步交下一步 | **猫猫自主 @ 路由** |
+| 能否质疑 | sub-agent 向上汇报 | 节点无权改图 | 只能往下传 | **任何猫可以否决任何猫** |
+| 单点失败 | Lead 挂了系统停 | 图定义错了全错 | 中间断了后面停 | **去掉任何一只猫，降级但不崩** |
+| 偏见抵消 | Lead 偏见 = 系统偏见 | 图作者偏见 = 系统偏见 | SOP 偏见 = 系统偏见 | **跨厂商家族交叉 review** |
+| 基础设施 | 中心 agent 管一切 | checkpoint + 状态机 | 固定流水线 | **统一队列 + 独立槽位 + 护栏** |
 
 **我们不是"没有结构"，是"结构在执行层而不是在判断层"。**
 
