@@ -1436,7 +1436,7 @@ async function main(): Promise<void> {
   // Migration filesystem errors are best-effort.
   try {
     const { accountStartupHook } = await import('./config/account-startup.js');
-    const startupResult = accountStartupHook(process.cwd());
+    const startupResult = accountStartupHook(findMonorepoRoot(process.cwd()));
     if (startupResult.migration.migrated) {
       app.log.info(
         `[api] F136 account migration: ${startupResult.migration.accountsMigrated} account(s), ${startupResult.migration.credentialsMigrated} credential(s)`,
