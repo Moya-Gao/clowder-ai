@@ -1,7 +1,7 @@
 ---
 feature_ids: [F139]
 related_features: [F102, F122, F048]
-debt_ids: [TD116]
+debt_ids: []
 topics: [scheduler, heartbeat, task-runner, multi-agent]
 doc_kind: spec
 created: 2026-03-25
@@ -112,7 +112,7 @@ completed: 2026-03-28
 ### Phase 4（Template Execution + Builtin Control — 最后一公里）✅
 - [x] AC-H1: reminder 模板真实执行——到达 cron 时刻后向 deliveryThreadId 投递提醒消息，ledger 记录 RUN_DELIVERED
 - [x] AC-H2a: web-digest 模板真实执行——server-fetch 路径可用（HTML→text 提取+截断+投递），browser-automation 路由正确标记 JS 重站点（needsBrowser 检测），SSRF 防护到位
-- [→TD116] ~~AC-H2b: _(deferred)_ JS 重站点 browser 后端集成——标记 needs-browser 的 URL 走真实 headless 浏览器抓取+投递~~ → 转技术债 TD116（现有 browser-automation/backend 已具备，剩余是 F139 调度侧接线与调度语义补齐，非 feature close blocker）
+- [x] AC-H2b: JS 重站点 browser 路径接线——`web-digest` 在 `needs-browser` 分支存真实 trigger message 后通过 `invokeTrigger` 唤醒猫，并带 `suggestedSkill: browser-automation`（PR #826）
 - [x] AC-H3: repo-activity 模板真实执行——查询 GitHub repo 新 issue/PR（cursor 追踪已见），投递到 deliveryThreadId
 - [x] AC-H4: Builtin 任务面板控制——所有任务（不限 dynamic）在 SchedulePanel 支持 pause/resume，后端复用 task override API
 - [x] AC-H5: 端到端验证——铲屎官在 thread 说"每天九点提醒我喝水"，任务注册、到点执行、消息投递、面板可控，全链路走通
@@ -182,6 +182,7 @@ completed: 2026-03-28
 | 2026-03-28 | Scheduler connector icon merged (PR #820) — Scheduler ConnectorDefinition (amber theme) + SchedulerIcon SVG (alarm clock) + delivery.ts wires SCHEDULER_SOURCE into append+broadcast; 砚砚 local review 放行 (0 P1/P2) + cloud review passed |
 | 2026-03-28 | Scheduler bugfix merged (PR #821) — Fix immediate-trigger on registration (deferFirstTick for live registerDynamic) + fix wrong-cat routing (targetCatId auto-inject from CAT_CAFE_CAT_ID env) + params validation; 砚砚 local review 2 rounds (1×P1 fixed: E2E cat routing) + cloud review 1×P2 fixed |
 | 2026-03-28 | **Feature closed** — 核心愿景“没人找你但该主动检查”已交付：对话式注册 → 持久化 → 到点唤醒猫 → 富文本/面板治理全链路可用；JS 重站点剩余缺口转技术债 TD116（调度侧对接现有 browser-automation/backend），不再阻塞 F139 close |
+| 2026-03-28 | H2b wiring merged (PR #826) — `web-digest` needs-browser 路径接入 cat-wake（真实 messageId + invokeTrigger + `browser-automation` skill hint），TD116 关闭 |
 
 ## Review Gate
 
@@ -201,4 +202,4 @@ completed: 2026-03-28
 | **UX V1** | `designs/F-schedule-abstraction.pen` Scene 1-2 (y=0) | ~~Thread 硬分组~~（已废弃，被 V2 替代） |
 | **UX V2** | `designs/F-schedule-abstraction.pen` V2 (y=1821) | 扁平列表 + 彩色标签 + 自然语言入口（铲屎官 2026-03-26 确认✅） |
 | **Reflection** | `docs/reflections/2026-03-28-f139-unified-schedule-capsule.md` | F139 完成反思胶囊 |
-| **Tech Debt** | `docs/TECH-DEBT.md` TD116 | JS 重站点 browser backend 后续债务 |
+| **Tech Debt** | `docs/TECH-DEBT.md` TD116 (resolved) | H2b 接线已由 PR #826 完成 |
