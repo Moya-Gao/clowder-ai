@@ -154,20 +154,21 @@ deck.pptx
 - [x] AC-A11: CJK 图表字体 POC 通过（release-gate P1，不过则收紧支持矩阵）
 - [ ] AC-A12: 生成的 .pptx 在 PPT 365 Win/Mac 打开无 repair 弹窗 — **BLOCKED(owner: @lysander, action: 用 PPT 365 打开 ~/Desktop/cat-cafe-architecture.pptx 验证无 repair)**
 
-### Phase B（风格模板库 + 高级布局 + 引擎化）
-- [ ] AC-B1: ≥3 种企业风格模板可用（nvidia-like/IBM/Apple）
-- [ ] AC-B2: 超密架构图（50+ 盒子）+ 自由连线流程图
-- [ ] AC-B3: Pencil MCP 集成为设计预览 + 审批工具
-- [ ] AC-B4: Skill 化，支持一句话触发
-- [ ] AC-B5: Layout variant system（8 family × variants）
-- [ ] AC-B6: asset.manifest.json + brand-policy linter
-- [ ] AC-B7: 质量守护自动检查通过
+### Phase B（HTML Layout Compiler — 终态渲染引擎）
+- [ ] AC-B1: `html-layout-compiler` 子模块可用 — Blueprint → HTML+Tailwind → Playwright 布局求值 → DOM 坐标提取
+- [ ] AC-B2: DOM Semantic Compiler — `data-ppt-role` 标注 → pptxgenjs 原生对象（text/table/chart/shape/group），零截图
+- [ ] AC-B3: 5 个 renderer（text/chart/table/kpi/diagram）全部迁移为吃 compiler output，手算坐标代码清零
+- [ ] AC-B4: 字体嵌入 — opentype.js 解析 + fonteditor-core 子集化，嵌入 .pptx 的 `ppt/fonts/`
+- [ ] AC-B5: 华为级复杂布局视觉验收 — 同一 Blueprint 对比 Phase A vs Phase B 渲染，Phase B 视觉品质 ≥ 对手 pptx-craft
+- [ ] AC-B6: Skill 化 — 铲屎官一句话触发全流程（research → storyline → blueprint → HTML → compile → .pptx）
+- [ ] AC-B7: ≥3 种企业风格 HTML+Tailwind 模板可用（huawei-like/nvidia-like/Apple）
 
 ## Dependencies
 
-- **Related**: F138（Video Studio — 同属内容生成管线家族）
+- **Related**: F138（Video Studio — 同属内容生成管线家族，共享 HTML+CSS → 媒体输出 思路）
 - **Related**: `deep-research` skill（Research 层依赖）
 - **Related**: Pencil MCP（Visual Design 层依赖）
+- **Phase B 新增**: Playwright（headless 布局求值引擎）、opentype.js + fonteditor-core（字体嵌入）
 
 ## Risk
 
@@ -232,6 +233,7 @@ deck.pptx
 | 2026-03-28 | Phase A-2 管线打通 merged (PR #811) — Research/Narrative/Blueprint 上层管线 + gates + pipeline orchestrator + 15-slide demo, 80 tests |
 | 2026-03-28 | Phase A-3 DiagramElement merged (PR #815) — nested-box renderer (3+ layers) + depth coloring + adaptive gap + 2 layouts + 94 tests |
 | 2026-03-28 | AC-A7 密度验收通过 — slide-arch-overview 单页 52 boxes（四层×52模块），countBoxes() 自动统计，砚砚复审放行 |
+| 2026-03-28 | **架构方向纠偏** — 铲屎官指出手算坐标是"脚手架"，应与 F138 Video Studio 同思路（HTML+CSS → 媒体）。砚砚确认终态：Blueprint → HTML/CSS(Playwright) → DOM 语义编译器 → pptxgenjs 原生对象。Phase B 全面重写为 HTML Layout Compiler 架构（ADR-024） |
 
 ## Review Gate
 
