@@ -652,7 +652,7 @@ export class WeixinAdapter implements IOutboundAdapter {
       tempFilePath = downloaded;
     }
 
-    // WeChat requires SILK codec for voice messages; convert WAV→SILK before upload
+    // WeChat voice messages require SILK codec; when conversion fails, degrade to file delivery.
     if (payload.type === 'audio' && actualFilePath.endsWith('.wav')) {
       const silkPath = (await this.convertWavToSilk(actualFilePath)) ?? undefined;
       if (silkPath) {
@@ -668,10 +668,11 @@ export class WeixinAdapter implements IOutboundAdapter {
 
     const { uploadMediaToCdn, UploadMediaType } = await import('./weixin-cdn.js');
     const cdnBaseUrl = 'https://novac2c.cdn.weixin.qq.com/c2c';
+    const audioAsVoice = payload.type === 'audio' && actualFilePath.endsWith('.silk');
     const mediaTypeMap = {
       image: UploadMediaType.IMAGE,
       file: UploadMediaType.FILE,
-      audio: UploadMediaType.VOICE,
+      audio: audioAsVoice ? UploadMediaType.VOICE : UploadMediaType.FILE,
     } as const;
 
     this.log.info(
@@ -693,7 +694,7 @@ export class WeixinAdapter implements IOutboundAdapter {
       const itemType =
         payload.type === 'image'
           ? MessageItemType.IMAGE
-          : payload.type === 'audio'
+          : payload.type === 'audio' && audioAsVoice
             ? MessageItemType.VOICE
             : MessageItemType.FILE;
       const mediaRef = {
@@ -705,10 +706,15 @@ export class WeixinAdapter implements IOutboundAdapter {
       const mediaItem: Record<string, unknown> = { type: itemType };
       if (payload.type === 'image') {
         mediaItem.image_item = { media: mediaRef, mid_size: uploaded.fileSizeCiphertext };
-      } else if (payload.type === 'audio') {
+      } else if (payload.type === 'audio' && audioAsVoice) {
         mediaItem.voice_item = { media: mediaRef };
       } else {
-        mediaItem.file_item = { media: mediaRef, file_name: payload.fileName ?? 'file' };
+        const { basename } = await import('node:path');
+        mediaItem.file_item = {
+          media: mediaRef,
+          file_name:
+            payload.type === 'audio' ? (payload.fileName ?? basename(actualFilePath)) : (payload.fileName ?? 'file'),
+        };
       }
 
       const body = {

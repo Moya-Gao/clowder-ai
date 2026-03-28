@@ -255,11 +255,19 @@ export class OutboundDeliveryHook {
                       }
                     } else {
                       const absPath = resolve?.(item.url);
-                      await adapter.sendMedia(binding.externalChatId, {
-                        type: 'image',
-                        url: item.url,
-                        ...(absPath ? { absPath } : {}),
-                      });
+                      if (absPath) {
+                        await adapter.sendMedia(binding.externalChatId, { type: 'image', absPath });
+                      } else if (item.url.startsWith('https://')) {
+                        await adapter.sendMedia(binding.externalChatId, {
+                          type: 'image',
+                          url: item.url,
+                        });
+                      } else {
+                        this.opts.log.warn(
+                          { blockKind: block.kind, url: item.url },
+                          '[OutboundDeliveryHook] media_gallery image skipped — resolver failed and url is not https',
+                        );
+                      }
                     }
                   }
                 }

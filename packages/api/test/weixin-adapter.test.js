@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { unlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { WeixinAdapter } from '../dist/infrastructure/connectors/adapters/WeixinAdapter.js';
 
@@ -1268,6 +1271,49 @@ describe('WeixinAdapter', () => {
         assert.notEqual(p1, p2, 'paths must differ even at the same Date.now()');
       } finally {
         Date.now = originalNow;
+      }
+    });
+
+    it('degrades non-SILK audio to file_item delivery', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+
+      const wavPath = join(tmpdir(), `cat-cafe-audio-${Date.now()}.wav`);
+      await writeFile(wavPath, Buffer.from('not-a-real-wav'));
+
+      /** @type {any} */
+      let sentMsg = null;
+      /** @type {any} */
+      let uploadReq = null;
+
+      try {
+        adapter._injectFetch(async (url, opts) => {
+          if (url.includes('/ilink/bot/getuploadurl')) {
+            uploadReq = JSON.parse(opts.body);
+            return { ok: true, json: async () => ({ upload_param: 'enc-upload-param' }) };
+          }
+          if (url.includes('/c2c/upload?')) {
+            return {
+              status: 200,
+              headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }),
+            };
+          }
+          if (url.includes('/ilink/bot/sendmessage')) {
+            sentMsg = JSON.parse(opts.body).msg;
+            return { ok: true, text: async () => JSON.stringify({ ret: 0 }) };
+          }
+          throw new Error(`unexpected url: ${url}`);
+        });
+
+        await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
+
+        assert.equal(uploadReq.media_type, 3, 'audio fallback should upload as FILE type');
+        assert.equal(sentMsg.item_list[0].type, 4, 'audio fallback should send FILE message item');
+        assert.ok(sentMsg.item_list[0].file_item, 'file_item must be present');
+        assert.equal(sentMsg.item_list[0].file_item.file_name, 'voice.wav');
+        assert.equal(sentMsg.item_list[0].voice_item, undefined);
+      } finally {
+        await unlink(wavPath).catch(() => {});
       }
     });
   });
