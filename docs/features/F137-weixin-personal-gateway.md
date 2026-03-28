@@ -9,7 +9,7 @@ created: 2026-03-23
 
 # F137: WeChat Personal Gateway — 微信个人号 iLink Bot 接入
 
-> **Status**: in-progress | **Completed**: — | **Owner**: 金渐层 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-03-28 | **Owner**: 金渐层 | **Priority**: P1
 >
 > **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
 > 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
@@ -466,6 +466,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-03-28 | DM hotfix: 修复 `media_gallery` 相对路径解析（`/avatars/*`）、HTTPS 下载失败不再静默吞错、语音非 SILK 自动降级 `file_item`。PR #819 squash merge (497cdfa8) |
 | 2026-03-28 | **反思 + Phase D 补充**：铲屎官指出"能连接就应该能断开"——Phase A-C 只做了连接方向，缺少断开/解绑功能。Status 回退为 in-progress，新增 Phase D（AC-D1~D5）|
 | 2026-03-28 | Phase D merged (PR #825). `WeixinAdapter.disconnect()` + `POST /disconnect` endpoint + UI disconnect button + unbind help text. R1 P1 fix: reject pending sendReply promises on disconnect. 砚砚 R2 pass → cloud review pass → squash merge |
+| 2026-03-28 | **F137 feat-close (final)** — 愿景守护：布偶猫(opus) 三问 + 证物对照表 ✅，缅因猫(gpt52) 独立验证放行 ✅。Phase A-D 全部 done，24/24 AC checked。|
 
 ## Review Gate
 
