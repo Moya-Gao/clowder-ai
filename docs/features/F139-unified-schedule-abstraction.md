@@ -175,6 +175,7 @@ created: 2026-03-25
 | 2026-03-27 | Phase 3B merged (PR #785) — Governance (global pause + task overrides + effectiveEnabled) + EmissionStore (self-echo suppression with full R/W loop) + Pack templates (install/uninstall with runtime registry sync); 砚砚 local review 3 rounds (3×P1 + 1×P1 + 1×P2 fixed) + cloud review passed |
 | 2026-03-28 | Phase 4 merged (PR #801) — Template real execution (reminder/web-digest/repo-activity) + builtin panel control + SSRF protection + E2E; 砚砚 local review 2 rounds (3×P1 + 1×P2 fixed) + cloud review 2 rounds (2×P1 SSRF fixed). H2b (browser backend) deferred |
 | 2026-03-28 | Phase 4 cat-wake fix merged (PR #812) — Wire invokeTrigger into template ExecuteContext so reminder wakes a cat instead of posting static text; P1 fix: store real messageId for retry path; 砚砚 local review 2 rounds (P1 fixed) + cloud review passed |
+| 2026-03-28 | Schedule-tasks skill + rich-block capability coverage merged (PR #817) — New schedule-tasks skill for cats to guide task registration; rich-block rules/refs/skill expanded to cover scheduled task contexts (media_gallery, audio, html_widget); SOT pointer fix (using-rich-blocks → rich-messaging); 砚砚 local review 2 rounds (2×P1 fixed) + cloud review passed |
 
 ## Review Gate
 
