@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
+import { resolveByAccountRef, resolveForClient } from './account-resolver.js';
 import type {
   AnthropicRuntimeProfile,
   BootstrapBinding,
@@ -1217,6 +1218,11 @@ export async function resolveRuntimeProviderProfile(
   protocol: 'anthropic' | 'openai' | 'google',
   preferredProfileId?: string,
 ): Promise<RuntimeProviderProfile | null> {
+  // F136 Phase 4b: Try new accounts + credentials path first
+  const resolved = resolveForClient(projectRoot, protocol, preferredProfileId);
+  if (resolved) return resolved;
+
+  // Legacy fallback: old provider-profiles store
   const { meta, secrets, dirty } = await readRaw(projectRoot);
   if (dirty) {
     await withProviderStoreLock(projectRoot, async (storageRoot) => {
@@ -1252,6 +1258,11 @@ export async function resolveRuntimeProviderProfileForClient(
   client: BuiltinAccountClient,
   preferredProfileId?: string,
 ): Promise<RuntimeProviderProfile | null> {
+  // F136 Phase 4b: Try new accounts + credentials path first
+  const resolved = resolveForClient(projectRoot, client, preferredProfileId);
+  if (resolved) return resolved;
+
+  // Legacy fallback: old provider-profiles store
   const { meta, secrets, dirty } = await readRaw(projectRoot);
   if (dirty) {
     await withProviderStoreLock(projectRoot, async (storageRoot) => {
@@ -1286,6 +1297,11 @@ export async function resolveRuntimeProviderProfileById(
   projectRoot: string,
   profileId: string,
 ): Promise<RuntimeProviderProfile | null> {
+  // F136 Phase 4b: Try new accounts + credentials path first
+  const resolved = resolveByAccountRef(projectRoot, profileId);
+  if (resolved) return resolved;
+
+  // Legacy fallback: old provider-profiles store
   const { meta, secrets, dirty } = await readRaw(projectRoot);
   if (dirty) {
     await withProviderStoreLock(projectRoot, async (storageRoot) => {

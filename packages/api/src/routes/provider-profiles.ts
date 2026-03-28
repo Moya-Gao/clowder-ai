@@ -1,7 +1,11 @@
 import { realpath, stat } from 'node:fs/promises';
 import { relative, resolve, win32 } from 'node:path';
+import type { AccountConfig } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { validateAccountWrite } from '../config/account-conflict-guard.js';
+import { deleteCatalogAccount, writeCatalogAccount } from '../config/catalog-accounts.js';
+import { deleteCredential, writeCredential } from '../config/credentials.js';
 import {
   activateProviderProfile,
   createProviderProfile,
@@ -10,6 +14,7 @@ import {
   type ProviderProfileAuthType,
   type ProviderProfileMode,
   type ProviderProfileProvider,
+  type ProviderProfileView,
   readProviderProfiles,
   resolveRuntimeProviderProfileById,
   updateProviderProfile,
@@ -19,6 +24,33 @@ import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { buildProbeHeaders, isInvalidModelProbeError, readProbeError } from './provider-profiles-probe.js';
+
+/** F136 Phase 4b: Build AccountConfig from a legacy profile view. */
+function profileToAccountConfig(profile: ProviderProfileView): AccountConfig {
+  return {
+    authType: profile.authType ?? 'api_key',
+    protocol: profile.protocol ?? 'openai',
+    ...(profile.baseUrl ? { baseUrl: profile.baseUrl } : {}),
+    ...(profile.models ? { models: profile.models } : {}),
+    ...(profile.displayName ? { displayName: profile.displayName } : {}),
+  };
+}
+
+/**
+ * F136 Phase 4b: Sync a profile write to new accounts + credentials storage.
+ * HC-5: validateAccountWrite is called BEFORE this — its errors propagate to the route handler.
+ * Writes here are best-effort during transition (old path is authoritative).
+ */
+function writeAccountSync(projectRoot: string, profileId: string, account: AccountConfig, apiKey?: string): void {
+  try {
+    writeCatalogAccount(projectRoot, profileId, account);
+    if (apiKey) {
+      writeCredential(profileId, { apiKey });
+    }
+  } catch {
+    // Write failure during transition is non-fatal; old path is authoritative
+  }
+}
 
 const MONOREPO_ROOT = findMonorepoRoot();
 
@@ -236,6 +268,11 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
         ...(body.models != null ? { models: body.models } : {}),
         ...(body.setActive != null ? { setActive: body.setActive } : {}),
       });
+      // F136 4b: HC-5 conflict validation (throws on conflict — propagates to catch)
+      const account = profileToAccountConfig(profile);
+      validateAccountWrite(projectRoot, profile.id, account);
+      // Dual-write to new storage (best-effort)
+      writeAccountSync(projectRoot, profile.id, account, body.apiKey);
       return {
         projectPath: projectRoot,
         profile,
@@ -281,6 +318,10 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
           ...(parsed.data.models != null ? { models: parsed.data.models } : {}),
         },
       );
+      // F136 4b: HC-5 conflict validation (throws on conflict — propagates to catch)
+      const account = profileToAccountConfig(profile);
+      validateAccountWrite(projectRoot, profile.id, account);
+      writeAccountSync(projectRoot, profile.id, account, parsed.data.apiKey ?? undefined);
       return { projectPath: projectRoot, profile };
     } catch (err) {
       reply.status(400);
@@ -313,6 +354,13 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
         resolveProviderSelector(parsed.data.provider, params.profileId),
         params.profileId,
       );
+      // F136 4b: sync delete to new accounts + credentials
+      try {
+        deleteCatalogAccount(projectRoot, params.profileId);
+        deleteCredential(params.profileId);
+      } catch {
+        /* best-effort */
+      }
       return { ok: true };
     } catch (err) {
       reply.status(400);

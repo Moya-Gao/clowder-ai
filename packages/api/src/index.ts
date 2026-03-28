@@ -1424,6 +1424,27 @@ async function main(): Promise<void> {
     app.log.warn(`[api] CLI config regeneration failed (best-effort): ${String(err)}`);
   }
 
+  // F136 Phase 4a: Migrate provider-profiles → accounts + conflict scan (HC-3/HC-5).
+  // HC-5: conflict is a HARD error — must propagate, not swallow.
+  // Migration errors are best-effort; conflict errors crash the server intentionally.
+  try {
+    const { accountStartupHook } = await import('./config/account-startup.js');
+    const startupResult = accountStartupHook(process.cwd());
+    if (startupResult.migration.migrated) {
+      app.log.info(
+        `[api] F136 account migration: ${startupResult.migration.accountsMigrated} account(s), ${startupResult.migration.credentialsMigrated} credential(s)`,
+      );
+    }
+  } catch (err) {
+    // HC-5 conflict errors include "F136 HC-5" in the message — let them crash the server.
+    if (err instanceof Error && err.message.includes('HC-5')) {
+      app.log.error(`[api] ${err.message}`);
+      throw err;
+    }
+    // Other errors (migration filesystem issues) are best-effort.
+    app.log.warn(`[api] F136 account startup hook failed (best-effort): ${String(err)}`);
+  }
+
   // F101 Phase G: Recover auto-play loops for active games after restart.
   if (f101GameStore && socketManager && f101SharedDriver) {
     f101RecoveryPlayer = f101SharedDriver;

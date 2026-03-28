@@ -103,6 +103,9 @@ export {
 } from './cat.js';
 // Cat breed/variant types (Breed+Variant two-layer schema)
 export type {
+  // F136 Phase 4: Account config types
+  AccountConfig,
+  AccountProtocol,
   CatBreed,
   CatCafeConfig,
   CatCafeConfigV1,
@@ -113,6 +116,7 @@ export type {
   // F067: Co-Creator config for @ mention routing
   CoCreatorConfig,
   ContextBudget,
+  CredentialEntry,
   MissionHubSelfClaimScope,
   // F032: Roster types for collaboration rules
   ReviewPolicy,
