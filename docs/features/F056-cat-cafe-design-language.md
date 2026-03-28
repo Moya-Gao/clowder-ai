@@ -70,9 +70,14 @@ Layer 0: Governance — ESLint gate + visual baseline + "迁移完成"定义
 
 **目标**：止血——冻结新增设计债，建立迁移基线。对应 Layer 0。
 
-- 颜色/类名审计：产出"现状热力图"（~1000 处硬编码：134 inline hex + 866+ TW 色彩工具类）
-- ESLint 自定义规则：禁止新增 raw hex / `bg-white` / `text-gray-*` 等非语义类（当前 ESLint 仅 `next/core-web-vitals`，需从零搭建）
-- 定义"迁移完成"标准：无 raw color、走 DS primitive/pattern、Storybook stories 齐、light/dark 都过
+- 颜色/类名审计：产出"现状热力图"（审计结果：**3993 处**硬编码——1383 inline hex + 1570 TW neutral + 1040 TW color，198/328 个文件有问题）
+- ESLint `cafe/no-hardcoded-colors` 规则：禁止新增 raw hex / `bg-white` / `text-gray-*` 等非语义类（本地插件 `eslint-plugin-cafe`，`warn` 级别）
+- "迁移完成"定义（per file）：
+  1. `cafe/no-hardcoded-colors` 规则零 warning
+  2. 所有色彩走 semantic token（`bg-surface`、`text-primary`、`border-default` 等）或 cat token（`bg-opus-primary` 等）
+  3. 所有 UI 组件使用 DS primitive/pattern，不自建
+  4. 有 Storybook stories（light + dark 双版本）
+  5. Playwright 截图基线 light/dark 都通过
 
 ### Phase A：设计基础（Design Foundation）
 
