@@ -15,6 +15,7 @@ const CONNECTOR_LABELS: Record<string, string> = {
   slack: 'Slack',
   discord: 'Discord',
   'wecom-bot': '企业微信',
+  'wecom-agent': '企微自建应用',
 };
 
 type HubTab = 'threads' | 'config' | 'permissions';

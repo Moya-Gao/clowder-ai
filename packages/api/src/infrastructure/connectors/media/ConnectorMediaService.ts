@@ -25,6 +25,7 @@ export interface ConnectorMediaServiceOptions {
   dingtalkDownloadFn?: (downloadCode: string) => Promise<Buffer>;
   weixinDownloadFn?: (platformKey: string) => Promise<Buffer>;
   wecomBotDownloadFn?: (url: string, aesKey?: string) => Promise<Buffer>;
+  wecomAgentDownloadFn?: (mediaId: string) => Promise<Buffer>;
 }
 
 const TYPE_TO_EXT: Record<string, string> = {
@@ -39,6 +40,7 @@ export class ConnectorMediaService {
   private dingtalkDl: ConnectorMediaServiceOptions['dingtalkDownloadFn'];
   private weixinDl: ConnectorMediaServiceOptions['weixinDownloadFn'];
   private wecomBotDl: ConnectorMediaServiceOptions['wecomBotDownloadFn'];
+  private wecomAgentDl: ConnectorMediaServiceOptions['wecomAgentDownloadFn'];
 
   constructor(private readonly opts: ConnectorMediaServiceOptions) {
     this.feishuDl = opts.feishuDownloadFn;
@@ -46,6 +48,7 @@ export class ConnectorMediaService {
     this.dingtalkDl = opts.dingtalkDownloadFn;
     this.weixinDl = opts.weixinDownloadFn;
     this.wecomBotDl = opts.wecomBotDownloadFn;
+    this.wecomAgentDl = opts.wecomAgentDownloadFn;
   }
 
   setFeishuDownloadFn(fn: (key: string, type: string, messageId?: string) => Promise<Buffer>): void {
@@ -68,6 +71,10 @@ export class ConnectorMediaService {
     this.wecomBotDl = fn;
   }
 
+  setWeComAgentDownloadFn(fn: (mediaId: string) => Promise<Buffer>): void {
+    this.wecomAgentDl = fn;
+  }
+
   async download(connectorId: string, attachment: MediaAttachment): Promise<DownloadedMedia> {
     await mkdir(this.opts.mediaDir, { recursive: true });
 
@@ -83,6 +90,8 @@ export class ConnectorMediaService {
     } else if (connectorId === 'wecom-bot' && this.wecomBotDl) {
       const [url, aesKey] = attachment.platformKey.split('|aeskey=');
       buffer = await this.wecomBotDl(url, aesKey);
+    } else if (connectorId === 'wecom-agent' && this.wecomAgentDl) {
+      buffer = await this.wecomAgentDl(attachment.platformKey);
     } else {
       throw new Error(`No download function for connector: ${connectorId}`);
     }

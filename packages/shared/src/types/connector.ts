@@ -219,6 +219,19 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     },
   },
   {
+    id: 'wecom-agent',
+    displayName: '企微自建应用',
+    icon: '/images/connectors/wecom-agent.png',
+    color: { primary: '#7C3AED', secondary: '#F5F3FF' },
+    description: '企业微信自建应用 (HTTP 回调)',
+    tailwindTheme: {
+      avatar: 'bg-violet-100 ring-2 ring-violet-200',
+      label: 'text-violet-700',
+      labelLink: 'text-violet-700 hover:text-violet-900',
+      bubble: 'border border-violet-200 bg-violet-50',
+    },
+  },
+  {
     id: 'weixin',
     displayName: '微信',
     icon: '/images/connectors/weixin.png',

@@ -132,6 +132,25 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     ],
   },
   {
+    id: 'wecom-agent',
+    name: '企微自建应用',
+    nameEn: 'WeCom Agent',
+    fields: [
+      { envName: 'WECOM_CORP_ID', label: 'Corp ID (企业 ID)', sensitive: false },
+      { envName: 'WECOM_AGENT_ID', label: 'Agent ID (应用 ID)', sensitive: false },
+      { envName: 'WECOM_AGENT_SECRET', label: 'Agent Secret', sensitive: true },
+      { envName: 'WECOM_TOKEN', label: '回调 Token', sensitive: true },
+      { envName: 'WECOM_ENCODING_AES_KEY', label: 'EncodingAESKey (43 字符)', sensitive: true },
+    ],
+    docsUrl: 'https://developer.work.weixin.qq.com/document/path/90238',
+    steps: [
+      { text: '在企业微信管理后台创建自建应用，获取 AgentId 和 Secret' },
+      { text: '在「API 接收消息」中设置回调 URL、Token 和 EncodingAESKey' },
+      { text: '回调 URL 需通过公网访问（可使用 Cloudflare Tunnel）' },
+      { text: '填写以下配置并保存，重启 API 服务后生效' },
+    ],
+  },
+  {
     id: 'weixin',
     name: '微信',
     nameEn: 'WeChat Personal',

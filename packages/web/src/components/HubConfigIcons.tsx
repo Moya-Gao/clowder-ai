@@ -56,6 +56,14 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
       <img src="/images/connectors/wecom-bot.png" alt="WeCom" className="w-[18px] h-[18px]" />
     ),
   },
+  'wecom-agent': {
+    iconBg: '#EDE9FE',
+    iconColor: '#7C3AED',
+    icon: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src="/images/connectors/wecom-agent.png" alt="WeCom Agent" className="w-[18px] h-[18px]" />
+    ),
+  },
 };
 
 export const DEFAULT_VISUAL: PlatformVisual = {

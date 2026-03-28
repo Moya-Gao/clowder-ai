@@ -18,6 +18,11 @@ export const CONNECTOR_SECRETS_ALLOWLIST: ReadonlySet<string> = new Set([
   'WEIXIN_BOT_TOKEN',
   'WECOM_BOT_ID',
   'WECOM_BOT_SECRET',
+  'WECOM_CORP_ID',
+  'WECOM_AGENT_ID',
+  'WECOM_AGENT_SECRET',
+  'WECOM_TOKEN',
+  'WECOM_ENCODING_AES_KEY',
 ]);
 
 export function isConnectorSecret(name: string): boolean {
