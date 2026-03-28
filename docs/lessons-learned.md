@@ -809,6 +809,25 @@ created: 2026-02-26
 
 ---
 
+### LL-043: 删旧层前必须证明迁移已落成，否则 startup 不能静默成功
+- 状态：validated
+- 更新时间：2026-03-28
+- 坑：F136 Phase 4 删除了旧 `provider-profiles.ts` 读取层（PR #824, -2032 行），但迁移函数（PR #818）被 best-effort `try/catch` 包裹。当迁移未执行时，旧读取层已不在、新 `accounts` 也为空，服务静默带病启动。铲屎官在 runtime 上看到账号配置页全部"暂无模型"、API key 丢失。
+- 根因：删除旧层与迁移成功之间没有 startup invariant 门禁。`accountStartupHook` 只做"迁移 + conflict scan"，不校验"旧源在但新数据缺"的不变量。非 HC-5 异常被 `index.ts:1444` 吞为 warn。
+- 触发条件：迁移因任何原因失败（构建未更新、import 报错、文件系统异常等）+ 旧读取层已被同批或先前 PR 删除。
+- 修复：(1) 手动触发迁移恢复数据 (2) PR #831 修复 per-project detection + credential clear 语义 (3) 记录 P2 follow-up: startup invariant guard（旧源在 + accounts 缺 → error/readiness fail）。
+- 防护（待实施）：`accountStartupHook` 返回前增加不变量校验——`provider-profiles.json` 存在 + `catalog.accounts` 缺失 → 至少 error 级别暴露，理想为 startup hard fail。补回归测试覆盖此场景。
+- 来源锚点：
+  - F136 spec follow-up 章节
+  - `packages/api/src/config/account-startup.ts`
+  - `packages/api/src/index.ts:1436-1452`
+  - 反思胶囊：`docs/reflections/2026-03-28-f136-unified-config-hot-reload-capsule.md`
+- 原理：**删除旧读取路径和迁移成功是原子操作的两端**。只删不验 = 中间态数据丢失。删旧层的 PR 必须同时包含：迁移成功回归测试 + legacy source 存在且新数据缺失时的 startup guard。
+
+- 关联：LL-042 | F136 | account-startup.ts
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。

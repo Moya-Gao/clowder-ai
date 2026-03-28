@@ -35,5 +35,5 @@ created: 2026-03-28
 
 ## Rule Update Target
 
-- `shared-rules.md` 或 `lessons-learned.md`：**删旧层与迁移必须原子验证**——删除旧读取路径的 PR 必须包含"迁移未完成时的 startup guard"测试，否则中间态 = 数据丢失
+- `docs/lessons-learned.md`：新增 `LL-043: 删旧层前必须证明迁移已落成，否则 startup 不能静默成功` —— 删除旧读取路径的 PR 必须同时包含：迁移成功回归测试 + legacy source 存在且新 accounts 缺失时的 startup invariant / readiness guard
 - `account-startup.ts`：follow-up 实施时把 best-effort catch 升级为 startup invariant（legacy source 在 + accounts 缺 → error/fail）
