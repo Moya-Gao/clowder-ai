@@ -6,7 +6,7 @@ created: 2026-02-26
 ---
 
 # Cat Cafe 技术债务
-> 维护者：三猫 | 最后更新：2026-03-16
+> 维护者：三猫 | 最后更新：2026-03-28
 > 来源：由原 `docs/BACKLOG.md` 债务段拆分。
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -114,6 +114,7 @@ created: 2026-02-26
 | TD113 | **placeholder → formal 单调升级规则收口** | [ ] | F123 AC-B3 转出 | 现有 replace/hydration/callback 优先级已覆盖高频症状；`PR #506` 又补了一条 CLI Output 窄口热修（callback text 回收无 `invocationId` 的 rich-block placeholder），但 placeholder 升级到 formal 仍是 case-by-case 规则，尚未统一成系统性单调 contract。Evolved from: F123。|
 | TD114 | **Bubble duplicate invariant diagnostics / assertions** | [ ] | F123 AC-B5 转出 | 目前有 `dumpBubbleTimeline()`，但没有 invariant 断言直接指出 duplicate 是从哪个入口创建的。需要 dev/test 级诊断或断言。Evolved from: F123。|
 | TD115 | **logs-health.sh 跨平台兼容性（Linux + Windows）** | [ ] | F130 缅因猫 review 观察 | `oldest_file_days()` 用 `stat -f '%m'`（BSD/macOS 专用），Linux 需 `stat -c '%Y'`。`date -v-1H` 也是 BSD 语法。Windows 上整个 bash 脚本不可用——但 Pino logger.ts 本身是纯 Node.js 跨平台，**日志落盘不受影响**，只是缺少 `pnpm logs:health` 诊断能力和 `start-dev.sh` 进程层 stderr capture。修复方向：(A) `logs-health.sh` 加 `uname` 判断走不同 stat 语法；(B) Windows 用户提供 Node.js 版 logs-health 替代；(C) start-dev.sh 的 process-layer 暂无 Windows 等价方案。触发条件：社区 Windows/Linux 用户反馈或 Docker 化部署时。|
+| TD116 | **browser-automation headless backend for scheduled web-digest** | [ ] | F139 AC-H2b 转出 | `needs-browser` 路由、server-fetch 路径、SSRF 防护和失败语义都已落地；剩余缺口是 JS 重站点真实 browser backend 抓取+投递。此项依赖 browser-automation 运行时基建，不再阻塞 F139 close。触发条件：headless browser backend 在 API/runtime 可用时实现。 |
 
 ## P3 — 可选优化
 

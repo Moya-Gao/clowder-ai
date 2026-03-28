@@ -1,14 +1,17 @@
 ---
 feature_ids: [F139]
 related_features: [F102, F122, F048]
+debt_ids: [TD116]
 topics: [scheduler, heartbeat, task-runner, multi-agent]
 doc_kind: spec
 created: 2026-03-25
+status: done
+completed: 2026-03-28
 ---
 
 # F139: Unified Schedule Abstraction — 统一调度抽象
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-28
 
 ## Why
 
@@ -109,7 +112,7 @@ created: 2026-03-25
 ### Phase 4（Template Execution + Builtin Control — 最后一公里）✅
 - [x] AC-H1: reminder 模板真实执行——到达 cron 时刻后向 deliveryThreadId 投递提醒消息，ledger 记录 RUN_DELIVERED
 - [x] AC-H2a: web-digest 模板真实执行——server-fetch 路径可用（HTML→text 提取+截断+投递），browser-automation 路由正确标记 JS 重站点（needsBrowser 检测），SSRF 防护到位
-- [ ] AC-H2b: _(deferred)_ JS 重站点 browser 后端集成——标记 needs-browser 的 URL 走真实 headless 浏览器抓取+投递（依赖 browser-automation 运行时基建）
+- [→TD116] ~~AC-H2b: _(deferred)_ JS 重站点 browser 后端集成——标记 needs-browser 的 URL 走真实 headless 浏览器抓取+投递~~ → 转技术债 TD116（browser-automation 运行时基建，非 F139 调度内核缺口）
 - [x] AC-H3: repo-activity 模板真实执行——查询 GitHub repo 新 issue/PR（cursor 追踪已见），投递到 deliveryThreadId
 - [x] AC-H4: Builtin 任务面板控制——所有任务（不限 dynamic）在 SchedulePanel 支持 pause/resume，后端复用 task override API
 - [x] AC-H5: 端到端验证——铲屎官在 thread 说"每天九点提醒我喝水"，任务注册、到点执行、消息投递、面板可控，全链路走通
@@ -178,6 +181,7 @@ created: 2026-03-25
 | 2026-03-28 | Schedule-tasks skill + rich-block capability coverage merged (PR #817) — New schedule-tasks skill for cats to guide task registration; rich-block rules/refs/skill expanded to cover scheduled task contexts (media_gallery, audio, html_widget); SOT pointer fix (using-rich-blocks → rich-messaging); 砚砚 local review 2 rounds (2×P1 fixed) + cloud review passed |
 | 2026-03-28 | Scheduler connector icon merged (PR #820) — Scheduler ConnectorDefinition (amber theme) + SchedulerIcon SVG (alarm clock) + delivery.ts wires SCHEDULER_SOURCE into append+broadcast; 砚砚 local review 放行 (0 P1/P2) + cloud review passed |
 | 2026-03-28 | Scheduler bugfix merged (PR #821) — Fix immediate-trigger on registration (deferFirstTick for live registerDynamic) + fix wrong-cat routing (targetCatId auto-inject from CAT_CAFE_CAT_ID env) + params validation; 砚砚 local review 2 rounds (1×P1 fixed: E2E cat routing) + cloud review 1×P2 fixed |
+| 2026-03-28 | **Feature closed** — 核心愿景“没人找你但该主动检查”已交付：对话式注册 → 持久化 → 到点唤醒猫 → 富文本/面板治理全链路可用；JS 重站点 browser backend 转技术债 TD116，不再阻塞 F139 close |
 
 ## Review Gate
 
@@ -196,3 +200,5 @@ created: 2026-03-25
 | **Feature** | `docs/features/F122-unified-dispatch-queue.md` | 相关：invocation dispatch |
 | **UX V1** | `designs/F-schedule-abstraction.pen` Scene 1-2 (y=0) | ~~Thread 硬分组~~（已废弃，被 V2 替代） |
 | **UX V2** | `designs/F-schedule-abstraction.pen` V2 (y=1821) | 扁平列表 + 彩色标签 + 自然语言入口（铲屎官 2026-03-26 确认✅） |
+| **Reflection** | `docs/reflections/2026-03-28-f139-unified-schedule-capsule.md` | F139 完成反思胶囊 |
+| **Tech Debt** | `docs/TECH-DEBT.md` TD116 | JS 重站点 browser backend 后续债务 |
