@@ -228,7 +228,7 @@ Token contract 落地后，分桶跑 codemod：
 - [ ] AC-C2: 点击猫猫头像弹出名片（生活照/心情/简介）
 
 ### Phase D
-- [ ] AC-D1: ThemeProvider + useTheme + useCatTheme hook 落地，组件不再直接吃 hex
+- [x] AC-D1: ThemeProvider + useTheme + useCafeTheme hook 落地，组件不再直接吃 hex
 - [ ] AC-D2: Dark mode 全站可切换，light/dark 截图对比无视觉异常
 - [ ] AC-D3: next-intl 接入 + 术语词表独立文件，fork 改一张表即可换术语
 - [ ] AC-D4: tenant.config 可配品牌资产（logo/favicon/themeColor/配色 preset）
@@ -328,3 +328,4 @@ Token contract 落地后，分桶跑 codemod：
 | 2026-03-28 | Phase A-0 merged (PR #792)：颜色审计(3993处) + ESLint 门禁 + 迁移完成标准 |
 | 2026-03-28 | Phase A-1 merged (PR #795)：三层 token 架构 + dark mode + WCAG AA 验证脚本 |
 | 2026-03-28 | Phase A-2.5 merged (PR #797)：codemod 1236 neutral→semantic，审计 3993→2757（-31%）|
+| 2026-03-28 | Phase D-1 merged (PR #803)：ThemeProvider + useCafeTheme + ThemeToggle（next-themes SSR-safe）|
