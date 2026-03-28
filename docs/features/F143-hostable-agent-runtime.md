@@ -22,13 +22,15 @@ playground 分支的 ACP 实现验证了"配置接入"的可行性（填表 → 
 
 ## What
 
-### Phase A: 内核骨架（类型定义 + ADR）
+### Phase A: 内核骨架与接口集
 
-定义三个内核对象 + 架构决策文档：
+定义内核对象与跨切面管线接口 + 架构决策文档：
 
 1. **AgentDescriptorV1**：sparse static capability descriptor（6 轴 + 2 模块）
 2. **RunHandleV1**：内核 run 控制面（events / sendControl / cancel / close）
 3. **Supervisor 接口**：timeout / liveness / failure classification / kill policy
+4. **ProvisioningPipeline**：Discovery → Runtime 之间的降级管线（→ ProvisionedRunSpec）
+5. **ProcessModel**：派生执行分类（headless / task / interactive）
 
 北向 `AgentService.invoke()` 不动，作为 façade 保留。
 
@@ -118,7 +120,7 @@ playground 分支的 ACP 实现验证了"配置接入"的可行性（填表 → 
 | KD-5 | AgentService.invoke() 保留为北向 façade | 上层路由器/UI/IM gateway 继续吃这个接口 | 2026-03-27 |
 | KD-6 | 外部 agent 分两档：Hostable（零代码）vs Legacy（需 adapter） | 不幻想所有 CLI 都自然归一 | 2026-03-27 |
 | KD-7 | ProvisioningPipeline 是跨切面降级管线，不是第五维度 | MCP/skills/prompt/hooks/env 都是 provisioning 载荷，不参与 runtime 正交组合 | 2026-03-27 |
-| KD-8 | ProcessModel（headless/task/interactive）从 Descriptor 轴派生，不独立成维度 | 从 controlChannel + transport locality 自然推导，不增加组合爆炸 | 2026-03-27 |
+| KD-8 | ProcessModel（headless/task/interactive）从 Descriptor + runtime topology 派生，不独立成维度 | 从 controlChannel + transport locality（本地/远程）组合推导，不增加组合爆炸 | 2026-03-27 |
 
 ## Timeline
 
