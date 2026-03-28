@@ -177,6 +177,7 @@ created: 2026-03-25
 | 2026-03-28 | Phase 4 cat-wake fix merged (PR #812) — Wire invokeTrigger into template ExecuteContext so reminder wakes a cat instead of posting static text; P1 fix: store real messageId for retry path; 砚砚 local review 2 rounds (P1 fixed) + cloud review passed |
 | 2026-03-28 | Schedule-tasks skill + rich-block capability coverage merged (PR #817) — New schedule-tasks skill for cats to guide task registration; rich-block rules/refs/skill expanded to cover scheduled task contexts (media_gallery, audio, html_widget); SOT pointer fix (using-rich-blocks → rich-messaging); 砚砚 local review 2 rounds (2×P1 fixed) + cloud review passed |
 | 2026-03-28 | Scheduler connector icon merged (PR #820) — Scheduler ConnectorDefinition (amber theme) + SchedulerIcon SVG (alarm clock) + delivery.ts wires SCHEDULER_SOURCE into append+broadcast; 砚砚 local review 放行 (0 P1/P2) + cloud review passed |
+| 2026-03-28 | Scheduler bugfix merged (PR #821) — Fix immediate-trigger on registration (deferFirstTick for live registerDynamic) + fix wrong-cat routing (targetCatId auto-inject from CAT_CAFE_CAT_ID env) + params validation; 砚砚 local review 2 rounds (1×P1 fixed: E2E cat routing) + cloud review 1×P2 fixed |
 
 ## Review Gate
 
