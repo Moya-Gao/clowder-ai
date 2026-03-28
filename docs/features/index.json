@@ -893,7 +893,13 @@
       "name": "MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析",
       "status": "done | **Completed**: 2026-03-27 | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
       "file": "F145-mcp-portable-provisioning.md"
+    },
+    {
+      "id": "F146",
+      "name": "MCP Marketplace Control Plane — 一键接入 + 多生态聚合",
+      "status": "spec | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1",
+      "file": "F146-mcp-marketplace-control-plane.md"
     }
   ],
-  "generated_at": "2026-03-28T08:06:43.689Z"
+  "generated_at": "2026-03-28T08:10:27.238Z"
 }
