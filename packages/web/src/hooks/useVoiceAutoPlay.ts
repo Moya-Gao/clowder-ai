@@ -301,6 +301,16 @@ function playBlock(block: RichAudioBlock, sessionId: string): void {
   }
 }
 
+/** @internal — exported for regression testing only. */
+export const __testing__ = {
+  getCurrentBlockId: () => currentBlockId,
+  setCurrentBlockId: (id: string | null) => {
+    currentBlockId = id;
+  },
+  registerAutoplayStop,
+  cleanupAutoplay,
+};
+
 export function useVoiceAutoPlay(): void {
   const messages = useChatStore((s) => s.messages);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
