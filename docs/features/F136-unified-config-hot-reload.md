@@ -33,7 +33,7 @@ created: 2026-03-23
 | **`.env` 环境变量** | 项目根 `.env` | `PATCH /api/config/env` 写 `.env` + 写 `process.env`，但子系统不重新初始化 | Connector gateway 启动时读一次，改了 token 不生效；其他读 `process.env` 的变量倒是立即生效 |
 | **`cat-config.yaml`** | 项目根 `cat-config.yaml` | 无。F127 绕过它搞了 `runtime-cat-catalog.ts`（517 行），直接操作 `cat-catalog.json` | F127 自建了一套独立于 `cat-config.yaml` 的运行时猫猫目录，是铲屎官所说的「脚手架」 |
 | **ConfigStore (F4)** | 内存 + Redis | `PATCH /api/config` 热更新，即时生效 | 只管运行时可变的配置子集（coCreator、budget 等），不覆盖 env 和猫猫配置 |
-| **Provider Profiles (F062)** | `~/.cat-cafe/provider-profiles/` | UI 可编辑，文件写入后需重启生效 | 和猫猫实例绑定关系需要重新加载 |
+| **Provider Profiles (F062)** | `~/.cat-cafe/provider-profiles.json` + `.secrets.local.json` | UI 可编辑，文件写入后需重启生效 | **双真相源**：元信息与 cat-config 的 provider/model 重叠，`provider-binding-compat.ts` 在补缝。Phase 4 将消除 |
 | **猫猫模板** | `cat-template.json` | 启动时加载一次 | 不影响运行时 |
 
 ### 目标架构（方向性，待具体设计）
@@ -54,9 +54,21 @@ created: 2026-03-23
 ┌── 订阅者（各子系统自行响应）──────────────┐
 │  ConnectorGateway  → restart adapters      │
 │  CatCatalog        → reload cat instances  │
-│  ProviderProfiles  → rebind accounts       │
+│  AccountBinding    → rebind credentials    │
 │  ConfigStore       → (已有机制)            │
 │  ...其他需要的模块                          │
+└────────────────────────────────────────────┘
+
+Phase 4 终态（2026-03-28 决策）:
+┌── 唯一配置真相源 ──────────────────────────┐
+│  cat-config.yaml（不进 git）               │
+│    cats:    猫意图（provider/model/ref）    │
+│    accounts: 账户能力（protocol/baseUrl）   │
+│  cat-config.yaml.example（进 git）         │
+└────────────────────────────────────────────┘
+┌── 纯钥匙串（零元信息）────────────────────┐
+│  ~/.cat-cafe/credentials.json              │
+│    accountRef → apiKey（纯 key-value）     │
 └────────────────────────────────────────────┘
 ```
 
@@ -90,6 +102,56 @@ created: 2026-03-23
   - 前端：token 输入后 mask 显示，不回显完整值
   - 证据：现有 `env-registry.ts:857` 的 `isEditableEnvVarName` 明确拒绝 sensitive vars，`env-registry.test.js:360` 有测试锁定
 
+### 决策记录（2026-03-28，铲屎官 + @opus + @codex 讨论收敛 — Phase 4 真相源统一）
+
+- [x] **推翻 A* 方案（"按领域切两个真相源"）——终态必须是单一真相源**
+  - 铲屎官原话："那你这他妈有问题啊 127的尾巴还是解决不掉啊 现在这两个加载的代码就开始打架了"
+  - `provider-binding-compat.ts` 的校验是双真相源的症状，不是合理设计
+  - A* 方案本质上在合理化两个真相源，偏离 F136 愿景
+
+- [x] **终态：`cat-config` = 唯一配置真相源，`credentials.json` = 纯钥匙串**
+  ```yaml
+  # cat-config.yaml（唯一真相源，.example 进 git，实际文件不进 git）
+  cats:
+    opus:
+      provider: anthropic
+      defaultModel: claude-opus-4-6
+      accountRef: claude        # → 引用 accounts 区
+  accounts:
+    claude:
+      authType: oauth
+      protocol: anthropic       # 兼容 Anthropic API 的任意服务
+      models: [claude-opus-4-6, claude-sonnet-4-6]
+    my-glm:
+      authType: api_key
+      protocol: openai          # 兼容 OpenAI API 的任意服务
+      baseUrl: https://open.bigmodel.cn/api/paas/v4
+  ```
+  ```json
+  // ~/.cat-cafe/credentials.json（纯钥匙串，不进 git）
+  { "claude": "sk-ant-xxx", "my-glm": "glm-xxx" }
+  ```
+  - `provider-profiles.json` 元信息文件退场（元信息搬入 `cat-config.accounts`）
+  - `provider-profiles.secrets.local.json` 简化为 `credentials.json`（纯 key-value）
+  - `provider-binding-compat.ts` 可删（不再有两边需要校验一致性）
+  - `.env` 的 `*_API_KEY` deprecated（只读 legacy fallback），不再作为主写入口
+
+- [x] **`accounts` 区（@codex 提议，铲屎官确认）**
+  - 多猫共用同一账户只引用 `accountRef`，不重复配置 protocol/baseUrl
+  - `protocol` 字段决定 API 兼容性：任意支持 Anthropic 协议的 API 都能给布偶猫用，任意支持 OpenAI 协议的都能给缅因猫用
+  - 铲屎官确认："可以，只要你能解决比如我任意一个 api 支持 anthropic 我都能给 claude code 用"
+
+- [x] **凭证三入口收敛**
+  - 现状：`.env`（`*_API_KEY`）、`provider-profiles.secrets.local.json`、`POST /api/config/secrets`
+  - 终态：LLM 凭证统一走 `credentials.json`；Connector 凭证暂留 `.env`（单独域）
+  - Hub Env 面板对 `*_API_KEY` 显示 deprecated 提示
+  - 启动时检测到 legacy env key → 一次性"导入到 credentials"提示
+
+- [x] **模板分发**
+  - `cat-config.yaml.example` 进 git（有结构示例，无真实值）
+  - `cat-config.yaml` 不进 git（用户本地改）
+  - `~/.cat-cafe/credentials.json` 在全局目录，天然不进 git
+
 ### 已知的具体需求（从 F088 Phase 8 产生）
 
 1. **Connector 热重载**：在 Hub 配置向导里改了 Telegram/飞书/钉钉配置后，不用重启 API 就能生效
@@ -121,7 +183,10 @@ created: 2026-03-23
 | **3A** | F127 side effect 迁移到 event bus subscriber | ✅ done | PR #790 merged (2026-03-28) — CatCatalogSubscriber + emitChangeAsync |
 | **3B** | `runtime-cat-catalog` 收敛为纯存储+校验 | ✅ done (no-op) | grep 确认无 ad-hoc 触发路径残留 |
 | **3C** | 删除 F127 ad-hoc 热更新死代码 | ✅ done (no-op) | grep 确认无死代码 |
-| **4** | Provider Profiles 热重载 | 📋 planned | — |
+| **4a** | 单一真相源：`cat-config.accounts` + `credentials.json` 读写层 | 📋 planned | 新 schema + 迁移器 |
+| **4b** | 统一运行时读取：所有调用链走 `cat-config + credentials`，禁直读 `*_API_KEY` | 📋 planned | 含游戏域等旁路修复 |
+| **4c** | Provider 热更新：`ProviderProfileSubscriber` + rebind | 📋 planned | 照 Phase 3A subscriber 模式 |
+| **4d** | 下线旧层：删 `provider-profiles.json` 元信息 + `provider-binding-compat.ts` | 📋 planned | 保留一版本迁移兼容窗口 |
 
 **MVP = Phase 1 + 2 + 2b**：✅ 已完成。Hub 配置向导改 IM 配置即时热生效，无需重启。
 
@@ -134,3 +199,4 @@ created: 2026-03-23
 | 2026-03-27 | Phase 2 merged (PR #784) — Connector hot-reload + secrets endpoint |
 | 2026-03-27 | Phase 2b merged (PR #788) — Hub connector config UI → secrets endpoint (hot-reload) |
 | 2026-03-28 | Phase 3A merged (PR #790) — CatCatalogSubscriber consolidates F127 inline sync; 3B/3C confirmed no-op |
+| 2026-03-28 | Phase 4 决策收敛 — 推翻 A*，确认单一真相源终态（铲屎官 + @opus + @codex） |
