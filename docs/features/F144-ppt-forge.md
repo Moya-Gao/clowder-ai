@@ -120,10 +120,10 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 ## Acceptance Criteria
 
 ### Phase A（核心管线 MVP）
-- [ ] AC-A1: 给定主题 + 风格，能端到端生成一份 ≥10 页的 .pptx 文件
-- [ ] AC-A2: Research 层产出 `research.md`，每个关键结论带来源引用，数据区分事实/推断/建议
-- [ ] AC-A3: Narrative 层产出 `storyline.md`，每页有明确"存在目的"
-- [ ] AC-A4: Blueprint 层产出 `deck.blueprint.json`，包含页数预算/layout/元素位/引用位
+- [x] AC-A1: 给定主题 + 风格，能端到端生成一份 ≥10 页的 .pptx 文件
+- [x] AC-A2: Research 层产出 `research.md`，每个关键结论带来源引用，数据区分事实/推断/建议
+- [x] AC-A3: Narrative 层产出 `storyline.md`，每页有明确"存在目的"
+- [x] AC-A4: Blueprint 层产出 `deck.blueprint.json`，包含页数预算/layout/元素位/引用位
 - [x] AC-A5: Style 层产出 `theme.tokens.json`，Design Token 三层体系（品牌→语义→Slide Master）
 - [x] AC-A6: Export 层产出原生 .pptx，文字可编辑、可搜索、布局无溢出
 - [ ] AC-A7: 企业风格模板（**huawei-like**）可用，信息密度达到华为参考图水平
@@ -208,6 +208,7 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 | 2026-03-27 | 铲屎官决策：首发从 nvidia-like 改为 huawei-like（最大信息密度挑战）。提供 6 张华为 PPT 参考图 |
 | 2026-03-27 | Design Gate → writing-plans → 开干 |
 | 2026-03-27 | Phase A Level 1 骨架 merged (PR #810) — Export 层 + Blueprint V2 schema + huawei-like theme + 4 renderers + 48 tests |
+| 2026-03-28 | Phase A-2 管线打通 merged (PR #811) — Research/Narrative/Blueprint 上层管线 + gates + pipeline orchestrator + 15-slide demo, 80 tests |
 
 ## Review Gate
 
