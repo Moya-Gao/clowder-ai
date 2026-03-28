@@ -225,11 +225,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const invocationTimeoutMs =
     (cliTimeoutMs > 0 ? cliTimeoutMs : DEFAULT_CLI_TIMEOUT_MS) * INVOCATION_TIMEOUT_MULTIPLIER;
   const invocationAc = new AbortController();
-  const invocationTimer = setTimeout(() => {
-    log.error({ invocationId, catId, threadId, timeoutMs: invocationTimeoutMs }, 'Invocation hard timeout fired');
-    invocationAc.abort(new Error('invocation_timeout'));
-  }, invocationTimeoutMs);
-  invocationTimer.unref();
+  let invocationTimer: ReturnType<typeof setTimeout> | null = null;
+  const resetInvocationTimeout = (): void => {
+    if (invocationTimer) clearTimeout(invocationTimer);
+    invocationTimer = setTimeout(() => {
+      log.error({ invocationId, catId, threadId, timeoutMs: invocationTimeoutMs }, 'Invocation hard timeout fired');
+      invocationAc.abort(new Error('invocation_timeout'));
+    }, invocationTimeoutMs);
+    invocationTimer.unref();
+  };
+  resetInvocationTimeout();
 
   // Merge caller signal (user cancel) with invocation timeout — neither loses semantics.
   const signal: AbortSignal | undefined = callerSignal
@@ -1269,6 +1274,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const iterResult = await abortableNext(serviceIter, signal);
         if (iterResult.done) break;
         const msg = iterResult.value;
+        resetInvocationTimeout();
         if (shouldTrackGeminiResumeFailures && options.sessionId && msg.type === 'error') {
           const failureKind = classifyResumeFailure(msg.error);
           if (failureKind) {
@@ -1485,7 +1491,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
   } finally {
     // F089: Clear invocation hard timeout
-    clearTimeout(invocationTimer);
+    if (invocationTimer) clearTimeout(invocationTimer);
 
     // F118: Release session mutex (idempotent — safe if never acquired)
     sessionMutexRelease?.();
