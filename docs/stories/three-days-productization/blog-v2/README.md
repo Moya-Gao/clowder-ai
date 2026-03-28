@@ -57,7 +57,7 @@ based_on: tutorial/ (V1 教程版)
 
 素材来源：V1 Ch3 + Ch6 数据 + 故事素材
 
-### Ch3: 架构 — 去中心化判断，结构化执行 `@opus` 🔄 重写中
+### Ch3: 架构 — 去中心化判断，结构化执行 `@opus` ✅
 > 完整架构篇：P2P + 分层编排 + A2A + FAQ 融入
 
 - 行业格局（2026-03）：LangGraph / Agent Teams+OMOC / CrewAI / A2A Protocol
@@ -71,7 +71,7 @@ based_on: tutorial/ (V1 教程版)
 
 素材来源：V1 Ch4 + FAQ + A2A 研究 + F027/F122 + OMOC research + enterprise-agent-harness
 
-### Ch4: 协作机制 — Feature 怎么从一句话变成交付 `@opus` 📝 待写
+### Ch4: 协作机制 — Feature 怎么从一句话变成交付 `@opus` ✅
 > V1 Ch3+Ch4 精华：完整的 Feature Lifecycle
 
 - Feature Discovery Loop：CVO 采访→独立调研→讨论收敛→结晶为 spec+ADR
@@ -82,7 +82,7 @@ based_on: tutorial/ (V1 教程版)
 
 素材来源：V1 Ch3 (Feature Loop) + V1 Ch4 (Collaboration) + real Feature data
 
-### Ch5: 记忆与进化 — 猫怎么不把过去白踩 `@opus` 📝 待写
+### Ch5: 记忆与进化 — 猫怎么不把过去白踩 `@opus` ✅
 > V1 Ch5 精华：三层记忆 + 联邦检索 + Knowledge Feed
 
 - 三层架构：文档真相源→evidence.sqlite+global_knowledge.sqlite→知识晋升
@@ -95,7 +95,9 @@ based_on: tutorial/ (V1 教程版)
 
 素材来源：V1 Ch5 + F102 spec + OMOC research (对照：sub-agent stateless vs 猫有记忆)
 
-### Ch6: Pack、门禁与数据 — 为什么能长期跑 `@opus` 📝 待写
+### Ch6: Pack、门禁与数据 — 为什么能长期跑 `@opus` ✅
+
+> **注**：旧版 `04-technical-decode.md`（V2 扩展前的 Ch4）已被 Ch6 取代，保留供参考。
 > V1 Ch4(门禁) + F129 + Ch6(数据) 精华：纪律才是速度的来源
 
 - Pack 不是 Plugin：Experience = Me × Pack + Growth
