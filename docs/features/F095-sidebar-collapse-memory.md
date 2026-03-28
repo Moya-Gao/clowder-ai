@@ -268,6 +268,7 @@ IM Hub 连接器等系统级 thread 需要专属管理，不应丢到"未分类"
 | 2026-03-27 | 愿景守护通过（金渐层），feature closed。P2: AC-E2 措辞对齐 + 测试缺口记录（后续补） |
 | 2026-03-27 | Phase E hotfix merged (PR #789) — 修复 sessionStorage 被 detached DOM 覆盖导致滚动位置丢失 |
 | 2026-03-27 | Phase E root-cause fix merged (PR #794) — Route Group layout 让 ChatContainer 跨线程切换持久化，消除 unmount/remount 闪烁 |
+| 2026-03-27 | PR #794 regression fix merged (PR #800) — 持久化 ChatContainer 下 prevCountRef/prevFirstIdRef 跨线程残留导致聊天区滚动位置丢失 |
 
 ## Review Gate
 
