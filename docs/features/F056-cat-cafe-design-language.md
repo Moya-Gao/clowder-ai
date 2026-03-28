@@ -329,3 +329,4 @@ Token contract 落地后，分桶跑 codemod：
 | 2026-03-28 | Phase A-1 merged (PR #795)：三层 token 架构 + dark mode + WCAG AA 验证脚本 |
 | 2026-03-28 | Phase A-2.5 merged (PR #797)：codemod 1236 neutral→semantic，审计 3993→2757（-31%）|
 | 2026-03-28 | Phase D-1 merged (PR #803)：ThemeProvider + useCafeTheme + ThemeToggle（next-themes SSR-safe）|
+| 2026-03-27 | Phase D-2 merged (PR #805)：warm stone palette + cocreator dark overrides + base token inversion + 18-pair contrast validation |
