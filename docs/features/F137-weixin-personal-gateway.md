@@ -450,6 +450,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-03-25 | **F137 feat-close** — 愿景守护：布偶猫(opus) 三问 + 证物对照表全 ✅，缅因猫(gpt52) 独立验证放行。19/19 AC done。反思胶囊已写 |
 | 2026-03-26 | Hotfix: CDN domain NXDOMAIN — `filecdnweixin.weixin.qq.com` → `novac2c.cdn.weixin.qq.com/c2c`。修复图片/语音/文件上传+下载全链路。PR #763 squash merge (2deb9370) |
 | 2026-03-28 | 4 media bugs: aesKey base64url decode, WAV→SILK voice, html_widget plaintext fallback, HTTPS URL download for media_gallery。云端 R2 通过 → PR #813 squash merge |
+| 2026-03-28 | DM hotfix: 修复 `media_gallery` 相对路径解析（`/avatars/*`）、HTTPS 下载失败不再静默吞错、语音非 SILK 自动降级 `file_item`。PR #819 squash merge (497cdfa8) |
 
 ## Review Gate
 
