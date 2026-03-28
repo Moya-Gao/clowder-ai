@@ -85,6 +85,14 @@ export function ChatInput({
   const [isPreparingImages, setIsPreparingImages] = useState(false);
   const [whisperMode, setWhisperMode] = useState(false);
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
+
+  // F108B AC-B7: In whisper mode, check if SELECTED targets are busy (not thread-level).
+  // When all whisper targets are idle → show Send button, not Queue.
+  const whisperTargetsAllIdle = useMemo(() => {
+    if (!whisperMode || whisperTargets.size === 0) return false;
+    return ![...whisperTargets].some((catId) => activeCatIds.has(catId));
+  }, [whisperMode, whisperTargets, activeCatIds]);
+
   const [mobileToolbar, setMobileToolbar] = useState(false);
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
   const ghostRef = useRef<string | null>(null);
@@ -381,8 +389,8 @@ export function ChatInput({
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // F39: Enter while cat running → queue send; normal otherwise
-      if (hasActiveInvocation) handleQueueSend();
+      // F39+F108B: Enter while cat running → queue send; whisper to idle targets → normal send
+      if (hasActiveInvocation && !whisperTargetsAllIdle) handleQueueSend();
       else handleSend();
     }
   };
@@ -714,7 +722,11 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder={
-              whisperMode ? '悄悄话...' : hasActiveInvocation ? '继续输入，消息会排队...' : '输入消息... (@ 召唤猫猫)'
+              whisperMode
+                ? '悄悄话...'
+                : hasActiveInvocation && !whisperTargetsAllIdle
+                  ? '继续输入，消息会排队...'
+                  : '输入消息... (@ 召唤猫猫)'
             }
             className={`w-full resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
               whisperMode
@@ -744,7 +756,7 @@ export function ChatInput({
           onForceSend={handleForceSend}
           disabled={disabled}
           sendDisabled={sendTemporarilyDisabled}
-          hasActiveInvocation={hasActiveInvocation}
+          hasActiveInvocation={whisperTargetsAllIdle ? false : hasActiveInvocation}
           hasText={!!input.trim()}
         />
       </div>

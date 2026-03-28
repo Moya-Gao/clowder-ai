@@ -355,7 +355,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     // ADR-008 S1: Pre-resolve targets + intent, persisting @mentions as participants
     log.debug({ threadId: resolvedThreadId, contentLen: content.length }, 'Resolving targets and intent');
-    const { targetCats: resolvedTargetCats, intent } = await router.resolveTargetsAndIntent(content, resolvedThreadId, {
+    const {
+      targetCats: resolvedTargetCats,
+      intent,
+      hasMentions,
+    } = await router.resolveTargetsAndIntent(content, resolvedThreadId, {
       persist: true,
     });
     // F35: When sending a whisper, override routing targets to only whisperTo recipients.
@@ -369,11 +373,20 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     // Server-generated idempotency key if client didn't provide one
     const resolvedIdempotencyKey = idempotencyKey ?? randomUUID();
 
-    // F39+F108: Queue routing — thread-level delivery mode
-    // Any active invocation in the thread → new user messages should queue.
-    // Using thread-level check (no catId) instead of slot-level to prevent
-    // concurrent execution when different cats are active (regression fix).
-    const hasActive = opts.invocationTracker?.has(resolvedThreadId) ?? false;
+    // F39+F108B: Slot-aware delivery mode routing
+    // Whisper → check target cat's slot (side-dispatch to idle cat)
+    // Broadcast with explicit @mention → any target busy = queue (P1 review fix)
+    // Broadcast without @mention → thread-level check (any active → queue)
+    const hasActive = (() => {
+      if (!opts.invocationTracker) return false;
+      if (whisperVisibility === 'whisper' && primaryCat !== 'unknown') {
+        return opts.invocationTracker.has(resolvedThreadId, primaryCat);
+      }
+      if (hasMentions) {
+        return targetCats.some((cat) => cat !== 'unknown' && opts.invocationTracker!.has(resolvedThreadId, cat));
+      }
+      return opts.invocationTracker.has(resolvedThreadId);
+    })();
     const mode = deliveryMode ?? (hasActive ? 'queue' : 'immediate');
     log.debug({ threadId: resolvedThreadId, targetCats, intent: intent.intent, mode, hasActive }, 'Dispatch decision');
 

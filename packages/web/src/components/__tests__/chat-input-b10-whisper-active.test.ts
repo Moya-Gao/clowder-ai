@@ -146,6 +146,23 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     }
   });
 
+  it('F108B AC-B7: whisper to idle cat shows whisper placeholder, not queue placeholder', () => {
+    useChatStore.setState({
+      activeInvocations: { 'inv-1': { catId: 'opus', mode: 'execute', startedAt: Date.now() } },
+      hasActiveInvocation: true,
+    });
+    // Before whisper mode: should show queue placeholder (cat is active)
+    act(() => root.render(React.createElement(ChatInput, { onSend: vi.fn(), hasActiveInvocation: true })));
+    const textarea = container.querySelector('textarea')!;
+    expect(textarea.placeholder).toContain('排队');
+
+    // Enter whisper mode — codex auto-selected (idle), opus disabled (busy)
+    enterWhisperMode();
+
+    // After whisper mode targeting idle cat: should show whisper placeholder, not queue
+    expect(textarea.placeholder).toBe('悄悄话...');
+  });
+
   it('falls back to targetCats when activeInvocations is empty but hasActiveInvocation is true (legacy path)', () => {
     useChatStore.setState({
       activeInvocations: {},
