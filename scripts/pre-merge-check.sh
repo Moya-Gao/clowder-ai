@@ -49,6 +49,32 @@ fi
 
 echo -e "${GREEN}✓ 分支: $BRANCH${NC}"
 echo -e "${GREEN}✓ 工作区干净${NC}"
+
+# Worktree 位置守卫：禁止在主仓库内部的 worktree 跑 gate
+# 根因：仓库内 worktree (.claude/worktrees/) 会导致 Node/Next
+# 向上解析到兄弟目录的 node_modules，造成 web build 假红。
+# 规则来源：cat-cafe-skills/worktree/SKILL.md "禁止在项目内部创建"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+MAIN_WORKTREE="$(git worktree list --porcelain | head -1 | sed 's/^worktree //')"
+if [ "$REPO_ROOT" != "$MAIN_WORKTREE" ]; then
+  # 当前是非主 worktree，检查是否在主仓库目录内部
+  case "$REPO_ROOT" in
+    "$MAIN_WORKTREE"/*)
+      echo ""
+      echo -e "${RED}❌ Worktree 在主仓库内部！${NC}"
+      echo "   当前路径: $REPO_ROOT"
+      echo "   主仓库:   $MAIN_WORKTREE"
+      echo ""
+      echo "   worktree skill 铁律：禁止在项目内部创建 worktree（.claude/worktrees/ 等）"
+      echo "   Node/Next 会向上解析到兄弟目录的 node_modules，导致 web build 假红。"
+      echo ""
+      echo "   正确做法：git worktree add ../cat-cafe-{feature-name} -b feat/{name}"
+      echo "   迁移方法：在仓库外重新创建 worktree，cherry-pick 现有 commit"
+      exit 1
+      ;;
+  esac
+fi
+echo -e "${GREEN}✓ Worktree 位置合规${NC}"
 echo ""
 
 # ── Step 1: Fetch + Rebase origin/main ──
