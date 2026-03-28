@@ -162,7 +162,7 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 | CJK 图表字体 ≠ 文本框字体（GPT Pro + 砚砚 P1） | POC 验证；不过则收紧支持矩阵（降级中文图表或首发只承诺英文图表） |
 | OOXML repair dialog（GPT Pro 警告） | 回归测试：生成 .pptx → PPT 365 打开 → 无 repair 弹窗 |
 | 华为级信息密度超出 layout 覆盖 | Level 1/Level 2 分级：表格+KPI 先行，架构图作为挑战目标 |
-| Blueprint 对页面容量失明（GPT Pro #3） | renderBudget（maxWords/minFontPt/overflowPolicy）注入 Blueprint |
+| Blueprint 对页面容量失明（GPT Pro #3） | renderBudget 注入 Blueprint（Phase A 只激活 `maxWords` 预警；`minFontPt`/`overflowPolicy` 为 Phase B reserved） |
 
 ## Open Questions
 

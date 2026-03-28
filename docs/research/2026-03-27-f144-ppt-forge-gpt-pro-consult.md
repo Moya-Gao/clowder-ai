@@ -325,16 +325,16 @@ GPT Pro 总体判断准确：**架构骨架对，风险在"能不能回改/审�
 
 ```typescript
 type RenderBudget = {
-  maxWords: number;            // 单页文字上限（含 speaker notes 外）
-  minFontPt: number;           // 最小字号底线（防止缩到看不清）
-  overflowPolicy: 'split-slide' | 'shrink' | 'truncate';
+  maxWords: number;            // Phase A 激活：CJK-aware word count 预警
+  minFontPt?: number;          // Phase B reserved — 信息性字段，Export Layer 不校验
+  overflowPolicy?: 'split-slide' | 'shrink' | 'truncate';  // Phase B reserved
 };
 ```
 
-Blueprint Layer 根据 `targetAudience` 注入默认值（如 keynote-public → maxWords: 40, minFontPt: 18），Export Layer 校验。
+Blueprint Layer 根据 `targetAudience` 注入默认值（如 keynote-public → maxWords: 40, minFontPt: 18），Export Layer 校验 `maxWords`（CJK-aware `estimateWordCount()`）。`minFontPt`/`overflowPolicy` 为 Phase B reserved，pptxgenjs 无文本测量 API，真正的字号/溢出校验需 post-render 测量（OOXML extents 或 headless PPT）。
 
 > **砚砚边界约束（已确认）**：renderBudget 只做 validator input，不做自动排版器。
-> Phase A 只保留 `maxWords / minFontPt / overflowPolicy` 三个字段。
+> Phase A 只激活 `maxWords` 预警；`minFontPt`/`overflowPolicy` 为 Phase B reserved。
 > 不加 per-slot budget、不加动态 typography math、不加自动拆页算法。
 
 #### 2. slideId 替代 pageNum + 顶层 sections[]（来自 GPT Pro #5）

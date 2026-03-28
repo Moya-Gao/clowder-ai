@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "name": "huawei-like",
+  "description": "华为风格企业演示：红+白+灰，高信息密度，Noto Sans SC 统一 CJK",
+
+  "brand": {
+    "colors": {
+      "primary":    "CF0A2C",
+      "secondary":  "333333",
+      "accent":     "E60012",
+      "background": "FFFFFF",
+      "surface":    "F5F5F5",
+      "surfaceAlt": "EEEEEE",
+      "white":      "FFFFFF",
+      "text": {
+        "primary":   "333333",
+        "secondary": "666666",
+        "muted":     "999999",
+        "onPrimary": "FFFFFF"
+      }
+    },
+    "typography": {
+      "headingFont":  "PingFang SC",
+      "bodyFont":     "PingFang SC",
+      "monoFont":     "Menlo",
+      "cjkFont":      "PingFang SC",
+      "headingWeight": "700",
+      "bodyWeight":    "400",
+      "fallback": {
+        "headingFont": "Noto Sans SC",
+        "bodyFont":    "Noto Sans SC",
+        "monoFont":    "Consolas",
+        "cjkFont":     "Noto Sans SC"
+      }
+    },
+    "spacing": {
+      "unit": 0.15,
+      "xs":   0.08,
+      "sm":   0.15,
+      "md":   0.3,
+      "lg":   0.5,
+      "xl":   0.8
+    }
+  },
+
+  "slide": {
+    "cover": {
+      "bg":              "CF0A2C",
+      "titleColor":      "FFFFFF",
+      "titleFontSize":   32,
+      "subtitleColor":   "FFFFFF",
+      "subtitleFontSize": 16
+    },
+    "section": {
+      "bg":             "CF0A2C",
+      "labelColor":     "FFFFFF",
+      "labelFontSize":  12,
+      "titleColor":     "FFFFFF",
+      "titleFontSize":  28
+    },
+    "content": {
+      "bg":             "FFFFFF",
+      "titleColor":     "CF0A2C",
+      "titleFontSize":  20,
+      "bodyColor":      "333333",
+      "bodyFontSize":   12
+    },
+    "kpi": {
+      "numberColor":    "CF0A2C",
+      "numberFontSize": 40,
+      "labelColor":     "666666",
+      "labelFontSize":  11,
+      "trendUp":        "4CAF50",
+      "trendDown":      "CF0A2C",
+      "trendFlat":      "999999"
+    },
+    "chart": {
+      "palette":        ["CF0A2C", "E60012", "FF6B35", "FFA726", "4CAF50", "2196F3"],
+      "gridColor":      "EEEEEE",
+      "gridSize":       0.5,
+      "axisLabelColor": "666666",
+      "axisLabelSize":  9,
+      "dataLabelColor": "333333",
+      "dataLabelSize":  9,
+      "bgColor":        "FFFFFF"
+    },
+    "table": {
+      "headerBg":       "CF0A2C",
+      "headerColor":    "FFFFFF",
+      "rowBg":          "FFFFFF",
+      "rowAltBg":       "F5F5F5",
+      "rowColor":       "333333",
+      "borderColor":    "DDDDDD"
+    },
+    "closing": {
+      "bg":             "FFFFFF",
+      "titleColor":     "CF0A2C",
+      "titleFontSize":  24,
+      "bodyColor":      "666666",
+      "bodyFontSize":   12
+    }
+  },
+
+  "slideNumber": {
+    "color":    "999999",
+    "fontSize": 8,
+    "position": { "x": "95%", "y": "95%" }
+  }
+}

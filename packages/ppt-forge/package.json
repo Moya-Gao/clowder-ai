@@ -1,0 +1,23 @@
+{
+  "name": "@cat-cafe/ppt-forge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ppt-forge": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test 'test/**/*.test.ts'",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.0.0"
+  }
+}

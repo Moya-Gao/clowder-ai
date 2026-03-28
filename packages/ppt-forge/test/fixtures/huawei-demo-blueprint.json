@@ -1,0 +1,248 @@
+{
+  "version": "1.0",
+  "meta": {
+    "title": "华为企业 ICT 解决方案",
+    "subtitle": "2026 年度业务报告",
+    "author": "Cat Café PPT Forge",
+    "createdAt": "2026-03-27",
+    "researchRef": "demo",
+    "storylineRef": "demo",
+    "themeRef": "huawei-like",
+    "framework": "pyramid",
+    "targetAudience": "corporate-executive"
+  },
+  "sections": [
+    {
+      "sectionId": "s1",
+      "title": "开场",
+      "slideIds": ["slide-cover"]
+    },
+    {
+      "sectionId": "s2",
+      "title": "桌面现状及发展趋势",
+      "slideIds": ["slide-agenda", "slide-section-1", "slide-trend"]
+    },
+    {
+      "sectionId": "s3",
+      "title": "关键指标",
+      "slideIds": ["slide-kpi", "slide-kpi-4col"]
+    },
+    {
+      "sectionId": "s4",
+      "title": "数据分析",
+      "slideIds": ["slide-chart-insight", "slide-full-chart"]
+    },
+    {
+      "sectionId": "s5",
+      "title": "组件状态",
+      "slideIds": ["slide-dense-table"]
+    },
+    {
+      "sectionId": "s6",
+      "title": "结尾",
+      "slideIds": ["slide-closing"]
+    }
+  ],
+  "slides": [
+    {
+      "slideId": "slide-cover",
+      "sectionId": "s1",
+      "intent": "cover",
+      "purpose": "封面页",
+      "layoutId": "layout-cover",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "华为企业 ICT 解决方案" },
+        { "type": "text", "slotName": "subtitle", "content": "2026 年度业务报告 · 华为技术有限公司" }
+      ],
+      "renderBudget": { "maxWords": 20, "minFontPt": 16, "overflowPolicy": "truncate" }
+    },
+    {
+      "slideId": "slide-agenda",
+      "sectionId": "s2",
+      "intent": "agenda",
+      "purpose": "目录页",
+      "layoutId": "layout-title-body",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "目录" },
+        { "type": "text", "slotName": "body", "content": "一、桌面现状及发展趋势\n二、关键业务指标\n三、数据洞察分析\n四、组件状态矩阵\n五、总结与展望" }
+      ],
+      "renderBudget": { "maxWords": 50, "minFontPt": 12, "overflowPolicy": "truncate" }
+    },
+    {
+      "slideId": "slide-section-1",
+      "sectionId": "s2",
+      "intent": "section-break",
+      "purpose": "章节分隔",
+      "layoutId": "layout-section",
+      "elements": [
+        { "type": "text", "slotName": "label", "content": "第一章" },
+        { "type": "text", "slotName": "title", "content": "桌面现状及发展趋势" }
+      ],
+      "renderBudget": { "maxWords": 15, "minFontPt": 12, "overflowPolicy": "truncate" }
+    },
+    {
+      "slideId": "slide-trend",
+      "sectionId": "s2",
+      "intent": "key-statement",
+      "purpose": "核心观点",
+      "layoutId": "layout-title-body",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "核心洞察" },
+        { "type": "text", "slotName": "body", "content": "**全球企业桌面正加速向云化迁移**，传统 PC 部署模式面临安全合规与运维成本的双重挑战。华为 FusionAccess 方案已覆盖 **2,000+** 企业客户，实现终端 TCO 降低 **40%**。", "fontSize": 14 }
+      ],
+      "renderBudget": { "maxWords": 80, "minFontPt": 12, "overflowPolicy": "shrink" }
+    },
+    {
+      "slideId": "slide-kpi",
+      "sectionId": "s3",
+      "intent": "content",
+      "purpose": "3 KPI 仪表板",
+      "layoutId": "layout-kpi",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "关键业务指标" },
+        { "type": "kpi", "slotName": "kpi-1", "number": "98.5%", "label": "SLA 达成率", "trend": "up" },
+        { "type": "kpi", "slotName": "kpi-2", "number": "2,847", "label": "企业客户数", "trend": "up" },
+        { "type": "kpi", "slotName": "kpi-3", "number": "45ms", "label": "平均延迟", "trend": "down" },
+        { "type": "text", "slotName": "detail", "content": "SLA 达成率环比提升 1.2 个百分点，企业客户数同比增长 23%，网络延迟优化得益于新一代交换架构部署。" }
+      ],
+      "renderBudget": { "maxWords": 60, "minFontPt": 11, "overflowPolicy": "truncate" }
+    },
+    {
+      "slideId": "slide-kpi-4col",
+      "sectionId": "s3",
+      "intent": "content",
+      "purpose": "4 列 KPI 高密度",
+      "layoutId": "layout-kpi-4col",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "细分指标看板" },
+        { "type": "kpi", "slotName": "kpi-1", "number": "99.99%", "label": "可用性", "trend": "flat" },
+        { "type": "kpi", "slotName": "kpi-2", "number": "3.2PB", "label": "数据吞吐", "trend": "up" },
+        { "type": "kpi", "slotName": "kpi-3", "number": "128", "label": "节点数", "trend": "up" },
+        { "type": "kpi", "slotName": "kpi-4", "number": "< 10ms", "label": "P99延迟", "trend": "down" },
+        { "type": "text", "slotName": "detail", "content": "四项核心指标均达到或超过年度目标。数据吞吐量环比增长 **15%**，节点扩容计划按期推进。" }
+      ],
+      "renderBudget": { "maxWords": 60, "minFontPt": 11, "overflowPolicy": "truncate" }
+    },
+    {
+      "slideId": "slide-chart-insight",
+      "sectionId": "s4",
+      "intent": "data-insight",
+      "purpose": "数据洞察：收入趋势图",
+      "layoutId": "layout-chart-insight",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "季度收入趋势" },
+        {
+          "type": "chart",
+          "slotName": "chart",
+          "chartType": "bar",
+          "data": {
+            "chartProfile": "categorical",
+            "categories": ["Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "Q1 2026"],
+            "series": [
+              { "name": "企业业务收入（亿元）", "values": [180, 210, 245, 280, 310] },
+              { "name": "云业务收入（亿元）", "values": [95, 120, 145, 170, 205] }
+            ]
+          }
+        },
+        { "type": "text", "slotName": "insight", "content": "企业业务收入连续 5 个季度正增长，**Q1 2026 同比 +72%**。云业务占比从 34.5% 提升至 **39.8%**，成为第二增长引擎。" }
+      ],
+      "renderBudget": { "maxWords": 80, "minFontPt": 10, "overflowPolicy": "shrink" }
+    },
+    {
+      "slideId": "slide-full-chart",
+      "sectionId": "s4",
+      "intent": "data-insight",
+      "purpose": "全幅折线图",
+      "layoutId": "layout-full-chart",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "月度活跃用户趋势" },
+        {
+          "type": "chart",
+          "slotName": "chart",
+          "chartType": "line",
+          "data": {
+            "chartProfile": "categorical",
+            "categories": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+            "series": [
+              { "name": "MAU（万）", "values": [1200, 1180, 1250, 1320, 1410, 1500, 1580, 1650, 1720, 1800, 1890, 1950] }
+            ]
+          }
+        }
+      ],
+      "renderBudget": { "maxWords": 20, "minFontPt": 10, "overflowPolicy": "truncate" }
+    },
+    {
+      "slideId": "slide-dense-table",
+      "sectionId": "s5",
+      "intent": "content",
+      "purpose": "华为密排状态矩阵 — 核心杀招",
+      "layoutId": "layout-dense-table",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "组件 × 版本 × 环境状态矩阵" },
+        {
+          "type": "table",
+          "slotName": "table",
+          "headers": ["组件", "版本", "开发环境", "测试环境", "预发环境", "生产环境"],
+          "rows": [
+            { "cells": [
+              { "text": "FusionAccess" }, { "text": "8.0.1" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "灰度中", "bgColor": "FFA726", "fontColor": "FFFFFF", "fontBold": true },
+              { "text": "待发布", "bgColor": "999999", "fontColor": "FFFFFF" }
+            ]},
+            { "cells": [
+              { "text": "GaussDB" }, { "text": "3.2.0" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" }
+            ]},
+            { "cells": [
+              { "text": "CloudEngine" }, { "text": "V300R021" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "测试中", "bgColor": "2196F3", "fontColor": "FFFFFF" },
+              { "text": "未开始", "bgColor": "EEEEEE", "fontColor": "666666" },
+              { "text": "未开始", "bgColor": "EEEEEE", "fontColor": "666666" }
+            ]},
+            { "cells": [
+              { "text": "OceanStor" }, { "text": "6.1.8" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "回滚中", "bgColor": "CF0A2C", "fontColor": "FFFFFF", "fontBold": true },
+              { "text": "v6.1.7", "bgColor": "CF0A2C", "fontColor": "FFFFFF" }
+            ]},
+            { "cells": [
+              { "text": "iMaster NCE" }, { "text": "V300R023" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "灰度中", "bgColor": "FFA726", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" }
+            ]},
+            { "cells": [
+              { "text": "Kunpeng" }, { "text": "920-7265" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" },
+              { "text": "已部署", "bgColor": "4CAF50", "fontColor": "FFFFFF" }
+            ]}
+          ]
+        }
+      ],
+      "renderBudget": { "maxWords": 200, "minFontPt": 8, "overflowPolicy": "shrink" }
+    },
+    {
+      "slideId": "slide-closing",
+      "sectionId": "s6",
+      "intent": "closing",
+      "purpose": "结尾 CTA",
+      "layoutId": "layout-closing",
+      "elements": [
+        { "type": "text", "slotName": "title", "content": "共建智能世界" },
+        { "type": "text", "slotName": "contact", "content": "华为技术有限公司\nenterprise@huawei.com | +86-755-28780808\nwww.huawei.com/enterprise" }
+      ],
+      "renderBudget": { "maxWords": 30, "minFontPt": 12, "overflowPolicy": "truncate" }
+    }
+  ],
+  "assets": []
+}

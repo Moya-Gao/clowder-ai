@@ -89,7 +89,7 @@ export interface SectionSpec { sectionId: string; title: string; slideIds: strin
 export interface SlideSpec { slideId: string; sectionId?: string; intent: SlideIntent; purpose: string; layoutId: string; elements: SlideElement[]; speakerNotes?: string; evidenceRefs?: EvidenceRef[]; transition?: { type: TransitionType; fromSlideId?: string; }; renderBudget: RenderBudget; }
 export type SlideIntent = 'cover' | 'agenda' | 'section-break' | 'key-statement' | 'content' | 'data-insight' | 'comparison' | 'timeline' | 'evidence' | 'summary' | 'closing' | 'appendix';
 export type TransitionType = 'supports' | 'contrasts' | 'zooms-in' | 'answers' | 'summarizes';
-export interface RenderBudget { maxWords: number; minFontPt: number; overflowPolicy: 'split-slide' | 'shrink' | 'truncate'; }
+export interface RenderBudget { maxWords: number; minFontPt?: number; /* Phase B reserved */ overflowPolicy?: 'split-slide' | 'shrink' | 'truncate'; /* Phase B reserved */ }
 
 // Elements
 export type SlideElement = TextElement | ChartElement | ImageElement | TableElement | KPIElement;
