@@ -1317,4 +1317,54 @@ describe('WeixinAdapter', () => {
       }
     });
   });
+
+  describe('disconnect', () => {
+    it('clears botToken, contextTokens, and stops polling', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      adapter._injectContextToken('user-2', 'ctx-2');
+
+      assert.equal(adapter.hasBotToken(), true);
+      assert.equal(adapter.hasContextToken('user-1'), true);
+
+      await adapter.disconnect();
+
+      assert.equal(adapter.hasBotToken(), false, 'botToken must be cleared');
+      assert.equal(adapter.isPolling(), false, 'polling must be stopped');
+      assert.equal(adapter.hasContextToken('user-1'), false, 'contextTokens must be cleared');
+      assert.equal(adapter.hasContextToken('user-2'), false, 'contextTokens must be cleared');
+    });
+
+    it('rejects pending sendReply promises on disconnect (P1: no dangling promises)', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('u1', 'ctx-1');
+      adapter._injectFetch(async () => ({ ok: true, json: async () => ({ ret: 0 }) }));
+
+      // Queue a reply but don't wait for debounce to flush
+      const p = adapter.sendReply('u1', 'hello');
+
+      // Disconnect while reply is pending
+      await adapter.disconnect();
+
+      // The promise must settle (reject), not hang forever
+      const TIMEOUT = Symbol('timeout');
+      const result = await Promise.race([
+        p.then(
+          () => 'resolved',
+          (err) => err,
+        ),
+        new Promise((r) => setTimeout(() => r(TIMEOUT), 200)),
+      ]);
+      assert.notEqual(result, TIMEOUT, 'sendReply promise must not dangle after disconnect');
+      assert.ok(result instanceof Error, 'sendReply should reject with an Error');
+      assert.match(result.message, /disconnect/i);
+    });
+
+    it('is safe to call when already disconnected', async () => {
+      const adapter = new WeixinAdapter('', noopLog());
+      await adapter.disconnect();
+      assert.equal(adapter.hasBotToken(), false);
+      assert.equal(adapter.isPolling(), false);
+    });
+  });
 });

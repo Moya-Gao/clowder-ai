@@ -202,6 +202,28 @@ export class WeixinAdapter implements IOutboundAdapter {
     this.botToken = token;
   }
 
+  /**
+   * F137 Phase D: Full disconnect — stop polling, clear bot_token and all session state.
+   * After disconnect, the adapter returns to pre-login state (hasBotToken() === false).
+   */
+  async disconnect(): Promise<void> {
+    await this.stopPolling();
+    this.botToken = '';
+    this.contextTokens.clear();
+    this.getUpdatesBuf = '';
+    // Reject all pending sendReply promises before clearing (P1: no dangling promises)
+    const disconnectError = new Error('Disconnected by user');
+    for (const [, bucket] of this.pendingReplies) {
+      clearTimeout(bucket.timer);
+      for (const { reject } of bucket.resolvers) {
+        reject(disconnectError);
+      }
+    }
+    this.pendingReplies.clear();
+    this.typingTickets.clear();
+    this.log.info('[WeixinAdapter] Disconnected — bot_token and session state cleared');
+  }
+
   setOnSessionExpired(cb: () => void): void {
     this.sessionExpiredCallback = cb;
   }

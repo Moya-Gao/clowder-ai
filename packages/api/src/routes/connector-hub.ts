@@ -351,6 +351,23 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     return { ok: true, polling: adapter.isPolling() };
   });
 
+  // F137 Phase D: Disconnect WeChat — stop polling + clear token + clear state
+  app.post('/api/connector/weixin/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const adapter = opts.weixinAdapter;
+    if (!adapter) {
+      reply.status(503);
+      return { error: 'WeChat adapter not available (connector gateway not started)' };
+    }
+
+    await adapter.disconnect();
+    app.log.info({ userId }, '[WeChat] Disconnected by user');
+
+    return { ok: true };
+  });
+
   // ── F134 Phase D: Connector Permission API ──
 
   app.get('/api/connector/permissions/:connectorId', async (request, reply) => {
