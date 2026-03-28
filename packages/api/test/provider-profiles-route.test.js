@@ -582,4 +582,52 @@ describe('provider profiles routes', () => {
       await app.close();
     }
   });
+
+  it('GET /api/provider-profiles returns correct client for non-standard builtins (dare/opencode)', async () => {
+    const { writeFileSync, mkdirSync } = await import('node:fs');
+    const { writeCatalogAccount } = await import('../dist/config/catalog-accounts.js');
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('client-field');
+    setGlobalRoot(projectDir);
+    try {
+      // Bootstrap minimal catalog
+      const catCafeDir = join(projectDir, '.cat-cafe');
+      mkdirSync(catCafeDir, { recursive: true });
+      writeFileSync(
+        join(catCafeDir, 'cat-catalog.json'),
+        JSON.stringify({ version: 2, breeds: [], roster: {}, reviewPolicy: {}, accounts: {} }),
+      );
+
+      // Write builtin accounts with standard and non-standard clients
+      writeCatalogAccount(projectDir, 'claude', { authType: 'oauth', protocol: 'anthropic', models: ['m1'] });
+      writeCatalogAccount(projectDir, 'dare', { authType: 'oauth', protocol: 'openai', models: ['glm'] });
+      writeCatalogAccount(projectDir, 'opencode', { authType: 'oauth', protocol: 'anthropic', models: ['m2'] });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+      assert.equal(res.statusCode, 200);
+      const providers = res.json().providers;
+
+      const claude = providers.find((p) => p.id === 'claude');
+      assert.equal(claude.client, 'anthropic', 'claude builtin client should be protocol (anthropic)');
+
+      const dare = providers.find((p) => p.id === 'dare');
+      assert.equal(dare.client, 'dare', 'dare builtin client should be its own ID, not protocol');
+
+      const opencode = providers.find((p) => p.id === 'opencode');
+      assert.equal(opencode.client, 'opencode', 'opencode builtin client should be its own ID, not protocol');
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
 });

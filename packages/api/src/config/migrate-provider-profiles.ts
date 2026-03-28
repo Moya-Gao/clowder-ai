@@ -57,6 +57,20 @@ function resolveGlobalPath(filename: string): string {
 }
 
 /**
+ * LL-043: Check if legacy provider-profiles.json represents a real migration source.
+ * - File missing → false (nothing to migrate)
+ * - File exists but unparseable → true (corrupt = legacy source present, invariant should fire)
+ * - File exists, parses OK, zero providers → false (empty = nothing was ever configured)
+ * - File exists, parses OK, has providers → true (should have been migrated)
+ */
+export function hasLegacyProviderProfiles(): boolean {
+  if (!existsSync(resolveGlobalPath(META_FILENAME))) return false;
+  const meta = readOldMeta(); // returns null on parse failure
+  if (meta === null) return true; // corrupt file = legacy source present
+  return (meta.providers?.length ?? 0) > 0;
+}
+
+/**
  * Per-project migration detection: check if ALL old profile IDs already exist
  * in the project's catalog accounts. Stateless — no global marker file.
  */

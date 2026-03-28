@@ -130,4 +130,78 @@ describe('accountStartupHook (HC-3 migration + HC-5 conflict scan at startup)', 
 
     await rm(otherProject, { recursive: true, force: true });
   });
+
+  it('LL-043: does NOT throw when legacy file exists but has zero providers', async () => {
+    const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-4`);
+
+    // Legacy file exists but with empty providers — nothing to migrate
+    await writeV3Meta([]);
+    await writeCatalog(projectRoot, {});
+
+    // Should NOT throw — empty providers means nothing was ever configured
+    const result = accountStartupHook(projectRoot);
+    assert.equal(result.migration.migrated, false);
+    assert.equal(result.migration.reason, 'already-migrated');
+  });
+
+  it('LL-043: throws when legacy file is corrupt (unparseable) and catalog has no accounts', async () => {
+    const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-5`);
+
+    // Corrupt legacy file — can't parse, but file IS present
+    await writeFile(join(globalRoot, '.cat-cafe', 'provider-profiles.json'), '{', 'utf-8');
+    await writeCatalog(projectRoot, {});
+
+    assert.throws(
+      () => accountStartupHook(projectRoot),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.includes('LL-043'), 'error should reference LL-043');
+        return true;
+      },
+      'LL-043: corrupt legacy file + empty accounts must throw',
+    );
+  });
+
+  it('LL-043: throws when legacy source exists but catalog has no accounts after migration', async () => {
+    const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-3`);
+
+    // Legacy provider-profiles.json exists with a profile
+    await writeV3Meta([
+      { id: 'custom-ant', authType: 'api_key', protocol: 'anthropic', baseUrl: 'https://ant.example.com' },
+    ]);
+    // Catalog exists but has NO accounts — simulates migration failing silently
+    // (e.g. writeCatCatalog throws inside migrateProviderProfilesToAccounts, but the
+    // function is wrapped in a caller's try/catch that swallows the error)
+    await writeCatalog(projectRoot, {});
+
+    // The hook runs migration first. If migration succeeds, accounts will be present
+    // and the invariant won't fire. To test the invariant, we need migration to
+    // "succeed" but NOT write accounts. We simulate this by writing a catalog
+    // that already "has" the old IDs (so migration skips as already-migrated)
+    // but then removing them.
+    // Simpler approach: write catalog with the ID so migration skips,
+    // then remove accounts to trigger the invariant.
+    // Actually: migration will run and succeed here (adding accounts).
+    // The invariant only fires when migration fails silently AND leaves 0 accounts.
+
+    // To properly test: we need migration to return without writing accounts.
+    // This happens when catalog is null (no-catalog reason). But then there's no catalog to read.
+    // Better: remove the catalog file to make migration return no-catalog,
+    // but the invariant checks hasLegacyProviderProfiles + readCatalogAccounts.
+    // If there's no catalog at all, readCatalogAccounts returns {} — invariant fires.
+    const { rm: rmSync } = await import('node:fs');
+    const { unlinkSync } = await import('node:fs');
+    unlinkSync(join(projectRoot, '.cat-cafe', 'cat-catalog.json'));
+
+    assert.throws(
+      () => accountStartupHook(projectRoot),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.includes('LL-043'), 'error should reference LL-043');
+        assert.ok(err.message.includes('legacy'), 'error should mention legacy source');
+        return true;
+      },
+      'LL-043: must throw when legacy exists but no accounts in catalog',
+    );
+  });
 });

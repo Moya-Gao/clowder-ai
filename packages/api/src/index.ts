@@ -1430,9 +1430,10 @@ async function main(): Promise<void> {
     app.log.warn(`[api] CLI config regeneration failed (best-effort): ${String(err)}`);
   }
 
-  // F136 Phase 4a: Migrate provider-profiles → accounts + conflict scan (HC-3/HC-5).
+  // F136 Phase 4a: Migrate provider-profiles → accounts + conflict scan (HC-3/HC-5/LL-043).
   // HC-5: conflict is a HARD error — must propagate, not swallow.
-  // Migration errors are best-effort; conflict errors crash the server intentionally.
+  // LL-043: legacy source present + accounts missing is a HARD error — don't run with empty accounts.
+  // Migration filesystem errors are best-effort.
   try {
     const { accountStartupHook } = await import('./config/account-startup.js');
     const startupResult = accountStartupHook(process.cwd());
@@ -1442,8 +1443,8 @@ async function main(): Promise<void> {
       );
     }
   } catch (err) {
-    // HC-5 conflict errors include "F136 HC-5" in the message — let them crash the server.
-    if (err instanceof Error && err.message.includes('HC-5')) {
+    // HC-5 and LL-043 errors are HARD errors — let them crash the server.
+    if (err instanceof Error && (err.message.includes('HC-5') || err.message.includes('LL-043'))) {
       app.log.error(`[api] ${err.message}`);
       throw err;
     }

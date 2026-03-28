@@ -23,6 +23,10 @@ import { buildProbeHeaders, isInvalidModelProbeError, readProbeError } from './p
 /** Synthesize a ProviderProfileView-compatible object from AccountConfig (backward compat for Hub UI). */
 function accountToView(id: string, account: AccountConfig, apiKeyPresent: boolean) {
   const isBuiltin = account.authType === 'oauth';
+  // Non-standard builtins (dare, opencode) use standard protocols (openai, anthropic)
+  // but have their own distinct client identity for the Hub UI.
+  const NON_STANDARD_BUILTIN_CLIENTS = new Set(['dare', 'opencode']);
+  const builtinClient = NON_STANDARD_BUILTIN_CLIENTS.has(id) ? id : account.protocol;
   return {
     id,
     name: account.displayName ?? id,
@@ -30,7 +34,7 @@ function accountToView(id: string, account: AccountConfig, apiKeyPresent: boolea
     kind: isBuiltin ? 'builtin' : ('api_key' as const),
     authType: account.authType,
     builtin: isBuiltin,
-    ...(isBuiltin ? { client: account.protocol } : {}),
+    ...(isBuiltin ? { client: builtinClient } : {}),
     protocol: account.protocol,
     ...(account.baseUrl ? { baseUrl: account.baseUrl } : {}),
     models: account.models ? [...account.models] : [],
