@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F136: Unified Config Hot Reload — 配置热更新统一管线
 
-> **Status**: in-progress | **Owner**: @opus | **Priority**: P1
+> **Status**: done | **Owner**: @opus | **Priority**: P1 | **Completed**: 2026-03-28
 
 ## Vision
 
@@ -245,3 +245,22 @@ Phase 4 终态（2026-03-28 决策）:
 | 2026-03-28 | Phase 4a+4b merged (PR #818) — single source of truth: accounts + credentials + resolver + HC-1~5 |
 | 2026-03-28 | Phase 4c+4d merged (PR #824) — AccountBindingSubscriber + delete legacy provider-profiles (-2032 lines) |
 | 2026-03-28 | P1 fixes merged (PR #831) — per-project migration detection + credential clear semantics (@gpt52 审 2 轮放行) |
+| 2026-03-28 | Runtime incident: 迁移未落成但服务静默启动，铲屎官发现 accounts/models/apiKey 全丢 → 手动触发迁移恢复 |
+| 2026-03-28 | **Feature closed** — 愿景对照 + @gpt52 risk audit 等效守护 + [反思胶囊](/docs/reflections/2026-03-28-f136-unified-config-hot-reload-capsule.md) |
+
+## Follow-up: Startup Invariant Guard（P2 hardening）
+
+**来源**：2026-03-28 runtime incident + @gpt52 审查建议
+
+**问题**：`accountStartupHook()` 被 best-effort `try/catch` 包裹（[index.ts:1436](/packages/api/src/index.ts:1436)），非 HC-5 的迁移异常会被吞为 warn，服务带病静默启动。当旧 `provider-profiles.json` 仍存在但 `accounts` 未迁入 catalog 时，用户看到空 accounts 页面。
+
+**硬证据**：
+- `account-startup.ts:21` — hook 没有校验"旧源在但新 accounts 缺失"的不变量
+- `index.ts:1444-1451` — 非 HC-5 迁移错误被 best-effort warn 吞掉
+
+**根因待确认**：runtime 事件中迁移未执行的具体触发条件未完全确认（"没 rebuild/restart"是假设，不是硬证据）。
+
+**AC**：
+1. 旧 `provider-profiles.json` 存在 + 当前项目 `accounts` 缺失 → 启动不能静默成功（至少 `error` 级别高信号暴露，理想为 readiness fail）
+2. 补回归测试：覆盖"legacy source 存在 + migration 未落成"场景
+3. 评估是否升级为 startup hard fail（如能稳定复现静默失败路径则升 P1）
