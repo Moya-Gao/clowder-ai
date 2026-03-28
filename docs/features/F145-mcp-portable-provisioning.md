@@ -131,7 +131,7 @@ created: 2026-03-27
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Evolved from** | `docs/features/F041-capability-dashboard.md` | 能力编排器基础设施 |
-| **Related** | `docs/features/F043-mcp-normalization.md` | MCP server 拆分 |
+| **Related** | `docs/features/F043-mcp-unification.md` | MCP server 拆分 |
 | **讨论** | 2026-03-27 铲屎官 + 宪宪 + 砚砚对话 | 根因分析 + 方案收敛 |
 | **Bug 现场** | `capability-orchestrator.ts:31,101` | Pencil 硬编码 Antigravity 路径 |
 | **Bug 现场** | `.cat-cafe/capabilities.json:228` | 机器态绝对路径混入真相源 |

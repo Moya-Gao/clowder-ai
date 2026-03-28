@@ -36,6 +36,7 @@ import {
   discoverExternalMcpServers,
   generateCliConfigs,
   migrateLegacyCatCafeCapability,
+  migrateResolverBackedCapabilities,
   readCapabilitiesConfig,
   resolveServersForCat,
   toCapabilityEntry,
@@ -455,9 +456,12 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       });
     } else {
       const migrated = migrateLegacyCatCafeCapability(config, { catCafeRepoRoot: getProjectRoot() });
-      if (migrated.migrated) {
-        config = migrated.config;
+      const resolverMigrated = migrateResolverBackedCapabilities(migrated.config);
+      if (migrated.migrated || resolverMigrated.migrated) {
+        config = resolverMigrated.config;
         await writeCapabilitiesConfig(projectRoot, config);
+      } else {
+        config = migrated.config;
       }
     }
 
