@@ -244,3 +244,4 @@ Phase 4 终态（2026-03-28 决策）:
 | 2026-03-28 | Phase 4 决策收敛 — 推翻 A*，确认单一真相源终态（铲屎官 + @opus + @codex） |
 | 2026-03-28 | Phase 4a+4b merged (PR #818) — single source of truth: accounts + credentials + resolver + HC-1~5 |
 | 2026-03-28 | Phase 4c+4d merged (PR #824) — AccountBindingSubscriber + delete legacy provider-profiles (-2032 lines) |
+| 2026-03-28 | P1 fixes merged (PR #831) — per-project migration detection + credential clear semantics (@gpt52 审 2 轮放行) |
