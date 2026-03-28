@@ -118,9 +118,9 @@ created: 2026-03-23
 | **1** | 统一 event bus 设计 + ConfigChangeEvent schema | ✅ done | PR #778 merged (2026-03-27) |
 | **2** | Connector 热重载 + `/api/config/secrets` | ✅ done | PR #784 merged (2026-03-27) |
 | **2b** | Hub connector config UI → secrets endpoint 前端接线 | ✅ done | PR #788 merged (2026-03-27) |
-| **3A** | F127 side effect 迁移到 event bus subscriber | 📋 planned | 终态 subscriber |
-| **3B** | `runtime-cat-catalog` 收敛为纯存储+校验 | 📋 planned | 终态存储层 |
-| **3C** | 删除 F127 ad-hoc 热更新死代码 | 📋 planned | 清理 |
+| **3A** | F127 side effect 迁移到 event bus subscriber | ✅ done | PR #790 merged (2026-03-28) — CatCatalogSubscriber + emitChangeAsync |
+| **3B** | `runtime-cat-catalog` 收敛为纯存储+校验 | ✅ done (no-op) | grep 确认无 ad-hoc 触发路径残留 |
+| **3C** | 删除 F127 ad-hoc 热更新死代码 | ✅ done (no-op) | grep 确认无死代码 |
 | **4** | Provider Profiles 热重载 | 📋 planned | — |
 
 **MVP = Phase 1 + 2 + 2b**：✅ 已完成。Hub 配置向导改 IM 配置即时热生效，无需重启。
@@ -133,3 +133,4 @@ created: 2026-03-23
 | 2026-03-27 | Phase 1 merged (PR #778) — ConfigEventBus + event schema |
 | 2026-03-27 | Phase 2 merged (PR #784) — Connector hot-reload + secrets endpoint |
 | 2026-03-27 | Phase 2b merged (PR #788) — Hub connector config UI → secrets endpoint (hot-reload) |
+| 2026-03-28 | Phase 3A merged (PR #790) — CatCatalogSubscriber consolidates F127 inline sync; 3B/3C confirmed no-op |
