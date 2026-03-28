@@ -97,6 +97,23 @@ export const LAYOUT_CATALOG: Record<string, LayoutCatalogEntry> = {
       { name: 'table', type: 'table', position: { x: 0.3, y: 0.9, w: 9.4, h: 4.4 } },
     ],
   },
+  'layout-diagram': {
+    layoutId: 'layout-diagram',
+    description: '华为架构图页：标题 + 全幅嵌套盒子图',
+    slots: [
+      { name: 'title', type: 'title', position: { x: 0.5, y: 0.3, w: 9, h: 0.5 } },
+      { name: 'diagram', type: 'diagram', position: { x: 0.3, y: 0.9, w: 9.4, h: 4.4 } },
+    ],
+  },
+  'layout-diagram-insight': {
+    layoutId: 'layout-diagram-insight',
+    description: '架构图+洞察：左侧架构图 60% + 右侧说明 40%',
+    slots: [
+      { name: 'title', type: 'title', position: { x: 0.5, y: 0.3, w: 9, h: 0.5 } },
+      { name: 'diagram', type: 'diagram', position: { x: 0.3, y: 0.9, w: 5.7, h: 4.4 } },
+      { name: 'insight', type: 'body', position: { x: 6.3, y: 0.9, w: 3.2, h: 4.4 } },
+    ],
+  },
 };
 
 export function getLayout(layoutId: string): LayoutCatalogEntry {

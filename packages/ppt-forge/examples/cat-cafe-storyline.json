@@ -1,0 +1,152 @@
+{
+  "framework": "pyramid",
+  "centralMessage": "Cat Café — 全球首个多 AI Agent 真协作系统：不是 API 编排，而是 Agent 团队",
+  "sections": [
+    {
+      "sectionId": "sec-vision",
+      "title": "愿景与成果",
+      "purpose": "建立认知：Cat Café 解决了什么问题，交付了什么成果",
+      "slides": [
+        {
+          "slideId": "slide-vision-kpi",
+          "intent": "data-insight",
+          "keyMessage": "63 天，三猫从零搭建一个完整的 AI 协作系统",
+          "supportingPoints": ["3567 commits", "149 features", "6700+ tests", "25 skills"],
+          "suggestedDataViz": "kpi"
+        },
+        {
+          "slideId": "slide-vision-why",
+          "intent": "key-statement",
+          "keyMessage": "铲屎官不想当人肉路由器了——三只猫能不能自己协作？",
+          "supportingPoints": [
+            "手动在三个 AI 服务之间复制粘贴上下文",
+            "每次新开窗口都要重新解释上下文",
+            "三只猫互相不知道对方干了什么",
+            "解决方案：共享感知 = 真正协作"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "sec-arch",
+      "title": "系统架构",
+      "purpose": "展示五层技术栈和三猫接入方式",
+      "slides": [
+        {
+          "slideId": "slide-arch-overview",
+          "intent": "content",
+          "keyMessage": "五层架构：前端 → 后端 → Agent Router → MCP → 状态层",
+          "supportingPoints": [
+            "Next.js + Socket.io 实时前端",
+            "Fastify + Agent Router 智能路由",
+            "Shared MCP Server 工具共享",
+            "Redis Session/PubSub/任务队列"
+          ]
+        },
+        {
+          "slideId": "slide-arch-stack",
+          "intent": "comparison",
+          "keyMessage": "技术栈矩阵：5 个包，55 万行代码，6700+ 测试",
+          "supportingPoints": ["API 440K LOC", "Web 103K LOC", "Shared 4.7K LOC", "MCP 3.6K LOC"],
+          "suggestedDataViz": "table"
+        },
+        {
+          "slideId": "slide-arch-agents",
+          "intent": "data-insight",
+          "keyMessage": "三猫接入：Claude Agent SDK / OpenAI Codex SDK / Google ADK",
+          "supportingPoints": [
+            "布偶猫(Claude Opus) → 架构、MCP、深度思考",
+            "缅因猫(GPT Codex) → Review、安全、测试",
+            "暹罗猫(Gemini) → 视觉设计、创意发散",
+            "SDK 模式保留完整 Agent 能力"
+          ],
+          "suggestedDataViz": "chart"
+        }
+      ]
+    },
+    {
+      "sectionId": "sec-innovation",
+      "title": "核心创新",
+      "purpose": "展示区别于市面 Agent 平台的独特价值",
+      "slides": [
+        {
+          "slideId": "slide-innov-protocol",
+          "intent": "key-statement",
+          "keyMessage": "A2A 协作协议：猫猫是 Agent 不是 API，自主感知、自主决策",
+          "supportingPoints": [
+            "Why-First 交接协议（What/Why/Tradeoff/Open/Next）",
+            "跨猫 Review 铁律：同一个体不能 review 自己的代码",
+            "愿景守护：非 author 非 reviewer 的猫做最终验收",
+            "SOP 全自动推进，只在 feature close 时通知铲屎官"
+          ]
+        },
+        {
+          "slideId": "slide-innov-memory",
+          "intent": "content",
+          "keyMessage": "记忆系统：evidence.sqlite 全文检索 + 向量语义 rerank",
+          "supportingPoints": [
+            "Features / ADRs / Plans / Lessons 全量索引",
+            "Knowledge Feed 每 30 分钟自动摘要",
+            "三种检索模式：lexical / semantic / hybrid",
+            "开工前先搜——每次对话都是新的，但知识在索引里"
+          ]
+        },
+        {
+          "slideId": "slide-innov-skills",
+          "intent": "data-insight",
+          "keyMessage": "25 个 Skill：可复用的协作协议覆盖全开发生命周期",
+          "supportingPoints": [
+            "TDD / Quality Gate / Debugging",
+            "Request Review / Receive Review / Merge Gate",
+            "Deep Research / Collaborative Thinking",
+            "Feat Lifecycle / Writing Plans / Worktree"
+          ],
+          "suggestedDataViz": "chart"
+        }
+      ]
+    },
+    {
+      "sectionId": "sec-engineering",
+      "title": "工程能力",
+      "purpose": "用数据证明工程产出力",
+      "slides": [
+        {
+          "slideId": "slide-eng-chart",
+          "intent": "data-insight",
+          "keyMessage": "代码量分布：API 核心占比 80%，前端 18%",
+          "supportingPoints": ["API 440K LOC", "Web 103K LOC", "Shared + MCP + PPT Forge 11K LOC"],
+          "suggestedDataViz": "chart"
+        },
+        {
+          "slideId": "slide-eng-features",
+          "intent": "comparison",
+          "keyMessage": "Top 10 Feature 活跃度：F101 记忆系统领跑",
+          "supportingPoints": [
+            "F101 记忆系统 108 commits",
+            "F102 知识抽取 106 commits",
+            "F088 Chat Gateway 101 commits"
+          ],
+          "suggestedDataViz": "table"
+        }
+      ]
+    },
+    {
+      "sectionId": "sec-meta",
+      "title": "PPT Forge 自证",
+      "purpose": "Meta 闭环：这份 PPT 本身就是管线产物",
+      "slides": [
+        {
+          "slideId": "slide-meta-forge",
+          "intent": "key-statement",
+          "keyMessage": "这份 PPT 是 Cat Café PPT Forge 的管线产物——Research→Narrative→Blueprint→Export",
+          "supportingPoints": [
+            "五层管线今日打通端到端 (PR #810 + #811)",
+            "80 个测试全绿，华为风格 Design Token 三层体系",
+            "gate validators 保证数据完整性",
+            "铲屎官说：来一个超级牛逼的无敌 PPT"
+          ]
+        }
+      ]
+    }
+  ]
+}

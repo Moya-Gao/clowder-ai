@@ -92,6 +92,16 @@
       "rowColor": "333333",
       "borderColor": "DDDDDD"
     },
+    "diagram": {
+      "boxBg": "F5F5F5",
+      "boxBorder": "CF0A2C",
+      "boxBorderWidth": 1.5,
+      "labelColor": "333333",
+      "labelFontSize": 9,
+      "nestedBg": ["FFFFFF", "F5F5F5", "EEEEEE"],
+      "connectorColor": "999999",
+      "connectorWidth": 1
+    },
     "closing": {
       "bg": "FFFFFF",
       "titleColor": "CF0A2C",

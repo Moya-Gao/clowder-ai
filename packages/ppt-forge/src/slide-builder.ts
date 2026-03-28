@@ -9,6 +9,7 @@ interface PptxSlide {
   addText(text: unknown, options: unknown): void;
   addTable(rows: unknown, options: unknown): void;
   addChart(chartType: unknown, data: unknown, options: unknown): void;
+  addShape(shapeName: string, options: unknown): void;
   addNotes(notes: string): void;
 }
 
@@ -28,12 +29,14 @@ interface PptxPresentation {
 import { getLayout, getSlot } from './layouts.js';
 import { buildSlideMasters, intentToMaster } from './master-builder.js';
 import { renderChart } from './renderers/chart.js';
+import { renderDiagram } from './renderers/diagram.js';
 import { renderKPI } from './renderers/kpi.js';
 import { renderTable } from './renderers/table.js';
 import { renderText } from './renderers/text.js';
 import type {
   ChartElement,
   DeckBlueprint,
+  DiagramElement,
   KPIElement,
   SlideElement,
   SlideSpec,
@@ -122,6 +125,10 @@ function renderElement(
     }
     case 'kpi': {
       renderKPI(slide, element as KPIElement, slot, theme.slide.kpi, fontFace);
+      break;
+    }
+    case 'diagram': {
+      renderDiagram(slide, element as DiagramElement, slot, theme.slide.diagram, fontFace);
       break;
     }
     case 'image': {

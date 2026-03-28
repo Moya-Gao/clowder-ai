@@ -90,7 +90,7 @@ export interface RenderBudget {
 
 // ── Elements ─────────────────────────────────────────────
 
-export type SlideElement = TextElement | ChartElement | ImageElement | TableElement | KPIElement;
+export type SlideElement = TextElement | ChartElement | ImageElement | TableElement | KPIElement | DiagramElement;
 
 export interface TextElement {
   type: 'text';
@@ -168,6 +168,20 @@ export interface KPIElement {
   label: string;
   trend?: 'up' | 'down' | 'flat';
   trendColor?: string;
+}
+
+export interface DiagramElement {
+  type: 'diagram';
+  slotName: string;
+  boxes: DiagramBox[];
+}
+
+export interface DiagramBox {
+  id: string;
+  label: string;
+  children?: DiagramBox[];
+  bgColor?: string;
+  borderColor?: string;
 }
 
 // ── Evidence ─────────────────────────────────────────────
@@ -251,6 +265,7 @@ export interface SlideSemanticTokens {
   kpi: KPIStyleTokens;
   chart: ChartStyleTokens;
   table: TableStyleTokens;
+  diagram: DiagramStyleTokens;
   closing: SlideStyleTokens;
 }
 
@@ -296,6 +311,17 @@ export interface TableStyleTokens {
   borderColor: string;
 }
 
+export interface DiagramStyleTokens {
+  boxBg: string;
+  boxBorder: string;
+  boxBorderWidth: number;
+  labelColor: string;
+  labelFontSize: number;
+  nestedBg: string[];
+  connectorColor: string;
+  connectorWidth: number;
+}
+
 // ── Layout ───────────────────────────────────────────────
 
 export interface LayoutCatalogEntry {
@@ -306,7 +332,18 @@ export interface LayoutCatalogEntry {
 
 export interface LayoutSlot {
   name: string;
-  type: 'title' | 'subtitle' | 'body' | 'chart' | 'image' | 'table' | 'icon' | 'kpi-number' | 'kpi-label' | 'caption';
+  type:
+    | 'title'
+    | 'subtitle'
+    | 'body'
+    | 'chart'
+    | 'image'
+    | 'table'
+    | 'icon'
+    | 'kpi-number'
+    | 'kpi-label'
+    | 'caption'
+    | 'diagram';
   position: { x: number; y: number; w: number; h: number };
 }
 
