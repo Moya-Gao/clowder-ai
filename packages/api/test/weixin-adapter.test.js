@@ -1220,6 +1220,27 @@ describe('WeixinAdapter', () => {
   });
 
   describe('sendMedia', () => {
+    function makeMalformedWav(sampleRate = 24000, durationSec = 2) {
+      const frames = sampleRate * durationSec;
+      const dataSize = frames * 2; // mono s16le
+      const buf = Buffer.alloc(44 + dataSize);
+      buf.write('RIFF', 0, 'ascii');
+      // Deliberately wrong RIFF size (off by -8) to simulate malformed TTS output seen in runtime.
+      buf.writeUInt32LE(36 + dataSize - 8, 4);
+      buf.write('WAVE', 8, 'ascii');
+      buf.write('fmt ', 12, 'ascii');
+      buf.writeUInt32LE(16, 16); // PCM fmt chunk size
+      buf.writeUInt16LE(1, 20); // PCM
+      buf.writeUInt16LE(1, 22); // mono
+      buf.writeUInt32LE(sampleRate, 24);
+      buf.writeUInt32LE(sampleRate * 2, 28); // byte rate
+      buf.writeUInt16LE(2, 32); // block align
+      buf.writeUInt16LE(16, 34); // bits
+      buf.write('data', 36, 'ascii');
+      buf.writeUInt32LE(dataSize, 40);
+      return buf;
+    }
+
     it('skips when no context_token', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       let fetchCalled = false;
@@ -1312,6 +1333,55 @@ describe('WeixinAdapter', () => {
         assert.ok(sentMsg.item_list[0].file_item, 'file_item must be present');
         assert.equal(sentMsg.item_list[0].file_item.file_name, 'voice.wav');
         assert.equal(sentMsg.item_list[0].voice_item, undefined);
+      } finally {
+        await unlink(wavPath).catch(() => {});
+      }
+    });
+
+    it('sends malformed WAV as voice_item with explicit playback metadata', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+
+      const wavPath = join(tmpdir(), `cat-cafe-malformed-${Date.now()}.wav`);
+      await writeFile(wavPath, makeMalformedWav(24000, 2));
+
+      /** @type {Record<string, unknown> | null} */
+      let sentMsg = null;
+      /** @type {Record<string, unknown> | null} */
+      let uploadReq = null;
+
+      try {
+        adapter._injectFetch(async (url, opts) => {
+          if (url.includes('/ilink/bot/getuploadurl')) {
+            uploadReq = JSON.parse(opts.body);
+            return { ok: true, json: async () => ({ upload_param: 'enc-upload-param' }) };
+          }
+          if (url.includes('/c2c/upload?')) {
+            return {
+              status: 200,
+              headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }),
+            };
+          }
+          if (url.includes('/ilink/bot/sendmessage')) {
+            sentMsg = JSON.parse(opts.body).msg;
+            return { ok: true, text: async () => JSON.stringify({ ret: 0 }) };
+          }
+          throw new Error(`unexpected url: ${url}`);
+        });
+
+        await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
+
+        const items = /** @type {Array<Record<string, unknown>>} */ (sentMsg?.item_list);
+        const voiceItem = /** @type {Record<string, unknown>} */ (items[0].voice_item);
+        assert.equal(uploadReq?.media_type, 4, 'WAV should be transcoded and uploaded as VOICE type');
+        assert.equal(items[0].type, 3, 'should send VOICE message item');
+        assert.ok(voiceItem, 'voice_item must be present');
+        assert.equal(voiceItem.encode_type, 6, 'VOICE encode_type should be SILK');
+        assert.equal(voiceItem.sample_rate, 24000, 'sample rate metadata should be preserved');
+        assert.ok(
+          Number(voiceItem.playtime) >= 1900,
+          `playtime should reflect real audio duration, got ${voiceItem.playtime}`,
+        );
       } finally {
         await unlink(wavPath).catch(() => {});
       }

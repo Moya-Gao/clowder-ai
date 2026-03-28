@@ -675,16 +675,18 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
 
     // WeChat voice messages require SILK codec; when conversion fails, degrade to file delivery.
+    let voiceMeta: { durationMs: number; sampleRate: number } | undefined;
     if (payload.type === 'audio' && actualFilePath.endsWith('.wav')) {
-      const silkPath = (await this.convertWavToSilk(actualFilePath)) ?? undefined;
-      if (silkPath) {
+      const converted = await this.convertWavToSilk(actualFilePath);
+      if (converted) {
         // If we downloaded to temp, clean up the download temp
         if (tempFilePath) {
           const { unlink } = await import('node:fs/promises');
           await unlink(tempFilePath).catch(() => {});
         }
-        actualFilePath = silkPath;
-        tempFilePath = silkPath;
+        actualFilePath = converted.silkPath;
+        tempFilePath = converted.silkPath;
+        voiceMeta = { durationMs: converted.durationMs, sampleRate: converted.sampleRate };
       }
     }
 
@@ -729,7 +731,12 @@ export class WeixinAdapter implements IOutboundAdapter {
       if (payload.type === 'image') {
         mediaItem.image_item = { media: mediaRef, mid_size: uploaded.fileSizeCiphertext };
       } else if (payload.type === 'audio' && audioAsVoice) {
-        mediaItem.voice_item = { media: mediaRef };
+        mediaItem.voice_item = {
+          media: mediaRef,
+          encode_type: 6, // SILK
+          sample_rate: voiceMeta?.sampleRate ?? 24000,
+          playtime: voiceMeta?.durationMs,
+        };
       } else {
         const { basename } = await import('node:path');
         mediaItem.file_item = {
@@ -817,7 +824,9 @@ export class WeixinAdapter implements IOutboundAdapter {
    * Convert WAV audio to SILK v3 (WeChat's native voice codec).
    * Returns path to temp .silk file, or null if conversion fails.
    */
-  private async convertWavToSilk(wavPath: string): Promise<string | null> {
+  private async convertWavToSilk(
+    wavPath: string,
+  ): Promise<{ silkPath: string; durationMs: number; sampleRate: number } | null> {
     try {
       const { readFile, writeFile } = await import('node:fs/promises');
       const { tmpdir } = await import('node:os');
@@ -825,23 +834,79 @@ export class WeixinAdapter implements IOutboundAdapter {
       const { encode } = await import('silk-wasm');
 
       const wavData = await readFile(wavPath);
-      if (
-        wavData.length < 12 ||
-        wavData.toString('ascii', 0, 4) !== 'RIFF' ||
-        wavData.toString('ascii', 8, 12) !== 'WAVE'
-      ) {
-        this.log.warn({ wavPath, len: wavData.length }, '[WeixinAdapter] convertWavToSilk: not a WAV file');
+      const parsed = this.extractMonoPcmFromWav(wavData);
+      if (!parsed) {
+        this.log.warn({ wavPath, len: wavData.length }, '[WeixinAdapter] convertWavToSilk: unsupported WAV format');
         return null;
       }
-      const result = await encode(wavData, 24000);
+      const result = await encode(parsed.pcm, parsed.sampleRate);
       const silkPath = join(tmpdir(), `cat-cafe-weixin-${Date.now()}.silk`);
       await writeFile(silkPath, result.data);
-      this.log.info({ wavPath, silkPath, duration: result.duration }, '[WeixinAdapter] convertWavToSilk: success');
-      return silkPath;
+      this.log.info(
+        { wavPath, silkPath, duration: result.duration, sampleRate: parsed.sampleRate },
+        '[WeixinAdapter] convertWavToSilk: success',
+      );
+      return { silkPath, durationMs: result.duration, sampleRate: parsed.sampleRate };
     } catch (err) {
       this.log.warn({ err, wavPath }, '[WeixinAdapter] convertWavToSilk: failed, uploading WAV as fallback');
       return null;
     }
+  }
+
+  /**
+   * Parse WAV buffer (tolerant to RIFF size mismatch) and return mono PCM s16le.
+   * This avoids passing malformed WAV headers directly into silk-wasm as raw PCM.
+   */
+  private extractMonoPcmFromWav(wavData: Buffer): { pcm: Buffer; sampleRate: number } | null {
+    if (wavData.length < 44) return null;
+    if (wavData.toString('ascii', 0, 4) !== 'RIFF' || wavData.toString('ascii', 8, 12) !== 'WAVE') return null;
+
+    let offset = 12;
+    let sampleRate = 0;
+    let channels = 0;
+    let bitsPerSample = 0;
+    let dataOffset = -1;
+    let dataSize = 0;
+
+    while (offset + 8 <= wavData.length) {
+      const chunkId = wavData.toString('ascii', offset, offset + 4);
+      const chunkSize = wavData.readUInt32LE(offset + 4);
+      const chunkDataStart = offset + 8;
+      if (chunkDataStart > wavData.length) break;
+      const maxReadable = Math.max(0, Math.min(chunkSize, wavData.length - chunkDataStart));
+
+      if (chunkId === 'fmt ' && maxReadable >= 16) {
+        channels = wavData.readUInt16LE(chunkDataStart + 2);
+        sampleRate = wavData.readUInt32LE(chunkDataStart + 4);
+        bitsPerSample = wavData.readUInt16LE(chunkDataStart + 14);
+      } else if (chunkId === 'data') {
+        dataOffset = chunkDataStart;
+        dataSize = maxReadable;
+        break;
+      }
+
+      offset = chunkDataStart + maxReadable + (chunkSize % 2);
+    }
+
+    if (dataOffset < 0 || dataSize <= 0) return null;
+    if (sampleRate <= 0 || channels <= 0 || bitsPerSample !== 16) return null;
+
+    const data = wavData.subarray(dataOffset, dataOffset + dataSize);
+    if (channels === 1) return { pcm: data, sampleRate };
+
+    // Downmix multi-channel int16 PCM to mono.
+    const frameCount = Math.floor(data.length / (channels * 2));
+    const mono = Buffer.alloc(frameCount * 2);
+    for (let i = 0; i < frameCount; i++) {
+      let sum = 0;
+      const base = i * channels * 2;
+      for (let ch = 0; ch < channels; ch++) {
+        sum += data.readInt16LE(base + ch * 2);
+      }
+      const mixed = Math.max(-32768, Math.min(32767, Math.round(sum / channels)));
+      mono.writeInt16LE(mixed, i * 2);
+    }
+    return { pcm: mono, sampleRate };
   }
 
   static stripMarkdownForWeixin(text: string): string {
