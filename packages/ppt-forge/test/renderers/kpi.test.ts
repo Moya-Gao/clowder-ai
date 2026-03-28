@@ -1,5 +1,5 @@
-import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { beforeEach, describe, it } from 'node:test';
 import { renderKPI } from '../../src/renderers/kpi.js';
 import type { KPIElement, KPIStyleTokens, LayoutSlot } from '../../src/types.js';
 
@@ -79,7 +79,7 @@ describe('renderKPI', () => {
     renderKPI(mockSlide as never, el, slot, kpiStyle, 'Noto Sans SC');
     // Number call should include trend indicator
     const numSegments = mockSlide.calls[0].text as { text: string; options: Record<string, unknown> }[];
-    const trendSegment = numSegments.find(s => s.options.color === '4CAF50');
+    const trendSegment = numSegments.find((s) => s.options.color === '4CAF50');
     assert.ok(trendSegment, 'should have a green trend segment');
     assert.ok(trendSegment.text.includes('▲'));
   });
@@ -94,7 +94,7 @@ describe('renderKPI', () => {
     };
     renderKPI(mockSlide as never, el, slot, kpiStyle, 'Noto Sans SC');
     const numSegments = mockSlide.calls[0].text as { text: string; options: Record<string, unknown> }[];
-    const trendSegment = numSegments.find(s => s.options.color === 'CF0A2C' && s.text.includes('▼'));
+    const trendSegment = numSegments.find((s) => s.options.color === 'CF0A2C' && s.text.includes('▼'));
     assert.ok(trendSegment, 'should have a red trend segment');
   });
 

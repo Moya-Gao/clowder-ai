@@ -1,7 +1,7 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { buildDeck } from '../src/slide-builder.js';
 import type { DeckBlueprint, ThemeTokens } from '../src/types.js';
@@ -13,9 +13,7 @@ function loadFixture<T>(name: string): T {
 }
 
 function loadTheme(): ThemeTokens {
-  return JSON.parse(
-    readFileSync(join(__dirname, '..', 'src', 'themes', 'huawei-like.json'), 'utf-8'),
-  );
+  return JSON.parse(readFileSync(join(__dirname, '..', 'src', 'themes', 'huawei-like.json'), 'utf-8'));
 }
 
 describe('Integration: Huawei Demo 10-page PPT', () => {
@@ -37,9 +35,7 @@ describe('Integration: Huawei Demo 10-page PPT', () => {
   });
 
   it('covers all element types: text, kpi, chart, table', () => {
-    const types = new Set(
-      blueprint.slides.flatMap(s => s.elements.map(e => e.type)),
-    );
+    const types = new Set(blueprint.slides.flatMap((s) => s.elements.map((e) => e.type)));
     assert.ok(types.has('text'));
     assert.ok(types.has('kpi'));
     assert.ok(types.has('chart'));
@@ -47,15 +43,15 @@ describe('Integration: Huawei Demo 10-page PPT', () => {
   });
 
   it('dense-table slide has per-cell color coding', () => {
-    const tableSlide = blueprint.slides.find(s => s.slideId === 'slide-dense-table');
+    const tableSlide = blueprint.slides.find((s) => s.slideId === 'slide-dense-table');
     assert.ok(tableSlide);
-    const tableEl = tableSlide.elements.find(e => e.type === 'table');
+    const tableEl = tableSlide.elements.find((e) => e.type === 'table');
     assert.ok(tableEl && tableEl.type === 'table');
     // Check OceanStor row has red "回滚中" cell
     const rows = (tableEl as { rows: { cells: { text: string; bgColor?: string }[] }[] }).rows;
-    const oceanStor = rows.find(r => r.cells[0].text === 'OceanStor');
+    const oceanStor = rows.find((r) => r.cells[0].text === 'OceanStor');
     assert.ok(oceanStor);
-    const rollbackCell = oceanStor.cells.find(c => c.text === '回滚中');
+    const rollbackCell = oceanStor.cells.find((c) => c.text === '回滚中');
     assert.ok(rollbackCell);
     assert.equal(rollbackCell.bgColor, 'CF0A2C');
   });
@@ -66,7 +62,7 @@ describe('Integration: Huawei Demo 10-page PPT', () => {
     assert.ok(Buffer.isBuffer(buf));
     // PPTX is a ZIP — starts with PK signature
     assert.equal(buf[0], 0x50); // 'P'
-    assert.equal(buf[1], 0x4B); // 'K'
+    assert.equal(buf[1], 0x4b); // 'K'
     assert.ok(buf.length > 10000, `Expected >10KB, got ${buf.length}`);
   });
 

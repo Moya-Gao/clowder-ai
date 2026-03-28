@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { beforeEach, describe, it } from 'node:test';
 import { renderTable } from '../../src/renderers/table.js';
-import type { TableElement, TableStyleTokens, LayoutSlot } from '../../src/types.js';
+import type { LayoutSlot, TableElement, TableStyleTokens } from '../../src/types.js';
 
 function createMockSlide() {
   const calls: { rows: unknown; options: unknown }[] = [];
@@ -57,11 +57,7 @@ describe('renderTable', () => {
       type: 'table',
       slotName: 'table',
       headers: ['Name'],
-      rows: [
-        { cells: [{ text: 'Row1' }] },
-        { cells: [{ text: 'Row2' }] },
-        { cells: [{ text: 'Row3' }] },
-      ],
+      rows: [{ cells: [{ text: 'Row1' }] }, { cells: [{ text: 'Row2' }] }, { cells: [{ text: 'Row3' }] }],
     };
     renderTable(mockSlide as never, el, slot, tableStyle, 'Noto Sans SC');
     const rows = mockSlide.calls[0].rows as unknown[][];
@@ -81,16 +77,10 @@ describe('renderTable', () => {
       headers: ['Task', 'Status'],
       rows: [
         {
-          cells: [
-            { text: 'Deploy' },
-            { text: '完成', bgColor: '4CAF50', fontColor: 'FFFFFF', fontBold: true },
-          ],
+          cells: [{ text: 'Deploy' }, { text: '完成', bgColor: '4CAF50', fontColor: 'FFFFFF', fontBold: true }],
         },
         {
-          cells: [
-            { text: 'Test' },
-            { text: '延期', bgColor: 'CF0A2C', fontColor: 'FFFFFF' },
-          ],
+          cells: [{ text: 'Test' }, { text: '延期', bgColor: 'CF0A2C', fontColor: 'FFFFFF' }],
         },
       ],
     };

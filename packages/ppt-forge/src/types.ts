@@ -33,11 +33,7 @@ export interface DeckMeta {
 
 export type NarrativeFramework = 'pyramid' | 'scq' | 'problem-solution';
 
-export type AudienceType =
-  | 'corporate-executive'
-  | 'technical-deep-dive'
-  | 'keynote-public'
-  | 'internal-team';
+export type AudienceType = 'corporate-executive' | 'technical-deep-dive' | 'keynote-public' | 'internal-team';
 
 export interface SectionSpec {
   sectionId: string;
@@ -79,12 +75,7 @@ export interface TransitionSpec {
   fromSlideId?: string;
 }
 
-export type TransitionType =
-  | 'supports'
-  | 'contrasts'
-  | 'zooms-in'
-  | 'answers'
-  | 'summarizes';
+export type TransitionType = 'supports' | 'contrasts' | 'zooms-in' | 'answers' | 'summarizes';
 
 export interface RenderBudget {
   /** Active in Phase A: CJK-aware word count warning via estimateWordCount() */
@@ -99,12 +90,7 @@ export interface RenderBudget {
 
 // ── Elements ─────────────────────────────────────────────
 
-export type SlideElement =
-  | TextElement
-  | ChartElement
-  | ImageElement
-  | TableElement
-  | KPIElement;
+export type SlideElement = TextElement | ChartElement | ImageElement | TableElement | KPIElement;
 
 export interface TextElement {
   type: 'text';
@@ -123,20 +109,9 @@ export interface ChartElement {
   hints?: Record<string, unknown>;
 }
 
-export type ChartType =
-  | 'area'
-  | 'bar'
-  | 'bar3d'
-  | 'doughnut'
-  | 'line'
-  | 'pie'
-  | 'radar'
-  | 'scatter';
+export type ChartType = 'area' | 'bar' | 'bar3d' | 'doughnut' | 'line' | 'pie' | 'radar' | 'scatter';
 
-export type ChartData =
-  | CategoricalChartData
-  | XYChartData
-  | BubbleChartData;
+export type ChartData = CategoricalChartData | XYChartData | BubbleChartData;
 
 export interface CategoricalChartData {
   chartProfile: 'categorical';
@@ -331,16 +306,61 @@ export interface LayoutCatalogEntry {
 
 export interface LayoutSlot {
   name: string;
-  type:
-    | 'title'
-    | 'subtitle'
-    | 'body'
-    | 'chart'
-    | 'image'
-    | 'table'
-    | 'icon'
-    | 'kpi-number'
-    | 'kpi-label'
-    | 'caption';
+  type: 'title' | 'subtitle' | 'body' | 'chart' | 'image' | 'table' | 'icon' | 'kpi-number' | 'kpi-label' | 'caption';
   position: { x: number; y: number; w: number; h: number };
+}
+
+// ── Research Layer Output ────────────────────────────────
+
+export interface ResearchOutput {
+  topic: string;
+  generatedAt: string;
+  sources: ResearchSource[];
+  findings: ResearchFinding[];
+  dataPoints: ResearchDataPoint[];
+}
+
+export interface ResearchSource {
+  id: string;
+  title: string;
+  url?: string;
+  type: 'web' | 'paper' | 'report';
+}
+
+export interface ResearchFinding {
+  id: string;
+  claim: string;
+  sourceIds: string[];
+  confidence: 'fact' | 'inference' | 'recommendation';
+}
+
+export interface ResearchDataPoint {
+  id: string;
+  label: string;
+  value: number | string;
+  unit?: string;
+  sourceId: string;
+}
+
+// ── Narrative Layer Output ───────────────────────────────
+
+export interface StorylineOutput {
+  framework: NarrativeFramework;
+  centralMessage: string;
+  sections: NarrativeSection[];
+}
+
+export interface NarrativeSection {
+  sectionId: string;
+  title: string;
+  purpose: string;
+  slides: NarrativeSlide[];
+}
+
+export interface NarrativeSlide {
+  slideId: string;
+  intent: SlideIntent;
+  keyMessage: string;
+  supportingPoints: string[];
+  suggestedDataViz?: 'chart' | 'table' | 'kpi' | 'text-only';
 }

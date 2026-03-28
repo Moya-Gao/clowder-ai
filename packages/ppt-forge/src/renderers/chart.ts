@@ -1,17 +1,14 @@
 import type {
+  BubbleChartData,
+  CategoricalChartData,
   ChartElement,
   ChartStyleTokens,
   LayoutSlot,
-  CategoricalChartData,
   XYChartData,
-  BubbleChartData,
 } from '../types.js';
 
 /** Map our chartType string to pptxgenjs charts enum value */
-function resolveChartType(
-  chartType: ChartElement['chartType'],
-  charts: Record<string, string>,
-): string {
+function resolveChartType(chartType: ChartElement['chartType'], charts: Record<string, string>): string {
   const map: Record<string, string> = {
     bar: charts.BAR,
     bar3d: charts.BAR3D,
@@ -27,26 +24,26 @@ function resolveChartType(
 
 /** Convert categorical data to pptxgenjs series format */
 function toCategoricalSeries(data: CategoricalChartData) {
-  return data.series.map(s => ({
+  return data.series.map((s) => ({
     name: s.name,
     labels: data.categories,
-    values: s.values.map(v => v ?? 0),
+    values: s.values.map((v) => v ?? 0),
   }));
 }
 
 /** Convert XY data to pptxgenjs scatter series format */
 function toXYSeries(data: XYChartData) {
-  return data.series.map(s => ({
+  return data.series.map((s) => ({
     name: s.name,
-    values: s.points.map(p => [p.x, p.y]),
+    values: s.points.map((p) => [p.x, p.y]),
   }));
 }
 
 /** Convert bubble data to pptxgenjs series format */
 function toBubbleSeries(data: BubbleChartData) {
-  return data.series.map(s => ({
+  return data.series.map((s) => ({
     name: s.name,
-    values: s.points.map(p => [p.x, p.y, p.size]),
+    values: s.points.map((p) => [p.x, p.y, p.size]),
   }));
 }
 
@@ -78,9 +75,7 @@ export function renderChart(
   }
 
   const seriesCount =
-    element.data.chartProfile === 'categorical'
-      ? element.data.series.length
-      : element.data.series.length;
+    element.data.chartProfile === 'categorical' ? element.data.series.length : element.data.series.length;
 
   slide.addChart(pptxChartType, series, {
     x: slot.position.x,

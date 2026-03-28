@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { beforeEach, describe, it } from 'node:test';
 import { renderText } from '../../src/renderers/text.js';
-import type { TextElement, SlideStyleTokens, LayoutSlot } from '../../src/types.js';
+import type { LayoutSlot, SlideStyleTokens, TextElement } from '../../src/types.js';
 
 /** Minimal mock that captures addText calls */
 function createMockSlide() {

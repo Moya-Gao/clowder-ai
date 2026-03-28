@@ -23,13 +23,10 @@ export function sanitizeHex(hex: string): string {
 }
 
 /** Validate that a slot exists in the layout */
-export function validateSlotExists(
-  slots: LayoutSlot[],
-  slotName: string,
-): LayoutSlot {
-  const slot = slots.find(s => s.name === slotName);
+export function validateSlotExists(slots: LayoutSlot[], slotName: string): LayoutSlot {
+  const slot = slots.find((s) => s.name === slotName);
   if (!slot) {
-    const available = slots.map(s => s.name).join(', ');
+    const available = slots.map((s) => s.name).join(', ');
     throw new Error(`Slot "${slotName}" not found. Available: ${available}`);
   }
   return slot;
@@ -51,15 +48,9 @@ export function estimateWordCount(text: string): number {
 }
 
 /** Check word count against render budget */
-export function validateWordCount(
-  text: string,
-  maxWords: number,
-  warnings: string[] = [],
-): void {
+export function validateWordCount(text: string, maxWords: number, warnings: string[] = []): void {
   const count = estimateWordCount(text);
   if (count > maxWords) {
-    warnings.push(
-      `Word count ~${count} exceeds budget ${maxWords} (text: "${text.slice(0, 40)}...")`,
-    );
+    warnings.push(`Word count ~${count} exceeds budget ${maxWords} (text: "${text.slice(0, 40)}...")`);
   }
 }

@@ -1,13 +1,7 @@
-import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { beforeEach, describe, it } from 'node:test';
 import { renderChart } from '../../src/renderers/chart.js';
-import type {
-  ChartElement,
-  CategoricalChartData,
-  XYChartData,
-  ChartStyleTokens,
-  LayoutSlot,
-} from '../../src/types.js';
+import type { CategoricalChartData, ChartElement, ChartStyleTokens, LayoutSlot, XYChartData } from '../../src/types.js';
 
 function createMockSlide() {
   const calls: { chartType: unknown; data: unknown; options: unknown }[] = [];

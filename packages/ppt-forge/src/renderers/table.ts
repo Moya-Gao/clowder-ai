@@ -1,4 +1,4 @@
-import type { TableElement, TableStyleTokens, LayoutSlot } from '../types.js';
+import type { LayoutSlot, TableElement, TableStyleTokens } from '../types.js';
 
 interface PptxTableCell {
   text: string;
@@ -31,7 +31,7 @@ export function renderTable(
   ];
 
   // Header row
-  const headerRow: PptxTableCell[] = element.headers.map(h => ({
+  const headerRow: PptxTableCell[] = element.headers.map((h) => ({
     text: h,
     options: {
       fill: style.headerBg,
@@ -47,7 +47,7 @@ export function renderTable(
   const dataRows: PptxTableCell[][] = element.rows.map((row, rowIdx) => {
     const defaultBg = rowIdx % 2 === 0 ? style.rowBg : style.rowAltBg;
 
-    return row.cells.map(cell => ({
+    return row.cells.map((cell) => ({
       text: cell.text,
       options: {
         fill: cell.bgColor ?? defaultBg,
@@ -66,9 +66,7 @@ export function renderTable(
     x: slot.position.x,
     y: slot.position.y,
     w: slot.position.w,
-    colW: Array(element.headers.length).fill(
-      slot.position.w / element.headers.length,
-    ),
+    colW: Array(element.headers.length).fill(slot.position.w / element.headers.length),
     rowH: 0.3,
     autoPage: false,
     margin: [2, 4, 2, 4],

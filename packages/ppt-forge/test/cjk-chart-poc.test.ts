@@ -1,7 +1,7 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { dirname, join } from 'node:path';
+import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { buildDeck } from '../src/slide-builder.js';
@@ -14,9 +14,7 @@ function loadFixture<T>(name: string): T {
 }
 
 function loadTheme(): ThemeTokens {
-  return JSON.parse(
-    readFileSync(join(__dirname, '..', 'src', 'themes', 'huawei-like.json'), 'utf-8'),
-  );
+  return JSON.parse(readFileSync(join(__dirname, '..', 'src', 'themes', 'huawei-like.json'), 'utf-8'));
 }
 
 describe('CJK Chart Font POC (release-gate P1)', () => {

@@ -1,0 +1,112 @@
+{
+  "framework": "pyramid",
+  "centralMessage": "AI Agent 2026：从实验到生产的转折年，$10.9B 市场正在重塑企业软件格局",
+  "sections": [
+    {
+      "sectionId": "sec-market",
+      "title": "市场全景",
+      "purpose": "建立市场规模与增速认知，回答'这个市场有多大'",
+      "slides": [
+        {
+          "slideId": "slide-market-kpi",
+          "intent": "data-insight",
+          "keyMessage": "2026 全球 AI Agent 市场 $10.9B，7 年后将膨胀至 $183B",
+          "supportingPoints": ["CAGR 49.6%（2026-2033）", "2025 基线 $7.6B → 2026 $10.9B（+43%）", "远期 2033 $183B"],
+          "suggestedDataViz": "kpi"
+        },
+        {
+          "slideId": "slide-market-chart",
+          "intent": "data-insight",
+          "keyMessage": "企业采用已跨越拐点：72% Global 2000 企业进入生产部署",
+          "supportingPoints": [
+            "79% 组织已采用 AI Agent",
+            "40% 企业应用将在年底集成 Agent（Gartner）",
+            "2025 年集成率不足 5% → 8 倍跃升"
+          ],
+          "suggestedDataViz": "chart"
+        }
+      ]
+    },
+    {
+      "sectionId": "sec-players",
+      "title": "竞争格局",
+      "purpose": "展示谁在领跑、创业公司估值泡沫有多大",
+      "slides": [
+        {
+          "slideId": "slide-players-table",
+          "intent": "comparison",
+          "keyMessage": "大厂 vs 创业公司：两条赛道并行",
+          "supportingPoints": [
+            "Google: Gemini + Vertex AI Agent Builder",
+            "Microsoft: 365 Copilot + Work IQ",
+            "Salesforce: Agentforce $2/对话，目标 10 亿 Agent"
+          ],
+          "suggestedDataViz": "table"
+        },
+        {
+          "slideId": "slide-players-kpi",
+          "intent": "data-insight",
+          "keyMessage": "头部创业公司估值已达天文数字",
+          "supportingPoints": [
+            "Cursor $29B（代码 Agent）",
+            "Sierra $10B（客服 Agent）",
+            "Glean $7.2B（企业搜索 Agent）",
+            "Cognition AI $2B（AI 软件工程师）"
+          ],
+          "suggestedDataViz": "kpi"
+        }
+      ]
+    },
+    {
+      "sectionId": "sec-industry",
+      "title": "行业渗透",
+      "purpose": "回答'哪些行业跑得最快，哪些还在观望'",
+      "slides": [
+        {
+          "slideId": "slide-industry-chart",
+          "intent": "data-insight",
+          "keyMessage": "电信（48%）与零售（47%）领跑，制造业紧随其后",
+          "supportingPoints": ["电信 48%", "零售/CPG 47%", "金融服务 ~40%", "医疗健康 ~30%"],
+          "suggestedDataViz": "chart"
+        }
+      ]
+    },
+    {
+      "sectionId": "sec-risk",
+      "title": "风险与治理",
+      "purpose": "平衡叙事——不只有乐观，也要看到刹车信号",
+      "slides": [
+        {
+          "slideId": "slide-risk-statement",
+          "intent": "key-statement",
+          "keyMessage": "Gartner 警告：40%+ Agentic AI 项目将在 2027 底前取消",
+          "supportingPoints": [
+            "成本失控是首因",
+            "业务价值不清晰",
+            "风险管控框架缺失",
+            "Governance 成熟度跟不上部署速度"
+          ],
+          "suggestedDataViz": "text-only"
+        }
+      ]
+    },
+    {
+      "sectionId": "sec-action",
+      "title": "行动建议",
+      "purpose": "给出可执行的下一步",
+      "slides": [
+        {
+          "slideId": "slide-action",
+          "intent": "summary",
+          "keyMessage": "三步走：选场景 → 建框架 → 控风险",
+          "supportingPoints": [
+            "1. 从电信/零售高采用率行业学习最佳实践",
+            "2. 建立 Agent Governance 框架（安全/审计/成本）",
+            "3. Pilot-to-Production 必须有 ROI 门禁，避免沦为 40% 取消项目"
+          ],
+          "suggestedDataViz": "text-only"
+        }
+      ]
+    }
+  ]
+}

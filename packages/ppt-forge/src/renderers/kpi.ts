@@ -8,9 +8,12 @@ const TREND_ARROWS: Record<string, string> = {
 
 function getTrendColor(trend: string, style: KPIStyleTokens): string {
   switch (trend) {
-    case 'up': return style.trendUp;
-    case 'down': return style.trendDown;
-    default: return style.trendFlat;
+    case 'up':
+      return style.trendUp;
+    case 'down':
+      return style.trendDown;
+    default:
+      return style.trendFlat;
   }
 }
 

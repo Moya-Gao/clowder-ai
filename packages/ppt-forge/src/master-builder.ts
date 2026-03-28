@@ -15,10 +15,7 @@ interface PptxPresentation {
  * Register slide masters from theme tokens into pptxgenjs presentation.
  * Each master sets background color — element styling is handled by renderers.
  */
-export function buildSlideMasters(
-  pres: PptxPresentation,
-  theme: ThemeTokens,
-): void {
+export function buildSlideMasters(pres: PptxPresentation, theme: ThemeTokens): void {
   pres.defineSlideMaster({
     title: MASTER_NAMES.COVER,
     background: { color: theme.slide.cover.bg },

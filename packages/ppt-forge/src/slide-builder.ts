@@ -25,31 +25,27 @@ interface PptxPresentation {
   writeFile(opts: { fileName: string }): Promise<string>;
 }
 
-import type {
-  DeckBlueprint,
-  ThemeTokens,
-  SlideSpec,
-  SlideElement,
-  TextElement,
-  TableElement,
-  ChartElement,
-  KPIElement,
-  SlideStyleTokens,
-} from './types.js';
 import { getLayout, getSlot } from './layouts.js';
 import { buildSlideMasters, intentToMaster } from './master-builder.js';
-import { renderText } from './renderers/text.js';
-import { renderTable } from './renderers/table.js';
 import { renderChart } from './renderers/chart.js';
 import { renderKPI } from './renderers/kpi.js';
-import { validateWordCount, validateHexColor } from './validators.js';
+import { renderTable } from './renderers/table.js';
+import { renderText } from './renderers/text.js';
+import type {
+  ChartElement,
+  DeckBlueprint,
+  KPIElement,
+  SlideElement,
+  SlideSpec,
+  SlideStyleTokens,
+  TableElement,
+  TextElement,
+  ThemeTokens,
+} from './types.js';
+import { validateHexColor, validateWordCount } from './validators.js';
 
 /** Collect all hex color values from a nested object, with dot-path keys */
-function collectHexFields(
-  obj: Record<string, unknown>,
-  prefix: string,
-  out: [string, string][],
-): void {
+function collectHexFields(obj: Record<string, unknown>, prefix: string, out: [string, string][]): void {
   for (const [key, val] of Object.entries(obj)) {
     const path = `${prefix}.${key}`;
     if (typeof val === 'string' && /^#?[0-9A-Fa-f]{3,8}$/.test(val)) {
@@ -82,10 +78,7 @@ function validateThemeColors(theme: ThemeTokens): void {
 }
 
 /** Resolve slide style tokens based on intent */
-function resolveSlideStyle(
-  intent: SlideSpec['intent'],
-  theme: ThemeTokens,
-): SlideStyleTokens {
+function resolveSlideStyle(intent: SlideSpec['intent'], theme: ThemeTokens): SlideStyleTokens {
   switch (intent) {
     case 'cover':
       return theme.slide.cover;
@@ -115,49 +108,26 @@ function renderElement(
   switch (element.type) {
     case 'text': {
       const textEl = element as TextElement;
-      validateWordCount(
-        textEl.content,
-        slideSpec.renderBudget.maxWords,
-        warnings,
-      );
+      validateWordCount(textEl.content, slideSpec.renderBudget.maxWords, warnings);
       renderText(slide, textEl, slot, style, fontFace);
       break;
     }
     case 'table': {
-      renderTable(
-        slide,
-        element as TableElement,
-        slot,
-        theme.slide.table,
-        fontFace,
-      );
+      renderTable(slide, element as TableElement, slot, theme.slide.table, fontFace);
       break;
     }
     case 'chart': {
-      renderChart(
-        slide,
-        element as ChartElement,
-        slot,
-        theme.slide.chart,
-        pres.charts,
-        fontFace,
-      );
+      renderChart(slide, element as ChartElement, slot, theme.slide.chart, pres.charts, fontFace);
       break;
     }
     case 'kpi': {
-      renderKPI(
-        slide,
-        element as KPIElement,
-        slot,
-        theme.slide.kpi,
-        fontFace,
-      );
+      renderKPI(slide, element as KPIElement, slot, theme.slide.kpi, fontFace);
       break;
     }
     case 'image': {
       throw new Error(
         `ImageElement "${element.slotName}" is not supported in Phase A. ` +
-        `Remove it from the blueprint or wait for Level 2.`,
+          `Remove it from the blueprint or wait for Level 2.`,
       );
     }
   }
@@ -167,10 +137,7 @@ function renderElement(
  * Build a complete pptxgenjs presentation from blueprint + theme.
  * Returns the PptxGenJS instance (call .writeFile() or .write() to export).
  */
-export function buildDeck(
-  blueprint: DeckBlueprint,
-  theme: ThemeTokens,
-): PptxPresentation {
+export function buildDeck(blueprint: DeckBlueprint, theme: ThemeTokens): PptxPresentation {
   // Validate theme colors at entry (P2: wire hex validation to product path)
   validateThemeColors(theme);
 

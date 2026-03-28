@@ -109,9 +109,11 @@ export function getLayout(layoutId: string): LayoutCatalogEntry {
 
 export function getSlot(layoutId: string, slotName: string) {
   const layout = getLayout(layoutId);
-  const slot = layout.slots.find(s => s.name === slotName);
+  const slot = layout.slots.find((s) => s.name === slotName);
   if (!slot) {
-    throw new Error(`Slot "${slotName}" not found in layout "${layoutId}". Available: ${layout.slots.map(s => s.name).join(', ')}`);
+    throw new Error(
+      `Slot "${slotName}" not found in layout "${layoutId}". Available: ${layout.slots.map((s) => s.name).join(', ')}`,
+    );
   }
   return slot;
 }

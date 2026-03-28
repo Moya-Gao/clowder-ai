@@ -1,0 +1,117 @@
+{
+  "topic": "AI Agent 2026 市场格局与技术趋势",
+  "generatedAt": "2026-03-27T23:30:00Z",
+  "sources": [
+    {
+      "id": "gvr",
+      "title": "Grand View Research — AI Agents Market Report 2033",
+      "url": "https://www.grandviewresearch.com/industry-analysis/ai-agents-market-report",
+      "type": "report"
+    },
+    {
+      "id": "fbi",
+      "title": "Fortune Business Insights — Agentic AI Market 2026-2034",
+      "url": "https://www.fortunebusinessinsights.com/agentic-ai-market-114233",
+      "type": "report"
+    },
+    {
+      "id": "gartner",
+      "title": "Gartner — 40% Enterprise Apps Will Include AI Agents by 2026",
+      "url": "https://joget.com/ai-agent-adoption-in-2026-what-the-analysts-data-shows/",
+      "type": "report"
+    },
+    {
+      "id": "nvidia",
+      "title": "NVIDIA Blog — State of AI Report 2026",
+      "url": "https://blogs.nvidia.com/blog/state-of-ai-report-2026/",
+      "type": "web"
+    },
+    {
+      "id": "fps",
+      "title": "First Page Sage — Top AI Agents by Market Share 2026",
+      "url": "https://firstpagesage.com/seo-blog/the-top-ai-agents-by-market-share/",
+      "type": "web"
+    },
+    {
+      "id": "warmly",
+      "title": "Warmly — 35+ AI Agents Statistics 2026",
+      "url": "https://www.warmly.ai/p/blog/ai-agents-statistics",
+      "type": "web"
+    },
+    {
+      "id": "openclaw",
+      "title": "OpenClaw — Enterprise Adoption March 2026",
+      "url": "https://insights.reinventing.ai/articles/openclaw-enterprise-adoption-march-2026-03-16",
+      "type": "web"
+    }
+  ],
+  "findings": [
+    {
+      "id": "f1",
+      "claim": "全球 AI Agent 市场 2026 年规模约 $10.9B，CAGR 49.6%，2033 年将达 $183B",
+      "sourceIds": ["gvr"],
+      "confidence": "fact"
+    },
+    {
+      "id": "f2",
+      "claim": "72% Global 2000 企业已将 AI Agent 从实验推进到生产环境",
+      "sourceIds": ["openclaw"],
+      "confidence": "fact"
+    },
+    {
+      "id": "f3",
+      "claim": "Gartner 预测 2026 年底 40% 企业应用将集成任务型 AI Agent（2025 年不足 5%）",
+      "sourceIds": ["gartner"],
+      "confidence": "fact"
+    },
+    { "id": "f4", "claim": "79% 组织已不同程度采用 AI Agent", "sourceIds": ["warmly"], "confidence": "fact" },
+    {
+      "id": "f5",
+      "claim": "电信行业 AI Agent 采用率最高 48%，零售/消费品紧随 47%",
+      "sourceIds": ["warmly"],
+      "confidence": "fact"
+    },
+    {
+      "id": "f6",
+      "claim": "Google Gemini 凭借搜索 + Android 生态网络效应占据市场份额领先",
+      "sourceIds": ["fps"],
+      "confidence": "inference"
+    },
+    {
+      "id": "f7",
+      "claim": "Cursor ($29B)、Sierra ($10B)、Glean ($7.2B) 为估值最高 AI Agent 创业公司",
+      "sourceIds": ["fps"],
+      "confidence": "fact"
+    },
+    {
+      "id": "f8",
+      "claim": "Gartner 预测 2027 年底前超 40% Agentic AI 项目将因成本失控或风险管控不足而取消",
+      "sourceIds": ["gartner"],
+      "confidence": "fact"
+    },
+    {
+      "id": "f9",
+      "claim": "2026 是 AI Agent 从实验到生产的转折年——pilot-to-production shift",
+      "sourceIds": ["openclaw", "nvidia"],
+      "confidence": "inference"
+    },
+    {
+      "id": "f10",
+      "claim": "Salesforce Agentforce 定价 $2/conversation，目标 FY2026 部署 10 亿 Agent",
+      "sourceIds": ["fps"],
+      "confidence": "fact"
+    }
+  ],
+  "dataPoints": [
+    { "id": "dp1", "label": "2026 全球 AI Agent 市场规模", "value": 10.9, "unit": "Billion USD", "sourceId": "gvr" },
+    { "id": "dp2", "label": "2033 预测市场规模", "value": 183, "unit": "Billion USD", "sourceId": "gvr" },
+    { "id": "dp3", "label": "CAGR (2026-2033)", "value": 49.6, "unit": "%", "sourceId": "gvr" },
+    { "id": "dp4", "label": "Global 2000 生产部署率", "value": 72, "unit": "%", "sourceId": "openclaw" },
+    { "id": "dp5", "label": "企业 Agent 采用率", "value": 79, "unit": "%", "sourceId": "warmly" },
+    { "id": "dp6", "label": "2026 底企业应用集成 Agent 占比", "value": 40, "unit": "%", "sourceId": "gartner" },
+    { "id": "dp7", "label": "电信行业采用率", "value": 48, "unit": "%", "sourceId": "warmly" },
+    { "id": "dp8", "label": "零售/消费品采用率", "value": 47, "unit": "%", "sourceId": "warmly" },
+    { "id": "dp9", "label": "Cursor 估值", "value": 29, "unit": "Billion USD", "sourceId": "fps" },
+    { "id": "dp10", "label": "Agentforce 单次对话定价", "value": 2, "unit": "USD", "sourceId": "fps" }
+  ]
+}

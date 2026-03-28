@@ -885,7 +885,7 @@
     {
       "id": "F144",
       "name": "PPT Forge — AI 演示文稿生成引擎",
-      "status": "spec | **Owner**: 三猫 | **Priority**: P2",
+      "status": "in-progress | **Owner**: 三猫 | **Priority**: P2",
       "file": "F144-ppt-forge.md"
     },
     {
@@ -895,5 +895,5 @@
       "file": "F145-mcp-portable-provisioning.md"
     }
   ],
-  "generated_at": "2026-03-28T04:31:48.508Z"
+  "generated_at": "2026-03-28T06:54:09.018Z"
 }

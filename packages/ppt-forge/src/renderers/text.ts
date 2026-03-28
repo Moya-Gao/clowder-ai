@@ -1,4 +1,4 @@
-import type { TextElement, SlideStyleTokens, LayoutSlot } from '../types.js';
+import type { LayoutSlot, SlideStyleTokens, TextElement } from '../types.js';
 
 interface TextSegment {
   text: string;
@@ -49,10 +49,7 @@ function parseMarkdownBold(
 }
 
 /** Resolve color + fontSize from theme based on slot type */
-function resolveSlotStyle(
-  slotType: LayoutSlot['type'],
-  style: SlideStyleTokens,
-): { color: string; fontSize: number } {
+function resolveSlotStyle(slotType: LayoutSlot['type'], style: SlideStyleTokens): { color: string; fontSize: number } {
   switch (slotType) {
     case 'title':
       return { color: style.titleColor, fontSize: style.titleFontSize };
