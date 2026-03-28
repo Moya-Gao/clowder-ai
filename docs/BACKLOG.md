@@ -59,4 +59,4 @@ created: 2026-02-26
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F139 | Unified Schedule Abstraction — 统一调度抽象 | in-progress | 布偶猫 | internal | [F139](features/F139-unified-schedule-abstraction.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | 布偶猫 | internal | [F143](features/F143-hostable-agent-runtime.md) |
-| F144 | PPT Forge — AI 演示文稿生成引擎 | spec | 三猫 | internal | [F144](features/F144-ppt-forge.md) |
+| F144 | PPT Forge — AI 演示文稿生成引擎 | in-progress | 三猫 | internal | [F144](features/F144-ppt-forge.md) |

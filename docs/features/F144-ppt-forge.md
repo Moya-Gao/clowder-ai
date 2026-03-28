@@ -8,7 +8,7 @@ created: 2026-03-27
 
 # F144: PPT Forge — AI 演示文稿生成引擎
 
-> **Status**: spec | **Owner**: 三猫 | **Priority**: P2
+> **Status**: in-progress | **Owner**: 三猫 | **Priority**: P2
 
 ## Why
 
@@ -124,13 +124,13 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 - [ ] AC-A2: Research 层产出 `research.md`，每个关键结论带来源引用，数据区分事实/推断/建议
 - [ ] AC-A3: Narrative 层产出 `storyline.md`，每页有明确"存在目的"
 - [ ] AC-A4: Blueprint 层产出 `deck.blueprint.json`，包含页数预算/layout/元素位/引用位
-- [ ] AC-A5: Style 层产出 `theme.tokens.json`，Design Token 三层体系（品牌→语义→Slide Master）
-- [ ] AC-A6: Export 层产出原生 .pptx，文字可编辑、可搜索、布局无溢出
+- [x] AC-A5: Style 层产出 `theme.tokens.json`，Design Token 三层体系（品牌→语义→Slide Master）
+- [x] AC-A6: Export 层产出原生 .pptx，文字可编辑、可搜索、布局无溢出
 - [ ] AC-A7: 企业风格模板（**huawei-like**）可用，信息密度达到华为参考图水平
 - [ ] AC-A8: 五道门禁全部嵌入管线（Research/Narrative/Blueprint/Export/Vision Gate）
-- [ ] AC-A9: 密排状态矩阵表格 — 单元格级颜色编码，可编辑
+- [x] AC-A9: 密排状态矩阵表格 — 单元格级颜色编码，可编辑
 - [ ] AC-A10: （Level 2 stretch / non-blocking）嵌套盒子架构图 — nested-box renderer，只矩形/圆角矩形/侧栏标签，最大 3 层，输入必须是树不是图，不做 connector/自动布线
-- [ ] AC-A11: CJK 图表字体 POC 通过（release-gate P1，不过则收紧支持矩阵）
+- [x] AC-A11: CJK 图表字体 POC 通过（release-gate P1，不过则收紧支持矩阵）
 - [ ] AC-A12: 生成的 .pptx 在 PPT 365 Win/Mac 打开无 repair 弹窗
 
 ### Phase B（风格模板库 + 高级布局 + 引擎化）
@@ -207,6 +207,7 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 | 2026-03-27 | GPT Pro 架构审阅（Mode B）：15 个发现，7 吸纳 / 8 defer / 1 pushback。砚砚确认综合分类 |
 | 2026-03-27 | 铲屎官决策：首发从 nvidia-like 改为 huawei-like（最大信息密度挑战）。提供 6 张华为 PPT 参考图 |
 | 2026-03-27 | Design Gate → writing-plans → 开干 |
+| 2026-03-27 | Phase A Level 1 骨架 merged (PR #810) — Export 层 + Blueprint V2 schema + huawei-like theme + 4 renderers + 48 tests |
 
 ## Review Gate
 
