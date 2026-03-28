@@ -118,4 +118,107 @@ describe('Dynamic Task Hydration', () => {
   test('unregister returns false for unknown task', () => {
     assert.equal(runner.unregister('nonexistent'), false);
   });
+
+  test('registerDynamic after start() schedules timer and executes task', async () => {
+    // Start runner with no tasks
+    runner.start();
+
+    // Track execution
+    let executed = false;
+
+    // Register a dynamic task AFTER start()
+    const spec = {
+      id: 'dyn-post-start',
+      profile: 'awareness',
+      trigger: { type: 'interval', ms: 50 },
+      admission: {
+        gate: async () => ({
+          run: true,
+          workItems: [{ subjectKey: 'test-subject', signal: 'hi' }],
+        }),
+      },
+      run: {
+        overlap: 'skip',
+        timeoutMs: 5000,
+        execute: async () => {
+          executed = true;
+        },
+      },
+      state: { runLedger: 'sqlite' },
+      outcome: { whenNoSignal: 'drop' },
+      enabled: () => true,
+    };
+    runner.registerDynamic(spec, 'dyn-post-start');
+
+    // Wait for at least one tick
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    assert.equal(executed, true, 'Task registered after start() must execute');
+
+    // Cleanup
+    runner.stop();
+  });
+
+  test('stop() resets started flag — registerDynamic after stop does not schedule', async () => {
+    runner.start();
+    runner.stop();
+
+    let executed = false;
+    const spec = {
+      id: 'dyn-after-stop',
+      profile: 'awareness',
+      trigger: { type: 'interval', ms: 50 },
+      admission: {
+        gate: async () => ({
+          run: true,
+          workItems: [{ subjectKey: 'test', signal: 'hi' }],
+        }),
+      },
+      run: {
+        overlap: 'skip',
+        timeoutMs: 5000,
+        execute: async () => { executed = true; },
+      },
+      state: { runLedger: 'sqlite' },
+      outcome: { whenNoSignal: 'drop' },
+      enabled: () => true,
+    };
+    runner.registerDynamic(spec, 'dyn-after-stop');
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.equal(executed, false, 'Task registered after stop() must NOT execute');
+  });
+
+  test('unregister immediately after registerDynamic prevents ghost execution', async () => {
+    runner.start();
+
+    let executed = false;
+    const spec = {
+      id: 'dyn-ghost',
+      profile: 'awareness',
+      trigger: { type: 'interval', ms: 50 },
+      admission: {
+        gate: async () => ({
+          run: true,
+          workItems: [{ subjectKey: 'test', signal: 'hi' }],
+        }),
+      },
+      run: {
+        overlap: 'skip',
+        timeoutMs: 5000,
+        execute: async () => { executed = true; },
+      },
+      state: { runLedger: 'sqlite' },
+      outcome: { whenNoSignal: 'drop' },
+      enabled: () => true,
+    };
+    runner.registerDynamic(spec, 'dyn-ghost');
+    // Immediately unregister — the 0ms initial tick is in the queue
+    runner.unregister('dyn-ghost');
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.equal(executed, false, 'Unregistered task must not ghost-execute');
+
+    runner.stop();
+  });
 });

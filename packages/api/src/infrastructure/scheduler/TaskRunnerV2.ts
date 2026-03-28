@@ -77,6 +77,8 @@ export class TaskRunnerV2 {
   private lastRunAt = new Map<string, number | null>();
   /** Phase 3A: track dynamic task IDs → DynamicTaskDef.id mapping */
   private dynamicTaskIds = new Map<string, string>();
+  /** True after start() has been called — used to auto-schedule late-registered tasks */
+  private started = false;
   private logger: TaskRunnerV2Options['logger'];
   private ledger: RunLedger;
   private actorResolver: TaskRunnerV2Options['actorResolver'];
@@ -106,6 +108,10 @@ export class TaskRunnerV2 {
   registerDynamic(task: AnyTaskSpec, dynamicDefId: string): void {
     this.register(task);
     this.dynamicTaskIds.set(task.id, dynamicDefId);
+    // If runner is already started, schedule timer immediately
+    if (this.started) {
+      this.scheduleTask(task);
+    }
   }
 
   /** Phase 3A: unregister a task by spec ID (stops timer if running) */
@@ -153,27 +159,35 @@ export class TaskRunnerV2 {
   }
 
   start(): void {
+    this.started = true;
     for (const task of this.tasks) {
-      if (this.timers.has(task.id)) continue;
-      this.running.set(task.id, false);
-      this.tickCounts.set(task.id, 0);
-      this.lastRunAt.set(task.id, null);
+      this.scheduleTask(task);
+    }
+  }
 
-      if (task.trigger.type === 'cron') {
-        this.scheduleCronTick(task);
-      } else {
-        const runTick = () => {
-          this.executePipeline(task).catch((err) => {
-            this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
-          });
-        };
-        // Fire first tick asynchronously, then start interval
-        setTimeout(runTick, 0);
-        const timer = setInterval(runTick, task.trigger.ms);
-        if (typeof timer === 'object' && 'unref' in timer) timer.unref();
-        this.timers.set(task.id, timer);
-        this.logger.info(`[scheduler] ${task.id}: registered (profile=${task.profile}, interval=${task.trigger.ms}ms)`);
-      }
+  /** Initialize tracking state and set up timer for a single task */
+  private scheduleTask(task: AnyTaskSpec): void {
+    if (this.timers.has(task.id)) return;
+    this.running.set(task.id, false);
+    this.tickCounts.set(task.id, 0);
+    this.lastRunAt.set(task.id, null);
+
+    if (task.trigger.type === 'cron') {
+      this.scheduleCronTick(task);
+    } else {
+      const runTick = () => {
+        // Guard: skip if task was unregistered before tick fires (防幽灵执行)
+        if (!this.timers.has(task.id)) return;
+        this.executePipeline(task).catch((err) => {
+          this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
+        });
+      };
+      // Fire first tick asynchronously, then start interval
+      setTimeout(runTick, 0);
+      const timer = setInterval(runTick, task.trigger.ms);
+      if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+      this.timers.set(task.id, timer);
+      this.logger.info(`[scheduler] ${task.id}: registered (profile=${task.profile}, interval=${task.trigger.ms}ms)`);
     }
   }
 
@@ -207,6 +221,7 @@ export class TaskRunnerV2 {
       this.logger.info(`[scheduler] ${id}: stopped`);
     }
     this.timers.clear();
+    this.started = false;
   }
 
   async triggerNow(taskId: string, opts?: { manual?: boolean }): Promise<void> {
