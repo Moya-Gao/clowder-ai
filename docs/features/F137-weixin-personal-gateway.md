@@ -449,6 +449,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-03-25 | F137 cleanup PR #744 merged — BUG-5 dead code removal + media receiving + P1/P2 review fixes (aes_key encoding + FILE empty guard)。砚砚 R6 放行 + 云端 Codex 0 P1/P2。AC 全部 ✅ |
 | 2026-03-25 | **F137 feat-close** — 愿景守护：布偶猫(opus) 三问 + 证物对照表全 ✅，缅因猫(gpt52) 独立验证放行。19/19 AC done。反思胶囊已写 |
 | 2026-03-26 | Hotfix: CDN domain NXDOMAIN — `filecdnweixin.weixin.qq.com` → `novac2c.cdn.weixin.qq.com/c2c`。修复图片/语音/文件上传+下载全链路。PR #763 squash merge (2deb9370) |
+| 2026-03-28 | 4 media bugs: aesKey base64url decode, WAV→SILK voice, html_widget plaintext fallback, HTTPS URL download for media_gallery。云端 R2 通过 → PR #813 squash merge |
 
 ## Review Gate
 
