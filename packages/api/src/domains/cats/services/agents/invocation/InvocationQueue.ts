@@ -25,6 +25,8 @@ export interface QueueEntry {
   intent: string;
   status: 'queued' | 'processing';
   createdAt: number;
+  /** Set when entry transitions to 'processing'. Used for stale-processing TTL. */
+  processingStartedAt?: number;
   /** F122B: auto-execute without waiting for steer/manual trigger */
   autoExecute: boolean;
   /** F122B: which cat initiated this entry (for A2A/multi_mention display) */
@@ -274,6 +276,7 @@ export class InvocationQueue {
     const first = q.find((e) => e.status === 'queued');
     if (!first) return null;
     first.status = 'processing';
+    first.processingStartedAt = Date.now();
     return { ...first };
   }
 
@@ -340,6 +343,7 @@ export class InvocationQueue {
     }
     if (!oldest) return null;
     oldest.entry.status = 'processing';
+    oldest.entry.processingStartedAt = Date.now();
     return { ...oldest.entry };
   }
 
@@ -414,14 +418,18 @@ export class InvocationQueue {
    * Cross-path dedup: checks processing + fresh queued agent entries.
    * Used by route-serial to prevent text-scan @mention when callback already dispatched.
    *
-   * 'processing' entries always block (actively executing).
-   * 'queued' entries only block if created within STALE_THRESHOLD_MS — fresh entries
+   * 'processing' entries block only if fresh (< STALE_PROCESSING_THRESHOLD_MS).
+   * Zombie processing entries (invocation hung without cleanup) are ignored to
+   * prevent permanent A2A routing deadlock.
+   *
+   * 'queued' entries only block if created within STALE_QUEUED_THRESHOLD_MS — fresh entries
    * are legitimate pending dispatches that tryAutoExecute will pick up.
    * Stale queued entries (older than threshold) are ignored — they may never execute
    * (tryAutoExecute can fail to start them if the slot stays busy), and blocking
    * on them causes permanent A2A deadlock.
    */
   static readonly STALE_QUEUED_THRESHOLD_MS = 60_000;
+  static readonly STALE_PROCESSING_THRESHOLD_MS = 600_000; // 10 minutes
 
   hasActiveOrQueuedAgentForCat(threadId: string, catId: string): boolean {
     const now = Date.now();
@@ -429,24 +437,64 @@ export class InvocationQueue {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
         if (e.source !== 'agent' || !e.targetCats.includes(catId)) continue;
-        if (
-          e.status === 'processing' ||
-          (e.status === 'queued' && now - e.createdAt < InvocationQueue.STALE_QUEUED_THRESHOLD_MS)
-        ) {
-          this.log?.info(
+
+        if (e.status === 'processing') {
+          // Use processingStartedAt (when the entry actually began processing),
+          // NOT createdAt (when it was enqueued). An entry may sit queued for a
+          // long time before being picked up — using createdAt would falsely
+          // expire it the moment it starts processing. (P1 fix per codex review)
+          const processingAge = now - (e.processingStartedAt ?? e.createdAt);
+          if (processingAge < InvocationQueue.STALE_PROCESSING_THRESHOLD_MS) {
+            this.log?.info(
+              {
+                threadId,
+                catId,
+                matchedEntry: {
+                  entryId: e.id,
+                  status: e.status,
+                  processingAgeMs: processingAge,
+                  userId: key.split(':')[1] ?? '',
+                },
+              },
+              '[DIAG] hasActiveOrQueuedAgentForCat hit',
+            );
+            return true;
+          }
+          // Stale processing — zombie defense
+          this.log?.warn(
             {
               threadId,
               catId,
               matchedEntry: {
                 entryId: e.id,
                 status: e.status,
-                ageMs: now - e.createdAt,
+                processingAgeMs: processingAge,
                 userId: key.split(':')[1] ?? '',
               },
             },
-            '[DIAG] hasActiveOrQueuedAgentForCat hit',
+            '[DIAG] hasActiveOrQueuedAgentForCat: ignoring stale processing entry (zombie defense)',
           );
-          return true;
+          continue;
+        }
+
+        if (e.status === 'queued') {
+          const queuedAge = now - e.createdAt;
+          if (queuedAge < InvocationQueue.STALE_QUEUED_THRESHOLD_MS) {
+            this.log?.info(
+              {
+                threadId,
+                catId,
+                matchedEntry: {
+                  entryId: e.id,
+                  status: e.status,
+                  queuedAgeMs: queuedAge,
+                  userId: key.split(':')[1] ?? '',
+                },
+              },
+              '[DIAG] hasActiveOrQueuedAgentForCat hit',
+            );
+            return true;
+          }
         }
       }
     }
@@ -460,6 +508,7 @@ export class InvocationQueue {
       const entry = q.find((e) => e.id === entryId && e.status === 'queued');
       if (entry) {
         entry.status = 'processing';
+        entry.processingStartedAt = Date.now();
         return true;
       }
     }
