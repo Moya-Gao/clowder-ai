@@ -89,7 +89,12 @@ const PROVIDER_WRITERS = {
 } as const;
 
 /** Check if a descriptor has a usable transport (stdio command, local resolver, or streamableHttp URL). */
-function hasUsableTransport(desc: { command?: string; resolver?: string; transport?: string; url?: string }): boolean {
+export function hasUsableTransport(desc: {
+  command?: string;
+  resolver?: string;
+  transport?: string;
+  url?: string;
+}): boolean {
   if (desc.transport === 'streamableHttp') {
     return typeof desc.url === 'string' && desc.url.trim().length > 0;
   }
@@ -97,6 +102,56 @@ function hasUsableTransport(desc: { command?: string; resolver?: string; transpo
     return true;
   }
   return typeof desc.command === 'string' && desc.command.trim().length > 0;
+}
+
+export interface RequiredMcpStatus {
+  id: string;
+  status: 'ready' | 'missing' | 'unresolved';
+  reason: string;
+}
+
+export async function resolveRequiredMcpStatus(
+  mcpId: string,
+  options: {
+    capabilities?: CapabilitiesConfig | null;
+    env?: NodeJS.ProcessEnv;
+  } = {},
+): Promise<RequiredMcpStatus> {
+  const capability = options.capabilities?.capabilities?.find((entry) => entry.id === mcpId && entry.type === 'mcp');
+  if (!capability || capability.enabled === false || !capability.mcpServer) {
+    return {
+      id: mcpId,
+      status: 'missing',
+      reason:
+        capability?.enabled === false
+          ? 'declared but disabled in capabilities.json'
+          : 'not declared in capabilities.json',
+    };
+  }
+
+  if (capability.mcpServer.resolver === 'pencil') {
+    const resolved = await resolvePencilCommand({ env: options.env });
+    return resolved
+      ? { id: mcpId, status: 'ready', reason: `resolved via ${resolved.args?.[1] ?? 'resolver'}` }
+      : { id: mcpId, status: 'unresolved', reason: 'resolver declared but no local Pencil installation found' };
+  }
+
+  if (hasUsableTransport(capability.mcpServer)) {
+    return {
+      id: mcpId,
+      status: 'ready',
+      reason:
+        capability.mcpServer.transport === 'streamableHttp'
+          ? `remote ${capability.mcpServer.url?.trim() ?? ''}`.trim()
+          : `stdio ${capability.mcpServer.command?.trim() ?? ''}`.trim(),
+    };
+  }
+
+  return {
+    id: mcpId,
+    status: 'unresolved',
+    reason: 'declared but missing usable command/url',
+  };
 }
 
 type DiscoveredMcpLike = Pick<McpServerDescriptor, 'name' | 'enabled' | 'transport'>;

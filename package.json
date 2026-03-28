@@ -55,6 +55,7 @@
     "check:features": "node scripts/check-feature-truth.mjs",
     "audit:feature-docs": "node scripts/audit-feature-doc-template.mjs",
     "check:skills": "bash scripts/check-skills-mount.sh",
+    "mcp:doctor": "node scripts/mcp-doctor.mjs",
     "sync:skills": "bash scripts/sync-skills.sh",
     "rescue:claude:thinking": "node ./scripts/rescue-claude-thinking-signature.mjs",
     "proxy:anthropic": "node ./scripts/anthropic-proxy.mjs",
@@ -65,7 +66,8 @@
     "@biomejs/biome": "^2.4.1",
     "@types/node": "^20.11.0",
     "dependency-cruiser": "^17.3.8",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "yaml": "^2.8.1"
   },
   "engines": {
     "node": ">=20.0.0",

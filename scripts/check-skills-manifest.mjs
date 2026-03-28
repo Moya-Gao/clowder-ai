@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-
-const requireFromApi = createRequire(new URL('../packages/api/package.json', import.meta.url));
-const { parse: parseYaml } = requireFromApi('yaml');
+import {
+  collectSkillRequirements,
+  loadCapabilitiesConfig,
+  loadManifestSkills,
+  resolveRequiredMcpStatus,
+} from './lib/mcp-health.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = resolve(scriptDir, '..');
@@ -33,12 +35,11 @@ function loadManifest() {
   if (!existsSync(manifestPath)) {
     throw new Error(`Manifest not found: ${manifestPath}`);
   }
-  const raw = readFileSync(manifestPath, 'utf-8');
-  const parsed = parseYaml(raw) ?? {};
-  if (!parsed.skills || typeof parsed.skills !== 'object') {
+  const skills = loadManifestSkills(repoRoot);
+  if (!skills || typeof skills !== 'object' || Object.keys(skills).length === 0) {
     throw new Error('manifest.yaml missing top-level "skills" map');
   }
-  return parsed;
+  return { skills };
 }
 
 function loadRosterHandles() {
@@ -80,6 +81,15 @@ function lintManifestStructure(skillsMap) {
     const output = asString(entry.output).trim();
     if (!output) {
       errors.push(`[manifest] skills.${skillName}.output must be a non-empty string`);
+    }
+
+    const requiresMcp = entry.requires_mcp;
+    if (requiresMcp !== undefined) {
+      if (!Array.isArray(requiresMcp)) {
+        errors.push(`[manifest] skills.${skillName}.requires_mcp must be an array of MCP ids`);
+      } else if (requiresMcp.some((value) => typeof value !== 'string' || !value.trim())) {
+        errors.push(`[manifest] skills.${skillName}.requires_mcp contains non-string/empty MCP id`);
+      }
     }
 
     if (!Array.isArray(entry.next)) {
@@ -145,22 +155,47 @@ function lintHardcodedHandles(skillsMap, handles) {
   return errors;
 }
 
-function lintManifest() {
+async function collectMcpWarnings(skillsMap) {
+  const warnings = [];
+  const capabilities = loadCapabilitiesConfig(repoRoot);
+  const requirements = collectSkillRequirements(skillsMap);
+  const cache = new Map();
+
+  for (const [skillName, mcpIds] of requirements.entries()) {
+    for (const mcpId of mcpIds) {
+      if (!cache.has(mcpId)) {
+        cache.set(mcpId, await resolveRequiredMcpStatus(repoRoot, mcpId, { capabilities, env: process.env }));
+      }
+      const dependency = cache.get(mcpId);
+      if (dependency.status === 'ready') continue;
+      warnings.push(
+        `[requires_mcp] ${skillName} -> ${mcpId}: ${dependency.status}${dependency.reason ? ` (${dependency.reason})` : ''}`,
+      );
+    }
+  }
+
+  return warnings;
+}
+
+async function lintManifest() {
   const parsed = loadManifest();
   const skillsMap = parsed.skills;
   const handles = loadRosterHandles();
 
   const errors = [...lintManifestStructure(skillsMap), ...lintHardcodedHandles(skillsMap, handles)];
+  const warnings = await collectMcpWarnings(skillsMap);
 
   return {
     skillCount: Object.keys(skillsMap).length,
     errorCount: errors.length,
+    warningCount: warnings.length,
     errors,
+    warnings,
   };
 }
 
 try {
-  const result = lintManifest();
+  const result = await lintManifest();
   if (result.errorCount > 0) {
     console.error(`FAIL check-skills-manifest: ${result.errorCount} issue(s) found`);
     for (const error of result.errors) {
@@ -170,6 +205,12 @@ try {
   }
 
   console.log(`PASS check-skills-manifest: ${result.skillCount} skills validated`);
+  if (result.warningCount > 0) {
+    console.log(`WARN check-skills-manifest: ${result.warningCount} advisory issue(s) found`);
+    for (const warning of result.warnings) {
+      console.log(`  - ${warning}`);
+    }
+  }
   process.exit(0);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);

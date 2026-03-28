@@ -63,7 +63,7 @@ created: 2026-03-27
    - 看板显示"skill 已挂但 backend 未就绪"
 
 2. **Bootstrap doctor**：
-   - `pnpm doctor` 或 `install.sh` 新增 `resolve-mcp` 步骤
+   - `pnpm mcp:doctor` 输出 MCP 就绪报告
    - 输出 ready/missing/unresolved 报告
    - 不能自动安装的宿主软件（如 Antigravity / VS Code 本体），给出一条明确安装指引
 
@@ -82,8 +82,8 @@ created: 2026-03-27
 - [ ] AC-B1: `manifest.yaml` 支持 `requires_mcp` 字段
 - [ ] AC-B2: `check:skills` 对 missing/unresolved MCP 报 warning
 - [ ] AC-B3: 看板能显示 skill 的 MCP 依赖就绪状态
-- [ ] AC-B4: `pnpm doctor` 输出 ready/missing/unresolved 报告
-- [ ] AC-B5: 新机器 clone + `pnpm install && pnpm doctor` 后，报告准确反映本机 MCP 状态
+- [ ] AC-B4: `pnpm mcp:doctor` 输出 ready/missing/unresolved 报告
+- [ ] AC-B5: 新机器 clone + `pnpm install && pnpm mcp:doctor` 后，报告准确反映本机 MCP 状态
 
 ## Dependencies
 
@@ -114,6 +114,7 @@ created: 2026-03-27
 | KD-2 | resolver 加在 McpServerDescriptor 上，不做 discriminated union | 最小侵入；discriminated union 会影响所有 mcpServer.command 消费者 | 2026-03-27 |
 | KD-3 | env override（PENCIL_MCP_BIN）优先级最高 | 显式覆盖本来就是拿来打破自动决策的 | 2026-03-27 |
 | KD-4 | browser-automation 的非 Playwright 路径不依赖本 feature | agent-browser/playwriter/pinchtab 不是标准 MCP，各自按需接入 | 2026-03-27 |
+| KD-5 | Doctor 入口命名为 `pnpm mcp:doctor`，不使用 `pnpm doctor` | `pnpm doctor` 与 pnpm 内建命令冲突，必须选一个不会误触 builtin 的真实入口 | 2026-03-27 |
 
 ## Timeline
 

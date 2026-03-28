@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -54,6 +54,10 @@ function writeBaseFixture(root) {
 
 function runChecker(root) {
   return execFileSync('node', [SCRIPT, root], { encoding: 'utf-8' });
+}
+
+function runCheckerDetailed(root, env = {}) {
+  return spawnSync('node', [SCRIPT, root], { encoding: 'utf-8', env: { ...process.env, ...env } });
 }
 
 describe('check-skills-manifest.mjs', () => {
@@ -126,5 +130,84 @@ describe('check-skills-manifest.mjs', () => {
     );
 
     assert.throws(() => runChecker(sandboxRoot), /manifest|skill-z|failed|error/i);
+  });
+
+  it('warns when requires_mcp dependency is missing but does not fail manifest validation', () => {
+    const manifestPath = join(sandboxRoot, 'cat-cafe-skills', 'manifest.yaml');
+    const updated = [
+      'skills:',
+      '  skill-a:',
+      '    triggers: ["do a"]',
+      '    not_for: ["skip a"]',
+      '    output: "done a"',
+      '    next: ["skill-b"]',
+      '    requires_mcp: ["pencil"]',
+      '  skill-b:',
+      '    triggers: ["do b"]',
+      '    not_for: ["skip b"]',
+      '    output: "done b"',
+      '    next: []',
+      '',
+    ].join('\n');
+    writeFileSync(manifestPath, updated, 'utf-8');
+
+    const result = runCheckerDetailed(sandboxRoot);
+    assert.equal(result.status, 0, `checker should not fail on missing MCP dependency: ${result.stderr}`);
+    assert.match(result.stdout, /WARN/i);
+    assert.match(result.stdout, /skill-a/i);
+    assert.match(result.stdout, /pencil/i);
+  });
+
+  it('stays clean when requires_mcp dependency is ready', () => {
+    const fakeBin = join(sandboxRoot, 'fake-pencil-bin');
+    writeFileSync(fakeBin, '#!/bin/sh\nexit 0\n', 'utf-8');
+
+    const manifestPath = join(sandboxRoot, 'cat-cafe-skills', 'manifest.yaml');
+    const updated = [
+      'skills:',
+      '  skill-a:',
+      '    triggers: ["do a"]',
+      '    not_for: ["skip a"]',
+      '    output: "done a"',
+      '    next: ["skill-b"]',
+      '    requires_mcp: ["pencil"]',
+      '  skill-b:',
+      '    triggers: ["do b"]',
+      '    not_for: ["skip b"]',
+      '    output: "done b"',
+      '    next: []',
+      '',
+    ].join('\n');
+    writeFileSync(manifestPath, updated, 'utf-8');
+
+    mkdirSync(join(sandboxRoot, '.cat-cafe'), { recursive: true });
+    writeFileSync(
+      join(sandboxRoot, '.cat-cafe', 'capabilities.json'),
+      JSON.stringify(
+        {
+          version: 1,
+          capabilities: [
+            {
+              id: 'pencil',
+              type: 'mcp',
+              enabled: true,
+              source: 'external',
+              mcpServer: {
+                resolver: 'pencil',
+                command: '',
+                args: [],
+              },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+
+    const result = runCheckerDetailed(sandboxRoot, { PENCIL_MCP_BIN: fakeBin, PENCIL_MCP_APP: 'vscode' });
+    assert.equal(result.status, 0, `checker should pass when MCP dependency is ready: ${result.stderr}`);
+    assert.doesNotMatch(result.stdout, /WARN/i);
   });
 });

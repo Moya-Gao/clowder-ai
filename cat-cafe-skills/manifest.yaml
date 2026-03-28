@@ -379,6 +379,8 @@ skills:
     not_for:
       - "纯代码无设计"
     output: ".pen file or React/Tailwind component"
+    requires_mcp:
+      - "pencil"
     next: []
     sop_step: null
     merged_from: ["pencil-to-code", "pencil-renderer"]
@@ -506,6 +508,8 @@ skills:
       - "本地 WebApp 确定性测试（用 webapp-testing）"
       - "简单网页抓取/搜索"
     output: "Browser backend choice + execution path + evidence/result"
+    requires_mcp:
+      - "playwright"
     next: []
     sop_step: null
     merged_from: null
