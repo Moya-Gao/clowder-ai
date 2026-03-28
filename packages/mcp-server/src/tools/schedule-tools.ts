@@ -91,10 +91,20 @@ export async function handleRegisterScheduledTask(input: {
   let params: Record<string, unknown> = {};
   if (input.params) {
     try {
-      params = JSON.parse(input.params);
+      const parsed: unknown = JSON.parse(input.params);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return errorResult('Invalid params JSON — must be a JSON object (not null, array, or primitive)');
+      }
+      params = parsed as Record<string, unknown>;
     } catch {
       return errorResult('Invalid params JSON — must be a valid JSON object');
     }
+  }
+
+  // Auto-inject current cat's ID so reminder tasks wake the registering cat, not default opus
+  const currentCatId = process.env['CAT_CAFE_CAT_ID'];
+  if (!params.targetCatId && currentCatId) {
+    params.targetCatId = currentCatId;
   }
 
   const body: Record<string, unknown> = {
@@ -104,6 +114,7 @@ export async function handleRegisterScheduledTask(input: {
   };
 
   if (input.deliveryThreadId) body.deliveryThreadId = input.deliveryThreadId;
+  if (currentCatId) body.createdBy = currentCatId;
 
   if (input.label || input.category || input.description) {
     body.display = {

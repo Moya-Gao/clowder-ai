@@ -11,9 +11,11 @@ export const reminderTemplate: TaskTemplate = {
   defaultTrigger: { type: 'cron', expression: '0 9 * * *' },
   paramSchema: {
     message: { type: 'string', required: true, description: '提醒内容' },
+    targetCatId: { type: 'string', required: false, description: '唤醒哪只猫处理（默认当前注册的猫）' },
   },
   createSpec(instanceId: string, p: DynamicTaskParams): TaskSpec_P1 {
     const message = (p.params.message as string) || '定时提醒';
+    const targetCatId = (p.params.targetCatId as string) || null;
     const threadId = p.deliveryThreadId;
     return {
       id: instanceId,
@@ -31,7 +33,7 @@ export const reminderTemplate: TaskTemplate = {
         async execute(_signal, subjectKey, ctx) {
           if (!ctx.deliver) throw new Error('deliver not available');
           const tid = subjectKey.startsWith('thread-') ? subjectKey.slice(7) : subjectKey;
-          const catId = ctx.assignedCatId ?? 'opus';
+          const catId = targetCatId ?? ctx.assignedCatId ?? 'opus';
           const content = `[定时任务] ${message}`;
 
           // Store trigger message first → real messageId for InvocationRecord + retry

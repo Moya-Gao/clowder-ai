@@ -69,6 +69,40 @@ describe('reminderTemplate', () => {
     );
   });
 
+  it('execute uses targetCatId param over assignedCatId fallback', async () => {
+    const deliverMock = mock.fn(async () => 'msg-target');
+    const triggerMock = { trigger: mock.fn() };
+    const spec = reminderTemplate.createSpec('rem-target', {
+      trigger: { type: 'interval', ms: 180_000 },
+      params: { message: '巡查新闻', targetCatId: 'gpt52' },
+      deliveryThreadId: 'th-target',
+    });
+    await spec.run.execute('巡查新闻', 'thread-th-target', {
+      assignedCatId: null,
+      deliver: deliverMock,
+      invokeTrigger: triggerMock,
+    });
+    // invokeTrigger should be called with gpt52, not opus
+    assert.equal(triggerMock.trigger.mock.calls.length, 1);
+    assert.equal(triggerMock.trigger.mock.calls[0].arguments[1], 'gpt52');
+  });
+
+  it('execute falls back to assignedCatId when no targetCatId', async () => {
+    const deliverMock = mock.fn(async () => 'msg-assigned');
+    const triggerMock = { trigger: mock.fn() };
+    const spec = reminderTemplate.createSpec('rem-assigned', {
+      trigger: { type: 'interval', ms: 180_000 },
+      params: { message: '巡查新闻' },
+      deliveryThreadId: 'th-assigned',
+    });
+    await spec.run.execute('巡查新闻', 'thread-th-assigned', {
+      assignedCatId: 'sonnet',
+      deliver: deliverMock,
+      invokeTrigger: triggerMock,
+    });
+    assert.equal(triggerMock.trigger.mock.calls[0].arguments[1], 'sonnet');
+  });
+
   it('uses default message when param is empty', async () => {
     const deliverMock = mock.fn(async () => 'msg-3');
     const spec = reminderTemplate.createSpec('rem-6', {

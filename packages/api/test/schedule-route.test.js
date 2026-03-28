@@ -282,6 +282,86 @@ describe('Schedule Routes', () => {
     });
   });
 
+  describe('POST /api/schedule/tasks — targetCatId flows through to reminder execute', () => {
+    let appDyn;
+
+    beforeEach(async () => {
+      const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
+      const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
+      const { scheduleRoutes: sr } = await import('../dist/routes/schedule.js');
+      const store = new DynamicTaskStore(db);
+      appDyn = Fastify({ logger: false });
+      await appDyn.register(sr, { taskRunner: runner, dynamicTaskStore: store, templateRegistry });
+      await appDyn.ready();
+    });
+
+    afterEach(async () => {
+      runner.stop();
+      await appDyn.close();
+    });
+
+    it('reminder registered with targetCatId=gpt52 wakes gpt52 not opus', async () => {
+      // Register with explicit targetCatId
+      const triggerCalls = [];
+      const mockDeliver = async () => 'msg-e2e';
+      const mockInvokeTrigger = { trigger: (...args) => triggerCalls.push(args) };
+
+      // Re-create runner with deliver + invokeTrigger so execute can run
+      const { TaskRunnerV2 } = await import('../dist/infrastructure/scheduler/TaskRunnerV2.js');
+      const runnerWithDeps = new TaskRunnerV2({
+        logger: silentLogger,
+        ledger,
+        deliver: mockDeliver,
+        invokeTrigger: mockInvokeTrigger,
+      });
+
+      const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
+      const template = templateRegistry.get('reminder');
+      const spec = template.createSpec('e2e-cat-routing', {
+        trigger: { type: 'interval', ms: 999999 },
+        params: { message: '巡查新闻', targetCatId: 'gpt52' },
+        deliveryThreadId: 'th-e2e',
+      });
+      runnerWithDeps.register(spec);
+
+      await runnerWithDeps.triggerNow('e2e-cat-routing');
+
+      // Verify invokeTrigger was called with gpt52
+      assert.equal(triggerCalls.length, 1, 'invokeTrigger should be called once');
+      assert.equal(triggerCalls[0][1], 'gpt52', 'should wake gpt52, not opus');
+      runnerWithDeps.stop();
+    });
+
+    it('reminder without targetCatId falls back to opus (backwards compat)', async () => {
+      const triggerCalls = [];
+      const mockDeliver = async () => 'msg-e2e-2';
+      const mockInvokeTrigger = { trigger: (...args) => triggerCalls.push(args) };
+
+      const { TaskRunnerV2 } = await import('../dist/infrastructure/scheduler/TaskRunnerV2.js');
+      const runnerNoCat = new TaskRunnerV2({
+        logger: silentLogger,
+        ledger,
+        deliver: mockDeliver,
+        invokeTrigger: mockInvokeTrigger,
+      });
+
+      const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
+      const template = templateRegistry.get('reminder');
+      const spec = template.createSpec('e2e-fallback', {
+        trigger: { type: 'interval', ms: 999999 },
+        params: { message: '默认猫' },
+        deliveryThreadId: 'th-e2e-2',
+      });
+      runnerNoCat.register(spec);
+
+      await runnerNoCat.triggerNow('e2e-fallback');
+
+      assert.equal(triggerCalls.length, 1);
+      assert.equal(triggerCalls[0][1], 'opus', 'should fall back to opus when no targetCatId');
+      runnerNoCat.stop();
+    });
+  });
+
   describe('PATCH /api/schedule/tasks/:id (P1-2: runtime pause/resume)', () => {
     let appDyn, store;
 

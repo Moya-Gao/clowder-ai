@@ -118,9 +118,10 @@ export class TaskRunnerV2 {
   registerDynamic(task: AnyTaskSpec, dynamicDefId: string): void {
     this.register(task);
     this.dynamicTaskIds.set(task.id, dynamicDefId);
-    // If runner is already started, schedule timer immediately
+    // If runner is already started, schedule timer immediately — but defer first tick
+    // so that user-registered tasks don't fire at t=0 (bug: "注册上就出触发了")
     if (this.started) {
-      this.scheduleTask(task);
+      this.scheduleTask(task, /* deferFirstTick */ true);
     }
   }
 
@@ -175,8 +176,11 @@ export class TaskRunnerV2 {
     }
   }
 
-  /** Initialize tracking state and set up timer for a single task */
-  private scheduleTask(task: AnyTaskSpec): void {
+  /**
+   * Initialize tracking state and set up timer for a single task.
+   * @param deferFirstTick - when true, skip the immediate first tick (for live-registered dynamic tasks)
+   */
+  private scheduleTask(task: AnyTaskSpec, deferFirstTick = false): void {
     if (this.timers.has(task.id)) return;
     this.running.set(task.id, false);
     this.tickCounts.set(task.id, 0);
@@ -192,8 +196,10 @@ export class TaskRunnerV2 {
           this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
         });
       };
-      // Fire first tick asynchronously, then start interval
-      setTimeout(runTick, 0);
+      if (!deferFirstTick) {
+        // Boot: fire first tick immediately for pollers that need to check pending work
+        setTimeout(runTick, 0);
+      }
       const timer = setInterval(runTick, task.trigger.ms);
       if (typeof timer === 'object' && 'unref' in timer) timer.unref();
       this.timers.set(task.id, timer);

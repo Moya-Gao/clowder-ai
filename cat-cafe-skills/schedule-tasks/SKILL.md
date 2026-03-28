@@ -51,7 +51,7 @@ triggers:
 
 | 模板 | 用途 | 关键参数 |
 |------|------|----------|
-| `reminder` | 定时提醒（唤醒猫处理提醒内容） | `message`: 提醒内容 |
+| `reminder` | 定时提醒（唤醒猫处理提醒内容） | `message`: 提醒内容, `targetCatId`: 唤醒哪只猫（MCP 自动注入当前猫 ID，通常不需手动填） |
 | `web-digest` | 网页摘要（定时抓取网页并总结） | `url`: 目标网页, `topic`: 关注主题 |
 | `repo-activity` | 仓库动态（追踪 GitHub repo 新 issue/PR） | `repo`: owner/repo |
 

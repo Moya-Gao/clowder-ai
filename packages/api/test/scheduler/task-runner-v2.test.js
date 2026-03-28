@@ -366,6 +366,92 @@ describe('TaskRunnerV2', () => {
   });
 });
 
+describe('TaskRunnerV2 — dynamic task first-tick deferral', () => {
+  let db, ledger;
+  const noop = () => {};
+  const silentLogger = { info: noop, error: noop };
+
+  beforeEach(async () => {
+    db = new Database(':memory:');
+    const { applyMigrations } = await import('../../dist/domains/memory/schema.js');
+    const { RunLedger } = await import('../../dist/infrastructure/scheduler/RunLedger.js');
+    applyMigrations(db);
+    ledger = new RunLedger(db);
+  });
+
+  it('registerDynamic while runner started does NOT fire immediately (interval task)', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runner = new TaskRunnerV2({ logger: silentLogger, ledger });
+    let executeCount = 0;
+
+    // Start the runner first (no tasks yet)
+    runner.start();
+
+    // Now register a dynamic task with a long interval
+    runner.registerDynamic(
+      {
+        id: 'deferred-test',
+        profile: 'awareness',
+        trigger: { type: 'interval', ms: 60_000 },
+        admission: {
+          gate: async () => ({ run: true, workItems: [{ signal: 'go', subjectKey: 'k' }] }),
+        },
+        run: {
+          overlap: 'skip',
+          timeoutMs: 5000,
+          execute: async () => {
+            executeCount++;
+          },
+        },
+        state: { runLedger: 'sqlite' },
+        outcome: { whenNoSignal: 'drop' },
+        enabled: () => true,
+      },
+      'dyn-def-1',
+    );
+
+    // Wait enough for setTimeout(0) to fire if it were scheduled
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.equal(executeCount, 0, 'dynamic task should NOT fire immediately upon registration');
+    runner.stop();
+  });
+
+  it('start() still fires built-in tasks immediately (backwards compat)', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runner = new TaskRunnerV2({ logger: silentLogger, ledger });
+    let executeCount = 0;
+
+    // Register task BEFORE start (simulates boot-time built-in registration)
+    runner.register({
+      id: 'builtin-test',
+      profile: 'poller',
+      trigger: { type: 'interval', ms: 60_000 },
+      admission: {
+        gate: async () => ({ run: true, workItems: [{ signal: 'go', subjectKey: 'k' }] }),
+      },
+      run: {
+        overlap: 'skip',
+        timeoutMs: 5000,
+        execute: async () => {
+          executeCount++;
+        },
+      },
+      state: { runLedger: 'sqlite' },
+      outcome: { whenNoSignal: 'drop' },
+      enabled: () => true,
+    });
+
+    runner.start();
+
+    // Wait for setTimeout(0) to fire
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.equal(executeCount, 1, 'built-in task should fire immediately on start()');
+    runner.stop();
+  });
+});
+
 describe('TaskRunnerV2 — self-echo suppression (AC-D2)', () => {
   let db, ledger, emissionStore;
   const noop = () => {};
