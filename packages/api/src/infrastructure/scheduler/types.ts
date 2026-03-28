@@ -85,6 +85,26 @@ export interface FetchResult {
   truncated: boolean;
 }
 
+/** Minimal trigger policy for scheduled invocations */
+export interface ScheduleTriggerPolicy {
+  readonly priority?: 'urgent' | 'normal';
+  readonly reason?: string;
+  readonly suggestedSkill?: string;
+}
+
+/** Fire-and-forget cat invocation trigger — subset of ConnectorInvokeTrigger */
+export interface ScheduleInvokeTrigger {
+  trigger(
+    threadId: string,
+    catId: string,
+    userId: string,
+    message: string,
+    messageId: string,
+    contentBlocks?: readonly unknown[],
+    policy?: ScheduleTriggerPolicy,
+  ): void;
+}
+
 /** Phase 1b+2: context passed to execute — carries actor resolution + context spec */
 export interface ExecuteContext {
   /** Cat resolved by ActorResolver, or null if no actor spec / no match */
@@ -95,6 +115,8 @@ export interface ExecuteContext {
   deliver?: (opts: DeliverOpts) => Promise<string>;
   /** Phase 4: fetch web content with browser-automation routing */
   fetchContent?: (url: string) => Promise<FetchResult>;
+  /** Phase 4b: invoke a cat to handle a scheduled task (fire-and-forget) */
+  invokeTrigger?: ScheduleInvokeTrigger;
 }
 
 /**

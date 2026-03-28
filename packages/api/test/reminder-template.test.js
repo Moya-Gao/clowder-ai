@@ -38,9 +38,9 @@ describe('reminderTemplate', () => {
     });
     assert.equal(deliverMock.mock.calls.length, 1);
     const arg = deliverMock.mock.calls[0].arguments[0];
-    assert.equal(arg.content, '喝水提醒');
+    assert.equal(arg.content, '[定时任务] 喝水提醒');
     assert.equal(arg.threadId, 'th-abc');
-    assert.equal(arg.catId, 'opus');
+    assert.equal(arg.catId, 'system');
   });
 
   it('execute uses "system" catId when assignedCatId is null', async () => {
@@ -54,7 +54,7 @@ describe('reminderTemplate', () => {
       assignedCatId: null,
       deliver: deliverMock,
     });
-    assert.equal(deliverMock.mock.calls[0].arguments[0].catId, 'system');
+    assert.equal(deliverMock.mock.calls[0].arguments[0].catId, 'system'); // trigger message stored as system
   });
 
   it('execute throws when deliver is not available', async () => {
@@ -83,6 +83,6 @@ describe('reminderTemplate', () => {
       assignedCatId: 'opus',
       deliver: deliverMock,
     });
-    assert.equal(deliverMock.mock.calls[0].arguments[0].content, '定时提醒');
+    assert.equal(deliverMock.mock.calls[0].arguments[0].content, '[定时任务] 定时提醒');
   });
 });

@@ -88,13 +88,66 @@ describe('F139 Phase 4 E2E', () => {
     // 5. Verify message was delivered
     assert.equal(deliverCalls.length, 1);
     assert.equal(deliverCalls[0].threadId, 'thread-user-123');
-    assert.equal(deliverCalls[0].content, '记得喝水！');
+    assert.equal(deliverCalls[0].content, '[定时任务] 记得喝水！');
 
     // 6. Verify ledger recorded RUN_DELIVERED
     const runs = ledger.query('remind-water', 5);
     assert.ok(runs.length >= 1);
     assert.equal(runs[0].outcome, 'RUN_DELIVERED');
     assert.equal(runs[0].subject_key, 'thread-thread-user-123');
+  });
+
+  test('Phase 4b: reminder with invokeTrigger stores trigger message then wakes cat', async () => {
+    const triggerCalls = [];
+    const mockInvokeTrigger = {
+      trigger: (...args) => triggerCalls.push(args),
+    };
+
+    // Use wrapped deliver so deliverCalls captures the trigger-message store
+    const runnerWithTrigger = new TaskRunnerV2({
+      logger: { info: () => {}, error: () => {} },
+      ledger,
+      globalControlStore,
+      deliver: async (opts) => {
+        deliverCalls.push(opts);
+        return deliverMock(opts);
+      },
+      invokeTrigger: mockInvokeTrigger,
+    });
+
+    store.insert({
+      id: 'remind-cat-wake',
+      templateId: 'reminder',
+      trigger: { type: 'cron', expression: '0 9 * * *' },
+      params: { message: '搜三天内 Anthropic 新闻' },
+      display: { label: '新闻速递', category: 'external' },
+      deliveryThreadId: 'thread-news-123',
+      enabled: true,
+      createdBy: 'opus',
+      createdAt: new Date().toISOString(),
+    });
+    runnerWithTrigger.hydrateDynamic(store, templateRegistry);
+
+    await runnerWithTrigger.triggerNow('remind-cat-wake', { manual: true });
+
+    // 1. deliver was called FIRST to store the trigger message (real messageId for retry)
+    assert.equal(deliverCalls.length, 1);
+    assert.equal(deliverCalls[0].threadId, 'thread-news-123');
+    assert.ok(deliverCalls[0].content.includes('搜三天内 Anthropic 新闻'));
+    assert.equal(deliverCalls[0].catId, 'system');
+    assert.equal(deliverCalls[0].userId, 'scheduler');
+
+    // 2. invokeTrigger was called with the REAL messageId from deliver
+    assert.equal(triggerCalls.length, 1);
+    assert.equal(triggerCalls[0][0], 'thread-news-123'); // threadId
+    assert.equal(triggerCalls[0][1], 'opus'); // catId (default, no actor resolver)
+    assert.equal(triggerCalls[0][2], 'scheduler'); // userId
+    assert.ok(triggerCalls[0][3].includes('搜三天内 Anthropic 新闻')); // message contains reminder
+    assert.ok(triggerCalls[0][4].startsWith('msg-'), 'messageId should be real stored ID');
+
+    // Ledger still records RUN_DELIVERED
+    const runs = ledger.query('remind-cat-wake', 1);
+    assert.equal(runs[0].outcome, 'RUN_DELIVERED');
   });
 
   test('AC-H4: builtin task pause via override → trigger skipped', async () => {
@@ -162,7 +215,7 @@ describe('F139 Phase 4 E2E', () => {
     globalControlStore.setTaskOverride('remind-resume-test', true, 'user');
     await runner.triggerNow('remind-resume-test');
     assert.equal(deliverCalls.length, 1);
-    assert.equal(deliverCalls[0].content, 'resume test');
+    assert.equal(deliverCalls[0].content, '[定时任务] resume test');
   });
 
   test('AC-H2: web-digest trigger delivers formatted digest', async () => {

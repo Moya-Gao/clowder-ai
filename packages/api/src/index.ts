@@ -1488,6 +1488,9 @@ async function main(): Promise<void> {
     feedbackFilter,
   });
 
+  // F139 Phase 4b: late-bind invokeTrigger so templates can wake cats
+  taskRunnerV2.setInvokeTrigger(invokeTrigger);
+
   // F139: Register PR-related TaskSpecs into unified scheduler
   {
     const { createCiCdCheckTaskSpec } = await import('./infrastructure/email/CiCdCheckTaskSpec.js');

@@ -1,12 +1,12 @@
 import type { TaskSpec_P1 } from '../types.js';
 import type { DynamicTaskParams, TaskTemplate } from './types.js';
 
-/** Reminder template — fires on schedule, posts a message to the delivery thread */
+/** Reminder template — fires on schedule, wakes a cat to handle the reminder in-thread */
 export const reminderTemplate: TaskTemplate = {
   templateId: 'reminder',
   label: '定时提醒',
   category: 'system',
-  description: '按设定时间发送提醒消息到指定对话',
+  description: '按设定时间唤醒猫猫处理提醒（猫猫会根据内容自主行动）',
   subjectKind: 'none',
   defaultTrigger: { type: 'cron', expression: '0 9 * * *' },
   paramSchema: {
@@ -31,12 +31,16 @@ export const reminderTemplate: TaskTemplate = {
         async execute(_signal, subjectKey, ctx) {
           if (!ctx.deliver) throw new Error('deliver not available');
           const tid = subjectKey.startsWith('thread-') ? subjectKey.slice(7) : subjectKey;
-          await ctx.deliver({
-            threadId: tid,
-            content: message,
-            catId: ctx.assignedCatId ?? 'system',
-            userId: 'scheduler',
-          });
+          const catId = ctx.assignedCatId ?? 'opus';
+          const content = `[定时任务] ${message}`;
+
+          // Store trigger message first → real messageId for InvocationRecord + retry
+          const messageId = await ctx.deliver({ threadId: tid, content, catId: 'system', userId: 'scheduler' });
+
+          // Wake a cat to act on the trigger message
+          if (ctx.invokeTrigger) {
+            ctx.invokeTrigger.trigger(tid, catId, 'scheduler', content, messageId);
+          }
         },
       },
       state: { runLedger: 'sqlite' },

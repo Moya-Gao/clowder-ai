@@ -1,7 +1,16 @@
 import type { EmissionStore } from './EmissionStore.js';
 import type { GlobalControlStore } from './GlobalControlStore.js';
 import type { RunLedger } from './RunLedger.js';
-import type { ActorRole, CostTier, DeliverOpts, FetchResult, GateCtx, RunOutcome, TaskSpec_P1 } from './types.js';
+import type {
+  ActorRole,
+  CostTier,
+  DeliverOpts,
+  FetchResult,
+  GateCtx,
+  RunOutcome,
+  ScheduleInvokeTrigger,
+  TaskSpec_P1,
+} from './types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTaskSpec = TaskSpec_P1<any>;
@@ -24,6 +33,8 @@ export interface PipelineContext {
   deliver?: (opts: DeliverOpts) => Promise<string>;
   /** Phase 4 (AC-H2): fetch web content with browser-automation routing */
   fetchContent?: (url: string) => Promise<FetchResult>;
+  /** Phase 4b: invoke a cat to handle a scheduled task (fire-and-forget) */
+  invokeTrigger?: ScheduleInvokeTrigger;
 }
 
 function withTimeout(promise: Promise<void>, ms: number, taskId: string): Promise<void> {
@@ -58,6 +69,7 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
     isManualTrigger,
     deliver,
     fetchContent,
+    invokeTrigger,
   } = ctx;
   const startMs = Date.now();
   const tickCount = (tickCounts.get(task.id) ?? 0) + 1;
@@ -174,6 +186,7 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
         context: task.context,
         deliver,
         fetchContent,
+        invokeTrigger,
       });
       pendingExecutes.push(rawExecute.catch(() => {}));
       let errorSummary: string | null = null;

@@ -9,6 +9,7 @@ import type {
   DeliverOpts,
   FetchResult,
   RunLedgerRow,
+  ScheduleInvokeTrigger,
   ScheduleTaskSummary,
   SubjectKind,
   TaskSource,
@@ -28,6 +29,8 @@ export interface TaskRunnerV2Options {
   deliver?: (opts: DeliverOpts) => Promise<string>;
   /** Phase 4 (AC-H2): fetch web content with browser-automation routing */
   fetchContent?: (url: string) => Promise<FetchResult>;
+  /** Phase 4b: invoke a cat to handle a scheduled task (fire-and-forget) */
+  invokeTrigger?: ScheduleInvokeTrigger;
 }
 
 /** Phase 2.5: Compute human-readable subject preview from subjectKind + lastRun (AC-E2) */
@@ -86,6 +89,7 @@ export class TaskRunnerV2 {
   private emissionStore: TaskRunnerV2Options['emissionStore'];
   private deliver: TaskRunnerV2Options['deliver'];
   private fetchContent: TaskRunnerV2Options['fetchContent'];
+  private invokeTrigger: TaskRunnerV2Options['invokeTrigger'];
 
   constructor(opts: TaskRunnerV2Options) {
     this.logger = opts.logger;
@@ -95,6 +99,12 @@ export class TaskRunnerV2 {
     this.emissionStore = opts.emissionStore;
     this.deliver = opts.deliver;
     this.fetchContent = opts.fetchContent;
+    this.invokeTrigger = opts.invokeTrigger;
+  }
+
+  /** Late-bind invokeTrigger (constructed after TaskRunnerV2 in boot sequence) */
+  setInvokeTrigger(trigger: ScheduleInvokeTrigger): void {
+    this.invokeTrigger = trigger;
   }
 
   register(task: AnyTaskSpec): void {
@@ -286,6 +296,7 @@ export class TaskRunnerV2 {
       isManualTrigger,
       deliver: this.deliver,
       fetchContent: this.fetchContent,
+      invokeTrigger: this.invokeTrigger,
     });
   }
 }
