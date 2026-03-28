@@ -106,13 +106,13 @@ created: 2026-03-25
 - [x] AC-D2: anti-feedback-loop 防回声
 - [x] AC-D3: Pack 任务模板安装/卸载
 
-### Phase 4（Template Execution + Builtin Control — 最后一公里）
-- [ ] AC-H1: reminder 模板真实执行——到达 cron 时刻后向 deliveryThreadId 投递提醒消息，ledger 记录 RUN_DELIVERED
-- [ ] AC-H2a: web-digest 模板真实执行——server-fetch 路径可用（HTML→text 提取+截断+投递），browser-automation 路由正确标记 JS 重站点（needsBrowser 检测），SSRF 防护到位
+### Phase 4（Template Execution + Builtin Control — 最后一公里）✅
+- [x] AC-H1: reminder 模板真实执行——到达 cron 时刻后向 deliveryThreadId 投递提醒消息，ledger 记录 RUN_DELIVERED
+- [x] AC-H2a: web-digest 模板真实执行——server-fetch 路径可用（HTML→text 提取+截断+投递），browser-automation 路由正确标记 JS 重站点（needsBrowser 检测），SSRF 防护到位
 - [ ] AC-H2b: _(deferred)_ JS 重站点 browser 后端集成——标记 needs-browser 的 URL 走真实 headless 浏览器抓取+投递（依赖 browser-automation 运行时基建）
-- [ ] AC-H3: repo-activity 模板真实执行——查询 GitHub repo 新 issue/PR（cursor 追踪已见），投递到 deliveryThreadId
-- [ ] AC-H4: Builtin 任务面板控制——所有任务（不限 dynamic）在 SchedulePanel 支持 pause/resume，后端复用 task override API
-- [ ] AC-H5: 端到端验证——铲屎官在 thread 说"每天九点提醒我喝水"，任务注册、到点执行、消息投递、面板可控，全链路走通
+- [x] AC-H3: repo-activity 模板真实执行——查询 GitHub repo 新 issue/PR（cursor 追踪已见），投递到 deliveryThreadId
+- [x] AC-H4: Builtin 任务面板控制——所有任务（不限 dynamic）在 SchedulePanel 支持 pause/resume，后端复用 task override API
+- [x] AC-H5: 端到端验证——铲屎官在 thread 说"每天九点提醒我喝水"，任务注册、到点执行、消息投递、面板可控，全链路走通
 
 ## Dependencies
 
@@ -173,6 +173,7 @@ created: 2026-03-25
 | 2026-03-27 | **愿景审视**：铲屎官发现 NL 输入框不可用 + footer "3 failed" 无可操作性。AC-C4 回退，Phase 重排为 2.6→3A→3B（宪宪 × 砚砚 收敛） |
 | 2026-03-27 | Phase 3A merged (PR #780) — 对话式任务注册 + 面板最终态; 砚砚 local review 2 rounds (4×P1 fixed) + cloud review passed |
 | 2026-03-27 | Phase 3B merged (PR #785) — Governance (global pause + task overrides + effectiveEnabled) + EmissionStore (self-echo suppression with full R/W loop) + Pack templates (install/uninstall with runtime registry sync); 砚砚 local review 3 rounds (3×P1 + 1×P1 + 1×P2 fixed) + cloud review passed |
+| 2026-03-28 | Phase 4 merged (PR #801) — Template real execution (reminder/web-digest/repo-activity) + builtin panel control + SSRF protection + E2E; 砚砚 local review 2 rounds (3×P1 + 1×P2 fixed) + cloud review 2 rounds (2×P1 SSRF fixed). H2b (browser backend) deferred |
 
 ## Review Gate
 
