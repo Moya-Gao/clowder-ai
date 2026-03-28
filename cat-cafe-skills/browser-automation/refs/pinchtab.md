@@ -33,11 +33,22 @@
 ## 在家里的定位
 
 - 不是默认入口
-- 适合“服务化浏览器能力”这一条专门 lane
-- 没有 specialist skill 之前，不要让普通任务直接裸用
+- 适合”服务化浏览器能力”这一条专门 lane
+- **MCP ID**: `pinchtab`（capabilities.json 中注册）
+- **启动命令**: `npx pinchtab-mcp`（专用 MCP server 包）
+- 工具前缀：`mcp__pinchtab__*`
+
+## 安装
+
+```bash
+# 自动按需下载（npx），无需预装
+# pinchtab-mcp 是专用 MCP server，底层控制 Chrome via accessibility tree
+# 特点：token 高效（~800 tokens/page），支持 headless/headed、多实例并行
+```
 
 ## 官方来源
 
 - https://pinchtab.com/
 - https://pinchtab.com/docs/
 - https://github.com/pinchtab/pinchtab
+- MCP server: https://www.npmjs.com/package/pinchtab-mcp

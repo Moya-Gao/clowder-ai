@@ -510,6 +510,9 @@ skills:
     output: "Browser backend choice + execution path + evidence/result"
     requires_mcp:
       - "playwright"
+      - "claude-in-chrome"
+      - "agent-browser"
+      - "pinchtab"
     next: []
     sop_step: null
     merged_from: null

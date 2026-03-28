@@ -69,24 +69,24 @@ triggers:
 3. **目标是本地 WebApp 验证吗？**
    是 → `webapp-testing`
 4. **客户端已经有稳定可用的 Playwright MCP 吗？**
-   是 → 优先 `refs/playwright-mcp.md`
-5. **这是 CLI 型猫，没 webfetch / 没 VL，但能跑命令吗？**
-   是 → 优先 `refs/agent-browser.md`
-6. **需要接手人类已登录的 Chrome、复杂 iframe、多 tab 调试吗？**
-   是 → 看 `refs/playwriter.md`
+   是 → `refs/playwright-mcp.md`（MCP ID: `playwright`）
+5. **需要接手人类已登录的 Chrome、复杂 iframe、多 tab 调试吗？**
+   是 → 用 `claude-in-chrome` MCP（工具前缀 `mcp__claude-in-chrome__*`），参考 `refs/playwriter.md`
+6. **这是 CLI 型猫，没 webfetch / 没 VL，但能跑命令吗？**
+   是 → `refs/agent-browser.md`（MCP ID: `agent-browser`，`npx agent-browser-mcp`）
 7. **需要长驻 daemon、持久 session、HTTP-first 服务吗？**
-   是 → 看 `refs/pinchtab.md`
+   是 → `refs/pinchtab.md`（MCP ID: `pinchtab`，`npx pinchtab-mcp`）
 
 ## 路由矩阵
 
-| 场景 | 默认 | 为什么 |
-|------|------|--------|
-| 本地前端页面预览 | `browser-preview` | 只管 localhost，体验最好，避免误开系统浏览器 |
-| 本地 WebApp 测试 / 回归 | `webapp-testing` + Playwright | 确定性最强，适合验收和证据采集 |
-| MCP 原生客户端的常规网页自动化 | `Playwright MCP` | **已接入** — 工具面稳定，安装文档完整 |
-| CLI 型猫、没 webfetch / 没 VL | `agent-browser` | **未接入** — 需按需安装 CLI，非标准 MCP |
-| 已登录 Chrome、iframe-heavy、手工接管 | `Playwriter` | **未接入** — 需铲屎官装 Chrome 扩展 |
-| 服务化浏览器、持久化 session、重复批任务 | `PinchTab` | **未接入** — 需启动本地 HTTP 服务 |
+| 场景 | 默认 | MCP ID | 状态 |
+|------|------|--------|------|
+| 本地前端页面预览 | `browser-preview` | — | 独立 skill |
+| 本地 WebApp 测试 / 回归 | `webapp-testing` + Playwright | `playwright` | 已接入 |
+| MCP 原生客户端的常规网页自动化 | `Playwright MCP` | `playwright` | ✅ 已接入 — `npx @playwright/mcp@latest` |
+| 已登录 Chrome、iframe-heavy、手工接管 | `claude-in-chrome` | `claude-in-chrome` | ✅ 已接入 — Chrome 扩展管理，无需手动启动 |
+| CLI 型猫、没 webfetch / 没 VL | `agent-browser` | `agent-browser` | ✅ 已接入 — `npx agent-browser-mcp` |
+| 服务化浏览器、持久化 session、重复批任务 | `PinchTab` | `pinchtab` | ✅ 已接入 — `npx pinchtab-mcp` |
 
 ## 常用组合打法
 
@@ -99,14 +99,12 @@ triggers:
 
 ## 读取哪些 refs
 
-- `refs/playwright-mcp.md`
-  常规 MCP 原生网页自动化默认读这个
-- `refs/agent-browser.md`
-  CLI 型猫 / 无 `webfetch` / 无 VL 场景读这个
-- `refs/playwriter.md`
-  已登录 Chrome / iframe-heavy / 多 tab 场景读这个
-- `refs/pinchtab.md`
-  服务化、持久 session、HTTP-first 场景读这个
+| Ref | MCP ID | 场景 |
+|-----|--------|------|
+| `refs/playwright-mcp.md` | `playwright` | 常规 MCP 原生网页自动化（默认） |
+| `refs/playwriter.md` | `claude-in-chrome` | 已登录 Chrome / iframe-heavy / 多 tab（实际用 `mcp__claude-in-chrome__*` 工具） |
+| `refs/agent-browser.md` | `agent-browser` | CLI 型猫 / 无 webfetch / 无 VL |
+| `refs/pinchtab.md` | `pinchtab` | 服务化、持久 session、HTTP-first |
 
 ## 交付要求
 

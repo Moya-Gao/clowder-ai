@@ -1,10 +1,11 @@
-# Playwriter Reference
+# Playwriter / claude-in-chrome Reference
 
 ## 是什么
 
-- 社区项目，名字是 `Playwriter`，不是官方 `Playwright`
-- 更偏“接手你已经开着、已经登录的 Chrome”
-- 官方提供 agent 指南，核心卖点是把完整 Playwright API 暴露给 agent
+- 这条 lane 的核心需求：**接手已经开着、已经登录的 Chrome**
+- 家里实际使用 **`claude-in-chrome`** MCP（Chrome 扩展提供），MCP ID: `claude-in-chrome`
+- 工具前缀：`mcp__claude-in-chrome__*`（navigate / read_page / form_input / javascript_tool / tabs_context_mcp 等）
+- 原 `Playwriter` 是社区参考项目（`remorses/playwriter`），核心卖点是把完整 Playwright API 暴露给 agent
 
 ## 什么时候优先
 
@@ -34,8 +35,25 @@
 
 - 登录态 / iframe-heavy / 多 tab 的专门 lane
 - 没有这些约束时，不要默认选它
+- **MCP ID**: `claude-in-chrome`（capabilities.json 中注册，Chrome 扩展管理）
+
+## 快速使用
+
+```
+# 1. 先获取当前 tab 上下文
+mcp__claude-in-chrome__tabs_context_mcp
+
+# 2. 导航到目标页面（或使用已有 tab）
+mcp__claude-in-chrome__navigate(url="...")
+
+# 3. 读取页面内容
+mcp__claude-in-chrome__read_page / get_page_text
+
+# 4. 交互
+mcp__claude-in-chrome__form_input / find / javascript_tool
+```
 
 ## 官方来源
 
-- https://playwriter.dev/
-- https://github.com/remorses/playwriter
+- claude-in-chrome: Chrome 扩展（铲屎官已安装）
+- Playwriter 参考: https://playwriter.dev/ / https://github.com/remorses/playwriter
