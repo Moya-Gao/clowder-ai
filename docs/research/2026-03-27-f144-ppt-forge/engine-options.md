@@ -27,7 +27,7 @@ created: 2026-03-27
 | 图表输出格式 | 原生 `<c:chartSpace>` XML part（OOXML 标准） | [PptxGenJS Charts API](https://gitbrent.github.io/PptxGenJS/docs/api-charts/) |
 | PowerPoint 双击编辑 | ✅ 双击可编辑数据（Edit Data in Excel） | [GitHub CHANGELOG](https://github.com/gitbrent/PptxGenJS/blob/master/CHANGELOG.md) — 修复了"embedded Excel sheets that prevented Edit Data in Excel" |
 | 图表数据可搜索 | ✅ 图表标签和数据在 PPT 中可搜索 | OOXML 标准保证 |
-| Keynote/LibreOffice 兼容 | ✅ OOXML 标准兼容 | [PptxGenJS Introduction](https://gitbrent.github.io/PptxGenJS/docs/introduction/) |
+| Keynote/LibreOffice 兼容 | ⚠️ OOXML 标准理论兼容，**需 POC 验证**（图表编辑可能受限） | [PptxGenJS Introduction](https://gitbrent.github.io/PptxGenJS/docs/introduction/) |
 
 ### 支持的图表类型（10 种 + Combo）
 
@@ -166,6 +166,8 @@ interface SlideBuilder {
 | 项目 | 风险等级 | 验证方式 |
 |------|---------|---------|
 | pptxgenjs 图表在 PowerPoint 2021+ 中双击编辑的实际体验 | 中 | 生成测试 .pptx，在 PowerPoint 中手动验证 |
+| **Keynote 图表兼容性** | 中 | 生成含图表的 .pptx，在 Keynote 中验证图表是否可编辑（砚砚 P2 review：不能过度承诺） |
+| **LibreOffice Impress 兼容性** | 低 | 同上，验证文字/图表/布局保真度 |
 | 自定义字体（Inter/DM Sans）在未安装机器上的 fallback 行为 | 中 | 生成含自定义字体的 .pptx，在干净机器上打开 |
 | 50+ 页大 deck 的生成性能 | 低 | 压测脚本 |
-| Combo chart 双轴在不同 PPT 版本的兼容性 | 低 | 多版本测试 |
+| Combo chart 双轴在不同 PPT 版本的兼容性 | 低 | 多版本测试（Phase B，Phase A 不含 combo） |

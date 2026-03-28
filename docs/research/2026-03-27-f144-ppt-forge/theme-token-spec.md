@@ -312,17 +312,69 @@ function createChartOptions(theme: ThemeTokens, overrides?: Partial<ChartOptions
 | **在 Blueprint 中硬编码颜色** | 违反关注点分离；换风格要改全部 Blueprint；Theme 层的存在意义就是解耦 |
 | **pptxgenjs 自动字体嵌入** | pptxgenjs 不支持自动嵌入字体到 .pptx；对方 pptx-craft 用 opentype.js 做了但我们用原生方式更简单——选择广泛安装的字体或指导用户安装 |
 
-## 7. 字体嵌入策略（Phase A）
+## 7. 字体策略（Phase A — 双轨制）
 
-pptxgenjs 不支持自动字体嵌入。三种缓解策略：
+> 砚砚 P2 review："Inter 在企业环境不一定有"，会把"风格失败"误判为"引擎失败"。
 
-| 策略 | 复杂度 | 效果 |
-|------|--------|------|
-| **A. 选广泛安装的字体** | 低 | Inter 在设计师群体中普及率高，但企业环境不一定有 |
-| **B. .pptx 附带字体安装包** | 中 | 生成 deck 时附带 .ttf/.otf 文件 + 安装说明 |
-| **C. 后处理嵌入** | 高 | 用 opentype.js 在 Export 后修改 .pptx ZIP 嵌入字体 |
+**Phase A 采用双轨制**：系统安全字体作为 fallback 基线，品牌近似字体作为增强模式。
 
-**Phase A 推荐策略 A**：选 Inter（SIL OFL，免费安装），文档附安装说明。Phase B 再考虑 C。
+### 双轨 token 结构
+
+```json
+{
+  "typography": {
+    "headingFont":  "Inter",
+    "bodyFont":     "Inter",
+    "monoFont":     "IBM Plex Mono",
+    "cjkFont":      "Noto Sans SC",
+    "fallback": {
+      "headingFont": "Calibri",
+      "bodyFont":    "Calibri",
+      "monoFont":    "Consolas",
+      "cjkFont":     "Microsoft YaHei"
+    }
+  }
+}
+```
+
+### Export Gate 字体降级规则
+
+| 场景 | 行为 |
+|------|------|
+| 品牌字体已安装 | 使用 Inter/DM Sans/IBM Plex（增强模式） |
+| 品牌字体未安装 | **自动降级到 fallback 字体**（Calibri/Arial），PPT 仍可用 |
+| Export Gate 检查 | 日志输出"使用品牌字体"或"降级到系统字体"，不阻塞导出 |
+| 铲屎官现场对比 | 提前安装 Inter，确保增强模式生效 |
+
+### 系统安全字体表（跨平台保底）
+
+| 用途 | Windows | macOS | 备注 |
+|------|---------|-------|------|
+| Heading | Calibri | Helvetica Neue | 预装，企业环境 100% 有 |
+| Body | Calibri | Helvetica Neue | 同上 |
+| Mono | Consolas | Menlo | 同上 |
+| CJK | Microsoft YaHei | PingFang SC | 中文保底 |
+
+### SlideBuilder 实现
+
+```typescript
+function resolveFontFamily(theme: ThemeTokens, role: 'heading' | 'body' | 'mono'): string {
+  const key = `${role}Font` as keyof typeof theme.brand.typography;
+  const primary = theme.brand.typography[key];
+  const fallback = theme.brand.typography.fallback?.[key];
+  // pptxgenjs 会尝试使用 primary，PowerPoint 在找不到时自动 fallback
+  // 我们在 fontFace 里写 "Inter, Calibri" 格式不被 pptxgenjs 支持
+  // 所以真正的 fallback 靠 PowerPoint 自身的字体替换机制
+  // 但我们在 Export Gate 日志里记录用了哪个
+  return primary; // pptxgenjs 只接受单个字体名
+}
+```
+
+**pptxgenjs 不支持字体栈（不能写 `"Inter, Calibri"`）**，PowerPoint 自身在缺字体时会用系统默认字体替换。我们的策略是：
+1. token 中定义 primary + fallback
+2. pptxgenjs 用 primary 生成
+3. Export Gate 记录字体状态
+4. 如果铲屎官要确保增强模式，提前安装字体
 
 ## 8. 其他风格 token 预览
 

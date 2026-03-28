@@ -65,8 +65,8 @@ interface SlideSpec {
   /** 这页存在的目的（一句话，Narrative Gate 检查项） */
   purpose: string;
 
-  /** Layout 选择 */
-  layout: LayoutSpec;
+  /** Layout 选择 — 只引用 layoutId，layout 定义在 Layout Catalog 中（单一真相源） */
+  layoutId: string;
 
   /** 页面元素 */
   elements: SlideElement[];
@@ -100,9 +100,11 @@ type SlideIntent =
   | 'appendix';          // 附录
 
 /**
- * Layout 规格
+ * Layout Catalog Entry — 定义在独立的 Layout Catalog 中（单一真相源）
+ * SlideSpec 只通过 layoutId 引用，不内嵌 layout 定义
+ * （砚砚 P1 review：消除双真相源）
  */
-interface LayoutSpec {
+interface LayoutCatalogEntry {
   /** Layout ID（对应 Slide Master 中定义的 layout） */
   layoutId: string;
 
@@ -154,8 +156,8 @@ interface ChartElement {
   type: 'chart';
   slotName: string;
 
-  /** pptxgenjs chart type */
-  chartType: 'area' | 'bar' | 'bar3d' | 'bubble' | 'doughnut' | 'line' | 'pie' | 'radar' | 'scatter' | 'combo';
+  /** pptxgenjs chart type（Phase A 不含 combo — combo 需要 renderAs/secondaryAxis 字段，降级到 Phase B） */
+  chartType: 'area' | 'bar' | 'bar3d' | 'bubble' | 'doughnut' | 'line' | 'pie' | 'radar' | 'scatter';
 
   /** 图表数据（pptxgenjs 原生格式） */
   series: ChartSeries[];
@@ -361,7 +363,7 @@ const LAYOUTS: Record<string, LayoutSpec> = {
       "pageNum": 1,
       "intent": "cover",
       "purpose": "建立主题身份：NVIDIA 在具身智能领域的 GTC 2026 布局",
-      "layout": { "layoutId": "layout-cover", "description": "封面", "slots": [] },
+      "layoutId": "layout-cover",
       "elements": [
         { "type": "text", "slotName": "title", "content": "Embodied Intelligence at GTC 2026", "align": "center" },
         { "type": "text", "slotName": "subtitle", "content": "From Isaac Sim to Physical AI Deployment", "align": "center" }
@@ -371,7 +373,7 @@ const LAYOUTS: Record<string, LayoutSpec> = {
       "pageNum": 2,
       "intent": "key-statement",
       "purpose": "金字塔顶层结论：具身智能从仿真走向物理部署的拐点已到",
-      "layout": { "layoutId": "layout-title-body", "description": "核心观点", "slots": [] },
+      "layoutId": "layout-title-body",
       "elements": [
         { "type": "text", "slotName": "title", "content": "The Inflection Point Is Here" },
         { "type": "text", "slotName": "body", "content": "GTC 2026 marked the transition from **simulation-only** embodied AI to **physical deployment at scale**. Three signals: Isaac Sim 4.0 GA, Project GR00T partnership expansion, and Jetson Thor production timeline." }
@@ -385,7 +387,7 @@ const LAYOUTS: Record<string, LayoutSpec> = {
       "pageNum": 3,
       "intent": "data-insight",
       "purpose": "用数据支撑拐点判断：具身智能投资增长趋势",
-      "layout": { "layoutId": "layout-chart-insight", "description": "图表+洞察", "slots": [] },
+      "layoutId": "layout-chart-insight",
       "elements": [
         { "type": "text", "slotName": "title", "content": "Embodied AI Investment Trajectory" },
         {
