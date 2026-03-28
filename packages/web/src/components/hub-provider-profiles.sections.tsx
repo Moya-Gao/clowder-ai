@@ -58,13 +58,13 @@ export function CreateApiKeyProfileSection({
             value={displayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder="账号显示名，如 my-glm"
-            className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+            className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
           />
           <input
             value={baseUrl}
             onChange={(e) => onBaseUrlChange(e.target.value)}
             placeholder="API 服务地址，如 https://api.example.com/v1"
-            className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+            className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
           />
           <input
             type="password"
@@ -72,7 +72,7 @@ export function CreateApiKeyProfileSection({
             value={apiKey}
             onChange={(e) => onApiKeyChange(e.target.value)}
             placeholder="sk-xxxxxxxxxxxxxxxx"
-            className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+            className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
           />
           <div className="space-y-2">
             <p className="text-xs font-semibold text-[#8A776B]">可用模型 *</p>

@@ -23,8 +23,8 @@ const ICON_PATHS: Record<string, string> = {
 const ICON_COLORS: Record<string, string> = {
   pin: 'text-cocreator-primary',
   star: 'text-yellow-500',
-  clock: 'text-gray-400',
-  archive: 'text-gray-400',
+  clock: 'text-cafe-muted',
+  archive: 'text-cafe-muted',
   system: 'text-blue-500',
 };
 
@@ -117,13 +117,13 @@ export function SectionGroup({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full text-left px-3 py-1.5 flex items-center gap-1.5 hover:bg-gray-50 transition-colors"
+        className="w-full text-left px-3 py-1.5 flex items-center gap-1.5 hover:bg-cafe-surface-elevated transition-colors"
         title={projectPath && projectPath !== 'default' ? projectPath : undefined}
       >
         {/* Chevron */}
         <svg
           aria-hidden="true"
-          className={`w-3 h-3 text-gray-400 transition-transform flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`}
+          className={`w-3 h-3 text-cafe-muted transition-transform flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`}
           viewBox="0 0 12 12"
           fill="currentColor"
         >
@@ -170,14 +170,14 @@ export function SectionGroup({
             className="text-xs font-medium px-1 py-0 rounded border border-cocreator-light focus:outline-none focus:border-cocreator-primary flex-1 min-w-0"
           />
         ) : (
-          <span className="text-xs font-medium text-gray-500 truncate">{label}</span>
+          <span className="text-xs font-medium text-cafe-secondary truncate">{label}</span>
         )}
 
         {/* Governance dot */}
         {govDot && <span className={`w-2 h-2 rounded-full flex-shrink-0 ${govDot.color}`} title={govDot.title} />}
 
         {/* Count */}
-        <span className="text-[10px] text-gray-300 flex-shrink-0 ml-auto">{count}</span>
+        <span className="text-[10px] text-cafe-muted flex-shrink-0 ml-auto">{count}</span>
 
         {/* F095 Phase F: Quick create button */}
         {onQuickCreate && (
@@ -218,7 +218,7 @@ export function SectionGroup({
             }}
             title={isProjectPinned ? '取消固定项目' : '固定项目到活跃区'}
             testId="project-pin-btn"
-            className={isProjectPinned ? 'text-cocreator-primary' : 'text-gray-300 hover:text-gray-400'}
+            className={isProjectPinned ? 'text-cocreator-primary' : 'text-cafe-muted hover:text-cafe-muted'}
           >
             <path d={ICON_PATHS.pin} />
           </ActionButton>
@@ -229,7 +229,7 @@ export function SectionGroup({
       {showMenu && (
         <div
           ref={menuRef}
-          className="absolute right-2 top-8 z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px]"
+          className="absolute right-2 top-8 z-50 bg-cafe-surface rounded-lg shadow-lg border border-cafe py-1 min-w-[140px]"
         >
           {onOpenInFinder && (
             <MenuItem
@@ -287,7 +287,7 @@ function ActionButton({
           onClick(e as unknown as React.MouseEvent);
         }
       }}
-      className={`ml-0.5 flex-shrink-0 cursor-pointer transition-all text-gray-300 hover:text-gray-500 ${className ?? ''}`}
+      className={`ml-0.5 flex-shrink-0 cursor-pointer transition-all text-cafe-muted hover:text-cafe-secondary ${className ?? ''}`}
       title={title}
       data-testid={testId}
     >
@@ -305,7 +305,7 @@ function MenuItem({ onClick, danger, children }: { onClick: () => void; danger?:
       type="button"
       onClick={onClick}
       className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
-        danger ? 'text-red-500 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-50'
+        danger ? 'text-red-500 hover:bg-red-50' : 'text-cafe-secondary hover:bg-cafe-surface-elevated'
       }`}
     >
       {children}

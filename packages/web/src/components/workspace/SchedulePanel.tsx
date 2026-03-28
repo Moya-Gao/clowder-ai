@@ -203,7 +203,7 @@ export function SchedulePanel() {
             title={globalControl.enabled ? 'Scheduler active — click to pause' : 'Scheduler paused — click to resume'}
           >
             <span
-              className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${
+              className={`absolute top-0.5 w-3 h-3 rounded-full bg-cafe-surface shadow transition-transform ${
                 globalControl.enabled ? 'left-3.5' : 'left-0.5'
               }`}
             />

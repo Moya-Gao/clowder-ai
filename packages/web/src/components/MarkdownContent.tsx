@@ -70,7 +70,7 @@ function CodeBlock({ children }: { children: ReactNode }) {
     <div className="relative group my-2">
       <button
         onClick={handleCopy}
-        className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-300 md:opacity-0 md:group-hover:opacity-100 hover:bg-gray-600 transition-opacity"
+        className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-cafe-muted md:opacity-0 md:group-hover:opacity-100 hover:bg-gray-600 transition-opacity"
       >
         {copied ? '已复制' : '复制'}
       </button>
@@ -237,14 +237,14 @@ const mdComponents: Components = {
     ),
 
   blockquote: ({ children }) => (
-    <blockquote className="border-l-[3px] border-gray-300 pl-3 my-2 italic opacity-80">{children}</blockquote>
+    <blockquote className="border-l-[3px] border-cafe pl-3 my-2 italic opacity-80">{children}</blockquote>
   ),
   a: ({ href, children }) => (
     <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
       {withMentions(children)}
     </a>
   ),
-  hr: () => <hr className="my-3 border-gray-200" />,
+  hr: () => <hr className="my-3 border-cafe" />,
 
   /* Code blocks with copy button */
   pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
@@ -258,11 +258,11 @@ const mdComponents: Components = {
       <table className="min-w-full text-sm border-collapse">{children}</table>
     </div>
   ),
-  thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+  thead: ({ children }) => <thead className="bg-cafe-surface-elevated">{children}</thead>,
   th: ({ children }) => (
-    <th className="border border-gray-300 px-2 py-1 text-left font-semibold text-xs">{withMentions(children)}</th>
+    <th className="border border-cafe px-2 py-1 text-left font-semibold text-xs">{withMentions(children)}</th>
   ),
-  td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{withMentions(children)}</td>,
+  td: ({ children }) => <td className="border border-cafe px-2 py-1">{withMentions(children)}</td>,
 };
 
 /* ── Exported component ────────────────────────────────────── */

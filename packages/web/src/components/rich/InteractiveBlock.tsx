@@ -115,8 +115,8 @@ function SelectInteraction({
                 isSelected
                   ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
                   : disabled
-                    ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 cursor-pointer'
+                    ? 'border-cafe dark:border-gray-700 opacity-50 cursor-not-allowed'
+                    : 'border-cafe dark:border-gray-700 hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 cursor-pointer'
               }`}
           >
             <OptionIcon opt={opt} />
@@ -125,7 +125,7 @@ function SelectInteraction({
                 {opt.label}
               </span>
               {opt.description && (
-                <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.description}</span>
+                <span className="block text-xs text-cafe-secondary dark:text-gray-400 mt-0.5">{opt.description}</span>
               )}
             </div>
             {isSelected && (
@@ -155,7 +155,7 @@ function SelectInteraction({
               if (e.key === 'Enter' && !e.nativeEvent.isComposing && customText.trim()) handleSubmit();
             }}
             placeholder={pendingOpt?.customInputPlaceholder ?? '输入你的想法...'}
-            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"
+            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-amber-300 dark:border-amber-700 bg-cafe-surface dark:bg-gray-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"
           />
         </div>
       )}
@@ -167,7 +167,7 @@ function SelectInteraction({
           className={`mt-2 w-full py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-1.5
             ${
               showCustomInput && !customText.trim()
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                ? 'bg-gray-200 dark:bg-gray-700 text-cafe-muted cursor-not-allowed'
                 : 'bg-amber-600 text-white hover:bg-amber-700'
             }`}
         >
@@ -227,13 +227,13 @@ function MultiSelectInteraction({
               ${
                 isChecked
                   ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-amber-300'
+                  : 'border-cafe dark:border-gray-700 hover:border-amber-300'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <span
               className={`shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
-                isChecked ? 'bg-amber-600' : 'border-[1.5px] border-gray-300 dark:border-gray-600'
+                isChecked ? 'bg-amber-600' : 'border-[1.5px] border-cafe dark:border-gray-600'
               }`}
             >
               {isChecked && (
@@ -344,7 +344,7 @@ function CardGridInteraction({
     <div>
       {[...groups.entries()].map(([groupName, groupOpts]) => (
         <div key={groupName}>
-          {groupName && <div className="text-xs text-gray-500 mb-1 mt-2 font-medium">{groupName}</div>}
+          {groupName && <div className="text-xs text-cafe-secondary mb-1 mt-2 font-medium">{groupName}</div>}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {groupOpts.map((opt) => {
               const isSelected = selectedIds.includes(opt.id);
@@ -363,8 +363,8 @@ function CardGridInteraction({
                         : isHighlighted
                           ? 'border-amber-400 bg-amber-50/80 dark:bg-amber-950/20 scale-105'
                           : disabled
-                            ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-amber-300 hover:shadow-sm cursor-pointer'
+                            ? 'border-cafe dark:border-gray-700 opacity-50 cursor-not-allowed'
+                            : 'border-cafe dark:border-gray-700 bg-cafe-surface-elevated dark:bg-gray-800/50 hover:border-amber-300 hover:shadow-sm cursor-pointer'
                     }`}
                 >
                   {(opt.icon || opt.emoji) && (
@@ -378,7 +378,7 @@ function CardGridInteraction({
                     {opt.label}
                   </div>
                   {opt.description && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.description}</div>
+                    <div className="text-xs text-cafe-secondary dark:text-gray-400 mt-0.5">{opt.description}</div>
                   )}
                 </button>
               );
@@ -454,9 +454,9 @@ function ConfirmInteraction({
             selectedId === '__cancel__'
               ? 'bg-red-50 dark:bg-red-950/30 border-red-400 text-red-600 dark:text-red-400'
               : disabled && selectedId
-                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 opacity-50 cursor-not-allowed'
+                ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted opacity-50 cursor-not-allowed'
                 : disabled
-                  ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
+                  ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted cursor-not-allowed'
                   : 'bg-red-50/50 dark:bg-red-950/10 border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 hover:border-red-300 cursor-pointer'
           }`}
       >
@@ -476,9 +476,9 @@ function ConfirmInteraction({
             selectedId === '__confirm__'
               ? 'bg-green-50 dark:bg-green-950/30 border-green-500 text-green-600 dark:text-green-400'
               : disabled && selectedId
-                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 opacity-50 cursor-not-allowed'
+                ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted opacity-50 cursor-not-allowed'
                 : disabled
-                  ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
+                  ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted cursor-not-allowed'
                   : 'bg-green-50/50 dark:bg-green-950/10 border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 hover:border-green-300 cursor-pointer'
           }`}
       >
@@ -572,9 +572,11 @@ export function InteractiveBlock({
   );
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+    <div className="rounded-2xl border border-cafe dark:border-gray-700 p-4">
       {block.title && <div className="font-semibold text-sm mb-1">{block.title}</div>}
-      {block.description && <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">{block.description}</div>}
+      {block.description && (
+        <div className="text-xs text-cafe-secondary dark:text-gray-400 mb-3">{block.description}</div>
+      )}
       {block.interactiveType === 'select' && (
         <SelectInteraction
           options={block.options}

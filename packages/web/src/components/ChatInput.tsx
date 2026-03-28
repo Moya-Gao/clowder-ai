@@ -533,7 +533,7 @@ export function ChatInput({
         <div className="px-4 pt-2 flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-[#9B7EBD] animate-pulse" />
           <span className="text-xs text-[#9B7EBD] font-medium">猫猫正在回复中...</span>
-          <span className="text-xs text-gray-400">继续输入，消息会排队</span>
+          <span className="text-xs text-cafe-muted">继续输入，消息会排队</span>
         </div>
       )}
 
@@ -573,7 +573,7 @@ export function ChatInput({
       />
 
       {imageLifecycleStatus === 'preparing' && (
-        <div className="px-4 pt-2 text-xs text-gray-500" role="status">
+        <div className="px-4 pt-2 text-xs text-cafe-secondary" role="status">
           图片处理中，完成后可发送
         </div>
       )}
@@ -601,10 +601,10 @@ export function ChatInput({
                 disabled={isActive}
                 className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   isActive
-                    ? 'text-gray-300 border-gray-200 bg-gray-50 cursor-not-allowed'
+                    ? 'text-cafe-muted border-cafe bg-cafe-surface-elevated cursor-not-allowed'
                     : isSelected
                       ? 'border-current bg-amber-50 font-medium'
-                      : 'text-gray-400 border-gray-200 hover:border-gray-400'
+                      : 'text-cafe-muted border-cafe hover:border-gray-400'
                 }`}
                 style={!isActive && isSelected ? { color: cat.color } : undefined}
                 title={isActive ? `${cat.label.replace('@', '')} 执行中，不可选` : undefined}
@@ -650,7 +650,7 @@ export function ChatInput({
           className={`p-3 rounded-xl transition-all md:hidden ${
             mobileToolbar
               ? 'text-cocreator-primary bg-cocreator-light rotate-45'
-              : 'text-gray-400 hover:text-cocreator-primary hover:bg-white'
+              : 'text-cafe-muted hover:text-cocreator-primary hover:bg-cafe-surface'
           }`}
           aria-label="展开工具栏"
         >
@@ -667,7 +667,7 @@ export function ChatInput({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-          className="hidden md:block p-3 rounded-xl text-gray-400 hover:text-cocreator-primary hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="hidden md:block p-3 rounded-xl text-cafe-muted hover:text-cocreator-primary hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Attach images"
         >
           <AttachIcon className="w-5 h-5" />
@@ -679,7 +679,7 @@ export function ChatInput({
           className={`hidden md:block p-3 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
             whisperMode
               ? 'text-amber-500 bg-amber-50 ring-1 ring-amber-300'
-              : 'text-gray-400 hover:text-amber-500 hover:bg-white'
+              : 'text-cafe-muted hover:text-amber-500 hover:bg-cafe-surface'
           }`}
           aria-label="Whisper mode"
           title="悄悄话模式"
@@ -697,7 +697,7 @@ export function ChatInput({
           ref={gameBtnRef}
           onClick={handleGameClick}
           disabled={disabled || sendTemporarilyDisabled}
-          className="hidden md:block p-3 rounded-xl text-gray-400 hover:text-indigo-500 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="hidden md:block p-3 rounded-xl text-cafe-muted hover:text-indigo-500 hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Game mode"
           title="游戏模式"
         >
@@ -719,7 +719,7 @@ export function ChatInput({
             className={`w-full resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
               whisperMode
                 ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
-                : 'border-cocreator-light bg-white focus:ring-cocreator-primary'
+                : 'border-cocreator-light bg-cafe-surface focus:ring-cocreator-primary'
             }`}
             rows={1}
             disabled={disabled}
@@ -731,7 +731,7 @@ export function ChatInput({
               aria-hidden="true"
             >
               <span className="invisible">{input}</span>
-              <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
+              <span className="text-cafe-muted">{ghostSuggestion.slice(input.length)}</span>
             </div>
           )}
         </div>

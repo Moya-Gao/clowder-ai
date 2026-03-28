@@ -129,8 +129,8 @@ export function HubProviderProfilesTab() {
   const customProfiles = useMemo(() => displayProfiles.filter((profile) => !profile.builtin), [displayProfiles]);
   const displayCards = useMemo(() => [...builtinProfiles, ...customProfiles], [builtinProfiles, customProfiles]);
 
-  if (loading) return <p className="text-sm text-gray-400">加载中...</p>;
-  if (!data) return <p className="text-sm text-gray-400">暂无数据</p>;
+  if (loading) return <p className="text-sm text-cafe-muted">加载中...</p>;
+  if (!data) return <p className="text-sm text-cafe-muted">暂无数据</p>;
 
   return (
     <div className="space-y-4">

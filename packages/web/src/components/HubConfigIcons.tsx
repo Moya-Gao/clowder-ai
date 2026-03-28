@@ -96,7 +96,7 @@ export function ExternalLinkIcon() {
 
 export function WifiIcon() {
   return (
-    <svg className="w-3.5 h-3.5 text-gray-500" viewBox="0 0 24 24" stroke="currentColor" {...SVG_PROPS}>
+    <svg className="w-3.5 h-3.5 text-cafe-secondary" viewBox="0 0 24 24" stroke="currentColor" {...SVG_PROPS}>
       <path d="M5 13a10 10 0 0 1 14 0" />
       <path d="M8.5 16.5a5 5 0 0 1 7 0" />
       <path d="M2 8.82a15 15 0 0 1 20 0" />

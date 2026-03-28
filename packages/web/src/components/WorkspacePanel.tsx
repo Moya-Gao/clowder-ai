@@ -77,8 +77,8 @@ function SearchResultItem({
         <span className="text-xs font-medium text-cafe-black truncate">{fileName}</span>
         {line > 0 && <span className="text-[10px] text-cocreator-dark/50 font-mono">:{line}</span>}
       </div>
-      {dir && <div className="text-[10px] text-gray-400 truncate ml-5">{dir}</div>}
-      {content && <div className="text-[10px] text-gray-500 truncate font-mono ml-5 mt-0.5">{highlighted}</div>}
+      {dir && <div className="text-[10px] text-cafe-muted truncate ml-5">{dir}</div>}
+      {content && <div className="text-[10px] text-cafe-secondary truncate font-mono ml-5 mt-0.5">{highlighted}</div>}
     </button>
   );
 }
@@ -606,7 +606,7 @@ export function WorkspacePanel() {
               <select
                 value={worktreeId ?? ''}
                 onChange={(e) => setWorktreeId(e.target.value || null)}
-                className="flex-1 text-[10px] border border-cocreator-light rounded-md px-2 py-1 bg-white/80 text-cafe-black focus:outline-none focus:border-cocreator-primary"
+                className="flex-1 text-[10px] border border-cocreator-light rounded-md px-2 py-1 bg-cafe-surface/80 text-cafe-black focus:outline-none focus:border-cocreator-primary"
               >
                 {worktrees.map((w) => (
                   <option key={w.id} value={w.id}>
@@ -623,7 +623,7 @@ export function WorkspacePanel() {
 
       {/* Search bar */}
       <form onSubmit={handleSearchSubmit} className="px-3 py-2 border-b border-cocreator-light/40">
-        <div className="flex items-center gap-1.5 bg-white/80 border border-cocreator-light rounded-lg px-2.5 py-1.5 focus-within:border-cocreator-primary focus-within:ring-1 focus-within:ring-cocreator-primary/20 transition-all">
+        <div className="flex items-center gap-1.5 bg-cafe-surface/80 border border-cocreator-light rounded-lg px-2.5 py-1.5 focus-within:border-cocreator-primary focus-within:ring-1 focus-within:ring-cocreator-primary/20 transition-all">
           <SearchIcon />
           <input
             type="text"
@@ -666,7 +666,7 @@ export function WorkspacePanel() {
       </form>
 
       {/* Phase H: Workspace mode switcher */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/50">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-cafe-surface/50">
         <button
           type="button"
           onClick={() => setWorkspaceMode('dev')}
@@ -744,7 +744,7 @@ export function WorkspacePanel() {
 
           {/* F120: Port Discovery Toast — matches design Scene 2 */}
           {portDiscoveryToast && (
-            <div className="mx-3 my-2 p-4 rounded-xl bg-white shadow-md border border-[#E8E7E5]">
+            <div className="mx-3 my-2 p-4 rounded-xl bg-cafe-surface shadow-md border border-[#E8E7E5]">
               <div className="flex items-start justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[#E29578] text-base">◉</span>
@@ -919,7 +919,7 @@ export function WorkspacePanel() {
                             className={`group flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border-r border-[#2a2a32] flex-shrink-0 transition-colors ${
                               tab === openFilePath
                                 ? 'bg-[#2a2a32] text-gray-200'
-                                : 'text-gray-500 hover:text-gray-300 hover:bg-[#252530]'
+                                : 'text-cafe-secondary hover:text-cafe-muted hover:bg-[#252530]'
                             }`}
                             title={tab}
                           >
@@ -938,7 +938,7 @@ export function WorkspacePanel() {
                                   closeTab(tab);
                                 }
                               }}
-                              className="ml-0.5 w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-opacity text-gray-500 hover:text-gray-300"
+                              className="ml-0.5 w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-cafe-surface/10 transition-opacity text-cafe-secondary hover:text-cafe-muted"
                               title="关闭"
                             >
                               ×
@@ -952,7 +952,7 @@ export function WorkspacePanel() {
                         <div className="px-3 py-1 bg-[#1E1E24] flex items-center justify-between">
                           <div className="flex items-center gap-2 min-w-0">
                             {file.size > 0 && (
-                              <span className="text-[9px] text-gray-500 font-mono flex-shrink-0">
+                              <span className="text-[9px] text-cafe-secondary font-mono flex-shrink-0">
                                 {file.size < 1024 ? `${file.size}B` : `${Math.round(file.size / 1024)}KB`}
                               </span>
                             )}
@@ -965,7 +965,7 @@ export function WorkspacePanel() {
                                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                                   markdownRendered
                                     ? 'bg-cocreator-primary/80 text-white hover:bg-cocreator-primary'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                                    : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'
                                 }`}
                                 title={markdownRendered ? '切换到源码' : '切换到渲染'}
                               >
@@ -979,7 +979,7 @@ export function WorkspacePanel() {
                                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                                   htmlPreview
                                     ? 'bg-cocreator-primary/80 text-white hover:bg-cocreator-primary'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                                    : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'
                                 }`}
                                 title={htmlPreview ? '切换到源码' : '预览 HTML'}
                               >
@@ -993,7 +993,7 @@ export function WorkspacePanel() {
                                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                                   jsxPreview
                                     ? 'bg-blue-600/80 text-white hover:bg-blue-500'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                                    : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'
                                 }`}
                                 title={jsxPreview ? '切换到源码' : '预览 JSX/TSX'}
                               >
@@ -1007,7 +1007,7 @@ export function WorkspacePanel() {
                                 onClick={() => {
                                   void navigator.clipboard.writeText(file.content);
                                 }}
-                                className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                                className="px-2 py-0.5 rounded text-[10px] font-medium text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10 transition-colors"
                                 title={file.truncated ? '复制已加载内容（文件已截断，非完整全文）' : '复制文件全文'}
                               >
                                 {file.truncated ? 'Copy…' : 'Copy'}
@@ -1020,7 +1020,7 @@ export function WorkspacePanel() {
                                 const abs = currentWorktree ? `${currentWorktree.root}/${openFilePath}` : openFilePath;
                                 void navigator.clipboard.writeText(abs);
                               }}
-                              className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                              className="px-2 py-0.5 rounded text-[10px] font-medium text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10 transition-colors"
                               title="复制绝对路径"
                             >
                               Path
@@ -1030,7 +1030,7 @@ export function WorkspacePanel() {
                               onClick={() => {
                                 if (openFilePath) void revealInFinder(openFilePath);
                               }}
-                              className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                              className="px-2 py-0.5 rounded text-[10px] font-medium text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10 transition-colors"
                               title="在 Finder 中显示"
                             >
                               Finder
@@ -1042,7 +1042,7 @@ export function WorkspacePanel() {
                                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                                   editMode
                                     ? 'bg-green-600/80 text-white hover:bg-green-500'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                                    : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'
                                 }`}
                                 title={editMode ? '退出编辑' : '编辑文件'}
                               >
@@ -1055,7 +1055,7 @@ export function WorkspacePanel() {
                                 if (openFilePath) closeTab(openFilePath);
                                 setEditMode(false);
                               }}
-                              className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                              className="w-5 h-5 flex items-center justify-center rounded text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10 transition-colors"
                               title="关闭标签页"
                             >
                               <CloseIcon />
@@ -1086,7 +1086,7 @@ export function WorkspacePanel() {
                               >
                                 浏览器不支持音频播放
                               </audio>
-                              <p className="text-[10px] text-gray-500">
+                              <p className="text-[10px] text-cafe-secondary">
                                 {file.mime} · {Math.round(file.size / 1024)}KB
                               </p>
                             </div>
@@ -1101,7 +1101,7 @@ export function WorkspacePanel() {
                               </video>
                             </div>
                           ) : (
-                            <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-gray-500 text-xs">
+                            <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-cafe-secondary text-xs">
                               <span className="text-2xl mb-2">📄</span>
                               <p>二进制文件</p>
                               <p className="text-[10px] mt-1">
@@ -1148,7 +1148,7 @@ export function WorkspacePanel() {
                             <div className="px-2 py-1 bg-amber-900/20 text-amber-400 text-[10px] border-b border-amber-900/30 flex-shrink-0">
                               预览模式 — 相对资源路径（图片/CSS/JS）可能无法加载
                             </div>
-                            <div className="flex-1 min-h-0 bg-white">
+                            <div className="flex-1 min-h-0 bg-cafe-surface">
                               <iframe
                                 srcDoc={file.content}
                                 sandbox="allow-scripts"

@@ -61,7 +61,7 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
             value={editDisplayName}
             onChange={(e) => setEditDisplayName(e.target.value)}
             placeholder="账号显示名"
-            className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+            className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
           />
           {profile.authType === 'api_key' ? (
             <>
@@ -69,7 +69,7 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
                 value={editBaseUrl}
                 onChange={(e) => setEditBaseUrl(e.target.value)}
                 placeholder="API 服务地址，如 https://api.example.com/v1"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
               />
               <div className="relative">
                 <input
@@ -78,7 +78,7 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
                   value={editApiKey}
                   onChange={(e) => setEditApiKey(e.target.value)}
                   placeholder={profile.hasApiKey ? '已配置 sk-••••••••（留空保持不变）' : 'sk-xxxxxxxxxxxxxxxx'}
-                  className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                  className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
                 />
               </div>
               <div className="space-y-2">
@@ -109,7 +109,7 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
             type="button"
             onClick={() => setEditing(false)}
             disabled={busy}
-            className="rounded border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            className="rounded border border-cafe px-3 py-1.5 text-xs text-cafe-secondary hover:bg-cafe-surface-elevated"
           >
             取消
           </button>

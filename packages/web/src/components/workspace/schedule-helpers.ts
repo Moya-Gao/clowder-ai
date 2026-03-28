@@ -116,7 +116,7 @@ export function outcomeIcon(outcome: string): string {
 export function outcomeColor(outcome: string): string {
   if (outcome === 'RUN_DELIVERED') return 'text-emerald-600';
   if (outcome === 'RUN_FAILED') return 'text-red-500';
-  return 'text-gray-400';
+  return 'text-cafe-muted';
 }
 
 export function outcomeLabel(outcome: string): string {

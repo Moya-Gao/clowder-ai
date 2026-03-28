@@ -245,11 +245,7 @@ describe('checkSharedStatePreflight (integration)', () => {
     execSync('git fetch origin', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
-    assert.deepEqual(
-      result,
-      { ok: true },
-      'diverged branch should ignore shared-state files changed only on upstream',
-    );
+    assert.deepEqual(result, { ok: true }, 'diverged branch should ignore shared-state files changed only on upstream');
   });
 
   it('returns ok:true when no upstream + no origin/<branch> + no merge-base (fail-open)', () => {

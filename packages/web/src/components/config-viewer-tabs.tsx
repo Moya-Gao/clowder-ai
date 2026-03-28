@@ -9,8 +9,8 @@ export type { Capabilities, CatConfig, ConfigData, ContextBudget } from './confi
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-      <h3 className="text-xs font-semibold text-gray-700 mb-2">{title}</h3>
+    <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+      <h3 className="text-xs font-semibold text-cafe-secondary mb-2">{title}</h3>
       {children}
     </section>
   );
@@ -19,7 +19,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function KV({ label, value }: { label: string; value: string | number | boolean }) {
   const display = typeof value === 'boolean' ? (value ? '是' : '否') : String(value);
   return (
-    <div className="flex justify-between text-xs text-gray-700">
+    <div className="flex justify-between text-xs text-cafe-secondary">
       <span>{label}</span>
       <span className="font-medium text-right">{display}</span>
     </div>
@@ -61,7 +61,7 @@ export function CatOverviewTab({
         ))}
       </div>
       <p className="text-[13px] text-[#B59A88]">点击任意卡片进入成员配置 →</p>
-      {cats.length === 0 && <p className="text-sm text-gray-400">未找到成员配置数据</p>}
+      {cats.length === 0 && <p className="text-sm text-cafe-muted">未找到成员配置数据</p>}
     </div>
   );
 }
@@ -107,11 +107,11 @@ function BubbleToggle({
   }, [display, configKey, onChanged]);
 
   return (
-    <div className="flex items-center justify-between text-xs text-gray-700">
+    <div className="flex items-center justify-between text-xs text-cafe-secondary">
       <span>{label}</span>
       <button
         onClick={toggle}
-        className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+        className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
       >
         {display === 'expanded' ? '展开' : '折叠'}
       </button>

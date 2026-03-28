@@ -438,7 +438,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // Export mode: print-friendly layout — no sidebars, no scroll containers
   if (isExport) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-cafe-surface">
         <div className="max-w-4xl mx-auto p-4">
           {renderItems.map((item) =>
             item.kind === 'a2a_group' ? (
@@ -515,15 +515,15 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             className="h-full overflow-y-auto p-4"
             data-chat-container
           >
-            {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
+            {isLoadingHistory && <div className="text-center py-3 text-sm text-cafe-muted">加载历史消息...</div>}
             {!hasMore && messages.length > 0 && (
-              <div className="text-center py-3 text-xs text-gray-300">没有更多消息了</div>
+              <div className="text-center py-3 text-xs text-cafe-muted">没有更多消息了</div>
             )}
             {messages.length === 0 && !isLoadingHistory ? (
               <div className="text-center mt-20">
                 <PawIcon className="w-12 h-12 text-cocreator-light mx-auto mb-4" />
-                <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Café!</p>
-                <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
+                <p className="text-lg text-cafe-secondary mb-1">欢迎来到 Cat Café!</p>
+                <p className="text-sm text-cafe-muted">输入 @布偶 召唤布偶猫开始聊天</p>
                 {(() => {
                   const isCurrentBootcamp = storeThreads.find((t) => t.id === threadId)?.bootcampState;
                   if (isCurrentBootcamp) return null; // already in bootcamp thread

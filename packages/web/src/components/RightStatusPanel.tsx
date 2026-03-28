@@ -51,11 +51,11 @@ function CatInvocationCard({
           className={`inline-block h-2.5 w-2.5 rounded-full ${isActive ? 'animate-pulse' : ''}`}
           style={{ backgroundColor: dotColor }}
         />
-        <span className="font-medium text-gray-700">{cat ? formatCatName(cat) : catId}</span>
+        <span className="font-medium text-cafe-secondary">{cat ? formatCatName(cat) : catId}</span>
         {inv.sessionSeq !== undefined && (
           <span
             className={`text-[10px] px-1 py-0.5 rounded ${
-              inv.sessionSealed ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'
+              inv.sessionSealed ? 'bg-amber-100 text-amber-600' : 'bg-cafe-surface-elevated text-cafe-secondary'
             }`}
             title={inv.sessionSealed ? `会话 #${inv.sessionSeq} 已封存` : `会话 #${inv.sessionSeq}`}
           >
@@ -114,7 +114,7 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
       </span>
       <button
         onClick={toggle}
-        className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+        className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
         title={isDebug ? '切换到游戏模式（猫猫互相看不到心里话）' : '切换到调试模式（猫猫互相分享心里话）'}
       >
         {isDebug ? '切换游戏' : '切换调试'}
@@ -175,7 +175,7 @@ function BubbleDisplayToggle({
       </span>
       <button
         onClick={cycle}
-        className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+        className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
       >
         {BUBBLE_LABELS[BUBBLE_CYCLE[current] ?? 'global']}
       </button>
@@ -299,12 +299,12 @@ function RuntimeLogsButton() {
   }, [setRevealPath, setOpenFile]);
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+    <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-700">运行日志</h3>
+        <h3 className="text-xs font-semibold text-cafe-secondary">运行日志</h3>
         <button
           onClick={handleClick}
-          className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+          className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
           title="在 Workspace 面板中打开运行日志目录"
         >
           查看日志
@@ -356,23 +356,25 @@ export function RightStatusPanel({
 
   return (
     <aside
-      className="hidden lg:flex border-l border-cocreator-light bg-white/90 px-4 py-4 flex-col gap-4 overflow-y-auto"
+      className="hidden lg:flex border-l border-cocreator-light bg-cafe-surface/90 px-4 py-4 flex-col gap-4 overflow-y-auto"
       style={{ width: width ?? 288, flexShrink: 0 }}
     >
       <div>
         <h2 className="text-sm font-bold text-cafe-black">状态栏</h2>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-cafe-secondary mt-1">
           当前模式: <span className="font-medium">{modeLabel(intentMode)}</span>
         </p>
       </div>
 
       {/* ── Active cats: currently working ──────────────── */}
-      <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+      <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold text-gray-700">{activeCats.length > 0 ? '当前调用' : '猫猫状态'}</h3>
+          <h3 className="text-xs font-semibold text-cafe-secondary">
+            {activeCats.length > 0 ? '当前调用' : '猫猫状态'}
+          </h3>
           <button
             onClick={() => openHub()}
-            className="text-base text-gray-400 hover:text-blue-600 hover:rotate-45 transition-all duration-200"
+            className="text-base text-cafe-muted hover:text-blue-600 hover:rotate-45 transition-all duration-200"
             title="Cat Café Hub"
           >
             &#9881;
@@ -390,7 +392,7 @@ export function RightStatusPanel({
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
-                      <span className="text-xs text-gray-700">{cat ? formatCatName(cat) : catId}</span>
+                      <span className="text-xs text-cafe-secondary">{cat ? formatCatName(cat) : catId}</span>
                     </div>
                     <span className={`text-xs font-medium ${statusTone(status)}`}>{statusLabel(status)}</span>
                   </div>
@@ -400,16 +402,16 @@ export function RightStatusPanel({
             })}
           </div>
         ) : (
-          <div className="text-xs text-gray-400">空闲</div>
+          <div className="text-xs text-cafe-muted">空闲</div>
         )}
       </section>
 
       {/* ── History cats: appeared before but not in current round ── */}
       {historyCats.length > 0 && (
-        <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+        <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
           <button
             onClick={() => setHistoryOpen((v) => !v)}
-            className="w-full flex items-center justify-between text-xs font-semibold text-gray-500 hover:text-gray-700"
+            className="w-full flex items-center justify-between text-xs font-semibold text-cafe-secondary hover:text-cafe-secondary"
           >
             <span>历史参与 ({historyCats.length})</span>
             <span className="text-[10px]">{historyOpen ? '▲' : '▼'}</span>
@@ -421,7 +423,7 @@ export function RightStatusPanel({
                 if (!inv) {
                   const cat = getCatById(catId);
                   return (
-                    <div key={catId} className="flex items-center gap-2 text-xs text-gray-400">
+                    <div key={catId} className="flex items-center gap-2 text-xs text-cafe-muted">
                       <span
                         className="inline-block h-2 w-2 rounded-full opacity-50"
                         style={{ backgroundColor: cat?.color.primary ?? '#9CA3AF' }}
@@ -438,9 +440,9 @@ export function RightStatusPanel({
       )}
 
       {/* ── Message stats (collapsible) ───────────────── */}
-      <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-        <h3 className="text-xs font-semibold text-gray-700 mb-2">消息统计</h3>
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
+      <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+        <h3 className="text-xs font-semibold text-cafe-secondary mb-2">消息统计</h3>
+        <div className="grid grid-cols-2 gap-2 text-xs text-cafe-secondary">
           <div>总数</div>
           <div className="text-right font-medium">{messageSummary.total}</div>
           <div>猫猫消息</div>
@@ -458,13 +460,13 @@ export function RightStatusPanel({
 
       <SessionChainPanel threadId={threadId} catInvocations={catInvocations} onViewSession={setViewSessionId} />
 
-      <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-        <h3 className="text-xs font-semibold text-gray-700 mb-2">对话信息</h3>
-        <div className="text-xs text-gray-500 space-y-2">
+      <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+        <h3 className="text-xs font-semibold text-cafe-secondary mb-2">对话信息</h3>
+        <div className="text-xs text-cafe-secondary space-y-2">
           <div>
             Thread:{' '}
             <button
-              className="text-gray-600 font-mono hover:text-gray-800 cursor-pointer transition-colors"
+              className="text-cafe-secondary font-mono hover:text-cafe cursor-pointer transition-colors"
               title={`点击复制: ${threadId}`}
               onClick={() => copyText(threadId)}
             >

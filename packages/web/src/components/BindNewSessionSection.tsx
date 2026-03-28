@@ -56,7 +56,7 @@ export function BindNewSessionSection({ threadId, activeCatIds, onBound }: BindN
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors mt-1"
+        className="text-[10px] text-cafe-muted hover:text-cafe-secondary transition-colors mt-1"
       >
         + 绑定外部 Session
       </button>
@@ -64,16 +64,16 @@ export function BindNewSessionSection({ threadId, activeCatIds, onBound }: BindN
   }
 
   return (
-    <div className="mt-2 p-2 rounded border border-dashed border-gray-300 bg-white">
+    <div className="mt-2 p-2 rounded border border-dashed border-cafe bg-cafe-surface">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[10px] font-medium text-gray-600">绑定外部 Session</span>
+        <span className="text-[10px] font-medium text-cafe-secondary">绑定外部 Session</span>
         <button
           type="button"
           onClick={() => {
             setExpanded(false);
             setStatus('idle');
           }}
-          className="text-[9px] text-gray-400 hover:text-gray-600"
+          className="text-[9px] text-cafe-muted hover:text-cafe-secondary"
         >
           ✕
         </button>
@@ -82,7 +82,7 @@ export function BindNewSessionSection({ threadId, activeCatIds, onBound }: BindN
         <select
           value={selectedCat}
           onChange={(e) => setSelectedCat(e.target.value)}
-          className="w-full text-[11px] px-2 py-1 rounded border border-gray-200 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-cocreator-primary"
+          className="w-full text-[11px] px-2 py-1 rounded border border-cafe bg-cafe-surface-elevated focus:outline-none focus:ring-1 focus:ring-cocreator-primary"
         >
           <option value="">选择猫猫...</option>
           {availableCats.map((cat) => (
@@ -100,7 +100,7 @@ export function BindNewSessionSection({ threadId, activeCatIds, onBound }: BindN
           }}
           placeholder="CLI Session ID"
           maxLength={500}
-          className="w-full text-[11px] font-mono px-2 py-1 rounded border border-gray-200 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-cocreator-primary"
+          className="w-full text-[11px] font-mono px-2 py-1 rounded border border-cafe bg-cafe-surface-elevated focus:outline-none focus:ring-1 focus:ring-cocreator-primary"
         />
         <button
           type="button"

@@ -146,7 +146,7 @@ function HubDirLink({ relPath, label }: { relPath: string; label: string }) {
 
 function RestrictedPathLabel({ absPath, reason }: { absPath: string; reason: string }) {
   return (
-    <span className="text-xs text-gray-400 shrink-0 cursor-default" title={`${reason}\n${absPath}`}>
+    <span className="text-xs text-cafe-muted shrink-0 cursor-default" title={`${reason}\n${absPath}`}>
       受保护
     </span>
   );
@@ -242,7 +242,7 @@ function ConfigFilesSection({ projectRoot }: { projectRoot: string }) {
           return (
             <div
               key={f.name}
-              className="flex items-baseline gap-2 rounded-[12px] border border-[#F3E8DE] bg-white px-3 py-2"
+              className="flex items-baseline gap-2 rounded-[12px] border border-[#F3E8DE] bg-cafe-surface px-3 py-2"
             >
               <code className="shrink-0 rounded bg-[#F7F3F0] px-1.5 py-0.5 font-mono text-xs text-[#6A5A50]">
                 {f.name}
@@ -296,7 +296,7 @@ function EnvVarsSection({
               {group.vars.map((v) => (
                 <div
                   key={v.name}
-                  className="grid gap-2 rounded-[12px] border border-[#F3E8DE] bg-white px-3 py-2 text-xs md:grid-cols-[minmax(0,1fr)_220px]"
+                  className="grid gap-2 rounded-[12px] border border-[#F3E8DE] bg-cafe-surface px-3 py-2 text-xs md:grid-cols-[minmax(0,1fr)_220px]"
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-baseline gap-1.5 min-w-0">
@@ -360,7 +360,7 @@ function DataDirsSection({ dataDirs, projectRoot }: { dataDirs: DataDirs; projec
           return (
             <div
               key={d.name}
-              className="flex items-baseline gap-2 rounded-[12px] border border-[#F3E8DE] bg-white px-3 py-2"
+              className="flex items-baseline gap-2 rounded-[12px] border border-[#F3E8DE] bg-cafe-surface px-3 py-2"
             >
               <span className="shrink-0 text-xs font-medium text-[#6A5A50]">{d.name}</span>
               <span className="text-xs text-[#8A776B]">{d.desc}</span>
@@ -403,7 +403,7 @@ export function HubEnvFilesTab() {
   }, []);
 
   if (error) return <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>;
-  if (!data) return <p className="text-sm text-gray-400">加载中...</p>;
+  if (!data) return <p className="text-sm text-cafe-muted">加载中...</p>;
 
   const editableVariables = data.variables.filter(isEditableVariable);
   const changedUpdates = editableVariables
