@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { useCatData } from '@/hooks/useCatData';
@@ -177,8 +177,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     }
   }, [rightPanelMode, statusPanelOpen]);
 
-  // Desktop: auto-open sidebar on mount (mobile stays closed)
-  useEffect(() => {
+  // Desktop: open sidebar before first paint (useLayoutEffect avoids false→true flicker).
+  // SSR parity: both server and client start with false, layoutEffect flips before paint.
+  useLayoutEffect(() => {
     if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) {
       setSidebarOpen(true);
     }
