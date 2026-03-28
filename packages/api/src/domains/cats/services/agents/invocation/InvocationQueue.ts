@@ -11,6 +11,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 export interface QueueEntry {
   id: string;
@@ -41,6 +42,7 @@ export interface EnqueueResult {
 const MAX_QUEUE_DEPTH = 5;
 
 export class InvocationQueue {
+  private readonly log = createModuleLogger('invocation-queue');
   private queues = new Map<string, QueueEntry[]>();
 
   /** Last pre-merge content per entryId, for rollback */
@@ -427,8 +429,13 @@ export class InvocationQueue {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
         if (e.source !== 'agent' || !e.targetCats.includes(catId)) continue;
-        if (e.status === 'processing') return true;
-        if (e.status === 'queued' && now - e.createdAt < InvocationQueue.STALE_QUEUED_THRESHOLD_MS) return true;
+        if (e.status === 'processing' || (e.status === 'queued' && now - e.createdAt < InvocationQueue.STALE_QUEUED_THRESHOLD_MS)) {
+          this.log?.info(
+            { threadId, catId, matchedEntry: { entryId: e.id, status: e.status, ageMs: now - e.createdAt, userId: key.split(':')[1] ?? '' } },
+            '[DIAG] hasActiveOrQueuedAgentForCat hit',
+          );
+          return true;
+        }
       }
     }
     return false;
