@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
+import { catRegistry } from '@cat-cafe/shared';
 import { ConnectorRouter } from '../dist/infrastructure/connectors/ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from '../dist/infrastructure/connectors/ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from '../dist/infrastructure/connectors/InboundMessageDedup.js';
@@ -32,8 +33,10 @@ function mockMessageStore() {
 function mockThreadStore() {
   let counter = 0;
   const threads = new Map();
+  const participantActivity = new Map();
   return {
     threads,
+    participantActivity,
     create(userId, title) {
       counter++;
       const thread = {
@@ -60,6 +63,9 @@ function mockThreadStore() {
         thread.connectorHubState = state;
       }
     },
+    async getParticipantsWithActivity(threadId) {
+      return participantActivity.get(threadId) ?? [];
+    },
   };
 }
 
@@ -83,6 +89,39 @@ function mockSocketManager() {
   };
 }
 
+function ensureMentionRegistry() {
+  if (!catRegistry.tryGet('opus')) {
+    catRegistry.register('opus', {
+      id: 'opus',
+      name: 'opus',
+      displayName: '布偶猫',
+      avatar: '/avatars/opus.png',
+      color: { primary: '#000', secondary: '#fff' },
+      mentionPatterns: ['@opus', '@布偶猫', '@布偶', '@宪宪'],
+      provider: 'anthropic',
+      defaultModel: 'test-model',
+      mcpSupport: false,
+      roleDescription: 'test role',
+      personality: 'test personality',
+    });
+  }
+  if (!catRegistry.tryGet('codex')) {
+    catRegistry.register('codex', {
+      id: 'codex',
+      name: 'codex',
+      displayName: '缅因猫',
+      avatar: '/avatars/codex.png',
+      color: { primary: '#111', secondary: '#eee' },
+      mentionPatterns: ['@codex', '@缅因猫', '@缅因', '@砚砚'],
+      provider: 'openai',
+      defaultModel: 'test-model',
+      mcpSupport: false,
+      roleDescription: 'test role',
+      personality: 'test personality',
+    });
+  }
+}
+
 describe('ConnectorRouter', () => {
   let bindingStore;
   let dedup;
@@ -93,6 +132,7 @@ describe('ConnectorRouter', () => {
   let router;
 
   beforeEach(() => {
+    ensureMentionRegistry();
     bindingStore = new MemoryConnectorThreadBindingStore();
     dedup = new InboundMessageDedup();
     messageStore = mockMessageStore();
@@ -143,6 +183,45 @@ describe('ConnectorRouter', () => {
     assert.equal(trigger.calls.length, 1);
     assert.equal(trigger.calls[0].catId, 'opus');
     assert.ok(trigger.calls[0].threadId);
+  });
+
+  it('routes to last-active cat when no @mention is present', async () => {
+    const thread = threadStore.create('owner-1', 'existing');
+    bindingStore.bind('feishu', 'chat-last-active', thread.id, 'owner-1');
+    threadStore.participantActivity.set(thread.id, [
+      { catId: 'codex', lastMessageAt: Date.now() - 100, messageCount: 2 },
+      { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 10 },
+    ]);
+
+    await router.route('feishu', 'chat-last-active', '继续', 'ext-last-active-1');
+
+    assert.equal(trigger.calls.length, 1);
+    assert.equal(trigger.calls[0].catId, 'codex');
+    assert.deepEqual(messageStore.messages[0].mentions, ['codex']);
+  });
+
+  it('keeps explicit @mention priority over last-active cat', async () => {
+    const thread = threadStore.create('owner-1', 'existing');
+    bindingStore.bind('feishu', 'chat-mention-priority', thread.id, 'owner-1');
+    threadStore.participantActivity.set(thread.id, [{ catId: 'codex', lastMessageAt: Date.now(), messageCount: 5 }]);
+
+    await router.route('feishu', 'chat-mention-priority', '@opus 请看', 'ext-mention-priority-1');
+
+    assert.equal(trigger.calls.length, 1);
+    assert.equal(trigger.calls[0].catId, 'opus');
+    assert.deepEqual(messageStore.messages[0].mentions, ['opus']);
+  });
+
+  it('falls back to default cat when no @mention and no participant activity', async () => {
+    const thread = threadStore.create('owner-1', 'existing');
+    bindingStore.bind('feishu', 'chat-default-fallback', thread.id, 'owner-1');
+    threadStore.participantActivity.set(thread.id, []);
+
+    await router.route('feishu', 'chat-default-fallback', '没人被@', 'ext-default-fallback-1');
+
+    assert.equal(trigger.calls.length, 1);
+    assert.equal(trigger.calls[0].catId, 'opus');
+    assert.deepEqual(messageStore.messages[0].mentions, ['opus']);
   });
 
   it('skips duplicate messages', async () => {

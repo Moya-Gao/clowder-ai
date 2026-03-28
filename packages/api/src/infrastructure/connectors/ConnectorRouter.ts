@@ -70,6 +70,11 @@ export interface ConnectorRouterOptions {
             lastCommandAt?: number;
           };
         } | null>;
+    getParticipantsWithActivity?(
+      threadId: string,
+    ):
+      | Array<{ catId: string; lastMessageAt: number; messageCount: number }>
+      | Promise<Array<{ catId: string; lastMessageAt: number; messageCount: number }>>;
   };
   readonly invokeTrigger: {
     trigger(
@@ -302,7 +307,17 @@ export class ConnectorRouter {
 
     // Parse @-mentions to determine target cat
     const mentionPatterns = this.getMentionPatterns();
-    const { targetCatId } = parseMentions(resolvedText, mentionPatterns, this.opts.defaultCatId);
+    const mentionResult = parseMentions(resolvedText, mentionPatterns, this.opts.defaultCatId);
+    let targetCatId = mentionResult.targetCatId;
+    if (!mentionResult.matched && this.opts.threadStore.getParticipantsWithActivity) {
+      const participants = await this.opts.threadStore.getParticipantsWithActivity(binding.threadId);
+      const lastActive = participants
+        .filter((p) => p.messageCount > 0)
+        .sort((a, b) => b.lastMessageAt - a.lastMessageAt)[0];
+      if (lastActive) {
+        targetCatId = lastActive.catId as CatId;
+      }
+    }
 
     const stored = await messageStore.append({
       threadId: binding.threadId,
