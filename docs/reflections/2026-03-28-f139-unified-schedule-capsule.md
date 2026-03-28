@@ -15,7 +15,7 @@ created: 2026-03-28
 ## What Failed
 
 - 我们两次差点把 F139 提前 close：第一次交付的是“定时贴纸机”，不是“没人找你但该主动检查”的主动 Agent；第二次又暴露出 live 注册立即触发和叫错猫，说明 phase merge 不等于愿景闭环
-- `AC-H2b` 在 feature 内挂了太久，导致 spec 表面一直是“还差一项”；实际它已经不是 scheduler 核心缺口，而是 browser-automation 运行时基建依赖
+- `AC-H2b` 在 feature 内挂了太久，导致 spec 表面一直是“还差一项”；后来又差点把它错误描述成“browser backend 还没做”。更准确的说法是：backend 已有，缺的是 F139 调度侧对现有 browser-automation 能力的接线
 - 新 skill 创建后没有第一时间确认 HOME 级 symlink / runtime mount 闭环，差点把 skills mount 问题误判成 manifest trigger routing 缺失
 
 ## Trigger Missed
