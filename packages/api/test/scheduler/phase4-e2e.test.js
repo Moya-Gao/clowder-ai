@@ -261,6 +261,65 @@ describe('F139 Phase 4 E2E', () => {
     assert.equal(deliverCalls[0].threadId, 'thread-news');
   });
 
+  test('AC-H2b: web-digest browser path stores trigger message then wakes target cat', async () => {
+    const fetchMock = mock.fn(async () => ({
+      text: '',
+      title: '',
+      url: 'https://x.com/anthropic',
+      method: 'browser',
+      truncated: false,
+    }));
+    const triggerCalls = [];
+
+    const runnerWithFetchAndTrigger = new TaskRunnerV2({
+      logger: { info: () => {}, error: () => {} },
+      ledger,
+      globalControlStore,
+      deliver: async (opts) => {
+        deliverCalls.push(opts);
+        return deliverMock(opts);
+      },
+      fetchContent: fetchMock,
+      invokeTrigger: {
+        trigger: (...args) => triggerCalls.push(args),
+      },
+    });
+
+    store.insert({
+      id: 'digest-browser',
+      templateId: 'web-digest',
+      trigger: { type: 'cron', expression: '0 9 * * *' },
+      params: { url: 'https://x.com/anthropic', topic: '今天 AI 新闻', targetCatId: 'gpt52' },
+      display: { label: 'AI 新闻巡查', category: 'external', description: 'JS-heavy digest' },
+      deliveryThreadId: 'thread-browser',
+      enabled: true,
+      createdBy: 'gpt52',
+      createdAt: new Date().toISOString(),
+    });
+    runnerWithFetchAndTrigger.hydrateDynamic(store, templateRegistry);
+
+    await runnerWithFetchAndTrigger.triggerNow('digest-browser', { manual: true });
+
+    assert.equal(fetchMock.mock.calls.length, 1);
+    assert.equal(deliverCalls.length, 1);
+    assert.equal(deliverCalls[0].threadId, 'thread-browser');
+    assert.equal(deliverCalls[0].catId, 'system');
+    assert.ok(deliverCalls[0].content.includes('browser-automation'));
+    assert.ok(deliverCalls[0].content.includes('https://x.com/anthropic'));
+    assert.ok(deliverCalls[0].content.includes('今天 AI 新闻'));
+
+    assert.equal(triggerCalls.length, 1);
+    assert.equal(triggerCalls[0][0], 'thread-browser');
+    assert.equal(triggerCalls[0][1], 'gpt52');
+    assert.equal(triggerCalls[0][2], 'scheduler');
+    assert.ok(triggerCalls[0][3].includes('browser-automation'));
+    assert.ok(triggerCalls[0][4].startsWith('msg-'));
+    assert.equal(triggerCalls[0][6]?.suggestedSkill, 'browser-automation');
+
+    const runs = ledger.query('digest-browser', 1);
+    assert.equal(runs[0].outcome, 'RUN_DELIVERED');
+  });
+
   test('AC-H3: repo-activity trigger delivers repo update from GitHub API', async () => {
     // Mock GitHub API response
     const ghIssues = [

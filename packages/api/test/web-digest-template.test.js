@@ -63,6 +63,7 @@ describe('webDigestTemplate', () => {
 
   it('execute skips delivery when fetchContent returns needs-browser', async () => {
     const deliverMock = mock.fn(async () => 'msg-2');
+    const triggerCalls = [];
     const fetchMock = mock.fn(async () => ({
       text: '',
       title: '',
@@ -71,6 +72,44 @@ describe('webDigestTemplate', () => {
       truncated: false,
     }));
     const spec = webDigestTemplate.createSpec('wd-5', {
+      trigger: { type: 'cron', expression: '0 9 * * *' },
+      params: { url: 'https://x.com/user', topic: 'AI', targetCatId: 'gpt52' },
+      deliveryThreadId: 'th-2',
+    });
+    await spec.run.execute(null, 'thread-th-2', {
+      assignedCatId: 'opus',
+      deliver: deliverMock,
+      fetchContent: fetchMock,
+      invokeTrigger: { trigger: (...args) => triggerCalls.push(args) },
+    });
+
+    assert.equal(deliverMock.mock.calls.length, 1);
+    const delivered = deliverMock.mock.calls[0].arguments[0];
+    assert.equal(delivered.threadId, 'th-2');
+    assert.equal(delivered.catId, 'system');
+    assert.ok(delivered.content.includes('browser-automation'));
+    assert.ok(delivered.content.includes('https://x.com/user'));
+    assert.ok(delivered.content.includes('AI'));
+
+    assert.equal(triggerCalls.length, 1);
+    assert.equal(triggerCalls[0][0], 'th-2');
+    assert.equal(triggerCalls[0][1], 'gpt52');
+    assert.equal(triggerCalls[0][2], 'scheduler');
+    assert.ok(triggerCalls[0][3].includes('browser-automation'));
+    assert.equal(triggerCalls[0][4], 'msg-2');
+    assert.equal(triggerCalls[0][6]?.suggestedSkill, 'browser-automation');
+  });
+
+  it('execute throws for needs-browser when invokeTrigger is not available', async () => {
+    const deliverMock = mock.fn(async () => 'msg-2');
+    const fetchMock = mock.fn(async () => ({
+      text: '',
+      title: '',
+      url: 'https://x.com/user',
+      method: 'browser',
+      truncated: false,
+    }));
+    const spec = webDigestTemplate.createSpec('wd-5b', {
       trigger: { type: 'cron', expression: '0 9 * * *' },
       params: { url: 'https://x.com/user', topic: '' },
       deliveryThreadId: 'th-2',
@@ -82,9 +121,8 @@ describe('webDigestTemplate', () => {
           deliver: deliverMock,
           fetchContent: fetchMock,
         }),
-      /browser.*required|not.*supported/i,
+      /invokeTrigger not available for browser-required digest/,
     );
-    // Must NOT have delivered placeholder text
     assert.equal(deliverMock.mock.calls.length, 0);
   });
 
