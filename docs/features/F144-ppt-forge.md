@@ -97,25 +97,46 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 | Google Slides | **可打开**：同上 |
 | LibreOffice Impress | **不承诺** |
 
-### Phase B: 风格模板库 + 高级布局 + 引擎化
+### Phase B: HTML Layout Compiler — 终态渲染引擎
 
-1. 企业风格模板库（nvidia-like/IBM/Apple/Cat Cafe）
-2. **超密架构图**（50+ 盒子、4+ 层嵌套）+ **自由连线流程图**（Connector API）
-3. Layout variant system（8 family × 2-4 variant，解决长 deck 模板味）
-4. Pencil MCP 集成：设计预览 + 风格定义 + 铲屎官审批
-5. Skill 化：铲屎官一句话触发全流程
-6. Gate patch loop（qa.report.json → 局部回修）+ Gate scorecard 评分协议
-7. asset.manifest.json + brand-policy linter
-8. deliveryMode 切换（presenter vs handout）
-9. 质量守护集成（信息密度/视觉一致性/叙事连贯性检查）
+> **方向纠偏（2026-03-28）**：Phase A 用 pptxgenjs 原生 shapes 手算 x/y/w/h 坐标，在复杂嵌套布局（华为级 50+ 盒子）时效果差、算法复杂。铲屎官指出应与 F138 Video Studio（Remotion = HTML+CSS → 视频）复用同一思路。砚砚确认终态路线：HTML+CSS 做布局真相源 → DOM 语义编译器 → pptxgenjs 原生对象输出（不截图、不光栅化）。
+
+**终态架构**：
+```
+Blueprint JSON (语义)
+    ↓
+HTML Template Engine (HTML+Tailwind 生成 slide DOM)
+    ↓
+Playwright headless (固定 viewport/字体，确定性布局求值)
+    ↓ data-ppt-role 语义标注
+DOM Semantic Compiler (编译为 text/table/chart/shape/group)
+    ↓
+pptxgenjs 原生对象输出 (文字可编辑、图表可编辑、字体嵌入)
+    ↓
+deck.pptx
+```
+
+**五条硬边界**（砚砚定义，不可退让）：
+1. `layout-engine` — Playwright 做确定性布局求值（固定 viewport 1280×720 / 字体 / 样式）
+2. `semantic-compiler` — 按 `data-ppt-role` 编译为原生 pptxgenjs 对象，不做像素级截图
+3. `editable-first` — 任何页面元素默认原生对象，禁止截图回退
+4. `font-embed` — 字体嵌入能力并入导出链
+5. `browser-backend` — 生产链只用 Playwright（可重复、可测试），其他浏览器能力用于调研/采样
+
+**Phase B 交付项**：
+1. `html-layout-compiler` 子模块 — Blueprint → HTML+CSS → DOM 坐标 → pptxgenjs 调用
+2. 全量 renderer 迁移 — 现有 5 个 renderer (text/chart/table/kpi/diagram) 改为吃 compiler output
+3. 字体嵌入 — 借鉴对方 dom-to-pptx 的 opentype.js + fonteditor-core 方案
+4. Skill 化 — 铲屎官一句话触发全流程
+5. 企业风格模板库 — nvidia-like/IBM/Apple（HTML+Tailwind 模板，比 JSON token 表达力强 10 倍）
 
 ### Phase C: 进阶能力（可选）
 
 1. Combo chart 双轴（pptxgenjs combo API 稳定后）
 2. 演讲者备注自动生成
-3. HTML 预览模式（可选，双轨：HTML 预览 + pptxgenjs 最终导出）
-4. Narrative 编辑部（reference-retriever / deck-critic / redundancy-pruner）
-5. 多语言支持
+3. Narrative 编辑部（reference-retriever / deck-critic / redundancy-pruner）
+4. 多语言支持
+5. Gate patch loop（qa.report.json → 局部回修）+ Gate scorecard 评分协议
 
 ## Acceptance Criteria
 
