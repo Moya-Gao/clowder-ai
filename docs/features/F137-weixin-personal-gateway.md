@@ -8,7 +8,7 @@ created: 2026-03-23
 
 # F137: WeChat Personal Gateway — 微信个人号 iLink Bot 接入
 
-> **Status**: done | **Completed**: 2026-03-25 | **Owner**: 金渐层 | **Priority**: P1
+> **Status**: in-progress | **Completed**: — | **Owner**: 金渐层 | **Priority**: P1
 >
 > **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
 > 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
@@ -251,6 +251,16 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 - Pencil 绘制 SVG 图标，无 emoji
 - 砚砚 (codex) R2 放行 + 云端 Codex review 无 P1/P2
 
+### Phase D（断开连接 + 解绑）📋
+
+> **反思**：Phase A-C 只做了"连接"方向，没有做"断开"。能连接就必须能断开——这是 UX 完整性的基本功。立项时应该主动挖掘这类隐含需求，而不是等铲屎官发现了才补。
+
+- [ ] AC-D1: IM Hub 配置卡片在已连接状态下显示"断开连接"按钮
+- [ ] AC-D2: 点击"断开连接"后停止长轮询 + 清除 bot_token/context_tokens + 状态回到"未配置"
+- [ ] AC-D3: 断开后微信端不再收到 bot 消息（session 自然过期或主动 revoke）
+- [ ] AC-D4: 配置卡片展示解绑说明文案（微信端操作路径：设置 → 账号与安全 → 登录设备管理）
+- [ ] AC-D5: 断开连接不影响已有 thread 和历史消息
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -260,11 +270,13 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | R3 | "也得接入我们的消息管线，都得是一样的" | AC-A5, AC-A6 | /new /threads /use /where 可用 | [x] |
 | R4 | "如果有配置需要配置...在那边能够显示" | AC-C1 | IM Hub 配置向导可见 | [x] |
 | R5 | "按照我们的开发速度，不需要一天" | Phase A 优先 | Phase A 独立可用 | [x] |
+| R6 | "我们这里是不是可以写清楚怎么样不绑定？" + "我们可以做一个按钮？" | AC-D1~D5 | IM Hub 断开按钮 + 解绑说明 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
 - [x] 前端需求已准备需求→证据映射表（若适用）— Phase C IM Hub AC-C1 已完成
+- [ ] Phase D 需求已覆盖（断开连接 + 解绑说明）
 
 ## Dependencies
 
@@ -447,10 +459,11 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-03-25 | BUG-4b/4c 修复：`every→some` + QueueProcessor 合并路径 + richBlocks 保留 → PR #740 云端 review 两轮通过 → squash merge (08c663fb)。83 tests pass |
 | 2026-03-25 | BUG-5 验证：context_token 可复用，不是单次消费。移除 `lastConsumedToken` + `SINGLE_TOKEN_CONNECTORS` 合并逻辑。实现 AC-B3/B6 媒体接收（CDN 下载 + AES 解密） |
 | 2026-03-25 | F137 cleanup PR #744 merged — BUG-5 dead code removal + media receiving + P1/P2 review fixes (aes_key encoding + FILE empty guard)。砚砚 R6 放行 + 云端 Codex 0 P1/P2。AC 全部 ✅ |
-| 2026-03-25 | **F137 feat-close** — 愿景守护：布偶猫(opus) 三问 + 证物对照表全 ✅，缅因猫(gpt52) 独立验证放行。19/19 AC done。反思胶囊已写 |
+| 2026-03-25 | ~~**F137 feat-close**~~ — 愿景守护：布偶猫(opus) 三问 + 证物对照表全 ✅，缅因猫(gpt52) 独立验证放行。19/19 AC done。反思胶囊已写。**注：Phase D 补充后重新打开** |
 | 2026-03-26 | Hotfix: CDN domain NXDOMAIN — `filecdnweixin.weixin.qq.com` → `novac2c.cdn.weixin.qq.com/c2c`。修复图片/语音/文件上传+下载全链路。PR #763 squash merge (2deb9370) |
 | 2026-03-28 | 4 media bugs: aesKey base64url decode, WAV→SILK voice, html_widget plaintext fallback, HTTPS URL download for media_gallery。云端 R2 通过 → PR #813 squash merge |
 | 2026-03-28 | DM hotfix: 修复 `media_gallery` 相对路径解析（`/avatars/*`）、HTTPS 下载失败不再静默吞错、语音非 SILK 自动降级 `file_item`。PR #819 squash merge (497cdfa8) |
+| 2026-03-28 | **反思 + Phase D 补充**：铲屎官指出"能连接就应该能断开"——Phase A-C 只做了连接方向，缺少断开/解绑功能。Status 回退为 in-progress，新增 Phase D（AC-D1~D5）|
 
 ## Review Gate
 
