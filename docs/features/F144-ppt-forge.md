@@ -129,7 +129,7 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 - [ ] AC-A7: 企业风格模板（**huawei-like**）可用，信息密度达到华为参考图水平
 - [ ] AC-A8: 五道门禁全部嵌入管线（Research/Narrative/Blueprint/Export/Vision Gate）
 - [ ] AC-A9: 密排状态矩阵表格 — 单元格级颜色编码，可编辑
-- [ ] AC-A10: （Level 2 挑战）嵌套盒子架构图 — DiagramElement 支持 2-3 层嵌套
+- [ ] AC-A10: （Level 2 stretch / non-blocking）嵌套盒子架构图 — nested-box renderer，只矩形/圆角矩形/侧栏标签，最大 3 层，输入必须是树不是图，不做 connector/自动布线
 - [ ] AC-A11: CJK 图表字体 POC 通过（release-gate P1，不过则收紧支持矩阵）
 - [ ] AC-A12: 生成的 .pptx 在 PPT 365 Win/Mac 打开无 repair 弹窗
 
@@ -191,6 +191,7 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 | KD-6 | **五道门禁嵌入管线** | 砚砚提出：Research/Narrative/Blueprint/Export/Vision Gate，审批点前置防止级联浪费 | 2026-03-27 |
 | KD-7 | **叙事引擎 = 结构化模板 + prompt 增强** | 金渐层+砚砚共识：纯 prompt 不稳定，纯模板僵硬，混合方案最优 | 2026-03-27 |
 | KD-8 | Phase A 首发风格从 nvidia-like **改为 huawei-like** | 铲屎官要求：华为信息密度最高（一页 50+ 盒子），最能证明引擎能力；对比打脸效果最强 | 2026-03-27 |
+| KD-13 | **huawei-like 字体统一 Noto Sans SC** | 砚砚要求：高密中文场景 Latin/CJK 度量不一致会搞乱断行和容量判断。Phase A 不追品牌拟真，追稳定可读 | 2026-03-27 |
 | KD-9 | **GPT Pro 审阅吸纳 7 项** | renderBudget / slideId / sections[] / transition 枚举 / ChartData union / Render Recipes / 支持矩阵冻结 | 2026-03-27 |
 | KD-10 | **CJK 图表字体升级为 release-gate P1** | 砚砚要求：首发场景是中文企业汇报，图表 CJK 翻车 = 现场打脸自己 | 2026-03-27 |
 | KD-11 | **Pushback renderer-agnostic adapter** | 宪宪+砚砚共识：YAGNI，但守住 contract 不泄漏 renderer 细节（ChartData + hints 折中） | 2026-03-27 |
