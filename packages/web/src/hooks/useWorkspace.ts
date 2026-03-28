@@ -62,6 +62,7 @@ export function useWorkspace() {
   const [file, setFile] = useState<FileData | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch worktrees — re-fetches when project changes
@@ -193,7 +194,7 @@ export function useWorkspace() {
   const search = useCallback(
     async (query: string, type: 'content' | 'filename' | 'all' = 'content') => {
       if (!worktreeId || !query.trim()) return;
-      setLoading(true);
+      setSearchLoading(true);
       setError(null);
       try {
         if (type === 'all') {
@@ -215,7 +216,7 @@ export function useWorkspace() {
         setSearchResults([]);
         setError('Failed to search workspace');
       } finally {
-        setLoading(false);
+        setSearchLoading(false);
       }
     },
     [worktreeId, searchSingle],
@@ -245,6 +246,7 @@ export function useWorkspace() {
     file,
     searchResults,
     loading,
+    searchLoading,
     error,
     fetchWorktrees,
     fetchTree,

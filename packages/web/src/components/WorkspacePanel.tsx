@@ -138,6 +138,7 @@ export function WorkspacePanel() {
     file,
     searchResults,
     loading,
+    searchLoading,
     error,
     search,
     setSearchResults,
@@ -802,9 +803,16 @@ export function WorkspacePanel() {
             <ChangesPanel worktreeId={worktreeId} basisPct={treeBasis} />
           ) : (
             <>
+              {/* Search loading indicator */}
+              {searchLoading && (
+                <div className="border-b border-cocreator-light/40 px-3 py-3 text-xs text-cocreator-dark/70 flex items-center gap-2">
+                  <span className="inline-block w-3 h-3 border-2 border-cocreator-primary border-t-transparent rounded-full animate-spin" />
+                  搜索中...
+                </div>
+              )}
               {/* Search results — grouped when in 'all' mode */}
               {(didSearch || searchResults.length > 0) &&
-                !loading &&
+                !searchLoading &&
                 !error &&
                 (() => {
                   const fileHits = searchResults.filter((r) => r.matchType === 'filename');

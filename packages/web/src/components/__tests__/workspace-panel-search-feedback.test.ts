@@ -57,6 +57,7 @@ function setupMocks() {
     file: null,
     searchResults: [],
     loading: false,
+    searchLoading: false,
     error: null,
     search,
     setSearchResults: vi.fn(),
@@ -158,5 +159,56 @@ describe('WorkspacePanel search feedback', () => {
     expect(search).toHaveBeenCalledWith('README-A2A-SEARCH', 'all');
     expect(container.textContent).toContain('未在 runtime/main-sync 中找到');
     expect(container.textContent).toContain('README-A2A-SEARCH');
+  });
+
+  it('shows "搜索中..." spinner when searchLoading is true', async () => {
+    setupMocks();
+    // Override: searchLoading=true simulates an in-flight search request
+    mocks.useWorkspace.mockReturnValue({
+      ...mocks.useWorkspace(),
+      searchLoading: true,
+    });
+    const { WorkspacePanel } = await import('@/components/WorkspacePanel');
+
+    await act(async () => {
+      root.render(React.createElement(WorkspacePanel));
+    });
+
+    expect(container.textContent).toContain('搜索中...');
+  });
+
+  it('does NOT show "搜索中..." when tree/file loading is active after a prior search', async () => {
+    const { search } = setupMocks();
+    const { WorkspacePanel } = await import('@/components/WorkspacePanel');
+
+    await act(async () => {
+      root.render(React.createElement(WorkspacePanel));
+    });
+
+    // Submit a search to set internal didSearch=true
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      valueSetter?.call(input, '猫');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const form = container.querySelector('form');
+    await act(async () => {
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    expect(search).toHaveBeenCalled();
+
+    // Now simulate tree/file loading (loading=true) but search is NOT loading
+    mocks.useWorkspace.mockReturnValue({
+      ...mocks.useWorkspace(),
+      loading: true,
+      searchLoading: false,
+    });
+    await act(async () => {
+      root.render(React.createElement(WorkspacePanel));
+    });
+
+    // Should NOT show search spinner during non-search loading
+    expect(container.textContent).not.toContain('搜索中...');
   });
 });
