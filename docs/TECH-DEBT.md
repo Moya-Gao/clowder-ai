@@ -115,6 +115,7 @@ created: 2026-02-26
 | TD114 | **Bubble duplicate invariant diagnostics / assertions** | [ ] | F123 AC-B5 转出 | 目前有 `dumpBubbleTimeline()`，但没有 invariant 断言直接指出 duplicate 是从哪个入口创建的。需要 dev/test 级诊断或断言。Evolved from: F123。|
 | TD115 | **logs-health.sh 跨平台兼容性（Linux + Windows）** | [ ] | F130 缅因猫 review 观察 | `oldest_file_days()` 用 `stat -f '%m'`（BSD/macOS 专用），Linux 需 `stat -c '%Y'`。`date -v-1H` 也是 BSD 语法。Windows 上整个 bash 脚本不可用——但 Pino logger.ts 本身是纯 Node.js 跨平台，**日志落盘不受影响**，只是缺少 `pnpm logs:health` 诊断能力和 `start-dev.sh` 进程层 stderr capture。修复方向：(A) `logs-health.sh` 加 `uname` 判断走不同 stat 语法；(B) Windows 用户提供 Node.js 版 logs-health 替代；(C) start-dev.sh 的 process-layer 暂无 Windows 等价方案。触发条件：社区 Windows/Linux 用户反馈或 Docker 化部署时。|
 | TD116 | **scheduled web-digest 对接现有 browser-automation backend** | [x] | F139 AC-H2b 转出 | 已在 PR #826 完成：`web-digest` 的 `needs-browser` 分支改为先存真实 trigger message，再 `invokeTrigger` 唤醒猫并携带 `suggestedSkill: browser-automation`。2026-03-28 关闭。 |
+| TD117 | **env 变量三源不同步 — registry / .env.example / code 缺口审计 + 防遗忘** | [ ] | 2026-03-28 布偶猫审计 | **问题**：(1) 25 个 `process.env.XXX`（含 `ANTHROPIC_API_KEY`、WeCom 全家 7 个、`LOG_LEVEL`）代码里用了但 `env-registry.ts` 没注册 → Hub 看不到；(2) `.env.example` 只有 21 条，registry 有 100+，新用户无从知晓；(3) 无自动检查，新增 env 时无人提醒注册。**修复方向**：(A) 补齐 registry 25 个漏网变量；(B) `.env.example` 从 registry 自动生成或手动补齐；(C) 加 CI/pre-commit lint：扫描 `process.env.XXX` 必须在 `env-registry.ts` 有对应条目，防止再遗忘。**教训**：LL-030（proxy 默认值改了没同步 .env）是同根问题。|
 
 ## P3 — 可选优化
 
