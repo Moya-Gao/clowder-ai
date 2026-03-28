@@ -13,7 +13,7 @@
 | card | Review 结论、状态报告、决策摘要 |
 | diff | 代码修改建议、重构前后对比 |
 | checklist | 待办项、检查清单、验证步骤 |
-| media_gallery | 截图、设计稿、多图对比 |
+| media_gallery | 发送已有图片（头像、照片）、截图、设计稿、多图对比 — 不需要现场生成！ |
 | audio | 问候、情感表达（系统自动合成语音） |
 | interactive | 需要用户选择/确认的场景（选方案、选猫、确认操作） |
 | html_widget | 数据可视化、交互 demo、mini 工具（沙盒 iframe） |

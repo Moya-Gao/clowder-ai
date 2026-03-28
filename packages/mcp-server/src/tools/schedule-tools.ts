@@ -174,7 +174,8 @@ export const scheduleTools = [
     name: 'cat_cafe_list_schedule_templates',
     description:
       'List available schedule task templates. Each template defines a reusable task type (e.g. reminder, web-digest, repo-activity) ' +
-      'with its parameter schema and default trigger. Use this to discover what kinds of scheduled tasks can be created.',
+      'with its parameter schema and default trigger. Use this to discover what kinds of scheduled tasks can be created. ' +
+      'When a task fires, it wakes a cat via invokeTrigger — the woken cat has FULL capabilities (rich blocks, search, image generation, etc.).',
     inputSchema: listScheduleTemplatesInputSchema,
     handler: handleListScheduleTemplates,
   },
@@ -190,7 +191,8 @@ export const scheduleTools = [
   {
     name: 'cat_cafe_register_scheduled_task',
     description:
-      'Create a new scheduled task from a template (confirm step). The task will be persisted and run automatically. ' +
+      'Create a new scheduled task from a template (confirm step). The task will be persisted and run automatically on schedule. ' +
+      'When the task fires, a cat is woken with full capabilities — it can send rich blocks (images, audio, cards), search the web, generate content, etc. ' +
       'IMPORTANT: You MUST call preview_scheduled_task first and get user confirmation before calling this. ' +
       'trigger and params must be JSON strings, not objects.',
     inputSchema: registerScheduledTaskInputSchema,
