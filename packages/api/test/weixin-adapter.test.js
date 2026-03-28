@@ -1239,5 +1239,36 @@ describe('WeixinAdapter', () => {
       await adapter.sendMedia('user-1', { type: 'image' });
       assert.equal(fetchCalled, false);
     });
+
+    it('throws when HTTPS download fails (P1: no silent drop)', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      adapter._injectFetch(async () => ({ ok: false, status: 404 }));
+      await assert.rejects(
+        () => adapter.sendMedia('user-1', { type: 'image', url: 'https://bad.example/a.png' }),
+        (err) => err instanceof Error && /download failed/i.test(err.message),
+      );
+    });
+
+    it('generates unique temp paths for concurrent downloads (P2: no collision)', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const originalNow = Date.now;
+      Date.now = () => 1700000000000;
+      try {
+        adapter._injectFetch(async () => ({
+          ok: true,
+          arrayBuffer: async () => new ArrayBuffer(8),
+        }));
+        const [p1, p2] = await Promise.all([
+          adapter['downloadToTemp']('https://x.example/a.png'),
+          adapter['downloadToTemp']('https://y.example/b.png'),
+        ]);
+        assert.ok(p1, 'first download should succeed');
+        assert.ok(p2, 'second download should succeed');
+        assert.notEqual(p1, p2, 'paths must differ even at the same Date.now()');
+      } finally {
+        Date.now = originalNow;
+      }
+    });
   });
 });

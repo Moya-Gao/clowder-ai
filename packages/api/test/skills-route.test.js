@@ -150,8 +150,8 @@ describe('Skills Route', () => {
     assert.ok(pencilDesign, 'pencil-design should be present in skills board');
     assert.deepEqual(
       browserAutomation.requiresMcp?.map((dep) => dep.id),
-      ['playwright'],
-      'browser-automation should declare playwright dependency',
+      ['playwright', 'claude-in-chrome', 'agent-browser', 'pinchtab'],
+      'browser-automation should declare all browser backend dependencies',
     );
     assert.deepEqual(
       pencilDesign.requiresMcp?.map((dep) => dep.id),

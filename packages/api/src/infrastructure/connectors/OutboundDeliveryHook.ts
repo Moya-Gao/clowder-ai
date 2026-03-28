@@ -165,13 +165,17 @@ export class OutboundDeliveryHook {
             richBlocks.some((b) => b.kind === 'audio' || b.kind === 'file' || b.kind === 'media_gallery')
           ) {
             // Media-capable adapter without sendRichMessage (e.g. WeChat):
-            // Skip text sendReply ONLY when sendable media blocks exist —
-            // audio/file/media_gallery will be sent below via sendMedia,
-            // which needs a fresh context_token (iLink single-token constraint).
-            this.opts.log.info(
-              { connectorId: binding.connectorId },
-              '[OutboundDeliveryHook] Skipping sendReply — sendable media blocks will use the token',
+            // BUG-5 corrected: context_token is reusable, so send text first, then media.
+            // Render non-media blocks (html_widget, card, etc.) as plaintext alongside text content.
+            const nonMediaBlocks = richBlocks.filter(
+              (b) => b.kind !== 'audio' && b.kind !== 'file' && b.kind !== 'media_gallery',
             );
+            const blockText = nonMediaBlocks.length > 0 ? renderAllRichBlocksPlaintext(nonMediaBlocks) : '';
+            const textToSend = blockText ? `${finalContent}\n\n${blockText}` : finalContent;
+            if (textToSend) {
+              await adapter.sendReply(binding.externalChatId, textToSend, outMeta);
+            }
+            // Media blocks sent below in Phase 5/6/J
           } else if (hasRichBlocks) {
             // Fallback for adapters without sendMedia: render blocks as plaintext
             const blockText = renderAllRichBlocksPlaintext(richBlocks);
