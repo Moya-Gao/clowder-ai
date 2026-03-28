@@ -304,6 +304,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | KD-4 | **企微拆两个 connector**：`wecom-bot`（WebSocket + 流式）+ `wecom-agent`（HTTP callback + AES/XML） | GPT Pro 调研确认：身份、协议、流式能力完全不同，硬揉一个 adapter 会把 Principal Link 和 Session Binding 搅成毛线球。OpenClaw 生态的 `YanHaidao/wecom` 已验证 dual-mode 架构 | 2026-03-22 |
 | KD-5 | 钉钉用 AI Card 做流式，不用 plain message edit | 钉钉 plain message 不支持编辑，但 AI Card 支持 create → streaming update → finish 状态机。`soimy/openclaw-channel-dingtalk` 已验证此路径 | 2026-03-22 |
 | KD-6 | 钉钉群聊须对齐飞书 F134 IM Hub 抽象 | 铲屎官原话"群聊你也得对接上飞书有的功能或者他们的抽象你要接入，IM Hub 里群聊怎么映射你们也要这么干" | 2026-03-23 |
+| KD-7 | **新 IM 接入 11 步清单**（统一架构指南） | 基于飞书/钉钉/Telegram/微信四个已接入平台的模式提炼，新平台改 11 个位置、公共层零改动。详见下方「新 IM 接入清单」 | 2026-03-27 |
 
 ## Timeline
 
@@ -317,6 +318,28 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | 2026-03-23 | F132 spec 修订：新增 Phase A.1 + A.2，更新 KD-3/KD-6/OQ-3/R6/R7。Phase A.1 开工 |
 | 2026-03-23 | Phase A.1 merged (PR #720) — DingTalk 媒体原生发送：upload API + sampleAudio/sampleFile/sampleImageMsg, 46 DingTalk tests |
 | 2026-03-24 | Phase A.2 merged (PR #723) — DingTalk 群聊支持：parseEvent group, orgGroupSend/batchSendOTO dispatch, AI Card group delivery, @sender replies, name/title resolution, Redis persistence for cold-start survival. 76 tests. 4-round review (砚砚) + cloud review clean |
+| 2026-03-24 | Visual fix merged (PR #728) — DingTalk 视觉身份：独立 cyan 主题 + brand PNG icon，消除与飞书的视觉混淆 |
+| 2026-03-27 | 铲屎官确认继续 Phase B（企微 Bot）。新增 KD-7：新 IM 接入 11 步清单。钉钉全部完成（A/A.1/A.2 + visual fix），企微开工 |
+
+## 新 IM 接入清单（KD-7 — Adapter-Only Extension）
+
+接入一个新 IM 平台需要改动以下 11 个位置，公共层（ConnectorRouter / OutboundDeliveryHook / StreamingOutboundHook / CommandLayer / BindingStore）**零改动**。
+
+| # | Layer | 文件 | 改什么 |
+|---|-------|------|--------|
+| 1 | Shared | `packages/shared/src/types/connector.ts` | 新增 `ConnectorDefinition`（id, displayName, icon PNG, color, tailwindTheme） |
+| 2 | API | `packages/api/src/.../adapters/XxxAdapter.ts` | **新建** adapter。实现 `IOutboundAdapter`（基础）或 `IStreamableOutboundAdapter`（流式）。含 `parseEvent()` / `sendReply()` / `sendFormattedReply()` / `sendMedia()` + 流式 `sendPlaceholder()` / `editMessage()` |
+| 3 | API | `packages/api/src/.../connector-gateway-bootstrap.ts` | env guard → 实例化 → 注册到 adapters Map → `connectorRouter.route()` 8 参数调用 → media download fn → webhook handler / long-poll / stream |
+| 4 | API | `packages/api/src/.../media/ConnectorMediaService.ts` | 新增 `setXxxDownloadFn()` — 平台专属媒体下载 |
+| 5 | API | `packages/api/src/config/connector-secrets-allowlist.ts` | 加入新平台 env var 名（否则 `/api/config/secrets` 拒绝写入） |
+| 6 | API | `packages/api/src/routes/connector-hub.ts` | 新增 `PlatformDef`（fields / docsUrl / steps 向导） |
+| 7 | Web | `packages/web/src/components/HubConfigIcons.tsx` | 新增 `PLATFORM_VISUALS`（iconBg / iconColor / brand PNG） |
+| 8 | Web | `packages/web/src/components/HubListModal.tsx` | 新增 `CONNECTOR_LABELS` 条目 |
+| 9 | Config | `.env.example` | 新增注释块 |
+| 10 | Docs | `docs/guides/im-platform-setup.md` | 新增平台对接教程 |
+| 11 | Test | adapter 单测 + `connector-bubble-theme.test.ts` | parseEvent / sendReply / sendMedia / 气泡主题 |
+
+> 此清单来源于 2026-03-27 铲屎官要求"列出来我们现在要接入一个新 IM 要做什么"。
 
 ## Review Gate
 
