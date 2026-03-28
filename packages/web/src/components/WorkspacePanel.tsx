@@ -1123,6 +1123,7 @@ export function WorkspacePanel() {
                                 content={file.content}
                                 disableCommandPrefix
                                 basePath={openFilePath ? openFilePath.split('/').slice(0, -1).join('/') : undefined}
+                                worktreeId={worktreeId ?? undefined}
                               />
                             </div>
                             {mdHasSelection && (
