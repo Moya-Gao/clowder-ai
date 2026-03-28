@@ -30,7 +30,8 @@ export type EnvCategory =
   | 'push'
   | 'signal'
   | 'github_review'
-  | 'evidence';
+  | 'evidence'
+  | 'quota';
 
 export interface EnvDefinition {
   /** The env var name, e.g. 'REDIS_URL' */
@@ -49,6 +50,8 @@ export interface EnvDefinition {
   hubVisible?: boolean;
   /** If false, value is bootstrap-only and cannot be edited at runtime from Hub */
   runtimeEditable?: boolean;
+  /** If true, this var should appear in .env.example (enforced by check:env-example) */
+  exampleRecommended?: boolean;
 }
 
 export const ENV_CATEGORIES: Record<EnvCategory, string> = {
@@ -68,6 +71,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   signal: 'Signal 信号源',
   github_review: 'GitHub Review 监控',
   evidence: 'F102 记忆系统',
+  quota: '额度监控',
 };
 
 export const ENV_VARS: EnvDefinition[] = [
@@ -79,6 +83,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'server',
     sensitive: false,
     runtimeEditable: false,
+    exampleRecommended: true,
   },
   {
     name: 'PREVIEW_GATEWAY_PORT',
@@ -175,6 +180,86 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'server',
     sensitive: false,
   },
+  {
+    name: 'ANTHROPIC_API_KEY',
+    defaultValue: '(未设置 → 使用 proxy profile)',
+    description: 'Anthropic API Key（直连模式；proxy 模式由 provider profile 注入）',
+    category: 'server',
+    sensitive: true,
+    hubVisible: false,
+    exampleRecommended: true,
+  },
+  {
+    name: 'LOG_LEVEL',
+    defaultValue: 'info',
+    description: '日志级别（debug / info / warn / error）',
+    category: 'server',
+    sensitive: false,
+    exampleRecommended: true,
+  },
+  {
+    name: 'DEBUG',
+    defaultValue: 'false',
+    description: '调试模式开关（详细日志，非生产环境用）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'MCP_SERVER_PORT',
+    defaultValue: '3011',
+    description: 'MCP Server 监听端口',
+    category: 'server',
+    sensitive: false,
+    runtimeEditable: false,
+    exampleRecommended: true,
+  },
+  {
+    name: 'PREVIEW_GATEWAY_ENABLED',
+    defaultValue: '1（启用）',
+    description: '设为 0 禁用 Preview Gateway（F120）',
+    category: 'server',
+    sensitive: false,
+  },
+  {
+    name: 'GAME_NARRATOR_ENABLED',
+    defaultValue: '(未设置 → 不启用)',
+    description: '设为 true 启用游戏叙述者模式',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'WEB_PUBLIC_DIR',
+    defaultValue: '../web/public',
+    description: 'Web 前端静态文件目录（connector gateway 静态资源服务）',
+    category: 'server',
+    sensitive: false,
+  },
+  {
+    name: 'CAT_CAFE_CONFIG_ROOT',
+    defaultValue: '(未设置 → 使用 cwd)',
+    description: '平台配置根目录（与 cwd 解耦，平台启动脚本设置）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_GLOBAL_CONFIG_ROOT',
+    defaultValue: '(未设置 → homedir())',
+    description: '全局配置根目录（cat catalog / credentials / provider profiles 查找路径）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'ALLOWED_WORKSPACE_DIRS',
+    defaultValue: '(未设置)',
+    description: 'MCP Server 允许访问的工作目录列表（逗号分隔）',
+    category: 'server',
+    sensitive: false,
+    exampleRecommended: true,
+  },
 
   // --- storage ---
   {
@@ -185,6 +270,7 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
     maskMode: 'url',
     runtimeEditable: false,
+    exampleRecommended: true,
   },
   {
     name: 'REDIS_KEY_PREFIX',
@@ -247,6 +333,13 @@ export const ENV_VARS: EnvDefinition[] = [
     name: 'TRANSCRIPT_DATA_DIR',
     defaultValue: './data/transcripts',
     description: 'Session transcript 存储目录',
+    category: 'storage',
+    sensitive: false,
+  },
+  {
+    name: 'DOCS_ROOT',
+    defaultValue: '{repoRoot}/docs',
+    description: 'Docs 根目录路径（F102 记忆系统用）',
     category: 'storage',
     sensitive: false,
   },
@@ -450,6 +543,38 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'cli',
     sensitive: false,
   },
+  {
+    name: 'CAT_CAFE_API_URL',
+    defaultValue: 'http://localhost:3002',
+    description: 'API 服务地址（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_INVOCATION_ID',
+    defaultValue: '(运行时注入)',
+    description: '当前 invocation ID（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_CAT_ID',
+    defaultValue: '(运行时注入)',
+    description: '当前猫 ID（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT',
+    defaultValue: '(未设置)',
+    description: '设为 1 跳过 shared state preflight 检查（CI / 调试用）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
 
   // --- proxy ---
   {
@@ -479,6 +604,30 @@ export const ENV_VARS: EnvDefinition[] = [
     description: 'upstream 配置文件路径（解决 runtime 与源码分离问题）',
     category: 'proxy',
     sensitive: false,
+  },
+  {
+    name: 'HTTPS_PROXY',
+    defaultValue: '(未设置)',
+    description: 'HTTPS 代理地址（Web Push / 外部 HTTP 请求用）',
+    category: 'proxy',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'HTTP_PROXY',
+    defaultValue: '(未设置)',
+    description: 'HTTP 代理地址',
+    category: 'proxy',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'ALL_PROXY',
+    defaultValue: '(未设置)',
+    description: '通用代理地址（HTTP/HTTPS/SOCKS 通用 fallback）',
+    category: 'proxy',
+    sensitive: false,
+    hubVisible: false,
   },
 
   // --- connector ---
@@ -531,6 +680,83 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'connector',
     sensitive: true,
   },
+  {
+    name: 'FEISHU_BOT_OPEN_ID',
+    defaultValue: '(未设置)',
+    description: '飞书机器人 Open ID（接收消息的 bot 身份标识）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'FEISHU_ADMIN_OPEN_IDS',
+    defaultValue: '(未设置)',
+    description: '飞书管理员 Open ID 列表（逗号分隔）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'WEIXIN_BOT_TOKEN',
+    defaultValue: '(未设置 → 不启用)',
+    description: '微信机器人 Token（F137 微信个人网关）',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'WECOM_BOT_ID',
+    defaultValue: '(未设置 → 不启用智能机器人模式)',
+    description: '企业微信智能机器人 Bot ID（WebSocket 长连接模式）',
+    category: 'connector',
+    sensitive: false,
+    exampleRecommended: true,
+  },
+  {
+    name: 'WECOM_BOT_SECRET',
+    defaultValue: '(未设置)',
+    description: '企业微信智能机器人 Bot Secret',
+    category: 'connector',
+    sensitive: true,
+    exampleRecommended: true,
+  },
+  {
+    name: 'WECOM_CORP_ID',
+    defaultValue: '(未设置 → 不启用自建应用模式)',
+    description: '企业微信企业 ID（自建应用 HTTP 回调模式）',
+    category: 'connector',
+    sensitive: false,
+    exampleRecommended: true,
+  },
+  {
+    name: 'WECOM_AGENT_ID',
+    defaultValue: '(未设置)',
+    description: '企业微信自建应用 AgentId',
+    category: 'connector',
+    sensitive: false,
+    exampleRecommended: true,
+  },
+  {
+    name: 'WECOM_AGENT_SECRET',
+    defaultValue: '(未设置)',
+    description: '企业微信自建应用 Secret',
+    category: 'connector',
+    sensitive: true,
+    exampleRecommended: true,
+  },
+  {
+    name: 'WECOM_TOKEN',
+    defaultValue: '(未设置)',
+    description: '企业微信回调 Token（HTTP 模式验签）',
+    category: 'connector',
+    sensitive: true,
+    exampleRecommended: true,
+  },
+  {
+    name: 'WECOM_ENCODING_AES_KEY',
+    defaultValue: '(未设置)',
+    description: '企业微信回调 EncodingAESKey（43字符，HTTP 模式解密用）',
+    category: 'connector',
+    sensitive: true,
+    exampleRecommended: true,
+  },
 
   // --- GitHub Repo Inbox (F141) ---
   {
@@ -561,6 +787,13 @@ export const ENV_VARS: EnvDefinition[] = [
       'Comma-separated GitHub logins whose review feedback is handled by the email channel (authoritative source). F140 API polling skips these to avoid double-delivery.',
     category: 'connector',
     sensitive: false,
+  },
+  {
+    name: 'GITHUB_TOKEN',
+    defaultValue: '(未设置)',
+    description: 'GitHub Personal Access Token（Scheduler 仓库活跃度模板 HTTP 请求鉴权）',
+    category: 'connector',
+    sensitive: true,
   },
 
   // --- codex ---
@@ -599,6 +832,15 @@ export const ENV_VARS: EnvDefinition[] = [
 
   // --- gemini ---
   {
+    name: 'GOOGLE_API_KEY',
+    defaultValue: '(未设置)',
+    description: 'Google API Key（暹罗猫 Gemini 直连用）',
+    category: 'gemini',
+    sensitive: true,
+    hubVisible: false,
+    exampleRecommended: true,
+  },
+  {
     name: 'GEMINI_ADAPTER',
     defaultValue: 'gemini-cli',
     description: '暹罗猫适配器 (gemini-cli/antigravity)',
@@ -625,6 +867,13 @@ export const ENV_VARS: EnvDefinition[] = [
     name: 'GENSHIN_VOICE_DIR',
     defaultValue: '~/projects/.../genshin',
     description: 'GPT-SoVITS 角色模型目录',
+    category: 'tts',
+    sensitive: false,
+  },
+  {
+    name: 'CHARACTER_VOICE_DIR',
+    defaultValue: '(未设置 → dirname(GENSHIN_VOICE_DIR))',
+    description: '角色语音模型根目录（优先级高于 GENSHIN_VOICE_DIR）',
     category: 'tts',
     sensitive: false,
   },
@@ -771,6 +1020,13 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'github_review',
     sensitive: true,
   },
+  {
+    name: 'GITHUB_REVIEW_IMAP_PROXY',
+    defaultValue: '(未设置)',
+    description: 'IMAP 连接代理地址（如 socks5://127.0.0.1:1080）',
+    category: 'github_review',
+    sensitive: false,
+  },
 
   // --- evidence (F102 记忆系统) ---
   {
@@ -814,6 +1070,38 @@ export const ENV_VARS: EnvDefinition[] = [
     description: 'Phase G 摘要调度用的反代 API Key',
     category: 'evidence',
     sensitive: true,
+  },
+  {
+    name: 'EMBED_PORT',
+    defaultValue: '9880',
+    description: 'Embedding 服务端口（仅在 EMBED_URL 未设置时使用）',
+    category: 'evidence',
+    sensitive: false,
+  },
+
+  // --- quota ---
+  {
+    name: 'QUOTA_OFFICIAL_REFRESH_ENABLED',
+    defaultValue: '0（默认关闭）',
+    description: '设为 1 允许官方额度抓取（需要 Chrome OAuth cookie）',
+    category: 'quota',
+    sensitive: false,
+  },
+  {
+    name: 'CLAUDE_CREDENTIALS_PATH',
+    defaultValue: '~/.claude/.credentials.json',
+    description: 'Claude OAuth credentials 文件路径（官方额度刷新用）',
+    category: 'quota',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CODEX_CREDENTIALS_PATH',
+    defaultValue: '(未设置 → ~/.codex/credentials)',
+    description: 'Codex OAuth credentials 文件路径（官方额度刷新用）',
+    category: 'quota',
+    sensitive: false,
+    hubVisible: false,
   },
 ];
 

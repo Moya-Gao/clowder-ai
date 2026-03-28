@@ -790,6 +790,25 @@ created: 2026-02-26
 
 ---
 
+### LL-042: 配置真相源不加门禁就会漂移——env 变量三处不同步
+- 状态：validated
+- 更新时间：2026-03-28
+- 坑：`env-registry.ts`（Hub 用）、`.env.example`（新用户用）、代码里的 `process.env.XXX`（实际真相）三处各自为政，无任何自动化检查。结果：25+ 个变量代码里用了但 Hub 看不到，`.env.example` 只有 21 条 vs 实际 100+，8 个 HINDSIGHT 变量在 `.env.example` 里但代码从未引用。
+- 根因：配置注册是纯文档契约（"新增 env 必须注册"写在注释里），但没有机器强制执行。人工纪律在 feature 交付压力下必然失守。
+- 触发条件：任何新增 `process.env.XXX` 时忘记在 `env-registry.ts` 注册 + 没人发现。
+- 修复：(1) 补齐 35 个漏网变量 (2) 新增 `check:env-registry`（扫描代码→registry 完整性）和 `check:env-example`（双向一致性） (3) 接入 `pnpm check` 硬门禁 (4) 新增 `exampleRecommended` 字段确保关键变量出现在 `.env.example`。
+- 防护：`pnpm check` 现在覆盖 env 注册完整性，CI / gate 自动拦截遗漏。
+- 来源锚点：
+  - TD117 in `docs/TECH-DEBT.md`
+  - `scripts/check-env-registry.test.mjs`
+  - `scripts/check-env-example.test.mjs`
+  - LL-030（同根问题：proxy 默认值改了没同步 .env）
+- 原理：**多真相源必须有机器强制同步**。注释里写"请手动保持一致"等于没写。代价最低的时间点是新增代码时立即拦截，而不是部署后发现 Hub 里看不到变量。
+
+- 关联：LL-030 | TD117 | env-registry.ts
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
