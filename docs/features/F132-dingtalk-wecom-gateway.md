@@ -226,13 +226,13 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 - [x] AC-A2.6: 复用 IM Hub 群聊抽象（bootstrap routing + ConnectorRouter + OutboundDeliveryHook）
 - [x] AC-A2.7: 公共层零改动
 
-### Phase B（WeCom Bot Adapter）
-- [ ] AC-B1: 企微 Bot WebSocket 连接 + 心跳 + 重连
-- [ ] AC-B2: Bot DM 消息入站解析正确（text + image + voice）
-- [ ] AC-B3: 猫猫回复通过 `replyStream` 流式发送（真流式）
-- [ ] AC-B4: 模板卡片发送 + 更新
-- [ ] AC-B5: 图片/语音双向收发（SDK 内置）
-- [ ] AC-B6: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
+### Phase B（WeCom Bot Adapter）✅ PR #804 merged
+- [x] AC-B1: 企微 Bot WebSocket 连接 + 心跳 + 重连
+- [x] AC-B2: Bot DM 消息入站解析正确（text + image + voice）
+- [x] AC-B3: 猫猫回复通过 `replyStream` 流式发送（真流式）
+- [x] AC-B4: 模板卡片发送 + 更新
+- [x] AC-B5: 图片/语音双向收发（SDK 内置）
+- [x] AC-B6: 复用 ConnectorRouter/CommandLayer/BindingStore，公共层零改动
 
 ### Phase C（WeCom Agent Adapter）
 - [ ] AC-C1: 回调 URL 验证（echostr challenge + AES 解密）通过
@@ -320,6 +320,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | 2026-03-24 | Phase A.2 merged (PR #723) — DingTalk 群聊支持：parseEvent group, orgGroupSend/batchSendOTO dispatch, AI Card group delivery, @sender replies, name/title resolution, Redis persistence for cold-start survival. 76 tests. 4-round review (砚砚) + cloud review clean |
 | 2026-03-24 | Visual fix merged (PR #728) — DingTalk 视觉身份：独立 cyan 主题 + brand PNG icon，消除与飞书的视觉混淆 |
 | 2026-03-27 | 铲屎官确认继续 Phase B（企微 Bot）。新增 KD-7：新 IM 接入 11 步清单。钉钉全部完成（A/A.1/A.2 + visual fix），企微开工 |
+| 2026-03-28 | Phase B merged (PR #804) — WeCom Bot adapter: WebSocket long-connection via @wecom/aibot-node-sdk, replyStream streaming, template card send+update (AC-B4), text/image/voice/file/mixed inbound, media upload/download. 81 adapter tests. 3-round local review (砚砚) + cloud review clean |
 
 ## 新 IM 接入清单（KD-7 — Adapter-Only Extension）
 
