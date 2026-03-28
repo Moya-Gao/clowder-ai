@@ -225,8 +225,8 @@ Phase 4 终态（2026-03-28 决策）:
 | **3A** | F127 side effect 迁移到 event bus subscriber | ✅ done | PR #790 merged (2026-03-28) — CatCatalogSubscriber + emitChangeAsync |
 | **3B** | `runtime-cat-catalog` 收敛为纯存储+校验 | ✅ done (no-op) | grep 确认无 ad-hoc 触发路径残留 |
 | **3C** | 删除 F127 ad-hoc 热更新死代码 | ✅ done (no-op) | grep 确认无死代码 |
-| **4a** | 单一真相源：`cat-config.accounts` + `credentials.json` 读写层 | 📋 planned | 新 schema + 迁移器 |
-| **4b** | 统一运行时读取：所有调用链走 `cat-config + credentials`，禁直读 `*_API_KEY` | 📋 planned | 含游戏域等旁路修复 |
+| **4a** | 单一真相源：`cat-config.accounts` + `credentials.json` 读写层 | ✅ done | PR #818 merged (2026-03-28) — accounts + credentials + migration + HC-5 conflict guard |
+| **4b** | 统一运行时读取：所有调用链走 `cat-config + credentials`，禁直读 `*_API_KEY` | ✅ done | PR #818 merged (2026-03-28) — unified resolver + route dual-write + LlmAIProvider rewired |
 | **4c** | Provider 热更新：`ProviderProfileSubscriber` + rebind | 📋 planned | 照 Phase 3A subscriber 模式 |
 | **4d** | 下线旧层：删 `provider-profiles.json` 元信息 + `provider-binding-compat.ts` | 📋 planned | 保留一版本迁移兼容窗口 |
 
@@ -242,3 +242,4 @@ Phase 4 终态（2026-03-28 决策）:
 | 2026-03-27 | Phase 2b merged (PR #788) — Hub connector config UI → secrets endpoint (hot-reload) |
 | 2026-03-28 | Phase 3A merged (PR #790) — CatCatalogSubscriber consolidates F127 inline sync; 3B/3C confirmed no-op |
 | 2026-03-28 | Phase 4 决策收敛 — 推翻 A*，确认单一真相源终态（铲屎官 + @opus + @codex） |
+| 2026-03-28 | Phase 4a+4b merged (PR #818) — single source of truth: accounts + credentials + resolver + HC-1~5 |
