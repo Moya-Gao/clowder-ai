@@ -45,20 +45,24 @@ const themes = {
     'cafe-accent-hover': '#ff9a7a',
     'cafe-crosspost': '#81d4fa',
     'cafe-interactive': '#85655a',
+    'base-black': '#1e1e24',
+    'cocreator-bg': '#fff5f2',
   },
   dark: {
-    'cafe-surface': '#1e1e24',
-    'cafe-surface-elevated': '#2a2a32',
-    'cafe-surface-sunken': '#16161c',
-    'cafe-text': '#fdf8f3',
-    'cafe-text-secondary': '#aaaaaa',
-    'cafe-text-muted': '#777777',
-    'cafe-border': '#3a3a44',
-    'cafe-border-subtle': '#2e2e38',
+    'cafe-surface': '#1c1917',
+    'cafe-surface-elevated': '#292524',
+    'cafe-surface-sunken': '#0c0a09',
+    'cafe-text': '#faf9f7',
+    'cafe-text-secondary': '#a8a29e',
+    'cafe-text-muted': '#78716c',
+    'cafe-border': '#44403c',
+    'cafe-border-subtle': '#33302c',
     'cafe-accent': '#ffb899',
     'cafe-accent-hover': '#ffc5aa',
     'cafe-crosspost': '#64b5f6',
     'cafe-interactive': '#b0937a',
+    'base-black': '#faf9f7',
+    'cocreator-bg': '#292524',
   },
 };
 
@@ -72,6 +76,9 @@ const pairs = [
   { fg: 'cafe-text-muted', bg: 'cafe-surface', size: 'large' },
   { fg: 'cafe-interactive', bg: 'cafe-surface', size: 'normal' },
   { fg: 'cafe-interactive', bg: 'cafe-surface-elevated', size: 'normal' },
+  // Cocreator + base token combos (Phase D2 coverage)
+  { fg: 'base-black', bg: 'cocreator-bg', size: 'normal' },
+  { fg: 'cafe-text', bg: 'cocreator-bg', size: 'normal' },
   // Accent colors are used as backgrounds/badges, not body text — no WCAG text check needed
 ];
 

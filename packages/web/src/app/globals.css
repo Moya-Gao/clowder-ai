@@ -68,14 +68,15 @@
 
 /* --- Dark Mode: override semantic tokens only --- */
 [data-theme="dark"] {
-  --cafe-surface: var(--cat-deep-ink);
-  --cafe-surface-elevated: #2a2a32;
-  --cafe-surface-sunken: #16161c;
-  --cafe-text: var(--cat-cream-white);
-  --cafe-text-secondary: #aaaaaa;
-  --cafe-text-muted: #777777;
-  --cafe-border: #3a3a44;
-  --cafe-border-subtle: #2e2e38;
+  /* Warm dark surfaces — NOT pure black, Cozy Swiss warmth preserved */
+  --cafe-surface: #1c1917;
+  --cafe-surface-elevated: #292524;
+  --cafe-surface-sunken: #0c0a09;
+  --cafe-text: #faf9f7;
+  --cafe-text-secondary: #a8a29e;
+  --cafe-text-muted: #78716c;
+  --cafe-border: #44403c;
+  --cafe-border-subtle: #33302c;
   --cafe-accent: #ffb899;
   --cafe-accent-hover: #ffc5aa;
   --cafe-crosspost: #64b5f6;
@@ -85,6 +86,16 @@
   --bg-app: var(--cafe-surface);
   --text-primary: var(--cafe-text);
   --text-secondary: var(--cafe-text-secondary);
+
+  /* Cocreator brand colors — adapted for dark mode */
+  --color-cocreator-primary: #e29578;
+  --color-cocreator-light: #44403c;
+  --color-cocreator-dark: #d4a494;
+  --color-cocreator-bg: var(--cafe-surface-elevated);
+
+  /* Invert base tokens for dark mode (text-cafe-black → light, bg-cafe-white → dark) */
+  --color-base-white: var(--cafe-surface);
+  --color-base-black: var(--cafe-text);
 
   /* Agent persona bg overrides for dark */
   --color-opus-bg: rgba(155, 126, 189, 0.15);
