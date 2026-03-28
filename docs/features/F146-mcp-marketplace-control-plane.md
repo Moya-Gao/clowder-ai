@@ -40,6 +40,16 @@ F145 已经解决了“新机器可移植”和 `requires_mcp + doctor`，但还
   - 负责发现、安装、认证、分发体验
   - 不是唯一真相源；最终回写 L1
 
+### L3 内部状态模型（采纳云端有效建议）
+
+L3 不直接写入 L1，内部拆成三个状态面：
+
+1. `catalog_cache`：发现到的 marketplace 条目（可展示，不代表可执行）
+2. `install_lock`：已安装/已固定版本的工件状态（不代表认证完成）
+3. `binding_state`：授权/审批/绑定状态（不代表安装成功）
+
+只有通过 Verify Gate 后，才把可执行能力回写到 L1。
+
 ### Phase R: Research Mode B（先收敛再动手）
 
 在进入实现前，先完成一轮云端咨询调研，避免我们在“看起来相似”的生态接口上误判。
@@ -62,6 +72,7 @@ F145 已经解决了“新机器可移植”和 `requires_mcp + doctor`，但还
 在 Hub 能力中心新增 MCP 管理能力：
 
 1. 新增 MCP
+   - 先 `install preview`（dry-run）展示变更
    - 模板添加（官方/内置推荐）
    - 自定义添加（命令/参数/env/remote URL）
 2. 更新 MCP
@@ -106,6 +117,14 @@ F145 已经解决了“新机器可移植”和 `requires_mcp + doctor`，但还
 2. `community` 包需要二次确认（显示风险）
 3. 全部安装写审计日志（who/when/what/from）
 4. 所有新增 MCP 必须经过 `mcp:doctor` 验证后才标 ready
+
+供应链硬门禁（首期必须）：
+
+1. 版本不可变 pin（禁止默认漂移到 `@latest`）
+2. 安装来源路径边界校验（白名单源 + 禁止危险 spec）
+3. 禁止 install-time scripts 自动执行（默认 deny）
+4. schema validation 先于执行（manifest/entry 校验不过不安装）
+5. 声明态 vs 实测态 diff gate（声明可用但 probe 失败不得标 ready）
 
 版本管理：
 
@@ -156,6 +175,7 @@ F145 已经解决了“新机器可移植”和 `requires_mcp + doctor`，但还
 - [ ] AC-A3: 新增 MCP 后自动触发 `generateCliConfigs` + `mcp:doctor` 探测
 - [ ] AC-A4: 所有 MCP 写操作有审计日志（用户、时间、变更 diff）
 - [ ] AC-A5: 并发写入安全（锁或 CAS）可验证，双写场景不丢配置
+- [ ] AC-A6: `install preview` 可显示“将写入项 + 将触发探测 + 风险提示”，用户确认后才执行
 
 ### Phase B（Marketplace 聚合）
 - [ ] AC-B1: 支持统一搜索接口返回 Codex/Claude/OpenClaw/Antigravity 四方结果
@@ -169,6 +189,8 @@ F145 已经解决了“新机器可移植”和 `requires_mcp + doctor`，但还
 - [ ] AC-C2: 安装后写入版本锁（source/version/channel）
 - [ ] AC-C3: `mcp:doctor` 能显示“已安装但未就绪”的具体原因
 - [ ] AC-C4: 禁止未通过 probe 的 MCP 直接显示 ready
+- [ ] AC-C5: 禁止 install-time scripts（除非显式审批）
+- [ ] AC-C6: 声明态与实测态出现 diff 时强制告警并阻断 ready
 
 ### Phase D（联动体验）
 - [ ] AC-D1: Skills 页可从 `requires_mcp missing` 直接发起补齐
@@ -211,6 +233,7 @@ F145 已经解决了“新机器可移植”和 `requires_mcp + doctor`，但还
 | KD-3 | Phase A 先解决“手改 JSON”痛点，再做多生态聚合 | 先交付立即价值（一键添加） | 2026-03-28 |
 | KD-4 | 三家生态先统一 discovery，再逐步统一 install | 降低首期复杂度与安全风险 | 2026-03-28 |
 | KD-5 | Antigravity 不是“可选”，首期必须纳入 discovery 与一致性约束 | 我们已有活跃 `pencil` 生态，不能与 F145 resolver 脱节 | 2026-03-28 |
+| KD-6 | Runtime Connect / OpenAI connectors 在本 feature 里降为 P2 | 对我们当前主路径不是首要堵点，避免 Phase A 扩 scope | 2026-03-28 |
 
 ## Timeline
 
