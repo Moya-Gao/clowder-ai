@@ -1,4 +1,17 @@
 export { generateBlueprint, suggestLayout } from './blueprint-gen.js';
+export type {
+  CompiledContent,
+  CompiledDeck,
+  CompiledElement,
+  CompiledSlide,
+  CompiledStyle,
+  CompiledTableCell,
+  CompiledTableRow,
+  EvaluatedNode,
+  PptRole,
+  TextRun,
+} from './compiler/index.js';
+export { closeBrowser, compileAndBuild, PX_PER_INCH } from './compiler/index.js';
 export { validateResearch, validateStoryline } from './gates.js';
 export { getLayout, getSlot, LAYOUT_CATALOG } from './layouts.js';
 export { buildSlideMasters, intentToMaster, MASTER_NAMES } from './master-builder.js';

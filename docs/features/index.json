@@ -843,7 +843,7 @@
     {
       "id": "F137",
       "name": "WeChat Personal Gateway — 微信个人号 iLink Bot 接入",
-      "status": "done | **Completed**: 2026-03-25 | **Owner**: 金渐层 | **Priority**: P1",
+      "status": "in-progress | **Completed**: — | **Owner**: 金渐层 | **Priority**: P1",
       "file": "F137-weixin-personal-gateway.md"
     },
     {
@@ -901,5 +901,5 @@
       "file": "F146-mcp-marketplace-control-plane.md"
     }
   ],
-  "generated_at": "2026-03-28T10:55:02.998Z"
+  "generated_at": "2026-03-28T11:15:20.975Z"
 }

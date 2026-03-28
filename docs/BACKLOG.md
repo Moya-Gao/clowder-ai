@@ -56,6 +56,7 @@ created: 2026-02-26
 | F132 | DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | spec | 布偶猫 | internal | [F132](features/F132-dingtalk-wecom-gateway.md) |
 | F135 | 狸花猫开箱即用 — DARE Out-of-the-Box | spec | bouillipx | community [#195](https://github.com/zts212653/clowder-ai/issues/195) | [F135](features/F135-dare-ootb.md) |
 | F136 | Unified Config Hot Reload — 配置热更新统一管线 | in-progress | 布偶猫 | internal | [F136](features/F136-unified-config-hot-reload.md) |
+| F137 | WeChat Personal Gateway — 微信个人号 iLink Bot 接入 | in-progress | 金渐层 | internal | [F137](features/F137-weixin-personal-gateway.md) |
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F139 | Unified Schedule Abstraction — 统一调度抽象 | in-progress | 布偶猫 | internal | [F139](features/F139-unified-schedule-abstraction.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | 布偶猫 | internal | [F143](features/F143-hostable-agent-runtime.md) |
