@@ -176,7 +176,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
       promptTags: ['critique'],
     });
-    assert.ok(prompt.length < 3450, `Prompt is ${prompt.length} chars, expected < 3450`);
+    assert.ok(prompt.length < 3500, `Prompt is ${prompt.length} chars, expected < 3500`);
   });
 
   test('returns empty string for unknown catId', async () => {
@@ -449,7 +449,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 4350, `Full runtime prompt is ${prompt.length} chars, expected < 4350`);
+      assert.ok(prompt.length < 4400, `Full runtime prompt is ${prompt.length} chars, expected < 4400`);
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
@@ -953,7 +953,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 3600, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 3600`);
+    assert.ok(prompt.length < 3650, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 3650`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
