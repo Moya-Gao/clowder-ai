@@ -155,8 +155,8 @@ deck.pptx
 - [ ] AC-A12: 生成的 .pptx 在 PPT 365 Win/Mac 打开无 repair 弹窗 — **BLOCKED(owner: @lysander, action: 用 PPT 365 打开 ~/Desktop/cat-cafe-architecture.pptx 验证无 repair)**
 
 ### Phase B（HTML Layout Compiler — 终态渲染引擎）
-- [ ] AC-B1: `html-layout-compiler` 子模块可用 — Blueprint → HTML+Tailwind → Playwright 布局求值 → DOM 坐标提取
-- [ ] AC-B2: DOM Semantic Compiler — `data-ppt-role` 标注 → pptxgenjs 原生对象（text/table/chart/shape/group），零截图
+- [x] AC-B1: `html-layout-compiler` 子模块可用 — Blueprint → HTML+Tailwind → Playwright 布局求值 → DOM 坐标提取
+- [x] AC-B2: DOM Semantic Compiler — `data-ppt-role` 标注 → pptxgenjs 原生对象（text/table/chart/shape/group），零截图
 - [ ] AC-B3: 5 个 renderer（text/chart/table/kpi/diagram）全部迁移为吃 compiler output，手算坐标代码清零
 - [ ] AC-B4: 字体嵌入 — opentype.js 解析 + fonteditor-core 子集化，嵌入 .pptx 的 `ppt/fonts/`
 - [ ] AC-B5: 华为级复杂布局视觉验收 — 同一 Blueprint 对比 Phase A vs Phase B 渲染，Phase B 视觉品质 ≥ 对手 pptx-craft
@@ -234,6 +234,7 @@ deck.pptx
 | 2026-03-28 | Phase A-3 DiagramElement merged (PR #815) — nested-box renderer (3+ layers) + depth coloring + adaptive gap + 2 layouts + 94 tests |
 | 2026-03-28 | AC-A7 密度验收通过 — slide-arch-overview 单页 52 boxes（四层×52模块），countBoxes() 自动统计，砚砚复审放行 |
 | 2026-03-28 | **架构方向纠偏** — 铲屎官指出手算坐标是"脚手架"，应与 F138 Video Studio 同思路（HTML+CSS → 媒体）。砚砚确认终态：Blueprint → HTML/CSS(Playwright) → DOM 语义编译器 → pptxgenjs 原生对象。Phase B 全面重写为 HTML Layout Compiler 架构（ADR-024） |
+| 2026-03-28 | **Phase B 核心管线 merged** (PR #823) — HTML Template Engine + Playwright Layout Evaluator + DOM Semantic Compiler + Compiled Builder。AC-B1/B2 交付，146 tests，砚砚 R1+R5 放行 + 云端 R4 放行。typed ChartData (categorical/xy/bubble)，diagram parent labels，image fail-closed guard |
 
 ## Review Gate
 
