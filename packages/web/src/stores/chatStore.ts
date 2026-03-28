@@ -70,12 +70,16 @@ function snapshotActive(s: ChatState): ThreadState {
     queuePauseReason: s.queuePauseReason,
     queueFull: s.queueFull,
     queueFullSource: s.queueFullSource,
+    workspaceWorktreeId: s.workspaceWorktreeId,
+    workspaceOpenTabs: s.workspaceOpenTabs,
+    workspaceOpenFilePath: s.workspaceOpenFilePath,
+    workspaceOpenFileLine: s.workspaceOpenFileLine,
   };
 }
 
 /** Flatten a ThreadState into partial ChatState fields */
 function flattenThread(ts: ThreadState): Partial<ChatState> {
-  return {
+  const result: Partial<ChatState> = {
     messages: ts.messages,
     isLoading: ts.isLoading,
     isLoadingHistory: ts.isLoadingHistory,
@@ -92,7 +96,16 @@ function flattenThread(ts: ThreadState): Partial<ChatState> {
     queuePauseReason: ts.queuePauseReason,
     queueFull: ts.queueFull,
     queueFullSource: ts.queueFullSource,
+    workspaceOpenTabs: ts.workspaceOpenTabs,
+    workspaceOpenFilePath: ts.workspaceOpenFilePath,
+    workspaceOpenFileLine: ts.workspaceOpenFileLine,
   };
+  // Only restore worktreeId if the thread had one set — avoids wiping
+  // the global selection for threads that never opened workspace.
+  if (ts.workspaceWorktreeId != null) {
+    result.workspaceWorktreeId = ts.workspaceWorktreeId;
+  }
+  return result;
 }
 
 const MAX_BLOB_MESSAGES = 200;

@@ -495,6 +495,14 @@ export interface ThreadState {
   queueFull: boolean;
   /** F39: Who triggered the full warning */
   queueFullSource?: 'user' | 'connector';
+  /** F063: Active worktree per thread (null = inherit global, non-null = restore on switch) */
+  workspaceWorktreeId: string | null;
+  /** F063: Workspace open tabs per thread */
+  workspaceOpenTabs: string[];
+  /** F063: Currently displayed file per thread */
+  workspaceOpenFilePath: string | null;
+  /** F063: Scroll-to line per thread */
+  workspaceOpenFileLine: number | null;
 }
 
 /** F097: CLI Output unified event stream */
@@ -528,4 +536,8 @@ export const DEFAULT_THREAD_STATE: ThreadState = {
   activeInvocations: {},
   queuePaused: false,
   queueFull: false,
+  workspaceWorktreeId: null,
+  workspaceOpenTabs: [],
+  workspaceOpenFilePath: null,
+  workspaceOpenFileLine: null,
 };

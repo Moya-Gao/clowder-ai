@@ -153,7 +153,6 @@ export function WorkspacePanel() {
   const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
   const openTabs = useChatStore((s) => s.workspaceOpenTabs);
   const closeTab = useChatStore((s) => s.closeWorkspaceTab);
-  const restoreWorkspaceTabs = useChatStore((s) => s.restoreWorkspaceTabs);
   const openFilePath = useChatStore((s) => s.workspaceOpenFilePath);
   const scrollToLine = useChatStore((s) => s.workspaceOpenFileLine);
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
@@ -201,37 +200,22 @@ export function WorkspacePanel() {
     setStoreRevealPath(null);
   }, [storeRevealPath, setStoreRevealPath]);
 
-  // G7-2: Per-thread workspace state — save/restore expandedPaths on thread switch
-  const threadStateCache = useRef<Map<string, { expanded: Set<string>; tabs: string[]; openFile: string | null }>>(
-    new Map(),
-  );
+  // G7-2: Per-thread expandedPaths cache — tabs/openFile are now in store-level ThreadState
+  // (snapshotActive/flattenThread handle save/restore automatically on setCurrentThread)
+  const expandedPathsCache = useRef<Map<string, Set<string>>>(new Map());
   const prevThreadRef = useRef<string | null>(null);
   useEffect(() => {
     const prevThread = prevThreadRef.current;
-    // Save previous thread's state
     if (prevThread && prevThread !== currentThreadId) {
-      threadStateCache.current.set(prevThread, {
-        expanded: new Set(expandedPaths),
-        tabs: [...openTabs],
-        openFile: openFilePath,
-      });
+      expandedPathsCache.current.set(prevThread, new Set(expandedPaths));
     }
-    // Restore current thread's state (atomic replace, not additive)
     if (currentThreadId && currentThreadId !== prevThread) {
-      const cached = threadStateCache.current.get(currentThreadId);
-      if (cached) {
-        setExpandedPaths(cached.expanded);
-        restoreWorkspaceTabs(cached.tabs, cached.openFile);
-      } else {
-        setExpandedPaths(new Set());
-        restoreWorkspaceTabs([], null);
-      }
-      // Clear any in-flight reveal so it doesn't leak into the new thread
+      const cached = expandedPathsCache.current.get(currentThreadId);
+      setExpandedPaths(cached ?? new Set());
       setPendingRevealPath(null);
     }
     prevThreadRef.current = currentThreadId;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only trigger on thread change
-  }, [currentThreadId, expandedPaths, openFilePath, openTabs, restoreWorkspaceTabs]);
+  }, [currentThreadId]); // eslint-disable-line react-hooks/exhaustive-deps
   // F120: Listen for port discovery via Socket.IO
   useEffect(() => {
     let cancelled = false;

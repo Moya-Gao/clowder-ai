@@ -177,7 +177,9 @@ describe('Dynamic Task Hydration', () => {
       run: {
         overlap: 'skip',
         timeoutMs: 5000,
-        execute: async () => { executed = true; },
+        execute: async () => {
+          executed = true;
+        },
       },
       state: { runLedger: 'sqlite' },
       outcome: { whenNoSignal: 'drop' },
@@ -206,7 +208,9 @@ describe('Dynamic Task Hydration', () => {
       run: {
         overlap: 'skip',
         timeoutMs: 5000,
-        execute: async () => { executed = true; },
+        execute: async () => {
+          executed = true;
+        },
       },
       state: { runLedger: 'sqlite' },
       outcome: { whenNoSignal: 'drop' },
