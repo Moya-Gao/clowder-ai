@@ -35,6 +35,11 @@ function readKnownRoots(): string[] {
     const data = JSON.parse(readFileSync(filePath, 'utf-8'));
     return Array.isArray(data) ? data.filter((r): r is string => typeof r === 'string') : [];
   } catch {
+    // Corrupted known-project-roots.json silently disables HC-5 conflict detection.
+    // Log so the user knows cross-project checks were skipped.
+    console.warn(
+      '[account-conflict-guard] known-project-roots.json is corrupted — HC-5 cross-project conflict detection skipped',
+    );
     return [];
   }
 }

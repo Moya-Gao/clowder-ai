@@ -162,6 +162,29 @@ describe('accountStartupHook (HC-3 migration + HC-5 conflict scan at startup)', 
     );
   });
 
+  it('LL-043: throws when legacy source exists but catalog is corrupted JSON', async () => {
+    const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-6`);
+
+    // Legacy file with providers
+    await writeV3Meta([
+      { id: 'custom-ant', authType: 'api_key', protocol: 'anthropic', baseUrl: 'https://ant.example.com' },
+    ]);
+    // Catalog exists but is corrupted — JSON.parse will fail
+    await writeFile(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), '{ broken json', 'utf-8');
+
+    // Should throw LL-043 — corrupted catalog means migration can't succeed,
+    // and legacy data exists that should have been migrated
+    assert.throws(
+      () => accountStartupHook(projectRoot),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.includes('LL-043'), 'error should reference LL-043, not a raw JSON parse error');
+        return true;
+      },
+      'LL-043: corrupted catalog + legacy providers must throw LL-043, not a raw parse error',
+    );
+  });
+
   it('LL-043: throws when legacy source exists but catalog has no accounts after migration', async () => {
     const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-3`);
 
