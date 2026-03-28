@@ -4,7 +4,7 @@
  * HC-3: One-time migration. Does NOT delete old files (留一版本兼容窗口).
  * Writes marker file to prevent re-migration.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import type { AccountConfig, AccountProtocol, CredentialEntry } from '@cat-cafe/shared';
@@ -39,8 +39,6 @@ interface ProviderProfilesSecretsFile {
 const CAT_CAFE_DIR = '.cat-cafe';
 const META_FILENAME = 'provider-profiles.json';
 const SECRETS_FILENAME = 'provider-profiles.secrets.local.json';
-const MIGRATION_MARKER = 'accounts-migration-done.json';
-
 export interface MigrationResult {
   migrated: boolean;
   reason?: 'no-source' | 'already-migrated' | 'no-catalog';
@@ -58,16 +56,13 @@ function resolveGlobalPath(filename: string): string {
   return resolve(resolveGlobalRoot(), CAT_CAFE_DIR, filename);
 }
 
-function isMigrated(): boolean {
-  return existsSync(resolveGlobalPath(MIGRATION_MARKER));
-}
-
-function markMigrated(): void {
-  writeFileSync(
-    resolveGlobalPath(MIGRATION_MARKER),
-    JSON.stringify({ migratedAt: new Date().toISOString() }, null, 2),
-    'utf-8',
-  );
+/**
+ * Per-project migration detection: check if ALL old profile IDs already exist
+ * in the project's catalog accounts. Stateless — no global marker file.
+ */
+function isProjectMigrated(profiles: ProviderProfileMeta[], existingAccounts: Record<string, unknown>): boolean {
+  if (profiles.length === 0) return true;
+  return profiles.every((p) => p.id in existingAccounts);
 }
 
 function readOldMeta(): ProviderProfilesMetaFile | null {
@@ -107,10 +102,6 @@ function profileToAccountConfig(profile: ProviderProfileMeta): AccountConfig {
 }
 
 export function migrateProviderProfilesToAccounts(projectRoot: string): MigrationResult {
-  if (isMigrated()) {
-    return { migrated: false, reason: 'already-migrated' };
-  }
-
   const oldMeta = readOldMeta();
   if (!oldMeta) {
     return { migrated: false, reason: 'no-source' };
@@ -121,12 +112,22 @@ export function migrateProviderProfilesToAccounts(projectRoot: string): Migratio
     return { migrated: false, reason: 'no-catalog' };
   }
 
-  const oldSecrets = readOldSecrets();
+  const v2 = catalog as import('@cat-cafe/shared').CatCafeConfigV2;
   const profiles = oldMeta.providers ?? [];
+
+  // Per-project detection: skip only if THIS project already has all old accounts
+  if (isProjectMigrated(profiles, v2.accounts ?? {})) {
+    return { migrated: false, reason: 'already-migrated' };
+  }
+
+  const oldSecrets = readOldSecrets();
   const accounts: Record<string, AccountConfig> = {};
   let credCount = 0;
 
   for (const profile of profiles) {
+    // Skip profiles already present in this project's catalog
+    if (v2.accounts?.[profile.id]) continue;
+
     accounts[profile.id] = profileToAccountConfig(profile);
 
     // Migrate secrets → credentials.json
@@ -139,15 +140,12 @@ export function migrateProviderProfilesToAccounts(projectRoot: string): Migratio
   }
 
   // Write accounts into catalog (HC-2: cat-catalog.json is runtime write source)
-  const v2 = catalog as import('@cat-cafe/shared').CatCafeConfigV2;
   const mergedAccounts = { ...(v2.accounts ?? {}), ...accounts };
   writeCatCatalog(projectRoot, { ...v2, accounts: mergedAccounts });
 
-  markMigrated();
-
   return {
     migrated: true,
-    accountsMigrated: profiles.length,
+    accountsMigrated: Object.keys(accounts).length,
     credentialsMigrated: credCount,
   };
 }

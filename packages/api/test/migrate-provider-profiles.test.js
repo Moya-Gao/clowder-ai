@@ -133,7 +133,7 @@ describe('migrateProviderProfilesToAccounts', () => {
     assert.equal(catalog.accounts.claude.protocol, 'anthropic');
   });
 
-  it('skips migration when marker file exists', async () => {
+  it('skips migration when project already has all old accounts', async () => {
     const { migrateProviderProfilesToAccounts } = await import(
       `../dist/config/migrate-provider-profiles.js?t=${Date.now()}-2`
     );
@@ -151,14 +151,8 @@ describe('migrateProviderProfilesToAccounts', () => {
       },
     ]);
     await writeV3Secrets({});
-    await writeCatalog(makeCatalog());
-
-    // Write migration marker
-    await writeFile(
-      join(globalRoot, '.cat-cafe', 'accounts-migration-done.json'),
-      JSON.stringify({ migratedAt: new Date().toISOString() }),
-      'utf-8',
-    );
+    // Catalog already contains the 'test' account → migration should be skipped
+    await writeCatalog(makeCatalog({ accounts: { test: { authType: 'api_key', protocol: 'openai' } } }));
 
     const result = migrateProviderProfilesToAccounts(projectRoot);
     assert.equal(result.migrated, false);
@@ -213,6 +207,51 @@ describe('migrateProviderProfilesToAccounts', () => {
     );
     assert.equal(metaExists, true, 'old meta file should be preserved');
     assert.equal(secretsExists, true, 'old secrets file should be preserved');
+  });
+
+  it('migrates second project under same global root (per-project detection)', async () => {
+    const { migrateProviderProfilesToAccounts } = await import(
+      `../dist/config/migrate-provider-profiles.js?t=${Date.now()}-6`
+    );
+
+    // Two projects sharing the same global config root
+    const projectRootB = await mkdtemp(join(tmpdir(), 'migrate-pp-projectB-'));
+    await mkdir(join(projectRootB, '.cat-cafe'), { recursive: true });
+
+    const profile = {
+      id: 'shared-acct',
+      displayName: 'Shared',
+      kind: 'api_key',
+      authType: 'api_key',
+      builtin: false,
+      protocol: 'openai',
+      createdAt: '',
+      updatedAt: '',
+    };
+    await writeV3Meta([profile]);
+    await writeV3Secrets({ 'shared-acct': { apiKey: 'sk-shared' } });
+
+    // Both projects have catalogs but neither has accounts yet
+    await writeCatalog(makeCatalog());
+    await writeFile(
+      join(projectRootB, '.cat-cafe', 'cat-catalog.json'),
+      JSON.stringify(makeCatalog(), null, 2),
+      'utf-8',
+    );
+
+    // Migrate project A
+    const resultA = migrateProviderProfilesToAccounts(projectRoot);
+    assert.equal(resultA.migrated, true, 'project A should migrate');
+
+    // Migrate project B — must NOT be skipped
+    const resultB = migrateProviderProfilesToAccounts(projectRootB);
+    assert.equal(resultB.migrated, true, 'project B must also migrate (not skipped by global marker)');
+
+    // Verify project B has accounts
+    const catalogB = JSON.parse(await readFile(join(projectRootB, '.cat-cafe', 'cat-catalog.json'), 'utf-8'));
+    assert.ok(catalogB.accounts?.['shared-acct'], 'project B should have migrated accounts');
+
+    await rm(projectRootB, { recursive: true, force: true });
   });
 
   it('preserves bootstrapBindings semantics in accountRef', async () => {

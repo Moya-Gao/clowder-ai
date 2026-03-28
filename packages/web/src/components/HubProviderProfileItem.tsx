@@ -33,12 +33,14 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
   const [editDisplayName, setEditDisplayName] = useState(profile.displayName);
   const [editBaseUrl, setEditBaseUrl] = useState(profile.baseUrl ?? '');
   const [editApiKey, setEditApiKey] = useState('');
+  const [apiKeyTouched, setApiKeyTouched] = useState(false);
   const [editModels, setEditModels] = useState<string[]>(profile.models ?? []);
 
   const startEdit = useCallback(() => {
     setEditDisplayName(profile.displayName);
     setEditBaseUrl(profile.baseUrl ?? '');
     setEditApiKey('');
+    setApiKeyTouched(false);
     setEditModels(profile.models ?? []);
     setEditing(true);
   }, [profile.baseUrl, profile.displayName, profile.models]);
@@ -47,11 +49,11 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
     await onSave(profile.id, {
       displayName: editDisplayName.trim(),
       ...(profile.authType === 'api_key' ? { baseUrl: editBaseUrl.trim() } : {}),
-      ...(editApiKey.trim() ? { apiKey: editApiKey.trim() } : {}),
+      ...(apiKeyTouched ? { apiKey: editApiKey.trim() } : {}),
       models: editModels,
     });
     setEditing(false);
-  }, [editApiKey, editBaseUrl, editDisplayName, editModels, onSave, profile.authType, profile.id]);
+  }, [apiKeyTouched, editApiKey, editBaseUrl, editDisplayName, editModels, onSave, profile.authType, profile.id]);
 
   if (editing) {
     return (
@@ -76,8 +78,13 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
                   type="password"
                   autoComplete="off"
                   value={editApiKey}
-                  onChange={(e) => setEditApiKey(e.target.value)}
-                  placeholder={profile.hasApiKey ? '已配置 sk-••••••••（留空保持不变）' : 'sk-xxxxxxxxxxxxxxxx'}
+                  onChange={(e) => {
+                    setEditApiKey(e.target.value);
+                    setApiKeyTouched(true);
+                  }}
+                  placeholder={
+                    profile.hasApiKey ? '已配置 sk-••••••••（不改留空，输入后删除可清除）' : 'sk-xxxxxxxxxxxxxxxx'
+                  }
                   className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
                 />
               </div>

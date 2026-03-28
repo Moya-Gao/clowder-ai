@@ -1,7 +1,7 @@
 // @ts-check
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -349,6 +349,64 @@ describe('provider profiles routes', () => {
       const ids = list.providers.map((p) => p.id);
       assert.ok(ids.includes(firstId), 'first profile must still exist');
       assert.ok(ids.includes(secondId), 'second profile must exist alongside first');
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('PATCH /api/provider-profiles/:id clears credential when apiKey is empty string', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('clear-cred');
+    setGlobalRoot(projectDir);
+    try {
+      // Create profile with apiKey
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/provider-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          displayName: 'Clearable',
+          authType: 'api_key',
+          apiKey: 'sk-to-clear',
+        }),
+      });
+      assert.equal(createRes.statusCode, 200);
+      const profileId = createRes.json().profile.id;
+      assert.equal(createRes.json().profile.hasApiKey, true, 'should have credential after create');
+
+      // PATCH with empty apiKey to clear credential
+      const patchRes = await app.inject({
+        method: 'PATCH',
+        url: `/api/provider-profiles/${profileId}`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          apiKey: '',
+        }),
+      });
+      assert.equal(patchRes.statusCode, 200);
+      assert.equal(
+        patchRes.json().profile.hasApiKey,
+        false,
+        'credential should be cleared after PATCH with empty apiKey',
+      );
+
+      // Verify via GET
+      const listRes = await app.inject({
+        method: 'GET',
+        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+      const profile = listRes.json().providers.find((p) => p.id === profileId);
+      assert.equal(profile.hasApiKey, false, 'credential should remain cleared');
     } finally {
       restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });

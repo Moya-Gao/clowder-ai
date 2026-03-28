@@ -73,16 +73,15 @@ describe('accountStartupHook (HC-3 migration + HC-5 conflict scan at startup)', 
     assert.ok(Array.isArray(result.conflicts), 'should include conflicts array');
   });
 
-  it('skips migration when already migrated', async () => {
+  it('skips migration when project already has all old accounts', async () => {
     const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-1`);
 
-    // Write migration marker
-    await writeFile(
-      join(globalRoot, '.cat-cafe', 'accounts-migration-done.json'),
-      JSON.stringify({ migratedAt: new Date().toISOString() }),
-      'utf-8',
-    );
-    await writeCatalog(projectRoot, {});
+    // Old profiles exist in global config
+    await writeV3Meta([
+      { id: 'custom-ant', authType: 'api_key', protocol: 'anthropic', baseUrl: 'https://ant.example.com' },
+    ]);
+    // Project catalog already has the account → migration should be skipped
+    await writeCatalog(projectRoot, { 'custom-ant': { authType: 'api_key', protocol: 'anthropic' } });
 
     const result = accountStartupHook(projectRoot);
     assert.equal(result.migration.migrated, false);

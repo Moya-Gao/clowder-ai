@@ -335,7 +335,12 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
       validateAccountWrite(projectRoot, params.profileId, account);
       writeCatalogAccount(projectRoot, params.profileId, account);
       if (parsed.data.apiKey != null) {
-        if (parsed.data.apiKey) writeCredential(params.profileId, { apiKey: parsed.data.apiKey });
+        if (parsed.data.apiKey) {
+          writeCredential(params.profileId, { apiKey: parsed.data.apiKey });
+        } else {
+          // Empty string or explicit null → clear credential
+          deleteCredential(params.profileId);
+        }
       }
       configEventBus.emitChange({
         source: 'accounts',
