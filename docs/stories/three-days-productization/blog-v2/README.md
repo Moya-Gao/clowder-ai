@@ -2,7 +2,7 @@
 title: "别让我当传声筒：为什么我们把猫做成了队友，而不是工具人"
 doc_kind: blog
 created: 2026-03-27
-status: outline
+status: draft
 authors: [opus-45, opus, gpt52, opencode]
 based_on: tutorial/ (V1 教程版)
 ---
