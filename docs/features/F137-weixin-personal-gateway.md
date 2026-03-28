@@ -252,15 +252,15 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 - Pencil 绘制 SVG 图标，无 emoji
 - 砚砚 (codex) R2 放行 + 云端 Codex review 无 P1/P2
 
-### Phase D（断开连接 + 解绑）📋
+### Phase D（断开连接 + 解绑）✅
 
 > **反思**：Phase A-C 只做了"连接"方向，没有做"断开"。能连接就必须能断开——这是 UX 完整性的基本功。立项时应该主动挖掘这类隐含需求，而不是等铲屎官发现了才补。
 
-- [ ] AC-D1: IM Hub 配置卡片在已连接状态下显示"断开连接"按钮
-- [ ] AC-D2: 点击"断开连接"后停止长轮询 + 清除 bot_token/context_tokens + 状态回到"未配置"
-- [ ] AC-D3: 断开后微信端不再收到 bot 消息（session 自然过期或主动 revoke）
-- [ ] AC-D4: 配置卡片展示解绑说明文案（微信端操作路径：设置 → 账号与安全 → 登录设备管理）
-- [ ] AC-D5: 断开连接不影响已有 thread 和历史消息
+- [x] AC-D1: IM Hub 配置卡片在已连接状态下显示"断开连接"按钮
+- [x] AC-D2: 点击"断开连接"后停止长轮询 + 清除 bot_token/context_tokens + 状态回到"未配置"
+- [x] AC-D3: 断开后微信端不再收到 bot 消息（session 自然过期或主动 revoke）
+- [x] AC-D4: 配置卡片展示解绑说明文案（微信端操作路径：设置 → 账号与安全 → 登录设备管理）
+- [x] AC-D5: 断开连接不影响已有 thread 和历史消息
 
 ## 需求点 Checklist
 
@@ -271,13 +271,13 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | R3 | "也得接入我们的消息管线，都得是一样的" | AC-A5, AC-A6 | /new /threads /use /where 可用 | [x] |
 | R4 | "如果有配置需要配置...在那边能够显示" | AC-C1 | IM Hub 配置向导可见 | [x] |
 | R5 | "按照我们的开发速度，不需要一天" | Phase A 优先 | Phase A 独立可用 | [x] |
-| R6 | "我们这里是不是可以写清楚怎么样不绑定？" + "我们可以做一个按钮？" | AC-D1~D5 | IM Hub 断开按钮 + 解绑说明 | [ ] |
+| R6 | "我们这里是不是可以写清楚怎么样不绑定？" + "我们可以做一个按钮？" | AC-D1~D5 | IM Hub 断开按钮 + 解绑说明 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
 - [x] 前端需求已准备需求→证据映射表（若适用）— Phase C IM Hub AC-C1 已完成
-- [ ] Phase D 需求已覆盖（断开连接 + 解绑说明）
+- [x] Phase D 需求已覆盖（断开连接 + 解绑说明）
 
 ## Dependencies
 
@@ -465,6 +465,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-03-28 | 4 media bugs: aesKey base64url decode, WAV→SILK voice, html_widget plaintext fallback, HTTPS URL download for media_gallery。云端 R2 通过 → PR #813 squash merge |
 | 2026-03-28 | DM hotfix: 修复 `media_gallery` 相对路径解析（`/avatars/*`）、HTTPS 下载失败不再静默吞错、语音非 SILK 自动降级 `file_item`。PR #819 squash merge (497cdfa8) |
 | 2026-03-28 | **反思 + Phase D 补充**：铲屎官指出"能连接就应该能断开"——Phase A-C 只做了连接方向，缺少断开/解绑功能。Status 回退为 in-progress，新增 Phase D（AC-D1~D5）|
+| 2026-03-28 | Phase D merged (PR #825). `WeixinAdapter.disconnect()` + `POST /disconnect` endpoint + UI disconnect button + unbind help text. R1 P1 fix: reject pending sendReply promises on disconnect. 砚砚 R2 pass → cloud review pass → squash merge |
 
 ## Review Gate
 
