@@ -61,6 +61,8 @@ function ConnectorIcon({ connector, fallbackIcon }: { connector: string; fallbac
       return <ConnectorImage src="/images/connectors/weixin.png" alt="WeChat" className="w-5 h-5" />;
     case 'dingtalk':
       return <ConnectorImage src="/images/connectors/dingtalk.png" alt="DingTalk" className="w-5 h-5" />;
+    case 'wecom-bot':
+      return <ConnectorImage src="/images/connectors/wecom-bot.png" alt="WeCom" className="w-5 h-5" />;
     case 'github-review':
     case 'github-ci':
     case 'github-repo-event':

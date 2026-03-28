@@ -24,6 +24,7 @@ export interface ConnectorMediaServiceOptions {
   telegramDownloadFn?: (fileId: string) => Promise<Buffer>;
   dingtalkDownloadFn?: (downloadCode: string) => Promise<Buffer>;
   weixinDownloadFn?: (platformKey: string) => Promise<Buffer>;
+  wecomBotDownloadFn?: (url: string, aesKey?: string) => Promise<Buffer>;
 }
 
 const TYPE_TO_EXT: Record<string, string> = {
@@ -37,12 +38,14 @@ export class ConnectorMediaService {
   private telegramDl: ConnectorMediaServiceOptions['telegramDownloadFn'];
   private dingtalkDl: ConnectorMediaServiceOptions['dingtalkDownloadFn'];
   private weixinDl: ConnectorMediaServiceOptions['weixinDownloadFn'];
+  private wecomBotDl: ConnectorMediaServiceOptions['wecomBotDownloadFn'];
 
   constructor(private readonly opts: ConnectorMediaServiceOptions) {
     this.feishuDl = opts.feishuDownloadFn;
     this.telegramDl = opts.telegramDownloadFn;
     this.dingtalkDl = opts.dingtalkDownloadFn;
     this.weixinDl = opts.weixinDownloadFn;
+    this.wecomBotDl = opts.wecomBotDownloadFn;
   }
 
   setFeishuDownloadFn(fn: (key: string, type: string, messageId?: string) => Promise<Buffer>): void {
@@ -61,6 +64,10 @@ export class ConnectorMediaService {
     this.weixinDl = fn;
   }
 
+  setWeComBotDownloadFn(fn: (url: string, aesKey?: string) => Promise<Buffer>): void {
+    this.wecomBotDl = fn;
+  }
+
   async download(connectorId: string, attachment: MediaAttachment): Promise<DownloadedMedia> {
     await mkdir(this.opts.mediaDir, { recursive: true });
 
@@ -73,6 +80,9 @@ export class ConnectorMediaService {
       buffer = await this.dingtalkDl(attachment.platformKey);
     } else if (connectorId === 'weixin' && this.weixinDl) {
       buffer = await this.weixinDl(attachment.platformKey);
+    } else if (connectorId === 'wecom-bot' && this.wecomBotDl) {
+      const [url, aesKey] = attachment.platformKey.split('|aeskey=');
+      buffer = await this.wecomBotDl(url, aesKey);
     } else {
       throw new Error(`No download function for connector: ${connectorId}`);
     }

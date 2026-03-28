@@ -48,6 +48,14 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
       <img src="/images/connectors/dingtalk.png" alt="DingTalk" className="w-[18px] h-[18px]" />
     ),
   },
+  'wecom-bot': {
+    iconBg: '#E0E7FF',
+    iconColor: '#4F46E5',
+    icon: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src="/images/connectors/wecom-bot.png" alt="WeCom" className="w-[18px] h-[18px]" />
+    ),
+  },
 };
 
 export const DEFAULT_VISUAL: PlatformVisual = {

@@ -206,6 +206,19 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     },
   },
   {
+    id: 'wecom-bot',
+    displayName: '企业微信',
+    icon: '/images/connectors/wecom-bot.png',
+    color: { primary: '#4F46E5', secondary: '#EEF2FF' },
+    description: '企业微信智能机器人 (WebSocket)',
+    tailwindTheme: {
+      avatar: 'bg-indigo-100 ring-2 ring-indigo-200',
+      label: 'text-indigo-700',
+      labelLink: 'text-indigo-700 hover:text-indigo-900',
+      bubble: 'border border-indigo-200 bg-indigo-50',
+    },
+  },
+  {
     id: 'weixin',
     displayName: '微信',
     icon: '/images/connectors/weixin.png',

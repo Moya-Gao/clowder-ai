@@ -16,6 +16,8 @@ export const CONNECTOR_SECRETS_ALLOWLIST: ReadonlySet<string> = new Set([
   'DINGTALK_APP_KEY',
   'DINGTALK_APP_SECRET',
   'WEIXIN_BOT_TOKEN',
+  'WECOM_BOT_ID',
+  'WECOM_BOT_SECRET',
 ]);
 
 export function isConnectorSecret(name: string): boolean {

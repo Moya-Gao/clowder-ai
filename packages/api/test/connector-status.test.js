@@ -5,7 +5,7 @@ import { buildConnectorStatus } from '../dist/routes/connector-hub.js';
 describe('buildConnectorStatus', () => {
   it('returns all platforms as not configured when env is empty', () => {
     const result = buildConnectorStatus({});
-    assert.equal(result.length, 4);
+    assert.equal(result.length, 5);
 
     const feishu = result.find((p) => p.id === 'feishu');
     assert.ok(feishu);
@@ -26,6 +26,11 @@ describe('buildConnectorStatus', () => {
     const dingtalk = result.find((p) => p.id === 'dingtalk');
     assert.ok(dingtalk);
     assert.equal(dingtalk.configured, false);
+
+    const wecomBot = result.find((p) => p.id === 'wecom-bot');
+    assert.ok(wecomBot);
+    assert.equal(wecomBot.configured, false);
+    assert.equal(wecomBot.fields.length, 2);
 
     const weixin = result.find((p) => p.id === 'weixin');
     assert.ok(weixin);

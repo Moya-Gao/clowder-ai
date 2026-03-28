@@ -19,6 +19,8 @@ describe('CONNECTOR_SECRETS_ALLOWLIST', () => {
       'DINGTALK_APP_KEY',
       'DINGTALK_APP_SECRET',
       'WEIXIN_BOT_TOKEN',
+      'WECOM_BOT_ID',
+      'WECOM_BOT_SECRET',
     ];
     for (const name of expected) {
       assert.ok(isConnectorSecret(name), `${name} should be in allowlist`);
@@ -34,7 +36,7 @@ describe('CONNECTOR_SECRETS_ALLOWLIST', () => {
     assert.equal(isConnectorSecret('TELEGRAM_BOT_TOKEN_EXTRA'), false);
   });
 
-  it('allowlist has exactly 10 entries', () => {
-    assert.equal(CONNECTOR_SECRETS_ALLOWLIST.size, 10);
+  it('allowlist has exactly 12 entries', () => {
+    assert.equal(CONNECTOR_SECRETS_ALLOWLIST.size, 12);
   });
 });

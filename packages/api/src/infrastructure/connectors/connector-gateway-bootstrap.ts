@@ -22,6 +22,7 @@ import { DingTalkAdapter } from './adapters/DingTalkAdapter.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
 import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
 import { TelegramAdapter } from './adapters/TelegramAdapter.js';
+import { WeComBotAdapter } from './adapters/WeComBotAdapter.js';
 import { WeixinAdapter } from './adapters/WeixinAdapter.js';
 import { ConnectorCommandLayer, type ConnectorCommandLayerDeps } from './ConnectorCommandLayer.js';
 import {
@@ -57,6 +58,8 @@ export interface ConnectorGatewayConfig {
   dingtalkAppKey?: string | undefined;
   dingtalkAppSecret?: string | undefined;
   weixinBotToken?: string | undefined;
+  wecomBotId?: string | undefined;
+  wecomBotSecret?: string | undefined;
   /** Override co-creator userId for connector threads. Read from DEFAULT_OWNER_USER_ID env. */
   coCreatorUserId?: string | undefined;
   whisperUrl?: string | undefined;
@@ -184,6 +187,8 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     dingtalkAppKey: process.env.DINGTALK_APP_KEY,
     dingtalkAppSecret: process.env.DINGTALK_APP_SECRET,
     weixinBotToken: process.env.WEIXIN_BOT_TOKEN,
+    wecomBotId: process.env.WECOM_BOT_ID,
+    wecomBotSecret: process.env.WECOM_BOT_SECRET,
     coCreatorUserId: process.env.DEFAULT_OWNER_USER_ID,
     whisperUrl: process.env.WHISPER_URL,
     connectorMediaDir: process.env.CONNECTOR_MEDIA_DIR,
@@ -202,9 +207,10 @@ export async function startConnectorGateway(
     config.feishuAppId && config.feishuAppSecret && (feishuWsMode || config.feishuVerificationToken),
   );
   const hasDingTalk = Boolean(config.dingtalkAppKey && config.dingtalkAppSecret);
+  const hasWeComBot = Boolean(config.wecomBotId && config.wecomBotSecret);
   const hasWeixin = Boolean(config.weixinBotToken);
 
-  if (!hasTelegram && !hasFeishu && !hasDingTalk && !hasWeixin) {
+  if (!hasTelegram && !hasFeishu && !hasDingTalk && !hasWeComBot && !hasWeixin) {
     log.info('[ConnectorGateway] No pre-configured connectors — gateway created for WeChat QR login support');
   }
 
@@ -617,6 +623,52 @@ export async function startConnectorGateway(
     stopFns.push(async () => dingtalk.stopStream());
 
     log.info('[ConnectorGateway] DingTalk adapter started (Stream mode)');
+  }
+
+  // ── WeCom Bot (WebSocket mode via @wecom/aibot-node-sdk) ──
+  if (hasWeComBot) {
+    const wecomBot = new WeComBotAdapter(log, {
+      botId: config.wecomBotId!,
+      secret: config.wecomBotSecret!,
+      redis: deps.redis,
+    });
+    adapters.set('wecom-bot', wecomBot);
+
+    await wecomBot.hydrateGroupChatIds();
+
+    mediaService.setWeComBotDownloadFn(async (url: string, aesKey?: string) => {
+      const { buffer } = await wecomBot.downloadMedia(url, aesKey);
+      return buffer;
+    });
+
+    await wecomBot.startStream(async (msg) => {
+      const attachments = msg.attachments
+        ?.filter((a) => a.url)
+        .map((a) => ({
+          type: (a.type === 'voice' ? 'audio' : a.type) as 'image' | 'file' | 'audio',
+          platformKey: `${a.url}${a.aesKey ? `|aeskey=${a.aesKey}` : ''}`,
+          ...(a.fileName ? { fileName: a.fileName } : {}),
+        }));
+
+      // F132 B.2: Register group chatId so outbound dispatch survives cold restarts
+      if (msg.chatType === 'group') {
+        wecomBot.registerGroupChatId(msg.chatId);
+      }
+
+      await connectorRouter.route(
+        'wecom-bot',
+        msg.chatId,
+        msg.text,
+        msg.messageId,
+        attachments,
+        msg.chatType === 'group' && msg.senderId !== 'unknown' ? { id: msg.senderId } : undefined,
+        msg.chatType,
+      );
+    });
+
+    stopFns.push(async () => wecomBot.stopStream());
+
+    log.info('[ConnectorGateway] WeCom Bot adapter started (WebSocket mode)');
   }
 
   // ── WeChat Personal (iLink Bot long polling) ──

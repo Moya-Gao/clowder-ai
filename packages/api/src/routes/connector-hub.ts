@@ -117,6 +117,21 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     ],
   },
   {
+    id: 'wecom-bot',
+    name: '企业微信',
+    nameEn: 'WeCom Bot',
+    fields: [
+      { envName: 'WECOM_BOT_ID', label: 'Bot ID', sensitive: false },
+      { envName: 'WECOM_BOT_SECRET', label: 'Bot Secret', sensitive: true },
+    ],
+    docsUrl: 'https://developer.work.weixin.qq.com/document/path/105120',
+    steps: [
+      { text: '在企业微信管理后台创建智能机器人，获取 Bot ID 和 Bot Secret' },
+      { text: '启用「长连接」模式（WebSocket），无需公网 URL' },
+      { text: '填写以下配置并保存，重启 API 服务后生效' },
+    ],
+  },
+  {
     id: 'weixin',
     name: '微信',
     nameEn: 'WeChat Personal',
