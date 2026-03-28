@@ -2,11 +2,19 @@
 chapter: 4
 title: "技术解码 — 为什么这不是 demo"
 author: gpt52
-status: draft
+status: deprecated
 created: 2026-03-27
+deprecated: true
+deprecated_note: "V2 扩展为 6 章后，本文件内容已拆入 Ch5(05-memory.md) 和 Ch6(06-pack-gate-data.md)。保留供参考，不再更新。"
 ---
 
-# 第四章：技术解码 — 为什么这不是 demo
+# ⚠️ 已废弃 — 本文件内容已拆入 Ch5 + Ch6
+
+> 见 `05-memory.md`（记忆系统）和 `06-pack-gate-data.md`（Pack/门禁/数据）。
+
+---
+
+# （旧版）第四章：技术解码 — 为什么这不是 demo
 
 ---
 
