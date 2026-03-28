@@ -131,7 +131,7 @@ Layer 5: Export          → pptxgenjs 原生 OOXML 生成
 - [x] AC-A9: 密排状态矩阵表格 — 单元格级颜色编码，可编辑
 - [x] AC-A10: （Level 2 stretch / non-blocking）嵌套盒子架构图 — nested-box renderer，只矩形/圆角矩形/侧栏标签，最大 3 层，输入必须是树不是图，不做 connector/自动布线
 - [x] AC-A11: CJK 图表字体 POC 通过（release-gate P1，不过则收紧支持矩阵）
-- [ ] AC-A12: 生成的 .pptx 在 PPT 365 Win/Mac 打开无 repair 弹窗
+- [ ] AC-A12: 生成的 .pptx 在 PPT 365 Win/Mac 打开无 repair 弹窗 — **BLOCKED(owner: @lysander, action: 用 PPT 365 打开 ~/Desktop/cat-cafe-architecture.pptx 验证无 repair)**
 
 ### Phase B（风格模板库 + 高级布局 + 引擎化）
 - [ ] AC-B1: ≥3 种企业风格模板可用（nvidia-like/IBM/Apple）
