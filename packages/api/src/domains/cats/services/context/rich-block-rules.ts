@@ -6,7 +6,7 @@
  * ~950 chars in every single invocation prompt.
  *
  * Full rules available via (in priority order):
- *   1. Skill: cat-cafe-skills/using-rich-blocks/SKILL.md (primary SOT)
+ *   1. Skill: cat-cafe-skills/rich-messaging/SKILL.md (primary SOT)
  *   2. MCP tool: cat_cafe_get_rich_block_rules (fallback for Claude)
  *   3. HTTP endpoint: GET /api/callbacks/rich-block-rules (fallback for Codex/Gemini)
  *
@@ -16,6 +16,8 @@
 export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平衡）
 
 **核心原则**：结构化信息默认用富块，普通对话不用。先写 1-2 句自然语言摘要，再发富块。
+
+**适用场景**：不只是对话！定时任务唤醒、主动触发、connector 通知等场景中，猫同样拥有全部 rich block 能力。
 
 **何时使用**（默认触发）：
 - **card** (tone: info/success/warning/danger)
@@ -30,12 +32,13 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
   - 待办事项 / 下一步行动
   - review 要点清单
   - 验证步骤 / 测试计划
-- **media_gallery**
-  - 发送已有图片（头像、照片、设计稿 — 不需要现场生成！）
+- **media_gallery**（图片展示 — 不一定要现场生成！）
+  - 发送已有图片（头像 \`/avatars/\`、照片 \`/uploads/\`、设计稿）
   - 截图展示、多图对比
-  - 定时任务/主动触发场景中展示图片
+  - 定时任务/主动触发中展示图片
 - **audio**（语音消息 — 你"说出来"的话）
   - 打招呼、表达情感、庆祝、鼓励
+  - 定时任务中用语音播报（如早安问候、新闻速递）
   - 只填 \`text\`，系统会自动合成语音
   - 不要每条消息都发语音，只在你觉得"说出来比打字更好"时用
 - **interactive**（用户可交互选择/确认）
@@ -45,8 +48,9 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
   - option 可加 \`customInput: true\` + \`customInputPlaceholder\`，选中后展开文本输入框（如"我有其他想法"选项）
   - 发多个 interactive block 时用相同 \`groupId\` 实现批量提交（用户选完所有再一次提交）
   - 用户选择后 block 自动 disabled，选择结果持久化（刷新不丢）
-- **html_widget**（内嵌交互 HTML 小组件）
+- **html_widget**（内嵌交互 HTML 小组件 — 你自己写的 HTML 直接挂上去）
   - 数据可视化（图表、仪表盘）、交互 demo、mini 工具
+  - 定时任务中动态生成数据面板（如 repo 活跃度图表）
   - \`html\` 必填（完整 HTML 文档，含内联 CSS/JS）
   - \`title\` 可选（显示在 widget 顶部标题栏）
   - \`height\` 可选（像素，默认 300，范围 50-2000）
@@ -71,7 +75,7 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
 
 /**
  * Condensed rich block reference for injection into system prompts.
- * Full rules: load `using-rich-blocks` skill (primary).
+ * Full rules: load `rich-messaging` skill (primary).
  * Fallback: MCP tool `cat_cafe_get_rich_block_rules` or HTTP endpoint.
  */
 export const RICH_BLOCK_SHORT = `富消息块：结构化信息用富块，普通对话不用。先写 1-2 句摘要再发。
