@@ -429,9 +429,21 @@ export class InvocationQueue {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
         if (e.source !== 'agent' || !e.targetCats.includes(catId)) continue;
-        if (e.status === 'processing' || (e.status === 'queued' && now - e.createdAt < InvocationQueue.STALE_QUEUED_THRESHOLD_MS)) {
+        if (
+          e.status === 'processing' ||
+          (e.status === 'queued' && now - e.createdAt < InvocationQueue.STALE_QUEUED_THRESHOLD_MS)
+        ) {
           this.log?.info(
-            { threadId, catId, matchedEntry: { entryId: e.id, status: e.status, ageMs: now - e.createdAt, userId: key.split(':')[1] ?? '' } },
+            {
+              threadId,
+              catId,
+              matchedEntry: {
+                entryId: e.id,
+                status: e.status,
+                ageMs: now - e.createdAt,
+                userId: key.split(':')[1] ?? '',
+              },
+            },
             '[DIAG] hasActiveOrQueuedAgentForCat hit',
           );
           return true;
