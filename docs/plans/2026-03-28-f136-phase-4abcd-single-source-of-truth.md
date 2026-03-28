@@ -129,6 +129,8 @@ cats:
    - 启动时扫描 `known-project-roots.json` 中所有项目的 `cat-catalog.json` accounts 区
    - 同名 accountRef 的 `protocol/baseUrl/authType` 不一致 → hard error + 冲突详情
    - 同名 + 同配置 = 正常共享（多项目复用同一 API key）
+   - **写路径复用同一 validator**（@gpt52 补项）：accounts CRUD（POST/PATCH）写入前即报错，不落盘坏配置等下次启动再炸
+   - **baseUrl 比较先 normalize**（@gpt52 补项）：统一去尾斜杠 + trim，避免 `https://api.openai.com/v1` vs `https://api.openai.com/v1/` 误判冲突
 
 5. **测试**
    - 迁移器：旧格式 → 新格式的端到端测试
