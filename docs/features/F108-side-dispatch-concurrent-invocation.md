@@ -114,10 +114,10 @@ created: 2026-03-12
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | InvocationQueue 改多槽后，scopeKey 策略如何设计？thread+cat 组合 key？ | :white_square_button: 未定 |
-| OQ-2 | A2A routing 在同 thread 多猫并发时，消息如何精确路由到目标猫？ | :white_square_button: 未定 |
-| OQ-3 | 旁路执行的 system prompt 是否需要感知主执行流的存在？ | :white_square_button: 未定 |
-| OQ-4 | 前端消息渲染——交错还是分栏？UX 待确认 | :white_square_button: 未定 |
+| OQ-1 | InvocationQueue 改多槽后，scopeKey 策略如何设计？thread+cat 组合 key？ | ✅ 已解决：`${threadId}:${catId}` 组合 key（Phase A） |
+| OQ-2 | A2A routing 在同 thread 多猫并发时，消息如何精确路由到目标猫？ | ✅ 已解决：targetCats + hasMentions 路由（Phase A/B） |
+| OQ-3 | 旁路执行的 system prompt 是否需要感知主执行流的存在？ | :white_square_button: 未定（当前不感知，按需后续迭代） |
+| OQ-4 | 前端消息渲染——交错还是分栏？UX 待确认 | ✅ 已解决：按时间交错 + catId 头像区分（Phase B） |
 
 ## Key Decisions
 
@@ -132,6 +132,7 @@ created: 2026-03-12
 | 2026-03-12 | 立项，铲屎官提出并发派遣需求 |
 | 2026-03-14 | Phase A merged (PR #438) |
 | 2026-03-28 | Phase B merged (PR #834) |
+| 2026-03-28 | Phase B P1 fixes: whisper default + ThreadExecutionBar hydration |
 
 ## Review Gate
 
@@ -150,16 +151,16 @@ created: 2026-03-12
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "让你修复问题，并发让缅因猫反思" — 同一 thread 同时派两只猫干不同的事 | AC-A1 | integration test: 两猫并发 invocation 互不 abort | [ ] |
-| R2 | "给缅因猫一直发悄悄话避免影响你的修复" — 锁头 → 选猫 → 悄悄话 | AC-B1, AC-B2 | test: 锁头模式发消息不打断当前猫 + 不能选执行中的猫 | [ ] |
-| R3 | 相关但不同的任务在同一 feat/thread 里，结果都可见 | AC-A2 | test: 旁路消息在 thread 中可见 | [ ] |
-| R4 | 涉及 A2A 并发调整，安全性需要强评估 | AC-A5 | 向后兼容测试 + 缅因猫安全 review | [ ] |
-| R5 | 不点锁头直接发 = 广播，不打断执行猫，下次拉起时收到 | AC-B3, AC-B4 | test: 广播排队 + @ 路由旁路执行 | [ ] |
+| R1 | "让你修复问题，并发让缅因猫反思" — 同一 thread 同时派两只猫干不同的事 | AC-A1 | integration test: 两猫并发 invocation 互不 abort | [x] |
+| R2 | "给缅因猫一直发悄悄话避免影响你的修复" — 锁头 → 选猫 → 悄悄话 | AC-B1, AC-B2 | test: 锁头模式发消息不打断当前猫 + 不能选执行中的猫 | [x] |
+| R3 | 相关但不同的任务在同一 feat/thread 里，结果都可见 | AC-A2 | test: 旁路消息在 thread 中可见 | [x] |
+| R4 | 涉及 A2A 并发调整，安全性需要强评估 | AC-A5 | 向后兼容测试 + 缅因猫安全 review | [x] |
+| R5 | 不点锁头直接发 = 广播，不打断执行猫，下次拉起时收到 | AC-B3, AC-B4 | test: 广播排队 + @ 路由旁路执行 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（Phase B 适用）
+- [x] 前端需求已准备需求→证据映射表（Phase B 适用）
 
 ## 铲屎官用例示例
 

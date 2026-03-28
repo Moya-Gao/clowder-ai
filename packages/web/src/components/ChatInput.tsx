@@ -484,8 +484,8 @@ export function ChatInput({
   const handleWhisperToggle = useCallback(() => {
     setWhisperMode((prev) => {
       if (!prev) {
-        // Entering whisper mode — auto-select idle cats only (B10: executing cats excluded)
-        setWhisperTargets(new Set(whisperOptions.filter((c) => !activeCatIds.has(c.id)).map((c) => c.id)));
+        // F108B P1-1: Default to NO cats selected (design spec Scene 1: "默认都不选")
+        setWhisperTargets(new Set());
       }
       return !prev;
     });

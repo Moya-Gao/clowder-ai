@@ -527,7 +527,21 @@ export function useChatHistory(threadId: string) {
         for (const catId of data.activeInvocations) {
           updateThreadCatStatus(fetchForThread, catId, 'streaming');
         }
+        // F108B P1-2: Clear stale activeInvocations before hydrating from server truth.
+        // Without this, snapshot-restored slots (e.g. codex) persist alongside
+        // server-reported slots (e.g. opus), causing ghost entries in ThreadExecutionBar.
+        store.clearThreadActiveInvocation(fetchForThread);
         store.setThreadHasActiveInvocation(fetchForThread, true);
+        // Hydrate activeInvocations record so ThreadExecutionBar renders.
+        // Server returns catIds only; synthesize placeholder invocationIds for display.
+        for (const catId of data.activeInvocations) {
+          const syntheticId = `hydrated-${fetchForThread}-${catId}`;
+          if (fetchForThread === store.currentThreadId) {
+            store.addActiveInvocation(syntheticId, catId, 'execute');
+          } else {
+            store.addThreadActiveInvocation(fetchForThread, syntheticId, catId, 'execute');
+          }
+        }
       } else {
         // Server says no active invocations — clear any stale processing state
         // that may have been restored from a threadStates snapshot.

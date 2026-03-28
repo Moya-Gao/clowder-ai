@@ -112,12 +112,16 @@ describe('ChatInput whisper targets with empty mentionPatterns', () => {
     const whisperBtn = container.querySelector<HTMLButtonElement>('[aria-label="Whisper mode"]');
     act(() => whisperBtn?.click());
 
-    // Find the opus-fast target button and click to deselect
+    // Find the opus-fast target button
     const targetButtons = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-full'));
     const fastBtn = targetButtons.find((b) => b.textContent === '布偶猫(快)');
     expect(fastBtn).toBeDefined();
 
-    // Initially auto-selected (border-current bg-amber-50)
+    // F108B P1-1: default is NO cats selected
+    expect(fastBtn?.className).not.toContain('bg-amber-50');
+
+    // Click to select
+    act(() => fastBtn?.click());
     expect(fastBtn?.className).toContain('bg-amber-50');
 
     // Click to deselect

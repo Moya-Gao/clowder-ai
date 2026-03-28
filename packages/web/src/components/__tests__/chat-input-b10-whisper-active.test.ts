@@ -115,11 +115,11 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     const opusChip = chips.find((b) => b.textContent?.includes('布偶猫'));
     const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
 
-    // opus (executing) should NOT be selected (no bg-amber-50)
+    // opus (executing) should NOT be selected and is disabled
     expect(opusChip?.className).toContain('cursor-not-allowed');
     expect(opusChip?.className).not.toContain('bg-amber-50');
-    // codex (idle) should be auto-selected
-    expect(codexChip?.className).toContain('bg-amber-50');
+    // codex (idle) should NOT be pre-selected either (F108B: default none)
+    expect(codexChip?.className).not.toContain('bg-amber-50');
   });
 
   it('shows hourglass indicator on executing cat chip', () => {
@@ -135,14 +135,14 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     expect(codexChip?.textContent).toContain('⏳');
   });
 
-  it('all cats selectable when none are executing', () => {
+  it('all cats selectable but none pre-selected when none are executing', () => {
     act(() => root.render(React.createElement(ChatInput, { onSend: vi.fn() })));
     enterWhisperMode();
 
     const chips = getWhisperChips();
     for (const chip of chips) {
       expect(chip.disabled).toBe(false);
-      expect(chip.className).toContain('bg-amber-50');
+      expect(chip.className).not.toContain('bg-amber-50'); // F108B: default none selected
     }
   });
 
@@ -156,11 +156,44 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     const textarea = container.querySelector('textarea')!;
     expect(textarea.placeholder).toContain('排队');
 
-    // Enter whisper mode — codex auto-selected (idle), opus disabled (busy)
+    // Enter whisper mode — default is no selection (F108B P1-1 fix)
     enterWhisperMode();
 
-    // After whisper mode targeting idle cat: should show whisper placeholder, not queue
+    // Manually select codex (idle) — simulates user clicking the chip
+    const chips = getWhisperChips();
+    const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
+    act(() => codexChip?.click());
+
+    // After selecting idle cat: should show whisper placeholder, not queue
     expect(textarea.placeholder).toBe('悄悄话...');
+  });
+
+  it('P1-1: entering whisper mode defaults to NO cats selected (design spec)', () => {
+    // Design: F108-side-dispatch-phase-b-ux.pen Scene 1 says "默认都不选（✅）"
+    // No active invocations — all cats should be selectable but NONE pre-selected.
+    act(() => root.render(React.createElement(ChatInput, { onSend: vi.fn() })));
+    enterWhisperMode();
+
+    const chips = getWhisperChips();
+    for (const chip of chips) {
+      expect(chip.disabled).toBe(false); // All selectable
+      expect(chip.className).not.toContain('bg-amber-50'); // None pre-selected
+    }
+  });
+
+  it('P1-1: entering whisper with active cat — idle cats NOT pre-selected either', () => {
+    useChatStore.setState({
+      activeInvocations: { 'inv-1': { catId: 'opus', mode: 'execute', startedAt: Date.now() } },
+      hasActiveInvocation: true,
+    });
+    act(() => root.render(React.createElement(ChatInput, { onSend: vi.fn(), hasActiveInvocation: true })));
+    enterWhisperMode();
+
+    const chips = getWhisperChips();
+    const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
+    // codex is idle but should NOT be auto-selected
+    expect(codexChip?.disabled).toBe(false);
+    expect(codexChip?.className).not.toContain('bg-amber-50');
   });
 
   it('falls back to targetCats when activeInvocations is empty but hasActiveInvocation is true (legacy path)', () => {
