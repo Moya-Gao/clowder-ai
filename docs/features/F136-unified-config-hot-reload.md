@@ -248,6 +248,7 @@ Phase 4 终态（2026-03-28 决策）:
 | 2026-03-28 | Runtime incident: 迁移未落成但服务静默启动，铲屎官发现 accounts/models/apiKey 全丢 → 手动触发迁移恢复 |
 | 2026-03-28 | **Feature closed** — 愿景对照 + @gpt52 risk audit 等效守护 + [反思胶囊](/docs/reflections/2026-03-28-f136-unified-config-hot-reload-capsule.md) |
 | 2026-03-28 | Startup invariant guard merged (PR #835) — LL-043 hard error + duplicate accounts fix (cloud review 3 rounds) |
+| 2026-03-28 | Open-source hardening merged (PR #836) — corrupted catalog → LL-043 in accountStartupHook + HC-5 corruption warning (@gpt52 审放行) |
 
 ## Follow-up: Startup Invariant Guard — ✅ Implemented (PR #835)
 
