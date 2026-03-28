@@ -152,6 +152,38 @@ Phase 4 终态（2026-03-28 决策）:
   - `cat-config.yaml` 不进 git（用户本地改）
   - `~/.cat-cafe/credentials.json` 在全局目录，天然不进 git
 
+### 硬约束补充（2026-03-28，@codex review 补项 — 4 条不补必长技术债）
+
+- [x] **HC-1: `credentials.json` 必须是对象结构，不是纯 string**
+  ```json
+  {
+    "claude": { "apiKey": "sk-ant-xxx" },
+    "my-glm": { "apiKey": "glm-xxx" },
+    "my-oauth": { "accessToken": "...", "refreshToken": "...", "expiresAt": 1234567890 }
+  }
+  ```
+  - 理由：oauth/api_key 共存，accessToken 有 TTL，未来需 refresh 机制
+  - 纯 string 会导致 oauth 场景回到 ad-hoc 扩展
+
+- [x] **HC-2: 运行时唯一写源 = `cat-catalog.json`（含 accounts 区）**
+  - `cat-config.yaml.example` 只做模板（进 git），首次启动 seed 数据写入 `cat-catalog.json`
+  - Hub CRUD（猫 + 账户）统一写 `cat-catalog.json` → 发 ConfigChangeEvent
+  - 和 F127 现有模式一致（猫 CRUD 已写 cat-catalog），不引入 cat-config vs cat-catalog 新双源
+  - `cat-config.yaml` 是可选的用户初始配置（首次启动时读一次，之后运行时以 cat-catalog 为准）
+
+- [x] **HC-3: 迁移窗口可验证规则**
+  - 触发时机：首次启动检测到旧 `provider-profiles.json` 或 `.env` 有 `*_API_KEY` → 自动迁移
+  - 导入成功后：不自动清理 `.env`（用户手动确认后清理），打印一次迁移报告
+  - 版本门槛：迁移窗口保留一个 minor 版本（N+1 升级为 hard warning，N+2 删 fallback）
+  - 可验证：`pnpm check:legacy-credentials` 脚本检测旧路径残留
+
+- [x] **HC-4: Phase 4d 退出条件量化**
+  - 全 repo `grep -r 'process\.env\.\w*API_KEY\|process\.env\.\w*SECRET'` 业务链路零命中（test/mock 除外）
+  - `pnpm check:legacy-credentials` 绿
+  - 兼容导入测试全绿（旧格式 → 新格式端到端）
+  - Provider 热更新回归通过（改 credentials → 猫 rebind 验证）
+  - 全量 `pnpm gate` 通过
+
 ### 已知的具体需求（从 F088 Phase 8 产生）
 
 1. **Connector 热重载**：在 Hub 配置向导里改了 Telegram/飞书/钉钉配置后，不用重启 API 就能生效

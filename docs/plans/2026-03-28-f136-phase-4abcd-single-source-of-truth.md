@@ -47,13 +47,21 @@ cats:
 ```
 
 ```json
-// ~/.cat-cafe/credentials.json（纯钥匙串，零元信息，不进 git）
+// ~/.cat-cafe/credentials.json（对象结构钥匙串，零元信息，不进 git）
+// HC-1: 必须是对象结构，支持 oauth token 的 TTL + refresh
 {
-  "claude": "sk-ant-api-xxx",
-  "codex": "sk-xxx",
-  "my-glm": "glm-xxx"
+  "claude": { "apiKey": "sk-ant-api-xxx" },
+  "codex": { "apiKey": "sk-xxx" },
+  "my-glm": { "apiKey": "glm-xxx" },
+  "my-oauth": { "accessToken": "...", "refreshToken": "...", "expiresAt": 1234567890 }
 }
 ```
+
+**HC-2: 运行时唯一写源 = `cat-catalog.json`**
+- `cat-config.yaml.example` 只做模板（进 git）
+- 首次启动时 seed 数据写入 `.cat-cafe/cat-catalog.json`（含 accounts 区）
+- Hub CRUD（猫 + 账户）统一写 `cat-catalog.json` → 发 ConfigChangeEvent
+- 和 F127 现有模式一致，不引入 cat-config vs cat-catalog 新双源
 
 ## 现状问题（代码证据）
 
@@ -68,7 +76,7 @@ cats:
 
 ### Phase 4a — 新 schema + 读写层 + 迁移器
 
-**目标**：`cat-config.yaml` 支持 `accounts` 区；旧 `provider-profiles.json` 一次性迁入。
+**目标**：`cat-catalog.json` 支持 `accounts` 区（HC-2：唯一运行时写源）；旧 `provider-profiles.json` 一次性迁入。
 
 **Tasks**:
 
@@ -84,13 +92,22 @@ cats:
      }
      ```
    - 在 `CatCafeConfig`（或顶层 config 类型）加 `accounts: Record<string, AccountConfig>`
-   - 确保 `cat-config-loader.ts` 能读写 `accounts` 区
+   - 确保 `cat-config-loader.ts` 和 `cat-catalog-store.ts` 能读写 `accounts` 区
+   - HC-2：accounts 写入 `cat-catalog.json`，`cat-config.yaml.example` 只做模板示例
 
 2. **新建 `credentials.ts` 读写层**
    - 路径：`~/.cat-cafe/credentials.json`（复用 `provider-profiles-root.ts` 的全局目录解析）
-   - 格式：`Record<string, string>`（accountRef → apiKey）
+   - 格式（HC-1）：`Record<string, CredentialEntry>`
+     ```typescript
+     interface CredentialEntry {
+       apiKey?: string
+       accessToken?: string
+       refreshToken?: string
+       expiresAt?: number  // epoch ms
+     }
+     ```
    - 权限：0o600（同现有 secrets 文件）
-   - 接口：`readCredentials()`, `writeCredential(ref, key)`, `deleteCredential(ref)`, `hasCredential(ref)`
+   - 接口：`readCredentials()`, `writeCredential(ref, entry)`, `deleteCredential(ref)`, `hasCredential(ref)`
 
 3. **迁移器 `migrateProviderProfilesToAccounts()`**
    - 读 `~/.cat-cafe/provider-profiles.json`（v3 格式）
@@ -99,6 +116,11 @@ cats:
    - 保留 `bootstrapBindings` 语义：client 默认账户 → 对应 accountRef
    - 迁移完成后写标记文件，防止重复迁移
    - **不删旧文件**（留一版本兼容窗口）
+   - HC-3 迁移规则：
+     - 触发：首次启动检测到旧 `provider-profiles.json` 或 `.env` 有 `*_API_KEY`
+     - 导入成功后不自动清理 `.env`（打印迁移报告，用户手动确认后清理）
+     - 版本门槛：N+1 = hard warning，N+2 = 删 fallback
+     - 可验证：`pnpm check:legacy-credentials` 脚本检测旧路径残留
 
 4. **测试**
    - 迁移器：旧格式 → 新格式的端到端测试
@@ -192,11 +214,14 @@ cats:
    - 提供 `pnpm migrate:credentials` 脚本：读 `.env` → 写 `credentials.json`
    - 一版本后可选删除 fallback
 
-4. **测试**
-   - 确认 `provider-binding-compat.ts` 相关测试已迁移或删除
+4. **测试 + HC-4 量化退出条件**
+   - `grep -r 'process\.env\.\w*API_KEY\|process\.env\.\w*SECRET'` 业务链路零命中（test/mock 除外）
+   - `pnpm check:legacy-credentials` 绿（检测旧路径残留）
+   - 兼容导入测试全绿（旧格式 → 新格式端到端）
+   - Provider 热更新回归通过（改 credentials → 猫 rebind 验证）
    - 全量 `pnpm gate` 通过
 
-**AC**: `provider-profiles.json` 不再被任何代码读取；`provider-binding-compat.ts` 已删除。
+**AC**: `provider-profiles.json` 不再被任何代码读取；`provider-binding-compat.ts` 已删除；HC-4 全部量化条件满足。
 
 ## 风险
 
