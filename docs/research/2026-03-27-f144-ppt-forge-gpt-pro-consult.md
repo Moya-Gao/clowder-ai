@@ -333,6 +333,10 @@ type RenderBudget = {
 
 Blueprint Layer 根据 `targetAudience` 注入默认值（如 keynote-public → maxWords: 40, minFontPt: 18），Export Layer 校验。
 
+> **砚砚边界约束（已确认）**：renderBudget 只做 validator input，不做自动排版器。
+> Phase A 只保留 `maxWords / minFontPt / overflowPolicy` 三个字段。
+> 不加 per-slot budget、不加动态 typography math、不加自动拆页算法。
+
 #### 2. slideId 替代 pageNum + 顶层 sections[]（来自 GPT Pro #5）
 
 **问题**：`pageNum` 是位置，不是身份。插入/删除页后 pageNum 全部漂移。
@@ -395,6 +399,10 @@ interface ChartElement {
 **Pushback**：GPT Pro 建议完全 renderer-agnostic + adapter 层。我们只有 pptxgenjs 一个 exporter，
 为假想的"换 exporter"建 adapter = YAGNI。保留 hints 作为可选覆盖。
 
+> **砚砚确认 pushback，附加守则**：不做"通用 exporter 框架"，但守住 contract 不泄漏 renderer 细节。
+> `ChartData + hints` 的折中方案认可——hints 是可选覆盖，不是 contract 核心。
+> 铁律：不准把 pptxgenjs option bag 倒灌回 Blueprint central contract。
+
 #### 5. Layer 3 改名 Render Recipes（来自 GPT Pro #8）
 
 **问题**：Layer 3 叫 "Slide Master Config" 但实际还包括 createChartOptions 工厂等 per-object 配置。
@@ -417,7 +425,7 @@ interface ChartElement {
 | 项目 | 风险 | 验证方式 |
 |------|------|---------|
 | **OOXML repair dialog 回归** | 高 | 生成测试 .pptx → PPT 365 Win/Mac 打开 → 无 repair 弹窗 |
-| **CJK 图表字体** | 中 | 生成含中文 chart title/legend/category 的 .pptx → 验证字体是否生效（图表 CJK ≠ 文本框 CJK） |
+| **CJK 图表字体** | **🔴 高（砚砚升级为 release-gate P1）** | 生成含中文 chart title/legend/category 的 .pptx → 验证字体是否生效（图表 CJK ≠ 文本框 CJK）。**若 POC 不过**：收紧支持矩阵，降级为"中文图表只保可读不保字体 fidelity"或首发只承诺英文图表 |
 
 ### Phase B defer（记录到 feature spec OQ/Risk，不在 Phase A 实现）
 
@@ -448,11 +456,21 @@ GPT Pro 的竞品分析最有价值的一句话：
 | **NotebookLM** | Grounding 优先，PresentBench 领先 | 我们的 evidence 绑定更精细 + patch-based 修订（Phase B） |
 | **Gamma** | 速度快，分享体验好 | "导出后仍然是 PPT，而不是 PPT 形状的纪念品" |
 
+### 砚砚 Review 确认（2026-03-27 20:38）
+
+砚砚逐条审阅了三个关键判断：
+
+| 判断 | 砚砚立场 | 附加条件 |
+|------|---------|---------|
+| renderBudget 留 Phase A | ✅ 同意 | 只做 validator input（3 字段），不做自动排版器 |
+| CJK 图表字体 | **升级为 release-gate P1** | POC 不过就收紧支持矩阵（降级中文图表或首发只承诺英文） |
+| pushback renderer-agnostic | ✅ 同意 pushback | 守住 contract 不泄漏 renderer 细节，hints 可选但不倒灌 |
+
+**结论**：GPT Pro 审阅 + 本地综合 + 砚砚确认，三轮完成。研究阶段正式关闭。
+
 ### 下一步
 
-1. **更新 blueprint-schema.md**：吸纳 slideId、sections[]、renderBudget、transition 结构化、ChartData union
-2. **更新 theme-token-spec.md**：Layer 3 改名 Render Recipes
-3. **更新 F144-ppt-forge.md**：支持矩阵冻结、Phase B OQ/AC 补充、POC 清单补充
-4. **@ 砚砚 review**：让他过一遍吸纳决策是否合理
+1. 进入 **Design Gate** — 铲屎官确认五层架构方向 + Phase A 吸纳清单
+2. Design Gate 通过后 → `writing-plans`（实施计划）→ `worktree` → `tdd`
 
-> [宪宪/Opus-46🐾] 综合于 2026-03-27
+> [宪宪/Opus-46🐾] 综合于 2026-03-27，砚砚确认于同日
