@@ -1,6 +1,7 @@
 import type { SignalArticleStatus, StudyMeta } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '@/utils/api-client';
 import type { SignalArticleDetail } from '@/utils/signals-api';
 import { fetchStudyMeta, linkSignalThread, unlinkSignalThread } from '@/utils/signals-api';
@@ -53,6 +54,7 @@ export function SignalArticleDetail({
   const [expandContent, setExpandContent] = useState(false);
   const pendingTagInputRef = useRef<HTMLInputElement>(null);
   const normalizedPendingTag = pendingTag.trim();
+  const ime = useIMEGuard();
 
   // Sync noteText when article changes
   const prevArticleId = useRef<string | null>(null);
@@ -281,8 +283,10 @@ export function SignalArticleDetail({
             ref={pendingTagInputRef}
             value={pendingTag}
             onChange={(event) => setPendingTag(event.target.value)}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing) return;
+              if (ime.isComposing()) return;
               if (event.key === 'Enter') {
                 event.preventDefault();
                 void addPendingTag();

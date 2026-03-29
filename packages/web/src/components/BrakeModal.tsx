@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { useTts } from '@/hooks/useTts';
 import { useBrakeStore } from '@/stores/brakeStore';
 import { CatAvatar } from './CatAvatar';
@@ -45,6 +46,7 @@ export function BrakeModal() {
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState('');
   const lastTriggerRef = useRef<number>(0);
+  const ime = useIMEGuard();
 
   // Reset local state when modal opens
   useEffect(() => {
@@ -161,8 +163,10 @@ export function BrakeModal() {
               onChange={(e) => setReason(e.target.value)}
               placeholder="例：正在修复线上 P0 故障"
               className="w-full border border-cafe rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+              onCompositionStart={ime.onCompositionStart}
+              onCompositionEnd={ime.onCompositionEnd}
               onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return;
+                if (ime.isComposing()) return;
                 if (e.key === 'Enter' && reason.trim()) handleContinue();
               }}
             />

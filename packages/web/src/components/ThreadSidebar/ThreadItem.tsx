@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
 import { CatAvatar } from '../CatAvatar';
@@ -57,7 +58,7 @@ export function ThreadItem({
   const [isSaving, setIsSaving] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title ?? '');
   const inputRef = useRef<HTMLInputElement>(null);
-  const isComposingRef = useRef(false);
+  const ime = useIMEGuard();
 
   useEffect(() => {
     if (!isEditing) setDraftTitle(title ?? '');
@@ -116,14 +117,10 @@ export function ThreadItem({
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
             onClick={(e) => e.stopPropagation()}
-            onCompositionStart={() => {
-              isComposingRef.current = true;
-            }}
-            onCompositionEnd={() => {
-              isComposingRef.current = false;
-            }}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !isComposingRef.current) {
+              if (e.key === 'Enter' && !ime.isComposing()) {
                 e.preventDefault();
                 void submitRename();
               }

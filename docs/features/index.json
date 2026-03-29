@@ -663,7 +663,7 @@
     {
       "id": "F108",
       "name": "Side-Dispatch — 同一 Thread 多猫并发执行",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-28",
       "file": "F108-side-dispatch-concurrent-invocation.md"
     },
     {
@@ -901,5 +901,5 @@
       "file": "F146-mcp-marketplace-control-plane.md"
     }
   ],
-  "generated_at": "2026-03-28T15:49:02.724Z"
+  "generated_at": "2026-03-29T05:54:30.952Z"
 }

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { reconnectGame } from '@/hooks/useGameReconnect';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
@@ -49,6 +50,7 @@ export function ChatInput({
   uploadError = null,
 }: ChatInputProps) {
   const { cats } = useCatData();
+  const ime = useIMEGuard();
   const catOptions = useMemo(() => buildCatOptions(cats), [cats]);
   // F108 Scene 2: whisper-eligible cats (CatData[] for WhisperCatSelector)
   const whisperCats = useMemo(() => cats.filter((c) => c.roster?.available !== false), [cats]);
@@ -273,7 +275,7 @@ export function ChatInput({
   );
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.nativeEvent.isComposing) return;
+    if (ime.isComposing()) return;
 
     // F080: Ctrl+R opens history search (clear any active menus first)
     if (e.ctrlKey && e.key === 'r') {
@@ -698,6 +700,8 @@ export function ChatInput({
             value={input}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onPaste={handlePaste}
             placeholder={
               whisperMode

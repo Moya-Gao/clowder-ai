@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { CatSelector } from './ThreadSidebar/CatSelector';
 
 export interface VoteConfig {
@@ -22,6 +23,7 @@ export function VoteConfigModal({
   const [anonymous, setAnonymous] = useState(false);
   const [timeoutSec, setTimeoutSec] = useState(120);
   const modalRef = useRef<HTMLDivElement>(null);
+  const ime = useIMEGuard();
 
   const canSubmit = question.trim().length > 0 && options.filter((o) => o.trim()).length >= 2 && voters.length > 0;
 
@@ -124,8 +126,10 @@ export function VoteConfigModal({
                     placeholder={`选项 ${i + 1}`}
                     maxLength={100}
                     className="flex-1 text-sm px-3 py-2 rounded-lg border border-cafe bg-cafe-surface focus:outline-none focus:ring-1 focus:ring-cocreator-primary"
+                    onCompositionStart={ime.onCompositionStart}
+                    onCompositionEnd={ime.onCompositionEnd}
                     onKeyDown={(e) => {
-                      if (e.nativeEvent.isComposing) return;
+                      if (ime.isComposing()) return;
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         if (i === options.length - 1) addOption();

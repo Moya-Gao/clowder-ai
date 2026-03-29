@@ -4,6 +4,7 @@
  * Calls GET /api/projects/browse to list directories.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '@/utils/api-client';
 
 interface BrowseEntry {
@@ -82,6 +83,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [pathInput, setPathInput] = useState('');
+  const ime = useIMEGuard();
 
   const fetchDirectory = useCallback(async (path?: string, fallbackOnForbidden = false) => {
     setIsLoading(true);
@@ -230,8 +232,10 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
             type="text"
             value={pathInput}
             onChange={(e) => setPathInput(e.target.value)}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) handlePathSubmit();
+              if (e.key === 'Enter' && !ime.isComposing()) handlePathSubmit();
             }}
             placeholder="Enter path..."
             className="flex-1 text-xs px-3 py-2 rounded-lg border border-[#e8d9cf] bg-cafe-white focus:outline-none focus:ring-1 focus:ring-cocreator-primary"

@@ -6,6 +6,7 @@
 // biome-ignore lint/correctness/noUnusedImports: React needed for JSX in vitest environment
 import React, { useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '@/utils/api-client';
 
 export interface BindNewSessionSectionProps {
@@ -20,6 +21,7 @@ export function BindNewSessionSection({ threadId, activeCatIds, onBound }: BindN
   const [selectedCat, setSelectedCat] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
+  const ime = useIMEGuard();
 
   // Cats that don't yet have an active session in this thread
   const availableCats = cats.filter((c) => !activeCatIds.has(c.id));
@@ -94,8 +96,10 @@ export function BindNewSessionSection({ threadId, activeCatIds, onBound }: BindN
         <input
           value={sessionId}
           onChange={(e) => setSessionId(e.target.value)}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
           onKeyDown={(e) => {
-            if (e.nativeEvent.isComposing) return;
+            if (ime.isComposing()) return;
             if (e.key === 'Enter') void handleBind();
           }}
           placeholder="CLI Session ID"

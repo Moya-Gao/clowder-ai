@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 
 /** F070: governance status dot colors */
 const GOV_STATUS_DOT: Record<string, { color: string; title: string }> = {
@@ -68,7 +69,7 @@ export function SectionGroup({
   const [draftName, setDraftName] = useState(label);
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const isComposingRef = useRef(false);
+  const ime = useIMEGuard();
 
   const hasContextMenu = onOpenInFinder || onRenameProject || onArchiveThreads;
 
@@ -149,14 +150,10 @@ export function SectionGroup({
             value={draftName}
             onChange={(e) => setDraftName(e.target.value)}
             onClick={stopButton}
-            onCompositionStart={() => {
-              isComposingRef.current = true;
-            }}
-            onCompositionEnd={() => {
-              isComposingRef.current = false;
-            }}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !isComposingRef.current) {
+              if (e.key === 'Enter' && !ime.isComposing()) {
                 e.preventDefault();
                 submitRename();
               }

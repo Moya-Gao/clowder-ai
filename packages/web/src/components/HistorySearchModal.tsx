@@ -1,6 +1,7 @@
 'use client';
 
 import { KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 
 interface HistorySearchModalProps {
@@ -13,6 +14,7 @@ export function HistorySearchModal({ onSelect, onClose }: HistorySearchModalProp
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const search = useInputHistoryStore((s) => s.search);
+  const ime = useIMEGuard();
 
   const results = query ? search(query) : useInputHistoryStore.getState().entries.slice(0, 20);
 
@@ -41,7 +43,7 @@ export function HistorySearchModal({ onSelect, onClose }: HistorySearchModalProp
         setSelectedIdx((i) => Math.max(i - 1, 0));
         return;
       }
-      if (e.key === 'Enter' && results.length > 0 && !e.nativeEvent.isComposing) {
+      if (e.key === 'Enter' && results.length > 0 && !ime.isComposing()) {
         e.preventDefault();
         onSelect(results[selectedIdx]);
       }
@@ -61,6 +63,8 @@ export function HistorySearchModal({ onSelect, onClose }: HistorySearchModalProp
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
           placeholder="Search history..."
           className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-300"
         />

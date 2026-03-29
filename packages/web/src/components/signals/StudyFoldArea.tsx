@@ -1,5 +1,6 @@
 import type { StudyMeta } from '@cat-cafe/shared';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '@/utils/api-client';
 import { PodcastPlayer } from './PodcastPlayer';
 
@@ -61,6 +62,7 @@ export function StudyFoldArea({
   const [linkInput, setLinkInput] = useState('');
   const [newCollectionName, setNewCollectionName] = useState('');
   const linkInputRef = useRef<HTMLInputElement>(null);
+  const ime = useIMEGuard();
 
   const handleLinkThread = useCallback(async () => {
     const tid = linkInput.trim();
@@ -191,8 +193,10 @@ export function StudyFoldArea({
                 ref={linkInputRef}
                 value={linkInput}
                 onChange={(e) => setLinkInput(e.target.value)}
+                onCompositionStart={ime.onCompositionStart}
+                onCompositionEnd={ime.onCompositionEnd}
                 onKeyDown={(e) => {
-                  if (e.nativeEvent.isComposing) return;
+                  if (ime.isComposing()) return;
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     void handleLinkThread();
@@ -317,8 +321,10 @@ export function StudyFoldArea({
               <input
                 value={newCollectionName}
                 onChange={(e) => setNewCollectionName(e.target.value)}
+                onCompositionStart={ime.onCompositionStart}
+                onCompositionEnd={ime.onCompositionEnd}
                 onKeyDown={(e) => {
-                  if (e.nativeEvent.isComposing) return;
+                  if (ime.isComposing()) return;
                   if (e.key === 'Enter' && newCollectionName.trim()) {
                     e.preventDefault();
                     void onCreateCollection(newCollectionName.trim());

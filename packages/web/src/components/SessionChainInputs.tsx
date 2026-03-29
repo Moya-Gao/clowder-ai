@@ -5,6 +5,7 @@
 
 // biome-ignore lint/correctness/noUnusedImports: React needed for JSX in vitest environment
 import React, { useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '@/utils/api-client';
 import { truncateId } from './status-helpers';
 
@@ -20,6 +21,7 @@ export function BindSessionInput({
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
+  const ime = useIMEGuard();
 
   const handleBind = async () => {
     const trimmed = value.trim();
@@ -64,8 +66,10 @@ export function BindSessionInput({
       <input
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        onCompositionStart={ime.onCompositionStart}
+        onCompositionEnd={ime.onCompositionEnd}
         onKeyDown={(e) => {
-          if (e.nativeEvent.isComposing) return;
+          if (ime.isComposing()) return;
           if (e.key === 'Enter') void handleBind();
           if (e.key === 'Escape') {
             setOpen(false);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import type { InteractiveOption, RichInteractiveBlock } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
@@ -80,6 +81,7 @@ function SelectInteraction({
 }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
+  const ime = useIMEGuard();
   const highlightId = disabled ? (selectedIds[0] ?? null) : pendingId;
   const pendingOpt = pendingId ? options.find((o) => o.id === pendingId) : null;
   const showCustomInput = !disabled && pendingOpt?.customInput;
@@ -151,8 +153,10 @@ function SelectInteraction({
               setCustomText(e.target.value);
               if (onCustomText) onCustomText(e.target.value);
             }}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing && customText.trim()) handleSubmit();
+              if (e.key === 'Enter' && !ime.isComposing() && customText.trim()) handleSubmit();
             }}
             placeholder={pendingOpt?.customInputPlaceholder ?? '输入你的想法...'}
             className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-amber-300 dark:border-amber-700 bg-cafe-surface dark:bg-gray-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '../utils/api-client';
 
 interface GroupEntry {
@@ -31,6 +32,7 @@ export default function HubPermissionsTab() {
   const [newGroupId, setNewGroupId] = useState('');
   const [newGroupLabel, setNewGroupLabel] = useState('');
   const [newAdminId, setNewAdminId] = useState('');
+  const ime = useIMEGuard();
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -248,7 +250,9 @@ export default function HubPermissionsTab() {
                   onChange={(e) => setNewAdminId(e.target.value)}
                   placeholder="open_id (ou_xxxx...)"
                   className="flex-1 px-2 py-1.5 text-xs border border-cafe dark:border-gray-700 rounded-lg bg-transparent"
-                  onKeyDown={(e) => e.key === 'Enter' && addAdmin()}
+                  onCompositionStart={ime.onCompositionStart}
+                  onCompositionEnd={ime.onCompositionEnd}
+                  onKeyDown={(e) => e.key === 'Enter' && !ime.isComposing() && addAdmin()}
                 />
                 <button
                   onClick={addAdmin}

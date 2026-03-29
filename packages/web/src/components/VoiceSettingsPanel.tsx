@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { type CustomTerm, useVoiceSettingsStore } from '@/stores/voiceSettingsStore';
 import builtInTerms from '@/utils/voice-terms.json';
 
@@ -21,6 +22,7 @@ function AddTermRow({ onAdd }: { onAdd: (from: string, to: string) => void }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const toRef = useRef<HTMLInputElement>(null);
+  const ime = useIMEGuard();
 
   const handleAdd = () => {
     if (!from.trim() || !to.trim()) return;
@@ -30,11 +32,11 @@ function AddTermRow({ onAdd }: { onAdd: (from: string, to: string) => void }) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd();
+    if (e.key === 'Enter' && !ime.isComposing()) handleAdd();
   };
 
   const handleFromKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing && from.trim() && !to.trim()) {
+    if (e.key === 'Enter' && !ime.isComposing() && from.trim() && !to.trim()) {
       toRef.current?.focus();
     } else {
       handleKeyDown(e);
@@ -49,6 +51,8 @@ function AddTermRow({ onAdd }: { onAdd: (from: string, to: string) => void }) {
         onChange={(e) => setFrom(e.target.value)}
         placeholder="误识别词"
         className="flex-1 text-xs border border-cafe rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+        onCompositionStart={ime.onCompositionStart}
+        onCompositionEnd={ime.onCompositionEnd}
         onKeyDown={handleFromKeyDown}
       />
       <span className="text-cafe-muted text-xs">&rarr;</span>
@@ -59,6 +63,8 @@ function AddTermRow({ onAdd }: { onAdd: (from: string, to: string) => void }) {
         onChange={(e) => setTo(e.target.value)}
         placeholder="正确词"
         className="flex-1 text-xs border border-cafe rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+        onCompositionStart={ime.onCompositionStart}
+        onCompositionEnd={ime.onCompositionEnd}
         onKeyDown={handleKeyDown}
       />
       <button
@@ -86,6 +92,7 @@ function CustomTermRow({
   const [editing, setEditing] = useState(false);
   const [editFrom, setEditFrom] = useState(term.from);
   const [editTo, setEditTo] = useState(term.to);
+  const ime = useIMEGuard();
 
   const startEdit = () => {
     setEditFrom(term.from);
@@ -102,7 +109,7 @@ function CustomTermRow({
   const cancelEdit = () => setEditing(false);
 
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return;
+    if (ime.isComposing()) return;
     if (e.key === 'Enter') saveEdit();
     if (e.key === 'Escape') cancelEdit();
   };
@@ -114,6 +121,8 @@ function CustomTermRow({
           type="text"
           value={editFrom}
           onChange={(e) => setEditFrom(e.target.value)}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
           onKeyDown={handleEditKeyDown}
           className="flex-1 border border-blue-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-blue-500"
         />
@@ -122,6 +131,8 @@ function CustomTermRow({
           type="text"
           value={editTo}
           onChange={(e) => setEditTo(e.target.value)}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
           onKeyDown={handleEditKeyDown}
           className="flex-1 border border-blue-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-blue-500"
         />
