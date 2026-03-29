@@ -37,7 +37,7 @@ function mockThreadStore() {
   return {
     threads,
     participantActivity,
-    create(userId, title) {
+    create(userId, title, projectPath) {
       counter++;
       const thread = {
         id: `thread-${counter}`,
@@ -46,7 +46,7 @@ function mockThreadStore() {
         participants: [],
         lastActiveAt: Date.now(),
         createdAt: Date.now(),
-        projectPath: 'default',
+        projectPath: projectPath ?? 'default',
       };
       threads.set(thread.id, thread);
       return thread;
@@ -65,6 +65,10 @@ function mockThreadStore() {
     },
     async getParticipantsWithActivity(threadId) {
       return participantActivity.get(threadId) ?? [];
+    },
+    updateProjectPath(threadId, projectPath) {
+      const thread = threads.get(threadId);
+      if (thread) thread.projectPath = projectPath;
     },
   };
 }
@@ -165,6 +169,22 @@ describe('ConnectorRouter', () => {
     assert.equal(binding.threadId, result.threadId);
   });
 
+  it('ISSUE-16: lazy-heals projectPath on existing thread with default', async () => {
+    // Simulate a legacy thread created before the fix (projectPath='default')
+    const legacyThread = threadStore.create('owner-1', 'Legacy IM');
+    assert.equal(legacyThread.projectPath, 'default');
+    bindingStore.bind('feishu', 'chat-legacy', legacyThread.id, 'owner-1');
+
+    // Route a message through the existing binding
+    const result = await router.route('feishu', 'chat-legacy', 'hello', 'ext-heal-1');
+    assert.equal(result.kind, 'routed');
+    assert.equal(result.threadId, legacyThread.id);
+
+    // projectPath should have been healed
+    const healed = threadStore.threads.get(legacyThread.id);
+    assert.notEqual(healed.projectPath, 'default', 'projectPath should be lazy-healed from "default"');
+  });
+
   it('reuses existing thread for same external chat', async () => {
     const r1 = await router.route('feishu', 'chat-123', 'msg 1', 'ext-1');
     const r2 = await router.route('feishu', 'chat-123', 'msg 2', 'ext-2');
@@ -230,6 +250,19 @@ describe('ConnectorRouter', () => {
     assert.equal(r1.kind, 'routed');
     assert.equal(r2.kind, 'skipped');
     assert.equal(messageStore.messages.length, 1);
+  });
+
+  it('ISSUE-16: new thread gets monorepo root as projectPath (not default)', async () => {
+    const result = await router.route('feishu', 'chat-new-pp', 'Hello', 'ext-pp-1');
+    assert.equal(result.kind, 'routed');
+    const thread = threadStore.threads.get(result.threadId);
+    assert.ok(thread, 'thread should exist');
+    assert.notEqual(
+      thread.projectPath,
+      'default',
+      'projectPath must not be "default" — cat cwd would fall back to packages/api',
+    );
+    assert.ok(thread.projectPath.length > 1, 'projectPath should be a real filesystem path');
   });
 
   it('broadcasts connector message to websocket', async () => {
@@ -597,6 +630,29 @@ describe('ConnectorRouter', () => {
 
       const binding = bindingStore.getByExternal('feishu', 'chat-reuse');
       assert.equal(binding.hubThreadId, hubThreadId);
+    });
+
+    it('ISSUE-16: Hub thread gets monorepo root as projectPath', async () => {
+      bindingStore.bind('feishu', 'chat-hub-pp', 'thread-conv-pp', 'owner-1');
+      const hubRouter = new ConnectorRouter({
+        bindingStore,
+        dedup: new InboundMessageDedup(),
+        messageStore,
+        threadStore,
+        invokeTrigger: cmdTrigger,
+        socketManager,
+        defaultUserId: 'owner-1',
+        defaultCatId: 'opus',
+        log: noopLog(),
+        commandLayer: mockCommandLayer({
+          '/where': { kind: 'where', response: 'info' },
+        }),
+        adapters: new Map([['feishu', mockAdapter()]]),
+      });
+      const result = await hubRouter.route('feishu', 'chat-hub-pp', '/where', 'ext-hub-pp-1');
+      const hubThread = threadStore.threads.get(result.threadId);
+      assert.ok(hubThread);
+      assert.notEqual(hubThread.projectPath, 'default', 'Hub thread projectPath must not be "default"');
     });
 
     it('Hub thread title includes connector display name (ISSUE-8 8A)', async () => {

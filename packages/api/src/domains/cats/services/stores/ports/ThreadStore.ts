@@ -199,6 +199,8 @@ export interface IThreadStore {
   /** F032 P1-2 fix: Update participant activity on every message (not just join) */
   updateParticipantActivity(threadId: string, catId: CatId, healthy?: boolean): void | Promise<void>;
   updateTitle(threadId: string, title: string): void | Promise<void>;
+  /** ISSUE-16: backfill projectPath for threads created before the fix */
+  updateProjectPath(threadId: string, projectPath: string): void | Promise<void>;
   updatePin(threadId: string, pinned: boolean): void | Promise<void>;
   updateFavorite(threadId: string, favorited: boolean): void | Promise<void>;
   updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void | Promise<void>;
@@ -389,6 +391,11 @@ export class ThreadStore implements IThreadStore {
   updateTitle(threadId: string, title: string): void {
     const thread = this.get(threadId);
     if (thread) thread.title = title;
+  }
+
+  updateProjectPath(threadId: string, projectPath: string): void {
+    const thread = this.get(threadId);
+    if (thread) thread.projectPath = projectPath;
   }
 
   updatePin(threadId: string, pinned: boolean): void {

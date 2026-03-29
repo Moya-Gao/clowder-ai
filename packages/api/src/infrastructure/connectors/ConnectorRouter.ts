@@ -17,6 +17,7 @@
 import type { CatId, ConnectorSource, MessageContent } from '@cat-cafe/shared';
 import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
+import { findMonorepoRoot } from '../../utils/monorepo-root.js';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorMessageFormatter } from './ConnectorMessageFormatter.js';
 import type { IConnectorPermissionStore } from './ConnectorPermissionStore.js';
@@ -64,13 +65,14 @@ export interface ConnectorRouterOptions {
     }): Promise<{ id: string }>;
   };
   readonly threadStore: {
-    create(userId: string, title?: string): { id: string } | Promise<{ id: string }>;
+    create(userId: string, title?: string, projectPath?: string): { id: string } | Promise<{ id: string }>;
     updateConnectorHubState(
       threadId: string,
       state: { v: 1; connectorId: string; externalChatId: string; createdAt: number; lastCommandAt?: number } | null,
     ): void | Promise<void>;
     get?(threadId: string):
       | {
+          projectPath?: string;
           connectorHubState?: {
             v: 1;
             connectorId: string;
@@ -81,6 +83,7 @@ export interface ConnectorRouterOptions {
         }
       | null
       | Promise<{
+          projectPath?: string;
           connectorHubState?: {
             v: 1;
             connectorId: string;
@@ -89,6 +92,7 @@ export interface ConnectorRouterOptions {
             lastCommandAt?: number;
           };
         } | null>;
+    updateProjectPath?(threadId: string, projectPath: string): void | Promise<void>;
     getParticipantsWithActivity?(
       threadId: string,
     ):
@@ -307,12 +311,18 @@ export class ConnectorRouter {
         chatType === 'group'
           ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}`
           : `${def?.displayName ?? connectorId} DM`;
-      const thread = await threadStore.create(this.opts.defaultUserId, title);
+      const thread = await threadStore.create(this.opts.defaultUserId, title, findMonorepoRoot());
       binding = await bindingStore.bind(connectorId, externalChatId, thread.id, this.opts.defaultUserId);
       log.info(
         { connectorId, externalChatId, threadId: thread.id },
         '[ConnectorRouter] New thread created for external chat',
       );
+    } else if (threadStore.get && threadStore.updateProjectPath) {
+      // ISSUE-16 lazy heal: backfill projectPath for threads created before the fix
+      const existing = await threadStore.get(binding.threadId);
+      if (existing && (!existing.projectPath || existing.projectPath === 'default')) {
+        await threadStore.updateProjectPath(binding.threadId, findMonorepoRoot());
+      }
     }
 
     // 3. Post connector message
@@ -469,7 +479,7 @@ export class ConnectorRouter {
     const def = getConnectorDefinition(connectorId);
     const label = def?.displayName ?? connectorId;
     const hubTitle = chatLabel ? `${chatLabel} IM Hub` : `${label} IM Hub`;
-    const hubThread = await threadStore.create(this.opts.defaultUserId, hubTitle);
+    const hubThread = await threadStore.create(this.opts.defaultUserId, hubTitle, findMonorepoRoot());
     await threadStore.updateConnectorHubState(hubThread.id, {
       v: 1,
       connectorId,

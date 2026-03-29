@@ -280,6 +280,11 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'title', title);
   }
 
+  async updateProjectPath(threadId: string, projectPath: string): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'projectPath', projectPath);
+  }
+
   async updatePin(threadId: string, pinned: boolean): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     await this.redis.eval(
