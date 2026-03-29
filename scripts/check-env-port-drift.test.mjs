@@ -627,7 +627,7 @@ excluded:
       );
       assert.match(
         hotfix,
-        /git -C "\$TARGET_DIR" fetch --quiet --force --prune origin[\s\\]+"\+refs\/tags\/sync\/\*:\$TARGET_SYNC_TAG_REFS\/\*"/,
+        /git -C "\$TARGET_DIR" fetch --quiet --force --prune origin[\s\\]+"\+refs\/tags\/sync\/\*:\$TARGET_SYNC_TAG_REFS\/sync\/\*"/,
         'hotfix lane should force-refresh the mirrored clowder-ai sync tag namespace',
       );
       assert.match(

@@ -155,8 +155,8 @@ refresh_target_sync_tags() {
     return 1
   fi
 
-  if ! git -C "$TARGET_DIR" fetch --quiet --force --prune origin \
-    "+refs/tags/sync/*:$TARGET_SYNC_TAG_REFS/*" >/dev/null 2>&1; then
+if ! git -C "$TARGET_DIR" fetch --quiet --force --prune origin \
+    "+refs/tags/sync/*:$TARGET_SYNC_TAG_REFS/sync/*" >/dev/null 2>&1; then
     echo -e "${RED}Error: failed to refresh clowder-ai sync tags from origin${NC}" >&2
     return 1
   fi
