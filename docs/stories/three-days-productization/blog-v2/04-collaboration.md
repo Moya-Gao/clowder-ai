@@ -213,6 +213,18 @@ Discovery Loop 收敛出了 spec。接下来进入 Delivery Loop——从 spec �
 
 **这就是架构的价值：第一个平台花 3 天，第二个平台花 1 天，第三个平台花半天。**
 
+今天的 IM Hub 长这样——钉钉、飞书、微信全部在线，平台配置一目了然：
+
+![IM Hub 系统对话中心](./assets/im-hub-dialog-center.png)
+
+![IM Hub 平台配置](./assets/im-hub-platform-config.png)
+
+猫猫们不只是能在 IM 里聊天——金渐层能在飞书群里直接发文件，宪宪能在微信里发图片和语音：
+
+![飞书群聊 — 金渐层发送调研文档](./assets/lark-opencode-file.png)
+
+![微信聊天 — 图片与语音消息](./assets/wechat-image-voice.png)
+
 ### F090 像素猫猫大作战的 Design Gate
 
 铲屎官的原话更随意：
