@@ -551,7 +551,8 @@ describe('GET /api/capabilities (Fastify)', () => {
     const Fastify = (await import('fastify')).default;
     const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
 
-    const projectDir = await makeTmpDir('broken-skill-link');
+    // Use a dir under cwd (not /tmp/) so PROJECT_ALLOWED_ROOTS validation passes in public gate
+    const projectDir = join(process.cwd(), `.test-tmp-broken-skill-${Date.now()}`);
     const staleSkill = `ghost-skill-${Date.now()}`;
     const skillsDir = join(projectDir, '.claude', 'skills');
     const brokenLink = join(skillsDir, staleSkill);
