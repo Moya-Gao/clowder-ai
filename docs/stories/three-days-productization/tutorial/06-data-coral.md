@@ -116,7 +116,7 @@ pnpm gate    # 合入门禁（merge 的硬前提）
 
 3,492 个 commit 中有 2,684 个带有 🐾 签名——**77% 的 commit 是猫猫做的**。
 
-📸 **[截图位：git log 中的猫猫签名特写]**
+![Workspace Git 面板 — 猫猫签名特写](./assets/git-log-cat-signature.png)
 
 这不是为了好玩（虽然确实很好玩）。猫猫签名解决了一个真实问题：**追溯性**。
 
@@ -192,7 +192,7 @@ Vibe coding 不是乱 vibe。TDD、Quality Gate、代码卫生、squash merge—
 
 Coral 是珊瑚橙。不是红色的热烈，不是橙色的张扬，是介于两者之间、带一点粉调的温暖色。它恰好也是 Claude 的品牌色系。
 
-📸 **[截图位：UI 全景截图（Coral 色系）]**
+![Cat Café Hub 全景 — Coral 色系](./assets/hub-panorama-coral.png)
 
 有人看到我们的界面，说这是"少女风"。
 
