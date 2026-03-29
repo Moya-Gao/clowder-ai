@@ -25,6 +25,25 @@ import type { InboundMessageDedup } from './InboundMessageDedup.js';
 import { parseMentions } from './mention-parser.js';
 import type { IOutboundAdapter } from './OutboundDeliveryHook.js';
 
+/** Emit a connector_message socket event using the canonical protocol.
+ *  All emit sites MUST use this to avoid protocol drift (旧/新 payload 不一致). */
+function emitConnectorMessage(
+  socketManager: { broadcastToRoom(room: string, event: string, data: unknown): void } | null | undefined,
+  threadId: string,
+  msg: { id: string; content: string; source: ConnectorSource; timestamp: number },
+): void {
+  socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+    threadId,
+    message: {
+      id: msg.id,
+      type: 'connector' as const,
+      content: msg.content,
+      source: msg.source,
+      timestamp: msg.timestamp,
+    },
+  });
+}
+
 export type RouteResult =
   | { kind: 'routed'; threadId: string; messageId: string }
   | { kind: 'skipped'; reason: string }
@@ -243,6 +262,7 @@ export class ConnectorRouter {
           };
           const mentionPatterns = this.getMentionPatterns();
           const { targetCatId } = parseMentions(fwdText, mentionPatterns, this.opts.defaultCatId);
+          const fwdTimestamp = Date.now();
           const fwdStored = await messageStore.append({
             threadId: fwdThreadId,
             userId: this.opts.defaultUserId,
@@ -250,13 +270,13 @@ export class ConnectorRouter {
             content: fwdText,
             source: fwdSource,
             mentions: [targetCatId],
-            timestamp: Date.now(),
+            timestamp: fwdTimestamp,
           });
-          socketManager?.broadcastToRoom(`thread:${fwdThreadId}`, 'connector_message', {
-            threadId: fwdThreadId,
-            messageId: fwdStored.id,
-            connectorId,
+          emitConnectorMessage(socketManager, fwdThreadId, {
+            id: fwdStored.id,
             content: fwdText,
+            source: fwdSource,
+            timestamp: fwdTimestamp,
           });
           invokeTrigger.trigger(fwdThreadId, targetCatId, this.opts.defaultUserId, fwdText, fwdStored.id);
           log.info({ connectorId, threadId: fwdThreadId }, '[ConnectorRouter] /thread message forwarded');
@@ -319,6 +339,7 @@ export class ConnectorRouter {
       }
     }
 
+    const storedTimestamp = Date.now();
     const stored = await messageStore.append({
       threadId: binding.threadId,
       userId: this.opts.defaultUserId,
@@ -326,15 +347,15 @@ export class ConnectorRouter {
       content: resolvedText,
       source,
       mentions: [targetCatId],
-      timestamp: Date.now(),
+      timestamp: storedTimestamp,
     });
 
     // 4. Broadcast to WebSocket
-    socketManager?.broadcastToRoom(`thread:${binding.threadId}`, 'connector_message', {
-      threadId: binding.threadId,
-      messageId: stored.id,
-      connectorId,
+    emitConnectorMessage(socketManager, binding.threadId, {
+      id: stored.id,
       content: resolvedText,
+      source,
+      timestamp: storedTimestamp,
     });
 
     // 5. Trigger cat invocation (use parsed targetCatId)
@@ -494,17 +515,17 @@ export class ConnectorRouter {
     });
 
     // Broadcast both
-    socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
-      threadId,
-      messageId: cmdMsg.id,
-      connectorId,
+    emitConnectorMessage(socketManager, threadId, {
+      id: cmdMsg.id,
       content: commandText,
+      source: { connector: connectorId, label: def?.displayName ?? connectorId, icon: def?.icon ?? 'message' },
+      timestamp: now,
     });
-    socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
-      threadId,
-      messageId: resMsg.id,
-      connectorId: 'system-command',
+    emitConnectorMessage(socketManager, threadId, {
+      id: resMsg.id,
       content: responseText,
+      source: { connector: 'system-command', label: 'Cat Café', icon: 'settings' },
+      timestamp: now + 1,
     });
 
     // G+: Update lastCommandAt on the Hub thread for audit visibility
