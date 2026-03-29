@@ -129,7 +129,7 @@ Phase 4 终态（2026-03-28 决策）:
   ```
   ```json
   // ~/.cat-cafe/credentials.json（纯钥匙串，不进 git）
-  { "claude": "sk-ant-xxx", "my-glm": "glm-xxx" }
+  { "claude": "<your-anthropic-key>", "my-glm": "<your-glm-key>" }
   ```
   - `provider-profiles.json` 元信息文件退场（元信息搬入 `cat-config.accounts`）
   - `provider-profiles.secrets.local.json` 简化为 `credentials.json`（纯 key-value）
@@ -157,8 +157,8 @@ Phase 4 终态（2026-03-28 决策）:
 - [x] **HC-1: `credentials.json` 必须是对象结构，不是纯 string**
   ```json
   {
-    "claude": { "apiKey": "sk-ant-xxx" },
-    "my-glm": { "apiKey": "glm-xxx" },
+    "claude": { "apiKey": "<your-anthropic-key>" },
+    "my-glm": { "apiKey": "<your-glm-key>" },
     "my-oauth": { "accessToken": "...", "refreshToken": "...", "expiresAt": 1234567890 }
   }
   ```
