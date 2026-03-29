@@ -220,19 +220,45 @@ export function validateRuntimeProviderBinding(
 
 export function validateModelFormatForProvider(
   provider: CatProvider,
-  _defaultModel?: string | null,
+  defaultModel?: string | null,
   profileKind?: ProviderProfileKind,
   ocProviderName?: string | null,
-  options?: { legacyCompat?: boolean },
+  options?: { legacyCompat?: boolean; accountModels?: string[] },
 ): string | null {
   if (provider !== 'opencode') return null;
   if (profileKind === 'api_key') {
     const trimmedOcProvider = ocProviderName?.trim();
-    if (!trimmedOcProvider) {
+    // F189 intake: provider/model in defaultModel is the primary path.
+    // ocProviderName is only required when defaultModel is a bare model name.
+    // Must match parseOpenCodeModel logic: slash must have content on both sides
+    // (rejects trailing slash like "minimax/" and leading slash like "/model").
+    const modelTrimmed = defaultModel?.trim() ?? '';
+    const slashIdx = modelTrimmed.indexOf('/');
+    const looksLikeProviderModel = slashIdx > 0 && slashIdx < modelTrimmed.length - 1;
+    // Distinguish canonical provider/model from namespaced model (e.g. openrouter's z-ai/glm-4.7).
+    // Two-layer check:
+    //   Layer 1 — Known provider prefix: if the prefix before "/" is a known opencode provider
+    //     (anthropic, openai, openrouter, google), it's canonical regardless of account model list.
+    //     Synced with BUILTIN_OPENCODE_PROVIDERS in invoke-single-cat.ts.
+    //   Layer 2 — Account model list fallback (for non-builtin providers like minimax):
+    //     if "x/y" is in the list AND bare "y" is also in the list → canonical (dual-form).
+    //     if "x/y" is in the list but bare "y" is not → ambiguous namespace → require ocProviderName.
+    //     if "x/y" is NOT in the list → user-provided canonical form → accept.
+    const KNOWN_CANONICAL_PROVIDERS = new Set(['anthropic', 'openai', 'openrouter', 'google']);
+    const bareModel = looksLikeProviderModel ? modelTrimmed.slice(slashIdx + 1) : '';
+    const parsedPrefix = looksLikeProviderModel ? modelTrimmed.slice(0, slashIdx) : '';
+    const models = options?.accountModels;
+    const isNamespacedModel =
+      looksLikeProviderModel &&
+      !KNOWN_CANONICAL_PROVIDERS.has(parsedPrefix) &&
+      models?.some((m) => m === modelTrimmed) === true &&
+      models?.some((m) => m === bareModel) !== true;
+    const modelHasProvider = looksLikeProviderModel && !isNamespacedModel;
+    if (!trimmedOcProvider && !modelHasProvider) {
       if (options?.legacyCompat) return null;
-      return 'client "opencode" with API key auth requires an OpenCode Provider name (e.g. anthropic, openai, maas)';
+      return 'client "opencode" with API key auth requires either a provider/model format (e.g. minimax/MiniMax-M2.7) or an explicit Provider name';
     }
-    if (trimmedOcProvider.includes('/')) {
+    if (trimmedOcProvider?.includes('/')) {
       return 'OpenCode Provider name must not contain "/" — use a plain identifier (e.g. "openrouter", not "openrouter/google")';
     }
   }

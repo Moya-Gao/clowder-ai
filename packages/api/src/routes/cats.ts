@@ -235,13 +235,10 @@ async function validateAccountBindingOrThrow(
   if (compatibilityError) {
     throw new Error(compatibilityError);
   }
-  const modelFormatError = validateModelFormatForProvider(
-    client,
-    defaultModel,
-    runtimeProfile.kind,
-    ocProviderName,
-    options,
-  );
+  const modelFormatError = validateModelFormatForProvider(client, defaultModel, runtimeProfile.kind, ocProviderName, {
+    ...options,
+    accountModels: runtimeProfile.models,
+  });
   if (modelFormatError) {
     throw new Error(modelFormatError);
   }

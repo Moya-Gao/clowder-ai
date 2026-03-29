@@ -765,19 +765,43 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const ocProviderName = catConfig?.ocProviderName?.trim() || undefined;
     const parsedOpenCodeModel =
       provider === 'opencode' && trimmedDefaultModel ? parseOpenCodeModel(trimmedDefaultModel) : null;
-    // F189: When ocProviderName is set (bare model), assemble composite model for routing
-    const effectiveProviderName = parsedOpenCodeModel?.providerName ?? (ocProviderName || undefined);
-    const effectiveModel = parsedOpenCodeModel
-      ? trimmedDefaultModel!
-      : ocProviderName && trimmedDefaultModel
-        ? `${ocProviderName}/${trimmedDefaultModel}`
-        : undefined;
+    // F189 intake: determine effective provider + model.
+    // Three cases for defaultModel shape:
+    //   1. Canonical "provider/model" where parsed provider === ocProviderName → use as-is
+    //   2. Namespaced "ns/model" where parsed prefix ≠ ocProviderName → prefix with ocProviderName
+    //   3. Bare "model" → prefix with ocProviderName if available
+    // When ocProviderName is absent, parseOpenCodeModel is the sole source.
+    let effectiveProviderName: string | undefined;
+    let effectiveModel: string | undefined;
+    if (parsedOpenCodeModel) {
+      if (ocProviderName && parsedOpenCodeModel.providerName !== ocProviderName) {
+        // Namespace case: model's "/" is a namespace separator, not provider prefix
+        effectiveProviderName = ocProviderName;
+        effectiveModel = `${ocProviderName}/${trimmedDefaultModel}`;
+      } else {
+        // Canonical provider/model (with or without matching ocProviderName)
+        effectiveProviderName = ocProviderName || parsedOpenCodeModel.providerName;
+        effectiveModel = trimmedDefaultModel!;
+      }
+    } else if (ocProviderName && trimmedDefaultModel) {
+      // Bare model + ocProviderName fallback
+      effectiveProviderName = ocProviderName;
+      effectiveModel = `${ocProviderName}/${trimmedDefaultModel}`;
+    }
+    // Custom provider runtime config is needed when:
+    // - provider is opencode with an api_key account
+    // - we have an effective model and provider name
+    // - the account has a custom baseUrl (non-builtin endpoint), OR
+    //   the provider name is not in the builtin set
+    // This fixes the case where ocProviderName matches a builtin name (e.g. "anthropic")
+    // but the account points to a custom endpoint (e.g. minimax API).
     if (
       provider === 'opencode' &&
-      resolvedAccount?.authType === 'api_key' &&
+      resolvedAccount != null &&
+      resolvedAccount.authType === 'api_key' &&
       effectiveModel &&
       effectiveProviderName &&
-      !BUILTIN_OPENCODE_PROVIDERS.has(effectiveProviderName)
+      (!BUILTIN_OPENCODE_PROVIDERS.has(effectiveProviderName) || Boolean(resolvedAccount.baseUrl))
     ) {
       callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = effectiveModel;
       const apiType: 'openai' | 'anthropic' | 'google' =
