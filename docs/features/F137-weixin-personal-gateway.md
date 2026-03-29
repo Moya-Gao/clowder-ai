@@ -467,6 +467,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-03-28 | **反思 + Phase D 补充**：铲屎官指出"能连接就应该能断开"——Phase A-C 只做了连接方向，缺少断开/解绑功能。Status 回退为 in-progress，新增 Phase D（AC-D1~D5）|
 | 2026-03-28 | Phase D merged (PR #825). `WeixinAdapter.disconnect()` + `POST /disconnect` endpoint + UI disconnect button + unbind help text. R1 P1 fix: reject pending sendReply promises on disconnect. 砚砚 R2 pass → cloud review pass → squash merge |
 | 2026-03-28 | **F137 feat-close (final)** — 愿景守护：布偶猫(opus) 三问 + 证物对照表 ✅，缅因猫(gpt52) 独立验证放行 ✅。Phase A-D 全部 done，24/24 AC checked。|
+| 2026-03-29 | ⚠️ **Runtime 残留发现**：在 runtime worktree 中发现未提交的 WeixinAdapter 实验性改动——voice_item A/B test 双模式（`WEIXIN_VOICE_ITEM_MODE` env 切换 `minimal` vs `metadata`）。疑为之前某 session 布偶猫违反 P0 铁律直接在 runtime 调试语音问题。代码已 stash 保留（`runtime-rescue: WeixinAdapter voice_item A/B test`）。**若语音问题仍未解决，可 `git stash pop` 恢复这段逻辑在 feature worktree 中正式开发。** 当前 main 上 #854 的方案是 minimal-only。|
 
 ## Review Gate
 
