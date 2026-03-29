@@ -69,6 +69,8 @@ import { createSummaryStore } from './domains/cats/services/stores/factories/Sum
 import { createTaskStore } from './domains/cats/services/stores/factories/TaskStoreFactory.js';
 import { createThreadStore } from './domains/cats/services/stores/factories/ThreadStoreFactory.js';
 import { createWorkflowSopStore } from './domains/cats/services/stores/factories/WorkflowSopStoreFactory.js';
+import { RedisInvocationRecordStore } from './domains/cats/services/stores/redis/RedisInvocationRecordStore.js';
+import { RedisMessageStore } from './domains/cats/services/stores/redis/RedisMessageStore.js';
 import { MlxAudioTtsProvider } from './domains/cats/services/tts/MlxAudioTtsProvider.js';
 import { initStreamingTtsRegistry } from './domains/cats/services/tts/StreamingTtsChunker.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
@@ -103,6 +105,7 @@ import {
   startGithubReviewWatcher,
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
+import { runSchedulerReplyUserIdBackfill } from './infrastructure/scheduler/scheduler-reply-userid-backfill.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { configSecretsRoutes } from './routes/config-secrets.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
@@ -306,6 +309,28 @@ async function main(): Promise<void> {
   const readStateStore = createReadStateStore(redis);
   const { ExecutionDigestStore } = await import('./domains/projects/execution-digest-store.js');
   const executionDigestStore = new ExecutionDigestStore();
+
+  if (
+    redis &&
+    messageStore instanceof RedisMessageStore &&
+    invocationRecordStore instanceof RedisInvocationRecordStore
+  ) {
+    const backfillResult = await runSchedulerReplyUserIdBackfill({
+      redis,
+      messageStore,
+      invocationRecordStore,
+      threadStore,
+    });
+    if (!backfillResult.skipped && (backfillResult.repairedMessages > 0 || backfillResult.repairedInvocations > 0)) {
+      app.log.info(
+        {
+          repairedMessages: backfillResult.repairedMessages,
+          repairedInvocations: backfillResult.repairedInvocations,
+        },
+        '[api] F139 scheduler reply userId backfill completed',
+      );
+    }
+  }
 
   const sessionChainStore = createSessionChainStore(redis);
   // F24: Transcript Writer/Reader for session chain

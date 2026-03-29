@@ -61,6 +61,17 @@ export class RedisMessageStore {
     }
   }
 
+  /** Resolve ioredis keyPrefix (SCAN doesn't auto-apply it) */
+  private get keyPrefix(): string {
+    return (this.redis.options as { keyPrefix?: string }).keyPrefix ?? '';
+  }
+
+  /** Strip keyPrefix from a raw SCAN key for use with normal commands (which auto-prefix) */
+  private stripPrefix(rawKey: string): string {
+    const p = this.keyPrefix;
+    return p && rawKey.startsWith(p) ? rawKey.slice(p.length) : rawKey;
+  }
+
   async append(msg: AppendMessageInput): Promise<StoredMessage> {
     const threadId = msg.threadId ?? DEFAULT_THREAD_ID;
     const id = generateSortableId(msg.timestamp);
@@ -227,6 +238,56 @@ export class RedisMessageStore {
       ...(data.mentionsUser === '1' ? { mentionsUser: true } : {}),
       ...(data.replyTo ? { replyTo: data.replyTo } : {}),
     };
+  }
+
+  /** Scan all stored message hashes (Redis-only repair helper). */
+  async scanAll(): Promise<StoredMessage[]> {
+    const matchPattern = `${this.keyPrefix}${MessageKeys.detail('*')}`;
+    const messages: StoredMessage[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', matchPattern, 'COUNT', 100);
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        const pipeline = this.redis.pipeline();
+        for (const key of keys) {
+          pipeline.hgetall(this.stripPrefix(key));
+        }
+        const results = await pipeline.exec();
+        for (const entry of results ?? []) {
+          const [err, data] = entry!;
+          if (err || !data || typeof data !== 'object') continue;
+          const d = data as Record<string, string>;
+          if (!d.id) continue;
+          const msg = await this.getById(d.id);
+          if (msg) messages.push(msg);
+        }
+      }
+    } while (cursor !== '0');
+    return messages;
+  }
+
+  /** Reassign a message to a different userId and move user-timeline membership. */
+  async reassignUserId(id: string, nextUserId: string): Promise<StoredMessage | null> {
+    const msg = await this.getById(id);
+    if (!msg) return null;
+    if (msg.userId === nextUserId) return msg;
+
+    const oldUserKey = MessageKeys.user(msg.userId);
+    const newUserKey = MessageKeys.user(nextUserId);
+    const score = (await this.redis.zscore(oldUserKey, id)) ?? String(msg.deliveredAt ?? msg.timestamp);
+
+    const pipeline = this.redis.multi();
+    pipeline.hset(MessageKeys.detail(id), { userId: nextUserId });
+    pipeline.zrem(oldUserKey, id);
+    pipeline.zadd(newUserKey, score, id);
+    if (this.ttlSeconds !== null) {
+      pipeline.expire(newUserKey, this.ttlSeconds);
+    }
+    await pipeline.exec();
+
+    msg.userId = nextUserId;
+    return msg;
   }
 
   async getRecent(limit?: number, userId?: string): Promise<StoredMessage[]> {
