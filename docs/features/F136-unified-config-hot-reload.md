@@ -250,6 +250,7 @@ Phase 4 终态（2026-03-28 决策）:
 | 2026-03-28 | Startup invariant guard merged (PR #835) — LL-043 hard error + duplicate accounts fix (cloud review 3 rounds) |
 | 2026-03-28 | Open-source hardening merged (PR #836) — corrupted catalog → LL-043 in accountStartupHook + HC-5 corruption warning (@gpt52 审放行) |
 | 2026-03-29 | Hub profile stale + HC-5 worktree false conflict fix merged (PR #847) — CustomEvent invalidation + isSameProject() exclusion (@gpt52 审放行) |
+| 2026-03-29 | Sensitive env write merged (PR #853) — owner gate + audit trail, absorbs clowder-ai#285 defense points (gpt52 审放行, cloud review 2 rounds) |
 
 ## Follow-up: Startup Invariant Guard — ✅ Implemented (PR #835)
 
@@ -278,14 +279,16 @@ Phase 4 终态（2026-03-28 决策）:
 - 3 worktree-aware 回归测试
 - Cloud review: @gpt52 审放行（无 P1/P2）
 
-## Follow-up: Hub Sensitive Env Write — 📋 Planned (absorb clowder-ai PR #285)
+## Follow-up: Hub Sensitive Env Write — ✅ Implemented (PR #853, absorb clowder-ai PR #285)
 
 **来源**：社区 PR clowder-ai#285 提出 Hub 可写 sensitive env（OPENAI_API_KEY / F102_API_KEY / GITHUB_MCP_PAT）。砚砚评估后认为有 4 个防御点值得吸收，但实现形式与我们 accounts/credentials 主线冲突，不宜原样 intake。
 
-**吸收方向**（v0.5 scope）：
-1. sensitive env `runtimeEditable` fail-closed whitelist（只对 env-owning secrets 开放，不回拉已迁移的 provider creds）
-2. owner gate 显式配置，不 fallback `default-user`
-3. 前端掩码 fallback
-4. sensitive write audit event（`ENV_SENSITIVE_WRITE`）
+**实现**（PR #853, merged 2026-03-29）：
+1. sensitive env `runtimeEditable: true` fail-closed whitelist — 3 env-owning secrets（OPENAI_API_KEY, GITHUB_MCP_PAT, F102_API_KEY）
+2. Owner gate: `DEFAULT_OWNER_USER_ID` match required（403 otherwise）; trust anchor marked `runtimeEditable: false`
+3. Frontend: password input + masked display（`***`）+ empty-draft-means-no-change
+4. `ENV_SENSITIVE_WRITE` audit event（sensitive keys only, no values）
+- Cloud review 2 rounds: P1 trust anchor hijack + P2 audit key filtering → fixed; P1 header spoofing → push back (existing local-first trust model)
+- gpt52 审放行
 
 **不做**：不把已迁移到 `accounts/credentials.json` 的 provider 凭证拉回 `.env` 路线。
