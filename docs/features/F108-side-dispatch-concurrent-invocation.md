@@ -8,7 +8,7 @@ created: 2026-03-12
 
 # F108: Side-Dispatch — 同一 Thread 多猫并发执行
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-28
 
 ## Why
 
@@ -137,6 +137,7 @@ created: 2026-03-12
 | 2026-03-28 | Scene 2 WhisperCatSelector merged (PR #842) — UX 闭环 |
 | 2026-03-28 | Scene 2 v2 rewrite: mention-like floating popup (PR #846) — 铲屎官 UX 反馈 |
 | 2026-03-28 | P1 hotfix: concurrent cancel isolation (PR #848) — 取消一只猫不再误清其他猫状态 |
+| 2026-03-28 | Feature closure: 愿景守护 by gemini (APPROVED), reflection capsule written |
 
 ## UX Fidelity Gap（功能闭环 vs UX 闭环）
 

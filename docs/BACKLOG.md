@@ -43,7 +43,6 @@ created: 2026-02-26
 | F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | in-progress | 布偶猫 | internal | [F102](features/F102-memory-adapter-refactor.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | internal | [F104](features/F104-local-omni-perception.md) |
 | F107 | 脑门贴词 — 坏猫战术推理游戏 #1 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
-| F108 | Side-Dispatch — 同一 Thread 多猫并发执行 | in-progress | 布偶猫 | internal | [F108](features/F108-side-dispatch-concurrent-invocation.md) |
 | F109 | Message Actions 修复与增强 — 软删除/Branch/编辑/通知 | in-progress | 布偶猫 | internal | [F109](features/F109-message-actions-overhaul.md) |
 | F110 | 训练营愿景引导增强 — CVO 需求挖掘 + SOP 显式加载 | spec | 布偶猫 | internal | [F110](features/F110-bootcamp-vision-elicitation.md) |
 | F113 | Multi-Platform One-Click Deploy — 多平台一键部署 | in-progress | community | community [#14](https://github.com/zts212653/clowder-ai/issues/14) | [F113](features/F113-multi-platform-one-click-deploy.md) |

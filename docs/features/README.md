@@ -108,3 +108,4 @@
 | F140 | F140: GitHub PR Signals — 冲突检测 + Review Feedback 全来源感知 | done | [F140-github-pr-automation.md](./F140-github-pr-automation.md) |
 | F141 | F141: GitHub Repo Inbox — 仓库事件自动发现 | done | [F141-github-repo-inbox.md](./F141-github-repo-inbox.md) |
 | F142 | F142: Connector Slash Commands — 跨平台 /slash 扩展框架 | done | [F142-connector-slash-commands.md](./F142-connector-slash-commands.md) |
+| F108 | F108: Side-Dispatch — 同一 Thread 多猫并发执行 | done | [F108-side-dispatch-concurrent-invocation.md](./F108-side-dispatch-concurrent-invocation.md) |
