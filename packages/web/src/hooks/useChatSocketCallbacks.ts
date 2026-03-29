@@ -32,6 +32,7 @@ export function useChatSocketCallbacks({
 }: ExternalDeps): SocketCallbacks {
   const {
     updateThreadTitle,
+    updateThreadParticipants,
     setLoading,
     setHasActiveInvocation,
     setIntentMode,
@@ -49,7 +50,10 @@ export function useChatSocketCallbacks({
         handleAgentMessage(msg);
         return true;
       },
-      onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
+      onThreadUpdated: (data) => {
+        if (data.title !== undefined) updateThreadTitle(data.threadId, data.title);
+        if (data.participants !== undefined) updateThreadParticipants(data.threadId, data.participants);
+      },
       onIntentMode: (data) => {
         // Socket layer (useSocket) already applies dual-pointer guard + background routing.
         // This callback only fires for the truly active thread.

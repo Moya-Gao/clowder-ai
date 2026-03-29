@@ -764,6 +764,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 invocationId: createResult.invocationId,
               });
               intentModeBroadcast = true;
+              // Push participants to sidebar. resolveTargets only calls addParticipants
+              // for @mention flows; non-mention routing (preferredCats/default) skips it.
+              // Merge stored participants with targetCats so sidebar always gets the
+              // responding cats, regardless of how they were resolved.
+              const existingParticipants = (await opts.threadStore?.get(resolvedThreadId))?.participants ?? [];
+              const mergedParticipants = [...new Set([...existingParticipants, ...targetCats])];
+              opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'thread_updated', {
+                threadId: resolvedThreadId,
+                participants: mergedParticipants,
+              });
             }
             // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
             if (controller?.signal.aborted) break;
