@@ -135,6 +135,7 @@ created: 2026-03-12
 | 2026-03-28 | Phase B P1 fixes: whisper default + ThreadExecutionBar hydration |
 | 2026-03-28 | UX fidelity gap analysis: 功能闭环 ✅，UX 闭环待 Scene 2/5C |
 | 2026-03-28 | Scene 2 WhisperCatSelector merged (PR #842) — UX 闭环 |
+| 2026-03-28 | Scene 2 v2 rewrite: mention-like floating popup (PR #846) — 铲屎官 UX 反馈 |
 
 ## UX Fidelity Gap（功能闭环 vs UX 闭环）
 
@@ -146,7 +147,7 @@ created: 2026-03-12
 | Scene | 设计稿内容 | 实现状态 | Gap |
 |-------|-----------|---------|-----|
 | Scene 1: Whisper Mode | 锁头 toggle → 猫选择 chips，默认不选 | ✅ ALIGNED | PR #837 修复默认选中问题 |
-| Scene 2: Cat Selector | **下拉列表**：头像 + 全名 + radio + 状态徽章 | ✅ ALIGNED | PR #842: WhisperCatSelector（色圆 + 品种·昵称 + 状态徽章） |
+| Scene 2: Cat Selector | **下拉列表**：头像 + 全名 + radio + 状态徽章 | ✅ ALIGNED | PR #846 v2: @ mention 风格浮动弹窗（头像 + formatCatName 唯一标识 + 职责 + 执行中徽章） |
 | Scene 3: Execution Bar | "执行中" + 猫色点 + 名称 + 计时 | ✅ ALIGNED | PR #837 修复 hydration |
 | Scene 4: Per-Cat Stop | × 按钮 + "全部停止" | ✅ ALIGNED | — |
 | Scene 5A: Idle Input | 橙色发送按钮 | ✅ ALIGNED | — |
