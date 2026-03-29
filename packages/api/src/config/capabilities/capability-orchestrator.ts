@@ -31,9 +31,18 @@ const MCP_RESOLVED_FILENAME = 'mcp-resolved.json';
 
 const PENCIL_EXTENSIONS_DIR = resolve(homedir(), '.antigravity/extensions');
 const VSCODE_EXTENSIONS_DIR = resolve(homedir(), '.vscode/extensions');
+const CURSOR_EXTENSIONS_DIR = resolve(homedir(), '.cursor/extensions');
+const VSCODE_INSIDERS_EXTENSIONS_DIR = resolve(homedir(), '.vscode-insiders/extensions');
 const PENCIL_DIR_PREFIX = 'highagency.pencildev-';
 /** @internal Exported for testing only */
-export const PENCIL_BINARY_SUFFIX = 'out/mcp-server-darwin-arm64';
+export function getPencilBinarySuffix(): string {
+  const os = process.platform === 'win32' ? 'windows' : process.platform === 'linux' ? 'linux' : 'darwin';
+  const arch = process.arch === 'x64' ? 'x64' : 'arm64';
+  const ext = process.platform === 'win32' ? '.exe' : '';
+  return `out/mcp-server-${os}-${arch}${ext}`;
+}
+/** @internal Exported for testing only */
+export const PENCIL_BINARY_SUFFIX = getPencilBinarySuffix();
 
 type ResolvedMcpStatus = 'resolved' | 'unresolved';
 
@@ -50,10 +59,18 @@ interface PencilResolveOptions {
   env?: NodeJS.ProcessEnv;
   antigravityDir?: string;
   vscodeDir?: string;
+  cursorDir?: string;
+  vscodeInsidersDir?: string;
 }
 
 type PencilCommandResolution = { command: string; args: string[] } | null;
 type PencilCommandResolver = (options?: PencilResolveOptions) => Promise<PencilCommandResolution>;
+type PencilApp = 'antigravity' | 'vscode';
+interface PencilInstallCandidate {
+  app: PencilApp;
+  binaryPath: string;
+  dirName: string;
+}
 
 /**
  * Parse semver-like version from a Pencil extension directory name.
@@ -174,26 +191,44 @@ export function deduplicateDiscoveredMcpServers<T extends DiscoveredMcpLike>(ser
   return [...byName.values()];
 }
 
-async function findLatestPencilBinary(extensionsDir: string): Promise<string | null> {
-  try {
-    const entries = await readdir(extensionsDir);
-    const pencilDirs = entries.filter((e) => e.startsWith(PENCIL_DIR_PREFIX)).sort(comparePencilDirs);
-    if (pencilDirs.length === 0) return null;
-    const latest = pencilDirs[pencilDirs.length - 1];
-    return resolve(extensionsDir, latest, PENCIL_BINARY_SUFFIX);
-  } catch {
-    return null;
-  }
-}
-
-function inferPencilApp(command: string, envApp?: string): 'antigravity' | 'vscode' {
+function inferPencilApp(command: string, envApp?: string): PencilApp {
   const explicit = envApp?.trim().toLowerCase();
-  if (explicit === 'vscode') return 'vscode';
+  if (explicit === 'vscode' || explicit === 'cursor' || explicit === 'vscode-insiders') return 'vscode';
   if (explicit === 'antigravity') return 'antigravity';
-  if (command.includes(`${sep}.vscode${sep}extensions${sep}`) || command.includes('/.vscode/extensions/')) {
+  if (
+    command.includes(`${sep}.vscode${sep}extensions${sep}`) ||
+    command.includes(`${sep}.cursor${sep}extensions${sep}`) ||
+    command.includes(`${sep}.vscode-insiders${sep}extensions${sep}`) ||
+    command.includes('/.vscode/extensions/') ||
+    command.includes('/.cursor/extensions/') ||
+    command.includes('/.vscode-insiders/extensions/')
+  ) {
     return 'vscode';
   }
   return 'antigravity';
+}
+
+async function collectAccessiblePencilCandidates(
+  extensionsDir: string,
+  app: PencilApp,
+): Promise<PencilInstallCandidate[]> {
+  try {
+    const entries = await readdir(extensionsDir);
+    const pencilDirs = entries.filter((e) => e.startsWith(PENCIL_DIR_PREFIX)).sort(comparePencilDirs);
+    const candidates: PencilInstallCandidate[] = [];
+    for (const dirName of pencilDirs) {
+      const binaryPath = resolve(extensionsDir, dirName, PENCIL_BINARY_SUFFIX);
+      try {
+        await access(binaryPath);
+        candidates.push({ app, binaryPath, dirName });
+      } catch {
+        // Skip incomplete installs; a newer directory may exist without a usable binary.
+      }
+    }
+    return candidates;
+  } catch {
+    return [];
+  }
 }
 
 export async function resolvePencilCommand(
@@ -211,14 +246,20 @@ export async function resolvePencilCommand(
     return { command: explicitCommand, args: ['--app', app] };
   }
 
-  const antigravityBinary = await findLatestPencilBinary(options.antigravityDir ?? PENCIL_EXTENSIONS_DIR);
-  if (antigravityBinary) {
-    return { command: antigravityBinary, args: ['--app', 'antigravity'] };
-  }
+  const candidates = (
+    await Promise.all([
+      collectAccessiblePencilCandidates(options.antigravityDir ?? PENCIL_EXTENSIONS_DIR, 'antigravity'),
+      collectAccessiblePencilCandidates(options.vscodeDir ?? VSCODE_EXTENSIONS_DIR, 'vscode'),
+      collectAccessiblePencilCandidates(options.cursorDir ?? CURSOR_EXTENSIONS_DIR, 'vscode'),
+      collectAccessiblePencilCandidates(options.vscodeInsidersDir ?? VSCODE_INSIDERS_EXTENSIONS_DIR, 'vscode'),
+    ])
+  )
+    .flat()
+    .sort((a, b) => comparePencilDirs(a.dirName, b.dirName));
 
-  const vscodeBinary = await findLatestPencilBinary(options.vscodeDir ?? VSCODE_EXTENSIONS_DIR);
-  if (vscodeBinary) {
-    return { command: vscodeBinary, args: ['--app', 'vscode'] };
+  const latest = candidates[candidates.length - 1];
+  if (latest) {
+    return { command: latest.binaryPath, args: ['--app', latest.app] };
   }
 
   return null;

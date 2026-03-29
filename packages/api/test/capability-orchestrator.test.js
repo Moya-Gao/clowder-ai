@@ -443,6 +443,39 @@ describe('resolvePencilBinary', () => {
       `resolvePencilBinary() should include the binary suffix, got '${result}'`,
     );
   });
+
+  it('prefers the newest accessible binary across known editor extension dirs', async () => {
+    const antigravityDir = join(await makeTmpDir('pencil-ag'), 'extensions');
+    const cursorDir = join(await makeTmpDir('pencil-cursor'), 'extensions');
+    const vscodeInsidersDir = join(await makeTmpDir('pencil-vsi'), 'extensions');
+
+    await mkdir(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', 'out'), { recursive: true });
+    await writeFile(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', PENCIL_BINARY_SUFFIX), '');
+
+    await mkdir(join(cursorDir, 'highagency.pencildev-0.7.1-universal', 'out'), { recursive: true });
+    await writeFile(join(cursorDir, 'highagency.pencildev-0.7.1-universal', PENCIL_BINARY_SUFFIX), '');
+
+    // Newer version exists, but the binary is missing. resolvePencilBinary() should
+    // skip it and fall back to the newest accessible install instead of returning
+    // a broken path.
+    await mkdir(join(vscodeInsidersDir, 'highagency.pencildev-1.0.0-universal', 'out'), { recursive: true });
+
+    const result = await resolvePencilBinary({
+      antigravityDir,
+      cursorDir,
+      vscodeInsidersDir,
+    });
+
+    assert.equal(
+      result,
+      join(cursorDir, 'highagency.pencildev-0.7.1-universal', PENCIL_BINARY_SUFFIX),
+      'should pick newest accessible binary across Antigravity/Cursor/VSCode Insiders',
+    );
+
+    await rm(antigravityDir.replace(/\/extensions$/, ''), { recursive: true, force: true });
+    await rm(cursorDir.replace(/\/extensions$/, ''), { recursive: true, force: true });
+    await rm(vscodeInsidersDir.replace(/\/extensions$/, ''), { recursive: true, force: true });
+  });
 });
 
 describe('resolvePencilCommand', () => {
@@ -475,7 +508,8 @@ describe('resolvePencilCommand', () => {
 
   it('falls back to VS Code when Antigravity is unavailable', async () => {
     const vscodeDir = join(dir, '.vscode', 'extensions');
-    await mkdir(join(vscodeDir, 'highagency.pencildev-0.6.41-universal'), { recursive: true });
+    await mkdir(join(vscodeDir, 'highagency.pencildev-0.6.41-universal', 'out'), { recursive: true });
+    await writeFile(join(vscodeDir, 'highagency.pencildev-0.6.41-universal', PENCIL_BINARY_SUFFIX), '');
 
     const resolved = await resolvePencilCommand({
       antigravityDir: join(dir, 'missing-ag'),

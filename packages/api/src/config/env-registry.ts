@@ -199,6 +199,14 @@ export const ENV_VARS: EnvDefinition[] = [
     exampleRecommended: true,
   },
   {
+    name: 'LOG_DIR',
+    defaultValue: './data/logs/api',
+    description: 'API 日志目录（Pino 滚动日志写入路径）',
+    category: 'server',
+    sensitive: false,
+    exampleRecommended: true,
+  },
+  {
     name: 'DEBUG',
     defaultValue: 'false',
     description: '调试模式开关（详细日志，非生产环境用）',

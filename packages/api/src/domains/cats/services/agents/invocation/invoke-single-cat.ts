@@ -9,6 +9,7 @@
  *         消息存储（由调用方在 yield 后累积并存储）。
  */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -25,6 +26,7 @@ import { getContextWindowFallback } from '../../../../../config/context-window-s
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
+import { resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
@@ -41,7 +43,38 @@ import {
 } from '../providers/opencode-config-template.js';
 
 const log = createModuleLogger('invoke');
-const BUILTIN_OPENCODE_PROVIDERS = new Set(['anthropic', 'openai', 'openrouter', 'google']);
+let _openCodeKnownModels: Set<string> | null = null;
+
+export function getOpenCodeKnownModels(): Set<string> {
+  if (_openCodeKnownModels !== null) return _openCodeKnownModels;
+  try {
+    const opencodePath = resolveCliCommand('opencode');
+    if (!opencodePath) {
+      _openCodeKnownModels = new Set();
+      return _openCodeKnownModels;
+    }
+    const stdout = execFileSync(opencodePath, ['models'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    _openCodeKnownModels = new Set(
+      stdout
+        .trim()
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+    );
+  } catch {
+    _openCodeKnownModels = new Set();
+  }
+  return _openCodeKnownModels;
+}
+
+/** @internal Exposed for tests */
+export function _resetOpenCodeKnownModels(override?: Set<string> | null): void {
+  _openCodeKnownModels = override ?? null;
+}
 
 import type { SessionManager } from '../../session/SessionManager.js';
 import type { ISessionSealer } from '../../session/SessionSealer.js';
@@ -788,20 +821,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       effectiveProviderName = ocProviderName;
       effectiveModel = `${ocProviderName}/${trimmedDefaultModel}`;
     }
-    // Custom provider runtime config is needed when:
-    // - provider is opencode with an api_key account
-    // - we have an effective model and provider name
-    // - the account has a custom baseUrl (non-builtin endpoint), OR
-    //   the provider name is not in the builtin set
-    // This fixes the case where ocProviderName matches a builtin name (e.g. "anthropic")
-    // but the account points to a custom endpoint (e.g. minimax API).
+    // fix(#280): explicit ocProviderName means we must force the F189 path so the
+    // effective "provider/model" string is injected into opencode, even for builtin
+    // providers. For legacy members without ocProviderName, only synthesize runtime
+    // config when the fully-qualified model is not already routable by `opencode models`.
+    const hasExplicitOcProvider = Boolean(ocProviderName);
     if (
       provider === 'opencode' &&
       resolvedAccount != null &&
       resolvedAccount.authType === 'api_key' &&
       effectiveModel &&
       effectiveProviderName &&
-      (!BUILTIN_OPENCODE_PROVIDERS.has(effectiveProviderName) || Boolean(resolvedAccount.baseUrl))
+      (hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel))
     ) {
       callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = effectiveModel;
       const apiType: 'openai' | 'anthropic' | 'google' =
