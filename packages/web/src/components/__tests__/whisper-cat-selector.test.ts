@@ -1,11 +1,11 @@
 /**
- * F108 Scene 2: WhisperCatSelector unit tests.
- * Verifies design spec compliance: name format, status badges, selection, disabled state.
+ * F108 Scene 2 v2: WhisperCatSelector + WhisperTargetChips unit tests.
+ * Verifies mention-like popup: avatar, unique identity, status, selection, chips.
  */
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { WhisperCatSelector } from '@/components/WhisperCatSelector';
+import { WhisperCatSelector, WhisperTargetChips } from '@/components/WhisperCatSelector';
 import type { CatData } from '@/hooks/useCatData';
 
 const MOCK_CATS: CatData[] = [
@@ -14,12 +14,13 @@ const MOCK_CATS: CatData[] = [
     displayName: '宪宪',
     nickname: '宪宪',
     breedDisplayName: '布偶猫',
+    variantLabel: 'Opus',
     color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
     mentionPatterns: ['opus'],
     provider: 'anthropic',
     defaultModel: 'opus',
     avatar: '/a.png',
-    roleDescription: 'dev',
+    roleDescription: '架构、后端、MCP',
     personality: 'kind',
     source: 'seed' as const,
   },
@@ -33,22 +34,23 @@ const MOCK_CATS: CatData[] = [
     provider: 'openai',
     defaultModel: 'codex',
     avatar: '/b.png',
-    roleDescription: 'review',
+    roleDescription: 'review、安全、测试',
     personality: 'strict',
     source: 'seed' as const,
   },
   {
-    id: 'gemini',
-    displayName: '烁烁',
-    nickname: '烁烁',
-    breedDisplayName: '暹罗猫',
-    color: { primary: '#E67E22', secondary: '#FAD7A0' },
-    mentionPatterns: ['gemini'],
-    provider: 'google',
-    defaultModel: 'gemini',
-    avatar: '/c.png',
-    roleDescription: 'design',
-    personality: 'creative',
+    id: 'sonnet',
+    displayName: '宪宪',
+    nickname: '宪宪',
+    breedDisplayName: '布偶猫',
+    variantLabel: 'Sonnet',
+    color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
+    mentionPatterns: ['sonnet'],
+    provider: 'anthropic',
+    defaultModel: 'sonnet',
+    avatar: '/d.png',
+    roleDescription: '快速灵活',
+    personality: 'quick',
     source: 'seed' as const,
   },
 ];
@@ -84,66 +86,60 @@ function renderSelector(overrides: Partial<React.ComponentProps<typeof WhisperCa
     onToggle: vi.fn(),
     ...overrides,
   };
-  act(() => {
-    root.render(React.createElement(WhisperCatSelector, props));
-  });
+  act(() => root.render(React.createElement(WhisperCatSelector, props)));
   return props;
 }
 
 describe('WhisperCatSelector', () => {
-  it('renders "品种 · 昵称" name format from design spec', () => {
+  it('uses unique identity labels — distinguishes same-nickname cats by variant', () => {
     renderSelector();
-    expect(container.textContent).toContain('布偶猫 · 宪宪');
-    expect(container.textContent).toContain('缅因猫 · 砚砚');
-    expect(container.textContent).toContain('暹罗猫 · 烁烁');
+    const text = container.textContent ?? '';
+    expect(text).toContain('宪宪（Opus）');
+    expect(text).toContain('宪宪（Sonnet）');
   });
 
-  it('shows "选择悄悄话目标：" header', () => {
+  it('shows role description for each cat', () => {
     renderSelector();
-    expect(container.textContent).toContain('选择悄悄话目标');
+    expect(container.textContent).toContain('架构、后端、MCP');
+    expect(container.textContent).toContain('review、安全、测试');
   });
 
-  it('shows status badges: 空闲 for idle cats, 执行中 for active cats', () => {
-    renderSelector({ activeCatIds: new Set(['opus']) });
-    const rows = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-lg'));
-
-    const opusRow = rows.find((b) => b.textContent?.includes('布偶猫 · 宪宪'));
-    const codexRow = rows.find((b) => b.textContent?.includes('缅因猫 · 砚砚'));
-
-    expect(opusRow?.textContent).toContain('执行中');
-    expect(codexRow?.textContent).toContain('空闲');
+  it('renders as compact popup (absolute bottom-full)', () => {
+    renderSelector();
+    const popup = container.querySelector('.absolute.bottom-full');
+    expect(popup).not.toBeNull();
   });
 
-  it('disables active cats — click does not trigger onToggle', () => {
+  it('shows "执行中" badge for active cats and disables them', () => {
     const { onToggle } = renderSelector({ activeCatIds: new Set(['opus']) });
-    const rows = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-lg'));
-    const opusRow = rows.find((b) => b.textContent?.includes('布偶猫 · 宪宪'));
+    expect(container.textContent).toContain('执行中');
 
-    act(() => opusRow?.click());
+    const buttons = [...container.querySelectorAll('button')];
+    const opusBtn = buttons.find((b) => b.textContent?.includes('宪宪（Opus）'));
+    act(() => opusBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
     expect(onToggle).not.toHaveBeenCalled();
   });
 
   it('calls onToggle when clicking an idle cat', () => {
     const { onToggle } = renderSelector();
-    const rows = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-lg'));
-    const codexRow = rows.find((b) => b.textContent?.includes('缅因猫 · 砚砚'));
-
-    act(() => codexRow?.click());
+    const buttons = [...container.querySelectorAll('button')];
+    const codexBtn = buttons.find((b) => b.textContent?.includes('砚砚'));
+    act(() => codexBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
     expect(onToggle).toHaveBeenCalledWith('codex');
   });
 
-  it('shows ring highlight on selected cats', () => {
+  it('shows checkmark on selected cats', () => {
     renderSelector({ selected: new Set(['codex']) });
-    const rows = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-lg'));
-    const codexRow = rows.find((b) => b.textContent?.includes('缅因猫 · 砚砚'));
-    const opusRow = rows.find((b) => b.textContent?.includes('布偶猫 · 宪宪'));
-
-    expect(codexRow?.className).toContain('ring-amber-200');
-    expect(opusRow?.className).not.toContain('ring-amber-200');
+    const buttons = [...container.querySelectorAll('button')];
+    const codexBtn = buttons.find((b) => b.textContent?.includes('砚砚'));
+    // Selected row should have elevated background
+    expect(codexBtn?.className).toContain('bg-cafe-surface-elevated');
+    // And a checkmark SVG
+    expect(codexBtn?.querySelector('svg')).not.toBeNull();
   });
 
-  it('shows "请至少选一只猫猫" when no cat selected', () => {
-    renderSelector({ selected: new Set() });
+  it('shows empty-selection warning when none selected', () => {
+    renderSelector();
     expect(container.textContent).toContain('请至少选一只猫猫');
   });
 
@@ -151,12 +147,35 @@ describe('WhisperCatSelector', () => {
     renderSelector({ selected: new Set(['codex']) });
     expect(container.textContent).not.toContain('请至少选一只猫猫');
   });
+});
 
-  it('falls back to displayName when breedDisplayName is absent', () => {
-    const catWithoutBreed = { ...MOCK_CATS[0], breedDisplayName: undefined };
-    renderSelector({ cats: [catWithoutBreed] });
-    // Should show displayName instead of "品种 · 昵称"
-    expect(container.textContent).toContain('宪宪');
-    expect(container.textContent).not.toContain('布偶猫 · 宪宪');
+describe('WhisperTargetChips', () => {
+  it('shows compact chips for selected targets with × dismiss', () => {
+    const onToggle = vi.fn();
+    act(() => {
+      root.render(React.createElement(WhisperTargetChips, { cats: MOCK_CATS, selected: new Set(['codex']), onToggle }));
+    });
+    expect(container.textContent).toContain('悄悄话:');
+    expect(container.textContent).toContain('砚砚');
+    expect(container.textContent).toContain('×');
+  });
+
+  it('clicking chip calls onToggle to deselect', () => {
+    const onToggle = vi.fn();
+    act(() => {
+      root.render(React.createElement(WhisperTargetChips, { cats: MOCK_CATS, selected: new Set(['codex']), onToggle }));
+    });
+    const chip = container.querySelector('button');
+    act(() => chip?.click());
+    expect(onToggle).toHaveBeenCalledWith('codex');
+  });
+
+  it('returns null when nothing selected', () => {
+    act(() => {
+      root.render(
+        React.createElement(WhisperTargetChips, { cats: MOCK_CATS, selected: new Set<string>(), onToggle: vi.fn() }),
+      );
+    });
+    expect(container.textContent).toBe('');
   });
 });

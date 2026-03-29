@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
-import type { CatData } from '@/hooks/useCatData';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { type CatData, formatCatName } from '@/hooks/useCatData';
 
 interface WhisperCatSelectorProps {
   cats: CatData[];
@@ -10,16 +10,27 @@ interface WhisperCatSelectorProps {
   onToggle: (catId: string) => void;
 }
 
-/** F108 Scene 2: Dropdown-style cat selector for whisper mode.
- *  Design spec: colored circle + "品种 · 昵称" + status badge.
- *  Executing cats are grayed out and not selectable. */
+/** F108 Scene 2 v2: Mention-like floating popup for whisper target selection.
+ *  Mirrors the @ mention experience: compact, avatar+label+desc, positioned above input. */
 export function WhisperCatSelector({ cats, selected, activeCatIds, onToggle }: WhisperCatSelectorProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setCanScrollDown(el.scrollHeight > el.clientHeight + el.scrollTop + 4);
+    check();
+    el.addEventListener('scroll', check);
+    return () => el.removeEventListener('scroll', check);
+  }, []);
+
   return (
-    <div className="mx-3 mt-2 rounded-xl border border-cafe/50 bg-white shadow-sm overflow-hidden">
-      <div className="px-4 pt-3 pb-1.5">
-        <span className="text-xs font-semibold text-amber-600">选择悄悄话目标：</span>
+    <div className="absolute bottom-full left-4 mb-2 bg-cafe-surface rounded-xl shadow-lg border border-cafe overflow-hidden w-64 z-10 max-h-80 flex flex-col">
+      <div className="px-4 py-1.5 text-xs text-amber-600 font-medium border-b border-cafe-subtle shrink-0">
+        悄悄话目标 · 可多选
       </div>
-      <div className="px-2 pb-2 space-y-0.5">
+      <div ref={scrollRef} className="overflow-y-auto flex-1">
         {cats.map((cat) => (
           <CatRow
             key={cat.id}
@@ -30,11 +41,44 @@ export function WhisperCatSelector({ cats, selected, activeCatIds, onToggle }: W
           />
         ))}
       </div>
-      {selected.size === 0 && (
-        <div className="px-4 pb-2">
-          <span className="text-xs text-red-400">请至少选一只猫猫</span>
+      {canScrollDown && (
+        <div className="px-4 py-1 text-[10px] text-cafe-muted text-center border-t border-cafe-subtle bg-gradient-to-t from-white shrink-0">
+          ↓ 还有更多猫猫
         </div>
       )}
+      {selected.size === 0 && (
+        <div className="px-4 py-1.5 text-xs text-red-400 border-t border-cafe-subtle shrink-0">请至少选一只猫猫</div>
+      )}
+    </div>
+  );
+}
+
+/** Compact chip showing selected whisper targets below the input area. */
+export function WhisperTargetChips({
+  cats,
+  selected,
+  onToggle,
+}: {
+  cats: CatData[];
+  selected: Set<string>;
+  onToggle: (catId: string) => void;
+}) {
+  if (selected.size === 0) return null;
+  const selectedCats = cats.filter((c) => selected.has(c.id));
+  return (
+    <div className="px-4 pt-1 flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs text-amber-600 shrink-0">悄悄话:</span>
+      {selectedCats.map((cat) => (
+        <button
+          key={cat.id}
+          type="button"
+          onClick={() => onToggle(cat.id)}
+          className="text-xs px-2 py-0.5 rounded-full border border-current bg-amber-50 font-medium transition-colors hover:opacity-70"
+          style={{ color: cat.color.primary }}
+        >
+          {formatCatName(cat)} ×
+        </button>
+      ))}
     </div>
   );
 }
@@ -50,56 +94,53 @@ function CatRow({
   isSelected: boolean;
   onToggle: (catId: string) => void;
 }) {
-  const handleClick = useCallback(() => {
-    if (!isActive) onToggle(cat.id);
-  }, [isActive, cat.id, onToggle]);
-
-  const color = cat.color.primary;
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (!isActive) onToggle(cat.id);
+    },
+    [isActive, cat.id, onToggle],
+  );
 
   return (
     <button
       type="button"
-      onClick={handleClick}
+      onMouseDown={handleClick}
       disabled={isActive}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+      className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
         isActive
-          ? 'opacity-50 cursor-not-allowed'
+          ? 'opacity-40 cursor-not-allowed'
           : isSelected
-            ? 'bg-amber-50/80 ring-1 ring-amber-200'
-            : 'hover:bg-cafe-surface/50'
+            ? 'bg-cafe-surface-elevated'
+            : 'hover:bg-cafe-surface-elevated'
       }`}
     >
-      {/* Colored circle — filled dot when selected, empty ring when not */}
-      <span
-        className={`w-6 h-6 rounded-full border-2 shrink-0 flex items-center justify-center ${
-          isSelected && !isActive ? '' : 'border-cafe'
-        }`}
-        style={isSelected && !isActive ? { borderColor: color, backgroundColor: `${color}18` } : undefined}
-      >
-        {isSelected && !isActive && <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />}
-      </span>
-
-      {/* Cat name: "品种 · 昵称" or displayName fallback */}
-      <span className={`flex-1 text-left text-sm ${isActive ? 'text-cafe-muted' : 'text-cafe-secondary font-medium'}`}>
-        {formatSelectorName(cat)}
-      </span>
-
-      {/* Status badge */}
-      <span
-        className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${
-          isActive ? 'bg-gray-100 text-cafe-muted' : 'bg-emerald-50 text-emerald-600'
-        }`}
-      >
-        {isActive ? '执行中' : '空闲'}
-      </span>
+      <img
+        src={cat.avatar}
+        alt={formatCatName(cat)}
+        className="w-7 h-7 rounded-full shrink-0"
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = 'none';
+        }}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold flex items-center gap-1.5" style={{ color: cat.color.primary }}>
+          {formatCatName(cat)}
+          {isSelected && (
+            <svg className="w-3.5 h-3.5 text-amber-500 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          )}
+        </div>
+        <div className="text-xs text-cafe-muted truncate">{cat.roleDescription}</div>
+      </div>
+      {isActive && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-cafe-muted shrink-0">执行中</span>
+      )}
     </button>
   );
-}
-
-/** Format as "品种 · 昵称" (e.g. "布偶猫 · 宪宪") matching design spec Scene 2. */
-function formatSelectorName(cat: CatData): string {
-  const breed = cat.breedDisplayName;
-  const nick = cat.nickname || cat.displayName;
-  if (breed && nick && breed !== nick) return `${breed} · ${nick}`;
-  return cat.displayName;
 }

@@ -21,7 +21,7 @@ import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
 import { MobileInputToolbar } from './MobileInputToolbar';
 import { PathCompletionMenu } from './PathCompletionMenu';
-import { WhisperCatSelector } from './WhisperCatSelector';
+import { WhisperCatSelector, WhisperTargetChips } from './WhisperCatSelector';
 
 /** Module-level draft storage — survives component unmount/remount across thread switches */
 export const threadDrafts = new Map<string, string>();
@@ -575,6 +575,15 @@ export function ChatInput({
         menuRef={menuRef}
       />
 
+      {whisperMode && !showMentions && !showGameMenu && (
+        <WhisperCatSelector
+          cats={whisperCats}
+          selected={whisperTargets}
+          activeCatIds={activeCatIds}
+          onToggle={toggleWhisperTarget}
+        />
+      )}
+
       {imageLifecycleStatus === 'preparing' && (
         <div className="px-4 pt-2 text-xs text-cafe-secondary" role="status">
           图片处理中，完成后可发送
@@ -592,12 +601,7 @@ export function ChatInput({
       )}
 
       {whisperMode && (
-        <WhisperCatSelector
-          cats={whisperCats}
-          selected={whisperTargets}
-          activeCatIds={activeCatIds}
-          onToggle={toggleWhisperTarget}
-        />
+        <WhisperTargetChips cats={whisperCats} selected={whisperTargets} onToggle={toggleWhisperTarget} />
       )}
 
       <ImagePreview files={images} onRemove={handleRemoveImage} />

@@ -20,6 +20,8 @@ vi.mock('@/components/ImagePreview', () => ({ ImagePreview: () => null }));
 vi.mock('@/utils/compressImage', () => ({ compressImage: (f: File) => Promise.resolve(f) }));
 
 vi.mock('@/hooks/useCatData', () => ({
+  formatCatName: (cat: { displayName: string; variantLabel?: string }) =>
+    cat.variantLabel ? `${cat.displayName}（${cat.variantLabel}）` : cat.displayName,
   useCatData: () => ({
     cats: [
       {
@@ -76,8 +78,10 @@ afterEach(() => {
 });
 
 function getWhisperChips() {
-  // F108 Scene 2: selector rows are rounded-lg (was rounded-full chips before)
-  return [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-lg'));
+  // F108 Scene 2 v2: selector rows inside the floating popup (absolute bottom-full)
+  const popup = container.querySelector('.absolute.bottom-full');
+  if (!popup) return [];
+  return [...popup.querySelectorAll('button')];
 }
 
 function enterWhisperMode() {
@@ -118,9 +122,9 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
 
     // opus (executing) should NOT be selected and is disabled
     expect(opusChip?.className).toContain('cursor-not-allowed');
-    expect(opusChip?.className).not.toContain('ring-amber-200');
+    expect(opusChip?.className.split(/\s+/)).not.toContain('bg-cafe-surface-elevated');
     // codex (idle) should NOT be pre-selected either (F108B: default none)
-    expect(codexChip?.className).not.toContain('ring-amber-200');
+    expect(codexChip?.className.split(/\s+/)).not.toContain('bg-cafe-surface-elevated');
   });
 
   it('shows "执行中" status badge on executing cat row', () => {
@@ -143,7 +147,7 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     const chips = getWhisperChips();
     for (const chip of chips) {
       expect(chip.disabled).toBe(false);
-      expect(chip.className).not.toContain('ring-amber-200'); // F108B: default none selected
+      expect(chip.className.split(/\s+/)).not.toContain('bg-cafe-surface-elevated'); // F108B: default none selected
     }
   });
 
@@ -163,7 +167,7 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     // Manually select codex (idle) — simulates user clicking the chip
     const chips = getWhisperChips();
     const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
-    act(() => codexChip?.click());
+    act(() => codexChip?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
 
     // After selecting idle cat: should show whisper placeholder, not queue
     expect(textarea.placeholder).toBe('悄悄话...');
@@ -178,7 +182,7 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     const chips = getWhisperChips();
     for (const chip of chips) {
       expect(chip.disabled).toBe(false); // All selectable
-      expect(chip.className).not.toContain('ring-amber-200'); // None pre-selected
+      expect(chip.className.split(/\s+/)).not.toContain('bg-cafe-surface-elevated'); // None pre-selected
     }
   });
 
@@ -194,7 +198,7 @@ describe('F122B AC-B10: whisper mode + executing cats', () => {
     const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
     // codex is idle but should NOT be auto-selected
     expect(codexChip?.disabled).toBe(false);
-    expect(codexChip?.className).not.toContain('ring-amber-200');
+    expect(codexChip?.className.split(/\s+/)).not.toContain('bg-cafe-surface-elevated');
   });
 
   it('falls back to targetCats when activeInvocations is empty but hasActiveInvocation is true (legacy path)', () => {
