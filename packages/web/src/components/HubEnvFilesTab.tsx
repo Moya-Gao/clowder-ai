@@ -208,7 +208,15 @@ function buildVariableHint(variable: EnvVar): string | null {
 }
 
 function isEditableVariable(variable: EnvVar): boolean {
-  return variable.runtimeEditable !== false && !variable.sensitive;
+  // Must stay in sync with env-registry.ts isEditableEnvVar()
+  if (variable.runtimeEditable === true) return true;
+  if (variable.runtimeEditable === false) return false;
+  return !variable.sensitive;
+}
+
+/** Sensitive var explicitly opted into runtime editing (needs password input + masked display). */
+function isSensitiveEditable(variable: EnvVar): boolean {
+  return variable.sensitive && variable.runtimeEditable === true;
 }
 
 function isMaskedUrlVariable(variable: EnvVar): boolean {
@@ -218,6 +226,8 @@ function isMaskedUrlVariable(variable: EnvVar): boolean {
 }
 
 function initialDraftValue(variable: EnvVar): string {
+  // Sensitive editable vars: always start empty (current value is masked as ***)
+  if (isSensitiveEditable(variable)) return '';
   if (isMaskedUrlVariable(variable)) return '';
   return variable.currentValue ?? '';
 }
@@ -314,9 +324,19 @@ function EnvVarsSection({
                     <div className="space-y-1">
                       <input
                         aria-label={v.name}
+                        type={isSensitiveEditable(v) ? 'password' : 'text'}
+                        autoComplete={isSensitiveEditable(v) ? 'off' : undefined}
                         value={drafts[v.name] ?? ''}
                         onChange={(e) => onDraftChange(v.name, e.target.value)}
-                        placeholder={isMaskedUrlVariable(v) ? '保持当前值（已脱敏）' : v.defaultValue}
+                        placeholder={
+                          isSensitiveEditable(v)
+                            ? v.currentValue
+                              ? '已设置（留空不修改）'
+                              : '输入密钥'
+                            : isMaskedUrlVariable(v)
+                              ? '保持当前值（已脱敏）'
+                              : v.defaultValue
+                        }
                         className="rounded-[10px] border border-[#E8DCCF] bg-[#F7F3F0] px-3 py-2 font-mono text-xs text-[#6A5A50]"
                       />
                       {buildVariableHint(v) ? (
@@ -448,6 +468,10 @@ export function HubEnvFilesTab() {
         : data.variables.map((variable) => {
             const update = changedUpdates.find((item) => item.name === variable.name);
             if (!update) return variable;
+            // Never store plaintext for sensitive vars in client state
+            if (isSensitiveEditable(variable)) {
+              return { ...variable, currentValue: update.value ? '***' : null };
+            }
             return { ...variable, currentValue: update.value || null };
           });
       setData((prev) => (prev ? { ...prev, variables: nextVariables } : prev));

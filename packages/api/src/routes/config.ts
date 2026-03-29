@@ -14,7 +14,13 @@ import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
 import { configEventBus, createChangeSetId } from '../config/config-event-bus.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
-import { buildEnvSummary, ENV_CATEGORIES, isEditableEnvVarName } from '../config/env-registry.js';
+import {
+  buildEnvSummary,
+  ENV_CATEGORIES,
+  filterSensitiveEditableKeys,
+  hasSensitiveEditableVars,
+  isEditableEnvVarName,
+} from '../config/env-registry.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
@@ -270,6 +276,20 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       updates.set(update.name, update.value);
     }
 
+    // Owner gate: sensitive-editable vars require configured owner identity
+    const touchesSensitive = hasSensitiveEditableVars(updates.keys());
+    if (touchesSensitive) {
+      const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
+      if (!ownerId) {
+        reply.status(403);
+        return { error: 'Sensitive env write requires DEFAULT_OWNER_USER_ID to be configured' };
+      }
+      if (operator !== ownerId) {
+        reply.status(403);
+        return { error: 'Sensitive env vars can only be modified by the owner' };
+      }
+    }
+
     // Snapshot old values for no-op detection
     const oldValues = new Map<string, string | undefined>();
     for (const name of updates.keys()) {
@@ -308,6 +328,16 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
           operator,
         },
       });
+      // Separate audit trail for sensitive env writes (sensitive keys only, no values)
+      if (touchesSensitive) {
+        await auditLog.append({
+          type: AuditEventTypes.ENV_SENSITIVE_WRITE,
+          data: {
+            keys: filterSensitiveEditableKeys(updates.keys()),
+            operator,
+          },
+        });
+      }
     } catch (err) {
       request.log.warn({ err, keys: [...updates.keys()] }, 'env config audit append failed');
     }

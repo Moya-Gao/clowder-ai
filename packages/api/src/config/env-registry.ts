@@ -141,9 +141,10 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'DEFAULT_OWNER_USER_ID',
     defaultValue: '(未设置)',
-    description: '默认所有者用户 ID',
+    description: '默认所有者用户 ID（信任锚点，不可从 Hub 修改）',
     category: 'server',
     sensitive: false,
+    runtimeEditable: false,
   },
   {
     name: 'CAT_CAFE_USER_ID',
@@ -829,9 +830,10 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'OPENAI_API_KEY',
     defaultValue: '(未设置)',
-    description: 'OpenAI API Key (api_key 模式用)',
+    description: 'OpenAI API Key (api_key 模式用；env-owning，不走 accounts/credentials)',
     category: 'codex',
     sensitive: true,
+    runtimeEditable: true,
   },
 
   // --- dare ---
@@ -1027,6 +1029,7 @@ export const ENV_VARS: EnvDefinition[] = [
     description: 'GitHub Personal Access Token (MCP 用)',
     category: 'github_review',
     sensitive: true,
+    runtimeEditable: true,
   },
   {
     name: 'GITHUB_REVIEW_IMAP_PROXY',
@@ -1078,6 +1081,7 @@ export const ENV_VARS: EnvDefinition[] = [
     description: 'Phase G 摘要调度用的反代 API Key',
     category: 'evidence',
     sensitive: true,
+    runtimeEditable: true,
   },
   {
     name: 'EMBED_PORT',
@@ -1151,9 +1155,31 @@ export function buildEnvSummary(): Array<EnvDefinition & { currentValue: string 
 }
 
 export function isEditableEnvVar(def: EnvDefinition): boolean {
-  return def.runtimeEditable !== false && !def.sensitive;
+  // Explicit opt-in: runtimeEditable: true allows editing even if sensitive (fail-closed whitelist)
+  if (def.runtimeEditable === true) return true;
+  // Explicit opt-out: runtimeEditable: false blocks editing unconditionally
+  if (def.runtimeEditable === false) return false;
+  // Default: non-sensitive vars are editable
+  return !def.sensitive;
+}
+
+/** True if this env var is both sensitive AND explicitly opted into runtime editing. */
+export function isSensitiveEditableEnvVar(def: EnvDefinition): boolean {
+  return def.sensitive && def.runtimeEditable === true;
 }
 
 export function isEditableEnvVarName(name: string): boolean {
   return ENV_VARS.some((def) => def.name === name && isHubVisibleEnvVar(def) && isEditableEnvVar(def));
+}
+
+/** Check if any of the given env var names are sensitive-editable (requires owner gate). */
+export function hasSensitiveEditableVars(names: Iterable<string>): boolean {
+  const nameSet = new Set(names);
+  return ENV_VARS.some((def) => nameSet.has(def.name) && isSensitiveEditableEnvVar(def));
+}
+
+/** Return only the sensitive-editable keys from the given names (for audit filtering). */
+export function filterSensitiveEditableKeys(names: Iterable<string>): string[] {
+  const nameSet = new Set(names);
+  return ENV_VARS.filter((def) => nameSet.has(def.name) && isSensitiveEditableEnvVar(def)).map((def) => def.name);
 }
