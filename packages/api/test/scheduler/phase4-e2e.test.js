@@ -141,7 +141,7 @@ describe('F139 Phase 4 E2E', () => {
     assert.equal(triggerCalls.length, 1);
     assert.equal(triggerCalls[0][0], 'thread-news-123'); // threadId
     assert.equal(triggerCalls[0][1], 'opus'); // catId (default, no actor resolver)
-    assert.equal(triggerCalls[0][2], 'scheduler'); // userId
+    assert.equal(triggerCalls[0][2], 'default-user'); // userId (from triggerUserId param, not hardcoded 'scheduler')
     assert.ok(triggerCalls[0][3].includes('搜三天内 Anthropic 新闻')); // message contains reminder
     assert.ok(triggerCalls[0][4].startsWith('msg-'), 'messageId should be real stored ID');
 
@@ -311,7 +311,7 @@ describe('F139 Phase 4 E2E', () => {
     assert.equal(triggerCalls.length, 1);
     assert.equal(triggerCalls[0][0], 'thread-browser');
     assert.equal(triggerCalls[0][1], 'gpt52');
-    assert.equal(triggerCalls[0][2], 'scheduler');
+    assert.equal(triggerCalls[0][2], 'default-user'); // userId (from triggerUserId param)
     assert.ok(triggerCalls[0][3].includes('browser-automation'));
     assert.ok(triggerCalls[0][4].startsWith('msg-'));
     assert.equal(triggerCalls[0][6]?.suggestedSkill, 'browser-automation');

@@ -20,6 +20,7 @@ import type { GlobalControlStore } from '../infrastructure/scheduler/GlobalContr
 import type { PackTemplateStore } from '../infrastructure/scheduler/PackTemplateStore.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { TriggerSpec } from '../infrastructure/scheduler/types.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { governanceRoutes } from './schedule-governance.js';
 
 export interface ScheduleRoutesOptions {
@@ -195,6 +196,16 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
 
     const trigger = body.trigger ?? template.defaultTrigger;
     const params = body.params ?? {};
+
+    if (typeof params !== 'object' || params === null || Array.isArray(params)) {
+      reply.status(400);
+      return { error: 'params must be a plain object' };
+    }
+
+    // Server-authoritative: always overwrite triggerUserId from request identity.
+    // Prevents client from forging userId on scheduler-triggered cat replies.
+    params.triggerUserId = resolveHeaderUserId(request) ?? 'default-user';
+
     const id = `dyn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const display = body.display
       ? {

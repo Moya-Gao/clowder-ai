@@ -94,7 +94,7 @@ describe('webDigestTemplate', () => {
     assert.equal(triggerCalls.length, 1);
     assert.equal(triggerCalls[0][0], 'th-2');
     assert.equal(triggerCalls[0][1], 'gpt52');
-    assert.equal(triggerCalls[0][2], 'scheduler');
+    assert.equal(triggerCalls[0][2], 'default-user');
     assert.ok(triggerCalls[0][3].includes('browser-automation'));
     assert.equal(triggerCalls[0][4], 'msg-2');
     assert.equal(triggerCalls[0][6]?.suggestedSkill, 'browser-automation');

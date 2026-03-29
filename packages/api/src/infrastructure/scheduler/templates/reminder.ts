@@ -16,6 +16,7 @@ export const reminderTemplate: TaskTemplate = {
   createSpec(instanceId: string, p: DynamicTaskParams): TaskSpec_P1 {
     const message = (p.params.message as string) || '定时提醒';
     const targetCatId = (p.params.targetCatId as string) || null;
+    const triggerUserId = (p.params.triggerUserId as string) || 'default-user';
     const threadId = p.deliveryThreadId;
     return {
       id: instanceId,
@@ -41,7 +42,7 @@ export const reminderTemplate: TaskTemplate = {
 
           // Wake a cat to act on the trigger message
           if (ctx.invokeTrigger) {
-            ctx.invokeTrigger.trigger(tid, catId, 'scheduler', content, messageId);
+            ctx.invokeTrigger.trigger(tid, catId, triggerUserId, content, messageId);
           }
         },
       },

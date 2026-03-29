@@ -284,12 +284,13 @@ describe('Schedule Routes', () => {
 
   describe('POST /api/schedule/tasks — targetCatId flows through to reminder execute', () => {
     let appDyn;
+    let store;
 
     beforeEach(async () => {
       const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
       const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
       const { scheduleRoutes: sr } = await import('../dist/routes/schedule.js');
-      const store = new DynamicTaskStore(db);
+      store = new DynamicTaskStore(db);
       appDyn = Fastify({ logger: false });
       await appDyn.register(sr, { taskRunner: runner, dynamicTaskStore: store, templateRegistry });
       await appDyn.ready();
@@ -359,6 +360,75 @@ describe('Schedule Routes', () => {
       assert.equal(triggerCalls.length, 1);
       assert.equal(triggerCalls[0][1], 'opus', 'should fall back to opus when no targetCatId');
       runnerNoCat.stop();
+    });
+  });
+
+  describe('POST /api/schedule/tasks — triggerUserId security boundary', () => {
+    let appDyn, store;
+
+    beforeEach(async () => {
+      const { DynamicTaskStore } = await import('../dist/infrastructure/scheduler/DynamicTaskStore.js');
+      const { templateRegistry } = await import('../dist/infrastructure/scheduler/templates/registry.js');
+      const { scheduleRoutes: sr } = await import('../dist/routes/schedule.js');
+      store = new DynamicTaskStore(db);
+      appDyn = Fastify({ logger: false });
+      await appDyn.register(sr, { taskRunner: runner, dynamicTaskStore: store, templateRegistry });
+      await appDyn.ready();
+    });
+
+    afterEach(async () => {
+      runner.stop();
+      await appDyn.close();
+    });
+
+    it('P1: route unconditionally overwrites forged triggerUserId with server identity', async () => {
+      const createRes = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        headers: { 'x-cat-cafe-user': 'real-user-123' },
+        payload: {
+          templateId: 'reminder',
+          trigger: { type: 'interval', ms: 60000 },
+          params: { message: 'forge-test', triggerUserId: 'evil-forged-user' },
+        },
+      });
+      assert.equal(createRes.statusCode, 200);
+
+      const stored = store.getAll().find((d) => d.params?.message === 'forge-test');
+      assert.ok(stored, 'task should be persisted');
+      assert.equal(stored.params.triggerUserId, 'real-user-123', 'route must overwrite forged triggerUserId');
+    });
+
+    it('P1: query-param userId does not leak into triggerUserId', async () => {
+      const createRes = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks?userId=victim-uid',
+        // no x-cat-cafe-user header
+        payload: {
+          templateId: 'reminder',
+          trigger: { type: 'interval', ms: 60000 },
+          params: { message: 'query-forge-test' },
+        },
+      });
+      assert.equal(createRes.statusCode, 200);
+
+      const stored = store.getAll().find((d) => d.params?.message === 'query-forge-test');
+      assert.ok(stored, 'task should be persisted');
+      assert.equal(stored.params.triggerUserId, 'default-user', 'must ignore query-param userId');
+    });
+
+    it('P1: rejects non-object params with 400 (not 500)', async () => {
+      const res = await appDyn.inject({
+        method: 'POST',
+        url: '/api/schedule/tasks',
+        payload: {
+          templateId: 'reminder',
+          trigger: { type: 'interval', ms: 60000 },
+          params: 'oops-string',
+        },
+      });
+      assert.equal(res.statusCode, 400);
+      assert.match(res.json().error, /plain object/);
     });
   });
 

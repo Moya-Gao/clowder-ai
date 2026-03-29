@@ -18,6 +18,7 @@ export const webDigestTemplate: TaskTemplate = {
     const url = (p.params.url as string) || '';
     const topic = (p.params.topic as string) || '';
     const targetCatId = (p.params.targetCatId as string) || null;
+    const triggerUserId = (p.params.triggerUserId as string) || 'default-user';
     const threadId = p.deliveryThreadId;
     return {
       id: instanceId,
@@ -54,7 +55,7 @@ export const webDigestTemplate: TaskTemplate = {
               catId: 'system',
               userId: 'scheduler',
             });
-            ctx.invokeTrigger.trigger(tid, catId, 'scheduler', triggerContent, messageId, undefined, {
+            ctx.invokeTrigger.trigger(tid, catId, triggerUserId, triggerContent, messageId, undefined, {
               reason: 'scheduled_web_digest_browser_fetch',
               suggestedSkill: 'browser-automation',
             });
