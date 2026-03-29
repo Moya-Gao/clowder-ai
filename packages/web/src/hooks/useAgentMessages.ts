@@ -605,6 +605,15 @@ export function useAgentMessages() {
           // during multi-cat concurrent dispatch.
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
+            // Hydrated synthetic IDs (hydrated-${threadId}-${catId}) won't match the real
+            // invocationId from the server. Only clean up hydrated- prefixed orphans to
+            // avoid accidentally deleting a NEW invocation's slot during same-cat preempt
+            // (where old done arrives after new invocation starts).
+            const stateAfter = useChatStore.getState();
+            const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
+            if (orphan?.startsWith('hydrated-')) {
+              removeActiveInvocation(orphan);
+            }
           } else {
             const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
             if (catSlot) {
@@ -986,6 +995,12 @@ export function useAgentMessages() {
           // F108: clear this cat's invocation slot on terminal error
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
+            // Same hydrated-only orphan cleanup as the done(isFinal) path above.
+            const stateAfter = useChatStore.getState();
+            const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
+            if (orphan?.startsWith('hydrated-')) {
+              removeActiveInvocation(orphan);
+            }
           } else {
             const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
             if (catSlot) {
