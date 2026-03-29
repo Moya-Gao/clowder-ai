@@ -899,7 +899,13 @@
       "name": "MCP Marketplace Control Plane — 一键接入 + 多生态聚合",
       "status": "spec | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1",
       "file": "F146-mcp-marketplace-control-plane.md"
+    },
+    {
+      "id": "F147",
+      "name": "i18n — Hub 界面中英文切换",
+      "status": "idea | **Owner**: 待定 | **Priority**: 待定",
+      "file": "F147-i18n-hub-locale-switch.md"
     }
   ],
-  "generated_at": "2026-03-29T05:46:58.932Z"
+  "generated_at": "2026-03-29T10:57:52.936Z"
 }

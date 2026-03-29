@@ -34,6 +34,23 @@ const QRCODE_STATUS_POLL_TIMEOUT_MS = 40_000;
 /** QR code timeout (5 minutes) */
 const QRCODE_TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * Voice item payload mode for WeChat voice delivery.
+ * - `minimal` (default): send only `{ media }` — safest fallback ("1s fake" but visible).
+ * - `playtime`: send `{ media, playtime }` — hypothesis: duration-only may fix "1s fake"
+ *   without triggering the rejection seen with full metadata.
+ * - `metadata`: send all SILK fields — confirmed broken (voice "completely gone").
+ *
+ * Runtime-configurable via WEIXIN_VOICE_ITEM_MODE so 铲屎官 can A/B test without code changes.
+ */
+type WeixinVoiceItemMode = 'minimal' | 'playtime' | 'metadata';
+
+function getWeixinVoiceItemMode(): WeixinVoiceItemMode {
+  const mode = process.env.WEIXIN_VOICE_ITEM_MODE?.trim().toLowerCase();
+  if (mode === 'playtime' || mode === 'metadata') return mode;
+  return 'minimal';
+}
+
 function generateClientId(): string {
   return `cat-cafe-weixin-${crypto.randomUUID()}`;
 }
@@ -731,17 +748,24 @@ export class WeixinAdapter implements IOutboundAdapter {
       if (payload.type === 'image') {
         mediaItem.image_item = { media: mediaRef, mid_size: uploaded.fileSizeCiphertext };
       } else if (payload.type === 'audio' && audioAsVoice) {
-        // PR #839 sent encode_type/sample_rate/playtime but was missing bits_per_sample:16,
-        // which all three SDK type definitions (official, wechatbot, wechat-clawbot) include.
-        // The incomplete metadata caused WeChat to reject the voice entirely.
-        // Full protocol-spec metadata with bits_per_sample lets WeChat display correct duration.
-        mediaItem.voice_item = {
-          media: mediaRef,
-          encode_type: 6, // SILK
-          bits_per_sample: 16,
-          sample_rate: voiceMeta?.sampleRate ?? 24_000,
-          playtime: voiceMeta?.durationMs ?? 0,
-        };
+        const voiceMode = getWeixinVoiceItemMode();
+        if (voiceMode === 'metadata') {
+          mediaItem.voice_item = {
+            media: mediaRef,
+            encode_type: 6,
+            bits_per_sample: 16,
+            sample_rate: voiceMeta?.sampleRate ?? 24_000,
+            playtime: voiceMeta?.durationMs ?? 0,
+          };
+        } else if (voiceMode === 'playtime' && voiceMeta?.durationMs && voiceMeta.durationMs > 0) {
+          mediaItem.voice_item = { media: mediaRef, playtime: Math.round(voiceMeta.durationMs) };
+        } else {
+          mediaItem.voice_item = { media: mediaRef };
+        }
+        this.log.info(
+          { chatId: externalChatId, mode: voiceMode, durationMs: voiceMeta?.durationMs },
+          '[WeixinAdapter] sendMedia: voice_item mode',
+        );
       } else {
         const { basename } = await import('node:path');
         mediaItem.file_item = {

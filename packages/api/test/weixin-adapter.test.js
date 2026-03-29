@@ -1338,53 +1338,102 @@ describe('WeixinAdapter', () => {
       }
     });
 
-    it('sends WAV voice_item with full SILK metadata (encode_type, bits_per_sample, sample_rate, playtime)', async () => {
+    it('default mode: sends minimal voice_item (media only, no metadata)', async () => {
+      // Default (no env var) = minimal mode — safest fallback
+      delete process.env.WEIXIN_VOICE_ITEM_MODE;
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-1');
-
-      const wavPath = join(tmpdir(), `cat-cafe-malformed-${Date.now()}.wav`);
+      const wavPath = join(tmpdir(), `cat-cafe-voice-default-${Date.now()}.wav`);
       await writeFile(wavPath, makeMalformedWav(24000, 2));
-
       /** @type {Record<string, unknown> | null} */
       let sentMsg = null;
-      /** @type {Record<string, unknown> | null} */
-      let uploadReq = null;
-
       try {
         adapter._injectFetch(async (url, opts) => {
-          if (url.includes('/ilink/bot/getuploadurl')) {
-            uploadReq = JSON.parse(opts.body);
+          if (url.includes('/ilink/bot/getuploadurl'))
             return { ok: true, json: async () => ({ upload_param: 'enc-upload-param' }) };
-          }
-          if (url.includes('/c2c/upload?')) {
-            return {
-              status: 200,
-              headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }),
-            };
-          }
+          if (url.includes('/c2c/upload?'))
+            return { status: 200, headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }) };
           if (url.includes('/ilink/bot/sendmessage')) {
             sentMsg = JSON.parse(opts.body).msg;
             return { ok: true, text: async () => JSON.stringify({ ret: 0 }) };
           }
           throw new Error(`unexpected url: ${url}`);
         });
-
         await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
+        const voiceItem = /** @type {Record<string, unknown>} */ (sentMsg?.item_list[0].voice_item);
+        assert.ok(voiceItem?.media, 'media CDN reference must be present');
+        assert.equal(voiceItem.encode_type, undefined, 'minimal mode: no encode_type');
+        assert.equal(voiceItem.playtime, undefined, 'minimal mode: no playtime');
+      } finally {
+        delete process.env.WEIXIN_VOICE_ITEM_MODE;
+        await unlink(wavPath).catch(() => {});
+      }
+    });
 
-        const items = /** @type {Array<Record<string, unknown>>} */ (sentMsg?.item_list);
-        const voiceItem = /** @type {Record<string, unknown>} */ (items[0].voice_item);
-        assert.equal(uploadReq?.media_type, 4, 'WAV should be transcoded and uploaded as VOICE type');
-        assert.equal(items[0].type, 3, 'should send VOICE message item');
-        assert.ok(voiceItem, 'voice_item must be present');
-        assert.ok(voiceItem.media, 'media CDN reference must be present');
-        // PR #839 was missing bits_per_sample:16 — all three SDK type defs include it.
-        // Full protocol-spec metadata is needed for WeChat to show correct duration.
+    it('playtime mode: sends voice_item with only playtime (WEIXIN_VOICE_ITEM_MODE=playtime)', async () => {
+      process.env.WEIXIN_VOICE_ITEM_MODE = 'playtime';
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      const wavPath = join(tmpdir(), `cat-cafe-voice-playtime-${Date.now()}.wav`);
+      await writeFile(wavPath, makeMalformedWav(24000, 2));
+      /** @type {Record<string, unknown> | null} */
+      let sentMsg = null;
+      try {
+        adapter._injectFetch(async (url, opts) => {
+          if (url.includes('/ilink/bot/getuploadurl'))
+            return { ok: true, json: async () => ({ upload_param: 'enc-upload-param' }) };
+          if (url.includes('/c2c/upload?'))
+            return { status: 200, headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }) };
+          if (url.includes('/ilink/bot/sendmessage')) {
+            sentMsg = JSON.parse(opts.body).msg;
+            return { ok: true, text: async () => JSON.stringify({ ret: 0 }) };
+          }
+          throw new Error(`unexpected url: ${url}`);
+        });
+        await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
+        const voiceItem = /** @type {Record<string, unknown>} */ (sentMsg?.item_list[0].voice_item);
+        assert.ok(voiceItem?.media, 'media CDN reference must be present');
+        assert.equal(voiceItem.encode_type, undefined, 'playtime mode: no encode_type');
+        assert.equal(voiceItem.bits_per_sample, undefined, 'playtime mode: no bits_per_sample');
+        assert.equal(voiceItem.sample_rate, undefined, 'playtime mode: no sample_rate');
+        assert.equal(typeof voiceItem.playtime, 'number', 'playtime must be a number');
+        assert.ok(/** @type {number} */ (voiceItem.playtime) > 0, 'playtime must be > 0');
+      } finally {
+        delete process.env.WEIXIN_VOICE_ITEM_MODE;
+        await unlink(wavPath).catch(() => {});
+      }
+    });
+
+    it('metadata mode: sends voice_item with full SILK metadata (WEIXIN_VOICE_ITEM_MODE=metadata)', async () => {
+      process.env.WEIXIN_VOICE_ITEM_MODE = 'metadata';
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      const wavPath = join(tmpdir(), `cat-cafe-voice-metadata-${Date.now()}.wav`);
+      await writeFile(wavPath, makeMalformedWav(24000, 2));
+      /** @type {Record<string, unknown> | null} */
+      let sentMsg = null;
+      try {
+        adapter._injectFetch(async (url, opts) => {
+          if (url.includes('/ilink/bot/getuploadurl'))
+            return { ok: true, json: async () => ({ upload_param: 'enc-upload-param' }) };
+          if (url.includes('/c2c/upload?'))
+            return { status: 200, headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }) };
+          if (url.includes('/ilink/bot/sendmessage')) {
+            sentMsg = JSON.parse(opts.body).msg;
+            return { ok: true, text: async () => JSON.stringify({ ret: 0 }) };
+          }
+          throw new Error(`unexpected url: ${url}`);
+        });
+        await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
+        const voiceItem = /** @type {Record<string, unknown>} */ (sentMsg?.item_list[0].voice_item);
+        assert.ok(voiceItem?.media, 'media CDN reference must be present');
         assert.equal(voiceItem.encode_type, 6, 'encode_type must be 6 (SILK)');
         assert.equal(voiceItem.bits_per_sample, 16, 'bits_per_sample must be 16');
         assert.equal(voiceItem.sample_rate, 24000, 'sample_rate must match SILK encoding rate');
-        assert.equal(typeof voiceItem.playtime, 'number', 'playtime must be a number (duration ms)');
+        assert.equal(typeof voiceItem.playtime, 'number', 'playtime must be a number');
         assert.ok(/** @type {number} */ (voiceItem.playtime) > 0, 'playtime must be > 0');
       } finally {
+        delete process.env.WEIXIN_VOICE_ITEM_MODE;
         await unlink(wavPath).catch(() => {});
       }
     });
