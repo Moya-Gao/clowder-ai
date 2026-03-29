@@ -675,6 +675,7 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
 
     // WeChat voice messages require SILK codec; when conversion fails, degrade to file delivery.
+    let voiceMeta: { durationMs: number; sampleRate: number } | undefined;
     if (payload.type === 'audio' && actualFilePath.endsWith('.wav')) {
       const converted = await this.convertWavToSilk(actualFilePath);
       if (converted) {
@@ -685,6 +686,7 @@ export class WeixinAdapter implements IOutboundAdapter {
         }
         actualFilePath = converted.silkPath;
         tempFilePath = converted.silkPath;
+        voiceMeta = { durationMs: converted.durationMs, sampleRate: converted.sampleRate };
       }
     }
 
@@ -729,11 +731,17 @@ export class WeixinAdapter implements IOutboundAdapter {
       if (payload.type === 'image') {
         mediaItem.image_item = { media: mediaRef, mid_size: uploaded.fileSizeCiphertext };
       } else if (payload.type === 'audio' && audioAsVoice) {
-        // Official SDK (@tencent-weixin/openclaw-weixin@2.1.1) does NOT implement voice sending.
-        // Adding encode_type/sample_rate/playtime caused WeChat to reject the voice entirely
-        // (regression: "1s fake voice" → "completely gone"). Keep voice_item minimal — WeChat
-        // auto-detects codec and duration from the SILK payload itself.
-        mediaItem.voice_item = { media: mediaRef };
+        // PR #839 sent encode_type/sample_rate/playtime but was missing bits_per_sample:16,
+        // which all three SDK type definitions (official, wechatbot, wechat-clawbot) include.
+        // The incomplete metadata caused WeChat to reject the voice entirely.
+        // Full protocol-spec metadata with bits_per_sample lets WeChat display correct duration.
+        mediaItem.voice_item = {
+          media: mediaRef,
+          encode_type: 6, // SILK
+          bits_per_sample: 16,
+          sample_rate: voiceMeta?.sampleRate ?? 24_000,
+          playtime: voiceMeta?.durationMs ?? 0,
+        };
       } else {
         const { basename } = await import('node:path');
         mediaItem.file_item = {

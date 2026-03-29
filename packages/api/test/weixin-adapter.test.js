@@ -1338,7 +1338,7 @@ describe('WeixinAdapter', () => {
       }
     });
 
-    it('sends WAV as minimal voice_item — no metadata fields that trigger WeChat rejection', async () => {
+    it('sends WAV voice_item with full SILK metadata (encode_type, bits_per_sample, sample_rate, playtime)', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-1');
 
@@ -1376,14 +1376,14 @@ describe('WeixinAdapter', () => {
         assert.equal(uploadReq?.media_type, 4, 'WAV should be transcoded and uploaded as VOICE type');
         assert.equal(items[0].type, 3, 'should send VOICE message item');
         assert.ok(voiceItem, 'voice_item must be present');
-        // Official SDK (@tencent-weixin/openclaw-weixin@2.1.1) does NOT implement voice sending.
-        // Adding encode_type/sample_rate/playtime caused WeChat to reject the message entirely
-        // (voice regressed from "1s fake" to "completely gone"). Keep voice_item minimal.
-        assert.equal(voiceItem.encode_type, undefined, 'encode_type must NOT be sent — triggers WeChat rejection');
-        assert.equal(voiceItem.sample_rate, undefined, 'sample_rate must NOT be sent — triggers WeChat rejection');
-        assert.equal(voiceItem.playtime, undefined, 'playtime must NOT be sent — triggers WeChat rejection');
-        // media ref must be present
         assert.ok(voiceItem.media, 'media CDN reference must be present');
+        // PR #839 was missing bits_per_sample:16 — all three SDK type defs include it.
+        // Full protocol-spec metadata is needed for WeChat to show correct duration.
+        assert.equal(voiceItem.encode_type, 6, 'encode_type must be 6 (SILK)');
+        assert.equal(voiceItem.bits_per_sample, 16, 'bits_per_sample must be 16');
+        assert.equal(voiceItem.sample_rate, 24000, 'sample_rate must match SILK encoding rate');
+        assert.equal(typeof voiceItem.playtime, 'number', 'playtime must be a number (duration ms)');
+        assert.ok(/** @type {number} */ (voiceItem.playtime) > 0, 'playtime must be > 0');
       } finally {
         await unlink(wavPath).catch(() => {});
       }
