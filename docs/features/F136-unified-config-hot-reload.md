@@ -249,6 +249,7 @@ Phase 4 终态（2026-03-28 决策）:
 | 2026-03-28 | **Feature closed** — 愿景对照 + @gpt52 risk audit 等效守护 + [反思胶囊](/docs/reflections/2026-03-28-f136-unified-config-hot-reload-capsule.md) |
 | 2026-03-28 | Startup invariant guard merged (PR #835) — LL-043 hard error + duplicate accounts fix (cloud review 3 rounds) |
 | 2026-03-28 | Open-source hardening merged (PR #836) — corrupted catalog → LL-043 in accountStartupHook + HC-5 corruption warning (@gpt52 审放行) |
+| 2026-03-29 | Hub profile stale + HC-5 worktree false conflict fix merged (PR #847) — CustomEvent invalidation + isSameProject() exclusion (@gpt52 审放行) |
 
 ## Follow-up: Startup Invariant Guard — ✅ Implemented (PR #835)
 
@@ -266,3 +267,25 @@ Phase 4 终态（2026-03-28 决策）:
 1. [x] 旧 `provider-profiles.json` 存在 + 当前项目 `accounts` 缺失 → hard throw (startup blocked)
 2. [x] 回归测试：覆盖 legacy source + migration 未落成 + 空 providers + 损坏文件场景
 3. [x] 升级为 startup hard fail（铲屎官拍板："三件事情得做嘞，不能静默失败"）
+
+## Follow-up: Hub Profile Stale + HC-5 Worktree — ✅ Implemented (PR #847)
+
+**来源**：2026-03-29 铲屎官报告"新建 api key 更新不动"+ minimax baseUrl 更新报 conflict
+
+**实现**（PR #847, merged 2026-03-29）：
+- Cat Editor `profilesVersion` + `provider-profiles-changed` CustomEvent 跨组件 invalidation
+- HC-5 `validateAccountWrite` + `detectAccountConflicts` 用 `isSameProject()` 排除同一 git 项目的 worktree
+- 3 worktree-aware 回归测试
+- Cloud review: @gpt52 审放行（无 P1/P2）
+
+## Follow-up: Hub Sensitive Env Write — 📋 Planned (absorb clowder-ai PR #285)
+
+**来源**：社区 PR clowder-ai#285 提出 Hub 可写 sensitive env（OPENAI_API_KEY / F102_API_KEY / GITHUB_MCP_PAT）。砚砚评估后认为有 4 个防御点值得吸收，但实现形式与我们 accounts/credentials 主线冲突，不宜原样 intake。
+
+**吸收方向**（v0.5 scope）：
+1. sensitive env `runtimeEditable` fail-closed whitelist（只对 env-owning secrets 开放，不回拉已迁移的 provider creds）
+2. owner gate 显式配置，不 fallback `default-user`
+3. 前端掩码 fallback
+4. sensitive write audit event（`ENV_SENSITIVE_WRITE`）
+
+**不做**：不把已迁移到 `accounts/credentials.json` 的 provider 凭证拉回 `.env` 路线。
