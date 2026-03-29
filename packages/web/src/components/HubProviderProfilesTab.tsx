@@ -82,6 +82,7 @@ export function HubProviderProfilesTab() {
       setCreateApiKey('');
       setCreateModels([]);
       await fetchProfiles();
+      window.dispatchEvent(new CustomEvent('provider-profiles-changed'));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -96,6 +97,7 @@ export function HubProviderProfilesTab() {
       try {
         await callApi(`/api/provider-profiles/${profileId}`, { method: 'DELETE' });
         await fetchProfiles();
+        window.dispatchEvent(new CustomEvent('provider-profiles-changed'));
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -115,6 +117,7 @@ export function HubProviderProfilesTab() {
           body: JSON.stringify(payload),
         });
         await fetchProfiles();
+        window.dispatchEvent(new CustomEvent('provider-profiles-changed'));
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {

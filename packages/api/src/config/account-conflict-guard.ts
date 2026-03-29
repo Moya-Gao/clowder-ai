@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import type { AccountConfig } from '@cat-cafe/shared';
+import { isSameProject } from '../utils/monorepo-root.js';
 
 const CAT_CAFE_DIR = '.cat-cafe';
 
@@ -83,10 +84,14 @@ function compareAccountConfigs(
 export function detectAccountConflicts(currentProjectRoot: string): AccountConflict[] {
   const knownRoots = readKnownRoots();
   const allRoots = new Set([resolve(currentProjectRoot), ...knownRoots.map((r) => resolve(r))]);
+
+  // Group roots by git identity — worktrees of the same repo should not conflict with each other
+  const deduped = deduplicateByGitIdentity(allRoots);
+
   const accountsByRef = new Map<string, { config: AccountConfig; project: string }>();
   const conflicts: AccountConflict[] = [];
 
-  for (const root of allRoots) {
+  for (const root of deduped) {
     if (!existsSync(root)) continue;
     const accounts = readProjectAccounts(root);
     for (const [ref, config] of Object.entries(accounts)) {
@@ -103,15 +108,38 @@ export function detectAccountConflicts(currentProjectRoot: string): AccountConfl
   return conflicts;
 }
 
+/** Pick one representative root per git project, skipping worktree duplicates. */
+function deduplicateByGitIdentity(roots: Set<string>): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const root of roots) {
+    if (!existsSync(root)) continue;
+    let isDuplicate = false;
+    for (const kept of result) {
+      if (isSameProject(root, kept)) {
+        isDuplicate = true;
+        break;
+      }
+    }
+    if (!isDuplicate) result.push(root);
+  }
+  return result;
+}
+
 /**
  * Write-path guard: validate a single account write against all known projects.
  * Throws on conflict (HC-5: don't persist bad config and wait for next startup to explode).
  */
 export function validateAccountWrite(currentProjectRoot: string, ref: string, account: AccountConfig): void {
   const knownRoots = readKnownRoots();
+  const resolved = resolve(currentProjectRoot);
   const allRoots = new Set(knownRoots.map((r) => resolve(r)));
-  // Exclude current project — we're about to write to it
-  allRoots.delete(resolve(currentProjectRoot));
+  // Exclude current project and its worktrees — same git identity should not conflict
+  for (const root of allRoots) {
+    if (root === resolved || isSameProject(root, resolved)) {
+      allRoots.delete(root);
+    }
+  }
 
   for (const root of allRoots) {
     if (!existsSync(root)) continue;

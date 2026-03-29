@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 describe('account conflict detection guard (HC-5)', () => {
@@ -207,6 +207,99 @@ describe('account conflict detection guard (HC-5)', () => {
     } finally {
       await rm(projectA, { recursive: true, force: true });
       await rm(projectB, { recursive: true, force: true });
+    }
+  });
+
+  /** Helper: set up two dirs as main repo + worktree of the same git project. */
+  async function setupWorktreePair() {
+    const mainRepo = await mkdtemp(join(tmpdir(), 'main-repo-'));
+    const worktree = await mkdtemp(join(tmpdir(), 'worktree-'));
+    // Main repo: .git/ directory
+    const gitDir = join(mainRepo, '.git');
+    await mkdir(gitDir, { recursive: true });
+    // Worktree: .git file pointing to main repo's .git/worktrees/<name>
+    const wtName = 'wt-runtime';
+    const worktreesDir = join(gitDir, 'worktrees', wtName);
+    await mkdir(worktreesDir, { recursive: true });
+    await writeFile(join(worktree, '.git'), `gitdir: ${worktreesDir}\n`, 'utf-8');
+    return {
+      mainRepo,
+      worktree,
+      cleanup: () =>
+        Promise.all([rm(mainRepo, { recursive: true, force: true }), rm(worktree, { recursive: true, force: true })]),
+    };
+  }
+
+  it('detectAccountConflicts ignores worktrees of the same git project', async () => {
+    const { detectAccountConflicts } = await import(`../dist/config/account-conflict-guard.js?t=${Date.now()}-wt1`);
+    const { mainRepo, worktree, cleanup } = await setupWorktreePair();
+
+    try {
+      await writeKnownRoots([mainRepo, worktree]);
+      await writeCatalogWithAccounts(mainRepo, {
+        minimax: { authType: 'api_key', protocol: 'openai', baseUrl: 'https://api.minimax.io/v1' },
+      });
+      await writeCatalogWithAccounts(worktree, {
+        minimax: { authType: 'api_key', protocol: 'openai', baseUrl: 'https://api.minimax.io/v11' },
+      });
+
+      const conflicts = detectAccountConflicts(mainRepo);
+      assert.equal(conflicts.length, 0, 'worktrees of the same project should not trigger conflict');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('validateAccountWrite allows update when conflict is from a worktree of the same project', async () => {
+    const { validateAccountWrite } = await import(`../dist/config/account-conflict-guard.js?t=${Date.now()}-wt2`);
+    const { mainRepo, worktree, cleanup } = await setupWorktreePair();
+
+    try {
+      await writeKnownRoots([mainRepo, worktree]);
+      // Main repo has old baseUrl
+      await writeCatalogWithAccounts(mainRepo, {
+        minimax: { authType: 'api_key', protocol: 'openai', baseUrl: 'https://api.minimax.io/v1' },
+      });
+
+      // Writing updated baseUrl from worktree should NOT throw
+      assert.doesNotThrow(() =>
+        validateAccountWrite(worktree, 'minimax', {
+          authType: 'api_key',
+          protocol: 'openai',
+          baseUrl: 'https://api.minimax.io/v11',
+        }),
+      );
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('still detects conflict between genuinely different projects (not worktrees)', async () => {
+    const { validateAccountWrite } = await import(`../dist/config/account-conflict-guard.js?t=${Date.now()}-wt3`);
+    const { mainRepo, worktree, cleanup } = await setupWorktreePair();
+    const unrelatedProject = await mkdtemp(join(tmpdir(), 'unrelated-'));
+    // Give unrelated project its own .git dir
+    await mkdir(join(unrelatedProject, '.git'), { recursive: true });
+
+    try {
+      await writeKnownRoots([mainRepo, worktree, unrelatedProject]);
+      await writeCatalogWithAccounts(unrelatedProject, {
+        minimax: { authType: 'api_key', protocol: 'openai', baseUrl: 'https://api.minimax.io/v1' },
+      });
+
+      // Writing different baseUrl from worktree SHOULD throw — unrelated project has conflicting config
+      assert.throws(
+        () =>
+          validateAccountWrite(worktree, 'minimax', {
+            authType: 'api_key',
+            protocol: 'openai',
+            baseUrl: 'https://api.minimax.io/v11',
+          }),
+        (err) => err.message.includes('minimax') && err.message.includes('baseUrl'),
+      );
+    } finally {
+      await cleanup();
+      await rm(unrelatedProject, { recursive: true, force: true });
     }
   });
 });

@@ -80,6 +80,14 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
     setHasUnsavedChanges(false);
   }, [open, cat, draft]);
 
+  // Re-fetch profiles when Provider Profiles page creates/saves/deletes an account.
+  const [profilesVersion, setProfilesVersion] = useState(0);
+  useEffect(() => {
+    const handler = () => setProfilesVersion((v) => v + 1);
+    window.addEventListener('provider-profiles-changed', handler);
+    return () => window.removeEventListener('provider-profiles-changed', handler);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -101,7 +109,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, profilesVersion]);
 
   useEffect(() => {
     if (!open || !cat) {
