@@ -599,15 +599,17 @@ if [ "$VALIDATE" = true ]; then echo "模式: VALIDATE"; fi
 if [ "$SYNC_MODULE" != "all" ]; then echo "模块: $SYNC_MODULE"; fi
 
 cd "$SOURCE_DIR"
-SOURCE_SHA=$(git rev-parse --short=12 HEAD)
+SOURCE_SHA=$(git rev-parse HEAD)
+SOURCE_SHA_SHORT=$(git rev-parse --short=12 "$SOURCE_SHA")
+SOURCE_DISPLAY_SHA="$SOURCE_SHA_SHORT"
 # dry-run/validate 用工作目录导出，记录 dirty 状态
 if [ "$DRY_RUN" = true ] || [ "$VALIDATE" = true ]; then
   if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-    SOURCE_SHA="${SOURCE_SHA}+dirty"
+    SOURCE_DISPLAY_SHA="${SOURCE_DISPLAY_SHA}+dirty"
   fi
-  SOURCE_SHA="${SOURCE_SHA} (working-tree)"
+  SOURCE_DISPLAY_SHA="${SOURCE_DISPLAY_SHA} (working-tree)"
 fi
-echo -e "\n${BLUE}源 commit: ${SOURCE_SHA}${NC}"
+echo -e "\n${BLUE}源 commit: ${SOURCE_DISPLAY_SHA}${NC}"
 
 # ── Step 0: Pre-sync gate（D2a）────────────────────────────────
 step_start "Step 0" "Pre-sync gate..."
@@ -1679,9 +1681,9 @@ if [ -d "$TARGET_DIR/.git" ]; then
   cd "$TARGET_DIR"
   git add -A
   if [ "$SYNC_MODULE" = "all" ]; then
-    SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai (manifest v3)"
+    SYNC_MSG="sync: cat-cafe $SOURCE_SHA_SHORT → clowder-ai (manifest v3)"
   else
-    SYNC_MSG="sync: cat-cafe $SOURCE_SHA → clowder-ai [$SYNC_MODULE] (manifest v3)"
+    SYNC_MSG="sync: cat-cafe $SOURCE_SHA_SHORT → clowder-ai [$SYNC_MODULE] (manifest v3)"
   fi
   if [ -n "$CAT_SIG" ]; then
     SYNC_MSG="${SYNC_MSG}
