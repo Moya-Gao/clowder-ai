@@ -183,6 +183,7 @@ completed: 2026-03-28
 | 2026-03-28 | Scheduler bugfix merged (PR #821) — Fix immediate-trigger on registration (deferFirstTick for live registerDynamic) + fix wrong-cat routing (targetCatId auto-inject from CAT_CAFE_CAT_ID env) + params validation; 砚砚 local review 2 rounds (1×P1 fixed: E2E cat routing) + cloud review 1×P2 fixed |
 | 2026-03-28 | **Feature closed** — 核心愿景“没人找你但该主动检查”已交付：对话式注册 → 持久化 → 到点唤醒猫 → 富文本/面板治理全链路可用；JS 重站点剩余缺口转技术债 TD116（调度侧对接现有 browser-automation/backend），不再阻塞 F139 close |
 | 2026-03-28 | H2b wiring merged (PR #826) — `web-digest` needs-browser 路径接入 cat-wake（真实 messageId + invokeTrigger + `browser-automation` skill hint），TD116 关闭 |
+| 2026-03-28 | Scheduler visibility bugfix: system messages (PR #838) + cat reply userId fix (PR #843) — scheduler-triggered messages now visible in frontend |
 
 ## Review Gate
 
