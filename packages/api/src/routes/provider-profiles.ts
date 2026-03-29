@@ -152,7 +152,7 @@ function probeUrl(baseUrl: string, path: string): string {
 function inferProbeProtocol(
   baseUrl: string | undefined,
   selector: string | undefined,
-  models: string[] | undefined = [],
+  models: readonly string[] | undefined = [],
   ...nameHints: Array<string | undefined>
 ): 'anthropic' | 'openai' | 'google' {
   const normalizedSelector = selector?.trim().toLowerCase();
@@ -321,9 +321,17 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
         reply.status(404);
         return { error: `Account "${params.profileId}" not found` };
       }
+      const baseUrlChanged =
+        parsed.data.baseUrl != null &&
+        normalizeBaseUrl(parsed.data.baseUrl) !== normalizeBaseUrl(existing.baseUrl ?? '');
+      const effectiveProtocol: AccountProtocol = parsed.data.protocol
+        ? (parsed.data.protocol as AccountProtocol)
+        : baseUrlChanged
+          ? inferProbeProtocol(parsed.data.baseUrl, undefined)
+          : existing.protocol;
       const account: AccountConfig = {
         authType: (parsed.data.authType as 'oauth' | 'api_key') ?? existing.authType,
-        protocol: (parsed.data.protocol as AccountProtocol) ?? existing.protocol,
+        protocol: effectiveProtocol,
         ...(parsed.data.baseUrl != null
           ? { baseUrl: parsed.data.baseUrl || undefined }
           : existing.baseUrl

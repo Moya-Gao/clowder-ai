@@ -704,6 +704,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'WEIXIN_VOICE_ITEM_MODE',
+    defaultValue: 'minimal',
+    description: '微信语音消息 voice_item 模式（minimal/playtime/metadata），A/B 测试用',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
     name: 'WEIXIN_BOT_TOKEN',
     defaultValue: '(未设置 → 不启用)',
     description: '微信机器人 Token（F137 微信个人网关）',
