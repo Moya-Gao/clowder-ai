@@ -50,6 +50,8 @@ managed_scripts:
   - scripts/start-dev-profile-isolation.test.mjs
   - scripts/check-feature-truth.mjs
   - scripts/check-env-port-drift.test.mjs
+  - scripts/check-env-registry.test.mjs
+  - scripts/check-env-example.test.mjs
   - scripts/generate-feature-index.mjs
   - scripts/audit-feature-doc-template.mjs
   - scripts/check-frontmatter.mjs
