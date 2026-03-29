@@ -13,14 +13,7 @@ import { apiFetch } from '@/utils/api-client';
 import { compressImage } from '@/utils/compressImage';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
-import {
-  buildCatOptions,
-  buildWhisperOptions,
-  type CatOption,
-  detectMenuTrigger,
-  GAME_LIST,
-  WEREWOLF_MODES,
-} from './chat-input-options';
+import { buildCatOptions, type CatOption, detectMenuTrigger, GAME_LIST, WEREWOLF_MODES } from './chat-input-options';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
 import { GameLobby, type GameStartPayload } from './game/GameLobby';
 import { HistorySearchModal } from './HistorySearchModal';
@@ -28,6 +21,7 @@ import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
 import { MobileInputToolbar } from './MobileInputToolbar';
 import { PathCompletionMenu } from './PathCompletionMenu';
+import { WhisperCatSelector } from './WhisperCatSelector';
 
 /** Module-level draft storage — survives component unmount/remount across thread switches */
 export const threadDrafts = new Map<string, string>();
@@ -56,7 +50,8 @@ export function ChatInput({
 }: ChatInputProps) {
   const { cats } = useCatData();
   const catOptions = useMemo(() => buildCatOptions(cats), [cats]);
-  const whisperOptions = useMemo(() => buildWhisperOptions(cats), [cats]);
+  // F108 Scene 2: whisper-eligible cats (CatData[] for WhisperCatSelector)
+  const whisperCats = useMemo(() => cats.filter((c) => c.roster?.available !== false), [cats]);
 
   // F122B AC-B10: track which cats are actively executing (for whisper disable)
   const activeInvocations = useChatStore((s) => s.activeInvocations);
@@ -466,12 +461,12 @@ export function ChatInput({
   // Reconcile whisperTargets: remove invalid ids + remove newly-active cats (B10)
   useEffect(() => {
     if (!whisperMode) return;
-    const validIds = new Set(whisperOptions.map((c) => c.id));
+    const validIds = new Set(whisperCats.map((c) => c.id));
     setWhisperTargets((prev) => {
       const filtered = new Set([...prev].filter((id) => validIds.has(id) && !activeCatIds.has(id)));
       return filtered.size === prev.size ? prev : filtered;
     });
-  }, [whisperOptions, whisperMode, activeCatIds]);
+  }, [whisperCats, whisperMode, activeCatIds]);
 
   const handleGameClick = useCallback(() => {
     setShowMentions(false);
@@ -489,7 +484,7 @@ export function ChatInput({
       }
       return !prev;
     });
-  }, [whisperOptions, activeCatIds]);
+  }, []);
 
   // Sync input text to module-level draft map (covers all sources: typing, voice, mentions)
   // useLayoutEffect runs synchronously before browser paint and before unmount,
@@ -597,33 +592,12 @@ export function ChatInput({
       )}
 
       {whisperMode && (
-        <div className="px-4 pt-2 flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-amber-600 font-medium">悄悄话发给:</span>
-          {whisperOptions.map((cat) => {
-            const isActive = activeCatIds.has(cat.id);
-            const isSelected = whisperTargets.has(cat.id);
-            return (
-              <button
-                key={cat.id}
-                onClick={() => !isActive && toggleWhisperTarget(cat.id)}
-                disabled={isActive}
-                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                  isActive
-                    ? 'text-cafe-muted border-cafe bg-cafe-surface-elevated cursor-not-allowed'
-                    : isSelected
-                      ? 'border-current bg-amber-50 font-medium'
-                      : 'text-cafe-muted border-cafe hover:border-gray-400'
-                }`}
-                style={!isActive && isSelected ? { color: cat.color } : undefined}
-                title={isActive ? `${cat.label.replace('@', '')} 执行中，不可选` : undefined}
-              >
-                {cat.label.replace('@', '')}
-                {isActive && ' ⏳'}
-              </button>
-            );
-          })}
-          {whisperTargets.size === 0 && <span className="text-xs text-red-400">请至少选一只猫猫</span>}
-        </div>
+        <WhisperCatSelector
+          cats={whisperCats}
+          selected={whisperTargets}
+          activeCatIds={activeCatIds}
+          onToggle={toggleWhisperTarget}
+        />
       )}
 
       <ImagePreview files={images} onRemove={handleRemoveImage} />

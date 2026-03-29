@@ -91,16 +91,15 @@ describe('ChatInput whisper targets with empty mentionPatterns', () => {
     expect(whisperBtn).not.toBeNull();
     act(() => whisperBtn?.click());
 
-    // Whisper section should show "悄悄话发给:" with target buttons
-    expect(container.textContent).toContain('悄悄话发给');
+    // F108 Scene 2: selector panel with "选择悄悄话目标："
+    expect(container.textContent).toContain('选择悄悄话目标');
 
-    // Collect whisper target button texts (rounded-full pill buttons)
-    const targetButtons = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-full'));
-    const targetNames = targetButtons.map((b) => b.textContent);
+    // Both cats should appear as selectable rows (rounded-lg buttons inside selector)
+    const selectorRows = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-lg'));
+    const rowTexts = selectorRows.map((b) => b.textContent);
 
-    // Both cats should be available as whisper targets
-    expect(targetNames).toContain('布偶猫');
-    expect(targetNames).toContain('布偶猫(快)');
+    expect(rowTexts.some((t) => t?.includes('布偶猫'))).toBe(true);
+    expect(rowTexts.some((t) => t?.includes('布偶猫(快)'))).toBe(true);
   });
 
   it('can toggle a whisper target with empty mentionPatterns', () => {
@@ -112,24 +111,24 @@ describe('ChatInput whisper targets with empty mentionPatterns', () => {
     const whisperBtn = container.querySelector<HTMLButtonElement>('[aria-label="Whisper mode"]');
     act(() => whisperBtn?.click());
 
-    // Find the opus-fast target button
-    const targetButtons = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-full'));
-    const fastBtn = targetButtons.find((b) => b.textContent === '布偶猫(快)');
+    // Find the opus-fast row in the selector panel
+    const selectorRows = [...container.querySelectorAll('button')].filter((b) => b.className.includes('rounded-lg'));
+    const fastBtn = selectorRows.find((b) => b.textContent?.includes('布偶猫(快)'));
     expect(fastBtn).toBeDefined();
 
-    // F108B P1-1: default is NO cats selected
-    expect(fastBtn?.className).not.toContain('bg-amber-50');
+    // F108B P1-1: default is NO cats selected — no ring highlight
+    expect(fastBtn?.className).not.toContain('ring-amber-200');
 
-    // Click to select
+    // Click to select — should show ring highlight
     act(() => fastBtn?.click());
-    expect(fastBtn?.className).toContain('bg-amber-50');
+    expect(fastBtn?.className).toContain('ring-amber-200');
 
     // Click to deselect
     act(() => fastBtn?.click());
-    expect(fastBtn?.className).not.toContain('bg-amber-50');
+    expect(fastBtn?.className).not.toContain('ring-amber-200');
 
     // Click again to re-select
     act(() => fastBtn?.click());
-    expect(fastBtn?.className).toContain('bg-amber-50');
+    expect(fastBtn?.className).toContain('ring-amber-200');
   });
 });
