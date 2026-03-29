@@ -184,6 +184,7 @@ completed: 2026-03-28
 | 2026-03-28 | **Feature closed** — 核心愿景“没人找你但该主动检查”已交付：对话式注册 → 持久化 → 到点唤醒猫 → 富文本/面板治理全链路可用；JS 重站点剩余缺口转技术债 TD116（调度侧对接现有 browser-automation/backend），不再阻塞 F139 close |
 | 2026-03-28 | H2b wiring merged (PR #826) — `web-digest` needs-browser 路径接入 cat-wake（真实 messageId + invokeTrigger + `browser-automation` skill hint），TD116 关闭 |
 | 2026-03-28 | Scheduler visibility bugfix: system messages (PR #838) + cat reply userId fix (PR #843) — scheduler-triggered messages now visible in frontend |
+| 2026-03-28 | Historical backfill merged (PR #851) — one-time startup repair rewrites old scheduler cat replies to real thread owner; 砚砚(gpt52) 实现, 宪宪 review + merge |
 
 ## Review Gate
 
