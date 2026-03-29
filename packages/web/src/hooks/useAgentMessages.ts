@@ -599,7 +599,6 @@ export function useAgentMessages() {
         setCatInvocation(msg.catId, { invocationId: undefined });
         if (msg.isFinal) {
           clearDoneTimeout();
-          setLoading(false);
           // F108: Remove specific invocation slot; fall back to cat-scoped lookup.
           // Steer/force cancel broadcasts done(isFinal) without invocationId — find and
           // remove only this cat's latest active slot to avoid clearing other cats' slots
@@ -614,8 +613,15 @@ export function useAgentMessages() {
               setHasActiveInvocation(false);
             }
           }
-          setIntentMode(null);
-          clearCatStatuses();
+          // F108 P1 fix: Only clear global state when the LAST active invocation ends.
+          // During concurrent multi-cat execution, cancelling one cat must not wipe
+          // the execution state (loading/intentMode/catStatuses) of remaining cats.
+          const remainingInvocations = Object.keys(useChatStore.getState().activeInvocations ?? {}).length;
+          if (remainingInvocations === 0) {
+            setLoading(false);
+            setIntentMode(null);
+            clearCatStatuses();
+          }
           // Note: do NOT clear replacedInvocationsRef here. The suppression guard
           // is designed to persist until a *different* invocationId is observed
           // (F123 PR #465, symptom-fixture-matrix.md:23). Clearing on done(isFinal)
@@ -977,7 +983,6 @@ export function useAgentMessages() {
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps
         if (msg.isFinal) {
           clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
-          setLoading(false);
           // F108: clear this cat's invocation slot on terminal error
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
@@ -989,13 +994,19 @@ export function useAgentMessages() {
               setHasActiveInvocation(false);
             }
           }
-          setIntentMode(null);
-          // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
-          // not match the cat that was actually running (e.g. codex/gemini)
-          for (const ref of activeRefs.current.values()) {
-            setStreaming(ref.id, false);
+          // F108 P1 fix: Only clear global state when the LAST active invocation ends.
+          const remainingInvocations = Object.keys(useChatStore.getState().activeInvocations ?? {}).length;
+          if (remainingInvocations === 0) {
+            setLoading(false);
+            setIntentMode(null);
+            clearCatStatuses();
+            // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
+            // not match the cat that was actually running (e.g. codex/gemini)
+            for (const ref of activeRefs.current.values()) {
+              setStreaming(ref.id, false);
+            }
+            activeRefs.current.clear();
           }
-          activeRefs.current.clear();
         }
       }
     },
