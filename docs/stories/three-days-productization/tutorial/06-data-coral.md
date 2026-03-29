@@ -42,7 +42,7 @@ bash scripts/project-stats.sh
 | **Lessons** | 40 条 | 记录在案的教训条目（LL-001 → LL-040） |
 | **测试** | 865 个 | 测试文件，不是测试用例 |
 
-📸 **[截图位：project-stats.sh 的终端输出]**
+![project-stats.sh 终端输出（数据截止 2026-03-28）](./assets/project-stats-terminal.png)
 
 但数字只是表象。更值得问的是：**凭什么？**
 
