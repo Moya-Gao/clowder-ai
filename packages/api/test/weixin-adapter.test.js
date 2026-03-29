@@ -1338,7 +1338,7 @@ describe('WeixinAdapter', () => {
       }
     });
 
-    it('sends malformed WAV as voice_item with explicit playback metadata', async () => {
+    it('sends WAV as minimal voice_item — no metadata fields that trigger WeChat rejection', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-1');
 
@@ -1376,12 +1376,14 @@ describe('WeixinAdapter', () => {
         assert.equal(uploadReq?.media_type, 4, 'WAV should be transcoded and uploaded as VOICE type');
         assert.equal(items[0].type, 3, 'should send VOICE message item');
         assert.ok(voiceItem, 'voice_item must be present');
-        assert.equal(voiceItem.encode_type, 6, 'VOICE encode_type should be SILK');
-        assert.equal(voiceItem.sample_rate, 24000, 'sample rate metadata should be preserved');
-        assert.ok(
-          Number(voiceItem.playtime) >= 1900,
-          `playtime should reflect real audio duration, got ${voiceItem.playtime}`,
-        );
+        // Official SDK (@tencent-weixin/openclaw-weixin@2.1.1) does NOT implement voice sending.
+        // Adding encode_type/sample_rate/playtime caused WeChat to reject the message entirely
+        // (voice regressed from "1s fake" to "completely gone"). Keep voice_item minimal.
+        assert.equal(voiceItem.encode_type, undefined, 'encode_type must NOT be sent — triggers WeChat rejection');
+        assert.equal(voiceItem.sample_rate, undefined, 'sample_rate must NOT be sent — triggers WeChat rejection');
+        assert.equal(voiceItem.playtime, undefined, 'playtime must NOT be sent — triggers WeChat rejection');
+        // media ref must be present
+        assert.ok(voiceItem.media, 'media CDN reference must be present');
       } finally {
         await unlink(wavPath).catch(() => {});
       }

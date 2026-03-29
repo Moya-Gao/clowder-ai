@@ -675,7 +675,6 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
 
     // WeChat voice messages require SILK codec; when conversion fails, degrade to file delivery.
-    let voiceMeta: { durationMs: number; sampleRate: number } | undefined;
     if (payload.type === 'audio' && actualFilePath.endsWith('.wav')) {
       const converted = await this.convertWavToSilk(actualFilePath);
       if (converted) {
@@ -686,7 +685,6 @@ export class WeixinAdapter implements IOutboundAdapter {
         }
         actualFilePath = converted.silkPath;
         tempFilePath = converted.silkPath;
-        voiceMeta = { durationMs: converted.durationMs, sampleRate: converted.sampleRate };
       }
     }
 
@@ -731,12 +729,11 @@ export class WeixinAdapter implements IOutboundAdapter {
       if (payload.type === 'image') {
         mediaItem.image_item = { media: mediaRef, mid_size: uploaded.fileSizeCiphertext };
       } else if (payload.type === 'audio' && audioAsVoice) {
-        mediaItem.voice_item = {
-          media: mediaRef,
-          encode_type: 6, // SILK
-          sample_rate: voiceMeta?.sampleRate ?? 24000,
-          playtime: voiceMeta?.durationMs,
-        };
+        // Official SDK (@tencent-weixin/openclaw-weixin@2.1.1) does NOT implement voice sending.
+        // Adding encode_type/sample_rate/playtime caused WeChat to reject the voice entirely
+        // (regression: "1s fake voice" → "completely gone"). Keep voice_item minimal — WeChat
+        // auto-detects codec and duration from the SILK payload itself.
+        mediaItem.voice_item = { media: mediaRef };
       } else {
         const { basename } = await import('node:path');
         mediaItem.file_item = {
