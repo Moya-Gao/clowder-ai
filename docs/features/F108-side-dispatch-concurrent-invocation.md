@@ -136,6 +136,7 @@ created: 2026-03-12
 | 2026-03-28 | UX fidelity gap analysis: 功能闭环 ✅，UX 闭环待 Scene 2/5C |
 | 2026-03-28 | Scene 2 WhisperCatSelector merged (PR #842) — UX 闭环 |
 | 2026-03-28 | Scene 2 v2 rewrite: mention-like floating popup (PR #846) — 铲屎官 UX 反馈 |
+| 2026-03-28 | P1 hotfix: concurrent cancel isolation (PR #848) — 取消一只猫不再误清其他猫状态 |
 
 ## UX Fidelity Gap（功能闭环 vs UX 闭环）
 
