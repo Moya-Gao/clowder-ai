@@ -728,6 +728,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA',
+    defaultValue: '0',
+    description: '是否抓取入站微信语音媒体（1=把 voice media 当文件附件落盘，便于 SILK 二进制对比；0=保持当前行为）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
     name: 'WEIXIN_BOT_TOKEN',
     defaultValue: '(未设置 → 不启用)',
     description: '微信机器人 Token（F137 微信个人网关）',

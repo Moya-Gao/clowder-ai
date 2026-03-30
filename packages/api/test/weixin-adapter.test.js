@@ -195,6 +195,72 @@ describe('WeixinAdapter', () => {
       assert.equal(result.messages[0].text, '语音转文字内容');
     });
 
+    it('does not expose voice media attachment by default', () => {
+      delete process.env.WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA;
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = {
+        ret: 0,
+        msgs: [
+          {
+            message_id: 10031,
+            from_user_id: 'user1',
+            context_token: 'ctx-voice-default',
+            item_list: [
+              {
+                type: 3,
+                voice_item: {
+                  text: '默认不抓媒体',
+                  media: { encrypt_query_param: 'eqp-voice', aes_key: 'voice-key' },
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = adapter.parseUpdates(raw);
+      assert.equal(result.messages.length, 1);
+      assert.equal(result.messages[0].text, '默认不抓媒体');
+      assert.equal(result.messages[0].attachments, undefined);
+    });
+
+    it('captures inbound voice media as file attachment when WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA=1', () => {
+      process.env.WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA = '1';
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const raw = {
+        ret: 0,
+        msgs: [
+          {
+            message_id: 10032,
+            from_user_id: 'user1',
+            context_token: 'ctx-voice-capture',
+            item_list: [
+              {
+                type: 3,
+                voice_item: {
+                  text: '',
+                  media: { encrypt_query_param: 'eqp-voice-cap', aes_key: 'voice-key-cap' },
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      try {
+        const result = adapter.parseUpdates(raw);
+        assert.equal(result.messages.length, 1);
+        assert.equal(result.messages[0].text, '[语音]');
+        assert.equal(result.messages[0].attachments?.[0]?.type, 'file');
+        assert.equal(result.messages[0].attachments?.[0]?.fileName, 'weixin-voice-10032.silk');
+        const mediaKey = JSON.parse(result.messages[0].attachments?.[0]?.mediaUrl ?? '{}');
+        assert.equal(mediaKey.encryptQueryParam, 'eqp-voice-cap');
+        assert.equal(mediaKey.aesKey, 'voice-key-cap');
+      } finally {
+        delete process.env.WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA;
+      }
+    });
+
     it('parses voice messages without transcription as placeholder', () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       const raw = {

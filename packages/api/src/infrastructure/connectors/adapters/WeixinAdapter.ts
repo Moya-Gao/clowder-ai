@@ -47,9 +47,14 @@ const QRCODE_TIMEOUT_MS = 5 * 60 * 1000;
 type WeixinVoiceItemMode = 'minimal' | 'playtime' | 'playtime-sec' | 'playtime-encode' | 'metadata';
 const UNSAFE_VOICE_MODE_ENV = 'WEIXIN_ENABLE_UNSAFE_VOICE_MODES';
 const UNSAFE_VOICE_MODES = new Set<WeixinVoiceItemMode>(['playtime-encode', 'metadata']);
+const CAPTURE_INBOUND_VOICE_ENV = 'WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA';
 
 function isUnsafeVoiceModeEnabled(): boolean {
   return process.env[UNSAFE_VOICE_MODE_ENV] === '1';
+}
+
+function isInboundVoiceCaptureEnabled(): boolean {
+  return process.env[CAPTURE_INBOUND_VOICE_ENV] === '1';
 }
 
 function getWeixinVoiceItemMode(log?: FastifyBaseLogger): WeixinVoiceItemMode {
@@ -356,12 +361,21 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
 
     if (itemType === MessageItemType.VOICE) {
+      const media = firstItem.voice_item?.media;
+      const mediaKey =
+        media?.encrypt_query_param && media?.aes_key
+          ? JSON.stringify({ encryptQueryParam: media.encrypt_query_param, aesKey: media.aes_key })
+          : '';
       return {
         chatId: senderId,
         text: firstItem.voice_item?.text || '[语音]',
         messageId: msgId,
         senderId,
         contextToken,
+        attachments:
+          isInboundVoiceCaptureEnabled() && mediaKey
+            ? [{ type: 'file' as const, mediaUrl: mediaKey, fileName: `weixin-voice-${msgId}.silk` }]
+            : undefined,
       };
     }
 
