@@ -306,7 +306,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   let didWriteAudit = false;
   let didComplete = false;
   let didResetRestoreFailures = false;
-  let openCodeRuntimeConfigPath: string | undefined;
+  let openCodeRuntimeConfigDir: string | undefined;
   const hostProjectRoot = findMonorepoRoot(process.cwd());
 
   // === CAT_INVOKED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
@@ -842,14 +842,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             ? 'google'
             : 'openai';
       const rawModels = resolvedAccount.models?.length ? resolvedAccount.models : [effectiveModel];
-      openCodeRuntimeConfigPath = writeOpenCodeRuntimeConfig(projectRoot, catId as string, invocationId, {
+      openCodeRuntimeConfigDir = writeOpenCodeRuntimeConfig(projectRoot, catId as string, invocationId, {
         providerName: effectiveProviderName,
         models: rawModels,
         defaultModel: effectiveModel,
         apiType,
         hasBaseUrl: Boolean(resolvedAccount.baseUrl),
       });
-      callbackEnv.OPENCODE_CONFIG = openCodeRuntimeConfigPath;
+      callbackEnv.OPENCODE_CONFIG_DIR = openCodeRuntimeConfigDir;
       if (resolvedAccount.apiKey) callbackEnv[OC_API_KEY_ENV] = resolvedAccount.apiKey;
       if (resolvedAccount.baseUrl) callbackEnv[OC_BASE_URL_ENV] = resolvedAccount.baseUrl;
     }
@@ -1617,9 +1617,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F118: Release session mutex (idempotent — safe if never acquired)
     sessionMutexRelease?.();
 
-    if (openCodeRuntimeConfigPath) {
-      await rm(openCodeRuntimeConfigPath, { force: true }).catch((err) => {
-        log.warn({ invocationId, path: openCodeRuntimeConfigPath, err }, 'Failed to remove OpenCode runtime config');
+    if (openCodeRuntimeConfigDir) {
+      await rm(openCodeRuntimeConfigDir, { recursive: true, force: true }).catch((err) => {
+        log.warn({ invocationId, path: openCodeRuntimeConfigDir, err }, 'Failed to remove OpenCode runtime config dir');
       });
     }
 
