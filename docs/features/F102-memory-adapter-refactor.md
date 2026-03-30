@@ -1009,6 +1009,70 @@ L2 检索投影：evidence_passages / passage_fts（SQLite）
 - `env-registry.ts` 对 `MESSAGE_TTL_SECONDS` 描述补充默认 7 天行为 + TTL=0 含义
 - 考虑 `depth=raw` 搜索结果标注 `source: 'redis' | 'transcript'`（便于调试）
 
+### Phase J: Memory Hub — 记忆系统的人类产品面
+
+> **触发**：铲屎官发现社区用户用不起来记忆系统——"藏得太死了"。F088/F137/定时任务都有前端页面，记忆系统却完全隐形。
+> **铲屎官核心洞察**："你们在收记忆的时候，我要是能偷偷看一眼你们到底搜到了什么记忆，这种体验最好。"
+> **砚砚(GPT-5.4) 评审**：Workspace 方案是绕路——Memory 已是一级产品能力，不能继续伪装成侧栏模式。主入口必须是独立页面。
+> **收敛（2026-03-30）**：布偶猫+砚砚+铲屎官三方共识——两面入口 + Recall Feed。
+
+**产品定位**：Memory 不是开发者工具，是**人猫共用的知识中枢**。人能主动探索，也能在猫用记忆时被动看到过程。
+
+**J-1. 主入口：`/memory` 独立路由页面（左侧导航）**
+
+位置：左侧导航栏，和对话列表/IM Hub 同级（铲屎官确认 2026-03-30）。
+
+```
+/memory
+├── 搜索栏（人类直接可用，不需要让猫帮忙搜）
+├── Tab 1: 涌现 Feed（现有 Knowledge Feed 迁移，从 Workspace 知识模式升级而来）
+├── Tab 2: 知识检索（evidence search + passage drill-down + 来源标注）
+├── Tab 3: 索引状态（docs/threads/passages 数量、rebuild 时间、TTL、embedding mode）
+└── [Phase F] 项目切换器（当前项目 / 全局记忆 / 其他项目）
+```
+
+**设计原则**：
+- 和 `/signals` 同等级的独立路由（不是 Hub 模态弹窗里的 tab）
+- 搜索体验对标 evidence MCP 工具的能力——mode（lexical/semantic/hybrid）、scope、depth 都可调
+- 索引状态让铲屎官一眼看到"记忆系统是不是健康的"
+
+**J-2. 上下文入口：Workspace Recall Feed（对话中联动）**
+
+铲屎官"偷偷看一眼"的核心体验：
+
+```
+对话区（左）                    |  Recall 面板（右）
+                                |
+[铲屎官] 问题...                |  🔍 猫正在搜索...
+                                |  query: "放弃 Hindsight 决策"
+[布偶猫] 正在思考...             |  mode: hybrid | scope: docs
+                                |
+                                |  📋 命中 3 条：
+                                |  ① ADR-005 (0.92) "本地优先"
+                                |  ② F102 KD-1 (0.87) "三猫全票"
+                                |  ③ LL-012 (0.71) "实在难用"
+                                |
+[布偶猫] 根据 ADR-005...        |  ← 猫引用了 ①，高亮
+```
+
+**技术路径**：猫调 `search_evidence` → invocation 层拦截 tool_use 事件 → 向前端推送 recall event（query + results + scores）→ Workspace Recall 面板实时渲染。猫不需要做额外事情——照常搜，前端自动展示。
+
+**J-3. 快捷入口：Hub "记忆" tab（监控与治理组）**
+
+Hub 模态弹窗 Group 3（监控与治理）加一个轻量 tab：
+- 索引状态速览（docs/threads/passages 数量 + 最近 rebuild 时间）
+- "打开 Memory" 一键跳转 `/memory`
+- 不做完整功能——Hub 已有 12 个 tab，不宜再塞重内容
+
+**J-4. Knowledge Feed 归属调整**
+
+Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1。Workspace 保留上下文级的 Recall Feed（J-2），不再承载完整 Knowledge Feed。
+
+**产品面命名**：
+- Workspace 原 `[知识]` 模式 → 改名为 `[记忆]` 或 `[Recall]`
+- Hub 里 → "记忆状态"
+- 独立页面 → `/memory`（Memory Hub）
+
 ## Phase D 完成后的预期效果
 
 > 铲屎官指示：做完后要讲清楚"铲屎官日常使用感受到什么优化"和"猫猫自己感受到什么优化"。跑一段时间才知道做得好不好。
@@ -1130,6 +1194,16 @@ L2 检索投影：evidence_passages / passage_fts（SQLite）
 - [ ] AC-I5: `env-registry.ts` 对 `MESSAGE_TTL_SECONDS` 描述明确说明默认 7 天行为 + TTL≤0 变为永不过期的含义
 - [ ] AC-I6: 回归测试——模拟 Redis 消息过期场景下 rebuild 仍能通过 JSONL 恢复 passage（红→绿）
 
+### Phase J（Memory Hub — 记忆系统的人类产品面）
+- [ ] AC-J1: `/memory` 独立路由页面存在，左侧导航栏有入口（和对话列表/IM Hub 同级）
+- [ ] AC-J2: `/memory` 页面包含人类可用的搜索栏，支持 mode/scope/depth 参数调节
+- [ ] AC-J3: Knowledge Feed（Phase H）从 Workspace 知识模式迁移到 `/memory` Tab 1
+- [ ] AC-J4: `/memory` Tab 3 展示索引状态（docs/threads/passages 数量、最近 rebuild 时间、TTL 配置、embedding mode）
+- [ ] AC-J5: Workspace Recall Feed——猫调 `search_evidence` 时，右侧面板实时展示 query + results + scores
+- [ ] AC-J6: Recall Feed 不需要猫做额外工作——invocation 层自动拦截 tool_use 事件并推送前端
+- [ ] AC-J7: Hub Group 3（监控与治理）有 Memory 状态 tab，含索引速览 + "打开 Memory" 跳转按钮
+- [ ] AC-J8: Workspace 原"知识"模式更名为"记忆" / "Recall"，承载 Recall Feed 而非完整 Knowledge Feed
+
 ## Dependencies
 
 - **Evolved from**: F024（Session Chain — 提供了 sealed session digest 数据源）
@@ -1211,6 +1285,8 @@ L2 检索投影：evidence_passages / passage_fts（SQLite）
 | KD-45 | **消息真相源三层分层（L0/L1/L2）**——L0 Redis（热状态，TTL-bound）/ L1 Session JSONL（永久原文）/ L2 evidence_passages（检索投影）。L2 构建必须以 L1 为终极兜底，不能只依赖 L0 | 金渐层深度使用暴露：JSONL 永久保存但搜索链路绕过它；布偶猫+砚砚共识 | 2026-03-30 |
 | KD-46 | **KD-32 修正：Redis 默认 7 天 TTL，非永久**——KD-32 假设"真相源在 Redis（TTL=0 永久）"，实际 `DEFAULT_TTL_SECONDS = 604800`（7 天），.env 未覆盖。Passage 索引不能假设 Redis 永久可用 | 代码审计 + .env 检查确认 | 2026-03-30 |
 | KD-47 | **时间过滤必须排在 JSONL backfill 之后**——先保证旧消息永远能搜到，再做按时间切片搜。否则时间过滤会放大"明明 transcript 在但搜不到"的体验落差 | 砚砚风险分析 | 2026-03-30 |
+| KD-48 | **Memory 主入口是独立路由页面 `/memory`（左侧导航），不是 Workspace 模式**——Workspace 只做上下文 Recall Feed（副入口）。砚砚评审："继续把 Memory 藏在 Workspace 里是绕路，违反面向终态设计" | 砚砚评审 + 铲屎官确认 | 2026-03-30 |
+| KD-49 | **Recall Feed = 猫搜记忆时人实时可见**——invocation 层拦截 search_evidence tool_use → 推送 query+results 到前端 Workspace 面板。猫不需要额外工作，前端自动展示 | 铲屎官核心洞察："偷偷看一眼猫搜到了什么记忆" | 2026-03-30 |
 
 ## Timeline
 
@@ -1285,10 +1361,13 @@ L2 检索投影：evidence_passages / passage_fts（SQLite）
 | 2026-03-27 | Knowledge Feed 候选质量修复（PR #772 merged）：prompt 准入标准 + isImplementationNoise 三层 reject gate + 11 回归测试 |
 | 2026-03-30 | 金渐层深度使用 search_evidence 暴露 passage 数据源空洞（Redis 7 天 TTL，非永久） |
 | 2026-03-30 | 布偶猫+砚砚讨论收敛：消息真相源三层分层（KD-45）+ KD-32 修正（KD-46）→ Phase I 立项 |
+| 2026-03-30 | 铲屎官提出记忆系统可见性问题："社区用不起来，藏得太死了" |
+| 2026-03-30 | 铲屎官核心洞察："偷偷看一眼猫搜到了什么记忆" → 人猫共用定位 |
+| 2026-03-30 | 砚砚评审：Workspace 方案绕路 → 布偶猫接受 → 三方收敛 `/memory` 独立路由（左侧导航）+ Recall Feed（Workspace）→ Phase J 立项 |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I 已立项（message-level permanence repair）。Phase F + G 运行时验收 + Phase I + IMaterializationService 待开。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I 已立项（message-level permanence repair）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F + G 运行时验收 + Phase I + Phase J + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序
