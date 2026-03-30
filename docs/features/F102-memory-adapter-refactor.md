@@ -957,6 +957,58 @@ Workspace 面板顶部：
 
 > **待做**：IMaterializationService（approved → docs/*.md 自动写入） · 暹罗猫精细视觉设计
 
+### Phase I: Message-Level Permanence Repair — JSONL-backed passage reconciliation
+
+> **触发**：金渐层（CVO）深度使用 `search_evidence` 暴露核心架构空洞——Session JSONL 永久保存了所有消息，但搜索链路完全绕过它。Passage 索引数据源是 Redis（7 天 TTL 默认），rebuild 后过期消息的 passage 会丢失。
+> **布偶猫 + 砚砚(GPT-5.4) 讨论收敛（2026-03-30）**：共识优先级 P1 JSONL backfill > P2 时间过滤 > P3 配置透明化。命名 "message-level permanence repair"——本质是永久性修复，不是搜索增强。
+
+**当前架构空洞**
+
+```
+L0 热状态：Redis messages（默认 7 天 TTL）
+L1 永久原文：Session transcript JSONL（永不删除）
+L2 检索投影：evidence_passages / passage_fts（SQLite）
+
+问题：L2 从 L0 构建，不从 L1 构建。
+      → rebuild 时 L0 过期的消息不会进入 L2
+      → L1 永久保存了一切但搜索链路绕过它
+      → "永久记忆" 对 message-level recall 是半假的
+```
+
+**KD-32 修正**：原决策假设"真相源在 Redis（TTL=0 永久）"，但代码默认 `DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60`（7 天），且 `.env` 未配置覆盖值。Passage 索引依赖 Redis 作为唯一数据源 = 依赖一个 7 天 TTL 的临时层。
+
+**I-1. Passage Reconciliation Pipeline（P1 — 核心修复）**
+
+改造 `IndexBuilder.indexPassages()` 的数据源策略：
+
+```
+当前：messageListFn(threadId) → Redis only → delete-all + insert
+
+改为：
+  messageListFn(threadId) → Redis（热路径）
+  if Redis 返回消息数 < SQLite 已有 passage 数（说明有过期）:
+    → TranscriptReader.readEvents(threadId) → JSONL 补全
+  rebuild 时 passage 只增不减（incremental merge，不 delete-all-then-insert）
+```
+
+**约束**：
+- 热路径不变——新消息仍从 Redis 写 passage（<5ms 延迟）
+- JSONL fallback 只在 rebuild/reconcile 时触发（不影响实时性能）
+- Session → thread 映射天然存在（JSONL 目录结构 `threads/<threadId>/<catId>/sessions/`）
+
+**I-2. search_evidence 时间范围过滤（P2）**
+
+`SearchOptions` 加 `dateFrom`/`dateTo` 参数：
+- `evidence_docs`：用 `updatedAt` 过滤
+- `evidence_passages`：用 `created_at` 过滤
+- **必须在 I-1 之后做**——否则时间过滤会放大"旧消息明明在 transcript 里却搜不到"的体验落差（砚砚风险分析）
+
+**I-3. 消息真相源分层显式化（P3）**
+
+- 代码内明确 L0/L1/L2 三层关系（注释 + 架构文档）
+- `env-registry.ts` 对 `MESSAGE_TTL_SECONDS` 描述补充默认 7 天行为 + TTL=0 含义
+- 考虑 `depth=raw` 搜索结果标注 `source: 'redis' | 'transcript'`（便于调试）
+
 ## Phase D 完成后的预期效果
 
 > 铲屎官指示：做完后要讲清楚"铲屎官日常使用感受到什么优化"和"猫猫自己感受到什么优化"。跑一段时间才知道做得好不好。
@@ -1070,6 +1122,14 @@ Workspace 面板顶部：
 - [x] AC-E7: session digest 路径修复（transcriptDataDir 解析确认正确） — **PR #537 merged**
 - [x] AC-E8: lesson/pitfall 召回质量改进 — **PR #537 merged（splitLessonsLearned 32 个独立条目）**
 
+### Phase I（Message-Level Permanence Repair — JSONL-backed passage reconciliation）
+- [ ] AC-I1: `indexPassages()` 优先从 Redis 取消息，Redis 缺失（消息数 < 已有 passage 数）时从 JSONL transcript fallback 补全
+- [ ] AC-I2: rebuild 时 passage 只增不减——不因 Redis 消息过期导致已索引 passage 被删除
+- [ ] AC-I3: 新消息热路径不变（Redis → passage，延迟 <5ms）
+- [ ] AC-I4: `SearchOptions` 支持 `dateFrom`/`dateTo` 参数，`evidence_docs` 和 `evidence_passages` 均支持时间范围过滤
+- [ ] AC-I5: `env-registry.ts` 对 `MESSAGE_TTL_SECONDS` 描述明确说明默认 7 天行为 + TTL≤0 变为永不过期的含义
+- [ ] AC-I6: 回归测试——模拟 Redis 消息过期场景下 rebuild 仍能通过 JSONL 恢复 passage（红→绿）
+
 ## Dependencies
 
 - **Evolved from**: F024（Session Chain — 提供了 sealed session digest 数据源）
@@ -1089,6 +1149,7 @@ Workspace 面板顶部：
 | 过期知识高相似误召回 | `superseded_by` 字段 + 检索降权（KD-16） |
 | 评测缺失导致上线后才发现检索质量差 | Phase B 加评测集（KD-17） |
 | 614MB ONNX 模型拖慢启动/OOM | 资源门禁 + 兜底模型 + fail-open（KD-20） |
+| Passage 索引依赖 Redis（7 天 TTL），rebuild 后丢失过期消息 | Phase I: JSONL fallback + incremental merge（KD-45/46） |
 | 模型/维度变更后向量不一致 | 版本锚 + 全量 re-embed（KD-22） |
 
 ## Open Questions
@@ -1147,6 +1208,9 @@ Workspace 面板顶部：
 | KD-42 | **LSM-style compaction + 双写（read model + append-only segment ledger）**——`evidence_docs.summary` 是 read model，`summary_segments` 是 append-only provenance。L2 凝结 deferred 但 segment ledger 让升级成本很低 | 砚砚坚持 segment ledger 防漂移/不可审计/错误放大，架构师采纳——成本仅多一张表一次 INSERT，收益是完整可审计性 | 2026-03-20 |
 | KD-43 | **一次 delta batch 产出 1..N 个 topic segments**（Opus 按话题切分，最多 3 段，不确定退化 1 段）——跨时间窗只 link 不 merge，merge 留给 L2 | 铲屎官提出动态语义窗口（一个增量可能混多个话题），砚砚约束：连续/覆盖/最多 3 段/不回改旧 segment/必须带 topicKey + boundaryReason | 2026-03-20 |
 | KD-44 | **三种检索模式各有独立路径**——lexical=纯 BM25，semantic=纯向量 NN（跳过 BM25），hybrid=BM25+NN 双路召回 → RRF 融合。Phase C 只实现了 rerank（BM25 上重排序），不是真的 semantic/hybrid | 铲屎官实测：semantic 搜 "why are cats named 宪宪 砚砚 烁烁" 搜不到猫名故事——因为 BM25 没召回，rerank 无法补救。真的 semantic 应该直接 NN 搜索 | 2026-03-21 |
+| KD-45 | **消息真相源三层分层（L0/L1/L2）**——L0 Redis（热状态，TTL-bound）/ L1 Session JSONL（永久原文）/ L2 evidence_passages（检索投影）。L2 构建必须以 L1 为终极兜底，不能只依赖 L0 | 金渐层深度使用暴露：JSONL 永久保存但搜索链路绕过它；布偶猫+砚砚共识 | 2026-03-30 |
+| KD-46 | **KD-32 修正：Redis 默认 7 天 TTL，非永久**——KD-32 假设"真相源在 Redis（TTL=0 永久）"，实际 `DEFAULT_TTL_SECONDS = 604800`（7 天），.env 未覆盖。Passage 索引不能假设 Redis 永久可用 | 代码审计 + .env 检查确认 | 2026-03-30 |
+| KD-47 | **时间过滤必须排在 JSONL backfill 之后**——先保证旧消息永远能搜到，再做按时间切片搜。否则时间过滤会放大"明明 transcript 在但搜不到"的体验落差 | 砚砚风险分析 | 2026-03-30 |
 
 ## Timeline
 
@@ -1219,10 +1283,12 @@ Workspace 面板顶部：
 | 2026-03-25 | **PR #737 squash merged** — Phase H (H-1/H-2/H-3/H-8) ✅ |
 | 2026-03-26 | Knowledge Feed 空 bug 修复（PR #765 merged）：mkdirSync + content-based dedup backfill |
 | 2026-03-27 | Knowledge Feed 候选质量修复（PR #772 merged）：prompt 准入标准 + isImplementationNoise 三层 reject gate + 11 回归测试 |
+| 2026-03-30 | 金渐层深度使用 search_evidence 暴露 passage 数据源空洞（Redis 7 天 TTL，非永久） |
+| 2026-03-30 | 布偶猫+砚砚讨论收敛：消息真相源三层分层（KD-45）+ KD-32 修正（KD-46）→ Phase I 立项 |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）。Phase F + G 运行时验收 + IMaterializationService 待开。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I 已立项（message-level permanence repair）。Phase F + G 运行时验收 + Phase I + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序
