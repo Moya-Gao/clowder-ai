@@ -121,10 +121,12 @@ Most Chinese AI providers now support **both** API formats:
 
 **Get API Key**: [platform.minimax.io](https://platform.minimax.io/)
 
-| Protocol | Base URL |
-|----------|----------|
-| OpenAI | `https://api.minimax.io/v1` |
-| Anthropic | `https://api.minimax.io/anthropic` |
+| Protocol | Base URL | Region |
+|----------|----------|--------|
+| OpenAI | `https://api.minimax.io/v1` | International |
+| OpenAI | `https://api.minimaxi.com/v1` | China Mainland |
+| Anthropic | `https://api.minimax.io/anthropic/v1` | International |
+| Anthropic | `https://api.minimaxi.com/anthropic/v1` | China Mainland |
 
 **Models**: `MiniMax-M2.7`, `MiniMax-M2.5`, `MiniMax-M2.1`
 
@@ -134,7 +136,7 @@ Most Chinese AI providers now support **both** API formats:
 |-------|-------|
 | Client | `opencode` |
 | Protocol | `openai` |
-| Base URL | `https://api.minimax.io/v1` |
+| Base URL | `https://api.minimaxi.com/v1` |
 | Model | `MiniMax-M2.7` |
 | ocProviderName | `minimax` |
 
@@ -144,7 +146,7 @@ Most Chinese AI providers now support **both** API formats:
 |-------|-------|
 | Client | `claude-code` |
 | Protocol | `anthropic` |
-| Base URL | `https://api.minimax.io/anthropic` |
+| Base URL | `https://api.minimaxi.com/anthropic/v1` |
 | Model | `MiniMax-M2.7` |
 
 #### Option C: opencode + Anthropic protocol
@@ -153,7 +155,7 @@ Most Chinese AI providers now support **both** API formats:
 |-------|-------|
 | Client | `opencode` |
 | Protocol | `anthropic` |
-| Base URL | `https://api.minimax.io/anthropic` |
+| Base URL | `https://api.minimaxi.com/anthropic/v1` |
 | Model | `MiniMax-M2.7` |
 | ocProviderName | `minimax` |
 
@@ -245,31 +247,23 @@ opencode is the most flexible. In the Hub:
 
 ## Common Pitfalls
 
-### 1. Base URL path rules differ by protocol
+### 1. Base URL must include the full path — copy it exactly from the provider docs
 
-The SDK appends the API path directly to your base URL. The rules differ:
+The SDK appends the API method path directly to your base URL. If the base URL
+is wrong, you get `404 Not Found`.
 
-**OpenAI protocol** — base URL **must** include the version path:
+**Always copy the full base URL from the provider's documentation.** Each provider
+has its own path convention:
 
-| Wrong | Right |
-|-------|-------|
-| `https://api.moonshot.cn` | `https://api.moonshot.cn/v1` |
-| `https://api.minimax.io` | `https://api.minimax.io/v1` |
+| Provider | OpenAI base URL | Anthropic base URL |
+|----------|----------------|--------------------|
+| Kimi | `.../v1` | `.../anthropic` |
+| GLM | `.../api/paas/v4` | `.../api/anthropic` |
+| MiniMax | `.../v1` | `.../anthropic/v1` |
 
-The SDK appends `/chat/completions`, so omitting `/v1` sends requests to
-`https://api.moonshot.cn/chat/completions` → 404.
-
-**Anthropic protocol** — base URL **should NOT** include `/v1`:
-
-| Wrong | Right |
-|-------|-------|
-| `https://api.minimax.io/anthropic/v1` | `https://api.minimax.io/anthropic` |
-
-The Anthropic SDK automatically appends `/v1/messages`, so adding `/v1` yourself
-results in a double path like `/anthropic/v1/v1/messages` → 404.
-
-**Quick rule**: OpenAI endpoints end with `/v1` (or `/v4` for GLM). Anthropic
-endpoints end with `/anthropic`. Don't mix them up.
+Note that the paths are **not** consistent across providers — Kimi's Anthropic
+endpoint is `/anthropic` while MiniMax's is `/anthropic/v1`. Don't guess; check
+the provider docs or the Quick Reference Card at the bottom of this guide.
 
 ### 2. ocProviderName must NOT be a built-in name
 
@@ -300,9 +294,12 @@ Each provider has its own model naming convention:
 
 ## Quick Reference Card
 
-| Provider | OpenAI Base URL | Anthropic Base URL | Suggested ocProviderName |
-|----------|----------------|--------------------|--------------------------|
-| Kimi | `https://api.moonshot.ai/v1` | `https://api.moonshot.ai/anthropic` | `kimi` |
-| GLM | `https://open.bigmodel.cn/api/paas/v4` | `https://api.z.ai/api/anthropic` | `glm` |
-| MiniMax | `https://api.minimax.io/v1` | `https://api.minimax.io/anthropic` | `minimax` |
+| Provider | OpenAI Base URL | Anthropic Base URL | ocProviderName |
+|----------|----------------|--------------------|----------------|
+| Kimi (intl) | `https://api.moonshot.ai/v1` | `https://api.moonshot.ai/anthropic` | `kimi` |
+| Kimi (CN) | `https://api.moonshot.cn/v1` | — | `kimi` |
+| GLM (CN) | `https://open.bigmodel.cn/api/paas/v4` | — | `glm` |
+| GLM (intl) | `https://api.z.ai/api/paas/v4` | `https://api.z.ai/api/anthropic` | `glm` |
+| MiniMax (intl) | `https://api.minimax.io/v1` | `https://api.minimax.io/anthropic/v1` | `minimax` |
+| MiniMax (CN) | `https://api.minimaxi.com/v1` | `https://api.minimaxi.com/anthropic/v1` | `minimax` |
 | OpenRouter | `https://openrouter.ai/api/v1` | — | `openrouter` |
