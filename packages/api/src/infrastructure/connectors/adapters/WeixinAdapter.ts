@@ -909,11 +909,11 @@ export class WeixinAdapter implements IOutboundAdapter {
         return null;
       }
       const result = await encode(parsed.pcm, parsed.sampleRate);
-      // Append SILK v3 end-of-stream marker (0xFFFF) — silk-wasm omits it but WeChat's
-      // decoder may require the terminator for proper playback.
-      const silkWithEos = Buffer.concat([Buffer.from(result.data), Buffer.from([0xff, 0xff])]);
+      // Write raw SILK output — do NOT append 0xFFFF EOS marker.
+      // Evidence: inbound WeChat SILK has no EOS marker and ends exactly at last frame.
+      // The 0xFFFF bytes are read as int16LE frame-size = -1, which crashes WeChat's decoder.
       const silkPath = join(tmpdir(), `cat-cafe-weixin-${Date.now()}.silk`);
-      await writeFile(silkPath, silkWithEos);
+      await writeFile(silkPath, Buffer.from(result.data));
       this.log.info(
         { wavPath, silkPath, duration: result.duration, sampleRate: parsed.sampleRate },
         '[WeixinAdapter] convertWavToSilk: success',

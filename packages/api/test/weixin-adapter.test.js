@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { unlink, writeFile } from 'node:fs/promises';
+import { readFile, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
@@ -1644,6 +1644,35 @@ describe('WeixinAdapter', () => {
       } finally {
         delete process.env.WEIXIN_VOICE_ITEM_MODE;
         delete process.env.WEIXIN_ENABLE_UNSAFE_VOICE_MODES;
+        await unlink(wavPath).catch(() => {});
+      }
+    });
+
+    it('SILK output must not append 0xFFFF trailer (regression: EOS marker crashes WeChat decoder)', async () => {
+      // Evidence: inbound WeChat SILK has no EOS marker and ends exactly at last frame.
+      // 0xFFFF as int16LE = -1, read as invalid frame-size by WeChat's decoder.
+      // Old code appended Buffer.from([0xff, 0xff]) — this test turns RED on that code.
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const wavPath = join(tmpdir(), `cat-cafe-silk-eos-regression-${Date.now()}.wav`);
+      await writeFile(wavPath, makeMalformedWav(24000, 1));
+
+      try {
+        // Call convertWavToSilk directly (TS private is not enforced at JS runtime)
+        const result = await adapter.convertWavToSilk(wavPath);
+        assert.ok(result, 'WAV→SILK conversion must succeed');
+
+        const silkBytes = await readFile(result.silkPath);
+        // Core assertion: last 2 bytes must NOT be 0xFF 0xFF
+        const lastTwo = silkBytes.subarray(-2);
+        assert.ok(
+          lastTwo[0] !== 0xff || lastTwo[1] !== 0xff,
+          'SILK output must NOT end with 0xFFFF — WeChat reads it as frame-size -1 and crashes',
+        );
+        // Verify SILK header is intact
+        assert.ok(silkBytes.subarray(0, 10).toString().includes('SILK_V3'), 'must have SILK_V3 header');
+
+        await unlink(result.silkPath).catch(() => {});
+      } finally {
         await unlink(wavPath).catch(() => {});
       }
     });
