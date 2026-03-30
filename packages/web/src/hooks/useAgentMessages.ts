@@ -604,7 +604,16 @@ export function useAgentMessages() {
           // remove only this cat's latest active slot to avoid clearing other cats' slots
           // during multi-cat concurrent dispatch.
           if (msg.invocationId) {
-            removeActiveInvocation(msg.invocationId);
+            // F869: Multi-cat slot-aware cleanup. Primary cats use invocationId as slot
+            // key; secondary cats use ${invocationId}-${catId}. Only remove the slot
+            // that belongs to THIS cat to prevent cross-cat interference during concurrent
+            // multi-cat dispatch.
+            const slotState = useChatStore.getState();
+            const primarySlot = slotState.activeInvocations[msg.invocationId];
+            if (primarySlot?.catId === msg.catId) {
+              removeActiveInvocation(msg.invocationId);
+            }
+            removeActiveInvocation(`${msg.invocationId}-${msg.catId}`);
             // Hydrated synthetic IDs (hydrated-${threadId}-${catId}) won't match the real
             // invocationId from the server. Only clean up hydrated- prefixed orphans to
             // avoid accidentally deleting a NEW invocation's slot during same-cat preempt
@@ -994,8 +1003,14 @@ export function useAgentMessages() {
           clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
           // F108: clear this cat's invocation slot on terminal error
           if (msg.invocationId) {
-            removeActiveInvocation(msg.invocationId);
-            // Same hydrated-only orphan cleanup as the done(isFinal) path above.
+            // F869: Same multi-cat slot-aware cleanup as the done(isFinal) path.
+            const slotState = useChatStore.getState();
+            const primarySlot = slotState.activeInvocations[msg.invocationId];
+            if (primarySlot?.catId === msg.catId) {
+              removeActiveInvocation(msg.invocationId);
+            }
+            removeActiveInvocation(`${msg.invocationId}-${msg.catId}`);
+            // Hydrated-only orphan cleanup (same as done path).
             const stateAfter = useChatStore.getState();
             const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
             if (orphan?.startsWith('hydrated-')) {
