@@ -334,6 +334,7 @@ if (connectionMode === 'websocket') {
 | 2026-03-26 | 缅因猫 review: P1 (AC-E6 steps 不按模式变) + P2 (normalization + WSClient mock) → 修复 → Round 2 放行 |
 | 2026-03-26 | PR #745 squash merged, Phase A-E all done |
 | 2026-03-30 | clowder-ai#287（Feishu QR bind in IM Hub）被判定为 F134 follow-up：方向 absorbed，执行 manual-port；补建 accepted issue clowder-ai#301 |
+| 2026-03-30 | 复核 clowder-ai#287：review 已收敛、CI 全绿，maintainer comment 更新为“可以 merge”；手工接入计划落盘 `docs/plans/2026-03-30-f134-feishu-qr-bind-follow-up.md` |
 
 ## Design Gate Results（2026-03-25）
 
@@ -463,6 +464,7 @@ FeishuAdapter.parseEvent()
 - **来源**：`clowder-ai#287`
 - **accepted issue**：`clowder-ai#301`
 - **吸收方式**：**absorbed direction, manual-port execution**
+- **实施计划**：`docs/plans/2026-03-30-f134-feishu-qr-bind-follow-up.md`
 
 之所以不直接 cherry-pick，是因为 cat-cafe 当前主干已经在同一组文件上有更新的 F134/F136 体系：
 
@@ -476,6 +478,15 @@ FeishuAdapter.parseEvent()
 - Feishu QR generate / poll 的后端能力
 - 扫码成功后自动刷新 connector status 的交互
 - save hint 的收敛逻辑与 polling stale response 保护
+
+Follow-up 验收口径：
+
+- **AC-FU1**：IM Hub 的飞书配置卡片内可直接发起扫码绑定，不需要离开当前配置面板
+- **AC-FU2**：`POST /api/connector/feishu/qrcode` 返回可显示的二维码 URL 与后续轮询所需的 payload
+- **AC-FU3**：`GET /api/connector/feishu/qrcode-status` 在确认成功后，通过**我们现有的配置写入/热更新链路**持久化 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`（而不是在 route 中复制一套 `.env` 写入逻辑）
+- **AC-FU4**：当当前模式为 `webhook` 且未配置 `FEISHU_VERIFICATION_TOKEN` 时，扫码成功后自动切到 `websocket`；已有显式模式/verification token 时不擅自覆盖
+- **AC-FU5**：扫码成功后 IM Hub 状态即时刷新，save hint / configured 状态与后端真实配置一致
+- **AC-FU6**：现有手动填写飞书配置、现有 Webhook / WebSocket 模式选择、现有 Weixin QR onboarding 均无回归
 
 ---
 
