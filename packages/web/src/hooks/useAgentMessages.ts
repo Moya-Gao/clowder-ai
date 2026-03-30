@@ -598,7 +598,6 @@ export function useAgentMessages() {
         // cat from PlanBoardPanel and defeat clearCatStatuses' snapshot preservation.
         setCatInvocation(msg.catId, { invocationId: undefined });
         if (msg.isFinal) {
-          clearDoneTimeout();
           // F108: Remove specific invocation slot; fall back to cat-scoped lookup.
           // Steer/force cancel broadcasts done(isFinal) without invocationId — find and
           // remove only this cat's latest active slot to avoid clearing other cats' slots
@@ -636,6 +635,7 @@ export function useAgentMessages() {
           // the execution state (loading/intentMode/catStatuses) of remaining cats.
           const remainingInvocations = Object.keys(useChatStore.getState().activeInvocations ?? {}).length;
           if (remainingInvocations === 0) {
+            clearDoneTimeout();
             setLoading(false);
             setIntentMode(null);
             clearCatStatuses();
@@ -1000,7 +1000,6 @@ export function useAgentMessages() {
         });
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps
         if (msg.isFinal) {
-          clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
           // F108: clear this cat's invocation slot on terminal error
           if (msg.invocationId) {
             // F869: Same multi-cat slot-aware cleanup as the done(isFinal) path.
@@ -1027,6 +1026,7 @@ export function useAgentMessages() {
           // F108 P1 fix: Only clear global state when the LAST active invocation ends.
           const remainingInvocations = Object.keys(useChatStore.getState().activeInvocations ?? {}).length;
           if (remainingInvocations === 0) {
+            clearDoneTimeout();
             setLoading(false);
             setIntentMode(null);
             clearCatStatuses();
