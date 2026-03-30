@@ -45,10 +45,25 @@ const QRCODE_TIMEOUT_MS = 5 * 60 * 1000;
  * Runtime-configurable via WEIXIN_VOICE_ITEM_MODE so 铲屎官 can A/B test without code changes.
  */
 type WeixinVoiceItemMode = 'minimal' | 'playtime' | 'playtime-sec' | 'playtime-encode' | 'metadata';
+const UNSAFE_VOICE_MODE_ENV = 'WEIXIN_ENABLE_UNSAFE_VOICE_MODES';
+const UNSAFE_VOICE_MODES = new Set<WeixinVoiceItemMode>(['playtime-encode', 'metadata']);
 
-function getWeixinVoiceItemMode(): WeixinVoiceItemMode {
+function isUnsafeVoiceModeEnabled(): boolean {
+  return process.env[UNSAFE_VOICE_MODE_ENV] === '1';
+}
+
+function getWeixinVoiceItemMode(log?: FastifyBaseLogger): WeixinVoiceItemMode {
   const mode = process.env.WEIXIN_VOICE_ITEM_MODE?.trim().toLowerCase();
-  if (mode === 'playtime' || mode === 'playtime-sec' || mode === 'playtime-encode' || mode === 'metadata') return mode;
+  if (mode === 'playtime' || mode === 'playtime-sec' || mode === 'playtime-encode' || mode === 'metadata') {
+    if (UNSAFE_VOICE_MODES.has(mode) && !isUnsafeVoiceModeEnabled()) {
+      log?.warn(
+        { requestedMode: mode, fallbackMode: 'playtime', unsafeModeEnv: UNSAFE_VOICE_MODE_ENV },
+        '[WeixinAdapter] unsafe voice mode disabled — falling back to playtime',
+      );
+      return 'playtime';
+    }
+    return mode;
+  }
   return 'minimal';
 }
 
@@ -749,7 +764,7 @@ export class WeixinAdapter implements IOutboundAdapter {
       if (payload.type === 'image') {
         mediaItem.image_item = { media: mediaRef, mid_size: uploaded.fileSizeCiphertext };
       } else if (payload.type === 'audio' && audioAsVoice) {
-        const voiceMode = getWeixinVoiceItemMode();
+        const voiceMode = getWeixinVoiceItemMode(this.log);
         if (voiceMode === 'metadata') {
           mediaItem.voice_item = {
             media: mediaRef,
@@ -768,7 +783,13 @@ export class WeixinAdapter implements IOutboundAdapter {
           mediaItem.voice_item = { media: mediaRef };
         }
         this.log.info(
-          { chatId: externalChatId, mode: voiceMode, durationMs: voiceMeta?.durationMs },
+          {
+            chatId: externalChatId,
+            mode: voiceMode,
+            requestedMode: process.env.WEIXIN_VOICE_ITEM_MODE,
+            unsafeVoiceModesEnabled: isUnsafeVoiceModeEnabled(),
+            durationMs: voiceMeta?.durationMs,
+          },
           '[WeixinAdapter] sendMedia: voice_item mode',
         );
       } else {

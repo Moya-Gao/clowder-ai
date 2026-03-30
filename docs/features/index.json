@@ -825,7 +825,7 @@
     {
       "id": "F134",
       "name": "Feishu Group Chat — 飞书群聊多用户支持",
-      "status": "done | **Completed**: 2026-03-26 | **Follow-up**: planned | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745",
+      "status": "done | **Completed**: 2026-03-26 | **Follow-up**: done | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745, #871",
       "file": "F134-feishu-group-chat.md"
     },
     {
@@ -907,5 +907,5 @@
       "file": "F147-i18n-hub-locale-switch.md"
     }
   ],
-  "generated_at": "2026-03-30T10:00:59.731Z"
+  "generated_at": "2026-03-30T12:29:04.584Z"
 }

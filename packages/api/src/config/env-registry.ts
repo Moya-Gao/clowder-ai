@@ -714,7 +714,16 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'WEIXIN_VOICE_ITEM_MODE',
     defaultValue: 'minimal',
-    description: '微信语音消息 voice_item 模式（minimal/playtime/metadata），A/B 测试用',
+    description:
+      '微信语音消息 voice_item 模式（minimal/playtime/playtime-sec，危险实验模式见 WEIXIN_ENABLE_UNSAFE_VOICE_MODES）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'WEIXIN_ENABLE_UNSAFE_VOICE_MODES',
+    defaultValue: '0',
+    description:
+      '是否允许危险语音实验模式（1=允许 playtime-encode/metadata，0=自动回退 playtime，避免“语音完全收不到”）',
     category: 'connector',
     sensitive: false,
   },

@@ -1404,8 +1404,9 @@ describe('WeixinAdapter', () => {
       }
     });
 
-    it('playtime-encode mode: sends voice_item with playtime + encode_type only (WEIXIN_VOICE_ITEM_MODE=playtime-encode)', async () => {
+    it('playtime-encode mode: falls back to playtime unless unsafe mode is enabled', async () => {
       process.env.WEIXIN_VOICE_ITEM_MODE = 'playtime-encode';
+      delete process.env.WEIXIN_ENABLE_UNSAFE_VOICE_MODES;
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-1');
       const wavPath = join(tmpdir(), `cat-cafe-voice-pt-enc-${Date.now()}.wav`);
@@ -1427,13 +1428,50 @@ describe('WeixinAdapter', () => {
         await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
         const voiceItem = /** @type {Record<string, unknown>} */ (sentMsg?.item_list[0].voice_item);
         assert.ok(voiceItem?.media, 'media CDN reference must be present');
-        assert.equal(voiceItem.encode_type, 6, 'playtime-encode mode: encode_type must be 6 (SILK)');
+        assert.equal(voiceItem.encode_type, undefined, 'unsafe mode disabled: must fallback to playtime');
+        assert.equal(voiceItem.bits_per_sample, undefined, 'fallback playtime mode: no bits_per_sample');
+        assert.equal(voiceItem.sample_rate, undefined, 'fallback playtime mode: no sample_rate');
+        assert.equal(typeof voiceItem.playtime, 'number', 'playtime must be a number');
+        assert.ok(/** @type {number} */ (voiceItem.playtime) > 0, 'playtime must be > 0');
+      } finally {
+        delete process.env.WEIXIN_VOICE_ITEM_MODE;
+        delete process.env.WEIXIN_ENABLE_UNSAFE_VOICE_MODES;
+        await unlink(wavPath).catch(() => {});
+      }
+    });
+
+    it('playtime-encode mode: sends encode_type when unsafe mode is explicitly enabled', async () => {
+      process.env.WEIXIN_VOICE_ITEM_MODE = 'playtime-encode';
+      process.env.WEIXIN_ENABLE_UNSAFE_VOICE_MODES = '1';
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      const wavPath = join(tmpdir(), `cat-cafe-voice-pt-enc-unsafe-${Date.now()}.wav`);
+      await writeFile(wavPath, makeMalformedWav(24000, 2));
+      /** @type {Record<string, unknown> | null} */
+      let sentMsg = null;
+      try {
+        adapter._injectFetch(async (url, opts) => {
+          if (url.includes('/ilink/bot/getuploadurl'))
+            return { ok: true, json: async () => ({ upload_param: 'enc-upload-param' }) };
+          if (url.includes('/c2c/upload?'))
+            return { status: 200, headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }) };
+          if (url.includes('/ilink/bot/sendmessage')) {
+            sentMsg = JSON.parse(opts.body).msg;
+            return { ok: true, text: async () => JSON.stringify({ ret: 0 }) };
+          }
+          throw new Error(`unexpected url: ${url}`);
+        });
+        await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
+        const voiceItem = /** @type {Record<string, unknown>} */ (sentMsg?.item_list[0].voice_item);
+        assert.ok(voiceItem?.media, 'media CDN reference must be present');
+        assert.equal(voiceItem.encode_type, 6, 'unsafe enabled: encode_type should be preserved');
         assert.equal(voiceItem.bits_per_sample, undefined, 'playtime-encode mode: no bits_per_sample');
         assert.equal(voiceItem.sample_rate, undefined, 'playtime-encode mode: no sample_rate');
         assert.equal(typeof voiceItem.playtime, 'number', 'playtime must be a number');
         assert.ok(/** @type {number} */ (voiceItem.playtime) > 0, 'playtime must be > 0');
       } finally {
         delete process.env.WEIXIN_VOICE_ITEM_MODE;
+        delete process.env.WEIXIN_ENABLE_UNSAFE_VOICE_MODES;
         await unlink(wavPath).catch(() => {});
       }
     });
@@ -1510,6 +1548,7 @@ describe('WeixinAdapter', () => {
 
     it('metadata mode: sends voice_item with full SILK metadata (WEIXIN_VOICE_ITEM_MODE=metadata)', async () => {
       process.env.WEIXIN_VOICE_ITEM_MODE = 'metadata';
+      process.env.WEIXIN_ENABLE_UNSAFE_VOICE_MODES = '1';
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-1');
       const wavPath = join(tmpdir(), `cat-cafe-voice-metadata-${Date.now()}.wav`);
@@ -1538,6 +1577,7 @@ describe('WeixinAdapter', () => {
         assert.ok(/** @type {number} */ (voiceItem.playtime) > 0, 'playtime must be > 0');
       } finally {
         delete process.env.WEIXIN_VOICE_ITEM_MODE;
+        delete process.env.WEIXIN_ENABLE_UNSAFE_VOICE_MODES;
         await unlink(wavPath).catch(() => {});
       }
     });
