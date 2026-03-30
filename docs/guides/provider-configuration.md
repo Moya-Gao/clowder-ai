@@ -43,7 +43,7 @@ Most Chinese AI providers now support **both** API formats:
 
 **Models**: `kimi-k2.5`, `moonshot-v1-128k`, `moonshot-v1-32k`, `moonshot-v1-8k`
 
-**Hub Configuration** (recommended — opencode client):
+#### Option A: opencode + OpenAI protocol
 
 | Field | Value |
 |-------|-------|
@@ -53,7 +53,24 @@ Most Chinese AI providers now support **both** API formats:
 | Model | `kimi-k2.5` |
 | ocProviderName | `kimi` |
 
-> **For Claude Code client**: set Protocol = `anthropic`, Base URL = `https://api.moonshot.ai/anthropic`
+#### Option B: claude-code + Anthropic protocol
+
+| Field | Value |
+|-------|-------|
+| Client | `claude-code` |
+| Protocol | `anthropic` |
+| Base URL | `https://api.moonshot.ai/anthropic` |
+| Model | `kimi-k2.5` |
+
+#### Option C: opencode + Anthropic protocol
+
+| Field | Value |
+|-------|-------|
+| Client | `opencode` |
+| Protocol | `anthropic` |
+| Base URL | `https://api.moonshot.ai/anthropic` |
+| Model | `kimi-k2.5` |
+| ocProviderName | `kimi` |
 
 ---
 
@@ -69,7 +86,16 @@ Most Chinese AI providers now support **both** API formats:
 
 **Models**: `glm-5`, `glm-5-turbo`, `glm-4.7`, `glm-4.5`
 
-**Hub Configuration** (recommended — opencode client):
+#### Option A: claude-code + Anthropic protocol (recommended for GLM)
+
+| Field | Value |
+|-------|-------|
+| Client | `claude-code` |
+| Protocol | `anthropic` |
+| Base URL | `https://api.z.ai/api/anthropic` |
+| Model | `glm-4.7` |
+
+#### Option B: opencode + OpenAI protocol
 
 | Field | Value |
 |-------|-------|
@@ -79,7 +105,15 @@ Most Chinese AI providers now support **both** API formats:
 | Model | `glm-4.7` |
 | ocProviderName | `glm` |
 
-> **For Claude Code client**: set Protocol = `anthropic`, Base URL = `https://api.z.ai/api/anthropic`
+#### Option C: opencode + Anthropic protocol
+
+| Field | Value |
+|-------|-------|
+| Client | `opencode` |
+| Protocol | `anthropic` |
+| Base URL | `https://api.z.ai/api/anthropic` |
+| Model | `glm-4.7` |
+| ocProviderName | `glm` |
 
 ---
 
@@ -94,7 +128,7 @@ Most Chinese AI providers now support **both** API formats:
 
 **Models**: `MiniMax-M2.7`, `MiniMax-M2.5`, `MiniMax-M2.1`
 
-**Hub Configuration** (recommended — opencode client):
+#### Option A: opencode + OpenAI protocol
 
 | Field | Value |
 |-------|-------|
@@ -104,7 +138,24 @@ Most Chinese AI providers now support **both** API formats:
 | Model | `MiniMax-M2.7` |
 | ocProviderName | `minimax` |
 
-> **For Claude Code client**: set Protocol = `anthropic`, Base URL = `https://api.minimax.io/anthropic`
+#### Option B: claude-code + Anthropic protocol
+
+| Field | Value |
+|-------|-------|
+| Client | `claude-code` |
+| Protocol | `anthropic` |
+| Base URL | `https://api.minimax.io/anthropic` |
+| Model | `MiniMax-M2.7` |
+
+#### Option C: opencode + Anthropic protocol
+
+| Field | Value |
+|-------|-------|
+| Client | `opencode` |
+| Protocol | `anthropic` |
+| Base URL | `https://api.minimax.io/anthropic` |
+| Model | `MiniMax-M2.7` |
+| ocProviderName | `minimax` |
 
 ---
 
@@ -118,7 +169,7 @@ Most Chinese AI providers now support **both** API formats:
 
 **Models**: Use `provider/model` format, e.g. `google/gemini-3-pro`, `anthropic/claude-sonnet-4-6`
 
-**Hub Configuration**:
+#### Configuration (opencode + OpenAI)
 
 | Field | Value |
 |-------|-------|
@@ -194,13 +245,31 @@ opencode is the most flexible. In the Hub:
 
 ## Common Pitfalls
 
-### 1. Base URL must include the version path
+### 1. Base URL path rules differ by protocol
 
-**Wrong**: `https://api.moonshot.cn`
-**Right**: `https://api.moonshot.cn/v1`
+The SDK appends the API path directly to your base URL. The rules differ:
 
-The SDK appends `/chat/completions` (OpenAI) or `/messages` (Anthropic) directly to
-the base URL. If you omit `/v1`, requests go to the wrong path and you get `404 Not Found`.
+**OpenAI protocol** — base URL **must** include the version path:
+
+| Wrong | Right |
+|-------|-------|
+| `https://api.moonshot.cn` | `https://api.moonshot.cn/v1` |
+| `https://api.minimax.io` | `https://api.minimax.io/v1` |
+
+The SDK appends `/chat/completions`, so omitting `/v1` sends requests to
+`https://api.moonshot.cn/chat/completions` → 404.
+
+**Anthropic protocol** — base URL **should NOT** include `/v1`:
+
+| Wrong | Right |
+|-------|-------|
+| `https://api.minimax.io/anthropic/v1` | `https://api.minimax.io/anthropic` |
+
+The Anthropic SDK automatically appends `/v1/messages`, so adding `/v1` yourself
+results in a double path like `/anthropic/v1/v1/messages` → 404.
+
+**Quick rule**: OpenAI endpoints end with `/v1` (or `/v4` for GLM). Anthropic
+endpoints end with `/anthropic`. Don't mix them up.
 
 ### 2. ocProviderName must NOT be a built-in name
 
