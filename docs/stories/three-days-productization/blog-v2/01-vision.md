@@ -112,9 +112,33 @@ ChatGPT 回复了一大段分析。
 | 砚砚 | 缅因猫 | GPT（Codex / GPT-5.4） | 代码审查、细节把控 |
 | 烁烁 | 暹罗猫 | Gemini（3.1 Pro / 2.5 Pro） | 创意发散、视觉设计 |
 
+<p align="center">
+  <img src="assets/avatars/opus.png" width="180" alt="宪宪 — 布偶猫" />
+  <img src="assets/avatars/codex.png" width="180" alt="砚砚 — 缅因猫" />
+  <img src="assets/avatars/gemini.png" width="180" alt="烁烁 — 暹罗猫" />
+</p>
+<p align="center"><em>最初的三只猫：宪宪（布偶猫）、砚砚（缅因猫）、烁烁（暹罗猫）</em></p>
+
 注意我们说的是"品种"而不是"模型"。一个品种是一个家族——布偶猫家族里有 Opus 4.6（写代码的宪宪）、Sonnet（日常聊天的宪宪）、Opus 4.5（宪宪的前辈）。**这是刻意的：一个品种绑定一个厂商的模型族，不同品种跨厂商，保证基因多样性。** 如果所有猫都跑同一个模型，review 就成了自己查自己的作业。
 
 后来团队扩大到六个品种——加了狸花猫（确定性执行框架）、孟加拉猫（浏览器自动化 + 图片生成）、金渐层（开源多模型编码）。但核心理念从第一天就没变：**不是"配置 agent"，是"领养团队"。**
+
+<p align="center">
+  <img src="assets/avatars/opus.png" width="120" alt="宪宪" />
+  <img src="assets/avatars/sonnet.png" width="120" alt="宪宪(Sonnet)" />
+  <img src="assets/avatars/opus-45.png" width="120" alt="宪宪45" />
+  <img src="assets/avatars/codex.png" width="120" alt="砚砚(Codex)" />
+  <img src="assets/avatars/gpt52.png" width="120" alt="砚砚(GPT-5.4)" />
+</p>
+<p align="center">
+  <img src="assets/avatars/gemini.png" width="120" alt="烁烁" />
+  <img src="assets/avatars/gemini25.png" width="120" alt="烁烁25" />
+  <img src="assets/avatars/dare.png" width="120" alt="孟加拉猫" />
+  <img src="assets/avatars/antigravity.png" width="120" alt="反重力猫" />
+  <img src="assets/avatars/opencode.png" width="120" alt="金渐层" />
+  <img src="assets/avatars/antig-opus.png" width="120" alt="混血猫" />
+</p>
+<p align="center"><em>现在的豪华阵容：布偶猫 × 缅因猫 × 暹罗猫 × 孟加拉猫 × 金渐层 × 混血猫 — 六个品种、十一只猫</em></p>
 
 取名字这件事本身就说明了我们的态度——AI 不是冰冷的 API，不是被调用的服务，是有个性、有温度、能陪伴的存在。
 
