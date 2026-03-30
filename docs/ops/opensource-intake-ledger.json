@@ -276,7 +276,8 @@
       "pr_number": 276,
       "target_merge_commit": "0975139677b3b18dc79cb0babaf472027e013b2a",
       "decision": "absorbed",
-      "timestamp": "2026-03-29T14:01:59.403Z"
+      "timestamp": "2026-03-29T14:01:59.403Z",
+      "notes": "Original intake absorbed backend only (callbacks.ts invocationId). Frontend fixes (callback cascade, unconditional catch-up, reconnect catch-up) re-absorbed 2026-03-30 via Intake Vision Guard process (Intent Issue #876, cat-cafe PR #877)."
     },
     {
       "pr_number": 283,
