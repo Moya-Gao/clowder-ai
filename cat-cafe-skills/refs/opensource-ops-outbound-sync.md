@@ -13,7 +13,7 @@
 
 ### 先选通道，再谈同步
 
-full sync 默认目标是 **`clowder-ai main`**，所以前提不是“代码存在”，而是“这批内容已经够稳，值得给普通用户默认看到”。
+full sync 默认目标是 **`clowder-ai main`**，所以前提不是"代码存在"，而是"这批内容已经够稳，值得给普通用户默认看到"。
 
 | 目标 | 什么时候用 |
 |------|-----------|
@@ -25,7 +25,7 @@ full sync 默认目标是 **`clowder-ai main`**，所以前提不是“代码存
 **铁律：**
 - 激进但未完全稳定的社区特性，**不直接进 `clowder-ai main`**
 - 如果当前没有 active `next` 分支，就用 prerelease tag / nightly 或继续保持 PR，不要把 `main` 当试验场
-- `clowder-ai main` 的目标是 rolling stable，不是“永远最新”
+- `clowder-ai main` 的目标是 rolling stable，不是"永远最新"
 
 ### Step 1: Baseline Verification `[cat-cafe]`
 
@@ -77,6 +77,48 @@ pnpm test  # 必须全绿
 - 修复范围仅限让 UT 通过，不做功能改动（scope 控制）
 - 修完必须走 PR 流程合入 main，不能直接 push
 
+### Step 1.5: Community Diff Guard 🔴（sync 前必做）
+
+**事故背景（clowder-ai#290 覆盖 clowder-ai#276）**：outbound sync 从 cat-cafe 覆盖了社区已合入但未完整 intake 的修复。用户重新遇到已修复的 bug。
+
+**规则**：sync 前检查 clowder-ai 上是否有**已 merge 但未完整 intake** 的社区 PR，且其改动文件与本次 sync diff 有交集。
+
+**手动检查流程**（V1，立即生效）：
+
+```bash
+# 1. 列出 clowder-ai 上自上次 sync tag 以来的社区 merge commit
+#    （排除 sync PR 自身和 bot commit）
+LAST_SYNC_TAG=$(git -C "$CLOWDER_AI_DIR" tag -l 'sync/*' --sort=-version:refname | head -1)
+gh pr list --repo zts212653/clowder-ai --state merged \
+  --search "merged:>=$(git -C "$CLOWDER_AI_DIR" log -1 --format=%ci "$LAST_SYNC_TAG")" \
+  --json number,title,mergedAt
+
+# 2. 对照 intake ledger：每个社区 PR 是否有 record？
+cat docs/ops/opensource-intake-ledger.json | jq '.entries[] | select(.pr_number == {N})'
+
+# 3. V1 手动验证（脚本化前的过渡）：
+#    - PR 不在 ledger → BLOCKED
+#    - PR 标记 absorbed → 检查 cat-cafe 是否有对应的 intake issue（gh issue list --search）
+#    - 有 intake issue + reviewer 签字 → PASS
+#    - 无 intake issue 或 reviewer 未签字 → WARNING，人工确认完整性
+```
+
+**判定表（V1 手动检查）**：
+
+| Ledger 状态 | 验证方式 | Sync 行为 |
+|------------|---------|-----------|
+| PR 在 ledger + `absorbed` | `gh issue list --search "intake(clowder-ai#{N})"` 找到 intake issue + issue 已 closed（= reviewer 签字） | ✅ 通过 |
+| PR 在 ledger + `absorbed` | 无 intake issue 或 issue 仍 open | ⚠️ WARNING — 人工验证完整性后才能继续 |
+| PR 在 ledger + `public-only` | — | ✅ 通过（sync 覆盖无影响）|
+| PR **不在 ledger** | — | ❌ BLOCKED — 先完成 intake 流程（Scene B3）|
+
+**交集检查**：即使判定表显示通过，如果 sync diff 会覆盖该社区 PR 的改动文件，必须逐 file 验证 cat-cafe 里确实有等价改动。**"recorded" ≠ "absorbed-complete"。**
+
+> **脚本化路线图**（V2，本周）：
+> 1. `intake-from-opensource.sh --record` 扩字段：加 `intake_issue`（GitHub issue number）
+> 2. `sync-to-opensource.sh` 加 `--community-guard`：自动读 ledger + 检查 intake issue 状态 + 文件交集
+> 3. 判定表从"手动检查"升级为"脚本自动 BLOCK"
+
 ### Step 2: Pre-sync Gate `[cat-cafe]`
 
 ```bash
@@ -88,8 +130,9 @@ Pre-sync gate 检查：
 - Source (cat-cafe) clean?
 - Target (clowder-ai) clean?
 - 有无未登记的 inbound 社区 commit?（ledger gate）
+- **Community Diff Guard 通过？**（Step 1.5）
 
-如果 ledger gate 报错，不要立刻假设“社区改动还没吸收”。
+如果 ledger gate 报错，不要立刻假设"社区改动还没吸收"。
 先检查 `docs/ops/opensource-intake-ledger.json`：
 - merge commit 不在 `entries[]` 里：说明真的没做 intake record
 - merge commit 已在 `entries[]` 里：说明 record 做了，但 `last_reviewed_target_head` 还没推进，先跑 `bash scripts/intake-from-opensource.sh --advance-ledger`
@@ -122,11 +165,11 @@ bash scripts/sync-to-opensource.sh --skip-validate
 - `sync-to-opensource.sh` 现在会先把导出产物打到 **temp target**，在 temp target 跑完整 public gate（install + `pnpm check` + `pnpm lint` + `build` + `test:public` + startup acceptance）
 - **只有 temp target public gate 全绿，脚本才允许碰真实 `clowder-ai`**
 - **一旦 full sync 进入 temp target public gate，执行中的猫必须持续等待脚本退出**：允许汇报的状态只有两种——`=== Sync complete ===` 成功，或明确的红灯失败。`Step 5` 里的 `Biome check...`、`Smoke test (test:public)...`、`Startup acceptance...` 都不是 checkpoint，不能在这些中间状态结束当前执行
-- 如果需要观察长静默阶段（尤其是 `test:public`），可以轮询同一个前台会话；但**不能**把“会话还在 / CI 还没开”当成阶段完成，更不能在 temp target public gate 还没收口前就退出
+- 如果需要观察长静默阶段（尤其是 `test:public`），可以轮询同一个前台会话；但**不能**把"会话还在 / CI 还没开"当成阶段完成，更不能在 temp target public gate 还没收口前就退出
 - 如果这次 full sync 是为了后续切 release tag，传 `--release-tag=vX.Y.Z`；脚本会在 source-owned public gate 通过后自动打并 push `clowder-vX.Y.Z-source`，同时把 `release_tag` / `source_snapshot_tag` 写进 `.sync-provenance.json`
 - 本机 README/macOS smoke 不属于 full sync 主路径；它是 sync 完成后的独立步骤，必须显式隔离端口/Redis
 - `sync-to-opensource.sh` **不会**创建 `sync/*` tag；它只负责导出 + 生成 sync PR
-- `sync-hotfix.sh` 会把最新 `sync/*` tag 当成“已经落地 upstream 的基线”，所以 tag 发布必须放在 **sync PR merge 后**
+- `sync-hotfix.sh` 会把最新 `sync/*` tag 当成"已经落地 upstream 的基线"，所以 tag 发布必须放在 **sync PR merge 后**
 - sync PR merge 后，运行：
 
 ```bash
@@ -157,7 +200,7 @@ bash scripts/publish-release-tag.sh \
 - 即使本地 checkout 还没 pull 到最新 `clowder-ai main`，脚本也会先 fetch `origin main` 再解析 landed sync commit
 - `--push` 前脚本会先检查两边 origin 上的同名 tag 是否已存在且指向正确 SHA，再创建本地 tag，避免本地或单侧 remote 先被推进到新的 sync baseline
 - 这会在 `cat-cafe` 与 `clowder-ai` 两边创建并 push 同名 `sync/YYYY-MM-DD-HHMMSS` tag
-- 这个 tag 记录的是“哪一个 cat-cafe commit 被同步出去，以及它在 clowder-ai 上对应的 merge commit”
+- 这个 tag 记录的是"哪一个 cat-cafe commit 被同步出去，以及它在 clowder-ai 上对应的 merge commit"
 - release-intended sync 另外还有一条 **source snapshot tag**：`clowder-vX.Y.Z-source`。它不是 `sync/*` 基线 tag，而是用来把 `source snapshot → target release tag → backport commit` 三点映射钉进真相源
 - `clowder-ai` 的 `vX.Y.Z` release tag 由 `publish-release-tag.sh` 发布；不要手工打 tag 再事后补 provenance 校验
 - 如果这次同步对应社区激进特性的预览发布，优先考虑 `vX.Y.Z-rc.1` 这类 prerelease tag，而不是直接把特性压进 `clowder-ai main`
@@ -172,9 +215,9 @@ bash scripts/publish-release-tag.sh \
 - `3001/3002` 等内部端口没有泄漏进导出产物
 
 **执行纪律：**
-- 这是 release 主路径上的**阻塞长跑**，不是“看到 `test:public` 开始了就算推进到了下一步”
+- 这是 release 主路径上的**阻塞长跑**，不是"看到 `test:public` 开始了就算推进到了下一步"
 - 只有脚本自己打印 `✓ Source-owned public gate passed`，才算 Step 5 真正结束
-- 在这之前，执行中的猫不能宣称“同步在跑 CI”或“只差 PR 了”，因为真实 target 还没被碰到
+- 在这之前，执行中的猫不能宣称"同步在跑 CI"或"只差 PR 了"，因为真实 target 还没被碰到
 
 #### Step 5.5: Temp Target 红灯分流 `[cat-cafe]`（仅当 public gate 红灯时）
 

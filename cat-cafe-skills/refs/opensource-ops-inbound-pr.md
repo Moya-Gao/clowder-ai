@@ -147,8 +147,52 @@ gh pr merge {N} --repo zts212653/clowder-ai --squash
 ## B3: Intake Gate `[cat-cafe]`
 
 PR merge 进 clowder-ai 后，**必须做 intake 登记闭环**（即使决定不回流）。
-这里的闭环不是“只 record 一笔”。
+这里的闭环不是”只 record 一笔”。
 **`--record` 和 `--advance-ledger` 视为同一检查点：record 完立刻尝试 advance。**
+
+**铁律：recorded ≠ absorbed-complete。** ledger 里有 record 只证明”看过了”，不证明”intake 完整”。
+complete 的判定标准：Intake Intent Issue 里每个 `absorb` 文件都有对应的 commit，且 reviewer 签字确认。
+
+### Step 0: Intake Intent Issue `[cat-cafe]` 🔴（absorbed 决策时必做）
+
+**事故背景（clowder-ai#290 覆盖 clowder-ai#276）**：sync PR 声称 “improved intake of #276”，但只 intake 了 backend 一个文件，前端三处修复全部遗漏。根因：intake 时只看了 PR title/摘要，没有逐 file 对比。没有 reviewer 对照验收。
+
+**规则**：决定 `absorbed` 的社区 PR，必须在 cat-cafe 建 GitHub Issue 作为 intake 的 “spec”。
+
+**Issue 格式**：
+
+```markdown
+Title: intake(clowder-ai#{N}): {一句话描述}
+
+## 社区 PR 信息
+- Source: clowder-ai#{N} (fixes clowder-ai#{issue})
+- 社区 PR 链接: {URL}
+- 社区 PR 改动文件数: {X}
+
+## 逐文件决策表（必填，不能留空）
+
+| File | 社区改动摘要 | 决策 | 理由 |
+|------|-------------|------|------|
+| packages/api/src/routes/callbacks.ts | 加 invocationId 到广播 | absorb（已有） | cat-cafe 已独立实现 |
+| packages/web/src/hooks/useAgentMessages.ts | ?? fallback + 去 sawStreamDataRef guard | absorb（需 port） | 修复 ghost-message |
+| packages/web/src/hooks/useSocket.ts | reconnect catch-up safety net | absorb（需 port） | 防丢消息 |
+| packages/web/.../__tests__/bubble-merge.test.ts | 新回归测试 | absorb（需适配） | 防交叉 invocation |
+| README.md | 更新描述 | skip | public-only |
+
+决策只允许两种：`absorb` 或 `skip(with reason)`。不能留空。
+
+## 关联
+- Fixes: clowder-ai#{issue}
+- Source PR: clowder-ai#{N}
+- Cat-cafe intake branch: fix/intake-clowder-{N}
+```
+
+**粒度要求**：
+- `packages/**`、`scripts/**`、`cat-cafe-skills/**` → 必须逐 file
+- `docs/**` → 可按”同类文件组”记录，但必须列出文件清单
+- 每个文件必须 `absorb` 或 `skip(with reason)`，不能留空
+
+**为什么逐 file**：clowder-ai#290 事故就是因为只看了摘要层面的”invocationId to callback broadcast”，没发现前端三个文件的改动未被 intake。file 级别是防遗漏的最小可靠粒度。
 
 ### Step 1: Plan — 分析 PR 文件
 
@@ -186,12 +230,36 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 - `packages/web/src/utils/api-client.ts` — CORS origins
 - `packages/web/public/icons/*` — logo 文件
 
-### Step 2: 执行吸收（如果 absorbed）
+### Step 2: 执行吸收 + 提 Review（如果 absorbed）
 
 目前 V1 需要手工 cherry-pick safe 文件 + 手工 port manual 文件。
 **Brand Guard 文件必须走 Step 1.5 的手工 diff-merge 路径，不能直接 cherry-pick。**
 
+完成后走 `request-review` → reviewer 按 Step 2.5 对照 Intent Issue 验收。
+
+### Step 2.5: Intake Review Guard 🔴（absorbed 时必做）
+
+**Intake = 小 Feature，必须有 review 验收。** Reviewer 对照 Intake Intent Issue（Step 0）逐项检查。
+
+**Reviewer checklist**：
+
+- [ ] Intent Issue 的逐文件决策表存在且无空行
+- [ ] 每个标记 `absorb` 的文件都有对应的 commit/改动
+- [ ] 每个标记 `skip` 的文件有合理理由
+- [ ] 社区 PR 的**每个行为改变**都在 cat-cafe 复现（不只是文件在不在，还要看逻辑等价）
+- [ ] Brand Guard 文件（如有）已走 Step 1.5 手工 diff-merge
+
+**不过这个 gate = 不能 Record + Advance。** Reviewer 放行后才能执行 Step 3 (Record)。
+
+**Reviewer 匹配**：和内部 PR 一样，跨 family 优先、同一个体不能 review 自己的 intake。
+
+> 教训：clowder-ai#276 的 backend 部分（callbacks.ts invocationId）cat-cafe 已独立实现，
+> intake 猫看到就标了”已有”——但没人验证前端三个文件是否也”已有”。
+> 如果当时有一只 reviewer 对照逐 file 表检查，一眼就能发现 useAgentMessages.ts 和 useSocket.ts 缺失。
+
 ### Step 3: Record + Immediate Advance — 登记决策并立刻尝试推进门禁
+
+（Intake Review Guard 通过后才执行此步。）
 
 ```bash
 bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed
@@ -200,10 +268,10 @@ bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed
 bash scripts/intake-from-opensource.sh --advance-ledger
 ```
 
-如果 `--advance-ledger` 失败，说明**还有别的社区 PR 没登记**，不能把当前 PR 停在“已吸收但没推进水位”的半状态。
+如果 `--advance-ledger` 失败，说明**还有别的社区 PR 没登记**，不能把当前 PR 停在”已吸收但没推进水位”的半状态。
 先把遗漏 PR 补 record，再重新跑 advance。
 
-### Step 4: Sync Gate 排错 — 区分“没登记”还是“水位没推进”
+### Step 4: Sync Gate 排错 — 区分”没登记”还是”水位没推进”
 
 如果 `sync-to-opensource.sh --dry-run` 报 ledger gate 卡住：
 
@@ -220,8 +288,13 @@ bash scripts/intake-from-opensource.sh --advance-ledger
 ## 完整链路
 
 ```
-Issue accept → Merge Gate (B1) → Merge (B2) → Intake Plan (B3.1)
-  → Cherry-pick/Port (B3.2) → Record + Immediate Advance (B3.3)
+Issue accept → Merge Gate (B1) → Merge (B2)
+  → Intake Intent Issue (B3.0) → Plan (B3.1) → Brand Guard (B3.1.5)
+  → Execute Absorb (B3.2) → Intake Review Guard (B3.2.5)
+  → Record + Advance (B3.3)
 ```
 
-每一步断了都不能跳。只 record 不 advance，ledger 水位一样会卡住下次 sync。
+每一步断了都不能跳。
+- 没有 Intent Issue = 没有 spec = reviewer 无法验收
+- reviewer 没签字 = 不能 Record
+- 只 record 不 advance = ledger 水位卡住下次 sync
