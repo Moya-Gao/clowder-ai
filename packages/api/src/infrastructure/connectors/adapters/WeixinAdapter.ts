@@ -43,11 +43,11 @@ const QRCODE_TIMEOUT_MS = 5 * 60 * 1000;
  *
  * Runtime-configurable via WEIXIN_VOICE_ITEM_MODE so 铲屎官 can A/B test without code changes.
  */
-type WeixinVoiceItemMode = 'minimal' | 'playtime' | 'metadata';
+type WeixinVoiceItemMode = 'minimal' | 'playtime' | 'playtime-encode' | 'metadata';
 
 function getWeixinVoiceItemMode(): WeixinVoiceItemMode {
   const mode = process.env.WEIXIN_VOICE_ITEM_MODE?.trim().toLowerCase();
-  if (mode === 'playtime' || mode === 'metadata') return mode;
+  if (mode === 'playtime' || mode === 'playtime-encode' || mode === 'metadata') return mode;
   return 'minimal';
 }
 
@@ -757,6 +757,8 @@ export class WeixinAdapter implements IOutboundAdapter {
             sample_rate: voiceMeta?.sampleRate ?? 24_000,
             playtime: voiceMeta?.durationMs ?? 0,
           };
+        } else if (voiceMode === 'playtime-encode' && voiceMeta?.durationMs && voiceMeta.durationMs > 0) {
+          mediaItem.voice_item = { media: mediaRef, encode_type: 6, playtime: Math.round(voiceMeta.durationMs) };
         } else if (voiceMode === 'playtime' && voiceMeta?.durationMs && voiceMeta.durationMs > 0) {
           mediaItem.voice_item = { media: mediaRef, playtime: Math.round(voiceMeta.durationMs) };
         } else {
