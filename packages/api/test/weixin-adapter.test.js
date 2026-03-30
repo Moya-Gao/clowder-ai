@@ -1438,6 +1438,76 @@ describe('WeixinAdapter', () => {
       }
     });
 
+    it('playtime-sec mode: sends voice_item with playtime in seconds (WEIXIN_VOICE_ITEM_MODE=playtime-sec)', async () => {
+      process.env.WEIXIN_VOICE_ITEM_MODE = 'playtime-sec';
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      const wavPath = join(tmpdir(), `cat-cafe-voice-pt-sec-${Date.now()}.wav`);
+      await writeFile(wavPath, makeMalformedWav(24000, 2));
+      /** @type {Record<string, unknown> | null} */
+      let sentMsg = null;
+      try {
+        adapter._injectFetch(async (url, opts) => {
+          if (url.includes('/ilink/bot/getuploadurl'))
+            return { ok: true, json: async () => ({ upload_param: 'enc-upload-param' }) };
+          if (url.includes('/c2c/upload?'))
+            return { status: 200, headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }) };
+          if (url.includes('/ilink/bot/sendmessage')) {
+            sentMsg = JSON.parse(opts.body).msg;
+            return { ok: true, text: async () => JSON.stringify({ ret: 0 }) };
+          }
+          throw new Error(`unexpected url: ${url}`);
+        });
+        await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
+        const voiceItem = /** @type {Record<string, unknown>} */ (sentMsg?.item_list[0].voice_item);
+        assert.ok(voiceItem?.media, 'media CDN reference must be present');
+        assert.equal(voiceItem.encode_type, undefined, 'playtime-sec mode: no encode_type');
+        assert.equal(voiceItem.bits_per_sample, undefined, 'playtime-sec mode: no bits_per_sample');
+        assert.equal(voiceItem.sample_rate, undefined, 'playtime-sec mode: no sample_rate');
+        assert.equal(typeof voiceItem.playtime, 'number', 'playtime must be a number');
+        // playtime-sec sends seconds, not ms — for a 2-second WAV, expect playtime ≈ 2
+        assert.ok(/** @type {number} */ (voiceItem.playtime) > 0, 'playtime must be > 0');
+        assert.ok(/** @type {number} */ (voiceItem.playtime) < 100, 'playtime-sec must be in seconds, not ms');
+      } finally {
+        delete process.env.WEIXIN_VOICE_ITEM_MODE;
+        await unlink(wavPath).catch(() => {});
+      }
+    });
+
+    it('playtime-sec mode: sub-second audio floors to 1 (never 0)', async () => {
+      process.env.WEIXIN_VOICE_ITEM_MODE = 'playtime-sec';
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-1');
+      const wavPath = join(tmpdir(), `cat-cafe-voice-pt-sec-short-${Date.now()}.wav`);
+      await writeFile(wavPath, makeMalformedWav(24000, 0.2));
+      /** @type {Record<string, unknown> | null} */
+      let sentMsg = null;
+      try {
+        adapter._injectFetch(async (url, opts) => {
+          if (url.includes('/ilink/bot/getuploadurl'))
+            return { ok: true, json: async () => ({ upload_param: 'enc-upload-param' }) };
+          if (url.includes('/c2c/upload?'))
+            return { status: 200, headers: new Headers({ 'x-encrypted-param': 'enc-download-param' }) };
+          if (url.includes('/ilink/bot/sendmessage')) {
+            sentMsg = JSON.parse(opts.body).msg;
+            return { ok: true, text: async () => JSON.stringify({ ret: 0 }) };
+          }
+          throw new Error(`unexpected url: ${url}`);
+        });
+        await adapter.sendMedia('user-1', { type: 'audio', absPath: wavPath, fileName: 'voice.wav' });
+        const voiceItem = /** @type {Record<string, unknown>} */ (sentMsg?.item_list[0].voice_item);
+        assert.ok(voiceItem?.media, 'media CDN reference must be present');
+        assert.equal(typeof voiceItem.playtime, 'number', 'playtime must be a number');
+        assert.ok(
+          /** @type {number} */ (voiceItem.playtime) >= 1,
+          'sub-second audio must floor to at least 1, never 0',
+        );
+      } finally {
+        delete process.env.WEIXIN_VOICE_ITEM_MODE;
+        await unlink(wavPath).catch(() => {});
+      }
+    });
+
     it('metadata mode: sends voice_item with full SILK metadata (WEIXIN_VOICE_ITEM_MODE=metadata)', async () => {
       process.env.WEIXIN_VOICE_ITEM_MODE = 'metadata';
       const adapter = new WeixinAdapter('test-token', noopLog());

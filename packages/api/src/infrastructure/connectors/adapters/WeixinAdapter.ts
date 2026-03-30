@@ -37,17 +37,18 @@ const QRCODE_TIMEOUT_MS = 5 * 60 * 1000;
 /**
  * Voice item payload mode for WeChat voice delivery.
  * - `minimal` (default): send only `{ media }` — safest fallback ("1s fake" but visible).
- * - `playtime`: send `{ media, playtime }` — hypothesis: duration-only may fix "1s fake"
- *   without triggering the rejection seen with full metadata.
+ * - `playtime`: send `{ media, playtime }` — shows correct duration but won't play.
+ * - `playtime-sec`: send `{ media, playtime }` with playtime in SECONDS (not ms) — hypothesis test.
+ * - `playtime-encode`: send `{ media, encode_type: 6, playtime }` — confirmed broken (encode_type is poison).
  * - `metadata`: send all SILK fields — confirmed broken (voice "completely gone").
  *
  * Runtime-configurable via WEIXIN_VOICE_ITEM_MODE so 铲屎官 can A/B test without code changes.
  */
-type WeixinVoiceItemMode = 'minimal' | 'playtime' | 'playtime-encode' | 'metadata';
+type WeixinVoiceItemMode = 'minimal' | 'playtime' | 'playtime-sec' | 'playtime-encode' | 'metadata';
 
 function getWeixinVoiceItemMode(): WeixinVoiceItemMode {
   const mode = process.env.WEIXIN_VOICE_ITEM_MODE?.trim().toLowerCase();
-  if (mode === 'playtime' || mode === 'playtime-encode' || mode === 'metadata') return mode;
+  if (mode === 'playtime' || mode === 'playtime-sec' || mode === 'playtime-encode' || mode === 'metadata') return mode;
   return 'minimal';
 }
 
@@ -759,6 +760,8 @@ export class WeixinAdapter implements IOutboundAdapter {
           };
         } else if (voiceMode === 'playtime-encode' && voiceMeta?.durationMs && voiceMeta.durationMs > 0) {
           mediaItem.voice_item = { media: mediaRef, encode_type: 6, playtime: Math.round(voiceMeta.durationMs) };
+        } else if (voiceMode === 'playtime-sec' && voiceMeta?.durationMs && voiceMeta.durationMs > 0) {
+          mediaItem.voice_item = { media: mediaRef, playtime: Math.max(1, Math.round(voiceMeta.durationMs / 1000)) };
         } else if (voiceMode === 'playtime' && voiceMeta?.durationMs && voiceMeta.durationMs > 0) {
           mediaItem.voice_item = { media: mediaRef, playtime: Math.round(voiceMeta.durationMs) };
         } else {
@@ -871,8 +874,11 @@ export class WeixinAdapter implements IOutboundAdapter {
         return null;
       }
       const result = await encode(parsed.pcm, parsed.sampleRate);
+      // Append SILK v3 end-of-stream marker (0xFFFF) — silk-wasm omits it but WeChat's
+      // decoder may require the terminator for proper playback.
+      const silkWithEos = Buffer.concat([Buffer.from(result.data), Buffer.from([0xff, 0xff])]);
       const silkPath = join(tmpdir(), `cat-cafe-weixin-${Date.now()}.silk`);
-      await writeFile(silkPath, result.data);
+      await writeFile(silkPath, silkWithEos);
       this.log.info(
         { wavPath, silkPath, duration: result.duration, sampleRate: parsed.sampleRate },
         '[WeixinAdapter] convertWavToSilk: success',
