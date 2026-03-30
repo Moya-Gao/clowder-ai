@@ -8,7 +8,7 @@ created: 2026-03-24
 
 # F134: Feishu Group Chat — 飞书群聊多用户支持
 
-> **Status**: done | **Completed**: 2026-03-26 | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745
+> **Status**: done | **Completed**: 2026-03-26 | **Follow-up**: planned | **Owner**: 布偶猫 | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745
 >
 > **Related**: F088（复用公共层 + Phase 7 公共层扩展）| F132（钉钉/企微，同模式独立 Feature）
 >
@@ -333,6 +333,7 @@ if (connectionMode === 'websocket') {
 | 2026-03-26 | Phase E 实现：WSClient 双模式 + IM Hub 连接模式选择器 + mode-aware steps + 非法值归一化 |
 | 2026-03-26 | 缅因猫 review: P1 (AC-E6 steps 不按模式变) + P2 (normalization + WSClient mock) → 修复 → Round 2 放行 |
 | 2026-03-26 | PR #745 squash merged, Phase A-E all done |
+| 2026-03-30 | clowder-ai#287（Feishu QR bind in IM Hub）被判定为 F134 follow-up：方向 absorbed，执行 manual-port；补建 accepted issue clowder-ai#301 |
 
 ## Design Gate Results（2026-03-25）
 
@@ -449,6 +450,32 @@ FeishuAdapter.parseEvent()
 | **ConnectorSource** | `packages/shared/src/types/connector.ts` | 需扩展 sender 字段 |
 | **Bootstrap** | `packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts` | 飞书 webhook handler 入口 |
 | **兄弟 Feature** | `docs/features/F132-dingtalk-wecom-gateway.md` | 同模式拆分样板 |
+
+## Follow-up
+
+### F134 Follow-up: Feishu QR Bind in IM Hub
+
+社区 PR `clowder-ai#287` 提出的能力方向与 F134 一致：在 IM Hub 内提供 Feishu 扫码绑定 / onboarding 流程，降低手填 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` 的门槛。
+
+当前结论：
+
+- **方向**：值得吸收，记为 F134 follow-up
+- **来源**：`clowder-ai#287`
+- **accepted issue**：`clowder-ai#301`
+- **吸收方式**：**absorbed direction, manual-port execution**
+
+之所以不直接 cherry-pick，是因为 cat-cafe 当前主干已经在同一组文件上有更新的 F134/F136 体系：
+
+- IM Hub 已有 `FEISHU_CONNECTION_MODE` 与 mode-aware steps
+- 连接器敏感配置已有统一 `/api/config/secrets` + allowlist + hot-reload
+- 因此 follow-up 应复用现有配置链路，而不是在 `connector-hub` route 中再长第二套 `.env` 持久化逻辑
+
+吸收范围（候选）：
+
+- Feishu QR bind panel 的 UX 形态
+- Feishu QR generate / poll 的后端能力
+- 扫码成功后自动刷新 connector status 的交互
+- save hint 的收敛逻辑与 polling stale response 保护
 
 ---
 
