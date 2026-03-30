@@ -665,7 +665,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const provider = catConfig?.provider;
     const builtinClient = provider ? resolveBuiltinClientForProvider(provider) : null;
     const defaultModel = catConfig?.defaultModel?.trim() || undefined;
-    const projectRoot = workingProjectRoot ?? resolveActiveProjectRoot(process.cwd());
+    // Account resolution, proxy registration, and runtime config always use the
+    // runtime root (process.cwd()), NOT thread.projectPath.  catRegistry loads
+    // from the runtime root at startup — reading a divergent catalog (e.g. the
+    // dev worktree pointed to by thread.projectPath) misses runtime-only accounts.
+    // workingProjectRoot is still used for shared-state preflight + cat cwd.
+    const projectRoot = resolveActiveProjectRoot(process.cwd());
     const boundAccountRef = resolveBoundAccountRefForCat(projectRoot, catId, catConfig);
     const resolveRuntimeAccount = async () => {
       if (!builtinClient) return null;

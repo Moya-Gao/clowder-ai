@@ -4091,4 +4091,104 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     );
     assert.equal(optionsSeen[0]?.workingDirectory, undefined, 'workingDirectory must be undefined for game threads');
   });
+
+  it('bug-fix: account resolution uses runtime root (process.cwd()), not thread.projectPath', async () => {
+    // Regression: thread.projectPath points to dev worktree which lacks runtime-only accounts.
+    // Account resolution must always use process.cwd() (the runtime root).
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
+
+    // runtimeRoot = where the API process runs (has the custom account)
+    const runtimeRoot = await mkdtemp(join(tmpdir(), 'account-runtime-root-'));
+    const runtimeApiDir = join(runtimeRoot, 'packages', 'api');
+    await mkdir(runtimeApiDir, { recursive: true });
+    await writeFile(join(runtimeRoot, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+
+    // devRoot = where thread.projectPath points (missing the custom account)
+    const devRoot = await mkdtemp(join(tmpdir(), 'account-dev-root-'));
+    const devApiDir = join(devRoot, 'packages', 'api');
+    await mkdir(devApiDir, { recursive: true });
+    await writeFile(join(devRoot, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+    // Write a minimal catalog in devRoot WITHOUT the custom account
+    const devCatCafe = join(devRoot, '.cat-cafe');
+    await mkdir(devCatCafe, { recursive: true });
+    await writeFile(join(devCatCafe, 'cat-catalog.json'), JSON.stringify({ accounts: {} }), 'utf-8');
+
+    // Create the custom account only in runtimeRoot
+    const customProfile = await createProviderProfile(runtimeRoot, {
+      provider: 'openai',
+      name: 'custom-runtime-only',
+      mode: 'api_key',
+      authType: 'api_key',
+      protocol: 'openai',
+      baseUrl: 'https://custom.example.com/v1',
+      apiKey: 'sk-custom-key',
+      models: ['custom-model'],
+      setActive: false,
+    });
+
+    const registrySnapshot = catRegistry.getAllConfigs();
+    const originalConfig = catRegistry.tryGet('opencode')?.config;
+    assert.ok(originalConfig);
+    const boundCatId = 'opencode-divergent-path-test';
+    catRegistry.register(boundCatId, {
+      ...originalConfig,
+      id: boundCatId,
+      mentionPatterns: [`@${boundCatId}`],
+      provider: 'opencode',
+      providerProfileId: customProfile.id,
+      defaultModel: 'custom-model',
+      ocProviderName: 'custom',
+    });
+
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    // threadStore returns devRoot as projectPath — simulates Hub-created thread
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => ({ projectPath: devRoot, createdBy: 'user1' }),
+        updateParticipantActivity: async () => {},
+      },
+    };
+
+    const previousCwd = process.cwd();
+    try {
+      // process.cwd() = runtimeRoot (where the custom account exists)
+      process.chdir(runtimeApiDir);
+      const msgs = await collect(
+        invokeSingleCat(deps, {
+          catId: boundCatId,
+          service,
+          prompt: 'test divergent projectPath account resolution',
+          userId: 'user-divergent',
+          threadId: 'thread-divergent',
+          isLastCat: true,
+        }),
+      );
+      // Must reach done — account resolution should succeed via process.cwd().
+      // If it used thread.projectPath (devRoot), it would throw "bound account not found".
+      assert.ok(
+        msgs.some((m) => m.type === 'done'),
+        'invocation must succeed despite divergent thread.projectPath',
+      );
+      assert.ok(
+        !msgs.some((m) => m.type === 'error' && m.error?.includes('bound account')),
+        'must NOT fail with "bound account not found"',
+      );
+    } finally {
+      process.chdir(previousCwd);
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
+      await rm(runtimeRoot, { recursive: true, force: true });
+      await rm(devRoot, { recursive: true, force: true });
+    }
+  });
 });
