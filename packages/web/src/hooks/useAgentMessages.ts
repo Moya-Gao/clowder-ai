@@ -432,7 +432,7 @@ export function useAgentMessages() {
         if (msg.origin === 'callback') {
           const invocationId = msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId);
           const replacementTarget = invocationId
-            ? findCallbackReplacementTarget(msg.catId, invocationId)
+            ? (findCallbackReplacementTarget(msg.catId, invocationId) ?? findInvocationlessStreamPlaceholder(msg.catId))
             : findInvocationlessStreamPlaceholder(msg.catId);
 
           if (replacementTarget) {
@@ -646,12 +646,12 @@ export function useAgentMessages() {
           // would allow reordered stale chunks to recreate ghost bubbles.
           a2aGroupRef.current = null;
           // Bug C safety net: if done(isFinal) arrived but no streaming bubble
-          // was ever created for this cat, text events were lost (socket transport
-          // drop, dual-pointer guard mismatch, etc.). Request a history catch-up
-          // so the user sees the response without needing F5.
-          // P2: Only trigger if stream data was actually received (avoids false
-          // catch-up on callback-only flows where addMessage handles delivery).
-          if (!messageId && sawStreamDataRef.current.has(msg.catId)) {
+          // was ever created for this cat, events were lost (socket transport
+          // drop, micro-disconnect, dual-pointer guard mismatch, etc.).
+          // Request a history catch-up so the user sees the response without F5.
+          // Unconditional: covers ghost-message scenario where ALL events
+          // (stream + callback) were lost during disconnect (#276).
+          if (!messageId) {
             const tid = useChatStore.getState().currentThreadId;
             console.warn('[stream-catchup] done(isFinal) with no active bubble — requesting catch-up', {
               catId: msg.catId,

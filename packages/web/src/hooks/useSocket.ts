@@ -193,6 +193,9 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
               store.setStreaming(msg.id, false);
             }
           }
+          // Reconnect catch-up (#276): server finished during disconnect,
+          // done(isFinal) was lost → fetch missed messages so user doesn't need F5
+          store.requestStreamCatchUp(threadId);
           console.log('[ws] Reconnect reconciliation: cleared stale active-thread invocation state', { threadId });
         } else if (!isActiveThread) {
           const ts = store.getThreadState(threadId);
