@@ -112,9 +112,6 @@ export function useAgentMessages() {
   /** Bug C P2: Track whether stream data was received per cat (avoids false catch-up on callback-only flows) */
   const sawStreamDataRef = useRef<Set<string>>(new Set());
 
-  /** Current A2A group ID — set on a2a_handoff, cleared on done(isFinal) */
-  const a2aGroupRef = useRef<string | null>(null);
-
   /** F118 AC-C3: Pending timeout diagnostics keyed by catId to prevent cross-cat mismatch */
   const pendingTimeoutDiagRef = useRef<Map<string, Record<string, unknown>>>(new Map());
 
@@ -375,7 +372,6 @@ export function useAgentMessages() {
         origin: 'stream',
         ...(metadata ? { metadata } : {}),
         ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-        ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
         timestamp: Date.now(),
         isStreaming: true,
       });
@@ -447,7 +443,6 @@ export function useAgentMessages() {
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
               ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
             });
@@ -469,7 +464,6 @@ export function useAgentMessages() {
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
               ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
               timestamp: Date.now(),
@@ -507,7 +501,6 @@ export function useAgentMessages() {
               origin: 'stream',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
               ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
               timestamp: Date.now(),
@@ -643,7 +636,6 @@ export function useAgentMessages() {
           // is designed to persist until a *different* invocationId is observed
           // (F123 PR #465, symptom-fixture-matrix.md:23). Clearing on done(isFinal)
           // would allow reordered stale chunks to recreate ghost bubbles.
-          a2aGroupRef.current = null;
           // Bug C safety net: if done(isFinal) arrived but no streaming bubble
           // was ever created for this cat, events were lost (socket transport
           // drop, micro-disconnect, dual-pointer guard mismatch, etc.).
@@ -663,16 +655,11 @@ export function useAgentMessages() {
           sawStreamDataRef.current.delete(msg.catId);
         }
       } else if (msg.type === 'a2a_handoff') {
-        // Start or continue an A2A group
-        if (!a2aGroupRef.current) {
-          a2aGroupRef.current = `a2a-group-${Date.now()}`;
-        }
         addMessage({
           id: `a2a-${Date.now()}-${msg.catId}`,
           type: 'system',
           variant: 'info',
           content: msg.content ?? '',
-          a2aGroupId: a2aGroupRef.current,
           timestamp: Date.now(),
         });
       } else if (msg.type === 'system_info') {

@@ -24,7 +24,6 @@ import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId } from '@/utils/userId';
-import { A2ACollapsible } from './A2ACollapsible';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -311,34 +310,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
   });
 
-  type RenderItem =
-    | { kind: 'message'; msg: ChatMessageData }
-    | { kind: 'a2a_group'; groupId: string; messages: ChatMessageData[] };
-
-  const renderItems = useMemo<RenderItem[]>(() => {
-    const items: RenderItem[] = [];
-    let currentGroup: { groupId: string; messages: ChatMessageData[] } | null = null;
-
-    for (const msg of messages) {
-      if (msg.a2aGroupId) {
-        if (currentGroup && currentGroup.groupId === msg.a2aGroupId) {
-          currentGroup.messages.push(msg);
-        } else {
-          if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
-          currentGroup = { groupId: msg.a2aGroupId, messages: [msg] };
-        }
-      } else {
-        if (currentGroup) {
-          items.push({ kind: 'a2a_group', ...currentGroup });
-          currentGroup = null;
-        }
-        items.push({ kind: 'message', msg });
-      }
-    }
-    if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
-    return items;
-  }, [messages]);
-
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
       <MessageActions key={msg.id} message={msg} threadId={threadId}>
@@ -439,20 +410,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   if (isExport) {
     return (
       <div className="min-h-screen bg-cafe-surface">
-        <div className="max-w-4xl mx-auto p-4">
-          {renderItems.map((item) =>
-            item.kind === 'a2a_group' ? (
-              <A2ACollapsible
-                key={item.groupId}
-                group={{ groupId: item.groupId, messages: item.messages }}
-                renderMessage={renderSingleMessage}
-                getCatColor={(catId) => getCatById(catId)?.color.primary}
-              />
-            ) : (
-              renderSingleMessage(item.msg)
-            ),
-          )}
-        </div>
+        <div className="max-w-4xl mx-auto p-4">{messages.map(renderSingleMessage)}</div>
       </div>
     );
   }
@@ -554,18 +512,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                 })()}
               </div>
             ) : (
-              renderItems.map((item) =>
-                item.kind === 'a2a_group' ? (
-                  <A2ACollapsible
-                    key={item.groupId}
-                    group={{ groupId: item.groupId, messages: item.messages }}
-                    renderMessage={renderSingleMessage}
-                    getCatColor={(catId) => getCatById(catId)?.color.primary}
-                  />
-                ) : (
-                  renderSingleMessage(item.msg)
-                ),
-              )
+              messages.map(renderSingleMessage)
             )}
             <div ref={messagesEndRef} />
           </main>
