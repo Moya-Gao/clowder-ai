@@ -11,7 +11,7 @@ created: 2026-03-31
 
 ## 一句话结论
 
-**归一的是 Cat Café 的对话内核，不是 connector transport。**
+**归一的是 Cat Café 的消息内核和设备语义，不是 connector transport，也不是现在就发明三层新抽象。**
 
 F088 已经把 connector 侧真正值钱的公共层收敛出来了：
 
@@ -21,6 +21,11 @@ F088 已经把 connector 侧真正值钱的公共层收敛出来了：
 4. MessageEnvelope / Outbound delivery policy
 
 F124 的 Watch / iOS App 应该复用这些**对话语义**，但**不应该**硬套 `ConnectorRouter → Adapter` 这层平台适配结构。
+
+当前阶段更准确的说法是：
+
+- **立即统一**：请求字段、消息规范化入口、后端回复策略、source/device 标识
+- **暂不抽象**：`ConversationContext` / `ClientIntent` / `ResponseEnvelope` 这类新共享类型
 
 ## 当前边界
 
@@ -56,78 +61,23 @@ Watch UI
 
 它没有 webhook、没有外部 adapter、没有 principal link 问题。它已经直接站在 thread/message core 之上。
 
-## 该归一的层
+## 该统一的，不该统一的
 
-### 1. Session Binding 语义
+### 1. 统一“规范化后的消息入口”
 
-Watch 也需要和 F088 一样的“当前 thread 是谁”模型，只是交互入口不是 slash command，而是：
+Watch 录音、系统输入、点击发送，进入后端后都不应再走一条私有支线。它们应该统一归一成和 Web / connector 一样的 canonical user message，再进入：
 
-- 表冠滚动
-- 点击 thread
-- 语音说“切到 F088”
-- 快捷操作切换 thread
+- `messageStore`
+- `invocationQueue`
+- 现有 delivery policy
 
-**结论**：Watch 不需要复用 slash command 文本本身，但需要复用其背后的 intent 语义。
+这是本草案最硬的一条。
 
-建议抽象：
+### 2. 统一 `source: "watch"` + `deviceContext`
 
-```text
-ConversationContext
-  - userId
-  - source            // web / watch / connector
-  - activeThreadId
-  - recentThreadIds
-  - responseMode      // text / voice / mixed
-```
+这不是未来抽象，是**现在就该落地的协议字段**。
 
-### 2. Command Layer 语义
-
-F088 的 `/new /threads /use /where /thread` 不应只停留在 IM 文本命令。
-
-对 F124，应该把它们沉淀为平台无关 intent：
-
-```text
-ClientIntent
-  - createThread(title?)
-  - listThreads()
-  - switchThread(selector)
-  - whereAmI()
-  - sendMessage(threadId, content)
-```
-
-Watch 的按钮和语音只是这个 intent 的不同入口。
-
-### 3. Message Envelope / 回复信息层
-
-F088 已经收敛出统一的信息层：
-
-```text
-header / subtitle / body / footer
-```
-
-F124 不该再让 Watch 独自发明“只给一坨文本”的回复模型。Watch 也应该消费同一层语义，只是渲染方式不同：
-
-- Watch 列表项
-- 通知摘要
-- TTS 正文
-- comfort audio 触发条件
-
-建议扩成 first-party 可消费的统一回复契约：
-
-```text
-ResponseEnvelope
-  - text
-  - threadMeta       // threadId / title / featId / deepLink
-  - speakerCatId
-  - richBlocks
-  - voiceHint        // prefer-tts / comfort-audio / silent
-```
-
-### 4. Source / Device Policy
-
-F124 必须把 `watch` 变成后端一等 source，而不是“只是另一个会发消息的客户端”。
-
-最少需要：
+建议最少补上：
 
 ```text
 source: "watch"
@@ -137,12 +87,48 @@ deviceContext:
   interactionMode: "hands-free"
 ```
 
-这样后端才能统一做这些策略：
+后端靠它决定：
 
 - 猫回复更短
-- 默认带 TTS
-- 命中 KD-11 的延迟遮罩
-- 某些 rich block 降级成语音/摘要
+- 默认走语音优先
+- 是否触发 KD-11 延迟遮罩
+- 某些 rich block 是否要在 Watch 上降级
+
+### 3. 统一“命令语义”，但不抽共享 CommandLayer
+
+F088 的 `/new /threads /use /where /thread` 对 Watch 的启发是：
+
+- thread 切换要有明确语义
+- “我当前在哪个 thread” 要可见
+- 新 thread 创建不能靠客户端各写一套歧义逻辑
+
+但这**不等于**现在就要抽一个 shared `ClientIntent` 类型或复用 slash command 层。
+
+当前更务实的做法是：
+
+- Watch 继续直接打现有 REST API
+- 设计上对齐 F088 的 thread 管理语义
+- 等真正出现重复适配逻辑，再决定要不要抽共享层
+
+### 4. 不要类比成 F088 的 Session Binding
+
+F088 的 Session Binding 解决的是：
+
+```text
+externalChatId ↔ internalThreadId
+```
+
+Watch 没有外部会话映射问题。它只有**客户端本地的 activeThread 状态**。两者语义不同，不能混叫 Binding。
+
+### 5. 不要把渲染 hint 过早塞回后端响应格式
+
+后端当然要知道当前 source/device，但当前阶段没必要先发明一个带 `voiceHint` 的新 `ResponseEnvelope` 再让所有客户端跟着改。
+
+更稳的方向是：
+
+- 请求侧声明 `source + deviceContext`
+- 后端在既有响应基础上按策略返回文本 / richBlocks / 现有语音能力
+- 等 Watch / Web / iPhone 三端都出现重复渲染分叉，再决定是否抽统一 envelope 类型
 
 ## 语音消息到底要不要进统一队列？
 
@@ -190,12 +176,11 @@ Watch raw input
                 ┌────────────────────────────────────┐
                 │     Shared Conversation Core       │
                 │                                    │
-Watch / Web /   │  ConversationContext              │
-iPhone / IM     │  ClientIntent                     │
-   inputs       │  canonical message                │
+Watch / Web /   │  source + deviceContext           │
+iPhone / IM     │  canonical message                │
+   inputs       │  messageStore                     │
    ↓            │  invocationQueue                  │
- normalize ───→ │  ResponseEnvelope                 │
-                │  delivery / voice policy          │
+ normalize ───→ │  delivery / voice policy          │
                 └────────────────────────────────────┘
                          ↑                  ↑
                          │                  │
@@ -203,33 +188,36 @@ iPhone / IM     │  ClientIntent                     │
                  native clients        adapters/router
 ```
 
-## 对 F124 的直接启发
+## 当前真正该收的架构问题
 
-### 应立即对齐
+### 1. Watch 的身份还没进入协议
 
-1. Watch 发消息 body 不应只有 `content + threadId`
-   - 还应带 `source: "watch"` 和 voice-first device metadata
+当前 Watch 客户端还是：
 
-2. Watch 的“切 thread / where / list threads”
-   - 不要继续散落在 UI 本地逻辑里
-   - 应收敛为和 F088 同语义的一组 backend intents
+- `X-Cat-Cafe-User: default-user`
+- `POST /api/messages` body 只有 `content + threadId`
 
-3. Watch 的语音回复
-   - 不应是单独的“Watch 特供返回值”
-   - 应建立在统一 `ResponseEnvelope + voiceHint` 上
+这意味着“来自 Watch”的事实还没有进入后端协议层。这个问题的优先级高于任何新抽象。
 
-### 暂时不要做
+### 2. 实时通信策略还没收口
 
-1. 不要让 Watch 走 `ConnectorRouter`
-2. 不要把 Watch 语音原始录音塞进 connector queue 抽象
-3. 不要把所有 native 操作伪装成 slash command 文本
+Watch 当前是客户端 5 秒轮询消息。Web 走 WebSocket。
+
+对 F124 来说，真正要拍板的是：
+
+- 继续轮询
+- 上 WebSocket
+- 或者接受某种降级混合模式
+
+这件事比抽象 `ClientIntent` 更接近产品成败。
 
 ## 建议的下一步
 
-1. 为 F124 增加 `source: "watch"` + `deviceContext` 协议字段
-2. 抽一层 `ClientIntent`，让 Watch / Web / 未来 iPhone 共用
-3. 把 TTS / comfort-audio 的触发收进 `ResponseEnvelope.voiceHint`
-4. 等以上三项稳定后，再考虑是否把 F088 命令层进一步抽成真正的 shared domain service
+1. 在 Watch → `/api/messages` 请求里补 `source: "watch"` + `deviceContext`
+2. 保持 Watch 继续直接打 REST API，不额外抽共享 intent 层
+3. 把录音上传 / 系统听写统一收口到 canonical message 写路径
+4. 单独讨论 Watch 的实时通信策略（轮询 vs WebSocket）
+5. 等 Watch 真正跑通后，再评估是否值得抽新的 first-party shared contract
 
 ## 收敛检查
 
