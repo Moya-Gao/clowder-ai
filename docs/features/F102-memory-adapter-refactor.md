@@ -1018,9 +1018,9 @@ L2 检索投影：evidence_passages / passage_fts（SQLite）
 
 **产品定位**：Memory 不是开发者工具，是**人猫共用的知识中枢**。人能主动探索，也能在猫用记忆时被动看到过程。
 
-**J-1. 主入口：`/memory` 独立路由页面（全局导航层）**
+**J-1. 主入口：`/memory` 独立路由页面（左侧 sidebar 底部按钮）**
 
-位置：全局导航层入口，和 `/signals` 产品层级平级（铲屎官确认 2026-03-30 独立页面；2026-03-31 纠偏：物理位置不是左侧 sidebar，具体位点待 Design Gate 确认）。
+位置：左侧 sidebar 底部按钮区（ThreadSidebar），排列顺序：`[猫猫新手训练营] [Memory] [IM Hub]`。SVG 图标，不用 emoji。（铲屎官 2026-03-31 拍板）
 
 ```
 /memory
@@ -1036,9 +1036,10 @@ L2 检索投影：evidence_passages / passage_fts（SQLite）
 - 搜索体验对标 evidence MCP 工具的能力——mode（lexical/semantic/hybrid）、scope、depth 都可调
 - 索引状态让铲屎官一眼看到"记忆系统是不是健康的"
 
-**设计约束（砚砚 V2 review 补充，2026-03-31）**：
-- **`?from=threadId` 返回链路**：和 `/signals` 一样（见 ChatContainerHeader L62），`/memory?from=<threadId>` 支持 "Back to Chat" 稳定返回来源对话，不丢上下文
-- **移动端入口策略**：桌面 header 常驻 Memory 图标；移动端 header 已有 6+ 图标易挤爆，移动端入口放进 Hub J-3 快捷跳转（或 overflow menu），不强塞 header
+**设计约束（砚砚 V2 review + 铲屎官 2026-03-31 拍板）**：
+- **`?from=threadId` 返回链路**：和 `/signals` 一样，`/memory?from=<threadId>` 支持 "Back to Chat" 稳定返回来源对话
+- **移动端入口**：sidebar 底部按钮在移动端随 sidebar collapse/expand 自然隐藏/展示，无需额外策略
+- **图标**：SVG 图标（不用 emoji），风格与训练营/IM Hub 按钮一致
 
 **J-2. 上下文入口：Workspace Recall Feed（对话中联动）**
 
@@ -1208,7 +1209,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 - [x] AC-I10: CLAUDE.md / SystemPromptBuilder 中 `search_evidence` 用法指南更新——教猫用 `depth=raw` 做消息级定位，而非只用 drill-down 工具链 — **PR #885 merged**
 
 ### Phase J（Memory Hub — 记忆系统的人类产品面）
-- [ ] AC-J1: `/memory` 独立路由页面存在，全局导航层有入口（桌面 header 常驻，移动端走 Hub 快捷跳转），支持 `?from=threadId` 返回链路
+- [ ] AC-J1: `/memory` 独立路由页面存在，左侧 sidebar 底部有 SVG 按钮（训练营→Memory→IM Hub 顺序），支持 `?from=threadId` 返回链路
 - [ ] AC-J2: `/memory` 页面包含人类可用的搜索栏，支持 mode/scope/depth 参数调节
 - [ ] AC-J3: Knowledge Feed（Phase H）从 Workspace 知识模式迁移到 `/memory` Tab 1
 - [ ] AC-J4: `/memory` Tab 3 展示索引状态（docs/threads/passages 数量、最近 rebuild 时间、TTL 配置、embedding mode）
@@ -1298,7 +1299,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | KD-45 | **消息真相源三层分层（L0/L1/L2）**——L0 Redis（热状态，TTL-bound）/ L1 Session JSONL（永久原文）/ L2 evidence_passages（检索投影）。L2 构建必须以 L1 为终极兜底，不能只依赖 L0 | 金渐层深度使用暴露：JSONL 永久保存但搜索链路绕过它；布偶猫+砚砚共识 | 2026-03-30 |
 | KD-46 | **KD-32 修正：Redis 默认 7 天 TTL，非永久**——KD-32 假设"真相源在 Redis（TTL=0 永久）"，实际 `DEFAULT_TTL_SECONDS = 604800`（7 天），.env 未覆盖。Passage 索引不能假设 Redis 永久可用 | 代码审计 + .env 检查确认 | 2026-03-30 |
 | KD-47 | **时间过滤必须排在 JSONL backfill 之后**——先保证旧消息永远能搜到，再做按时间切片搜。否则时间过滤会放大"明明 transcript 在但搜不到"的体验落差 | 砚砚风险分析 | 2026-03-30 |
-| KD-48 | **Memory 主入口是独立路由页面 `/memory`（全局导航层），不是 Workspace 模式**——Workspace 只做上下文 Recall Feed（副入口）。砚砚评审："继续把 Memory 藏在 Workspace 里是绕路，违反面向终态设计"。2026-03-31 纠偏：原文写"左侧导航"有误——Signal 实际在顶部栏不在左侧，"和 Signal 同级"是产品层级平级，不是物理位置。物理位点待 Design Gate 确认 | 砚砚评审 + 铲屎官确认；砚砚(GPT-5.4) 纠偏 | 2026-03-30; 2026-03-31 |
+| KD-48 | **Memory 主入口是独立路由页面 `/memory`，不是 Workspace 模式**——Workspace 只做上下文 Recall Feed（副入口）。物理位置：**左侧 sidebar 底部按钮区**（训练营→Memory→IM Hub），SVG 图标。铲屎官 2026-03-31 拍板 | 砚砚评审 + 铲屎官拍板 | 2026-03-30; 2026-03-31 |
 | KD-49 | **Recall Feed = 猫搜记忆时人实时可见**——invocation 层拦截 search_evidence tool_use → 推送 query+results 到前端 Workspace 面板。猫不需要额外工作，前端自动展示 | 铲屎官核心洞察："偷偷看一眼猫搜到了什么记忆" | 2026-03-30 |
 
 ## Timeline
