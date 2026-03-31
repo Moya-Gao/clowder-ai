@@ -93,6 +93,26 @@ TARGET_DUMP_PATH="$TARGET_DIR/$TARGET_DBFILE"
 BACKUP_DIR="$TARGET_DIR/cat-cafe-redis-backups"
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 BACKUP_PATH="$BACKUP_DIR/${TARGET_DBFILE}.${STAMP}.bak"
+TARGET_APPENDONLY="$(redis-cli -p "$TARGET_PORT" config get appendonly | sed -n '2p')"
+TARGET_APPEND_FILENAME="$(redis-cli -p "$TARGET_PORT" config get appendfilename | sed -n '2p')"
+TARGET_APPEND_DIRNAME="$(redis-cli -p "$TARGET_PORT" config get appenddirname | sed -n '2p')"
+TARGET_APPEND_FSYNC="$(redis-cli -p "$TARGET_PORT" config get appendfsync | sed -n '2p')"
+
+# 恢复脚本默认启用 AOF，避免恢复后进入“纯 RDB 模式”导致后续 AOF 长期停更。
+if [[ -z "$TARGET_APPENDONLY" || "$TARGET_APPENDONLY" != "yes" ]]; then
+  TARGET_APPENDONLY="yes"
+fi
+if [[ -z "$TARGET_APPEND_FILENAME" ]]; then
+  TARGET_APPEND_FILENAME="appendonly.aof"
+fi
+if [[ -z "$TARGET_APPEND_DIRNAME" ]]; then
+  TARGET_APPEND_DIRNAME="appendonlydir"
+fi
+if [[ -z "$TARGET_APPEND_FSYNC" ]]; then
+  TARGET_APPEND_FSYNC="everysec"
+fi
+TARGET_APPEND_DIR_PATH="$TARGET_DIR/$TARGET_APPEND_DIRNAME"
+AOF_BACKUP_PATH="$BACKUP_DIR/${TARGET_APPEND_DIRNAME}.${STAMP}.bak"
 
 echo "== Redis Restore Plan =="
 echo "source dump:     $SOURCE"
@@ -101,6 +121,10 @@ echo "target dir:      $TARGET_DIR"
 echo "target db file:  $TARGET_DBFILE"
 echo "target dump:     $TARGET_DUMP_PATH"
 echo "backup path:     $BACKUP_PATH"
+echo "appendonly:      $TARGET_APPENDONLY"
+echo "appendfilename:  $TARGET_APPEND_FILENAME"
+echo "appenddirname:   $TARGET_APPEND_DIRNAME"
+echo "appendfsync:     $TARGET_APPEND_FSYNC"
 echo
 echo "WARNING: this replaces target Redis dataset on port $TARGET_PORT."
 
@@ -129,11 +153,20 @@ sleep 0.5
 cp "$SOURCE" "$TARGET_DUMP_PATH"
 echo "[restore] source copied to target dump path."
 
+if [[ "$TARGET_APPENDONLY" == "yes" && -d "$TARGET_APPEND_DIR_PATH" ]]; then
+  mv "$TARGET_APPEND_DIR_PATH" "$AOF_BACKUP_PATH"
+  echo "[restore] previous appendonly dir moved to: $AOF_BACKUP_PATH"
+fi
+
 echo "[restore] starting redis on port $TARGET_PORT..."
 redis-server \
   --port "$TARGET_PORT" \
   --dir "$TARGET_DIR" \
   --dbfilename "$TARGET_DBFILE" \
+  --appendonly "$TARGET_APPENDONLY" \
+  --appendfilename "$TARGET_APPEND_FILENAME" \
+  --appenddirname "$TARGET_APPEND_DIRNAME" \
+  --appendfsync "$TARGET_APPEND_FSYNC" \
   --daemonize yes >/dev/null 2>&1
 
 for _ in $(seq 1 50); do
@@ -155,4 +188,3 @@ echo "[restore] sample keys:"
 redis-cli -p "$TARGET_PORT" --scan --pattern 'cat-cafe:*' | head -n 15 | sed 's/^/  /'
 echo
 echo "[restore] done."
-

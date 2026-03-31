@@ -52,6 +52,10 @@ Then restore to target Redis port:
 ./scripts/redis-restore-from-rdb.sh --source /path/to/dump.rdb --target-port 6399
 ```
 
+恢复脚本现在会自动做两件事（避免 AOF/RDB 脱节）：
+- 启动前把旧 `appendonlydir` 迁移到 `cat-cafe-redis-backups/appendonlydir.*.bak`
+- 重启 Redis 时显式启用 AOF（`appendonly yes` + `appendfsync everysec`）
+
 For personal Redis:
 
 ```bash
