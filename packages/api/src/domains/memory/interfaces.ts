@@ -91,6 +91,10 @@ export interface SearchOptions {
   mode?: 'lexical' | 'semantic' | 'hybrid';
   /** Phase D: result depth — summary (default) or raw detail */
   depth?: 'summary' | 'raw';
+  /** Phase I (AC-I4): ISO8601 date filter, inclusive lower bound */
+  dateFrom?: string;
+  /** Phase I (AC-I4): ISO8601 date filter, inclusive upper bound */
+  dateTo?: string;
 }
 
 export interface MarkerFilter {

@@ -1058,4 +1058,257 @@ describe('IndexBuilder passage indexing (E3/E4/E5)', () => {
     const threadResult = results.find((r) => r.anchor === 'thread-thread_search1');
     assert.ok(threadResult, 'should find the thread doc (via summary or passage match)');
   });
+
+  it('I2: rebuild does not delete existing passages when Redis returns fewer messages', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const mockThreads = [
+      {
+        id: 'thread_perm1',
+        title: 'Permanence test',
+        participants: ['opus'],
+        threadMemory: { summary: 'Testing passage permanence.' },
+        lastActiveAt: Date.now(),
+      },
+    ];
+
+    const allMessages = [
+      {
+        id: 'perm_001',
+        content: 'First message that will expire from Redis',
+        catId: 'opus',
+        threadId: 'thread_perm1',
+        timestamp: Date.now() - 3000,
+      },
+      {
+        id: 'perm_002',
+        content: 'Second message still in Redis',
+        catId: 'opus',
+        threadId: 'thread_perm1',
+        timestamp: Date.now() - 2000,
+      },
+      {
+        id: 'perm_003',
+        content: 'Third message still in Redis',
+        catId: 'user',
+        threadId: 'thread_perm1',
+        timestamp: Date.now() - 1000,
+      },
+    ];
+
+    // First rebuild: all 3 messages available
+    let currentMessages = allMessages;
+    const messageListFn = (threadId) => {
+      if (threadId === 'thread_perm1') return currentMessages;
+      return [];
+    };
+
+    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => mockThreads, messageListFn);
+    await builder.rebuild();
+
+    const db = store.getDb();
+    const passagesAfterFirst = db
+      .prepare('SELECT * FROM evidence_passages WHERE doc_anchor = ? ORDER BY position')
+      .all('thread-thread_perm1');
+    assert.equal(passagesAfterFirst.length, 3, 'first rebuild: should have 3 passages');
+
+    // Simulate Redis expiry: only 1 message remains
+    currentMessages = [allMessages[1]];
+    await builder.rebuild();
+
+    const passagesAfterSecond = db
+      .prepare('SELECT * FROM evidence_passages WHERE doc_anchor = ? ORDER BY position')
+      .all('thread-thread_perm1');
+    assert.equal(passagesAfterSecond.length, 3, 'second rebuild: all 3 passages must persist (AC-I2)');
+    assert.equal(passagesAfterSecond[0].passage_id, 'msg-perm_001', 'expired message passage still exists');
+  });
+
+  it('I1: backfillPassagesFromTranscript adds passages from JSONL events', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const threadId = 'thread_bf1';
+    const catId = 'opus';
+    const sessionId = 'sess_001';
+
+    // Create JSONL transcript directory structure
+    const transcriptDir = join(tmpDir, 'transcripts');
+    const sessDir = join(transcriptDir, 'threads', threadId, catId, 'sessions', sessionId);
+    mkdirSync(sessDir, { recursive: true });
+
+    // Write events.jsonl with text events from two invocations
+    const events = [
+      {
+        v: 1,
+        t: Date.now() - 3000,
+        threadId,
+        catId,
+        sessionId,
+        invocationId: 'inv_001',
+        eventNo: 0,
+        event: { type: 'text', content: 'Hello from ' },
+      },
+      {
+        v: 1,
+        t: Date.now() - 2900,
+        threadId,
+        catId,
+        sessionId,
+        invocationId: 'inv_001',
+        eventNo: 1,
+        event: { type: 'text', content: 'first invocation.' },
+      },
+      {
+        v: 1,
+        t: Date.now() - 2000,
+        threadId,
+        catId,
+        sessionId,
+        invocationId: 'inv_002',
+        eventNo: 2,
+        event: { type: 'tool_use', name: 'Read' },
+      },
+      {
+        v: 1,
+        t: Date.now() - 1000,
+        threadId,
+        catId,
+        sessionId,
+        invocationId: 'inv_002',
+        eventNo: 3,
+        event: { type: 'text', content: 'Second invocation response.' },
+      },
+    ];
+    writeFileSync(join(sessDir, 'events.jsonl'), events.map((e) => JSON.stringify(e)).join('\n') + '\n');
+
+    // Create builder with transcriptDataDir but no messageListFn
+    const builder = new IndexBuilder(store, docsDir, undefined, transcriptDir);
+
+    const added = builder.backfillPassagesFromTranscript(threadId);
+    assert.equal(added, 2, 'should add 2 passages (one per invocation with text)');
+
+    const db = store.getDb();
+    const passages = db
+      .prepare('SELECT * FROM evidence_passages WHERE doc_anchor = ? ORDER BY position')
+      .all(`thread-${threadId}`);
+    assert.equal(passages.length, 2);
+    assert.equal(passages[0].passage_id, 'transcript-inv_001');
+    assert.equal(passages[0].content, 'Hello from first invocation.');
+    assert.equal(passages[0].speaker, 'opus');
+    assert.equal(passages[1].passage_id, 'transcript-inv_002');
+    assert.equal(passages[1].content, 'Second invocation response.');
+
+    // Idempotent: running again adds nothing
+    const addedAgain = builder.backfillPassagesFromTranscript(threadId);
+    assert.equal(addedAgain, 0, 'second run should add 0 (INSERT OR IGNORE)');
+  });
+
+  it('I3: rebuild runs transcript backfill after Redis-based passage indexing', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const threadId = 'thread_rebuild_bf';
+    const catId = 'opus';
+    const sessionId = 'sess_rb1';
+
+    const mockThreads = [
+      {
+        id: threadId,
+        title: 'Rebuild backfill test',
+        participants: ['opus'],
+        threadMemory: { summary: 'Testing rebuild with backfill.' },
+        lastActiveAt: Date.now(),
+      },
+    ];
+
+    // messageListFn returns empty (all Redis messages expired)
+    const messageListFn = () => [];
+
+    // Create JSONL transcript with text events
+    const transcriptDir = join(tmpDir, 'transcripts');
+    const sessDir = join(transcriptDir, 'threads', threadId, catId, 'sessions', sessionId);
+    mkdirSync(sessDir, { recursive: true });
+
+    const events = [
+      {
+        v: 1,
+        t: Date.now() - 2000,
+        threadId,
+        catId,
+        sessionId,
+        invocationId: 'inv_rb1',
+        eventNo: 0,
+        event: { type: 'text', content: 'Recovered from transcript.' },
+      },
+    ];
+    writeFileSync(join(sessDir, 'events.jsonl'), events.map((e) => JSON.stringify(e)).join('\n') + '\n');
+
+    const builder = new IndexBuilder(store, docsDir, undefined, transcriptDir, () => mockThreads, messageListFn);
+    await builder.rebuild();
+
+    const db = store.getDb();
+    const passages = db
+      .prepare('SELECT * FROM evidence_passages WHERE doc_anchor = ? ORDER BY position')
+      .all(`thread-${threadId}`);
+    assert.ok(passages.length >= 1, 'rebuild should have backfilled passages from JSONL (AC-I3)');
+    assert.equal(passages[0].passage_id, 'transcript-inv_rb1');
+    assert.equal(passages[0].content, 'Recovered from transcript.');
+  });
+
+  it('I4: searchPassages filters by dateFrom/dateTo', async () => {
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    const threadId = 'thread_time1';
+    const mockThreads = [
+      {
+        id: threadId,
+        title: 'Time filter test',
+        participants: ['opus'],
+        threadMemory: { summary: 'Time filtering test.' },
+        lastActiveAt: Date.now(),
+      },
+    ];
+
+    // Insert messages with specific timestamps
+    const mockMessages = [
+      {
+        id: 'time_001',
+        content: 'Old message about architecture',
+        catId: 'opus',
+        threadId,
+        timestamp: new Date('2026-03-10T12:00:00Z').getTime(),
+      },
+      {
+        id: 'time_002',
+        content: 'Middle message about architecture',
+        catId: 'opus',
+        threadId,
+        timestamp: new Date('2026-03-18T12:00:00Z').getTime(),
+      },
+      {
+        id: 'time_003',
+        content: 'Recent message about architecture',
+        catId: 'opus',
+        threadId,
+        timestamp: new Date('2026-03-25T12:00:00Z').getTime(),
+      },
+    ];
+
+    const builder = new IndexBuilder(
+      store,
+      docsDir,
+      undefined,
+      undefined,
+      () => mockThreads,
+      () => mockMessages,
+    );
+    await builder.rebuild();
+
+    // Search with date range that only includes middle message
+    const filtered = store.searchPassages('architecture', 10, { dateFrom: '2026-03-15', dateTo: '2026-03-20' });
+    assert.equal(filtered.length, 1, 'should only find middle message within date range');
+    assert.equal(filtered[0].passageId, 'msg-time_002');
+
+    // Search without date filter returns all
+    const unfiltered = store.searchPassages('architecture', 10);
+    assert.equal(unfiltered.length, 3, 'without date filter should find all 3');
+  });
 });

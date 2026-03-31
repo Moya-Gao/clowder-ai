@@ -17,6 +17,8 @@ const searchSchema = z.object({
   scope: z.enum(['docs', 'memory', 'threads', 'sessions', 'all']).optional(),
   mode: z.enum(['lexical', 'semantic', 'hybrid']).optional(),
   depth: z.enum(['summary', 'raw']).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
 });
 
 export type { EvidenceConfidence, EvidenceSourceType } from './evidence-helpers.js';
@@ -59,11 +61,11 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       return { error: 'Invalid query parameters', details: parseResult.error.issues };
     }
 
-    const { q, limit, scope, mode, depth } = parseResult.data;
+    const { q, limit, scope, mode, depth, dateFrom, dateTo } = parseResult.data;
 
     const effectiveLimit = limit ?? 5;
     try {
-      const items = await opts.evidenceStore.search(q, { limit: effectiveLimit, scope, mode, depth });
+      const items = await opts.evidenceStore.search(q, { limit: effectiveLimit, scope, mode, depth, dateFrom, dateTo });
       const results: EvidenceResult[] = items.map((item) => ({
         title: item.title,
         anchor: item.anchor,

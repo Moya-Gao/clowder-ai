@@ -140,6 +140,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
           sql += ` AND (${options.keywords.map(() => 'd.keywords LIKE ?').join(' OR ')})`;
           params.push(...options.keywords.map((kw) => `%"${kw}"%`));
         }
+        if (options?.dateFrom) {
+          sql += ' AND d.updated_at >= ?';
+          params.push(options.dateFrom);
+        }
+        if (options?.dateTo) {
+          sql += ' AND d.updated_at <= ?';
+          params.push(options.dateTo.length === 10 ? `${options.dateTo}T23:59:59` : options.dateTo);
+        }
 
         // Superseded items sort last (KD-16), archive results deprioritized (P2 fix)
         sql += " ORDER BY (d.superseded_by IS NOT NULL), (d.source_path LIKE 'archive/%'), rank";
@@ -201,7 +209,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 
     // Phase E: passage search when depth=raw and scope includes threads
     if (options?.depth === 'raw' && (!options?.scope || options.scope === 'all' || options.scope === 'threads')) {
-      const passages = this.searchPassages(trimmed, limit);
+      const passages = this.searchPassages(trimmed, limit, { dateFrom: options?.dateFrom, dateTo: options?.dateTo });
       for (const p of passages) {
         if (!seenAnchors.has(p.docAnchor)) {
           // Synthesize an EvidenceItem from the passage's parent doc anchor
@@ -524,7 +532,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   // ── Passage operations ─────────────────────────────────────────────
 
   /** Search passage_fts and return matching passages with doc context. */
-  searchPassages(query: string, limit = 10): PassageResult[] {
+  searchPassages(query: string, limit = 10, timeFilter?: { dateFrom?: string; dateTo?: string }): PassageResult[] {
     this.ensureOpen();
     const trimmed = query.trim();
     if (!trimmed) return [];
@@ -538,17 +546,27 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (!ftsQuery) return [];
 
     try {
-      const rows = this.db
-        ?.prepare(
-          `SELECT p.doc_anchor, p.passage_id, p.content, p.speaker, p.position,
+      let sql = `SELECT p.doc_anchor, p.passage_id, p.content, p.speaker, p.position,
                   bm25(passage_fts) AS rank
            FROM passage_fts f
            JOIN evidence_passages p ON p.rowid = f.rowid
-           WHERE passage_fts MATCH ?
-           ORDER BY rank
-           LIMIT ?`,
-        )
-        .all(ftsQuery, limit) as Array<{
+           WHERE passage_fts MATCH ?`;
+      const params: unknown[] = [ftsQuery];
+
+      if (timeFilter?.dateFrom) {
+        sql += ' AND p.created_at >= ?';
+        params.push(timeFilter.dateFrom);
+      }
+      if (timeFilter?.dateTo) {
+        // Add 'T23:59:59' to make dateTo inclusive for the full day
+        sql += ' AND p.created_at <= ?';
+        params.push(timeFilter.dateTo.length === 10 ? `${timeFilter.dateTo}T23:59:59` : timeFilter.dateTo);
+      }
+
+      sql += ' ORDER BY rank LIMIT ?';
+      params.push(limit);
+
+      const rows = this.db?.prepare(sql).all(...params) as Array<{
         doc_anchor: string;
         passage_id: string;
         content: string;

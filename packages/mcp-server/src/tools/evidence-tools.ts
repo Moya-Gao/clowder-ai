@@ -26,6 +26,8 @@ export const searchEvidenceInputSchema = {
     .optional()
     .describe('Retrieval mode: lexical (BM25, default), semantic (vector), hybrid (both + rerank)'),
   depth: z.enum(['summary', 'raw']).optional().describe('Result depth: summary (default) or raw detail'),
+  dateFrom: z.string().optional().describe('ISO8601 date filter, inclusive lower bound (e.g. 2026-03-15)'),
+  dateTo: z.string().optional().describe('ISO8601 date filter, inclusive upper bound (e.g. 2026-03-20)'),
 };
 
 export async function handleSearchEvidence(input: {
@@ -34,12 +36,16 @@ export async function handleSearchEvidence(input: {
   scope?: string | undefined;
   mode?: string | undefined;
   depth?: string | undefined;
+  dateFrom?: string | undefined;
+  dateTo?: string | undefined;
 }): Promise<ToolResult> {
   const params = new URLSearchParams({ q: input.query });
   if (input.limit != null) params.set('limit', String(input.limit));
   if (input.scope) params.set('scope', input.scope);
   if (input.mode) params.set('mode', input.mode);
   if (input.depth) params.set('depth', input.depth);
+  if (input.dateFrom) params.set('dateFrom', input.dateFrom);
+  if (input.dateTo) params.set('dateTo', input.dateTo);
 
   const url = `${API_URL}/api/evidence/search?${params.toString()}`;
 
