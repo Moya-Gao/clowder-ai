@@ -1194,6 +1194,15 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 - [x] AC-I5: `env-registry.ts` 对 `MESSAGE_TTL_SECONDS` 描述明确说明默认 7 天行为 + TTL≤0 变为永不过期的含义
 - [x] AC-I6: 回归测试——模拟 Redis 消息过期场景下 rebuild 仍能通过 JSONL 恢复 passage（红→绿）
 
+**Phase I Follow-up: Passage 返回丰富化 + 上下文窗口**（铲屎官 2026-03-31 指示）
+
+> 金渐层痛点："搜到了只知道某个 thread 讨论过 X，不知道具体哪条消息"。Phase I 的 passage 已存了消息级内容，但返回字段太少、没有上下文窗口。
+
+- [ ] AC-I7: `searchPassages()` 返回增加 `created_at`、`passageId`（含 messageId/invocationId）字段，猫和人都能定位到具体消息
+- [ ] AC-I8: `searchPassages()` 支持上下文窗口参数（类似 grep `-C`），返回命中 passage 前后 N 条 passage
+- [ ] AC-I9: MCP `search_evidence(depth=raw)` 返回值包含 passage 级细节（speaker + timestamp + 上下文），猫猫可直接引用具体消息
+- [ ] AC-I10: CLAUDE.md / SystemPromptBuilder 中 `search_evidence` 用法指南更新——教猫用 `depth=raw` 做消息级定位，而非只用 drill-down 工具链
+
 ### Phase J（Memory Hub — 记忆系统的人类产品面）
 - [ ] AC-J1: `/memory` 独立路由页面存在，左侧导航栏有入口（和对话列表/IM Hub 同级）
 - [ ] AC-J2: `/memory` 页面包含人类可用的搜索栏，支持 mode/scope/depth 参数调节
