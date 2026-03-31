@@ -1364,21 +1364,42 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-03-30 | 铲屎官提出记忆系统可见性问题："社区用不起来，藏得太死了" |
 | 2026-03-30 | 铲屎官核心洞察："偷偷看一眼猫搜到了什么记忆" → 人猫共用定位 |
 | 2026-03-30 | 砚砚评审：Workspace 方案绕路 → 布偶猫接受 → 三方收敛 `/memory` 独立路由（左侧导航）+ Recall Feed（Workspace）→ Phase J 立项 |
+| 2026-03-30 | 布偶猫+砚砚路线图讨论：砚砚收紧"并行双线"为"单线分层"I→F-4→J→F-rest（避免 resolver 交叉返工 + 脚手架风险）|
 
 ## 实现路线图（F/G/Gap 整体规划）
 
 > **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I 已立项（message-level permanence repair）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F + G 运行时验收 + Phase I + Phase J + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
-### 整体顺序
+### 整体顺序（2026-03-30 三方收敛：布偶猫+砚砚+铲屎官）
 
 ```
-① 立即  Gap-1: EMBED_MODE=on（改 env，零代码）
-② 第一批  F-1 + F-2（通用扫描 + formatter）  ←─┐ 可并行
-          G-2 + G-3（schema + 定时任务调度器） ←─┘
-③ 第二批  G-1（Opus 调用 + topic segment 切分）← 依赖 G-2/G-3
-④ 第三批  G-4 + G-5（bootstrap + drillDown）  ← 依赖 G-1
-⑤ 最后   F-3 + F-4（全局知识层 + project-init）← 独立但较大
+① 立即   Gap-1: EMBED_MODE=on（改 env，零代码）
+② Stage 1: Phase I — Message-Level Permanence Repair（单项目内消息永久可搜）
+            I-1 JSONL backfill → I-2 时间过滤 → I-3 分层显式化
+③ Stage 2: Phase F-4 — Global Knowledge Foundation（全局知识层 + 联邦检索）
+            从 Phase F 提前拆出，不等 F-1/F-2/F-3
+④ Stage 3: Phase J — Memory Hub（前端一次到位，含跨项目切换器）
+            I + F-4 都完成后再开工，不做单项目脚手架版
+⑤ Stage 4: Phase F-1/F-2/F-3 — Project Onboarding & Ingestion
+            新项目策略 + 遗留项目扫描 + frontmatter formatter
+⑥ 穿插:   G 运行时验收 + IMaterializationService（独立于上述主线）
+```
+
+**Why this order**（砚砚 2026-03-30 收紧）：
+- **不并行 I 和 F-4**——两者都动 KnowledgeResolver / memory 边界，并行容易交叉返工
+- **I 先于 F-4**——先修单项目 permanence 再叠加全局层，层次更干净；否则全局层只是把单项目的问题复制到全局
+- **J 必须等 I + F-4**——否则 UI 会自然滑向"先做单项目版再补跨项目"的脚手架模式
+- **F-1/2/3 最后做**——给 Memory Hub 持续喂内容，但不阻塞 Hub 的产品形态
+
+### 旧路线图（仅供参考，已被上述替代）
+
+```
+（旧）② 第一批  F-1 + F-2（通用扫描 + formatter）  ←─┐ 可并行
+               G-2 + G-3（schema + 定时任务调度器） ←─┘
+（旧）③ 第二批  G-1（Opus 调用 + topic segment 切分）← 依赖 G-2/G-3
+（旧）④ 第三批  G-4 + G-5（bootstrap + drillDown）  ← 依赖 G-1
+（旧）⑤ 最后   F-3 + F-4（全局知识层 + project-init）← 独立但较大
 ```
 
 ### Gap 处理
