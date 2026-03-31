@@ -80,7 +80,19 @@ created: 2026-02-26
 | ↳ | [课后作业](./10-homework.md) | ✅ 完成 | 蜘蛛网审计 + frontmatter 补录 + 7-slot 教训模板 |
 | 11 | [让猫猫开口说话 — 从"五年前机器朗读"到 11 只猫 11 种声线](./11-voice-pipeline.md) | ✅ 完成 | ASR + TTS + Voice Identity + iOS autoplay 全链路 |
 | ↳ | [课后作业](./11-homework.md) | ✅ 完成 | TTS 对比 + 克隆实验 + Autoplay 策略 + Adapter 模式 |
-| 12 | 降级与容错 | 🔜 待写 | 猫猫挂了怎么办？ |
+
+### Part 5: Under the Hood — 对等架构深潜
+
+| 课 | 标题 | 状态 | 核心问题 |
+|----|------|------|----------|
+| 12 | [没有 Boss Agent — 为什么我们不用中央编排](./12-no-boss-agent.md) | ✅ 完成 | 对等判断层 + 结构化执行层的两层设计 |
+| ↳ | [课后作业](./12-homework.md) | ✅ 完成 | 去中心化协作层设计 + 跨模型 Review 实验 |
+| 13 | [一句话到交付 — Feature 闭环的双环路径](./13-from-sentence-to-ship.md) | ✅ 完成 | Discovery Loop + Delivery Loop 完整闭环 |
+| ↳ | [课后作业](./13-homework.md) | ✅ 完成 | 最小 Discovery Loop + 愿景对照 + 三角色制约 |
+| 14 | [越犯错越聪明 — 三层记忆与自我进化](./14-learning-from-mistakes.md) | ✅ 完成 | 文档真相源 + 联邦检索 + 知识晋升管道 |
+| ↳ | [课后作业](./14-homework.md) | ✅ 完成 | 蜘蛛网审计 + 结构化教训 + 最小 Recall 系统 |
+| 15 | [跑了 54 天为什么没崩 — Pack、门禁与工程纪律](./15-why-still-running.md) | ✅ 完成 | Pack 协作世界 + 门禁纪律 + Vibe Coding 四节奏 |
+| ↳ | [课后作业](./15-homework.md) | ✅ 完成 | 五条铁律 + 证物 Gate + 代码卫生度量 |
 
 ## 适合谁
 
@@ -97,9 +109,8 @@ created: 2026-02-26
 
 ## 项目状态
 
-- 代码仓库：私有（打磨中）
+- 代码仓库：[已开源](https://github.com/clowder-ai/cat-cafe)（2026-03-21）
 - 教程：公开（你正在读的这个）
-- 计划开源时间：待定（等我们满意了）
 
 ---
 
