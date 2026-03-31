@@ -63,6 +63,20 @@ export interface EvidenceItem {
     params: Record<string, string>;
     hint: string;
   };
+  /** AC-I9: passage-level detail when depth=raw */
+  passages?: Array<{
+    passageId: string;
+    content: string;
+    speaker?: string;
+    createdAt?: string;
+    /** AC-I8: surrounding passages when contextWindow is set */
+    context?: Array<{
+      passageId: string;
+      content: string;
+      speaker?: string;
+      createdAt?: string;
+    }>;
+  }>;
 }
 
 export interface Edge {
@@ -95,6 +109,8 @@ export interface SearchOptions {
   dateFrom?: string;
   /** Phase I (AC-I4): ISO8601 date filter, inclusive upper bound */
   dateTo?: string;
+  /** Phase I (AC-I8): number of surrounding passages to include per match */
+  contextWindow?: number;
 }
 
 export interface MarkerFilter {

@@ -19,6 +19,7 @@ const searchSchema = z.object({
   depth: z.enum(['summary', 'raw']).optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
+  contextWindow: z.coerce.number().int().min(1).max(5).optional(),
 });
 
 export type { EvidenceConfidence, EvidenceSourceType } from './evidence-helpers.js';
@@ -61,11 +62,19 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       return { error: 'Invalid query parameters', details: parseResult.error.issues };
     }
 
-    const { q, limit, scope, mode, depth, dateFrom, dateTo } = parseResult.data;
+    const { q, limit, scope, mode, depth, dateFrom, dateTo, contextWindow } = parseResult.data;
 
     const effectiveLimit = limit ?? 5;
     try {
-      const items = await opts.evidenceStore.search(q, { limit: effectiveLimit, scope, mode, depth, dateFrom, dateTo });
+      const items = await opts.evidenceStore.search(q, {
+        limit: effectiveLimit,
+        scope,
+        mode,
+        depth,
+        dateFrom,
+        dateTo,
+        contextWindow,
+      });
       const results: EvidenceResult[] = items.map((item) => ({
         title: item.title,
         anchor: item.anchor,
@@ -76,6 +85,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
           : item.kind === 'plan'
             ? 'phase'
             : 'discussion') as EvidenceResult['sourceType'],
+        ...(item.passages ? { passages: item.passages } : {}),
       }));
       return { results, degraded: false } satisfies Partial<EvidenceSearchResponse>;
     } catch {

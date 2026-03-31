@@ -12,6 +12,19 @@ export interface EvidenceResult {
   confidence: EvidenceConfidence;
   sourceType: EvidenceSourceType;
   status?: EvidenceStatus;
+  /** AC-I9: passage-level detail when depth=raw */
+  passages?: Array<{
+    passageId: string;
+    content: string;
+    speaker?: string;
+    createdAt?: string;
+    context?: Array<{
+      passageId: string;
+      content: string;
+      speaker?: string;
+      createdAt?: string;
+    }>;
+  }>;
 }
 
 export function normalizeTags(input: string | string[] | undefined, defaultOrigin = 'origin:git'): string[] {

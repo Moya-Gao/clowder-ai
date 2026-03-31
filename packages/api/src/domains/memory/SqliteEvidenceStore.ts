@@ -18,6 +18,10 @@ export interface PassageResult {
   content: string;
   speaker?: string;
   position?: number;
+  /** AC-I7: ISO8601 timestamp of when the passage was created */
+  createdAt?: string;
+  /** AC-I8: surrounding passages within the context window */
+  context?: PassageResult[];
 }
 
 export interface EmbedDeps {
@@ -207,22 +211,53 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       }
     }
 
-    // Phase E: passage search when depth=raw and scope includes threads
+    // Phase E + AC-I9: passage search when depth=raw and scope includes threads
     if (options?.depth === 'raw' && (!options?.scope || options.scope === 'all' || options.scope === 'threads')) {
-      const passages = this.searchPassages(trimmed, limit, { dateFrom: options?.dateFrom, dateTo: options?.dateTo });
+      const cw = options?.contextWindow;
+      const passages = this.searchPassages(
+        trimmed,
+        limit,
+        { dateFrom: options?.dateFrom, dateTo: options?.dateTo },
+        cw && cw > 0 ? { contextWindow: cw } : undefined,
+      );
+      // Group passages by docAnchor for structured return
+      const passagesByAnchor = new Map<string, typeof passages>();
       for (const p of passages) {
-        if (!seenAnchors.has(p.docAnchor)) {
-          // Synthesize an EvidenceItem from the passage's parent doc anchor
-          const parentDoc = this.db?.prepare('SELECT * FROM evidence_docs WHERE anchor = ?').get(p.docAnchor) as
+        const arr = passagesByAnchor.get(p.docAnchor) ?? [];
+        arr.push(p);
+        passagesByAnchor.set(p.docAnchor, arr);
+      }
+      for (const [anchor, pList] of passagesByAnchor) {
+        // Find existing result or synthesize from parent doc
+        let item = results.find((r) => r.anchor === anchor);
+        if (!item) {
+          const parentDoc = this.db?.prepare('SELECT * FROM evidence_docs WHERE anchor = ?').get(anchor) as
             | RowShape
             | undefined;
           if (parentDoc) {
-            const item = rowToItem(parentDoc);
-            // Enrich summary with passage match context
-            item.summary = `[passage match] ${p.speaker ? `${p.speaker}: ` : ''}${p.content.slice(0, 200)}`;
+            item = rowToItem(parentDoc);
+            item.summary = `[passage match] ${pList[0].speaker ? `${pList[0].speaker}: ` : ''}${pList[0].content.slice(0, 200)}`;
             results.push(item);
-            seenAnchors.add(p.docAnchor);
+            seenAnchors.add(anchor);
           }
+        }
+        if (item) {
+          item.passages = pList.map((p) => ({
+            passageId: p.passageId,
+            content: p.content,
+            speaker: p.speaker,
+            createdAt: p.createdAt,
+            ...(p.context
+              ? {
+                  context: p.context.map((c) => ({
+                    passageId: c.passageId,
+                    content: c.content,
+                    speaker: c.speaker,
+                    createdAt: c.createdAt,
+                  })),
+                }
+              : {}),
+          }));
         }
       }
     }
@@ -532,7 +567,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   // ── Passage operations ─────────────────────────────────────────────
 
   /** Search passage_fts and return matching passages with doc context. */
-  searchPassages(query: string, limit = 10, timeFilter?: { dateFrom?: string; dateTo?: string }): PassageResult[] {
+  searchPassages(
+    query: string,
+    limit = 10,
+    timeFilter?: { dateFrom?: string; dateTo?: string },
+    options?: { contextWindow?: number },
+  ): PassageResult[] {
     this.ensureOpen();
     const trimmed = query.trim();
     if (!trimmed) return [];
@@ -546,7 +586,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (!ftsQuery) return [];
 
     try {
-      let sql = `SELECT p.doc_anchor, p.passage_id, p.content, p.speaker, p.position,
+      let sql = `SELECT p.doc_anchor, p.passage_id, p.content, p.speaker, p.position, p.created_at,
                   bm25(passage_fts) AS rank
            FROM passage_fts f
            JOIN evidence_passages p ON p.rowid = f.rowid
@@ -572,16 +612,51 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         content: string;
         speaker: string | null;
         position: number | null;
+        created_at: string | null;
         rank: number;
       }>;
 
-      return (rows ?? []).map((r) => ({
+      const results: PassageResult[] = (rows ?? []).map((r) => ({
         docAnchor: r.doc_anchor,
         passageId: r.passage_id,
         content: r.content,
         speaker: r.speaker ?? undefined,
         position: r.position ?? undefined,
+        createdAt: r.created_at ?? undefined,
       }));
+
+      // AC-I8: fetch surrounding passages within the context window
+      const cw = options?.contextWindow;
+      if (cw && cw > 0 && this.db) {
+        const ctxStmt = this.db.prepare(
+          `SELECT doc_anchor, passage_id, content, speaker, position, created_at
+           FROM evidence_passages
+           WHERE doc_anchor = ? AND position BETWEEN ? AND ? AND passage_id != ?
+           ORDER BY position`,
+        );
+        for (const r of results) {
+          if (r.position != null) {
+            const ctxRows = ctxStmt.all(r.docAnchor, r.position - cw, r.position + cw, r.passageId) as Array<{
+              doc_anchor: string;
+              passage_id: string;
+              content: string;
+              speaker: string | null;
+              position: number | null;
+              created_at: string | null;
+            }>;
+            r.context = ctxRows.map((c) => ({
+              docAnchor: c.doc_anchor,
+              passageId: c.passage_id,
+              content: c.content,
+              speaker: c.speaker ?? undefined,
+              position: c.position ?? undefined,
+              createdAt: c.created_at ?? undefined,
+            }));
+          }
+        }
+      }
+
+      return results;
     } catch {
       // FTS5 syntax error — degrade gracefully
       return [];

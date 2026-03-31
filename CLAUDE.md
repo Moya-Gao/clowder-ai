@@ -86,6 +86,7 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 | "我们当时为什么这么决定" | `search_evidence("memory adapter 决策", mode="hybrid")` | `hybrid`（推荐日常用） |
 | 跨语言 / 同义表达 | `search_evidence("cat naming origin", mode="semantic")` | `semantic` |
 | 历史聊天里的讨论 | `search_evidence("redis 坑", mode="hybrid")` → 命中后用 `read_session_digest` 深入 | `hybrid` |
+| 具体消息定位 | `search_evidence("redis config", depth="raw", scope="threads")` — 返回 passageId + speaker + timestamp | `depth=raw` |
 | 源码 / API 实现 | **继续用 Grep/LSP**，不走记忆组件 | — |
 
 > **mode 速查**：不确定用哪个 → 用 `hybrid`。精确 ID 用 `lexical`。英搜中/中搜英用 `semantic`。

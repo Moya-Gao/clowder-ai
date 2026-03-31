@@ -28,6 +28,13 @@ export const searchEvidenceInputSchema = {
   depth: z.enum(['summary', 'raw']).optional().describe('Result depth: summary (default) or raw detail'),
   dateFrom: z.string().optional().describe('ISO8601 date filter, inclusive lower bound (e.g. 2026-03-15)'),
   dateTo: z.string().optional().describe('ISO8601 date filter, inclusive upper bound (e.g. 2026-03-20)'),
+  contextWindow: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .optional()
+    .describe('Number of surrounding passages to include per match (like grep -C). Only effective with depth=raw'),
 };
 
 export async function handleSearchEvidence(input: {
@@ -38,6 +45,7 @@ export async function handleSearchEvidence(input: {
   depth?: string | undefined;
   dateFrom?: string | undefined;
   dateTo?: string | undefined;
+  contextWindow?: number | undefined;
 }): Promise<ToolResult> {
   const params = new URLSearchParams({ q: input.query });
   if (input.limit != null) params.set('limit', String(input.limit));
@@ -46,6 +54,7 @@ export async function handleSearchEvidence(input: {
   if (input.depth) params.set('depth', input.depth);
   if (input.dateFrom) params.set('dateFrom', input.dateFrom);
   if (input.dateTo) params.set('dateTo', input.dateTo);
+  if (input.contextWindow != null) params.set('contextWindow', String(input.contextWindow));
 
   const url = `${API_URL}/api/evidence/search?${params.toString()}`;
 
@@ -64,6 +73,18 @@ export async function handleSearchEvidence(input: {
         snippet: string;
         confidence: string;
         sourceType: string;
+        passages?: Array<{
+          passageId: string;
+          content: string;
+          speaker?: string;
+          createdAt?: string;
+          context?: Array<{
+            passageId: string;
+            content: string;
+            speaker?: string;
+            createdAt?: string;
+          }>;
+        }>;
       }>;
       degraded: boolean;
       degradeReason?: string;
@@ -89,6 +110,24 @@ export async function handleSearchEvidence(input: {
       lines.push(`  type: ${r.sourceType}`);
       const snippet = r.snippet.length > 200 ? `${r.snippet.slice(0, 200)}...` : r.snippet;
       lines.push(`  > ${snippet.replace(/\n/g, ' ')}`);
+      // AC-I9: show passage-level detail when depth=raw
+      if (r.passages && r.passages.length > 0) {
+        lines.push('  passages:');
+        for (const p of r.passages) {
+          const speaker = p.speaker ?? '?';
+          const ts = p.createdAt ? ` (${p.createdAt})` : '';
+          const text = p.content.length > 150 ? `${p.content.slice(0, 150)}...` : p.content;
+          lines.push(`    [${p.passageId}] ${speaker}${ts}: ${text.replace(/\n/g, ' ')}`);
+          if (p.context && p.context.length > 0) {
+            for (const c of p.context) {
+              const cs = c.speaker ?? '?';
+              const ct = c.createdAt ? ` (${c.createdAt})` : '';
+              const cx = c.content.length > 120 ? `${c.content.slice(0, 120)}...` : c.content;
+              lines.push(`      ~ ${cs}${ct}: ${cx.replace(/\n/g, ' ')}`);
+            }
+          }
+        }
+      }
       lines.push('');
     }
 

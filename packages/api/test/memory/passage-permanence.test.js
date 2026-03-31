@@ -197,6 +197,119 @@ describe('passage permanence (Phase I regression)', () => {
     assert.equal(passages[0].passage_id, 'transcript-inv_good');
   });
 
+  it('searchPassages returns createdAt and passageId fields (AC-I7)', () => {
+    const db = store.getDb();
+    db.exec(
+      "INSERT INTO evidence_docs (anchor, kind, status, title, updated_at) VALUES ('thread-i7', 'session', 'active', 'AC-I7 test', '2026-03-31')",
+    );
+    db.exec(
+      "INSERT INTO evidence_passages (doc_anchor, passage_id, content, speaker, position, created_at) VALUES ('thread-i7', 'msg-i7-001', 'Redis config discussion for testing', 'user', 0, '2026-03-31T10:00:00Z')",
+    );
+    db.exec('INSERT INTO passage_fts(rowid, content) SELECT rowid, content FROM evidence_passages');
+
+    const results = store.searchPassages('Redis config');
+    assert.ok(results.length >= 1, 'should find at least one passage');
+    assert.equal(results[0].passageId, 'msg-i7-001');
+    assert.equal(results[0].createdAt, '2026-03-31T10:00:00Z');
+  });
+
+  it('searchPassages returns context window around match (AC-I8)', () => {
+    const db = store.getDb();
+    db.exec(
+      "INSERT INTO evidence_docs (anchor, kind, status, title, updated_at) VALUES ('thread-ctx', 'session', 'active', 'Context test', '2026-03-31')",
+    );
+
+    const passages = [
+      ['msg-a', 'Hello how are you', 'user', 0, '2026-03-31T10:00:00Z'],
+      ['msg-b', 'Fine thanks', 'opus', 1, '2026-03-31T10:01:00Z'],
+      ['msg-c', 'Tell me about Redis caching strategies', 'user', 2, '2026-03-31T10:02:00Z'],
+      ['msg-d', 'Redis caching strategies include write-through', 'opus', 3, '2026-03-31T10:03:00Z'],
+      ['msg-e', 'Thanks that helps a lot', 'user', 4, '2026-03-31T10:04:00Z'],
+    ];
+    const stmt = db.prepare(
+      'INSERT INTO evidence_passages (doc_anchor, passage_id, content, speaker, position, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    for (const p of passages) stmt.run('thread-ctx', ...p);
+    db.exec('INSERT INTO passage_fts(rowid, content) SELECT rowid, content FROM evidence_passages');
+
+    const results = store.searchPassages('Redis caching', 10, undefined, { contextWindow: 1 });
+    assert.ok(results.length >= 1, 'should find at least one match');
+    const match = results[0];
+    assert.ok(match.context, 'context should be present');
+    assert.ok(match.context.length >= 1, 'should have at least one adjacent passage');
+    // Context passages should be within ±1 position of the match
+    for (const ctx of match.context) {
+      assert.ok(
+        Math.abs(ctx.position - match.position) <= 1,
+        `context passage at position ${ctx.position} should be within ±1 of match at ${match.position}`,
+      );
+    }
+  });
+
+  it('search with depth=raw returns structured passages (AC-I9)', async () => {
+    const db = store.getDb();
+    db.exec(
+      "INSERT INTO evidence_docs (anchor, kind, status, title, summary, updated_at) VALUES ('thread-raw', 'session', 'active', 'Raw depth test', 'A thread about Redis', '2026-03-31')",
+    );
+    const stmt = db.prepare(
+      'INSERT INTO evidence_passages (doc_anchor, passage_id, content, speaker, position, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    stmt.run('thread-raw', 'msg-r1', 'Redis pipeline optimization strategies', 'user', 0, '2026-03-31T11:00:00Z');
+    stmt.run('thread-raw', 'msg-r2', 'Pipeline batching reduces round trips', 'opus', 1, '2026-03-31T11:01:00Z');
+    db.exec(
+      "INSERT INTO passage_fts(rowid, content) SELECT rowid, content FROM evidence_passages WHERE doc_anchor = 'thread-raw'",
+    );
+    // Also sync evidence_fts for the doc
+    db.exec(
+      "INSERT INTO evidence_fts(rowid, title, summary) SELECT rowid, title, summary FROM evidence_docs WHERE anchor = 'thread-raw'",
+    );
+
+    const results = await store.search('Redis pipeline', { depth: 'raw', scope: 'threads', limit: 5 });
+    assert.ok(results.length >= 1, 'should find results');
+    const hit = results.find((r) => r.anchor === 'thread-raw');
+    assert.ok(hit, 'should find thread-raw');
+    assert.ok(hit.passages, 'should have passages array');
+    assert.ok(hit.passages.length >= 1, 'should have at least one passage');
+    assert.equal(hit.passages[0].passageId, 'msg-r1');
+    assert.equal(hit.passages[0].speaker, 'user');
+    assert.equal(hit.passages[0].createdAt, '2026-03-31T11:00:00Z');
+  });
+
+  it('P1-fix: search(depth=raw, contextWindow) returns passages with context (AC-I8/I9 E2E)', async () => {
+    const db = store.getDb();
+    db.exec(
+      "INSERT INTO evidence_docs (anchor, kind, status, title, summary, updated_at) VALUES ('thread-e2e', 'session', 'active', 'E2E context test', 'context window e2e', '2026-03-31')",
+    );
+    const stmt = db.prepare(
+      'INSERT INTO evidence_passages (doc_anchor, passage_id, content, speaker, position, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    stmt.run('thread-e2e', 'msg-e1', 'Hello how are you', 'user', 0, '2026-03-31T12:00:00Z');
+    stmt.run('thread-e2e', 'msg-e2', 'Redis caching architecture overview', 'opus', 1, '2026-03-31T12:01:00Z');
+    stmt.run('thread-e2e', 'msg-e3', 'Thanks for the explanation', 'user', 2, '2026-03-31T12:02:00Z');
+    db.exec(
+      "INSERT INTO passage_fts(rowid, content) SELECT rowid, content FROM evidence_passages WHERE doc_anchor = 'thread-e2e'",
+    );
+    db.exec(
+      "INSERT INTO evidence_fts(rowid, title, summary) SELECT rowid, title, summary FROM evidence_docs WHERE anchor = 'thread-e2e'",
+    );
+
+    // search() with contextWindow should return passages with context array
+    const results = await store.search('Redis caching', {
+      depth: 'raw',
+      scope: 'threads',
+      limit: 5,
+      contextWindow: 1,
+    });
+    assert.ok(results.length >= 1, 'should find results');
+    const hit = results.find((r) => r.anchor === 'thread-e2e');
+    assert.ok(hit, 'should find thread-e2e');
+    assert.ok(hit.passages, 'should have passages');
+    const match = hit.passages.find((p) => p.passageId === 'msg-e2');
+    assert.ok(match, 'should find the matching passage');
+    assert.ok(match.context, 'passage should have context array');
+    assert.ok(match.context.length >= 1, 'context should have at least one adjacent passage');
+  });
+
   it('hot path passage insertion is under 5ms', async () => {
     const db = store.getDb();
     const stmt = db.prepare(`
