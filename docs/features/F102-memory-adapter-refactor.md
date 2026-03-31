@@ -470,12 +470,12 @@ search_evidence(query, {
 - 可选人工确认或全自动
 - 提升 kind 推断准确度和检索质量
 
-**F-4. 全局知识层（跟猫走）**
+**F-4. 全局知识层（跟猫走）** ✅ PR #886
 
-- 编译 `global_knowledge.sqlite`：从 Skills/家规/MEMORY.md/lessons-learned 编译只读索引
-- 放在猫猫 home 目录（`~/.cat-cafe/global_knowledge.sqlite`），不在项目里
-- `KnowledgeResolver` 联邦检索：search 时同时查 project + global 两个 SQLite，RRF 融合
-- 猫出征新项目 → 带走全局层，在新项目搜"Redis 坑"能命中 cat-cafe 的教训
+- ~~编译 `global_knowledge.sqlite`：从 Skills/家规/MEMORY.md/lessons-learned 编译只读索引~~
+- ~~放在猫猫 home 目录（`~/.cat-cafe/global_knowledge.sqlite`），不在项目里~~
+- ~~`KnowledgeResolver` 联邦检索：search 时同时查 project + global 两个 SQLite，RRF 融合~~
+- ~~猫出征新项目 → 带走全局层，在新项目搜"Redis 坑"能命中 cat-cafe 的教训~~
 
 **当前可用度**（无需 Phase F 即可用）：
 - 新项目 docs 自动索引 ✅（如果按标准目录建）
@@ -1376,10 +1376,11 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-03-30 | 布偶猫+砚砚路线图讨论：砚砚收紧"并行双线"为"单线分层"I→F-4→J→F-rest（避免 resolver 交叉返工 + 脚手架风险）|
 | 2026-03-31 | Phase I merged (PR #884)：passage 永久化 + JSONL backfill + dateFrom/dateTo + 回归测试 |
 | 2026-03-31 | Phase I follow-up merged (PR #885)：passage enrichment + context window (AC-I7~I10) |
+| 2026-03-31 | Phase F-4 merged (PR #886)：GlobalIndexBuilder + KnowledgeResolver federation — Skills/MEMORY.md → global_knowledge.sqlite |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F + G 运行时验收 + Phase J + IMaterializationService 待开。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F-1/2/3 + G 运行时验收 + Phase J + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序（2026-03-30 三方收敛：布偶猫+砚砚+铲屎官）
@@ -1388,7 +1389,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 ① 立即   Gap-1: EMBED_MODE=on（改 env，零代码）
 ② Stage 1: Phase I — Message-Level Permanence Repair（单项目内消息永久可搜）
             I-1 JSONL backfill → I-2 时间过滤 → I-3 分层显式化
-③ Stage 2: Phase F-4 — Global Knowledge Foundation（全局知识层 + 联邦检索）
+③ Stage 2: Phase F-4 — Global Knowledge Foundation（全局知识层 + 联邦检索）✅ PR #886
             从 Phase F 提前拆出，不等 F-1/F-2/F-3
 ④ Stage 3: Phase J — Memory Hub（前端一次到位，含跨项目切换器）
             I + F-4 都完成后再开工，不做单项目脚手架版
