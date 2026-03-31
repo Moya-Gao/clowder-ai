@@ -120,6 +120,11 @@ list_source_worktree_realpaths() {
     done
 }
 
+target_git_repo_exists() {
+  local repo_dir="$1"
+  git -C "$repo_dir" rev-parse --git-dir >/dev/null 2>&1
+}
+
 find_available_port() {
   local preferred_port="$1"
   local avoid_port="${2:-}"
@@ -425,7 +430,7 @@ cleanup_validation_target() {
 }
 
 prepare_validation_target() {
-  if [ ! -d "$TARGET_DIR/.git" ]; then
+  if ! target_git_repo_exists "$TARGET_DIR"; then
     echo -e "  ${RED}✗ Target git repo not found: $TARGET_DIR${NC}"
     return 1
   fi
@@ -628,7 +633,7 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
 fi
 
 # 0b: Target repo state check (skip for dry-run/validate)
-if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" ]; then
+if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && target_git_repo_exists "$TARGET_DIR"; then
   cd "$TARGET_DIR"
   if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
     echo -e "  ${RED}✗ Target repo has uncommitted changes: $TARGET_DIR${NC}"
@@ -656,7 +661,7 @@ fi
 # Gate: target HEAD must match ledger's last_reviewed_target_head, OR all commits
 # between ledger HEAD and current target HEAD must be sync commits.
 INTAKE_LEDGER="$SOURCE_DIR/docs/ops/opensource-intake-ledger.json"
-if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && [ -d "$TARGET_DIR/.git" ]; then
+if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && target_git_repo_exists "$TARGET_DIR"; then
   if [ -f "$INTAKE_LEDGER" ]; then
     LEDGER_HEAD=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); console.log(l.last_reviewed_target_head || '')" 2>/dev/null || true)
     cd "$TARGET_DIR"
@@ -1677,7 +1682,7 @@ echo "  ✓ Synced to $TARGET_DIR"
 step_done
 
 # 5d: Auto-commit + provenance finalization (D3)
-if [ -d "$TARGET_DIR/.git" ]; then
+if target_git_repo_exists "$TARGET_DIR"; then
   cd "$TARGET_DIR"
   git add -A
   if [ "$SYNC_MODULE" = "all" ]; then
