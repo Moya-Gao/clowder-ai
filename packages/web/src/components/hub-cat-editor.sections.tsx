@@ -221,7 +221,15 @@ export function IdentitySection({
 }
 
 /** Well-known OpenCode provider names (always shown as suggestions). */
-const KNOWN_OC_PROVIDERS = ['anthropic', 'openai', 'openrouter', 'google', 'azure', 'deepseek'];
+export const KNOWN_OC_PROVIDERS = [
+  'anthropic',
+  'openai',
+  'openai-responses',
+  'openrouter',
+  'google',
+  'azure',
+  'deepseek',
+];
 
 /** Merge well-known providers with any prefixes extracted from model strings like "openai/gpt-5.4". */
 function buildProviderSuggestions(models: string[]): string[] {
