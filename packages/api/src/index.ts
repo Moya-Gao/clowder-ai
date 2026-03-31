@@ -447,6 +447,16 @@ async function main(): Promise<void> {
     }
   }
 
+  // F-4: Global knowledge rebuild (Skills + MEMORY.md → global_knowledge.sqlite)
+  if (memoryServices.globalIndexBuilder) {
+    try {
+      const gResult = await memoryServices.globalIndexBuilder.rebuild();
+      app.log.info(`[api] F102: global knowledge rebuilt — ${gResult.docsIndexed} indexed (${gResult.durationMs}ms)`);
+    } catch (err) {
+      app.log.warn(`[api] F102: global knowledge rebuild failed (non-fatal): ${err}`);
+    }
+  }
+
   // Phase E-2: Dirty-thread debounce — flush modified thread summaries every 30s
   const DIRTY_THREAD_FLUSH_INTERVAL_MS = 30_000;
   if (memoryServices.indexBuilder) {
@@ -1185,10 +1195,11 @@ async function main(): Promise<void> {
   const { voteRoutes } = await import('./routes/votes.js');
   await app.register(voteRoutes, { threadStore, socketManager, messageStore });
 
-  // Evidence search (SQLite) + reindex endpoint (D-11)
+  // Evidence search (SQLite) + reindex endpoint (D-11) + F-4 federated search
   await app.register(evidenceRoutes, {
     evidenceStore: memoryServices.evidenceStore,
     indexBuilder: memoryServices.indexBuilder,
+    knowledgeResolver: memoryServices.knowledgeResolver,
   });
 
   // F129: Pack system routes (reuse shared packStore from above)

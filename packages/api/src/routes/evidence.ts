@@ -7,7 +7,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { IEvidenceStore, IIndexBuilder } from '../domains/memory/interfaces.js';
+import type { IEvidenceStore, IIndexBuilder, IKnowledgeResolver } from '../domains/memory/interfaces.js';
 import type { EvidenceResult } from './evidence-helpers.js';
 
 /** Accepted query parameters — Phase D: scope/mode/depth added */
@@ -52,6 +52,8 @@ export interface EvidenceRoutesOptions {
   evidenceStore: IEvidenceStore;
   /** F102 D-11: IndexBuilder for incremental reindex */
   indexBuilder?: IIndexBuilder;
+  /** F-4: KnowledgeResolver for federated project + global search */
+  knowledgeResolver?: IKnowledgeResolver;
 }
 
 export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
@@ -66,15 +68,11 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
 
     const effectiveLimit = limit ?? 5;
     try {
-      const items = await opts.evidenceStore.search(q, {
-        limit: effectiveLimit,
-        scope,
-        mode,
-        depth,
-        dateFrom,
-        dateTo,
-        contextWindow,
-      });
+      const searchOpts = { limit: effectiveLimit, scope, mode, depth, dateFrom, dateTo, contextWindow };
+      // F-4: Use KnowledgeResolver for federated project + global search
+      const items = opts.knowledgeResolver
+        ? (await opts.knowledgeResolver.resolve(q, searchOpts)).results
+        : await opts.evidenceStore.search(q, searchOpts);
       const results: EvidenceResult[] = items.map((item) => ({
         title: item.title,
         anchor: item.anchor,
