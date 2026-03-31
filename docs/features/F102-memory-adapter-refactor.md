@@ -957,7 +957,7 @@ Workspace 面板顶部：
 
 > **待做**：IMaterializationService（approved → docs/*.md 自动写入） · 暹罗猫精细视觉设计
 
-### Phase I: Message-Level Permanence Repair — JSONL-backed passage reconciliation
+### Phase I: Message-Level Permanence Repair — JSONL-backed passage reconciliation ✅
 
 > **触发**：金渐层（CVO）深度使用 `search_evidence` 暴露核心架构空洞——Session JSONL 永久保存了所有消息，但搜索链路完全绕过它。Passage 索引数据源是 Redis（7 天 TTL 默认），rebuild 后过期消息的 passage 会丢失。
 > **布偶猫 + 砚砚(GPT-5.4) 讨论收敛（2026-03-30）**：共识优先级 P1 JSONL backfill > P2 时间过滤 > P3 配置透明化。命名 "message-level permanence repair"——本质是永久性修复，不是搜索增强。
@@ -1187,12 +1187,12 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 - [x] AC-E8: lesson/pitfall 召回质量改进 — **PR #537 merged（splitLessonsLearned 32 个独立条目）**
 
 ### Phase I（Message-Level Permanence Repair — JSONL-backed passage reconciliation）
-- [ ] AC-I1: `indexPassages()` 优先从 Redis 取消息，Redis 缺失（消息数 < 已有 passage 数）时从 JSONL transcript fallback 补全
-- [ ] AC-I2: rebuild 时 passage 只增不减——不因 Redis 消息过期导致已索引 passage 被删除
-- [ ] AC-I3: 新消息热路径不变（Redis → passage，延迟 <5ms）
-- [ ] AC-I4: `SearchOptions` 支持 `dateFrom`/`dateTo` 参数，`evidence_docs` 和 `evidence_passages` 均支持时间范围过滤
-- [ ] AC-I5: `env-registry.ts` 对 `MESSAGE_TTL_SECONDS` 描述明确说明默认 7 天行为 + TTL≤0 变为永不过期的含义
-- [ ] AC-I6: 回归测试——模拟 Redis 消息过期场景下 rebuild 仍能通过 JSONL 恢复 passage（红→绿）
+- [x] AC-I1: `indexPassages()` 优先从 Redis 取消息，Redis 缺失（消息数 < 已有 passage 数）时从 JSONL transcript fallback 补全
+- [x] AC-I2: rebuild 时 passage 只增不减——不因 Redis 消息过期导致已索引 passage 被删除
+- [x] AC-I3: 新消息热路径不变（Redis → passage，延迟 <5ms）
+- [x] AC-I4: `SearchOptions` 支持 `dateFrom`/`dateTo` 参数，`evidence_docs` 和 `evidence_passages` 均支持时间范围过滤
+- [x] AC-I5: `env-registry.ts` 对 `MESSAGE_TTL_SECONDS` 描述明确说明默认 7 天行为 + TTL≤0 变为永不过期的含义
+- [x] AC-I6: 回归测试——模拟 Redis 消息过期场景下 rebuild 仍能通过 JSONL 恢复 passage（红→绿）
 
 ### Phase J（Memory Hub — 记忆系统的人类产品面）
 - [ ] AC-J1: `/memory` 独立路由页面存在，左侧导航栏有入口（和对话列表/IM Hub 同级）
@@ -1365,10 +1365,11 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-03-30 | 铲屎官核心洞察："偷偷看一眼猫搜到了什么记忆" → 人猫共用定位 |
 | 2026-03-30 | 砚砚评审：Workspace 方案绕路 → 布偶猫接受 → 三方收敛 `/memory` 独立路由（左侧导航）+ Recall Feed（Workspace）→ Phase J 立项 |
 | 2026-03-30 | 布偶猫+砚砚路线图讨论：砚砚收紧"并行双线"为"单线分层"I→F-4→J→F-rest（避免 resolver 交叉返工 + 脚手架风险）|
+| 2026-03-31 | Phase I merged (PR #884)：passage 永久化 + JSONL backfill + dateFrom/dateTo + 回归测试 |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I 已立项（message-level permanence repair）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F + G 运行时验收 + Phase I + Phase J + IMaterializationService 待开。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F + G 运行时验收 + Phase J + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序（2026-03-30 三方收敛：布偶猫+砚砚+铲屎官）
