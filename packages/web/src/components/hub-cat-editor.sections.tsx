@@ -291,6 +291,7 @@ function resolveOpenCodeEndpoint(protocol: string | undefined, ocProviderName: s
   // Fallback: ocProviderName (authoritative provider binding)
   if (ocProviderName === 'anthropic') return '/v1/messages';
   if (ocProviderName === 'google') return '/models/{model}:generateContent';
+  if (ocProviderName === 'openai-responses') return '/v1/responses';
   return '/v1/chat/completions';
 }
 
@@ -424,7 +425,7 @@ export function AccountSection({
                 onChange={(value) => onChange({ ocProviderName: value })}
                 suggestions={providerSuggestions}
                 required
-                placeholder="如 anthropic、openai、openrouter、maas"
+                placeholder="如 anthropic、openai、openai-responses、openrouter、maas"
               />
             ) : null}
             {form.client === 'opencode' &&

@@ -1,14 +1,12 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import type { ApiProtocol } from './hub-provider-profiles.sections';
 import type { ProfileItem } from './hub-provider-profiles.types';
 import { TagEditor } from './hub-tag-editor';
 import { useConfirm } from './useConfirm';
 
 export interface ProfileEditPayload {
   displayName: string;
-  protocol?: string;
   baseUrl?: string;
   apiKey?: string;
   models?: string[];
@@ -22,17 +20,6 @@ interface HubProviderProfileItemProps {
   onDelete: (profileId: string) => void;
 }
 
-const PROTOCOL_OPTIONS: { value: ApiProtocol; label: string }[] = [
-  { value: 'openai', label: 'OpenAI 兼容 (Chat)' },
-  { value: 'openai-responses', label: 'OpenAI Responses' },
-  { value: 'anthropic', label: 'Anthropic 兼容' },
-  { value: 'google', label: 'Google 兼容' },
-];
-
-function protocolLabel(protocol: string | undefined): string {
-  return PROTOCOL_OPTIONS.find((o) => o.value === protocol)?.label ?? protocol ?? '自动';
-}
-
 function summaryText(profile: ProfileItem): string | null {
   if (profile.builtin) return null;
   const host = profile.baseUrl?.replace(/^https?:\/\//, '') ?? '(未设置)';
@@ -43,7 +30,6 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
   const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(profile.displayName);
-  const [editProtocol, setEditProtocol] = useState<string>(profile.protocol ?? 'openai');
   const [editBaseUrl, setEditBaseUrl] = useState(profile.baseUrl ?? '');
   const [editApiKey, setEditApiKey] = useState('');
   const [apiKeyTouched, setApiKeyTouched] = useState(false);
@@ -51,34 +37,22 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
 
   const startEdit = useCallback(() => {
     setEditDisplayName(profile.displayName);
-    setEditProtocol(profile.protocol ?? 'openai');
     setEditBaseUrl(profile.baseUrl ?? '');
     setEditApiKey('');
     setApiKeyTouched(false);
     setEditModels(profile.models ?? []);
     setEditing(true);
-  }, [profile.baseUrl, profile.displayName, profile.models, profile.protocol]);
+  }, [profile.baseUrl, profile.displayName, profile.models]);
 
   const saveEdit = useCallback(async () => {
     await onSave(profile.id, {
       displayName: editDisplayName.trim(),
-      protocol: editProtocol,
       ...(profile.authType === 'api_key' ? { baseUrl: editBaseUrl.trim() } : {}),
       ...(apiKeyTouched ? { apiKey: editApiKey.trim() } : {}),
       models: editModels,
     });
     setEditing(false);
-  }, [
-    apiKeyTouched,
-    editApiKey,
-    editBaseUrl,
-    editDisplayName,
-    editModels,
-    editProtocol,
-    onSave,
-    profile.authType,
-    profile.id,
-  ]);
+  }, [apiKeyTouched, editApiKey, editBaseUrl, editDisplayName, editModels, onSave, profile.authType, profile.id]);
 
   if (editing) {
     return (
@@ -92,20 +66,6 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
           />
           {profile.authType === 'api_key' ? (
             <>
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-[#8A776B]">API 协议</p>
-                <select
-                  value={editProtocol}
-                  onChange={(e) => setEditProtocol(e.target.value)}
-                  className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm text-[#2D2118]"
-                >
-                  {PROTOCOL_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
               <input
                 value={editBaseUrl}
                 onChange={(e) => setEditBaseUrl(e.target.value)}
@@ -187,11 +147,6 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
                 api_key
               </span>
             ) : null}
-            {!profile.builtin && profile.protocol ? (
-              <span className="rounded-full bg-[#E8F4FD] px-2.5 py-1 text-[11px] font-semibold text-[#5B8FA8]">
-                {protocolLabel(profile.protocol)}
-              </span>
-            ) : null}
           </div>
           {summaryText(profile) ? <p className="text-sm text-[#8A776B]">{summaryText(profile)}</p> : null}
           <div className="space-y-2">
@@ -207,7 +162,6 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
                 if (busy) return;
                 void onSave(profile.id, {
                   displayName: profile.displayName,
-                  protocol: profile.protocol,
                   ...(profile.authType === 'api_key' ? { baseUrl: profile.baseUrl ?? '' } : {}),
                   models: nextModels,
                 });

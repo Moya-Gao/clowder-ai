@@ -201,6 +201,7 @@ describe('deriveOpenCodeApiType', () => {
     const scenarios = [
       { ocProviderName: 'anthropic', expected: 'anthropic' },
       { ocProviderName: 'google', expected: 'google' },
+      { ocProviderName: 'openai-responses', expected: 'openai-responses' },
       { ocProviderName: 'maas', expected: 'openai' },
       { ocProviderName: 'deepseek', expected: 'openai' },
       { ocProviderName: 'minimax', expected: 'openai' },
@@ -222,6 +223,13 @@ describe('deriveOpenCodeApiType', () => {
 
   test('unknown protocol values default to openai', () => {
     assert.equal(deriveOpenCodeApiType('unknown-proto', 'anthropic'), 'openai');
+  });
+
+  test('case-insensitive protocol and ocProviderName matching', () => {
+    assert.equal(deriveOpenCodeApiType('Anthropic', undefined), 'anthropic');
+    assert.equal(deriveOpenCodeApiType('OPENAI-RESPONSES', undefined), 'openai-responses');
+    assert.equal(deriveOpenCodeApiType(undefined, 'Anthropic'), 'anthropic');
+    assert.equal(deriveOpenCodeApiType(undefined, 'OpenAI-Responses'), 'openai-responses');
   });
 });
 

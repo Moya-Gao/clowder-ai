@@ -92,16 +92,20 @@ export function deriveOpenCodeApiType(
   protocol: string | undefined,
   ocProviderName: string | undefined,
 ): OpenCodeApiType {
-  // Explicit protocol always wins
+  // Explicit protocol always wins (case-insensitive for robustness)
   if (protocol) {
-    if (protocol === 'anthropic') return 'anthropic';
-    if (protocol === 'google') return 'google';
-    if (protocol === 'openai-responses') return 'openai-responses';
+    const p = protocol.toLowerCase();
+    if (p === 'anthropic') return 'anthropic';
+    if (p === 'google') return 'google';
+    if (p === 'openai-responses') return 'openai-responses';
     return 'openai';
   }
-  // Fallback: infer from ocProviderName when protocol is not declared
-  if (ocProviderName === 'anthropic') return 'anthropic';
-  if (ocProviderName === 'google') return 'google';
+  // Fallback: infer from ocProviderName when protocol is not declared.
+  // Case-insensitive to tolerate UI input variations.
+  const normalizedProvider = ocProviderName?.toLowerCase();
+  if (normalizedProvider === 'anthropic') return 'anthropic';
+  if (normalizedProvider === 'google') return 'google';
+  if (normalizedProvider === 'openai-responses') return 'openai-responses';
   return 'openai';
 }
 
