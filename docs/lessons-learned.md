@@ -839,6 +839,46 @@ created: 2026-02-26
   3. 测试 IME 场景时，模拟 `compositionstart` → `keydown(Enter)` 序列，不要用 `Object.defineProperty(event, 'isComposing', { value: true })`
 - 关联：F080（输入历史）| ChatInput | ThreadItem
 
+### LL-045: Runtime worktree 反复被猫污染——三次误删 + 进程表爆炸导致系统重启
+- 状态：draft
+- 更新时间：2026-03-31
+
+- 坑：2026-03-29 ～ 2026-03-31 期间，runtime worktree（`cat-cafe-runtime`）被多个布偶猫 session 反复弄脏，导致 `pnpm start` 无法启动。发现三批污染：
+  1. **WeixinAdapter voice_item A/B test**（`WEIXIN_VOICE_ITEM_MODE` env 切换 `minimal` vs `metadata`）——调试微信语音问题，直接在 runtime 编辑
+  2. **invoke-single-cat.ts account resolution 调试**——插入 `appendFileSync('/tmp/cat-cafe-account-debug.log')` 文件日志 + 多个 `let→const` 误改（会导致运行时崩溃）+ proxy fallback if/else 逻辑被重构坏
+  3. **`process-liveness-probe.test.js` 进程泄漏**——同一测试文件被多实例并发运行（疑似 watch 模式反复触发），每个实例 spawn 子进程不回收，进程数飙至 10472，Load Average 199，系统进入 `EAGAIN`（fork failed: resource temporarily unavailable），最终只能重启 macOS
+  - 另有 Knowledge Feed markers（`docs/markers/*.yaml`）和开源同步残留（`LICENSE`、`ROADMAP.md`、`.sync-provenance.json`）出现在 runtime
+
+- 根因：
+  1. **P0 铁律执行失败**：`feedback_no_touch_runtime.md` 已明确"禁止直接操作 runtime worktree"，但多个 session 的布偶猫仍然在 runtime 里直接编辑代码/运行测试/运行脚本
+  2. **runtime 无写保护**：除了 `pnpm start` 时的脏检查（`git status -uno`），runtime worktree 没有任何机制阻止猫直接写入
+  3. **测试进程无上限**：`process-liveness-probe.test.js` 涉及 spawn 子进程，但无 maxprocs / ulimit 保护，watch 模式下可指数膨胀
+  4. **清理时二次伤害**：发现污染后，当前 session 的布偶猫三次不检查内容就执行 `git checkout --` / `git clean -fd`，导致调试进度（invoke-single-cat.ts）和 Knowledge Feed markers 不可逆丢失
+
+- 触发条件：
+  - 猫在 runtime worktree 目录下执行编辑/测试/脚本（而非 feature worktree）
+  - 测试涉及 process spawn 且在 watch 模式下运行
+  - 发现脏文件后不检查内容直接清理
+
+- 修复：
+  - 第 1 批：stash 保留（`runtime-rescue: WeixinAdapter voice_item A/B test`），记录到 F137 changelog
+  - 第 2 批：被误清理（`git checkout -- .`），diff 内容保存到 GitHub Issue #862
+  - 第 3 批（进程爆炸）：`killall -9 node` + 系统重启
+
+- 防护：
+  1. **runtime worktree 写保护**：考虑用 `chflags uchg` 或 git hook 阻止非 `runtime-worktree.sh` 的写入
+  2. **测试进程上限**：`process-liveness-probe.test.js` 需加 spawn 计数器 + `ulimit -u` 防护
+  3. **清理前必须检查**：见 `feedback_never_clean_without_checking.md`——`git checkout/clean/rm` 前先 `ls`/`cat`/`git diff` 看内容，stash 优先于 checkout
+  4. **脏检查应区分 tracked 和 untracked**：当前 `ensure_runtime_clean` 用 `-uno` 忽略 untracked 文件，markers/sync 残留不会阻止启动但会持续积累
+
+- 来源锚点：
+  - GitHub Issue: #862
+  - F137 changelog 2026-03-29 条目
+  - `feedback_never_clean_without_checking.md`
+  - `scripts/runtime-worktree.sh` ensure_runtime_clean 函数
+
+- 关联：F137（WeixinAdapter voice）| F118（invoke-single-cat audit）| #862 | feedback_no_touch_runtime.md
+
 ---
 
 ## 8) 维护约定
