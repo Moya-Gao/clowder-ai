@@ -81,7 +81,7 @@
     {
       "id": "F014",
       "name": "SVG 猫猫状态动画",
-      "status": "done | **Owner**: 三猫",
+      "status": "done (abandoned) | **Owner**: 三猫",
       "file": "F014-svg-cat-animation.md"
     },
     {
@@ -213,7 +213,7 @@
     {
       "id": "F036",
       "name": "Logo 一笔画动画（Stroke Drawing Animation）",
-      "status": "done | **Owner**: 三猫",
+      "status": "done (partial) | **Owner**: 三猫",
       "file": "F036-logo-stroke-animation.md"
     },
     {
@@ -907,5 +907,5 @@
       "file": "F147-i18n-hub-locale-switch.md"
     }
   ],
-  "generated_at": "2026-03-30T21:09:42.628Z"
+  "generated_at": "2026-03-31T00:15:35.264Z"
 }

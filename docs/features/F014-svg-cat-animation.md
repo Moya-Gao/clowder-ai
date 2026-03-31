@@ -9,7 +9,7 @@ created: 2026-02-26
 
 # F014: SVG 猫猫状态动画
 
-> **Status**: done | **Owner**: 三猫
+> **Status**: done (abandoned) | **Owner**: 三猫
 > **Created**: 2026-02-26
 
 ## Why
@@ -20,6 +20,9 @@ created: 2026-02-26
 
 ## Acceptance Criteria
 - [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+
+## Closure Note
+从未实现。仅有调研报告（`archive/2026-02/research/svg-frontend-research.md`），零个 `feat(F014)` commit。2026-03-30 铲屎官确认关闭。
 
 ## Links
 - [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
