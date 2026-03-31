@@ -1036,6 +1036,10 @@ L2 检索投影：evidence_passages / passage_fts（SQLite）
 - 搜索体验对标 evidence MCP 工具的能力——mode（lexical/semantic/hybrid）、scope、depth 都可调
 - 索引状态让铲屎官一眼看到"记忆系统是不是健康的"
 
+**设计约束（砚砚 V2 review 补充，2026-03-31）**：
+- **`?from=threadId` 返回链路**：和 `/signals` 一样（见 ChatContainerHeader L62），`/memory?from=<threadId>` 支持 "Back to Chat" 稳定返回来源对话，不丢上下文
+- **移动端入口策略**：桌面 header 常驻 Memory 图标；移动端 header 已有 6+ 图标易挤爆，移动端入口放进 Hub J-3 快捷跳转（或 overflow menu），不强塞 header
+
 **J-2. 上下文入口：Workspace Recall Feed（对话中联动）**
 
 铲屎官"偷偷看一眼"的核心体验：
@@ -1204,7 +1208,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 - [x] AC-I10: CLAUDE.md / SystemPromptBuilder 中 `search_evidence` 用法指南更新——教猫用 `depth=raw` 做消息级定位，而非只用 drill-down 工具链 — **PR #885 merged**
 
 ### Phase J（Memory Hub — 记忆系统的人类产品面）
-- [ ] AC-J1: `/memory` 独立路由页面存在，全局导航层有入口（和 `/signals` 产品层级平级，物理位点待 Design Gate 确认）
+- [ ] AC-J1: `/memory` 独立路由页面存在，全局导航层有入口（桌面 header 常驻，移动端走 Hub 快捷跳转），支持 `?from=threadId` 返回链路
 - [ ] AC-J2: `/memory` 页面包含人类可用的搜索栏，支持 mode/scope/depth 参数调节
 - [ ] AC-J3: Knowledge Feed（Phase H）从 Workspace 知识模式迁移到 `/memory` Tab 1
 - [ ] AC-J4: `/memory` Tab 3 展示索引状态（docs/threads/passages 数量、最近 rebuild 时间、TTL 配置、embedding mode）
