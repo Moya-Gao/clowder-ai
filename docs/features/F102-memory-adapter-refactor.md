@@ -1198,10 +1198,10 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 
 > 金渐层痛点："搜到了只知道某个 thread 讨论过 X，不知道具体哪条消息"。Phase I 的 passage 已存了消息级内容，但返回字段太少、没有上下文窗口。
 
-- [ ] AC-I7: `searchPassages()` 返回增加 `created_at`、`passageId`（含 messageId/invocationId）字段，猫和人都能定位到具体消息
-- [ ] AC-I8: `searchPassages()` 支持上下文窗口参数（类似 grep `-C`），返回命中 passage 前后 N 条 passage
-- [ ] AC-I9: MCP `search_evidence(depth=raw)` 返回值包含 passage 级细节（speaker + timestamp + 上下文），猫猫可直接引用具体消息
-- [ ] AC-I10: CLAUDE.md / SystemPromptBuilder 中 `search_evidence` 用法指南更新——教猫用 `depth=raw` 做消息级定位，而非只用 drill-down 工具链
+- [x] AC-I7: `searchPassages()` 返回增加 `created_at`、`passageId`（含 messageId/invocationId）字段，猫和人都能定位到具体消息 — **PR #885 merged**
+- [x] AC-I8: `searchPassages()` 支持上下文窗口参数（类似 grep `-C`），返回命中 passage 前后 N 条 passage — **PR #885 merged**
+- [x] AC-I9: MCP `search_evidence(depth=raw)` 返回值包含 passage 级细节（speaker + timestamp + 上下文），猫猫可直接引用具体消息 — **PR #885 merged**
+- [x] AC-I10: CLAUDE.md / SystemPromptBuilder 中 `search_evidence` 用法指南更新——教猫用 `depth=raw` 做消息级定位，而非只用 drill-down 工具链 — **PR #885 merged**
 
 ### Phase J（Memory Hub — 记忆系统的人类产品面）
 - [ ] AC-J1: `/memory` 独立路由页面存在，左侧导航栏有入口（和对话列表/IM Hub 同级）
@@ -1375,10 +1375,11 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-03-30 | 砚砚评审：Workspace 方案绕路 → 布偶猫接受 → 三方收敛 `/memory` 独立路由（左侧导航）+ Recall Feed（Workspace）→ Phase J 立项 |
 | 2026-03-30 | 布偶猫+砚砚路线图讨论：砚砚收紧"并行双线"为"单线分层"I→F-4→J→F-rest（避免 resolver 交叉返工 + 脚手架风险）|
 | 2026-03-31 | Phase I merged (PR #884)：passage 永久化 + JSONL backfill + dateFrom/dateTo + 回归测试 |
+| 2026-03-31 | Phase I follow-up merged (PR #885)：passage enrichment + context window (AC-I7~I10) |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F + G 运行时验收 + Phase J + IMaterializationService 待开。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F + G 运行时验收 + Phase J + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序（2026-03-30 三方收敛：布偶猫+砚砚+铲屎官）
