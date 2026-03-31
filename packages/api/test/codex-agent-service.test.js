@@ -194,6 +194,23 @@ test('does not include resume when no sessionId', async () => {
   assert.ok(!args.includes('approval_policy=\\"on-request\\"'), 'argv should not contain literal backslash escapes');
 });
 
+test('unknown Codex cat falls back to xhigh reasoning effort for new invocations', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn, catId: 'runtime-unknown-codex', model: 'gpt-5.4' });
+
+  const promise = collect(service.invoke('hello'));
+  emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 't-effort-fallback' }]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  assert.ok(args.includes('--config'), 'reasoning effort must be passed via --config');
+  assert.ok(
+    args.includes('model_reasoning_effort="xhigh"'),
+    `expected xhigh fallback for unknown Codex cat, got argv: ${JSON.stringify(args)}`,
+  );
+});
+
 test('adds --skip-git-repo-check when workingDirectory is not a git repository', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

@@ -13,6 +13,7 @@ import type {
   CatConfig,
   CatFeatures,
   CatId,
+  CatProvider,
   CatVariant,
   CoCreatorConfig,
   ContextBudget,
@@ -20,7 +21,7 @@ import type {
   ReviewPolicy,
   Roster,
 } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import { createCatId, normalizeCliEffortForProvider } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
@@ -435,6 +436,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         provider: variant.provider,
         defaultModel: variant.defaultModel,
         mcpSupport: variant.mcpSupport,
+        cli: variant.cli,
         ...(projectedCommandArgs != null ? { commandArgs: projectedCommandArgs } : {}),
         ...(variant.cliConfigArgs != null && variant.cliConfigArgs.length > 0
           ? { cliConfigArgs: [...variant.cliConfigArgs] }
@@ -681,9 +683,9 @@ export type CliEffortLevel = 'low' | 'medium' | 'high' | 'max' | 'xhigh';
  *   codex (openai):     'xhigh'
  *   others:             'high'
  */
-export function getCatEffort(catId: string, config?: CatCafeConfig): CliEffortLevel {
+export function getCatEffort(catId: string, config?: CatCafeConfig, fallbackProvider?: CatProvider): CliEffortLevel {
   const cfg = config ?? getCachedConfig();
-  if (!cfg) return 'max';
+  if (!cfg) return normalizeCliEffortForProvider(fallbackProvider ?? 'anthropic', undefined) ?? 'high';
 
   if (!_catIdToVariant || _catIdToVariantSource !== cfg) {
     _catIdToVariant = buildCatIdToVariantIndex(cfg);
@@ -691,12 +693,9 @@ export function getCatEffort(catId: string, config?: CatCafeConfig): CliEffortLe
   }
 
   const variant = _catIdToVariant.get(catId);
-  if (variant?.cli.effort) return variant.cli.effort;
-
-  // Provider-aware defaults
-  if (variant?.provider === 'openai') return 'xhigh';
-  if (variant?.provider === 'anthropic') return 'max';
-  return 'high';
+  const effectiveProvider = variant?.provider ?? fallbackProvider;
+  const normalized = normalizeCliEffortForProvider(effectiveProvider ?? 'anthropic', variant?.cli.effort);
+  return normalized ?? 'high';
 }
 
 /** Reset cached config (for testing) */

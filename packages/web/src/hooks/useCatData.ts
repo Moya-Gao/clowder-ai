@@ -25,6 +25,12 @@ export interface CatData {
   providerProfileId?: string;
   provider: string;
   defaultModel: string;
+  cli?: {
+    command?: string;
+    outputFormat?: string;
+    defaultArgs?: string[];
+    effort?: string;
+  };
   commandArgs?: string[];
   cliConfigArgs?: string[];
   ocProviderName?: string;
@@ -123,6 +129,7 @@ function normalizeCats(rawCats: unknown[]): CatData[] {
       accountRef: cat.accountRef ?? cat.providerProfileId,
       provider: cat.provider ?? 'openai',
       defaultModel: cat.defaultModel ?? '',
+      cli: cat.cli,
       avatar: cat.avatar ?? '',
       roleDescription: cat.roleDescription ?? '',
       personality: cat.personality ?? '',
