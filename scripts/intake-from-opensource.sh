@@ -20,6 +20,18 @@ TARGET_DIR="$SOURCE_DIR/../clowder-ai"
 INTAKE_LEDGER="$SOURCE_DIR/docs/ops/opensource-intake-ledger.json"
 TARGET_REPO="zts212653/clowder-ai"
 
+resolve_target_main_head() {
+  if git -C "$TARGET_DIR" remote get-url origin >/dev/null 2>&1; then
+    git -C "$TARGET_DIR" fetch origin main --quiet >/dev/null 2>&1 || true
+    if git -C "$TARGET_DIR" rev-parse --verify refs/remotes/origin/main >/dev/null 2>&1; then
+      git -C "$TARGET_DIR" rev-parse refs/remotes/origin/main 2>/dev/null
+      return 0
+    fi
+  fi
+
+  git -C "$TARGET_DIR" rev-parse HEAD 2>/dev/null
+}
+
 # ── 参数 ──
 PR_NUMBER=""
 MODE="plan"
@@ -279,7 +291,7 @@ if [ "$ADVANCE_LEDGER" = true ]; then
     echo -e "${RED}✗ Target repo not found at $TARGET_DIR${NC}"
     exit 1
   fi
-  CURRENT_HEAD=$(git -C "$TARGET_DIR" rev-parse HEAD 2>/dev/null)
+  CURRENT_HEAD=$(resolve_target_main_head)
   if [ ! -f "$INTAKE_LEDGER" ]; then
     echo -e "${RED}✗ Intake ledger not found at $INTAKE_LEDGER${NC}"
     exit 1

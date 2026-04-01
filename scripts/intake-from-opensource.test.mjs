@@ -48,6 +48,32 @@ function makeFixture() {
   };
 }
 
+function makeRemoteFixture() {
+  const sandboxRoot = mkdtempSync(join(tmpdir(), 'cc-intake-ledger-remote-'));
+  const repoRoot = join(sandboxRoot, 'cat-cafe');
+  const remoteRoot = join(sandboxRoot, 'clowder-ai-remote.git');
+  const targetRoot = join(sandboxRoot, 'clowder-ai');
+
+  mkdirSync(join(repoRoot, 'scripts'), { recursive: true });
+  mkdirSync(join(repoRoot, 'docs', 'ops'), { recursive: true });
+  cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
+  chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
+
+  git(sandboxRoot, 'init', '--bare', 'clowder-ai-remote.git');
+  git(sandboxRoot, 'clone', remoteRoot, 'clowder-ai');
+  git(targetRoot, 'config', 'user.name', 'Cat Cafe Test');
+  git(targetRoot, 'config', 'user.email', 'cat-cafe@example.com');
+  git(targetRoot, 'checkout', '-b', 'main');
+
+  return {
+    sandboxRoot,
+    repoRoot,
+    remoteRoot,
+    targetRoot,
+    ledgerPath: join(repoRoot, 'docs', 'ops', 'opensource-intake-ledger.json'),
+  };
+}
+
 function writeLedger(ledgerPath, lastReviewedHead, entries) {
   writeFileSync(
     ledgerPath,
@@ -128,6 +154,40 @@ describe('intake-from-opensource.sh --advance-ledger', () => {
     const updatedLedger = JSON.parse(readFileSync(fixture.ledgerPath, 'utf-8'));
     assert.equal(updatedLedger.last_reviewed_target_head, oldHead);
     assert.notEqual(updatedLedger.last_reviewed_target_head, currentHead);
+  });
+
+  it('advances to target origin/main even when local target checkout is stale', () => {
+    const fixture = makeRemoteFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const oldHead = commitFile(fixture.targetRoot, 'README.md', 'base\n', 'chore: base');
+    git(fixture.targetRoot, 'push', '-u', 'origin', 'main');
+
+    const writerRoot = join(fixture.sandboxRoot, 'clowder-ai-writer');
+    git(fixture.sandboxRoot, 'clone', fixture.remoteRoot, 'clowder-ai-writer');
+    git(writerRoot, 'config', 'user.name', 'Cat Cafe Test');
+    git(writerRoot, 'config', 'user.email', 'cat-cafe@example.com');
+    git(writerRoot, 'checkout', '-b', 'main', 'origin/main');
+    const remoteHead = commitFile(writerRoot, 'fix.txt', 'remote\n', 'fix: remote mainline change');
+    git(writerRoot, 'push', 'origin', 'main');
+
+    assert.equal(git(fixture.targetRoot, 'rev-parse', 'HEAD'), oldHead);
+    assert.equal(git(fixture.targetRoot, 'rev-parse', 'origin/main'), oldHead);
+
+    writeLedger(fixture.ledgerPath, oldHead, [
+      {
+        pr_number: 305,
+        target_merge_commit: remoteHead,
+        decision: 'absorbed',
+        timestamp: '2026-04-01T00:00:00.000Z',
+      },
+    ]);
+
+    const output = runAdvance(fixture.repoRoot);
+    assert.match(output, /Ledger advanced to:/);
+    const updatedLedger = JSON.parse(readFileSync(fixture.ledgerPath, 'utf-8'));
+    assert.equal(updatedLedger.last_reviewed_target_head, remoteHead);
+    assert.equal(git(fixture.targetRoot, 'rev-parse', 'origin/main'), remoteHead);
   });
 });
 
