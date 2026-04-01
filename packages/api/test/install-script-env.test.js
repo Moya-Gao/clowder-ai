@@ -9,6 +9,7 @@ import {
   readFileSync,
   rmSync,
   runSourceOnlySnippet,
+  spawnSync,
   tmpdir,
   writeFileSync,
 } from './install-script-test-helpers.js';
@@ -250,6 +251,28 @@ printf 'npm=%s|pnpm=%s' "$npm_config_registry" "$PNPM_CONFIG_REGISTRY"
   } finally {
     rmSync(tmpHome, { recursive: true, force: true });
   }
+});
+
+test('registry fallback chain picks up npm_config_registry when CAT_CAFE_NPM_REGISTRY is unset', () => {
+  // Regression: preflight.sh suggests setting npm_config_registry, but install.sh
+  // previously only read CAT_CAFE_NPM_REGISTRY — the two paths were inconsistent.
+  const result = spawnSync(
+    'bash',
+    ['-lc', `source "${installScript}" --source-only >/dev/null 2>&1; printf '%s' "$NPM_REGISTRY"`],
+    { encoding: 'utf8', env: { ...process.env, npm_config_registry: 'https://fallback-mirror.test/', CAT_CAFE_NPM_REGISTRY: '', NPM_REGISTRY: '' } },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, 'https://fallback-mirror.test/');
+});
+
+test('registry fallback chain prefers CAT_CAFE_NPM_REGISTRY over npm_config_registry', () => {
+  const result = spawnSync(
+    'bash',
+    ['-lc', `source "${installScript}" --source-only >/dev/null 2>&1; printf '%s' "$NPM_REGISTRY"`],
+    { encoding: 'utf8', env: { ...process.env, CAT_CAFE_NPM_REGISTRY: 'https://primary.test/', npm_config_registry: 'https://secondary.test/', NPM_REGISTRY: '' } },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, 'https://primary.test/');
 });
 
 test('default_frontend_url uses the internal frontend default port', () => {

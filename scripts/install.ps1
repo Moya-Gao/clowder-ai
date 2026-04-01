@@ -92,7 +92,7 @@ function Resolve-ProjectRoot {
     $projectRoot = Split-Path -Parent $ScriptDir
     if (-not (Test-Path (Join-Path $projectRoot "package.json")) -or
         -not (Test-Path (Join-Path $projectRoot "packages/api"))) {
-        Write-Err "Run this helper from a checked-out clowder-ai repo: .\scripts\install.ps1"
+        Write-Err "Run this helper from a checked-out cat-cafe repo: .\scripts\install.ps1"
         exit 1
     }
     $gitRepoUnavailable = $false
@@ -405,7 +405,7 @@ if (-not $allGood -and -not $SkipBuild) {
 
 Write-Host ""
 Write-Host "  ========================================" -ForegroundColor Green
-Write-Host "  Clowder AI installed!" -ForegroundColor Green
+Write-Host "  Cat Cafe installed!" -ForegroundColor Green
 Write-Host "  ========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Project: $ProjectRoot"

@@ -23,8 +23,12 @@ use_registry() {
     # npm/pnpm respect these env vars for all operations in this session.
     export npm_config_registry="$reg" NPM_CONFIG_REGISTRY="$reg" PNPM_CONFIG_REGISTRY="$reg"
 }
-# Cross-platform CAT_CAFE_NPM_REGISTRY fallback (parity with install.ps1)
-[[ -z "$NPM_REGISTRY" && -n "${CAT_CAFE_NPM_REGISTRY:-}" ]] && NPM_REGISTRY="$CAT_CAFE_NPM_REGISTRY"
+# Registry env fallback chain: preflight.sh suggests npm_config_registry,
+# so we must honour it here too — not just CAT_CAFE_NPM_REGISTRY.
+for _reg_var in CAT_CAFE_NPM_REGISTRY npm_config_registry NPM_CONFIG_REGISTRY PNPM_CONFIG_REGISTRY; do
+    [[ -z "$NPM_REGISTRY" && -n "${!_reg_var:-}" ]] && NPM_REGISTRY="${!_reg_var}" && break
+done
+unset _reg_var
 [[ -n "$NPM_REGISTRY" ]] && use_registry "$NPM_REGISTRY"
 npm_global_install() {
     if [[ -n "$NPM_REGISTRY" ]]; then
@@ -280,11 +284,11 @@ resolve_project_dir_from() {
 resolve_project_dir() {
     local script_source="${BASH_SOURCE[0]:-}"
     [[ -n "$script_source" ]] || {
-        fail "This helper must run from a clowder-ai source tree. Clone or download first, then run: bash scripts/install.sh"
+        fail "This helper must run from a cat-cafe source tree. Clone or download first, then run: bash scripts/install.sh"
         exit 1
     }
     PROJECT_DIR="$(resolve_project_dir_from "$script_source")" || {
-        fail "Could not locate the clowder-ai source tree from $script_source. Clone or download first, then run: bash scripts/install.sh"
+        fail "Could not locate the cat-cafe source tree from $script_source. Clone or download first, then run: bash scripts/install.sh"
         exit 1
     }
     PROJECT_HAS_GIT_METADATA=false
@@ -693,7 +697,7 @@ else fail "cat-cafe-skills/ not found"; exit 1; fi
 
 # ── [6/9] Install AI agent CLI tools ─────────────────────
 step "[6/9] Installing AI CLI tools / 安装 AI 命令行工具..."
-info "  Clowder spawns CLI subprocesses — these are required"
+info "  Cat Cafe spawns CLI subprocesses — these are required"
 install_npm_cli() {
     local name="$1" cmd="$2" pkg="$3"; info "  Installing $name ($pkg)..."; npm_global_install "$pkg" 2>&1; hash -r 2>/dev/null || true
     command -v "$cmd" &>/dev/null || { fail "$name install failed. Try: npm install -g $pkg"; exit 1; }; ok "$name installed"
@@ -832,7 +836,7 @@ chmod 600 .env 2>/dev/null || true
 
 # ── [9/9] Done ──────────────────────────────────────────────
 step "[9/9] Installation complete! / 安装完成！"
-echo -e "\n  ${GREEN}══ Clowder AI is ready! 猫猫咖啡已就绪！══${NC}\n  Project: $PROJECT_DIR"
+echo -e "\n  ${GREEN}══ Cat Cafe is ready! 猫猫咖啡已就绪！══${NC}\n  Project: $PROJECT_DIR"
 START_CMD="cd $PROJECT_DIR && pnpm start"; [[ "$MEMORY_MODE" == true ]] && START_CMD+=" --memory"
 echo -e "  Start: $START_CMD\n  Open:  $(default_frontend_url)\n"
 if [[ "$AUTO_START" == true ]]; then
