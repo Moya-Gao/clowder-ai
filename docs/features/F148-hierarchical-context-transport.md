@@ -8,7 +8,7 @@ created: 2026-03-31
 
 # F148: Hierarchical Context Transport — 分层上下文传输
 
-> **Status**: spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
 
 ## Why
 
@@ -128,6 +128,7 @@ created: 2026-03-31
 | 日期 | 事件 |
 |------|------|
 | 2026-03-31 | 学习 Claude Code v2.1.88 源码 → 识别痛点 → GPT Pro + Gemini Ultra 双模型咨询 → 本地猫综合 → 立项 |
+| 2026-03-31 | Phase A 实现开始：config + burst detection + tombstone + tool scrub + evidence recall + 集成 |
 
 ## Review Gate
 

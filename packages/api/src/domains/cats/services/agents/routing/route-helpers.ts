@@ -5,6 +5,7 @@
 
 import type { CatId, MessageContent, RichBlock, RichBlockBase } from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
+import { DEFAULT_HIERARCHICAL_CONTEXT } from '../../../../../config/hierarchical-context-config.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { formatMessage } from '../../context/ContextAssembler.js';
 import { checkContextBudget, type DegradationResult } from '../../orchestration/DegradationPolicy.js';
@@ -14,6 +15,13 @@ import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores
 import { canViewMessage } from '../../stores/visibility.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
+import {
+  buildTombstone,
+  detectRecentBurst,
+  formatTombstone,
+  recallEvidence,
+  scrubToolPayloads,
+} from './context-transport.js';
 
 /** Minimal broadcast interface — avoids coupling routing layer to SocketManager concrete class */
 export interface RouteBroadcaster {
@@ -32,6 +40,8 @@ export interface RouteStrategyDeps {
   socketManager?: RouteBroadcaster;
   /** F129: Pack store for loading active packs at invocation time */
   packStore?: import('../../../../packs/PackStore.js').PackStore;
+  /** F148: Evidence store for context recall (optional, fail-open) */
+  evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
 }
 
 /** Mutable context for tracking persistence failures across the generator boundary.
@@ -208,7 +218,10 @@ export function sanitizeInjectedContent(content: string): string {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const isHistoryHeader = line.startsWith('[对话历史 - 最近 ') || line.startsWith('[对话历史增量 - 未发送过 ');
+    const isHistoryHeader =
+      line.startsWith('[对话历史 - 最近 ') ||
+      line.startsWith('[对话历史增量 - 未发送过 ') ||
+      line.startsWith('[对话历史增量 - 智能窗口');
 
     if (!skippingHistoryEnvelope && isHistoryHeader) {
       // Drop known injected history envelopes only.
@@ -329,6 +342,26 @@ export async function assembleIncrementalContext(
       unseen.some((m) => m.id === currentUserMessageId),
   );
 
+  // F148: Smart window — cold mention detection
+  const hcConfig = DEFAULT_HIERARCHICAL_CONTEXT;
+  const isColdMention = relevant.length > hcConfig.coldMentionThreshold;
+
+  if (isColdMention) {
+    return assembleSmartWindowContext(
+      deps,
+      relevant,
+      catId,
+      threadId,
+      currentUserMessageId,
+      currentMessageFilteredOut,
+      hcConfig,
+      cursor,
+      options,
+    );
+  }
+
+  // --- Warm path: existing behavior unchanged ---
+
   // GAP-1: Unconditional budget cap — protects both first-time cats (cursor=undefined)
   // and stale cursor scenarios where large unseen batches accumulate.
   const budget = getCatContextBudget(catId as string);
@@ -390,11 +423,6 @@ export async function assembleIncrementalContext(
         }
       }
       if (totalTokens - dropTokens > effectiveTokenBudget) {
-        // Even after dropping all but one message, the last message alone may exceed
-        // maxContextTokens (e.g. a single huge message). We still keep it because
-        // returning empty context is worse — the cat gets no context at all. The
-        // degradation notice below will flag this situation so the cat knows the
-        // context was force-trimmed.
         tokenTrimStart = perLineTokens.length - 1;
       }
     }
@@ -430,5 +458,158 @@ export async function assembleIncrementalContext(
     includesCurrentUserMessage: finalIncludesCurrentUserMessage,
     currentMessageFilteredOut,
     degradation,
+  };
+}
+
+/**
+ * F148: Smart window path for cold-mention context assembly.
+ * Burst detection → tombstone → evidence recall → tool scrub → compact context.
+ */
+async function assembleSmartWindowContext(
+  deps: RouteStrategyDeps,
+  relevant: StoredMessage[],
+  catId: CatId,
+  threadId: string,
+  currentUserMessageId: string | undefined,
+  currentMessageFilteredOut: boolean,
+  hcConfig: import('../../../../../config/hierarchical-context-config.js').HierarchicalContextConfig,
+  cursor: string | undefined,
+  options: IncrementalContextOptions | undefined,
+): Promise<IncrementalContextResult> {
+  const budget = getCatContextBudget(catId as string);
+  const truncateLimit = budget.maxContentLengthPerMsg;
+
+  // 1. Burst detection
+  const { burst, omitted } = detectRecentBurst(relevant, hcConfig);
+
+  // 2. Thread title for tombstone + evidence (fail-open like recallEvidence)
+  const threadStore = deps.invocationDeps.threadStore;
+  let threadTitle = '';
+  if (threadStore) {
+    try {
+      threadTitle = (await Promise.resolve(threadStore.get(threadId)))?.title ?? '';
+    } catch {
+      // fail-open: threadTitle stays empty, tombstone/evidence degrade gracefully
+    }
+  }
+
+  // 3. Tombstone
+  const tombstone = buildTombstone(omitted, threadTitle, hcConfig);
+  const tombstoneText = tombstone ? formatTombstone(tombstone) : '';
+
+  // 4. Evidence recall (fail-open)
+  const currentMsg = currentUserMessageId ? burst.find((m) => m.id === currentUserMessageId) : undefined;
+  const nonSystemRecent = burst.filter((m) => m.catId === null).slice(-2);
+  const evidenceLines = await recallEvidence(
+    deps.evidenceStore,
+    threadTitle,
+    currentMsg?.content ?? '',
+    nonSystemRecent,
+    hcConfig,
+  );
+
+  // 5. Tool payload scrub on burst
+  const scrubbedBurst = scrubToolPayloads(burst);
+
+  // 6. Format burst messages
+  const burstLines = scrubbedBurst.map((m) => {
+    const contentWithDigest = digestRichBlocks(m);
+    const cleanContent = sanitizeInjectedContent(contentWithDigest);
+    const normalized: StoredMessage = cleanContent === m.content ? m : { ...m, content: cleanContent };
+    const rendered = formatMessage(normalized, { truncate: truncateLimit });
+    return `[${m.id}] ${rendered}`;
+  });
+
+  // 7. Respect effectiveMaxContextTokens (same as warm path)
+  const effectiveTokenBudget = options?.effectiveMaxContextTokens ?? budget.maxContextTokens;
+  const boundaryId = relevant[relevant.length - 1]?.id;
+
+  if (effectiveTokenBudget <= 0) {
+    return {
+      contextText: '',
+      boundaryId,
+      includesCurrentUserMessage: false,
+      currentMessageFilteredOut,
+      degradation: `⚠️ 增量上下文预算耗尽: 系统提示已占满 prompt 预算`,
+    };
+  }
+
+  // Token trim with graduated degradation: evidence → tombstone → burst
+  let finalBurstLines = burstLines;
+  let finalBurstMsgs = scrubbedBurst;
+  const finalEvidenceLines = [...evidenceLines];
+  let finalTombstoneText = tombstoneText;
+  let tokenDegradation: string | undefined;
+
+  const totalTokens = () =>
+    estimateTokens([finalTombstoneText, ...finalEvidenceLines, ...finalBurstLines].filter(Boolean).join('\n'));
+
+  if (totalTokens() > effectiveTokenBudget) {
+    // Stage 1: Drop evidence lines from oldest
+    while (finalEvidenceLines.length > 0 && totalTokens() > effectiveTokenBudget) {
+      finalEvidenceLines.shift();
+    }
+
+    // Stage 2: Drop tombstone
+    if (totalTokens() > effectiveTokenBudget && finalTombstoneText) {
+      finalTombstoneText = '';
+    }
+
+    // Stage 3: Trim burst from oldest
+    let keep = finalBurstLines.length;
+    while (keep > 1 && totalTokens() > effectiveTokenBudget) {
+      finalBurstLines = burstLines.slice(-keep + 1);
+      finalBurstMsgs = scrubbedBurst.slice(-keep + 1);
+      keep--;
+    }
+
+    // Stage 4: Hard cap — if envelope + 1 burst still exceeds budget, return empty
+    if (totalTokens() > effectiveTokenBudget) {
+      return {
+        contextText: '',
+        boundaryId,
+        includesCurrentUserMessage: false,
+        currentMessageFilteredOut,
+        degradation: `⚠️ 增量上下文 token 预算截断: 预算不足以容纳最小上下文 (${effectiveTokenBudget} tokens)`,
+      };
+    }
+
+    tokenDegradation = `⚠️ 增量上下文 token 预算截断: evidence ${evidenceLines.length} → ${finalEvidenceLines.length}, burst ${burstLines.length} → ${finalBurstLines.length}`;
+  }
+
+  // 8. Assemble context packet
+  const sections: string[] = [];
+  if (finalTombstoneText) sections.push(finalTombstoneText);
+  if (finalEvidenceLines.length > 0) {
+    sections.push(`[Related evidence]\n${finalEvidenceLines.join('\n')}\n[/Related evidence]`);
+  }
+  sections.push(...finalBurstLines);
+
+  const includesCurrentUserMessage = Boolean(
+    currentUserMessageId && finalBurstMsgs.some((m) => m.id === currentUserMessageId),
+  );
+
+  const contextText =
+    sections.length > 0
+      ? `[对话历史增量 - 智能窗口: ${omitted.length} 条已摘要, ${finalBurstMsgs.length} 条详细]\n${sections.join('\n')}\n[/对话历史]`
+      : '';
+
+  // Final hard cap: envelope overhead may push total over budget
+  if (contextText && estimateTokens(contextText) > effectiveTokenBudget) {
+    return {
+      contextText: '',
+      boundaryId,
+      includesCurrentUserMessage: false,
+      currentMessageFilteredOut,
+      degradation: `⚠️ 增量上下文 token 预算截断: 预算不足以容纳最小上下文 (${effectiveTokenBudget} tokens)`,
+    };
+  }
+
+  return {
+    contextText,
+    boundaryId,
+    includesCurrentUserMessage,
+    currentMessageFilteredOut,
+    degradation: tokenDegradation,
   };
 }

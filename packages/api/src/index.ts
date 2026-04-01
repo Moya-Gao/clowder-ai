@@ -841,6 +841,7 @@ async function main(): Promise<void> {
     ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
     signalArticleLookup: createSignalArticleLookup({ transcriptReader }),
     packStore,
+    evidenceStore: memoryServices.evidenceStore,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });

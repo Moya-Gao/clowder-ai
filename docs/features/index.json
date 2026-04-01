@@ -909,9 +909,15 @@
     {
       "id": "F148",
       "name": "Hierarchical Context Transport — 分层上下文传输",
-      "status": "spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
       "file": "F148-hierarchical-context-transport.md"
+    },
+    {
+      "id": "F149",
+      "name": "ACP Runtime Operations — 项目级进程池 + Session Lease",
+      "status": "spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
+      "file": "F149-acp-runtime-operations.md"
     }
   ],
-  "generated_at": "2026-04-01T05:26:05.587Z"
+  "generated_at": "2026-04-01T06:49:03.201Z"
 }
