@@ -741,43 +741,37 @@ interface EvidenceItemWithDrillDown extends EvidenceItem {
 
 此项不在 F102 内实现，作为独立 ADR 立项，link 回 F102 + F065 + F088。
 
-## 已知 Gap（待后续实现的猫猫注意！）
+## Embedding 状态收敛（2026-04-01 更新）
 
-> 以下问题由本线程（f102 记忆组件解耦 thread）在 runtime 测试中发现，记录在此供后续实现的猫猫参考。
+> 以下三条最初是在 runtime 验收里暴露出来的 gap。到 2026-04-01 为止，它们对**我们当前 runtime**已经不是未解决问题，但保留在此作为历史追踪和开源默认值说明。
 
-### Gap-1: Embedding 未开启（Phase C 代码就绪但默认 off）
+### Gap-1（已闭环）: 我们的 runtime embedding 已开启
 
-**现状**：`EMBED_MODE` 默认 `off`，runtime 跑的是纯 BM25 lexical 检索。Phase C 建的整套向量基础设施（EmbeddingService + VectorStore + SemanticReranker + 三态开关 + fail-open + 版本锚）全部空转。
+**当前真相**：
+- 我们仓库根 `.env` 已设 `EMBED_MODE=on`
+- `index.ts` 会把 `process.env.EMBED_MODE` 透传进 memory factory
+- `ConfigRegistry` 里 `f102.embedMode` 也会反映真实 env 值
 
-**影响**：中英混搜弱（搜 "cat naming" 找不到中文"猫名故事"），同义表达不匹配（搜 "标题太长" 找不到 "title truncated"）。
+**结论**：
+- 对**我们当前 runtime**，Phase C 的 embedding / vector rerank 基础设施不是空转，Gap-1 已闭环
+- 对**开源默认**，不传 env 仍然是 `off`，这是有意保留的保守默认值，不是我们 runtime 的现状
 
-**修法**：设 `EMBED_MODE=on`（或先 `shadow`）。模型 Qwen3-Embedding-0.6B ONNX ~614MB，首次加载下载，之后缓存。Mac 上内存占用 ~1GB，推理 <100ms/条。
+### Gap-2（已收敛）: shadow 不再是待补日志的问题，而是已废弃路径
 
-**注意**：直接跳 `on` 可能更合理——见 Gap-2。
+**当前真相**：
+- 运行时检索只有 `mode === 'on'` 才会真正启用 embedding rerank
+- `shadow` 没有继续作为运营中的 A/B 模式推进
+- 我们已经收敛成 `off → on`，而不是继续投资 shadow logging
 
-### Gap-2: Shadow 模式无日志（跑了白跑）
+**结论**：
+- “shadow 跑了白跑，需要补日志”这条不再是 active gap
+- 当前策略是：保留类型/配置兼容，但产品与 runtime 路线按 `off → on` 走
 
-**现状**：`EMBED_MODE=shadow` 时，代码确实跑了向量检索 + rerank，但结果存到 `_reranked` 变量后**直接丢弃**，没有任何日志或对比数据记录。
+### Gap-3（已随 Gap-1 收敛）: Stories/Lessons 中英混搜
 
-**代码位置**：`SqliteEvidenceStore.ts` L216-219：
-```typescript
-} else if (this.embedDeps.mode === 'shadow') {
-  const _reranked = reranker.rerankWithDistances(lexicalResults, vecResults);
-  // Silent comparison — actual logging added in eval phase  ← 从没加过
-}
-```
-
-**修法选项**：
-- A: 补 shadow 日志（记录 lexical vs reranked 排序差异，用于 A/B 评估）
-- B: 直接跳过 shadow，上 `on`（Phase C eval corpus 已证明 embedding rerank 对 Recall 的提升）
-- **铲屎官倾向 B**（shadow 没实际产出，浪费 CPU）
-
-### Gap-3: Stories/Lessons 中英混搜需要 embedding
-
-**实测证据**（本线程测试 thread）：
-- 搜 "cat naming origin story"（英文）→ 0 命中。搜 "stories cat-names 名字"（中文+路径）→ 5 命中。
-- 根因：FTS5 unicode61 tokenizer 不做中文分词，中英之间无语义桥接。
-- **只有开启 embedding 才能真正解决**（向量空间里 "cat naming" 和 "猫名故事" 自然靠近）。
+**结论**：
+- 对我们当前 runtime，随着 `EMBED_MODE=on`，中英混搜不再是未处理 gap
+- 对开源默认或未开 embedding 的环境，这个能力仍会退化回纯 lexical，这是配置差异，不是我们 runtime 的未完成项
 - 临时补 frontmatter topics 能治标但不可持续——每个新文档都要手动加。
 
 ### 建议实现顺序
@@ -1393,7 +1387,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 ### 整体顺序（2026-03-30 三方收敛：布偶猫+砚砚+铲屎官）
 
 ```
-① 立即   Gap-1: EMBED_MODE=on（改 env，零代码）
+① 已完成 Gap-1: runtime EMBED_MODE=on（PR #618 auto-derive + 当前 .env 已启用）
 ② Stage 1: Phase I — Message-Level Permanence Repair（单项目内消息永久可搜）
             I-1 JSONL backfill → I-2 时间过滤 → I-3 分层显式化
 ③ Stage 2: Phase F-4 — Global Knowledge Foundation（全局知识层 + 联邦检索）✅ PR #886
