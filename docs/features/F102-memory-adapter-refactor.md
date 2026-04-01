@@ -1009,7 +1009,7 @@ L2 检索投影：evidence_passages / passage_fts（SQLite）
 - `env-registry.ts` 对 `MESSAGE_TTL_SECONDS` 描述补充默认 7 天行为 + TTL=0 含义
 - 考虑 `depth=raw` 搜索结果标注 `source: 'redis' | 'transcript'`（便于调试）
 
-### Phase J: Memory Hub — 记忆系统的人类产品面
+### Phase J: Memory Hub — 记忆系统的人类产品面 ✅
 
 > **触发**：铲屎官发现社区用户用不起来记忆系统——"藏得太死了"。F088/F137/定时任务都有前端页面，记忆系统却完全隐形。
 > **铲屎官核心洞察**："你们在收记忆的时候，我要是能偷偷看一眼你们到底搜到了什么记忆，这种体验最好。"
@@ -1208,15 +1208,15 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 - [x] AC-I9: MCP `search_evidence(depth=raw)` 返回值包含 passage 级细节（speaker + timestamp + 上下文），猫猫可直接引用具体消息 — **PR #885 merged**
 - [x] AC-I10: CLAUDE.md / SystemPromptBuilder 中 `search_evidence` 用法指南更新——教猫用 `depth=raw` 做消息级定位，而非只用 drill-down 工具链 — **PR #885 merged**
 
-### Phase J（Memory Hub — 记忆系统的人类产品面）
-- [ ] AC-J1: `/memory` 独立路由页面存在，左侧 sidebar 底部有 SVG 按钮（训练营→Memory→IM Hub 顺序），支持 `?from=threadId` 返回链路
-- [ ] AC-J2: `/memory` 页面包含人类可用的搜索栏，支持 mode/scope/depth 参数调节
-- [ ] AC-J3: Knowledge Feed（Phase H）从 Workspace 知识模式迁移到 `/memory` Tab 1
-- [ ] AC-J4: `/memory` Tab 3 展示索引状态（docs/threads/passages 数量、最近 rebuild 时间、TTL 配置、embedding mode）
-- [ ] AC-J5: Workspace Recall Feed——猫调 `search_evidence` 时，右侧面板实时展示 query + results + scores
-- [ ] AC-J6: Recall Feed 不需要猫做额外工作——invocation 层自动拦截 tool_use 事件并推送前端
-- [ ] AC-J7: Hub Group 3（监控与治理）有 Memory 状态 tab，含索引速览 + "打开 Memory" 跳转按钮
-- [ ] AC-J8: Workspace 原"知识"模式更名为"记忆" / "Recall"，承载 Recall Feed 而非完整 Knowledge Feed
+### Phase J（Memory Hub — 记忆系统的人类产品面）✅
+- [x] AC-J1: `/memory` 独立路由页面存在，左侧 sidebar 底部有 SVG 按钮（训练营→Memory→IM Hub 顺序），支持 `?from=threadId` 返回链路
+- [x] AC-J2: `/memory` 页面包含人类可用的搜索栏，支持 mode/scope/depth 参数调节
+- [x] AC-J3: Knowledge Feed（Phase H）从 Workspace 知识模式迁移到 `/memory` Tab 1
+- [x] AC-J4: `/memory` Tab 3 展示索引状态（docs/threads/passages 数量、最近 rebuild 时间、TTL 配置、embedding mode）
+- [x] AC-J5: Workspace Recall Feed——猫调 `search_evidence` 时，右侧面板实时展示 query + results + scores
+- [x] AC-J6: Recall Feed 不需要猫做额外工作——invocation 层自动拦截 tool_use 事件并推送前端
+- [x] AC-J7: Hub Group 3（监控与治理）有 Memory 状态 tab，含索引速览 + "打开 Memory" 跳转按钮
+- [x] AC-J8: Workspace 原"知识"模式更名为"记忆" / "Recall"，承载 Recall Feed 而非完整 Knowledge Feed
 
 ## Dependencies
 
@@ -1383,10 +1383,11 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-03-31 | Phase I follow-up merged (PR #885)：passage enrichment + context window (AC-I7~I10) |
 | 2026-03-31 | Phase F-4 merged (PR #886)：GlobalIndexBuilder + KnowledgeResolver federation — Skills/MEMORY.md → global_knowledge.sqlite |
 | 2026-03-31 | 铲屎官+砚砚纠偏 J-1 入口位置：原 spec 写"左侧导航和 Signal 同级"有误——Signal 实际在顶部栏。"同级"是产品层级，不是物理位置。物理位点待 Design Gate 确认 |
+| 2026-04-01 | **PR #899 squash merged** — Phase J (AC-J1~J8) ✅ Memory Hub: /memory route + MemoryNav + EvidenceSearch + IndexStatus + RecallFeed + HubMemoryTab + workspace recall rename |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J 已立项（Memory Hub 人类产品面）。Phase F-1/2/3 + G 运行时验收 + Phase J + IMaterializationService 待开。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J ✅ 已合入（PR #899, Memory Hub 人类产品面）。Phase F-1/2/3 + G 运行时验收 + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序（2026-03-30 三方收敛：布偶猫+砚砚+铲屎官）
@@ -1397,7 +1398,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
             I-1 JSONL backfill → I-2 时间过滤 → I-3 分层显式化
 ③ Stage 2: Phase F-4 — Global Knowledge Foundation（全局知识层 + 联邦检索）✅ PR #886
             从 Phase F 提前拆出，不等 F-1/F-2/F-3
-④ Stage 3: Phase J — Memory Hub（前端一次到位，含跨项目切换器）
+④ Stage 3: Phase J — Memory Hub（前端一次到位，含跨项目切换器）✅ PR #899
             I + F-4 都完成后再开工，不做单项目脚手架版
 ⑤ Stage 4: Phase F-1/F-2/F-3 — Project Onboarding & Ingestion
             新项目策略 + 遗留项目扫描 + frontmatter formatter
