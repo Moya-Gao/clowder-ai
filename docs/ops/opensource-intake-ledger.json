@@ -346,6 +346,18 @@
       "target_merge_commit": "a3c3c3d119c38af9b011e61e00e5086cfefa6634",
       "decision": "absorbed",
       "timestamp": "2026-04-01T01:30:49.774Z"
+    },
+    {
+      "pr_number": 318,
+      "target_merge_commit": "ecf902cdc0737d95ef519357554ca4d2eba4502d",
+      "decision": "absorbed",
+      "timestamp": "2026-04-01T01:56:17.417Z"
+    },
+    {
+      "pr_number": 319,
+      "target_merge_commit": "fca5e0071c0d0076efceab017a5afefcf9194f59",
+      "decision": "absorbed",
+      "timestamp": "2026-04-01T01:56:18.546Z"
     }
   ]
 }
