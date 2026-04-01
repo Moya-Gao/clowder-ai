@@ -32,7 +32,7 @@ created: 2026-03-31
 2. **Coverage tombstone**：被跳过的消息区间生成结构化摘要（~40 tokens，零 LLM 成本）：
    - omitted count + time range
    - active participants
-   - 2-4 个零成本提取关键词（TF-IDF / BM25 from @-mention text）
+   - 2-4 个零成本提取关键词（TF-IDF from omitted messages, query = composite: thread.title + user message + recent 1-2 non-system msgs）
    - 1-2 条 retrieval hints（指向 search_evidence）
 3. **Evidence recall**：用 composite query（thread.title + 当前 user message + 最近 1-2 条非系统消息）跑 evidence.sqlite BM25，best-effort 500ms timeout，top 2-3 hits 注入为外部知识
 4. **Tool payload scrub**：非最后一跳的 tool-call 结果压缩为 digest line（`<tool_result truncated: search_evidence returned 45 rows>`）
@@ -51,7 +51,7 @@ created: 2026-03-31
 
 在 Phase A tombstone 基础上，从 omitted 消息中选出高价值 anchors：
 
-1. **零成本 importance scoring**：structural signals（code blocks, @-mentions, reactions）+ positional signals（burst boundaries）+ BM25 against @-mention text
+1. **零成本 importance scoring**：structural signals（code blocks, @-mentions, reactions）+ positional signals（burst boundaries）+ BM25 with composite query（同 Phase A KD-3：thread.title + user message + recent msgs）
 2. **Anchor injection**：top 2-3 highest-scoring omitted messages 作为 anchors 注入 tombstone 和 hot tail 之间
 3. **Thread opener / primacy anchor**：首条消息或 thread title 作为 primacy anchor
 
@@ -72,7 +72,7 @@ created: 2026-03-31
 - [ ] AC-A3: tombstone 包含 omitted count、time range、participants、keywords、retrieval hints
 - [ ] AC-A4: evidence recall 用 composite query，500ms timeout，fail-open
 - [ ] AC-A5: tool payload scrub 对非最后一跳的 tool 结果生效
-- [ ] AC-A6: 现有热路径（warm mention，cursor gap ≤10 条）行为不变
+- [ ] AC-A6: 现有热路径（warm mention，cursor gap 低于可配置阈值）行为不变
 
 ### Phase B（Self-Serve Retrieval Enhancement）
 - [ ] AC-B1: search_evidence 支持 threadId 过滤参数
@@ -101,7 +101,7 @@ created: 2026-03-31
 |------|------|
 | burst 切分算法误切语义链 | 保守默认（silence gap ≥15min），加 semantic chain detection（Q→A, tool→result） |
 | evidence recall 召回错题（query 质量差） | composite query（title + user msg + recent msgs），不只用 @-mention text |
-| warm mention 场景（gap ≤10 条）被误改 | Phase A 只改 cold-mention 路径（gap > threshold），warm path 保持不变 |
+| warm mention 场景被误改 | Phase A 只改 cold-mention 路径（gap > 可配置阈值），warm path 保持不变 |
 | threadMemory 覆盖率低（~4%）导致 L1 空洞 | Phase A 设计为完全容忍 L1 缺失，tombstone + evidence 兜底 |
 | tool payload scrub 误压缩关键信息 | 只压缩非最后一跳，最后一跳保留完整 |
 
@@ -139,5 +139,5 @@ created: 2026-03-31
 |------|------|------|
 | **Research** | `docs/research/2026-03-31-hierarchical-context-transport-gpt-pro-consult.md` | GPT Pro + Gemini Ultra 双模型咨询（含 Part 1 prompt + 两份回填 + 综合框架） |
 | **Source Study** | `third-party-studies/claude-code-sourcemap-v2.1.88/notes/` | Claude Code v2.1.88 源码学习笔记（架构 + 安全 + 综合） |
-| **Feature** | `docs/features/F102-memory-adapter.md` | 记忆系统（evidence.sqlite 是 L3 基础） |
-| **Feature** | `docs/features/F042-three-tier-info-arch.md` | 三层信息架构（分层思想来源） |
+| **Feature** | `docs/features/F102-memory-adapter-refactor.md` | 记忆系统（evidence.sqlite 是 L3 基础） |
+| **Feature** | `docs/features/F042-prompt-engineering-audit.md` | 三层信息架构（分层思想来源） |
