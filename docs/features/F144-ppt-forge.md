@@ -130,7 +130,44 @@ deck.pptx
 4. Skill 化 — 铲屎官一句话触发全流程
 5. 企业风格模板库 — nvidia-like/IBM/Apple（HTML+Tailwind 模板，比 JSON token 表达力强 10 倍）
 
-### Phase C: 进阶能力（可选）
+### Phase C: SVG 渲染后端 + 进阶能力
+
+> **方向纠偏（2026-03-31）**：Phase B 的 HTML→DOM→pptxgenjs 路线在复杂中文嵌套布局（diagram 71 shapes）仍然崩溃。铲屎官指出应学习 pptx-craft 的 SVG 路线。核心发现：pptx-craft 不是"Promptware"，其 `svg_to_shapes.py`(70k) 是成熟的 SVG→DrawingML 原生 shapes 转换器。
+
+#### pptx-craft 架构分析
+
+```
+AI 生成 SVG (1280×720 viewBox, 逐页)
+    ↓ page_N_draft.svg (640×360 低分辨率先定布局)
+    ↓ page_N.svg (1280×720 精装修)
+svg_to_shapes.py (70k Python)
+    ↓ SVG elements → DrawingML native shapes
+    ↓ 支持: rect/circle/line/path/polygon/text/g/image/gradient/filter/transform
+    ↓ CJK 字体跨平台映射 (PingFang→YaHei fallback)
+svg_to_pptx.py (41k Python)
+    ↓ python-pptx 组装 slide
+    ↓ 产物: pages.pptx (原生可编辑)
+```
+
+**关键优势**：AI 直接控制 SVG 像素级布局 → 中文文字排版由 AI 的空间理解决定，不受 pptxgenjs shape API 限制。
+
+#### Phase C 路线选项
+
+| 方案 | 描述 | 优势 | 劣势 |
+|------|------|------|------|
+| **C1: 吸收 svg_to_shapes** | 将 pptx-craft Python 转换器接入我们管线 | 直接复用 200k 成熟代码 | Python 依赖；与 Node.js 管线集成需 subprocess |
+| **C2: AI-direct SVG** | 学 pptx-craft 哲学，复杂 slide 由 AI 直接生成 SVG | 最大创意自由度；解决所有中文排版问题 | 非确定性输出；需要每页单独 prompt |
+| **C3: SVG 中间层** | 我们的 Blueprint 管线 → 生成 SVG（非 AI 直接画）→ 转 PPTX | 确定性 + SVG 品质 | 需写 SVG 模板引擎 |
+| **C4: SVG 作为 Diagram 专用降级** | 仅 diagram renderer 走 SVG→图片嵌入，其他 renderer 不变 | 改动最小 | diagram 变成不可编辑的图片 |
+
+#### OfficeCLI 评估
+
+- **项目**: github.com/iOfficeAI/OfficeCLI，Apache 2.0，925 stars
+- **.NET CLI**，支持 PPT/Word/Excel 全格式，subprocess 调用
+- SVG 支持未确认，社区较小
+- **结论**: 不适合作为我们 Node.js 管线的核心引擎，但可作为 PPTX 后处理/验证工具参考
+
+#### 其他进阶能力
 
 1. Combo chart 双轴（pptxgenjs combo API 稳定后）
 2. 演讲者备注自动生成
@@ -200,6 +237,7 @@ deck.pptx
 | OQ-8 | Gate scorecard 评分协议（fidelity/correctness/completeness/visual/layout） | ⬜ Phase B |
 | OQ-9 | research.json / storyline.json 双轨 contract（MD 给人看 + JSON 给 Gate 消费） | ⬜ Phase B |
 | OQ-10 | claim-level evidence binding（claimId/revision/snapshotHash） | ⬜ Phase B |
+| OQ-11 | **SVG 渲染后端选型**：吸收 pptx-craft 的 svg_to_shapes.py (C1) vs AI-direct SVG (C2) vs SVG 中间层 (C3) vs Diagram 专用降级 (C4) | ⬜ Phase C — 等铲屎官拍板 |
 
 ## Key Decisions
 
@@ -235,6 +273,9 @@ deck.pptx
 | 2026-03-28 | AC-A7 密度验收通过 — slide-arch-overview 单页 52 boxes（四层×52模块），countBoxes() 自动统计，砚砚复审放行 |
 | 2026-03-28 | **架构方向纠偏** — 铲屎官指出手算坐标是"脚手架"，应与 F138 Video Studio 同思路（HTML+CSS → 媒体）。砚砚确认终态：Blueprint → HTML/CSS(Playwright) → DOM 语义编译器 → pptxgenjs 原生对象。Phase B 全面重写为 HTML Layout Compiler 架构（ADR-024） |
 | 2026-03-28 | **Phase B 核心管线 merged** (PR #823) — HTML Template Engine + Playwright Layout Evaluator + DOM Semantic Compiler + Compiled Builder。AC-B1/B2 交付，146 tests，砚砚 R1+R5 放行 + 云端 R4 放行。typed ChartData (categorical/xy/bubble)，diagram parent labels，image fail-closed guard |
+| 2026-03-31 | 手工 7 页高密度 PPT 试产（ch3-handcrafted.ts）— V1 引擎对 diagram 的 nested-box 渲染在中文场景完全崩溃（0.35" 宽 box 里文字竖排乱码）。铲屎官指出：**应学 SVG 渲染路线** |
+| 2026-03-31 | **pptx-craft 深度分析**（铲屎官提供源码）— 发现其真正架构是 **AI 直接生成 SVG(1280×720) → svg_to_shapes.py(70k) 转 native DrawingML shapes**，不是之前认为的"HTML 截图"。200k+ Python 代码实现 SVG → PPTX 原生可编辑 shapes 转换。修正之前对 pptx-craft 的"Promptware"定性 |
+| 2026-03-31 | **OfficeCLI 评估** — .NET CLI（Apache 2.0, 925 stars），功能全面但 SVG 支持未确认，subprocess 调用模式不适合我们 Node.js 管线 |
 
 ## Review Gate
 
@@ -255,3 +296,5 @@ deck.pptx
 | **研究** | `docs/research/2026-03-27-f144-ppt-forge/engine-options.md` | pptxgenjs 选型验证 + 10 条铁律 |
 | **研究** | `docs/research/2026-03-27-f144-ppt-forge/theme-token-spec.md` | Design Token 三层体系 + 字体双轨策略 |
 | **GPT Pro 审阅** | `docs/research/2026-03-27-f144-ppt-forge-gpt-pro-consult.md` | 架构审阅 Part 1-3（含砚砚确认） |
+| **pptx-craft 源码** | WeChat 归档 `pptx-craft/` (2026-03-27) | svg_to_shapes.py(70k) + svg_to_pptx.py(41k) — 真正的 SVG→DrawingML 转换器，不是之前认为的 HTML 截图 |
+| **OfficeCLI** | `github.com/iOfficeAI/OfficeCLI` | .NET CLI (Apache 2.0)，全格式支持，评估结论：不适合我们 Node.js 管线 |
