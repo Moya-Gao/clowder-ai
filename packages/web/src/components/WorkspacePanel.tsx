@@ -9,6 +9,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { MarkdownContent } from './MarkdownContent';
+import { RecallFeed } from './memory/RecallFeed';
 import { useConfirm } from './useConfirm';
 import { BrowserPanel } from './workspace/BrowserPanel';
 import { ChangesPanel } from './workspace/ChangesPanel';
@@ -16,7 +17,6 @@ import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
 import { GitPanel } from './workspace/GitPanel';
 import { JsxPreview } from './workspace/JsxPreview';
-import { KnowledgeFeed } from './workspace/KnowledgeFeed';
 import { LinkedRootRemoveButton, LinkedRootsManager } from './workspace/LinkedRootsManager';
 import { ResizeHandle } from './workspace/ResizeHandle';
 import { SchedulePanel } from './workspace/SchedulePanel';
@@ -671,14 +671,14 @@ export function WorkspacePanel() {
         </button>
         <button
           type="button"
-          onClick={() => setWorkspaceMode('knowledge')}
+          onClick={() => setWorkspaceMode('recall')}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
-            workspaceMode === 'knowledge'
+            workspaceMode === 'recall'
               ? 'bg-cocreator-primary/10 text-cocreator-primary border border-cocreator-primary/30'
               : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
           }`}
         >
-          <span className="text-xs">✨</span> 知识
+          <span className="text-xs">🧠</span> 记忆
         </button>
         <button
           type="button"
@@ -697,8 +697,8 @@ export function WorkspacePanel() {
       </div>
 
       {/* Knowledge / Schedule / Dev mode routing */}
-      {workspaceMode === 'knowledge' ? (
-        <KnowledgeFeed />
+      {workspaceMode === 'recall' ? (
+        <RecallFeed />
       ) : workspaceMode === 'schedule' ? (
         <SchedulePanel />
       ) : (

@@ -602,8 +602,8 @@ interface ChatState {
   setWorkspaceRevealPath: (path: string | null, originThreadId?: string | null) => void;
 
   // Phase H + F139: Workspace mode (dev tools / knowledge feed / schedule panel)
-  workspaceMode: 'dev' | 'knowledge' | 'schedule';
-  setWorkspaceMode: (mode: 'dev' | 'knowledge' | 'schedule') => void;
+  workspaceMode: 'dev' | 'recall' | 'schedule';
+  setWorkspaceMode: (mode: 'dev' | 'recall' | 'schedule') => void;
 
   // ── F120: Preview auto-open (always-mounted listener) ──
   pendingPreviewAutoOpen: { port: number; path: string } | null;
