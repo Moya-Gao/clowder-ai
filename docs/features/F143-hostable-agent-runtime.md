@@ -1,6 +1,6 @@
 ---
 feature_ids: [F143]
-related_features: [F050, F002, F126, F127]
+related_features: [F050, F002, F126, F127, F149]
 topics: [architecture, agent-hosting, protocol-abstraction, transport, runtime-contract, a2a]
 doc_kind: spec
 created: 2026-03-27
@@ -141,6 +141,7 @@ playground 分支的 ACP 实现验证了"配置接入"的可行性（填表 → 
 | **Research** | `docs/research/2026-03-18-a2a-architecture-synthesis.md` | A2A 架构综合 |
 | **Research** | `docs/research/2026-03-26-architecture-comparison-synthesis.md` | 架构对比综合 |
 | **Feature** | `docs/features/F050-a2a-external-agent-onboarding.md` | 外部 Agent 接入契约（EAC v1） |
+| **Feature** | `docs/features/F149-acp-runtime-operations.md` | ACP-style local agent 的运行时运营层（池化 / lease / lifecycle） |
 | **Feature** | `docs/features/F002-agent-to-agent.md` | A2A 内部协作 |
 | **Feature** | `docs/features/F126-limb-control-plane.md` | 四肢控制面（类似抽象模式） |
 | **Feature** | `docs/features/F127-cat-instance-management.md` | 猫猫管理重构（配置底座） |
