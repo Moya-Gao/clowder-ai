@@ -183,6 +183,7 @@ describe('deriveOpenCodeApiType', () => {
       { protocol: 'anthropic', ocProviderName: 'anthropic', expected: 'anthropic' },
       { protocol: 'google', ocProviderName: 'custom-gemini', expected: 'google' },
       { protocol: 'openai', ocProviderName: 'openrouter', expected: 'openai' },
+      { protocol: 'openai', ocProviderName: 'openai-responses', expected: 'openai-responses' },
       // Conflict: explicit protocol overrides ocProviderName
       { protocol: 'openai', ocProviderName: 'anthropic', expected: 'openai' },
       { protocol: 'openai', ocProviderName: 'google', expected: 'openai' },
@@ -219,6 +220,7 @@ describe('deriveOpenCodeApiType', () => {
   test('openai-responses protocol is reachable and returns openai-responses', () => {
     assert.equal(deriveOpenCodeApiType('openai-responses', 'maas'), 'openai-responses');
     assert.equal(deriveOpenCodeApiType('openai-responses', undefined), 'openai-responses');
+    assert.equal(deriveOpenCodeApiType('openai', 'openai-responses'), 'openai-responses');
   });
 
   test('unknown protocol values default to openai', () => {

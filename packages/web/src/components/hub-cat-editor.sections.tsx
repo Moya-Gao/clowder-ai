@@ -288,18 +288,23 @@ function ComboField({
 // Priority mirrors backend deriveOpenCodeApiType: protocol > ocProviderName > default.
 // Note: model prefix (e.g. google/gemini-*) is NOT used — it can be a namespace
 // within a different provider (e.g. OpenRouter) and would produce misleading hints.
-function resolveOpenCodeEndpoint(protocol: string | undefined, ocProviderName: string): string {
-  // Explicit protocol always wins (same as deriveOpenCodeApiType)
-  if (protocol) {
-    if (protocol === 'anthropic') return '/v1/messages';
-    if (protocol === 'google') return '/models/{model}:generateContent';
-    if (protocol === 'openai-responses') return '/v1/responses';
-    return '/v1/chat/completions';
+export function resolveOpenCodeEndpoint(protocol: string | undefined, ocProviderName: string): string {
+  const normalizedProtocol = protocol?.toLowerCase();
+  const normalizedProvider = ocProviderName.toLowerCase();
+
+  if (normalizedProtocol === 'openai-responses') return '/v1/responses';
+  if (normalizedProvider === 'openai-responses' && (!normalizedProtocol || normalizedProtocol === 'openai')) {
+    return '/v1/responses';
   }
+
+  // Explicit non-openai protocol still wins (same as deriveOpenCodeApiType).
+  if (normalizedProtocol === 'anthropic') return '/v1/messages';
+  if (normalizedProtocol === 'google') return '/models/{model}:generateContent';
+  if (normalizedProtocol) return '/v1/chat/completions';
+
   // Fallback: ocProviderName (authoritative provider binding)
-  if (ocProviderName === 'anthropic') return '/v1/messages';
-  if (ocProviderName === 'google') return '/models/{model}:generateContent';
-  if (ocProviderName === 'openai-responses') return '/v1/responses';
+  if (normalizedProvider === 'anthropic') return '/v1/messages';
+  if (normalizedProvider === 'google') return '/models/{model}:generateContent';
   return '/v1/chat/completions';
 }
 

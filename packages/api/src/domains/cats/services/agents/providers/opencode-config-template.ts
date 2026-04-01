@@ -92,20 +92,27 @@ export function deriveOpenCodeApiType(
   protocol: string | undefined,
   ocProviderName: string | undefined,
 ): OpenCodeApiType {
-  // Explicit protocol always wins (case-insensitive for robustness)
-  if (protocol) {
-    const p = protocol.toLowerCase();
-    if (p === 'anthropic') return 'anthropic';
-    if (p === 'google') return 'google';
-    if (p === 'openai-responses') return 'openai-responses';
-    return 'openai';
+  const normalizedProtocol = protocol?.toLowerCase();
+  const normalizedProvider = ocProviderName?.toLowerCase();
+
+  // Member-level openai-responses is the only supported override of the generic
+  // openai account protocol. This keeps protocol hidden at the account layer
+  // while still letting opencode opt into /v1/responses per member binding.
+  if (normalizedProtocol === 'openai-responses') return 'openai-responses';
+  if (normalizedProvider === 'openai-responses' && (!normalizedProtocol || normalizedProtocol === 'openai')) {
+    return 'openai-responses';
   }
+
+  // Explicit non-openai protocol still wins for the account family.
+  if (normalizedProtocol === 'anthropic') return 'anthropic';
+  if (normalizedProtocol === 'google') return 'google';
+  if (normalizedProtocol === 'openai') return 'openai';
+  if (normalizedProtocol) return 'openai';
+
   // Fallback: infer from ocProviderName when protocol is not declared.
   // Case-insensitive to tolerate UI input variations.
-  const normalizedProvider = ocProviderName?.toLowerCase();
   if (normalizedProvider === 'anthropic') return 'anthropic';
   if (normalizedProvider === 'google') return 'google';
-  if (normalizedProvider === 'openai-responses') return 'openai-responses';
   return 'openai';
 }
 

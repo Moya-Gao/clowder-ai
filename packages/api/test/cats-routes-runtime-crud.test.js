@@ -999,6 +999,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       { protocol: 'anthropic', ocProviderName: 'anthropic', expected: 'anthropic' },
       { protocol: 'google', ocProviderName: 'custom-gemini', expected: 'google' },
       { protocol: 'openai', ocProviderName: 'openrouter', expected: 'openai' },
+      { protocol: 'openai', ocProviderName: 'openai-responses', expected: 'openai-responses' },
       // openai-responses protocol (#291)
       { protocol: 'openai-responses', ocProviderName: 'custom', expected: 'openai-responses' },
       { protocol: 'openai-responses', ocProviderName: undefined, expected: 'openai-responses' },
