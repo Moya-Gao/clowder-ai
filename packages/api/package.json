@@ -14,6 +14,7 @@
     "fetch-signals": "node dist/scripts/fetch-signals.js",
     "migrate-signals": "node dist/scripts/migrate-signals.js",
     "rebuild-index": "node dist/scripts/rebuild-index.js",
+    "project:init": "node dist/scripts/project-init.js",
     "test:redis": "bash ./scripts/run-isolated-redis-tests.sh",
     "test:redis:repeat": "bash ./scripts/run-isolated-redis-tests.sh --repeat 2",
     "test:integration": "node --test test/integration/*.test.js",

@@ -15,7 +15,7 @@ import type { SqliteEvidenceStore } from './SqliteEvidenceStore.js';
 import { SIGNAL_FLAGS } from './summary-config.js';
 import type { VectorStore } from './VectorStore.js';
 
-const KIND_DIRS: Record<string, EvidenceKind> = {
+export const KIND_DIRS: Record<string, EvidenceKind> = {
   features: 'feature',
   decisions: 'decision',
   plans: 'plan',
@@ -437,6 +437,7 @@ export class IndexBuilder implements IIndexBuilder {
 
   private discoverFiles(): Array<{ path: string; kind: EvidenceKind }> {
     const results: Array<{ path: string; kind: EvidenceKind }> = [];
+    const discoveredPaths = new Set<string>();
 
     // Helper: recursively scan a directory for .md files
     const scanDir = (dirPath: string, kind: EvidenceKind, depth = 0) => {
@@ -452,6 +453,7 @@ export class IndexBuilder implements IIndexBuilder {
 
             if (lst.isFile() && entry.endsWith('.md')) {
               results.push({ path: fullPath, kind });
+              discoveredPaths.add(fullPath);
             } else if (lst.isDirectory()) {
               scanDir(fullPath, kind, depth + 1);
             }
@@ -498,6 +500,7 @@ export class IndexBuilder implements IIndexBuilder {
         try {
           if (statSync(fullPath).isFile()) {
             results.push({ path: fullPath, kind: 'plan' as EvidenceKind });
+            discoveredPaths.add(fullPath);
           }
         } catch {
           // skip
@@ -506,6 +509,40 @@ export class IndexBuilder implements IIndexBuilder {
     } catch {
       // skip
     }
+
+    // Phase 4 (F-2): Recursive fallback — index .md files in non-standard directories
+    // Enables legacy projects without KIND_DIRS structure to be indexed
+    const FALLBACK_EXCLUDE = new Set([
+      'node_modules',
+      '.git',
+      'archive',
+      'mailbox', // review requests — operational noise, not knowledge
+      ...Object.keys(KIND_DIRS),
+    ]);
+
+    const scanFallback = (dirPath: string, depth = 0) => {
+      if (depth > 10) return;
+      try {
+        for (const entry of readdirSync(dirPath)) {
+          if (FALLBACK_EXCLUDE.has(entry)) continue;
+          const fullPath = join(dirPath, entry);
+          try {
+            const lst = lstatSync(fullPath);
+            if (lst.isSymbolicLink()) continue;
+            if (lst.isFile() && entry.endsWith('.md') && !discoveredPaths.has(fullPath)) {
+              results.push({ path: fullPath, kind: inferKindFromPath(fullPath) });
+            } else if (lst.isDirectory()) {
+              scanFallback(fullPath, depth + 1);
+            }
+          } catch {
+            // skip inaccessible
+          }
+        }
+      } catch {
+        // skip
+      }
+    };
+    scanFallback(this.docsRoot);
 
     return results;
   }
