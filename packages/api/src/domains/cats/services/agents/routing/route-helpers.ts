@@ -343,8 +343,14 @@ export async function assembleIncrementalContext(
   );
 
   // F148: Smart window — cold mention detection
+  // P1-review: short-circuit on count first — avoid O(n) tokenize when count already triggers
   const hcConfig = DEFAULT_HIERARCHICAL_CONTEXT;
-  const isColdMention = relevant.length > hcConfig.coldMentionThreshold;
+  const countTrigger = relevant.length > hcConfig.coldMentionThreshold;
+  // Gap-1: only estimate tokens when count doesn't trigger (the "few but fat" path)
+  const tokenTrigger =
+    !countTrigger &&
+    relevant.reduce((sum, m) => sum + estimateTokens(m.content), 0) > hcConfig.coldMentionTokenThreshold;
+  const isColdMention = countTrigger || tokenTrigger;
 
   if (isColdMention) {
     return assembleSmartWindowContext(
@@ -494,7 +500,7 @@ async function assembleSmartWindowContext(
   }
 
   // 3. Tombstone
-  const tombstone = buildTombstone(omitted, threadTitle, hcConfig);
+  const tombstone = buildTombstone(omitted, threadTitle, hcConfig, threadId);
   const tombstoneText = tombstone ? formatTombstone(tombstone) : '';
 
   // 4. Evidence recall (fail-open)

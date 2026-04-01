@@ -17,6 +17,8 @@ export interface HierarchicalContextConfig {
   evidenceRecallTimeoutMs: number;
   /** Max evidence hits to inject */
   maxEvidenceHits: number;
+  /** Token count threshold: triggers smart window even when message count is low (Gap-1) */
+  coldMentionTokenThreshold: number;
 }
 
 export const DEFAULT_HIERARCHICAL_CONTEXT: HierarchicalContextConfig = {
@@ -27,4 +29,5 @@ export const DEFAULT_HIERARCHICAL_CONTEXT: HierarchicalContextConfig = {
   maxTombstoneKeywords: 4,
   evidenceRecallTimeoutMs: 500,
   maxEvidenceHits: 3,
+  coldMentionTokenThreshold: 10_000, // ~10K tokens — triggers smart window for "few but fat" messages
 };

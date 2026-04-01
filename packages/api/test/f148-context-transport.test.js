@@ -227,6 +227,32 @@ describe('F148: buildTombstone', () => {
     const tombstone = buildTombstone([], 'Test', config);
     assert.equal(tombstone, null);
   });
+
+  it('Gap-2: retrieval hints include threadId when provided', () => {
+    resetSeq();
+    const omitted = Array.from({ length: 5 }, () =>
+      makeMsg({ content: 'Redis CAS lock discussion with multiple approaches' }),
+    );
+    const tombstone = buildTombstone(omitted, 'Redis Discussion', config, 'thread_abc');
+    assert.ok(tombstone !== null);
+    assert.ok(
+      tombstone.retrievalHints.some((h) => h.includes('threadId') && h.includes('thread_abc')),
+      `hints should include threadId, got: ${tombstone.retrievalHints}`,
+    );
+  });
+
+  it('Gap-2: retrieval hints omit threadId when not provided', () => {
+    resetSeq();
+    const omitted = Array.from({ length: 5 }, () =>
+      makeMsg({ content: 'Redis CAS lock discussion with multiple approaches' }),
+    );
+    const tombstone = buildTombstone(omitted, 'Redis Discussion', config);
+    assert.ok(tombstone !== null);
+    assert.ok(
+      !tombstone.retrievalHints.some((h) => h.includes('threadId')),
+      `hints should NOT include threadId when not provided, got: ${tombstone.retrievalHints}`,
+    );
+  });
 });
 
 // --- formatTombstone Tests ---

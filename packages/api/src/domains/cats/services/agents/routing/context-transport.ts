@@ -203,6 +203,7 @@ export function buildTombstone(
   omitted: readonly StoredMessage[],
   threadTitle: string,
   config: HierarchicalContextConfig,
+  threadId?: string,
 ): ContextTombstone | null {
   if (omitted.length === 0) return null;
 
@@ -231,7 +232,10 @@ export function buildTombstone(
     .map(([word]) => word);
 
   const keywordHint = keywords.length > 0 ? keywords.slice(0, 2).join(' ') : threadTitle;
-  const retrievalHints = [`search_evidence("${keywordHint}")`];
+  const baseHint = threadId
+    ? `search_evidence("${keywordHint}", threadId="${threadId}")`
+    : `search_evidence("${keywordHint}")`;
+  const retrievalHints = [baseHint];
 
   return { omittedCount: omitted.length, timeRange, participants, keywords, retrievalHints };
 }

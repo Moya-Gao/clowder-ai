@@ -337,6 +337,67 @@ describe('F148 review fixes', () => {
     }
   });
 
+  test('Gap-1: fat messages trigger smart window even when count < coldMentionThreshold', async () => {
+    // 10 messages with ~11K chars each ≈ 17K tokens, but count (10) < threshold (15)
+    // First 6 msgs are old, then a 20-min silence gap, then 4 recent msgs
+    // Token trigger should activate smart window → burst captures last 4, omits first 6 → tombstone
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+
+    const fatContent = 'Redis lock contention analysis. '.repeat(350); // ~11K chars ≈ 1750 tokens each
+    const now = Date.now();
+    // 6 old messages (30 min ago, 1 min apart)
+    for (let i = 0; i < 6; i++) {
+      messageStore.append(
+        mockMsg({ threadId: 'thread-1', content: fatContent, timestamp: now - 30 * 60_000 + i * 60_000 }),
+      );
+    }
+    // 20-min silence gap, then 4 recent messages (1 min apart)
+    for (let i = 0; i < 4; i++) {
+      messageStore.append(
+        mockMsg({ threadId: 'thread-1', content: fatContent, timestamp: now - 4 * 60_000 + i * 60_000 }),
+      );
+    }
+
+    const deps = buildDeps(messageStore, deliveryCursorStore, { threadStore: mockThreadStore('Fat thread') });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+
+    // Without token trigger: 10 msgs < 15 threshold → warm path (no smart window)
+    // With token trigger: ~17K tokens > 10K threshold → smart window → tombstone for omitted msgs
+    const contextText = result.contextText ?? '';
+    assert.ok(
+      contextText.includes('skipped'),
+      'Expected tombstone for fat messages (10 msgs ≈ 17K tokens > 10K threshold), token trigger did not fire',
+    );
+  });
+
+  test('P1-review: count > threshold triggers smart window regardless of content size', async () => {
+    // 20 msgs: count (20) > threshold (15) → must enter smart window via count trigger.
+    // Deterministic behavioral check — no wall-clock assertion.
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+
+    const now = Date.now();
+    // 12 old msgs + 20-min gap + 8 recent msgs = 20 total
+    for (let i = 0; i < 12; i++) {
+      messageStore.append(
+        mockMsg({ threadId: 'thread-1', content: `old message ${i}`, timestamp: now - 40 * 60_000 + i * 60_000 }),
+      );
+    }
+    for (let i = 0; i < 8; i++) {
+      messageStore.append(
+        mockMsg({ threadId: 'thread-1', content: `recent message ${i}`, timestamp: now - 8 * 60_000 + i * 60_000 }),
+      );
+    }
+
+    const deps = buildDeps(messageStore, deliveryCursorStore, { threadStore: mockThreadStore('Count trigger test') });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+
+    // Count-triggered path must produce smart window with tombstone
+    assert.ok(result.contextText.includes('智能窗口'), 'count > threshold must enter smart window');
+    assert.ok(result.contextText.includes('skipped'), 'old messages must be tombstoned');
+  });
+
   test('P2-1: sanitizeInjectedContent strips smart window header', async () => {
     const { sanitizeInjectedContent } = await import('../dist/domains/cats/services/agents/routing/route-helpers.js');
 
