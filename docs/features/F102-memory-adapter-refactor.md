@@ -446,7 +446,7 @@ search_evidence(query, {
 - lesson/pitfall 召回质量改进（keywords 补充 + FTS5 索引调优）
 - session digest 路径修复（确认 transcriptDataDir 解析正确）
 
-### Phase F: 多项目记忆 — 猫猫出征新家/接手老项目（F-1/F-2/F-3 待实现，F-4 ✅）
+### Phase F: 多项目记忆 — 猫猫出征新家/接手老项目（F-1/F-2/F-3 ✅，F-4 ✅）
 
 > **触发**：铲屎官问"猫出征到 dare/studio-flow 怎么办？记忆系统怎么办？"
 > **核心决策**：KD-35（两种策略）+ KD-36（遗留项目 frontmatter formatter）
@@ -1202,17 +1202,17 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 - [x] AC-I9: MCP `search_evidence(depth=raw)` 返回值包含 passage 级细节（speaker + timestamp + 上下文），猫猫可直接引用具体消息 — **PR #885 merged**
 - [x] AC-I10: CLAUDE.md / SystemPromptBuilder 中 `search_evidence` 用法指南更新——教猫用 `depth=raw` 做消息级定位，而非只用 drill-down 工具链 — **PR #885 merged**
 
-### Phase F-1/F-2/F-3（多项目记忆 — Project Onboarding & Ingestion）
-- [ ] AC-F1-1: `project-init` CLI 命令存在（`pnpm project:init <dir>`），在目标目录创建 13 个标准 KIND_DIRS 子目录 + 基础骨架文件（BACKLOG.md / VISION.md）
-- [ ] AC-F1-2: 初始化后 `IndexBuilder.rebuild()` 能正常运行，产出健康的 evidence.sqlite（docsIndexed >= 0, ok=true）
-- [ ] AC-F1-3: 已有 cat-cafe 标准目录的项目（如 cat-cafe 自身）跑 `project:init` 不覆盖已有文件（幂等安全）
-- [ ] AC-F2-1: `discoverFiles()` 增加通用递归 fallback——KIND_DIRS 扫完后，递归扫 docsRoot 下剩余 `.md` 文件（排除 node_modules / .git / archive）
-- [ ] AC-F2-2: 递归发现的 `.md` 文件 kind 推断链：frontmatter `doc_kind` → 父目录名匹配 KIND_DIRS → 默认 `plan`
-- [ ] AC-F2-3: 遗留项目（无标准目录结构，只有散落的 `.md`）rebuild 后 `search_evidence` 可搜到这些文档
-- [ ] AC-F3-1: `frontmatter-formatter` CLI 命令存在，扫描指定目录的 `.md` 文件，报告缺失 frontmatter 的文件列表
-- [ ] AC-F3-2: 自动推断并补充 `doc_kind`（从路径/内容关键词）、`topics`（从标题提取）、`anchor`（从文件名）
-- [ ] AC-F3-3: 支持 `--dry-run`（只报告不修改）和 `--apply`（实际写入 frontmatter）两种模式
-- [ ] AC-F3-4: 已有完整 frontmatter 的文件不被修改（幂等安全）
+### Phase F-1/F-2/F-3（多项目记忆 — Project Onboarding & Ingestion）✅
+- [x] AC-F1-1: `project-init` CLI 命令存在（`pnpm project:init <dir>`），在目标目录创建 13 个标准 KIND_DIRS 子目录 + 基础骨架文件（BACKLOG.md / VISION.md）
+- [x] AC-F1-2: 初始化后 `IndexBuilder.rebuild()` 能正常运行，产出健康的 evidence.sqlite（docsIndexed >= 0, ok=true）
+- [x] AC-F1-3: 已有 cat-cafe 标准目录的项目（如 cat-cafe 自身）跑 `project:init` 不覆盖已有文件（幂等安全）
+- [x] AC-F2-1: `discoverFiles()` 增加通用递归 fallback——KIND_DIRS 扫完后，递归扫 docsRoot 下剩余 `.md` 文件（排除 node_modules / .git / archive）
+- [x] AC-F2-2: 递归发现的 `.md` 文件 kind 推断链：frontmatter `doc_kind` → 父目录名匹配 KIND_DIRS → 默认 `plan`
+- [x] AC-F2-3: 遗留项目（无标准目录结构，只有散落的 `.md`）rebuild 后 `search_evidence` 可搜到这些文档
+- [x] AC-F3-1: `frontmatter-formatter` CLI 命令存在，扫描指定目录的 `.md` 文件，报告缺失 frontmatter 的文件列表
+- [x] AC-F3-2: 自动推断并补充 `doc_kind`（从路径/内容关键词）、`topics`（从标题提取）、`anchor`（从文件名）
+- [x] AC-F3-3: 支持 `--dry-run`（只报告不修改）和 `--apply`（实际写入 frontmatter）两种模式
+- [x] AC-F3-4: 已有完整 frontmatter 的文件不被修改（幂等安全）
 
 ### Phase J（Memory Hub — 记忆系统的人类产品面）✅
 - [x] AC-J1: `/memory` 独立路由页面存在，左侧 sidebar 底部有 SVG 按钮（训练营→Memory→IM Hub 顺序），支持 `?from=threadId` 返回链路
@@ -1390,10 +1390,11 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-03-31 | Phase F-4 merged (PR #886)：GlobalIndexBuilder + KnowledgeResolver federation — Skills/MEMORY.md → global_knowledge.sqlite |
 | 2026-03-31 | 铲屎官+砚砚纠偏 J-1 入口位置：原 spec 写"左侧导航和 Signal 同级"有误——Signal 实际在顶部栏。"同级"是产品层级，不是物理位置。物理位点待 Design Gate 确认 |
 | 2026-04-01 | **PR #899 squash merged** — Phase J (AC-J1~J8) ✅ Memory Hub: /memory route + MemoryNav + EvidenceSearch + IndexStatus + RecallFeed + HubMemoryTab + workspace recall rename |
+| 2026-04-01 | **PR #904 squash merged** — Phase F-1/F-2/F-3 (AC-F1-1~F3-4) ✅ Multi-project onboarding: project-init CLI + recursive fallback discovery + frontmatter-formatter |
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J ✅ 已合入（PR #899, Memory Hub 人类产品面）。Phase F-1/2/3 + G 运行时验收 + IMaterializationService 待开。
+> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J ✅ 已合入（PR #899, Memory Hub 人类产品面）+ Phase F-1/2/3 ✅ 已合入（PR #904, 多项目记忆接入）。G 运行时验收 + IMaterializationService 待开。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 整体顺序（2026-03-30 三方收敛：布偶猫+砚砚+铲屎官）
@@ -1406,7 +1407,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
             从 Phase F 提前拆出，不等 F-1/F-2/F-3
 ④ Stage 3: Phase J — Memory Hub（前端一次到位，含跨项目切换器）✅ PR #899
             I + F-4 都完成后再开工，不做单项目脚手架版
-⑤ Stage 4: Phase F-1/F-2/F-3 — Project Onboarding & Ingestion
+⑤ Stage 4: Phase F-1/F-2/F-3 — Project Onboarding & Ingestion ✅ PR #904
             新项目策略 + 遗留项目扫描 + frontmatter formatter
 ⑥ 穿插:   G 运行时验收 + IMaterializationService（独立于上述主线）
 ```
