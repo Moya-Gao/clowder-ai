@@ -259,7 +259,15 @@ test('registry fallback chain picks up npm_config_registry when CAT_CAFE_NPM_REG
   const result = spawnSync(
     'bash',
     ['-lc', `source "${installScript}" --source-only >/dev/null 2>&1; printf '%s' "$NPM_REGISTRY"`],
-    { encoding: 'utf8', env: { ...process.env, npm_config_registry: 'https://fallback-mirror.test/', CAT_CAFE_NPM_REGISTRY: '', NPM_REGISTRY: '' } },
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        npm_config_registry: 'https://fallback-mirror.test/',
+        CAT_CAFE_NPM_REGISTRY: '',
+        NPM_REGISTRY: '',
+      },
+    },
   );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, 'https://fallback-mirror.test/');
@@ -269,7 +277,15 @@ test('registry fallback chain prefers CAT_CAFE_NPM_REGISTRY over npm_config_regi
   const result = spawnSync(
     'bash',
     ['-lc', `source "${installScript}" --source-only >/dev/null 2>&1; printf '%s' "$NPM_REGISTRY"`],
-    { encoding: 'utf8', env: { ...process.env, CAT_CAFE_NPM_REGISTRY: 'https://primary.test/', npm_config_registry: 'https://secondary.test/', NPM_REGISTRY: '' } },
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CAT_CAFE_NPM_REGISTRY: 'https://primary.test/',
+        npm_config_registry: 'https://secondary.test/',
+        NPM_REGISTRY: '',
+      },
+    },
   );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, 'https://primary.test/');

@@ -20,7 +20,11 @@ test('redis-restore script restarts with AOF enabled and quarantines old appendo
 
   writeFileSync(sourceDump, 'restored-data', 'utf8');
   writeFileSync(join(targetDir, 'dump.rdb'), 'old-data', 'utf8');
-  writeFileSync(join(targetDir, 'appendonlydir', 'appendonly.aof.manifest'), 'file appendonly.aof.1.base.rdb seq 1 type b\n', 'utf8');
+  writeFileSync(
+    join(targetDir, 'appendonlydir', 'appendonly.aof.manifest'),
+    'file appendonly.aof.1.base.rdb seq 1 type b\n',
+    'utf8',
+  );
 
   const mockRedisCli = `#!/usr/bin/env bash
 set -euo pipefail

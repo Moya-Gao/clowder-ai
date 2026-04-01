@@ -2,8 +2,8 @@
 
 import assert from 'node:assert/strict';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { join, sep } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import {
@@ -424,19 +424,25 @@ describe('resolvePencilBinary', () => {
     );
   });
 
-  it('returns a full path under ~/.antigravity/extensions when Pencil is installed', async () => {
+  it('returns a full path under a known editor extension root when Pencil is installed', async () => {
     const result = await resolvePencilBinary();
     if (result === null) {
       // No Pencil installation — skip gracefully (CI / environments without Antigravity)
       return;
     }
+    const knownRoots = [
+      join(homedir(), '.antigravity', 'extensions'),
+      join(homedir(), '.vscode', 'extensions'),
+      join(homedir(), '.cursor', 'extensions'),
+      join(homedir(), '.vscode-insiders', 'extensions'),
+    ];
     assert.ok(
       !result.startsWith('/out/'),
       `resolvePencilBinary() returned '${result}' — looks like PENCIL_BINARY_SUFFIX has a leading '/' that breaks path.resolve()`,
     );
     assert.ok(
-      result.includes('.antigravity/extensions'),
-      `resolvePencilBinary() should return a path under ~/.antigravity/extensions, got '${result}'`,
+      knownRoots.some((root) => result === root || result.startsWith(`${root}${sep}`)),
+      `resolvePencilBinary() should return a path under a known editor extension root, got '${result}'`,
     );
     assert.ok(
       result.includes('/out/mcp-server-'),

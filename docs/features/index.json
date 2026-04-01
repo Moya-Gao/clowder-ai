@@ -905,7 +905,13 @@
       "name": "i18n — Hub 界面中英文切换",
       "status": "idea | **Owner**: 待定 | **Priority**: 待定",
       "file": "F147-i18n-hub-locale-switch.md"
+    },
+    {
+      "id": "F148",
+      "name": "Hierarchical Context Transport — 分层上下文传输",
+      "status": "spec | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
+      "file": "F148-hierarchical-context-transport.md"
     }
   ],
-  "generated_at": "2026-03-31T00:15:35.264Z"
+  "generated_at": "2026-04-01T05:26:05.587Z"
 }

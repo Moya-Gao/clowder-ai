@@ -427,8 +427,10 @@ export function useAgentMessages() {
 
         if (msg.origin === 'callback') {
           const invocationId = msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId);
+          const hasExplicitInvocationId = !!msg.invocationId;
           const replacementTarget = invocationId
-            ? (findCallbackReplacementTarget(msg.catId, invocationId) ?? findInvocationlessStreamPlaceholder(msg.catId))
+            ? (findCallbackReplacementTarget(msg.catId, invocationId) ??
+              (hasExplicitInvocationId ? null : findInvocationlessStreamPlaceholder(msg.catId)))
             : findInvocationlessStreamPlaceholder(msg.catId);
 
           if (replacementTarget) {
@@ -455,6 +457,10 @@ export function useAgentMessages() {
           } else {
             // Use backend messageId when available for rich_block correlation (#83 P2)
             const id = msg.messageId ?? `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
+            const extraForAdd = {
+              ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+              ...(hasExplicitInvocationId && msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
+            };
             addMessage({
               id,
               type: 'assistant',
@@ -462,7 +468,7 @@ export function useAgentMessages() {
               content: msg.content,
               origin: 'callback',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+              ...(Object.keys(extraForAdd).length > 0 ? { extra: extraForAdd } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
@@ -472,7 +478,10 @@ export function useAgentMessages() {
             // placeholder existed yet. Mark the invocation as replaced so that
             // late-arriving stream chunks for the same invocation are suppressed
             // instead of spawning a second bubble.
-            if (invocationId) {
+            const shouldLockReplacement =
+              invocationId &&
+              (!hasExplicitInvocationId || getCurrentInvocationIdForCat(msg.catId) === msg.invocationId);
+            if (shouldLockReplacement) {
               replacedInvocationsRef.current.set(msg.catId, invocationId);
             }
           }
@@ -641,12 +650,13 @@ export function useAgentMessages() {
           // drop, micro-disconnect, dual-pointer guard mismatch, etc.).
           // Request a history catch-up so the user sees the response without F5.
           // Unconditional: covers ghost-message scenario where ALL events
-          // (stream + callback) were lost during disconnect (#276).
+          // (stream + callback) were lost during disconnect (#266, #276).
           if (!messageId) {
             const tid = useChatStore.getState().currentThreadId;
             console.warn('[stream-catchup] done(isFinal) with no active bubble — requesting catch-up', {
               catId: msg.catId,
               threadId: tid,
+              hadStreamData: sawStreamDataRef.current.has(msg.catId),
             });
             if (tid) {
               requestStreamCatchUp(tid);
