@@ -72,7 +72,13 @@ export function summarizeOpenCodeEnvForDebug(env: Record<string, string | null> 
   const hasDirectAnthropicEnv = Boolean(env?.[ANTHROPIC_API_KEY_ENV] || env?.[ANTHROPIC_BASE_URL_ENV]);
 
   return {
-    mode: hasRuntimeConfig ? 'runtime-config' : profileMode === 'subscription' ? 'subscription' : hasDirectAnthropicEnv ? 'direct-env' : 'empty',
+    mode: hasRuntimeConfig
+      ? 'runtime-config'
+      : profileMode === 'subscription'
+        ? 'subscription'
+        : hasDirectAnthropicEnv
+          ? 'direct-env'
+          : 'empty',
     opencodeConfigDir: summarizeDebugValue(env?.OPENCODE_CONFIG_DIR),
     profileMode,
     effectiveProtocol: env?.CAT_CAFE_EFFECTIVE_PROTOCOL ?? '(unset)',
