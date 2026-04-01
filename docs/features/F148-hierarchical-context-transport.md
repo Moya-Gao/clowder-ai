@@ -131,6 +131,7 @@ created: 2026-03-31
 | 2026-03-31 | Phase A 实现开始：config + burst detection + tombstone + tool scrub + evidence recall + 集成 |
 | 2026-03-31 | Phase A merged (PR #900) — 缅因猫 review (2 P1 + 1 P2 fixed) + 云端 review passed |
 | 2026-04-01 | Phase B merged (PR #902) — 缅因猫 review (R1: 2P1+1P2, R2: 1P1, all fixed) + 云端 review passed |
+| 2026-04-01 | 愿景守护 Gap Fix merged (PR #906) — Gap-1 token trigger + Gap-2 precise hints + P1 short-circuit fix |
 
 ## Review Gate
 
