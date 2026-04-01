@@ -74,10 +74,10 @@ created: 2026-03-31
 - [x] AC-A5: tool payload scrub 对非最后一跳的 tool 结果生效
 - [x] AC-A6: 现有热路径（warm mention，cursor gap 低于可配置阈值）行为不变
 
-### Phase B（Self-Serve Retrieval Enhancement）
-- [ ] AC-B1: search_evidence 支持 threadId 过滤参数
-- [ ] AC-B2: get_thread_context keyword 有排序/相关性能力
-- [ ] AC-B3: 两个工具边界清晰（找 vs 看），无功能重叠
+### Phase B（Self-Serve Retrieval Enhancement）✅
+- [x] AC-B1: search_evidence 支持 threadId 过滤参数
+- [x] AC-B2: get_thread_context keyword 有排序/相关性能力
+- [x] AC-B3: 两个工具边界清晰（找 vs 看），无功能重叠
 
 ### Phase C（Importance Scoring + Anchors）
 - [ ] AC-C1: zero-cost importance scoring 实现（不调用 LLM）
@@ -130,6 +130,7 @@ created: 2026-03-31
 | 2026-03-31 | 学习 Claude Code v2.1.88 源码 → 识别痛点 → GPT Pro + Gemini Ultra 双模型咨询 → 本地猫综合 → 立项 |
 | 2026-03-31 | Phase A 实现开始：config + burst detection + tombstone + tool scrub + evidence recall + 集成 |
 | 2026-03-31 | Phase A merged (PR #900) — 缅因猫 review (2 P1 + 1 P2 fixed) + 云端 review passed |
+| 2026-04-01 | Phase B merged (PR #902) — 缅因猫 review (R1: 2P1+1P2, R2: 1P1, all fixed) + 云端 review passed |
 
 ## Review Gate
 
