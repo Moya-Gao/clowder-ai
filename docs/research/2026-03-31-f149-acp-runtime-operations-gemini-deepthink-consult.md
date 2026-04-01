@@ -279,4 +279,146 @@ Session、Lease 和 Thread 最容易在这三种情况下发生灾难级“串�
 
 > 本地猫综合 GPT Pro / Gemini DeepThink / codebase 约束后撰写
 
-[待撰写]
+### 结论先行
+
+两份云端结果里，真正值得我们吸收的不是那些具体数字，而是三条结构性共识：
+
+1. **thread 不该持有 long lease，只该持有 logical session binding**
+2. **`project/workspace + bootstrap profile` 应该是 pool domain 的 key，不该把 thread/session/model 塞进 process key**
+3. **必须把失败作用域拆成 process / session / turn 三层，而不是所有错误都“一刀 kill worker”**
+
+但我们也不能把云端建议当现成答案。对我们家当前代码和约束来说，下面这些是**可以采纳**、**暂时保留为假设**、以及**明确不采纳**的部分。
+
+### 一、我们采纳的部分
+
+#### 1. thread 持有 session binding，不持有物理 lease
+
+这是两份结果最强的共同结论，也是我最认同的一条。
+
+- thread 是业务层异步对话，生命周期可能跨分钟到小时
+- process lease / execution slot 是物理资源，生命周期只能跟单次 prompt 或短暂 warm residency 走
+
+所以正确的控制面是：
+
+`thread -> logical session binding -> short-lived execution slot on process`
+
+而不是：
+
+`thread -> long-lived process lease`
+
+这条如果不先定，后面所有 TTL / eviction 都会歪。
+
+#### 2. `poolKey` 应该是 workspace/project + bootstrap profile
+
+我接受 GPT Pro 的核心判断：**key 的职责是表达“这个进程可以安全复用给谁”**，不是表达“谁正在用它”。
+
+因此：
+
+- 应该进 key 的：规范化后的 `workspaceRoot/projectPath`、启动时不可热切换的 bootstrap/profile 信息
+- 不该进 key 的：`threadId`、`sessionId`、`invocationId`、每轮 prompt 的局部参数
+
+我也同意不能把 `model` 默认塞进 process key。Gemini ACP 客户端本地代码已经明确暴露了 `setSessionMode()` 和 `unstable_setSessionModel()`，这说明 model/mode 更像 session 级而不是 process 级：
+
+- [acpClient.js](/opt/homebrew/Cellar/gemini-cli/0.35.3/libexec/lib/node_modules/@google/gemini-cli/dist/src/acp/acpClient.js)
+
+#### 3. `loadSession` 是恢复原语，不是普通 attach
+
+这点 GPT Pro 说得对，而且我用本机代码核实了：
+
+- `GeminiAgent.loadSession()` 会调用 `session.streamHistory(sessionData.messages)`
+- 也就是 **load 之后会把历史重新流一遍**
+
+这意味着我们如果以后用 `loadSession` 做恢复，必须走 **shadow rehydrate** 或至少走“吞掉 replay 后再重新挂回 thread”的路径，不能把它当成普通 attach。
+
+本地证据：
+
+- [acpClient.js](/opt/homebrew/Cellar/gemini-cli/0.35.3/libexec/lib/node_modules/@google/gemini-cli/dist/src/acp/acpClient.js)
+
+### 二、我们暂时只当假设，不当决策
+
+#### 1. “同一个 process 可以稳定支持跨 session 并发 prompt”
+
+这条现在**不能拍板**。
+
+本机代码只证明了两件事：
+
+- `GeminiAgent` 里确实有 `sessions = new Map()`
+- `Session.pendingPrompt` 是 **每个 session 一个**，不是全局一个
+
+这说明：
+
+- **同 session 一定是 single-flight**
+- **跨 session 可能允许并发**
+
+但“可能允许并发”不等于“我们已经验证 Gemini ACP 端到端在一个 stdio 连接上多 session 并发是稳定的”。云端在这里走得比证据快了一步。
+
+所以 F149 的 Phase A 仍然要先做这条实验：
+
+> 同一 ACP process 下，两个不同 session 并发 prompt，是否会出现 merged / dropped / interleaved response。
+
+在这条实验没过之前，我的默认运行策略是：
+
+- **session-single-flight：真**
+- **process-single-flight：先按真处理**
+- 如果 Phase A 实测证明跨 session multiplex 稳定，再把 per-process cap 从 1 放宽到 2
+
+#### 2. 具体数字：TTL、burst 数、resident session cap
+
+GPT Pro 的 `20m/5m/8 cap`，Gemini DeepThink 的 `15m / 2h / 50 turns`，这些都只能当 **起始候选值**，不能直接抄成 Key Decision。
+
+原因很简单：这些数字强依赖我们家真实的：
+
+- @ 烁烁的日内分布
+- project 热度
+- 本机内存水位
+- `loadSession` 成本
+- 失败恢复 UX
+
+这些都只有我们本地 telemetry 能决定。
+
+### 三、我明确不采纳的部分
+
+#### 1. 把“一 project 一 process”直接推翻成“固定小池 1→2 workers”
+
+Gemini DeepThink 在这里给的是一个很有启发的**方向**，但不是我现在就会写进 spec 的**结论**。
+
+我会保留它作为 **pool domain 设计的上界假设**：
+
+- 一个 `poolKey` 不应该被解释成“单例 worker”
+- 它应该被解释成“一个可扩缩的兼容域”
+
+但 V1 到底是：
+
+- warm 1 / burst 2
+- 还是 strict 1 + queue
+
+要等并发模型实验和 queue 指标回来再定。否则我们会在没有验证 multiplex 的情况下，先把调度器做成错的。
+
+#### 2. “进程死了就直接 newSession + playback，不要管 loadSession”
+
+Gemini DeepThink 这条太绝对，我不接受。
+
+因为我们本地已经确认 Gemini ACP **有真实的 `loadSession` 能力**，虽然它会 replay 历史，但这不代表我们应该在设计上直接放弃它。更稳的说法应该是：
+
+- `loadSession` 不是默认 attach
+- 但它是值得保留的恢复原语
+- 要不要在 V1 启用，取决于 Phase A 对 replay 成本和 transcript 污染的实测
+
+### 四、我的综合方案
+
+如果现在就要给 F149 一个本地综合版本，我的结论是：
+
+1. **`poolKey = normalizedWorkspaceRoot + providerBootstrapProfileHash`，但这是 pool domain，不是单例 worker。**
+2. **thread 持有 `logicalSessionBinding`，不持有 long lease。**
+3. **lease/execution slot 只在单次 prompt 物理执行期存在；warm residency 是 process 级策略，不归 thread 所有。**
+4. **V1 默认按最保守的并发假设运行：same-session single-flight，cross-session 暂不放开。**
+5. **F149 Phase A 的第一优先实验，不是再测 cold start，而是测单进程双 session 并发 prompt 的正确性。**
+6. **失败 taxonomy 采用三层：**
+   - process-poison：协议污染、stdout parse failure、zombie、transport desync → kill worker
+   - session-poison：merged/dropped response、replay 失真、重复内部错误 → seal session
+   - turn-transient：429/5xx 且无 side effect → retry/backoff；有 tool side effect → 不盲重试
+7. **`loadSession` 保留为恢复原语，但恢复路径必须 shadow，不得把 replay 直接喷回用户线程。**
+
+### 五、最值得写回 F149 的一句话
+
+> **F149 的核心不是“让 thread 占住一只烁烁”，而是“让 thread 稳定绑定一个 logical session，再把这个 session 短租到合适的 ACP runtime 上”。**

@@ -65,7 +65,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 
 把“烁烁是一个长驻 agent runtime，不是一次性 CLI 子进程”落成明确控制面：
 
-1. 进程池 key 默认按 `(projectPath, providerProfile)`，不按 thread 开进程
+1. 进程池 domain key 默认按 `(projectPath, providerProfile)`，不按 thread 开进程；同一 key 是否单实例或弹性 1→N worker 由 Phase A 并发实验决定
 2. thread 只在真正需要 @ 烁烁时申请 session / lease；不需要参与的 thread 不占资源
 3. session 保存 thread 级连续性，lease 负责 attach / detach / idle TTL / 回收
 4. 加 admission / eviction / LRU / max live process count，避免 20 个 thread 把机器撑爆
@@ -120,18 +120,20 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 |------|------|
 | 把 F149 写成“只救 Gemini”的 provider patch，后续 Codex/Claude Code ACP 再开第二份同类 feature | 明确 F149 scope 是 ACP runtime operations，Gemini 只是第一载体 |
 | 把 F149 写成第二个 F143，重新掉回过度抽象 | F149 不重谈 protocol-agnostic kernel，只谈 pool / session / lease / lifecycle |
-| 进程池策略过于激进导致项目串味或租约混乱 | V1 保守：默认一 project 一 process，不跨 project 复用 |
+| 进程池策略过于激进导致项目串味或租约混乱 | V1 保守：一 project + profile = 一个 pool domain；是否单实例或弹性 1→N worker 由 Phase A 并发实验决定，不跨 project 复用 |
 | 误把服务端模型响应慢归因到本地 pool 设计 | 测量分层：`initialize`、`attach`、`first chunk`、`model latency` 分开采样 |
-| 长驻 ACP process 带来僵尸进程和 stale lease | Phase C 必须把回收和失败分类作为 AC，不允许“先跑起来再说” |
+| 长驻 ACP process 带来僵尸进程和 stale lease | Phase C 必须把回收和失败分类作为 AC，不允许”先跑起来再说” |
+| Gemini ACP 的 session 连续性有已知 bug（issue #24017：同 session 第 2+ prompt 可能 dropped/merged response） | V1 必须有 session seal 机制；session-poison 检测到 merged/dropped 即封印，不无限 retry |
+| 杀进程 = 丢 MCP 连接图（5 个 MCP server），重建成本高于纯 initialize | idle TTL 不宜过短；eviction 需考虑 MCP 重建成本，不只看 cold init 时间 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | V1 是否坚持“一 project 一 process”，还是允许同 providerProfile 下跨 project 复用？ | ⬜ 待云端咨询 + 本地拍板 |
-| OQ-2 | session 的拥有者是 thread 还是 lease？`loadSession` 的粒度怎么定？ | ⬜ 待定 |
+| OQ-2 | session 的拥有者是 thread 还是 lease？`loadSession` 的粒度怎么定？ | ✅ 已定（KD-6/KD-8）：thread 持有 logical session binding；lease 只在 prompt 执行期短暂存在；`loadSession` 是 recovery primitive |
 | OQ-3 | idle TTL / LRU / max live process count 的默认值如何定，才能既省资源又不伤体感？ | ⬜ 待定 |
-| OQ-4 | warm process 上的并发策略是 queue、single-flight，还是允许多 session 并行？ | ⬜ 待定 |
+| OQ-4 | warm process 上的并发策略是 queue、single-flight，还是允许多 session 并行？ | ⏳ 部分确定：same-session 一定是 single-flight（源码证实）；cross-session 默认按 single-flight 运行，待 OQ-6 实验证明 multiplex 稳定后再放宽 |
 | OQ-5 | 什么时候再让第二个 ACP carrier（Codex/Claude Code/OpenCode）进入 F149 scope？ | ⬜ 待定 |
 | OQ-6 | ACP stdio 单通道是否支持多 session 并发 prompt（多路复用），还是 single-flight？直接决定 pool sizing 策略 | ⬜ 待 Phase A 实验验证 |
 
@@ -144,13 +146,18 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | KD-3 | V1 的优化目标是 process reuse，不是重复强调 session resume | F053 已经解决了旧 headless Gemini 路径的 `--resume`，当前瓶颈是每轮重启进程 | 2026-03-31 |
 | KD-4 | Phase B 先用 Gemini 当第一载体，但 feature 命名不绑死单 provider | 避免”只救烁烁”的窄 patch，同时不提前抽象到第二个 F143 | 2026-03-31 |
 | KD-5 | F149 Phase B 不被 F143 Phase A 阻塞，反向反哺 F143 抽象提取 | 具体物先于抽象层——先做 GeminiAcpAdapter，再让 F143 从中提取 seam。等抽象层先落地再做具体实现是 waterfall，会浪费实验动量（布偶猫 push back） | 2026-03-31 |
+| KD-6 | thread 持有 logical session binding，不持有 long process lease | 云端两份咨询最强共识。thread 是异步长生命周期业务实体，process lease 是物理资源短占用。绑死会让铲屎官吃饭的 10 分钟里进程不可回收（GPT Pro + DeepThink 一致） | 2026-04-01 |
+| KD-7 | 失败处理分三层：process-poison / session-poison / turn-transient | process-poison（stdout 污染/协议失步/僵尸）→ kill process；session-poison（merged/dropped response）→ seal session；turn-transient（429/5xx 无 side effect）→ retry/backoff。有 tool call side effect 的禁止盲重试（GPT Pro failure taxonomy + Gemini issue #24017） | 2026-04-01 |
+| KD-8 | `loadSession` 保留为 recovery primitive，恢复路径必须 shadow | Gemini ACP 的 `loadSession` 会 replay 历史（`session.streamHistory()`），直接用会污染 thread transcript。保留但必须拦截 replay 事件（GPT Pro 建议 + 本地源码验证） | 2026-04-01 |
+| KD-9 | 在 provider profile 中预留 `supports_multiplexing` 能力标志 | 今天 Gemini 默认 false；Phase A 验证通过后或新 carrier 进来后可切 true，调度器据此决定是否向同一进程并行下发。留 seam 不提前抽象（DeepThink 建议） | 2026-04-01 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-03-31 | 通过 `gemini --acp` 本地实验确认协议可用，问题收敛为 ACP runtime operations |
-| 2026-03-31 | F149 立项：把问题从“协议能不能活”升级为“项目级进程池 + session lease 怎么设计” |
+| 2026-03-31 | F149 立项：把问题从”协议能不能活”升级为”项目级进程池 + session lease 怎么设计” |
+| 2026-04-01 | GPT Pro + Gemini DeepThink 云端咨询完成，本地收敛：KD-6~KD-9 落定（session binding 分层、三层失败 taxonomy、loadSession shadow、multiplexing seam） |
 
 ## Review Gate
 
