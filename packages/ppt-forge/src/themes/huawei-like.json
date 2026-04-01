@@ -1,37 +1,61 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "name": "huawei-like",
-  "description": "华为风格企业演示：红+白+灰，高信息密度，Noto Sans SC 统一 CJK",
+  "description": "华为风格企业演示：华为红+白+6级灰，高信息密度，禁止圆角，微软雅黑+Arial",
+
+  "_spec_source": "huawei.md (2026-03)",
+  "_spec_notes": {
+    "page_size": "1280×720px = 10×5.625 inches @ 128 px/inch",
+    "golden_rule": "每页1个核心观点 + 3-5个支撑点 + 数据/图表",
+    "no_rounded_corners": "所有组件禁止圆角，使用直角"
+  },
 
   "brand": {
     "colors": {
-      "primary": "CF0A2C",
-      "secondary": "333333",
-      "accent": "E60012",
+      "primary": "C7020E",
+      "secondary": "252525",
+      "accent": "C7020E",
       "background": "FFFFFF",
       "surface": "F5F5F5",
-      "surfaceAlt": "EEEEEE",
+      "surfaceAlt": "F0F0F0",
       "white": "FFFFFF",
+      "redBg": "FFF1EF",
       "text": {
-        "primary": "333333",
-        "secondary": "666666",
-        "muted": "999999",
+        "primary": "252525",
+        "secondary": "8C8C8C",
+        "muted": "AEAEAE",
         "onPrimary": "FFFFFF"
+      },
+      "gray": {
+        "100": "8C8C8C",
+        "80": "AEAEAE",
+        "60": "D4D4D4",
+        "40": "E8E8E8",
+        "20": "F0F0F0",
+        "10": "F5F5F5"
       }
     },
     "typography": {
-      "headingFont": "PingFang SC",
-      "bodyFont": "PingFang SC",
-      "monoFont": "Menlo",
-      "cjkFont": "PingFang SC",
+      "headingFont": "Microsoft YaHei",
+      "bodyFont": "Microsoft YaHei",
+      "monoFont": "Arial",
+      "cjkFont": "Microsoft YaHei",
       "headingWeight": "700",
       "bodyWeight": "400",
       "fallback": {
-        "headingFont": "Noto Sans SC",
-        "bodyFont": "Noto Sans SC",
-        "monoFont": "Consolas",
+        "headingFont": "PingFang SC",
+        "bodyFont": "PingFang SC",
+        "monoFont": "Menlo",
         "cjkFont": "Noto Sans SC"
-      }
+      },
+      "levels": {
+        "1": { "size": 32, "weight": "700", "use": "页标题" },
+        "2": { "size": 20, "weight": "700", "use": "卡片/区域标题" },
+        "3": { "size": 18, "weight": "400", "use": "正文内容" },
+        "4": { "size": 16, "weight": "400", "use": "图表标注" },
+        "5": { "size": 13, "weight": "400", "use": "辅助说明" }
+      },
+      "lineHeight": 1.5
     },
     "spacing": {
       "unit": 0.15,
@@ -39,81 +63,162 @@
       "sm": 0.15,
       "md": 0.3,
       "lg": 0.5,
-      "xl": 0.8
+      "xl": 0.8,
+      "pageMarginTitle": 32,
+      "pageMarginContent": 24
+    },
+    "borders": {
+      "width": 1,
+      "radius": 0,
+      "color": "D4D4D4"
+    }
+  },
+
+  "page": {
+    "width": 1280,
+    "height": 720,
+    "widthInches": 10,
+    "heightInches": 5.625,
+    "pxPerInch": 128,
+    "topRedLine": 1,
+    "titleBarHeight": 90,
+    "contentAreaHeight": 504,
+    "navBarHeight": 130
+  },
+
+  "components": {
+    "redIndicator": {
+      "width": 4,
+      "height": 30,
+      "color": "C7020E",
+      "use": "标题左侧红色指示条"
+    },
+    "dataCard": {
+      "leftBorderWidth": 4,
+      "leftBorderColor": "C7020E",
+      "bg": "E8E8E8",
+      "use": "数据卡片左侧红色边框"
+    },
+    "navBar": {
+      "height": 130,
+      "bg": "C7020E",
+      "textColor": "FFFFFF",
+      "use": "红色导航条（仅章节页）"
+    },
+    "icon": {
+      "sizeSmall": 32,
+      "sizeLarge": 64,
+      "style": "线性或面性图标"
     }
   },
 
   "slide": {
     "cover": {
-      "bg": "CF0A2C",
+      "bg": "C7020E",
       "titleColor": "FFFFFF",
       "titleFontSize": 32,
       "subtitleColor": "FFFFFF",
-      "subtitleFontSize": 16
+      "subtitleFontSize": 18,
+      "topRedLine": false
     },
     "section": {
-      "bg": "CF0A2C",
+      "bg": "FFFFFF",
+      "navBarBg": "C7020E",
+      "navBarHeight": 130,
       "labelColor": "FFFFFF",
-      "labelFontSize": 12,
+      "labelFontSize": 13,
       "titleColor": "FFFFFF",
-      "titleFontSize": 28
+      "titleFontSize": 32,
+      "topRedLine": true
     },
     "content": {
       "bg": "FFFFFF",
-      "titleColor": "CF0A2C",
-      "titleFontSize": 20,
-      "bodyColor": "333333",
-      "bodyFontSize": 12
+      "titleBarHeight": 90,
+      "titleColor": "252525",
+      "titleFontSize": 32,
+      "bodyColor": "252525",
+      "bodyFontSize": 18,
+      "topRedLine": true,
+      "redIndicator": true
     },
     "kpi": {
-      "numberColor": "CF0A2C",
+      "numberColor": "C7020E",
       "numberFontSize": 40,
-      "labelColor": "666666",
-      "labelFontSize": 11,
-      "trendUp": "4CAF50",
-      "trendDown": "CF0A2C",
-      "trendFlat": "999999"
+      "labelColor": "8C8C8C",
+      "labelFontSize": 13,
+      "trendUp": "52C41A",
+      "trendDown": "C7020E",
+      "trendFlat": "8C8C8C",
+      "cardLeftBorder": 4
     },
     "chart": {
-      "palette": ["CF0A2C", "E60012", "FF6B35", "FFA726", "4CAF50", "2196F3"],
-      "gridColor": "EEEEEE",
+      "palette": ["C7020E", "FF6B6B", "FFA940", "FADB14", "52C41A", "1890FF", "722ED1"],
+      "gridColor": "E8E8E8",
       "gridSize": 0.5,
-      "axisLabelColor": "666666",
-      "axisLabelSize": 9,
-      "dataLabelColor": "333333",
-      "dataLabelSize": 9,
+      "axisLabelColor": "8C8C8C",
+      "axisLabelSize": 13,
+      "dataLabelColor": "252525",
+      "dataLabelSize": 16,
       "bgColor": "FFFFFF"
     },
     "table": {
-      "headerBg": "CF0A2C",
+      "headerBg": "C7020E",
       "headerColor": "FFFFFF",
+      "headerFontSize": 16,
       "rowBg": "FFFFFF",
       "rowAltBg": "F5F5F5",
-      "rowColor": "333333",
-      "borderColor": "DDDDDD"
+      "rowColor": "252525",
+      "rowFontSize": 16,
+      "borderColor": "D4D4D4",
+      "borderWidth": 1
     },
     "diagram": {
-      "boxBg": "F5F5F5",
-      "boxBorder": "CF0A2C",
-      "boxBorderWidth": 1.5,
-      "labelColor": "333333",
-      "labelFontSize": 9,
-      "nestedBg": ["FFFFFF", "F5F5F5", "EEEEEE"],
-      "connectorColor": "999999",
-      "connectorWidth": 1
+      "boxBg": "E8E8E8",
+      "boxBorder": "D4D4D4",
+      "boxBorderWidth": 1,
+      "boxRadius": 0,
+      "labelColor": "252525",
+      "labelFontSize": 16,
+      "nestedBg": ["FFFFFF", "F5F5F5", "F0F0F0", "E8E8E8"],
+      "connectorColor": "8C8C8C",
+      "connectorWidth": 1,
+      "highlightBorder": "C7020E"
     },
     "closing": {
       "bg": "FFFFFF",
-      "titleColor": "CF0A2C",
-      "titleFontSize": 24,
-      "bodyColor": "666666",
-      "bodyFontSize": 12
+      "titleColor": "C7020E",
+      "titleFontSize": 32,
+      "bodyColor": "8C8C8C",
+      "bodyFontSize": 18,
+      "topRedLine": true
     }
   },
 
   "slideNumber": {
-    "color": "999999",
-    "fontSize": 8,
+    "color": "8C8C8C",
+    "fontSize": 13,
     "position": { "x": "95%", "y": "95%" }
+  },
+
+  "masterSlides": {
+    "_note": "Slide Master 预设，compiler 可直接引用",
+    "titleSlide": {
+      "background": { "color": "C7020E" },
+      "title": { "x": 0.5, "y": 2.2, "w": 9, "h": 0.8, "fontSize": 32, "color": "FFFFFF", "bold": true },
+      "subtitle": { "x": 0.5, "y": 3.1, "w": 9, "h": 0.5, "fontSize": 18, "color": "FFFFFF" }
+    },
+    "sectionSlide": {
+      "background": { "color": "FFFFFF" },
+      "navBar": { "x": 0, "y": 0, "w": 10, "h": 1.02, "fill": "C7020E" },
+      "topLine": { "x": 0, "y": 0, "w": 10, "h": 0.008, "fill": "C7020E" },
+      "title": { "x": 0.5, "y": 0.3, "w": 9, "h": 0.6, "fontSize": 32, "color": "FFFFFF", "bold": true }
+    },
+    "contentSlide": {
+      "background": { "color": "FFFFFF" },
+      "topLine": { "x": 0, "y": 0, "w": 10, "h": 0.008, "fill": "C7020E" },
+      "redIndicator": { "x": 0.25, "y": 0.2, "w": 0.031, "h": 0.234, "fill": "C7020E" },
+      "title": { "x": 0.35, "y": 0.15, "w": 9.15, "h": 0.5, "fontSize": 32, "color": "252525", "bold": true },
+      "contentArea": { "x": 0.25, "y": 0.7, "w": 9.5, "h": 4.6 }
+    }
   }
 }
