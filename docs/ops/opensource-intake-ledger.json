@@ -348,6 +348,12 @@
       "timestamp": "2026-04-01T01:30:49.774Z"
     },
     {
+      "pr_number": 317,
+      "target_merge_commit": "82b973f1ee617855c814fa519825229d1019d6df",
+      "decision": "absorbed",
+      "timestamp": "2026-04-01T01:17:06.063Z"
+    },
+    {
       "pr_number": 318,
       "target_merge_commit": "ecf902cdc0737d95ef519357554ca4d2eba4502d",
       "decision": "absorbed",
