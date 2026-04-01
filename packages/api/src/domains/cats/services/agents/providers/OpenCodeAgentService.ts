@@ -42,6 +42,48 @@ const OPENCODE_API_KEY_ENV = 'OPENCODE_API_KEY';
 const ANTHROPIC_API_KEY_ENV = 'ANTHROPIC_API_KEY';
 const ANTHROPIC_BASE_URL_ENV = 'ANTHROPIC_BASE_URL';
 
+export interface OpenCodeEnvDebugSummary {
+  mode: 'runtime-config' | 'subscription' | 'direct-env' | 'empty';
+  opencodeConfigDir: string;
+  profileMode: string;
+  effectiveProtocol: string;
+  modelOverride: string;
+  anthropicApiKey: string;
+  anthropicBaseUrl: string;
+  catCafeOcApiKey: string;
+  catCafeOcBaseUrl: string;
+}
+
+function summarizeDebugValue(value: string | null | undefined): string {
+  if (value === null) return '(cleared)';
+  if (!value) return '(unset)';
+  return value;
+}
+
+function summarizeDebugSecret(value: string | null | undefined): string {
+  if (value === null) return '(cleared)';
+  if (!value) return '(unset)';
+  return `${value.slice(0, 6)}***`;
+}
+
+export function summarizeOpenCodeEnvForDebug(env: Record<string, string | null> | undefined): OpenCodeEnvDebugSummary {
+  const profileMode = env?.CAT_CAFE_ANTHROPIC_PROFILE_MODE ?? '(unset)';
+  const hasRuntimeConfig = Boolean(env?.OPENCODE_CONFIG_DIR);
+  const hasDirectAnthropicEnv = Boolean(env?.[ANTHROPIC_API_KEY_ENV] || env?.[ANTHROPIC_BASE_URL_ENV]);
+
+  return {
+    mode: hasRuntimeConfig ? 'runtime-config' : profileMode === 'subscription' ? 'subscription' : hasDirectAnthropicEnv ? 'direct-env' : 'empty',
+    opencodeConfigDir: summarizeDebugValue(env?.OPENCODE_CONFIG_DIR),
+    profileMode,
+    effectiveProtocol: env?.CAT_CAFE_EFFECTIVE_PROTOCOL ?? '(unset)',
+    modelOverride: env?.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE ?? '(unset)',
+    anthropicApiKey: summarizeDebugSecret(env?.[ANTHROPIC_API_KEY_ENV]),
+    anthropicBaseUrl: summarizeDebugValue(env?.[ANTHROPIC_BASE_URL_ENV]),
+    catCafeOcApiKey: summarizeDebugSecret(env?.CAT_CAFE_OC_API_KEY),
+    catCafeOcBaseUrl: summarizeDebugValue(env?.CAT_CAFE_OC_BASE_URL),
+  };
+}
+
 export class OpenCodeAgentService implements AgentService {
   readonly catId: CatId;
   private readonly model: string;
@@ -63,6 +105,7 @@ export class OpenCodeAgentService implements AgentService {
     const args = this.buildArgs(prompt, options?.sessionId, effectiveModel, options?.cliConfigArgs);
     const cwd = options?.workingDirectory;
     const childEnv = this.buildEnv(options?.callbackEnv);
+    const envSummary = summarizeOpenCodeEnvForDebug(childEnv);
     const metadata: MessageMetadata = { provider: 'opencode', model: effectiveModel };
     let sessionInitEmitted = false;
 
@@ -80,6 +123,20 @@ export class OpenCodeAgentService implements AgentService {
         return;
       }
 
+      log.debug(
+        {
+          catId: this.catId,
+          command: opencodeCommand,
+          model: effectiveModel,
+          sessionId: options?.sessionId,
+          invocationId: options?.invocationId,
+          cwd,
+          envSummary,
+          argCount: args.length,
+        },
+        'Invoking OpenCode CLI',
+      );
+
       const cliOpts = {
         command: opencodeCommand,
         args,
@@ -94,7 +151,16 @@ export class OpenCodeAgentService implements AgentService {
         ? options.spawnCliOverride(cliOpts)
         : spawnCli(cliOpts, this.spawnFn ? { spawnFn: this.spawnFn } : undefined);
 
+      let eventCount = 0;
+      let textEventCount = 0;
+
       for await (const event of events) {
+        eventCount++;
+        const evtType =
+          typeof event === 'object' && event !== null && 'type' in event
+            ? String((event as Record<string, unknown>).type)
+            : '__unknown';
+        log.debug({ catId: this.catId, eventIndex: eventCount, type: evtType }, 'CLI event received');
         if (isCliTimeout(event)) {
           yield {
             type: 'system_info' as const,
@@ -154,6 +220,7 @@ export class OpenCodeAgentService implements AgentService {
 
         const result = transformOpenCodeEvent(event, this.catId);
         if (result !== null) {
+          if (result.type === 'text') textEventCount++;
           // P2-1: Only emit the first session_init; subsequent step_start events
           // in multi-step runs are silently dropped to avoid duplicate session metrics.
           if (result.type === 'session_init') {
@@ -163,6 +230,17 @@ export class OpenCodeAgentService implements AgentService {
           }
           yield { ...result, metadata };
         }
+      }
+
+      log.info(
+        { catId: this.catId, totalEvents: eventCount, textEvents: textEventCount, sessionId: metadata.sessionId },
+        'OpenCode CLI invocation completed',
+      );
+      if (textEventCount === 0) {
+        log.warn(
+          { catId: this.catId, totalEvents: eventCount },
+          'OpenCode CLI produced 0 text events — will show as silent_completion',
+        );
       }
 
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };

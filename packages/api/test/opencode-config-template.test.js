@@ -10,6 +10,7 @@ import {
   OC_API_KEY_ENV,
   OC_BASE_URL_ENV,
   parseOpenCodeModel,
+  summarizeOpenCodeRuntimeConfigForDebug,
   writeOpenCodeRuntimeConfig,
 } from '../dist/domains/cats/services/agents/providers/opencode-config-template.js';
 
@@ -279,6 +280,28 @@ describe('generateOpenCodeRuntimeConfig', () => {
       apiType: 'bogus',
     });
     assert.equal(config.provider.test.npm, '@ai-sdk/openai-compatible');
+  });
+
+  test('summarizeOpenCodeRuntimeConfigForDebug reports provider adapter and model keys', () => {
+    const summary = summarizeOpenCodeRuntimeConfigForDebug({
+      providerName: 'anthropic',
+      models: ['anthropic/minimax-m2.7', 'anthropic/minimax-text-01'],
+      defaultModel: 'anthropic/minimax-m2.7',
+      apiType: 'anthropic',
+      hasBaseUrl: true,
+    });
+
+    assert.equal(summary.model, 'anthropic/minimax-m2.7');
+    assert.deepStrictEqual(summary.providerKeys, ['anthropic']);
+    assert.deepStrictEqual(summary.providerSummary, {
+      anthropic: {
+        npm: '@ai-sdk/anthropic',
+        modelKeys: ['minimax-m2.7', 'minimax-text-01'],
+        hasBaseUrl: true,
+        apiKeySource: `env:${OC_API_KEY_ENV}`,
+        baseUrlSource: `env:${OC_BASE_URL_ENV}`,
+      },
+    });
   });
 });
 

@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { describe, mock, test } from 'node:test';
-import { OpenCodeAgentService } from '../dist/domains/cats/services/agents/providers/OpenCodeAgentService.js';
+import {
+  OpenCodeAgentService,
+  summarizeOpenCodeEnvForDebug,
+} from '../dist/domains/cats/services/agents/providers/OpenCodeAgentService.js';
 import { ensureFakeCliOnPath } from './helpers/fake-cli-path.js';
 
 ensureFakeCliOnPath('opencode');
@@ -108,6 +111,45 @@ const _ERROR_EVENT = {
 };
 
 describe('OpenCodeAgentService', () => {
+  test('summarizeOpenCodeEnvForDebug reports runtime-config mode and masks secrets', () => {
+    const summary = summarizeOpenCodeEnvForDebug({
+      OPENCODE_CONFIG_DIR: '/tmp/.cat-cafe/oc-config-opencode-inv1',
+      CAT_CAFE_OC_API_KEY: 'sk-oc-secret',
+      CAT_CAFE_OC_BASE_URL: 'https://maas.example.com/v1',
+      ANTHROPIC_API_KEY: null,
+      ANTHROPIC_BASE_URL: null,
+      CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'api_key',
+      CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE: 'anthropic/minimax-m2.7',
+      CAT_CAFE_EFFECTIVE_PROTOCOL: 'anthropic',
+    });
+
+    assert.equal(summary.mode, 'runtime-config');
+    assert.equal(summary.opencodeConfigDir, '/tmp/.cat-cafe/oc-config-opencode-inv1');
+    assert.equal(summary.catCafeOcApiKey, 'sk-oc-***');
+    assert.equal(summary.catCafeOcBaseUrl, 'https://maas.example.com/v1');
+    assert.equal(summary.anthropicApiKey, '(cleared)');
+    assert.equal(summary.anthropicBaseUrl, '(cleared)');
+    assert.equal(summary.profileMode, 'api_key');
+    assert.equal(summary.modelOverride, 'anthropic/minimax-m2.7');
+    assert.equal(summary.effectiveProtocol, 'anthropic');
+  });
+
+  test('summarizeOpenCodeEnvForDebug reports direct-env mode without leaking raw keys', () => {
+    const summary = summarizeOpenCodeEnvForDebug({
+      CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'api_key',
+      ANTHROPIC_API_KEY: 'sk-direct-secret',
+      ANTHROPIC_BASE_URL: 'https://api.minimaxi.com/anthropic/v1',
+      CAT_CAFE_EFFECTIVE_PROTOCOL: 'anthropic',
+    });
+
+    assert.equal(summary.mode, 'direct-env');
+    assert.equal(summary.opencodeConfigDir, '(unset)');
+    assert.equal(summary.anthropicApiKey, 'sk-dir***');
+    assert.equal(summary.anthropicBaseUrl, 'https://api.minimaxi.com/anthropic/v1');
+    assert.equal(summary.catCafeOcApiKey, '(unset)');
+    assert.equal(summary.catCafeOcBaseUrl, '(unset)');
+  });
+
   test('yields session_init, text, done from opencode events', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);

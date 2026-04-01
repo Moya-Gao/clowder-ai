@@ -40,6 +40,7 @@ import {
   OC_API_KEY_ENV,
   OC_BASE_URL_ENV,
   parseOpenCodeModel,
+  summarizeOpenCodeRuntimeConfigForDebug,
   writeOpenCodeRuntimeConfig,
 } from '../providers/opencode-config-template.js';
 
@@ -827,6 +828,33 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       effectiveProviderName = ocProviderName;
       effectiveModel = `${ocProviderName}/${trimmedDefaultModel}`;
     }
+
+    if (provider === 'opencode') {
+      log.debug(
+        {
+          catId,
+          invocationId,
+          boundAccountRef: boundAccountRef ?? null,
+          resolvedAccount: resolvedAccount
+            ? {
+                id: resolvedAccount.id,
+                authType: resolvedAccount.authType,
+                protocol: resolvedAccount.protocol ?? null,
+                baseUrl: resolvedAccount.baseUrl ?? null,
+                modelCount: resolvedAccount.models?.length ?? 0,
+                hasApiKey: Boolean(resolvedAccount.apiKey),
+              }
+            : null,
+          effectiveProtocol: effectiveProtocol ?? null,
+          defaultModel: trimmedDefaultModel ?? null,
+          ocProviderName: ocProviderName ?? null,
+          parsedOpenCodeModel,
+          effectiveProviderName: effectiveProviderName ?? null,
+          effectiveModel: effectiveModel ?? null,
+        },
+        'Resolved OpenCode runtime inputs',
+      );
+    }
     // fix(#280): explicit ocProviderName means we must force the F189 path so the
     // effective "provider/model" string is injected into opencode, even for builtin
     // providers. For legacy members without ocProviderName, only synthesize runtime
@@ -843,16 +871,38 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = effectiveModel;
       const apiType = deriveOpenCodeApiType(resolvedAccount.protocol, effectiveProviderName);
       const rawModels = resolvedAccount.models?.length ? resolvedAccount.models : [effectiveModel];
-      openCodeRuntimeConfigDir = writeOpenCodeRuntimeConfig(projectRoot, catId as string, invocationId, {
+      const runtimeConfigOptions = {
         providerName: effectiveProviderName,
         models: rawModels,
         defaultModel: effectiveModel,
         apiType,
         hasBaseUrl: Boolean(resolvedAccount.baseUrl),
-      });
+      } as const;
+      openCodeRuntimeConfigDir = writeOpenCodeRuntimeConfig(
+        projectRoot,
+        catId as string,
+        invocationId,
+        runtimeConfigOptions,
+      );
       callbackEnv.OPENCODE_CONFIG_DIR = openCodeRuntimeConfigDir;
       if (resolvedAccount.apiKey) callbackEnv[OC_API_KEY_ENV] = resolvedAccount.apiKey;
       if (resolvedAccount.baseUrl) callbackEnv[OC_BASE_URL_ENV] = resolvedAccount.baseUrl;
+      log.debug(
+        {
+          catId,
+          invocationId,
+          openCodeConfigDir: openCodeRuntimeConfigDir,
+          apiType,
+          callbackEnvSummary: {
+            opencodeConfigDir: callbackEnv.OPENCODE_CONFIG_DIR,
+            ocBaseUrl: callbackEnv[OC_BASE_URL_ENV] ?? null,
+            ocApiKeyPresent: Boolean(callbackEnv[OC_API_KEY_ENV]),
+            modelOverride: callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE ?? null,
+          },
+          runtimeConfigSummary: summarizeOpenCodeRuntimeConfigForDebug(runtimeConfigOptions),
+        },
+        'Prepared OpenCode runtime config',
+      );
     }
 
     // F-BLOAT: Only inject staticIdentity (systemPrompt) on new sessions for cats

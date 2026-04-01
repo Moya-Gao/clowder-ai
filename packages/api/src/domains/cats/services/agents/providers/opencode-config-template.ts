@@ -124,6 +124,21 @@ export interface OpenCodeRuntimeConfigOptions {
   hasBaseUrl?: boolean;
 }
 
+export interface OpenCodeRuntimeConfigDebugSummary {
+  model?: string;
+  providerKeys: string[];
+  providerSummary: Record<
+    string,
+    {
+      npm?: string;
+      modelKeys: string[];
+      hasBaseUrl: boolean;
+      apiKeySource: string;
+      baseUrlSource?: string;
+    }
+  >;
+}
+
 export function parseOpenCodeModel(model: string): { providerName: string; modelName: string } | null {
   const trimmed = model.trim();
   const slashIndex = trimmed.indexOf('/');
@@ -161,6 +176,38 @@ export function generateOpenCodeRuntimeConfig(options: OpenCodeRuntimeConfigOpti
         },
       },
     },
+  };
+}
+
+function summarizeEnvPlaceholder(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const match = value.match(/^\{env:([^}]+)\}$/);
+  return match ? `env:${match[1]}` : value;
+}
+
+export function summarizeOpenCodeRuntimeConfigForDebug(
+  options: OpenCodeRuntimeConfigOptions,
+): OpenCodeRuntimeConfigDebugSummary {
+  const config = generateOpenCodeRuntimeConfig(options);
+  const providerEntries = Object.entries(config.provider).sort(([a], [b]) => a.localeCompare(b));
+
+  return {
+    model: config.model,
+    providerKeys: providerEntries.map(([providerName]) => providerName),
+    providerSummary: Object.fromEntries(
+      providerEntries.map(([providerName, providerConfig]) => [
+        providerName,
+        {
+          npm: providerConfig.npm,
+          modelKeys: Object.keys(providerConfig.models ?? {}).sort(),
+          hasBaseUrl: Boolean(providerConfig.options.baseURL),
+          apiKeySource: summarizeEnvPlaceholder(providerConfig.options.apiKey) ?? '(unset)',
+          ...(providerConfig.options.baseURL
+            ? { baseUrlSource: summarizeEnvPlaceholder(providerConfig.options.baseURL) }
+            : {}),
+        },
+      ]),
+    ),
   };
 }
 
