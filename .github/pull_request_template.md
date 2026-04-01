@@ -6,6 +6,12 @@
 
 <!-- 为什么要这样做？约束、风险、目标 -->
 
+## Issue Closure
+
+<!-- 同仓 issue 要在这里写 GitHub auto-close 语法；intake PR 必填 -->
+
+- Closes #__
+
 ## Plan / ADR
 
 <!-- 关联的设计文档（必填，没有计划的改动不应该存在） -->

@@ -70,7 +70,7 @@ description: >
 
 1. `[clowder-ai]` **Merge Gate**：accepted issue? → **方向(五问)?** → 质量? → intake 预判?
 2. `[clowder-ai]` Merge 执行（Patch 自主 / Feature 升级铲屎官）
-3. `[cat-cafe]` **Intake Gate**：Intake Intent Issue（逐 file 决策） → `plan` → 执行吸收 → **Intake Review Guard** → `record + advance-ledger`
+3. `[cat-cafe]` **Intake Gate**：Intake Intent Issue（逐 file 决策） → `plan` → 执行吸收 → **Intake Review Guard** → `record + advance-ledger` → merge absorb PR（auto-close Intake Intent Issue）
 4. 详细步骤 → [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md)
 
 ### C: Outbound PR
@@ -131,6 +131,7 @@ description: >
 14. **recorded ≠ absorbed-complete**：ledger 里有 `absorbed` 记录只证明"看过了"，不证明"intake 完整"。complete 的判定标准：Intake Intent Issue 里每个 `absorb` 文件都有对应的 commit，且 reviewer 对照 Intent Issue 签字确认。事故来源：clowder-ai#290 sync 覆盖了 clowder-ai#276 的社区修复——ledger 记了 absorbed 但只 intake 了 5 个文件中的 1 个
 15. **Intake = 小 Feature，有 spec 有 review**：`absorbed` 决策的社区 PR 必须在 cat-cafe 建 Intake Intent Issue（逐 file 决策表），实现后走 `request-review` 让 reviewer 对照 Issue 验收。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) Step 0 + Step 2.5
 16. **Outbound sync 前必须过 Community Diff Guard**：sync 前检查 clowder-ai 上是否有已 merge 但未完整 intake 的社区 PR，且其改动文件与 sync diff 有交集。交集不为空 = 会覆盖社区修复 → 必须先完成 intake 再 sync。详见 [Outbound Sync 文档](../refs/opensource-ops-outbound-sync.md) Step 1.5
+17. **Intake Intent Issue 必须闭环关闭**：absorb PR 的 body 必须写 `Closes #<intake-issue>`（同仓 auto-close 语法），让 issue 在 merge 时自动关闭；如果 merge 后 issue 仍 open，必须立刻手工关闭。open issue = intake 仍处于半状态。
 
 ## 和其他 skill 的区别
 

@@ -159,6 +159,8 @@ complete 的判定标准：Intake Intent Issue 里每个 `absorb` 文件都有�
 
 **规则**：决定 `absorbed` 的社区 PR，必须在 cat-cafe 建 GitHub Issue 作为 intake 的 “spec”。
 
+> **闭环规则（新增）**：后续的 cat-cafe absorb PR 必须在 **PR body** 写同仓 auto-close 语法：`Closes #<IntakeIntentIssue>`。如果一个 absorb PR 覆盖多个 intent issue，就逐行写多个 `Closes #...`。这样 merge 时 GitHub 会自动关 issue，不会留下“代码 merged 了但 spec 还 open”的半状态。
+
 **Issue 格式**：
 
 ```markdown
@@ -235,6 +237,14 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 目前 V1 需要手工 cherry-pick safe 文件 + 手工 port manual 文件。
 **Brand Guard 文件必须走 Step 1.5 的手工 diff-merge 路径，不能直接 cherry-pick。**
 
+开 absorb PR 时，PR body 必须包含：
+
+```md
+Closes #<IntakeIntentIssue>
+```
+
+如果一个 absorb PR 吸收多条社区 PR，对应多个 Intake Intent Issue，就逐行列出多个 `Closes #...`。
+
 完成后走 `request-review` → reviewer 按 Step 2.5 对照 Intent Issue 验收。
 
 ### Step 2.5: Intake Review Guard 🔴（absorbed 时必做）
@@ -271,6 +281,15 @@ bash scripts/intake-from-opensource.sh --advance-ledger
 如果 `--advance-ledger` 失败，说明**还有别的社区 PR 没登记**，不能把当前 PR 停在”已吸收但没推进水位”的半状态。
 先把遗漏 PR 补 record，再重新跑 advance。
 
+### Step 3.5: Merge Absorb PR + Close Intake Intent Issue
+
+absorb PR merge 后，Intake Intent Issue 必须同时闭环：
+
+- 推荐：依赖 PR body 里的 `Closes #<IntakeIntentIssue>` 自动关单
+- 兜底：如果 PR 已 merge 但 issue 仍 open，必须立刻手工关闭并留言回链 merge PR / merge commit
+
+**为什么这步不能省**：`outbound-sync` 的 Community Diff Guard 已经把“intake issue 已 closed”当成 absorbed-complete 的信号之一。issue 留在 open，会把已完成 intake 伪装成半状态。
+
 ### Step 4: Sync Gate 排错 — 区分”没登记”还是”水位没推进”
 
 如果 `sync-to-opensource.sh --dry-run` 报 ledger gate 卡住：
@@ -292,9 +311,11 @@ Issue accept → Merge Gate (B1) → Merge (B2)
   → Intake Intent Issue (B3.0) → Plan (B3.1) → Brand Guard (B3.1.5)
   → Execute Absorb (B3.2) → Intake Review Guard (B3.2.5)
   → Record + Advance (B3.3)
+  → Merge Absorb PR + Close Intent Issue (B3.5)
 ```
 
 每一步断了都不能跳。
 - 没有 Intent Issue = 没有 spec = reviewer 无法验收
 - reviewer 没签字 = 不能 Record
 - 只 record 不 advance = ledger 水位卡住下次 sync
+- absorb PR merge 后 issue 仍 open = intake 还没真正闭环

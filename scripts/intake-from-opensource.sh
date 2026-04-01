@@ -486,9 +486,12 @@ if [ "$MODE" = "plan" ]; then
     echo "  2. Manually review and port transformed files"
     echo "     Compare clowder-ai diff with cat-cafe source"
   fi
-  echo "  3. Record decision: --record --pr $PR_NUMBER --decision absorbed"
+  echo "  3. Open the cat-cafe absorb PR with PR body lines:"
+  echo "     Closes #<IntakeIntentIssue>   (one line per issue; auto-close on merge)"
+  echo "  4. Record decision: --record --pr $PR_NUMBER --decision absorbed"
   echo "     (or: --decision public-only | --decision rejected)"
-  echo "  4. After all PRs recorded: --advance-ledger"
+  echo "  5. After all PRs recorded: --advance-ledger"
+  echo "  6. After absorb PR merge, confirm the Intake Intent Issue is closed"
 elif [ "$MODE" = "apply" ]; then
   echo ""
   echo -e "${YELLOW}⚠ --mode=apply not yet implemented (V2)${NC}"
