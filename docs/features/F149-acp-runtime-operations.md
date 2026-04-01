@@ -48,8 +48,9 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 
 1. 明确 F149 与 F143 / F053 / F115 / F118 / F050 的边界
 2. 固化基准指标：`cold_init_ms / attach_ms / warm_first_chunk_ms / warm_hit_rate / live_process_count / sessions_per_process / idle_waste_ms / lease_queue_wait_ms`
-3. 为 ACP 模式定义 provider profile（MCP 白名单、repo cwd、启动参数）
-4. 用 `deep-research` Mode B 向 GPT Pro 和 Gemini DeepThink 咨询池化 / 租约 / 回收策略，不再问已经在本地拍板的问题
+3. 提前验证 ACP 并发模型：单个 ACP process 是 single-flight，还是支持多 session 并发 prompt 多路复用
+4. 为 ACP 模式定义 provider profile（MCP 白名单、repo cwd、启动参数）
+5. 用 `deep-research` Mode B 向 GPT Pro 和 Gemini DeepThink 咨询池化 / 租约 / 回收策略，不再问已经在本地拍板的问题
 
 ### Phase B: Gemini ACP Hosted Provider（第一载体）
 
@@ -83,8 +84,9 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 ### Phase A（边界收敛 + 量化基线）
 - [ ] AC-A1: feature doc 明确写清 F149 与 F143 / F053 / F115 / F118 / F050 的边界，不再混成“又一个 ACP 抽象 feature”
 - [ ] AC-A2: 基准测量脚本或诊断文档可稳定产出 `cold_init_ms / attach_ms / warm_first_chunk_ms / warm_hit_rate / live_process_count / sessions_per_process / idle_waste_ms / lease_queue_wait_ms`
-- [ ] AC-A3: GPT Pro 与 Gemini DeepThink 的咨询文档落盘，且问题聚焦池化 / lease / lifecycle，不再重问“要不要改成 API”
-- [ ] AC-A4: ACP provider profile 白名单落盘并可复现当前 repo-cwd 成功启动路径
+- [ ] AC-A3: Phase A 明确判定 ACP 并发模型是 `single-flight` 还是 `multiplex`，并把结论写回 spec/consult 假设
+- [ ] AC-A4: GPT Pro 与 Gemini DeepThink 的咨询文档落盘，且问题聚焦池化 / lease / lifecycle，不再重问“要不要改成 API”
+- [ ] AC-A5: ACP provider profile 白名单落盘并可复现当前 repo-cwd 成功启动路径
 
 ### Phase B（Gemini ACP Hosted Provider）
 - [ ] AC-B1: Gemini ACP 在仓库 cwd 下可完成 `initialize → newSession → prompt`
@@ -131,7 +133,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | OQ-3 | idle TTL / LRU / max live process count 的默认值如何定，才能既省资源又不伤体感？ | ⬜ 待定 |
 | OQ-4 | warm process 上的并发策略是 queue、single-flight，还是允许多 session 并行？ | ⬜ 待定 |
 | OQ-5 | 什么时候再让第二个 ACP carrier（Codex/Claude Code/OpenCode）进入 F149 scope？ | ⬜ 待定 |
-| OQ-6 | ACP stdio 单通道是否支持多 session 并发 prompt（多路复用），还是 single-flight？直接决定 pool sizing 策略 | ⬜ 待 Phase B 实验验证 |
+| OQ-6 | ACP stdio 单通道是否支持多 session 并发 prompt（多路复用），还是 single-flight？直接决定 pool sizing 策略 | ⬜ 待 Phase A 实验验证 |
 
 ## Key Decisions
 
