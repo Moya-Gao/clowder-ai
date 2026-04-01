@@ -917,6 +917,12 @@
       "name": "ACP Runtime Operations — 项目级进程池 + Session Lease",
       "status": "spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
       "file": "F149-acp-runtime-operations.md"
+    },
+    {
+      "id": "F150",
+      "name": "Tool/Skill/MCP Usage Statistics — 工具使用可观测看板",
+      "status": "spec | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2",
+      "file": "F150-tool-usage-stats.md"
     }
   ],
   "generated_at": "2026-04-01T07:27:19.498Z"
