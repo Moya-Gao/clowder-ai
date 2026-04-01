@@ -22,10 +22,11 @@ TARGET_REPO="zts212653/clowder-ai"
 
 resolve_target_main_head() {
   if git -C "$TARGET_DIR" remote get-url origin >/dev/null 2>&1; then
-    git -C "$TARGET_DIR" fetch origin main --quiet >/dev/null 2>&1 || true
-    if git -C "$TARGET_DIR" rev-parse --verify refs/remotes/origin/main >/dev/null 2>&1; then
-      git -C "$TARGET_DIR" rev-parse refs/remotes/origin/main 2>/dev/null
-      return 0
+    if git -C "$TARGET_DIR" fetch origin main --quiet >/dev/null 2>&1; then
+      if git -C "$TARGET_DIR" rev-parse --verify refs/remotes/origin/main >/dev/null 2>&1; then
+        git -C "$TARGET_DIR" rev-parse refs/remotes/origin/main 2>/dev/null
+        return 0
+      fi
     fi
   fi
 

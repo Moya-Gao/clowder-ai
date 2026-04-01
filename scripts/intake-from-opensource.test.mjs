@@ -189,6 +189,33 @@ describe('intake-from-opensource.sh --advance-ledger', () => {
     assert.equal(updatedLedger.last_reviewed_target_head, remoteHead);
     assert.equal(git(fixture.targetRoot, 'rev-parse', 'origin/main'), remoteHead);
   });
+
+  it('falls back to local HEAD when fetch fails and origin/main is stale', () => {
+    const fixture = makeRemoteFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const oldHead = commitFile(fixture.targetRoot, 'README.md', 'base\n', 'chore: base');
+    git(fixture.targetRoot, 'push', '-u', 'origin', 'main');
+
+    const localHead = commitFile(fixture.targetRoot, 'LOCAL.txt', 'local\n', 'fix: local-only fallback target');
+    assert.equal(git(fixture.targetRoot, 'rev-parse', 'origin/main'), oldHead);
+
+    git(fixture.targetRoot, 'remote', 'set-url', 'origin', join(fixture.sandboxRoot, 'missing.git'));
+
+    writeLedger(fixture.ledgerPath, oldHead, [
+      {
+        pr_number: 901,
+        target_merge_commit: localHead,
+        decision: 'absorbed',
+        timestamp: '2026-04-01T00:00:00.000Z',
+      },
+    ]);
+
+    const output = runAdvance(fixture.repoRoot);
+    assert.match(output, /Ledger advanced to:/);
+    const updatedLedger = JSON.parse(readFileSync(fixture.ledgerPath, 'utf-8'));
+    assert.equal(updatedLedger.last_reviewed_target_head, localHead);
+  });
 });
 
 // ── Brand Guard tests ──
