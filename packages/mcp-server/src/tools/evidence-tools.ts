@@ -35,6 +35,12 @@ export const searchEvidenceInputSchema = {
     .max(5)
     .optional()
     .describe('Number of surrounding passages to include per match (like grep -C). Only effective with depth=raw'),
+  threadId: z
+    .string()
+    .optional()
+    .describe(
+      'Filter results to a specific thread. Only returns evidence from that thread digest. For reading raw messages, use get_thread_context instead.',
+    ),
 };
 
 export async function handleSearchEvidence(input: {
@@ -46,6 +52,7 @@ export async function handleSearchEvidence(input: {
   dateFrom?: string | undefined;
   dateTo?: string | undefined;
   contextWindow?: number | undefined;
+  threadId?: string | undefined;
 }): Promise<ToolResult> {
   const params = new URLSearchParams({ q: input.query });
   if (input.limit != null) params.set('limit', String(input.limit));
@@ -55,6 +62,7 @@ export async function handleSearchEvidence(input: {
   if (input.dateFrom) params.set('dateFrom', input.dateFrom);
   if (input.dateTo) params.set('dateTo', input.dateTo);
   if (input.contextWindow != null) params.set('contextWindow', String(input.contextWindow));
+  if (input.threadId) params.set('threadId', input.threadId);
 
   const url = `${API_URL}/api/evidence/search?${params.toString()}`;
 
@@ -148,7 +156,8 @@ export const evidenceTools = [
       'MODE SELECTION: lexical (default) = BM25 keyword match, best for Feature IDs / exact terms (F042, Redis). ' +
       'hybrid = BM25 + vector NN + RRF fusion, RECOMMENDED for most searches — finds both exact AND semantic matches. ' +
       'semantic = pure vector nearest-neighbor, best for cross-language (English query → Chinese docs) or synonym matching. ' +
-      'TIP: When unsure, use mode=hybrid.',
+      'TIP: When unsure, use mode=hybrid. ' +
+      'BOUNDARY: Use this tool to FIND information across the project. For READING raw messages in a specific thread, use get_thread_context instead.',
     inputSchema: searchEvidenceInputSchema,
     handler: handleSearchEvidence,
   },

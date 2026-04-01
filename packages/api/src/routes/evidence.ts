@@ -20,6 +20,7 @@ const searchSchema = z.object({
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
   contextWindow: z.coerce.number().int().min(1).max(5).optional(),
+  threadId: z.string().optional(),
 });
 
 export type { EvidenceConfidence, EvidenceSourceType } from './evidence-helpers.js';
@@ -64,11 +65,11 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       return { error: 'Invalid query parameters', details: parseResult.error.issues };
     }
 
-    const { q, limit, scope, mode, depth, dateFrom, dateTo, contextWindow } = parseResult.data;
+    const { q, limit, scope, mode, depth, dateFrom, dateTo, contextWindow, threadId } = parseResult.data;
 
     const effectiveLimit = limit ?? 5;
     try {
-      const searchOpts = { limit: effectiveLimit, scope, mode, depth, dateFrom, dateTo, contextWindow };
+      const searchOpts = { limit: effectiveLimit, scope, mode, depth, dateFrom, dateTo, contextWindow, threadId };
       // F-4: Use KnowledgeResolver for federated project + global search
       const items = opts.knowledgeResolver
         ? (await opts.knowledgeResolver.resolve(q, searchOpts)).results

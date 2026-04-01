@@ -77,6 +77,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     const excludeSession = options?.scope === 'docs' || options?.scope === 'memory';
     // F129 AC-A10: exclude pack-knowledge from global search unless explicitly requested
     const excludePackKnowledge = effectiveKind !== 'pack-knowledge';
+    // F148 Phase B (AC-B1): threadId filter — scope to a specific thread's evidence
+    // Anchor convention: thread-{threadId} (e.g. thread-thread_abc for threadId="thread_abc")
+    const threadAnchor = options?.threadId ? `thread-${options.threadId}` : undefined;
     // ── Exact-anchor bypass ──────────────────────────────────────────
     // FTS5 unicode61 tokenizer splits "F042" → "F"+"042" and "ADR-005" → "ADR"+"005".
     // For anchor-shaped queries, do a direct lookup so precision isn't lost.
@@ -102,6 +105,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (options?.keywords?.length) {
       anchorSql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
       anchorParams.push(...options.keywords.map((kw) => `%"${kw}"%`));
+    }
+    if (threadAnchor) {
+      anchorSql += ' AND anchor = ?';
+      anchorParams.push(threadAnchor);
     }
     const exactRow = this.db?.prepare(anchorSql).get(...anchorParams) as RowShape | undefined;
     if (exactRow) {
@@ -143,6 +150,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         if (options?.keywords?.length) {
           sql += ` AND (${options.keywords.map(() => 'd.keywords LIKE ?').join(' OR ')})`;
           params.push(...options.keywords.map((kw) => `%"${kw}"%`));
+        }
+        if (threadAnchor) {
+          sql += ' AND d.anchor = ?';
+          params.push(threadAnchor);
         }
         if (options?.dateFrom) {
           sql += ' AND d.updated_at >= ?';
@@ -195,6 +206,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
           kwSql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
           kwParams.push(...options.keywords.map((kw) => `%"${kw}"%`));
         }
+        if (threadAnchor) {
+          kwSql += ' AND anchor = ?';
+          kwParams.push(threadAnchor);
+        }
         kwSql += " ORDER BY (superseded_by IS NOT NULL), (source_path LIKE 'archive/%'), updated_at DESC LIMIT ?";
         kwParams.push(bm25Pool);
         try {
@@ -221,8 +236,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         cw && cw > 0 ? { contextWindow: cw } : undefined,
       );
       // Group passages by docAnchor for structured return
+      // P1-2 fix: when threadId filter is active, skip passages from other threads
       const passagesByAnchor = new Map<string, typeof passages>();
       for (const p of passages) {
+        if (threadAnchor && p.docAnchor !== threadAnchor) continue;
         const arr = passagesByAnchor.get(p.docAnchor) ?? [];
         arr.push(p);
         passagesByAnchor.set(p.docAnchor, arr);
@@ -373,6 +390,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       sql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
       params.push(...options.keywords.map((kw) => `%"${kw}"%`));
     }
+    // R2-P1 fix: threadId filter for semantic search
+    const semanticThreadAnchor = options?.threadId ? `thread-${options.threadId}` : undefined;
+    if (semanticThreadAnchor) {
+      sql += ' AND anchor = ?';
+      params.push(semanticThreadAnchor);
+    }
 
     const rows = this.db?.prepare(sql).all(...params) as RowShape[];
     const docMap = new Map(rows.map((r) => [r.anchor, rowToItem(r)]));
@@ -448,6 +471,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       if (options?.keywords?.length) {
         sql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
         params.push(...options.keywords.map((kw) => `%"${kw}"%`));
+      }
+      // R2-P1 fix: threadId filter for hybrid NN hydrate
+      const hybridThreadAnchor = options?.threadId ? `thread-${options.threadId}` : undefined;
+      if (hybridThreadAnchor) {
+        sql += ' AND anchor = ?';
+        params.push(hybridThreadAnchor);
       }
 
       const rows = this.db.prepare(sql).all(...params) as RowShape[];

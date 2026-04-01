@@ -111,6 +111,8 @@ export interface SearchOptions {
   dateTo?: string;
   /** Phase I (AC-I8): number of surrounding passages to include per match */
   contextWindow?: number;
+  /** F148 Phase B (AC-B1): filter evidence to a specific thread's digest */
+  threadId?: string;
 }
 
 export interface MarkerFilter {
