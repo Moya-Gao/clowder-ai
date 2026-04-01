@@ -66,13 +66,13 @@ created: 2026-03-31
 
 ## Acceptance Criteria
 
-### Phase A（Smart Window + Tombstone + Evidence Recall）
-- [ ] AC-A1: cold-mention 场景下 context tokens 降低 ≥70%（对比现有 flat delivery）
-- [ ] AC-A2: recent burst 不切断语义链（question→answer, tool-call→result 保持完整）
-- [ ] AC-A3: tombstone 包含 omitted count、time range、participants、keywords、retrieval hints
-- [ ] AC-A4: evidence recall 用 composite query，500ms timeout，fail-open
-- [ ] AC-A5: tool payload scrub 对非最后一跳的 tool 结果生效
-- [ ] AC-A6: 现有热路径（warm mention，cursor gap 低于可配置阈值）行为不变
+### Phase A（Smart Window + Tombstone + Evidence Recall）✅
+- [x] AC-A1: cold-mention 场景下 context tokens 降低 ≥70%（对比现有 flat delivery）
+- [x] AC-A2: recent burst 不切断语义链（question→answer, tool-call→result 保持完整）
+- [x] AC-A3: tombstone 包含 omitted count、time range、participants、keywords、retrieval hints
+- [x] AC-A4: evidence recall 用 composite query，500ms timeout，fail-open
+- [x] AC-A5: tool payload scrub 对非最后一跳的 tool 结果生效
+- [x] AC-A6: 现有热路径（warm mention，cursor gap 低于可配置阈值）行为不变
 
 ### Phase B（Self-Serve Retrieval Enhancement）
 - [ ] AC-B1: search_evidence 支持 threadId 过滤参数
@@ -129,6 +129,7 @@ created: 2026-03-31
 |------|------|
 | 2026-03-31 | 学习 Claude Code v2.1.88 源码 → 识别痛点 → GPT Pro + Gemini Ultra 双模型咨询 → 本地猫综合 → 立项 |
 | 2026-03-31 | Phase A 实现开始：config + burst detection + tombstone + tool scrub + evidence recall + 集成 |
+| 2026-03-31 | Phase A merged (PR #900) — 缅因猫 review (2 P1 + 1 P2 fixed) + 云端 review passed |
 
 ## Review Gate
 
