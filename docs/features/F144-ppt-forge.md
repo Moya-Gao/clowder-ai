@@ -253,8 +253,8 @@ svg_to_pptx.py (41k Python) → python-pptx 组装
 - [ ] AC-B7: ≥3 种企业风格 HTML+Tailwind 模板可用（huawei-like/nvidia-like/Apple）
 
 ### Phase C（SVG 渲染后端 — 确定性 SVG 编译器）
-- [ ] AC-C1: TS SVG 编译器 — DiagramElement → 确定性 1280×720 SVG string（含 CJK 字宽预设表）
-- [ ] AC-C2: TS svg-to-shapes 转换器 — SVG(rect/text/line/circle/g) → pptxgenjs shapes，原生可编辑
+- [x] AC-C1: TS SVG 编译器 — DiagramElement → 确定性 1280×720 SVG string（含 CJK 字宽预设表）
+- [x] AC-C2: TS svg-to-shapes 转换器 — SVG(rect/text/line/circle/g) → pptxgenjs shapes，原生可编辑
 - [ ] AC-C3: 同一 DiagramElement 对比 V1 renderer vs Phase C SVG 编译器，中文不再竖排/溢出
 - [ ] AC-C4: SVG 安全白名单 — 只允许 Phase C 核心子集元素，拒绝外链/filter/foreignObject
 - [ ] AC-C5: 性能 gate — 50+ box diagram 编译 < 5s，单 slide 体积 < 2MB
@@ -342,6 +342,7 @@ svg_to_pptx.py (41k Python) → python-pptx 组装
 | 2026-03-31 | **pptx-craft 深度分析**（铲屎官提供源码）— 发现其真正架构是 **AI 直接生成 SVG(1280×720) → svg_to_shapes.py(70k) 转 native DrawingML shapes**，不是之前认为的"HTML 截图"。200k+ Python 代码实现 SVG → PPTX 原生可编辑 shapes 转换。修正之前对 pptx-craft 的"Promptware"定性 |
 | 2026-03-31 | **OfficeCLI 评估** — .NET CLI（Apache 2.0, 925 stars），功能全面但 SVG 支持未确认，subprocess 调用模式不适合我们 Node.js 管线 |
 | 2026-04-02 | **Phase C 选型收敛** — 宪宪+砚砚讨论。砚砚判断：C3 确定性 SVG 编译为主 + C2 AI-direct 为辅；Pencil 非 runtime 主路径（design-time only）；工程量 2.5k-4k TS + 1.5k-3k 测试，2-3 周。铲屎官约束：不引入 Python。OQ-11 关闭，KD-14/KD-15 落定 |
+| 2026-04-02 | **Phase C-1 SVG 编译器 merged** (PR #929) — diagram-svg.ts (SVG compiler + CJK 字宽) + diagram-layered.ts (华为 layered grid) + svg-to-shapes.ts (SVG→pptxgenjs shapes)。AC-C1/C2 交付，156 tests。砚砚三轮 review 放行 + 云端 0 P1/P2 |
 
 ## Review Gate
 
