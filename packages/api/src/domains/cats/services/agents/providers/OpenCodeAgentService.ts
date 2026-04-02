@@ -44,7 +44,7 @@ const ANTHROPIC_BASE_URL_ENV = 'ANTHROPIC_BASE_URL';
 
 export interface OpenCodeEnvDebugSummary {
   mode: 'runtime-config' | 'subscription' | 'direct-env' | 'empty';
-  opencodeConfigDir: string;
+  opencodeConfig: string;
   profileMode: string;
   effectiveProtocol: string;
   modelOverride: string;
@@ -68,7 +68,7 @@ function summarizeDebugSecret(value: string | null | undefined): string {
 
 export function summarizeOpenCodeEnvForDebug(env: Record<string, string | null> | undefined): OpenCodeEnvDebugSummary {
   const profileMode = env?.CAT_CAFE_ANTHROPIC_PROFILE_MODE ?? '(unset)';
-  const hasRuntimeConfig = Boolean(env?.OPENCODE_CONFIG_DIR);
+  const hasRuntimeConfig = Boolean(env?.OPENCODE_CONFIG);
   const hasDirectAnthropicEnv = Boolean(env?.[ANTHROPIC_API_KEY_ENV] || env?.[ANTHROPIC_BASE_URL_ENV]);
 
   return {
@@ -79,7 +79,7 @@ export function summarizeOpenCodeEnvForDebug(env: Record<string, string | null> 
         : hasDirectAnthropicEnv
           ? 'direct-env'
           : 'empty',
-    opencodeConfigDir: summarizeDebugValue(env?.OPENCODE_CONFIG_DIR),
+    opencodeConfig: summarizeDebugValue(env?.OPENCODE_CONFIG),
     profileMode,
     effectiveProtocol: env?.CAT_CAFE_EFFECTIVE_PROTOCOL ?? '(unset)',
     modelOverride: env?.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE ?? '(unset)',
@@ -296,10 +296,10 @@ export class OpenCodeAgentService implements AgentService {
   private buildEnv(callbackEnv?: Record<string, string>): Record<string, string | null> {
     const env: Record<string, string | null> = { ...callbackEnv };
 
-    // F189: When OPENCODE_CONFIG_DIR is set (custom provider via runtime config dir),
+    // F189: When OPENCODE_CONFIG is set (custom provider via runtime config file),
     // credentials are injected via {env:CAT_CAFE_OC_*} substitution in the config.
     // Clear anthropic env vars to prevent opencode from using the builtin anthropic provider.
-    if (callbackEnv?.OPENCODE_CONFIG_DIR) {
+    if (callbackEnv?.OPENCODE_CONFIG) {
       env[ANTHROPIC_API_KEY_ENV] = null;
       env[ANTHROPIC_BASE_URL_ENV] = null;
       env[OPENCODE_API_KEY_ENV] = null;

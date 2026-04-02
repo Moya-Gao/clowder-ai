@@ -306,10 +306,10 @@ describe('generateOpenCodeRuntimeConfig', () => {
 });
 
 describe('writeOpenCodeRuntimeConfig', () => {
-  test('writes invocation-scoped runtime config dir under .cat-cafe (OPENCODE_CONFIG_DIR)', () => {
+  test('writes invocation-scoped runtime config file under .cat-cafe (OPENCODE_CONFIG)', () => {
     const tmpRoot = mkdtempSync(join(tmpdir(), 'oc-runtime-config-'));
     try {
-      const configDir = writeOpenCodeRuntimeConfig(tmpRoot, 'opencode-maas', 'inv-123', {
+      const configPath = writeOpenCodeRuntimeConfig(tmpRoot, 'opencode-maas', 'inv-123', {
         providerName: 'maas',
         models: ['maas/glm-5'],
         defaultModel: 'maas/glm-5',
@@ -317,10 +317,9 @@ describe('writeOpenCodeRuntimeConfig', () => {
         hasBaseUrl: true,
       });
 
-      assert.match(configDir, /\.cat-cafe\/oc-config-opencode-maas-inv-123$/);
-      const configFile = join(configDir, 'opencode.json');
-      assert.ok(existsSync(configFile), 'opencode.json must exist inside config dir');
-      const content = JSON.parse(readFileSync(configFile, 'utf-8'));
+      assert.match(configPath, /\.cat-cafe\/oc-config-opencode-maas-inv-123\/opencode\.json$/);
+      assert.ok(existsSync(configPath), 'opencode.json must exist at returned config path');
+      const content = JSON.parse(readFileSync(configPath, 'utf-8'));
       assert.equal(content.model, 'maas/glm-5');
       assert.deepStrictEqual(content.provider.maas.models, { 'glm-5': { name: 'glm-5' } });
     } finally {

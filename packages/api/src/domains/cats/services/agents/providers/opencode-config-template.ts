@@ -216,10 +216,10 @@ function sanitizePathSegment(value: string): string {
 }
 
 /**
- * Writes a per-invocation opencode config directory.
- * opencode reads config from `OPENCODE_CONFIG_DIR/opencode.json` when the
- * `OPENCODE_CONFIG_DIR` env var is set, overriding the default user config dir.
- * Returns the **directory** path (set it as `OPENCODE_CONFIG_DIR`).
+ * Writes a per-invocation opencode config file.
+ * OpenCode's `OPENCODE_CONFIG` points to a config file path; `OPENCODE_CONFIG_DIR`
+ * is reserved for the `.opencode/`-style config directory structure.
+ * Returns the `opencode.json` file path (set it as `OPENCODE_CONFIG`).
  */
 export function writeOpenCodeRuntimeConfig(
   projectRoot: string,
@@ -236,5 +236,5 @@ export function writeOpenCodeRuntimeConfig(
   const config = generateOpenCodeRuntimeConfig(options);
   writeFileSync(tempPath, JSON.stringify(config, null, 2), 'utf-8');
   renameSync(tempPath, configPath);
-  return configDir;
+  return configPath;
 }

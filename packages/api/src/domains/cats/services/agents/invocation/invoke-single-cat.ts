@@ -12,7 +12,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent } from '@cat-cafe/shared';
 import {
   resolveAnthropicRuntimeProfile,
@@ -308,7 +308,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   let didWriteAudit = false;
   let didComplete = false;
   let didResetRestoreFailures = false;
-  let openCodeRuntimeConfigDir: string | undefined;
+  let openCodeRuntimeConfigPath: string | undefined;
   const hostProjectRoot = findMonorepoRoot(process.cwd());
 
   // === CAT_INVOKED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
@@ -878,23 +878,23 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         apiType,
         hasBaseUrl: Boolean(resolvedAccount.baseUrl),
       } as const;
-      openCodeRuntimeConfigDir = writeOpenCodeRuntimeConfig(
+      openCodeRuntimeConfigPath = writeOpenCodeRuntimeConfig(
         projectRoot,
         catId as string,
         invocationId,
         runtimeConfigOptions,
       );
-      callbackEnv.OPENCODE_CONFIG_DIR = openCodeRuntimeConfigDir;
+      callbackEnv.OPENCODE_CONFIG = openCodeRuntimeConfigPath;
       if (resolvedAccount.apiKey) callbackEnv[OC_API_KEY_ENV] = resolvedAccount.apiKey;
       if (resolvedAccount.baseUrl) callbackEnv[OC_BASE_URL_ENV] = resolvedAccount.baseUrl;
       log.debug(
         {
           catId,
           invocationId,
-          openCodeConfigDir: openCodeRuntimeConfigDir,
+          openCodeConfigPath: openCodeRuntimeConfigPath,
           apiType,
           callbackEnvSummary: {
-            opencodeConfigDir: callbackEnv.OPENCODE_CONFIG_DIR,
+            opencodeConfig: callbackEnv.OPENCODE_CONFIG,
             ocBaseUrl: callbackEnv[OC_BASE_URL_ENV] ?? null,
             ocApiKeyPresent: Boolean(callbackEnv[OC_API_KEY_ENV]),
             modelOverride: callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE ?? null,
@@ -1668,7 +1668,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F118: Release session mutex (idempotent — safe if never acquired)
     sessionMutexRelease?.();
 
-    if (openCodeRuntimeConfigDir) {
+    if (openCodeRuntimeConfigPath) {
+      const openCodeRuntimeConfigDir = dirname(openCodeRuntimeConfigPath);
       await rm(openCodeRuntimeConfigDir, { recursive: true, force: true }).catch((err) => {
         log.warn({ invocationId, path: openCodeRuntimeConfigDir, err }, 'Failed to remove OpenCode runtime config dir');
       });
