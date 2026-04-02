@@ -55,14 +55,22 @@ created: 2026-03-31
 2. **Anchor injection**：top 2-3 highest-scoring omitted messages 作为 anchors 注入 tombstone 和 hot tail 之间
 3. **Thread opener / primacy anchor**：首条消息或 thread title 作为 primacy anchor
 
-### Phase D: Structured State (Future)
-
-当 Phase A-C 稳定后，探索结构化状态提取：
+### Phase D: Structured State
 
 1. **threadMemory 升级**：从活动日志（工具+文件）升级为产物导向（区分 read/write，列出创建的文档）
 2. **Coverage map JSON**：GPT Pro 提出的 coverage 对象（omitted ranges, freshness, retrieval hints）
-3. **State ledger 探索**：如果 regex 能抓住足够多的决策模式，尝试结构化 state extraction
-4. **Prompt cache ordering**：Gemini 提出的全局 prefix 优化
+
+### Phase E: Context Briefing Surface
+
+铲屎官愿景（2026-04-02）：
+> "让 Landy 在 @ 完猫后的那几秒，立即看见系统给这只猫喂了什么、略过了什么、下一步该怎么查；同时不把这张卡再反向污染猫的上下文。"
+
+系统自动生成、线程内就地展示的 context briefing 卡片：
+
+1. **系统自动注入**：routing layer（route-serial/route-parallel）在 smart window 触发时，自动往 thread 插入 briefing 卡片，猫无感知、无额外 token 消耗
+2. **UI-only / non-routing**：briefing 不进入后续 `assembleIncrementalContext` 投喂，不参与 evidence 索引，不污染猫的上下文
+3. **默认折叠**：折叠态一行（看到 N 条 / 省略 N 条 / 锚点 N 条 / 记忆 N sessions / 证据 N 条），展开态显示 participants、time range、anchor 文本、threadMemory 摘要
+4. **数据来源**：直接复用 `CoverageMap` 对象（Phase D 已产出），零后端改动
 
 ## Acceptance Criteria
 
@@ -87,6 +95,12 @@ created: 2026-03-31
 ### Phase D（Structured State）✅
 - [x] AC-D1: buildThreadMemory 区分 read/write，产出产物清单
 - [x] AC-D2: coverage map JSON 对象随 context packet 投递
+
+### Phase E（Context Briefing Surface）
+- [ ] AC-E1: smart window 触发时系统自动插入 context briefing 到 thread（猫无感知）
+- [ ] AC-E2: briefing 不进入后续 assembleIncrementalContext 投喂（non-routing 硬约束）
+- [ ] AC-E3: 折叠态一行显示核心指标（看到/省略/锚点/记忆/证据数量）
+- [ ] AC-E4: 展开态显示 participants、time range、anchor 文本、threadMemory 摘要
 
 ## Dependencies
 
@@ -133,6 +147,8 @@ created: 2026-03-31
 | 2026-04-01 | Phase B merged (PR #902) — 缅因猫 review (R1: 2P1+1P2, R2: 1P1, all fixed) + 云端 review passed |
 | 2026-04-01 | 愿景守护 Gap Fix merged (PR #906) — Gap-1 token trigger + Gap-2 precise hints + P1 short-circuit fix |
 | 2026-04-02 | Phase C merged (PR #907) — importance scoring + anchor extraction + content sanitization. 缅因猫 review (1P1+2P2 fixed) + 3 rounds cloud review (2 P1 fixed) |
+| 2026-04-02 | Phase D merged (PR #909) — product-oriented threadMemory + coverage map JSON. 缅因猫 review (1P1+2P2 fixed) + 2 rounds cloud review (1 P1 fixed) |
+| 2026-04-02 | Phase E 立项 — context briefing surface（愿景守护后铲屎官拍板） |
 
 ## Review Gate
 
