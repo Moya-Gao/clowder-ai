@@ -1393,6 +1393,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-01 | **PR #904 squash merged** — Phase F-1/F-2/F-3 (AC-F1-1~F3-4) ✅ Multi-project onboarding: project-init CLI + recursive fallback discovery + frontmatter-formatter |
 | 2026-04-01 | 铲屎官 runtime 审查发现 3 个 UI Issue + 砚砚愿景守护补充 3 个 Issue（共 6 个 Known Issues） |
 | 2026-04-01 | **PR #908 squash merged** — Known Issues 1-6 全部修复：Recall Feed param fix + truncation 1500 + "已确认" label + 8-type sourceType + IndexStatus fields + EvidenceSearch UX |
+| 2026-04-01 | **PR #911 squash merged** — Batch 1: IMaterializationService 终态 — targetKind 白名单 + execFileSync + KIND_TO_DIR 映射 + approve→materialize 集成 + 13 tests |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
@@ -1463,7 +1464,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 > **原则**：先补真相源闭环，再验运行时，再打磨人类入口。
 
 ```
-Batch 1: IMaterializationService 终态
+Batch 1: IMaterializationService 终态 ✅ PR #911
          approved → docs/*.md 写入 → git commit → reindex trigger → 冲突处理
          验收：工程闭环 + 铲屎官短验收（改真相源文档，语义风险高）
 
@@ -1488,6 +1489,7 @@ Batch 3: /memory 体验层收口
             注：跨项目切换器属于 Phase F 范围（wireframe 标注 [Phase F]），不在 J 内
 ⑤ Stage 4: Phase F-1/F-2/F-3 — Project Onboarding & Ingestion ✅ PR #904
 ⑥ Known Issues 1-6 fix ✅ PR #908
+⑦ Batch 1: IMaterializationService 终态 ✅ PR #911
 ```
 
 **Why this order**（砚砚 2026-03-30 收紧）：
