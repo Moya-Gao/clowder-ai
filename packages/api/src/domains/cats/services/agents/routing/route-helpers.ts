@@ -177,7 +177,7 @@ export function toStoredToolEvent(msg: AgentMessage): StoredToolEvent | null {
   }
   if (msg.type === 'tool_result') {
     const raw = (msg.content ?? '').trimEnd();
-    const detail = raw.length > 0 ? truncateDetail(raw, 220) : '(no output)';
+    const detail = raw.length > 0 ? truncateDetail(raw, 1500) : '(no output)';
     return {
       id: `toolr-${msg.timestamp}-${Math.random().toString(36).slice(2, 6)}`,
       type: 'tool_result',

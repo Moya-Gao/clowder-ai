@@ -133,6 +133,17 @@ describe('filterRecallEvents', () => {
     expect(recall[0].query).toBe('test query');
   });
 
+  it('extracts query from production "query" param (not "q")', () => {
+    const events: ToolEvent[] = [
+      makeToolEvent('opus → search_evidence', 'tool_use', '{"query":"redis pitfall","mode":"hybrid"}'),
+      makeToolEvent('opus ← result', 'tool_result', FULL_RESULT_DETAIL),
+    ];
+    const recall = filterRecallEvents(events);
+    expect(recall).toHaveLength(1);
+    expect(recall[0].query).toBe('redis pitfall');
+    expect(recall[0].mode).toBe('hybrid');
+  });
+
   it('does not cross-pair with wrong tool_result when interleaved', () => {
     const events: ToolEvent[] = [
       makeToolEvent('opus → search_evidence', 'tool_use', '{"q":"first"}'),

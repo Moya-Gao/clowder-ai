@@ -7,8 +7,11 @@ interface RawStatusResponse {
   backend: string;
   healthy: boolean;
   docs_count?: number;
+  threads_count?: number;
+  passages_count?: number;
   edges_count?: number;
   last_rebuild_at?: string | null;
+  embedding_model?: string | null;
   reason?: string;
 }
 
@@ -16,8 +19,11 @@ export interface IndexStatusData {
   backend: string;
   healthy: boolean;
   docsCount: number;
+  threadsCount: number;
+  passagesCount: number;
   edgesCount: number;
   lastRebuildAt: string | null;
+  embeddingModel: string | null;
   reason?: string;
 }
 
@@ -29,8 +35,11 @@ export function parseIndexStatus(raw: RawStatusResponse): IndexStatusData {
     backend: raw.backend,
     healthy: raw.healthy,
     docsCount: raw.docs_count ?? 0,
+    threadsCount: raw.threads_count ?? 0,
+    passagesCount: raw.passages_count ?? 0,
     edgesCount: raw.edges_count ?? 0,
     lastRebuildAt: raw.last_rebuild_at ?? null,
+    embeddingModel: raw.embedding_model ?? null,
     reason: raw.reason,
   };
 }
@@ -95,7 +104,10 @@ export function IndexStatus() {
       <div className="rounded-lg border border-cafe bg-white p-3">
         <StatusRow label="Backend" value={status.backend} />
         <StatusRow label="Documents" value={status.docsCount} />
-        <StatusRow label="Edges (relations)" value={status.edgesCount} />
+        <StatusRow label="Threads" value={status.threadsCount} />
+        <StatusRow label="Passages" value={status.passagesCount} />
+        <StatusRow label="Edges" value={status.edgesCount} />
+        {status.embeddingModel && <StatusRow label="Embedding" value={status.embeddingModel} />}
         <StatusRow
           label="Last rebuild"
           value={status.lastRebuildAt ? new Date(status.lastRebuildAt).toLocaleString() : 'Never'}

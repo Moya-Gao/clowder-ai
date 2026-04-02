@@ -40,10 +40,10 @@ function isSearchEvidence(label: string): boolean {
   return SEARCH_TOOL_NAMES.some((name) => toolName === name || toolName.endsWith(name));
 }
 
-function parseDetail(detail?: string): { q?: string; mode?: string; scope?: string } {
+function parseDetail(detail?: string): { query?: string; q?: string; mode?: string; scope?: string } {
   if (!detail) return {};
   try {
-    return JSON.parse(detail) as { q?: string; mode?: string; scope?: string };
+    return JSON.parse(detail) as { query?: string; q?: string; mode?: string; scope?: string };
   } catch {
     return {};
   }
@@ -109,7 +109,7 @@ export function filterRecallEvents(events: ToolEvent[]): RecallEvent[] {
     const params = parseDetail(evt.detail);
     const recall: RecallEvent = {
       id: evt.id,
-      query: params.q || '(unknown)',
+      query: params.query || params.q || '(unknown)',
       mode: params.mode,
       scope: params.scope,
       timestamp: evt.timestamp,

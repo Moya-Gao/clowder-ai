@@ -5,7 +5,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildSearchUrl, DEPTH_OPTIONS, parseSearchResults } from '@/components/memory/EvidenceSearch';
+import {
+  buildSearchUrl,
+  DEPTH_OPTIONS,
+  parseSearchResults,
+  SOURCE_TYPE_COLORS,
+  SOURCE_TYPE_LABELS,
+} from '@/components/memory/EvidenceSearch';
 
 describe('buildSearchUrl', () => {
   it('builds basic query URL', () => {
@@ -76,5 +82,26 @@ describe('parseSearchResults', () => {
   it('handles empty results', () => {
     const items = parseSearchResults({ results: [], degraded: false });
     expect(items).toEqual([]);
+  });
+});
+
+describe('SOURCE_TYPE_COLORS / LABELS (Issue 2)', () => {
+  const expectedTypes = ['decision', 'phase', 'feature', 'lesson', 'research', 'knowledge', 'discussion', 'commit'];
+
+  it('has a color for every expanded source type', () => {
+    for (const type of expectedTypes) {
+      expect(SOURCE_TYPE_COLORS[type]).toBeDefined();
+    }
+  });
+
+  it('has a Chinese label for every expanded source type', () => {
+    for (const type of expectedTypes) {
+      expect(SOURCE_TYPE_LABELS[type]).toBeDefined();
+    }
+  });
+
+  it('uses distinct colors for different types', () => {
+    const colors = new Set(Object.values(SOURCE_TYPE_COLORS));
+    expect(colors.size).toBeGreaterThanOrEqual(5);
   });
 });

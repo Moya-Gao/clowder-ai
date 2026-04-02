@@ -27,9 +27,31 @@ interface SearchResponse {
 }
 
 export const DEPTH_OPTIONS = [
-  { value: 'summary', label: 'Summary' },
-  { value: 'raw', label: 'Raw (passages)' },
+  { value: 'summary', label: '摘要' },
+  { value: 'raw', label: '原文' },
 ] as const;
+
+export const SOURCE_TYPE_COLORS: Record<string, string> = {
+  decision: 'bg-amber-100 text-amber-800',
+  phase: 'bg-blue-100 text-blue-800',
+  feature: 'bg-purple-100 text-purple-800',
+  lesson: 'bg-green-100 text-green-800',
+  research: 'bg-cyan-100 text-cyan-800',
+  knowledge: 'bg-pink-100 text-pink-800',
+  discussion: 'bg-gray-100 text-gray-700',
+  commit: 'bg-gray-100 text-gray-600',
+};
+
+export const SOURCE_TYPE_LABELS: Record<string, string> = {
+  decision: '决策',
+  phase: '阶段',
+  feature: '功能',
+  lesson: '教训',
+  research: '调研',
+  knowledge: '知识',
+  discussion: '讨论',
+  commit: '提交',
+};
 
 /**
  * Pure: build search URL from params.
@@ -66,7 +88,7 @@ export function EvidenceSearch() {
     setIsSearching(true);
     setError(null);
     try {
-      const url = buildSearchUrl({ q: query.trim(), mode, scope, depth });
+      const url = buildSearchUrl({ q: query.trim(), mode, scope, depth, limit: 10 });
       const res = await apiFetch(url);
       const data = (await res.json()) as SearchResponse;
       setResults(parseSearchResults(data));
@@ -105,19 +127,19 @@ export function EvidenceSearch() {
       {/* Mode / Scope selectors */}
       <div className="flex gap-3 text-xs">
         <label className="flex items-center gap-1 text-cafe-secondary">
-          Mode:
+          检索模式:
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as EvidenceSearchParams['mode'])}
             className="rounded border border-cafe bg-white px-1.5 py-0.5 text-xs"
           >
-            <option value="hybrid">Hybrid</option>
-            <option value="lexical">Lexical</option>
-            <option value="semantic">Semantic</option>
+            <option value="hybrid">混合</option>
+            <option value="lexical">精确</option>
+            <option value="semantic">语义</option>
           </select>
         </label>
         <label className="flex items-center gap-1 text-cafe-secondary">
-          Scope:
+          范围:
           <select
             value={scope ?? 'all'}
             onChange={(e) =>
@@ -125,15 +147,15 @@ export function EvidenceSearch() {
             }
             className="rounded border border-cafe bg-white px-1.5 py-0.5 text-xs"
           >
-            <option value="all">All</option>
-            <option value="docs">Docs</option>
-            <option value="memory">Memory</option>
-            <option value="threads">Threads</option>
-            <option value="sessions">Sessions</option>
+            <option value="all">全部</option>
+            <option value="docs">文档</option>
+            <option value="memory">记忆</option>
+            <option value="threads">对话</option>
+            <option value="sessions">会话</option>
           </select>
         </label>
         <label className="flex items-center gap-1 text-cafe-secondary">
-          Depth:
+          深度:
           <select
             value={depth ?? 'summary'}
             onChange={(e) =>
@@ -158,8 +180,10 @@ export function EvidenceSearch() {
         {results.map((item) => (
           <div key={item.anchor} className="rounded-lg border border-cafe bg-white p-3">
             <div className="flex items-center gap-2">
-              <span className="rounded bg-cocreator-light px-1.5 py-0.5 text-[10px] font-semibold text-cocreator-dark">
-                {item.sourceType}
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${SOURCE_TYPE_COLORS[item.sourceType] ?? SOURCE_TYPE_COLORS.commit}`}
+              >
+                {SOURCE_TYPE_LABELS[item.sourceType] ?? item.sourceType}
               </span>
               <h3 className="text-sm font-medium text-cafe-black">{item.title}</h3>
             </div>

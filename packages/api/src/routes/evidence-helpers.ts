@@ -1,7 +1,15 @@
 import { access, readdir, readFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
-export type EvidenceSourceType = 'decision' | 'phase' | 'discussion' | 'commit';
+export type EvidenceSourceType =
+  | 'decision'
+  | 'phase'
+  | 'feature'
+  | 'lesson'
+  | 'research'
+  | 'knowledge'
+  | 'discussion'
+  | 'commit';
 export type EvidenceConfidence = 'high' | 'mid' | 'low';
 export type EvidenceStatus = 'draft' | 'pending' | 'published' | 'archived';
 
@@ -62,10 +70,43 @@ export function shouldDegradeToDocs(err: unknown): boolean {
   return false;
 }
 
+/** Map an EvidenceKind (from index) to a display source type */
+export function mapKindToSourceType(kind: string): EvidenceSourceType {
+  switch (kind) {
+    case 'decision':
+      return 'decision';
+    case 'plan':
+      return 'phase';
+    case 'feature':
+      return 'feature';
+    case 'lesson':
+      return 'lesson';
+    case 'research':
+      return 'research';
+    case 'pack-knowledge':
+      return 'knowledge';
+    case 'session':
+    case 'thread':
+    case 'discussion':
+      return 'discussion';
+    default:
+      return 'commit';
+  }
+}
+
 /** Map a file path to a source type */
 export function classifySource(path: string): EvidenceSourceType {
   if (path.includes('decisions')) return 'decision';
   if (path.includes('phases')) return 'phase';
+  if (path.includes('features')) return 'feature';
+  if (
+    path.includes('lessons') ||
+    path.includes('reflections') ||
+    path.includes('postmortems') ||
+    path.includes('episodes')
+  )
+    return 'lesson';
+  if (path.includes('research')) return 'research';
   if (path.includes('discussions')) return 'discussion';
   return 'commit';
 }

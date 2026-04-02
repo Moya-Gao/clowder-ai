@@ -923,7 +923,13 @@
       "name": "Tool/Skill/MCP Usage Statistics — 工具使用可观测看板",
       "status": "spec | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2",
       "file": "F150-tool-usage-stats.md"
+    },
+    {
+      "id": "F151",
+      "name": "XiaoYi Channel Gateway — 小艺渠道 OpenClaw 模式接入",
+      "status": "spec | **Owner**: TBD | **Priority**: Community",
+      "file": "F151-xiaoyi-channel-gateway.md"
     }
   ],
-  "generated_at": "2026-04-01T13:54:29.540Z"
+  "generated_at": "2026-04-02T02:18:48.538Z"
 }

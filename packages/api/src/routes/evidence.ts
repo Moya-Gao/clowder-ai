@@ -8,7 +8,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IEvidenceStore, IIndexBuilder, IKnowledgeResolver } from '../domains/memory/interfaces.js';
-import type { EvidenceResult } from './evidence-helpers.js';
+import { type EvidenceResult, mapKindToSourceType } from './evidence-helpers.js';
 
 /** Accepted query parameters — Phase D: scope/mode/depth added */
 const searchSchema = z.object({
@@ -79,11 +79,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         anchor: item.anchor,
         snippet: item.summary ?? '',
         confidence: 'mid' as const,
-        sourceType: (item.kind === 'decision'
-          ? 'decision'
-          : item.kind === 'plan'
-            ? 'phase'
-            : 'discussion') as EvidenceResult['sourceType'],
+        sourceType: mapKindToSourceType(item.kind),
         ...(item.passages ? { passages: item.passages } : {}),
       }));
       return { results, degraded: false } satisfies Partial<EvidenceSearchResponse>;
@@ -105,16 +101,41 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       if (!db) return { backend: 'sqlite', healthy: false, reason: 'no_db' };
 
       const docCount = (db.prepare('SELECT count(*) AS c FROM evidence_docs').get() as { c: number }).c;
+      const threadCount = (
+        db.prepare("SELECT count(*) AS c FROM evidence_docs WHERE kind = 'thread'").get() as { c: number }
+      ).c;
       const edgeCount = (db.prepare('SELECT count(*) AS c FROM edges').get() as { c: number }).c;
       const lastUpdated = (db.prepare('SELECT max(updated_at) AS t FROM evidence_docs').get() as { t: string | null })
         .t;
+
+      // Passages count (may not exist in older schemas)
+      let passageCount = 0;
+      try {
+        passageCount = (db.prepare('SELECT count(*) AS c FROM evidence_passages').get() as { c: number }).c;
+      } catch {
+        /* table may not exist */
+      }
+
+      // Embedding model from embedding_meta (VectorStore.initMeta writes embedding_model_id)
+      let embeddingModel: string | null = null;
+      try {
+        const row = db.prepare("SELECT value FROM embedding_meta WHERE key = 'embedding_model_id'").get() as
+          | { value: string }
+          | undefined;
+        embeddingModel = row?.value ?? null;
+      } catch {
+        /* table may not exist */
+      }
 
       return {
         backend: 'sqlite',
         healthy: true,
         docs_count: docCount,
+        threads_count: threadCount,
+        passages_count: passageCount,
         edges_count: edgeCount,
         last_rebuild_at: lastUpdated,
+        embedding_model: embeddingModel,
       };
     } catch {
       return { backend: 'sqlite', healthy: false, reason: 'query_error' };
