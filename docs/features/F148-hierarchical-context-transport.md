@@ -185,6 +185,7 @@ created: 2026-03-31
 | 2026-04-02 | VG-2 fix merged (PR #920) — collapsible briefing card with source label + evidence hints。缅因猫 Spark review (pass) + 云端 review passed |
 | 2026-04-02 | VG-3 设计收敛 — 布偶猫 + 缅因猫 Spark 讨论，B+A 方案（KD-6），3 commit 拆分 |
 | 2026-04-02 | VG-3 fix merged (PR #922) — extractDecisionSignals + ThreadMemory v2 + SessionSealer wiring + briefing display。缅因猫 Spark review (R1: 2P1+1P2, R2 pass) + 3 rounds 云端 review (R1: 1P1+1P2, R2: 1P1, R3 pass) |
+| 2026-04-02 | Briefing search suggestions merged (PR #924) — tombstone retrievalHints → coverageMap.searchSuggestions → "深入搜索" section with copy-pasteable `search_evidence()` commands。3 rounds 云端 review (R1: 1P2 backtick escape, R2: 1P2 backslash escape, R3 pass) |
 
 ## Review Gate
 
