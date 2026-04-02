@@ -15,7 +15,7 @@ created: 2026-04-02
 - AC-B4: 失败分类至少区分 `init_failure / prompt_failure / model_capacity / mcp_pollution / lease_timeout`
 **Architecture:** 新建 `GeminiAcpAdapter implements AgentService`，内部持有一个长驻 `AcpClient` 实例（lazy init），通过 `promptStream()` 流式 yield `AgentMessage`。启动时读 cat-config.json `acp` section 决定注册哪个实现。两条路径（旧 CLI / 新 ACP）共存，配置切换。
 **Tech Stack:** AcpClient (Phase A), AgentService interface, cat-config.json
-**前端验证:** No — 纯后端 provider 替换，前端接口不变
+**前端验证:** Yes — 成员总览卡片需显示 ACP/CLI badge（Task 4.5）
 
 ---
 
@@ -211,6 +211,26 @@ case 'google': {
 3. Add export in services/index.ts
 4. Verify `pnpm lint` + `pnpm check` pass
 5. Commit
+
+---
+
+## Task 4.5: Frontend Visibility — ACP Badge in Member Overview
+
+铲屎官要求：前端成员协作-总览能看到当前是 ACP 还是旧 CLI。
+
+**Files:**
+- Modify: `packages/api/src/routes/cats.ts` — cat response 增加 `adapterMode` 字段
+- Modify: `packages/web/src/components/HubMemberOverviewCard.tsx` — 显示 ACP badge
+
+**Design:**
+- API: `GET /api/cats` response 增加 `adapterMode?: 'acp' | 'cli'`，从 agentRegistry 或 cat-config.json `acp` section 推导
+- Frontend: model 行旁边显示小 badge（`ACP` 绿色 / `CLI` 灰色），仅当 provider=google 时显示
+
+**Steps:**
+1. 修改 cat response 类型 + toCatResponse 增加 adapterMode 推导
+2. 前端读取 adapterMode，显示 badge
+3. 验证：`pnpm lint` + `pnpm check` + build
+4. Commit
 
 ---
 
