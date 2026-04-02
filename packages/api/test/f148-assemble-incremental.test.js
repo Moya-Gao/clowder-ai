@@ -881,3 +881,73 @@ describe('F148 Phase E: origin briefing filter (AC-E2)', () => {
     assert.ok(!result.contextText.includes('briefing summary card'), 'briefing excluded from smart window (AC-E2)');
   });
 });
+
+// --- VG-3 P1-1: coverageMap must include decisions/openQuestions from threadMemory ---
+
+describe('VG-3 P1-1: coverageMap threadMemory decisions passthrough', () => {
+  test('cloud-P1: malformed decisions (non-array) are ignored, briefing still builds', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    seedMessages(messageStore, 20);
+
+    const threadMemory = {
+      v: 1,
+      summary: 'Session #1: worked on redis config',
+      sessionsIncorporated: 2,
+      updatedAt: Date.now(),
+      decisions: 'bad-shape', // malformed: string instead of string[]
+      openQuestions: 42, // malformed: number instead of string[]
+    };
+
+    const deps = buildDeps(messageStore, deliveryCursorStore, {
+      threadStore: mockThreadStore('Malformed Thread', threadMemory),
+    });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(result_is_smart_window(result), 'should use smart window');
+    assert.ok(result.coverageMap, 'coverageMap should exist');
+    // Malformed fields should NOT be passed through
+    assert.strictEqual(
+      result.coverageMap.threadMemory?.decisions,
+      undefined,
+      'malformed decisions should be filtered out',
+    );
+    assert.strictEqual(
+      result.coverageMap.threadMemory?.openQuestions,
+      undefined,
+      'malformed openQuestions should be filtered out',
+    );
+  });
+
+  test('coverageMap.threadMemory includes decisions when threadMemory has them', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    seedMessages(messageStore, 20);
+
+    const threadMemory = {
+      v: 1,
+      summary: 'Session #1: worked on redis config',
+      sessionsIncorporated: 2,
+      updatedAt: Date.now(),
+      decisions: ['选择了方案B', '确定用 redis 6398'],
+      openQuestions: ['阈值待定'],
+    };
+
+    const deps = buildDeps(messageStore, deliveryCursorStore, {
+      threadStore: mockThreadStore('Decision Thread', threadMemory),
+    });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(result_is_smart_window(result), 'should use smart window');
+    assert.ok(result.coverageMap, 'coverageMap should exist');
+    assert.ok(result.coverageMap.threadMemory, 'threadMemory should exist in coverageMap');
+    assert.deepStrictEqual(
+      result.coverageMap.threadMemory.decisions,
+      ['选择了方案B', '确定用 redis 6398'],
+      'decisions should be passed through to coverageMap',
+    );
+    assert.deepStrictEqual(
+      result.coverageMap.threadMemory.openQuestions,
+      ['阈值待定'],
+      'openQuestions should be passed through to coverageMap',
+    );
+  });
+});

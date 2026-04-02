@@ -9,7 +9,12 @@ export interface CoverageMap {
   omitted: { count: number; timeRange: { from: number; to: number }; participants: string[] };
   burst: { count: number; timeRange: { from: number; to: number } };
   anchorIds: string[];
-  threadMemory: { available: boolean; sessionsIncorporated: number } | null;
+  threadMemory: {
+    available: boolean;
+    sessionsIncorporated: number;
+    decisions?: string[];
+    openQuestions?: string[];
+  } | null;
   retrievalHints: string[];
 }
 
@@ -17,7 +22,12 @@ export interface CoverageMapInput {
   omitted: { count: number; from: number; to: number; participants: string[] };
   burst: { count: number; from: number; to: number };
   anchorIds: string[];
-  threadMemory: { available: boolean; sessionsIncorporated: number } | null;
+  threadMemory: {
+    available: boolean;
+    sessionsIncorporated: number;
+    decisions?: string[];
+    openQuestions?: string[];
+  } | null;
   retrievalHints: string[];
 }
 

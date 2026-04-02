@@ -379,6 +379,7 @@ async function main(): Promise<void> {
     transcriptReader,
     (catId) => getCatContextBudget(catId).maxPromptTokens,
     handoffConfig,
+    summaryStore,
   );
 
   // F102: Memory services — SQLite-only

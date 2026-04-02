@@ -158,4 +158,57 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
       assert.ok(!card.bodyMarkdown.includes('证据'), 'no evidence section when empty');
     }
   });
+
+  test('VG-3: bodyMarkdown includes key decisions when threadMemory has decisions', () => {
+    const mapWithDecisions = {
+      ...baseCoverageMap,
+      threadMemory: {
+        available: true,
+        sessionsIncorporated: 3,
+        decisions: ['用方案B', '不用cheap model摘要'],
+        openQuestions: ['burst gap阈值待实验'],
+      },
+    };
+    const msg = buildBriefingMessage(mapWithDecisions, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    assert.ok(card.bodyMarkdown, 'should have bodyMarkdown');
+    assert.ok(card.bodyMarkdown.includes('关键决策'), 'should have decisions section');
+    assert.ok(card.bodyMarkdown.includes('用方案B'), 'should include first decision');
+    assert.ok(card.bodyMarkdown.includes('不用cheap model'), 'should include second decision');
+    assert.ok(card.bodyMarkdown.includes('待决问题'), 'should have open questions section');
+    assert.ok(card.bodyMarkdown.includes('burst gap'), 'should include open question');
+  });
+
+  test('VG-3: bodyMarkdown omits decisions section when no decisions', () => {
+    const mapNoDecisions = {
+      ...baseCoverageMap,
+      threadMemory: { available: true, sessionsIncorporated: 2 },
+    };
+    const msg = buildBriefingMessage(mapNoDecisions, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    if (card.bodyMarkdown) {
+      assert.ok(!card.bodyMarkdown.includes('关键决策'), 'no decisions section when empty');
+    }
+  });
+
+  test('VG-3: decisions capped at 3 in briefing display', () => {
+    const mapManyDecisions = {
+      ...baseCoverageMap,
+      threadMemory: {
+        available: true,
+        sessionsIncorporated: 5,
+        decisions: ['决策1', '决策2', '决策3', '决策4', '决策5'],
+        openQuestions: ['Q1', 'Q2', 'Q3'],
+      },
+    };
+    const msg = buildBriefingMessage(mapManyDecisions, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    assert.ok(card.bodyMarkdown);
+    // Count "- 决策" occurrences — should be 3 (capped)
+    const decisionLines = card.bodyMarkdown.split('\n').filter((l) => l.startsWith('- 决策'));
+    assert.equal(decisionLines.length, 3, `expected 3 decisions in display, got ${decisionLines.length}`);
+    // Count "- Q" occurrences — should be 2 (capped)
+    const questionLines = card.bodyMarkdown.split('\n').filter((l) => l.startsWith('- Q'));
+    assert.equal(questionLines.length, 2, `expected 2 questions in display, got ${questionLines.length}`);
+  });
 });

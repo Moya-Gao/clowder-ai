@@ -234,3 +234,127 @@ describe('Phase D: product-oriented formatSessionLine (AC-D1)', () => {
     assert.ok(result.summary.includes('+'), `Should show overflow indicator: ${result.summary}`);
   });
 });
+
+// --- VG-3: Decision signals in buildThreadMemory ---
+
+describe('VG-3: buildThreadMemory with DecisionSignals', () => {
+  const baseDigest = {
+    v: 1,
+    sessionId: 's1',
+    threadId: 't1',
+    catId: 'opus',
+    seq: 0,
+    time: { createdAt: 1000000, sealedAt: 1060000 },
+    invocations: [],
+    filesTouched: [],
+    errors: [],
+  };
+
+  it('merges decisions from signals into threadMemory', () => {
+    const signals = {
+      decisions: ['用方案B'],
+      openQuestions: ['gap阈值?'],
+      artifacts: ['ADR-011'],
+    };
+    const result = buildThreadMemory(null, baseDigest, 3000, signals);
+    assert.deepStrictEqual(result.decisions, ['用方案B']);
+    assert.deepStrictEqual(result.openQuestions, ['gap阈值?']);
+    assert.deepStrictEqual(result.artifacts, ['ADR-011']);
+  });
+
+  it('accumulates decisions across sessions', () => {
+    const existing = {
+      v: 1,
+      summary: 'Session #1',
+      sessionsIncorporated: 1,
+      updatedAt: 1000,
+      decisions: ['用方案A'],
+      openQuestions: ['端口?'],
+      artifacts: ['F148'],
+    };
+    const signals = {
+      decisions: ['改用方案B'],
+      openQuestions: ['gap阈值?'],
+      artifacts: ['ADR-011'],
+    };
+    const digest2 = { ...baseDigest, seq: 1 };
+    const result = buildThreadMemory(existing, digest2, 3000, signals);
+    assert.ok(result.decisions?.includes('改用方案B'), 'new decisions appear');
+    assert.ok(result.decisions?.includes('用方案A'), 'old decisions preserved');
+    assert.ok(result.openQuestions?.includes('gap阈值?'));
+    assert.ok(result.artifacts?.includes('ADR-011'));
+    assert.ok(result.artifacts?.includes('F148'));
+  });
+
+  it('backward compatible — no signals = no decision fields', () => {
+    const result = buildThreadMemory(null, baseDigest, 3000);
+    assert.strictEqual(result.decisions, undefined);
+    assert.strictEqual(result.openQuestions, undefined);
+    assert.strictEqual(result.artifacts, undefined);
+  });
+
+  it('caps at max limits', () => {
+    const signals = {
+      decisions: Array.from({ length: 12 }, (_, i) => `决策${i}`),
+      openQuestions: Array.from({ length: 8 }, (_, i) => `问题${i}`),
+      artifacts: Array.from({ length: 12 }, (_, i) => `ADR-${i}`),
+    };
+    const result = buildThreadMemory(null, baseDigest, 3000, signals);
+    assert.ok((result.decisions?.length ?? 0) <= 8);
+    assert.ok((result.openQuestions?.length ?? 0) <= 5);
+    assert.ok((result.artifacts?.length ?? 0) <= 8);
+  });
+
+  it('cloud-R2-P1: malformed carry-forward (non-array with .length) is ignored', () => {
+    const existing = {
+      v: 1,
+      summary: 'Session #1',
+      sessionsIncorporated: 1,
+      updatedAt: Date.now(),
+      decisions: { length: 1, 0: 'x' }, // array-like object, not a real array
+      openQuestions: 'bad-string', // string has .length but isn't array
+      artifacts: 42, // number, no .length
+    };
+    // Must not throw — malformed fields should be ignored
+    const result = buildThreadMemory(existing, { ...baseDigest, seq: 1 }, 3000, undefined);
+    assert.strictEqual(result.decisions, undefined, 'non-array decisions must be ignored');
+    assert.strictEqual(result.openQuestions, undefined, 'non-array openQuestions must be ignored');
+    assert.strictEqual(result.artifacts, undefined, 'non-array artifacts must be ignored');
+  });
+
+  it('cloud-P2: carry-forward applies max caps on existing oversized arrays', () => {
+    const existing = {
+      v: 1,
+      summary: 'Session #1',
+      sessionsIncorporated: 1,
+      updatedAt: Date.now(),
+      decisions: Array.from({ length: 50 }, (_, i) => `决策${i}`),
+      openQuestions: Array.from({ length: 20 }, (_, i) => `问题${i}`),
+      artifacts: Array.from({ length: 30 }, (_, i) => `ADR-${i}`),
+    };
+    const result = buildThreadMemory(existing, { ...baseDigest, seq: 1 }, 3000, undefined);
+    assert.ok((result.decisions?.length ?? 0) <= 8, `decisions should be capped at 8, got ${result.decisions?.length}`);
+    assert.ok(
+      (result.openQuestions?.length ?? 0) <= 5,
+      `openQuestions should be capped at 5, got ${result.openQuestions?.length}`,
+    );
+    assert.ok((result.artifacts?.length ?? 0) <= 8, `artifacts should be capped at 8, got ${result.artifacts?.length}`);
+  });
+
+  it('P1-2: preserves existing decisions when signals is undefined', () => {
+    const existing = {
+      v: 1,
+      summary: 'Session #1',
+      sessionsIncorporated: 1,
+      updatedAt: Date.now(),
+      decisions: ['用方案A', '确定端口6398'],
+      openQuestions: ['阈值待定'],
+      artifacts: ['F148'],
+    };
+    // signals=undefined simulates extractSignals failure
+    const result = buildThreadMemory(existing, { ...baseDigest, seq: 1 }, 3000, undefined);
+    assert.deepStrictEqual(result.decisions, ['用方案A', '确定端口6398'], 'must preserve existing decisions');
+    assert.deepStrictEqual(result.openQuestions, ['阈值待定'], 'must preserve existing openQuestions');
+    assert.deepStrictEqual(result.artifacts, ['F148'], 'must preserve existing artifacts');
+  });
+});

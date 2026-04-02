@@ -13,8 +13,10 @@
 import type { CatId, SealResult, SessionStatus } from '@cat-cafe/shared';
 import { AuditEventTypes, getEventAuditLog } from '../orchestration/EventAuditLog.js';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
+import type { ISummaryStore } from '../stores/ports/SummaryStore.js';
 import type { IThreadStore } from '../stores/ports/ThreadStore.js';
 import { buildThreadMemory } from './buildThreadMemory.js';
+import { extractDecisionSignals } from './extractDecisionSignals.js';
 import { generateHandoffDigest } from './HandoffDigestGenerator.js';
 import { formatEventsChat, formatEventsHandoff } from './TranscriptFormatter.js';
 import type { TranscriptReader } from './TranscriptReader.js';
@@ -79,6 +81,7 @@ export class SessionSealer implements ISessionSealer {
     private readonly transcriptReader?: TranscriptReader,
     private readonly getMaxPromptTokens?: (catId: CatId) => number,
     private readonly handoffConfig?: HandoffConfig,
+    private readonly summaryStore?: ISummaryStore,
   ) {}
 
   async requestSeal(args: { sessionId: string; reason: SealReason }): Promise<SealResult> {
@@ -261,7 +264,16 @@ export class SessionSealer implements ISessionSealer {
           // KD-5 dynamic cap: min(3000, floor(maxPromptTokens * 0.03)), floor 1200
           const maxPrompt = this.getMaxPromptTokens?.(record.catId as CatId) ?? 180000;
           const maxTokens = Math.max(1200, Math.min(3000, Math.floor(maxPrompt * 0.03)));
-          const updated = buildThreadMemory(existingMemory, digest as unknown as ExtractiveDigestV1, maxTokens);
+
+          // VG-3: Extract decision signals from transcript + summary (best-effort)
+          const signals = await this.extractSignals(record);
+
+          const updated = buildThreadMemory(
+            existingMemory,
+            digest as unknown as ExtractiveDigestV1,
+            maxTokens,
+            signals,
+          );
           await this.threadStore.updateThreadMemory(record.threadId, updated);
         }
       } catch {
@@ -310,6 +322,42 @@ export class SessionSealer implements ISessionSealer {
       } catch {
         // best-effort: handoff digest failure doesn't prevent sealing
       }
+    }
+  }
+
+  /**
+   * VG-3: Best-effort extraction of decision signals from transcript events + ThreadSummary.
+   * Returns undefined if extraction fails or no data available.
+   */
+  private async extractSignals(record: {
+    id: string;
+    threadId: string;
+    catId: string;
+  }): Promise<ReturnType<typeof extractDecisionSignals> | undefined> {
+    try {
+      // Build transcript text from events
+      const events = await this.transcriptReader!.readAllEvents(record.id, record.threadId, record.catId);
+      const chatMessages = formatEventsChat(events);
+      const transcriptText = chatMessages.map((m) => m.content).join('\n');
+
+      // Get latest ThreadSummary conclusions (if summaryStore available)
+      let summaryConclusions: string[] = [];
+      let summaryOpenQuestions: string[] = [];
+      if (this.summaryStore) {
+        const summaries = await this.summaryStore.listByThread(record.threadId);
+        if (summaries.length > 0) {
+          const latest = summaries[summaries.length - 1];
+          summaryConclusions = [...latest.conclusions];
+          summaryOpenQuestions = [...latest.openQuestions];
+        }
+      }
+
+      if (!transcriptText && summaryConclusions.length === 0 && summaryOpenQuestions.length === 0) return undefined;
+
+      return extractDecisionSignals({ transcriptText, summaryConclusions, summaryOpenQuestions });
+    } catch {
+      // Fail-open: decision extraction failure doesn't affect sealing
+      return undefined;
     }
   }
 }

@@ -542,7 +542,12 @@ async function assembleSmartWindowContext(
 
   // 3.7 Phase D: Fetch thread memory (fail-open)
   let threadMemorySummary = '';
-  let threadMemoryMeta: { available: boolean; sessionsIncorporated: number } | null = null;
+  let threadMemoryMeta: {
+    available: boolean;
+    sessionsIncorporated: number;
+    decisions?: string[];
+    openQuestions?: string[];
+  } | null = null;
   if (threadStore) {
     try {
       const mem = await Promise.resolve(threadStore.getThreadMemory(threadId));
@@ -566,7 +571,12 @@ async function assembleSmartWindowContext(
           summary = summary.slice(0, lo) + '…';
         }
         threadMemorySummary = summary;
-        threadMemoryMeta = { available: true, sessionsIncorporated: mem.sessionsIncorporated };
+        threadMemoryMeta = {
+          available: true,
+          sessionsIncorporated: mem.sessionsIncorporated,
+          ...(Array.isArray(mem.decisions) && mem.decisions.length ? { decisions: mem.decisions } : {}),
+          ...(Array.isArray(mem.openQuestions) && mem.openQuestions.length ? { openQuestions: mem.openQuestions } : {}),
+        };
       }
     } catch {
       // fail-open: threadMemory stays empty

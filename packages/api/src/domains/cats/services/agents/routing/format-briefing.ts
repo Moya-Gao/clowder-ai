@@ -100,6 +100,15 @@ export function buildBriefingMessage(
   if (options?.threadMemorySummary) {
     bodyParts.push(`**线程记忆**:\n${options.threadMemorySummary}`);
   }
+  // VG-3: Key decisions from threadMemory
+  if (coverageMap.threadMemory?.decisions?.length) {
+    const top3 = coverageMap.threadMemory.decisions.slice(0, 3);
+    bodyParts.push(`**关键决策**:\n${top3.map((d) => `- ${d}`).join('\n')}`);
+  }
+  if (coverageMap.threadMemory?.openQuestions?.length) {
+    const top2 = coverageMap.threadMemory.openQuestions.slice(0, 2);
+    bodyParts.push(`**待决问题**:\n${top2.map((q) => `- ${q}`).join('\n')}`);
+  }
   if (coverageMap.retrievalHints.length > 0) {
     bodyParts.push(`**证据召回**:\n${coverageMap.retrievalHints.map((h) => `- ${h}`).join('\n')}`);
   }

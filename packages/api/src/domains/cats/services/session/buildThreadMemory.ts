@@ -1,5 +1,5 @@
 /**
- * buildThreadMemory — F065 Phase B
+ * buildThreadMemory — F065 Phase B + F148 VG-3
  * Pure function: merges existing ThreadMemory with a new extractive digest,
  * producing an updated rolling summary. Rule-based (no LLM).
  *
@@ -8,10 +8,12 @@
  * 2. Prepend to existing summary
  * 3. Trim oldest lines from end if over maxTokens
  * 4. Increment sessionsIncorporated
+ * 5. VG-3: Merge DecisionSignals into structured decisions/openQuestions/artifacts
  */
 
 import { estimateTokens } from '../../../../utils/token-counter.js';
 import type { ThreadMemoryV1 } from '../stores/ports/ThreadStore.js';
+import type { DecisionSignals } from './extractDecisionSignals.js';
 import type { ExtractiveDigestV1 } from './TranscriptWriter.js';
 
 const MAX_FILES_PER_CATEGORY = 10;
@@ -59,10 +61,25 @@ function formatSessionLine(digest: ExtractiveDigestV1, sessionNumber: number): s
   return `Session #${sessionNumber} (${timeRange}, ${duration}min): ${body}.${errorPart}`;
 }
 
+const MAX_DECISIONS = 8;
+const MAX_OPEN_QUESTIONS = 5;
+const MAX_ARTIFACTS = 8;
+
+/** Deduplicate strings by substring containment */
+function dedupStrings(items: string[]): string[] {
+  const result: string[] = [];
+  for (const item of items) {
+    const dominated = result.some((e) => (e.length <= item.length ? item.includes(e) : e.includes(item)));
+    if (!dominated) result.push(item);
+  }
+  return result;
+}
+
 export function buildThreadMemory(
   existing: ThreadMemoryV1 | null,
   newDigest: ExtractiveDigestV1,
   maxTokens: number,
+  signals?: DecisionSignals,
 ): ThreadMemoryV1 {
   // R1 P1-1: session number comes from digest.seq (1-based display), not merge count
   const sessionNumber = newDigest.seq + 1;
@@ -87,10 +104,36 @@ export function buildThreadMemory(
     summary = `${summary.slice(0, Math.floor(summary.length * ratio * 0.9))}...`;
   }
 
-  return {
+  // VG-3: Merge structured decision signals
+  const result: ThreadMemoryV1 = {
     v: 1,
     summary,
     sessionsIncorporated: mergeCount,
     updatedAt: Date.now(),
   };
+
+  if (signals) {
+    const existDecisions = existing?.decisions ?? [];
+    const existQuestions = existing?.openQuestions ?? [];
+    const existArtifacts = existing?.artifacts ?? [];
+
+    const mergedDecisions = dedupStrings([...signals.decisions, ...existDecisions]);
+    const mergedQuestions = dedupStrings([...signals.openQuestions, ...existQuestions]);
+    const mergedArtifacts = dedupStrings([...signals.artifacts, ...existArtifacts]);
+
+    if (mergedDecisions.length > 0) result.decisions = mergedDecisions.slice(0, MAX_DECISIONS);
+    if (mergedQuestions.length > 0) result.openQuestions = mergedQuestions.slice(0, MAX_OPEN_QUESTIONS);
+    if (mergedArtifacts.length > 0) result.artifacts = mergedArtifacts.slice(0, MAX_ARTIFACTS);
+  } else if (existing) {
+    // P1-2 fix: carry forward existing decisions when signals extraction failed
+    // Cloud-P2 fix: re-apply caps; Cloud-R2-P1 fix: Array.isArray guard for malformed data
+    if (Array.isArray(existing.decisions) && existing.decisions.length > 0)
+      result.decisions = existing.decisions.slice(0, MAX_DECISIONS);
+    if (Array.isArray(existing.openQuestions) && existing.openQuestions.length > 0)
+      result.openQuestions = existing.openQuestions.slice(0, MAX_OPEN_QUESTIONS);
+    if (Array.isArray(existing.artifacts) && existing.artifacts.length > 0)
+      result.artifacts = existing.artifacts.slice(0, MAX_ARTIFACTS);
+  }
+
+  return result;
 }
