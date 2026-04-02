@@ -79,10 +79,10 @@ created: 2026-03-31
 - [x] AC-B2: get_thread_context keyword 有排序/相关性能力
 - [x] AC-B3: 两个工具边界清晰（找 vs 看），无功能重叠
 
-### Phase C（Importance Scoring + Anchors）
-- [ ] AC-C1: zero-cost importance scoring 实现（不调用 LLM）
-- [ ] AC-C2: top 2-3 anchors 注入到 context packet
-- [ ] AC-C3: primacy anchor（thread opener 或 title）始终包含
+### Phase C（Importance Scoring + Anchors）✅
+- [x] AC-C1: zero-cost importance scoring 实现（不调用 LLM）
+- [x] AC-C2: top 2-3 anchors 注入到 context packet
+- [x] AC-C3: primacy anchor（thread opener 或 title）始终包含
 
 ### Phase D（Structured State）
 - [ ] AC-D1: buildThreadMemory 区分 read/write，产出产物清单
@@ -132,6 +132,7 @@ created: 2026-03-31
 | 2026-03-31 | Phase A merged (PR #900) — 缅因猫 review (2 P1 + 1 P2 fixed) + 云端 review passed |
 | 2026-04-01 | Phase B merged (PR #902) — 缅因猫 review (R1: 2P1+1P2, R2: 1P1, all fixed) + 云端 review passed |
 | 2026-04-01 | 愿景守护 Gap Fix merged (PR #906) — Gap-1 token trigger + Gap-2 precise hints + P1 short-circuit fix |
+| 2026-04-02 | Phase C merged (PR #907) — importance scoring + anchor extraction + content sanitization. 缅因猫 review (1P1+2P2 fixed) + 3 rounds cloud review (2 P1 fixed) |
 
 ## Review Gate
 
