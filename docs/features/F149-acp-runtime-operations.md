@@ -193,6 +193,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-04-02 | **Phase C done** — AcpProcessPool (acquire/release, idle TTL, LRU eviction, health check, zombie cleanup, capacity enforcement, concurrent acquire coalescing) + GeminiAcpAdapter pool-backed refactor + diagnostics endpoint + 45 ACP tests green。砚砚 local review (R1 退回 2P1+1P2→R2 放行) + 云端 review (P1 truthy→strict fix)。AC-C1~C5 全部 ✅ |
 | 2026-04-02 | Phase C merged (PR #921) — squash merge `a7bda566` |
 | 2026-04-02 | **Hotfix**: ACP cwd timeout + event transformer flat format compat (PR #927) — spawn cwd 误用 `process.cwd()` 导致 MCP server 挂起 120s timeout；Gemini CLI v0.35.3 flat notification 格式兼容。squash merge `19f8885a` |
+| 2026-04-02 | **Hotfix**: ACP capacity transparency + invoke-level listener isolation (PR #930) — upstream 429/MODEL_CAPACITY_EXHAUSTED 透传；event-driven onCapacity/offCapacity 替代 polled singleton；53 ACP tests。砚砚 local review (R1→R2→R3, pushback on invoke-level scope accepted) + 云端 review clean |
 
 ## Review Gate
 
