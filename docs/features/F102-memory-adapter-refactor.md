@@ -489,7 +489,7 @@ search_evidence(query, {
 - 跨项目检索（在 dare 里搜 cat-cafe 的教训）
 - frontmatter 自动补全工具
 
-### Phase G: Abstractive Summary + Durable Memory Lifecycle（🚧 基础设施已合入，运行时验收中）
+### Phase G: Abstractive Summary + Durable Memory Lifecycle（✅ 基础设施 + 运行时验收已合入）
 
 > **触发**：铲屎官发起 Lossless Claw（LCM）调研，三猫（opus + opencode + gpt52）协作对比 LC 与 session chain / F102，收敛出可学习的改进点。
 > **调研文档**：[Lossless Claw vs Session Chain 调研](../research/2026-03-19-lossless-claw-session-chain-comparison.md)
@@ -1394,6 +1394,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-01 | 铲屎官 runtime 审查发现 3 个 UI Issue + 砚砚愿景守护补充 3 个 Issue（共 6 个 Known Issues） |
 | 2026-04-01 | **PR #908 squash merged** — Known Issues 1-6 全部修复：Recall Feed param fix + truncation 1500 + "已确认" label + 8-type sourceType + IndexStatus fields + EvidenceSearch UX |
 | 2026-04-01 | **PR #911 squash merged** — Batch 1: IMaterializationService 终态 — targetKind 白名单 + execFileSync + KIND_TO_DIR 映射 + approve→materialize 集成 + 13 tests |
+| 2026-04-02 | **PR #912 squash merged** — Batch 2: Phase G 运行时验收闭环 — env flag 注册 + submitCandidate/H-3 backfill 双路门控 + e2e processThread 7 tests + parser edge case 5 tests |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
@@ -1468,7 +1469,7 @@ Batch 1: IMaterializationService 终态 ✅ PR #911
          approved → docs/*.md 写入 → git commit → reindex trigger → 冲突处理
          验收：工程闭环 + 铲屎官短验收（改真相源文档，语义风险高）
 
-Batch 2: Phase G 运行时验收闭环
+Batch 2: Phase G 运行时验收闭环 ✅ PR #912
          thread 摘要 / dirty thread 调度 / candidate extraction → 真实运行质量确认
          前提：Batch 1 完成（否则 candidate 生命周期链不完整）
          验收：真实 thread / candidate / approve 全链路跑通
@@ -1490,6 +1491,7 @@ Batch 3: /memory 体验层收口
 ⑤ Stage 4: Phase F-1/F-2/F-3 — Project Onboarding & Ingestion ✅ PR #904
 ⑥ Known Issues 1-6 fix ✅ PR #908
 ⑦ Batch 1: IMaterializationService 终态 ✅ PR #911
+⑧ Batch 2: Phase G 运行时验收闭环 ✅ PR #912
 ```
 
 **Why this order**（砚砚 2026-03-30 收紧）：
