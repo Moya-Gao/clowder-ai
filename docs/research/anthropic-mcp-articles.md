@@ -1,6 +1,10 @@
-# Anthropic MCP 文章汇总
+---
+topics: [mcp, anthropic, research]
+doc_kind: research
+created: 2026-03-30
+---
 
-> 更新时间：2026-03-30
+# Anthropic MCP 文章汇总
 
 ---
 
