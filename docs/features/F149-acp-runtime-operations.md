@@ -9,7 +9,7 @@ updated: 2026-04-02
 
 # F149: ACP Runtime Operations — 项目级进程池 + Session Lease
 
-> **Status**: spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 缅因猫/gpt52 | **Priority**: P1
 
 ## Why
 
@@ -43,7 +43,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 
 ## What
 
-### Phase A: 边界收敛 + 量化基线
+### Phase A: 边界收敛 + 量化基线 ✅
 
 把这次问题从“ACP 能不能接”正式收敛成“ACP 运行时运营层”：
 
@@ -187,6 +187,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-03-31 | F149 立项：把问题从”协议能不能活”升级为”项目级进程池 + session lease 怎么设计” |
 | 2026-04-01 | GPT Pro + Gemini DeepThink 云端咨询完成，本地收敛：KD-6~KD-9 落定（session binding 分层、三层失败 taxonomy、loadSession shadow、multiplexing seam） |
 | 2026-04-02 | **Phase A done** — ACP types + AcpClient + spike + OQ-6 MULTIPLEX 验证 + provider profile（cat-config.json `acp` section）+ boundary clarification。AC-A1~A5 全部 ✅ |
+| 2026-04-02 | Phase A merged (PR #910) — 砚砚 local review (R1 退回→R2 放行) + 云端 review (R1/R2 P1 修→R3 clean) |
 
 ## Review Gate
 
