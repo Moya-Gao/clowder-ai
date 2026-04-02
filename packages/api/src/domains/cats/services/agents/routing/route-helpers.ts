@@ -615,6 +615,7 @@ async function assembleSmartWindowContext(
     anchorIds: anchors.map((a) => a.message.id),
     threadMemory: threadMemoryMeta,
     retrievalHints,
+    searchSuggestions: tombstone?.retrievalHints ?? [],
   });
   const coverageMapText = `[Context Coverage Map]\n${JSON.stringify(coverageMap)}`;
   const threadMemoryText = threadMemorySummary

@@ -211,4 +211,55 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
     const questionLines = card.bodyMarkdown.split('\n').filter((l) => l.startsWith('- Q'));
     assert.equal(questionLines.length, 2, `expected 2 questions in display, got ${questionLines.length}`);
   });
+
+  test('searchSuggestions rendered as actionable hints in bodyMarkdown', () => {
+    const mapWithSearch = {
+      ...baseCoverageMap,
+      searchSuggestions: ['search_evidence("redis config", threadId="t1")', 'search_evidence("deployment")'],
+    };
+    const msg = buildBriefingMessage(mapWithSearch, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    assert.ok(card.bodyMarkdown, 'should have bodyMarkdown');
+    assert.ok(card.bodyMarkdown.includes('深入搜索'), 'should have search suggestions section');
+    assert.ok(card.bodyMarkdown.includes('redis config'), 'should include first suggestion');
+    assert.ok(card.bodyMarkdown.includes('deployment'), 'should include second suggestion');
+  });
+
+  test('searchSuggestions with backticks/newlines are escaped (Cloud-R1-P2)', () => {
+    const mapWithDirty = {
+      ...baseCoverageMap,
+      searchSuggestions: ['has `backtick` inside', 'has\nnewline'],
+    };
+    const msg = buildBriefingMessage(mapWithDirty, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    assert.ok(card.bodyMarkdown.includes('深入搜索'), 'section should exist');
+    // backticks inside must not break the inline code fence
+    assert.ok(!card.bodyMarkdown.includes('`has `backtick'), 'raw backtick must be escaped');
+    // newlines must be stripped so each suggestion stays on one line
+    const searchSection = card.bodyMarkdown.split('**深入搜索**:')[1];
+    const lines = searchSection.trim().split('\n').filter((l) => l.startsWith('- '));
+    assert.equal(lines.length, 2, 'each suggestion should be exactly one line');
+  });
+
+  test('searchSuggestions with backslashes/quotes are sanitized (Cloud-R2-P2)', () => {
+    const mapWithSpecial = {
+      ...baseCoverageMap,
+      searchSuggestions: ['search_evidence("My \\"Redis\\" notes")', 'path\\to\\thing'],
+    };
+    const msg = buildBriefingMessage(mapWithSpecial, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    const searchSection = card.bodyMarkdown.split('**深入搜索**:')[1];
+    // backslashes must be stripped so copy-paste doesn't break
+    assert.ok(!searchSection.includes('\\'), 'backslashes must be sanitized');
+    const lines = searchSection.trim().split('\n').filter((l) => l.startsWith('- '));
+    assert.equal(lines.length, 2, 'each suggestion should be exactly one line');
+  });
+
+  test('searchSuggestions omitted when empty', () => {
+    const msg = buildBriefingMessage(baseCoverageMap, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    if (card.bodyMarkdown) {
+      assert.ok(!card.bodyMarkdown.includes('深入搜索'), 'no search section when no suggestions');
+    }
+  });
 });

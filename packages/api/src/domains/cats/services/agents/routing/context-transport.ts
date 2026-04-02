@@ -16,6 +16,7 @@ export interface CoverageMap {
     openQuestions?: string[];
   } | null;
   retrievalHints: string[];
+  searchSuggestions?: string[];
 }
 
 export interface CoverageMapInput {
@@ -29,6 +30,7 @@ export interface CoverageMapInput {
     openQuestions?: string[];
   } | null;
   retrievalHints: string[];
+  searchSuggestions?: string[];
 }
 
 export function buildCoverageMap(input: CoverageMapInput): CoverageMap {
@@ -45,6 +47,7 @@ export function buildCoverageMap(input: CoverageMapInput): CoverageMap {
     anchorIds: input.anchorIds,
     threadMemory: input.threadMemory,
     retrievalHints: input.retrievalHints,
+    ...(input.searchSuggestions?.length ? { searchSuggestions: input.searchSuggestions } : {}),
   };
 }
 

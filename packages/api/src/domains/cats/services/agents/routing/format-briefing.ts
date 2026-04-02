@@ -112,6 +112,9 @@ export function buildBriefingMessage(
   if (coverageMap.retrievalHints.length > 0) {
     bodyParts.push(`**证据召回**:\n${coverageMap.retrievalHints.map((h) => `- ${h}`).join('\n')}`);
   }
+  if (coverageMap.searchSuggestions?.length) {
+    bodyParts.push(`**深入搜索**:\n${coverageMap.searchSuggestions.map((s) => `- \`${s.replace(/[`\n\r\\]/g, ' ').trim()}\``).join('\n')}`);
+  }
 
   const card: RichCardBlock = {
     id: 'briefing-1',
