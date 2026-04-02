@@ -765,6 +765,54 @@ describe('F148 Phase E: coverageMap on IncrementalContextResult', () => {
     assert.ok(result.briefingContext.anchorSummaries?.length > 0, 'anchorSummaries should have entries');
   });
 
+  test('VG-1: coverageMap.retrievalHints === 2 when evidence recall returns 2 hits', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    const baseTs = Date.now() - 30 * 60_000;
+    for (let i = 0; i < 30; i++) {
+      messageStore.append(mockMsg({ content: `msg ${i} about Redis config`, timestamp: baseTs + i * 60_000 }));
+    }
+    const evidenceHits = [
+      { title: 'ADR-005: Redis Key Prefix', summary: 'Decision on key prefixing' },
+      { title: 'F088: Chat Gateway', summary: 'Gateway architecture' },
+    ];
+    const deps = buildDeps(messageStore, deliveryCursorStore, {
+      threadStore: mockThreadStore('Redis Discussion'),
+      evidenceStore: mockEvidenceStore(evidenceHits),
+    });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(result_is_smart_window(result), 'should use smart window');
+    assert.ok(result.coverageMap, 'coverageMap should exist');
+    // VG-1: exactly 2 — only evidence titles, no tombstone search hints
+    assert.strictEqual(
+      result.coverageMap.retrievalHints.length,
+      2,
+      `retrievalHints should be exactly 2 (evidence titles only), got ${result.coverageMap.retrievalHints.length}`,
+    );
+    assert.ok(result.coverageMap.retrievalHints[0].includes('ADR-005'), 'first hint should be evidence title');
+  });
+
+  test('VG-1: coverageMap.retrievalHints === 0 when no evidence store', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    const baseTs = Date.now() - 30 * 60_000;
+    for (let i = 0; i < 30; i++) {
+      messageStore.append(mockMsg({ content: `msg ${i}`, timestamp: baseTs + i * 60_000 }));
+    }
+    // No evidence store — retrievalHints must be exactly 0
+    const deps = buildDeps(messageStore, deliveryCursorStore, {
+      threadStore: mockThreadStore('Test Thread'),
+    });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(result_is_smart_window(result), 'should use smart window');
+    assert.ok(result.coverageMap, 'coverageMap should exist');
+    assert.strictEqual(
+      result.coverageMap.retrievalHints.length,
+      0,
+      `retrievalHints should be 0 without evidence store, got ${result.coverageMap.retrievalHints.length}`,
+    );
+  });
+
   test('coverageMap is undefined on warm path', async () => {
     const messageStore = new MessageStore();
     const deliveryCursorStore = new DeliveryCursorStore();

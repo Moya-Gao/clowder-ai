@@ -573,8 +573,23 @@ async function assembleSmartWindowContext(
     }
   }
 
-  // 3.8 Phase D: Build coverage map (AC-D2)
+  // 3.8 Evidence recall (fail-open) — must run before coverage map so hints are populated
+  const currentMsg = currentUserMessageId ? burst.find((m) => m.id === currentUserMessageId) : undefined;
+  const nonSystemRecent = burst.filter((m) => m.catId === null).slice(-2);
+  const evidenceLines = await recallEvidence(
+    deps.evidenceStore,
+    threadTitle,
+    currentMsg?.content ?? '',
+    nonSystemRecent,
+    hcConfig,
+  );
+
+  // 3.9 Phase D: Build coverage map (AC-D2) — VG-1: only evidence recall titles (not tombstone search hints)
   const participants = [...new Set(omitted.map((m) => m.catId ?? m.userId).filter(Boolean))] as string[];
+  const retrievalHints = evidenceLines.map((line) => {
+    const match = line.match(/^\[Evidence:\s*(.+?)\]/);
+    return match ? match[1] : line.slice(0, 80);
+  });
   const coverageMap = buildCoverageMap({
     omitted: {
       count: omitted.length,
@@ -589,23 +604,12 @@ async function assembleSmartWindowContext(
     },
     anchorIds: anchors.map((a) => a.message.id),
     threadMemory: threadMemoryMeta,
-    retrievalHints: [],
+    retrievalHints,
   });
   const coverageMapText = `[Context Coverage Map]\n${JSON.stringify(coverageMap)}`;
   const threadMemoryText = threadMemorySummary
     ? `[Thread Memory: ${threadMemoryMeta?.sessionsIncorporated ?? 0} sessions]\n${threadMemorySummary}`
     : '';
-
-  // 4. Evidence recall (fail-open)
-  const currentMsg = currentUserMessageId ? burst.find((m) => m.id === currentUserMessageId) : undefined;
-  const nonSystemRecent = burst.filter((m) => m.catId === null).slice(-2);
-  const evidenceLines = await recallEvidence(
-    deps.evidenceStore,
-    threadTitle,
-    currentMsg?.content ?? '',
-    nonSystemRecent,
-    hcConfig,
-  );
 
   // 5. Tool payload scrub on burst
   const scrubbedBurst = scrubToolPayloads(burst);
