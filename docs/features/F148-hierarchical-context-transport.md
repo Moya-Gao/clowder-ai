@@ -119,6 +119,16 @@ created: 2026-03-31
 | threadMemory 覆盖率低（~4%）导致 L1 空洞 | Phase A 设计为完全容忍 L1 缺失，tombstone + evidence 兜底 |
 | tool payload scrub 误压缩关键信息 | 只压缩非最后一跳，最后一跳保留完整 |
 
+## Vision Guard Gaps（愿景守护发现，close 前须修复）
+
+来源：Phase E 愿景守护（2026-04-02），缅因猫 GPT-5.4 + 金渐层独立评估。
+
+| # | Gap | 类型 | GitHub Issue | 状态 |
+|---|-----|------|-------------|------|
+| VG-1 | `coverageMap.retrievalHints` 硬编码空数组，briefing 卡片"证据 N 条"永远显示 0 | bug | [#916](https://github.com/zts212653/cat-cafe/issues/916) | 🚧 修复中 |
+| VG-2 | briefing 卡片展开态缺 retrieval hints + evidence titles（"解释卡"→"行动卡"） | enhancement | [#917](https://github.com/zts212653/cat-cafe/issues/917) | ⬜ |
+| VG-3 | threadMemory 是文件操作账本，缺决策/产物粒度（含 GPT Pro structured state ledger 建议） | enhancement | [#918](https://github.com/zts212653/cat-cafe/issues/918) | ⬜ |
+
 ## Open Questions
 
 | # | 问题 | 状态 |
