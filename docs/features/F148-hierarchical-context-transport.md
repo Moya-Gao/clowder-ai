@@ -127,7 +127,7 @@ created: 2026-03-31
 |---|-----|------|-------------|------|
 | VG-1 | `coverageMap.retrievalHints` 硬编码空数组，briefing 卡片"证据 N 条"永远显示 0 | bug | [#916](https://github.com/zts212653/cat-cafe/issues/916) / PR #919 | ✅ merged |
 | VG-2 | briefing 卡片 UX：来源标识 + 默认折叠 + 展开态 retrieval hints（铲屎官 runtime 实测反馈 2026-04-02） | enhancement | [#917](https://github.com/zts212653/cat-cafe/issues/917) / PR #920 | ✅ merged |
-| VG-3 | threadMemory 是文件操作账本，缺决策/产物粒度（含 GPT Pro structured state ledger 建议） | enhancement | [#918](https://github.com/zts212653/cat-cafe/issues/918) | 🚧 设计完成 |
+| VG-3 | threadMemory 是文件操作账本，缺决策/产物粒度（含 GPT Pro structured state ledger 建议） | enhancement | [#918](https://github.com/zts212653/cat-cafe/issues/918) / PR #922 | ✅ merged |
 
 ### VG-3 设计方案（2026-04-02 布偶猫 + 缅因猫 Spark 收敛）
 
@@ -184,6 +184,7 @@ created: 2026-03-31
 | 2026-04-02 | VG-1 fix merged (PR #919) — coverageMap.retrievalHints 填充 evidence recall 标题。缅因猫 review (R1: 1P1+1P2, R2 pass) + 云端 review passed |
 | 2026-04-02 | VG-2 fix merged (PR #920) — collapsible briefing card with source label + evidence hints。缅因猫 Spark review (pass) + 云端 review passed |
 | 2026-04-02 | VG-3 设计收敛 — 布偶猫 + 缅因猫 Spark 讨论，B+A 方案（KD-6），3 commit 拆分 |
+| 2026-04-02 | VG-3 fix merged (PR #922) — extractDecisionSignals + ThreadMemory v2 + SessionSealer wiring + briefing display。缅因猫 Spark review (R1: 2P1+1P2, R2 pass) + 3 rounds 云端 review (R1: 1P1+1P2, R2: 1P1, R3 pass) |
 
 ## Review Gate
 
