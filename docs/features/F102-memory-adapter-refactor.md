@@ -1455,23 +1455,39 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J ✅ 已合入（PR #899, Memory Hub 人类产品面）+ Phase F-1/2/3 ✅ 已合入（PR #904, 多项目记忆接入）。G 运行时验收 + IMaterializationService 待开。
+> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908)。剩余 3 Batch 待做。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
-### 整体顺序（2026-03-30 三方收敛：布偶猫+砚砚+铲屎官）
+### 收尾三批次（2026-04-01 三方收敛：布偶猫+砚砚 GPT-5.4+铲屎官）
+
+> **原则**：先补真相源闭环，再验运行时，再打磨人类入口。
+
+```
+Batch 1: IMaterializationService 终态
+         approved → docs/*.md 写入 → git commit → reindex trigger → 冲突处理
+         验收：工程闭环 + 铲屎官短验收（改真相源文档，语义风险高）
+
+Batch 2: Phase G 运行时验收闭环
+         thread 摘要 / dirty thread 调度 / candidate extraction → 真实运行质量确认
+         前提：Batch 1 完成（否则 candidate 生命周期链不完整）
+         验收：真实 thread / candidate / approve 全链路跑通
+
+Batch 3: /memory 体验层收口
+         a. project/global 维度切换器（后端 F-4 联邦检索已就绪，补前端入口）
+         b. Recall Feed snippet / source link / drill-down（从"能看"到"好用"）
+         验收：必须铲屎官亲手体验，才能说收口
+```
+
+### 历史整体顺序（2026-03-30 三方收敛，已全部完成）
 
 ```
 ① 已完成 Gap-1: runtime EMBED_MODE=on（PR #618 auto-derive + 当前 .env 已启用）
-② Stage 1: Phase I — Message-Level Permanence Repair（单项目内消息永久可搜）
-            I-1 JSONL backfill → I-2 时间过滤 → I-3 分层显式化
-③ Stage 2: Phase F-4 — Global Knowledge Foundation（全局知识层 + 联邦检索）✅ PR #886
-            从 Phase F 提前拆出，不等 F-1/F-2/F-3
-④ Stage 3: Phase J — Memory Hub（搜索/状态/Recall 前端一次到位）✅ PR #899
+② Stage 1: Phase I — Message-Level Permanence Repair ✅ PR #884 + #885
+③ Stage 2: Phase F-4 — Global Knowledge Foundation ✅ PR #886
+④ Stage 3: Phase J — Memory Hub ✅ PR #899
             注：跨项目切换器属于 Phase F 范围（wireframe 标注 [Phase F]），不在 J 内
-            I + F-4 都完成后再开工，不做单项目脚手架版
 ⑤ Stage 4: Phase F-1/F-2/F-3 — Project Onboarding & Ingestion ✅ PR #904
-            新项目策略 + 遗留项目扫描 + frontmatter formatter
-⑥ 穿插:   G 运行时验收 + IMaterializationService（独立于上述主线）
+⑥ Known Issues 1-6 fix ✅ PR #908
 ```
 
 **Why this order**（砚砚 2026-03-30 收紧）：
