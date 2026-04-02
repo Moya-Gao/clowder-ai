@@ -14,12 +14,16 @@ export function transformAcpEvent(
   catId: CatId,
   metadata: MessageMetadata,
 ): AgentMessage | null {
-  const { sessionUpdate, content, toolName, toolInput } = update.update as {
-    sessionUpdate: string;
+  // Gemini CLI may send update fields nested under `update.update` (ACP spec)
+  // or flat at the top level of notification params (observed in Gemini CLI v0.35.3).
+  const inner = (update.update ?? update) as {
+    sessionUpdate?: string;
     content?: { type: string; text?: string };
     toolName?: string;
     toolInput?: Record<string, unknown>;
   };
+  const { sessionUpdate, content, toolName, toolInput } = inner;
+  if (!sessionUpdate) return null;
   const now = Date.now();
 
   switch (sessionUpdate) {

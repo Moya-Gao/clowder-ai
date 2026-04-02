@@ -749,7 +749,8 @@ async function main(): Promise<void> {
             );
             const { AcpProcessPool } = await import('./domains/cats/services/agents/providers/acp/AcpProcessPool.js');
             const { AcpClient } = await import('./domains/cats/services/agents/providers/acp/AcpClient.js');
-            const poolKey = { projectPath: process.cwd(), providerProfile: id };
+            const acpProjectRoot = findMonorepoRoot();
+            const poolKey = { projectPath: acpProjectRoot, providerProfile: id };
             // Shared pool per variant — reused across cats with same variant
             if (!acpPoolRegistry.has(id)) {
               const pool = new AcpProcessPool(
@@ -763,7 +764,7 @@ async function main(): Promise<void> {
                   new AcpClient({
                     command: acpConfig.command,
                     args: acpConfig.startupArgs,
-                    cwd: process.cwd(),
+                    cwd: acpProjectRoot,
                   }),
               );
               acpPoolRegistry.set(id, pool);
@@ -772,6 +773,7 @@ async function main(): Promise<void> {
               catId,
               pool: acpPoolRegistry.get(id)!,
               poolKey,
+              projectRoot: acpProjectRoot,
             });
           } else {
             service = new GeminiAgentService({ catId });

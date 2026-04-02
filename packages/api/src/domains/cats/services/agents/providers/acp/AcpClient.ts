@@ -101,7 +101,7 @@ export class AcpClient {
     }) as ChildProcess;
 
     this.child.stderr?.on('data', (chunk: Buffer) => {
-      log.debug('[acp stderr] %s', chunk.toString().trimEnd());
+      log.warn({ pid: this.child?.pid }, '[acp stderr] %s', chunk.toString().trimEnd());
     });
 
     this.child.on('error', (err) => {

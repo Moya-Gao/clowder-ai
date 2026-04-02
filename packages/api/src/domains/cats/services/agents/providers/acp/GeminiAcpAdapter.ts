@@ -25,17 +25,21 @@ export interface GeminiAcpAdapterConfig {
   catId: CatId;
   pool: AcpProcessPool;
   poolKey: PoolKey;
+  /** Project root (monorepo root) — used as default session cwd */
+  projectRoot: string;
 }
 
 export class GeminiAcpAdapter implements AgentService {
   readonly catId: CatId;
   private readonly pool: AcpProcessPool;
   private readonly poolKey: PoolKey;
+  private readonly projectRoot: string;
 
   constructor(config: GeminiAcpAdapterConfig) {
     this.catId = config.catId;
     this.pool = config.pool;
     this.poolKey = config.poolKey;
+    this.projectRoot = config.projectRoot;
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
@@ -79,7 +83,7 @@ export class GeminiAcpAdapter implements AgentService {
       cancelSession(sessionId: string): void;
       promptStream(sessionId: string, text: string): AsyncGenerator<import('./types.js').AcpSessionUpdate>;
     };
-    const cwd = options?.workingDirectory ?? process.cwd();
+    const cwd = options?.workingDirectory ?? this.projectRoot;
     let sessionId: string | undefined;
 
     // Abort handler: cancels the specific session, not the shared client
@@ -96,9 +100,11 @@ export class GeminiAcpAdapter implements AgentService {
     }
 
     try {
+      log.info({ catId: this.catId, cwd }, 'ACP newSession starting');
       const session = await client.newSession(cwd);
       sessionId = session.sessionId;
       metadata.sessionId = sessionId;
+      log.info({ catId: this.catId, sessionId }, 'ACP newSession completed');
 
       // Window 2: abort may have fired during newSession
       if (options?.signal?.aborted) {
@@ -134,10 +140,14 @@ export class GeminiAcpAdapter implements AgentService {
       const effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
 
       // Window 4: onAbort listener covers the duration of promptStream
+      log.info({ catId: this.catId, sessionId, promptLen: effectivePrompt.length }, 'ACP promptStream starting');
+      let eventCount = 0;
       for await (const event of client.promptStream(sessionId, effectivePrompt)) {
+        eventCount++;
         const msg = transformAcpEvent(event, this.catId, metadata);
         if (msg) yield msg;
       }
+      log.info({ catId: this.catId, sessionId, eventCount }, 'ACP promptStream completed');
 
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     } catch (err) {
