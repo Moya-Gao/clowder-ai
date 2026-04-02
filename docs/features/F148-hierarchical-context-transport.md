@@ -96,11 +96,11 @@ created: 2026-03-31
 - [x] AC-D1: buildThreadMemory 区分 read/write，产出产物清单
 - [x] AC-D2: coverage map JSON 对象随 context packet 投递
 
-### Phase E（Context Briefing Surface）
-- [ ] AC-E1: smart window 触发时系统自动插入 context briefing 到 thread（猫无感知）
-- [ ] AC-E2: briefing 不进入后续 assembleIncrementalContext 投喂（non-routing 硬约束）
-- [ ] AC-E3: 折叠态一行显示核心指标（看到/省略/锚点/记忆/证据数量）
-- [ ] AC-E4: 展开态显示 participants、time range、anchor 文本、threadMemory 摘要
+### Phase E（Context Briefing Surface）✅
+- [x] AC-E1: smart window 触发时系统自动插入 context briefing 到 thread（猫无感知）
+- [x] AC-E2: briefing 不进入后续 assembleIncrementalContext 投喂（non-routing 硬约束）
+- [x] AC-E3: 折叠态一行显示核心指标（看到/省略/锚点/记忆/证据数量）
+- [x] AC-E4: 展开态显示 participants、time range、anchor 文本、threadMemory 摘要
 
 ## Dependencies
 
@@ -149,6 +149,7 @@ created: 2026-03-31
 | 2026-04-02 | Phase C merged (PR #907) — importance scoring + anchor extraction + content sanitization. 缅因猫 review (1P1+2P2 fixed) + 3 rounds cloud review (2 P1 fixed) |
 | 2026-04-02 | Phase D merged (PR #909) — product-oriented threadMemory + coverage map JSON. 缅因猫 review (1P1+2P2 fixed) + 2 rounds cloud review (1 P1 fixed) |
 | 2026-04-02 | Phase E 立项 — context briefing surface（愿景守护后铲屎官拍板） |
+| 2026-04-02 | Phase E merged (PR #913) — format-briefing + system_info delivery + frontend addMessage. 缅因猫 review (3P1 fixed, R1→R2→R3) + 云端 review passed |
 
 ## Review Gate
 
