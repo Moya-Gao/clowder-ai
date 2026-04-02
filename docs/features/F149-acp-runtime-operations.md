@@ -89,11 +89,11 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 - [x] AC-A4: GPT Pro 与 Gemini DeepThink 的咨询文档落盘，且问题聚焦池化 / lease / lifecycle，不再重问”要不要改成 API”
 - [x] AC-A5: ACP provider profile 白名单落盘并可复现当前 repo-cwd 成功启动路径
 
-### Phase B（Gemini ACP Hosted Provider）
-- [ ] AC-B1: Gemini ACP 在仓库 cwd 下可完成 `initialize → newSession → prompt`
-- [ ] AC-B2: 同一 ACP process 内，至少两个 thread session 可顺序复用而不重新 `initialize`
-- [ ] AC-B3: warm attach 路径不再重付 cold `initialize` 成本
-- [ ] AC-B4: 失败分类至少区分 `init_failure / prompt_failure / model_capacity / mcp_pollution / lease_timeout`
+### Phase B（Gemini ACP Hosted Provider）✅
+- [x] AC-B1: Gemini ACP 在仓库 cwd 下可完成 `initialize → newSession → prompt`
+- [x] AC-B2: 同一 ACP process 内，至少两个 thread session 可顺序复用而不重新 `initialize`
+- [x] AC-B3: warm attach 路径不再重付 cold `initialize` 成本
+- [x] AC-B4: 失败分类至少区分 `init_failure / prompt_failure / model_capacity / mcp_pollution / lease_timeout`
 
 ### Phase C（项目级进程池 + Session Lease）
 - [ ] AC-C1: 默认进程池 key 为 `(projectPath, providerProfile)`，thread 不直接拥有 ACP process
@@ -188,6 +188,8 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-04-01 | GPT Pro + Gemini DeepThink 云端咨询完成，本地收敛：KD-6~KD-9 落定（session binding 分层、三层失败 taxonomy、loadSession shadow、multiplexing seam） |
 | 2026-04-02 | **Phase A done** — ACP types + AcpClient + spike + OQ-6 MULTIPLEX 验证 + provider profile（cat-config.json `acp` section）+ boundary clarification。AC-A1~A5 全部 ✅ |
 | 2026-04-02 | Phase A merged (PR #910) — 砚砚 local review (R1 退回→R2 放行) + 云端 review (R1/R2 P1 修→R3 clean) |
+| 2026-04-02 | **Phase B done** — GeminiAcpAdapter + AcpClient.promptStream() + acp-event-transformer + 配置切换 + 前端 ACP/CLI badge。29 tests green。砚砚 local review (R1→R4, 4-window abort 覆盖) + 云端 review clean。AC-B1~B4 全部 ✅ |
+| 2026-04-02 | Phase B merged (PR #914) — squash merge `40bccea3` |
 
 ## Review Gate
 
