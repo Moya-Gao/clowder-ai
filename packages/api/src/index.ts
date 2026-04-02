@@ -616,69 +616,82 @@ async function main(): Promise<void> {
             }
           : undefined,
         // H-3: Submit durable candidates to knowledge emergence pipeline
-        submitCandidate: async (candidate) => {
-          const marker = await memoryServices.markerQueue.submit({
-            content: `[${candidate.kind}] ${candidate.title}: ${candidate.claim}`,
-            source: `thread:${candidate.threadId}`,
-            status: 'captured',
-            // method → lesson: EvidenceKind has no 'method' variant; methods are stored as lessons
-            targetKind: candidate.kind === 'decision' ? 'decision' : 'lesson',
-          });
-          // Auto-approve explicit candidates (铲屎官不需要每条都审)
-          if (candidate.confidence === 'explicit') {
-            await memoryServices.markerQueue.transition(marker.id, 'normalized');
-            await memoryServices.markerQueue.transition(marker.id, 'approved');
-            app.log.info(`[knowledge-emergence] auto-approved: [${candidate.kind}] ${candidate.title}`);
-          } else {
-            app.log.info(`[knowledge-emergence] submitted for review: [${candidate.kind}] ${candidate.title}`);
-          }
-        },
+        // Gated by F102_DURABLE_CANDIDATES flag (spec §F102 env config)
+        submitCandidate:
+          process.env.F102_DURABLE_CANDIDATES !== 'on'
+            ? undefined
+            : async (candidate) => {
+                const marker = await memoryServices.markerQueue.submit({
+                  content: `[${candidate.kind}] ${candidate.title}: ${candidate.claim}`,
+                  source: `thread:${candidate.threadId}`,
+                  status: 'captured',
+                  // method → lesson: EvidenceKind has no 'method' variant; methods are stored as lessons
+                  targetKind: candidate.kind === 'decision' ? 'decision' : 'lesson',
+                });
+                // Auto-approve explicit candidates (铲屎官不需要每条都审)
+                if (candidate.confidence === 'explicit') {
+                  await memoryServices.markerQueue.transition(marker.id, 'normalized');
+                  await memoryServices.markerQueue.transition(marker.id, 'approved');
+                  app.log.info(`[knowledge-emergence] auto-approved: [${candidate.kind}] ${candidate.title}`);
+                } else {
+                  app.log.info(`[knowledge-emergence] submitted for review: [${candidate.kind}] ${candidate.title}`);
+                }
+              },
         logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
       });
 
       taskRunnerV2.register(summarySpec);
-      app.log.info('[api] F139: summary-compact spec registered');
+      const candidatesOn = process.env.F102_DURABLE_CANDIDATES === 'on';
+      const topicSegOn = process.env.F102_TOPIC_SEGMENTS === 'on';
+      app.log.info(
+        `[api] F139: summary-compact spec registered (candidates=${candidatesOn ? 'on' : 'off'}, topicSegments=${topicSegOn ? 'on' : 'off'})`,
+      );
 
       // H-3 backfill: replay lost candidates from summary_segments into MarkerQueue.
-      // Before the mkdirSync fix, submit() silently failed (ENOENT). This one-shot
-      // replay recovers those candidates. Idempotent via content-based dedup: each
-      // candidate is skipped if a marker with identical content already exists.
-      const existingMarkers = await memoryServices.markerQueue.list();
-      const existingContents = new Set(existingMarkers.map((m) => m.content));
-      const rows = db
-        .prepare('SELECT thread_id, candidates FROM summary_segments WHERE candidates IS NOT NULL')
-        .all() as Array<{ thread_id: string; candidates: string }>;
-      let backfilled = 0;
-      for (const row of rows) {
-        try {
-          const candidates = JSON.parse(row.candidates) as Array<{
-            kind: string;
-            title: string;
-            claim: string;
-            confidence?: string;
-          }>;
-          for (const c of candidates) {
-            const content = `[${c.kind}] ${c.title}: ${c.claim}`;
-            if (existingContents.has(content)) continue;
-            const marker = await memoryServices.markerQueue.submit({
-              content,
-              source: `thread:${row.thread_id}`,
-              status: 'captured',
-              targetKind: c.kind === 'decision' ? 'decision' : 'lesson',
-            });
-            if ((c.confidence ?? 'inferred') === 'explicit') {
-              await memoryServices.markerQueue.transition(marker.id, 'normalized');
-              await memoryServices.markerQueue.transition(marker.id, 'approved');
+      // Gated by F102_DURABLE_CANDIDATES (same gate as submitCandidate above).
+      if (!candidatesOn) {
+        app.log.info('[knowledge-backfill] skipped (F102_DURABLE_CANDIDATES=off)');
+      } else {
+        // Before the mkdirSync fix, submit() silently failed (ENOENT). This one-shot
+        // replay recovers those candidates. Idempotent via content-based dedup: each
+        // candidate is skipped if a marker with identical content already exists.
+        const existingMarkers = await memoryServices.markerQueue.list();
+        const existingContents = new Set(existingMarkers.map((m) => m.content));
+        const rows = db
+          .prepare('SELECT thread_id, candidates FROM summary_segments WHERE candidates IS NOT NULL')
+          .all() as Array<{ thread_id: string; candidates: string }>;
+        let backfilled = 0;
+        for (const row of rows) {
+          try {
+            const candidates = JSON.parse(row.candidates) as Array<{
+              kind: string;
+              title: string;
+              claim: string;
+              confidence?: string;
+            }>;
+            for (const c of candidates) {
+              const content = `[${c.kind}] ${c.title}: ${c.claim}`;
+              if (existingContents.has(content)) continue;
+              const marker = await memoryServices.markerQueue.submit({
+                content,
+                source: `thread:${row.thread_id}`,
+                status: 'captured',
+                targetKind: c.kind === 'decision' ? 'decision' : 'lesson',
+              });
+              if ((c.confidence ?? 'inferred') === 'explicit') {
+                await memoryServices.markerQueue.transition(marker.id, 'normalized');
+                await memoryServices.markerQueue.transition(marker.id, 'approved');
+              }
+              existingContents.add(content);
+              backfilled++;
             }
-            existingContents.add(content);
-            backfilled++;
+          } catch (backfillErr) {
+            app.log.error(`[knowledge-backfill] failed for thread ${row.thread_id}: ${backfillErr}`);
           }
-        } catch (backfillErr) {
-          app.log.error(`[knowledge-backfill] failed for thread ${row.thread_id}: ${backfillErr}`);
         }
-      }
-      if (backfilled > 0) {
-        app.log.info(`[knowledge-backfill] replayed ${backfilled} lost candidates into MarkerQueue`);
+        if (backfilled > 0) {
+          app.log.info(`[knowledge-backfill] replayed ${backfilled} lost candidates into MarkerQueue`);
+        }
       }
     } catch (err) {
       app.log.warn(`[api] F102 Phase G: scheduler init failed (non-fatal): ${err}`);

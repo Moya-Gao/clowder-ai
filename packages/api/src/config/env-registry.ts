@@ -1087,6 +1087,20 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'F102_DURABLE_CANDIDATES',
+    defaultValue: 'off',
+    description: 'Phase G candidate 提取 (off/on)，on = 摘要时提取 durable knowledge 候选到 MarkerQueue',
+    category: 'evidence',
+    sensitive: false,
+  },
+  {
+    name: 'F102_TOPIC_SEGMENTS',
+    defaultValue: 'off',
+    description: 'Phase G topic 分段 (off/on)，on = 摘要按话题切分多个 segment',
+    category: 'evidence',
+    sensitive: false,
+  },
+  {
     name: 'EMBED_URL',
     defaultValue: 'http://127.0.0.1:9880',
     description: 'Embedding 服务地址（独立 Python GPU 进程 scripts/embed-api.py）',
