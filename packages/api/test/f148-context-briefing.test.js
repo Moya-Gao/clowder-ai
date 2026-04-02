@@ -133,4 +133,29 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
     const labels = card.fields.map((f) => f.label);
     assert.ok(labels.some((l) => l.includes('参与者') || l.includes('Participants')));
   });
+
+  test('VG-2: bodyMarkdown includes retrieval hints when present', () => {
+    const mapWithHints = {
+      ...baseCoverageMap,
+      retrievalHints: ['ADR-005: Redis Key Prefix', 'F088: Chat Gateway'],
+    };
+    const msg = buildBriefingMessage(mapWithHints, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    assert.ok(card.bodyMarkdown, 'should have bodyMarkdown');
+    assert.ok(card.bodyMarkdown.includes('ADR-005'), 'should include first evidence title');
+    assert.ok(card.bodyMarkdown.includes('F088'), 'should include second evidence title');
+  });
+
+  test('VG-2: bodyMarkdown omits evidence section when retrievalHints empty', () => {
+    const mapNoHints = {
+      ...baseCoverageMap,
+      retrievalHints: [],
+    };
+    const msg = buildBriefingMessage(mapNoHints, 'thread-1');
+    const card = msg.extra.rich.blocks[0];
+    // bodyMarkdown should exist (has participants etc.) but no evidence section
+    if (card.bodyMarkdown) {
+      assert.ok(!card.bodyMarkdown.includes('证据'), 'no evidence section when empty');
+    }
+  });
 });

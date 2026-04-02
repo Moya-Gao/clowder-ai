@@ -100,6 +100,9 @@ export function buildBriefingMessage(
   if (options?.threadMemorySummary) {
     bodyParts.push(`**线程记忆**:\n${options.threadMemorySummary}`);
   }
+  if (coverageMap.retrievalHints.length > 0) {
+    bodyParts.push(`**证据召回**:\n${coverageMap.retrievalHints.map((h) => `- ${h}`).join('\n')}`);
+  }
 
   const card: RichCardBlock = {
     id: 'briefing-1',
