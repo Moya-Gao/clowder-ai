@@ -1395,6 +1395,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-01 | **PR #908 squash merged** — Known Issues 1-6 全部修复：Recall Feed param fix + truncation 1500 + "已确认" label + 8-type sourceType + IndexStatus fields + EvidenceSearch UX |
 | 2026-04-01 | **PR #911 squash merged** — Batch 1: IMaterializationService 终态 — targetKind 白名单 + execFileSync + KIND_TO_DIR 映射 + approve→materialize 集成 + 13 tests |
 | 2026-04-02 | **PR #912 squash merged** — Batch 2: Phase G 运行时验收闭环 — env flag 注册 + submitCandidate/H-3 backfill 双路门控 + e2e processThread 7 tests + parser edge case 5 tests |
+| 2026-04-02 | **PR #915 squash merged** — Batch 3: /memory 体验层收口 — dimension switcher (project/global/all) + RecallFeed snippet/drill-down + auto-search re-trigger fix + stale response race guard |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
@@ -1474,7 +1475,7 @@ Batch 2: Phase G 运行时验收闭环 ✅ PR #912
          前提：Batch 1 完成（否则 candidate 生命周期链不完整）
          验收：真实 thread / candidate / approve 全链路跑通
 
-Batch 3: /memory 体验层收口
+Batch 3: /memory 体验层收口 ✅ PR #915
          a. project/global 维度切换器（后端 F-4 联邦检索已就绪，补前端入口）
          b. Recall Feed snippet / source link / drill-down（从"能看"到"好用"）
          验收：必须铲屎官亲手体验，才能说收口
@@ -1492,6 +1493,7 @@ Batch 3: /memory 体验层收口
 ⑥ Known Issues 1-6 fix ✅ PR #908
 ⑦ Batch 1: IMaterializationService 终态 ✅ PR #911
 ⑧ Batch 2: Phase G 运行时验收闭环 ✅ PR #912
+⑨ Batch 3: /memory 体验层收口 ✅ PR #915
 ```
 
 **Why this order**（砚砚 2026-03-30 收紧）：
