@@ -26,7 +26,10 @@ describe('assembleIncrementalContext — GAP-1 budget enforcement', () => {
     );
 
     assert.ok(result.contextText.includes(msgs[msgs.length - 1].id), 'Should include the newest message');
-    assert.ok(!result.contextText.includes(msgs[0].id), 'Should NOT include the oldest capped message');
+    // F148 Phase C: msgs[0] may appear as primacy anchor [Thread opener: {id}].
+    // Anchor format does NOT contain `[{id}]` (burst format), so this check is precise.
+    const oldestInBurst = result.contextText.includes(`[${msgs[0].id}]`);
+    assert.ok(!oldestInBurst, 'Oldest message must not appear in burst format (may appear as [Thread opener: ...] anchor)');
   });
 
   test('caps messages when stale cursor produces large unseen batch', async () => {

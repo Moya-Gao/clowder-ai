@@ -18,9 +18,11 @@ import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
 import {
   buildTombstone,
   detectRecentBurst,
+  formatAnchors,
   formatTombstone,
   recallEvidence,
   scrubToolPayloads,
+  selectAnchors,
 } from './context-transport.js';
 
 /** Minimal broadcast interface — avoids coupling routing layer to SocketManager concrete class */
@@ -479,7 +481,7 @@ async function assembleSmartWindowContext(
   currentUserMessageId: string | undefined,
   currentMessageFilteredOut: boolean,
   hcConfig: import('../../../../../config/hierarchical-context-config.js').HierarchicalContextConfig,
-  cursor: string | undefined,
+  _cursor: string | undefined,
   options: IncrementalContextOptions | undefined,
 ): Promise<IncrementalContextResult> {
   const budget = getCatContextBudget(catId as string);
@@ -499,9 +501,33 @@ async function assembleSmartWindowContext(
     }
   }
 
-  // 3. Tombstone
-  const tombstone = buildTombstone(omitted, threadTitle, hcConfig, threadId);
+  // 3. Sanitize omitted content once (before tombstone keyword extraction + anchor formatting)
+  const sanitizedOmitted = omitted.map((m) => ({
+    ...m,
+    content: sanitizeInjectedContent(m.content),
+  }));
+
+  // 3.1 Tombstone (uses sanitized content for keyword extraction)
+  const tombstone = buildTombstone(sanitizedOmitted, threadTitle, hcConfig, threadId);
   const tombstoneText = tombstone ? formatTombstone(tombstone) : '';
+
+  // 3.5 Phase C: Anchor extraction from omitted messages
+  const currentMsgText = currentUserMessageId
+    ? (burst.find((m) => m.id === currentUserMessageId)?.content.slice(0, 200) ?? '')
+    : '';
+  const compositeQueryTerms = [threadTitle, currentMsgText]
+    .concat(
+      burst
+        .filter((m) => m.catId === null)
+        .slice(-2)
+        .map((m) => m.content.slice(0, 200)),
+    )
+    .join(' ')
+    .toLowerCase()
+    .split(/[^a-zA-Z0-9\u4e00-\u9fff]+/)
+    .filter((w) => w.length >= 3);
+  const anchors = selectAnchors(sanitizedOmitted, compositeQueryTerms, hcConfig.maxAnchors);
+  const anchorLines = formatAnchors(anchors, truncateLimit);
 
   // 4. Evidence recall (fail-open)
   const currentMsg = currentUserMessageId ? burst.find((m) => m.id === currentUserMessageId) : undefined;
@@ -540,20 +566,34 @@ async function assembleSmartWindowContext(
     };
   }
 
-  // Token trim with graduated degradation: evidence → tombstone → burst
+  // Token trim with graduated degradation: evidence → anchors → tombstone → burst
   let finalBurstLines = burstLines;
   let finalBurstMsgs = scrubbedBurst;
   const finalEvidenceLines = [...evidenceLines];
+  const finalAnchorLines = [...anchorLines];
+  const anchorScores = anchors.map((a) => a.score);
   let finalTombstoneText = tombstoneText;
   let tokenDegradation: string | undefined;
 
   const totalTokens = () =>
-    estimateTokens([finalTombstoneText, ...finalEvidenceLines, ...finalBurstLines].filter(Boolean).join('\n'));
+    estimateTokens(
+      [finalTombstoneText, ...finalAnchorLines, ...finalEvidenceLines, ...finalBurstLines].filter(Boolean).join('\n'),
+    );
 
   if (totalTokens() > effectiveTokenBudget) {
     // Stage 1: Drop evidence lines from oldest
     while (finalEvidenceLines.length > 0 && totalTokens() > effectiveTokenBudget) {
       finalEvidenceLines.shift();
+    }
+
+    // Stage 1.5: Drop anchors by lowest score
+    while (finalAnchorLines.length > 0 && totalTokens() > effectiveTokenBudget) {
+      let minIdx = 0;
+      for (let i = 1; i < anchorScores.length; i++) {
+        if (anchorScores[i] < anchorScores[minIdx]) minIdx = i;
+      }
+      finalAnchorLines.splice(minIdx, 1);
+      anchorScores.splice(minIdx, 1);
     }
 
     // Stage 2: Drop tombstone
@@ -580,12 +620,13 @@ async function assembleSmartWindowContext(
       };
     }
 
-    tokenDegradation = `⚠️ 增量上下文 token 预算截断: evidence ${evidenceLines.length} → ${finalEvidenceLines.length}, burst ${burstLines.length} → ${finalBurstLines.length}`;
+    tokenDegradation = `⚠️ 增量上下文 token 预算截断: evidence ${evidenceLines.length} → ${finalEvidenceLines.length}, anchors ${anchorLines.length} → ${finalAnchorLines.length}, burst ${burstLines.length} → ${finalBurstLines.length}`;
   }
 
   // 8. Assemble context packet
   const sections: string[] = [];
   if (finalTombstoneText) sections.push(finalTombstoneText);
+  if (finalAnchorLines.length > 0) sections.push(...finalAnchorLines);
   if (finalEvidenceLines.length > 0) {
     sections.push(`[Related evidence]\n${finalEvidenceLines.join('\n')}\n[/Related evidence]`);
   }

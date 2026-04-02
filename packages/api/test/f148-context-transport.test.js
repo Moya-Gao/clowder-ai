@@ -6,9 +6,12 @@ import { DEFAULT_HIERARCHICAL_CONTEXT } from '../dist/config/hierarchical-contex
 import {
   buildTombstone,
   detectRecentBurst,
+  formatAnchors,
   formatTombstone,
   recallEvidence,
+  scoreImportance,
   scrubToolPayloads,
+  selectAnchors,
 } from '../dist/domains/cats/services/agents/routing/context-transport.js';
 
 // --- Test Helpers ---
@@ -420,5 +423,169 @@ describe('F148: recallEvidence', () => {
     resetSeq();
     const results = await recallEvidence(errorStore, 'Thread', 'test', makeMsgSequence(1), config);
     assert.deepEqual(results, []);
+  });
+});
+
+// --- Phase C: scoreImportance Tests ---
+
+describe('F148 Phase C: scoreImportance', () => {
+  it('AC-C1: code blocks boost structural score', () => {
+    resetSeq();
+    const msg = makeMsg({ content: 'Here is the fix:\n```js\nconst x = 1;\n```' });
+    const scored = scoreImportance(msg, 5, 50, []);
+    assert.ok(scored.signals.structural > 0, 'code block should boost structural');
+  });
+
+  it('AC-C1: @-mentions boost structural score', () => {
+    resetSeq();
+    const msg = makeMsg({ content: 'normal text', mentions: ['opus'] });
+    const scored = scoreImportance(msg, 5, 50, []);
+    assert.ok(scored.signals.structural > 0, '@-mention should boost structural');
+  });
+
+  it('AC-C1: tool events boost structural score', () => {
+    resetSeq();
+    const msg = makeMsg({ content: 'result', toolEvents: [{ type: 'tool_result', label: 'search' }] });
+    const scored = scoreImportance(msg, 5, 50, []);
+    assert.ok(scored.signals.structural > 0, 'tool event should boost structural');
+  });
+
+  it('AC-C3: index 0 is primacy', () => {
+    resetSeq();
+    const scored = scoreImportance(makeMsg({}), 0, 50, []);
+    assert.ok(scored.isPrimacy, 'first message should be primacy');
+    assert.ok(scored.signals.positional > 0, 'primacy boosts positional');
+  });
+
+  it('AC-C1: keyword overlap boosts relevance', () => {
+    resetSeq();
+    const msg = makeMsg({ content: 'Redis cluster configuration sentinel mode' });
+    const scored = scoreImportance(msg, 5, 50, ['redis', 'cluster']);
+    assert.ok(scored.signals.relevance > 0, 'keyword match should boost relevance');
+  });
+
+  it('plain message has low score', () => {
+    resetSeq();
+    const msg = makeMsg({ content: 'ok sounds good' });
+    const scored = scoreImportance(msg, 10, 50, ['redis']);
+    assert.equal(scored.score, scored.signals.structural + scored.signals.positional + scored.signals.relevance);
+    assert.ok(scored.score === 0, 'filler message should score 0');
+  });
+});
+
+// --- Phase C: selectAnchors Tests ---
+
+describe('F148 Phase C: selectAnchors', () => {
+  it('AC-C3: primacy anchor always included', () => {
+    resetSeq();
+    const msgs = Array.from({ length: 20 }, (_, i) =>
+      makeMsg({ content: i === 0 ? 'Thread opener question about Redis' : `filler msg ${i}` }),
+    );
+    const anchors = selectAnchors(msgs, ['redis'], 3);
+    assert.ok(
+      anchors.some((a) => a.isPrimacy),
+      'primacy anchor must be present',
+    );
+  });
+
+  it('AC-C2: returns at most maxAnchors', () => {
+    resetSeq();
+    const msgs = Array.from({ length: 20 }, () =>
+      makeMsg({ content: 'Redis ```code``` important', mentions: ['opus'] }),
+    );
+    const anchors = selectAnchors(msgs, ['redis'], 3);
+    assert.ok(anchors.length <= 3, `should not exceed maxAnchors, got ${anchors.length}`);
+  });
+
+  it('AC-C2: high-signal messages rank higher', () => {
+    resetSeq();
+    const msgs = [
+      makeMsg({ content: 'boring filler' }),
+      makeMsg({ content: 'Redis config:\n```yaml\nport: 6379\n```', mentions: ['opus'] }),
+      makeMsg({ content: 'ok' }),
+    ];
+    const anchors = selectAnchors(msgs, ['redis'], 2);
+    assert.ok(
+      anchors.some((a) => a.message.content.includes('Redis config')),
+      'high-signal message should be selected',
+    );
+  });
+
+  it('returns empty for empty omitted', () => {
+    assert.deepStrictEqual(selectAnchors([], ['redis'], 3), []);
+  });
+
+  it('P2-2: maxAnchors=0 returns empty (not 1 via primacy)', () => {
+    resetSeq();
+    const msgs = Array.from({ length: 5 }, (_, i) => makeMsg({ content: i === 0 ? 'Thread opener' : `msg ${i}` }));
+    const anchors = selectAnchors(msgs, [], 0);
+    assert.equal(anchors.length, 0, `maxAnchors=0 should return 0, got ${anchors.length}`);
+  });
+
+  it('P1: chronological re-sort does not break score-based trim', () => {
+    resetSeq();
+    // Create messages where highest-score is NOT first chronologically
+    // m0: primacy (score 5), m1: filler (score 0), m2: code+mention+keyword (score 6+)
+    const msgs = [
+      makeMsg({ content: 'Thread opener question' }), // idx 0: primacy +5
+      makeMsg({ content: 'ok sounds good' }), // idx 1: score 0
+      makeMsg({ content: 'Redis config:\n```yaml\nport: 6379\n```', mentions: ['opus'] }), // idx 2: structural 3+2=5, relevance +1 = 6
+    ];
+    const anchors = selectAnchors(msgs, ['redis'], 3);
+    // All 3 selected. After chronological sort: [m0, m1, m2]
+    // Scores: m0=5, m1=0, m2=6
+    // If we pop() the last, we lose m2 (score 6) — WRONG
+    // Correct trim should drop m1 (score 0)
+    assert.equal(anchors.length, 3);
+    // Verify the scores so trim logic can be tested in integration
+    const scores = anchors.map((a) => a.score);
+    // Last item should NOT necessarily be lowest score (it's chronological order)
+    // This test documents the ordering for the trim P1 fix
+    assert.ok(scores[scores.length - 1] > 0, 'last anchor chronologically has non-zero score');
+    assert.ok(scores[1] < scores[0], 'middle anchor (filler) should be lowest score');
+  });
+
+  it('anchors are sorted by original index (chronological)', () => {
+    resetSeq();
+    const msgs = Array.from({ length: 10 }, (_, i) =>
+      makeMsg({ content: i % 3 === 0 ? 'Redis ```code```' : 'filler', mentions: i % 3 === 0 ? ['opus'] : [] }),
+    );
+    const anchors = selectAnchors(msgs, ['redis'], 3);
+    for (let i = 1; i < anchors.length; i++) {
+      const prevIdx = msgs.indexOf(anchors[i - 1].message);
+      const currIdx = msgs.indexOf(anchors[i].message);
+      assert.ok(prevIdx < currIdx, 'anchors should be in chronological order');
+    }
+  });
+});
+
+// --- Phase C: formatAnchors Tests ---
+
+describe('F148 Phase C: formatAnchors', () => {
+  it('produces labeled lines with truncation', () => {
+    resetSeq();
+    const anchors = [
+      {
+        message: makeMsg({ content: 'x'.repeat(2000) }),
+        score: 10,
+        signals: { structural: 5, positional: 5, relevance: 0 },
+        isPrimacy: true,
+      },
+      {
+        message: makeMsg({ content: 'short msg' }),
+        score: 5,
+        signals: { structural: 2, positional: 0, relevance: 3 },
+        isPrimacy: false,
+      },
+    ];
+    const lines = formatAnchors(anchors, 500);
+    assert.equal(lines.length, 2);
+    assert.ok(lines[0].startsWith('[Thread opener:'), `primacy should be labeled, got: ${lines[0].slice(0, 30)}`);
+    assert.ok(lines[0].length < 600, 'should truncate long content');
+    assert.ok(lines[1].includes('short msg'));
+  });
+
+  it('returns empty for no anchors', () => {
+    assert.deepStrictEqual(formatAnchors([], 500), []);
   });
 });

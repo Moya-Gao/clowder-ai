@@ -278,6 +278,102 @@ export function scrubToolPayloads(messages: readonly StoredMessage[]): StoredMes
   });
 }
 
+// --- Phase C: Importance Scoring + Anchors ---
+
+export interface ImportanceSignals {
+  structural: number;
+  positional: number;
+  relevance: number;
+}
+
+export interface ScoredMessage {
+  message: StoredMessage;
+  score: number;
+  signals: ImportanceSignals;
+  isPrimacy: boolean;
+}
+
+/**
+ * F148 Phase C: Score a single omitted message for importance.
+ * Zero LLM cost — uses structural, positional, and keyword-relevance signals.
+ */
+export function scoreImportance(
+  msg: StoredMessage,
+  index: number,
+  totalOmitted: number,
+  queryTerms: string[],
+): ScoredMessage {
+  // Structural signals
+  let structural = 0;
+  if (/```[\s\S]*?```/.test(msg.content)) structural += 3; // code blocks
+  if (msg.mentions.length > 0) structural += 2; // @-mentions
+  if (msg.toolEvents && msg.toolEvents.length > 0) structural += 2; // tool events
+  if (msg.content.length > 500) structural += 1; // substantial content
+
+  // Positional signals
+  let positional = 0;
+  const isPrimacy = index === 0;
+  if (isPrimacy) positional += 5; // thread opener
+
+  // Relevance: count query term matches in content
+  let relevance = 0;
+  if (queryTerms.length > 0) {
+    const lower = msg.content.toLowerCase();
+    for (const term of queryTerms) {
+      if (lower.includes(term)) relevance += 1;
+    }
+  }
+
+  const signals: ImportanceSignals = { structural, positional, relevance };
+  return { message: msg, score: structural + positional + relevance, signals, isPrimacy };
+}
+
+/**
+ * F148 Phase C: Select top anchors from omitted messages.
+ * Guarantees primacy anchor (index 0) is always included (AC-C3).
+ * Returns anchors sorted by original index (chronological order).
+ */
+export function selectAnchors(
+  omitted: readonly StoredMessage[],
+  queryTerms: string[],
+  maxAnchors = 3,
+): ScoredMessage[] {
+  if (omitted.length === 0 || maxAnchors <= 0) return [];
+
+  const scored = omitted.map((msg, i) => scoreImportance(msg, i, omitted.length, queryTerms));
+  const sorted = [...scored].sort((a, b) => b.score - a.score);
+
+  // Take top N
+  const selected = sorted.slice(0, maxAnchors);
+
+  // Ensure primacy is included (AC-C3)
+  const hasPrimacy = selected.some((s) => s.isPrimacy);
+  if (!hasPrimacy && scored.length > 0) {
+    const primacy = scored[0]; // index 0 = primacy
+    selected.pop(); // remove lowest-scoring from selected
+    selected.push(primacy);
+  }
+
+  // Sort by original index for chronological order in output
+  const indexMap = new Map(omitted.map((m, i) => [m.id, i]));
+  selected.sort((a, b) => (indexMap.get(a.message.id) ?? 0) - (indexMap.get(b.message.id) ?? 0));
+
+  return selected;
+}
+
+/**
+ * F148 Phase C: Format anchor messages as labeled context lines.
+ */
+export function formatAnchors(anchors: ScoredMessage[], truncateLimit: number): string[] {
+  if (anchors.length === 0) return [];
+  return anchors.map((a, i) => {
+    const content =
+      a.message.content.length > truncateLimit ? `${a.message.content.slice(0, truncateLimit)}...` : a.message.content;
+    const label = a.isPrimacy ? 'Thread opener' : `Anchor ${i + 1}/${anchors.length}`;
+    return `[${label}: ${a.message.id}] ${content}`;
+  });
+}
+
 // --- Evidence Recall ---
 
 /** Minimal interface for evidence store search — matches IEvidenceStore.search signature */

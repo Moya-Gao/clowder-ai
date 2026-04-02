@@ -64,7 +64,10 @@ describe('assembleIncrementalContext — token budget enforcement (第二刀)', 
     const deps = buildDeps(messageStore, deliveryCursorStore);
     const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
 
-    assert.ok(!result.contextText.includes(msgs[0].id), 'Oldest message should be trimmed by token budget');
+    // F148 Phase C: msgs[0] may appear as primacy anchor [Thread opener: {id}].
+    // Anchor format does NOT contain `[{id}]` (burst format), so this check is precise.
+    const oldestInBurst = result.contextText.includes(`[${msgs[0].id}]`);
+    assert.ok(!oldestInBurst, 'Oldest message must not appear in burst format (may appear as [Thread opener: ...] anchor)');
     assert.ok(result.contextText.includes(msgs[msgs.length - 1].id), 'Newest message should survive token trim');
   });
 

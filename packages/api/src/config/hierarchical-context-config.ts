@@ -19,6 +19,8 @@ export interface HierarchicalContextConfig {
   maxEvidenceHits: number;
   /** Token count threshold: triggers smart window even when message count is low (Gap-1) */
   coldMentionTokenThreshold: number;
+  /** Phase C: max anchors to extract from omitted messages */
+  maxAnchors: number;
 }
 
 export const DEFAULT_HIERARCHICAL_CONTEXT: HierarchicalContextConfig = {
@@ -30,4 +32,5 @@ export const DEFAULT_HIERARCHICAL_CONTEXT: HierarchicalContextConfig = {
   evidenceRecallTimeoutMs: 500,
   maxEvidenceHits: 3,
   coldMentionTokenThreshold: 10_000, // ~10K tokens — triggers smart window for "few but fat" messages
+  maxAnchors: 3, // Phase C: top N high-value messages from omitted set
 };
