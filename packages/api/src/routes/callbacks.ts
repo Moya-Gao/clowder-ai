@@ -779,6 +779,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       ? { type: 'cat' as const, catId: createCatId(record.catId) }
       : { type: 'user' as const };
     const matchesExtraFilters = (item: Awaited<ReturnType<typeof messageStore.getByThread>>[number]): boolean => {
+      // F148 Phase E (AC-E2): briefing messages are non-routing, never enter cat context
+      if (item.origin === 'briefing') return false;
       if (filterCatId) {
         if (filterCatId === 'user') {
           if (item.catId !== null) return false;

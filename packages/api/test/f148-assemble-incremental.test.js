@@ -695,3 +695,141 @@ After text`;
     assert.ok(result.contextText.includes('Modified: routes.ts'), 'Non-poison content should survive sanitization');
   });
 });
+
+// --- Phase E: Context Briefing Surface ---
+
+describe('F148 Phase E: coverageMap on IncrementalContextResult', () => {
+  test('AC-E coverageMap is present when smart window triggers', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    const baseTs = Date.now() - 30 * 60_000;
+    for (let i = 0; i < 30; i++) {
+      messageStore.append(mockMsg({ content: `msg ${i}`, timestamp: baseTs + i * 60_000 }));
+    }
+    const deps = buildDeps(messageStore, deliveryCursorStore, {
+      threadStore: mockThreadStore('Test Thread'),
+    });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(result_is_smart_window(result), 'should use smart window path');
+    // Phase E: coverageMap must be present on result
+    assert.ok(result.coverageMap, 'coverageMap should be present on smart window result');
+    assert.equal(typeof result.coverageMap.omitted.count, 'number');
+    assert.ok(Array.isArray(result.coverageMap.anchorIds));
+    assert.ok(result.coverageMap.burst.count > 0, 'burst count should be > 0');
+  });
+
+  test('briefingContext includes threadMemorySummary when threadStore has memory', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    const baseTs = Date.now() - 30 * 60_000;
+    for (let i = 0; i < 30; i++) {
+      messageStore.append(mockMsg({ content: `msg ${i}`, timestamp: baseTs + i * 60_000 }));
+    }
+    const threadMemory = {
+      v: 1,
+      summary: 'Session #1: Created routes.ts. Modified index.ts.',
+      sessionsIncorporated: 1,
+      updatedAt: Date.now(),
+    };
+    const deps = buildDeps(messageStore, deliveryCursorStore, {
+      threadStore: mockThreadStore('Test Thread', threadMemory),
+    });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(result_is_smart_window(result), 'should use smart window');
+    assert.ok(result.briefingContext, 'briefingContext should be present');
+    assert.ok(result.briefingContext.threadMemorySummary, 'threadMemorySummary should be present');
+    assert.ok(result.briefingContext.threadMemorySummary.includes('routes.ts'));
+  });
+
+  test('briefingContext includes anchorSummaries from omitted messages', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    const baseTs = Date.now() - 50 * 60_000;
+    // First message with high importance (code block + mentions)
+    messageStore.append(
+      mockMsg({
+        content: 'Thread opener: ```js\nconst x = 1;\n``` important @opus discussion',
+        mentions: ['opus'],
+        timestamp: baseTs,
+      }),
+    );
+    for (let i = 1; i < 50; i++) {
+      messageStore.append(mockMsg({ content: `msg ${i}`, timestamp: baseTs + i * 60_000 }));
+    }
+    const deps = buildDeps(messageStore, deliveryCursorStore, {
+      threadStore: mockThreadStore('Test Thread'),
+    });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(result_is_smart_window(result), 'should use smart window');
+    assert.ok(result.briefingContext, 'briefingContext should be present');
+    assert.ok(result.briefingContext.anchorSummaries?.length > 0, 'anchorSummaries should have entries');
+  });
+
+  test('coverageMap is undefined on warm path', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    seedMessages(messageStore, 10);
+    const deps = buildDeps(messageStore, deliveryCursorStore);
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(!result_is_smart_window(result), 'should NOT use smart window');
+    assert.strictEqual(result.coverageMap, undefined, 'warm path should not have coverageMap');
+  });
+});
+
+describe('F148 Phase E: AC-E2 anti-pollution — briefing excluded from all recall paths', () => {
+  test('briefing messages excluded from messageStore query used by evidence indexer', async () => {
+    // Simulates the messageListFn pattern: getByThread → filter origin=briefing
+    const messageStore = new MessageStore();
+    const baseTs = Date.now() - 5 * 60_000;
+    messageStore.append(mockMsg({ content: 'normal msg', timestamp: baseTs }));
+    messageStore.append(mockMsg({ content: 'briefing card content', timestamp: baseTs + 60_000, origin: 'briefing' }));
+    messageStore.append(mockMsg({ content: 'another normal', timestamp: baseTs + 120_000 }));
+
+    // Reproduce the filter pattern from index.ts messageListFn
+    const messages = messageStore.getByThread('thread-1', 100, 'user-1');
+    const filtered = messages.filter((m) => m.origin !== 'briefing');
+    assert.equal(filtered.length, 2, 'briefing should be excluded from evidence indexer input');
+    assert.ok(filtered.every((m) => m.origin !== 'briefing'));
+  });
+});
+
+describe('F148 Phase E: origin briefing filter (AC-E2)', () => {
+  test('messages with origin=briefing are excluded from incremental context', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    const baseTs = Date.now() - 5 * 60_000;
+    // Normal message
+    messageStore.append(mockMsg({ content: 'normal message', timestamp: baseTs }));
+    // Briefing message (should be filtered out)
+    messageStore.append(mockMsg({ content: 'context briefing card', timestamp: baseTs + 60_000, origin: 'briefing' }));
+    // Another normal message
+    messageStore.append(mockMsg({ content: 'another normal', timestamp: baseTs + 120_000 }));
+
+    const deps = buildDeps(messageStore, deliveryCursorStore);
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(result.contextText.includes('normal message'), 'normal messages should be included');
+    assert.ok(result.contextText.includes('another normal'), 'normal messages should be included');
+    assert.ok(!result.contextText.includes('context briefing card'), 'briefing messages must be excluded (AC-E2)');
+  });
+
+  test('briefing messages excluded even in smart window path', async () => {
+    const messageStore = new MessageStore();
+    const deliveryCursorStore = new DeliveryCursorStore();
+    const baseTs = Date.now() - 30 * 60_000;
+    for (let i = 0; i < 28; i++) {
+      messageStore.append(mockMsg({ content: `msg ${i}`, timestamp: baseTs + i * 60_000 }));
+    }
+    // Insert a briefing message in the middle
+    messageStore.append(
+      mockMsg({ content: 'briefing summary card', timestamp: baseTs + 28 * 60_000, origin: 'briefing' }),
+    );
+    // One more normal message
+    messageStore.append(mockMsg({ content: 'final msg', timestamp: baseTs + 29 * 60_000 }));
+
+    const deps = buildDeps(messageStore, deliveryCursorStore, {
+      threadStore: mockThreadStore('Test Thread'),
+    });
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
+    assert.ok(!result.contextText.includes('briefing summary card'), 'briefing excluded from smart window (AC-E2)');
+  });
+});

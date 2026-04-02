@@ -113,6 +113,17 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   }
 
   if (isSystem) {
+    // F148 Phase E: Briefing card — render as centered card block with system styling
+    if (message.origin === 'briefing' && message.extra?.rich?.blocks?.length) {
+      return (
+        <div data-message-id={message.id} className="flex justify-center mb-3">
+          <div className="max-w-[85%] w-full opacity-80">
+            <RichBlocks blocks={message.extra.rich.blocks} messageId={message.id} />
+          </div>
+        </div>
+      );
+    }
+
     if (message.variant === 'evidence' && message.evidence) {
       return <EvidencePanel data={message.evidence} />;
     }

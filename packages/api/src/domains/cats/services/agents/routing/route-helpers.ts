@@ -15,6 +15,7 @@ import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores
 import { canViewMessage } from '../../stores/visibility.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
+import type { CoverageMap } from './context-transport.js';
 import {
   buildCoverageMap,
   buildTombstone,
@@ -103,6 +104,13 @@ export interface IncrementalContextResult {
   currentMessageFilteredOut: boolean;
   /** GAP-1: User-facing message when incremental batch was truncated by budget cap */
   degradation?: string;
+  /** Phase E: Coverage map for context briefing surface (only present when smart window triggered) */
+  coverageMap?: CoverageMap;
+  /** Phase E: Briefing context data for AC-E4 expanded view */
+  briefingContext?: {
+    threadMemorySummary?: string;
+    anchorSummaries?: string[];
+  };
 }
 
 /**
@@ -324,6 +332,8 @@ export async function assembleIncrementalContext(
   // Debug mode: cats see all whispers (full transparency). Play mode: cats only see their own whispers.
   const viewer = (thinkingMode ?? 'play') === 'play' ? { type: 'cat' as const, catId } : { type: 'user' as const };
   const relevant = unseen.filter((m) => {
+    // F148 Phase E: briefing messages are non-routing — never enter incremental context (AC-E2)
+    if (m.origin === 'briefing') return false;
     // F35: Exclude whispers not intended for this cat (play mode only)
     if (!canViewMessage(m, viewer)) return false;
     // Exclude own messages (only include user messages and other cats' messages)
@@ -735,5 +745,10 @@ async function assembleSmartWindowContext(
     includesCurrentUserMessage,
     currentMessageFilteredOut,
     degradation: tokenDegradation,
+    coverageMap,
+    briefingContext: {
+      ...(threadMemorySummary ? { threadMemorySummary } : {}),
+      ...(finalAnchorLines.length > 0 ? { anchorSummaries: finalAnchorLines } : {}),
+    },
   };
 }

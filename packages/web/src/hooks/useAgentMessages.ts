@@ -736,6 +736,22 @@ export function useAgentMessages() {
               setMessageUsage(ref.id, parsed.usage);
             }
             consumed = true;
+          } else if (parsed?.type === 'context_briefing') {
+            // F148 Phase E: Insert briefing card into chat store for immediate display
+            const sm = parsed.storedMessage as
+              | { id: string; content: string; origin: string; timestamp: number; extra?: Record<string, unknown> }
+              | undefined;
+            if (sm?.id) {
+              addMessage({
+                id: sm.id,
+                type: 'system',
+                content: sm.content ?? '',
+                origin: (sm.origin as 'briefing') ?? 'briefing',
+                timestamp: sm.timestamp ?? Date.now(),
+                ...(sm.extra ? { extra: sm.extra } : {}),
+              });
+            }
+            consumed = true;
           } else if (parsed?.type === 'context_health') {
             // F24: Store context health silently
             const targetCatId = parsed.catId ?? msg.catId;

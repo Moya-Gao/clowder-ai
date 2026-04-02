@@ -301,7 +301,7 @@ export function useChatHistory(threadId: string) {
             contentBlocks?: unknown[];
             toolEvents?: unknown[];
             metadata?: { provider: string; model: string; sessionId?: string };
-            origin?: 'stream' | 'callback';
+            origin?: 'stream' | 'callback' | 'briefing';
             thinking?: string;
             extra?: {
               rich?: { v: number; blocks: unknown[] };

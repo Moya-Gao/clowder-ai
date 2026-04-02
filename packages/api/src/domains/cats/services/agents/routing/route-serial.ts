@@ -38,6 +38,7 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
+import { buildBriefingMessage } from './format-briefing.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
@@ -293,6 +294,34 @@ export async function* routeSerial(
             timestamp: Date.now(),
           } as AgentMessage;
         }
+
+        // F148 Phase E: Auto-insert context briefing when smart window triggered (AC-E1)
+        if (inc.coverageMap) {
+          const briefingInput = buildBriefingMessage(inc.coverageMap, threadId, inc.briefingContext);
+          try {
+            const stored = await deps.messageStore.append(briefingInput);
+            // P1-3: Include full stored message in payload so frontend can addMessage directly
+            yield {
+              type: 'system_info' as AgentMessageType,
+              catId,
+              content: JSON.stringify({
+                type: 'context_briefing',
+                messageId: stored.id,
+                storedMessage: {
+                  id: stored.id,
+                  content: stored.content,
+                  origin: stored.origin,
+                  timestamp: stored.timestamp,
+                  extra: stored.extra,
+                },
+              }),
+              timestamp: stored.timestamp,
+            } as AgentMessage;
+          } catch {
+            // fail-open: briefing is non-critical UI enhancement
+          }
+        }
+
         const catModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
         const parts = [invocationContext, catModePrompt, bootstrapContext, mcpInstructions].filter(Boolean);
         if (inc.contextText) parts.push(inc.contextText);
