@@ -18,7 +18,10 @@ export { buildSlideMasters, intentToMaster, MASTER_NAMES } from './master-builde
 export type { PipelineInput, PipelineResult } from './pipeline.js';
 export { runPipeline } from './pipeline.js';
 export { renderChart } from './renderers/chart.js';
+export { compileLayeredGrid, isLayeredGrid } from './renderers/diagram-layered.js';
+export { compileDiagramToSvg, measureTextWidth } from './renderers/diagram-svg.js';
 export { renderKPI } from './renderers/kpi.js';
+export { renderSvgToSlide } from './renderers/svg-to-shapes.js';
 export { renderTable } from './renderers/table.js';
 export { renderText } from './renderers/text.js';
 export { buildDeck } from './slide-builder.js';

@@ -29,8 +29,9 @@ interface PptxPresentation {
 import { getLayout, getSlot } from './layouts.js';
 import { buildSlideMasters, intentToMaster } from './master-builder.js';
 import { renderChart } from './renderers/chart.js';
-import { renderDiagram } from './renderers/diagram.js';
+import { compileDiagramToSvg } from './renderers/diagram-svg.js';
 import { renderKPI } from './renderers/kpi.js';
+import { renderSvgToSlide } from './renderers/svg-to-shapes.js';
 import { renderTable } from './renderers/table.js';
 import { renderText } from './renderers/text.js';
 import type {
@@ -128,7 +129,10 @@ function renderElement(
       break;
     }
     case 'diagram': {
-      renderDiagram(slide, element as DiagramElement, slot, theme.slide.diagram, fontFace);
+      const svgStr = compileDiagramToSvg(element as DiagramElement, slot, theme.slide.diagram, fontFace);
+      if (svgStr) {
+        renderSvgToSlide(slide as never, svgStr, { x: slot.position.x, y: slot.position.y });
+      }
       break;
     }
     case 'image': {

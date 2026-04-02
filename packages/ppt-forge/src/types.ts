@@ -179,6 +179,7 @@ export interface DiagramElement {
 export interface DiagramBox {
   id: string;
   label: string;
+  description?: string;
   children?: DiagramBox[];
   bgColor?: string;
   borderColor?: string;
@@ -320,6 +321,7 @@ export interface DiagramStyleTokens {
   nestedBg: string[];
   connectorColor: string;
   connectorWidth: number;
+  highlightBorder?: string;
 }
 
 // ── Layout ───────────────────────────────────────────────
