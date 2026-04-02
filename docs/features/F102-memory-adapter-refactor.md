@@ -1417,6 +1417,14 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 3. limit 提到 10-15 + 加载更多
 4. topics 作为可点击筛选标签
 
+### Issue 3: Recall Feed 展开后只显示 1 条结果（实际 5 hits）
+
+**严重度**: P1（关键信息丢失）
+**位置**: `packages/api/src/domains/cats/services/agents/routing/route-helpers.ts:178`
+**根因**: `tool_result` 的 detail 被 `truncateDetail(raw, 220)` 硬截断到 220 字符。search_evidence 返回 5 条结果（每条含 `[confidence] title` + `anchor` + `type` + `snippet`），完整文本远超 220 字符，截断后 `parseTextResults()` 只能解析出第 1 条，其余 4 条丢失。
+**影响**: 铲屎官看到 "5 hits" 但展开只看到 1 条结果，无法知道猫猫到底搜到了什么。
+**修法**: 对 `search_evidence` 类 tool_result 使用更大的 detail 限制（如 1500 字符），或单独序列化结构化结果（不依赖截断文本解析）。
+
 ## 实现路线图（F/G/Gap 整体规划）
 
 > **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J ✅ 已合入（PR #899, Memory Hub 人类产品面）+ Phase F-1/2/3 ✅ 已合入（PR #904, 多项目记忆接入）。G 运行时验收 + IMaterializationService 待开。
