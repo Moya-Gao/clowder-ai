@@ -1391,8 +1391,10 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-03-31 | 铲屎官+砚砚纠偏 J-1 入口位置：原 spec 写"左侧导航和 Signal 同级"有误——Signal 实际在顶部栏。"同级"是产品层级，不是物理位置。物理位点待 Design Gate 确认 |
 | 2026-04-01 | **PR #899 squash merged** — Phase J (AC-J1~J8) ✅ Memory Hub: /memory route + MemoryNav + EvidenceSearch + IndexStatus + RecallFeed + HubMemoryTab + workspace recall rename |
 | 2026-04-01 | **PR #904 squash merged** — Phase F-1/F-2/F-3 (AC-F1-1~F3-4) ✅ Multi-project onboarding: project-init CLI + recursive fallback discovery + frontmatter-formatter |
+| 2026-04-01 | 铲屎官 runtime 审查发现 3 个 UI Issue + 砚砚愿景守护补充 3 个 Issue（共 6 个 Known Issues） |
+| 2026-04-01 | **PR #908 squash merged** — Known Issues 1-6 全部修复：Recall Feed param fix + truncation 1500 + "已确认" label + 8-type sourceType + IndexStatus fields + EvidenceSearch UX |
 
-## Known Issues（铲屎官 2026-04-01 Report）
+## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
 ### Issue 1: Workspace Recall Feed 全部显示 (unknown)
 
