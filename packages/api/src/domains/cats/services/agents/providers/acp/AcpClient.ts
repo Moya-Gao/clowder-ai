@@ -181,6 +181,86 @@ export class AcpClient {
     }
   }
 
+  /**
+   * Stream prompt events as they arrive. Yields AcpSessionUpdate per notification.
+   * The generator completes when the prompt response arrives from the agent.
+   */
+  async *promptStream(
+    sessionId: string,
+    text: string,
+    options?: { timeoutMs?: number },
+  ): AsyncGenerator<AcpSessionUpdate, AcpStopReason> {
+    const timeoutMs = options?.timeoutMs ?? 120_000;
+    const queue: AcpSessionUpdate[] = [];
+    let waitResolve: (() => void) | null = null;
+    let done = false;
+    let stopReason: AcpStopReason = 'end_turn';
+    let promptError: Error | null = null;
+
+    const listener = (notif: AcpNotification) => {
+      const params = notif.params as unknown as AcpSessionUpdate;
+      if (params.sessionId !== sessionId) return;
+      queue.push(params);
+      if (waitResolve) {
+        const r = waitResolve;
+        waitResolve = null;
+        r();
+      }
+    };
+    this.notificationListeners.push(listener);
+
+    // Fire prompt request — don't await, we'll drain the queue concurrently
+    this.sendRequest(ACP_METHODS.sessionPrompt, { sessionId, prompt: [{ type: 'text', text }] }, timeoutMs)
+      .then((resp) => {
+        const result = resp.result as unknown as AcpPromptResult;
+        stopReason = result.stopReason;
+      })
+      .catch((err: Error) => {
+        promptError = err;
+      })
+      .finally(() => {
+        done = true;
+        if (waitResolve) {
+          const r = waitResolve;
+          waitResolve = null;
+          r();
+        }
+      });
+
+    try {
+      while (true) {
+        if (queue.length > 0) {
+          yield queue.shift()!;
+          continue;
+        }
+        if (done) break;
+        await new Promise<void>((r) => {
+          waitResolve = r;
+        });
+      }
+      // Drain any remaining events that arrived between done flag and the loop check
+      while (queue.length > 0) {
+        yield queue.shift()!;
+      }
+      if (promptError) throw promptError;
+      return stopReason;
+    } finally {
+      const idx = this.notificationListeners.indexOf(listener);
+      if (idx >= 0) this.notificationListeners.splice(idx, 1);
+    }
+  }
+
+  /**
+   * Send session/cancel notification (fire-and-forget, no response expected).
+   * Does NOT close the shared AcpClient — safe for concurrent sessions.
+   */
+  cancelSession(sessionId: string): void {
+    if (!this.child?.stdin?.writable) return;
+    const msg = { jsonrpc: '2.0', method: ACP_METHODS.sessionCancel, params: { sessionId } };
+    this.child.stdin.write(`${JSON.stringify(msg)}\n`);
+    log.info('Sent session/cancel for %s', sessionId);
+  }
+
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;

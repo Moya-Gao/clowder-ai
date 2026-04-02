@@ -16,6 +16,7 @@ import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
 import {
   bootstrapDefaultCatCatalog,
+  getAcpConfig,
   getAllCatIdsFromConfig,
   getConfigSessionStrategy,
   isCatAvailable,
@@ -734,9 +735,22 @@ async function main(): Promise<void> {
         case 'openai':
           service = new CodexAgentService({ catId });
           break;
-        case 'google':
-          service = new GeminiAgentService({ catId });
+        case 'google': {
+          const acpConfig = getAcpConfig(id);
+          if (acpConfig) {
+            const { GeminiAcpAdapter } = await import(
+              './domains/cats/services/agents/providers/acp/GeminiAcpAdapter.js'
+            );
+            service = new GeminiAcpAdapter({
+              catId,
+              acpConfig,
+              workingDirectory: process.cwd(),
+            });
+          } else {
+            service = new GeminiAgentService({ catId });
+          }
           break;
+        }
         case 'dare':
           service = new DareAgentService({ catId });
           break;

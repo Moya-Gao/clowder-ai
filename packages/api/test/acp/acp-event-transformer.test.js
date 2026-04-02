@@ -1,0 +1,130 @@
+/**
+ * ACP Event Transformer — maps AcpSessionUpdate → AgentMessage
+ */
+
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+const { transformAcpEvent } = await import(
+  '../../dist/domains/cats/services/agents/providers/acp/acp-event-transformer.js'
+);
+
+const catId = 'gemini';
+const metadata = { provider: 'google', model: 'gemini-2.5-pro' };
+
+describe('transformAcpEvent', () => {
+  it('agent_message_chunk → text', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'agent_message_chunk',
+        content: { type: 'text', text: 'Hello world' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'text');
+    assert.equal(result.catId, catId);
+    assert.equal(result.content, 'Hello world');
+    assert.deepEqual(result.metadata, metadata);
+    assert.ok(result.timestamp > 0);
+  });
+
+  it('agent_thought_chunk → system_info with type=thinking', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'agent_thought_chunk',
+        content: { type: 'text', text: 'Let me think...' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'system_info');
+    assert.equal(result.catId, catId);
+    const parsed = JSON.parse(result.content);
+    assert.equal(parsed.type, 'thinking');
+    assert.equal(parsed.text, 'Let me think...');
+  });
+
+  it('tool_call → tool_use', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'tool_call',
+        toolName: 'read_file',
+        toolInput: { path: '/tmp/test.txt' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'tool_use');
+    assert.equal(result.toolName, 'read_file');
+    assert.deepEqual(result.toolInput, { path: '/tmp/test.txt' });
+  });
+
+  it('tool_call_update → tool_use (incremental)', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'tool_call_update',
+        toolName: 'read_file',
+        content: { type: 'text', text: 'file contents here' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'tool_use');
+    assert.equal(result.toolName, 'read_file');
+    assert.equal(result.content, 'file contents here');
+  });
+
+  it('plan → system_info with type=plan', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'plan',
+        content: { type: 'text', text: 'Step 1: Read file\nStep 2: Edit' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'system_info');
+    const parsed = JSON.parse(result.content);
+    assert.equal(parsed.type, 'plan');
+    assert.equal(parsed.text, 'Step 1: Read file\nStep 2: Edit');
+  });
+
+  it('user_message_chunk → null (skip echo)', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'user_message_chunk',
+        content: { type: 'text', text: 'echoed prompt' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result, null);
+  });
+
+  it('unknown update types → null', () => {
+    for (const sessionUpdate of [
+      'available_commands_update',
+      'current_mode_update',
+      'config_option_update',
+      'session_info_update',
+    ]) {
+      const update = {
+        sessionId: 's1',
+        update: { sessionUpdate, content: { type: 'text', text: 'ignored' } },
+      };
+      const result = transformAcpEvent(update, catId, metadata);
+      assert.equal(result, null, `Expected null for ${sessionUpdate}`);
+    }
+  });
+
+  it('handles missing content gracefully', () => {
+    const update = {
+      sessionId: 's1',
+      update: { sessionUpdate: 'agent_message_chunk' },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'text');
+    assert.equal(result.content, '');
+  });
+});

@@ -698,6 +698,49 @@ export function getCatEffort(catId: string, config?: CatCafeConfig, fallbackProv
   return normalized ?? 'high';
 }
 
+// ── F149: ACP config accessor (raw variant field, not in CatConfig type) ──────
+
+export interface AcpVariantConfig {
+  command: string;
+  startupArgs: string[];
+  mcpWhitelist?: string[];
+  supportsMultiplexing?: boolean;
+}
+
+/**
+ * Get ACP config for a cat from the raw cat-config.json variant.
+ * Returns undefined if the variant has no `acp` section (= use legacy CLI).
+ * Reads raw JSON because `acp` is not in the typed CatConfig (intentionally).
+ */
+export function getAcpConfig(catId: string): AcpVariantConfig | undefined {
+  try {
+    const templatePath = process.env.CAT_TEMPLATE_PATH ?? DEFAULT_CAT_TEMPLATE_PATH;
+    const projectRoot = dirname(templatePath);
+    const catalogRaw = readCatCatalogRaw(projectRoot);
+    let raw: string;
+    if (catalogRaw !== null) {
+      const baseRaw = readConfigWithFallback(projectRoot, templatePath);
+      const baseJson = JSON.parse(baseRaw) as Record<string, unknown>;
+      const catalogJson = JSON.parse(catalogRaw) as Record<string, unknown>;
+      raw = JSON.stringify(deepMergeConfig(baseJson, catalogJson));
+    } else {
+      raw = readConfigWithFallback(projectRoot, templatePath);
+    }
+    const json = JSON.parse(raw) as {
+      breeds?: Array<{ catId?: string; variants?: Array<{ catId?: string; acp?: AcpVariantConfig }> }>;
+    };
+    for (const breed of json.breeds ?? []) {
+      for (const variant of breed.variants ?? []) {
+        const resolvedCatId = variant.catId ?? breed.catId;
+        if (resolvedCatId === catId && variant.acp) return variant.acp;
+      }
+    }
+  } catch {
+    // Config unreadable → no ACP config
+  }
+  return undefined;
+}
+
 /** Reset cached config (for testing) */
 export function _resetCachedConfig(): void {
   _cachedConfig = null;

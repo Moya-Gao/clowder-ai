@@ -366,6 +366,111 @@ describe('AcpClient', () => {
     assert.ok(errorResponseSent, 'should send JSON-RPC error response when handler throws');
   });
 
+  it('promptStream yields events as they arrive and returns stopReason', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'stream-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // Send 3 notifications with delays, then the response
+          agentNotify(agentStdout, 'session/update', {
+            sessionId: 'stream-sess',
+            update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Hello' } },
+          });
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'stream-sess',
+              update: { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'thinking...' } },
+            });
+          }, 10);
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'stream-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: ' World' } },
+            });
+          }, 20);
+          setTimeout(() => {
+            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+          }, 30);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    const gen = client.promptStream('stream-sess', 'hello');
+    for await (const event of gen) {
+      events.push(event);
+    }
+
+    assert.equal(events.length, 3, `Expected 3 events, got ${events.length}`);
+    assert.equal(events[0].update.sessionUpdate, 'agent_message_chunk');
+    assert.equal(events[0].update.content.text, 'Hello');
+    assert.equal(events[1].update.sessionUpdate, 'agent_thought_chunk');
+    assert.equal(events[2].update.content.text, ' World');
+  });
+
+  it('promptStream filters events by sessionId', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'my-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // Notification for a DIFFERENT session — should be ignored
+          agentNotify(agentStdout, 'session/update', {
+            sessionId: 'other-sess',
+            update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'wrong' } },
+          });
+          // Notification for OUR session
+          agentNotify(agentStdout, 'session/update', {
+            sessionId: 'my-sess',
+            update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'right' } },
+          });
+          setTimeout(() => {
+            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+          }, 20);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    for await (const event of client.promptStream('my-sess', 'hi')) {
+      events.push(event);
+    }
+
+    assert.equal(events.length, 1, 'Should only get events for my-sess');
+    assert.equal(events[0].update.content.text, 'right');
+  });
+
   it('close kills the process', async () => {
     const { child, clientStdin, agentStdout } = createMockChild();
 
