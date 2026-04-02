@@ -130,50 +130,102 @@ deck.pptx
 4. Skill 化 — 铲屎官一句话触发全流程
 5. 企业风格模板库 — nvidia-like/IBM/Apple（HTML+Tailwind 模板，比 JSON token 表达力强 10 倍）
 
-### Phase C: SVG 渲染后端 + 进阶能力
+### Phase C: SVG 渲染后端 — 确定性 SVG 编译器
 
 > **方向纠偏（2026-03-31）**：Phase B 的 HTML→DOM→pptxgenjs 路线在复杂中文嵌套布局（diagram 71 shapes）仍然崩溃。铲屎官指出应学习 pptx-craft 的 SVG 路线。核心发现：pptx-craft 不是"Promptware"，其 `svg_to_shapes.py`(70k) 是成熟的 SVG→DrawingML 原生 shapes 转换器。
+>
+> **选型收敛（2026-04-02）**：宪宪+砚砚讨论，铲屎官约束"不引入 Python，用我们自己的 TS/JS 技术栈"。最终方案：**C3 为主（确定性 SVG 编译）+ C2 为辅（AI-direct SVG 可选高创意模式）**。C1（Python）铲屎官否决，C4（图片降级）只做应急兜底。
 
-#### pptx-craft 架构分析
+#### 选型决策过程
+
+**铲屎官约束**：❌ 不引入 Python | ✅ 有 Pencil MCP | ✅ 纯 TS/JS 技术栈
+
+| 方案 | 结论 | 理由 |
+|------|------|------|
+| C1 吸收 Python 转换器 | ❌ 否决 | 铲屎官约束：不引入 Python |
+| **C3 确定性 SVG 编译（默认）** | ✅ **主选** | 确定性强、可测、可回归，符合 Phase B「语义编译器」方向（砚砚推荐） |
+| C2 AI-direct SVG（可选） | ⚠️ 辅助 | 创意强但输出不稳定，进入人工验收通道（非默认） |
+| C4 Diagram 图片降级 | ⚠️ 兜底 | 改动最小但不可编辑，仅应急 |
+
+#### 终态架构
+
+```
+简单元素 (text/table/kpi/chart)
+    → 现有 pptxgenjs renderer（已验证可用，不改）
+
+复杂元素 (diagram/架构图)  [C3-Core]
+    → Blueprint DiagramElement
+    → TS SVG 编译器（确定性生成 1280×720 SVG string）
+    → TS svg-to-shapes 转换器（SVG → pptxgenjs addShape/addText 调用）
+    → pptxgenjs 组装 deck.pptx（原生可编辑）
+
+高创意模式（可选）  [C2-Assist]
+    → AI 直接生成 SVG（非确定性，需人工验收 gate）
+    → 同一 svg-to-shapes 转换器
+    → pptxgenjs 组装
+```
+
+**Pencil MCP 定位**：design-time 模板产出与视觉校准，不在 runtime 主路径（砚砚 pushback：运行时依赖 Pencil 不够硬）。
+
+#### C3-Core: TS SVG→Shapes 转换器
+
+**核心子集**（diagram-first，不追 pptx-craft 全覆盖）：
+
+| SVG 元素 | Phase C | 映射 |
+|----------|---------|------|
+| `<rect>` | ✅ | `addShape('rect', {x,y,w,h,fill,line})` |
+| `<text>` | ✅ | `addText([{text,options}], {x,y,w,h})` — CJK 字宽表 |
+| `<line>` | ✅ | `addShape('line', ...)` |
+| `<g transform>` | ✅ | 递归坐标变换（translate/scale） |
+| `<circle>` | ✅ | `addShape('ellipse', ...)` |
+| `<path>` | Phase D | 复杂路径 |
+| gradient/filter | Phase D | 视觉增强 |
+
+**工程量评估**（砚砚校准）：
+- 代码：2.5k–4k 行 TS（含 CJK 文本排版、baseline/字距/行高）
+- 测试：1.5k–3k 行
+- 周期：2–3 周（1 只主力猫）
+
+#### 风险（砚砚补充）
+
+| 风险 | 缓解 |
+|------|------|
+| 中文文本不只是换行：baseline/字距/行高/fallback 字体跨平台漂移 | CJK 字宽预设表 + 跨平台测试矩阵 |
+| 字体嵌入/子集化未补齐前视觉保真反复打脸 | Phase C 与 AC-B4 字体嵌入并行推进 |
+| SVG 安全（外链资源/filter/foreignObject） | 白名单机制：只允许 Phase C 核心子集 SVG 元素 |
+| 高密 slide（50+ box）编译耗时与输出体积 | 性能 gate：编译时间 < 5s / 单 slide 体积 < 2MB |
+
+#### pptx-craft 架构参考（不直接引入）
 
 ```
 AI 生成 SVG (1280×720 viewBox, 逐页)
     ↓ page_N_draft.svg (640×360 低分辨率先定布局)
     ↓ page_N.svg (1280×720 精装修)
-svg_to_shapes.py (70k Python)
-    ↓ SVG elements → DrawingML native shapes
-    ↓ 支持: rect/circle/line/path/polygon/text/g/image/gradient/filter/transform
-    ↓ CJK 字体跨平台映射 (PingFang→YaHei fallback)
-svg_to_pptx.py (41k Python)
-    ↓ python-pptx 组装 slide
-    ↓ 产物: pages.pptx (原生可编辑)
+svg_to_shapes.py (70k Python) → DrawingML native shapes
+svg_to_pptx.py (41k Python) → python-pptx 组装
 ```
 
-**关键优势**：AI 直接控制 SVG 像素级布局 → 中文文字排版由 AI 的空间理解决定，不受 pptxgenjs shape API 限制。
-
-#### Phase C 路线选项
-
-| 方案 | 描述 | 优势 | 劣势 |
-|------|------|------|------|
-| **C1: 吸收 svg_to_shapes** | 将 pptx-craft Python 转换器接入我们管线 | 直接复用 200k 成熟代码 | Python 依赖；与 Node.js 管线集成需 subprocess |
-| **C2: AI-direct SVG** | 学 pptx-craft 哲学，复杂 slide 由 AI 直接生成 SVG | 最大创意自由度；解决所有中文排版问题 | 非确定性输出；需要每页单独 prompt |
-| **C3: SVG 中间层** | 我们的 Blueprint 管线 → 生成 SVG（非 AI 直接画）→ 转 PPTX | 确定性 + SVG 品质 | 需写 SVG 模板引擎 |
-| **C4: SVG 作为 Diagram 专用降级** | 仅 diagram renderer 走 SVG→图片嵌入，其他 renderer 不变 | 改动最小 | diagram 变成不可编辑的图片 |
+**我们学方法论，不学实现**：SVG 作为布局中间层的思路正确，但用 TS 重写核心子集（不引入 Python）。
 
 #### OfficeCLI 评估
 
-- **项目**: github.com/iOfficeAI/OfficeCLI，Apache 2.0，925 stars
-- **.NET CLI**，支持 PPT/Word/Excel 全格式，subprocess 调用
-- SVG 支持未确认，社区较小
-- **结论**: 不适合作为我们 Node.js 管线的核心引擎，但可作为 PPTX 后处理/验证工具参考
+- github.com/iOfficeAI/OfficeCLI，Apache 2.0，925 stars，.NET CLI
+- **结论**: 不适合我们 Node.js 管线
 
-#### 其他进阶能力
+#### Phase C 交付项
 
-1. Combo chart 双轴（pptxgenjs combo API 稳定后）
-2. 演讲者备注自动生成
-3. Narrative 编辑部（reference-retriever / deck-critic / redundancy-pruner）
-4. 多语言支持
-5. Gate patch loop（qa.report.json → 局部回修）+ Gate scorecard 评分协议
+1. **C3-Core**: TS SVG 编译器 + svg-to-shapes 转换器（diagram-first），确定性生产链
+2. **C2-Assist**: AI-direct SVG 可选通道 + 人工验收 gate
+3. **AC-B4 并行**: 字体嵌入（SVG 保真的前置依赖）
+
+#### 其他进阶能力（Phase D+）
+
+1. SVG 全覆盖（path/gradient/filter/clipPath）
+2. Combo chart 双轴（pptxgenjs combo API 稳定后）
+3. 演讲者备注自动生成
+4. Narrative 编辑部（reference-retriever / deck-critic / redundancy-pruner）
+5. 多语言支持
+6. Gate patch loop（qa.report.json → 局部回修）+ Gate scorecard 评分协议
 
 ## Acceptance Criteria
 
@@ -200,6 +252,14 @@ svg_to_pptx.py (41k Python)
 - [ ] AC-B6: Skill 化 — 铲屎官一句话触发全流程（research → storyline → blueprint → HTML → compile → .pptx）
 - [ ] AC-B7: ≥3 种企业风格 HTML+Tailwind 模板可用（huawei-like/nvidia-like/Apple）
 
+### Phase C（SVG 渲染后端 — 确定性 SVG 编译器）
+- [ ] AC-C1: TS SVG 编译器 — DiagramElement → 确定性 1280×720 SVG string（含 CJK 字宽预设表）
+- [ ] AC-C2: TS svg-to-shapes 转换器 — SVG(rect/text/line/circle/g) → pptxgenjs shapes，原生可编辑
+- [ ] AC-C3: 同一 DiagramElement 对比 V1 renderer vs Phase C SVG 编译器，中文不再竖排/溢出
+- [ ] AC-C4: SVG 安全白名单 — 只允许 Phase C 核心子集元素，拒绝外链/filter/foreignObject
+- [ ] AC-C5: 性能 gate — 50+ box diagram 编译 < 5s，单 slide 体积 < 2MB
+- [ ] AC-C6: （可选）C2-Assist 通道 — AI-direct SVG + 人工验收 gate 可用
+
 ## Dependencies
 
 - **Related**: F138（Video Studio — 同属内容生成管线家族，共享 HTML+CSS → 媒体输出 思路）
@@ -222,6 +282,9 @@ svg_to_pptx.py (41k Python)
 | OOXML repair dialog（GPT Pro 警告） | 回归测试：生成 .pptx → PPT 365 打开 → 无 repair 弹窗 |
 | 华为级信息密度超出 layout 覆盖 | Level 1/Level 2 分级：表格+KPI 先行，架构图作为挑战目标 |
 | Blueprint 对页面容量失明（GPT Pro #3） | renderBudget 注入 Blueprint（Phase A 只激活 `maxWords` 预警；`minFontPt`/`overflowPolicy` 为 Phase B reserved） |
+| CJK 文本排版跨平台漂移（砚砚 Phase C 补充） | baseline/字距/行高/fallback 字体差异 → CJK 字宽预设表 + 跨平台测试矩阵 |
+| SVG 安全边界（Phase C） | 外链资源/filter/foreignObject 可被注入 → 白名单机制，只允许核心子集元素 |
+| 高密 slide 编译性能（Phase C） | 50+ box diagram 编译耗时 / 输出体积膨胀 → 性能 gate（< 5s / < 2MB） |
 
 ## Open Questions
 
@@ -237,7 +300,7 @@ svg_to_pptx.py (41k Python)
 | OQ-8 | Gate scorecard 评分协议（fidelity/correctness/completeness/visual/layout） | ⬜ Phase B |
 | OQ-9 | research.json / storyline.json 双轨 contract（MD 给人看 + JSON 给 Gate 消费） | ⬜ Phase B |
 | OQ-10 | claim-level evidence binding（claimId/revision/snapshotHash） | ⬜ Phase B |
-| OQ-11 | **SVG 渲染后端选型**：吸收 pptx-craft 的 svg_to_shapes.py (C1) vs AI-direct SVG (C2) vs SVG 中间层 (C3) vs Diagram 专用降级 (C4) | ⬜ Phase C — 等铲屎官拍板 |
+| OQ-11 | ~~SVG 渲染后端选型~~ → **C3 为主 + C2 为辅**（确定性 SVG 编译器 + 可选 AI-direct SVG）。C1 铲屎官否决（不引入 Python），C4 仅应急兜底 | ✅ 已定 |
 
 ## Key Decisions
 
@@ -256,6 +319,8 @@ svg_to_pptx.py (41k Python)
 | KD-10 | **CJK 图表字体升级为 release-gate P1** | 砚砚要求：首发场景是中文企业汇报，图表 CJK 翻车 = 现场打脸自己 | 2026-03-27 |
 | KD-11 | **Pushback renderer-agnostic adapter** | 宪宪+砚砚共识：YAGNI，但守住 contract 不泄漏 renderer 细节（ChartData + hints 折中） | 2026-03-27 |
 | KD-12 | **Phase A 分 Level 1/2 两级** | Level 1 = 表格+KPI+图表（必须做到）；Level 2 = DiagramElement 架构图（挑战目标） | 2026-03-27 |
+| KD-14 | **Phase C 选型：C3 确定性 SVG 编译为主，C2 AI-direct SVG 为辅** | 宪宪+砚砚共识：C3 确定性强/可测/可回归；C2 创意强但不稳定，进人工验收通道。C1 铲屎官否决（不引入 Python），C4 仅应急兜底 | 2026-04-02 |
+| KD-15 | **Pencil MCP 定位为 design-time，不进 runtime 主路径** | 砚砚 pushback：Pencil 主打 .pen 编辑/导出，自动化 Blueprint→稳定 SVG 链路不够硬。适合模板设计与视觉校准 | 2026-04-02 |
 
 ## Timeline
 
@@ -276,6 +341,7 @@ svg_to_pptx.py (41k Python)
 | 2026-03-31 | 手工 7 页高密度 PPT 试产（ch3-handcrafted.ts）— V1 引擎对 diagram 的 nested-box 渲染在中文场景完全崩溃（0.35" 宽 box 里文字竖排乱码）。铲屎官指出：**应学 SVG 渲染路线** |
 | 2026-03-31 | **pptx-craft 深度分析**（铲屎官提供源码）— 发现其真正架构是 **AI 直接生成 SVG(1280×720) → svg_to_shapes.py(70k) 转 native DrawingML shapes**，不是之前认为的"HTML 截图"。200k+ Python 代码实现 SVG → PPTX 原生可编辑 shapes 转换。修正之前对 pptx-craft 的"Promptware"定性 |
 | 2026-03-31 | **OfficeCLI 评估** — .NET CLI（Apache 2.0, 925 stars），功能全面但 SVG 支持未确认，subprocess 调用模式不适合我们 Node.js 管线 |
+| 2026-04-02 | **Phase C 选型收敛** — 宪宪+砚砚讨论。砚砚判断：C3 确定性 SVG 编译为主 + C2 AI-direct 为辅；Pencil 非 runtime 主路径（design-time only）；工程量 2.5k-4k TS + 1.5k-3k 测试，2-3 周。铲屎官约束：不引入 Python。OQ-11 关闭，KD-14/KD-15 落定 |
 
 ## Review Gate
 
