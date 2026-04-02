@@ -16,6 +16,7 @@ import { canViewMessage } from '../../stores/visibility.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
 import {
+  buildCoverageMap,
   buildTombstone,
   detectRecentBurst,
   formatAnchors,
@@ -529,6 +530,62 @@ async function assembleSmartWindowContext(
   const anchors = selectAnchors(sanitizedOmitted, compositeQueryTerms, hcConfig.maxAnchors);
   const anchorLines = formatAnchors(anchors, truncateLimit);
 
+  // 3.7 Phase D: Fetch thread memory (fail-open)
+  let threadMemorySummary = '';
+  let threadMemoryMeta: { available: boolean; sessionsIncorporated: number } | null = null;
+  if (threadStore) {
+    try {
+      const mem = await Promise.resolve(threadStore.getThreadMemory(threadId));
+      if (mem) {
+        let summary = sanitizeInjectedContent(mem.summary);
+        // Trim to maxThreadMemoryTokens by dropping oldest lines
+        const lines = summary.split('\n');
+        while (lines.length > 1 && estimateTokens(lines.join('\n')) > hcConfig.maxThreadMemoryTokens) {
+          lines.shift();
+        }
+        summary = lines.join('\n');
+        // Hard-cap: if remaining text still exceeds budget, binary-search truncate by tokens
+        if (estimateTokens(summary) > hcConfig.maxThreadMemoryTokens) {
+          let lo = 0;
+          let hi = summary.length;
+          while (lo < hi) {
+            const mid = (lo + hi + 1) >>> 1;
+            if (estimateTokens(summary.slice(0, mid)) <= hcConfig.maxThreadMemoryTokens) lo = mid;
+            else hi = mid - 1;
+          }
+          summary = summary.slice(0, lo) + '…';
+        }
+        threadMemorySummary = summary;
+        threadMemoryMeta = { available: true, sessionsIncorporated: mem.sessionsIncorporated };
+      }
+    } catch {
+      // fail-open: threadMemory stays empty
+    }
+  }
+
+  // 3.8 Phase D: Build coverage map (AC-D2)
+  const participants = [...new Set(omitted.map((m) => m.catId ?? m.userId).filter(Boolean))] as string[];
+  const coverageMap = buildCoverageMap({
+    omitted: {
+      count: omitted.length,
+      from: omitted[0]?.timestamp ?? 0,
+      to: omitted[omitted.length - 1]?.timestamp ?? 0,
+      participants,
+    },
+    burst: {
+      count: burst.length,
+      from: burst[0]?.timestamp ?? 0,
+      to: burst[burst.length - 1]?.timestamp ?? 0,
+    },
+    anchorIds: anchors.map((a) => a.message.id),
+    threadMemory: threadMemoryMeta,
+    retrievalHints: [],
+  });
+  const coverageMapText = `[Context Coverage Map]\n${JSON.stringify(coverageMap)}`;
+  const threadMemoryText = threadMemorySummary
+    ? `[Thread Memory: ${threadMemoryMeta?.sessionsIncorporated ?? 0} sessions]\n${threadMemorySummary}`
+    : '';
+
   // 4. Evidence recall (fail-open)
   const currentMsg = currentUserMessageId ? burst.find((m) => m.id === currentUserMessageId) : undefined;
   const nonSystemRecent = burst.filter((m) => m.catId === null).slice(-2);
@@ -566,24 +623,42 @@ async function assembleSmartWindowContext(
     };
   }
 
-  // Token trim with graduated degradation: evidence → anchors → tombstone → burst
+  // Token trim with graduated degradation:
+  // evidence → coverageMap+threadMemory → anchors → tombstone → burst
   let finalBurstLines = burstLines;
   let finalBurstMsgs = scrubbedBurst;
   const finalEvidenceLines = [...evidenceLines];
   const finalAnchorLines = [...anchorLines];
   const anchorScores = anchors.map((a) => a.score);
   let finalTombstoneText = tombstoneText;
+  let finalCoverageMapText = coverageMapText;
+  let finalThreadMemoryText = threadMemoryText;
   let tokenDegradation: string | undefined;
 
   const totalTokens = () =>
     estimateTokens(
-      [finalTombstoneText, ...finalAnchorLines, ...finalEvidenceLines, ...finalBurstLines].filter(Boolean).join('\n'),
+      [
+        finalCoverageMapText,
+        finalThreadMemoryText,
+        finalTombstoneText,
+        ...finalAnchorLines,
+        ...finalEvidenceLines,
+        ...finalBurstLines,
+      ]
+        .filter(Boolean)
+        .join('\n'),
     );
 
   if (totalTokens() > effectiveTokenBudget) {
     // Stage 1: Drop evidence lines from oldest
     while (finalEvidenceLines.length > 0 && totalTokens() > effectiveTokenBudget) {
       finalEvidenceLines.shift();
+    }
+
+    // Stage 1.3: Drop coverage map + thread memory together
+    if (totalTokens() > effectiveTokenBudget) {
+      finalCoverageMapText = '';
+      finalThreadMemoryText = '';
     }
 
     // Stage 1.5: Drop anchors by lowest score
@@ -625,6 +700,8 @@ async function assembleSmartWindowContext(
 
   // 8. Assemble context packet
   const sections: string[] = [];
+  if (finalCoverageMapText) sections.push(finalCoverageMapText);
+  if (finalThreadMemoryText) sections.push(finalThreadMemoryText);
   if (finalTombstoneText) sections.push(finalTombstoneText);
   if (finalAnchorLines.length > 0) sections.push(...finalAnchorLines);
   if (finalEvidenceLines.length > 0) {

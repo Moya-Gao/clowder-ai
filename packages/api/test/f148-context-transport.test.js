@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { DEFAULT_HIERARCHICAL_CONTEXT } from '../dist/config/hierarchical-context-config.js';
 import {
+  buildCoverageMap,
   buildTombstone,
   detectRecentBurst,
   formatAnchors,
@@ -587,5 +588,128 @@ describe('F148 Phase C: formatAnchors', () => {
 
   it('returns empty for no anchors', () => {
     assert.deepStrictEqual(formatAnchors([], 500), []);
+  });
+});
+
+// --- Phase D: AC-D1 — Read ops tracking ---
+
+import { TranscriptWriter } from '../dist/domains/cats/services/session/TranscriptWriter.js';
+
+describe('Phase D: toolNameToOp read ops (AC-D1)', () => {
+  const session = {
+    sessionId: 'sess-d1',
+    threadId: 'thread-d1',
+    catId: 'cat-d1',
+    cliSessionId: 'cli-d1',
+    seq: 0,
+  };
+  const sealTs = { createdAt: 1000000, sealedAt: 1060000 };
+
+  it('tracks Read tool as read op in filesTouched', () => {
+    const tw = new TranscriptWriter({ dataDir: '/tmp/test-d1' });
+    tw.appendEvent(session, {
+      type: 'tool_use',
+      toolName: 'Read',
+      toolInput: { file_path: 'src/index.ts' },
+    });
+    const digest = tw.generateExtractiveDigest(session, sealTs);
+    const entry = digest.filesTouched.find((f) => f.path === 'src/index.ts');
+    assert.ok(entry, 'src/index.ts should appear in filesTouched');
+    assert.ok(entry.ops.includes('read'), `ops should include 'read', got: ${JSON.stringify(entry.ops)}`);
+  });
+
+  it('tracks Grep tool as read op', () => {
+    const tw = new TranscriptWriter({ dataDir: '/tmp/test-d1' });
+    tw.appendEvent(session, {
+      type: 'tool_use',
+      toolName: 'Grep',
+      toolInput: { path: 'src/', pattern: 'foo' },
+    });
+    const digest = tw.generateExtractiveDigest(session, sealTs);
+    const entry = digest.filesTouched.find((f) => f.path === 'src/');
+    assert.ok(entry, 'src/ should appear in filesTouched');
+    assert.ok(entry.ops.includes('read'), `ops should include 'read', got: ${JSON.stringify(entry.ops)}`);
+  });
+
+  it('tracks Glob tool as read op', () => {
+    const tw = new TranscriptWriter({ dataDir: '/tmp/test-d1' });
+    tw.appendEvent(session, {
+      type: 'tool_use',
+      toolName: 'Glob',
+      toolInput: { path: 'src/components' },
+    });
+    const digest = tw.generateExtractiveDigest(session, sealTs);
+    const entry = digest.filesTouched.find((f) => f.path === 'src/components');
+    assert.ok(entry, 'src/components should appear in filesTouched');
+    assert.ok(entry.ops.includes('read'), `ops should include 'read', got: ${JSON.stringify(entry.ops)}`);
+  });
+
+  it('file with both read and edit shows both ops', () => {
+    const tw = new TranscriptWriter({ dataDir: '/tmp/test-d1' });
+    tw.appendEvent(session, {
+      type: 'tool_use',
+      toolName: 'Read',
+      toolInput: { file_path: 'src/config.ts' },
+    });
+    tw.appendEvent(session, {
+      type: 'tool_use',
+      toolName: 'Edit',
+      toolInput: { file_path: 'src/config.ts' },
+    });
+    const digest = tw.generateExtractiveDigest(session, sealTs);
+    const entry = digest.filesTouched.find((f) => f.path === 'src/config.ts');
+    assert.ok(entry, 'src/config.ts should appear in filesTouched');
+    assert.ok(entry.ops.includes('read'), 'should have read op');
+    assert.ok(entry.ops.includes('edit'), 'should have edit op');
+  });
+});
+
+// --- Phase D: AC-D2 — CoverageMap ---
+
+describe('Phase D: buildCoverageMap (AC-D2)', () => {
+  it('produces valid coverage map with all fields', () => {
+    const map = buildCoverageMap({
+      omitted: { count: 22, from: 1000, to: 2000, participants: ['user-1', 'opus'] },
+      burst: { count: 8, from: 2000, to: 3000 },
+      anchorIds: ['msg-5', 'msg-10'],
+      threadMemory: { available: true, sessionsIncorporated: 3 },
+      retrievalHints: ['Ask about Redis config decisions'],
+    });
+    assert.equal(map.omitted.count, 22);
+    assert.equal(map.omitted.timeRange.from, 1000);
+    assert.equal(map.omitted.timeRange.to, 2000);
+    assert.deepStrictEqual(map.omitted.participants, ['user-1', 'opus']);
+    assert.equal(map.burst.count, 8);
+    assert.equal(map.burst.timeRange.from, 2000);
+    assert.equal(map.burst.timeRange.to, 3000);
+    assert.deepStrictEqual(map.anchorIds, ['msg-5', 'msg-10']);
+    assert.deepStrictEqual(map.threadMemory, { available: true, sessionsIncorporated: 3 });
+    assert.deepStrictEqual(map.retrievalHints, ['Ask about Redis config decisions']);
+  });
+
+  it('handles zero omitted messages', () => {
+    const map = buildCoverageMap({
+      omitted: { count: 0, from: 0, to: 0, participants: [] },
+      burst: { count: 5, from: 1000, to: 2000 },
+      anchorIds: [],
+      threadMemory: null,
+      retrievalHints: [],
+    });
+    assert.equal(map.omitted.count, 0);
+    assert.equal(map.anchorIds.length, 0);
+    assert.equal(map.threadMemory, null);
+  });
+
+  it('produces JSON-serializable output', () => {
+    const map = buildCoverageMap({
+      omitted: { count: 10, from: 1000, to: 2000, participants: ['user-1'] },
+      burst: { count: 3, from: 2000, to: 3000 },
+      anchorIds: ['msg-1'],
+      threadMemory: { available: true, sessionsIncorporated: 1 },
+      retrievalHints: [],
+    });
+    const json = JSON.stringify(map);
+    const parsed = JSON.parse(json);
+    assert.deepStrictEqual(parsed, map);
   });
 });

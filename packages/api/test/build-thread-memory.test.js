@@ -20,8 +20,7 @@ describe('buildThreadMemory', () => {
     assert.equal(result.v, 1);
     assert.equal(result.sessionsIncorporated, 1);
     assert.ok(result.summary.includes('Session #1'));
-    assert.ok(result.summary.includes('Edit'));
-    assert.ok(result.summary.includes('src/index.ts'));
+    assert.ok(result.summary.includes('Modified: src/index.ts'));
   });
 
   it('appends to existing memory', () => {
@@ -136,7 +135,7 @@ describe('buildThreadMemory', () => {
     // Existing memory from session #3, now sealing session #5 (seq=4)
     const existing = {
       v: 1,
-      summary: 'Session #3 (10:00-10:05, 5min): Edit. Files: a.ts.',
+      summary: 'Session #3 (10:00-10:05, 5min): Modified: a.ts.',
       sessionsIncorporated: 1,
       updatedAt: 1000,
     };
@@ -144,5 +143,94 @@ describe('buildThreadMemory', () => {
     const result = buildThreadMemory(existing, digest5, 1500);
     assert.ok(result.summary.includes('Session #5'), `Expected "Session #5" but got: ${result.summary}`);
     assert.equal(result.sessionsIncorporated, 2); // 2 digests merged
+  });
+});
+
+// --- Phase D: AC-D1 — Product-oriented formatSessionLine ---
+
+describe('Phase D: product-oriented formatSessionLine (AC-D1)', () => {
+  const mkDigest = (filesTouched, extra = {}) => ({
+    v: 1,
+    sessionId: 's-d1',
+    threadId: 't-d1',
+    catId: 'opus',
+    seq: 0,
+    time: { createdAt: 1000000, sealedAt: 1060000 },
+    invocations: [{ toolNames: ['Edit'] }],
+    filesTouched,
+    errors: [],
+    ...extra,
+  });
+
+  it('groups files under "Created" for create ops', () => {
+    const digest = mkDigest([{ path: 'src/new.ts', ops: ['create'] }]);
+    const result = buildThreadMemory(null, digest, 1500);
+    assert.ok(result.summary.includes('Created: src/new.ts'), `Expected "Created: src/new.ts" in: ${result.summary}`);
+  });
+
+  it('groups files under "Modified" for edit ops', () => {
+    const digest = mkDigest([{ path: 'routes.ts', ops: ['edit'] }]);
+    const result = buildThreadMemory(null, digest, 1500);
+    assert.ok(result.summary.includes('Modified: routes.ts'), `Expected "Modified: routes.ts" in: ${result.summary}`);
+  });
+
+  it('groups files under "Read" for read ops', () => {
+    const digest = mkDigest([{ path: 'index.ts', ops: ['read'] }]);
+    const result = buildThreadMemory(null, digest, 1500);
+    assert.ok(result.summary.includes('Read: index.ts'), `Expected "Read: index.ts" in: ${result.summary}`);
+  });
+
+  it('groups files under "Deleted" for delete ops', () => {
+    const digest = mkDigest([{ path: 'old.ts', ops: ['delete'] }]);
+    const result = buildThreadMemory(null, digest, 1500);
+    assert.ok(result.summary.includes('Deleted: old.ts'), `Expected "Deleted: old.ts" in: ${result.summary}`);
+  });
+
+  it('file with multiple ops goes under highest-priority (create > edit > delete > read)', () => {
+    const digest = mkDigest([{ path: 'src/config.ts', ops: ['read', 'edit'] }]);
+    const result = buildThreadMemory(null, digest, 1500);
+    // Should show under Modified (edit > read)
+    assert.ok(result.summary.includes('Modified: src/config.ts'), `Expected under Modified: ${result.summary}`);
+    // Should NOT duplicate under Read
+    assert.ok(!result.summary.includes('Read: src/config.ts'), `Should not also appear under Read: ${result.summary}`);
+  });
+
+  it('mixed ops across files produce multiple groups', () => {
+    const digest = mkDigest([
+      { path: 'src/new.ts', ops: ['create'] },
+      { path: 'routes.ts', ops: ['edit'] },
+      { path: 'index.ts', ops: ['read'] },
+    ]);
+    const result = buildThreadMemory(null, digest, 1500);
+    assert.ok(result.summary.includes('Created: src/new.ts'), `Missing Created: ${result.summary}`);
+    assert.ok(result.summary.includes('Modified: routes.ts'), `Missing Modified: ${result.summary}`);
+    assert.ok(result.summary.includes('Read: index.ts'), `Missing Read: ${result.summary}`);
+  });
+
+  it('does NOT include raw tools line', () => {
+    const digest = mkDigest([{ path: 'src/index.ts', ops: ['edit'] }], {
+      invocations: [{ toolNames: ['Edit', 'Read', 'Grep'] }],
+    });
+    const result = buildThreadMemory(null, digest, 1500);
+    // Old format had "Edit, Read, Grep. Files:" — new format should not have this
+    assert.ok(!result.summary.includes('Edit, Read'), `Should not contain tools list: ${result.summary}`);
+    assert.ok(!result.summary.includes('Files:'), `Should not contain "Files:": ${result.summary}`);
+  });
+
+  it('files with empty ops are omitted from output', () => {
+    const digest = mkDigest([{ path: 'src/unknown.ts', ops: [] }]);
+    const result = buildThreadMemory(null, digest, 1500);
+    // File with no ops shouldn't appear (no category to put it in)
+    assert.ok(!result.summary.includes('src/unknown.ts'), `Empty-ops file should be omitted: ${result.summary}`);
+  });
+
+  it('caps at MAX_FILES_DISPLAY per category with +N more', () => {
+    const files = Array.from({ length: 15 }, (_, i) => ({
+      path: `src/mod-${i}.ts`,
+      ops: ['edit'],
+    }));
+    const digest = mkDigest(files);
+    const result = buildThreadMemory(null, digest, 1500);
+    assert.ok(result.summary.includes('+'), `Should show overflow indicator: ${result.summary}`);
   });
 });

@@ -3,6 +3,41 @@
 import type { HierarchicalContextConfig } from '../../../../../config/hierarchical-context-config.js';
 import type { StoredMessage } from '../../stores/ports/MessageStore.js';
 
+// --- Phase D: Coverage Map (AC-D2) ---
+
+export interface CoverageMap {
+  omitted: { count: number; timeRange: { from: number; to: number }; participants: string[] };
+  burst: { count: number; timeRange: { from: number; to: number } };
+  anchorIds: string[];
+  threadMemory: { available: boolean; sessionsIncorporated: number } | null;
+  retrievalHints: string[];
+}
+
+export interface CoverageMapInput {
+  omitted: { count: number; from: number; to: number; participants: string[] };
+  burst: { count: number; from: number; to: number };
+  anchorIds: string[];
+  threadMemory: { available: boolean; sessionsIncorporated: number } | null;
+  retrievalHints: string[];
+}
+
+export function buildCoverageMap(input: CoverageMapInput): CoverageMap {
+  return {
+    omitted: {
+      count: input.omitted.count,
+      timeRange: { from: input.omitted.from, to: input.omitted.to },
+      participants: input.omitted.participants,
+    },
+    burst: {
+      count: input.burst.count,
+      timeRange: { from: input.burst.from, to: input.burst.to },
+    },
+    anchorIds: input.anchorIds,
+    threadMemory: input.threadMemory,
+    retrievalHints: input.retrievalHints,
+  };
+}
+
 /**
  * F148: Detect the most recent interaction burst from the tail of messages.
  * Walks backward from the end, stopping at a silence gap >= config threshold.

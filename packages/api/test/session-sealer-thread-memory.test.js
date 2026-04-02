@@ -92,7 +92,7 @@ describe('SessionSealer — ThreadMemory integration', () => {
     assert.equal(mem.v, 1);
     assert.equal(mem.sessionsIncorporated, 1);
     assert.ok(mem.summary.includes('Session #1'));
-    assert.ok(mem.summary.includes('Edit'));
+    assert.ok(mem.summary.includes('Modified: src/index.ts'));
   });
 
   it('accumulates across multiple seals', async () => {

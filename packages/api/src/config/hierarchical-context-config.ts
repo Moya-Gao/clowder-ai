@@ -21,6 +21,8 @@ export interface HierarchicalContextConfig {
   coldMentionTokenThreshold: number;
   /** Phase C: max anchors to extract from omitted messages */
   maxAnchors: number;
+  /** Phase D: max tokens for thread memory summary in context packet */
+  maxThreadMemoryTokens: number;
 }
 
 export const DEFAULT_HIERARCHICAL_CONTEXT: HierarchicalContextConfig = {
@@ -33,4 +35,5 @@ export const DEFAULT_HIERARCHICAL_CONTEXT: HierarchicalContextConfig = {
   maxEvidenceHits: 3,
   coldMentionTokenThreshold: 10_000, // ~10K tokens — triggers smart window for "few but fat" messages
   maxAnchors: 3, // Phase C: top N high-value messages from omitted set
+  maxThreadMemoryTokens: 300, // Phase D: thread memory token budget
 };
