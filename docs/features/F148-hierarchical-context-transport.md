@@ -125,7 +125,7 @@ created: 2026-03-31
 
 | # | Gap | 类型 | GitHub Issue | 状态 |
 |---|-----|------|-------------|------|
-| VG-1 | `coverageMap.retrievalHints` 硬编码空数组，briefing 卡片"证据 N 条"永远显示 0 | bug | [#916](https://github.com/zts212653/cat-cafe/issues/916) | 🚧 修复中 |
+| VG-1 | `coverageMap.retrievalHints` 硬编码空数组，briefing 卡片"证据 N 条"永远显示 0 | bug | [#916](https://github.com/zts212653/cat-cafe/issues/916) / PR #919 | ✅ merged |
 | VG-2 | briefing 卡片展开态缺 retrieval hints + evidence titles（"解释卡"→"行动卡"） | enhancement | [#917](https://github.com/zts212653/cat-cafe/issues/917) | ⬜ |
 | VG-3 | threadMemory 是文件操作账本，缺决策/产物粒度（含 GPT Pro structured state ledger 建议） | enhancement | [#918](https://github.com/zts212653/cat-cafe/issues/918) | ⬜ |
 
@@ -160,6 +160,7 @@ created: 2026-03-31
 | 2026-04-02 | Phase D merged (PR #909) — product-oriented threadMemory + coverage map JSON. 缅因猫 review (1P1+2P2 fixed) + 2 rounds cloud review (1 P1 fixed) |
 | 2026-04-02 | Phase E 立项 — context briefing surface（愿景守护后铲屎官拍板） |
 | 2026-04-02 | Phase E merged (PR #913) — format-briefing + system_info delivery + frontend addMessage. 缅因猫 review (3P1 fixed, R1→R2→R3) + 云端 review passed |
+| 2026-04-02 | VG-1 fix merged (PR #919) — coverageMap.retrievalHints 填充 evidence recall 标题。缅因猫 review (R1: 1P1+1P2, R2 pass) + 云端 review passed |
 
 ## Review Gate
 
