@@ -69,10 +69,14 @@ export function parseTextResults(text: string): RecallResultItem[] {
   const results: RecallResultItem[] = [];
   const lines = text.split('\n');
 
+  // Status banners like [DEGRADED] use the same bracket format as results — skip them
+  const STATUS_PREFIXES = new Set(['DEGRADED']);
+
   for (let i = 0; i < lines.length; i++) {
     // Match lines like "[high] F102 Memory Adapter"
     const match = lines[i].match(/^\[(\w+)\]\s+(.+)$/);
     if (!match) continue;
+    if (STATUS_PREFIXES.has(match[1])) continue;
 
     const item: RecallResultItem = {
       confidence: match[1],

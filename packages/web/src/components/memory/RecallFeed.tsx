@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import React, { useState } from 'react';
 import { type RecallEvent, useRecallEvents } from '@/hooks/useRecallEvents';
 
@@ -43,12 +42,14 @@ function RecallCard({ event }: { event: RecallEvent }) {
               ))}
             </div>
           )}
-          <Link
-            href={`/memory/search?q=${encodeURIComponent(event.query)}`}
-            className="mt-1.5 inline-block text-[10px] font-medium text-cocreator-primary hover:text-cocreator-dark"
-          >
-            在搜索页查看详情 →
-          </Link>
+          {event.results &&
+            event.results.length > 0 &&
+            event.resultCount != null &&
+            event.resultCount > event.results.length && (
+              <div className="mt-1 text-[10px] text-cafe-secondary/60">
+                还有 {event.resultCount - event.results.length} 条结果未显示
+              </div>
+            )}
         </div>
       )}
     </div>

@@ -53,4 +53,26 @@ describe('parseTextResults', () => {
   it('returns empty array for empty input', () => {
     expect(parseTextResults('')).toEqual([]);
   });
+
+  it('skips [DEGRADED] banner — not a real result', () => {
+    const text = `[DEGRADED] Evidence store error — results may be incomplete
+
+Found 2 result(s):
+
+[high] F102 Memory Adapter
+  anchor: doc:features/F102
+  type: feature
+  > description
+
+[mid] Some Lesson
+  anchor: LL-001
+  type: lesson
+`;
+    const results = parseTextResults(text);
+    expect(results).toHaveLength(2);
+    expect(results[0]!.confidence).toBe('high');
+    expect(results[1]!.confidence).toBe('mid');
+    // DEGRADED banner must not appear as a result
+    expect(results.every((r) => r.confidence !== 'DEGRADED')).toBe(true);
+  });
 });
