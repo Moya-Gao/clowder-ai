@@ -1425,6 +1425,32 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 **影响**: 铲屎官看到 "5 hits" 但展开只看到 1 条结果，无法知道猫猫到底搜到了什么。
 **修法**: 对 `search_evidence` 类 tool_result 使用更大的 detail 限制（如 1500 字符），或单独序列化结构化结果（不依赖截断文本解析）。
 
+### Issue 4: Knowledge Feed "已沉淀" 标签语义不准确（砚砚愿景守护 2026-04-01）
+
+**严重度**: P1（愿景级 — 语义在撒谎）
+**位置**: `packages/web/src/components/workspace/KnowledgeFeed.tsx:115,227`
+**根因**: F102 的真相源约束明确区分三个状态：`approved`（候选通过）→ `materialized`（写入 docs/*.md）→ `indexed`（被 IndexBuilder 索引）。但前端 KnowledgeFeed 的 tab 名叫"已沉淀"（line 115），卡片状态也显示"已沉淀"（line 227），而后端 `settled` 桶实际混合了 `approved + materialized + indexed`。用户看到"已沉淀"会以为知识已经持久化到文档，但实际可能只是被批准了还没写入。
+**修法**: tab 改名"已确认"或按真实状态分 3 列；至少不要把 `approved` 叫"已沉淀"。
+
+### Issue 5: `classifySource()` 把 7+ 种 doc_kind 压扁为 4 种 sourceType
+
+**严重度**: P2（语义丢失）
+**位置**: `packages/api/src/routes/evidence-helpers.ts:65-71`
+**根因**: `classifySource()` 只按路径匹配 4 种类型（decision/phase/discussion/commit）。`lesson`/`research`/`feature`/`plan` 等 doc_kind 如果不在对应标准路径下，全部 fallback 到 `commit`。frontmatter-formatter 辛苦补的 `doc_kind` 在搜索结果层被丢弃。
+**修法**: `classifySource()` 应优先读 frontmatter 的 `doc_kind`，路径匹配作为 fallback；`EvidenceSourceType` 扩展到覆盖所有 KIND_DIRS 类型。
+
+### Issue 6: IndexStatus 面板交付少于 AC-J4 承诺
+
+**严重度**: P2（功能缩水）
+**位置**: `packages/web/src/components/memory/IndexStatus.tsx:96-102`
+**根因**: AC-J4 承诺展示 "docs/threads/passages 数量、最近 rebuild 时间、TTL 配置、embedding mode"。实际只展示 Backend/Documents/Edges/Last rebuild。缺失：threads 数量、passages 数量、TTL 配置、embedding mode。
+**修法**: 后端 `/api/evidence/status` 补充返回 threads/passages count + TTL + embedding mode；前端 IndexStatus 增加对应行。
+
+### 砚砚建议但需后续讨论的项
+
+- **跨项目切换器**：砚砚认为 `/memory` 缺少 "当前项目 vs 全局记忆 vs 其他项目" 维度。核实：AC-J2 只承诺了 mode/scope/depth，项目切换器在 spec wireframe 里标注为 `[Phase F]` 功能，不属于 Phase J 范围。后端 F-4 联邦检索已就绪，前端呈现属于后续 Phase。
+- **Recall Feed 缺 snippet/source link/drill-down**：AC-J5 承诺 "query + results + scores"，当前有 title + confidence + sourceType 但缺 snippet 和可点击跳转。这在 Issue 3 的截断修复后会部分缓解（能看到更多结果），但 snippet 和 drill-down 需要额外工作。
+
 ## 实现路线图（F/G/Gap 整体规划）
 
 > **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J ✅ 已合入（PR #899, Memory Hub 人类产品面）+ Phase F-1/2/3 ✅ 已合入（PR #904, 多项目记忆接入）。G 运行时验收 + IMaterializationService 待开。
