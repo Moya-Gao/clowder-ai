@@ -1,0 +1,395 @@
+/**
+ * AcpClient unit tests using mock child process.
+ */
+
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
+import { afterEach, describe, it, mock } from 'node:test';
+
+const { AcpClient, AcpProtocolError } = await import(
+  '../../dist/domains/cats/services/agents/providers/acp/AcpClient.js'
+);
+
+/** Create a minimal mock child process */
+function createMockChild() {
+  const clientStdin = new PassThrough();
+  const agentStdout = new PassThrough();
+  const agentStderr = new PassThrough();
+
+  const ee = new EventEmitter();
+  const child = {
+    pid: 12345,
+    stdin: clientStdin,
+    stdout: agentStdout,
+    stderr: agentStderr,
+    killed: false,
+    kill: mock.fn(() => {
+      child.killed = true;
+      // Close streams to prevent hanging
+      agentStdout.end();
+      agentStderr.end();
+      ee.emit('exit', 0, null);
+      return true;
+    }),
+    on: ee.on.bind(ee),
+    once: ee.once.bind(ee),
+    removeListener: ee.removeListener.bind(ee),
+  };
+
+  return { child, clientStdin, agentStdout };
+}
+
+/** Respond async — readline needs an event loop tick to process buffered data */
+function agentRespond(agentStdout, id, result) {
+  setImmediate(() => agentStdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\n'));
+}
+
+function agentNotify(agentStdout, method, params) {
+  setImmediate(() => agentStdout.write(JSON.stringify({ jsonrpc: '2.0', method, params }) + '\n'));
+}
+
+const INIT_RESULT = {
+  protocolVersion: 1,
+  authMethods: [],
+  agentInfo: { name: 'test', title: 'Test Agent', version: '1.0.0' },
+  agentCapabilities: { loadSession: true },
+};
+
+describe('AcpClient', () => {
+  let client = null;
+
+  afterEach(async () => {
+    if (client) {
+      await client.close();
+      client = null;
+    }
+  });
+
+  it('initialize sends protocolVersion and parses response', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    const result = await client.initialize();
+    assert.equal(result.protocolVersion, 1);
+    assert.equal(result.agentInfo.name, 'test');
+    assert.ok(client.isAlive);
+  });
+
+  it('newSession sends cwd and mcpServers', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    let capturedCwd = null;
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          capturedCwd = msg.params.cwd;
+          agentRespond(agentStdout, msg.id, { sessionId: 'sess-456' });
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/my/project',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+    const session = await client.newSession();
+    assert.equal(session.sessionId, 'sess-456');
+    assert.equal(capturedCwd, '/my/project');
+  });
+
+  it('promptCollect collects events and returns stopReason', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'sess-789' });
+        } else if (msg.method === 'session/prompt') {
+          agentNotify(agentStdout, 'session/update', {
+            sessionId: 'sess-789',
+            update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'PONG' } },
+          });
+          agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+    await client.newSession();
+    const { events, stopReason } = await client.promptCollect('sess-789', 'hello');
+
+    assert.equal(stopReason, 'end_turn');
+    assert.ok(events.length >= 1, `Expected >=1 event, got ${events.length}`);
+  });
+
+  it('handles protocol errors', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          setImmediate(() =>
+            agentStdout.write(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: msg.id,
+                error: { code: -32000, message: 'Auth required' },
+              }) + '\n',
+            ),
+          );
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await assert.rejects(
+      () => client.initialize(),
+      (err) => {
+        assert.ok(err instanceof AcpProtocolError);
+        assert.equal(err.code, -32000);
+        return true;
+      },
+    );
+    // End mock streams to prevent hanging during afterEach cleanup
+    agentStdout.end();
+  });
+
+  it('P1-1: spawn ENOENT rejects initialize instead of crashing', async () => {
+    const ee = new EventEmitter();
+    const child = {
+      pid: undefined,
+      stdin: new PassThrough(),
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      killed: false,
+      kill: mock.fn(() => {
+        child.killed = true;
+        return true;
+      }),
+      on: ee.on.bind(ee),
+      once: ee.once.bind(ee),
+      removeListener: ee.removeListener.bind(ee),
+    };
+
+    client = new AcpClient({
+      command: 'definitely-not-a-real-bin-xyz',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => {
+        // Simulate what Node does on ENOENT: emit 'error' async
+        setImmediate(() => ee.emit('error', new Error('spawn definitely-not-a-real-bin-xyz ENOENT')));
+        return child;
+      },
+    });
+
+    await assert.rejects(
+      () => client.initialize(),
+      (err) => {
+        assert.ok(err.message.includes('ENOENT'));
+        return true;
+      },
+    );
+    // Cleanup: end streams
+    child.stdout.end();
+  });
+
+  it('P1-2: isAlive returns false after child exits naturally', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    const ee = child; // child.on is ee.on.bind(ee), we need the real ee to emit exit
+    // We need access to the raw EventEmitter to emit exit without kill
+    const rawEe = new EventEmitter();
+    const childWithRawEe = {
+      ...child,
+      on: rawEe.on.bind(rawEe),
+      once: rawEe.once.bind(rawEe),
+      removeListener: rawEe.removeListener.bind(rawEe),
+    };
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => childWithRawEe,
+    });
+
+    await client.initialize();
+    assert.ok(client.isAlive, 'should be alive after initialize');
+
+    // Simulate natural exit (not via kill)
+    rawEe.emit('exit', 0, null);
+    agentStdout.end();
+
+    assert.ok(!client.isAlive, 'should NOT be alive after natural exit');
+  });
+
+  it('P2: custom permission handler is called instead of auto-approve', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    const permissionCalls = [];
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+      permissionHandler: (req, respond) => {
+        permissionCalls.push(req);
+        respond({ optionId: 'deny' });
+      },
+    });
+
+    await client.initialize();
+
+    // Simulate an agent permission request
+    setImmediate(() =>
+      agentStdout.write(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'session/request_permission',
+          id: 'perm-001',
+          params: { description: 'Write file', options: [{ optionId: 'allow_once', kind: 'allow_once' }] },
+        }) + '\n',
+      ),
+    );
+
+    // Give the event loop a chance to process
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.equal(permissionCalls.length, 1, 'custom handler should be called');
+    assert.equal(permissionCalls[0].params.description, 'Write file');
+  });
+
+  it('P1-cloud: throwing permissionHandler does not crash host', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    let errorResponseSent = false;
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+        // Capture any error response sent back for the permission request
+        if (msg.id === 'perm-boom' && msg.error) {
+          errorResponseSent = true;
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+      permissionHandler: () => {
+        throw new Error('boom');
+      },
+    });
+
+    await client.initialize();
+
+    // Feed a permission request — should NOT crash the process
+    setImmediate(() =>
+      agentStdout.write(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'session/request_permission',
+          id: 'perm-boom',
+          params: { description: 'Dangerous op', options: [{ optionId: 'allow_once', kind: 'allow_once' }] },
+        }) + '\n',
+      ),
+    );
+
+    // Give the event loop a chance to process
+    await new Promise((r) => setTimeout(r, 50));
+
+    // The process should still be alive (not crashed)
+    assert.ok(client.isAlive, 'host should not crash from handler error');
+    // The client should have sent a JSON-RPC error response back to the agent
+    assert.ok(errorResponseSent, 'should send JSON-RPC error response when handler throws');
+  });
+
+  it('close kills the process', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+    assert.ok(client.isAlive);
+
+    await client.close();
+    assert.ok(!client.isAlive);
+    client = null;
+  });
+});

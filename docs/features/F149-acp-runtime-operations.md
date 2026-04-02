@@ -4,7 +4,7 @@ related_features: [F143, F053, F115, F118, F050]
 topics: [acp, runtime, process-pool, session-lease, gemini, agent-hosting]
 doc_kind: spec
 created: 2026-03-31
-updated: 2026-04-01
+updated: 2026-04-02
 ---
 
 # F149: ACP Runtime Operations — 项目级进程池 + Session Lease
@@ -83,11 +83,11 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 ## Acceptance Criteria
 
 ### Phase A（边界收敛 + 量化基线）
-- [ ] AC-A1: feature doc 明确写清 F149 与 F143 / F053 / F115 / F118 / F050 的边界，不再混成“又一个 ACP 抽象 feature”
-- [ ] AC-A2: 基准测量脚本或诊断文档可稳定产出 `cold_init_ms / attach_ms / warm_first_chunk_ms / warm_hit_rate / live_process_count / sessions_per_process / idle_waste_ms / lease_queue_wait_ms`
-- [ ] AC-A3: Phase A 明确判定 ACP 并发模型是 `single-flight` 还是 `multiplex`，并把结论写回 spec/consult 假设
-- [ ] AC-A4: GPT Pro 与 Gemini DeepThink 的咨询文档落盘，且问题聚焦池化 / lease / lifecycle，不再重问“要不要改成 API”
-- [ ] AC-A5: ACP provider profile 白名单落盘并可复现当前 repo-cwd 成功启动路径
+- [x] AC-A1: feature doc 明确写清 F149 与 F143 / F053 / F115 / F118 / F050 的边界，不再混成”又一个 ACP 抽象 feature”
+- [x] AC-A2: 基准测量脚本或诊断文档可稳定产出 `cold_init_ms / attach_ms / warm_first_chunk_ms / warm_hit_rate / live_process_count / sessions_per_process / idle_waste_ms / lease_queue_wait_ms`
+- [x] AC-A3: Phase A 明确判定 ACP 并发模型是 `single-flight` 还是 `multiplex`，并把结论写回 spec/consult 假设
+- [x] AC-A4: GPT Pro 与 Gemini DeepThink 的咨询文档落盘，且问题聚焦池化 / lease / lifecycle，不再重问”要不要改成 API”
+- [x] AC-A5: ACP provider profile 白名单落盘并可复现当前 repo-cwd 成功启动路径
 
 ### Phase B（Gemini ACP Hosted Provider）
 - [ ] AC-B1: Gemini ACP 在仓库 cwd 下可完成 `initialize → newSession → prompt`
@@ -115,6 +115,16 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 - **Related**: F118（CLI liveness/watchdog/recovery 经验复用到长驻 ACP process）
 - **Related**: F050（外部 agent onboarding 的接入契约层）
 
+## Boundary Clarification (AC-A1)
+
+| Feature | F149 负责 | 不负责（由该 Feature 自己承接） |
+|---------|----------|------------------------------|
+| **F143** | ACP 运行时运营层（pool / session / lease / lifecycle），并反哺 F143 抽象层提取 | protocol-agnostic kernel 抽象、Hostable contract 定义 |
+| **F053** | 基于 ACP `loadSession` 的 session recovery 实现（shadow replay） | 旧 headless Gemini `--resume` 路径维护 |
+| **F115** | 消费 F115 的启动链优化成果（减少 cold init 惩罚） | 启动链诊断工具本身、startup profiler |
+| **F118** | 复用 watchdog / liveness / recovery 模式到长驻 ACP process | CLI liveness 探针本体、stallAutoKill 机制 |
+| **F050** | ACP carrier 作为外部 agent 的一种接入形态 | 非 ACP 外部 agent 的接入契约 |
+
 ## Risk
 
 | 风险 | 缓解 |
@@ -140,7 +150,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | `/stats` 或会话内用量页首先是当前 session 统计，不是 preview 模型实时可用性的权威面板 | 调度、熔断、告警不能依赖 CLI quota UI；是否有容量要以实际错误分类和请求链路遥测为准 |
 | `loadSession()` 会 replay 历史；session 热状态丢了以后，恢复本身也可能污染 transcript | session 连续性只能被当作性能优化，不是真相源。真相源仍是 Cat Café thread transcript；恢复路径必须 shadow 化 |
 | preview 模型在 provider/CLI 层可能伴随 fallback、silent downgrade 或重复 retry | 对被 pin 住的 agent identity，V1 不能默认“静默帮你换模型就算成功”；需要显式 policy，至少先保 transcript 语义和错误可见性 |
-| ACP stdio 单通道是否支持 cross-session multiplex 还未证实 | V1 调度必须保守，默认 single-flight；只有 Phase A 实验证明稳定后，`supports_multiplexing` 才能放开 |
+| ACP stdio 单通道支持 cross-session multiplex（OQ-6 已验证） | V1 Gemini carrier `supportsMultiplexing=true`；调度器可向同一进程并行下发不同 session 的 prompt。same-session 仍为 single-flight |
 | 不同 ACP carrier 即使同协议，也不代表事件格式、权限模型、工具桥、副作用语义一致 | F149 未来可以复用 pool/lease/lifecycle，但不承诺“只写一个 provider 配置项就吃遍所有 ACP agent”；第二个 carrier 落地后才能收敛真正共性 |
 
 ## Open Questions
@@ -150,9 +160,9 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | OQ-1 | V1 是否坚持“一 project 一 process”，还是允许同 providerProfile 下跨 project 复用？ | ⬜ 待云端咨询 + 本地拍板 |
 | OQ-2 | session 的拥有者是 thread 还是 lease？`loadSession` 的粒度怎么定？ | ✅ 已定（KD-6/KD-8）：thread 持有 logical session binding；lease 只在 prompt 执行期短暂存在；`loadSession` 是 recovery primitive |
 | OQ-3 | idle TTL / LRU / max live process count 的默认值如何定，才能既省资源又不伤体感？ | ⬜ 待定 |
-| OQ-4 | warm process 上的并发策略是 queue、single-flight，还是允许多 session 并行？ | ⏳ 部分确定：same-session 一定是 single-flight（源码证实）；cross-session 默认按 single-flight 运行，待 OQ-6 实验证明 multiplex 稳定后再放宽 |
+| OQ-4 | warm process 上的并发策略是 queue、single-flight，还是允许多 session 并行？ | ✅ 已定：cross-session multiplex 已验证可用（OQ-6），same-session 仍为 single-flight |
 | OQ-5 | 什么时候再让第二个 ACP carrier（Codex/Claude Code/OpenCode）进入 F149 scope？ | ⬜ 待定 |
-| OQ-6 | ACP stdio 单通道是否支持多 session 并发 prompt（多路复用），还是 single-flight？直接决定 pool sizing 策略 | ⬜ 待 Phase A 实验验证 |
+| OQ-6 | ACP stdio 单通道是否支持多 session 并发 prompt（多路复用），还是 single-flight？直接决定 pool sizing 策略 | ✅ 已验证：**MULTIPLEX**。单进程双 session 并发 prompt 正确完成，无 cross-contamination（A="DELTA" B="ECHO"，执行窗口重叠）。Gemini carrier `supportsMultiplexing=true` |
 
 ## Key Decisions
 
@@ -167,6 +177,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | KD-7 | 失败处理分三层：process-poison / session-poison / turn-transient | process-poison（stdout 污染/协议失步/僵尸）→ kill process；session-poison（merged/dropped response）→ seal session；turn-transient（429/5xx 无 side effect）→ retry/backoff。有 tool call side effect 的禁止盲重试（GPT Pro failure taxonomy + Gemini issue #24017） | 2026-04-01 |
 | KD-8 | `loadSession` 保留为 recovery primitive，恢复路径必须 shadow | Gemini ACP 的 `loadSession` 会 replay 历史（`session.streamHistory()`），直接用会污染 thread transcript。保留但必须拦截 replay 事件（GPT Pro 建议 + 本地源码验证） | 2026-04-01 |
 | KD-9 | 在 provider profile 中预留 `supports_multiplexing` 能力标志 | 今天 Gemini 默认 false；Phase A 验证通过后或新 carrier 进来后可切 true，调度器据此决定是否向同一进程并行下发。留 seam 不提前抽象（DeepThink 建议） | 2026-04-01 |
+| KD-10 | Gemini ACP 实测 `supportsMultiplexing = true` | OQ-6 实验验证：单进程双 session 并发 prompt（A="DELTA" B="ECHO"）正确完成，执行窗口重叠，无 cross-contamination。Phase C 池化可按 1 process : N sessions 设计，不需要每个并发 prompt 独占进程 | 2026-04-01 |
 
 ## Timeline
 
@@ -175,6 +186,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-03-31 | 通过 `gemini --acp` 本地实验确认协议可用，问题收敛为 ACP runtime operations |
 | 2026-03-31 | F149 立项：把问题从”协议能不能活”升级为”项目级进程池 + session lease 怎么设计” |
 | 2026-04-01 | GPT Pro + Gemini DeepThink 云端咨询完成，本地收敛：KD-6~KD-9 落定（session binding 分层、三层失败 taxonomy、loadSession shadow、multiplexing seam） |
+| 2026-04-02 | **Phase A done** — ACP types + AcpClient + spike + OQ-6 MULTIPLEX 验证 + provider profile（cat-config.json `acp` section）+ boundary clarification。AC-A1~A5 全部 ✅ |
 
 ## Review Gate
 
@@ -193,3 +205,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | **Decision** | `docs/decisions/023-hostable-agent-runtime.md` | F143 对应 ADR |
 | **Research** | `docs/research/2026-03-31-f149-acp-runtime-operations-gpt-pro-consult.md` | GPT Pro 咨询（池化 / lease / lifecycle） |
 | **Research** | `docs/research/2026-03-31-f149-acp-runtime-operations-gemini-deepthink-consult.md` | Gemini DeepThink 咨询（反例 / 盲区 / 运营策略） |
+| **Plan** | `docs/plans/2026-04-02-f149-phase-a-boundary-baseline.md` | Phase A 实施计划 |
+| **Experiment** | `scripts/experiments/f149-acp-spike.mjs` | ACP 协议 spike（initialize → session → prompt 全链路） |
+| **Experiment** | `scripts/experiments/f149-oq6-concurrency.mjs` | OQ-6 并发实验（MULTIPLEX 判定） |
+| **Code** | `packages/api/src/domains/cats/services/agents/providers/acp/` | AcpClient + ACP types |
