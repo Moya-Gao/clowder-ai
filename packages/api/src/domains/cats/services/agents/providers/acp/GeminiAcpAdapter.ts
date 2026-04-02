@@ -84,6 +84,8 @@ export class GeminiAcpAdapter implements AgentService {
       promptStream(sessionId: string, text: string): AsyncGenerator<import('./types.js').AcpSessionUpdate>;
       onCapacity(fn: (signal: AcpCapacitySignal) => void): void;
       offCapacity(fn: (signal: AcpCapacitySignal) => void): void;
+      readonly recentCapacitySignal: AcpCapacitySignal | null;
+      clearRecentCapacitySignal(): void;
     };
     const cwd = options?.workingDirectory ?? this.projectRoot;
     let sessionId: string | undefined;
@@ -159,6 +161,8 @@ export class GeminiAcpAdapter implements AgentService {
         if (msg) yield msg;
       }
       log.info({ catId: this.catId, sessionId, eventCount }, 'ACP promptStream completed');
+      // Successful prompt — provider has recovered; clear stale capacity signal
+      client.clearRecentCapacitySignal();
 
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     } catch (err) {
@@ -166,7 +170,7 @@ export class GeminiAcpAdapter implements AgentService {
       if (!capacitySignal && err instanceof AcpTimeoutError) {
         await new Promise((r) => setTimeout(r, 2_000));
       }
-      const { errorCode, errorMsg } = classifyError(err, capacitySignal);
+      const { errorCode, errorMsg } = classifyError(err, capacitySignal, client.recentCapacitySignal);
       log.error({ catId: this.catId, errorCode, err: errorMsg }, 'ACP prompt failure');
       yield {
         type: 'error',
@@ -187,9 +191,13 @@ export class GeminiAcpAdapter implements AgentService {
   }
 }
 
+/** Max age (ms) for client-level capacity signal to be used as fallback evidence. */
+const RECENT_SIGNAL_MAX_AGE_MS = 10 * 60 * 1000;
+
 function classifyError(
   err: unknown,
   capacitySignal: AcpCapacitySignal | null | undefined,
+  clientRecentSignal?: AcpCapacitySignal | null,
 ): { errorCode: string; errorMsg: string } {
   if (err instanceof AcpProtocolError) {
     if (err.code === -32000 || err.message.includes('capacity')) {
@@ -201,11 +209,19 @@ function classifyError(
     return { errorCode: 'prompt_failure', errorMsg: err.message };
   }
   if (err instanceof AcpTimeoutError) {
-    // Capacity signal was captured by per-invoke listener — no stale leakage possible
+    // Priority 1: invoke-level listener captured signal in real time
     if (capacitySignal) {
       return {
         errorCode: 'model_capacity',
-        errorMsg: `Provider capacity exhausted (upstream 429). ${capacitySignal.message}`,
+        errorMsg: `Provider capacity exhausted (upstream 429, evidence: invoke_signal). ${capacitySignal.message}`,
+      };
+    }
+    // Priority 2: client-level signal within window — delayed stderr from CLI buffering
+    if (clientRecentSignal && Date.now() - clientRecentSignal.timestamp < RECENT_SIGNAL_MAX_AGE_MS) {
+      const ageS = Math.round((Date.now() - clientRecentSignal.timestamp) / 1000);
+      return {
+        errorCode: 'model_capacity',
+        errorMsg: `Provider capacity exhausted (upstream 429, evidence: recent_process_signal, ${ageS}s ago). ${clientRecentSignal.message}`,
       };
     }
     return { errorCode: 'lease_timeout', errorMsg: err.message };

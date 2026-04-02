@@ -96,6 +96,9 @@ export class AcpClient {
   private closed = false;
   private exited = false;
   private readonly capacityListeners = new Set<(signal: AcpCapacitySignal) => void>();
+  /** Client-level capacity signal — always captured regardless of listeners.
+   *  Fallback for delayed stderr arriving after invoke listener is removed. */
+  private _recentCapacitySignal: AcpCapacitySignal | null = null;
 
   constructor(private readonly config: AcpClientConfig) {}
 
@@ -114,6 +117,7 @@ export class AcpClient {
       log.warn({ pid: this.child?.pid }, '[acp stderr] %s', text);
       if (CAPACITY_RE.test(text)) {
         const signal: AcpCapacitySignal = { message: text.slice(0, 300), timestamp: Date.now() };
+        this._recentCapacitySignal = signal;
         for (const fn of this.capacityListeners) fn(signal);
       }
     });
@@ -315,6 +319,16 @@ export class AcpClient {
   /** Unregister a capacity-signal listener. */
   offCapacity(fn: (signal: AcpCapacitySignal) => void): void {
     this.capacityListeners.delete(fn);
+  }
+
+  /** Most recent capacity signal observed on this client (provider-level, not per-invoke). */
+  get recentCapacitySignal(): AcpCapacitySignal | null {
+    return this._recentCapacitySignal;
+  }
+
+  /** Clear capacity signal after a successful prompt — provider has recovered. */
+  clearRecentCapacitySignal(): void {
+    this._recentCapacitySignal = null;
   }
 
   // ── Internal ─────────────────────────────────────────────────

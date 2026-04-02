@@ -616,4 +616,36 @@ describe('AcpClient', () => {
     await new Promise((r) => setTimeout(r, 10));
     assert.equal(captured, null, 'should NOT receive signals after offCapacity');
   });
+
+  it('recentCapacitySignal persists even without registered listeners', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+
+    // No listener registered — but recentCapacitySignal should still capture
+    assert.equal(client.recentCapacitySignal, null, 'initially null');
+
+    child.stderr.write('No capacity available for model gemini-3.1-pro-preview on the server\n');
+    await new Promise((r) => setTimeout(r, 10));
+
+    assert.ok(client.recentCapacitySignal, 'should capture signal without listeners');
+    assert.match(client.recentCapacitySignal.message, /No capacity available/);
+    assert.ok(client.recentCapacitySignal.timestamp > 0);
+  });
 });

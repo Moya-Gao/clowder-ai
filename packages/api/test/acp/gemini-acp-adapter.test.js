@@ -855,4 +855,237 @@ describe('GeminiAcpAdapter integration', () => {
     assert.equal(err1.errorCode, 'model_capacity', `Prompt 1: expected model_capacity, got ${err1.errorCode}`);
     assert.equal(err2.errorCode, 'model_capacity', `Prompt 2: expected model_capacity, got ${err2.errorCode}`);
   });
+
+  it('fallback: timeout with no invoke signal but recent client-level signal → model_capacity', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      // Client-level signal from a PREVIOUS invoke (delayed stderr, 2 minutes ago)
+      recentCapacitySignal: {
+        message: 'MODEL_CAPACITY_EXHAUSTED: No capacity for gemini-3.1-pro-preview',
+        timestamp: Date.now() - 2 * 60 * 1000,
+      },
+      newSession: async () => ({ sessionId: 'fallback-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Pure timeout — no invoke-level signal emitted via listeners
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'Should yield error message');
+    assert.equal(
+      errorMsg.errorCode,
+      'model_capacity',
+      `Expected model_capacity via fallback, got ${errorMsg.errorCode}`,
+    );
+    assert.match(errorMsg.error, /recent_process_signal/, 'Should indicate evidence source');
+  });
+
+  it('fallback: stale client-level signal (>10 min old) does NOT trigger model_capacity', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      // Stale signal from 15 minutes ago — should NOT be used
+      recentCapacitySignal: {
+        message: 'MODEL_CAPACITY_EXHAUSTED old',
+        timestamp: Date.now() - 15 * 60 * 1000,
+      },
+      newSession: async () => ({ sessionId: 'stale-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'Should yield error message');
+    assert.equal(
+      errorMsg.errorCode,
+      'lease_timeout',
+      `Expected lease_timeout for stale signal, got ${errorMsg.errorCode}`,
+    );
+  });
+
+  it('production path: timeout → delayed stderr → next timeout classified via fallback', async () => {
+    // Mirrors production timeline: timeout at T, stderr arrives at T+5min,
+    // next invoke times out and gets classified as model_capacity via recentCapacitySignal.
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    let invokeCount = 0;
+    const recentSignal = { message: '', timestamp: 0 };
+    const listeners = new Set();
+
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: (fn) => listeners.add(fn),
+      offCapacity: (fn) => listeners.delete(fn),
+      get recentCapacitySignal() {
+        return recentSignal.timestamp > 0 ? recentSignal : null;
+      },
+      newSession: async () => ({ sessionId: `prod-sess-${++invokeCount}` }),
+      cancelSession: () => {},
+      async *promptStream() {
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    // --- Invoke 1: timeout with no signal anywhere → lease_timeout ---
+    const msgs1 = [];
+    for await (const msg of adapter.invoke('first prompt')) {
+      msgs1.push(msg);
+    }
+    const err1 = msgs1.find((m) => m.type === 'error');
+    assert.equal(err1.errorCode, 'lease_timeout', 'First invoke: no signal → lease_timeout');
+
+    // --- Simulate: 429 stderr arrives 5 min later (between invokes) ---
+    // Listener was removed by first invoke's finally block, so this only hits client-level capture
+    recentSignal.message = 'MODEL_CAPACITY_EXHAUSTED: No capacity for gemini-3.1-pro-preview';
+    recentSignal.timestamp = Date.now();
+
+    // --- Invoke 2: timeout again, but client has recent capacity signal → model_capacity ---
+    const msgs2 = [];
+    for await (const msg of adapter.invoke('second prompt')) {
+      msgs2.push(msg);
+    }
+    const err2 = msgs2.find((m) => m.type === 'error');
+    assert.equal(
+      err2.errorCode,
+      'model_capacity',
+      `Second invoke: expected model_capacity via fallback, got ${err2.errorCode}`,
+    );
+    assert.match(err2.error, /recent_process_signal/, 'Should mention evidence source');
+  });
+
+  it('P1-review: successful invoke clears recentCapacitySignal — no false blame on next timeout', async () => {
+    // Reproduces gpt52's P1: 429 → success → unrelated timeout should NOT be model_capacity.
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    let invokeCount = 0;
+    let _recentSignal = {
+      message: 'MODEL_CAPACITY_EXHAUSTED: stale signal from earlier',
+      timestamp: Date.now() - 60_000, // 1 minute ago — within 10min window
+    };
+    const listeners = new Set();
+
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: (fn) => listeners.add(fn),
+      offCapacity: (fn) => listeners.delete(fn),
+      get recentCapacitySignal() {
+        return _recentSignal;
+      },
+      clearRecentCapacitySignal() {
+        _recentSignal = null;
+      },
+      newSession: async () => ({ sessionId: `recovery-sess-${++invokeCount}` }),
+      cancelSession: () => {},
+      async *promptStream() {
+        if (invokeCount === 1) {
+          // Invoke 1: succeeds — yields content, no throw
+          yield { type: 'content', content: [{ type: 'text', text: 'ok' }] };
+        } else {
+          // Invoke 2: pure timeout — unrelated to Google capacity
+          throw new AcpTimeoutError('session/prompt', 120000);
+        }
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    // --- Invoke 1: succeeds (provider recovered) — should clear recent signal ---
+    const msgs1 = [];
+    for await (const msg of adapter.invoke('prompt after recovery')) {
+      msgs1.push(msg);
+    }
+    assert.ok(
+      msgs1.some((m) => m.type === 'done'),
+      'Invoke 1 should complete successfully',
+    );
+    assert.ok(!msgs1.some((m) => m.type === 'error'), 'Invoke 1 should have no errors');
+
+    // --- Invoke 2: timeout, but provider had recovered → must be lease_timeout ---
+    const msgs2 = [];
+    for await (const msg of adapter.invoke('unrelated timeout')) {
+      msgs2.push(msg);
+    }
+    const err2 = msgs2.find((m) => m.type === 'error');
+    assert.ok(err2, 'Invoke 2 should yield error');
+    assert.equal(
+      err2.errorCode,
+      'lease_timeout',
+      `Expected lease_timeout after recovery, got ${err2.errorCode} — stale signal should have been cleared`,
+    );
+  });
 });
