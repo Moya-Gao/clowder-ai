@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 
 export interface EvidenceSearchParams {
@@ -8,6 +8,7 @@ export interface EvidenceSearchParams {
   mode?: 'lexical' | 'semantic' | 'hybrid';
   scope?: 'docs' | 'memory' | 'threads' | 'sessions' | 'all';
   depth?: 'summary' | 'raw';
+  dimension?: 'project' | 'global' | 'all';
   limit?: number;
 }
 
@@ -17,6 +18,7 @@ interface SearchResultItem {
   snippet: string;
   confidence: string;
   sourceType: string;
+  source?: 'project' | 'global';
   passages?: Array<{ text: string; score?: number }>;
 }
 
@@ -54,6 +56,14 @@ export const SOURCE_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
+ * Pure: extract q param from URL search string for drill-down.
+ */
+export function parseInitialQuery(search: string): string {
+  if (!search) return '';
+  return new URLSearchParams(search).get('q') ?? '';
+}
+
+/**
  * Pure: build search URL from params.
  */
 export function buildSearchUrl(params: EvidenceSearchParams): string {
@@ -62,6 +72,7 @@ export function buildSearchUrl(params: EvidenceSearchParams): string {
   if (params.mode) sp.set('mode', params.mode);
   if (params.scope) sp.set('scope', params.scope);
   if (params.depth) sp.set('depth', params.depth);
+  if (params.dimension) sp.set('dimension', params.dimension);
   if (params.limit) sp.set('limit', String(params.limit));
   return `/api/evidence/search?${sp.toString()}`;
 }
@@ -74,31 +85,60 @@ export function parseSearchResults(response: SearchResponse): SearchResultItem[]
   return response.results;
 }
 
-export function EvidenceSearch() {
-  const [query, setQuery] = useState('');
+interface EvidenceSearchProps {
+  readonly initialQuery?: string;
+}
+
+export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
+  const [query, setQuery] = useState(initialQuery ?? '');
   const [mode, setMode] = useState<EvidenceSearchParams['mode']>('hybrid');
   const [scope, setScope] = useState<EvidenceSearchParams['scope']>(undefined);
   const [depth, setDepth] = useState<EvidenceSearchParams['depth']>(undefined);
+  const [dimension, setDimension] = useState<EvidenceSearchParams['dimension']>(undefined);
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const autoSearchedRef = useRef<string | undefined>(undefined);
+  const searchIdRef = useRef(0);
 
-  const handleSearch = useCallback(async () => {
-    if (!query.trim()) return;
-    setIsSearching(true);
-    setError(null);
-    try {
-      const url = buildSearchUrl({ q: query.trim(), mode, scope, depth, limit: 10 });
-      const res = await apiFetch(url);
-      const data = (await res.json()) as SearchResponse;
-      setResults(parseSearchResults(data));
-    } catch {
-      setError('Search failed');
-      setResults([]);
-    } finally {
-      setIsSearching(false);
+  const doSearch = useCallback(
+    async (searchQuery: string) => {
+      if (!searchQuery.trim()) return;
+      const id = ++searchIdRef.current;
+      setIsSearching(true);
+      setError(null);
+      try {
+        const url = buildSearchUrl({ q: searchQuery.trim(), mode, scope, depth, dimension, limit: 10 });
+        const res = await apiFetch(url);
+        if (id !== searchIdRef.current) return;
+        const data = (await res.json()) as SearchResponse;
+        if (id !== searchIdRef.current) return;
+        setResults(parseSearchResults(data));
+      } catch {
+        if (id !== searchIdRef.current) return;
+        setError('Search failed');
+        setResults([]);
+      } finally {
+        if (id === searchIdRef.current) {
+          setIsSearching(false);
+        }
+      }
+    },
+    [mode, scope, depth, dimension],
+  );
+
+  const handleSearch = useCallback(() => doSearch(query), [doSearch, query]);
+
+  // Auto-search when initialQuery changes (drill-down from RecallFeed).
+  // Uses ref to avoid re-triggering for the same value when component persists
+  // across Next.js App Router searchParams changes.
+  useEffect(() => {
+    if (initialQuery && initialQuery !== autoSearchedRef.current) {
+      autoSearchedRef.current = initialQuery;
+      setQuery(initialQuery);
+      doSearch(initialQuery);
     }
-  }, [query, mode, scope, depth]);
+  }, [initialQuery, doSearch]);
 
   return (
     <div data-testid="evidence-search" className="space-y-4">
@@ -170,6 +210,21 @@ export function EvidenceSearch() {
             ))}
           </select>
         </label>
+        <label className="flex items-center gap-1 text-cafe-secondary">
+          维度:
+          <select
+            value={dimension ?? 'all'}
+            onChange={(e) =>
+              setDimension(e.target.value === 'all' ? undefined : (e.target.value as EvidenceSearchParams['dimension']))
+            }
+            className="rounded border border-cafe bg-white px-1.5 py-0.5 text-xs"
+            data-testid="evidence-dimension-select"
+          >
+            <option value="all">全部</option>
+            <option value="project">项目</option>
+            <option value="global">全局</option>
+          </select>
+        </label>
       </div>
 
       {/* Error */}
@@ -185,6 +240,13 @@ export function EvidenceSearch() {
               >
                 {SOURCE_TYPE_LABELS[item.sourceType] ?? item.sourceType}
               </span>
+              {item.source && (
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${item.source === 'project' ? 'bg-indigo-100 text-indigo-800' : 'bg-teal-100 text-teal-800'}`}
+                >
+                  {item.source === 'project' ? '项目' : '全局'}
+                </span>
+              )}
               <h3 className="text-sm font-medium text-cafe-black">{item.title}</h3>
             </div>
             <p className="mt-1 text-xs text-cafe-secondary">{item.snippet}</p>

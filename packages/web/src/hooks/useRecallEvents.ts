@@ -16,6 +16,8 @@ export interface RecallResultItem {
   title: string;
   confidence?: string;
   sourceType?: string;
+  anchor?: string;
+  snippet?: string;
 }
 
 export interface RecallEvent {
@@ -77,12 +79,21 @@ export function parseTextResults(text: string): RecallResultItem[] {
       title: match[2],
     };
 
-    // Look ahead for "  type: xxx" on subsequent indented lines
+    // Look ahead for metadata on subsequent indented lines
     for (let j = i + 1; j < lines.length && lines[j].startsWith('  '); j++) {
+      const anchorMatch = lines[j].match(/^\s+anchor:\s+(.+)$/);
+      if (anchorMatch) {
+        item.anchor = anchorMatch[1];
+        continue;
+      }
       const typeMatch = lines[j].match(/^\s+type:\s+(.+)$/);
       if (typeMatch) {
         item.sourceType = typeMatch[1];
-        break;
+        continue;
+      }
+      const snippetMatch = lines[j].match(/^\s+>\s+(.+)$/);
+      if (snippetMatch) {
+        item.snippet = snippetMatch[1];
       }
     }
 

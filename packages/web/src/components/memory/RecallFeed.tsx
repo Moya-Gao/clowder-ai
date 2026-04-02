@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useState } from 'react';
 import { type RecallEvent, useRecallEvents } from '@/hooks/useRecallEvents';
 
@@ -37,10 +38,17 @@ function RecallCard({ event }: { event: RecallEvent }) {
                       <span className="ml-auto text-[9px] text-cafe-secondary/70">[{r.confidence}]</span>
                     )}
                   </div>
+                  {r.snippet && <p className="mt-0.5 text-[10px] text-cafe-secondary/80 line-clamp-2">{r.snippet}</p>}
                 </div>
               ))}
             </div>
           )}
+          <Link
+            href={`/memory/search?q=${encodeURIComponent(event.query)}`}
+            className="mt-1.5 inline-block text-[10px] font-medium text-cocreator-primary hover:text-cocreator-dark"
+          >
+            在搜索页查看详情 →
+          </Link>
         </div>
       )}
     </div>

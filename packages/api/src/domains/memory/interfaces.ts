@@ -113,6 +113,8 @@ export interface SearchOptions {
   contextWindow?: number;
   /** F148 Phase B (AC-B1): filter evidence to a specific thread's digest */
   threadId?: string;
+  /** F102 Batch 3: knowledge dimension — project, global, or all (default) */
+  dimension?: 'project' | 'global' | 'all';
 }
 
 export interface MarkerFilter {

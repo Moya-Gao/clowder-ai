@@ -8,9 +8,10 @@ import { MemoryNav, type MemoryTab } from './MemoryNav';
 
 interface MemoryHubProps {
   readonly activeTab?: MemoryTab;
+  readonly initialQuery?: string;
 }
 
-export function MemoryHub({ activeTab = 'feed' }: MemoryHubProps) {
+export function MemoryHub({ activeTab = 'feed', initialQuery }: MemoryHubProps) {
   return (
     <div className="flex h-full flex-col bg-cafe-surface" data-testid="memory-hub">
       <header className="flex items-center gap-3 border-b border-cafe px-4 py-3">
@@ -25,7 +26,7 @@ export function MemoryHub({ activeTab = 'feed' }: MemoryHubProps) {
         )}
         {activeTab === 'search' && (
           <div data-testid="memory-tab-search">
-            <EvidenceSearch />
+            <EvidenceSearch initialQuery={initialQuery} />
           </div>
         )}
         {activeTab === 'status' && (

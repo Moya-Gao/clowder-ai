@@ -19,6 +19,8 @@ export interface EvidenceResult {
   snippet: string;
   confidence: EvidenceConfidence;
   sourceType: EvidenceSourceType;
+  /** F102 Batch 3: knowledge dimension origin — project or global */
+  source?: 'project' | 'global';
   status?: EvidenceStatus;
   /** AC-I9: passage-level detail when depth=raw */
   passages?: Array<{
