@@ -56,7 +56,6 @@ created: 2026-02-26
 | F144 | PPT Forge — AI 演示文稿生成引擎 | in-progress | 三猫 | internal | [F144](features/F144-ppt-forge.md) |
 | F146 | MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | spec | 缅因猫 + 布偶猫 | internal | [F146](features/F146-mcp-marketplace-control-plane.md) |
 | F147 | i18n — Hub 界面中英文切换 | idea | 待定 | internal | — |
-| F148 | Hierarchical Context Transport — 分层上下文传输 | in-progress | 布偶猫 + 缅因猫 | internal | [F148](features/F148-hierarchical-context-transport.md) |
 | F149 | ACP Runtime Operations — 项目级进程池 + Session Lease | spec | 缅因猫 | internal | [F149](features/F149-acp-runtime-operations.md) |
 | F150 | Tool/Skill/MCP Usage Statistics — 工具使用可观测看板 | spec | Community + 布偶猫 | internal | [F150](features/F150-tool-usage-stats.md) |
 | F151 | XiaoYi Channel Gateway — 小艺渠道 OpenClaw 模式接入 | spec | Community | community [#341](https://github.com/zts212653/clowder-ai/issues/341) | — |

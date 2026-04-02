@@ -109,3 +109,4 @@
 | F141 | F141: GitHub Repo Inbox — 仓库事件自动发现 | done | [F141-github-repo-inbox.md](./F141-github-repo-inbox.md) |
 | F142 | F142: Connector Slash Commands — 跨平台 /slash 扩展框架 | done | [F142-connector-slash-commands.md](./F142-connector-slash-commands.md) |
 | F108 | F108: Side-Dispatch — 同一 Thread 多猫并发执行 | done | [F108-side-dispatch-concurrent-invocation.md](./F108-side-dispatch-concurrent-invocation.md) |
+| F148 | F148: Hierarchical Context Transport — 分层上下文传输 | done | [F148-hierarchical-context-transport.md](./F148-hierarchical-context-transport.md) |
