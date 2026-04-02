@@ -140,6 +140,8 @@ export interface MaterializeResult {
   markerId: string;
   outputPath: string;
   anchor: string;
+  committed: boolean;
+  reindexed: boolean;
 }
 
 export interface KnowledgeResult {

@@ -1227,6 +1227,7 @@ async function main(): Promise<void> {
   await knowledgeFeedRoutes(app, {
     markerQueue: memoryServices.markerQueue,
     db: memoryServices.store.getDb(),
+    materializationService: memoryServices.materializationService,
   });
 
   // Memory governance (publish workflow)

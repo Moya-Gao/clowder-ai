@@ -119,7 +119,7 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
   }
 
   const markerQueue = new MarkerQueue(markersDir);
-  const materializationService = new MaterializationService(markerQueue, docsRoot);
+  const materializationService = new MaterializationService(markerQueue, docsRoot, indexBuilder);
   const reflectionService = new ReflectionService(
     async () => '[reflect not configured — use search_evidence to find project knowledge]',
   );

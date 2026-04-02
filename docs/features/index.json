@@ -915,7 +915,7 @@
     {
       "id": "F149",
       "name": "ACP Runtime Operations — 项目级进程池 + Session Lease",
-      "status": "spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
       "file": "F149-acp-runtime-operations.md"
     },
     {
@@ -931,5 +931,5 @@
       "file": "F151-xiaoyi-channel-gateway.md"
     }
   ],
-  "generated_at": "2026-04-02T02:18:48.538Z"
+  "generated_at": "2026-04-02T04:10:50.000Z"
 }
