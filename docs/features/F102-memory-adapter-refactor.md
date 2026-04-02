@@ -1392,6 +1392,31 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-01 | **PR #899 squash merged** — Phase J (AC-J1~J8) ✅ Memory Hub: /memory route + MemoryNav + EvidenceSearch + IndexStatus + RecallFeed + HubMemoryTab + workspace recall rename |
 | 2026-04-01 | **PR #904 squash merged** — Phase F-1/F-2/F-3 (AC-F1-1~F3-4) ✅ Multi-project onboarding: project-init CLI + recursive fallback discovery + frontmatter-formatter |
 
+## Known Issues（铲屎官 2026-04-01 Report）
+
+### Issue 1: Workspace Recall Feed 全部显示 (unknown)
+
+**严重度**: P1（功能不可用）
+**位置**: `packages/web/src/hooks/useRecallEvents.ts:112`
+**根因**: 参数名不匹配 — `parseDetail()` 解析 `params.q`，但 MCP 工具 `cat_cafe_search_evidence` 的参数名是 `query`（见 `packages/mcp-server/src/tools/evidence-tools.ts:16`）。`toStoredToolEvent` 序列化出 `{"query":"...","mode":"hybrid"}`，前端找 `.q` 永远 undefined → fallback 到 `'(unknown)'`。
+**修法**: `params.q` → `params.query`（一行修）
+
+### Issue 2: Memory Hub 搜索展示粗糙，后端元数据未被前端利用
+
+**严重度**: P2（可用但体验差）
+**位置**: `packages/web/src/components/memory/EvidenceSearch.tsx:161-162`
+**现象**:
+- 搜索结果默认只返回 5 条（`effectiveLimit = limit ?? 5`），无分页、无"加载更多"
+- 所有 doc_kind 标签统一紫色（`bg-cocreator-light`），英文原值（`discussion`/`phase`），无图标
+- 后端 frontmatter-formatter 补全的 `doc_kind`/`topics`/`anchor` 元数据，前端只用了 `sourceType` 显示原值，`topics` 完全未展示
+- 已有更好的 `EvidenceCard` 组件（含 `SOURCE_CONFIG` 分类图标 + confidence 分色），但 EvidenceSearch 没复用
+
+**改进方向**:
+1. 复用 `EvidenceCard` 替换搜索结果卡片（分类图标 + 分色）
+2. `doc_kind` 标签中文化 + 按类型分色
+3. limit 提到 10-15 + 加载更多
+4. topics 作为可点击筛选标签
+
 ## 实现路线图（F/G/Gap 整体规划）
 
 > **当前状态**：Phase A~E ✅ 完成 + Phase G foundation ✅ 已合入（PR #604）+ Phase H ✅ 已合入（PR #737）+ Phase I ✅ 已合入（PR #884）+ Phase I follow-up ✅ 已合入（PR #885）+ Phase F-4 ✅ 已合入（PR #886）+ Phase J ✅ 已合入（PR #899, Memory Hub 人类产品面）+ Phase F-1/2/3 ✅ 已合入（PR #904, 多项目记忆接入）。G 运行时验收 + IMaterializationService 待开。
