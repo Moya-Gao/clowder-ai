@@ -127,7 +127,27 @@ created: 2026-03-31
 |---|-----|------|-------------|------|
 | VG-1 | `coverageMap.retrievalHints` 硬编码空数组，briefing 卡片"证据 N 条"永远显示 0 | bug | [#916](https://github.com/zts212653/cat-cafe/issues/916) / PR #919 | ✅ merged |
 | VG-2 | briefing 卡片 UX：来源标识 + 默认折叠 + 展开态 retrieval hints（铲屎官 runtime 实测反馈 2026-04-02） | enhancement | [#917](https://github.com/zts212653/cat-cafe/issues/917) / PR #920 | ✅ merged |
-| VG-3 | threadMemory 是文件操作账本，缺决策/产物粒度（含 GPT Pro structured state ledger 建议） | enhancement | [#918](https://github.com/zts212653/cat-cafe/issues/918) | ⬜ |
+| VG-3 | threadMemory 是文件操作账本，缺决策/产物粒度（含 GPT Pro structured state ledger 建议） | enhancement | [#918](https://github.com/zts212653/cat-cafe/issues/918) | 🚧 设计完成 |
+
+### VG-3 设计方案（2026-04-02 布偶猫 + 缅因猫 Spark 收敛）
+
+**方案**：B+A 组合 — AutoSummarizer conclusions 为主 + regex 即时兜底。不一步到位 L1a/L1b。
+
+**架构**：
+1. **DecisionSignals** 结构：`decisions[] / openQuestions[] / artifacts[] / sources[]`
+   - 来源 1：SessionSealer 扫描 transcript regex（即时，覆盖最近 session）
+   - 来源 2：最近 ThreadSummary 的 conclusions/openQuestions（补强，已预计算）
+   - 在 SessionSealer 层组装，不污染 buildThreadMemory 纯函数
+2. **ThreadMemory v2**（向后兼容）：保留 `summary/sessionsIncorporated/updatedAt`，新增可选 `decisions/openQuestions/artifacts`。旧 v1 读入时自动填空数组
+3. **buildThreadMemory 双轨输出**：一行 session 账本 + 结构化决策数组（去重 + 上限 8/5/8）
+4. **briefing 展开态新增"关键决策"**：`format-briefing.ts` 渲染 decisions（最多 3 条）+ openQuestions（最多 2 条）
+
+**实施拆分**（3 commit）：
+- Commit 1: `signals 抽取` — DecisionSignals 结构 + SessionSealer regex + ThreadSummary 接入
+- Commit 2: `threadMemory v2` — 向后兼容升级 + buildThreadMemory 双轨
+- Commit 3: `briefing 展示` — format-briefing 渲染决策 + 前端展示
+
+**验收测试**：有/无 summary × 有/无 regex 的 4 组合 + briefing 展开态 "关键决策" 断言
 
 ## Open Questions
 
@@ -146,6 +166,7 @@ created: 2026-03-31
 | KD-3 | evidence recall 用 composite query 而非纯 @-mention text | 砚砚指出 "@opus 帮看下" 这种 mention text 对 BM25 几乎没信号 | 2026-03-31 |
 | KD-4 | search_evidence 负责"找"，get_thread_context 负责"看" | 工具边界清晰，避免功能重叠 | 2026-03-31 |
 | KD-5 | GPT Pro 主骨架 + Gemini 局部好点子 | GPT Pro 更贴我们真实代码和约束；Gemini 的 prompt caching 和 source tagging 独到 | 2026-03-31 |
+| KD-6 | VG-3 用 B+A（AutoSummarizer + regex），不一步到位 L1a/L1b | MVP 先闭环；DecisionSignals 在 SessionSealer 层组装保持纯函数可测试性 | 2026-04-02 |
 
 ## Timeline
 
@@ -161,6 +182,8 @@ created: 2026-03-31
 | 2026-04-02 | Phase E 立项 — context briefing surface（愿景守护后铲屎官拍板） |
 | 2026-04-02 | Phase E merged (PR #913) — format-briefing + system_info delivery + frontend addMessage. 缅因猫 review (3P1 fixed, R1→R2→R3) + 云端 review passed |
 | 2026-04-02 | VG-1 fix merged (PR #919) — coverageMap.retrievalHints 填充 evidence recall 标题。缅因猫 review (R1: 1P1+1P2, R2 pass) + 云端 review passed |
+| 2026-04-02 | VG-2 fix merged (PR #920) — collapsible briefing card with source label + evidence hints。缅因猫 Spark review (pass) + 云端 review passed |
+| 2026-04-02 | VG-3 设计收敛 — 布偶猫 + 缅因猫 Spark 讨论，B+A 方案（KD-6），3 commit 拆分 |
 
 ## Review Gate
 
