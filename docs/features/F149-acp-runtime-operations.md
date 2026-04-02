@@ -62,9 +62,9 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 3. 证明同一个 ACP process 可以承载多个 thread session，而不是每条消息重启 CLI
 4. 对 `initialize / newSession / loadSession / prompt` 的耗时和失败原因做结构化观测
 
-### Phase C: 项目级进程池 + Session Lease
+### Phase C: 项目级进程池 + Session Lease ✅
 
-把“烁烁是一个长驻 agent runtime，不是一次性 CLI 子进程”落成明确控制面：
+把”烁烁是一个长驻 agent runtime，不是一次性 CLI 子进程”落成明确控制面：
 
 1. 进程池 domain key 默认按 `(projectPath, providerProfile)`，不按 thread 开进程；同一 key 是否单实例或弹性 1→N worker 由 Phase A 并发实验决定
 2. thread 只在真正需要 @ 烁烁时申请 session / lease；不需要参与的 thread 不占资源
@@ -95,12 +95,12 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 - [x] AC-B3: warm attach 路径不再重付 cold `initialize` 成本
 - [x] AC-B4: 失败分类至少区分 `init_failure / prompt_failure / model_capacity / mcp_pollution / lease_timeout`
 
-### Phase C（项目级进程池 + Session Lease）
-- [ ] AC-C1: 默认进程池 key 为 `(projectPath, providerProfile)`，thread 不直接拥有 ACP process
-- [ ] AC-C2: thread 获取和释放 lease 的控制面完成，inactive thread 不会长期 pin 住进程
-- [ ] AC-C3: idle TTL / max live process count / eviction policy 可配置
-- [ ] AC-C4: cancel / crash / timeout 后不会残留僵尸进程或悬挂 lease
-- [ ] AC-C5: 并发 10 个活跃 thread 时，live process 数和 warm hit rate 都有可观测指标而非靠体感判断
+### Phase C（项目级进程池 + Session Lease）✅
+- [x] AC-C1: 默认进程池 key 为 `(projectPath, providerProfile)`，thread 不直接拥有 ACP process
+- [x] AC-C2: thread 获取和释放 lease 的控制面完成，inactive thread 不会长期 pin 住进程
+- [x] AC-C3: idle TTL / max live process count / eviction policy 可配置
+- [x] AC-C4: cancel / crash / timeout 后不会残留僵尸进程或悬挂 lease
+- [x] AC-C5: 并发 10 个活跃 thread 时，live process 数和 warm hit rate 都有可观测指标而非靠体感判断
 
 ### Phase D（ACP Carrier 泛化）
 - [ ] AC-D1: 至少一个非 Gemini 的 ACP carrier 可映射到相同 runtime policy，而不需要重写池化/lease 模型
@@ -190,6 +190,8 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-04-02 | Phase A merged (PR #910) — 砚砚 local review (R1 退回→R2 放行) + 云端 review (R1/R2 P1 修→R3 clean) |
 | 2026-04-02 | **Phase B done** — GeminiAcpAdapter + AcpClient.promptStream() + acp-event-transformer + 配置切换 + 前端 ACP/CLI badge。29 tests green。砚砚 local review (R1→R4, 4-window abort 覆盖) + 云端 review clean。AC-B1~B4 全部 ✅ |
 | 2026-04-02 | Phase B merged (PR #914) — squash merge `40bccea3` |
+| 2026-04-02 | **Phase C done** — AcpProcessPool (acquire/release, idle TTL, LRU eviction, health check, zombie cleanup, capacity enforcement, concurrent acquire coalescing) + GeminiAcpAdapter pool-backed refactor + diagnostics endpoint + 45 ACP tests green。砚砚 local review (R1 退回 2P1+1P2→R2 放行) + 云端 review (P1 truthy→strict fix)。AC-C1~C5 全部 ✅ |
+| 2026-04-02 | Phase C merged (PR #921) — squash merge `a7bda566` |
 
 ## Review Gate
 
