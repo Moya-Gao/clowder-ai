@@ -237,7 +237,10 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
     assert.ok(!card.bodyMarkdown.includes('`has `backtick'), 'raw backtick must be escaped');
     // newlines must be stripped so each suggestion stays on one line
     const searchSection = card.bodyMarkdown.split('**深入搜索**:')[1];
-    const lines = searchSection.trim().split('\n').filter((l) => l.startsWith('- '));
+    const lines = searchSection
+      .trim()
+      .split('\n')
+      .filter((l) => l.startsWith('- '));
     assert.equal(lines.length, 2, 'each suggestion should be exactly one line');
   });
 
@@ -251,7 +254,10 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
     const searchSection = card.bodyMarkdown.split('**深入搜索**:')[1];
     // backslashes must be stripped so copy-paste doesn't break
     assert.ok(!searchSection.includes('\\'), 'backslashes must be sanitized');
-    const lines = searchSection.trim().split('\n').filter((l) => l.startsWith('- '));
+    const lines = searchSection
+      .trim()
+      .split('\n')
+      .filter((l) => l.startsWith('- '));
     assert.equal(lines.length, 2, 'each suggestion should be exactly one line');
   });
 
