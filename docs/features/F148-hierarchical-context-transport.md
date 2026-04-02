@@ -84,9 +84,9 @@ created: 2026-03-31
 - [x] AC-C2: top 2-3 anchors 注入到 context packet
 - [x] AC-C3: primacy anchor（thread opener 或 title）始终包含
 
-### Phase D（Structured State）
-- [ ] AC-D1: buildThreadMemory 区分 read/write，产出产物清单
-- [ ] AC-D2: coverage map JSON 对象随 context packet 投递
+### Phase D（Structured State）✅
+- [x] AC-D1: buildThreadMemory 区分 read/write，产出产物清单
+- [x] AC-D2: coverage map JSON 对象随 context packet 投递
 
 ## Dependencies
 
