@@ -1466,7 +1466,8 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
             I-1 JSONL backfill → I-2 时间过滤 → I-3 分层显式化
 ③ Stage 2: Phase F-4 — Global Knowledge Foundation（全局知识层 + 联邦检索）✅ PR #886
             从 Phase F 提前拆出，不等 F-1/F-2/F-3
-④ Stage 3: Phase J — Memory Hub（前端一次到位，含跨项目切换器）✅ PR #899
+④ Stage 3: Phase J — Memory Hub（搜索/状态/Recall 前端一次到位）✅ PR #899
+            注：跨项目切换器属于 Phase F 范围（wireframe 标注 [Phase F]），不在 J 内
             I + F-4 都完成后再开工，不做单项目脚手架版
 ⑤ Stage 4: Phase F-1/F-2/F-3 — Project Onboarding & Ingestion ✅ PR #904
             新项目策略 + 遗留项目扫描 + frontmatter formatter
