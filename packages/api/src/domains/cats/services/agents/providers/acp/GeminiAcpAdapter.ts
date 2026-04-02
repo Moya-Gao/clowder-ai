@@ -15,7 +15,7 @@
 import type { CatId } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
-import { AcpProtocolError, AcpTimeoutError } from './AcpClient.js';
+import { type AcpCapacitySignal, AcpProtocolError, AcpTimeoutError } from './AcpClient.js';
 import type { AcpLease, AcpProcessPool, PoolKey } from './AcpProcessPool.js';
 import { transformAcpEvent } from './acp-event-transformer.js';
 
@@ -82,9 +82,20 @@ export class GeminiAcpAdapter implements AgentService {
       newSession(cwd: string): Promise<{ sessionId: string }>;
       cancelSession(sessionId: string): void;
       promptStream(sessionId: string, text: string): AsyncGenerator<import('./types.js').AcpSessionUpdate>;
+      onCapacity(fn: (signal: AcpCapacitySignal) => void): void;
+      offCapacity(fn: (signal: AcpCapacitySignal) => void): void;
     };
     const cwd = options?.workingDirectory ?? this.projectRoot;
     let sessionId: string | undefined;
+
+    // Per-invoke capacity listener — covers the entire invoke lifecycle (newSession + prompt + grace).
+    // This is intentionally invoke-level, not prompt-level: capacity is a provider-level property
+    // (same process = same API key = same quota), so signals from any phase are relevant.
+    let capacitySignal: AcpCapacitySignal | null = null;
+    const onCapacity = (signal: AcpCapacitySignal) => {
+      capacitySignal = signal;
+    };
+    client.onCapacity(onCapacity);
 
     // Abort handler: cancels the specific session, not the shared client
     const onAbort = options?.signal
@@ -151,7 +162,11 @@ export class GeminiAcpAdapter implements AgentService {
 
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     } catch (err) {
-      const { errorCode, errorMsg } = classifyError(err);
+      // P1: stderr may arrive after timeout — give a grace window for late capacity signals
+      if (!capacitySignal && err instanceof AcpTimeoutError) {
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+      const { errorCode, errorMsg } = classifyError(err, capacitySignal);
       log.error({ catId: this.catId, errorCode, err: errorMsg }, 'ACP prompt failure');
       yield {
         type: 'error',
@@ -163,6 +178,7 @@ export class GeminiAcpAdapter implements AgentService {
       };
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     } finally {
+      client.offCapacity(onCapacity);
       if (onAbort && options?.signal) {
         options.signal.removeEventListener('abort', onAbort);
       }
@@ -171,7 +187,10 @@ export class GeminiAcpAdapter implements AgentService {
   }
 }
 
-function classifyError(err: unknown): { errorCode: string; errorMsg: string } {
+function classifyError(
+  err: unknown,
+  capacitySignal: AcpCapacitySignal | null | undefined,
+): { errorCode: string; errorMsg: string } {
   if (err instanceof AcpProtocolError) {
     if (err.code === -32000 || err.message.includes('capacity')) {
       return { errorCode: 'model_capacity', errorMsg: err.message };
@@ -182,6 +201,13 @@ function classifyError(err: unknown): { errorCode: string; errorMsg: string } {
     return { errorCode: 'prompt_failure', errorMsg: err.message };
   }
   if (err instanceof AcpTimeoutError) {
+    // Capacity signal was captured by per-invoke listener — no stale leakage possible
+    if (capacitySignal) {
+      return {
+        errorCode: 'model_capacity',
+        errorMsg: `Provider capacity exhausted (upstream 429). ${capacitySignal.message}`,
+      };
+    }
     return { errorCode: 'lease_timeout', errorMsg: err.message };
   }
   const msg = err instanceof Error ? err.message : String(err);

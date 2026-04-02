@@ -602,4 +602,257 @@ describe('GeminiAcpAdapter integration', () => {
     assert.ok(types.includes('error'), `Should yield error, got: ${JSON.stringify(types)}`);
     assert.ok(types.includes('done'), `Should yield done, got: ${JSON.stringify(types)}`);
   });
+
+  it('timeout with capacity stderr yields model_capacity not lease_timeout', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    const listeners = new Set();
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: (fn) => listeners.add(fn),
+      offCapacity: (fn) => listeners.delete(fn),
+      newSession: async () => ({ sessionId: 'cap-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Emit capacity signal before timeout (stderr arrived during prompt)
+        for (const fn of listeners)
+          fn({
+            message: 'No capacity available for model gemini-3.1-pro-preview on the server',
+            timestamp: Date.now(),
+          });
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'Should yield error message');
+    assert.equal(errorMsg.errorCode, 'model_capacity', `Expected model_capacity, got ${errorMsg.errorCode}`);
+    assert.match(errorMsg.error, /capacity|429/i, 'Error message should mention capacity');
+  });
+
+  it('P1: late stderr capacity signal (after timeout) still reclassifies via grace window', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    const listeners = new Set();
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: (fn) => listeners.add(fn),
+      offCapacity: (fn) => listeners.delete(fn),
+      newSession: async () => ({ sessionId: 'late-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Simulate: timeout fires, then stderr arrives 500ms later (during grace window)
+        setTimeout(() => {
+          const signal = {
+            message: 'MODEL_CAPACITY_EXHAUSTED: No capacity available for gemini-3.1-pro-preview',
+            timestamp: Date.now(),
+          };
+          for (const fn of listeners) fn(signal);
+        }, 500);
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'Should yield error message');
+    assert.equal(
+      errorMsg.errorCode,
+      'model_capacity',
+      `Expected model_capacity after grace window, got ${errorMsg.errorCode}`,
+    );
+  });
+
+  it('capacity signal during newSession window is captured (invoke-level scope, by design)', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    const listeners = new Set();
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: (fn) => listeners.add(fn),
+      offCapacity: (fn) => listeners.delete(fn),
+      newSession: async () => {
+        // Emit capacity signal DURING newSession (provider is 429-ing right now)
+        const signal = {
+          message: 'No capacity available during session setup',
+          timestamp: Date.now(),
+        };
+        for (const fn of listeners) fn(signal);
+        return { sessionId: 'newsess-cap' };
+      },
+      cancelSession: () => {},
+      async *promptStream() {
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'Should yield error message');
+    // Provider was capacity-constrained during newSession → correct to classify as model_capacity
+    assert.equal(
+      errorMsg.errorCode,
+      'model_capacity',
+      `Expected model_capacity for signal during newSession, got ${errorMsg.errorCode}`,
+    );
+  });
+
+  it('no capacity stderr during prompt yields lease_timeout (listener isolation)', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      newSession: async () => ({ sessionId: 'clean-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Pure timeout — no capacity signal emitted to listener
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'Should yield error message');
+    assert.equal(
+      errorMsg.errorCode,
+      'lease_timeout',
+      `Expected lease_timeout when no capacity signal, got ${errorMsg.errorCode}`,
+    );
+  });
+
+  it('concurrent prompts on same client both capture provider-level capacity signal', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    const listeners = new Set();
+    let sessionCounter = 0;
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: (fn) => listeners.add(fn),
+      offCapacity: (fn) => listeners.delete(fn),
+      newSession: async () => ({ sessionId: `conc-sess-${++sessionCounter}` }),
+      cancelSession: () => {},
+      async *promptStream(sessionId) {
+        // First session emits capacity signal (Google 429); second does not
+        if (sessionId === 'conc-sess-1') {
+          setTimeout(() => {
+            const signal = {
+              message: 'MODEL_CAPACITY_EXHAUSTED on gemini-3.1-pro',
+              timestamp: Date.now(),
+            };
+            for (const fn of listeners) fn(signal);
+          }, 50);
+        }
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    // Helper to collect all messages from an invoke stream
+    async function collect(stream) {
+      const msgs = [];
+      for await (const msg of stream) msgs.push(msg);
+      return msgs;
+    }
+
+    // Two concurrent prompts on the same client (multiplexed pool)
+    const [msgs1, msgs2] = await Promise.all([
+      collect(adapter.invoke('prompt-1')),
+      collect(adapter.invoke('prompt-2')),
+    ]);
+
+    const err1 = msgs1.find((m) => m.type === 'error');
+    const err2 = msgs2.find((m) => m.type === 'error');
+    assert.ok(err1 && err2, 'Both prompts should yield errors');
+    // Both should see model_capacity: same process = same provider = same capacity constraint
+    assert.equal(err1.errorCode, 'model_capacity', `Prompt 1: expected model_capacity, got ${err1.errorCode}`);
+    assert.equal(err2.errorCode, 'model_capacity', `Prompt 2: expected model_capacity, got ${err2.errorCode}`);
+  });
 });

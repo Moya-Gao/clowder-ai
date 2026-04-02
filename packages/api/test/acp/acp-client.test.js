@@ -497,4 +497,123 @@ describe('AcpClient', () => {
     assert.ok(!client.isAlive);
     client = null;
   });
+
+  it('emits capacity signal to registered onCapacity listeners', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+
+    let captured = null;
+    client.onCapacity((signal) => {
+      captured = signal;
+    });
+
+    // Simulate stderr from Gemini CLI with 429/capacity error
+    child.stderr.write(
+      'Attempt 1 failed with status 429. Retrying with backoff... ' +
+        'No capacity available for model gemini-3.1-pro-preview on the server\n',
+    );
+    await new Promise((r) => setTimeout(r, 10));
+
+    assert.ok(captured, 'listener should receive capacity signal');
+    assert.match(captured.message, /No capacity available/);
+    assert.ok(captured.timestamp > 0);
+  });
+
+  it('sends session/cancel when session/prompt times out', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    const sentMessages = [];
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        sentMessages.push(msg);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'timeout-sess' });
+        }
+        // Don't respond to session/prompt — let it timeout
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+    await client.newSession('/tmp');
+
+    // Use a very short timeout so test doesn't wait 120s
+    await assert.rejects(
+      () => client.promptCollect('timeout-sess', 'hello', { timeoutMs: 50 }),
+      (err) => err.name === 'AcpTimeoutError',
+    );
+
+    // Verify session/cancel was sent after timeout
+    const cancelMsg = sentMessages.find((m) => m.method === 'session/cancel');
+    assert.ok(cancelMsg, 'session/cancel should be sent after prompt timeout');
+    assert.equal(cancelMsg.params.sessionId, 'timeout-sess');
+  });
+
+  it('offCapacity prevents receiving signals after unregistration', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+    });
+
+    await client.initialize();
+
+    let captured = null;
+    const fn = (signal) => {
+      captured = signal;
+    };
+    client.onCapacity(fn);
+
+    // Signal while registered → captured
+    child.stderr.write('No capacity available for model gemini-3.1-pro-preview\n');
+    await new Promise((r) => setTimeout(r, 10));
+    assert.ok(captured, 'should receive signal while registered');
+
+    // Unregister and reset
+    client.offCapacity(fn);
+    captured = null;
+
+    // Signal after unregister → NOT captured
+    child.stderr.write('No capacity available for model gemini-3.1-pro-preview again\n');
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(captured, null, 'should NOT receive signals after offCapacity');
+  });
 });

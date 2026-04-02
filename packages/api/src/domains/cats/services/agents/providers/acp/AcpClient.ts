@@ -79,6 +79,14 @@ export class AcpTimeoutError extends Error {
 
 // ─── Client ─────────────────────���──────────────────────────���───
 
+/** Parsed capacity error detected from ACP process stderr. */
+export interface AcpCapacitySignal {
+  message: string;
+  timestamp: number;
+}
+
+const CAPACITY_RE = /MODEL_CAPACITY_EXHAUSTED|No capacity available|status 429.*Retrying/i;
+
 export class AcpClient {
   private child: ChildProcess | null = null;
   private rl: ReadlineInterface | null = null;
@@ -87,6 +95,7 @@ export class AcpClient {
   private initResult: AcpInitializeResult | null = null;
   private closed = false;
   private exited = false;
+  private readonly capacityListeners = new Set<(signal: AcpCapacitySignal) => void>();
 
   constructor(private readonly config: AcpClientConfig) {}
 
@@ -101,7 +110,12 @@ export class AcpClient {
     }) as ChildProcess;
 
     this.child.stderr?.on('data', (chunk: Buffer) => {
-      log.warn({ pid: this.child?.pid }, '[acp stderr] %s', chunk.toString().trimEnd());
+      const text = chunk.toString().trimEnd();
+      log.warn({ pid: this.child?.pid }, '[acp stderr] %s', text);
+      if (CAPACITY_RE.test(text)) {
+        const signal: AcpCapacitySignal = { message: text.slice(0, 300), timestamp: Date.now() };
+        for (const fn of this.capacityListeners) fn(signal);
+      }
     });
 
     this.child.on('error', (err) => {
@@ -293,6 +307,16 @@ export class AcpClient {
     return this.child !== null && !this.child.killed && !this.closed && !this.exited;
   }
 
+  /** Register a capacity-signal listener scoped to a prompt's lifetime. */
+  onCapacity(fn: (signal: AcpCapacitySignal) => void): void {
+    this.capacityListeners.add(fn);
+  }
+
+  /** Unregister a capacity-signal listener. */
+  offCapacity(fn: (signal: AcpCapacitySignal) => void): void {
+    this.capacityListeners.delete(fn);
+  }
+
   // ── Internal ─────────────────────────────────────────────────
 
   private startReading(): void {
@@ -343,6 +367,10 @@ export class AcpClient {
     return new Promise<AcpResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        // For prompt timeouts, send session/cancel to stop the agent's internal retry loop
+        if (method === ACP_METHODS.sessionPrompt && params.sessionId) {
+          this.cancelSession(params.sessionId as string);
+        }
         reject(new AcpTimeoutError(method, timeoutMs));
       }, timeoutMs);
 
