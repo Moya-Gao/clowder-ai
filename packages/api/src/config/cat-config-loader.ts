@@ -705,6 +705,11 @@ export interface AcpVariantConfig {
   startupArgs: string[];
   mcpWhitelist?: string[];
   supportsMultiplexing?: boolean;
+  /** Phase C: optional pool config overrides */
+  pool?: {
+    maxLiveProcesses?: number;
+    idleTtlMs?: number;
+  };
 }
 
 /**

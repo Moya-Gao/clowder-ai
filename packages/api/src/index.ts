@@ -717,6 +717,11 @@ async function main(): Promise<void> {
     }
   }
 
+  // ── F149 Phase C: ACP process pool registry (variantId → AcpProcessPool) ──
+  // Using Map<string, any> because AcpProcessPool is dynamically imported only when acp config present.
+  // biome-ignore lint: dynamic import bridge
+  const acpPoolRegistry = new Map<string, any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
+
   // ── F32-b: AgentRegistry (catId → AgentService) — one instance per cat ──
   // Each cat gets its own AgentService instance with its catId + model.
   const agentRegistry = new AgentRegistry();
@@ -741,10 +746,31 @@ async function main(): Promise<void> {
             const { GeminiAcpAdapter } = await import(
               './domains/cats/services/agents/providers/acp/GeminiAcpAdapter.js'
             );
+            const { AcpProcessPool } = await import('./domains/cats/services/agents/providers/acp/AcpProcessPool.js');
+            const { AcpClient } = await import('./domains/cats/services/agents/providers/acp/AcpClient.js');
+            const poolKey = { projectPath: process.cwd(), providerProfile: id };
+            // Shared pool per variant — reused across cats with same variant
+            if (!acpPoolRegistry.has(id)) {
+              const pool = new AcpProcessPool(
+                {
+                  maxLiveProcesses: acpConfig.pool?.maxLiveProcesses ?? 3,
+                  idleTtlMs: acpConfig.pool?.idleTtlMs ?? 5 * 60 * 1000,
+                  healthCheckIntervalMs: 30_000,
+                },
+                acpConfig,
+                () =>
+                  new AcpClient({
+                    command: acpConfig.command,
+                    args: acpConfig.startupArgs,
+                    cwd: process.cwd(),
+                  }),
+              );
+              acpPoolRegistry.set(id, pool);
+            }
             service = new GeminiAcpAdapter({
               catId,
-              acpConfig,
-              workingDirectory: process.cwd(),
+              pool: acpPoolRegistry.get(id)!,
+              poolKey,
             });
           } else {
             service = new GeminiAgentService({ catId });
@@ -969,6 +995,19 @@ async function main(): Promise<void> {
     threadStore,
   });
   await app.register(catsRoutes);
+
+  // F149 Phase C: ACP pool diagnostics endpoint (gated by env flag)
+  app.get('/api/diagnostics/acp-pool', async (_req, reply) => {
+    if (process.env.CAT_CAFE_DIAGNOSTICS !== '1') {
+      return reply.code(403).send({ error: 'Diagnostics disabled' });
+    }
+    const pools: Record<string, unknown> = {};
+    for (const [variantId, pool] of acpPoolRegistry) {
+      pools[variantId] = pool.getMetrics();
+    }
+    return { pools, poolCount: acpPoolRegistry.size };
+  });
+
   await app.register(quotaRoutes);
   // F128: Daily token usage aggregation
   await app.register(usageRoutes, { invocationRecordStore });
@@ -1407,6 +1446,14 @@ async function main(): Promise<void> {
       `[api] API namespace lease acquired (${leaseResult.holder?.instanceId ?? 'unknown'}) on redis=${redisUrl ?? 'memory'}`,
     );
   }
+
+  // F149 Phase C: graceful shutdown for ACP process pools
+  app.addHook('onClose', async () => {
+    for (const pool of acpPoolRegistry.values()) {
+      await pool.closeAll();
+    }
+    acpPoolRegistry.clear();
+  });
 
   // F101: register onClose hook BEFORE listen (Fastify forbids addHook after listen).
   // The actual recovery player is assigned post-listen; stopAllLoops is a no-op if null.

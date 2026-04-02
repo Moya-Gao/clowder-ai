@@ -578,6 +578,14 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
+    name: 'CAT_CAFE_DIAGNOSTICS',
+    defaultValue: '(未设置)',
+    description: '设为 1 启用 /api/diagnostics/* 端点（调试用，默认关闭）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
     name: 'CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT',
     defaultValue: '(未设置)',
     description: '设为 1 跳过 shared state preflight 检查（CI / 调试用）',
