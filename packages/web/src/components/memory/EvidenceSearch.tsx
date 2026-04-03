@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { ExpandableText } from '../ExpandableText';
 
 export interface EvidenceSearchParams {
   q: string;
@@ -247,13 +248,19 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
                   {item.source === 'project' ? '项目' : '全局'}
                 </span>
               )}
-              <h3 className="text-sm font-medium text-cafe-black truncate" title={item.title}>
-                {item.title}
-              </h3>
+              <ExpandableText
+                text={item.title}
+                as="h3"
+                clampClass="truncate"
+                className="text-sm font-medium text-cafe-black"
+              />
             </div>
-            <p className="mt-1 text-xs text-cafe-secondary line-clamp-3" title={item.snippet}>
-              {item.snippet}
-            </p>
+            <ExpandableText
+              text={item.snippet}
+              as="p"
+              clampClass="line-clamp-3"
+              className="mt-1 text-xs text-cafe-secondary"
+            />
             {item.passages && item.passages.length > 0 && (
               <div className="mt-2 space-y-1 border-l-2 border-cocreator-light pl-2">
                 {item.passages.map((p, i) => (

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { type RecallEvent, useRecallEvents } from '@/hooks/useRecallEvents';
+import { ExpandableText } from '../ExpandableText';
 
 function RecallCard({ event }: { event: RecallEvent }) {
   const [expanded, setExpanded] = useState(false);
@@ -34,17 +35,18 @@ function RecallCard({ event }: { event: RecallEvent }) {
                         {r.sourceType}
                       </span>
                     )}
-                    <span className="font-medium text-cafe-black truncate" title={r.title}>
-                      {r.title}
-                    </span>
+                    <ExpandableText text={r.title} clampClass="truncate" className="font-medium text-cafe-black" />
                     {r.confidence && (
                       <span className="ml-auto text-[9px] text-cafe-secondary/70">[{r.confidence}]</span>
                     )}
                   </div>
                   {r.snippet && (
-                    <p className="mt-0.5 text-[10px] text-cafe-secondary/80 line-clamp-2" title={r.snippet}>
-                      {r.snippet}
-                    </p>
+                    <ExpandableText
+                      text={r.snippet}
+                      as="p"
+                      clampClass="line-clamp-2"
+                      className="mt-0.5 text-[10px] text-cafe-secondary/80"
+                    />
                   )}
                 </div>
               ))}
