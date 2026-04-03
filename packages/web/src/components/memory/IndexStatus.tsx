@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 
 interface RawStatusResponse {
@@ -44,6 +44,30 @@ export function parseIndexStatus(raw: RawStatusResponse): IndexStatusData {
   };
 }
 
+// ── Env Config types + helpers ──
+
+interface EnvVar {
+  name: string;
+  defaultValue: string;
+  description: string;
+  category: string;
+  sensitive: boolean;
+  currentValue: string | null;
+}
+
+interface EnvSummaryResponse {
+  variables: EnvVar[];
+}
+
+const EVIDENCE_CATEGORY = 'evidence';
+
+/** Pure: filter to evidence-category on/off toggle flags only (excludes URLs, paths, ports) */
+export function filterEvidenceVars(vars: EnvVar[]): EnvVar[] {
+  return vars.filter(
+    (v) => v.category === EVIDENCE_CATEGORY && !v.sensitive && (v.defaultValue === 'off' || v.defaultValue === 'on'),
+  );
+}
+
 function StatusRow({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-center justify-between border-b border-cafe/50 py-2 last:border-b-0">
@@ -56,27 +80,56 @@ function StatusRow({ label, value }: { label: string; value: string | number }) 
 export function IndexStatus() {
   const [status, setStatus] = useState<IndexStatusData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [envVars, setEnvVars] = useState<EnvVar[]>([]);
+  const [updatingKey, setUpdatingKey] = useState<string | null>(null);
 
-  const fetchStatus = useCallback(async () => {
+  const evidenceVars = useMemo(() => filterEvidenceVars(envVars), [envVars]);
+
+  const fetchAll = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/evidence/status');
-      const raw = (await res.json()) as RawStatusResponse;
+      const [statusRes, envRes] = await Promise.all([
+        apiFetch('/api/evidence/status'),
+        apiFetch('/api/config/env-summary'),
+      ]);
+      const raw = (await statusRes.json()) as RawStatusResponse;
       setStatus(parseIndexStatus(raw));
+      const envData = (await envRes.json()) as EnvSummaryResponse;
+      setEnvVars(envData.variables ?? []);
       setError(null);
     } catch {
-      setError('Failed to fetch index status');
+      setError('Failed to fetch memory status');
     }
   }, []);
 
+  const toggleEnvVar = useCallback(
+    async (name: string, currentValue: string | null) => {
+      setUpdatingKey(name);
+      const newValue = currentValue === 'on' ? 'off' : 'on';
+      try {
+        await apiFetch('/api/config/env', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates: [{ name, value: newValue }] }),
+        });
+        await fetchAll();
+      } catch {
+        /* fetchAll will refresh state */
+      } finally {
+        setUpdatingKey(null);
+      }
+    },
+    [fetchAll],
+  );
+
   useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
+    fetchAll();
+  }, [fetchAll]);
 
   if (error) {
     return (
       <div data-testid="index-status" className="rounded-lg border border-red-200 bg-red-50 p-4">
         <p className="text-sm text-red-600">{error}</p>
-        <button type="button" onClick={fetchStatus} className="mt-2 text-xs text-red-700 underline">
+        <button type="button" onClick={fetchAll} className="mt-2 text-xs text-red-700 underline">
           重试
         </button>
       </div>
@@ -114,10 +167,49 @@ export function IndexStatus() {
         />
       </div>
 
+      {/* Feature flags */}
+      {evidenceVars.length > 0 && (
+        <div className="rounded-lg border border-cafe bg-white p-3">
+          <h3 className="mb-2 text-xs font-semibold text-cafe-black">功能开关</h3>
+          {evidenceVars.map((v) => {
+            const isOn = v.currentValue === 'on';
+            const isBinary = v.currentValue === 'on' || v.currentValue === 'off' || v.currentValue == null;
+            const isUpdating = updatingKey === v.name;
+            return (
+              <div
+                key={v.name}
+                className="flex items-center justify-between border-b border-cafe/50 py-2 last:border-b-0"
+              >
+                <div className="flex-1 pr-3">
+                  <div className="text-xs font-medium text-cafe-black">{v.name}</div>
+                  <div className="text-[10px] text-cafe-secondary">{v.description}</div>
+                </div>
+                {isBinary ? (
+                  <button
+                    type="button"
+                    disabled={isUpdating}
+                    onClick={() => toggleEnvVar(v.name, v.currentValue)}
+                    className={`relative h-5 w-9 rounded-full transition-colors ${isOn ? 'bg-green-500' : 'bg-gray-300'} ${isUpdating ? 'opacity-50' : ''}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${isOn ? 'translate-x-4' : ''}`}
+                    />
+                  </button>
+                ) : (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                    {v.currentValue}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Refresh button */}
       <button
         type="button"
-        onClick={fetchStatus}
+        onClick={fetchAll}
         className="rounded-lg border border-cafe bg-white px-3 py-1.5 text-xs text-cafe-secondary transition-colors hover:bg-cafe-surface"
       >
         刷新状态

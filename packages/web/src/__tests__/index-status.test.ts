@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { parseIndexStatus } from '@/components/memory/IndexStatus';
+import { filterEvidenceVars, parseIndexStatus } from '@/components/memory/IndexStatus';
 
 describe('parseIndexStatus', () => {
   it('parses healthy response', () => {
@@ -58,5 +58,36 @@ describe('parseIndexStatus', () => {
     expect(status.threadsCount).toBe(12);
     expect(status.passagesCount).toBe(340);
     expect(status.embeddingModel).toBe('text-embedding-3-small');
+  });
+});
+
+describe('filterEvidenceVars', () => {
+  const mkVar = (name: string, category: string, sensitive = false) => ({
+    name,
+    defaultValue: 'off',
+    description: `desc for ${name}`,
+    category,
+    sensitive,
+    currentValue: 'on',
+  });
+
+  it('returns only evidence-category non-sensitive vars', () => {
+    const vars = [mkVar('EMBED_MODE', 'evidence'), mkVar('F102_API_KEY', 'evidence', true), mkVar('PORT', 'server')];
+    const result = filterEvidenceVars(vars);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe('EMBED_MODE');
+  });
+
+  it('returns empty for no evidence vars', () => {
+    expect(filterEvidenceVars([mkVar('PORT', 'server')])).toEqual([]);
+  });
+
+  it('excludes non-toggle vars like URLs and paths', () => {
+    const urlVar = { ...mkVar('EMBED_URL', 'evidence'), defaultValue: 'http://127.0.0.1:9880' };
+    const pathVar = { ...mkVar('F102_GLOBAL_DB_PATH', 'evidence'), defaultValue: '~/.cat-cafe/global.sqlite' };
+    const toggleVar = mkVar('F102_ABSTRACTIVE', 'evidence'); // defaultValue='off'
+    const result = filterEvidenceVars([urlVar, pathVar, toggleVar]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe('F102_ABSTRACTIVE');
   });
 });
