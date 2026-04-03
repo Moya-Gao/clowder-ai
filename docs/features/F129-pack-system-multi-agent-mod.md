@@ -203,13 +203,17 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 - [x] AC-A10: `knowledge/` 检索必须 pack-scoped，不得进入全局 shared evidence / Core Rails（防止跨世界知识污染）
 
 ### Phase B（示范 Packs + Remix）
-- [ ] AC-B1: 当前 cat-config + shared-rules + skills 成功导出为 "Coding World" Pack
-- [ ] AC-B2: 至少 1 个非 Coding 示范 Pack 可运行（如 TRPG 或深夜陪伴）
+
+#### Phase B-α（Dogfood Export + Demo Packs）✅
+- [x] AC-B1: 当前 cat-config + shared-rules + skills 成功导出为 "Coding World" Pack
+- [x] AC-B2: 至少 1 个非 Coding 示范 Pack 可运行（如 TRPG 或深夜陪伴）
+- [x] AC-B4: Growth Layer（私有关系/记忆）不随 Pack 外发
+- [x] AC-B7: Pack export / remix 默认不包含 Growth 原始数据；只允许导出蒸馏后的方法论补丁或模板变更（KD-11 硬边界）
+
+#### Phase B-β（Import + Remix）📋
 - [ ] AC-B3: Pack Remix 机制可用——下载、修改、再发布
-- [ ] AC-B4: Growth Layer（私有关系/记忆）不随 Pack 外发
 - [ ] AC-B5: OpenClaw Bundle importer MVP（至少支持 SKILL.md subtype，映射到 workflows/defaults/masks）
 - [ ] AC-B6: SillyTavern Character Card V2/V3 + World Book → Pack importer MVP（映射到 masks/knowledge）
-- [ ] AC-B7: Pack export / remix 默认不包含 Growth 原始数据；只允许导出蒸馏后的方法论补丁或模板变更（KD-11 硬边界）
 
 ### Phase C（Capability Pack + Marketplace）
 - [ ] AC-C1: MCP Capability Pack 运行时加载可用
@@ -275,10 +279,12 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | 2026-03-25 | 脑暴收敛分流落盘：VISION.md 补「人与猫」+ 对外叙事；Growth 视觉外化记为 OQ-6 未来方向 |
 | 2026-03-26 | Phase A merged (PR #748) — schema + loader + compiler + runtime wiring, 141 tests, codex R1 review |
 | 2026-03-26 | OQ-5 解锁：F093 KD-12 五层字段分类收口，masks immutable 白名单可对齐 L1+L2 |
+| 2026-04-03 | Phase B-α merged (PR #942) — PackExporter + GrowthBoundary + export endpoint + Coding World + TRPG packs, 69 tests, codex R1-R4 review |
 
 ## Review Gate
 
 - Phase A: 跨家族 review（砚砚 GPT-5.4）
+- Phase B-α: 跨家族 review（砚砚 Codex Spark, R1-R4, 9 issues fixed）
 
 ## Links
 
