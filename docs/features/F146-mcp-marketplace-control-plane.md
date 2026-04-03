@@ -224,6 +224,9 @@ Skill 内容安全（防下毒）：
 - [ ] AC-C7: 外来 SKILL.md 安装时必须经过内容安全扫描（prompt injection 检测），不通过则标 `quarantined`
 - [ ] AC-C8: 外来 skill 权限隔离（不允许访问写路径、不允许触发其他 skill、工具调用需逐次确认）
 - [ ] AC-C9: quarantined skill 只有铲屎官或审核猫显式 approve 后才能激活
+- [ ] AC-C10: 外来 skill 安装时记录不可变指纹（source + version + hash/signature），运行前校验一致性，不一致自动降级 `quarantined`
+- [ ] AC-C11: 外来 skill 首次运行默认最小权限（dry-run/只读），涉及写文件、网络外发、高危工具必须二次确认
+- [ ] AC-C12: 一键 `revoke`（全端停用 + 清理挂载 + 禁止再次激活），60s 内传播到 Hub/CLI/connector 侧
 
 ### Phase D（联动体验）
 - [ ] AC-D1: Skills 页可从 `requires_mcp missing` 直接发起补齐
@@ -249,6 +252,8 @@ Skill 内容安全（防下毒）：
 | 把 L3 当真相源导致状态漂移 | 明确”最终真相源只写 L1 capabilities” |
 | Skill 下毒（SKILL.md prompt injection） | 内容安全扫描 + quarantine 状态机 + 外来 skill 权限隔离 |
 | 低质量/冒充 skill（名字像官方但无关） | trustLevel 过滤 + community 二次确认 + 来源追踪 |
+| 指纹漂移（安装后上游替换内容） | 运行前指纹校验 + 不一致自动 quarantine（AC-C10） |
+| 撤销传播延迟（已判恶意但仍可运行） | revoke SLA 60s + 全端停用（AC-C12） |
 
 ## Open Questions
 
