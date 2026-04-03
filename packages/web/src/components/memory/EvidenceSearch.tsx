@@ -234,7 +234,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
       <div className="space-y-2">
         {results.map((item) => (
           <div key={item.anchor} className="rounded-lg border border-cafe bg-white p-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <span
                 className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${SOURCE_TYPE_COLORS[item.sourceType] ?? SOURCE_TYPE_COLORS.commit}`}
               >
@@ -247,9 +247,13 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
                   {item.source === 'project' ? '项目' : '全局'}
                 </span>
               )}
-              <h3 className="text-sm font-medium text-cafe-black">{item.title}</h3>
+              <h3 className="text-sm font-medium text-cafe-black truncate" title={item.title}>
+                {item.title}
+              </h3>
             </div>
-            <p className="mt-1 text-xs text-cafe-secondary">{item.snippet}</p>
+            <p className="mt-1 text-xs text-cafe-secondary line-clamp-3" title={item.snippet}>
+              {item.snippet}
+            </p>
             {item.passages && item.passages.length > 0 && (
               <div className="mt-2 space-y-1 border-l-2 border-cocreator-light pl-2">
                 {item.passages.map((p, i) => (

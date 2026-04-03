@@ -88,6 +88,7 @@ export function EvidenceCard({ result }: { result: EvidenceResult }) {
           <div className="flex flex-col gap-0.5 min-w-0">
             <h4
               className={`text-xs font-bold text-slate-100 leading-snug line-clamp-2 ${result.status === 'archived' ? 'line-through decoration-gray-400/50' : ''}`}
+              title={result.title}
             >
               {result.title}
             </h4>
@@ -106,12 +107,16 @@ export function EvidenceCard({ result }: { result: EvidenceResult }) {
           </div>
         </div>
 
-        <p className="text-[11px] text-slate-400 leading-relaxed mt-1.5 line-clamp-2">{snippet}</p>
+        <p className="text-[11px] text-slate-400 leading-relaxed mt-1.5 line-clamp-2" title={result.snippet}>
+          {snippet}
+        </p>
 
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700">
           <span className="text-[10px] text-slate-400 font-bold">{source.label}</span>
           <span className="text-[10px] text-cafe-muted">·</span>
-          <span className="text-[10px] text-cafe-muted truncate font-mono opacity-70 italic">{result.anchor}</span>
+          <span className="text-[10px] text-cafe-muted truncate font-mono opacity-70 italic" title={result.anchor}>
+            {result.anchor}
+          </span>
         </div>
       </div>
     </div>

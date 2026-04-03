@@ -10,7 +10,9 @@ function RecallCard({ event }: { event: RecallEvent }) {
     <div className="rounded-lg border border-cafe bg-white p-2.5">
       <button type="button" onClick={() => setExpanded(!expanded)} className="flex w-full items-center gap-2 text-left">
         <span className="text-xs text-cafe-secondary">{expanded ? '\u25BE' : '\u25B8'}</span>
-        <span className="flex-1 text-sm font-medium text-cafe-black truncate">{event.query}</span>
+        <span className="flex-1 text-sm font-medium text-cafe-black truncate" title={event.query}>
+          {event.query}
+        </span>
         {event.resultCount != null && (
           <span className="rounded bg-cocreator-light px-1.5 py-0.5 text-[10px] font-semibold text-cocreator-dark">
             {event.resultCount} hits
@@ -26,18 +28,24 @@ function RecallCard({ event }: { event: RecallEvent }) {
             <div className="mt-1.5 space-y-1.5">
               {event.results.map((r, i) => (
                 <div key={`${event.id}-r${i}`} className="rounded border border-cafe/40 bg-cafe-surface p-1.5">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     {r.sourceType && (
                       <span className="rounded bg-cocreator-light/60 px-1 py-0.5 text-[9px] font-semibold text-cocreator-dark">
                         {r.sourceType}
                       </span>
                     )}
-                    <span className="font-medium text-cafe-black">{r.title}</span>
+                    <span className="font-medium text-cafe-black truncate" title={r.title}>
+                      {r.title}
+                    </span>
                     {r.confidence && (
                       <span className="ml-auto text-[9px] text-cafe-secondary/70">[{r.confidence}]</span>
                     )}
                   </div>
-                  {r.snippet && <p className="mt-0.5 text-[10px] text-cafe-secondary/80 line-clamp-2">{r.snippet}</p>}
+                  {r.snippet && (
+                    <p className="mt-0.5 text-[10px] text-cafe-secondary/80 line-clamp-2" title={r.snippet}>
+                      {r.snippet}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

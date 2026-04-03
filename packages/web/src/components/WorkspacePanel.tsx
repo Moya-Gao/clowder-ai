@@ -698,7 +698,9 @@ export function WorkspacePanel() {
 
       {/* Knowledge / Schedule / Dev mode routing */}
       {workspaceMode === 'recall' ? (
-        <RecallFeed />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <RecallFeed />
+        </div>
       ) : workspaceMode === 'schedule' ? (
         <SchedulePanel />
       ) : (
