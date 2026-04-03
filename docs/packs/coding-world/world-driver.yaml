@@ -1,0 +1,13 @@
+resolver: hybrid
+roles:
+  - ragdoll-architect
+  - maine-coon-reviewer
+actions:
+  - implement-feature
+  - review-code
+  - write-tests
+  - design-ui
+canonRules:
+  - "Redis 6399 is production sanctuary"
+  - "Same individual must not review their own code"
+  - "Never impersonate another cat"

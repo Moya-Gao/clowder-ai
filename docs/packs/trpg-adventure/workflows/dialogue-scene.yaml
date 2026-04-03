@@ -1,0 +1,10 @@
+id: dialogue-scene
+name: Dialogue scene
+trigger: NPC conversation
+steps:
+  - action: apply-mask
+    params:
+      mask: dm
+  - action: log-event
+    params:
+      phase: dialogue

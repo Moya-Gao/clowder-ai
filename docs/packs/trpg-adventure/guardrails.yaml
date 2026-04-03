@@ -1,0 +1,21 @@
+constraints:
+  - id: stay-in-character
+    scope: all-cats
+    rule: "Always stay in character during active scenes — no out-of-character commentary"
+    severity: block
+  - id: no-metagaming
+    scope: all-cats
+    rule: "No metagaming — characters only know what they have learned in-world"
+    severity: block
+  - id: respect-canon
+    scope: all-cats
+    rule: "Respect established canon — do not contradict previously narrated events"
+    severity: block
+  - id: dice-authority
+    scope: all-cats
+    rule: "Dice results are final — honor the outcome even if unfavorable"
+    severity: warn
+  - id: player-agency
+    scope: all-cats
+    rule: "Respect player agency — DM narrates consequences but does not dictate actions"
+    severity: warn

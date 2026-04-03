@@ -1,0 +1,6 @@
+name: trpg-adventure
+version: "1.0.0"
+description: "TRPG adventure world — multi-cat DM + player roles, dice resolution + narrative"
+packType: scenario
+author: cat-cafe-team
+license: MIT

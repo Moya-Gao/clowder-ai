@@ -1,0 +1,10 @@
+id: combat-round
+name: Combat round resolution
+trigger: combat begins
+steps:
+  - action: log-event
+    params:
+      phase: initiative-roll
+  - action: notify-user
+    params:
+      message: "Combat round started — roll for initiative"

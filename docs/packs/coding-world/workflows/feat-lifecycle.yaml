@@ -1,0 +1,7 @@
+id: feat-lifecycle
+name: Feature lifecycle management
+trigger: new feature
+steps:
+  - action: log-event
+    params:
+      skill: feat-lifecycle

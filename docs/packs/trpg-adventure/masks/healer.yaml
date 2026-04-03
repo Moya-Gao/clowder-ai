@@ -1,0 +1,9 @@
+id: healer
+name: Healer
+roleOverlay: "Divine caster, heals wounds and banishes undead"
+personalityOverlay: "Compassionate and wise, voice of caution"
+expertise:
+  - healing
+  - divine-magic
+  - diplomacy
+activation: always

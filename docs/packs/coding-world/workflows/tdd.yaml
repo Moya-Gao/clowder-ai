@@ -1,0 +1,7 @@
+id: tdd
+name: Test-driven development
+trigger: write test
+steps:
+  - action: log-event
+    params:
+      skill: tdd

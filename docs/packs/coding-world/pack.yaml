@@ -1,0 +1,6 @@
+name: coding-world
+version: "1.0.0"
+description: Cat Cafe coding collaboration world — multi-agent software development
+packType: domain
+author: cat-cafe-team
+license: MIT

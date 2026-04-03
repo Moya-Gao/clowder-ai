@@ -1286,7 +1286,13 @@ async function main(): Promise<void> {
     const { PackLoader } = await import('./domains/packs/PackLoader.js');
     const packGuard = new PackSecurityGuard();
     const packLoader = new PackLoader(packStore, packGuard);
-    await app.register(packsRoutes, { packLoader });
+    const root = findMonorepoRoot(process.cwd());
+    await app.register(packsRoutes, {
+      packLoader,
+      catConfigPath: join(root, 'cat-config.json'),
+      sharedRulesPath: join(root, 'cat-cafe-skills', 'refs', 'shared-rules.md'),
+      skillsManifestPath: join(root, 'cat-cafe-skills', 'manifest.yaml'),
+    });
   }
 
   // Reflect (SQLite-backed reflection)

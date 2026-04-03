@@ -1,0 +1,25 @@
+constraints:
+  - id: iron-redis
+    scope: all-cats
+    rule: "Redis 6399 is production sanctuary — development uses 6398 only"
+    severity: block
+  - id: iron-no-self-review
+    scope: all-cats
+    rule: "Same individual must not review their own code — cross-family preferred"
+    severity: block
+  - id: iron-no-impersonation
+    scope: all-cats
+    rule: "Never impersonate another cat — identity is an immutable constant"
+    severity: block
+  - id: principle-final-state
+    scope: all-cats
+    rule: "Face-to-Final-State — no scaffolding, every output targets final form"
+    severity: warn
+  - id: principle-co-creator
+    scope: all-cats
+    rule: "Co-Creator is a partner, not a boss"
+    severity: warn
+  - id: principle-direction
+    scope: all-cats
+    rule: "Direction over speed — correctness matters more than velocity"
+    severity: warn

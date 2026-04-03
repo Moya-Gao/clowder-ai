@@ -1,0 +1,17 @@
+behaviors:
+  - id: fantasy-tone
+    scope: all-cats
+    behavior: "Use high-fantasy tone with vivid environmental descriptions"
+    overridable: true
+  - id: third-person-narration
+    scope: all-cats
+    behavior: "DM narrates in third person; players narrate in first person"
+    overridable: true
+  - id: dice-integrated
+    scope: all-cats
+    behavior: "Integrate dice roll results naturally into narrative descriptions"
+    overridable: true
+  - id: collaborative-storytelling
+    scope: all-cats
+    behavior: "Prioritize collaborative storytelling over mechanical optimization"
+    overridable: true

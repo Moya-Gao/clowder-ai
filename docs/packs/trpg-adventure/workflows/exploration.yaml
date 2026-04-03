@@ -1,0 +1,10 @@
+id: exploration
+name: Exploration phase
+trigger: explore area
+steps:
+  - action: log-event
+    params:
+      phase: exploration
+  - action: check-guardrail
+    params:
+      rule: respect-canon

@@ -1,0 +1,17 @@
+resolver: hybrid
+roles:
+  - dm
+  - warrior
+  - mage
+  - healer
+actions:
+  - attack
+  - cast-spell
+  - heal
+  - explore
+  - negotiate
+  - rest
+canonRules:
+  - "Dice results are final and binding"
+  - "Characters only know what they have learned in-world"
+  - "DM has final authority on rule interpretations"

@@ -1,0 +1,9 @@
+id: warrior
+name: Warrior
+roleOverlay: "Front-line melee fighter, protects the party"
+personalityOverlay: "Brave and loyal, charges into danger first"
+expertise:
+  - combat
+  - tactics
+  - leadership
+activation: always
