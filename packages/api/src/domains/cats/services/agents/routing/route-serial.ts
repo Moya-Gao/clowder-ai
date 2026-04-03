@@ -289,16 +289,6 @@ export async function* routeSerial(
           : {}),
       });
 
-      // F150: Deferred ack — only mark consumed after the owner cat actually received injection
-      if (guideCandidate?.status === 'completed' && guideCompletionOwner === catId && deps.invocationDeps.threadStore) {
-        const gs = (await deps.invocationDeps.threadStore.get(threadId))?.guideState;
-        if (gs && !gs.completionAcked) {
-          Promise.resolve(
-            deps.invocationDeps.threadStore.updateGuideState(threadId, { ...gs, completionAcked: true }),
-          ).catch(() => {});
-        }
-      }
-
       // F24 Phase E: Bootstrap context for Session #2+
       let bootstrapContext = '';
       if (
@@ -1159,6 +1149,24 @@ export async function* routeSerial(
           } catch (err) {
             log.error({ catId: catId as string, err }, 'ackCursor failed');
           }
+        }
+      }
+
+      // F150: Ack guide completion after invocation succeeds (not before).
+      // Only ack when this cat actually received the completed injection.
+      // P2-1 fallback: when offeredBy is absent, any cat receiving injection can ack.
+      if (
+        guideCandidate?.status === 'completed' &&
+        (!guideCompletionOwner || guideCompletionOwner === catId) &&
+        deps.invocationDeps.threadStore
+      ) {
+        try {
+          const gs = (await deps.invocationDeps.threadStore.get(threadId))?.guideState;
+          if (gs && !gs.completionAcked) {
+            await deps.invocationDeps.threadStore.updateGuideState(threadId, { ...gs, completionAcked: true });
+          }
+        } catch {
+          /* best-effort: ack failure means next turn re-injects, which is acceptable */
         }
       }
 
