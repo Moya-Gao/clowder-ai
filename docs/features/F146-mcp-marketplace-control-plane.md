@@ -139,6 +139,23 @@ L3 不直接写入 L1，内部拆成三个状态面：
 4. schema validation 先于执行（manifest/entry 校验不过不安装）
 5. 声明态 vs 实测态 diff gate（声明可用但 probe 失败不得标 ready）
 
+Skill 内容安全（防下毒）：
+
+外来 SKILL.md 是自然语言 prompt，加载后直接成为猫的 system prompt 一部分。这是 MCP 代码层安全工具扫不到的攻击面。
+
+1. **SKILL.md 内容安全扫描**
+   - 安装外来 skill 时，先做 prompt injection 检测（关键词 + 语义审查）
+   - 标记危险模式：要求忽略安全规则、要求发送数据到外部 URL、要求修改系统配置、要求读取 .env/credentials
+   - 检测不通过 → 标记 `quarantined`，不允许激活
+2. **外来 skill 权限隔离**
+   - 外来 skill 不允许访问 capabilities.json 写路径
+   - 外来 skill 不允许触发其他 skill（防链式提权）
+   - 外来 skill 的工具调用不能 auto-allow，必须逐次 permission 确认
+3. **Quarantine 状态机**
+   - `pending_review` → `approved` / `quarantined` / `rejected`
+   - `quarantined` 的 skill 可以查看内容但不能激活
+   - 只有铲屎官或审核猫显式 approve 才能从 quarantined 变 approved
+
 版本管理：
 
 - 新增 `mcp-lock`（或扩展现有状态文件）记录：
@@ -204,6 +221,9 @@ L3 不直接写入 L1，内部拆成三个状态面：
 - [ ] AC-C4: 禁止未通过 probe 的 MCP 直接显示 ready
 - [ ] AC-C5: 禁止 install-time scripts（除非显式审批）
 - [ ] AC-C6: 声明态与实测态出现 diff 时强制告警并阻断 ready
+- [ ] AC-C7: 外来 SKILL.md 安装时必须经过内容安全扫描（prompt injection 检测），不通过则标 `quarantined`
+- [ ] AC-C8: 外来 skill 权限隔离（不允许访问写路径、不允许触发其他 skill、工具调用需逐次确认）
+- [ ] AC-C9: quarantined skill 只有铲屎官或审核猫显式 approve 后才能激活
 
 ### Phase D（联动体验）
 - [ ] AC-D1: Skills 页可从 `requires_mcp missing` 直接发起补齐
@@ -226,7 +246,9 @@ L3 不直接写入 L1，内部拆成三个状态面：
 | 三家生态概念不一致（plugin/bundle/connector） | 统一中间模型，禁止 UI 直接耦合源字段 |
 | 恶意包/供应链风险 | trustLevel 策略 + 安装审批 + 审计日志 + 默认 deny community auto-install |
 | 自动安装破坏本机环境 | preview/install 两阶段，先 dry-run 显示变更 |
-| 把 L3 当真相源导致状态漂移 | 明确“最终真相源只写 L1 capabilities” |
+| 把 L3 当真相源导致状态漂移 | 明确”最终真相源只写 L1 capabilities” |
+| Skill 下毒（SKILL.md prompt injection） | 内容安全扫描 + quarantine 状态机 + 外来 skill 权限隔离 |
+| 低质量/冒充 skill（名字像官方但无关） | trustLevel 过滤 + community 二次确认 + 来源追踪 |
 
 ## Open Questions
 
