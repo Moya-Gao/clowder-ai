@@ -261,6 +261,8 @@ Closes #<IntakeIntentIssue>
 
 **不过这个 gate = 不能 Record + Advance。** Reviewer 放行后才能执行 Step 3 (Record)。
 
+**Reviewer 必须在 GitHub PR 上留 formal review**：聊天里口头放行不算闭环。Reviewer 本人必须在 absorb PR 页面留 Approve 或至少一条 review comment，author 不得代记。（教训：cat-cafe#941 reviewer 只在 thread 里放行，PR `reviews=[]`，事后由 author 补 comment 才补救审计留痕。）
+
 **Reviewer 匹配**：和内部 PR 一样，跨 family 优先、同一个体不能 review 自己的 intake。
 
 > 教训：clowder-ai#276 的 backend 部分（callbacks.ts invocationId）cat-cafe 已独立实现，
