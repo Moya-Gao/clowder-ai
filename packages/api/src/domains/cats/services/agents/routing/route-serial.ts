@@ -152,11 +152,8 @@ export async function* routeSerial(
             status: gs.status as 'offered' | 'awaiting_choice' | 'active' | 'completed',
             ...(selectionMatch ? { userSelection: selectionMatch[1] } : {}),
           };
-          // One-shot: mark completion as consumed so next turn won't re-inject
           if (justCompleted) {
             guideCompletionOwner = gs.offeredBy;
-            const store = deps.invocationDeps.threadStore!;
-            Promise.resolve(store.updateGuideState(threadId, { ...gs, completionAcked: true })).catch(() => {});
           }
         }
       }
@@ -291,6 +288,16 @@ export async function* routeSerial(
           ? { guideCandidate, threadId }
           : {}),
       });
+
+      // F150: Deferred ack — only mark consumed after the owner cat actually received injection
+      if (guideCandidate?.status === 'completed' && guideCompletionOwner === catId && deps.invocationDeps.threadStore) {
+        const gs = (await deps.invocationDeps.threadStore.get(threadId))?.guideState;
+        if (gs && !gs.completionAcked) {
+          Promise.resolve(
+            deps.invocationDeps.threadStore.updateGuideState(threadId, { ...gs, completionAcked: true }),
+          ).catch(() => {});
+        }
+      }
 
       // F24 Phase E: Bootstrap context for Session #2+
       let bootstrapContext = '';
