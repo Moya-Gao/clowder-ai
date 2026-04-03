@@ -1396,6 +1396,11 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-01 | **PR #911 squash merged** — Batch 1: IMaterializationService 终态 — targetKind 白名单 + execFileSync + KIND_TO_DIR 映射 + approve→materialize 集成 + 13 tests |
 | 2026-04-02 | **PR #912 squash merged** — Batch 2: Phase G 运行时验收闭环 — env flag 注册 + submitCandidate/H-3 backfill 双路门控 + e2e processThread 7 tests + parser edge case 5 tests |
 | 2026-04-02 | **PR #915 squash merged** — Batch 3: /memory 体验层收口 — dimension switcher (project/global/all) + RecallFeed snippet/drill-down + auto-search re-trigger fix + stale response race guard |
+| 2026-04-02 | PR #923 squash merged — RecallFeed inline expand + DEGRADED parser fix |
+| 2026-04-02 | PR #935 squash merged — brain SVG icon for 记忆状态 tab |
+| 2026-04-02 | PR #937 squash merged — Memory config panel: feature flag toggles with hot reload (F136 ConfigEventBus) |
+| 2026-04-02 | 砚砚 (GPT-5.4) 愿景守护 — F102 主干关闭，剩余 gap: Recall Feed source link |
+| 2026-04-03 | **PR #939 squash merged** — Recall Feed source link: anchorToHref mapping + clickable anchor links in RecallCard |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
@@ -1454,7 +1459,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 ### 砚砚建议但需后续讨论的项
 
 - **跨项目切换器**：砚砚认为 `/memory` 缺少 "当前项目 vs 全局记忆 vs 其他项目" 维度。核实：AC-J2 只承诺了 mode/scope/depth，项目切换器在 spec wireframe 里标注为 `[Phase F]` 功能，不属于 Phase J 范围。后端 F-4 联邦检索已就绪，前端呈现属于后续 Phase。
-- **Recall Feed 缺 snippet/source link/drill-down**：AC-J5 承诺 "query + results + scores"，当前有 title + confidence + sourceType 但缺 snippet 和可点击跳转。这在 Issue 3 的截断修复后会部分缓解（能看到更多结果），但 snippet 和 drill-down 需要额外工作。
+- ~~**Recall Feed 缺 snippet/source link/drill-down**~~：✅ 已全部补齐 — snippet (PR #915) + inline expand (PR #923) + source link (PR #939)。
 
 ## 实现路线图（F/G/Gap 整体规划）
 
@@ -1494,6 +1499,7 @@ Batch 3: /memory 体验层收口 ✅ PR #915
 ⑦ Batch 1: IMaterializationService 终态 ✅ PR #911
 ⑧ Batch 2: Phase G 运行时验收闭环 ✅ PR #912
 ⑨ Batch 3: /memory 体验层收口 ✅ PR #915
+⑩ Batch 3 follow-up: inline expand + brain icon + config panel + source link ✅ PR #923/#935/#937/#939
 ```
 
 **Why this order**（砚砚 2026-03-30 收紧）：
