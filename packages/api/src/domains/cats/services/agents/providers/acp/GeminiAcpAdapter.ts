@@ -112,6 +112,9 @@ export class GeminiAcpAdapter implements AgentService {
       options.signal.addEventListener('abort', onAbort, { once: true });
     }
 
+    let promptStreamStartedAt = 0;
+    let eventCount = 0;
+
     try {
       log.info({ catId: this.catId, cwd }, 'ACP newSession starting');
       const session = await client.newSession(cwd);
@@ -153,10 +156,15 @@ export class GeminiAcpAdapter implements AgentService {
       const effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
 
       // Window 4: onAbort listener covers the duration of promptStream
+      promptStreamStartedAt = Date.now();
       log.info({ catId: this.catId, sessionId, promptLen: effectivePrompt.length }, 'ACP promptStream starting');
-      let eventCount = 0;
+      eventCount = 0;
       for await (const event of client.promptStream(sessionId, effectivePrompt)) {
         eventCount++;
+        if (eventCount === 1) {
+          const firstEventLatencyMs = Date.now() - promptStreamStartedAt;
+          log.info({ catId: this.catId, sessionId, firstEventLatencyMs }, 'ACP first event received');
+        }
         const msg = transformAcpEvent(event, this.catId, metadata);
         if (msg) yield msg;
       }
@@ -166,12 +174,13 @@ export class GeminiAcpAdapter implements AgentService {
 
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     } catch (err) {
+      const waitedMs = promptStreamStartedAt ? Date.now() - promptStreamStartedAt : 0;
       // P1: stderr may arrive after timeout — give a grace window for late capacity signals
       if (!capacitySignal && err instanceof AcpTimeoutError) {
         await new Promise((r) => setTimeout(r, 2_000));
       }
       const { errorCode, errorMsg } = classifyError(err, capacitySignal, client.recentCapacitySignal);
-      log.error({ catId: this.catId, errorCode, err: errorMsg }, 'ACP prompt failure');
+      log.error({ catId: this.catId, errorCode, err: errorMsg, eventCount, waitedMs }, 'ACP prompt failure');
       yield {
         type: 'error',
         catId: this.catId,
