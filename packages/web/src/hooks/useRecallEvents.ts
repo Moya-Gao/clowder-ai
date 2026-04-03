@@ -30,6 +30,18 @@ export interface RecallEvent {
   results?: RecallResultItem[];
 }
 
+/**
+ * Pure: map an evidence anchor identifier to a navigable URL.
+ * Thread anchors → /thread/{id}; everything else → evidence search.
+ */
+export function anchorToHref(anchor: string | undefined): string | null {
+  if (!anchor) return null;
+  if (anchor.startsWith('thread-')) {
+    return `/thread/${anchor.slice('thread-'.length)}`;
+  }
+  return `/memory/search?q=${encodeURIComponent(anchor)}`;
+}
+
 const SEARCH_TOOL_NAMES = ['search_evidence', 'cat_cafe_search_evidence'];
 
 /**

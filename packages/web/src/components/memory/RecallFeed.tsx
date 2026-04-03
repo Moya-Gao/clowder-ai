@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useState } from 'react';
-import { type RecallEvent, useRecallEvents } from '@/hooks/useRecallEvents';
+import { anchorToHref, type RecallEvent, useRecallEvents } from '@/hooks/useRecallEvents';
 import { ExpandableText } from '../ExpandableText';
 
 function RecallCard({ event }: { event: RecallEvent }) {
@@ -47,6 +48,16 @@ function RecallCard({ event }: { event: RecallEvent }) {
                       clampClass="line-clamp-2"
                       className="mt-0.5 text-[10px] text-cafe-secondary/80"
                     />
+                  )}
+                  {anchorToHref(r.anchor) && (
+                    <Link
+                      href={anchorToHref(r.anchor)!}
+                      className="mt-0.5 flex items-center gap-1 text-[9px] font-mono text-cocreator-dark/70 hover:text-cocreator-dark hover:underline"
+                      title={`追溯源头: ${r.anchor}`}
+                    >
+                      <span aria-hidden>&#x2197;</span>
+                      <span className="truncate">{r.anchor}</span>
+                    </Link>
                   )}
                 </div>
               ))}

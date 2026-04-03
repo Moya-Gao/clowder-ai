@@ -1,6 +1,6 @@
-// F102 Batch 3 — parseTextResults: anchor + snippet extraction
+// F102 Batch 3 — parseTextResults + anchorToHref
 import { describe, expect, it } from 'vitest';
-import { parseTextResults } from '../useRecallEvents';
+import { anchorToHref, parseTextResults } from '../useRecallEvents';
 
 const SAMPLE_OUTPUT = `Found 2 result(s):
 
@@ -54,7 +54,7 @@ describe('parseTextResults', () => {
     expect(parseTextResults('')).toEqual([]);
   });
 
-  it('skips [DEGRADED] banner — not a real result', () => {
+  it('skips [DEGRADED] banner — not a real result (PR #923)', () => {
     const text = `[DEGRADED] Evidence store error — results may be incomplete
 
 Found 2 result(s):
@@ -74,5 +74,41 @@ Found 2 result(s):
     expect(results[1]!.confidence).toBe('mid');
     // DEGRADED banner must not appear as a result
     expect(results.every((r) => r.confidence !== 'DEGRADED')).toBe(true);
+  });
+});
+
+describe('anchorToHref', () => {
+  it('maps thread anchor to /thread/{threadId}', () => {
+    expect(anchorToHref('thread-thread_abc123')).toBe('/thread/thread_abc123');
+  });
+
+  it('maps doc: anchor to evidence search', () => {
+    expect(anchorToHref('doc:features/F102-memory-adapter-refactor')).toBe(
+      '/memory/search?q=doc%3Afeatures%2FF102-memory-adapter-refactor',
+    );
+  });
+
+  it('maps LL-NNN lesson anchor to evidence search', () => {
+    expect(anchorToHref('LL-045')).toBe('/memory/search?q=LL-045');
+  });
+
+  it('maps feature ID anchor to evidence search', () => {
+    expect(anchorToHref('F102')).toBe('/memory/search?q=F102');
+  });
+
+  it('maps session anchor to evidence search', () => {
+    expect(anchorToHref('session-sess_abc')).toBe('/memory/search?q=session-sess_abc');
+  });
+
+  it('maps ADR anchor to evidence search', () => {
+    expect(anchorToHref('ADR-015')).toBe('/memory/search?q=ADR-015');
+  });
+
+  it('returns null for undefined', () => {
+    expect(anchorToHref(undefined)).toBeNull();
+  });
+
+  it('returns null for empty string', () => {
+    expect(anchorToHref('')).toBeNull();
   });
 });
