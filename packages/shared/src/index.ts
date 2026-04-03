@@ -20,3 +20,5 @@ export * from './schemas/index.js';
 export * from './text-utils.js';
 // Export all types
 export * from './types/index.js';
+// Export subject key utilities (#320)
+export * from './utils/subject-key.js';
