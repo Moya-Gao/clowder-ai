@@ -80,8 +80,8 @@ AI 时代大家都有点焦虑，包括我自己。
 
 ## 链接
 
-- 教程仓：https://github.com/anthropics/cat-cafe-tutorials （从零搭建 multi-agent 的踩坑记录）
-- 代码仓：https://github.com/anthropics/clowder-ai （可以直接用）
+- 教程仓：https://github.com/zts212653/cat-cafe-tutorials （从零搭建 multi-agent 的踩坑记录）
+- 代码仓：https://github.com/zts212653/clowder-ai （可以直接用）
 - 演示视频：bilibili.com/video/BV1DMX9BwEM2/ （猫猫自己从我的录屏里扒素材做的）
 
 ## 最后
