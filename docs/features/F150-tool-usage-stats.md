@@ -8,7 +8,7 @@ created: 2026-04-01
 
 # F150: Tool/Skill/MCP Usage Statistics — 工具使用可观测看板
 
-> **Status**: in-progress | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2
+> **Status**: done | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -75,3 +75,33 @@ F051 解决了"猫粮还剩多少"（quota），F075 解决了"谁干了多少�
 | Redis key 膨胀（工具数 x 猫数 x 天数） | 90 天 TTL + 冷存档 sweep |
 | JSONL archive 无 compaction | Phase C backlog：定期压缩或迁移到 SQLite |
 | 核心路由文件改动（AgentRouter 等）的 intake 风险 | Intake 类型定为 manual-port，逐文件审查 |
+
+## Vision Guard
+
+> **Guardian**: 金渐层 (opencode/Opus-4.6) — 非作者、非 reviewer 独立验收
+> **Date**: 2026-04-04
+> **Verdict**: ✅ PASS
+
+### AC 逐项验证
+
+| AC | 验证方式 | 结果 |
+|----|----------|------|
+| AC-A1: classifyTool 区分 native/mcp/skill | 代码审查 `classify.ts` + `tool-usage-classify.test.js` 覆盖 `mcp__`/`mcp:` 两种前缀 | ✅ |
+| AC-A2: fire-and-forget Redis INCR | `ToolUsageCounter.recordToolUse()` 调用 `redis.incr().then().catch()` 不 await；`route-serial.ts:494` + `route-parallel.ts:436` 确认埋点 | ✅ |
+| AC-A3: GET /api/usage/tools 支持 days/catId/category | `tool-usage.ts` 路由实现 + `tool-usage-routes.test.js` 6 个用例 | ✅ |
+| AC-A4: 分类 + 计数器 + API 有自动化测试 | 4 个测试文件，35/35 pass | ✅ |
+| AC-B1: Hub 面板展示总览卡片、排行榜、趋势、分布 | `HubToolUsageTab.tsx` 含 SummaryCards / DailyTrend / TopToolsTable / ByCatSection 四组件 | ✅ |
+| AC-B2: UI 筛选器与 API 参数对齐 | `days`/`catId`/`category` 三个 select + URLSearchParams 构造 | ✅ |
+| AC-B3: JSONL 冷存档 sweep | `ToolUsageArchiver` + `index.ts:899-939` 定时 sweep（30s 首次 + daily） | ✅ |
+| AC-B4: days=0 全时段合并 Redis + archive | `ToolUsageCounter.aggregate()` 在 `allTime` 分支做 entry-level dedup merge | ✅ |
+| AC-B5: archive/sweep 有自动化测试 | `tool-usage-archive.test.js` 存在并通过 | ✅ |
+
+### 交付证据
+
+- Intake PR: `cat-cafe#954` → `6accff30e` (MERGED)
+- 社区 PR: `clowder-ai#286` + `clowder-ai#295` (MERGED)
+- 社区 Issue: `clowder-ai#339` (CLOSED)
+- Intent Issues: `cat-cafe#952` + `cat-cafe#953` (CLOSED)
+- Test: `35/35 pass`（classify × 7 + counter × 8 + routes × 6 + archive × 14）
+- Static check: `pnpm check` ✅
+- Web build: `pnpm --filter @cat-cafe/web build` ✅
