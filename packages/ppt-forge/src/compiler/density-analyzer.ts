@@ -12,7 +12,7 @@
  *   Slide passes only if whitespaceRatio < threshold (default 0.30).
  */
 
-import type { CompiledElement } from './types.js';
+import type { CompiledDeck, CompiledElement } from './types.js';
 
 /** LAYOUT_WIDE slide dimensions in inches */
 const SLIDE_W = 13.333;
@@ -138,4 +138,63 @@ export function densityGate(elements: CompiledElement[], threshold = 0.3): Densi
     };
   }
   return { passed: true, report };
+}
+
+// ── Deck-level gate (A8 gate chain) ──
+
+export interface DeckGateResult {
+  passed: boolean;
+  slideResults: Array<{ slideId: string; gate: DensityGateResult }>;
+  failedSlides: string[];
+}
+
+export interface TwoPhaseDeckResult {
+  passed: boolean;
+  slideResults: Array<{ slideId: string; comparison: TwoPhaseResult }>;
+  failedSlides: string[];
+  reason?: string;
+}
+
+/**
+ * Compare draft vs final density for each paired slide.
+ * Deck passes only if slide counts match AND ALL paired slides preserve density.
+ */
+export function gateTwoPhaseDeck(
+  draftDeck: CompiledDeck,
+  finalDeck: CompiledDeck,
+  tolerance = 0.05,
+): TwoPhaseDeckResult {
+  if (draftDeck.slides.length !== finalDeck.slides.length) {
+    return {
+      passed: false,
+      slideResults: [],
+      failedSlides: [],
+      reason: `slide count mismatch: draft=${draftDeck.slides.length} vs final=${finalDeck.slides.length}`,
+    };
+  }
+  const slideResults: TwoPhaseDeckResult['slideResults'] = [];
+  for (let i = 0; i < draftDeck.slides.length; i++) {
+    const comparison = compareTwoPhase(draftDeck.slides[i].elements, finalDeck.slides[i].elements, tolerance);
+    slideResults.push({ slideId: finalDeck.slides[i].slideId, comparison });
+  }
+  const failedSlides = slideResults.filter((r) => !r.comparison.densityPreserved).map((r) => r.slideId);
+  return { passed: failedSlides.length === 0, slideResults, failedSlides };
+}
+
+/**
+ * Run density gate on every slide in a compiled deck.
+ * Deck passes only if ALL slides pass.
+ */
+export function gateCompiledDeck(deck: CompiledDeck, options?: { threshold?: number }): DeckGateResult {
+  const threshold = options?.threshold ?? 0.3;
+  const slideResults = deck.slides.map((slide) => ({
+    slideId: slide.slideId,
+    gate: densityGate(slide.elements, threshold),
+  }));
+  const failedSlides = slideResults.filter((r) => !r.gate.passed).map((r) => r.slideId);
+  return {
+    passed: failedSlides.length === 0,
+    slideResults,
+    failedSlides,
+  };
 }
