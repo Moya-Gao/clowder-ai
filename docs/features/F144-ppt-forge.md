@@ -281,9 +281,9 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 - [ ] AC-C6: （可选）C2-Assist 通道 — AI-direct SVG + 人工验收 gate 可用
 
 ### Phase D（AI 猫猫画 HTML — 学 pptx-craft 超越 pptx-craft）
-- [ ] AC-D1: AI 猫猫直接写 HTML+Tailwind 页面（拿 storyline.md + theme tokens 画布局，不走确定性编译器）
-- [ ] AC-D2: 两阶段密度控制 — Draft(640×360) 强制高密度 → Final(1280×720) 只增强不减密
-- [ ] AC-D3: Playwright 白空间检测 — 渲染后自动检测白空间占比 < 30%，溢出检测，不达标退回
+- [x] AC-D1: AI 猫猫直接写 HTML+Tailwind 页面（拿 storyline.md + theme tokens 画布局，不走确定性编译器）
+- [x] AC-D2: 两阶段密度控制 — Draft(640×360) 强制高密度 → Final(1280×720) 只增强不减密
+- [x] AC-D3: Playwright 白空间检测 — 渲染后自动检测白空间占比 < 30%，溢出检测，不达标退回
 - [ ] AC-D4: 同一主题对比 pptx-craft vs Phase D 输出，信息密度 ≥ 对方，内容准确性 > 对方（research 质量差异）
 - [ ] AC-D5: 集成进管线 — Research → Narrative → AI 画 HTML → Playwright → dom-to-pptx → .pptx，铲屎官一句话触发
 - [ ] AC-D6: 华为级视觉验收 — 铲屎官确认"一两页讲清楚重点"
@@ -373,6 +373,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-02 | **Phase C 选型收敛** — 宪宪+砚砚讨论。砚砚判断：C3 确定性 SVG 编译为主 + C2 AI-direct 为辅；Pencil 非 runtime 主路径（design-time only）；工程量 2.5k-4k TS + 1.5k-3k 测试，2-3 周。铲屎官约束：不引入 Python。OQ-11 关闭，KD-14/KD-15 落定 |
 | 2026-04-02 | **Phase C-1 SVG 编译器 merged** (PR #929) — diagram-svg.ts (SVG compiler + CJK 字宽) + diagram-layered.ts (华为 layered grid) + svg-to-shapes.ts (SVG→pptxgenjs shapes)。AC-C1/C2 交付，156 tests。砚砚三轮 review 放行 + 云端 0 P1/P2 |
 | 2026-04-03 | **方向转变：AI 猫猫画 HTML 取代确定性编译器排版（KD-16）** — 铲屎官分析 pptx-craft 后拍板：确定性编译器密度不够华为级，核心页面（非 diagram）应由猫猫直接写 HTML+CSS。学 pptx-craft 的两阶段密度控制（640→1280）+ AI 布局。Phase C SVG 编译器保留为 diagram fallback。我们的差异化优势：research pipeline 内容质量 >> 对方 web fetch |
+| 2026-04-04 | **Phase D 基础设施 merged** (PR #949) — flat-dom-compiler + element-router + density-analyzer。AC-D1/D2/D3 交付，179 tests。砚砚 4 轮 review 放行 + 云端 0 P1/P2。A8 gate chain wiring 拆后续 PR |
 
 ## Review Gate
 
