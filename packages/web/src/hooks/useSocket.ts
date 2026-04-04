@@ -74,7 +74,6 @@ export interface SocketCallbacks {
   onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
   onTaskCreated?: (task: Record<string, unknown>) => void;
   onTaskUpdated?: (task: Record<string, unknown>) => void;
-  onThreadSummary?: (summary: Record<string, unknown>) => void;
   onHeartbeat?: (data: { threadId: string; timestamp: number }) => void;
   onMessageDeleted?: (data: { messageId: string; threadId: string; deletedBy: string }) => void;
   onMessageRestored?: (data: { messageId: string; threadId: string }) => void;
@@ -452,22 +451,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacksRef.current.onTaskUpdated?.(task);
     });
 
-    socket.on('thread_summary', (summary: Record<string, unknown>) => {
-      const routeThread = threadIdRef.current;
-      const storeThread = useChatStore.getState().currentThreadId;
-      // Dual-pointer guard: both route and store must agree on the active thread.
-      // Blocks switch-window race where route already points to thread-B
-      // but flat store still belongs to thread-A (same pattern as agent_message).
-      const isActiveThread = Boolean(
-        summary.threadId &&
-          routeThread &&
-          storeThread &&
-          summary.threadId === routeThread &&
-          summary.threadId === storeThread,
-      );
-      if (!isActiveThread) return;
-      callbacksRef.current.onThreadSummary?.(summary);
-    });
+    // thread_summary listener removed (clowder-ai#343): summaries no longer injected into chat flow.
 
     socket.on('heartbeat', (data: { threadId: string; timestamp: number }) => {
       callbacksRef.current.onHeartbeat?.(data);

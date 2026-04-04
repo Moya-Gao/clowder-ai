@@ -1,7 +1,7 @@
 import type { GameView } from '@cat-cafe/shared';
 import { useMemo } from 'react';
 import type { SocketCallbacks } from '@/hooks/useSocket';
-import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
+import { useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
 import { type TaskItem, useTaskStore } from '@/stores/taskStore';
 
@@ -64,30 +64,7 @@ export function useChatSocketCallbacks({
       },
       onTaskCreated: (task) => addTask(task as unknown as TaskItem),
       onTaskUpdated: (task) => updateTask(task as unknown as TaskItem),
-      onThreadSummary: (summary) => {
-        const s = summary as {
-          id: string;
-          threadId: string;
-          topic: string;
-          conclusions: string[];
-          openQuestions: string[];
-          createdBy: string;
-          createdAt: number;
-        };
-        addMessage({
-          id: `summary-${s.id}`,
-          type: 'summary',
-          content: s.topic,
-          timestamp: s.createdAt,
-          summary: {
-            id: s.id,
-            topic: s.topic,
-            conclusions: s.conclusions,
-            openQuestions: s.openQuestions,
-            createdBy: s.createdBy,
-          },
-        } as ChatMessageData);
-      },
+      // onThreadSummary removed (clowder-ai#343): summaries no longer injected into chat flow.
       onHeartbeat: (data) => {
         if (data.threadId === threadId) resetTimeout();
       },

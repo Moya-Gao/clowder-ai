@@ -31,7 +31,7 @@ import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
-import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
+
 import { getPushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
@@ -88,7 +88,7 @@ export interface MessagesRoutesOptions {
   uploadDir?: string;
   invocationTracker?: InvocationTracker;
   invocationRecordStore?: IInvocationRecordStore;
-  autoSummarizer?: AutoSummarizer;
+
   summaryStore?: ISummaryStore;
   /** #80: Streaming draft store for F5 recovery */
   draftStore?: IDraftStore;
@@ -938,20 +938,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 });
             }
 
-            // Fire-and-forget: auto-summarize if threshold met (only on success)
-            if (opts.autoSummarizer) {
-              opts.autoSummarizer
-                .maybeSummarize(resolvedThreadId)
-                .then((summary) => {
-                  if (summary) {
-                    opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'thread_summary', summary);
-                  }
-                })
-                .catch(() => {
-                  /* ignore */
-                });
-            }
-
             // F088 ISSUE-15: Outbound delivery to connector platforms (Feishu/Telegram)
             // P2 fix: fire-and-forget so delivery latency doesn't block invocationTracker.complete()
             deliverOutboundFromWeb(
@@ -1255,37 +1241,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       }
     }
 
-    // P1-B fix: merge summaries into history timeline
-    // First page (no cursor): include summaries >= oldest message (no max cap,
-    //   so summaries created *after* the newest message are still included).
-    // Pagination (before cursor): include summaries >= oldest message AND < beforeTs.
-    if (opts.summaryStore) {
-      const summaries = await opts.summaryStore.listByThread(resolvedThreadId);
-      const minTs = page.length > 0 ? (page[0]?.timestamp ?? null) : null;
-      for (const s of summaries) {
-        if (minTs !== null && s.createdAt < minTs) continue;
-        if (beforeTs != null && s.createdAt >= beforeTs) continue;
-        chatItems.push({
-          id: `summary-${s.id}`,
-          type: 'summary',
-          catId: null,
-          content: s.topic,
-          timestamp: s.createdAt,
-          summary: {
-            id: s.id,
-            topic: s.topic,
-            conclusions: [...s.conclusions],
-            openQuestions: [...s.openQuestions],
-            createdBy: s.createdBy,
-          },
-        });
-      }
-      chatItems.sort((a, b) => {
-        const ta = typeof a.deliveredAt === 'number' ? a.deliveredAt : a.timestamp;
-        const tb = typeof b.deliveredAt === 'number' ? b.deliveredAt : b.timestamp;
-        return ta - tb;
-      });
-    }
+    // Auto-summary disabled (clowder-ai#343): regex-based summaries removed from chat flow.
+    // Scheduled compaction (SummaryCompactionTask) continues for memory infrastructure.
 
     return {
       messages: chatItems,
