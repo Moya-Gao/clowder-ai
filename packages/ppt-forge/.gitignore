@@ -1,2 +1,4 @@
 dist/
 output/
+# Test-generated PPTX artifacts (not source)
+examples/*.pptx

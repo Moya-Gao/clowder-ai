@@ -149,8 +149,8 @@ describe('compileDiagramToSvg', () => {
     // Nav bars and accent bars must use highlightBorder (Huawei red), NOT boxBorder (gray)
     assert.ok(svg.includes('fill="#C7020E"'), 'nav bars should use highlightBorder red C7020E');
     // Regression guard: if code mistakenly reads boxBorder (D4D4D4), nav bars turn gray
-    const navFills = [...svg.matchAll(/<rect[^>]+width="1"[^>]+fill="([^"]+)"/g)].map((m) => m[1]);
-    assert.ok(navFills.length > 0, 'should have nav bar rects (width=1)');
+    const navFills = [...svg.matchAll(/<rect[^>]+width="0\.55"[^>]+fill="([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(navFills.length > 0, 'should have nav bar rects (width=0.55)');
     for (const f of navFills) {
       assert.ok(f !== '#D4D4D4', `nav bar fill must not be boxBorder gray, got ${f}`);
     }

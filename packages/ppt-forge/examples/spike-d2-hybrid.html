@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #888; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  .ppt-slide {
+    width: 1280px; height: 720px; background: #FFFFFF; font-family: 'Noto Sans SC', sans-serif;
+    display: grid; grid-template-rows: auto auto 1fr auto; padding: 16px 20px; gap: 8px;
+  }
+  .header { display: flex; justify-content: space-between; align-items: baseline; }
+  .title { font-size: 22px; font-weight: 700; color: #1a1a1a; }
+  .subtitle { font-size: 11px; color: #666; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .kpi-card {
+    background: #F0F5FF; border-left: 3px solid #1677FF; padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .kpi-value { font-size: 28px; font-weight: 700; color: #1677FF; }
+  .kpi-label { font-size: 10px; color: #666; }
+  .kpi-delta { font-size: 9px; color: #52C41A; }
+
+  .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
+
+  /* Semantic zones: AI draws position, router fills with native API */
+  .chart-zone {
+    border: 1px dashed #ccc; background: #FAFAFA; padding: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #999; font-size: 11px;
+  }
+  .table-zone {
+    border: 1px dashed #ccc; background: #FAFAFA; padding: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #999; font-size: 11px;
+  }
+
+  .summary-bar {
+    background: #F6F6F6; padding: 8px 12px; border-radius: 4px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .summary-item { font-size: 10px; color: #333; }
+  .summary-label { font-weight: 700; font-size: 10px; color: #1a1a1a; }
+</style>
+</head>
+<body>
+<div class="ppt-slide">
+  <!-- Row 1: Header (flat extracted) -->
+  <div class="header">
+    <div class="title">华为企业 IT 架构运营指标总览</div>
+    <div class="subtitle">2026 Q1 · Enterprise Architecture Division</div>
+  </div>
+
+  <!-- Row 2: KPI cards (flat extracted — native text) -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-value">98.7%</div>
+      <div class="kpi-label">系统可用性 SLA</div>
+      <div class="kpi-delta">↑ 0.3% vs Q4</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">142ms</div>
+      <div class="kpi-label">API 平均响应时间</div>
+      <div class="kpi-delta">↓ 18ms vs Q4</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">1,247</div>
+      <div class="kpi-label">微服务实例数</div>
+      <div class="kpi-delta">↑ 89 新增</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">23.4PB</div>
+      <div class="kpi-label">数据湖总量</div>
+      <div class="kpi-delta">↑ 3.1PB vs Q4</div>
+    </div>
+  </div>
+
+  <!-- Row 3: Main content — left chart (semantic), right table (semantic) -->
+  <div class="main-content">
+    <div class="chart-zone"
+         data-ppt-mode="chart"
+         data-chart-type="bar"
+         data-chart-data='{"chartProfile":"categorical","categories":["应用层","平台层","基础设施","数据层","安全层"],"series":[{"name":"Q4 2025","values":[85,72,91,78,88]},{"name":"Q1 2026","values":[92,81,94,85,93]}]}'>
+      Chart: 五层架构健康度对比
+    </div>
+    <div class="table-zone"
+         data-ppt-mode="table"
+         data-table-headers="组件,版本,状态,SLA"
+         data-table-rows='[["API Gateway","v3.2.1","运行中","99.9%"],["Service Mesh","v1.8.0","运行中","99.7%"],["消息队列","v2.4.3","运行中","99.8%"],["配置中心","v1.5.2","升级中","99.5%"],["监控平台","v4.1.0","运行中","99.9%"]]'>
+      Table: 核心组件运营状态
+    </div>
+  </div>
+
+  <!-- Row 4: Summary bar (flat extracted) -->
+  <div class="summary-bar">
+    <div class="summary-item">
+      <div class="summary-label">架构治理</div>
+      已完成 23/25 项合规检查，2 项待整改（Q2 截止）
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">容量规划</div>
+      Q2 预计扩容 320 节点，GPU 集群利用率达 87%
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">安全态势</div>
+      零日漏洞响应 &lt;4h，渗透测试覆盖率 96%
+    </div>
+  </div>
+</div>
+</body>
+</html>

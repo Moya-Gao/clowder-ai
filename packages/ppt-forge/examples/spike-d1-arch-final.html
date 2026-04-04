@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Phase D Spike — 1280×720 Final v4</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Noto Sans SC',sans-serif; }
+  .ppt-slide { width:1280px; height:720px; overflow:hidden; background:#fff; display:grid;
+    grid-template-rows: auto auto auto 1fr; align-content: start; }
+  .accent { color:#c7020e; }
+  .kpi-num { font-weight:900; color:#c7020e; line-height:1; }
+  .kpi-label { color:#555; line-height:1; }
+  .layer-header { background:#c7020e; color:#fff; }
+  .cell { background:#fafafa; border-left:3px solid #c7020e; }
+  .ct { font-weight:700; color:#1a1a1a; }
+  .bl { font-weight:700; color:#252525; }
+  .bd { color:#777; }
+  .summary-bar { background:#fef2f2; border-left:4px solid #c7020e; }
+</style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+<div class="ppt-slide" data-ppt-role="slide">
+
+  <!-- ROW 1: 标题 + KPI -->
+  <div style="padding:12px 20px 6px;">
+    <div class="text-[24px] font-bold accent leading-none">两层架构：对等判断 + 结构化执行 — 缺一不可</div>
+    <div class="text-[12px] text-gray-400 leading-none mt-1 mb-2">Cat Café 多 AI Agent 协作系统 · 去中心化判断，结构化执行</div>
+    <div class="flex" style="gap:3px; height:56px;">
+      <div class="flex-1 bg-white border border-gray-200 rounded flex items-center justify-center gap-2">
+        <span class="kpi-num text-[30px]">4</span><span class="kpi-label text-[11px]">AI 猫猫<br>协作</span>
+      </div>
+      <div class="flex-1 bg-white border border-gray-200 rounded flex items-center justify-center gap-2">
+        <span class="kpi-num text-[30px]">2</span><span class="kpi-label text-[11px]">架构<br>层级</span>
+      </div>
+      <div class="flex-1 bg-white border border-gray-200 rounded flex items-center justify-center gap-2">
+        <span class="kpi-num text-[30px]">20+</span><span class="kpi-label text-[11px]">安全<br>Hooks</span>
+      </div>
+      <div class="flex-1 bg-white border border-gray-200 rounded flex items-center justify-center gap-2">
+        <span class="kpi-num text-[30px]">0</span><span class="kpi-label text-[11px]">生产<br>事故</span>
+      </div>
+      <div class="flex-[3] summary-bar rounded flex items-center px-4">
+        <div>
+          <div class="text-[14px] font-bold text-gray-800 leading-tight">核心理念：没有中心调度员</div>
+          <div class="text-[11px] text-gray-500 leading-snug mt-0.5">每只猫独立判断 → 结构化通道执行 → Git 做唯一真相源。判断去中心，执行强一致。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: 对等判断层 -->
+  <div style="padding:4px 20px 2px;">
+    <div class="layer-header rounded-t flex items-center" style="padding:4px 12px;">
+      <span class="text-[13px] font-bold">对等判断层</span>
+      <span class="text-[10px] opacity-80 ml-3">内容判断分布式完成 — 4 只猫独立决策，跨族互审消偏</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:2px;">
+      <div class="cell" style="padding:5px 8px;">
+        <div class="ct text-[12px] mb-0.5">布偶猫 Claude</div>
+        <div class="text-[11px] leading-snug"><span class="bl">架构设计</span> <span class="bd">系统分层/模块/API</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">后端开发</span> <span class="bd">TS 全栈 + MCP adapter</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">MCP 集成</span> <span class="bd">Tool 协议 + 多 provider</span></div>
+      </div>
+      <div class="cell" style="padding:5px 8px;">
+        <div class="ct text-[12px] mb-0.5">缅因猫 GPT</div>
+        <div class="text-[11px] leading-snug"><span class="bl">Code Review</span> <span class="bd">跨族盲审 + 安全</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">安全审计</span> <span class="bd">注入/权限/依赖扫描</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">测试守护</span> <span class="bd">红绿循环 ≥80%</span></div>
+      </div>
+      <div class="cell" style="padding:5px 8px;">
+        <div class="ct text-[12px] mb-0.5">暹罗猫 Gemini</div>
+        <div class="text-[11px] leading-snug"><span class="bl">视觉审美</span> <span class="bd">配色/布局一致性</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">UX 设计</span> <span class="bd">Pencil → 交互验证</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">创意发散</span> <span class="bd">竞品对标 + 差异化</span></div>
+      </div>
+      <div class="cell" style="padding:5px 8px;">
+        <div class="ct text-[12px] mb-0.5">跨家族 Review</div>
+        <div class="text-[11px] leading-snug"><span class="bl">盲点互补</span> <span class="bd">不同数据=不同盲点</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">禁止自审</span> <span class="bd">铁律 #2 硬约束</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">愿景守护</span> <span class="bd">非作者非 reviewer</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3: 结构化执行层 -->
+  <div style="padding:4px 20px 2px;">
+    <div class="layer-header rounded-t flex items-center" style="padding:4px 12px;">
+      <span class="text-[13px] font-bold">结构化执行层</span>
+      <span class="text-[10px] opacity-80 ml-3">统一管理执行通道 — Queue + Slot + Session + Hooks 四重保障</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:2px;">
+      <div class="cell" style="padding:5px 8px;">
+        <div class="ct text-[12px] mb-0.5">统一调度</div>
+        <div class="text-[11px] leading-snug"><span class="bl">InvocationQueue</span> <span class="bd">异步 + 并发安全</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">Slot 并发</span> <span class="bd">每 agent 独立 slot</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">铲屎官 Steer</span> <span class="bd">人类随时介入</span></div>
+      </div>
+      <div class="cell" style="padding:5px 8px;">
+        <div class="ct text-[12px] mb-0.5">Session Strategy</div>
+        <div class="text-[11px] leading-snug"><span class="bl">handoff</span> <span class="bd">上下文完整传递</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">compress</span> <span class="bd">自动摘要保窗口</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">hybrid</span> <span class="bd">动态策略切换</span></div>
+      </div>
+      <div class="cell" style="padding:5px 8px;">
+        <div class="ct text-[12px] mb-0.5">Hooks 护栏</div>
+        <div class="text-[11px] leading-snug"><span class="bl">rm→trash</span> <span class="bd">删除降级回收站</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">Redis 6399</span> <span class="bd">生产绝对隔离</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">零延迟提交</span> <span class="bd">Edit→commit+push</span></div>
+      </div>
+      <div class="cell" style="padding:5px 8px;">
+        <div class="ct text-[12px] mb-0.5">Shared Truth</div>
+        <div class="text-[11px] leading-snug"><span class="bl">Git 仓库</span> <span class="bd">唯一事实源</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">evidence.sqlite</span> <span class="bd">全文+向量检索</span></div>
+        <div class="text-[11px] leading-snug"><span class="bl">共享文档</span> <span class="bd">specs/ADRs 多猫可见</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4: 流程图摘要 + 底部总结 -->
+  <div style="padding:6px 20px 10px;">
+    <!-- 工作流程一句话 -->
+    <div class="bg-gray-50 rounded border border-gray-200 flex items-center justify-center" style="padding:8px 16px; margin-bottom:6px;">
+      <div class="text-[12px] text-gray-600 text-center leading-snug">
+        <span class="font-bold text-gray-800">端到端工作流：</span>
+        铲屎官下发任务 → <span class="font-bold accent">对等判断层</span> 4 猫独立分析 → 跨族盲审 Review →
+        <span class="font-bold accent">结构化执行层</span> InvocationQueue 调度 → Session 交接/压缩 → Hooks 护栏兜底 →
+        <span class="font-bold">Git 仓库</span> 持久化真相
+      </div>
+    </div>
+    <!-- 三列总结 -->
+    <div class="flex" style="gap:3px;">
+      <div class="summary-bar flex-1 rounded" style="padding:6px 10px;">
+        <div class="text-[11px] font-bold text-gray-700">判断层价值</div>
+        <div class="text-[10px] text-gray-500 leading-snug">不同模型家族 = 不同训练偏差。跨族审查让每个决策至少经过两种认知框架验证，盲点互补。</div>
+      </div>
+      <div class="summary-bar flex-1 rounded" style="padding:6px 10px;">
+        <div class="text-[11px] font-bold text-gray-700">执行层价值</div>
+        <div class="text-[10px] text-gray-500 leading-snug">Queue 保并发安全，Session 保上下文不丢，Hooks 保底线不破。三层防御消除"AI 猫猫失控"风险。</div>
+      </div>
+      <div class="summary-bar flex-1 rounded" style="padding:6px 10px;">
+        <div class="text-[11px] font-bold text-gray-700">连接点：Git + Evidence</div>
+        <div class="text-[10px] text-gray-500 leading-snug">Git 仓库是唯一写入口和真相源。evidence.sqlite 提供全文+向量语义检索，让每只猫都能找到历史决策。</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -12,12 +12,12 @@ const FALLBACK_BORDER = 'd9d9d9';
 const FALLBACK_BG = 'FFFFFF';
 const FALLBACK_TEXT = '333333';
 
-// Layout (inches)
-const NAV_W = 1.0;
-const ROW_GAP = 0.04;
-const CARD_GAP = 0.04;
-const CARD_PAD = 0.08;
-const RED_BAR_W = 4 / 72; // 4px left accent bar
+// Layout (inches) — tuned for Huawei-level density (24+ leaves per page)
+const NAV_W = 0.55;
+const ROW_GAP = 0.02;
+const CARD_GAP = 0.02;
+const CARD_PAD = 0.04;
+const RED_BAR_W = 3 / 72; // 3px left accent bar
 const BORDER_W = 1 / 72;
 
 function esc(s: string): string {
@@ -71,8 +71,8 @@ export function compileLayeredGrid(
 
     // ── Left navigation bar (Huawei red) ──
     out.push(`<rect x="0" y="${ry}" width="${NAV_W}" height="${rowH}" fill="#${accent}" />`);
-    const navMaxW = NAV_W - 0.16;
-    const tPt = fit(title, navMaxW, 14, 8);
+    const navMaxW = NAV_W - 0.08;
+    const tPt = fit(title, navMaxW, 11, 6);
     const tIn = tPt / 72;
     const navCx = NAV_W / 2;
     const titleY = sub ? ry + rowH * 0.38 : ry + rowH * 0.5;
@@ -82,7 +82,7 @@ export function compileLayeredGrid(
         `font-weight="bold" text-anchor="middle">${esc(title)}</text>`,
     );
     if (sub) {
-      const sPt = fit(sub, navMaxW, 8, 5);
+      const sPt = fit(sub, navMaxW, 7, 4);
       const sIn = sPt / 72;
       out.push(
         `<text x="${navCx}" y="${titleY + tIn * 1.6}" data-w="${navMaxW.toFixed(3)}" ` +
@@ -107,7 +107,7 @@ export function compileLayeredGrid(
 
       const hx = cx + RED_BAR_W + CARD_PAD;
       const hMaxW = cardW - CARD_PAD * 2 - RED_BAR_W;
-      const hPt = fit(card.label, hMaxW, 11, 6);
+      const hPt = fit(card.label, hMaxW, 13, 7);
       const hIn = hPt / 72;
       const hy = ry + CARD_PAD + hIn * 0.85;
       out.push(
@@ -117,14 +117,14 @@ export function compileLayeredGrid(
       );
 
       // Separator line (thin rect)
-      const sepY = hy + hIn * 0.45;
+      const sepY = hy + hIn * 0.4;
       out.push(`<rect x="${hx}" y="${sepY}" width="${hMaxW}" height="${BORDER_W}" fill="#${borderClr}" />`);
 
       // Bullet list (leaf children with optional descriptions)
-      const bMaxW = hMaxW - 0.1;
-      let by = sepY + CARD_PAD * 0.7;
+      const bMaxW = hMaxW - 0.06;
+      let by = sepY + CARD_PAD * 0.5;
       for (const bullet of card.children ?? []) {
-        const bPt = fit(bullet.label, bMaxW, 9, 5);
+        const bPt = fit(bullet.label, bMaxW, 10, 6);
         const bIn = bPt / 72;
         const bty = by + bIn * 1.0;
         out.push(
@@ -132,19 +132,19 @@ export function compileLayeredGrid(
             `font-size="${bIn}" fill="#${textClr}" font-weight="bold" text-anchor="start"` +
             `>\u2022 ${esc(bullet.label)}</text>`,
         );
-        by = bty + bIn * 0.4;
+        by = bty + bIn * 0.35;
         // Description line (smaller, gray — Huawei auxiliary text)
         if (bullet.description) {
-          const dPt = fit(bullet.description, bMaxW, 7, 4);
+          const dPt = fit(bullet.description, bMaxW, 8, 5);
           const dIn = dPt / 72;
-          const dty = by + dIn * 0.9;
+          const dty = by + dIn * 0.7;
           out.push(
             `<text x="${hx + 0.1}" y="${dty}" data-w="${bMaxW.toFixed(3)}" font-family="${font}" ` +
               `font-size="${dIn}" fill="#${style.connectorColor || '8c8c8c'}" text-anchor="start">${esc(bullet.description)}</text>`,
           );
-          by = dty + dIn * 0.5;
+          by = dty + dIn * 0.4;
         } else {
-          by += bIn * 0.3;
+          by += bIn * 0.25;
         }
       }
 

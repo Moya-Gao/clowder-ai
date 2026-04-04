@@ -67,7 +67,7 @@ function renderCompiledShape(slide: PptxSlide, el: CompiledElement): void {
     y: el.rect.y,
     w: el.rect.w,
     h: el.rect.h,
-    fill: { color: el.content.fill },
+    fill: el.content.fill ? { color: el.content.fill } : { type: 'none' },
     rectRadius: el.style.borderRadius ? el.style.borderRadius / 72 : 0.05,
   };
   if (el.style.borderColor) {

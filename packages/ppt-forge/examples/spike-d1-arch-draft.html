@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Phase D Spike — 640×360 Draft</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans SC', sans-serif; }
+  .ppt-slide { width: 640px; height: 360px; overflow: hidden; background: #fff; position: relative; }
+  .accent { color: #c7020e; }
+  .nav-bar { background: #c7020e; color: #fff; }
+  .card { border: 1px solid #e8e8e8; border-left: 3px solid #c7020e; background: #fff; }
+  .card-title { font-weight: 700; color: #252525; border-bottom: 1px solid #ebebeb; }
+  .bl { font-weight: 700; color: #333; }
+  .bd { color: #8c8c8c; }
+</style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+<!-- 640×360 Draft v3: 极致密度，华为级 — justify-start + tight gap -->
+<div class="ppt-slide" data-ppt-role="slide" type="content">
+
+  <!-- 页面标题 — 极简 -->
+  <div class="w-full px-2 pt-1 pb-0.5 bg-white" data-ppt-role="title">
+    <h1 class="text-[12px] font-bold accent leading-none">两层架构：对等判断 + 结构化执行 — 缺一不可</h1>
+    <p class="text-[7px] text-gray-400 leading-none mt-0.5">Cat Café 多 AI Agent 协作系统 · 去中心化判断，结构化执行</p>
+  </div>
+
+  <!-- 主体网格：2行，每行 = 红色导航 + 4卡片 -->
+  <div class="flex flex-col" style="height: 332px; gap: 1px; padding: 1px;">
+
+    <!-- === Row 1: 对等判断层 === -->
+    <div class="flex flex-1" style="gap: 1px;">
+      <!-- Nav bar -->
+      <div class="nav-bar flex flex-col items-center justify-center text-center" style="width: 50px; min-width: 50px; padding: 2px;">
+        <span class="text-[8px] font-bold leading-none">对等判断层</span>
+        <span class="text-[5px] opacity-75 leading-none mt-0.5">内容判断分布式完成</span>
+      </div>
+
+      <!-- Card 1: 布偶猫 Claude -->
+      <div class="card flex-1 flex flex-col" style="padding: 3px 4px;">
+        <div class="card-title text-[7px] pb-0.5 mb-0.5 leading-none">布偶猫 Claude</div>
+        <div class="flex-1 flex flex-col gap-[3px]">
+          <div>
+            <span class="bl text-[7px] leading-none">• 架构设计</span>
+            <div class="bd text-[5.5px] leading-none mt-px">系统分层/模块边界/API 设计</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 后端开发</span>
+            <div class="bd text-[5.5px] leading-none mt-px">TS 全栈，MCP adapter + Worker</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• MCP 集成</span>
+            <div class="bd text-[5.5px] leading-none mt-px">Tool 协议适配，多 provider 路由</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: 缅因猫 GPT -->
+      <div class="card flex-1 flex flex-col" style="padding: 3px 4px;">
+        <div class="card-title text-[7px] pb-0.5 mb-0.5 leading-none">缅因猫 GPT</div>
+        <div class="flex-1 flex flex-col gap-[3px]">
+          <div>
+            <span class="bl text-[7px] leading-none">• Code Review</span>
+            <div class="bd text-[5.5px] leading-none mt-px">跨家族盲审，安全/边界/可维护性</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 安全审计</span>
+            <div class="bd text-[5.5px] leading-none mt-px">注入防护、权限校验、依赖扫描</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 测试守护</span>
+            <div class="bd text-[5.5px] leading-none mt-px">红绿循环，覆盖率 ≥80% 门禁</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: 暹罗猫 Gemini -->
+      <div class="card flex-1 flex flex-col" style="padding: 3px 4px;">
+        <div class="card-title text-[7px] pb-0.5 mb-0.5 leading-none">暹罗猫 Gemini</div>
+        <div class="flex-1 flex flex-col gap-[3px]">
+          <div>
+            <span class="bl text-[7px] leading-none">• 视觉审美</span>
+            <div class="bd text-[5.5px] leading-none mt-px">配色/布局一致性，多模态反馈</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• UX 设计</span>
+            <div class="bd text-[5.5px] leading-none mt-px">Pencil 原型 → 交互流程验证</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 创意发散</span>
+            <div class="bd text-[5.5px] leading-none mt-px">竞品对标 + 差异化方案探索</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: 跨家族 Review -->
+      <div class="card flex-1 flex flex-col" style="padding: 3px 4px;">
+        <div class="card-title text-[7px] pb-0.5 mb-0.5 leading-none">跨家族 Review</div>
+        <div class="flex-1 flex flex-col gap-[3px]">
+          <div>
+            <span class="bl text-[7px] leading-none">• 盲点互补</span>
+            <div class="bd text-[5.5px] leading-none mt-px">不同训练数据 = 不同盲点，互审消偏</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 禁止自审</span>
+            <div class="bd text-[5.5px] leading-none mt-px">铁律 #2：同一个体不能 review 自己</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 愿景守护</span>
+            <div class="bd text-[5.5px] leading-none mt-px">第三只猫做最终验收，非作者非 reviewer</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- === Row 2: 结构化执行层 === -->
+    <div class="flex flex-1" style="gap: 1px;">
+      <!-- Nav bar -->
+      <div class="nav-bar flex flex-col items-center justify-center text-center" style="width: 50px; min-width: 50px; padding: 2px;">
+        <span class="text-[8px] font-bold leading-none">结构化执行层</span>
+        <span class="text-[5px] opacity-75 leading-none mt-0.5">统一管理执行通道</span>
+      </div>
+
+      <!-- Card 5: 统一调度 -->
+      <div class="card flex-1 flex flex-col" style="padding: 3px 4px;">
+        <div class="card-title text-[7px] pb-0.5 mb-0.5 leading-none">统一调度</div>
+        <div class="flex-1 flex flex-col gap-[3px]">
+          <div>
+            <span class="bl text-[7px] leading-none">• InvocationQueue</span>
+            <div class="bd text-[5.5px] leading-none mt-px">异步消息队列，确保并发安全</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• Slot 级并发</span>
+            <div class="bd text-[5.5px] leading-none mt-px">每个 agent 独立 slot，互不阻塞</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 铲屎官 Steer</span>
+            <div class="bd text-[5.5px] leading-none mt-px">人类随时可介入调整方向</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 6: Session Strategy -->
+      <div class="card flex-1 flex flex-col" style="padding: 3px 4px;">
+        <div class="card-title text-[7px] pb-0.5 mb-0.5 leading-none">Session Strategy</div>
+        <div class="flex-1 flex flex-col gap-[3px]">
+          <div>
+            <span class="bl text-[7px] leading-none">• handoff 交接</span>
+            <div class="bd text-[5.5px] leading-none mt-px">agent 间上下文完整传递</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• compress 压缩</span>
+            <div class="bd text-[5.5px] leading-none mt-px">长对话自动摘要保窗口效率</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• hybrid 混合</span>
+            <div class="bd text-[5.5px] leading-none mt-px">handoff + compress 动态切换</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 7: Hooks 护栏层 -->
+      <div class="card flex-1 flex flex-col" style="padding: 3px 4px;">
+        <div class="card-title text-[7px] pb-0.5 mb-0.5 leading-none">Hooks 护栏层</div>
+        <div class="flex-1 flex flex-col gap-[3px]">
+          <div>
+            <span class="bl text-[7px] leading-none">• rm→trash 强制</span>
+            <div class="bd text-[5.5px] leading-none mt-px">所有删除降级为回收站</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• Redis 6399 圣域</span>
+            <div class="bd text-[5.5px] leading-none mt-px">生产 Redis 绝对隔离，dev=6398</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 共享文档零延迟</span>
+            <div class="bd text-[5.5px] leading-none mt-px">Edit 后同消息 commit+push</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 8: Shared Truth -->
+      <div class="card flex-1 flex flex-col" style="padding: 3px 4px;">
+        <div class="card-title text-[7px] pb-0.5 mb-0.5 leading-none">Shared Truth</div>
+        <div class="flex-1 flex flex-col gap-[3px]">
+          <div>
+            <span class="bl text-[7px] leading-none">• Git 仓库</span>
+            <div class="bd text-[5.5px] leading-none mt-px">唯一事实源，全版本化</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• evidence.sqlite</span>
+            <div class="bd text-[5.5px] leading-none mt-px">全文检索 + 向量语义 rerank</div>
+          </div>
+          <div>
+            <span class="bl text-[7px] leading-none">• 共享文档</span>
+            <div class="bd text-[5.5px] leading-none mt-px">specs/ADRs/lessons 多猫可见</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
