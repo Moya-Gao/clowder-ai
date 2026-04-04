@@ -6,6 +6,10 @@
 import type { CatId, MessageContent, RichBlock, RichBlockBase } from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { DEFAULT_HIERARCHICAL_CONTEXT } from '../../../../../config/hierarchical-context-config.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+
+const log = createModuleLogger('context-transport');
+
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { formatMessage } from '../../context/ContextAssembler.js';
 import { checkContextBudget, type DegradationResult } from '../../orchestration/DegradationPolicy.js';
@@ -365,6 +369,17 @@ export async function assembleIncrementalContext(
     relevant.reduce((sum, m) => sum + estimateTokens(m.content), 0) > hcConfig.coldMentionTokenThreshold;
   const isColdMention = countTrigger || tokenTrigger;
 
+  // F148 OQ-3 telemetry: warm/cold path decision
+  log.info({
+    f148: 'path-decision',
+    threadId,
+    catId,
+    messageCount: relevant.length,
+    isColdMention,
+    trigger: countTrigger ? 'count' : tokenTrigger ? 'token' : 'none',
+    thresholds: { count: hcConfig.coldMentionThreshold, token: hcConfig.coldMentionTokenThreshold },
+  });
+
   if (isColdMention) {
     return assembleSmartWindowContext(
       deps,
@@ -500,6 +515,20 @@ async function assembleSmartWindowContext(
 
   // 1. Burst detection
   const { burst, omitted } = detectRecentBurst(relevant, hcConfig);
+
+  // F148 OQ-1 telemetry: burst detection stats
+  const actualGapMs =
+    burst.length > 0 && omitted.length > 0 ? burst[0].timestamp - omitted[omitted.length - 1].timestamp : null;
+  log.info({
+    f148: 'burst-stats',
+    threadId,
+    catId,
+    totalMessages: relevant.length,
+    burstCount: burst.length,
+    omittedCount: omitted.length,
+    actualGapMs,
+    configuredGapMs: hcConfig.burstSilenceGapMs,
+  });
 
   // 2. Thread title for tombstone + evidence (fail-open like recallEvidence)
   const threadStore = deps.invocationDeps.threadStore;
