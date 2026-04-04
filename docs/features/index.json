@@ -627,7 +627,7 @@
     {
       "id": "F102",
       "name": "记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04",
       "file": "F102-memory-adapter-refactor.md"
     },
     {
@@ -921,7 +921,7 @@
     {
       "id": "F150",
       "name": "Tool/Skill/MCP Usage Statistics — 工具使用可观测看板",
-      "status": "done | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2 | **Intake**: cat-cafe#954",
+      "status": "done | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2",
       "file": "F150-tool-usage-stats.md"
     },
     {
@@ -931,5 +931,5 @@
       "file": "F151-xiaoyi-channel-gateway.md"
     }
   ],
-  "generated_at": "2026-04-03T10:58:42.979Z"
+  "generated_at": "2026-04-04T15:19:03.463Z"
 }
