@@ -178,6 +178,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | KD-8 | `loadSession` 保留为 recovery primitive，恢复路径必须 shadow | Gemini ACP 的 `loadSession` 会 replay 历史（`session.streamHistory()`），直接用会污染 thread transcript。保留但必须拦截 replay 事件（GPT Pro 建议 + 本地源码验证） | 2026-04-01 |
 | KD-9 | 在 provider profile 中预留 `supports_multiplexing` 能力标志 | 今天 Gemini 默认 false；Phase A 验证通过后或新 carrier 进来后可切 true，调度器据此决定是否向同一进程并行下发。留 seam 不提前抽象（DeepThink 建议） | 2026-04-01 |
 | KD-10 | Gemini ACP 实测 `supportsMultiplexing = true` | OQ-6 实验验证：单进程双 session 并发 prompt（A="DELTA" B="ECHO"）正确完成，执行窗口重叠，无 cross-contamination。Phase C 池化可按 1 process : N sessions 设计，不需要每个并发 prompt 独占进程 | 2026-04-01 |
+| KD-11 | Stream idle watchdog：两段式（warning → stall），不做单阈值 kill + 不做自动重试 | 实际案例（2026-04-04 07:47）：firstEvent 5.8s 正常到达，eventCount=2 后静默 116s 至 timeout，stderr 零输出，errorCode=lease_timeout。铲屎官痛点："到底是谷歌的问题还是我们的？"。opus+gpt52 共识：(1) 只在 eventCount>0 后启用 idle watchdog (2) ~20s alive_but_silent warning / ~45s stream_idle_stall 终止 / 120s hard timeout 保留 (3) transport 注入 synthetic event（复用 capacity warning 管道）(4) 新 AgentMessageType 不复用 provider_signal（语义不同）(5) 不做自动重试（eventCount>0 不等于安全可重试，KD-7 约束）(6) 文案不过度归因"Google 的锅"，写"已开始回复但后续停滞" | 2026-04-04 |
 
 ## Timeline
 
@@ -197,6 +198,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-04-02 | **Hotfix**: ACP capacity signal fallback for delayed CLI stderr (PR #931) — client-level `recentCapacitySignal` 兜住 CLI retryWithBackoff 导致的 ~5min stderr 延迟；成功 prompt 清除信号防止恢复后误判；58 ACP tests。砚砚 local review (R1 P1: stale signal after recovery → R2 放行) + 云端 review clean |
 | 2026-04-02 | **Observability**: first-event latency for timeout diagnosis (PR #934) — 并发 4 猫 50% timeout 诊断（opus+gpt52 联合收敛）：Gemini CLI silent stall in promptStream；加 `firstEventLatencyMs` + `eventCount`/`waitedMs` 观测点。砚砚 local review 放行 + 云端 review clean。squash merge `6cb74f74` |
 | 2026-04-04 | **Feature**: capacity realtime warning (PR #944) — `provider_signal` type + `promptStream` capacity signal injection。铲屎官痛点：Gemini 429 重试时 120s 无感知。修复：AcpClient.promptStream 注入 stderr capacity 信号到事件队列，零事件阻塞时即时穿透；GeminiAcpAdapter 消费 `provider_capacity_signal` 事件立即 yield warning。砚砚 local review (R1 P1: 零事件穿透 → R2 放行) + 云端 review (R1 P1: pre-stream 回退 → R2 clean)。64 ACP tests。squash merge `f0ec5298` |
+| 2026-04-04 | **开始**: stream idle watchdog（KD-11）— 铲屎官实际遇到 mid-stream silent stall（eventCount=2 后静默 116s），capacity warning 无法覆盖零 stderr 场景。设计：两段式 idle watchdog (20s warning / 45s stall / 120s hard)，transport 注入 synthetic event，新错误码 `stream_idle_stall`。opus+gpt52 共识收敛 |
 
 ## Review Gate
 
