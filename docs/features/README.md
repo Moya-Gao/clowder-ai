@@ -84,6 +84,7 @@
 | F087 | F087: CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | done | [F087-cvo-bootcamp.md](./F087-cvo-bootcamp.md) |
 | F099 | F099: Hub & 顶栏导航可扩展性重构 — 手风琴导航 + SVG + 顶栏精简 | done | [F099-hub-navigation-scalability.md](./F099-hub-navigation-scalability.md) |
 | F101 | F101: Mode v2 — 游戏系统引擎 + 狼人杀 | done | [F101-mode-v2-game-engine.md](./F101-mode-v2-game-engine.md) |
+| F102 | F102: 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | done | [F102-memory-adapter-refactor.md](./F102-memory-adapter-refactor.md) |
 | F103 | F103: 猫猫独立声线 — Per-Cat Voice Identity | done | [F103-per-cat-voice-identity.md](./F103-per-cat-voice-identity.md) |
 | F105 | F105: opencode 接入 — 金渐层（开源多模型编码猫 + OMOC） | done | [F105-opencode-golden-chinchilla.md](./F105-opencode-golden-chinchilla.md) |
 | F106 | F106: 多训练营支持 + 训练营列表页 | done | [F106-multi-bootcamp.md](./F106-multi-bootcamp.md) |

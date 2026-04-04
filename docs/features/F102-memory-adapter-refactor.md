@@ -8,7 +8,8 @@ created: 2026-03-11
 
 # F102: 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04
+> **Reflection**: [`docs/reflections/2026-04-04-f102-memory-adapter-capsule.md`](../reflections/2026-04-04-f102-memory-adapter-capsule.md)
 
 ## Why
 
@@ -1401,6 +1402,8 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-02 | PR #937 squash merged — Memory config panel: feature flag toggles with hot reload (F136 ConfigEventBus) |
 | 2026-04-02 | 砚砚 (GPT-5.4) 愿景守护 — F102 主干关闭，剩余 gap: Recall Feed source link |
 | 2026-04-03 | **PR #939 squash merged** — Recall Feed source link: anchorToHref mapping + clickable anchor links in RecallCard |
+| 2026-04-03 | PR #945 merged + direct sync commits — 完整配置参考面板 + Hub tab 整合，Memory Status 页收口 |
+| 2026-04-04 | **Feature close** — 愿景守护复核通过，铲屎官 runtime 反馈闭环完成，移出 BACKLOG + completed index + 反思胶囊落盘 |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
@@ -1463,7 +1466,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908)。剩余 3 Batch 待做。
+> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅。F102 已进入 feature close。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 收尾三批次（2026-04-01 三方收敛：布偶猫+砚砚 GPT-5.4+铲屎官）
@@ -1582,3 +1585,4 @@ Batch 3: /memory 体验层收口 ✅ PR #915
 | **Feature** | `docs/features/F024-session-chain.md` | Session Chain（数据源） |
 | **Research** | `docs/research/2026-03-19-lossless-claw-session-chain-comparison.md` | Lossless Claw vs Session Chain 调研对比（三猫协作） |
 | **Research** | `docs/research/2026-03-16-openclaw-cat-cafe-learning-synthesis.md` | OpenClaw 深度研究综合 |
+| **Reflection** | [`docs/reflections/2026-04-04-f102-memory-adapter-capsule.md`](../reflections/2026-04-04-f102-memory-adapter-capsule.md) | F102 feature close 反思胶囊 |

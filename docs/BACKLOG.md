@@ -37,7 +37,6 @@ created: 2026-02-26
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | internal | [F093](features/F093-cats-and-u-world-engine.md) |
 | F100 | Self-Evolution — 猫猫自我进化机制（行为层 + 知识对象化） | in-progress | 布偶猫 | internal | [F100](features/F100-self-evolution.md) |
 | F101 | Mode v2 — 游戏系统引擎 + 狼人杀 | in-progress | 布偶猫 | internal | [F101](features/F101-mode-v2-game-engine.md) |
-| F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | in-progress | 布偶猫 | internal | [F102](features/F102-memory-adapter-refactor.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | internal | [F104](features/F104-local-omni-perception.md) |
 | F107 | 脑门贴词 — 坏猫战术推理游戏 #1 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
 | F109 | Message Actions 修复与增强 — 软删除/Branch/编辑/通知 | in-progress | 布偶猫 | internal | [F109](features/F109-message-actions-overhaul.md) |
