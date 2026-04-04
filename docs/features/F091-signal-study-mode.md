@@ -59,18 +59,18 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-6: Study 模式可触发多猫研究，报告归档到 Study 目录 *(多猫研究按钮 + research=multi 上下文注入)*
 - [x] AC-7: 7 个新 MCP 工具可用（start_study / save_notes / list_studies / generate_podcast / signal_update_article / signal_delete_article / signal_link_thread）
 - [x] AC-8: Signal Hunter 旧 studies 迁移到新结构 *(migration.ts)*
-- [!] AC-9: 有 study 的文章在列表有视觉标记 *(studyCount badge + ✎ note icon)* **⚠️ REGRESSION: studyCount 永远为 0，后端不读 meta.json sidecar（2026-04-03 audit）**
+- [x] AC-9: 有 study 的文章在列表有视觉标记 *(studyCount badge + ✎ note icon)* ~~⚠️ REGRESSION~~ **Fixed PR #948: enrichWithStudyMeta 回填 studyCount/lastStudiedAt**
 - [x] AC-10: 记忆对接用 cat-cafe-memory session search（不走 RAG），猫猫讨论前能搜到相关历史 *(ActiveSignalArticle enrichment with relatedDiscussions)*
 - [x] AC-12: "打开原文"保留外链跳转（铲屎官确认：需要给人展示来源时跳浏览器是正确行为），详情页已内嵌 markdown 渲染供日常阅读
 - [~] AC-13: Signal Inbox 列表视图 UX 设计语言归一化 *(转出为 TECH-DEBT.md TD107)*
 - [x] AC-14: 可删除文章（单篇 + 批量选择删除），软删除（`deletedAt` 时间戳），列表过滤隐藏
 - [x] AC-15: 可给文章添加备注（自由文本，不是标签——铲屎官的个人笔记/提醒）
-- [!] AC-16: 批量操作（多选 → 删除/标已读/归档/加标签），范围=当前页可见项 **⚠️ REGRESSION: "加标签"未实现（2026-04-03 audit）**
-- [!] AC-17: 按来源过滤（只看特定信源，50+ 源需要快速筛选）*(signals-view.ts source 条件 + SignalInboxView 来源下拉 + API source param)* **⚠️ REGRESSION: 来源过滤器只从当前已加载文章生成选项，不从 sources config 取全集（2026-04-03 audit）**
+- [x] AC-16: 批量操作（多选 → 删除/标已读/归档/加标签），范围=当前页可见项 ~~⚠️ REGRESSION~~ **Fixed PR #948: BatchActionBar add-tags + append semantics**
+- [x] AC-17: 按来源过滤（只看特定信源，50+ 源需要快速筛选）*(signals-view.ts source 条件 + SignalInboxView 来源下拉 + API source param)* ~~⚠️ REGRESSION~~ **Fixed PR #948: fetchSignalSources 从 config 取全集**
 - [x] AC-18: 文章关联——把相关文章绑成"学习集"（如"多 Agent 系列"），Study 折叠区展示同集文章 *(collection CRUD + StudyFoldArea UI + atomic sync)*
-- [!] AC-19: 学习时间线——"上周学了什么"回顾视图，按时间线展示 study 成果 *(StudyTimeline component + SignalInboxView integration)* **⚠️ REGRESSION: deep-link 断裂，/signals?article=... 参数未消费（2026-04-03 audit）**
+- [x] AC-19: 学习时间线——"上周学了什么"回顾视图，按时间线展示 study 成果 *(StudyTimeline component + SignalInboxView integration)* ~~⚠️ REGRESSION~~ **Fixed PR #948: useSearchParams + Suspense boundary**
 - [x] AC-20: 删除语义——软删除（`deletedAt`），有 study/播客/thread 关联的文章不硬删，避免幽灵引用
-- [!] AC-21: 备注与笔记边界——备注进搜索、不注入讨论上下文、列表显示图标 hover 预览 **⚠️ REGRESSION: hover 预览未实现，只有固定 title="有备注"（2026-04-03 audit）**
+- [x] AC-21: 备注与笔记边界——备注进搜索、不注入讨论上下文、列表显示图标 hover 预览 ~~⚠️ REGRESSION~~ **Fixed PR #948: note hover shows content preview**
 - [x] AC-22: Thread 关联 edge cases——已有关联默认"继续最近 thread"；重复贴同篇去重提示；并列挂载 vs 切换主文章；thread 删除后 link 标 stale 不级联删
 - [x] AC-23: 讨论前 evidence pack——文章全文 + note + 最近 linked threads (max 3) + 最近 study note，"先搜后聊" *(通过 enriched ActiveSignalArticle 注入)*
 - [x] AC-24: Artifact job state——播客/研究生成有 `queued/running/ready/failed` 状态，防止重复触发 + 失败可见
@@ -223,6 +223,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-17: Phase 11 merged (PR #515) — Secondary fetch for webpage articles + backfill empty content。修复 Anthropic 文章只有标题无正文的根因（self-href 漏解析 + 无二次抓取）。云端 review 3 轮（P1: timeout propagation + path traversal validation + regex alignment 全修），金渐层 + 缅因猫合作完成
 - 2026-03-18: 金渐层执行 feat-lifecycle completion 闭环：愿景守护对照表（10 项全匹配）+ 反思胶囊更新（补 Phase 5-11）+ Status→done + BACKLOG 移除 → **Feature close**
 - 2026-04-03: **Bug Audit**（铲屎官报告收藏消失 + 找不到学习文章）→ 布偶猫初筛 5 问题 + 缅因猫(GPT-5.4)补查 6 问题 = 共 13 个 known issues（6 P1 / 5 P2 / 2 P3），5 个 AC 标记 regression [!]
+- 2026-04-03: **Bug Audit fixes merged (PR #948)** — 12/13 issues fixed（6 P1 + 4 P2 + 2 P3），P2 #7（"已学习"筛选维度）deferred 待设计讨论。缅因猫(GPT-5.4) R1→R2 review + 云端 Codex 通过。5 个 AC regression 恢复 [x]
 
 ## Phase 5: 播客真正可用（2026-03-11） ✅
 
@@ -409,30 +410,30 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 
 ### P1 — 功能断裂
 
-| # | Issue | 根因 | 影响的 AC | 发现者 |
+| # | Issue | 状态 | 影响的 AC | 发现者 |
 |---|-------|------|-----------|--------|
-| 1 | **收藏/归档 tab 缺失**：点收藏→文章从 inbox 消失，无 starred/archived tab 可查看。wireframe Screen D 明确设计了"已学习/收藏"tab，但只实现了 Inbox/已读/全部 | SignalInboxView.tsx:248 tab 列表不完整 | 设计 gap（Screen D） | 宪宪 |
-| 2 | **studyCount 永远为 0**：后端从不读 meta.json sidecar 回填学习次数，"学N"徽章从不显示 | article-document.ts:82 只读 frontmatter，不调 StudyMetaService | AC-9 | 宪宪 |
-| 3 | **lastStudiedAt 未回流**：与 studyCount 同根同源，sidecar 字段没有并回 article model | 同上 | AC-9 | 砚砚确认 |
-| 4 | **时间线 deep-link 断裂**：StudyTimeline 条目链接到 `/signals?article=...`，但页面不消费该 query 参数 | SignalInboxView.tsx 不读取 URL searchParams | AC-19 | 砚砚 |
-| 5 | **搜索结果状态漂移**：showServerSearchResults 模式下改状态，文章留在列表不重新过滤 | handleStatusChange 只本地替换 item，不重跑 filter/search | — | 砚砚 |
-| 6 | **软删除文章仍计入统计**：getStats() 不过滤 deletedAt，删掉的文章继续计入"未读/今日/近7天" | article-query-service.ts:318 → article-stats.ts 无 deletedAt 过滤 | AC-14/AC-20 | 砚砚 |
+| 1 | **收藏/归档 tab 缺失** | ✅ PR #948 | 设计 gap（Screen D） | 宪宪 |
+| 2 | **studyCount 永远为 0** | ✅ PR #948 | AC-9 | 宪宪 |
+| 3 | **lastStudiedAt 未回流** | ✅ PR #948 | AC-9 | 砚砚确认 |
+| 4 | **时间线 deep-link 断裂** | ✅ PR #948 | AC-19 | 砚砚 |
+| 5 | **搜索结果状态漂移** | ✅ PR #948 | — | 砚砚 |
+| 6 | **软删除文章仍计入统计** | ✅ PR #948 | AC-14/AC-20 | 砚砚 |
 
 ### P2 — 体验缺陷
 
-| # | Issue | 根因 | 影响的 AC | 发现者 |
+| # | Issue | 状态 | 影响的 AC | 发现者 |
 |---|-------|------|-----------|--------|
-| 7 | **无"已学习"筛选维度**：即使 studyCount 修了也没有 UI 入口过滤已学习文章 | 筛选维度只有 status/source/tier/query | 设计 gap（Screen D） | 宪宪 |
-| 8 | **来源过滤器只取已加载文章**：50+ 信源场景下大量来源选不到 | uniqueSources() 从 items 生成，不从 sources config 取全集 | AC-17 | 砚砚 |
-| 9 | **批量操作缺"加标签"**：AC-16 承诺了但 BatchActionBar 只有"标已读/归档/删除" | BatchActionBar.tsx:33 | AC-16 | 砚砚 |
-| 10 | **StudyFoldArea 不自动展开有学习历史的文章**：open 只在首次 render 初始化一次 | StudyFoldArea.tsx:61 | AC-4 | 砚砚 |
+| 7 | **无"已学习"筛选维度** | 🔲 deferred（需设计讨论） | 设计 gap（Screen D） | 宪宪 |
+| 8 | **来源过滤器只取已加载文章** | ✅ PR #948 | AC-17 | 砚砚 |
+| 9 | **批量操作缺"加标签"** | ✅ PR #948 | AC-16 | 砚砚 |
+| 10 | **StudyFoldArea 不自动展开** | ✅ PR #948 | AC-4 | 砚砚 |
 
 ### P3 — 打磨项
 
-| # | Issue | 根因 | 影响的 AC | 发现者 |
+| # | Issue | 状态 | 影响的 AC | 发现者 |
 |---|-------|------|-----------|--------|
-| 11 | **备注图标缺 hover 预览**：只有固定 title="有备注"，没有显示备注内容 | SignalArticleList.tsx:98 | AC-21 | 砚砚 |
-| 12 | **updateArticle 返回不带 studyCount**：乐观更新后"学N"徽章闪失 | updateArticle 不调 StudyMetaService | AC-9 | 宪宪 |
+| 11 | **备注图标缺 hover 预览** | ✅ PR #948 | AC-21 | 砚砚 |
+| 12 | **updateArticle 返回不带 studyCount** | ✅ PR #948 | AC-9 | 宪宪 |
 
 ### 测试覆盖
 
