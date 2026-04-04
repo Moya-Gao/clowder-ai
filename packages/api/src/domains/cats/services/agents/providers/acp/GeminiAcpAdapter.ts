@@ -143,6 +143,7 @@ export class GeminiAcpAdapter implements AgentService {
         type: 'session_init',
         catId: this.catId,
         sessionId,
+        ephemeralSession: true,
         metadata,
         timestamp: Date.now(),
       };

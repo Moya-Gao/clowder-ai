@@ -117,6 +117,9 @@ export interface AgentMessage {
   content?: string;
   /** Session ID (for 'session_init' type) */
   sessionId?: string;
+  /** ACP transport: sessionId is per-invocation, not a persistent CLI session.
+   *  When true, a different sessionId does NOT mean "session replaced" — skip seal. */
+  ephemeralSession?: boolean;
   /** Tool name (for 'tool_use' type) */
   toolName?: string;
   /** Tool input parameters (for 'tool_use' type) */
