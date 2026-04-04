@@ -196,6 +196,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-04-02 | **Hotfix**: ACP capacity transparency + invoke-level listener isolation (PR #930) — upstream 429/MODEL_CAPACITY_EXHAUSTED 透传；event-driven onCapacity/offCapacity 替代 polled singleton；53 ACP tests。砚砚 local review (R1→R2→R3, pushback on invoke-level scope accepted) + 云端 review clean |
 | 2026-04-02 | **Hotfix**: ACP capacity signal fallback for delayed CLI stderr (PR #931) — client-level `recentCapacitySignal` 兜住 CLI retryWithBackoff 导致的 ~5min stderr 延迟；成功 prompt 清除信号防止恢复后误判；58 ACP tests。砚砚 local review (R1 P1: stale signal after recovery → R2 放行) + 云端 review clean |
 | 2026-04-02 | **Observability**: first-event latency for timeout diagnosis (PR #934) — 并发 4 猫 50% timeout 诊断（opus+gpt52 联合收敛）：Gemini CLI silent stall in promptStream；加 `firstEventLatencyMs` + `eventCount`/`waitedMs` 观测点。砚砚 local review 放行 + 云端 review clean。squash merge `6cb74f74` |
+| 2026-04-04 | **Feature**: capacity realtime warning (PR #944) — `provider_signal` type + `promptStream` capacity signal injection。铲屎官痛点：Gemini 429 重试时 120s 无感知。修复：AcpClient.promptStream 注入 stderr capacity 信号到事件队列，零事件阻塞时即时穿透；GeminiAcpAdapter 消费 `provider_capacity_signal` 事件立即 yield warning。砚砚 local review (R1 P1: 零事件穿透 → R2 放行) + 云端 review (R1 P1: pre-stream 回退 → R2 clean)。64 ACP tests。squash merge `f0ec5298` |
 
 ## Review Gate
 
