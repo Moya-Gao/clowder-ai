@@ -162,7 +162,8 @@ export type AcpSessionUpdateType =
   | 'current_mode_update'
   | 'config_option_update'
   | 'session_info_update'
-  | 'provider_capacity_signal'; // F149: injected by AcpClient.promptStream from stderr
+  | 'provider_capacity_signal' // F149: injected by AcpClient.promptStream from stderr
+  | 'stream_idle_warning'; // F149: injected by AcpClient.promptStream idle watchdog
 
 export interface AcpSessionUpdate {
   sessionId: string;

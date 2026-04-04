@@ -1373,6 +1373,260 @@ describe('GeminiAcpAdapter integration', () => {
     );
   });
 
+  // ─── F149: Stream Idle Watchdog Tests ─────────────────────────
+
+  it('F149: stream idle warning after events yields liveness_signal', async () => {
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'idle-warn-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Normal event first (eventCount becomes > 0)
+        yield {
+          sessionId: 'idle-warn-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'thinking...' } },
+        };
+        // Idle warning injected by AcpClient after ~20s silence
+        yield {
+          sessionId: 'idle-warn-sess',
+          update: {
+            sessionUpdate: 'stream_idle_warning',
+            idleSinceMs: 20000,
+            eventCount: 1,
+            timestamp: Date.now(),
+          },
+        };
+        // More content arrives (provider recovered)
+        yield {
+          sessionId: 'idle-warn-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'the answer' } },
+        };
+        return 'end_turn';
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    // Should have a liveness_signal warning
+    const warnings = messages.filter((m) => m.type === 'liveness_signal');
+    assert.equal(
+      warnings.length,
+      1,
+      `Expected 1 liveness_signal, got ${warnings.length}: ${JSON.stringify(messages.map((m) => m.type))}`,
+    );
+
+    const parsed = JSON.parse(warnings[0].content);
+    assert.equal(parsed.type, 'warning');
+    assert.match(parsed.message, /停滞|idle|silent/i);
+
+    // Normal text should still be present
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 2, `Expected 2 text messages, got ${texts.length}`);
+  });
+
+  it('F149: stream idle stall classified as stream_idle_stall (not lease_timeout)', async () => {
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'idle-stall-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Real events arrive (eventCount > 0)
+        yield {
+          sessionId: 'idle-stall-sess',
+          update: { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'Let me think...' } },
+        };
+        yield {
+          sessionId: 'idle-stall-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'partial answer' } },
+        };
+        // AcpClient idle timer fires at 45s — throws stream idle error
+        const err = new Error('Stream idle: no events for 45000ms after 2 events received');
+        err.code = 'STREAM_IDLE_STALL';
+        throw err;
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'Should yield error message');
+    assert.equal(errorMsg.errorCode, 'stream_idle_stall', `Expected stream_idle_stall, got ${errorMsg.errorCode}`);
+    // Should still have partial text from before the stall
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.ok(texts.length > 0, 'Should have partial text from before stall');
+    assert.ok(
+      messages.some((m) => m.type === 'done'),
+      'Should yield done after error',
+    );
+  });
+
+  it('F149: liveness_signal warning appears before stream_idle_stall error', async () => {
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'idle-order-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Normal event
+        yield {
+          sessionId: 'idle-order-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'start' } },
+        };
+        // Warning at ~20s
+        yield {
+          sessionId: 'idle-order-sess',
+          update: {
+            sessionUpdate: 'stream_idle_warning',
+            idleSinceMs: 20000,
+            eventCount: 1,
+            timestamp: Date.now(),
+          },
+        };
+        // Stall at ~45s — terminates
+        const err = new Error('Stream idle: no events for 45000ms after 1 events received');
+        err.code = 'STREAM_IDLE_STALL';
+        throw err;
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const warningIdx = messages.findIndex((m) => m.type === 'liveness_signal');
+    const errorIdx = messages.findIndex((m) => m.type === 'error');
+    assert.ok(
+      warningIdx >= 0,
+      `Should have liveness_signal, got types: ${JSON.stringify(messages.map((m) => m.type))}`,
+    );
+    assert.ok(errorIdx >= 0, 'Should have error');
+    assert.ok(warningIdx < errorIdx, `Warning (idx ${warningIdx}) should come before error (idx ${errorIdx})`);
+    assert.equal(messages[errorIdx].errorCode, 'stream_idle_stall');
+  });
+
+  it('F149: stream idle warning is deduped (only one liveness_signal per invoke)', async () => {
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'idle-dedup-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        yield {
+          sessionId: 'idle-dedup-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'chunk1' } },
+        };
+        // First idle warning
+        yield {
+          sessionId: 'idle-dedup-sess',
+          update: { sessionUpdate: 'stream_idle_warning', idleSinceMs: 20000, eventCount: 1, timestamp: Date.now() },
+        };
+        // More content
+        yield {
+          sessionId: 'idle-dedup-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'chunk2' } },
+        };
+        // Second idle warning (should be deduped)
+        yield {
+          sessionId: 'idle-dedup-sess',
+          update: { sessionUpdate: 'stream_idle_warning', idleSinceMs: 20000, eventCount: 2, timestamp: Date.now() },
+        };
+        yield {
+          sessionId: 'idle-dedup-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'chunk3' } },
+        };
+        return 'end_turn';
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const warnings = messages.filter((m) => m.type === 'liveness_signal');
+    assert.equal(warnings.length, 1, `Expected exactly 1 liveness_signal (deduped), got ${warnings.length}`);
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 3, `Expected 3 text messages, got ${texts.length}`);
+  });
+
   it('F149-cloud-P1: pre-stream capacity signal surfaces on first real event', async () => {
     // Codex cloud P1: capacity signal fired during newSession (before promptStream),
     // then prompt succeeds with normal events. Warning must still appear.

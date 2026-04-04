@@ -1365,8 +1365,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const iterResult = await abortableNext(serviceIter, signal);
         if (iterResult.done) break;
         const msg = iterResult.value;
-        // F149: provider_signal (e.g. upstream 429 retry) must NOT reset timeout — prevents "续命"
-        if (msg.type !== 'provider_signal') resetInvocationTimeout();
+        // F149: provider_signal / liveness_signal must NOT reset timeout — prevents "续命"
+        if (msg.type !== 'provider_signal' && msg.type !== 'liveness_signal') resetInvocationTimeout();
         if (shouldTrackGeminiResumeFailures && options.sessionId && msg.type === 'error') {
           const failureKind = classifyResumeFailure(msg.error);
           if (failureKind) {
@@ -1451,8 +1451,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           }
         }
 
-        // F149: Map provider_signal → system_info for frontend delivery (guards already applied above)
-        const deliveryMsg = msg.type === 'provider_signal' ? { ...msg, type: 'system_info' as const } : msg;
+        // F149: Map provider_signal / liveness_signal → system_info for frontend delivery
+        const deliveryMsg =
+          msg.type === 'provider_signal' || msg.type === 'liveness_signal'
+            ? { ...msg, type: 'system_info' as const }
+            : msg;
         for await (const out of streamProcessedOutputs(deliveryMsg)) {
           yield out;
         }
@@ -1460,7 +1463,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           msg.type !== 'error' &&
           msg.type !== 'done' &&
           msg.type !== 'session_init' &&
-          msg.type !== 'provider_signal'
+          msg.type !== 'provider_signal' &&
+          msg.type !== 'liveness_signal'
         ) {
           attemptHasContentOutput = true;
           // Substantive = real model output, excludes system_info (e.g. timeout_diagnostics).

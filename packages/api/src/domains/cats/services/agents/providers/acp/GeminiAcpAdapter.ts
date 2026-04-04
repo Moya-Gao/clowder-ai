@@ -8,7 +8,7 @@
  *   - Pool-backed: each invoke() acquires lease, releases in finally
  *   - Session per invocation: each invoke() calls newSession()
  *   - 4-window abort coverage (pre-invoke, post-newSession, post-yield, during-prompt)
- *   - Failure classification: init_failure / prompt_failure / model_capacity / mcp_pollution / lease_timeout
+ *   - Failure classification: init_failure / prompt_failure / model_capacity / mcp_pollution / stream_idle_stall / lease_timeout
  *   - System prompt: prepended to prompt text (same as GeminiAgentService)
  */
 
@@ -95,6 +95,7 @@ export class GeminiAcpAdapter implements AgentService {
     // (same process = same API key = same quota), so signals from any phase are relevant.
     let capacitySignal: AcpCapacitySignal | null = null;
     let capacityWarningYielded = false; // F149: dedup — at most one warning per invoke
+    let idleWarningYielded = false; // F149: dedup — at most one idle warning per invoke
     const onCapacity = (signal: AcpCapacitySignal) => {
       capacitySignal = signal;
     };
@@ -172,6 +173,18 @@ export class GeminiAcpAdapter implements AgentService {
           }
           continue; // Not a real ACP event — don't count, don't transform
         }
+        // F149: Stream idle warning injected by AcpClient idle watchdog.
+        if (event.update?.sessionUpdate === 'stream_idle_warning') {
+          if (!idleWarningYielded) {
+            idleWarningYielded = true;
+            log.info(
+              { catId: this.catId, sessionId, idleSinceMs: event.update.idleSinceMs },
+              'Stream idle warning yielded to frontend',
+            );
+            yield makeIdleWarning(this.catId, event, metadata);
+          }
+          continue; // Not a real ACP event — don't count, don't transform
+        }
         // F149: Fallback — capacity signal captured before promptStream started
         // (e.g. during newSession), surfaced on first real event
         if (capacitySignal && !capacityWarningYielded) {
@@ -239,8 +252,30 @@ function makeCapacityWarning(catId: CatId, signal: AcpCapacitySignal, metadata: 
   };
 }
 
+/** F149: Build a liveness_signal warning for stream idle watchdog. */
+function makeIdleWarning(
+  catId: CatId,
+  event: import('./types.js').AcpSessionUpdate,
+  metadata: MessageMetadata,
+): AgentMessage {
+  const idleSinceMs = (event.update?.idleSinceMs as number) ?? 0;
+  return {
+    type: 'liveness_signal',
+    catId,
+    content: JSON.stringify({
+      type: 'warning',
+      message: `Gemini 已开始回复但后续停滞 (idle ${Math.round(idleSinceMs / 1000)}s)`,
+    }),
+    metadata,
+    timestamp: Date.now(),
+  };
+}
+
 /** Max age (ms) for client-level capacity signal to be used as fallback evidence. */
 const RECENT_SIGNAL_MAX_AGE_MS = 10 * 60 * 1000;
+
+/** Pattern for stream idle stall errors thrown by AcpClient idle watchdog. */
+const STREAM_IDLE_RE = /Stream idle|STREAM_IDLE_STALL/i;
 
 function classifyError(
   err: unknown,
@@ -274,7 +309,11 @@ function classifyError(
     }
     return { errorCode: 'lease_timeout', errorMsg: err.message };
   }
+  // F149: Stream idle stall — provider started responding then went silent
   const msg = err instanceof Error ? err.message : String(err);
+  if (STREAM_IDLE_RE.test(msg) || (err instanceof Error && (err as { code?: string }).code === 'STREAM_IDLE_STALL')) {
+    return { errorCode: 'stream_idle_stall', errorMsg: msg };
+  }
   if (msg.includes('ENOENT') || msg.includes('spawn')) {
     return { errorCode: 'init_failure', errorMsg: msg };
   }

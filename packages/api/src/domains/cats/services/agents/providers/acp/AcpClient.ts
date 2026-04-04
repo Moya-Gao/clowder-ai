@@ -77,6 +77,18 @@ export class AcpTimeoutError extends Error {
   }
 }
 
+export class AcpStreamIdleError extends Error {
+  public readonly code = 'STREAM_IDLE_STALL';
+  constructor(
+    public readonly sessionId: string,
+    public readonly idleSinceMs: number,
+    public readonly eventCount: number,
+  ) {
+    super(`Stream idle: no events for ${idleSinceMs}ms after ${eventCount} events received`);
+    this.name = 'AcpStreamIdleError';
+  }
+}
+
 // ─── Client ─────────────────────���──────────────────────────���───
 
 /** Parsed capacity error detected from ACP process stderr. */
@@ -206,19 +218,72 @@ export class AcpClient {
   async *promptStream(
     sessionId: string,
     text: string,
-    options?: { timeoutMs?: number },
+    options?: { timeoutMs?: number; idleWarningMs?: number; idleStallMs?: number },
   ): AsyncGenerator<AcpSessionUpdate, AcpStopReason> {
     const timeoutMs = options?.timeoutMs ?? 120_000;
+    const idleWarningMs = options?.idleWarningMs ?? 20_000;
+    const idleStallMs = options?.idleStallMs ?? 45_000;
     const queue: AcpSessionUpdate[] = [];
     let waitResolve: (() => void) | null = null;
     let done = false;
     let stopReason: AcpStopReason = 'end_turn';
     let promptError: Error | null = null;
 
+    // F149: Stream idle watchdog state
+    let eventCount = 0;
+    let lastEventAt = 0;
+    let idleWarningFired = false;
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /** Inject a synthetic event and wake the consumer loop. */
+    const injectSynthetic = (update: Record<string, unknown>) => {
+      queue.push({ sessionId, update } as AcpSessionUpdate);
+      if (waitResolve) {
+        const r = waitResolve;
+        waitResolve = null;
+        r();
+      }
+    };
+
+    /** Schedule the next idle check. Only active after first real event. */
+    const scheduleIdleCheck = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      if (done) return;
+      // P1-fix: stall delay is relative to lastEventAt, not relative to warning.
+      // With warning at 20s and stall at 45s, the stall timer fires 25s after warning.
+      const nextMs = idleWarningFired ? Math.max(0, idleStallMs - idleWarningMs) : idleWarningMs;
+      idleTimer = setTimeout(() => {
+        if (done || eventCount === 0) return;
+        const idleSinceMs = Date.now() - lastEventAt;
+        if (!idleWarningFired) {
+          idleWarningFired = true;
+          log.warn({ sessionId, idleSinceMs, eventCount }, 'Stream idle watchdog: warning');
+          injectSynthetic({ sessionUpdate: 'stream_idle_warning', idleSinceMs, eventCount, timestamp: Date.now() });
+          scheduleIdleCheck(); // Schedule stall check (remaining time)
+        } else {
+          // Stall — terminate the stream and cancel the upstream session
+          log.error({ sessionId, idleSinceMs, eventCount }, 'Stream idle watchdog: stall — terminating');
+          this.cancelSession(sessionId); // P1-fix: actually cancel the upstream session
+          promptError = new AcpStreamIdleError(sessionId, idleSinceMs, eventCount);
+          done = true;
+          if (waitResolve) {
+            const r = waitResolve;
+            waitResolve = null;
+            r();
+          }
+        }
+      }, nextMs);
+    };
+
     const listener = (notif: AcpNotification) => {
       const params = notif.params as unknown as AcpSessionUpdate;
       if (params.sessionId !== sessionId) return;
       queue.push(params);
+      // F149: Track real events for idle watchdog
+      eventCount++;
+      lastEventAt = Date.now();
+      idleWarningFired = false; // Reset warning on new activity
+      scheduleIdleCheck();
       if (waitResolve) {
         const r = waitResolve;
         waitResolve = null;
@@ -231,19 +296,11 @@ export class AcpClient {
     // This breaks through zero-event stalls where the for-await loop blocks
     // on an empty queue — the signal resolves waitResolve immediately.
     const capacityInjector = (signal: AcpCapacitySignal) => {
-      queue.push({
-        sessionId,
-        update: {
-          sessionUpdate: 'provider_capacity_signal',
-          message: signal.message,
-          timestamp: signal.timestamp,
-        },
-      } as AcpSessionUpdate);
-      if (waitResolve) {
-        const r = waitResolve;
-        waitResolve = null;
-        r();
-      }
+      injectSynthetic({
+        sessionUpdate: 'provider_capacity_signal',
+        message: signal.message,
+        timestamp: signal.timestamp,
+      });
     };
     this.capacityListeners.add(capacityInjector);
 
@@ -283,6 +340,7 @@ export class AcpClient {
       if (promptError) throw promptError;
       return stopReason;
     } finally {
+      if (idleTimer) clearTimeout(idleTimer);
       this.capacityListeners.delete(capacityInjector);
       const idx = this.notificationListeners.indexOf(listener);
       if (idx >= 0) this.notificationListeners.splice(idx, 1);

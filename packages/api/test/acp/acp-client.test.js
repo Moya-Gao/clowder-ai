@@ -648,4 +648,264 @@ describe('AcpClient', () => {
     assert.match(client.recentCapacitySignal.message, /No capacity available/);
     assert.ok(client.recentCapacitySignal.timestamp > 0);
   });
+
+  // ─── F149: Stream Idle Watchdog Tests ─────────────────────────
+
+  it('F149: idle watchdog injects stream_idle_warning after idle threshold', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'idle-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // Send one real event, then go silent for longer than idleWarningMs
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'idle-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'first chunk' } },
+            });
+          });
+          // Complete after a delay (longer than warning but shorter than stall)
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'idle-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'resumed' } },
+            });
+            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+          }, 200);
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    for await (const event of client.promptStream('idle-sess', 'hello', {
+      idleWarningMs: 50,
+      idleStallMs: 500,
+    })) {
+      events.push(event);
+    }
+
+    const warningEvents = events.filter((e) => e.update?.sessionUpdate === 'stream_idle_warning');
+    assert.equal(warningEvents.length, 1, `Expected 1 stream_idle_warning, got ${warningEvents.length}`);
+    assert.ok(warningEvents[0].update.idleSinceMs >= 50, 'idleSinceMs should be >= warning threshold');
+    assert.ok(warningEvents[0].update.eventCount >= 1, 'eventCount should be >= 1');
+
+    // Real events should still be present
+    const realEvents = events.filter((e) => e.update?.sessionUpdate === 'agent_message_chunk');
+    assert.equal(realEvents.length, 2, `Expected 2 real events, got ${realEvents.length}`);
+  });
+
+  it('F149: idle watchdog injects stream_idle_stall and terminates stream', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'stall-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // Send one event, then go completely silent (never complete)
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'stall-sess',
+              update: { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'thinking...' } },
+            });
+          });
+          // Never send response — simulate full stall
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    let thrownError = null;
+    try {
+      for await (const event of client.promptStream('stall-sess', 'hello', {
+        idleWarningMs: 30,
+        idleStallMs: 100,
+        timeoutMs: 5000, // Keep outer timeout high so idle stall fires first
+      })) {
+        events.push(event);
+      }
+    } catch (err) {
+      thrownError = err;
+    }
+
+    // Should have warning event before stall
+    const warningEvents = events.filter((e) => e.update?.sessionUpdate === 'stream_idle_warning');
+    assert.ok(warningEvents.length >= 1, `Expected at least 1 warning, got ${warningEvents.length}`);
+
+    // Should throw with stream idle stall
+    assert.ok(thrownError, 'Should throw an error on stall');
+    assert.match(thrownError.message, /[Ss]tream idle|STREAM_IDLE/);
+  });
+
+  it('F149: idle watchdog does NOT fire before first event (eventCount=0)', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'zero-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // Delay first event longer than idle thresholds — but watchdog should NOT fire
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'zero-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'hello' } },
+            });
+            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+          }, 200);
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    for await (const event of client.promptStream('zero-sess', 'hello', {
+      idleWarningMs: 50,
+      idleStallMs: 100,
+    })) {
+      events.push(event);
+    }
+
+    // No idle events should fire — eventCount was 0 when the threshold passed
+    const idleEvents = events.filter(
+      (e) => e.update?.sessionUpdate === 'stream_idle_warning' || e.update?.sessionUpdate === 'stream_idle_stall',
+    );
+    assert.equal(idleEvents.length, 0, `Expected 0 idle events (eventCount=0), got ${idleEvents.length}`);
+
+    // The real event should be present
+    const realEvents = events.filter((e) => e.update?.sessionUpdate === 'agent_message_chunk');
+    assert.equal(realEvents.length, 1, 'Should have 1 real event');
+  });
+
+  // ─── P1 fixes from gpt52 review ─────────────────────────────
+
+  it('F149-P1: idle stall sends session/cancel to terminate upstream', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    const capturedMessages = [];
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        capturedMessages.push(msg);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'cancel-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // Send one event then go silent
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'cancel-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'partial' } },
+            });
+          });
+          // Never complete — force idle stall
+        } else if (msg.method === 'session/cancel') {
+          // After cancel, agent responds to the pending prompt (if stream still open)
+          const promptMsg = capturedMessages.find((m) => m.method === 'session/prompt');
+          if (promptMsg && agentStdout.writable) {
+            setImmediate(() => {
+              if (agentStdout.writable) {
+                agentRespond(agentStdout, promptMsg.id, { stopReason: 'cancelled' });
+              }
+            });
+          }
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    try {
+      for await (const _ of client.promptStream('cancel-sess', 'hello', {
+        idleWarningMs: 30,
+        idleStallMs: 80,
+        timeoutMs: 5000,
+      })) {
+        // drain
+      }
+    } catch {
+      // expected AcpStreamIdleError
+    }
+
+    // P1: session/cancel MUST be sent when idle stall fires
+    const cancelMsgs = capturedMessages.filter((m) => m.method === 'session/cancel');
+    assert.equal(cancelMsgs.length, 1, `Expected 1 session/cancel, got ${cancelMsgs.length}`);
+    assert.equal(cancelMsgs[0].params.sessionId, 'cancel-sess');
+  });
+
+  it('F149-P1: stall fires at ~idleStallMs total idle (not warning + stall)', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'timing-sess' });
+        } else if (msg.method === 'session/prompt') {
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'timing-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'chunk' } },
+            });
+          });
+          // Never complete
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const startMs = Date.now();
+    let thrownError = null;
+    try {
+      for await (const _ of client.promptStream('timing-sess', 'hello', {
+        idleWarningMs: 50,
+        idleStallMs: 120, // Total ~120ms, NOT 50+120=170ms
+        timeoutMs: 5000,
+      })) {
+        // drain
+      }
+    } catch (err) {
+      thrownError = err;
+    }
+    const elapsedMs = Date.now() - startMs;
+
+    assert.ok(thrownError, 'Should throw AcpStreamIdleError');
+    // With correct implementation: stall at ~120ms total
+    // With buggy implementation: stall at ~170ms (50+120)
+    // Allow generous tolerance for CI but catch the 50ms delta
+    assert.ok(
+      elapsedMs < 160,
+      `Stall should fire at ~120ms total idle, but took ${elapsedMs}ms (buggy if >160ms = warning+stall)`,
+    );
+  });
 });
