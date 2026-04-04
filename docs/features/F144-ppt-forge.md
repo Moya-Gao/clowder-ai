@@ -218,7 +218,27 @@ svg_to_pptx.py (41k Python) → python-pptx 组装
 2. **C2-Assist**: AI-direct SVG 可选通道 + 人工验收 gate
 3. **AC-B4 并行**: 字体嵌入（SVG 保真的前置依赖）
 
-#### 其他进阶能力（Phase D+）
+### Phase D: AI 猫猫画 HTML — 学 pptx-craft 超越 pptx-craft
+
+> **方向转变（2026-04-03）**：Phase C 的确定性 SVG 编译器解决了 CJK 渲染问题（不再竖排乱码），但布局密度仍不够华为级。铲屎官分析 pptx-craft 后拍板：**核心页面让猫猫直接写 HTML+CSS，不靠编译器算布局**。
+
+#### 核心思路
+
+pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) → Playwright → dom-to-pptx → pptxgenjs**。密度高是因为 AI 懂 CSS 布局、会自动填充空间，且有两阶段设计强制密度。
+
+我们的差异化：
+1. **Research 质量**：deep-research + 多猫讨论 >> 对方 web fetch
+2. **多猫审核**：暹罗猫视觉审 + 缅因猫准确性审
+3. **Phase C SVG 编译器作为 diagram fallback**：结构化数据仍走确定性路径
+
+#### Phase D 交付项
+
+1. **D1-Core**: AI 猫猫直接写 HTML+Tailwind 页面布局（不走 Blueprint→编译器，猫猫拿 storyline.md + theme tokens 直接画）
+2. **D2-TwoPhase**: 两阶段密度控制 — Draft(640×360, 强制高密度) → Final(1280×720, 只增强不减密)
+3. **D3-DensityGate**: Playwright 渲染后自动检测白空间占比 + 溢出检测，不达标退回猫猫重画
+4. **D4-Integration**: 集成进 F144 管线 — Research → Narrative → **AI 画 HTML** → Playwright → dom-to-pptx → .pptx
+
+#### 其他进阶能力（Phase E+）
 
 1. SVG 全覆盖（path/gradient/filter/clipPath）
 2. Combo chart 双轴（pptxgenjs combo API 稳定后）
@@ -259,6 +279,14 @@ svg_to_pptx.py (41k Python) → python-pptx 组装
 - [ ] AC-C4: SVG 安全白名单 — 只允许 Phase C 核心子集元素，拒绝外链/filter/foreignObject
 - [ ] AC-C5: 性能 gate — 50+ box diagram 编译 < 5s，单 slide 体积 < 2MB
 - [ ] AC-C6: （可选）C2-Assist 通道 — AI-direct SVG + 人工验收 gate 可用
+
+### Phase D（AI 猫猫画 HTML — 学 pptx-craft 超越 pptx-craft）
+- [ ] AC-D1: AI 猫猫直接写 HTML+Tailwind 页面（拿 storyline.md + theme tokens 画布局，不走确定性编译器）
+- [ ] AC-D2: 两阶段密度控制 — Draft(640×360) 强制高密度 → Final(1280×720) 只增强不减密
+- [ ] AC-D3: Playwright 白空间检测 — 渲染后自动检测白空间占比 < 30%，溢出检测，不达标退回
+- [ ] AC-D4: 同一主题对比 pptx-craft vs Phase D 输出，信息密度 ≥ 对方，内容准确性 > 对方（research 质量差异）
+- [ ] AC-D5: 集成进管线 — Research → Narrative → AI 画 HTML → Playwright → dom-to-pptx → .pptx，铲屎官一句话触发
+- [ ] AC-D6: 华为级视觉验收 — 铲屎官确认"一两页讲清楚重点"
 
 ## Dependencies
 
@@ -321,6 +349,7 @@ svg_to_pptx.py (41k Python) → python-pptx 组装
 | KD-12 | **Phase A 分 Level 1/2 两级** | Level 1 = 表格+KPI+图表（必须做到）；Level 2 = DiagramElement 架构图（挑战目标） | 2026-03-27 |
 | KD-14 | **Phase C 选型：C3 确定性 SVG 编译为主，C2 AI-direct SVG 为辅** | 宪宪+砚砚共识：C3 确定性强/可测/可回归；C2 创意强但不稳定，进人工验收通道。C1 铲屎官否决（不引入 Python），C4 仅应急兜底 | 2026-04-02 |
 | KD-15 | **Pencil MCP 定位为 design-time，不进 runtime 主路径** | 砚砚 pushback：Pencil 主打 .pen 编辑/导出，自动化 Blueprint→稳定 SVG 链路不够硬。适合模板设计与视觉校准 | 2026-04-02 |
+| KD-16 | **Phase D 方向转变：AI 猫猫直接画 HTML，不靠确定性编译器排版** | 铲屎官拍板：确定性编译器/规则自动生成布局效果不够好，密度不够华为级。学习 pptx-craft 的 "AI 直接写 HTML+CSS" 路线——让猫猫（Opus）直接画布局，而不是用算法算。Phase C SVG 编译器保留为 diagram fallback。核心差异化：我们的 research pipeline（deep-research + 多猫讨论）内容质量碾压对方 web fetch，配合 AI 画 HTML 实现"高质量内容 × 高密度布局" | 2026-04-03 |
 
 ## Timeline
 
@@ -343,6 +372,7 @@ svg_to_pptx.py (41k Python) → python-pptx 组装
 | 2026-03-31 | **OfficeCLI 评估** — .NET CLI（Apache 2.0, 925 stars），功能全面但 SVG 支持未确认，subprocess 调用模式不适合我们 Node.js 管线 |
 | 2026-04-02 | **Phase C 选型收敛** — 宪宪+砚砚讨论。砚砚判断：C3 确定性 SVG 编译为主 + C2 AI-direct 为辅；Pencil 非 runtime 主路径（design-time only）；工程量 2.5k-4k TS + 1.5k-3k 测试，2-3 周。铲屎官约束：不引入 Python。OQ-11 关闭，KD-14/KD-15 落定 |
 | 2026-04-02 | **Phase C-1 SVG 编译器 merged** (PR #929) — diagram-svg.ts (SVG compiler + CJK 字宽) + diagram-layered.ts (华为 layered grid) + svg-to-shapes.ts (SVG→pptxgenjs shapes)。AC-C1/C2 交付，156 tests。砚砚三轮 review 放行 + 云端 0 P1/P2 |
+| 2026-04-03 | **方向转变：AI 猫猫画 HTML 取代确定性编译器排版（KD-16）** — 铲屎官分析 pptx-craft 后拍板：确定性编译器密度不够华为级，核心页面（非 diagram）应由猫猫直接写 HTML+CSS。学 pptx-craft 的两阶段密度控制（640→1280）+ AI 布局。Phase C SVG 编译器保留为 diagram fallback。我们的差异化优势：research pipeline 内容质量 >> 对方 web fetch |
 
 ## Review Gate
 
