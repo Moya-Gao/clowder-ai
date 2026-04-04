@@ -374,6 +374,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-02 | **Phase C-1 SVG 编译器 merged** (PR #929) — diagram-svg.ts (SVG compiler + CJK 字宽) + diagram-layered.ts (华为 layered grid) + svg-to-shapes.ts (SVG→pptxgenjs shapes)。AC-C1/C2 交付，156 tests。砚砚三轮 review 放行 + 云端 0 P1/P2 |
 | 2026-04-03 | **方向转变：AI 猫猫画 HTML 取代确定性编译器排版（KD-16）** — 铲屎官分析 pptx-craft 后拍板：确定性编译器密度不够华为级，核心页面（非 diagram）应由猫猫直接写 HTML+CSS。学 pptx-craft 的两阶段密度控制（640→1280）+ AI 布局。Phase C SVG 编译器保留为 diagram fallback。我们的差异化优势：research pipeline 内容质量 >> 对方 web fetch |
 | 2026-04-04 | **Phase D 基础设施 merged** (PR #949) — flat-dom-compiler + element-router + density-analyzer。AC-D1/D2/D3 交付，179 tests。砚砚 4 轮 review 放行 + 云端 0 P1/P2。A8 gate chain wiring 拆后续 PR |
+| 2026-04-04 | **A8 gate chain merged** (PR #955) — gateCompiledDeck + gateTwoPhaseDeck + compileAndBuild overload。密度门禁接入 pipeline，190 tests。砚砚 2 轮 review 放行 + 云端 0 P1/P2 |
 
 ## Review Gate
 
