@@ -1365,7 +1365,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const iterResult = await abortableNext(serviceIter, signal);
         if (iterResult.done) break;
         const msg = iterResult.value;
-        resetInvocationTimeout();
+        // F149: provider_signal (e.g. upstream 429 retry) must NOT reset timeout — prevents "续命"
+        if (msg.type !== 'provider_signal') resetInvocationTimeout();
         if (shouldTrackGeminiResumeFailures && options.sessionId && msg.type === 'error') {
           const failureKind = classifyResumeFailure(msg.error);
           if (failureKind) {
@@ -1450,10 +1451,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           }
         }
 
-        for await (const out of streamProcessedOutputs(msg)) {
+        // F149: Map provider_signal → system_info for frontend delivery (guards already applied above)
+        const deliveryMsg = msg.type === 'provider_signal' ? { ...msg, type: 'system_info' as const } : msg;
+        for await (const out of streamProcessedOutputs(deliveryMsg)) {
           yield out;
         }
-        if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
+        if (
+          msg.type !== 'error' &&
+          msg.type !== 'done' &&
+          msg.type !== 'session_init' &&
+          msg.type !== 'provider_signal'
+        ) {
           attemptHasContentOutput = true;
           // Substantive = real model output, excludes system_info (e.g. timeout_diagnostics).
           if (msg.type !== 'system_info') {

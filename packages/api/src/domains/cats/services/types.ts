@@ -101,7 +101,8 @@ export type AgentMessageType =
   | 'error'
   | 'done'
   | 'a2a_handoff'
-  | 'system_info'; // budget warnings, cancel feedback, extraction progress, thinking
+  | 'system_info' // budget warnings, cancel feedback, extraction progress, thinking
+  | 'provider_signal'; // F149: upstream capacity/retry signals — skipped by invocation timeout & content flags
 
 /**
  * A message yielded from an agent during invocation

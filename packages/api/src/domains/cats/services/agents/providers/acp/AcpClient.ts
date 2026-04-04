@@ -227,6 +227,26 @@ export class AcpClient {
     };
     this.notificationListeners.push(listener);
 
+    // F149: Inject capacity signals (stderr 429) into the event queue.
+    // This breaks through zero-event stalls where the for-await loop blocks
+    // on an empty queue — the signal resolves waitResolve immediately.
+    const capacityInjector = (signal: AcpCapacitySignal) => {
+      queue.push({
+        sessionId,
+        update: {
+          sessionUpdate: 'provider_capacity_signal',
+          message: signal.message,
+          timestamp: signal.timestamp,
+        },
+      } as AcpSessionUpdate);
+      if (waitResolve) {
+        const r = waitResolve;
+        waitResolve = null;
+        r();
+      }
+    };
+    this.capacityListeners.add(capacityInjector);
+
     // Fire prompt request — don't await, we'll drain the queue concurrently
     this.sendRequest(ACP_METHODS.sessionPrompt, { sessionId, prompt: [{ type: 'text', text }] }, timeoutMs)
       .then((resp) => {
@@ -263,6 +283,7 @@ export class AcpClient {
       if (promptError) throw promptError;
       return stopReason;
     } finally {
+      this.capacityListeners.delete(capacityInjector);
       const idx = this.notificationListeners.indexOf(listener);
       if (idx >= 0) this.notificationListeners.splice(idx, 1);
     }

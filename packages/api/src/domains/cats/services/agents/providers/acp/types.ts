@@ -161,7 +161,8 @@ export type AcpSessionUpdateType =
   | 'available_commands_update'
   | 'current_mode_update'
   | 'config_option_update'
-  | 'session_info_update';
+  | 'session_info_update'
+  | 'provider_capacity_signal'; // F149: injected by AcpClient.promptStream from stderr
 
 export interface AcpSessionUpdate {
   sessionId: string;

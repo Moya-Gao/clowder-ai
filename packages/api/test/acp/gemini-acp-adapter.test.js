@@ -1088,4 +1088,345 @@ describe('GeminiAcpAdapter integration', () => {
       `Expected lease_timeout after recovery, got ${err2.errorCode} — stale signal should have been cleared`,
     );
   });
+
+  // ─── F149: Capacity Realtime Warning Tests ────────────────────
+
+  it('F149: capacity signal during active stream yields provider_signal warning (deduped)', async () => {
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'warn-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Synthetic capacity event (as real AcpClient.promptStream injects from stderr)
+        yield {
+          sessionId: 'warn-sess',
+          update: {
+            sessionUpdate: 'provider_capacity_signal',
+            message: 'No capacity available',
+            timestamp: Date.now(),
+          },
+        };
+        yield {
+          sessionId: 'warn-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'chunk1' } },
+        };
+        // Second capacity event (should be deduped)
+        yield {
+          sessionId: 'warn-sess',
+          update: {
+            sessionUpdate: 'provider_capacity_signal',
+            message: 'Attempt 2 failed with status 429',
+            timestamp: Date.now(),
+          },
+        };
+        yield {
+          sessionId: 'warn-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'chunk2' } },
+        };
+        return 'end_turn';
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const warnings = messages.filter((m) => m.type === 'provider_signal');
+    assert.equal(warnings.length, 1, `Expected exactly 1 provider_signal, got ${warnings.length}`);
+
+    const parsed = JSON.parse(warnings[0].content);
+    assert.equal(parsed.type, 'warning');
+    assert.match(parsed.message, /容量不足|Gemini/);
+
+    // Normal text should still be present
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 2, `Expected 2 text messages, got ${texts.length}`);
+  });
+
+  it('F149: capacity warning on zero-event timeout — late signal via catch path', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    // This tests the fallback: capacity signal arrives via adapter-level onCapacity
+    // (not through promptStream), e.g. late stderr during grace window.
+    const listeners = new Set();
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: (fn) => listeners.add(fn),
+      offCapacity: (fn) => listeners.delete(fn),
+      recentCapacitySignal: { message: 'No capacity available', timestamp: Date.now() },
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'catch-warn-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Signal via adapter-level listener (simulating late stderr, not injected into stream)
+        for (const fn of listeners) fn({ message: 'No capacity available', timestamp: Date.now() });
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    // Warning should appear BEFORE the error
+    const warningIdx = messages.findIndex((m) => m.type === 'provider_signal');
+    const errorIdx = messages.findIndex((m) => m.type === 'error');
+    assert.ok(warningIdx >= 0, 'Should have a provider_signal warning');
+    assert.ok(errorIdx >= 0, 'Should have an error');
+    assert.ok(warningIdx < errorIdx, `Warning (idx ${warningIdx}) should come before error (idx ${errorIdx})`);
+
+    const parsed = JSON.parse(messages[warningIdx].content);
+    assert.equal(parsed.type, 'warning');
+    assert.match(parsed.message, /容量不足/);
+  });
+
+  it('F149-P1: zero-event stall — capacity signal breaks through via stream event', async () => {
+    const { AcpTimeoutError } = await import('../../dist/domains/cats/services/agents/providers/acp/AcpClient.js');
+
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'p1-stall-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Real AcpClient.promptStream injects capacity signals as synthetic events.
+        // This breaks through zero-event stalls — the adapter sees this immediately.
+        yield {
+          sessionId: 'p1-stall-sess',
+          update: {
+            sessionUpdate: 'provider_capacity_signal',
+            message: 'No capacity available',
+            timestamp: Date.now(),
+          },
+        };
+        // Then timeout (simulating the silent stall continuing until timeout)
+        throw new AcpTimeoutError('session/prompt', 120000);
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    // P1 fix: warning is yielded from the stream loop (not catch path)
+    const warningIdx = messages.findIndex((m) => m.type === 'provider_signal');
+    const errorIdx = messages.findIndex((m) => m.type === 'error');
+    assert.ok(warningIdx >= 0, 'Should have a provider_signal warning from stream event');
+    assert.ok(errorIdx >= 0, 'Should have an error');
+    assert.ok(warningIdx < errorIdx, `Warning (idx ${warningIdx}) should come before error (idx ${errorIdx})`);
+
+    const parsed = JSON.parse(messages[warningIdx].content);
+    assert.equal(parsed.type, 'warning');
+    assert.match(parsed.message, /容量不足/);
+
+    // Error should be classified as model_capacity (capacitySignal was set from stream event)
+    assert.match(messages[errorIdx].error, /model_capacity/);
+  });
+
+  it('F149: no capacity signal = no provider_signal warning', async () => {
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'no-warn-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        yield {
+          sessionId: 'no-warn-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'clean' } },
+        };
+        return 'end_turn';
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const warnings = messages.filter((m) => m.type === 'provider_signal');
+    assert.equal(warnings.length, 0, 'Should have no provider_signal when no capacity issue');
+  });
+
+  it('F149: provider_signal does not replay stale recentCapacitySignal from previous invoke', async () => {
+    let invokeCount = 0;
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal() {
+        this.recentCapacitySignal = null;
+      },
+      newSession: async () => ({ sessionId: `replay-sess-${++invokeCount}` }),
+      cancelSession: () => {},
+      async *promptStream() {
+        // Only yield capacity event on FIRST invoke
+        if (invokeCount === 1) {
+          yield {
+            sessionId: `replay-sess-${invokeCount}`,
+            update: { sessionUpdate: 'provider_capacity_signal', message: 'Stale 429 signal', timestamp: Date.now() },
+          };
+        }
+        yield {
+          sessionId: `replay-sess-${invokeCount}`,
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'ok' } },
+        };
+        return 'end_turn';
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    // Invoke 1: capacity signal fires during promptStream → yields warning
+    const msgs1 = [];
+    for await (const msg of adapter.invoke('first')) msgs1.push(msg);
+    assert.equal(msgs1.filter((m) => m.type === 'provider_signal').length, 1, 'Invoke 1 should have warning');
+
+    // Invoke 2: no new stderr — should have NO warning (fresh signal only, per-invoke dedup reset)
+    const msgs2 = [];
+    for await (const msg of adapter.invoke('second')) msgs2.push(msg);
+    assert.equal(
+      msgs2.filter((m) => m.type === 'provider_signal').length,
+      0,
+      'Invoke 2 should NOT replay stale warning',
+    );
+  });
+
+  it('F149-cloud-P1: pre-stream capacity signal surfaces on first real event', async () => {
+    // Codex cloud P1: capacity signal fired during newSession (before promptStream),
+    // then prompt succeeds with normal events. Warning must still appear.
+    const listeners = new Set();
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: (fn) => listeners.add(fn),
+      offCapacity: (fn) => listeners.delete(fn),
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => {
+        // Capacity signal fires during session creation (before promptStream)
+        for (const fn of listeners) fn({ message: 'No capacity available (during newSession)', timestamp: Date.now() });
+        return { sessionId: 'pre-stream-sess' };
+      },
+      cancelSession: () => {},
+      async *promptStream() {
+        // Normal events only — no synthetic capacity event
+        yield {
+          sessionId: 'pre-stream-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'recovered' } },
+        };
+        return 'end_turn';
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const warnings = messages.filter((m) => m.type === 'provider_signal');
+    assert.equal(warnings.length, 1, 'Pre-stream capacity signal should yield 1 warning');
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 1, 'Normal text should still appear');
+
+    // Warning should come before text
+    const warnIdx = messages.indexOf(warnings[0]);
+    const textIdx = messages.indexOf(texts[0]);
+    assert.ok(warnIdx < textIdx, `Warning (idx ${warnIdx}) should come before text (idx ${textIdx})`);
+  });
 });

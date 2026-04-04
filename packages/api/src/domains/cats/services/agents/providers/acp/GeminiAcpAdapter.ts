@@ -94,6 +94,7 @@ export class GeminiAcpAdapter implements AgentService {
     // This is intentionally invoke-level, not prompt-level: capacity is a provider-level property
     // (same process = same API key = same quota), so signals from any phase are relevant.
     let capacitySignal: AcpCapacitySignal | null = null;
+    let capacityWarningYielded = false; // F149: dedup — at most one warning per invoke
     const onCapacity = (signal: AcpCapacitySignal) => {
       capacitySignal = signal;
     };
@@ -160,6 +161,24 @@ export class GeminiAcpAdapter implements AgentService {
       log.info({ catId: this.catId, sessionId, promptLen: effectivePrompt.length }, 'ACP promptStream starting');
       eventCount = 0;
       for await (const event of client.promptStream(sessionId, effectivePrompt)) {
+        // F149: Capacity signal injected by AcpClient.promptStream from stderr.
+        // Breaks through zero-event stalls where the old listener-only path couldn't.
+        if (event.update?.sessionUpdate === 'provider_capacity_signal') {
+          if (!capacityWarningYielded) {
+            capacityWarningYielded = true;
+            capacitySignal = { message: event.update.message as string, timestamp: event.update.timestamp as number };
+            log.info({ catId: this.catId, sessionId }, 'ACP capacity warning yielded to frontend (stream)');
+            yield makeCapacityWarning(this.catId, capacitySignal, metadata);
+          }
+          continue; // Not a real ACP event — don't count, don't transform
+        }
+        // F149: Fallback — capacity signal captured before promptStream started
+        // (e.g. during newSession), surfaced on first real event
+        if (capacitySignal && !capacityWarningYielded) {
+          capacityWarningYielded = true;
+          log.info({ catId: this.catId, sessionId }, 'ACP capacity warning yielded to frontend (pre-stream fallback)');
+          yield makeCapacityWarning(this.catId, capacitySignal, metadata);
+        }
         eventCount++;
         if (eventCount === 1) {
           const firstEventLatencyMs = Date.now() - promptStreamStartedAt;
@@ -178,6 +197,12 @@ export class GeminiAcpAdapter implements AgentService {
       // P1: stderr may arrive after timeout — give a grace window for late capacity signals
       if (!capacitySignal && err instanceof AcpTimeoutError) {
         await new Promise((r) => setTimeout(r, 2_000));
+      }
+      // F149: Zero-event stall with capacity signal — yield warning before error
+      if (capacitySignal && !capacityWarningYielded) {
+        capacityWarningYielded = true;
+        log.info({ catId: this.catId }, 'ACP capacity warning yielded (catch path)');
+        yield makeCapacityWarning(this.catId, capacitySignal, metadata);
       }
       const { errorCode, errorMsg } = classifyError(err, capacitySignal, client.recentCapacitySignal);
       log.error({ catId: this.catId, errorCode, err: errorMsg, eventCount, waitedMs }, 'ACP prompt failure');
@@ -198,6 +223,20 @@ export class GeminiAcpAdapter implements AgentService {
       lease.release();
     }
   }
+}
+
+/** F149: Build a provider_signal warning for realtime capacity display. */
+function makeCapacityWarning(catId: CatId, signal: AcpCapacitySignal, metadata: MessageMetadata): AgentMessage {
+  return {
+    type: 'provider_signal',
+    catId,
+    content: JSON.stringify({
+      type: 'warning',
+      message: `Gemini 服务端容量不足，正在重试 (${signal.message.slice(0, 100)})`,
+    }),
+    metadata,
+    timestamp: Date.now(),
+  };
 }
 
 /** Max age (ms) for client-level capacity signal to be used as fallback evidence. */
