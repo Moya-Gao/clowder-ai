@@ -50,6 +50,8 @@ export interface RouteStrategyDeps {
   packStore?: import('../../../../packs/PackStore.js').PackStore;
   /** F148: Evidence store for context recall (optional, fail-open) */
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
+  /** F150: Tool usage counter (fire-and-forget INCR on tool_use events) */
+  toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
 }
 
 /** Mutable context for tracking persistence failures across the generator boundary.
