@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { filterEvidenceVars, parseIndexStatus } from '@/components/memory/IndexStatus';
+import { filterEvidenceVars, getConfigVars, parseIndexStatus } from '@/components/memory/IndexStatus';
 
 describe('parseIndexStatus', () => {
   it('parses healthy response', () => {
@@ -89,5 +89,47 @@ describe('filterEvidenceVars', () => {
     const result = filterEvidenceVars([urlVar, pathVar, toggleVar]);
     expect(result).toHaveLength(1);
     expect(result[0]!.name).toBe('F102_ABSTRACTIVE');
+  });
+});
+
+describe('getConfigVars', () => {
+  const mkVar = (name: string, category: string, defaultValue = 'off', sensitive = false) => ({
+    name,
+    defaultValue,
+    description: `desc for ${name}`,
+    category,
+    sensitive,
+    currentValue: null as string | null,
+  });
+
+  it('returns non-toggle evidence vars (URLs, paths, ports)', () => {
+    const vars = [
+      mkVar('F102_ABSTRACTIVE', 'evidence', 'off'), // toggle → excluded
+      mkVar('EMBED_URL', 'evidence', 'http://127.0.0.1:9880'),
+      mkVar('EVIDENCE_DB', 'evidence', '{repoRoot}/evidence.sqlite'),
+      mkVar('PORT', 'server', '3001'), // wrong category → excluded
+    ];
+    const result = getConfigVars(vars);
+    expect(result).toHaveLength(2);
+    expect(result.map((v) => v.name)).toEqual(['EMBED_URL', 'EVIDENCE_DB']);
+  });
+
+  it('includes sensitive vars', () => {
+    const vars = [mkVar('F102_API_KEY', 'evidence', '(未设置)', true)];
+    const result = getConfigVars(vars);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.sensitive).toBe(true);
+  });
+
+  it('includes tri-state vars like EMBED_MODE', () => {
+    const embedMode = { ...mkVar('EMBED_MODE', 'evidence', 'off'), currentValue: 'shadow' };
+    // EMBED_MODE has defaultValue='off' so filterEvidenceVars includes it, but currentValue='shadow' makes it non-binary
+    // getConfigVars should NOT include it since its defaultValue is 'off' (toggle territory)
+    const result = getConfigVars([embedMode]);
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns empty for no evidence vars', () => {
+    expect(getConfigVars([mkVar('PORT', 'server', '3001')])).toEqual([]);
   });
 });

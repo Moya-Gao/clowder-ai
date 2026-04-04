@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 
 interface RawStatusResponse {
@@ -68,6 +68,11 @@ export function filterEvidenceVars(vars: EnvVar[]): EnvVar[] {
   );
 }
 
+/** Pure: return evidence-category vars that are NOT toggles (URLs, paths, ports, sensitive keys) */
+export function getConfigVars(vars: EnvVar[]): EnvVar[] {
+  return vars.filter((v) => v.category === EVIDENCE_CATEGORY && v.defaultValue !== 'off' && v.defaultValue !== 'on');
+}
+
 function StatusRow({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-center justify-between border-b border-cafe/50 py-2 last:border-b-0">
@@ -84,6 +89,7 @@ export function IndexStatus() {
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
 
   const evidenceVars = useMemo(() => filterEvidenceVars(envVars), [envVars]);
+  const configVars = useMemo(() => getConfigVars(envVars), [envVars]);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -203,6 +209,25 @@ export function IndexStatus() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Config reference — all non-toggle evidence env vars */}
+      {configVars.length > 0 && (
+        <div className="rounded-lg border border-cafe bg-white p-3">
+          <h3 className="mb-2 text-xs font-semibold text-cafe-black">配置参考</h3>
+          <p className="mb-2 text-[10px] text-cafe-secondary">以下配置需在 .env 中设置，修改后重启生效。</p>
+          {configVars.map((v) => (
+            <div key={v.name} className="border-b border-cafe/50 py-2 last:border-b-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium font-mono text-cafe-black">{v.name}</span>
+                <span className="text-[10px] font-mono text-cafe-secondary truncate max-w-[50%] text-right">
+                  {v.sensitive ? '••••••' : v.currentValue || v.defaultValue}
+                </span>
+              </div>
+              <div className="text-[10px] text-cafe-secondary mt-0.5">{v.description}</div>
+            </div>
+          ))}
         </div>
       )}
 
