@@ -678,7 +678,12 @@ export function WorkspacePanel() {
               : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
           }`}
         >
-          <span className="text-xs">🧠</span> 记忆
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
+            <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
+            <path d="M9 17l3 5v-5M15 17l-3 5" />
+          </svg>
+          记忆
         </button>
         <button
           type="button"
