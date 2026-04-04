@@ -921,7 +921,7 @@
     {
       "id": "F150",
       "name": "Tool/Skill/MCP Usage Statistics — 工具使用可观测看板",
-      "status": "spec | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2",
+      "status": "in-progress | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2 | **Intake**: cat-cafe#954",
       "file": "F150-tool-usage-stats.md"
     },
     {

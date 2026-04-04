@@ -8,7 +8,7 @@ created: 2026-04-01
 
 # F150: Tool/Skill/MCP Usage Statistics — 工具使用可观测看板
 
-> **Status**: spec | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2
+> **Status**: in-progress | **Owner**: Community (bouillipx) + 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -40,18 +40,18 @@ F051 解决了"猫粮还剩多少"（quota），F075 解决了"谁干了多少�
 
 ### Phase A（计数层 + API）
 
-- [ ] AC-A1: `classifyTool()` 正确区分 builtin / skill / mcp，覆盖 `mcp__` 和 `mcp:` 两种前缀
-- [ ] AC-A2: tool_use 事件触发 Redis INCR，fire-and-forget 不阻塞请求路径
-- [ ] AC-A3: `GET /api/usage/tools` 返回按工具名聚合的调用次数，支持 `days` / `catId` / `category` 筛选
-- [ ] AC-A4: 分类逻辑 + 计数器 + API 路由有自动化测试覆盖
+- [x] AC-A1: `classifyTool()` 正确区分 builtin / skill / mcp，覆盖 `mcp__` 和 `mcp:` 两种前缀
+- [x] AC-A2: tool_use 事件触发 Redis INCR，fire-and-forget 不阻塞请求路径
+- [x] AC-A3: `GET /api/usage/tools` 返回按工具名聚合的调用次数，支持 `days` / `catId` / `category` 筛选
+- [x] AC-A4: 分类逻辑 + 计数器 + API 路由有自动化测试覆盖
 
 ### Phase B（Hub UI + 存档）
 
-- [ ] AC-B1: Hub 面板展示总览卡片、分类排行榜、每日趋势、按猫分布
-- [ ] AC-B2: UI 筛选器（天数 / 猫 / 分类）与 API 参数对齐
-- [ ] AC-B3: JSONL 冷存档在 Redis TTL 过期前完成 sweep
-- [ ] AC-B4: `days=0` 全时段查询正确合并 Redis 热数据和 archive 冷数据
-- [ ] AC-B5: archive merge / sweep 路径有自动化测试
+- [x] AC-B1: Hub 面板展示总览卡片、分类排行榜、每日趋势、按猫分布
+- [x] AC-B2: UI 筛选器（天数 / 猫 / 分类）与 API 参数对齐
+- [x] AC-B3: JSONL 冷存档在 Redis TTL 过期前完成 sweep
+- [x] AC-B4: `days=0` 全时段查询正确合并 Redis 热数据和 archive 冷数据
+- [x] AC-B5: archive merge / sweep 路径有自动化测试
 
 ## Dependencies
 
