@@ -11,6 +11,7 @@
  */
 
 import type { CatId, SealResult, SessionStatus } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import { AuditEventTypes, getEventAuditLog } from '../orchestration/EventAuditLog.js';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { ISummaryStore } from '../stores/ports/SummaryStore.js';
@@ -22,6 +23,7 @@ import { formatEventsChat, formatEventsHandoff } from './TranscriptFormatter.js'
 import type { TranscriptReader } from './TranscriptReader.js';
 import type { ExtractiveDigestV1, TranscriptWriter } from './TranscriptWriter.js';
 
+const log = createModuleLogger('session-sealer');
 const FINALIZE_TIMEOUT_MS = 30_000;
 
 export type SealReason = 'threshold' | 'manual' | 'error' | (string & {});
@@ -110,6 +112,24 @@ export class SessionSealer implements ISessionSealer {
       return { accepted: false, status: updated?.status ?? 'sealed' };
     }
 
+    log.info(
+      { sessionId: args.sessionId, catId: record.catId, threadId: record.threadId, reason: args.reason },
+      'session seal requested',
+    );
+    getEventAuditLog()
+      .append({
+        type: AuditEventTypes.SEAL_REQUESTED,
+        threadId: record.threadId,
+        data: {
+          sessionId: args.sessionId,
+          catId: record.catId,
+          cliSessionId: record.cliSessionId,
+          reason: args.reason,
+          seq: record.seq,
+        },
+      })
+      .catch(() => {});
+
     return {
       accepted: true,
       status: 'sealing',
@@ -126,10 +146,11 @@ export class SessionSealer implements ISessionSealer {
 
     const now = Date.now();
 
+    let finalizeClean = false;
     try {
-      await withTimeout(this.doFinalize(record, now), FINALIZE_TIMEOUT_MS);
+      finalizeClean = await withTimeout(this.doFinalize(record, now), FINALIZE_TIMEOUT_MS);
     } catch (err) {
-      // Finalize timed out or threw — force-seal to prevent stuck sealing state.
+      // finalizeClean stays false — timeout or unexpected throw.
       getEventAuditLog()
         .append({
           type: AuditEventTypes.SEAL_FINALIZE_FAILED,
@@ -151,6 +172,34 @@ export class SessionSealer implements ISessionSealer {
         sealedAt: now,
         updatedAt: now,
       });
+      log.info(
+        {
+          sessionId: args.sessionId,
+          catId: record.catId,
+          threadId: record.threadId,
+          reason: record.sealReason,
+          partial: !finalizeClean,
+        },
+        finalizeClean
+          ? 'session seal finalized'
+          : 'session seal finalized (partial — transcript/digest may be missing)',
+      );
+      if (finalizeClean) {
+        getEventAuditLog()
+          .append({
+            type: AuditEventTypes.SEAL_FINALIZED,
+            threadId: record.threadId,
+            data: {
+              sessionId: args.sessionId,
+              catId: record.catId,
+              cliSessionId: record.cliSessionId,
+              reason: record.sealReason,
+              seq: record.seq,
+              sealedAt: now,
+            },
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       getEventAuditLog()
         .append({
@@ -179,9 +228,20 @@ export class SessionSealer implements ISessionSealer {
       if (s.status === 'sealing' && now - (s.updatedAt ?? s.createdAt) > maxAgeMs) {
         await this.store.update(s.id, {
           status: 'sealed',
+          sealReason: 'reconcile_stuck',
           sealedAt: now,
           updatedAt: now,
         });
+        log.info(
+          {
+            sessionId: s.id,
+            catId: s.catId,
+            threadId: s.threadId,
+            reason: 'reconcile_stuck',
+            stuckDurationMs: now - (s.updatedAt ?? s.createdAt),
+          },
+          'session force-sealed by stuck reaper',
+        );
         getEventAuditLog()
           .append({
             type: AuditEventTypes.SEAL_FINALIZE_FAILED,
@@ -212,9 +272,20 @@ export class SessionSealer implements ISessionSealer {
       if (now - (s.updatedAt ?? s.createdAt) > maxAgeMs) {
         await this.store.update(s.id, {
           status: 'sealed',
+          sealReason: 'global_reaper',
           sealedAt: now,
           updatedAt: now,
         });
+        log.info(
+          {
+            sessionId: s.id,
+            catId: s.catId,
+            threadId: s.threadId,
+            reason: 'global_reaper',
+            stuckDurationMs: now - (s.updatedAt ?? s.createdAt),
+          },
+          'session force-sealed by global reaper',
+        );
         getEventAuditLog()
           .append({
             type: AuditEventTypes.SEAL_FINALIZE_FAILED,
@@ -233,10 +304,16 @@ export class SessionSealer implements ISessionSealer {
     return count;
   }
 
+  /**
+   * Returns true if all best-effort steps succeeded, false if any threw.
+   * Callers use this to decide whether to emit SEAL_FINALIZED (clean) or log partial.
+   */
   private async doFinalize(
     record: { id: string; threadId: string; catId: string; cliSessionId: string; seq: number; createdAt: number },
     now: number,
-  ): Promise<void> {
+  ): Promise<boolean> {
+    let clean = true;
+
     // Phase C: Flush transcript + index + extractive digest
     if (this.transcriptWriter) {
       try {
@@ -251,6 +328,7 @@ export class SessionSealer implements ISessionSealer {
           { createdAt: record.createdAt, sealedAt: now },
         );
       } catch {
+        clean = false;
         // best-effort: transcript flush failure doesn't prevent sealing
       }
     }
@@ -277,6 +355,7 @@ export class SessionSealer implements ISessionSealer {
           await this.threadStore.updateThreadMemory(record.threadId, updated);
         }
       } catch {
+        clean = false;
         // best-effort: thread memory update failure doesn't prevent sealing
       }
     }
@@ -320,9 +399,12 @@ export class SessionSealer implements ISessionSealer {
           }
         }
       } catch {
+        clean = false;
         // best-effort: handoff digest failure doesn't prevent sealing
       }
     }
+
+    return clean;
   }
 
   /**

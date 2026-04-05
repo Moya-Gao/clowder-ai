@@ -164,16 +164,28 @@ export function AdvancedRuntimeSection({
                   tone="success"
                 />
                 <RangeField
-                  label="Session Warn Threshold"
+                  label={strategyForm.strategy === 'compress' ? 'Session Observe Threshold' : 'Session Warn Threshold'}
                   value={strategyForm.warnThreshold}
                   onChange={(value) => onStrategyChange({ warnThreshold: value })}
-                  hint="context 填充到此比例时前端弹出警告提示"
+                  hint={
+                    strategyForm.strategy === 'compress'
+                      ? 'context 填充到此比例时前端弹出观测提示（compress 下仅观测，不触发封印）'
+                      : 'context 填充到此比例时前端弹出警告提示'
+                  }
                 />
                 <RangeField
-                  label="Session Action Threshold"
+                  label={
+                    strategyForm.strategy === 'compress'
+                      ? 'Session Observe Threshold (upper)'
+                      : 'Session Action Threshold'
+                  }
                   value={strategyForm.actionThreshold}
                   onChange={(value) => onStrategyChange({ actionThreshold: value })}
-                  hint="context 填充到此比例时触发 Session 策略动作（如 handoff 换 session）"
+                  hint={
+                    strategyForm.strategy === 'compress'
+                      ? 'compress 策略下此阈值仅用于观测，不触发封印。Session 会在 CLI 压缩后继续存活'
+                      : 'context 填充到此比例时触发 Session 策略动作（如 handoff 换 session）'
+                  }
                 />
                 {strategyForm.strategy === 'hybrid' ? (
                   <TextField
