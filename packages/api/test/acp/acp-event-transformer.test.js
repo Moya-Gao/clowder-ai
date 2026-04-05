@@ -90,6 +90,25 @@ describe('transformAcpEvent', () => {
     assert.deepEqual(result.toolInput, { query: 'test' });
   });
 
+  it('tool_call with "title" field (Gemini CLI v0.36 actual format) → tool_use', () => {
+    // Observed in production: Gemini CLI sends {sessionUpdate, toolCallId, status, title, content, locations, kind}
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'tool_call',
+        toolCallId: 'tc-001',
+        status: 'completed',
+        title: 'cat_cafe_list_threads',
+        content: { type: 'text', text: '{"threads":[]}' },
+        locations: [],
+        kind: 'tool_call',
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'tool_use');
+    assert.equal(result.toolName, 'cat_cafe_list_threads');
+  });
+
   it('tool_call with no recognizable name field → tool_use with undefined toolName', () => {
     const update = {
       sessionId: 's1',

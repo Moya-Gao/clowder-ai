@@ -20,6 +20,8 @@ function resolveToolName(inner: Record<string, unknown>): string | undefined {
   if (typeof inner.name === 'string') return inner.name;
   // snake_case variant
   if (typeof inner.tool_name === 'string') return inner.tool_name;
+  // "title" — observed in Gemini CLI v0.36 production payloads
+  if (typeof inner.title === 'string') return inner.title;
   return undefined;
 }
 
@@ -67,7 +69,10 @@ export function transformAcpEvent(
       const toolName = resolveToolName(inner);
       const toolInput = resolveToolInput(inner);
       if (!toolName) {
-        log.warn({ sessionUpdate, keys: Object.keys(inner) }, 'tool_call: could not resolve toolName');
+        log.warn(
+          { sessionUpdate, keys: Object.keys(inner), toolCallId: inner.toolCallId, kind: inner.kind },
+          'tool_call: could not resolve toolName',
+        );
       }
       return {
         type: 'tool_use',
