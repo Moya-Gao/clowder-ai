@@ -122,10 +122,12 @@ brief → asset ingest → video-spec → voice-script → TTS(+timestamps) → 
    - 铲屎官录素材 + 粗标关键时间点，猫猫并行建管线
 2. **第二支视频：待定**（攻防战 or 安装教程 or 训练营演示）— 验证管线复用性
 3. **Remotion 模板库重构** — 从一次性 demo 重构为 schema 驱动的模板库
-4. **TTS timestamps → Remotion 自动对齐**
-   - CosyVoice/Qwen-TTS 输出 word-level timestamps
+4. **TTS + forced alignment → Remotion 自动对齐**（⚠️ 2026-04-05 修正：不赌 TTS 原生 timestamps）
+   - CosyVoice **全局配音**（完整剧本一口气读完，不段级切碎）
+   - Qwen3-ForcedAligner（首选）/ WhisperX（备选）输出 word-level timestamps
    - 自动转换为 `<Sequence from={timestamp * fps} durationInFrames={...}>` 编排
    - voice-script 驱动字幕时序，不再手动标注每句字幕的起止秒数
+   - 架构：Data Contract (JSON) 与 Renderer (Remotion/FFmpeg) 解耦
 5. **写 `video-forge` Skill**（对标 ppt-forge SKILL.md）
    - 场景路由：brief → 素材入库 → spec 冻结 → 配音 → 渲染 → 审查 → 交付
    - 多猫分工：宪宪（内容+编排）、砚砚（音画同步+事实审查）、烁烁（节奏+调性）
@@ -191,7 +193,7 @@ brief → asset ingest → video-spec → voice-script → TTS(+timestamps) → 
 
 ### Phase 1（路径 B 生产环 — showcase 视频锻炼）
 - [ ] AC-1a: Remotion 项目重构为 schema 驱动的模板库
-- [ ] AC-1b: TTS word-level timestamps → Remotion 自动对齐可用
+- [ ] AC-1b: TTS + forced alignment → Remotion 自动对齐可用（全局音频，不段级切碎）
 - [ ] AC-1c: `video-forge` Skill 文件完成（场景路由 + 多猫分工 + 审查标准）
 - [ ] AC-1d: 用管线跑通 showcase 60s 精华版视频
 - [ ] AC-1e: 用同一套管线跑通第 2 支视频（验证复用性）
@@ -260,8 +262,11 @@ brief → asset ingest → video-spec → voice-script → TTS(+timestamps) → 
 | KD-7 | prompt 输出必须是 JSON draft/patch，不吐 prose | "AI 说得再漂亮，只要不能落进 spec，它就只是彩带，不是齿轮" | 2026-03-25 |
 | KD-8 | 两条生产路径：路径 B（先脚本后素材）Phase 1 主攻，路径 A（先素材后配音）Phase 3 引入 | 路径 B 我们已有全部零件且 showcase 选题已定；路径 A 需要多模态模型，依赖更重 | 2026-04-05 |
 | KD-9 | 用实战磨管线，不从纸上设计 schema 开始 | 对标 F144 ppt-forge 成长路径：先手搓 → 沉淀 Skill → 沉淀 schema → gate 化 | 2026-04-05 |
-| KD-10 | TTS word-level timestamps → Remotion 自动对齐是 Phase 1 核心能力 | 这是短视频"配音同步"的底层机制，也是管线"自动挡"的关键 | 2026-04-05 |
+| KD-10 | TTS + forced alignment（不赌原生 timestamps）→ Remotion 自动对齐 | 两份云端调研 + 三猫交叉验证：CosyVoice/Qwen-TTS 均无生产级原生 timestamps | 2026-04-05 |
 | KD-11 | 先冻 video-spec + voice-script 两个 schema，其余 Phase 2 补 | 5 个 schema 一起冻容易纸上谈兵，先用实战验证最核心的两个 | 2026-04-05 |
+| KD-12 | 全局音频，不段级切碎 TTS | Gemini "致命缺陷" + 烁烁"情绪连贯性" — 段级切碎丢失语调/呼吸感/上下文 | 2026-04-05 |
+| KD-13 | segment contract 4 层分层（source/narration/render/control）+ global_audio 顶层 | GPT Pro 方案 + Gemini 修正 + 三猫共识。详见 [技术收敛纪要](../discussions/2026-04-05-f138-video-pipeline-tech-convergence.md) | 2026-04-05 |
+| KD-14 | retiming 拒绝暴力慢放，优先 FREEZE_STYLIZED > B_ROLL > SLOW_MO | 烁烁审美判断 + 三猫拍板 | 2026-04-05 |
 
 ## Timeline
 
@@ -274,6 +279,7 @@ brief → asset ingest → video-spec → voice-script → TTS(+timestamps) → 
 | 2026-03-25 | GPT Pro 设计审阅完成 → Phase 重排 + 7 个 KD |
 | 2026-04-05 | 三猫比赛（宪宪+砚砚+烁烁）：F138 现状评估 + 两条路径设计 + 锻造策略确认 |
 | 2026-04-05 | 铲屎官拍板：showcase 60s 作为第一支训练视频，素材录制与管线建设并行 |
+| 2026-04-05 | 云端调研（GPT Pro + Gemini Deep Think）完成 → 三猫独立分析 → [技术收敛纪要](../discussions/2026-04-05-f138-video-pipeline-tech-convergence.md) |
 
 ## Links
 
@@ -291,3 +297,4 @@ brief → asset ingest → video-spec → voice-script → TTS(+timestamps) → 
 - [Showcase 特性清单 + 视频脚本](../stories/three-days-productization/showcase-features.md)
 - [智囊团攻防战视频脚本](../stories/three-days-productization/video-script-pack.md)
 - [PPT Forge Skill（管线锻造参考）](../../cat-cafe-skills/ppt-forge/SKILL.md)
+- [三猫技术收敛纪要（2026-04-05）](../discussions/2026-04-05-f138-video-pipeline-tech-convergence.md)
