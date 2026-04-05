@@ -223,7 +223,7 @@ export class GeminiAcpAdapter implements AgentService {
       yield {
         type: 'error',
         catId: this.catId,
-        error: `${errorCode}: ${errorMsg}`,
+        error: toUserFacingError(errorCode, errorMsg),
         errorCode,
         metadata,
         timestamp: Date.now(),
@@ -319,4 +319,25 @@ function classifyError(
     return { errorCode: 'init_failure', errorMsg: msg };
   }
   return { errorCode: 'prompt_failure', errorMsg: msg };
+}
+
+/** Map internal error codes to user-friendly messages that clarify the failure source.
+ *  Format: `{errorCode}: {errorMsg}\n{user-facing explanation}`
+ *  The errorCode prefix is preserved for machine grep-ability (tests + invoke-helpers). */
+function toUserFacingError(errorCode: string, errorMsg: string): string {
+  const base = `${errorCode}: ${errorMsg}`;
+  switch (errorCode) {
+    case 'model_capacity':
+      return `${base}\n⚠️ Gemini 服务端容量不足（Google 服务器繁忙），非 Cat Café 系统故障。`;
+    case 'stream_idle_stall':
+      return `${base}\n⚠️ Gemini 服务端响应中断（Google 服务器可能繁忙或不稳定），非 Cat Café 系统故障。`;
+    case 'lease_timeout':
+      return `${base}\n⚠️ Gemini 请求超时，可能是 Google 服务端或网络链路问题，来源待确认。`;
+    case 'mcp_pollution':
+      return `${base}\n⚠️ Gemini 工具调用异常（MCP 服务端错误）。`;
+    case 'init_failure':
+      return `${base}\n⚠️ Gemini CLI 启动失败（本地进程异常）。`;
+    default:
+      return base;
+  }
 }
