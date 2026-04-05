@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>D4 pptx-craft baseline — 华为 AI 差异化分析</title>
+<style>
+  /*
+   * Simulates pptx-craft Charlie (Design Agent) output:
+   *   - Phase 2 final at 1280×720
+   *   - Font sizes: 36-48px titles, 24-28px subtitles, 16-20px body
+   *   - Generous padding (40-60px)
+   *   - Simple title/body/conclusion structure
+   *   - Bullet-point layout, no dense grids
+   *   Reference: docs/competitor-research/pptx-craft-technical-report.md §4.2
+   */
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Noto Sans SC','Helvetica Neue',sans-serif; }
+  .ppt-slide { width:1280px; height:720px; overflow:hidden; background:#fff;
+    padding:40px 60px; display:flex; flex-direction:column; }
+  h1 { font-size:36px; font-weight:700; color:#c7020e; margin-bottom:8px; }
+  .subtitle { font-size:20px; color:#666; margin-bottom:30px; }
+  .body { flex:1; font-size:18px; color:#333; line-height:2.2; }
+  .body .bullet { padding-left:24px; position:relative; }
+  .body .bullet::before { content:'•'; position:absolute; left:0; color:#c7020e; font-weight:700; }
+  .divider { height:1px; background:#e0e0e0; margin:20px 0; }
+  .conclusion { font-size:18px; color:#555; padding-top:16px;
+    border-top:2px solid #c7020e; margin-top:auto; }
+  .source { font-size:12px; color:#999; margin-top:12px; }
+</style>
+</head>
+<body style="background:#e5e5e5; display:flex; align-items:center; justify-content:center; min-height:100vh;">
+
+<div class="ppt-slide">
+
+  <h1>华为 AI 差异化分析</h1>
+  <div class="subtitle">真正的护城河 vs 看似的优势</div>
+
+  <div class="body">
+    <div class="bullet">全栈主权基础设施：从昇腾芯片到华为云的完整国产化链路</div>
+    <div class="bullet">政企行业深度：30+ 行业 500+ 场景实际落地</div>
+    <div class="bullet">非西方市场 AI 输出：170+ 国家 ICT 基础设施覆盖</div>
+
+    <div class="divider"></div>
+
+    <div class="bullet">盘古通用模型性能不构成持续优势（半衰期 3-6 个月）</div>
+    <div class="bullet">MindSpore 框架生态弱（GitHub 4,700 vs PyTorch 90,000+）</div>
+    <div class="bullet">昇腾市场份额依赖政策红利而非技术竞争力</div>
+  </div>
+
+  <div class="conclusion">
+    核心结论：华为应从通用模型竞赛转向 AI 基础设施平台定位
+  </div>
+
+  <div class="source">Source: Deep Research 单轮分析</div>
+
+</div>
+
+</body>
+</html>

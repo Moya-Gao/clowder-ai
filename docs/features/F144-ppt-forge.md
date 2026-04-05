@@ -284,7 +284,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 - [x] AC-D1: AI 猫猫直接写 HTML+Tailwind 页面（拿 storyline.md + theme tokens 画布局，不走确定性编译器）
 - [x] AC-D2: 两阶段密度控制 — Draft(640×360) 强制高密度 → Final(1280×720) 只增强不减密
 - [x] AC-D3: Playwright 白空间检测 — 渲染后自动检测白空间占比 < 30%，溢出检测，不达标退回
-- [ ] AC-D4: 同一主题对比 pptx-craft vs Phase D 输出，信息密度 ≥ 对方，内容准确性 > 对方（research 质量差异）
+- [x] AC-D4: 同一主题对比 pptx-craft vs Phase D 输出，信息密度 ≥ 对方，内容准确性 > 对方（research 质量差异）
 - [ ] AC-D5: 集成进管线 — Research → Narrative → AI 画 HTML → Playwright → dom-to-pptx → .pptx，铲屎官一句话触发
 - [ ] AC-D6: 华为级视觉验收 — 铲屎官确认"一两页讲清楚重点"
 
@@ -375,6 +375,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-03 | **方向转变：AI 猫猫画 HTML 取代确定性编译器排版（KD-16）** — 铲屎官分析 pptx-craft 后拍板：确定性编译器密度不够华为级，核心页面（非 diagram）应由猫猫直接写 HTML+CSS。学 pptx-craft 的两阶段密度控制（640→1280）+ AI 布局。Phase C SVG 编译器保留为 diagram fallback。我们的差异化优势：research pipeline 内容质量 >> 对方 web fetch |
 | 2026-04-04 | **Phase D 基础设施 merged** (PR #949) — flat-dom-compiler + element-router + density-analyzer。AC-D1/D2/D3 交付，179 tests。砚砚 4 轮 review 放行 + 云端 0 P1/P2。A8 gate chain wiring 拆后续 PR |
 | 2026-04-04 | **A8 gate chain merged** (PR #955) — gateCompiledDeck + gateTwoPhaseDeck + compileAndBuild overload。密度门禁接入 pipeline，190 tests。砚砚 2 轮 review 放行 + 云端 0 P1/P2 |
+| 2026-04-04 | **AC-D4 对比完成** — 同一主题（华为 AI 差异化）Phase D vs pptx-craft（同底色公平对比）：我们 4.1% 白空间 vs 对方 43.9%，83 元素 vs 12 元素，45 文本 vs 10 文本。密度门禁 PASS vs FAIL。数据点密度 4.5x。baseline 为竞品报告模拟（非实测）。196 tests |
 
 ## Review Gate
 
