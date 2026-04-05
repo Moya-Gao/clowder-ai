@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>D5 — Cat Café 双层架构：对等判断 + 结构化执行</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 1280px; height: 720px; overflow: hidden; font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #e5e5e5; }
+.slide { position: relative; width: 1280px; height: 720px; background: #FFFFFF; overflow: hidden; display: grid; grid-template-rows: 3px auto auto 1fr auto auto auto; }
+/* 顶部华为红线 */
+.top-line { background: #C7020E; height: 3px; }
+/* 标题栏 */
+.title-bar { display: flex; align-items: center; padding: 8px 32px; gap: 10px; border-bottom: 1px solid #E0E0E0; }
+.red-indicator { width: 4px; height: 26px; background: #C7020E; flex-shrink: 0; }
+.title-bar h1 { font-size: 18px; font-weight: 700; color: #1A1A1A; flex: 1; }
+.title-bar .badge { font-size: 9px; color: #666; background: #F5F5F5; padding: 2px 8px; border-radius: 2px; }
+/* KPI 条 */
+.kpi-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; padding: 6px 32px; border-bottom: 1px solid #E0E0E0; }
+.kpi { text-align: center; border-right: 1px solid #E8E8E8; padding: 4px 0; }
+.kpi:last-child { border-right: none; }
+.kpi-num { font-size: 20px; font-weight: 700; color: #C7020E; }
+.kpi-label { font-size: 9px; color: #666; margin-top: 1px; }
+/* 主内容区 */
+.content { display: grid; grid-template-columns: 420px 1fr; gap: 0; padding: 6px 32px 4px; }
+/* 左列：架构图 + 四层体系 */
+.left-col { display: flex; flex-direction: column; gap: 5px; padding-right: 12px; border-right: 1px solid #E8E8E8; }
+/* 真实截图 */
+.arch-screenshot { border: 1px solid #D4D4D4; position: relative; }
+.arch-screenshot img { width: 100%; max-height: 240px; object-fit: contain; display: block; background: #FFF8F6; }
+.arch-screenshot .caption { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(199,2,14,0.9); color: #FFF; font-size: 8px; padding: 2px 8px; }
+/* SmartArt 流程图 */
+.smartart-flow { display: flex; align-items: center; gap: 0; }
+.smartart-step { background: #C7020E; color: #FFF; padding: 4px 8px; font-size: 8px; font-weight: 700; text-align: center; flex: 1; position: relative; }
+.smartart-step:nth-child(odd) { background: #C7020E; }
+.smartart-step:nth-child(even) { background: #A50000; }
+.smartart-arrow { color: #C7020E; font-size: 14px; font-weight: 700; flex-shrink: 0; padding: 0 1px; }
+.smartart-label { font-size: 7px; color: #FFF; font-weight: 400; display: block; opacity: 0.9; }
+/* 四层体系 */
+.four-layers { }
+.four-layers-title { font-size: 10px; font-weight: 700; color: #C7020E; margin-bottom: 3px; border-bottom: 1px solid #C7020E; padding-bottom: 2px; }
+.layer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.layer-card { background: #FAFAFA; border: 1px solid #E8E8E8; padding: 3px 6px; }
+.layer-card .layer-name { font-size: 9px; font-weight: 700; color: #C7020E; }
+.layer-card .layer-what { font-size: 8px; color: #333; }
+.layer-card .layer-eg { font-size: 7px; color: #888; }
+/* 右列：对比表 + 关键证据 + 独立判断 */
+.right-col { display: flex; flex-direction: column; gap: 4px; padding-left: 12px; justify-content: space-between; }
+/* 对比表 */
+.compare-table { width: 100%; border-collapse: collapse; font-size: 8px; }
+.compare-table th { background: #C7020E; color: #FFF; padding: 3px 4px; text-align: left; font-weight: 700; font-size: 8px; }
+.compare-table td { padding: 2px 4px; border: 1px solid #E0E0E0; color: #333; }
+.compare-table tr:nth-child(even) td { background: #FAFAFA; }
+.compare-table .ours { background: #FFF1EF !important; font-weight: 700; }
+.compare-table .dim { color: #999; font-size: 7px; }
+/* 关键证据 */
+.evidence-section { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.evidence-card { background: #F8F8F8; border-left: 3px solid #C7020E; padding: 4px 8px; }
+.evidence-card .ev-title { font-size: 9px; font-weight: 700; color: #1A1A1A; }
+.evidence-card .ev-body { font-size: 8px; color: #555; margin-top: 2px; line-height: 1.3; }
+.evidence-card .ev-num { font-size: 14px; font-weight: 700; color: #C7020E; }
+/* 独立判断原理 */
+.principle-box { background: #F5F5F5; border: 1px solid #E0E0E0; padding: 4px 8px; }
+.principle-box .pr-title { font-size: 9px; font-weight: 700; color: #C7020E; }
+.principle-box .pr-body { font-size: 8px; color: #444; line-height: 1.3; }
+.principle-box .pr-formula { font-size: 10px; font-weight: 700; color: #1A1A1A; text-align: center; margin: 2px 0; }
+/* 分层编排 */
+.layered-box { border: 1px solid #E0E0E0; }
+.layered-box-title { background: #333; color: #FFF; font-size: 9px; font-weight: 700; padding: 2px 8px; }
+.layered-box-content { padding: 4px 8px; font-size: 8px; color: #333; line-height: 1.4; }
+.layered-box-content b { color: #C7020E; }
+.layered-box-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: 3px; }
+.layered-box-item { background: #FAFAFA; border: 1px solid #E8E8E8; padding: 2px 6px; font-size: 8px; }
+.layered-box-item b { color: #1A1A1A; font-size: 9px; }
+/* 里程碑条 */
+.milestone-strip { background: #FAFAFA; border: 1px solid #E0E0E0; padding: 3px 6px; margin-top: 2px; }
+.milestone-strip .ms-title { font-size: 8px; font-weight: 700; color: #C7020E; margin-bottom: 2px; }
+.milestone-strip .ms-row { display: flex; gap: 6px; font-size: 7px; color: #555; }
+.milestone-strip .ms-item { flex: 1; }
+.milestone-strip .ms-item b { color: #1A1A1A; }
+/* 证据标题 */
+.ev-section-title { font-size: 9px; font-weight: 700; color: #C7020E; border-bottom: 1px solid #C7020E; padding-bottom: 1px; margin-bottom: 2px; }
+/* 方法论特征条 */
+.method-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; padding: 4px 32px; border-top: 1px solid #E0E0E0; background: #FAFAFA; }
+.method-bar .method { text-align: center; border-right: 1px solid #E8E8E8; padding: 3px 4px; }
+.method-bar .method:last-child { border-right: none; }
+.method-bar .method-val { font-size: 11px; font-weight: 700; color: #1A1A1A; }
+.method-bar .method-label { font-size: 7px; color: #888; }
+/* 底部策略条 */
+.strategy-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; background: #1A1A1A; color: #FFF; }
+.strategy-bar .strat { padding: 5px 16px; border-right: 1px solid #333; }
+.strategy-bar .strat:last-child { border-right: none; }
+.strategy-bar .strat-label { font-size: 8px; color: #C7020E; font-weight: 700; }
+.strategy-bar .strat-text { font-size: 9px; color: #DDD; margin-top: 1px; }
+/* 底部 footer */
+.footer { display: flex; justify-content: space-between; padding: 3px 32px; font-size: 7px; color: #999; border-top: 1px solid #E0E0E0; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <!-- 1. 顶部红线 -->
+  <div class="top-line"></div>
+  <!-- 2. 标题栏 -->
+  <div class="title-bar">
+    <div class="red-indicator"></div>
+    <h1>Cat Café 双层架构：对等判断 + 结构化执行</h1>
+    <span class="badge">Cat Café Multi-Agent Architecture | 50天 149 Features</span>
+  </div>
+  <!-- 3. KPI 条 -->
+  <div class="kpi-bar">
+    <div class="kpi"><div class="kpi-num">4</div><div class="kpi-label">AI 猫猫协作</div></div>
+    <div class="kpi"><div class="kpi-num">2</div><div class="kpi-label">架构层级</div></div>
+    <div class="kpi"><div class="kpi-num">3层</div><div class="kpi-label">护栏体系</div></div>
+    <div class="kpi"><div class="kpi-num">50天</div><div class="kpi-label">持续实战验证</div></div>
+    <div class="kpi"><div class="kpi-num">149</div><div class="kpi-label">Features 交付</div></div>
+    <div class="kpi"><div class="kpi-num">40</div><div class="kpi-label">教训→规则</div></div>
+  </div>
+  <!-- 4. 主内容 -->
+  <div class="content">
+    <!-- 左列 -->
+    <div class="left-col">
+      <!-- 架构图（真实截图） -->
+      <div class="arch-screenshot">
+        <img src="a2a-collaboration-layers.png" alt="A2A 协作分层图">
+        <div class="caption">真实产出：A2A 协作四层架构图 — 来自 Cat Café 教程素材</div>
+      </div>
+      <!-- SmartArt: 架构核心流程 -->
+      <div class="smartart-flow">
+        <div class="smartart-step">独立判断<span class="smartart-label">每猫自主</span></div>
+        <div class="smartart-arrow">▶</div>
+        <div class="smartart-step">@ 传球<span class="smartart-label">A2A 路由</span></div>
+        <div class="smartart-arrow">▶</div>
+        <div class="smartart-step">跨族 Review<span class="smartart-label">Claude≠GPT</span></div>
+        <div class="smartart-arrow">▶</div>
+        <div class="smartart-step">执行队列<span class="smartart-label">并发安全</span></div>
+        <div class="smartart-arrow">▶</div>
+        <div class="smartart-step">Hook 护栏<span class="smartart-label">40 规则</span></div>
+      </div>
+      <!-- 四层体系 -->
+      <div class="four-layers">
+        <div class="four-layers-title">四层系统 — "不只是 Prompt Engineering"</div>
+        <div class="layer-grid">
+          <div class="layer-card">
+            <div class="layer-name">声明层</div>
+            <div class="layer-what">定义边界与协议</div>
+            <div class="layer-eg">CLAUDE.md · Skill YAML · shared-rules</div>
+          </div>
+          <div class="layer-card">
+            <div class="layer-name">协调层</div>
+            <div class="layer-what">谁和谁协作</div>
+            <div class="layer-eg">dispatch queue · session strategy · A2A 路由</div>
+          </div>
+          <div class="layer-card">
+            <div class="layer-name">约束层</div>
+            <div class="layer-what">想违规都过不去</div>
+            <div class="layer-eg">worktree 隔离 · Redis 圣域 · Quality Gate</div>
+          </div>
+          <div class="layer-card">
+            <div class="layer-name">进化层</div>
+            <div class="layer-what">系统从错误学习</div>
+            <div class="layer-eg">evidence.sqlite · Knowledge Feed → 人机共审</div>
+          </div>
+        </div>
+      </div>
+      <!-- 分层编排原则 -->
+      <div class="layered-box">
+        <div class="layered-box-title">分层编排 — "我们有编排，只是不在跨猫层"</div>
+        <div class="layered-box-content">
+          单猫内部：<b>允许中央编排</b>（如 OMOC Sisyphus 编排器）<br>
+          跨猫协作：<b>坚持对等判断</b>，不设 orchestrator
+          <div class="layered-box-grid">
+            <div class="layered-box-item"><b>✓</b> 猫内编排自由</div>
+            <div class="layered-box-item"><b>✗</b> 跨猫中央决策</div>
+            <div class="layered-box-item"><b>✓</b> 统一执行队列</div>
+            <div class="layered-box-item"><b>✗</b> 跨猫汇报关系</div>
+          </div>
+        </div>
+      </div>
+      <!-- 关键里程碑 -->
+      <div class="milestone-strip">
+        <div class="ms-title">关键里程碑 — 50 天演化路径</div>
+        <div class="ms-row">
+          <div class="ms-item"><b>D1</b> 单猫实验</div>
+          <div class="ms-item"><b>D7</b> 双猫协作</div>
+          <div class="ms-item"><b>D14</b> 三猫+护栏</div>
+          <div class="ms-item"><b>D25</b> 飞书/TG/钉钉</div>
+          <div class="ms-item"><b>D40</b> 知识涌现</div>
+          <div class="ms-item"><b>D50</b> 149 Feats</div>
+        </div>
+      </div>
+    </div>
+    <!-- 右列 -->
+    <div class="right-col">
+      <!-- 对比表 -->
+      <table class="compare-table">
+        <tr>
+          <th style="width:72px">维度</th>
+          <th>Boss 模式<br><span class="dim">Agent Teams/OMOC</span></th>
+          <th>状态图<br><span class="dim">LangGraph</span></th>
+          <th>角色 Pipeline<br><span class="dim">CrewAI</span></th>
+          <th class="ours">Cat Café</th>
+        </tr>
+        <tr><td><b>内容判断</b></td><td>Lead 决定</td><td>路由逻辑决定</td><td>角色流程决定</td><td class="ours">每只猫独立判断</td></tr>
+        <tr><td><b>任务路由</b></td><td>boss 分配</td><td>edge 决定</td><td>上一步→下一步</td><td class="ours">猫猫自主 @ 路由</td></tr>
+        <tr><td><b>能否质疑</b></td><td>向上汇报</td><td>节点无权改图</td><td>只能往下传</td><td class="ours">任何猫可否决</td></tr>
+        <tr><td><b>单点失败</b></td><td>Lead 挂=系统停</td><td>图错=全错</td><td>中间断=后停</td><td class="ours">降级但不崩</td></tr>
+        <tr><td><b>偏见抵消</b></td><td>Lead 偏见=系统</td><td>图作者偏见</td><td>SOP 偏见</td><td class="ours">跨厂商交叉 review</td></tr>
+        <tr><td><b>扩展能力</b></td><td>加 worker</td><td>加节点+边</td><td>加角色</td><td class="ours">加猫 = 加判断力</td></tr>
+        <tr><td><b>学习机制</b></td><td>无/手写 prompt</td><td>checkpoint 持久化</td><td>无跨 run 记忆</td><td class="ours">跨 session 知识积累</td></tr>
+        <tr><td><b>安全保证</b></td><td>依赖 Lead 审查</td><td>无护栏</td><td>输出验证弱</td><td class="ours">三层护栏体系</td></tr>
+      </table>
+      <!-- 关键证据 -->
+      <div class="ev-section-title">关键证据 — 架构有效性实证</div>
+      <div class="evidence-section">
+        <div class="evidence-card">
+          <div class="ev-title">F088 Chat Gateway 交付速度</div>
+          <div class="ev-num">2天</div>
+          <div class="ev-body">飞书 2 天 · Telegram 1.5 天 · 钉钉/微信各半天<br>每平台仅需实现 3 方法 ≈ 1000-2000 行<br>原估 6-10 周 → 实际 5 天全部上线<br>验证：好架构让交付速度 10× 提升</div>
+        </div>
+        <div class="evidence-card">
+          <div class="ev-title">F139 独立调研涌现</div>
+          <div class="ev-num">N×判断力</div>
+          <div class="ev-body">三猫独立调研 → 砚砚推翻宪宪抽象<br>5 维度拆分 > ScheduleAdapter 方案<br><b>先独立思考 → 交叉校准 → 收敛共识</b></div>
+        </div>
+        <div class="evidence-card">
+          <div class="ev-title">跨家族 Review 真实案例</div>
+          <div class="ev-num">3 P1</div>
+          <div class="ev-body">GPT review Claude 代码一次找 3 个 P1：<br>· 未清洗用户输入注入<br>· 飞书 webhook 缺签名验证<br>· 转发丢发送者身份</div>
+        </div>
+        <div class="evidence-card">
+          <div class="ev-title">vs Anthropic Harness 差异</div>
+          <div class="ev-num">50天</div>
+          <div class="ev-body">Harness: 单任务脚手架 (3-6h 生命周期)<br>Cat Café: 长期协作机制 (50天 149 Feat)<br>共鸣: 做事与判断分离 · 上下文是核心<br>差异: Cat Café 有跨厂商+记忆+护栏</div>
+        </div>
+      </div>
+      <!-- 独立判断原理 -->
+      <div class="principle-box">
+        <div class="pr-title">为什么上限不在中心节点？</div>
+        <div class="pr-formula">中央编排 = 1× 判断力 × N× 执行力 &nbsp;│&nbsp; 对等碰撞 = N× 判断力 → 涌现</div>
+        <div class="pr-body">铲屎官 = 方向漏斗（顶层收/底层放）· 不限内容，约束方向 · 跨厂商认知多样性 = 独立第三方独有优势</div>
+      </div>
+    </div>
+  </div>
+  <!-- 5. 方法论特征 -->
+  <div class="method-bar">
+    <div class="method"><div class="method-val">Git-First</div><div class="method-label">唯一真相源 = 仓库</div></div>
+    <div class="method"><div class="method-val">跨厂商</div><div class="method-label">Claude + GPT + Gemini</div></div>
+    <div class="method"><div class="method-val">Hook 护栏</div><div class="method-label">每条规则 = 1 事故</div></div>
+    <div class="method"><div class="method-val">知识涌现</div><div class="method-label">evidence.sqlite 全文 + 语义</div></div>
+    <div class="method"><div class="method-val">3方法接入</div><div class="method-label">每平台 parseEvent+format+send</div></div>
+  </div>
+  <!-- 6. 策略条 -->
+  <div class="strategy-bar">
+    <div class="strat">
+      <div class="strat-label">核心原则</div>
+      <div class="strat-text">单猫内部允许编排，跨猫协作坚持对等判断 — 同一层不混两种编排权</div>
+    </div>
+    <div class="strat">
+      <div class="strat-label">护栏纪律</div>
+      <div class="strat-text">每条护栏 = 1 个真实事故 · 每个教训 = 1 条 LL 编号 · 40 坑→40 规则</div>
+    </div>
+    <div class="strat">
+      <div class="strat-label">涌现机制</div>
+      <div class="strat-text">先独立判断 → 交叉校准 → 收敛共识 · 摩擦是特性不是 bug</div>
+    </div>
+  </div>
+  <!-- 6. Footer -->
+  <div class="footer">
+    <span>核心结论：去中心化判断 + 结构化执行 — 把编排留在执行层，把判断还给每只猫</span>
+    <span>Source: Cat Café 50-day 实战 · 149 Features · 40 Lessons Learned</span>
+  </div>
+</div>
+</body>
+</html>
