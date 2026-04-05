@@ -506,7 +506,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       if (mode !== 'force' && opts.invocationTracker) {
         // F122 AC-A8: Atomic thread-level busy gate + slot registration.
         // If thread became busy since initial has() check at line 306, degrade to queue.
-        const tryResult = opts.invocationTracker.tryStartThread(resolvedThreadId, primaryCat, userId, targetCats);
+        const tryResult = opts.invocationTracker.tryStartThreadAll(resolvedThreadId, targetCats, userId);
         if (tryResult === null) {
           // TOCTOU: thread became busy between has() and here — degrade to queue
           if (opts.invocationQueue) {
@@ -602,25 +602,25 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           idempotencyKey: resolvedIdempotencyKey,
         });
       } catch (createErr) {
-        // Release slot occupied by tryStartThread — prevent "假忙" leak
+        // Release slots occupied by tryStartThreadAll — prevent "假忙" leak
         if (controller) {
-          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+          opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
         }
         throw createErr;
       }
 
       if (createResult.outcome === 'duplicate') {
-        // AC-A11: tryStartThread succeeded but create returned duplicate — release slot
+        // AC-A11: tryStartThreadAll succeeded but create returned duplicate — release slots
         if (controller) {
-          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+          opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
         }
         reply.status(200);
         return { status: 'duplicate', invocationId: createResult.invocationId };
       }
 
-      // Force path: still uses start() (preemptive — cancel already happened above)
+      // Force path: still uses startAll() (preemptive — cancel already happened above)
       if (!controller) {
-        controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
+        controller = opts.invocationTracker?.startAll(resolvedThreadId, targetCats, userId);
       }
 
       // Race: thread entered deleting between isDeleting() and start()
@@ -659,8 +659,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           userMessageId: storedUserMessage.id,
         });
       } catch (preExecErr) {
-        // Release slot — we haven't entered background coroutine yet
-        opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+        // Release slots — we haven't entered background coroutine yet
+        opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
         // Mark record as failed if it was created
         try {
           await opts.invocationRecordStore?.update(createResult.invocationId, { status: 'failed' });
@@ -997,7 +997,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           } // end else (non-abort error)
         } finally {
           clearInterval(heartbeatInterval);
-          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+          opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
           // F39: Notify queue processor for auto-dequeue chain
           opts.queueProcessor?.onInvocationComplete(resolvedThreadId, primaryCat, finalStatus).catch(() => {
             /* best-effort, don't crash background task */
@@ -1007,15 +1007,15 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     } else {
       // Fallback: no invocationRecordStore (legacy path, uses route())
       // F122 A.1: Try non-preemptive first. Legacy path has no InvocationQueue so it
-      // cannot degrade to queue — fall back to preemptive start() as temporary compat.
+      // cannot degrade to queue — fall back to preemptive startAll() as temporary compat.
       // TODO(F122 Phase B): Legacy path should be removed or given queue support.
       let controller: AbortController | undefined;
       if (mode !== 'force' && opts.invocationTracker) {
         controller =
-          opts.invocationTracker.tryStartThread(resolvedThreadId, primaryCat, userId, targetCats) ??
-          opts.invocationTracker.start(resolvedThreadId, primaryCat, userId, targetCats);
+          opts.invocationTracker.tryStartThreadAll(resolvedThreadId, targetCats, userId) ??
+          opts.invocationTracker.startAll(resolvedThreadId, targetCats, userId);
       } else {
-        controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
+        controller = opts.invocationTracker?.startAll(resolvedThreadId, targetCats, userId);
       }
       if (controller?.signal.aborted) {
         reply.status(409);
@@ -1075,7 +1075,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           );
         } finally {
           clearInterval(heartbeatInterval);
-          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+          opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
         }
       })();
     }

@@ -153,26 +153,28 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
         const res = await apiFetch(`/api/threads/${threadId}/queue`);
         if (generation !== reconcileGeneration) return; // stale after await
         if (!res.ok) continue;
-        const data = (await res.json()) as { activeInvocations?: string[] };
+        const data = (await res.json()) as {
+          activeInvocations?: Array<{ catId: string; startedAt: number }>;
+        };
         if (generation !== reconcileGeneration) return; // stale after await
         const store = useChatStore.getState();
-        const serverActiveCats =
-          data.activeInvocations && data.activeInvocations.length > 0 ? data.activeInvocations : null;
+        const serverSlots = data.activeInvocations && data.activeInvocations.length > 0 ? data.activeInvocations : null;
         const isActiveThread = store.currentThreadId === threadId;
 
-        if (serverActiveCats) {
+        if (serverSlots) {
           // Server still processing — re-hydrate local slots to match server truth.
           // Stale hydrated/mismatched invocationIds get replaced so done(isFinal)
           // cleanup works correctly when the response finishes.
+          const serverActiveCats = serverSlots.map((s) => s.catId);
           store.clearThreadActiveInvocation(threadId);
           store.replaceThreadTargetCats(threadId, serverActiveCats);
-          for (const catId of serverActiveCats) {
-            store.updateThreadCatStatus(threadId, catId, 'streaming');
-            const syntheticId = `hydrated-${threadId}-${catId}`;
+          for (const slot of serverSlots) {
+            store.updateThreadCatStatus(threadId, slot.catId, 'streaming');
+            const syntheticId = `hydrated-${threadId}-${slot.catId}`;
             if (isActiveThread) {
-              store.addActiveInvocation(syntheticId, catId, 'execute');
+              store.addActiveInvocation(syntheticId, slot.catId, 'execute', slot.startedAt);
             } else {
-              store.addThreadActiveInvocation(threadId, syntheticId, catId, 'execute');
+              store.addThreadActiveInvocation(threadId, syntheticId, slot.catId, 'execute', slot.startedAt);
             }
           }
           console.log('[ws] Reconnect reconciliation: re-hydrated active slots from server', {

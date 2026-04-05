@@ -323,8 +323,11 @@ describe('Phase H P1 Fixes — definition-level regression guards', () => {
         has: () => false,
         isDeleting: () => false,
         tryStartThread: () => new AbortController(),
+        tryStartThreadAll: () => new AbortController(),
         start: () => new AbortController(),
+        startAll: () => new AbortController(),
         complete: () => {},
+        completeAll: () => {},
       },
       invocationRecordStore: {
         create: async () => ({ outcome: 'created', invocationId: 'inv-stub' }),
