@@ -113,8 +113,87 @@ Layer Header
 4. **PPTX 映射**: `PX_PER_INCH = 96`（LAYOUT_WIDE 13.33"×7.5"），不是 128
 5. **Font size**: CSS px → PPTX pt 系数 = 0.75（px × 72/96）
 
+## SmartArt/流程图 HTML 模板
+
+> D5 垂直切片验证通过（2026-04-05）
+
+### 横向箭头链（最常用）
+
+适用：线性工作流、决策流程、管线步骤。
+
+```html
+<style>
+.smartart-flow { display: flex; align-items: center; gap: 0; }
+.smartart-step { background: #C7020E; color: #FFF; padding: 4px 8px; font-size: 8px;
+  font-weight: 700; text-align: center; flex: 1; }
+.smartart-step:nth-child(odd) { background: #C7020E; }
+.smartart-step:nth-child(even) { background: #A50000; }
+.smartart-arrow { color: #C7020E; font-size: 14px; font-weight: 700;
+  flex-shrink: 0; padding: 0 1px; }
+.smartart-label { font-size: 7px; color: #FFF; font-weight: 400;
+  display: block; opacity: 0.9; }
+</style>
+
+<div class="smartart-flow">
+  <div class="smartart-step">步骤 1<span class="smartart-label">说明</span></div>
+  <div class="smartart-arrow">▶</div>
+  <div class="smartart-step">步骤 2<span class="smartart-label">说明</span></div>
+  <div class="smartart-arrow">▶</div>
+  <div class="smartart-step">步骤 3<span class="smartart-label">说明</span></div>
+</div>
+```
+
+要点：
+- 交替色（`#C7020E` / `#A50000`）增加视觉区分
+- `flex: 1` 让步骤等宽
+- 子标签用 `<span class="smartart-label">` 加第二行说明
+- 箭头用 `▶` 字符，不用 SVG（简单 + 无依赖）
+
+## 截图 + Callout 标注 CSS 模式
+
+### 带底部标注的截图
+
+适用：产品界面展示、架构图、真实产出证据。
+
+```html
+<style>
+.arch-screenshot { border: 1px solid #D4D4D4; position: relative; }
+.arch-screenshot img { width: 100%; height: auto; display: block; }
+.arch-screenshot .caption { position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(199,2,14,0.9); color: #FFF; font-size: 8px; padding: 2px 8px; }
+</style>
+
+<div class="arch-screenshot">
+  <img src="path/to/image.png" alt="描述">
+  <div class="caption">来源说明 — 证据标注</div>
+</div>
+```
+
+要点：
+- 图片路径用相对路径，方便 worktree/example 目录引用
+- 红底半透明 caption 叠在图片底部，不额外占版面
+- `width: 100%` 让图片自适应容器宽度
+- 如需 callout 箭头标注，用 `position: absolute` + CSS 箭头
+
+### 截图使用原则
+
+1. **优先用真实产出**（教程素材、产品截图），不用占位图
+2. **素材目录**：`docs/stories/*/tutorial/assets/`（18+ 张现成素材）
+3. **一张截图 = 几十行文字的信息量** — 密度性价比最高的手段
+4. **图片太大时**用 CSS `max-height` 限制，不裁剪内容
+
+## Spike 教训更新
+
+### D5 垂直切片教训 (2026-04-05)
+
+6. **v5-D5**: 纯文字+表格 → 67% fill，加图片+SmartArt 后视觉冲击力明显提升
+7. **图片 vs CSS 手绘**：真实截图比纯 CSS 架构图说服力强 100 倍，且制作时间短
+8. **SmartArt 用 flexbox + ▶**：简单有效，不需要 SVG 依赖
+9. **单一证据源约束**：页面上所有数字必须可追溯到声明的证据源（砚砚 D1 审查 P1 教训）
+10. **观看模式自洽**：7-8px 字号 = document 模式，不要声明 presentation（砚砚 P1 教训）
+
 ## 待补充
 
 - [ ] 华为真实 PPT 样本学习（铲屎官后续提供）
-- [ ] SmartArt/流程图的 HTML 模板库
-- [ ] 截图 + callout 标注的 CSS 模式
+- [ ] 竖向流程图模板（上下布局，适合决策树）
+- [ ] 多图并排 + callout 对比模式
