@@ -344,6 +344,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-19 | **Bug fix** (PR #584): markdown rendered 模式补全 Add to Chat — selectionchange + anchor/focus 双边界 + editMode deps. 砚砚 R1→R3 (1P1+2P2→0) + 云端 R1→R2 (1P1→0), 4 新测试 |
 | 2026-03-27 | **Bug fix** (PR #782): workspace content search silent failure — grep maxBuffer 溢出静默归零 + 前端 0 结果空白. 砚砚(GPT-5.4) 实现 + 宪宪 跨家族 review (0P1, 1P2 备注), 3 新测试 |
 | 2026-03-28 | **Bug fix** (PR #807): per-thread workspace state — 切换 thread 丢失打开的文档/tab/worktreeId. 4 字段加入 ThreadState + snapshotActive/flattenThread + conditional worktreeId restore. 砚砚(GPT-5.4) R1→R2 (1P1 worktreeId→0) + 云端通过, 4 新测试 |
+| 2026-04-05 | **Focus Mode intake** (PR #966): manual-port from clowder-ai#362. 6 新组件 + WorkspacePanel 瘦身 (1195→1015). 砚砚(codex) R1→R2 (2P1→0) + 云端通过, 10 新测试. Closes #964 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -546,6 +547,52 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 |------|------|------|----------|
 | G7-1 | **Bug**: 深层目录显示为空 — 当前 `buildTree()` 默认 depth=3，`docs/stories/xxx/` 的文件在 depth=4 未加载 | P1 | 展开目录时按需 fetch 子节点（lazy loading），不再依赖初始 depth 一次加载全部 |
 | G7-2 | 切换线程后恢复文件树展开状态 + 打开的文件标签 | P2 | 每个线程的 `expandedPaths` + `openTabs` + `openFilePath` 存到 `Map<threadId, WorkspaceState>`，切换线程时 save/restore |
+
+## Phase: Focus Mode（Intake from clowder-ai#362）
+
+> **Status**: ✅ merged | **Source**: clowder-ai#362 → cat-cafe#966 | **Strategy**: manual-port
+> **Date**: 2026-04-05 | **Owner**: 布偶猫 (Opus)
+> **Reviewer**: 缅因猫/砚砚 (codex) + 云端 Codex
+
+### Why
+
+社区贡献者在 clowder-ai#362 实现了 workspace 专注模式——展开任意 pane（浏览器/文件/变更/git/终端）到全 workspace 区域，消除周围干扰。GPT-5.4 评估后建议 intake 回家并修复 UX 问题。
+
+### What
+
+| 组件 | 职责 | 行数 |
+|------|------|------|
+| `FocusModeButton` | tab bar 内统一的专注按钮，空态自动禁用 | 24 |
+| `WorkspaceFocusShell` | 共享壳：Escape 退出 + sticky header 退出按钮 + fade 过渡 | 57 |
+| `WorkspacePreviewOnly` | 浏览器 focus 壳：Shell > BrowserPanel(previewOnly) | 20 |
+| `WorkspaceFileViewer` | 从 WorkspacePanel 提取的文件查看器（tab bar + toolbar + 内容渲染） | 308 |
+| `FileContentRenderer` | 从 FileViewer 提取的内容渲染（binary/md/html/jsx/code） | 154 |
+| `BrowserPanel` 改动 | 新增 `previewOnly` + `onNavigate` props | 350 |
+| `WorkspacePanel` 改动 | focusedPane 状态路由 + auto-exit + FocusModeButton 集成 | 1015 |
+
+### UX 修复（相对上游）
+
+| # | 级别 | 问题 | 修复 |
+|---|------|------|------|
+| 1 | P1 | 浏览器 focus 后切回丢失预览状态 | `onNavigate` 回调同步 port/path 到父层 |
+| 2 | P1 | focus 按钮位置各 pane 不统一 | 统一放在 tab bar（任何 pane 同一位置） |
+| 3 | P2 | 空态时 focus 按钮可点（误导） | `disabled` 禁用（无预览/无 worktree/无文件） |
+| 4 | P2 | 进出硬切无过渡 | `animate-fade-in` |
+| 5 | P3 | 退出按钮可能被内容遮挡 | sticky header 替代 absolute overlay |
+
+### Acceptance Criteria
+
+- [x] AC-F1: 任意 workspace pane 可一键展开到全区域
+- [x] AC-F2: 统一的退出方式（Escape + 可见退出按钮）
+- [x] AC-F3: 浏览器预览状态在 focus 切换间保持
+- [x] AC-F4: 空态（无预览/无文件/无 worktree）时 focus 按钮禁用
+- [x] AC-F5: 上下文切换（viewMode/file/workspaceMode 变化）自动退出 focus
+- [x] AC-F6: 10 个测试覆盖 FocusModeButton + WorkspaceFocusShell + WorkspacePreviewOnly
+
+### Review 记录
+
+- 砚砚(codex) R1: 2 P1（onNavigate 空态残留 + 测试 prop 名错误）→ 修复 → R2 放行
+- 云端 Codex: "Didn't find any major issues" → 0 P1/P2
 
 ## Known Bugs (Follow-up)
 
