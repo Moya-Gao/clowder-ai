@@ -107,6 +107,14 @@ done < <(git worktree list --porcelain | grep '^worktree ')
 printf "\n${BOLD}[Worktrees]${NC} %d 个\n" "${#worktree_paths[@]}"
 for wt in "${worktree_paths[@]}"; do
   wt_skills="$wt/.claude/skills"
+
+  # Skip ff-only sync worktrees (runtime, alpha) — their content comes from
+  # origin/main; local symlink generation only causes merge conflicts.
+  wt_branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  if [[ "$wt_branch" == */main-sync ]]; then
+    continue
+  fi
+
   # Only sync worktrees that have a .claude/skills dir (or main)
   if [ "$wt" = "$MAIN_REPO" ] || [ -d "$wt_skills" ]; then
     wt_label="$(basename "$wt")"

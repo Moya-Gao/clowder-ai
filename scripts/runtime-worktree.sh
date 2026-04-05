@@ -322,7 +322,14 @@ sync_runtime_worktree() {
 
   info "syncing runtime worktree with $REMOTE_NAME/main (ff-only)"
   git -C "$RUNTIME_DIR" fetch "$REMOTE_NAME" main
-  git -C "$RUNTIME_DIR" merge --ff-only "$REMOTE_NAME/main"
+  if ! git -C "$RUNTIME_DIR" merge --ff-only "$REMOTE_NAME/main" 2>/dev/null; then
+    echo ""
+    echo "  ff-only merge failed — likely stale untracked files blocking the sync."
+    echo "  Check with:  git -C \"$RUNTIME_DIR\" status"
+    echo "  Quick fix:   git -C \"$RUNTIME_DIR\" clean -fd .claude/skills/"
+    echo ""
+    die "runtime sync failed (see above)"
+  fi
 
   if [ "$RUN_INSTALL" = "true" ]; then
     info "refreshing dependencies in runtime worktree"
