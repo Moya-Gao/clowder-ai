@@ -119,4 +119,50 @@ describe('buildSlideMasters', () => {
     assert.ok(content);
     assert.deepEqual(content.opts.background, { color: 'FFFFFF' });
   });
+
+  it('content master has top red line and red indicator bar', () => {
+    const pres = createMockPres();
+    buildSlideMasters(pres as never, loadTheme());
+    const content = pres.masters.find((m) => m.name === MASTER_NAMES.CONTENT);
+    assert.ok(content);
+    const objects = content.opts.objects as { rect: Record<string, unknown> }[];
+    assert.ok(Array.isArray(objects), 'content master should have objects array');
+    assert.equal(objects.length, 2, 'content master should have top line + indicator');
+    // Top red line
+    assert.deepEqual(objects[0].rect.fill, { color: 'CF0A2C' });
+    // Red indicator bar
+    assert.deepEqual(objects[1].rect.fill, { color: 'CF0A2C' });
+  });
+
+  it('content master has slide number', () => {
+    const pres = createMockPres();
+    buildSlideMasters(pres as never, loadTheme());
+    const content = pres.masters.find((m) => m.name === MASTER_NAMES.CONTENT);
+    assert.ok(content);
+    const sn = content.opts.slideNumber as Record<string, unknown>;
+    assert.ok(sn, 'content master should have slide number');
+    assert.equal(sn.color, '999999');
+  });
+
+  it('section master has red navigation bar', () => {
+    const pres = createMockPres();
+    buildSlideMasters(pres as never, loadTheme());
+    const section = pres.masters.find((m) => m.name === MASTER_NAMES.SECTION);
+    assert.ok(section);
+    const objects = section.opts.objects as { rect: Record<string, unknown> }[];
+    assert.ok(Array.isArray(objects), 'section master should have objects array');
+    assert.equal(objects.length, 1, 'section master should have nav bar');
+    assert.deepEqual(objects[0].rect.fill, { color: 'CF0A2C' });
+    assert.equal(objects[0].rect.h, 1.02);
+  });
+
+  it('closing master has top red line', () => {
+    const pres = createMockPres();
+    buildSlideMasters(pres as never, loadTheme());
+    const closing = pres.masters.find((m) => m.name === MASTER_NAMES.CLOSING);
+    assert.ok(closing);
+    const objects = closing.opts.objects as { rect: Record<string, unknown> }[];
+    assert.ok(Array.isArray(objects));
+    assert.deepEqual(objects[0].rect.fill, { color: 'CF0A2C' });
+  });
 });
