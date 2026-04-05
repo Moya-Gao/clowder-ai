@@ -237,6 +237,20 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 2. **D2-TwoPhase**: 两阶段密度控制 — Draft(640×360, 强制高密度) → Final(1280×720, 只增强不减密)
 3. **D3-DensityGate**: Playwright 渲染后自动检测白空间占比 + 溢出检测，不达标退回猫猫重画
 4. **D4-Integration**: 集成进 F144 管线 — Research → Narrative → **AI 画 HTML** → Playwright → dom-to-pptx → .pptx
+5. **D5-VerticalSlice**: 先做 1 页高密页验证"猫猫画 HTML → PPTX"全链路（HTML→截图→density 报告→PPTX），通过后再扩页。输入六件套（品牌/受众/页型/观看模式/页目的/证据源），输出四件套（HTML/截图/density/PPTX）
+
+#### 华为级密度填充技巧（铲屎官反馈沉淀 2026-04-05）
+
+铲屎官反复指出猫猫画的 HTML"空白太多"。根本问题不是空白检测不够，而是猫猫没有用足页面空间。华为真正的 PPT 会用以下手段把页面塞满：
+
+1. **SmartArt/流程图**：把端到端工作流画成箭头连接的步骤图，占满横向空间
+2. **多区块混排**：一页同时包含表格 + 文字总结 + 图表 + 截图/示意图
+3. **格子间距极小**：表格/卡片的 cell padding 和 gap 压到最小（4px 级）
+4. **文字密度**：关键信息用加粗/颜色区分，辅助信息用 9-10px 紧排
+5. **全版面利用**：华为 PPT 几乎不留空白区域，每个角落都有内容或装饰
+6. **数据可视化填充**：空余区域用迷你图表、进度条、状态指示器填充
+7. **信息层级压缩**：别人用 4-5 页讲的内容，华为用 1-2 页讲清，靠的是排版密度而非内容删减
+8. **结论性文字条**：页面底部用深色底条放核心结论，不浪费任何空间
 
 #### 其他进阶能力（Phase E+）
 
@@ -285,8 +299,9 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 - [x] AC-D2: 两阶段密度控制 — Draft(640×360) 强制高密度 → Final(1280×720) 只增强不减密
 - [x] AC-D3: Playwright 白空间检测 — 渲染后自动检测白空间占比 < 30%，溢出检测，不达标退回
 - [x] AC-D4: 同一主题对比 pptx-craft vs Phase D 输出，信息密度 ≥ 对方，内容准确性 > 对方（research 质量差异）
-- [ ] AC-D5: 集成进管线 — Research → Narrative → AI 画 HTML → Playwright → dom-to-pptx → .pptx，铲屎官一句话触发
-- [ ] AC-D6: 华为级视觉验收 — 铲屎官确认"一两页讲清楚重点"
+- [ ] AC-D5: 垂直切片验证 — 1 页高密页走完 HTML→截图→density 报告→PPTX 全链路。输入六件套（品牌/受众/页型/观看模式/页目的/证据源），输出四件套（HTML/截图/density/PPTX）。砚砚 D1 结构审 + 烁烁 D2 美学审
+- [ ] AC-D6: 华为级视觉验收 — 铲屎官确认"一两页讲清楚重点"，信息密度达华为参考图水平，运用密度填充技巧（SmartArt/多区块混排/极小间距/全版面利用）
+- [ ] AC-D7: 集成进管线 — Research → Narrative → AI 画 HTML → Playwright → dom-to-pptx → .pptx，铲屎官一句话触发
 
 ## Dependencies
 
@@ -350,6 +365,8 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | KD-14 | **Phase C 选型：C3 确定性 SVG 编译为主，C2 AI-direct SVG 为辅** | 宪宪+砚砚共识：C3 确定性强/可测/可回归；C2 创意强但不稳定，进人工验收通道。C1 铲屎官否决（不引入 Python），C4 仅应急兜底 | 2026-04-02 |
 | KD-15 | **Pencil MCP 定位为 design-time，不进 runtime 主路径** | 砚砚 pushback：Pencil 主打 .pen 编辑/导出，自动化 Blueprint→稳定 SVG 链路不够硬。适合模板设计与视觉校准 | 2026-04-02 |
 | KD-16 | **Phase D 方向转变：AI 猫猫直接画 HTML，不靠确定性编译器排版** | 铲屎官拍板：确定性编译器/规则自动生成布局效果不够好，密度不够华为级。学习 pptx-craft 的 "AI 直接写 HTML+CSS" 路线——让猫猫（Opus）直接画布局，而不是用算法算。Phase C SVG 编译器保留为 diagram fallback。核心差异化：我们的 research pipeline（deep-research + 多猫讨论）内容质量碾压对方 web fetch，配合 AI 画 HTML 实现"高质量内容 × 高密度布局" | 2026-04-03 |
+| KD-17 | **默认主路径：AI 猫猫画 HTML 是唯一创作路径** | 编译器（Phase B/C）不替猫猫做版式决策。猫猫拿 storyline + theme tokens 直接画 1280×720 HTML+CSS。编译器降级为基础设施：只负责 HTML→可编辑 PPTX 的转换 + 密度/溢出门禁检测。chart/table/KPI 保留语义 emitter（原生可编辑对象），但版式由猫猫在 HTML 中决定。猫猫画的 D4 华为高密战略页密度远超编译器自动布局，铲屎官直接确认。宪宪+砚砚共识 | 2026-04-05 |
+| KD-18 | **D4 对比口径：密度结论有效，baseline 是模拟非实测** | AC-D4 的 4.1% vs 43.9% 白空间对比有效证明方向正确，但 pptx-craft baseline 是竞品报告模拟生成、非实际 pptx-craft 跑出来的。后续需对方实际输出作为对拍基准集。不影响 Phase D 默认路径决策 | 2026-04-05 |
 
 ## Timeline
 
@@ -376,6 +393,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-04 | **Phase D 基础设施 merged** (PR #949) — flat-dom-compiler + element-router + density-analyzer。AC-D1/D2/D3 交付，179 tests。砚砚 4 轮 review 放行 + 云端 0 P1/P2。A8 gate chain wiring 拆后续 PR |
 | 2026-04-04 | **A8 gate chain merged** (PR #955) — gateCompiledDeck + gateTwoPhaseDeck + compileAndBuild overload。密度门禁接入 pipeline，190 tests。砚砚 2 轮 review 放行 + 云端 0 P1/P2 |
 | 2026-04-04 | **AC-D4 对比完成** — 同一主题（华为 AI 差异化）Phase D vs pptx-craft（同底色公平对比）：我们 4.1% 白空间 vs 对方 43.9%，83 元素 vs 12 元素，45 文本 vs 10 文本。密度门禁 PASS vs FAIL。数据点密度 4.5x。baseline 为竞品报告模拟（非实测）。196 tests |
+| 2026-04-05 | **KD-17/KD-18 决策落定** — 宪宪+砚砚共识：AI 画 HTML 是唯一创作路径（编译器降级为基础设施）；D4 口径有效但 baseline 是模拟非实测。铲屎官反馈沉淀华为级密度填充技巧（8 种手段）。下一步：D5 垂直切片验证（先 1 页再扩页） |
 
 ## Review Gate
 
