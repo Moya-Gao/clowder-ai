@@ -419,6 +419,16 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
             const cats = data.targetCats ?? [];
             for (let i = 0; i < cats.length; i++) {
               const invId = i === 0 ? data.invocationId : `${data.invocationId}-${cats[i]}`;
+              // #963 fix: preempt stale slot for same cat before registering.
+              // Side-dispatch callbacks send their own intent_mode, orphaning the
+              // parent's slot (parentInvId-catId). Remove it to match backend
+              // tracker.start() preemption behavior.
+              const cur = useChatStore.getState().activeInvocations;
+              for (const [key, info] of Object.entries(cur)) {
+                if (info.catId === cats[i] && key !== invId) {
+                  useChatStore.getState().removeActiveInvocation(key);
+                }
+              }
               useChatStore.getState().addActiveInvocation(invId, cats[i]!, data.mode);
             }
           }
@@ -434,6 +444,13 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
             const cats = data.targetCats ?? [];
             for (let i = 0; i < cats.length; i++) {
               const invId = i === 0 ? data.invocationId : `${data.invocationId}-${cats[i]}`;
+              // #963 fix: preempt stale slot (same as active-thread path above)
+              const threadState = store.getThreadState(data.threadId);
+              for (const [key, info] of Object.entries(threadState.activeInvocations)) {
+                if (info.catId === cats[i] && key !== invId) {
+                  store.removeThreadActiveInvocation(data.threadId, key);
+                }
+              }
               store.addThreadActiveInvocation(data.threadId, invId, cats[i]!, data.mode);
             }
           } else {
