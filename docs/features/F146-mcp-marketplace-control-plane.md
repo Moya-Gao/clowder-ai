@@ -67,18 +67,20 @@ L3 不直接写入 L1，内部拆成三个状态面：
 
 在进入实现前，先完成一轮云端咨询调研，避免我们在“看起来相似”的生态接口上误判。
 
-调研聚焦四个问题：
+调研聚焦六个问题：
 
 1. Claude / Codex / OpenClaw / Antigravity 的插件/连接器格式交集有多大
 2. 哪些生态支持“程序化发布/安装 API”，哪些只支持 UI/CLI 手工路径
 3. 能否安全地做统一 adapter（最小公共字段 + 各家扩展字段）
 4. 供应链风险最小化策略（官方认证、签名、审核、安装门禁）
 5. 外部文档 URL 有效性与内容一致性（防止基于失效链接立项）
+6. F129 Pack 与 marketplace 条目模型如何一一映射（Pack 作为 L3 可分发单元）
 
 产物：
 - 跨生态 schema 对照矩阵
 - adapter 可行性结论（直接可做 / 需降级 / 不建议）
 - Phase A-B 的实现边界收敛稿
+- F129 Pack ↔ Marketplace 条目映射契约（字段与 installPlan 对齐）
 
 ### Phase A: 能力中心写路径（One-click Add/Remove MCP）
 
@@ -118,9 +120,14 @@ L3 不直接写入 L1，内部拆成三个状态面：
 统一输出模型：
 - `packageId`
 - `ecosystem` (`codex`/`claude`/`openclaw`/`antigravity`)
-- `kind` (`mcp`/`plugin`/`bundle`/`connector`)
+- `kind` (`mcp`/`plugin`/`bundle`/`connector`/`pack`)
 - `trustLevel` (`official`/`verified`/`community`)
 - `installPlan`（最终映射为 L1 MCP entry 或 L2/L3 扩展）
+
+承接边界（与 F129 对齐）：
+- F146 负责 Marketplace / Registry 的发现、分发与治理（owner）
+- F129 负责 Pack 生产、编译与运行时消费（producer + consumer）
+- F129 Phase C 的 “社区 Registry/Marketplace” 由 F146 承接；F129 通过 F146 Marketplace 被发现与安装
 
 ### Phase C: 安装治理与安全门禁
 
@@ -198,6 +205,7 @@ Skill 内容安全（防下毒）：
 - [ ] AC-R3: 给出统一 adapter 最小字段集（必填）+ 各生态扩展字段（可选）
 - [ ] AC-R4: 形成“先做什么、不做什么”的实施收敛结论并回写 F146
 - [ ] AC-R5: 外部文档 URL 逐条验真（可访问 + 内容匹配），形成证据表
+- [ ] AC-R6: 形成 F129 Pack ↔ Marketplace 条目映射契约（kind/metadata/installPlan 对齐）
 
 ### Phase A（能力中心写路径）
 - [ ] AC-A1: Hub 可通过 UI 新增 MCP（无需手改 `capabilities.json`）
@@ -213,6 +221,7 @@ Skill 内容安全（防下毒）：
 - [ ] AC-B3: 能把 marketplace 条目映射成可执行 `installPlan`
 - [ ] AC-B4: 支持统一搜索接口返回 Antigravity 结果（至少 discovery + metadata）
 - [ ] AC-B5: Antigravity 结果与现有 `pencil` resolver 策略保持一致性（不互相冲突）
+- [ ] AC-B6: 统一搜索结果支持 `kind=pack`，可发现并安装来自 F129 产出的 Pack
 
 ### Phase C（治理与版本）
 - [ ] AC-C1: 默认策略阻止一键安装 `community` 包（需二次确认）
@@ -274,12 +283,14 @@ Skill 内容安全（防下毒）：
 | KD-4 | 三家生态先统一 discovery，再逐步统一 install | 降低首期复杂度与安全风险 | 2026-03-28 |
 | KD-5 | Antigravity 不是“可选”，首期必须纳入 discovery 与一致性约束 | 我们已有活跃 `pencil` 生态，不能与 F145 resolver 脱节 | 2026-03-28 |
 | KD-6 | Runtime Connect / OpenAI connectors 在本 feature 里降为 P2 | 对我们当前主路径不是首要堵点，避免 Phase A 扩 scope | 2026-03-28 |
+| KD-7 | 承接 F129 的 Marketplace/Registry owner 职责，Pack 纳入 L3 分发统一模型 | 避免双 Feature 重复建设分发层，明确 owner/consumer 边界 | 2026-04-04 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-03-28 | 立项（基于铲屎官新诉求与 F145 完成态） |
+| 2026-04-04 | 与 F129 scope 对齐：F146 承接 Marketplace owner，Pack 纳入 L3 `kind=pack` |
 
 ## Review Gate
 

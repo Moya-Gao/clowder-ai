@@ -1,6 +1,6 @@
 ---
 feature_ids: [F129]
-related_features: [F032, F059, F093, F127]
+related_features: [F032, F059, F093, F127, F146]
 topics: [ecosystem, open-source, multi-agent, sharing, pack]
 doc_kind: spec
 created: 2026-03-19
@@ -182,11 +182,11 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 - Pack Remix：下载→修改→再发布的 patch 机制
 - 公共知识流动，私有 Growth 不外泄
 
-### Phase C: Capability Pack + Marketplace
+### Phase C: Capability Pack + Composer
 
 - MCP Capability Pack 运行时加载
 - Pack Composer（零代码图形化捏世界/捏猫/捏流程工坊）
-- 社区 Registry / Marketplace
+- Marketplace 分发由 F146 承接（F129 作为 Pack 生产侧与消费侧）
 
 ## Acceptance Criteria
 
@@ -212,13 +212,13 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 
 #### Phase B-β（Import + Remix）📋
 - [ ] AC-B3: Pack Remix 机制可用——下载、修改、再发布
-- [ ] AC-B5: OpenClaw Bundle importer MVP（至少支持 SKILL.md subtype，映射到 workflows/defaults/masks）
-- [ ] AC-B6: SillyTavern Character Card V2/V3 + World Book → Pack importer MVP（映射到 masks/knowledge）
+- [ ] AC-B5: OpenClaw Bundle importer MVP（至少支持 SKILL.md subtype，映射到 workflows/defaults/masks；字段映射依赖 F146 Phase R 跨生态 schema 对照矩阵）
+- [ ] AC-B6: SillyTavern Character Card V2/V3 + World Book → Pack importer MVP（映射到 masks/knowledge；字段映射依赖 F146 Phase R 跨生态 schema 对照矩阵）
 
-### Phase C（Capability Pack + Marketplace）
+### Phase C（Capability Pack + Composer）
 - [ ] AC-C1: MCP Capability Pack 运行时加载可用
 - [ ] AC-C2: Pack Composer 图形化工坊 MVP 可用
-- [ ] AC-C3: 社区 Registry 上线
+- [ ] AC-C3: Pack 能被 F146 Marketplace 发现并生成可执行 installPlan（F129 作为 consumer）
 
 ## Dependencies
 
@@ -226,6 +226,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 - **Related**: F059（开源计划 — Pack 是开源生态的核心分发单元）
 - **Related**: F093（Cats & U 世界引擎 — World Layer 架构，Pack 是其分享机制）
 - **Related**: F127（猫猫管理重构 — 动态创建猫，Pack masks 的运行时基础）
+- **Related**: F146（MCP Marketplace Control Plane — 承接 Marketplace/Registry 分发职责；F129 B-β importer 映射依赖 F146 Phase R 对照矩阵）
 
 ## Risk
 
@@ -280,6 +281,7 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | 2026-03-26 | Phase A merged (PR #748) — schema + loader + compiler + runtime wiring, 141 tests, codex R1 review |
 | 2026-03-26 | OQ-5 解锁：F093 KD-12 五层字段分类收口，masks immutable 白名单可对齐 L1+L2 |
 | 2026-04-03 | Phase B-α merged (PR #942) — PackExporter + GrowthBoundary + export endpoint + Coding World + TRPG packs, 69 tests, codex R1-R4 review |
+| 2026-04-04 | 与 F146 做 scope 对齐：F129 Phase C 去 Marketplace owner，改为消费 F146 Marketplace；B-β importer 映射依赖 F146 Phase R |
 
 ## Review Gate
 
@@ -296,4 +298,5 @@ OpenClaw 在 v2026.3.22（2026-03-22）做了底层架构大换血（12 breaking
 | **Feature** | `docs/features/F059-open-source-plan.md` | 开源计划 |
 | **Feature** | `docs/features/F093-cats-and-u-world-engine.md` | Cats & U 世界引擎 |
 | **Feature** | `docs/features/F127-cat-instance-management.md` | 猫猫管理重构（动态创建猫） |
+| **Feature** | `docs/features/F146-mcp-marketplace-control-plane.md` | Marketplace 控制平面（承接 F129 分发层） |
 | **Lesson** | `docs/lessons/07-from-cafe-to-platform.md` | 同权脚本插件列为禁区 |
