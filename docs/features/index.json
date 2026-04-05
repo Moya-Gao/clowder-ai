@@ -849,7 +849,7 @@
     {
       "id": "F138",
       "name": "Cat Café Video Studio — AI 视频制作管线",
-      "status": "spec | **Owner**: 金渐层 | **Priority**: P1",
+      "status": "in-progress (Phase 0 调研完成，管线设计收敛中) | **Owner**: 宪宪 + 金渐层 | **Priority**: P1",
       "file": "F138-video-studio.md"
     },
     {
@@ -931,5 +931,5 @@
       "file": "F151-xiaoyi-channel-gateway.md"
     }
   ],
-  "generated_at": "2026-04-04T15:19:03.463Z"
+  "generated_at": "2026-04-05T12:07:51.927Z"
 }
