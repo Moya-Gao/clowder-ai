@@ -660,6 +660,33 @@ skills:
     sop_step: null
     merged_from: null
 
+  # ── PPT 制作全链路 (F144) ──
+  ppt-forge:
+    description: >
+      PPT 制作全链路：内容规划 → 风格定调 → Slide 制作 → 视觉审查 → 导出验证 → 交付。
+      Use when: 做 PPT、做演示文稿、做 slide、做海报、PPT review、视觉审查。
+      Not for: 纯代码开发（用 worktree/tdd）、纯文档写作（直接写）。
+      Output: 高密度 HTML slide + 多猫审查通过 + 导出验证。
+    triggers:
+      - "做 PPT"
+      - "做个 PPT"
+      - "做演示"
+      - "做 slide"
+      - "PPT review"
+      - "视觉审查"
+      - "ppt-forge"
+      - "做海报"
+      - "华为风格"
+      - "做个演示文稿"
+    not_for:
+      - "纯代码开发"
+      - "纯文档写作"
+    output: "High-density HTML slides + multi-cat visual review pass + export verification"
+    next: ["feat-lifecycle"]
+    sop_step: null
+    merged_from: null
+    feature: "F144"
+
 # ─── 降级为 refs/（不再是独立 skill） ─────────────────
 refs:
   mcp-callbacks:
