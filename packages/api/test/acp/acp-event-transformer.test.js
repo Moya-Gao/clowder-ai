@@ -60,6 +60,49 @@ describe('transformAcpEvent', () => {
     assert.deepEqual(result.toolInput, { path: '/tmp/test.txt' });
   });
 
+  it('tool_call with "name" field (Gemini CLI compat) → tool_use', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'tool_call',
+        name: 'cat_cafe_post_message',
+        input: { content: 'hello' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'tool_use');
+    assert.equal(result.toolName, 'cat_cafe_post_message');
+    assert.deepEqual(result.toolInput, { content: 'hello' });
+  });
+
+  it('tool_call with "tool_name" field (snake_case compat) → tool_use', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'tool_call',
+        tool_name: 'search_evidence',
+        tool_input: { query: 'test' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'tool_use');
+    assert.equal(result.toolName, 'search_evidence');
+    assert.deepEqual(result.toolInput, { query: 'test' });
+  });
+
+  it('tool_call with no recognizable name field → tool_use with undefined toolName', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'tool_call',
+        content: { type: 'text', text: 'some content' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'tool_use');
+    assert.equal(result.toolName, undefined);
+  });
+
   it('tool_call_update → tool_use (incremental)', () => {
     const update = {
       sessionId: 's1',
@@ -73,6 +116,20 @@ describe('transformAcpEvent', () => {
     assert.equal(result.type, 'tool_use');
     assert.equal(result.toolName, 'read_file');
     assert.equal(result.content, 'file contents here');
+  });
+
+  it('tool_call_update with "name" field (Gemini CLI compat) → tool_use', () => {
+    const update = {
+      sessionId: 's1',
+      update: {
+        sessionUpdate: 'tool_call_update',
+        name: 'write_file',
+        content: { type: 'text', text: 'wrote 42 bytes' },
+      },
+    };
+    const result = transformAcpEvent(update, catId, metadata);
+    assert.equal(result.type, 'tool_use');
+    assert.equal(result.toolName, 'write_file');
   });
 
   it('plan → system_info with type=plan', () => {

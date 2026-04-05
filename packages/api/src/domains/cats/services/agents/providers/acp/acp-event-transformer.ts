@@ -6,8 +6,30 @@
  */
 
 import type { CatId } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import type { AgentMessage, MessageMetadata } from '../../../types.js';
 import type { AcpSessionUpdate } from './types.js';
+
+const log = createModuleLogger('acp-event-xform');
+
+/** Extract tool name from ACP event, tolerating field name variants across CLI versions. */
+function resolveToolName(inner: Record<string, unknown>): string | undefined {
+  // camelCase (our original expectation)
+  if (typeof inner.toolName === 'string') return inner.toolName;
+  // plain "name" (observed in some Gemini CLI versions)
+  if (typeof inner.name === 'string') return inner.name;
+  // snake_case variant
+  if (typeof inner.tool_name === 'string') return inner.tool_name;
+  return undefined;
+}
+
+/** Extract tool input from ACP event, tolerating field name variants. */
+function resolveToolInput(inner: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (inner.toolInput && typeof inner.toolInput === 'object') return inner.toolInput as Record<string, unknown>;
+  if (inner.input && typeof inner.input === 'object') return inner.input as Record<string, unknown>;
+  if (inner.tool_input && typeof inner.tool_input === 'object') return inner.tool_input as Record<string, unknown>;
+  return undefined;
+}
 
 export function transformAcpEvent(
   update: AcpSessionUpdate,
@@ -16,13 +38,9 @@ export function transformAcpEvent(
 ): AgentMessage | null {
   // Gemini CLI may send update fields nested under `update.update` (ACP spec)
   // or flat at the top level of notification params (observed in Gemini CLI v0.35.3).
-  const inner = (update.update ?? update) as {
-    sessionUpdate?: string;
-    content?: { type: string; text?: string };
-    toolName?: string;
-    toolInput?: Record<string, unknown>;
-  };
-  const { sessionUpdate, content, toolName, toolInput } = inner;
+  const inner = (update.update ?? update) as Record<string, unknown>;
+  const sessionUpdate = inner.sessionUpdate as string | undefined;
+  const content = inner.content as { type: string; text?: string } | undefined;
   if (!sessionUpdate) return null;
   const now = Date.now();
 
@@ -45,7 +63,12 @@ export function transformAcpEvent(
         timestamp: now,
       };
 
-    case 'tool_call':
+    case 'tool_call': {
+      const toolName = resolveToolName(inner);
+      const toolInput = resolveToolInput(inner);
+      if (!toolName) {
+        log.warn({ sessionUpdate, keys: Object.keys(inner) }, 'tool_call: could not resolve toolName');
+      }
       return {
         type: 'tool_use',
         catId,
@@ -54,8 +77,10 @@ export function transformAcpEvent(
         metadata,
         timestamp: now,
       };
+    }
 
-    case 'tool_call_update':
+    case 'tool_call_update': {
+      const toolName = resolveToolName(inner);
       return {
         type: 'tool_use',
         catId,
@@ -64,6 +89,7 @@ export function transformAcpEvent(
         metadata,
         timestamp: now,
       };
+    }
 
     case 'plan':
       return {
