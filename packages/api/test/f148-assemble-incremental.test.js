@@ -951,3 +951,36 @@ describe('VG-3 P1-1: coverageMap threadMemory decisions passthrough', () => {
     );
   });
 });
+
+describe('assembleIncrementalContext — system error exclusion', () => {
+  test('excludes userId=system error messages from incremental context', async () => {
+    const messageStore = new MessageStore();
+    const cursorStore = new DeliveryCursorStore();
+
+    // User message
+    messageStore.append(mockMsg({ content: '你好', timestamp: Date.now() - 3000 }));
+    // System error (persisted error badge)
+    messageStore.append(
+      mockMsg({
+        userId: 'system',
+        catId: null,
+        content: 'Error: stream_idle_stall: Gemini stopped',
+        origin: 'stream',
+        timestamp: Date.now() - 2000,
+      }),
+    );
+    // Cat response
+    messageStore.append(mockMsg({ catId: 'opus', content: '猫猫回复', timestamp: Date.now() - 1000 }));
+
+    const deps = {
+      messageStore,
+      deliveryCursorStore: cursorStore,
+      invocationDeps: { threadStore: mockThreadStore() },
+      evidenceStore: null,
+    };
+
+    const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'codex', {});
+    assert.ok(!result.contextText.includes('stream_idle_stall'), 'system error should NOT enter incremental context');
+    assert.ok(!result.contextText.includes('铲屎官] Error:'), 'system error must not appear as 铲屎官 message');
+  });
+});

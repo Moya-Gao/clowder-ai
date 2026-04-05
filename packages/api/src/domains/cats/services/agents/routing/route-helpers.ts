@@ -338,6 +338,8 @@ export async function assembleIncrementalContext(
   // Debug mode: cats see all whispers (full transparency). Play mode: cats only see their own whispers.
   const viewer = (thinkingMode ?? 'play') === 'play' ? { type: 'cat' as const, catId } : { type: 'user' as const };
   const relevant = unseen.filter((m) => {
+    // System-generated messages (persisted error badges) are display-only — never enter prompt
+    if (m.userId === 'system') return false;
     // F148 Phase E: briefing messages are non-routing — never enter incremental context (AC-E2)
     if (m.origin === 'briefing') return false;
     // F35: Exclude whispers not intended for this cat (play mode only)
@@ -560,7 +562,7 @@ async function assembleSmartWindowContext(
   const compositeQueryTerms = [threadTitle, currentMsgText]
     .concat(
       burst
-        .filter((m) => m.catId === null)
+        .filter((m) => m.catId === null && m.userId !== 'system')
         .slice(-2)
         .map((m) => m.content.slice(0, 200)),
     )
@@ -616,7 +618,7 @@ async function assembleSmartWindowContext(
 
   // 3.8 Evidence recall (fail-open) — must run before coverage map so hints are populated
   const currentMsg = currentUserMessageId ? burst.find((m) => m.id === currentUserMessageId) : undefined;
-  const nonSystemRecent = burst.filter((m) => m.catId === null).slice(-2);
+  const nonSystemRecent = burst.filter((m) => m.catId === null && m.userId !== 'system').slice(-2);
   const evidenceLines = await recallEvidence(
     deps.evidenceStore,
     threadTitle,
