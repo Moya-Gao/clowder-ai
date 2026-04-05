@@ -33,8 +33,12 @@ The "Cozy Swiss" base means: warm ivory backgrounds, ultra-fine borders, a singl
 - Rate-limited animations: bounce, shake, pulse — all under 1s, never constant
 
 **Visual Anchors:**
-- Brand Vibe: `docs/features/F056-cat-cafe-design-language.md` §A1 (Postmark Cafe concept)
-- Winning Design Comp: Pencil frame `Nfif0` (砚砚 Postmark version — cream paper + wax seal + stamp pill)
+- Design Truth Source: `docs/features/F056-cat-cafe-design-language.md` §A1 (Postmark Cafe concept — 设计语言公式、四大宪章、三猫打样竞赛结果)
+- Token Definitions: `packages/web/src/app/globals.css` `:root` block (all `--cafe-*` and `--cat-*` CSS variables)
+- Agent Persona Config: `cat-config.json` (color mappings per agent)
+- Component Reference: `packages/web/src/components/ChatMessage.tsx` (breed corner implementation)
+
+> **For Vision-capable agents**: When screenshot baselines exist in `docs/features/assets/F056/`, reference them inline. Until then, build from the token tables and component specs below — they are verified against running code.
 
 ---
 
@@ -46,7 +50,7 @@ Cat Cafe uses a **three-layer token architecture** — base palette (raw colors)
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `--cat-cream-white` | `#fdf8f3` | Background base — warm cream with a yellow-pink tint |
+| `--cat-cream-white` | `#fdf8f3` | Background base — warm cream with a yellow-pink tint. *(Note: F056 spec §A2 lists `#FFF9F0` from initial Pencil design; `#fdf8f3` is what shipped in CSS and is the current truth)* |
 | `--cat-soft-blue` | `#81d4fa` | Functional accent — cross-posted content isolation |
 | `--cat-warm-brown` | `#8d6e63` | Text/borders — earthy cafe warmth |
 | `--cat-paw-pink` | `#ffab91` | Important interactions + easter eggs — the single "pop" color |
@@ -72,7 +76,7 @@ Cat Cafe uses a **three-layer token architecture** — base palette (raw colors)
 | `--cafe-accent` | `--cat-paw-pink` | `#ffab91` | CTAs, important interactive elements |
 | `--cafe-accent-hover` | computed | `#ff9a7a` | Accent on hover — slightly warmer |
 | `--cafe-crosspost` | `--cat-soft-blue` | `#81d4fa` | Cross-thread message indicators |
-| `--cafe-interactive` | computed | `#85665a` | Interactive text (links, clickable) |
+| `--cafe-interactive` | computed | `#85655a` | Interactive text (links, clickable) |
 
 #### Dark Mode (`[data-theme="dark"]`)
 
@@ -107,9 +111,9 @@ Each AI agent has a 4-color identity family. These express personality without c
 
 Dark mode override: Agent BG colors become `rgba(primary, 0.15)` for contrast on dark surfaces.
 
-### Gradient System
+### Gradient Policy — Subtle Temperature Gradients Only
 
-Cat Cafe is **gradient-free**. Visual richness comes from the interplay of warm surface tones (cream → sand → tan → ink), agent persona accents, and the light/dark section alternation. The warm palette itself creates a natural "gradient" as the eye moves through surface layers.
+Cat Cafe avoids high-contrast or cross-hue gradients. Visual richness comes primarily from the interplay of warm surface tones (cream → sand → tan → ink) and agent persona accents. However, **same-hue micro-gradients are permitted** for warmth transitions — for example, a gentle `from-opus-bg via-codex-bg to-gemini-bg` banner that blends agent persona backgrounds. The rule: gradients must feel like temperature shifts within the same warm family, never like a rainbow or a tech-startup hero section.
 
 ---
 
@@ -117,9 +121,9 @@ Cat Cafe is **gradient-free**. Visual richness comes from the interplay of warm 
 
 ### Font Family
 - **Body / UI**: `Inter`, fallback: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
-- **Headlines** (planned): `Outfit`, fallback: `Inter`
-- **Code**: `IBM Plex Mono` / `Roboto Mono`, fallback: `monospace`
-- **CJK**: `Noto Sans SC` for Chinese character support
+- **Headlines** (planned, not yet loaded): `Outfit`, fallback: `Inter`
+- **Code / Monospace**: Tailwind's `font-mono` utility — resolves to system monospace stack. No custom mono font is explicitly loaded; agent bubbles marked `font-mono` (Codex, Dare) use system `monospace`
+- **CJK** (planned, not yet loaded): `Noto Sans SC` for Chinese character support — currently falls back to system CJK fonts
 
 ### Hierarchy
 
@@ -136,8 +140,8 @@ Cat Cafe is **gradient-free**. Visual richness comes from the interplay of warm 
 ### Principles
 - **Inter everywhere, weight for hierarchy**: No font switching between sections — hierarchy is expressed through size and weight alone
 - **Generous line-height for body**: 1.5–1.6 for readability in a chat-heavy interface
-- **CJK awareness**: Noto Sans SC loaded for Chinese content (mixed zh/en is common)
-- **Codex gets monospace**: The engineer cat's messages use `Roboto Mono` at 0.95em — a personality signature in typography
+- **CJK awareness**: Chinese content (mixed zh/en is common) currently uses system CJK fonts; Noto Sans SC is planned
+- **Codex and Dare get monospace**: Engineer and executor cat bubbles use `font-mono` — a personality signature in typography
 - **No letterspacing tricks**: Inter's default spacing works at all sizes; small text uses font-weight 500 instead of letterspacing for clarity
 
 ---
@@ -158,12 +162,15 @@ The signature component — each cat's bubble has a breed-specific chamfered cor
 
 **Breed Corners (personality via geometry):**
 
-| Agent | Chamfered Corner | CSS | Meaning |
-|-------|-----------------|-----|---------|
-| Opus | Bottom-left | `rounded-bl-sm` (4px) | Thoughtful pause — grounded |
-| Codex | Bottom-right | `rounded-br-sm` (4px) | Precise execution — sharp end |
-| Gemini | Top-right | `rounded-tr-sm` (4px) | Creative spark — top flourish |
-| Cocreator | Bottom-right | `rounded-br-sm` (4px) | Owner — anchored at the base |
+| Breed | Agent(s) | Base Radius | Chamfered Corner | Font Override | Meaning |
+|-------|----------|-------------|-----------------|---------------|---------|
+| `ragdoll` | Opus, Sonnet | `rounded-2xl` | `rounded-bl-sm` (4px) | — | Thoughtful pause — grounded |
+| `maine-coon` | Codex, GPT | `rounded-2xl` | `rounded-br-sm` (4px) | `font-mono` | Precise execution — sharp end |
+| `siamese` | Gemini | `rounded-2xl` | `rounded-tr-sm` (4px) | — | Creative spark — top flourish |
+| `dragon-li` | Dare | `rounded-lg` | `rounded-tl-sm` (4px) | `font-mono` | Compact executor — structured, tight |
+| (default) | Cocreator, others | `rounded-2xl` | none | — | Clean, neutral bubble |
+
+> **Note**: `dragon-li` uses `rounded-lg` (8px) as its base radius instead of `rounded-2xl` (24px), giving Dare's bubbles a noticeably tighter, more structured feel. This is intentional — the executor cat's messages should feel compact and action-oriented.
 
 **Sender Name:**
 - Font-weight: bold
@@ -257,19 +264,20 @@ Cat Cafe uses **generous whitespace** to evoke the unhurried pace of a real cafe
 ### Three-Panel Layout
 
 ```
-┌─────────┬──────────────────┬─────────┐
-│ Sidebar │    Main Chat     │  Right  │
-│ (280px) │   (flexible)     │ (320px) │
-│         │                  │         │
-│ Thread  │  Message Feed    │  Agent  │
-│ List    │  + Input Box     │  State  │
-│         │                  │  Tools  │
-└─────────┴──────────────────┴─────────┘
+┌───────────┬──────────────────┬───────────┐
+│  Sidebar  │    Main Chat     │   Right   │
+│ (240px*)  │   (flexible)     │  (288px*) │
+│           │                  │           │
+│  Thread   │  Message Feed    │  Agent    │
+│  List     │  + Input Box     │  State    │
+│           │                  │  Tools    │
+└───────────┴──────────────────┴───────────┘
+* Default width — both panels are drag-to-resize
 ```
 
-- **Sidebar**: Thread list, navigation. Fixed width 280px, collapsible on mobile
+- **Sidebar**: Thread list, navigation. Default 240px, resizable (min 180px, max 480px), collapsible on mobile
 - **Main**: Chat feed, scrollable. Messages max-width 85% (mobile) / 75% (desktop)
-- **Right Panel**: Agent status, tools, context. Fixed width 320px, hidden on mobile
+- **Right Panel**: Agent status, tools, context. Default 288px, resizable, hidden below `lg` breakpoint
 
 ### Content Density
 
@@ -329,6 +337,7 @@ Same three-surface principle, inverted:
 - **Let cream breathe** — visible warm canvas between components is a feature, not wasted space
 - **Express agent identity subtly** — persona colors in bubbles and badges, not splashed everywhere
 - **Rate-limit animations** — hover/first-appearance/low-frequency only, never constant
+- **Use `ease-out` curves globally** — all transitions and animations should use `ease-out` (or `cubic-bezier(0.16, 1, 0.3, 1)` for spring-like effects). Avoid `linear` — it feels mechanical. We want "cat paw landing on a cushion", not "robot arm moving to position"
 - **Use metaphors that explain themselves** — "postcard from another room" (cross-post), "paw pad" (nav tab)
 - **Maintain dark mode warmth** — warm charcoals, cream-tinted whites, never pure black/white
 
@@ -339,7 +348,7 @@ Same three-surface principle, inverted:
 - **Don't mix agent persona colors into the brand palette** — Opus lavender is for Opus's bubble, not for a CTA button
 - **Don't create constant/looping animations** — bounce and shake are for momentary delight, not persistent decoration
 - **Don't crowd components** — if the cream canvas can't breathe between elements, the layout is too tight
-- **Don't hardcode hex values** — `cafe/no-hardcoded-colors` ESLint rule will block it
+- **Don't hardcode hex values** — `cafe/no-hardcoded-colors` ESLint rule flags it as a warning (`warn` level, not blocking — but treat warnings as tech debt to resolve)
 - **Don't make it "look like another product"** — no Notion gray, no Discord dark, no Slack purple. Cat Cafe has its own identity
 
 ---
@@ -397,13 +406,37 @@ Agent colors:  bg-opus-bg / text-opus-primary (substitute agent name)
 
 ### Building a Message Bubble
 
+> **IMPORTANT**: Tailwind uses static extraction — dynamic class interpolation like `` `bg-${agent}-bg` `` will NOT work. Always use a lookup object with complete, literal class strings.
+
 ```jsx
+// Breed style lookup — MUST use literal strings, never interpolate
+const BREED_STYLES = {
+  ragdoll:     { radius: 'rounded-2xl rounded-bl-sm', font: '' },
+  'maine-coon': { radius: 'rounded-2xl rounded-br-sm', font: 'font-mono' },
+  siamese:     { radius: 'rounded-2xl rounded-tr-sm', font: '' },
+  'dragon-li': { radius: 'rounded-lg rounded-tl-sm',  font: 'font-mono' },
+};
+const DEFAULT_STYLE = { radius: 'rounded-2xl', font: '' };
+
+// Agent color lookup — literal strings only
+const AGENT_COLORS = {
+  opus:      { bg: 'bg-opus-bg',      border: 'border-opus-light',      name: 'text-opus-dark' },
+  codex:     { bg: 'bg-codex-bg',     border: 'border-codex-light',     name: 'text-codex-dark' },
+  gemini:    { bg: 'bg-gemini-bg',    border: 'border-gemini-light',    name: 'text-gemini-dark' },
+  dare:      { bg: 'bg-dare-bg',      border: 'border-dare-light',      name: 'text-dare-dark' },
+  cocreator: { bg: 'bg-cocreator-bg', border: 'border-cocreator-light', name: 'text-cocreator-dark' },
+};
+
+// Usage
+const breed = BREED_STYLES[cat.breed] ?? DEFAULT_STYLE;
+const colors = AGENT_COLORS[cat.id];
+
 <div className={cn(
-  "border rounded-2xl px-4 py-3 transition-transform hover:-translate-y-0.5",
-  `bg-${agent}-bg border-${agent}-light`,
-  agentCornerClass  // e.g. "rounded-bl-sm" for Opus
+  "border px-4 py-3 transition-transform ease-out hover:-translate-y-0.5",
+  breed.radius, breed.font,
+  colors.bg, colors.border
 )}>
-  <div className={`text-${agent}-dark font-bold text-[0.85em] mb-1`}>
+  <div className={cn(colors.name, "font-bold text-[0.85em] mb-1")}>
     {senderName}
   </div>
   <div className="text-cafe text-sm leading-relaxed">
@@ -411,6 +444,8 @@ Agent colors:  bg-opus-bg / text-opus-primary (substitute agent name)
   </div>
 </div>
 ```
+
+> **Never skip the breed corner** — it's a cat's identity signature. Missing the chamfered corner is like calling a cat by the wrong name.
 
 ### Design Checklist for New Components
 
@@ -426,8 +461,9 @@ Agent colors:  bg-opus-bg / text-opus-primary (substitute agent name)
 
 ### Reference Implementation
 
-- **Message bubbles**: `packages/web/src/components/ChatMessage.tsx`
-- **Theme tokens**: `assets/themes/variables.css`
-- **Tailwind config**: `packages/web/tailwind.config.js`
-- **Theme provider**: `packages/web/src/components/ThemeProvider.tsx`
+- **Message bubbles**: `packages/web/src/components/ChatMessage.tsx` (breed corners, agent colors)
+- **Semantic tokens (CSS variables)**: `packages/web/src/app/globals.css` `:root` and `[data-theme="dark"]` blocks
+- **Legacy bubble theme**: `assets/themes/variables.css` (base palette + agent persona colors — NOT semantic tokens)
+- **Tailwind config**: `packages/web/tailwind.config.js` (color/animation/shadow mappings)
+- **Theme provider**: `packages/web/src/components/ThemeProvider.tsx` (next-themes, `data-theme` attribute)
 - **Design truth source**: `docs/features/F056-cat-cafe-design-language.md`
