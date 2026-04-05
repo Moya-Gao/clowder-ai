@@ -62,8 +62,16 @@ export function useChatSocketCallbacks({
         setIntentMode(data.mode as 'ideate' | 'execute');
         setTargetCats((data as { targetCats?: string[] }).targetCats ?? []);
       },
-      onTaskCreated: (task) => addTask(task as unknown as TaskItem),
-      onTaskUpdated: (task) => updateTask(task as unknown as TaskItem),
+      onTaskCreated: (task) => {
+        const t = task as Record<string, unknown>;
+        if (t.threadId !== threadId || t.kind === 'pr_tracking') return;
+        addTask(task as unknown as TaskItem);
+      },
+      onTaskUpdated: (task) => {
+        const t = task as Record<string, unknown>;
+        if (t.threadId !== threadId || t.kind === 'pr_tracking') return;
+        updateTask(task as unknown as TaskItem);
+      },
       // onThreadSummary removed (clowder-ai#343): summaries no longer injected into chat flow.
       onHeartbeat: (data) => {
         if (data.threadId === threadId) resetTimeout();

@@ -417,7 +417,7 @@ export function useChatHistory(threadId: string) {
     if (!controller) return;
 
     try {
-      const res = await apiFetch(`/api/tasks?threadId=${encodeURIComponent(fetchForThread)}`, {
+      const res = await apiFetch(`/api/tasks?threadId=${encodeURIComponent(fetchForThread)}&kind=work`, {
         signal: controller.signal,
       });
       if (!res.ok) return;
