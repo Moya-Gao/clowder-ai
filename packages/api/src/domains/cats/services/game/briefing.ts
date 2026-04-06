@@ -77,6 +77,8 @@ function toolUsageBlock(runtime: GameRuntime, seatId: SeatId, phase: string): st
   }
   if (phase === 'day_discuss' || phase === 'day_last_words') {
     lines.push('  text: "<你的发言内容>"');
+  } else if (phase.startsWith('night_')) {
+    lines.push('  text: "<简要说明你的理由（1句话）>"');
   }
   lines.push('  nonce: "<随机字符串>"');
   return lines.join('\n');

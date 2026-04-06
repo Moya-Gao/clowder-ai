@@ -251,8 +251,8 @@ describe('GameNarratorDriver', () => {
 
   it('discuss phase: wakes alive seats sequentially in seat order (AC-I6)', async () => {
     const rt = makeRuntime({ currentPhase: 'day_discuss' });
-    // loop-top(1) + dawn narrative getGame(1) + 7 per-seat narrative getGames(7) = 9
-    const gs = makeGameStore(rt, { stopAfterCalls: 9 });
+    // loop-top(1) + dawn narrative(1) + 7 seats × (freshCheck + narrative)(14) = 16
+    const gs = makeGameStore(rt, { stopAfterCalls: 16 });
     const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 300));
@@ -280,7 +280,7 @@ describe('GameNarratorDriver', () => {
 
   it('discuss phase: posts per-seat narrative prompts', async () => {
     const rt = makeRuntime({ currentPhase: 'day_discuss' });
-    const gs = makeGameStore(rt, { stopAfterCalls: 9 });
+    const gs = makeGameStore(rt, { stopAfterCalls: 16 });
     const driver = new GameNarratorDriver({ gameStore: gs, orchestrator, wakeCat, actionNotifier });
     driver.startLoop('game-001');
     await new Promise((r) => setTimeout(r, 300));

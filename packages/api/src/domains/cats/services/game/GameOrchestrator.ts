@@ -126,12 +126,28 @@ export class GameOrchestrator {
     // H2: Record speech + dual-write to messageStore when speak action has text
     // Accept both speechText (AI path) and content (human frontend path)
     const speechText = (action.params?.speechText ?? action.params?.content) as string | undefined;
+    const seat = runtime.seats.find((s) => s.seatId === seatId);
     if (action.actionName === 'speak' && speechText) {
-      const seat = runtime.seats.find((s) => s.seatId === seatId);
       if (engine instanceof WerewolfEngine) {
         (engine as WerewolfEngine).recordSpeech(seatId, speechText);
       }
       this.writeSpeech(runtime, seat?.actorId ?? seatId, speechText);
+    }
+
+    // Record night action reasoning (wolf → faction:wolf visible to pack; others → god-only to avoid identity leak)
+    if (action.actionName !== 'speak' && action.actionName !== 'vote' && speechText) {
+      const seatRole = seat?.role ?? '';
+      const roleDef = runtime.definition.roles.find((r) => r.name === seatRole);
+      const faction = roleDef?.faction;
+      const scope: import('@cat-cafe/shared').EventScope = faction === 'wolf' ? 'faction:wolf' : 'god';
+      engine.appendEvent({
+        round: runtime.round,
+        phase: runtime.currentPhase,
+        type: 'night_thought',
+        scope,
+        payload: { seatId, actorId: seat?.actorId ?? seatId, text: speechText },
+        revealPolicy: 'phase_end',
+      });
     }
 
     // Emit real-time ballot.updated for day votes (KD-26: live transparency)

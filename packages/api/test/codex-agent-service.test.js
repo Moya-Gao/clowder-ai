@@ -149,6 +149,7 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
           CAT_CAFE_INVOCATION_ID: 'inv-test-1',
           CAT_CAFE_CALLBACK_TOKEN: 'tok-test-1',
           CAT_CAFE_USER_ID: 'user-test-1\nline2',
+          CAT_CAFE_CAT_ID: 'codex',
           CAT_CAFE_SIGNAL_USER: 'codex',
         },
       }),
@@ -166,6 +167,10 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
     assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_INVOCATION_ID="inv-test-1"'));
     assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_CALLBACK_TOKEN="tok-test-1"'));
     assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_USER_ID="user-test-1\\nline2"'));
+    assert.ok(
+      args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_CAT_ID="codex"'),
+      'must inject CAT_CAFE_CAT_ID for game action auth',
+    );
     assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_SIGNAL_USER="codex"'));
   } finally {
     rmSync(tmpRoot, { recursive: true, force: true });

@@ -174,6 +174,7 @@ function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Reco
     'CAT_CAFE_INVOCATION_ID',
     'CAT_CAFE_CALLBACK_TOKEN',
     'CAT_CAFE_USER_ID',
+    'CAT_CAFE_CAT_ID',
     'CAT_CAFE_SIGNAL_USER',
   ] as const;
   for (const key of callbackKeys) {

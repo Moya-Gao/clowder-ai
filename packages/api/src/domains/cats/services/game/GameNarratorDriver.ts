@@ -60,12 +60,19 @@ export class GameNarratorDriver implements GameDriver {
   constructor(private deps: NarratorDeps) {}
 
   startLoop(gameId: string): void {
+    // Re-entry guard: abort existing loop before starting a new one
+    const existing = this.activeLoops.get(gameId);
+    if (existing) existing.abort();
+
     const ac = new AbortController();
     this.activeLoops.set(gameId, ac);
     this.runGameLoop(gameId, ac.signal)
       .catch(() => {})
       .finally(() => {
-        this.activeLoops.delete(gameId);
+        // Only cleanup if this controller is still the active one (not replaced)
+        if (this.activeLoops.get(gameId) === ac) {
+          this.activeLoops.delete(gameId);
+        }
         this.deps.actionNotifier.cleanup(gameId);
       });
   }
