@@ -1209,6 +1209,15 @@ if [ -f "$FILTERED_DIR/scripts/stop-windows.ps1" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
+# 3k-3a2c: runtime-preflight.sh — API port default 3002→3004
+if [ -f "$FILTERED_DIR/scripts/runtime-preflight.sh" ]; then
+  sedi \
+    -e 's/API_SERVER_PORT:-3002/API_SERVER_PORT:-3004/g' \
+    "$FILTERED_DIR/scripts/runtime-preflight.sh"
+  echo "  ✓ runtime-preflight.sh (API port 3004)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 # 3k-3a3: runtime-worktree.sh — API port default 3002→3004
 if [ -f "$FILTERED_DIR/scripts/runtime-worktree.sh" ]; then
   sedi \
