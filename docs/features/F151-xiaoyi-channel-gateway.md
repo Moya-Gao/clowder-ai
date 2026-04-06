@@ -3,13 +3,13 @@ feature_ids: [F151]
 related_features: [F088, F132, F137, F143, F146]
 topics: [connector, channel, xiaoyi, huawei, a2a, websocket]
 doc_kind: spec
-status: spec
+status: done
 created: 2026-04-01
 ---
 
 # F151: XiaoYi Channel Gateway — 小艺渠道接入
 
-> **Status**: spec | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: done | **Owner**: Ragdoll | **Priority**: P1
 >
 > 在小艺开放平台创建 OpenClaw 模式智能体，由 Cat Cafe 通过 WebSocket 对接华为 HAG，
 > 用户在华为手机上通过小艺 APP 即可与猫猫对话。
