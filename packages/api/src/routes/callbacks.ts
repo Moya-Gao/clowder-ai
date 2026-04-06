@@ -33,6 +33,7 @@ import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import { registerCallbackGameRoutes } from './callback-game-routes.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
@@ -1333,4 +1334,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
   // F088 Phase J2: Document generation callback routes
   registerCallbackDocumentRoutes(app, { registry, socketManager });
+
+  // F101: Game action callback for non-Claude cats (OpenCode/Codex/Gemini)
+  registerCallbackGameRoutes(app, { registry });
 };

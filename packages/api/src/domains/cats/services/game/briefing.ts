@@ -117,7 +117,8 @@ function witchToolBlock(runtime: GameRuntime, seatId: SeatId): string {
   lines.push('使用 cat_cafe_submit_game_action 提交行动：');
   lines.push(`  gameId: "${runtime.gameId}", round: ${runtime.round}, phase: "night_witch", seat: ${num}`);
   if (!potions.healUsed && killTarget) {
-    lines.push(`  ▸ 救人：action: "heal", text: "<理由>", nonce: "<随机串>"`);
+    const killNum = killTarget.slice(1);
+    lines.push(`  ▸ 救人：action: "heal", target: ${killNum}, text: "<理由>", nonce: "<随机串>"`);
   }
   if (!potions.poisonUsed) {
     lines.push('  ▸ 毒人：action: "poison", target: <座位号>, text: "<理由>", nonce: "<随机串>"');
