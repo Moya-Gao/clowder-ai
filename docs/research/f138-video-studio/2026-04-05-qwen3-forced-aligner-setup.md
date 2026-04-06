@@ -74,6 +74,45 @@ word_timestamps[] → 写入 video-spec.json 的 global_audio.word_timestamps
 Remotion 消费 word_timestamps 生成 <Sequence> 编排
 ```
 
+## 本机实测结果（2026-04-05）
+
+**环境**: M4 Pro / macOS / Python 3.13 / PyTorch 2.11 (MPS) / qwen-asr 0.0.6
+
+```python
+from qwen_asr import Qwen3ForcedAligner
+import torch
+
+aligner = Qwen3ForcedAligner.from_pretrained(
+    "Qwen/Qwen3-ForcedAligner-0.6B",
+    dtype=torch.float32,
+    device_map="mps",
+)
+
+results = aligner.align(
+    audio="audio.wav",
+    text="你好世界这是一个测试",
+    language="Chinese",
+)
+# → ForcedAlignItem(text='你', start_time=0.0, end_time=1.92)
+# → ForcedAlignItem(text='好', start_time=1.92, end_time=1.92)
+# → ...逐字时间戳，单位秒
+```
+
+**关键发现**：
+1. **不需要 vLLM** — `Qwen3ForcedAligner.from_pretrained()` 直接用 transformers 后端
+2. **不需要 ASR 模型** — FA 单独加载 0.6B 就够（不需要 1.7B ASR）
+3. **MPS 可用** — Apple Silicon 上 `device_map="mps"` + `dtype=float32` 正常运行
+4. **输出格式** — `ForcedAlignResult.items[]` 每个是 `ForcedAlignItem(text, start_time, end_time)`
+5. **时间单位是秒** — 转 video-spec 时需乘 1000 变 ms
+
+**video-spec 集成代码**（生成 `global_audio.word_timestamps`）：
+```python
+timestamps = [
+    {"word": item.text, "start_ms": int(item.start_time * 1000), "end_ms": int(item.end_time * 1000)}
+    for item in result.items
+]
+```
+
 ## 备选方案
 
 | 工具 | 优势 | 劣势 |
