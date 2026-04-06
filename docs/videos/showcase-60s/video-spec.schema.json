@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "video-spec.v1",
+  "title": "Video Spec v1 — F138 Segment Contract",
+  "description": "Schema-driven video production contract. Global audio + 4-layer segments.",
+  "type": "object",
+  "required": ["id", "version", "meta", "global_audio", "segments"],
+  "properties": {
+    "id": { "type": "string" },
+    "version": { "type": "integer", "minimum": 1 },
+    "meta": {
+      "type": "object",
+      "required": ["title", "target_duration_ms", "fps", "resolution", "vibe_arc"],
+      "properties": {
+        "title": { "type": "string" },
+        "target_duration_ms": { "type": "integer" },
+        "fps": { "type": "integer", "default": 30 },
+        "resolution": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "integer", "default": 1920 },
+            "height": { "type": "integer", "default": 1080 }
+          }
+        },
+        "vibe_arc": {
+          "type": "array",
+          "description": "Overall emotional arc of the video, ordered by time",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+              "to_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+              "vibe": { "enum": ["hype", "chill", "suspense", "warm"] }
+            }
+          }
+        },
+        "bgm_ref": { "type": "string" }
+      }
+    },
+    "global_audio": {
+      "type": "object",
+      "description": "Single continuous TTS output — never segment-level!",
+      "required": ["script_text", "speaker_id"],
+      "properties": {
+        "script_text": { "type": "string", "description": "Full narration script, read in one pass" },
+        "audio_uri": { "type": "string", "description": "Path to global TTS wav/mp3" },
+        "speaker_id": { "type": "string" },
+        "voice_profile_id": { "type": "string" },
+        "word_timestamps": {
+          "type": "array",
+          "description": "From forced alignment (Qwen3-FA / WhisperX), NOT TTS native",
+          "items": {
+            "type": "object",
+            "required": ["word", "start_ms", "end_ms"],
+            "properties": {
+              "word": { "type": "string" },
+              "start_ms": { "type": "integer" },
+              "end_ms": { "type": "integer" },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "alignment_source": {
+          "enum": ["qwen3-fa", "whisperx", "mfa", "manual"],
+          "description": "Which aligner produced word_timestamps"
+        }
+      }
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "narration", "render", "control"],
+        "properties": {
+          "id": { "type": "string" },
+
+          "source": {
+            "type": "object",
+            "required": ["type", "timeline_range"],
+            "properties": {
+              "type": { "enum": ["clip", "screen_recording", "image", "b_roll", "freeze", "generated"] },
+              "source_range": {
+                "type": "object",
+                "description": "Which part of the original asset to use",
+                "properties": {
+                  "start_ms": { "type": "integer" },
+                  "end_ms": { "type": "integer" }
+                }
+              },
+              "timeline_range": {
+                "type": "object",
+                "description": "Where this segment sits on the final video timeline",
+                "properties": {
+                  "start_ms": { "type": "integer" },
+                  "end_ms": { "type": "integer" }
+                }
+              },
+              "asset_refs": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "visual_summary": { "type": "string" },
+              "visual_anchor_ms": {
+                "type": "integer",
+                "description": "Key visual action moment within source_range (Path A semantic alignment)"
+              }
+            }
+          },
+
+          "narration": {
+            "type": "object",
+            "properties": {
+              "global_audio_range": {
+                "type": "object",
+                "description": "Which slice of global_audio covers this segment",
+                "properties": {
+                  "start_ms": { "type": "integer" },
+                  "end_ms": { "type": "integer" }
+                }
+              },
+              "audio_anchor_ms": {
+                "type": "integer",
+                "description": "Key narration word timestamp for semantic alignment with visual_anchor_ms"
+              },
+              "target_duration_ms": { "type": "integer" },
+              "semantic_alignment_score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "How well narration matches visual content (Path A QA)"
+              }
+            }
+          },
+
+          "render": {
+            "type": "object",
+            "properties": {
+              "template_id": { "type": "string" },
+              "retiming_strategy": {
+                "enum": ["TRIM", "FREEZE_STYLIZED", "B_ROLL", "SLOW_MO", "LOOP"],
+                "description": "Priority: TRIM > FREEZE_STYLIZED > B_ROLL > SLOW_MO > LOOP"
+              },
+              "vibe": { "enum": ["hype", "chill", "suspense", "warm"] },
+              "captions_style": { "enum": ["narration", "keyLine", "minimal", "none"] },
+              "playback_rate": {
+                "type": "number",
+                "minimum": 0.7,
+                "description": "Only for SLOW_MO, minimum 0.7x"
+              },
+              "music_ref": { "type": "string" }
+            }
+          },
+
+          "control": {
+            "type": "object",
+            "properties": {
+              "locks": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Field paths that are confirmed and should not change"
+              },
+              "review_state": { "enum": ["pending", "approved", "rejected"] },
+              "version": { "type": "integer" },
+              "last_patch_reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "description": "Transitions between segments",
+      "items": {
+        "type": "object",
+        "required": ["from_segment_id", "to_segment_id", "transition_type"],
+        "properties": {
+          "from_segment_id": { "type": "string" },
+          "to_segment_id": { "type": "string" },
+          "transition_type": { "enum": ["fade", "cut", "slide", "wipe"] },
+          "duration_ms": { "type": "integer", "default": 500 }
+        }
+      }
+    }
+  }
+}

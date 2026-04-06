@@ -34,6 +34,7 @@ packages/web/public/worker-*.js
 .dare/
 .codex/
 .gemini/
+.gitnexus/
 *.swp
 *.swo
 
