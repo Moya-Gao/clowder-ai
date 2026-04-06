@@ -713,6 +713,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
+    // Fail fast when an api_key account has no credential — otherwise the child
+    // process silently receives no auth and produces cryptic errors.
+    if (resolvedAccount?.authType === 'api_key' && !resolvedAccount.apiKey) {
+      throw new Error(
+        `account "${resolvedAccount.id}" is configured as api_key but has no API key set — ` +
+          'add the key in Hub > account settings',
+      );
+    }
+
     // Determine effective protocol: account.protocol > provider-based default
     const defaultProtocolForProvider: Record<string, string> = {
       anthropic: 'anthropic',

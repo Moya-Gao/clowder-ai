@@ -3091,6 +3091,73 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 
+  it('F329: rejects api_key account with no API key before spawning child process', async () => {
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
+    const root = await mkdtemp(join(tmpdir(), 'f329-missing-apikey-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+
+    // Create an api_key account WITHOUT providing an actual API key
+    const noKeyProfile = await createProviderProfile(root, {
+      provider: 'openai',
+      name: 'no-key-account',
+      mode: 'api_key',
+      authType: 'api_key',
+      protocol: 'openai',
+      baseUrl: 'https://api.example.com',
+      models: ['gpt-4o'],
+    });
+
+    const registrySnapshot = catRegistry.getAllConfigs();
+    const originalConfig = catRegistry.tryGet('opencode')?.config;
+    assert.ok(originalConfig, 'opencode config should exist in registry');
+    const boundCatId = 'opencode-no-key-test';
+    catRegistry.register(boundCatId, {
+      ...originalConfig,
+      id: boundCatId,
+      mentionPatterns: [`@${boundCatId}`],
+      provider: 'opencode',
+      providerProfileId: noKeyProfile.id,
+      defaultModel: 'gpt-4o',
+    });
+
+    let invokeCount = 0;
+    const service = {
+      async *invoke() {
+        invokeCount++;
+        yield { type: 'done', catId: boundCatId, timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(apiDir);
+      const messages = await collect(
+        invokeSingleCat(deps, {
+          catId: boundCatId,
+          service,
+          prompt: 'test',
+          userId: 'user-f329-no-key',
+          threadId: 'thread-f329-no-key',
+          isLastCat: true,
+        }),
+      );
+      assert.equal(invokeCount, 0, 'service.invoke must NOT be called when API key is missing');
+      const errorMsg = messages.find((m) => m.type === 'error');
+      assert.ok(errorMsg, 'must emit an error message');
+      assert.match(String(errorMsg.error), /no API key set/i, 'error must mention missing API key');
+    } finally {
+      process.chdir(previousCwd);
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('F127: injects OPENROUTER_API_KEY for opencode members bound to openai api_key profiles', async () => {
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-openrouter-key-injection-'));
