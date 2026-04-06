@@ -154,12 +154,24 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
         const res = await apiFetch(`/api/threads/${threadId}/queue`);
         if (generation !== reconcileGeneration) return; // stale after await
         if (!res.ok) {
-          // #266 Round 2: /queue failed — we don't know if invocation is done or
-          // still running, so do NOT trigger catch-up (could cause mid-stream
-          // replace-history → ref desync → duplicate bubbles). The next reconnect
-          // will retry reconciliation; if the stream is still alive it will
-          // naturally complete via socket events.
-          console.warn('[ws] Reconnect reconciliation: /queue failed, skipping thread', { threadId, status: res.status });
+          // #266 Round 2+3: /queue failed — unknown server state.
+          // Clear stale loading/invocation state so user isn't stuck, but do NOT
+          // trigger requestStreamCatchUp (replace-history mid-stream → ref desync
+          // → duplicate bubbles). If the stream is alive, incoming socket events
+          // will re-establish state; if done was lost, user can refresh.
+          const failStore = useChatStore.getState();
+          if (failStore.currentThreadId === threadId && failStore.hasActiveInvocation) {
+            failStore.clearAllActiveInvocations();
+            failStore.setLoading(false);
+            failStore.setIntentMode(null);
+            failStore.clearCatStatuses();
+            for (const msg of failStore.messages) {
+              if (msg.type === 'assistant' && msg.isStreaming) {
+                failStore.setStreaming(msg.id, false);
+              }
+            }
+          }
+          console.warn('[ws] Reconnect reconciliation: /queue failed, cleared stale state', { threadId, status: res.status });
           continue;
         }
         const data = (await res.json()) as { activeInvocations?: string[] };
@@ -221,11 +233,22 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
           }
         }
       } catch {
-        // #266 Round 2: network error — same rationale as !res.ok above:
-        // unknown server state → do NOT trigger catch-up. Guard stale
-        // generation so we don't even log for superseded reconnect cycles.
+        // #266 Round 2+3: network error — same as !res.ok: clear stale state
+        // but no catch-up. Guard stale generation first.
         if (generation !== reconcileGeneration) continue;
-        console.warn('[ws] Reconnect reconciliation: /queue error, skipping thread', { threadId });
+        const errStore = useChatStore.getState();
+        if (errStore.currentThreadId === threadId && errStore.hasActiveInvocation) {
+          errStore.clearAllActiveInvocations();
+          errStore.setLoading(false);
+          errStore.setIntentMode(null);
+          errStore.clearCatStatuses();
+          for (const msg of errStore.messages) {
+            if (msg.type === 'assistant' && msg.isStreaming) {
+              errStore.setStreaming(msg.id, false);
+            }
+          }
+        }
+        console.warn('[ws] Reconnect reconciliation: /queue error, cleared stale state', { threadId });
       }
     }
   }, RECONNECT_RECONCILE_DELAY_MS);

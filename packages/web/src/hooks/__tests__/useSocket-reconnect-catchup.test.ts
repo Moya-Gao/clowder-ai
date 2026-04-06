@@ -265,7 +265,7 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
 
-  it('does NOT trigger catch-up when /queue returns non-ok (#266 Round 2)', async () => {
+  it('clears stale state but does NOT catch-up when /queue returns non-ok (#266 Round 2+3)', async () => {
     (mockStoreState as Record<string, unknown>).isLoading = true;
 
     // /queue returns 500 — unknown server state
@@ -295,7 +295,9 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
       await vi.runAllTimersAsync();
     });
 
-    // /queue failed → unknown state → do NOT catch-up (could cause mid-stream desync)
+    // /queue failed → clear stale state (unstick UI) but NO catch-up (avoid mid-stream desync)
+    expect(mockClearAllActiveInvocations).toHaveBeenCalled();
+    expect(mockSetLoading).toHaveBeenCalledWith(false);
     expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
 
     delete (mockStoreState as Record<string, unknown>).isLoading;
@@ -366,7 +368,7 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
 
-  it('does NOT trigger catch-up when /queue throws network error (#266 Round 2)', async () => {
+  it('clears stale state but does NOT catch-up when /queue throws network error (#266 Round 2+3)', async () => {
     (mockStoreState as Record<string, unknown>).isLoading = true;
 
     // /queue throws — unknown server state
@@ -393,7 +395,9 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
       await vi.runAllTimersAsync();
     });
 
-    // Network error → unknown state → do NOT catch-up (could cause mid-stream desync)
+    // Network error → clear stale state (unstick UI) but NO catch-up (avoid mid-stream desync)
+    expect(mockClearAllActiveInvocations).toHaveBeenCalled();
+    expect(mockSetLoading).toHaveBeenCalledWith(false);
     expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
 
     delete (mockStoreState as Record<string, unknown>).isLoading;
