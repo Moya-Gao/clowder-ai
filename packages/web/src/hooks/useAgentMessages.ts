@@ -1130,9 +1130,14 @@ export function useAgentMessages() {
     [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
   );
 
+  // #266 Round 2: Clear ALL ref maps — not just activeRefs and replacedInvocationsRef,
+  // but also finalizedStreamRef and sawStreamDataRef. This prevents stale refs from
+  // any prior invocation leaking into the next thread or catch-up cycle.
   const resetRefs = useCallback(() => {
     activeRefs.current.clear();
     replacedInvocationsRef.current.clear();
+    finalizedStreamRef.current.clear();
+    sawStreamDataRef.current.clear();
   }, []);
 
   return { handleAgentMessage, handleStop, resetRefs, resetTimeout, clearDoneTimeout };
