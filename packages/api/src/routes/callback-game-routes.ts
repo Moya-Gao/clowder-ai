@@ -1,7 +1,9 @@
 /**
  * Callback Game Routes — game action submission via HTTP callback auth.
- * Non-Claude cats (OpenCode/Codex/Gemini) lack native MCP, so they submit
- * game actions through this callback endpoint. Auth is validated via
+ * Fallback path for cats whose MCP connection is unavailable (transient
+ * failure, env misconfiguration, etc.). All major cats have native MCP
+ * with cat_cafe_submit_game_action in collabTools — this endpoint is a
+ * safety net, not the primary game action path. Auth is validated via
  * invocationId + callbackToken, then proxied to the existing game action
  * route via Fastify inject (reuses all game validation logic).
  */
