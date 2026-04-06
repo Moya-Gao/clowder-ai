@@ -63,6 +63,7 @@ export interface GodButtonVisibility {
   showPause: boolean;
   showResume: boolean;
   showSkip: boolean;
+  showStop: boolean;
 }
 
 export function deriveGodButtons(status: string): GodButtonVisibility {
@@ -70,6 +71,7 @@ export function deriveGodButtons(status: string): GodButtonVisibility {
     showPause: status === 'playing',
     showResume: status === 'paused',
     showSkip: status === 'playing',
+    showStop: status === 'playing' || status === 'paused',
   };
 }
 
@@ -242,7 +244,7 @@ export function GodInspector({
       </div>
 
       {/* Section 4: God Actions (hidden in detective mode) */}
-      {!isDetective && (buttons.showPause || buttons.showResume || buttons.showSkip) && (
+      {!isDetective && (buttons.showPause || buttons.showResume || buttons.showSkip || buttons.showStop) && (
         <>
           <div className="h-px bg-ww-card w-full" />
           <span className="text-ww-dim text-[10px] font-bold font-mono tracking-widest">GOD ACTIONS</span>
@@ -278,6 +280,16 @@ export function GodInspector({
               </button>
             )}
           </div>
+          {buttons.showStop && (
+            <button
+              type="button"
+              data-testid="god-stop"
+              onClick={() => onGodAction?.('stop')}
+              className="w-full text-[11px] font-bold rounded-md px-3 py-2 bg-ww-danger text-ww-base hover:brightness-90 transition-colors"
+            >
+              强制停止游戏
+            </button>
+          )}
         </>
       )}
     </div>

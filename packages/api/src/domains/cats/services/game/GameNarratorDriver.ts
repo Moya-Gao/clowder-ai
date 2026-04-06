@@ -6,9 +6,9 @@ import { GameEngine } from './GameEngine.js';
 import { appendGameSystemMessage } from './gameSystemMessage.js';
 
 export const TIME_BUDGETS = {
-  nightPerRole: 45_000,
-  discussPerSpeaker: 30_000,
-  votePerVoter: 20_000,
+  nightPerRole: 60_000,
+  discussPerSpeaker: 60_000,
+  votePerVoter: 30_000,
   lastWords: 30_000,
   globalCap: 30 * 60_000,
 } as const;
