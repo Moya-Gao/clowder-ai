@@ -120,7 +120,6 @@ describe('OpenCodeAgentService', () => {
       ANTHROPIC_BASE_URL: null,
       CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'api_key',
       CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE: 'anthropic/minimax-m2.7',
-      CAT_CAFE_EFFECTIVE_PROTOCOL: 'anthropic',
     });
 
     assert.equal(summary.mode, 'runtime-config');
@@ -131,7 +130,6 @@ describe('OpenCodeAgentService', () => {
     assert.equal(summary.anthropicBaseUrl, '(cleared)');
     assert.equal(summary.profileMode, 'api_key');
     assert.equal(summary.modelOverride, 'anthropic/minimax-m2.7');
-    assert.equal(summary.effectiveProtocol, 'anthropic');
   });
 
   test('summarizeOpenCodeEnvForDebug reports direct-env mode without leaking raw keys', () => {
@@ -139,7 +137,6 @@ describe('OpenCodeAgentService', () => {
       CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'api_key',
       ANTHROPIC_API_KEY: 'sk-direct-secret',
       ANTHROPIC_BASE_URL: 'https://api.minimaxi.com/anthropic/v1',
-      CAT_CAFE_EFFECTIVE_PROTOCOL: 'anthropic',
     });
 
     assert.equal(summary.mode, 'direct-env');

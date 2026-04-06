@@ -3155,7 +3155,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
-    assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'openai');
+    assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, undefined);
     assert.equal(callbackEnv.OPENAI_BASE_URL, 'https://openrouter.ai/api/v1');
     assert.equal(callbackEnv.OPENAI_API_KEY, 'sk-openrouter-key');
     assert.equal(callbackEnv.OPENROUTER_API_KEY, 'sk-openrouter-key');
@@ -3234,7 +3234,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
-    assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'openai');
+    assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, undefined);
     assert.equal(callbackEnv.CAT_CAFE_OC_API_KEY, 'sk-maas-key');
     assert.equal(callbackEnv.CAT_CAFE_OC_BASE_URL, 'https://maas.example/v1');
     assert.equal(seenRuntimeConfig?.model, 'maas/glm-5');

@@ -728,10 +728,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           ? (defaultProtocolForProvider[provider] ?? null)
           : null;
 
-    // Pass protocol hint to CLI via callbackEnv (used by OpenCode/Claude for model prefix)
-    if (effectiveProtocol) {
-      callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL = effectiveProtocol;
-    }
+    // effectiveProtocol is used below for env injection branching (anthropic/openai/google)
+    // but is NOT passed to callbackEnv — it should not influence CLI routing decisions.
 
     if (effectiveProtocol === 'anthropic') {
       if (resolvedAccount?.authType === 'api_key') {
@@ -839,13 +837,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             ? {
                 id: resolvedAccount.id,
                 authType: resolvedAccount.authType,
-                protocol: resolvedAccount.protocol ?? null,
                 baseUrl: resolvedAccount.baseUrl ?? null,
                 modelCount: resolvedAccount.models?.length ?? 0,
                 hasApiKey: Boolean(resolvedAccount.apiKey),
               }
             : null,
-          effectiveProtocol: effectiveProtocol ?? null,
           defaultModel: trimmedDefaultModel ?? null,
           ocProviderName: ocProviderName ?? null,
           parsedOpenCodeModel,
@@ -869,7 +865,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       (hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel))
     ) {
       callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = effectiveModel;
-      const apiType = deriveOpenCodeApiType(resolvedAccount.protocol, effectiveProviderName);
+      const apiType = deriveOpenCodeApiType(effectiveProviderName);
       const rawModels = resolvedAccount.models?.length ? resolvedAccount.models : [effectiveModel];
       const runtimeConfigOptions = {
         providerName: effectiveProviderName,

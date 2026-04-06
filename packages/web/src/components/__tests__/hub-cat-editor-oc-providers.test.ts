@@ -12,8 +12,10 @@ describe('KNOWN_OC_PROVIDERS datalist suggestions', () => {
     }
   });
 
-  it('maps generic openai account + openai-responses provider to responses endpoint', () => {
-    expect(resolveOpenCodeEndpoint('openai', 'openai-responses')).toBe('/v1/responses');
-    expect(resolveOpenCodeEndpoint(undefined, 'openai-responses')).toBe('/v1/responses');
+  it('derives endpoint solely from ocProviderName', () => {
+    expect(resolveOpenCodeEndpoint('openai-responses')).toBe('/v1/responses');
+    expect(resolveOpenCodeEndpoint('anthropic')).toBe('/v1/messages');
+    expect(resolveOpenCodeEndpoint('google')).toBe('/models/{model}:generateContent');
+    expect(resolveOpenCodeEndpoint('maas')).toBe('/v1/chat/completions');
   });
 });

@@ -82,37 +82,17 @@ const NPM_ADAPTER_FOR_API_TYPE: Record<string, string> = {
 };
 
 /**
- * Derive the OpenCode API type from member authentication configuration.
+ * Derive the OpenCode API type from the member's ocProviderName binding.
  *
- * Priority: explicit account protocol > ocProviderName heuristic > default 'openai'.
- * This aligns with the product rule: derive apiType from the member's bound account,
- * not from the client type.
+ * Account-level protocol is no longer used — it was removed from the UI and
+ * should not drive runtime routing. The sole authority is ocProviderName,
+ * which the user explicitly sets in the member editor "Provider 名称" field.
  */
-export function deriveOpenCodeApiType(
-  protocol: string | undefined,
-  ocProviderName: string | undefined,
-): OpenCodeApiType {
-  const normalizedProtocol = protocol?.toLowerCase();
-  const normalizedProvider = ocProviderName?.toLowerCase();
-
-  // Member-level openai-responses is the only supported override of the generic
-  // openai account protocol. This keeps protocol hidden at the account layer
-  // while still letting opencode opt into /v1/responses per member binding.
-  if (normalizedProtocol === 'openai-responses') return 'openai-responses';
-  if (normalizedProvider === 'openai-responses' && (!normalizedProtocol || normalizedProtocol === 'openai')) {
-    return 'openai-responses';
-  }
-
-  // Explicit non-openai protocol still wins for the account family.
-  if (normalizedProtocol === 'anthropic') return 'anthropic';
-  if (normalizedProtocol === 'google') return 'google';
-  if (normalizedProtocol === 'openai') return 'openai';
-  if (normalizedProtocol) return 'openai';
-
-  // Fallback: infer from ocProviderName when protocol is not declared.
-  // Case-insensitive to tolerate UI input variations.
-  if (normalizedProvider === 'anthropic') return 'anthropic';
-  if (normalizedProvider === 'google') return 'google';
+export function deriveOpenCodeApiType(ocProviderName: string | undefined): OpenCodeApiType {
+  const normalized = ocProviderName?.toLowerCase();
+  if (normalized === 'openai-responses') return 'openai-responses';
+  if (normalized === 'anthropic') return 'anthropic';
+  if (normalized === 'google') return 'google';
   return 'openai';
 }
 

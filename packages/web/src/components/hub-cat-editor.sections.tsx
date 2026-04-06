@@ -284,27 +284,13 @@ function ComboField({
   );
 }
 
-// Derive the opencode endpoint suffix from protocol / ocProviderName.
-// Priority mirrors backend deriveOpenCodeApiType: protocol > ocProviderName > default.
-// Note: model prefix (e.g. google/gemini-*) is NOT used — it can be a namespace
-// within a different provider (e.g. OpenRouter) and would produce misleading hints.
-export function resolveOpenCodeEndpoint(protocol: string | undefined, ocProviderName: string): string {
-  const normalizedProtocol = protocol?.toLowerCase();
-  const normalizedProvider = ocProviderName.toLowerCase();
-
-  if (normalizedProtocol === 'openai-responses') return '/v1/responses';
-  if (normalizedProvider === 'openai-responses' && (!normalizedProtocol || normalizedProtocol === 'openai')) {
-    return '/v1/responses';
-  }
-
-  // Explicit non-openai protocol still wins (same as deriveOpenCodeApiType).
-  if (normalizedProtocol === 'anthropic') return '/v1/messages';
-  if (normalizedProtocol === 'google') return '/models/{model}:generateContent';
-  if (normalizedProtocol) return '/v1/chat/completions';
-
-  // Fallback: ocProviderName (authoritative provider binding)
-  if (normalizedProvider === 'anthropic') return '/v1/messages';
-  if (normalizedProvider === 'google') return '/models/{model}:generateContent';
+// Derive the opencode endpoint suffix from ocProviderName (sole authority).
+// Account-level protocol is no longer used — mirrors backend deriveOpenCodeApiType.
+export function resolveOpenCodeEndpoint(ocProviderName: string): string {
+  const normalized = ocProviderName.toLowerCase();
+  if (normalized === 'openai-responses') return '/v1/responses';
+  if (normalized === 'anthropic') return '/v1/messages';
+  if (normalized === 'google') return '/models/{model}:generateContent';
   return '/v1/chat/completions';
 }
 
@@ -321,8 +307,8 @@ function buildCallHint(
   // Strip trailing /v1 from base to avoid /v1/v1 duplication when pathSuffix already includes /v1
   const baseWithoutV1 = hasV1Suffix ? base.replace(/\/v1$/i, '') : base;
 
-  // For opencode, derive endpoint dynamically (protocol > ocProviderName > default)
-  const ocPath = client === 'opencode' ? resolveOpenCodeEndpoint(profile.protocol, ocProviderName) : undefined;
+  // For opencode, derive endpoint dynamically from ocProviderName (sole authority)
+  const ocPath = client === 'opencode' ? resolveOpenCodeEndpoint(ocProviderName) : undefined;
 
   const cliEndpoints: Record<string, { cli: string; pathSuffix: string }> = {
     anthropic: { cli: 'claude', pathSuffix: '/v1/messages' },

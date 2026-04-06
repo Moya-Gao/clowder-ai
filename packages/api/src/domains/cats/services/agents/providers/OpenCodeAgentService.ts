@@ -46,7 +46,6 @@ export interface OpenCodeEnvDebugSummary {
   mode: 'runtime-config' | 'subscription' | 'direct-env' | 'empty';
   opencodeConfig: string;
   profileMode: string;
-  effectiveProtocol: string;
   modelOverride: string;
   anthropicApiKey: string;
   anthropicBaseUrl: string;
@@ -81,7 +80,6 @@ export function summarizeOpenCodeEnvForDebug(env: Record<string, string | null> 
           : 'empty',
     opencodeConfig: summarizeDebugValue(env?.OPENCODE_CONFIG),
     profileMode,
-    effectiveProtocol: env?.CAT_CAFE_EFFECTIVE_PROTOCOL ?? '(unset)',
     modelOverride: env?.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE ?? '(unset)',
     anthropicApiKey: summarizeDebugSecret(env?.[ANTHROPIC_API_KEY_ENV]),
     anthropicBaseUrl: summarizeDebugValue(env?.[ANTHROPIC_BASE_URL_ENV]),
@@ -227,6 +225,21 @@ export class OpenCodeAgentService implements AgentService {
         const result = transformOpenCodeEvent(event, this.catId);
         if (result !== null) {
           if (result.type === 'text') textEventCount++;
+          if (result.type === 'error') {
+            const rawError = (event as Record<string, unknown>).error as
+              | { name?: string; data?: { message?: string; statusCode?: number } }
+              | undefined;
+            log.warn(
+              {
+                catId: this.catId,
+                invocationId: options?.invocationId,
+                errorName: rawError?.name,
+                errorMessage: rawError?.data?.message,
+                statusCode: rawError?.data?.statusCode,
+              },
+              'OpenCode CLI returned error event',
+            );
+          }
           // P2-1: Only emit the first session_init; subsequent step_start events
           // in multi-step runs are silently dropped to avoid duplicate session metrics.
           if (result.type === 'session_init') {

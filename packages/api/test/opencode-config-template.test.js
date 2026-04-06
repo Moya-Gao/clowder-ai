@@ -178,28 +178,7 @@ describe('parseOpenCodeModel', () => {
 });
 
 describe('deriveOpenCodeApiType', () => {
-  test('explicit protocol takes precedence over ocProviderName', () => {
-    const scenarios = [
-      // Explicit protocol always wins
-      { protocol: 'anthropic', ocProviderName: 'anthropic', expected: 'anthropic' },
-      { protocol: 'google', ocProviderName: 'custom-gemini', expected: 'google' },
-      { protocol: 'openai', ocProviderName: 'openrouter', expected: 'openai' },
-      { protocol: 'openai', ocProviderName: 'openai-responses', expected: 'openai-responses' },
-      // Conflict: explicit protocol overrides ocProviderName
-      { protocol: 'openai', ocProviderName: 'anthropic', expected: 'openai' },
-      { protocol: 'openai', ocProviderName: 'google', expected: 'openai' },
-      { protocol: 'google', ocProviderName: 'anthropic', expected: 'google' },
-    ];
-    for (const { protocol, ocProviderName, expected } of scenarios) {
-      assert.equal(
-        deriveOpenCodeApiType(protocol, ocProviderName),
-        expected,
-        `protocol=${protocol}, ocProviderName=${ocProviderName} → ${expected}`,
-      );
-    }
-  });
-
-  test('falls back to ocProviderName when protocol is undefined', () => {
+  test('derives apiType solely from ocProviderName', () => {
     const scenarios = [
       { ocProviderName: 'anthropic', expected: 'anthropic' },
       { ocProviderName: 'google', expected: 'google' },
@@ -207,32 +186,23 @@ describe('deriveOpenCodeApiType', () => {
       { ocProviderName: 'maas', expected: 'openai' },
       { ocProviderName: 'deepseek', expected: 'openai' },
       { ocProviderName: 'minimax', expected: 'openai' },
+      { ocProviderName: 'openrouter', expected: 'openai' },
       { ocProviderName: undefined, expected: 'openai' },
     ];
     for (const { ocProviderName, expected } of scenarios) {
-      assert.equal(
-        deriveOpenCodeApiType(undefined, ocProviderName),
-        expected,
-        `protocol=undefined, ocProviderName=${ocProviderName} → ${expected}`,
-      );
+      assert.equal(deriveOpenCodeApiType(ocProviderName), expected, `ocProviderName=${ocProviderName} → ${expected}`);
     }
   });
 
-  test('openai-responses protocol is reachable and returns openai-responses', () => {
-    assert.equal(deriveOpenCodeApiType('openai-responses', 'maas'), 'openai-responses');
-    assert.equal(deriveOpenCodeApiType('openai-responses', undefined), 'openai-responses');
-    assert.equal(deriveOpenCodeApiType('openai', 'openai-responses'), 'openai-responses');
+  test('openai-responses is reachable', () => {
+    assert.equal(deriveOpenCodeApiType('openai-responses'), 'openai-responses');
   });
 
-  test('unknown protocol values default to openai', () => {
-    assert.equal(deriveOpenCodeApiType('unknown-proto', 'anthropic'), 'openai');
-  });
-
-  test('case-insensitive protocol and ocProviderName matching', () => {
-    assert.equal(deriveOpenCodeApiType('Anthropic', undefined), 'anthropic');
-    assert.equal(deriveOpenCodeApiType('OPENAI-RESPONSES', undefined), 'openai-responses');
-    assert.equal(deriveOpenCodeApiType(undefined, 'Anthropic'), 'anthropic');
-    assert.equal(deriveOpenCodeApiType(undefined, 'OpenAI-Responses'), 'openai-responses');
+  test('case-insensitive ocProviderName matching', () => {
+    assert.equal(deriveOpenCodeApiType('Anthropic'), 'anthropic');
+    assert.equal(deriveOpenCodeApiType('OPENAI-RESPONSES'), 'openai-responses');
+    assert.equal(deriveOpenCodeApiType('OpenAI-Responses'), 'openai-responses');
+    assert.equal(deriveOpenCodeApiType('Google'), 'google');
   });
 });
 
