@@ -927,9 +927,9 @@
     {
       "id": "F151",
       "name": "XiaoYi Channel Gateway — 小艺渠道接入",
-      "status": "spec | **Owner**: Ragdoll | **Priority**: P1",
+      "status": "done | **Owner**: Ragdoll | **Priority**: P1",
       "file": "F151-xiaoyi-channel-gateway.md"
     }
   ],
-  "generated_at": "2026-04-06T11:44:36.148Z"
+  "generated_at": "2026-04-06T14:49:32.676Z"
 }

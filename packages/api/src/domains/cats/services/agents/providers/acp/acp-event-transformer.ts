@@ -46,6 +46,21 @@ export function transformAcpEvent(
   if (!sessionUpdate) return null;
   const now = Date.now();
 
+  // Raw event diagnostic: log non-text event types and any event with unexpected content structure.
+  // Helps diagnose thread-specific failures where Gemini outputs metadata instead of real content.
+  if (sessionUpdate !== 'agent_message_chunk' && sessionUpdate !== 'user_message_chunk') {
+    log.debug(
+      {
+        catId,
+        sessionUpdate,
+        contentType: content?.type,
+        contentTextLen: content?.text?.length,
+        keys: Object.keys(inner),
+      },
+      'ACP event received',
+    );
+  }
+
   switch (sessionUpdate) {
     case 'agent_message_chunk':
       return {
