@@ -503,6 +503,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-26 | **铲屎官实测 Phase I — 四个 runtime 问题（布偶猫自查）** |
 | 2026-03-25 | Phase I bug fix merged (PR #729) — briefing tool name `submit_game_action` → `cat_cafe_submit_game_action` (R1) + overlay minimize instead of abort (R3) + "返回游戏" button with thread scope. 砚砚 local review + Codex cloud review |
 | 2026-03-25 | Phase I bug fix merged (PR #743) — `GET /api/threads/:threadId/game` returns 200/null instead of 404 for non-game threads. Eliminates `reconnectGame()` 404 noise on every thread switch. 砚砚 local review + Codex cloud review (0 findings) |
+| 2026-04-05 | Phase I round-2 bug fix merged (PR #976) — single-clock `forceSettle` (P1 dual-timeout fix) + `expectedPhase` guard (P1 double-advance race) + `appendGameSystemMessage` (P2 empty avatar). 砚砚 2-round local review + Codex cloud review (0 findings) |
 
 ### Phase I Runtime Bugs（2026-03-26 铲屎官实测）
 
@@ -535,21 +536,22 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 
 ### Phase I Runtime Bugs — 第二轮（2026-04-05 铲屎官 6 人局 thread_mnmeq5y0u44oj6k7）
 
-**Bug I-R6（P1）：重复"狼人/预言家/女巫请睁眼" — narrator 重复开同一阶段**
+**Bug I-R6（P1）：重复"狼人/预言家/女巫请睁眼" — narrator 重复开同一阶段** ✅ PR #976
 - 现象：同一个 night phase 被 narrator 反复进入，重复唤醒猫猫，重复发"请睁眼"叙事
 - 根因：`waitForAllActions` 超时返回后，narrator 外层 `runGameLoop` 重新读 gameStore → phase 未变 → 重新进入 `runNightRole` → 再发一次叙事再唤醒猫猫
 - 砚砚修法：`waitForPhaseSettlement` 轮询等 orchestrator.tick() 推进 phase。方向正确，但 **引入了新的 P1**——见 I-R8
+- 最终修法（PR #976）：narrator 用 `forceSettle(gameId, expectedPhase)` 直接推进，不依赖 `tick()` 轮询
 
-**Bug I-R7（P2）：空头像 — 系统消息被渲染为普通用户气泡**
+**Bug I-R7（P2）：空头像 — 系统消息被渲染为普通用户气泡** ✅ PR #976
 - 现象：开局"🎮 狼人杀 — 6人局 开始"和游戏公告显示为空头像的用户消息
 - 根因：`writeAnnounce` 和 game start 消息用 `userId: observerUserId, catId: null` 存入 messageStore。API timeline 映射 `catId: null` → `type: 'user'` → 前端渲染为用户气泡
 - 砚砚修法：`appendGameSystemMessage` helper，用 `userId: 'system', catId: 'system'`，API 优先判断 `isSystemUserMessage` → `type: 'system'`。正确
 
-**Bug I-R8（P1）：`waitForPhaseSettlement` × `tick()` 双超时不同步 → 无限循环（砚砚修法引入）**
+**Bug I-R8（P1）：`waitForPhaseSettlement` × `tick()` 双超时不同步 → 无限循环（砚砚修法引入）** ✅ PR #976
 - 现象：铲屎官报"女巫请睁眼完全没有给我结束一局 bug 游戏"
 - 根因：narrator `waitForAllActions(45s)` 和 orchestrator `tick()` 的 `phaseDef.timeoutMs` 是两套独立超时。narrator 超时返回后调 `tick()`，但 `tick()` 判断 `elapsed < effectiveTimeout` 认为"还没超时" → `tick()` 不推进 → `waitForPhaseSettlement` 每 200ms 轮询但 phase 永远不变
 - `waitForPhaseSettlement` 没有 max-retry 或自身超时守卫，唯一出口是 signal.aborted 或 phase 变化
-- 修法建议：narrator 超时后不依赖 `tick()`，直接调一个 `forceAdvance(gameId)` 收口方法
+- 最终修法（PR #976）：`GameOrchestrator.forceSettle(gameId, expectedPhase?)` — narrator 直接调用跳过 elapsed-time 检查。`expectedPhase` 守卫防止 action route 已推进时双推进竞态
 
 **Bug I-R9（P2）：暂停按钮不生效**
 - 现象：铲屎官按暂停按钮但游戏继续循环
