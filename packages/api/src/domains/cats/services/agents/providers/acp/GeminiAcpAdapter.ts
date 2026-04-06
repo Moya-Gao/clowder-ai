@@ -14,7 +14,7 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
-import { createPromptDigest } from '../../context/prompt-digest.js';
+import { createPromptDigest } from '../../../context/prompt-digest.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
 import { type AcpCapacitySignal, AcpProtocolError, AcpTimeoutError } from './AcpClient.js';
 import type { AcpLease, AcpProcessPool, PoolKey } from './AcpProcessPool.js';
@@ -167,10 +167,7 @@ export class GeminiAcpAdapter implements AgentService {
       promptStreamStartedAt = Date.now();
       // Prompt digest: length + hash only (snippets gated by AUDIT_LOG_INCLUDE_PROMPT_SNIPPETS)
       const promptDigest = createPromptDigest(effectivePrompt);
-      log.info(
-        { ...ctx, sessionId, promptDigest },
-        'ACP promptStream starting',
-      );
+      log.info({ ...ctx, sessionId, promptDigest }, 'ACP promptStream starting');
       eventCount = 0;
       for await (const event of client.promptStream(sessionId, effectivePrompt)) {
         // F149: Capacity signal injected by AcpClient.promptStream from stderr.
