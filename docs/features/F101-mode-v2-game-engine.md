@@ -505,6 +505,7 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-03-25 | Phase I bug fix merged (PR #743) — `GET /api/threads/:threadId/game` returns 200/null instead of 404 for non-game threads. Eliminates `reconnectGame()` 404 noise on every thread switch. 砚砚 local review + Codex cloud review (0 findings) |
 | 2026-04-05 | Phase I round-2 bug fix merged (PR #976) — single-clock `forceSettle` (P1 dual-timeout fix) + `expectedPhase` guard (P1 double-advance race) + `appendGameSystemMessage` (P2 empty avatar). 砚砚 2-round local review + Codex cloud review (0 findings) |
 | 2026-04-06 | Phase I round-3 bug fix merged (PR #980) — P0 Codex MCP 401 (`CAT_CAFE_CAT_ID` missing from `callbackKeys`) + P1 `night_thought` scope leak (village→god) + P2 displayName/actorId + narrator `startLoop` re-entry guard. 砚砚(codex) 2-round local review + 砚砚(gpt52) independent analysis + Codex cloud review |
+| 2026-04-06 | Phase I UX fix merged (PR #981) — TIME_BUDGETS extended to 60s (night/discuss) + GodInspector emergency stop button. 砚砚(codex) 1-round local review + Codex cloud review |
 
 ### Phase I Runtime Bugs（2026-03-26 铲屎官实测）
 
