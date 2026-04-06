@@ -506,6 +506,8 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-04-05 | Phase I round-2 bug fix merged (PR #976) — single-clock `forceSettle` (P1 dual-timeout fix) + `expectedPhase` guard (P1 double-advance race) + `appendGameSystemMessage` (P2 empty avatar). 砚砚 2-round local review + Codex cloud review (0 findings) |
 | 2026-04-06 | Phase I round-3 bug fix merged (PR #980) — P0 Codex MCP 401 (`CAT_CAFE_CAT_ID` missing from `callbackKeys`) + P1 `night_thought` scope leak (village→god) + P2 displayName/actorId + narrator `startLoop` re-entry guard. 砚砚(codex) 2-round local review + 砚砚(gpt52) independent analysis + Codex cloud review |
 | 2026-04-06 | Phase I UX fix merged (PR #981) — TIME_BUDGETS extended to 60s (night/discuss) + GodInspector emergency stop button. 砚砚(codex) 1-round local review + Codex cloud review |
+| 2026-04-06 | Phase I witch fix merged (PR #982) — P0 non-wolf fallback→skip (no random potion use) + P0 witch briefing (kill target/potion state/heal-poison-skip) + P1 game composition in all briefings + P2 stop button feedback + e2e narrator test fix. 砚砚(codex) 1-round local review + Codex cloud 2-round review (P1 fix + re-review) |
+| 2026-04-06 | Game thread UX fix merged (PR #983) — thread title with Asia/Shanghai timestamp + auto-pin on creation. 砚砚(codex) 1-round local review + Codex cloud review |
 
 ### Phase I Runtime Bugs（2026-03-26 铲屎官实测）
 
