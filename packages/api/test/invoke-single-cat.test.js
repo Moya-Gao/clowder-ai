@@ -3098,6 +3098,13 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
 
+    // Isolate protocol-level env fallback keys so account-resolver doesn't
+    // pick up a real OPENAI_API_KEY from the runner environment.
+    const savedOpenaiKey = process.env.OPENAI_API_KEY;
+    const savedAnthropicKey = process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+
     // Create an api_key account WITHOUT providing an actual API key
     const noKeyProfile = await createProviderProfile(root, {
       provider: 'openai',
@@ -3149,6 +3156,12 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.ok(errorMsg, 'must emit an error message');
       assert.match(String(errorMsg.error), /no API key set/i, 'error must mention missing API key');
     } finally {
+      // Restore env fallback keys
+      if (savedOpenaiKey !== undefined) process.env.OPENAI_API_KEY = savedOpenaiKey;
+      else delete process.env.OPENAI_API_KEY;
+      if (savedAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = savedAnthropicKey;
+      else delete process.env.ANTHROPIC_API_KEY;
+
       process.chdir(previousCwd);
       catRegistry.reset();
       for (const [id, config] of Object.entries(registrySnapshot)) {
