@@ -31,7 +31,7 @@ export interface GameRoutesOptions {
   socketManager: SocketLike;
   threadStore: IThreadStore;
   messageStore: IMessageStore;
-  autoPlayer?: Pick<GameDriver, 'startLoop' | 'stopAllLoops'>;
+  autoPlayer?: Pick<GameDriver, 'startLoop' | 'stopLoop' | 'stopAllLoops'>;
 }
 
 const seatSchema = z.object({
@@ -380,15 +380,33 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       return { error: 'No active game in this thread' };
     }
 
-    if (runtime.config.humanRole !== 'god-view') {
-      reply.status(403);
-      return { error: 'God actions require god-view mode' };
-    }
-
     const body = request.body as { action?: string };
     if (!body?.action) {
       reply.status(400);
       return { error: 'Missing action field' };
+    }
+
+    // 'stop' is always allowed — emergency kill switch regardless of humanRole
+    if (body.action === 'stop') {
+      try {
+        autoPlayer.stopLoop(runtime.gameId);
+        await gameStore.endGame(runtime.gameId, 'aborted');
+        clearGameNonces(runtime.gameId);
+        socketManager.broadcastToRoom(`thread:${runtime.threadId}`, 'game:aborted', {
+          gameId: runtime.gameId,
+          timestamp: Date.now(),
+        });
+        return { ok: true, action: 'stop' };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        reply.status(400);
+        return { error: message };
+      }
+    }
+
+    if (runtime.config.humanRole !== 'god-view') {
+      reply.status(403);
+      return { error: 'God actions require god-view mode' };
     }
 
     try {
@@ -422,6 +440,8 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       return { error: 'No active game in this thread' };
     }
 
+    // Stop the auto-play/narrator loop FIRST so it doesn't keep invoking LLMs
+    autoPlayer.stopLoop(runtime.gameId);
     await gameStore.endGame(runtime.gameId, 'aborted');
     clearGameNonces(runtime.gameId);
 

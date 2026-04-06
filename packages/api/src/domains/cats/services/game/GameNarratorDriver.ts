@@ -82,10 +82,13 @@ export class GameNarratorDriver implements GameDriver {
 
   async recoverActiveGames(): Promise<number> {
     const games = await this.deps.gameStore.listActiveGames();
+    let count = 0;
     for (const g of games) {
+      if (g.status !== 'playing') continue; // skip finished/aborted/paused games
       this.startLoop(g.gameId);
+      count++;
     }
-    return games.length;
+    return count;
   }
 
   private async runGameLoop(gameId: string, signal: AbortSignal): Promise<void> {
@@ -169,6 +172,10 @@ export class GameNarratorDriver implements GameDriver {
     for (const seat of aliveSeats) {
       if (signal.aborted) return;
 
+      // Check if game was ended/paused externally mid-discussion
+      const freshCheck = await this.deps.gameStore.getGame(runtime.gameId);
+      if (!freshCheck || freshCheck.status !== 'playing') return;
+
       await this.postNarrative(runtime.gameId, runtime, `请 座位${seat.seatId.slice(1)} 发言`);
 
       const briefing = buildResumeCapsule({ gameRuntime: runtime, seatId: seat.seatId });
@@ -180,6 +187,13 @@ export class GameNarratorDriver implements GameDriver {
       });
 
       await this.deps.actionNotifier.waitForAction(runtime.gameId, seat.seatId, TIME_BUDGETS.discussPerSpeaker);
+    }
+
+    // Settle phase after all speakers — advance to day_vote
+    // (Bug fix: was missing, causing infinite day_discuss loop)
+    if (!signal.aborted) {
+      const settlingPhase = runtime.currentPhase;
+      await this.deps.orchestrator.forceSettle(runtime.gameId, settlingPhase);
     }
   }
 
