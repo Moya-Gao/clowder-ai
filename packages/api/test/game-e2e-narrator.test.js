@@ -94,7 +94,7 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
     };
 
     const wakeCat = async (params) => {
-      wakes.push(params);
+      wakes.push({ ...params, _phase: currentRuntime.currentPhase });
     };
 
     const actionNotifier = {
@@ -201,7 +201,7 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
       'witch woken',
     );
 
-    const discussWakes = wakes.filter((w) => w.timeoutMs === TIME_BUDGETS.discussPerSpeaker);
+    const discussWakes = wakes.filter((w) => w._phase === 'day_discuss');
     assert.equal(discussWakes.length, 7, '7 speakers in discuss');
 
     const voteWakes = wakes.filter((w) => w.timeoutMs === TIME_BUDGETS.votePerVoter);

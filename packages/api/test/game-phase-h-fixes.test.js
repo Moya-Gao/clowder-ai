@@ -237,6 +237,7 @@ describe('Phase H P1 Fixes — definition-level regression guards', () => {
         async update() {},
         async delete() {},
         async updateThinkingMode() {},
+        async updatePin() {},
       },
       messageStore: routeMsgStore,
     });
@@ -313,6 +314,7 @@ describe('Phase H P1 Fixes — definition-level regression guards', () => {
             createdAt: Date.now(),
           };
         },
+        async updatePin() {},
       },
       gameStore: routeStore,
       invocationTracker: {

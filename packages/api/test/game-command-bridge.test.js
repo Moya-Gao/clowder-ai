@@ -128,6 +128,7 @@ function createStubThreadStore() {
         createdAt: Date.now(),
       };
     },
+    async updatePin() {},
   };
 }
 

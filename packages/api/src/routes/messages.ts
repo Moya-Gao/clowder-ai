@@ -286,9 +286,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       });
 
       // Phase D: Create independent game thread with project categorization
-      const gameTitle = `狼人杀 — ${playerCount}人局`;
+      const ts = new Date()
+        .toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+        .replace(' ', '-')
+        .replaceAll(':', '');
+      const gameTitle = `狼人杀 — ${playerCount}人局 (${ts})`;
       const gameThread = await opts.threadStore.create(userId, gameTitle, `games/${parsedGame.gameType}`);
       const gameThreadId = gameThread.id;
+      await opts.threadStore.updatePin(gameThreadId, true);
 
       // Notify source thread about the new game thread (include initiator for frontend guard)
       opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'game:thread_created', {

@@ -184,10 +184,12 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     }
 
     // Create independent game thread with play mode (Layer 1 info isolation, KD-40/AC-I9)
-    const gameTitle = `狼人杀 — ${clampedCount}人局`;
+    const ts = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' }).replace(' ', '-').replaceAll(':', '');
+    const gameTitle = `狼人杀 — ${clampedCount}人局 (${ts})`;
     const gameThread = await threadStore.create(userId, gameTitle, `games/${gameType}`);
     const gameThreadId = gameThread.id;
     await threadStore.updateThinkingMode(gameThreadId, 'play');
+    await threadStore.updatePin(gameThreadId, true);
 
     // Store a system message in the game thread for context
     await appendGameSystemMessage({
