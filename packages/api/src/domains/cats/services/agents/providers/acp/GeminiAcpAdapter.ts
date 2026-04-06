@@ -44,6 +44,10 @@ export class GeminiAcpAdapter implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const metadata: MessageMetadata = { provider: 'google', model: 'gemini-acp' };
+    // Diagnostic context: threadId + invocationId for correlating thread-specific failures
+    const threadId = options?.auditContext?.threadId;
+    const invocationId = options?.auditContext?.invocationId;
+    const ctx = { catId: this.catId, threadId, invocationId };
 
     // Window 1: pre-aborted signal short-circuits immediately
     if (options?.signal?.aborted) {
@@ -64,7 +68,7 @@ export class GeminiAcpAdapter implements AgentService {
       lease = await this.pool.acquire(this.poolKey);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      log.error({ catId: this.catId, err: errMsg }, 'ACP init failure');
+      log.error({ ...ctx, err: errMsg }, 'ACP init failure');
       yield {
         type: 'error',
         catId: this.catId,
@@ -104,7 +108,7 @@ export class GeminiAcpAdapter implements AgentService {
     // Abort handler: cancels the specific session, not the shared client
     const onAbort = options?.signal
       ? () => {
-          log.info({ catId: this.catId, sessionId }, 'ACP session cancelled via abort signal');
+          log.info({ ...ctx, sessionId }, 'ACP session cancelled via abort signal');
           if (sessionId && client) {
             client.cancelSession(sessionId);
           }
@@ -118,11 +122,11 @@ export class GeminiAcpAdapter implements AgentService {
     let eventCount = 0;
 
     try {
-      log.info({ catId: this.catId, cwd }, 'ACP newSession starting');
+      log.info({ ...ctx, cwd, promptLen: prompt.length }, 'ACP newSession starting');
       const session = await client.newSession(cwd);
       sessionId = session.sessionId;
       metadata.sessionId = sessionId;
-      log.info({ catId: this.catId, sessionId }, 'ACP newSession completed');
+      log.info({ ...ctx, sessionId }, 'ACP newSession completed');
 
       // Window 2: abort may have fired during newSession
       if (options?.signal?.aborted) {
@@ -160,7 +164,7 @@ export class GeminiAcpAdapter implements AgentService {
 
       // Window 4: onAbort listener covers the duration of promptStream
       promptStreamStartedAt = Date.now();
-      log.info({ catId: this.catId, sessionId, promptLen: effectivePrompt.length }, 'ACP promptStream starting');
+      log.info({ ...ctx, sessionId, promptLen: effectivePrompt.length }, 'ACP promptStream starting');
       eventCount = 0;
       for await (const event of client.promptStream(sessionId, effectivePrompt)) {
         // F149: Capacity signal injected by AcpClient.promptStream from stderr.
@@ -169,7 +173,7 @@ export class GeminiAcpAdapter implements AgentService {
           if (!capacityWarningYielded) {
             capacityWarningYielded = true;
             capacitySignal = { message: event.update.message as string, timestamp: event.update.timestamp as number };
-            log.info({ catId: this.catId, sessionId }, 'ACP capacity warning yielded to frontend (stream)');
+            log.info({ ...ctx, sessionId }, 'ACP capacity warning yielded to frontend (stream)');
             yield makeCapacityWarning(this.catId, capacitySignal, metadata);
           }
           continue; // Not a real ACP event — don't count, don't transform
@@ -179,7 +183,7 @@ export class GeminiAcpAdapter implements AgentService {
           if (!idleWarningYielded) {
             idleWarningYielded = true;
             log.info(
-              { catId: this.catId, sessionId, idleSinceMs: event.update.idleSinceMs },
+              { ...ctx, sessionId, idleSinceMs: event.update.idleSinceMs },
               'Stream idle warning yielded to frontend',
             );
             yield makeIdleWarning(this.catId, event, metadata);
@@ -190,18 +194,18 @@ export class GeminiAcpAdapter implements AgentService {
         // (e.g. during newSession), surfaced on first real event
         if (capacitySignal && !capacityWarningYielded) {
           capacityWarningYielded = true;
-          log.info({ catId: this.catId, sessionId }, 'ACP capacity warning yielded to frontend (pre-stream fallback)');
+          log.info({ ...ctx, sessionId }, 'ACP capacity warning yielded to frontend (pre-stream fallback)');
           yield makeCapacityWarning(this.catId, capacitySignal, metadata);
         }
         eventCount++;
         if (eventCount === 1) {
           const firstEventLatencyMs = Date.now() - promptStreamStartedAt;
-          log.info({ catId: this.catId, sessionId, firstEventLatencyMs }, 'ACP first event received');
+          log.info({ ...ctx, sessionId, firstEventLatencyMs }, 'ACP first event received');
         }
         const msg = transformAcpEvent(event, this.catId, metadata);
         if (msg) yield msg;
       }
-      log.info({ catId: this.catId, sessionId, eventCount }, 'ACP promptStream completed');
+      log.info({ ...ctx, sessionId, eventCount }, 'ACP promptStream completed');
       // Successful prompt — provider has recovered; clear stale capacity signal
       client.clearRecentCapacitySignal();
 
@@ -215,11 +219,11 @@ export class GeminiAcpAdapter implements AgentService {
       // F149: Zero-event stall with capacity signal — yield warning before error
       if (capacitySignal && !capacityWarningYielded) {
         capacityWarningYielded = true;
-        log.info({ catId: this.catId }, 'ACP capacity warning yielded (catch path)');
+        log.info({ ...ctx }, 'ACP capacity warning yielded (catch path)');
         yield makeCapacityWarning(this.catId, capacitySignal, metadata);
       }
       const { errorCode, errorMsg } = classifyError(err, capacitySignal, client.recentCapacitySignal);
-      log.error({ catId: this.catId, errorCode, err: errorMsg, eventCount, waitedMs }, 'ACP prompt failure');
+      log.error({ ...ctx, errorCode, err: errorMsg, sessionId, eventCount, waitedMs }, 'ACP prompt failure');
       yield {
         type: 'error',
         catId: this.catId,
