@@ -301,6 +301,71 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
 
+  it('stale reconnect error does NOT trigger catch-up after newer reconnect starts (#266 Round 2)', async () => {
+    (mockStoreState as Record<string, unknown>).isLoading = true;
+
+    // Generation-1: /queue will reject slowly (network error after delay)
+    let rejectGen1!: (err: Error) => void;
+    const gen1Promise = new Promise<never>((_resolve, reject) => {
+      rejectGen1 = reject;
+    });
+    mockApiFetch.mockReturnValueOnce(gen1Promise);
+
+    // Generation-2: /queue returns active invocations (server still processing)
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ activeInvocations: ['opus'] }),
+    });
+
+    const callbacks: SocketCallbacks = {
+      onMessage: vi.fn(),
+      onIntentMode: vi.fn(),
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-1' }));
+    });
+
+    // Reconnect #1
+    act(() => {
+      const listeners = mockSocket.listeners('connect');
+      for (const listener of listeners) {
+        (listener as () => void)();
+      }
+    });
+
+    // Advance past reconciliation delay for generation-1
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+    });
+
+    // Reconnect #2 (bumps generation, supersedes #1)
+    act(() => {
+      const listeners = mockSocket.listeners('connect');
+      for (const listener of listeners) {
+        (listener as () => void)();
+      }
+    });
+
+    // Advance past reconciliation delay for generation-2
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+      await vi.runAllTimersAsync();
+    });
+
+    // Now reject generation-1's /queue — should NOT trigger catch-up
+    await act(async () => {
+      rejectGen1(new Error('Network error from stale reconnect'));
+      await vi.runAllTimersAsync();
+    });
+
+    // Generation-2 saw active invocations → no catch-up.
+    // Generation-1's stale error → guarded, no catch-up.
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
+
+    delete (mockStoreState as Record<string, unknown>).isLoading;
+  });
+
   it('falls back to catch-up when /queue throws network error (#266 Round 2)', async () => {
     (mockStoreState as Record<string, unknown>).isLoading = true;
 

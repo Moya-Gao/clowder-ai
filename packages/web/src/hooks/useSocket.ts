@@ -222,7 +222,10 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
           }
         }
       } catch {
-        // #266 Round 2: network error — same fallback as !res.ok
+        // #266 Round 2: network error — same fallback as !res.ok,
+        // but guard stale generation first: a rejected fetch from a superseded
+        // reconnect cycle must not trigger catch-up for the current cycle.
+        if (generation !== reconcileGeneration) continue;
         const fallbackStore = useChatStore.getState();
         if (fallbackStore.currentThreadId === threadId && fallbackStore.isLoading) {
           fallbackStore.requestStreamCatchUp(threadId);
