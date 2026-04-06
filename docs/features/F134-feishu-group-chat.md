@@ -336,6 +336,7 @@ if (connectionMode === 'websocket') {
 | 2026-03-30 | clowder-ai#287（Feishu QR bind in IM Hub）被判定为 F134 follow-up：方向 absorbed，执行 manual-port；补建 accepted issue clowder-ai#301 |
 | 2026-03-30 | 复核 clowder-ai#287：review 已收敛、CI 全绿，maintainer comment 更新为“可以 merge”；手工接入计划落盘 `docs/plans/2026-03-30-f134-feishu-qr-bind-follow-up.md` |
 | 2026-03-30 | F134 follow-up 手工接入完成，PR #871 squash merged → `96e87b13`，IM Hub 支持 Feishu QR bind |
+| 2026-04-05 | PR #973 squash merged → `ac1e28e63`，Feishu disconnect 按钮 + 路由（与 WeChat 对齐） |
 
 ## Design Gate Results（2026-03-25）
 
