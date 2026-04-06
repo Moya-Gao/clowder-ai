@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Runtime Preflight Gate — 验证当前 runtime 状态的可执行脚本
+# 用法：bash scripts/runtime-preflight.sh [目标commit]
+# 输出固定 7 行字段，没跑完不允许做 runtime 状态断言。
+#
+# 来源：§16a shared-rules + debugging skill Runtime Preflight Gate
+# 铲屎官 P0 教训 (2026-04-05)：禁止无证据猜"没更新/没编译/没重启"
+
+set -euo pipefail
+
+RUNTIME_DIR="${RUNTIME_DIR:-../cat-cafe-runtime}"
+TARGET_COMMIT="${1:-}"
+PORT="${RUNTIME_PORT:-3001}"
+
+# 1. Find PID bound to the specific port (not grep guesswork)
+PID=$(lsof -ti "tcp:${PORT}" 2>/dev/null | head -1 || true)
+if [[ -z "$PID" ]]; then
+  echo "PORT=${PORT}"
+  echo "PID=NOT_FOUND"
+  echo "START_TIME=N/A"
+  echo "HEAD=N/A"
+  echo "TARGET_COMMIT=${TARGET_COMMIT:-not_specified}"
+  echo "PROCESS_AFTER_TARGET=UNKNOWN"
+  echo "LOG_EVIDENCE=no process on port ${PORT}"
+  exit 1
+fi
+
+# 2. Get process start time
+START_TIME=$(ps -p "$PID" -o lstart= 2>/dev/null | xargs || echo "UNKNOWN")
+
+# 3. Get runtime HEAD
+if [[ -d "$RUNTIME_DIR/.git" ]]; then
+  HEAD=$(git -C "$RUNTIME_DIR" log --oneline -1 2>/dev/null || echo "UNKNOWN")
+else
+  HEAD="RUNTIME_DIR_NOT_FOUND"
+fi
+
+# 4. Check if target commit is in history
+PROCESS_AFTER_TARGET="not_specified"
+if [[ -n "$TARGET_COMMIT" && "$HEAD" != "RUNTIME_DIR_NOT_FOUND" ]]; then
+  if git -C "$RUNTIME_DIR" merge-base --is-ancestor "$TARGET_COMMIT" HEAD 2>/dev/null; then
+    # Compare commit time vs process start time
+    COMMIT_EPOCH=$(git -C "$RUNTIME_DIR" log -1 --format=%ct "$TARGET_COMMIT" 2>/dev/null || echo "0")
+    # Parse start time to epoch (macOS compatible)
+    START_EPOCH=$(date -j -f "%a %b %d %T %Y" "$START_TIME" +%s 2>/dev/null || echo "0")
+    if [[ "$START_EPOCH" -gt "$COMMIT_EPOCH" ]]; then
+      PROCESS_AFTER_TARGET="yes"
+    else
+      PROCESS_AFTER_TARGET="no_STALE_PROCESS"
+    fi
+  else
+    PROCESS_AFTER_TARGET="no_COMMIT_NOT_IN_HISTORY"
+  fi
+fi
+
+# 5. Grab latest log evidence for this PID
+LOG_DIR="${RUNTIME_DIR}/packages/api/data/logs/api"
+LOG_EVIDENCE="no_log_dir"
+if [[ -d "$LOG_DIR" ]]; then
+  LATEST_LOG=$(ls -t "$LOG_DIR"/*.log 2>/dev/null | head -1 || true)
+  if [[ -n "$LATEST_LOG" ]]; then
+    LOG_EVIDENCE=$(grep -c "\"pid\":${PID}" "$LATEST_LOG" 2>/dev/null || echo "0")
+    LOG_EVIDENCE="${LOG_EVIDENCE} lines from pid=${PID} in $(basename "$LATEST_LOG")"
+  fi
+fi
+
+# Output
+echo "PORT=${PORT}"
+echo "PID=${PID}"
+echo "START_TIME=${START_TIME}"
+echo "HEAD=${HEAD}"
+echo "TARGET_COMMIT=${TARGET_COMMIT:-not_specified}"
+echo "PROCESS_AFTER_TARGET=${PROCESS_AFTER_TARGET}"
+echo "LOG_EVIDENCE=${LOG_EVIDENCE}"

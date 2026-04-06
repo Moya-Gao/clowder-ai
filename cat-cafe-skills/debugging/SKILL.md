@@ -26,20 +26,28 @@ triggers:
 
 **如果 bug 涉及 runtime 行为**（前端显示异常、API 返回错误、猫猫行为异常、stream 错误等），**在进入 Phase 1 之前**必须先完成三件套验证：
 
-| # | 验证项 | 命令 |
-|---|--------|------|
-| 1 | PID + 启动时间 | `ps aux \| grep 'node.*api'` |
-| 2 | Runtime HEAD | `git -C ../cat-cafe-runtime log --oneline -1` |
-| 3 | 当前 PID 日志 | `grep <PID> <最新日志文件>` |
+**一键运行**：`bash scripts/runtime-preflight.sh [目标commit]`
 
-**三件套没拿到之前，唯一允许说的话是"我还没查完"。**
+脚本输出固定 7 行字段（绑端口而非 grep 猜测）：
 
-以下断言**必须附带三件套证据**，否则禁止说出：
+```
+PORT=3001              ← 绑具体端口，不靠 grep node.*api
+PID=53507              ← 精确到进程
+START_TIME=...         ← 进程启动时间
+HEAD=abc1234 ...       ← runtime worktree HEAD
+TARGET_COMMIT=f78c984  ← 你预期的 commit
+PROCESS_AFTER_TARGET=yes/no  ← 进程是否在 commit 之后启动
+LOG_EVIDENCE=...       ← 当前 PID 在最新日志中的行数
+```
+
+**这 7 行没拿到之前，唯一允许说的话是"我还没查完"。**
+
+以下断言**必须附带 preflight 输出**，否则禁止说出：
 - "runtime 没更新" / "代码没编译" / "没重启" / "还是旧代码"
 
 **为什么这是硬门禁**：启动脚本会自动拉代码并编译。"没更新"本来就不太可能发生。在没有证据的情况下说"没更新" = 把自己的 bug 甩锅给铲屎官。这不是懒，是推卸责任。
 
-> 来源：铲屎官多次纠正（2026-04-05 定为 P0），砚砚协助定位根因。
+> 来源：铲屎官多次纠正（2026-04-05 定为 P0），砚砚协助定位根因 + 方案审查。
 
 ### 4 阶段流水线
 
