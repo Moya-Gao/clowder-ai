@@ -265,10 +265,10 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
 
-  it('falls back to catch-up when /queue returns non-ok (#266 Round 2)', async () => {
+  it('does NOT trigger catch-up when /queue returns non-ok (#266 Round 2)', async () => {
     (mockStoreState as Record<string, unknown>).isLoading = true;
 
-    // /queue returns 500
+    // /queue returns 500 — unknown server state
     mockApiFetch.mockResolvedValue({
       ok: false,
       status: 500,
@@ -295,8 +295,8 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
       await vi.runAllTimersAsync();
     });
 
-    // /queue failed but isLoading=true → fallback catch-up triggered
-    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
+    // /queue failed → unknown state → do NOT catch-up (could cause mid-stream desync)
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
 
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
@@ -366,10 +366,10 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
 
-  it('falls back to catch-up when /queue throws network error (#266 Round 2)', async () => {
+  it('does NOT trigger catch-up when /queue throws network error (#266 Round 2)', async () => {
     (mockStoreState as Record<string, unknown>).isLoading = true;
 
-    // /queue throws
+    // /queue throws — unknown server state
     mockApiFetch.mockRejectedValue(new Error('Network error'));
 
     const callbacks: SocketCallbacks = {
@@ -393,8 +393,8 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
       await vi.runAllTimersAsync();
     });
 
-    // Network error but isLoading=true → fallback catch-up triggered
-    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
+    // Network error → unknown state → do NOT catch-up (could cause mid-stream desync)
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
 
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });

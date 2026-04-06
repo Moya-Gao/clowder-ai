@@ -154,13 +154,12 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
         const res = await apiFetch(`/api/threads/${threadId}/queue`);
         if (generation !== reconcileGeneration) return; // stale after await
         if (!res.ok) {
-          // #266 Round 2: /queue failed — fall back to catch-up for active thread
-          // so user doesn't stay stuck in "replying" state when server is unreachable.
-          const fallbackStore = useChatStore.getState();
-          if (fallbackStore.currentThreadId === threadId && fallbackStore.isLoading) {
-            fallbackStore.requestStreamCatchUp(threadId);
-            console.warn('[ws] Reconnect reconciliation: /queue failed, fallback catch-up', { threadId });
-          }
+          // #266 Round 2: /queue failed — we don't know if invocation is done or
+          // still running, so do NOT trigger catch-up (could cause mid-stream
+          // replace-history → ref desync → duplicate bubbles). The next reconnect
+          // will retry reconciliation; if the stream is still alive it will
+          // naturally complete via socket events.
+          console.warn('[ws] Reconnect reconciliation: /queue failed, skipping thread', { threadId, status: res.status });
           continue;
         }
         const data = (await res.json()) as { activeInvocations?: string[] };
@@ -222,15 +221,11 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
           }
         }
       } catch {
-        // #266 Round 2: network error — same fallback as !res.ok,
-        // but guard stale generation first: a rejected fetch from a superseded
-        // reconnect cycle must not trigger catch-up for the current cycle.
+        // #266 Round 2: network error — same rationale as !res.ok above:
+        // unknown server state → do NOT trigger catch-up. Guard stale
+        // generation so we don't even log for superseded reconnect cycles.
         if (generation !== reconcileGeneration) continue;
-        const fallbackStore = useChatStore.getState();
-        if (fallbackStore.currentThreadId === threadId && fallbackStore.isLoading) {
-          fallbackStore.requestStreamCatchUp(threadId);
-          console.warn('[ws] Reconnect reconciliation: /queue error, fallback catch-up', { threadId });
-        }
+        console.warn('[ws] Reconnect reconciliation: /queue error, skipping thread', { threadId });
       }
     }
   }, RECONNECT_RECONCILE_DELAY_MS);
