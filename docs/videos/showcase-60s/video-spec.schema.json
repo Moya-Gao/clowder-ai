@@ -23,6 +23,7 @@
         "fps": { "type": "integer", "default": 30 },
         "resolution": {
           "type": "object",
+          "required": ["width", "height"],
           "additionalProperties": false,
           "properties": {
             "width": { "type": "integer", "default": 1920 },
@@ -166,12 +167,12 @@
               },
               "freeze_at_ms": {
                 "type": "integer",
-                "description": "For FREEZE_STYLIZED: which source_range ms to freeze on. Required when retiming_strategy=FREEZE_STYLIZED."
+                "description": "For FREEZE_STYLIZED: which source_range ms to freeze on"
               },
               "fallback_asset_refs": {
                 "type": "array",
                 "items": { "type": "string" },
-                "description": "For B_ROLL: supplementary assets to fill duration gap. Required when retiming_strategy=B_ROLL."
+                "description": "For B_ROLL: supplementary assets to fill duration gap"
               },
               "vibe": { "enum": ["hype", "chill", "suspense", "warm"] },
               "captions_style": { "enum": ["narration", "keyLine", "minimal", "none"] },
@@ -181,7 +182,21 @@
                 "description": "Only for SLOW_MO, minimum 0.7x"
               },
               "music_ref": { "type": "string" }
-            }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "retiming_strategy": { "const": "FREEZE_STYLIZED" } }, "required": ["retiming_strategy"] },
+                "then": { "required": ["freeze_at_ms"] }
+              },
+              {
+                "if": { "properties": { "retiming_strategy": { "const": "B_ROLL" } }, "required": ["retiming_strategy"] },
+                "then": { "required": ["fallback_asset_refs"] }
+              },
+              {
+                "if": { "properties": { "retiming_strategy": { "const": "SLOW_MO" } }, "required": ["retiming_strategy"] },
+                "then": { "required": ["playback_rate"] }
+              }
+            ]
           },
 
           "control": {
