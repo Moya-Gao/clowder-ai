@@ -785,15 +785,6 @@ export function WorkspacePanel() {
                     </button>
                   );
                 })}
-                {/* UX fix: single consistent focus button position for all panes */}
-                <FocusModeButton
-                  disabled={
-                    (viewMode === 'browser' && !previewPort) ||
-                    (viewMode === 'terminal' && !worktreeId) ||
-                    (viewMode === 'files' && !file)
-                  }
-                  onClick={() => setFocusedPane(viewMode === 'files' ? 'file' : viewMode)}
-                />
               </div>
 
               {/* Error */}
@@ -847,19 +838,47 @@ export function WorkspacePanel() {
               )}
 
               {viewMode === 'browser' ? (
-                <BrowserPanel initialPort={previewPort} initialPath={previewPath} onNavigate={handleBrowserNavigate} />
+                <div className="relative flex-1 min-h-0 flex flex-col">
+                  <FocusModeButton
+                    disabled={!previewPort}
+                    onClick={() => setFocusedPane('browser')}
+                    className="absolute top-2 right-2 z-10"
+                  />
+                  <BrowserPanel
+                    initialPort={previewPort}
+                    initialPath={previewPath}
+                    onNavigate={handleBrowserNavigate}
+                  />
+                </div>
               ) : viewMode === 'terminal' ? (
-                worktreeId ? (
-                  <TerminalTab worktreeId={worktreeId} />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-cocreator-dark/50">
-                    请先选择一个 Worktree
-                  </div>
-                )
+                <div className="relative flex-1 min-h-0 flex flex-col">
+                  <FocusModeButton
+                    disabled={!worktreeId}
+                    onClick={() => setFocusedPane('terminal')}
+                    className="absolute top-2 right-2 z-10"
+                  />
+                  {worktreeId ? (
+                    <TerminalTab worktreeId={worktreeId} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-sm text-cocreator-dark/50">
+                      请先选择一个 Worktree
+                    </div>
+                  )}
+                </div>
               ) : viewMode === 'git' ? (
-                <GitPanel />
+                <div className="relative flex-1 min-h-0 flex flex-col">
+                  <FocusModeButton onClick={() => setFocusedPane('git')} className="absolute top-2 right-2 z-10" />
+                  <GitPanel />
+                </div>
               ) : viewMode === 'changes' ? (
-                <ChangesPanel worktreeId={worktreeId} basisPct={treeBasis} />
+                <div className="relative flex-1 min-h-0 flex flex-col">
+                  <FocusModeButton
+                    disabled={!worktreeId}
+                    onClick={() => setFocusedPane('changes')}
+                    className="absolute top-2 right-2 z-10"
+                  />
+                  <ChangesPanel worktreeId={worktreeId} basisPct={treeBasis} />
+                </div>
               ) : (
                 <>
                   {/* Search loading indicator */}
@@ -1000,6 +1019,7 @@ export function WorkspacePanel() {
                           onToggleJsxPreview={() => setJsxPreview((p) => !p)}
                           onSave={handleSave}
                           revealInFinder={revealInFinder}
+                          onFocusMode={() => setFocusedPane('file')}
                         />
                       )}
                     </>

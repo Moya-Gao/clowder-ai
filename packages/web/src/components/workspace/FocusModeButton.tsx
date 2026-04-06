@@ -3,20 +3,21 @@
 interface FocusModeButtonProps {
   label?: string;
   disabled?: boolean;
+  className?: string;
   onClick: () => void;
 }
 
 /**
- * Compact focus-mode trigger shown in the view-mode tab bar.
- * UX fix (intake #362): single consistent position for all panes.
+ * Compact focus-mode trigger — rendered in pane toolbars (not tab bar).
+ * Pane-level action, not a view mode switch.
  */
-export function FocusModeButton({ label = '专注', disabled, onClick }: FocusModeButtonProps) {
+export function FocusModeButton({ label = '专注', disabled, className, onClick }: FocusModeButtonProps) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="ml-auto px-2 py-1 rounded-md text-[10px] font-medium transition-colors bg-cocreator-primary/10 text-cocreator-primary border border-cocreator-primary/20 hover:bg-cocreator-primary/15 disabled:opacity-30 disabled:cursor-not-allowed"
+      className={`px-2 py-1 rounded-md text-[10px] font-medium transition-colors bg-cocreator-primary/10 text-cocreator-primary border border-cocreator-primary/20 hover:bg-cocreator-primary/15 disabled:opacity-30 disabled:cursor-not-allowed ${className ?? ''}`}
     >
       {label}
     </button>

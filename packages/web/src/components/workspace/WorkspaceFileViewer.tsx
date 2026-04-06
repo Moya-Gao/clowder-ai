@@ -32,6 +32,8 @@ interface WorkspaceFileViewerProps {
   onToggleJsxPreview: () => void;
   onSave: (content: string) => Promise<void>;
   revealInFinder: (path: string) => void;
+  onFocusMode?: () => void;
+  focusDisabled?: boolean;
 }
 
 const CloseIcon = () => (
@@ -73,6 +75,8 @@ export function WorkspaceFileViewer({
   onToggleJsxPreview,
   onSave,
   revealInFinder,
+  onFocusMode,
+  focusDisabled,
 }: WorkspaceFileViewerProps) {
   const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
@@ -234,6 +238,11 @@ export function WorkspaceFileViewer({
               {editMode ? '\u7F16\u8F91\u4E2D' : '\u7F16\u8F91'}
             </ToolbarBtn>
           )}
+          {onFocusMode && (
+            <ToolbarBtn onClick={onFocusMode} title="\u4E13\u6CE8\u6A21\u5F0F" disabled={focusDisabled}>
+              专注
+            </ToolbarBtn>
+          )}
           <button
             type="button"
             onClick={onCloseCurrentTab}
@@ -285,12 +294,14 @@ function ToolbarBtn({
   children,
   active,
   activeClass,
+  disabled,
   onClick,
   title,
 }: {
   children: React.ReactNode;
   active?: boolean;
   activeClass?: string;
+  disabled?: boolean;
   onClick: () => void;
   title: string;
 }) {
@@ -299,7 +310,8 @@ function ToolbarBtn({
     <button
       type="button"
       onClick={onClick}
-      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${active ? ac : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'}`}
+      disabled={disabled}
+      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${active ? ac : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
       title={title}
     >
       {children}

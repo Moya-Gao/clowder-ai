@@ -562,23 +562,23 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 
 | 组件 | 职责 | 行数 |
 |------|------|------|
-| `FocusModeButton` | tab bar 内统一的专注按钮，空态自动禁用 | 24 |
-| `WorkspaceFocusShell` | 共享壳：Escape 退出 + sticky header 退出按钮 + fade 过渡 | 57 |
+| `FocusModeButton` | per-pane toolbar 行内的专注按钮，空态自动禁用 | 25 |
+| `WorkspaceFocusShell` | 共享壳：Escape 退出 + 暖色调半透明浮标退出按钮 + fade 过渡 | 55 |
 | `WorkspacePreviewOnly` | 浏览器 focus 壳：Shell > BrowserPanel(previewOnly) | 20 |
-| `WorkspaceFileViewer` | 从 WorkspacePanel 提取的文件查看器（tab bar + toolbar + 内容渲染） | 308 |
+| `WorkspaceFileViewer` | 从 WorkspacePanel 提取的文件查看器（tab bar + toolbar + 内容渲染 + 专注按钮） | 320 |
 | `FileContentRenderer` | 从 FileViewer 提取的内容渲染（binary/md/html/jsx/code） | 154 |
 | `BrowserPanel` 改动 | 新增 `previewOnly` + `onNavigate` props | 350 |
-| `WorkspacePanel` 改动 | focusedPane 状态路由 + auto-exit + FocusModeButton 集成 | 1015 |
+| `WorkspacePanel` 改动 | focusedPane 状态路由 + auto-exit + per-pane FocusModeButton 集成 | 1018 |
 
 ### UX 修复（相对上游）
 
 | # | 级别 | 问题 | 修复 |
 |---|------|------|------|
 | 1 | P1 | 浏览器 focus 后切回丢失预览状态 | `onNavigate` 回调同步 port/path 到父层 |
-| 2 | P1 | focus 按钮位置各 pane 不统一 | 统一放在 tab bar（任何 pane 同一位置） |
+| 2 | P1 | focus 按钮位置各 pane 不统一 | 统一放在 tab bar → **R2 移至 per-pane toolbar 行**（见 UX R2） |
 | 3 | P2 | 空态时 focus 按钮可点（误导） | `disabled` 禁用（无预览/无 worktree/无文件） |
 | 4 | P2 | 进出硬切无过渡 | `animate-fade-in` |
-| 5 | P3 | 退出按钮可能被内容遮挡 | sticky header 替代 absolute overlay |
+| 5 | P3 | 退出按钮可能被内容遮挡 | sticky header → **R2 暖色调半透明浮标**（见 UX R2） |
 
 ### Acceptance Criteria
 
@@ -589,10 +589,20 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 - [x] AC-F5: 上下文切换（viewMode/file/workspaceMode 变化）自动退出 focus
 - [x] AC-F6: 10 个测试覆盖 FocusModeButton + WorkspaceFocusShell + WorkspacePreviewOnly
 
+### UX R2（铲屎官视觉审查 2026-04-05）
+
+铲屎官看到实际 UI 后指出两个层级问题：
+
+| # | 级别 | 问题 | 修复 |
+|---|------|------|------|
+| 6 | P1 | 专注按钮放在 tab bar 与 view mode 同级，层级错误（它是 pane action 不是 view mode） | 移到 per-pane toolbar 行：文件 toolbar 同行（Copy/Path/Finder/编辑 旁）、浏览器右上角浮层 |
+| 7 | P1 | 退出专注用暗色 sticky header，与 Cat Cafe 暖色设计语言冲突 | 改为暖色调半透明浮标：`bg-cocreator-light/70 rounded-full backdrop-blur-sm shadow-sm` |
+
 ### Review 记录
 
 - 砚砚(codex) R1: 2 P1（onNavigate 空态残留 + 测试 prop 名错误）→ 修复 → R2 放行
 - 云端 Codex: "Didn't find any major issues" → 0 P1/P2
+- **铲屎官 UX R2**: 2 P1（按钮层级 + 退出样式）→ fix/focus-mode-ux 分支修复
 
 ## Known Bugs (Follow-up)
 

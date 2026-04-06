@@ -141,3 +141,4 @@ __pycache__/
 *.pyc
 .claude/skills/browser-automation
 .claude/skills/browser-preview
+.claude/skills/video-forge
