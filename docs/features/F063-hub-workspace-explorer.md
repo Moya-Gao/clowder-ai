@@ -345,6 +345,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-27 | **Bug fix** (PR #782): workspace content search silent failure — grep maxBuffer 溢出静默归零 + 前端 0 结果空白. 砚砚(GPT-5.4) 实现 + 宪宪 跨家族 review (0P1, 1P2 备注), 3 新测试 |
 | 2026-03-28 | **Bug fix** (PR #807): per-thread workspace state — 切换 thread 丢失打开的文档/tab/worktreeId. 4 字段加入 ThreadState + snapshotActive/flattenThread + conditional worktreeId restore. 砚砚(GPT-5.4) R1→R2 (1P1 worktreeId→0) + 云端通过, 4 新测试 |
 | 2026-04-05 | **Focus Mode intake** (PR #966): manual-port from clowder-ai#362. 6 新组件 + WorkspacePanel 瘦身 (1195→1015). 砚砚(codex) R1→R2 (2P1→0) + 云端通过, 10 新测试. Closes #964 |
+| 2026-04-05 | **Focus Mode UX R2** (PR #975): 铲屎官视觉审查后修复 2P1 — button tab bar→per-pane toolbar + dark header→warm pill. 砚砚(codex) R1 (1P1 3-pane回归)→R2 放行 + 云端通过, +5 regression tests |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
