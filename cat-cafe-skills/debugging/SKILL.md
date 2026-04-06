@@ -31,8 +31,8 @@ triggers:
 脚本输出固定 7 行字段（绑端口而非 grep 猜测）：
 
 ```
-PORT=3001              ← 绑具体端口，不靠 grep node.*api
-PID=53507              ← 精确到进程
+PORT=3002              ← 默认 API 端口（3001=前端），只取 LISTEN PID
+PID=53507              ← 精确到监听进程（排除浏览器等客户端连接）
 START_TIME=...         ← 进程启动时间
 HEAD=abc1234 ...       ← runtime worktree HEAD
 TARGET_COMMIT=f78c984  ← 你预期的 commit

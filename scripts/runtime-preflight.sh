@@ -10,10 +10,10 @@ set -euo pipefail
 
 RUNTIME_DIR="${RUNTIME_DIR:-../cat-cafe-runtime}"
 TARGET_COMMIT="${1:-}"
-PORT="${RUNTIME_PORT:-3001}"
+PORT="${RUNTIME_PORT:-3002}"  # 3002=API (default), 3001=frontend
 
-# 1. Find PID bound to the specific port (not grep guesswork)
-PID=$(lsof -ti "tcp:${PORT}" 2>/dev/null | head -1 || true)
+# 1. Find PID LISTENING on the specific port (not any client connection)
+PID=$(lsof -nP -tiTCP:"${PORT}" -sTCP:LISTEN 2>/dev/null | head -1 || true)
 if [[ -z "$PID" ]]; then
   echo "PORT=${PORT}"
   echo "PID=NOT_FOUND"
