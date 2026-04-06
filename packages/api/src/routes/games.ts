@@ -12,6 +12,7 @@ import { createGameDriver } from '../domains/cats/services/game/createGameDriver
 import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import { GameViewBuilder } from '../domains/cats/services/game/GameViewBuilder.js';
+import { appendGameSystemMessage } from '../domains/cats/services/game/gameSystemMessage.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { IGameStore } from '../domains/cats/services/stores/ports/GameStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
@@ -189,13 +190,11 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     await threadStore.updateThinkingMode(gameThreadId, 'play');
 
     // Store a system message in the game thread for context
-    await messageStore.append({
-      userId,
-      catId: null,
-      content: `🎮 ${gameTitle} 开始`,
-      mentions: [],
-      timestamp: Date.now(),
+    await appendGameSystemMessage({
       threadId: gameThreadId,
+      content: `🎮 ${gameTitle} 开始`,
+      messageStore,
+      socketManager,
     });
 
     // WerewolfLobby for role assignment, then orchestrator for persistence + broadcast

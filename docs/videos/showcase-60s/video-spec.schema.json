@@ -64,7 +64,11 @@
             "required": ["index", "word", "start_ms", "end_ms"],
             "additionalProperties": false,
             "properties": {
-              "index": { "type": "integer", "minimum": 0, "description": "Stable positional index for highlighting, diff, and patch" },
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Stable positional index for highlighting, diff, and patch"
+              },
               "word": { "type": "string" },
               "start_ms": { "type": "integer" },
               "end_ms": { "type": "integer" },
@@ -185,15 +189,24 @@
             },
             "allOf": [
               {
-                "if": { "properties": { "retiming_strategy": { "const": "FREEZE_STYLIZED" } }, "required": ["retiming_strategy"] },
+                "if": {
+                  "properties": { "retiming_strategy": { "const": "FREEZE_STYLIZED" } },
+                  "required": ["retiming_strategy"]
+                },
                 "then": { "required": ["freeze_at_ms"] }
               },
               {
-                "if": { "properties": { "retiming_strategy": { "const": "B_ROLL" } }, "required": ["retiming_strategy"] },
+                "if": {
+                  "properties": { "retiming_strategy": { "const": "B_ROLL" } },
+                  "required": ["retiming_strategy"]
+                },
                 "then": { "required": ["fallback_asset_refs"] }
               },
               {
-                "if": { "properties": { "retiming_strategy": { "const": "SLOW_MO" } }, "required": ["retiming_strategy"] },
+                "if": {
+                  "properties": { "retiming_strategy": { "const": "SLOW_MO" } },
+                  "required": ["retiming_strategy"]
+                },
                 "then": { "required": ["playback_rate"] }
               }
             ]

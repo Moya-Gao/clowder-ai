@@ -11,6 +11,7 @@ import type { IGameStore } from '../stores/ports/GameStore.js';
 import type { IMessageStore } from '../stores/ports/MessageStore.js';
 import { GameEngine } from './GameEngine.js';
 import { GameViewBuilder } from './GameViewBuilder.js';
+import { appendGameSystemMessage } from './gameSystemMessage.js';
 import { WerewolfEngine } from './werewolf/WerewolfEngine.js';
 
 const log = createModuleLogger('game-orchestrator');
@@ -149,6 +150,40 @@ export class GameOrchestrator {
       this.advancePhase(engine);
     }
 
+    await this.store.updateGame(gameId, engine.getRuntime());
+    await this.broadcastGameState(gameId);
+  }
+
+  /** Force-settle current phase: apply fallbacks for missing actions and advance.
+   *  Called by GameNarratorDriver after its own waitForAllActions returns.
+   *  Unlike tick(), this skips the elapsed-time check — narrator already waited.
+   *  @param expectedPhase — if provided, no-op when phase already advanced (race guard) */
+  async forceSettle(gameId: string, expectedPhase?: string): Promise<void> {
+    const runtime = await this.store.getGame(gameId);
+    if (!runtime) return;
+    if (runtime.status !== 'playing') return;
+    if (expectedPhase && runtime.currentPhase !== expectedPhase) {
+      log.info(
+        { gameId, expectedPhase, actualPhase: runtime.currentPhase },
+        'forceSettle skipped: phase already advanced',
+      );
+      return;
+    }
+
+    const engine = this.createEngine(runtime);
+
+    if (!engine.allActionsCollected()) {
+      this.applyFallbacks(engine);
+      engine.appendEvent({
+        round: runtime.round,
+        phase: runtime.currentPhase,
+        type: 'timeout',
+        scope: 'public',
+        payload: { reason: 'narrator_timeout' },
+      });
+    }
+
+    this.advancePhase(engine);
     await this.store.updateGame(gameId, engine.getRuntime());
     await this.broadcastGameState(gameId);
   }
@@ -298,15 +333,12 @@ export class GameOrchestrator {
 
   private writeAnnounce(runtime: GameRuntime, content: string): void {
     if (!this.messageStore) return;
-    const userId = runtime.config.observerUserId ?? 'system';
     Promise.resolve(
-      this.messageStore.append({
-        userId,
-        catId: null,
-        content,
-        mentions: [],
-        timestamp: Date.now(),
+      appendGameSystemMessage({
         threadId: runtime.threadId,
+        content,
+        messageStore: this.messageStore,
+        socketManager: this.socket,
       }),
     ).catch((err) => {
       log.error({ err }, '[GameOrchestrator] Failed to write announce to messageStore');

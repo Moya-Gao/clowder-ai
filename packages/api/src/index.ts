@@ -1007,6 +1007,8 @@ async function main(): Promise<void> {
           wakeCat,
           actionNotifier: sharedActionNotifier,
           orchestrator: sharedOrchestrator,
+          messageStore,
+          socketManager,
         },
       });
       app.log.info('[api] F101 game driver: GameNarratorDriver (agent-driven)');

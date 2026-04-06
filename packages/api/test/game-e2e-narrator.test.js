@@ -87,7 +87,11 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
       }
     }
 
-    const orchestrator = { async broadcastGameState() {} };
+    const orchestrator = {
+      async broadcastGameState() {},
+      async tick() {},
+      async forceSettle() {},
+    };
 
     const wakeCat = async (params) => {
       wakes.push(params);
@@ -111,7 +115,29 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
       cleanup: () => {},
     };
 
-    const driver = new GameNarratorDriver({ gameStore, orchestrator, wakeCat, actionNotifier });
+    const systemMessages = [];
+    const messageStore = {
+      async append(msg) {
+        const stored = { id: `msg-${systemMessages.length + 1}`, ...msg };
+        systemMessages.push(stored);
+        return stored;
+      },
+    };
+    const socketBroadcasts = [];
+    const socketManager = {
+      broadcastToRoom(room, event, data) {
+        socketBroadcasts.push({ room, event, data });
+      },
+    };
+
+    const driver = new GameNarratorDriver({
+      gameStore,
+      orchestrator,
+      wakeCat,
+      actionNotifier,
+      messageStore,
+      socketManager,
+    });
     driver.startLoop('game-e2e-001');
     await new Promise((r) => setTimeout(r, 1500));
     driver.stopLoop('game-e2e-001');
@@ -119,29 +145,18 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
 
     const narrativeTexts = currentRuntime.eventLog.filter((e) => e.type === 'narrative').map((e) => e.payload.text);
 
+    // Open narratives are in eventLog
     assert.ok(
       narrativeTexts.some((t) => t.includes('狼人请睁眼')),
       'wolf open',
-    );
-    assert.ok(
-      narrativeTexts.some((t) => t.includes('狼人请闭眼')),
-      'wolf close',
     );
     assert.ok(
       narrativeTexts.some((t) => t.includes('预言家请睁眼')),
       'seer open',
     );
     assert.ok(
-      narrativeTexts.some((t) => t.includes('预言家请闭眼')),
-      'seer close',
-    );
-    assert.ok(
       narrativeTexts.some((t) => t.includes('女巫请睁眼')),
       'witch open',
-    );
-    assert.ok(
-      narrativeTexts.some((t) => t.includes('女巫请闭眼')),
-      'witch close',
     );
     assert.ok(
       narrativeTexts.some((t) => t.includes('天亮了')),
@@ -150,6 +165,21 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
     assert.ok(
       narrativeTexts.some((t) => t.includes('投票')),
       'vote',
+    );
+
+    // Close narratives are system messages (not eventLog) — P1 fix
+    const closeTexts = systemMessages.map((m) => m.content);
+    assert.ok(
+      closeTexts.some((t) => t.includes('狼人请闭眼')),
+      'wolf close (system message)',
+    );
+    assert.ok(
+      closeTexts.some((t) => t.includes('预言家请闭眼')),
+      'seer close (system message)',
+    );
+    assert.ok(
+      closeTexts.some((t) => t.includes('女巫请闭眼')),
+      'witch close (system message)',
     );
 
     for (const event of currentRuntime.eventLog.filter((e) => e.type === 'narrative')) {

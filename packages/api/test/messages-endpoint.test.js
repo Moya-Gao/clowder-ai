@@ -69,6 +69,23 @@ describe('GET /api/messages', () => {
     assert.equal(body.messages[1].content, 'hi there');
   });
 
+  it('maps canonical system messages to type=system', async () => {
+    messageStore.append({
+      userId: 'system',
+      catId: 'system',
+      content: '🐺 狼人请睁眼',
+      mentions: [],
+      timestamp: 1000,
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].type, 'system');
+    assert.equal(body.messages[0].catId, 'system');
+  });
+
   it('respects limit parameter', async () => {
     for (let i = 0; i < 10; i++) {
       messageStore.append({

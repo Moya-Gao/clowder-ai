@@ -3,6 +3,7 @@ import type { IGameStore } from '../stores/ports/GameStore.js';
 import { buildFirstWakeBriefing, buildResumeCapsule } from './briefing.js';
 import type { GameDriver } from './GameDriver.js';
 import { GameEngine } from './GameEngine.js';
+import { appendGameSystemMessage } from './gameSystemMessage.js';
 
 export const TIME_BUDGETS = {
   nightPerRole: 45_000,
@@ -33,9 +34,15 @@ export interface ActionNotifier {
   cleanup(gameId: string): void;
 }
 
-/** Subset of GameOrchestrator used by narrator driver for state broadcast */
+/** Subset of GameOrchestrator used by narrator driver for state broadcast + phase settlement */
 export interface GameStateBroadcaster {
   broadcastGameState(gameId: string): Promise<void>;
+  tick(gameId: string): Promise<void>;
+  forceSettle(gameId: string, expectedPhase?: string): Promise<void>;
+}
+
+interface NarrativeSocketLike {
+  broadcastToRoom(room: string, event: string, data: unknown): void;
 }
 
 export interface NarratorDeps {
@@ -43,6 +50,8 @@ export interface NarratorDeps {
   wakeCat: WakeCatFn;
   actionNotifier: ActionNotifier;
   orchestrator: GameStateBroadcaster;
+  messageStore?: import('../stores/ports/MessageStore.js').IMessageStore;
+  socketManager?: NarrativeSocketLike;
 }
 
 export class GameNarratorDriver implements GameDriver {
@@ -99,6 +108,7 @@ export class GameNarratorDriver implements GameDriver {
       } else if (phaseDef.type === 'day_vote') {
         await this.runDayVote(runtime, signal);
       } else {
+        await this.deps.orchestrator.tick(gameId);
         await sleep(500);
       }
 
@@ -139,10 +149,16 @@ export class GameNarratorDriver implements GameDriver {
     }
 
     const seatIds = seats.map((s) => s.seatId);
+    const settlingPhase = runtime.currentPhase; // capture before wait (action route may advance)
     await this.deps.actionNotifier.waitForAllActions(runtime.gameId, seatIds, TIME_BUDGETS.nightPerRole);
 
+    // Single-clock: narrator drives phase advancement directly, no dual-timeout polling
+    // Pass expectedPhase to guard against race with action route already advancing
+    await this.deps.orchestrator.forceSettle(runtime.gameId, settlingPhase);
+
+    // Close narrative after phase has advanced (phase-aware: only if game still running)
     const closeNarrative = narrative.replace('请睁眼', '请闭眼');
-    await this.postNarrative(runtime.gameId, runtime, closeNarrative);
+    await this.postCloseNarrative(runtime.gameId, closeNarrative);
   }
 
   private async runDayDiscuss(runtime: GameRuntime, signal: AbortSignal): Promise<void> {
@@ -184,7 +200,11 @@ export class GameNarratorDriver implements GameDriver {
     }
 
     const seatIds = aliveSeats.map((s) => s.seatId);
+    const settlingPhase = runtime.currentPhase; // capture before wait
     await this.deps.actionNotifier.waitForAllActions(runtime.gameId, seatIds, TIME_BUDGETS.votePerVoter);
+
+    // Single-clock: narrator drives phase advancement directly
+    await this.deps.orchestrator.forceSettle(runtime.gameId, settlingPhase);
   }
 
   private async postNarrative(gameId: string, _runtime: GameRuntime, content: string): Promise<void> {
@@ -202,6 +222,26 @@ export class GameNarratorDriver implements GameDriver {
 
     await this.deps.gameStore.updateGame(gameId, engine.getRuntime());
     await this.deps.orchestrator.broadcastGameState(gameId);
+    await appendGameSystemMessage({
+      threadId: fresh.threadId,
+      content,
+      messageStore: this.deps.messageStore,
+      socketManager: this.deps.socketManager,
+    });
+  }
+
+  /** Post close narrative (e.g. "狼人请闭眼") as a system message only, not into eventLog.
+   *  Called after phase has already advanced via forceSettle. */
+  private async postCloseNarrative(gameId: string, content: string): Promise<void> {
+    const fresh = await this.deps.gameStore.getGame(gameId);
+    if (!fresh || fresh.status !== 'playing') return;
+
+    await appendGameSystemMessage({
+      threadId: fresh.threadId,
+      content,
+      messageStore: this.deps.messageStore,
+      socketManager: this.deps.socketManager,
+    });
   }
 
   private isFirstWake(runtime: GameRuntime): boolean {
