@@ -926,10 +926,10 @@
     },
     {
       "id": "F151",
-      "name": "XiaoYi Channel Gateway — 小艺渠道 OpenClaw 模式接入",
-      "status": "spec | **Owner**: TBD | **Priority**: Community",
+      "name": "XiaoYi Channel Gateway — 小艺渠道接入",
+      "status": "spec | **Owner**: Ragdoll | **Priority**: P1",
       "file": "F151-xiaoyi-channel-gateway.md"
     }
   ],
-  "generated_at": "2026-04-06T00:50:44.981Z"
+  "generated_at": "2026-04-06T11:44:36.148Z"
 }
