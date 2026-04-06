@@ -533,6 +533,37 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 - 根因：金渐层 `ec24045c` 在 ChatContainer useEffect 里无条件对所有 thread 调 `reconnectGame(threadId)` → `GET /api/threads/:threadId/game` → 无活跃游戏 → 404
 - 修复（PR #743）：API 语义修正，"查询无结果"从 404 改为 200/null。DELETE/POST 等写操作保持 404
 
+### Phase I Runtime Bugs — 第二轮（2026-04-05 铲屎官 6 人局 thread_mnmeq5y0u44oj6k7）
+
+**Bug I-R6（P1）：重复"狼人/预言家/女巫请睁眼" — narrator 重复开同一阶段**
+- 现象：同一个 night phase 被 narrator 反复进入，重复唤醒猫猫，重复发"请睁眼"叙事
+- 根因：`waitForAllActions` 超时返回后，narrator 外层 `runGameLoop` 重新读 gameStore → phase 未变 → 重新进入 `runNightRole` → 再发一次叙事再唤醒猫猫
+- 砚砚修法：`waitForPhaseSettlement` 轮询等 orchestrator.tick() 推进 phase。方向正确，但 **引入了新的 P1**——见 I-R8
+
+**Bug I-R7（P2）：空头像 — 系统消息被渲染为普通用户气泡**
+- 现象：开局"🎮 狼人杀 — 6人局 开始"和游戏公告显示为空头像的用户消息
+- 根因：`writeAnnounce` 和 game start 消息用 `userId: observerUserId, catId: null` 存入 messageStore。API timeline 映射 `catId: null` → `type: 'user'` → 前端渲染为用户气泡
+- 砚砚修法：`appendGameSystemMessage` helper，用 `userId: 'system', catId: 'system'`，API 优先判断 `isSystemUserMessage` → `type: 'system'`。正确
+
+**Bug I-R8（P1）：`waitForPhaseSettlement` × `tick()` 双超时不同步 → 无限循环（砚砚修法引入）**
+- 现象：铲屎官报"女巫请睁眼完全没有给我结束一局 bug 游戏"
+- 根因：narrator `waitForAllActions(45s)` 和 orchestrator `tick()` 的 `phaseDef.timeoutMs` 是两套独立超时。narrator 超时返回后调 `tick()`，但 `tick()` 判断 `elapsed < effectiveTimeout` 认为"还没超时" → `tick()` 不推进 → `waitForPhaseSettlement` 每 200ms 轮询但 phase 永远不变
+- `waitForPhaseSettlement` 没有 max-retry 或自身超时守卫，唯一出口是 signal.aborted 或 phase 变化
+- 修法建议：narrator 超时后不依赖 `tick()`，直接调一个 `forceAdvance(gameId)` 收口方法
+
+**Bug I-R9（P2）：暂停按钮不生效**
+- 现象：铲屎官按暂停按钮但游戏继续循环
+- 待验证：`pauseGame` 写 `status: 'paused'`，`waitForPhaseSettlement` 检查 `status !== 'playing'` 应该返回。可能是前端 API 调用问题或 gameStore 并发写覆盖
+
+**Bug I-R10（P2）：`action.requested` + `action.submitted` 双事件显示**
+- 现象：EventFlow 显示"P2 kill"和"P2 kill → P1"两条系统事件
+- 根因：`handlePlayerAction` 每次提交 append 两个事件（`action.requested` 和 `action.submitted`），两者都匹配 `type.startsWith('action.')` → 都渲染为 system event
+- 修法：EventFlow 过滤掉 `action.requested`（仅保留 `action.submitted`）
+
+**Observation：为什么每次都 kill 布偶猫？**
+- 不是代码 bug。角色分配有 Fisher-Yates 随机。但 seat 分配是确定性的（catIds 按 config 顺序排列）。LLM 可能有位置/名字偏好
+- 建议：`buildGameSeats` 前 shuffle catIds 数组
+
 ### Pre-Design Gate TODO
 - [x] **网易狼人杀规则调研**：详见 `docs/research/2026-03-11-netease-werewolf-rules.md`
 
