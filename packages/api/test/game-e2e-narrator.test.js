@@ -201,8 +201,10 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
       'witch woken',
     );
 
-    const discussWakes = wakes.filter((w) => w._phase === 'day_discuss');
-    assert.equal(discussWakes.length, 7, '7 speakers in discuss');
+    const discussWakes = wakes.filter(
+      (w) => w._phase === 'day_discuss' && w.timeoutMs === TIME_BUDGETS.discussPerSpeaker,
+    );
+    assert.equal(discussWakes.length, 7, '7 speakers in discuss with correct timeout');
 
     const voteWakes = wakes.filter((w) => w.timeoutMs === TIME_BUDGETS.votePerVoter);
     assert.equal(voteWakes.length, 7, '7 voters');
@@ -290,9 +292,18 @@ describe('E2E: 7-person game lifecycle via GameNarratorDriver [AC-I10]', () => {
     driver.stopLoop('game-e2e-001');
     await new Promise((r) => setTimeout(r, 100));
 
+    // Composition (板子) is public knowledge — role names in "Nx局" line are OK.
+    // What must NOT leak: which specific seat holds seer/witch.
     for (const wake of wakes) {
-      assert.ok(!wake.briefing.includes('预言家'), 'wolf briefing should not leak seer');
-      assert.ok(!wake.briefing.includes('女巫'), 'wolf briefing should not leak witch');
+      // P3=seer(gemini), P4=witch(gpt52) — wolf should not see these seat-role bindings
+      assert.ok(
+        !wake.briefing.includes('座位3') || !wake.briefing.includes('预言家('),
+        'wolf briefing should not leak seer seat',
+      );
+      assert.ok(
+        !wake.briefing.includes('座位4') || !wake.briefing.includes('女巫('),
+        'wolf briefing should not leak witch seat',
+      );
     }
   });
 });

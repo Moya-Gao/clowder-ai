@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 export interface NightBallotRow {
   seatId: string;
   target: string;
@@ -115,6 +117,7 @@ export function GodInspector({
 }: GodInspectorProps) {
   const buttons = deriveGodButtons(gameStatus ?? '');
   const nightBallotRows = godEvents ? deriveNightBallotRows(godEvents, currentRound) : [];
+  const [stopping, setStopping] = useState(false);
   return (
     <div
       data-testid="god-inspector"
@@ -284,10 +287,14 @@ export function GodInspector({
             <button
               type="button"
               data-testid="god-stop"
-              onClick={() => onGodAction?.('stop')}
-              className="w-full text-[11px] font-bold rounded-md px-3 py-2 bg-ww-danger text-ww-base hover:brightness-90 transition-colors"
+              disabled={stopping}
+              onClick={() => {
+                setStopping(true);
+                onGodAction?.('stop');
+              }}
+              className={`w-full text-[11px] font-bold rounded-md px-3 py-2 transition-colors ${stopping ? 'bg-ww-card text-ww-dim cursor-wait' : 'bg-ww-danger text-ww-base hover:brightness-90'}`}
             >
-              强制停止游戏
+              {stopping ? '停止中...' : '强制停止游戏'}
             </button>
           )}
         </>

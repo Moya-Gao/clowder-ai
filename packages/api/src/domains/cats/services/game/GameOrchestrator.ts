@@ -417,9 +417,35 @@ export class GameOrchestrator {
         payload: { seatId: seat.seatId, reason: 'timeout' },
       });
 
-      // Generate random fallback target (any alive seat except self and same-faction)
+      // Non-wolf night roles (seer/witch/guard) skip on timeout — random action is game-breaking
+      // (e.g. witch randomly healing/poisoning, seer randomly checking)
+      const isNightPhase = runtime.currentPhase.startsWith('night_');
       const wolfRoles = new Set(runtime.definition.roles.filter((r) => r.faction === 'wolf').map((r) => r.name));
       const isWolf = wolfRoles.has(seat.role);
+
+      if (isNightPhase && !isWolf) {
+        // Skip — record as "no action taken" instead of random fallback
+        const fallbackAction: PendingAction = {
+          seatId: seat.seatId as import('@cat-cafe/shared').SeatId,
+          actionName: 'skip',
+          submittedAt: Date.now(),
+          status: 'fallback',
+          requestedAt: runtime.phaseStartedAt ?? runtime.updatedAt,
+          fallbackSource: 'skip',
+        };
+        runtime.pendingActions[seat.seatId] = fallbackAction;
+
+        engine.appendEvent({
+          round: runtime.round,
+          phase: runtime.currentPhase,
+          type: 'action.fallback',
+          scope: 'god',
+          payload: { seatId: seat.seatId, actionName: 'skip', fallbackSource: 'skip', reason: 'timeout' },
+        });
+        continue;
+      }
+
+      // Wolf / day phases: generate random fallback target
       const validTargets = aliveSeatIds.filter((id) => {
         if (id === seat.seatId) return false;
         if (isWolf) {
