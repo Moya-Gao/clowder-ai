@@ -170,6 +170,52 @@ describe('F134 follow-up — Feishu QR bind routes', () => {
   });
 });
 
+describe('POST /api/connector/feishu/disconnect', () => {
+  it('clears FEISHU_APP_ID and FEISHU_APP_SECRET via applyConnectorSecretUpdates and returns ok', async () => {
+    const tmpDir = mkdtempSync(join(os.tmpdir(), 'feishu-disconnect-'));
+    const envFilePath = join(tmpDir, '.env');
+    writeFileSync(envFilePath, 'FEISHU_APP_ID=cli_old\nFEISHU_APP_SECRET=sec_old\nFEISHU_CONNECTION_MODE=websocket\n');
+    process.env.FEISHU_APP_ID = 'cli_old';
+    process.env.FEISHU_APP_SECRET = 'sec_old';
+    process.env.FEISHU_CONNECTION_MODE = 'websocket';
+
+    const app = Fastify();
+    await app.register(connectorHubRoutes, {
+      threadStore: {
+        async list() {
+          return [];
+        },
+      },
+      envFilePath,
+    });
+    await app.ready();
+
+    const res = await app.inject({ method: 'POST', url: '/api/connector/feishu/disconnect', headers: AUTH_HEADERS });
+    const body = JSON.parse(res.body);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(body.ok, true);
+    assert.equal(process.env.FEISHU_APP_ID, undefined);
+    assert.equal(process.env.FEISHU_APP_SECRET, undefined);
+    // Connection mode should NOT be cleared (user preference)
+    assert.equal(process.env.FEISHU_CONNECTION_MODE, 'websocket');
+
+    const envText = readFileSync(envFilePath, 'utf8');
+    assert.doesNotMatch(envText, /FEISHU_APP_ID=/);
+    assert.doesNotMatch(envText, /FEISHU_APP_SECRET=/);
+    assert.match(envText, /FEISHU_CONNECTION_MODE=websocket/);
+
+    await app.close();
+  });
+
+  it('returns 401 without auth header', async () => {
+    const { app } = await buildApp();
+    const res = await app.inject({ method: 'POST', url: '/api/connector/feishu/disconnect' });
+    assert.equal(res.statusCode, 401);
+    await app.close();
+  });
+});
+
 describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => {
   it('P1: returns 503 when QR confirms but weixinAdapter is not available (cloud review a312a53f)', async () => {
     // Arrange: inject a mock fetch that makes pollQrCodeStatus return 'confirmed'

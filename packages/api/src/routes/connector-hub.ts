@@ -327,6 +327,21 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     }
   });
 
+  app.post('/api/connector/feishu/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    await applyConnectorSecretUpdates(
+      [
+        { name: 'FEISHU_APP_ID', value: null },
+        { name: 'FEISHU_APP_SECRET', value: null },
+      ],
+      { envFilePath: opts.envFilePath },
+    );
+    app.log.info({ userId }, '[Feishu] Disconnected by user');
+    return { ok: true };
+  });
+
   // ── F137: WeChat QR code login routes ──
 
   app.post('/api/connector/weixin/qrcode', async (request, reply) => {
