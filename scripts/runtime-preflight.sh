@@ -28,8 +28,8 @@ fi
 # 2. Get process start time
 START_TIME=$(ps -p "$PID" -o lstart= 2>/dev/null | xargs || echo "UNKNOWN")
 
-# 3. Get runtime HEAD
-if [[ -d "$RUNTIME_DIR/.git" ]]; then
+# 3. Get runtime HEAD (worktree .git is a file not a dir — use rev-parse)
+if git -C "$RUNTIME_DIR" rev-parse --is-inside-work-tree &>/dev/null; then
   HEAD=$(git -C "$RUNTIME_DIR" log --oneline -1 2>/dev/null || echo "UNKNOWN")
 else
   HEAD="RUNTIME_DIR_NOT_FOUND"
@@ -72,3 +72,13 @@ echo "HEAD=${HEAD}"
 echo "TARGET_COMMIT=${TARGET_COMMIT:-not_specified}"
 echo "PROCESS_AFTER_TARGET=${PROCESS_AFTER_TARGET}"
 echo "LOG_EVIDENCE=${LOG_EVIDENCE}"
+
+# Fail-closed: exit 1 if any critical field is invalid
+# This ensures "7 lines present" ≠ "7 lines valid"
+FAIL=0
+[[ "$HEAD" == "RUNTIME_DIR_NOT_FOUND" || "$HEAD" == "UNKNOWN" ]] && echo "⚠ HEAD invalid — cannot make runtime state claims" && FAIL=1
+[[ "$START_TIME" == "UNKNOWN" ]] && echo "⚠ START_TIME unknown" && FAIL=1
+[[ "$PROCESS_AFTER_TARGET" == "no_STALE_PROCESS" ]] && echo "⚠ Process started BEFORE target commit — may be running old code" && FAIL=1
+[[ "$PROCESS_AFTER_TARGET" == "no_COMMIT_NOT_IN_HISTORY" ]] && echo "⚠ Target commit not in runtime history" && FAIL=1
+[[ "$LOG_EVIDENCE" == "0 lines"* ]] && echo "⚠ No log lines for this PID — process may not be the API" && FAIL=1
+exit $FAIL
