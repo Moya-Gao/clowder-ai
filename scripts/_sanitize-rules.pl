@@ -50,6 +50,9 @@ s#\bport 3002\b#port 3004#gi;
 # Port in quoted string defaults (env-registry pattern: defaultValue: '3002')
 s#defaultValue: '3002'#defaultValue: '3004'#g;
 s#defaultValue: '3001'#defaultValue: '3003'#g;
+# JS nullish coalescing defaults (?? '3002' in template literals like SessionBootstrap)
+s#\?\? '3002'#?? '3004'#g;
+s#\?\? '3001'#?? '3003'#g;
 s#localhost:18060#<local-integration-endpoint>#g;
 s#localhost:9000#<local-browser-automation-endpoint>#g;
 

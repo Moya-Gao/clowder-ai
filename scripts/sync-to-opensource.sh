@@ -1262,6 +1262,25 @@ if [ -f "$FILTERED_DIR/packages/api/src/config/frontend-origin.ts" ]; then
     -e "s/fallback to localhost:3001/fallback to localhost:3003/g" \
     "$FILTERED_DIR/packages/api/src/config/frontend-origin.ts"
 fi
+# 3k-3b0: port-validator.ts — hardcoded DEFAULT_EXCLUDED_PORTS array 3001/3002→3003/3004
+if [ -f "$FILTERED_DIR/packages/api/src/domains/preview/port-validator.ts" ]; then
+  sedi \
+    -e 's/^  3001,$/  3003,/' \
+    -e 's/^  3002, \/\/ Hub frontend + API$/  3004, \/\/ Hub frontend + API/' \
+    "$FILTERED_DIR/packages/api/src/domains/preview/port-validator.ts"
+  echo "  ✓ port-validator.ts (excluded ports 3003/3004)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3k-3b0a: SessionBootstrap.ts — template literal ?? '3002' not caught by sanitize-rules
+if [ -f "$FILTERED_DIR/packages/api/src/domains/cats/services/session/SessionBootstrap.ts" ]; then
+  sedi \
+    -e "s/API_SERVER_PORT ?? '3002'/API_SERVER_PORT ?? '3004'/g" \
+    "$FILTERED_DIR/packages/api/src/domains/cats/services/session/SessionBootstrap.ts"
+  echo "  ✓ SessionBootstrap.ts (API port 3004)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 if [ -f "$FILTERED_DIR/packages/api/src/config/governance/governance-pack.ts" ]; then
   sedi \
     -e "s/- \\*\\*Port 3001\\*\\* is reserved for Cat Cafe frontend. Use 3002+ for other dev servers./- **Public local defaults**: use frontend 3003 and API 3004 to avoid colliding with another local runtime./g" \
