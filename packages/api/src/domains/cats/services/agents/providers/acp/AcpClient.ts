@@ -487,7 +487,11 @@ export class AcpClient {
   private handleAgentRequest(req: AcpAgentRequest): void {
     if (req.method === ACP_METHODS.requestPermission) {
       const respond = (result: { optionId: string }) => {
-        const response = { jsonrpc: '2.0' as const, id: req.id, result };
+        // ACP spec: response must wrap in { outcome: { outcome: "selected", optionId } }
+        const acpResult = {
+          outcome: { outcome: 'selected' as const, optionId: result.optionId },
+        };
+        const response = { jsonrpc: '2.0' as const, id: req.id, result: acpResult };
         this.child?.stdin?.write(JSON.stringify(response) + '\n');
         log.debug('Permission response for %s: %s', req.id, result.optionId);
       };

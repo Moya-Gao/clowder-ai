@@ -366,6 +366,52 @@ describe('AcpClient', () => {
     assert.ok(errorResponseSent, 'should send JSON-RPC error response when handler throws');
   });
 
+  it('F148: permission response wraps in ACP outcome envelope', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    let capturedResponse = null;
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        }
+        // Capture auto-approve response
+        if (msg.id === 'perm-acp' && msg.result) {
+          capturedResponse = msg.result;
+        }
+      }
+    });
+
+    client = new AcpClient({
+      command: 'fake',
+      args: [],
+      cwd: '/tmp',
+      spawnFn: () => child,
+      // No permissionHandler → auto-approve path
+    });
+
+    await client.initialize();
+
+    setImmediate(() =>
+      agentStdout.write(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'session/request_permission',
+          id: 'perm-acp',
+          params: { description: 'Read file', options: [{ optionId: 'allow_once', kind: 'allow_once' }] },
+        }) + '\n',
+      ),
+    );
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.ok(capturedResponse, 'should have sent a permission response');
+    assert.ok(capturedResponse.outcome, 'response must have outcome wrapper');
+    assert.equal(capturedResponse.outcome.outcome, 'selected');
+    assert.equal(capturedResponse.outcome.optionId, 'allow_once');
+  });
+
   it('promptStream yields events as they arrive and returns stopReason', async () => {
     const { child, clientStdin, agentStdout } = createMockChild();
 
