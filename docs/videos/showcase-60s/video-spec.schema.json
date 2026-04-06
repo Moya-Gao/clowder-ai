@@ -2,21 +2,28 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "video-spec.v1",
   "title": "Video Spec v1 — F138 Segment Contract",
-  "description": "Schema-driven video production contract. Global audio + 4-layer segments.",
+  "description": "Schema-driven video production contract. Global audio + 4-layer segments. Supports editorial (draft) and render-ready (strict) modes.",
   "type": "object",
-  "required": ["id", "version", "meta", "global_audio", "segments"],
+  "required": ["id", "version", "status", "meta", "global_audio", "segments"],
+  "additionalProperties": false,
   "properties": {
     "id": { "type": "string" },
     "version": { "type": "integer", "minimum": 1 },
+    "status": {
+      "enum": ["editorial", "render-ready"],
+      "description": "editorial = draft, fields may be incomplete; render-ready = all rendering fields required"
+    },
     "meta": {
       "type": "object",
-      "required": ["title", "target_duration_ms", "fps", "resolution", "vibe_arc"],
+      "required": ["title", "target_duration_ms", "fps", "resolution"],
+      "additionalProperties": false,
       "properties": {
         "title": { "type": "string" },
         "target_duration_ms": { "type": "integer" },
         "fps": { "type": "integer", "default": 30 },
         "resolution": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "width": { "type": "integer", "default": 1920 },
             "height": { "type": "integer", "default": 1080 }
@@ -27,6 +34,7 @@
           "description": "Overall emotional arc of the video, ordered by time",
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "from_pct": { "type": "number", "minimum": 0, "maximum": 1 },
               "to_pct": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -41,6 +49,7 @@
       "type": "object",
       "description": "Single continuous TTS output — never segment-level!",
       "required": ["script_text", "speaker_id"],
+      "additionalProperties": false,
       "properties": {
         "script_text": { "type": "string", "description": "Full narration script, read in one pass" },
         "audio_uri": { "type": "string", "description": "Path to global TTS wav/mp3" },
@@ -51,8 +60,10 @@
           "description": "From forced alignment (Qwen3-FA / WhisperX), NOT TTS native",
           "items": {
             "type": "object",
-            "required": ["word", "start_ms", "end_ms"],
+            "required": ["index", "word", "start_ms", "end_ms"],
+            "additionalProperties": false,
             "properties": {
+              "index": { "type": "integer", "minimum": 0, "description": "Stable positional index for highlighting, diff, and patch" },
               "word": { "type": "string" },
               "start_ms": { "type": "integer" },
               "end_ms": { "type": "integer" },
@@ -71,17 +82,24 @@
       "items": {
         "type": "object",
         "required": ["id", "source", "narration", "render", "control"],
+        "additionalProperties": false,
         "properties": {
           "id": { "type": "string" },
 
           "source": {
             "type": "object",
             "required": ["type", "timeline_range"],
+            "additionalProperties": false,
             "properties": {
-              "type": { "enum": ["clip", "screen_recording", "image", "b_roll", "freeze", "generated"] },
+              "type": {
+                "enum": ["clip", "screen_recording", "image", "b_roll", "freeze", "generated"],
+                "description": "What this segment IS (asset type). Distinct from retiming_strategy (what to do when duration mismatches)."
+              },
               "source_range": {
                 "type": "object",
                 "description": "Which part of the original asset to use",
+                "additionalProperties": false,
+                "required": ["start_ms", "end_ms"],
                 "properties": {
                   "start_ms": { "type": "integer" },
                   "end_ms": { "type": "integer" }
@@ -90,6 +108,8 @@
               "timeline_range": {
                 "type": "object",
                 "description": "Where this segment sits on the final video timeline",
+                "additionalProperties": false,
+                "required": ["start_ms", "end_ms"],
                 "properties": {
                   "start_ms": { "type": "integer" },
                   "end_ms": { "type": "integer" }
@@ -109,10 +129,13 @@
 
           "narration": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "global_audio_range": {
                 "type": "object",
                 "description": "Which slice of global_audio covers this segment",
+                "additionalProperties": false,
+                "required": ["start_ms", "end_ms"],
                 "properties": {
                   "start_ms": { "type": "integer" },
                   "end_ms": { "type": "integer" }
@@ -134,11 +157,21 @@
 
           "render": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "template_id": { "type": "string" },
               "retiming_strategy": {
                 "enum": ["TRIM", "FREEZE_STYLIZED", "B_ROLL", "SLOW_MO", "LOOP"],
-                "description": "Priority: TRIM > FREEZE_STYLIZED > B_ROLL > SLOW_MO > LOOP"
+                "description": "What to do when asset duration != narration duration. Priority: TRIM > FREEZE_STYLIZED > B_ROLL > SLOW_MO > LOOP"
+              },
+              "freeze_at_ms": {
+                "type": "integer",
+                "description": "For FREEZE_STYLIZED: which source_range ms to freeze on. Required when retiming_strategy=FREEZE_STYLIZED."
+              },
+              "fallback_asset_refs": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "For B_ROLL: supplementary assets to fill duration gap. Required when retiming_strategy=B_ROLL."
               },
               "vibe": { "enum": ["hype", "chill", "suspense", "warm"] },
               "captions_style": { "enum": ["narration", "keyLine", "minimal", "none"] },
@@ -153,6 +186,7 @@
 
           "control": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "locks": {
                 "type": "array",
@@ -169,15 +203,43 @@
     },
     "edges": {
       "type": "array",
-      "description": "Transitions between segments",
+      "description": "Transitions between segments. Phase 1: cut/fade only.",
       "items": {
         "type": "object",
         "required": ["from_segment_id", "to_segment_id", "transition_type"],
+        "additionalProperties": false,
         "properties": {
           "from_segment_id": { "type": "string" },
           "to_segment_id": { "type": "string" },
-          "transition_type": { "enum": ["fade", "cut", "slide", "wipe"] },
-          "duration_ms": { "type": "integer", "default": 500 }
+          "transition_type": {
+            "enum": ["cut", "fade"],
+            "description": "Phase 1 supports cut and fade only. slide/wipe deferred to Phase 2."
+          },
+          "duration_ms": { "type": "integer", "default": 500, "description": "Ignored for cut" }
+        }
+      }
+    }
+  },
+
+  "if": { "properties": { "status": { "const": "render-ready" } } },
+  "then": {
+    "properties": {
+      "global_audio": {
+        "required": ["script_text", "speaker_id", "audio_uri", "word_timestamps", "alignment_source"]
+      },
+      "segments": {
+        "items": {
+          "properties": {
+            "source": {
+              "required": ["type", "timeline_range", "asset_refs"]
+            },
+            "narration": {
+              "required": ["global_audio_range", "target_duration_ms"]
+            },
+            "render": {
+              "required": ["template_id", "retiming_strategy", "vibe", "captions_style"]
+            }
+          }
         }
       }
     }
