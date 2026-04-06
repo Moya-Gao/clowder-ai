@@ -9,7 +9,7 @@ updated: 2026-04-05
 
 # F138: Cat Café Video Studio — AI 视频制作管线
 
-> **Status**: in-progress (Phase 0 调研完成，管线设计收敛中) | **Owner**: 宪宪 + 金渐层 | **Priority**: P1
+> **Status**: in-progress (Phase 1 基建中：spec 驱动 composition + FA 集成 + showcase 素材录制) | **Owner**: 宪宪 + 金渐层 | **Priority**: P1
 
 ## Why
 
@@ -280,6 +280,10 @@ brief → asset ingest → video-spec → voice-script → TTS(+timestamps) → 
 | 2026-04-05 | 三猫比赛（宪宪+砚砚+烁烁）：F138 现状评估 + 两条路径设计 + 锻造策略确认 |
 | 2026-04-05 | 铲屎官拍板：showcase 60s 作为第一支训练视频，素材录制与管线建设并行 |
 | 2026-04-05 | 云端调研（GPT Pro + Gemini Deep Think）完成 → 三猫独立分析 → [技术收敛纪要](../discussions/2026-04-05-f138-video-pipeline-tech-convergence.md) |
+| 2026-04-05 | Phase 1 基建：video-forge Skill + segment contract v1 JSON Schema + FA 调研 |
+| 2026-04-05 | Remotion ShowcaseVideo composition（spec 驱动，不再硬编码 constants） |
+| 2026-04-05 | 配音剧本 v1 draft（voice-script.md）+ 第一段素材入库 |
+| 2026-04-05 | Qwen3-ForcedAligner 本地环境搭建（venv + model download） |
 
 ## Links
 
@@ -298,3 +302,8 @@ brief → asset ingest → video-spec → voice-script → TTS(+timestamps) → 
 - [智囊团攻防战视频脚本](../stories/three-days-productization/video-script-pack.md)
 - [PPT Forge Skill（管线锻造参考）](../../cat-cafe-skills/ppt-forge/SKILL.md)
 - [三猫技术收敛纪要（2026-04-05）](../discussions/2026-04-05-f138-video-pipeline-tech-convergence.md)
+- [Video Forge Skill](../../cat-cafe-skills/video-forge/SKILL.md)
+- [Segment Contract v1 JSON Schema](../videos/showcase-60s/video-spec.schema.json)
+- [Showcase 60s 素材标注表](../videos/showcase-60s/asset-markers.md)
+- [Showcase 60s 配音剧本](../videos/showcase-60s/voice-script.md)
+- [Qwen3-ForcedAligner 集成调研](../research/f138-video-studio/2026-04-05-qwen3-forced-aligner-setup.md)
