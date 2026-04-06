@@ -153,7 +153,16 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
       try {
         const res = await apiFetch(`/api/threads/${threadId}/queue`);
         if (generation !== reconcileGeneration) return; // stale after await
-        if (!res.ok) continue;
+        if (!res.ok) {
+          // #266 Round 2: /queue failed — fall back to catch-up for active thread
+          // so user doesn't stay stuck in "replying" state when server is unreachable.
+          const fallbackStore = useChatStore.getState();
+          if (fallbackStore.currentThreadId === threadId && fallbackStore.isLoading) {
+            fallbackStore.requestStreamCatchUp(threadId);
+            console.warn('[ws] Reconnect reconciliation: /queue failed, fallback catch-up', { threadId });
+          }
+          continue;
+        }
         const data = (await res.json()) as { activeInvocations?: string[] };
         if (generation !== reconcileGeneration) return; // stale after await
         const store = useChatStore.getState();
@@ -213,7 +222,12 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
           }
         }
       } catch {
-        // Non-critical — don't break reconnect flow
+        // #266 Round 2: network error — same fallback as !res.ok
+        const fallbackStore = useChatStore.getState();
+        if (fallbackStore.currentThreadId === threadId && fallbackStore.isLoading) {
+          fallbackStore.requestStreamCatchUp(threadId);
+          console.warn('[ws] Reconnect reconciliation: /queue error, fallback catch-up', { threadId });
+        }
       }
     }
   }, RECONNECT_RECONCILE_DELAY_MS);

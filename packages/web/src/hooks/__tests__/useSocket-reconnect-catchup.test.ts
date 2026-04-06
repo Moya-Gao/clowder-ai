@@ -225,4 +225,112 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     // Server still active → re-hydrate, don't catch-up
     expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
   });
+
+  it('does NOT trigger eager catch-up on reconnect before reconciliation (#266 Round 2)', async () => {
+    // Simulate isLoading=true (invocation was in progress before disconnect)
+    (mockStoreState as Record<string, unknown>).isLoading = true;
+
+    const callbacks: SocketCallbacks = {
+      onMessage: vi.fn(),
+      onIntentMode: vi.fn(),
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-1' }));
+    });
+
+    // Simulate reconnect
+    act(() => {
+      const listeners = mockSocket.listeners('connect');
+      for (const listener of listeners) {
+        (listener as () => void)();
+      }
+    });
+
+    // BEFORE reconciliation delay: catch-up must NOT have fired.
+    // The old code (pre-fix) would eagerly call requestStreamCatchUp here,
+    // causing store/ref desync when stream was still active.
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
+
+    // Advance past reconciliation delay — now server confirms done
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+      await vi.runAllTimersAsync();
+    });
+
+    // Only NOW should catch-up fire (via reconciliation, not eager path)
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
+
+    // Cleanup
+    delete (mockStoreState as Record<string, unknown>).isLoading;
+  });
+
+  it('falls back to catch-up when /queue returns non-ok (#266 Round 2)', async () => {
+    (mockStoreState as Record<string, unknown>).isLoading = true;
+
+    // /queue returns 500
+    mockApiFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+    });
+
+    const callbacks: SocketCallbacks = {
+      onMessage: vi.fn(),
+      onIntentMode: vi.fn(),
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-1' }));
+    });
+
+    act(() => {
+      const listeners = mockSocket.listeners('connect');
+      for (const listener of listeners) {
+        (listener as () => void)();
+      }
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+      await vi.runAllTimersAsync();
+    });
+
+    // /queue failed but isLoading=true → fallback catch-up triggered
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
+
+    delete (mockStoreState as Record<string, unknown>).isLoading;
+  });
+
+  it('falls back to catch-up when /queue throws network error (#266 Round 2)', async () => {
+    (mockStoreState as Record<string, unknown>).isLoading = true;
+
+    // /queue throws
+    mockApiFetch.mockRejectedValue(new Error('Network error'));
+
+    const callbacks: SocketCallbacks = {
+      onMessage: vi.fn(),
+      onIntentMode: vi.fn(),
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-1' }));
+    });
+
+    act(() => {
+      const listeners = mockSocket.listeners('connect');
+      for (const listener of listeners) {
+        (listener as () => void)();
+      }
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+      await vi.runAllTimersAsync();
+    });
+
+    // Network error but isLoading=true → fallback catch-up triggered
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
+
+    delete (mockStoreState as Record<string, unknown>).isLoading;
+  });
 });

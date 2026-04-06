@@ -1130,9 +1130,10 @@ export function useAgentMessages() {
     [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
   );
 
-  // #266 Round 2: Clear ALL ref maps — not just activeRefs and replacedInvocationsRef,
-  // but also finalizedStreamRef and sawStreamDataRef. This prevents stale refs from
-  // any prior invocation leaking into the next thread or catch-up cycle.
+  // #266 Round 2: Clear message-identity ref maps used for stream→callback dedup.
+  // Covers activeRefs, replacedInvocationsRef, finalizedStreamRef, sawStreamDataRef.
+  // NOTE: pendingTimeoutDiagRef and a2aGroupRef are NOT cleared here — they have
+  // independent lifecycles (done(isFinal) and timeout guard respectively).
   const resetRefs = useCallback(() => {
     activeRefs.current.clear();
     replacedInvocationsRef.current.clear();
