@@ -73,7 +73,9 @@ def generate_editorial_spec(
     narration_cursor_ms = 0
 
     for i, seg in enumerate(segments_data):
-        seg_id = f"seg-{i+1:02d}-{seg['scene'].split()[0].lower() if seg['scene'] else f's{i+1}'}"
+        # Generate ASCII-safe seg id from scene name
+        scene_slug = re.sub(r'[^a-zA-Z0-9]', '', seg.get('scene', ''))[:12].lower() or f"s{i+1}"
+        seg_id = f"seg-{i+1:02d}-{scene_slug}"
         duration_ms = seg["est_ms"]
 
         segments.append({

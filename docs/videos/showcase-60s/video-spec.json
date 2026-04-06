@@ -1,0 +1,254 @@
+{
+  "id": "showcase-60s",
+  "version": 1,
+  "status": "editorial",
+  "meta": {
+    "title": "Cat Cafe showcase-60s",
+    "target_duration_ms": 57000,
+    "fps": 30,
+    "resolution": {
+      "width": 1920,
+      "height": 1080
+    }
+  },
+  "global_audio": {
+    "script_text": "Cat Cafe，是四只 AI 猫猫组成的开发团队。\n\n你发一条消息，它们同时开始思考——\n布偶猫负责架构，缅因猫做 code review，暹罗猫管设计，各有分工，自主协作。\n\n飞书发一条，Hub 同步收到。\n在任何一端说话，所有端都能看到。\n\n更特别的是，每只猫有自己的声音。\n你可以听到它们用各自的声线，念给你听。\n\n写前端代码？猫改完，右边浏览器立刻刷新。\n所见即所得，设计和实现，零距离。\n\n它们还有记忆。\n搜一个两周前的讨论，三秒命中——这不是搜索，是经验的沉淀。\n\n最后，猫猫不只是回复文字。\n卡片、清单、投票、代码 diff，信息有结构，交互有温度。\n\n这就是 Cat Cafe。",
+    "speaker_id": "opus"
+  },
+  "segments": [
+    {
+      "id": "seg-01-hub",
+      "source": {
+        "type": "screen_recording",
+        "timeline_range": {
+          "start_ms": 0,
+          "end_ms": 14000
+        },
+        "visual_summary": "Hub 多猫并发"
+      },
+      "narration": {
+        "global_audio_range": {
+          "start_ms": 0,
+          "end_ms": 14000
+        },
+        "target_duration_ms": 14000
+      },
+      "render": {
+        "template_id": "default",
+        "retiming_strategy": "TRIM",
+        "vibe": "warm",
+        "captions_style": "narration"
+      },
+      "control": {
+        "review_state": "pending",
+        "version": 1
+      }
+    },
+    {
+      "id": "seg-02-s2",
+      "source": {
+        "type": "screen_recording",
+        "timeline_range": {
+          "start_ms": 14000,
+          "end_ms": 20000
+        },
+        "visual_summary": "飞书同步"
+      },
+      "narration": {
+        "global_audio_range": {
+          "start_ms": 14000,
+          "end_ms": 20000
+        },
+        "target_duration_ms": 6000
+      },
+      "render": {
+        "template_id": "default",
+        "retiming_strategy": "TRIM",
+        "vibe": "warm",
+        "captions_style": "narration"
+      },
+      "control": {
+        "review_state": "pending",
+        "version": 1
+      }
+    },
+    {
+      "id": "seg-03-s3",
+      "source": {
+        "type": "screen_recording",
+        "timeline_range": {
+          "start_ms": 20000,
+          "end_ms": 28000
+        },
+        "visual_summary": "语音声线"
+      },
+      "narration": {
+        "global_audio_range": {
+          "start_ms": 20000,
+          "end_ms": 28000
+        },
+        "target_duration_ms": 8000
+      },
+      "render": {
+        "template_id": "default",
+        "retiming_strategy": "TRIM",
+        "vibe": "warm",
+        "captions_style": "narration"
+      },
+      "control": {
+        "review_state": "pending",
+        "version": 1
+      }
+    },
+    {
+      "id": "seg-04-workspace",
+      "source": {
+        "type": "screen_recording",
+        "timeline_range": {
+          "start_ms": 28000,
+          "end_ms": 36000
+        },
+        "visual_summary": "Workspace 预览"
+      },
+      "narration": {
+        "global_audio_range": {
+          "start_ms": 28000,
+          "end_ms": 36000
+        },
+        "target_duration_ms": 8000
+      },
+      "render": {
+        "template_id": "default",
+        "retiming_strategy": "TRIM",
+        "vibe": "warm",
+        "captions_style": "narration"
+      },
+      "control": {
+        "review_state": "pending",
+        "version": 1
+      }
+    },
+    {
+      "id": "seg-05-s5",
+      "source": {
+        "type": "screen_recording",
+        "timeline_range": {
+          "start_ms": 36000,
+          "end_ms": 45000
+        },
+        "visual_summary": "记忆搜索"
+      },
+      "narration": {
+        "global_audio_range": {
+          "start_ms": 36000,
+          "end_ms": 45000
+        },
+        "target_duration_ms": 9000
+      },
+      "render": {
+        "template_id": "default",
+        "retiming_strategy": "TRIM",
+        "vibe": "warm",
+        "captions_style": "narration"
+      },
+      "control": {
+        "review_state": "pending",
+        "version": 1
+      }
+    },
+    {
+      "id": "seg-06-richblock",
+      "source": {
+        "type": "screen_recording",
+        "timeline_range": {
+          "start_ms": 45000,
+          "end_ms": 54000
+        },
+        "visual_summary": "Rich Block"
+      },
+      "narration": {
+        "global_audio_range": {
+          "start_ms": 45000,
+          "end_ms": 54000
+        },
+        "target_duration_ms": 9000
+      },
+      "render": {
+        "template_id": "default",
+        "retiming_strategy": "TRIM",
+        "vibe": "warm",
+        "captions_style": "narration"
+      },
+      "control": {
+        "review_state": "pending",
+        "version": 1
+      }
+    },
+    {
+      "id": "seg-07-s7",
+      "source": {
+        "type": "screen_recording",
+        "timeline_range": {
+          "start_ms": 54000,
+          "end_ms": 57000
+        },
+        "visual_summary": "结尾"
+      },
+      "narration": {
+        "global_audio_range": {
+          "start_ms": 54000,
+          "end_ms": 57000
+        },
+        "target_duration_ms": 3000
+      },
+      "render": {
+        "template_id": "default",
+        "retiming_strategy": "TRIM",
+        "vibe": "warm",
+        "captions_style": "narration"
+      },
+      "control": {
+        "review_state": "pending",
+        "version": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from_segment_id": "seg-01-hub",
+      "to_segment_id": "seg-02-s2",
+      "transition_type": "fade",
+      "duration_ms": 500
+    },
+    {
+      "from_segment_id": "seg-02-s2",
+      "to_segment_id": "seg-03-s3",
+      "transition_type": "fade",
+      "duration_ms": 500
+    },
+    {
+      "from_segment_id": "seg-03-s3",
+      "to_segment_id": "seg-04-workspace",
+      "transition_type": "fade",
+      "duration_ms": 500
+    },
+    {
+      "from_segment_id": "seg-04-workspace",
+      "to_segment_id": "seg-05-s5",
+      "transition_type": "fade",
+      "duration_ms": 500
+    },
+    {
+      "from_segment_id": "seg-05-s5",
+      "to_segment_id": "seg-06-richblock",
+      "transition_type": "fade",
+      "duration_ms": 500
+    },
+    {
+      "from_segment_id": "seg-06-richblock",
+      "to_segment_id": "seg-07-s7",
+      "transition_type": "fade",
+      "duration_ms": 500
+    }
+  ]
+}
