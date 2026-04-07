@@ -53,7 +53,7 @@ FULL_TEXT=$($SYSTEM_PYTHON -c "
 import re; from pathlib import Path
 c = Path('${VOICE_SCRIPT}').read_text()
 m = re.search(r'## 完整剧本[^\n]*\n\n(.*?)(?=\n---|\n## )', c, re.DOTALL)
-print(m.group(1).strip() if m else '')
+print(m.group(1).strip().replace('\n', '') if m else '')
 ")
 $FA_PYTHON "${SCRIPT_DIR}/align.py" \
   --audio "${AUDIO_FILE}" \

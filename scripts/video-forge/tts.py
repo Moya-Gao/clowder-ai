@@ -87,6 +87,8 @@ def main():
         print("Error: provide --text or --script", file=sys.stderr)
         sys.exit(1)
 
+    # TTS server can't handle literal newlines — strip them; punctuation provides natural pauses
+    text = text.replace("\n", "")
     print(f"Narration: {len(text)} chars, voice={args.voice}", file=sys.stderr)
     synthesize(text, args.voice, args.tts_url, args.output, args.format)
 
