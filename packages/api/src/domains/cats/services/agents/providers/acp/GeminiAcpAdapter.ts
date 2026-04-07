@@ -19,6 +19,7 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata }
 import { type AcpCapacitySignal, AcpProtocolError, AcpTimeoutError } from './AcpClient.js';
 import type { AcpLease, AcpProcessPool, PoolKey } from './AcpProcessPool.js';
 import { transformAcpEvent } from './acp-event-transformer.js';
+import { callbackEnvDiagnostic, materializeSessionMcpServers } from './acp-session-env.js';
 import type { AcpMcpServer } from './types.js';
 
 const log = createModuleLogger('gemini-acp');
@@ -128,8 +129,15 @@ export class GeminiAcpAdapter implements AgentService {
     let eventCount = 0;
 
     try {
-      log.info({ ...ctx, cwd, promptLen: prompt.length, mcpCount: this.mcpServers.length }, 'ACP newSession starting');
-      const session = await client.newSession(cwd, this.mcpServers);
+      // Per-invocation: merge callbackEnv into cat-cafe* MCP servers so callback tools
+      // (multi_mention, post_message, etc.) get CAT_CAFE_API_URL / token / invocationId.
+      const sessionMcpServers = materializeSessionMcpServers(this.mcpServers, options?.callbackEnv);
+      const envDiag = callbackEnvDiagnostic(options?.callbackEnv);
+      log.info(
+        { ...ctx, cwd, promptLen: prompt.length, mcpCount: sessionMcpServers.length, ...envDiag },
+        'ACP newSession starting',
+      );
+      const session = await client.newSession(cwd, sessionMcpServers);
       sessionId = session.sessionId;
       metadata.sessionId = sessionId;
       log.info({ ...ctx, sessionId }, 'ACP newSession completed');

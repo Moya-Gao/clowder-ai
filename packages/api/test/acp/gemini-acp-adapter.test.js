@@ -1720,3 +1720,173 @@ describe('GeminiAcpAdapter integration', () => {
     assert.ok(warnIdx < textIdx, `Warning (idx ${warnIdx}) should come before text (idx ${textIdx})`);
   });
 });
+
+describe('GeminiAcpAdapter callbackEnv passthrough', () => {
+  let pool = null;
+
+  afterEach(async () => {
+    if (pool) {
+      await pool.closeAll();
+      pool = null;
+    }
+  });
+
+  it('merges callbackEnv into cat-cafe servers in session/new', async () => {
+    const { pool: p, captured } = createPoolWithAutoRespond();
+    pool = p;
+
+    const mcpServers = [
+      { name: 'cat-cafe-collab', command: 'node', args: ['collab.js'], env: [{ name: 'EXISTING', value: 'keep' }] },
+      { name: 'cat-cafe-memory', command: 'node', args: ['memory.js'], env: [] },
+      { name: 'playwright', command: 'npx', args: ['@playwright/mcp'], env: [] },
+    ];
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+      mcpServers,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-123',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-abc',
+      CAT_CAFE_USER_ID: 'user-1',
+      CAT_CAFE_CAT_ID: 'gemini',
+      CAT_CAFE_SIGNAL_USER: 'gemini',
+    };
+
+    for await (const _ of adapter.invoke('hello', { callbackEnv })) {
+      /* drain */
+    }
+
+    const sessionNew = captured.find((m) => m.method === 'session/new');
+    assert.ok(sessionNew, 'Expected session/new');
+    const servers = sessionNew.params.mcpServers;
+
+    // cat-cafe-collab should have callback env merged + keep existing
+    const collab = servers.find((s) => s.name === 'cat-cafe-collab');
+    assert.ok(collab, 'cat-cafe-collab should be present');
+    const collabEnvMap = Object.fromEntries(collab.env.map((e) => [e.name, e.value]));
+    assert.equal(collabEnvMap.CAT_CAFE_API_URL, 'http://localhost:3002');
+    assert.equal(collabEnvMap.CAT_CAFE_INVOCATION_ID, 'inv-123');
+    assert.equal(collabEnvMap.CAT_CAFE_CALLBACK_TOKEN, 'tok-abc');
+    assert.equal(collabEnvMap.EXISTING, 'keep', 'Existing env entries should be preserved');
+
+    // cat-cafe-memory should also get callback env
+    const memory = servers.find((s) => s.name === 'cat-cafe-memory');
+    const memoryEnvMap = Object.fromEntries(memory.env.map((e) => [e.name, e.value]));
+    assert.equal(memoryEnvMap.CAT_CAFE_API_URL, 'http://localhost:3002');
+
+    // playwright (non cat-cafe) should be unchanged
+    const pw = servers.find((s) => s.name === 'playwright');
+    assert.deepStrictEqual(pw.env, [], 'Non-cat-cafe servers should not get callback env');
+  });
+
+  it('injects into exact "cat-cafe" server name (not just prefixed)', async () => {
+    const { pool: p, captured } = createPoolWithAutoRespond();
+    pool = p;
+
+    const mcpServers = [
+      { name: 'cat-cafe', command: 'node', args: ['cat-cafe.js'], env: [{ name: 'EXISTING', value: 'keep' }] },
+      { name: 'pencil', command: 'node', args: ['pencil.js'], env: [{ name: 'UNCHANGED', value: 'yes' }] },
+    ];
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+      mcpServers,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://127.0.0.1:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-acp-123',
+      CAT_CAFE_CALLBACK_TOKEN: 'token-acp-123',
+      CAT_CAFE_USER_ID: 'default-user',
+      CAT_CAFE_CAT_ID: 'gemini',
+      CAT_CAFE_SIGNAL_USER: 'gemini',
+    };
+
+    for await (const _ of adapter.invoke('hello', { callbackEnv })) {
+      /* drain */
+    }
+
+    const sessionNew = captured.find((m) => m.method === 'session/new');
+    const sentServers = sessionNew.params.mcpServers;
+
+    const catCafe = sentServers.find((s) => s.name === 'cat-cafe');
+    const catCafeEnv = Object.fromEntries(catCafe.env.map((e) => [e.name, e.value]));
+    assert.equal(catCafeEnv.CAT_CAFE_API_URL, 'http://127.0.0.1:3002');
+    assert.equal(catCafeEnv.CAT_CAFE_CALLBACK_TOKEN, 'token-acp-123');
+    assert.equal(catCafeEnv.EXISTING, 'keep');
+
+    const pencil = sentServers.find((s) => s.name === 'pencil');
+    const pencilEnv = Object.fromEntries(pencil.env.map((e) => [e.name, e.value]));
+    assert.equal(pencilEnv.CAT_CAFE_INVOCATION_ID, undefined, 'pencil should not get callback env');
+    assert.equal(pencilEnv.UNCHANGED, 'yes');
+  });
+
+  it('overwrites placeholder env values with real callback env', async () => {
+    const { pool: p, captured } = createPoolWithAutoRespond();
+    pool = p;
+
+    const mcpServers = [
+      {
+        name: 'cat-cafe-collab',
+        command: 'node',
+        args: ['collab.js'],
+        env: [
+          { name: 'CAT_CAFE_API_URL', value: '${CAT_CAFE_API_URL}' },
+          { name: 'CAT_CAFE_CALLBACK_TOKEN', value: '${CAT_CAFE_CALLBACK_TOKEN}' },
+        ],
+      },
+    ];
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+      mcpServers,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_CALLBACK_TOKEN: 'real-token',
+    };
+
+    for await (const _ of adapter.invoke('test', { callbackEnv })) {
+      /* drain */
+    }
+
+    const sessionNew = captured.find((m) => m.method === 'session/new');
+    const collab = sessionNew.params.mcpServers[0];
+    const envMap = Object.fromEntries(collab.env.map((e) => [e.name, e.value]));
+    assert.equal(envMap.CAT_CAFE_API_URL, 'http://localhost:3002', 'Placeholder should be overwritten');
+    assert.equal(envMap.CAT_CAFE_CALLBACK_TOKEN, 'real-token', 'Placeholder should be overwritten');
+  });
+
+  it('passes servers unchanged when no callbackEnv', async () => {
+    const { pool: p, captured } = createPoolWithAutoRespond();
+    pool = p;
+
+    const mcpServers = [
+      { name: 'cat-cafe-collab', command: 'node', args: ['collab.js'], env: [{ name: 'FOO', value: 'bar' }] },
+    ];
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+      mcpServers,
+    });
+
+    for await (const _ of adapter.invoke('test')) {
+      /* drain */
+    }
+
+    const sessionNew = captured.find((m) => m.method === 'session/new');
+    assert.deepStrictEqual(sessionNew.params.mcpServers, mcpServers, 'Should pass through unchanged');
+  });
+});
