@@ -271,11 +271,12 @@ export class CodexAgentService implements AgentService {
         ]
       : [];
 
-    // When routing through custom provider, the model must use 'custom/' prefix
-    // so Codex CLI resolves it against the custom provider directly.
-    // Without the prefix, Codex tries metadata lookup against built-in models → warning.
+    // When routing through custom provider, pass model via --config instead of --model
+    // to avoid Codex CLI's built-in metadata lookup which warns on unknown models.
+    // --config model=... bypasses metadata resolution; --model triggers it before
+    // the model_provider config takes effect.
     const cliModel = customBaseUrl ? `custom/${effectiveModel.replace(/^[^/]+\//, '')}` : effectiveModel;
-    const modelArgs = ['--model', cliModel];
+    const modelArgs: string[] = customBaseUrl ? ['--config', `model=${toTomlString(cliModel)}`] : ['--model', cliModel];
 
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
     // --add-dir .git: 允许写入 .git/ 目录（index.lock、objects、refs），解锁 git commit

@@ -355,9 +355,9 @@ test('custom provider: model gets custom/ prefix to avoid metadata warning', asy
   await promise;
 
   const args = spawnFn.mock.calls[0].arguments[1];
-  const modelIdx = args.indexOf('--model');
-  assert.ok(modelIdx >= 0, 'must include --model flag');
-  assert.equal(args[modelIdx + 1], 'custom/qwen-plus', 'bare model must get custom/ prefix');
+  // custom provider: model passed via --config (not --model) to avoid metadata lookup
+  assert.ok(!args.includes('--model'), 'must NOT use --model flag for custom provider');
+  assert.ok(args.includes('model="custom/qwen-plus"'), 'model must be set via --config with custom/ prefix');
   assert.ok(args.includes('model_provider="custom"'), 'must set model_provider=custom');
 });
 
@@ -379,8 +379,8 @@ test('custom provider: model with existing prefix gets remapped to custom/', asy
   await promise;
 
   const args = spawnFn.mock.calls[0].arguments[1];
-  const modelIdx = args.indexOf('--model');
-  assert.equal(args[modelIdx + 1], 'custom/qwen-plus', 'prefixed model must remap to custom/');
+  assert.ok(!args.includes('--model'), 'must NOT use --model flag for custom provider');
+  assert.ok(args.includes('model="custom/qwen-plus"'), 'existing prefix must remap to custom/');
 });
 
 test('no custom provider: model is passed as-is', async () => {
@@ -394,6 +394,7 @@ test('no custom provider: model is passed as-is', async () => {
 
   const args = spawnFn.mock.calls[0].arguments[1];
   const modelIdx = args.indexOf('--model');
+  assert.ok(modelIdx >= 0, 'must use --model flag for non-custom provider');
   assert.equal(args[modelIdx + 1], 'gpt-5.3-codex', 'model without custom base URL stays as-is');
   assert.ok(!args.includes('model_provider="custom"'), 'must not set model_provider when no custom URL');
 });
