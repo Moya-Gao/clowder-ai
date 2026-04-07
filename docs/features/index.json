@@ -891,7 +891,7 @@
     {
       "id": "F145",
       "name": "MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析",
-      "status": "done | **Completed**: 2026-03-27 | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
       "file": "F145-mcp-portable-provisioning.md"
     },
     {
@@ -931,5 +931,5 @@
       "file": "F151-xiaoyi-channel-gateway.md"
     }
   ],
-  "generated_at": "2026-04-06T14:49:32.676Z"
+  "generated_at": "2026-04-07T08:17:51.681Z"
 }
