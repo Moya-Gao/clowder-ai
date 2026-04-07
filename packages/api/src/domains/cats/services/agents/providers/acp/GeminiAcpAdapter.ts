@@ -19,6 +19,7 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata }
 import { type AcpCapacitySignal, AcpProtocolError, AcpTimeoutError } from './AcpClient.js';
 import type { AcpLease, AcpProcessPool, PoolKey } from './AcpProcessPool.js';
 import { transformAcpEvent } from './acp-event-transformer.js';
+import type { AcpMcpServer } from './types.js';
 
 const log = createModuleLogger('gemini-acp');
 
@@ -28,6 +29,8 @@ export interface GeminiAcpAdapterConfig {
   poolKey: PoolKey;
   /** Project root (monorepo root) — used as default session cwd */
   projectRoot: string;
+  /** MCP servers to pass to each ACP session (resolved from mcpWhitelist) */
+  mcpServers?: AcpMcpServer[];
 }
 
 export class GeminiAcpAdapter implements AgentService {
@@ -35,12 +38,14 @@ export class GeminiAcpAdapter implements AgentService {
   private readonly pool: AcpProcessPool;
   private readonly poolKey: PoolKey;
   private readonly projectRoot: string;
+  private readonly mcpServers: AcpMcpServer[];
 
   constructor(config: GeminiAcpAdapterConfig) {
     this.catId = config.catId;
     this.pool = config.pool;
     this.poolKey = config.poolKey;
     this.projectRoot = config.projectRoot;
+    this.mcpServers = config.mcpServers ?? [];
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
@@ -84,7 +89,7 @@ export class GeminiAcpAdapter implements AgentService {
 
     // Pool returns AcpPoolClient; we know it's actually an AcpClient with full protocol methods
     const client = lease.client as unknown as {
-      newSession(cwd: string): Promise<{ sessionId: string }>;
+      newSession(cwd: string, mcpServers?: AcpMcpServer[]): Promise<{ sessionId: string }>;
       cancelSession(sessionId: string): void;
       promptStream(sessionId: string, text: string): AsyncGenerator<import('./types.js').AcpSessionUpdate>;
       onCapacity(fn: (signal: AcpCapacitySignal) => void): void;
@@ -123,8 +128,8 @@ export class GeminiAcpAdapter implements AgentService {
     let eventCount = 0;
 
     try {
-      log.info({ ...ctx, cwd, promptLen: prompt.length }, 'ACP newSession starting');
-      const session = await client.newSession(cwd);
+      log.info({ ...ctx, cwd, promptLen: prompt.length, mcpCount: this.mcpServers.length }, 'ACP newSession starting');
+      const session = await client.newSession(cwd, this.mcpServers);
       sessionId = session.sessionId;
       metadata.sessionId = sessionId;
       log.info({ ...ctx, sessionId }, 'ACP newSession completed');

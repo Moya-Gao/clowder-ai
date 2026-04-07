@@ -148,6 +148,42 @@ describe('GeminiAcpAdapter', () => {
     assert.equal(doneMsg.metadata.provider, 'google');
   });
 
+  it('passes mcpServers to session/new when configured', async () => {
+    const { pool: p, captured } = createPoolWithAutoRespond();
+    pool = p;
+    const mcpServers = [{ name: 'test-server', command: 'node', args: ['test.js'], env: [{ name: 'K', value: 'V' }] }];
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+      mcpServers,
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const sessionNew = captured.find((m) => m.method === 'session/new');
+    assert.ok(sessionNew, 'Expected session/new in captured messages');
+    assert.deepStrictEqual(sessionNew.params.mcpServers, mcpServers);
+  });
+
+  it('sends empty mcpServers when not configured', async () => {
+    const { pool: p, captured } = createPoolWithAutoRespond();
+    pool = p;
+    const adapter = new GeminiAcpAdapter({ catId: 'gemini', pool, poolKey: TEST_POOL_KEY, projectRoot: '/tmp' });
+
+    for await (const msg of adapter.invoke('hello')) {
+      /* drain */
+    }
+
+    const sessionNew = captured.find((m) => m.method === 'session/new');
+    assert.ok(sessionNew, 'Expected session/new in captured messages');
+    assert.deepStrictEqual(sessionNew.params.mcpServers, []);
+  });
+
   it('reuses pool client across invocations (warm hit)', async () => {
     const { pool: p, captured } = createPoolWithAutoRespond();
     pool = p;

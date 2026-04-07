@@ -777,11 +777,16 @@ async function main(): Promise<void> {
               );
               acpPoolRegistry.set(id, pool);
             }
+            const { resolveAcpMcpServers } = await import(
+              './domains/cats/services/agents/providers/acp/acp-mcp-resolver.js'
+            );
+            const mcpServers = resolveAcpMcpServers(acpProjectRoot, acpConfig.mcpWhitelist ?? []);
             service = new GeminiAcpAdapter({
               catId,
               pool: acpPoolRegistry.get(id)!,
               poolKey,
               projectRoot: acpProjectRoot,
+              mcpServers,
             });
           } else {
             service = new GeminiAgentService({ catId });
