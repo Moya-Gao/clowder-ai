@@ -120,23 +120,41 @@ const RECONNECT_RECONCILE_DELAY_MS = 2000;
 let reconcileGeneration = 0;
 
 /**
- * After socket reconnect, bidirectionally reconcile invocation state with server.
- * Socket disconnect can lose done(isFinal) events (UI stuck in "replying") or
- * cause local state to drift from server truth. Fetches the queue endpoint and:
- * - Server has active cats → re-hydrate local slots to match (fixes ID mismatches)
- * - Server has no active cats → clear stale local invocation state
+ * Clear stale loading/invocation/streaming state for the active thread.
+ * Used by reconciliation when we need to unstick the UI regardless of
+ * whether we also fetch missed messages (catch-up).
+ * Returns true if state was actually cleared.
+ */
+function clearStaleActiveState(threadId: string): boolean {
+  const store = useChatStore.getState();
+  if (store.currentThreadId !== threadId || !store.hasActiveInvocation) return false;
+  store.clearAllActiveInvocations();
+  store.setLoading(false);
+  store.setIntentMode(null);
+  store.clearCatStatuses();
+  for (const msg of store.messages) {
+    if (msg.type === 'assistant' && msg.isStreaming) {
+      store.setStreaming(msg.id, false);
+    }
+  }
+  return true;
+}
+
+/**
+ * After socket reconnect, reconcile invocation state with server truth.
+ *
+ * Three branches:
+ * 1. Server still processing → re-hydrate local slots so done(isFinal) works
+ * 2. Server done (confirmed) → clear stale state + catch-up for missed messages
+ * 3. Queue unreachable → clear stale state only (no catch-up — unknown state
+ *    means replace-history could race with live stream → ref desync → #266)
  */
 function reconcileInvocationStateOnReconnect(activeThreadId: string | null): void {
   const generation = ++reconcileGeneration;
   const state = useChatStore.getState();
 
-  // Collect threads to reconcile: always check the active thread (server might
-  // still be processing even if local cleared state during disconnect), plus
-  // any background threads that think they have active invocations.
   const threadsToCheck: string[] = [];
-  if (activeThreadId) {
-    threadsToCheck.push(activeThreadId);
-  }
+  if (activeThreadId) threadsToCheck.push(activeThreadId);
   for (const [threadId, ts] of Object.entries(state.threadStates ?? {})) {
     if (ts.hasActiveInvocation && threadId !== activeThreadId) {
       threadsToCheck.push(threadId);
@@ -144,80 +162,60 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
   }
   if (threadsToCheck.length === 0) return;
 
-  // Small delay: let any buffered socket events arrive first
+  // Delay: let buffered socket events arrive before querying server
   setTimeout(async () => {
-    // Discard if a newer reconnect has started its own reconciliation
     if (generation !== reconcileGeneration) return;
+
     for (const threadId of threadsToCheck) {
       if (generation !== reconcileGeneration) return;
+
+      // ── Fetch server state ──
+      let serverActiveCats: string[] | null = null;
+      let queueReachable = false;
+
       try {
         const res = await apiFetch(`/api/threads/${threadId}/queue`);
-        if (generation !== reconcileGeneration) return; // stale after await
-        if (!res.ok) {
-          // #266 Round 2+3: /queue failed — unknown server state.
-          // Clear stale loading/invocation state so user isn't stuck, but do NOT
-          // trigger requestStreamCatchUp (replace-history mid-stream → ref desync
-          // → duplicate bubbles). If the stream is alive, incoming socket events
-          // will re-establish state; if done was lost, user can refresh.
-          const failStore = useChatStore.getState();
-          if (failStore.currentThreadId === threadId && failStore.hasActiveInvocation) {
-            failStore.clearAllActiveInvocations();
-            failStore.setLoading(false);
-            failStore.setIntentMode(null);
-            failStore.clearCatStatuses();
-            for (const msg of failStore.messages) {
-              if (msg.type === 'assistant' && msg.isStreaming) {
-                failStore.setStreaming(msg.id, false);
-              }
-            }
-          }
-          console.warn('[ws] Reconnect reconciliation: /queue failed, cleared stale state', { threadId, status: res.status });
-          continue;
+        if (generation !== reconcileGeneration) return;
+        if (res.ok) {
+          const data = (await res.json()) as { activeInvocations?: string[] };
+          if (generation !== reconcileGeneration) return;
+          serverActiveCats = data.activeInvocations?.length ? data.activeInvocations : null;
+          queueReachable = true;
         }
-        const data = (await res.json()) as { activeInvocations?: string[] };
-        if (generation !== reconcileGeneration) return; // stale after await
-        const store = useChatStore.getState();
-        const serverActiveCats =
-          data.activeInvocations && data.activeInvocations.length > 0 ? data.activeInvocations : null;
-        const isActiveThread = store.currentThreadId === threadId;
+      } catch {
+        if (generation !== reconcileGeneration) continue;
+      }
 
-        if (serverActiveCats) {
-          // Server still processing — re-hydrate local slots to match server truth.
-          // Stale hydrated/mismatched invocationIds get replaced so done(isFinal)
-          // cleanup works correctly when the response finishes.
-          store.clearThreadActiveInvocation(threadId);
-          store.replaceThreadTargetCats(threadId, serverActiveCats);
-          for (const catId of serverActiveCats) {
-            store.updateThreadCatStatus(threadId, catId, 'streaming');
-            const syntheticId = `hydrated-${threadId}-${catId}`;
-            if (isActiveThread) {
-              store.addActiveInvocation(syntheticId, catId, 'execute');
-            } else {
-              store.addThreadActiveInvocation(threadId, syntheticId, catId, 'execute');
-            }
+      const store = useChatStore.getState();
+      const isActiveThread = store.currentThreadId === threadId;
+
+      // ── Branch 1: Server still processing → re-hydrate local slots ──
+      if (queueReachable && serverActiveCats) {
+        store.clearThreadActiveInvocation(threadId);
+        store.replaceThreadTargetCats(threadId, serverActiveCats);
+        for (const catId of serverActiveCats) {
+          store.updateThreadCatStatus(threadId, catId, 'streaming');
+          const syntheticId = `hydrated-${threadId}-${catId}`;
+          if (isActiveThread) {
+            store.addActiveInvocation(syntheticId, catId, 'execute');
+          } else {
+            store.addThreadActiveInvocation(threadId, syntheticId, catId, 'execute');
           }
-          console.log('[ws] Reconnect reconciliation: re-hydrated active slots from server', {
-            threadId,
-            cats: serverActiveCats,
-          });
-          continue;
         }
+        console.log('[ws] Reconciliation: re-hydrated active slots', { threadId, cats: serverActiveCats });
+        continue;
+      }
 
-        if (isActiveThread && store.hasActiveInvocation) {
-          store.clearAllActiveInvocations();
-          store.setLoading(false);
-          store.setIntentMode(null);
-          store.clearCatStatuses();
-          for (const msg of store.messages) {
-            if (msg.type === 'assistant' && msg.isStreaming) {
-              store.setStreaming(msg.id, false);
-            }
+      // ── Branch 2: Server done (confirmed) → clear state + catch-up ──
+      if (queueReachable && !serverActiveCats) {
+        if (isActiveThread) {
+          if (clearStaleActiveState(threadId)) {
+            // Safe to catch-up: server confirmed no active invocations,
+            // so no stream events will arrive to race with replace-history.
+            store.requestStreamCatchUp(threadId);
+            console.log('[ws] Reconciliation: server done, catch-up triggered', { threadId });
           }
-          // Reconnect catch-up (#276): server finished during disconnect,
-          // done(isFinal) was lost → fetch missed messages so user doesn't need F5
-          store.requestStreamCatchUp(threadId);
-          console.log('[ws] Reconnect reconciliation: cleared stale active-thread invocation state', { threadId });
-        } else if (!isActiveThread) {
+        } else {
           const ts = store.getThreadState(threadId);
           if (ts.hasActiveInvocation) {
             store.clearThreadActiveInvocation(threadId);
@@ -227,28 +225,19 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
                 store.setThreadMessageStreaming(threadId, msg.id, false);
               }
             }
-            console.log('[ws] Reconnect reconciliation: cleared stale background-thread invocation state', {
-              threadId,
-            });
+            console.log('[ws] Reconciliation: background thread done', { threadId });
           }
         }
-      } catch {
-        // #266 Round 2+3: network error — same as !res.ok: clear stale state
-        // but no catch-up. Guard stale generation first.
-        if (generation !== reconcileGeneration) continue;
-        const errStore = useChatStore.getState();
-        if (errStore.currentThreadId === threadId && errStore.hasActiveInvocation) {
-          errStore.clearAllActiveInvocations();
-          errStore.setLoading(false);
-          errStore.setIntentMode(null);
-          errStore.clearCatStatuses();
-          for (const msg of errStore.messages) {
-            if (msg.type === 'assistant' && msg.isStreaming) {
-              errStore.setStreaming(msg.id, false);
-            }
-          }
-        }
-        console.warn('[ws] Reconnect reconciliation: /queue error, cleared stale state', { threadId });
+        continue;
+      }
+
+      // ── Branch 3: Queue unreachable → clear stale state, no catch-up ──
+      // We don't know if the invocation is done or still streaming.
+      // Catch-up (replace-history) could race with live stream → ref desync (#266).
+      // Clearing state unsticks the UI; if stream is alive, socket events re-establish
+      // state naturally; if done was lost, user can refresh.
+      if (isActiveThread && clearStaleActiveState(threadId)) {
+        console.warn('[ws] Reconciliation: queue unreachable, cleared stale state', { threadId });
       }
     }
   }, RECONNECT_RECONCILE_DELAY_MS);

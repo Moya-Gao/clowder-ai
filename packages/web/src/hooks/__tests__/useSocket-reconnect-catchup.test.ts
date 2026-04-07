@@ -226,7 +226,7 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
   });
 
-  it('does NOT trigger eager catch-up on reconnect before reconciliation (#266 Round 2)', async () => {
+  it('does NOT trigger eager catch-up on reconnect before reconciliation (#266)', async () => {
     // Simulate isLoading=true (invocation was in progress before disconnect)
     (mockStoreState as Record<string, unknown>).isLoading = true;
 
@@ -265,7 +265,7 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
 
-  it('clears stale state but does NOT catch-up when /queue returns non-ok (#266 Round 2+3)', async () => {
+  it('clears stale state but does NOT catch-up when /queue returns non-ok (#266)', async () => {
     (mockStoreState as Record<string, unknown>).isLoading = true;
 
     // /queue returns 500 — unknown server state
@@ -303,7 +303,7 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
 
-  it('stale reconnect error does NOT trigger catch-up after newer reconnect starts (#266 Round 2)', async () => {
+  it('stale reconnect error does NOT trigger catch-up after newer reconnect starts (#266)', async () => {
     (mockStoreState as Record<string, unknown>).isLoading = true;
 
     // Generation-1: /queue will reject slowly (network error after delay)
@@ -368,7 +368,7 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     delete (mockStoreState as Record<string, unknown>).isLoading;
   });
 
-  it('clears stale state but does NOT catch-up when /queue throws network error (#266 Round 2+3)', async () => {
+  it('clears stale state but does NOT catch-up when /queue throws network error (#266)', async () => {
     (mockStoreState as Record<string, unknown>).isLoading = true;
 
     // /queue throws — unknown server state
