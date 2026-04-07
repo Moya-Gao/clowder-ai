@@ -250,12 +250,6 @@ export class ConnectorRouter {
           } else {
             await adapter.sendReply(externalChatId, cmdResult.response);
           }
-          // F151: Close the A2A task after command response — without this,
-          // adapters like XiaoYi never send the close frame and the app
-          // won't render the response until the user refreshes.
-          if (adapter.onDeliveryBatchDone) {
-            await adapter.onDeliveryBatchDone(externalChatId, true);
-          }
         }
         // ISSUE-8 (8A): Store command exchange in Hub thread, not conversation thread
         const chatLabel = chatType === 'group' ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}` : undefined;
