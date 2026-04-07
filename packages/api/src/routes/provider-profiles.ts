@@ -184,6 +184,26 @@ function inferProbeProtocol(
     return 'openai';
   }
 
+  // baseUrl is checked before models/nameHints: a model named "claude-*" on
+  // an OpenAI-compatible proxy (e.g. OpenRouter) should resolve to 'openai',
+  // not 'anthropic'. The URL is the more reliable protocol signal.
+  // When baseUrl is present but doesn't match anthropic/google, we return
+  // 'openai' immediately — most custom endpoints are OpenAI-compatible.
+  // If the inference is wrong, users can correct via the edit form's advanced section.
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl ?? '').toLowerCase();
+  if (normalizedBaseUrl) {
+    if (normalizedBaseUrl.includes('anthropic')) return 'anthropic';
+    if (
+      normalizedBaseUrl.includes('googleapis.com') ||
+      normalizedBaseUrl.includes('generativelanguage') ||
+      normalizedBaseUrl.includes('gemini')
+    ) {
+      return 'google';
+    }
+    return 'openai';
+  }
+  // No baseUrl — fall through to model/name heuristics (e.g. oauth profiles).
+
   const normalizedModels = models.map((model) => model.trim().toLowerCase()).filter(Boolean);
   if (normalizedModels.some((model) => model.includes('claude') || model.includes('anthropic'))) {
     return 'anthropic';
@@ -213,15 +233,6 @@ function inferProbeProtocol(
     return 'openai';
   }
 
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl ?? '').toLowerCase();
-  if (normalizedBaseUrl.includes('anthropic')) return 'anthropic';
-  if (
-    normalizedBaseUrl.includes('googleapis.com') ||
-    normalizedBaseUrl.includes('generativelanguage') ||
-    normalizedBaseUrl.includes('gemini')
-  ) {
-    return 'google';
-  }
   return 'openai';
 }
 

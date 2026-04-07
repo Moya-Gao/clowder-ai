@@ -176,7 +176,7 @@ describe('provider profiles routes', () => {
           projectPath: projectDir,
           displayName: 'felix',
           authType: 'api_key',
-          baseUrl: 'https://chat.nuoda.vip/claudecode',
+          baseUrl: 'https://chat.nuoda.vip/anthropic-proxy',
           apiKey: 'sk-route',
           models: ['claude-opus-4-6'],
           setActive: false,
@@ -199,7 +199,7 @@ describe('provider profiles routes', () => {
       assert.equal(body.status, 200);
       assert.deepEqual(
         calls.map((call) => `${call.method} ${new URL(call.url).pathname}`),
-        ['GET /claudecode/v1/models', 'POST /claudecode/v1/messages'],
+        ['GET /anthropic-proxy/v1/models', 'POST /anthropic-proxy/v1/messages'],
       );
     } finally {
       restoreGlobalRoot();
@@ -241,7 +241,7 @@ describe('provider profiles routes', () => {
           projectPath: projectDir,
           displayName: 'felix-invalid-model',
           authType: 'api_key',
-          baseUrl: 'https://chat.nuoda.vip/claudecode',
+          baseUrl: 'https://chat.nuoda.vip/anthropic-proxy',
           apiKey: 'sk-route',
           models: ['claude-opus-4-6'],
           setActive: false,
@@ -262,7 +262,7 @@ describe('provider profiles routes', () => {
       assert.equal(body.ok, true);
       assert.deepEqual(
         calls.map((call) => `${call.method} ${new URL(call.url).pathname}`),
-        ['GET /claudecode/v1/models', 'POST /claudecode/v1/messages'],
+        ['GET /anthropic-proxy/v1/models', 'POST /anthropic-proxy/v1/messages'],
       );
     } finally {
       restoreGlobalRoot();
@@ -555,6 +555,80 @@ describe('provider profiles routes', () => {
       });
       assert.equal(patchRes.statusCode, 200);
       assert.equal(patchRes.json().profile.protocol, 'anthropic');
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('POST infers openai protocol for OpenAI-compat proxy even with claude model names', async () => {
+    // Regression: cross-provider scenario — OpenRouter/proxy with claude-* models
+    // must infer 'openai' from the URL, not 'anthropic' from the model name.
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('cross-provider-infer');
+    setGlobalRoot(projectDir);
+    try {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/provider-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          displayName: 'OpenRouter Proxy',
+          authType: 'api_key',
+          baseUrl: 'https://openrouter.ai/api/v1',
+          apiKey: 'sk-or-test',
+          models: ['claude-sonnet-4-5', 'claude-opus-4-1'],
+        }),
+      });
+      assert.equal(createRes.statusCode, 200);
+      assert.equal(
+        createRes.json().profile.protocol,
+        'openai',
+        'OpenAI-compat proxy URL must take precedence over claude model names',
+      );
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('POST infers anthropic protocol when both URL and models signal anthropic', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('anthropic-direct');
+    setGlobalRoot(projectDir);
+    try {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/provider-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          displayName: 'Direct Anthropic',
+          authType: 'api_key',
+          baseUrl: 'https://api.anthropic.com',
+          apiKey: 'sk-ant-test',
+          models: ['claude-sonnet-4-5'],
+        }),
+      });
+      assert.equal(createRes.statusCode, 200);
+      assert.equal(
+        createRes.json().profile.protocol,
+        'anthropic',
+        'Direct Anthropic URL must infer anthropic protocol',
+      );
     } finally {
       restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
