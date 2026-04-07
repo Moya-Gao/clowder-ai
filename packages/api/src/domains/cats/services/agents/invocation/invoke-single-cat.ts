@@ -723,20 +723,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       );
     }
 
-    // Determine effective protocol: account.protocol > provider-based default
-    const defaultProtocolForProvider: Record<string, string> = {
+    // Protocol is determined solely by provider — account.protocol is retired.
+    // Each provider has a fixed protocol; account-level protocol is not consulted.
+    const protocolForProvider: Record<string, string> = {
       anthropic: 'anthropic',
       opencode: 'anthropic',
       openai: 'openai',
       google: 'google',
       dare: 'openai',
     };
-    const effectiveProtocol =
-      resolvedAccount?.authType === 'api_key' && resolvedAccount.protocol
-        ? resolvedAccount.protocol
-        : provider
-          ? (defaultProtocolForProvider[provider] ?? null)
-          : null;
+    const effectiveProtocol = provider ? (protocolForProvider[provider] ?? null) : null;
 
     // effectiveProtocol is used below for env injection branching (anthropic/openai/google)
     // but is NOT passed to callbackEnv — it should not influence CLI routing decisions.
