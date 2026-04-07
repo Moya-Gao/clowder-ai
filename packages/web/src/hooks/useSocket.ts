@@ -231,14 +231,14 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
         continue;
       }
 
-      // ── Branch 3: Queue unreachable → clear stale state, no catch-up ──
-      // We don't know if the invocation is done or still streaming.
-      // Catch-up (replace-history) could race with live stream → ref desync (#266).
-      // Clearing state unsticks the UI; if stream is alive, socket events re-establish
-      // state naturally; if done was lost, user can refresh.
-      if (isActiveThread && clearStaleActiveState(threadId)) {
-        console.warn('[ws] Reconciliation: queue unreachable, cleared stale state', { threadId });
-      }
+      // ── Branch 3: Queue unreachable → do nothing ──
+      // We can't determine if the invocation is done or still streaming.
+      // - Clearing state is unsafe: stream events don't re-set isLoading/hasActiveInvocation,
+      //   so user loses Stop button and can send conflicting messages mid-stream.
+      // - Catch-up is unsafe: replace-history could race with live stream → ref desync (#266).
+      // Safe inaction: if stream is alive, done(isFinal) will clean up naturally.
+      // If done was truly lost, user can refresh. Next reconnect will retry reconciliation.
+      console.warn('[ws] Reconciliation: queue unreachable, no action taken', { threadId });
     }
   }, RECONNECT_RECONCILE_DELAY_MS);
 }
