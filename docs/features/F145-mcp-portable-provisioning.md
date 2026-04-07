@@ -8,7 +8,7 @@ created: 2026-03-27
 
 # F145: MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析
 
-> **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
 
 ## Why
 
@@ -101,7 +101,7 @@ created: 2026-03-27
 ### Phase C（Built-in MCP Auto-Provision for ACP）✅
 - [x] AC-C1: ACP resolver 不依赖 `.mcp.json` 获取 `cat-cafe*` servers — 从 `projectRoot` 自动生成
 - [x] AC-C2: 外部 MCP（`pencil` 等）仍从 `.mcp.json` fallback 读取
-- [ ] AC-C3: `capabilities.json` bootstrap 包含 `cat-cafe` 主 server（含 limb tools）
+- [x] AC-C3: `capabilities.json` bootstrap 包含 `cat-cafe` 主 server（含 limb tools）
 - [x] AC-C4: 新机器 clone + `pnpm install` 后，Gemini ACP session 自动获得内置 MCP servers（无需手写 `.mcp.json`）
 - [x] AC-C5: 现有 ACP adapter + resolver 测试全绿 + 新增 auto-provision 回归测试
 
@@ -145,6 +145,7 @@ created: 2026-03-27
 | 2026-03-27 | Phase B merged (PR #802)；F145 Phase A+B 完成 |
 | 2026-04-07 | Phase C kickoff — 内置 MCP auto-provision for ACP（PR #993 暴露链路缺口，铲屎官 + 砚砚 GPT-5.4 审定边界） |
 | 2026-04-07 | Phase C merged (PR #997) |
+| 2026-04-07 | AC-C3 补齐：capabilities.json bootstrap + migration 包含 cat-cafe 主 server |
 
 ## Review Gate
 
