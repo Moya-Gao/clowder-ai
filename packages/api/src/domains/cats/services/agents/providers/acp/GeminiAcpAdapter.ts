@@ -206,6 +206,15 @@ export class GeminiAcpAdapter implements AgentService {
           }
           continue; // Not a real ACP event — don't count, don't transform
         }
+        // Tool wait warning — Gemini is waiting for MCP tool result, idle is expected
+        if (event.update?.sessionUpdate === 'stream_tool_wait_warning') {
+          log.info(
+            { ...ctx, sessionId, idleSinceMs: event.update.idleSinceMs },
+            'Stream tool wait warning (idle suppressed — tool executing)',
+          );
+          yield makeToolWaitWarning(this.catId, event, metadata);
+          continue;
+        }
         // F149: Fallback — capacity signal captured before promptStream started
         // (e.g. during newSession), surfaced on first real event
         if (capacitySignal && !capacityWarningYielded) {
@@ -286,6 +295,25 @@ function makeIdleWarning(
     content: JSON.stringify({
       type: 'warning',
       message: `Gemini 已开始回复但后续停滞 (idle ${Math.round(idleSinceMs / 1000)}s)`,
+    }),
+    metadata,
+    timestamp: Date.now(),
+  };
+}
+
+/** Build a liveness_signal info for tool wait — Gemini is executing MCP tool, idle is expected. */
+function makeToolWaitWarning(
+  catId: CatId,
+  event: import('./types.js').AcpSessionUpdate,
+  metadata: MessageMetadata,
+): AgentMessage {
+  const idleSinceMs = (event.update?.idleSinceMs as number) ?? 0;
+  return {
+    type: 'liveness_signal',
+    catId,
+    content: JSON.stringify({
+      type: 'info',
+      message: `Gemini 正在等待工具返回 (${Math.round(idleSinceMs / 1000)}s)`,
     }),
     metadata,
     timestamp: Date.now(),

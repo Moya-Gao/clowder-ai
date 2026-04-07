@@ -234,6 +234,7 @@ export class AcpClient {
     let lastEventAt = 0;
     let idleWarningFired = false;
     let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingTool = false; // true while Gemini is waiting for MCP tool result
 
     /** Inject a synthetic event and wake the consumer loop. */
     const injectSynthetic = (update: Record<string, unknown>) => {
@@ -257,9 +258,26 @@ export class AcpClient {
         const idleSinceMs = Date.now() - lastEventAt;
         if (!idleWarningFired) {
           idleWarningFired = true;
-          log.warn({ sessionId, idleSinceMs, eventCount }, 'Stream idle watchdog: warning');
-          injectSynthetic({ sessionUpdate: 'stream_idle_warning', idleSinceMs, eventCount, timestamp: Date.now() });
+          if (pendingTool) {
+            // Tool is executing — idle is expected, don't alarm
+            log.info({ sessionId, idleSinceMs, eventCount, pendingTool }, 'Stream idle watchdog: tool wait');
+            injectSynthetic({
+              sessionUpdate: 'stream_tool_wait_warning',
+              idleSinceMs,
+              eventCount,
+              timestamp: Date.now(),
+            });
+          } else {
+            log.warn({ sessionId, idleSinceMs, eventCount }, 'Stream idle watchdog: warning');
+            injectSynthetic({ sessionUpdate: 'stream_idle_warning', idleSinceMs, eventCount, timestamp: Date.now() });
+          }
           scheduleIdleCheck(); // Schedule stall check (remaining time)
+        } else if (pendingTool) {
+          // Tool still executing — suppress stall, let absolute timeoutMs be the guard
+          log.info(
+            { sessionId, idleSinceMs, eventCount, pendingTool },
+            'Stream idle watchdog: tool still pending, suppressing stall',
+          );
         } else {
           // Stall — terminate the stream and cancel the upstream session
           log.error({ sessionId, idleSinceMs, eventCount }, 'Stream idle watchdog: stall — terminating');
@@ -283,6 +301,13 @@ export class AcpClient {
       eventCount++;
       lastEventAt = Date.now();
       idleWarningFired = false; // Reset warning on new activity
+      // Track tool execution phase for idle watchdog
+      const updateType = params.update?.sessionUpdate;
+      if (updateType === 'tool_call') {
+        pendingTool = true;
+      } else if (pendingTool && updateType !== 'tool_call_update') {
+        pendingTool = false; // Non-tool event → tool execution completed
+      }
       scheduleIdleCheck();
       if (waitResolve) {
         const r = waitResolve;

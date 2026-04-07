@@ -163,7 +163,8 @@ export type AcpSessionUpdateType =
   | 'config_option_update'
   | 'session_info_update'
   | 'provider_capacity_signal' // F149: injected by AcpClient.promptStream from stderr
-  | 'stream_idle_warning'; // F149: injected by AcpClient.promptStream idle watchdog
+  | 'stream_idle_warning' // F149: injected by AcpClient.promptStream idle watchdog
+  | 'stream_tool_wait_warning'; // tool_call pending — idle is expected, not a stall
 
 export interface AcpSessionUpdate {
   sessionId: string;

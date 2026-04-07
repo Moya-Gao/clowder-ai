@@ -845,6 +845,82 @@ describe('AcpClient', () => {
     assert.equal(realEvents.length, 1, 'Should have 1 real event');
   });
 
+  // ─── pendingTool: suppress stall during MCP tool execution ──
+
+  it('pendingTool: tool_call suppresses stall, resumes watchdog on non-tool event', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    const capturedMessages = [];
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        capturedMessages.push(msg);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'tool-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // 1. Send a tool_call event → enters pendingTool
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'tool-sess',
+              update: { sessionUpdate: 'tool_call', content: { type: 'text', text: 'search_evidence' } },
+            });
+          });
+          // 2. Wait past both idleWarningMs and idleStallMs while in pendingTool
+          //    (stall should NOT fire)
+          // 3. Then send a non-tool event → exits pendingTool, completes
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'tool-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'result' } },
+            });
+            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+          }, 250); // Well past idleWarningMs(30) + idleStallMs(100)
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    let thrownError = null;
+    try {
+      for await (const event of client.promptStream('tool-sess', 'hello', {
+        idleWarningMs: 30,
+        idleStallMs: 100,
+        timeoutMs: 5000,
+      })) {
+        events.push(event);
+      }
+    } catch (err) {
+      thrownError = err;
+    }
+
+    // Should NOT throw — pendingTool suppresses stall
+    assert.equal(thrownError, null, `Should not throw during tool wait, got: ${thrownError?.message}`);
+
+    // Should have stream_tool_wait_warning (not stream_idle_warning)
+    const toolWaits = events.filter((e) => e.update?.sessionUpdate === 'stream_tool_wait_warning');
+    assert.ok(toolWaits.length >= 1, `Expected stream_tool_wait_warning, got ${toolWaits.length}`);
+
+    // Should NOT have stream_idle_warning or stall
+    const idleWarnings = events.filter((e) => e.update?.sessionUpdate === 'stream_idle_warning');
+    assert.equal(idleWarnings.length, 0, `Expected 0 stream_idle_warning during tool wait, got ${idleWarnings.length}`);
+
+    // Should NOT have sent session/cancel
+    const cancelMsgs = capturedMessages.filter((m) => m.method === 'session/cancel');
+    assert.equal(cancelMsgs.length, 0, 'Should not send session/cancel during tool wait');
+
+    // Real events present
+    const toolEvents = events.filter((e) => e.update?.sessionUpdate === 'tool_call');
+    assert.equal(toolEvents.length, 1, 'Should have 1 tool_call event');
+    const textEvents = events.filter((e) => e.update?.sessionUpdate === 'agent_message_chunk');
+    assert.equal(textEvents.length, 1, 'Should have 1 text event after tool completes');
+  });
+
   // ─── P1 fixes from gpt52 review ─────────────────────────────
 
   it('F149-P1: idle stall sends session/cancel to terminate upstream', async () => {

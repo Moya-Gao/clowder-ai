@@ -1663,6 +1663,69 @@ describe('GeminiAcpAdapter integration', () => {
     assert.equal(texts.length, 3, `Expected 3 text messages, got ${texts.length}`);
   });
 
+  it('stream_tool_wait_warning yields info liveness_signal (not error)', async () => {
+    const fakeClient = {
+      isAlive: true,
+      initialize: async () => ({}),
+      close: async () => {},
+      onCapacity: () => {},
+      offCapacity: () => {},
+      recentCapacitySignal: null,
+      clearRecentCapacitySignal: () => {},
+      newSession: async () => ({ sessionId: 'tool-wait-sess' }),
+      cancelSession: () => {},
+      async *promptStream() {
+        yield {
+          sessionId: 'tool-wait-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'thinking...' } },
+        };
+        // Gemini calls a tool — idle watchdog fires tool_wait instead of idle_warning
+        yield {
+          sessionId: 'tool-wait-sess',
+          update: {
+            sessionUpdate: 'stream_tool_wait_warning',
+            idleSinceMs: 20000,
+            eventCount: 2,
+            timestamp: Date.now(),
+          },
+        };
+        // Tool returns, Gemini resumes
+        yield {
+          sessionId: 'tool-wait-sess',
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'result' } },
+        };
+        return 'end_turn';
+      },
+    };
+
+    const mockPool = {
+      acquire: async () => ({ client: fakeClient, release: () => {} }),
+      closeAll: async () => {},
+    };
+
+    const adapter = new GeminiAcpAdapter({
+      catId: 'gemini',
+      pool: mockPool,
+      poolKey: TEST_POOL_KEY,
+      projectRoot: '/tmp',
+    });
+
+    const messages = [];
+    for await (const msg of adapter.invoke('hello')) {
+      messages.push(msg);
+    }
+
+    const liveness = messages.filter((m) => m.type === 'liveness_signal');
+    assert.equal(liveness.length, 1, `Expected 1 tool wait liveness_signal, got ${liveness.length}`);
+    const parsed = JSON.parse(liveness[0].content);
+    assert.equal(parsed.type, 'info', 'Tool wait should be info, not warning');
+    assert.ok(parsed.message.includes('等待工具'), `Message should mention tool wait: ${parsed.message}`);
+
+    // No error — tool wait doesn't kill the stream
+    const errors = messages.filter((m) => m.type === 'error');
+    assert.equal(errors.length, 0, 'Tool wait should not produce an error');
+  });
+
   it('F149-cloud-P1: pre-stream capacity signal surfaces on first real event', async () => {
     // Codex cloud P1: capacity signal fired during newSession (before promptStream),
     // then prompt succeeds with normal events. Warning must still appear.
