@@ -6,7 +6,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "ppt-forge": "./dist/cli.js"
+    "ppt-forge": "./bin/ppt-forge.mjs"
   },
   "scripts": {
     "build": "tsc",
