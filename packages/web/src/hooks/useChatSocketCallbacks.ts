@@ -62,8 +62,8 @@ export function useChatSocketCallbacks({
         setIntentMode(data.mode as 'ideate' | 'execute');
         setTargetCats((data as { targetCats?: string[] }).targetCats ?? []);
       },
-      onTaskCreated: (task) => addTask(task as TaskItem),
-      onTaskUpdated: (task) => updateTask(task as TaskItem),
+      onTaskCreated: (task) => addTask(task as unknown as TaskItem),
+      onTaskUpdated: (task) => updateTask(task as unknown as TaskItem),
       onThreadSummary: (summary) => {
         const s = summary as {
           id: string;
