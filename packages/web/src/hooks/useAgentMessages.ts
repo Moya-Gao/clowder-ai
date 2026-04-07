@@ -1123,6 +1123,12 @@ export function useAgentMessages() {
   const resetRefs = useCallback(() => {
     activeRefs.current.clear();
     replacedInvocationsRef.current.clear();
+    // clowder-ai#378: clear ALL ref maps so stale IDs from prior invocation
+    // don't cause findInvocationlessStreamPlaceholder to match old bubbles.
+    // Without this, scheduler callbacks (no invocationId) could patch a
+    // finalized bubble from the previous invocation after thread switch.
+    finalizedStreamRef.current.clear();
+    sawStreamDataRef.current.clear();
   }, []);
 
   return { handleAgentMessage, handleStop, resetRefs, resetTimeout, clearDoneTimeout };
