@@ -273,10 +273,11 @@ export class CodexAgentService implements AgentService {
 
     // Codex CLI sends the model name verbatim to the API (model_info.slug).
     // model_provider="custom" only controls which provider entry (base_url, env_key) to use.
-    // Strip any "provider/" prefix since the downstream API expects bare model names.
-    // Use --config model=... instead of --model to avoid the CLI's built-in
-    // metadata lookup warning ("Model metadata for X not found").
-    const bareModel = effectiveModel.includes('/') ? effectiveModel.split('/').slice(-1)[0] : effectiveModel;
+    // Strip only the first "provider/" prefix — our system prepends it for routing,
+    // but downstream APIs expect the model name without our prefix.
+    // Preserve multi-segment slugs like "google/gemini-3-flash-preview" (OpenRouter format).
+    // Use --config model=... instead of --model to bypass the CLI's built-in metadata lookup.
+    const bareModel = effectiveModel.includes('/') ? effectiveModel.split('/').slice(1).join('/') : effectiveModel;
     const cliModel = customBaseUrl ? bareModel : effectiveModel;
     const modelArgs: string[] = customBaseUrl ? ['--config', `model=${toTomlString(cliModel)}`] : ['--model', cliModel];
 
