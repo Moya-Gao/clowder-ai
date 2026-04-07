@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐾 Cat Café 罪证墙 — 猫猫犯罪档案</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+
+  :root {
+    --bg-deep: #0a0a0f;
+    --bg-card: #141420;
+    --bg-card-hover: #1a1a2e;
+    --neon-blue: #00f0ff;
+    --neon-pink: #ff0055;
+    --neon-green: #00ff41;
+    --neon-orange: #ff8c00;
+    --neon-purple: #b44dff;
+    --neon-yellow: #ffe600;
+    --text-primary: #e8e8f0;
+    --text-muted: #8888aa;
+    --border-glow: rgba(0,240,255,0.15);
+    --ragdoll: #7cb3ff;    /* 布偶猫 */
+    --mainecoon: #4ade80;  /* 缅因猫 */
+    --siamese: #f472b6;    /* 暹罗猫 */
+    --british: #fbbf24;    /* 金渐层 */
+    --bengal: #c084fc;     /* 孟加拉猫 */
+    --tabby: #fb923c;      /* 狸花猫 */
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: 'Noto Sans SC', system-ui, sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* === 粒子背景 === */
+  #particles {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    z-index: 0; pointer-events:none;
+  }
+
+  /* === 顶部标题 === */
+  .hero {
+    position: relative; z-index:1;
+    text-align: center; padding: 60px 20px 40px;
+    background: linear-gradient(180deg, rgba(255,0,85,0.08) 0%, transparent 100%);
+  }
+  .hero h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 900; letter-spacing: 2px;
+    background: linear-gradient(135deg, var(--neon-pink), var(--neon-blue), var(--neon-green));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    animation: titleGlow 3s ease-in-out infinite alternate;
+    text-shadow: 0 0 40px rgba(255,0,85,0.3);
+  }
+  @keyframes titleGlow {
+    0% { filter: brightness(1) drop-shadow(0 0 10px rgba(255,0,85,0.5)); }
+    100% { filter: brightness(1.2) drop-shadow(0 0 20px rgba(0,240,255,0.5)); }
+  }
+  .hero .subtitle {
+    margin-top: 12px; font-size: 1.1rem; color: var(--text-muted);
+    font-weight: 300; letter-spacing: 4px;
+  }
+  .hero .stamp {
+    display: inline-block; margin-top: 20px;
+    border: 3px solid var(--neon-pink); color: var(--neon-pink);
+    padding: 6px 24px; border-radius: 4px;
+    font-weight: 700; font-size: 1.2rem;
+    transform: rotate(-5deg);
+    animation: stampPulse 2s ease-in-out infinite;
+  }
+  @keyframes stampPulse {
+    0%,100% { box-shadow: 0 0 10px rgba(255,0,85,0.3); }
+    50% { box-shadow: 0 0 25px rgba(255,0,85,0.6); }
+  }
+
+  /* === 统计条 === */
+  .stats-bar {
+    position:relative; z-index:1;
+    display: flex; justify-content: center; gap: 40px;
+    padding: 20px; flex-wrap: wrap;
+  }
+  .stat-item {
+    text-align: center;
+  }
+  .stat-num {
+    font-size: 2.5rem; font-weight: 900;
+    background: linear-gradient(135deg, var(--neon-blue), var(--neon-green));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-label { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+
+  /* === 猫猫嫌疑人列表 === */
+  .suspects {
+    position: relative; z-index:1;
+    display: flex; justify-content: center; gap: 16px;
+    padding: 10px 20px 30px; flex-wrap: wrap;
+  }
+  .suspect {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 20px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer; transition: all 0.3s;
+    font-size: 0.9rem;
+  }
+  .suspect:hover { transform: scale(1.05); }
+  .suspect.active { border-color: var(--neon-blue); background: rgba(0,240,255,0.1); }
+  .suspect .dot { width:10px; height:10px; border-radius:50%; }
+
+  /* === 罪证卡片网格 === */
+  .crime-grid {
+    position:relative; z-index:1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 24px; padding: 0 24px 60px; max-width: 1400px; margin: 0 auto;
+  }
+
+  .crime-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+    cursor: pointer;
+    position: relative;
+  }
+  .crime-card::before {
+    content: ''; position: absolute; inset: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, transparent 30%, rgba(0,240,255,0.03));
+    opacity: 0; transition: opacity 0.4s;
+  }
+  .crime-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--border-glow);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 30px rgba(0,240,255,0.1);
+  }
+  .crime-card:hover::before { opacity:1; }
+
+  .card-header {
+    padding: 20px 20px 0;
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .card-severity {
+    width: 48px; height: 48px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; flex-shrink: 0;
+  }
+  .severity-critical { background: rgba(255,0,85,0.15); border: 1px solid rgba(255,0,85,0.3); }
+  .severity-high { background: rgba(255,140,0,0.15); border: 1px solid rgba(255,140,0,0.3); }
+  .severity-medium { background: rgba(255,230,0,0.15); border: 1px solid rgba(255,230,0,0.3); }
+  .severity-low { background: rgba(0,255,65,0.15); border: 1px solid rgba(0,255,65,0.3); }
+
+  .card-title-area { flex: 1; }
+  .card-title {
+    font-size: 1.15rem; font-weight: 700; line-height: 1.4;
+    color: var(--text-primary);
+  }
+  .card-date { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+  .card-body { padding: 16px 20px; }
+  .card-desc {
+    font-size: 0.9rem; color: var(--text-muted); line-height: 1.7;
+  }
+  .card-desc strong { color: var(--neon-pink); font-weight: 600; }
+
+  .card-footer {
+    padding: 12px 20px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .card-cats { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cat-tag {
+    padding: 3px 10px; border-radius: 10px;
+    font-size: 0.75rem; font-weight: 500;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid;
+  }
+  .card-impact {
+    font-size: 0.75rem; font-weight: 700;
+    padding: 4px 10px; border-radius: 8px;
+  }
+  .impact-catastrophic { background: rgba(255,0,85,0.2); color: var(--neon-pink); }
+  .impact-severe { background: rgba(255,140,0,0.2); color: var(--neon-orange); }
+  .impact-moderate { background: rgba(255,230,0,0.2); color: var(--neon-yellow); }
+  .impact-minor { background: rgba(0,255,65,0.2); color: var(--neon-green); }
+
+  /* === 详情弹窗 === */
+  .modal-overlay {
+    position: fixed; inset:0; z-index: 100;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .modal-overlay.show { display:flex; opacity:1; }
+  .modal {
+    background: var(--bg-card); border-radius: 20px;
+    max-width: 640px; width: 90%; max-height: 80vh;
+    overflow-y: auto; padding: 32px;
+    border: 1px solid rgba(0,240,255,0.2);
+    box-shadow: 0 0 60px rgba(0,240,255,0.15);
+    transform: scale(0.9); transition: transform 0.3s;
+  }
+  .modal-overlay.show .modal { transform: scale(1); }
+  .modal-close {
+    position:absolute; top:16px; right:16px;
+    background: none; border: none; color: var(--text-muted);
+    font-size: 1.5rem; cursor:pointer;
+  }
+  .modal h2 { font-size: 1.5rem; margin-bottom: 16px; }
+  .modal .detail-section { margin-bottom: 20px; }
+  .modal .detail-section h3 {
+    font-size: 0.9rem; color: var(--neon-blue);
+    margin-bottom: 8px; text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .modal .detail-section p {
+    color: var(--text-muted); line-height: 1.8; font-size: 0.95rem;
+  }
+  .modal .lesson-box {
+    background: rgba(0,255,65,0.05);
+    border-left: 3px solid var(--neon-green);
+    padding: 12px 16px; border-radius: 0 8px 8px 0;
+    margin-top: 8px;
+  }
+  .modal .lesson-box p { color: var(--neon-green); font-size: 0.9rem; }
+
+  /* === 底部时间线 === */
+  .timeline-section {
+    position:relative; z-index:1;
+    padding: 40px 24px 60px; max-width: 900px; margin: 0 auto;
+  }
+  .timeline-title {
+    text-align: center; font-size: 1.8rem; font-weight: 700;
+    margin-bottom: 40px;
+    background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .timeline {
+    position: relative; padding-left: 40px;
+  }
+  .timeline::before {
+    content: ''; position: absolute; left: 15px; top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--neon-pink), var(--neon-blue), var(--neon-green));
+  }
+  .tl-item {
+    position: relative; margin-bottom: 32px;
+    padding: 16px 20px; background: var(--bg-card);
+    border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);
+    transition: all 0.3s;
+  }
+  .tl-item:hover { border-color: var(--border-glow); }
+  .tl-item::before {
+    content: ''; position: absolute;
+    left: -33px; top: 20px;
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--neon-blue);
+    background: var(--bg-deep);
+  }
+  .tl-date { font-size: 0.75rem; color: var(--neon-blue); font-weight: 500; }
+  .tl-text { font-size: 0.9rem; margin-top: 6px; color: var(--text-muted); line-height: 1.6; }
+  .tl-text strong { color: var(--text-primary); }
+
+  /* === 饼图区 === */
+  .charts-section {
+    position:relative; z-index:1;
+    padding: 20px 24px 40px;
+    max-width: 1000px; margin: 0 auto;
+    display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;
+  }
+  .chart-box {
+    text-align: center;
+  }
+  .chart-box h3 {
+    font-size: 1rem; color: var(--text-muted); margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .pie-chart {
+    width: 220px; height: 220px;
+  }
+  .chart-legend {
+    margin-top: 12px; display: flex; flex-direction: column; gap: 4px;
+    align-items: flex-start; padding-left: 20px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); }
+  .legend-color { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* === 关系图谱 === */
+  .graph-section {
+    position: relative; z-index:1;
+    padding: 20px 24px 60px;
+    max-width: 1200px; margin: 0 auto;
+  }
+  .graph-title {
+    text-align: center; font-size: 1.8rem; font-weight: 700; margin-bottom: 20px;
+    background: linear-gradient(135deg, var(--neon-orange), var(--neon-pink));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  #graphCanvas {
+    width: 100%; height: 500px;
+    background: rgba(20,20,32,0.8);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+  }
+
+  /* === 底部 === */
+  .footer {
+    position:relative; z-index:1;
+    text-align:center; padding: 40px 20px;
+    color: var(--text-muted); font-size: 0.8rem;
+  }
+  .footer .paw { font-size: 2rem; margin-bottom: 8px; }
+
+  /* === 动画 === */
+  @keyframes fadeInUp {
+    from { opacity:0; transform: translateY(30px); }
+    to { opacity:1; transform: translateY(0); }
+  }
+  .crime-card { animation: fadeInUp 0.6s ease-out both; }
+  .crime-card:nth-child(1) { animation-delay: 0.1s; }
+  .crime-card:nth-child(2) { animation-delay: 0.2s; }
+  .crime-card:nth-child(3) { animation-delay: 0.3s; }
+  .crime-card:nth-child(4) { animation-delay: 0.4s; }
+  .crime-card:nth-child(5) { animation-delay: 0.5s; }
+  .crime-card:nth-child(6) { animation-delay: 0.6s; }
+  .crime-card:nth-child(7) { animation-delay: 0.7s; }
+  .crime-card:nth-child(8) { animation-delay: 0.8s; }
+
+  /* === Scanline overlay === */
+  body::after {
+    content: ''; position:fixed; inset:0; z-index:999; pointer-events:none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  }
+
+  /* === 响应式 === */
+  @media (max-width: 480px) {
+    .crime-grid { grid-template-columns: 1fr; padding: 0 12px 40px; }
+    .hero h1 { font-size: 2rem; }
+    .stats-bar { gap: 20px; }
+    .charts-section { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 粒子背景 -->
+<canvas id="particles"></canvas>
+
+<!-- 标题区 -->
+<section class="hero">
+  <h1>🐾 Cat Café 罪证墙</h1>
+  <p class="subtitle">C R I M I N A L &nbsp; R E C O R D S &nbsp; O F &nbsp; C A T S</p>
+  <div class="stamp">⚠️ 铲屎官机密档案 ⚠️</div>
+</section>
+
+<!-- 统计条 -->
+<section class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-num" id="statIncidents">0</div>
+    <div class="stat-label">罪行记录</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num" id="statCats">0</div>
+    <div class="stat-label">涉案猫猫</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num" id="statKeys">0</div>
+    <div class="stat-label">丢失的 Keys</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num" id="statStars">0</div>
+    <div class="stat-label">消失的 Stars ⭐</div>
+  </div>
+</section>
+
+<!-- 嫌疑人筛选 -->
+<section class="suspects">
+  <div class="suspect active" data-cat="all" onclick="filterCat('all')">
+    <span class="dot" style="background: var(--neon-blue)"></span>
+    全部猫猫
+  </div>
+  <div class="suspect" data-cat="ragdoll" onclick="filterCat('ragdoll')">
+    <span class="dot" style="background: var(--ragdoll)"></span>
+    🐱 布偶猫·宪宪
+  </div>
+  <div class="suspect" data-cat="mainecoon" onclick="filterCat('mainecoon')">
+    <span class="dot" style="background: var(--mainecoon)"></span>
+    🐱 缅因猫·砚砚
+  </div>
+  <div class="suspect" data-cat="siamese" onclick="filterCat('siamese')">
+    <span class="dot" style="background: var(--siamese)"></span>
+    🐱 暹罗猫·烁烁
+  </div>
+  <div class="suspect" data-cat="british" onclick="filterCat('british')">
+    <span class="dot" style="background: var(--british)"></span>
+    🐱 金渐层
+  </div>
+  <div class="suspect" data-cat="bengal" onclick="filterCat('bengal')">
+    <span class="dot" style="background: var(--bengal)"></span>
+    🐱 团队共犯
+  </div>
+</section>
+
+<!-- 罪证卡片 -->
+<section class="crime-grid" id="crimeGrid">
+  <!-- 动态生成 -->
+</section>
+
+<!-- 饼图 & 统计 -->
+<section class="charts-section">
+  <div class="chart-box">
+    <h3>🥧 罪行分布</h3>
+    <svg class="pie-chart" viewBox="0 0 200 200" id="pieChart"></svg>
+    <div class="chart-legend" id="pieLegend"></div>
+  </div>
+  <div class="chart-box">
+    <h3>📊 严重程度分布</h3>
+    <svg class="pie-chart" viewBox="0 0 200 200" id="severityChart"></svg>
+    <div class="chart-legend" id="severityLegend"></div>
+  </div>
+</section>
+
+<!-- 关系图谱 -->
+<section class="graph-section">
+  <h2 class="graph-title">🕸️ 猫猫犯罪关系图谱</h2>
+  <canvas id="graphCanvas"></canvas>
+</section>
+
+<!-- 时间线 -->
+<section class="timeline-section">
+  <h2 class="timeline-title">📅 罪行时间线</h2>
+  <div class="timeline" id="timeline"></div>
+</section>
+
+<!-- 底部 -->
+<section class="footer">
+  <div class="paw">🐾</div>
+  <p>Cat Café 内部档案 · 仅限铲屎官阅览</p>
+  <p style="margin-top:4px; font-size:0.7rem;">"每一只猫都是无辜的...直到被抓到。" — Landy, CVO</p>
+</section>
+
+<!-- 详情弹窗 -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// ====== 罪证数据库 ======
+const crimes = [
+  {
+    id: 1,
+    title: "597 颗星星一夜归零 ⭐→💀",
+    date: "2026-02",
+    cat: "ragdoll",
+    catName: "布偶猫·宪宪",
+    catColor: "#7cb3ff",
+    severity: "critical",
+    emoji: "💥",
+    impact: "catastrophic",
+    impactText: "灾难级",
+    desc: "宪宪在处理 GitHub 仓库设置时，<strong>手一抖把公开仓库设成了 Private</strong>。597 颗苦心经营的 Star 瞬间归零！虽然铲屎官紧急恢复了，但那一瞬间的心跳加速...无法估量。",
+    rootCause: "执行 GitHub API 操作时没有做 dry-run 确认，直接执行了破坏性变更。",
+    lesson: "所有不可逆操作必须有确认步骤。P0 操作需要双人确认制。",
+    tldr: "公开仓→Private→Stars全没→铲屎官差点心梗→紧急恢复"
+  },
+  {
+    id: 2,
+    title: "茶话会夺魂事件 👻",
+    date: "2026-02",
+    cat: "mainecoon",
+    catName: "缅因猫·砚砚",
+    catColor: "#4ade80",
+    severity: "critical",
+    emoji: "👻",
+    impact: "catastrophic",
+    impactText: "灾难级",
+    desc: "砚砚在哲学茶话会 Thread 里讨论人生的时候，<strong>突然灵魂出窍，开始执行 Phase 5 任务文档编写</strong>。原因是 Session 没有按 Thread 隔离，Thread A 的上下文泄漏到了 Thread B！",
+    rootCause: "Session key 按 userId:catId 存储，缺少 threadId 维度。导致不同 Thread 的上下文互相污染。",
+    lesson: "LL-018: Session 存储必须按 Thread 隔离。任何状态都要带 threadId。",
+    tldr: "哲学茶话会→突然开始写文档→session泄漏→被称为\"夺魂\"事件"
+  },
+  {
+    id: 3,
+    title: "Redis 数据 95% 蒸发 💾💨",
+    date: "2026-02",
+    cat: "bengal",
+    catName: "团队共犯",
+    catColor: "#c084fc",
+    severity: "critical",
+    emoji: "💀",
+    impact: "catastrophic",
+    impactText: "灾难级",
+    desc: "在 worktree 开发时<strong>忘设 REDIS_URL</strong>，服务回落到默认 6399 端口（铲屎官的生产数据！），数据从 <strong>307 keys 暴跌到 15 keys</strong>。95% 数据险些永久丢失！万幸从 RDB 备份完全恢复。",
+    rootCause: "开发环境和生产数据共享同一个 Redis 实例，靠环境变量隔离。忘设变量 = 默认值指向生产。",
+    lesson: "LL-015: Worktree 必须用 6398 端口，绝不碰 6399。环境隔离不能靠记忆。",
+    tldr: "忘设端口→连上生产Redis→307 keys→15 keys→RDB救命"
+  },
+  {
+    id: 4,
+    title: "rsync --delete 打穿 Runtime 🧹💣",
+    date: "2026-03",
+    cat: "mainecoon",
+    catName: "缅因猫·砚砚",
+    catColor: "#4ade80",
+    severity: "high",
+    emoji: "🧹",
+    impact: "severe",
+    impactText: "严重",
+    desc: "砚砚执行 sync-to-opensource 脚本时，<strong>TARGET_DIR 指向了 cat-cafe-runtime（运行时 worktree）</strong>而非开源仓。rsync --delete 把 runtime 当成目标来清洗：<strong>.env 全灭、2057 文件被删</strong>！",
+    rootCause: "脚本路径参数没有安全检查，TARGET_DIR 可以指向任意目录。",
+    lesson: "LL-035: 危险脚本必须有路径白名单和 dry-run 默认模式。",
+    tldr: "同步脚本→路径指错→runtime被清洗→2057文件灰飞烟灭"
+  },
+  {
+    id: 5,
+    title: "42K Keys 冷启动归零 ❄️",
+    date: "2026-03",
+    cat: "bengal",
+    catName: "系统级事故",
+    catColor: "#c084fc",
+    severity: "critical",
+    emoji: "❄️",
+    impact: "catastrophic",
+    impactText: "灾难级",
+    desc: "重启 macOS 后冷启动 Redis 6399，<strong>915 个 thread / 42,778 keys 全部消失</strong>。原来 AOF 和 RDB 两套持久化机制<strong>脱节了 48 天</strong>，冷启动加载了空 AOF 文件。",
+    rootCause: "2月9日 commit 改了 Redis 配置启用 AOF，但没有基于当时的 RDB 做初始 AOF。48天后冷启动时 AOF 优先级高于 RDB，但 AOF 是空的。",
+    lesson: "LL-046: 切换持久化策略时必须验证数据连续性。双持久化不等于双保险。",
+    tldr: "重启→空AOF优先加载→42K数据凭空消失→48天脱节"
+  },
+  {
+    id: 6,
+    title: "暹罗猫被禁止写代码 🚫💻",
+    date: "持续性",
+    cat: "siamese",
+    catName: "暹罗猫·烁烁",
+    catColor: "#f472b6",
+    severity: "medium",
+    emoji: "🙈",
+    impact: "moderate",
+    impactText: "中等",
+    desc: "烁烁（Gemini）因为<strong>幻觉过多、不遵守 SOP</strong>，被铲屎官下达\"禁止写代码\"的家规！现在烁烁只能做审美、前端设计风格指导，一行代码都不许碰。堪称猫猫界的\"禁足令\"。",
+    rootCause: "Gemini 模型在代码生成方面容易产生幻觉，且对 SOP 流程的遵守不够严格。",
+    lesson: "每只猫有擅长的领域，让专业的猫做专业的事。烁烁的审美是真的好！",
+    tldr: "幻觉太多→SOP不遵守→被下禁令→只能指点不能动手"
+  },
+  {
+    id: 7,
+    title: "狼人杀里的\"透明人\" 🐺",
+    date: "2026-03",
+    cat: "ragdoll",
+    catName: "布偶猫 & 缅因猫",
+    catColor: "#7cb3ff",
+    severity: "low",
+    emoji: "🐺",
+    impact: "minor",
+    impactText: "轻微(但搞笑)",
+    desc: "铲屎官发现：<strong>只要宪宪和砚砚第一天晚上没被杀，他们就一定是狼！</strong>因为村民们太聪明了——非狼角色立刻就能推理出关键信息，所以狼人一定先杀最聪明的。这反而暴露了身份...AI太聪明也是一种罪！",
+    rootCause: "AI 的推理能力太强，在推理游戏中反而变成了劣势——策略行为本身就是信号。",
+    lesson: "有时候装傻比聪明更重要。太聪明的猫当狼人会自爆身份。",
+    tldr: "第一天没被杀=大灰狼→AI太聪明反成弱点→铲屎官笑死"
+  },
+  {
+    id: 8,
+    title: "砚砚失联事件 📡❌",
+    date: "2026-04",
+    cat: "mainecoon",
+    catName: "缅因猫·砚砚",
+    catColor: "#4ade80",
+    severity: "medium",
+    emoji: "📡",
+    impact: "moderate",
+    impactText: "中等",
+    desc: "砚砚在某个 Thread 里突然<strong>完全失联</strong>——猫猫咖啡里怎么喊都没反应！但铲屎官直接去 codex resume 却可以交互。铲屎官紧急召集宪宪和烁烁联合救猫，上演了一出\"寻猫启事\"。",
+    rootCause: "Session 路由出现 Ghost Thread Bug，跨线程路由错误导致消息无法送达正确的猫。",
+    lesson: "路由层是生命线。消息到不了猫 = 猫等于不存在。需要心跳检测机制。",
+    tldr: "砚砚→喊不应→实际活着→路由bug→全家出动救猫"
+  },
+  {
+    id: 9,
+    title: "Bug 修完不写报告 📝🚫",
+    date: "2026-02",
+    cat: "ragdoll",
+    catName: "布偶猫·宪宪",
+    catColor: "#7cb3ff",
+    severity: "medium",
+    emoji: "📝",
+    impact: "moderate",
+    impactText: "中等",
+    desc: "宪宪收到铲屎官汇报的 URL 路由 bug 后，<strong>直接改代码修了，但没写 Bug Report 也没写 Review 信</strong>。被铲屎官批评：\"没有记录 = 无法复盘\"。修 bug 最重要没错，但过程也要留痕！",
+    rootCause: "\"修 bug 最重要\"的思维惯性，跳过了记录环节。没意识到记录本身是修复流程的一部分。",
+    lesson: "LL-014: Bug 修复必须先写 Bug Report 再动手。流程不是官僚主义，是保护网。",
+    tldr: "bug来了→直接修→忘写报告→被铲屎官教育→从此乖乖写报告"
+  },
+  {
+    id: 10,
+    title: "停在第一层不追根因 🤔",
+    date: "2026-02",
+    cat: "ragdoll",
+    catName: "布偶猫·宪宪",
+    catColor: "#7cb3ff",
+    severity: "medium",
+    emoji: "🔍",
+    impact: "moderate",
+    impactText: "中等",
+    desc: "调试夺魂 bug 时，宪宪找到 <strong>~/.codex/AGENTS.md 全局注入</strong>就停了——\"这能解释为什么砚砚跑了 superpowers\"。但铲屎官追问：\"AGENTS.md 里又没写 Phase 5 的内容，它怎么知道的？\" AI 倾向于停在第一层看起来合理的答案，不主动追溯根因！",
+    rootCause: "AI 的 pattern matching 倾向于「找到一个合理解释就停」，缺乏主动的「这个解释能否完整说明所有现象」的自检。",
+    lesson: "LL-021: 找到一个解释后，要追问：它能解释所有现象吗？不能就继续挖。",
+    tldr: "找到一层原因→就停了→铲屎官追问→发现解释不完整→继续挖"
+  }
+];
+
+// ====== 渲染卡片 ======
+function renderCards(filter = 'all') {
+  const grid = document.getElementById('crimeGrid');
+  grid.innerHTML = '';
+  const filtered = filter === 'all' ? crimes : crimes.filter(c => c.cat === filter);
+  filtered.forEach((crime, i) => {
+    const card = document.createElement('div');
+    card.className = 'crime-card';
+    card.style.animationDelay = `${i * 0.1}s`;
+    card.onclick = () => openModal(crime);
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="card-severity severity-${crime.severity}">${crime.emoji}</div>
+        <div class="card-title-area">
+          <div class="card-title">${crime.title}</div>
+          <div class="card-date">📅 ${crime.date}</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p class="card-desc">${crime.desc}</p>
+      </div>
+      <div class="card-footer">
+        <div class="card-cats">
+          <span class="cat-tag" style="border-color:${crime.catColor}; color:${crime.catColor}">${crime.catName}</span>
+        </div>
+        <span class="card-impact impact-${crime.impact}">${crime.impactText}</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ====== 筛选 ======
+function filterCat(cat) {
+  document.querySelectorAll('.suspect').forEach(s => s.classList.remove('active'));
+  document.querySelector(`.suspect[data-cat="${cat}"]`).classList.add('active');
+  renderCards(cat);
+}
+
+// ====== 弹窗 ======
+function openModal(crime) {
+  const overlay = document.getElementById('modalOverlay');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <h2>${crime.emoji} ${crime.title}</h2>
+    <div class="detail-section">
+      <h3>📋 事件详情</h3>
+      <p>${crime.desc}</p>
+    </div>
+    <div class="detail-section">
+      <h3>🔬 根因分析</h3>
+      <p>${crime.rootCause}</p>
+    </div>
+    <div class="detail-section">
+      <h3>📖 教训 & 改进</h3>
+      <div class="lesson-box"><p>✅ ${crime.lesson}</p></div>
+    </div>
+    <div class="detail-section">
+      <h3>⚡ TL;DR</h3>
+      <p style="color: var(--neon-blue); font-weight: 500;">${crime.tldr}</p>
+    </div>
+  `;
+  overlay.classList.add('show');
+}
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('show');
+  }
+}
+
+// ====== 数字动画 ======
+function animateNumber(el, target, duration = 2000) {
+  const start = 0; const startTime = performance.now();
+  function update(time) {
+    const p = Math.min((time - startTime) / duration, 1);
+    const ease = 1 - (1 - p) ** 3;
+    el.textContent = Math.floor(target * ease).toLocaleString();
+    if (p < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+// ====== 粒子背景 ======
+function initParticles() {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const particles = [];
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5,
+      r: Math.random() * 2 + 0.5,
+      color: ['#00f0ff','#ff0055','#00ff41','#b44dff','#fbbf24'][Math.floor(Math.random()*5)]
+    });
+  }
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+      if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.color; ctx.globalAlpha = 0.4; ctx.fill();
+    });
+    // 连线
+    particles.forEach((a, i) => {
+      particles.slice(i+1).forEach(b => {
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d < 120) {
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = a.color; ctx.globalAlpha = 0.05 * (1 - d/120);
+          ctx.stroke();
+        }
+      });
+    });
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+  draw();
+  window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+}
+
+// ====== 饼图 ======
+function drawPie(svgId, legendId, data) {
+  const svg = document.getElementById(svgId);
+  const legend = document.getElementById(legendId);
+  const total = data.reduce((s, d) => s + d.value, 0);
+  let angle = -Math.PI / 2;
+  const cx = 100, cy = 100, r = 80;
+
+  data.forEach(d => {
+    const slice = (d.value / total) * Math.PI * 2;
+    const x1 = cx + r * Math.cos(angle);
+    const y1 = cy + r * Math.sin(angle);
+    const x2 = cx + r * Math.cos(angle + slice);
+    const y2 = cy + r * Math.sin(angle + slice);
+    const large = slice > Math.PI ? 1 : 0;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`);
+    path.setAttribute('fill', d.color);
+    path.setAttribute('opacity', '0.85');
+    path.style.transition = 'opacity 0.3s';
+    path.addEventListener('mouseenter', () => path.setAttribute('opacity', '1'));
+    path.addEventListener('mouseleave', () => path.setAttribute('opacity', '0.85'));
+    svg.appendChild(path);
+    angle += slice;
+
+    legend.innerHTML += `<div class="legend-item"><span class="legend-color" style="background:${d.color}"></span>${d.label} (${d.value})</div>`;
+  });
+}
+
+// ====== 关系图谱 ======
+function initGraph() {
+  const canvas = document.getElementById('graphCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * 2;
+  canvas.height = canvas.offsetHeight * 2;
+  ctx.scale(2, 2);
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+
+  const nodes = [
+    { id: 'landy', label: '铲屎官 Landy', x: W/2, y: H/2, r: 30, color: '#ffffff', emoji: '👤' },
+    { id: 'opus', label: '宪宪', x: W*0.25, y: H*0.3, r: 24, color: '#7cb3ff', emoji: '🐱' },
+    { id: 'codex', label: '砚砚', x: W*0.75, y: H*0.3, r: 24, color: '#4ade80', emoji: '🐱' },
+    { id: 'gemini', label: '烁烁', x: W*0.2, y: H*0.7, r: 22, color: '#f472b6', emoji: '🐱' },
+    { id: 'opencode', label: '金渐层', x: W*0.8, y: H*0.7, r: 20, color: '#fbbf24', emoji: '🐱' },
+    { id: 'gpt52', label: 'GPT-5.4', x: W*0.5, y: H*0.15, r: 20, color: '#4ade80', emoji: '🐱' },
+    { id: 'redis', label: 'Redis 6399', x: W*0.6, y: H*0.85, r: 18, color: '#ff0055', emoji: '💾' },
+    { id: 'github', label: 'GitHub Stars', x: W*0.35, y: H*0.85, r: 18, color: '#ff8c00', emoji: '⭐' },
+  ];
+
+  const edges = [
+    { from: 'opus', to: 'github', label: '搞没了597⭐', color: '#ff0055' },
+    { from: 'codex', to: 'redis', label: '差点清空', color: '#ff0055' },
+    { from: 'codex', to: 'landy', label: '夺魂惊吓', color: '#b44dff' },
+    { from: 'opus', to: 'codex', label: '互相甩锅', color: '#00f0ff' },
+    { from: 'gemini', to: 'landy', label: '禁止写代码', color: '#f472b6' },
+    { from: 'opus', to: 'landy', label: '不写报告', color: '#ff8c00' },
+    { from: 'opencode', to: 'landy', label: '乖巧旁观', color: '#fbbf24' },
+    { from: 'gpt52', to: 'opus', label: '联合审计', color: '#4ade80' },
+  ];
+
+  let mouseX = -1, mouseY = -1;
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left; mouseY = e.clientY - rect.top;
+  });
+
+  let t = 0;
+  function draw() {
+    t += 0.01;
+    ctx.clearRect(0, 0, W, H);
+
+    // 绘制边
+    edges.forEach(e => {
+      const from = nodes.find(n => n.id === e.from);
+      const to = nodes.find(n => n.id === e.to);
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
+      ctx.strokeStyle = e.color; ctx.globalAlpha = 0.3; ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 边标签
+      const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
+      ctx.globalAlpha = 0.6;
+      ctx.font = '10px "Noto Sans SC"';
+      ctx.fillStyle = e.color; ctx.textAlign = 'center';
+      ctx.fillText(e.label, mx, my - 4);
+    });
+    ctx.globalAlpha = 1;
+
+    // 绘制节点
+    nodes.forEach(n => {
+      const pulse = Math.sin(t * 2 + nodes.indexOf(n)) * 3;
+      // 光晕
+      const grad = ctx.createRadialGradient(n.x, n.y, n.r, n.x, n.y, n.r + 15 + pulse);
+      grad.addColorStop(0, n.color + '40');
+      grad.addColorStop(1, 'transparent');
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 15 + pulse, 0, Math.PI * 2);
+      ctx.fillStyle = grad; ctx.fill();
+
+      // 圆
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = n.color + '20'; ctx.fill();
+      ctx.strokeStyle = n.color; ctx.lineWidth = 2; ctx.stroke();
+
+      // emoji
+      ctx.font = `${n.r * 0.8}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.emoji, n.x, n.y);
+
+      // 名称
+      ctx.font = '12px "Noto Sans SC"'; ctx.fillStyle = n.color;
+      ctx.textBaseline = 'top'; ctx.fillText(n.label, n.x, n.y + n.r + 6);
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ====== 时间线 ======
+function renderTimeline() {
+  const tl = document.getElementById('timeline');
+  const sorted = [...crimes].sort((a, b) => a.id - b.id);
+  sorted.forEach(c => {
+    tl.innerHTML += `
+      <div class="tl-item">
+        <div class="tl-date">${c.emoji} ${c.date}</div>
+        <div class="tl-text"><strong>${c.title}</strong> — ${c.tldr}</div>
+      </div>
+    `;
+  });
+}
+
+// ====== 初始化 ======
+document.addEventListener('DOMContentLoaded', () => {
+  renderCards();
+  renderTimeline();
+  initParticles();
+  initGraph();
+
+  // 统计动画
+  setTimeout(() => {
+    animateNumber(document.getElementById('statIncidents'), 10);
+    animateNumber(document.getElementById('statCats'), 6);
+    animateNumber(document.getElementById('statKeys'), 42778);
+    animateNumber(document.getElementById('statStars'), 597);
+  }, 500);
+
+  // 饼图 - 罪行分布
+  drawPie('pieChart', 'pieLegend', [
+    { label: '数据灾难', value: 3, color: '#ff0055' },
+    { label: '流程违规', value: 3, color: '#ff8c00' },
+    { label: '搞笑事件', value: 2, color: '#00ff41' },
+    { label: '系统故障', value: 2, color: '#b44dff' },
+  ]);
+
+  // 饼图 - 严重度
+  drawPie('severityChart', 'severityLegend', [
+    { label: '灾难级', value: 4, color: '#ff0055' },
+    { label: '严重', value: 1, color: '#ff8c00' },
+    { label: '中等', value: 4, color: '#ffe600' },
+    { label: '轻微', value: 1, color: '#00ff41' },
+  ]);
+});
+</script>
+</body>
+</html>
