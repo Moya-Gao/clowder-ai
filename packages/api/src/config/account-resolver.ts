@@ -72,20 +72,8 @@ export function resolveAnthropicRuntimeProfile(projectRoot: string): AnthropicRu
   return { id: 'builtin_anthropic', mode: 'subscription' };
 }
 
-const PROTOCOL_ENV_KEY_MAP: Record<AccountProtocol, string> = {
-  anthropic: 'ANTHROPIC_API_KEY',
-  openai: 'OPENAI_API_KEY',
-  'openai-responses': 'OPENAI_API_KEY',
-  google: 'GOOGLE_API_KEY',
-};
-
 function protocolToClient(protocol: AccountProtocol): BuiltinAccountClient {
   return protocol as BuiltinAccountClient;
-}
-
-function resolveEnvFallbackKey(protocol: AccountProtocol): string | undefined {
-  const envKey = PROTOCOL_ENV_KEY_MAP[protocol];
-  return envKey ? process.env[envKey] : undefined;
 }
 
 // Known builtin OAuth account refs — both legacy names and new naming convention.
@@ -192,7 +180,7 @@ function normalizeProtocol(clientOrProtocol: string): AccountProtocol {
 
 function accountToRuntimeProfile(ref: string, account: AccountConfig): RuntimeProviderProfile {
   const credential = readCredential(ref);
-  const apiKey = credential?.apiKey ?? resolveEnvFallbackKey(account.protocol);
+  const apiKey = credential?.apiKey;
 
   const isBuiltin = account.authType === 'oauth';
   return {
