@@ -336,6 +336,68 @@ test('resume session does NOT include --add-dir (sandbox locked at creation)', a
   assert.ok(!args.includes('--sandbox'), 'resume args must not include --sandbox');
 });
 
+test('custom provider: model gets custom/ prefix to avoid metadata warning', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn, model: 'qwen-plus' });
+
+  // Emit events after a tick to ensure generator has started consuming
+  const promise = collect(
+    service.invoke('test custom prefix', {
+      callbackEnv: {
+        OPENAI_BASE_URL: 'https://dashscope.aliyuncs.com/compatible-mode/v1/',
+        OPENAI_API_KEY: 'sk-test',
+        CODEX_AUTH_MODE: 'api_key',
+      },
+    }),
+  );
+  setTimeout(() => emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'thread-custom-prefix' }]), 50);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  const modelIdx = args.indexOf('--model');
+  assert.ok(modelIdx >= 0, 'must include --model flag');
+  assert.equal(args[modelIdx + 1], 'custom/qwen-plus', 'bare model must get custom/ prefix');
+  assert.ok(args.includes('model_provider="custom"'), 'must set model_provider=custom');
+});
+
+test('custom provider: model with existing prefix gets remapped to custom/', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn, model: 'openai/qwen-plus' });
+
+  const promise = collect(
+    service.invoke('test prefix remap', {
+      callbackEnv: {
+        OPENAI_BASE_URL: 'https://dashscope.aliyuncs.com/compatible-mode/v1/',
+        OPENAI_API_KEY: 'sk-test',
+        CODEX_AUTH_MODE: 'api_key',
+      },
+    }),
+  );
+  setTimeout(() => emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'thread-custom-remap' }]), 50);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  const modelIdx = args.indexOf('--model');
+  assert.equal(args[modelIdx + 1], 'custom/qwen-plus', 'prefixed model must remap to custom/');
+});
+
+test('no custom provider: model is passed as-is', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn, model: 'gpt-5.3-codex' });
+
+  const promise = collect(service.invoke('test no custom'));
+  emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'thread-no-custom' }]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  const modelIdx = args.indexOf('--model');
+  assert.equal(args[modelIdx + 1], 'gpt-5.3-codex', 'model without custom base URL stays as-is');
+  assert.ok(!args.includes('model_provider="custom"'), 'must not set model_provider when no custom URL');
+});
+
 test('handles multiple agent_message items', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
