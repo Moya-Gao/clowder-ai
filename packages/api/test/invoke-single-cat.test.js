@@ -3787,10 +3787,12 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    // With safeProviderName remapping, 'openai' → 'openai-compat', so the
+    // model override becomes 'openai-compat/gpt-5.4' (no double-prefix).
     assert.equal(
       callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE,
-      'openai/gpt-5.4',
-      'must NOT double-prefix to openai/openai/gpt-5.4',
+      'openai-compat/gpt-5.4',
+      'must remap openai → openai-compat and NOT double-prefix',
     );
   });
 

@@ -141,7 +141,7 @@ function stripOwnProviderPrefix(modelName: string, providerName: string): string
  */
 const OPENCODE_BUILTIN_NAMES = new Set(['openai']);
 
-function safeProviderName(name: string): string {
+export function safeProviderName(name: string): string {
   return OPENCODE_BUILTIN_NAMES.has(name) ? `${name}-compat` : name;
 }
 
