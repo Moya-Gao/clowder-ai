@@ -209,7 +209,6 @@ function accountToRuntimeProfile(ref: string, account: AccountConfig): RuntimePr
 
 // ── Validation helpers (moved from provider-binding-compat.ts, F136 Phase 4d) ──
 
-
 export function validateRuntimeProviderBinding(
   provider: CatProvider,
   profile: RuntimeProviderProfile,

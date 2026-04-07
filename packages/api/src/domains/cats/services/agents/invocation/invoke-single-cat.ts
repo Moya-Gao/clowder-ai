@@ -723,16 +723,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       );
     }
 
-    // Protocol is determined solely by provider — account.protocol is retired.
-    // Each provider has a fixed protocol; account-level protocol is not consulted.
+    // Protocol is determined by provider — account.protocol is retired for all
+    // fixed-protocol providers. OpenCode is the sole exception: it can target
+    // multiple backends, so its env injection uses the bound account's protocol.
     const protocolForProvider: Record<string, string> = {
       anthropic: 'anthropic',
-      opencode: 'anthropic',
       openai: 'openai',
       google: 'google',
       dare: 'openai',
     };
-    const effectiveProtocol = provider ? (protocolForProvider[provider] ?? null) : null;
+    const effectiveProtocol = provider
+      ? provider === 'opencode' && resolvedAccount?.protocol
+        ? resolvedAccount.protocol
+        : (protocolForProvider[provider] ?? null)
+      : null;
 
     // effectiveProtocol is used below for env injection branching (anthropic/openai/google)
     // but is NOT passed to callbackEnv — it should not influence CLI routing decisions.

@@ -536,7 +536,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     assert.equal(createRes.statusCode, 201, 'cross-protocol api_key binding should be allowed');
   });
 
-  it('POST /api/cats rejects non-opencode client bound to incompatible protocol account', async () => {
+  it('POST /api/cats allows cross-protocol binding after protocol retirement (#329)', async () => {
     const projectRoot = createProjectRoot();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
 
@@ -556,7 +556,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const app = Fastify();
     await app.register(catsRoutes);
 
-    // client "anthropic" + account protocol "openai" → should be rejected
+    // Protocol validation removed (#329): protocol is provider-determined,
+    // not an account attribute. Cross-protocol binding is now allowed.
     const createRes = await app.inject({
       method: 'POST',
       url: '/api/cats',
@@ -565,12 +566,12 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         'x-cat-cafe-user': 'codex',
       },
       body: JSON.stringify({
-        catId: 'runtime-minimax-mismatch',
-        name: '协议不匹配猫',
-        displayName: '协议不匹配猫',
+        catId: 'runtime-minimax-cross-protocol',
+        name: '跨协议绑定猫',
+        displayName: '跨协议绑定猫',
         avatar: '/avatars/test.png',
         color: { primary: '#ff0000', secondary: '#ffcccc' },
-        mentionPatterns: ['@mismatch-test'],
+        mentionPatterns: ['@cross-protocol-test'],
         roleDescription: '测试用',
         client: 'anthropic',
         providerProfileId: openaiAccount.id,
@@ -578,9 +579,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       }),
     });
 
-    assert.equal(createRes.statusCode, 400, 'protocol mismatch should be rejected');
-    const body = JSON.parse(createRes.body);
-    assert.match(body.error, /requires "anthropic" protocol/i);
+    assert.equal(createRes.statusCode, 201, 'cross-protocol binding should be allowed after protocol retirement');
   });
 
   it('POST /api/cats strips trailing slash from model name', async () => {
