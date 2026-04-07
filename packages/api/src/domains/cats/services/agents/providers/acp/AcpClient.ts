@@ -301,8 +301,11 @@ export class AcpClient {
       eventCount++;
       lastEventAt = Date.now();
       idleWarningFired = false; // Reset warning on new activity
-      // Track tool execution phase for idle watchdog
-      const updateType = params.update?.sessionUpdate;
+      // Track tool execution phase for idle watchdog.
+      // Gemini CLI sends events in two formats: nested (params.update.sessionUpdate)
+      // and flat (params.sessionUpdate) — must handle both, same as acp-event-transformer.
+      const inner = (params.update ?? params) as Record<string, unknown>;
+      const updateType = inner.sessionUpdate as string | undefined;
       if (updateType === 'tool_call') {
         pendingTool = true;
       } else if (pendingTool && updateType !== 'tool_call_update') {

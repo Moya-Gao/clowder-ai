@@ -921,6 +921,64 @@ describe('AcpClient', () => {
     assert.equal(textEvents.length, 1, 'Should have 1 text event after tool completes');
   });
 
+  // ─── Flat format: Gemini CLI v0.35+ sends sessionUpdate at top level ───
+
+  it('pendingTool: flat-format tool_call (no update wrapper) suppresses stall', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'flat-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // Flat format: sessionUpdate directly on params, no update wrapper
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'flat-sess',
+              sessionUpdate: 'tool_call',
+              content: { type: 'text', text: 'search_evidence' },
+            });
+          });
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'flat-sess',
+              sessionUpdate: 'agent_message_chunk',
+              content: { type: 'text', text: 'done' },
+            });
+            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+          }, 250);
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    let thrownError = null;
+    try {
+      for await (const event of client.promptStream('flat-sess', 'hello', {
+        idleWarningMs: 30,
+        idleStallMs: 100,
+        timeoutMs: 5000,
+      })) {
+        events.push(event);
+      }
+    } catch (err) {
+      thrownError = err;
+    }
+
+    assert.equal(thrownError, null, `Should not stall on flat-format tool_call: ${thrownError?.message}`);
+    const toolWaits = events.filter((e) => e.update?.sessionUpdate === 'stream_tool_wait_warning');
+    assert.ok(toolWaits.length >= 1, 'Should emit stream_tool_wait_warning for flat-format tool_call');
+    const idleWarnings = events.filter((e) => e.update?.sessionUpdate === 'stream_idle_warning');
+    assert.equal(idleWarnings.length, 0, 'No stream_idle_warning during flat-format tool wait');
+  });
+
   // ─── P1 fixes from gpt52 review ─────────────────────────────
 
   it('F149-P1: idle stall sends session/cancel to terminate upstream', async () => {
