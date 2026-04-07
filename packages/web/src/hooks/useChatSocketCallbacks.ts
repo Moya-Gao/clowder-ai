@@ -1,9 +1,9 @@
-import type { GameView } from '@cat-cafe/shared';
+import type { GameView, TaskItem } from '@cat-cafe/shared';
 import { useMemo } from 'react';
 import type { SocketCallbacks } from '@/hooks/useSocket';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
-import { type TaskItem, useTaskStore } from '@/stores/taskStore';
+import { useTaskStore } from '@/stores/taskStore';
 
 interface ExternalDeps {
   threadId: string;
@@ -62,8 +62,8 @@ export function useChatSocketCallbacks({
         setIntentMode(data.mode as 'ideate' | 'execute');
         setTargetCats((data as { targetCats?: string[] }).targetCats ?? []);
       },
-      onTaskCreated: (task) => addTask(task as unknown as TaskItem),
-      onTaskUpdated: (task) => updateTask(task as unknown as TaskItem),
+      onTaskCreated: (task) => addTask(task as TaskItem),
+      onTaskUpdated: (task) => updateTask(task as TaskItem),
       onThreadSummary: (summary) => {
         const s = summary as {
           id: string;

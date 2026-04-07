@@ -1,7 +1,8 @@
 'use client';
 
+import type { TaskItem } from '@cat-cafe/shared';
 import { useState } from 'react';
-import { type TaskItem, useTaskStore } from '@/stores/taskStore';
+import { useTaskStore } from '@/stores/taskStore';
 import { CatAvatar } from './CatAvatar';
 
 const STATUS_ORDER: Record<string, number> = { doing: 0, blocked: 1, todo: 2, done: 3 };
@@ -18,8 +19,17 @@ const STATUS_COLORS: Record<string, string> = {
   done: 'text-green-500',
 };
 
+/** Extract short PR label from subjectKey like "pr:owner/repo#123" → "#123" */
+function prLabel(subjectKey: string | null | undefined): string | null {
+  if (!subjectKey) return null;
+  const m = subjectKey.match(/#(\d+)$/);
+  return m ? `#${m[1]}` : null;
+}
+
 function TaskItemRow({ task }: { task: TaskItem }) {
   const [expanded, setExpanded] = useState(false);
+  const isPr = task.kind === 'pr_tracking';
+  const label = isPr ? prLabel(task.subjectKey) : null;
 
   return (
     <div className="group">
@@ -27,8 +37,13 @@ function TaskItemRow({ task }: { task: TaskItem }) {
         onClick={() => setExpanded((v) => !v)}
         className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-cafe-surface-elevated rounded transition-colors"
       >
-        <span className={`text-sm ${STATUS_COLORS[task.status]}`}>{STATUS_ICONS[task.status]}</span>
+        <span className={`text-sm ${STATUS_COLORS[task.status]}`}>{isPr ? '⑂' : STATUS_ICONS[task.status]}</span>
         <span className="text-xs text-cafe-secondary truncate flex-1">{task.title}</span>
+        {label && (
+          <span className="text-[10px] bg-purple-100 text-purple-600 rounded px-1 py-0.5 font-mono shrink-0">
+            {label}
+          </span>
+        )}
         {task.ownerCatId && <CatAvatar catId={task.ownerCatId} size={14} />}
       </button>
       {expanded && task.why && (
