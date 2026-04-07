@@ -343,6 +343,7 @@ export async function* routeParallel(
   const catToolEvents = new Map<string, StoredToolEvent[]>();
   // F060: Collect inline rich blocks per cat from system_info stream
   const catStreamRichBlocks = new Map<string, import('@cat-cafe/shared').RichBlock[]>();
+  const catErrorText = new Map<string, string>();
   const catHadError = new Set<string>();
   // #267: track errors that happened BEFORE abort — only these are real provider failures
   const catHadProviderError = new Set<string>();
@@ -420,8 +421,8 @@ export async function* routeParallel(
       // #267: errors before abort are real provider failures; errors after abort are cleanup
       if (!signal?.aborted) catHadProviderError.add(msg.catId);
       if (msg.error) {
-        const prev = catText.get(msg.catId) ?? '';
-        catText.set(msg.catId, `${prev + (prev ? '\n\n' : '')}[错误] ${msg.error}`);
+        const prev = catErrorText.get(msg.catId) ?? '';
+        catErrorText.set(msg.catId, `${prev}${prev ? '\n' : ''}${msg.error}`);
       }
     }
     // Accumulate tool events per cat
@@ -821,6 +822,27 @@ export async function* routeParallel(
               });
             }
           }
+        }
+      }
+
+      // Persist error as system message so it survives F5 reload but does NOT
+      // re-enter the prompt as a cat message (aligned with route-serial.ts).
+      // Previously errors were mixed into catText and persisted with userId=user,
+      // which polluted the conversation history and caused "context poisoning".
+      const errorText = catErrorText.get(msg.catId);
+      if (errorText) {
+        try {
+          await deps.messageStore.append({
+            userId: 'system',
+            catId: null,
+            content: `Error: ${errorText}`,
+            mentions: [],
+            origin: 'stream',
+            timestamp: Date.now(),
+            threadId,
+          });
+        } catch (err) {
+          log.error({ catId: msg.catId, err }, 'messageStore.append (error system msg) failed');
         }
       }
 
