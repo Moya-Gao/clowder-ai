@@ -80,14 +80,14 @@ describe('HubProviderProfileItem', () => {
     const payload = onSave.mock.calls[0]![1] as ProfileEditPayload;
     expect(payload).toMatchObject({
       displayName: 'Claude API',
-      protocol: 'anthropic',
       baseUrl: 'https://api.anthropic.com',
       models: ['claude-opus-4-1'],
     });
+    expect(Object.hasOwn(payload, 'protocol')).toBe(false);
     expect(Object.hasOwn(payload, 'modelOverride')).toBe(false);
   });
 
-  it('displays protocol badge and sends protocol change from dropdown', async () => {
+  it('displays protocol badge read-only (no dropdown in edit mode)', async () => {
     const profile: ProfileItem = {
       id: 'minimax-api',
       provider: 'minimax-api',
@@ -118,16 +118,9 @@ describe('HubProviderProfileItem', () => {
       queryButton(container, '编辑').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    // Protocol dropdown should exist with current value
+    // No protocol dropdown in edit mode (protocol is auto-inferred)
     const select = container.querySelector('select') as HTMLSelectElement | null;
-    expect(select).not.toBeNull();
-    expect(select!.value).toBe('openai');
-
-    // Change protocol to anthropic
-    await act(async () => {
-      select!.value = 'anthropic';
-      select!.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    expect(select).toBeNull();
 
     await act(async () => {
       queryButton(container, '保存').dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -135,7 +128,8 @@ describe('HubProviderProfileItem', () => {
 
     expect(onSave).toHaveBeenCalledTimes(1);
     const payload = onSave.mock.calls[0]![1] as ProfileEditPayload;
-    expect(payload.protocol).toBe('anthropic');
+    // protocol should NOT be in the payload (auto-inferred by backend)
+    expect(Object.hasOwn(payload, 'protocol')).toBe(false);
   });
 
   it('sends empty baseUrl when clearing an API-key account base URL', async () => {
