@@ -1046,6 +1046,14 @@ chmod 600 .env 2>/dev/null || true
 step "[9/9] Installation complete! / 安装完成！"
 echo -e "\n  ${GREEN}══ Clowder AI is ready! 猫猫咖啡已就绪！══${NC}\n  Project: $PROJECT_DIR"
 START_CMD="cd $PROJECT_DIR && pnpm start"; [[ "$MEMORY_MODE" == true ]] && START_CMD+=" --memory"
+# The script runs as a subprocess — PATH changes don't propagate to the parent
+# shell. On macOS, prefix the banner command with `source ~/.zprofile` so the
+# user can copy-paste and have the correct PATH (including ~/.local/bin).
+if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+    _profile="${ZDOTDIR:-$HOME}/.zprofile"
+    START_CMD="source $_profile && $START_CMD"
+    unset _profile
+fi
 echo -e "  Start: $START_CMD\n  Open:  $(default_frontend_url)\n"
 if [[ "$AUTO_START" == true ]]; then
     echo -e "${CYAN}Starting service (--start)...${NC}"; echo ""
