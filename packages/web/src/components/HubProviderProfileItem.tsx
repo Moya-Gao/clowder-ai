@@ -7,6 +7,7 @@ import { useConfirm } from './useConfirm';
 
 export interface ProfileEditPayload {
   displayName: string;
+  protocol?: string;
   baseUrl?: string;
   apiKey?: string;
   models?: string[];
@@ -20,12 +21,16 @@ interface HubProviderProfileItemProps {
   onDelete: (profileId: string) => void;
 }
 
-const PROTOCOL_LABELS: Record<string, string> = {
-  openai: 'OpenAI 兼容',
-  'openai-responses': 'Responses',
-  anthropic: 'Anthropic 兼容',
-  google: 'Google 兼容',
-};
+type ApiProtocol = 'anthropic' | 'openai' | 'openai-responses' | 'google';
+
+const PROTOCOL_OPTIONS: { value: ApiProtocol; label: string }[] = [
+  { value: 'openai', label: 'OpenAI 兼容 (Chat)' },
+  { value: 'openai-responses', label: 'OpenAI Responses' },
+  { value: 'anthropic', label: 'Anthropic 兼容' },
+  { value: 'google', label: 'Google 兼容' },
+];
+
+const PROTOCOL_LABELS: Record<string, string> = Object.fromEntries(PROTOCOL_OPTIONS.map((o) => [o.value, o.label]));
 
 function protocolLabel(protocol: string | undefined): string {
   return (protocol && PROTOCOL_LABELS[protocol]) ?? protocol ?? '自动';
@@ -41,29 +46,44 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
   const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(profile.displayName);
+  const [editProtocol, setEditProtocol] = useState<string>(profile.protocol ?? 'openai');
   const [editBaseUrl, setEditBaseUrl] = useState(profile.baseUrl ?? '');
   const [editApiKey, setEditApiKey] = useState('');
   const [apiKeyTouched, setApiKeyTouched] = useState(false);
   const [editModels, setEditModels] = useState<string[]>(profile.models ?? []);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const startEdit = useCallback(() => {
     setEditDisplayName(profile.displayName);
+    setEditProtocol(profile.protocol ?? 'openai');
     setEditBaseUrl(profile.baseUrl ?? '');
     setEditApiKey('');
     setApiKeyTouched(false);
     setEditModels(profile.models ?? []);
+    setShowAdvanced(false);
     setEditing(true);
-  }, [profile.baseUrl, profile.displayName, profile.models]);
+  }, [profile.baseUrl, profile.displayName, profile.models, profile.protocol]);
 
   const saveEdit = useCallback(async () => {
     await onSave(profile.id, {
       displayName: editDisplayName.trim(),
+      protocol: editProtocol,
       ...(profile.authType === 'api_key' ? { baseUrl: editBaseUrl.trim() } : {}),
       ...(apiKeyTouched ? { apiKey: editApiKey.trim() } : {}),
       models: editModels,
     });
     setEditing(false);
-  }, [apiKeyTouched, editApiKey, editBaseUrl, editDisplayName, editModels, onSave, profile.authType, profile.id]);
+  }, [
+    apiKeyTouched,
+    editApiKey,
+    editBaseUrl,
+    editDisplayName,
+    editModels,
+    editProtocol,
+    onSave,
+    profile.authType,
+    profile.id,
+  ]);
 
   if (editing) {
     return (
@@ -113,6 +133,45 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
             </>
           ) : null}
         </div>
+        {!profile.builtin && (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-1 text-xs text-[#8A776B] hover:text-[#6B5D52]"
+            >
+              <svg
+                className={`h-3 w-3 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+              高级设置
+            </button>
+            {showAdvanced && (
+              <div className="space-y-2 border-l-2 border-[#E8DCCF] pl-4">
+                <p className="text-xs font-semibold text-[#8A776B]">API 协议</p>
+                <select
+                  value={editProtocol}
+                  onChange={(e) => setEditProtocol(e.target.value)}
+                  className="w-full rounded border border-[#E8DCCF] bg-cafe-surface px-3 py-2 text-sm"
+                >
+                  {PROTOCOL_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-[#B59A88]">
+                  通常自动推断即可。若模型调用出现协议不匹配，可在此手动修正。
+                </p>
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex gap-2">
           <button
             type="button"
