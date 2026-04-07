@@ -45,8 +45,12 @@ USER_BIN_DIR="/usr/local/bin"
 persist_user_bin() {
     local bin="$1" path=""; path="$(command -v "$bin" 2>/dev/null || true)"
     [[ -n "$path" ]] || return 0
+    local real_src; real_src="$(resolve_realpath "$path")"
+    local target="$USER_BIN_DIR/$bin"
+    # Guard: GNU ln -sfn errors when source and target resolve to the same path.
+    [[ "$(resolve_realpath "$target" 2>/dev/null)" == "$real_src" ]] && return 0
     $SUDO mkdir -p "$USER_BIN_DIR"
-    $SUDO ln -sfn "$(resolve_realpath "$path")" "$USER_BIN_DIR/$bin"
+    $SUDO ln -sfn "$real_src" "$target"
 }
 # Append a line to the user's shell profile (idempotent).
 append_to_profile() {
