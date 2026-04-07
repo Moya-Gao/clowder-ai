@@ -3,7 +3,7 @@ feature_ids: [F138]
 topics: [video, showcase, voice-script, tts]
 doc_kind: voice-script
 created: 2026-04-05
-status: draft — 等铲屎官确认后冻结
+status: frozen — 铲屎官 2026-04-07 确认走起
 speaker: opus
 estimated_duration_sec: 58
 char_count_target: 260
