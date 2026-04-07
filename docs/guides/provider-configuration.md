@@ -161,7 +161,40 @@ Most Chinese AI providers now support **both** API formats:
 
 ---
 
-### 4. Aggregator (OpenRouter)
+### 4. Qwen (Alibaba Cloud / DashScope)
+
+**Get API Key**: [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com/)
+
+| Protocol | Base URL | Region |
+|----------|----------|--------|
+| OpenAI | `https://dashscope.aliyuncs.com/compatible-mode/v1` | China Mainland |
+| OpenAI | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | International (Singapore) |
+| OpenAI | `https://dashscope-us.aliyuncs.com/compatible-mode/v1` | US (Virginia) |
+
+**Models**: `qwen-max`, `qwen-plus`, `qwen-turbo`, `qwen3-235b-a22b`
+
+#### Option A: opencode + OpenAI protocol (recommended)
+
+| Field | Value |
+|-------|-------|
+| Client | `opencode` |
+| Protocol | `openai` |
+| Base URL | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| Model | `qwen-max` |
+| ocProviderName | `qwen` |
+
+#### Option B: codex + OpenAI protocol
+
+| Field | Value |
+|-------|-------|
+| Client | `codex` |
+| Protocol | `openai` |
+| Base URL | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| Model | `qwen-max` |
+
+---
+
+### 5. Aggregator (OpenRouter)
 
 **Get API Key**: [openrouter.ai](https://openrouter.ai/)
 
@@ -206,6 +239,7 @@ Want to use Claude Code CLI?
 | Kimi | opencode | openai | Full feature support via chat/completions |
 | GLM | claude-code | anthropic | Native Anthropic compatibility, works with Claude Code CLI |
 | MiniMax | opencode | openai | Stable OpenAI-compatible endpoint |
+| Qwen | opencode | openai | DashScope OpenAI-compatible mode, wide model selection |
 | OpenRouter | opencode | openai | Standard OpenAI format |
 
 > **opencode** is the most versatile client — it works with any protocol and gives you
@@ -288,6 +322,7 @@ Each provider has its own model naming convention:
 - Kimi: `kimi-k2.5` (not `moonshot/kimi-k2.5`)
 - GLM: `glm-4.7` (not `zhipu/glm-4.7`)
 - MiniMax: `MiniMax-M2.7` (case-sensitive)
+- Qwen: `qwen-max` (not `alibaba/qwen-max`)
 - OpenRouter: `provider/model` format required (e.g., `google/gemini-3-pro`)
 
 ---
@@ -302,4 +337,7 @@ Each provider has its own model naming convention:
 | GLM (intl) | `https://api.z.ai/api/paas/v4` | `https://api.z.ai/api/anthropic` | `glm` |
 | MiniMax (intl) | `https://api.minimax.io/v1` | `https://api.minimax.io/anthropic/v1` | `minimax` |
 | MiniMax (CN) | `https://api.minimaxi.com/v1` | `https://api.minimaxi.com/anthropic/v1` | `minimax` |
+| Qwen (CN) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | — | `qwen` |
+| Qwen (intl) | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | — | `qwen` |
+| Qwen (US) | `https://dashscope-us.aliyuncs.com/compatible-mode/v1` | — | `qwen` |
 | OpenRouter | `https://openrouter.ai/api/v1` | — | `openrouter` |

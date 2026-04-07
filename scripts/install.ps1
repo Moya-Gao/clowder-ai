@@ -273,7 +273,7 @@ if (Test-Path $envFile) {
 } elseif (Test-Path $envExample) {
     Copy-Item $envExample $envFile
     Write-Ok ".env created from .env.example"
-    Write-Warn "Edit .env to add your API keys and customize ports"
+    Write-Warn "After launch, add API keys in Hub > System Settings > Account Configuration"
 } else {
     Write-Warn ".env.example not found - creating minimal .env"
     @"
