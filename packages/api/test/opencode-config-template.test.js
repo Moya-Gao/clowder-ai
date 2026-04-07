@@ -243,6 +243,33 @@ describe('generateOpenCodeRuntimeConfig', () => {
     }
   });
 
+  test('providerName "openai" is remapped to avoid OpenCode builtin collision', () => {
+    const config = generateOpenCodeRuntimeConfig({
+      providerName: 'openai',
+      models: ['openai/gpt-4o'],
+      defaultModel: 'openai/gpt-4o',
+      apiType: 'openai',
+      hasBaseUrl: true,
+    });
+    // Provider key must NOT be 'openai' — OpenCode treats it as built-in and
+    // forces Responses API, ignoring the npm adapter field.
+    assert.equal(config.provider['openai'], undefined, 'must not use reserved "openai" key');
+    assert.ok(config.provider['openai-compat'], 'must use remapped "openai-compat" key');
+    assert.equal(config.provider['openai-compat'].npm, '@ai-sdk/openai-compatible');
+    assert.equal(config.model, 'openai-compat/gpt-4o', 'model prefix must match remapped provider key');
+  });
+
+  test('non-reserved providerName is kept as-is', () => {
+    const config = generateOpenCodeRuntimeConfig({
+      providerName: 'kimi',
+      models: ['kimi/moonshot-v2'],
+      defaultModel: 'kimi/moonshot-v2',
+      apiType: 'openai',
+    });
+    assert.ok(config.provider['kimi'], 'custom name must be preserved');
+    assert.equal(config.model, 'kimi/moonshot-v2');
+  });
+
   test('unknown apiType falls back to openai-compatible adapter', () => {
     const config = generateOpenCodeRuntimeConfig({
       providerName: 'test',

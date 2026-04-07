@@ -134,8 +134,21 @@ function stripOwnProviderPrefix(modelName: string, providerName: string): string
   return modelName.startsWith(prefix) ? modelName.slice(prefix.length) : modelName;
 }
 
+/**
+ * OpenCode treats certain provider names as built-in and forces its own SDK
+ * handling (e.g. 'openai' → Responses API via sdk.responses()), ignoring the
+ * npm adapter field.  Remap these names so the config's npm adapter is used.
+ */
+const OPENCODE_BUILTIN_NAMES = new Set(['openai']);
+
+function safeProviderName(name: string): string {
+  return OPENCODE_BUILTIN_NAMES.has(name) ? `${name}-compat` : name;
+}
+
 export function generateOpenCodeRuntimeConfig(options: OpenCodeRuntimeConfigOptions): OpenCodeConfig {
   const { providerName, models, defaultModel, apiType = 'openai', hasBaseUrl = false } = options;
+
+  const configName = safeProviderName(providerName);
 
   const modelsMap: Record<string, { name: string }> = {};
   for (const rawModel of models) {
@@ -143,11 +156,17 @@ export function generateOpenCodeRuntimeConfig(options: OpenCodeRuntimeConfigOpti
     modelsMap[modelName] = { name: modelName };
   }
 
+  // Remap model prefix when provider name was rewritten
+  let configDefaultModel = defaultModel;
+  if (configName !== providerName && defaultModel?.startsWith(`${providerName}/`)) {
+    configDefaultModel = `${configName}/${defaultModel.slice(providerName.length + 1)}`;
+  }
+
   return {
     $schema: 'https://opencode.ai/config.json',
-    ...(defaultModel ? { model: defaultModel } : {}),
+    ...(configDefaultModel ? { model: configDefaultModel } : {}),
     provider: {
-      [providerName]: {
+      [configName]: {
         npm: NPM_ADAPTER_FOR_API_TYPE[apiType] ?? NPM_ADAPTER_FOR_API_TYPE.openai,
         models: modelsMap,
         options: {
