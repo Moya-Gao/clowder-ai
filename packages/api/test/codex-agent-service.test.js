@@ -336,14 +336,14 @@ test('resume session does NOT include --add-dir (sandbox locked at creation)', a
   assert.ok(!args.includes('--sandbox'), 'resume args must not include --sandbox');
 });
 
-test('custom provider: bare model name via --config for custom base URL', async () => {
+test('custom provider: model passed via --config as-is', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
   const service = new CodexAgentService({ spawnFn, model: 'qwen-plus' });
 
   // Emit events after a tick to ensure generator has started consuming
   const promise = collect(
-    service.invoke('test custom prefix', {
+    service.invoke('test custom model', {
       callbackEnv: {
         OPENAI_BASE_URL: 'https://dashscope.aliyuncs.com/compatible-mode/v1/',
         OPENAI_API_KEY: 'sk-test',
@@ -356,40 +356,16 @@ test('custom provider: bare model name via --config for custom base URL', async 
 
   const args = spawnFn.mock.calls[0].arguments[1];
   // custom provider: model passed via --config (not --model) to bypass metadata lookup
-  // bare model name — Codex CLI sends slug verbatim to API
   assert.ok(!args.includes('--model'), 'must NOT use --model flag for custom provider');
-  assert.ok(args.includes('model="qwen-plus"'), 'model must be bare name via --config');
+  assert.ok(args.includes('model="qwen-plus"'), 'model must be passed as-is via --config');
   assert.ok(args.includes('model_provider="custom"'), 'must set model_provider=custom');
 });
 
-test('custom provider: strips first provider prefix from model', async () => {
+test('custom provider: multi-segment model slug preserved as-is', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
-  const service = new CodexAgentService({ spawnFn, model: 'openai/qwen-plus' });
-
-  const promise = collect(
-    service.invoke('test prefix remap', {
-      callbackEnv: {
-        OPENAI_BASE_URL: 'https://dashscope.aliyuncs.com/compatible-mode/v1/',
-        OPENAI_API_KEY: 'sk-test',
-        CODEX_AUTH_MODE: 'api_key',
-      },
-    }),
-  );
-  setTimeout(() => emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'thread-custom-remap' }]), 50);
-  await promise;
-
-  const args = spawnFn.mock.calls[0].arguments[1];
-  // "openai/" prefix stripped — CLI sends bare name to API
-  assert.ok(!args.includes('--model'), 'must NOT use --model flag for custom provider');
-  assert.ok(args.includes('model="qwen-plus"'), 'provider prefix must be stripped to bare name');
-});
-
-test('custom provider: multi-segment slug preserves downstream segments', async () => {
-  const proc = createMockProcess();
-  const spawnFn = createMockSpawnFn(proc);
-  // model like "openrouter/google/gemini-3-flash-preview" — strip only first segment
-  const service = new CodexAgentService({ spawnFn, model: 'openrouter/google/gemini-3-flash-preview' });
+  // Model like "google/gemini-3-flash-preview" (OpenRouter format) — must NOT be stripped
+  const service = new CodexAgentService({ spawnFn, model: 'google/gemini-3-flash-preview' });
 
   const promise = collect(
     service.invoke('test multi-segment', {
@@ -408,7 +384,7 @@ test('custom provider: multi-segment slug preserves downstream segments', async 
   assert.equal(
     modelArg,
     'model="google/gemini-3-flash-preview"',
-    'must preserve downstream segments after stripping first prefix',
+    'multi-segment model slug must be preserved verbatim',
   );
 });
 
