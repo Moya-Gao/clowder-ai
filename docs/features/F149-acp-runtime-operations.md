@@ -200,6 +200,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-04-04 | **Feature**: capacity realtime warning (PR #944) — `provider_signal` type + `promptStream` capacity signal injection。铲屎官痛点：Gemini 429 重试时 120s 无感知。修复：AcpClient.promptStream 注入 stderr capacity 信号到事件队列，零事件阻塞时即时穿透；GeminiAcpAdapter 消费 `provider_capacity_signal` 事件立即 yield warning。砚砚 local review (R1 P1: 零事件穿透 → R2 放行) + 云端 review (R1 P1: pre-stream 回退 → R2 clean)。64 ACP tests。squash merge `f0ec5298` |
 | 2026-04-04 | **开始**: stream idle watchdog（KD-11）— 铲屎官实际遇到 mid-stream silent stall（eventCount=2 后静默 116s），capacity warning 无法覆盖零 stderr 场景。设计：两段式 idle watchdog (20s warning / 45s stall / 120s hard)，transport 注入 synthetic event，新错误码 `stream_idle_stall`。opus+gpt52 共识收敛 |
 | 2026-04-04 | **Feature**: stream idle watchdog merged (PR #950) — `AcpStreamIdleError` + idle timer in `promptStream` + `liveness_signal` type + `stream_idle_stall` error classification + invoke-single-cat guards。砚砚 local review (R1: 2 P1 — cancel upstream + stall timing → R2 放行) + 云端 review clean。49 ACP tests。squash merge `642aa1ac` |
+| 2026-04-07 | **Hotfix**: MCP passthrough to ACP sessions (PR #993) — `GeminiAcpAdapter` was calling `newSession(cwd)` without MCP servers, causing Gemini tool-call stalls (`{}` in Thinking + `stream_idle_stall`). New `acp-mcp-resolver.ts` reads `.mcp.json` + `mcpWhitelist`, fail-fast on zero resolution. 37 ACP tests。砚砚 local review (R1: P1 silent failure + P2 missing tests → R2: Biome format → R3 放行) + 云端 review (P1 false positive dismissed with evidence) |
 
 ## Review Gate
 
