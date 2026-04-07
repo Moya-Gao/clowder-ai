@@ -99,7 +99,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // AC-6: research=multi hint from Signal study "多猫研究" button
   const isResearchMode = searchParams?.get('research') === 'multi';
   const { clearTasks } = useTaskStore();
-  const { getCatById } = useCatData();
+  const { getCatById, isLoading } = useCatData();
   const workspaceWorktreeId = useChatStore((s) => s.workspaceWorktreeId);
   usePreviewAutoOpen(workspaceWorktreeId);
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
@@ -427,10 +427,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     );
   }
 
-  // Export mode: print-friendly layout — no sidebars, no scroll containers
+  // Export mode: print-friendly layout — no sidebars, no scroll containers.
+  // data-export-ready signals to Puppeteer that messages + cat data are fully loaded and rendered.
   if (isExport) {
+    const exportReady = !isLoadingHistory && messages.length > 0 && !isLoading;
     return (
-      <div className="min-h-screen bg-cafe-surface">
+      <div className="min-h-screen bg-cafe-surface" {...(exportReady ? { 'data-export-ready': 'true' } : {})}>
         <div className="max-w-4xl mx-auto p-4">{messages.map(renderSingleMessage)}</div>
       </div>
     );
