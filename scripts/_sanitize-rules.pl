@@ -45,8 +45,15 @@ s#\bFRONTEND_PORT:-3001\b#FRONTEND_PORT:-3003#g;
 s#\bFRONTEND_PORT:-3002\b#FRONTEND_PORT:-3004#g;
 s#\bFRONTEND_PORT=3001\b#FRONTEND_PORT=3003#g;
 s#\bAPI_SERVER_PORT:-3002\b#API_SERVER_PORT:-3004#g;
+s#\bAPI_SERVER_PORT=3002\b#API_SERVER_PORT=3004#g;
+# Uppercase PORT= assignment (e.g. PORT=3002 in SKILL.md runtime examples)
+s#\bPORT=3002\b#PORT=3004#g;
+s#\bPORT=3001\b#PORT=3003#g;
 s#\bport 3001\b#port 3003#gi;
 s#\bport 3002\b#port 3004#gi;
+# Chinese port annotation (e.g. "3001=前端")
+s#3001=前端#3003=前端#g;
+s#3002=API#3004=API#g;
 # Port in quoted string defaults (env-registry pattern: defaultValue: '3002')
 s#defaultValue: '3002'#defaultValue: '3004'#g;
 s#defaultValue: '3001'#defaultValue: '3003'#g;
@@ -122,6 +129,14 @@ if ($ARGV =~ m{\.(tsx?|js)$}) {
   s/Unified API client for Cat Cafe frontend/Unified API client for Clowder AI frontend/g;
   # Capability tab skill category labels
   s/Cat Cafe Skills/Clowder AI Skills/g;
+}
+
+# ── api-client-resolve test: bare-IP port assertions ──
+if ($ARGV =~ m{api-client-resolve\.test\.(ts|js)$}) {
+  # Test uses non-loopback IPs (10.x, 192.168.x) with internal ports
+  s#(\d+\.\d+\.\d+\.\d+):3002#$1:3004#g;
+  s#(\d+\.\d+\.\d+\.\d+):3001#$1:3003#g;
+  s#3001→3002#3003→3004#g;
 }
 
 # ── Governance-pack test: port assertions align with sync'd source ──
