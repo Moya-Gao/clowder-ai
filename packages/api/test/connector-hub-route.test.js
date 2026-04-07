@@ -308,6 +308,63 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
     WA._injectStaticFetch(originalFetch);
     await app.close();
   });
+
+  it('P1: persists WEIXIN_BOT_TOKEN to .env on QR confirmation so restarts skip re-scan', async () => {
+    const { WeixinAdapter: WA } = await import('../dist/infrastructure/connectors/adapters/WeixinAdapter.js');
+    const originalFetch = globalThis.fetch;
+    WA._injectStaticFetch(async () => ({
+      ok: true,
+      json: async () => ({ errcode: 0, status: 2, bot_token: 'tok_persist_789' }),
+    }));
+
+    const tmpDir = mkdtempSync(join(os.tmpdir(), 'weixin-qr-persist-'));
+    const envFilePath = join(tmpDir, '.env');
+    writeFileSync(envFilePath, 'SOME_OTHER_KEY=existing\n');
+
+    const mockAdapter = {
+      setBotToken() {},
+      hasBotToken() {
+        return true;
+      },
+      isPolling() {
+        return false;
+      },
+    };
+
+    const app = Fastify();
+    await app.register(connectorHubRoutes, {
+      threadStore: {
+        async list() {
+          return [];
+        },
+      },
+      weixinAdapter: mockAdapter,
+      startWeixinPolling: () => {},
+      envFilePath,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connector/weixin/qrcode-status?qrPayload=test-payload',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(JSON.parse(res.body).status, 'confirmed');
+
+    // Key assertion: token must be persisted to .env for restart survival
+    const envContent = readFileSync(envFilePath, 'utf8');
+    assert.ok(
+      envContent.includes('WEIXIN_BOT_TOKEN=tok_persist_789'),
+      `Expected .env to contain WEIXIN_BOT_TOKEN=tok_persist_789 but got:\n${envContent}`,
+    );
+    // Original keys should be preserved
+    assert.ok(envContent.includes('SOME_OTHER_KEY=existing'), 'Existing .env entries should be preserved');
+
+    WA._injectStaticFetch(originalFetch);
+    await app.close();
+  });
 });
 
 describe('POST /api/connector/weixin/disconnect', () => {
@@ -367,6 +424,53 @@ describe('POST /api/connector/weixin/disconnect', () => {
     assert.equal(res.statusCode, 200);
     assert.equal(body.ok, true);
     assert.equal(disconnected, true, 'adapter.disconnect() must be called');
+    await app.close();
+  });
+
+  it("P1: clears persisted WEIXIN_BOT_TOKEN from .env on disconnect so restart won't auto-reconnect", async () => {
+    const tmpDir = mkdtempSync(join(os.tmpdir(), 'weixin-disconnect-clear-'));
+    const envFilePath = join(tmpDir, '.env');
+    writeFileSync(envFilePath, 'SOME_KEY=keep\nWEIXIN_BOT_TOKEN=tok_old_abc\n');
+
+    let disconnected = false;
+    const mockAdapter = {
+      hasBotToken: () => true,
+      isPolling: () => true,
+      async disconnect() {
+        disconnected = true;
+      },
+    };
+
+    const app = Fastify();
+    await app.register(connectorHubRoutes, {
+      threadStore: {
+        async list() {
+          return [];
+        },
+      },
+      weixinAdapter: mockAdapter,
+      envFilePath,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/connector/weixin/disconnect',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(disconnected, true);
+
+    // Key assertion: persisted token must be cleared from .env
+    const envContent = readFileSync(envFilePath, 'utf8');
+    assert.ok(
+      !envContent.includes('WEIXIN_BOT_TOKEN'),
+      `Expected .env to NOT contain WEIXIN_BOT_TOKEN after disconnect but got:\n${envContent}`,
+    );
+    // Other keys should survive
+    assert.ok(envContent.includes('SOME_KEY=keep'), 'Other .env entries should be preserved');
+
     await app.close();
   });
 });
