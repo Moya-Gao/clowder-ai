@@ -271,11 +271,13 @@ export class CodexAgentService implements AgentService {
         ]
       : [];
 
-    // When routing through custom provider, pass model via --config instead of --model
-    // to avoid Codex CLI's built-in metadata lookup which warns on unknown models.
-    // --config model=... bypasses metadata resolution; --model triggers it before
-    // the model_provider config takes effect.
-    const cliModel = customBaseUrl ? `custom/${effectiveModel.replace(/^[^/]+\//, '')}` : effectiveModel;
+    // Codex CLI sends the model name verbatim to the API (model_info.slug).
+    // model_provider="custom" only controls which provider entry (base_url, env_key) to use.
+    // Strip any "provider/" prefix since the downstream API expects bare model names.
+    // Use --config model=... instead of --model to avoid the CLI's built-in
+    // metadata lookup warning ("Model metadata for X not found").
+    const bareModel = effectiveModel.includes('/') ? effectiveModel.split('/').slice(-1)[0] : effectiveModel;
+    const cliModel = customBaseUrl ? bareModel : effectiveModel;
     const modelArgs: string[] = customBaseUrl ? ['--config', `model=${toTomlString(cliModel)}`] : ['--model', cliModel];
 
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）

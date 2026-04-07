@@ -356,8 +356,9 @@ test('custom provider: model gets custom/ prefix to avoid metadata warning', asy
 
   const args = spawnFn.mock.calls[0].arguments[1];
   // custom provider: model passed via --config (not --model) to avoid metadata lookup
+  // bare model name — Codex CLI sends slug verbatim to API, no prefix stripping
   assert.ok(!args.includes('--model'), 'must NOT use --model flag for custom provider');
-  assert.ok(args.includes('model="custom/qwen-plus"'), 'model must be set via --config with custom/ prefix');
+  assert.ok(args.includes('model="qwen-plus"'), 'model must be bare name via --config');
   assert.ok(args.includes('model_provider="custom"'), 'must set model_provider=custom');
 });
 
@@ -379,8 +380,9 @@ test('custom provider: model with existing prefix gets remapped to custom/', asy
   await promise;
 
   const args = spawnFn.mock.calls[0].arguments[1];
+  // "openai/" prefix stripped — CLI sends bare name to API
   assert.ok(!args.includes('--model'), 'must NOT use --model flag for custom provider');
-  assert.ok(args.includes('model="custom/qwen-plus"'), 'existing prefix must remap to custom/');
+  assert.ok(args.includes('model="qwen-plus"'), 'provider prefix must be stripped to bare name');
 });
 
 test('no custom provider: model is passed as-is', async () => {
