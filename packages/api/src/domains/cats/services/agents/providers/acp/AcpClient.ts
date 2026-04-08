@@ -222,7 +222,10 @@ export class AcpClient {
   ): AsyncGenerator<AcpSessionUpdate, AcpStopReason> {
     const timeoutMs = options?.timeoutMs ?? 120_000;
     const idleWarningMs = options?.idleWarningMs ?? 20_000;
-    const idleStallMs = options?.idleStallMs ?? 45_000;
+    // Raised from 45s→90s: Gemini CLI doesn't emit tool_call for MCP tools,
+    // so pendingTool never activates. 90s covers most MCP calls (10-30s typical).
+    // Proper fix: MCP tool heartbeat channel (not dependent on model events).
+    const idleStallMs = options?.idleStallMs ?? 90_000;
     const queue: AcpSessionUpdate[] = [];
     let waitResolve: (() => void) | null = null;
     let done = false;
