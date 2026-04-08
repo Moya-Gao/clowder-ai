@@ -2821,7 +2821,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const codexBreed = runtimeCatalog.breeds.find((breed) => breed.catId === 'codex');
     assert.equal(codexBreed?.variants[0]?.accountRef, 'codex');
 
-    await activateProviderProfile(root, 'openai', activatedProfile.id);
+    // F340: "activation" = updating the catalog variant's accountRef binding.
+    // The old activate API was a no-op; explicitly bind the variant instead.
+    const codexVariant = codexBreed?.variants[0];
+    if (codexVariant) codexVariant.accountRef = activatedProfile.id;
+    await writeFile(catalogPath, JSON.stringify(runtimeCatalog, null, 2), 'utf-8');
 
     const registrySnapshot = catRegistry.getAllConfigs();
     catRegistry.reset();
@@ -3860,9 +3864,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+    // F340: Use well-known ID 'claude' so resolveForClient('anthropic') discovers it.
     await createProviderProfile(root, {
       provider: 'anthropic',
-      name: 'sponsor-gateway',
+      name: 'claude',
       mode: 'api_key',
       baseUrl: 'https://api.sponsor.example',
       apiKey: 'sk-sponsor',

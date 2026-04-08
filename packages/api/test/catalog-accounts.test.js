@@ -160,7 +160,8 @@ describe('global accounts (F340)', () => {
 
     // Reading accounts should trigger project-level legacy migration
     const result = readCatalogAccounts(projectRoot);
-    assert.equal(result['my-custom'].protocol, 'openai');
+    // F340: protocol not migrated — derived at runtime from well-known account IDs.
+    assert.equal(result['my-custom'].protocol, undefined);
     assert.equal(result['my-custom'].baseUrl, 'https://custom.api/v1');
 
     // Credentials should also be migrated to global

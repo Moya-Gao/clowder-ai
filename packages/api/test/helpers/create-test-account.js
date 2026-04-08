@@ -65,7 +65,7 @@ async function ensureCatalog(projectRoot) {
                 variants: [
                   {
                     id: 'stub-v',
-                    provider: 'anthropic',
+                    clientId: 'anthropic',
                     defaultModel: 'stub',
                     mcpSupport: false,
                     cli: { command: 'echo', outputFormat: 'stream-json' },
@@ -138,9 +138,9 @@ export async function createProviderProfile(projectRoot, opts) {
   mkdirSync(globalCatCafeDir, { recursive: true });
   const accountsPath = resolve(globalCatCafeDir, 'accounts.json');
   const accounts = existsSync(accountsPath) ? JSON.parse(readFileSync(accountsPath, 'utf-8')) : {};
+  // F340: protocol not persisted — derived at runtime from well-known account IDs.
   accounts[id] = {
     authType,
-    protocol,
     ...(opts.displayName || opts.name ? { displayName: opts.displayName || opts.name } : {}),
     ...(opts.baseUrl ? { baseUrl: opts.baseUrl.trim().replace(/\/+$/, '') } : {}),
     ...(opts.models?.length ? { models: opts.models } : {}),
