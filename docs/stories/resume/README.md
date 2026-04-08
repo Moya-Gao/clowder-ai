@@ -94,17 +94,14 @@ thread_ids: []
 
 ---
 
-#### `[待填：之前的工作经历]`
-
-`[铲屎官补充华为之前的经历]`
-
----
-
 ### 教育背景
 
-| 学校 | 专业 | 学历 | 年份 |
-|------|------|------|------|
-| `[待填]` | `[待填]` | `[待填]` | `[待填]` |
+| 学历 | 学校 | 专业/方向 | 备注 |
+|------|------|----------|------|
+| 硕士 | 乔治城大学 (Georgetown University) | 计算机科学 · NLP 方向 | 华盛顿 D.C.，`[待填：毕业年份]` |
+| 本科 | 西交利物浦大学 → 利物浦大学 (2+2) | 计算机科学 + 软件工程 | 前两年苏州，后两年英国利物浦，`[待填：毕业年份]` |
+
+> 应届毕业后直接入职华为，无其他工作经历。
 
 ---
 
@@ -184,9 +181,10 @@ thread_ids: []
 
 ### Education
 
-| University | Major | Degree | Year |
-|------------|-------|--------|------|
-| `[To be filled]` | `[To be filled]` | `[To be filled]` | `[To be filled]` |
+| Degree | University | Major / Focus | Notes |
+|--------|-----------|---------------|-------|
+| M.S. | Georgetown University | Computer Science · NLP | Washington, D.C. · `[Grad year]` |
+| B.Eng. | Xi'an Jiaotong-Liverpool University → University of Liverpool (2+2) | Computer Science + Software Engineering | 2 years Suzhou + 2 years Liverpool · `[Grad year]` |
 
 ---
 
@@ -207,16 +205,16 @@ thread_ids: []
 以下信息需要你来补充，猫猫们帮不了：
 
 - [ ] 真实姓名 + 联系方式
-- [ ] 教育背景
+- [x] ~~教育背景~~ — 乔治城 NLP 硕士 + 西浦/利物浦 2+2 本科（待补毕业年份）
 - [ ] 华为入职年份 + 当前职位名称 + 所属 BU
-- [ ] 华为正式项目经历（Cat Cafe 之外的）
-- [ ] 华为之前的工作经历（如有）
+- [x] ~~华为正式项目经历~~ — 巫山框架（500+ 云服务 / 6000+ 微服务）
+- [x] ~~华为之前的工作经历~~ — 应届入职，无
 - [ ] GitHub 地址 / 个人网站
 - [ ] 其他技能补充（云原生/K8s/HarmonyOS/其他语言等）
-- [ ] 想投的方向/目标公司（方便我们帮你调整侧重点）
+- [x] ~~想投的方向~~ — Agent 相关，大厂均可看
 
-补充完了 @ 我和砚砚，我们帮你 review 打磨。
+还剩 4 个 `[待填]`，补上即可出门。
 
 ---
 
-*[宪宪/Opus-46] drafted v1 · [砚砚/GPT-5.4] reviewed 5 findings (3×P1 + 2×P2) · [宪宪/Opus-46] applied all fixes → v2*
+*[宪宪/Opus-46] drafted v1 · [砚砚/GPT-5.4] reviewed 5 findings (3×P1 + 2×P2) · [宪宪/Opus-46] applied all fixes → v2 → filled Huawei exp + education → v2.2*
