@@ -1,11 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type { CatCafeConfig, ClientId, Roster } from '@cat-cafe/shared';
-import {
-  type BuiltinAccountClient,
-  builtinAccountIdForClient,
-  resolveBuiltinClientForProvider,
-} from './account-resolver.js';
+import { type BuiltinAccountClient, resolveBuiltinClientForProvider } from './account-resolver.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 
 const CONFIG_SUBDIR = '.cat-cafe';
@@ -95,11 +91,10 @@ function migrateCatalogVariants(catalog: CatCafeConfig): { catalog: CatCafeConfi
         dirty = true;
       }
 
-      // Assign default accountRef if missing
-      if (!existingAccountRef) {
-        variant.accountRef = builtinAccountIdForClient(client);
-        dirty = true;
-      }
+      // F340: Do NOT backfill accountRef for unbound variants.
+      // Seed cats: resolveBoundAccountRefForCat suppresses default bindings → walks discovery chain.
+      // Custom cats: empty accountRef → resolveForClient walks full chain including installer-*.
+      // Backfilling would lock non-seed cats to builtin OAuth, skipping credentialed installer accounts.
     }
   }
 

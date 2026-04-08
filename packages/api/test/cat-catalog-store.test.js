@@ -246,21 +246,22 @@ describe('cat-catalog-store', () => {
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
 
-    // F340: migrateVariantAccountRefs assigns default accountRef for each provider
+    // F340: migration does NOT backfill accountRef — unbound variants stay unbound
+    // so both seed and custom cats walk the full discovery chain at runtime.
     assert.deepEqual(
       runtimeCatalog.breeds.map((breed) => [breed.id, breed.variants.map((variant) => variant.accountRef ?? null)]),
       [
-        ['ragdoll', ['claude', 'claude']],
-        ['maine-coon', ['codex', 'codex']],
-        ['siamese', ['gemini']],
-        ['dragon-li', ['dare']],
-        ['golden-chinchilla', ['opencode']],
+        ['ragdoll', [null, null]],
+        ['maine-coon', [null, null]],
+        ['siamese', [null]],
+        ['dragon-li', [null]],
+        ['golden-chinchilla', [null]],
       ],
     );
   });
 
-  // F340: bootstrapBindings no longer consumed — bootstrap always assigns default accountRef
-  it('bootstrap ignores legacy provider-profiles.json and assigns default accountRefs', () => {
+  // F340: bootstrapBindings no longer consumed — migration leaves unbound variants alone
+  it('bootstrap ignores legacy provider-profiles.json and leaves variants unbound', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-f127-installer-'));
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
     const templatePath = join(projectRoot, 'cat-template.json');
@@ -272,11 +273,11 @@ describe('cat-catalog-store', () => {
     assert.deepEqual(
       runtimeCatalog.breeds.map((breed) => [breed.id, breed.variants.map((variant) => variant.accountRef ?? null)]),
       [
-        ['ragdoll', ['claude', 'claude']],
-        ['maine-coon', ['codex', 'codex']],
-        ['siamese', ['gemini']],
-        ['dragon-li', ['dare']],
-        ['golden-chinchilla', ['opencode']],
+        ['ragdoll', [null, null]],
+        ['maine-coon', [null, null]],
+        ['siamese', [null]],
+        ['dragon-li', [null]],
+        ['golden-chinchilla', [null]],
       ],
     );
   });
@@ -310,11 +311,11 @@ describe('cat-catalog-store', () => {
     assert.equal(catalogPath, resolveCatCatalogPath(projectRoot));
     assert.ok(existsSync(catalogPath), 'runtime catalog should be created');
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
-    // F340: migrateVariantAccountRefs assigns default accountRef on bootstrap
-    assert.equal(runtimeCatalog.breeds[0]?.variants[0]?.accountRef, 'claude');
+    // F340: migration does NOT backfill accountRef — unbound variants stay unbound
+    assert.equal(runtimeCatalog.breeds[0]?.variants[0]?.accountRef, undefined);
   });
 
-  it('keeps existing .cat-cafe/cat-catalog.json runtime edits while backfilling missing accountRef bindings', () => {
+  it('keeps existing .cat-cafe/cat-catalog.json runtime edits and leaves unbound variants alone', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
     const templatePath = join(projectRoot, 'cat-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
@@ -327,8 +328,52 @@ describe('cat-catalog-store', () => {
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const hydrated = JSON.parse(readFileSync(catalogPath, 'utf-8'));
     assert.equal(hydrated.breeds[0]?.displayName, '运行时布偶猫');
-    // F136 Phase 4d: migration backfills 'claude' (legacy builtin ID for anthropic)
-    assert.equal(hydrated.breeds[0]?.variants[0]?.accountRef, 'claude');
+    // F340: migration does NOT backfill accountRef — unbound variants stay unbound
+    assert.equal(hydrated.breeds[0]?.variants[0]?.accountRef, undefined);
+  });
+
+  it('keeps existing custom runtime cats unbound during catalog migration', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-custom-runtime-'));
+    const templatePath = join(projectRoot, 'cat-template.json');
+    writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
+
+    const runtimeConfig = validConfig();
+    runtimeConfig.breeds.push({
+      id: 'custom-openai',
+      catId: 'custom-openai',
+      name: '自定义猫',
+      displayName: '自定义猫',
+      avatar: '/avatars/custom.png',
+      color: { primary: '#22c55e', secondary: '#dcfce7' },
+      mentionPatterns: ['@custom-openai'],
+      roleDescription: '自定义运行时猫',
+      defaultVariantId: 'custom-openai-default',
+      variants: [
+        {
+          id: 'custom-openai-default',
+          provider: 'openai',
+          defaultModel: 'gpt-5.4-mini',
+          mcpSupport: false,
+          cli: { command: 'codex', outputFormat: 'json' },
+        },
+      ],
+    });
+    runtimeConfig.roster['custom-openai'] = {
+      family: 'custom-openai',
+      roles: ['assistant'],
+      lead: false,
+      available: true,
+      evaluation: 'runtime custom',
+    };
+
+    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    writeFileSync(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), JSON.stringify(runtimeConfig, null, 2));
+
+    const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
+    const hydrated = JSON.parse(readFileSync(catalogPath, 'utf-8'));
+    const customBreed = hydrated.breeds.find((breed) => breed.catId === 'custom-openai');
+    assert.ok(customBreed, 'custom runtime breed should be preserved');
+    assert.equal(customBreed?.variants[0]?.accountRef, undefined);
   });
 
   it('creates a new runtime member without corrupting v2 top-level fields', async () => {
