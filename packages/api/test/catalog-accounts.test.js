@@ -135,7 +135,10 @@ describe('global accounts (F340)', () => {
     const catalogRaw = await readFile(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), 'utf-8');
     const updatedCatalog = JSON.parse(catalogRaw);
     assert.ok(updatedCatalog.accounts?.existing, 'skipped key must remain in project catalog');
-    assert.ok(updatedCatalog.accounts['new-from-project'], 'merged key must also remain in project catalog (rollback compat)');
+    assert.ok(
+      updatedCatalog.accounts['new-from-project'],
+      'merged key must also remain in project catalog (rollback compat)',
+    );
   });
 
   it('migrates project-level legacy provider-profiles.json into global accounts', async () => {
