@@ -15,7 +15,6 @@ import { rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent } from '@cat-cafe/shared';
 import {
-  resolveAnthropicRuntimeProfile,
   resolveBuiltinClientForProvider,
   resolveForClient,
   validateRuntimeProviderBinding,

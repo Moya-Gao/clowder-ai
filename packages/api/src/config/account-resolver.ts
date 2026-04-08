@@ -60,8 +60,8 @@ export function builtinAccountIdForClient(client: BuiltinAccountClient): string 
 }
 
 export function resolveAnthropicRuntimeProfile(projectRoot: string): AnthropicRuntimeProfile {
-  // F340: System callers use well-known builtin ID, not protocol-based discovery.
-  const runtime = resolveByAccountRef(projectRoot, 'claude');
+  // F340: Use full discovery chain (claude → builtin_anthropic → installer-anthropic).
+  const runtime = resolveForClient(projectRoot, 'anthropic');
   if (runtime?.apiKey) {
     return {
       id: runtime.id,
