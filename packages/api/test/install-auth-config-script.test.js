@@ -508,28 +508,26 @@ test('env-apply escapes shell substitutions when apostrophe requires double quot
   }
 });
 
-test('#340 P6 regression: OAuth switch atomically cleans stale installer profile', () => {
+test('#340 P6 regression: OAuth switch with explicit remove-then-set cleans stale installer profile', () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-oauth-switch-'));
 
   try {
     // Step 1: Create an installer API-key profile for codex
-    // normalizeClient('codex') → 'openai', so the actual account ID is 'installer-openai'
     runHelperWithEnv(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'api_key'], {
       _INSTALLER_API_KEY: 'sk-old-codex-key',
     });
     const before = readInstallerState(projectRoot);
     assert.ok(before.accounts['installer-openai'], 'installer-openai account should exist');
-    assert.ok(before.credentials['installer-openai'], 'installer-openai credential should exist');
 
-    // Step 2: Switch to OAuth — set oauth alone is enough (no separate remove needed).
-    // setClientAuth now atomically removes installer-<client> when switching to oauth.
+    // Step 2: Switch to OAuth — caller must remove first, then set.
+    // set --mode oauth does NOT auto-delete installer accounts (they're global;
+    // only removeClientAuth has the safety checks for cross-project bindings).
+    runHelper(['client-auth', 'remove', '--project-dir', projectRoot, '--client', 'codex', '--force', 'true']);
     runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'oauth']);
 
     const after = readInstallerState(projectRoot);
-    // Old installer profile must be gone — resolver must not prefer stale API key over OAuth
-    assert.equal(after.accounts['installer-openai'], undefined, 'stale installer-openai must be removed');
-    assert.equal(after.credentials['installer-openai'], undefined, 'stale credentials must be removed');
-    // Builtin OAuth account must exist
+    assert.equal(after.accounts['installer-openai'], undefined, 'installer-openai must be removed by explicit remove');
+    assert.equal(after.credentials['installer-openai'], undefined, 'credentials must be removed');
     assert.ok(after.accounts.codex, 'builtin codex account must exist');
     assert.equal(after.accounts.codex.authType, 'oauth');
   } finally {
@@ -537,42 +535,24 @@ test('#340 P6 regression: OAuth switch atomically cleans stale installer profile
   }
 });
 
-test('OAuth switch keeps installer account when a runtime cat is explicitly bound to it', () => {
-  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-oauth-bound-'));
+test('set --mode oauth preserves stale installer account (global safety)', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-oauth-no-autodelete-'));
 
   try {
     // Step 1: Create installer API-key account
     runHelperWithEnv(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'api_key'], {
-      _INSTALLER_API_KEY: 'sk-bound-key',
+      _INSTALLER_API_KEY: 'sk-stale-key',
     });
-    const before = readInstallerState(projectRoot);
-    assert.ok(before.accounts['installer-openai'], 'installer-openai should exist');
 
-    // Step 2: Write a catalog with a cat explicitly bound to installer-openai
-    const catalogDir = join(projectRoot, '.cat-cafe');
-    mkdirSync(catalogDir, { recursive: true });
-    writeFileSync(
-      join(catalogDir, 'cat-catalog.json'),
-      JSON.stringify({
-        version: 2,
-        breeds: [
-          {
-            id: 'custom-gpt',
-            catId: 'custom-gpt',
-            variants: [{ id: 'v1', provider: 'openai', accountRef: 'installer-openai' }],
-          },
-        ],
-        roster: {},
-      }),
-    );
-
-    // Step 3: Switch to OAuth — installer-openai must survive because it's bound
+    // Step 2: set --mode oauth WITHOUT remove — installer account must survive
     runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'oauth']);
 
     const after = readInstallerState(projectRoot);
-    assert.ok(after.accounts['installer-openai'], 'bound installer-openai must NOT be deleted');
-    assert.ok(after.credentials['installer-openai'], 'bound credentials must NOT be deleted');
-    // OAuth account should still be created
+    // installer-openai intentionally preserved — global accounts can't be safely
+    // auto-deleted without cross-project enumeration
+    assert.ok(after.accounts['installer-openai'], 'installer-openai must NOT be auto-deleted');
+    assert.ok(after.credentials['installer-openai'], 'credentials must NOT be auto-deleted');
+    // OAuth account still created
     assert.ok(after.accounts.codex, 'builtin codex account must exist');
     assert.equal(after.accounts.codex.authType, 'oauth');
   } finally {
