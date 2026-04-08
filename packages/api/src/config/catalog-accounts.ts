@@ -155,8 +155,8 @@ function migrateLegacyProviderProfiles(): void {
   try {
     migrateLegacyFrom(resolveGlobalRoot());
     legacyMigrationDone = true;
-  } catch {
-    /* best-effort — don't mark done so next call retries */
+  } catch (err) {
+    console.error('[catalog-accounts] legacy→global migration failed:', err);
   }
 }
 
@@ -188,32 +188,20 @@ function migrateProjectAccountsToGlobal(projectRoot: string): void {
     const projectAccounts = catalog?.accounts;
     if (!projectAccounts || typeof projectAccounts !== 'object' || Object.keys(projectAccounts).length === 0) return;
 
-    const { merged, skipped } = mergeIntoGlobal(projectAccounts as Record<string, AccountConfig>);
+    const { merged } = mergeIntoGlobal(projectAccounts as Record<string, AccountConfig>);
 
-    if (skipped.length > 0) {
-      // By-design per #340 "四源归一": global is the single truth source.
-      // Skipped keys are kept in project catalog for manual inspection, but
-      // runtime resolution uses only global accounts. If the project version
-      // differs, the user must manually reconcile (rename or delete).
-      console.error(
-        `[catalog-accounts] project ${key}: ${skipped.length} account(s) already in global, kept in project for review: ${skipped.join(', ')}. ` +
-          'NOTE: runtime will use the GLOBAL version. If the project version differs, rename or delete it manually.',
-      );
-    }
-
-    // Only strip successfully-merged keys; keep skipped keys in project
+    // F340: project catalog.accounts is intentionally left untouched.
+    // Runtime only reads global accounts.json, so the project section is
+    // inert — keeping it provides free rollback compatibility and avoids
+    // unnecessary writes to the project catalog file.
     if (merged.length > 0) {
-      for (const ref of merged) {
-        delete projectAccounts[ref];
-      }
-      if (Object.keys(projectAccounts).length === 0) {
-        delete catalog.accounts;
-      }
-      writeFileAtomic(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`);
+      console.error(`[catalog-accounts] project ${key}: ${merged.length} account(s) merged into global`);
     }
     migratedProjects.add(key);
-  } catch {
-    // Migration is best-effort — don't mark done so next call retries
+  } catch (err) {
+    // Migration is best-effort — don't mark done so next call retries.
+    // But log the error so failures aren't invisible.
+    console.error(`[catalog-accounts] project→global migration failed for ${key}:`, err);
   }
 }
 

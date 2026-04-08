@@ -96,10 +96,11 @@ describe('global accounts (F340)', () => {
     assert.ok(globalAccounts.claude);
     assert.ok(globalAccounts['my-glm']);
 
-    // Project catalog should no longer have accounts section
+    // Project catalog keeps accounts section untouched (rollback compat)
     const catalogRaw = await readFile(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), 'utf-8');
     const updatedCatalog = JSON.parse(catalogRaw);
-    assert.equal(updatedCatalog.accounts, undefined);
+    assert.ok(updatedCatalog.accounts?.claude, 'project accounts preserved for rollback compat');
+    assert.ok(updatedCatalog.accounts?.['my-glm'], 'project accounts preserved for rollback compat');
     assert.equal(updatedCatalog.version, 2);
   });
 
@@ -134,7 +135,7 @@ describe('global accounts (F340)', () => {
     const catalogRaw = await readFile(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), 'utf-8');
     const updatedCatalog = JSON.parse(catalogRaw);
     assert.ok(updatedCatalog.accounts?.existing, 'skipped key must remain in project catalog');
-    assert.equal(updatedCatalog.accounts['new-from-project'], undefined, 'merged key should be stripped from project');
+    assert.ok(updatedCatalog.accounts['new-from-project'], 'merged key must also remain in project catalog (rollback compat)');
   });
 
   it('migrates project-level legacy provider-profiles.json into global accounts', async () => {
