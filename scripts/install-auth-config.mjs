@@ -243,6 +243,16 @@ function setClientAuth(client, mode, options) {
       authType: 'oauth',
       displayName: BUILTIN_ACCOUNT_SPECS.find((s) => s.client === client)?.displayName ?? accountRef,
     };
+    // P1 fix: remove stale installer-<client> so resolver doesn't prefer it over OAuth.
+    const installerRef = `installer-${client}`;
+    if (installerRef !== accountRef && accounts[installerRef]) {
+      delete accounts[installerRef];
+      const creds = readCredentials();
+      if (creds[installerRef]) {
+        delete creds[installerRef];
+        writeCredentials(creds);
+      }
+    }
   } else {
     const normalizedBaseUrl = normalizeBaseUrl(options.baseUrl);
     const normalizedModels = normalizeModels(options.models);

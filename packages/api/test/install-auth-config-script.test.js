@@ -508,7 +508,7 @@ test('env-apply escapes shell substitutions when apostrophe requires double quot
   }
 });
 
-test('#340 P6 regression: OAuth switch with --force cleans stale installer profile to avoid resolver ambiguity', () => {
+test('#340 P6 regression: OAuth switch atomically cleans stale installer profile', () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-oauth-switch-'));
 
   try {
@@ -519,23 +519,19 @@ test('#340 P6 regression: OAuth switch with --force cleans stale installer profi
     });
     const before = readInstallerState(projectRoot);
     assert.ok(before.accounts['installer-openai'], 'installer-openai account should exist');
+    assert.ok(before.credentials['installer-openai'], 'installer-openai credential should exist');
 
-    // Step 2: Switch to OAuth — remove with --force, then set oauth
-    // (mirrors what install.sh now does after the P6 fix)
-    runHelper(['client-auth', 'remove', '--project-dir', projectRoot, '--client', 'codex', '--force', 'true']);
+    // Step 2: Switch to OAuth — set oauth alone is enough (no separate remove needed).
+    // setClientAuth now atomically removes installer-<client> when switching to oauth.
     runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'oauth']);
 
     const after = readInstallerState(projectRoot);
-    // Old installer profile must be gone
+    // Old installer profile must be gone — resolver must not prefer stale API key over OAuth
     assert.equal(after.accounts['installer-openai'], undefined, 'stale installer-openai must be removed');
     assert.equal(after.credentials['installer-openai'], undefined, 'stale credentials must be removed');
     // Builtin OAuth account must exist
     assert.ok(after.accounts['codex'], 'builtin codex account must exist');
     assert.equal(after.accounts['codex'].authType, 'oauth');
-
-    // F340: protocol no longer persisted on new accounts, so ambiguity check uses
-    // well-known ID resolution instead of protocol counting. The key invariant is:
-    // only 'codex' exists (no stale 'installer-openai'), verified above.
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
