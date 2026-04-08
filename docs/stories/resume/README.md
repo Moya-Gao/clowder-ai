@@ -1,0 +1,188 @@
+---
+feature_ids: []
+topics: [stories, career, resume]
+doc_kind: story
+created: 2026-04-07
+updated: 2026-04-07
+participants: [opus, gpt52, gemini]
+thread_ids: []
+---
+
+# Landy's Resume — Draft v1
+
+> 猫猫委员会联合起草，铲屎官审阅定稿。`[待填]` = 需要铲屎官补充的信息。
+
+---
+
+## 中文版
+
+### 基本信息
+
+| 项目 | 内容 |
+|------|------|
+| 姓名 | `[待填]` |
+| 联系方式 | `[待填 — 手机/邮箱/微信]` |
+| 所在地 | 深圳 |
+| GitHub | `[待填]` |
+| 个人站点/作品集 | `[待填]` |
+
+---
+
+### 一句话定位
+
+**AI Agent 架构师 / 多智能体系统设计者**
+——从零设计并落地了跨模型 Multi-Agent 协作平台（Cat Cafe），支撑 4+ AI 模型家族、10+ Agent 个体实时协同，架构被企业内部采纳为 Agent 平台基础（OfficeClaw）。
+
+---
+
+### 专业技能
+
+| 领域 | 技能 |
+|------|------|
+| AI Agent 架构 | Multi-Agent Orchestration、A2A Protocol 设计、Agent 生命周期管理、Prompt Engineering、Tool/Skill 编排 |
+| LLM 工程 | Claude API/SDK、OpenAI API、Gemini API、多模型路由与 fallback、上下文窗口管理（F148 分层压缩）、Token 预算优化 |
+| 全栈工程 | TypeScript / Node.js / React / Next.js、Redis、SQLite、Monorepo (pnpm workspace)、MCP (Model Context Protocol) |
+| IM 集成 | 飞书 / 微信 / Telegram / DingTalk / WeCom 五渠道接入，消息路由、富媒体传输、扫码绑定 |
+| 开发流程 | TDD (Red-Green-Refactor)、Code Review 跨模型互审、Git Worktree 隔离开发、CI/CD 门禁 |
+| 产品思维 | 愿景驱动开发、Feature 生命周期管理、用户故事拆分、Design Gate |
+| `[待填]` | `[铲屎官补充其他技能 — 比如云原生/K8s/HarmonyOS/其他语言等]` |
+
+---
+
+### 工作经历
+
+#### `[待填：当前职位名称]` — 华为技术有限公司（`[待填：入职年份]` 至今）
+
+> 深圳 · `[待填：所属 BU/部门]` · 在职约 7 年
+
+**核心项目：Cat Cafe — 多智能体协作平台（开源）**
+
+从零设计并实现了完整的 Multi-Agent 协作系统，以"领养团队，不是配置工具"为产品愿景，让非程序员也能通过 AI 猫猫团队将想法变成可运行的产品。
+
+关键成果：
+- **架构设计**：设计了无 Boss Agent 的对等协作架构，支持 Claude / GPT / Gemini / Codex 等 4+ 模型家族、10+ 个体并发协作，含自主路由、@提及分发、跨模型 Code Review 机制
+- **记忆系统**：实现了五层记忆架构（Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval），基于 SQLite + BM25 + 向量检索的混合 RAG 系统，支撑 Agent 的跨会话知识积累
+- **协作纪律**：建立了完整的 SOP 体系（feat-lifecycle → TDD → quality-gate → review → merge-gate），150+ Feature 全部通过此流程交付
+- **IM 网关**：打通飞书、微信、Telegram、DingTalk、WeCom 五个渠道，实现消息、语音、图片、文件的双向传输
+- **Skill 生态**：设计了可插拔的 Skill 系统（30+ Skills），涵盖 TDD、Code Review、设计协作、视频制作、PPT 生成等全链路能力
+- **企业采纳**：该架构在高层现场演示中零准备通关，被公司拍板采纳为企业级 Agent 平台基础（OfficeClaw），推动全公司推广
+
+**OfficeClaw 内部采纳事件（"三天产品化"）**
+
+2026 年 3 月，在零准备的情况下被临时拉入高层演示：
+- 高层现场用飞书直接测试系统，全程稳定通过
+- 竞争方案（九问）在演示中崩溃（F5 刷新后对话丢失）
+- 某总当场拍板"全公司推广"，48 小时内启动产品化
+- Cat Cafe 架构被 fork 为 OfficeClaw，成为企业级 AI Agent 平台底座
+
+**其他华为工作内容**
+
+`[待填 — 铲屎官补充在华为的正式项目/产品经历，比如：]`
+- `[项目 1：名称 + 角色 + 成果]`
+- `[项目 2：名称 + 角色 + 成果]`
+
+---
+
+#### `[待填：之前的工作经历]`
+
+`[铲屎官补充华为之前的经历]`
+
+---
+
+### 教育背景
+
+| 学校 | 专业 | 学历 | 年份 |
+|------|------|------|------|
+| `[待填]` | `[待填]` | `[待填]` | `[待填]` |
+
+---
+
+### 开源项目
+
+| 项目 | 角色 | 描述 |
+|------|------|------|
+| **Cat Cafe** (clowder-ai) | Creator & Lead Architect | 多智能体协作平台，MIT 协议。150+ Features，30+ Skills，5 渠道 IM 接入，跨 4 模型家族对等协作 |
+| `[待填]` | `[待填]` | `[其他开源贡献]` |
+
+---
+
+### 关键数据
+
+| 指标 | 数据 |
+|------|------|
+| Feature 交付量 | 150+ |
+| Skill 数量 | 30+ |
+| 接入 AI 模型家族 | 4+（Claude / GPT / Gemini / Codex） |
+| Agent 个体数 | 10+（含多分身） |
+| IM 渠道 | 5（飞书 / 微信 / Telegram / DingTalk / WeCom） |
+| 架构企业采纳 | 被华为内部采纳为 OfficeClaw 平台底座 |
+| 项目周期 | 约 60 天从零到生产级（2026-02 至今持续迭代） |
+
+---
+
+## English Version
+
+### Summary
+
+**AI Agent Architect** with 7+ years at a Fortune 500 tech company (Huawei). Designed and shipped Cat Cafe, a production-grade multi-agent collaboration platform orchestrating 4+ LLM families (Claude, GPT, Gemini, Codex) with 10+ agent personas in real-time. The architecture was adopted by the company as the foundation for an enterprise-wide AI Agent platform (OfficeClaw) after a live executive demo with zero preparation.
+
+### Experience
+
+#### `[Title]` — Huawei Technologies (`[Start Year]` – Present)
+
+**Cat Cafe — Multi-Agent Collaboration Platform (Open Source, MIT)**
+
+- Architected a peer-to-peer multi-agent system (no boss agent) supporting 4+ LLM families and 10+ agent personas with autonomous routing, @-mention dispatch, and cross-model code review
+- Built a five-layer memory architecture (Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval) with hybrid BM25 + vector retrieval for cross-session knowledge accumulation
+- Designed a pluggable Skill system (30+ skills) covering TDD, code review, design collaboration, video production, and document generation
+- Integrated 5 IM channels (Lark, WeChat, Telegram, DingTalk, WeCom) with bidirectional message, voice, image, and file transport
+- Delivered 150+ features through a rigorous SOP (feat-lifecycle → TDD → quality-gate → peer-review → merge-gate)
+- Architecture was adopted as the enterprise AI Agent platform foundation (OfficeClaw) after an unscheduled live demo to C-suite executives; competing solution crashed during the same session
+
+**Resume bullet (interview pitch version):**
+
+> "I built a multi-agent AI team from scratch — 10+ AI agents across 4 model families collaborating in real time. When my company's leadership tested it live with zero notice, it passed flawlessly while the alternative solution crashed on F5. Within 48 hours, they adopted my architecture as the company-wide AI Agent platform."
+
+---
+
+### Skills
+
+- **AI/Agent**: Multi-Agent Orchestration, A2A Protocol Design, Prompt Engineering, LLM API Integration (Claude/GPT/Gemini), Context Window Management, RAG (BM25 + Vector)
+- **Engineering**: TypeScript, Node.js, React, Next.js, Redis, SQLite, MCP (Model Context Protocol), Monorepo (pnpm), Git Worktree Isolation
+- **Process**: TDD, Cross-Model Code Review, Feature Lifecycle Management, Vision-Driven Development
+- **Product**: IM Gateway Integration (5 channels), Skill Ecosystem Design, Enterprise Productization
+
+---
+
+### Education
+
+| University | Major | Degree | Year |
+|------------|-------|--------|------|
+| `[To be filled]` | `[To be filled]` | `[To be filled]` | `[To be filled]` |
+
+---
+
+## 面试口述版（30 秒 Elevator Pitch）
+
+> "我在华为做了 7 年，最近一年我做了一件事——从零搭了一个多 Agent 协作系统叫 Cat Cafe。4 个模型家族、10 多个 AI 个体实时协作，带记忆、带纪律、带 IM 集成。有一天被高层临时拉去现场演示，零准备，全程稳定通过。隔壁精心准备的方案当场崩了。48 小时后公司拍板，用我的架构做全公司的 Agent 平台。我想找一个能让我继续在 Agent 方向深耕的机会。"
+
+---
+
+## 铲屎官 TODO
+
+以下信息需要你来补充，猫猫们帮不了：
+
+- [ ] 真实姓名 + 联系方式
+- [ ] 教育背景
+- [ ] 华为入职年份 + 当前职位名称 + 所属 BU
+- [ ] 华为正式项目经历（Cat Cafe 之外的）
+- [ ] 华为之前的工作经历（如有）
+- [ ] GitHub 地址 / 个人网站
+- [ ] 其他技能补充（云原生/K8s/HarmonyOS/其他语言等）
+- [ ] 想投的方向/目标公司（方便我们帮你调整侧重点）
+
+补充完了 @ 我和砚砚，我们帮你 review 打磨。
+
+---
+
+*[宪宪/Opus-46] drafted · 等砚砚和烁烁 review*
