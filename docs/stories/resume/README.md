@@ -31,7 +31,7 @@ thread_ids: []
 ### 一句话定位
 
 **AI Agent 架构师 / 多智能体系统设计者**
-——从零设计并落地了跨模型 Multi-Agent 协作平台（Cat Cafe），支撑 4+ AI 模型家族、10+ Agent 个体实时协同，架构经高层现场验证后被内部产品化团队采纳为企业 Agent 平台基础。
+——7 年华为经验，横跨云基础设施与 AI Agent 两个技术周期。曾主导华为云服务开发框架（巫山）的中间件归一与分布式调度；后将同一套解耦哲学应用于 AI 领域，从零设计多智能体协作平台 Cat Cafe（4+ 模型家族、10+ Agent 个体实时协同），架构经高层现场验证后被内部产品化采纳。
 
 ---
 
@@ -73,13 +73,24 @@ thread_ids: []
 - 高层用飞书直接对系统提问、生成报告、导出 PDF，全程稳定通过
 - 48 小时内高层拍板启动产品化，架构被 fork 用于企业内部 Agent 平台建设
 
-**华为正式项目经历**
+**项目一：巫山框架 — 华为云服务开发框架（2019–2025）**
 
-> **P1 — 砚砚 review 指出：简历不能只有 Cat Cafe，否则看起来像"side project 比主业还大"。至少补 1-2 条华为正式产品/项目成果，要有业务结果或组织影响。**
+华为云内部统一的云服务开发框架，为各业务线提供标准化的服务开发、部署和运行基座。
 
-`[待填 — 铲屎官这一段必须补，否则简历不能出门：]`
-- `[项目 1：产品/项目名 + 你的角色 + 业务成果（用户量/营收/效率提升等）]`
-- `[项目 2：产品/项目名 + 你的角色 + 业务成果]`
+- **框架奠基**：作为初创成员参与框架从零搭建，主导 WebFlux 与 Spring 集成层的设计与实现，为全框架的响应式基座打下技术底层
+- **中间件架构归一**：设计框架层抽象，屏蔽 HCS / HCSO / 线上 / 线下等多套环境差异，制定统一规范供各业务线接入——使外部团队可插拔地对接，无需关心底层环境分裂（与后续 Cat Cafe IM 网关层的"渠道解耦 + 可插拔接入"是同一架构哲学）
+- **分布式调度与编排**：自主设计并实现 TaskFlow 响应式任务编排引擎（基于 Reactive + YAML 工作流定义），深度重构 ElasticJob 构建分布式调度器，支撑定时任务和复杂编排场景
+- **技术栈**：Java / Spring / WebFlux / ElasticJob / YAML DSL / 分布式系统
+
+`[待填 — 铲屎官补充：巫山框架大概服务了多少个业务线/微服务？有没有可量化的规模数据？]`
+
+**项目二：AI Agent 技术探索与落地（2025.03–至今）**
+
+从零探索 AI Agent 方向，经历了从低代码编排到自主多智能体协作的完整技术演进：
+
+- **阶段一（2025.03–2025 Q4）**：调研并实践 Dify、RAGFlow 等 Agent 编排平台，评估低代码 AI 方案的能力边界
+- **阶段二（2025 Q4–2026.01）**：跟进业界 Skill / Harness 范式演进，探索单 Agent 的工具编排与任务执行能力
+- **阶段三（2026.01–至今）**：设计并实现 Cat Cafe 多智能体协作平台（见上文"核心项目"），从单 Agent 工具调用演进到跨模型对等协作架构
 
 ---
 
@@ -124,7 +135,7 @@ thread_ids: []
 
 ### Summary
 
-**AI Agent Architect** with 7+ years at a Fortune 500 tech company (Huawei). Designed and shipped Cat Cafe, a production-grade multi-agent collaboration platform orchestrating 4+ LLM families (Claude, GPT, Gemini, Codex) with 10+ agent personas in real-time. The architecture was adopted into an internal productization initiative after passing an unplanned live executive demo.
+**AI Agent Architect** with 7+ years at Huawei, spanning cloud infrastructure and AI agent systems. Built Huawei Cloud's service development framework (middleware abstraction, distributed scheduling), then applied the same decoupling philosophy to design Cat Cafe — a production-grade multi-agent collaboration platform orchestrating 4+ LLM families with 10+ agent personas. Architecture adopted into an internal productization initiative after passing an unplanned live executive demo.
 
 ### Experience
 
@@ -146,6 +157,19 @@ thread_ids: []
 **Extended version (for interviews where you can go deeper):**
 
 > "The competing internal solution crashed during the same executive demo. 48 hours later, the executive directed company-wide adoption based on my architecture."
+
+**Wushan Framework — Huawei Cloud Service Development Framework (2019–2025)**
+
+- Founding member of Huawei Cloud's internal unified service development framework; led the design and implementation of the WebFlux–Spring integration layer as the reactive foundation
+- Designed a middleware abstraction layer to shield environment differences across HCS / HCSO / online / offline deployments; published integration specifications adopted across business lines — enabling plug-and-play onboarding (same architectural philosophy later applied to Cat Cafe's IM gateway: channel decoupling + pluggable adapters)
+- Independently designed and built TaskFlow, a reactive task orchestration engine (Reactive + YAML workflow DSL), and deeply refactored ElasticJob into a distributed scheduler supporting scheduled tasks and complex orchestration
+- Tech stack: Java, Spring, WebFlux, ElasticJob, YAML DSL, distributed systems
+
+**AI Agent Technical Exploration & Productization (2025.03–Present)**
+
+- Evaluated low-code AI orchestration platforms (Dify, RAGFlow) and their capability boundaries
+- Tracked industry evolution through Skill/Harness paradigms to multi-agent orchestration
+- Designed and shipped Cat Cafe (see above), evolving from single-agent tool calling to cross-model peer collaboration
 
 ---
 
@@ -170,7 +194,7 @@ thread_ids: []
 
 **30 秒标准版（简历/初筛用）：**
 
-> "我在华为做了 7 年，最近一年从零搭了一个多 Agent 协作系统叫 Cat Cafe。4 个模型家族、10 多个 AI 个体实时协作，带记忆、带纪律、带 5 渠道 IM 集成。有一天被高层临时拉去现场演示，零准备，全程稳定通过。48 小时后公司拍板，用我的架构做内部 Agent 平台的基础。我想找一个能让我继续在 Agent 方向深耕的机会。"
+> "我在华为做了 7 年。前 6 年做云基础设施——华为云的服务开发框架是我和同事们从零搭的，主要做中间件架构归一和分布式调度。去年开始转 AI Agent 方向，把做框架时积累的解耦思维用到了多智能体系统上，从零搭了 Cat Cafe——4 个模型家族、10 多个 AI 个体实时协作，带记忆系统、带 5 渠道 IM 集成。有一天被高层临时拉去现场演示，零准备通过，48 小时后公司拍板用我的架构做内部 Agent 平台。我想找一个能让我在 Agent 方向继续深耕的机会。"
 
 **加料版（面试聊到深处、气氛合适时用）：**
 
