@@ -312,8 +312,19 @@ export class AcpClient {
       // and flat (params.sessionUpdate) — must handle both, same as acp-event-transformer.
       const inner = (params.update ?? params) as Record<string, unknown>;
       const updateType = inner.sessionUpdate as string | undefined;
-      // Diagnostic: log every event type so we can confirm what Gemini actually sends for MCP tools
-      log.info({ sessionId, eventCount, updateType, pendingTool }, 'ACP listener: event received');
+      // Diagnostic: log every event type + raw keys for unclassified events
+      if (updateType) {
+        log.info({ sessionId, eventCount, updateType, pendingTool }, 'ACP listener: event received');
+      } else {
+        // Unknown event — dump raw structure to diagnose Gemini CLI payload format
+        const rawKeys = Object.keys(params);
+        const innerKeys = params.update ? Object.keys(params.update as Record<string, unknown>) : [];
+        const method = (notif as unknown as Record<string, unknown>).method;
+        log.warn(
+          { sessionId, eventCount, method, rawKeys, innerKeys, pendingTool, raw: JSON.stringify(params).slice(0, 500) },
+          'ACP listener: unclassified event — no sessionUpdate type',
+        );
+      }
       if (updateType === 'tool_call') {
         pendingTool = true;
       } else if (pendingTool && updateType !== 'tool_call_update') {
