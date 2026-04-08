@@ -477,9 +477,10 @@
       "action": "force_advance",
       "from": "43a044336f918f9ca3d15eb252200a44735dd727",
       "to": "7726c689c23ec48510c091b531dd334e11148708",
-      "skipped_community_commits": 1,
+      "skipped_community_commits": 0,
+      "skipped_sync_commits": 1,
       "timestamp": "2026-04-08T15:34:42.172Z",
-      "notes": "Force-advanced without per-PR review"
+      "notes": "Skipped outbound sync commit f462224d (sync: full outbound sync v0.5.0). Script pattern mismatch: detects ^sync: cat-cafe but commit uses sync: full outbound sync."
     }
   ]
 }
