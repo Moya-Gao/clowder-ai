@@ -98,8 +98,8 @@ thread_ids: []
 
 | 学历 | 学校 | 专业/方向 | 备注 |
 |------|------|----------|------|
-| 硕士 | 乔治城大学 (Georgetown University) | 计算机科学 · NLP 方向 | 华盛顿 D.C.，`[待填：毕业年份]` |
-| 本科 | 西交利物浦大学 → 利物浦大学 (2+2) | 计算机科学 + 软件工程 | 前两年苏州，后两年英国利物浦，`[待填：毕业年份]` |
+| 硕士 | 乔治城大学 (Georgetown University) | 计算机科学 · NLP 方向 | 华盛顿 D.C.，2017–2019 |
+| 本科 | 西交利物浦大学 → 利物浦大学 (2+2) | 计算机科学 + 软件工程 | 前两年苏州，后两年英国利物浦，2013–2017 |
 
 > 应届毕业后直接入职华为，无其他工作经历。
 
@@ -110,7 +110,7 @@ thread_ids: []
 | 项目 | 角色 | 描述 |
 |------|------|------|
 | **Cat Cafe** (clowder-ai) | Creator & Lead Architect | 多智能体协作平台，MIT 协议。150+ tracked work items，~30 Skills，5 渠道 IM 接入，跨 4 模型家族对等协作 |
-| `[待填]` | `[待填]` | `[其他开源贡献]` |
+| **Cat Cafe Tutorials** (cat-cafe-tutorials) | Creator | 多智能体协作实践教程，配套 Cat Cafe 的入门与进阶指南，GitHub 600+ Stars |
 
 ---
 
@@ -185,8 +185,8 @@ thread_ids: []
 
 | Degree | University | Major / Focus | Notes |
 |--------|-----------|---------------|-------|
-| M.S. | Georgetown University | Computer Science · NLP | Washington, D.C. · `[Grad year]` |
-| B.Eng. | Xi'an Jiaotong-Liverpool University → University of Liverpool (2+2) | Computer Science + Software Engineering | 2 years Suzhou + 2 years Liverpool · `[Grad year]` |
+| M.S. | Georgetown University | Computer Science · NLP | Washington, D.C. · 2017–2019 |
+| B.Eng. | Xi'an Jiaotong-Liverpool University → University of Liverpool (2+2) | Computer Science + Software Engineering | 2 years Suzhou + 2 years Liverpool · 2013–2017 |
 
 ---
 
@@ -206,7 +206,7 @@ thread_ids: []
 
 以下信息需要你来补充，猫猫们帮不了：
 
-- [x] ~~教育背景~~ — 乔治城 NLP 硕士 + 西浦/利物浦 2+2 本科（待补毕业年份）
+- [x] ~~教育背景~~ — 乔治城 NLP 硕士 (2017–2019) + 西浦/利物浦 2+2 本科 (2013–2017)
 - [x] ~~华为 BU/部门~~ — 华为云/ICT · 云软件开发部 · 架构与技术
 - [x] ~~华为正式项目经历~~ — 巫山框架（500+ 云服务 / 6000+ 微服务）
 - [x] ~~华为之前的工作经历~~ — 应届入职，无
@@ -216,7 +216,7 @@ thread_ids: []
 **发简历时自行补充：**
 - [ ] 真实姓名 + 联系方式（手机/邮箱/微信）
 - [ ] 华为职位名称（级别写不写自己拿捏）
-- [ ] 毕业年份（教育背景里标了 `[待填]`）
+- [x] ~~毕业年份~~ — 已填
 - [ ] 其他技能（云原生/K8s/HarmonyOS 等，按目标岗位调整）
 
 ---
