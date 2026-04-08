@@ -60,8 +60,13 @@ function migrateCatalogVariants(catalog: CatCafeConfig): { catalog: CatCafeConfi
           delete variant.provider;
           dirty = true;
         } else if (variant.clientId === variant.provider) {
-          delete variant.provider;
-          dirty = true;
+          // Redundant provider (same as clientId). Only delete if ocProviderName
+          // needs to take its place; otherwise keep it so template merge can't
+          // leak a stale provider from the base config.
+          if (typeof variant.ocProviderName === 'string') {
+            delete variant.provider;
+            dirty = true;
+          }
         }
       }
 

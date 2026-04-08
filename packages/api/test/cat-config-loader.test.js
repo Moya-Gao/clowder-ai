@@ -228,7 +228,10 @@ describe('cat-config-loader', () => {
       try {
         const config = loadCatConfig();
         const variant = config.breeds[0].variants[0];
-        assert.equal(variant.provider, 'anthropic');
+        // F340: catalog's provider='anthropic' is kept (matches clientId, but retained to
+        // prevent template's stale provider='openai' from leaking through the merge).
+        assert.equal(variant.clientId, 'anthropic');
+        assert.equal(variant.provider, 'anthropic', 'catalog provider must override template provider');
         assert.deepEqual(variant.cli, {
           command: 'claude',
           outputFormat: 'stream-json',

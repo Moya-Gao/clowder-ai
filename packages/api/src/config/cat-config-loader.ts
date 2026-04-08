@@ -230,8 +230,17 @@ function readTemplate(templatePath: string): string {
 }
 
 /**
+ * Keys that represent atomic config units — overlay replaces base entirely,
+ * even though they are plain objects. Prevents stale sub-fields from leaking
+ * across provider switches (e.g. template cli.defaultArgs surviving into a
+ * catalog variant that switched to a different client).
+ */
+const ATOMIC_OBJECT_KEYS = new Set(['cli', 'color', 'contextBudget', 'voiceConfig']);
+
+/**
  * Deep merge two plain objects. `overlay` fields override `base` fields.
- * - Objects: recursively merged (base fields preserved if absent from overlay).
+ * - Atomic keys (cli, color, etc.): overlay replaces base entirely.
+ * - Other objects: recursively merged (base fields preserved if absent from overlay).
  * - Arrays of objects with `id`: key-based merge (matched by id, then deep-merged).
  *   Overlay-only items appended; base-only items preserved.
  * - Other arrays / primitives: overlay replaces base.
@@ -241,7 +250,9 @@ function deepMergeConfig(base: Record<string, unknown>, overlay: Record<string, 
   for (const key of Object.keys(overlay)) {
     const bVal = base[key];
     const oVal = overlay[key];
-    if (Array.isArray(oVal) && Array.isArray(bVal) && oVal.length > 0 && isIdArray(oVal) && isIdArray(bVal)) {
+    if (ATOMIC_OBJECT_KEYS.has(key)) {
+      merged[key] = oVal;
+    } else if (Array.isArray(oVal) && Array.isArray(bVal) && oVal.length > 0 && isIdArray(oVal) && isIdArray(bVal)) {
       merged[key] = mergeById(bVal as HasId[], oVal as HasId[]);
     } else if (isPlainObject(oVal) && isPlainObject(bVal)) {
       merged[key] = deepMergeConfig(bVal as Record<string, unknown>, oVal as Record<string, unknown>);
@@ -679,9 +690,12 @@ export function getCatEffort(catId: string, config?: CatCafeConfig, fallbackProv
   const variant = _catIdToVariant.get(catId);
   if (variant?.cli.effort) return variant.cli.effort;
 
-  // Client-aware defaults
-  if (variant?.clientId === 'openai') return 'xhigh';
-  if (variant?.clientId === 'anthropic') return 'max';
+  // Client-aware defaults: use variant's clientId if found, otherwise fallbackProvider
+  const effectiveProvider = variant?.clientId ?? fallbackProvider;
+  if (effectiveProvider) {
+    const normalized = normalizeCliEffortForProvider(effectiveProvider, undefined);
+    if (normalized) return normalized;
+  }
   return 'high';
 }
 
