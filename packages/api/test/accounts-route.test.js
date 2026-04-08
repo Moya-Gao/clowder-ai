@@ -18,7 +18,7 @@ async function makeWorkspaceDir(prefix) {
   return mkdtemp(join(process.cwd(), '..', '..', `.cat-cafe-provider-profile-route-workspace-${prefix}-`));
 }
 
-describe('provider profiles routes', () => {
+describe('accounts routes', () => {
   /** @type {string | undefined} */ let savedGlobalRoot;
 
   function setGlobalRoot(dir) {
@@ -34,24 +34,24 @@ describe('provider profiles routes', () => {
   // F136 Phase 4d: legacy v1/v2 migration tests removed — old provider-profiles.js store retired.
   // Migration to accounts is tested in account-startup-hook.test.js.
 
-  it('GET /api/provider-profiles requires identity', async () => {
+  it('GET /api/accounts requires identity', async () => {
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes);
+    await app.register(accountsRoutes);
     await app.ready();
 
-    const res = await app.inject({ method: 'GET', url: '/api/provider-profiles' });
+    const res = await app.inject({ method: 'GET', url: '/api/accounts' });
     assert.equal(res.statusCode, 401);
 
     await app.close();
   });
 
-  it('create + activate + list profile flow', async () => {
+  it('create + list profile flow', async () => {
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes);
+    await app.register(accountsRoutes);
     await app.ready();
 
     const projectDir = await makeTmpDir('crud');
@@ -59,7 +59,7 @@ describe('provider profiles routes', () => {
     try {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -69,7 +69,6 @@ describe('provider profiles routes', () => {
           baseUrl: 'https://api.route.dev',
           apiKey: 'sk-route',
           models: ['claude-opus-4-6'],
-          setActive: true,
         }),
       });
       assert.equal(createRes.statusCode, 200);
@@ -79,15 +78,14 @@ describe('provider profiles routes', () => {
 
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        url: `/api/accounts?projectPath=${encodeURIComponent(projectDir)}`,
         headers: AUTH_HEADERS,
       });
       assert.equal(listRes.statusCode, 200);
       const list = listRes.json();
       assert.ok(Array.isArray(list.providers));
-      // F136 Phase 4d: new response format — no legacy bootstrapBindings
-      assert.equal(list.activeProfileId, null);
-      assert.deepEqual(list.bootstrapBindings, {});
+      // F340: activeProfileId removed — activate concept retired
+      assert.equal(list.activeProfileId, undefined);
       const listed = list.providers.find((p) => p.id === created.profile.id);
       assert.ok(listed, 'created profile should appear in list');
       assert.equal(listed.hasApiKey, true);
@@ -98,11 +96,11 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('POST /api/provider-profiles/:id/test validates api_key profile via fetch', async () => {
+  it('POST /api/accounts/:id/test validates api_key profile via fetch', async () => {
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes, {
+    await app.register(accountsRoutes, {
       fetchImpl: async () => new Response('{}', { status: 200 }),
     });
     await app.ready();
@@ -112,7 +110,7 @@ describe('provider profiles routes', () => {
     try {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -128,11 +126,11 @@ describe('provider profiles routes', () => {
 
       const testRes = await app.inject({
         method: 'POST',
-        url: `/api/provider-profiles/${profileId}/test`,
+        url: `/api/accounts/${profileId}/test`,
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
-          protocol: 'anthropic',
+          provider: 'anthropic',
         }),
       });
       assert.equal(testRes.statusCode, 200);
@@ -145,12 +143,12 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('POST /api/provider-profiles/:id/test falls back to /v1/messages when /v1/models is 404', async () => {
+  it('POST /api/accounts/:id/test falls back to /v1/messages when /v1/models is 404', async () => {
     const Fastify = (await import('fastify')).default;
     const calls = [];
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes, {
+    await app.register(accountsRoutes, {
       fetchImpl: async (url, init) => {
         const urlString = String(url);
         calls.push({ method: init?.method ?? 'GET', url: urlString });
@@ -170,7 +168,7 @@ describe('provider profiles routes', () => {
     try {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -186,11 +184,11 @@ describe('provider profiles routes', () => {
 
       const testRes = await app.inject({
         method: 'POST',
-        url: `/api/provider-profiles/${profileId}/test`,
+        url: `/api/accounts/${profileId}/test`,
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
-          protocol: 'anthropic',
+          provider: 'anthropic',
         }),
       });
       assert.equal(testRes.statusCode, 200);
@@ -208,12 +206,12 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('POST /api/provider-profiles/:id/test treats invalid-model 400 as compatible success', async () => {
+  it('POST /api/accounts/:id/test treats invalid-model 400 as compatible success', async () => {
     const Fastify = (await import('fastify')).default;
     const calls = [];
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes, {
+    await app.register(accountsRoutes, {
       fetchImpl: async (url, init) => {
         const urlString = String(url);
         calls.push({ method: init?.method ?? 'GET', url: urlString });
@@ -235,7 +233,7 @@ describe('provider profiles routes', () => {
     try {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -251,7 +249,7 @@ describe('provider profiles routes', () => {
 
       const testRes = await app.inject({
         method: 'POST',
-        url: `/api/provider-profiles/${profileId}/test`,
+        url: `/api/accounts/${profileId}/test`,
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -273,9 +271,9 @@ describe('provider profiles routes', () => {
 
   it('rejects blank profile name in create request', async () => {
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes);
+    await app.register(accountsRoutes);
     await app.ready();
 
     const projectDir = await makeTmpDir('blank-name');
@@ -283,7 +281,7 @@ describe('provider profiles routes', () => {
     try {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -299,11 +297,11 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('POST /api/provider-profiles assigns unique IDs when displayName collides', async () => {
+  it('POST /api/accounts assigns unique IDs when displayName collides', async () => {
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes);
+    await app.register(accountsRoutes);
     await app.ready();
 
     const projectDir = await makeTmpDir('slug-collision');
@@ -311,7 +309,7 @@ describe('provider profiles routes', () => {
     try {
       const first = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -326,7 +324,7 @@ describe('provider profiles routes', () => {
 
       const second = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -342,7 +340,7 @@ describe('provider profiles routes', () => {
 
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        url: `/api/accounts?projectPath=${encodeURIComponent(projectDir)}`,
         headers: AUTH_HEADERS,
       });
       const list = listRes.json();
@@ -356,11 +354,11 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('PATCH /api/provider-profiles/:id clears credential when apiKey is empty string', async () => {
+  it('PATCH /api/accounts/:id clears credential when apiKey is empty string', async () => {
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes);
+    await app.register(accountsRoutes);
     await app.ready();
 
     const projectDir = await makeTmpDir('clear-cred');
@@ -369,7 +367,7 @@ describe('provider profiles routes', () => {
       // Create profile with apiKey
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -385,7 +383,7 @@ describe('provider profiles routes', () => {
       // PATCH with empty apiKey to clear credential
       const patchRes = await app.inject({
         method: 'PATCH',
-        url: `/api/provider-profiles/${profileId}`,
+        url: `/api/accounts/${profileId}`,
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -402,7 +400,7 @@ describe('provider profiles routes', () => {
       // Verify via GET
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        url: `/api/accounts?projectPath=${encodeURIComponent(projectDir)}`,
         headers: AUTH_HEADERS,
       });
       const profile = listRes.json().providers.find((p) => p.id === profileId);
@@ -414,160 +412,14 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('PATCH /api/provider-profiles/:id preserves existing protocol when baseUrl changes without explicit override', async () => {
-    const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
-    const app = Fastify();
-    await app.register(providerProfilesRoutes);
-    await app.ready();
+  // F340: Protocol persistence tests removed — protocol is now derived at runtime from client/provider.
 
-    const projectDir = await makeTmpDir('reinfer-proto');
-    setGlobalRoot(projectDir);
-    try {
-      // Create an anthropic account behind a vendor-neutral proxy URL.
-      const createRes = await app.inject({
-        method: 'POST',
-        url: '/api/provider-profiles',
-        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
-        payload: JSON.stringify({
-          projectPath: projectDir,
-          displayName: 'Anthropic Proxy',
-          authType: 'api_key',
-          protocol: 'anthropic',
-          baseUrl: 'https://proxy.example.com/v1',
-          apiKey: 'sk-test',
-          models: ['claude-sonnet-4-5'],
-        }),
-      });
-      assert.equal(createRes.statusCode, 200);
-      const profileId = createRes.json().profile.id;
-      assert.equal(createRes.json().profile.protocol, 'anthropic');
-
-      // Normal proxy baseUrl maintenance must not silently rewrite the account family.
-      const patchRes = await app.inject({
-        method: 'PATCH',
-        url: `/api/provider-profiles/${profileId}`,
-        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
-        payload: JSON.stringify({
-          projectPath: projectDir,
-          baseUrl: 'https://proxy-2.example.com/v1',
-        }),
-      });
-      assert.equal(patchRes.statusCode, 200);
-      assert.equal(
-        patchRes.json().profile.protocol,
-        'anthropic',
-        'hidden protocol must be preserved across baseUrl-only edits',
-      );
-    } finally {
-      restoreGlobalRoot();
-      await rm(projectDir, { recursive: true, force: true });
-      await app.close();
-    }
-  });
-
-  it('PATCH keeps current protocol even when the new baseUrl would hint another family', async () => {
-    const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
-    const app = Fastify();
-    await app.register(providerProfilesRoutes);
-    await app.ready();
-
-    const projectDir = await makeTmpDir('reinfer-name-trap');
-    setGlobalRoot(projectDir);
-    try {
-      // displayName "Codex Sponsor" contains "codex" → would match openai in nameHints
-      const createRes = await app.inject({
-        method: 'POST',
-        url: '/api/provider-profiles',
-        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
-        payload: JSON.stringify({
-          projectPath: projectDir,
-          displayName: 'Codex Sponsor',
-          authType: 'api_key',
-          baseUrl: 'https://proxy.example.com',
-          apiKey: 'sk-test',
-          models: ['gpt-5.4'],
-        }),
-      });
-      assert.equal(createRes.statusCode, 200);
-      const profileId = createRes.json().profile.id;
-      assert.equal(createRes.json().profile.protocol, 'openai');
-
-      // PATCH baseUrl to an anthropic-looking endpoint — protocol should stay openai.
-      const patchRes = await app.inject({
-        method: 'PATCH',
-        url: `/api/provider-profiles/${profileId}`,
-        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
-        payload: JSON.stringify({
-          projectPath: projectDir,
-          baseUrl: 'https://api.minimaxi.com/anthropic',
-        }),
-      });
-      assert.equal(patchRes.statusCode, 200);
-      assert.equal(
-        patchRes.json().profile.protocol,
-        'openai',
-        'hidden protocol must not be silently reclassified by a new baseUrl hint',
-      );
-    } finally {
-      restoreGlobalRoot();
-      await rm(projectDir, { recursive: true, force: true });
-      await app.close();
-    }
-  });
-
-  it('PATCH /api/provider-profiles/:id accepts explicit protocol override for API clients', async () => {
-    const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
-    const app = Fastify();
-    await app.register(providerProfilesRoutes);
-    await app.ready();
-
-    const projectDir = await makeTmpDir('patch-explicit-protocol');
-    setGlobalRoot(projectDir);
-    try {
-      const createRes = await app.inject({
-        method: 'POST',
-        url: '/api/provider-profiles',
-        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
-        payload: JSON.stringify({
-          projectPath: projectDir,
-          displayName: 'proxy-account',
-          authType: 'api_key',
-          baseUrl: 'https://proxy.example.com',
-          apiKey: 'sk-test',
-          models: ['gpt-5.4'],
-        }),
-      });
-      assert.equal(createRes.statusCode, 200);
-      const profileId = createRes.json().profile.id;
-
-      const patchRes = await app.inject({
-        method: 'PATCH',
-        url: `/api/provider-profiles/${profileId}`,
-        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
-        payload: JSON.stringify({
-          projectPath: projectDir,
-          baseUrl: 'https://api.minimaxi.com/anthropic',
-          protocol: 'anthropic',
-        }),
-      });
-      assert.equal(patchRes.statusCode, 200);
-      assert.equal(patchRes.json().profile.protocol, 'anthropic');
-    } finally {
-      restoreGlobalRoot();
-      await rm(projectDir, { recursive: true, force: true });
-      await app.close();
-    }
-  });
-
-  it('POST /api/provider-profiles/:id/test validates openai api_key providers via fetch', async () => {
+  it('POST /api/accounts/:id/test validates openai api_key providers via fetch', async () => {
     const Fastify = (await import('fastify')).default;
     const calls = [];
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes, {
+    await app.register(accountsRoutes, {
       fetchImpl: async (url, init) => {
         calls.push({ url: String(url), headers: init?.headers });
         return new Response('{}', { status: 200 });
@@ -580,7 +432,7 @@ describe('provider profiles routes', () => {
     try {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -597,7 +449,7 @@ describe('provider profiles routes', () => {
 
       const testRes = await app.inject({
         method: 'POST',
-        url: `/api/provider-profiles/${profileId}/test`,
+        url: `/api/accounts/${profileId}/test`,
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -614,12 +466,12 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('POST /api/provider-profiles/:id/test probes Gemini-style /v1beta/models endpoints', async () => {
+  it('POST /api/accounts/:id/test probes Gemini-style /v1beta/models endpoints', async () => {
     const Fastify = (await import('fastify')).default;
     const calls = [];
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes, {
+    await app.register(accountsRoutes, {
       fetchImpl: async (url, init) => {
         calls.push({ url: String(url), headers: init?.headers });
         const path = new URL(String(url)).pathname;
@@ -634,7 +486,7 @@ describe('provider profiles routes', () => {
     try {
       const createRes = await app.inject({
         method: 'POST',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -651,7 +503,7 @@ describe('provider profiles routes', () => {
 
       const testRes = await app.inject({
         method: 'POST',
-        url: `/api/provider-profiles/${profileId}/test`,
+        url: `/api/accounts/${profileId}/test`,
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
@@ -669,9 +521,9 @@ describe('provider profiles routes', () => {
 
   it('accepts workspace projectPath even when validateProjectPath allowlist excludes it', async () => {
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes);
+    await app.register(accountsRoutes);
     await app.ready();
 
     const workspaceDir = await makeWorkspaceDir('switch');
@@ -684,7 +536,7 @@ describe('provider profiles routes', () => {
     try {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/provider-profiles?projectPath=${encodeURIComponent(workspaceDir)}`,
+        url: `/api/accounts?projectPath=${encodeURIComponent(workspaceDir)}`,
         headers: AUTH_HEADERS,
       });
       assert.equal(res.statusCode, 200);
@@ -702,9 +554,9 @@ describe('provider profiles routes', () => {
 
   it('defaults projectPath to CAT_TEMPLATE_PATH directory when query omits projectPath', async () => {
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes);
+    await app.register(accountsRoutes);
     await app.ready();
 
     const projectDir = await makeTmpDir('default-root');
@@ -717,7 +569,7 @@ describe('provider profiles routes', () => {
     try {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/provider-profiles',
+        url: '/api/accounts',
         headers: AUTH_HEADERS,
       });
       assert.equal(res.statusCode, 200);
@@ -731,13 +583,13 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('GET /api/provider-profiles returns correct client for non-standard builtins (dare/opencode)', async () => {
+  it('GET /api/accounts returns correct client for non-standard builtins (dare/opencode)', async () => {
     const { writeFileSync, mkdirSync } = await import('node:fs');
     const { writeCatalogAccount } = await import('../dist/config/catalog-accounts.js');
     const Fastify = (await import('fastify')).default;
-    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
     const app = Fastify();
-    await app.register(providerProfilesRoutes);
+    await app.register(accountsRoutes);
     await app.ready();
 
     const projectDir = await makeTmpDir('client-field');
@@ -758,20 +610,20 @@ describe('provider profiles routes', () => {
 
       const res = await app.inject({
         method: 'GET',
-        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        url: `/api/accounts?projectPath=${encodeURIComponent(projectDir)}`,
         headers: AUTH_HEADERS,
       });
       assert.equal(res.statusCode, 200);
       const providers = res.json().providers;
 
       const claude = providers.find((p) => p.id === 'claude');
-      assert.equal(claude.client, 'anthropic', 'claude builtin client should be protocol (anthropic)');
+      assert.equal(claude.clientId, 'anthropic', 'claude builtin clientId should be protocol (anthropic)');
 
       const dare = providers.find((p) => p.id === 'dare');
-      assert.equal(dare.client, 'dare', 'dare builtin client should be its own ID, not protocol');
+      assert.equal(dare.clientId, 'dare', 'dare builtin clientId should be its own ID, not protocol');
 
       const opencode = providers.find((p) => p.id === 'opencode');
-      assert.equal(opencode.client, 'opencode', 'opencode builtin client should be its own ID, not protocol');
+      assert.equal(opencode.clientId, 'opencode', 'opencode builtin clientId should be its own ID, not protocol');
     } finally {
       restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });

@@ -246,50 +246,25 @@ describe('cat-catalog-store', () => {
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
 
-    // F136 Phase 4d: without explicit bootstrap bindings, raw template variants
-    // pass through as-is. accountRef is filled in on first read via migration.
+    // F340: migrateVariantAccountRefs assigns default accountRef for each provider
     assert.deepEqual(
       runtimeCatalog.breeds.map((breed) => [breed.id, breed.variants.map((variant) => variant.accountRef ?? null)]),
       [
-        ['ragdoll', [null, null]],
-        ['maine-coon', [null, null]],
-        ['siamese', [null]],
-        ['dragon-li', [null]],
-        ['golden-chinchilla', [null]],
+        ['ragdoll', ['claude', 'claude']],
+        ['maine-coon', ['codex', 'codex']],
+        ['siamese', ['gemini']],
+        ['dragon-li', ['dare']],
+        ['golden-chinchilla', ['opencode']],
       ],
     );
   });
 
-  it('bootstraps installer api_key bindings while preserving skipped seed members', () => {
+  // F340: bootstrapBindings no longer consumed — bootstrap always assigns default accountRef
+  it('bootstrap ignores legacy provider-profiles.json and assigns default accountRefs', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-f127-installer-'));
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
     const templatePath = join(projectRoot, 'cat-template.json');
     writeFileSync(templatePath, JSON.stringify(makeF127BootstrapTemplate(), null, 2));
-    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.cat-cafe', 'provider-profiles.json'),
-      JSON.stringify(
-        {
-          version: 3,
-          activeProfileId: null,
-          bootstrapBindings: {
-            anthropic: { enabled: true, mode: 'api_key', accountRef: 'api-key-1' },
-            openai: { enabled: true, mode: 'oauth', accountRef: 'codex' },
-            google: { enabled: false, mode: 'skip' },
-          },
-          providers: [
-            { id: 'claude', kind: 'builtin', client: 'anthropic', authType: 'oauth', builtin: true },
-            { id: 'codex', kind: 'builtin', client: 'openai', authType: 'oauth', builtin: true },
-            { id: 'gemini', kind: 'builtin', client: 'google', authType: 'oauth', builtin: true },
-            { id: 'dare', kind: 'builtin', client: 'dare', authType: 'oauth', builtin: true },
-            { id: 'opencode', kind: 'builtin', client: 'opencode', authType: 'oauth', builtin: true },
-            { id: 'api-key-1', kind: 'api_key', displayName: 'API Key 1', authType: 'api_key', builtin: false },
-          ],
-        },
-        null,
-        2,
-      ),
-    );
 
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
@@ -297,11 +272,11 @@ describe('cat-catalog-store', () => {
     assert.deepEqual(
       runtimeCatalog.breeds.map((breed) => [breed.id, breed.variants.map((variant) => variant.accountRef ?? null)]),
       [
-        ['ragdoll', ['api-key-1']],
+        ['ragdoll', ['claude', 'claude']],
         ['maine-coon', ['codex', 'codex']],
-        ['siamese', [null]],
-        ['dragon-li', [null]],
-        ['golden-chinchilla', [null]],
+        ['siamese', ['gemini']],
+        ['dragon-li', ['dare']],
+        ['golden-chinchilla', ['opencode']],
       ],
     );
   });
@@ -312,7 +287,7 @@ describe('cat-catalog-store', () => {
     const template = makeF127BootstrapTemplate();
     const codexBreed = template.breeds.find((breed) => breed.catId === 'codex');
     if (!codexBreed) throw new Error('codex breed missing from template');
-    codexBreed.variants[0].providerProfileId = 'codex-pinned';
+    codexBreed.variants[0].accountRef = 'codex-pinned';
     writeFileSync(templatePath, JSON.stringify(template, null, 2));
 
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
@@ -321,9 +296,8 @@ describe('cat-catalog-store', () => {
     const runtimeCodexVariant = runtimeCodexBreed?.variants[0];
 
     // F136 Phase 4d: without bootstrap bindings, raw variant passes through.
-    // providerProfileId is preserved; accountRef is derived on first migrating read.
-    assert.equal(runtimeCodexVariant?.accountRef, undefined);
-    assert.equal(runtimeCodexVariant?.providerProfileId, 'codex-pinned');
+    // accountRef is preserved as-is on bootstrap.
+    assert.equal(runtimeCodexVariant?.accountRef, 'codex-pinned');
   });
 
   it('bootstraps .cat-cafe/cat-catalog.json from cat-template.json', () => {
@@ -336,9 +310,8 @@ describe('cat-catalog-store', () => {
     assert.equal(catalogPath, resolveCatCatalogPath(projectRoot));
     assert.ok(existsSync(catalogPath), 'runtime catalog should be created');
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
-    // F136 Phase 4d: fresh bootstrap without bindings → no accountRef on raw catalog
-    assert.deepEqual(runtimeCatalog.breeds[0]?.variants[0]?.accountRef, undefined);
-    assert.deepEqual(runtimeCatalog, template);
+    // F340: migrateVariantAccountRefs assigns default accountRef on bootstrap
+    assert.equal(runtimeCatalog.breeds[0]?.variants[0]?.accountRef, 'claude');
   });
 
   it('keeps existing .cat-cafe/cat-catalog.json runtime edits while backfilling missing accountRef bindings', () => {
@@ -374,7 +347,7 @@ describe('cat-catalog-store', () => {
       mentionPatterns: ['@spark-lite', '@火花猫'],
       roleDescription: '快速执行',
       personality: '利落',
-      provider: 'openai',
+      clientId: 'openai',
       defaultModel: 'gpt-5.4-mini',
       mcpSupport: false,
       cli: { command: 'codex', outputFormat: 'json' },
@@ -396,7 +369,7 @@ describe('cat-catalog-store', () => {
     assert.ok(created, 'spark-lite breed should be created');
     assert.equal(created.displayName, '火花猫');
     assert.deepEqual(created.mentionPatterns, ['@spark-lite', '@火花猫']);
-    assert.equal(created.variants[0]?.provider, 'openai');
+    assert.equal(created.variants[0]?.clientId, 'openai');
   });
 
   it('updates an existing runtime member in place', async () => {
@@ -580,7 +553,7 @@ describe('cat-catalog-store', () => {
         color: { primary: '#f97316', secondary: '#fed7aa' },
         mentionPatterns: ['@opus', '@spark-lite'],
         roleDescription: '快速执行',
-        provider: 'openai',
+        clientId: 'openai',
         defaultModel: 'gpt-5.4',
         mcpSupport: false,
         cli: { command: 'codex', outputFormat: 'json' },
@@ -607,7 +580,7 @@ describe('cat-catalog-store', () => {
       mentionPatterns: ['@temp-cat'],
       roleDescription: '临时成员',
       personality: '临时',
-      provider: 'dare',
+      clientId: 'dare',
       defaultModel: 'dare-1',
       mcpSupport: false,
       cli: { command: 'dare', outputFormat: 'json' },
@@ -674,7 +647,7 @@ describe('cat-catalog-store', () => {
         mentionPatterns: ['@temp-cat'],
         roleDescription: '临时成员',
         personality: '临时',
-        provider: 'dare',
+        clientId: 'dare',
         defaultModel: 'dare-1',
         mcpSupport: false,
         cli: { command: 'dare', outputFormat: 'json' },
@@ -719,7 +692,7 @@ describe('cat-catalog-store', () => {
       color: { primary: '#334155', secondary: '#cbd5f5' },
       mentionPatterns: ['@shadow-seed'],
       roleDescription: '用于路径边界验证',
-      provider: 'dare',
+      clientId: 'dare',
       defaultModel: 'dare-1',
       mcpSupport: false,
       cli: { command: 'dare', outputFormat: 'json' },
@@ -742,74 +715,5 @@ describe('cat-catalog-store', () => {
     );
   });
 
-  it('api_key bootstrap uses profile model when template defaultModel is not in profile', () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-model-'));
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
-    const templatePath = join(projectRoot, 'cat-template.json');
-    const catCafeDir = join(projectRoot, '.cat-cafe');
-    mkdirSync(catCafeDir, { recursive: true });
-
-    writeFileSync(
-      templatePath,
-      JSON.stringify({
-        version: 2,
-        breeds: [
-          {
-            id: 'ragdoll',
-            catId: 'opus',
-            name: '布偶猫',
-            displayName: '布偶猫',
-            avatar: '/avatars/opus.png',
-            color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
-            mentionPatterns: ['@opus'],
-            roleDescription: '主架构师',
-            defaultVariantId: 'opus-default',
-            variants: [
-              {
-                id: 'opus-default',
-                provider: 'anthropic',
-                defaultModel: 'claude-opus-4-6',
-                cli: { command: 'claude' },
-              },
-            ],
-          },
-        ],
-      }),
-    );
-
-    // API key profile with different models
-    writeFileSync(
-      join(catCafeDir, 'provider-profiles.json'),
-      JSON.stringify({
-        version: 3,
-        activeProfileId: null,
-        providers: [
-          {
-            id: 'installer-anthropic',
-            displayName: 'Installer anthropic API Key',
-            kind: 'api_key',
-            authType: 'api_key',
-            protocol: 'anthropic',
-            baseUrl: 'https://openrouter.ai/api',
-            models: ['z-ai/glm-4.7', 'z-ai/glm-4.6'],
-          },
-        ],
-        bootstrapBindings: {
-          anthropic: { mode: 'api_key', accountRef: 'installer-anthropic' },
-        },
-      }),
-    );
-
-    bootstrapCatCatalog(projectRoot, templatePath);
-
-    const catalog = readRuntimeCatCatalog(projectRoot);
-    const opus = catalog.breeds.find((b) => b.catId === 'opus');
-    assert.ok(opus, 'opus seed cat should exist');
-    const variant = opus.variants[0];
-    assert.equal(
-      variant.defaultModel,
-      'z-ai/glm-4.7',
-      'defaultModel should fall back to first model from the API key profile',
-    );
-  });
+  // F340: removed api_key bootstrap model fallback test — filterBootstrapCatalog + bootstrapBindings deleted
 });

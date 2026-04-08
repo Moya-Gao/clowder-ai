@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+/**
+ * F340: Auth config installer — writes directly to global accounts + credentials.
+ *
+ * Storage:
+ *   ~/.cat-cafe/accounts.json    — account metadata (authType, baseUrl, models, displayName)
+ *   ~/.cat-cafe/credentials.json — API keys / tokens
+ */
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 
 const BUILTIN_ACCOUNT_SPECS = [
@@ -8,36 +16,49 @@ const BUILTIN_ACCOUNT_SPECS = [
     id: 'claude',
     displayName: 'Claude',
     client: 'anthropic',
+    protocol: 'anthropic',
     models: ['claude-opus-4-6[1m]', 'claude-sonnet-4-6', 'claude-opus-4-5-20251101'],
   },
-  { id: 'codex', displayName: 'Codex', client: 'openai', models: ['gpt-5.3-codex', 'gpt-5.4', 'gpt-5.3-codex-spark'] },
-  { id: 'gemini', displayName: 'Gemini', client: 'google', models: ['gemini-3.1-pro-preview', 'gemini-2.5-pro'] },
-  { id: 'dare', displayName: 'Dare', client: 'dare', models: ['z-ai/glm-4.7'] },
-  { id: 'opencode', displayName: 'OpenCode', client: 'opencode', models: ['claude-opus-4-6', 'claude-sonnet-4-5'] },
+  {
+    id: 'codex',
+    displayName: 'Codex',
+    client: 'openai',
+    protocol: 'openai',
+    models: ['gpt-5.3-codex', 'gpt-5.4', 'gpt-5.3-codex-spark'],
+  },
+  {
+    id: 'gemini',
+    displayName: 'Gemini',
+    client: 'google',
+    protocol: 'google',
+    models: ['gemini-3.1-pro-preview', 'gemini-2.5-pro'],
+  },
+  { id: 'dare', displayName: 'Dare', client: 'dare', protocol: 'openai', models: ['z-ai/glm-4.7'] },
+  {
+    id: 'opencode',
+    displayName: 'OpenCode',
+    client: 'opencode',
+    protocol: 'anthropic',
+    models: ['claude-opus-4-6', 'claude-sonnet-4-5'],
+  },
 ];
 
-const DEFAULT_OAUTH_CLIENTS = new Set(['anthropic', 'openai', 'google']);
-const LEGACY_BUILTIN_ID_MAP = {
-  'claude-oauth': 'anthropic',
-  'codex-oauth': 'openai',
-  'gemini-oauth': 'google',
-};
+const CONFIG_SUBDIR = '.cat-cafe';
 
 function usage() {
   console.error(`Usage:
   node scripts/install-auth-config.mjs env-apply --env-file FILE [--set KEY=VALUE]... [--delete KEY]...
   node scripts/install-auth-config.mjs client-auth set --project-dir DIR --client CLIENT --mode oauth|api_key [--display-name NAME] [--api-key KEY] [--base-url URL]
     API key can also be passed via _INSTALLER_API_KEY env var (preferred for security).
-  node scripts/install-auth-config.mjs client-auth remove --project-dir DIR --client CLIENT
+  node scripts/install-auth-config.mjs client-auth remove --project-dir DIR --client CLIENT [--force true]
   node scripts/install-auth-config.mjs claude-profile set --project-dir DIR [--api-key KEY] [--base-url URL] [--model MODEL]
-  node scripts/install-auth-config.mjs claude-profile remove --project-dir DIR`);
+  node scripts/install-auth-config.mjs claude-profile remove --project-dir DIR [--force true]`);
   process.exit(1);
 }
 
 function parseArgs(argv) {
   const positionals = [];
   const values = new Map();
-
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token.startsWith('--')) {
@@ -46,16 +67,11 @@ function parseArgs(argv) {
     }
     const key = token.slice(2);
     const next = argv[index + 1];
-    if (!next || next.startsWith('--')) {
-      usage();
-    }
-    if (!values.has(key)) {
-      values.set(key, []);
-    }
+    if (!next || next.startsWith('--')) usage();
+    if (!values.has(key)) values.set(key, []);
     values.get(key).push(next);
     index += 1;
   }
-
   return { positionals, values };
 }
 
@@ -69,11 +85,11 @@ function getOptional(values, key, fallback = '') {
   return values.get(key)?.[0] ?? fallback;
 }
 
+// ── Env file helpers (unchanged) ──
+
 function envQuote(value) {
   const stringValue = String(value).replace(/\r/g, '\\r').replace(/\n/g, '\\n');
-  if (!stringValue.includes("'")) {
-    return `'${stringValue}'`;
-  }
+  if (!stringValue.includes("'")) return `'${stringValue}'`;
   return `"${stringValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`')}"`;
 }
 
@@ -96,43 +112,75 @@ function applyEnvChanges(envFile, setPairs, deleteKeys) {
     const key = line.slice(0, separator);
     return !deleteSet.has(key) && !setMap.has(key);
   });
-  for (const [key, value] of setMap.entries()) {
-    filtered.push(`${key}=${envQuote(value)}`);
-  }
+  for (const [key, value] of setMap.entries()) filtered.push(`${key}=${envQuote(value)}`);
   writeFileSync(envFile, filtered.length > 0 ? `${filtered.join('\n')}\n` : '', 'utf8');
+}
+
+// ── Global file helpers ──
+
+function resolveGlobalRoot() {
+  const envRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+  if (envRoot) return path.resolve(envRoot);
+  return homedir();
+}
+
+function globalDir() {
+  return path.join(resolveGlobalRoot(), CONFIG_SUBDIR);
+}
+
+function writeFileAtomic(filePath, content, mode) {
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(tempPath, content, 'utf-8');
+  try {
+    renameSync(tempPath, filePath);
+    if (mode) chmodSync(filePath, mode);
+  } catch (error) {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      /* ignore */
+    }
+    throw error;
+  }
 }
 
 function readJson(file, fallback) {
   if (!existsSync(file)) return fallback;
+  return JSON.parse(readFileSync(file, 'utf8'));
+}
+
+function readJsonSafe(file, fallback) {
+  if (!existsSync(file)) return fallback;
   try {
     return JSON.parse(readFileSync(file, 'utf8'));
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to parse ${path.basename(file)}: ${reason}`);
+  } catch {
+    return fallback;
   }
 }
 
-function normalizeBaseUrl(baseUrl) {
-  const trimmed = baseUrl?.trim();
-  return trimmed ? trimmed.replace(/\/+$/, '') : undefined;
+function readAccounts() {
+  const file = path.join(globalDir(), 'accounts.json');
+  const raw = readJson(file, {}); // throws on corrupt → fail fast
+  return typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? raw : {};
 }
 
-function normalizeModels(models) {
-  if (!Array.isArray(models)) return undefined;
-  return Array.from(new Set(models.map((value) => String(value).trim()).filter((value) => value.length > 0)));
+function writeAccounts(accounts) {
+  mkdirSync(globalDir(), { recursive: true });
+  writeFileAtomic(path.join(globalDir(), 'accounts.json'), `${JSON.stringify(accounts, null, 2)}\n`);
 }
 
-function normalizeBuiltinModels(models, builtinModels) {
-  const normalized = normalizeModels(models);
-  if (!normalized) return [...builtinModels];
-  return Array.from(new Set([...normalized, ...builtinModels]));
+function readCredentials() {
+  const file = path.join(globalDir(), 'credentials.json');
+  const raw = readJson(file, {});
+  return typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? raw : {};
 }
 
-function builtinAccountIdForClient(client) {
-  const spec = BUILTIN_ACCOUNT_SPECS.find((item) => item.client === client);
-  if (!spec) throw new Error(`Unsupported client "${client}"`);
-  return spec.id;
+function writeCredentials(creds) {
+  mkdirSync(globalDir(), { recursive: true });
+  writeFileAtomic(path.join(globalDir(), 'credentials.json'), `${JSON.stringify(creds, null, 2)}\n`, 0o600);
 }
+
+// ── Normalization helpers ──
 
 function normalizeClient(rawClient) {
   const trimmed = rawClient?.trim().toLowerCase();
@@ -145,318 +193,155 @@ function normalizeClient(rawClient) {
   return null;
 }
 
-function defaultBindingForClient(client) {
-  if (DEFAULT_OAUTH_CLIENTS.has(client)) {
-    return oauthBindingForClient(client);
-  }
-  return {
-    enabled: false,
-    mode: 'skip',
-  };
+function normalizeBaseUrl(baseUrl) {
+  const trimmed = baseUrl?.trim();
+  return trimmed ? trimmed.replace(/\/+$/, '') : undefined;
 }
 
-function oauthBindingForClient(client) {
-  return {
-    enabled: true,
-    mode: 'oauth',
-    accountRef: builtinAccountIdForClient(client),
-  };
+function normalizeModels(models) {
+  if (!Array.isArray(models)) return undefined;
+  return Array.from(new Set(models.map((v) => String(v).trim()).filter((v) => v.length > 0)));
 }
 
-function createDefaultProfiles() {
-  const now = new Date().toISOString();
-  return {
-    version: 3,
-    activeProfileId: null,
-    providers: BUILTIN_ACCOUNT_SPECS.map((spec) => ({
-      id: spec.id,
-      displayName: spec.displayName,
-      kind: 'builtin',
-      authType: 'oauth',
-      builtin: true,
-      client: spec.client,
-      createdAt: now,
-      updatedAt: now,
-    })),
-    bootstrapBindings: Object.fromEntries(
-      BUILTIN_ACCOUNT_SPECS.map((spec) => [spec.client, defaultBindingForClient(spec.client)]),
-    ),
-  };
+function builtinAccountIdForClient(client) {
+  const spec = BUILTIN_ACCOUNT_SPECS.find((s) => s.client === client);
+  if (!spec) throw new Error(`Unsupported client "${client}"`);
+  return spec.id;
 }
 
-function createDefaultSecrets() {
-  return { version: 3, profiles: {} };
-}
+// ── Legacy migration (v2/v3 provider-profiles → accounts+credentials) ──
 
-function normalizeProfile(profile, now) {
-  if (profile?.kind === 'builtin' || profile?.builtin) {
-    const client = normalizeClient(profile.client ?? LEGACY_BUILTIN_ID_MAP[profile.id]);
-    if (!client) {
-      return null;
-    }
-    return {
-      id: builtinAccountIdForClient(client),
-      displayName:
-        profile.displayName?.trim() ||
-        BUILTIN_ACCOUNT_SPECS.find((item) => item.client === client)?.displayName ||
-        builtinAccountIdForClient(client),
-      kind: 'builtin',
-      authType: 'oauth',
-      builtin: true,
-      client,
-      models: normalizeBuiltinModels(
-        profile.models,
-        BUILTIN_ACCOUNT_SPECS.find((item) => item.client === client)?.models ?? [],
-      ),
-      createdAt: profile.createdAt || now,
-      updatedAt: profile.updatedAt || profile.createdAt || now,
+function migrateLegacyProfiles(projectDir) {
+  const profileDir = projectDir ? path.join(projectDir, CONFIG_SUBDIR) : globalDir();
+  const metaFile = path.join(profileDir, 'provider-profiles.json');
+  if (!existsSync(metaFile)) return;
+  const meta = readJson(metaFile, null); // throws on corrupt — intentional (fail fast)
+  const providers = meta?.providers ?? meta?.profiles ?? [];
+  if (!Array.isArray(providers) || providers.length === 0) return;
+
+  const accounts = readAccounts();
+  const mergedIds = new Set();
+  for (const p of providers) {
+    const id = String(p.id ?? '').trim();
+    if (!id || id in accounts) continue;
+    // Derive protocol from explicit field, then client hint (per account-resolver.ts)
+    const client = String(p.client ?? '').toLowerCase();
+    const clientProtocol = {
+      anthropic: 'anthropic',
+      claude: 'anthropic',
+      openai: 'openai',
+      codex: 'openai',
+      google: 'google',
+      gemini: 'google',
+      dare: 'openai',
+      opencode: 'anthropic',
     };
-  }
-
-  const id = profile?.id?.trim();
-  if (!id) return null;
-  const protocol = normalizeClient(profile.protocol ?? profile.provider);
-  return {
-    id,
-    displayName: profile.displayName?.trim() || profile.name?.trim() || id,
-    kind: 'api_key',
-    authType: 'api_key',
-    builtin: false,
-    ...(protocol ? { protocol } : {}),
-    ...(normalizeBaseUrl(profile.baseUrl) ? { baseUrl: normalizeBaseUrl(profile.baseUrl) } : {}),
-    ...(normalizeModels(profile.models) ? { models: normalizeModels(profile.models) } : {}),
-    createdAt: profile.createdAt || now,
-    updatedAt: profile.updatedAt || profile.createdAt || now,
-  };
-}
-
-function normalizeBootstrapBindings(rawBindings, providers) {
-  const defaults = createDefaultProfiles().bootstrapBindings;
-  const providersById = new Map(providers.map((profile) => [profile.id, profile]));
-  const next = {};
-
-  for (const spec of BUILTIN_ACCOUNT_SPECS) {
-    const candidate = rawBindings?.[spec.client];
-    if (!candidate) {
-      next[spec.client] = defaults[spec.client];
-      continue;
-    }
-    if (candidate.mode === 'oauth' && candidate.enabled !== false) {
-      next[spec.client] = oauthBindingForClient(spec.client);
-      continue;
-    }
-    if (candidate.mode === 'skip' || candidate.enabled === false) {
-      next[spec.client] = { enabled: false, mode: 'skip' };
-      continue;
-    }
-    const accountRef = candidate.accountRef?.trim();
-    const account = accountRef ? providersById.get(accountRef) : undefined;
-    if (candidate.mode === 'api_key' && account?.kind === 'api_key') {
-      next[spec.client] = { enabled: true, mode: 'api_key', accountRef: account.id };
-      continue;
-    }
-    next[spec.client] = defaults[spec.client];
-  }
-
-  return next;
-}
-
-function migrateV2Profiles(raw) {
-  const next = createDefaultProfiles();
-  const now = new Date().toISOString();
-  if (Array.isArray(raw?.profiles)) {
-    for (const legacyProfile of raw.profiles) {
-      if (LEGACY_BUILTIN_ID_MAP[legacyProfile.id]) continue;
-      const normalized = normalizeProfile(legacyProfile, now);
-      if (normalized) next.providers.push(normalized);
-    }
-  }
-
-  const selected = raw?.activeProfileIds ?? {};
-  const activeByClient = {
-    anthropic: selected.anthropic ?? raw?.activeProfileId ?? null,
-    openai: selected.openai ?? null,
-    google: selected.google ?? null,
-  };
-
-  for (const [client, activeId] of Object.entries(activeByClient)) {
-    if (!activeId || LEGACY_BUILTIN_ID_MAP[activeId]) continue;
-    const exists = next.providers.some((profile) => profile.id === activeId && profile.kind === 'api_key');
-    if (exists) {
-      next.bootstrapBindings[client] = { enabled: true, mode: 'api_key', accountRef: activeId };
-    }
-  }
-  return next;
-}
-
-function migrateV1Profiles(raw) {
-  const next = createDefaultProfiles();
-  const now = new Date().toISOString();
-  const profiles = raw?.providers?.anthropic?.profiles ?? [];
-  for (const legacyProfile of profiles) {
-    if (legacyProfile.id === 'anthropic-subscription-default' || LEGACY_BUILTIN_ID_MAP[legacyProfile.id]) continue;
-    const normalized = normalizeProfile(legacyProfile, now);
-    if (normalized) next.providers.push(normalized);
-  }
-  const activeId = raw?.providers?.anthropic?.activeProfileId;
-  if (activeId && next.providers.some((profile) => profile.id === activeId && profile.kind === 'api_key')) {
-    next.bootstrapBindings.anthropic = { enabled: true, mode: 'api_key', accountRef: activeId };
-  }
-  return next;
-}
-
-function normalizeProfilesFile(raw) {
-  if (!raw) {
-    return createDefaultProfiles();
-  }
-
-  if (raw.version === 3 && Array.isArray(raw.providers)) {
-    const now = new Date().toISOString();
-    const builtinProfiles = new Map(
-      BUILTIN_ACCOUNT_SPECS.map((spec) => [
-        spec.id,
-        {
-          id: spec.id,
-          displayName: spec.displayName,
-          kind: 'builtin',
-          authType: 'oauth',
-          builtin: true,
-          client: spec.client,
-          models: [...spec.models],
-          createdAt: now,
-          updatedAt: now,
-        },
-      ]),
-    );
-    for (const rawProfile of raw.providers) {
-      const normalized = normalizeProfile(rawProfile, now);
-      if (!normalized) continue;
-      builtinProfiles.set(normalized.id, normalized);
-    }
-    const providers = Array.from(builtinProfiles.values());
-    return {
-      version: 3,
-      activeProfileId: null,
-      providers,
-      bootstrapBindings: normalizeBootstrapBindings(raw.bootstrapBindings, providers),
+    accounts[id] = {
+      authType: p.authType ?? 'oauth',
+      protocol: String(p.protocol ?? clientProtocol[client] ?? 'openai'),
+      ...(p.displayName ? { displayName: String(p.displayName) } : {}),
+      ...(p.baseUrl ? { baseUrl: String(p.baseUrl).replace(/\/+$/, '') } : {}),
+      ...(Array.isArray(p.models) ? { models: p.models.map(String) } : {}),
     };
+    mergedIds.add(id);
   }
+  writeAccounts(accounts);
 
-  if (raw.version === 2) {
-    return migrateV2Profiles(raw);
-  }
-
-  if (raw.version === 1) {
-    return migrateV1Profiles(raw);
-  }
-
-  return createDefaultProfiles();
-}
-
-function normalizeSecretsFile(raw) {
-  if (!raw) {
-    return createDefaultSecrets();
-  }
-  if (raw.version === 3 && raw.profiles) {
-    return raw;
-  }
-  if (raw.version === 2 && raw.profiles) {
-    return { version: 3, profiles: { ...raw.profiles } };
-  }
-  if (raw.version === 1 && raw.providers?.anthropic) {
-    return { version: 3, profiles: { ...raw.providers.anthropic } };
-  }
-  return createDefaultSecrets();
-}
-
-function ensureStorage(projectDir) {
-  const profileDir = path.join(projectDir, '.cat-cafe');
-  mkdirSync(profileDir, { recursive: true });
-  return {
-    profileFile: path.join(profileDir, 'provider-profiles.json'),
-    secretsFile: path.join(profileDir, 'provider-profiles.secrets.local.json'),
-  };
-}
-
-function readState(projectDir) {
-  const { profileFile, secretsFile } = ensureStorage(projectDir);
-  const profiles = normalizeProfilesFile(readJson(profileFile, null));
-  const secrets = normalizeSecretsFile(readJson(secretsFile, null));
-  return { profileFile, secretsFile, profiles, secrets };
-}
-
-function writeState(profileFile, secretsFile, profiles, secrets) {
-  writeFileSync(profileFile, `${JSON.stringify(profiles, null, 2)}\n`);
-  writeFileSync(secretsFile, `${JSON.stringify(secrets, null, 2)}\n`);
-  chmodSync(secretsFile, 0o600);
-}
-
-function upsertInstallerApiKeyAccount(projectDir, client, options) {
-  const { profileFile, secretsFile, profiles, secrets } = readState(projectDir);
-  const profileId = options.profileId || `installer-${client}`;
-  const now = new Date().toISOString();
-  const normalizedBaseUrl = normalizeBaseUrl(options.baseUrl);
-
-  profiles.providers = profiles.providers.filter((profile) => profile.id !== profileId);
-  profiles.providers.push({
-    id: profileId,
-    displayName: options.displayName,
-    kind: 'api_key',
-    authType: 'api_key',
-    builtin: false,
-    ...(normalizedBaseUrl ? { baseUrl: normalizedBaseUrl } : {}),
-    ...(normalizeModels(options.models) ? { models: normalizeModels(options.models) } : {}),
-    createdAt: now,
-    updatedAt: now,
-  });
-  profiles.bootstrapBindings[client] = {
-    enabled: true,
-    mode: 'api_key',
-    accountRef: profileId,
-  };
-  secrets.profiles[profileId] = { apiKey: options.apiKey };
-  writeState(profileFile, secretsFile, profiles, secrets);
-}
-
-function setClientOauthBinding(projectDir, client) {
-  const { profileFile, secretsFile, profiles, secrets } = readState(projectDir);
-  profiles.bootstrapBindings[client] = oauthBindingForClient(client);
-  writeState(profileFile, secretsFile, profiles, secrets);
-}
-
-function removeInstallerApiKeyAccount(projectDir, client, profileId) {
-  const profileDir = path.join(projectDir, '.cat-cafe');
-  if (!existsSync(profileDir)) return;
-
-  const profileFile = path.join(profileDir, 'provider-profiles.json');
+  // Migrate secrets — only for IDs that were actually merged (skip collisions)
   const secretsFile = path.join(profileDir, 'provider-profiles.secrets.local.json');
-  if (!existsSync(profileFile) && !existsSync(secretsFile)) return;
+  if (existsSync(secretsFile)) {
+    const secretsMeta = readJsonSafe(secretsFile, {});
+    const profileSecrets = secretsMeta?.profiles ?? {};
+    const creds = readCredentials();
+    for (const [id, secret] of Object.entries(profileSecrets)) {
+      if (mergedIds.has(id) && !(id in creds) && secret?.apiKey) creds[id] = { apiKey: String(secret.apiKey) };
+    }
+    writeCredentials(creds);
+  }
+}
 
-  const catalogFile = path.join(profileDir, 'cat-catalog.json');
-  if (existsSync(catalogFile)) {
-    const catalog = readJson(catalogFile, null);
-    const boundCats = (catalog?.breeds ?? [])
-      .flatMap((breed) =>
-        (breed?.variants ?? [])
-          .filter((variant) => variant?.accountRef?.trim?.() === profileId)
-          .map((variant) => variant?.catId?.trim?.() || breed?.catId?.trim?.() || breed?.id?.trim?.() || profileId),
-      )
-      .filter((value) => typeof value === 'string' && value.length > 0);
-    if (boundCats.length > 0) {
-      throw new Error(`Cannot remove ${profileId}; still referenced by runtime cats: ${boundCats.join(', ')}`);
+// ── Commands ──
+
+function setClientAuth(client, mode, options) {
+  const accountRef =
+    options.profileId || (mode === 'api_key' ? `installer-${client}` : builtinAccountIdForClient(client));
+  const accounts = readAccounts();
+
+  if (mode === 'oauth') {
+    // F340: protocol not persisted on new accounts — derived from well-known ID at runtime.
+    accounts[accountRef] = {
+      authType: 'oauth',
+      displayName: BUILTIN_ACCOUNT_SPECS.find((s) => s.client === client)?.displayName ?? accountRef,
+    };
+  } else {
+    const normalizedBaseUrl = normalizeBaseUrl(options.baseUrl);
+    const normalizedModels = normalizeModels(options.models);
+    accounts[accountRef] = {
+      authType: 'api_key',
+      ...(options.displayName ? { displayName: options.displayName } : {}),
+      ...(normalizedBaseUrl ? { baseUrl: normalizedBaseUrl } : {}),
+      ...(normalizedModels ? { models: normalizedModels } : {}),
+    };
+    const creds = readCredentials();
+    creds[accountRef] = { apiKey: options.apiKey };
+    writeCredentials(creds);
+  }
+
+  writeAccounts(accounts);
+}
+
+/** Scan a catalog file for variants bound to the given accountRef. */
+function findBoundCats(catalogFile, profileId) {
+  if (!existsSync(catalogFile)) return [];
+  const catalog = readJsonSafe(catalogFile, null);
+  return (catalog?.breeds ?? [])
+    .flatMap((breed) =>
+      (breed?.variants ?? [])
+        .filter((v) => v?.accountRef?.trim?.() === profileId)
+        .map((v) => v?.catId?.trim?.() || breed?.catId?.trim?.() || breed?.id?.trim?.() || profileId),
+    )
+    .filter((v) => typeof v === 'string' && v.length > 0);
+}
+
+function removeClientAuth(client, profileId, projectDir, { force = false } = {}) {
+  // Step 1: Check the passed project for bindings — block if still in use.
+  if (projectDir) {
+    const bound = findBoundCats(path.join(projectDir, CONFIG_SUBDIR, 'cat-catalog.json'), profileId);
+    if (bound.length > 0) {
+      throw new Error(`Cannot remove ${profileId}; still referenced by runtime cats: ${bound.join(', ')}`);
     }
   }
 
-  const profiles = normalizeProfilesFile(readJson(profileFile, null));
-  const secrets = normalizeSecretsFile(readJson(secretsFile, null));
-  profiles.providers = profiles.providers.filter((profile) => profile.id !== profileId);
-  delete secrets.profiles[profileId];
-  profiles.bootstrapBindings[client] = oauthBindingForClient(client);
-  writeState(profileFile, secretsFile, profiles, secrets);
+  // Step 2: Without --force, refuse to modify global state. Accounts and
+  // credentials are shared across all projects; we cannot enumerate all
+  // projects to verify no external references exist. See gpt52 R5–R8.
+  if (!force) {
+    console.error(
+      `[client-auth remove] ${profileId}: accounts and credentials are global (shared across projects). ` +
+        `Pass --force to confirm deletion of global account + credentials for ${profileId}.`,
+    );
+    return;
+  }
+
+  // Step 3: --force: delete credentials + account metadata.
+  const creds = readCredentials();
+  if (profileId in creds) {
+    delete creds[profileId];
+    writeCredentials(creds);
+  }
+
+  const accounts = readAccounts();
+  if (profileId in accounts) {
+    delete accounts[profileId];
+    writeAccounts(accounts);
+  }
 }
+
+// ── CLI entry point ──
 
 try {
   const { positionals, values } = parseArgs(process.argv.slice(2));
+
   if (positionals[0] === 'env-apply') {
     applyEnvChanges(getRequired(values, 'env-file'), values.get('set') ?? [], values.get('delete') ?? []);
     process.exit(0);
@@ -468,15 +353,16 @@ try {
       console.error('Error: unsupported client');
       process.exit(1);
     }
+    // Migrate legacy files before applying
+    const projDir = getOptional(values, 'project-dir', '');
+    if (projDir) migrateLegacyProfiles(projDir);
+    migrateLegacyProfiles(null);
     const mode = getRequired(values, 'mode');
-    const projectDir = getRequired(values, 'project-dir');
     if (mode === 'oauth') {
-      setClientOauthBinding(projectDir, client);
+      setClientAuth(client, 'oauth', {});
       process.exit(0);
     }
-    if (mode !== 'api_key') {
-      usage();
-    }
+    if (mode !== 'api_key') usage();
     const apiKey = getOptional(values, 'api-key', '') || process.env._INSTALLER_API_KEY || '';
     if (!apiKey) {
       console.error('Error: API key required via --api-key or _INSTALLER_API_KEY env var');
@@ -484,7 +370,7 @@ try {
     }
     const displayName = getOptional(values, 'display-name', `Installer ${client} API Key`);
     const modelArg = getOptional(values, 'model', '');
-    upsertInstallerApiKeyAccount(projectDir, client, {
+    setClientAuth(client, 'api_key', {
       displayName,
       apiKey,
       baseUrl: getOptional(values, 'base-url', ''),
@@ -499,31 +385,42 @@ try {
       console.error('Error: unsupported client');
       process.exit(1);
     }
-    removeInstallerApiKeyAccount(getRequired(values, 'project-dir'), client, `installer-${client}`);
+    const projectDir = getRequired(values, 'project-dir');
+    // Migrate legacy files before removal so accounts/credentials are in global store
+    if (projectDir) migrateLegacyProfiles(projectDir);
+    migrateLegacyProfiles(null);
+    const force = values.get('force')?.[0] === 'true';
+    removeClientAuth(client, `installer-${client}`, projectDir, { force });
     process.exit(0);
   }
 
   if (positionals[0] === 'claude-profile' && positionals[1] === 'set') {
+    const projectDir = getOptional(values, 'project-dir', '');
+    // Migrate legacy files before applying new setting
+    if (projectDir) migrateLegacyProfiles(projectDir);
+    migrateLegacyProfiles(null);
     const apiKey = getOptional(values, 'api-key', '') || process.env._INSTALLER_API_KEY || '';
     if (!apiKey) {
       console.error('Error: API key required via --api-key or _INSTALLER_API_KEY env var');
       process.exit(1);
     }
-    upsertInstallerApiKeyAccount(getRequired(values, 'project-dir'), 'anthropic', {
+    const modelArg = getOptional(values, 'model', '').trim();
+    setClientAuth('anthropic', 'api_key', {
       profileId: 'installer-managed',
       displayName: 'Installer API Key',
       apiKey,
       baseUrl: getOptional(values, 'base-url', 'https://api.anthropic.com'),
-      models: (() => {
-        const model = getOptional(values, 'model', '').trim();
-        return model ? [model] : undefined;
-      })(),
+      ...(modelArg ? { models: [modelArg] } : {}),
     });
     process.exit(0);
   }
 
   if (positionals[0] === 'claude-profile' && positionals[1] === 'remove') {
-    removeInstallerApiKeyAccount(getRequired(values, 'project-dir'), 'anthropic', 'installer-managed');
+    const projectDir = getRequired(values, 'project-dir');
+    if (projectDir) migrateLegacyProfiles(projectDir);
+    migrateLegacyProfiles(null);
+    const forceRemove = values.get('force')?.[0] === 'true';
+    removeClientAuth('anthropic', 'installer-managed', projectDir, { force: forceRemove });
     process.exit(0);
   }
 

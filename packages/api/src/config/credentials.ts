@@ -9,7 +9,7 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import type { CredentialEntry } from '@cat-cafe/shared';
 
-const CAT_CAFE_DIR = '.cat-cafe';
+const CONFIG_SUBDIR = '.cat-cafe';
 const CREDENTIALS_FILENAME = 'credentials.json';
 
 function resolveGlobalRoot(): string {
@@ -19,7 +19,7 @@ function resolveGlobalRoot(): string {
 }
 
 export function resolveCredentialsPath(): string {
-  return resolve(resolveGlobalRoot(), CAT_CAFE_DIR, CREDENTIALS_FILENAME);
+  return resolve(resolveGlobalRoot(), CONFIG_SUBDIR, CREDENTIALS_FILENAME);
 }
 
 function writeFileAtomic(filePath: string, content: string): void {
@@ -52,7 +52,7 @@ function readAll(): Record<string, CredentialEntry> {
 
 function writeAll(creds: Record<string, CredentialEntry>): void {
   const credPath = resolveCredentialsPath();
-  mkdirSync(resolve(resolveGlobalRoot(), CAT_CAFE_DIR), { recursive: true });
+  mkdirSync(resolve(resolveGlobalRoot(), CONFIG_SUBDIR), { recursive: true });
   writeFileAtomic(credPath, `${JSON.stringify(creds, null, 2)}\n`);
   chmodSync(credPath, 0o600);
 }

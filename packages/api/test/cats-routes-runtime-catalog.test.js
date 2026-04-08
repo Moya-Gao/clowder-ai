@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { after, afterEach, beforeEach, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const tempDirs = [];
 let savedTemplatePath;
 let savedGlobalRoot;
 
-function makeCatalog(catId, displayName, provider = 'openai', defaultModel = 'gpt-5.4') {
+function makeCatalog(catId, displayName, clientId = 'openai', defaultModel = 'gpt-5.4') {
   return {
     version: 1,
     breeds: [
@@ -25,10 +28,10 @@ function makeCatalog(catId, displayName, provider = 'openai', defaultModel = 'gp
         variants: [
           {
             id: `${catId}-default`,
-            provider,
+            clientId,
             defaultModel,
-            mcpSupport: provider !== 'antigravity',
-            cli: { command: provider === 'antigravity' ? 'antigravity' : 'codex', outputFormat: 'json' },
+            mcpSupport: clientId !== 'antigravity',
+            cli: { command: clientId === 'antigravity' ? 'antigravity' : 'codex', outputFormat: 'json' },
           },
         ],
       },
@@ -89,7 +92,7 @@ function createMonorepoTemplateOnlyProject(template) {
 }
 
 function loadRepoTemplate() {
-  return JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'cat-template.json'), 'utf-8'));
+  return JSON.parse(readFileSync(join(__dirname, '..', '..', '..', 'cat-template.json'), 'utf-8'));
 }
 
 describe('cats routes read runtime catalog', { concurrency: false }, () => {

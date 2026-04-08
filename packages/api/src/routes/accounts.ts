@@ -1,16 +1,17 @@
 /**
- * Provider Profiles API Routes — F136 Phase 4d
+ * Accounts API Routes — F136 Phase 4d → F340 renamed
  *
- * Reads/writes exclusively through cat-catalog.json accounts + credentials.json.
- * The legacy provider-profiles.json store has been retired.
+ * Reads/writes via global ~/.cat-cafe/accounts.json + credentials.json.
  */
+import { existsSync } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { relative, resolve, win32 } from 'node:path';
-import type { AccountConfig, AccountProtocol } from '@cat-cafe/shared';
+import type { AccountConfig } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { validateAccountWrite } from '../config/account-conflict-guard.js';
 import { resolveByAccountRef } from '../config/account-resolver.js';
+import { resolveCatCatalogPath } from '../config/cat-catalog-store.js';
+import { loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
 import { deleteCatalogAccount, readCatalogAccounts, writeCatalogAccount } from '../config/catalog-accounts.js';
 import { configEventBus, createChangeSetId } from '../config/config-event-bus.js';
 import { deleteCredential, hasCredential, writeCredential } from '../config/credentials.js';
@@ -18,15 +19,26 @@ import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
-import { buildProbeHeaders, isInvalidModelProbeError, readProbeError } from './provider-profiles-probe.js';
+import { buildProbeHeaders, isInvalidModelProbeError, readProbeError } from './accounts-probe.js';
+
+// F340: Derive client identity from well-known account IDs, not stored protocol.
+const BUILTIN_CLIENT_FOR_ID: Record<string, string> = {
+  claude: 'anthropic',
+  codex: 'openai',
+  gemini: 'google',
+  dare: 'dare',
+  opencode: 'opencode',
+  builtin_anthropic: 'anthropic',
+  builtin_openai: 'openai',
+  builtin_google: 'google',
+  builtin_dare: 'dare',
+  builtin_opencode: 'opencode',
+};
 
 /** Synthesize a ProviderProfileView-compatible object from AccountConfig (backward compat for Hub UI). */
 function accountToView(id: string, account: AccountConfig, apiKeyPresent: boolean) {
   const isBuiltin = account.authType === 'oauth';
-  // Non-standard builtins (dare, opencode) use standard protocols (openai, anthropic)
-  // but have their own distinct client identity for the Hub UI.
-  const NON_STANDARD_BUILTIN_CLIENTS = new Set(['dare', 'opencode']);
-  const builtinClient = NON_STANDARD_BUILTIN_CLIENTS.has(id) ? id : account.protocol;
+  const builtinClient = BUILTIN_CLIENT_FOR_ID[id] ?? id;
   return {
     id,
     name: account.displayName ?? id,
@@ -34,8 +46,7 @@ function accountToView(id: string, account: AccountConfig, apiKeyPresent: boolea
     kind: isBuiltin ? 'builtin' : ('api_key' as const),
     authType: account.authType,
     builtin: isBuiltin,
-    ...(isBuiltin ? { client: builtinClient } : {}),
-    protocol: account.protocol,
+    ...(isBuiltin ? { clientId: builtinClient } : {}),
     ...(account.baseUrl ? { baseUrl: account.baseUrl } : {}),
     models: account.models ? [...account.models] : [],
     hasApiKey: apiKeyPresent,
@@ -61,7 +72,6 @@ function deriveAccountId(displayName: string, existingIds: Set<string>): string 
 
 const MONOREPO_ROOT = findMonorepoRoot();
 
-const protocolEnum = z.enum(['anthropic', 'openai', 'openai-responses', 'google']);
 const authTypeEnum = z.enum(['oauth', 'api_key']);
 const modeEnum = z.enum(['subscription', 'api_key']);
 
@@ -77,7 +87,6 @@ const createBodySchema = z
     displayName: z.string().trim().min(1).optional(),
     mode: modeEnum.optional(),
     authType: authTypeEnum.optional(),
-    protocol: protocolEnum.optional(),
     baseUrl: z.string().optional(),
     apiKey: z.string().optional(),
     modelOverride: z.string().optional(),
@@ -91,7 +100,6 @@ const createBodySchema = z
           .pipe(z.string().min(1)),
       )
       .optional(),
-    setActive: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
     if (!value.name && !value.displayName) {
@@ -110,7 +118,6 @@ const updateBodySchema = z.object({
   displayName: z.string().trim().min(1).optional(),
   mode: modeEnum.optional(),
   authType: authTypeEnum.optional(),
-  protocol: protocolEnum.optional(),
   baseUrl: z.string().optional(),
   apiKey: z.string().optional(),
   modelOverride: z.string().nullable().optional(),
@@ -126,15 +133,14 @@ const updateBodySchema = z.object({
     .optional(),
 });
 
-const activateBodySchema = z.object({
+const deleteBodySchema = z.object({
   projectPath: z.string().optional(),
-  provider: z.string().trim().min(1).optional(),
+  force: z.boolean().optional(),
 });
 
 const testBodySchema = z.object({
   projectPath: z.string().optional(),
   provider: z.string().trim().min(1).optional(),
-  protocol: protocolEnum.optional(),
 });
 
 async function resolveProjectRoot(projectPath?: string): Promise<string | null> {
@@ -225,14 +231,14 @@ function inferProbeProtocol(
   return 'openai';
 }
 
-export interface ProviderProfilesRoutesOptions {
+export interface AccountsRoutesOptions {
   fetchImpl?: typeof fetch;
 }
 
-export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions> = async (app, opts) => {
+export const accountsRoutes: FastifyPluginAsync<AccountsRoutesOptions> = async (app, opts) => {
   const fetchImpl = opts.fetchImpl ?? fetch;
 
-  app.get('/api/provider-profiles', async (request, reply) => {
+  app.get('/api/accounts', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
@@ -254,13 +260,11 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
     const providers = Object.entries(accounts).map(([id, account]) => accountToView(id, account, hasCredential(id)));
     return {
       projectPath: projectRoot,
-      activeProfileId: null,
       providers,
-      bootstrapBindings: {},
     };
   });
 
-  app.post('/api/provider-profiles', async (request, reply) => {
+  app.post('/api/accounts', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
@@ -280,11 +284,10 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
 
     const body = parsed.data;
     try {
-      const protocol = (body.protocol ??
-        inferProbeProtocol(body.baseUrl, body.provider, body.models, body.name, body.displayName)) as AccountProtocol;
+      // F340: protocol not persisted on new accounts. Custom accounts use explicit
+      // accountRef binding; system callers use well-known builtin IDs.
       const account: AccountConfig = {
         authType: (body.authType as 'oauth' | 'api_key') ?? 'api_key',
-        protocol,
         ...(body.baseUrl ? { baseUrl: body.baseUrl } : {}),
         ...(body.models ? { models: body.models } : {}),
         ...((body.displayName ?? body.name) ? { displayName: body.displayName ?? body.name } : {}),
@@ -294,7 +297,6 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
         body.displayName ?? body.name ?? body.provider ?? 'custom',
         new Set(Object.keys(existingAccounts)),
       );
-      validateAccountWrite(projectRoot, profileId, account);
       writeCatalogAccount(projectRoot, profileId, account);
       if (body.apiKey) writeCredential(profileId, { apiKey: body.apiKey });
       configEventBus.emitChange({
@@ -314,7 +316,7 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
     }
   });
 
-  app.patch('/api/provider-profiles/:profileId', async (request, reply) => {
+  app.patch('/api/accounts/:profileId', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
@@ -339,22 +341,11 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
         reply.status(404);
         return { error: `Account "${params.profileId}" not found` };
       }
-      // Protocol is no longer user-editable in Hub UI. Preserve the existing account
-      // family unless an API client explicitly overrides it, otherwise normal proxy
-      // baseUrl edits can silently rewrite anthropic/google accounts to openai.
-      const effectiveProtocol: AccountProtocol =
-        (parsed.data.protocol as AccountProtocol | undefined) ??
-        existing.protocol ??
-        inferProbeProtocol(
-          parsed.data.baseUrl ?? existing.baseUrl,
-          undefined,
-          parsed.data.models ?? existing.models,
-          parsed.data.name ?? existing.displayName ?? params.profileId,
-          parsed.data.displayName ?? existing.displayName ?? params.profileId,
-        );
+      // F340: Don't derive new protocol. Preserve existing protocol for backward compat
+      // (pre-F340 accounts may still have it; stripping on edit would break legacy resolution).
       const account: AccountConfig = {
         authType: (parsed.data.authType as 'oauth' | 'api_key') ?? existing.authType,
-        protocol: effectiveProtocol,
+        ...(existing.protocol ? { protocol: existing.protocol } : {}),
         ...(parsed.data.baseUrl != null
           ? { baseUrl: parsed.data.baseUrl || undefined }
           : existing.baseUrl
@@ -367,7 +358,6 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
             : {}),
         displayName: parsed.data.displayName ?? parsed.data.name ?? existing.displayName ?? params.profileId,
       };
-      validateAccountWrite(projectRoot, params.profileId, account);
       writeCatalogAccount(projectRoot, params.profileId, account);
       if (parsed.data.apiKey != null) {
         if (parsed.data.apiKey) {
@@ -394,14 +384,14 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
     }
   });
 
-  app.delete('/api/provider-profiles/:profileId', async (request, reply) => {
+  app.delete('/api/accounts/:profileId', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
     }
 
-    const parsed = activateBodySchema.safeParse(request.body ?? {});
+    const parsed = deleteBodySchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       reply.status(400);
       return { error: 'Invalid body', details: parsed.error.issues };
@@ -412,6 +402,36 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
       return { error: 'Invalid project path: must be an existing directory under allowed roots' };
     }
     const params = request.params as { profileId: string };
+
+    // F340: Check current project's catalog for dangling references.
+    // Cross-instance isolation is handled by CAT_CAFE_GLOBAL_CONFIG_ROOT in .env —
+    // if another instance shares the same root and this account disappears, it will
+    // get a clear error with the config file path at resolve time.
+    if (!parsed.data.force) {
+      const catalogPath = resolveCatCatalogPath(projectRoot);
+      if (existsSync(catalogPath)) {
+        try {
+          const allCats = toAllCatConfigs(loadCatConfig(catalogPath));
+          const boundCatIds = Object.entries(allCats)
+            .filter(([, cat]) => cat.accountRef === params.profileId)
+            .map(([id]) => id);
+          if (boundCatIds.length > 0) {
+            reply.status(409);
+            return {
+              error: `Account "${params.profileId}" is still referenced by: ${boundCatIds.join(', ')}. Remove bindings first or pass { "force": true }.`,
+              boundCatIds,
+            };
+          }
+        } catch {
+          // Fail-closed: catalog exists but cannot be parsed → refuse deletion
+          reply.status(500);
+          return {
+            error: `Cannot verify account references — catalog at ${catalogPath} failed to parse. Fix the catalog or pass { "force": true }.`,
+          };
+        }
+      }
+      // No local references found — allow deletion without force
+    }
 
     try {
       deleteCatalogAccount(projectRoot, params.profileId);
@@ -430,30 +450,7 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
     }
   });
 
-  app.post('/api/provider-profiles/:profileId/activate', async (request, reply) => {
-    const userId = resolveUserId(request);
-    if (!userId) {
-      reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
-    }
-
-    const parsed = activateBodySchema.safeParse(request.body);
-    if (!parsed.success) {
-      reply.status(400);
-      return { error: 'Invalid body', details: parsed.error.issues };
-    }
-    const projectRoot = await resolveProjectRoot(parsed.data.projectPath);
-    if (!projectRoot) {
-      reply.status(400);
-      return { error: 'Invalid project path: must be an existing directory under allowed roots' };
-    }
-    const params = request.params as { profileId: string };
-
-    // F136 Phase 4d: activate is a legacy no-op — cats use direct accountRef now
-    return { ok: true, profileId: params.profileId };
-  });
-
-  app.post('/api/provider-profiles/:profileId/test', async (request, reply) => {
+  app.post('/api/accounts/:profileId/test', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
@@ -483,7 +480,7 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
       runtime.protocol ??
       inferProbeProtocol(
         runtime.baseUrl,
-        parsed.data.protocol ?? parsed.data.provider,
+        parsed.data.provider,
         runtime.models,
         params.profileId,
       );

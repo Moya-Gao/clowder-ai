@@ -45,7 +45,7 @@ function validConfig() {
         variants: [
           {
             id: 'opus-default',
-            provider: 'anthropic',
+            clientId: 'anthropic',
             defaultModel: 'claude-sonnet-4-5-20250929',
             mcpSupport: true,
             cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -277,7 +277,7 @@ describe('cat-config-loader', () => {
 
     it('rejects invalid provider', () => {
       const bad = validConfig();
-      bad.breeds[0].variants[0].provider = 'invalid-provider';
+      bad.breeds[0].variants[0].clientId = 'invalid-provider';
       const path = writeTempConfig(bad);
       assert.throws(() => loadCatConfig(path), /Invalid cat config/);
     });
@@ -297,7 +297,7 @@ describe('cat-config-loader', () => {
         variants: [
           {
             id: 'dare-default',
-            provider: 'dare',
+            clientId: 'dare',
             defaultModel: 'zhipu/glm-4.7',
             mcpSupport: false,
             cli: { command: 'python', outputFormat: 'headless-json' },
@@ -308,7 +308,7 @@ describe('cat-config-loader', () => {
       const loaded = loadCatConfig(path);
       const cats = toAllCatConfigs(loaded);
       assert.ok(cats.dare);
-      assert.strictEqual(cats.dare.provider, 'dare');
+      assert.strictEqual(cats.dare.clientId, 'dare');
     });
 
     it('accepts arbitrary catId (F32-a: any non-empty string is valid)', () => {
@@ -328,7 +328,7 @@ describe('cat-config-loader', () => {
       const config = loadCatConfig(path);
       const variant = getDefaultVariant(config.breeds[0]);
       assert.equal(variant.id, 'opus-default');
-      assert.equal(variant.provider, 'anthropic');
+      assert.equal(variant.clientId, 'anthropic');
     });
   });
 
@@ -340,7 +340,7 @@ describe('cat-config-loader', () => {
 
       assert.ok(flat.opus);
       assert.equal(flat.opus.displayName, '布偶猫');
-      assert.equal(flat.opus.provider, 'anthropic');
+      assert.equal(flat.opus.clientId, 'anthropic');
       assert.equal(flat.opus.mcpSupport, true);
       assert.deepEqual(flat.opus.mentionPatterns, ['@opus', '@布偶猫']);
       assert.equal(flat.opus.personality, '温柔');
@@ -361,7 +361,7 @@ describe('cat-config-loader', () => {
         variants: [
           {
             id: 'codex-default',
-            provider: 'openai',
+            clientId: 'openai',
             defaultModel: 'codex',
             mcpSupport: false,
             cli: { command: 'codex', outputFormat: 'json' },
@@ -375,7 +375,7 @@ describe('cat-config-loader', () => {
 
       assert.ok(flat.opus);
       assert.ok(flat.codex);
-      assert.equal(flat.codex.provider, 'openai');
+      assert.equal(flat.codex.clientId, 'openai');
     });
   });
 
@@ -460,7 +460,7 @@ describe('cat-config-loader', () => {
       cfg.breeds[0].variants.push({
         id: 'opus-sonnet',
         catId: 'opus-sonnet',
-        provider: 'anthropic',
+        clientId: 'anthropic',
         defaultModel: 'claude-sonnet-4-5-20250929',
         mcpSupport: true,
         cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -544,7 +544,7 @@ function multiVariantConfig() {
         variants: [
           {
             id: 'opus-default',
-            provider: 'anthropic',
+            clientId: 'anthropic',
             defaultModel: 'claude-opus-4-6',
             mcpSupport: true,
             cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -555,7 +555,7 @@ function multiVariantConfig() {
             catId: 'opus-45',
             displayName: '布偶猫 4.5',
             mentionPatterns: ['@opus-45', '@布偶猫4.5'],
-            provider: 'anthropic',
+            clientId: 'anthropic',
             defaultModel: 'claude-sonnet-4-5-20250929',
             mcpSupport: true,
             cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -577,7 +577,7 @@ function multiVariantConfig() {
         variants: [
           {
             id: 'gemini-default',
-            provider: 'google',
+            clientId: 'google',
             defaultModel: 'gemini-2.5-pro',
             mcpSupport: false,
             cli: { command: 'gemini', outputFormat: 'stream-json' },
@@ -617,7 +617,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     cfg.breeds[0].variants.push({
       id: 'opus-haiku',
       catId: 'opus-haiku',
-      provider: 'anthropic',
+      clientId: 'anthropic',
       defaultModel: 'claude-haiku-4-5-20251001',
       mcpSupport: false,
       cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -634,7 +634,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
       id: 'opus-haiku-empty',
       catId: 'opus-haiku-empty',
       mentionPatterns: [],
-      provider: 'anthropic',
+      clientId: 'anthropic',
       defaultModel: 'claude-haiku-4-5-20251001',
       mcpSupport: false,
       cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -892,7 +892,7 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(sonnetVariant, 'opus-sonnet variant exists');
     assert.equal(sonnetVariant.catId, 'sonnet');
     assert.equal(sonnetVariant.variantLabel, 'Sonnet');
-    assert.equal(sonnetVariant.provider, 'anthropic');
+    assert.equal(sonnetVariant.clientId, 'anthropic');
     assert.equal(sonnetVariant.defaultModel, 'claude-sonnet-4-6');
   });
 
