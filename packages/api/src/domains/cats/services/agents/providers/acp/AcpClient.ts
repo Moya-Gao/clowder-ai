@@ -306,6 +306,8 @@ export class AcpClient {
       // and flat (params.sessionUpdate) — must handle both, same as acp-event-transformer.
       const inner = (params.update ?? params) as Record<string, unknown>;
       const updateType = inner.sessionUpdate as string | undefined;
+      // Diagnostic: log every event type so we can confirm what Gemini actually sends for MCP tools
+      log.info({ sessionId, eventCount, updateType, pendingTool }, 'ACP listener: event received');
       if (updateType === 'tool_call') {
         pendingTool = true;
       } else if (pendingTool && updateType !== 'tool_call_update') {
