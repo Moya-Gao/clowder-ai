@@ -126,6 +126,29 @@ created: 2026-03-27
 | OQ-1 | `playwright` 当前用 `npx @playwright/mcp@latest`（版本不锁），是否在 Phase A 一起 pin？ | 决定 follow-up，不塞进 Phase A |
 | OQ-2 | 除了 pencil，还有哪些 MCP 需要 resolver？（当前其他 MCP 都是 npm/repo-local，路径不敏感） | Phase A 先只做 pencil，后续按需扩展 |
 
+## Known Issues
+
+### Phase D: ~/.claude.json stale override 遮蔽 resolver 输出（2026-04-08 发现）
+
+**症状**：Pencil resolver 正确解析到 VS Code 0.6.39（`--app vscode`），`.mcp.json` 也正确生成，但 Claude Code session 里 pencil 工具始终不可用。烁烁（Gemini ACP）同样不可用。
+
+**根因**：`~/.claude.json` 有两层 stale pencil 配置覆盖了 `.mcp.json`：
+1. **Per-project mcpServers**（优先级最高）：指向已卸载的 `pencildev-0.6.26`（文件不存在） + `--app antigravity`
+2. **Global mcpServers**：指向 `.pencil/mcp/antigravity/`（文件存在但用旧 `--app antigravity`）
+
+Claude Code 读配置时 per-project override > `.mcp.json` > global，拿到不存在的二进制 → 启动失败 → 静默跳过。
+
+**紧急修复（2026-04-08）**：手动清理 `~/.claude.json` 中 per-project 和 global 的 stale pencil entries。
+
+**根因修复**：`generateCliConfigs()` 应在写完 `.mcp.json` 后，对 resolver-backed servers 清理 `~/.claude.json` 中的同名 per-project/global overrides，防止 stale entries 遮蔽 resolver 输出。→ Phase D
+
+### Phase D: generateCliConfigs() 清理 stale Claude overrides
+
+- [ ] AC-D1: `generateCliConfigs()` 写完 `.mcp.json` 后，清理 `~/.claude.json` per-project mcpServers 中 resolver-backed server 的 stale entries
+- [ ] AC-D2: 同时清理 `~/.claude.json` global mcpServers 中 resolver-backed server 的 stale entries
+- [ ] AC-D3: 不影响非 resolver-backed servers（如用户手动配置的 xiaohongshu、jetbrains 等）
+- [ ] AC-D4: 清理操作有日志输出（doctor 可见），不静默
+
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
@@ -146,6 +169,8 @@ created: 2026-03-27
 | 2026-04-07 | Phase C kickoff — 内置 MCP auto-provision for ACP（PR #993 暴露链路缺口，铲屎官 + 砚砚 GPT-5.4 审定边界） |
 | 2026-04-07 | Phase C merged (PR #997) |
 | 2026-04-07 | AC-C3 补齐：capabilities.json bootstrap + migration 包含 cat-cafe 主 server |
+| 2026-04-08 | Bug 发现：~/.claude.json stale per-project override 遮蔽 resolver 输出，Pencil 三猫均不可用 |
+| 2026-04-08 | 紧急修复：手动清理 ~/.claude.json stale entries + Phase D 立项 |
 
 ## Review Gate
 
