@@ -12,7 +12,7 @@
  */
 
 import { catRegistry } from '@cat-cafe/shared';
-import { resolveByAccountRef } from '../../../../config/account-resolver.js';
+import { resolveForClient } from '../../../../config/account-resolver.js';
 import { getCatModel } from '../../../../config/cat-models.js';
 import type { AIActionResponse, AIProvider } from '../game/werewolf/WerewolfAIPlayer.js';
 
@@ -63,12 +63,9 @@ export class LlmAIProvider implements AIProvider {
     }
   }
 
-  /** Resolve API key via well-known builtin account ID (#340: system callers use builtin IDs, not protocol). */
-  private resolveApiKey(protocol: 'anthropic' | 'openai' | 'google'): string | undefined {
-    const BUILTIN_IDS: Record<string, string> = { anthropic: 'claude', openai: 'codex', google: 'gemini' };
-    const accountId = BUILTIN_IDS[protocol];
-    if (!accountId) return undefined;
-    const profile = resolveByAccountRef(process.cwd(), accountId);
+  /** Resolve API key via full account discovery chain (well-known → builtin_ → installer-). */
+  private resolveApiKey(client: 'anthropic' | 'openai' | 'google'): string | undefined {
+    const profile = resolveForClient(process.cwd(), client);
     return profile?.apiKey;
   }
 
