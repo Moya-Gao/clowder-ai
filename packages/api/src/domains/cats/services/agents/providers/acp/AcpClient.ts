@@ -220,7 +220,10 @@ export class AcpClient {
     text: string,
     options?: { timeoutMs?: number; idleWarningMs?: number; idleStallMs?: number },
   ): AsyncGenerator<AcpSessionUpdate, AcpStopReason> {
-    const timeoutMs = options?.timeoutMs ?? 120_000;
+    // Raised from 120s→300s: Gemini with multiple web searches + MCP tools
+    // can take 3-5min for complex queries. The idle stall (90s) catches true stalls;
+    // this absolute timeout is the last-resort guard for completely stuck sessions.
+    const timeoutMs = options?.timeoutMs ?? 300_000;
     const idleWarningMs = options?.idleWarningMs ?? 20_000;
     // Raised from 45s→90s: Gemini CLI doesn't emit tool_call for MCP tools,
     // so pendingTool never activates. 90s covers most MCP calls (10-30s typical).
