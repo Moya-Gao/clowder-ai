@@ -3,7 +3,7 @@ feature_ids: []
 topics: [skills, governance, mount, symlink, distribution]
 doc_kind: decision
 created: 2026-04-07
-status: active
+status: draft
 supersedes: ADR-009
 related: [F070, F041, F038]
 ---
@@ -49,7 +49,8 @@ Cat Café 官方 skills 的 **canonical runtime mount** 是项目级：
 用户级目录的用途：
 - 个人 skills（用户自己写的、不属于 Cat Café 的）
 - 第三方 skills（社区提供的、非 Cat Café 官方的）
-- **Fallback**：在未做过 governance bootstrap 的临时项目中，用户级仍可提供 Cat Café skills 的降级体验
+
+**Opt-in fallback**：`setup.sh` / `install.sh` 默认不再将官方 skills 写入用户级。用户可显式执行 `pnpm sync:skills --user` 手动开启用户级官方 skills 降级体验（适用于未 bootstrap 的临时项目）。这是 opt-in 行为，不是默认行为。
 
 ### 3. 一致性守卫
 
@@ -89,7 +90,7 @@ Governance pack 新增 skills manifest hash（目录列表 + 内容摘要）：
 - `setup.sh` / `install.sh` **停止**将 Cat Café 官方 skills 写入用户级目录
 - 改为：在当前 repo 创建项目级目录级 symlink
 - 已有旧用户级 symlinks → 提供清理提示（不自动删除，避免误删个人 skills）
-- `pnpm sync:skills --user` 保留，给需要用户级 fallback 的用户手动用
+- `pnpm sync:skills --user` 保留为 **opt-in** 命令，仅在用户显式执行时写入用户级官方 skills（与 §2 口径一致）
 
 ## 否决理由
 
@@ -115,7 +116,7 @@ Governance pack 新增 skills manifest hash（目录列表 + 内容摘要）：
 
 1. 同一 project/session 内，每个 skill 只有一个 canonical source 参与解析
 2. User/project 同名 skill 双挂载时，系统检测并报告 realpath 不一致
-3. Hub / capabilities / preflight / bootstrap 对 skill source 判断一致
+3. 所有 skill surface（`/api/skills` / `/api/capabilities` / preflight / bootstrap）对 skill source 判断一致，三家 provider（claude/codex/gemini）的项目级目录均被扫描
 4. A/B checkout 切换后，不会让旧项目静默混用两棵 skill tree
 5. Hub 治理面板展示 skills 版本状态 + 一键同步按钮
 6. 猫主动提醒 skill 更新，可帮用户一键修复
@@ -125,7 +126,7 @@ Governance pack 新增 skills manifest hash（目录列表 + 内容摘要）：
 
 | 阶段 | 内容 | 依赖 |
 |------|------|------|
-| Phase 1 | 一致性守卫：preflight + capabilities 加 realpath 校验，不一致报红灯 | 无 |
+| Phase 1 | 一致性守卫：**所有 skill surface**（`/api/skills` + `/api/capabilities` + preflight + bootstrap）统一为同一套 realpath 校验逻辑。`/api/skills` 从只看用户级改为项目级优先；`/api/capabilities` 扩展为扫描 `.codex/skills` / `.gemini/skills` 项目级（当前只扫 `.claude/skills`）。不一致报红灯 | 无 |
 | Phase 2 | Skills manifest hash 进 governance pack + Hub 展示 stale 状态 | Phase 1 |
 | Phase 3 | Hub 一键同步按钮 + `POST /api/governance/sync-skills` | Phase 2 |
 | Phase 4 | 安装脚本迁移 + 旧用户级 symlinks 清理提示 | Phase 3 |
