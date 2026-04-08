@@ -679,6 +679,14 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     assert.throws(() => toAllCatConfigs(loadCatConfig(writeTempConfig(cfg))), /Duplicate catId "opus"/);
   });
 
+  it('preserves variant cli config in flattened output', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.deepEqual(all.opus.cli, { command: 'claude', outputFormat: 'stream-json' });
+    assert.deepEqual(all['opus-45'].cli, { command: 'claude', outputFormat: 'stream-json' });
+    assert.deepEqual(all.gemini.cli, { command: 'gemini', outputFormat: 'stream-json' });
+  });
+
   it('toFlatConfigs is an alias for toAllCatConfigs', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);
