@@ -451,7 +451,7 @@ async function toCatResponse(
         }
       : null,
     source: metadata.source,
-    adapterMode: cat.provider === 'google' ? (getAcpConfig(cat.id as string) ? 'acp' : 'cli') : undefined,
+    adapterMode: cat.clientId === 'google' ? (getAcpConfig(cat.id as string) ? 'acp' : 'cli') : undefined,
   };
 }
 

@@ -295,7 +295,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         color: { primary: '#16a34a', secondary: '#bbf7d0' },
         mentionPatterns: ['@runtime-codex-effort'],
         roleDescription: '审查',
-        client: 'openai',
+        clientId: 'openai',
         accountRef: 'codex',
         defaultModel: 'gpt-5.4',
         cli: { command: 'codex', outputFormat: 'json', effort: 'xhigh' },
@@ -343,7 +343,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         color: { primary: '#16a34a', secondary: '#bbf7d0' },
         mentionPatterns: ['@runtime-invalid-effort'],
         roleDescription: '审查',
-        client: 'openai',
+        clientId: 'openai',
         accountRef: 'codex',
         defaultModel: 'gpt-5.4',
         cli: { command: 'codex', outputFormat: 'json', effort: 'max' },
@@ -1326,17 +1326,17 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
 
     const { bootstrapCatCatalog } = await import('../dist/config/cat-catalog-store.js');
-    const { activateProviderProfile, createProviderProfile } = await import('./helpers/create-test-account.js');
+    const { writeCatalogAccount } = await import('../dist/config/catalog-accounts.js');
+    const { writeCredential } = await import('../dist/config/credentials.js');
     bootstrapCatCatalog(projectRoot, process.env.CAT_TEMPLATE_PATH);
-    const sponsorProfile = await createProviderProfile(projectRoot, {
-      displayName: 'Codex Sponsor',
+    // F340: Overwrite the 'codex' well-known account with an api_key sponsor
+    writeCatalogAccount(projectRoot, 'codex', {
       authType: 'api_key',
-      protocol: 'openai',
       baseUrl: 'https://api.codex-sponsor.example',
-      apiKey: 'sk-codex-sponsor',
       models: ['gpt-5.4-mini'],
+      displayName: 'Codex Sponsor',
     });
-    await activateProviderProfile(projectRoot, 'openai', sponsorProfile.id);
+    writeCredential('codex', { apiKey: 'sk-codex-sponsor' });
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -1359,7 +1359,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     assert.equal(patchRes.statusCode, 200);
     const patchBody = JSON.parse(patchRes.body);
     assert.equal(patchBody.cat.defaultModel, 'gpt-5.4-mini');
-    assert.equal(patchBody.cat.accountRef, sponsorProfile.id);
+    assert.equal(patchBody.cat.accountRef, 'codex');
   });
 
   it('PATCH /api/cats/:id rebases inherited seed binding when switching client families', async () => {
