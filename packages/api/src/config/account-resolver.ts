@@ -165,30 +165,14 @@ export function resolveForClient(
     }
   }
 
-  // Legacy fallback (READ-ONLY): match by stored protocol for pre-F340 accounts.
-  // New accounts don't get protocol; this path handles migration-era data only.
-  // Will be removed once all accounts transition to explicit accountRef binding.
-  const targetProtocol = normalizeToProtocol(client);
-  if (targetProtocol) {
-    const protocolMatches: Array<[string, AccountConfig]> = [];
-    for (const [ref, account] of Object.entries(accounts)) {
-      if (account.protocol === targetProtocol) protocolMatches.push([ref, account]);
-    }
-    if (protocolMatches.length === 1) {
-      return accountToRuntimeProfile(protocolMatches[0][0], protocolMatches[0][1]);
-    }
-    // >1 match = ambiguous → return null (don't fall through to synthetic)
-    if (protocolMatches.length > 1) return null;
-  }
-
   // Synthetic builtin fallback: only when no real accounts matched at all
   // (fresh install, test env with empty accounts)
-  const refToCheck = preferredAccountRef ?? (normalizedClient ? LEGACY_BUILTIN_IDS[normalizedClient] : undefined);
-  if (refToCheck) {
-    const builtin = BUILTIN_ACCOUNT_MAP[refToCheck];
+  if (normalizedClient) {
+    const wellKnownRef = LEGACY_BUILTIN_IDS[normalizedClient];
+    const builtin = wellKnownRef ? BUILTIN_ACCOUNT_MAP[wellKnownRef] : undefined;
     if (builtin) {
       return {
-        id: refToCheck,
+        id: wellKnownRef,
         authType: 'oauth',
         kind: 'builtin',
         client: builtin.client,
@@ -216,39 +200,20 @@ function normalizeToClient(clientOrProtocol: string): BuiltinAccountClient | nul
   }
 }
 
-/** Map a client ID or protocol string to its AccountProtocol value. */
-function normalizeToProtocol(clientOrProtocol: string): AccountProtocol | null {
-  switch (clientOrProtocol) {
-    case 'anthropic':
-    case 'openai':
-    case 'google':
-      return clientOrProtocol;
-    case 'openai-responses':
-      return clientOrProtocol;
-    case 'dare':
-      return 'openai';
-    case 'opencode':
-      return 'anthropic';
-    default:
-      return null;
-  }
-}
-
 function accountToRuntimeProfile(ref: string, account: AccountConfig): RuntimeProviderProfile {
   const credential = readCredential(ref);
   const apiKey = credential?.apiKey;
 
   const isBuiltin = account.authType === 'oauth';
-  // F340: Derive client and protocol from the well-known account ID map.
-  // Fall back to stored account.protocol for custom accounts (backward compat).
+  // F340: Derive client and protocol solely from well-known account ID map.
+  // account.protocol is retired — not read, not written.
   const builtinInfo = BUILTIN_ACCOUNT_MAP[ref];
-  const effectiveProtocol = builtinInfo?.protocol ?? account.protocol;
   return {
     id: ref,
     authType: account.authType,
     kind: isBuiltin ? 'builtin' : 'api_key',
     ...(isBuiltin && builtinInfo ? { client: builtinInfo.client } : {}),
-    ...(effectiveProtocol ? { protocol: effectiveProtocol } : {}),
+    ...(builtinInfo?.protocol ? { protocol: builtinInfo.protocol } : {}),
     ...(account.baseUrl ? { baseUrl: account.baseUrl } : {}),
     ...(apiKey ? { apiKey } : {}),
     ...(account.models && account.models.length > 0 ? { models: [...account.models] } : {}),

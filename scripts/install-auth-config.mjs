@@ -206,21 +206,9 @@ function migrateLegacyProfiles(projectDir) {
   for (const p of providers) {
     const id = String(p.id ?? '').trim();
     if (!id || id in accounts) continue;
-    // Derive protocol from explicit field, then client hint (per account-resolver.ts)
-    const client = String(p.client ?? '').toLowerCase();
-    const clientProtocol = {
-      anthropic: 'anthropic',
-      claude: 'anthropic',
-      openai: 'openai',
-      codex: 'openai',
-      google: 'google',
-      gemini: 'google',
-      dare: 'openai',
-      opencode: 'anthropic',
-    };
+    // F340: protocol not migrated — derived at runtime from well-known account IDs.
     accounts[id] = {
       authType: p.authType ?? 'oauth',
-      protocol: String(p.protocol ?? clientProtocol[client] ?? 'openai'),
       ...(p.displayName ? { displayName: String(p.displayName) } : {}),
       ...(p.baseUrl ? { baseUrl: String(p.baseUrl).replace(/\/+$/, '') } : {}),
       ...(Array.isArray(p.models) ? { models: p.models.map(String) } : {}),

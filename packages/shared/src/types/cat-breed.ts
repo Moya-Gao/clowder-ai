@@ -204,12 +204,6 @@ export type AccountProtocol = 'anthropic' | 'openai' | 'openai-responses' | 'goo
  */
 export interface AccountConfig {
   readonly authType: 'oauth' | 'api_key';
-  /**
-   * @deprecated F340: Protocol no longer persisted on new accounts. Builtins derive
-   * protocol from well-known ID; custom accounts use explicit accountRef binding.
-   * Retained as optional for backward compat with pre-F340 accounts.json data.
-   */
-  readonly protocol?: AccountProtocol;
   readonly baseUrl?: string;
   readonly models?: readonly string[];
   readonly displayName?: string;

@@ -329,9 +329,9 @@ test('claude-profile set migrates and preserves non-anthropic accounts from lega
     ]);
 
     const { accounts, credentials } = readInstallerState(projectRoot);
-    // Legacy openai-sponsor migrated
+    // Legacy openai-sponsor migrated (F340: protocol not migrated)
     assert.ok(accounts['openai-sponsor'], 'legacy openai-sponsor should be migrated');
-    assert.equal(accounts['openai-sponsor'].protocol, 'openai');
+    assert.equal(accounts['openai-sponsor'].protocol, undefined, 'protocol should not be migrated');
     assert.equal(accounts['openai-sponsor'].baseUrl, 'https://openai.example');
     assert.equal(credentials['openai-sponsor'].apiKey, 'openai-key');
     // New installer-managed applied (F340: no protocol on new accounts)

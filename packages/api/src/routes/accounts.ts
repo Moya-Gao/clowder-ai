@@ -9,7 +9,6 @@ import { relative, resolve, win32 } from 'node:path';
 import type { AccountConfig } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { resolveByAccountRef } from '../config/account-resolver.js';
 import { resolveCatCatalogPath } from '../config/cat-catalog-store.js';
 import { loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
 import { deleteCatalogAccount, readCatalogAccounts, writeCatalogAccount } from '../config/catalog-accounts.js';
@@ -19,7 +18,6 @@ import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
-import { buildProbeHeaders, isInvalidModelProbeError, readProbeError } from './accounts-probe.js';
 
 // F340: Derive client identity from well-known account IDs, not stored protocol.
 const BUILTIN_CLIENT_FOR_ID: Record<string, string> = {
@@ -138,11 +136,6 @@ const deleteBodySchema = z.object({
   force: z.boolean().optional(),
 });
 
-const testBodySchema = z.object({
-  projectPath: z.string().optional(),
-  provider: z.string().trim().min(1).optional(),
-});
-
 async function resolveProjectRoot(projectPath?: string): Promise<string | null> {
   if (!projectPath) return resolveActiveProjectRoot();
   const validated = await validateProjectPath(projectPath);
@@ -165,79 +158,7 @@ async function resolveProjectRoot(projectPath?: string): Promise<string | null> 
   }
 }
 
-function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, '');
-}
-
-function probeUrl(baseUrl: string, path: string): string {
-  return `${normalizeBaseUrl(baseUrl)}${path.startsWith('/') ? path : `/${path}`}`;
-}
-
-function inferProbeProtocol(
-  baseUrl: string | undefined,
-  selector: string | undefined,
-  models: readonly string[] | undefined = [],
-  ...nameHints: Array<string | undefined>
-): 'anthropic' | 'openai' | 'google' {
-  const normalizedSelector = selector?.trim().toLowerCase();
-  if (normalizedSelector === 'anthropic' || normalizedSelector === 'claude' || normalizedSelector === 'opencode') {
-    return 'anthropic';
-  }
-  if (normalizedSelector === 'google' || normalizedSelector === 'gemini') {
-    return 'google';
-  }
-  if (normalizedSelector === 'openai' || normalizedSelector === 'codex' || normalizedSelector === 'dare') {
-    return 'openai';
-  }
-
-  const normalizedModels = models.map((model) => model.trim().toLowerCase()).filter(Boolean);
-  if (normalizedModels.some((model) => model.includes('claude') || model.includes('anthropic'))) {
-    return 'anthropic';
-  }
-  if (normalizedModels.some((model) => model.includes('gemini') || model.includes('google'))) {
-    return 'google';
-  }
-  if (normalizedModels.some((model) => model.includes('gpt') || model.includes('o1') || model.includes('o3'))) {
-    return 'openai';
-  }
-
-  const normalizedHints = nameHints
-    .map((hint) => hint?.trim().toLowerCase() ?? '')
-    .filter(Boolean)
-    .join(' ');
-  if (
-    normalizedHints.includes('claude') ||
-    normalizedHints.includes('anthropic') ||
-    normalizedHints.includes('opencode')
-  ) {
-    return 'anthropic';
-  }
-  if (normalizedHints.includes('gemini') || normalizedHints.includes('google')) {
-    return 'google';
-  }
-  if (normalizedHints.includes('codex') || normalizedHints.includes('openai') || normalizedHints.includes('dare')) {
-    return 'openai';
-  }
-
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl ?? '').toLowerCase();
-  if (normalizedBaseUrl.includes('anthropic')) return 'anthropic';
-  if (
-    normalizedBaseUrl.includes('googleapis.com') ||
-    normalizedBaseUrl.includes('generativelanguage') ||
-    normalizedBaseUrl.includes('gemini')
-  ) {
-    return 'google';
-  }
-  return 'openai';
-}
-
-export interface AccountsRoutesOptions {
-  fetchImpl?: typeof fetch;
-}
-
-export const accountsRoutes: FastifyPluginAsync<AccountsRoutesOptions> = async (app, opts) => {
-  const fetchImpl = opts.fetchImpl ?? fetch;
-
+export const accountsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/accounts', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
@@ -341,11 +262,9 @@ export const accountsRoutes: FastifyPluginAsync<AccountsRoutesOptions> = async (
         reply.status(404);
         return { error: `Account "${params.profileId}" not found` };
       }
-      // F340: Don't derive new protocol. Preserve existing protocol for backward compat
-      // (pre-F340 accounts may still have it; stripping on edit would break legacy resolution).
+      // F340: protocol not persisted — derived at runtime from well-known account IDs.
       const account: AccountConfig = {
         authType: (parsed.data.authType as 'oauth' | 'api_key') ?? existing.authType,
-        ...(existing.protocol ? { protocol: existing.protocol } : {}),
         ...(parsed.data.baseUrl != null
           ? { baseUrl: parsed.data.baseUrl || undefined }
           : existing.baseUrl
@@ -447,116 +366,6 @@ export const accountsRoutes: FastifyPluginAsync<AccountsRoutesOptions> = async (
     } catch (err) {
       reply.status(400);
       return { error: err instanceof Error ? err.message : String(err) };
-    }
-  });
-
-  app.post('/api/accounts/:profileId/test', async (request, reply) => {
-    const userId = resolveUserId(request);
-    if (!userId) {
-      reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
-    }
-
-    const parsed = testBodySchema.safeParse(request.body);
-    if (!parsed.success) {
-      reply.status(400);
-      return { error: 'Invalid body', details: parsed.error.issues };
-    }
-    const projectRoot = await resolveProjectRoot(parsed.data.projectPath);
-    if (!projectRoot) {
-      reply.status(400);
-      return { error: 'Invalid project path: must be an existing directory under allowed roots' };
-    }
-    const params = request.params as { profileId: string };
-
-    const runtime = resolveByAccountRef(projectRoot, params.profileId);
-    if (!runtime || runtime.authType !== 'api_key' || !runtime.baseUrl || !runtime.apiKey) {
-      reply.status(400);
-      return { error: 'Only api_key providers can be tested' };
-    }
-
-    const baseUrl = normalizeBaseUrl(runtime.baseUrl);
-    const probeProtocol =
-      runtime.protocol ?? inferProbeProtocol(runtime.baseUrl, parsed.data.provider, runtime.models, params.profileId);
-    const modelProbePaths = probeProtocol === 'google' ? ['/v1beta/models', '/models', '/v1/models'] : ['/v1/models'];
-    let modelsRes: Response | null = null;
-    let modelsError: string | null = null;
-    try {
-      for (const path of modelProbePaths) {
-        const next = await fetchImpl(probeUrl(baseUrl, path), {
-          method: 'GET',
-          headers: buildProbeHeaders(probeProtocol, runtime.apiKey),
-        });
-        modelsRes = next;
-        if (next.ok) {
-          return {
-            ok: true,
-            mode: 'api_key',
-            status: next.status,
-          };
-        }
-        modelsError = await readProbeError(next);
-        if (next.status !== 404) break;
-      }
-
-      if (!modelsRes) {
-        return {
-          ok: false,
-          mode: 'api_key',
-          error: 'Provider test did not execute',
-        };
-      }
-
-      if (probeProtocol === 'anthropic' && modelsRes.status === 404) {
-        const messagesRes = await fetchImpl(probeUrl(baseUrl, '/v1/messages'), {
-          method: 'POST',
-          headers: {
-            ...buildProbeHeaders(probeProtocol, runtime.apiKey),
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'claude-3-5-haiku-latest',
-            max_tokens: 1,
-            messages: [{ role: 'user', content: 'ping' }],
-          }),
-        });
-        if (messagesRes.ok) {
-          return {
-            ok: true,
-            mode: 'api_key',
-            status: messagesRes.status,
-          };
-        }
-        const messagesError = await readProbeError(messagesRes);
-        if (messagesRes.status === 400 && isInvalidModelProbeError(messagesError)) {
-          return {
-            ok: true,
-            mode: 'api_key',
-            status: 200,
-            message: 'baseUrl and apiKey are valid; gateway rejected the probe model identifier',
-          };
-        }
-        return {
-          ok: false,
-          mode: 'api_key',
-          status: messagesRes.status,
-          error: messagesError,
-        };
-      }
-
-      return {
-        ok: false,
-        mode: 'api_key',
-        status: modelsRes.status,
-        error: modelsError ?? (await readProbeError(modelsRes)),
-      };
-    } catch (err) {
-      reply.status(500);
-      return {
-        ok: false,
-        mode: 'api_key',
-        error: err instanceof Error ? err.message : String(err),
-      };
     }
   });
 };

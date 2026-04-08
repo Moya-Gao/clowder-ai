@@ -109,22 +109,9 @@ function migrateLegacyFrom(root: string): void {
   for (const p of providers) {
     const id = String(p.id ?? '').trim();
     if (!id) continue;
-    // Derive protocol from explicit field, then client hint (per account-resolver.ts truth source)
-    const client = String(p.client ?? '').toLowerCase();
-    const clientProtocol: Record<string, string> = {
-      anthropic: 'anthropic',
-      claude: 'anthropic',
-      openai: 'openai',
-      codex: 'openai',
-      google: 'google',
-      gemini: 'google',
-      dare: 'openai',
-      opencode: 'anthropic',
-    };
-    const rawProtocol = p.protocol ?? clientProtocol[client] ?? 'openai';
+    // F340: protocol not migrated — derived at runtime from well-known account IDs.
     accounts[id] = {
       authType: (p.authType as 'oauth' | 'api_key') ?? 'oauth',
-      protocol: String(rawProtocol) as AccountConfig['protocol'],
       ...(p.displayName ? { displayName: String(p.displayName) } : {}),
       ...(p.baseUrl ? { baseUrl: String(p.baseUrl) } : {}),
       ...(Array.isArray(p.models) ? { models: p.models.map(String) } : {}),
