@@ -93,16 +93,29 @@ function migrateLegacyFrom(root: string): void {
   const metaPath = resolve(root, CONFIG_SUBDIR, 'provider-profiles.json');
   if (!existsSync(metaPath)) return;
   const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
-  // v3 stores providers as flat array; defend against hypothetical nested shapes
-  // (e.g. { providers: { claude: {...}, codex: {...} } }) by flattening objects.
+  // v2/v3: flat array of profiles.  v1: nested { providers: { <client>: { profiles: [...] } } }.
   const rawProviders = meta?.providers ?? meta?.profiles;
-  const providers: Array<Record<string, unknown>> = Array.isArray(rawProviders)
-    ? rawProviders
-    : rawProviders != null && typeof rawProviders === 'object'
-      ? Object.entries(rawProviders as Record<string, unknown>).map(([key, val]) =>
-          typeof val === 'object' && val !== null ? { id: key, ...(val as Record<string, unknown>) } : { id: key },
-        )
-      : [];
+  let providers: Array<Record<string, unknown>>;
+  if (Array.isArray(rawProviders)) {
+    providers = rawProviders;
+  } else if (rawProviders != null && typeof rawProviders === 'object') {
+    providers = [];
+    for (const [, val] of Object.entries(rawProviders as Record<string, unknown>)) {
+      if (typeof val !== 'object' || val === null) continue;
+      const obj = val as Record<string, unknown>;
+      if (Array.isArray(obj.profiles)) {
+        // v1 nested: { anthropic: { profiles: [{ id, ... }, ...] } }
+        for (const p of obj.profiles) {
+          if (typeof p === 'object' && p !== null) providers.push(p as Record<string, unknown>);
+        }
+      } else {
+        // Simple object: treat as single provider entry
+        providers.push(obj);
+      }
+    }
+  } else {
+    providers = [];
+  }
   if (providers.length === 0) return;
 
   const accounts: Record<string, AccountConfig> = {};
@@ -117,13 +130,23 @@ function migrateLegacyFrom(root: string): void {
       ...(Array.isArray(p.models) ? { models: p.models.map(String) } : {}),
     };
   }
-  const { merged } = mergeIntoGlobal(accounts);
-  const mergedIds = new Set(merged);
+  mergeIntoGlobal(accounts);
 
   const secretsPath = resolve(root, CONFIG_SUBDIR, 'provider-profiles.secrets.local.json');
   if (!existsSync(secretsPath)) return;
   const secretsMeta = JSON.parse(readFileSync(secretsPath, 'utf-8'));
-  const profileSecrets: Record<string, Record<string, unknown>> = secretsMeta?.profiles ?? {};
+  // v2/v3: flat { profiles: { <id>: { apiKey } } }.
+  // v1: nested { providers: { <client>: { <id>: { apiKey } } } }.
+  let profileSecrets: Record<string, Record<string, unknown>> = {};
+  if (secretsMeta?.profiles && typeof secretsMeta.profiles === 'object') {
+    profileSecrets = secretsMeta.profiles;
+  } else if (secretsMeta?.providers && typeof secretsMeta.providers === 'object') {
+    for (const clientSecrets of Object.values(secretsMeta.providers as Record<string, unknown>)) {
+      if (typeof clientSecrets === 'object' && clientSecrets !== null) {
+        Object.assign(profileSecrets, clientSecrets as Record<string, Record<string, unknown>>);
+      }
+    }
+  }
   const globalRoot = resolveGlobalRoot();
   const credPath = resolve(globalRoot, CONFIG_SUBDIR, 'credentials.json');
   const existing = existsSync(credPath)
@@ -137,7 +160,11 @@ function migrateLegacyFrom(root: string): void {
     : {};
   let credCount = 0;
   for (const [id, secret] of Object.entries(profileSecrets)) {
-    if (mergedIds.has(id) && !(id in existing) && secret?.apiKey) {
+    // Import if: ID came from this legacy source AND credential doesn't already exist.
+    // Using `id in accounts` (not mergedIds) makes this retry-safe: on retry the
+    // account already exists in global so mergeIntoGlobal returns it as "skipped",
+    // but the credential may still be missing from a previous partial run.
+    if (id in accounts && !(id in existing) && secret?.apiKey) {
       existing[id] = { apiKey: String(secret.apiKey) };
       credCount++;
     }

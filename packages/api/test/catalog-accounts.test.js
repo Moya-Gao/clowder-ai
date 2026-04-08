@@ -218,4 +218,90 @@ describe('global accounts (F340)', () => {
     await rmAsync(projectA, { recursive: true, force: true });
     await rmAsync(projectB, { recursive: true, force: true });
   });
+
+  it('migrates v1 nested providers.<client>.profiles[] into flat accounts', async () => {
+    const { readCatalogAccounts, resetMigrationState } = await import('../dist/config/catalog-accounts.js');
+    resetMigrationState();
+
+    // v1 format: providers keyed by client, each with a profiles array
+    const v1Meta = {
+      version: 1,
+      providers: {
+        anthropic: {
+          activeProfileId: 'my-proxy',
+          profiles: [
+            { id: 'my-proxy', displayName: 'My Proxy', authType: 'api_key', baseUrl: 'https://proxy.example/v1' },
+            { id: 'team-key', displayName: 'Team Key', authType: 'api_key' },
+          ],
+        },
+      },
+    };
+    await writeFile(join(projectRoot, '.cat-cafe', 'provider-profiles.json'), JSON.stringify(v1Meta), 'utf-8');
+
+    // v1 secrets: also nested under providers.<client>
+    const v1Secrets = {
+      version: 1,
+      providers: {
+        anthropic: {
+          'my-proxy': { apiKey: 'sk-proxy-key' },
+          'team-key': { apiKey: 'sk-team-key' },
+        },
+      },
+    };
+    await writeFile(
+      join(projectRoot, '.cat-cafe', 'provider-profiles.secrets.local.json'),
+      JSON.stringify(v1Secrets),
+      'utf-8',
+    );
+
+    const result = readCatalogAccounts(projectRoot);
+    // Both profiles should be migrated as individual accounts (not "anthropic" shell)
+    assert.ok(result['my-proxy'], 'my-proxy account should exist');
+    assert.equal(result['my-proxy'].authType, 'api_key');
+    assert.equal(result['my-proxy'].displayName, 'My Proxy');
+    assert.equal(result['my-proxy'].baseUrl, 'https://proxy.example/v1');
+    assert.ok(result['team-key'], 'team-key account should exist');
+    assert.equal(result['team-key'].authType, 'api_key');
+    // Must NOT create an "anthropic" shell account from the parent key
+    assert.equal(result.anthropic, undefined, 'should not create shell account from client key');
+
+    // Credentials should also be migrated
+    const credRaw = await readFile(join(globalRoot, '.cat-cafe', 'credentials.json'), 'utf-8');
+    const creds = JSON.parse(credRaw);
+    assert.equal(creds['my-proxy'].apiKey, 'sk-proxy-key');
+    assert.equal(creds['team-key'].apiKey, 'sk-team-key');
+  });
+
+  it('retries secret import when accounts already exist from previous migration', async () => {
+    const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    resetMigrationState();
+
+    // Simulate previous successful account merge: account exists in global but no credential
+    writeCatalogAccount(projectRoot, 'my-custom', { authType: 'api_key' });
+    resetMigrationState(); // reset so next read re-runs migration
+
+    // Legacy source still has the profile + secret
+    const legacyMeta = {
+      version: 2,
+      providers: [{ id: 'my-custom', authType: 'api_key', baseUrl: 'https://custom.api/v1' }],
+    };
+    await writeFile(join(projectRoot, '.cat-cafe', 'provider-profiles.json'), JSON.stringify(legacyMeta), 'utf-8');
+
+    const legacySecrets = { profiles: { 'my-custom': { apiKey: 'sk-retry-key' } } };
+    await writeFile(
+      join(projectRoot, '.cat-cafe', 'provider-profiles.secrets.local.json'),
+      JSON.stringify(legacySecrets),
+      'utf-8',
+    );
+
+    // On retry: accounts already exist (mergedIds empty), but credentials must still import
+    const result = readCatalogAccounts(projectRoot);
+    assert.ok(result['my-custom'], 'account should exist');
+
+    const credRaw = await readFile(join(globalRoot, '.cat-cafe', 'credentials.json'), 'utf-8');
+    const creds = JSON.parse(credRaw);
+    assert.equal(creds['my-custom'].apiKey, 'sk-retry-key', 'credential must be imported on retry');
+  });
 });
