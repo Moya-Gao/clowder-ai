@@ -154,6 +154,18 @@ describe('account-resolver (4b unified runtime resolution)', () => {
     assert.equal(profile.apiKey, 'sk-custom');
   });
 
+  it('resolveForClient returns null when explicit preferredAccountRef is not found (fail closed)', async () => {
+    const { resolveForClient } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-7`);
+    await writeCatalog({
+      claude: { authType: 'oauth', protocol: 'anthropic' },
+    });
+    await writeCredentials({});
+
+    // Explicit ref that doesn't exist must return null, not silently fall back to 'claude'
+    const profile = resolveForClient(projectRoot, 'anthropic', 'deleted-custom-account');
+    assert.equal(profile, null, 'explicit preferredAccountRef miss must fail closed');
+  });
+
   it('resolveForClient returns null when multiple accounts match same protocol (ambiguous)', async () => {
     const { resolveForClient } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-8`);
     await writeCatalog({

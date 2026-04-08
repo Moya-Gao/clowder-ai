@@ -127,10 +127,22 @@ export function resolveForClient(
 ): RuntimeProviderProfile | null {
   const accounts = readCatalogAccounts(projectRoot);
 
-  // Try preferred first
+  // Try preferred first — fail closed if explicit ref doesn't resolve.
   if (preferredAccountRef) {
     const preferred = accounts[preferredAccountRef];
     if (preferred) return accountToRuntimeProfile(preferredAccountRef, preferred);
+    // Not in accounts — only allow synthetic builtin (fresh install with empty accounts).
+    const builtin = BUILTIN_ACCOUNT_MAP[preferredAccountRef];
+    if (builtin) {
+      return {
+        id: preferredAccountRef,
+        authType: 'oauth',
+        kind: 'builtin',
+        client: builtin.client,
+        protocol: builtin.protocol,
+      };
+    }
+    return null;
   }
 
   // F340: Resolve by well-known builtin account ID for the client.
