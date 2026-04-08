@@ -1072,6 +1072,86 @@ describe('AcpClient', () => {
     assert.equal(permEvents.length, 0, 'Permission notification should not pollute stream events');
   });
 
+  // ─── permission_pending suppresses stall even without prior tool_call ───
+  // Runtime scenario: thought_chunk → request_permission (no tool_call first)
+
+  it('permission notification injects permission_pending to suppress stall', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    let promptId = null;
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'perm-stall-sess' });
+        } else if (msg.method === 'session/prompt') {
+          promptId = msg.id;
+          // 1. thought_chunk (NOT tool_call) — pendingTool stays false
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'perm-stall-sess',
+              update: { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'thinking...' } },
+            });
+          });
+          setTimeout(() => {
+            // 2. Permission notification (no id, no prior tool_call)
+            agentStdout.push(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                method: 'session/request_permission',
+                params: {
+                  sessionId: 'perm-stall-sess',
+                  options: [
+                    { optionId: 'proceed_once', name: 'Allow', kind: 'allow_once' },
+                    { optionId: 'cancel', name: 'Reject', kind: 'reject_once' },
+                  ],
+                  toolCall: { toolCallId: 'shell-1', status: 'pending', title: 'echo hello' },
+                },
+              }) + '\n',
+            );
+          }, 20);
+          // 3. Wait past stall threshold, then complete
+          // If permission_pending doesn't suppress stall, this will never be reached
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'perm-stall-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'done' } },
+            });
+            agentRespond(agentStdout, promptId, { stopReason: 'end_turn' });
+          }, 250);
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    let thrownError = null;
+    try {
+      for await (const event of client.promptStream('perm-stall-sess', 'hello', {
+        idleWarningMs: 60,
+        idleStallMs: 200,
+        timeoutMs: 5000,
+      })) {
+        events.push(event);
+      }
+    } catch (err) {
+      thrownError = err;
+    }
+
+    assert.equal(thrownError, null, `Stall should be suppressed during permission wait: ${thrownError?.message}`);
+    // permission_pending synthetic event should be in stream
+    const permPending = events.filter((e) => e.sessionUpdate === 'permission_pending');
+    assert.ok(permPending.length >= 1, 'permission_pending synthetic event should be emitted');
+    // tool_wait_warning should fire (pendingTool was set by permission_pending)
+    const toolWaits = events.filter((e) => e.update?.sessionUpdate === 'stream_tool_wait_warning');
+    assert.ok(toolWaits.length >= 1, 'Tool wait warning should fire during permission wait');
+  });
+
   // ─── thought_chunk should not reset pendingTool during active tool execution ───
 
   it('agent_thought_chunk during tool_call does not reset pendingTool', async () => {

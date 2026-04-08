@@ -399,7 +399,7 @@
           },
           "acp": {
             "command": "gemini",
-            "startupArgs": ["--acp"],
+            "startupArgs": ["--acp", "--approval-mode", "yolo"],
             "mcpWhitelist": ["cat-cafe", "cat-cafe-memory", "cat-cafe-collab", "cat-cafe-signals", "pencil"],
             "supportsMultiplexing": true
           },
@@ -442,7 +442,7 @@
           },
           "acp": {
             "command": "gemini",
-            "startupArgs": ["--acp"],
+            "startupArgs": ["--acp", "--approval-mode", "yolo"],
             "mcpWhitelist": ["cat-cafe", "cat-cafe-memory", "cat-cafe-collab", "cat-cafe-signals", "pencil"],
             "supportsMultiplexing": true
           },

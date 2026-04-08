@@ -325,7 +325,7 @@ export class AcpClient {
           'ACP listener: unclassified event — no sessionUpdate type',
         );
       }
-      if (updateType === 'tool_call') {
+      if (updateType === 'tool_call' || updateType === 'permission_pending') {
         pendingTool = true;
       } else if (
         pendingTool &&
@@ -489,10 +489,23 @@ export class AcpClient {
         resolve(msg as unknown as AcpResponse);
       } else if (method && !id) {
         if (method === ACP_METHODS.requestPermission) {
-          // Gemini CLI sometimes sends request_permission as notification (no id).
-          // Route to handleAgentRequest with synthetic id so auto-approve fires.
-          log.info({ method }, 'ACP: permission notification (no id) — routing to handler with synthetic id');
+          // Gemini CLI sends request_permission as notification (no id) when not in yolo mode.
+          // Best-effort auto-approve with synthetic id (Gemini may ignore it).
+          // Also notify stream listeners so idle watchdog suppresses stall during permission wait.
+          const permParams = msg.params as Record<string, unknown>;
+          log.info(
+            { method, sessionId: permParams.sessionId },
+            'ACP: permission notification (no id) — auto-approve + suppress stall',
+          );
           this.handleAgentRequest({ ...msg, id: `synth-perm-${Date.now()}` } as unknown as AcpAgentRequest);
+          // Inject synthetic event into stream so promptStream sets pendingTool=true
+          for (const listener of this.notificationListeners) {
+            listener({
+              jsonrpc: '2.0',
+              method: ACP_METHODS.sessionUpdate,
+              params: { sessionId: permParams.sessionId, sessionUpdate: 'permission_pending' },
+            } as unknown as AcpNotification);
+          }
         } else {
           // Notification from agent (session/update)
           for (const listener of this.notificationListeners) {
