@@ -53,13 +53,22 @@ export async function* runCatAgentLoop(
     // MicroCompact: strip old tool results before API call (Claude Code pattern)
     const compactedMessages = microcompact(messages);
     log.debug(`[turn ${turn}] calling API with ${compactedMessages.length} messages`);
-    const response = await client.messages.create({
-      model: config.model,
-      max_tokens: config.maxTokens,
-      system: systemPrompt,
-      messages: compactedMessages,
-      tools: toolSchemas.length > 0 ? toolSchemas : undefined,
-    });
+
+    let response: Anthropic.Messages.Message;
+    try {
+      response = await client.messages.create({
+        model: config.model,
+        max_tokens: config.maxTokens,
+        system: systemPrompt,
+        messages: compactedMessages,
+        tools: toolSchemas.length > 0 ? toolSchemas : undefined,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`[turn ${turn}] API error: ${msg}`);
+      yield makeMessage(config.catId, 'error', { error: `API error: ${msg}` });
+      return;
+    }
 
     const textContent = extractText(response.content);
     if (textContent) {
