@@ -140,14 +140,14 @@ Claude Code 读配置时 per-project override > `.mcp.json` > global，拿到不
 
 **紧急修复（2026-04-08）**：手动清理 `~/.claude.json` 中 per-project 和 global 的 stale pencil entries。
 
-**根因修复**：`generateCliConfigs()` 应在写完 `.mcp.json` 后，对 resolver-backed servers 清理 `~/.claude.json` 中的同名 per-project/global overrides，防止 stale entries 遮蔽 resolver 输出。→ Phase D
+**根因修复**：`generateCliConfigs()` 在写完 `.mcp.json` 后，对 resolver-backed servers 清理 `~/.claude.json` 中 per-project overrides，防止 stale entries 遮蔽 resolver 输出。→ Phase D (PR #1017, merged `b527aac0`)
 
-### Phase D: generateCliConfigs() 清理 stale Claude overrides
+### Phase D: generateCliConfigs() 清理 stale Claude overrides ✅
 
-- [ ] AC-D1: `generateCliConfigs()` 写完 `.mcp.json` 后，清理 `~/.claude.json` per-project mcpServers 中 resolver-backed server 的 stale entries
-- [ ] AC-D2: 同时清理 `~/.claude.json` global mcpServers 中 resolver-backed server 的 stale entries
-- [ ] AC-D3: 不影响非 resolver-backed servers（如用户手动配置的 xiaohongshu、jetbrains 等）
-- [ ] AC-D4: 清理操作有日志输出（doctor 可见），不静默
+- [x] AC-D1: `generateCliConfigs()` 写完 `.mcp.json` 后，清理 `~/.claude.json` per-project mcpServers 中 resolver-backed server 的 stale entries
+- [x] AC-D2: Global mcpServers 不清理（设计决策：global 优先级低于 `.mcp.json`，不遮蔽 resolver 输出，清理反而会影响其他项目）
+- [x] AC-D3: 不影响非 resolver-backed servers（如用户手动配置的 xiaohongshu、jetbrains 等）
+- [x] AC-D4: 清理操作有日志输出（`[F145] Cleaned ...` / `[F145] Failed ...`），不静默
 
 ## Key Decisions
 
@@ -171,6 +171,7 @@ Claude Code 读配置时 per-project override > `.mcp.json` > global，拿到不
 | 2026-04-07 | AC-C3 补齐：capabilities.json bootstrap + migration 包含 cat-cafe 主 server |
 | 2026-04-08 | Bug 发现：~/.claude.json stale per-project override 遮蔽 resolver 输出，Pencil 三猫均不可用 |
 | 2026-04-08 | 紧急修复：手动清理 ~/.claude.json stale entries + Phase D 立项 |
+| 2026-04-08 | Phase D merged (PR #1017, `b527aac0`)：`generateCliConfigs()` auto-clean per-project overrides |
 
 ## Review Gate
 
