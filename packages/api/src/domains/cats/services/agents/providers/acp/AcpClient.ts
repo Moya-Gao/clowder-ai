@@ -327,8 +327,12 @@ export class AcpClient {
       }
       if (updateType === 'tool_call') {
         pendingTool = true;
-      } else if (pendingTool && updateType !== 'tool_call_update') {
-        pendingTool = false; // Non-tool event → tool execution completed
+      } else if (
+        pendingTool &&
+        updateType !== 'tool_call_update' &&
+        updateType !== 'agent_thought_chunk' // Thought chunks during tool execution are normal — don't reset
+      ) {
+        pendingTool = false; // Real output event → tool execution completed
       }
       scheduleIdleCheck();
       if (waitResolve) {
@@ -484,9 +488,16 @@ export class AcpClient {
         this.pending.delete(id);
         resolve(msg as unknown as AcpResponse);
       } else if (method && !id) {
-        // Notification from agent (session/update)
-        for (const listener of this.notificationListeners) {
-          listener(msg as unknown as AcpNotification);
+        if (method === ACP_METHODS.requestPermission) {
+          // Gemini CLI sometimes sends request_permission as notification (no id).
+          // Route to handleAgentRequest with synthetic id so auto-approve fires.
+          log.info({ method }, 'ACP: permission notification (no id) — routing to handler with synthetic id');
+          this.handleAgentRequest({ ...msg, id: `synth-perm-${Date.now()}` } as unknown as AcpAgentRequest);
+        } else {
+          // Notification from agent (session/update)
+          for (const listener of this.notificationListeners) {
+            listener(msg as unknown as AcpNotification);
+          }
         }
       } else if (method && id) {
         // Request from agent (permission, fs, terminal) — needs our response

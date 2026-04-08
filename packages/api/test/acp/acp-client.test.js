@@ -979,6 +979,159 @@ describe('AcpClient', () => {
     assert.equal(idleWarnings.length, 0, 'No stream_idle_warning during flat-format tool wait');
   });
 
+  // ─── Permission notification: Gemini sends request_permission without id ───
+
+  it('permission notification (no id) is auto-approved and does not block stream', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+    const capturedMessages = [];
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        capturedMessages.push(msg);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'perm-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // 1. tool_call → pendingTool=true
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'perm-sess',
+              update: { sessionUpdate: 'tool_call', content: { type: 'text', text: 'search' } },
+            });
+          });
+          setTimeout(() => {
+            // 2. thought_chunk during tool execution (should NOT reset pendingTool)
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'perm-sess',
+              update: { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: '{"limit":20}' } },
+            });
+            // 3. Permission notification (no id!) — should be auto-approved
+            const permNotif = JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'session/request_permission',
+              params: {
+                sessionId: 'perm-sess',
+                options: [
+                  { optionId: 'proceed_always', name: 'Always Allow', kind: 'allow_always' },
+                  { optionId: 'proceed_once', name: 'Allow', kind: 'allow_once' },
+                  { optionId: 'cancel', name: 'Reject', kind: 'reject_once' },
+                ],
+              },
+            });
+            agentStdout.push(permNotif + '\n');
+          }, 30);
+          // 4. After permission, Gemini continues and completes
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'perm-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'done' } },
+            });
+            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+          }, 250);
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    let thrownError = null;
+    try {
+      for await (const event of client.promptStream('perm-sess', 'hello', {
+        idleWarningMs: 60,
+        idleStallMs: 200,
+        timeoutMs: 5000,
+      })) {
+        events.push(event);
+      }
+    } catch (err) {
+      thrownError = err;
+    }
+
+    assert.equal(thrownError, null, `Should not stall: ${thrownError?.message}`);
+
+    // Permission auto-approve response should have been sent
+    const permResponses = capturedMessages.filter(
+      (m) => m.id?.toString().startsWith('synth-perm-') && m.result?.outcome,
+    );
+    assert.ok(permResponses.length >= 1, 'Should send auto-approve response for permission notification');
+    assert.equal(permResponses[0].result.outcome.outcome, 'selected');
+    assert.equal(permResponses[0].result.outcome.optionId, 'proceed_once');
+
+    // Permission notification should NOT appear in stream events (not a session update)
+    const permEvents = events.filter(
+      (e) => e.options || (e.update && !e.update.sessionUpdate),
+    );
+    assert.equal(permEvents.length, 0, 'Permission notification should not pollute stream events');
+  });
+
+  // ─── thought_chunk should not reset pendingTool during active tool execution ───
+
+  it('agent_thought_chunk during tool_call does not reset pendingTool', async () => {
+    const { child, clientStdin, agentStdout } = createMockChild();
+
+    clientStdin.on('data', (chunk) => {
+      for (const line of chunk.toString().trim().split('\n')) {
+        const msg = JSON.parse(line);
+        if (msg.method === 'initialize') {
+          agentRespond(agentStdout, msg.id, INIT_RESULT);
+        } else if (msg.method === 'session/new') {
+          agentRespond(agentStdout, msg.id, { sessionId: 'thought-tool-sess' });
+        } else if (msg.method === 'session/prompt') {
+          // tool_call → thought_chunk → (wait past stall) → complete
+          setImmediate(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'thought-tool-sess',
+              update: { sessionUpdate: 'tool_call', content: { type: 'text', text: 'web_search' } },
+            });
+          });
+          setTimeout(() => {
+            // Thought chunk DURING tool execution — should not reset pendingTool
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'thought-tool-sess',
+              update: { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: 'processing' } },
+            });
+          }, 10);
+          // Complete well after stall threshold
+          setTimeout(() => {
+            agentNotify(agentStdout, 'session/update', {
+              sessionId: 'thought-tool-sess',
+              update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'result' } },
+            });
+            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
+          }, 250);
+        }
+      }
+    });
+
+    client = new AcpClient({ command: 'fake', args: [], cwd: '/tmp', spawnFn: () => child });
+    await client.initialize();
+    await client.newSession();
+
+    const events = [];
+    let thrownError = null;
+    try {
+      for await (const event of client.promptStream('thought-tool-sess', 'hello', {
+        idleWarningMs: 30,
+        idleStallMs: 100,
+        timeoutMs: 5000,
+      })) {
+        events.push(event);
+      }
+    } catch (err) {
+      thrownError = err;
+    }
+
+    // Should NOT stall — thought_chunk doesn't reset pendingTool during tool execution
+    assert.equal(thrownError, null, `Should not stall: ${thrownError?.message}`);
+    const toolWaits = events.filter((e) => e.update?.sessionUpdate === 'stream_tool_wait_warning');
+    assert.ok(toolWaits.length >= 1, 'Should emit tool_wait_warning (pendingTool stayed true through thought_chunk)');
+  });
+
   // ─── P1 fixes from gpt52 review ─────────────────────────────
 
   it('F149-P1: idle stall sends session/cancel to terminate upstream', async () => {
