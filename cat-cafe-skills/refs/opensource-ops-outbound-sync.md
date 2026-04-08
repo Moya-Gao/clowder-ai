@@ -381,3 +381,44 @@ gh issue comment {N} --repo zts212653/clowder-ai \
 ```
 
 **全部执行完 → 这次全量同步才算闭环。**
+
+### Step 9: Release Tag Gate（release-intended sync 专用）🔴
+
+**Release tag 不许在 Step 8 完成前打。** `publish-release-tag.sh` 已加入技术性门禁：必须传 `--reconciliation-report=<path>` 指向一份非空的 reconciliation 报告文件，否则脚本直接 exit 1。
+
+**执行顺序铁律：**
+
+```
+Step 7 (sync PR merge) → Step 8 (community reconciliation) → 写报告 → Step 9 (release tag)
+```
+
+**Reconciliation Report 格式**（约定路径 `docs/ops/reconciliation-{version}.md`）：
+
+```markdown
+# Community Reconciliation: v0.5.0
+
+## Reconciled Features
+- F151: #341 closed (Phase A MVP shipped)
+- F150: #339 auto-closed by PR #295
+
+## Actions Taken
+- #234: commented, root cause → #284
+- #137, #252, #338, #169: reviewed, kept open (evidence: ...)
+
+## CVO Sign-off
+- Approved by @lysander on YYYY-MM-DD
+```
+
+**然后运行：**
+
+```bash
+bash scripts/publish-release-tag.sh \
+  --release-tag=vX.Y.Z \
+  --target-sha={sha} \
+  --reconciliation-report=docs/ops/reconciliation-vX.Y.Z.md \
+  --push
+```
+
+**违反后果**：脚本会拒绝发布。没有 reconciliation report = 没有 release tag。
+
+> 事故教训（v0.5.0）：sync PR #384 merge 后直接打 release tag，Step 8 完全跳过，导致 #341 等 issue 漏关。

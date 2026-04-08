@@ -91,6 +91,20 @@ pnpm lint           # TypeScript 类型检查
 pnpm --filter @cat-cafe/api run test:public  # 公开测试套件
 ```
 
+## Step 5.5: Issue 关单判断（PR 创建前必做）
+
+**创建 PR 前问一句**："这个 PR merge 后，关联的 clowder-ai issue 是否可以关闭？"
+
+| 判断 | PR body 用法 | 效果 |
+|------|-------------|------|
+| PR 完整覆盖 issue scope | `Closes #N` 或 `Fixes #N` | merge 后 **auto-close** |
+| PR 仅部分交付（分阶段） | `Refs #N`（+ 说明剩余 scope） | issue **保持 open** |
+| PR 无关联 issue | 不写 | — |
+
+**默认用 `Closes`。** 只有明确是分阶段交付时才降级为 `Refs`。
+
+> 事故教训（v0.5.0）：F151 PR #354 用了 `Implements` 引用而非 `Closes`，导致 #341 漏关。
+
 ## Step 6: 组装 PR
 
 > **编号规则**：PR body 中裸 `#N` 有两种含义——`Fixes #N` 是 GitHub **auto-close** 语法（PR merge 后自动关 issue），`(#N)` 仅是同仓 **issue 引用/链接**（不会自动关单）。两者都在同仓 PR body 中有效且必须保留。但在**猫猫讨论、mailbox、评论**中必须写显式前缀（`clowder-ai#N` / `cat-cafe#N`），不要裸写。
@@ -117,7 +131,7 @@ EOF
 )"
 ```
 
-**Feature PR**：
+**Feature PR（完整交付 — AC 全部勾选）**：
 
 ```bash
 gh pr create --repo zts212653/clowder-ai \
@@ -127,13 +141,47 @@ gh pr create --repo zts212653/clowder-ai \
 <!-- 改了什么，关键文件列表 -->
 
 ## Why
-Implements F115 (#ISSUE_NUMBER) <!-- (#N) = 同仓 issue 引用（不会自动关单），Fixes #N 才是 auto-close -->
+Closes #ISSUE_NUMBER <!-- AC 全勾 → Closes = auto-close -->
 Feature Doc: docs/features/F115-xxx.md
 
 ## AC Checklist
 - [x] AC 1: xxx（证据：测试 / 截图）
 - [x] AC 2: xxx
-- [ ] AC 3: xxx（Phase 2 范围）
+- [x] AC 3: xxx
+
+## Test Evidence
+```
+pnpm check          # ✅
+pnpm lint           # ✅
+pnpm --filter @cat-cafe/api test:public  # ✅ X passed
+```
+
+## Tradeoff
+<!-- 考虑过的替代方案 -->
+EOF
+)"
+```
+
+**Feature PR（分阶段交付 — 有未完成 AC）**：
+
+```bash
+gh pr create --repo zts212653/clowder-ai \
+  --title "feat(F115): 简短描述 — Phase A" \
+  --body "$(cat <<'EOF'
+## What
+<!-- 改了什么，关键文件列表 -->
+
+## Why
+Refs #ISSUE_NUMBER <!-- 有未完成 AC → Refs（不会 auto-close），issue 保持 open -->
+Feature Doc: docs/features/F115-xxx.md
+
+## AC Checklist
+- [x] AC 1: xxx（证据：测试 / 截图）
+- [x] AC 2: xxx
+- [ ] AC 3: xxx（Phase B scope）
+
+## Remaining Scope
+AC 3 将在 Phase B 交付。Issue 保持 open 直到所有 AC 完成。
 
 ## Test Evidence
 ```

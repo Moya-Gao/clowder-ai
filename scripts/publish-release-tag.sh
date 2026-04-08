@@ -15,15 +15,17 @@ NC='\033[0m'
 PUSH=false
 RELEASE_TAG=""
 TARGET_SHA=""
+RECONCILIATION_REPORT=""
 
 for arg in "$@"; do
   case "$arg" in
     --push) PUSH=true ;;
     --release-tag=*) RELEASE_TAG="${arg#--release-tag=}" ;;
     --target-sha=*) TARGET_SHA="${arg#--target-sha=}" ;;
+    --reconciliation-report=*) RECONCILIATION_REPORT="${arg#--reconciliation-report=}" ;;
     *)
       echo -e "${RED}Unknown flag: $arg${NC}"
-      echo "Usage: $0 --release-tag=<vX.Y.Z> [--target-sha=<clowder-ai-main-commit>] [--push]"
+      echo "Usage: $0 --release-tag=<vX.Y.Z> [--target-sha=<clowder-ai-main-commit>] [--reconciliation-report=<path>] [--push]"
       exit 1
       ;;
   esac
@@ -235,6 +237,25 @@ fi
 
 require_commit_on_main "$SOURCE_DIR" "cat-cafe" "$PROVENANCE_SOURCE_SHA" "$SOURCE_MAIN_REF"
 require_source_snapshot_tag "$EXPECTED_SOURCE_SNAPSHOT_TAG" "$PROVENANCE_SOURCE_SHA"
+
+# --- Reconciliation Gate (Step 8 → Step 9) ---
+# Post-sync community reconciliation must be done before publishing a release tag.
+# See: cat-cafe-skills/refs/opensource-ops-outbound-sync.md Step 9
+if [ -z "$RECONCILIATION_REPORT" ]; then
+  echo -e "${RED}Error: --reconciliation-report=<path> is required.${NC}"
+  echo -e "${RED}Post-sync community reconciliation (Step 8) must be completed before publishing a release tag.${NC}"
+  echo -e "${RED}Create a reconciliation report via the opensource-ops skill, then pass its path here.${NC}"
+  exit 1
+fi
+if [ ! -f "$RECONCILIATION_REPORT" ]; then
+  echo -e "${RED}Error: reconciliation report not found: ${RECONCILIATION_REPORT}${NC}"
+  exit 1
+fi
+if [ ! -s "$RECONCILIATION_REPORT" ]; then
+  echo -e "${RED}Error: reconciliation report is empty: ${RECONCILIATION_REPORT}${NC}"
+  exit 1
+fi
+echo -e "  ${GREEN}✓${NC} Reconciliation report: $RECONCILIATION_REPORT"
 
 echo -e "${GREEN}=== Publish Release Tag ===${NC}"
 echo "Release:            $RELEASE_TAG"
