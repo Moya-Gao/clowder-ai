@@ -251,7 +251,7 @@ function setClientAuth(client, mode, options) {
     if (installerRef !== accountRef && accounts[installerRef]) {
       console.error(
         `[install-auth-config] warning: ${installerRef} still exists with API key — ` +
-          `resolver may prefer it over OAuth. Run "client-auth remove --client ${client} --force true" to clean up.`,
+          `resolver may prefer it over OAuth. Run "client-auth remove --project-dir DIR --client ${client} --force true" to clean up.`,
       );
     }
   } else {
