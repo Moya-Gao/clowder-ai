@@ -220,14 +220,15 @@ export class AcpClient {
     text: string,
     options?: { timeoutMs?: number; idleWarningMs?: number; idleStallMs?: number },
   ): AsyncGenerator<AcpSessionUpdate, AcpStopReason> {
-    // Raised from 120s→300s: Gemini with multiple web searches + MCP tools
-    // can take 3-5min for complex queries. The idle stall (90s) catches true stalls;
-    // this absolute timeout is the last-resort guard for completely stuck sessions.
-    const timeoutMs = options?.timeoutMs ?? 300_000;
+    // KD-12: Turn budget — resource cap, NOT health detection.
+    // Gemini CLI doesn't emit tool_call for MCP tools (upstream #21783), so
+    // long MCP chains are invisible to the event stream. Idle stall (90s) catches
+    // true hangs; this budget is the last-resort guard against runaway sessions.
+    // Upstream #24029 (MCP channel notifications) will provide proper L2 signals.
+    const timeoutMs = options?.timeoutMs ?? 600_000;
     const idleWarningMs = options?.idleWarningMs ?? 20_000;
-    // Raised from 45s→90s: Gemini CLI doesn't emit tool_call for MCP tools,
-    // so pendingTool never activates. 90s covers most MCP calls (10-30s typical).
-    // Proper fix: MCP tool heartbeat channel (not dependent on model events).
+    // Idle stall catches true hangs. Gemini CLI doesn't emit tool_call for MCP
+    // tools, so pendingTool never activates. 90s covers most MCP calls (10-30s).
     const idleStallMs = options?.idleStallMs ?? 90_000;
     const queue: AcpSessionUpdate[] = [];
     let waitResolve: (() => void) | null = null;
