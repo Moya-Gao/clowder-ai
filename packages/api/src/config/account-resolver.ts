@@ -158,6 +158,11 @@ export function resolveForClient(
     if (accounts[altId]) {
       return accountToRuntimeProfile(altId, accounts[altId]);
     }
+    // Try installer-${client} naming convention (from client-auth set --mode api_key)
+    const installerId = `installer-${normalizedClient}`;
+    if (accounts[installerId]) {
+      return accountToRuntimeProfile(installerId, accounts[installerId]);
+    }
   }
 
   // Legacy fallback (READ-ONLY): match by stored protocol for pre-F340 accounts.

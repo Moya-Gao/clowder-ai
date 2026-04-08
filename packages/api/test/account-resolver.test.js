@@ -166,6 +166,20 @@ describe('account-resolver (4b unified runtime resolution)', () => {
     assert.equal(profile, null, 'explicit preferredAccountRef miss must fail closed');
   });
 
+  it('resolveForClient discovers installer-${client} API key account when no builtin exists', async () => {
+    const { resolveForClient } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-7b`);
+    // Only installer-openai exists — no canonical 'codex' or 'builtin_openai'
+    await writeCatalog({
+      'installer-openai': { authType: 'api_key', displayName: 'Installer OpenAI' },
+    });
+    await writeCredentials({ 'installer-openai': { apiKey: 'sk-installer-key' } });
+
+    const profile = resolveForClient(projectRoot, 'openai');
+    assert.ok(profile, 'installer-openai should be discoverable');
+    assert.equal(profile.id, 'installer-openai');
+    assert.equal(profile.apiKey, 'sk-installer-key');
+  });
+
   it('resolveForClient returns null when multiple accounts match same protocol (ambiguous)', async () => {
     const { resolveForClient } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-8`);
     await writeCatalog({
