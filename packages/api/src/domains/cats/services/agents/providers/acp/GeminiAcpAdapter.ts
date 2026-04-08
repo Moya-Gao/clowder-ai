@@ -385,6 +385,11 @@ function toUserFacingError(errorCode: string, errorMsg: string): string {
       return `${base}\n⚠️ Gemini 工具调用异常（MCP 服务端错误）。`;
     case 'init_failure':
       return `${base}\n⚠️ Gemini CLI 启动失败（本地进程异常）。`;
+    case 'prompt_failure':
+      if (/Premature close|ECONNRESET|socket hang up/i.test(errorMsg)) {
+        return `${base}\n⚠️ Gemini 与 Google 服务端连接中断（Premature close），非 Cat Café 系统故障。`;
+      }
+      return base;
     default:
       return base;
   }
