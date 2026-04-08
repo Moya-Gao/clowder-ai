@@ -11,36 +11,18 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync,
 import { homedir } from 'node:os';
 import path from 'node:path';
 
+// F340: protocol removed — builtins derive protocol from well-known ID at runtime.
 const BUILTIN_ACCOUNT_SPECS = [
   {
     id: 'claude',
     displayName: 'Claude',
     client: 'anthropic',
-    protocol: 'anthropic',
     models: ['claude-opus-4-6[1m]', 'claude-sonnet-4-6', 'claude-opus-4-5-20251101'],
   },
-  {
-    id: 'codex',
-    displayName: 'Codex',
-    client: 'openai',
-    protocol: 'openai',
-    models: ['gpt-5.3-codex', 'gpt-5.4', 'gpt-5.3-codex-spark'],
-  },
-  {
-    id: 'gemini',
-    displayName: 'Gemini',
-    client: 'google',
-    protocol: 'google',
-    models: ['gemini-3.1-pro-preview', 'gemini-2.5-pro'],
-  },
-  { id: 'dare', displayName: 'Dare', client: 'dare', protocol: 'openai', models: ['z-ai/glm-4.7'] },
-  {
-    id: 'opencode',
-    displayName: 'OpenCode',
-    client: 'opencode',
-    protocol: 'anthropic',
-    models: ['claude-opus-4-6', 'claude-sonnet-4-5'],
-  },
+  { id: 'codex', displayName: 'Codex', client: 'openai', models: ['gpt-5.3-codex', 'gpt-5.4', 'gpt-5.3-codex-spark'] },
+  { id: 'gemini', displayName: 'Gemini', client: 'google', models: ['gemini-3.1-pro-preview', 'gemini-2.5-pro'] },
+  { id: 'dare', displayName: 'Dare', client: 'dare', models: ['z-ai/glm-4.7'] },
+  { id: 'opencode', displayName: 'OpenCode', client: 'opencode', models: ['claude-opus-4-6', 'claude-sonnet-4-5'] },
 ];
 
 const CONFIG_SUBDIR = '.cat-cafe';
