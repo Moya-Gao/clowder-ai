@@ -99,26 +99,36 @@ thread_id: thread_mnoltzx6fdik0s4m
 
 **现状**：`edges(from_anchor, to_anchor, relation)` — 无时间维度、无置信度。
 
-**增强方案**：
+**风险先澄清**：现有主键 `PRIMARY KEY (from_anchor, to_anchor, relation)` 只能表达“一条当前关系”，不能表达同一关系多次失效/恢复的历史。
+
+**增强方案（分两阶段）**：
+**Phase A（V10，先拿到 80% 价值）**：
 ```sql
-ALTER TABLE edges ADD COLUMN confidence TEXT DEFAULT 'extracted';
+ALTER TABLE edges ADD COLUMN confidence TEXT NOT NULL DEFAULT 'extracted';
   -- 'extracted' (从 frontmatter 解析) / 'inferred' (语义推断) / 'ambiguous'
-ALTER TABLE edges ADD COLUMN confidence_score REAL DEFAULT 1.0;
+ALTER TABLE edges ADD COLUMN confidence_score REAL NOT NULL DEFAULT 1.0;
   -- 0.0-1.0, extracted=1.0
-ALTER TABLE edges ADD COLUMN valid_from TEXT;
-  -- ISO8601, 关系建立时间
+ALTER TABLE edges ADD COLUMN valid_from TEXT NOT NULL DEFAULT (datetime('now'));
+  -- ISO8601, 当前关系生效时间
 ALTER TABLE edges ADD COLUMN valid_to TEXT;
-  -- ISO8601, 关系失效时间 (NULL=仍有效)
-ALTER TABLE edges ADD COLUMN source TEXT;
+  -- ISO8601, 当前关系失效时间 (NULL=仍有效)
+ALTER TABLE edges ADD COLUMN source TEXT NOT NULL DEFAULT 'indexer';
   -- 谁创建的 (indexer/summarizer/manual)
+
+CREATE INDEX IF NOT EXISTS idx_edges_from_relation_active
+  ON edges(from_anchor, relation, valid_to);
+CREATE INDEX IF NOT EXISTS idx_edges_to_relation_active
+  ON edges(to_anchor, relation, valid_to);
 ```
+
+**Phase B（V11，可选）**：如果后续确认需要完整历史（同一关系多次开关），新增 `edge_events` 事件表，避免在现有主键下硬塞多版本关系。
 
 **价值**：
 - "这个 ADR 什么时候被推翻的" → `valid_to IS NOT NULL`
 - "这个关联是明确引用还是猜的" → `confidence` 过滤
 - superseded 处理从 `evidence_docs.superseded_by` 下沉到 edges 级别
 
-**实施复杂度**：低。schema migration V10，IndexBuilder 的 `generateEdges()` 默认填 `extracted/1.0`，summarizer 产出的关系填 `inferred`。
+**实施复杂度**：中。除 schema migration V10 外，还要同步改 `Edge` 类型、`SqliteEvidenceStore.addEdge/getRelated` 返回结构、以及 `IndexBuilder` 的边提取逻辑（当前在 `build()` 中内联，而不是 `generateEdges()` 独立函数）。
 
 ### E2: 知识导航报告（来源：Graphify GRAPH_REPORT.md）
 
@@ -146,7 +156,7 @@ ALTER TABLE edges ADD COLUMN source TEXT;
 
 **价值**：让上下文预算在代码中可审计，而不是隐藏在 SystemPromptBuilder 的拼接逻辑里。
 
-**实施复杂度**：低。主要是 SystemPromptBuilder 的重构/标注，不需要新数据结构。
+**实施复杂度**：中。除 SystemPromptBuilder 外，还需要同步 `assembleIncrementalContext`（warm/cold path）、route serial/parallel 两条路由预算扣减逻辑，以及回归测试。
 
 ### E4: GitNexus trial 继续推进
 
@@ -160,7 +170,9 @@ ALTER TABLE edges ADD COLUMN source TEXT;
 
 **方案**：在 `docs/` 目录上跑一次 `graphify .`，看 GRAPH_REPORT.md 对我们项目知识的产出质量。如果有价值，考虑定期生成。
 
-**实施复杂度**：低（一次性命令），但需要评估 LLM token 成本。
+**安全前提**：Graphify 的 LLM pass 会把语料送到外部模型；只能在公开或已脱敏语料上跑。默认不对含内部敏感信息的 `docs/` 全量执行，除非铲屎官明确授权。
+
+**实施复杂度**：低（一次性命令），但有合规前置条件 + LLM token 成本评估。
 
 ## 四、不学的（三猫一致否决）
 
