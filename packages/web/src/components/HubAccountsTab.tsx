@@ -95,11 +95,7 @@ export function HubAccountsTab() {
       setBusyId(accountId);
       setError(null);
       try {
-        await callApi(`/api/accounts/${accountId}`, {
-          method: 'DELETE',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ force: true }),
-        });
+        await callApi(`/api/accounts/${accountId}`, { method: 'DELETE' });
         await fetchAccounts();
         window.dispatchEvent(new CustomEvent('accounts-changed'));
       } catch (err) {

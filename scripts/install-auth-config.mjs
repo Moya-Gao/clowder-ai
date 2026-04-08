@@ -282,25 +282,27 @@ function removeClientAuth(client, profileId, projectDir, { force = false } = {})
     }
   }
 
-  // Step 2: Without --force, refuse to modify global state. Accounts and
+  // Step 2: If the account doesn't exist, removal is already a no-op.
+  const accounts = readAccounts();
+  const creds = readCredentials();
+  if (!(profileId in accounts) && !(profileId in creds)) return;
+
+  // Step 3: Without --force, refuse to modify global state. Accounts and
   // credentials are shared across all projects; we cannot enumerate all
   // projects to verify no external references exist. See gpt52 R5–R8.
   if (!force) {
-    console.error(
-      `[client-auth remove] ${profileId}: accounts and credentials are global (shared across projects). ` +
+    throw new Error(
+      `${profileId}: accounts and credentials are global (shared across projects). ` +
         `Pass --force to confirm deletion of global account + credentials for ${profileId}.`,
     );
-    return;
   }
 
-  // Step 3: --force: delete credentials + account metadata.
-  const creds = readCredentials();
+  // Step 4: --force: delete credentials + account metadata.
   if (profileId in creds) {
     delete creds[profileId];
     writeCredentials(creds);
   }
 
-  const accounts = readAccounts();
   if (profileId in accounts) {
     delete accounts[profileId];
     writeAccounts(accounts);

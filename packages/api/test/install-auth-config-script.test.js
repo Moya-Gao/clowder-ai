@@ -54,7 +54,7 @@ test('client-auth set creates a generic api key account for the selected client'
   }
 });
 
-test('client-auth remove without --force is a safe no-op', () => {
+test('client-auth remove without --force exits non-zero and preserves account', () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-client-auth-remove-noop-'));
 
   try {
@@ -71,7 +71,9 @@ test('client-auth remove without --force is a safe no-op', () => {
       'codex-key',
     ]);
 
-    runHelper(['client-auth', 'remove', '--project-dir', projectRoot, '--client', 'openai']);
+    const result = runHelperResult(['client-auth', 'remove', '--project-dir', projectRoot, '--client', 'openai']);
+    assert.notEqual(result.status, 0, 'should exit non-zero without --force');
+    assert.match(result.stderr, /--force/i, 'stderr should mention --force');
 
     const { accounts, credentials } = readInstallerState(projectRoot);
     assert.ok(accounts['installer-openai'], 'account preserved without --force');
@@ -151,8 +153,9 @@ test('claude-profile create and remove keeps installer-managed account in sync',
     assert.deepEqual(installerManaged.models, ['claude-model']);
     assert.equal(credentials['installer-managed'].apiKey, 'claude-key');
 
-    // Without --force: safe no-op (nothing deleted)
-    runHelper(['claude-profile', 'remove', '--project-dir', projectRoot]);
+    // Without --force: exits non-zero, nothing deleted
+    const safeResult = runHelperResult(['claude-profile', 'remove', '--project-dir', projectRoot]);
+    assert.notEqual(safeResult.status, 0, 'should exit non-zero without --force');
     const afterSafeRemove = readInstallerState(projectRoot);
     assert.ok(afterSafeRemove.accounts['installer-managed'], 'account preserved without --force');
     assert.equal(
