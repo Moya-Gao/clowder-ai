@@ -145,24 +145,22 @@ export function resolveForClient(
     return null;
   }
 
-  // F340: Resolve by well-known builtin account ID for the client.
-  // Each builtin client has a canonical account ID (e.g. anthropic → 'claude').
+  // F340: Walk the full discovery chain; prefer accounts with credentials.
+  // This ensures installer-${client} (which holds API keys) is chosen over
+  // an OAuth builtin that has no stored credential.
   const normalizedClient = normalizeToClient(client);
   if (normalizedClient) {
     const wellKnownId = LEGACY_BUILTIN_IDS[normalizedClient];
-    if (wellKnownId && accounts[wellKnownId]) {
-      return accountToRuntimeProfile(wellKnownId, accounts[wellKnownId]);
+    const candidateIds = [wellKnownId, `builtin_${normalizedClient}`, `installer-${normalizedClient}`];
+    let firstMatch: RuntimeProviderProfile | null = null;
+    for (const id of candidateIds) {
+      if (accounts[id]) {
+        const profile = accountToRuntimeProfile(id, accounts[id]);
+        if (profile.apiKey) return profile;
+        firstMatch ??= profile;
+      }
     }
-    // Try builtin_${client} naming convention
-    const altId = `builtin_${normalizedClient}`;
-    if (accounts[altId]) {
-      return accountToRuntimeProfile(altId, accounts[altId]);
-    }
-    // Try installer-${client} naming convention (from client-auth set --mode api_key)
-    const installerId = `installer-${normalizedClient}`;
-    if (accounts[installerId]) {
-      return accountToRuntimeProfile(installerId, accounts[installerId]);
-    }
+    if (firstMatch) return firstMatch;
   }
 
   // Synthetic builtin fallback: only when no real accounts matched at all

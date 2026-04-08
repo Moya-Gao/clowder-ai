@@ -10,7 +10,7 @@ import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
-import { resolveAnthropicRuntimeProfile, resolveByAccountRef, resolveForClient } from './config/account-resolver.js';
+import { resolveAnthropicRuntimeProfile, resolveForClient } from './config/account-resolver.js';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
@@ -561,8 +561,8 @@ async function main(): Promise<void> {
           if (process.env.F102_API_BASE && process.env.F102_API_KEY) {
             return { mode: 'api_key' as const, baseUrl: process.env.F102_API_BASE, apiKey: process.env.F102_API_KEY };
           }
-          // Priority 2: resolve from builtin anthropic account (#340: system callers use builtin ID)
-          const profile = resolveByAccountRef(process.cwd(), 'claude');
+          // Priority 2: resolve via full discovery chain (#340: system callers use resolveForClient)
+          const profile = resolveForClient(process.cwd(), 'anthropic');
           const apiKey = profile?.apiKey;
           if (!apiKey) return null;
           const proxyPort = process.env.ANTHROPIC_PROXY_PORT || '9877';

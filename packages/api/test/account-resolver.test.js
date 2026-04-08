@@ -213,6 +213,37 @@ describe('account-resolver (4b unified runtime resolution)', () => {
     assert.equal(profile.baseUrl, 'https://custom-proxy.example.com');
   });
 
+  it('resolveForClient prefers credentialed installer account over uncredentialed OAuth builtin', async () => {
+    const { resolveForClient } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-12`);
+    // Scenario: 'claude' exists as OAuth (no API key), 'installer-anthropic' has an API key.
+    // The resolver should skip 'claude' and return 'installer-anthropic'.
+    await writeCatalog({
+      claude: { authType: 'oauth', models: ['claude-opus-4-6'] },
+      'installer-anthropic': { authType: 'api_key', displayName: 'Installer Anthropic' },
+    });
+    await writeCredentials({ 'installer-anthropic': { apiKey: 'sk-installer-ant' } });
+
+    const profile = resolveForClient(projectRoot, 'anthropic');
+    assert.ok(profile, 'should resolve an account');
+    assert.equal(profile.apiKey, 'sk-installer-ant', 'should prefer the credentialed installer account');
+    assert.equal(profile.id, 'installer-anthropic');
+  });
+
+  it('resolveForClient returns OAuth builtin when no candidate has credentials (subscription mode)', async () => {
+    const { resolveForClient } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-13`);
+    // Scenario: only 'claude' OAuth exists, no credentials anywhere.
+    // Should still return 'claude' for subscription mode — not null.
+    await writeCatalog({
+      claude: { authType: 'oauth', models: ['claude-opus-4-6'] },
+    });
+    await writeCredentials({});
+
+    const profile = resolveForClient(projectRoot, 'anthropic');
+    assert.ok(profile, 'should still resolve the OAuth builtin');
+    assert.equal(profile.id, 'claude');
+    assert.equal(profile.apiKey, undefined, 'no credential expected');
+  });
+
   it('env fallback retired (#329): resolveByAccountRef returns undefined apiKey when credentials absent', async () => {
     const { resolveByAccountRef } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-11`);
     await writeCatalog({
