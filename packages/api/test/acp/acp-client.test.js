@@ -1068,9 +1068,7 @@ describe('AcpClient', () => {
     assert.ok(msgChunks.length >= 1, 'Agent must continue after permission response (gate-based)');
 
     // Permission notification should NOT appear in stream events
-    const permEvents = events.filter(
-      (e) => e.options || (e.update && !e.update.sessionUpdate),
-    );
+    const permEvents = events.filter((e) => e.options || (e.update && !e.update.sessionUpdate));
     assert.equal(permEvents.length, 0, 'Permission notification should not pollute stream events');
   });
 
