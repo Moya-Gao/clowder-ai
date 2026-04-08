@@ -51,7 +51,7 @@ export function AdvancedRuntimeSection({
     approvalPolicy: 'on-request' as const,
     authMode: 'oauth' as const,
   };
-  const cliEffortOptions = getCliEffortOptionsForClient(form.client);
+  const cliEffortOptions = getCliEffortOptionsForClient(form.clientId);
 
   return (
     <SectionCard

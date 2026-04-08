@@ -477,13 +477,7 @@ export const accountsRoutes: FastifyPluginAsync<AccountsRoutesOptions> = async (
 
     const baseUrl = normalizeBaseUrl(runtime.baseUrl);
     const probeProtocol =
-      runtime.protocol ??
-      inferProbeProtocol(
-        runtime.baseUrl,
-        parsed.data.provider,
-        runtime.models,
-        params.profileId,
-      );
+      runtime.protocol ?? inferProbeProtocol(runtime.baseUrl, parsed.data.provider, runtime.models, params.profileId);
     const modelProbePaths = probeProtocol === 'google' ? ['/v1beta/models', '/models', '/v1/models'] : ['/v1/models'];
     let modelsRes: Response | null = null;
     let modelsError: string | null = null;

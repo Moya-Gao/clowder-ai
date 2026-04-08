@@ -20,7 +20,7 @@ import type {
   ReviewPolicy,
   Roster,
 } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import { type ClientId, createCatId, normalizeCliEffortForProvider } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
@@ -664,9 +664,12 @@ export type CliEffortLevel = 'low' | 'medium' | 'high' | 'max' | 'xhigh';
  * cats PATCH route, so runtime lookup only needs to read persisted values and
  * fall back to provider defaults.
  */
-export function getCatEffort(catId: string, config?: CatCafeConfig): CliEffortLevel {
+export function getCatEffort(catId: string, config?: CatCafeConfig, fallbackProvider?: ClientId): CliEffortLevel {
   const cfg = config ?? getCachedConfig();
-  if (!cfg) return 'max';
+  if (!cfg) {
+    const normalized = normalizeCliEffortForProvider(fallbackProvider ?? 'anthropic', undefined);
+    return normalized ?? 'high';
+  }
 
   if (!_catIdToVariant || _catIdToVariantSource !== cfg) {
     _catIdToVariant = buildCatIdToVariantIndex(cfg);
@@ -680,6 +683,54 @@ export function getCatEffort(catId: string, config?: CatCafeConfig): CliEffortLe
   if (variant?.clientId === 'openai') return 'xhigh';
   if (variant?.clientId === 'anthropic') return 'max';
   return 'high';
+}
+
+// ── F149: ACP config accessor (raw variant field, not in CatConfig type) ──────
+
+export interface AcpVariantConfig {
+  command: string;
+  startupArgs: string[];
+  mcpWhitelist?: string[];
+  supportsMultiplexing?: boolean;
+  /** Phase C: optional pool config overrides */
+  pool?: {
+    maxLiveProcesses?: number;
+    idleTtlMs?: number;
+  };
+}
+
+/**
+ * Get ACP config for a cat from the raw cat-config.json variant.
+ * Returns undefined if the variant has no `acp` section (= use legacy CLI).
+ * Reads raw JSON because `acp` is not in the typed CatConfig (intentionally).
+ */
+export function getAcpConfig(catId: string): AcpVariantConfig | undefined {
+  try {
+    const templatePath = process.env.CAT_TEMPLATE_PATH ?? DEFAULT_CAT_TEMPLATE_PATH;
+    const projectRoot = dirname(templatePath);
+    const catalogRaw = readCatCatalogRaw(projectRoot);
+    let raw: string;
+    if (catalogRaw !== null) {
+      const baseRaw = readTemplate(templatePath);
+      const baseJson = JSON.parse(baseRaw) as Record<string, unknown>;
+      const catalogJson = JSON.parse(catalogRaw) as Record<string, unknown>;
+      raw = JSON.stringify(deepMergeConfig(baseJson, catalogJson));
+    } else {
+      raw = readTemplate(templatePath);
+    }
+    const json = JSON.parse(raw) as {
+      breeds?: Array<{ catId?: string; variants?: Array<{ catId?: string; acp?: AcpVariantConfig }> }>;
+    };
+    for (const breed of json.breeds ?? []) {
+      for (const variant of breed.variants ?? []) {
+        const resolvedCatId = variant.catId ?? breed.catId;
+        if (resolvedCatId === catId && variant.acp) return variant.acp;
+      }
+    }
+  } catch {
+    // Config unreadable → no ACP config
+  }
+  return undefined;
 }
 
 /** Reset cached config (for testing) */
