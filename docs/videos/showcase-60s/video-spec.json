@@ -19,1238 +19,1238 @@
       {
         "index": 0,
         "word": "Cat",
-        "start_ms": 5280,
-        "end_ms": 5520
+        "start_ms": 480,
+        "end_ms": 640
       },
       {
         "index": 1,
         "word": "Cafe",
-        "start_ms": 5520,
-        "end_ms": 6160
+        "start_ms": 640,
+        "end_ms": 1360
       },
       {
         "index": 2,
         "word": "是",
-        "start_ms": 6560,
-        "end_ms": 6720
+        "start_ms": 1680,
+        "end_ms": 1920
       },
       {
         "index": 3,
         "word": "四",
-        "start_ms": 6720,
-        "end_ms": 6960
+        "start_ms": 1920,
+        "end_ms": 2160
       },
       {
         "index": 4,
         "word": "只",
-        "start_ms": 6960,
-        "end_ms": 7200
+        "start_ms": 2160,
+        "end_ms": 2320
       },
       {
         "index": 5,
         "word": "AI",
-        "start_ms": 7200,
-        "end_ms": 7520
+        "start_ms": 2320,
+        "end_ms": 2640
       },
       {
         "index": 6,
         "word": "猫",
-        "start_ms": 7520,
-        "end_ms": 7680
+        "start_ms": 2640,
+        "end_ms": 2800
       },
       {
         "index": 7,
         "word": "猫",
-        "start_ms": 7680,
-        "end_ms": 7840
+        "start_ms": 2800,
+        "end_ms": 3040
       },
       {
         "index": 8,
         "word": "组",
-        "start_ms": 7840,
-        "end_ms": 8000
+        "start_ms": 3040,
+        "end_ms": 3200
       },
       {
         "index": 9,
         "word": "成",
-        "start_ms": 8000,
-        "end_ms": 8160
+        "start_ms": 3200,
+        "end_ms": 3280
       },
       {
         "index": 10,
         "word": "的",
-        "start_ms": 8160,
-        "end_ms": 8240
+        "start_ms": 3280,
+        "end_ms": 3360
       },
       {
         "index": 11,
         "word": "开",
-        "start_ms": 8240,
-        "end_ms": 8400
+        "start_ms": 3360,
+        "end_ms": 3520
       },
       {
         "index": 12,
         "word": "发",
-        "start_ms": 8400,
-        "end_ms": 8560
+        "start_ms": 3520,
+        "end_ms": 3680
       },
       {
         "index": 13,
         "word": "团",
-        "start_ms": 8560,
-        "end_ms": 8720
+        "start_ms": 3680,
+        "end_ms": 3920
       },
       {
         "index": 14,
         "word": "队",
-        "start_ms": 8720,
-        "end_ms": 8960
+        "start_ms": 3920,
+        "end_ms": 4160
       },
       {
         "index": 15,
         "word": "你",
-        "start_ms": 10160,
-        "end_ms": 10320
+        "start_ms": 5280,
+        "end_ms": 5440
       },
       {
         "index": 16,
         "word": "发",
-        "start_ms": 10320,
-        "end_ms": 10480
+        "start_ms": 5440,
+        "end_ms": 5600
       },
       {
         "index": 17,
         "word": "一",
-        "start_ms": 10480,
-        "end_ms": 10480
+        "start_ms": 5600,
+        "end_ms": 5680
       },
       {
         "index": 18,
         "word": "条",
-        "start_ms": 10480,
-        "end_ms": 10640
+        "start_ms": 5680,
+        "end_ms": 5840
       },
       {
         "index": 19,
         "word": "消",
-        "start_ms": 10640,
-        "end_ms": 10880
+        "start_ms": 5840,
+        "end_ms": 6080
       },
       {
         "index": 20,
         "word": "息",
-        "start_ms": 10880,
-        "end_ms": 11200
+        "start_ms": 6080,
+        "end_ms": 6320
       },
       {
         "index": 21,
         "word": "它",
-        "start_ms": 11440,
-        "end_ms": 11600
+        "start_ms": 6640,
+        "end_ms": 6720
       },
       {
         "index": 22,
         "word": "们",
-        "start_ms": 11600,
-        "end_ms": 11680
+        "start_ms": 6720,
+        "end_ms": 6880
       },
       {
         "index": 23,
         "word": "同",
-        "start_ms": 11680,
-        "end_ms": 11840
+        "start_ms": 6880,
+        "end_ms": 7040
       },
       {
         "index": 24,
         "word": "时",
-        "start_ms": 11840,
-        "end_ms": 12000
+        "start_ms": 7040,
+        "end_ms": 7120
       },
       {
         "index": 25,
         "word": "开",
-        "start_ms": 12000,
-        "end_ms": 12160
+        "start_ms": 7120,
+        "end_ms": 7280
       },
       {
         "index": 26,
         "word": "始",
-        "start_ms": 12160,
-        "end_ms": 12240
+        "start_ms": 7280,
+        "end_ms": 7440
       },
       {
         "index": 27,
         "word": "思",
-        "start_ms": 12240,
-        "end_ms": 12480
+        "start_ms": 7440,
+        "end_ms": 7600
       },
       {
         "index": 28,
         "word": "考",
-        "start_ms": 12480,
-        "end_ms": 12800
+        "start_ms": 7600,
+        "end_ms": 7920
       },
       {
         "index": 29,
         "word": "布",
-        "start_ms": 13120,
-        "end_ms": 13280
+        "start_ms": 8240,
+        "end_ms": 8400
       },
       {
         "index": 30,
         "word": "偶",
-        "start_ms": 13280,
-        "end_ms": 13440
+        "start_ms": 8400,
+        "end_ms": 8560
       },
       {
         "index": 31,
         "word": "猫",
-        "start_ms": 13440,
-        "end_ms": 13600
+        "start_ms": 8560,
+        "end_ms": 8800
       },
       {
         "index": 32,
         "word": "负",
-        "start_ms": 13600,
-        "end_ms": 13760
+        "start_ms": 8800,
+        "end_ms": 8960
       },
       {
         "index": 33,
         "word": "责",
-        "start_ms": 13760,
-        "end_ms": 13920
+        "start_ms": 8960,
+        "end_ms": 9040
       },
       {
         "index": 34,
         "word": "架",
-        "start_ms": 13920,
-        "end_ms": 14080
+        "start_ms": 9040,
+        "end_ms": 9280
       },
       {
         "index": 35,
         "word": "构",
-        "start_ms": 14080,
-        "end_ms": 14400
+        "start_ms": 9280,
+        "end_ms": 9520
       },
       {
         "index": 36,
         "word": "缅",
-        "start_ms": 14880,
-        "end_ms": 15120
+        "start_ms": 10080,
+        "end_ms": 10240
       },
       {
         "index": 37,
         "word": "因",
-        "start_ms": 15120,
-        "end_ms": 15200
+        "start_ms": 10240,
+        "end_ms": 10400
       },
       {
         "index": 38,
         "word": "猫",
-        "start_ms": 15200,
-        "end_ms": 15440
+        "start_ms": 10400,
+        "end_ms": 10560
       },
       {
         "index": 39,
         "word": "做",
-        "start_ms": 15440,
-        "end_ms": 15600
+        "start_ms": 10560,
+        "end_ms": 10720
       },
       {
         "index": 40,
         "word": "code",
-        "start_ms": 15600,
-        "end_ms": 15840
+        "start_ms": 10720,
+        "end_ms": 10960
       },
       {
         "index": 41,
         "word": "review",
-        "start_ms": 15840,
-        "end_ms": 16320
+        "start_ms": 11040,
+        "end_ms": 11520
       },
       {
         "index": 42,
         "word": "暹",
-        "start_ms": 16560,
-        "end_ms": 16800
+        "start_ms": 11760,
+        "end_ms": 12000
       },
       {
         "index": 43,
         "word": "罗",
-        "start_ms": 16800,
-        "end_ms": 16960
+        "start_ms": 12000,
+        "end_ms": 12080
       },
       {
         "index": 44,
         "word": "猫",
-        "start_ms": 16960,
-        "end_ms": 17120
+        "start_ms": 12080,
+        "end_ms": 12240
       },
       {
         "index": 45,
         "word": "管",
-        "start_ms": 17120,
-        "end_ms": 17280
+        "start_ms": 12240,
+        "end_ms": 12480
       },
       {
         "index": 46,
         "word": "设",
-        "start_ms": 17280,
-        "end_ms": 17520
+        "start_ms": 12480,
+        "end_ms": 12640
       },
       {
         "index": 47,
         "word": "计",
-        "start_ms": 17520,
-        "end_ms": 17760
+        "start_ms": 12640,
+        "end_ms": 12960
       },
       {
         "index": 48,
         "word": "各",
-        "start_ms": 17920,
-        "end_ms": 18080
+        "start_ms": 13120,
+        "end_ms": 13280
       },
       {
         "index": 49,
         "word": "有",
-        "start_ms": 18080,
-        "end_ms": 18240
+        "start_ms": 13280,
+        "end_ms": 13360
       },
       {
         "index": 50,
         "word": "分",
-        "start_ms": 18240,
-        "end_ms": 18400
+        "start_ms": 13360,
+        "end_ms": 13600
       },
       {
         "index": 51,
         "word": "工",
-        "start_ms": 18400,
-        "end_ms": 18720
+        "start_ms": 13600,
+        "end_ms": 13840
       },
       {
         "index": 52,
         "word": "自",
-        "start_ms": 18800,
-        "end_ms": 18960
+        "start_ms": 14000,
+        "end_ms": 14160
       },
       {
         "index": 53,
         "word": "主",
-        "start_ms": 18960,
-        "end_ms": 19120
+        "start_ms": 14160,
+        "end_ms": 14240
       },
       {
         "index": 54,
         "word": "协",
-        "start_ms": 19120,
-        "end_ms": 19280
+        "start_ms": 14240,
+        "end_ms": 14480
       },
       {
         "index": 55,
         "word": "作",
-        "start_ms": 19280,
-        "end_ms": 19600
+        "start_ms": 14480,
+        "end_ms": 14720
       },
       {
         "index": 56,
         "word": "飞",
-        "start_ms": 20080,
-        "end_ms": 20320
+        "start_ms": 15280,
+        "end_ms": 15440
       },
       {
         "index": 57,
         "word": "书",
-        "start_ms": 20320,
-        "end_ms": 20480
+        "start_ms": 15440,
+        "end_ms": 15600
       },
       {
         "index": 58,
         "word": "发",
-        "start_ms": 20480,
-        "end_ms": 20640
+        "start_ms": 15600,
+        "end_ms": 15760
       },
       {
         "index": 59,
         "word": "一",
-        "start_ms": 20640,
-        "end_ms": 20720
+        "start_ms": 15760,
+        "end_ms": 15840
       },
       {
         "index": 60,
         "word": "条",
-        "start_ms": 20720,
-        "end_ms": 21120
+        "start_ms": 15840,
+        "end_ms": 16239
       },
       {
         "index": 61,
         "word": "Hub",
-        "start_ms": 21200,
-        "end_ms": 21440
+        "start_ms": 16400,
+        "end_ms": 16640
       },
       {
         "index": 62,
         "word": "同",
-        "start_ms": 21520,
-        "end_ms": 21760
+        "start_ms": 16720,
+        "end_ms": 16880
       },
       {
         "index": 63,
         "word": "步",
-        "start_ms": 21760,
-        "end_ms": 21840
+        "start_ms": 16880,
+        "end_ms": 16960
       },
       {
         "index": 64,
         "word": "收",
-        "start_ms": 21840,
-        "end_ms": 22000
+        "start_ms": 16960,
+        "end_ms": 17120
       },
       {
         "index": 65,
         "word": "到",
-        "start_ms": 22000,
-        "end_ms": 22240
+        "start_ms": 17120,
+        "end_ms": 17360
       },
       {
         "index": 66,
         "word": "在",
-        "start_ms": 22560,
-        "end_ms": 22720
+        "start_ms": 17760,
+        "end_ms": 17920
       },
       {
         "index": 67,
         "word": "任",
-        "start_ms": 22720,
-        "end_ms": 22880
+        "start_ms": 17920,
+        "end_ms": 18080
       },
       {
         "index": 68,
         "word": "何",
-        "start_ms": 22880,
-        "end_ms": 23040
+        "start_ms": 18080,
+        "end_ms": 18160
       },
       {
         "index": 69,
         "word": "一",
-        "start_ms": 23040,
-        "end_ms": 23120
+        "start_ms": 18160,
+        "end_ms": 18240
       },
       {
         "index": 70,
         "word": "端",
-        "start_ms": 23120,
-        "end_ms": 23280
+        "start_ms": 18240,
+        "end_ms": 18400
       },
       {
         "index": 71,
         "word": "说",
-        "start_ms": 23280,
-        "end_ms": 23440
+        "start_ms": 18400,
+        "end_ms": 18560
       },
       {
         "index": 72,
         "word": "话",
-        "start_ms": 23440,
-        "end_ms": 23680
+        "start_ms": 18560,
+        "end_ms": 18880
       },
       {
         "index": 73,
         "word": "所",
-        "start_ms": 23840,
-        "end_ms": 24080
+        "start_ms": 19040,
+        "end_ms": 19280
       },
       {
         "index": 74,
         "word": "有",
-        "start_ms": 24080,
-        "end_ms": 24240
+        "start_ms": 19280,
+        "end_ms": 19360
       },
       {
         "index": 75,
         "word": "端",
-        "start_ms": 24240,
-        "end_ms": 24400
+        "start_ms": 19360,
+        "end_ms": 19520
       },
       {
         "index": 76,
         "word": "都",
-        "start_ms": 24400,
-        "end_ms": 24480
+        "start_ms": 19520,
+        "end_ms": 19680
       },
       {
         "index": 77,
         "word": "能",
-        "start_ms": 24480,
-        "end_ms": 24640
+        "start_ms": 19680,
+        "end_ms": 19840
       },
       {
         "index": 78,
         "word": "看",
-        "start_ms": 24640,
-        "end_ms": 24880
+        "start_ms": 19840,
+        "end_ms": 20000
       },
       {
         "index": 79,
         "word": "到",
-        "start_ms": 24880,
-        "end_ms": 25040
+        "start_ms": 20000,
+        "end_ms": 20240
       },
       {
         "index": 80,
         "word": "更",
-        "start_ms": 25520,
-        "end_ms": 25680
+        "start_ms": 20720,
+        "end_ms": 20880
       },
       {
         "index": 81,
         "word": "特",
-        "start_ms": 25680,
-        "end_ms": 25840
+        "start_ms": 20880,
+        "end_ms": 21040
       },
       {
         "index": 82,
         "word": "别",
-        "start_ms": 25840,
-        "end_ms": 26000
+        "start_ms": 21040,
+        "end_ms": 21120
       },
       {
         "index": 83,
         "word": "的",
-        "start_ms": 26000,
-        "end_ms": 26080
+        "start_ms": 21120,
+        "end_ms": 21200
       },
       {
         "index": 84,
         "word": "是",
-        "start_ms": 26080,
-        "end_ms": 26320
+        "start_ms": 21200,
+        "end_ms": 21520
       },
       {
         "index": 85,
         "word": "每",
-        "start_ms": 26560,
-        "end_ms": 26720
+        "start_ms": 21680,
+        "end_ms": 21920
       },
       {
         "index": 86,
         "word": "只",
-        "start_ms": 26720,
-        "end_ms": 26880
+        "start_ms": 21920,
+        "end_ms": 22000
       },
       {
         "index": 87,
         "word": "猫",
-        "start_ms": 26880,
-        "end_ms": 27040
+        "start_ms": 22000,
+        "end_ms": 22240
       },
       {
         "index": 88,
         "word": "有",
-        "start_ms": 27040,
-        "end_ms": 27200
+        "start_ms": 22240,
+        "end_ms": 22320
       },
       {
         "index": 89,
         "word": "自",
-        "start_ms": 27200,
-        "end_ms": 27360
+        "start_ms": 22320,
+        "end_ms": 22480
       },
       {
         "index": 90,
         "word": "己",
-        "start_ms": 27360,
-        "end_ms": 27440
+        "start_ms": 22480,
+        "end_ms": 22560
       },
       {
         "index": 91,
         "word": "的",
-        "start_ms": 27440,
-        "end_ms": 27520
+        "start_ms": 22560,
+        "end_ms": 22720
       },
       {
         "index": 92,
         "word": "声",
-        "start_ms": 27520,
-        "end_ms": 27760
+        "start_ms": 22720,
+        "end_ms": 22880
       },
       {
         "index": 93,
         "word": "音",
-        "start_ms": 27760,
-        "end_ms": 28000
+        "start_ms": 22880,
+        "end_ms": 23120
       },
       {
         "index": 94,
         "word": "你",
-        "start_ms": 28320,
-        "end_ms": 28400
+        "start_ms": 23440,
+        "end_ms": 23600
       },
       {
         "index": 95,
         "word": "可",
-        "start_ms": 28400,
-        "end_ms": 28560
+        "start_ms": 23600,
+        "end_ms": 23680
       },
       {
         "index": 96,
         "word": "以",
-        "start_ms": 28560,
-        "end_ms": 28560
+        "start_ms": 23680,
+        "end_ms": 23760
       },
       {
         "index": 97,
         "word": "听",
-        "start_ms": 28560,
-        "end_ms": 28720
+        "start_ms": 23760,
+        "end_ms": 23920
       },
       {
         "index": 98,
         "word": "到",
-        "start_ms": 28720,
-        "end_ms": 28880
+        "start_ms": 23920,
+        "end_ms": 24000
       },
       {
         "index": 99,
         "word": "它",
-        "start_ms": 28880,
-        "end_ms": 28960
+        "start_ms": 24000,
+        "end_ms": 24160
       },
       {
         "index": 100,
         "word": "们",
-        "start_ms": 28960,
-        "end_ms": 29120
+        "start_ms": 24160,
+        "end_ms": 24320
       },
       {
         "index": 101,
         "word": "用",
-        "start_ms": 29120,
-        "end_ms": 29280
+        "start_ms": 24320,
+        "end_ms": 24400
       },
       {
         "index": 102,
         "word": "各",
-        "start_ms": 29280,
-        "end_ms": 29440
+        "start_ms": 24400,
+        "end_ms": 24560
       },
       {
         "index": 103,
         "word": "自",
-        "start_ms": 29440,
-        "end_ms": 29520
+        "start_ms": 24560,
+        "end_ms": 24640
       },
       {
         "index": 104,
         "word": "的",
-        "start_ms": 29520,
-        "end_ms": 29600
+        "start_ms": 24640,
+        "end_ms": 24800
       },
       {
         "index": 105,
         "word": "声",
-        "start_ms": 29600,
-        "end_ms": 29840
+        "start_ms": 24800,
+        "end_ms": 24960
       },
       {
         "index": 106,
         "word": "线",
-        "start_ms": 29840,
-        "end_ms": 30080
+        "start_ms": 24960,
+        "end_ms": 25280
       },
       {
         "index": 107,
         "word": "念",
-        "start_ms": 30320,
-        "end_ms": 30480
+        "start_ms": 25440,
+        "end_ms": 25680
       },
       {
         "index": 108,
         "word": "给",
-        "start_ms": 30480,
-        "end_ms": 30640
+        "start_ms": 25680,
+        "end_ms": 25760
       },
       {
         "index": 109,
         "word": "你",
-        "start_ms": 30640,
-        "end_ms": 30720
+        "start_ms": 25760,
+        "end_ms": 25920
       },
       {
         "index": 110,
         "word": "听",
-        "start_ms": 30720,
-        "end_ms": 31040
+        "start_ms": 25920,
+        "end_ms": 26240
       },
       {
         "index": 111,
         "word": "写",
-        "start_ms": 31440,
-        "end_ms": 31680
+        "start_ms": 26560,
+        "end_ms": 26800
       },
       {
         "index": 112,
         "word": "前",
-        "start_ms": 31680,
-        "end_ms": 31840
+        "start_ms": 26800,
+        "end_ms": 27040
       },
       {
         "index": 113,
         "word": "端",
-        "start_ms": 31840,
-        "end_ms": 32000
+        "start_ms": 27040,
+        "end_ms": 27120
       },
       {
         "index": 114,
         "word": "代",
-        "start_ms": 32000,
-        "end_ms": 32159
+        "start_ms": 27120,
+        "end_ms": 27280
       },
       {
         "index": 115,
         "word": "码",
-        "start_ms": 32159,
-        "end_ms": 32400
+        "start_ms": 27280,
+        "end_ms": 27600
       },
       {
         "index": 116,
         "word": "猫",
-        "start_ms": 32640,
-        "end_ms": 32880
+        "start_ms": 27840,
+        "end_ms": 28000
       },
       {
         "index": 117,
         "word": "改",
-        "start_ms": 32880,
-        "end_ms": 33040
+        "start_ms": 28000,
+        "end_ms": 28160
       },
       {
         "index": 118,
         "word": "完",
-        "start_ms": 33040,
-        "end_ms": 33280
+        "start_ms": 28160,
+        "end_ms": 28480
       },
       {
         "index": 119,
         "word": "右",
-        "start_ms": 33520,
-        "end_ms": 33680
+        "start_ms": 28640,
+        "end_ms": 28800
       },
       {
         "index": 120,
         "word": "边",
-        "start_ms": 33680,
-        "end_ms": 33840
+        "start_ms": 28800,
+        "end_ms": 28960
       },
       {
         "index": 121,
         "word": "浏",
-        "start_ms": 33840,
-        "end_ms": 33920
+        "start_ms": 28960,
+        "end_ms": 29120
       },
       {
         "index": 122,
         "word": "览",
-        "start_ms": 33920,
-        "end_ms": 34080
+        "start_ms": 29120,
+        "end_ms": 29280
       },
       {
         "index": 123,
         "word": "器",
-        "start_ms": 34080,
-        "end_ms": 34240
+        "start_ms": 29280,
+        "end_ms": 29440
       },
       {
         "index": 124,
         "word": "立",
-        "start_ms": 34240,
-        "end_ms": 34400
+        "start_ms": 29440,
+        "end_ms": 29520
       },
       {
         "index": 125,
         "word": "刻",
-        "start_ms": 34400,
-        "end_ms": 34560
+        "start_ms": 29600,
+        "end_ms": 29680
       },
       {
         "index": 126,
         "word": "刷",
-        "start_ms": 34560,
-        "end_ms": 34720
+        "start_ms": 29680,
+        "end_ms": 29840
       },
       {
         "index": 127,
         "word": "新",
-        "start_ms": 34720,
-        "end_ms": 34960
+        "start_ms": 29840,
+        "end_ms": 30160
       },
       {
         "index": 128,
         "word": "所",
-        "start_ms": 35280,
-        "end_ms": 35520
+        "start_ms": 30480,
+        "end_ms": 30640
       },
       {
         "index": 129,
         "word": "见",
-        "start_ms": 35520,
-        "end_ms": 35680
+        "start_ms": 30640,
+        "end_ms": 30880
       },
       {
         "index": 130,
         "word": "即",
-        "start_ms": 35680,
-        "end_ms": 35840
+        "start_ms": 30880,
+        "end_ms": 30960
       },
       {
         "index": 131,
         "word": "所",
-        "start_ms": 35840,
-        "end_ms": 36000
+        "start_ms": 30960,
+        "end_ms": 31200
       },
       {
         "index": 132,
         "word": "得",
-        "start_ms": 36000,
-        "end_ms": 36320
+        "start_ms": 31200,
+        "end_ms": 31440
       },
       {
         "index": 133,
         "word": "设",
-        "start_ms": 36480,
-        "end_ms": 36720
+        "start_ms": 31680,
+        "end_ms": 31920
       },
       {
         "index": 134,
         "word": "计",
-        "start_ms": 36720,
-        "end_ms": 36880
+        "start_ms": 31920,
+        "end_ms": 32000
       },
       {
         "index": 135,
         "word": "和",
-        "start_ms": 36880,
-        "end_ms": 36960
+        "start_ms": 32000,
+        "end_ms": 32159
       },
       {
         "index": 136,
         "word": "实",
-        "start_ms": 36960,
-        "end_ms": 37120
+        "start_ms": 32159,
+        "end_ms": 32320
       },
       {
         "index": 137,
         "word": "现",
-        "start_ms": 37120,
-        "end_ms": 37440
+        "start_ms": 32320,
+        "end_ms": 32640
       },
       {
         "index": 138,
         "word": "零",
-        "start_ms": 37680,
-        "end_ms": 37840
+        "start_ms": 32800,
+        "end_ms": 33040
       },
       {
         "index": 139,
         "word": "距",
-        "start_ms": 37840,
-        "end_ms": 38000
+        "start_ms": 33040,
+        "end_ms": 33200
       },
       {
         "index": 140,
         "word": "离",
-        "start_ms": 38000,
-        "end_ms": 38320
+        "start_ms": 33200,
+        "end_ms": 33440
       },
       {
         "index": 141,
         "word": "它",
-        "start_ms": 38560,
-        "end_ms": 38720
+        "start_ms": 33760,
+        "end_ms": 33840
       },
       {
         "index": 142,
         "word": "们",
-        "start_ms": 38720,
-        "end_ms": 38800
+        "start_ms": 33840,
+        "end_ms": 33920
       },
       {
         "index": 143,
         "word": "还",
-        "start_ms": 38800,
-        "end_ms": 38880
+        "start_ms": 33920,
+        "end_ms": 34080
       },
       {
         "index": 144,
         "word": "有",
-        "start_ms": 38880,
-        "end_ms": 39040
+        "start_ms": 34080,
+        "end_ms": 34160
       },
       {
         "index": 145,
         "word": "记",
-        "start_ms": 39040,
-        "end_ms": 39280
+        "start_ms": 34160,
+        "end_ms": 34480
       },
       {
         "index": 146,
         "word": "忆",
-        "start_ms": 39280,
-        "end_ms": 39440
+        "start_ms": 34480,
+        "end_ms": 34640
       },
       {
         "index": 147,
         "word": "搜",
-        "start_ms": 39760,
-        "end_ms": 40000
+        "start_ms": 34880,
+        "end_ms": 35120
       },
       {
         "index": 148,
         "word": "一",
-        "start_ms": 40000,
-        "end_ms": 40080
+        "start_ms": 35120,
+        "end_ms": 35200
       },
       {
         "index": 149,
         "word": "个",
-        "start_ms": 40080,
-        "end_ms": 40160
+        "start_ms": 35200,
+        "end_ms": 35280
       },
       {
         "index": 150,
         "word": "两",
-        "start_ms": 40160,
-        "end_ms": 40320
+        "start_ms": 35280,
+        "end_ms": 35520
       },
       {
         "index": 151,
         "word": "周",
-        "start_ms": 40320,
-        "end_ms": 40480
+        "start_ms": 35520,
+        "end_ms": 35600
       },
       {
         "index": 152,
         "word": "前",
-        "start_ms": 40480,
-        "end_ms": 40640
+        "start_ms": 35600,
+        "end_ms": 35760
       },
       {
         "index": 153,
         "word": "的",
-        "start_ms": 40640,
-        "end_ms": 40720
+        "start_ms": 35760,
+        "end_ms": 35840
       },
       {
         "index": 154,
         "word": "讨",
-        "start_ms": 40720,
-        "end_ms": 40880
+        "start_ms": 35840,
+        "end_ms": 36000
       },
       {
         "index": 155,
         "word": "论",
-        "start_ms": 40880,
-        "end_ms": 41120
+        "start_ms": 36000,
+        "end_ms": 36240
       },
       {
         "index": 156,
         "word": "三",
-        "start_ms": 41360,
-        "end_ms": 41600
+        "start_ms": 36560,
+        "end_ms": 36720
       },
       {
         "index": 157,
         "word": "秒",
-        "start_ms": 41600,
-        "end_ms": 41760
+        "start_ms": 36720,
+        "end_ms": 36880
       },
       {
         "index": 158,
         "word": "命",
-        "start_ms": 41760,
-        "end_ms": 41920
+        "start_ms": 36880,
+        "end_ms": 37040
       },
       {
         "index": 159,
         "word": "中",
-        "start_ms": 41920,
-        "end_ms": 42160
+        "start_ms": 37040,
+        "end_ms": 37360
       },
       {
         "index": 160,
         "word": "这",
-        "start_ms": 42320,
-        "end_ms": 42480
+        "start_ms": 37520,
+        "end_ms": 37600
       },
       {
         "index": 161,
         "word": "不",
-        "start_ms": 42480,
-        "end_ms": 42560
+        "start_ms": 37600,
+        "end_ms": 37760
       },
       {
         "index": 162,
         "word": "是",
-        "start_ms": 42560,
-        "end_ms": 42720
+        "start_ms": 37760,
+        "end_ms": 37840
       },
       {
         "index": 163,
         "word": "搜",
-        "start_ms": 42720,
-        "end_ms": 42880
+        "start_ms": 37840,
+        "end_ms": 38080
       },
       {
         "index": 164,
         "word": "索",
-        "start_ms": 42880,
-        "end_ms": 43200
+        "start_ms": 38080,
+        "end_ms": 38320
       },
       {
         "index": 165,
         "word": "是",
-        "start_ms": 43360,
-        "end_ms": 43520
+        "start_ms": 38560,
+        "end_ms": 38720
       },
       {
         "index": 166,
         "word": "经",
-        "start_ms": 43520,
-        "end_ms": 43760
+        "start_ms": 38720,
+        "end_ms": 38880
       },
       {
         "index": 167,
         "word": "验",
-        "start_ms": 43760,
-        "end_ms": 43840
+        "start_ms": 38880,
+        "end_ms": 39040
       },
       {
         "index": 168,
         "word": "的",
-        "start_ms": 43840,
-        "end_ms": 43920
+        "start_ms": 39040,
+        "end_ms": 39040
       },
       {
         "index": 169,
         "word": "沉",
-        "start_ms": 43920,
-        "end_ms": 44160
+        "start_ms": 39040,
+        "end_ms": 39280
       },
       {
         "index": 170,
         "word": "淀",
-        "start_ms": 44160,
-        "end_ms": 44400
+        "start_ms": 39280,
+        "end_ms": 39520
       },
       {
         "index": 171,
         "word": "最",
-        "start_ms": 44800,
-        "end_ms": 44960
+        "start_ms": 40000,
+        "end_ms": 40160
       },
       {
         "index": 172,
         "word": "后",
-        "start_ms": 44960,
-        "end_ms": 45120
+        "start_ms": 40160,
+        "end_ms": 40240
       },
       {
         "index": 173,
         "word": "猫",
-        "start_ms": 45120,
-        "end_ms": 45280
+        "start_ms": 40240,
+        "end_ms": 40400
       },
       {
         "index": 174,
         "word": "猫",
-        "start_ms": 45280,
-        "end_ms": 45440
+        "start_ms": 40400,
+        "end_ms": 40640
       },
       {
         "index": 175,
         "word": "不",
-        "start_ms": 45440,
-        "end_ms": 45600
+        "start_ms": 40640,
+        "end_ms": 40720
       },
       {
         "index": 176,
         "word": "只",
-        "start_ms": 45600,
-        "end_ms": 45680
+        "start_ms": 40720,
+        "end_ms": 40880
       },
       {
         "index": 177,
         "word": "是",
-        "start_ms": 45680,
-        "end_ms": 45840
+        "start_ms": 40880,
+        "end_ms": 40960
       },
       {
         "index": 178,
         "word": "回",
-        "start_ms": 45840,
-        "end_ms": 46000
+        "start_ms": 40960,
+        "end_ms": 41120
       },
       {
         "index": 179,
         "word": "复",
-        "start_ms": 46000,
-        "end_ms": 46160
+        "start_ms": 41120,
+        "end_ms": 41280
       },
       {
         "index": 180,
         "word": "文",
-        "start_ms": 46160,
-        "end_ms": 46320
+        "start_ms": 41280,
+        "end_ms": 41440
       },
       {
         "index": 181,
         "word": "字",
-        "start_ms": 46320,
-        "end_ms": 46560
+        "start_ms": 41440,
+        "end_ms": 41760
       },
       {
         "index": 182,
         "word": "卡",
-        "start_ms": 46880,
-        "end_ms": 47120
+        "start_ms": 42080,
+        "end_ms": 42240
       },
       {
         "index": 183,
         "word": "片",
-        "start_ms": 47120,
-        "end_ms": 47280
+        "start_ms": 42240,
+        "end_ms": 42480
       },
       {
         "index": 184,
         "word": "清",
-        "start_ms": 47280,
-        "end_ms": 47520
+        "start_ms": 42480,
+        "end_ms": 42640
       },
       {
         "index": 185,
         "word": "单",
-        "start_ms": 47520,
-        "end_ms": 47760
+        "start_ms": 42640,
+        "end_ms": 42880
       },
       {
         "index": 186,
         "word": "投",
-        "start_ms": 47920,
-        "end_ms": 48160
+        "start_ms": 43120,
+        "end_ms": 43280
       },
       {
         "index": 187,
         "word": "票",
-        "start_ms": 48160,
-        "end_ms": 48480
+        "start_ms": 43280,
+        "end_ms": 43600
       },
       {
         "index": 188,
         "word": "代",
-        "start_ms": 48640,
-        "end_ms": 48800
+        "start_ms": 43840,
+        "end_ms": 44000
       },
       {
         "index": 189,
         "word": "码",
-        "start_ms": 48800,
-        "end_ms": 48960
+        "start_ms": 44000,
+        "end_ms": 44080
       },
       {
         "index": 190,
         "word": "diff",
-        "start_ms": 48960,
-        "end_ms": 49360
+        "start_ms": 44080,
+        "end_ms": 44480
       },
       {
         "index": 191,
         "word": "信",
-        "start_ms": 49600,
-        "end_ms": 49840
+        "start_ms": 44800,
+        "end_ms": 44960
       },
       {
         "index": 192,
         "word": "息",
-        "start_ms": 49840,
-        "end_ms": 49920
+        "start_ms": 44960,
+        "end_ms": 45120
       },
       {
         "index": 193,
         "word": "有",
-        "start_ms": 49920,
-        "end_ms": 50080
+        "start_ms": 45120,
+        "end_ms": 45200
       },
       {
         "index": 194,
         "word": "结",
-        "start_ms": 50080,
-        "end_ms": 50240
+        "start_ms": 45200,
+        "end_ms": 45440
       },
       {
         "index": 195,
         "word": "构",
-        "start_ms": 50240,
-        "end_ms": 50560
+        "start_ms": 45440,
+        "end_ms": 45680
       },
       {
         "index": 196,
         "word": "交",
-        "start_ms": 50720,
-        "end_ms": 50960
+        "start_ms": 45920,
+        "end_ms": 46080
       },
       {
         "index": 197,
         "word": "互",
-        "start_ms": 50960,
-        "end_ms": 51120
+        "start_ms": 46080,
+        "end_ms": 46240
       },
       {
         "index": 198,
         "word": "有",
-        "start_ms": 51120,
-        "end_ms": 51200
+        "start_ms": 46240,
+        "end_ms": 46320
       },
       {
         "index": 199,
         "word": "温",
-        "start_ms": 51200,
-        "end_ms": 51360
+        "start_ms": 46320,
+        "end_ms": 46560
       },
       {
         "index": 200,
         "word": "度",
-        "start_ms": 51360,
-        "end_ms": 51600
+        "start_ms": 46560,
+        "end_ms": 46800
       },
       {
         "index": 201,
         "word": "这",
-        "start_ms": 52000,
-        "end_ms": 52080
+        "start_ms": 47120,
+        "end_ms": 47280
       },
       {
         "index": 202,
         "word": "就",
-        "start_ms": 52080,
-        "end_ms": 52240
+        "start_ms": 47280,
+        "end_ms": 47360
       },
       {
         "index": 203,
         "word": "是",
-        "start_ms": 52240,
-        "end_ms": 52320
+        "start_ms": 47360,
+        "end_ms": 47440
       },
       {
         "index": 204,
         "word": "Cat",
-        "start_ms": 52320,
-        "end_ms": 52560
+        "start_ms": 47440,
+        "end_ms": 47680
       },
       {
         "index": 205,
         "word": "Cafe",
-        "start_ms": 52560,
-        "end_ms": 53040
+        "start_ms": 47680,
+        "end_ms": 48160
       }
     ],
     "alignment_source": "qwen3-fa"
