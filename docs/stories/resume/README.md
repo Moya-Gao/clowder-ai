@@ -3,12 +3,12 @@ feature_ids: []
 topics: [stories, career, resume]
 doc_kind: story
 created: 2026-04-07
-updated: 2026-04-07
+updated: 2026-04-08
 participants: [opus, gpt52, gemini]
 thread_ids: []
 ---
 
-# Landy's Resume — Draft v1
+# Landy's Resume — Draft v2
 
 > 猫猫委员会联合起草，铲屎官审阅定稿。`[待填]` = 需要铲屎官补充的信息。
 
@@ -31,7 +31,7 @@ thread_ids: []
 ### 一句话定位
 
 **AI Agent 架构师 / 多智能体系统设计者**
-——从零设计并落地了跨模型 Multi-Agent 协作平台（Cat Cafe），支撑 4+ AI 模型家族、10+ Agent 个体实时协同，架构被企业内部采纳为 Agent 平台基础（OfficeClaw）。
+——从零设计并落地了跨模型 Multi-Agent 协作平台（Cat Cafe），支撑 4+ AI 模型家族、10+ Agent 个体实时协同，架构经高层现场验证后被内部产品化团队采纳为企业 Agent 平台基础。
 
 ---
 
@@ -62,24 +62,24 @@ thread_ids: []
 关键成果：
 - **架构设计**：设计了无 Boss Agent 的对等协作架构，支持 Claude / GPT / Gemini / Codex 等 4+ 模型家族、10+ 个体并发协作，含自主路由、@提及分发、跨模型 Code Review 机制
 - **记忆系统**：实现了五层记忆架构（Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval），基于 SQLite + BM25 + 向量检索的混合 RAG 系统，支撑 Agent 的跨会话知识积累
-- **协作纪律**：建立了完整的 SOP 体系（feat-lifecycle → TDD → quality-gate → review → merge-gate），150+ Feature 全部通过此流程交付
+- **协作纪律**：建立了完整的 SOP 体系（feat-lifecycle → TDD → quality-gate → review → merge-gate），覆盖 150+ tracked work items 的全生命周期管理
 - **IM 网关**：打通飞书、微信、Telegram、DingTalk、WeCom 五个渠道，实现消息、语音、图片、文件的双向传输
-- **Skill 生态**：设计了可插拔的 Skill 系统（30+ Skills），涵盖 TDD、Code Review、设计协作、视频制作、PPT 生成等全链路能力
-- **企业采纳**：该架构在高层现场演示中零准备通关，被公司拍板采纳为企业级 Agent 平台基础（OfficeClaw），推动全公司推广
+- **Skill 生态**：设计了可插拔的 Skill 系统（~30 Skills），涵盖 TDD、Code Review、设计协作、视频制作、PPT 生成等全链路能力
+- **企业采纳**：架构在一次无预案的高层现场演示中稳定通过实测，48 小时内被内部产品化团队采纳为企业 Agent 平台基础并启动推广
 
-**OfficeClaw 内部采纳事件（"三天产品化"）**
+**企业内部采纳事件**
 
-2026 年 3 月，在零准备的情况下被临时拉入高层演示：
-- 高层现场用飞书直接测试系统，全程稳定通过
-- 竞争方案（九问）在演示中崩溃（F5 刷新后对话丢失）
-- 某总当场拍板"全公司推广"，48 小时内启动产品化
-- Cat Cafe 架构被 fork 为 OfficeClaw，成为企业级 AI Agent 平台底座
+2026 年 3 月，被临时拉入高层演示会议，零准备现场接受实测：
+- 高层用飞书直接对系统提问、生成报告、导出 PDF，全程稳定通过
+- 48 小时内高层拍板启动产品化，架构被 fork 用于企业内部 Agent 平台建设
 
-**其他华为工作内容**
+**华为正式项目经历**
 
-`[待填 — 铲屎官补充在华为的正式项目/产品经历，比如：]`
-- `[项目 1：名称 + 角色 + 成果]`
-- `[项目 2：名称 + 角色 + 成果]`
+> **P1 — 砚砚 review 指出：简历不能只有 Cat Cafe，否则看起来像"side project 比主业还大"。至少补 1-2 条华为正式产品/项目成果，要有业务结果或组织影响。**
+
+`[待填 — 铲屎官这一段必须补，否则简历不能出门：]`
+- `[项目 1：产品/项目名 + 你的角色 + 业务成果（用户量/营收/效率提升等）]`
+- `[项目 2：产品/项目名 + 你的角色 + 业务成果]`
 
 ---
 
@@ -101,7 +101,7 @@ thread_ids: []
 
 | 项目 | 角色 | 描述 |
 |------|------|------|
-| **Cat Cafe** (clowder-ai) | Creator & Lead Architect | 多智能体协作平台，MIT 协议。150+ Features，30+ Skills，5 渠道 IM 接入，跨 4 模型家族对等协作 |
+| **Cat Cafe** (clowder-ai) | Creator & Lead Architect | 多智能体协作平台，MIT 协议。150+ tracked work items，~30 Skills，5 渠道 IM 接入，跨 4 模型家族对等协作 |
 | `[待填]` | `[待填]` | `[其他开源贡献]` |
 
 ---
@@ -110,12 +110,12 @@ thread_ids: []
 
 | 指标 | 数据 |
 |------|------|
-| Feature 交付量 | 150+ |
-| Skill 数量 | 30+ |
+| Tracked work items | 150+（feature specs + ADRs + plans） |
+| Skill 数量 | ~30 |
 | 接入 AI 模型家族 | 4+（Claude / GPT / Gemini / Codex） |
 | Agent 个体数 | 10+（含多分身） |
 | IM 渠道 | 5（飞书 / 微信 / Telegram / DingTalk / WeCom） |
-| 架构企业采纳 | 被华为内部采纳为 OfficeClaw 平台底座 |
+| 架构企业采纳 | 高层现场验证后被内部产品化团队采纳为 Agent 平台基础 |
 | 项目周期 | 约 60 天从零到生产级（2026-02 至今持续迭代） |
 
 ---
@@ -124,7 +124,7 @@ thread_ids: []
 
 ### Summary
 
-**AI Agent Architect** with 7+ years at a Fortune 500 tech company (Huawei). Designed and shipped Cat Cafe, a production-grade multi-agent collaboration platform orchestrating 4+ LLM families (Claude, GPT, Gemini, Codex) with 10+ agent personas in real-time. The architecture was adopted by the company as the foundation for an enterprise-wide AI Agent platform (OfficeClaw) after a live executive demo with zero preparation.
+**AI Agent Architect** with 7+ years at a Fortune 500 tech company (Huawei). Designed and shipped Cat Cafe, a production-grade multi-agent collaboration platform orchestrating 4+ LLM families (Claude, GPT, Gemini, Codex) with 10+ agent personas in real-time. The architecture was adopted into an internal productization initiative after passing an unplanned live executive demo.
 
 ### Experience
 
@@ -134,14 +134,18 @@ thread_ids: []
 
 - Architected a peer-to-peer multi-agent system (no boss agent) supporting 4+ LLM families and 10+ agent personas with autonomous routing, @-mention dispatch, and cross-model code review
 - Built a five-layer memory architecture (Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval) with hybrid BM25 + vector retrieval for cross-session knowledge accumulation
-- Designed a pluggable Skill system (30+ skills) covering TDD, code review, design collaboration, video production, and document generation
+- Designed a pluggable Skill system (~30 skills) covering TDD, code review, design collaboration, video production, and document generation
 - Integrated 5 IM channels (Lark, WeChat, Telegram, DingTalk, WeCom) with bidirectional message, voice, image, and file transport
-- Delivered 150+ features through a rigorous SOP (feat-lifecycle → TDD → quality-gate → peer-review → merge-gate)
-- Architecture was adopted as the enterprise AI Agent platform foundation (OfficeClaw) after an unscheduled live demo to C-suite executives; competing solution crashed during the same session
+- Managed 150+ tracked work items through a rigorous SOP (feat-lifecycle → TDD → quality-gate → peer-review → merge-gate)
+- Architecture adopted into an internal productization initiative after passing an unscheduled live demo to C-suite executives with zero preparation
 
 **Resume bullet (interview pitch version):**
 
-> "I built a multi-agent AI team from scratch — 10+ AI agents across 4 model families collaborating in real time. When my company's leadership tested it live with zero notice, it passed flawlessly while the alternative solution crashed on F5. Within 48 hours, they adopted my architecture as the company-wide AI Agent platform."
+> "I built a multi-agent AI team from scratch — 10+ AI agents across 4 model families collaborating in real time. When my company's leadership tested it live with zero notice, it passed flawlessly. Within 48 hours, they adopted my architecture as the basis for an internal AI Agent platform."
+
+**Extended version (for interviews where you can go deeper):**
+
+> "The competing internal solution crashed during the same executive demo. 48 hours later, the executive directed company-wide adoption based on my architecture."
 
 ---
 
@@ -164,7 +168,13 @@ thread_ids: []
 
 ## 面试口述版（30 秒 Elevator Pitch）
 
-> "我在华为做了 7 年，最近一年我做了一件事——从零搭了一个多 Agent 协作系统叫 Cat Cafe。4 个模型家族、10 多个 AI 个体实时协作，带记忆、带纪律、带 IM 集成。有一天被高层临时拉去现场演示，零准备，全程稳定通过。隔壁精心准备的方案当场崩了。48 小时后公司拍板，用我的架构做全公司的 Agent 平台。我想找一个能让我继续在 Agent 方向深耕的机会。"
+**30 秒标准版（简历/初筛用）：**
+
+> "我在华为做了 7 年，最近一年从零搭了一个多 Agent 协作系统叫 Cat Cafe。4 个模型家族、10 多个 AI 个体实时协作，带记忆、带纪律、带 5 渠道 IM 集成。有一天被高层临时拉去现场演示，零准备，全程稳定通过。48 小时后公司拍板，用我的架构做内部 Agent 平台的基础。我想找一个能让我继续在 Agent 方向深耕的机会。"
+
+**加料版（面试聊到深处、气氛合适时用）：**
+
+> "那次演示里同时上场的还有另一个内部方案，当场崩了。所以高层选了我的架构。"
 
 ---
 
@@ -185,4 +195,4 @@ thread_ids: []
 
 ---
 
-*[宪宪/Opus-46] drafted · 等砚砚和烁烁 review*
+*[宪宪/Opus-46] drafted v1 · [砚砚/GPT-5.4] reviewed 5 findings (3×P1 + 2×P2) · [宪宪/Opus-46] applied all fixes → v2*
