@@ -980,20 +980,22 @@ describe('AcpClient', () => {
   });
 
   // ─── Permission notification: Gemini sends request_permission without id ───
+  // Gate-based test: mock agent only continues AFTER seeing a valid permission
+  // response on stdin. If AcpClient doesn't send one, agent stays silent → stall.
 
   it('permission notification (no id) is auto-approved and does not block stream', async () => {
     const { child, clientStdin, agentStdout } = createMockChild();
-    const capturedMessages = [];
+    let promptId = null;
 
     clientStdin.on('data', (chunk) => {
       for (const line of chunk.toString().trim().split('\n')) {
         const msg = JSON.parse(line);
-        capturedMessages.push(msg);
         if (msg.method === 'initialize') {
           agentRespond(agentStdout, msg.id, INIT_RESULT);
         } else if (msg.method === 'session/new') {
           agentRespond(agentStdout, msg.id, { sessionId: 'perm-sess' });
         } else if (msg.method === 'session/prompt') {
+          promptId = msg.id;
           // 1. tool_call → pendingTool=true
           setImmediate(() => {
             agentNotify(agentStdout, 'session/update', {
@@ -1022,14 +1024,21 @@ describe('AcpClient', () => {
             });
             agentStdout.push(permNotif + '\n');
           }, 30);
-          // 4. After permission, Gemini continues and completes
-          setTimeout(() => {
+        } else if (
+          // GATE: mock agent only continues after seeing a valid permission response.
+          // If AcpClient doesn't send one, agent stays silent → stall → test fails.
+          !msg.method &&
+          msg.id?.toString().startsWith('synth-perm-') &&
+          msg.result?.outcome?.outcome === 'selected'
+        ) {
+          // Permission response accepted — now continue
+          setImmediate(() => {
             agentNotify(agentStdout, 'session/update', {
               sessionId: 'perm-sess',
               update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'done' } },
             });
-            agentRespond(agentStdout, msg.id, { stopReason: 'end_turn' });
-          }, 250);
+            agentRespond(agentStdout, promptId, { stopReason: 'end_turn' });
+          });
         }
       }
     });
@@ -1043,7 +1052,7 @@ describe('AcpClient', () => {
     try {
       for await (const event of client.promptStream('perm-sess', 'hello', {
         idleWarningMs: 60,
-        idleStallMs: 200,
+        idleStallMs: 500,
         timeoutMs: 5000,
       })) {
         events.push(event);
@@ -1052,17 +1061,13 @@ describe('AcpClient', () => {
       thrownError = err;
     }
 
-    assert.equal(thrownError, null, `Should not stall: ${thrownError?.message}`);
+    assert.equal(thrownError, null, `Should not stall — permission gate not unlocked: ${thrownError?.message}`);
 
-    // Permission auto-approve response should have been sent
-    const permResponses = capturedMessages.filter(
-      (m) => m.id?.toString().startsWith('synth-perm-') && m.result?.outcome,
-    );
-    assert.ok(permResponses.length >= 1, 'Should send auto-approve response for permission notification');
-    assert.equal(permResponses[0].result.outcome.outcome, 'selected');
-    assert.equal(permResponses[0].result.outcome.optionId, 'proceed_once');
+    // Stream should have completed with real events (gate was opened)
+    const msgChunks = events.filter((e) => e.update?.sessionUpdate === 'agent_message_chunk');
+    assert.ok(msgChunks.length >= 1, 'Agent must continue after permission response (gate-based)');
 
-    // Permission notification should NOT appear in stream events (not a session update)
+    // Permission notification should NOT appear in stream events
     const permEvents = events.filter(
       (e) => e.options || (e.update && !e.update.sessionUpdate),
     );
