@@ -530,8 +530,51 @@ test('#340 P6 regression: OAuth switch atomically cleans stale installer profile
     assert.equal(after.accounts['installer-openai'], undefined, 'stale installer-openai must be removed');
     assert.equal(after.credentials['installer-openai'], undefined, 'stale credentials must be removed');
     // Builtin OAuth account must exist
-    assert.ok(after.accounts['codex'], 'builtin codex account must exist');
-    assert.equal(after.accounts['codex'].authType, 'oauth');
+    assert.ok(after.accounts.codex, 'builtin codex account must exist');
+    assert.equal(after.accounts.codex.authType, 'oauth');
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('OAuth switch keeps installer account when a runtime cat is explicitly bound to it', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-oauth-bound-'));
+
+  try {
+    // Step 1: Create installer API-key account
+    runHelperWithEnv(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'api_key'], {
+      _INSTALLER_API_KEY: 'sk-bound-key',
+    });
+    const before = readInstallerState(projectRoot);
+    assert.ok(before.accounts['installer-openai'], 'installer-openai should exist');
+
+    // Step 2: Write a catalog with a cat explicitly bound to installer-openai
+    const catalogDir = join(projectRoot, '.cat-cafe');
+    mkdirSync(catalogDir, { recursive: true });
+    writeFileSync(
+      join(catalogDir, 'cat-catalog.json'),
+      JSON.stringify({
+        version: 2,
+        breeds: [
+          {
+            id: 'custom-gpt',
+            catId: 'custom-gpt',
+            variants: [{ id: 'v1', provider: 'openai', accountRef: 'installer-openai' }],
+          },
+        ],
+        roster: {},
+      }),
+    );
+
+    // Step 3: Switch to OAuth — installer-openai must survive because it's bound
+    runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'oauth']);
+
+    const after = readInstallerState(projectRoot);
+    assert.ok(after.accounts['installer-openai'], 'bound installer-openai must NOT be deleted');
+    assert.ok(after.credentials['installer-openai'], 'bound credentials must NOT be deleted');
+    // OAuth account should still be created
+    assert.ok(after.accounts.codex, 'builtin codex account must exist');
+    assert.equal(after.accounts.codex.authType, 'oauth');
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }

@@ -244,13 +244,22 @@ function setClientAuth(client, mode, options) {
       displayName: BUILTIN_ACCOUNT_SPECS.find((s) => s.client === client)?.displayName ?? accountRef,
     };
     // P1 fix: remove stale installer-<client> so resolver doesn't prefer it over OAuth.
+    // Skip if a runtime cat is explicitly bound to it (avoid dangling accountRef).
     const installerRef = `installer-${client}`;
     if (installerRef !== accountRef && accounts[installerRef]) {
-      delete accounts[installerRef];
-      const creds = readCredentials();
-      if (creds[installerRef]) {
-        delete creds[installerRef];
-        writeCredentials(creds);
+      const catalogFile = options.projectDir ? path.join(options.projectDir, CONFIG_SUBDIR, 'cat-catalog.json') : null;
+      const bound = catalogFile ? findBoundCats(catalogFile, installerRef) : [];
+      if (bound.length === 0) {
+        delete accounts[installerRef];
+        const creds = readCredentials();
+        if (creds[installerRef]) {
+          delete creds[installerRef];
+          writeCredentials(creds);
+        }
+      } else {
+        console.error(
+          `[install-auth-config] installer account ${installerRef} still bound by: ${bound.join(', ')}; keeping it`,
+        );
       }
     }
   } else {
@@ -341,7 +350,7 @@ try {
     migrateLegacyProfiles(null);
     const mode = getRequired(values, 'mode');
     if (mode === 'oauth') {
-      setClientAuth(client, 'oauth', {});
+      setClientAuth(client, 'oauth', { projectDir: projDir || undefined });
       process.exit(0);
     }
     if (mode !== 'api_key') usage();
