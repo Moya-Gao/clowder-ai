@@ -45,7 +45,8 @@ test('client-auth set creates a generic api key account for the selected client'
 
     assert.ok(account, 'installer-anthropic account should exist');
     assert.equal(account.authType, 'api_key');
-    assert.equal(account.protocol, 'anthropic');
+    // F340: protocol no longer persisted on new accounts — derived at runtime
+    assert.equal(account.protocol, undefined, 'protocol should not be persisted');
     assert.equal(account.baseUrl, 'https://proxy.example.dev');
     assert.equal(credentials['installer-anthropic'].apiKey, 'generic-key');
   } finally {
@@ -144,7 +145,8 @@ test('claude-profile create and remove keeps installer-managed account in sync',
 
     assert.ok(installerManaged, 'installer-managed account should exist');
     assert.equal(installerManaged.authType, 'api_key');
-    assert.equal(installerManaged.protocol, 'anthropic');
+    // F340: protocol no longer persisted on new accounts — derived at runtime
+    assert.equal(installerManaged.protocol, undefined, 'protocol should not be persisted');
     assert.equal(installerManaged.baseUrl, 'https://claude.example');
     assert.deepEqual(installerManaged.models, ['claude-model']);
     assert.equal(credentials['installer-managed'].apiKey, 'claude-key');
@@ -332,8 +334,8 @@ test('claude-profile set migrates and preserves non-anthropic accounts from lega
     assert.equal(accounts['openai-sponsor'].protocol, 'openai');
     assert.equal(accounts['openai-sponsor'].baseUrl, 'https://openai.example');
     assert.equal(credentials['openai-sponsor'].apiKey, 'openai-key');
-    // New installer-managed applied
-    assert.equal(accounts['installer-managed'].protocol, 'anthropic');
+    // New installer-managed applied (F340: no protocol on new accounts)
+    assert.equal(accounts['installer-managed'].protocol, undefined, 'new account should not have protocol');
     assert.equal(credentials['installer-managed'].apiKey, 'claude-key');
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
@@ -528,9 +530,9 @@ test('#340 P6 regression: OAuth switch with --force cleans stale installer profi
     assert.ok(after.accounts['codex'], 'builtin codex account must exist');
     assert.equal(after.accounts['codex'].authType, 'oauth');
 
-    // Critical: only ONE account with protocol=openai → resolveForClient won't return null
-    const openaiAccounts = Object.entries(after.accounts).filter(([, a]) => a.protocol === 'openai');
-    assert.equal(openaiAccounts.length, 1, 'exactly one openai-protocol account (no ambiguity)');
+    // F340: protocol no longer persisted on new accounts, so ambiguity check uses
+    // well-known ID resolution instead of protocol counting. The key invariant is:
+    // only 'codex' exists (no stale 'installer-openai'), verified above.
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
