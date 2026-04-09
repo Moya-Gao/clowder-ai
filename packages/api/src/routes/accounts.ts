@@ -331,47 +331,48 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Invalid project path: must be an existing directory under allowed roots' };
     }
     const params = request.params as { profileId: string };
-    const accounts = readCatalogAccounts(projectRoot);
-    const accountExists = Object.hasOwn(accounts, params.profileId);
 
-    // F340: Check current project's catalog for dangling references.
-    // Cross-instance isolation is handled by CAT_CAFE_GLOBAL_CONFIG_ROOT in .env —
-    // if another instance shares the same root and this account disappears, it will
-    // get a clear error with the config file path at resolve time.
-    if (!parsed.data.force && accountExists) {
-      const catalogPath = resolveCatCatalogPath(projectRoot);
-      if (existsSync(catalogPath)) {
-        try {
-          const allCats = toAllCatConfigs(loadCatConfig(catalogPath));
-          const boundCatIds = Object.entries(allCats)
-            .filter(([, cat]) => cat.accountRef === params.profileId)
-            .map(([id]) => id);
-          if (boundCatIds.length > 0) {
-            reply.status(409);
+    try {
+      const accounts = readCatalogAccounts(projectRoot);
+      const accountExists = Object.hasOwn(accounts, params.profileId);
+
+      // F340: Check current project's catalog for dangling references.
+      // Cross-instance isolation is handled by CAT_CAFE_GLOBAL_CONFIG_ROOT in .env —
+      // if another instance shares the same root and this account disappears, it will
+      // get a clear error with the config file path at resolve time.
+      if (!parsed.data.force && accountExists) {
+        const catalogPath = resolveCatCatalogPath(projectRoot);
+        if (existsSync(catalogPath)) {
+          try {
+            const allCats = toAllCatConfigs(loadCatConfig(catalogPath));
+            const boundCatIds = Object.entries(allCats)
+              .filter(([, cat]) => cat.accountRef === params.profileId)
+              .map(([id]) => id);
+            if (boundCatIds.length > 0) {
+              reply.status(409);
+              return {
+                error: `Account "${params.profileId}" is still referenced by: ${boundCatIds.join(', ')}. Remove bindings first or pass { "force": true }.`,
+                boundCatIds,
+              };
+            }
+          } catch {
+            // Fail-closed: catalog exists but cannot be parsed → refuse deletion
+            reply.status(500);
             return {
-              error: `Account "${params.profileId}" is still referenced by: ${boundCatIds.join(', ')}. Remove bindings first or pass { "force": true }.`,
-              boundCatIds,
+              error: `Cannot verify account references — catalog at ${catalogPath} failed to parse. Fix the catalog or pass { "force": true }.`,
             };
           }
-        } catch {
-          // Fail-closed: catalog exists but cannot be parsed → refuse deletion
-          reply.status(500);
+        }
+        if (!isProjectScopedGlobalStore(projectRoot)) {
+          reply.status(409);
           return {
-            error: `Cannot verify account references — catalog at ${catalogPath} failed to parse. Fix the catalog or pass { "force": true }.`,
+            error:
+              `Account "${params.profileId}" lives in shared global store ${resolveGlobalConfigRoot()} ` +
+              `and non-force deletion cannot verify bindings in other projects. Audit all project catalogs or pass { "force": true }.`,
           };
         }
       }
-      if (!isProjectScopedGlobalStore(projectRoot)) {
-        reply.status(409);
-        return {
-          error:
-            `Account "${params.profileId}" lives in shared global store ${resolveGlobalConfigRoot()} ` +
-            `and non-force deletion cannot verify bindings in other projects. Audit all project catalogs or pass { "force": true }.`,
-        };
-      }
-    }
 
-    try {
       deleteCatalogAccount(projectRoot, params.profileId);
       deleteCredential(params.profileId);
       configEventBus.emitChange({
