@@ -617,6 +617,29 @@ describe('ReviewFeedbackTaskSpec', () => {
     assert.equal(result.workItems[0].signal.newDecisions.length, 0);
   });
 
+  it('gate excludes done tasks — no work items, no fetch (#406 regression)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    let fetchCalled = false;
+    const doneTask = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 99, catId: 'opus', threadId: 'th-done', userId: 'u-1' },
+      { status: 'done' },
+    );
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: mockTaskStore([doneTask]),
+      fetchComments: async () => {
+        fetchCalled = true;
+        return [{ id: 1, author: 'alice', body: 'new', createdAt: '2026-01-01', commentType: 'conversation' }];
+      },
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, false, 'done task must be excluded from gate');
+    assert.equal(fetchCalled, false, 'should not even fetch comments for done tasks');
+  });
+
   it('gate returns run:false when all items below persisted cursor (#406)', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const { router } = stubRouter();
