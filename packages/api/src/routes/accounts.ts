@@ -331,12 +331,14 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Invalid project path: must be an existing directory under allowed roots' };
     }
     const params = request.params as { profileId: string };
+    const accounts = readCatalogAccounts(projectRoot);
+    const accountExists = Object.hasOwn(accounts, params.profileId);
 
     // F340: Check current project's catalog for dangling references.
     // Cross-instance isolation is handled by CAT_CAFE_GLOBAL_CONFIG_ROOT in .env —
     // if another instance shares the same root and this account disappears, it will
     // get a clear error with the config file path at resolve time.
-    if (!parsed.data.force) {
+    if (!parsed.data.force && accountExists) {
       const catalogPath = resolveCatCatalogPath(projectRoot);
       if (existsSync(catalogPath)) {
         try {

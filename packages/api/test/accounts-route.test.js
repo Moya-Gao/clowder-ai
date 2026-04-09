@@ -475,4 +475,37 @@ describe('accounts routes', () => {
       await app.close();
     }
   });
+
+  it('DELETE /api/accounts stays idempotent when the account is already missing from a shared global store', async () => {
+    const { readCatalogAccounts, resetMigrationState } = await import('../dist/config/catalog-accounts.js');
+    const Fastify = (await import('fastify')).default;
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
+    const app = Fastify();
+    await app.register(accountsRoutes);
+    await app.ready();
+
+    const globalRoot = await makeTmpDir('shared-missing-root');
+    const projectA = await makeTmpDir('shared-missing-a');
+    const projectB = await makeTmpDir('shared-missing-b');
+    setGlobalRoot(globalRoot);
+    resetMigrationState();
+    try {
+      await writeBoundCatalog(projectB, 'missing-account');
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/accounts/missing-account',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({ projectPath: projectA }),
+      });
+      assert.equal(res.statusCode, 200);
+      assert.equal(readCatalogAccounts(projectA)['missing-account'], undefined);
+    } finally {
+      restoreGlobalRoot();
+      await rm(globalRoot, { recursive: true, force: true });
+      await rm(projectA, { recursive: true, force: true });
+      await rm(projectB, { recursive: true, force: true });
+      await app.close();
+    }
+  });
 });
