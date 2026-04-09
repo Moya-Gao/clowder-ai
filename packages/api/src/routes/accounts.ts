@@ -15,6 +15,7 @@ import { loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
 import { deleteCatalogAccount, readCatalogAccounts, writeCatalogAccount } from '../config/catalog-accounts.js';
 import { configEventBus, createChangeSetId } from '../config/config-event-bus.js';
 import { deleteCredential, hasCredential, writeCredential } from '../config/credentials.js';
+import { resolveProjectTemplatePath } from '../config/project-template-path.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { validateProjectPath } from '../utils/project-path.js';
@@ -76,6 +77,29 @@ function resolveGlobalConfigRoot(): string {
 
 function isProjectScopedGlobalStore(projectRoot: string): boolean {
   return resolve(projectRoot) === resolveGlobalConfigRoot();
+}
+
+/** Scan both runtime catalog and template for variant→account bindings. Returns Error on parse failure. */
+function findBoundCatIds(projectRoot: string, accountRef: string): string[] | Error {
+  const catalogPath = resolveCatCatalogPath(projectRoot);
+  const templatePath = resolveProjectTemplatePath(projectRoot);
+  const sources: Array<{ path: string; exists: boolean }> = [
+    { path: catalogPath, exists: existsSync(catalogPath) },
+    { path: templatePath, exists: existsSync(templatePath) },
+  ];
+  const bound = new Set<string>();
+  for (const src of sources) {
+    if (!src.exists) continue;
+    try {
+      const allCats = toAllCatConfigs(loadCatConfig(src.path));
+      for (const [id, cat] of Object.entries(allCats)) {
+        if (cat.accountRef === accountRef) bound.add(id);
+      }
+    } catch {
+      return new Error(`config at ${src.path} failed to parse`);
+    }
+  }
+  return [...bound];
 }
 
 const MONOREPO_ROOT = findMonorepoRoot();
@@ -338,32 +362,22 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
       const accounts = readCatalogAccounts(projectRoot);
       const accountExists = Object.hasOwn(accounts, params.profileId);
 
-      // F340: Check current project's catalog for dangling references.
-      // Cross-instance isolation is handled by CAT_CAFE_GLOBAL_CONFIG_ROOT in .env —
-      // if another instance shares the same root and this account disappears, it will
-      // get a clear error with the config file path at resolve time.
+      // F340: Check current project's catalog AND template for dangling references.
+      // Template-only projects (pre-bootstrap) may still bind accountRefs in variants.
       if (!parsed.data.force && accountExists) {
-        const catalogPath = resolveCatCatalogPath(projectRoot);
-        if (existsSync(catalogPath)) {
-          try {
-            const allCats = toAllCatConfigs(loadCatConfig(catalogPath));
-            const boundCatIds = Object.entries(allCats)
-              .filter(([, cat]) => cat.accountRef === params.profileId)
-              .map(([id]) => id);
-            if (boundCatIds.length > 0) {
-              reply.status(409);
-              return {
-                error: `Account "${params.profileId}" is still referenced by: ${boundCatIds.join(', ')}. Remove bindings first or pass { "force": true }.`,
-                boundCatIds,
-              };
-            }
-          } catch {
-            // Fail-closed: catalog exists but cannot be parsed → refuse deletion
-            reply.status(500);
-            return {
-              error: `Cannot verify account references — catalog at ${catalogPath} failed to parse. Fix the catalog or pass { "force": true }.`,
-            };
-          }
+        const boundCatIds = findBoundCatIds(projectRoot, params.profileId);
+        if (boundCatIds instanceof Error) {
+          reply.status(500);
+          return {
+            error: `Cannot verify account references — ${boundCatIds.message}. Pass { "force": true } to override.`,
+          };
+        }
+        if (boundCatIds.length > 0) {
+          reply.status(409);
+          return {
+            error: `Account "${params.profileId}" is still referenced by: ${boundCatIds.join(', ')}. Remove bindings first or pass { "force": true }.`,
+            boundCatIds,
+          };
         }
         if (!isProjectScopedGlobalStore(projectRoot)) {
           reply.status(409);

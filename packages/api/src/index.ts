@@ -1621,13 +1621,12 @@ async function main(): Promise<void> {
     app.log.warn(`[api] CLI config regeneration failed (best-effort): ${String(err)}`);
   }
 
-  // F340: Account startup — lightweight check, global accounts.
-  try {
+  // F340: Account startup — fail-fast (LL-043 / migration conflict / corrupt credentials).
+  // Errors propagate to main().catch → process.exit(1).
+  {
     const { accountStartupHook } = await import('./config/account-startup.js');
     const startupResult = accountStartupHook(findMonorepoRoot(process.cwd()));
     app.log.info(`[api] F340 accounts: ${startupResult.accountCount} account(s) loaded`);
-  } catch (err) {
-    app.log.warn(`[api] F340 account startup hook failed (best-effort): ${String(err)}`);
   }
 
   // F101 Phase G: Recover auto-play loops for active games after restart.
