@@ -18,7 +18,7 @@ import { getCatVoice } from '../../../../../config/cat-voices.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
-import { canAccessGuideState } from '../../../../guides/guide-state-access.js';
+import { canAccessGuideState, hasHiddenForeignNonTerminalGuideState } from '../../../../guides/guide-state-access.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
 import {
   buildInvocationContext,
@@ -147,6 +147,7 @@ export async function* routeSerial(
   /** catId that should receive the one-shot completion notice (offeredBy). */
   let guideCompletionOwner: string | undefined;
   let guideCompletionFallbackCatId: string | undefined;
+  let hiddenForeignNonTerminalGuideState = false;
   const targetCatIds = new Set<string>(targetCats);
   if (deps.invocationDeps.threadStore) {
     try {
@@ -155,6 +156,7 @@ export async function* routeSerial(
       voiceMode = thread?.voiceMode;
       bootcampState = thread?.bootcampState;
       const threadGuideState = thread?.guideState;
+      hiddenForeignNonTerminalGuideState = hasHiddenForeignNonTerminalGuideState(thread, threadGuideState, userId);
       const guideState = canAccessGuideState(thread, threadGuideState, userId) ? threadGuideState : undefined;
       // F150: Read existing guide state from thread (authority source)
       if (guideState) {
@@ -222,7 +224,7 @@ export async function* routeSerial(
   }
 
   // F150: Match raw user message against guide registry (only if no existing guide state)
-  if (!guideCandidate) {
+  if (!guideCandidate && !hiddenForeignNonTerminalGuideState) {
     try {
       const { resolveGuideForIntent } = await import('../../../../guides/guide-registry-loader.js');
       const guideMatches = resolveGuideForIntent(message);
