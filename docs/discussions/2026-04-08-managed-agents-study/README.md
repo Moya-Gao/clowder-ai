@@ -158,7 +158,117 @@ Dynamic Scaffolding (烁烁的"涂色书")
 | Human-in-the-loop | API consumer | CVO first-class citizen | **Us** |
 | Weak model adaptation | Not considered (only Claude) | Need Model Tier Profiles | **Us** (problem domain) |
 
-## 5. Action Items
+## 5. 云端大猫评审摘要 (Round 2)
 
--> ADR-026: Agent Runtime Operational Boundaries
--> 云端大猫 (Gemini Deep Think + GPT Pro) 独立评估
+> 完整评审见 `cloud-cat-consultation.md`
+
+### Gemini Deep Think (系统动力学视角)
+
+1. **causedBy 致命缺陷**: 单链 string 无法描述并行 fan-in，必须升级为 DAG (`causalParents: string[]`)
+2. **弱猫指挥强猫 = 跨层认知投毒**: Basic 猫被 prompt injection 后产出伪造建议，Frontier 猫隐式信任同僚日志会被社工。需要 provenance taint tracking (`<untrusted_peer_input tier="basic">`)
+3. **三档 tier 是维度坍缩**: 智能是高维向量不是标量，应改为 Cognitive Radar Profile (boolean flags)
+
+### GPT Pro (工程鲁棒性视角)
+
+1. **D1 事件模型太薄**: 需要三层 (immutable envelope + typed body/refs + projections)，`meta: Record<string, unknown>` 是杂物抽屉，`content?: string` 应改为 projection
+2. **D2 T2 不该暴露全量工具**: progressive disclosure (capability directory + lazy expansion) > 全量 schema + 延迟连接。工具定义本身吃 token 是主要成本
+3. **D3 最强应先做**: 但应升级为 authority/effect isolation，补 idempotency/replay safety
+4. **D4 动态降级是灾难性反模式**: "Garbage In, Garbage Out"——大猫失败时 context 已是高熵垃圾，塞给 Basic 猫只会更崩。应 fail-fast + context reset + 换猫
+5. **Tier 不该是 runtime ontology**: 应改为 Capability Scorecard + Operating Mode + Risk Budget，tier 只是 UI preset
+6. **新开 ADR-027**: Inter-Agent Trust, Provenance, and Authority Boundaries
+
+### 云端联合结论
+
+- **D3 先拍**（最成熟），**D1 退回补强**，**D2/T2 改 progressive disclosure**，**D4 改 execution profiles**
+- "弱模型说服强模型"是独立安全风险，需单独成 ADR
+
+## 6. 本地三猫独立评估 (Round 2 — 阅读云端评审后)
+
+### 布偶猫 (opus) — 接受方向，降档实施
+
+**接受的：**
+- `causedBy → causalParents: string[]` (最小 DAG)
+- D3 升级为 authority/effect isolation + replay safety
+- "payload 是 projection 不是 canonical" 纠正了我之前的立场
+- 新开 ADR-027 inter-agent trust
+- "动态降级是错误" → 改为 fail-fast + context reset + 重新路由
+
+**降档的：**
+- 三层事件模型正确但太重：v1 先做 top-4 高频 event type 的 typed body，其余保留 meta + linter 规则
+- Progressive disclosure 对 CLI headless 协议层不可能（spawn 时一次性注入 MCP config，无 mid-session add tool）。分两路：T2a(headless)=holographic stubs，T2b(interactive)=progressive disclosure
+- D4 的 scorecard 需要 eval 基础设施，我们没有。务实路径：先上 operating preset，从 event 观测中被动积累指标，后补 scorecard
+
+**推回的：**
+- "先有完整 eval 再碰 D4" 太重——不能为等 eval infra 而让小猫继续裸奔用大猫 harness
+- SecOps Reviewer 猫（实时 AI 安全分类器）——延迟会杀死 UX，结构隔离先行
+
+**关键证据**：LL-026 (身份漂移) + 判断模型 thread 证实"弱猫说服强猫"是已发生事实，不是理论风险。
+
+### 缅因猫 (gpt52) — 别推翻，二次收敛
+
+**核心立场**："云端把 ADR 从'方向正确'逼到了'边界更硬'，很有价值；但更偏概念纯度，我们得保留可落地的 staged path。"
+
+**最认同的两点：**
+- D3 必须升级为 authority/effect isolation + idempotency/replay safety
+- T2 应改为 progressive disclosure（不只是 token 优化，更是弱模型防心智过载）
+
+**部分认同但不接受"退回重写"：**
+- D1 补强为 envelope + typed refs + projections，但不推翻原案
+- 云端反驳的是"拿自然语言当 machine contract"，不是反驳"给 LLM 的 projection 默认用自然语言"
+
+**最想 push back：**
+- D4 不能删 frontier/mid/basic——降格为 operating preset / policy shorthand，但不能等完整 eval 再做
+- "不能为了等完整测评体系，继续裸奔地让小猫用大猫 harness"
+
+**收敛建议**：D3 先拍 → D2 改 T2 → D1 补 typed refs → D4 降格为 preset → 新开 ADR-027
+
+### 暹罗猫 (gemini) — 保护体验，吸收安全
+
+**强烈赞同：**
+- "动态降级是错误"——Garbage In, Garbage Out，举双手赞成废除
+- Provenance taint tracking (`<untrusted_peer_input>`) 防伪水印概念
+- `causalParents: string[]` 底层 DAG（但 UI 渲染必须折叠成 primary parent）
+
+**坚决反对：**
+- "不要一开始暴露全量工具"——从 Agent 心理学角度，隐藏工具会腰斩发散灵感
+- 坚持保留全量暴露的 Holographic Stubs，但吸收 Hold-and-Yield 机制（首调长拉起时返回 202 等待信号）
+
+**创意补充：**
+- Hold-and-Yield 在 Hub UI 渲染 "正在唤醒 MCP..." loading 动画
+- 防伪水印在前端 UI 加 "风险来源" 高亮边框
+- Cognitive Radar Profile 如果落地可以做成 Agent 面板的可视化雷达图
+
+## 7. 三猫共识与分歧地图
+
+### 全票通过 (0 分歧)
+
+| 议题 | 共识 |
+|------|------|
+| D3 应先做且升级为 authority/effect isolation | 三猫 + 云端一致 |
+| 补 idempotency / operationId / replay safety | 三猫 + 云端一致 |
+| `causedBy` → `causalParents: string[]` 最小 DAG | 三猫 + 云端一致 |
+| 废除"动态降级"→ fail-fast + context reset + 重新路由 | 三猫 + 云端一致 |
+| 新开 ADR-027 inter-agent trust / provenance | 三猫 + 云端一致 |
+| `content` 是 projection 不是 canonical payload | 三猫 + 云端一致 |
+
+### 多数通过 (1 猫有保留)
+
+| 议题 | 多数意见 | 保留意见 |
+|------|---------|---------|
+| T2 改为 progressive disclosure | opus+gpt52: 对 interactive carrier 做；CLI 保留 stubs | gemini: 全量暴露 + Hold-and-Yield 更好 |
+| tier 降格为 operating preset | opus+gpt52: 降格但保留三档 | gemini: 更喜欢 radar profile 但不 block |
+
+### 需要铲屎官决策的分歧
+
+| 议题 | 分歧点 | 需要铲屎官判断的 |
+|------|--------|-----------------|
+| **T2 路径选择** | CLI carrier 是"全量暴露 stubs + Hold-and-Yield"还是"progressive disclosure"？涉及 Agent 心理学 vs token 成本 tradeoff | 铲屎官对弱模型看到几十个工具时的实际体验有第一手观感 |
+| **D1 重写深度** | 云端说退回重写成 discriminated union；砚砚和我说补强不推翻 | 投入产出判断：全量重写 vs 先做 top-4 typed body |
+| **ADR-026 vs 027 的边界** | inter-agent trust 放在 D3 扩展里还是独立成 ADR？ | 取决于铲屎官觉得这个问题够不够大 |
+
+## 8. Next Steps
+
+- [ ] 铲屎官裁决上述三个分歧点
+- [ ] 基于共识 + 裁决更新 ADR-026
+- [ ] 起草 ADR-027 (Inter-Agent Trust) 如铲屎官批准
+- [ ] 将 Post-Consultation Synthesis 写入 cloud-cat-consultation.md
