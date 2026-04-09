@@ -5,6 +5,7 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { createModuleLogger } from '../infrastructure/logger.js';
+import { registerLivenessProbe, unregisterLivenessProbe } from '../infrastructure/telemetry/instruments.js';
 import { escapeBashArg, escapeCmdArg, findGitBashPath, resolveWindowsShimSpawn } from './cli-spawn-win.js';
 import { resolveCliTimeoutMs } from './cli-timeout.js';
 import type { ChildProcessLike, CliSpawnOptions, SpawnFn } from './cli-types.js';
@@ -199,6 +200,11 @@ export async function* spawnCli(
   if (options.livenessProbe && child.pid !== undefined) {
     probe = new ProcessLivenessProbe(child.pid, options.livenessProbe);
     probe.start();
+    // F152: Register probe for OTel agentLiveness gauge
+    if (options.invocationId) {
+      const catId = options.env?.CAT_CAFE_CAT_ID ?? 'unknown';
+      registerLivenessProbe(options.invocationId, catId, () => probe!.getState());
+    }
   }
 
   try {
@@ -385,6 +391,8 @@ export async function* spawnCli(
     }
     process.off('exit', exitHandler);
     probe?.stop();
+    // F152: Unregister probe from OTel gauge
+    if (options.invocationId) unregisterLivenessProbe(options.invocationId);
     killChild();
   }
 }

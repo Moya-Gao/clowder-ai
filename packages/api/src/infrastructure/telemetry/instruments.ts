@@ -40,8 +40,11 @@ export const tokenUsage = meter.createCounter('cat_cafe.token.usage', {
   unit: 'tokens',
 });
 
+/** Liveness state type. */
+export type LivenessState = 'dead' | 'idle-silent' | 'busy-silent' | 'active';
+
 /** Map liveness state string to numeric gauge value. */
-export function livenessStateToNumber(state: 'dead' | 'idle-silent' | 'busy-silent' | 'active'): number {
+export function livenessStateToNumber(state: LivenessState): number {
   switch (state) {
     case 'dead':
       return 0;
@@ -53,3 +56,31 @@ export function livenessStateToNumber(state: 'dead' | 'idle-silent' | 'busy-sile
       return 3;
   }
 }
+
+// --- Liveness probe registry for ObservableGauge ---
+
+interface LivenessProbeRef {
+  catId: string;
+  getState: () => LivenessState;
+}
+
+const activeProbes = new Map<string, LivenessProbeRef>();
+
+/** Register a liveness probe for ObservableGauge polling. */
+export function registerLivenessProbe(invocationId: string, catId: string, getState: () => LivenessState): void {
+  activeProbes.set(invocationId, { catId, getState });
+}
+
+/** Unregister a liveness probe when invocation ends. */
+export function unregisterLivenessProbe(invocationId: string): void {
+  activeProbes.delete(invocationId);
+}
+
+// Register the ObservableGauge callback — polls all active probes
+agentLiveness.addCallback((result) => {
+  for (const [, probe] of activeProbes) {
+    result.observe(livenessStateToNumber(probe.getState()), {
+      'agent.id': probe.catId,
+    });
+  }
+});

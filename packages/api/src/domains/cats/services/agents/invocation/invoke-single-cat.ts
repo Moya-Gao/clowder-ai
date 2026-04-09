@@ -24,6 +24,20 @@ import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.j
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import {
+  AGENT_ID,
+  GENAI_MODEL,
+  GENAI_SYSTEM,
+  OPERATION_NAME,
+  STATUS,
+} from '../../../../../infrastructure/telemetry/genai-semconv.js';
+import {
+  activeInvocations,
+  invocationDuration,
+  llmCallDuration,
+  tokenUsage,
+} from '../../../../../infrastructure/telemetry/instruments.js';
+import { normalizeModel } from '../../../../../infrastructure/telemetry/model-normalizer.js';
 import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
 import { resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
@@ -280,6 +294,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     : invocationAc.signal;
 
   log.info({ invocationId, catId, threadId, userId }, 'Created invocation');
+
+  // F152: Track active invocations
+  activeInvocations.add(1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
 
   // F22 R2 P1-1: Expose invocationId to caller (route-serial/parallel) so they can
   // use it for RichBlockBuffer.consume() instead of getLatestId() which is wrong
@@ -1203,6 +1220,25 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
         // F8: Push token usage for frontend cost/token display
         if (msg.metadata?.usage) {
+          // F152: Record OTel token usage + LLM call duration
+          const modelBucket = normalizeModel(msg.metadata.model ?? '');
+          const providerSystem = provider ?? 'unknown';
+          const tokenAttrs = {
+            [AGENT_ID]: catId,
+            [GENAI_SYSTEM]: providerSystem,
+            [GENAI_MODEL]: modelBucket,
+            [OPERATION_NAME]: 'invoke',
+          };
+          if (msg.metadata.usage.inputTokens) {
+            tokenUsage.add(msg.metadata.usage.inputTokens, { ...tokenAttrs, [STATUS]: 'input' });
+          }
+          if (msg.metadata.usage.outputTokens) {
+            tokenUsage.add(msg.metadata.usage.outputTokens, { ...tokenAttrs, [STATUS]: 'output' });
+          }
+          if (msg.metadata.usage.durationApiMs) {
+            llmCallDuration.record(msg.metadata.usage.durationApiMs / 1000, tokenAttrs);
+          }
+
           outputs.push({
             type: 'system_info' as const,
             catId,
@@ -1761,6 +1797,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
 
     await finalizeTaskProgress();
+
+    // F152: Record invocation duration and decrement active count
+    const finalDurationMs = Date.now() - startTime;
+    const otelStatus = hadError ? 'error' : 'ok';
+    const otelAttrs = { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke', [STATUS]: otelStatus };
+    invocationDuration.record(finalDurationMs / 1000, otelAttrs);
+    activeInvocations.add(-1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
 
     // F089: Mark agent pane status when invocation completes
     if (deps.agentPaneRegistry?.getByInvocation(invocationId)) {
