@@ -1,15 +1,16 @@
 ---
-feature_ids: [F088]
+feature_ids: [F088, F132]
 topics: [guide, connector, im, commands, usage]
 doc_kind: guide
 created: 2026-03-10
+updated: 2026-04-09
 ---
 
 # Cat Cafe IM 使用指南
 
-> 关联: [F088 Multi-Platform Chat Gateway](../features/F088-multi-platform-chat-gateway.md) | [IM 平台接入指南](./im-platform-setup.md)
+> 关联: [F088 Multi-Platform Chat Gateway](../features/F088-multi-platform-chat-gateway.md) | [F132 DingTalk & WeCom Gateway](../features/F132-dingtalk-wecom-gateway.md) | [IM 平台接入指南](./im-platform-setup.md)
 
-在飞书、Telegram 等 IM 里和猫猫对话。所有平台命令统一。
+在飞书、Telegram、钉钉、企业微信等 IM 里和猫猫对话。所有平台命令统一。
 
 ---
 
@@ -118,7 +119,7 @@ IM 里的对话和 Cat Cafe 前端是**同一个对话**：
 
 首次使用需要把 IM 账号和 Cat Cafe 账号关联：
 
-1. 在 Cat Cafe 前端 → 设置 → 连接平台 → 选择飞书/Telegram → 获取绑定码
+1. 在 Cat Cafe 前端 → 设置 → 连接平台 → 选择飞书/Telegram/钉钉/企业微信 → 获取绑定码
 2. 在 IM 里发送 `/link <绑定码>`
 3. 绑定成功后，IM 里的对话会出现在你的前端 thread 列表中
 
@@ -130,6 +131,7 @@ IM 里的对话和 Cat Cafe 前端是**同一个对话**：
 
 - **每个 IM 聊天窗口同一时刻只有一个活跃对话**。用 `/use` 切换。
 - **命令区分大小写**：用小写 `/new`，不是 `/New`。
-- **长消息可能被平台截断**：飞书卡片有长度限制，超长回复会分段发送。
-- **图片和语音**：支持发送图片和语音消息，猫猫能看到图片内容、语音会自动转文字（需配置 Whisper）。Telegram 回复图片/语音为原生消息，飞书回复为原生媒体（需配置 APP 凭证）或文本链接。
+- **长消息可能被平台截断**：飞书卡片有长度限制，超长回复会分段发送。钉钉 AI Card 和企微同理。
+- **图片和语音**：支持发送图片和语音消息，猫猫能看到图片内容、语音会自动转文字（需配置 Whisper）。Telegram 回复图片/语音为原生消息，飞书回复为原生媒体（需配置 APP 凭证）或文本链接，钉钉/企微原生发送。
+- **流式输出**：飞书（edit card）、Telegram（edit msg）、钉钉（card streaming）、企微 Bot（replyStream）支持流式输出，企微自建应用不支持（final-only，长回复分块发送）。
 - **文件**：支持发送文件，会下载到本地并以文本描述传递给猫猫。文件内容提取（PDF/文档解析）在后续版本。

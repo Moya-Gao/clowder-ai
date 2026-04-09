@@ -244,11 +244,11 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 - [x] AC-C7: 公共层零改动
 
 ### Phase D（Bootstrap + 富文本映射 + 文档）
-- [ ] AC-D1: connector-gateway-bootstrap 动态注册三个 adapter（有 env var 才启用）
-- [ ] AC-D2: MessageEnvelope → 各平台原生卡片映射完整
-- [ ] AC-D3: Rich blocks 在所有平台正确降级
-- [ ] AC-D4: IM 接入指南文档覆盖钉钉 + 企微 Bot + 企微 Agent 配置步骤
-- [ ] AC-D5: 现有飞书/Telegram 功能无回归
+- [x] AC-D1: connector-gateway-bootstrap 动态注册三个 adapter（有 env var 才启用）
+- [x] AC-D2: MessageEnvelope → 各平台原生卡片映射完整
+- [x] AC-D3: Rich blocks 在所有平台正确降级
+- [x] AC-D4: IM 接入指南文档覆盖钉钉 + 企微 Bot + 企微 Agent 配置步骤
+- [x] AC-D5: 现有飞书/Telegram 功能无回归
 
 ## 需求点 Checklist
 
