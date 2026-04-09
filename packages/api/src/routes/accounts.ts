@@ -188,7 +188,9 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const accounts = readCatalogAccounts(projectRoot);
-    const providers = Object.entries(accounts).map(([id, account]) => accountToView(id, account, hasCredential(id)));
+    const providers = Object.entries(accounts).map(([id, account]) =>
+      accountToView(id, account, hasCredential(id, projectRoot)),
+    );
     return {
       projectPath: projectRoot,
       providers,
@@ -229,7 +231,7 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
         new Set(Object.keys(existingAccounts)),
       );
       writeCatalogAccount(projectRoot, profileId, account);
-      if (body.apiKey) writeCredential(profileId, { apiKey: body.apiKey });
+      if (body.apiKey) writeCredential(profileId, { apiKey: body.apiKey }, projectRoot);
       configEventBus.emitChange({
         source: 'accounts',
         scope: 'key',
@@ -290,10 +292,10 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
       writeCatalogAccount(projectRoot, params.profileId, account);
       if (parsed.data.apiKey != null) {
         if (parsed.data.apiKey) {
-          writeCredential(params.profileId, { apiKey: parsed.data.apiKey });
+          writeCredential(params.profileId, { apiKey: parsed.data.apiKey }, projectRoot);
         } else {
           // Empty string or explicit null → clear credential
-          deleteCredential(params.profileId);
+          deleteCredential(params.profileId, projectRoot);
         }
       }
       configEventBus.emitChange({
@@ -305,7 +307,7 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
       });
       return {
         projectPath: projectRoot,
-        profile: accountToView(params.profileId, account, hasCredential(params.profileId)),
+        profile: accountToView(params.profileId, account, hasCredential(params.profileId, projectRoot)),
       };
     } catch (err) {
       reply.status(400);
@@ -374,7 +376,7 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
       }
 
       deleteCatalogAccount(projectRoot, params.profileId);
-      deleteCredential(params.profileId);
+      deleteCredential(params.profileId, projectRoot);
       configEventBus.emitChange({
         source: 'accounts',
         scope: 'key',

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-describe('accountStartupHook (F340 — simplified)', () => {
+describe('accountStartupHook (F340 fail-fast)', () => {
   let globalRoot;
   let projectRoot;
   let previousGlobalRoot;
@@ -25,23 +25,23 @@ describe('accountStartupHook (F340 — simplified)', () => {
     await rm(projectRoot, { recursive: true, force: true });
   });
 
-  it('returns zero accountCount when no accounts exist', async () => {
+  it('returns zero accountCount when no accounts and no legacy source', async () => {
     const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}`);
     const { resetMigrationState } = await import('../dist/config/catalog-accounts.js');
     resetMigrationState();
 
     const result = accountStartupHook(projectRoot);
-    assert.ok(result, 'hook should return a result');
     assert.equal(result.accountCount, 0);
   });
 
-  it('returns correct accountCount when global accounts exist', async () => {
+  it('returns correct accountCount for healthy state', async () => {
     const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-1`);
     const { writeCatalogAccount, resetMigrationState } = await import('../dist/config/catalog-accounts.js');
     resetMigrationState();
 
-    writeCatalogAccount(projectRoot, 'claude', { authType: 'oauth', protocol: 'anthropic' });
-    writeCatalogAccount(projectRoot, 'codex', { authType: 'oauth', protocol: 'openai' });
+    writeCatalogAccount(projectRoot, 'claude', { authType: 'oauth' });
+    writeCatalogAccount(projectRoot, 'codex', { authType: 'oauth' });
+    resetMigrationState();
 
     const result = accountStartupHook(projectRoot);
     assert.equal(result.accountCount, 2);
@@ -52,19 +52,54 @@ describe('accountStartupHook (F340 — simplified)', () => {
     const { resetMigrationState } = await import('../dist/config/catalog-accounts.js');
     resetMigrationState();
 
-    // Write a project catalog with accounts section (triggers migration)
     const catalog = {
       version: 2,
       breeds: [],
       roster: {},
       reviewPolicy: {},
       accounts: {
-        'custom-ant': { authType: 'api_key', protocol: 'anthropic' },
+        'custom-ant': { authType: 'api_key' },
       },
     };
-    await writeFile(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), JSON.stringify(catalog, null, 2), 'utf-8');
+    await writeFile(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), JSON.stringify(catalog), 'utf-8');
 
     const result = accountStartupHook(projectRoot);
-    assert.equal(result.accountCount, 1, 'migrated project accounts should be counted');
+    assert.equal(result.accountCount, 1);
+  });
+
+  it('LL-043: throws when legacy source exists but no accounts after migration', async () => {
+    const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-3`);
+    const { resetMigrationState } = await import('../dist/config/catalog-accounts.js');
+    resetMigrationState();
+
+    // Legacy profiles with no valid entries → 0 accounts migrated
+    await writeFile(
+      join(globalRoot, '.cat-cafe', 'provider-profiles.json'),
+      JSON.stringify({ version: 2, providers: [] }),
+      'utf-8',
+    );
+
+    assert.throws(() => accountStartupHook(projectRoot), /LL-043/);
+  });
+
+  it('LL-043: wraps migration conflict error when legacy source exists', async () => {
+    const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-4`);
+    const { resetMigrationState, writeCatalogAccount } = await import('../dist/config/catalog-accounts.js');
+    resetMigrationState();
+
+    // Pre-existing account that conflicts with legacy
+    writeCatalogAccount(projectRoot, 'shared', { authType: 'oauth' });
+    resetMigrationState();
+
+    await writeFile(
+      join(projectRoot, '.cat-cafe', 'provider-profiles.json'),
+      JSON.stringify({
+        version: 2,
+        providers: [{ id: 'shared', authType: 'api_key', baseUrl: 'https://conflict.example' }],
+      }),
+      'utf-8',
+    );
+
+    assert.throws(() => accountStartupHook(projectRoot), /LL-043/);
   });
 });

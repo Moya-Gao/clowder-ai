@@ -96,7 +96,7 @@ const BUILTIN_ACCOUNT_MAP: Record<string, { client: BuiltinAccountClient; protoc
 export function resolveByAccountRef(projectRoot: string, accountRef: string): RuntimeProviderProfile | null {
   const accounts = readCatalogAccounts(projectRoot);
   const account = accounts[accountRef];
-  if (account) return accountToRuntimeProfile(accountRef, account);
+  if (account) return accountToRuntimeProfile(accountRef, account, projectRoot);
 
   // Synthetic builtin profile for known OAuth refs
   const builtin = BUILTIN_ACCOUNT_MAP[accountRef];
@@ -130,7 +130,7 @@ export function resolveForClient(
   // Try preferred first — fail closed if explicit ref doesn't resolve.
   if (preferredAccountRef) {
     const preferred = accounts[preferredAccountRef];
-    if (preferred) return accountToRuntimeProfile(preferredAccountRef, preferred);
+    if (preferred) return accountToRuntimeProfile(preferredAccountRef, preferred, projectRoot);
     // Not in accounts — only allow synthetic builtin (fresh install with empty accounts).
     const builtin = BUILTIN_ACCOUNT_MAP[preferredAccountRef];
     if (builtin) {
@@ -155,7 +155,7 @@ export function resolveForClient(
     let firstMatch: RuntimeProviderProfile | null = null;
     for (const id of candidateIds) {
       if (accounts[id]) {
-        const profile = accountToRuntimeProfile(id, accounts[id]);
+        const profile = accountToRuntimeProfile(id, accounts[id], projectRoot);
         if (profile.authType === 'api_key' && profile.apiKey) return profile;
         firstMatch ??= profile;
       }
@@ -198,8 +198,8 @@ function normalizeToClient(clientOrProtocol: string): BuiltinAccountClient | nul
   }
 }
 
-function accountToRuntimeProfile(ref: string, account: AccountConfig): RuntimeProviderProfile {
-  const credential = readCredential(ref);
+function accountToRuntimeProfile(ref: string, account: AccountConfig, projectRoot?: string): RuntimeProviderProfile {
+  const credential = readCredential(ref, projectRoot);
   const apiKey = credential?.apiKey;
 
   const isBuiltin = account.authType === 'oauth';

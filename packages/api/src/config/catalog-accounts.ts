@@ -1,13 +1,12 @@
 /**
- * F340 — Global accounts read/write layer
+ * F340 — Accounts read/write layer
  *
- * Accounts now live in ~/.cat-cafe/accounts.json (global, cross-instance).
- * Replaces the old project-level CatCafeConfigV2.accounts section.
+ * Storage: {projectRoot}/.cat-cafe/accounts.json (project-local by default).
+ * Override: CAT_CAFE_GLOBAL_CONFIG_ROOT env → uses that root instead.
  *
- * Migrations (run once per process per source):
- *   1. Legacy provider-profiles.json → accounts.json (global → global)
- *   2. Project-level cat-catalog.json.accounts → accounts.json (per project)
- * Both merge into global without overwriting existing keys.
+ * Migrations (once per process per source):
+ *   1. Legacy provider-profiles.json → accounts.json
+ *   2. Project cat-catalog.json.accounts → accounts.json
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -17,14 +16,15 @@ import type { AccountConfig } from '@cat-cafe/shared';
 const CONFIG_SUBDIR = '.cat-cafe';
 const ACCOUNTS_FILENAME = 'accounts.json';
 
-function resolveGlobalRoot(): string {
+function resolveGlobalRoot(projectRoot?: string): string {
   const envRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
   if (envRoot) return resolve(envRoot);
+  if (projectRoot) return resolve(projectRoot);
   return homedir();
 }
 
-export function resolveAccountsPath(): string {
-  return resolve(resolveGlobalRoot(), CONFIG_SUBDIR, ACCOUNTS_FILENAME);
+export function resolveAccountsPath(projectRoot?: string): string {
+  return resolve(resolveGlobalRoot(projectRoot), CONFIG_SUBDIR, ACCOUNTS_FILENAME);
 }
 
 function writeFileAtomic(filePath: string, content: string, mode?: number): void {
@@ -42,8 +42,8 @@ function writeFileAtomic(filePath: string, content: string, mode?: number): void
   }
 }
 
-function readAllGlobal(): Record<string, AccountConfig> {
-  const accountsPath = resolveAccountsPath();
+function readAllGlobal(projectRoot?: string): Record<string, AccountConfig> {
+  const accountsPath = resolveAccountsPath(projectRoot);
   if (!existsSync(accountsPath)) return {};
   const raw = readFileSync(accountsPath, 'utf-8');
   try {
@@ -63,9 +63,9 @@ function readAllGlobal(): Record<string, AccountConfig> {
   }
 }
 
-function writeAllGlobal(accounts: Record<string, AccountConfig>): void {
-  const accountsPath = resolveAccountsPath();
-  mkdirSync(resolve(resolveGlobalRoot(), CONFIG_SUBDIR), { recursive: true });
+function writeAllGlobal(accounts: Record<string, AccountConfig>, projectRoot?: string): void {
+  const accountsPath = resolveAccountsPath(projectRoot);
+  mkdirSync(resolve(resolveGlobalRoot(projectRoot), CONFIG_SUBDIR), { recursive: true });
   writeFileAtomic(accountsPath, `${JSON.stringify(accounts, null, 2)}\n`);
 }
 
@@ -143,8 +143,11 @@ function inferLegacyAuthType(profile: Record<string, unknown>): AccountConfig['a
 }
 
 /** Merge source accounts into global, preserving existing keys. */
-function mergeIntoGlobal(source: Record<string, AccountConfig>): { merged: string[]; skipped: string[] } {
-  const global = readAllGlobal();
+function mergeIntoGlobal(
+  source: Record<string, AccountConfig>,
+  projectRoot?: string,
+): { merged: string[]; skipped: string[] } {
+  const global = readAllGlobal(projectRoot);
   const merged: string[] = [];
   const skipped: string[] = [];
   for (const [ref, account] of Object.entries(source)) {
@@ -158,14 +161,14 @@ function mergeIntoGlobal(source: Record<string, AccountConfig>): { merged: strin
       merged.push(ref);
     }
   }
-  if (merged.length > 0) writeAllGlobal(global);
+  if (merged.length > 0) writeAllGlobal(global, projectRoot);
   return { merged, skipped };
 }
 
 // ── Legacy provider-profiles.json → accounts.json migration ──
 
 /** Migrate legacy provider-profiles.json + secrets from a given root into global accounts. */
-function migrateLegacyFrom(root: string): void {
+function migrateLegacyFrom(root: string, projectRoot?: string): void {
   const metaPath = resolve(root, CONFIG_SUBDIR, 'provider-profiles.json');
   if (!existsSync(metaPath)) return;
   const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
@@ -209,10 +212,10 @@ function migrateLegacyFrom(root: string): void {
       ...(models ? { models } : {}),
     };
   }
-  const { merged } = mergeIntoGlobal(accounts);
+  const { merged } = mergeIntoGlobal(accounts, projectRoot);
   const mergedSet = new Set(merged);
   // Read global state after merge for retry-safe credential import
-  const globalAfterMerge = readAllGlobal();
+  const globalAfterMerge = readAllGlobal(projectRoot);
 
   const secretsPath = resolve(root, CONFIG_SUBDIR, 'provider-profiles.secrets.local.json');
   if (!existsSync(secretsPath)) return;
@@ -229,7 +232,7 @@ function migrateLegacyFrom(root: string): void {
       }
     }
   }
-  const globalRoot = resolveGlobalRoot();
+  const globalRoot = resolveGlobalRoot(projectRoot);
   const credPath = resolve(globalRoot, CONFIG_SUBDIR, 'credentials.json');
   const existing = existsSync(credPath)
     ? (() => {
@@ -268,10 +271,10 @@ function migrateLegacyFrom(root: string): void {
 
 let legacyMigrationDone = false;
 
-function migrateLegacyProviderProfiles(): void {
+function migrateLegacyProviderProfiles(projectRoot?: string): void {
   if (legacyMigrationDone) return;
   try {
-    migrateLegacyFrom(resolveGlobalRoot());
+    migrateLegacyFrom(resolveGlobalRoot(projectRoot), projectRoot);
     legacyMigrationDone = true;
   } catch (err) {
     console.error('[catalog-accounts] legacy→global migration failed:', err);
@@ -285,7 +288,7 @@ function migrateProjectLegacyProviderProfiles(projectRoot: string): void {
   const key = resolve(projectRoot);
   if (migratedProjectLegacy.has(key)) return;
   try {
-    migrateLegacyFrom(key);
+    migrateLegacyFrom(key, projectRoot);
     migratedProjectLegacy.add(key);
   } catch (err) {
     console.error(`[catalog-accounts] project legacy→global migration failed for ${key}:`, err);
@@ -308,7 +311,7 @@ function migrateProjectAccountsToGlobal(projectRoot: string): void {
     const projectAccounts = catalog?.accounts;
     if (!projectAccounts || typeof projectAccounts !== 'object' || Object.keys(projectAccounts).length === 0) return;
 
-    const { merged } = mergeIntoGlobal(projectAccounts as Record<string, AccountConfig>);
+    const { merged } = mergeIntoGlobal(projectAccounts as Record<string, AccountConfig>, projectRoot);
 
     // F340: project catalog.accounts is intentionally left untouched.
     // Runtime only reads global accounts.json, so the project section is
@@ -327,7 +330,7 @@ function migrateProjectAccountsToGlobal(projectRoot: string): void {
 }
 
 function ensureMigrated(projectRoot: string): void {
-  migrateLegacyProviderProfiles();
+  migrateLegacyProviderProfiles(projectRoot);
   migrateProjectLegacyProviderProfiles(projectRoot);
   migrateProjectAccountsToGlobal(projectRoot);
 }
@@ -343,20 +346,26 @@ export function resetMigrationState(): void {
 
 export function readCatalogAccounts(projectRoot: string): Record<string, AccountConfig> {
   ensureMigrated(projectRoot);
-  return readAllGlobal();
+  return readAllGlobal(projectRoot);
 }
 
 export function writeCatalogAccount(projectRoot: string, ref: string, account: AccountConfig): void {
   ensureMigrated(projectRoot);
-  const accounts = readAllGlobal();
+  const accounts = readAllGlobal(projectRoot);
   accounts[ref] = account;
-  writeAllGlobal(accounts);
+  writeAllGlobal(accounts, projectRoot);
 }
 
 export function deleteCatalogAccount(projectRoot: string, ref: string): void {
   ensureMigrated(projectRoot);
-  const accounts = readAllGlobal();
+  const accounts = readAllGlobal(projectRoot);
   if (!(ref in accounts)) return;
   delete accounts[ref];
-  writeAllGlobal(accounts);
+  writeAllGlobal(accounts, projectRoot);
+}
+
+/** Check if legacy provider-profiles.json exists in any known location. */
+export function hasLegacyProviderProfiles(projectRoot: string): boolean {
+  if (existsSync(resolve(resolveGlobalRoot(projectRoot), CONFIG_SUBDIR, 'provider-profiles.json'))) return true;
+  return existsSync(resolve(projectRoot, CONFIG_SUBDIR, 'provider-profiles.json'));
 }

@@ -453,6 +453,27 @@ describe('global accounts (F340)', () => {
     // If credentials.json doesn't exist at all, that's also correct
   });
 
+  it('stores accounts in projectRoot/.cat-cafe/ when env override is unset', async () => {
+    delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const { writeCatalogAccount, readCatalogAccounts, resetMigrationState } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    resetMigrationState();
+
+    writeCatalogAccount(projectRoot, 'local-test', { authType: 'api_key' });
+    const result = readCatalogAccounts(projectRoot);
+    assert.deepEqual(result['local-test'], { authType: 'api_key' });
+
+    // Must be in projectRoot, not globalRoot
+    const projectFile = join(projectRoot, '.cat-cafe', 'accounts.json');
+    assert.ok(existsSync(projectFile), 'accounts.json should be in projectRoot/.cat-cafe/');
+    const raw = JSON.parse(await readFile(projectFile, 'utf-8'));
+    assert.equal(raw['local-test'].authType, 'api_key');
+
+    const globalFile = join(globalRoot, '.cat-cafe', 'accounts.json');
+    assert.ok(!existsSync(globalFile), 'accounts.json should NOT be in globalRoot when env unset');
+  });
+
   it('fails before attaching a legacy secret to a different-source api_key account with colliding ID', async () => {
     const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
       '../dist/config/catalog-accounts.js'
