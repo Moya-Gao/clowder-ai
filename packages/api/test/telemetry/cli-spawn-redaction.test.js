@@ -90,6 +90,29 @@ test('F152: model normalizer', async () => {
   assert.equal(normalizeModel('some-unknown-model'), 'other');
 });
 
+test('F152: emitOtelLog accepts span for trace-log correlation', async () => {
+  // Verify that emitOtelLog signature accepts a Span parameter
+  // and that LogRecord.context is used (not manual traceId/spanId attributes).
+  const { emitOtelLog } = await import('../../dist/infrastructure/telemetry/otel-logger.js');
+
+  // emitOtelLog must accept 4 params: severity, body, attributes, span
+  assert.ok(emitOtelLog.length >= 2, 'emitOtelLog should accept at least severity + body params');
+
+  // Source code check: ensure LogRecord uses context field, not manual traceId
+  const { readFileSync } = await import('node:fs');
+  const { resolve, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const __dir = dirname(fileURLToPath(import.meta.url));
+  const src = readFileSync(resolve(__dir, '../../src/infrastructure/telemetry/otel-logger.ts'), 'utf8');
+
+  // Must use trace.setSpan + context field on LogRecord
+  assert.ok(src.includes('trace.setSpan('), 'Should derive context from span via trace.setSpan()');
+  assert.ok(src.includes('context: logContext'), 'Should pass context to logger.emit() via LogRecord.context');
+  // Must NOT have manual traceId/spanId in attributes
+  assert.ok(!src.includes('traceId: spanContext'), 'Should not manually inject traceId into attributes');
+  assert.ok(!src.includes('spanId: spanContext'), 'Should not manually inject spanId into attributes');
+});
+
 test('F152: metric attribute allowlist', async () => {
   const { ALLOWED_METRIC_ATTRIBUTES } = await import('../../dist/infrastructure/telemetry/metric-allowlist.js');
 

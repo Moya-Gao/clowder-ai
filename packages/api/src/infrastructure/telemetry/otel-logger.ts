@@ -5,21 +5,27 @@
  * This does NOT replace Pino for local logs. It provides a parallel
  * emission path so that key events flow through OTel's log signal,
  * enabling correlation with traces and metrics in external backends.
+ *
+ * Trace-log correlation: caller passes the active Span; we derive a
+ * Context via trace.setSpan() and pass it as LogRecord.context, which
+ * is the OTel-standard way to link log records to spans.
  */
 
-import { trace } from '@opentelemetry/api';
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { context, type Span, trace } from '@opentelemetry/api';
+import { type LogAttributes, logs, SeverityNumber } from '@opentelemetry/api-logs';
 
 const logger = logs.getLogger('cat-cafe-api', '0.1.0');
 
 /**
  * Emit a structured log record through the OTel log pipeline.
- * Automatically captures active span context for trace-log correlation.
+ * Pass the active span to get proper trace-log correlation via
+ * LogRecord.context (not manual traceId/spanId attributes).
  */
 export function emitOtelLog(
   severity: 'INFO' | 'WARN' | 'ERROR',
   body: string,
-  attributes?: Record<string, string | number | boolean>,
+  attributes?: LogAttributes,
+  span?: Span,
 ): void {
   const severityMap: Record<string, SeverityNumber> = {
     INFO: SeverityNumber.INFO,
@@ -27,17 +33,14 @@ export function emitOtelLog(
     ERROR: SeverityNumber.ERROR,
   };
 
-  // Capture active span context for trace-log correlation
-  const activeSpan = trace.getActiveSpan();
-  const spanContext = activeSpan?.spanContext();
+  // Build context from span for OTel trace-log correlation
+  const logContext = span ? trace.setSpan(context.active(), span) : undefined;
 
   logger.emit({
     severityNumber: severityMap[severity],
     severityText: severity,
     body,
-    attributes: {
-      ...attributes,
-      ...(spanContext ? { traceId: spanContext.traceId, spanId: spanContext.spanId } : {}),
-    },
+    attributes,
+    context: logContext,
   });
 }

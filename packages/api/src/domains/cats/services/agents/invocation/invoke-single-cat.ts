@@ -446,7 +446,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     activeInvocations.add(1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
 
     // F152: Emit invocation start through OTel log pipeline
-    emitOtelLog('INFO', 'invocation_started', { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
+    emitOtelLog('INFO', 'invocation_started', { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' }, invocationSpan);
 
     let sessionId: string | undefined;
     try {
@@ -1746,7 +1746,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   } catch (err) {
     // F152: Record error on invocation span + OTel log
     invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
-    emitOtelLog('ERROR', 'invocation_error', { [AGENT_ID]: catId, [STATUS]: 'error' });
+    emitOtelLog('ERROR', 'invocation_error', { [AGENT_ID]: catId, [STATUS]: 'error' }, invocationSpan);
 
     // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===
     const durationMs = Date.now() - startTime;
@@ -1833,7 +1833,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F152: End invocation span + emit completion log through OTel
     if (didComplete && !hadError) {
       invocationSpan.setStatus({ code: SpanStatusCode.OK });
-      emitOtelLog('INFO', 'invocation_completed', { [AGENT_ID]: catId, [STATUS]: 'ok' });
+      emitOtelLog('INFO', 'invocation_completed', { [AGENT_ID]: catId, [STATUS]: 'ok' }, invocationSpan);
     }
     invocationSpan.end();
   }
