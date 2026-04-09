@@ -115,11 +115,12 @@ interface ScannedEvidence {
 ## Acceptance Criteria
 
 ### Phase A（GenericRepoScanner）
-- [ ] AC-A1: `GenericRepoScanner` 能扫描一个没有 cat-cafe `docs/` 结构的普通 Git 仓库，产出 `EvidenceItem[]`
-- [ ] AC-A2: 每个 `EvidenceItem` 带 `provenance` 字段（`source_type: authoritative|derived|soft_clue` + `source_path`）
+- [ ] AC-A1: `GenericRepoScanner` 能扫描一个没有 cat-cafe `docs/` 结构的普通 Git 仓库，产出 `ScannedEvidence[]`
+- [ ] AC-A2: 每个 `ScannedEvidence` 带 `provenance: { tier: 'authoritative'|'derived'|'soft_clue', source: string }`（canonical naming，统一全 spec）
 - [ ] AC-A3: `IIndexBuilder` 根据项目结构自动选择 `CatCafeScanner` 或 `GenericRepoScanner`
 - [ ] AC-A4: 扫描结果可被 `IEvidenceStore.search()` 正常检索（FTS5 + 向量）
 - [ ] AC-A5: 大仓库（>10k 文件）扫描完成时间 < 60 秒（只扫 authoritative + derived）
+- [ ] AC-A6: 检索契约：`IEvidenceStore.search()` 支持 `provenance_tier` filter；authoritative 结果默认 boost 排序权重（三层不混成平面）
 
 ### Phase B（Expedition Bootstrap Orchestrator）
 - [ ] AC-B1: 猫进入一个没有 `evidence.sqlite` 的外部项目时，自动触发 bootstrap
