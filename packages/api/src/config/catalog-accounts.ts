@@ -168,12 +168,22 @@ function migrateLegacyFrom(root: string): void {
       // First run: account was just merged — safe to import its secret.
       existing[id] = { apiKey: String(secret.apiKey) };
       credCount++;
-    } else if (globalAfterMerge[id]?.authType === 'api_key') {
-      // Retry: account already existed in global (previous partial migration).
-      // Only import if the global account is api_key-typed — attaching a legacy
-      // API key to a pre-existing OAuth account would be data cross-contamination.
-      existing[id] = { apiKey: String(secret.apiKey) };
-      credCount++;
+    } else {
+      // Retry path: account already existed in global (skipped by merge).
+      // Only import if the global account's fields match what we'd migrate —
+      // proves it came from a previous run of this same migration source,
+      // not a collision with a different-origin account sharing the same ID.
+      const g = globalAfterMerge[id];
+      const l = accounts[id];
+      if (
+        g &&
+        g.authType === l.authType &&
+        (g.baseUrl ?? '') === (l.baseUrl ?? '') &&
+        (g.displayName ?? '') === (l.displayName ?? '')
+      ) {
+        existing[id] = { apiKey: String(secret.apiKey) };
+        credCount++;
+      }
     }
   }
   if (credCount > 0) {

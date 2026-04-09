@@ -279,8 +279,9 @@ describe('global accounts (F340)', () => {
     );
     resetMigrationState();
 
-    // Simulate previous successful account merge: account exists in global but no credential
-    writeCatalogAccount(projectRoot, 'my-custom', { authType: 'api_key' });
+    // Simulate previous successful account merge: account exists in global (same fields
+    // as what migration would produce) but credential is missing from a partial first run
+    writeCatalogAccount(projectRoot, 'my-custom', { authType: 'api_key', baseUrl: 'https://custom.api/v1' });
     resetMigrationState(); // reset so next read re-runs migration
 
     // Legacy source still has the profile + secret
@@ -343,5 +344,38 @@ describe('global accounts (F340)', () => {
       assert.equal(creds.shared, undefined, 'legacy secret must NOT be attached to pre-existing OAuth account');
     }
     // If credentials.json doesn't exist at all, that's also correct
+  });
+
+  it('does NOT attach legacy secret to a pre-existing api_key account with colliding ID but different baseUrl', async () => {
+    const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    resetMigrationState();
+
+    // Pre-existing api_key account — same type, different source (different baseUrl)
+    writeCatalogAccount(projectRoot, 'shared', { authType: 'api_key', baseUrl: 'https://existing.example/v1' });
+    resetMigrationState();
+
+    // Legacy source: same ID, same authType, but different baseUrl → different source
+    const legacyMeta = {
+      version: 2,
+      providers: [{ id: 'shared', authType: 'api_key', baseUrl: 'https://legacy.example/v1' }],
+    };
+    await writeFile(join(projectRoot, '.cat-cafe', 'provider-profiles.json'), JSON.stringify(legacyMeta), 'utf-8');
+
+    const legacySecrets = { profiles: { shared: { apiKey: 'sk-collision-api-key' } } };
+    await writeFile(
+      join(projectRoot, '.cat-cafe', 'provider-profiles.secrets.local.json'),
+      JSON.stringify(legacySecrets),
+      'utf-8',
+    );
+
+    readCatalogAccounts(projectRoot);
+
+    const credPath = join(globalRoot, '.cat-cafe', 'credentials.json');
+    if (existsSync(credPath)) {
+      const creds = JSON.parse(await readFile(credPath, 'utf-8'));
+      assert.equal(creds.shared, undefined, 'legacy secret must NOT be attached to different-source api_key account');
+    }
   });
 });
