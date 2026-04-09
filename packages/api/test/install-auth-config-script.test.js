@@ -408,6 +408,74 @@ test('client-auth set infers legacy api_key authType from mode/kind fields durin
   }
 });
 
+test('client-auth set migrates v1 nested provider profiles and secrets before writing new auth state', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-legacy-v1-profiles-'));
+
+  try {
+    const profileDir = join(projectRoot, '.cat-cafe');
+    mkdirSync(profileDir, { recursive: true });
+    writeFileSync(
+      join(profileDir, 'provider-profiles.json'),
+      `${JSON.stringify(
+        {
+          version: 1,
+          providers: {
+            anthropic: {
+              activeProfileId: 'my-proxy',
+              profiles: [
+                {
+                  id: 'my-proxy',
+                  displayName: 'My Proxy',
+                  authType: 'api_key',
+                  baseUrl: 'https://proxy.example/v1',
+                },
+                {
+                  id: 'team-key',
+                  displayName: 'Team Key',
+                  mode: 'api_key',
+                },
+              ],
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+    writeFileSync(
+      join(profileDir, 'provider-profiles.secrets.local.json'),
+      `${JSON.stringify(
+        {
+          version: 1,
+          providers: {
+            anthropic: {
+              'my-proxy': { apiKey: 'sk-proxy-key' },
+              'team-key': { apiKey: 'sk-team-key' },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'openai', '--mode', 'oauth']);
+
+    const { accounts, credentials } = readInstallerState(projectRoot);
+    assert.equal(accounts['my-proxy']?.authType, 'api_key');
+    assert.equal(accounts['my-proxy']?.displayName, 'My Proxy');
+    assert.equal(accounts['my-proxy']?.baseUrl, 'https://proxy.example/v1');
+    assert.equal(accounts['team-key']?.authType, 'api_key');
+    assert.equal(accounts.anthropic, undefined, 'should not create a shell account from the client key');
+    assert.equal(credentials['my-proxy']?.apiKey, 'sk-proxy-key');
+    assert.equal(credentials['team-key']?.apiKey, 'sk-team-key');
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test('claude-profile v2 migration preserves non-installer accounts and secrets on set/remove', () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-claude-v2-migrate-'));
 

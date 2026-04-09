@@ -203,6 +203,32 @@ function inferLegacyAuthType(profile) {
   );
 }
 
+function flattenLegacyProfilesEntry(value) {
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value.profiles)) {
+    return value.profiles.filter((profile) => profile && typeof profile === 'object');
+  }
+  return [value];
+}
+
+function flattenLegacyProfiles(meta) {
+  const rawProviders = meta?.providers ?? meta?.profiles;
+  if (Array.isArray(rawProviders)) return rawProviders;
+  if (!rawProviders || typeof rawProviders !== 'object') return [];
+  return Object.values(rawProviders).flatMap(flattenLegacyProfilesEntry);
+}
+
+function flattenLegacyProfileSecrets(secretsMeta) {
+  if (secretsMeta?.profiles && typeof secretsMeta.profiles === 'object') return secretsMeta.profiles;
+  const profileSecrets = {};
+  if (secretsMeta?.providers && typeof secretsMeta.providers === 'object') {
+    for (const clientSecrets of Object.values(secretsMeta.providers)) {
+      if (clientSecrets && typeof clientSecrets === 'object') Object.assign(profileSecrets, clientSecrets);
+    }
+  }
+  return profileSecrets;
+}
+
 function builtinAccountIdForClient(client) {
   const spec = BUILTIN_ACCOUNT_SPECS.find((s) => s.client === client);
   if (!spec) throw new Error(`Unsupported client "${client}"`);
@@ -216,8 +242,8 @@ function migrateLegacyProfiles(projectDir) {
   const metaFile = path.join(profileDir, 'provider-profiles.json');
   if (!existsSync(metaFile)) return;
   const meta = readJson(metaFile, null); // throws on corrupt — intentional (fail fast)
-  const providers = meta?.providers ?? meta?.profiles ?? [];
-  if (!Array.isArray(providers) || providers.length === 0) return;
+  const providers = flattenLegacyProfiles(meta);
+  if (providers.length === 0) return;
 
   const accounts = readAccounts();
   const mergedIds = new Set();
@@ -239,7 +265,7 @@ function migrateLegacyProfiles(projectDir) {
   const secretsFile = path.join(profileDir, 'provider-profiles.secrets.local.json');
   if (existsSync(secretsFile)) {
     const secretsMeta = readJsonSafe(secretsFile, {});
-    const profileSecrets = secretsMeta?.profiles ?? {};
+    const profileSecrets = flattenLegacyProfileSecrets(secretsMeta);
     const creds = readCredentials();
     for (const [id, secret] of Object.entries(profileSecrets)) {
       if (mergedIds.has(id) && !(id in creds) && secret?.apiKey) creds[id] = { apiKey: String(secret.apiKey) };
