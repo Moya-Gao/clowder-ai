@@ -40,15 +40,49 @@ def extract_script_text(script_path: str) -> str:
     return match.group(1).strip()
 
 
+# Voice clone profiles — mirrors packages/api/src/config/cat-voices.ts defaults
+# Qwen3-TTS Base clone: ref_audio + ref_text + instruct → zero-shot voice cloning
+VOICE_PROFILES: dict[str, dict] = {
+    "opus": {
+        "ref_audio": str(Path.home() / "projects/relay-station/GPT-SoVITS/character-models/genshin/流浪者/vo_wanderer_dialog_greetingMorning.wav"),
+        "ref_text": "快醒醒，太阳要晒屁股咯。哈，你不会以为我会这么叫你起床吧？",
+        "instruct": "用一个调皮狡黠的少年语气说话，带着得意和戏弄",
+    },
+    "codex": {
+        "ref_audio": str(Path.home() / "projects/relay-station/GPT-SoVITS/character-models/genshin/魈/vo_xiao_dialog_close2.wav"),
+        "ref_text": "别被污染，我不会留情的。我是说，既然是你，你应该能够保持坚定。",
+        "instruct": "用一个傲娇冰山少年的语气说话，表面严厉实际关心",
+    },
+    "gemini": {
+        "ref_audio": str(Path.home() / "projects/relay-station/GPT-SoVITS/character-models/genshin/班尼特/vo_bennett_dialog_greetingNight.wav"),
+        "ref_text": "晚上好！今天的冒险怎么样？",
+        "instruct": "用一个超级阳光开心的小男孩语气说话，充满热情和兴奋",
+    },
+}
+
+
 def synthesize(text: str, voice: str, tts_url: str, output_path: str, fmt: str = "wav"):
     """Call TTS server and save audio file."""
     url = f"{tts_url}/v1/audio/speech"
-    body = json.dumps({
+    payload: dict = {
         "input": text,
         "voice": voice,
         "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
         "response_format": fmt,
-    }).encode("utf-8")
+    }
+    # Add voice clone params if profile exists
+    profile = VOICE_PROFILES.get(voice)
+    if profile:
+        ref_path = profile["ref_audio"]
+        if Path(ref_path).exists():
+            payload["ref_audio"] = ref_path
+            payload["ref_text"] = profile["ref_text"]
+            payload["instruct"] = profile["instruct"]
+            payload["temperature"] = 0.3
+            print(f"Voice clone: {Path(ref_path).parent.name}/{Path(ref_path).name}", file=sys.stderr)
+        else:
+            print(f"Warning: ref_audio not found: {ref_path}, falling back to base voice", file=sys.stderr)
+    body = json.dumps(payload).encode("utf-8")
 
     req = urllib.request.Request(
         url,
@@ -58,7 +92,7 @@ def synthesize(text: str, voice: str, tts_url: str, output_path: str, fmt: str =
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=600) as resp:
             audio_data = resp.read()
             Path(output_path).write_bytes(audio_data)
             print(f"Audio saved: {output_path} ({len(audio_data)} bytes)", file=sys.stderr)
