@@ -1169,6 +1169,7 @@ async function main(): Promise<void> {
     taskStore,
     backlogStore,
     threadStore,
+    agentRegistry,
     router,
     invocationRecordStore,
     invocationTracker,
