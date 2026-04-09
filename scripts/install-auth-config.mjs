@@ -180,9 +180,47 @@ function normalizeBaseUrl(baseUrl) {
   return trimmed ? trimmed.replace(/\/+$/, '') : undefined;
 }
 
+function normalizeDisplayName(displayName) {
+  const trimmed = displayName?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function normalizeModels(models) {
   if (!Array.isArray(models)) return undefined;
-  return Array.from(new Set(models.map((v) => String(v).trim()).filter((v) => v.length > 0)));
+  const normalized = Array.from(new Set(models.map((v) => String(v).trim()).filter((v) => v.length > 0)));
+  return normalized.length > 0 ? normalized.sort() : undefined;
+}
+
+function canonicalizeAccount(account) {
+  return {
+    authType: account.authType,
+    ...(normalizeBaseUrl(account.baseUrl) ? { baseUrl: normalizeBaseUrl(account.baseUrl) } : {}),
+    ...(normalizeDisplayName(account.displayName) ? { displayName: normalizeDisplayName(account.displayName) } : {}),
+    ...(normalizeModels(account.models) ? { models: normalizeModels(account.models) } : {}),
+  };
+}
+
+function describeAccountConflict(existing, incoming) {
+  const current = canonicalizeAccount(existing);
+  const next = canonicalizeAccount(incoming);
+  const diffs = [];
+
+  if (current.authType !== next.authType) diffs.push(`authType ${current.authType} vs ${next.authType}`);
+  if ((current.baseUrl ?? '(none)') !== (next.baseUrl ?? '(none)')) {
+    diffs.push(`baseUrl ${current.baseUrl ?? '(none)'} vs ${next.baseUrl ?? '(none)'}`);
+  }
+  if ((current.displayName ?? '(none)') !== (next.displayName ?? '(none)')) {
+    diffs.push(`displayName ${current.displayName ?? '(none)'} vs ${next.displayName ?? '(none)'}`);
+  }
+  if (JSON.stringify(current.models ?? []) !== JSON.stringify(next.models ?? [])) {
+    diffs.push(`models ${JSON.stringify(current.models ?? [])} vs ${JSON.stringify(next.models ?? [])}`);
+  }
+
+  return diffs.join('; ');
+}
+
+function accountsEquivalent(existing, incoming) {
+  return describeAccountConflict(existing, incoming).length === 0;
 }
 
 function normalizeLegacyAuthType(value) {
@@ -246,29 +284,49 @@ function migrateLegacyProfiles(projectDir) {
   if (providers.length === 0) return;
 
   const accounts = readAccounts();
+  const legacyAccounts = {};
   const mergedIds = new Set();
   for (const p of providers) {
     const id = String(p.id ?? '').trim();
-    if (!id || id in accounts) continue;
+    if (!id) continue;
     // F340: protocol not migrated — derived at runtime from well-known account IDs.
-    accounts[id] = {
+    const normalizedAccount = {
       authType: inferLegacyAuthType(p),
-      ...(p.displayName ? { displayName: String(p.displayName) } : {}),
-      ...(p.baseUrl ? { baseUrl: String(p.baseUrl).replace(/\/+$/, '') } : {}),
-      ...(Array.isArray(p.models) ? { models: p.models.map(String) } : {}),
+      ...(normalizeDisplayName(typeof p.displayName === 'string' ? p.displayName : undefined)
+        ? { displayName: normalizeDisplayName(String(p.displayName)) }
+        : {}),
+      ...(normalizeBaseUrl(typeof p.baseUrl === 'string' ? p.baseUrl : undefined)
+        ? { baseUrl: normalizeBaseUrl(String(p.baseUrl)) }
+        : {}),
+      ...(normalizeModels(Array.isArray(p.models) ? p.models.map(String) : undefined)
+        ? { models: normalizeModels(p.models.map(String)) }
+        : {}),
     };
+    legacyAccounts[id] = normalizedAccount;
+    if (id in accounts) continue;
+    accounts[id] = normalizedAccount;
     mergedIds.add(id);
   }
   writeAccounts(accounts);
 
-  // Migrate secrets — only for IDs that were actually merged (skip collisions)
+  // Migrate secrets — import for newly merged IDs, and also for retry-safe
+  // replays where the account already exists with the same canonical fields.
   const secretsFile = path.join(profileDir, 'provider-profiles.secrets.local.json');
   if (existsSync(secretsFile)) {
     const secretsMeta = readJsonSafe(secretsFile, {});
     const profileSecrets = flattenLegacyProfileSecrets(secretsMeta);
     const creds = readCredentials();
     for (const [id, secret] of Object.entries(profileSecrets)) {
-      if (mergedIds.has(id) && !(id in creds) && secret?.apiKey) creds[id] = { apiKey: String(secret.apiKey) };
+      if (id in creds || !secret?.apiKey) continue;
+      if (mergedIds.has(id)) {
+        creds[id] = { apiKey: String(secret.apiKey) };
+        continue;
+      }
+      const existingAccount = accounts[id];
+      const legacyAccount = legacyAccounts[id];
+      if (existingAccount && legacyAccount && accountsEquivalent(existingAccount, legacyAccount)) {
+        creds[id] = { apiKey: String(secret.apiKey) };
+      }
     }
     writeCredentials(creds);
   }
@@ -318,7 +376,15 @@ function setClientAuth(client, mode, options) {
 /** Scan a catalog file for variants bound to the given accountRef. */
 function findBoundCats(catalogFile, profileId) {
   if (!existsSync(catalogFile)) return [];
-  const catalog = readJsonSafe(catalogFile, null);
+  let catalog;
+  try {
+    catalog = readJson(catalogFile, null);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Cannot verify whether ${profileId} is still referenced; failed to parse ${catalogFile}: ${message}`,
+    );
+  }
   return (catalog?.breeds ?? [])
     .flatMap((breed) =>
       (breed?.variants ?? [])

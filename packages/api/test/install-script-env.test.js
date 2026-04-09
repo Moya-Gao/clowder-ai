@@ -122,8 +122,9 @@ test('OAuth selection does not force-remove global installer accounts before set
 test('empty API key fallback to OAuth does not force-remove global installer accounts', () => {
   const installScriptText = readFileSync(installScript, 'utf8');
   const emptyKeyBranch =
-    installScriptText.match(/# No key provided — set OAuth mode via unified path([\s\S]*?)warn "\$name: no key provided, keeping OAuth"/m)?.[1] ??
-    '';
+    installScriptText.match(
+      /# No key provided — set OAuth mode via unified path([\s\S]*?)warn "\$name: no key provided, keeping OAuth"/m,
+    )?.[1] ?? '';
 
   assert.notEqual(emptyKeyBranch, '', 'expected empty API key OAuth fallback branch');
   assert.match(emptyKeyBranch, /client-auth set \\/);

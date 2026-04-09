@@ -690,3 +690,107 @@ test('set --mode oauth preserves stale installer account (global safety)', () =>
     rmSync(projectRoot, { recursive: true, force: true });
   }
 });
+
+test('client-auth set retries legacy secret import when account already exists from a partial migration', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-client-auth-retry-secret-'));
+
+  try {
+    const profileDir = join(projectRoot, '.cat-cafe');
+    mkdirSync(profileDir, { recursive: true });
+
+    writeFileSync(
+      join(profileDir, 'accounts.json'),
+      `${JSON.stringify(
+        {
+          'my-custom': {
+            authType: 'api_key',
+            baseUrl: 'https://custom.api/v1',
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+    writeFileSync(
+      join(profileDir, 'provider-profiles.json'),
+      `${JSON.stringify(
+        {
+          version: 2,
+          providers: [{ id: 'my-custom', authType: 'api_key', baseUrl: 'https://custom.api/v1' }],
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+    writeFileSync(
+      join(profileDir, 'provider-profiles.secrets.local.json'),
+      `${JSON.stringify(
+        {
+          profiles: {
+            'my-custom': { apiKey: 'sk-retry-key' },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'oauth']);
+
+    const { accounts, credentials } = readInstallerState(projectRoot);
+    assert.ok(accounts['my-custom'], 'existing migrated account should still be present');
+    assert.equal(credentials['my-custom']?.apiKey, 'sk-retry-key', 'missing credential should be imported on retry');
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('client-auth remove --force fails closed when the runtime catalog cannot be parsed', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-client-auth-remove-bad-catalog-'));
+
+  try {
+    runHelper([
+      'client-auth',
+      'set',
+      '--project-dir',
+      projectRoot,
+      '--client',
+      'openai',
+      '--mode',
+      'api_key',
+      '--api-key',
+      'codex-key',
+    ]);
+
+    const runtimeDir = join(projectRoot, '.cat-cafe');
+    mkdirSync(runtimeDir, { recursive: true });
+    writeFileSync(join(runtimeDir, 'cat-catalog.json'), '{"version": 2, "breeds": [', 'utf8');
+
+    const result = runHelperResult([
+      'client-auth',
+      'remove',
+      '--project-dir',
+      projectRoot,
+      '--client',
+      'openai',
+      '--force',
+      'true',
+    ]);
+
+    assert.notEqual(result.status, 0, 'forced remove should fail when catalog parsing fails');
+    assert.match(String(result.stderr), /failed to parse|unexpected end|json/i);
+
+    const { accounts, credentials } = readInstallerState(projectRoot);
+    assert.ok(accounts['installer-openai'], 'account should be preserved on parse failure');
+    assert.equal(
+      credentials['installer-openai']?.apiKey,
+      'codex-key',
+      'credential should be preserved on parse failure',
+    );
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
