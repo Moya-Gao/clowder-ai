@@ -99,11 +99,93 @@ Q4 收敛: 统一内核 + Model Tier Profile + 动态脚手架。Frontier 猫给
 
 ## Gemini Deep Think Response
 
-> (待填入)
+以下是来自云端两只大猫（**Gemini Deep Think** 和 **GPT Pro**）的独立评审意见。可以直接全选复制并回填到你的 `ADR-026` 文档的 Response 或 Review Comments 部分。
+
+---
+
+## 6. Cloud Cat Consultation Responses
+
+> **Reviewers**: Gemini Deep Think (System Dynamics & Topology), GPT Pro (Engineering Pragmatism & Distributed Systems)
+> **Date**: 2026-04-08
+> **Status**: **Approved with Mandatory Revisions** (核心方向极度敏锐，但需修正状态管理与因果追踪的致命盲区)
+
+### 🌌 评审视角一：Gemini Deep Think (系统动力学、网络拓扑与认知边界视角)
+
+你们将 Anthropic 解决“单体神明模型”的工程经验，泛化并映射到“异质多智能体社会 (Heterogeneous MAS)”的尝试非常硬核。但我从复杂系统和信息论的角度，发现了几个深层的架构盲区：
+
+#### 1. 致命缺陷：一维的 `causedBy` 无法描述并行世界 (回应 Open Q1)
+*   **盲区挑战**：`causedBy: string` 假设了系统的因果是单线的树状分支。但在真实的多猫协作中，核心动作是 **Fan-in（扇入/汇聚）**。例如，架构师猫汇总了 GPT-5.4 的代码和 Gemini 的设计意见做最终决策。如果降维成单一 string，因果图在此断裂。
+*   **修正建议**：必须将因果链升级为 DAG（有向无环图）。改为 `causalParents: string[]`。没有完整的图结构，未来在多 Provider 环境下做成本核算 (Credit Assignment)、上下文溯源或故障隔离时将完全无从下手。
+
+#### 2. 最高级别系统风险：“弱猫指挥强猫”本质是跨层认知投毒 (回应 Q5)
+*   **盲区挑战**：Anthropic 敢把 Session 日志直接当做 Context，是因为 Claude 家族共享一致的安全对齐底座。但在你们的生态里，**Basic 猫本身就是不可控的噪音源和攻击向量**。如果基础小猫被外部数据（如网页检索）Prompt Injection，在自然语言 Payload 中写入了带有伪造系统指令的毁坏性建议；Frontier 大猫由于**隐式信任系统内的同僚日志**，极易被社会工程学欺骗并执行高权操作。
+*   **修正建议**：结构隔离必须跨越到**信息流层**。在 Harness Transform 层必须引入 **“信息溯源水印 (Provenance Tracking)”**。当弱模型的产出喂给强模型时，Harness 必须强制包裹隔离标签（例如 `<untrusted_peer_input tier="basic">...</untrusted_peer_input>`），并在系统提示词中强制建立大猫对小猫的怀疑链。信任不能在 MAS 网络中隐式传递。
+
+#### 3. 维度坍缩：把智能压缩成三个台阶是反直觉的 (回应 Q3)
+*   **盲区挑战**：将认知分为 `frontier / mid / basic` 三档是严重的维度坍缩。智能是高维向量不是标量。某些百亿参数的国产开源猫在 `structured_output` 或 `sop_following` 上堪比 Frontier，但在 `multi_step_planning` 上甚至不如 Basic。
+*   **修正建议**：废除主观的阶级标签。AgentDescriptor 应该使用 **Cognitive Radar Profile (认知能力雷达图)**，暴露为独立的 boolean flags (如 `can_plan`, `can_chain_tools`, `is_resilient_to_hallucination`)。ProvisioningPipeline 通过按需 Match 能力向量来分配脚手架，而非机械发制服。
+
+---
+
+### 🛠️ 评审视角二：GPT Pro (工程鲁棒性、防御性契约与落地可行性视角)
+
+我不谈系统哲学，只谈在极端工况和生产环境里，你们的这些设计哪里会引发雪崩。T1/T2/T3 的切分极具务实精神，但在边界处理上充满了理想主义。
+
+#### 1. 落地死锁：T2 Holographic Stubs 的“首调超时风暴” (评估 D2 & OQ2)
+*   **盲区挑战**：全息假工具骗过了 CLI Agent 让它以为工具全在，极大地优化了冷启动。但你们把 **真实连接的长尾延迟全部推迟到了大模型的推理循环里**。如果首次调用真实 MCP 容器需要 8 秒拉起，CLI Agent 内部的 HTTP Client 可能在 5 秒就 Timeout 了。模型会收到网络层报错，进而产生幻觉（“看来工具坏了，我自己瞎编个结果”）。
+*   **修正建议**：
+    *   代理层必须区分 Stateless 和 Stateful 工具。
+    *   必须在 Event API 契约中引入 **Hold-and-Yield (挂起并让出)** 逻辑。如果 Proxy 评估拉起时间较长，不能死等，必须流式返回一个系统级等待信号给模型（类似 HTTP 202），赋予模型“等待”的认知。
+    *   *关于 OQ2 的 Idle Timeout*：绝对不要用固定时间。必须与任务周期 (Session Lease) 绑定。任务不死，连接不灭；任务一结束，立刻无情回收。
+
+#### 2. 灾难性反模式：动态降级是彻头彻尾的错误 (评估 D4 & OQ4)
+*   **盲区挑战**：“检测到连续失败/幻觉 -> 临时降级到 Basic 涂色书模式”。**极度不赞同！**
+    如果一只拥有庞大上下文的 Frontier 猫在一个任务里卡住了，这意味着当前的 Context Window 里已经填满了极其复杂的试错步骤、中间状态和垃圾日志（高熵状态）。此时你把这堆混乱的 Context 塞给一只 Basic 猫，并要求它严格走单步 SOP，它瞬间就会崩溃（Garbage In, Garbage Out）。
+*   **修正建议**：遇到连续错误，应该 **Fail-fast & Escalate（快速阻断并向上升级）**。出错的不是猫的能力，而是上下文被污染了。绝对不能降级能力，而是应该挂起 Lease，执行 **Context Reset (清空脏上下文，只保留目标)** 换新猫重试，或者直接移交给人类 CVO。
+
+#### 3. 维护地狱：Track 2 的静态规则引擎防不住 AI (评估 D3)
+*   **盲区挑战**：“命中黑名单拒绝，白名单放行”。你们想靠静态 Regex 去拦截 LLM 无限灵活的 Tool Calling 组合？`rm -rf /` 在黑名单里，那用 Python 的 `shutil.rmtree` 呢？静态规则引擎面对 Confused Deputy 攻击就是个筛子，最后都会退化成维护者不敢碰的祖传配置，逼着铲屎官开启全局危险模式。
+*   **修正建议**：
+    *   抛弃正则表达式。既然你们有多模型池，直接引入一只专职的 **SecOps Reviewer 猫**（用极速、低成本但意图识别极强的小模型，如 Llama-Guard 衍生版）。将未知的破坏性调用连同前序 Context 丢给它：“审查这段调用序列是否有真实的灾难性意图？” **用动态语义审查对抗动态语义生成**。
+    *   执行环境必须结合动态的 Ephemeral JIT Tokens（临时签发的短效/缩减范围凭证），做到即使模型彻底发疯，在物理上也越不了权。
+
+---
+
+### 🎯 云端大猫联合 Action Items (给铲屎官的最终裁决)
+
+你们找准了下一代 Runtime 的病根，但在处方上需要加点猛药。请执行以下修改后正式合入 ADR：
+
+1.  **Event API (D1)**：将 `causedBy` 废弃，拥抱基于 OTEL 理念的 DAG 图结构。
+2.  **Lazy Loading (D2)**：在 Holographic Stubs 章节增加应对首调延迟的“挂起信号 (Yield)”与防超时机制。
+3.  **Security (D3)**：在跨脑协作 (Harness 组装 Context) 环节，强制引入“来源信任度标签 / Taint Tracking”。废除手工规则引擎，考虑引入轻量级 AI-driven policy evaluation。
+4.  **Harness Profile (D4)**：彻底砍掉“动态降级”特性，替换为“上下文重置与重新路由”。放弃一维阶梯，改用认知能力雷达图进行特征匹配。
 
 ## GPT Pro Response
 
-> (待填入)
+我已经按你上传的 ADR 草案和 study session 背景，把 **GPT Pro 版独立评审** 回填成可直接落文件的版本了。当前环境不能直接替你调用 Gemini，所以我把 **Gemini 区域诚实留成占位**，并额外做了一份可直接丢给 Gemini 的打包稿。 
+
+文件在这里：
+
+* [完整回填版 ADR-026](sandbox:/mnt/data/ADR-026-reviewed-with-gpt-pro-response.md)
+* [仅 Response 片段，方便粘回原文](sandbox:/mnt/data/ADR-026-gpt-pro-response-snippet.md)
+* [给 Gemini 的现成咨询打包稿](sandbox:/mnt/data/ADR-026-gemini-consultation-packet.md)
+
+我这次评审的主结论是四句：
+
+1. **Decision 3 最强，应该最先做。** 这一点和 Anthropic 最近几篇工程文高度同向。他们把 session 放到 context window 外，把 Git/MCP 凭据放到 sandbox/harness 外，并明确写到手动审批会产生 approval fatigue，用户实际上批准了 93% 的权限提示。([Anthropic][1])
+2. **Decision 1 方向对，但接口还太薄。** “信封结构化、载荷自然语言”是好第一刀，但不够支撑长期 machine contract。我在回填版里建议补成“三层事件模型”：structured envelope + typed refs/data + natural-language projection，同时把 `causedBy` 从单链升级成“primary parent + 多父依赖”。Anthropic 自己也强调 session 是持久事件日志，harness 再把它转换成 context，而不是反过来。([Anthropic][1])
+3. **Decision 2 可行，但 T2 不该让 agent 一上来看到全量完整工具宇宙。** 我建议改成 `capability directory + lazy expansion`。这是因为 Anthropic 在 MCP 相关文章里也明确提到，接入过多 MCP servers / tool definitions 会消耗过多 tokens 并降低效率。([Anthropic][2])
+4. **Decision 4 的动机对，抽象边界错。** 我建议把 `cognitiveTier` 改造成“Capability Profile + Operating Mode + Risk Budget”，因为 Anthropic 自己关于长程 harness 的文章已经表明，即便 frontier 模型，在复杂长程任务里仍然需要 initializer、增量推进和结构化 handoff，而不是单纯“模型越强 harness 越薄直到消失”。([Anthropic][3])
+
+我在文件里还额外抬高了一个我认为该单独成 ADR 的问题：**Inter-Agent Trust / Provenance / Authority Boundaries**。原因很直接，多 agent 系统会出现 emergent behaviors，小改 lead agent 就可能让 subagents 行为飘移；而 Anthropic 在 auto mode 里又专门处理了“agent 生成的文字会误导下游判别器”和 delegation boundary 的问题。这两件事拼起来，几乎就是你们的“弱模型说服强模型”风险的轮廓了。([Anthropic][4])
+
+把 Gemini 的真实回复贴回来后，我再帮你做一版“双云端评审分歧归并”。
+
+[1]: https://www.anthropic.com/engineering/managed-agents "https://www.anthropic.com/engineering/managed-agents"
+[2]: https://www.anthropic.com/engineering/code-execution-with-mcp "https://www.anthropic.com/engineering/code-execution-with-mcp"
+[3]: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents"
+[4]: https://www.anthropic.com/engineering/multi-agent-research-system "https://www.anthropic.com/engineering/multi-agent-research-system"
+
 
 ## Post-Consultation Synthesis
 
