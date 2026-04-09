@@ -80,8 +80,9 @@ export function getToolSchemas(registry: Map<string, CatAgentTool>): Anthropic.M
 
 function resolvePath(workingDirectory: string, filePath: string): string {
   const resolved = resolve(workingDirectory, filePath);
-  // Basic path traversal guard: must stay within working directory
-  if (!resolved.startsWith(resolve(workingDirectory))) {
+  const root = resolve(workingDirectory);
+  // Path must equal root or be a child (trailing / prevents sibling prefix bypass)
+  if (resolved !== root && !resolved.startsWith(`${root}/`)) {
     throw new Error(`Path traversal blocked: ${filePath}`);
   }
   return resolved;
@@ -123,7 +124,8 @@ async function executeSearchContent(cwd: string, input: Record<string, unknown>)
 
   const args = ['--files-with-matches', '--max-count=1', '-r'];
   if (glob) args.push('--glob', glob);
-  args.push(pattern, searchPath);
+  // Use -- to prevent pattern being parsed as rg flags (option injection)
+  args.push('--', pattern, searchPath);
 
   try {
     const { stdout } = await execFileAsync('rg', args, { timeout: 10_000, maxBuffer: 512 * 1024 });

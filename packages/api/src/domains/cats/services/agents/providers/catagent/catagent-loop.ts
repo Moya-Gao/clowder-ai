@@ -84,6 +84,15 @@ export async function* runCatAgentLoop(
       const msg = err instanceof Error ? err.message : String(err);
       log.error(`[turn ${turn}] API error: ${msg}`);
       yield makeMessage(config.catId, 'error', { error: `API error: ${msg}` });
+      yield makeMessage(config.catId, 'done', {
+        isFinal: true,
+        metadata: {
+          provider: 'anthropic-api',
+          model: config.model,
+          sessionId,
+          usage: { inputTokens: usage.totalInputTokens, outputTokens: usage.totalOutputTokens, numTurns: usage.turns },
+        },
+      });
       return;
     }
 

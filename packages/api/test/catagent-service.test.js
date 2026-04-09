@@ -117,6 +117,24 @@ test('read_file tool blocks path traversal', async () => {
   }
 });
 
+test('read_file tool blocks sibling prefix traversal', async () => {
+  // e.g. workingDir=/tmp/repo, path=../repo2/secret → /tmp/repo2/secret starts with /tmp/repo
+  const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-test-')));
+  const siblingDir = `${tmpDir}2`;
+  mkdirSync(siblingDir, { recursive: true });
+  writeFileSync(join(siblingDir, 'secret.txt'), 'leaked');
+  try {
+    const registry = createToolRegistry(tmpDir);
+    await assert.rejects(
+      () => registry.get('read_file').execute({ path: `../` + `${tmpDir.split('/').pop()}2/secret.txt` }),
+      /Path traversal blocked/,
+    );
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+    rmSync(siblingDir, { recursive: true, force: true });
+  }
+});
+
 test('list_files tool lists directory contents', async () => {
   const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-test-')));
   try {
