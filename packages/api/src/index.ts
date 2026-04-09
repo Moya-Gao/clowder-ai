@@ -238,8 +238,10 @@ async function main(): Promise<void> {
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 
-  // F152: Readiness check — verifies dependencies are reachable
-  app.get('/ready', async () => {
+  // F152: Readiness check — verifies dependencies are reachable.
+  // evidenceStoreRef is set after memoryServices init; handler runs at request time.
+  let evidenceStoreRef: { health(): Promise<boolean> } | null = null;
+  app.get('/ready', async (_request, reply) => {
     const checks: Record<string, { ok: boolean; ms: number; error?: string }> = {};
     // Redis probe
     if (redisClient) {
@@ -253,7 +255,18 @@ async function main(): Promise<void> {
     } else {
       checks.redis = { ok: true, ms: 0 }; // memory mode, always ready
     }
+    // SQLite probe
+    if (evidenceStoreRef) {
+      const t0 = Date.now();
+      try {
+        const ok = await evidenceStoreRef.health();
+        checks.sqlite = { ok, ms: Date.now() - t0, ...(ok ? {} : { error: 'SELECT 1 failed' }) };
+      } catch (err) {
+        checks.sqlite = { ok: false, ms: Date.now() - t0, error: String(err) };
+      }
+    }
     const allOk = Object.values(checks).every((c) => c.ok);
+    if (!allOk) reply.code(503);
     return { status: allOk ? 'ready' : 'degraded', timestamp: Date.now(), checks };
   });
 
@@ -465,6 +478,8 @@ async function main(): Promise<void> {
       return excluded;
     },
   });
+  // F152: Wire evidence store into /ready probe
+  evidenceStoreRef = memoryServices.evidenceStore;
   app.log.info('[api] F102: SQLite memory services initialized');
 
   // F102 D-2: Auto-rebuild evidence index on startup (AC-D4)

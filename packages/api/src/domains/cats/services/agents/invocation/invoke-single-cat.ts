@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent } from '@cat-cafe/shared';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 import {
   resolveBuiltinClientForProvider,
   resolveForClient,
@@ -38,6 +39,7 @@ import {
   tokenUsage,
 } from '../../../../../infrastructure/telemetry/instruments.js';
 import { normalizeModel } from '../../../../../infrastructure/telemetry/model-normalizer.js';
+import { emitOtelLog } from '../../../../../infrastructure/telemetry/otel-logger.js';
 import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
 import { resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
@@ -59,6 +61,7 @@ import {
 } from '../providers/opencode-config-template.js';
 
 const log = createModuleLogger('invoke');
+const tracer = trace.getTracer('cat-cafe-api', '0.1.0');
 let _openCodeKnownModels: Set<string> | null = null;
 
 export function getOpenCodeKnownModels(): Set<string> {
@@ -432,10 +435,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   // F118: Declared before try so it's accessible in finally
   let sessionMutexRelease: (() => void) | undefined;
 
+  // F152: Create invocation span for distributed tracing
+  const invocationSpan = tracer.startSpan('cat_cafe.invocation', {
+    attributes: { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' },
+  });
+
   try {
     // F152: Track active invocations — must be inside try so add/sub symmetry
     // is guaranteed by the finally block, even on generator early abort.
     activeInvocations.add(1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
+
+    // F152: Emit invocation start through OTel log pipeline
+    emitOtelLog('INFO', 'invocation_started', { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
 
     let sessionId: string | undefined;
     try {
@@ -1733,6 +1744,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
     didComplete = true; // F118 AC-C5: Normal completion reached
   } catch (err) {
+    // F152: Record error on invocation span + OTel log
+    invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
+    emitOtelLog('ERROR', 'invocation_error', { [AGENT_ID]: catId, [STATUS]: 'error' });
+
     // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===
     const durationMs = Date.now() - startTime;
     auditLog
@@ -1814,5 +1829,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         deps.agentPaneRegistry.markDone(invocationId, 0);
       }
     }
+
+    // F152: End invocation span + emit completion log through OTel
+    if (didComplete && !hadError) {
+      invocationSpan.setStatus({ code: SpanStatusCode.OK });
+      emitOtelLog('INFO', 'invocation_completed', { [AGENT_ID]: catId, [STATUS]: 'ok' });
+    }
+    invocationSpan.end();
   }
 }
