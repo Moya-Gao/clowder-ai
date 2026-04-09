@@ -64,13 +64,14 @@ function snapshotActive(s: ChatState): ThreadState {
     currentGame: s.currentGame,
     unreadCount: 0, // active thread always 0
     hasUserMention: false,
-    // Preserve real activity timestamp — switching threads is not "activity".
-    // Without this, every thread switch bumps the departing thread to Date.now(),
-    // causing the sidebar list to reorder on every click.
-    lastActivity: Math.max(
-      s.threadStates[s.currentThreadId]?.lastActivity ?? 0,
-      s.messages.length > 0 ? s.messages[s.messages.length - 1].timestamp : 0,
-    ),
+    // If the thread is actively streaming, Date.now() is correct — there IS real activity.
+    // Otherwise, preserve the real timestamp so a mere thread switch doesn't reorder the sidebar.
+    lastActivity: s.hasActiveInvocation
+      ? Date.now()
+      : Math.max(
+          s.threadStates[s.currentThreadId]?.lastActivity ?? 0,
+          s.messages.length > 0 ? s.messages[s.messages.length - 1].timestamp : 0,
+        ),
     queue: s.queue,
     queuePaused: s.queuePaused,
     queuePauseReason: s.queuePauseReason,

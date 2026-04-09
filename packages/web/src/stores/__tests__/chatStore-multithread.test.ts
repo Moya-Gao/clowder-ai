@@ -425,6 +425,39 @@ describe('chatStore multi-thread state', () => {
     expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['r3']);
   });
 
+  describe('snapshotActive lastActivity (sidebar sort stability)', () => {
+    it('does not bump lastActivity to Date.now() when switching away from idle thread', () => {
+      const oldTs = Date.now() - 60_000; // message from 1 minute ago
+      const msg: ChatMessage = { id: 'old-msg', type: 'user', content: 'hi', timestamp: oldTs };
+      useChatStore.getState().addMessage(msg);
+
+      // No active invocation — thread is idle
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      const beforeSwitch = Date.now();
+      useChatStore.getState().setCurrentThread('thread-b');
+
+      // The saved snapshot for thread-a should NOT have lastActivity ≈ now
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeLessThan(beforeSwitch);
+      // It should reflect the message timestamp, not Date.now()
+      expect(saved.lastActivity).toBe(oldTs);
+    });
+
+    it('preserves Date.now()-level lastActivity when switching away from streaming thread', () => {
+      // Simulate an active invocation (cat is streaming)
+      useChatStore.setState({ hasActiveInvocation: true });
+      useChatStore.getState().addMessage(makeMsg('stream-msg'));
+
+      const beforeSwitch = Date.now();
+      useChatStore.getState().setCurrentThread('thread-b');
+
+      // The saved snapshot for thread-a should have lastActivity ≈ now
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeSwitch);
+    });
+  });
+
   describe('unread suppression (persistent badge fix)', () => {
     beforeEach(() => {
       vi.useFakeTimers();
