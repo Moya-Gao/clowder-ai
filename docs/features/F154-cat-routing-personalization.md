@@ -41,12 +41,14 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 **A2 — 猫名解析**：
 - 复用 `cat-config.json` 的 aliases 字段（F127 动态别名），不硬编码
 - `normalizeCatId(input)` 查 catRegistry aliases + displayName partial match
+- **冲突策略**：多猫匹配同一输入时（如前缀重叠），返回候选列表并拒绝执行（"找到多只匹配的猫：opus, opus-45，请输入更精确的名字"），禁止猜测命中
 - 不可路由的猫返回明确错误（"该猫当前不可用"）
 
 **A3 — 全局默认猫可配置**：
 - `GET/PUT /api/config/default-cat` — 运行时修改全局默认猫（member overview 面板入口）
 - `getDefaultCatId()` 优先读运行时配置，fallback 到 `breeds[0]`
-- 或 `/config set defaultCat <catId>` 从 connector 设置
+- **权限**：修改全局默认猫需 owner 权限（与 member overview 页面现有权限一致），非 owner 调用返回 403
+- **MVP 路径**：Phase A 仅通过 Hub API（member overview 入口）修改，不提供 connector `/config set` 命令（避免群聊权限篡改风险）。Connector 端全局配置入口视需求放入后续 Phase（KD-7）
 
 ### Phase B: Hub 可见性 + UX 统一
 
@@ -72,9 +74,10 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 - [ ] AC-A1: 飞书/微信 connector 中 `/focus opus` 设置 thread preferredCats，`/focus` 查看，`/focus clear` 清除
 - [ ] AC-A2: `/ask opus 帮我看代码` 单次定向发消息给 opus，不改变 preferredCats
 - [ ] AC-A3: 猫名解析使用 catRegistry aliases，不硬编码；不可路由猫返回错误
-- [ ] AC-A4: `getDefaultCatId()` 支持运行时配置覆盖 `breeds[0]` 默认值
+- [ ] AC-A4: `getDefaultCatId()` 支持运行时配置覆盖 `breeds[0]` 默认值；修改需 owner 权限，非 owner 返回 403
 - [ ] AC-A5: 路由优先级链精确语义不变：`@mention → preferredCats scope 内 last healthy replier → first preferred → getDefaultCatId()`；preferredCats 是候选范围（candidate scope），不是直接优先级
 - [ ] AC-A6: `/focus` `/ask` 有单元测试覆盖（含 stale cat fallback、persistence 不可用场景）
+- [ ] AC-A7: 猫名解析冲突时返回候选列表并拒绝执行，禁止猜测命中；exact alias match 优先于 partial displayName match
 
 ### Phase B（Hub 可见性 + UX）
 - [ ] AC-B1: Thread header 显示当前首选猫（头像 + 名字），无首选猫时不显示
@@ -112,6 +115,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | preferredCats 存了 stale/disabled 猫 | 路由时必须过 `filterRoutableCats`（AgentRouter 已实现），UI/connector 查询时也标注状态 |
 | 全局默认猫改动影响所有新 thread | UI 明确标注影响范围；设置需二次确认 |
 | Hub 和 connector 设置冲突 | 同一个 thread model，最后写入者覆盖；UI 实时刷新 |
+| 猫名解析歧义导致误路由 | 冲突时拒绝执行 + 返回候选列表（KD-8）；exact alias 优先于 partial match |
 
 ## Open Questions
 
@@ -131,13 +135,16 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | KD-4 | `/ask` 必须走正常 ConnectorRouter → append → route 流程，禁止旁路 invokeTrigger | 安全边界：invokeTrigger 绕过 ACL / rate-limit / audit trail；砚砚 P1 review | 2026-04-09 |
 | KD-5 | v1 `/focus` 仅支持单猫，多猫语法暂不实现 | 技术上 preferredCats 是数组，但 UX 复杂度不值得 MVP 投入；砚砚 P2 review | 2026-04-09 |
 | KD-6 | 全局默认猫 MVP 为 system-global（非 per-user），长期可扩展为 per-user | #385 原话 "from the member overview" 暗示全局；MVP 简单，后续按需加 per-user 层 | 2026-04-09 |
+| KD-7 | Phase A 全局默认猫仅通过 Hub API（owner 权限）修改，不提供 connector `/config set` 命令 | 群聊 connector 无权限模型，任何成员可执行 = 配置篡改风险；砚砚 P1 review | 2026-04-09 |
+| KD-8 | 猫名解析冲突时拒绝执行 + 返回候选列表，禁止猜测命中 | partial match 歧义会导致误路由，用户应看到候选并精确选择；砚砚 P2 review | 2026-04-09 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-09 | 立项，铲屎官 + 宪宪 + 砚砚讨论确认联合 #385 + #391 scope |
-| 2026-04-09 | Spec review：砚砚 2P1+2P2（路由语义 + /ask 边界 + /focus 单猫 + 全局 scope），烁烁 UX 设计（Pill 指示器 + 卡片选择器 + alias tooltip）；OQ-1~3 全部关闭为 KD-4~6 |
+| 2026-04-09 | Spec review R1：砚砚 2P1+2P2（路由语义 + /ask 边界 + /focus 单猫 + 全局 scope），烁烁 UX 设计（Pill 指示器 + 卡片选择器 + alias tooltip）；OQ-1~3 关闭为 KD-4~6 |
+| 2026-04-09 | Spec review R2（Design Gate）：砚砚 1P1+2P2（权限边界 + 实现路径歧义 + 猫名冲突策略）→ KD-7~8 + AC-A7；烁烁 UX 确认无补充 |
 
 ## Review Gate
 
