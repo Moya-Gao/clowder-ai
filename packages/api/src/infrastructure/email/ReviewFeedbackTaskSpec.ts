@@ -21,7 +21,7 @@ export interface ReviewFeedbackSignal {
   prNumber: number;
   newComments: PrFeedbackComment[];
   newDecisions: PrReviewDecision[];
-  commitCursor: () => void;
+  commitCursor: () => Promise<void>;
 }
 
 export interface ReviewFeedbackTaskSpecOptions {
@@ -71,8 +71,9 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
               opts.fetchReviews(repoFullName, prNumber),
             ]);
 
-            const commentCursor = commentCursors.get(prKey) ?? 0;
-            const reviewCursor = reviewCursors.get(prKey) ?? 0;
+            // #406: Seed from persisted automationState.review on first access (survives restart)
+            const commentCursor = commentCursors.get(prKey) ?? task.automationState?.review?.lastCommentCursor ?? 0;
+            const reviewCursor = reviewCursors.get(prKey) ?? task.automationState?.review?.lastDecisionCursor ?? 0;
 
             const allNewComments = comments.filter((c) => c.id > commentCursor);
             const allNewReviews = reviews.filter((r) => r.id > reviewCursor);
@@ -91,6 +92,10 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             if (hadNewItems && allSkipped) {
               commentCursors.set(prKey, maxCommentId);
               reviewCursors.set(prKey, maxReviewId);
+              // #406: Persist echo-skip cursor advance so restarts don't re-process
+              await opts.taskStore.patchAutomationState(task.id, {
+                review: { lastCommentCursor: maxCommentId, lastDecisionCursor: maxReviewId },
+              });
               continue;
             }
 
@@ -103,9 +108,17 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                 prNumber,
                 newComments,
                 newDecisions,
-                commitCursor: () => {
+                commitCursor: async () => {
                   commentCursors.set(prKey, maxCommentId);
                   reviewCursors.set(prKey, maxReviewId);
+                  // #406: Persist cursor to TaskStore so restarts don't replay
+                  await opts.taskStore.patchAutomationState(task.id, {
+                    review: {
+                      lastCommentCursor: maxCommentId,
+                      lastDecisionCursor: maxReviewId,
+                      lastNotifiedAt: Date.now(),
+                    },
+                  });
                 },
               },
               // #320 KD-15: unified subject_key format
@@ -144,7 +157,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
 
         if (routeResult.kind !== 'notified') return;
 
-        signal.commitCursor();
+        await signal.commitCursor();
 
         if (opts.invokeTrigger) {
           try {
