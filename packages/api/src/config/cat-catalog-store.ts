@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type { CatCafeConfig, ClientId, Roster } from '@cat-cafe/shared';
-import { type BuiltinAccountClient, resolveBuiltinClientForProvider } from './account-resolver.js';
+import {
+  type BuiltinAccountClient,
+  builtinAccountIdForClient,
+  resolveBuiltinClientForProvider,
+} from './account-resolver.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 
 const CONFIG_SUBDIR = '.cat-cafe';
@@ -40,7 +44,7 @@ const CLIENT_ID_VALUES = new Set(['anthropic', 'openai', 'google', 'dare', 'anti
  *   1. old `provider` (clientId value) → `clientId` (P5 field rename)
  *   2. old `ocProviderName` → `provider` (P5 field rename)
  *   3. old `providerProfileId` → `accountRef` (P5 field rename)
- *   4. Assign default `accountRef` for builtin clients that lack one
+ * Bootstrap-only default bindings are handled separately in applyBootstrapDefaultAccountRefs().
  */
 function migrateCatalogVariants(catalog: CatCafeConfig): { catalog: CatCafeConfig; dirty: boolean } {
   let dirty = false;
@@ -101,6 +105,25 @@ function migrateCatalogVariants(catalog: CatCafeConfig): { catalog: CatCafeConfi
   return { catalog: next, dirty };
 }
 
+function applyBootstrapDefaultAccountRefs(catalog: CatCafeConfig): CatCafeConfig {
+  const next = structuredClone(catalog) as CatCafeConfig;
+
+  for (const breed of next.breeds as unknown as Record<string, unknown>[]) {
+    const variants = Array.isArray(breed.variants) ? (breed.variants as Record<string, unknown>[]) : [];
+    for (const variant of variants) {
+      const existingAccountRef = typeof variant.accountRef === 'string' ? variant.accountRef.trim() : '';
+      if (existingAccountRef) continue;
+
+      const client = resolveBuiltinClientForProvider((variant.clientId ?? variant.provider) as ClientId);
+      if (!client) continue;
+
+      variant.accountRef = builtinAccountIdForClient(client);
+    }
+  }
+
+  return next;
+}
+
 export function resolveCatCatalogPath(projectRoot: string): string {
   return safePath(projectRoot, CONFIG_SUBDIR, CAT_CATALOG_FILENAME);
 }
@@ -139,8 +162,10 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
   // F340: cat-template.json is the sole config source — cat-config.json is no longer read at runtime.
   const template = JSON.parse(readFileSync(templatePath, 'utf-8')) as CatCafeConfig;
 
-  // Assign default accountRefs to variants that lack them
-  const { catalog: runtimeCatalog } = migrateCatalogVariants(template);
+  // Bootstrap persists the template's default seed binding into the runtime catalog.
+  // Runtime migrations stay non-backfilling so custom/runtime cats remain unbound.
+  const { catalog: migratedCatalog } = migrateCatalogVariants(template);
+  const runtimeCatalog = applyBootstrapDefaultAccountRefs(migratedCatalog);
 
   mkdirSync(dirname(catalogPath), { recursive: true });
   writeFileAtomic(catalogPath, `${JSON.stringify(runtimeCatalog, null, 2)}\n`);

@@ -246,22 +246,22 @@ describe('cat-catalog-store', () => {
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
 
-    // F340: migration does NOT backfill accountRef — unbound variants stay unbound
-    // so both seed and custom cats walk the full discovery chain at runtime.
+    // Bootstrap persists template-default bindings for seed cats so activation can
+    // later retarget them deterministically, while runtime migrations remain non-
+    // backfilling for custom/runtime cats.
     assert.deepEqual(
       runtimeCatalog.breeds.map((breed) => [breed.id, breed.variants.map((variant) => variant.accountRef ?? null)]),
       [
-        ['ragdoll', [null, null]],
-        ['maine-coon', [null, null]],
-        ['siamese', [null]],
-        ['dragon-li', [null]],
-        ['golden-chinchilla', [null]],
+        ['ragdoll', ['claude', 'claude']],
+        ['maine-coon', ['codex', 'codex']],
+        ['siamese', ['gemini']],
+        ['dragon-li', ['dare']],
+        ['golden-chinchilla', ['opencode']],
       ],
     );
   });
 
-  // F340: bootstrapBindings no longer consumed — migration leaves unbound variants alone
-  it('bootstrap ignores legacy provider-profiles.json and leaves variants unbound', () => {
+  it('bootstrap ignores legacy provider-profiles.json and keeps template default bindings', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-f127-installer-'));
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
     const templatePath = join(projectRoot, 'cat-template.json');
@@ -273,11 +273,11 @@ describe('cat-catalog-store', () => {
     assert.deepEqual(
       runtimeCatalog.breeds.map((breed) => [breed.id, breed.variants.map((variant) => variant.accountRef ?? null)]),
       [
-        ['ragdoll', [null, null]],
-        ['maine-coon', [null, null]],
-        ['siamese', [null]],
-        ['dragon-li', [null]],
-        ['golden-chinchilla', [null]],
+        ['ragdoll', ['claude', 'claude']],
+        ['maine-coon', ['codex', 'codex']],
+        ['siamese', ['gemini']],
+        ['dragon-li', ['dare']],
+        ['golden-chinchilla', ['opencode']],
       ],
     );
   });
@@ -311,8 +311,8 @@ describe('cat-catalog-store', () => {
     assert.equal(catalogPath, resolveCatCatalogPath(projectRoot));
     assert.ok(existsSync(catalogPath), 'runtime catalog should be created');
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
-    // F340: migration does NOT backfill accountRef — unbound variants stay unbound
-    assert.equal(runtimeCatalog.breeds[0]?.variants[0]?.accountRef, undefined);
+    // Bootstrap persists the template's default seed binding into the runtime catalog.
+    assert.equal(runtimeCatalog.breeds[0]?.variants[0]?.accountRef, 'claude');
   });
 
   it('keeps existing .cat-cafe/cat-catalog.json runtime edits and leaves unbound variants alone', () => {
