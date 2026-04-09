@@ -30,9 +30,24 @@
   - Q3 真实需求 + Q4 技术栈 fit + Q5 负债可控 = 软门
   - Feature：F 编号正确、Feature Doc 存在且 AC 对应
   - Patch：修复内容和 issue 描述一致
-  - **Verdict POLITELY-DECLINE → 停止，用[话术模板](./ownership-gate.md#话术模板)回复，不进入 ③**
+  - **Verdict POLITELY-DECLINE → 停止，用[话术模板](./ownership-gate.md#话术模板)回复，不进入 ②-b**
   - **Verdict NEEDS-DISCUSSION → 打 `needs-maintainer-decision`，暂停等铲屎官**
-- [ ] **③ 质量**（方向通过后才审）：
+- [ ] **②-b Maintainer Reframing（user-facing PR 必填）**：
+  > **教训（F154）**：社区 #391 提了 `/focus` `/ask` 命令，我们直接接受了交互形状并实现。铲屎官事后指出：社区给的是"他们偏好的解法"，不是"我们家的产品定义"。
+  >
+  > 社区 PR 带来新界面、新交互、新用户可见行为时，**写代码前**必须填 Reframing 卡：
+
+  | 问题 | 填写 |
+  |------|------|
+  | **用户真正的问题是什么？** | （痛点，不是解法） |
+  | **社区给的是：问题描述 / 机制方案 / UI 形态？** | （区分层次） |
+  | **我们保留什么 / 重写什么 / 拒绝什么？** | （对照 F056 设计语言 + 相关 Feature spec） |
+  | **为什么符合我们的架构画风 + 设计画风？** | （引用具体真相源） |
+
+  - 非 user-facing PR（纯 bug fix / 内部重构）→ 跳过
+  - **UI/UX Design Gate**：带来新界面或新交互的 PR，Reframing 卡必须拉烁烁过一遍。不符合"温馨猫咖感"（F056）的，图纸阶段打回重塑，不进入 ③
+  - Reframing 卡结论写入 Intake Intent Issue（B3 Step 0）的补充段落
+- [ ] **③ 质量**（方向 + Reframing 通过后才审）：
   - CI / 测试通过
   - 代码规范（`pnpm check` + `pnpm lint`）
   - 无安全隐患（敏感路径、hardcoded secrets）
@@ -309,7 +324,11 @@ bash scripts/intake-from-opensource.sh --advance-ledger
 ## 完整链路
 
 ```
-Issue accept → Merge Gate (B1) → Merge (B2)
+Issue accept → Merge Gate (B1):
+  ① Accepted Issue → ② 方向（主人翁五问）
+  → ②-b Maintainer Reframing（user-facing 必填）+ UI/UX Design Gate
+  → ③ 质量 → ④ Intake 预判
+→ Merge (B2)
   → Intake Intent Issue (B3.0) → Plan (B3.1) → Brand Guard (B3.1.5)
   → Execute Absorb (B3.2) → Intake Review Guard (B3.2.5)
   → Record + Advance (B3.3)
