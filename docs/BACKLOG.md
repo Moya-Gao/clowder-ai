@@ -58,4 +58,5 @@ created: 2026-02-26
 | F149 | ACP Runtime Operations — 项目级进程池 + Session Lease | spec | 缅因猫 | internal | [F149](features/F149-acp-runtime-operations.md) |
 | F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | spec | 布偶猫 | internal | [F152](features/F152-expedition-memory.md) |
 | F153 | Observability Infra Phase 1 — OTel SDK + Metrics + Telemetry Redaction + Health Check | spec | Community + 布偶猫 | community [#388](https://github.com/zts212653/clowder-ai/issues/388) | [F153](features/F153-observability-infra-phase1.md) |
+| F154 | Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向 | spec | 布偶猫 | community [#385](https://github.com/zts212653/clowder-ai/issues/385) [#391](https://github.com/zts212653/clowder-ai/pull/391) | [F154](features/F154-cat-routing-personalization.md) |
 

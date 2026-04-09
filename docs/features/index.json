@@ -939,9 +939,15 @@
     {
       "id": "F153",
       "name": "Observability Infra Phase 1 — OTel SDK + Metrics + Telemetry Redaction + Health Check",
-      "status": "spec | **Owner**: Community + 布偶猫 | **Priority**: P2",
+      "status": "spec | **Owner**: Community (PR author) + 布偶猫 | **Priority**: P2",
       "file": "F153-observability-infra-phase1.md"
+    },
+    {
+      "id": "F154",
+      "name": "Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P2",
+      "file": "F154-cat-routing-personalization.md"
     }
   ],
-  "generated_at": "2026-04-09T04:17:06.887Z"
+  "generated_at": "2026-04-09T10:32:41.673Z"
 }
