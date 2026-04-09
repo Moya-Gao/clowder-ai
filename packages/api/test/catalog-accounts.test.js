@@ -105,7 +105,7 @@ describe('global accounts (F340)', () => {
     assert.equal(updatedCatalog.version, 2);
   });
 
-  it('merges project accounts into global without overwriting; keeps skipped keys in project', async () => {
+  it('skips compatible duplicate project account IDs without overwriting; keeps skipped keys in project', async () => {
     const { writeCatalogAccount, readCatalogAccounts, resetMigrationState } = await import(
       '../dist/config/catalog-accounts.js'
     );
@@ -115,14 +115,14 @@ describe('global accounts (F340)', () => {
     writeCatalogAccount(projectRoot, 'existing', { authType: 'oauth', protocol: 'anthropic' });
     resetMigrationState();
 
-    // Write project catalog with a conflicting key + a new key
+    // Write project catalog with an equivalent key + a new key
     const catalog = {
       version: 2,
       breeds: [],
       roster: {},
       reviewPolicy: {},
       accounts: {
-        existing: { authType: 'api_key', protocol: 'openai' },
+        existing: { authType: 'oauth', protocol: 'anthropic' },
         'new-from-project': { authType: 'api_key', protocol: 'openai' },
       },
     };
@@ -175,6 +175,45 @@ describe('global accounts (F340)', () => {
     assert.equal(creds['my-custom'].apiKey, 'sk-secret-123');
   });
 
+  it('infers legacy api_key authType from mode/kind before migrating secrets', async () => {
+    const { readCatalogAccounts, resetMigrationState } = await import('../dist/config/catalog-accounts.js');
+    resetMigrationState();
+
+    const legacyMeta = {
+      version: 1,
+      providers: {
+        anthropic: {
+          activeProfileId: 'installer-managed',
+          profiles: [
+            {
+              id: 'installer-managed',
+              displayName: 'Installer API Key',
+              kind: 'api_key',
+              mode: 'api_key',
+              baseUrl: 'https://legacy.example/v1',
+            },
+          ],
+        },
+      },
+    };
+    await writeFile(join(projectRoot, '.cat-cafe', 'provider-profiles.json'), JSON.stringify(legacyMeta), 'utf-8');
+    await writeFile(
+      join(projectRoot, '.cat-cafe', 'provider-profiles.secrets.local.json'),
+      JSON.stringify({
+        version: 1,
+        providers: { anthropic: { 'installer-managed': { apiKey: 'sk-legacy-api-key' } } },
+      }),
+      'utf-8',
+    );
+
+    const result = readCatalogAccounts(projectRoot);
+    assert.equal(result['installer-managed'].authType, 'api_key');
+
+    const credRaw = await readFile(join(globalRoot, '.cat-cafe', 'credentials.json'), 'utf-8');
+    const creds = JSON.parse(credRaw);
+    assert.equal(creds['installer-managed'].apiKey, 'sk-legacy-api-key');
+  });
+
   it('migrates multiple projects without losing accounts', async () => {
     const { readCatalogAccounts, resetMigrationState } = await import('../dist/config/catalog-accounts.js');
     resetMigrationState();
@@ -218,6 +257,40 @@ describe('global accounts (F340)', () => {
     const { rm: rmAsync } = await import('node:fs/promises');
     await rmAsync(projectA, { recursive: true, force: true });
     await rmAsync(projectB, { recursive: true, force: true });
+  });
+
+  it('throws when project catalog migration hits an incompatible global account ID', async () => {
+    const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    resetMigrationState();
+
+    writeCatalogAccount(projectRoot, 'shared', {
+      authType: 'api_key',
+      baseUrl: 'https://global.example/v1',
+      displayName: 'Global Shared',
+    });
+    resetMigrationState();
+
+    await writeFile(
+      join(projectRoot, '.cat-cafe', 'cat-catalog.json'),
+      JSON.stringify({
+        version: 2,
+        breeds: [],
+        roster: {},
+        reviewPolicy: {},
+        accounts: {
+          shared: {
+            authType: 'api_key',
+            baseUrl: 'https://project.example/v1',
+            displayName: 'Project Shared',
+          },
+        },
+      }),
+      'utf-8',
+    );
+
+    assert.throws(() => readCatalogAccounts(projectRoot), /account conflict/i);
   });
 
   it('migrates v1 nested providers.<client>.profiles[] into flat accounts', async () => {
@@ -273,6 +346,37 @@ describe('global accounts (F340)', () => {
     assert.equal(creds['team-key'].apiKey, 'sk-team-key');
   });
 
+  it('throws when legacy provider-profile migration hits an incompatible global account ID', async () => {
+    const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    resetMigrationState();
+
+    writeCatalogAccount(projectRoot, 'shared', {
+      authType: 'oauth',
+      displayName: 'Global OAuth',
+    });
+    resetMigrationState();
+
+    await writeFile(
+      join(projectRoot, '.cat-cafe', 'provider-profiles.json'),
+      JSON.stringify({
+        version: 2,
+        providers: [
+          {
+            id: 'shared',
+            authType: 'api_key',
+            baseUrl: 'https://legacy.example/v1',
+            displayName: 'Legacy Shared',
+          },
+        ],
+      }),
+      'utf-8',
+    );
+
+    assert.throws(() => readCatalogAccounts(projectRoot), /account conflict/i);
+  });
+
   it('retries secret import when accounts already exist from previous migration', async () => {
     const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
       '../dist/config/catalog-accounts.js'
@@ -307,7 +411,7 @@ describe('global accounts (F340)', () => {
     assert.equal(creds['my-custom'].apiKey, 'sk-retry-key', 'credential must be imported on retry');
   });
 
-  it('does NOT attach legacy secret to a pre-existing global account with colliding ID', async () => {
+  it('fails before attaching a legacy secret to a pre-existing global account with colliding ID', async () => {
     const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
       '../dist/config/catalog-accounts.js'
     );
@@ -331,13 +435,9 @@ describe('global accounts (F340)', () => {
       'utf-8',
     );
 
-    readCatalogAccounts(projectRoot);
+    assert.throws(() => readCatalogAccounts(projectRoot), /account conflict/i);
 
-    // The OAuth account must remain untouched (merge skips it)
-    const accounts = readCatalogAccounts(projectRoot);
-    assert.equal(accounts.shared.authType, 'oauth', 'pre-existing OAuth account must not be overwritten');
-
-    // The legacy secret must NOT be imported for the colliding ID
+    // The legacy secret must NOT be imported for the colliding ID.
     const credPath = join(globalRoot, '.cat-cafe', 'credentials.json');
     if (existsSync(credPath)) {
       const creds = JSON.parse(await readFile(credPath, 'utf-8'));
@@ -346,7 +446,7 @@ describe('global accounts (F340)', () => {
     // If credentials.json doesn't exist at all, that's also correct
   });
 
-  it('does NOT attach legacy secret to a pre-existing api_key account with colliding ID but different baseUrl', async () => {
+  it('fails before attaching a legacy secret to a different-source api_key account with colliding ID', async () => {
     const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
       '../dist/config/catalog-accounts.js'
     );
@@ -370,7 +470,7 @@ describe('global accounts (F340)', () => {
       'utf-8',
     );
 
-    readCatalogAccounts(projectRoot);
+    assert.throws(() => readCatalogAccounts(projectRoot), /account conflict/i);
 
     const credPath = join(globalRoot, '.cat-cafe', 'credentials.json');
     if (existsSync(credPath)) {

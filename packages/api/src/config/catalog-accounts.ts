@@ -69,6 +69,67 @@ function writeAllGlobal(accounts: Record<string, AccountConfig>): void {
   writeFileAtomic(accountsPath, `${JSON.stringify(accounts, null, 2)}\n`);
 }
 
+function normalizeBaseUrl(baseUrl: string | undefined): string | undefined {
+  const trimmed = baseUrl?.trim();
+  return trimmed ? trimmed.replace(/\/+$/, '') : undefined;
+}
+
+function normalizeDisplayName(displayName: string | undefined): string | undefined {
+  const trimmed = displayName?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeModels(models: readonly string[] | undefined): string[] | undefined {
+  if (!Array.isArray(models)) return undefined;
+  const normalized = Array.from(new Set(models.map((value) => String(value).trim()).filter((value) => value.length > 0)));
+  return normalized.length > 0 ? normalized.sort() : undefined;
+}
+
+function inferLegacyAuthType(profile: Record<string, unknown>): 'oauth' | 'api_key' {
+  if (profile.authType === 'oauth' || profile.authType === 'api_key') return profile.authType;
+  if (profile.mode === 'oauth' || profile.mode === 'api_key') return profile.mode;
+  if (profile.kind === 'api_key') return 'api_key';
+  if (profile.kind === 'builtin') return 'oauth';
+  return 'oauth';
+}
+
+function canonicalizeAccount(account: AccountConfig): {
+  authType: 'oauth' | 'api_key';
+  baseUrl?: string;
+  displayName?: string;
+  models?: string[];
+} {
+  return {
+    authType: account.authType,
+    ...(normalizeBaseUrl(account.baseUrl) ? { baseUrl: normalizeBaseUrl(account.baseUrl) } : {}),
+    ...(normalizeDisplayName(account.displayName) ? { displayName: normalizeDisplayName(account.displayName) } : {}),
+    ...(normalizeModels(account.models) ? { models: normalizeModels(account.models) } : {}),
+  };
+}
+
+function describeAccountConflict(existing: AccountConfig, incoming: AccountConfig): string {
+  const current = canonicalizeAccount(existing);
+  const next = canonicalizeAccount(incoming);
+  const diffs: string[] = [];
+
+  if (current.authType !== next.authType) diffs.push(`authType ${current.authType} vs ${next.authType}`);
+  if ((current.baseUrl ?? '(none)') !== (next.baseUrl ?? '(none)')) {
+    diffs.push(`baseUrl ${current.baseUrl ?? '(none)'} vs ${next.baseUrl ?? '(none)'}`);
+  }
+  if ((current.displayName ?? '(none)') !== (next.displayName ?? '(none)')) {
+    diffs.push(`displayName ${current.displayName ?? '(none)'} vs ${next.displayName ?? '(none)'}`);
+  }
+  if (JSON.stringify(current.models ?? []) !== JSON.stringify(next.models ?? [])) {
+    diffs.push(`models ${JSON.stringify(current.models ?? [])} vs ${JSON.stringify(next.models ?? [])}`);
+  }
+
+  return diffs.join('; ');
+}
+
+function accountsEquivalent(existing: AccountConfig, incoming: AccountConfig): boolean {
+  return describeAccountConflict(existing, incoming).length === 0;
+}
+
 /** Merge source accounts into global, preserving existing keys. */
 function mergeIntoGlobal(source: Record<string, AccountConfig>): { merged: string[]; skipped: string[] } {
   const global = readAllGlobal();
@@ -76,6 +137,9 @@ function mergeIntoGlobal(source: Record<string, AccountConfig>): { merged: strin
   const skipped: string[] = [];
   for (const [ref, account] of Object.entries(source)) {
     if (ref in global) {
+      if (!accountsEquivalent(global[ref], account)) {
+        throw new Error(`Account conflict for "${ref}": ${describeAccountConflict(global[ref], account)}`);
+      }
       skipped.push(ref);
     } else {
       global[ref] = account;
@@ -122,12 +186,15 @@ function migrateLegacyFrom(root: string): void {
   for (const p of providers) {
     const id = String(p.id ?? '').trim();
     if (!id) continue;
+    const displayName = normalizeDisplayName(typeof p.displayName === 'string' ? p.displayName : undefined);
+    const baseUrl = normalizeBaseUrl(typeof p.baseUrl === 'string' ? p.baseUrl : undefined);
+    const models = normalizeModels(Array.isArray(p.models) ? p.models.map(String) : undefined);
     // F340: protocol not migrated — derived at runtime from well-known account IDs.
     accounts[id] = {
-      authType: (p.authType as 'oauth' | 'api_key') ?? 'oauth',
-      ...(p.displayName ? { displayName: String(p.displayName) } : {}),
-      ...(p.baseUrl ? { baseUrl: String(p.baseUrl) } : {}),
-      ...(Array.isArray(p.models) ? { models: p.models.map(String) } : {}),
+      authType: inferLegacyAuthType(p),
+      ...(displayName ? { displayName } : {}),
+      ...(baseUrl ? { baseUrl } : {}),
+      ...(models ? { models } : {}),
     };
   }
   const { merged } = mergeIntoGlobal(accounts);
@@ -175,12 +242,7 @@ function migrateLegacyFrom(root: string): void {
       // not a collision with a different-origin account sharing the same ID.
       const g = globalAfterMerge[id];
       const l = accounts[id];
-      if (
-        g &&
-        g.authType === l.authType &&
-        (g.baseUrl ?? '') === (l.baseUrl ?? '') &&
-        (g.displayName ?? '') === (l.displayName ?? '')
-      ) {
+      if (g && accountsEquivalent(g, l)) {
         existing[id] = { apiKey: String(secret.apiKey) };
         credCount++;
       }
@@ -212,8 +274,9 @@ function migrateProjectLegacyProviderProfiles(projectRoot: string): void {
   try {
     migrateLegacyFrom(key);
     migratedProjectLegacy.add(key);
-  } catch {
-    /* best-effort — don't mark done so next call retries */
+  } catch (err) {
+    console.error(`[catalog-accounts] project legacy→global migration failed for ${key}:`, err);
+    throw err;
   }
 }
 
@@ -246,6 +309,7 @@ function migrateProjectAccountsToGlobal(projectRoot: string): void {
     // Migration is best-effort — don't mark done so next call retries.
     // But log the error so failures aren't invisible.
     console.error(`[catalog-accounts] project→global migration failed for ${key}:`, err);
+    throw err;
   }
 }
 

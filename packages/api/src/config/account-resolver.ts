@@ -156,7 +156,7 @@ export function resolveForClient(
     for (const id of candidateIds) {
       if (accounts[id]) {
         const profile = accountToRuntimeProfile(id, accounts[id]);
-        if (profile.apiKey) return profile;
+        if (profile.authType === 'api_key' && profile.apiKey) return profile;
         firstMatch ??= profile;
       }
     }

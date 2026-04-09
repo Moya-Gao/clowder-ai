@@ -229,6 +229,24 @@ describe('account-resolver (4b unified runtime resolution)', () => {
     assert.equal(profile.id, 'installer-anthropic');
   });
 
+  it('resolveForClient prefers api_key installer account over a credentialed OAuth builtin', async () => {
+    const { resolveForClient } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-12b`);
+    await writeCatalog({
+      codex: { authType: 'oauth', models: ['gpt-5.3-codex'] },
+      'installer-openai': { authType: 'api_key', displayName: 'Installer OpenAI' },
+    });
+    await writeCredentials({
+      codex: { apiKey: 'sk-oauth-stale' },
+      'installer-openai': { apiKey: 'sk-installer-openai' },
+    });
+
+    const profile = resolveForClient(projectRoot, 'openai');
+    assert.ok(profile, 'should resolve an account');
+    assert.equal(profile.id, 'installer-openai');
+    assert.equal(profile.authType, 'api_key');
+    assert.equal(profile.apiKey, 'sk-installer-openai');
+  });
+
   it('resolveForClient returns OAuth builtin when no candidate has credentials (subscription mode)', async () => {
     const { resolveForClient } = await import(`../dist/config/account-resolver.js?t=${Date.now()}-13`);
     // Scenario: only 'claude' OAuth exists, no credentials anywhere.
