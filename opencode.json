@@ -6,7 +6,7 @@
     "prune": true
   },
   "instructions": ["OPENCODE.md"],
-  "plugin": ["oh-my-opencode"],
+  "plugin": ["oh-my-opencode@3.15.3"],
   "permission": {
     "read": "allow",
     "edit": "allow",
