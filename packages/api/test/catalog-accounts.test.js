@@ -143,9 +143,7 @@ describe('global accounts (F340)', () => {
   });
 
   it('migrates project-level legacy provider-profiles.json into global accounts', async () => {
-    const { readCatalogAccounts, resetMigrationState, resolveAccountsPath } = await import(
-      '../dist/config/catalog-accounts.js'
-    );
+    const { readCatalogAccounts, resetMigrationState } = await import('../dist/config/catalog-accounts.js');
     resetMigrationState();
 
     // Write legacy provider-profiles.json at project level (old installer output)
@@ -173,6 +171,15 @@ describe('global accounts (F340)', () => {
     const credRaw = await readFile(join(globalRoot, '.cat-cafe', 'credentials.json'), 'utf-8');
     const creds = JSON.parse(credRaw);
     assert.equal(creds['my-custom'].apiKey, 'sk-secret-123');
+  });
+
+  it('propagates global legacy provider-profile migration errors instead of failing open', async () => {
+    const { readCatalogAccounts, resetMigrationState } = await import('../dist/config/catalog-accounts.js');
+    resetMigrationState();
+
+    await writeFile(join(globalRoot, '.cat-cafe', 'provider-profiles.json'), '{"version":2,"profiles":[', 'utf-8');
+
+    assert.throws(() => readCatalogAccounts(projectRoot), /Unexpected end of JSON input|JSON/i);
   });
 
   it('infers legacy api_key authType from mode/kind before migrating secrets', async () => {

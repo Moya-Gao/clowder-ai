@@ -275,6 +275,7 @@ function migrateLegacyProviderProfiles(): void {
     legacyMigrationDone = true;
   } catch (err) {
     console.error('[catalog-accounts] legacy→global migration failed:', err);
+    throw err;
   }
 }
 

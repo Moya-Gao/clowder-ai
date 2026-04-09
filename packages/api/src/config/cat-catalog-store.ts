@@ -1,12 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
-import type { CatCafeConfig, ClientId, Roster } from '@cat-cafe/shared';
-import {
-  type BuiltinAccountClient,
-  builtinAccountIdForClient,
-  resolveBuiltinClientForProvider,
-} from './account-resolver.js';
-import { resolveProjectTemplatePath } from './project-template-path.js';
+import type { CatCafeConfig, ClientId } from '@cat-cafe/shared';
+import { builtinAccountIdForClient, resolveBuiltinClientForProvider } from './account-resolver.js';
 
 const CONFIG_SUBDIR = '.cat-cafe';
 const CAT_CATALOG_FILENAME = 'cat-catalog.json';
@@ -152,6 +147,12 @@ export function readCatCatalog(projectRoot: string): CatCafeConfig | null {
   return JSON.parse(raw) as CatCafeConfig;
 }
 
+function readBootstrapSourceConfig(projectRoot: string, templatePath: string): CatCafeConfig {
+  const legacyConfigPath = safePath(projectRoot, 'cat-config.json');
+  const sourcePath = existsSync(legacyConfigPath) ? legacyConfigPath : templatePath;
+  return JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig;
+}
+
 export function bootstrapCatCatalog(projectRoot: string, templatePath: string): string {
   const catalogPath = resolveCatCatalogPath(projectRoot);
   if (existsSync(catalogPath)) {
@@ -159,8 +160,9 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
     return catalogPath;
   }
 
-  // F340: cat-template.json is the sole config source — cat-config.json is no longer read at runtime.
-  const template = JSON.parse(readFileSync(templatePath, 'utf-8')) as CatCafeConfig;
+  // Bootstrap must preserve legacy project customizations when upgrading from
+  // installs that still have cat-config.json but no runtime catalog yet.
+  const template = readBootstrapSourceConfig(projectRoot, templatePath);
 
   // Bootstrap persists the template's default seed binding into the runtime catalog.
   // Runtime migrations stay non-backfilling so custom/runtime cats remain unbound.
