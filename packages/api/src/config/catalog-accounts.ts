@@ -87,14 +87,6 @@ function normalizeModels(models: readonly string[] | undefined): string[] | unde
   return normalized.length > 0 ? normalized.sort() : undefined;
 }
 
-function inferLegacyAuthType(profile: Record<string, unknown>): 'oauth' | 'api_key' {
-  if (profile.authType === 'oauth' || profile.authType === 'api_key') return profile.authType;
-  if (profile.mode === 'oauth' || profile.mode === 'api_key') return profile.mode;
-  if (profile.kind === 'api_key') return 'api_key';
-  if (profile.kind === 'builtin') return 'oauth';
-  return 'oauth';
-}
-
 function canonicalizeAccount(account: AccountConfig): {
   authType: 'oauth' | 'api_key';
   baseUrl?: string;
@@ -130,6 +122,24 @@ function describeAccountConflict(existing: AccountConfig, incoming: AccountConfi
 
 function accountsEquivalent(existing: AccountConfig, incoming: AccountConfig): boolean {
   return describeAccountConflict(existing, incoming).length === 0;
+}
+
+function normalizeLegacyAuthType(value: unknown): AccountConfig['authType'] | undefined {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (normalized === 'api_key') return 'api_key';
+  if (normalized === 'oauth' || normalized === 'subscription' || normalized === 'builtin') return 'oauth';
+  return undefined;
+}
+
+function inferLegacyAuthType(profile: Record<string, unknown>): AccountConfig['authType'] {
+  return (
+    normalizeLegacyAuthType(profile.authType) ??
+    normalizeLegacyAuthType(profile.mode) ??
+    normalizeLegacyAuthType(profile.kind) ??
+    'oauth'
+  );
 }
 
 /** Merge source accounts into global, preserving existing keys. */

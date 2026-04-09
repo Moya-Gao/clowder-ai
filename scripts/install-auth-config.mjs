@@ -185,6 +185,24 @@ function normalizeModels(models) {
   return Array.from(new Set(models.map((v) => String(v).trim()).filter((v) => v.length > 0)));
 }
 
+function normalizeLegacyAuthType(value) {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (normalized === 'api_key') return 'api_key';
+  if (normalized === 'oauth' || normalized === 'subscription') return 'oauth';
+  return undefined;
+}
+
+function inferLegacyAuthType(profile) {
+  return (
+    normalizeLegacyAuthType(profile?.authType) ??
+    normalizeLegacyAuthType(profile?.mode) ??
+    normalizeLegacyAuthType(profile?.kind) ??
+    'oauth'
+  );
+}
+
 function builtinAccountIdForClient(client) {
   const spec = BUILTIN_ACCOUNT_SPECS.find((s) => s.client === client);
   if (!spec) throw new Error(`Unsupported client "${client}"`);
@@ -208,7 +226,7 @@ function migrateLegacyProfiles(projectDir) {
     if (!id || id in accounts) continue;
     // F340: protocol not migrated — derived at runtime from well-known account IDs.
     accounts[id] = {
-      authType: p.authType ?? 'oauth',
+      authType: inferLegacyAuthType(p),
       ...(p.displayName ? { displayName: String(p.displayName) } : {}),
       ...(p.baseUrl ? { baseUrl: String(p.baseUrl).replace(/\/+$/, '') } : {}),
       ...(Array.isArray(p.models) ? { models: p.models.map(String) } : {}),

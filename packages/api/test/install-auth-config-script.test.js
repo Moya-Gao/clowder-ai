@@ -345,6 +345,69 @@ test('claude-profile set migrates and preserves non-anthropic accounts from lega
   }
 });
 
+test('client-auth set infers legacy api_key authType from mode/kind fields during migration', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-legacy-authtype-'));
+
+  try {
+    const profileDir = join(projectRoot, '.cat-cafe');
+    mkdirSync(profileDir, { recursive: true });
+    writeFileSync(
+      join(profileDir, 'provider-profiles.json'),
+      `${JSON.stringify(
+        {
+          version: 2,
+          profiles: [
+            {
+              id: 'legacy-mode-profile',
+              provider: 'legacy-mode-profile',
+              displayName: 'Legacy Mode Profile',
+              mode: 'api_key',
+              protocol: 'openai',
+              baseUrl: 'https://mode.example',
+            },
+            {
+              id: 'legacy-kind-profile',
+              provider: 'legacy-kind-profile',
+              displayName: 'Legacy Kind Profile',
+              kind: 'api_key',
+              protocol: 'anthropic',
+              baseUrl: 'https://kind.example',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+    writeFileSync(
+      join(profileDir, 'provider-profiles.secrets.local.json'),
+      `${JSON.stringify(
+        {
+          version: 2,
+          profiles: {
+            'legacy-mode-profile': { apiKey: 'mode-key' },
+            'legacy-kind-profile': { apiKey: 'kind-key' },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'openai', '--mode', 'oauth']);
+
+    const { accounts, credentials } = readInstallerState(projectRoot);
+    assert.equal(accounts['legacy-mode-profile']?.authType, 'api_key');
+    assert.equal(accounts['legacy-kind-profile']?.authType, 'api_key');
+    assert.equal(credentials['legacy-mode-profile']?.apiKey, 'mode-key');
+    assert.equal(credentials['legacy-kind-profile']?.apiKey, 'kind-key');
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test('claude-profile v2 migration preserves non-installer accounts and secrets on set/remove', () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-claude-v2-migrate-'));
 
