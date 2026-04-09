@@ -5,7 +5,7 @@
  * and enforces LL-043: legacy source present + no accounts = hard error.
  */
 import { hasLegacyProviderProfiles, readCatalogAccounts } from './catalog-accounts.js';
-import { readCredentials } from './credentials.js';
+import { assertCredentialsReadable } from './credentials.js';
 
 export interface AccountStartupResult {
   accountCount: number;
@@ -33,7 +33,7 @@ export function accountStartupHook(projectRoot: string): AccountStartupResult {
 
   // Verify credentials file is readable (fail-fast on corrupt JSON)
   try {
-    readCredentials(projectRoot);
+    assertCredentialsReadable(projectRoot);
   } catch (err) {
     throw new Error(`F340 startup: credentials read failed — ${err instanceof Error ? err.message : String(err)}`);
   }

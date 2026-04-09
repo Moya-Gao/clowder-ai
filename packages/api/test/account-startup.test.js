@@ -102,4 +102,15 @@ describe('accountStartupHook (F340 fail-fast)', () => {
 
     assert.throws(() => accountStartupHook(projectRoot), /LL-043/);
   });
+
+  it('fails fast when credentials.json is malformed', async () => {
+    const { accountStartupHook } = await import(`../dist/config/account-startup.js?t=${Date.now()}-5`);
+    const { resetMigrationState, writeCatalogAccount } = await import('../dist/config/catalog-accounts.js');
+    resetMigrationState();
+
+    writeCatalogAccount(projectRoot, 'claude', { authType: 'oauth' });
+    await writeFile(join(globalRoot, '.cat-cafe', 'credentials.json'), '{not valid json', 'utf-8');
+
+    assert.throws(() => accountStartupHook(projectRoot), /credentials read failed/i);
+  });
 });

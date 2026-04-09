@@ -522,7 +522,7 @@ function Set-ClaudeInstallerProfile {
 
 function Remove-ClaudeInstallerProfile {
     param($State)
-    Invoke-InstallerAuthHelper $State @("claude-profile", "remove", "--project-dir", $State.ProjectRoot, "--force", "true")
+    Invoke-InstallerAuthHelper $State @("claude-profile", "remove", "--project-dir", $State.ProjectRoot)
 }
 
 function Read-InstallerSecret {

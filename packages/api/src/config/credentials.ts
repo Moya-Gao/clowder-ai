@@ -51,6 +51,17 @@ function readAll(projectRoot?: string): Record<string, CredentialEntry> {
   }
 }
 
+export function assertCredentialsReadable(projectRoot?: string): void {
+  const credPath = resolveCredentialsPath(projectRoot);
+  if (!existsSync(credPath)) return;
+
+  const raw = readFileSync(credPath, 'utf-8');
+  const parsed = JSON.parse(raw);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`Invalid credentials JSON at ${credPath}: expected object`);
+  }
+}
+
 function writeAll(creds: Record<string, CredentialEntry>, projectRoot?: string): void {
   const credPath = resolveCredentialsPath(projectRoot);
   mkdirSync(resolve(resolveGlobalRoot(projectRoot), CONFIG_SUBDIR), { recursive: true });
