@@ -16,7 +16,7 @@ import type { AgentMessage, MessageMetadata } from '../../../types.js';
 import { buildKernelPrompt } from './catagent-kernel-prompt.js';
 import { microcompact } from './catagent-microcompact.js';
 import { createToolRegistry, getToolSchemas } from './catagent-tools.js';
-import type { CatAgentLoopConfig, CatAgentTool } from './catagent-types.js';
+import type { CatAgentLoopConfig, CatAgentTool, SessionTokenUsage } from './catagent-types.js';
 
 const log = createModuleLogger('catagent-loop');
 
@@ -30,16 +30,31 @@ export async function* runCatAgentLoop(
   config: CatAgentLoopConfig,
   customSystemPrompt?: string,
 ): AsyncGenerator<AgentMessage, void, undefined> {
-  const client = new Anthropic({ apiKey: config.apiKey, baseURL: config.baseURL });
+  // biome-ignore lint: test seam — cast mock client to Anthropic for DI
+  const client = (config._testClient ?? new Anthropic({ apiKey: config.apiKey, baseURL: config.baseURL })) as Anthropic;
   const toolRegistry = createToolRegistry(config.workingDirectory);
   const toolSchemas = getToolSchemas(toolRegistry);
   const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: prompt }];
   const sessionId = `catagent-${config.catId}-${Date.now()}`;
 
+  const usage: SessionTokenUsage = { totalInputTokens: 0, totalOutputTokens: 0, turns: 0 };
+
   yield makeMessage(config.catId, 'session_init', { sessionId });
 
   for (let turn = 1; turn <= config.maxTurns; turn++) {
     if (config.signal?.aborted) break;
+
+    // Budget guard: stop if cumulative tokens exceed limit
+    if (config.tokenBudgetLimit > 0) {
+      const total = usage.totalInputTokens + usage.totalOutputTokens;
+      if (total >= config.tokenBudgetLimit) {
+        log.warn(`[turn ${turn}] token budget exhausted: ${total}/${config.tokenBudgetLimit}`);
+        yield makeMessage(config.catId, 'text', {
+          content: `[Token budget exhausted: ${total} tokens used of ${config.tokenBudgetLimit} limit. Stopping.]`,
+        });
+        break;
+      }
+    }
 
     const systemPrompt = buildKernelPrompt({
       catId: config.catId,
@@ -52,7 +67,9 @@ export async function* runCatAgentLoop(
 
     // MicroCompact: strip old tool results before API call (Claude Code pattern)
     const compactedMessages = microcompact(messages);
-    log.debug(`[turn ${turn}] calling API with ${compactedMessages.length} messages`);
+    log.debug(
+      `[turn ${turn}] calling API with ${compactedMessages.length} messages, tokens=${usage.totalInputTokens + usage.totalOutputTokens}`,
+    );
 
     let response: Anthropic.Messages.Message;
     try {
@@ -70,11 +87,16 @@ export async function* runCatAgentLoop(
       return;
     }
 
+    // Track cumulative usage
+    usage.totalInputTokens += response.usage.input_tokens;
+    usage.totalOutputTokens += response.usage.output_tokens;
+    usage.turns = turn;
+
     const textContent = extractText(response.content);
     if (textContent) {
       yield makeMessage(config.catId, 'text', {
         content: textContent,
-        metadata: buildMetadata(sessionId, response),
+        metadata: buildSessionMetadata(sessionId, response, usage),
       });
     }
 
@@ -86,7 +108,19 @@ export async function* runCatAgentLoop(
     messages.push({ role: 'user', content: toolResults });
   }
 
-  yield makeMessage(config.catId, 'done', { isFinal: true });
+  yield makeMessage(config.catId, 'done', {
+    isFinal: true,
+    metadata: {
+      provider: 'anthropic-api',
+      model: config.model,
+      sessionId,
+      usage: {
+        inputTokens: usage.totalInputTokens,
+        outputTokens: usage.totalOutputTokens,
+        numTurns: usage.turns,
+      },
+    },
+  });
 }
 
 /** Execute tool calls serially, yielding progress messages */
@@ -144,15 +178,20 @@ function extractText(content: ContentBlock[]): string {
     .join('');
 }
 
-function buildMetadata(sessionId: string, response: Anthropic.Messages.Message): MessageMetadata {
+function buildSessionMetadata(
+  sessionId: string,
+  response: Anthropic.Messages.Message,
+  cumulative: SessionTokenUsage,
+): MessageMetadata {
   return {
     provider: 'anthropic-api',
     model: response.model,
     sessionId,
     usage: {
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
-      numTurns: 1,
+      inputTokens: cumulative.totalInputTokens,
+      outputTokens: cumulative.totalOutputTokens,
+      lastTurnInputTokens: response.usage.input_tokens,
+      numTurns: cumulative.turns,
     },
   };
 }

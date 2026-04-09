@@ -31,13 +31,18 @@ export function microcompact(messages: MessageParam[]): MessageParam[] {
     if (hasToolResults(messages[i])) toolResultIndices.push(i);
   }
 
-  // If few enough tool result turns, no compaction needed
-  if (toolResultIndices.length <= KEEP_RECENT_TURNS) return messages;
+  // If few enough tool result turns, still truncate oversized results
+  if (toolResultIndices.length <= KEEP_RECENT_TURNS) {
+    return messages.map((msg) => (hasToolResults(msg) ? truncateKeptResults(msg) : msg));
+  }
 
   const cutoffIdx = toolResultIndices[toolResultIndices.length - KEEP_RECENT_TURNS];
   return messages.map((msg, i) => {
-    if (i >= cutoffIdx || !hasToolResults(msg)) return msg;
-    return compactToolResults(msg);
+    if (!hasToolResults(msg)) return msg;
+    // Old turns: replace content with placeholder
+    if (i < cutoffIdx) return compactToolResults(msg);
+    // Kept turns: truncate oversized results
+    return truncateKeptResults(msg);
   });
 }
 
@@ -59,8 +64,17 @@ function compactToolResults(msg: MessageParam): MessageParam {
   return { ...msg, content: blocks };
 }
 
-/** Truncate a tool result if it exceeds the max length (for kept turns) */
-export function truncateToolResult(content: string): string {
-  if (content.length <= MAX_RESULT_CHARS) return content;
-  return `${content.slice(0, MAX_RESULT_CHARS)}\n... (truncated ${content.length - MAX_RESULT_CHARS} chars)`;
+/** Truncate kept-turn tool results that exceed max length */
+function truncateKeptResults(msg: MessageParam): MessageParam {
+  if (msg.role !== 'user' || typeof msg.content === 'string') return msg;
+  const blocks = (msg.content as ContentBlockParam[]).map((block) => {
+    if (block.type !== 'tool_result') return block;
+    const tb = block as ToolResultBlockParam;
+    if (typeof tb.content !== 'string' || tb.content.length <= MAX_RESULT_CHARS) return block;
+    return {
+      ...tb,
+      content: `${tb.content.slice(0, MAX_RESULT_CHARS)}\n... (truncated ${tb.content.length - MAX_RESULT_CHARS} chars)`,
+    } satisfies ToolResultBlockParam;
+  });
+  return { ...msg, content: blocks };
 }

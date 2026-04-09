@@ -22,6 +22,8 @@ const log = createModuleLogger('catagent-service');
 const DEFAULT_MAX_TURNS = 20;
 /** Default max output tokens per LLM call */
 const DEFAULT_MAX_TOKENS = 8192;
+/** Default cumulative token budget (input+output). ~200K = ~10 substantial turns. */
+const DEFAULT_TOKEN_BUDGET = 200_000;
 
 export class CatAgentService implements AgentService {
   private readonly catId: CatId;
@@ -57,6 +59,7 @@ export class CatAgentService implements AgentService {
         baseURL: creds.baseURL,
         maxTurns: DEFAULT_MAX_TURNS,
         maxTokens: DEFAULT_MAX_TOKENS,
+        tokenBudgetLimit: DEFAULT_TOKEN_BUDGET,
         workingDirectory,
         signal: options?.signal,
       },

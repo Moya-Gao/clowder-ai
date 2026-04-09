@@ -38,10 +38,18 @@ test('buildKernelPrompt includes identity and iron laws', () => {
 
 test('buildKernelPrompt rebuilds with different turn numbers', () => {
   const p1 = buildKernelPrompt({
-    catId: 'opus', catName: 'test', model: 'm', workingDirectory: '/tmp', turnNumber: 1,
+    catId: 'opus',
+    catName: 'test',
+    model: 'm',
+    workingDirectory: '/tmp',
+    turnNumber: 1,
   });
   const p5 = buildKernelPrompt({
-    catId: 'opus', catName: 'test', model: 'm', workingDirectory: '/tmp', turnNumber: 5,
+    catId: 'opus',
+    catName: 'test',
+    model: 'm',
+    workingDirectory: '/tmp',
+    turnNumber: 5,
   });
   assert.ok(p1.includes('Turn: 1'));
   assert.ok(p5.includes('Turn: 5'));
@@ -50,7 +58,11 @@ test('buildKernelPrompt rebuilds with different turn numbers', () => {
 
 test('buildKernelPrompt includes custom system prompt', () => {
   const prompt = buildKernelPrompt({
-    catId: 'opus', catName: 'test', model: 'm', workingDirectory: '/tmp', turnNumber: 1,
+    catId: 'opus',
+    catName: 'test',
+    model: 'm',
+    workingDirectory: '/tmp',
+    turnNumber: 1,
     customSystemPrompt: 'You are a code reviewer.',
   });
   assert.ok(prompt.includes('You are a code reviewer.'));

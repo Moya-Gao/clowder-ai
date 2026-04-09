@@ -33,10 +33,21 @@ export interface CatAgentLoopConfig {
   maxTurns: number;
   /** Maximum output tokens per LLM call */
   maxTokens: number;
+  /** Cumulative token budget (input+output) before forced stop. 0 = unlimited. */
+  tokenBudgetLimit: number;
   /** Working directory for file tools */
   workingDirectory: string;
   /** AbortSignal for cancellation */
   signal?: AbortSignal;
+  /** Test-only: inject a mock Anthropic client */
+  _testClient?: { messages: { create: (params: unknown) => Promise<unknown> } };
+}
+
+/** Cumulative token usage across the entire agent session */
+export interface SessionTokenUsage {
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  turns: number;
 }
 
 /** Kernel prompt context — rebuilt every turn */
