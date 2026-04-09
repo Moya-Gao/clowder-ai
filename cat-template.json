@@ -612,7 +612,7 @@
         {
           "id": "opencode-default",
           "clientId": "opencode",
-          "defaultModel": "anthropic/claude-opus-4-6",
+          "defaultModel": "claude-opus-4-6",
           "mcpSupport": true,
           "cli": {
             "command": "opencode",
