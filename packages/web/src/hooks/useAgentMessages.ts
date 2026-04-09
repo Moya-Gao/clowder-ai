@@ -106,8 +106,12 @@ export function useAgentMessages() {
 
   /** #586 follow-up: Track just-finalized stream bubble per cat. Set on done when
    *  activeRefs entry existed, consumed by callback replacement or next invocation start.
-   *  Prevents the greedy scan from matching arbitrary historical messages. */
-  const finalizedStreamRef = useRef<Map<string, string>>(new Map());
+   *  Prevents the greedy scan from matching arbitrary historical messages.
+   *  fencedAt: set by invocation_created to mark the boundary — allows late callbacks
+   *  within a grace period but blocks new-invocation callbacks (P1 guard). */
+  const finalizedStreamRef = useRef<Map<string, { messageId: string; invocationId?: string; fencedAt?: number }>>(
+    new Map(),
+  );
 
   /** Bug C P2: Track whether stream data was received per cat (avoids false catch-up on callback-only flows) */
   const sawStreamDataRef = useRef<Set<string>>(new Set());
@@ -272,53 +276,65 @@ export function useAgentMessages() {
     return null;
   }, []);
 
-  const findInvocationlessStreamPlaceholder = useCallback((catId: string): { id: string } | null => {
-    const currentMessages = useChatStore.getState().messages;
-    const activeId = activeRefs.current.get(catId)?.id;
+  const findInvocationlessStreamPlaceholder = useCallback(
+    (catId: string, callbackContent?: string): { id: string } | null => {
+      const currentMessages = useChatStore.getState().messages;
+      const activeId = activeRefs.current.get(catId)?.id;
 
-    if (activeId) {
-      const activeMessage = currentMessages.find(
-        (msg) =>
-          msg.id === activeId &&
-          msg.type === 'assistant' &&
+      if (activeId) {
+        const activeMessage = currentMessages.find(
+          (msg) =>
+            msg.id === activeId &&
+            msg.type === 'assistant' &&
+            msg.catId === catId &&
+            msg.origin === 'stream' &&
+            !msg.extra?.stream?.invocationId,
+        );
+        if (activeMessage) {
+          return { id: activeMessage.id };
+        }
+      }
+
+      // First pass: find actively-streaming invocationless bubble
+      for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
+        const msg = currentMessages[i];
+        if (
+          msg?.type === 'assistant' &&
           msg.catId === catId &&
           msg.origin === 'stream' &&
-          !msg.extra?.stream?.invocationId,
-      );
-      if (activeMessage) {
-        return { id: activeMessage.id };
+          msg.isStreaming &&
+          !msg.extra?.stream?.invocationId
+        ) {
+          return { id: msg.id };
+        }
       }
-    }
 
-    // First pass: find actively-streaming invocationless bubble
-    for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
-      const msg = currentMessages[i];
-      if (
-        msg?.type === 'assistant' &&
-        msg.catId === catId &&
-        msg.origin === 'stream' &&
-        msg.isStreaming &&
-        !msg.extra?.stream?.invocationId
-      ) {
-        return { id: msg.id };
+      // #586 follow-up: Check finalizedStreamRef — the done handler records the
+      // exact message ID of the just-finalized stream bubble. This avoids the
+      // greedy scan that could match arbitrary historical messages (P1 from review).
+      const finalizedEntry = finalizedStreamRef.current.get(catId);
+      if (finalizedEntry) {
+        const finalized = currentMessages.find(
+          (m) =>
+            m.id === finalizedEntry.messageId && m.type === 'assistant' && m.catId === catId && m.origin === 'stream',
+        );
+        if (finalized) {
+          // #586 P1 guard: if invocation_created has fired since finalization
+          // (fencedAt is set), apply time + content fence to prevent a callback-only
+          // inv-2 from silently overwriting inv-1's finalized bubble.
+          if (finalizedEntry.fencedAt) {
+            const LATE_CALLBACK_GRACE_MS = 5_000;
+            if (Date.now() - finalizedEntry.fencedAt > LATE_CALLBACK_GRACE_MS) return null;
+            if (callbackContent !== undefined && finalized.content !== callbackContent) return null;
+          }
+          return { id: finalized.id };
+        }
       }
-    }
 
-    // #586 follow-up: Check finalizedStreamRef — the done handler records the
-    // exact message ID of the just-finalized stream bubble. This avoids the
-    // greedy scan that could match arbitrary historical messages (P1 from review).
-    const finalizedId = finalizedStreamRef.current.get(catId);
-    if (finalizedId) {
-      const finalized = currentMessages.find(
-        (m) => m.id === finalizedId && m.type === 'assistant' && m.catId === catId && m.origin === 'stream',
-      );
-      if (finalized) {
-        return { id: finalized.id };
-      }
-    }
-
-    return null;
-  }, []);
+      return null;
+    },
+    [],
+  );
 
   const getOrRecoverActiveAssistantMessageId = useCallback(
     (catId: string, metadata?: AgentMsg['metadata'], options?: { ensureStreaming?: boolean }): string | null => {
@@ -430,8 +446,8 @@ export function useAgentMessages() {
           const hasExplicitInvocationId = !!msg.invocationId;
           const replacementTarget = invocationId
             ? (findCallbackReplacementTarget(msg.catId, invocationId) ??
-              (hasExplicitInvocationId ? null : findInvocationlessStreamPlaceholder(msg.catId)))
-            : findInvocationlessStreamPlaceholder(msg.catId);
+              (hasExplicitInvocationId ? null : findInvocationlessStreamPlaceholder(msg.catId, msg.content)))
+            : findInvocationlessStreamPlaceholder(msg.catId, msg.content);
 
           if (replacementTarget) {
             const finalId = msg.messageId ?? replacementTarget.id;
@@ -588,7 +604,11 @@ export function useAgentMessages() {
           // #586 follow-up: Record the finalized bubble so callback can find it
           // even after isStreaming=false + activeRefs cleared. Unlike a greedy
           // scan, this is scoped to the exact just-finalized message only.
-          finalizedStreamRef.current.set(msg.catId, messageId);
+          const finalizedMsg = useChatStore.getState().messages.find((m) => m.id === messageId);
+          finalizedStreamRef.current.set(msg.catId, {
+            messageId,
+            invocationId: finalizedMsg?.extra?.stream?.invocationId,
+          });
           activeRefs.current.delete(msg.catId);
         }
         // Bugfix: clear stale invocationId so findRecoverableAssistantMessage
@@ -685,17 +705,15 @@ export function useAgentMessages() {
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
             sysVariant = 'a2a_followup';
           } else if (parsed?.type === 'invocation_created') {
-            // New invocation boundary: clear stale task snapshot for this cat.
-            // #586 P3: Do NOT clear finalizedStreamRef here — late callbacks from the
-            // previous invocation need it to find their finalized stream bubble.
-            // Cross-invocation misreplacement is guarded by findCallbackReplacementTarget's
-            // strict invocationId match: callbacks WITH explicit invocationId go through
-            // the strict path first; only legacy callbacks (no invocationId) reach
-            // findInvocationlessStreamPlaceholder, which is acceptable — the most recent
-            // finalized bubble is the best guess when the backend omits invocationId.
-            // The entry is consumed after successful replacement (line ~453) and cleared
-            // on thread switch (resetRefs).
+            // #586 P3+P1: Fence finalizedStreamRef — late callbacks from the previous
+            // invocation still need the ref, but fencedAt enables the time + content
+            // guard in findInvocationlessStreamPlaceholder to prevent new-invocation
+            // callbacks from silently overwriting the previous bubble.
             const targetCatId = parsed.catId ?? msg.catId;
+            const existingEntry = finalizedStreamRef.current.get(targetCatId);
+            if (existingEntry && !existingEntry.fencedAt) {
+              existingEntry.fencedAt = Date.now();
+            }
             const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
             if (targetCatId && invocationId) {
               setCatInvocation(targetCatId, {

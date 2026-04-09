@@ -21,7 +21,7 @@ import {
 let testBgSeq = 0;
 const testBgStreamRefs = new Map<string, { id: string; threadId: string; catId: string }>();
 const testBgReplacedInvocations = new Map<string, string>();
-const testBgFinalizedRefs = new Map<string, string>();
+const testBgFinalizedRefs = new Map<string, { messageId: string; invocationId?: string; fencedAt?: number }>();
 
 /** #80 fix-C: Track clearDoneTimeout calls */
 let clearDoneTimeoutCalls: Array<string | undefined> = [];
@@ -329,6 +329,118 @@ describe('background thread socket handling', () => {
           extra: { stream: { invocationId: 'inv-bg-2' } },
         }),
       ]);
+    });
+
+    it('P1 regression: callback with DIFFERENT content does NOT merge across bg invocation boundary', () => {
+      const now = Date.now();
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-p1' });
+
+      // Stream bubble finalized — stopTrackedStream will set finalizedBgRefs
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-p1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Response from inv-1',
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-p1' } },
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', { id: 'bg-stream-p1', threadId: 'thread-bg', catId: 'opus' });
+
+      // Done event → finalizes and sets finalizedBgRefs
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      // invocation_created for inv-2 → fences finalizedBgRefs
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-p1-v2',
+        }),
+        timestamp: now + 2,
+      });
+
+      // Callback from inv-2 with DIFFERENT content
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: 'Scheduled task created',
+        messageId: 'bg-cb-p1-new',
+        timestamp: now + 3,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      // Both messages should exist — inv-2 callback must NOT overwrite inv-1's bubble
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[0]!.content).toBe('Response from inv-1');
+      expect(ts.messages[1]!.content).toBe('Scheduled task created');
+    });
+
+    it('P2 parity: late callback with SAME content merges across bg invocation boundary', () => {
+      const now = Date.now();
+      const responseText = 'Response from inv-1';
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-p2' });
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-p2',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-p2' } },
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', { id: 'bg-stream-p2', threadId: 'thread-bg', catId: 'opus' });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-p2-v2',
+        }),
+        timestamp: now + 2,
+      });
+
+      // Late callback with SAME content — should merge (true late dup)
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: responseText,
+        messageId: 'bg-cb-p2-dup',
+        timestamp: now + 3,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      // Should merge — only 1 message
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]!.id).toBe('bg-cb-p2-dup');
+      expect(ts.messages[0]!.origin).toBe('callback');
     });
 
     it('drops late background stream chunks after callback replacement', () => {

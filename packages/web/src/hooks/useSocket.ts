@@ -225,7 +225,9 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
   const bgReplacedInvocationsRef = useRef<Map<string, string>>(new Map());
-  const bgFinalizedRefsRef = useRef<Map<string, string>>(new Map());
+  const bgFinalizedRefsRef = useRef<Map<string, { messageId: string; invocationId?: string; fencedAt?: number }>>(
+    new Map(),
+  );
   const bgSeqRef = useRef(0);
   const userIdRef = useRef(getUserId());
   const threadIdRef = useRef(threadId);

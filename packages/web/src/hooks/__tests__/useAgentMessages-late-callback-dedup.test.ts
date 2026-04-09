@@ -121,17 +121,19 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     container.remove();
   });
 
-  it('late callback from previous invocation finds finalized bubble after invocation_created', () => {
+  it('late callback with SAME content merges into finalized bubble after invocation_created', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
+
+    const responseText = 'Response from inv-1';
 
     // Invocation 1: streaming message
     const bubble1 = {
       id: 'msg-inv1',
       type: 'assistant',
       catId: 'opus',
-      content: 'Response from inv-1',
+      content: responseText,
       isStreaming: true,
       origin: 'stream',
       extra: { stream: { invocationId: 'inv-1' } },
@@ -145,7 +147,7 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
       captured?.handleAgentMessage({
         type: 'text',
         catId: 'opus',
-        content: 'Response from inv-1',
+        content: responseText,
       });
     });
 
@@ -158,7 +160,7 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
       });
     });
 
-    // Invocation 2 starts — invocation_created arrives
+    // Invocation 2 starts — invocation_created arrives (fences finalizedStreamRef)
     act(() => {
       captured?.handleAgentMessage({
         type: 'system_info',
@@ -173,22 +175,19 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
 
     vi.clearAllMocks();
 
-    // Late callback from inv-1 arrives WITHOUT msg.invocationId
-    // (e.g., MCP post_message where backend omitted invocationId)
+    // Late callback from inv-1 arrives WITHOUT msg.invocationId but with
+    // SAME content as the finalized bubble — should merge (true late dup)
     act(() => {
       captured?.handleAgentMessage({
         type: 'text',
         catId: 'opus',
         origin: 'callback',
-        content: 'Final callback from inv-1',
+        content: responseText,
       });
     });
 
-    // Key assertion: should patch the finalized bubble (msg-inv1), NOT create a new bubble.
-    // The finalizedStreamRef should have survived invocation_created.
-    const patchCalls = mockPatchMessage.mock.calls.filter(
-      ([id]) => id === 'msg-inv1',
-    );
+    // Key assertion: should patch the finalized bubble (msg-inv1)
+    const patchCalls = mockPatchMessage.mock.calls.filter(([id]) => id === 'msg-inv1');
     expect(patchCalls.length).toBeGreaterThanOrEqual(1);
 
     // No new assistant bubble should be created
@@ -196,6 +195,78 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
       ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
     );
     expect(newBubbleCalls).toHaveLength(0);
+  });
+
+  it('P1 regression: callback with DIFFERENT content does NOT merge across invocation boundary', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // Invocation 1: streaming + finalize
+    const bubble1 = {
+      id: 'msg-inv1',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'Response from inv-1',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-1' } },
+      timestamp: Date.now() - 3000,
+    };
+    storeState.messages.push(bubble1);
+    storeState.catInvocations = { opus: { invocationId: 'inv-1' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'Response from inv-1',
+      });
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        isFinal: true,
+      });
+    });
+
+    // Invocation 2: callback-only (e.g. post_message) — invocation_created fences the ref
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-2',
+        }),
+      });
+    });
+
+    vi.clearAllMocks();
+
+    // Inv-2's callback with DIFFERENT content — must NOT overwrite inv-1's bubble
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'Scheduled task created',
+      });
+    });
+
+    // Should NOT patch the finalized bubble
+    const patchCalls = mockPatchMessage.mock.calls.filter(([id]) => id === 'msg-inv1');
+    expect(patchCalls).toHaveLength(0);
+
+    // Should create a new bubble for inv-2's output
+    const newBubbleCalls = mockAddMessage.mock.calls.filter(
+      ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
+    );
+    expect(newBubbleCalls).toHaveLength(1);
+    expect(newBubbleCalls[0][0].content).toBe('Scheduled task created');
   });
 
   it('thread switch clears finalizedStreamRef (resetRefs still works)', () => {

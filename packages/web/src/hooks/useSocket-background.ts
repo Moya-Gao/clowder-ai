@@ -76,9 +76,14 @@ function stopTrackedStream(
   const existing = options.bgStreamRefs.get(streamKey);
   if (!existing) return undefined;
   options.store.setThreadMessageStreaming(msg.threadId, existing.id, false);
-  // #586 follow-up: Record finalized bubble ID so callback can find it
+  // #586 follow-up: Record finalized bubble so callback can find it
   // after bgStreamRefs is cleared and isStreaming is false.
-  options.finalizedBgRefs.set(streamKey, existing.id);
+  const threadMsgs = options.store.getThreadState(msg.threadId).messages;
+  const finalizedMsg = threadMsgs.find((m) => m.id === existing.id);
+  options.finalizedBgRefs.set(streamKey, {
+    messageId: existing.id,
+    invocationId: finalizedMsg?.extra?.stream?.invocationId,
+  });
   options.bgStreamRefs.delete(streamKey);
   return existing;
 }
@@ -192,12 +197,19 @@ function findBackgroundCallbackReplacementTarget(
   // message ID of the just-finalized stream bubble. This avoids the greedy scan
   // that could match arbitrary historical messages (P1 from review).
   const streamKey = `${msg.threadId}::${msg.catId}`;
-  const finalizedId = options.finalizedBgRefs.get(streamKey);
-  if (finalizedId) {
+  const finalizedEntry = options.finalizedBgRefs.get(streamKey);
+  if (finalizedEntry) {
     const finalized = threadMessages.find(
-      (m) => m.id === finalizedId && m.type === 'assistant' && m.catId === msg.catId && m.origin === 'stream',
+      (m) =>
+        m.id === finalizedEntry.messageId && m.type === 'assistant' && m.catId === msg.catId && m.origin === 'stream',
     );
     if (finalized) {
+      // #586 P1 guard: time + content fence across invocation boundary
+      if (finalizedEntry.fencedAt) {
+        const LATE_CALLBACK_GRACE_MS = 5_000;
+        if (Date.now() - finalizedEntry.fencedAt > LATE_CALLBACK_GRACE_MS) return null;
+        if (msg.content && finalized.content && finalized.content !== msg.content) return null;
+      }
       return { id: finalized.id, invocationId: invocationId ?? null };
     }
   }

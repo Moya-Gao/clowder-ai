@@ -208,26 +208,27 @@ describe('chatStore multi-thread state', () => {
       ]);
     });
 
-    it('TD112 Phase 3: callback without invocationId merges into recent finalized stream bubble', () => {
+    it('TD112 Phase 3: callback with SAME content merges into recent finalized stream bubble', () => {
       const now = Date.now();
+      const responseText = 'Stream output from inv-1';
       // Finalized stream bubble from a previous invocation (has invocationId, not streaming)
       useChatStore.getState().addMessage({
         id: 'stream-inv1',
         type: 'assistant',
         catId: 'opus',
-        content: 'Stream output from inv-1',
+        content: responseText,
         origin: 'stream',
         extra: { stream: { invocationId: 'inv-1' } },
         timestamp: now - 2000,
         isStreaming: false,
       });
 
-      // Late callback without invocationId — should merge into the finalized stream
+      // Late callback without invocationId, same content — should merge (true duplicate)
       useChatStore.getState().addMessage({
         id: 'late-callback',
         type: 'assistant',
         catId: 'opus',
-        content: 'Final callback from inv-1',
+        content: responseText,
         origin: 'callback',
         timestamp: now,
       });
@@ -236,7 +237,36 @@ describe('chatStore multi-thread state', () => {
       expect(useChatStore.getState().messages).toHaveLength(1);
       expect(useChatStore.getState().messages[0]!.id).toBe('stream-inv1');
       expect(useChatStore.getState().messages[0]!.origin).toBe('callback');
-      expect(useChatStore.getState().messages[0]!.content).toBe('Final callback from inv-1');
+    });
+
+    it('TD112 Phase 3 P1: callback with DIFFERENT content does NOT merge (cross-invocation guard)', () => {
+      const now = Date.now();
+      // Finalized stream from inv-1
+      useChatStore.getState().addMessage({
+        id: 'stream-inv1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Response from inv-1',
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-1' } },
+        timestamp: now - 2000,
+        isStreaming: false,
+      });
+
+      // Callback from inv-2 (different content) — must NOT overwrite inv-1
+      useChatStore.getState().addMessage({
+        id: 'inv2-callback',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Scheduled task created',
+        origin: 'callback',
+        timestamp: now,
+      });
+
+      // Content differs — Phase 3 should NOT merge
+      expect(useChatStore.getState().messages).toHaveLength(2);
+      expect(useChatStore.getState().messages[0]!.content).toBe('Response from inv-1');
+      expect(useChatStore.getState().messages[1]!.content).toBe('Scheduled task created');
     });
 
     it('TD112 Phase 3: does NOT merge callback into old (>30s) finalized stream', () => {

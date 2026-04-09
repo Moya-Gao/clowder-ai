@@ -336,7 +336,8 @@ function findAssistantDuplicate(messages: ChatMessage[], incoming: ChatMessage):
   // hook-level finalizedStreamRef was consumed/cleared but a late callback from a
   // previous invocation still needs to merge.
   // Constraints: existing must be finalized (not streaming), have invocationId (Phase 2
-  // handles invocationless), recent (within 30s), and match visibility/replyTo.
+  // handles invocationless), recent (within 30s), match visibility/replyTo, and
+  // content must match (prevents callback-only inv-2 from overwriting inv-1's bubble).
   for (let i = messages.length - 1; i >= 0; i--) {
     const existing = messages[i]!;
     if (existing.type !== 'assistant' || existing.catId !== incoming.catId) continue;
@@ -348,6 +349,9 @@ function findAssistantDuplicate(messages: ChatMessage[], incoming: ChatMessage):
     // Match visibility and replyTo (consistent with Phase 2 constraints)
     if (incoming.replyTo !== existing.replyTo) continue;
     if ((incoming.visibility ?? 'public') !== (existing.visibility ?? 'public')) continue;
+    // #586 P1 (store-level): Content guard — only merge when content matches.
+    // Prevents a callback-only inv-2 from silently replacing inv-1's finalized bubble.
+    if (existing.content && incoming.content && existing.content !== incoming.content) continue;
     return i;
   }
 
