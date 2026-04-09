@@ -39,7 +39,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 - `/ask <猫名> <消息>` — 单次定向：把这条消息发给指定猫，不改变 preferredCats。**必须走正常 ConnectorRouter → append → route 流程**，禁止旁路 invokeTrigger（KD-4）
 
 **A2 — 猫名解析**：
-- 复用 `cat-config.json` 的 aliases 字段（F127 动态别名），不硬编码
+- 以 `catRegistry` 为猫名真相源（F127 动态别名），不硬编码静态文件
 - `normalizeCatId(input)` 查 catRegistry aliases + displayName partial match
 - **冲突策略**：多猫匹配同一输入时（如前缀重叠），返回候选列表并拒绝执行（"找到多只匹配的猫：opus, opus-45，请输入更精确的名字"），禁止猜测命中
 - 不可路由的猫返回明确错误（"该猫当前不可用"）
@@ -145,6 +145,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | 2026-04-09 | 立项，铲屎官 + 宪宪 + 砚砚讨论确认联合 #385 + #391 scope |
 | 2026-04-09 | Spec review R1：砚砚 2P1+2P2（路由语义 + /ask 边界 + /focus 单猫 + 全局 scope），烁烁 UX 设计（Pill 指示器 + 卡片选择器 + alias tooltip）；OQ-1~3 关闭为 KD-4~6 |
 | 2026-04-09 | Spec review R2（Design Gate）：砚砚 1P1+2P2（权限边界 + 实现路径歧义 + 猫名冲突策略）→ KD-7~8 + AC-A7；烁烁 UX 确认无补充 |
+| 2026-04-09 | **Design Gate 放行**（砚砚）— R2 三项全部落盘，无新增 P1/P2；烁烁 UX 已确认 |
 
 ## Review Gate
 
