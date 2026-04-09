@@ -295,9 +295,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
   log.info({ invocationId, catId, threadId, userId }, 'Created invocation');
 
-  // F152: Track active invocations
-  activeInvocations.add(1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
-
   // F22 R2 P1-1: Expose invocationId to caller (route-serial/parallel) so they can
   // use it for RichBlockBuffer.consume() instead of getLatestId() which is wrong
   // under preemption — old invocation A would steal new invocation B's blocks.
@@ -436,6 +433,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   let sessionMutexRelease: (() => void) | undefined;
 
   try {
+    // F152: Track active invocations — must be inside try so add/sub symmetry
+    // is guaranteed by the finally block, even on generator early abort.
+    activeInvocations.add(1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
+
     let sessionId: string | undefined;
     try {
       sessionId = await preflightRace(sessionManager.get(userId, catId, threadId), 'sessionManager.get', signal);

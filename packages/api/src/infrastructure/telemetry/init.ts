@@ -20,6 +20,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { createModuleLogger } from '../logger.js';
+import { validateSalt } from './hmac.js';
 import { createMetricAllowlistViews } from './metric-allowlist.js';
 import { RedactingLogProcessor, RedactingSpanProcessor } from './redactor.js';
 
@@ -37,7 +38,7 @@ export interface TelemetryConfig {
 const DEFAULT_CONFIG: Required<TelemetryConfig> = {
   serviceName: 'cat-cafe-api',
   serviceVersion: '0.1.0',
-  prometheusPort: 9464,
+  prometheusPort: process.env.PROMETHEUS_PORT ? Number(process.env.PROMETHEUS_PORT) : 9464,
   otlpEnabled: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
 };
 
@@ -54,6 +55,10 @@ export function initTelemetry(config?: TelemetryConfig): () => Promise<void> {
   }
 
   const cfg = { ...DEFAULT_CONFIG, ...config };
+
+  // P2 fix: validate HMAC salt at startup, not on first redaction call.
+  // Throws immediately if salt is missing in non-dev environments.
+  validateSalt();
 
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: cfg.serviceName,

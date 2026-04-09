@@ -26,6 +26,14 @@ function getSalt(): string {
 }
 
 /**
+ * Validate salt is available. Call at startup (in initTelemetry) to fail fast
+ * instead of deferring to the first pseudonymizeId() call.
+ */
+export function validateSalt(): void {
+  getSalt();
+}
+
+/**
  * HMAC-SHA256 pseudonymize an identifier.
  * Returns first 32 hex chars (128-bit, collision-safe for correlation).
  */
