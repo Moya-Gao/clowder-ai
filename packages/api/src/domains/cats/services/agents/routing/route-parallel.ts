@@ -94,6 +94,7 @@ export async function* routeParallel(
   let guideOfferOwner: string | undefined;
   /** catId that should receive the one-shot completion notice (offeredBy). */
   let guideCompletionOwner: string | undefined;
+  const targetCatIds = new Set<string>(targetCats);
   if (deps.invocationDeps.threadStore) {
     try {
       const thread = await deps.invocationDeps.threadStore.get(threadId);
@@ -236,7 +237,9 @@ export async function* routeParallel(
         (guideCandidate.status === 'completed'
           ? !guideCompletionOwner || guideCompletionOwner === catId
           : guideCandidate.status === 'offered'
-            ? !guideOfferOwner || guideOfferOwner === catId
+            ? !guideOfferOwner ||
+              guideOfferOwner === catId ||
+              (!!guideCandidate.userSelection && !targetCatIds.has(guideOfferOwner))
             : true)
           ? { guideCandidate, threadId }
           : {}),
