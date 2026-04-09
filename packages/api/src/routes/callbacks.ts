@@ -50,6 +50,8 @@ export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
+  /** F150 review fix: allow tests to inject a failing guide flow loader. */
+  loadGuideFlow?: (guideId: string) => unknown;
   taskStore?: ITaskStore;
   backlogStore?: IBacklogStore;
   /** For thinking mode filtering in thread-context */
@@ -1348,6 +1350,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
   // F150: Guide engine — state-validated routes with ThreadStore authority
   if (opts.threadStore) {
-    await registerCallbackGuideRoutes(app, { registry, threadStore: opts.threadStore, socketManager });
+    await registerCallbackGuideRoutes(app, {
+      registry,
+      threadStore: opts.threadStore,
+      socketManager,
+      ...(opts.loadGuideFlow ? { loadGuideFlow: opts.loadGuideFlow } : {}),
+    });
   }
 };
