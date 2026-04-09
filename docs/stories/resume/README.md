@@ -39,13 +39,13 @@ thread_ids: []
 
 | 领域 | 技能 |
 |------|------|
-| AI Agent 架构 | Multi-Agent Orchestration、A2A Protocol 设计、Agent 生命周期管理、Prompt Engineering、Tool/Skill 编排 |
-| LLM 工程 | Claude API/SDK、OpenAI API、Gemini API、多模型路由与 fallback、上下文窗口管理（F148 分层压缩）、Token 预算优化 |
+| 云基础设施 | Java / Spring / WebFlux、中间件架构归一、分布式调度与编排（ElasticJob / YAML DSL）、多环境适配 |
+| AI Agent 架构 | Multi-Agent Orchestration、Agent 间通信协议设计、Prompt Engineering、Tool 编排、Agent 生命周期管理 |
+| LLM 工程 | Claude / OpenAI / Gemini API 集成、多模型路由与 fallback、上下文窗口分层压缩、Token 预算优化、RAG（BM25 + 向量混合检索） |
 | 全栈工程 | TypeScript / Node.js / React / Next.js、Redis、SQLite、Monorepo (pnpm workspace)、MCP (Model Context Protocol) |
-| IM 集成 | 飞书 / 微信 / Telegram / DingTalk / WeCom 五渠道接入，消息路由、富媒体传输、扫码绑定 |
-| 开发流程 | TDD (Red-Green-Refactor)、Code Review 跨模型互审、Git Worktree 隔离开发、CI/CD 门禁 |
-| 产品思维 | 愿景驱动开发、Feature 生命周期管理、用户故事拆分、Design Gate |
-| `[待填]` | `[铲屎官补充其他技能 — 比如云原生/K8s/HarmonyOS/其他语言等]` |
+| IM 集成 | 飞书 / 微信 / Telegram / DingTalk / WeCom 五渠道接入，消息路由、富媒体传输 |
+| 开发流程 | TDD、Cross-Model Code Review、CI/CD 门禁、Git Worktree 隔离开发 |
+| `[待填]` | `[铲屎官补充其他技能 — 如 K8s/容器编排/HarmonyOS 等，按目标岗位调整]` |
 
 ---
 
@@ -174,10 +174,10 @@ thread_ids: []
 
 ### Skills
 
-- **AI/Agent**: Multi-Agent Orchestration, A2A Protocol Design, Prompt Engineering, LLM API Integration (Claude/GPT/Gemini), Context Window Management, RAG (BM25 + Vector)
-- **Engineering**: TypeScript, Node.js, React, Next.js, Redis, SQLite, MCP (Model Context Protocol), Monorepo (pnpm), Git Worktree Isolation
-- **Process**: TDD, Cross-Model Code Review, Feature Lifecycle Management, Vision-Driven Development
-- **Product**: IM Gateway Integration (5 channels), Skill Ecosystem Design, Enterprise Productization
+- **Cloud Infrastructure**: Java, Spring, WebFlux, Middleware Abstraction, Distributed Scheduling (ElasticJob, YAML DSL), Multi-Environment Adaptation
+- **AI/Agent**: Multi-Agent Orchestration, Agent Communication Protocol Design, Prompt Engineering, Tool Orchestration, LLM API Integration (Claude/GPT/Gemini), Context Window Management, RAG (BM25 + Vector)
+- **Full-Stack**: TypeScript, Node.js, React, Next.js, Redis, SQLite, MCP (Model Context Protocol), Monorepo (pnpm)
+- **Process**: TDD, Cross-Model Code Review, CI/CD Gating, IM Gateway Integration (5 channels)
 
 ---
 
