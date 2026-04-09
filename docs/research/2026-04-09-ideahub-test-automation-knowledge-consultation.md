@@ -84,18 +84,20 @@ AI 目前只有 AW 接口文档（"怎么调"）和示例脚本（"别人怎么�
 IdeaHub 的智慧多窗功能，允许屏幕同时显示两个应用画面。
 - 进入方式：点击侧边栏"智慧多窗"图标
 - 限制：部分信号源组合互斥（见规则表）
-- 对应 AW：awf.enter_split_screen(), awf.select_split_app(app_name)
+- 对应 AW（示意）：awf.enter_split_screen(), awf.select_split_app(app_name)
 
 ### OPS
 IdeaHub 内置的 Windows 计算模块（Open Pluggable Specification）。
 - 可独立显示，也可作为分屏应用之一
-- 对应 AW：awf.switch_to_ops(), awf.get_ops_status()
+- 对应 AW（示意）：awf.switch_to_ops(), awf.get_ops_status()
 
 ### Type-C 投屏
 通过 USB Type-C 接口的有线投屏方式。
 - 预置条件：物理线缆接入终端 Type-C 口
-- 对应 AW：awf.connect_typec_source(), awf.disconnect_typec_source()
+- 对应 AW（示意）：awf.connect_typec_source(), awf.disconnect_typec_source()
 ```
+
+> **注意**：以上函数名为示意，请映射到你们真实的 AW API。下文所有 `awf.*` 调用同理。
 
 #### b) 业务规则表（Business Rules）
 
@@ -191,7 +193,7 @@ AI 拿到用例描述
 
 ### 3.1 GitNexus — 纯 AST 代码图谱
 
-- **GitHub**：[abhigyanpatwari/GitNexus](https://github.com/abhigyanpatwari/GitNexus)（22.6k stars）
+- **GitHub**：[abhigyanpatwari/GitNexus](https://github.com/abhigyanpatwari/GitNexus)
 - **原理**：把代码解析成 AST，建节点+边的图谱，支持调用链追踪和影响面分析
 - **能做什么**：
   - "这个 AW 接口内部调了哪些底层函数" → `gitnexus_context({name: "enter_split_screen"})`
@@ -202,7 +204,7 @@ AI 拿到用例描述
 
 ### 3.2 Graphify — LLM 辅助代码理解
 
-- **GitHub**：[safishamsi/graphify](https://github.com/safishamsi/graphify)（4.5k stars，MIT 协议）
+- **GitHub**：[safishamsi/graphify](https://github.com/safishamsi/graphify)（MIT 协议，商业可用）
 - **原理**：用 LLM 解析代码语义，生成知识图谱
 - **和 GitNexus 的区别**：GitNexus 看代码结构（AST），Graphify 理解代码意图（语义）
 - **适用场景**：代码注释和文档比较丰富时，能提取出隐含的业务规则
@@ -248,7 +250,9 @@ AI 拿到用例描述
 | **P1** | 从已有脚本抽取模式库 | 2-3 天 | AI 填充准确率大幅提升 |
 | **P2** | 加执行反馈循环（生成→运行→报错→修复） | 3-5 天 | 减少人工调试 |
 | **P3** | 建知识检索管道（文档索引 + 语义搜索） | 1-2 周 | 知识可积累，越用越准 |
-| **P4** | 接入代码图谱工具（GitNexus / Graphify） | 2-3 周 | AI 理解框架结构，自主探索 AW 关系 |
+| **P4** | 接入代码图谱工具 | 2-3 周 | AI 理解框架结构，自主探索 AW 关系 |
+
+> **P4 许可证提示**：商业项目推荐 [Graphify](https://github.com/safishamsi/graphify)（MIT 协议）或自研方案；[GitNexus](https://github.com/abhigyanpatwari/GitNexus) 为 PolyForm Noncommercial 许可，仅限非商业评估使用。
 
 **核心原则**：先把人脑里的知识写出来（P0），再让机器帮你组织和检索（P3-P4）。管道和工具是加速器，但源头是人把知识显性化。
 
@@ -259,9 +263,9 @@ AI 拿到用例描述
 - [Clowder AI](https://github.com/zts212653/clowder-ai) — 我们的多 Agent 协作开源框架，包含记忆组件、知识工程、SOP 治理的完整实现
 - [GitNexus](https://github.com/abhigyanpatwari/GitNexus) — 代码知识图谱 MCP server
 - [Graphify](https://github.com/safishamsi/graphify) — LLM 辅助代码知识图谱
-- Clowder AI 教程系列（[Linux.do 帖子](https://linux.do/t/topic/1900303)）— 从 SDK 到 CLI 到多猫协作的完整教程，其中：
-  - 第三课《WHY > WHAT》— 为什么给 AI 讲"为什么"比讲"做什么"更重要
-  - 第九课《Context Engineering》— 上下文工程：如何让 AI 在正确的上下文里工作
+- Clowder AI 教程系列 — 从 SDK 到 CLI 到多猫协作的完整教程（源码在 [cat-cafe-tutorials](https://github.com/zts212653/cat-cafe-tutorials) 仓库，社区帖见 [Linux.do](https://linux.do/t/topic/1900303)），其中：
+  - [第三课《WHY > WHAT》](https://github.com/zts212653/cat-cafe-tutorials/blob/main/docs/lessons/03-meta-rules.md) — 为什么给 AI 讲"为什么"比讲"做什么"更重要
+  - [第九课《Context Engineering》](https://github.com/zts212653/cat-cafe-tutorials/blob/main/docs/lessons/09-context-engineering.md) — 上下文工程：如何让 AI 在正确的上下文里工作
 
 ---
 
