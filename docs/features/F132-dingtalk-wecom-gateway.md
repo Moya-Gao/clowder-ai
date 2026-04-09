@@ -8,7 +8,7 @@ created: 2026-03-22
 
 # F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-04-09 | **Owner**: 布偶猫 | **Priority**: P1
 >
 > **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
 > 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
@@ -368,3 +368,4 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | **参考: 企微 AES/XML** | [toboto/openclaw-wecom-channel](https://github.com/toboto/openclaw-wecom-channel) | AES/XML 协议教科书 ⭐⭐⭐ |
 | **参考: 企微官方** | [WecomTeam/wecom-openclaw-plugin](https://github.com/WecomTeam/wecom-openclaw-plugin) | 腾讯官方企微插件 |
 | **参考: 中国区集合** | [BytePioneer-AI/openclaw-china](https://github.com/BytePioneer-AI/openclaw-china) | 多中国 IM 目录布局参考 |
+| **Reflection** | `docs/reflections/2026-04-09-f132-dingtalk-wecom-gateway-capsule.md` | 反思胶囊 |

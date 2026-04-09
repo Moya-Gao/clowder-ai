@@ -112,3 +112,4 @@
 | F108 | F108: Side-Dispatch — 同一 Thread 多猫并发执行 | done | [F108-side-dispatch-concurrent-invocation.md](./F108-side-dispatch-concurrent-invocation.md) |
 | F148 | F148: Hierarchical Context Transport — 分层上下文传输 | done | [F148-hierarchical-context-transport.md](./F148-hierarchical-context-transport.md) |
 | F150 | F150: Tool/Skill/MCP Usage Statistics — 工具使用可观测看板 | done | [F150-tool-usage-stats.md](./F150-tool-usage-stats.md) |
+| F132 | F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | done | [F132-dingtalk-wecom-gateway.md](./F132-dingtalk-wecom-gateway.md) |

@@ -813,7 +813,7 @@
     {
       "id": "F132",
       "name": "DingTalk + WeCom Chat Gateway — 钉钉/企微接入",
-      "status": "done | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-04-09 | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F132-dingtalk-wecom-gateway.md"
     },
     {
@@ -949,5 +949,5 @@
       "file": "F154-cat-routing-personalization.md"
     }
   ],
-  "generated_at": "2026-04-09T10:44:38.457Z"
+  "generated_at": "2026-04-09T10:52:51.796Z"
 }
