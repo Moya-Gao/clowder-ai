@@ -30,8 +30,8 @@ thread_ids: [thread_mnpgz36wuta8m679]
 | **Moonshot** | Kimi Agent / Agent Swarm / Kimi Code | 官方已有 Agent + Agent Swarm (Beta) + Kimi Code | 多 Agent 编排 + 开发工具 | K2.5 明确 Agent 产品栈 |
 | **美团** | AI 平台 / LongCat / 商家 AI 助手 | Agent 信号比预期更强，LongCat/EvoCUA/VitaBench 硬货 | 云平台 + 中间件 + Agent | tech.meituan.com 多篇 Agent 论文 |
 | **百度** | 文心智能体平台 / Comate | 80 万+ 开发者、15 万+ 企业，适合校准平台岗反馈 | 平台架构 + Agent 落地 | 规模数据公开可查 |
-| **面壁智能** | Agent 基础设施 | 小团队试水，节奏快 | 从零搭系统的经验 | — |
-| **阶跃星辰** | Agent Platform | 融资够、方向对 | 多 Agent 编排 | — |
+| **面壁智能** *(二选一)* | Agent 基础设施 | 小团队试水，节奏快 | 从零搭系统的经验 | — |
+| **阶跃星辰** *(二选一)* | Agent Platform | 融资够、方向对 | 多 Agent 编排 | — |
 | 远程岗位 1-2 个 | Agent 相关合同工/咨询 | 试水赛博游民可行性 | Cat Cafe 开源项目 | — |
 | *(补位)* 京东/快手 | 京东云 AI / 快手 AI 平台 | 有场景但 Agent 平台信号弱于上述 | 企业架构 + 分布式 | 按需投递 |
 
