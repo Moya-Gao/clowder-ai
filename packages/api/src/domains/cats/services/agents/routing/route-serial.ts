@@ -971,7 +971,6 @@ export async function* routeSerial(
         }
         handoffEmitted = worklist.length;
       } else if (!hadError) {
-        catProducedOutput = true;
         // No text content and no error.
         // Persist only when we have non-text payload (tool/thinking/rich).
         // Purely empty turns should not create blank chat bubbles.
@@ -979,6 +978,7 @@ export async function* routeSerial(
         const hasRichBlocks = noTextBlocks.length > 0;
         const shouldPersistNoTextMessage =
           hasRichBlocks || collectedToolEvents.length > 0 || Boolean(thinkingContent?.trim().length > 0);
+        const shouldEmitSilentCompletion = collectedToolEvents.length > 0 && !hasRichBlocks && !sawUserFacingSystemInfo;
 
         log.debug(
           {
@@ -994,7 +994,7 @@ export async function* routeSerial(
         );
         // Diagnostic: if cat ran tools but produced no text, emit a system_info so the
         // user sees *something* instead of a silent vanish (bugfix: silent-exit P1).
-        if (collectedToolEvents.length > 0 && !hasRichBlocks && !sawUserFacingSystemInfo) {
+        if (shouldEmitSilentCompletion) {
           yield {
             type: 'system_info' as AgentMessageType,
             catId,
@@ -1005,6 +1005,9 @@ export async function* routeSerial(
             }),
             timestamp: Date.now(),
           } as AgentMessage;
+        }
+        if (shouldPersistNoTextMessage || sawUserFacingSystemInfo || shouldEmitSilentCompletion) {
+          catProducedOutput = true;
         }
 
         if (shouldPersistNoTextMessage) {
