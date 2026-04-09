@@ -57,4 +57,5 @@ created: 2026-02-26
 | F147 | i18n — Hub 界面中英文切换 | idea | 待定 | internal | — |
 | F149 | ACP Runtime Operations — 项目级进程池 + Session Lease | spec | 缅因猫 | internal | [F149](features/F149-acp-runtime-operations.md) |
 | F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | spec | 布偶猫 | internal | [F152](features/F152-expedition-memory.md) |
+| F153 | Observability Infra Phase 1 — OTel SDK + Metrics + Telemetry Redaction + Health Check | spec | Community + 布偶猫 | community [#388](https://github.com/zts212653/clowder-ai/issues/388) | [F153](features/F153-observability-infra-phase1.md) |
 
