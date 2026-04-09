@@ -33,10 +33,10 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 ### Phase A: Connector 首选猫入口 + 全局默认猫可配置
 
 **A1 — Connector 命令**：
-- `/focus <猫名>` — 设置当前 thread 的 preferredCats（复用现有 `threadStore.updatePreferredCats`）
+- `/focus <猫名>` — 设置当前 thread 的 preferredCats 为**单只猫**（复用现有 `threadStore.updatePreferredCats`）
 - `/focus` — 查看当前 thread 的首选猫
-- `/focus clear` — 清除首选猫设置
-- `/ask <猫名> <消息>` — 单次定向：把这条消息发给指定猫，不改变 preferredCats
+- `/focus clear` — 清除首选猫设置，回到全局默认
+- `/ask <猫名> <消息>` — 单次定向：把这条消息发给指定猫，不改变 preferredCats。**必须走正常 ConnectorRouter → append → route 流程**，禁止旁路 invokeTrigger（KD-4）
 
 **A2 — 猫名解析**：
 - 复用 `cat-config.json` 的 aliases 字段（F127 动态别名），不硬编码
@@ -50,14 +50,17 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 
 ### Phase B: Hub 可见性 + UX 统一
 
-**B1 — Thread Header 首选猫指示器**：
-- Thread header / 聊天区顶部显示当前首选猫（头像 + 名字）
-- 点击可快速切换（复用 `ThreadCatSettings` 的 CatSelector）
-- 无首选猫时不显示（不占空间）
+**B1 — Thread Header 首选猫 Pill 指示器**（烁烁 UX 设计）：
+- Thread header 右侧显示 Pill 组件：`[🐱 猫头像 猫名 ▾]`，点击展开 CatSelector popover（复用 `ThreadCatSettings`）
+- 无首选猫时 Pill 不渲染（零空间占用），有首选猫时 Pill 内含猫猫品种色带（与猫猫主题色一致）
+- Pill 状态反映实时 preferredCats：Hub/Connector 任一端修改后 Pill 实时更新
+- 首次设置首选猫时显示 alias teaching tooltip："你也可以在飞书/微信中用 `/focus 猫名` 来切换哦"
 
-**B2 — Member Overview 默认猫设置**：
-- 在猫猫管理/member overview 页面增加"全局默认猫"选择器
-- 清晰标注："新 thread 没有历史时，默认由这只猫回复"
+**B2 — Member Overview 默认猫卡片选择器**（烁烁 UX 设计）：
+- 猫猫管理 / member overview 页面用猫猫卡片网格（而非下拉菜单）展示可选默认猫
+- 当前默认猫卡片高亮 + "默认" badge；点击其他卡片切换（二次确认）
+- 卡片含：猫头像 + 名字 + 品种色带 + 在线状态
+- 清晰标注影响范围："新 thread 没有历史时，默认由这只猫回复"
 
 **B3 — Connector 可见性**：
 - `/status` 输出增加"首选猫"信息
@@ -70,7 +73,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 - [ ] AC-A2: `/ask opus 帮我看代码` 单次定向发消息给 opus，不改变 preferredCats
 - [ ] AC-A3: 猫名解析使用 catRegistry aliases，不硬编码；不可路由猫返回错误
 - [ ] AC-A4: `getDefaultCatId()` 支持运行时配置覆盖 `breeds[0]` 默认值
-- [ ] AC-A5: 现有路由行为无回退（@mention > preferredCats > last-active > default 链不变）
+- [ ] AC-A5: 路由优先级链精确语义不变：`@mention → preferredCats scope 内 last healthy replier → first preferred → getDefaultCatId()`；preferredCats 是候选范围（candidate scope），不是直接优先级
 - [ ] AC-A6: `/focus` `/ask` 有单元测试覆盖（含 stale cat fallback、persistence 不可用场景）
 
 ### Phase B（Hub 可见性 + UX）
@@ -114,9 +117,9 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | `/focus` 支持多猫吗（`/focus opus sonnet`）？现有 preferredCats 是数组，技术上支持 | ⬜ 未定 |
-| OQ-2 | 全局默认猫是 per-user 还是全局？#385 说"from the member overview" 暗示全局 | ⬜ 未定 |
-| OQ-3 | `/ask` 的路由是走 ConnectorRouter 还是直接 invokeTrigger？（安全边界） | ⬜ 未定 |
+| OQ-1 | `/focus` 支持多猫吗（`/focus opus sonnet`）？ | ✅ 已决 → KD-5 |
+| OQ-2 | 全局默认猫是 per-user 还是全局？ | ✅ 已决 → KD-6 |
+| OQ-3 | `/ask` 的路由是走 ConnectorRouter 还是直接 invokeTrigger？ | ✅ 已决 → KD-4 |
 
 ## Key Decisions
 
@@ -125,12 +128,16 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | KD-1 | 不挂 F142（已关闭），独立立项 F154 | F142 是框架，F154 是产品能力；路由优先级变更超出"加命令"范畴 | 2026-04-09 |
 | KD-2 | 联合 #385 + #391 概念，跨 surface 统一设计 | 铲屎官："除了飞书呢？在猫猫咖啡里面如何设定？" | 2026-04-09 |
 | KD-3 | 猫名解析复用 catRegistry aliases，不硬编码 | 与 F127 动态别名方向一致；社区 PR 的硬编码方式不可维护 | 2026-04-09 |
+| KD-4 | `/ask` 必须走正常 ConnectorRouter → append → route 流程，禁止旁路 invokeTrigger | 安全边界：invokeTrigger 绕过 ACL / rate-limit / audit trail；砚砚 P1 review | 2026-04-09 |
+| KD-5 | v1 `/focus` 仅支持单猫，多猫语法暂不实现 | 技术上 preferredCats 是数组，但 UX 复杂度不值得 MVP 投入；砚砚 P2 review | 2026-04-09 |
+| KD-6 | 全局默认猫 MVP 为 system-global（非 per-user），长期可扩展为 per-user | #385 原话 "from the member overview" 暗示全局；MVP 简单，后续按需加 per-user 层 | 2026-04-09 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-09 | 立项，铲屎官 + 宪宪 + 砚砚讨论确认联合 #385 + #391 scope |
+| 2026-04-09 | Spec review：砚砚 2P1+2P2（路由语义 + /ask 边界 + /focus 单猫 + 全局 scope），烁烁 UX 设计（Pill 指示器 + 卡片选择器 + alias tooltip）；OQ-1~3 全部关闭为 KD-4~6 |
 
 ## Review Gate
 
