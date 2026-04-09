@@ -28,22 +28,40 @@ F102 已经做完了记忆引擎（6 接口 + SQLite 基座 + 全局/项目层 +
 
 当前 `IIndexBuilder` 只扫描 `docs/` 下有 YAML frontmatter 的 .md 文件。外部项目的知识源完全不同。
 
-**核心改动**：给 IndexBuilder 加 **pluggable scanner** 策略：
-- `CatCafeScanner`（现有的，不动）
-- `GenericRepoScanner`（新增，面向任意仓库）
+**核心改动**：从 IndexBuilder 抽出 **pluggable scanner 策略**（Design Gate 决策）：
 
-**GenericRepoScanner 扫描源（按优先级）**：
+```typescript
+interface RepoScanner {
+  discover(root: string): ScannedEvidence[];
+}
 
-| 层级 | 来源 | 置信度 |
-|------|------|--------|
-| authoritative | README.md, docs/*.md, ADR, ARCHITECTURE.md, CONTRIBUTING.md | 高 |
-| derived | package.json / Cargo.toml / go.mod / pyproject.toml / repo structure | 中 |
-| soft clues | CHANGELOG, code comments, commit message patterns | 低 |
+interface ScannedEvidence {
+  item: Omit<EvidenceItem, 'sourceHash'>;
+  provenance: { tier: 'authoritative' | 'derived' | 'soft_clue'; source: string };
+  rawContent: string;
+}
+```
 
-**关键设计约束**（砚砚护栏）：
-- Scanner 输出必须带 **provenance**（来源类型 + 原始路径），不能只吐 `EvidenceItem`
+- `CatCafeScanner implements RepoScanner`：从现有 `IndexBuilder.discoverFiles()` 抽出
+- `GenericRepoScanner implements RepoScanner`：新增，面向任意仓库
+- `IndexBuilder`：持有 `scanner: RepoScanner`，只负责 dedupe/hash/upsert/edges
+
+**GenericRepoScanner v1 扫描源**：
+
+| 层级 | 来源 | 置信度 | 映射 EvidenceKind |
+|------|------|--------|------------------|
+| authoritative | README*, docs/**/*.md, ARCHITECTURE*, CONTRIBUTING*, ADR*.md | 高 | `plan` |
+| derived | package.json / Cargo.toml / go.mod / pyproject.toml / workspace manifests | 中 | `research` |
+| soft_clues | CHANGELOG.md, .github/ISSUE_TEMPLATE/** | 低 | `lesson` |
+
+**v1 不扫**（砚砚否决，噪音高+性能贵）：commit message patterns、code comments。
+
+**关键设计约束**（Design Gate 收敛）：
+- Scanner 输出 `ScannedEvidence`（不是裸 `EvidenceItem`），带 provenance + tier
+- **存储层最小增量改动**：`EvidenceItem` 加可选 `provenance` 字段，SQLite schema 加 `provenance_tier TEXT` + `provenance_source TEXT` 列
+- `projectRoot` 和 `docsRoot` 必须分开建模，`sourcePath` 统一为 **repo-relative**（不是 docs-relative）
+- `EvidenceKind` 枚举不扩展，差异通过 provenance 表达
 - 三层置信度不能混成一个平面搜索结果
-- 输出格式化为 `EvidenceItem` 后直接入现有 `IEvidenceStore`，不改存储层
 
 ### Phase B: Expedition Bootstrap Orchestrator — 猫进新项目时自动冷启动记忆
 
@@ -59,11 +77,18 @@ F102 已经做完了记忆引擎（6 接口 + SQLite 基座 + 全局/项目层 +
        4. 摘要写入 evidence.sqlite 作为第一条 evidence
 ```
 
-**挂载点**：复用 F070 的出征 hook（`project-init`），不发明新流程。
+**实现**：新建 `ExpeditionBootstrapService`（不挂在现有 `project-init.ts` CLI 上——那只是 scaffold 脚手架）。
+
+**挂载点**：接入 F070 的治理 bootstrap 链路（`projects-setup.ts` capability orchestrator），不发明新流程。
+
+**幂等条件**：不是单纯"db 存在就跳过"，而是检查 fingerprint + freshness（repo HEAD hash + 上次扫描时间）。
 
 **非空项目特殊处理**：
-- 大仓库（>10k 文件）：只扫描 authoritative + derived 层，跳过 soft clues
+- 大仓库（>10k 文件）：只扫描 authoritative + derived 层，跳过 soft_clues
 - 已有 cat-cafe 结构的项目：直接用 `CatCafeScanner`，不走 Generic
+- monorepo：Phase B 先做 detection + overview，不做 per-package 深扫
+
+**Bootstrap 摘要**：先走结构化提取（tech stack / dir tree / module list），LLM 只做可选润色，不把冷启动绑死在模型额度上。
 
 ### Phase C: Global Lesson Distillation — 可泛化经验回流全局层
 
@@ -100,7 +125,9 @@ F102 已经做完了记忆引擎（6 接口 + SQLite 基座 + 全局/项目层 +
 - [ ] AC-B1: 猫进入一个没有 `evidence.sqlite` 的外部项目时，自动触发 bootstrap
 - [ ] AC-B2: Bootstrap 产出"项目概况摘要"（技术栈、目录结构、核心模块、已有文档列表）
 - [ ] AC-B3: 已有 `evidence.sqlite` 的项目不重复 bootstrap（幂等性）
-- [ ] AC-B4: Bootstrap 挂载到 F070 的 `project-init` hook
+- [ ] AC-B4: Bootstrap 挂载到 F070 的治理 bootstrap 链路（`projects-setup` capability orchestrator）
+- [ ] AC-B5: 幂等条件基于 repo HEAD hash + 上次扫描时间（fingerprint/freshness），不是单纯 db 存在检测
+- [ ] AC-B6: Bootstrap 摘要先走结构化提取，不强依赖 LLM 额度
 
 ### Phase C（Global Lesson Distillation）
 - [ ] AC-C1: 外部项目的 lesson/decision 可以被标记 `generalizable: true/false`
@@ -142,9 +169,9 @@ F102 已经做完了记忆引擎（6 接口 + SQLite 基座 + 全局/项目层 +
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Bootstrap 摘要用 LLM 生成还是纯结构化提取？LLM 更智能但有额度开销 | open |
-| OQ-2 | 跨项目经验回流的审核者是铲屎官还是猫猫？还是双层？ | open |
-| OQ-3 | GenericRepoScanner 是否需要支持 monorepo（多子项目共享一个 Git 仓库）？ | open |
+| OQ-1 | ~~Bootstrap 摘要用 LLM 还是结构化？~~ **已定**：结构化优先，LLM 可选润色 | ✅ closed |
+| OQ-2 | 跨项目经验回流的审核者是铲屎官还是猫猫？还是双层？ | ⬜ open |
+| OQ-3 | ~~monorepo 支持？~~ **已定**：Phase B 先做 detection + overview，不做 per-package 深扫 | ✅ closed |
 
 ## Key Decisions
 
@@ -153,7 +180,13 @@ F102 已经做完了记忆引擎（6 接口 + SQLite 基座 + 全局/项目层 +
 | KD-1 | 三 Phase 精简方案（不是五 Phase） | F102 底座已覆盖 80%，Task-Time Growth 和 Product Surface 不需要单独拆 Phase | 2026-04-08 |
 | KD-2 | Scanner 输出带 provenance + 三层置信度 | 砚砚护栏：不带来源信息后面无法区分置信度、无法决定回流策略 | 2026-04-08 |
 | KD-3 | Global distillation fail-closed（默认不回流） | 砚砚护栏：防止甲方私有语境污染全局层 | 2026-04-08 |
-| KD-4 | 复用 F070 `project-init` hook 而不是发明新流程 | 已有出征基础设施，减少概念负担 | 2026-04-08 |
+| KD-4 | 复用 F070 治理 bootstrap 链路（不是 `project-init.ts` CLI） | `project-init.ts` 只是 scaffold，真正的 hook 在 `projects-setup.ts` capability orchestrator | 2026-04-08 |
+| KD-5 | Scanner 独立成策略类，不在 IndexBuilder 里加分支 | `docsRoot` 写死在 IndexBuilder 4+ 处（L149/L331/L356/L962），直接扫 repo root 会导致 `sourcePath` 错语义 | 2026-04-08 |
+| KD-6 | provenance 持久化到存储层（`provenance_tier` + `provenance_source` 列） | 否决 keywords hack（编码到 keywords 数组），砚砚判定为 hack | 2026-04-08 |
+| KD-7 | `projectRoot` 和 `docsRoot` 分开建模，`sourcePath` 统一 repo-relative | 避免 `../README.md` 错语义 | 2026-04-08 |
+| KD-8 | Bootstrap 摘要先结构化提取，LLM 可选润色 | 不把冷启动绑死在模型额度上 | 2026-04-08 |
+| KD-9 | monorepo 先 detection + overview，不做 per-package 深扫 | 控制 Phase B 复杂度 | 2026-04-08 |
+| KD-10 | Phase A v1 不扫 commit messages 和 code comments | 噪音高、语言相关、性能贵，砚砚否决 | 2026-04-08 |
 
 ## Timeline
 
@@ -161,6 +194,7 @@ F102 已经做完了记忆引擎（6 接口 + SQLite 基座 + 全局/项目层 +
 |------|------|
 | 2026-04-08 | 立项。铲屎官纠偏 scope：面向社区用户用猫猫做他们自己的项目 |
 | 2026-04-08 | 布偶猫 + 缅因猫(GPT-5.4) 讨论收敛：三 Phase + 三护栏 |
+| 2026-04-08 | Design Gate 通过（布偶猫×缅因猫）：Scanner 策略化 + provenance 持久化 + 10 项 KD |
 
 ## Review Gate
 
