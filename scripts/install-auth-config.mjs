@@ -290,12 +290,11 @@ function setClientAuth(client, mode, options) {
     // Warn about stale installer account that the resolver will prefer (has API key).
     // We intentionally do NOT auto-delete it here: installer accounts are global,
     // and we cannot safely enumerate all projects to check for bindings.
-    // Callers (install.sh) should run `client-auth remove --force` first.
     const installerRef = `installer-${client}`;
     if (installerRef !== accountRef && accounts[installerRef]) {
       console.error(
         `[install-auth-config] warning: ${installerRef} still exists with API key — ` +
-          `resolver may prefer it over OAuth. To clean up, run:\n` +
+          `resolver may prefer it over OAuth. To clean it up manually once no other project depends on it, run:\n` +
           `  node scripts/install-auth-config.mjs client-auth remove --project-dir <your-project-dir> --client ${client} --force true`,
       );
     }

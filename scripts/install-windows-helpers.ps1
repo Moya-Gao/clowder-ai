@@ -472,9 +472,8 @@ function Invoke-InstallerAuthHelper {
 # via install-auth-config.mjs client-auth set, mirroring the Claude path.
 function Set-CodexOAuthMode {
     param($State)
-    # Remove stale installer API-key profile first (#340 P6: --force required for global accounts)
-    $removeArgs = @("client-auth", "remove", "--project-dir", $State.ProjectRoot, "--client", "codex", "--force", "true")
-    try { Invoke-InstallerAuthHelper $State $removeArgs } catch { <# ignore: may not exist #> }
+    # Do not auto-delete installer API-key profiles here: accounts are global and
+    # another project may still be bound to installer-openai.
     $args = @("client-auth", "set", "--project-dir", $State.ProjectRoot, "--client", "codex", "--mode", "oauth")
     Invoke-InstallerAuthHelper $State $args
 }
@@ -491,9 +490,8 @@ function Set-CodexApiKeyMode {
 
 function Set-GeminiOAuthMode {
     param($State)
-    # Remove stale installer API-key profile first (#340 P6: --force required for global accounts)
-    $removeArgs = @("client-auth", "remove", "--project-dir", $State.ProjectRoot, "--client", "gemini", "--force", "true")
-    try { Invoke-InstallerAuthHelper $State $removeArgs } catch { <# ignore: may not exist #> }
+    # Do not auto-delete installer API-key profiles here: accounts are global and
+    # another project may still be bound to installer-gemini.
     $args = @("client-auth", "set", "--project-dir", $State.ProjectRoot, "--client", "gemini", "--mode", "oauth")
     Invoke-InstallerAuthHelper $State $args
 }

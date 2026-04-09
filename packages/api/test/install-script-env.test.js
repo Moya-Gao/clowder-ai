@@ -108,6 +108,30 @@ node scripts/install-auth-config.mjs claude-profile remove --project-dir "${envR
   }
 });
 
+test('OAuth selection does not force-remove global installer accounts before set', () => {
+  const installScriptText = readFileSync(installScript, 'utf8');
+  const configureAuthBody = installScriptText.match(/configure_agent_auth\(\) \{([\s\S]*?)^}\n/m)?.[1] ?? '';
+
+  assert.notEqual(configureAuthBody, '', 'expected configure_agent_auth body');
+  assert.match(configureAuthBody, /client-auth set \\/);
+  assert.match(configureAuthBody, /--mode oauth/);
+  assert.doesNotMatch(configureAuthBody, /client-auth remove/);
+  assert.doesNotMatch(configureAuthBody, /--force true/);
+});
+
+test('empty API key fallback to OAuth does not force-remove global installer accounts', () => {
+  const installScriptText = readFileSync(installScript, 'utf8');
+  const emptyKeyBranch =
+    installScriptText.match(/# No key provided — set OAuth mode via unified path([\s\S]*?)warn "\$name: no key provided, keeping OAuth"/m)?.[1] ??
+    '';
+
+  assert.notEqual(emptyKeyBranch, '', 'expected empty API key OAuth fallback branch');
+  assert.match(emptyKeyBranch, /client-auth set \\/);
+  assert.match(emptyKeyBranch, /--mode oauth/);
+  assert.doesNotMatch(emptyKeyBranch, /client-auth remove/);
+  assert.doesNotMatch(emptyKeyBranch, /--force true/);
+});
+
 test('npm_global_install succeeds when a custom registry is configured', () => {
   const output = runSourceOnlySnippet(`
 SUDO=""

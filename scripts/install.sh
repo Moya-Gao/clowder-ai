@@ -931,11 +931,8 @@ configure_agent_auth() {
         "OAuth / Subscription (recommended / 推荐)" \
         "API Key"
     if [[ "$auth_sel" != "1" ]]; then
-        # Remove stale installer API Key profile + set OAuth binding
-        # --force true: global accounts are shared; without it remove is a no-op (#340 P6 fix)
-        node scripts/install-auth-config.mjs client-auth remove \
-            --project-dir "$PROJECT_DIR" \
-            --client "$cmd" --force true 2>/dev/null || true
+        # Do not auto-delete installer API-key profiles here: accounts are global
+        # and we cannot prove other projects are not still bound to installer refs.
         node scripts/install-auth-config.mjs client-auth set \
             --project-dir "$PROJECT_DIR" \
             --client "$cmd" \
@@ -962,11 +959,8 @@ configure_agent_auth() {
         ok "$name: API key profile created in .cat-cafe/"
     else
         # No key provided — set OAuth mode via unified path
-        # Also remove any stale installer API Key profile for this client
-        # --force true: global accounts are shared; without it remove is a no-op (#340 P6 fix)
-        node scripts/install-auth-config.mjs client-auth remove \
-            --project-dir "$PROJECT_DIR" \
-            --client "$cmd" --force true 2>/dev/null || true
+        # Do not auto-delete installer API-key profiles here: accounts are global
+        # and we cannot prove other projects are not still bound to installer refs.
         node scripts/install-auth-config.mjs client-auth set \
             --project-dir "$PROJECT_DIR" \
             --client "$cmd" \
