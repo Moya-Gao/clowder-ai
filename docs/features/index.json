@@ -914,6 +914,24 @@
     },
     {
       "id": "F150",
+      "name": "Add-Member Internal Guide UI Spec (Phase A)",
+      "status": "unknown",
+      "file": "F150-add-member-guide-ui-spec.md"
+    },
+    {
+      "id": "F150",
+      "name": "引导场景清单",
+      "status": "unknown",
+      "file": "F150-scene-catalog.md"
+    },
+    {
+      "id": "F150",
+      "name": "Scene-Based Bidirectional Guidance Engine",
+      "status": "Phase A accepted / frozen — 基础引导引擎已验收冻结，可开 PR 合入 | **Owner**: 布偶猫/宪宪 | **Priority**: P1",
+      "file": "F150-scene-guidance-engine.md"
+    },
+    {
+      "id": "F150",
       "name": "Tool/Skill/MCP Usage Statistics — 工具使用可观测看板",
       "status": "done | **Owner**: Community (bouillipx) + Ragdoll | **Priority**: P2",
       "file": "F150-tool-usage-stats.md"
@@ -931,5 +949,5 @@
       "file": "F152-expedition-memory.md"
     }
   ],
-  "generated_at": "2026-04-09T04:33:26.998Z"
+  "generated_at": "2026-04-09T08:44:22.843Z"
 }
