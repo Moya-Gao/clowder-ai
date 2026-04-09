@@ -38,3 +38,13 @@ export function runHelperWithEnv(args, env) {
     env: { ...process.env, ...(projectDir ? { CAT_CAFE_GLOBAL_CONFIG_ROOT: projectDir } : {}), ...env },
   });
 }
+
+/** Run installer WITHOUT CAT_CAFE_GLOBAL_CONFIG_ROOT — exercises _activeProjectDir fallback. */
+export function runHelperNoGlobalOverride(args) {
+  const { CAT_CAFE_GLOBAL_CONFIG_ROOT: _stripped, ...cleanEnv } = process.env;
+  return spawnSync('node', [helperScript, ...args], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: cleanEnv,
+  });
+}

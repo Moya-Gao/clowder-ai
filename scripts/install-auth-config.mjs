@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * F340: Auth config installer — writes directly to global accounts + credentials.
+ * F340: Auth config installer — writes directly to accounts + credentials.
  *
- * Storage:
- *   ~/.cat-cafe/accounts.json    — account metadata (authType, baseUrl, models, displayName)
- *   ~/.cat-cafe/credentials.json — API keys / tokens
+ * Storage: {projectRoot}/.cat-cafe/accounts.json + credentials.json (project-local by default).
+ * Override: CAT_CAFE_GLOBAL_CONFIG_ROOT env → uses that root instead.
  */
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -26,6 +25,10 @@ const BUILTIN_ACCOUNT_SPECS = [
 ];
 
 const CONFIG_SUBDIR = '.cat-cafe';
+
+// Set by CLI entry point — determines where accounts/credentials are stored
+// when CAT_CAFE_GLOBAL_CONFIG_ROOT is not set (matches runtime behavior).
+let _activeProjectDir = '';
 
 function usage() {
   console.error(`Usage:
@@ -103,6 +106,7 @@ function applyEnvChanges(envFile, setPairs, deleteKeys) {
 function resolveGlobalRoot() {
   const envRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
   if (envRoot) return path.resolve(envRoot);
+  if (_activeProjectDir) return path.resolve(_activeProjectDir);
   return homedir();
 }
 
@@ -448,6 +452,7 @@ try {
     }
     // Migrate legacy files before applying
     const projDir = getOptional(values, 'project-dir', '');
+    _activeProjectDir = projDir;
     if (projDir) migrateLegacyProfiles(projDir);
     migrateLegacyProfiles(null);
     const mode = getRequired(values, 'mode');
@@ -479,6 +484,7 @@ try {
       process.exit(1);
     }
     const projectDir = getRequired(values, 'project-dir');
+    _activeProjectDir = projectDir;
     // Migrate legacy files before removal so accounts/credentials are in global store
     if (projectDir) migrateLegacyProfiles(projectDir);
     migrateLegacyProfiles(null);
@@ -489,6 +495,7 @@ try {
 
   if (positionals[0] === 'claude-profile' && positionals[1] === 'set') {
     const projectDir = getOptional(values, 'project-dir', '');
+    _activeProjectDir = projectDir;
     // Migrate legacy files before applying new setting
     if (projectDir) migrateLegacyProfiles(projectDir);
     migrateLegacyProfiles(null);
@@ -510,6 +517,7 @@ try {
 
   if (positionals[0] === 'claude-profile' && positionals[1] === 'remove') {
     const projectDir = getRequired(values, 'project-dir');
+    _activeProjectDir = projectDir;
     if (projectDir) migrateLegacyProfiles(projectDir);
     migrateLegacyProfiles(null);
     const forceRemove = values.get('force')?.[0] === 'true';

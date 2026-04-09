@@ -4,7 +4,12 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { runHelper, runHelperResult, runHelperWithEnv } from './install-auth-config-test-helpers.js';
+import {
+  runHelper,
+  runHelperNoGlobalOverride,
+  runHelperResult,
+  runHelperWithEnv,
+} from './install-auth-config-test-helpers.js';
 
 // F340: installer now writes to accounts.json + credentials.json (global)
 function readInstallerState(projectRoot) {
@@ -743,6 +748,38 @@ test('client-auth set retries legacy secret import when account already exists f
     const { accounts, credentials } = readInstallerState(projectRoot);
     assert.ok(accounts['my-custom'], 'existing migrated account should still be present');
     assert.equal(credentials['my-custom']?.apiKey, 'sk-retry-key', 'missing credential should be imported on retry');
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('#340 P1: installer stores accounts in --project-dir without CAT_CAFE_GLOBAL_CONFIG_ROOT env', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-no-env-override-'));
+
+  try {
+    // Run WITHOUT CAT_CAFE_GLOBAL_CONFIG_ROOT — exercises _activeProjectDir fallback.
+    // Before the fix, this would fall back to homedir() and write to ~/.cat-cafe/.
+    const result = runHelperNoGlobalOverride([
+      'client-auth',
+      'set',
+      '--project-dir',
+      projectRoot,
+      '--client',
+      'anthropic',
+      '--mode',
+      'api_key',
+      '--api-key',
+      'test-key-no-env',
+      '--display-name',
+      'No Env Override',
+    ]);
+    assert.equal(result.status, 0, `installer should succeed, stderr: ${result.stderr}`);
+
+    // Verify accounts landed in the project dir, not homedir
+    const { accounts, credentials } = readInstallerState(projectRoot);
+    assert.ok(accounts['installer-anthropic'], 'account should be in project-dir/.cat-cafe/');
+    assert.equal(accounts['installer-anthropic'].authType, 'api_key');
+    assert.equal(credentials['installer-anthropic']?.apiKey, 'test-key-no-env');
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
