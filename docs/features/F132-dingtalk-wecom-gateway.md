@@ -8,7 +8,7 @@ created: 2026-03-22
 
 # F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 >
 > **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
 > 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
@@ -243,7 +243,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 - [x] AC-C6: final-only 模式（无 streaming），长回复分块发送
 - [x] AC-C7: 公共层零改动
 
-### Phase D（Bootstrap + 富文本映射 + 文档）
+### Phase D（Bootstrap + 富文本映射 + 文档）✅ PR #1018 merged
 - [x] AC-D1: connector-gateway-bootstrap 动态注册三个 adapter（有 env var 才启用）
 - [x] AC-D2: MessageEnvelope → 各平台原生卡片映射完整
 - [x] AC-D3: Rich blocks 在所有平台正确降级
@@ -255,10 +255,10 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
 | R1 | "接入钉钉" | AC-A1~A7 | test + manual DM | [x] |
-| R2 | "接入企业微信" | AC-B1~B6, AC-C1~C7 | test + manual DM（两种模式） | [ ] |
-| R3 | "必须复用我们的 channel 等等架构设计" | AC-A6, AC-A1.6, AC-A2.7, AC-B6, AC-C7 | code review: 公共层 diff = 0 | [ ] |
-| R4 | "学习飞书的接入" | AC-D2~D3 | adapter 结构对照 FeishuAdapter | [ ] |
-| R5 | 参考 OpenClaw 生态 | KD-1, KD-4 | 设计文档引用 + 调研综合报告 | [ ] |
+| R2 | "接入企业微信" | AC-B1~B6, AC-C1~C7 | test + manual DM（两种模式） | [x] |
+| R3 | "必须复用我们的 channel 等等架构设计" | AC-A6, AC-A1.6, AC-A2.7, AC-B6, AC-C7 | code review: 公共层 diff = 0 | [x] |
+| R4 | "学习飞书的接入" | AC-D2~D3 | adapter 结构对照 FeishuAdapter | [x] |
+| R5 | 参考 OpenClaw 生态 | KD-1, KD-4 | 设计文档引用 + 调研综合报告 | [x] |
 | R6 | "富文本/媒体原生发送都支持完整" | AC-A1.1~A1.5 | 语音/文件/图片原生发送，不降级 | [x] |
 | R7 | "群聊对接飞书 IM Hub 抽象" | AC-A2.1~A2.7 | 群聊收发 + @回复 + 名称解析 | [x] |
 
@@ -322,6 +322,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | 2026-03-27 | 铲屎官确认继续 Phase B（企微 Bot）。新增 KD-7：新 IM 接入 11 步清单。钉钉全部完成（A/A.1/A.2 + visual fix），企微开工 |
 | 2026-03-28 | Phase B merged (PR #804) — WeCom Bot adapter: WebSocket long-connection via @wecom/aibot-node-sdk, replyStream streaming, template card send+update (AC-B4), text/image/voice/file/mixed inbound, media upload/download. 81 adapter tests. 3-round local review (砚砚) + cloud review clean |
 | 2026-03-28 | Phase C merged (PR #808) — WeCom Agent adapter: HTTP callback + AES-256-CBC/SHA1 crypto + XML parsing (fast-xml-parser), echostr challenge, message/send API (text+markdown+TextCard+News), temp media upload/download, byte-aware chunking (2048 byte limit), final-only delivery (no streaming). 95 adapter tests. Cloud review found P1 (query param arg order) — fixed before merge |
+| 2026-04-09 | Phase D merged (PR #1018) — Bootstrap + 富文本映射 + 文档: .env.example DingTalk vars, IM setup guides (DingTalk/WeCom Bot/WeCom Agent 3 sections + 5-platform comparison table), im-usage-guide updates, connector-bubble-theme tests (dingtalk cyan + wecom-agent violet). 砚砚 local review APPROVED + cloud review clean. F132 完成 — 全部 Phase merged |
 
 ## 新 IM 接入清单（KD-7 — Adapter-Only Extension）
 
