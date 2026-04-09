@@ -104,6 +104,8 @@ thread_ids: [thread_mnpgz36wuta8m679]
 8. **企业级关切**：多租户、权限、审计、sandbox、human-in-the-loop 怎么设计？
 9. **容错**：失败恢复、重试、幂等、补偿事务怎么做？
 10. **边界判断**：延迟/成本/SLO 如何平衡？什么时候 single-agent 足够，什么时候必须 multi-agent？
+11. **安全攻防**：prompt injection / tool injection 怎么防？Agent 执行链的信任边界在哪？
+12. **发布运营**：Agent 能力的灰度发布与回滚怎么做？线上 Agent 行为漂移怎么监控？
 
 **你的杀手锏**：这些你都不是纸上谈兵，Cat Cafe 全部实战过。面试官问理论，你答实战。Q6（框架选型）尤其关键——你经历了 Dify → 单 Agent → 多 Agent 的完整演进，这是很多候选人没有的真实判断力。
 
