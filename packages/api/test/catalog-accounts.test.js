@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -303,5 +304,44 @@ describe('global accounts (F340)', () => {
     const credRaw = await readFile(join(globalRoot, '.cat-cafe', 'credentials.json'), 'utf-8');
     const creds = JSON.parse(credRaw);
     assert.equal(creds['my-custom'].apiKey, 'sk-retry-key', 'credential must be imported on retry');
+  });
+
+  it('does NOT attach legacy secret to a pre-existing global account with colliding ID', async () => {
+    const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    resetMigrationState();
+
+    // Pre-existing OAuth account in global — NOT from this legacy source
+    writeCatalogAccount(projectRoot, 'shared', { authType: 'oauth' });
+    resetMigrationState();
+
+    // Legacy source happens to use the same "shared" ID but as api_key
+    const legacyMeta = {
+      version: 2,
+      providers: [{ id: 'shared', authType: 'api_key', baseUrl: 'https://legacy.api/v1' }],
+    };
+    await writeFile(join(projectRoot, '.cat-cafe', 'provider-profiles.json'), JSON.stringify(legacyMeta), 'utf-8');
+
+    const legacySecrets = { profiles: { shared: { apiKey: 'sk-collision' } } };
+    await writeFile(
+      join(projectRoot, '.cat-cafe', 'provider-profiles.secrets.local.json'),
+      JSON.stringify(legacySecrets),
+      'utf-8',
+    );
+
+    readCatalogAccounts(projectRoot);
+
+    // The OAuth account must remain untouched (merge skips it)
+    const accounts = readCatalogAccounts(projectRoot);
+    assert.equal(accounts.shared.authType, 'oauth', 'pre-existing OAuth account must not be overwritten');
+
+    // The legacy secret must NOT be imported for the colliding ID
+    const credPath = join(globalRoot, '.cat-cafe', 'credentials.json');
+    if (existsSync(credPath)) {
+      const creds = JSON.parse(await readFile(credPath, 'utf-8'));
+      assert.equal(creds.shared, undefined, 'legacy secret must NOT be attached to pre-existing OAuth account');
+    }
+    // If credentials.json doesn't exist at all, that's also correct
   });
 });

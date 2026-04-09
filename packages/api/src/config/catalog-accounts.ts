@@ -130,7 +130,10 @@ function migrateLegacyFrom(root: string): void {
       ...(Array.isArray(p.models) ? { models: p.models.map(String) } : {}),
     };
   }
-  mergeIntoGlobal(accounts);
+  const { merged } = mergeIntoGlobal(accounts);
+  const mergedSet = new Set(merged);
+  // Read global state after merge for retry-safe credential import
+  const globalAfterMerge = readAllGlobal();
 
   const secretsPath = resolve(root, CONFIG_SUBDIR, 'provider-profiles.secrets.local.json');
   if (!existsSync(secretsPath)) return;
@@ -160,11 +163,15 @@ function migrateLegacyFrom(root: string): void {
     : {};
   let credCount = 0;
   for (const [id, secret] of Object.entries(profileSecrets)) {
-    // Import if: ID came from this legacy source AND credential doesn't already exist.
-    // Using `id in accounts` (not mergedIds) makes this retry-safe: on retry the
-    // account already exists in global so mergeIntoGlobal returns it as "skipped",
-    // but the credential may still be missing from a previous partial run.
-    if (id in accounts && !(id in existing) && secret?.apiKey) {
+    if (!(id in accounts) || id in existing || !secret?.apiKey) continue;
+    if (mergedSet.has(id)) {
+      // First run: account was just merged — safe to import its secret.
+      existing[id] = { apiKey: String(secret.apiKey) };
+      credCount++;
+    } else if (globalAfterMerge[id]?.authType === 'api_key') {
+      // Retry: account already existed in global (previous partial migration).
+      // Only import if the global account is api_key-typed — attaching a legacy
+      // API key to a pre-existing OAuth account would be data cross-contamination.
       existing[id] = { apiKey: String(secret.apiKey) };
       credCount++;
     }
