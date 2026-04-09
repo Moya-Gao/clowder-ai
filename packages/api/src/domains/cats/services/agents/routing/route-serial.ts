@@ -114,6 +114,8 @@ export async function* routeSerial(
   let bootcampState: InvocationContext['bootcampState'];
   // F150: Guide candidate from keyword matching against raw user message
   let guideCandidate: InvocationContext['guideCandidate'];
+  /** catId that owns an offered guide prompt, to avoid duplicate offered→offered writes. */
+  let guideOfferOwner: string | undefined;
   /** catId that should receive the one-shot completion notice (offeredBy). */
   let guideCompletionOwner: string | undefined;
   if (deps.invocationDeps.threadStore) {
@@ -152,6 +154,9 @@ export async function* routeSerial(
             status: gs.status as 'offered' | 'awaiting_choice' | 'active' | 'completed',
             ...(selectionMatch ? { userSelection: selectionMatch[1] } : {}),
           };
+          if (gs.status === 'offered') {
+            guideOfferOwner = gs.offeredBy;
+          }
           if (justCompleted) {
             guideCompletionOwner = gs.offeredBy;
           }
@@ -185,6 +190,7 @@ export async function* routeSerial(
       if (guideMatches.length > 0) {
         const top = guideMatches[0];
         guideCandidate = { id: top.id, name: top.name, estimatedTime: top.estimatedTime, status: 'offered' };
+        guideOfferOwner = targetCats[0];
         log.info(
           { guideId: top.id, guideName: top.name, score: top.score },
           '[F150] guide candidate matched at routing layer',
@@ -284,7 +290,11 @@ export async function* routeSerial(
         ...(voiceMode ? { voiceMode } : {}),
         ...(bootcampState ? { bootcampState, threadId } : {}),
         ...(guideCandidate &&
-        (guideCandidate.status !== 'completed' || !guideCompletionOwner || guideCompletionOwner === catId)
+        (guideCandidate.status === 'completed'
+          ? !guideCompletionOwner || guideCompletionOwner === catId
+          : guideCandidate.status === 'offered'
+            ? !guideOfferOwner || guideOfferOwner === catId
+            : true)
           ? { guideCandidate, threadId }
           : {}),
       });
