@@ -685,11 +685,17 @@ export function useAgentMessages() {
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
             sysVariant = 'a2a_followup';
           } else if (parsed?.type === 'invocation_created') {
-            // New invocation boundary: clear stale task snapshot + finalized ref for this cat.
-            // #586: Without clearing finalizedStreamRef here, a stale ref from the
-            // previous invocation could cause the next callback to overwrite the old message.
+            // New invocation boundary: clear stale task snapshot for this cat.
+            // #586 P3: Do NOT clear finalizedStreamRef here — late callbacks from the
+            // previous invocation need it to find their finalized stream bubble.
+            // Cross-invocation misreplacement is guarded by findCallbackReplacementTarget's
+            // strict invocationId match: callbacks WITH explicit invocationId go through
+            // the strict path first; only legacy callbacks (no invocationId) reach
+            // findInvocationlessStreamPlaceholder, which is acceptable — the most recent
+            // finalized bubble is the best guess when the backend omits invocationId.
+            // The entry is consumed after successful replacement (line ~453) and cleared
+            // on thread switch (resetRefs).
             const targetCatId = parsed.catId ?? msg.catId;
-            finalizedStreamRef.current.delete(targetCatId);
             const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
             if (targetCatId && invocationId) {
               setCatInvocation(targetCatId, {

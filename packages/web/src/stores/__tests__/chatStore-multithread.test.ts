@@ -208,6 +208,93 @@ describe('chatStore multi-thread state', () => {
       ]);
     });
 
+    it('TD112 Phase 3: callback without invocationId merges into recent finalized stream bubble', () => {
+      const now = Date.now();
+      // Finalized stream bubble from a previous invocation (has invocationId, not streaming)
+      useChatStore.getState().addMessage({
+        id: 'stream-inv1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Stream output from inv-1',
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-1' } },
+        timestamp: now - 2000,
+        isStreaming: false,
+      });
+
+      // Late callback without invocationId — should merge into the finalized stream
+      useChatStore.getState().addMessage({
+        id: 'late-callback',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Final callback from inv-1',
+        origin: 'callback',
+        timestamp: now,
+      });
+
+      // Phase 3: should merge, not create duplicate
+      expect(useChatStore.getState().messages).toHaveLength(1);
+      expect(useChatStore.getState().messages[0]!.id).toBe('stream-inv1');
+      expect(useChatStore.getState().messages[0]!.origin).toBe('callback');
+      expect(useChatStore.getState().messages[0]!.content).toBe('Final callback from inv-1');
+    });
+
+    it('TD112 Phase 3: does NOT merge callback into old (>30s) finalized stream', () => {
+      const now = Date.now();
+      useChatStore.getState().addMessage({
+        id: 'old-stream',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Old stream',
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-old' } },
+        timestamp: now - 60_000, // 60s ago — too old
+        isStreaming: false,
+      });
+
+      useChatStore.getState().addMessage({
+        id: 'new-callback',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'New callback',
+        origin: 'callback',
+        timestamp: now,
+      });
+
+      // Should NOT merge — time gap too large
+      expect(useChatStore.getState().messages).toHaveLength(2);
+    });
+
+    it('TD112 Phase 3: does NOT merge callback into still-streaming bubble (with invocationId)', () => {
+      const now = Date.now();
+      // Bubble has invocationId (so Phase 2 soft rule is skipped)
+      // and is still streaming (Phase 3 should skip it)
+      useChatStore.getState().addMessage({
+        id: 'active-stream',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Still streaming...',
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-active' } },
+        timestamp: now - 1000,
+        isStreaming: true, // Still active
+      });
+
+      useChatStore.getState().addMessage({
+        id: 'cb-msg',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Callback from different source',
+        origin: 'callback',
+        timestamp: now,
+      });
+
+      // Phase 1: no match (callback has no invocationId)
+      // Phase 2: skipped (existing has invocationId)
+      // Phase 3: skipped (existing is still streaming)
+      expect(useChatStore.getState().messages).toHaveLength(2);
+    });
+
     it('replaces an optimistic background-thread message id in place', () => {
       useChatStore.getState().addMessageToThread('thread-b', makeMsg('temp-user-2', 'background'));
 

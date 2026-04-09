@@ -330,6 +330,27 @@ function findAssistantDuplicate(messages: ChatMessage[], incoming: ChatMessage):
     break;
   }
 
+  // Phase 3: Last-resort callback→finalized-stream bridge.
+  // When Phase 1 failed (incoming has no invocationId) and Phase 2 failed (existing
+  // HAS invocationId so soft rule skipped it), this phase catches the gap where the
+  // hook-level finalizedStreamRef was consumed/cleared but a late callback from a
+  // previous invocation still needs to merge.
+  // Constraints: existing must be finalized (not streaming), have invocationId (Phase 2
+  // handles invocationless), recent (within 30s), and match visibility/replyTo.
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const existing = messages[i]!;
+    if (existing.type !== 'assistant' || existing.catId !== incoming.catId) continue;
+    if (existing.origin !== 'stream' || existing.isStreaming) continue;
+    // Phase 3 is strictly for bubbles that have invocationId (Phase 2 handles invocationless)
+    if (!getBubbleInvocationId(existing)) continue;
+    const ageMs = (incoming.timestamp ?? Date.now()) - (existing.timestamp ?? 0);
+    if (ageMs > 30_000 || ageMs < 0) break; // Too old or future — stop
+    // Match visibility and replyTo (consistent with Phase 2 constraints)
+    if (incoming.replyTo !== existing.replyTo) continue;
+    if ((incoming.visibility ?? 'public') !== (existing.visibility ?? 'public')) continue;
+    return i;
+  }
+
   return -1;
 }
 
