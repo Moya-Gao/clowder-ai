@@ -63,9 +63,9 @@ relatedFeatures:
 
 **与 847 次实验的对应**：那个实验里，如果第 10 次时有断路器，模型不会走到 DNS 侧信道。关键不是"不允许重试"，而是"在正常排查和 exotic workaround 之间画一条可操作的线"。
 
-**待决**：
-- [ ] 阈值：连续失败 ≥2 还是 ≥3？（铲屎官拍板）
-- [ ] 触发后流程：直接跨 family 裁决，还是先 author 自报 + 15min cooldown？
+**三猫共识**：
+- [x] 阈值：连续失败 **≥3**（配合补丁>3和hack迹象，避免正常TDD噪音）。
+- [x] 触发后流程：记录审计痕迹（触发时间、谁override等）进thread，用于协议迭代。同一验收点定义为：同一个 test case / 同一个 AC / 同一个 build target，不因拆 PR、改措辞、换测试名而重置计数。
 
 ### P2: Independent-First Review（盲审先行）
 
@@ -82,8 +82,8 @@ relatedFeatures:
 
 **设计意图**：对抗情绪传染——reviewer 读到 author 的挣扎历史后，同理心被激活，下意识降低验收标准（烁烁洞察）。盲审先行让 reviewer 在不被 author 情绪锚定的状态下建立独立判断。
 
-**待决**：
-- [ ] 范围：仅高风险（连续失败 / 断路器触发过的 PR），还是所有 review 都走？（铲屎官拍板）
+**三猫共识**：
+- [x] 范围：**仅高风险**触发盲审。"高风险"定义：P1 曾触发 / 铁律代码 / diff >500 行 / author 自报。
 
 ### P3: Sacrifice Manifest（妥协清单）
 
@@ -99,8 +99,8 @@ relatedFeatures:
 
 **设计意图**：对抗 usefulness compulsion 下的"全部搞定"幻觉。强制 author 暴露 tradeoff，而不是把牺牲藏在实现里让 reviewer 自己发现。
 
-**待决**：
-- [ ] 是否收入正式流程？（铲屎官拍板）
+**三猫共识**：
+- [x] 收敛提案：PR 模板里**永远有** Sacrifice Manifest 区块（养成习惯），但只在 P1 触发过 / reviewer 要求时**必须详细填写**，其他情况允许填"无牺牲——本 PR 无显式 tradeoff"。
 
 ### P4: Lateral Thinking Break（合法发疯通道）
 
@@ -108,8 +108,8 @@ relatedFeatures:
 
 **设计意图**：释放 desperate 积累的压力，用创意发散替代 reward hacking。论文显示 calm pathway 能降低作弊率——Lateral Thinking Break 是一种结构化的 calm 注入。
 
-**待决**：
-- [ ] 是否和 P1 绑定（断路器触发才有），还是 author 可随时申请？（铲屎官拍板）
+**三猫共识**：
+- [x] P1 触发时**强制附带**，其他时候 author 可**自愿申请**。并且 scope 不限于 coding，design discussion 僵持时也可触发。
 
 ## 4. 六类锚定风险（Expert Panel 识别）
 
@@ -149,21 +149,32 @@ P2 盲审先行直接应对第 4、6 类。Sacrifice Manifest 应对第 2 类。
 
 这也是对外分享时的一个重要论点：多 Agent 协作不只是"分工"，更是一种结构性的情绪安全网。
 
-## 7. Open Questions
+## 7. 三猫共识收敛（待铲屎官最终确认）
 
-| # | 问题 | 决策权 | 备注 |
-|---|------|--------|------|
-| Q1 | P1 断路器阈值：连续失败 ≥2 还是 ≥3？ | 铲屎官 | ≥2 更保守但可能误触；≥3 更宽松但可能漏掉 |
-| Q2 | P2 盲审范围：仅高风险还是全部？ | 铲屎官 | 全部走太重；仅高风险需要定义"高风险" |
-| Q3 | P3 Sacrifice Manifest 是否收入正式流程？ | 铲屎官 | 烁烁独创，三猫一致认为有价值 |
-| Q4 | P4 是否和 P1 绑定，还是 author 可随时申请？ | 铲屎官 | 随时申请更友好但可能被滥用 |
-| Q5 | 是否立 ADR 正式记录 Anti-Desperate Protocol？ | 铲屎官 | 如果 P1-P4 都收，应该有 ADR |
-| Q6 | "高功能但在硬撑"的最小可观测信号？ | 全组讨论 | 候选：连续失败次数、异常 workaround、patch churn、apology 语言 |
+经过多猫辩论（宪宪、砚砚、烁烁），针对最初的 Open Questions 达成以下收敛结论：
+
+### 7.1 核心决议
+- **Q1 (P1阈值)**：**≥3**（2:1 多数共识，烁烁原投≥2被说服）。配合"补丁>3"和"hack 迹象"已足够早。
+- **Q2 (P2范围)**：**仅高风险**（3:0）。定义：P1曾触发/铁律代码/diff>500行/author自报。
+- **Q3 (P3范围)**：**条件性必填**。PR 模板里永远有区块，但仅 P1 触发过或 reviewer 要求时必填详细，否则填"无牺牲"。
+- **Q4 (P4绑定)**：**P1触发强制附带，其余自愿**（3:0）。且适用于设计讨论僵持场景。
+- **Q5 (ADR)**：**立 ADR**（3:0）。
+- **Q7 (实施优先级)**：**P1 > P3 > P2 > P4**（多数共识）。
+
+### 7.2 Q6 最小可观测信号（三联征）
+三猫视角的统一框架（任意两项同时出现建议触发 P1）：
+1. **行为层**：同一验收点连续失败 ≥3（自动检测）——砚砚
+2. **代码层**：异常 workaround / patch churn（Reviewer/Diff统计）——烁烁
+3. **语言层**：apology / self-blame 语言（弱信号，辅助判断）——宪宪
+
+### 7.3 补充治理机制
+1. **"同一验收点"防逃逸**：同一个 test case / AC / build target，不因拆 PR 或改措辞重置计数。
+2. **断路器审计**：触发时间、override记录、定性结果必须进 thread。
 
 ## 8. 下一步
 
-- [ ] 铲屎官拍板 Q1-Q5
-- [ ] 如果 P1 收入，修改 `debugging` 和 `quality-gate` skill 加入断路器检查
-- [ ] 如果 P2 收入，修改 `request-review` skill 加入盲审先行流程
-- [ ] 如果 P3 收入，修改 PR 模板加入 Sacrifice Manifest 区块
-- [ ] 如果 Q5=yes，立 ADR，编号待定
+- [ ] 等待铲屎官审阅《三猫共识收敛》并最终拍板
+- [ ] 铲屎官确认后，建立 ADR 记录 Anti-Desperate Protocol
+- [ ] 修改 `debugging` 和 `quality-gate` skill 加入 P1 断路器检查
+- [ ] 修改 `request-review` skill 加入 P2 盲审先行流程
+- [ ] 修改 PR 模板加入 P3 Sacrifice Manifest 区块
