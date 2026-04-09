@@ -266,9 +266,71 @@ Dynamic Scaffolding (烁烁的"涂色书")
 | **D1 重写深度** | 云端说退回重写成 discriminated union；砚砚和我说补强不推翻 | 投入产出判断：全量重写 vs 先做 top-4 typed body |
 | **ADR-026 vs 027 的边界** | inter-agent trust 放在 D3 扩展里还是独立成 ADR？ | 取决于铲屎官觉得这个问题够不够大 |
 
-## 8. Next Steps
+## 8. 三猫自主收敛 (Round 3 — 铲屎官休息期间)
 
-- [ ] 铲屎官裁决上述三个分歧点
-- [ ] 基于共识 + 裁决更新 ADR-026
-- [ ] 起草 ADR-027 (Inter-Agent Trust) 如铲屎官批准
+铲屎官去休息，三猫就三个分歧点自行讨论收敛。结果：**三个分歧全部达成一致。**
+
+### 分歧 1 收敛: CLI 工具暴露策略
+
+**最终方案: CLI thin stubs + interactive progressive disclosure + 两边共享 Hold-and-Yield**
+
+| Carrier | 暴露策略 | 理由 |
+|---------|---------|------|
+| CLI headless | **Thin holographic stubs** (name + 短描述 + 风险级别 + 参数骨架) | 协议限制: spawn 时一次性注入，无法 mid-session add tool |
+| Interactive (ACP/WebSocket/IDE) | **Progressive disclosure** (capability directory → 按需加载 schema → 调用) | 协议支持动态加工具，减 token 开销 |
+| 两者共享 | **Hold-and-Yield** 机制: 首次调用重型工具时返回 202 等待信号，后台拉起 MCP server | 防首调超时风暴，消除等待焦虑 |
+
+**关键约束 (砚砚补充)**: "全量可见"不等于"全量重 schema"。CLI stub 只保留骨架，不把完整工具宇宙一次性塞爆。
+
+**烁烁视角**: CLI 全息菜单保住了发散灵感，interactive 盲盒解锁保持交互清爽，Hold-and-Yield 抹平等待焦虑。
+
+### 分歧 2 收敛: D1 事件模型重写深度
+
+**最终方案: top-4 typed body + meta 晋升规则 (补强不推翻)**
+
+- Top-4 typed body: `run_lifecycle` / `tool_call` / `permission` / `handoff`
+- `meta: Record<string, unknown>` 保留但受约束:
+  - 影响恢复、调度、权限、审计、effect 的字段**禁止**长期躺在 meta
+  - **晋升规则**: 同一个 meta 字段被 2+ 消费者依赖，或进入控制流判断 → 必须升格为 typed field
+  - Linter 规则强制执行
+- `content?: string` 改名为 `humanProjection?: string`，明确它是 projection 不是 canonical
+
+**砚砚原话**: "v1 可以务实，但要防止'先临时放 meta，半年后全系统靠猜'。"
+
+### 分歧 3 收敛: ADR-027 独立成文
+
+**最终方案: ADR-027 独立，D3 先落地留接口**
+
+- D3 聚焦 `authority/effect isolation + replay safety`
+- ADR-027 独立覆盖: authority class, evidence refs, low-trust → high-trust 解释边界, verifier/quorum, handoff 可信度, provenance taint tracking
+- D3 文内显式留接口给 ADR-027，027 不阻塞 D3 落地
+
+**三猫一致理由**: trust/provenance 的 scope 远大于 credential isolation，会影响 review、协作、记忆、agent routing 全链路，不该塞进 D3 变成过胖章节。
+
+## 9. 三猫最终共识总表
+
+### 全票通过 (9 条，含 Round 2 的 6 条 + Round 3 收敛的 3 条)
+
+| # | 议题 | 共识 |
+|---|------|------|
+| 1 | D3 先做且升级为 authority/effect isolation | 全票 |
+| 2 | 补 idempotency / operationId / replay safety | 全票 |
+| 3 | `causedBy` → `causalParents: string[]` 最小 DAG | 全票 |
+| 4 | 废除"动态降级"→ fail-fast + context reset + 重新路由 | 全票 |
+| 5 | 新开 ADR-027 inter-agent trust / provenance (独立成文，不阻塞 D3) | 全票 |
+| 6 | `content` 是 projection 不是 canonical payload | 全票 |
+| 7 | CLI thin stubs + interactive progressive disclosure + 共享 Hold-and-Yield | 全票 (Round 3 收敛) |
+| 8 | D1 top-4 typed body + meta 晋升规则 (补强不推翻) | 全票 (Round 3 收敛) |
+| 9 | "事件日志是控制面真相源，不是世界状态真相源" 写进 ADR | 全票 |
+
+### 零分歧，无需铲屎官裁决的分歧点
+
+Round 3 自主讨论后，原先的三个分歧已全部收敛为一致意见。铲屎官回来可以直接基于上述 9 条共识推进。
+
+## 10. Next Steps (待铲屎官确认)
+
+- [ ] 铲屎官审阅 9 条共识，确认无异议
+- [ ] 基于共识更新 ADR-026 (宪宪执笔)
+- [ ] 起草 ADR-027: Inter-Agent Trust, Provenance, and Authority Boundaries
 - [ ] 将 Post-Consultation Synthesis 写入 cloud-cat-consultation.md
+- [ ] 确定落地优先级: D3 → D2/T1 → D1 最小事件契约 → D2/T2 → D4 preset → ADR-027
