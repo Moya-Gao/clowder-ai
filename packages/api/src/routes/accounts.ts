@@ -5,6 +5,7 @@
  */
 import { existsSync } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { relative, resolve, win32 } from 'node:path';
 import type { AccountConfig } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
@@ -66,6 +67,15 @@ function deriveAccountId(displayName: string, existingIds: Set<string>): string 
   let counter = 2;
   while (existingIds.has(`${seed}-${counter}`)) counter += 1;
   return `${seed}-${counter}`;
+}
+
+function resolveGlobalConfigRoot(): string {
+  const envRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT?.trim();
+  return resolve(envRoot || homedir());
+}
+
+function isProjectScopedGlobalStore(projectRoot: string): boolean {
+  return resolve(projectRoot) === resolveGlobalConfigRoot();
 }
 
 const MONOREPO_ROOT = findMonorepoRoot();
@@ -349,7 +359,14 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
           };
         }
       }
-      // No local references found — allow deletion without force
+      if (!isProjectScopedGlobalStore(projectRoot)) {
+        reply.status(409);
+        return {
+          error:
+            `Account "${params.profileId}" lives in shared global store ${resolveGlobalConfigRoot()} ` +
+            `and non-force deletion cannot verify bindings in other projects. Audit all project catalogs or pass { "force": true }.`,
+        };
+      }
     }
 
     try {

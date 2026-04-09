@@ -34,6 +34,28 @@ function writeFileAtomic(filePath: string, content: string): void {
 /** F340 P5: ClientId values — used to detect old `provider` field holding a clientId. */
 const CLIENT_ID_VALUES = new Set(['anthropic', 'openai', 'google', 'dare', 'antigravity', 'opencode', 'a2a']);
 
+function collectCatIds(config: CatCafeConfig): Set<string> {
+  const catIds = new Set<string>();
+  for (const breed of config.breeds as unknown as Record<string, unknown>[]) {
+    const breedCatId = typeof breed.catId === 'string' ? breed.catId : '';
+    const variants = Array.isArray(breed.variants) ? (breed.variants as Record<string, unknown>[]) : [];
+    for (const variant of variants) {
+      const catId = typeof variant.catId === 'string' ? variant.catId : breedCatId;
+      if (catId) catIds.add(catId);
+    }
+  }
+  return catIds;
+}
+
+function readSeedCatIds(templatePath: string): Set<string> {
+  try {
+    const parsed = JSON.parse(readFileSync(templatePath, 'utf-8')) as CatCafeConfig;
+    return collectCatIds(migrateCatalogVariants(parsed).catalog);
+  } catch {
+    return new Set();
+  }
+}
+
 /**
  * F340: One-time catalog variant migration — rewrites file on disk then never runs again.
  *   1. old `provider` (clientId value) → `clientId` (P5 field rename)
@@ -100,14 +122,17 @@ function migrateCatalogVariants(catalog: CatCafeConfig): { catalog: CatCafeConfi
   return { catalog: next, dirty };
 }
 
-function applyBootstrapDefaultAccountRefs(catalog: CatCafeConfig): CatCafeConfig {
+function applyBootstrapDefaultAccountRefs(catalog: CatCafeConfig, seedCatIds: ReadonlySet<string>): CatCafeConfig {
   const next = structuredClone(catalog) as CatCafeConfig;
 
   for (const breed of next.breeds as unknown as Record<string, unknown>[]) {
+    const breedCatId = typeof breed.catId === 'string' ? breed.catId : '';
     const variants = Array.isArray(breed.variants) ? (breed.variants as Record<string, unknown>[]) : [];
     for (const variant of variants) {
       const existingAccountRef = typeof variant.accountRef === 'string' ? variant.accountRef.trim() : '';
       if (existingAccountRef) continue;
+      const catId = typeof variant.catId === 'string' ? variant.catId : breedCatId;
+      if (!catId || !seedCatIds.has(catId)) continue;
 
       const client = resolveBuiltinClientForProvider((variant.clientId ?? variant.provider) as ClientId);
       if (!client) continue;
@@ -147,10 +172,16 @@ export function readCatCatalog(projectRoot: string): CatCafeConfig | null {
   return JSON.parse(raw) as CatCafeConfig;
 }
 
-function readBootstrapSourceConfig(projectRoot: string, templatePath: string): CatCafeConfig {
+function readBootstrapSourceConfig(
+  projectRoot: string,
+  templatePath: string,
+): { catalog: CatCafeConfig; sourcePath: string } {
   const legacyConfigPath = safePath(projectRoot, 'cat-config.json');
   const sourcePath = existsSync(legacyConfigPath) ? legacyConfigPath : templatePath;
-  return JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig;
+  return {
+    catalog: JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig,
+    sourcePath,
+  };
 }
 
 export function bootstrapCatCatalog(projectRoot: string, templatePath: string): string {
@@ -162,12 +193,13 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
 
   // Bootstrap must preserve legacy project customizations when upgrading from
   // installs that still have cat-config.json but no runtime catalog yet.
-  const template = readBootstrapSourceConfig(projectRoot, templatePath);
+  const { catalog: template, sourcePath } = readBootstrapSourceConfig(projectRoot, templatePath);
 
   // Bootstrap persists the template's default seed binding into the runtime catalog.
   // Runtime migrations stay non-backfilling so custom/runtime cats remain unbound.
   const { catalog: migratedCatalog } = migrateCatalogVariants(template);
-  const runtimeCatalog = applyBootstrapDefaultAccountRefs(migratedCatalog);
+  const seedCatIds = sourcePath === templatePath ? collectCatIds(migratedCatalog) : readSeedCatIds(templatePath);
+  const runtimeCatalog = applyBootstrapDefaultAccountRefs(migratedCatalog, seedCatIds);
 
   mkdirSync(dirname(catalogPath), { recursive: true });
   writeFileAtomic(catalogPath, `${JSON.stringify(runtimeCatalog, null, 2)}\n`);

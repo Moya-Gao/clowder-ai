@@ -1,6 +1,7 @@
 // @ts-check
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +17,54 @@ async function makeTmpDir(prefix) {
 /** @param {string} prefix */
 async function makeWorkspaceDir(prefix) {
   return mkdtemp(join(process.cwd(), '..', '..', `.cat-cafe-provider-profile-route-workspace-${prefix}-`));
+}
+
+async function writeBoundCatalog(projectDir, accountRef) {
+  mkdirSync(join(projectDir, '.cat-cafe'), { recursive: true });
+  writeFileSync(
+    join(projectDir, '.cat-cafe', 'cat-catalog.json'),
+    JSON.stringify({
+      version: 2,
+      breeds: [
+        {
+          id: 'ragdoll',
+          catId: 'opus',
+          name: '布偶猫',
+          displayName: '布偶猫',
+          avatar: '/avatars/opus.png',
+          color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
+          mentionPatterns: ['@opus'],
+          roleDescription: '主架构师',
+          defaultVariantId: 'opus-default',
+          variants: [
+            {
+              id: 'opus-default',
+              clientId: 'anthropic',
+              accountRef,
+              defaultModel: 'claude-opus-4-6',
+              mcpSupport: true,
+              cli: { command: 'claude', outputFormat: 'stream-json' },
+            },
+          ],
+        },
+      ],
+      roster: {
+        opus: {
+          family: 'ragdoll',
+          roles: ['architect'],
+          lead: true,
+          available: true,
+          evaluation: 'primary',
+        },
+      },
+      reviewPolicy: {
+        requireDifferentFamily: true,
+        preferActiveInThread: true,
+        preferLead: true,
+        excludeUnavailable: true,
+      },
+    }),
+  );
 }
 
 describe('accounts routes', () => {
@@ -307,7 +356,6 @@ describe('accounts routes', () => {
   });
 
   it('GET /api/accounts returns correct client for non-standard builtins (dare/opencode)', async () => {
-    const { writeFileSync, mkdirSync } = await import('node:fs');
     const { writeCatalogAccount } = await import('../dist/config/catalog-accounts.js');
     const Fastify = (await import('fastify')).default;
     const { accountsRoutes } = await import('../dist/routes/accounts.js');
@@ -347,6 +395,80 @@ describe('accounts routes', () => {
 
       const opencode = providers.find((p) => p.id === 'opencode');
       assert.equal(opencode.clientId, 'opencode', 'opencode builtin clientId should be its own ID, not protocol');
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('DELETE /api/accounts blocks non-force deletion when another project may share the global store', async () => {
+    const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    const Fastify = (await import('fastify')).default;
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
+    const app = Fastify();
+    await app.register(accountsRoutes);
+    await app.ready();
+
+    const globalRoot = await makeTmpDir('shared-global-root');
+    const projectA = await makeTmpDir('shared-delete-a');
+    const projectB = await makeTmpDir('shared-delete-b');
+    setGlobalRoot(globalRoot);
+    resetMigrationState();
+    try {
+      writeCatalogAccount(projectA, 'shared-account', {
+        authType: 'api_key',
+        displayName: 'Shared Account',
+      });
+      await writeBoundCatalog(projectB, 'shared-account');
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/accounts/shared-account',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({ projectPath: projectA }),
+      });
+      assert.equal(res.statusCode, 409);
+      assert.match(res.json().error, /shared global store|other projects|force/i);
+      assert.ok(readCatalogAccounts(projectA)['shared-account'], 'account must remain in global store');
+    } finally {
+      restoreGlobalRoot();
+      await rm(globalRoot, { recursive: true, force: true });
+      await rm(projectA, { recursive: true, force: true });
+      await rm(projectB, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('DELETE /api/accounts allows non-force deletion when the global store is project-isolated', async () => {
+    const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    const Fastify = (await import('fastify')).default;
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
+    const app = Fastify();
+    await app.register(accountsRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('isolated-delete');
+    setGlobalRoot(projectDir);
+    resetMigrationState();
+    try {
+      writeCatalogAccount(projectDir, 'local-account', {
+        authType: 'api_key',
+        displayName: 'Local Account',
+      });
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/accounts/local-account',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({ projectPath: projectDir }),
+      });
+      assert.equal(res.statusCode, 200);
+      assert.equal(readCatalogAccounts(projectDir)['local-account'], undefined);
     } finally {
       restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
