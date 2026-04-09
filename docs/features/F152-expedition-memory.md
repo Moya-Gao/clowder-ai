@@ -154,7 +154,7 @@ interface ScannedEvidence {
 ## Dependencies
 
 - **Evolved from**: F102（记忆引擎 6 接口 + SQLite 基座 + 联邦检索）
-- **Evolved from**: F070（Portable Governance — 治理/方法论随猫走 + `project-init` hook）
+- **Evolved from**: F070（Portable Governance — 治理/方法论随猫走 + 治理 bootstrap 链路 `projects-setup`）
 - **Related**: F076（Mission Hub 跨项目面板 — 未来可在 Hub 展示出征项目记忆状态）
 
 ## Risk
