@@ -81,7 +81,9 @@ function normalizeDisplayName(displayName: string | undefined): string | undefin
 
 function normalizeModels(models: readonly string[] | undefined): string[] | undefined {
   if (!Array.isArray(models)) return undefined;
-  const normalized = Array.from(new Set(models.map((value) => String(value).trim()).filter((value) => value.length > 0)));
+  const normalized = Array.from(
+    new Set(models.map((value) => String(value).trim()).filter((value) => value.length > 0)),
+  );
   return normalized.length > 0 ? normalized.sort() : undefined;
 }
 
