@@ -2,17 +2,18 @@
  * Thread Cats Callback Route — TD #408
  * GET /api/callbacks/thread-cats — discover cats in a thread via MCP callback auth.
  *
- * Reuses the same categorization logic as GET /api/threads/:id/cats (F142)
- * but authenticated via invocationId + callbackToken instead of binding-owner header.
+ * Delegates to shared categorizeThreadCats() — same logic as GET /api/threads/:id/cats (F142).
+ * Auth: invocationId + callbackToken instead of binding-owner header.
  */
 
-import { catRegistry, createCatId } from '@cat-cafe/shared';
+import { catRegistry } from '@cat-cafe/shared';
 import type { FastifyInstance } from 'fastify';
 import { isCatAvailable } from '../config/cat-config-loader.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import { categorizeThreadCats } from './thread-cats-core.js';
 
 interface ThreadCatsCallbackDeps {
   registry: InvocationRegistry;
@@ -51,49 +52,23 @@ export function registerCallbackThreadCatsRoutes(app: FastifyInstance, deps: Thr
       return { error: 'Thread not found' };
     }
 
-    // Gather data — same logic as thread-cats.ts (F142)
-    const participantActivity = await threadStore.getParticipantsWithActivity(threadId);
-    const registeredServices = agentRegistry.getAllEntries();
     const allCatConfigs = catRegistry.getAllConfigs();
-    const allCatIds = Object.keys(allCatConfigs);
-    const participantIds = new Set(participantActivity.map((p) => p.catId));
-
-    const getName = (catId: string): string => allCatConfigs[catId]?.displayName ?? catId;
-
-    // Categorize (same as F142 KD-9)
-    const routableNow: Array<{ catId: string; displayName: string }> = [];
-    const routableNotJoined: Array<{ catId: string; displayName: string }> = [];
-    const notRoutable: Array<{ catId: string; displayName: string }> = [];
-
-    for (const catId of allCatIds) {
-      const hasService = registeredServices.has(catId);
-      const available = isCatAvailable(catId);
-      const isParticipant = participantIds.has(createCatId(catId));
-
-      if (!available && !isParticipant) {
-        notRoutable.push({ catId, displayName: getName(catId) });
-      } else if (hasService && available && !isParticipant) {
-        routableNotJoined.push({ catId, displayName: getName(catId) });
-      }
-    }
-
-    for (const p of participantActivity) {
-      if (registeredServices.has(p.catId) && isCatAvailable(p.catId)) {
-        routableNow.push({ catId: p.catId, displayName: getName(p.catId) });
-      }
-    }
-
-    return {
-      threadId,
-      participants: participantActivity.map((p) => ({
-        catId: p.catId,
-        displayName: getName(p.catId),
+    const participantActivity = await threadStore.getParticipantsWithActivity(threadId);
+    const result = categorizeThreadCats({
+      participantActivity: participantActivity.map((p) => ({
+        catId: p.catId as string,
         lastMessageAt: p.lastMessageAt,
         messageCount: p.messageCount,
       })),
-      routableNow,
-      routableNotJoined,
-      notRoutable,
+      registeredServices: agentRegistry.getAllEntries(),
+      allCatIds: Object.keys(allCatConfigs),
+      getCatDisplayName: (catId: string) => allCatConfigs[catId]?.displayName ?? catId,
+      isCatAvailable,
+    });
+
+    return {
+      threadId,
+      ...result,
       routingPolicy: thread.routingPolicy ? `v${thread.routingPolicy.v}` : null,
     };
   });

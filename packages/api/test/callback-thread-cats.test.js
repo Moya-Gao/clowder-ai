@@ -92,6 +92,11 @@ describe('GET /api/callbacks/thread-cats', () => {
     assert.equal(body.participants.length, 1);
     assert.equal(body.participants[0].catId, 'opus');
     assert.equal(body.participants[0].messageCount, 5);
+    // Categorization: opus is participant + has service → routableNow
+    assert.equal(body.routableNow.length, 1);
+    assert.equal(body.routableNow[0].catId, 'opus');
+    assert.deepEqual(body.routableNotJoined, []);
+    assert.deepEqual(body.notRoutable, []);
   });
 
   it('returns 400 when invocation has no threadId', async () => {
