@@ -9,7 +9,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 
 # F154: Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -30,7 +30,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 
 ## What
 
-### Phase A: Connector 首选猫入口 + 全局默认猫可配置
+### Phase A: Connector 首选猫入口 + 全局默认猫可配置 ✅
 
 **A1 — Connector 命令**：
 - `/focus <猫名>` — 设置当前 thread 的 preferredCats 为**单只猫**（复用现有 `threadStore.updatePreferredCats`）
@@ -71,13 +71,13 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 ## Acceptance Criteria
 
 ### Phase A（Connector 入口 + 全局默认猫）
-- [ ] AC-A1: 飞书/微信 connector 中 `/focus opus` 设置 thread preferredCats，`/focus` 查看，`/focus clear` 清除
-- [ ] AC-A2: `/ask opus 帮我看代码` 单次定向发消息给 opus，不改变 preferredCats
-- [ ] AC-A3: 猫名解析使用 catRegistry aliases，不硬编码；不可路由猫返回错误
-- [ ] AC-A4: `getDefaultCatId()` 支持运行时配置覆盖 `breeds[0]` 默认值；修改需 owner 权限，非 owner 返回 403
-- [ ] AC-A5: 路由优先级链精确语义不变：`@mention → preferredCats scope 内 last healthy replier → first preferred → getDefaultCatId()`；preferredCats 是候选范围（candidate scope），不是直接优先级
-- [ ] AC-A6: `/focus` `/ask` 有单元测试覆盖（含 stale cat fallback、persistence 不可用场景）
-- [ ] AC-A7: 猫名解析冲突时返回候选列表并拒绝执行，禁止猜测命中；exact alias match 优先于 partial displayName match
+- [x] AC-A1: 飞书/微信 connector 中 `/focus opus` 设置 thread preferredCats，`/focus` 查看，`/focus clear` 清除
+- [x] AC-A2: `/ask opus 帮我看代码` 单次定向发消息给 opus，不改变 preferredCats
+- [x] AC-A3: 猫名解析使用 catRegistry aliases，不硬编码；不可路由猫返回错误
+- [x] AC-A4: `getDefaultCatId()` 支持运行时配置覆盖 `breeds[0]` 默认值；修改需 owner 权限，非 owner 返回 403
+- [x] AC-A5: 路由优先级链精确语义不变：`@mention → preferredCats scope 内 last healthy replier → first preferred → getDefaultCatId()`；preferredCats 是候选范围（candidate scope），不是直接优先级
+- [x] AC-A6: `/focus` `/ask` 有单元测试覆盖（含 stale cat fallback、persistence 不可用场景）
+- [x] AC-A7: 猫名解析冲突时返回候选列表并拒绝执行，禁止猜测命中；exact alias match 优先于 partial displayName match
 
 ### Phase B（Hub 可见性 + UX）
 - [ ] AC-B1: Thread header 显示当前首选猫（头像 + 名字），无首选猫时不显示
@@ -146,6 +146,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | 2026-04-09 | Spec review R1：砚砚 2P1+2P2（路由语义 + /ask 边界 + /focus 单猫 + 全局 scope），烁烁 UX 设计（Pill 指示器 + 卡片选择器 + alias tooltip）；OQ-1~3 关闭为 KD-4~6 |
 | 2026-04-09 | Spec review R2（Design Gate）：砚砚 1P1+2P2（权限边界 + 实现路径歧义 + 猫名冲突策略）→ KD-7~8 + AC-A7；烁烁 UX 确认无补充 |
 | 2026-04-09 | **Design Gate 放行**（砚砚）— R2 三项全部落盘，无新增 P1/P2；烁烁 UX 已确认 |
+| 2026-04-09 | Phase A merged (PR #1020) — 95 tests, 0 failures; codex local review 放行 + cloud review 0 P1/P2 |
 
 ## Review Gate
 
