@@ -204,6 +204,11 @@ const PROCESS_START_AT = Date.now();
 
 async function main(): Promise<void> {
   const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
+
+  // F152: Initialize OpenTelemetry SDK (must be early, before routes)
+  const { initTelemetry } = await import('./infrastructure/telemetry/init.js');
+  const shutdownTelemetry = initTelemetry();
+
   const app = Fastify({ logger: customLogger as unknown as import('fastify').FastifyBaseLogger });
 
   if (isDebugMode) {
@@ -232,6 +237,25 @@ async function main(): Promise<void> {
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
+
+  // F152: Readiness check — verifies dependencies are reachable
+  app.get('/ready', async () => {
+    const checks: Record<string, { ok: boolean; ms: number; error?: string }> = {};
+    // Redis probe
+    if (redisClient) {
+      const t0 = Date.now();
+      try {
+        await redisClient.ping();
+        checks.redis = { ok: true, ms: Date.now() - t0 };
+      } catch (err) {
+        checks.redis = { ok: false, ms: Date.now() - t0, error: String(err) };
+      }
+    } else {
+      checks.redis = { ok: true, ms: 0 }; // memory mode, always ready
+    }
+    const allOk = Object.values(checks).every((c) => c.ok);
+    return { status: allOk ? 'ready' : 'degraded', timestamp: Date.now(), checks };
+  });
 
   // Create invocation tracker for cancellation support
   const invocationTracker = new InvocationTracker();
@@ -2099,6 +2123,13 @@ async function main(): Promise<void> {
       } catch (err) {
         exitCode = 1;
         app.log.error(`[api] SocketManager close failed: ${String(err)}`);
+      }
+
+      // F152: Flush and shutdown OTel SDK before closing server
+      try {
+        await shutdownTelemetry();
+      } catch (err) {
+        app.log.error(`[api] OTel shutdown failed: ${String(err)}`);
       }
 
       // Close Fastify server

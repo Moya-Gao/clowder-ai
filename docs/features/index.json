@@ -933,7 +933,7 @@
     {
       "id": "F153",
       "name": "Observability Infrastructure — 运行时可观测基础设施",
-      "status": "spec | **Owner**: Community (PR author) + Ragdoll | **Priority**: P2",
+      "status": "in-progress | **Owner**: Community (PR author) + Ragdoll | **Priority**: P2",
       "file": "F153-observability-infra.md"
     },
     {
