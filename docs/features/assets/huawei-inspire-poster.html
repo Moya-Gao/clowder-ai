@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>华为 Inspire — 同源分工，三体协同</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Noto Sans SC', -apple-system, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* Gemini hero image as background */
+  .hero-bg {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    background: url('huawei-inspire-hero.png') center center / cover no-repeat;
+    opacity: 0.55;
+    animation: heroFadeIn 3s ease forwards;
+  }
+
+  @keyframes heroFadeIn {
+    from { opacity: 0; transform: scale(1.05); }
+    to { opacity: 0.55; transform: scale(1); }
+  }
+
+  canvas#particles {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 40px;
+    pointer-events: none;
+  }
+
+  /* Top brand bar */
+  .brand-bar {
+    position: fixed;
+    top: 40px; left: 0; right: 0;
+    z-index: 3;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    opacity: 0;
+    animation: fadeIn 1.5s ease 0.5s forwards;
+  }
+
+  .brand-bar .huawei-text {
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 8px;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+  }
+
+  .brand-bar .divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255,255,255,0.3);
+  }
+
+  .brand-bar .inspire-text {
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 6px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* Main title block */
+  .title-block {
+    text-align: center;
+    opacity: 0;
+    animation: fadeSlideUp 1.8s ease 1s forwards;
+  }
+
+  .title-block .subtitle {
+    font-size: 16px;
+    font-weight: 300;
+    letter-spacing: 10px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 20px;
+  }
+
+  .title-block .main-title {
+    font-size: clamp(48px, 7vw, 96px);
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: 8px;
+    background: linear-gradient(
+      90deg,
+      #4a9eff 0%,
+      #6cb8ff 25%,
+      #ffd700 50%,
+      #ffaa00 75%,
+      #ff4444 100%
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 8s ease infinite;
+  }
+
+  .title-block .main-title-line2 {
+    font-size: clamp(48px, 7vw, 96px);
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: 8px;
+    background: linear-gradient(
+      90deg,
+      #ff4444 0%,
+      #ff7744 25%,
+      #ffd700 50%,
+      #77bbff 75%,
+      #4a9eff 100%
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 8s ease 1s infinite;
+  }
+
+  /* Three agent cards */
+  .agents-row {
+    display: flex;
+    gap: clamp(20px, 4vw, 60px);
+    margin-top: 50px;
+    margin-bottom: 80px;
+    opacity: 0;
+    animation: fadeSlideUp 1.5s ease 2s forwards;
+  }
+
+  .agent-card {
+    text-align: center;
+    padding: 30px 24px;
+    border-radius: 16px;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(30px);
+    width: clamp(160px, 20vw, 260px);
+    transition: all 0.4s ease;
+  }
+
+  .agent-card:hover {
+    background: rgba(255,255,255,0.06);
+    transform: translateY(-4px);
+  }
+
+  .agent-card.code { border-top: 2px solid #4a9eff; }
+  .agent-card.office { border-top: 2px solid #ffd700; }
+  .agent-card.marketing { border-top: 2px solid #ff4444; }
+
+  .agent-card .icon {
+    font-size: 36px;
+    margin-bottom: 16px;
+  }
+
+  .agent-card.code .icon { color: #4a9eff; }
+  .agent-card.office .icon { color: #ffd700; }
+  .agent-card.marketing .icon { color: #ff4444; }
+
+  .agent-card .label {
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 8px;
+  }
+
+  .agent-card .name {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .agent-card.code .name { color: #4a9eff; }
+  .agent-card.office .name { color: #ffd700; }
+  .agent-card.marketing .name { color: #ff4444; }
+
+  .agent-card .desc {
+    font-size: 13px;
+    font-weight: 300;
+    line-height: 1.8;
+    color: rgba(255,255,255,0.65);
+  }
+
+  /* Bottom tagline */
+  .tagline {
+    position: fixed;
+    bottom: 30px;
+    left: 0; right: 0;
+    text-align: center;
+    z-index: 3;
+    opacity: 0;
+    animation: fadeIn 1.5s ease 2.8s forwards;
+  }
+
+  .tagline .line1 {
+    font-size: 16px;
+    font-weight: 300;
+    letter-spacing: 6px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 8px;
+  }
+
+  .tagline .line2 {
+    font-size: 14px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.25);
+  }
+
+  /* Connecting lines between cards */
+  .connectors {
+    position: absolute;
+    width: 100%;
+    height: 4px;
+    margin-top: -2px;
+    opacity: 0;
+    animation: fadeIn 1.5s ease 2.5s forwards;
+  }
+
+  .connector-line {
+    height: 1px;
+    background: linear-gradient(90deg,
+      #4a9eff,
+      rgba(255,255,255,0.1) 30%,
+      #ffd700 50%,
+      rgba(255,255,255,0.1) 70%,
+      #ff4444
+    );
+    animation: pulse 3s ease infinite;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+  }
+
+  /* Glow effects */
+  .glow-blue {
+    position: fixed;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(74,158,255,0.08) 0%, transparent 70%);
+    top: 20%; left: 10%;
+    z-index: 0;
+    animation: floatGlow 8s ease-in-out infinite;
+  }
+
+  .glow-gold {
+    position: fixed;
+    width: 350px; height: 350px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,215,0,0.06) 0%, transparent 70%);
+    top: 30%; right: 15%;
+    z-index: 0;
+    animation: floatGlow 10s ease-in-out 2s infinite;
+  }
+
+  .glow-red {
+    position: fixed;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,68,68,0.06) 0%, transparent 70%);
+    bottom: 20%; left: 40%;
+    z-index: 0;
+    animation: floatGlow 9s ease-in-out 1s infinite;
+  }
+
+  @keyframes floatGlow {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(20px, -20px) scale(1.1); }
+    66% { transform: translate(-15px, 15px) scale(0.95); }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero-bg"></div>
+<div class="glow-blue"></div>
+<div class="glow-gold"></div>
+<div class="glow-red"></div>
+
+<canvas id="particles"></canvas>
+
+<div class="overlay">
+  <div class="title-block">
+    <div class="subtitle">三 大 A I 智 能 体</div>
+    <div class="main-title">同 源 分 工</div>
+    <div class="main-title-line2">三 体 协 同</div>
+  </div>
+
+  <div class="connectors">
+    <div class="connector-line"></div>
+  </div>
+
+  <div class="agents-row">
+    <div class="agent-card code">
+      <div class="icon">⟨/⟩</div>
+      <div class="label">B U I L D</div>
+      <div class="name">代码智能体</div>
+      <div class="desc">理解架构意图<br>全链路协同交付</div>
+    </div>
+    <div class="agent-card office">
+      <div class="icon">◈</div>
+      <div class="label">T H I N K</div>
+      <div class="name">办公智能体</div>
+      <div class="desc">穿透数据孤岛<br>决策流智能加速</div>
+    </div>
+    <div class="agent-card marketing">
+      <div class="icon">◉</div>
+      <div class="label">R E A C H</div>
+      <div class="name">营销智能体</div>
+      <div class="desc">全域洞察触达<br>一次生成千人千面</div>
+    </div>
+  </div>
+</div>
+
+<div class="brand-bar">
+  <span class="huawei-text">HUAWEI</span>
+  <span class="divider"></span>
+  <span class="inspire-text">I N S P I R E</span>
+</div>
+
+<div class="tagline">
+  <div class="line1">不 做 孤 岛 ， 做 生 态</div>
+  <div class="line2">HUAWEI INSPIRE 2026</div>
+</div>
+
+<script>
+// === Three-color particle convergence system ===
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+
+let W, H, centerX, centerY;
+const particles = [];
+const PARTICLE_COUNT = 400;
+
+// Three source colors with their origin angles
+const sources = [
+  { color: [74, 158, 255],  angle: -Math.PI * 2/3, label: 'blue' },   // top-left
+  { color: [255, 215, 0],   angle: 0,               label: 'gold' },   // right
+  { color: [255, 68, 68],   angle: Math.PI * 2/3,   label: 'red' },    // bottom-left
+];
+
+function resize() {
+  W = canvas.width = window.innerWidth * window.devicePixelRatio;
+  H = canvas.height = window.innerHeight * window.devicePixelRatio;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  centerX = W / 2;
+  centerY = H / 2;
+}
+
+class Particle {
+  constructor(sourceIndex) {
+    this.sourceIndex = sourceIndex;
+    this.reset();
+  }
+
+  reset() {
+    const src = sources[this.sourceIndex];
+    const spawnRadius = Math.max(W, H) * 0.6;
+    const angleSpread = Math.PI * 0.4;
+    const angle = src.angle + (Math.random() - 0.5) * angleSpread;
+
+    this.x = centerX + Math.cos(angle) * spawnRadius;
+    this.y = centerY + Math.sin(angle) * spawnRadius;
+    this.size = Math.random() * 3 + 0.8;
+    this.speed = Math.random() * 0.8 + 0.3;
+    this.life = 0;
+    this.maxLife = 200 + Math.random() * 300;
+    this.opacity = 0;
+
+    // Spiral parameters
+    this.spiralFactor = (Math.random() - 0.5) * 0.015;
+    this.orbitRadius = 0;
+  }
+
+  update() {
+    this.life++;
+    if (this.life > this.maxLife) {
+      this.reset();
+      return;
+    }
+
+    const progress = this.life / this.maxLife;
+
+    // Move toward center with spiral
+    const dx = centerX - this.x;
+    const dy = centerY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+
+    // Spiral inward
+    const spiralAngle = angle + this.spiralFactor * (1 + progress * 3);
+    const attraction = this.speed * (1 + progress * 2);
+
+    this.x += Math.cos(spiralAngle) * attraction;
+    this.y += Math.sin(spiralAngle) * attraction;
+
+    // Fade in then out
+    if (progress < 0.1) {
+      this.opacity = progress / 0.1;
+    } else if (progress > 0.85) {
+      this.opacity = (1 - progress) / 0.15;
+    } else {
+      this.opacity = 0.6 + Math.sin(progress * Math.PI) * 0.4;
+    }
+
+    // Glow brighter near center
+    if (dist < 100) {
+      this.opacity = Math.min(1, this.opacity * (1 + (100 - dist) / 50));
+      this.size *= 1.001;
+    }
+  }
+
+  draw() {
+    const src = sources[this.sourceIndex];
+    const [r, g, b] = src.color;
+
+    // Core
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r},${g},${b},${this.opacity})`;
+    ctx.fill();
+
+    // Glow
+    if (this.opacity > 0.3) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+      const grad = ctx.createRadialGradient(
+        this.x, this.y, 0,
+        this.x, this.y, this.size * 3
+      );
+      grad.addColorStop(0, `rgba(${r},${g},${b},${this.opacity * 0.3})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+  }
+}
+
+// Initialize particles
+function init() {
+  resize();
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const sourceIndex = i % 3;
+    const p = new Particle(sourceIndex);
+    p.life = Math.random() * p.maxLife; // stagger
+    particles.push(p);
+  }
+}
+
+// Central convergence glow
+function drawCenterGlow(time) {
+  const pulse = 0.5 + Math.sin(time * 0.001) * 0.15;
+  const radius = 60 + Math.sin(time * 0.002) * 10;
+
+  // White core
+  const coreGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+  coreGrad.addColorStop(0, `rgba(255,255,255,${0.08 * pulse})`);
+  coreGrad.addColorStop(0.5, `rgba(200,200,255,${0.03 * pulse})`);
+  coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = coreGrad;
+  ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+
+  // Color corona - rotating
+  sources.forEach((src, i) => {
+    const [r, g, b] = src.color;
+    const coronaAngle = time * 0.0005 + (i * Math.PI * 2 / 3);
+    const cx = centerX + Math.cos(coronaAngle) * 15;
+    const cy = centerY + Math.sin(coronaAngle) * 15;
+    const coronaGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 1.5);
+    coronaGrad.addColorStop(0, `rgba(${r},${g},${b},${0.04 * pulse})`);
+    coronaGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = coronaGrad;
+    ctx.fillRect(cx - radius * 1.5, cy - radius * 1.5, radius * 3, radius * 3);
+  });
+}
+
+// Animation loop
+function animate(time) {
+  ctx.clearRect(0, 0, W, H);
+
+  drawCenterGlow(time);
+
+  particles.forEach(p => {
+    p.update();
+    p.draw();
+  });
+
+  requestAnimationFrame(animate);
+}
+
+window.addEventListener('resize', resize);
+init();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
