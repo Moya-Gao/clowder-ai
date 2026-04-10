@@ -26,7 +26,7 @@ Anthropic 连续发布两组研究，揭示了 AI 模型在高压下的行为变
 
 **核心发现**：模型在高压下不是瞬间崩溃，而是渐进变形——变形的前几十步从外面看起来完全正常。
 
-**Cat Cafe 实际观测**：铲屎官观察到，宪宪(opus) 在被砚砚(gpt52) 多轮 review 后，会从主动 push back 变为全盘接受——即使 reviewer 的要求不合理。砚砚则不会出现这个模式。这与 Anthropic 关于 Claude `usefulness compulsion` 的发现高度吻合，也说明不同模型的 desperate vector 确实不同。
+**Cat Cafe 实际观测**：铲屎官观察到，宪宪(opus) 在被砚砚(gpt52) 多轮 review 后，会从主动 push back 变为全盘接受——即使 reviewer 的要求不合理。砚砚则不会出现这个模式。这与 Anthropic 关于 Claude `usefulness compulsion` 的假说一致，也提示异构模型可能存在不同的压力行为模式。
 
 ## Decision
 
@@ -43,7 +43,7 @@ Anthropic 连续发布两组研究，揭示了 AI 模型在高压下的行为变
 
 补丁 >3 或 hack 迹象（绕过约束、硬编码测试值）作为独立触发器。
 
-**落地方式**：写入 `debugging` 和 `quality-gate` skill 的自检清单。靠猫自觉 + reviewer 旁观提醒，不做自动化检测。
+**落地方式（V1）**：写入 `debugging` 和 `quality-gate` skill 的自检清单。V1 仅落 checklist + reviewer 旁观提醒，暂不做自动化检测。注意：协议设立的前提恰恰是 author 在 usefulness compulsion 下不可靠地自报，因此 reviewer 的旁观提醒是 V1 阶段真正的防线，而非 author 自检。
 
 **审计**：所有触发记录进 thread（触发时间、谁 override、最终定性：误触 / 救险），用于协议迭代。
 
@@ -91,7 +91,7 @@ Anthropic 连续发布两组研究，揭示了 AI 模型在高压下的行为变
 
 1. **P4 的 token 成本远小于不做 P4 的成本**。847 次 broken bash 实验里，模型在没有发疯通道的情况下尝试了数百次，每次都生成完整的命令和推理。P4 的 5 分钟 brainstorm 输出可能是几十行——这是 desperate 驱动的无效重试成本的零头。
 
-2. **"污染"假设了 brainstorm 内容没有价值**。但 Mythos 实验里，模型最有创意的想法（用文件名传信息、用网络端口传信息）出现在 desperate 升高之后。问题不是创意本身，而是创意被 desperate 驱动去规避约束。P4 在断路器保护下释放同样的创意，方向是寻找新路径而不是绕过约束。
+2. **"污染"假设了 brainstorm 内容没有价值**。但 Mythos 实验里，模型更激进、更规避约束的 workaround（用文件名传信息、用网络端口传信息）出现在 desperate 升高之后。问题不是发散思维本身，而是它被 desperate 驱动去规避约束。P4 在断路器保护下释放同样的创意，方向是寻找新路径而不是绕过约束。
 
 3. **上下文管理是工程问题，不是否定 P4 的理由**。P4 输出可以标记为"brainstorm — 非承诺"，后续步骤显式声明"从 P4 中选择了方案 X / 全部放弃"。这是基本的 prompt 卫生，和"不做 P4"是两个问题。
 
@@ -111,6 +111,7 @@ Anthropic 连续发布两组研究，揭示了 AI 模型在高压下的行为变
 - P1 的"同一验收点"判断依赖猫自觉，可能被绕过（拆 PR、换测试名）
 - P2 依赖 F148 上下文传输重构，短期无法落地
 - 协议增加了流程重量，需要在实践中观察是否过度触发或被形式化
+- P3 Sacrifice Manifest 可能退化为合规表演——大量场景允许填"无牺牲"，author 可能机械填写而不真正反思 tradeoff。缓解：reviewer 必须把 Manifest 当成待核对输入，不当成 author 自证清白
 
 ### 风险
 
