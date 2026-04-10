@@ -443,6 +443,76 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]!.origin).toBe('callback');
     });
 
+    it('does not suppress the new bg invocation after a fenced late callback merged into the previous bubble', () => {
+      const now = Date.now();
+      const responseText = 'Response from inv-1';
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-p2' });
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-p2',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-p2' } },
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', { id: 'bg-stream-p2', threadId: 'thread-bg', catId: 'opus' });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-p2-v2',
+        }),
+        timestamp: now + 2,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: responseText,
+        messageId: 'bg-cb-p2-dup',
+        timestamp: now + 3,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'Fresh stream from inv-bg-p2-v2',
+        timestamp: now + 4,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[0]!.id).toBe('bg-cb-p2-dup');
+      expect(ts.messages[1]).toEqual(
+        expect.objectContaining({
+          type: 'assistant',
+          catId: 'opus',
+          content: 'Fresh stream from inv-bg-p2-v2',
+          origin: 'stream',
+          isStreaming: true,
+          extra: { stream: { invocationId: 'inv-bg-p2-v2' } },
+        }),
+      );
+    });
+
     it('invalidates a fenced bg finalized ref after a second invocation boundary', () => {
       const now = Date.now();
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-stale-1' });

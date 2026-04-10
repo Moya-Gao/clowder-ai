@@ -153,7 +153,7 @@ function recoverStreamingMessage(
 function findBackgroundCallbackReplacementTarget(
   msg: BackgroundAgentMessage,
   options: HandleBackgroundMessageOptions,
-): { id: string; invocationId: string | null } | null {
+): { id: string; invocationId: string | null; matchedByInvocationId: boolean } | null {
   const invocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
 
   const threadMessages = options.store.getThreadState(msg.threadId).messages;
@@ -168,7 +168,7 @@ function findBackgroundCallbackReplacementTarget(
         m.origin === 'stream' &&
         m.extra?.stream?.invocationId === invocationId
       ) {
-        return { id: m.id, invocationId };
+        return { id: m.id, invocationId, matchedByInvocationId: true };
       }
     }
   }
@@ -190,7 +190,7 @@ function findBackgroundCallbackReplacementTarget(
       m.isStreaming &&
       !m.extra?.stream?.invocationId
     ) {
-      return { id: m.id, invocationId: invocationId ?? null };
+      return { id: m.id, invocationId: invocationId ?? null, matchedByInvocationId: false };
     }
   }
   // #586 follow-up: Check finalizedBgRefs — the done handler records the exact
@@ -211,7 +211,7 @@ function findBackgroundCallbackReplacementTarget(
         if (msg.content !== undefined && finalized.content !== undefined && finalized.content !== msg.content)
           return null;
       }
-      return { id: finalized.id, invocationId: invocationId ?? null };
+      return { id: finalized.id, invocationId: invocationId ?? null, matchedByInvocationId: false };
     }
   }
 
@@ -347,6 +347,7 @@ export function handleBackgroundAgentMessage(
     let finalMsgId: string | undefined;
 
     if (msg.origin === 'callback') {
+      const explicitInvocationId = msg.invocationId;
       const replacementTarget = findBackgroundCallbackReplacementTarget(msg, options);
       if (replacementTarget) {
         const cbId = msg.messageId ?? replacementTarget.id;
@@ -366,16 +367,16 @@ export function handleBackgroundAgentMessage(
         options.bgStreamRefs.delete(streamKey);
         // Consume finalized ref — callback successfully replaced
         options.finalizedBgRefs.delete(streamKey);
-        // #586 P1-2 fix: Only set replacedInvocations when we have a real invocationId.
-        // Fallback matches return null — writing a pseudo ID would permanently suppress
-        // future invocationless stream chunks via shouldSuppressLateBackgroundStreamChunk.
-        if (replacementTarget.invocationId) {
+        if (explicitInvocationId) {
+          options.replacedInvocations.set(streamKey, explicitInvocationId);
+        } else if (replacementTarget.matchedByInvocationId && replacementTarget.invocationId) {
+          // Callback-first flow: inferred current invocation matched its own
+          // stream bubble, so later stream chunks should still be suppressed.
           options.replacedInvocations.set(streamKey, replacementTarget.invocationId);
         }
         finalMsgId = cbId;
       } else {
         const cbId = msg.messageId ?? `bg-cb-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
-        const explicitInvocationId = msg.invocationId;
         const extraForAdd = {
           ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
           ...(explicitInvocationId ? { stream: { invocationId: explicitInvocationId } } : {}),

@@ -197,6 +197,76 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     expect(newBubbleCalls).toHaveLength(0);
   });
 
+  it('does not suppress the new invocation after a fenced late callback merged into the previous bubble', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const responseText = 'Response from inv-1';
+
+    storeState.messages.push({
+      id: 'msg-inv1',
+      type: 'assistant',
+      catId: 'opus',
+      content: responseText,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-1' } },
+      timestamp: Date.now() - 3000,
+    });
+    storeState.catInvocations = { opus: { invocationId: 'inv-1' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: responseText,
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        isFinal: true,
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-2',
+        }),
+      });
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: responseText,
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'Fresh stream from inv-2',
+      });
+    });
+
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+    const streamBubble = mockAddMessage.mock.calls.find(([msg]) => msg.origin === 'stream')?.[0];
+    expect(streamBubble?.content).toBe('Fresh stream from inv-2');
+    expect(streamBubble?.extra).toEqual({ stream: { invocationId: 'inv-2' } });
+  });
+
   it('P1 regression: callback with DIFFERENT content does NOT merge across invocation boundary', () => {
     act(() => {
       root.render(React.createElement(Harness));

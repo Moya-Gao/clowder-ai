@@ -446,10 +446,11 @@ export function useAgentMessages() {
           const inferredInvocationId = getCurrentInvocationIdForCat(msg.catId);
           const invocationId = explicitInvocationId ?? inferredInvocationId;
           const hasExplicitInvocationId = !!explicitInvocationId;
-          const replacementTarget = invocationId
-            ? (findCallbackReplacementTarget(msg.catId, invocationId) ??
-              (hasExplicitInvocationId ? null : findInvocationlessStreamPlaceholder(msg.catId, msg.content)))
+          const exactReplacementTarget = invocationId ? findCallbackReplacementTarget(msg.catId, invocationId) : null;
+          const fallbackReplacementTarget = hasExplicitInvocationId
+            ? null
             : findInvocationlessStreamPlaceholder(msg.catId, msg.content);
+          const replacementTarget = exactReplacementTarget ?? fallbackReplacementTarget;
 
           if (replacementTarget) {
             const finalId = msg.messageId ?? replacementTarget.id;
@@ -469,8 +470,12 @@ export function useAgentMessages() {
             activeRefs.current.delete(msg.catId);
             // Consume the finalized ref — callback successfully replaced the bubble
             finalizedStreamRef.current.delete(msg.catId);
-            if (invocationId) {
-              replacedInvocationsRef.current.set(msg.catId, invocationId);
+            if (explicitInvocationId) {
+              replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
+            } else if (exactReplacementTarget && inferredInvocationId) {
+              // Callback-first flow: inferred current invocation matched its own
+              // stream bubble, so later stream chunks should still be suppressed.
+              replacedInvocationsRef.current.set(msg.catId, inferredInvocationId);
             }
           } else {
             // Use backend messageId when available for rich_block correlation (#83 P2)
