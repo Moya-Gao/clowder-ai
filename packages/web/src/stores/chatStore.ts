@@ -1956,19 +1956,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   /** Clear hasActiveInvocation for a specific thread (active or background) */
   clearThreadActiveInvocation: (threadId) =>
     set((state) => {
-      // Active thread — clear flat state + stamp completion time
+      // Active-thread clear is used by hydration/reconciliation paths to drop stale slots.
+      // Do not stamp lastActivity here: that would turn routine state repair into fake recency.
+      // Real completion paths stamp via removeActiveInvocation / setHasActiveInvocation(false) /
+      // clearAllActiveInvocations / resetThreadInvocationState.
       if (threadId === state.currentThreadId) {
-        const existingTs = state.threadStates[state.currentThreadId];
         return {
           hasActiveInvocation: false,
           activeInvocations: {},
-          threadStates: {
-            ...state.threadStates,
-            [state.currentThreadId]: {
-              ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
-              lastActivity: Date.now(),
-            },
-          },
         };
       }
       // Background thread — update in threadStates map (no-op if unknown)

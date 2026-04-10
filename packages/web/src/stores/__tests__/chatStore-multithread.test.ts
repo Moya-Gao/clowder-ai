@@ -528,10 +528,11 @@ describe('chatStore multi-thread state', () => {
       expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeClear);
     });
 
-    it('stamps completion time on clearThreadActiveInvocation for active thread', () => {
+    it('does not stamp when clearThreadActiveInvocation reconciles stale active-thread state', () => {
       const oldMsgTs = Date.now() - 30_000;
       const msg: ChatMessage = { id: 'done', type: 'assistant', content: 'ok', timestamp: oldMsgTs };
       useChatStore.getState().addMessage(msg);
+      // Simulate stale restored processing state that hydration/reconnect will clear.
       useChatStore.getState().addActiveInvocation('inv-4', 'opus', 'execute');
 
       const beforeClear = Date.now();
@@ -540,7 +541,8 @@ describe('chatStore multi-thread state', () => {
 
       useChatStore.getState().setCurrentThread('thread-b');
       const saved = useChatStore.getState().threadStates['thread-a']!;
-      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeClear);
+      expect(saved.lastActivity).toBeLessThan(beforeClear);
+      expect(saved.lastActivity).toBe(oldMsgTs);
     });
 
     it('stamps completion time on resetThreadInvocationState for active thread', () => {
