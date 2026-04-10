@@ -40,11 +40,10 @@ thread_ids: []
 | 领域 | 技能 |
 |------|------|
 | 云基础设施 | Java / Spring / WebFlux、中间件架构归一、分布式调度与编排（ElasticJob / YAML DSL）、多环境适配 |
-| AI Agent 架构 | Multi-Agent Orchestration、Agent 间通信协议设计、Prompt Engineering、Tool 编排、Agent 生命周期管理 |
+| AI Agent 架构 | Multi-Agent Orchestration、愿景驱动治理、跨项目冷启动与可迁移性、联邦知识系统、Prompt Engineering、Agent 间通信协议设计 |
 | LLM 工程 | Claude / OpenAI / Gemini API 集成、多模型路由与 fallback、上下文窗口分层压缩、Token 预算优化、RAG（BM25 + 向量混合检索） |
 | 全栈工程 | TypeScript / Node.js / React / Next.js、Redis、SQLite、Monorepo (pnpm workspace)、MCP (Model Context Protocol) |
-| IM 集成 | 飞书 / 微信 / Telegram / DingTalk / WeCom 五渠道接入，消息路由、富媒体传输 |
-| 开发流程 | TDD、Cross-Model Code Review、CI/CD 门禁、Git Worktree 隔离开发 |
+| 开发流程 | TDD、Cross-Model Code Review、Feature 全生命周期治理、CI/CD 门禁、IM 网关（5 渠道） |
 | `[待填]` | `[铲屎官补充其他技能 — 如 K8s/容器编排/HarmonyOS 等，按目标岗位调整]` |
 
 ---
@@ -60,12 +59,12 @@ thread_ids: []
 从零设计并实现了完整的 Multi-Agent 协作系统，以"领养团队，不是配置工具"为产品愿景，让非程序员也能通过 AI 猫猫团队将想法变成可运行的产品。
 
 关键成果：
-- **架构设计**：设计了无 Boss Agent 的对等协作架构，支持 Claude / GPT / Gemini / Codex 等 4+ 模型家族、10+ 个体并发协作，含自主路由、@提及分发、跨模型 Code Review 机制
-- **记忆系统**：实现了五层记忆架构（Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval），基于 SQLite + BM25 + 向量检索的混合 RAG 系统，支撑 Agent 的跨会话知识积累
-- **协作纪律**：建立了完整的 SOP 体系（feat-lifecycle → TDD → quality-gate → review → merge-gate），覆盖 150+ tracked work items 的全生命周期管理
-- **IM 网关**：打通飞书、微信、Telegram、DingTalk、WeCom 五个渠道，实现消息、语音、图片、文件的双向传输
-- **Skill 生态**：设计了可插拔的 Skill 系统（~30 Skills），涵盖 TDD、Code Review、设计协作、视频制作、PPT 生成等全链路能力
-- **企业采纳**：架构在一次无预案的高层现场演示中稳定通过实测，48 小时内被内部产品化团队采纳为企业 Agent 平台基础并启动推广
+- **对等协作架构**：设计了无 Boss Agent 的对等协作架构，4+ 模型家族、10+ 个体通过独立思考 → 碰撞 → 收敛协作（非单模型 × N 执行者），含自主路由、@提及分发、跨模型 Code Review。架构哲学：N 个独立判断的碰撞收敛 > 1 个决策 × N 个执行
+- **愿景驱动的 Feature 治理**：建立了完整的愿景守护体系（feat-lifecycle → Design Gate → TDD → quality-gate → cross-model review → merge-gate → 愿景守护），愿景不是指导方针而是结构性门禁——不达标的改动会被系统拒绝。覆盖 150+ tracked work items 全生命周期
+- **五层记忆与知识涌现**：Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval，基于 SQLite + BM25 + 向量混合检索的联邦知识系统，支撑跨会话知识积累、来源归因和过时知识自动退役
+- **跨项目冷启动与可迁移性**：设计通用仓库扫描器 + 远征引导器，Agent 进入陌生代码库时自动完成技术栈识别、上下文注入和方法论迁移，治理规则以版本化可校验的 Governance Pack 形式随 Agent 携带，无需人工重新配置
+- **Skill 生态 + IM 网关**：~30 个可插拔 Skill（TDD、Code Review、设计协作、视频制作、PPT 生成等）+ 5 渠道 IM 网关（飞书 / 微信 / Telegram / DingTalk / WeCom 双向消息、语音、图片、文件传输）
+- **企业采纳**：架构在零准备高层演示中稳定通过实测，48 小时内被内部产品化团队采纳为企业 Agent 平台基础并启动推广
 
 **企业内部采纳事件**
 
@@ -119,6 +118,8 @@ thread_ids: []
 | 指标 | 数据 |
 |------|------|
 | Tracked work items | 150+（feature specs + ADRs + plans） |
+| 测试用例 | 860+（质量门禁基础设施） |
+| 文档化教训 | 40+（每条安全约束可追溯到具体事故） |
 | Skill 数量 | ~30 |
 | 接入 AI 模型家族 | 4+（Claude / GPT / Gemini / Codex） |
 | Agent 个体数 | 10+（含多分身） |
@@ -132,7 +133,7 @@ thread_ids: []
 
 ### Summary
 
-**AI Agent Architect** with 7+ years at Huawei, spanning cloud infrastructure and AI agent systems. Built Huawei Cloud's service development framework (middleware abstraction, distributed scheduling), then applied the same decoupling philosophy to design Cat Cafe — a production-grade multi-agent collaboration platform orchestrating 4+ LLM families with 10+ agent personas. Architecture adopted into an internal productization initiative after passing an unplanned live executive demo.
+**AI Agent Architect** with 7+ years at Huawei, spanning cloud infrastructure and AI agent systems. Built Huawei Cloud's service development framework (middleware abstraction, distributed scheduling for 6000+ microservices), then applied the same decoupling philosophy to design Cat Cafe — a production-grade multi-agent collaboration platform with vision-driven governance, cross-project portable methodology, and federated knowledge systems across 4+ LLM families. Architecture adopted into an internal productization initiative after passing an unplanned live executive demo.
 
 ### Experience
 
@@ -142,11 +143,11 @@ thread_ids: []
 
 **Cat Cafe — Multi-Agent Collaboration Platform (Open Source, MIT)**
 
-- Architected a peer-to-peer multi-agent system (no boss agent) supporting 4+ LLM families and 10+ agent personas with autonomous routing, @-mention dispatch, and cross-model code review
-- Built a five-layer memory architecture (Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval) with hybrid BM25 + vector retrieval for cross-session knowledge accumulation
-- Designed a pluggable Skill system (~30 skills) covering TDD, code review, design collaboration, video production, and document generation
-- Integrated 5 IM channels (Lark, WeChat, Telegram, DingTalk, WeCom) with bidirectional message, voice, image, and file transport
-- Managed 150+ tracked work items through a rigorous SOP (feat-lifecycle → TDD → quality-gate → peer-review → merge-gate)
+- Architected a peer-to-peer multi-agent system (no boss agent) where 4+ LLM families and 10+ agent personas collaborate through independent thinking → collision → convergence, not single-model × N executors. Includes autonomous routing, @-mention dispatch, and cross-model code review
+- Built vision-driven feature governance (feat-lifecycle → Design Gate → TDD → quality-gate → cross-model review → merge-gate → Vision Guard) where architectural vision acts as a structural gate — non-conforming changes are rejected by the system, not just flagged. Covers 150+ tracked work items with full lifecycle traceability
+- Designed a five-layer federated knowledge system (Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval) with hybrid BM25 + vector retrieval, source attribution, and automated knowledge retirement
+- Built cross-project cold-start bootstrapping: agents entering unfamiliar codebases auto-detect tech stack, inject context, and carry methodology via versioned Governance Packs — no manual reconfiguration required
+- Designed a pluggable Skill ecosystem (~30 skills) + 5-channel IM gateway (Lark, WeChat, Telegram, DingTalk, WeCom) with bidirectional rich media transport
 - Architecture adopted into an internal productization initiative after passing an unscheduled live demo to C-suite executives with zero preparation
 
 **Resume bullet (interview pitch version):**
@@ -175,9 +176,9 @@ thread_ids: []
 ### Skills
 
 - **Cloud Infrastructure**: Java, Spring, WebFlux, Middleware Abstraction, Distributed Scheduling (ElasticJob, YAML DSL), Multi-Environment Adaptation
-- **AI/Agent**: Multi-Agent Orchestration, Agent Communication Protocol Design, Prompt Engineering, Tool Orchestration, LLM API Integration (Claude/GPT/Gemini), Context Window Management, RAG (BM25 + Vector)
+- **AI/Agent**: Multi-Agent Orchestration, Vision-Driven Governance, Cross-Project Cold-Start Bootstrapping, Federated Knowledge Systems, Prompt Engineering, LLM API Integration (Claude/GPT/Gemini), RAG (BM25 + Vector)
 - **Full-Stack**: TypeScript, Node.js, React, Next.js, Redis, SQLite, MCP (Model Context Protocol), Monorepo (pnpm)
-- **Process**: TDD, Cross-Model Code Review, CI/CD Gating, IM Gateway Integration (5 channels)
+- **Process**: TDD, Cross-Model Code Review, Feature Lifecycle Governance, CI/CD Gating, IM Gateway (5 channels)
 
 ---
 
