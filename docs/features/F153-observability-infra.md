@@ -7,7 +7,7 @@ created: 2026-04-09
 community_issue: "zts212653/clowder-ai#388"
 ---
 
-# F153: Observability Infra Phase 1 — OTel SDK + Metrics + Telemetry Redaction + Health Check
+# F153: Observability Infrastructure — 运行时可观测基础设施
 
 > **Status**: spec | **Owner**: Community (PR author) + 布偶猫 | **Priority**: P2
 

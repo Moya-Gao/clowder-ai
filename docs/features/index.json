@@ -938,9 +938,9 @@
     },
     {
       "id": "F153",
-      "name": "Observability Infra Phase 1 — OTel SDK + Metrics + Telemetry Redaction + Health Check",
-      "status": "spec | **Owner**: Community (PR author) + 布偶猫 | **Priority**: P2",
-      "file": "F153-observability-infra-phase1.md"
+      "name": "Observability Infrastructure — 运行时可观测基础设施",
+      "status": "spec | **Owner**: Community + 布偶猫 | **Priority**: P2",
+      "file": "F153-observability-infra.md"
     },
     {
       "id": "F154",
