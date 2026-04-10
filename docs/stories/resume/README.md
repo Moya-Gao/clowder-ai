@@ -59,10 +59,10 @@ thread_ids: []
 从零设计并实现了完整的 Multi-Agent 协作系统，以"领养团队，不是配置工具"为产品愿景，让非程序员也能通过 AI 猫猫团队将想法变成可运行的产品。
 
 关键成果：
-- **对等协作架构**：设计了无 Boss Agent 的对等协作架构，4+ 模型家族、10+ 个体通过独立思考 → 碰撞 → 收敛产出涌现性架构决策（非单模型 × N 执行者），含自主路由、@提及分发、跨模型 Code Review
+- **协作决策架构**：设计了无 Boss Agent 的多智能体协作架构，4+ 模型家族、10+ 个体通过独立思考 → 碰撞 → 收敛形成涌现性决策（非单模型 × N 执行者），含自主路由、@提及分发、跨模型 Code Review
 - **愿景驱动的 Feature 治理**：建立了基于证物验证（evidence-based）的愿景守护体系（feat-lifecycle → Design Gate → TDD → quality-gate → cross-model review → merge-gate → 愿景守护），愿景不是指导方针而是结构性门禁——系统强制拦截任何偏离愿景的代码合入。覆盖 150+ tracked work items 全生命周期
 - **五层记忆与知识涌现**：Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval，基于 SQLite + BM25 + 向量混合检索的联邦知识系统，支撑跨会话知识积累、来源归因和过时知识自动退役
-- **跨项目冷启动与可迁移性**：设计通用仓库扫描器 + 远征引导器，Agent 进入陌生代码库时自动完成技术栈识别、上下文注入和方法论迁移，治理规则以版本化可校验的 Governance Pack 形式随 Agent 携带，无需人工重新配置
+- **可携带治理与信任边界**：治理规则以版本化、可校验的 Governance Pack 形式随 Agent 携带（checksum 校验 + fail-closed preflight），社区扩展不能越权；已支撑多 provider bootstrap 和外部项目派遣，方法论可迁移而非项目绑定
 - **Skill 生态 + IM 网关**：~30 个可插拔 Skill（TDD、Code Review、设计协作、视频制作、PPT 生成等）+ 5 渠道 IM 网关（飞书 / 微信 / Telegram / DingTalk / WeCom 双向消息、语音、图片、文件传输）
 - **企业采纳**：架构在零准备高层演示中稳定通过实测，48 小时内被内部产品化团队采纳为企业 Agent 平台基础并启动推广
 
@@ -118,8 +118,8 @@ thread_ids: []
 | 指标 | 数据 |
 |------|------|
 | Tracked work items | 150+（feature specs + ADRs + plans） |
-| 测试用例 | 860+（质量门禁基础设施） |
-| 事故驱动护栏 | 40+（每条系统约束均可追溯到真实失控案例） |
+| 自动化测试 | 860+ 测试文件（回归测试基础设施） |
+| 事故驱动护栏 | 40+（关键护栏可追溯到具体事故与复盘） |
 | Skill 数量 | ~30 |
 | 接入 AI 模型家族 | 4+（Claude / GPT / Gemini / Codex） |
 | Agent 个体数 | 10+（含多分身） |
@@ -143,10 +143,10 @@ thread_ids: []
 
 **Cat Cafe — Multi-Agent Collaboration Platform (Open Source, MIT)**
 
-- Architected a peer-to-peer multi-agent system (no boss agent) where 4+ LLM families and 10+ agent personas produce emergent architectural decisions through independent thinking → collision → convergence, not single-model × N executors. Includes autonomous routing, @-mention dispatch, and cross-model code review
+- Architected a collaborative decision-making multi-agent system (no boss agent) where 4+ LLM families and 10+ agent personas produce emergent decisions through independent thinking → collision → convergence, not single-model × N executors. Includes autonomous routing, @-mention dispatch, and cross-model code review
 - Built evidence-based, vision-driven feature governance (feat-lifecycle → Design Gate → TDD → quality-gate → cross-model review → merge-gate → Vision Guard) where architectural vision acts as a structural gate — the system enforces rejection of any change that deviates from vision. Covers 150+ tracked work items with full lifecycle traceability
 - Designed a five-layer federated knowledge system (Session Chain → Evidence Index → Knowledge Feed → Durable Knowledge → Eval) with hybrid BM25 + vector retrieval, source attribution, and automated knowledge retirement
-- Built cross-project cold-start bootstrapping: agents entering unfamiliar codebases auto-detect tech stack, inject context, and carry methodology via versioned Governance Packs — no manual reconfiguration required
+- Built portable governance with trust boundaries: methodology carried as versioned, checksum-verified Governance Packs with fail-closed preflight; community extensions cannot exceed granted permissions. Supports multi-provider bootstrap and external project dispatch
 - Designed a pluggable Skill ecosystem (~30 skills) + 5-channel IM gateway (Lark, WeChat, Telegram, DingTalk, WeCom) with bidirectional rich media transport
 - Architecture adopted into an internal productization initiative after passing an unscheduled live demo to C-suite executives with zero preparation
 
