@@ -18,7 +18,7 @@ community_pr: "clowder-ai#398"
 
 社区贡献者 mindfn 在 clowder-ai#409 提出并实现了完整的 Phase A 方案。
 
-## What（社区方案概要）
+## What
 
 ### Phase A（clowder-ai#398 已实现）
 
@@ -47,6 +47,15 @@ community_pr: "clowder-ai#398"
 | KD-13 | Phase B 聚焦平台内引导，外部平台配置改独立页签 |
 | KD-14 | 引导期间禁用 Esc 退出，仅保留 HUD 退出按钮 |
 | KD-15 | Observe substrate 拆分为独立 feature，不入 F155 Phase B |
+
+## Acceptance Criteria
+
+TBD — 待 intake 讨论后确定。
+
+## Risk
+
+- **HIGH**: 深度修改 routing core（route-parallel/serial/invoke-single-cat/SystemPromptBuilder）
+- 社区方案 Q4 UNKNOWN — 缺长期 owner
 
 ## Intake 评估（待完成）
 

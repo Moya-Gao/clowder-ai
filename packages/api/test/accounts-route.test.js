@@ -552,56 +552,62 @@ describe('accounts routes', () => {
     }
   });
 
-  it('DELETE /api/accounts returns structured error when account migration conflicts surface during existence check', async () => {
-    const { resetMigrationState, writeCatalogAccount } = await import('../dist/config/catalog-accounts.js');
-    const Fastify = (await import('fastify')).default;
-    const { accountsRoutes } = await import('../dist/routes/accounts.js');
-    const app = Fastify();
-    await app.register(accountsRoutes);
-    await app.ready();
+  // Skip when PROJECT_ALLOWED_ROOTS restricts temp dirs (e.g., sync public gate acceptance env)
+  const skipRoots = process.env.PROJECT_ALLOWED_ROOTS && process.env.PROJECT_ALLOWED_ROOTS_APPEND !== 'true';
+  it(
+    'DELETE /api/accounts returns structured error when account migration conflicts surface during existence check',
+    { skip: skipRoots ? 'PROJECT_ALLOWED_ROOTS restricts temp dir access' : false },
+    async () => {
+      const { resetMigrationState, writeCatalogAccount } = await import('../dist/config/catalog-accounts.js');
+      const Fastify = (await import('fastify')).default;
+      const { accountsRoutes } = await import('../dist/routes/accounts.js');
+      const app = Fastify();
+      await app.register(accountsRoutes);
+      await app.ready();
 
-    const globalRoot = await makeTmpDir('delete-conflict-root');
-    const projectDir = await makeTmpDir('delete-conflict-project');
-    setGlobalRoot(globalRoot);
-    resetMigrationState();
-    try {
-      writeCatalogAccount(projectDir, 'shared', {
-        authType: 'api_key',
-        baseUrl: 'https://global.example/v1',
-        displayName: 'Global Shared',
-      });
+      const globalRoot = await makeTmpDir('delete-conflict-root');
+      const projectDir = await makeTmpDir('delete-conflict-project');
+      setGlobalRoot(globalRoot);
       resetMigrationState();
-      mkdirSync(join(projectDir, '.cat-cafe'), { recursive: true });
-      writeFileSync(
-        join(projectDir, '.cat-cafe', 'cat-catalog.json'),
-        JSON.stringify({
-          version: 2,
-          breeds: [],
-          roster: {},
-          reviewPolicy: {},
-          accounts: {
-            shared: {
-              authType: 'api_key',
-              baseUrl: 'https://project.example/v1',
-              displayName: 'Project Shared',
+      try {
+        writeCatalogAccount(projectDir, 'shared', {
+          authType: 'api_key',
+          baseUrl: 'https://global.example/v1',
+          displayName: 'Global Shared',
+        });
+        resetMigrationState();
+        mkdirSync(join(projectDir, '.cat-cafe'), { recursive: true });
+        writeFileSync(
+          join(projectDir, '.cat-cafe', 'cat-catalog.json'),
+          JSON.stringify({
+            version: 2,
+            breeds: [],
+            roster: {},
+            reviewPolicy: {},
+            accounts: {
+              shared: {
+                authType: 'api_key',
+                baseUrl: 'https://project.example/v1',
+                displayName: 'Project Shared',
+              },
             },
-          },
-        }),
-      );
+          }),
+        );
 
-      const res = await app.inject({
-        method: 'DELETE',
-        url: '/api/accounts/shared',
-        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
-        payload: JSON.stringify({ projectPath: projectDir }),
-      });
-      assert.equal(res.statusCode, 400);
-      assert.match(res.json().error, /account conflict/i);
-    } finally {
-      restoreGlobalRoot();
-      await rm(globalRoot, { recursive: true, force: true });
-      await rm(projectDir, { recursive: true, force: true });
-      await app.close();
-    }
-  });
+        const res = await app.inject({
+          method: 'DELETE',
+          url: '/api/accounts/shared',
+          headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+          payload: JSON.stringify({ projectPath: projectDir }),
+        });
+        assert.equal(res.statusCode, 400);
+        assert.match(res.json().error, /account conflict/i);
+      } finally {
+        restoreGlobalRoot();
+        await rm(globalRoot, { recursive: true, force: true });
+        await rm(projectDir, { recursive: true, force: true });
+        await app.close();
+      }
+    },
+  );
 });

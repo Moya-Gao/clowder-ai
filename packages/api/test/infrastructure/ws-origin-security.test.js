@@ -225,15 +225,15 @@ describe('F156: isOriginAllowed (unit)', () => {
   });
 
   it('rejects private network origins when no regex in list', () => {
-    const origins = ['http://localhost:3001'];
-    assert.strictEqual(isOriginAllowed('http://192.168.1.100:3001', origins), false);
+    const origins = ['http://localhost:3003'];
+    assert.strictEqual(isOriginAllowed('http://192.168.1.100:3003', origins), false);
     assert.strictEqual(isOriginAllowed('http://10.0.0.1:8080', origins), false);
   });
 
   it('accepts private network origins when regex is present', () => {
     const privateRegex = /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/;
-    const origins = ['http://localhost:3001', privateRegex];
-    assert.strictEqual(isOriginAllowed('http://192.168.1.100:3001', origins), true);
+    const origins = ['http://localhost:3003', privateRegex];
+    assert.strictEqual(isOriginAllowed('http://192.168.1.100:3003', origins), true);
     assert.strictEqual(isOriginAllowed('http://10.0.0.1:8080', origins), true);
   });
 
