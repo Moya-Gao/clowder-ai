@@ -1,0 +1,101 @@
+---
+feature_ids: [F156]
+related_features: [F077]
+topics: [security, websocket, cswsh, origin-validation, auth]
+doc_kind: spec
+created: 2026-04-10
+---
+
+# F156: WebSocket Security Hardening — 实时通道安全加固
+
+> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P0
+
+## Why
+
+2026-04-10 安全审计发现：Cat Cafe Hub 的 Socket.IO 实时通道存在 Cross-Site WebSocket Hijacking (CSWSH) 风险。缅因猫(GPT-5.4) 实测验证：从 `Origin: https://evil.example` 发起 WebSocket-only 连接到 `127.0.0.1:3002`，**连接成功**。
+
+根因：Socket.IO v4 的 `cors` 配置仅对 HTTP long-polling 生效，**不校验 WebSocket upgrade 请求的 Origin 头**（Socket.IO 官方文档 2026-02-16 明确标注）。加上身份自报（`handshake.auth.userId`）、Room 无 ACL，攻击者可以：
+- 从任何恶意网页发现并连接本机 WebSocket
+- 冒充任意 userId
+- 加入任意 thread/user/global room 监听所有消息
+- 发送 `cancel_invocation` 干扰猫猫工作
+
+**外部参考**：OpenClaw 2026 年初连续爆出两个同类漏洞（CVE-2026-25253 + ClawJacked），攻击链高度相似。
+
+**铲屎官原话**："我们的 websockets 是不是有被钓鱼的风险？""先修自己家的，然后自己家验证没问题再帮他们 officeclaw 修复一下"
+
+## What
+
+聚焦 WebSocket 实时通道的安全加固，不涉及 F077 的多用户认证体系。修完后作为 F077 的前置基础设施。
+
+### Phase A: 连接层加固（堵 CSWSH）
+
+1. **`allowRequest` Origin 校验** — 在 Socket.IO Server 构造时加 `allowRequest` hook，显式校验 WebSocket upgrade 请求的 `Origin` 头。不在白名单内的 Origin 直接拒绝连接
+2. **禁止自报 userId** — 服务端不再从 `handshake.auth.userId` / `query.userId` 取身份。单用户模式下连接一律赋予 `default-user`，为 F077 session 认证预留接口
+3. **私网 Origin 收紧** — `PRIVATE_NETWORK_ORIGIN` 正则从默认放行改为需要 `.env` 显式 `CORS_ALLOW_PRIVATE_NETWORK=true` 才启用
+
+### Phase B: 授权层加固（堵监听/干扰）
+
+1. **Room ACL** — `join_room` 事件加鉴权：`user:` room 只能加入自己的；`thread:` room 在多用户模式下需 ownership 校验（单用户模式暂允许）
+2. **敏感事件授权** — `cancel_invocation` 的 `cancelAll()` 分支补 `userId` 校验，不能只看 room membership
+3. **全局 room 收口** — `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入
+
+### Phase C: OfficeClaw 修复（自家验证后）
+
+1. 分析 OfficeClaw（我们魔改的 OpenClaw）的 WebSocket 端点（端口 8357、`/ws`、JSON-RPC 协议）安全状况
+2. 参考 Phase A/B 的修复模式，适配 OfficeClaw 的协议差异
+3. 向上游提 PR 或在我们的 fork 中修复
+
+## Acceptance Criteria
+
+### Phase A（连接层加固）
+- [ ] AC-A1: `Origin: https://evil.example` 的 WebSocket 连接被服务端拒绝（实测验证）
+- [ ] AC-A2: 合法前端 Origin（localhost:3001、配置的 FRONTEND_URL）连接正常
+- [ ] AC-A3: 服务端不再从客户端 handshake 取 userId，所有 socket 身份由服务端决定
+- [ ] AC-A4: 私网 Origin 默认不放行，需显式 `CORS_ALLOW_PRIVATE_NETWORK=true`
+- [ ] AC-A5: 现有前端功能不受影响（消息收发、取消、room 订阅正常）
+
+### Phase B（授权层加固）
+- [ ] AC-B1: Socket 无法加入非自己的 `user:*` room
+- [ ] AC-B2: `cancel_invocation` 的 `cancelAll` 分支校验 `userId`
+- [ ] AC-B3: 全局 room 在多用户模式下需认证
+
+### Phase C（OfficeClaw）
+- [ ] AC-C1: OfficeClaw WebSocket 端点完成安全评估
+- [ ] AC-C2: 修复方案实施并验证
+
+## Dependencies
+
+- **Related**: F077（多用户安全协作 — F156 是 F077 Phase 1 的前置基础设施，AC6/AC7 有重叠）
+- **Related**: OpenClaw CVE-2026-25253、ClawJacked（外部同类漏洞参考）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| Origin 校验过严导致合法场景被拦 | 保留 `.env` 配置口子（CORS_ALLOW_PRIVATE_NETWORK）；回归测试覆盖现有连接场景 |
+| 禁止自报 userId 影响现有前端逻辑 | 单用户模式下服务端统一赋 `default-user`，前端不需要改 userId 传递逻辑（只是服务端忽略） |
+| OfficeClaw 协议差异大 | Phase C 独立，不 block Phase A/B 的交付 |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | 独立 hotfix，不并入 F077 | P0 漏洞不能等大 feature；hotfix 是 F077 的前置基础设施，不浪费 | 2026-04-10 |
+| KD-2 | 用 `allowRequest` 而非依赖 `cors` 配置 | Socket.IO 的 cors 不管 WebSocket upgrade（官方文档明确）| 2026-04-10 |
+| KD-3 | 先修自家 Hub，验证后再修 OfficeClaw | 铲屎官拍板 | 2026-04-10 |
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-04-10 | 立项。安全审计发现 CSWSH 风险，缅因猫(GPT-5.4) 实测验证 |
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Feature** | `docs/features/F077-multi-user-secure-collab.md` | 多用户认证体系（F156 是其前置） |
+| **External** | Socket.IO Handling CORS 文档 | `cors` 不管 WebSocket 的官方说明 |
+| **External** | OpenClaw ClawJacked 漏洞（2026-02-26） | 同类攻击链参考 |
+| **External** | CVE-2026-25253 | OpenClaw Auth Token 窃取 → RCE |
