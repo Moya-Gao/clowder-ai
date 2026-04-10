@@ -226,7 +226,7 @@ interface ScannedEvidence {
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | ~~Bootstrap 摘要用 LLM 还是结构化？~~ **已定**：结构化优先，LLM 可选润色 | ✅ closed |
-| OQ-2 | 跨项目经验回流的审核者是铲屎官还是猫猫？还是双层？ | ⬜ open |
+| OQ-2 | ~~跨项目经验回流的审核者是铲屎官还是猫猫？~~ **已定**：双层路由——事实型/低风险/强 provenance/可复现/已脱敏 → 双猫审核可回流；判断型/敏感型/弱 provenance/高影响 → 铲屎官审核；Phase C 初期先全量或抽样人审校准 | ✅ closed |
 | OQ-3 | ~~monorepo 支持？~~ **已定**：Phase B 先做 detection + overview，不做 per-package 深扫 | ✅ closed |
 
 ## Key Decisions
@@ -244,6 +244,7 @@ interface ScannedEvidence {
 | KD-8 | Bootstrap 摘要先结构化提取，LLM 可选润色 | 不把冷启动绑死在模型额度上 | 2026-04-08 |
 | KD-9 | monorepo 先 detection + overview，不做 per-package 深扫 | 控制 Phase B 复杂度 | 2026-04-08 |
 | KD-10 | Phase A v1 不扫 commit messages 和 code comments | 噪音高、语言相关、性能贵，砚砚否决 | 2026-04-08 |
+| KD-11 | 经验回流双层路由：猫猫审核通道（四条件同时满足：provenance≥derived + 可验证 + 事实型 + 已脱敏）+ 铲屎官审核通道（命中任一敏感条件即上升）；Phase C 初期先全量人审校准再逐步放权 | 布偶猫×缅因猫(GPT-5.4) 讨论收敛 + 铲屎官授权分层 | 2026-04-09 |
 
 ## Timeline
 
