@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@cat-cafe/shared": "workspace:*",
+    "@fastify/cookie": "9",
     "@fastify/cors": "^9.0.0",
     "@fastify/multipart": "8",
     "@fastify/static": "7",

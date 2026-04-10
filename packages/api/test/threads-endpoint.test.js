@@ -160,7 +160,8 @@ describe('Thread API', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice',
+      url: '/api/threads',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const body = JSON.parse(res.body);
     // alice has 2 custom + default thread
@@ -177,7 +178,8 @@ describe('Thread API', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice&q=thread',
+      url: '/api/threads?q=thread',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -192,7 +194,8 @@ describe('Thread API', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: `/api/threads?userId=alice&q=${t.id}`,
+      url: `/api/threads?q=${t.id}`,
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -212,7 +215,8 @@ describe('Thread API', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice&backlogItemIds=b-alice-1,b-bob-1',
+      url: '/api/threads?backlogItemIds=b-alice-1,b-bob-1',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -230,7 +234,8 @@ describe('Thread API', () => {
     const ids = Array.from({ length: 51 }, (_, i) => `id-${i}`).join(',');
     const res = await app.inject({
       method: 'GET',
-      url: `/api/threads?userId=alice&backlogItemIds=${encodeURIComponent(ids)}`,
+      url: `/api/threads?backlogItemIds=${encodeURIComponent(ids)}`,
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
@@ -241,7 +246,8 @@ describe('Thread API', () => {
     const ids = Array.from({ length: 50 }, (_, i) => `id-${i}`).join(',');
     const res = await app.inject({
       method: 'GET',
-      url: `/api/threads?userId=alice&backlogItemIds=${encodeURIComponent(ids)}`,
+      url: `/api/threads?backlogItemIds=${encodeURIComponent(ids)}`,
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     assert.equal(res.statusCode, 200);
   });
@@ -256,7 +262,8 @@ describe('Thread API', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice&hasBacklogItemId=true',
+      url: '/api/threads?hasBacklogItemId=true',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -280,7 +287,8 @@ describe('Thread API', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice&hasBacklogItemId=false',
+      url: '/api/threads?hasBacklogItemId=false',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -302,7 +310,8 @@ describe('Thread API', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice&featureIds=f058,f042',
+      url: '/api/threads?featureIds=f058,f042',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -320,7 +329,8 @@ describe('Thread API', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice&featureIds=F063',
+      url: '/api/threads?featureIds=F063',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -334,7 +344,8 @@ describe('Thread API', () => {
     const ids = Array.from({ length: 51 }, (_, i) => `f${String(i).padStart(3, '0')}`).join(',');
     const res = await app.inject({
       method: 'GET',
-      url: `/api/threads?userId=alice&featureIds=${encodeURIComponent(ids)}`,
+      url: `/api/threads?featureIds=${encodeURIComponent(ids)}`,
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
@@ -863,7 +874,8 @@ describe('F095 Phase D: Soft delete + trash bin', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice',
+      url: '/api/threads',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const body = JSON.parse(res.body);
     const ids = body.threads.map((t) => t.id);
@@ -913,7 +925,8 @@ describe('F095 Phase D: Soft delete + trash bin', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice&deleted=true',
+      url: '/api/threads?deleted=true',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
@@ -1032,7 +1045,8 @@ describe('GET /api/messages with threadId', () => {
 
     const res = await app.inject({
       method: 'GET',
-      url: '/api/messages?threadId=shared-thread&userId=alice',
+      url: '/api/messages?threadId=shared-thread',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.messages.length, 1);

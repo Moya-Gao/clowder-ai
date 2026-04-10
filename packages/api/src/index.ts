@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { type CatConfig, type CatId, CORE_COMMANDS, catRegistry } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
+import fastifyCookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
@@ -52,7 +53,6 @@ import {
   MemoryGovernanceStore,
   OpenCodeAgentService,
 } from './domains/cats/services/index.js';
-
 import { initPushNotificationService } from './domains/cats/services/push/PushNotificationService.js';
 import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
@@ -105,6 +105,8 @@ import {
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
 import { runSchedulerReplyUserIdBackfill } from './infrastructure/scheduler/scheduler-reply-userid-backfill.js';
+import { securityHeadersPlugin } from './infrastructure/security-headers.js';
+import { sessionAuthPlugin, sessionRoute } from './infrastructure/session-auth.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { configSecretsRoutes } from './routes/config-secrets.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
@@ -214,6 +216,14 @@ async function main(): Promise<void> {
     origin: resolveFrontendCorsOrigins(process.env, app.log),
     credentials: true,
   });
+
+  // F156 D-2: Anti-clickjacking headers (X-Frame-Options + CSP frame-ancestors)
+  await app.register(securityHeadersPlugin);
+
+  // F156 D-1: Cookie parsing + session-based identity (replaces userId self-reporting)
+  await app.register(fastifyCookie);
+  await app.register(sessionAuthPlugin);
+  await app.register(sessionRoute);
 
   // WebSocket support (F089 terminal)
   await app.register(fastifyWebsocket);

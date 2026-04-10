@@ -428,7 +428,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
     }
 
     // Multi-project: accept ?projectPath=... to manage capabilities for any project
@@ -783,7 +783,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
     }
 
     const body = request.body as CapabilityPatchRequest | undefined;

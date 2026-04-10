@@ -26,6 +26,17 @@ const nextConfig = {
   reactStrictMode: true,
   // 允许 Tailscale 网段设备访问 dev server 的 /_next/* 资源
   allowedDevOrigins: ['100.0.0.0/8'],
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
