@@ -113,3 +113,4 @@
 | F148 | F148: Hierarchical Context Transport — 分层上下文传输 | done | [F148-hierarchical-context-transport.md](./F148-hierarchical-context-transport.md) |
 | F150 | F150: Tool/Skill/MCP Usage Statistics — 工具使用可观测看板 | done | [F150-tool-usage-stats.md](./F150-tool-usage-stats.md) |
 | F132 | F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | done | [F132-dingtalk-wecom-gateway.md](./F132-dingtalk-wecom-gateway.md) |
+| F157 | F157: Feishu Receipt Ack — 猫猫即时接住替代"思考中→撤回" | done | [F157-feishu-receipt-ack.md](./F157-feishu-receipt-ack.md) |
