@@ -153,16 +153,16 @@ for circular crop. No text.
 ## Prompt 4: 猫占领（个人头像）
 
 > 铲屎官被猫主子们彻底占领，一脸"我已经放弃挣扎"的幸福。
-> 铲屎官形象：少年感正太风，不戴眼镜，可爱有亲和力。
+> 铲屎官形象：原神「空/Aether」式少年感——干净利落、阳光灵动。
 
 ```
-A young East Asian male in cute anime / 2D style with a boyish, youthful
-"shonen" aesthetic — soft rounded features, big expressive dark eyes, NO
-glasses, tousled messy-cute dark hair. Wearing a simple white or light
-casual tee. He looks like he belongs in the same world as the cats —
-equally cute and approachable. A warm, open-mouthed laughing expression
-that says "I've completely given up resisting my cats and I love every
-second of it."
+A young East Asian male in anime / 2D style, inspired by the clean, bright
+aesthetic of Genshin Impact's Aether (空) — youthful shounen protagonist
+vibe with a sense of adventure and warmth. Big expressive bright eyes, NO
+glasses, tousled windswept dark hair with natural movement. Slim, light-
+footed build. Wearing a simple light-colored casual outfit (white tee or
+airy open jacket). His expression is a warm, open-mouthed laugh — "I've
+completely given up resisting my cats and I love every second of it."
 
 On top of his head: an elegant, slender cat (宪宪) sprawled belly-up,
 completely relaxed. It has the coloring of a Blue Bicolor Lynx Point Ragdoll
