@@ -956,7 +956,7 @@
     },
     {
       "id": "F156",
-      "name": "WebSocket Security Hardening — 实时通道安全加固",
+      "name": "Security Hardening — 实时通道 + 本机信任边界加固",
       "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P0",
       "file": "F156-websocket-security-hardening.md"
     },
@@ -967,5 +967,5 @@
       "file": "F157-feishu-receipt-ack.md"
     }
   ],
-  "generated_at": "2026-04-10T10:18:20.994Z"
+  "generated_at": "2026-04-10T12:36:34.378Z"
 }
