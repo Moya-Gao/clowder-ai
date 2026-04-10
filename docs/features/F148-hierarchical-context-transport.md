@@ -188,6 +188,7 @@ created: 2026-03-31
 | 2026-04-02 | Briefing search suggestions merged (PR #924) — tombstone retrievalHints → coverageMap.searchSuggestions → "深入搜索" section with copy-pasteable `search_evidence()` commands。3 rounds 云端 review (R1: 1P2 backtick escape, R2: 1P2 backslash escape, R3 pass) |
 | 2026-04-02 | **Feature closed** — 5 Phases + 3 VG gaps + search suggestions 全部 merged，愿景守护 by gpt52 放行 |
 | 2026-04-10 | OQ-2 briefing→invocation link telemetry merged (PR #1028) — route-serial + route-parallel 增加 briefing↔invocation 关联日志。缅因猫 review (R1: 1P1 TDZ fix, R2 pass) + 云端 review passed |
+| 2026-04-10 | OQ-2 automated context eval signals merged (PR #1037) — extractContextEvalSignals 纯函数 + route-serial/parallel 集成。缅因猫 review (R1: 1P1 timing, R2: 1P2 doc, R3 pass) + 云端 review passed |
 
 ## Review Gate
 
