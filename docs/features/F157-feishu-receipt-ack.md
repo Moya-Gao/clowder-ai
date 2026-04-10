@@ -29,7 +29,7 @@ created: 2026-04-10
 
 ### Phase A: Receipt + Reaction（不撤回）
 
-用**猫猫口吻的 receipt 文本**替代 `🤔 思考中...` placeholder，生成结束后 **edit 为最终回复**，全程只有一条消息，零撤回。
+用**猫猫口吻的 receipt 文本**替代 `🤔 思考中...` placeholder，生成结束后 receipt 卡片被 **edit 为"✅ 已回复"完成态**（`finalizeStreamCard`），最终回复作为独立消息发送，全程**零撤回**。Phase B 目标：单消息生命周期（需 outbound delivery 层改造）。
 
 **三层即时反馈**：
 
@@ -38,7 +38,7 @@ created: 2026-04-10
 | L1 | 收到消息后 < 500ms | 给用户消息加 emoji reaction | 秒回锚点，纯视觉反馈 |
 | L2 | 同时 | 发一条 receipt 卡片 | 猫猫口吻文本，按 catId 从词库随机选 |
 | L3 | 流式生成中 | edit receipt 卡片写入累积文本 | 保留现有流式预览能力 |
-| — | 生成结束 | edit receipt 卡片为 final content | **不 delete，不撤回** |
+| — | 生成结束 | edit receipt 卡片为"✅ 已回复"完成态（`finalizeStreamCard`） | **不 delete，不撤回**；最终回复独立发送 |
 
 **Reaction emoji**：`HEART`（❤️），若飞书租户支持自定义 emoji 可后续升级为猫爪印。
 
@@ -83,8 +83,8 @@ created: 2026-04-10
 - [ ] AC-A1: 飞书收到用户消息后 < 500ms 内给用户消息加 ❤️ reaction
 - [ ] AC-A2: 同时发一条 receipt 卡片，文案按 catId 从词库随机选，显示格式 `【{displayName}🐱】{receipt文案}`
 - [ ] AC-A3: 流式生成中，receipt 卡片被 edit 为累积文本（保留现有流式预览）
-- [ ] AC-A4: 生成结束后，receipt 卡片被 edit 为最终回复内容，**不调用 deleteMessage**
-- [ ] AC-A5: 全程飞书聊天中只出现 1 条消息（receipt → final），零撤回通知
+- [ ] AC-A4: 生成结束后，receipt 卡片被 edit 为"✅ 已回复"完成态（`finalizeStreamCard`），**不调用 deleteMessage**；最终回复作为独立消息发送（Phase B 目标：单消息生命周期，需 outbound delivery 层改造）
+- [ ] AC-A5: 全程零撤回通知（`finalizeStreamCard` 替代 `deleteMessage`）
 - [ ] AC-A6: 12 只猫全部有 receipt 文案（每猫 ≥ 3 条）
 - [ ] AC-A7: 现有 streaming-outbound-hook 测试更新适配新行为
 - [ ] AC-A8: 钉钉/企微/小艺 adapter 行为不变（回归测试通过）
@@ -119,7 +119,7 @@ created: 2026-04-10
 | KD-1 | 用 receipt text 替代 placeholder，不撤回 | 撤回通知是 UX 噪音；openJiuwen PR #24 验证了不撤回可行 | 2026-04-10 |
 | KD-2 | Reaction 用 HEART 而非 THUMBSUP | 铲屎官说"太不猫猫了"；HEART 更暖更符合猫猫语义 | 2026-04-10 |
 | KD-3 | Receipt 文案复用 F124 voice comfort 体系 | 已有按猫性格写好的 5 条/猫，产品语义一致（"被猫接住"） | 2026-04-10 |
-| KD-4 | 生成结束后 edit receipt 为 final（单消息生命周期） | 避免双消息刷屏，全程只有 1 条消息 | 2026-04-10 |
+| KD-4 | Phase A: receipt 卡片 edit 为"✅ 已回复"+ 最终回复独立发送（零撤回） | 核心价值是零撤回；单消息生命周期留 Phase B（需 outbound delivery 层改造） | 2026-04-10 |
 
 ## Timeline
 

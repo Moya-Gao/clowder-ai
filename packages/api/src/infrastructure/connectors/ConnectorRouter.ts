@@ -184,6 +184,14 @@ export class ConnectorRouter {
       return { kind: 'skipped', reason: 'duplicate' };
     }
 
+    // F157: Fire-and-forget emoji reaction as instant ack (< 500ms)
+    const ackAdapter = this.opts.adapters?.get(connectorId);
+    if (ackAdapter?.addReaction && externalMessageId) {
+      ackAdapter.addReaction(externalMessageId, 'HEART').catch((err) => {
+        log.warn({ err, connectorId, externalMessageId }, '[ConnectorRouter] addReaction failed (non-fatal)');
+      });
+    }
+
     const trimmedText = text.trim();
 
     // 1a. F134 Phase D: Group whitelist check
