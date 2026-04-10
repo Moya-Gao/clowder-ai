@@ -1,6 +1,6 @@
 ---
 feature_ids: [F158]
-related_features: [F149]
+related_features: [F050, F061, F127, F149]
 topics: [provider, cli, community]
 doc_kind: spec
 created: 2026-04-10
@@ -8,7 +8,7 @@ created: 2026-04-10
 
 # F158: Kimi CLI First-Class Cat
 
-> **Status**: in-progress | **Owner**: 社区 (ZephaniaCN) + 布偶猫 | **Priority**: P2
+> **Status**: done | **Owner**: 社区 (ZephaniaCN) + 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -63,6 +63,9 @@ Hub 全链路支持 kimi 成员管理：
 
 ## Dependencies
 
+- **Related**: F050（External Agent Onboarding — Kimi 走 F050 的 L1 CLI adapter 路径接入）
+- **Related**: F061（Antigravity Bengal Cat — 同属"外部 CLI → first-class cat"的接入模式）
+- **Related**: F127（Cat Instance Management — 动态猫实例注册，Kimi 是新增实例的实际用例）
 - **Related**: F149（ACP Runtime Operations — 扩展性边界）
 
 ## Risk
@@ -89,10 +92,14 @@ Hub 全链路支持 kimi 成员管理：
 | 2026-04-10 | Maintainer 完成 conflict resolution + gate fixes |
 | 2026-04-10 | CI 全绿，PR 合入 clowder-ai |
 | 2026-04-10 | 立项 F158，开始 intake 回 cat-cafe |
+| 2026-04-10 | Intake absorb PR cat-cafe#1069 merged（砚砚 review 通过） |
+| 2026-04-10 | F158 done — 全部 AC 已交付 |
 
 ## Links
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Source PR** | clowder-ai#361 | ZephaniaCN 社区贡献 |
+| **Intake PR** | cat-cafe#1069 | Intake absorb（squash merged `a7eee405`） |
+| **Intake Issue** | cat-cafe#1068 | Intake intent（auto-closed） |
 | **Source** | `community` | 社区贡献，非内部发起 |
