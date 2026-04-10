@@ -85,8 +85,8 @@ triggers:
 | 本地 WebApp 测试 / 回归 | `webapp-testing` + Playwright | `playwright` | 已接入 |
 | MCP 原生客户端的常规网页自动化 | `Playwright MCP` | `playwright` | ✅ 已接入 — `npx @playwright/mcp@latest` |
 | 已登录 Chrome、iframe-heavy、手工接管 | `claude-in-chrome` | `claude-in-chrome` | ✅ 已接入 — Chrome 扩展管理，无需手动启动 |
-| CLI 型猫、没 webfetch / 没 VL | `agent-browser` | `agent-browser` | 实验性接入 — 社区 wrapper，先本机验活再宣称可用 |
-| 服务化浏览器、持久化 session、重复批任务 | `PinchTab` | `pinchtab` | 实验性接入 — 优先 native binary `pinchtab mcp` |
+| CLI 型猫、没 webfetch / 没 VL | `agent-browser` | — (CLI 工具) | ✅ 可用 — `npm i -g agent-browser`，通过 Bash tool 调 CLI |
+| 服务化浏览器、持久化 session、重复批任务 | `PinchTab` | `pinchtab` | ✅ 已接入 — native binary `pinchtab mcp` |
 
 ## 常用组合打法
 
@@ -103,7 +103,7 @@ triggers:
 |-----|--------|------|
 | `refs/playwright-mcp.md` | `playwright` | 常规 MCP 原生网页自动化（默认） |
 | `refs/playwriter.md` | `claude-in-chrome` | 已登录 Chrome / iframe-heavy / 多 tab（实际用 `mcp__claude-in-chrome__*` 工具） |
-| `refs/agent-browser.md` | `agent-browser` | CLI 型猫 / 无 webfetch / 无 VL |
+| `refs/agent-browser.md` | — (CLI 工具) | CLI 型猫 / 无 webfetch / 无 VL |
 | `refs/pinchtab.md` | `pinchtab` | 服务化、持久 session、HTTP-first |
 
 ## 交付要求
