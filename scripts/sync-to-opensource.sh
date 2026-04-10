@@ -677,7 +677,7 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && target_git_repo_exists "
         UNREVIEWED_LIST=""
         for c in $COMMITS_SINCE; do
           MSG=$(git log --format=%s -1 "$c" 2>/dev/null || true)
-          if ! echo "$MSG" | grep -q "^sync: cat-cafe"; then
+          if ! echo "$MSG" | grep -qE "^sync:.*(cat-cafe|clowder-ai|v[0-9]+\.[0-9]+|outbound)"; then
             HAS_UNREVIEWED=true
             UNREVIEWED_COUNT=$((UNREVIEWED_COUNT + 1))
             SHORT_MSG=$(git log --format="%h %s" -1 "$c" 2>/dev/null || true)
@@ -690,7 +690,7 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && target_git_repo_exists "
           ALL_RECORDED=true
           for c in $COMMITS_SINCE; do
             MSG_CHK=$(git log --format=%s -1 "$c" 2>/dev/null || true)
-            if echo "$MSG_CHK" | grep -q "^sync: cat-cafe"; then continue; fi
+            if echo "$MSG_CHK" | grep -qE "^sync:.*(cat-cafe|clowder-ai|v[0-9]+\.[0-9]+|outbound)"; then continue; fi
             if ! echo "$RECORDED_SHAS" | grep -q "^${c}$"; then
               ALL_RECORDED=false
               break
