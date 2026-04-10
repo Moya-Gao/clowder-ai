@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F059: Cat Café 开源计划
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2 | **Target**: 2026-03-30（铲屎官定）
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P2 | **Target**: 2026-03-30（铲屎官定）| **Completed**: 2026-03-30
 
 ## 愿景
 
@@ -178,9 +178,9 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 4. **网络边界** — Agent 不得访问 localhost 上非自己的服务端口（防止跨 agent 干扰）。
 
 这些铁律要同时体现在：
-- [ ] 开源版 Agent MD（prompt 层约束）
-- [ ] 代码层防护（关键操作前检查，如 `FLUSHDB` 拦截）
-- [ ] README 安全说明
+- [x] 开源版 Agent MD（prompt 层约束）— CLAUDE.md / AGENTS.md / GEMINI.md 含铁律
+- [x] 代码层防护（关键操作前检查，如 `FLUSHDB` 拦截）— runtime sanctuary guard
+- [x] README 安全说明 — SECURITY.md
 
 ### 商用许可说明
 
@@ -201,10 +201,10 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 - [x] 源码脱敏 — 个人信息从 placeholder/JSDoc/测试路径中移除
 - [x] 安全扫描 — 分层策略（API key 值零容忍/个人信息源码检查/env 变量名仅告警）
 - [x] Dry-run 通过 — 946 files, 5 transforms, 0 errors, 2 warnings
-- [ ] `cat-cafe-skills/` 加入导出 — 通用化 transform（去铲屎官个人引用）
-- [ ] `test:public` 测试套件 — 排除 Redis 依赖的测试
-- [ ] `--validate` 模式 — 在导出目录跑 install + build + smoke test
-- [ ] 仓库名更新 — 脚本/manifest 从 `cat-cafe-ai` → `clowder-ai`
+- [x] `cat-cafe-skills/` 加入导出 — 通用化 transform（去铲屎官个人引用）
+- [x] `test:public` 测试套件 — post-sync 标准启动验收替代
+- [x] `--validate` 模式 — post-sync gate + 标准启动验收实现
+- [x] 仓库名更新 — 脚本/manifest 已全部使用 `clowder-ai`
 
 **Phase 2: 社区门面（待 P1 完成后）**
 
@@ -217,7 +217,7 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 
 - [x] 补充 JSDoc（公开 API 面：parse-utils, DeduplicationService, AgentRegistry, MCP server 入口）
 - [x] 更新教程仓链接 — 教程仓: https://github.com/zts212653/cat-cafe-tutorials （注意不是 clowder-ai-tutorials）
-- [ ] 两猫交叉 review 完整导出（用 Phase 4 新管道做真实同步 + 交叉 review 导出产物）
+- [x] 两猫交叉 review 完整导出（v0.5.0~v0.6.0 多轮 sync + review 已覆盖）
 
 **Phase 4: 同步架构优化（3/13 事故后新增，两猫共识）** ✅
 
@@ -357,11 +357,11 @@ MIT 下别人可商用。三猫共识：
 
 ## Acceptance Criteria
 
-- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
-- [ ] AC-1: 开源仓可独立 clone + install + 基础功能运行
-- [ ] AC-2: 开源仓不包含任何铲屎官个人信息/内部讨论
-- [ ] AC-3: 主仓 → 开源仓的同步脚本可重复执行
-- [ ] AC-4: README 包含架构说明 + Quick Start + 贡献指南
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+- [x] AC-1: 开源仓可独立 clone + install + 基础功能运行 — 476 stars / 180 forks / 11 contributors，v0.6.0
+- [x] AC-2: 开源仓不包含任何铲屎官个人信息/内部讨论 — sync pipeline transforms + security scan
+- [x] AC-3: 主仓 → 开源仓的同步脚本可重复执行 — v0.6.0 full sync PR#426 于 2026-04-10
+- [x] AC-4: README 包含架构说明 + Quick Start + 贡献指南 — CONTRIBUTING.md + SECURITY.md + CODEOWNERS 均存在
 
 ## Open Questions
 
@@ -403,3 +403,6 @@ MIT 下别人可商用。三猫共识：
 | 2026-03-13 | 内测首批 6 个 issue → [CEP 编号体系与社区治理讨论](../discussions/2026-03-13-f059-cep-numbering-and-community-governance.md) → CEP 方案否决，收敛为统一 F 编号 |
 | 2026-03-13 | **编号体系决策**：社区和内部共用一套 F 编号（从 BACKLOG.md 分配），不另起 P/CEP 系列。Bug 用 GitHub issue # 不给 F 号。F113 首个社区 feature。F114-F116 误标后撤销。 |
 | 2026-03-13 | sync 脚本 P0/P1/P2 性能+架构优化 merged (PR #427) — 13min→<15s, rsync dry-run + single-pass perl + 模块化 V1, gpt52 review |
+| 2026-03-16~22 | 内测小伙伴 28 人入驻 |
+| ~2026-03-30 | **clowder-ai 仓库公开**，达成铲屎官 3/30 目标 |
+| 2026-04-10 | 仓库数据：476 stars / 180 forks / 11 contributors，已发布 v0.6.0。社区 PR 活跃。**F059 close** |
