@@ -332,32 +332,11 @@ function findAssistantDuplicate(messages: ChatMessage[], incoming: ChatMessage):
     break;
   }
 
-  // Phase 3: Last-resort callback→finalized-stream bridge.
-  // When Phase 1 failed (incoming has no invocationId) and Phase 2 failed (existing
-  // HAS invocationId so soft rule skipped it), this phase catches the gap where the
-  // hook-level finalizedStreamRef was consumed/cleared but a late callback from a
-  // previous invocation still needs to merge.
-  // Constraints: existing must be finalized (not streaming), have invocationId (Phase 2
-  // handles invocationless), recent (within 30s), match visibility/replyTo, and
-  // content must match (prevents callback-only inv-2 from overwriting inv-1's bubble).
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const existing = messages[i]!;
-    if (existing.type !== 'assistant' || existing.catId !== incoming.catId) continue;
-    if (existing.origin !== 'stream' || existing.isStreaming) continue;
-    // Phase 3 is strictly for bubbles that have invocationId (Phase 2 handles invocationless)
-    if (!getBubbleInvocationId(existing)) continue;
-    const ageMs = (incoming.timestamp ?? Date.now()) - (existing.timestamp ?? 0);
-    if (ageMs > 30_000 || ageMs < 0) break; // Too old or future — stop
-    // Match visibility and replyTo (consistent with Phase 2 constraints)
-    if (incoming.replyTo !== existing.replyTo) continue;
-    if ((incoming.visibility ?? 'public') !== (existing.visibility ?? 'public')) continue;
-    // #586 P1 (store-level): Content guard — only merge when content matches.
-    // Prevents a callback-only inv-2 from silently replacing inv-1's finalized bubble.
-    if (existing.content !== undefined && incoming.content !== undefined && existing.content !== incoming.content)
-      continue;
-    return i;
-  }
-
+  // Phase 3 intentionally disabled: when a callback arrives without invocation
+  // evidence, the store must not merge it into a finalized stream bubble based
+  // on cat/reply/visibility/content heuristics alone. The hook-level finalized
+  // refs provide the precise late-callback bridge; the store should fall back to
+  // showing a separate bubble instead of risking a false cross-invocation merge.
   return -1;
 }
 

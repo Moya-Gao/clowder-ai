@@ -208,7 +208,7 @@ describe('chatStore multi-thread state', () => {
       ]);
     });
 
-    it('TD112 Phase 3: callback with SAME content merges into recent finalized stream bubble', () => {
+    it('TD112 Phase 3 P2: callback with SAME content does NOT merge without invocation evidence', () => {
       const now = Date.now();
       const responseText = 'Stream output from inv-1';
       // Finalized stream bubble from a previous invocation (has invocationId, not streaming)
@@ -223,7 +223,8 @@ describe('chatStore multi-thread state', () => {
         isStreaming: false,
       });
 
-      // Late callback without invocationId, same content — should merge (true duplicate)
+      // Late callback without invocationId, same content — should remain separate
+      // because the store no longer guesses cross-invocation identity.
       useChatStore.getState().addMessage({
         id: 'late-callback',
         type: 'assistant',
@@ -233,10 +234,9 @@ describe('chatStore multi-thread state', () => {
         timestamp: now,
       });
 
-      // Phase 3: should merge, not create duplicate
-      expect(useChatStore.getState().messages).toHaveLength(1);
+      expect(useChatStore.getState().messages).toHaveLength(2);
       expect(useChatStore.getState().messages[0]!.id).toBe('stream-inv1');
-      expect(useChatStore.getState().messages[0]!.origin).toBe('callback');
+      expect(useChatStore.getState().messages[1]!.id).toBe('late-callback');
     });
 
     it('TD112 Phase 3 P1: callback with DIFFERENT content does NOT merge (cross-invocation guard)', () => {
@@ -323,6 +323,36 @@ describe('chatStore multi-thread state', () => {
       // Phase 2: skipped (existing has invocationId)
       // Phase 3: skipped (existing is still streaming)
       expect(useChatStore.getState().messages).toHaveLength(2);
+    });
+
+    it('TD112 Phase 3 P2: background callback with SAME content does NOT merge without invocation evidence', () => {
+      const now = Date.now();
+      const responseText = 'Stream output from inv-1';
+
+      useChatStore.getState().addMessageToThread('thread-b', {
+        id: 'bg-stream-inv1',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-1' } },
+        timestamp: now - 2000,
+        isStreaming: false,
+      });
+
+      useChatStore.getState().addMessageToThread('thread-b', {
+        id: 'bg-late-callback',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'callback',
+        timestamp: now,
+      });
+
+      const messages = useChatStore.getState().threadStates['thread-b']?.messages ?? [];
+      expect(messages).toHaveLength(2);
+      expect(messages[0]!.id).toBe('bg-stream-inv1');
+      expect(messages[1]!.id).toBe('bg-late-callback');
     });
 
     it('replaces an optimistic background-thread message id in place', () => {
