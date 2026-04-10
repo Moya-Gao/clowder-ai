@@ -116,14 +116,14 @@ Anthropic 连续发布两组研究，揭示了 AI 模型在高压下的行为变
 
 - "同一验收点"定义在边界情况下模糊（新 edge case 算不算同一个问题？）——务实处理：靠判断而不是精确计数，reviewer 有最终裁定权
 - 协议本身可能成为新的锚定——"我还没触发断路器所以我还好"——需要保留铲屎官和 reviewer 的直觉介入权
+- **P2 落地前的情绪传染缺口**：P2 盲审依赖 F148 推迟到 Phase 2，这意味着 Phase 1 期间 reviewer 仍然完全暴露在 author 的挣扎历史中，面临因同理心而下意识降低验收标准的风险。缓解措施：在 review skill 中加入提醒——"你是否因为看到 author 的反复失败而降低了预期？"
 
 ## Implementation Plan
 
 | 阶段 | 内容 | 时间 |
 |------|------|------|
-| Phase 1 | P3 (PR 模板加 Sacrifice Manifest) + P4 (debugging skill 加发疯通道) | 立即 |
-| Phase 2 | P1 (debugging + quality-gate skill 加自检清单) | Phase 1 后 |
-| Phase 3 | P2 (盲审先行，依赖 F148) | F148 完成后 |
+| Phase 1 | P1 (debugging + quality-gate skill 加断路器自检) + P3 (PR 模板加 Sacrifice Manifest) + P4 (debugging skill 加发疯通道) | 立即 |
+| Phase 2 | P2 (盲审先行，依赖 F148) | F148 完成后 |
 
 ## References
 
