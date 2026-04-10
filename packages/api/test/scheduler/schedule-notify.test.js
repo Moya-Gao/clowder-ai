@@ -198,4 +198,112 @@ describe('TaskRunnerV2 — execution failure notification (#415)', () => {
     assert.ok(failMsg.content.includes('kaboom'));
     runner.stop();
   });
+
+  it('RUN_DELIVERED triggers notifyTaskSucceeded via onItemOutcome', async () => {
+    const Database = (await import('better-sqlite3')).default;
+    const db = new Database(':memory:');
+    const { applyMigrations } = await import('../../dist/domains/memory/schema.js');
+    const { RunLedger } = await import('../../dist/infrastructure/scheduler/RunLedger.js');
+    const { DynamicTaskStore } = await import('../../dist/infrastructure/scheduler/DynamicTaskStore.js');
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    applyMigrations(db);
+    const ledger = new RunLedger(db);
+    const dynamicTaskStore = new DynamicTaskStore(db);
+    const deliverCalls = [];
+    const mockDeliver = async (opts) => {
+      deliverCalls.push(opts);
+      return 'msg-1';
+    };
+    const noop = () => {};
+    const runner = new TaskRunnerV2({
+      logger: { info: noop, error: noop },
+      ledger,
+      dynamicTaskStore,
+      deliver: mockDeliver,
+    });
+
+    dynamicTaskStore.insert({
+      id: 'dyn-ok-1',
+      templateId: 'reminder',
+      trigger: { type: 'interval', ms: 999999 },
+      params: { message: 'test', triggerUserId: 'user-42' },
+      display: { label: '成功任务', category: 'system' },
+      deliveryThreadId: 'thread-ok',
+      enabled: true,
+      createdBy: 'opus',
+      createdAt: new Date().toISOString(),
+    });
+
+    runner.registerDynamic(
+      {
+        id: 'dyn-ok-1',
+        profile: 'awareness',
+        trigger: { type: 'interval', ms: 999999 },
+        admission: {
+          gate: async () => ({ run: true, workItems: [{ signal: 'go', subjectKey: 'k' }] }),
+        },
+        run: {
+          overlap: 'skip',
+          timeoutMs: 5000,
+          execute: async () => ({ delivered: true }),
+        },
+        state: { runLedger: 'sqlite' },
+        outcome: { whenNoSignal: 'drop' },
+        enabled: () => true,
+      },
+      'dyn-ok-1',
+    );
+
+    await runner.triggerNow('dyn-ok-1');
+    await new Promise((r) => setTimeout(r, 50));
+
+    const successMsg = deliverCalls.find((c) => c.content.includes('执行完成'));
+    assert.ok(successMsg, 'should contain success notification');
+    assert.equal(successMsg.threadId, 'thread-ok');
+    assert.ok(successMsg.content.includes('下次执行时间'), 'recurring task should include next fire time');
+    runner.stop();
+  });
+});
+
+describe('schedule-notify: notifyTaskSucceeded', () => {
+  const makeDef2 = (overrides = {}) => ({
+    id: 'dyn-test-1',
+    templateId: 'reminder',
+    trigger: { type: 'once', fireAt: Date.now() + 60_000 },
+    params: { message: 'test', triggerUserId: 'user-42' },
+    display: { label: '测试提醒', category: 'system' },
+    deliveryThreadId: 'thread-xyz',
+    enabled: true,
+    createdBy: 'opus',
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  });
+
+  it('recurring task includes next fire time', async () => {
+    const { notifyTaskSucceeded } = await import('../../dist/infrastructure/scheduler/schedule-notify.js');
+    const calls = [];
+    const mockDeliver = async (opts) => {
+      calls.push(opts);
+      return 'msg-1';
+    };
+    notifyTaskSucceeded(mockDeliver, makeDef2({ trigger: { type: 'interval', ms: 60000 } }));
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].content.includes('本次执行完成'));
+    assert.ok(calls[0].content.includes('下次执行时间'));
+  });
+
+  it('once task says task has ended', async () => {
+    const { notifyTaskSucceeded } = await import('../../dist/infrastructure/scheduler/schedule-notify.js');
+    const calls = [];
+    const mockDeliver = async (opts) => {
+      calls.push(opts);
+      return 'msg-1';
+    };
+    notifyTaskSucceeded(mockDeliver, makeDef2({ trigger: { type: 'once', fireAt: Date.now() } }));
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].content.includes('已执行完成'));
+    assert.ok(calls[0].content.includes('自动结束'));
+  });
 });

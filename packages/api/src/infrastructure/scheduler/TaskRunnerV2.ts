@@ -2,7 +2,7 @@ import { getNextCronMs } from './cron-utils.js';
 import type { DynamicTaskDef, DynamicTaskStore } from './DynamicTaskStore.js';
 import { executeTaskPipeline } from './execute-pipeline.js';
 import type { RunLedger } from './RunLedger.js';
-import { notifyTaskFailed } from './schedule-notify.js';
+import { notifyTaskFailed, notifyTaskSucceeded } from './schedule-notify.js';
 import type { TaskTemplate } from './templates/types.js';
 import type {
   ActorRole,
@@ -401,11 +401,12 @@ export class TaskRunnerV2 {
       fetchContent: this.fetchContent,
       invokeTrigger: this.invokeTrigger,
       onItemOutcome: (taskId, _subjectKey, outcome, errorSummary) => {
-        if (outcome !== 'RUN_FAILED') return;
         const dynDefId = this.dynamicTaskIds.get(taskId);
         if (!dynDefId || !this.dynamicTaskStore) return;
         const def = this.dynamicTaskStore.getById(dynDefId);
-        if (def) notifyTaskFailed(this.deliver, def, errorSummary);
+        if (!def) return;
+        if (outcome === 'RUN_FAILED') notifyTaskFailed(this.deliver, def, errorSummary);
+        if (outcome === 'RUN_DELIVERED') notifyTaskSucceeded(this.deliver, def);
       },
     });
   }

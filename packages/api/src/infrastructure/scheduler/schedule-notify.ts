@@ -59,6 +59,16 @@ export function notifyTaskDeleted(deliver: DeliverFn | undefined, def: DynamicTa
   fire(deliver, def, `🗑️ 定时任务「${label(def)}」已删除`);
 }
 
+export function notifyTaskSucceeded(deliver: DeliverFn | undefined, def: DynamicTaskDef): void {
+  if (def.trigger.type === 'once') {
+    fire(deliver, def, `✅ 定时任务「${label(def)}」已执行完成，任务已自动结束`);
+  } else {
+    const nextFire = computeNextFireTime(def.trigger);
+    const timeStr = nextFire ? formatTime(nextFire) : '未知';
+    fire(deliver, def, `✅ 定时任务「${label(def)}」本次执行完成，下次执行时间：${timeStr}`);
+  }
+}
+
 export function notifyTaskFailed(
   deliver: DeliverFn | undefined,
   def: DynamicTaskDef,
