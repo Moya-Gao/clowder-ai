@@ -351,7 +351,7 @@ function findAssistantDuplicate(messages: ChatMessage[], incoming: ChatMessage):
     if ((incoming.visibility ?? 'public') !== (existing.visibility ?? 'public')) continue;
     // #586 P1 (store-level): Content guard — only merge when content matches.
     // Prevents a callback-only inv-2 from silently replacing inv-1's finalized bubble.
-    if (existing.content && incoming.content && existing.content !== incoming.content) continue;
+    if (existing.content !== undefined && incoming.content !== undefined && existing.content !== incoming.content) continue;
     return i;
   }
 

@@ -208,7 +208,7 @@ function findBackgroundCallbackReplacementTarget(
       if (finalizedEntry.fencedAt) {
         const LATE_CALLBACK_GRACE_MS = 5_000;
         if (Date.now() - finalizedEntry.fencedAt > LATE_CALLBACK_GRACE_MS) return null;
-        if (msg.content && finalized.content && finalized.content !== msg.content) return null;
+        if (msg.content !== undefined && finalized.content !== undefined && finalized.content !== msg.content) return null;
       }
       return { id: finalized.id, invocationId: invocationId ?? null };
     }
