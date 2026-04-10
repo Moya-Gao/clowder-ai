@@ -57,4 +57,4 @@ Release tag `v0.6.0` was published before this reconciliation report was complet
 
 ## CVO Sign-off
 
-- [ ] Approved by @lysander on ____
+- [x] Approved by Landy on 2026-04-10
