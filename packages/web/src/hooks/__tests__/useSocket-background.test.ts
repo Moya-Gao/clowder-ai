@@ -699,6 +699,82 @@ describe('background thread socket handling', () => {
       );
     });
 
+    it('P2 regression: background finalized_fallback does not merge callback onto a different reply target', () => {
+      const now = Date.now();
+      const responseText = 'Same text, different parent';
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-old' });
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-old',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-old' } },
+        replyTo: 'msg-parent-old',
+        replyPreview: { senderCatId: 'user', content: 'old parent' },
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', { id: 'bg-stream-old', threadId: 'thread-bg', catId: 'opus' });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        invocationId: 'inv-bg-old',
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-new',
+        }),
+        timestamp: now + 2,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: responseText,
+        messageId: 'bg-callback-reply-mismatch',
+        replyTo: 'msg-parent-new',
+        replyPreview: { senderCatId: 'user', content: 'new parent' },
+        timestamp: now + 3,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[0]).toEqual(
+        expect.objectContaining({
+          id: 'bg-stream-old',
+          catId: 'opus',
+          content: responseText,
+          origin: 'stream',
+          replyTo: 'msg-parent-old',
+          replyPreview: { senderCatId: 'user', content: 'old parent' },
+        }),
+      );
+      expect(ts.messages[1]).toEqual(
+        expect.objectContaining({
+          id: 'bg-callback-reply-mismatch',
+          catId: 'opus',
+          content: responseText,
+          origin: 'callback',
+          replyTo: 'msg-parent-new',
+          replyPreview: { senderCatId: 'user', content: 'new parent' },
+        }),
+      );
+    });
+
     it('invalidates a fenced bg finalized ref after a second invocation boundary', () => {
       const now = Date.now();
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-stale-1' });

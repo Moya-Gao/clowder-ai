@@ -1,6 +1,7 @@
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
+import { isReplyTargetCompatible } from './reply-target-compat';
 import type {
   ActiveRoutedAgentMessage,
   BackgroundAgentMessage,
@@ -220,6 +221,7 @@ function findBackgroundCallbackReplacementTarget(
         if (msg.content !== undefined && finalized.content !== undefined && finalized.content !== msg.content)
           return null;
       }
+      if (!isReplyTargetCompatible(finalized.replyTo, msg.replyTo)) return null;
       return {
         id: finalized.id,
         invocationId: finalizedEntry.invocationId ?? finalized.extra?.stream?.invocationId ?? null,

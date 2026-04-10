@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
+import { isReplyTargetCompatible } from './reply-target-compat';
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -283,6 +284,7 @@ export function useAgentMessages() {
     (
       catId: string,
       callbackContent?: string,
+      callbackReplyTo?: string,
     ):
       | { id: string; matchKind: 'active_invocationless' }
       | { id: string; matchKind: 'finalized_fallback'; replacementInvocationId?: string }
@@ -336,6 +338,7 @@ export function useAgentMessages() {
             if (Date.now() - finalizedEntry.fencedAt > LATE_CALLBACK_GRACE_MS) return null;
             if (callbackContent !== undefined && finalized.content !== callbackContent) return null;
           }
+          if (!isReplyTargetCompatible(finalized.replyTo, callbackReplyTo)) return null;
           return {
             id: finalized.id,
             matchKind: 'finalized_fallback',
@@ -462,7 +465,7 @@ export function useAgentMessages() {
           const exactReplacementTarget = invocationId ? findCallbackReplacementTarget(msg.catId, invocationId) : null;
           const fallbackReplacementTarget = hasExplicitInvocationId
             ? null
-            : findInvocationlessStreamPlaceholder(msg.catId, msg.content);
+            : findInvocationlessStreamPlaceholder(msg.catId, msg.content, msg.replyTo);
           const replacementTarget = exactReplacementTarget ?? fallbackReplacementTarget;
 
           if (replacementTarget) {

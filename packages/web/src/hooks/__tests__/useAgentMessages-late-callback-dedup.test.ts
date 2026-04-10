@@ -46,6 +46,8 @@ const storeState = {
     isStreaming?: boolean;
     origin?: string;
     extra?: { stream?: { invocationId?: string }; callbackBridge?: { skipDedup?: boolean } };
+    replyTo?: string;
+    replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
     timestamp: number;
   }>,
   addMessage: mockAddMessage,
@@ -399,6 +401,84 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
 
     expect(mockAddMessage).not.toHaveBeenCalled();
     expect(mockAppendToMessage).not.toHaveBeenCalled();
+  });
+
+  it('P2 regression: finalized_fallback does not merge callback onto a different reply target', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const responseText = 'Same text, different parent';
+
+    storeState.messages.push({
+      id: 'msg-inv1',
+      type: 'assistant',
+      catId: 'opus',
+      content: responseText,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-1' } },
+      replyTo: 'msg-parent-old',
+      replyPreview: { senderCatId: 'user', content: 'old parent' },
+      timestamp: Date.now() - 3000,
+    });
+    storeState.catInvocations = { opus: { invocationId: 'inv-1' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: responseText,
+        replyTo: 'msg-parent-old',
+        replyPreview: { senderCatId: 'user', content: 'old parent' },
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        isFinal: true,
+        invocationId: 'inv-1',
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-2',
+        }),
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: responseText,
+        messageId: 'cb-reply-mismatch',
+        replyTo: 'msg-parent-new',
+        replyPreview: { senderCatId: 'user', content: 'new parent' },
+      });
+    });
+
+    expect(mockPatchMessage).not.toHaveBeenCalled();
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'cb-reply-mismatch',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'callback',
+        replyTo: 'msg-parent-new',
+        replyPreview: { senderCatId: 'user', content: 'new parent' },
+      }),
+    );
   });
 
   it('P1 regression: callback with DIFFERENT content does NOT merge across invocation boundary', () => {
