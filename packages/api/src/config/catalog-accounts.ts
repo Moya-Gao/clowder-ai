@@ -401,10 +401,11 @@ function migrateHomedirCredentials(projectRoot?: string): void {
         targetCreds = {};
       }
     }
-    // Homedir credentials.json wins over provider-profiles.secrets (newer source).
+    // Only fill gaps: preserve user-set target credentials, don't overwrite with stale homedir.
+    // Priority is ensured by running this BEFORE legacy secrets migration in ensureMigrated().
     let imported = 0;
     for (const [ref, entry] of Object.entries(homeCreds)) {
-      if (typeof entry === 'object' && entry !== null) {
+      if (typeof entry === 'object' && entry !== null && !(ref in targetCreds)) {
         targetCreds[ref] = entry;
         imported++;
       }
@@ -428,11 +429,13 @@ function migrateHomedirCredentials(projectRoot?: string): void {
 }
 
 function ensureMigrated(projectRoot: string): void {
+  // Homedir credentials.json FIRST (skip-existing): fills target before legacy
+  // secrets run, so legacy's `id in existing` check naturally defers to homedir.
+  // Priority: user-set target > homedir credentials.json > legacy secrets.
+  migrateHomedirCredentials(projectRoot);
   migrateLegacyProviderProfiles(projectRoot);
   migrateProjectLegacyProviderProfiles(projectRoot);
   migrateHomedirLegacyProviderProfiles(projectRoot);
-  // Homedir credentials.json AFTER legacy secrets — homedir wins on overlap.
-  migrateHomedirCredentials(projectRoot);
   migrateProjectAccountsToGlobal(projectRoot);
 }
 
