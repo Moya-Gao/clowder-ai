@@ -85,6 +85,8 @@ export class TaskRunnerV2 {
   private lastRunAt = new Map<string, number | null>();
   /** Phase 3A: track dynamic task IDs → DynamicTaskDef.id mapping */
   private dynamicTaskIds = new Map<string, string>();
+  /** #415: track once-tasks that actually executed (not governance-skipped) */
+  private onceTaskExecuted = new Set<string>();
   /** True after start() has been called — used to auto-schedule late-registered tasks */
   private started = false;
   private logger: TaskRunnerV2Options['logger'];
@@ -265,12 +267,18 @@ export class TaskRunnerV2 {
       return;
     }
     const timer = setTimeout(() => {
+      this.onceTaskExecuted.delete(task.id);
       this.executePipeline(task)
         .catch((err) => {
           this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
         })
         .finally(() => {
-          this.retireOnceTask(task.id);
+          if (this.onceTaskExecuted.has(task.id)) {
+            this.onceTaskExecuted.delete(task.id);
+            this.retireOnceTask(task.id);
+          } else {
+            this.logger.info(`[scheduler] ${task.id}: once task governance-skipped, not retiring`);
+          }
         });
     }, remaining);
     if (typeof timer === 'object' && 'unref' in timer) timer.unref();
@@ -282,9 +290,9 @@ export class TaskRunnerV2 {
 
   /** #415: Remove a once-task from runtime + persistent store after execution */
   private retireOnceTask(taskId: string): void {
-    const dynDefId = this.dynamicTaskIds.get(taskId);
-    if (dynDefId && this.dynamicTaskStore) {
-      this.dynamicTaskStore.remove(dynDefId);
+    // Use taskId directly — for dynamic tasks, taskId === dynDefId
+    if (this.dynamicTaskStore) {
+      this.dynamicTaskStore.remove(taskId);
     }
     this.unregister(taskId);
     this.logger.info(`[scheduler] ${taskId}: retired (once task completed)`);
@@ -401,6 +409,9 @@ export class TaskRunnerV2 {
       fetchContent: this.fetchContent,
       invokeTrigger: this.invokeTrigger,
       onItemOutcome: (taskId, _subjectKey, outcome, errorSummary) => {
+        if (outcome === 'RUN_DELIVERED' || outcome === 'RUN_FAILED') {
+          this.onceTaskExecuted.add(taskId);
+        }
         const dynDefId = this.dynamicTaskIds.get(taskId);
         if (!dynDefId || !this.dynamicTaskStore) return;
         const def = this.dynamicTaskStore.getById(dynDefId);
