@@ -475,7 +475,7 @@ export function useAgentMessages() {
             const id = msg.messageId ?? `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
             const extraForAdd = {
               ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-              ...(hasExplicitInvocationId && msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
+              ...(invocationId ? { stream: { invocationId } } : {}),
             };
             addMessage({
               id,
@@ -705,14 +705,18 @@ export function useAgentMessages() {
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
             sysVariant = 'a2a_followup';
           } else if (parsed?.type === 'invocation_created') {
-            // #586 P3+P1: Fence finalizedStreamRef — late callbacks from the previous
-            // invocation still need the ref, but fencedAt enables the time + content
-            // guard in findInvocationlessStreamPlaceholder to prevent new-invocation
-            // callbacks from silently overwriting the previous bubble.
+            // #586 P3+P1: First invocation boundary fences finalizedStreamRef so
+            // immediate late callbacks from the previous invocation can still merge.
+            // If a second boundary arrives before the ref was consumed, the ref is
+            // stale across multiple invocations and must be invalidated.
             const targetCatId = parsed.catId ?? msg.catId;
             const existingEntry = finalizedStreamRef.current.get(targetCatId);
-            if (existingEntry && !existingEntry.fencedAt) {
-              existingEntry.fencedAt = Date.now();
+            if (existingEntry) {
+              if (existingEntry.fencedAt) {
+                finalizedStreamRef.current.delete(targetCatId);
+              } else {
+                existingEntry.fencedAt = Date.now();
+              }
             }
             const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
             if (targetCatId && invocationId) {

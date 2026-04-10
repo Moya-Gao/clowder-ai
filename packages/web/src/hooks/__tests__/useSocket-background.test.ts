@@ -443,6 +443,84 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]!.origin).toBe('callback');
     });
 
+    it('invalidates a fenced bg finalized ref after a second invocation boundary', () => {
+      const now = Date.now();
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-stale-1' });
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-stale',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Shared content',
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-stale-1' } },
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', { id: 'bg-stream-stale', threadId: 'thread-bg', catId: 'opus' });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-stale-2',
+        }),
+        timestamp: now + 2,
+      });
+
+      // Callback-only inv-2 leaves the inv-1 finalized ref fenced but unconsumed.
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: 'Different inv-2 content',
+        messageId: 'bg-cb-stale-2',
+        timestamp: now + 3,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-stale-3',
+        }),
+        timestamp: now + 4,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: 'Shared content',
+        messageId: 'bg-cb-stale-3',
+        timestamp: now + 5,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(3);
+      expect(ts.messages.map((m) => m.content)).toEqual([
+        'Shared content',
+        'Different inv-2 content',
+        'Shared content',
+      ]);
+    });
+
     it('drops late background stream chunks after callback replacement', () => {
       configureDebug({ enabled: true });
       ensureWindowDebugApi();

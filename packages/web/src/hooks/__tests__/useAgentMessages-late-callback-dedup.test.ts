@@ -269,6 +269,96 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     expect(newBubbleCalls[0][0].content).toBe('Scheduled task created');
   });
 
+  it('invalidates a fenced finalized ref when a second invocation boundary arrives', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    storeState.messages.push({
+      id: 'msg-inv1',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'Shared content',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-1' } },
+      timestamp: Date.now() - 4000,
+    });
+    storeState.catInvocations = { opus: { invocationId: 'inv-1' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'Shared content',
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        isFinal: true,
+      });
+    });
+
+    // First boundary fences the inv-1 finalized ref.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-2',
+        }),
+      });
+    });
+
+    // inv-2 is callback-only with different content, so the fenced inv-1 ref survives.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'Different inv-2 content',
+      });
+    });
+
+    vi.clearAllMocks();
+
+    // Second boundary must invalidate the stale inv-1 ref.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-3',
+        }),
+      });
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'Shared content',
+      });
+    });
+
+    const patchCalls = mockPatchMessage.mock.calls.filter(([id]) => id === 'msg-inv1');
+    expect(patchCalls).toHaveLength(0);
+
+    const newBubbleCalls = mockAddMessage.mock.calls.filter(
+      ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
+    );
+    expect(newBubbleCalls).toHaveLength(1);
+    expect(newBubbleCalls[0][0].content).toBe('Shared content');
+    expect(newBubbleCalls[0][0].extra).toEqual({ stream: { invocationId: 'inv-3' } });
+  });
+
   it('thread switch clears finalizedStreamRef (resetRefs still works)', () => {
     act(() => {
       root.render(React.createElement(Harness));

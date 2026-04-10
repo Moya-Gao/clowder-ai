@@ -44,13 +44,17 @@ export function consumeBackgroundSystemInfo(
     if (parsed?.type === 'invocation_created') {
       const targetCatId = parsed.catId ?? msg.catId;
       const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
-      // #586 P1: Fence (don't clear) — late callbacks still need the ref, but
-      // the time+content guard in findBackgroundCallbackReplacementTarget prevents
-      // cross-invocation misreplacement.
+      // #586 P1: First boundary fences finalizedBgRefs so immediate late callbacks
+      // can still merge; a second boundary means the ref is stale and must be
+      // invalidated before another callback-only invocation reuses it.
       const bgStreamKey = `${msg.threadId}::${targetCatId}`;
       const existingBgEntry = options.finalizedBgRefs.get(bgStreamKey);
-      if (existingBgEntry && !existingBgEntry.fencedAt) {
-        existingBgEntry.fencedAt = Date.now();
+      if (existingBgEntry) {
+        if (existingBgEntry.fencedAt) {
+          options.finalizedBgRefs.delete(bgStreamKey);
+        } else {
+          existingBgEntry.fencedAt = Date.now();
+        }
       }
       if (targetCatId && invocationId) {
         options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
