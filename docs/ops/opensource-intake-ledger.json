@@ -562,7 +562,9 @@
       "target_merge_commit": "71d0885f11bfd9b1747e9ff2ca14e161f14d6ffe",
       "decision": "absorbed",
       "timestamp": "2026-04-10T17:19:35.846Z",
-      "note": "Source-owned: thread-cats MCP tool developed internally, synced outbound to clowder-ai. Already present in cat-cafe."
+      "absorb_pr": 1059,
+      "intake_intent_issue": 1061,
+      "note": "cat_cafe_get_thread_cats MCP tool + de-hardcode catId. DRY extraction of categorizeThreadCats(). Follow-up: clowder-ai#435."
     }
   ]
 }
