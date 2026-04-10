@@ -90,12 +90,12 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const allSkipped = newComments.length === 0 && newDecisions.length === 0;
             const hadNewItems = allNewComments.length > 0 || allNewReviews.length > 0;
             if (hadNewItems && allSkipped) {
-              commentCursors.set(prKey, maxCommentId);
-              reviewCursors.set(prKey, maxReviewId);
-              // #406: Persist echo-skip cursor advance so restarts don't re-process
+              // #406: Persist first — memory advances only after store succeeds
               await opts.taskStore.patchAutomationState(task.id, {
                 review: { lastCommentCursor: maxCommentId, lastDecisionCursor: maxReviewId },
               });
+              commentCursors.set(prKey, maxCommentId);
+              reviewCursors.set(prKey, maxReviewId);
               continue;
             }
 
@@ -109,9 +109,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                 newComments,
                 newDecisions,
                 commitCursor: async () => {
-                  commentCursors.set(prKey, maxCommentId);
-                  reviewCursors.set(prKey, maxReviewId);
-                  // #406: Persist cursor to TaskStore so restarts don't replay
+                  // #406: Persist first — if store fails, memory stays behind so gate retries
                   await opts.taskStore.patchAutomationState(task.id, {
                     review: {
                       lastCommentCursor: maxCommentId,
@@ -119,6 +117,8 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                       lastNotifiedAt: Date.now(),
                     },
                   });
+                  commentCursors.set(prKey, maxCommentId);
+                  reviewCursors.set(prKey, maxReviewId);
                 },
               },
               // #320 KD-15: unified subject_key format
