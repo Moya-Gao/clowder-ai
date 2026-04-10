@@ -542,6 +542,13 @@
       "target_merge_commit": "a7876eaafc9675e97cd354508ca50792daa28d64",
       "decision": "absorbed",
       "timestamp": "2026-04-10T13:17:17.883Z"
+    },
+    {
+      "pr_number": 416,
+      "target_merge_commit": "57936e2eb9ea1b8fb520ef626f70c549f48ffc95",
+      "decision": "absorbed",
+      "timestamp": "2026-04-10T17:05:00.000Z",
+      "notes": "Community once-trigger + lifecycle notifications. Upstream PR #415, cat-cafe absorb PR #1055. Local fixes: P1 server-authoritative sender, P2 run-level notification aggregation."
     }
   ]
 }
