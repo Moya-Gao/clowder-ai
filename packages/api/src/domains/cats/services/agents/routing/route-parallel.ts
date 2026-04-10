@@ -114,6 +114,9 @@ export async function* routeParallel(
     }
   }
 
+  // F148 OQ-2: briefing→invocation link per cat (must be before Promise.all — TDZ fix)
+  const catBriefingMessageId = new Map<string, string>();
+
   const streams = await Promise.all(
     targetCats.map(async (catId) => {
       const catConfig: CatConfig | undefined =
@@ -241,6 +244,7 @@ export async function* routeParallel(
           const briefingInput = buildBriefingMessage(inc.coverageMap, threadId, inc.briefingContext);
           try {
             const stored = await deps.messageStore.append(briefingInput);
+            catBriefingMessageId.set(catId, stored.id);
             // P1-3: Include full stored message in payload so frontend can addMessage directly
             degradationMsgs.push({
               type: 'system_info' as AgentMessageType,
@@ -513,6 +517,21 @@ export async function* routeParallel(
 
     if (msg.type === 'done' && msg.catId) {
       completedCount++;
+
+      // F148 OQ-2: Log briefing→invocation link for quality evaluation
+      const doneBriefingId = catBriefingMessageId.get(msg.catId);
+      const doneInvId = catInvocationId.get(msg.catId);
+      if (doneBriefingId && doneInvId) {
+        log.info({
+          f148: 'briefing-invocation-link',
+          briefingMessageId: doneBriefingId,
+          invocationId: doneInvId,
+          catId: msg.catId,
+          threadId,
+          hadError: catHadProviderError.has(msg.catId),
+        });
+      }
+
       // F22: Consume MCP-buffered rich blocks BEFORE text/empty branch —
       // blocks must be persisted even when the cat emits no text (cloud Codex P1).
       const ownInvId = catInvocationId.get(msg.catId);

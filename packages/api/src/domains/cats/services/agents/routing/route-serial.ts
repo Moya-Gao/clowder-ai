@@ -142,6 +142,8 @@ export async function* routeSerial(
     while (index < worklist.length) {
       if (signal?.aborted) break;
       const catId = worklist[index]!;
+      // F148 OQ-2: briefing→invocation link for quality evaluation
+      let briefingMessageId: string | undefined;
 
       // Only pass images/uploads for the first cat (user's original target)
       const isOriginalTarget = index < targetCats.length;
@@ -300,6 +302,7 @@ export async function* routeSerial(
           const briefingInput = buildBriefingMessage(inc.coverageMap, threadId, inc.briefingContext);
           try {
             const stored = await deps.messageStore.append(briefingInput);
+            briefingMessageId = stored.id;
             // P1-3: Include full stored message in payload so frontend can addMessage directly
             yield {
               type: 'system_info' as AgentMessageType,
@@ -1089,6 +1092,18 @@ export async function* routeSerial(
             log.error({ catId: catId as string, err }, 'ackCursor failed');
           }
         }
+      }
+
+      // F148 OQ-2: Log briefing→invocation link for quality evaluation
+      if (briefingMessageId && ownInvocationId) {
+        log.info({
+          f148: 'briefing-invocation-link',
+          briefingMessageId,
+          invocationId: ownInvocationId,
+          catId,
+          threadId,
+          hadError: hadProviderError,
+        });
       }
 
       // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)
