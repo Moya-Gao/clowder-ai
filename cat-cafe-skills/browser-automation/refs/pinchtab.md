@@ -53,9 +53,30 @@ pinchtab eval 'window.location.href = "https://example.com"'
 pinchtab text  # 正常读取页面
 ```
 
-MCP 工具同理：`pinchtab_eval` 替代 `pinchtab_navigate` 用于外网 URL。localhost 导航不受影响。
+localhost 导航不受影响，`pinchtab_navigate` 对 localhost 正常工作。
 
 需要 `security.allowEvaluate = true`（已在 `~/.pinchtab/config.json` 启用）。
+
+### MCP 工具用法
+
+猫通过 MCP 使用 pinchtab 时，外网导航用 `pinchtab_eval` 替代 `pinchtab_navigate`：
+
+```
+# ✗ pinchtab_navigate → 403
+mcp__pinchtab__pinchtab_navigate({ url: "https://example.com" })
+
+# ✓ pinchtab_eval → 浏览器自己走代理
+mcp__pinchtab__pinchtab_eval({ expression: 'window.location.href = "https://example.com"' })
+
+# 导航后正常用其他工具读取
+mcp__pinchtab__pinchtab_get_text()
+mcp__pinchtab__pinchtab_screenshot()
+mcp__pinchtab__pinchtab_snapshot()
+```
+
+### 根因
+
+pinchtab Go 进程在把 URL 交给浏览器前，先用 `net.LookupHost()` 做 DNS 解析。Clash TUN 把所有域名解析到 `198.18.0.0/15`（RFC 2544 reserved），Go 层判定为 private IP → 403。但浏览器带 `--proxy-server`，DNS 和连接都走 Clash 代理，完全能到达目标。这是 pinchtab 上游的 limitation — SSRF 预检没考虑浏览器有自己的代理配置。
 
 ## 安装
 
