@@ -48,7 +48,7 @@ describe('schedule-notify: notification functions', () => {
     await new Promise((r) => setTimeout(r, 20));
     assert.equal(calls.length, 1);
     assert.equal(calls[0].threadId, 'thread-xyz');
-    assert.equal(calls[0].catId, 'opus');
+    assert.equal(calls[0].catId, 'system');
     assert.equal(calls[0].userId, 'user-42');
     assert.ok(calls[0].content.includes('测试提醒'));
     assert.ok(calls[0].content.includes('已创建'));

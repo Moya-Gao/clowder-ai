@@ -33,9 +33,7 @@ function label(def: DynamicTaskDef): string {
 
 function fire(deliver: DeliverFn | undefined, def: DynamicTaskDef, content: string): void {
   if (!deliver || !def.deliveryThreadId) return;
-  deliver({ threadId: def.deliveryThreadId, content, catId: def.createdBy, userId: resolveUserId(def) }).catch(
-    () => {},
-  );
+  deliver({ threadId: def.deliveryThreadId, content, catId: 'system', userId: resolveUserId(def) }).catch(() => {});
 }
 
 export function notifyTaskRegistered(deliver: DeliverFn | undefined, def: DynamicTaskDef): void {
