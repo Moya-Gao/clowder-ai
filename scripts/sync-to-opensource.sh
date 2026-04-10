@@ -1707,6 +1707,36 @@ if [ "$RESTORED" -gt 0 ]; then
 fi
 
 echo "  ✓ Synced to $TARGET_DIR"
+
+# 5c.1: Post-sync dead link check — catch broken relative links before commit
+echo "  Post-sync link check..."
+DEAD_LINKS_FILE=$(mktemp)
+while IFS= read -r mdfile; do
+  dir=$(dirname "$mdfile")
+  # Extract relative markdown links: [text](path) — skip http/https/mailto/anchors
+  # Use perl instead of grep -oP for macOS compatibility (BSD grep lacks -P)
+  perl -nle 'while (/\[.*?\]\(([^)]+)\)/g) { print $1 }' "$mdfile" 2>/dev/null | while IFS= read -r link; do
+    link_path="${link%%#*}"
+    [ -z "$link_path" ] && continue
+    case "$link_path" in http://*|https://*|mailto:*|ftp://*|tel:*) continue ;; esac
+    target_path="$dir/$link_path"
+    if [ ! -e "$target_path" ]; then
+      rel_mdfile="${mdfile#$TARGET_DIR/}"
+      echo "  ⚠ $rel_mdfile → $link_path" >> "$DEAD_LINKS_FILE"
+    fi
+  done
+done < <(find "$TARGET_DIR" -name '*.md' -not -path '*/.git/*' -not -path '*/node_modules/*')
+if [ -s "$DEAD_LINKS_FILE" ]; then
+  DEAD_LINK_COUNT=$(wc -l < "$DEAD_LINKS_FILE" | tr -d ' ')
+  echo -e "  ${YELLOW}⚠ Found $DEAD_LINK_COUNT dead link(s) in target:${NC}"
+  head -20 "$DEAD_LINKS_FILE" | while IFS= read -r line; do echo "    $line"; done
+  [ "$DEAD_LINK_COUNT" -gt 20 ] && echo "    ... and $((DEAD_LINK_COUNT - 20)) more"
+  echo -e "  ${YELLOW}  (non-blocking warning — review before push)${NC}"
+else
+  echo "  ✓ No dead links detected"
+fi
+rm -f "$DEAD_LINKS_FILE"
+
 step_done
 
 # 5d: Auto-commit + provenance finalization (D3)

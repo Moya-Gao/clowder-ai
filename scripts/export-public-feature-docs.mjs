@@ -247,6 +247,45 @@ function exportFeatureDoc(content) {
   return result;
 }
 
+// ── Referenced asset extraction ───────────────────────────────────────────────
+
+/**
+ * Extract relative asset paths from exported markdown content.
+ * Matches markdown links/images pointing to assets/ subdirectory.
+ */
+function extractAssetRefs(content) {
+  const refs = new Set();
+  const patterns = [
+    /\[.*?\]\((assets\/[^)\s]+)\)/g, // [text](assets/...)
+    /!\[.*?\]\((assets\/[^)\s]+)\)/g, // ![alt](assets/...)
+    /(?:src|href)=["'](assets\/[^"']+)["']/g, // src="assets/..." in HTML
+  ];
+  for (const pattern of patterns) {
+    for (const match of content.matchAll(pattern)) {
+      refs.add(match[1]);
+    }
+  }
+  return [...refs];
+}
+
+/**
+ * Copy referenced asset files from source features dir to output dir.
+ * Only copies files that actually exist (by-reference, not whole directory).
+ */
+function copyReferencedAssets(assetRefs, featuresDir, outputDir) {
+  let copied = 0;
+  for (const ref of assetRefs) {
+    const srcPath = path.join(featuresDir, ref);
+    const destPath = path.join(outputDir, ref);
+    if (fs.existsSync(srcPath)) {
+      fs.mkdirSync(path.dirname(destPath), { recursive: true });
+      fs.copyFileSync(srcPath, destPath);
+      copied++;
+    }
+  }
+  return copied;
+}
+
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
 function parseArgs(argv) {
@@ -315,7 +354,7 @@ function run() {
   const options = parseArgs(process.argv.slice(2));
   const featureFiles = listFeatureFiles(options.featuresDir);
 
-  const results = { exported: [], skipped: [], errors: [] };
+  const results = { exported: [], skipped: [], errors: [], assetsCopied: 0 };
 
   for (const filePath of featureFiles) {
     const fileName = path.basename(filePath);
@@ -342,6 +381,13 @@ function run() {
         const outPath = path.join(options.outputDir, fileName);
         fs.mkdirSync(path.dirname(outPath), { recursive: true });
         fs.writeFileSync(outPath, publicContent, 'utf8');
+
+        // Copy referenced assets (by-reference, not whole directory)
+        const assetRefs = extractAssetRefs(publicContent);
+        if (assetRefs.length > 0) {
+          const copied = copyReferencedAssets(assetRefs, options.featuresDir, options.outputDir);
+          results.assetsCopied += copied;
+        }
       }
 
       results.exported.push({ file: fileName, featureId, tier: conformance.tier, score: conformance.score });
@@ -356,7 +402,7 @@ function run() {
   console.log(`Output: ${options.dryRun ? '(dry run)' : options.outputDir}`);
   console.log(`Min tier: ${options.minTier}`);
   console.log(
-    `\nExported: ${results.exported.length} | Skipped: ${results.skipped.length} | Errors: ${results.errors.length}`,
+    `\nExported: ${results.exported.length} | Skipped: ${results.skipped.length} | Errors: ${results.errors.length} | Assets: ${results.assetsCopied}`,
   );
 
   if (results.exported.length > 0) {

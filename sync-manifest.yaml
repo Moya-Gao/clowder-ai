@@ -40,6 +40,11 @@ managed_files:
   - docs/SOP.md
   - docs/design-system.md
   - docs/TIPS.md
+  # docs/design/ 安全文件（三猫审计 2026-04-10，人设类暂不同步）
+  - docs/design/clowder-ai-brand.md
+  - docs/design/naming-contract.md
+  - docs/design/F090-pixel-cat-brawl-visuals.md
+  - docs/design/hero-prism-motion.md
 
 # ── 脚本导出（managed_scripts）────────────────────────────────
 # CI/构建脚本
@@ -104,16 +109,27 @@ docs_generated:
     script: scripts/export-public-feature-docs.mjs
     description: "Feature specs 结构化公开导出（conformant 自动，red 人工白名单）"
 
-# ── docs/decisions/ allowlist（只导被公开文档引用的 ADR）────────
+# ── docs/decisions/ allowlist（全量公开，三猫审计 2026-04-10 确认 SAFE）──
 docs_decisions_allowlist:
   - docs/decisions/001-agent-invocation-approach.md
   - docs/decisions/002-collaboration-protocol.md
   - docs/decisions/003-project-thread-architecture.md
+  - docs/decisions/005-hindsight-integration-decisions.md
+  - docs/decisions/007-cascade-delete-semantics.md
   - docs/decisions/008-conversation-mutability-and-invocation-lifecycle.md
   - docs/decisions/009-cat-cafe-skills-distribution.md
   - docs/decisions/010-directory-hygiene-anti-rot.md
   - docs/decisions/011-metadata-contract.md
   - docs/decisions/012-first-principles-map.md
+  - docs/decisions/014-xiaoyi-connector-gateway.md
+  - docs/decisions/015-knowledge-object-contract.md
+  - docs/decisions/016-sync-runtime-negation-decisions.md
+  - docs/decisions/017-no-runtime-home-overwrite.md
+  - docs/decisions/018-f122-oq-unified-dispatch-decisions.md
+  - docs/decisions/019-user-level-hooks-architecture.md
+  - docs/decisions/020-f102-memory-system-architecture.md
+  - docs/decisions/021-f129-pack-system-architecture.md
+  - docs/decisions/022-unified-schedule-abstraction.md
 
 # ── 排除（即使在 managed_roots 内也不导出）─────────────────────
 excluded:
