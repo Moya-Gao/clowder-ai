@@ -62,15 +62,15 @@ almond-shaped eyes (not green!). Wearing a blue collar with a small gold
 Gemini ♊ pendant. Playful mischievous expression, one paw reaching forward
 (holding a tiny paintbrush if space allows).
 
-Bottom-left: a Ragdoll cat (宪宪), Blue Bicolor Lynx Point pattern — mostly
-creamy white body with blue-gray colorpoint areas on head, ears, tail, and
-paw tips, the gray areas showing visible TABBY STRIPES (lynx markings).
-Fluffy long coat. Big BLUE eyes with a gentle, calm expression.
-IMPORTANT — face shape: soft V-shaped / gentle triangle face typical of
-ragdoll cats, with a defined chin line. NOT a flat round pancake face, NOT
-wider than the other cats. Match the face proportions from the reference
-image (opus.png) exactly. Wearing a purple collar with a gold star ⭐
-pendant.
+Bottom-left (宪宪): an elegant, slender cat with a refined, sharply defined
+V-shaped face and a pointy chin. The body is lithe and graceful, NOT bulky.
+It has the exact COLORING AND MARKINGS of a Blue Bicolor Lynx Point Ragdoll
+— mostly creamy white body with blue-gray colorpoint areas on head, ears,
+tail, and paw tips, the gray areas showing visible TABBY STRIPES (lynx
+markings). Sleek smooth fur on the face, longer coat on body and tail. Big
+BLUE eyes with a gentle, calm expression. Wearing a purple collar with a
+gold star ⭐ pendant. The face should be the SAME SIZE as the other two
+cats — not wider or rounder.
 
 Bottom-right: a large Maine Coon cat (砚砚) with SILVER-GRAY classic tabby
 markings — silver-gray base coat with darker gray stripes, impressive ear
@@ -105,9 +105,9 @@ peek into the frame from the edges:
   rim from the top-right, with a teal-green collar visible at the base.
 - Two small pointed ears with dark chocolate tips (Siamese / 烁烁) peeking
   up from the bottom edge, with curious blue eyes just barely visible.
-- A single soft creamy-white paw with blue-gray lynx-striped markings
-  (Ragdoll / 宪宪) reaching in from the left, pink toe beans visible,
-  with a purple collar band at the wrist.
+- A single slender creamy-white paw with blue-gray lynx-striped markings
+  (宪宪) reaching in from the left, pink toe beans visible, with a purple
+  collar band at the wrist.
 
 Style: warm, soft anime / 2D illustration matching the Cat Café avatar
 style. Cozy warm palette — creamy foam, rich coffee brown, soft warm
@@ -128,12 +128,12 @@ with dark chocolate-brown face mask, ears, and tail. BLUE eyes sparkling
 with pride. Blue collar with gold Gemini ♊ pendant swinging. Tail held
 high. Clutching a tiny paintbrush in one paw.
 
-Middle: a Ragdoll cat (宪宪), Blue Bicolor Lynx Point — mostly creamy white
-fluffy fur with blue-gray tabby-striped colorpoints on head, ears, and tail.
-Soft V-shaped face (NOT round/fat — match reference image proportions).
-Looking mildly squished but serenely accepting its fate. Big BLUE eyes
-half-closed in zen-like patience. Purple collar with gold star pendant
-slightly askew from the weight above.
+Middle (宪宪): an elegant, slender cat with a refined V-shaped face and
+pointy chin. It has the coloring of a Blue Bicolor Lynx Point Ragdoll —
+creamy white body with blue-gray tabby-striped colorpoints on head, ears,
+and tail. Sleek face fur, longer coat on body. Looking mildly squished but
+serenely accepting its fate. Big BLUE eyes half-closed in zen-like patience.
+Purple collar with gold star pendant slightly askew from the weight above.
 
 Bottom: a massive Maine Coon cat (砚砚) as the sturdy foundation —
 magnificent silver-gray tabby coat, dramatic ear tufts, powerful build.
@@ -164,12 +164,12 @@ equally cute and approachable. A warm, open-mouthed laughing expression
 that says "I've completely given up resisting my cats and I love every
 second of it."
 
-On top of his head: a Ragdoll cat (宪宪) sprawled belly-up, completely
-relaxed — Blue Bicolor Lynx Point pattern, mostly creamy white fluffy fur
-with blue-gray tabby-striped markings on ears and tail. Soft V-shaped face
-(NOT fat/round — match reference image). Pink toe beans showing, blue eyes
-contentedly half-closed. Purple collar with gold star pendant dangling. Its
-fluffy tail drapes across the boy's forehead.
+On top of his head: an elegant, slender cat (宪宪) sprawled belly-up,
+completely relaxed. It has the coloring of a Blue Bicolor Lynx Point Ragdoll
+— creamy white body with blue-gray tabby-striped markings on ears and tail.
+Refined V-shaped face with pointy chin, sleek face fur. Pink toe beans
+showing, blue eyes contentedly half-closed. Purple collar with gold star
+pendant dangling. Its long tail drapes across the boy's forehead.
 
 On his left shoulder: a Siamese cat (烁烁) perched and leaning forward
 curiously — cream body with dark chocolate face mask, bright blue eyes,
