@@ -158,7 +158,8 @@ function findBackgroundCallbackReplacementTarget(
   invocationId: string | null;
   matchKind: 'exact' | 'active_invocationless' | 'finalized_fallback';
 } | null {
-  const invocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+  const explicitInvocationId = msg.invocationId;
+  const invocationId = explicitInvocationId ?? getThreadInvocationId(msg, options);
 
   const threadMessages = options.store.getThreadState(msg.threadId).messages;
 
@@ -175,6 +176,10 @@ function findBackgroundCallbackReplacementTarget(
         return { id: m.id, invocationId, matchKind: 'exact' };
       }
     }
+  }
+
+  if (explicitInvocationId) {
+    return null;
   }
 
   // #586 Bug 1: Fallback — find invocationless stream placeholder from the same cat.

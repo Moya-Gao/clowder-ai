@@ -746,6 +746,53 @@ describe('background thread socket handling', () => {
       ]);
     });
 
+    it('does not fallback-match an invocationless placeholder when callback has explicit invocationId', () => {
+      const now = Date.now();
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-explicit-fallback-guard',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'thinking...',
+        origin: 'stream',
+        isStreaming: true,
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', {
+        id: 'bg-stream-explicit-fallback-guard',
+        threadId: 'thread-bg',
+        catId: 'opus',
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: 'explicit callback result',
+        invocationId: 'inv-bg-explicit-callback',
+        messageId: 'bg-callback-explicit-fallback-guard',
+        timestamp: now + 1,
+      });
+
+      expect(useChatStore.getState().getThreadState('thread-bg').messages).toEqual([
+        expect.objectContaining({
+          id: 'bg-stream-explicit-fallback-guard',
+          catId: 'opus',
+          content: 'thinking...',
+          origin: 'stream',
+          isStreaming: true,
+        }),
+        expect.objectContaining({
+          id: 'bg-callback-explicit-fallback-guard',
+          catId: 'opus',
+          content: 'explicit callback result',
+          origin: 'callback',
+          extra: { stream: { invocationId: 'inv-bg-explicit-callback' } },
+        }),
+      ]);
+    });
+
     it('drops late background stream chunks after callback replacement', () => {
       configureDebug({ enabled: true });
       ensureWindowDebugApi();
