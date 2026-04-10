@@ -689,7 +689,19 @@ export function getCatEffort(catId: string, config?: CatCafeConfig, fallbackProv
   }
 
   const variant = _catIdToVariant.get(catId);
-  if (variant?.cli.effort) return variant.cli.effort;
+  if (variant?.cli.effort) {
+    // Defense-in-depth: validate persisted effort against current provider.
+    // Stale cross-provider values (e.g. 'max' on openai) are cleaned at write
+    // time, but historical data may still contain them.
+    const provider = variant.clientId ?? fallbackProvider;
+    if (provider) {
+      const validated = normalizeCliEffortForProvider(provider, variant.cli.effort);
+      if (validated) return validated;
+      // Invalid for this provider — fall through to provider default below
+    } else {
+      return variant.cli.effort;
+    }
+  }
 
   // Client-aware defaults: use variant's clientId if found, otherwise fallbackProvider
   const effectiveProvider = variant?.clientId ?? fallbackProvider;

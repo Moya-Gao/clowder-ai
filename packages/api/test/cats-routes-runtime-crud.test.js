@@ -41,7 +41,7 @@ function makeTemplate() {
         variants: [
           {
             id: 'opus-default',
-            provider: 'anthropic',
+            clientId: 'anthropic',
             defaultModel: 'claude-sonnet-4-5-20250929',
             mcpSupport: true,
             cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -1376,7 +1376,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const beforeBody = JSON.parse(beforeRes.body);
     const opusBefore = beforeBody.cats.find((cat) => cat.id === 'opus');
     assert.ok(opusBefore, 'seed opus member must exist');
-    assert.equal(opusBefore.provider, 'anthropic');
+    assert.equal(opusBefore.clientId, 'anthropic');
     assert.equal(opusBefore.accountRef, 'claude');
 
     const patchRes = await app.inject({
@@ -1388,15 +1388,15 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       },
       // Simulate editor payload carrying the previous visible accountRef while switching client.
       body: JSON.stringify({
-        client: 'openai',
+        clientId: 'openai',
         defaultModel: 'gpt-5.4',
-        providerProfileId: opusBefore.accountRef,
+        accountRef: opusBefore.accountRef,
       }),
     });
 
     assert.equal(patchRes.statusCode, 200);
     const patchBody = JSON.parse(patchRes.body);
-    assert.equal(patchBody.cat.provider, 'openai');
+    assert.equal(patchBody.cat.clientId, 'openai');
     assert.equal(patchBody.cat.defaultModel, 'gpt-5.4');
     assert.equal(patchBody.cat.accountRef, 'codex');
   });
@@ -1444,14 +1444,14 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         'x-cat-cafe-user': 'codex',
       },
       body: JSON.stringify({
-        client: 'openai',
+        clientId: 'openai',
         defaultModel: 'gpt-5.4',
       }),
     });
 
     assert.equal(patchRes.statusCode, 200);
     const patchBody = JSON.parse(patchRes.body);
-    assert.equal(patchBody.cat.provider, 'openai');
+    assert.equal(patchBody.cat.clientId, 'openai');
     assert.equal(patchBody.cat.defaultModel, 'gpt-5.4');
 
     // Verify CLI was reset to openai defaults (including effort)

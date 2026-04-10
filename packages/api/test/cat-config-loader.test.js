@@ -867,7 +867,7 @@ describe('getCatEffort', () => {
 
   it('returns provider-aware default when not configured', () => {
     const cfg = validConfig();
-    cfg.breeds[0].variants[0].provider = 'openai';
+    cfg.breeds[0].variants[0].clientId = 'openai';
     cfg.breeds[0].variants[0].cli = {
       command: 'codex',
       outputFormat: 'json',
@@ -881,7 +881,7 @@ describe('getCatEffort', () => {
     // Simulates a catalog written before the PATCH write-time cleanup was added:
     // an openai cat still carrying anthropic-only effort 'max'.
     const cfg = validConfig();
-    cfg.breeds[0].variants[0].provider = 'openai';
+    cfg.breeds[0].variants[0].clientId = 'openai';
     cfg.breeds[0].variants[0].cli = {
       command: 'codex',
       outputFormat: 'json',
