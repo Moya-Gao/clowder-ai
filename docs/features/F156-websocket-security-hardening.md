@@ -34,7 +34,7 @@ created: 2026-04-10
 2. **禁止自报 userId** — 服务端不再从 `handshake.auth.userId` / `query.userId` 取身份。单用户模式下连接一律赋予 `default-user`，为 F077 session 认证预留接口
 3. **私网 Origin 收紧** — `PRIVATE_NETWORK_ORIGIN` 正则从默认放行改为需要 `.env` 显式 `CORS_ALLOW_PRIVATE_NETWORK=true` 才启用
 
-### Phase B: 授权层加固（堵监听/干扰）
+### Phase B: 授权层加固（堵监听/干扰） ✅
 
 > 砚砚(GPT-5.4) review 后重新排序：plain WS 端点比 Socket.IO room 收口更紧急（read-write PTY > 被动泄漏）
 
@@ -65,15 +65,15 @@ created: 2026-04-10
 - [x] AC-A6: 有 `socket.io-client` + `transports: ['websocket']` + 恶意 Origin 被拒的集成测试（钉住核心修复）
 
 ### Phase B-1（Plain WS 安全加固）
-- [ ] AC-B1a: `/api/terminal/sessions/:id/ws` 和 `/api/terminal/agent-panes/:id/ws` 的 WebSocket upgrade 校验 Origin header，恶意 Origin 被拒
-- [ ] AC-B1b: terminal WS 身份不再从 query param 自报，收紧为 header-only 或服务端决定
+- [x] AC-B1a: `/api/terminal/sessions/:id/ws` 和 `/api/terminal/agent-panes/:id/ws` 的 WebSocket upgrade 校验 Origin header，恶意 Origin 被拒
+- [x] AC-B1b: terminal WS 身份不再从 query param 自报，收紧为 header-only 或服务端决定
 - [x] AC-B1c: Socket.IO `user:` room ACL（Phase A 已实现）
 
 ### Phase B-2（Socket.IO 敏感事件授权）
-- [ ] AC-B2: `cancel_invocation` 的 `cancelAll` 分支在 socket 层做 thread ownership guard 后再调用
+- [x] AC-B2: `cancel_invocation` 的 `cancelAll` 分支在 socket 层做 thread ownership guard 后再调用
 
 ### Phase B-3（全局 room 收口）
-- [ ] AC-B3: `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入（带文件路径、worktreeId、preview 端口等元数据）
+- [x] AC-B3: `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入（带文件路径、worktreeId、preview 端口等元数据）
 
 ### Phase C（OfficeClaw）
 - [ ] AC-C1: OfficeClaw WebSocket 端点完成安全评估
@@ -106,6 +106,7 @@ created: 2026-04-10
 |------|------|
 | 2026-04-10 | 立项。安全审计发现 CSWSH 风险，缅因猫(GPT-5.4) 实测验证 |
 | 2026-04-10 | Phase A merged (PR #1041) — allowRequest origin guard + userId hardening + 14 tests |
+| 2026-04-10 | Phase B merged (PR #1045) — terminal WS origin guard + cancelAll auth + global room guard + 13 tests |
 
 ## Links
 
