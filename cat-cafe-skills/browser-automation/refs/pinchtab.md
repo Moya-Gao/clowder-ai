@@ -38,6 +38,25 @@
 - **启动命令**: 优先本机 binary 的 `pinchtab mcp`
 - 工具前缀：`mcp__pinchtab__*`
 
+## Clash TUN 环境注意事项
+
+家里用 Clash TUN 代理，所有域名解析到 `198.18.x.x` 虚拟 IP。pinchtab 的 `nav` 命令在 Go 层做 DNS 预检，会把这些 IP 判定为 reserved 而 403 拒绝。
+
+**workaround**：用 `eval` 让浏览器自己导航（浏览器带 `--proxy-server`，DNS + 连接都走代理）：
+
+```bash
+# ✗ nav 被 Go 层 SSRF 预检拦截
+pinchtab nav https://example.com  # → 403 blocked private/internal IP
+
+# ✓ eval 绕过 Go 层，浏览器走代理正常到达
+pinchtab eval 'window.location.href = "https://example.com"'
+pinchtab text  # 正常读取页面
+```
+
+MCP 工具同理：`pinchtab_eval` 替代 `pinchtab_navigate` 用于外网 URL。localhost 导航不受影响。
+
+需要 `security.allowEvaluate = true`（已在 `~/.pinchtab/config.json` 启用）。
+
 ## 安装
 
 ```bash
