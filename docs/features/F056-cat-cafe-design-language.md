@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F056: Cat Café 设计语言 — 猫猫化不是猫化
 
-> **Status**: doing | **Owner**: 砚砚/GPT-5.2 主导设计执行 + 布偶猫工程架构 + 烁烁概念方向
+> **Status**: doing | **Owner**: 砚砚/GPT-5.2 + 布偶猫 主导设计执行 + 布偶猫工程架构 + 烁烁概念方向
 > **Priority**: P1
 > **Evolved from**: F051（猫粮看板猫爪导航概念）、F052 Phase C（跨线程气泡设计打样）
 
@@ -316,6 +316,7 @@ Token contract 落地后，分桶跑 codemod：
 | 2026-03-04 | 三猫打样竞赛：宪宪(Apple)/烁烁(Cat-ified)/砚砚(Postmark) |
 | 2026-03-04 | 铲屎官定调：砚砚版胜出，"理解、语言、完成度、认真做的最好" |
 | 2026-03-04 | 分工调整：砚砚(GPT-5.2)主导设计执行 + 布偶猫工程架构 + 烁烁概念方向 |
+| 2026-04-09 | 铲屎官拍板：布偶猫 + 砚砚均可主导设计执行（F154 Phase B 设计竞赛触发） |
 | 2026-03-18 | 铲屎官发现全站 emoji 泛滥，要求彻底清扫（R7） |
 | 2026-03-18 | Phase B-0 Wave1 merged (PR #547)：Connector 气泡图标全替换为 PNG/SVG |
 | 2026-03-18 | Phase B-0 Wave2 merged (PR #550)：Bootcamp/成就/系统消息/前端零散 emoji 全清理 |
