@@ -574,6 +574,22 @@ describe('chatStore multi-thread state', () => {
       expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeClear);
     });
 
+    it('stamps completion time when removeActiveInvocation misses an optimistic slot', () => {
+      const oldMsgTs = Date.now() - 30_000;
+      const msg: ChatMessage = { id: 'missing-slot', type: 'assistant', content: 'ok', timestamp: oldMsgTs };
+      useChatStore.getState().addMessage(msg);
+      // Simulate optimistic send path: active flag flipped before any slot was registered.
+      useChatStore.getState().setHasActiveInvocation(true);
+
+      const beforeDone = Date.now();
+      useChatStore.getState().removeActiveInvocation('inv-missing');
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      useChatStore.getState().setCurrentThread('thread-b');
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeDone);
+    });
+
     it('does not stamp on redundant setHasActiveInvocation(false) when already false', () => {
       const oldMsgTs = Date.now() - 30_000;
       const msg: ChatMessage = { id: 'noop', type: 'assistant', content: 'ok', timestamp: oldMsgTs };

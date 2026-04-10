@@ -1091,7 +1091,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
   removeActiveInvocation: (invocationId) =>
     set((state) => {
       if (!(invocationId in state.activeInvocations)) {
-        return { hasActiveInvocation: Object.keys(state.activeInvocations).length > 0 };
+        const hasActive = Object.keys(state.activeInvocations).length > 0;
+        if (!hasActive && state.hasActiveInvocation) {
+          const existingTs = state.threadStates[state.currentThreadId];
+          return {
+            hasActiveInvocation: false,
+            threadStates: {
+              ...state.threadStates,
+              [state.currentThreadId]: {
+                ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
+                lastActivity: Date.now(),
+              },
+            },
+          };
+        }
+        return { hasActiveInvocation: hasActive };
       }
       const rest = Object.fromEntries(Object.entries(state.activeInvocations).filter(([k]) => k !== invocationId));
       const hasActive = Object.keys(rest).length > 0;
