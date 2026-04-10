@@ -1076,7 +1076,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return { hasActiveInvocation: Object.keys(state.activeInvocations).length > 0 };
       }
       const rest = Object.fromEntries(Object.entries(state.activeInvocations).filter(([k]) => k !== invocationId));
-      return { activeInvocations: rest, hasActiveInvocation: Object.keys(rest).length > 0 };
+      const hasActive = Object.keys(rest).length > 0;
+      // When the last invocation ends, stamp the completion time into threadStates
+      // so snapshotActive's idle branch picks up the real "just finished streaming" time.
+      const existingTs = state.threadStates[state.currentThreadId];
+      return {
+        activeInvocations: rest,
+        hasActiveInvocation: hasActive,
+        ...(!hasActive
+          ? {
+              threadStates: {
+                ...state.threadStates,
+                [state.currentThreadId]: {
+                  ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
+                  lastActivity: Date.now(),
+                },
+              },
+            }
+          : {}),
+      };
     }),
   /** F108: Clear all active invocations (timeout/error/stop recovery) */
   clearAllActiveInvocations: () => set({ activeInvocations: {}, hasActiveInvocation: false }),

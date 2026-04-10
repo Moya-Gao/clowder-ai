@@ -476,6 +476,27 @@ describe('chatStore multi-thread state', () => {
       const saved = useChatStore.getState().threadStates['thread-a']!;
       expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeSwitch);
     });
+
+    it('stamps completion time when stream ends then user switches (post-stream idle)', () => {
+      // Simulate: stream active → stream ends → user switches
+      const oldMsgTs = Date.now() - 30_000;
+      const msg: ChatMessage = { id: 'streamed', type: 'assistant', content: 'done', timestamp: oldMsgTs };
+      useChatStore.getState().addMessage(msg);
+
+      // Start invocation
+      useChatStore.getState().addActiveInvocation('inv-1', 'opus', 'execute');
+      expect(useChatStore.getState().hasActiveInvocation).toBe(true);
+
+      // Stream ends — removeActiveInvocation stamps threadStates[currentThread].lastActivity
+      const beforeDone = Date.now();
+      useChatStore.getState().removeActiveInvocation('inv-1');
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      // User switches away — idle branch should pick up the stamped time, not oldMsgTs
+      useChatStore.getState().setCurrentThread('thread-b');
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeDone);
+    });
   });
 
   describe('unread suppression (persistent badge fix)', () => {
