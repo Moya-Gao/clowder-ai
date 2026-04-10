@@ -58,4 +58,5 @@ created: 2026-02-26
 | F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | spec | 布偶猫 | internal | [F152](features/F152-expedition-memory.md) |
 | F153 | Observability Infrastructure — 运行时可观测基础设施 | spec | Community + 布偶猫 | community [#388](https://github.com/zts212653/clowder-ai/issues/388) | [F153](features/F153-observability-infra.md) |
 | F154 | Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向 | spec | 布偶猫 | community [#385](https://github.com/zts212653/clowder-ai/issues/385) [#391](https://github.com/zts212653/clowder-ai/pull/391) | [F154](features/F154-cat-routing-personalization.md) |
+| F155 | Scene-Based Guidance Engine — 场景式交互引导 | needs-discussion | 待定 | internal | [F155](features/F155-scene-guidance-engine.md) |
 

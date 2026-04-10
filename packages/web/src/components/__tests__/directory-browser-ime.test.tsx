@@ -20,7 +20,7 @@ const mockApiFetch = vi.fn(async (url: string) => {
 });
 
 vi.mock('@/utils/api-client', () => ({
-  apiFetch: (...args: string[]) => mockApiFetch(args[0], args[1] as unknown as Record<string, unknown>),
+  apiFetch: (...args: string[]) => mockApiFetch(args[0]),
 }));
 
 describe('DirectoryBrowser IME guard', () => {

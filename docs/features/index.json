@@ -339,7 +339,7 @@
     {
       "id": "F056",
       "name": "Cat Café 设计语言 — 猫猫化不是猫化",
-      "status": "doing | **Owner**: 砚砚/GPT-5.2 主导设计执行 + 布偶猫工程架构 + 烁烁概念方向",
+      "status": "doing | **Owner**: 砚砚/GPT-5.2 + 布偶猫 主导设计执行 + 布偶猫工程架构 + 烁烁概念方向",
       "file": "F056-cat-cafe-design-language.md"
     },
     {
@@ -933,13 +933,13 @@
     {
       "id": "F152",
       "name": "Expedition Memory — 外部项目记忆冷启动 + 经验回流",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F152-expedition-memory.md"
     },
     {
       "id": "F153",
       "name": "Observability Infrastructure — 运行时可观测基础设施",
-      "status": "spec | **Owner**: Community + 布偶猫 | **Priority**: P2",
+      "status": "spec | **Owner**: Community (PR author) + 布偶猫 | **Priority**: P2",
       "file": "F153-observability-infra.md"
     },
     {
@@ -955,5 +955,5 @@
       "file": "F155-scene-guidance-engine.md"
     }
   ],
-  "generated_at": "2026-04-10T00:19:24.045Z"
+  "generated_at": "2026-04-10T06:57:42.870Z"
 }
