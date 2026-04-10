@@ -22,8 +22,11 @@ export interface GateCtx {
 /** Task profile presets (ADR-022 KD-1) */
 export type TaskProfile = 'awareness' | 'poller';
 
-/** Phase 2: Trigger spec — interval or cron */
-export type TriggerSpec = { type: 'interval'; ms: number } | { type: 'cron'; expression: string; timezone?: string };
+/** Phase 2: Trigger spec — interval, cron, or once (#415) */
+export type TriggerSpec =
+  | { type: 'interval'; ms: number }
+  | { type: 'cron'; expression: string; timezone?: string }
+  | { type: 'once'; fireAt: number };
 
 /** Phase 2: Context dimension — session × materialization */
 export interface ContextSpec {

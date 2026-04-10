@@ -31,6 +31,8 @@ export interface TaskRunnerV2Options {
   fetchContent?: (url: string) => Promise<FetchResult>;
   /** Phase 4b: invoke a cat to handle a scheduled task (fire-and-forget) */
   invokeTrigger?: ScheduleInvokeTrigger;
+  /** #415: dynamic task store — needed for once-trigger auto-retirement */
+  dynamicTaskStore?: DynamicTaskStore;
 }
 
 /** Phase 2.5: Compute human-readable subject preview from subjectKind + lastRun (AC-E2) */
@@ -92,6 +94,7 @@ export class TaskRunnerV2 {
   private deliver: TaskRunnerV2Options['deliver'];
   private fetchContent: TaskRunnerV2Options['fetchContent'];
   private invokeTrigger: TaskRunnerV2Options['invokeTrigger'];
+  private dynamicTaskStore: TaskRunnerV2Options['dynamicTaskStore'];
 
   constructor(opts: TaskRunnerV2Options) {
     this.logger = opts.logger;
@@ -102,11 +105,17 @@ export class TaskRunnerV2 {
     this.deliver = opts.deliver;
     this.fetchContent = opts.fetchContent;
     this.invokeTrigger = opts.invokeTrigger;
+    this.dynamicTaskStore = opts.dynamicTaskStore;
   }
 
   /** Late-bind invokeTrigger (constructed after TaskRunnerV2 in boot sequence) */
   setInvokeTrigger(trigger: ScheduleInvokeTrigger): void {
     this.invokeTrigger = trigger;
+  }
+
+  /** #415: Late-bind dynamicTaskStore (constructed after TaskRunnerV2 in boot sequence) */
+  setDynamicTaskStore(store: DynamicTaskStore): void {
+    this.dynamicTaskStore = store;
   }
 
   register(task: AnyTaskSpec): void {
@@ -190,6 +199,8 @@ export class TaskRunnerV2 {
 
     if (task.trigger.type === 'cron') {
       this.scheduleCronTick(task);
+    } else if (task.trigger.type === 'once') {
+      this.scheduleOnceTick(task);
     } else {
       const runTick = () => {
         // Guard: skip if task was unregistered before tick fires (防幽灵执行)
@@ -230,6 +241,36 @@ export class TaskRunnerV2 {
     this.logger.info(
       `[scheduler] ${task.id}: registered (profile=${task.profile}, cron="${task.trigger.expression}", next in ${ms}ms)`,
     );
+  }
+
+  /** #415: Schedule a one-shot task — fires once at fireAt, then auto-retires */
+  private scheduleOnceTick(task: AnyTaskSpec): void {
+    if (task.trigger.type !== 'once') return;
+    const delay = Math.max(0, task.trigger.fireAt - Date.now());
+    const timer = setTimeout(() => {
+      this.executePipeline(task)
+        .catch((err) => {
+          this.logger.error(`[scheduler] ${task.id}: pipeline error`, err);
+        })
+        .finally(() => {
+          this.retireOnceTask(task.id);
+        });
+    }, delay);
+    if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+    this.timers.set(task.id, timer);
+    this.logger.info(
+      `[scheduler] ${task.id}: registered (profile=${task.profile}, once, fireAt=${new Date(task.trigger.fireAt).toISOString()}, delay=${delay}ms)`,
+    );
+  }
+
+  /** #415: Remove a once-task from runtime + persistent store after execution */
+  private retireOnceTask(taskId: string): void {
+    const dynDefId = this.dynamicTaskIds.get(taskId);
+    if (dynDefId && this.dynamicTaskStore) {
+      this.dynamicTaskStore.remove(dynDefId);
+    }
+    this.unregister(taskId);
+    this.logger.info(`[scheduler] ${taskId}: retired (once task completed)`);
   }
 
   stop(): void {

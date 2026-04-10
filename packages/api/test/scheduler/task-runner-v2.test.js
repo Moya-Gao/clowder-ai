@@ -859,3 +859,161 @@ describe('TaskRunnerV2 — governance controls (AC-D1)', () => {
     runner.stop();
   });
 });
+
+// ─── #415: once trigger ─────────────────────────────────────
+
+describe('TaskRunnerV2 — once trigger (#415)', () => {
+  let db, ledger, dynamicTaskStore;
+  const noop = () => {};
+  const silentLogger = { info: noop, error: noop };
+
+  beforeEach(async () => {
+    db = new Database(':memory:');
+    const { applyMigrations } = await import('../../dist/domains/memory/schema.js');
+    const { RunLedger } = await import('../../dist/infrastructure/scheduler/RunLedger.js');
+    const { DynamicTaskStore } = await import('../../dist/infrastructure/scheduler/DynamicTaskStore.js');
+    applyMigrations(db);
+    ledger = new RunLedger(db);
+    dynamicTaskStore = new DynamicTaskStore(db);
+  });
+
+  const makeOnceTask = (id, fireAt, overrides = {}) => ({
+    id,
+    profile: 'awareness',
+    trigger: { type: 'once', fireAt },
+    admission: {
+      gate: async () => ({ run: true, workItems: [{ signal: 'go', subjectKey: 'once-k' }] }),
+    },
+    run: { overlap: 'skip', timeoutMs: 5000, execute: async () => {} },
+    state: { runLedger: 'sqlite' },
+    outcome: { whenNoSignal: 'drop' },
+    enabled: () => true,
+    ...overrides,
+  });
+
+  it('once trigger fires after delay and records RUN_DELIVERED', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runner = new TaskRunnerV2({ logger: silentLogger, ledger, dynamicTaskStore });
+    let executed = false;
+
+    runner.registerDynamic(
+      makeOnceTask('once-fire', Date.now() + 80, {
+        run: {
+          overlap: 'skip',
+          timeoutMs: 5000,
+          execute: async () => {
+            executed = true;
+          },
+        },
+      }),
+      'dyn-once-1',
+    );
+    runner.start();
+    await new Promise((r) => setTimeout(r, 200));
+
+    assert.ok(executed, 'once task should have fired');
+    const rows = ledger.query('once-fire', 10);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].outcome, 'RUN_DELIVERED');
+    runner.stop();
+  });
+
+  it('once trigger auto-retires: unregisters from runner + removes from store', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runner = new TaskRunnerV2({ logger: silentLogger, ledger, dynamicTaskStore });
+
+    // Seed the dynamic store so retire can clean it up
+    dynamicTaskStore.insert({
+      id: 'dyn-retire-1',
+      templateId: 'reminder',
+      trigger: { type: 'once', fireAt: Date.now() + 50 },
+      params: { message: 'test' },
+      display: { label: 'test', category: 'system' },
+      deliveryThreadId: null,
+      enabled: true,
+      createdBy: 'test',
+      createdAt: new Date().toISOString(),
+    });
+
+    runner.registerDynamic(makeOnceTask('dyn-retire-1', Date.now() + 50), 'dyn-retire-1');
+    runner.start();
+    await new Promise((r) => setTimeout(r, 250));
+
+    // Should be unregistered from runner
+    assert.ok(
+      !runner.getRegisteredTasks().includes('dyn-retire-1'),
+      'task should be unregistered after once execution',
+    );
+    // Should be removed from store
+    assert.equal(
+      dynamicTaskStore.getById('dyn-retire-1'),
+      null,
+      'task should be removed from DynamicTaskStore after once execution',
+    );
+    runner.stop();
+  });
+
+  it('once trigger with fireAt in the past fires immediately', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runner = new TaskRunnerV2({ logger: silentLogger, ledger, dynamicTaskStore });
+    let executed = false;
+
+    runner.registerDynamic(
+      makeOnceTask('once-past', Date.now() - 5000, {
+        run: {
+          overlap: 'skip',
+          timeoutMs: 5000,
+          execute: async () => {
+            executed = true;
+          },
+        },
+      }),
+      'dyn-past-1',
+    );
+    runner.start();
+    await new Promise((r) => setTimeout(r, 100));
+
+    assert.ok(executed, 'once task with past fireAt should fire immediately');
+    runner.stop();
+  });
+
+  it('once trigger does NOT fire before fireAt', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runner = new TaskRunnerV2({ logger: silentLogger, ledger, dynamicTaskStore });
+    let executed = false;
+
+    runner.registerDynamic(
+      makeOnceTask('once-future', Date.now() + 10_000, {
+        run: {
+          overlap: 'skip',
+          timeoutMs: 5000,
+          execute: async () => {
+            executed = true;
+          },
+        },
+      }),
+      'dyn-future-1',
+    );
+    runner.start();
+    await new Promise((r) => setTimeout(r, 100));
+
+    assert.ok(!executed, 'once task should NOT fire before fireAt');
+    runner.stop();
+  });
+
+  it('getTaskSummaries includes once trigger info', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runner = new TaskRunnerV2({ logger: silentLogger, ledger, dynamicTaskStore });
+    const fireAt = Date.now() + 60_000;
+
+    runner.registerDynamic(makeOnceTask('once-summary', fireAt), 'dyn-sum-1');
+
+    const summaries = runner.getTaskSummaries();
+    const s = summaries.find((t) => t.id === 'once-summary');
+    assert.ok(s, 'should find once task in summaries');
+    assert.equal(s.trigger.type, 'once');
+    assert.equal(s.trigger.fireAt, fireAt);
+    assert.equal(s.source, 'dynamic');
+    runner.stop();
+  });
+});

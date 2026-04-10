@@ -24,6 +24,21 @@ import type { TriggerSpec } from '../infrastructure/scheduler/types.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { governanceRoutes } from './schedule-governance.js';
 
+/** #415: Normalize once-trigger input — accepts delayMs (relative) or fireAt (absolute) */
+function normalizeOnceTrigger(trigger: Record<string, unknown>): TriggerSpec | { error: string } {
+  if (trigger.type !== 'once') return trigger as TriggerSpec;
+  const delayMs = typeof trigger.delayMs === 'number' ? trigger.delayMs : undefined;
+  const fireAt = typeof trigger.fireAt === 'number' ? trigger.fireAt : undefined;
+  if (delayMs != null) {
+    if (delayMs < 0) return { error: 'once trigger delayMs must be >= 0' };
+    return { type: 'once', fireAt: Date.now() + delayMs };
+  }
+  if (fireAt != null) {
+    return { type: 'once', fireAt };
+  }
+  return { error: 'once trigger requires either delayMs or fireAt' };
+}
+
 export interface ScheduleRoutesOptions {
   taskRunner: TaskRunnerV2;
   dynamicTaskStore?: DynamicTaskStore;
@@ -200,7 +215,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    const trigger = body.trigger ?? template.defaultTrigger;
+    // #415: normalize once trigger (delayMs → fireAt)
+    let trigger: TriggerSpec;
+    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
+      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
+      if ('error' in result) {
+        reply.status(400);
+        return { error: result.error };
+      }
+      trigger = result;
+    } else {
+      trigger = body.trigger ?? template.defaultTrigger;
+    }
     const params = body.params ?? {};
     const display = body.display
       ? {
@@ -250,7 +276,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    const trigger = body.trigger ?? template.defaultTrigger;
+    // #415: normalize once trigger (delayMs → fireAt)
+    let trigger: TriggerSpec;
+    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
+      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
+      if ('error' in result) {
+        reply.status(400);
+        return { error: result.error };
+      }
+      trigger = result;
+    } else {
+      trigger = body.trigger ?? template.defaultTrigger;
+    }
     const params = body.params ?? {};
 
     if (typeof params !== 'object' || params === null || Array.isArray(params)) {
