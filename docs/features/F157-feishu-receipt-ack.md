@@ -109,7 +109,7 @@ created: 2026-04-10
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 飞书 bot 调用 `im.message.reactions.create` 是否需要额外权限？ | ⬜ 需实测 |
-| OQ-2 | 群聊场景下 receipt 是否需要 @mention 发送者？ | ✅ 是，复用 F134 的 `prependAtMention` |
+| OQ-2 | 群聊场景下 receipt 是否需要 @mention 发送者？ | Phase A: sender name hint 透传（`→小明`）；真正的飞书 `<at>` tag 需 sendPlaceholder 改为 card 类型，留 Phase B |
 | OQ-3 | 是否需要为新入册的猫（minimax/glm/kimi/qwen）预留文案？ | ⬜ 等入册后补 |
 
 ## Key Decisions
