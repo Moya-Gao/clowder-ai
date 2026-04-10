@@ -36,9 +36,17 @@ created: 2026-04-10
 
 ### Phase B: 授权层加固（堵监听/干扰）
 
-1. **Room ACL** — `join_room` 事件加鉴权：`user:` room 只能加入自己的；`thread:` room 在多用户模式下需 ownership 校验（单用户模式暂允许）
-2. **敏感事件授权** — `cancel_invocation` 的 `cancelAll()` 分支补 `userId` 校验，不能只看 room membership
-3. **全局 room 收口** — `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入
+> 砚砚(GPT-5.4) review 后重新排序：plain WS 端点比 Socket.IO room 收口更紧急（read-write PTY > 被动泄漏）
+
+**B-1: Plain WebSocket Origin + 身份校验**
+1. **terminal WS Origin gate** — `@fastify/websocket` 的 `/api/terminal/sessions/:id/ws` 和 `/api/terminal/agent-panes/:id/ws` 补 Origin 校验（复用 `isOriginAllowed`）。这两个端点完全绕过 Socket.IO `allowRequest`，恶意网页可直连 read-write PTY
+2. **terminal 身份硬化** — `resolveUserId(req)` 允许 query param 自报身份，需收紧为 header-only 或服务端决定
+
+**B-2: Socket.IO 敏感事件授权**
+1. **cancelAll 授权** — `cancel_invocation` 的 `cancelAll()` 分支补 `userId` 校验，不能只看 room membership
+
+**B-3: 全局 room 收口**
+1. **Room ACL 扩展** — `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入（带文件路径、worktreeId、preview 端口等元数据）
 
 ### Phase C: OfficeClaw 修复（自家验证后）
 
@@ -56,10 +64,16 @@ created: 2026-04-10
 - [x] AC-A5: 现有前端功能不受影响（消息收发、取消、room 订阅正常）
 - [x] AC-A6: 有 `socket.io-client` + `transports: ['websocket']` + 恶意 Origin 被拒的集成测试（钉住核心修复）
 
-### Phase B（授权层加固）
-- [ ] AC-B1: Socket 无法加入非自己的 `user:*` room
-- [ ] AC-B2: `cancel_invocation` 的 `cancelAll` 分支在 socket 层做 thread ownership guard 后再调用，不是只传参数下去没人用
-- [ ] AC-B3: `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入（这两个 room 带文件路径、worktreeId、preview 端口等元数据，不是无害信息）
+### Phase B-1（Plain WS 安全加固）
+- [ ] AC-B1a: `/api/terminal/sessions/:id/ws` 和 `/api/terminal/agent-panes/:id/ws` 的 WebSocket upgrade 校验 Origin header，恶意 Origin 被拒
+- [ ] AC-B1b: terminal WS 身份不再从 query param 自报，收紧为 header-only 或服务端决定
+- [x] AC-B1c: Socket.IO `user:` room ACL（Phase A 已实现）
+
+### Phase B-2（Socket.IO 敏感事件授权）
+- [ ] AC-B2: `cancel_invocation` 的 `cancelAll` 分支在 socket 层做 thread ownership guard 后再调用
+
+### Phase B-3（全局 room 收口）
+- [ ] AC-B3: `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入（带文件路径、worktreeId、preview 端口等元数据）
 
 ### Phase C（OfficeClaw）
 - [ ] AC-C1: OfficeClaw WebSocket 端点完成安全评估
