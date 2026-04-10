@@ -441,6 +441,39 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     expect(streamBubble?.extra).toEqual({ stream: { invocationId: 'inv-2' } });
   });
 
+  it('keeps suppressing late stream chunks for callback-first invocations without explicit invocationId', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    storeState.catInvocations = { opus: { invocationId: 'inv-callback-first' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'Callback arrived before stream',
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledTimes(1);
+    expect(mockAddMessage.mock.calls[0]?.[0].extra).toEqual({ callbackBridge: { skipDedup: true } });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'late stream chunk from same invocation',
+      });
+    });
+
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+  });
+
   it('thread switch clears finalizedStreamRef (resetRefs still works)', () => {
     act(() => {
       root.render(React.createElement(Harness));

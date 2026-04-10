@@ -396,11 +396,18 @@ export function handleBackgroundAgentMessage(
         });
         // #586 Bug 1 (TD112): Callback created new bubble without finding a stream
         // placeholder. Mark invocation as replaced so late background stream chunks
-        // are suppressed instead of spawning a duplicate bubble. Only explicit
-        // callback invocationIds are safe to persist; inferred thread-state IDs
-        // can misattribute a delayed callback from an older invocation.
+        // are suppressed instead of spawning a duplicate bubble. Explicit
+        // callback invocationIds are always safe. For invocationless
+        // callback-first flows, infer from thread state only when there is no
+        // dangling finalized ref for this cat/thread; otherwise the callback may
+        // belong to an older invocation and must not suppress the new one.
         if (explicitInvocationId) {
           options.replacedInvocations.set(streamKey, explicitInvocationId);
+        } else if (!options.finalizedBgRefs.has(streamKey)) {
+          const inferredInvocationId = getThreadInvocationId(msg, options);
+          if (inferredInvocationId) {
+            options.replacedInvocations.set(streamKey, inferredInvocationId);
+          }
         }
         finalMsgId = cbId;
       }

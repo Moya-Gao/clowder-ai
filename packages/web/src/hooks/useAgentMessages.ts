@@ -496,11 +496,15 @@ export function useAgentMessages() {
             // #586 Bug 1 (TD112): Callback created a new bubble because no stream
             // placeholder existed yet. Mark the invocation as replaced so that
             // late-arriving stream chunks for the same invocation are suppressed
-            // instead of spawning a second bubble. Only explicit callback
-            // invocationIds are safe here; inferring from current thread state can
-            // mislabel a delayed callback from the previous invocation.
+            // instead of spawning a second bubble. Explicit callback invocationIds
+            // are always safe. For invocationless callback-first flows, infer from
+            // current thread state only when there is no dangling finalized ref
+            // from a previous invocation; otherwise the callback may be delayed
+            // output from an older invocation and must not suppress the new one.
             if (explicitInvocationId) {
               replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
+            } else if (inferredInvocationId && !finalizedStreamRef.current.has(msg.catId)) {
+              replacedInvocationsRef.current.set(msg.catId, inferredInvocationId);
             }
           }
         } else {

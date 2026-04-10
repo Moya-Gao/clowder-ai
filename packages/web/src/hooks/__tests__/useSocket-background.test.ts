@@ -594,6 +594,38 @@ describe('background thread socket handling', () => {
       );
     });
 
+    it('keeps suppressing late background stream chunks for callback-first invocations without explicit invocationId', () => {
+      const now = Date.now();
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-callback-first' });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: 'Callback arrived before stream',
+        messageId: 'bg-callback-first',
+        timestamp: now,
+      });
+
+      let ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.extra).toEqual({ callbackBridge: { skipDedup: true } });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'late stream chunk from same invocation',
+        timestamp: now + 1,
+      });
+
+      ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.origin).toBe('callback');
+      expect(ts.messages[0]?.content).toBe('Callback arrived before stream');
+    });
+
     it('drops late background stream chunks after callback replacement', () => {
       configureDebug({ enabled: true });
       ensureWindowDebugApi();
