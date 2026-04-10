@@ -68,11 +68,17 @@ created: 2026-04-10
 2. HtmlWidgetBlock 加 DOMPurify sanitization（sandbox 隔离正确但应加防数据外泄）
 3. 富文本/外部 HTML 渲染放入 sandboxed iframe（已部分实现，需审计完整性）
 
-**D-4: Prompt Injection 降权** (P1)
+**D-4: Prompt Injection 降权** (P1) — 需设计讨论，暂不实现
 1. 外部内容（网页、文章、外部 repo）标记为"非可信来源"
 2. 由非可信来源触发的高危操作（命令执行、文件修改、外发消息）需额外确认
 3. 确认 UX：人性化提示（"这条操作来自外部内容"），不堆术语
 4. 研究模式 vs 执行模式分离
+
+> **设计挑战（2026-04-10 讨论）**：Cat Cafe 的猫猫通过 MCP 接入，我们不控制推理过程。
+> Prompt injection 可能在猫猫思考链内部就被执行，绕过所有工具层门禁。
+> 可行路径：MCP server 端做来源追踪（session flag）+ 高危工具分级 + AuthorizationManager 拦截。
+> 但"来源追踪"是新机制，需要单独设计；业界也无银弹。
+> **决定**：D-3/D-5/D-6 先推，D-4 待设计方案成熟后再实施。
 
 **D-5: preview-gateway Origin 校验** (P2)
 1. WS upgrade 路径补 Origin 校验（复用 isOriginAllowed）
