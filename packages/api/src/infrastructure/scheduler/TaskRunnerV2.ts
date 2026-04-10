@@ -280,7 +280,7 @@ export class TaskRunnerV2 {
             // Governance-skipped — retry after delay until controls are lifted
             this.logger.info(`[scheduler] ${task.id}: once task governance-skipped, retrying in 30s`);
             const retryTimer = setTimeout(() => {
-              if (!this.tasks.some((t) => t.id === task.id)) return;
+              if (!this.started || !this.tasks.some((t) => t.id === task.id)) return;
               this.scheduleOnceTick(task);
             }, 30_000);
             if (typeof retryTimer === 'object' && 'unref' in retryTimer) retryTimer.unref();
