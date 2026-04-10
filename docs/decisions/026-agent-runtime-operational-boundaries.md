@@ -1,7 +1,7 @@
 ---
 feature_ids: [F143, F148, F149]
 related_features: [F045, F050, F102]
-related_decisions: [ADR-023, ADR-027]
+related_decisions: [ADR-023, ADR-028]
 topics: [event-api, lazy-loading, credential-isolation, model-tier, harness-profiles, authority-isolation, effect-class]
 doc_kind: decision
 created: 2026-04-08
@@ -18,7 +18,7 @@ decision_id: ADR-026
 > **Discussion**: `docs/discussions/2026-04-08-managed-agents-study/README.md`
 > **Cloud Review**: Gemini Deep Think + GPT Pro — completed 2026-04-08, 9 unanimous decisions converged
 > **Extends**: ADR-023 (Hostable Agent Runtime)
-> **Companion**: ADR-027 (Inter-Agent Trust, Provenance, and Authority Boundaries) — to be drafted
+> **Companion**: ADR-028 (Inter-Agent Trust, Provenance, and Authority Boundaries) — to be drafted
 
 ## Context
 
@@ -135,11 +135,22 @@ Anthropic 通过把容器从"预分配"改为"按需 provision"实现 p95 TTFT �
 
 ```
 首次调用重型工具 (Pencil, CDP Bridge 等):
-  1. Proxy 返回 202 Accepted + "正在唤醒 MCP..."
-  2. 后台拉起真实 MCP server 连接
-  3. 连接就绪后转发调用，返回实际结果
-  4. Hub UI 渲染 loading 动画，消除等待焦虑
+
+  Agent → MCP Proxy (同步调用，agent 视角无任何差异)
+    Proxy 内部:
+      1. 检测到目标 MCP server 未连接
+      2. 向 Hub 发送 progress notification "正在唤醒 MCP..."
+      3. 后台拉起真实 MCP server 连接 (blocking hold)
+      4. 连接就绪后转发原始调用
+      5. 返回真实 tool result 给 agent (yield)
+    超时保护:
+      - 连接超时 → 返回明确错误 (不返回 202)
+      - Agent 收到的永远是 "真实结果" 或 "明确错误"，无中间态
+  Hub UI:
+    - 收到 progress notification → 渲染 loading 动画
 ```
+
+**关键语义**: Agent 侧是**同步阻塞调用**，proxy 对 agent 完全透明——agent 永远不会收到 202 或任何中间状态作为 tool result。"Hold" 发生在 proxy 内部，"Yield" 是把真实结果交回 agent。Progress notification 只给 Hub UI 渲染用。
 
 **T2a vs T2b 的本质差异**：
 - T2a (CLI): "全量可见，后端按需连接"——spawn 时注入完整工具骨架，但不把完整 schema 一次性塞爆。协议限制决定了这是 CLI 的唯一路径
@@ -190,11 +201,11 @@ Cat Cafe 当前的安全模型混合了三种机制：纪律约束（"不准碰 
 - 事件日志支持 replay：相同 operationId 的重复操作不产生副作用
 - 恢复场景：agent 崩溃后从事件日志重建状态，replay 不会重复执行已完成的操作
 
-#### 与 ADR-027 的接口
+#### 与 ADR-028 的接口
 
 D3 聚焦 **credential/effect isolation**（"什么操作在结构上不可能"）。
-ADR-027 覆盖 **inter-agent trust/provenance**（"弱猫说服强猫"、authority class、provenance taint tracking）。
-D3 在 effect class 判定中预留 `authoritySource` 字段，供 ADR-027 填充信任链判定逻辑。ADR-027 不阻塞 D3 落地。
+ADR-028 覆盖 **inter-agent trust/provenance**（"弱猫说服强猫"、authority class、provenance taint tracking）。
+D3 在 effect class 判定中预留 `authoritySource` 字段，供 ADR-028 填充信任链判定逻辑。ADR-028 不阻塞 D3 落地。
 
 #### 关键原则
 
@@ -226,24 +237,18 @@ ADR-023 的 AgentDescriptorV1 有 6 轴静态声明，但都是 **runtime 能力
 interface AgentDescriptorV2 extends AgentDescriptorV1 {
   /**
    * 操作档位 — UI preset / 策略快捷方式，不是 runtime 本体论。
-   * 人类和配置文件用这个，系统内部用 capabilities 做决策。
+   * ProvisioningPipeline 用 preset 选择 scaffolding 策略。
+   * v1 不做静态能力声明；能力指标从 event 观测中被动积累（未来方向）。
    */
   operatingPreset: OperatingPreset;
-  /** 细粒度认知能力声明 (静态配置 + event 观测被动积累) */
-  cognitiveCapabilities: CognitiveCapability[];
 }
 
 type OperatingPreset = 'frontier' | 'mid' | 'basic';
-
-type CognitiveCapability =
-  | 'structured_output'      // 可靠地产出结构化格式
-  | 'multi_step_reasoning'   // 多步推理不走偏
-  | 'tool_chaining'          // 自主串联多个工具调用
-  | 'sop_following'          // 遵循复杂 SOP 流程
-  | 'self_correction'        // 发现错误后自我修正
-  | 'cross_context_recall'   // 跨 session 知识调用
-  | 'creative_divergence';   // 创意发散能力
 ```
+
+**能力观测（未来方向，不在 v1 scope）**:
+
+Runtime 从 event 日志中被动记录能力指标（成功率、tool chain 深度、SOP 偏离率等），逐步积累出 capability scorecard。scorecard 不是静态声明的布尔枚举，而是从实际行为中观测到的经验数据。当 scorecard 积累足够后，可以辅助 preset 选择和任务路由——但 v1 只靠 preset，不靠 scorecard。
 
 **Scaffolding 策略 (由 ProvisioningPipeline 根据 operatingPreset 选择)**:
 
@@ -268,26 +273,28 @@ type CognitiveCapability =
 - **内核不分叉**: identity, event, lease, audit, review 规则对所有 preset 一致
 - **大猫减壳，小猫加壳，不为最弱者降级整个系统**
 - **Preset 影响 scaffolding，不影响 contract**: 所有猫都必须满足 Core Contract (最小接口)
-- **Preset 是 UI/策略快捷方式，不是 runtime 本体论**: 系统内部决策基于 capabilities，不基于 preset 标签
+- **Preset 是 UI/策略快捷方式，不是 runtime 本体论**: v1 用 preset 驱动 scaffolding 选择，未来 capability scorecard 从 event 被动长出来后可辅助决策
 
 #### 与 ADR-023 的关系
 
 - AgentDescriptorV1 的 6 轴不变（runtime 能力）
-- V2 在 V1 基础上加 operatingPreset + cognitiveCapabilities（操作档位 + 认知能力）
+- V2 在 V1 基础上加 operatingPreset（操作档位）
 - ProvisioningPipeline 新增 scaffolding 策略选择环节（在 processModel 确定注入窗口之后）
 
 ## Phase Path (落地优先级)
 
+对齐三猫收敛共识 (discussion README.md §10): `D3 → D2/T1 → D1 → D2/T2 → D4 → ADR-028`
+
 | Priority | Phase | Content | Prerequisite | 改动量 |
 |----------|-------|---------|-------------|--------|
-| **P0** | **A: Credential Hardening** | worktree env allowlist + ProvisioningPipeline key scoping + effect class taxonomy | ADR-026 accepted | 小 |
-| **P1** | **B: Effect Rule Engine** | read-only/write-reversible/irreversible 分类 + operationId idempotency | Phase A | 中 |
-| **P2** | **C: Minimal Event Contract** | OperationalEvent 类型定义 + causalParents + top-4 typed body | ADR-026 accepted | 中 |
-| **P3** | **D: Operating Profiles** | AgentDescriptorV2 (operatingPreset + capabilities) in cat-config + ProvisioningPipeline scaffolding | ADR-023 Phase B stable | 小 |
-| **P4** | **E: Lazy Brain Attach** | 进程池 + session lease (T1) | F149 Phase C | 已在做 |
-| **defer** | **F: Lazy Tool Bridge** | T2a stubs + T2b progressive disclosure + Hold-and-Yield | F149 T1 stable + 性能瓶颈实证 | 大 |
+| **P0** | **A: Credential & Effect Isolation (D3)** | worktree env allowlist + effect class taxonomy + operationId idempotency | ADR-026 accepted | 小-中 |
+| **P1** | **B: Lazy Brain Attach (D2/T1)** | 进程池 + session lease，idle 回收 | F149 Phase C | 已在做 |
+| **P2** | **C: Minimal Event Contract (D1)** | OperationalEvent 类型定义 + causalParents + top-4 typed body | ADR-026 accepted | 中 |
+| **P3** | **D: Lazy Tool Bridge (D2/T2)** | T2a thin stubs + T2b progressive disclosure + Hold-and-Yield | T1 stable + 性能瓶颈实证 | 大 |
+| **P4** | **E: Operating Profiles (D4)** | AgentDescriptorV2 (operatingPreset) in cat-config + ProvisioningPipeline scaffolding | ADR-023 Phase B stable | 小 |
+| **future** | **F: ADR-028** | Inter-Agent Trust, Provenance, and Authority Boundaries | D3 落地后 | 待定 |
 
-Phase A/C 可以并行。Phase D 依赖 ADR-023 Phase B。Phase F 等有实证性能瓶颈再排期。
+Phase A/C 可以并行。Phase B 已在 F149 路上。Phase D 等有实证性能瓶颈再排期。Phase E 依赖 ADR-023 Phase B。
 
 ## Rejected Alternatives
 
@@ -329,9 +336,9 @@ Agent 连续失败时自动降一级 tier，让弱模型接手。
 |---------|---------|
 | causedBy 链是否足够？ | 不够。升级为 `causalParents: string[]` 最小 DAG，支持并行 fan-in |
 | Holographic Stubs idle timeout 策略？ | 纳入 Hold-and-Yield 机制；T2 整体优先级降低，等有实证性能瓶颈再细化 |
-| CognitiveTier 三档够不够？ | 三档保留但降格为 `operatingPreset` (UI preset)，系统内部用 capability scorecard 做决策 |
+| CognitiveTier 三档够不够？ | 三档保留但降格为 `operatingPreset` (UI preset)。v1 只用 preset 驱动 scaffolding，capability scorecard 未来从 event 观测被动积累 |
 | 动态降级触发条件？ | 废除动态降级。改为 fail-fast + context reset + re-route |
-| "弱模型说服强模型"是否独立 ADR？ | 是。新开 ADR-027: Inter-Agent Trust, Provenance, and Authority Boundaries |
+| "弱模型说服强模型"是否独立 ADR？ | 是。新开 ADR-028: Inter-Agent Trust, Provenance, and Authority Boundaries |
 
 ## Signature
 
