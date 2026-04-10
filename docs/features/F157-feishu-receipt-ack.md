@@ -8,7 +8,7 @@ created: 2026-04-10
 
 # F157: Feishu Receipt Ack — 猫猫即时接住替代"思考中→撤回"
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -79,15 +79,15 @@ created: 2026-04-10
 
 ## Acceptance Criteria
 
-### Phase A（Receipt + Reaction）
-- [ ] AC-A1: 飞书收到用户消息后 < 500ms 内给用户消息加 ❤️ reaction
-- [ ] AC-A2: 同时发一条 receipt 卡片，文案按 catId 从词库随机选，显示格式 `【{displayName}🐱】{receipt文案}`
-- [ ] AC-A3: 流式生成中，receipt 卡片被 edit 为累积文本（保留现有流式预览）
-- [ ] AC-A4: 生成结束后，receipt 卡片被 edit 为"✅ 已回复"完成态（`finalizeStreamCard`），**不调用 deleteMessage**；最终回复作为独立消息发送（Phase B 目标：单消息生命周期，需 outbound delivery 层改造）
-- [ ] AC-A5: 全程零撤回通知（`finalizeStreamCard` 替代 `deleteMessage`）
-- [ ] AC-A6: 12 只猫全部有 receipt 文案（每猫 ≥ 3 条）
-- [ ] AC-A7: 现有 streaming-outbound-hook 测试更新适配新行为
-- [ ] AC-A8: 钉钉/企微/小艺 adapter 行为不变（回归测试通过）
+### Phase A（Receipt + Reaction）✅
+- [x] AC-A1: 飞书收到用户消息后 < 500ms 内给用户消息加 ❤️ reaction
+- [x] AC-A2: 同时发一条 receipt 卡片，文案按 catId 从词库随机选，显示格式 `【{displayName}🐱】{receipt文案}`
+- [x] AC-A3: 流式生成中，receipt 卡片被 edit 为累积文本（保留现有流式预览）
+- [x] AC-A4: 生成结束后，receipt 卡片被 edit 为"✅ 已回复"完成态（`finalizeStreamCard`），**不调用 deleteMessage**；最终回复作为独立消息发送（Phase B 目标：单消息生命周期，需 outbound delivery 层改造）
+- [x] AC-A5: 全程零撤回通知（`finalizeStreamCard` 替代 `deleteMessage`）
+- [x] AC-A6: 12 只猫全部有 receipt 文案（每猫 ≥ 3 条）
+- [x] AC-A7: 现有 streaming-outbound-hook 测试更新适配新行为
+- [x] AC-A8: 钉钉/企微/小艺 adapter 行为不变（回归测试通过）
 
 ## Dependencies
 
@@ -126,6 +126,7 @@ created: 2026-04-10
 | 日期 | 事件 |
 |------|------|
 | 2026-04-10 | 立项。铲屎官 + 砚砚(GPT-5.4) + 宪宪讨论确认方向 |
+| 2026-04-10 | Phase A merged (PR #1044) |
 
 ## Links
 
