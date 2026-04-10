@@ -40,11 +40,11 @@ status: prompts-v2
 
 | 猫 | 毛色 | 眼睛 | 项圈 | 吊坠 | 性格道具 |
 |----|------|------|------|------|---------|
-| 宪宪（布偶猫） | **灰白双色**：奶白色身体 + 灰色斑纹（头顶、耳朵、尾巴），蓬松长毛 | **蓝色**大圆眼 | **紫色** | **金色星星** ⭐ | 胖嘟嘟圆滚滚 |
+| 宪宪（布偶猫） | **蓝双山猫纹 (Blue Bicolor Lynx Point)**：奶白色身体为主 + 蓝灰色重点色区域（头顶、耳朵、尾巴、爪垫）带**条纹纹路**，蓬松长毛 | **蓝色**大圆眼 | **紫色** | **金色星星** ⭐ | 胖嘟嘟圆滚滚 |
 | 砚砚（缅因猫） | **银灰色经典虎斑**：银灰底色 + 深灰条纹，长毛蓬松，体型大 | **琥珀金色** | **青绿色** | **金色 "GPT" 字样** | 端坐如学者，旁边有书 |
 | 烁烁（暹罗猫） | **经典暹罗重点色**：奶油白身体 + 深巧克力色面具/耳/爪/尾 | **蓝色** | **蓝色** | **金色双子座 ♊ 符号** | 爪子握着**小画笔** 🎨 |
 
-> **关键纠错**：宪宪不是纯白！是灰白双色。砚砚眼睛是琥珀金色不是蓝色。烁烁眼睛是蓝色不是绿色。三只猫都有标志性项圈和吊坠！
+> **关键纠错**：宪宪是**蓝双山猫纹**布偶猫（蓝灰重点色区域有条纹），不是纯白也不是普通灰白！砚砚眼睛是琥珀金色不是蓝色。烁烁眼睛是蓝色不是绿色。三只猫都有标志性项圈和吊坠！
 
 ---
 
@@ -62,10 +62,12 @@ almond-shaped eyes (not green!). Wearing a blue collar with a small gold
 Gemini ♊ pendant. Playful mischievous expression, one paw reaching forward
 (holding a tiny paintbrush if space allows).
 
-Bottom-left: a Ragdoll cat (宪宪) with GRAY AND WHITE bicolor fur — soft
-white chest and belly, gray patches on head/ears/tail, fluffy long coat.
-Big round BLUE eyes with a gentle, calm expression. Wearing a purple collar
-with a gold star ⭐ pendant. Chubby cheeks squished against the others.
+Bottom-left: a Ragdoll cat (宪宪), Blue Bicolor Lynx Point pattern — mostly
+creamy white body with blue-gray colorpoint areas on head, ears, tail, and
+paw tips, the gray areas showing visible TABBY STRIPES (lynx markings).
+Fluffy long coat. Big round BLUE eyes with a gentle, calm expression.
+Wearing a purple collar with a gold star ⭐ pendant. Chubby and round,
+cheeks squished against the others.
 
 Bottom-right: a large Maine Coon cat (砚砚) with SILVER-GRAY classic tabby
 markings — silver-gray base coat with darker gray stripes, impressive ear
@@ -97,8 +99,9 @@ peek into the frame from the edges:
   rim from the top-right, with a teal-green collar visible at the base.
 - Two small pointed ears with dark chocolate tips (Siamese / 烁烁) peeking
   up from the bottom edge, with curious blue eyes just barely visible.
-- A single soft white-gray paw (Ragdoll / 宪宪) reaching in from the left,
-  pink toe beans visible, with a purple collar band at the wrist.
+- A single soft creamy-white paw with blue-gray lynx-striped markings
+  (Ragdoll / 宪宪) reaching in from the left, pink toe beans visible,
+  with a purple collar band at the wrist.
 
 Style: warm, soft anime / 2D illustration matching the Cat Café avatar
 style. Cozy warm palette — creamy foam, rich coffee brown, soft warm
@@ -119,10 +122,11 @@ with dark chocolate-brown face mask, ears, and tail. BLUE eyes sparkling
 with pride. Blue collar with gold Gemini ♊ pendant swinging. Tail held
 high. Clutching a tiny paintbrush in one paw.
 
-Middle: a Ragdoll cat (宪宪) with gray-and-white bicolor fluffy fur —
-looking mildly squished but serenely accepting its fate. Big round BLUE
+Middle: a Ragdoll cat (宪宪), Blue Bicolor Lynx Point — mostly creamy white
+fluffy fur with blue-gray tabby-striped colorpoints on head, ears, and tail.
+Looking mildly squished but serenely accepting its fate. Big round BLUE
 eyes half-closed in zen-like patience. Purple collar with gold star pendant
-slightly askew from the weight above.
+slightly askew from the weight above. Chubby and round.
 
 Bottom: a massive Maine Coon cat (砚砚) as the sturdy foundation —
 magnificent silver-gray tabby coat, dramatic ear tufts, powerful build.
@@ -154,9 +158,10 @@ that says "I've completely given up resisting my cats and I love every
 second of it."
 
 On top of his head: a Ragdoll cat (宪宪) sprawled belly-up, completely
-relaxed — gray-and-white bicolor fluffy fur, pink toe beans showing, blue
-eyes contentedly half-closed. Purple collar with gold star pendant dangling.
-Its fluffy tail drapes across the boy's forehead.
+relaxed — Blue Bicolor Lynx Point pattern, mostly creamy white fluffy fur
+with blue-gray tabby-striped markings on ears and tail. Pink toe beans
+showing, blue eyes contentedly half-closed. Purple collar with gold star
+pendant dangling. Its fluffy tail drapes across the boy's forehead.
 
 On his left shoulder: a Siamese cat (烁烁) perched and leaning forward
 curiously — cream body with dark chocolate face mask, bright blue eyes,
