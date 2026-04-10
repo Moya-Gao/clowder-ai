@@ -20,7 +20,6 @@ created: 2026-02-26
 | F038 | Skills 梳理 + 按需发现机制 | in-progress | 三猫 | internal | [F038](features/F038-skills-discovery.md) |
 | F044 | Channel & Activity System — 战队频道 + 游戏活动 | spec | 布偶猫 | internal | [F044](features/F044-channel-activity-system.md) |
 | F048 | Restart Recovery — 重启自愈（Phase B: 队列持久化） | idea | 布偶猫 | internal | [F048](features/F048-restart-recovery.md) |
-| F050 | External Agent Onboarding — A2A/CLI 接入契约 | in-progress | 布偶猫 | internal | [F050](features/F050-a2a-external-agent-onboarding.md) |
 | F051 | 猫粮看板 v2 — Quota Board (glanceable + scheduling) | in-progress | 布偶猫 | internal | [F051](features/F051-real-quota-dashboard.md) |
 | F054 | HCI 预热基础设施 — Social Media MCP + 内容管线 | spec | 布偶猫 | internal | [F054](features/F054-hci-preheat-infra.md) |
 | F055 | A2A MCP Structured Routing — targetCats 结构化路由 | spec | 布偶猫 | internal | [F055](features/F055-a2a-mcp-structured-routing.md) |

@@ -297,7 +297,7 @@
     {
       "id": "F050",
       "name": "External Agent Onboarding（A2A/CLI 接入契约）",
-      "status": "in-progress | **Owner**: 三猫（Phase 1 leader: 布偶猫 Opus 4.6）",
+      "status": "done | **Owner**: 三猫（Phase 1 leader: 布偶猫 Opus 4.6）",
       "file": "F050-a2a-external-agent-onboarding.md"
     },
     {
@@ -973,5 +973,5 @@
       "file": "F158-kimi-cli-first-class-cat.md"
     }
   ],
-  "generated_at": "2026-04-10T22:58:43.706Z"
+  "generated_at": "2026-04-10T23:06:22.410Z"
 }
