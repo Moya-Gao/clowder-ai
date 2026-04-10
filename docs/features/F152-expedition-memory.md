@@ -182,6 +182,12 @@ interface ScannedEvidence {
 - [ ] AC-B4: Bootstrap 挂载到 F070 的治理 bootstrap 链路（`projects-setup` capability orchestrator）
 - [ ] AC-B5: 幂等条件基于 repo HEAD hash + 上次扫描时间（fingerprint/freshness），不是单纯 db 存在检测
 - [ ] AC-B6: Bootstrap 摘要先走结构化提取，不强依赖 LLM 额度
+- [ ] AC-B7: **index_state 五态状态机**：missing → building → ready / stale / failed。UI 和 API 统一基于状态机判断，不用文件存在检测
+- [ ] AC-B8: **老用户路径（场景 B）**：已做过治理 bootstrap 但无记忆索引的项目，猫进入时主动提示确认卡（含扫描范围、预计耗时、本地索引说明）；用户可选"稍后"并 snooze（7 天冷却，不反复打扰）
+- [ ] AC-B9: **新项目路径（场景 A）**：ProjectSetupCard 治理 bootstrap 完成后，自动串联记忆 bootstrap 步骤
+- [ ] AC-B10: **非阻塞扫描 + 进度可见**：扫描过程通过 WebSocket 推送阶段化进度（发现文件→解析文档→建立索引→完成），前端可折叠为悬浮药丸，不阻塞对话
+- [ ] AC-B11: **摘要卡交互**：扫描完成后推结构化摘要（仓库画像 + tier 覆盖率 + 关键文档 Top N + 风险提示）+ CTA 按钮（搜索 / MemoryHub / 补文档建议）
+- [ ] AC-B12: **安全护栏**：禁止 symlink 越界扫描、排除 secrets 路径和二进制大文件、大仓自动 skipSoftClues + 文件数/字节预算超时
 
 ### Phase C（Global Lesson Distillation）
 - [ ] AC-C1: 外部项目的 lesson/decision 可以被标记 `generalizable: true/false`
@@ -200,6 +206,8 @@ interface ScannedEvidence {
 | R3 | "用你们开发其他项目" — 不要求先搭 cat-cafe 标准目录 | AC-A1, AC-A3 | test: 无 docs/ 结构的仓库能正常扫描 | [ ] |
 | R4 | 猫踩的坑能带回来下次用 | AC-C1~C4 | manual: 一条经验从外部项目回流到全局层 | [ ] |
 | R5 | "代码仓可能和文档分开" — 猫要能识别并提醒 | AC-02 | manual: 猫检测到文档分仓场景时给出建议 | [ ] |
+| R6 | "打开某个外部 project 你们这能用吗？怎么提示？" — 老用户能力发现 | AC-B7, AC-B8 | manual: 已有项目打开后收到确认卡提示 | [ ] |
+| R7 | "考虑和之前的 bootstrap 联动" — 新项目无缝串联 | AC-B4, AC-B9 | test: ProjectSetupCard 完成后自动触发记忆 bootstrap | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -245,6 +253,10 @@ interface ScannedEvidence {
 | KD-9 | monorepo 先 detection + overview，不做 per-package 深扫 | 控制 Phase B 复杂度 | 2026-04-08 |
 | KD-10 | Phase A v1 不扫 commit messages 和 code comments | 噪音高、语言相关、性能贵，砚砚否决 | 2026-04-08 |
 | KD-11 | 经验回流双层路由：猫猫审核通道（四条件同时满足：provenance≥derived + 可验证 + 事实型 + 已脱敏）+ 铲屎官审核通道（命中任一敏感条件即上升）；Phase C 初期先全量人审校准再逐步放权 | 布偶猫×缅因猫(GPT-5.4) 讨论收敛 + 铲屎官授权分层 | 2026-04-09 |
+| KD-12 | index_state 五态状态机（missing/stale/building/ready/failed）替代简单文件存在检测 | 砚砚护栏：单靠 db 是否存在无法区分"过期""失败""构建中"，会导致误判和重复提示 | 2026-04-10 |
+| KD-13 | 幂等 key = projectRoot + headCommit + scannerVersion + scanMode；服务端 in-flight lock 防重复扫描 | 砚砚提议 + 布偶猫采纳，防止多 session 并发触发重复 bootstrap | 2026-04-10 |
+| KD-14 | 摘要卡结构化优先 + LLM optional 增强（不违反 AC-B6）| 烁烁提议 LLM 一句话定调 vs AC-B6 不绑 LLM 额度；折中：结构化默认，LLM 可用时润色 | 2026-04-10 |
+| KD-15 | 老用户"稍后"snooze 机制（7 天冷却）| 砚砚护栏：不加冷却会反复打扰老用户 | 2026-04-10 |
 
 ## Timeline
 
@@ -255,6 +267,7 @@ interface ScannedEvidence {
 | 2026-04-08 | Design Gate 通过（布偶猫×缅因猫）：Scanner 策略化 + provenance 持久化 + 10 项 KD |
 | 2026-04-09 | Phase 0 merged (PR #1032)：knowledge-engineering skill + manifest 注册 |
 | 2026-04-10 | Phase A merged (PR #1043)：GenericRepoScanner + provenance 三层扫描 + CatCafeScanner 抽取 + 检索 tier filter |
+| 2026-04-10 | Phase B UX 讨论收敛（布偶猫×缅因猫×暹罗猫）：index_state 状态机 + 三场景 UX + 安全护栏，新增 AC-B7~B12 + KD-12~15 |
 
 ## Review Gate
 
