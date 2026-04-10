@@ -188,10 +188,8 @@ export function detectInlineActionMentions(
         const charAfter = normalized[idx + entry.pattern.length];
         const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
         if (!isBoundary) continue;
-        if (routedSet.has(entry.catId)) {
-          lineMatched = true;
-          break;
-        }
+        // Already routed via line-start: skip this entry but keep scanning other cats on same line.
+        if (routedSet.has(entry.catId)) break;
         const before = normalized.slice(0, idx);
         const after = normalized.slice(idx + entry.pattern.length);
         if (!BEFORE_HANDOFF_RE.test(before) && !AFTER_HANDOFF_RE.test(after)) continue;

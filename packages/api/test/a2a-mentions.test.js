@@ -386,6 +386,17 @@ describe('#417: detectInlineActionMentions', () => {
     assert.equal(result.length, 1, 'should detect the second occurrence as handoff');
     assert.equal(result[0].catId, 'codex');
   });
+
+  // --- Codex review: routed cat on same line must not block other cats ---
+
+  it('routed cat does not block other cats on same line', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = 'Ready for @codex and @gemini review';
+    // codex already routed via line-start, gemini is not
+    const result = detectInlineActionMentions(text, 'opus', ['codex']);
+    assert.equal(result.length, 1, 'should still detect gemini');
+    assert.equal(result[0].catId, 'gemini');
+  });
 });
 
 describe('SystemPromptBuilder A2A injection', () => {
