@@ -32,7 +32,7 @@ community_issue: https://github.com/zts212653/clowder-ai/issues/14
 - 2026-03-19：已吸收 `clowder-ai#128` 的 Linux TTY/install/runtime 修复（cat-cafe PR #565），保留内部 runtime 语义并补齐回归测试
 - 2026-03-19：post-review follow-up（cat-cafe PR #566）已合入，补齐 `/workspace` provider-profile sharing 边界，并修正 installer completion banner 的家里端口口径
 
-### Phase B: macOS 一键安装 ✅（PR #174，已合入 main）
+### Phase B: macOS 一键安装（PR #174 已合入 main，AC-B6 待验收）
 
 **同一个 `scripts/install.sh` 的 Darwin 分支**（不是单独的 `install-mac.sh`）。macOS 无需 sudo，全程用户态安装。
 
@@ -127,7 +127,7 @@ API 契约：
 - [x] AC-C1: Windows 用户通过 `.\scripts\install.ps1` 完成安装并能启动，不以 WSL 为前提
 
 ### Phase D（跨平台目录选择器）✅
-- [x] AC-D1: 目录选择器不依赖任何 OS 特定 API（无 osascript / zenity / PowerShell）
+- [x] AC-D1: 目录选择器前端主路径不依赖任何 OS 特定 API（无 osascript / zenity / PowerShell；保留 `/api/projects/pick-directory` 兼容路由）
 - [x] AC-D2: 面包屑导航可在任意层级间跳转
 - [x] AC-D3: 手动输入路径可直接跳转到目标目录
 - [x] AC-D4: 现有功能不退化（项目列表、CWD 推荐、路径校验）
