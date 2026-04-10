@@ -544,6 +544,7 @@ async function main(): Promise<void> {
     globalControlStore,
     packTemplateStore,
     taskStore,
+    deliver: schedulerDeliver,
   });
 
   // ── Phase G: Summary Compaction (registers into unified scheduler) ──

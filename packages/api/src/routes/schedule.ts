@@ -19,8 +19,14 @@ import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { GlobalControlStore } from '../infrastructure/scheduler/GlobalControlStore.js';
 import type { PackTemplateStore } from '../infrastructure/scheduler/PackTemplateStore.js';
+import {
+  notifyTaskDeleted,
+  notifyTaskPaused,
+  notifyTaskRegistered,
+  notifyTaskResumed,
+} from '../infrastructure/scheduler/schedule-notify.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
-import type { TriggerSpec } from '../infrastructure/scheduler/types.js';
+import type { DeliverOpts, TriggerSpec } from '../infrastructure/scheduler/types.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { governanceRoutes } from './schedule-governance.js';
 
@@ -54,6 +60,8 @@ export interface ScheduleRoutesOptions {
   packTemplateStore?: PackTemplateStore;
   /** #320: Unified task store for thread→subjectKey resolution */
   taskStore?: ITaskStore;
+  /** #415: deliver function for lifecycle notifications */
+  deliver?: (opts: DeliverOpts) => Promise<string>;
 }
 
 /** Extract threadId from subjectKey — handles both thread-xxx (real tasks) and thread:xxx formats */
@@ -70,7 +78,8 @@ function addSubjectKeyWithAliases(target: Set<string>, subjectKey: string): void
 }
 
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore, taskStore } = opts;
+  const { taskRunner, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore, taskStore, deliver } =
+    opts;
 
   // GET /api/schedule/tasks
   // #320: Optional ?threadId= filter — resolves thread's task subjectKeys for cross-match
@@ -327,6 +336,9 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     spec.display = display;
     taskRunner.registerDynamic(spec, id);
 
+    // #415: lifecycle notification — task registered
+    notifyTaskRegistered(deliver, def);
+
     return { success: true, task: { id, ...display, trigger } };
   });
 
@@ -338,6 +350,8 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     const { id } = request.params as { id: string };
+    // Read def before deletion for notification
+    const defForNotify = dynamicTaskStore.getById(id);
     const removed = dynamicTaskStore.remove(id);
     if (!removed) {
       reply.status(404);
@@ -345,6 +359,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     taskRunner.unregister(id);
+
+    // #415: lifecycle notification — task deleted
+    if (defForNotify) notifyTaskDeleted(deliver, defForNotify);
+
     return { success: true };
   });
 
@@ -369,12 +387,13 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: 'Dynamic task not found' };
     }
 
+    const def = dynamicTaskStore.getById(id);
     if (!body.enabled) {
       // Pause: unregister from runtime
       taskRunner.unregister(id);
+      if (def) notifyTaskPaused(deliver, def);
     } else {
       // Resume: re-register in runtime
-      const def = dynamicTaskStore.getById(id);
       if (def) {
         const template = templateRegistry.get(def.templateId);
         if (template) {
@@ -390,6 +409,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
             // Already registered — ignore
           }
         }
+        notifyTaskResumed(deliver, def);
       }
     }
 
