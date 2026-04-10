@@ -257,6 +257,8 @@ interface ScannedEvidence {
 | KD-13 | 幂等 key = projectRoot + headCommit + scannerVersion + scanMode；服务端 in-flight lock 防重复扫描 | 砚砚提议 + 布偶猫采纳，防止多 session 并发触发重复 bootstrap | 2026-04-10 |
 | KD-14 | 摘要卡结构化优先 + LLM optional 增强（不违反 AC-B6）| 烁烁提议 LLM 一句话定调 vs AC-B6 不绑 LLM 额度；折中：结构化默认，LLM 可用时润色 | 2026-04-10 |
 | KD-15 | 老用户"稍后"snooze 机制（7 天冷却）| 砚砚护栏：不加冷却会反复打扰老用户 | 2026-04-10 |
+| KD-16 | Phase B UX 必须沿用 coral 色系（cocreator-primary #e29578），不用紫色；视觉衔接 ProjectSetupCard（PR #299）画风 | 铲屎官审核设计稿时指出：实际 UI 是 coral 色系（Anthropic 品牌色），.pen 设计稿的紫色只是 spec，实现必须对齐已有代码 | 2026-04-10 |
+| KD-17 | Phase B review 时砚砚必须启动 dev 截图验证前端，不能只看代码 | 铲屎官要求：前端改动必须实际打开浏览器验证，防止"代码对了但 UI 离谱" | 2026-04-10 |
 
 ## Timeline
 
@@ -268,6 +270,7 @@ interface ScannedEvidence {
 | 2026-04-09 | Phase 0 merged (PR #1032)：knowledge-engineering skill + manifest 注册 |
 | 2026-04-10 | Phase A merged (PR #1043)：GenericRepoScanner + provenance 三层扫描 + CatCafeScanner 抽取 + 检索 tier filter |
 | 2026-04-10 | Phase B UX 讨论收敛（布偶猫×缅因猫×暹罗猫）：index_state 状态机 + 三场景 UX + 安全护栏，新增 AC-B7~B12 + KD-12~15 |
+| 2026-04-10 | Phase B Design Gate 通过（铲屎官审核）：组件结构+交互 OK，配色实现时换 coral 色系，衔接 PR #299 画风。设计稿 `designs/F152-expedition-bootstrap.pen` |
 
 ## Review Gate
 
@@ -285,3 +288,5 @@ interface ScannedEvidence {
 | **Evolved from** | `docs/features/F070-portable-governance.md` | 治理/方法论随猫走 + 治理 bootstrap 链路 |
 | **Related** | `docs/features/F076-mission-hub-cross-project.md` | 跨项目作战面板（未来可展示出征记忆状态） |
 | **Evidence** | `docs/research/2026-04-09-ideahub-test-automation-knowledge-consultation.md` | IdeaHub 咨询：Phase 0 方法论的真实实证 |
+| **Visual ref** | PR #299 (`feat(F070): project setup card`) | ProjectSetupCard 实现——Phase B UX 必须衔接此画风（coral 色系 + 猫猫插图） |
+| **Design** | `designs/F152-expedition-bootstrap.pen` | Phase B 五组件 UX 设计稿（结构+交互参考，配色以代码 cocreator 变量为准） |
