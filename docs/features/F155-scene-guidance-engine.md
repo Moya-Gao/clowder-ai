@@ -57,16 +57,41 @@ community_pr: "clowder-ai#398"
 | Q1 | 方向与愿景一致？ | PASS — 提升复杂功能可用性 |
 | Q2 | 与现有 Feature 冲突/重叠？ | 不冲突 — F087/F110 是入门训练营，F155 是操作级上下文引导 |
 | Q3 | 技术栈 fit？ | PASS — TS/React/MCP/Socket 全栈 |
-| Q4 | 维护能力？ | PASS — 社区持续迭代 13 天，72 commits，多轮 review |
+| Q4 | 维护能力？ | **UNKNOWN / NEEDS-OWNER** — 72 commits 证明社区持续迭代，但不等于我们有长期 owner + 支持能力 |
 | Q5 | 技术负债？ | **HIGH** — 深度修改 routing core（route-parallel/serial/invoke-single-cat/SystemPromptBuilder），非隔离模块 |
+
+### Blockers（merge 前必须解决）
+
+1. **Accepted issue 未过门禁** — clowder-ai#409 只有 `feature:F150`，缺 `triaged` 标签，不满足 inbound merge gate。且 `feature:F150` label 描述指向的是另一个 feature（tool-usage-stats），upstream 编号真相源已漂移
+2. **冲突标记残留** — PR 中 `docs/ROADMAP.md` 带着 `<<<<<<< HEAD` 冲突标记，即使 CI 绿也不是干净的 merge-ready 状态
+
+### Intake Shape
+
+这个 PR **不是** `safe-cherry-pick`，而是 `absorbed + manual-port` 混合型：
+
+- 如果我们接，接的大概率是**产品能力定义 + 部分实现**，不是整包吞掉 routing core 的耦合改动
+- `route-serial.ts`（+158）、`route-parallel.ts`（+158）、`invoke-single-cat.ts`、`SystemPromptBuilder.ts`（+108）这四个文件的改动需要逐行评审，可能需要重构为更松耦合的注入方式
+- 前端 overlay + guide store + YAML catalog 相对独立，吸纳成本较低
+- 结论：**吸纳的是 feature 定义，不是批准整包实现**
+
+### Security / Concurrency Risk
+
+PR 后半段（04-09 的 20+ commits）连续修了以下问题，说明 `guideState` 与 routing core 的交叉面很敏感：
+
+- default-thread owner check（`enforce per-user owner checks`）
+- foreign non-terminal reoffer suppression（`suppress foreign default-thread reoffers`）
+- stale local `guide:start` gate（`gate stale local guide starts`）
+- guide state scoping by user（`scope shared guide state by user`）
+- completion ack timing（`defer completionAcked write until owner cat receives injection`）
+
+后续 intake 必须按**高风险改动**看待，需要完整的安全 review。
 
 ### 待讨论
 
 - [ ] 路由层改动是否接受？是否需要重构为更松耦合的注入方式？
-- [ ] 社区自建的 `guide-authoring` / `guide-interaction` skill 与我们的 skill 体系如何对齐？
+- [ ] 社区自建的 `guide-authoring` / `guide-interaction` skill 依赖的 guide tool surface 需要和我们 capability matrix 对表，否则 skill 文档吸进来是悬空的
 - [ ] `guides/` 顶层目录是否符合我们的目录结构？
-- [ ] 上游 issue clowder-ai#409 需先过 triage 门禁（补 `triaged` 标签）
-- [ ] 上游 PR 中 `docs/ROADMAP.md` 存在未解决的 `<<<<<<< HEAD` 冲突标记
+- [ ] 谁是家里的长期 owner？（Q4 needs-owner）
 
 ## Upstream Links
 
