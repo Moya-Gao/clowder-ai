@@ -8,7 +8,7 @@ created: 2026-04-10
 
 # F156: WebSocket Security Hardening — 实时通道安全加固
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -28,7 +28,7 @@ created: 2026-04-10
 
 聚焦 WebSocket 实时通道的安全加固，不涉及 F077 的多用户认证体系。修完后作为 F077 的前置基础设施。
 
-### Phase A: 连接层加固（堵 CSWSH）
+### Phase A: 连接层加固（堵 CSWSH） ✅
 
 1. **`allowRequest` Origin 校验** — 在 Socket.IO Server 构造时加 `allowRequest` hook，显式校验 WebSocket upgrade 请求的 `Origin` 头。不在白名单内的 Origin 直接拒绝连接
 2. **禁止自报 userId** — 服务端不再从 `handshake.auth.userId` / `query.userId` 取身份。单用户模式下连接一律赋予 `default-user`，为 F077 session 认证预留接口
@@ -49,12 +49,12 @@ created: 2026-04-10
 ## Acceptance Criteria
 
 ### Phase A（连接层加固）
-- [ ] AC-A1: `Origin: https://evil.example` 的 **WebSocket-only**（`transports: ['websocket']`）连接被服务端拒绝（集成测试 + 实测验证）。验收标准是"恶意网页不能建立 WS 连接"，不是"CORS 配对了"
-- [ ] AC-A2: 合法前端 Origin（localhost:3001、配置的 FRONTEND_URL）连接正常
-- [ ] AC-A3: 服务端不再从客户端 handshake 取 userId，所有 socket 身份由服务端决定
-- [ ] AC-A4: 私网 Origin 默认不放行，需显式 `CORS_ALLOW_PRIVATE_NETWORK=true`
-- [ ] AC-A5: 现有前端功能不受影响（消息收发、取消、room 订阅正常）
-- [ ] AC-A6: 有 `socket.io-client` + `transports: ['websocket']` + 恶意 Origin 被拒的集成测试（钉住核心修复）
+- [x] AC-A1: `Origin: https://evil.example` 的 **WebSocket-only**（`transports: ['websocket']`）连接被服务端拒绝（集成测试 + 实测验证）。验收标准是"恶意网页不能建立 WS 连接"，不是"CORS 配对了"
+- [x] AC-A2: 合法前端 Origin（localhost:3001、配置的 FRONTEND_URL）连接正常
+- [x] AC-A3: 服务端不再从客户端 handshake 取 userId，所有 socket 身份由服务端决定
+- [x] AC-A4: 私网 Origin 默认不放行，需显式 `CORS_ALLOW_PRIVATE_NETWORK=true`
+- [x] AC-A5: 现有前端功能不受影响（消息收发、取消、room 订阅正常）
+- [x] AC-A6: 有 `socket.io-client` + `transports: ['websocket']` + 恶意 Origin 被拒的集成测试（钉住核心修复）
 
 ### Phase B（授权层加固）
 - [ ] AC-B1: Socket 无法加入非自己的 `user:*` room
@@ -91,6 +91,7 @@ created: 2026-04-10
 | 日期 | 事件 |
 |------|------|
 | 2026-04-10 | 立项。安全审计发现 CSWSH 风险，缅因猫(GPT-5.4) 实测验证 |
+| 2026-04-10 | Phase A merged (PR #1041) — allowRequest origin guard + userId hardening + 14 tests |
 
 ## Links
 

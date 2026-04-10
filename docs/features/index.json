@@ -957,9 +957,15 @@
     {
       "id": "F156",
       "name": "WebSocket Security Hardening — 实时通道安全加固",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P0",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P0",
       "file": "F156-websocket-security-hardening.md"
+    },
+    {
+      "id": "F157",
+      "name": "Feishu Receipt Ack — 猫猫即时接住替代\"思考中→撤回\"",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F157-feishu-receipt-ack.md"
     }
   ],
-  "generated_at": "2026-04-10T08:13:47.283Z"
+  "generated_at": "2026-04-10T08:23:54.075Z"
 }
