@@ -154,7 +154,7 @@ describe('ReviewFeedbackTaskSpec', () => {
     const r1 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
     assert.equal(r1.run, true);
     // Simulate execute → commitCursor
-    r1.workItems[0].signal.commitCursor();
+    await r1.workItems[0].signal.commitCursor();
 
     // Second gate: same comment, should be filtered out
     const r2 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 2 });
