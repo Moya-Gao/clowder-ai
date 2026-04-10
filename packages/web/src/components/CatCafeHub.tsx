@@ -14,6 +14,7 @@ import {
   resolveRequestedHubTab,
 } from './cat-cafe-hub.navigation';
 import { CatOverviewTab, type ConfigData, SystemTab } from './config-viewer-tabs';
+import { HubGrowthTab } from './growth/HubGrowthTab';
 import { HubAccountsTab } from './HubAccountsTab';
 import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubCatEditor } from './HubCatEditor';
@@ -251,6 +252,7 @@ export function CatCafeHub() {
             {tab === 'memory' && <HubMemoryTab />}
             {tab === 'rescue' && <HubClaudeRescueSection />}
             {tab === 'leaderboard' && <HubLeaderboardTab />}
+            {tab === 'growth' && <HubGrowthTab />}
           </div>
         </div>
         <HubCatEditor

@@ -131,6 +131,7 @@ import {
   externalProjectRoutes,
   featureDocDetailRoutes,
   governanceStatusRoute,
+  growthRoutes,
   intentCardRoutes,
   invocationsRoutes,
   leaderboardEventsRoutes,
@@ -1084,6 +1085,13 @@ async function main(): Promise<void> {
   if (toolUsageCounter) {
     await app.register(toolUsageRoutes, { toolUsageCounter });
   }
+  // F157: Cat Growth RPG — XP attributes + profiles
+  const growthService = redis
+    ? new (await import('./domains/cats/services/growth/GrowthService.js')).GrowthService(redis)
+    : undefined;
+  if (growthService) {
+    await app.register(growthRoutes, { growthService });
+  }
   // F075 Phase B+C: Game + Achievement stores
   const { GameStore } = await import('./domains/leaderboard/game-store.js');
   const { AchievementStore } = await import('./domains/leaderboard/achievement-store.js');
@@ -1241,7 +1249,7 @@ async function main(): Promise<void> {
       isCatAvailable: (catId: string) => isCatAvailable(catId),
     });
   }
-  await app.register(tasksRoutes, { taskStore, socketManager });
+  await app.register(tasksRoutes, { taskStore, socketManager, growthService });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
   // F076: External projects + Need Audit

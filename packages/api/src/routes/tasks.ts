@@ -12,12 +12,15 @@ import type { CatId, CreateTaskInput, UpdateTaskInput } from '@cat-cafe/shared';
 import { catIdSchema } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import type { GrowthService } from '../domains/cats/services/growth/GrowthService.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 export interface TasksRoutesOptions {
   taskStore: ITaskStore;
   socketManager: SocketManager;
+  /** F157: Optional growth service for XP awards on task completion */
+  growthService?: GrowthService;
 }
 
 const VALID_STATUSES = ['todo', 'doing', 'blocked', 'done'] as const;
@@ -69,7 +72,7 @@ function toUpdateInput(data: z.infer<typeof updateSchema>): UpdateTaskInput {
 }
 
 export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, opts) => {
-  const { taskStore, socketManager } = opts;
+  const { taskStore, socketManager, growthService } = opts;
 
   // POST /api/tasks
   app.post('/api/tasks', async (request, reply) => {
@@ -126,6 +129,11 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, o
     }
 
     socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'task_updated', updated);
+
+    // F157: Award XP when task is marked done
+    if (result.data.status === 'done' && updated.ownerCatId && growthService) {
+      growthService.awardXp(updated.ownerCatId, 'task_complete');
+    }
 
     return updated;
   });

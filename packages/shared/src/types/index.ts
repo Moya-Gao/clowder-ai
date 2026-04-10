@@ -185,6 +185,19 @@ export {
   isValidActionStatus,
   isValidScope,
 } from './game.js';
+// Growth RPG types (F157 Cat Growth RPG)
+export type {
+  CatAttributes,
+  CatGrowthProfile,
+  CatTitle,
+  DimensionStat,
+  GrowthDimension,
+  GrowthOverview,
+  HighlightMoment,
+  XpEvent,
+  XpSource,
+} from './growth.js';
+export { DIMENSION_LABELS, GROWTH_DIMENSIONS } from './growth.js';
 // ID types
 export type {
   CatId,
