@@ -56,6 +56,7 @@ export function registerCallbackThreadCatsRoutes(app: FastifyInstance, deps: Thr
         catId: p.catId as string,
         lastMessageAt: p.lastMessageAt,
         messageCount: p.messageCount,
+        lastResponseHealthy: p.lastResponseHealthy,
       })),
       registeredServices: agentRegistry.getAllEntries(),
       allCatIds: Object.keys(allCatConfigs),

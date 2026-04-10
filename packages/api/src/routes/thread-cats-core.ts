@@ -7,6 +7,7 @@ export interface ParticipantActivityInput {
   catId: string;
   lastMessageAt: number;
   messageCount: number;
+  lastResponseHealthy?: boolean;
 }
 
 export interface CatEntry {
@@ -15,7 +16,7 @@ export interface CatEntry {
 }
 
 export interface ThreadCatsCategorization {
-  participants: Array<CatEntry & { lastMessageAt: number; messageCount: number }>;
+  participants: Array<CatEntry & { lastMessageAt: number; messageCount: number; lastResponseHealthy?: boolean }>;
   routableNow: CatEntry[];
   routableNotJoined: CatEntry[];
   notRoutable: CatEntry[];
@@ -66,6 +67,7 @@ export function categorizeThreadCats(input: CategorizeThreadCatsInput): ThreadCa
     displayName: getCatDisplayName(p.catId),
     lastMessageAt: p.lastMessageAt,
     messageCount: p.messageCount,
+    ...(p.lastResponseHealthy !== undefined && { lastResponseHealthy: p.lastResponseHealthy }),
   }));
 
   return { participants, routableNow, routableNotJoined, notRoutable };
