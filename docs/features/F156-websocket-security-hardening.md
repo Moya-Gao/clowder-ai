@@ -109,15 +109,15 @@ created: 2026-04-10
 ### Phase B-3（全局 room 收口）
 - [x] AC-B3: `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入（带文件路径、worktreeId、preview 端口等元数据）
 
-### Phase D-1（HTTP 身份加固）
-- [ ] AC-D1a: 浏览器请求通过 HttpOnly session cookie 认证，不再接受 userId query param
-- [ ] AC-D1b: 首次打开 Hub 自动完成 session 配对（零配置）
-- [ ] AC-D1c: 写操作统一走 session 校验
+### Phase D-1（HTTP 身份加固） ✅
+- [x] AC-D1a: 浏览器请求通过 HttpOnly session cookie 认证，不再接受 userId query param
+- [x] AC-D1b: 首次打开 Hub 自动完成 session 配对（零配置）
+- [x] AC-D1c: 写操作统一走 session 校验
 
-### Phase D-2（防 Clickjacking）
-- [ ] AC-D2a: API 响应包含 X-Frame-Options: DENY
-- [ ] AC-D2b: API 响应包含 CSP frame-ancestors 'none'
-- [ ] AC-D2c: preview-gateway 保留 iframe 例外
+### Phase D-2（防 Clickjacking） ✅
+- [x] AC-D2a: API 响应包含 X-Frame-Options: DENY
+- [x] AC-D2b: API 响应包含 CSP frame-ancestors 'none'
+- [x] AC-D2c: preview-gateway 保留 iframe 例外
 
 ### Phase D-3（前端 XSS 基线）
 - [ ] AC-D3a: HtmlWidgetBlock 加 DOMPurify sanitization
@@ -165,6 +165,7 @@ created: 2026-04-10
 | 2026-04-10 | 立项。安全审计发现 CSWSH 风险，缅因猫(GPT-5.4) 实测验证 |
 | 2026-04-10 | Phase A merged (PR #1041) — allowRequest origin guard + userId hardening + 14 tests |
 | 2026-04-10 | Phase B merged (PR #1045) — terminal WS origin guard + cancelAll auth + global room guard + 13 tests |
+| 2026-04-10 | Phase D-1+D-2 merged (PR #1054) — session auth + anti-clickjacking + 20+ route identity收口 + 57 files |
 
 ## Links
 
