@@ -1059,7 +1059,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })),
 
   setLoading: (loading) => set({ isLoading: loading }),
-  setHasActiveInvocation: (v) => set({ hasActiveInvocation: v }),
+  setHasActiveInvocation: (v) =>
+    set((state) => {
+      // Stamp completion time when transitioning active → inactive on the current thread,
+      // so snapshotActive sees real completion time instead of stale message timestamps.
+      if (!v && state.hasActiveInvocation) {
+        const existingTs = state.threadStates[state.currentThreadId];
+        return {
+          hasActiveInvocation: false,
+          threadStates: {
+            ...state.threadStates,
+            [state.currentThreadId]: {
+              ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
+              lastActivity: Date.now(),
+            },
+          },
+        };
+      }
+      return { hasActiveInvocation: v };
+    }),
   /** F108: Register a new active invocation slot */
   addActiveInvocation: (invocationId, catId, mode, startedAt?) =>
     set((state) => {

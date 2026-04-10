@@ -557,6 +557,37 @@ describe('chatStore multi-thread state', () => {
       const saved = useChatStore.getState().threadStates['thread-a']!;
       expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeReset);
     });
+
+    it('stamps completion time on setHasActiveInvocation(false) fallback', () => {
+      const oldMsgTs = Date.now() - 30_000;
+      const msg: ChatMessage = { id: 'fallback', type: 'assistant', content: 'ok', timestamp: oldMsgTs };
+      useChatStore.getState().addMessage(msg);
+      // Simulate active invocation via direct setter (useAgentMessages fallback path)
+      useChatStore.getState().setHasActiveInvocation(true);
+
+      const beforeClear = Date.now();
+      useChatStore.getState().setHasActiveInvocation(false);
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      useChatStore.getState().setCurrentThread('thread-b');
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeClear);
+    });
+
+    it('does not stamp on redundant setHasActiveInvocation(false) when already false', () => {
+      const oldMsgTs = Date.now() - 30_000;
+      const msg: ChatMessage = { id: 'noop', type: 'assistant', content: 'ok', timestamp: oldMsgTs };
+      useChatStore.getState().addMessage(msg);
+      // hasActiveInvocation is already false (default)
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      useChatStore.getState().setHasActiveInvocation(false);
+
+      useChatStore.getState().setCurrentThread('thread-b');
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      // Should NOT have a recent timestamp — no real transition occurred
+      expect(saved.lastActivity).toBeLessThanOrEqual(oldMsgTs);
+    });
   });
 
   describe('unread suppression (persistent badge fix)', () => {
