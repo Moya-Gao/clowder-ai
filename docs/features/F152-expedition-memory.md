@@ -272,6 +272,7 @@ interface ScannedEvidence {
 | 2026-04-10 | Phase B UX 讨论收敛（布偶猫×缅因猫×暹罗猫）：index_state 状态机 + 三场景 UX + 安全护栏，新增 AC-B7~B12 + KD-12~15 |
 | 2026-04-10 | Phase B Design Gate 通过（铲屎官审核）：组件结构+交互 OK，配色实现时换 coral 色系，衔接 PR #299 画风。设计稿 `designs/F152-expedition-bootstrap.pen` |
 | 2026-04-10 | Phase B merged (PR #1067)：IndexStateManager 五态状态机 + ExpeditionBootstrapService + API endpoints + WebSocket 进度 + 前端组件 + F070 治理链串联 |
+| 2026-04-10 | Phase B design alignment merged (PR #1070)：12 项 .pen→code 偏差修复 + cloud review P1（auto-notice scope）/P2（ref reset）修复 |
 
 ## Review Gate
 
