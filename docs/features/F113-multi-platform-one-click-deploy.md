@@ -32,7 +32,7 @@ community_issue: https://github.com/zts212653/clowder-ai/issues/14
 - 2026-03-19：已吸收 `clowder-ai#128` 的 Linux TTY/install/runtime 修复（cat-cafe PR #565），保留内部 runtime 语义并补齐回归测试
 - 2026-03-19：post-review follow-up（cat-cafe PR #566）已合入，补齐 `/workspace` provider-profile sharing 边界，并修正 installer completion banner 的家里端口口径
 
-### Phase B: macOS 一键安装（PR #174，已 rebase，待合入）
+### Phase B: macOS 一键安装 ✅（PR #174，已合入 main）
 
 **同一个 `scripts/install.sh` 的 Darwin 分支**（不是单独的 `install-mac.sh`）。macOS 无需 sudo，全程用户态安装。
 
@@ -115,13 +115,12 @@ API 契约：
 - [x] AC-A1: Linux 用户在 repo root 执行 `bash scripts/install.sh` 可完成依赖安装、构建、配置，并能直接启动
 - [x] AC-A2: 支持 Debian/Ubuntu 和 CentOS/RHEL/Fedora 发行版
 
-### Phase B（macOS 一键安装）
-- 以下 AC 已在 PR #174 中实现并通过 review；在代码实际合入 `main` 前保持未勾选。
-- [ ] AC-B1: macOS 用户执行同一条 `bash scripts/install.sh`，且不需要 `sudo`
-- [ ] AC-B2: 非 login shell 下也能发现或安装 Homebrew，覆盖 Apple Silicon / Intel
-- [ ] AC-B3: 安装结束后，当前 shell 立即可用 `pnpm`/`claude`/`codex`/`gemini`，新终端也可用
-- [ ] AC-B4: 兼容 macOS 自带 bash 3.2 / `set -u` / 空数组迭代
-- [ ] AC-B5: 重跑安装不破坏 profile，不重复写坏 PATH，不因 profile 无 trailing newline 破坏 shell
+### Phase B（macOS 一键安装）— PR #174 已合入 main
+- [x] AC-B1: macOS 用户执行同一条 `bash scripts/install.sh`，且不需要 `sudo`
+- [x] AC-B2: 非 login shell 下也能发现或安装 Homebrew，覆盖 Apple Silicon / Intel
+- [x] AC-B3: 安装结束后，当前 shell 立即可用 `pnpm`/`claude`/`codex`/`gemini`，新终端也可用
+- [x] AC-B4: 兼容 macOS 自带 bash 3.2 / `set -u` / 空数组迭代
+- [x] AC-B5: 重跑安装不破坏 profile，不重复写坏 PATH，不因 profile 无 trailing newline 破坏 shell
 - [ ] AC-B6: 铲屎官在 macOS 真机上完成端到端验收（安装→启动→使用）
 
 ### Phase C（Windows 一键安装）✅
