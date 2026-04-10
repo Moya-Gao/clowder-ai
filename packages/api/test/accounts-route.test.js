@@ -476,6 +476,43 @@ describe('accounts routes', () => {
     }
   });
 
+  it('#340 P1: DELETE /api/accounts allows non-force deletion when env is unset and accounts are project-local', async () => {
+    const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
+      '../dist/config/catalog-accounts.js'
+    );
+    const Fastify = (await import('fastify')).default;
+    const { accountsRoutes } = await import('../dist/routes/accounts.js');
+    const app = Fastify();
+    await app.register(accountsRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('no-env-delete');
+    // Deliberately do NOT set CAT_CAFE_GLOBAL_CONFIG_ROOT — storage layer defaults to projectRoot
+    const savedRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    resetMigrationState();
+    try {
+      writeCatalogAccount(projectDir, 'project-local-account', {
+        authType: 'api_key',
+        displayName: 'Project Local',
+      });
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/api/accounts/project-local-account',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({ projectPath: projectDir }),
+      });
+      assert.equal(res.statusCode, 200, `expected 200 but got ${res.statusCode}: ${res.json().error ?? ''}`);
+      assert.equal(readCatalogAccounts(projectDir)['project-local-account'], undefined);
+    } finally {
+      if (savedRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedRoot;
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
   it('DELETE /api/accounts stays idempotent when the account is already missing from a shared global store', async () => {
     const { readCatalogAccounts, resetMigrationState } = await import('../dist/config/catalog-accounts.js');
     const Fastify = (await import('fastify')).default;

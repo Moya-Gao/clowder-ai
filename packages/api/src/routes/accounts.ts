@@ -70,13 +70,15 @@ function deriveAccountId(displayName: string, existingIds: Set<string>): string 
   return `${seed}-${counter}`;
 }
 
-function resolveGlobalConfigRoot(): string {
+function resolveGlobalConfigRoot(projectRoot?: string): string {
   const envRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT?.trim();
-  return resolve(envRoot || homedir());
+  if (envRoot) return resolve(envRoot);
+  if (projectRoot) return resolve(projectRoot);
+  return resolve(homedir());
 }
 
 function isProjectScopedGlobalStore(projectRoot: string): boolean {
-  return resolve(projectRoot) === resolveGlobalConfigRoot();
+  return resolve(projectRoot) === resolveGlobalConfigRoot(projectRoot);
 }
 
 /** Scan both runtime catalog and template for variant→account bindings. Returns Error on parse failure. */
@@ -383,7 +385,7 @@ export const accountsRoutes: FastifyPluginAsync = async (app) => {
           reply.status(409);
           return {
             error:
-              `Account "${params.profileId}" lives in shared global store ${resolveGlobalConfigRoot()} ` +
+              `Account "${params.profileId}" lives in shared global store ${resolveGlobalConfigRoot(projectRoot)} ` +
               `and non-force deletion cannot verify bindings in other projects. Audit all project catalogs or pass { "force": true }.`,
           };
         }
