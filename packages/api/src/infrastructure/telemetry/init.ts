@@ -57,8 +57,14 @@ export function initTelemetry(config?: TelemetryConfig): () => Promise<void> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
   // P2 fix: validate HMAC salt at startup, not on first redaction call.
-  // Throws immediately if salt is missing in non-dev environments.
-  validateSalt();
+  // If salt is missing in non-dev environments, disable OTel gracefully
+  // rather than crashing the server — telemetry should never be a crash source.
+  try {
+    validateSalt();
+  } catch (err) {
+    log.error({ err }, 'OTel SDK disabled: HMAC salt validation failed');
+    return async () => {};
+  }
 
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: cfg.serviceName,

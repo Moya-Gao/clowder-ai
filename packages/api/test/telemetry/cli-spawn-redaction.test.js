@@ -6,6 +6,9 @@
  * of the fix applied in commit 4c8f7873.
  */
 
+// Ensure NODE_ENV=test so HMAC salt fallback works in CI
+process.env.NODE_ENV = process.env.NODE_ENV || 'test';
+
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
