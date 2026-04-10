@@ -120,6 +120,41 @@ list_source_worktree_realpaths() {
     done
 }
 
+SOURCE_SYNC_DIR=""
+SOURCE_SYNC_REF="HEAD"
+
+cleanup_source_sync_tree() {
+  if [ -z "${SOURCE_SYNC_DIR:-}" ] || [ "$SOURCE_SYNC_DIR" = "$SOURCE_DIR" ]; then
+    SOURCE_SYNC_DIR="$SOURCE_DIR"
+    SOURCE_SYNC_REF="HEAD"
+    return
+  fi
+  if [ -d "$SOURCE_SYNC_DIR/.git" ] || [ -d "$SOURCE_SYNC_DIR" ]; then
+    git -C "$SOURCE_DIR" worktree remove --force "$SOURCE_SYNC_DIR" >/dev/null 2>&1 || true
+    rm -rf "$SOURCE_SYNC_DIR" 2>/dev/null || true
+  fi
+  SOURCE_SYNC_DIR="$SOURCE_DIR"
+  SOURCE_SYNC_REF="HEAD"
+}
+
+prepare_source_sync_tree() {
+  if ! git -C "$SOURCE_DIR" fetch --no-tags origin main >/dev/null 2>&1; then
+    echo -e "  ${RED}✗ Failed to refresh cat-cafe origin/main before full sync${NC}"
+    return 1
+  fi
+  local temp_dir
+  temp_dir=$(mktemp -d)
+  rmdir "$temp_dir"
+  SOURCE_SYNC_DIR="$temp_dir"
+  SOURCE_SYNC_REF="HEAD"
+  if ! git -C "$SOURCE_DIR" worktree add --detach "$SOURCE_SYNC_DIR" refs/remotes/origin/main >/dev/null 2>&1; then
+    echo -e "  ${RED}✗ Failed to create source sync worktree from origin/main${NC}"
+    SOURCE_SYNC_DIR="$SOURCE_DIR"
+    SOURCE_SYNC_REF="HEAD"
+    return 1
+  fi
+}
+
 target_git_repo_exists() {
   local repo_dir="$1"
   git -C "$repo_dir" rev-parse --git-dir >/dev/null 2>&1
@@ -293,6 +328,7 @@ if [ -n "$RELEASE_TAG" ]; then
 fi
 
 SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SOURCE_SYNC_DIR="$SOURCE_DIR"
 TARGET_DIR="${CLOWDER_AI_DIR:-$(cd "$SOURCE_DIR/.." && pwd)/clowder-ai}"
 
 # ── Safety guard: 禁止 sync 到内部 cat-cafe worktree ─────────
@@ -308,13 +344,6 @@ fi
 if list_source_worktree_realpaths | grep -qFx "$RESOLVED_TARGET"; then
   echo -e "${RED}✗ FATAL: TARGET_DIR 是当前仓库的 worktree: $RESOLVED_TARGET${NC}"
   echo -e "${RED}  rsync --delete 会摧毁 worktree 内容。请指向开源仓目录。${NC}"
-  exit 1
-fi
-
-# ── 读 sync-manifest.yaml（SOT）─────────────────────────────
-MANIFEST="$SOURCE_DIR/sync-manifest.yaml"
-if [ ! -f "$MANIFEST" ]; then
-  echo -e "${RED}✗ sync-manifest.yaml not found at $MANIFEST${NC}"
   exit 1
 fi
 
@@ -337,18 +366,6 @@ yaml_list() {
     $0 ~ "^"k { found=1 }
   ' "$MANIFEST"
 }
-
-# 解析 manifest 列表到 bash 数组（bash 3.2 兼容）
-MANAGED_ROOTS=()
-while IFS= read -r line; do MANAGED_ROOTS+=("$line"); done < <(yaml_list "managed_roots")
-MANAGED_FILES=()
-while IFS= read -r line; do MANAGED_FILES+=("$line"); done < <(yaml_list "managed_files")
-MANAGED_SCRIPTS=()
-while IFS= read -r line; do MANAGED_SCRIPTS+=("$line"); done < <(yaml_list "managed_scripts")
-EXCLUDED_ITEMS=()
-while IFS= read -r line; do EXCLUDED_ITEMS+=("$line"); done < <(yaml_list "excluded")
-TARGET_OWNED=()
-while IFS= read -r line; do TARGET_OWNED+=("$line"); done < <(yaml_list "target_owned_files")
 
 backup_target_owned_items() {
   local target_dir="$1"
@@ -604,17 +621,9 @@ if [ "$VALIDATE" = true ]; then echo "模式: VALIDATE"; fi
 if [ "$SYNC_MODULE" != "all" ]; then echo "模块: $SYNC_MODULE"; fi
 
 cd "$SOURCE_DIR"
-SOURCE_SHA=$(git rev-parse HEAD)
-SOURCE_SHA_SHORT=$(git rev-parse --short=12 "$SOURCE_SHA")
-SOURCE_DISPLAY_SHA="$SOURCE_SHA_SHORT"
-# dry-run/validate 用工作目录导出，记录 dirty 状态
-if [ "$DRY_RUN" = true ] || [ "$VALIDATE" = true ]; then
-  if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-    SOURCE_DISPLAY_SHA="${SOURCE_DISPLAY_SHA}+dirty"
-  fi
-  SOURCE_DISPLAY_SHA="${SOURCE_DISPLAY_SHA} (working-tree)"
-fi
-echo -e "\n${BLUE}源 commit: ${SOURCE_DISPLAY_SHA}${NC}"
+SOURCE_SHA=""
+SOURCE_SHA_SHORT=""
+SOURCE_DISPLAY_SHA=""
 
 # ── Step 0: Pre-sync gate（D2a）────────────────────────────────
 step_start "Step 0" "Pre-sync gate..."
@@ -626,9 +635,13 @@ if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
     exit 1
   fi
   echo "  ✓ Source repo clean"
-  if [ -n "$RELEASE_TAG" ]; then
-    require_release_source_commit_on_main "$SOURCE_SHA"
-    echo "  ✓ Release source commit is reachable from origin/main"
+  if [ "$SYNC_MODULE" = "all" ]; then
+    if ! prepare_source_sync_tree; then
+      exit 1
+    fi
+    # Register cleanup immediately so early exits before Step 1 don't leak the worktree
+    trap 'cleanup_source_sync_tree' EXIT
+    echo "  ✓ Source sync checkout prepared from origin/main"
   fi
 fi
 
@@ -741,22 +754,65 @@ fi
 echo "  ✓ Pre-sync gate passed"
 step_done
 
+# Real full sync exports from a detached origin/main checkout, not the caller's local HEAD.
+if [ "$DRY_RUN" = true ] || [ "$VALIDATE" = true ]; then
+  SOURCE_SHA=$(git -C "$SOURCE_DIR" rev-parse HEAD)
+  SOURCE_SHA_SHORT=$(git -C "$SOURCE_DIR" rev-parse --short=12 "$SOURCE_SHA")
+  SOURCE_DISPLAY_SHA="$SOURCE_SHA_SHORT"
+  if ! git -C "$SOURCE_DIR" diff --quiet 2>/dev/null || ! git -C "$SOURCE_DIR" diff --cached --quiet 2>/dev/null; then
+    SOURCE_DISPLAY_SHA="${SOURCE_DISPLAY_SHA}+dirty"
+  fi
+  SOURCE_DISPLAY_SHA="${SOURCE_DISPLAY_SHA} (working-tree)"
+else
+  SOURCE_SHA=$(git -C "$SOURCE_SYNC_DIR" rev-parse HEAD)
+  SOURCE_SHA_SHORT=$(git -C "$SOURCE_SYNC_DIR" rev-parse --short=12 "$SOURCE_SHA")
+  if [ "$SYNC_MODULE" = "all" ]; then
+    SOURCE_DISPLAY_SHA="${SOURCE_SHA_SHORT} (origin/main)"
+  else
+    SOURCE_DISPLAY_SHA="${SOURCE_SHA_SHORT} (local HEAD)"
+  fi
+  if [ -n "$RELEASE_TAG" ]; then
+    require_release_source_commit_on_main "$SOURCE_SHA"
+    echo "  ✓ Release source commit is reachable from origin/main"
+  fi
+fi
+echo -e "\n${BLUE}源 commit: ${SOURCE_DISPLAY_SHA}${NC}"
+
+# ── 读 sync-manifest.yaml（SOT）─────────────────────────────
+MANIFEST="$SOURCE_SYNC_DIR/sync-manifest.yaml"
+if [ ! -f "$MANIFEST" ]; then
+  echo -e "${RED}✗ sync-manifest.yaml not found at $MANIFEST${NC}"
+  exit 1
+fi
+
+# 解析 manifest 列表到 bash 数组（bash 3.2 兼容）
+MANAGED_ROOTS=()
+while IFS= read -r line; do MANAGED_ROOTS+=("$line"); done < <(yaml_list "managed_roots")
+MANAGED_FILES=()
+while IFS= read -r line; do MANAGED_FILES+=("$line"); done < <(yaml_list "managed_files")
+MANAGED_SCRIPTS=()
+while IFS= read -r line; do MANAGED_SCRIPTS+=("$line"); done < <(yaml_list "managed_scripts")
+EXCLUDED_ITEMS=()
+while IFS= read -r line; do EXCLUDED_ITEMS+=("$line"); done < <(yaml_list "excluded")
+TARGET_OWNED=()
+while IFS= read -r line; do TARGET_OWNED+=("$line"); done < <(yaml_list "target_owned_files")
+
 # ── Step 1: Clean tree 导出 ────────────────────────────────────
 step_start "Step 1/6" "Clean tree 导出..."
 
 STAGING_DIR=$(mktemp -d)
-trap 'cleanup_validation_target; rm -rf "${STAGING_DIR:-}" "${FILTERED_DIR:-}"' EXIT
+trap 'cleanup_source_sync_tree; cleanup_validation_target; rm -rf "${STAGING_DIR:-}" "${FILTERED_DIR:-}"' EXIT
 
 if [ "$DRY_RUN" = true ] || [ "$VALIDATE" = true ]; then
   # 工作目录导出（含未提交改动，用于验证）
-  git ls-files | while IFS= read -r f; do
+  git -C "$SOURCE_DIR" ls-files | while IFS= read -r f; do
     mkdir -p "$STAGING_DIR/$(dirname "$f")"
-    cp "$f" "$STAGING_DIR/$f" 2>/dev/null || true
+    cp "$SOURCE_DIR/$f" "$STAGING_DIR/$f" 2>/dev/null || true
   done
   echo "  已从工作目录导出到 staging: ${STAGING_DIR}"
 else
-  git archive HEAD | tar -x -C "$STAGING_DIR"
-  echo "  已导出到 staging: ${STAGING_DIR}"
+  git -C "$SOURCE_SYNC_DIR" archive HEAD | tar -x -C "$STAGING_DIR"
+  echo "  已从 origin/main 导出到 staging: ${STAGING_DIR}"
 fi
 
 step_done
@@ -842,7 +898,7 @@ done
 echo "  Exporting public feature docs..."
 FEATURES_EXPORT_DIR="$FILTERED_DIR/docs/features"
 mkdir -p "$FEATURES_EXPORT_DIR"
-node "$SOURCE_DIR/scripts/export-public-feature-docs.mjs" \
+node "$SOURCE_SYNC_DIR/scripts/export-public-feature-docs.mjs" \
   --features-dir "$STAGING_DIR/docs/features" \
   --output-dir "$FEATURES_EXPORT_DIR" \
   --min-tier yellow 2>&1 | while IFS= read -r line; do echo "    $line"; done
@@ -1358,7 +1414,7 @@ TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 # Written to temp file to avoid shell quoting issues with perl regex.
 echo "  Comprehensive sanitization (single-pass)..."
 # Sanitizer rules extracted to _sanitize-rules.pl (shared with sync-hotfix.sh)
-SANITIZER="$SOURCE_DIR/scripts/_sanitize-rules.pl"
+SANITIZER="$SOURCE_SYNC_DIR/scripts/_sanitize-rules.pl"
 if [ ! -f "$SANITIZER" ]; then
   echo -e "${RED}✗ _sanitize-rules.pl not found at $SANITIZER${NC}"
   exit 1
