@@ -38,6 +38,8 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
+import { extractContextEvalSignals } from './context-eval.js';
+import { buildBriefingMessage } from './format-briefing.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
@@ -141,6 +143,9 @@ export async function* routeSerial(
     while (index < worklist.length) {
       if (signal?.aborted) break;
       const catId = worklist[index]!;
+      // F148 OQ-2: briefing→invocation link + context eval
+      let briefingMessageId: string | undefined;
+      let briefingCoverageMap: import('./context-transport.js').CoverageMap | undefined;
 
       // Only pass images/uploads for the first cat (user's original target)
       const isOriginalTarget = index < targetCats.length;
@@ -293,6 +298,36 @@ export async function* routeSerial(
             timestamp: Date.now(),
           } as AgentMessage;
         }
+
+        // F148 Phase E: Auto-insert context briefing when smart window triggered (AC-E1)
+        if (inc.coverageMap) {
+          const briefingInput = buildBriefingMessage(inc.coverageMap, threadId, inc.briefingContext);
+          try {
+            const stored = await deps.messageStore.append(briefingInput);
+            briefingMessageId = stored.id;
+            briefingCoverageMap = inc.coverageMap;
+            // P1-3: Include full stored message in payload so frontend can addMessage directly
+            yield {
+              type: 'system_info' as AgentMessageType,
+              catId,
+              content: JSON.stringify({
+                type: 'context_briefing',
+                messageId: stored.id,
+                storedMessage: {
+                  id: stored.id,
+                  content: stored.content,
+                  origin: stored.origin,
+                  timestamp: stored.timestamp,
+                  extra: stored.extra,
+                },
+              }),
+              timestamp: stored.timestamp,
+            } as AgentMessage;
+          } catch {
+            // fail-open: briefing is non-critical UI enhancement
+          }
+        }
+
         const catModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
         const parts = [invocationContext, catModePrompt, bootstrapContext, mcpInstructions].filter(Boolean);
         if (inc.contextText) parts.push(inc.contextText);
@@ -352,7 +387,11 @@ export async function* routeSerial(
       let sawUserFacingSystemInfo = false;
       // #267: track errors that happened BEFORE abort — only these are real provider failures
       let hadProviderError = false;
+      // Collect error text separately for system-message persistence (F5 reload)
+      let collectedErrorText = '';
       const collectedToolEvents: StoredToolEvent[] = [];
+      // F148 OQ-2: Collect tool names for context eval signals
+      const collectedToolNames: string[] = [];
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
       const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
       // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
@@ -461,6 +500,11 @@ export async function* routeSerial(
           collectedToolEvents.push(toolEvt);
         }
 
+        // F148 OQ-2: Collect tool names for context eval
+        if (msg.type === 'tool_use' && msg.toolName) {
+          collectedToolNames.push(msg.toolName);
+        }
+
         // F150: Fire-and-forget tool usage counter
         if (msg.type === 'tool_use' && deps.toolUsageCounter && msg.catId) {
           deps.toolUsageCounter.recordToolUse(
@@ -531,7 +575,7 @@ export async function* routeSerial(
           // #267: errors before abort are real provider failures; errors after abort are cleanup
           if (!signal?.aborted) hadProviderError = true;
           if (msg.error) {
-            textContent += `${textContent ? '\n\n' : ''}[错误] ${msg.error}`;
+            collectedErrorText += `${collectedErrorText ? '\n' : ''}${msg.error}`;
           }
         }
         if (msg.metadata && !firstMetadata) {
@@ -1014,9 +1058,34 @@ export async function* routeSerial(
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
         }
+        // Update activity for error-only responses (no text/tools branch handles it)
+        if (deps.invocationDeps.threadStore) {
+          try {
+            await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, catId, !hadProviderError);
+          } catch (activityErr) {
+            log.warn({ catId: catId as string, err: activityErr }, 'updateParticipantActivity failed');
+          }
+        }
       }
-      // hadError && textContent === '' && no toolEvents → skip persistence
-      // Error events were already yielded to frontend via the stream.
+
+      // Persist error as system message so it survives F5 reload.
+      // During streaming, errors render as red badges via ephemeral frontend state.
+      // Without persistence, they vanish on page refresh.
+      if (collectedErrorText) {
+        try {
+          await deps.messageStore.append({
+            userId: 'system',
+            catId: null,
+            content: `Error: ${collectedErrorText}`,
+            mentions: [],
+            origin: 'stream',
+            timestamp: Date.now(),
+            threadId,
+          });
+        } catch (err) {
+          log.error({ catId: catId as string, err }, 'messageStore.append (error system msg) failed');
+        }
+      }
 
       // Ack cursor regardless of hadError: messages were assembled into the prompt
       // and delivered to the cat. Not acking causes infinite re-delivery on subsequent
@@ -1033,6 +1102,26 @@ export async function* routeSerial(
             log.error({ catId: catId as string, err }, 'ackCursor failed');
           }
         }
+      }
+
+      // F148 OQ-2: Log briefing→invocation link + context eval signals
+      if (briefingMessageId && ownInvocationId) {
+        const evalSignals = briefingCoverageMap
+          ? extractContextEvalSignals({
+              coverageMap: briefingCoverageMap,
+              toolNames: collectedToolNames,
+              responseTokenEstimate: estimateTokens(textContent),
+            })
+          : undefined;
+        log.info({
+          f148: 'briefing-invocation-link',
+          briefingMessageId,
+          invocationId: ownInvocationId,
+          catId,
+          threadId,
+          hadError: hadProviderError,
+          ...(evalSignals ? { eval: evalSignals } : {}),
+        });
       }
 
       // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)

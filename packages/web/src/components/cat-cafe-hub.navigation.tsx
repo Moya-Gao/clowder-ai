@@ -43,7 +43,7 @@ export const HUB_GROUPS: HubGroup[] = [
     tabs: [
       { id: 'system', label: '系统配置', icon: 'settings' },
       { id: 'env', label: '环境 & 文件', icon: 'folder' },
-      { id: 'provider-profiles', label: '账号配置', icon: 'user-cog' },
+      { id: 'accounts', label: '账号配置', icon: 'user-cog' },
       { id: 'voice', label: '语音设置', icon: 'mic' },
       { id: 'notify', label: '通知', icon: 'bell' },
     ],
@@ -53,10 +53,11 @@ export const HUB_GROUPS: HubGroup[] = [
     label: '监控与治理',
     icon: 'activity',
     color: '#5B9BD5',
-    preview: '治理 · 健康 · 救援 · 命令速查',
+    preview: '治理 · 健康 · 记忆 · 救援 · 命令速查',
     tabs: [
       { id: 'governance', label: '治理看板', icon: 'shield' },
       { id: 'health', label: '健康', icon: 'heart-pulse' },
+      { id: 'memory', label: '记忆状态', icon: 'brain' },
       { id: 'rescue', label: '布偶猫救援', icon: 'activity' },
       { id: 'commands', label: '命令速查', icon: 'terminal' },
     ],

@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-30
+> 维护者：三猫 | 最后更新：2026-03-31
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -37,7 +37,6 @@ created: 2026-02-26
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | Ragdoll | internal | [F093](features/F093-cats-and-u-world-engine.md) |
 | F100 | Self-Evolution — 猫猫自我进化机制（行为层 + 知识对象化） | in-progress | Ragdoll | internal | [F100](features/F100-self-evolution.md) |
 | F101 | Mode v2 — 游戏系统引擎 + 狼人杀 | in-progress | Ragdoll | internal | [F101](features/F101-mode-v2-game-engine.md) |
-| F102 | 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | in-progress | Ragdoll | internal | [F102](features/F102-memory-adapter-refactor.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | Ragdoll | internal | [F104](features/F104-local-omni-perception.md) |
 | F107 | 脑门贴词 — 坏猫战术推理游戏 #1 | spec | Ragdoll | internal | [F107](features/F107-headband-guess-game.md) |
 | F109 | Message Actions 修复与增强 — 软删除/Branch/编辑/通知 | in-progress | Ragdoll | internal | [F109](features/F109-message-actions-overhaul.md) |
@@ -49,11 +48,17 @@ created: 2026-02-26
 | F127 | 猫猫管理重构 — 账户配置与猫猫实例分离，动态创建猫 + 自定义别名 @ 路由 | in-progress | 金渐层 + Maine Coon | community [#109](https://github.com/zts212653/clowder-ai/issues/109) | [F127](features/F127-cat-instance-management.md) |
 | F128 | Cat-Initiated Thread Creation — 猫程序化创建 Thread | spec | 待定 | community [#82](https://github.com/zts212653/clowder-ai/issues/82) | [F128](features/F128-cat-create-thread.md) |
 | F129 | Pack System — Multi-Agent 共创世界的 Mod 生态 | in-progress | Ragdoll | internal | [F129](features/F129-pack-system-multi-agent-mod.md) |
-| F132 | DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | in-progress | Ragdoll | internal | [F132](features/F132-dingtalk-wecom-gateway.md) |
 | F135 | 狸花猫开箱即用 — DARE Out-of-the-Box | spec | bouillipx | community [#195](https://github.com/zts212653/clowder-ai/issues/195) | [F135](features/F135-dare-ootb.md) |
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | Ragdoll | internal | [F143](features/F143-hostable-agent-runtime.md) |
 | F144 | PPT Forge — AI 演示文稿生成引擎 | in-progress | 三猫 | internal | [F144](features/F144-ppt-forge.md) |
 | F146 | MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | spec | Maine Coon + Ragdoll | internal | [F146](features/F146-mcp-marketplace-control-plane.md) |
 | F147 | i18n — Hub 界面中英文切换 | idea | 待定 | internal | — |
-| F151 | XiaoYi Channel Gateway — 小艺渠道 OpenClaw 模式接入 | spec | Ragdoll | internal | [F151](features/F151-xiaoyi-channel-gateway.md) |
+| F149 | ACP Runtime Operations — 项目级进程池 + Session Lease | spec | Maine Coon | internal | [F149](features/F149-acp-runtime-operations.md) |
+| F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | spec | Ragdoll | internal | [F152](features/F152-expedition-memory.md) |
+| F153 | Observability Infrastructure — 运行时可观测基础设施 | spec | Community + Ragdoll | community [#388](https://github.com/zts212653/clowder-ai/issues/388) | [F153](features/F153-observability-infra.md) |
+| F154 | Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向 | spec | Ragdoll | community [#385](https://github.com/zts212653/clowder-ai/issues/385) [#391](https://github.com/zts212653/clowder-ai/pull/391) | [F154](features/F154-cat-routing-personalization.md) |
+| F155 | Scene-Based Guidance Engine — 场景式交互引导 | needs-discussion | 待定 | internal | [F155](features/F155-scene-guidance-engine.md) |
+| F156 | WebSocket Security Hardening — 实时通道安全加固 | in-progress | Ragdoll | internal | [F156](features/F156-websocket-security-hardening.md) |
+
+

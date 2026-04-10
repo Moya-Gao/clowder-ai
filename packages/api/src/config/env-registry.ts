@@ -183,12 +183,11 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'ANTHROPIC_API_KEY',
-    defaultValue: '(未设置 → 使用 proxy profile)',
-    description: 'Anthropic API Key（直连模式；proxy 模式由 provider profile 注入）',
+    defaultValue: '(未设置 → 由 accounts/credentials 系统注入)',
+    description: 'Anthropic API Key（#340 P6: 由统一账户系统管理，不再从 .env 读取）',
     category: 'server',
     sensitive: true,
     hubVisible: false,
-    exampleRecommended: true,
   },
   {
     name: 'LOG_LEVEL',
@@ -256,7 +255,7 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'CAT_CAFE_GLOBAL_CONFIG_ROOT',
     defaultValue: '(未设置 → homedir())',
-    description: '全局配置根目录（cat catalog / credentials / provider profiles 查找路径）',
+    description: '全局配置根目录（accounts / credentials 查找路径的父目录，实际路径为 ${ROOT}/.cat-cafe/）',
     category: 'server',
     sensitive: false,
     hubVisible: false,
@@ -299,7 +298,8 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'MESSAGE_TTL_SECONDS',
     defaultValue: '604800 (7天)',
-    description: '消息过期时间',
+    description:
+      '消息过期时间（秒）。默认 604800（7天）。设为 0 或负数 → 消息永不过期。注意：过期的 Redis 消息不影响已索引的 evidence_passages（Phase I 保证永久性）。',
     category: 'storage',
     sensitive: false,
   },
@@ -572,6 +572,14 @@ export const ENV_VARS: EnvDefinition[] = [
     name: 'CAT_CAFE_CAT_ID',
     defaultValue: '(运行时注入)',
     description: '当前猫 ID（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_DIAGNOSTICS',
+    defaultValue: '(未设置)',
+    description: '设为 1 启用 /api/diagnostics/* 端点（调试用，默认关闭）',
     category: 'cli',
     sensitive: false,
     hubVisible: false,
@@ -881,11 +889,10 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'OPENAI_API_KEY',
-    defaultValue: '(未设置)',
-    description: 'OpenAI API Key (api_key 模式用；env-owning，不走 accounts/credentials)',
+    defaultValue: '(未设置 → 由 accounts/credentials 系统注入)',
+    description: 'OpenAI API Key（#340 P6: 由统一账户系统管理，子进程通过 callbackEnv 注入）',
     category: 'codex',
     sensitive: true,
-    runtimeEditable: true,
   },
 
   // --- dare ---
@@ -895,12 +902,11 @@ export const ENV_VARS: EnvDefinition[] = [
   // --- gemini ---
   {
     name: 'GOOGLE_API_KEY',
-    defaultValue: '(未设置)',
-    description: 'Google API Key（暹罗猫 Gemini 直连用）',
+    defaultValue: '(未设置 → 由 accounts/credentials 系统注入)',
+    description: 'Google API Key（#340 P6: 由统一账户系统管理，子进程通过 callbackEnv 注入）',
     category: 'gemini',
     sensitive: true,
     hubVisible: false,
-    exampleRecommended: true,
   },
   {
     name: 'GEMINI_ADAPTER',
@@ -1107,6 +1113,20 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'F102_DURABLE_CANDIDATES',
+    defaultValue: 'off',
+    description: 'Phase G candidate 提取 (off/on)，on = 摘要时提取 durable knowledge 候选到 MarkerQueue',
+    category: 'evidence',
+    sensitive: false,
+  },
+  {
+    name: 'F102_TOPIC_SEGMENTS',
+    defaultValue: 'off',
+    description: 'Phase G topic 分段 (off/on)，on = 摘要按话题切分多个 segment',
+    category: 'evidence',
+    sensitive: false,
+  },
+  {
     name: 'EMBED_URL',
     defaultValue: 'http://127.0.0.1:9880',
     description: 'Embedding 服务地址（独立 Python GPU 进程 scripts/embed-api.py）',
@@ -1117,6 +1137,13 @@ export const ENV_VARS: EnvDefinition[] = [
     name: 'EVIDENCE_DB',
     defaultValue: '{repoRoot}/evidence.sqlite',
     description: 'F102 SQLite 数据库路径',
+    category: 'evidence',
+    sensitive: false,
+  },
+  {
+    name: 'GLOBAL_KNOWLEDGE_DB',
+    defaultValue: '~/.cat-cafe/global_knowledge.sqlite',
+    description: 'F-4: 全局知识 SQLite 路径（Skills + MEMORY.md 编译产物）',
     category: 'evidence',
     sensitive: false,
   },

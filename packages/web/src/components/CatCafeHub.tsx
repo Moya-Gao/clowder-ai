@@ -14,6 +14,7 @@ import {
   resolveRequestedHubTab,
 } from './cat-cafe-hub.navigation';
 import { CatOverviewTab, type ConfigData, SystemTab } from './config-viewer-tabs';
+import { HubAccountsTab } from './HubAccountsTab';
 import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubCatEditor } from './HubCatEditor';
 import { HubClaudeRescueSection } from './HubClaudeRescueSection';
@@ -22,7 +23,7 @@ import { HubCommandsTab } from './HubCommandsTab';
 import { HubEnvFilesTab } from './HubEnvFilesTab';
 import { HubGovernanceTab } from './HubGovernanceTab';
 import { HubLeaderboardTab } from './HubLeaderboardTab';
-import { HubProviderProfilesTab } from './HubProviderProfilesTab';
+import { HubMemoryTab } from './HubMemoryTab';
 import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
 import { HubToolUsageTab } from './HubToolUsageTab';
 import { PushSettingsPanel } from './PushSettingsPanel';
@@ -242,11 +243,12 @@ export function CatCafeHub() {
             {tab === 'routing' && <HubRoutingPolicyTab />}
             {tab === 'tool-usage' && <HubToolUsageTab />}
             {tab === 'env' && <HubEnvFilesTab />}
-            {tab === 'provider-profiles' && <HubProviderProfilesTab />}
+            {tab === 'accounts' && <HubAccountsTab />}
             {tab === 'voice' && <VoiceSettingsPanel />}
             {tab === 'notify' && <PushSettingsPanel />}
             {tab === 'governance' && <HubGovernanceTab />}
             {tab === 'health' && <BrakeSettingsPanel />}
+            {tab === 'memory' && <HubMemoryTab />}
             {tab === 'rescue' && <HubClaudeRescueSection />}
             {tab === 'leaderboard' && <HubLeaderboardTab />}
           </div>

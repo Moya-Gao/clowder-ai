@@ -143,6 +143,15 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 
 完成一个可验证的子任务就提交。
 
+**Write ≠ 持久化**：
+- `Write`/`Edit` 只是把内容写到文件系统，不等于持久化
+- 如果一个产出需要跨 session 保留，或需要被其他猫 / workflow / 人类后续消费，那么在任务完成前必须 commit
+
+**共享工作目录中禁止对 untracked 文件做破坏性清理**：
+- `git stash -u`、`git clean` 等命令会删除所有 untracked 文件，在多 session 共享工作目录时会静默破坏其他 session 的产出
+- 执行这类操作前必须先检查 untracked 文件并明确保全（commit 或确认无需保留）
+- **只用 `git stash`（不带 -u）**，或先 commit untracked 文件再 stash
+
 **签名（强制）**：commit message body 必须带猫猫签名，格式 `[昵称/模型🐾]`。
 签名必须包含**模型型号**，不能只写 `[Ragdoll🐾]`——同族有多个模型（Opus 4.6 / Opus 4.5 / Sonnet），不带型号无法区分是谁干的。
 签名表见 `refs/commit-signatures.md`。示例：`[Ragdoll/Opus-46🐾]`、`[Maine Coon/GPT-52🐾]`。
@@ -174,7 +183,7 @@ commit body 补一行 `Why:` 说明决策理由。
 
 每次讨论收敛后必须过清单：
 1. 否决理由 → 写回 ADR
-2. 踩坑教训 → lessons-learned.md
+2. 踩坑教训 → public-lessons.md
 3. 操作规则 → 对应猫猫指引文件
 
 ## 9. 愿景守护（Anti-Drift Protocol）
@@ -377,6 +386,19 @@ git show :3:<path>   # THEIRS（main 上的版本）
 - **查证据链**：.md 只是入口——顺藤摸瓜查 commit、PR、代码、讨论，直到理解全貌
 - **不断章取义**：一个文件可能是链条的一环，看到引用/依赖就跟进，不要半路停下
 - **证据不够就说**："我还没查完" / "不确定" — 永远好过编一个看似合理的答案
+
+### 16a. Runtime 状态断言需要证据
+
+**禁止无证据说"没更新/没编译/没重启/还是旧代码"。**
+
+这不是"懒"，是**推卸责任**——在没有证据的情况下把铲屎官的操作当成你的 bug 的替罪羊。启动脚本自动拉代码编译，"没更新"本来就极少发生。
+
+遇到 runtime 行为异常时，在说出任何诊断判断之前：
+1. 查 PID + 启动时间（确认是哪个进程）
+2. 查 runtime HEAD 是否包含预期 commit
+3. grep 当前 PID 日志确认实际行为
+
+**三件套没完成 → 只能说"我还没查完"。** 详见 `debugging` skill 的 Runtime Preflight Gate。
 
 ## 17. 决策漏斗：该问的问，不该问的别问
 
