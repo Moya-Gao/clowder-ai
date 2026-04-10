@@ -1627,7 +1627,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearAllThreadActiveInvocations: (threadId) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        return { activeInvocations: {}, hasActiveInvocation: false };
+        const existingTs = state.threadStates[state.currentThreadId];
+        return {
+          activeInvocations: {},
+          hasActiveInvocation: false,
+          threadStates: {
+            ...state.threadStates,
+            [state.currentThreadId]: {
+              ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
+              lastActivity: Date.now(),
+            },
+          },
+        };
       }
       const existing = state.threadStates[threadId];
       if (!existing) return state;
@@ -1913,9 +1924,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   /** Clear hasActiveInvocation for a specific thread (active or background) */
   clearThreadActiveInvocation: (threadId) =>
     set((state) => {
-      // Active thread — clear flat state
+      // Active thread — clear flat state + stamp completion time
       if (threadId === state.currentThreadId) {
-        return { hasActiveInvocation: false, activeInvocations: {} };
+        const existingTs = state.threadStates[state.currentThreadId];
+        return {
+          hasActiveInvocation: false,
+          activeInvocations: {},
+          threadStates: {
+            ...state.threadStates,
+            [state.currentThreadId]: {
+              ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
+              lastActivity: Date.now(),
+            },
+          },
+        };
       }
       // Background thread — update in threadStates map (no-op if unknown)
       const ts = state.threadStates[threadId];
@@ -1923,7 +1945,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         threadStates: {
           ...state.threadStates,
-          [threadId]: { ...ts, hasActiveInvocation: false, activeInvocations: {} },
+          [threadId]: { ...ts, hasActiveInvocation: false, activeInvocations: {}, lastActivity: Date.now() },
         },
       };
     }),
@@ -1939,9 +1961,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         catStatuses: {} as Record<string, CatStatusType>,
       };
 
-      // Active thread — clear flat state
+      // Active thread — clear flat state + stamp completion time
       if (threadId === state.currentThreadId) {
-        return resetPatch;
+        const existingTs = state.threadStates[state.currentThreadId];
+        return {
+          ...resetPatch,
+          threadStates: {
+            ...state.threadStates,
+            [state.currentThreadId]: {
+              ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
+              lastActivity: Date.now(),
+            },
+          },
+        };
       }
 
       // Background thread — update in threadStates map (no-op if unknown)

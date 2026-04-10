@@ -512,6 +512,51 @@ describe('chatStore multi-thread state', () => {
       const saved = useChatStore.getState().threadStates['thread-a']!;
       expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeClear);
     });
+
+    it('stamps completion time on clearAllThreadActiveInvocations for active thread', () => {
+      const oldMsgTs = Date.now() - 30_000;
+      const msg: ChatMessage = { id: 'cancelled', type: 'assistant', content: 'partial', timestamp: oldMsgTs };
+      useChatStore.getState().addMessage(msg);
+      useChatStore.getState().addActiveInvocation('inv-3', 'opus', 'execute');
+
+      const beforeClear = Date.now();
+      useChatStore.getState().clearAllThreadActiveInvocations('thread-a');
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      useChatStore.getState().setCurrentThread('thread-b');
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeClear);
+    });
+
+    it('stamps completion time on clearThreadActiveInvocation for active thread', () => {
+      const oldMsgTs = Date.now() - 30_000;
+      const msg: ChatMessage = { id: 'done', type: 'assistant', content: 'ok', timestamp: oldMsgTs };
+      useChatStore.getState().addMessage(msg);
+      useChatStore.getState().addActiveInvocation('inv-4', 'opus', 'execute');
+
+      const beforeClear = Date.now();
+      useChatStore.getState().clearThreadActiveInvocation('thread-a');
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      useChatStore.getState().setCurrentThread('thread-b');
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeClear);
+    });
+
+    it('stamps completion time on resetThreadInvocationState for active thread', () => {
+      const oldMsgTs = Date.now() - 30_000;
+      const msg: ChatMessage = { id: 'reset', type: 'assistant', content: 'ok', timestamp: oldMsgTs };
+      useChatStore.getState().addMessage(msg);
+      useChatStore.getState().addActiveInvocation('inv-5', 'opus', 'execute');
+
+      const beforeReset = Date.now();
+      useChatStore.getState().resetThreadInvocationState('thread-a');
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      useChatStore.getState().setCurrentThread('thread-b');
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeReset);
+    });
   });
 
   describe('unread suppression (persistent badge fix)', () => {
