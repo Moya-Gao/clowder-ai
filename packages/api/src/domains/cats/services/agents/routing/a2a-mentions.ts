@@ -144,8 +144,7 @@ const BEFORE_HANDOFF_RE = /(?:ready\s+for|交接给?|转给|请|帮)\s*$/i;
  * Chinese verbs use negative lookahead to exclude completion suffixes (过/了/完/好/掉),
  * which turn commands into narrative: "@codex 处理过" ≠ "@codex 处理一下".
  */
-const AFTER_HANDOFF_RE =
-  /^\s*(?:review|check|fix|merge|(?:确认|处理|来处理|来看)(?![过了完好掉])|看一?下|帮忙|请)/i;
+const AFTER_HANDOFF_RE = /^\s*(?:review|check|fix|merge|(?:确认|处理|来处理|来看)(?![过了完好掉])|看一?下|帮忙|请)/i;
 
 export function detectInlineActionMentions(
   text: string,
@@ -155,8 +154,7 @@ export function detectInlineActionMentions(
   if (!text) return [];
 
   const stripped = text.replace(/```[\s\S]*?```/g, '');
-  const allConfigs =
-    Object.keys(catRegistry.getAllConfigs()).length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
+  const allConfigs = Object.keys(catRegistry.getAllConfigs()).length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
 
   const entries: MentionPatternEntry[] = [];
   for (const [id, config] of Object.entries(allConfigs)) {
@@ -188,10 +186,12 @@ export function detectInlineActionMentions(
         if (idx < 0) break;
         searchFrom = idx + 1;
         const charAfter = normalized[idx + entry.pattern.length];
-        const isBoundary =
-          !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
+        const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
         if (!isBoundary) continue;
-        if (routedSet.has(entry.catId)) { lineMatched = true; break; }
+        if (routedSet.has(entry.catId)) {
+          lineMatched = true;
+          break;
+        }
         const before = normalized.slice(0, idx);
         const after = normalized.slice(idx + entry.pattern.length);
         if (!BEFORE_HANDOFF_RE.test(before) && !AFTER_HANDOFF_RE.test(after)) continue;
