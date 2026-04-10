@@ -40,7 +40,7 @@ status: prompts-v2
 
 | 猫 | 毛色 | 眼睛 | 项圈 | 吊坠 | 性格道具 |
 |----|------|------|------|------|---------|
-| 宪宪（布偶猫） | **蓝双山猫纹 (Blue Bicolor Lynx Point)**：奶白色身体为主 + 蓝灰色重点色区域（头顶、耳朵、尾巴、爪垫）带**条纹纹路**，蓬松长毛 | **蓝色**大圆眼 | **紫色** | **金色星星** ⭐ | 胖嘟嘟圆滚滚 |
+| 宪宪（布偶猫） | **蓝双山猫纹 (Blue Bicolor Lynx Point)**：奶白色身体为主 + 蓝灰色重点色区域（头顶、耳朵、尾巴、爪垫）带**条纹纹路**，蓬松长毛 | **蓝色**大圆眼 | **紫色** | **金色星星** ⭐ | 温柔优雅，蓬松但匀称 |
 | 砚砚（缅因猫） | **银灰色经典虎斑**：银灰底色 + 深灰条纹，长毛蓬松，体型大 | **琥珀金色** | **青绿色** | **金色 "GPT" 字样** | 端坐如学者，旁边有书 |
 | 烁烁（暹罗猫） | **经典暹罗重点色**：奶油白身体 + 深巧克力色面具/耳/爪/尾 | **蓝色** | **蓝色** | **金色双子座 ♊ 符号** | 爪子握着**小画笔** 🎨 |
 
@@ -66,8 +66,8 @@ Bottom-left: a Ragdoll cat (宪宪), Blue Bicolor Lynx Point pattern — mostly
 creamy white body with blue-gray colorpoint areas on head, ears, tail, and
 paw tips, the gray areas showing visible TABBY STRIPES (lynx markings).
 Fluffy long coat. Big round BLUE eyes with a gentle, calm expression.
-Wearing a purple collar with a gold star ⭐ pendant. Chubby and round,
-cheeks squished against the others.
+Wearing a purple collar with a gold star ⭐ pendant. Soft and fluffy (NOT
+fat — elegant ragdoll proportions), cheeks squished against the others.
 
 Bottom-right: a large Maine Coon cat (砚砚) with SILVER-GRAY classic tabby
 markings — silver-gray base coat with darker gray stripes, impressive ear
@@ -126,7 +126,7 @@ Middle: a Ragdoll cat (宪宪), Blue Bicolor Lynx Point — mostly creamy white
 fluffy fur with blue-gray tabby-striped colorpoints on head, ears, and tail.
 Looking mildly squished but serenely accepting its fate. Big round BLUE
 eyes half-closed in zen-like patience. Purple collar with gold star pendant
-slightly askew from the weight above. Chubby and round.
+slightly askew from the weight above. Fluffy and soft, elegant proportions.
 
 Bottom: a massive Maine Coon cat (砚砚) as the sturdy foundation —
 magnificent silver-gray tabby coat, dramatic ear tufts, powerful build.
