@@ -175,19 +175,19 @@ interface ScannedEvidence {
 - [x] AC-A5: 大仓库（>10k 文件）扫描完成时间 < 60 秒（只扫 authoritative + derived）
 - [x] AC-A6: 检索契约：`IEvidenceStore.search()` 支持 `provenance_tier` filter；authoritative 结果默认 boost 排序权重（三层不混成平面）
 
-### Phase B（Expedition Bootstrap Orchestrator）
-- [ ] AC-B1: 猫进入一个没有 `evidence.sqlite` 的外部项目时，自动触发 bootstrap
-- [ ] AC-B2: Bootstrap 产出"项目概况摘要"（技术栈、目录结构、核心模块、已有文档列表）
-- [ ] AC-B3: 已有 `evidence.sqlite` 的项目不重复 bootstrap（幂等性）
-- [ ] AC-B4: Bootstrap 挂载到 F070 的治理 bootstrap 链路（`projects-setup` capability orchestrator）
-- [ ] AC-B5: 幂等条件基于 repo HEAD hash + 上次扫描时间（fingerprint/freshness），不是单纯 db 存在检测
-- [ ] AC-B6: Bootstrap 摘要先走结构化提取，不强依赖 LLM 额度
-- [ ] AC-B7: **index_state 五态状态机**：missing → building → ready / stale / failed。UI 和 API 统一基于状态机判断，不用文件存在检测
-- [ ] AC-B8: **老用户路径（场景 B）**：已做过治理 bootstrap 但无记忆索引的项目，猫进入时主动提示确认卡（含扫描范围、预计耗时、本地索引说明）；用户可选"稍后"并 snooze（7 天冷却，不反复打扰）
-- [ ] AC-B9: **新项目路径（场景 A）**：ProjectSetupCard 治理 bootstrap 完成后，自动串联记忆 bootstrap 步骤
-- [ ] AC-B10: **非阻塞扫描 + 进度可见**：扫描过程通过 WebSocket 推送阶段化进度（发现文件→解析文档→建立索引→完成），前端可折叠为悬浮药丸，不阻塞对话
-- [ ] AC-B11: **摘要卡交互**：扫描完成后推结构化摘要（仓库画像 + tier 覆盖率 + 关键文档 Top N + 风险提示）+ CTA 按钮（搜索 / MemoryHub / 补文档建议）
-- [ ] AC-B12: **安全护栏**：禁止 symlink 越界扫描、排除 secrets 路径和二进制大文件、大仓自动 skipSoftClues + 文件数/字节预算超时
+### Phase B（Expedition Bootstrap Orchestrator）✅
+- [x] AC-B1: 猫进入一个没有 `evidence.sqlite` 的外部项目时，自动触发 bootstrap
+- [x] AC-B2: Bootstrap 产出"项目概况摘要"（技术栈、目录结构、核心模块、已有文档列表）
+- [x] AC-B3: 已有 `evidence.sqlite` 的项目不重复 bootstrap（幂等性）
+- [x] AC-B4: Bootstrap 挂载到 F070 的治理 bootstrap 链路（`projects-setup` capability orchestrator）
+- [x] AC-B5: 幂等条件基于 repo HEAD hash + 上次扫描时间（fingerprint/freshness），不是单纯 db 存在检测
+- [x] AC-B6: Bootstrap 摘要先走结构化提取，不强依赖 LLM 额度
+- [x] AC-B7: **index_state 五态状态机**：missing → building → ready / stale / failed。UI 和 API 统一基于状态机判断，不用文件存在检测
+- [x] AC-B8: **老用户路径（场景 B）**：已做过治理 bootstrap 但无记忆索引的项目，猫进入时主动提示确认卡（含扫描范围、预计耗时、本地索引说明）；用户可选"稍后"并 snooze（7 天冷却，不反复打扰）
+- [x] AC-B9: **新项目路径（场景 A）**：ProjectSetupCard 治理 bootstrap 完成后，自动串联记忆 bootstrap 步骤
+- [x] AC-B10: **非阻塞扫描 + 进度可见**：扫描过程通过 WebSocket 推送阶段化进度（发现文件→解析文档→建立索引→完成），前端可折叠为悬浮药丸，不阻塞对话
+- [x] AC-B11: **摘要卡交互**：扫描完成后推结构化摘要（仓库画像 + tier 覆盖率 + 关键文档 Top N + 风险提示）+ CTA 按钮（搜索 / MemoryHub / 补文档建议）
+- [x] AC-B12: **安全护栏**：禁止 symlink 越界扫描、排除 secrets 路径和二进制大文件、大仓自动 skipSoftClues + 文件数/字节预算超时
 
 ### Phase C（Global Lesson Distillation）
 - [ ] AC-C1: 外部项目的 lesson/decision 可以被标记 `generalizable: true/false`
@@ -271,6 +271,7 @@ interface ScannedEvidence {
 | 2026-04-10 | Phase A merged (PR #1043)：GenericRepoScanner + provenance 三层扫描 + CatCafeScanner 抽取 + 检索 tier filter |
 | 2026-04-10 | Phase B UX 讨论收敛（布偶猫×缅因猫×暹罗猫）：index_state 状态机 + 三场景 UX + 安全护栏，新增 AC-B7~B12 + KD-12~15 |
 | 2026-04-10 | Phase B Design Gate 通过（铲屎官审核）：组件结构+交互 OK，配色实现时换 coral 色系，衔接 PR #299 画风。设计稿 `designs/F152-expedition-bootstrap.pen` |
+| 2026-04-10 | Phase B merged (PR #1067)：IndexStateManager 五态状态机 + ExpeditionBootstrapService + API endpoints + WebSocket 进度 + 前端组件 + F070 治理链串联 |
 
 ## Review Gate
 
