@@ -153,7 +153,11 @@ function recoverStreamingMessage(
 function findBackgroundCallbackReplacementTarget(
   msg: BackgroundAgentMessage,
   options: HandleBackgroundMessageOptions,
-): { id: string; invocationId: string | null; matchedByInvocationId: boolean } | null {
+): {
+  id: string;
+  invocationId: string | null;
+  matchKind: 'exact' | 'active_invocationless' | 'finalized_fallback';
+} | null {
   const invocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
 
   const threadMessages = options.store.getThreadState(msg.threadId).messages;
@@ -168,7 +172,7 @@ function findBackgroundCallbackReplacementTarget(
         m.origin === 'stream' &&
         m.extra?.stream?.invocationId === invocationId
       ) {
-        return { id: m.id, invocationId, matchedByInvocationId: true };
+        return { id: m.id, invocationId, matchKind: 'exact' };
       }
     }
   }
@@ -190,7 +194,7 @@ function findBackgroundCallbackReplacementTarget(
       m.isStreaming &&
       !m.extra?.stream?.invocationId
     ) {
-      return { id: m.id, invocationId: invocationId ?? null, matchedByInvocationId: false };
+      return { id: m.id, invocationId: invocationId ?? null, matchKind: 'active_invocationless' };
     }
   }
   // #586 follow-up: Check finalizedBgRefs — the done handler records the exact
@@ -211,7 +215,7 @@ function findBackgroundCallbackReplacementTarget(
         if (msg.content !== undefined && finalized.content !== undefined && finalized.content !== msg.content)
           return null;
       }
-      return { id: finalized.id, invocationId: invocationId ?? null, matchedByInvocationId: false };
+      return { id: finalized.id, invocationId: invocationId ?? null, matchKind: 'finalized_fallback' };
     }
   }
 
@@ -369,9 +373,9 @@ export function handleBackgroundAgentMessage(
         options.finalizedBgRefs.delete(streamKey);
         if (explicitInvocationId) {
           options.replacedInvocations.set(streamKey, explicitInvocationId);
-        } else if (replacementTarget.matchedByInvocationId && replacementTarget.invocationId) {
-          // Callback-first flow: inferred current invocation matched its own
-          // stream bubble, so later stream chunks should still be suppressed.
+        } else if (replacementTarget.matchKind !== 'finalized_fallback' && replacementTarget.invocationId) {
+          // Exact or active invocationless placeholder matches still belong to the
+          // current invocation, so later stream chunks should be suppressed.
           options.replacedInvocations.set(streamKey, replacementTarget.invocationId);
         }
         finalMsgId = cbId;

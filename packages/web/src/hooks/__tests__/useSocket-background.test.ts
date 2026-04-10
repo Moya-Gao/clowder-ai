@@ -696,6 +696,56 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.content).toBe('Callback arrived before stream');
     });
 
+    it('keeps suppressing late background stream chunks after callback replaces an invocationless placeholder', () => {
+      const now = Date.now();
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', {
+        invocationId: 'inv-bg-invocationless-placeholder',
+      });
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-invocationless-placeholder',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'thinking...',
+        origin: 'stream',
+        isStreaming: true,
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', {
+        id: 'bg-stream-invocationless-placeholder',
+        threadId: 'thread-bg',
+        catId: 'opus',
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: 'final answer',
+        messageId: 'bg-callback-invocationless-placeholder',
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: ' late chunk from same invocation',
+        timestamp: now + 2,
+      });
+
+      expect(useChatStore.getState().getThreadState('thread-bg').messages).toEqual([
+        expect.objectContaining({
+          id: 'bg-callback-invocationless-placeholder',
+          catId: 'opus',
+          content: 'final answer',
+          origin: 'callback',
+          isStreaming: false,
+        }),
+      ]);
+    });
+
     it('drops late background stream chunks after callback replacement', () => {
       configureDebug({ enabled: true });
       ensureWindowDebugApi();

@@ -544,6 +544,64 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     expect(mockAppendToMessage).not.toHaveBeenCalled();
   });
 
+  it('keeps suppressing late stream chunks after callback replaces an invocationless placeholder', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    storeState.catInvocations = { opus: { invocationId: 'inv-invocationless-placeholder' } };
+    storeState.messages.push({
+      id: 'msg-invocationless-placeholder',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'thinking...',
+      isStreaming: true,
+      origin: 'stream',
+      timestamp: Date.now() - 1000,
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'thinking...',
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'final answer',
+      });
+    });
+
+    expect(mockPatchMessage).toHaveBeenCalledWith(
+      'msg-invocationless-placeholder',
+      expect.objectContaining({
+        content: 'final answer',
+        origin: 'callback',
+        isStreaming: false,
+      }),
+    );
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: ' late chunk from same invocation',
+      });
+    });
+
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+  });
+
   it('thread switch clears finalizedStreamRef (resetRefs still works)', () => {
     act(() => {
       root.render(React.createElement(Harness));

@@ -260,24 +260,30 @@ export function useAgentMessages() {
     [getCurrentInvocationIdForCat],
   );
 
-  const findCallbackReplacementTarget = useCallback((catId: string, invocationId: string): { id: string } | null => {
-    const currentMessages = useChatStore.getState().messages;
-    for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
-      const msg = currentMessages[i];
-      if (
-        msg?.type === 'assistant' &&
-        msg.catId === catId &&
-        msg.origin === 'stream' &&
-        msg.extra?.stream?.invocationId === invocationId
-      ) {
-        return { id: msg.id };
+  const findCallbackReplacementTarget = useCallback(
+    (catId: string, invocationId: string): { id: string; matchKind: 'exact' } | null => {
+      const currentMessages = useChatStore.getState().messages;
+      for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
+        const msg = currentMessages[i];
+        if (
+          msg?.type === 'assistant' &&
+          msg.catId === catId &&
+          msg.origin === 'stream' &&
+          msg.extra?.stream?.invocationId === invocationId
+        ) {
+          return { id: msg.id, matchKind: 'exact' };
+        }
       }
-    }
-    return null;
-  }, []);
+      return null;
+    },
+    [],
+  );
 
   const findInvocationlessStreamPlaceholder = useCallback(
-    (catId: string, callbackContent?: string): { id: string } | null => {
+    (
+      catId: string,
+      callbackContent?: string,
+    ): { id: string; matchKind: 'active_invocationless' | 'finalized_fallback' } | null => {
       const currentMessages = useChatStore.getState().messages;
       const activeId = activeRefs.current.get(catId)?.id;
 
@@ -291,7 +297,7 @@ export function useAgentMessages() {
             !msg.extra?.stream?.invocationId,
         );
         if (activeMessage) {
-          return { id: activeMessage.id };
+          return { id: activeMessage.id, matchKind: 'active_invocationless' };
         }
       }
 
@@ -305,7 +311,7 @@ export function useAgentMessages() {
           msg.isStreaming &&
           !msg.extra?.stream?.invocationId
         ) {
-          return { id: msg.id };
+          return { id: msg.id, matchKind: 'active_invocationless' };
         }
       }
 
@@ -327,7 +333,7 @@ export function useAgentMessages() {
             if (Date.now() - finalizedEntry.fencedAt > LATE_CALLBACK_GRACE_MS) return null;
             if (callbackContent !== undefined && finalized.content !== callbackContent) return null;
           }
-          return { id: finalized.id };
+          return { id: finalized.id, matchKind: 'finalized_fallback' };
         }
       }
 
@@ -472,9 +478,9 @@ export function useAgentMessages() {
             finalizedStreamRef.current.delete(msg.catId);
             if (explicitInvocationId) {
               replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
-            } else if (exactReplacementTarget && inferredInvocationId) {
-              // Callback-first flow: inferred current invocation matched its own
-              // stream bubble, so later stream chunks should still be suppressed.
+            } else if (replacementTarget?.matchKind !== 'finalized_fallback' && inferredInvocationId) {
+              // Exact or active invocationless placeholder matches still belong to
+              // the current invocation, so later stream chunks should be suppressed.
               replacedInvocationsRef.current.set(msg.catId, inferredInvocationId);
             }
           } else {
