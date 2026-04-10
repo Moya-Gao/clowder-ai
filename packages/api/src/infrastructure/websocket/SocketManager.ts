@@ -125,6 +125,13 @@ export class SocketManager {
           log.warn({ socketId: socket.id, room, userId }, 'Room ACL denied: cannot join another user room');
           return;
         }
+        // F156 B-3: Global rooms carry metadata (file paths, worktreeIds, preview ports).
+        // Require authenticated userId. In single-user mode userId is always set;
+        // F077 will add workspace membership check for multi-user.
+        if ((room === 'workspace:global' || room === 'preview:global') && !userId) {
+          log.warn({ socketId: socket.id, room }, 'Global room requires authentication');
+          return;
+        }
         socket.join(room);
         log.info({ socketId: socket.id, room }, 'Joined room');
       });
@@ -155,10 +162,19 @@ export class SocketManager {
           // F108 + F086: Also abort multi-mention dispatches for this specific cat
           this.multiMentionOrchestrator?.abortBySlot?.(data.threadId, data.catId);
         } else {
-          // Backward compat: cancel all slots in thread
-          this.invocationTracker.cancelAll(data.threadId);
-          this.multiMentionOrchestrator?.abortByThread(data.threadId);
-          log.info({ threadId: data.threadId, socketId: socket.id, userId }, 'Cancelled all invocations');
+          // F156: Pass userId to cancelAll so it only cancels this user's invocations.
+          // cancelAll returns the catIds that were actually cancelled, so we can
+          // scope the orchestrator abort to just those cats — not the entire thread.
+          const cancelledCatIds = this.invocationTracker.cancelAll(data.threadId, userId);
+          // F156 P1-fix: Use per-cat abortBySlot instead of thread-wide abortByThread.
+          // abortByThread would kill other users' multi-mention dispatches too.
+          for (const catId of cancelledCatIds) {
+            this.multiMentionOrchestrator?.abortBySlot?.(data.threadId, catId);
+          }
+          log.info(
+            { threadId: data.threadId, socketId: socket.id, userId, cancelledCatIds },
+            'Cancelled all invocations',
+          );
         }
       });
     });

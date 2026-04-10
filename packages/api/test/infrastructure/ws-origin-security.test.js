@@ -171,6 +171,44 @@ describe('F156: WebSocket Origin Security (integration)', () => {
     );
     result.socket?.disconnect();
   });
+
+  it('B3: authenticated socket can join workspace:global', async () => {
+    const result = await attemptConnection(port, {
+      origin: 'http://localhost:3001',
+      transports: ['websocket'],
+    });
+    assert.strictEqual(result.connected, true);
+    const io = socketManager.getIO();
+
+    // Request to join global room
+    result.socket.emit('join_room', 'workspace:global');
+    // Give server time to process
+    await new Promise((r) => setTimeout(r, 50));
+
+    const sockets = await io.fetchSockets();
+    const target = sockets.find((s) => s.id === result.socket.id);
+    assert.ok(target, 'Socket should exist');
+    assert.ok(target.rooms.has('workspace:global'), 'Should be in workspace:global');
+    result.socket?.disconnect();
+  });
+
+  it('B3: authenticated socket can join preview:global', async () => {
+    const result = await attemptConnection(port, {
+      origin: 'http://localhost:3001',
+      transports: ['websocket'],
+    });
+    assert.strictEqual(result.connected, true);
+    const io = socketManager.getIO();
+
+    result.socket.emit('join_room', 'preview:global');
+    await new Promise((r) => setTimeout(r, 50));
+
+    const sockets = await io.fetchSockets();
+    const target = sockets.find((s) => s.id === result.socket.id);
+    assert.ok(target, 'Socket should exist');
+    assert.ok(target.rooms.has('preview:global'), 'Should be in preview:global');
+    result.socket?.disconnect();
+  });
 });
 
 describe('F156: isOriginAllowed (unit)', () => {
