@@ -55,7 +55,6 @@ created: 2026-02-26
 | F144 | PPT Forge — AI 演示文稿生成引擎 | in-progress | 三猫 | internal | [F144](features/F144-ppt-forge.md) |
 | F146 | MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | spec | Maine Coon + Ragdoll | internal | [F146](features/F146-mcp-marketplace-control-plane.md) |
 | F147 | i18n — Hub 界面中英文切换 | idea | 待定 | internal | — |
-<<<<<<< HEAD
 | F149 | ACP Runtime Operations — 项目级进程池 + Session Lease | spec | Maine Coon | internal | [F149](features/F149-acp-runtime-operations.md) |
 | F150 | 场景式双向引导引擎 — Scene-based Bidirectional Guidance Engine | in-progress | Ragdoll | internal | [F150](features/F150-scene-guidance-engine.md) |
 | F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | spec | Ragdoll | internal | [F152](features/F152-expedition-memory.md) |
