@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "a7876eaafc9675e97cd354508ca50792daa28d64",
+  "last_reviewed_target_head": "baea3265b2935da3e86496b16471670a1784e4c3",
   "entries": [
     {
       "pr_number": 90,
@@ -549,6 +549,20 @@
       "decision": "absorbed",
       "timestamp": "2026-04-10T17:05:00.000Z",
       "notes": "Community once-trigger + lifecycle notifications. Upstream PR #415, cat-cafe absorb PR #1055. Local fixes: P1 server-authoritative sender, P2 run-level notification aggregation."
+    },
+    {
+      "pr_number": 418,
+      "target_merge_commit": "baea3265b2935da3e86496b16471670a1784e4c3",
+      "decision": "absorbed",
+      "timestamp": "2026-04-10T17:18:29.201Z",
+      "note": "F064 AC-B3 write-side feedback. Brand guard bypassed: X-Cat-Cafe-User false positive (F156 session cookie migration)."
+    },
+    {
+      "pr_number": 412,
+      "target_merge_commit": "71d0885f11bfd9b1747e9ff2ca14e161f14d6ffe",
+      "decision": "absorbed",
+      "timestamp": "2026-04-10T17:19:35.846Z",
+      "note": "Source-owned: thread-cats MCP tool developed internally, synced outbound to clowder-ai. Already present in cat-cafe."
     }
   ]
 }
