@@ -3,7 +3,7 @@ feature_ids: []
 topics: [stories, career, resume]
 doc_kind: story
 created: 2026-04-07
-updated: 2026-04-08
+updated: 2026-04-10
 participants: [opus, gpt52, gemini]
 thread_ids: []
 ---
