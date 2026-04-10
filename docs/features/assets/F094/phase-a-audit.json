@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-03-11T10:05:47.360Z",
-  "generatedDate": "2026-03-11",
+  "generatedAt": "2026-04-10T09:29:47.372Z",
+  "generatedDate": "2026-04-10",
   "featuresDir": "/Users/lysander/projects/relay-station/cat-cafe/docs/features",
   "featuresDirRelative": "docs/features",
   "checks": [
@@ -58,14 +58,25 @@
     }
   ],
   "summary": {
-    "totalDocs": 99,
+    "totalDocs": 161,
     "tierCounts": {
-      "green": 99,
-      "yellow": 0,
-      "red": 0
+      "green": 154,
+      "yellow": 5,
+      "red": 2
     },
-    "averageScorePercent": 100,
-    "missingFrequency": {},
+    "averageScorePercent": 97.71,
+    "missingFrequency": {
+      "AC format (`- [ ] AC-A1: ...`)": 12,
+      "Dependency tags (`Evolved from/Blocked by/Related`)": 8,
+      "## Acceptance Criteria": 7,
+      "## Risk": 7,
+      "## Dependencies": 5,
+      "Status line (`> **Status**: ... | **Owner**: ...`)": 4,
+      "## What": 2,
+      "## Why": 1,
+      "frontmatter.related_features": 1,
+      "frontmatter.topics": 1
+    },
     "duplicateFeatureIds": [
       {
         "featureId": "F055",
@@ -78,6 +89,10 @@
       {
         "featureId": "F081",
         "files": ["F081-bubble-continuity-observability.md", "F081-write-path-audit.md"]
+      },
+      {
+        "featureId": "F124",
+        "files": ["F124-apple-ecosystem-voice-interaction.md", "F124-voice-comfort-callout.md"]
       }
     ]
   },
@@ -695,7 +710,7 @@
     {
       "file": "F061-antigravity-bengal-cat.md",
       "featureId": "F061",
-      "frontmatterDocKind": "spec",
+      "frontmatterDocKind": "phase-1-done",
       "scorePercent": 100,
       "passedChecks": 13,
       "totalChecks": 13,
@@ -1065,6 +1080,667 @@
     {
       "file": "F096-interactive-rich-blocks.md",
       "featureId": "F096",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F097-cli-output-collapsible-ux.md",
+      "featureId": "F097",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F098-callback-message-ux.md",
+      "featureId": "F098",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F099-hub-navigation-scalability.md",
+      "featureId": "F099",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F100-self-evolution.md",
+      "featureId": "F100",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 61.54,
+      "passedChecks": 8,
+      "totalChecks": 13,
+      "tier": "yellow",
+      "missing": [
+        "## Acceptance Criteria",
+        "## Dependencies",
+        "AC format (`- [ ] AC-A1: ...`)",
+        "Dependency tags (`Evolved from/Blocked by/Related`)",
+        "## Risk"
+      ]
+    },
+    {
+      "file": "F101-mode-v2-game-engine.md",
+      "featureId": "F101",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F102-memory-adapter-refactor.md",
+      "featureId": "F102",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F103-per-cat-voice-identity.md",
+      "featureId": "F103",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 84.62,
+      "passedChecks": 11,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": ["AC format (`- [ ] AC-A1: ...`)", "## Risk"]
+    },
+    {
+      "file": "F104-local-omni-perception.md",
+      "featureId": "F104",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F105-opencode-golden-chinchilla.md",
+      "featureId": "F105",
+      "frontmatterDocKind": "done",
+      "scorePercent": 84.62,
+      "passedChecks": 11,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": ["AC format (`- [ ] AC-A1: ...`)", "Dependency tags (`Evolved from/Blocked by/Related`)"]
+    },
+    {
+      "file": "F106-multi-bootcamp.md",
+      "featureId": "F106",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F107-headband-guess-game.md",
+      "featureId": "F107",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F108-side-dispatch-concurrent-invocation.md",
+      "featureId": "F108",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F109-message-actions-overhaul.md",
+      "featureId": "F109",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F110-bootcamp-vision-elicitation.md",
+      "featureId": "F110",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F111-streaming-tts-chunker.md",
+      "featureId": "F111",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F112-voice-playback-queue.md",
+      "featureId": "F112",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F113-multi-platform-one-click-deploy.md",
+      "featureId": "F113",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 61.54,
+      "passedChecks": 8,
+      "totalChecks": 13,
+      "tier": "yellow",
+      "missing": [
+        "frontmatter.related_features",
+        "Status line (`> **Status**: ... | **Owner**: ...`)",
+        "## Dependencies",
+        "Dependency tags (`Evolved from/Blocked by/Related`)",
+        "## Risk"
+      ]
+    },
+    {
+      "file": "F114-governance-magic-words.md",
+      "featureId": "F114",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 92.31,
+      "passedChecks": 12,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": ["AC format (`- [ ] AC-A1: ...`)"]
+    },
+    {
+      "file": "F115-runtime-startup-optimization.md",
+      "featureId": "F115",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F116-opensource-ops.md",
+      "featureId": "F116",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F117-message-delivery-lifecycle.md",
+      "featureId": "F117",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F118-cli-liveness-watchdog.md",
+      "featureId": "F118",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F119-who-is-spy-game.md",
+      "featureId": "F119",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F120-hub-embedded-browser.md",
+      "featureId": "F120",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F121-community-frontend-ux-triage.md",
+      "featureId": "F121",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 84.62,
+      "passedChecks": 11,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": ["## Acceptance Criteria", "AC format (`- [ ] AC-A1: ...`)"]
+    },
+    {
+      "file": "F122-unified-dispatch-queue.md",
+      "featureId": "F122",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F123-bubble-runtime-correctness.md",
+      "featureId": "F123",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F124-apple-ecosystem-voice-interaction.md",
+      "featureId": "F124",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F124-voice-comfort-callout.md",
+      "featureId": "F124",
+      "frontmatterDocKind": "callout",
+      "scorePercent": 30.77,
+      "passedChecks": 4,
+      "totalChecks": 13,
+      "tier": "red",
+      "missing": [
+        "frontmatter.topics",
+        "Status line (`> **Status**: ... | **Owner**: ...`)",
+        "## Why",
+        "## What",
+        "## Acceptance Criteria",
+        "## Dependencies",
+        "AC format (`- [ ] AC-A1: ...`)",
+        "Dependency tags (`Evolved from/Blocked by/Related`)",
+        "## Risk"
+      ]
+    },
+    {
+      "file": "F125-alpha-test-channel.md",
+      "featureId": "F125",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F126-limb-control-plane.md",
+      "featureId": "F126",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F127-cat-instance-management.md",
+      "featureId": "F127",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F128-cat-create-thread.md",
+      "featureId": "F128",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 53.85,
+      "passedChecks": 7,
+      "totalChecks": 13,
+      "tier": "yellow",
+      "missing": [
+        "Status line (`> **Status**: ... | **Owner**: ...`)",
+        "## Acceptance Criteria",
+        "## Dependencies",
+        "AC format (`- [ ] AC-A1: ...`)",
+        "Dependency tags (`Evolved from/Blocked by/Related`)",
+        "## Risk"
+      ]
+    },
+    {
+      "file": "F129-pack-system-multi-agent-mod.md",
+      "featureId": "F129",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F130-api-log-governance.md",
+      "featureId": "F130",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F131-workspace-navigator.md",
+      "featureId": "F131",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 92.31,
+      "passedChecks": 12,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": ["AC format (`- [ ] AC-A1: ...`)"]
+    },
+    {
+      "file": "F132-dingtalk-wecom-gateway.md",
+      "featureId": "F132",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F133-cicd-tracking.md",
+      "featureId": "F133",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F134-feishu-group-chat.md",
+      "featureId": "F134",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F135-dare-ootb.md",
+      "featureId": "F135",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 76.92,
+      "passedChecks": 10,
+      "totalChecks": 13,
+      "tier": "yellow",
+      "missing": ["## Acceptance Criteria", "AC format (`- [ ] AC-A1: ...`)", "## Risk"]
+    },
+    {
+      "file": "F136-unified-config-hot-reload.md",
+      "featureId": "F136",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 76.92,
+      "passedChecks": 10,
+      "totalChecks": 13,
+      "tier": "yellow",
+      "missing": [
+        "## Acceptance Criteria",
+        "AC format (`- [ ] AC-A1: ...`)",
+        "Dependency tags (`Evolved from/Blocked by/Related`)"
+      ]
+    },
+    {
+      "file": "F137-weixin-personal-gateway.md",
+      "featureId": "F137",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F138-video-studio.md",
+      "featureId": "F138",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 92.31,
+      "passedChecks": 12,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": ["AC format (`- [ ] AC-A1: ...`)"]
+    },
+    {
+      "file": "F139-unified-schedule-abstraction.md",
+      "featureId": "F139",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F140-github-pr-automation.md",
+      "featureId": "F140",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F141-github-repo-inbox.md",
+      "featureId": "F141",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F142-connector-slash-commands.md",
+      "featureId": "F142",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F143-hostable-agent-runtime.md",
+      "featureId": "F143",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F144-ppt-forge.md",
+      "featureId": "F144",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F145-mcp-portable-provisioning.md",
+      "featureId": "F145",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F146-mcp-marketplace-control-plane.md",
+      "featureId": "F146",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F147-i18n-hub-locale-switch.md",
+      "featureId": "F147",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 92.31,
+      "passedChecks": 12,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": ["Dependency tags (`Evolved from/Blocked by/Related`)"]
+    },
+    {
+      "file": "F148-hierarchical-context-transport.md",
+      "featureId": "F148",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F149-acp-runtime-operations.md",
+      "featureId": "F149",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F150-tool-usage-stats.md",
+      "featureId": "F150",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F151-xiaoyi-channel-gateway.md",
+      "featureId": "F151",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F152-expedition-memory.md",
+      "featureId": "F152",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F153-observability-infra.md",
+      "featureId": "F153",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F154-cat-routing-personalization.md",
+      "featureId": "F154",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F155-scene-guidance-engine.md",
+      "featureId": "F155",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 46.15,
+      "passedChecks": 6,
+      "totalChecks": 13,
+      "tier": "red",
+      "missing": [
+        "Status line (`> **Status**: ... | **Owner**: ...`)",
+        "## What",
+        "## Acceptance Criteria",
+        "## Dependencies",
+        "AC format (`- [ ] AC-A1: ...`)",
+        "Dependency tags (`Evolved from/Blocked by/Related`)",
+        "## Risk"
+      ]
+    },
+    {
+      "file": "F156-websocket-security-hardening.md",
+      "featureId": "F156",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F157-feishu-receipt-ack.md",
+      "featureId": "F157",
       "frontmatterDocKind": "spec",
       "scorePercent": 100,
       "passedChecks": 13,

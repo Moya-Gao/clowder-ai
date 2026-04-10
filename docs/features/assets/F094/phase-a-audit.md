@@ -3,12 +3,12 @@ feature_ids: [F094]
 related_features: [F058, F086, F088]
 topics: [documentation, audit, feature-docs, quality]
 doc_kind: note
-created: 2026-03-11
+created: 2026-04-10
 ---
 
 # F094 Phase A 审计报告（模板合规度）
 
-- 生成时间：2026-03-11T10:05:47.360Z
+- 生成时间：2026-04-10T09:29:47.372Z
 - 审计范围：`docs/features/F*.md`
 - 分档规则：Green >= 80%，Yellow 50%-79.99%，Red < 50%
 - 机器明细：`phase-a-audit.json`
@@ -17,22 +17,33 @@ created: 2026-03-11
 
 | 总文档数 | Green | Yellow | Red | 平均分 |
 | --- | --- | --- | --- | --- |
-| 99 | 99 | 0 | 0 | 100% |
+| 161 | 154 | 5 | 2 | 97.71% |
 
 ## 缺失项频次（Top）
 
 | 缺失项 | 文档数 |
 | --- | --- |
+| AC format (`- [ ] AC-A1: ...`) | 12 |
+| Dependency tags (`Evolved from/Blocked by/Related`) | 8 |
+| ## Acceptance Criteria | 7 |
+| ## Risk | 7 |
+| ## Dependencies | 5 |
+| Status line (`> **Status**: ... | **Owner**: ...`) | 4 |
+| ## What | 2 |
+| ## Why | 1 |
+| frontmatter.related_features | 1 |
+| frontmatter.topics | 1 |
 
 ## 重复 Feature ID
 
 - F055: F055-a2a-mcp-structured-routing.md, F055-plan-board.md
 - F061: F061-antigravity-bengal-cat.md, F061-cdp-integration-retrospective.md
 - F081: F081-bubble-continuity-observability.md, F081-write-path-audit.md
+- F124: F124-apple-ecosystem-voice-interaction.md, F124-voice-comfort-callout.md
 
 ## 分档清单
 
-### GREEN (99)
+### GREEN (154)
 
 | Feature | 文件 | 分数 | 缺失项数 |
 | --- | --- | --- | --- |
@@ -135,16 +146,86 @@ created: 2026-03-11
 | F094 | `F094-feature-doc-debt-cleanup.md` | 100% | 0 |
 | F095 | `F095-sidebar-collapse-memory.md` | 100% | 0 |
 | F096 | `F096-interactive-rich-blocks.md` | 100% | 0 |
+| F097 | `F097-cli-output-collapsible-ux.md` | 100% | 0 |
+| F098 | `F098-callback-message-ux.md` | 100% | 0 |
+| F099 | `F099-hub-navigation-scalability.md` | 100% | 0 |
+| F101 | `F101-mode-v2-game-engine.md` | 100% | 0 |
+| F102 | `F102-memory-adapter-refactor.md` | 100% | 0 |
+| F103 | `F103-per-cat-voice-identity.md` | 84.62% | 2 |
+| F104 | `F104-local-omni-perception.md` | 100% | 0 |
+| F105 | `F105-opencode-golden-chinchilla.md` | 84.62% | 2 |
+| F106 | `F106-multi-bootcamp.md` | 100% | 0 |
+| F107 | `F107-headband-guess-game.md` | 100% | 0 |
+| F108 | `F108-side-dispatch-concurrent-invocation.md` | 100% | 0 |
+| F109 | `F109-message-actions-overhaul.md` | 100% | 0 |
+| F110 | `F110-bootcamp-vision-elicitation.md` | 100% | 0 |
+| F111 | `F111-streaming-tts-chunker.md` | 100% | 0 |
+| F112 | `F112-voice-playback-queue.md` | 100% | 0 |
+| F114 | `F114-governance-magic-words.md` | 92.31% | 1 |
+| F115 | `F115-runtime-startup-optimization.md` | 100% | 0 |
+| F116 | `F116-opensource-ops.md` | 100% | 0 |
+| F117 | `F117-message-delivery-lifecycle.md` | 100% | 0 |
+| F118 | `F118-cli-liveness-watchdog.md` | 100% | 0 |
+| F119 | `F119-who-is-spy-game.md` | 100% | 0 |
+| F120 | `F120-hub-embedded-browser.md` | 100% | 0 |
+| F121 | `F121-community-frontend-ux-triage.md` | 84.62% | 2 |
+| F122 | `F122-unified-dispatch-queue.md` | 100% | 0 |
+| F123 | `F123-bubble-runtime-correctness.md` | 100% | 0 |
+| F124 | `F124-apple-ecosystem-voice-interaction.md` | 100% | 0 |
+| F125 | `F125-alpha-test-channel.md` | 100% | 0 |
+| F126 | `F126-limb-control-plane.md` | 100% | 0 |
+| F127 | `F127-cat-instance-management.md` | 100% | 0 |
+| F129 | `F129-pack-system-multi-agent-mod.md` | 100% | 0 |
+| F130 | `F130-api-log-governance.md` | 100% | 0 |
+| F131 | `F131-workspace-navigator.md` | 92.31% | 1 |
+| F132 | `F132-dingtalk-wecom-gateway.md` | 100% | 0 |
+| F133 | `F133-cicd-tracking.md` | 100% | 0 |
+| F134 | `F134-feishu-group-chat.md` | 100% | 0 |
+| F137 | `F137-weixin-personal-gateway.md` | 100% | 0 |
+| F138 | `F138-video-studio.md` | 92.31% | 1 |
+| F139 | `F139-unified-schedule-abstraction.md` | 100% | 0 |
+| F140 | `F140-github-pr-automation.md` | 100% | 0 |
+| F141 | `F141-github-repo-inbox.md` | 100% | 0 |
+| F142 | `F142-connector-slash-commands.md` | 100% | 0 |
+| F143 | `F143-hostable-agent-runtime.md` | 100% | 0 |
+| F144 | `F144-ppt-forge.md` | 100% | 0 |
+| F145 | `F145-mcp-portable-provisioning.md` | 100% | 0 |
+| F146 | `F146-mcp-marketplace-control-plane.md` | 100% | 0 |
+| F147 | `F147-i18n-hub-locale-switch.md` | 92.31% | 1 |
+| F148 | `F148-hierarchical-context-transport.md` | 100% | 0 |
+| F149 | `F149-acp-runtime-operations.md` | 100% | 0 |
+| F150 | `F150-tool-usage-stats.md` | 100% | 0 |
+| F151 | `F151-xiaoyi-channel-gateway.md` | 100% | 0 |
+| F152 | `F152-expedition-memory.md` | 100% | 0 |
+| F153 | `F153-observability-infra.md` | 100% | 0 |
+| F154 | `F154-cat-routing-personalization.md` | 100% | 0 |
+| F156 | `F156-websocket-security-hardening.md` | 100% | 0 |
+| F157 | `F157-feishu-receipt-ack.md` | 100% | 0 |
 
-### YELLOW (0)
+### YELLOW (5)
 
-- 无
+| Feature | 文件 | 分数 | 缺失项数 |
+| --- | --- | --- | --- |
+| F100 | `F100-self-evolution.md` | 61.54% | 5 |
+| F113 | `F113-multi-platform-one-click-deploy.md` | 61.54% | 5 |
+| F128 | `F128-cat-create-thread.md` | 53.85% | 6 |
+| F135 | `F135-dare-ootb.md` | 76.92% | 3 |
+| F136 | `F136-unified-config-hot-reload.md` | 76.92% | 3 |
 
-### RED (0)
+### RED (2)
 
-- 无
+| Feature | 文件 | 分数 | 缺失项数 |
+| --- | --- | --- | --- |
+| F124 | `F124-voice-comfort-callout.md` | 30.77% | 9 |
+| F155 | `F155-scene-guidance-engine.md` | 46.15% | 7 |
 
 ## Red 文档缺失详情
 
-- 无
+### F124 `F124-voice-comfort-callout.md`
+- 分数：30.77% (4/13)
+- 缺失：frontmatter.topics；Status line (`> **Status**: ... | **Owner**: ...`)；## Why；## What；## Acceptance Criteria；## Dependencies；AC format (`- [ ] AC-A1: ...`)；Dependency tags (`Evolved from/Blocked by/Related`)；## Risk
+
+### F155 `F155-scene-guidance-engine.md`
+- 分数：46.15% (6/13)
+- 缺失：Status line (`> **Status**: ... | **Owner**: ...`)；## What；## Acceptance Criteria；## Dependencies；AC format (`- [ ] AC-A1: ...`)；Dependency tags (`Evolved from/Blocked by/Related`)；## Risk
 
