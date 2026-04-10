@@ -448,7 +448,11 @@ describe('chatStore multi-thread state', () => {
       const oldTs = Date.now() - 120_000; // original message from 2 minutes ago
       const deliveryTs = Date.now() - 5_000; // delivered 5 seconds ago
       const msg: ChatMessage = {
-        id: 'queued-msg', type: 'user', content: 'queued', timestamp: oldTs, deliveredAt: deliveryTs,
+        id: 'queued-msg',
+        type: 'user',
+        content: 'queued',
+        timestamp: oldTs,
+        deliveredAt: deliveryTs,
       };
       useChatStore.getState().addMessage(msg);
 
