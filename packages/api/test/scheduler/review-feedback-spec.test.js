@@ -719,6 +719,44 @@ describe('ReviewFeedbackTaskSpec', () => {
     assert.equal(store._patchCalls[0].patch.review.lastCommentCursor, 10);
   });
 
+  it('echo-skip persist failure logs warning and allows retry next tick (#406 P2)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const warnings = [];
+    const failingStore = {
+      listByKind: async () => [mockTaskItem],
+      patchAutomationState: async () => {
+        throw new Error('Redis unavailable');
+      },
+      _patchCalls: [],
+    };
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: failingStore,
+      fetchComments: async () => [
+        { id: 10, author: 'self', body: '@codex review', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: {
+        async route() {
+          return { kind: 'skipped', reason: 'test' };
+        },
+      },
+      log: { ...noopLog, warn: (...args) => warnings.push(args) },
+      isEchoComment: (c) => c.author === 'self',
+    });
+
+    // First gate: persist fails, warn logged, memory NOT advanced
+    const r1 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(r1.run, false, 'echo-skip still returns run:false');
+    assert.ok(warnings.length > 0, 'should log warning on persist failure');
+    assert.ok(warnings[0][0].includes('echo-skip persist failed'), 'warning message identifies echo-skip');
+
+    // Second gate: same echo comment retried (memory cursor was NOT advanced)
+    warnings.length = 0;
+    const r2 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 2 });
+    assert.equal(r2.run, false, 'echo comment still filtered on retry');
+    assert.ok(warnings.length > 0, 'retry also attempts persist and logs');
+  });
+
   it('non-authoritative bot comment is NOT filtered (Rule B negative)', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const { router } = stubRouter();

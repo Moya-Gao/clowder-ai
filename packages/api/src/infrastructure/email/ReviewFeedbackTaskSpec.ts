@@ -90,12 +90,16 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const allSkipped = newComments.length === 0 && newDecisions.length === 0;
             const hadNewItems = allNewComments.length > 0 || allNewReviews.length > 0;
             if (hadNewItems && allSkipped) {
-              // #406: Persist first — memory advances only after store succeeds
-              await opts.taskStore.patchAutomationState(task.id, {
-                review: { lastCommentCursor: maxCommentId, lastDecisionCursor: maxReviewId },
-              });
-              commentCursors.set(prKey, maxCommentId);
-              reviewCursors.set(prKey, maxReviewId);
+              // #406: Persist echo-skip cursor; isolated try so fetch-fail catch doesn't swallow it
+              try {
+                await opts.taskStore.patchAutomationState(task.id, {
+                  review: { lastCommentCursor: maxCommentId, lastDecisionCursor: maxReviewId },
+                });
+                commentCursors.set(prKey, maxCommentId);
+                reviewCursors.set(prKey, maxReviewId);
+              } catch (e) {
+                opts.log.warn(`[review-feedback] echo-skip persist failed for ${prKey}, will retry next tick`, e);
+              }
               continue;
             }
 
