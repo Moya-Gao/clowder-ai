@@ -591,7 +591,7 @@ describe('background thread socket handling', () => {
       ]);
     });
 
-    it('keeps inferred invocationId off unmatched bg callback bubbles so the next stream creates its own bubble', () => {
+    it('keeps suppressing late background stream chunks when callback creates a bubble after a non-matchable finalized ref', () => {
       const now = Date.now();
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-old' });
 
@@ -641,6 +641,7 @@ describe('background thread socket handling', () => {
       expect(ts.messages).toHaveLength(2);
       expect(ts.messages[1]?.origin).toBe('callback');
       expect(ts.messages[1]?.extra?.stream?.invocationId).toBeUndefined();
+      expect(ts.messages[1]?.extra?.callbackBridge).toEqual({ skipDedup: true });
 
       simulateBackgroundMessage({
         type: 'text',
@@ -651,15 +652,15 @@ describe('background thread socket handling', () => {
       });
 
       ts = useChatStore.getState().getThreadState('thread-bg');
-      expect(ts.messages).toHaveLength(3);
-      expect(ts.messages[2]).toEqual(
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[1]).toEqual(
         expect.objectContaining({
+          id: 'bg-callback-unmatched',
           type: 'assistant',
           catId: 'opus',
-          content: 'Fresh stream from new invocation',
-          origin: 'stream',
-          isStreaming: true,
-          extra: { stream: { invocationId: 'inv-bg-new' } },
+          content: 'Delayed callback from old invocation',
+          origin: 'callback',
+          extra: { callbackBridge: { skipDedup: true } },
         }),
       );
     });

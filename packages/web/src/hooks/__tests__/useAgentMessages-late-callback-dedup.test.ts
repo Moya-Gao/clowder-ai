@@ -429,7 +429,7 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     expect(newBubbleCalls[0][0].extra).toEqual({ callbackBridge: { skipDedup: true } });
   });
 
-  it('keeps inferred invocationId off unmatched callback bubbles so the next stream creates its own bubble', () => {
+  it('keeps suppressing late stream chunks when callback creates a bubble after a non-matchable finalized ref', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
@@ -506,9 +506,7 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     });
 
     expect(mockAppendToMessage).not.toHaveBeenCalled();
-    const streamBubble = mockAddMessage.mock.calls.find(([msg]) => msg.origin === 'stream')?.[0];
-    expect(streamBubble?.content).toBe('Fresh stream from inv-2');
-    expect(streamBubble?.extra).toEqual({ stream: { invocationId: 'inv-2' } });
+    expect(mockAddMessage).not.toHaveBeenCalled();
   });
 
   it('keeps suppressing late stream chunks for callback-first invocations without explicit invocationId', () => {
