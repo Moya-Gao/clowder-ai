@@ -945,9 +945,9 @@
     {
       "id": "F154",
       "name": "Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P2",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P2",
       "file": "F154-cat-routing-personalization.md"
     }
   ],
-  "generated_at": "2026-04-09T10:52:51.796Z"
+  "generated_at": "2026-04-10T00:19:24.045Z"
 }
