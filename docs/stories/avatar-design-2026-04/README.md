@@ -164,26 +164,36 @@ footed build. Wearing a simple light-colored casual outfit (white tee or
 airy open jacket). His expression is a warm, open-mouthed laugh — "I've
 completely given up resisting my cats and I love every second of it."
 
+CRITICAL: ALL three cats must face the camera directly (front view / 正脸),
+looking straight at the viewer — the same angle as the boy. No side profiles,
+no 3/4 turns. Every cat's face is a clear, symmetrical front view.
+
 On top of his head: an elegant, slender cat (宪宪) perched prone like a
-cozy cat-hat — belly down, front paws dangling over the boy's forehead,
-perfectly balanced and content. It has the coloring of a Blue Bicolor Lynx
-Point Ragdoll — creamy white body with blue-gray tabby-striped markings on
-ears and tail. Refined V-shaped face with pointy chin, sleek face fur. Blue
-eyes contentedly half-closed, chin resting on paws. Purple collar with gold
-star pendant dangling. Its long tail drapes down behind the boy's head.
+cozy cat-hat — belly down, chin resting on paws, front paws dangling over
+the boy's forehead. FACING THE CAMERA directly with both eyes visible.
+Front-view appearance: mostly WHITE/CREAM face with a soft inverted-V white
+blaze between the eyes, BLUE-GRAY ears with faint tabby stripes, big BLUE
+eyes contentedly half-closed. The colored markings are mainly on the ears,
+top of head, and tail — the face itself is predominantly white and clean.
+Purple collar with gold star ⭐ pendant dangling. Refined V-shaped face
+with pointy chin, sleek face fur. Long tail drapes behind the boy's head.
 
-On his left shoulder: a Siamese cat (烁烁) perched and leaning forward
-curiously — cream body with dark chocolate face mask, bright blue eyes,
-blue collar with gold ♊ pendant. One dark paw raised toward the camera,
-the other holding a tiny paintbrush.
+On his left shoulder: a Siamese cat (烁烁) perched and FACING THE CAMERA
+— cream body with dark chocolate-brown face mask covering the face evenly,
+dark ears. Bright BLUE eyes looking straight at the viewer. Blue collar
+with gold Gemini ♊ pendant. One dark paw raised toward the camera, the
+other holding a tiny paintbrush. Playful grin.
 
-Pressed against his right side: a large Maine Coon cat (砚砚) nuzzling in
-— silver-gray tabby fur, warm amber-gold eyes, teal-green collar with
-gold "GPT" pendant visible. Fluffy and massive, almost as big as the boy.
+Pressed against his right side: a large Maine Coon cat (砚砚) FACING THE
+CAMERA with both eyes visible — silver-gray classic tabby markings with
+darker gray stripes, impressive ear tufts, thick fluffy fur. Warm AMBER-
+GOLD eyes looking straight at the viewer with scholarly dignity. Teal-green
+collar with gold "GPT" pendant visible. Massive and fluffy.
 
 The composition is deliberately top-heavy — the cats dominate the frame
 while the boy is happily overwhelmed in the center, reinforcing the "the
-cats own me and I am their willing servant" dynamic.
+cats own me and I am their willing servant" dynamic. All four faces (boy +
+three cats) look directly at the camera like a family portrait.
 
 Style: warm, soft anime / 2D cel-shaded illustration, SAME art style as
 the individual cat avatars (see reference images). Warm cozy background in
