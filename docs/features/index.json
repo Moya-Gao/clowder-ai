@@ -965,6 +965,12 @@
       "name": "Feishu Receipt Ack — 猫猫即时接住替代\"思考中→撤回\"",
       "status": "done | **Completed**: 2026-04-10 | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F157-feishu-receipt-ack.md"
+    },
+    {
+      "id": "F158",
+      "name": "Kimi CLI First-Class Cat — 社区贡献 Moonshot AI 集成",
+      "status": "in-progress | **Owner**: 社区 (ZephaniaCN) + 布偶猫 | **Priority**: P2",
+      "file": "F158-kimi-cli-first-class-cat.md"
     }
   ],
   "generated_at": "2026-04-10T12:36:34.378Z"
