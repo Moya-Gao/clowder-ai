@@ -1,22 +1,24 @@
 ---
 feature_ids: [F143, F148, F149]
 related_features: [F045, F050, F102]
-related_decisions: [ADR-023]
-topics: [event-api, lazy-loading, credential-isolation, model-tier, harness-profiles]
+related_decisions: [ADR-023, ADR-027]
+topics: [event-api, lazy-loading, credential-isolation, model-tier, harness-profiles, authority-isolation, effect-class]
 doc_kind: decision
 created: 2026-04-08
+updated: 2026-04-09
 decision_id: ADR-026
 ---
 
-# ADR-026: Agent Runtime Operational Boundaries — Event API, Lazy Loading, Model Tier Profiles
+# ADR-026: Agent Runtime Operational Boundaries — Event API, Lazy Loading, Isolation, Operating Profiles
 
-> **Status**: draft (pending cloud cat review)
+> **Status**: draft (pending CVO sign-off)
 > **Deciders**: 铲屎官 + 布偶猫(opus) + 缅因猫(gpt52) + 暹罗猫(gemini)
-> **Date**: 2026-04-08
+> **Date**: 2026-04-08 (updated 2026-04-09)
 > **Trigger**: Anthropic "Scaling Managed Agents" study session
 > **Discussion**: `docs/discussions/2026-04-08-managed-agents-study/README.md`
-> **Pending Review**: Gemini Deep Think + GPT Pro (cloud consultation)
+> **Cloud Review**: Gemini Deep Think + GPT Pro — completed 2026-04-08, 9 unanimous decisions converged
 > **Extends**: ADR-023 (Hostable Agent Runtime)
+> **Companion**: ADR-027 (Inter-Agent Trust, Provenance, and Authority Boundaries) — to be drafted
 
 ## Context
 
@@ -37,9 +39,15 @@ Anthropic Engineering Blog 发布了 "Scaling Managed Agents: Decoupling the bra
 
 ADR-023 定义了 **agent 的组合结构**（四维 + Supervisor + Discovery + ProvisioningPipeline + ProcessModel）。本 ADR 补充 **agent 的运行边界**——跨越结构层面，回答"运行时该怎么管理事件、资源、安全和能力差异"。
 
+### 三轮收敛过程
+
+1. **Round 1**: 三猫独立分析 + 铲屎官四灵魂拷问 → 初稿四决策
+2. **Round 2**: 云端大猫 (Gemini Deep Think + GPT Pro) 独立评审 → 本地三猫辩证吸收
+3. **Round 3**: 三猫自主收敛 → **9 条全票一致决议**（详见 discussion README.md §8-9）
+
 ## Decision
 
-### Decision 1: Operational Event API — Structured Envelope + Natural Language Payload
+### Decision 1: Operational Event API — Structured Envelope + Typed Body + Projections
 
 #### 问题
 
@@ -47,47 +55,55 @@ Cat Cafe 当前的跨猫状态传递依赖非结构化消息。F045 NDJSON 事�
 
 #### 决策
 
-引入 Operational Event API，遵循 **"信封结构化、载荷自然语言"** 原则：
+引入 Operational Event API，三层架构：**不可变信封 + 类型化 body + 投影 (projection)**。
 
 ```typescript
-interface OperationalEvent {
-  /** 单调递增事件 ID */
-  eventId: string;
-  /** ISO8601 timestamp */
-  ts: string;
-  /** 事件类型 (runtime 自动产出，不依赖模型提取) */
-  type: OperationalEventType;
-  /** 产出者: agent ID or 'host' */
-  actor: string;
-  /** 因果链接: 触发此事件的上游 eventId */
-  causedBy?: string;
-  /** 结构化元数据 (给代码读) */
+/** 不可变信封 — runtime 代码自动产出，不依赖 LLM 生成或提取任何结构化字段 */
+interface OperationalEventEnvelope {
+  eventId: string;                  // 单调递增
+  ts: string;                       // ISO8601
+  type: OperationalEventType;       // runtime 自动标注
+  actor: string;                    // agent ID or 'host'
+  causalParents?: string[];         // DAG: 触发此事件的上游 eventId 列表 (支持 fan-in)
+}
+
+/** 类型化 body — top-4 高频事件类型有 typed body，其余暂用 meta */
+type OperationalEventBody =
+  | RunLifecycleBody       // run_started / run_completed / run_failed
+  | ToolCallBody           // tool_call_started / tool_call_completed
+  | PermissionBody         // permission_requested / permission_resolved
+  | HandoffBody            // handoff_issued / handoff_accepted
+  | GenericBody;           // 其余事件类型: meta + linter 约束
+
+interface GenericBody {
+  /** 结构化元数据 (给代码读) — 受晋升规则约束 */
   meta: Record<string, unknown>;
-  /** 自然语言载荷 (给 LLM 读, 可选) */
-  content?: string;
+}
+
+/** 完整事件 = 信封 + body + 投影 */
+interface OperationalEvent extends OperationalEventEnvelope {
+  body: OperationalEventBody;
+  /** 自然语言投影 (给 LLM 读) — 是 projection, 不是 canonical payload */
+  humanProjection?: string;
 }
 
 type OperationalEventType =
-  | 'run_started'
-  | 'run_completed'
-  | 'run_failed'
-  | 'tool_call_started'
-  | 'tool_call_completed'
-  | 'permission_requested'
-  | 'permission_resolved'
-  | 'handoff_issued'
-  | 'handoff_accepted'
+  | 'run_started' | 'run_completed' | 'run_failed'
+  | 'tool_call_started' | 'tool_call_completed'
+  | 'permission_requested' | 'permission_resolved'
+  | 'handoff_issued' | 'handoff_accepted'
   | 'context_compacted'
   | 'artifact_emitted'
-  | 'lease_acquired'
-  | 'lease_released';
+  | 'lease_acquired' | 'lease_released';
 ```
 
 #### 关键原则
 
-- **信封由 runtime 自动产出**，不让 LLM 提取结构化数据（铲屎官实证：LLM 提取 JSON 效果极差）
-- **内容保持自然语言**，喂给 LLM 时由 harness transform 层渲染成 MD
-- **事件日志是控制面真相源**，用于恢复、审计、切片、回放
+- **信封由 runtime 代码自动产出**，不依赖 LLM 生成或提取任何结构化字段
+- **`humanProjection` 是投影，不是规范载荷**——真相在信封 + typed body 里，projection 是给 LLM 的可读视图
+- **事件日志是控制面真相源，不是世界状态真相源**——它记录"发生了什么操作"，不替代业务状态
+- **`causalParents: string[]`** 替代原 `causedBy?: string`，支持并行 fan-in 的最小 DAG
+- **meta 晋升规则**: 同一个 meta 字段被 2+ 消费者依赖，或进入控制流判断 → 必须升格为 typed field。Linter 强制执行，防止"先临时放 meta，半年后全系统靠猜"
 - **与 F148 上下文传输互补**：F148 管"怎么喂给 LLM"，Event API 管"怎么持久化发生了什么"
 
 #### 不做什么
@@ -102,39 +118,41 @@ type OperationalEventType =
 
 Anthropic 通过把容器从"预分配"改为"按需 provision"实现 p95 TTFT 降 90%。Cat Cafe 的 agent 多数是 CLI 无头模式（headless ProcessModel），brain + hands 耦合在同一进程内，无法做容器级的细粒度解耦。
 
+**关键约束 (ADR-023 ProcessModel)**：CLI headless carriers 在 spawn 时一次性注入 MCP config (`--mcp-config`)，spawn 后无法 mid-session 追加新工具。这意味着 progressive disclosure（运行中按需暴露新工具）在 CLI carrier 上结构性不可能。
+
 #### 决策
 
-按 carrier 类型分三层懒加载，不要求所有 carrier 一步到位：
+按 carrier 类型分三层懒加载 + 两条 T2 路径，不要求所有 carrier 一步到位：
 
 | Tier | What | How | Applicable Carrier | Dependency |
 |------|------|-----|-------------------|------------|
 | **T1: Lazy Brain Attach** | 进程/会话按需分配 | 进程池 + session lease，idle 回收 | All carriers | F149 Phase C (in progress) |
-| **T2: Lazy Tool Bridge** | MCP 工具连接按需建立 | 向 agent 暴露完整工具声明列表，但真实 MCP server 连接在首次 tool call 时才初始化 (Holographic Stubs) | CLI carriers (headless) | New: MCP Proxy lazy init |
-| **T3: Lazy Sandbox** | 执行环境按需 provision | `execute(name, input) -> string` 触发容器/进程创建 | ACP/A2A (interactive/task) | F149 Phase D+ |
+| **T2a: Thin Holographic Stubs** | CLI 工具连接按需建立 | 向 agent 暴露精简工具骨架 (name + 短描述 + 风险级别 + 参数骨架)，后端连接按需建立 | CLI headless | MCP Proxy lazy init |
+| **T2b: Progressive Disclosure** | Interactive 工具按需暴露 | Capability directory → 按需加载 schema → 调用 | ACP/WebSocket/IDE (interactive) | 协议支持动态 add tool |
+| **T3: Lazy Sandbox** | 执行环境按需 provision | `execute(name, input) -> string` 触发容器/进程创建 | ACP/A2A (task) | F149 Phase D+ |
 
-#### T2 Holographic Stubs 设计 (暹罗猫提案，架构评审通过)
+#### Hold-and-Yield 机制 (T2a + T2b 共享)
 
 ```
-Agent 启动时:
-  ProvisioningPipeline 注入 MCP config = { servers: [全量声明] }
-  实际: 每个 server 背后是 LazyMcpProxy
-    - 首次 tool call 前: proxy 持有 server 声明 (name, tools schema)，不建立连接
-    - 首次 tool call 时: proxy 初始化真实连接，转发调用
-    - idle timeout: proxy 释放连接，回到"声明 only"状态
+首次调用重型工具 (Pencil, CDP Bridge 等):
+  1. Proxy 返回 202 Accepted + "正在唤醒 MCP..."
+  2. 后台拉起真实 MCP server 连接
+  3. 连接就绪后转发调用，返回实际结果
+  4. Hub UI 渲染 loading 动画，消除等待焦虑
 ```
 
-**收益**:
-- CLI agent 冷启动不再等所有 MCP server 就绪
-- 重 MCP (Pencil, CDP Bridge) 按需拉起，不用时不占资源
-- Agent 感知不到差异（tool list 始终完整）
+**T2a vs T2b 的本质差异**：
+- T2a (CLI): "全量可见，后端按需连接"——spawn 时注入完整工具骨架，但不把完整 schema 一次性塞爆。协议限制决定了这是 CLI 的唯一路径
+- T2b (Interactive): "按需发现，渐进暴露"——先给 capability directory，按需展开 schema。协议支持动态增减工具
 
 #### 不做什么
 
 - 不改 CLI agent 内部架构（我们寄生在外部 harness 上，控制有限）
-- 不要求 headless carrier 支持 T3（那是 ProcessModel 的限制，不是我们的 bug）
+- 不要求 headless carrier 支持 T2b 或 T3（那是 ProcessModel 的限制，不是我们的 bug）
 - T2 和 T3 不阻塞 T1（三层独立推进）
+- **T2 优先级低于 D3 和 T1**——当前 agent 启动瓶颈在进程本身 (~6s+)，不在 MCP 连接
 
-### Decision 3: Credential Isolation — Structural Unreachability over Permission Dialogs
+### Decision 3: Authority, Effect, and Credential Isolation
 
 #### 问题
 
@@ -144,7 +162,7 @@ Cat Cafe 当前的安全模型混合了三种机制：纪律约束（"不准碰 
 
 #### 决策
 
-将 credential isolation 从"纪律 + 弹窗"升级为"结构不可达 + 规则引擎"双轨制：
+将 credential isolation 升级为 **authority / effect / credential 三维隔离 + 规则引擎**：
 
 **Track 1: Structural Unreachability (零弹窗)**
 
@@ -155,14 +173,28 @@ Cat Cafe 当前的安全模型混合了三种机制：纪律约束（"不准碰 
 | MCP OAuth | Hub 中转 (已做) | 保持: agent 永远看不到 OAuth secret |
 | API keys | env 注入 (agent 可见) | ProvisioningPipeline allowlist: 只注入该 agent 需要的 key |
 
-**Track 2: Rule Engine Degradation (少弹窗)**
+**Track 2: Effect Class Taxonomy + Rule Engine (少弹窗)**
 
 ```
-Destructive Action -> Rule Engine
-  命中白名单 (e.g., git push to feature branch) -> 自动放行
-  命中黑名单 (e.g., rm -rf /, DROP TABLE) -> 自动拒绝 + 通知
-  未知 + 高风险信号 -> 升级问人 (唯一弹窗场景)
+操作 -> 分类 Effect Class:
+  read-only (查看文件, git log, search) -> 自动放行
+  write-reversible (git push feature branch, 写文件) -> 白名单放行
+  irreversible (删除文件/分支, DROP TABLE, 覆盖数据, 星星操作) -> 升级问人
 ```
+
+不可逆操作 = 唯一弹窗场景。铲屎官确认："高风险一定是不可逆的操作比如星星没了、删了、覆盖了。"
+
+**Track 3: Idempotency & Replay Safety**
+
+- 每个 mutating 操作携带 `operationId`（幂等键）
+- 事件日志支持 replay：相同 operationId 的重复操作不产生副作用
+- 恢复场景：agent 崩溃后从事件日志重建状态，replay 不会重复执行已完成的操作
+
+#### 与 ADR-027 的接口
+
+D3 聚焦 **credential/effect isolation**（"什么操作在结构上不可能"）。
+ADR-027 覆盖 **inter-agent trust/provenance**（"弱猫说服强猫"、authority class、provenance taint tracking）。
+D3 在 effect class 判定中预留 `authoritySource` 字段，供 ADR-027 填充信任链判定逻辑。ADR-027 不阻塞 D3 落地。
 
 #### 关键原则
 
@@ -177,7 +209,7 @@ Destructive Action -> Rule Engine
 - 不把所有操作都变成弹窗（那是在逼铲屎官开危险模式）
 - 不做 sandbox 容器化（当前 CLI headless 模式下 ROI 不高，等 ACP 栈成熟再考虑）
 
-### Decision 4: Model Tier Harness Profiles — Dynamic Scaffolding for Heterogeneous Brains
+### Decision 4: Operating Profiles — Scaffolding for Heterogeneous Brains
 
 #### 问题
 
@@ -187,18 +219,21 @@ ADR-023 的 AgentDescriptorV1 有 6 轴静态声明，但都是 **runtime 能力
 
 #### 决策
 
-在 AgentDescriptorV1 基础上扩展 Model Tier Profile：
+在 AgentDescriptorV1 基础上扩展 Operating Profile：
 
 ```typescript
-/** 扩展 AgentDescriptorV1，新增认知能力轴 */
+/** 扩展 AgentDescriptorV1，新增操作档位 */
 interface AgentDescriptorV2 extends AgentDescriptorV1 {
-  /** 认知能力层级 */
-  cognitiveTier: CognitiveTier;
-  /** 细粒度认知能力声明 */
+  /**
+   * 操作档位 — UI preset / 策略快捷方式，不是 runtime 本体论。
+   * 人类和配置文件用这个，系统内部用 capabilities 做决策。
+   */
+  operatingPreset: OperatingPreset;
+  /** 细粒度认知能力声明 (静态配置 + event 观测被动积累) */
   cognitiveCapabilities: CognitiveCapability[];
 }
 
-type CognitiveTier = 'frontier' | 'mid' | 'basic';
+type OperatingPreset = 'frontier' | 'mid' | 'basic';
 
 type CognitiveCapability =
   | 'structured_output'      // 可靠地产出结构化格式
@@ -210,44 +245,49 @@ type CognitiveCapability =
   | 'creative_divergence';   // 创意发散能力
 ```
 
-**Dynamic Scaffolding 策略 (由 ProvisioningPipeline 根据 cognitiveTier 选择)**:
+**Scaffolding 策略 (由 ProvisioningPipeline 根据 operatingPreset 选择)**:
 
-| Tier | Task Granularity | Tool Subset | Guardrails | Autonomy |
-|------|-----------------|-------------|------------|----------|
+| Preset | Task Granularity | Tool Subset | Guardrails | Autonomy |
+|--------|-----------------|-------------|------------|----------|
 | **frontier** | 给目标，自主规划 (画布模式) | 全量工具 | 最少: 事后审计 | max_autonomous_steps: 20+ |
 | **mid** | 给 SOP，跟步骤走 | 精选工具集 | 中等: 关键步骤校验 | max_autonomous_steps: 5-10 |
 | **basic** | 给微任务，单步执行 (涂色书模式) | 最小工具集 (1-2 per step) | 最厚: 每步强校验 + verifier | max_autonomous_steps: 1-3 |
 
-**Tier 判定机制**:
+**Preset 判定与演化**:
 
-- **静态声明**: agent 注册时在 config 中声明 cognitiveTier（手动或 probe 自动检测）
-- **动态降级**: runtime 检测到连续失败/幻觉/SOP 偏离 -> 临时降一级 tier
-- **不做动态升级**: 升级必须人工确认（避免弱模型"碰巧成功一次"就被授予更大自主权）
+- **静态配置**: agent 注册时在 config 中声明 operatingPreset（手动设定）
+- **能力积累**: runtime 从 event 观测中被动记录 capability 指标（成功率、tool chain 深度、SOP 偏离率），不主动变更 preset
+- **失败处理: Fail-Fast + Context Reset + Re-Route**（废除动态降级）:
+  - agent 连续失败或严重偏离 → **立即终止当前任务**（不降级继续）
+  - 丢弃已污染的高熵 context（Garbage In, Garbage Out: 大猫失败时 context 已是垃圾，塞给弱猫只会更崩）
+  - 由 Supervisor 决定：重试（干净 context）/ 换猫 / 升级问人
+- **不做动态升级**: 升级 preset 必须人工确认
 
 #### 关键原则
 
-- **内核不分叉**: identity, event, lease, audit, review 规则对所有 tier 一致
+- **内核不分叉**: identity, event, lease, audit, review 规则对所有 preset 一致
 - **大猫减壳，小猫加壳，不为最弱者降级整个系统**
-- **Tier 影响 scaffolding，不影响 contract**: 所有猫都必须满足 Core Contract (最小接口)
-- **不动态升级**: 安全方向是单调的——可以临时降级，不能自动升级
+- **Preset 影响 scaffolding，不影响 contract**: 所有猫都必须满足 Core Contract (最小接口)
+- **Preset 是 UI/策略快捷方式，不是 runtime 本体论**: 系统内部决策基于 capabilities，不基于 preset 标签
 
 #### 与 ADR-023 的关系
 
 - AgentDescriptorV1 的 6 轴不变（runtime 能力）
-- V2 在 V1 基础上加 cognitiveTier + cognitiveCapabilities（认知能力）
+- V2 在 V1 基础上加 operatingPreset + cognitiveCapabilities（操作档位 + 认知能力）
 - ProvisioningPipeline 新增 scaffolding 策略选择环节（在 processModel 确定注入窗口之后）
 
-## Phase Path
+## Phase Path (落地优先级)
 
-| Phase | Content | Prerequisite |
-|-------|---------|-------------|
-| **A: Event Contract** | OperationalEvent 类型定义 + emitEvent/getEvents 接口 | ADR-026 accepted |
-| **B: Lazy Tool Bridge** | LazyMcpProxy 实现 (T2 Holographic Stubs) | F149 T1 stable |
-| **C: Credential Hardening** | worktree env allowlist + ProvisioningPipeline key scoping | ADR-026 accepted |
-| **D: Model Tier Profiles** | AgentDescriptorV2 + scaffolding strategy in ProvisioningPipeline | ADR-023 Phase B stable |
-| **E: Dynamic Downgrade** | Runtime tier downgrade on failure detection | Phase D stable |
+| Priority | Phase | Content | Prerequisite | 改动量 |
+|----------|-------|---------|-------------|--------|
+| **P0** | **A: Credential Hardening** | worktree env allowlist + ProvisioningPipeline key scoping + effect class taxonomy | ADR-026 accepted | 小 |
+| **P1** | **B: Effect Rule Engine** | read-only/write-reversible/irreversible 分类 + operationId idempotency | Phase A | 中 |
+| **P2** | **C: Minimal Event Contract** | OperationalEvent 类型定义 + causalParents + top-4 typed body | ADR-026 accepted | 中 |
+| **P3** | **D: Operating Profiles** | AgentDescriptorV2 (operatingPreset + capabilities) in cat-config + ProvisioningPipeline scaffolding | ADR-023 Phase B stable | 小 |
+| **P4** | **E: Lazy Brain Attach** | 进程池 + session lease (T1) | F149 Phase C | 已在做 |
+| **defer** | **F: Lazy Tool Bridge** | T2a stubs + T2b progressive disclosure + Hold-and-Yield | F149 T1 stable + 性能瓶颈实证 | 大 |
 
-Phase A/C 可以并行。Phase B 依赖 F149 T1。Phase D 依赖 ADR-023 Phase B。
+Phase A/C 可以并行。Phase D 依赖 ADR-023 Phase B。Phase F 等有实证性能瓶颈再排期。
 
 ## Rejected Alternatives
 
@@ -273,20 +313,31 @@ Phase A/C 可以并行。Phase B 依赖 F149 T1。Phase D 依赖 ADR-023 Phase B
 
 给每个模型写一套独立的 harness。
 
-**Reject reason**: 维护成本爆炸。正确做法是统一内核 + 动态 scaffolding 策略。
+**Reject reason**: 维护成本爆炸。正确做法是统一内核 + scaffolding 策略。
 
-## Open Questions (留给云端大猫)
+### Alt 5: 动态降级 (runtime tier downgrade on failure)
 
-1. **Event API 的 causedBy 链是否足够？** 还是需要更丰富的因果图结构（DAG）？
-2. **Holographic Stubs 的 idle timeout 策略**：固定时间 vs 基于使用频率的自适应？
-3. **CognitiveTier 是否应该更细分？** 'frontier/mid/basic' 三档是否粗了？还是够用？
-4. **动态降级的触发条件**：连续几次失败？什么算"幻觉"？SOP 偏离怎么检测？
-5. **跨越本 ADR 的更大问题**：在 multi-provider, multi-tier 世界里，"弱模型说服强模型"是真风险——这是否需要独立的 ADR？
+Agent 连续失败时自动降一级 tier，让弱模型接手。
+
+**Reject reason**: GPT Pro 的 "Garbage In, Garbage Out" 论证——大猫失败时 context 已是高熵垃圾，塞给 basic 猫只会更崩。正确做法是 fail-fast + context reset + 由 Supervisor 决定重试/换猫/升级。三猫全票废除。
+
+## Resolved Questions (云端评审后收敛)
+
+原 Open Questions 经云端大猫 (Gemini Deep Think + GPT Pro) 独立评审 + 三猫三轮收敛后全部达成一致：
+
+| 原始问题 | 收敛结论 |
+|---------|---------|
+| causedBy 链是否足够？ | 不够。升级为 `causalParents: string[]` 最小 DAG，支持并行 fan-in |
+| Holographic Stubs idle timeout 策略？ | 纳入 Hold-and-Yield 机制；T2 整体优先级降低，等有实证性能瓶颈再细化 |
+| CognitiveTier 三档够不够？ | 三档保留但降格为 `operatingPreset` (UI preset)，系统内部用 capability scorecard 做决策 |
+| 动态降级触发条件？ | 废除动态降级。改为 fail-fast + context reset + re-route |
+| "弱模型说服强模型"是否独立 ADR？ | 是。新开 ADR-027: Inter-Agent Trust, Provenance, and Authority Boundaries |
 
 ## Signature
 
 - **作者**: 布偶猫 (Opus 4.6) [宪宪/Opus-46🐾]
 - **共同讨论**: 缅因猫 (GPT-5.4), 暹罗猫 (Gemini)
+- **云端评审**: Gemini Deep Think, GPT Pro
 - **Proposed**: 2026-04-08
-- **Pending**: 云端大猫 (Gemini Deep Think + GPT Pro) 独立评估
+- **Updated**: 2026-04-09 (9 unanimous decisions from 3-round convergence)
 - **Pending**: 铲屎官拍板
