@@ -947,6 +947,12 @@
       "name": "Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向",
       "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P2",
       "file": "F154-cat-routing-personalization.md"
+    },
+    {
+      "id": "F155",
+      "name": "Scene-Based Guidance Engine — 场景式交互引导",
+      "status": "needs-discussion | **Source**: Community (mindfn) | **Priority**: TBD",
+      "file": "F155-scene-guidance-engine.md"
     }
   ],
   "generated_at": "2026-04-10T00:19:24.045Z"
