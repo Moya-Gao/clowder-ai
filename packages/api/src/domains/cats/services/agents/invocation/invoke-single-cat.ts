@@ -1831,7 +1831,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
 
     // F152: End invocation span + emit completion/error log through OTel
-    if (hadError) {
+    // Only emit error here for yielded-error path (hadError && !didWriteAudit).
+    // The catch path already emits error log + sets span status at L1731-1732.
+    if (hadError && !didWriteAudit) {
       invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: 'invocation completed with error' });
       emitOtelLog('ERROR', 'invocation_error', { [AGENT_ID]: catId, [STATUS]: 'error' }, invocationSpan);
     } else if (didComplete) {
