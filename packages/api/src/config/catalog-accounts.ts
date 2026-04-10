@@ -396,7 +396,10 @@ function migrateHomedirCredentials(projectRoot?: string): void {
     let targetCreds: Record<string, unknown> = {};
     if (existsSync(targetCredPath)) {
       try {
-        targetCreds = JSON.parse(readFileSync(targetCredPath, 'utf-8'));
+        const parsed = JSON.parse(readFileSync(targetCredPath, 'utf-8'));
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          targetCreds = parsed;
+        }
       } catch {
         targetCreds = {};
       }
