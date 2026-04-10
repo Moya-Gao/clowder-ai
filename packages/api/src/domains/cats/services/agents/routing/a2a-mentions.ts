@@ -139,8 +139,13 @@ export function analyzeA2AMentions(
 
 /** Action patterns that appear immediately BEFORE @mention (e.g. "Ready for @xxx"). */
 const BEFORE_HANDOFF_RE = /(?:ready\s+for|交接给?|转给|请|帮)\s*$/i;
-/** Action patterns that appear immediately AFTER @mention (e.g. "@xxx review"). */
-const AFTER_HANDOFF_RE = /^\s*(?:review|check|fix|merge|确认|处理|看一?下|来处理|来看|帮忙|请)/i;
+/**
+ * Action patterns immediately AFTER @mention (e.g. "@xxx review").
+ * Chinese verbs use negative lookahead to exclude completion suffixes (过/了/完/好/掉),
+ * which turn commands into narrative: "@codex 处理过" ≠ "@codex 处理一下".
+ */
+const AFTER_HANDOFF_RE =
+  /^\s*(?:review|check|fix|merge|(?:确认|处理|来处理|来看)(?![过了完好掉])|看一?下|帮忙|请)/i;
 
 export function detectInlineActionMentions(
   text: string,
@@ -172,23 +177,31 @@ export function detectInlineActionMentions(
     const normalized = trimmed.toLowerCase();
     if (normalized.startsWith('@') || normalized.startsWith('>')) continue;
 
+    let lineMatched = false;
     for (const entry of entries) {
-      const idx = normalized.indexOf(entry.pattern);
-      if (idx < 0) continue;
-      const charAfter = normalized[idx + entry.pattern.length];
-      const isBoundary =
-        !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
-      if (!isBoundary) continue;
-      if (routedSet.has(entry.catId)) continue;
-      // Proximity check: action keyword must be immediately adjacent to @mention
-      const before = normalized.slice(0, idx);
-      const after = normalized.slice(idx + entry.pattern.length);
-      if (!BEFORE_HANDOFF_RE.test(before) && !AFTER_HANDOFF_RE.test(after)) continue;
-      if (!seen.has(entry.catId)) {
-        seen.add(entry.catId);
-        found.push({ catId: entry.catId, lineText: rawLine.trim() });
+      if (lineMatched) break;
+      // Scan ALL occurrences of this pattern in the line (not just first indexOf hit).
+      // Fixes: "之前 @codex 提过意见，现在 Ready for @codex review" must find the second one.
+      let searchFrom = 0;
+      while (searchFrom < normalized.length) {
+        const idx = normalized.indexOf(entry.pattern, searchFrom);
+        if (idx < 0) break;
+        searchFrom = idx + 1;
+        const charAfter = normalized[idx + entry.pattern.length];
+        const isBoundary =
+          !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
+        if (!isBoundary) continue;
+        if (routedSet.has(entry.catId)) { lineMatched = true; break; }
+        const before = normalized.slice(0, idx);
+        const after = normalized.slice(idx + entry.pattern.length);
+        if (!BEFORE_HANDOFF_RE.test(before) && !AFTER_HANDOFF_RE.test(after)) continue;
+        if (!seen.has(entry.catId)) {
+          seen.add(entry.catId);
+          found.push({ catId: entry.catId, lineText: rawLine.trim() });
+        }
+        lineMatched = true;
+        break;
       }
-      break;
     }
   }
 

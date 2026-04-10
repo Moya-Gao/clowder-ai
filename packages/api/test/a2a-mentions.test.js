@@ -352,6 +352,40 @@ describe('#417: detectInlineActionMentions', () => {
     const result = detectInlineActionMentions(text, 'opus', []);
     assert.deepEqual(result, [], 'action words "请" and "处理" are not adjacent to @codex');
   });
+
+  // --- R2 P1 regression: completion suffixes turn commands into narrative ---
+
+  it('R2-P1: "@codex 处理过" is narrative (completion suffix 过)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('之前 @codex 处理过这个问题', 'opus', []), []);
+  });
+
+  it('R2-P1: "@codex 确认了" is narrative (completion suffix 了)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('之前 @codex 确认了这个方案', 'opus', []), []);
+  });
+
+  it('R2-P1: "@codex 来看过" is narrative (completion suffix 过)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('之前 @codex 来看过一次', 'opus', []), []);
+  });
+
+  it('R2-P1: "@codex 处理一下" is still handoff (no completion suffix)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = detectInlineActionMentions('这个问题 @codex 处理一下', 'opus', []);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].catId, 'codex');
+  });
+
+  // --- R2 P2 regression: same cat appears twice, second occurrence is handoff ---
+
+  it('R2-P2: same cat twice — first narrative, second handoff', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '之前 @codex 提过意见，现在 Ready for @codex review';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.equal(result.length, 1, 'should detect the second occurrence as handoff');
+    assert.equal(result[0].catId, 'codex');
+  });
 });
 
 describe('SystemPromptBuilder A2A injection', () => {
