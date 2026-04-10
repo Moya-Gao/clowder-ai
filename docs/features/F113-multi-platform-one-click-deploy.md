@@ -116,11 +116,12 @@ API 契约：
 - [x] AC-A2: 支持 Debian/Ubuntu 和 CentOS/RHEL/Fedora 发行版
 
 ### Phase B（macOS 一键安装）
-- [x] AC-B1: macOS 用户执行同一条 `bash scripts/install.sh`，且不需要 `sudo`
-- [x] AC-B2: 非 login shell 下也能发现或安装 Homebrew，覆盖 Apple Silicon / Intel
-- [x] AC-B3: 安装结束后，当前 shell 立即可用 `pnpm`/`claude`/`codex`/`gemini`，新终端也可用
-- [x] AC-B4: 兼容 macOS 自带 bash 3.2 / `set -u` / 空数组迭代
-- [x] AC-B5: 重跑安装不破坏 profile，不重复写坏 PATH，不因 profile 无 trailing newline 破坏 shell
+- 以下 AC 已在 PR #174 中实现并通过 review；在代码实际合入 `main` 前保持未勾选。
+- [ ] AC-B1: macOS 用户执行同一条 `bash scripts/install.sh`，且不需要 `sudo`
+- [ ] AC-B2: 非 login shell 下也能发现或安装 Homebrew，覆盖 Apple Silicon / Intel
+- [ ] AC-B3: 安装结束后，当前 shell 立即可用 `pnpm`/`claude`/`codex`/`gemini`，新终端也可用
+- [ ] AC-B4: 兼容 macOS 自带 bash 3.2 / `set -u` / 空数组迭代
+- [ ] AC-B5: 重跑安装不破坏 profile，不重复写坏 PATH，不因 profile 无 trailing newline 破坏 shell
 - [ ] AC-B6: 铲屎官在 macOS 真机上完成端到端验收（安装→启动→使用）
 
 ### Phase C（Windows 一键安装）✅
