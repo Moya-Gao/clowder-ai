@@ -257,6 +257,60 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.origin).toBe('callback');
     });
 
+    it('P1 regression: stale explicit callback bubble must NOT suppress live background stream chunks', () => {
+      const now = Date.now();
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-live',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Live response',
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: {} },
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', { id: 'bg-live', threadId: 'thread-bg', catId: 'opus' });
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: undefined });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: 'Old callback',
+        invocationId: 'inv-stale',
+        messageId: 'bg-stale-cb',
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: ' more live text',
+        timestamp: now + 2,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'bg-live',
+            content: 'Live response more live text',
+            origin: 'stream',
+            isStreaming: true,
+          }),
+          expect.objectContaining({
+            id: 'bg-stale-cb',
+            content: 'Old callback',
+            origin: 'callback',
+            extra: { stream: { invocationId: 'inv-stale' } },
+          }),
+        ]),
+      );
+    });
+
     it('callback-origin text replaces overlapping background stream bubble from the same invocation', () => {
       const now = Date.now();
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-1' });

@@ -524,13 +524,17 @@ export function useAgentMessages() {
             // placeholder existed yet. Mark the invocation as replaced so that
             // late-arriving stream chunks for the same invocation are suppressed
             // instead of spawning a second bubble. Explicit callback invocationIds
-            // are always safe. Invocationless callback-only bubbles also need the
-            // inferred lock even when an older finalized ref exists but was not
-            // matchable for this callback; otherwise the current invocation can
-            // still spawn a duplicate late stream bubble.
+            // are only safe when the current invocation is already bound to the
+            // same ID; otherwise a stale callback can suppress live stream chunks
+            // before invocation_created/catInvocations catches up.
             if (explicitInvocationId) {
-              replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
+              if (inferredInvocationId && inferredInvocationId === explicitInvocationId) {
+                replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
+              }
             } else if (inferredInvocationId) {
+              // Invocationless callback-only bubbles still need the inferred lock
+              // even when an older finalized ref was not matchable; otherwise the
+              // current invocation can still spawn a duplicate late stream bubble.
               replacedInvocationsRef.current.set(msg.catId, inferredInvocationId);
             }
           }

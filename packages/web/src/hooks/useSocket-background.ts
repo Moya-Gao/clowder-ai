@@ -417,17 +417,19 @@ export function handleBackgroundAgentMessage(
         // #586 Bug 1 (TD112): Callback created new bubble without finding a stream
         // placeholder. Mark invocation as replaced so late background stream chunks
         // are suppressed instead of spawning a duplicate bubble. Explicit
-        // callback invocationIds are always safe. Invocationless callback-only
-        // bubbles also need the inferred lock even when an older finalized ref
-        // exists but was not matchable for this callback; otherwise the current
-        // invocation can still spawn a duplicate late stream bubble.
+        // callback invocationIds are only safe when the current thread
+        // invocation is already bound to the same ID; otherwise a stale callback
+        // can suppress live background stream chunks before binding catches up.
+        const inferredInvocationId = getThreadInvocationId(msg, options);
         if (explicitInvocationId) {
-          options.replacedInvocations.set(streamKey, explicitInvocationId);
-        } else {
-          const inferredInvocationId = getThreadInvocationId(msg, options);
-          if (inferredInvocationId) {
-            options.replacedInvocations.set(streamKey, inferredInvocationId);
+          if (inferredInvocationId && inferredInvocationId === explicitInvocationId) {
+            options.replacedInvocations.set(streamKey, explicitInvocationId);
           }
+        } else if (inferredInvocationId) {
+          // Invocationless callback-only bubbles still need the inferred lock
+          // even when an older finalized ref was not matchable for this callback;
+          // otherwise the current invocation can still spawn a duplicate bubble.
+          options.replacedInvocations.set(streamKey, inferredInvocationId);
         }
         finalMsgId = cbId;
       }
