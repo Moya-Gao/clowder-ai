@@ -327,6 +327,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     state: indexState,
     progress: bootstrapProgress,
     summary: bootstrapSummary,
+    durationMs: bootstrapDurationMs,
     isSnoozed,
     startBootstrap,
     snooze: snoozeBootstrap,
@@ -546,6 +547,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                         isSnoozed={isSnoozed}
                         progress={bootstrapProgress}
                         summary={bootstrapSummary}
+                        durationMs={bootstrapDurationMs}
                         isNewProject={setupDone}
                         governanceDone={
                           setupDone || !!(govStatus && !govStatus.needsBootstrap && !govStatus.needsConfirmation)

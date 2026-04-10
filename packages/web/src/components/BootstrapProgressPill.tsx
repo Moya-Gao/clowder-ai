@@ -6,11 +6,10 @@ interface BootstrapProgressPillProps {
   expanded?: boolean;
 }
 
-const PHASE_LABELS = ['扫描文件', '提取结构', '建立索引', '生成摘要'] as const;
+const PHASE_LABELS = ['扫描文件', '提取结构', '构建索引', '生成摘要'] as const;
 
 export function BootstrapProgressPill({ progress, expanded: defaultExpanded }: BootstrapProgressPillProps) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
-  const pct = progress.totalPhases > 0 ? Math.round(((progress.phaseIndex + 0.5) / progress.totalPhases) * 100) : 0;
 
   return (
     <div data-testid="bootstrap-progress-pill" className="flex justify-center mb-2">
@@ -21,7 +20,9 @@ export function BootstrapProgressPill({ progress, expanded: defaultExpanded }: B
       >
         <span className="inline-block w-3 h-3 rounded-full bg-cocreator-primary animate-pulse" />
         <span className="text-cocreator-dark font-medium">建立记忆索引…</span>
-        <span className="text-gray-400">{pct}%</span>
+        <span className="text-gray-400">
+          {PHASE_LABELS[progress.phaseIndex] ?? ''} ({progress.phaseIndex + 1}/{progress.totalPhases})
+        </span>
         <span className={`text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>▾</span>
       </button>
 

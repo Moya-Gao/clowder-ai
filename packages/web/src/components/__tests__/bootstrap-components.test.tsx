@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { BootstrapProgress, IndexState, ProjectSummary } from '@/hooks/useIndexState';
+import { BootstrapAutoNotice } from '../BootstrapAutoNotice';
 import { BootstrapProgressPill } from '../BootstrapProgressPill';
 import { BootstrapPromptCard } from '../BootstrapPromptCard';
 import { BootstrapSummaryCard } from '../BootstrapSummaryCard';
@@ -45,7 +46,7 @@ const mockSummary: ProjectSummary = {
     { path: 'docs/README.md', tier: 'authoritative' },
     { path: 'docs/ARCH.md', tier: 'derived' },
   ],
-  tierCoverage: { authoritative: 1, derived: 1 },
+  tierCoverage: { authoritative: 1, derived: 1, soft_clue: 2 },
 };
 
 const scanningProgress: BootstrapProgress = {
@@ -151,10 +152,10 @@ describe('BootstrapPromptCard', () => {
     expect(html).toBe('');
   });
 
-  it('shows project directory name', () => {
+  it('shows project directory name in failed/stale states', () => {
     const html = renderToStaticMarkup(
       <BootstrapPromptCard
-        indexState={missingState}
+        indexState={failedState}
         isSnoozed={false}
         projectPath="/home/user/my-project"
         onStartScan={() => {}}
@@ -162,6 +163,21 @@ describe('BootstrapPromptCard', () => {
       />,
     );
     expect(html).toContain('my-project');
+  });
+
+  it('shows three info bullets in default state', () => {
+    const html = renderToStaticMarkup(
+      <BootstrapPromptCard
+        indexState={missingState}
+        isSnoozed={false}
+        projectPath="/tmp/foo"
+        onStartScan={() => {}}
+        onSnooze={() => {}}
+      />,
+    );
+    expect(html).toContain('扫描范围');
+    expect(html).toContain('预计耗时');
+    expect(html).toContain('数据安全');
   });
 
   it('uses cocreator color classes', () => {
@@ -180,18 +196,18 @@ describe('BootstrapPromptCard', () => {
 });
 
 describe('BootstrapProgressPill', () => {
-  it('renders collapsed pill with percentage', () => {
+  it('renders collapsed pill with phase label', () => {
     const html = renderToStaticMarkup(<BootstrapProgressPill progress={scanningProgress} />);
     expect(html).toContain('建立记忆索引…');
     expect(html).toContain('bootstrap-progress-pill');
-    expect(html).not.toContain('扫描文件');
+    expect(html).toContain('扫描文件 (1/4)');
   });
 
   it('renders expanded view with phase list', () => {
     const html = renderToStaticMarkup(<BootstrapProgressPill progress={extractingProgress} expanded />);
     expect(html).toContain('扫描文件');
     expect(html).toContain('提取结构');
-    expect(html).toContain('建立索引');
+    expect(html).toContain('构建索引');
     expect(html).toContain('生成摘要');
   });
 
@@ -214,52 +230,53 @@ describe('BootstrapProgressPill', () => {
 describe('BootstrapSummaryCard', () => {
   it('renders summary with project name and doc count', () => {
     const html = renderToStaticMarkup(<BootstrapSummaryCard summary={mockSummary} docsIndexed={42} />);
-    expect(html).toContain('记忆索引就绪');
+    expect(html).toContain('记忆索引构建完成');
     expect(html).toContain('test-project');
-    expect(html).toContain('42 份文档');
+    expect(html).toContain('42 个文档');
     expect(html).toContain('bootstrap-summary-card');
   });
 
-  it('shows tech stack badges', () => {
+  it('shows tier coverage as colored tags (including soft_clue)', () => {
     const html = renderToStaticMarkup(<BootstrapSummaryCard summary={mockSummary} docsIndexed={10} />);
-    expect(html).toContain('node');
-    expect(html).toContain('typescript');
-  });
-
-  it('shows directory structure', () => {
-    const html = renderToStaticMarkup(<BootstrapSummaryCard summary={mockSummary} docsIndexed={10} />);
-    expect(html).toContain('src');
-    expect(html).toContain('docs');
-    expect(html).toContain('packages');
-  });
-
-  it('shows tier coverage', () => {
-    const html = renderToStaticMarkup(<BootstrapSummaryCard summary={mockSummary} docsIndexed={10} />);
-    expect(html).toContain('权威');
-    expect(html).toContain('推导');
-  });
-
-  it('shows core modules', () => {
-    const html = renderToStaticMarkup(<BootstrapSummaryCard summary={mockSummary} docsIndexed={10} />);
-    expect(html).toContain('api, web, shared');
+    expect(html).toContain('Specs');
+    expect(html).toContain('Plans');
+    expect(html).toContain('Lessons');
+    expect(html).toContain('覆盖分层');
+    // P2-2: soft_clue must map to "Lessons", not fall through to raw key
+    expect(html).not.toContain('soft_clue');
   });
 
   it('shows duration when provided', () => {
     const html = renderToStaticMarkup(
-      <BootstrapSummaryCard summary={mockSummary} docsIndexed={10} durationMs={2500} />,
+      <BootstrapSummaryCard summary={mockSummary} docsIndexed={10} durationMs={23000} />,
     );
-    expect(html).toContain('2.5s');
+    expect(html).toContain('23 秒');
   });
 
-  it('renders dismiss button when onDismiss provided', () => {
+  it('renders action buttons with placeholder CTAs disabled', () => {
     const html = renderToStaticMarkup(
       <BootstrapSummaryCard summary={mockSummary} docsIndexed={10} onDismiss={() => {}} />,
     );
-    expect(html).toContain('✕');
+    expect(html).toContain('关闭');
+    expect(html).toContain('搜索知识');
+    expect(html).toContain('前往记忆中心');
+    // P2-1: CTAs without handlers must be disabled
+    expect(html).toContain('disabled');
   });
 
-  it('uses cocreator color for tech badges', () => {
+  it('uses green color theme', () => {
     const html = renderToStaticMarkup(<BootstrapSummaryCard summary={mockSummary} docsIndexed={10} />);
-    expect(html).toContain('cocreator-primary');
+    expect(html).toContain('green-200');
+    expect(html).toContain('green-50');
+  });
+});
+
+describe('BootstrapAutoNotice', () => {
+  it('renders amber auto-chain notice', () => {
+    const html = renderToStaticMarkup(<BootstrapAutoNotice />);
+    expect(html).toContain('bootstrap-auto-notice');
+    expect(html).toContain('正在自动建立记忆索引');
+    expect(html).toContain('治理初始化完成');
+    expect(html).toContain('amber');
   });
 });

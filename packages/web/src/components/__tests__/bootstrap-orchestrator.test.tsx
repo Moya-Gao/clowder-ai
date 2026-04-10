@@ -86,7 +86,7 @@ describe('BootstrapOrchestrator', () => {
       />,
     );
     expect(html).toContain('bootstrap-summary-card');
-    expect(html).toContain('记忆索引就绪');
+    expect(html).toContain('记忆索引构建完成');
   });
 
   it('renders nothing when snoozed and missing', () => {
@@ -104,7 +104,45 @@ describe('BootstrapOrchestrator', () => {
     expect(html).toBe('');
   });
 
-  it('renders nothing for new project with governance done (auto-start handled via effect)', () => {
+  it('shows PromptCard with retry when failed, even if isNewProject && governanceDone (P1)', () => {
+    const failedState: IndexState = { ...missingState, status: 'failed', error_message: 'disk full' };
+    const html = renderToStaticMarkup(
+      <BootstrapOrchestrator
+        projectPath="/tmp/foo"
+        indexState={failedState}
+        isSnoozed={false}
+        progress={null}
+        summary={null}
+        isNewProject
+        governanceDone
+        onStartBootstrap={noop}
+        onSnooze={noop}
+      />,
+    );
+    expect(html).toContain('bootstrap-prompt-card');
+    expect(html).not.toContain('bootstrap-auto-notice');
+  });
+
+  it('shows PromptCard when stale, even if isNewProject && governanceDone (P1)', () => {
+    const staleState: IndexState = { ...missingState, status: 'stale' };
+    const html = renderToStaticMarkup(
+      <BootstrapOrchestrator
+        projectPath="/tmp/foo"
+        indexState={staleState}
+        isSnoozed={false}
+        progress={null}
+        summary={null}
+        isNewProject
+        governanceDone
+        onStartBootstrap={noop}
+        onSnooze={noop}
+      />,
+    );
+    expect(html).toContain('bootstrap-prompt-card');
+    expect(html).not.toContain('bootstrap-auto-notice');
+  });
+
+  it('shows auto-notice for new project with governance done (auto-start handled via effect)', () => {
     const html = renderToStaticMarkup(
       <BootstrapOrchestrator
         projectPath="/tmp/foo"
@@ -118,6 +156,7 @@ describe('BootstrapOrchestrator', () => {
         onSnooze={noop}
       />,
     );
-    expect(html).toBe('');
+    expect(html).toContain('bootstrap-auto-notice');
+    expect(html).toContain('正在自动建立记忆索引');
   });
 });

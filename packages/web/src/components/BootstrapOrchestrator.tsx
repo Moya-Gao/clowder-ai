@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { BootstrapProgress, IndexState, ProjectSummary } from '@/hooks/useIndexState';
+import { BootstrapAutoNotice } from './BootstrapAutoNotice';
 import { BootstrapProgressPill } from './BootstrapProgressPill';
 import { BootstrapPromptCard } from './BootstrapPromptCard';
 import { BootstrapSummaryCard } from './BootstrapSummaryCard';
@@ -10,6 +11,7 @@ interface BootstrapOrchestratorProps {
   isSnoozed: boolean;
   progress: BootstrapProgress | null;
   summary: ProjectSummary | null;
+  durationMs?: number | null;
   isNewProject?: boolean;
   governanceDone?: boolean;
   onStartBootstrap: () => void;
@@ -22,6 +24,7 @@ export function BootstrapOrchestrator({
   isSnoozed,
   progress,
   summary,
+  durationMs,
   isNewProject,
   governanceDone,
   onStartBootstrap,
@@ -29,6 +32,16 @@ export function BootstrapOrchestrator({
 }: BootstrapOrchestratorProps) {
   const [dismissed, setDismissed] = useState(false);
   const autoStartedRef = useRef(false);
+
+  // P2 fix: reset auto-start flag on project switch to prevent cross-project leak
+  const prevProjectRef = useRef(projectPath);
+  useEffect(() => {
+    if (projectPath !== prevProjectRef.current) {
+      prevProjectRef.current = projectPath;
+      autoStartedRef.current = false;
+      setDismissed(false);
+    }
+  }, [projectPath]);
 
   // AC-B9: Auto-start bootstrap for new projects after governance completes
   useEffect(() => {
@@ -41,7 +54,14 @@ export function BootstrapOrchestrator({
   if (dismissed) return null;
 
   if (indexState.status === 'building' && progress) {
-    return <BootstrapProgressPill progress={progress} />;
+    return autoStartedRef.current ? (
+      <>
+        <BootstrapAutoNotice />
+        <BootstrapProgressPill progress={progress} />
+      </>
+    ) : (
+      <BootstrapProgressPill progress={progress} />
+    );
   }
 
   if (indexState.status === 'ready' && summary) {
@@ -49,13 +69,15 @@ export function BootstrapOrchestrator({
       <BootstrapSummaryCard
         summary={summary}
         docsIndexed={indexState.docs_indexed}
+        durationMs={durationMs ?? undefined}
         onDismiss={() => setDismissed(true)}
       />
     );
   }
 
   if (indexState.status === 'missing' || indexState.status === 'stale' || indexState.status === 'failed') {
-    if (isNewProject && governanceDone) return null; // auto-start handled above, will transition to building
+    // P1 fix: auto-notice only for missing state — failed/stale must show actionable PromptCard
+    if (indexState.status === 'missing' && isNewProject && governanceDone) return <BootstrapAutoNotice />;
     return (
       <BootstrapPromptCard
         indexState={indexState}

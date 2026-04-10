@@ -7,8 +7,28 @@ interface BootstrapSummaryCardProps {
   onDismiss?: () => void;
 }
 
+const TIER_LABELS: Record<string, string> = {
+  specs: 'Specs',
+  adrs: 'ADRs',
+  plans: 'Plans',
+  lessons: 'Lessons',
+  authoritative: 'Specs',
+  derived: 'Plans',
+  soft_clue: 'Lessons',
+};
+
+const TIER_COLORS: Record<string, string> = {
+  specs: 'bg-cocreator-primary/10 text-cocreator-dark',
+  adrs: 'bg-orange-100 text-orange-700',
+  plans: 'bg-blue-100 text-blue-700',
+  lessons: 'bg-green-100 text-green-700',
+  authoritative: 'bg-cocreator-primary/10 text-cocreator-dark',
+  derived: 'bg-blue-100 text-blue-700',
+  soft_clue: 'bg-green-100 text-green-700',
+};
+
 export function BootstrapSummaryCard({ summary, docsIndexed, durationMs, onDismiss }: BootstrapSummaryCardProps) {
-  const durationSec = durationMs ? (durationMs / 1000).toFixed(1) : null;
+  const durationSec = durationMs ? Math.round(durationMs / 1000) : null;
 
   return (
     <div data-testid="bootstrap-summary-card" className="flex justify-center mb-3">
@@ -18,77 +38,69 @@ export function BootstrapSummaryCard({ summary, docsIndexed, durationMs, onDismi
             <span className="text-2xl">✅</span>
           </div>
           <div>
-            <p className="text-sm font-medium text-green-800">记忆索引就绪</p>
-            <p className="text-xs text-green-600 mt-0.5">
-              <strong>{summary.projectName}</strong> — 已索引 {docsIndexed} 份文档
-              {durationSec && <span className="text-gray-400">（{durationSec}s）</span>}
-            </p>
+            <p className="text-sm font-medium text-green-800">记忆索引构建完成</p>
+            <p className="text-xs text-green-600 mt-0.5">猫猫现在可以搜索这个项目的历史知识了</p>
           </div>
+        </div>
+
+        <div className="ml-16 space-y-1.5 text-xs text-gray-600">
+          <p>
+            <span className="text-gray-400 mr-1.5">📁</span>
+            项目 &nbsp;<strong>{summary.projectName}</strong>
+          </p>
+          <p>
+            <span className="text-gray-400 mr-1.5">📄</span>
+            已索引 {docsIndexed} 个文档
+          </p>
+          {durationSec !== null && (
+            <p>
+              <span className="text-gray-400 mr-1.5">⏱</span>
+              耗时 {durationSec} 秒
+            </p>
+          )}
+        </div>
+
+        {Object.keys(summary.tierCoverage).length > 0 && (
+          <div className="ml-16 mt-3">
+            <p className="text-[10px] text-gray-400 mb-1.5">覆盖分层</p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(summary.tierCoverage).map(([tier, count]) => (
+                <span
+                  key={tier}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${TIER_COLORS[tier] ?? 'bg-gray-100 text-gray-600'}`}
+                >
+                  {TIER_LABELS[tier] ?? tier} · {count}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 ml-16 mt-4">
           {onDismiss && (
             <button
               type="button"
               onClick={onDismiss}
-              className="ml-auto text-gray-400 hover:text-gray-600 text-xs"
-              aria-label="关闭"
+              className="px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
             >
-              ✕
+              关闭
             </button>
           )}
+          <button
+            type="button"
+            disabled
+            className="px-3 py-1.5 rounded-lg text-xs text-gray-400 cursor-not-allowed inline-flex items-center gap-1"
+          >
+            🔍 搜索知识
+          </button>
+          <button
+            type="button"
+            disabled
+            className="px-3 py-1.5 rounded-lg bg-green-600/50 text-white/70 text-xs font-medium cursor-not-allowed inline-flex items-center gap-1"
+          >
+            🧠 前往记忆中心
+          </button>
         </div>
-
-        <div className="ml-16 space-y-2">
-          {summary.techStack.length > 0 && (
-            <div className="flex items-start gap-2">
-              <span className="text-xs text-gray-500 w-16 flex-shrink-0">技术栈</span>
-              <div className="flex flex-wrap gap-1">
-                {summary.techStack.map((tech) => (
-                  <span
-                    key={tech}
-                    className="px-1.5 py-0.5 rounded text-[10px] bg-cocreator-primary/10 text-cocreator-dark font-medium"
-                  >
-                    {tech}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {summary.dirStructure.length > 0 && (
-            <div className="flex items-start gap-2">
-              <span className="text-xs text-gray-500 w-16 flex-shrink-0">目录</span>
-              <p className="text-xs text-gray-700">
-                {summary.dirStructure.slice(0, 8).join(' / ')}
-                {summary.dirStructure.length > 8 && (
-                  <span className="text-gray-400"> +{summary.dirStructure.length - 8}</span>
-                )}
-              </p>
-            </div>
-          )}
-
-          {Object.keys(summary.tierCoverage).length > 0 && (
-            <div className="flex items-start gap-2">
-              <span className="text-xs text-gray-500 w-16 flex-shrink-0">文档层</span>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(summary.tierCoverage).map(([tier, count]) => (
-                  <span key={tier} className="text-[10px] text-gray-600">
-                    {tier === 'authoritative' ? '权威' : tier === 'derived' ? '推导' : '线索'}: {count}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {summary.coreModules.length > 0 && (
-            <div className="flex items-start gap-2">
-              <span className="text-xs text-gray-500 w-16 flex-shrink-0">模块</span>
-              <p className="text-xs text-gray-700">{summary.coreModules.join(', ')}</p>
-            </div>
-          )}
-        </div>
-
-        <p className="text-[10px] text-gray-400 mt-3 ml-16">
-          🐾 猫猫已记住这个项目的结构，可以更准确地搜索文档和解答问题了。
-        </p>
       </div>
     </div>
   );

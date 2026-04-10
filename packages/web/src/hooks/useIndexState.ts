@@ -47,6 +47,7 @@ export function useIndexState(projectPath: string | null) {
   const [state, setState] = useState<IndexState>(MISSING_STATE);
   const [progress, setProgress] = useState<BootstrapProgress | null>(null);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
+  const [durationMs, setDurationMs] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
 
@@ -56,6 +57,17 @@ export function useIndexState(projectPath: string | null) {
       mountedRef.current = false;
     };
   }, []);
+
+  // Reset transient state when project changes (P2-3: prevent cross-project durationMs leak)
+  const prevProjectRef = useRef(projectPath);
+  useEffect(() => {
+    if (projectPath !== prevProjectRef.current) {
+      prevProjectRef.current = projectPath;
+      setDurationMs(null);
+      setProgress(null);
+      setSummary(null);
+    }
+  }, [projectPath]);
 
   const fetchState = useCallback(async () => {
     if (!projectPath || projectPath === 'default' || projectPath === 'lobby') return;
@@ -128,6 +140,7 @@ export function useIndexState(projectPath: string | null) {
         setState((s) => ({ ...s, status: 'ready' }));
         setProgress(null);
         if (data.summary) setSummary(data.summary as ProjectSummary);
+        if (typeof data.durationMs === 'number') setDurationMs(data.durationMs);
         fetchState();
       } else if (event === 'index:failed') {
         setState((s) => ({ ...s, status: 'failed', error_message: (data.error as string) ?? 'Unknown error' }));
@@ -143,6 +156,7 @@ export function useIndexState(projectPath: string | null) {
     state,
     progress,
     summary,
+    durationMs,
     loading,
     isSnoozed,
     startBootstrap,
