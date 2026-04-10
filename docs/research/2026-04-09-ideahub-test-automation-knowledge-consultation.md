@@ -1,5 +1,5 @@
 ---
-feature_ids: [F102, F152]
+feature_ids: [F152, F102]
 related_features: [F070]
 topics: [knowledge-engineering, test-automation, consultation, community, ideahub]
 doc_kind: research

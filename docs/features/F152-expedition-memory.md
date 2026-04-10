@@ -24,6 +24,38 @@ F102 已经做完了记忆引擎（6 接口 + SQLite 基座 + 全局/项目层 +
 
 ## What
 
+### Phase 0: Knowledge Engineering Skill — 猫猫指导外部项目文档重构
+
+> 来源：IdeaHub 社区咨询的真实教训（`docs/research/2026-04-09-ideahub-test-automation-knowledge-consultation.md`）
+
+Scanner 再强也只能吃已有的文档。如果项目连结构化文档都没有（IdeaHub 的真实场景：有 AW 接口文档和脚本，但业务知识全在人脑里），扫出来的东西价值极低。
+
+**两条路径**：
+
+```
+猫进入外部项目
+  ├─ 路径 1（Guided）：用户想学最佳实践
+  │   → 猫用 knowledge-engineering skill 指导文档重构
+  │   → 三层知识注入（领域手册 → 模式库 → 检索管道）
+  │   → 重构后 CatCafeScanner 直接吃
+  │
+  └─ 路径 2（Autonomous）：用户不需要帮助
+      → GenericRepoScanner 扫描现有结构
+      → 尽力而为（provenance 置信度会偏低）
+```
+
+**Knowledge Engineering Skill 核心内容**（从 IdeaHub 咨询提炼的可复用方法论）：
+
+1. **P0 领域手册**（1-2 天）：业务概念词典 + 业务规则表 + 操作路径映射
+2. **P1 模式库**（2-3 天）：从已有代码/脚本中抽取可复用模式（AI 抄 example 是 1:1，学 pattern 是 1:N）
+3. **P2 执行反馈循环**：生成→运行→报错→修复（TDD 思路）
+4. **P3 检索管道**：文档索引 + 语义搜索（这就是 F102 已经做好的）
+
+**Skill 还要能处理的特殊场景**：
+- 代码仓和文档仓分离 → 猫要能识别并提醒用户"文档放什么、怎么放"
+- 文档散落在 wiki/Confluence/飞书 → 猫要能指导迁移策略
+- 项目只有代码没有文档 → 猫从代码结构推导出文档骨架建议
+
 ### Phase A: GenericRepoScanner — 让 IndexBuilder 能吃非 cat-cafe 结构的项目
 
 当前 `IIndexBuilder` 只扫描 `docs/` 下有 YAML frontmatter 的 .md 文件。外部项目的知识源完全不同。
@@ -114,6 +146,13 @@ interface ScannedEvidence {
 
 ## Acceptance Criteria
 
+### Phase 0（Knowledge Engineering Skill）
+- [ ] AC-01: `knowledge-engineering` skill 存在且可被猫猫加载
+- [ ] AC-02: Skill 能识别外部项目的文档现状（有结构化文档 / 只有代码 / 文档散落 / 代码文档分仓）
+- [ ] AC-03: Skill 输出三层知识注入建议（领域手册 → 模式库 → 检索管道），内容基于 IdeaHub 咨询方法论
+- [ ] AC-04: Skill 能生成文档骨架模板（概念词典、规则表、操作映射），用户填充后可被 CatCafeScanner 索引
+- [ ] AC-05: Bootstrap 流程中，猫在路径选择点（Guided vs Autonomous）向用户说明两条路径的差异
+
 ### Phase A（GenericRepoScanner）
 - [ ] AC-A1: `GenericRepoScanner` 能扫描一个没有 cat-cafe `docs/` 结构的普通 Git 仓库，产出 `ScannedEvidence[]`
 - [ ] AC-A2: 每个 `ScannedEvidence` 带 `provenance: { tier: 'authoritative'|'derived'|'soft_clue', source: string }`（canonical naming，统一全 spec）
@@ -141,10 +180,12 @@ interface ScannedEvidence {
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
+| R0 | "如果对方希望学习最佳实践，先帮人家做一次文档重构" | AC-01~05 | manual: skill 指导用户完成文档骨架 | [ ] |
 | R1 | "别人的项目未必从零开始" — 能吃已有项目 | AC-A1, AC-A3 | test: 对一个普通 Git 仓库运行 scanner | [ ] |
 | R2 | 猫去外部项目能快速理解项目现状 | AC-B1, AC-B2 | manual: bootstrap 后猫能回答项目基本问题 | [ ] |
 | R3 | "用你们开发其他项目" — 不要求先搭 cat-cafe 标准目录 | AC-A1, AC-A3 | test: 无 docs/ 结构的仓库能正常扫描 | [ ] |
 | R4 | 猫踩的坑能带回来下次用 | AC-C1~C4 | manual: 一条经验从外部项目回流到全局层 | [ ] |
+| R5 | "代码仓可能和文档分开" — 猫要能识别并提醒 | AC-02 | manual: 猫检测到文档分仓场景时给出建议 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -178,7 +219,8 @@ interface ScannedEvidence {
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 三 Phase 精简方案（不是五 Phase） | F102 底座已覆盖 80%，Task-Time Growth 和 Product Surface 不需要单独拆 Phase | 2026-04-08 |
+| KD-0 | 加 Phase 0: Knowledge Engineering Skill（两条路径：Guided vs Autonomous） | 铲屎官纠偏：Scanner 再强也只能吃已有文档，真正帮到用户的是指导文档重构（IdeaHub 咨询实证） | 2026-04-09 |
+| KD-1 | 三 Phase 精简方案（不是五 Phase）→ 调整为 Phase 0+A+B+C | Phase 0 是 skill 层（不涉及引擎改动），不改原有三 Phase 的工程边界 | 2026-04-08 |
 | KD-2 | Scanner 输出带 provenance + 三层置信度 | 砚砚护栏：不带来源信息后面无法区分置信度、无法决定回流策略 | 2026-04-08 |
 | KD-3 | Global distillation fail-closed（默认不回流） | 砚砚护栏：防止甲方私有语境污染全局层 | 2026-04-08 |
 | KD-4 | 复用 F070 治理 bootstrap 链路（不是 `project-init.ts` CLI） | `project-init.ts` 只是 scaffold，真正的 hook 在 `projects-setup.ts` capability orchestrator | 2026-04-08 |
@@ -200,6 +242,8 @@ interface ScannedEvidence {
 ## Review Gate
 
 - Phase A: 跨家族 review（缅因猫优先）
+- Phase 0: Skill 层，writing-skills 流程验收
+- Phase A: 跨家族 review（缅因猫优先）
 - Phase B: 跨家族 review + 铲屎官短验收（在一个真实外部项目上 bootstrap）
 - Phase C: 跨家族 review + 铲屎官全链路验收（出征→冷启动→干活→回流）
 
@@ -208,5 +252,6 @@ interface ScannedEvidence {
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Evolved from** | `docs/features/F102-memory-adapter-refactor.md` | 记忆引擎底座（6 接口 + SQLite + 联邦检索） |
-| **Evolved from** | `docs/features/F070-portable-governance.md` | 治理/方法论随猫走 + `project-init` hook |
+| **Evolved from** | `docs/features/F070-portable-governance.md` | 治理/方法论随猫走 + 治理 bootstrap 链路 |
 | **Related** | `docs/features/F076-mission-hub-cross-project.md` | 跨项目作战面板（未来可展示出征记忆状态） |
+| **Evidence** | `docs/research/2026-04-09-ideahub-test-automation-knowledge-consultation.md` | IdeaHub 咨询：Phase 0 方法论的真实实证 |
