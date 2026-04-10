@@ -49,16 +49,17 @@ created: 2026-04-10
 ## Acceptance Criteria
 
 ### Phase A（连接层加固）
-- [ ] AC-A1: `Origin: https://evil.example` 的 WebSocket 连接被服务端拒绝（实测验证）
+- [ ] AC-A1: `Origin: https://evil.example` 的 **WebSocket-only**（`transports: ['websocket']`）连接被服务端拒绝（集成测试 + 实测验证）。验收标准是"恶意网页不能建立 WS 连接"，不是"CORS 配对了"
 - [ ] AC-A2: 合法前端 Origin（localhost:3001、配置的 FRONTEND_URL）连接正常
 - [ ] AC-A3: 服务端不再从客户端 handshake 取 userId，所有 socket 身份由服务端决定
 - [ ] AC-A4: 私网 Origin 默认不放行，需显式 `CORS_ALLOW_PRIVATE_NETWORK=true`
 - [ ] AC-A5: 现有前端功能不受影响（消息收发、取消、room 订阅正常）
+- [ ] AC-A6: 有 `socket.io-client` + `transports: ['websocket']` + 恶意 Origin 被拒的集成测试（钉住核心修复）
 
 ### Phase B（授权层加固）
 - [ ] AC-B1: Socket 无法加入非自己的 `user:*` room
-- [ ] AC-B2: `cancel_invocation` 的 `cancelAll` 分支校验 `userId`
-- [ ] AC-B3: 全局 room 在多用户模式下需认证
+- [ ] AC-B2: `cancel_invocation` 的 `cancelAll` 分支在 socket 层做 thread ownership guard 后再调用，不是只传参数下去没人用
+- [ ] AC-B3: `workspace:global` 和 `preview:global` 在多用户模式下需认证后才能加入（这两个 room 带文件路径、worktreeId、preview 端口等元数据，不是无害信息）
 
 ### Phase C（OfficeClaw）
 - [ ] AC-C1: OfficeClaw WebSocket 端点完成安全评估
