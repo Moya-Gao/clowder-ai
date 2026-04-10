@@ -283,7 +283,10 @@ export function useAgentMessages() {
     (
       catId: string,
       callbackContent?: string,
-    ): { id: string; matchKind: 'active_invocationless' | 'finalized_fallback' } | null => {
+    ):
+      | { id: string; matchKind: 'active_invocationless' }
+      | { id: string; matchKind: 'finalized_fallback'; replacementInvocationId?: string }
+      | null => {
       const currentMessages = useChatStore.getState().messages;
       const activeId = activeRefs.current.get(catId)?.id;
 
@@ -333,7 +336,11 @@ export function useAgentMessages() {
             if (Date.now() - finalizedEntry.fencedAt > LATE_CALLBACK_GRACE_MS) return null;
             if (callbackContent !== undefined && finalized.content !== callbackContent) return null;
           }
-          return { id: finalized.id, matchKind: 'finalized_fallback' };
+          return {
+            id: finalized.id,
+            matchKind: 'finalized_fallback',
+            replacementInvocationId: finalizedEntry.invocationId ?? finalized.extra?.stream?.invocationId,
+          };
         }
       }
 
@@ -478,7 +485,13 @@ export function useAgentMessages() {
             finalizedStreamRef.current.delete(msg.catId);
             if (explicitInvocationId) {
               replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
-            } else if (replacementTarget?.matchKind !== 'finalized_fallback' && inferredInvocationId) {
+            } else if (replacementTarget?.matchKind === 'finalized_fallback') {
+              if (replacementTarget.replacementInvocationId) {
+                // finalized_fallback can only safely suppress late chunks when we
+                // reuse the replaced stream bubble's own invocationId.
+                replacedInvocationsRef.current.set(msg.catId, replacementTarget.replacementInvocationId);
+              }
+            } else if (inferredInvocationId) {
               // Exact or active invocationless placeholder matches still belong to
               // the current invocation, so later stream chunks should be suppressed.
               replacedInvocationsRef.current.set(msg.catId, inferredInvocationId);

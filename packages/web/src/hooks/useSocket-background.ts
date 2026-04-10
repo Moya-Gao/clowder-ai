@@ -220,7 +220,11 @@ function findBackgroundCallbackReplacementTarget(
         if (msg.content !== undefined && finalized.content !== undefined && finalized.content !== msg.content)
           return null;
       }
-      return { id: finalized.id, invocationId: invocationId ?? null, matchKind: 'finalized_fallback' };
+      return {
+        id: finalized.id,
+        invocationId: finalizedEntry.invocationId ?? finalized.extra?.stream?.invocationId ?? null,
+        matchKind: 'finalized_fallback',
+      };
     }
   }
 
@@ -378,9 +382,9 @@ export function handleBackgroundAgentMessage(
         options.finalizedBgRefs.delete(streamKey);
         if (explicitInvocationId) {
           options.replacedInvocations.set(streamKey, explicitInvocationId);
-        } else if (replacementTarget.matchKind !== 'finalized_fallback' && replacementTarget.invocationId) {
-          // Exact or active invocationless placeholder matches still belong to the
-          // current invocation, so later stream chunks should be suppressed.
+        } else if (replacementTarget.invocationId) {
+          // finalized_fallback must reuse the replaced stream bubble's own
+          // invocationId; active/exact matches keep the current invocationId.
           options.replacedInvocations.set(streamKey, replacementTarget.invocationId);
         }
         finalMsgId = cbId;
