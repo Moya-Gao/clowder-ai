@@ -1,0 +1,1458 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "text",
+      "id": "kwRKp",
+      "x": 0,
+      "y": 0,
+      "name": "title",
+      "fill": "#1A1A1A",
+      "content": "F152 Phase B — Expedition Bootstrap UX",
+      "fontFamily": "Inter",
+      "fontSize": 24,
+      "fontWeight": "700"
+    },
+    {
+      "type": "text",
+      "id": "u8EZo",
+      "x": 0,
+      "y": 29,
+      "name": "label1",
+      "fill": "#5B3A1A",
+      "content": "1. BootstrapPromptCard — 记忆索引发现提示",
+      "fontFamily": "Inter",
+      "fontSize": 16,
+      "fontWeight": "600"
+    },
+    {
+      "type": "frame",
+      "id": "3jqNO",
+      "x": 0,
+      "y": 85,
+      "name": "BootstrapPromptCard — Default",
+      "width": 560,
+      "fill": "#FAFAF8",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#E8E0D4"
+      },
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 20,
+      "children": [
+        {
+          "type": "frame",
+          "id": "czTkU",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 14,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "bkaC4",
+              "name": "Memory Icon",
+              "width": 48,
+              "height": 48,
+              "fill": "#F5F3FF",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "TLyxA",
+                  "name": "iconGlyph1",
+                  "width": 24,
+                  "height": 24,
+                  "iconFontName": "brain",
+                  "iconFontFamily": "lucide",
+                  "fill": "#7C3AED"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LzPHl",
+              "name": "Header Text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RrN2N",
+                  "name": "hdrTitle1",
+                  "fill": "#1A1A1A",
+                  "content": "这个项目还没有记忆索引",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "Pyzca",
+                  "name": "hdrSub1",
+                  "fill": "#6B7280",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "建立索引后，猫猫可以搜索项目历史知识（specs、ADRs、教训等），不再从零开始",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "fi5ux",
+          "name": "Scan Scope Info",
+          "width": "fill_container",
+          "fill": "#F5F3FF",
+          "cornerRadius": 8,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#7C3AED1A"
+          },
+          "layout": "vertical",
+          "gap": 10,
+          "padding": 14,
+          "children": [
+            {
+              "type": "frame",
+              "id": "9Xm4s",
+              "name": "Row: Files",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "tN7d4",
+                  "name": "scopeIcon1",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "file-text",
+                  "iconFontFamily": "lucide",
+                  "fill": "#7C3AED"
+                },
+                {
+                  "type": "text",
+                  "id": "i02iM",
+                  "name": "scopeLabel1",
+                  "fill": "#6B7280",
+                  "content": "扫描范围",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "unVvb",
+                  "name": "scopeVal1",
+                  "fill": "#374151",
+                  "content": "docs/ 下 42 个文档（specs · ADRs · plans · lessons）",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "V6HEn",
+              "name": "Row: ETA",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "FD3gq",
+                  "name": "scopeIcon2",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "timer",
+                  "iconFontFamily": "lucide",
+                  "fill": "#7C3AED"
+                },
+                {
+                  "type": "text",
+                  "id": "rUEAg",
+                  "name": "scopeLabel2",
+                  "fill": "#6B7280",
+                  "content": "预计耗时",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "vga8K",
+                  "name": "scopeVal2",
+                  "fill": "#374151",
+                  "content": "~30 秒（后台运行，不影响对话）",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "IHJDJ",
+              "name": "Row: Privacy",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "DIaHy",
+                  "name": "scopeIcon3",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "shield-check",
+                  "iconFontFamily": "lucide",
+                  "fill": "#7C3AED"
+                },
+                {
+                  "type": "text",
+                  "id": "q1v0x",
+                  "name": "scopeLabel3",
+                  "fill": "#6B7280",
+                  "content": "数据安全",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "Clk8n",
+                  "name": "scopeVal3",
+                  "fill": "#374151",
+                  "content": "所有索引数据保留在本地，不上传任何内容",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "YIwMo",
+          "name": "Action Buttons",
+          "width": "fill_container",
+          "gap": 10,
+          "justifyContent": "end",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "YW4Mi",
+              "name": "Snooze Button",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#D1D5DB"
+              },
+              "padding": [
+                8,
+                16
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "HZ8kh",
+                  "name": "snoozeTxt",
+                  "fill": "#6B7280",
+                  "content": "稍后再说",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "gikGc",
+              "name": "Scan Button",
+              "fill": "#7C3AED",
+              "cornerRadius": 8,
+              "gap": 6,
+              "padding": [
+                8,
+                20
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "XDOGZ",
+                  "name": "scanIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "search",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                },
+                {
+                  "type": "text",
+                  "id": "LFnE5",
+                  "name": "scanTxt",
+                  "fill": "#FFFFFF",
+                  "content": "开始扫描",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "47Q19",
+          "name": "footNote",
+          "fill": "#9CA3AF",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "选择「稍后再说」将在 7 天后再次提醒。你也可以在记忆中心手动触发扫描。",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "Sou3c",
+      "x": 155,
+      "y": 377,
+      "name": "s2",
+      "fill": "#5B3A1A",
+      "content": "2. BootstrapProgressPill — 扫描进度（非阻塞）",
+      "fontFamily": "Inter",
+      "fontSize": 16,
+      "fontWeight": "600"
+    },
+    {
+      "type": "frame",
+      "id": "YK4Sc",
+      "x": 0,
+      "y": 415,
+      "name": "ProgressPill — Collapsed",
+      "fill": "#F5F3FF",
+      "cornerRadius": 20,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#7C3AED33"
+      },
+      "gap": 10,
+      "padding": [
+        8,
+        14
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "qAEei",
+          "name": "Pulse Dot",
+          "width": 8,
+          "height": 8,
+          "fill": "#7C3AED",
+          "cornerRadius": 4
+        },
+        {
+          "type": "text",
+          "id": "nWgPN",
+          "name": "pTxt",
+          "fill": "#5B21B6",
+          "content": "建立记忆索引…",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "500"
+        },
+        {
+          "type": "text",
+          "id": "ucP3y",
+          "name": "pPh",
+          "fill": "#8B5CF6",
+          "content": "提取结构 (2/4)",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "icon_font",
+          "id": "kodiF",
+          "name": "pChev",
+          "width": 14,
+          "height": 14,
+          "iconFontName": "chevron-down",
+          "iconFontFamily": "lucide",
+          "fill": "#8B5CF6"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "hAavc",
+      "x": 0,
+      "y": 460,
+      "name": "ProgressPill — Expanded",
+      "width": 400,
+      "fill": "#FAFAF8",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#E8E0D4"
+      },
+      "layout": "vertical",
+      "gap": 12,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "bIPED",
+          "name": "Pill Header",
+          "width": "fill_container",
+          "gap": 8,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "6boUz",
+              "name": "Icon Wrap",
+              "width": 32,
+              "height": 32,
+              "fill": "#F5F3FF",
+              "cornerRadius": 8,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "6ItZ8",
+                  "name": "peIG",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "brain",
+                  "iconFontFamily": "lucide",
+                  "fill": "#7C3AED"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "SnsZH",
+              "name": "peT",
+              "fill": "#1A1A1A",
+              "content": "记忆索引构建中",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "icon_font",
+              "id": "c82Rb",
+              "name": "peCh",
+              "width": 14,
+              "height": 14,
+              "iconFontName": "chevron-up",
+              "iconFontFamily": "lucide",
+              "fill": "#9CA3AF"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "FNuRY",
+          "name": "Phase List",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "KBrfC",
+              "name": "Phase 1 Done",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "MRxWv",
+                  "name": "p1i",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "circle-check",
+                  "iconFontFamily": "lucide",
+                  "fill": "#16A34A"
+                },
+                {
+                  "type": "text",
+                  "id": "AgkjU",
+                  "name": "p1t",
+                  "fill": "#16A34A",
+                  "content": "扫描文件",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "1Revu",
+                  "name": "p1s",
+                  "fill": "#9CA3AF",
+                  "content": "42 个文档",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "aWt4p",
+              "name": "Phase 2 Active",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "l5xfR",
+                  "name": "Active Dot",
+                  "width": 16,
+                  "height": 16,
+                  "fill": "#7C3AED",
+                  "cornerRadius": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "xpDV4",
+                      "name": "p2d",
+                      "width": 6,
+                      "height": 6,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 3
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "eowOE",
+                  "name": "p2t",
+                  "fill": "#5B21B6",
+                  "content": "提取结构",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "uPZbt",
+                  "name": "p2s",
+                  "fill": "#8B5CF6",
+                  "content": "进行中…",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "5cfSr",
+              "name": "Phase 3 Pending",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "zbfQu",
+                  "name": "Pending Dot",
+                  "width": 16,
+                  "height": 16,
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#D1D5DB"
+                  }
+                },
+                {
+                  "type": "text",
+                  "id": "zOF81",
+                  "name": "p3t",
+                  "fill": "#9CA3AF",
+                  "content": "构建索引",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "9zjtZ",
+              "name": "Phase 4 Pending",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "hde7n",
+                  "name": "Pending Dot",
+                  "width": 16,
+                  "height": 16,
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#D1D5DB"
+                  }
+                },
+                {
+                  "type": "text",
+                  "id": "dXE2c",
+                  "name": "p4t",
+                  "fill": "#9CA3AF",
+                  "content": "生成摘要",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "B8aET",
+          "name": "Progress Bar Bg",
+          "width": "fill_container",
+          "height": 4,
+          "fill": "#E5E7EB",
+          "cornerRadius": 2,
+          "children": [
+            {
+              "type": "frame",
+              "id": "jhiEt",
+              "name": "Progress Bar Fill",
+              "width": 180,
+              "height": 4,
+              "fill": "#7C3AED",
+              "cornerRadius": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "44RFf",
+      "x": 0,
+      "y": 720,
+      "name": "s3",
+      "fill": "#5B3A1A",
+      "content": "3. BootstrapSummaryCard — 扫描完成摘要",
+      "fontFamily": "Inter",
+      "fontSize": 16,
+      "fontWeight": "600"
+    },
+    {
+      "type": "frame",
+      "id": "29Gjv",
+      "x": 0,
+      "y": 778,
+      "name": "BootstrapSummaryCard",
+      "width": 560,
+      "fill": "#F0FDF4",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#BBF7D0"
+      },
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 20,
+      "children": [
+        {
+          "type": "frame",
+          "id": "Ig43O",
+          "name": "Success Header",
+          "width": "fill_container",
+          "gap": 14,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "7O7La",
+              "name": "Done Icon",
+              "width": 48,
+              "height": 48,
+              "fill": "#DCFCE7",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "562pF",
+                  "name": "scIG",
+                  "width": 24,
+                  "height": 24,
+                  "iconFontName": "circle-check",
+                  "iconFontFamily": "lucide",
+                  "fill": "#16A34A"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wgd4E",
+              "name": "Header Text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "1hWtP",
+                  "name": "scTT",
+                  "fill": "#166534",
+                  "content": "记忆索引构建完成",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "LKs2T",
+                  "name": "scTS",
+                  "fill": "#16A34A",
+                  "content": "猫猫现在可以搜索这个项目的历史知识了",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "6YBR2",
+          "name": "Repo Profile",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "cornerRadius": 8,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#BBF7D033"
+          },
+          "layout": "vertical",
+          "gap": 10,
+          "padding": 14,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Sw9SH",
+              "name": "Row: Project",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "oBClu",
+                  "name": "pr1i",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "folder-open",
+                  "iconFontFamily": "lucide",
+                  "fill": "#15803D"
+                },
+                {
+                  "type": "text",
+                  "id": "AWYfw",
+                  "name": "pr1l",
+                  "fill": "#6B7280",
+                  "content": "项目",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "6f8vf",
+                  "name": "pr1v",
+                  "fill": "#1A1A1A",
+                  "content": "my-awesome-project",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "4OwdR",
+              "name": "Row: Indexed",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "eGTgy",
+                  "name": "pr2i",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "file-text",
+                  "iconFontFamily": "lucide",
+                  "fill": "#15803D"
+                },
+                {
+                  "type": "text",
+                  "id": "qWoAU",
+                  "name": "pr2l",
+                  "fill": "#6B7280",
+                  "content": "已索引",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "yKCKy",
+                  "name": "pr2v",
+                  "fill": "#374151",
+                  "content": "42 个文档 · 128 个段落",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Tliut",
+              "name": "Row: Time",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "BwOPc",
+                  "name": "pr3i",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "timer",
+                  "iconFontFamily": "lucide",
+                  "fill": "#15803D"
+                },
+                {
+                  "type": "text",
+                  "id": "q2g5F",
+                  "name": "pr3l",
+                  "fill": "#6B7280",
+                  "content": "耗时",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "7dDbz",
+                  "name": "pr3v",
+                  "fill": "#374151",
+                  "content": "23 秒",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "6egQf",
+          "name": "Tier Coverage",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "text",
+              "id": "traqa",
+              "name": "tierL",
+              "fill": "#166534",
+              "content": "覆盖分层",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "3X5jm",
+              "name": "Tags Row",
+              "width": "fill_container",
+              "gap": 6,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "aRwAZ",
+                  "name": "Tag: Specs",
+                  "fill": "#EDE9FE",
+                  "cornerRadius": 6,
+                  "padding": [
+                    3,
+                    8
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "SQNGu",
+                      "name": "tg1t",
+                      "fill": "#6D28D9",
+                      "content": "Specs · 12",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "7qz4H",
+                  "name": "Tag: ADRs",
+                  "fill": "#FEF3C7",
+                  "cornerRadius": 6,
+                  "padding": [
+                    3,
+                    8
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "teedi",
+                      "name": "tg2t",
+                      "fill": "#B45309",
+                      "content": "ADRs · 8",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JQMKZ",
+                  "name": "Tag: Plans",
+                  "fill": "#DBEAFE",
+                  "cornerRadius": 6,
+                  "padding": [
+                    3,
+                    8
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "UVpyY",
+                      "name": "tg3t",
+                      "fill": "#1D4ED8",
+                      "content": "Plans · 17",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "tBZjL",
+                  "name": "Tag: Lessons",
+                  "fill": "#FCE7F3",
+                  "cornerRadius": 6,
+                  "padding": [
+                    3,
+                    8
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "PjIwU",
+                      "name": "tg4t",
+                      "fill": "#BE185D",
+                      "content": "Lessons · 5",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ssWmX",
+          "name": "CTA Buttons",
+          "width": "fill_container",
+          "gap": 10,
+          "justifyContent": "end",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "aT7os",
+              "name": "Close Button",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#BBF7D0"
+              },
+              "padding": [
+                8,
+                16
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "y99fW",
+                  "name": "cb1t",
+                  "fill": "#16A34A",
+                  "content": "关闭",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "SUYqn",
+              "name": "Search Button",
+              "fill": "#DCFCE7",
+              "cornerRadius": 8,
+              "gap": 6,
+              "padding": [
+                8,
+                16
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "a11Dc",
+                  "name": "cb2i",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "search",
+                  "iconFontFamily": "lucide",
+                  "fill": "#15803D"
+                },
+                {
+                  "type": "text",
+                  "id": "IWYym",
+                  "name": "cb2t",
+                  "fill": "#15803D",
+                  "content": "搜索知识",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "MUXhS",
+              "name": "Hub Button",
+              "fill": "#16A34A",
+              "cornerRadius": 8,
+              "gap": 6,
+              "padding": [
+                8,
+                16
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "0uia8",
+                  "name": "cb3i",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "brain",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                },
+                {
+                  "type": "text",
+                  "id": "5LH82",
+                  "name": "cb3t",
+                  "fill": "#FFFFFF",
+                  "content": "前往记忆中心",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "9r1gQ",
+      "x": 629,
+      "y": 28,
+      "name": "sA",
+      "fill": "#5B3A1A",
+      "content": "4. 场景 A：新项目 — 自动衔接 ProjectSetupCard",
+      "fontFamily": "Inter",
+      "fontSize": 16,
+      "fontWeight": "600"
+    },
+    {
+      "type": "frame",
+      "id": "6hz2W",
+      "x": 620,
+      "y": 85,
+      "name": "AutoChain Notice",
+      "width": 560,
+      "fill": "#FFFBEB",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#FDE68A"
+      },
+      "layout": "vertical",
+      "gap": 12,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "a0UO9",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "e3FAv",
+              "name": "Icon",
+              "width": 36,
+              "height": 36,
+              "fill": "#FEF3C7",
+              "cornerRadius": 8,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "y0Tch",
+                  "name": "acIG",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "brain",
+                  "iconFontFamily": "lucide",
+                  "fill": "#D97706"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qQWKP",
+              "name": "Text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sdNXp",
+                  "name": "acTT",
+                  "fill": "#92400E",
+                  "content": "正在自动建立记忆索引…",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "a2tCy",
+                  "name": "acTS",
+                  "fill": "#B45309",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "治理初始化完成，猫猫正在扫描项目文档以构建知识库",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "sfXMR",
+          "name": "Progress Bar Bg",
+          "width": "fill_container",
+          "height": 4,
+          "fill": "#FDE68A",
+          "cornerRadius": 2,
+          "children": [
+            {
+              "type": "frame",
+              "id": "aPjd5",
+              "name": "Progress Fill",
+              "width": 100,
+              "height": 4,
+              "fill": "#D97706",
+              "cornerRadius": 2
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "YIHAb",
+          "name": "acN",
+          "fill": "#D97706",
+          "content": "此过程在后台运行，你可以继续对话。完成后将显示扫描结果。",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "ncO1K",
+      "x": 620,
+      "y": 261,
+      "name": "sB",
+      "fill": "#5B3A1A",
+      "content": "5. 场景 C：老用户 — 记忆中心升级入口",
+      "fontFamily": "Inter",
+      "fontSize": 16,
+      "fontWeight": "600"
+    },
+    {
+      "type": "frame",
+      "id": "Rw3hI",
+      "x": 620,
+      "y": 315,
+      "name": "MemoryHub Upgrade Banner",
+      "width": 560,
+      "fill": "#FDF5EC",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#E8E0D4"
+      },
+      "layout": "vertical",
+      "gap": 12,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "xtklN",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "ESvZK",
+              "name": "Icon",
+              "width": 36,
+              "height": 36,
+              "fill": "#FEF3C7",
+              "cornerRadius": 8,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "dB47C",
+                  "name": "ubIG",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "sparkles",
+                  "iconFontFamily": "lucide",
+                  "fill": "#C4956A"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "K1AZU",
+              "name": "Text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "OgUst",
+                  "name": "ubTT",
+                  "fill": "#5B3A1A",
+                  "content": "记忆索引现已可用",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "1KSkB",
+                  "name": "ubTS",
+                  "fill": "#8B7355",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "在记忆中心的 Index Status 标签页新增了「重建索引」按钮，让猫猫可以主动管理项目知识库",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "90vsq",
+          "name": "Buttons",
+          "width": "fill_container",
+          "gap": 10,
+          "justifyContent": "end",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "UXdAk",
+              "name": "Dismiss",
+              "cornerRadius": 8,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E8E0D4"
+              },
+              "padding": [
+                6,
+                14
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "CHfFf",
+                  "name": "ubDT",
+                  "fill": "#8B7355",
+                  "content": "知道了",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ybrj4",
+              "name": "Go To Hub",
+              "fill": "#C4956A",
+              "cornerRadius": 8,
+              "gap": 6,
+              "padding": [
+                6,
+                14
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "kUppX",
+                  "name": "ubGI",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "brain",
+                  "iconFontFamily": "lucide",
+                  "fill": "#FFFFFF"
+                },
+                {
+                  "type": "text",
+                  "id": "50pYy",
+                  "name": "ubGT",
+                  "fill": "#FFFFFF",
+                  "content": "前往记忆中心",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "note",
+      "id": "UHgrg",
+      "x": 620,
+      "y": 480,
+      "name": "fn",
+      "width": 520,
+      "height": 340,
+      "content": "State Machine Flow:\n\n场景 A（新项目）:\nProjectSetupCard Done → AutoChain Notice → ProgressPill → SummaryCard\n（无需用户确认，自动衔接）\n\n场景 B（老用户进入已有但未索引的项目）:\nBootstrapPromptCard → 用户点击「开始扫描」→ ProgressPill → SummaryCard\n用户点击「稍后再说」→ snooze 7天 → 7天后再次提示\n\n场景 C（升级发现）:\nMemoryHub Index Status 新增「重建索引」按钮\n+ 一次性 banner 提示新功能可用\n\nindex_state 五态:\nmissing → building → ready\nmissing → building → failed\nready → stale → building → ready\n\n非阻塞设计：\n- ProgressPill 默认收起，不遮挡对话\n- 点击展开查看详细阶段\n- 扫描完成自动展开 SummaryCard"
+    }
+  ]
+}
