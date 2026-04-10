@@ -1816,7 +1816,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F152: Record invocation duration and decrement active count
     const finalDurationMs = Date.now() - startTime;
-    const otelStatus = hadError ? 'error' : 'ok';
+    const wasAbortedWithoutError = !didWriteAudit && !hadError && !didComplete;
+    const otelStatus = hadError || wasAbortedWithoutError ? 'error' : 'ok';
     const otelAttrs = { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke', [STATUS]: otelStatus };
     invocationDuration.record(finalDurationMs / 1000, otelAttrs);
     activeInvocations.add(-1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
@@ -1831,11 +1832,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
 
     // F152: End invocation span + emit completion/error log through OTel
-    // Only emit error here for yielded-error path (hadError && !didWriteAudit).
-    // The catch path already emits error log + sets span status at L1731-1732.
+    // Three paths: (1) catch already handled, (2) yielded-error, (3) abort, (4) ok
     if (hadError && !didWriteAudit) {
+      // Yielded-error path — catch didn't fire, so emit error here
       invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: 'invocation completed with error' });
       emitOtelLog('ERROR', 'invocation_error', { [AGENT_ID]: catId, [STATUS]: 'error' }, invocationSpan);
+    } else if (wasAbortedWithoutError) {
+      // Abort path — generator .return()'d without completion, consistent with audit CAT_ERROR
+      invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: 'generator_returned_without_completion' });
+      emitOtelLog('ERROR', 'invocation_aborted', { [AGENT_ID]: catId, [STATUS]: 'error' }, invocationSpan);
     } else if (didComplete) {
       invocationSpan.setStatus({ code: SpanStatusCode.OK });
       emitOtelLog('INFO', 'invocation_completed', { [AGENT_ID]: catId, [STATUS]: 'ok' }, invocationSpan);
