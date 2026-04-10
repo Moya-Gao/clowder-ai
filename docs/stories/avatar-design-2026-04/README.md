@@ -125,14 +125,16 @@ Vertical composition centered for circular crop. No text.
 > 铲屎官被猫主子们彻底占领，一脸"我已经放弃挣扎"的幸福。
 
 ```
-A young East Asian male in anime / 2D style, wearing black-framed glasses,
-short neat dark hair, dressed in a casual dark hoodie. He has a warm,
-resigned-but-happy "I've given up resisting" expression — eyes slightly
-squinting with contentment.
+A young East Asian male in anime / 2D style, NO glasses, with a bright
+sunny smile and confident posture. Short stylish dark hair, fit athletic
+build visible even in the frame crop. Dressed in a clean fitted t-shirt
+or light casual top — no hoodies, no plaid shirts. He radiates a cheerful,
+energetic "sunshine boy" vibe, with a warm resigned-but-happy expression
+that says "I've given up resisting my cats and I love it."
 
 A large fluffy white Ragdoll cat is sprawled luxuriously across the top of
 his head, belly-up, completely relaxed. Its long fluffy tail dangles down
-and covers half of his right glasses lens.
+across his forehead playfully.
 
 A small Siamese cat with dark face mask is perched on his left shoulder,
 leaning forward with curious glowing cyan eyes (#00FFCC), one paw reaching
@@ -148,14 +150,14 @@ cream (#FFF8E7) and caramel (#FF8A00) highlights in cat fur. Designed for
 circular avatar crop — human chin can be cut off by the frame, but cat
 ears must stay within the top safe zone (7-8% margin from edge). No text.
 
-[NOTE: 铲屎官请替换外貌描述为本人特征，或提供一张参考照片给生图工具]
+[铲屎官确认：不近视、健身阳光型、开朗小帅哥。已更新描述]
 ```
 
 ---
 
 ## 下一步
 
-1. 铲屎官确认/调整提示词（特别是 Prompt 4 的外貌描述）
+1. ~~铲屎官确认/调整提示词（特别是 Prompt 4 的外貌描述）~~ ✅ 已确认
 2. 烁烁用 Midjourney / DALL-E / Gemini 出图
 3. 三猫 + 铲屎官投票选定
 4. 叠圆形 + 圆角矩形裁切校验
