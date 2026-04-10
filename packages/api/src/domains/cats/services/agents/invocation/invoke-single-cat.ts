@@ -1830,8 +1830,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
-    // F152: End invocation span + emit completion log through OTel
-    if (didComplete && !hadError) {
+    // F152: End invocation span + emit completion/error log through OTel
+    if (hadError) {
+      invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: 'invocation completed with error' });
+      emitOtelLog('ERROR', 'invocation_error', { [AGENT_ID]: catId, [STATUS]: 'error' }, invocationSpan);
+    } else if (didComplete) {
       invocationSpan.setStatus({ code: SpanStatusCode.OK });
       emitOtelLog('INFO', 'invocation_completed', { [AGENT_ID]: catId, [STATUS]: 'ok' }, invocationSpan);
     }

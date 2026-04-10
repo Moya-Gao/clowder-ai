@@ -7,7 +7,8 @@
  * (e.g. Sentry) without exposing raw IDs.
  *
  * Salt MUST be injected via TELEMETRY_HMAC_SALT env var.
- * Non-dev environments fail fast if missing.
+ * Missing salt in non-dev environments disables OTel (server continues
+ * without telemetry). Dev/test environments use a fallback salt.
  */
 
 import { createHmac } from 'node:crypto';
@@ -26,8 +27,9 @@ function getSalt(): string {
 }
 
 /**
- * Validate salt is available. Call at startup (in initTelemetry) to fail fast
- * instead of deferring to the first pseudonymizeId() call.
+ * Validate salt is available. Called at startup by initTelemetry().
+ * Throws if salt is missing in non-dev environments — caller catches
+ * and disables OTel gracefully (server continues without telemetry).
  */
 export function validateSalt(): void {
   getSalt();
