@@ -173,7 +173,7 @@ QG 通过后追加的改动（均已 push 到 clowder-ai PR #299）：
 增量 QG 结论：
 - Biome: 0 error, 8 warning（均为 `<img>` vs `<Image />`，可接受）
 - TypeScript: 0 error
-- Tests: 252/254 pass（2 failures 为 pre-existing `ROADMAP.md` vs `ROADMAP.md`，非 F113-E）
+- Tests: 252/254 pass（2 failures 为 pre-existing `BACKLOG.md` vs `ROADMAP.md` 路径不一致，非 F113-E 引入）
 - UX 手测：team lead确认对齐、融合、闪烁均已修复
 
 ## Post-Review Delta (Phase B, 2026-04-03)
