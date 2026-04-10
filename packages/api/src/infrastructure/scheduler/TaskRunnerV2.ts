@@ -277,7 +277,14 @@ export class TaskRunnerV2 {
             this.onceTaskExecuted.delete(task.id);
             this.retireOnceTask(task.id);
           } else {
-            this.logger.info(`[scheduler] ${task.id}: once task governance-skipped, not retiring`);
+            // Governance-skipped — retry after delay until controls are lifted
+            this.logger.info(`[scheduler] ${task.id}: once task governance-skipped, retrying in 30s`);
+            const retryTimer = setTimeout(() => {
+              if (!this.tasks.some((t) => t.id === task.id)) return;
+              this.scheduleOnceTick(task);
+            }, 30_000);
+            if (typeof retryTimer === 'object' && 'unref' in retryTimer) retryTimer.unref();
+            this.timers.set(task.id, retryTimer);
           }
         });
     }, remaining);
@@ -410,7 +417,8 @@ export class TaskRunnerV2 {
       invokeTrigger: this.invokeTrigger,
       onItemOutcome: (taskId, _subjectKey, outcome, errorSummary) => {
         if (outcome === 'RUN_DELIVERED' || outcome === 'RUN_FAILED') {
-          this.onceTaskExecuted.add(taskId);
+          const spec = this.tasks.find((t) => t.id === taskId);
+          if (spec?.trigger.type === 'once') this.onceTaskExecuted.add(taskId);
         }
         const dynDefId = this.dynamicTaskIds.get(taskId);
         if (!dynDefId || !this.dynamicTaskStore) return;
