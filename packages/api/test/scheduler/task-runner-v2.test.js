@@ -953,11 +953,12 @@ describe('TaskRunnerV2 — once trigger (#415)', () => {
     runner.stop();
   });
 
-  it('once trigger with fireAt in the past fires immediately', async () => {
+  it('live-registered once trigger with past fireAt fires immediately (processing delay)', async () => {
     const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
     const runner = new TaskRunnerV2({ logger: silentLogger, ledger, dynamicTaskStore });
     let executed = false;
 
+    // Live registration (not hydration) — should fire even if slightly past
     runner.registerDynamic(
       makeOnceTask('once-past', Date.now() - 5000, {
         run: {
@@ -973,7 +974,115 @@ describe('TaskRunnerV2 — once trigger (#415)', () => {
     runner.start();
     await new Promise((r) => setTimeout(r, 100));
 
-    assert.ok(executed, 'once task with past fireAt should fire immediately');
+    assert.ok(executed, 'live-registered once task with past fireAt should fire immediately');
+    runner.stop();
+  });
+
+  it('hydrated once trigger with past fireAt is cancelled (missed window, not executed)', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const runner = new TaskRunnerV2({ logger: silentLogger, ledger, dynamicTaskStore });
+    let executed = false;
+
+    // Seed the store with a past-due once task (simulates restart scenario)
+    const pastFireAt = Date.now() - 60_000;
+    dynamicTaskStore.insert({
+      id: 'dyn-missed-1',
+      templateId: 'reminder',
+      trigger: { type: 'once', fireAt: pastFireAt },
+      params: { message: 'should not fire' },
+      display: { label: '错过的提醒', category: 'system' },
+      deliveryThreadId: null,
+      enabled: true,
+      createdBy: 'test',
+      createdAt: new Date(pastFireAt - 60_000).toISOString(),
+    });
+
+    // Provide a template that tracks execution
+    const templateGetter = {
+      get: (id) => {
+        if (id !== 'reminder') return null;
+        return {
+          templateId: 'reminder',
+          label: 'Reminder',
+          category: 'system',
+          description: 'test',
+          subjectKind: 'none',
+          defaultTrigger: { type: 'cron', expression: '0 9 * * *' },
+          paramSchema: {},
+          createSpec: (instanceId, params) =>
+            makeOnceTask(instanceId, params.trigger.fireAt, {
+              run: {
+                overlap: 'skip',
+                timeoutMs: 5000,
+                execute: async () => {
+                  executed = true;
+                },
+              },
+            }),
+        };
+      },
+    };
+
+    const loaded = runner.hydrateDynamic(dynamicTaskStore, templateGetter);
+
+    // Should NOT have been loaded
+    assert.equal(loaded, 0, 'past-due once task should not be hydrated');
+
+    // Should be removed from store
+    assert.equal(dynamicTaskStore.getById('dyn-missed-1'), null, 'past-due once task should be removed from store');
+
+    // Should NOT be registered in runner
+    assert.ok(!runner.getRegisteredTasks().includes('dyn-missed-1'), 'past-due once task should not be in runner');
+
+    // Should have recorded SKIP_MISSED_WINDOW in ledger
+    const rows = ledger.query('dyn-missed-1', 10);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].outcome, 'SKIP_MISSED_WINDOW');
+
+    // Execute should never have been called
+    assert.ok(!executed, 'past-due once task should NOT execute');
+    runner.stop();
+  });
+
+  it('hydrated once trigger with past fireAt sends missed-window notification', async () => {
+    const { TaskRunnerV2 } = await import('../../dist/infrastructure/scheduler/TaskRunnerV2.js');
+    const deliverCalls = [];
+    const mockDeliver = async (opts) => {
+      deliverCalls.push(opts);
+      return 'msg-id';
+    };
+    const runner = new TaskRunnerV2({
+      logger: silentLogger,
+      ledger,
+      dynamicTaskStore,
+      deliver: mockDeliver,
+    });
+
+    const pastFireAt = Date.now() - 120_000;
+    dynamicTaskStore.insert({
+      id: 'dyn-notify-1',
+      templateId: 'reminder',
+      trigger: { type: 'once', fireAt: pastFireAt },
+      params: { message: 'weather check', triggerUserId: 'user-42' },
+      display: { label: '天气查询', category: 'system' },
+      deliveryThreadId: 'thread-abc',
+      enabled: true,
+      createdBy: 'opus',
+      createdAt: new Date(pastFireAt - 60_000).toISOString(),
+    });
+
+    const templateGetter = { get: () => null };
+    runner.hydrateDynamic(dynamicTaskStore, templateGetter);
+
+    // Allow fire-and-forget deliver to complete
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.equal(deliverCalls.length, 1, 'should have sent missed-window notification');
+    assert.equal(deliverCalls[0].threadId, 'thread-abc');
+    assert.equal(deliverCalls[0].catId, 'opus');
+    assert.equal(deliverCalls[0].userId, 'user-42');
+    assert.ok(deliverCalls[0].content.includes('天气查询'), 'notification should include task label');
+    assert.ok(deliverCalls[0].content.includes('错过'), 'notification should mention missed window');
     runner.stop();
   });
 

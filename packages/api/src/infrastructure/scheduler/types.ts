@@ -42,6 +42,7 @@ export type RunOutcome =
   | 'SKIP_GLOBAL_PAUSE'
   | 'SKIP_TASK_OVERRIDE'
   | 'SKIP_SELF_ECHO'
+  | 'SKIP_MISSED_WINDOW'
   | 'RUN_DELIVERED'
   | 'RUN_FAILED';
 

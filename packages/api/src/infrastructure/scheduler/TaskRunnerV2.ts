@@ -1,5 +1,5 @@
 import { getNextCronMs } from './cron-utils.js';
-import type { DynamicTaskStore } from './DynamicTaskStore.js';
+import type { DynamicTaskDef, DynamicTaskStore } from './DynamicTaskStore.js';
 import { executeTaskPipeline } from './execute-pipeline.js';
 import type { RunLedger } from './RunLedger.js';
 import type { TaskTemplate } from './templates/types.js';
@@ -158,6 +158,12 @@ export class TaskRunnerV2 {
     const defs = store.getAll().filter((d) => d.enabled);
     let loaded = 0;
     for (const def of defs) {
+      // #415: once tasks with past fireAt → missed window, cancel + notify + retire
+      if (def.trigger.type === 'once' && def.trigger.fireAt < Date.now()) {
+        this.handleMissedOnceTask(def, store);
+        continue;
+      }
+
       const template = templateGetter.get(def.templateId);
       if (!template) {
         this.logger.error(`[scheduler] hydrate: unknown template "${def.templateId}" for def ${def.id}`);
@@ -271,6 +277,43 @@ export class TaskRunnerV2 {
     }
     this.unregister(taskId);
     this.logger.info(`[scheduler] ${taskId}: retired (once task completed)`);
+  }
+
+  /** #415: Handle once-task that missed its execution window (hydrated after restart) */
+  private handleMissedOnceTask(def: DynamicTaskDef, store: DynamicTaskStore): void {
+    const fireAt = def.trigger.type === 'once' ? def.trigger.fireAt : 0;
+    const fireAtIso = new Date(fireAt).toISOString();
+    this.logger.info(`[scheduler] ${def.id}: once task missed window (fireAt=${fireAtIso}), retiring`);
+
+    // Record in ledger for audit trail
+    this.ledger.record({
+      task_id: def.id,
+      subject_key: def.id,
+      outcome: 'SKIP_MISSED_WINDOW',
+      signal_summary: `Execution window missed: fireAt=${fireAtIso}`,
+      duration_ms: 0,
+      started_at: new Date().toISOString(),
+      assigned_cat_id: null,
+      error_summary: null,
+    });
+
+    // Notify user via delivery thread (fire-and-forget)
+    if (def.deliveryThreadId && this.deliver) {
+      const label = def.display?.label ?? def.templateId;
+      const content =
+        `⏰ 定时任务「${label}」的执行时间窗已错过（原定 ${fireAtIso}），` + '服务在该时间段未运行。任务已自动取消。';
+      this.deliver({
+        threadId: def.deliveryThreadId,
+        content,
+        catId: def.createdBy,
+        userId: ((def.params as Record<string, unknown>).triggerUserId as string) ?? 'system',
+      }).catch((err) => {
+        this.logger.error(`[scheduler] ${def.id}: failed to send missed-window notification`, err);
+      });
+    }
+
+    // Remove from persistent store
+    store.remove(def.id);
   }
 
   stop(): void {
