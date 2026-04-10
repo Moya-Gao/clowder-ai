@@ -167,13 +167,13 @@ interface ScannedEvidence {
 - [x] AC-04: Skill 能生成文档骨架模板（概念词典、规则表、操作映射），用户填充后可被 CatCafeScanner 索引
 - [x] AC-05: Bootstrap 流程中，猫在路径选择点（Guided vs Autonomous）向用户说明两条路径的差异
 
-### Phase A（GenericRepoScanner）
-- [ ] AC-A1: `GenericRepoScanner` 能扫描一个没有 cat-cafe `docs/` 结构的普通 Git 仓库，产出 `ScannedEvidence[]`
-- [ ] AC-A2: 每个 `ScannedEvidence` 带 `provenance: { tier: 'authoritative'|'derived'|'soft_clue', source: string }`（canonical naming，统一全 spec）
-- [ ] AC-A3: `IIndexBuilder` 根据项目结构自动选择 `CatCafeScanner` 或 `GenericRepoScanner`
-- [ ] AC-A4: 扫描结果可被 `IEvidenceStore.search()` 正常检索（FTS5 + 向量）
-- [ ] AC-A5: 大仓库（>10k 文件）扫描完成时间 < 60 秒（只扫 authoritative + derived）
-- [ ] AC-A6: 检索契约：`IEvidenceStore.search()` 支持 `provenance_tier` filter；authoritative 结果默认 boost 排序权重（三层不混成平面）
+### Phase A（GenericRepoScanner）✅
+- [x] AC-A1: `GenericRepoScanner` 能扫描一个没有 cat-cafe `docs/` 结构的普通 Git 仓库，产出 `ScannedEvidence[]`
+- [x] AC-A2: 每个 `ScannedEvidence` 带 `provenance: { tier: 'authoritative'|'derived'|'soft_clue', source: string }`（canonical naming，统一全 spec）
+- [x] AC-A3: `IIndexBuilder` 根据项目结构自动选择 `CatCafeScanner` 或 `GenericRepoScanner`
+- [x] AC-A4: 扫描结果可被 `IEvidenceStore.search()` 正常检索（FTS5 + 向量）
+- [x] AC-A5: 大仓库（>10k 文件）扫描完成时间 < 60 秒（只扫 authoritative + derived）
+- [x] AC-A6: 检索契约：`IEvidenceStore.search()` 支持 `provenance_tier` filter；authoritative 结果默认 boost 排序权重（三层不混成平面）
 
 ### Phase B（Expedition Bootstrap Orchestrator）
 - [ ] AC-B1: 猫进入一个没有 `evidence.sqlite` 的外部项目时，自动触发 bootstrap
@@ -254,6 +254,7 @@ interface ScannedEvidence {
 | 2026-04-08 | 布偶猫 + 缅因猫(GPT-5.4) 讨论收敛：三 Phase + 三护栏 |
 | 2026-04-08 | Design Gate 通过（布偶猫×缅因猫）：Scanner 策略化 + provenance 持久化 + 10 项 KD |
 | 2026-04-09 | Phase 0 merged (PR #1032)：knowledge-engineering skill + manifest 注册 |
+| 2026-04-10 | Phase A merged (PR #1043)：GenericRepoScanner + provenance 三层扫描 + CatCafeScanner 抽取 + 检索 tier filter |
 
 ## Review Gate
 
