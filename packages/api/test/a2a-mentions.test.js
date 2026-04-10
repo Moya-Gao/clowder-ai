@@ -397,6 +397,30 @@ describe('#417: detectInlineActionMentions', () => {
     assert.equal(result.length, 1, 'should still detect gemini');
     assert.equal(result[0].catId, 'gemini');
   });
+
+  // --- Codex R3: 请 compound exclusion + left boundary ---
+
+  it('"@codex 请教过" is narrative (请教 = consult, not imperative)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('之前 @codex 请教过这个问题', 'opus', []), []);
+  });
+
+  it('"@codex 请看" is still handoff (请 + action verb)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = detectInlineActionMentions('这个 @codex 请看一下', 'opus', []);
+    assert.equal(result.length, 1);
+  });
+
+  it('ignores embedded @mention without left boundary (foo@codex)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('contact foo@codex review', 'opus', []), []);
+  });
+
+  it('detects @mention with left boundary (space before @)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = detectInlineActionMentions('contact @codex review', 'opus', []);
+    assert.equal(result.length, 1);
+  });
 });
 
 describe('SystemPromptBuilder A2A injection', () => {
