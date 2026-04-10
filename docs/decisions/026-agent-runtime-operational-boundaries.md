@@ -203,7 +203,7 @@ Cat Cafe 当前的安全模型混合了三种机制：纪律约束（"不准碰 
 
 #### 与 ADR-028 的接口
 
-D3 聚焦 **credential/effect isolation**（"什么操作在结构上不可能"）。
+D3 聚焦 **authority/effect/credential isolation**（"什么操作在结构上不可能"）。
 ADR-028 覆盖 **inter-agent trust/provenance**（"弱猫说服强猫"、authority class、provenance taint tracking）。
 D3 在 effect class 判定中预留 `authoritySource` 字段，供 ADR-028 填充信任链判定逻辑。ADR-028 不阻塞 D3 落地。
 
