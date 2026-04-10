@@ -153,9 +153,9 @@ BRAND_EXPECTATIONS=(
   "packages/web/src/components/ChatContainerHeader.tsx|must_contain|Cat Caf|must have Cat Cafe brand"
   "packages/web/src/components/ChatContainerHeader.tsx|must_contain|'cat-cafe'|INTERNAL_BASENAMES must include cat-cafe"
   "packages/web/src/components/ChatContainerHeader.tsx|must_contain|'cat-cafe-runtime'|INTERNAL_BASENAMES must include cat-cafe-runtime"
-  # api-client.ts — comment AND real brand identity
+  # api-client.ts — comment AND real brand identity (F156: header → session cookie)
   "packages/web/src/utils/api-client.ts|must_not_contain|client for Clowder AI|comment should reference Cat Cafe"
-  "packages/web/src/utils/api-client.ts|must_contain|X-Cat-Cafe-User|identity header must use Cat Cafe brand"
+  "packages/web/src/utils/api-client.ts|must_contain|HttpOnly session cookie|identity uses session cookie (F156 D-1)"
   # favicon.svg file
   "packages/web/public/icons/favicon.svg|file_exists||favicon SVG must exist"
 )

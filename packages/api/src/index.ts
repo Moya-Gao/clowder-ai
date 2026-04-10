@@ -50,6 +50,7 @@ import {
   DeliveryCursorStore,
   GeminiAgentService,
   getEventAuditLog,
+  KimiAgentService,
   MemoryGovernanceStore,
   OpenCodeAgentService,
 } from './domains/cats/services/index.js';
@@ -824,6 +825,9 @@ async function main(): Promise<void> {
           }
           break;
         }
+        case 'kimi':
+          service = new KimiAgentService({ catId });
+          break;
         case 'dare':
           service = new DareAgentService({ catId });
           break;
@@ -1657,6 +1661,7 @@ async function main(): Promise<void> {
         anthropic: join(root, '.mcp.json'),
         openai: join(root, '.codex', 'config.toml'),
         google: join(root, '.gemini', 'settings.json'),
+        kimi: join(root, '.kimi', 'mcp.json'),
       });
       app.log.info('[api] CLI configs regenerated at startup');
     }
