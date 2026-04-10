@@ -27,7 +27,6 @@ created: 2026-02-26
 | F061 | Antigravity 接入 — 孟加拉猫（混血家族） | phase-1-done | 布偶猫 | internal | [F061](features/F061-antigravity-bengal-cat.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | internal | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | internal | [F069](features/F069-thread-read-state.md) |
-| F076 | Mission Hub 跨项目作战面板 — 派遣进展 + 回流摘要 + 决策中枢 | phase-2-done | 布偶猫 | internal | [F076](features/F076-mission-hub-cross-project.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | internal | [F077](features/F077-multi-user-secure-collab.md) |
 | F088 | Multi-Platform Chat Gateway — 飞书/Telegram 多平台网关 | phase-1-8-done | 布偶猫 | internal | [F088](features/F088-multi-platform-chat-gateway.md) |
 | F089 | Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性 | spec | 布偶猫 | internal | [F089](features/F089-hub-terminal-tmux.md) |
