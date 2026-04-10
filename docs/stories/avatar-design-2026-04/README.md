@@ -125,12 +125,13 @@ Vertical composition centered for circular crop. No text.
 > 铲屎官被猫主子们彻底占领，一脸"我已经放弃挣扎"的幸福。
 
 ```
-A young East Asian male in anime / 2D style, NO glasses, with a bright
-sunny smile and confident posture. Short stylish dark hair, fit athletic
-build visible even in the frame crop. Dressed in a clean fitted t-shirt
-or light casual top — no hoodies, no plaid shirts. He radiates a cheerful,
-energetic "sunshine boy" vibe, with a warm resigned-but-happy expression
-that says "I've given up resisting my cats and I love it."
+A young East Asian male in anime / 2D style with a boyish, youthful
+"shonen" (少年感) aesthetic — soft rounded features, big expressive eyes,
+NO glasses, messy-cute dark hair. Slim build, wearing a simple oversized
+casual top (like a soft knit or loose tee). He looks like he belongs in
+the same world as the cats — equally cute and approachable, not "cool
+adult" but "the boy the cats chose." Warm happy expression that says
+"I've given up resisting my cats and I love it."
 
 A large fluffy white Ragdoll cat is sprawled luxuriously across the top of
 his head, belly-up, completely relaxed. Its long fluffy tail dangles down
