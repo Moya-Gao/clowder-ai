@@ -35,10 +35,12 @@ describe('anthropic protocol model override from account.models', () => {
     const apiDir = join(root, 'packages', 'api');
     const catCafeDir = join(root, '.cat-cafe');
     const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const previousHome = process.env.HOME;
     await mkdir(apiDir, { recursive: true });
     await mkdir(catCafeDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    process.env.HOME = root;
 
     // Canonical stores: accounts.json + credentials.json (not legacy cat-catalog.json.accounts)
     await writeFile(join(catCafeDir, 'cat-catalog.json'), JSON.stringify({ version: 2, breeds: [] }, null, 2), 'utf-8');
@@ -107,6 +109,8 @@ describe('anthropic protocol model override from account.models', () => {
       process.chdir(previousCwd);
       if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
       if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
       else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
       await rm(root, { recursive: true, force: true });
@@ -127,10 +131,12 @@ describe('anthropic protocol model override from account.models', () => {
     const apiDir = join(root, 'packages', 'api');
     const catCafeDir = join(root, '.cat-cafe');
     const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const previousHome2 = process.env.HOME;
     await mkdir(apiDir, { recursive: true });
     await mkdir(catCafeDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    process.env.HOME = root;
 
     // Canonical stores: accounts.json + credentials.json (no models array)
     await writeFile(join(catCafeDir, 'cat-catalog.json'), JSON.stringify({ version: 2, breeds: [] }, null, 2), 'utf-8');
@@ -198,6 +204,8 @@ describe('anthropic protocol model override from account.models', () => {
       process.chdir(previousCwd);
       if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousHome2 === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome2;
       if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
       else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
       await rm(root, { recursive: true, force: true });

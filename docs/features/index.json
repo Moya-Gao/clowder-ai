@@ -953,7 +953,13 @@
       "name": "Scene-Based Guidance Engine — 场景式交互引导",
       "status": "needs-discussion | **Source**: Community (mindfn) | **Priority**: TBD",
       "file": "F155-scene-guidance-engine.md"
+    },
+    {
+      "id": "F156",
+      "name": "WebSocket Security Hardening — 实时通道安全加固",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P0",
+      "file": "F156-websocket-security-hardening.md"
     }
   ],
-  "generated_at": "2026-04-10T06:57:42.870Z"
+  "generated_at": "2026-04-10T07:59:05.161Z"
 }

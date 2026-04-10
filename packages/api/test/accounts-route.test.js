@@ -69,15 +69,21 @@ async function writeBoundCatalog(projectDir, accountRef) {
 
 describe('accounts routes', () => {
   /** @type {string | undefined} */ let savedGlobalRoot;
+  /** @type {string | undefined} */ let savedHome;
 
   function setGlobalRoot(dir) {
     savedGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    savedHome = process.env.HOME;
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = dir;
+    // Isolate homedir so the homedir migration doesn't pick up real ~/.cat-cafe/ files
+    process.env.HOME = dir;
   }
 
   function restoreGlobalRoot() {
     if (savedGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
     else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
+    if (savedHome === undefined) delete process.env.HOME;
+    else process.env.HOME = savedHome;
   }
 
   // F136 Phase 4d: legacy v1/v2 migration tests removed — old provider-profiles.js store retired.
