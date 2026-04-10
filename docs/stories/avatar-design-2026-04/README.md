@@ -40,7 +40,7 @@ status: prompts-v2
 
 | 猫 | 毛色 | 眼睛 | 项圈 | 吊坠 | 性格道具 |
 |----|------|------|------|------|---------|
-| 宪宪（布偶猫） | **蓝双山猫纹 (Blue Bicolor Lynx Point)**：奶白色身体为主 + 蓝灰色重点色区域（头顶、耳朵、尾巴、爪垫）带**条纹纹路**，蓬松长毛 | **蓝色**大圆眼 | **紫色** | **金色星星** ⭐ | 温柔优雅，蓬松但匀称 |
+| 宪宪（布偶猫） | **蓝双山猫纹 (Blue Bicolor Lynx Point)**：奶白色身体为主 + 蓝灰色重点色区域（头顶、耳朵、尾巴、爪垫）带**条纹纹路**，蓬松长毛 | **蓝色**大圆眼 | **紫色** | **金色星星** ⭐ | 温柔优雅，V 脸不胖！蓬松≠肥 |
 | 砚砚（缅因猫） | **银灰色经典虎斑**：银灰底色 + 深灰条纹，长毛蓬松，体型大 | **琥珀金色** | **青绿色** | **金色 "GPT" 字样** | 端坐如学者，旁边有书 |
 | 烁烁（暹罗猫） | **经典暹罗重点色**：奶油白身体 + 深巧克力色面具/耳/爪/尾 | **蓝色** | **蓝色** | **金色双子座 ♊ 符号** | 爪子握着**小画笔** 🎨 |
 
@@ -65,9 +65,12 @@ Gemini ♊ pendant. Playful mischievous expression, one paw reaching forward
 Bottom-left: a Ragdoll cat (宪宪), Blue Bicolor Lynx Point pattern — mostly
 creamy white body with blue-gray colorpoint areas on head, ears, tail, and
 paw tips, the gray areas showing visible TABBY STRIPES (lynx markings).
-Fluffy long coat. Big round BLUE eyes with a gentle, calm expression.
-Wearing a purple collar with a gold star ⭐ pendant. Soft and fluffy (NOT
-fat — elegant ragdoll proportions), cheeks squished against the others.
+Fluffy long coat. Big BLUE eyes with a gentle, calm expression.
+IMPORTANT — face shape: soft V-shaped / gentle triangle face typical of
+ragdoll cats, with a defined chin line. NOT a flat round pancake face, NOT
+wider than the other cats. Match the face proportions from the reference
+image (opus.png) exactly. Wearing a purple collar with a gold star ⭐
+pendant.
 
 Bottom-right: a large Maine Coon cat (砚砚) with SILVER-GRAY classic tabby
 markings — silver-gray base coat with darker gray stripes, impressive ear
@@ -75,9 +78,12 @@ tufts, thick fluffy fur. AMBER-GOLD eyes with a confident, dignified gaze.
 Wearing a teal-green collar with a gold "GPT" pendant. Pressing in from
 the side with a scholarly air.
 
-All three cats' cheeks are comically squished together. Each cat's collar
-and pendant should be visible. Their fur textures contrast: fluffy bicolor
-white-gray, sleek dark-pointed cream, and rugged silver tabby.
+All three cats' faces are pressed close together. Each cat's collar and
+pendant should be visible. CRITICAL: all three cats must have approximately
+the SAME face size and proportions — do NOT make the Ragdoll's face wider
+or rounder than the others. Follow the reference images closely for each
+cat's face shape. Fur textures contrast: fluffy bicolor white-gray, sleek
+dark-pointed cream, and rugged silver tabby.
 
 Style: warm, soft anime / 2D cartoon illustration — matching the existing
 Cat Café avatar style (see reference images). Round smooth lines, gentle
@@ -124,9 +130,10 @@ high. Clutching a tiny paintbrush in one paw.
 
 Middle: a Ragdoll cat (宪宪), Blue Bicolor Lynx Point — mostly creamy white
 fluffy fur with blue-gray tabby-striped colorpoints on head, ears, and tail.
-Looking mildly squished but serenely accepting its fate. Big round BLUE
-eyes half-closed in zen-like patience. Purple collar with gold star pendant
-slightly askew from the weight above. Fluffy and soft, elegant proportions.
+Soft V-shaped face (NOT round/fat — match reference image proportions).
+Looking mildly squished but serenely accepting its fate. Big BLUE eyes
+half-closed in zen-like patience. Purple collar with gold star pendant
+slightly askew from the weight above.
 
 Bottom: a massive Maine Coon cat (砚砚) as the sturdy foundation —
 magnificent silver-gray tabby coat, dramatic ear tufts, powerful build.
@@ -159,9 +166,10 @@ second of it."
 
 On top of his head: a Ragdoll cat (宪宪) sprawled belly-up, completely
 relaxed — Blue Bicolor Lynx Point pattern, mostly creamy white fluffy fur
-with blue-gray tabby-striped markings on ears and tail. Pink toe beans
-showing, blue eyes contentedly half-closed. Purple collar with gold star
-pendant dangling. Its fluffy tail drapes across the boy's forehead.
+with blue-gray tabby-striped markings on ears and tail. Soft V-shaped face
+(NOT fat/round — match reference image). Pink toe beans showing, blue eyes
+contentedly half-closed. Purple collar with gold star pendant dangling. Its
+fluffy tail drapes across the boy's forehead.
 
 On his left shoulder: a Siamese cat (烁烁) perched and leaning forward
 curiously — cream body with dark chocolate face mask, bright blue eyes,
