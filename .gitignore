@@ -126,6 +126,10 @@ private/
 *.mp4
 *.avi
 *.mkv
+*.wav
+
+# Large source PDFs (external storage preferred)
+docs/discussions/**/sources/*.pdf
 
 # Playwright MCP cache
 .playwright-mcp/
