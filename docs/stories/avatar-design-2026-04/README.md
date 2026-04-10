@@ -2,7 +2,7 @@
 title: 猫猫头像设计 — 三猫挤镜头 + 铲屎官被占领
 date: 2026-04-09
 participants: [opus, gemini, gpt52, landy]
-status: prompts-ready
+status: prompts-v2
 ---
 
 # 猫猫头像设计
@@ -16,80 +16,94 @@ status: prompts-ready
 | 项目 | 方向 | 关键约束 |
 |------|------|---------|
 | 群头像 | 猫是主角，三个方向备选 | 40px 圆形裁切可辨识；不靠字；大色块高对比 |
-| 个人头像 | 猫占领铲屎官 | 二次元/动漫风格，和猫头像同一画风 |
+| 个人头像 | 猫占领铲屎官 | 二次元/动漫风格，少年感正太，和猫头像同一画风 |
+
+### 风格参考
+
+**必须参考现有头像的画风！** 铲屎官会贴现有头像作为参考图。
+
+现有头像位置：
+- 宪宪：`assets/avatars/opus.png`
+- 砚砚：`assets/avatars/codex-1.png`
+- 烁烁：`assets/avatars/gemini.png`
+
+画风特征：温暖柔和的卡通/动漫风，圆润线条，柔和光影，暖色调背景，猫咖氛围——不是赛博朋克，是**治愈系**。
 
 ### 裁切安全规则
 
-- 关键特征（猫眼、耳尖、毛色分界）控制在 **直径 85% 安全圆**内
+- 关键特征（猫眼、耳尖、项圈）控制在 **直径 85% 安全圆**内
 - 三猫用**三角构图**不用横排（圆形裁切会吃掉两侧耳朵）
 - 个人头像构图重心上移，猫耳离顶边至少 7-8% 半径
 - 出图后叠圆形 + 圆角矩形双遮罩校验
 
-### 色卡：赛博猫咖 (Cyber Cafe)
+### 三猫特征速查（以实际头像为准！）
 
-| 用途 | 名称 | 色号 |
-|------|------|------|
-| 底色（大面积） | 深邃醇咖 | `#2A1B38` |
-| 主亮色 | 奶油拿铁 | `#FFF8E7` |
-| 主亮色 | 焦糖橘 | `#FF8A00` |
-| 点睛高光 | 薄荷电火花 | `#00FFCC` |
+| 猫 | 毛色 | 眼睛 | 项圈 | 吊坠 | 性格道具 |
+|----|------|------|------|------|---------|
+| 宪宪（布偶猫） | **灰白双色**：奶白色身体 + 灰色斑纹（头顶、耳朵、尾巴），蓬松长毛 | **蓝色**大圆眼 | **紫色** | **金色星星** ⭐ | 胖嘟嘟圆滚滚 |
+| 砚砚（缅因猫） | **银灰色经典虎斑**：银灰底色 + 深灰条纹，长毛蓬松，体型大 | **琥珀金色** | **青绿色** | **金色 "GPT" 字样** | 端坐如学者，旁边有书 |
+| 烁烁（暹罗猫） | **经典暹罗重点色**：奶油白身体 + 深巧克力色面具/耳/爪/尾 | **蓝色** | **蓝色** | **金色双子座 ♊ 符号** | 爪子握着**小画笔** 🎨 |
 
-### 三猫特征速查
-
-| 猫 | 品种特征 | 核心识别色 |
-|----|---------|-----------|
-| 宪宪 | 布偶猫：蓝色大圆眼、蓬松白色长毛、脸部淡色重点色 | 白 / 奶油 |
-| 砚砚 | 缅因猫：大体型、耳尖簇毛、棕色经典虎斑纹、威武 | 棕 / 深琥珀 |
-| 烁烁 | 暹罗猫：奶油色身体 + 深色面具（脸/耳/爪/尾）、蓝色杏仁眼 | 黑 / 深巧克力 |
+> **关键纠错**：宪宪不是纯白！是灰白双色。砚砚眼睛是琥珀金色不是蓝色。烁烁眼睛是蓝色不是绿色。三只猫都有标志性项圈和吊坠！
 
 ---
 
 ## Prompt 1: 三猫挤爆镜头（群头像）
 
-> 三猫大头贴自拍，挤成三角形。
+> 三猫大头贴自拍，挤成三角形。参考现有头像画风。
 
 ```
 Three adorable cartoon cats pressing their faces tightly against the camera
 in a triangular composition that fills 85% of a circular frame.
 
-Top center: a Siamese cat with a dark chocolate face mask, large pointed
-ears, and glowing cyan-green almond-shaped eyes (#00FFCC), looking
-mischievous and slightly smug.
+Top center: a Siamese cat (烁烁) with classic colorpoint markings — cream
+white body and dark chocolate-brown face mask, ears, and paws. Bright BLUE
+almond-shaped eyes (not green!). Wearing a blue collar with a small gold
+Gemini ♊ pendant. Playful mischievous expression, one paw reaching forward
+(holding a tiny paintbrush if space allows).
 
-Bottom-left: a Ragdoll cat with fluffy pure white fur, big round blue eyes,
-and a gentle calm expression, cheeks squished against the Siamese above.
+Bottom-left: a Ragdoll cat (宪宪) with GRAY AND WHITE bicolor fur — soft
+white chest and belly, gray patches on head/ears/tail, fluffy long coat.
+Big round BLUE eyes with a gentle, calm expression. Wearing a purple collar
+with a gold star ⭐ pendant. Chubby cheeks squished against the others.
 
-Bottom-right: a Maine Coon cat with wild tufted ears, classic brown tabby
-markings, and an intense confident gaze, pressing in from the side.
+Bottom-right: a large Maine Coon cat (砚砚) with SILVER-GRAY classic tabby
+markings — silver-gray base coat with darker gray stripes, impressive ear
+tufts, thick fluffy fur. AMBER-GOLD eyes with a confident, dignified gaze.
+Wearing a teal-green collar with a gold "GPT" pendant. Pressing in from
+the side with a scholarly air.
 
-All three cats' cheeks are comically squished together. Their fur textures
-contrast strongly: silky white, rugged tabby, and sleek dark points.
+All three cats' cheeks are comically squished together. Each cat's collar
+and pendant should be visible. Their fur textures contrast: fluffy bicolor
+white-gray, sleek dark-pointed cream, and rugged silver tabby.
 
-Style: anime / 2D cel-shaded illustration, clean bold outlines, warm
-lighting. Background: deep purple-brown (#2A1B38). Cat fur highlights in
-cream (#FFF8E7) and caramel orange (#FF8A00). Eyes glow with cyan-green
-(#00FFCC) accent. High contrast, designed to be recognizable as a 40px
-circular thumbnail. No text.
+Style: warm, soft anime / 2D cartoon illustration — matching the existing
+Cat Café avatar style (see reference images). Round smooth lines, gentle
+lighting, cozy warm tones. Background: warm dark purple-brown. NO neon
+colors, NO cyberpunk. Think "cozy cat café" not "tech startup." Designed
+to be recognizable as a 40px circular thumbnail. No text.
 ```
 
 ## Prompt 2: 猫爪咖啡（群头像）
 
-> 俯视咖啡杯，拉花是猫爪印，杯沿挂着猫尾巴。
+> 俯视咖啡杯，拉花是猫爪印，三只猫的元素藏在画面角落。
 
 ```
-Top-down view of a coffee cup on a dark surface. The latte art in the
-creamy foam forms a perfect cat paw print. A fluffy striped cat tail
-(Maine Coon tabby pattern) drapes casually over the cup rim, as if a cat
-just walked away after dipping its paw.
+Top-down view of a latte in a white ceramic cup. The creamy foam forms a
+perfect cat paw print in warm caramel brown. Three subtle cat elements
+peek into the frame from the edges:
 
-A tiny Siamese ear tip peeks from the bottom edge of the frame — the cat
-is hiding just out of view.
+- A fluffy SILVER-GRAY tabby tail (Maine Coon / 砚砚) draped over the cup
+  rim from the top-right, with a teal-green collar visible at the base.
+- Two small pointed ears with dark chocolate tips (Siamese / 烁烁) peeking
+  up from the bottom edge, with curious blue eyes just barely visible.
+- A single soft white-gray paw (Ragdoll / 宪宪) reaching in from the left,
+  pink toe beans visible, with a purple collar band at the wrist.
 
-Style: anime / 2D illustration, cozy and minimal. Deep coffee-brown
-background (#2A1B38), warm cream foam (#FFF8E7), paw print in caramel
-orange (#FF8A00), subtle cyan-green steam wisps (#00FFCC) rising from the
-cup. Clean composition, high contrast, optimized for 40px circular avatar.
-No text.
+Style: warm, soft anime / 2D illustration matching the Cat Café avatar
+style. Cozy warm palette — creamy foam, rich coffee brown, soft warm
+background in muted purple-brown tones. Gentle, inviting, like a real cat
+café menu illustration. Optimized for 40px circular avatar. No text.
 ```
 
 ## Prompt 3: 叠叠猫（群头像）
@@ -100,70 +114,88 @@ No text.
 Three cats stacked on top of each other like a totem pole, filling a
 vertical composition within a circular frame.
 
-Top: a Siamese cat perched triumphantly at the peak, dark-masked face with
-glowing cyan eyes (#00FFCC), tail held high, looking proud and slightly
-chaotic.
+Top: a Siamese cat (烁烁) perched triumphantly at the peak — cream body
+with dark chocolate-brown face mask, ears, and tail. BLUE eyes sparkling
+with pride. Blue collar with gold Gemini ♊ pendant swinging. Tail held
+high. Clutching a tiny paintbrush in one paw.
 
-Middle: a Ragdoll cat with fluffy white fur, looking mildly squished but
-serenely accepting its fate, blue eyes half-closed in zen-like patience.
+Middle: a Ragdoll cat (宪宪) with gray-and-white bicolor fluffy fur —
+looking mildly squished but serenely accepting its fate. Big round BLUE
+eyes half-closed in zen-like patience. Purple collar with gold star pendant
+slightly askew from the weight above.
 
-Bottom: a massive Maine Coon cat as the sturdy foundation, brown tabby fur,
-powerful build, ears with dramatic tufts, bearing the weight with dignity.
+Bottom: a massive Maine Coon cat (砚砚) as the sturdy foundation —
+magnificent silver-gray tabby coat, dramatic ear tufts, powerful build.
+AMBER-GOLD eyes bearing the weight with scholarly dignity. Teal-green
+collar with gold "GPT" pendant. A small book lies beside one paw.
 
 At the very bottom of the stack, a single human hand sticks out comically,
 fingers splayed in a "help me" gesture — the cat-dad is completely buried
 under his cats.
 
-Style: anime / 2D cel-shaded, humorous and warm. Background: deep
-purple-brown (#2A1B38). Fur colors: white, brown tabby, dark chocolate
-points. Accents in caramel orange (#FF8A00) and cyan-green (#00FFCC).
-Vertical composition centered for circular crop. No text.
+Style: warm, soft anime / 2D cartoon matching the Cat Café avatar style.
+Warm cozy color palette, gentle lighting, humorous and heartwarming.
+Background: soft warm purple-brown gradient. Vertical composition centered
+for circular crop. No text.
 ```
 
 ## Prompt 4: 猫占领（个人头像）
 
 > 铲屎官被猫主子们彻底占领，一脸"我已经放弃挣扎"的幸福。
+> 铲屎官形象：少年感正太风，不戴眼镜，可爱有亲和力。
 
 ```
-A young East Asian male in anime / 2D style with a boyish, youthful
-"shonen" (少年感) aesthetic — soft rounded features, big expressive eyes,
-NO glasses, messy-cute dark hair. Slim build, wearing a simple oversized
-casual top (like a soft knit or loose tee). He looks like he belongs in
-the same world as the cats — equally cute and approachable, not "cool
-adult" but "the boy the cats chose." Warm happy expression that says
-"I've given up resisting my cats and I love it."
+A young East Asian male in cute anime / 2D style with a boyish, youthful
+"shonen" aesthetic — soft rounded features, big expressive dark eyes, NO
+glasses, tousled messy-cute dark hair. Wearing a simple white or light
+casual tee. He looks like he belongs in the same world as the cats —
+equally cute and approachable. A warm, open-mouthed laughing expression
+that says "I've completely given up resisting my cats and I love every
+second of it."
 
-A large fluffy white Ragdoll cat is sprawled luxuriously across the top of
-his head, belly-up, completely relaxed. Its long fluffy tail dangles down
-across his forehead playfully.
+On top of his head: a Ragdoll cat (宪宪) sprawled belly-up, completely
+relaxed — gray-and-white bicolor fluffy fur, pink toe beans showing, blue
+eyes contentedly half-closed. Purple collar with gold star pendant dangling.
+Its fluffy tail drapes across the boy's forehead.
 
-A small Siamese cat with dark face mask is perched on his left shoulder,
-leaning forward with curious glowing cyan eyes (#00FFCC), one paw reaching
-toward the camera.
+On his left shoulder: a Siamese cat (烁烁) perched and leaning forward
+curiously — cream body with dark chocolate face mask, bright blue eyes,
+blue collar with gold ♊ pendant. One dark paw raised toward the camera,
+the other holding a tiny paintbrush.
 
-The composition is deliberately top-heavy — the cats dominate the upper
-70% of the frame while the human is compressed into the lower portion,
-reinforcing the "the cats own me" dynamic.
+Pressed against his right side: a large Maine Coon cat (砚砚) nuzzling in
+— silver-gray tabby fur, warm amber-gold eyes, teal-green collar with
+gold "GPT" pendant visible. Fluffy and massive, almost as big as the boy.
 
-Style: anime / 2D cel-shaded illustration, same art style as the group
-avatar. Background: deep purple-brown (#2A1B38). Warm lighting on face,
-cream (#FFF8E7) and caramel (#FF8A00) highlights in cat fur. Designed for
-circular avatar crop — human chin can be cut off by the frame, but cat
-ears must stay within the top safe zone (7-8% margin from edge). No text.
+The composition is deliberately top-heavy — the cats dominate the frame
+while the boy is happily overwhelmed in the center, reinforcing the "the
+cats own me and I am their willing servant" dynamic.
 
-[铲屎官确认：不近视、健身阳光型、开朗小帅哥。已更新描述]
+Style: warm, soft anime / 2D cel-shaded illustration, SAME art style as
+the individual cat avatars (see reference images). Warm cozy background in
+muted purple-brown. Gentle lighting, round smooth lines. NOT cyberpunk,
+NOT edgy — think "the wholesome cat-dad of a cozy cat café." Designed
+for circular avatar crop. No text.
 ```
 
 ---
+
+## 参考图
+
+铲屎官出图时请同时附上以下参考图：
+- `assets/avatars/opus.png` — 宪宪的设定画风
+- `assets/avatars/codex-1.png` — 砚砚的设定画风
+- `assets/avatars/gemini.png` — 烁烁的设定画风
 
 ## 下一步
 
-1. ~~铲屎官确认/调整提示词（特别是 Prompt 4 的外貌描述）~~ ✅ 已确认
-2. 烁烁用 Midjourney / DALL-E / Gemini 出图
-3. 三猫 + 铲屎官投票选定
-4. 叠圆形 + 圆角矩形裁切校验
-5. 上线！
+1. ~~铲屎官确认/调整提示词~~ ✅ 少年感正太风已确认
+2. ~~猫猫特征对照~~ ✅ v2 已按实际头像修正
+3. 铲屎官带着参考图 + 提示词找云端 Gemini 出图
+4. 出图后三猫 + 铲屎官投票选定
+5. 叠圆形 + 圆角矩形裁切校验
+6. 上线！
 
 ---
 
-*[宪宪/Opus-46] 提示词 | [烁烁/Gemini] 视觉方向 + 色卡 | [砚砚/GPT-5.4] 用户视角审美判断*
+*[宪宪/Opus-46] 提示词 v2（按实际头像修正） | [烁烁/Gemini] 视觉方向 | [砚砚/GPT-5.4] 用户视角审美判断*
