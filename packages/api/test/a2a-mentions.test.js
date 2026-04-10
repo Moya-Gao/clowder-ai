@@ -257,6 +257,71 @@ describe('F052: cross-thread self-reference exemption', () => {
   });
 });
 
+describe('#417: detectInlineActionMentions', () => {
+  it('detects inline @mention with action word (Ready for @codex review)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '217 tests pass. Ready for @codex review on lifecycle completeness.';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].catId, 'codex');
+  });
+
+  it('detects Chinese action word with inline @mention', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '这个方案 @codex 请帮忙看一下';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].catId, 'codex');
+  });
+
+  it('ignores inline @mention WITHOUT action word (pure narrative)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '之前 @codex 提出的方案不错';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.deepEqual(result, []);
+  });
+
+  it('skips cats already routed via line-start mention', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = 'Ready for @codex review';
+    const result = detectInlineActionMentions(text, 'opus', ['codex']);
+    assert.deepEqual(result, []);
+  });
+
+  it('ignores line-start @mention (those are handled by parseA2AMentions)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@codex 请 review';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.deepEqual(result, []);
+  });
+
+  it('ignores @mention inside code blocks', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '看看代码：\n```\nReady for @codex review\n```';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.deepEqual(result, []);
+  });
+
+  it('ignores @mention inside blockquotes', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '> Ready for @codex review';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.deepEqual(result, []);
+  });
+
+  it('filters self-mention', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = 'Ready for @opus review';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.deepEqual(result, []);
+  });
+
+  it('returns empty for empty text', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('', 'opus', []), []);
+  });
+});
+
 describe('SystemPromptBuilder A2A injection', () => {
   it('includes A2A section when a2aEnabled and serial mode', async () => {
     const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');

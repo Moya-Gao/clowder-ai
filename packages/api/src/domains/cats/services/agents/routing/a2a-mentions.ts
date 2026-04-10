@@ -47,6 +47,12 @@ export interface A2AMentionAnalysis {
   readonly suppressed: SuppressedA2AMention[];
 }
 
+/** #417: Inline @mention paired with action words — missed handoff candidate. */
+export interface InlineActionMention {
+  readonly catId: CatId;
+  readonly lineText: string;
+}
+
 /** @deprecated Mode is ignored — line-start mentions always route regardless of mode. */
 export type MentionActionabilityMode = 'strict' | 'relaxed';
 
@@ -117,4 +123,69 @@ export function analyzeA2AMentions(
   }
 
   return { mentions: found, suppressed: [] };
+}
+
+/**
+ * #417: Detect inline @mentions paired with action words — missed handoff candidates.
+ * Used for write-side feedback only, NOT for routing.
+ *
+ * Conditions (all must hold):
+ *  1. @pattern appears mid-line (not at line start)
+ *  2. Same line contains an action keyword (请/帮/review/确认/处理/check/fix/merge/ready for/etc.)
+ *  3. Not inside a fenced code block or blockquote
+ *  4. Target cat was not already routed via line-start mention
+ *  5. Not a self-mention
+ */
+const INLINE_ACTION_RE =
+  /(?:请|帮|review|确认|处理|看一?下|check|fix|merge|ready\s+for|交接|接力|你来|你去)/i;
+
+export function detectInlineActionMentions(
+  text: string,
+  currentCatId?: CatId,
+  routedMentions?: CatId[],
+): InlineActionMention[] {
+  if (!text) return [];
+
+  const stripped = text.replace(/```[\s\S]*?```/g, '');
+  const allConfigs =
+    Object.keys(catRegistry.getAllConfigs()).length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
+
+  const entries: MentionPatternEntry[] = [];
+  for (const [id, config] of Object.entries(allConfigs)) {
+    if (currentCatId && id === currentCatId) continue;
+    if (!isCatAvailable(id)) continue;
+    for (const pattern of config.mentionPatterns) {
+      entries.push({ catId: id as CatId, pattern: pattern.toLowerCase() });
+    }
+  }
+  entries.sort((a, b) => b.pattern.length - a.pattern.length);
+
+  const routedSet = new Set(routedMentions ?? []);
+  const found: InlineActionMention[] = [];
+  const seen = new Set<string>();
+
+  for (const rawLine of stripped.split(/\r?\n/)) {
+    const trimmed = rawLine.trimStart();
+    const normalized = trimmed.toLowerCase();
+    // Skip line-start @mentions (handled by parseA2AMentions) and blockquotes
+    if (normalized.startsWith('@') || normalized.startsWith('>')) continue;
+
+    for (const entry of entries) {
+      const idx = normalized.indexOf(entry.pattern);
+      if (idx < 0) continue;
+      const charAfter = normalized[idx + entry.pattern.length];
+      const isBoundary =
+        !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
+      if (!isBoundary) continue;
+      if (routedSet.has(entry.catId)) continue;
+      if (!INLINE_ACTION_RE.test(rawLine)) continue;
+      if (!seen.has(entry.catId)) {
+        seen.add(entry.catId);
+        found.push({ catId: entry.catId, lineText: rawLine.trim() });
+      }
+      break;
+    }
+  }
+
+  return found;
 }

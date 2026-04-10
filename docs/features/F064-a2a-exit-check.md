@@ -33,7 +33,7 @@ F064 的核心动机是修复 A2A 协作中的“链条终止盲区”：该 @ �
 ### Phase B（运行时注入）
 - [x] AC-B1: 非 parallel 且 a2aEnabled 时注入出口检查提示。
 - [x] AC-B2: `mentionRoutingFeedback` read-side 注入与测试覆盖完成。
-- [ ] AC-B3: write-side 自动回写尚未接入（列为已知债务并保留后续方案）。
+- [x] AC-B3: write-side 自动回写已接入（#417: detectInlineActionMentions + route-serial 集成）。
 
 ## Dependencies
 
@@ -127,30 +127,20 @@ Maine Coon(GPT-5.2) 在协作场景中反复出现两种极端：
 - 历史事件：Maine Coon mention spam 事件（Anti-Mention-Spam 规则起源）
 - 相关 Feature：F046 Anti-Drift Protocol、F055 A2A MCP Structured Routing
 
-## Known Debt: `mentionRoutingFeedback` write-side 未接入
+## Resolved Debt: `mentionRoutingFeedback` write-side (#417)
 
-**状态**：read-side 已完成（F064 PR #227），write-side 未实现
+**状态**：已完成（#417 PR）
 
-**现状**：
-- `buildInvocationContext()` 已能渲染 `mentionRoutingFeedback`（如果有值的话）→ 提醒猫"上次 @ 没生效"
-- `ThreadStore.setMentionRoutingFeedback()` 接口已存在（in-memory + Redis 两个实现都有）
-- **但没有任何代码在检测到"句中 @ 未路由"时调用 `setMentionRoutingFeedback()`**
+**实现**：
+- `a2a-mentions.ts` 新增 `detectInlineActionMentions()`：检测句中 `@pattern` + 动作词（请/帮/review/确认/check/fix/merge/ready for 等），排除代码块、引用块、已路由目标
+- `route-serial.ts` 在 `parseA2AMentions()` 之后调用检测，命中时写入 `setMentionRoutingFeedback()`
+- 下次该猫被唤起时，read-side 渲染为 `[路由提醒]`，消费后自动清除（one-shot）
+- `callback-tools.ts` post_message 描述已统一为"行首 @猫名"，不再出现可能误导成句中 handoff 的说法
 
-**为什么没一起修**：
-1. write-side 需要在 `routeSerial` 完成后分析猫的回复——检测"句中有 `@xxx` 但不在行首"→ 写入 feedback。当前 `a2a-mentions.ts` 只解析行首 @，不检测句中 @，需要扩展解析逻辑
-2. **误报风险高**：叙述性提及（如"Ragdoll已经完成了 @opus 的建议"）不应触发反馈，但简单的正则很难区分"想 @ 但格式错"和"单纯的叙述性提及"。如果误报频繁，反而会引发 mention spam（猫收到"你上次 @ 没生效"→ 补一个行首 @ → 实际上不需要对方行动）
-3. F064 的核心目标是**主动预防**（出口检查），write-side feedback 是**被动纠正**，优先级低
-
-**未来接入建议**：
-- 在 `routeSerial` 的猫回复完成后，用 `a2a-mentions.ts` 的扩展版本检测"句中有 @pattern 但不在行首"的情况
-- 只有同时满足以下条件才写入 feedback：(a) 句中有 @pattern (b) 同段有动作词（请/帮/review/确认等）(c) 不在代码块或引用块中
-- 写入后设 TTL（如 1 次调用后过期），避免反复提醒
-
-**相关代码位置**：
-- Read-side: `SystemPromptBuilder.ts:384-388`
-- Store interface: `ThreadStore.ts:129-137`
-- 路由入口: `route-serial.ts:120-149`
-- 解析器: `a2a-mentions.ts`（需扩展）
+**误报控制**：
+- 必须同时满足：(a) 句中 @pattern (b) 同行有动作词 (c) 不在代码块/引用块 (d) 该猫未被行首 @ 路由
+- 纯叙述性提及（如"之前 @codex 提出的方案不错"）不会触发
+- feedback 是 one-shot（consumeMentionRoutingFeedback 读后即删），不会反复提醒
 
 ## 愿景守护签收表
 
