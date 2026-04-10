@@ -8,8 +8,8 @@
  */
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 const ROOT = resolve(process.cwd());
@@ -19,11 +19,12 @@ const isHomeRepo = existsSync(RULES_PATH);
 function applySanitizer(input, filename) {
   const tmpDir = mkdtempSync(join(resolve(ROOT, '..'), 'sanitize-test-'));
   const filePath = join(tmpDir, filename);
+  mkdirSync(dirname(filePath), { recursive: true });
   writeFileSync(filePath, input, 'utf-8');
   execSync(`perl -pi ${RULES_PATH} ${filePath}`, { cwd: ROOT });
   const result = readFileSync(filePath, 'utf-8');
   unlinkSync(filePath);
-  rmdirSync(tmpDir);
+  rmSync(tmpDir, { recursive: true });
   return result;
 }
 
@@ -119,6 +120,57 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
       const input = `const url = 'http://localhost:3001';\n`;
       const result = applySanitizer(input, 'test-port2.ts');
       assert.ok(result.includes('localhost:3003'), `expected 3003, got: ${result}`);
+    });
+  });
+
+  describe('*.opensource.md → *.md link rewriting', () => {
+    it('transforms SETUP.opensource.md link in .md files', () => {
+      const input = `**[SETUP.opensource.md](SETUP.opensource.md)**\n`;
+      const result = applySanitizer(input, 'docs/test-link.md');
+      assert.ok(result.includes('SETUP.md'), `expected SETUP.md, got: ${result}`);
+      assert.ok(!result.includes('SETUP.opensource.md'));
+    });
+
+    it('transforms SETUP.opensource.zh-CN.md anchor link', () => {
+      const input = `See [Running](SETUP.opensource.zh-CN.md#section)\n`;
+      const result = applySanitizer(input, 'test-readme.md');
+      assert.ok(result.includes('SETUP.zh-CN.md#section'), `expected zh-CN, got: ${result}`);
+    });
+
+    it('transforms README.opensource.md reference', () => {
+      const input = `See README.opensource.md for details.\n`;
+      const result = applySanitizer(input, 'test-ref.md');
+      assert.ok(result.includes('README.md'), `expected README.md, got: ${result}`);
+      assert.ok(!result.includes('README.opensource.md'));
+    });
+
+    it('transforms CONTRIBUTING.opensource.md link', () => {
+      const input = `Please read [CONTRIBUTING.opensource.md](CONTRIBUTING.opensource.md) first.\n`;
+      const result = applySanitizer(input, 'test-contrib.md');
+      assert.ok(result.includes('CONTRIBUTING.md'), `expected CONTRIBUTING.md, got: ${result}`);
+      assert.ok(!result.includes('CONTRIBUTING.opensource.md'));
+    });
+
+    it('transforms README.opensource.zh-CN.md link', () => {
+      const input = `中文版请看 [README.opensource.zh-CN.md](README.opensource.zh-CN.md)\n`;
+      const result = applySanitizer(input, 'test-readme-zh.md');
+      assert.ok(result.includes('README.zh-CN.md'), `expected README.zh-CN.md, got: ${result}`);
+      assert.ok(!result.includes('README.opensource.zh-CN.md'));
+    });
+  });
+
+  describe('lessons-learned.md → public-lessons.md', () => {
+    it('transforms lessons-learned.md in docs/ markdown', () => {
+      const input = `- [教训沉淀](lessons-learned.md) — 我们踩过的坑\n`;
+      const result = applySanitizer(input, 'docs/VISION.md');
+      assert.ok(result.includes('public-lessons.md'), `expected public-lessons.md, got: ${result}`);
+      assert.ok(!result.includes('lessons-learned.md'));
+    });
+
+    it('does NOT transform lessons-learned.md outside docs/', () => {
+      const input = `See lessons-learned.md for context.\n`;
+      const result = applySanitizer(input, 'test-root.md');
+      assert.ok(result.includes('lessons-learned.md'), `should not transform outside docs/, got: ${result}`);
     });
   });
 

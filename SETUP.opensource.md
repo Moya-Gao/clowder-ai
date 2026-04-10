@@ -218,7 +218,7 @@ There are two types of accounts:
 
 **Adding Chinese / third-party providers (Kimi, GLM, MiniMax, Qwen, OpenRouter):**
 
-These providers are configured as API key accounts with a custom base URL. For detailed setup instructions (base URLs, model names, protocol selection, common pitfalls), see the **[Third-Party AI Provider Guide](docs/guides/provider-configuration.md)**.
+These providers are configured as API key accounts with a custom base URL. In the **Account Configuration** UI, add a new account, choose the provider, enter your API key, and set the base URL to the provider's OpenAI-compatible endpoint. Select the appropriate protocol and click **Test** to verify connectivity.
 
 > **Legacy `.env` fallback:** The system still reads `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY` from `.env` as a fallback, but this path is deprecated. Use the UI for all new setups.
 

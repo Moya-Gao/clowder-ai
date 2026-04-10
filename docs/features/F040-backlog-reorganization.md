@@ -94,11 +94,11 @@ docs/
 
 | ID | 名称 | Status | Owner | Link |
 |----|------|--------|-------|------|
-| F010 | 手机端猫猫 | in-progress | 布偶猫 | [F010](features/F010-mobile-cat.md) |
-| F032 | Agent Plugin Architecture | review | 布偶猫 | [F032](features/F032-agent-plugin.md) |
-| F037 | Agent Swarm 协同模式 | in-progress | 三猫 | [F037](features/F037-agent-swarm.md) |
-| F039 | 消息排队投递 | spec | 布偶猫 | [F039](features/F039-message-queue.md) |
-| F040 | BACKLOG 整理 | in-progress | 布偶猫 | [F040](features/F040-backlog-reorganization.md) |
+| F010 | 手机端猫猫 | in-progress | 布偶猫 | [F010](F010-mobile-cat.md) |
+| F032 | Agent Plugin Architecture | review | 布偶猫 | [F032](F032-agent-plugin-architecture.md) |
+| F037 | Agent Swarm 协同模式 | in-progress | 三猫 | [F037](F037-agent-swarm.md) |
+| F039 | 消息排队投递 | spec | 布偶猫 | [F039](F039-message-queue-delivery.md) |
+| F040 | BACKLOG 整理 | in-progress | 布偶猫 | [F040](F040-backlog-reorganization.md) |
 ```
 
 > **超级简洁！** 只有 ~10 行活跃项，不是 200+ 行历史。

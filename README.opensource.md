@@ -417,7 +417,7 @@ We're not building tools. We're building homes.
 
 - **[Tutorials](https://github.com/zts212653/cat-cafe-tutorials)** — Step-by-step guides for building with Clowder AI
 - **[SETUP.md](SETUP.md)** — Full installation and configuration guide
-- **[Third-Party AI Provider Guide](docs/guides/provider-configuration.md)** — Configure Kimi, GLM, MiniMax, Qwen, OpenRouter, and other providers
+- **[Third-Party AI Provider Guide](SETUP.opensource.md#model-access-ui)** — Configure Kimi, GLM, MiniMax, Qwen, OpenRouter, and other providers
 - **[Tips](docs/TIPS.md)** — Magic words, @mentions, voice companion, and other usage tips
 - **[docs/](docs/)** — Architecture decisions, feature specs, and lessons learned
 

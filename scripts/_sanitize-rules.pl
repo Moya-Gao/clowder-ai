@@ -77,6 +77,15 @@ s#/Users/(?:[^\s,"'}\]/]+/)+([^\s,"'}\]/]+)#/home/user/$1#g;
 # Fallback: bare /Users/username (only 2 segments) → /home/user
 s#/Users/[^\s,"'}\]/]+#/home/user#g;
 
+# ── *.opensource.md → *.md link rewriting (all files) ──
+# The sync script copies README.opensource.md → README.md, SETUP.opensource.md → SETUP.md, etc.
+# Cross-references inside these files must follow suit.
+s/SETUP\.opensource\.md/SETUP.md/g;
+s/SETUP\.opensource\.zh-CN\.md/SETUP.zh-CN.md/g;
+s/README\.opensource\.md/README.md/g;
+s/README\.opensource\.zh-CN\.md/README.zh-CN.md/g;
+s/CONTRIBUTING\.opensource\.md/CONTRIBUTING.md/g;
+
 # ── BACKLOG.md → ROADMAP.md (source + test files) ──
 # The actual file is renamed by sync-to-opensource.sh (docs/BACKLOG.md → docs/ROADMAP.md).
 # All code references must follow suit so gitShowFile / readBacklogContent find the right file.
@@ -169,6 +178,7 @@ if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
   s/砚砚/Maine Coon/g;
   s/烁烁/Siamese/g;
   s/BACKLOG\.md/ROADMAP.md/g;
+  s/lessons-learned\.md/public-lessons.md/g;
 }
 
 # ── Internal link stripping + path remapping (docs + skills only) ──

@@ -218,7 +218,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3004
 
 **添加国产 / 第三方 provider（Kimi、GLM、MiniMax、Qwen、OpenRouter）：**
 
-这些 provider 以 API key 账号形式配置，需要填写自定义 base URL。详细配置说明（base URL、模型名、协议选择、常见坑）请参阅 **[第三方 AI Provider 配置指南](docs/guides/provider-configuration.md)**。
+这些 provider 以 API key 账号形式配置，需要填写自定义 base URL。在**账号配置** UI 中添加新账号，选择 provider，输入 API key，填入该 provider 的 OpenAI 兼容端点 URL，选择对应协议，点击**测试**验证连通性。
 
 > **兼容模式：** 系统仍会从 `.env` 读取 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`GOOGLE_API_KEY` 作为兜底，但这条路径已不推荐。新安装请统一用 UI 配置。
 
