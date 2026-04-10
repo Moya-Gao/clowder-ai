@@ -5,7 +5,7 @@
 ## 三条规则
 
 1. **媒体证据默认写到系统临时目录**：`${TMPDIR}/cat-cafe-evidence/{branch-or-feature}/{date}/`
-2. **仓库根目录禁止未跟踪媒体文件**：`*.png` / `*.jpg` / `*.jpeg` / `*.webm` / `*.mp4`
+2. **仓库根目录禁止媒体/设计工件**（已跟踪 + 未跟踪都不允许）：`*.png` / `*.jpg` / `*.jpeg` / `*.webp` / `*.gif` / `*.webm` / `*.mp4` / `*.mov` / `*.wav` / `*.pdf` / `*.pen`
 3. **测试工件不用仓库目录**：一律用 `mkdtemp(os.tmpdir())` 或等价临时目录
 
 ## 允许入库的情况
@@ -18,8 +18,18 @@
 
 ## 执行位置
 
-- `quality-gate`：检查仓库根目录是否出现未跟踪媒体文件；命中即 BLOCK
+- `quality-gate`：检查仓库根目录是否出现媒体/设计工件（含已跟踪和未跟踪）；命中即 BLOCK
 - `browser-preview` / `vision-evidence-workflow`：默认截图路径指向系统临时目录
+
+## 检查命令（统一口径）
+
+```bash
+# 工作树（含 staged / unstaged / untracked）
+git status --short | rg '^.. [^/]+\.(png|jpe?g|webp|gif|webm|mp4|mov|wav|pdf|pen)$'
+
+# 当前分支相对 main 已提交内容
+git diff --name-only origin/main...HEAD | rg '^[^/]+\.(png|jpe?g|webp|gif|webm|mp4|mov|wav|pdf|pen)$'
+```
 
 ## 不做什么
 
