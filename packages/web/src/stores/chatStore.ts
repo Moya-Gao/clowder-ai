@@ -1945,7 +1945,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         threadStates: {
           ...state.threadStates,
-          [threadId]: { ...ts, hasActiveInvocation: false, activeInvocations: {}, lastActivity: Date.now() },
+          [threadId]: { ...ts, hasActiveInvocation: false, activeInvocations: {} },
         },
       };
     }),
