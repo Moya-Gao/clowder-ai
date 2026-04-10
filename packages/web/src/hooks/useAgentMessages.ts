@@ -287,7 +287,7 @@ export function useAgentMessages() {
       callbackReplyTo?: string,
     ):
       | { id: string; matchKind: 'active_invocationless' }
-      | { id: string; matchKind: 'finalized_fallback'; replacementInvocationId?: string }
+      | { id: string; matchKind: 'finalized_fallback'; replacementInvocationId?: string; fencedAt?: number }
       | null => {
       const currentMessages = useChatStore.getState().messages;
       const activeId = activeRefs.current.get(catId)?.id;
@@ -343,6 +343,7 @@ export function useAgentMessages() {
             id: finalized.id,
             matchKind: 'finalized_fallback',
             replacementInvocationId: finalizedEntry.invocationId ?? finalized.extra?.stream?.invocationId,
+            fencedAt: finalizedEntry.fencedAt,
           };
         }
       }
@@ -489,12 +490,15 @@ export function useAgentMessages() {
             if (explicitInvocationId) {
               replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
             } else if (replacementTarget?.matchKind === 'finalized_fallback') {
-              const suppressionInvocationId = replacementTarget.replacementInvocationId ?? inferredInvocationId;
+              const suppressionInvocationId =
+                replacementTarget.replacementInvocationId ??
+                (replacementTarget.fencedAt ? undefined : inferredInvocationId);
               if (suppressionInvocationId) {
                 // finalized_fallback prefers the replaced bubble's own invocationId.
-                // If that bubble finalized before invocation binding, fall back to
-                // the current late-bound invocationId so reordered stream chunks for
-                // the same invocation are still suppressed.
+                // Only unfenced late-bind fallback may borrow the current
+                // invocationId; once invocation_created fenced the ref, the
+                // current invocation belongs to the next run and must not be
+                // suppressed.
                 replacedInvocationsRef.current.set(msg.catId, suppressionInvocationId);
               }
             } else if (inferredInvocationId) {

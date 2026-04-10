@@ -158,6 +158,7 @@ function findBackgroundCallbackReplacementTarget(
   id: string;
   invocationId: string | null;
   matchKind: 'exact' | 'active_invocationless' | 'finalized_fallback';
+  fencedAt?: number;
 } | null {
   const explicitInvocationId = msg.invocationId;
   const invocationId = explicitInvocationId ?? getThreadInvocationId(msg, options);
@@ -226,6 +227,7 @@ function findBackgroundCallbackReplacementTarget(
         id: finalized.id,
         invocationId: finalizedEntry.invocationId ?? finalized.extra?.stream?.invocationId ?? null,
         matchKind: 'finalized_fallback',
+        fencedAt: finalizedEntry.fencedAt,
       };
     }
   }
@@ -387,11 +389,14 @@ export function handleBackgroundAgentMessage(
         } else {
           const suppressionInvocationId =
             replacementTarget.invocationId ??
-            (replacementTarget.matchKind === 'finalized_fallback' ? getThreadInvocationId(msg, options) : undefined);
+            (replacementTarget.matchKind === 'finalized_fallback' && !replacementTarget.fencedAt
+              ? getThreadInvocationId(msg, options)
+              : undefined);
           if (suppressionInvocationId) {
             // finalized_fallback prefers the replaced bubble's own invocationId.
-            // If it finalized before invocation binding, reuse the current
-            // late-bound thread invocation so reordered chunks stay suppressed.
+            // Only unfenced late-bind fallback may reuse the current thread
+            // invocation; once invocation_created fenced the ref, current state
+            // belongs to the next invocation and must not be suppressed.
             options.replacedInvocations.set(streamKey, suppressionInvocationId);
           }
         }

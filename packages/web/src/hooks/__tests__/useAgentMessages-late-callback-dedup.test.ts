@@ -403,6 +403,77 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     expect(mockAppendToMessage).not.toHaveBeenCalled();
   });
 
+  it('P2 regression: fenced finalized_fallback must not suppress the new invocation stream', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const responseText = 'Late-bound response before fence';
+
+    storeState.messages.push({
+      id: 'msg-fenced-late-bound',
+      type: 'assistant',
+      catId: 'opus',
+      content: responseText,
+      isStreaming: true,
+      origin: 'stream',
+      timestamp: Date.now() - 3000,
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: responseText,
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        isFinal: true,
+      });
+    });
+
+    storeState.catInvocations = { opus: { invocationId: 'inv-new' } };
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-new',
+        }),
+      });
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: responseText,
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'Fresh stream from inv-new',
+        invocationId: 'inv-new',
+      });
+    });
+
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+    const streamBubble = mockAddMessage.mock.calls.find(([msg]) => msg.origin === 'stream')?.[0];
+    expect(streamBubble?.content).toBe('Fresh stream from inv-new');
+    expect(streamBubble?.extra).toEqual({ stream: { invocationId: 'inv-new' } });
+  });
+
   it('P2 regression: finalized_fallback does not merge callback onto a different reply target', () => {
     act(() => {
       root.render(React.createElement(Harness));

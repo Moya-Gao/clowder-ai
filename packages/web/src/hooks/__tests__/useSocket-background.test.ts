@@ -699,6 +699,88 @@ describe('background thread socket handling', () => {
       );
     });
 
+    it('P2 regression: fenced background finalized_fallback must not suppress the new invocation stream', () => {
+      const now = Date.now();
+      const responseText = 'Late-bound bg response before fence';
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-fenced-late-bound',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'stream',
+        isStreaming: true,
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', {
+        id: 'bg-stream-fenced-late-bound',
+        threadId: 'thread-bg',
+        catId: 'opus',
+      });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-new' });
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-new',
+        }),
+        timestamp: now + 2,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: responseText,
+        messageId: 'bg-callback-fenced-late-bound',
+        timestamp: now + 3,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'Fresh bg stream from inv-bg-new',
+        invocationId: 'inv-bg-new',
+        timestamp: now + 4,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[0]).toEqual(
+        expect.objectContaining({
+          id: 'bg-callback-fenced-late-bound',
+          catId: 'opus',
+          content: responseText,
+          origin: 'callback',
+          isStreaming: false,
+        }),
+      );
+      expect(ts.messages[1]).toEqual(
+        expect.objectContaining({
+          type: 'assistant',
+          catId: 'opus',
+          content: 'Fresh bg stream from inv-bg-new',
+          origin: 'stream',
+          isStreaming: true,
+          extra: { stream: { invocationId: 'inv-bg-new' } },
+        }),
+      );
+    });
+
     it('P2 regression: background finalized_fallback does not merge callback onto a different reply target', () => {
       const now = Date.now();
       const responseText = 'Same text, different parent';
