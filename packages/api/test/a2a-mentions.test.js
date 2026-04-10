@@ -451,6 +451,19 @@ describe('#417: detectInlineActionMentions', () => {
     const result = detectInlineActionMentions('这个问题请 @codex review 一下', 'opus', []);
     assert.equal(result.length, 1);
   });
+
+  // --- Codex R6: already-seen cat must not block fresh cats on later lines ---
+
+  it('already-seen cat (longer pattern, scanned first) does not block fresh cat on same line', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    // @gemini (7 chars) is longer than @codex (6 chars), so entries sort puts gemini first.
+    // Line 1 adds gemini to seen. Line 2: gemini scanned first → already seen → must NOT set lineMatched.
+    const text = 'Ready for @gemini review\nReady for @gemini and @codex review';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    const catIds = result.map((r) => r.catId);
+    assert.ok(catIds.includes('gemini'), 'gemini should be detected from line 1');
+    assert.ok(catIds.includes('codex'), 'codex should be detected from line 2 even though gemini already seen');
+  });
 });
 
 describe('SystemPromptBuilder A2A injection', () => {

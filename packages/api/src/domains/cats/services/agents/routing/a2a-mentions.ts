@@ -202,8 +202,9 @@ export function detectInlineActionMentions(
         if (!seen.has(entry.catId)) {
           seen.add(entry.catId);
           found.push({ catId: entry.catId, lineText: rawLine.trim() });
+          lineMatched = true;
         }
-        lineMatched = true;
+        // Already-seen cat: don't claim the line — let other cats still be scanned.
         break;
       }
     }
