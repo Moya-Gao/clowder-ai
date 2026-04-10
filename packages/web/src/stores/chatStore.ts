@@ -1097,7 +1097,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
   /** F108: Clear all active invocations (timeout/error/stop recovery) */
-  clearAllActiveInvocations: () => set({ activeInvocations: {}, hasActiveInvocation: false }),
+  clearAllActiveInvocations: () =>
+    set((state) => {
+      const existingTs = state.threadStates[state.currentThreadId];
+      return {
+        activeInvocations: {},
+        hasActiveInvocation: false,
+        // Stamp completion time (same as removeActiveInvocation) for stop/timeout/reconnect paths
+        threadStates: {
+          ...state.threadStates,
+          [state.currentThreadId]: {
+            ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
   setIntentMode: (mode) => set({ intentMode: mode }),
 

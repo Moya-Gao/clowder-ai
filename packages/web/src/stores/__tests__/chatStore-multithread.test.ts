@@ -497,6 +497,21 @@ describe('chatStore multi-thread state', () => {
       const saved = useChatStore.getState().threadStates['thread-a']!;
       expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeDone);
     });
+
+    it('stamps completion time on clearAllActiveInvocations (stop/timeout path)', () => {
+      const oldMsgTs = Date.now() - 30_000;
+      const msg: ChatMessage = { id: 'stopped', type: 'assistant', content: 'partial', timestamp: oldMsgTs };
+      useChatStore.getState().addMessage(msg);
+      useChatStore.getState().addActiveInvocation('inv-2', 'opus', 'execute');
+
+      const beforeClear = Date.now();
+      useChatStore.getState().clearAllActiveInvocations();
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+
+      useChatStore.getState().setCurrentThread('thread-b');
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      expect(saved.lastActivity).toBeGreaterThanOrEqual(beforeClear);
+    });
   });
 
   describe('unread suppression (persistent badge fix)', () => {
