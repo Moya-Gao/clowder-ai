@@ -8,7 +8,7 @@ created: 2026-04-08
 
 # F152: Expedition Memory — 外部项目记忆冷启动 + 经验回流
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -160,12 +160,12 @@ interface ScannedEvidence {
 
 ## Acceptance Criteria
 
-### Phase 0（Knowledge Engineering Skill）
-- [ ] AC-01: `knowledge-engineering` skill 存在且可被猫猫加载
-- [ ] AC-02: Skill 能识别外部项目的文档现状（有结构化文档 / 只有代码 / 文档散落 / 代码文档分仓）
-- [ ] AC-03: Skill 输出三层知识注入建议（领域手册 → 模式库 → 检索管道），内容基于 IdeaHub 咨询方法论
-- [ ] AC-04: Skill 能生成文档骨架模板（概念词典、规则表、操作映射），用户填充后可被 CatCafeScanner 索引
-- [ ] AC-05: Bootstrap 流程中，猫在路径选择点（Guided vs Autonomous）向用户说明两条路径的差异
+### Phase 0（Knowledge Engineering Skill）✅
+- [x] AC-01: `knowledge-engineering` skill 存在且可被猫猫加载
+- [x] AC-02: Skill 能识别外部项目的文档现状（有结构化文档 / 只有代码 / 文档散落 / 代码文档分仓）
+- [x] AC-03: Skill 输出三层知识注入建议（领域手册 → 模式库 → 检索管道），内容基于 IdeaHub 咨询方法论
+- [x] AC-04: Skill 能生成文档骨架模板（概念词典、规则表、操作映射），用户填充后可被 CatCafeScanner 索引
+- [x] AC-05: Bootstrap 流程中，猫在路径选择点（Guided vs Autonomous）向用户说明两条路径的差异
 
 ### Phase A（GenericRepoScanner）
 - [ ] AC-A1: `GenericRepoScanner` 能扫描一个没有 cat-cafe `docs/` 结构的普通 Git 仓库，产出 `ScannedEvidence[]`
@@ -252,6 +252,7 @@ interface ScannedEvidence {
 | 2026-04-08 | 立项。铲屎官纠偏 scope：面向社区用户用猫猫做他们自己的项目 |
 | 2026-04-08 | 布偶猫 + 缅因猫(GPT-5.4) 讨论收敛：三 Phase + 三护栏 |
 | 2026-04-08 | Design Gate 通过（布偶猫×缅因猫）：Scanner 策略化 + provenance 持久化 + 10 项 KD |
+| 2026-04-09 | Phase 0 merged (PR #1032)：knowledge-engineering skill + manifest 注册 |
 
 ## Review Gate
 
