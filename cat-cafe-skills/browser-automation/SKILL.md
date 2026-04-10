@@ -73,9 +73,9 @@ triggers:
 5. **需要接手人类已登录的 Chrome、复杂 iframe、多 tab 调试吗？**
    是 → 用 `claude-in-chrome` MCP（工具前缀 `mcp__claude-in-chrome__*`），参考 `refs/playwriter.md`
 6. **这是 CLI 型猫，没 webfetch / 没 VL，但能跑命令吗？**
-   是 → `refs/agent-browser.md`（MCP ID: `agent-browser`，`npx agent-browser-mcp`）
+   是 → `refs/agent-browser.md`（MCP ID: `agent-browser`，社区 wrapper，使用前先做本机验活）
 7. **需要长驻 daemon、持久 session、HTTP-first 服务吗？**
-   是 → `refs/pinchtab.md`（MCP ID: `pinchtab`，`npx pinchtab-mcp`）
+   是 → `refs/pinchtab.md`（MCP ID: `pinchtab`，优先 native binary `pinchtab mcp`，不要默认相信 npm wrapper）
 
 ## 路由矩阵
 
@@ -85,8 +85,8 @@ triggers:
 | 本地 WebApp 测试 / 回归 | `webapp-testing` + Playwright | `playwright` | 已接入 |
 | MCP 原生客户端的常规网页自动化 | `Playwright MCP` | `playwright` | ✅ 已接入 — `npx @playwright/mcp@latest` |
 | 已登录 Chrome、iframe-heavy、手工接管 | `claude-in-chrome` | `claude-in-chrome` | ✅ 已接入 — Chrome 扩展管理，无需手动启动 |
-| CLI 型猫、没 webfetch / 没 VL | `agent-browser` | `agent-browser` | ✅ 已接入 — `npx agent-browser-mcp` |
-| 服务化浏览器、持久化 session、重复批任务 | `PinchTab` | `pinchtab` | ✅ 已接入 — `npx pinchtab-mcp` |
+| CLI 型猫、没 webfetch / 没 VL | `agent-browser` | `agent-browser` | 实验性接入 — 社区 wrapper，先本机验活再宣称可用 |
+| 服务化浏览器、持久化 session、重复批任务 | `PinchTab` | `pinchtab` | 实验性接入 — 优先 native binary `pinchtab mcp` |
 
 ## 常用组合打法
 

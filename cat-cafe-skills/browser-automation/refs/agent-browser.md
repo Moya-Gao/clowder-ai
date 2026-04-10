@@ -35,15 +35,15 @@
 - 默认给 CLI-only / 无 `webfetch` / 无 VL 的猫
 - 是 specialist backend，不取代 `browser-preview`
 - **MCP ID**: `agent-browser`（capabilities.json 中注册）
-- **启动命令**: `npx agent-browser-mcp`（社区 MCP wrapper，封装 Vercel CLI 为标准 MCP）
+- **启动命令**: `npx agent-browser-mcp`（社区 MCP wrapper，版本兼容性需单独验证）
 - 工具前缀：`mcp__agent-browser__*`
 
 ## 安装
 
 ```bash
 # 自动按需下载（npx），无需预装
-# 首次使用时 npx 会下载 agent-browser-mcp 包
-# 底层依赖 Vercel agent-browser CLI
+# 但它是社区 wrapper，不等于官方 CLI 全部命令都映射正确
+# 使用前至少验证 initialize / navigate / snapshot，别直接宣称“已通”
 ```
 
 ## 官方来源
