@@ -368,10 +368,71 @@ function migrateHomedirLegacyProviderProfiles(projectRoot?: string): void {
   }
 }
 
+// ── Homedir credentials.json migration (pre-F340 credentials written directly to homedir) ──
+
+const migratedHomedirCredentials = new Set<string>();
+
+function migrateHomedirCredentials(projectRoot?: string): void {
+  const globalRoot = resolveGlobalRoot(projectRoot);
+  const resolvedTarget = resolve(globalRoot);
+  if (migratedHomedirCredentials.has(resolvedTarget)) return;
+  const home = homedir();
+  if (resolvedTarget === resolve(home)) {
+    migratedHomedirCredentials.add(resolvedTarget);
+    return;
+  }
+  const homeCredPath = resolve(home, CONFIG_SUBDIR, 'credentials.json');
+  if (!existsSync(homeCredPath)) {
+    migratedHomedirCredentials.add(resolvedTarget);
+    return;
+  }
+  try {
+    const homeCreds = JSON.parse(readFileSync(homeCredPath, 'utf-8'));
+    if (typeof homeCreds !== 'object' || homeCreds === null || Array.isArray(homeCreds)) {
+      migratedHomedirCredentials.add(resolvedTarget);
+      return;
+    }
+    const targetCredPath = resolve(globalRoot, CONFIG_SUBDIR, 'credentials.json');
+    let targetCreds: Record<string, unknown> = {};
+    if (existsSync(targetCredPath)) {
+      try {
+        targetCreds = JSON.parse(readFileSync(targetCredPath, 'utf-8'));
+      } catch {
+        targetCreds = {};
+      }
+    }
+    // Homedir credentials.json wins over provider-profiles.secrets (newer source).
+    let imported = 0;
+    for (const [ref, entry] of Object.entries(homeCreds)) {
+      if (typeof entry === 'object' && entry !== null) {
+        targetCreds[ref] = entry;
+        imported++;
+      }
+    }
+    if (imported > 0) {
+      mkdirSync(resolve(globalRoot, CONFIG_SUBDIR), { recursive: true });
+      writeFileAtomic(targetCredPath, `${JSON.stringify(targetCreds, null, 2)}\n`, 0o600);
+      console.error(
+        `[catalog-accounts] homedir credentials.json: ${imported} credential(s) merged into ${resolvedTarget}`,
+      );
+    }
+    migratedHomedirCredentials.add(resolvedTarget);
+  } catch (err) {
+    if (err instanceof SyntaxError || (err instanceof Error && err.message.includes('ENOENT'))) {
+      console.error('[catalog-accounts] homedir credentials.json migration failed (corrupt source, skipped):', err);
+      migratedHomedirCredentials.add(resolvedTarget);
+    } else {
+      throw err;
+    }
+  }
+}
+
 function ensureMigrated(projectRoot: string): void {
   migrateLegacyProviderProfiles(projectRoot);
   migrateProjectLegacyProviderProfiles(projectRoot);
   migrateHomedirLegacyProviderProfiles(projectRoot);
+  // Homedir credentials.json AFTER legacy secrets — homedir wins on overlap.
+  migrateHomedirCredentials(projectRoot);
   migrateProjectAccountsToGlobal(projectRoot);
 }
 
@@ -379,6 +440,7 @@ function ensureMigrated(projectRoot: string): void {
 export function resetMigrationState(): void {
   legacyMigrationDone = false;
   migratedHomedirLegacy.clear();
+  migratedHomedirCredentials.clear();
   migratedProjects.clear();
   migratedProjectLegacy.clear();
 }
