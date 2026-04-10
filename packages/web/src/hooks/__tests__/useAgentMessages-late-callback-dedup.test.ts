@@ -43,7 +43,7 @@ const storeState = {
     content: string;
     isStreaming?: boolean;
     origin?: string;
-    extra?: { stream?: { invocationId?: string } };
+    extra?: { stream?: { invocationId?: string }; callbackBridge?: { skipDedup?: boolean } };
     timestamp: number;
   }>,
   addMessage: mockAddMessage,
@@ -356,7 +356,89 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     );
     expect(newBubbleCalls).toHaveLength(1);
     expect(newBubbleCalls[0][0].content).toBe('Shared content');
-    expect(newBubbleCalls[0][0].extra).toEqual({ stream: { invocationId: 'inv-3' } });
+    expect(newBubbleCalls[0][0].extra).toEqual({ callbackBridge: { skipDedup: true } });
+  });
+
+  it('keeps inferred invocationId off unmatched callback bubbles so the next stream creates its own bubble', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    storeState.messages.push({
+      id: 'msg-inv1',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'Response from inv-1',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-1' } },
+      timestamp: Date.now() - 4000,
+    });
+    storeState.catInvocations = { opus: { invocationId: 'inv-1' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'Response from inv-1',
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        isFinal: true,
+      });
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-2',
+        }),
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'Delayed callback from inv-1',
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledTimes(1);
+    const callbackBubble = mockAddMessage.mock.calls[0]?.[0];
+    expect(callbackBubble?.origin).toBe('callback');
+    expect(callbackBubble?.extra?.stream?.invocationId).toBeUndefined();
+    expect(callbackBubble?.extra?.callbackBridge).toEqual({ skipDedup: true });
+
+    storeState.messages.push({
+      ...callbackBubble,
+      timestamp: Date.now(),
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'Fresh stream from inv-2',
+      });
+    });
+
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+    const streamBubble = mockAddMessage.mock.calls.find(([msg]) => msg.origin === 'stream')?.[0];
+    expect(streamBubble?.content).toBe('Fresh stream from inv-2');
+    expect(streamBubble?.extra).toEqual({ stream: { invocationId: 'inv-2' } });
   });
 
   it('thread switch clears finalizedStreamRef (resetRefs still works)', () => {

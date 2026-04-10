@@ -240,6 +240,8 @@ export interface ChatMessage {
     crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
     /** F081: Stream identity for continuity / hydration reconcile */
     stream?: { invocationId?: string };
+    /** #586: Hook already ruled out callback→stream bridge; skip store dedup bridge too. */
+    callbackBridge?: { skipDedup?: boolean };
     /** F098-C1: Explicit target cats from post_message API */
     targetCats?: string[];
     /** F118 AC-C3: Timeout diagnostics for enhanced error display */

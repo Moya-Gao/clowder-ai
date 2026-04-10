@@ -521,6 +521,79 @@ describe('background thread socket handling', () => {
       ]);
     });
 
+    it('keeps inferred invocationId off unmatched bg callback bubbles so the next stream creates its own bubble', () => {
+      const now = Date.now();
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-old' });
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-old-final',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'Old finalized content',
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-old' } },
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', { id: 'bg-stream-old-final', threadId: 'thread-bg', catId: 'opus' });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-new',
+        }),
+        timestamp: now + 2,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: 'Delayed callback from old invocation',
+        messageId: 'bg-callback-unmatched',
+        timestamp: now + 3,
+      });
+
+      let ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[1]?.origin).toBe('callback');
+      expect(ts.messages[1]?.extra?.stream?.invocationId).toBeUndefined();
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'Fresh stream from new invocation',
+        timestamp: now + 4,
+      });
+
+      ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(3);
+      expect(ts.messages[2]).toEqual(
+        expect.objectContaining({
+          type: 'assistant',
+          catId: 'opus',
+          content: 'Fresh stream from new invocation',
+          origin: 'stream',
+          isStreaming: true,
+          extra: { stream: { invocationId: 'inv-bg-new' } },
+        }),
+      );
+    });
+
     it('drops late background stream chunks after callback replacement', () => {
       configureDebug({ enabled: true });
       ensureWindowDebugApi();

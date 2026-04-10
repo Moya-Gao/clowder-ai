@@ -288,6 +288,7 @@ function findAssistantDuplicate(messages: ChatMessage[], incoming: ChatMessage):
   if (incoming.type !== 'assistant' || !incoming.catId) return -1;
 
   const incomingInvId = getBubbleInvocationId(incoming);
+  const skipCallbackBridge = incoming.extra?.callbackBridge?.skipDedup === true;
 
   // Phase 1: Hard rule — scan ALL same-cat assistants for exact invocationId match.
   // Must run first because bridge/soft rules on a newer message would mis-associate.
@@ -307,6 +308,7 @@ function findAssistantDuplicate(messages: ChatMessage[], incoming: ChatMessage):
   // must not merge into an invocationless stream from a different invocation.
   if (incoming.origin !== 'callback') return -1;
   if (incomingInvId) return -1;
+  if (skipCallbackBridge) return -1;
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const existing = messages[i]!;

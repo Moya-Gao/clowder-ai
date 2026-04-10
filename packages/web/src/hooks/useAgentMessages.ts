@@ -442,8 +442,10 @@ export function useAgentMessages() {
         }
 
         if (msg.origin === 'callback') {
-          const invocationId = msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId);
-          const hasExplicitInvocationId = !!msg.invocationId;
+          const explicitInvocationId = msg.invocationId;
+          const inferredInvocationId = getCurrentInvocationIdForCat(msg.catId);
+          const invocationId = explicitInvocationId ?? inferredInvocationId;
+          const hasExplicitInvocationId = !!explicitInvocationId;
           const replacementTarget = invocationId
             ? (findCallbackReplacementTarget(msg.catId, invocationId) ??
               (hasExplicitInvocationId ? null : findInvocationlessStreamPlaceholder(msg.catId, msg.content)))
@@ -475,7 +477,8 @@ export function useAgentMessages() {
             const id = msg.messageId ?? `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
             const extraForAdd = {
               ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-              ...(invocationId ? { stream: { invocationId } } : {}),
+              ...(explicitInvocationId ? { stream: { invocationId: explicitInvocationId } } : {}),
+              ...(!explicitInvocationId ? { callbackBridge: { skipDedup: true } } : {}),
             };
             addMessage({
               id,
@@ -493,12 +496,11 @@ export function useAgentMessages() {
             // #586 Bug 1 (TD112): Callback created a new bubble because no stream
             // placeholder existed yet. Mark the invocation as replaced so that
             // late-arriving stream chunks for the same invocation are suppressed
-            // instead of spawning a second bubble.
-            const shouldLockReplacement =
-              invocationId &&
-              (!hasExplicitInvocationId || getCurrentInvocationIdForCat(msg.catId) === msg.invocationId);
-            if (shouldLockReplacement) {
-              replacedInvocationsRef.current.set(msg.catId, invocationId);
+            // instead of spawning a second bubble. Only explicit callback
+            // invocationIds are safe here; inferring from current thread state can
+            // mislabel a delayed callback from the previous invocation.
+            if (explicitInvocationId) {
+              replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
             }
           }
         } else {

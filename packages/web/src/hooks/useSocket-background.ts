@@ -375,10 +375,11 @@ export function handleBackgroundAgentMessage(
         finalMsgId = cbId;
       } else {
         const cbId = msg.messageId ?? `bg-cb-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
-        const bgInvocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+        const explicitInvocationId = msg.invocationId;
         const extraForAdd = {
           ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-          ...(bgInvocationId ? { stream: { invocationId: bgInvocationId } } : {}),
+          ...(explicitInvocationId ? { stream: { invocationId: explicitInvocationId } } : {}),
+          ...(!explicitInvocationId ? { callbackBridge: { skipDedup: true } } : {}),
         };
         options.store.addMessageToThread(msg.threadId, {
           id: cbId,
@@ -395,9 +396,11 @@ export function handleBackgroundAgentMessage(
         });
         // #586 Bug 1 (TD112): Callback created new bubble without finding a stream
         // placeholder. Mark invocation as replaced so late background stream chunks
-        // are suppressed instead of spawning a duplicate bubble.
-        if (bgInvocationId) {
-          options.replacedInvocations.set(streamKey, bgInvocationId);
+        // are suppressed instead of spawning a duplicate bubble. Only explicit
+        // callback invocationIds are safe to persist; inferred thread-state IDs
+        // can misattribute a delayed callback from an older invocation.
+        if (explicitInvocationId) {
+          options.replacedInvocations.set(streamKey, explicitInvocationId);
         }
         finalMsgId = cbId;
       }
