@@ -40,7 +40,7 @@ thread_ids: []
 | 领域 | 技能 |
 |------|------|
 | 云基础设施 | Java / Spring / WebFlux、中间件架构归一、分布式调度与编排（ElasticJob / YAML DSL）、多环境适配 |
-| AI Agent 架构 | Multi-Agent Orchestration、愿景驱动治理、跨项目冷启动与可迁移性、联邦知识系统、Prompt Engineering、Agent 间通信协议设计 |
+| AI Agent 架构 | Multi-Agent Orchestration、愿景驱动治理、可携带治理与信任边界、联邦知识系统、Prompt Engineering、Agent 间通信协议设计 |
 | LLM 工程 | Claude / OpenAI / Gemini API 集成、多模型路由与 fallback、上下文窗口分层压缩、Token 预算优化、RAG（BM25 + 向量混合检索） |
 | 全栈工程 | TypeScript / Node.js / React / Next.js、Redis、SQLite、Monorepo (pnpm workspace)、MCP (Model Context Protocol) |
 | 开发流程 | TDD、Cross-Model Code Review、Feature 全生命周期治理、CI/CD 门禁、IM 网关（5 渠道） |
@@ -109,7 +109,7 @@ thread_ids: []
 | 项目 | 角色 | 描述 |
 |------|------|------|
 | **Cat Cafe** (clowder-ai) | Creator & Lead Architect | 多智能体协作平台，MIT 协议。150+ tracked work items，~30 Skills，5 渠道 IM 接入，跨 4 模型家族对等协作 |
-| **Cat Cafe Tutorials** (cat-cafe-tutorials) | Creator | 多智能体协作实践教程，配套 Cat Cafe 的入门与进阶指南，GitHub 600+ Stars |
+| **Cat Cafe Tutorials** (cat-cafe-tutorials) | Creator | 多智能体协作实践教程，配套 Cat Cafe 的入门与进阶指南，GitHub 270+ Stars |
 
 ---
 
@@ -118,8 +118,8 @@ thread_ids: []
 | 指标 | 数据 |
 |------|------|
 | Tracked work items | 150+（feature specs + ADRs + plans） |
-| 自动化测试 | 860+ 测试文件（回归测试基础设施） |
-| 事故驱动护栏 | 40+（关键护栏可追溯到具体事故与复盘） |
+| 自动化测试 | 990+ 测试文件（回归测试基础设施） |
+| 事故驱动护栏 | 每条关键约束可追溯到具体事故与复盘 |
 | Skill 数量 | ~30 |
 | 接入 AI 模型家族 | 4+（Claude / GPT / Gemini / Codex） |
 | Agent 个体数 | 10+（含多分身） |
@@ -176,7 +176,7 @@ thread_ids: []
 ### Skills
 
 - **Cloud Infrastructure**: Java, Spring, WebFlux, Middleware Abstraction, Distributed Scheduling (ElasticJob, YAML DSL), Multi-Environment Adaptation
-- **AI/Agent**: Multi-Agent Orchestration, Vision-Driven Governance, Cross-Project Cold-Start Bootstrapping, Federated Knowledge Systems, Prompt Engineering, LLM API Integration (Claude/GPT/Gemini), RAG (BM25 + Vector)
+- **AI/Agent**: Multi-Agent Orchestration, Vision-Driven Governance, Portable Governance & Trust Boundaries, Federated Knowledge Systems, Prompt Engineering, LLM API Integration (Claude/GPT/Gemini), RAG (BM25 + Vector)
 - **Full-Stack**: TypeScript, Node.js, React, Next.js, Redis, SQLite, MCP (Model Context Protocol), Monorepo (pnpm)
 - **Process**: TDD, Cross-Model Code Review, Feature Lifecycle Governance, CI/CD Gating, IM Gateway (5 channels)
 
