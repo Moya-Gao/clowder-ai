@@ -157,6 +157,8 @@ completed: 2026-03-28
 | KD-10 | 任务注册 = 对话驱动，不是 NL 输入框；面板只管展示/管理 | 铲屎官明确指出：W1 猫是 Agent 不是 API，用户在 thread 里和猫说话注册任务。NL 输入框违背愿景 | 2026-03-27 |
 | KD-11 | 对话式注册先做模板化（受支持模板），不做任意 NL→TaskSpec 生成 | 砚砚(gpt52) 建议：任意生成无审计线、无确认边界、重启丢失。模板化 = Draft/Confirm/Persist/Load 四步 | 2026-03-27 |
 | KD-12 | Phase 重排：3A（对话注册 + 面板最终态）→ 3B（Governance+Pack）。铲屎官指示：不止血，直接面向最终状态开发 | 动态注册是 Pack 的前置依赖。止血是浪费，一步到位 | 2026-03-27 |
+| KD-13 | once trigger 用 epoch ms（`fireAt`），不用 ISO 字符串 | 零时区歧义，直接 setTimeout 计算；路由层归一化 `delayMs → fireAt` 防重启漂移 | 2026-04-10 |
+| KD-14 | 生命周期通知 sender 使用服务端权威身份（`system`），不用客户端传入的 `createdBy` | 砚砚(gpt52) P1 发现：`createdBy` 是客户端传入，用作 notification sender 会引入身份冒充路径 | 2026-04-10 |
 
 ## Timeline
 
@@ -185,6 +187,16 @@ completed: 2026-03-28
 | 2026-03-28 | H2b wiring merged (PR #826) — `web-digest` needs-browser 路径接入 cat-wake（真实 messageId + invokeTrigger + `browser-automation` skill hint），TD116 关闭 |
 | 2026-03-28 | Scheduler visibility bugfix: system messages (PR #838) + cat reply userId fix (PR #843) — scheduler-triggered messages now visible in frontend |
 | 2026-03-28 | Historical backfill merged (PR #851) — one-time startup repair rewrites old scheduler cat replies to real thread owner; 砚砚(gpt52) 实现, 宪宪 review + merge |
+| 2026-04-10 | **Community intake**: clowder-ai#416 by @mindfn — once trigger (`{ type: 'once', fireAt }`) + lifecycle notifications (register/pause/resume/delete/fail/success/missed-window); 砚砚(gpt52) review 放行, 宪宪 merge + intake |
+
+### Community Intake: Once Trigger + Lifecycle Notifications (clowder-ai#416) ✅
+- [x] AC-I1: TriggerSpec 新增 `once` 类型（`{ type: 'once', fireAt: number }`），支持一次性延迟执行
+- [x] AC-I2: 路由层 `normalizeOnceTrigger` 将相对时间 `delayMs` 归一化为绝对 `fireAt`（防重启漂移）
+- [x] AC-I3: once 任务执行后自动退役（runtime 注销 + SQLite 删除）
+- [x] AC-I4: 重启后过期 once 任务记录 `SKIP_MISSED_WINDOW` + 通知用户
+- [x] AC-I5: 生命周期通知覆盖全状态变迁：注册、暂停、恢复、删除、失败、成功（含下次执行时间）
+- [x] AC-I6: `schedule-notify.ts` 独立模块，sender 使用服务端权威身份（`system`）
+- [x] AC-I7: 18 个新测试（7 once-trigger + 11 lifecycle notify + 1 store round-trip）
 
 ## Review Gate
 

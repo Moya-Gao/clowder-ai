@@ -68,10 +68,7 @@ function sessionRoutePlugin(app: FastifyInstance, _opts: Record<string, never>, 
       return { userId: request.sessionUserId };
     }
 
-    const fwdProto = (request.headers['x-forwarded-proto'] as string | undefined)
-      ?.split(',')[0]
-      ?.trim()
-      .toLowerCase();
+    const fwdProto = (request.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim().toLowerCase();
     const isSecure = request.protocol === 'https' || fwdProto === 'https';
 
     const token = globalStore.create('default-user');
