@@ -444,6 +444,22 @@ describe('chatStore multi-thread state', () => {
       expect(saved.lastActivity).toBe(oldTs);
     });
 
+    it('uses deliveredAt over timestamp when snapshotting idle thread', () => {
+      const oldTs = Date.now() - 120_000; // original message from 2 minutes ago
+      const deliveryTs = Date.now() - 5_000; // delivered 5 seconds ago
+      const msg: ChatMessage = {
+        id: 'queued-msg', type: 'user', content: 'queued', timestamp: oldTs, deliveredAt: deliveryTs,
+      };
+      useChatStore.getState().addMessage(msg);
+
+      expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+      useChatStore.getState().setCurrentThread('thread-b');
+
+      const saved = useChatStore.getState().threadStates['thread-a']!;
+      // Should use deliveredAt (5s ago), not timestamp (2min ago)
+      expect(saved.lastActivity).toBe(deliveryTs);
+    });
+
     it('preserves Date.now()-level lastActivity when switching away from streaming thread', () => {
       // Simulate an active invocation (cat is streaming)
       useChatStore.setState({ hasActiveInvocation: true });

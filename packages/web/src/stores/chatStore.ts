@@ -70,7 +70,9 @@ function snapshotActive(s: ChatState): ThreadState {
       ? Date.now()
       : Math.max(
           s.threadStates[s.currentThreadId]?.lastActivity ?? 0,
-          s.messages.length > 0 ? s.messages[s.messages.length - 1].timestamp : 0,
+          s.messages.length > 0
+            ? (s.messages[s.messages.length - 1].deliveredAt ?? s.messages[s.messages.length - 1].timestamp)
+            : 0,
         ),
     queue: s.queue,
     queuePaused: s.queuePaused,
