@@ -146,6 +146,7 @@ function inferLegacyAuthType(profile: Record<string, unknown>): AccountConfig['a
 function mergeIntoGlobal(
   source: Record<string, AccountConfig>,
   projectRoot?: string,
+  opts?: { skipConflicts?: boolean },
 ): { merged: string[]; skipped: string[] } {
   const global = readAllGlobal(projectRoot);
   const merged: string[] = [];
@@ -153,6 +154,13 @@ function mergeIntoGlobal(
   for (const [ref, account] of Object.entries(source)) {
     if (ref in global) {
       if (!accountsEquivalent(global[ref], account)) {
+        if (opts?.skipConflicts) {
+          console.error(
+            `[catalog-accounts] conflict for "${ref}" — global wins: ${describeAccountConflict(global[ref], account)}`,
+          );
+          skipped.push(ref);
+          continue;
+        }
         throw new Error(`Account conflict for "${ref}": ${describeAccountConflict(global[ref], account)}`);
       }
       skipped.push(ref);
@@ -311,7 +319,9 @@ function migrateProjectAccountsToGlobal(projectRoot: string): void {
     const projectAccounts = catalog?.accounts;
     if (!projectAccounts || typeof projectAccounts !== 'object' || Object.keys(projectAccounts).length === 0) return;
 
-    const { merged } = mergeIntoGlobal(projectAccounts as Record<string, AccountConfig>, projectRoot);
+    const { merged } = mergeIntoGlobal(projectAccounts as Record<string, AccountConfig>, projectRoot, {
+      skipConflicts: true,
+    });
 
     // F340: project catalog.accounts is intentionally left untouched.
     // Runtime only reads global accounts.json, so the project section is
@@ -322,10 +332,10 @@ function migrateProjectAccountsToGlobal(projectRoot: string): void {
     }
     migratedProjects.add(key);
   } catch (err) {
-    // Migration is best-effort — don't mark done so next call retries.
-    // But log the error so failures aren't invisible.
+    // Best-effort: log and mark done to avoid retry loops on persistent
+    // errors (corrupt catalog JSON, permission issues, etc.).
     console.error(`[catalog-accounts] project→global migration failed for ${key}:`, err);
-    throw err;
+    migratedProjects.add(key);
   }
 }
 

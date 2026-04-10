@@ -272,12 +272,13 @@ describe('global accounts (F340)', () => {
     await rmAsync(projectB, { recursive: true, force: true });
   });
 
-  it('throws when project catalog migration hits an incompatible global account ID', async () => {
+  it('skips conflicting project catalog accounts without crashing (global wins)', async () => {
     const { readCatalogAccounts, resetMigrationState, writeCatalogAccount } = await import(
       '../dist/config/catalog-accounts.js'
     );
     resetMigrationState();
 
+    // Global already has 'shared' with different fields
     writeCatalogAccount(projectRoot, 'shared', {
       authType: 'api_key',
       baseUrl: 'https://global.example/v1',
@@ -285,6 +286,7 @@ describe('global accounts (F340)', () => {
     });
     resetMigrationState();
 
+    // Project catalog has a stale version of 'shared'
     await writeFile(
       join(projectRoot, '.cat-cafe', 'cat-catalog.json'),
       JSON.stringify({
@@ -303,7 +305,11 @@ describe('global accounts (F340)', () => {
       'utf-8',
     );
 
-    assert.throws(() => readCatalogAccounts(projectRoot), /account conflict/i);
+    // Should NOT throw — project catalog is stale, global wins
+    const result = readCatalogAccounts(projectRoot);
+    // Global version preserved, not overwritten by stale project version
+    assert.equal(result.shared.baseUrl, 'https://global.example/v1');
+    assert.equal(result.shared.displayName, 'Global Shared');
   });
 
   it('migrates v1 nested providers.<client>.profiles[] into flat accounts', async () => {
