@@ -342,6 +342,65 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     expect(mockAppendToMessage).not.toHaveBeenCalled();
   });
 
+  it('P2 regression: suppresses late stream chunks when finalized_fallback infers invocationId from current state', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const responseText = 'Late-bound response';
+
+    storeState.messages.push({
+      id: 'msg-late-bound',
+      type: 'assistant',
+      catId: 'opus',
+      content: responseText,
+      isStreaming: true,
+      origin: 'stream',
+      timestamp: Date.now() - 3000,
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: responseText,
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        isFinal: true,
+      });
+    });
+
+    // Late invocation binding arrives after the stream bubble finalized.
+    storeState.catInvocations = { opus: { invocationId: 'inv-late-bound' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: responseText,
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'late stream chunk from same late-bound invocation',
+        invocationId: 'inv-late-bound',
+      });
+    });
+
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+  });
+
   it('P1 regression: callback with DIFFERENT content does NOT merge across invocation boundary', () => {
     act(() => {
       root.render(React.createElement(Harness));

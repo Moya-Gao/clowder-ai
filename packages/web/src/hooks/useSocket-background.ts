@@ -382,10 +382,16 @@ export function handleBackgroundAgentMessage(
         options.finalizedBgRefs.delete(streamKey);
         if (explicitInvocationId) {
           options.replacedInvocations.set(streamKey, explicitInvocationId);
-        } else if (replacementTarget.invocationId) {
-          // finalized_fallback must reuse the replaced stream bubble's own
-          // invocationId; active/exact matches keep the current invocationId.
-          options.replacedInvocations.set(streamKey, replacementTarget.invocationId);
+        } else {
+          const suppressionInvocationId =
+            replacementTarget.invocationId ??
+            (replacementTarget.matchKind === 'finalized_fallback' ? getThreadInvocationId(msg, options) : undefined);
+          if (suppressionInvocationId) {
+            // finalized_fallback prefers the replaced bubble's own invocationId.
+            // If it finalized before invocation binding, reuse the current
+            // late-bound thread invocation so reordered chunks stay suppressed.
+            options.replacedInvocations.set(streamKey, suppressionInvocationId);
+          }
         }
         finalMsgId = cbId;
       } else {

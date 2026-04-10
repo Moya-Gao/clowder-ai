@@ -583,6 +583,68 @@ describe('background thread socket handling', () => {
       );
     });
 
+    it('P2 regression: suppresses late bg stream chunks when finalized_fallback infers invocationId from thread state', () => {
+      const now = Date.now();
+      const responseText = 'Late-bound bg response';
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-late-bound',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'stream',
+        isStreaming: true,
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', {
+        id: 'bg-stream-late-bound',
+        threadId: 'thread-bg',
+        catId: 'opus',
+      });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      // Late invocation binding arrives after finalization, before the callback.
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-late-bound' });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: responseText,
+        messageId: 'bg-callback-late-bound',
+        timestamp: now + 2,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'late stream chunk from same late-bound invocation',
+        invocationId: 'inv-bg-late-bound',
+        timestamp: now + 3,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]).toEqual(
+        expect.objectContaining({
+          id: 'bg-callback-late-bound',
+          catId: 'opus',
+          content: responseText,
+          origin: 'callback',
+          isStreaming: false,
+        }),
+      );
+    });
+
     it('invalidates a fenced bg finalized ref after a second invocation boundary', () => {
       const now = Date.now();
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-stale-1' });

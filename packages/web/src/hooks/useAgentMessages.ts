@@ -486,10 +486,13 @@ export function useAgentMessages() {
             if (explicitInvocationId) {
               replacedInvocationsRef.current.set(msg.catId, explicitInvocationId);
             } else if (replacementTarget?.matchKind === 'finalized_fallback') {
-              if (replacementTarget.replacementInvocationId) {
-                // finalized_fallback can only safely suppress late chunks when we
-                // reuse the replaced stream bubble's own invocationId.
-                replacedInvocationsRef.current.set(msg.catId, replacementTarget.replacementInvocationId);
+              const suppressionInvocationId = replacementTarget.replacementInvocationId ?? inferredInvocationId;
+              if (suppressionInvocationId) {
+                // finalized_fallback prefers the replaced bubble's own invocationId.
+                // If that bubble finalized before invocation binding, fall back to
+                // the current late-bound invocationId so reordered stream chunks for
+                // the same invocation are still suppressed.
+                replacedInvocationsRef.current.set(msg.catId, suppressionInvocationId);
               }
             } else if (inferredInvocationId) {
               // Exact or active invocationless placeholder matches still belong to
