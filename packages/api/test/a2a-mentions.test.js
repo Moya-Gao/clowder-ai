@@ -558,6 +558,39 @@ describe('#417: detectInlineActionMentions', () => {
   });
 });
 
+describe('#1063: detectInlineActionMentions → ThreadStore integration', () => {
+  it('writes inline_action feedback to ThreadStore and consumes it one-shot', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Integration test');
+    const catId = 'opus';
+
+    // Simulate: cat wrote "Ready for @codex review" inline
+    const inlineHits = detectInlineActionMentions('Done. Ready for @codex review', catId, []);
+    assert.equal(inlineHits.length, 1);
+    assert.equal(inlineHits[0].catId, 'codex');
+
+    // Write feedback (mimics route-serial.ts wiring)
+    await store.setMentionRoutingFeedback(thread.id, catId, {
+      sourceTimestamp: Date.now(),
+      items: inlineHits.map((m) => ({ targetCatId: m.catId, reason: 'inline_action' })),
+    });
+
+    // Consume — should return the feedback (one-shot)
+    const feedback = await store.consumeMentionRoutingFeedback(thread.id, catId);
+    assert.ok(feedback, 'feedback should exist');
+    assert.equal(feedback.items.length, 1);
+    assert.equal(feedback.items[0].targetCatId, 'codex');
+    assert.equal(feedback.items[0].reason, 'inline_action');
+
+    // Consume again — should be empty (one-shot consumed)
+    const second = await store.consumeMentionRoutingFeedback(thread.id, catId);
+    assert.equal(second, null, 'feedback should be consumed after first read');
+  });
+});
+
 describe('SystemPromptBuilder A2A injection', () => {
   it('includes A2A section when a2aEnabled and serial mode', async () => {
     const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
