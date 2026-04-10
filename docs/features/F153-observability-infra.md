@@ -47,9 +47,10 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 - [ ] AC-A2: Prometheus `/metrics` 端点可用，5 个 instruments 有数据
 - [ ] AC-A3: `/ready` 端点返回 Redis 健康状态
 - [ ] AC-A4: cli-spawn debug 日志不含 prompt 明文（回归测试）
-- [ ] AC-A5: HMAC salt 缺失时 fail-fast（启动阶段校验，非懒加载）
+- [ ] AC-A5: HMAC salt 缺失时启动阶段校验并 graceful degradation（禁用 OTel + warning log，服务继续运行）
 - [ ] AC-A6: Prometheus exporter 端口可通过 env 配置（不硬编码 9464）
 - [ ] AC-A7: `activeInvocations` 计数器在 generator early abort 时正确递减
+- [ ] AC-A8: yielded-error 路径（`hadError = true`）的 span 正确标记为 ERROR 并补 OTel error log
 
 ## Dependencies
 
