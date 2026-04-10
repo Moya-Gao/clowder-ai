@@ -433,6 +433,24 @@ describe('#417: detectInlineActionMentions', () => {
     const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     assert.deepEqual(detectInlineActionMentions('@codex checklist 已更新', 'opus', []), []);
   });
+
+  // --- Codex R5: 请 as compound suffix (邀请/申请) ---
+
+  it('"邀请 @codex 参加评审" is narrative (邀请 = invite, not imperative 请)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('邀请 @codex 参加评审', 'opus', []), []);
+  });
+
+  it('"申请 @codex 权限" is narrative (申请 = apply, not imperative 请)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('申请 @codex 权限', 'opus', []), []);
+  });
+
+  it('"请 @codex review" still triggers (standalone 请 is imperative)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = detectInlineActionMentions('这个问题请 @codex review 一下', 'opus', []);
+    assert.equal(result.length, 1);
+  });
 });
 
 describe('SystemPromptBuilder A2A injection', () => {

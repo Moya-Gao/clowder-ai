@@ -137,8 +137,11 @@ export function analyzeA2AMentions(
  *  5. Not a self-mention
  */
 
-/** Action patterns that appear immediately BEFORE @mention (e.g. "Ready for @xxx"). */
-const BEFORE_HANDOFF_RE = /(?:ready\s+for|交接给?|转给|请|帮)\s*$/i;
+/**
+ * Action patterns that appear immediately BEFORE @mention (e.g. "Ready for @xxx").
+ * Chinese 请 uses negative lookbehind to exclude compounds (邀请 = invite, 申请 = apply).
+ */
+const BEFORE_HANDOFF_RE = /(?:ready\s+for|交接给?|转给|(?<![邀申敬])请|帮)\s*$/i;
 /**
  * Action patterns immediately AFTER @mention (e.g. "@xxx review").
  * English verbs use (?![a-z]) to reject continuations ("reviewed", "checklist").
