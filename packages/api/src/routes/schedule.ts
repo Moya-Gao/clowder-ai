@@ -408,8 +408,11 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
           } catch {
             // Already registered — ignore
           }
+          notifyTaskResumed(deliver, def);
+        } else {
+          reply.status(500);
+          return { error: `Template ${def.templateId} not found — task cannot resume` };
         }
-        notifyTaskResumed(deliver, def);
       }
     }
 
