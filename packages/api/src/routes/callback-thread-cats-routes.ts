@@ -21,7 +21,7 @@ interface ThreadCatsCallbackDeps {
   agentRegistry: { getAllEntries(): Map<string, unknown> };
 }
 
-const threadCatsQuerySchema = callbackAuthSchema.extend({});
+const threadCatsQuerySchema = callbackAuthSchema;
 
 export function registerCallbackThreadCatsRoutes(app: FastifyInstance, deps: ThreadCatsCallbackDeps): void {
   const { registry, threadStore, agentRegistry } = deps;
