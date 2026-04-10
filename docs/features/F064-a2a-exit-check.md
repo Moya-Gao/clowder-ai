@@ -33,7 +33,7 @@ F064 的核心动机是修复 A2A 协作中的“链条终止盲区”：该 @ �
 ### Phase B（运行时注入）
 - [x] AC-B1: 非 parallel 且 a2aEnabled 时注入出口检查提示。
 - [x] AC-B2: `mentionRoutingFeedback` read-side 注入与测试覆盖完成。
-- [x] AC-B3: write-side 自动回写已接入（#417: detectInlineActionMentions + route-serial 集成）。
+- [x] AC-B3: write-side 自动回写已部分接入（#417: serial response path via route-serial; callback/post_message path 尚未覆盖）。
 
 ## Dependencies
 
@@ -127,18 +127,23 @@ Maine Coon(GPT-5.2) 在协作场景中反复出现两种极端：
 - 历史事件：Maine Coon mention spam 事件（Anti-Mention-Spam 规则起源）
 - 相关 Feature：F046 Anti-Drift Protocol、F055 A2A MCP Structured Routing
 
-## Resolved Debt: `mentionRoutingFeedback` write-side (#417)
+## Partially Resolved Debt: `mentionRoutingFeedback` write-side (#417)
 
-**状态**：已完成（#417 PR）
+**状态**：serial response path 已接入；callback/post_message path 尚未覆盖
 
-**实现**：
-- `a2a-mentions.ts` 新增 `detectInlineActionMentions()`：检测句中 `@pattern` + 动作词（请/帮/review/确认/check/fix/merge/ready for 等），排除代码块、引用块、已路由目标
+**已接入路径（route-serial）**：
+- `a2a-mentions.ts` 新增 `detectInlineActionMentions()`：邻近性检测句中 `@pattern` + 紧邻动作词
 - `route-serial.ts` 在 `parseA2AMentions()` 之后调用检测，命中时写入 `setMentionRoutingFeedback()`
 - 下次该猫被唤起时，read-side 渲染为 `[路由提醒]`，消费后自动清除（one-shot）
-- `callback-tools.ts` post_message 描述已统一为"行首 @猫名"，不再出现可能误导成句中 handoff 的说法
+- `callback-tools.ts` post_message 描述已统一为"行首 @猫名"
 
-**误报控制**：
-- 必须同时满足：(a) 句中 @pattern (b) 同行有动作词 (c) 不在代码块/引用块 (d) 该猫未被行首 @ 路由
+**未覆盖路径**：
+- `callbacks.ts` 的 post_message callback 路径仍只做行首 mention 解析，未调用 write-side feedback
+- 后续如需完整覆盖，需在 callback 写路径也接入 `detectInlineActionMentions`
+
+**误报控制（邻近性检测）**：
+- 动作词必须紧邻 @mention 前后（BEFORE: ready for/请/帮/交接给/转给；AFTER: review/check/确认/处理 等）
+- 整行有动作词但不紧邻 @mention 不触发（如"请按 @codex 之前的建议继续处理"）
 - 纯叙述性提及（如"之前 @codex 提出的方案不错"）不会触发
 - feedback 是 one-shot（consumeMentionRoutingFeedback 读后即删），不会反复提醒
 

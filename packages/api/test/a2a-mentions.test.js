@@ -320,6 +320,38 @@ describe('#417: detectInlineActionMentions', () => {
     const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     assert.deepEqual(detectInlineActionMentions('', 'opus', []), []);
   });
+
+  // --- P1 regression: gpt52 review repro cases (proximity-based matching) ---
+
+  it('P1-repro: "请按 @codex 之前的建议" is narrative, not handoff', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '请按 @codex 之前的建议继续处理这个问题。';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.deepEqual(result, [], 'should not trigger: "请按" is not a handoff directive to @codex');
+  });
+
+  it('P1-repro: multi-mention line targets the right cat', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '之前 @codex 讨论过，Ready for @gemini review on this patch.';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.equal(result.length, 1, 'should detect exactly one inline action mention');
+    assert.equal(result[0].catId, 'gemini', 'should target gemini (Ready for), not codex (narrative)');
+  });
+
+  it('proximity: "帮 @codex review" triggers (adjacent action)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '这个问题帮 @codex review 一下';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].catId, 'codex');
+  });
+
+  it('proximity: distant action word does not trigger', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '请参考 @codex 提出的方案并继续处理';
+    const result = detectInlineActionMentions(text, 'opus', []);
+    assert.deepEqual(result, [], 'action words "请" and "处理" are not adjacent to @codex');
+  });
 });
 
 describe('SystemPromptBuilder A2A injection', () => {

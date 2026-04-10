@@ -131,13 +131,16 @@ export function analyzeA2AMentions(
  *
  * Conditions (all must hold):
  *  1. @pattern appears mid-line (not at line start)
- *  2. Same line contains an action keyword (请/帮/review/确认/处理/check/fix/merge/ready for/etc.)
+ *  2. Action keyword immediately adjacent to @mention (proximity-based, not whole-line)
  *  3. Not inside a fenced code block or blockquote
  *  4. Target cat was not already routed via line-start mention
  *  5. Not a self-mention
  */
-const INLINE_ACTION_RE =
-  /(?:请|帮|review|确认|处理|看一?下|check|fix|merge|ready\s+for|交接|接力|你来|你去)/i;
+
+/** Action patterns that appear immediately BEFORE @mention (e.g. "Ready for @xxx"). */
+const BEFORE_HANDOFF_RE = /(?:ready\s+for|交接给?|转给|请|帮)\s*$/i;
+/** Action patterns that appear immediately AFTER @mention (e.g. "@xxx review"). */
+const AFTER_HANDOFF_RE = /^\s*(?:review|check|fix|merge|确认|处理|看一?下|来处理|来看|帮忙|请)/i;
 
 export function detectInlineActionMentions(
   text: string,
@@ -167,7 +170,6 @@ export function detectInlineActionMentions(
   for (const rawLine of stripped.split(/\r?\n/)) {
     const trimmed = rawLine.trimStart();
     const normalized = trimmed.toLowerCase();
-    // Skip line-start @mentions (handled by parseA2AMentions) and blockquotes
     if (normalized.startsWith('@') || normalized.startsWith('>')) continue;
 
     for (const entry of entries) {
@@ -178,7 +180,10 @@ export function detectInlineActionMentions(
         !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
       if (!isBoundary) continue;
       if (routedSet.has(entry.catId)) continue;
-      if (!INLINE_ACTION_RE.test(rawLine)) continue;
+      // Proximity check: action keyword must be immediately adjacent to @mention
+      const before = normalized.slice(0, idx);
+      const after = normalized.slice(idx + entry.pattern.length);
+      if (!BEFORE_HANDOFF_RE.test(before) && !AFTER_HANDOFF_RE.test(after)) continue;
       if (!seen.has(entry.catId)) {
         seen.add(entry.catId);
         found.push({ catId: entry.catId, lineText: rawLine.trim() });
