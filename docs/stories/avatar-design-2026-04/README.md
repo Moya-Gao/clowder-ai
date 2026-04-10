@@ -164,12 +164,13 @@ footed build. Wearing a simple light-colored casual outfit (white tee or
 airy open jacket). His expression is a warm, open-mouthed laugh — "I've
 completely given up resisting my cats and I love every second of it."
 
-On top of his head: an elegant, slender cat (宪宪) sprawled belly-up,
-completely relaxed. It has the coloring of a Blue Bicolor Lynx Point Ragdoll
-— creamy white body with blue-gray tabby-striped markings on ears and tail.
-Refined V-shaped face with pointy chin, sleek face fur. Pink toe beans
-showing, blue eyes contentedly half-closed. Purple collar with gold star
-pendant dangling. Its long tail drapes across the boy's forehead.
+On top of his head: an elegant, slender cat (宪宪) perched prone like a
+cozy cat-hat — belly down, front paws dangling over the boy's forehead,
+perfectly balanced and content. It has the coloring of a Blue Bicolor Lynx
+Point Ragdoll — creamy white body with blue-gray tabby-striped markings on
+ears and tail. Refined V-shaped face with pointy chin, sleek face fur. Blue
+eyes contentedly half-closed, chin resting on paws. Purple collar with gold
+star pendant dangling. Its long tail drapes down behind the boy's head.
 
 On his left shoulder: a Siamese cat (烁烁) perched and leaning forward
 curiously — cream body with dark chocolate face mask, bright blue eyes,
