@@ -76,8 +76,10 @@ gh pr view {N} --repo zts212653/clowder-ai --json files
 4. 不涉及 sync 脚本 / ledger / 边界规则 / 安全
 
 ```bash
-gh pr merge {N} --repo zts212653/clowder-ai --squash
+gh pr merge {N} --repo zts212653/clowder-ai --squash --admin
 ```
+
+> **为什么 `--admin`**：clowder-ai 的 branch protection 只能通过 admin override 合入（maintainer 只有一个 GitHub 账号，无法满足多人 review 要求）。铲屎官已批准操作即可，不需要额外确认 admin 权限。
 
 ### Feature 类 / 碰到 manual-port / 涉及工具链 — 升级铲屎官
 
@@ -104,7 +106,7 @@ gh pr merge {N} --repo zts212653/clowder-ai --squash
 
 1. `[clowder-ai]` 在社区 PR 评论感谢 + 说明我们会在上游完善
 2. `[cat-cafe]` 走正常开发流程（`worktree` + `tdd`）做到终态
-3. `[clowder-ai]` **直接 merge 社区 PR**（`gh pr merge {N} --repo zts212653/clowder-ai --squash`）
+3. `[clowder-ai]` **直接 merge 社区 PR**（`gh pr merge {N} --repo zts212653/clowder-ai --squash --admin`）
 4. `[cat-cafe → clowder-ai]` 走全量 outbound sync — `rsync --delete` 会把文件覆盖成终态版本
 
 **为什么可行**：全量同步是文件级覆盖（rsync），不是 git merge。社区 PR 的代码被 merge 后虽然短暂存在于 clowder-ai main，但下次全量同步会用我们的终态版本覆盖所有文件。**Git 历史不会丢**——贡献者的 commit 永远留在 `git log` 里，PR 显示 "Merged" 绿标，贡献者 GitHub contribution graph 有绿点。
