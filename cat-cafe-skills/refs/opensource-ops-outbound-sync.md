@@ -107,7 +107,7 @@ cat docs/ops/opensource-intake-ledger.json | jq '.entries[] | select(.pr_number 
 
 | Ledger 状态 | 验证方式 | Sync 行为 |
 |------------|---------|-----------|
-| PR 在 ledger + `absorbed` | `gh issue list --search "intake(clowder-ai#{N})"` 找到 intake issue + issue 已 closed（= reviewer 签字） | ✅ 通过 |
+| PR 在 ledger + `absorbed` | `gh issue list --state all --search "intake(clowder-ai#{N})"` 找到 intake issue + issue 已 closed（= reviewer 签字） | ✅ 通过 |
 | PR 在 ledger + `absorbed` | 无 intake issue 或 issue 仍 open | ⚠️ WARNING — 人工验证完整性后才能继续 |
 | PR 在 ledger + `public-only` | — | ✅ 通过（sync 覆盖无影响）|
 | PR **不在 ledger** | — | ❌ BLOCKED — 先完成 intake 流程（Scene B3）|
