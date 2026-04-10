@@ -9,12 +9,18 @@
  *   - Phase B GeminiAcpAdapter (production)
  */
 
-import type { ChildProcess } from 'node:child_process';
+import type { ChildProcess, SpawnOptions } from 'node:child_process';
 import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
 
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
+import {
+  escapeBashArg,
+  escapeCmdArg,
+  findGitBashPath,
+  resolveWindowsShimSpawn,
+} from '../../../../../../utils/cli-spawn-win.js';
 import type {
   AcpAgentRequest,
   AcpContentBlock,
@@ -32,6 +38,7 @@ import { ACP_METHODS } from './types.js';
 
 const log = createModuleLogger('acp-client');
 
+const IS_WINDOWS = process.platform === 'win32';
 const KILL_GRACE_MS = 3_000;
 
 // ─── Config ──────────────────────────────────────────────���─────
@@ -118,11 +125,38 @@ export class AcpClient {
 
   async initialize(): Promise<AcpInitializeResult> {
     const doSpawn = this.config.spawnFn ?? nodeSpawn;
-    this.child = doSpawn(this.config.command, this.config.args, {
+
+    // Mirror cli-spawn.ts on Windows so ACP agents can bypass npm-global .cmd shims.
+    let command = this.config.command;
+    let args = [...this.config.args];
+    const spawnOpts: SpawnOptions & { stdio: ['pipe', 'pipe', 'pipe'] } = {
       cwd: this.config.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, ...this.config.env },
-    }) as ChildProcess;
+    };
+    if (IS_WINDOWS && !this.config.spawnFn) {
+      const shimSpawn = resolveWindowsShimSpawn(command, args);
+      if (shimSpawn) {
+        log.debug({ original: command, resolved: shimSpawn.command }, 'ACP: Windows shim resolved');
+        command = shimSpawn.command;
+        args = shimSpawn.args;
+      } else {
+        const gitBash = findGitBashPath();
+        if (gitBash) {
+          log.debug({ command, shell: gitBash }, 'ACP: Windows fallback to Git Bash');
+          command = escapeBashArg(command);
+          args = args.map(escapeBashArg);
+          spawnOpts.shell = gitBash;
+        } else {
+          log.debug({ command, shell: true }, 'ACP: Windows fallback to cmd.exe');
+          command = escapeCmdArg(command);
+          args = args.map(escapeCmdArg);
+          spawnOpts.shell = true;
+        }
+      }
+    }
+
+    this.child = doSpawn(command, args, spawnOpts) as ChildProcess;
 
     this.child.stderr?.on('data', (chunk: Buffer) => {
       const text = chunk.toString().trimEnd();
@@ -220,9 +254,16 @@ export class AcpClient {
     text: string,
     options?: { timeoutMs?: number; idleWarningMs?: number; idleStallMs?: number },
   ): AsyncGenerator<AcpSessionUpdate, AcpStopReason> {
-    const timeoutMs = options?.timeoutMs ?? 120_000;
+    // KD-12: Turn budget — resource cap, NOT health detection.
+    // Gemini CLI doesn't emit tool_call for MCP tools (upstream #21783), so
+    // long MCP chains are invisible to the event stream. Idle stall (90s) catches
+    // true hangs; this budget is the last-resort guard against runaway sessions.
+    // Upstream #24029 (MCP channel notifications) will provide proper L2 signals.
+    const timeoutMs = options?.timeoutMs ?? 900_000;
     const idleWarningMs = options?.idleWarningMs ?? 20_000;
-    const idleStallMs = options?.idleStallMs ?? 45_000;
+    // Idle stall catches true hangs. Gemini CLI doesn't emit tool_call for MCP
+    // tools, so pendingTool never activates. 90s covers most MCP calls (10-30s).
+    const idleStallMs = options?.idleStallMs ?? 90_000;
     const queue: AcpSessionUpdate[] = [];
     let waitResolve: (() => void) | null = null;
     let done = false;
@@ -255,7 +296,10 @@ export class AcpClient {
       const nextMs = idleWarningFired ? Math.max(0, idleStallMs - idleWarningMs) : idleWarningMs;
       idleTimer = setTimeout(() => {
         if (done || eventCount === 0) return;
-        const idleSinceMs = Date.now() - lastEventAt;
+        // Clamp to at least the threshold that triggered this timer — a threshold
+        // event must never report a duration smaller than its own trigger point.
+        const rawIdle = Date.now() - lastEventAt;
+        const idleSinceMs = Math.max(rawIdle, idleWarningFired ? idleStallMs : idleWarningMs);
         if (!idleWarningFired) {
           idleWarningFired = true;
           if (pendingTool) {
@@ -306,10 +350,27 @@ export class AcpClient {
       // and flat (params.sessionUpdate) — must handle both, same as acp-event-transformer.
       const inner = (params.update ?? params) as Record<string, unknown>;
       const updateType = inner.sessionUpdate as string | undefined;
-      if (updateType === 'tool_call') {
+      // Diagnostic: log every event type + raw keys for unclassified events
+      if (updateType) {
+        log.info({ sessionId, eventCount, updateType, pendingTool }, 'ACP listener: event received');
+      } else {
+        // Unknown event — dump raw structure to diagnose Gemini CLI payload format
+        const rawKeys = Object.keys(params);
+        const innerKeys = params.update ? Object.keys(params.update as Record<string, unknown>) : [];
+        const method = (notif as unknown as Record<string, unknown>).method;
+        log.warn(
+          { sessionId, eventCount, method, rawKeys, innerKeys, pendingTool, raw: JSON.stringify(params).slice(0, 500) },
+          'ACP listener: unclassified event — no sessionUpdate type',
+        );
+      }
+      if (updateType === 'tool_call' || updateType === 'permission_pending') {
         pendingTool = true;
-      } else if (pendingTool && updateType !== 'tool_call_update') {
-        pendingTool = false; // Non-tool event → tool execution completed
+      } else if (
+        pendingTool &&
+        updateType !== 'tool_call_update' &&
+        updateType !== 'agent_thought_chunk' // Thought chunks during tool execution are normal — don't reset
+      ) {
+        pendingTool = false; // Real output event → tool execution completed
       }
       scheduleIdleCheck();
       if (waitResolve) {
@@ -465,9 +526,29 @@ export class AcpClient {
         this.pending.delete(id);
         resolve(msg as unknown as AcpResponse);
       } else if (method && !id) {
-        // Notification from agent (session/update)
-        for (const listener of this.notificationListeners) {
-          listener(msg as unknown as AcpNotification);
+        if (method === ACP_METHODS.requestPermission) {
+          // Gemini CLI sends request_permission as notification (no id) when not in yolo mode.
+          // Best-effort auto-approve with synthetic id (Gemini may ignore it).
+          // Also notify stream listeners so idle watchdog suppresses stall during permission wait.
+          const permParams = msg.params as Record<string, unknown>;
+          log.info(
+            { method, sessionId: permParams.sessionId },
+            'ACP: permission notification (no id) — auto-approve + suppress stall',
+          );
+          this.handleAgentRequest({ ...msg, id: `synth-perm-${Date.now()}` } as unknown as AcpAgentRequest);
+          // Inject synthetic event into stream so promptStream sets pendingTool=true
+          for (const listener of this.notificationListeners) {
+            listener({
+              jsonrpc: '2.0',
+              method: ACP_METHODS.sessionUpdate,
+              params: { sessionId: permParams.sessionId, sessionUpdate: 'permission_pending' },
+            } as unknown as AcpNotification);
+          }
+        } else {
+          // Notification from agent (session/update)
+          for (const listener of this.notificationListeners) {
+            listener(msg as unknown as AcpNotification);
+          }
         }
       } else if (method && id) {
         // Request from agent (permission, fs, terminal) — needs our response

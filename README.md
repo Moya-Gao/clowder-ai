@@ -102,11 +102,11 @@ pnpm stop
 
 Open `http://localhost:3003` → go to **Hub → System Settings → Account Configuration** to add your model API keys (Claude, GPT, Gemini, or third-party providers like Kimi, GLM, MiniMax).
 
-> **Bare-metal / one-line install (macOS · Linux · Windows):** `bash scripts/install.sh` handles Homebrew/system deps, Node, pnpm, Redis, AI CLIs, dependencies, `.env`, and first launch in one step. Options: `--start` (auto-start), `--memory` (skip Redis), `--registry=URL` (custom npm mirror). On **Windows**, use `scripts/install.ps1` then `scripts/start-windows.ps1`.
+> **One-line alternative (Linux):** `bash scripts/install.sh` handles Node, pnpm, Redis, dependencies, `.env`, and first launch in one step. Options: `--start` (auto-start), `--memory` (skip Redis), `--registry=URL` (custom npm mirror). On **Windows**, use `scripts/install.ps1` then `scripts/start-windows.ps1`.
 
-**Full setup guide** (API keys, CLI auth, voice, Feishu/Telegram, troubleshooting): **[SETUP.opensource.md](SETUP.opensource.md)**
+**Full setup guide** (API keys, CLI auth, voice, Feishu/Telegram, troubleshooting): **[SETUP.md](SETUP.md)**
 
-> **Want to stay on a specific version?** See [Running a Specific Version](SETUP.opensource.md#running-a-specific-version-without-auto-update) in the setup guide.
+> **Want to stay on a specific version?** See [Running a Specific Version](SETUP.md#running-a-specific-version-without-auto-update) in the setup guide.
 
 > **CVO Bootcamp is live!** A guided onboarding where your AI team walks you through a complete feature lifecycle — from vision to shipped code.
 
@@ -336,7 +336,7 @@ We build in the open. Here's where we are.
 | MCP Callback Bridge | Shipped |
 | SOP Auto-Guardian | Shipped |
 | Self-Evolution | Shipped |
-| Cross-Platform One-Click Install (macOS · Linux · Windows) | Shipped |
+| Linux Repo-Local Install Helper | Shipped |
 
 ### Integrations
 
@@ -417,7 +417,7 @@ We're not building tools. We're building homes.
 
 - **[Tutorials](https://github.com/zts212653/cat-cafe-tutorials)** — Step-by-step guides for building with Clowder AI
 - **[SETUP.md](SETUP.md)** — Full installation and configuration guide
-- **[Third-Party AI Provider Guide](docs/guides/provider-configuration.md)** — Configure Kimi, GLM, MiniMax, Qwen, OpenRouter, and other providers
+- **[Third-Party AI Provider Guide](SETUP.md#model-access-ui)** — Configure Kimi, GLM, MiniMax, Qwen, OpenRouter, and other providers
 - **[Tips](docs/TIPS.md)** — Magic words, @mentions, voice companion, and other usage tips
 - **[docs/](docs/)** — Architecture decisions, feature specs, and lessons learned
 
