@@ -36,10 +36,13 @@ function normalizeOnceTrigger(trigger: Record<string, unknown>): TriggerSpec | {
   const delayMs = typeof trigger.delayMs === 'number' ? trigger.delayMs : undefined;
   const fireAt = typeof trigger.fireAt === 'number' ? trigger.fireAt : undefined;
   if (delayMs != null) {
-    if (delayMs < 0) return { error: 'once trigger delayMs must be >= 0' };
+    if (!Number.isFinite(delayMs) || delayMs < 0) return { error: 'once trigger delayMs must be a finite number >= 0' };
     return { type: 'once', fireAt: Date.now() + delayMs };
   }
   if (fireAt != null) {
+    if (!Number.isFinite(fireAt) || fireAt < 0) {
+      return { error: 'once trigger fireAt must be a finite positive epoch ms' };
+    }
     return { type: 'once', fireAt };
   }
   return { error: 'once trigger requires either delayMs or fireAt' };
@@ -410,6 +413,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
           }
           notifyTaskResumed(deliver, def);
         } else {
+          dynamicTaskStore.setEnabled(id, false); // roll back — resume failed
           reply.status(500);
           return { error: `Template ${def.templateId} not found — task cannot resume` };
         }

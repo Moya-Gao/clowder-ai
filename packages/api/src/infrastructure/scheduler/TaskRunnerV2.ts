@@ -250,10 +250,20 @@ export class TaskRunnerV2 {
     );
   }
 
+  /** Max safe setTimeout delay — Node clamps values above 2^31-1 ms to ~1ms */
+  private static MAX_TIMER_DELAY = 2_147_483_647;
+
   /** #415: Schedule a one-shot task — fires once at fireAt, then auto-retires */
   private scheduleOnceTick(task: AnyTaskSpec): void {
     if (task.trigger.type !== 'once') return;
-    const delay = Math.max(0, task.trigger.fireAt - Date.now());
+    const remaining = Math.max(0, task.trigger.fireAt - Date.now());
+    // Node setTimeout overflows at 2^31-1 ms — chunk long delays into safe steps
+    if (remaining > TaskRunnerV2.MAX_TIMER_DELAY) {
+      const timer = setTimeout(() => this.scheduleOnceTick(task), TaskRunnerV2.MAX_TIMER_DELAY);
+      if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+      this.timers.set(task.id, timer);
+      return;
+    }
     const timer = setTimeout(() => {
       this.executePipeline(task)
         .catch((err) => {
@@ -262,11 +272,11 @@ export class TaskRunnerV2 {
         .finally(() => {
           this.retireOnceTask(task.id);
         });
-    }, delay);
+    }, remaining);
     if (typeof timer === 'object' && 'unref' in timer) timer.unref();
     this.timers.set(task.id, timer);
     this.logger.info(
-      `[scheduler] ${task.id}: registered (profile=${task.profile}, once, fireAt=${new Date(task.trigger.fireAt).toISOString()}, delay=${delay}ms)`,
+      `[scheduler] ${task.id}: registered (profile=${task.profile}, once, fireAt=${new Date(task.trigger.fireAt).toISOString()}, delay=${remaining}ms)`,
     );
   }
 
