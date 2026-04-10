@@ -137,6 +137,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | KD-6 | 全局默认猫 MVP 为 system-global（非 per-user），长期可扩展为 per-user | #385 原话 "from the member overview" 暗示全局；MVP 简单，后续按需加 per-user 层 | 2026-04-09 |
 | KD-7 | Phase A 全局默认猫仅通过 Hub API（owner 权限）修改，不提供 connector `/config set` 命令 | 群聊 connector 无权限模型，任何成员可执行 = 配置篡改风险；砚砚 P1 review | 2026-04-09 |
 | KD-8 | 猫名解析冲突时拒绝执行 + 返回候选列表，禁止猜测命中 | partial match 歧义会导致误路由，用户应看到候选并精确选择；砚砚 P2 review | 2026-04-09 |
+| KD-9 | Phase B 设计先看现场再画 | 凭想象画设计稿导致与实际 ChatContainerHeader 严重冲突，触发 Design in Context 流程护栏补充 | 2026-04-10 |
 
 ## Timeline
 

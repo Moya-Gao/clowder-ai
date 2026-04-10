@@ -101,6 +101,9 @@ Layer 0: Governance — ESLint gate + visual baseline + "迁移完成"定义
 3. **猫咖隐喻 (Cafe Metaphors)** — 可解释的隐喻（邮戳/肉垫/香气），不堆砌猫 emoji
 4. **温润色彩 (Cozy Palette)** — 奶油白/软蓝/暖棕，single accent discipline
 
+**实践规则**（F154 事故后补充）：
+- **在地设计 (Design in Context)** — 新交互必须先放回真实页面结构中验证。先看现场，再决定放哪里、替代什么、会不会挤、对现有效率是增益还是负担。猫咖感来自"和环境自然相处"，不是把新元素硬塞进每个角落。
+
 **三猫打样竞赛结果**（铲屎官评选）：
 
 | 猫 | 版本 | Pencil ID | 风格 | 铲屎官评价 |
