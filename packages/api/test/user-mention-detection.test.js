@@ -72,25 +72,19 @@ describe('detectUserMention', () => {
     assert.equal(detectUserMention('@co-creatorfoo'), false);
   });
 
-  // F067 co-creator config: configured mention patterns
-  it('detects configured co-creator @landy at line start', () => {
-    assert.equal(detectUserMention('@landy 请看'), true);
-    assert.equal(detectUserMention('@Landy 请看'), true);
+  // F067 co-creator config: default mention patterns from cat-template.json
+  // The template provides @co-creator; @铲屎官 is always added as fallback.
+  // Deployment-specific patterns (e.g. @landy) come from cat-catalog.json overlay.
+  it('detects @铲屎官 at line start (always-present fallback)', () => {
+    assert.equal(detectUserMention('@铲屎官 请看'), true);
+    assert.equal(detectUserMention('@铲屎官请看'), true);
   });
 
-  it('detects configured co-creator @lysander at line start', () => {
-    assert.equal(detectUserMention('@lysander 帮忙确认'), true);
+  it('rejects @co-creator continuation (e.g. @co-creatorfoo)', () => {
+    assert.equal(detectUserMention('@co-creatorfoo not a mention'), false);
   });
 
-  it('detects configured co-creator @l.s. at line start', () => {
-    assert.equal(detectUserMention('@l.s. 看看'), true);
-  });
-
-  it('rejects @landy continuation (e.g. @landyFoo)', () => {
-    assert.equal(detectUserMention('@landyFoo not a mention'), false);
-  });
-
-  it('accepts @landy followed by CJK text', () => {
-    assert.equal(detectUserMention('@landy请看'), true);
+  it('accepts @co-creator followed by CJK text', () => {
+    assert.equal(detectUserMention('@co-creator请看'), true);
   });
 });
