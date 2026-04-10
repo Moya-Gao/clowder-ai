@@ -141,11 +141,11 @@ export function analyzeA2AMentions(
 const BEFORE_HANDOFF_RE = /(?:ready\s+for|交接给?|转给|请|帮)\s*$/i;
 /**
  * Action patterns immediately AFTER @mention (e.g. "@xxx review").
- * Chinese verbs use negative lookahead to exclude completion suffixes (过/了/完/好/掉),
- * which turn commands into narrative: "@codex 处理过" ≠ "@codex 处理一下".
+ * English verbs use (?![a-z]) to reject continuations ("reviewed", "checklist").
+ * Chinese verbs use negative lookahead to exclude completion suffixes (过/了/完/好/掉).
  */
 const AFTER_HANDOFF_RE =
-  /^\s*(?:review|check|fix|merge|(?:确认|处理|来处理|来看)(?![过了完好掉])|看一?下|帮忙|请(?![教示假求问]))/i;
+  /^\s*(?:(?:review|check|fix|merge)(?![a-z])|(?:确认|处理|来处理|来看)(?![过了完好掉])|看一?下|帮忙|请(?![教示假求问]))/i;
 
 export function detectInlineActionMentions(
   text: string,

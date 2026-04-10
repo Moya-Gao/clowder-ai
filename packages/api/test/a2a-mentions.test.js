@@ -421,6 +421,18 @@ describe('#417: detectInlineActionMentions', () => {
     const result = detectInlineActionMentions('contact @codex review', 'opus', []);
     assert.equal(result.length, 1);
   });
+
+  // --- Codex R4: English verb boundary ---
+
+  it('"@codex reviewed" is narrative (past tense, not imperative)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('之前 @codex reviewed this', 'opus', []), []);
+  });
+
+  it('"@codex checklist" is narrative (compound word)', async () => {
+    const { detectInlineActionMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    assert.deepEqual(detectInlineActionMentions('@codex checklist 已更新', 'opus', []), []);
+  });
 });
 
 describe('SystemPromptBuilder A2A injection', () => {
