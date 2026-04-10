@@ -53,7 +53,7 @@ Optional but recommended:
 
 If you want design tasks, UI iteration, screenshots, and design-to-code workflows to feel like the screenshots in our README, install a design-capable MCP.
 
-We recommend **Pencil MCP**.
+We recommend **Pencil MCP** — install the [Pencil extension](https://marketplace.visualstudio.com/items?itemName=highagency.pencildev) in VS Code, Cursor, or Antigravity.
 
 Without Pencil or an equivalent design MCP:
 
@@ -62,6 +62,33 @@ Without Pencil or an equivalent design MCP:
 - design tasks degrade to plain text guidance and generic frontend output
 
 If you skip Pencil, bring your own MCP or design workflow.
+
+#### How Pencil auto-configuration works
+
+Clowder AI's capability orchestrator automatically detects your Pencil installation and generates the correct MCP config. It scans these locations in order:
+
+1. `PENCIL_MCP_BIN` environment variable (explicit path — highest priority)
+2. `~/.antigravity/extensions/highagency.pencildev-*/`
+3. `~/.vscode/extensions/highagency.pencildev-*/`
+4. `~/.cursor/extensions/highagency.pencildev-*/`
+5. `~/.vscode-insiders/extensions/highagency.pencildev-*/`
+
+The resolver picks the **newest version** across all editors. When two editors have the same version, Antigravity is preferred (as a specialty editor, its presence signals intent).
+
+#### Environment variable overrides
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `PENCIL_MCP_BIN` | Force a specific Pencil binary path | `/path/to/mcp-server-darwin-arm64` |
+| `PENCIL_MCP_APP` | Force which editor to connect to | `vscode`, `antigravity`, `cursor`, `vscode-insiders` |
+
+Set `PENCIL_MCP_APP` if the resolver picks the wrong editor (e.g., you have both VS Code and Antigravity installed but only use VS Code).
+
+#### Diagnostics
+
+```bash
+pnpm mcp:doctor    # shows ready / missing / unresolved MCP status
+```
 
 ## 5. Optional Integrations
 
@@ -107,7 +134,15 @@ pnpm check
 
 ### Design output looks generic
 
-You are probably missing Pencil MCP or another design-capable MCP.
+You are probably missing Pencil MCP or another design-capable MCP. Run `pnpm mcp:doctor` to check.
+
+### Pencil MCP: "WebSocket not connected to app: xxx"
+
+The Pencil MCP server started but cannot reach the editor. Common causes:
+
+1. **Editor not running** — open VS Code / Antigravity / Cursor with the Pencil extension active
+2. **Wrong editor selected** — the resolver picked an editor you don't use. Set `PENCIL_MCP_APP=vscode` (or `antigravity`) and restart your agent CLI
+3. **Stale config** — run `pnpm mcp:doctor` and re-run `pnpm dev` to regenerate configs
 
 ### No persistent memory
 
