@@ -840,6 +840,71 @@ describe('background thread socket handling', () => {
       );
     });
 
+    it('P2 regression: background finalized_fallback still merges when callback reply target is missing', () => {
+      const now = Date.now();
+      const responseText = 'Same text, callback reply metadata missing';
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-old' });
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-known-reply',
+        type: 'assistant',
+        catId: 'opus',
+        content: responseText,
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-old' } },
+        replyTo: 'msg-parent-known',
+        replyPreview: { senderCatId: 'user', content: 'known parent' },
+        timestamp: now,
+      });
+      testBgStreamRefs.set('thread-bg::opus', { id: 'bg-stream-known-reply', threadId: 'thread-bg', catId: 'opus' });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        invocationId: 'inv-bg-old',
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-bg-new',
+        }),
+        timestamp: now + 2,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        origin: 'callback',
+        content: responseText,
+        messageId: 'bg-callback-missing-reply',
+        timestamp: now + 3,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]).toEqual(
+        expect.objectContaining({
+          id: 'bg-callback-missing-reply',
+          catId: 'opus',
+          content: responseText,
+          origin: 'callback',
+          isStreaming: false,
+          replyTo: 'msg-parent-known',
+          replyPreview: { senderCatId: 'user', content: 'known parent' },
+        }),
+      );
+    });
+
     it('invalidates a fenced bg finalized ref after a second invocation boundary', () => {
       const now = Date.now();
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-stale-1' });

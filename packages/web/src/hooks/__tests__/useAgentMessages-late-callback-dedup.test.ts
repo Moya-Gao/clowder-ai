@@ -554,6 +554,79 @@ describe('useAgentMessages late callback dedup (finalizedStreamRef across invoca
     );
   });
 
+  it('P2 regression: finalized_fallback still merges when the callback reply target is missing', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const responseText = 'Same text, callback reply metadata missing';
+
+    storeState.messages.push({
+      id: 'msg-inv1-known-reply',
+      type: 'assistant',
+      catId: 'opus',
+      content: responseText,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-1' } },
+      replyTo: 'msg-parent-known',
+      replyPreview: { senderCatId: 'user', content: 'known parent' },
+      timestamp: Date.now() - 3000,
+    });
+    storeState.catInvocations = { opus: { invocationId: 'inv-1' } };
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: responseText,
+        replyTo: 'msg-parent-known',
+        replyPreview: { senderCatId: 'user', content: 'known parent' },
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        isFinal: true,
+        invocationId: 'inv-1',
+      });
+    });
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({
+          type: 'invocation_created',
+          catId: 'opus',
+          invocationId: 'inv-2',
+        }),
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: responseText,
+        messageId: 'cb-missing-reply-evidence',
+      });
+    });
+
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockPatchMessage).toHaveBeenCalledWith(
+      'cb-missing-reply-evidence',
+      expect.objectContaining({
+        content: responseText,
+        origin: 'callback',
+        isStreaming: false,
+      }),
+    );
+  });
+
   it('P1 regression: callback with DIFFERENT content does NOT merge across invocation boundary', () => {
     act(() => {
       root.render(React.createElement(Harness));
