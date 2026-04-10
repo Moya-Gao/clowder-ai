@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "7726c689c23ec48510c091b531dd334e11148708",
+  "last_reviewed_target_head": "32e6f78de950619b4d589994ae4d283a83230f44",
   "entries": [
     {
       "pr_number": 90,
@@ -487,6 +487,25 @@
       "target_merge_commit": "0735883f5233de252346e3e0cde53ae75e36a3e2",
       "decision": "absorbed",
       "timestamp": "2026-04-10T00:10:42.873Z"
+    },
+    {
+      "pr_number": 375,
+      "target_merge_commit": "32e6f78de950619b4d589994ae4d283a83230f44",
+      "decision": "absorbed",
+      "timestamp": "2026-04-10T00:30:13.641Z"
+    },
+    {
+      "pr_number": 394,
+      "target_merge_commit": "3feb6db19425c6111698f0f8906092aaf796cf1d",
+      "decision": "outbound-sync",
+      "timestamp": "2026-04-10T00:31:02.448Z",
+      "notes": "Outbound sync v0.5.1 patch release from cat-cafe (ACP stability + ENOENT crash fix)"
+    },
+    {
+      "pr_number": 399,
+      "target_merge_commit": "c0170431835e47b851d069aba5a3a033e1ae654a",
+      "decision": "public-only",
+      "timestamp": "2026-04-10T00:31:08.214Z"
     }
   ]
 }
