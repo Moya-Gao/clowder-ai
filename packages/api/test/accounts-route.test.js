@@ -408,8 +408,8 @@ describe('accounts routes', () => {
     }
   });
 
-  // Skip DELETE tests that create temp dirs when PROJECT_ALLOWED_ROOTS restricts paths
-  const skipRoots = process.env.PROJECT_ALLOWED_ROOTS && process.env.PROJECT_ALLOWED_ROOTS_APPEND !== 'true';
+  // Skip DELETE tests that create arbitrary temp dirs — they fall outside PROJECT_ALLOWED_ROOTS
+  const skipRoots = !!process.env.PROJECT_ALLOWED_ROOTS;
 
   it(
     'DELETE /api/accounts blocks non-force deletion when another project may share the global store',
