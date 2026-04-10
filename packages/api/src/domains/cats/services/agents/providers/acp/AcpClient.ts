@@ -259,7 +259,7 @@ export class AcpClient {
     // long MCP chains are invisible to the event stream. Idle stall (90s) catches
     // true hangs; this budget is the last-resort guard against runaway sessions.
     // Upstream #24029 (MCP channel notifications) will provide proper L2 signals.
-    const timeoutMs = options?.timeoutMs ?? 600_000;
+    const timeoutMs = options?.timeoutMs ?? 900_000;
     const idleWarningMs = options?.idleWarningMs ?? 20_000;
     // Idle stall catches true hangs. Gemini CLI doesn't emit tool_call for MCP
     // tools, so pendingTool never activates. 90s covers most MCP calls (10-30s).
