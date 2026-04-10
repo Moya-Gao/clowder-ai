@@ -144,6 +144,7 @@ import {
   mkdirRoute,
   packsRoutes,
   projectSetupRoute,
+  projectsBootstrapRoutes,
   projectsRoutes,
   pushRoutes,
   queueRoutes,
@@ -451,6 +452,27 @@ async function main(): Promise<void> {
     },
   });
   app.log.info('[api] F102: SQLite memory services initialized');
+
+  // F152 Phase B: Expedition Bootstrap — state manager + service
+  const { IndexStateManager } = await import('./domains/memory/IndexStateManager.js');
+  const { ExpeditionBootstrapService } = await import('./domains/memory/ExpeditionBootstrapService.js');
+  const indexStateManager = new IndexStateManager(memoryServices.store.getDb());
+  const { execFileSync } = await import('node:child_process');
+  const expeditionBootstrapService = new ExpeditionBootstrapService(indexStateManager, {
+    rebuildIndex: async (projectPath: string) => {
+      const startMs = Date.now();
+      const { buildStructuralSummary } = await import('./domains/memory/ExpeditionBootstrapService.js');
+      const summary = buildStructuralSummary(projectPath);
+      return { docsIndexed: summary.docsList.length, durationMs: Date.now() - startMs };
+    },
+    getFingerprint: (projectPath: string) => {
+      try {
+        return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: projectPath, encoding: 'utf-8' }).trim();
+      } catch {
+        return '';
+      }
+    },
+  });
 
   // F102 D-2: Auto-rebuild evidence index on startup (AC-D4)
   if (memoryServices.indexBuilder) {
@@ -1283,7 +1305,15 @@ async function main(): Promise<void> {
   await app.register(projectsRoutes);
   await app.register(mkdirRoute);
   await app.register(governanceStatusRoute);
-  await app.register(projectSetupRoute);
+  await app.register(projectSetupRoute, {
+    memoryBootstrapService: expeditionBootstrapService as { bootstrap: (p: string, o?: unknown) => Promise<unknown> },
+    socketManager: socketManager ?? undefined,
+  });
+  await app.register(projectsBootstrapRoutes, {
+    stateManager: indexStateManager,
+    bootstrapService: expeditionBootstrapService,
+    socketManager: socketManager!,
+  });
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
   await app.register(configSecretsRoutes);

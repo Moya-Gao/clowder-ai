@@ -10,6 +10,7 @@ import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
 import { godAction, submitAction } from '@/hooks/useGameApi';
 import { reconnectGame } from '@/hooks/useGameReconnect';
 import { useGovernanceStatus } from '@/hooks/useGovernanceStatus';
+import { useIndexState } from '@/hooks/useIndexState';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
 import { useSendMessage } from '@/hooks/useSendMessage';
@@ -27,6 +28,7 @@ import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId } from '@/utils/userId';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
+import { BootstrapOrchestrator } from './BootstrapOrchestrator';
 import { CatCafeHub } from './CatCafeHub';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatInput } from './ChatInput';
@@ -320,6 +322,17 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     }
   }, [threadId, govRefetch]);
 
+  // F152 Phase B: memory bootstrap state
+  const {
+    state: indexState,
+    progress: bootstrapProgress,
+    summary: bootstrapSummary,
+    isSnoozed,
+    startBootstrap,
+    snooze: snoozeBootstrap,
+    handleSocketEvent: handleIndexSocketEvent,
+  } = useIndexState(currentProjectPath);
+
   const socketCallbacks = useChatSocketCallbacks({
     threadId,
     userId: getUserId(),
@@ -329,6 +342,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     handleAuthRequest,
     handleAuthResponse,
     onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
+    onIndexEvent: handleIndexSocketEvent,
   });
 
   const renderSingleMessage = useCallback(
@@ -520,6 +534,27 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                     />
                   </div>
                 )}
+                {/* F152 Phase B: memory bootstrap orchestrator */}
+                {!showSetupCard &&
+                  currentProjectPath &&
+                  currentProjectPath !== 'default' &&
+                  currentProjectPath !== 'lobby' && (
+                    <div className="mt-4 text-left">
+                      <BootstrapOrchestrator
+                        projectPath={currentProjectPath}
+                        indexState={indexState}
+                        isSnoozed={isSnoozed}
+                        progress={bootstrapProgress}
+                        summary={bootstrapSummary}
+                        isNewProject={setupDone}
+                        governanceDone={
+                          setupDone || !!(govStatus && !govStatus.needsBootstrap && !govStatus.needsConfirmation)
+                        }
+                        onStartBootstrap={startBootstrap}
+                        onSnooze={snoozeBootstrap}
+                      />
+                    </div>
+                  )}
                 {(() => {
                   const isCurrentBootcamp = storeThreads.find((t) => t.id === threadId)?.bootcampState;
                   if (isCurrentBootcamp) return null; // already in bootcamp thread

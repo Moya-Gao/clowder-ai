@@ -31,6 +31,7 @@ export { messageActionsRoutes } from './message-actions.js';
 export { messagesRoutes } from './messages.js';
 export { packsRoutes } from './packs.js';
 export { projectsRoutes } from './projects.js';
+export { projectsBootstrapRoutes } from './projects-bootstrap.js';
 export { mkdirRoute } from './projects-mkdir.js';
 export { projectSetupRoute } from './projects-setup.js';
 export { pushRoutes } from './push.js';
