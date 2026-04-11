@@ -654,7 +654,13 @@ export class RedisThreadStore implements IThreadStore {
     candidateMessages: Map<string, RecoveredMessageSnapshot | null>,
   ): Promise<CatId[]> {
     const activityData = await this.redis.hgetall(ThreadKeys.activity(threadId));
-    const fromActivity = [...new Set(Object.keys(activityData).map((key) => key.split(':')[0]).filter(Boolean))];
+    const fromActivity = [
+      ...new Set(
+        Object.keys(activityData)
+          .map((key) => key.split(':')[0])
+          .filter(Boolean),
+      ),
+    ];
     if (fromActivity.length > 0) {
       return fromActivity as CatId[];
     }

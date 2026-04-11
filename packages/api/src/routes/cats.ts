@@ -27,7 +27,7 @@ import {
   validateModelFormatForProvider,
   validateRuntimeProviderBinding,
 } from '../config/account-resolver.js';
-import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-binding.js';
+import { resolveBoundAccountRefForCat, resolveEffectiveAccountRefForCat } from '../config/cat-account-binding.js';
 import { bootstrapCatCatalog, resolveCatCatalogPath } from '../config/cat-catalog-store.js';
 import { getAcpConfig, getRoster, loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
 import { configEventBus, createChangeSetId } from '../config/config-event-bus.js';
@@ -367,25 +367,8 @@ function resolveNextCli(params: {
 }
 
 function buildEffectiveAccountRefResolver(projectRoot: string) {
-  const inheritedBindingCache = new Map<string, Promise<string | undefined>>();
-
-  return async (cat: CatConfig & { contextBudget?: ContextBudget }): Promise<string | undefined> => {
-    const explicitAccountRef = resolveBoundAccountRefForCat(projectRoot, cat.id, cat);
-    if (explicitAccountRef !== undefined) return explicitAccountRef;
-    if (!isSeedCat(projectRoot, cat.id)) return cat.accountRef;
-
-    const builtinClient = resolveBuiltinClientForProvider(cat.clientId);
-    if (!builtinClient) return cat.accountRef;
-
-    let runtimeProfilePromise = inheritedBindingCache.get(builtinClient);
-    if (!runtimeProfilePromise) {
-      runtimeProfilePromise = Promise.resolve(
-        resolveForClient(projectRoot, builtinClient, builtinAccountIdForClient(builtinClient))?.id,
-      );
-      inheritedBindingCache.set(builtinClient, runtimeProfilePromise);
-    }
-    return (await runtimeProfilePromise) ?? cat.accountRef;
-  };
+  return async (cat: CatConfig & { contextBudget?: ContextBudget }): Promise<string | undefined> =>
+    resolveEffectiveAccountRefForCat(projectRoot, cat.id, cat);
 }
 
 async function validateAccountBindingOrThrow(

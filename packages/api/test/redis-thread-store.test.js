@@ -263,7 +263,8 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
 
   it('get() self-heals orphaned thread metadata from surviving message timeline', async () => {
     const recoveredTitleSource = 'F100 Self-Evolution discussion kickoff';
-    const recoveredTitle = recoveredTitleSource.length > 30 ? `${recoveredTitleSource.slice(0, 30)}...` : recoveredTitleSource;
+    const recoveredTitle =
+      recoveredTitleSource.length > 30 ? `${recoveredTitleSource.slice(0, 30)}...` : recoveredTitleSource;
     const threadId = 'thread_recover_test';
     const createdAt = 1710000000000;
     const lastActiveAt = createdAt + 5000;
@@ -367,8 +368,7 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     assert.equal(deleted, false);
 
     // No tombstone should exist — self-healing must remain possible
-    assert.equal(await redis.get(`thread:${phantomId}:tombstone`), null,
-      'Phantom delete must not write tombstone');
+    assert.equal(await redis.get(`thread:${phantomId}:tombstone`), null, 'Phantom delete must not write tombstone');
 
     // Verify self-healing still works for this ID if messages appear later
     const msgId = 'msg-phantom-test';
