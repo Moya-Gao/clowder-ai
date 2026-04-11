@@ -144,7 +144,7 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
 
     // Windows branch must extract --profile=* and convert to env vars
     assert.ok(
-      source.includes("childEnv.CAT_CAFE_PROFILE = profileName"),
+      source.includes('childEnv.CAT_CAFE_PROFILE = profileName'),
       'Windows path must set CAT_CAFE_PROFILE from --profile arg',
     );
     assert.ok(
@@ -153,10 +153,7 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
     );
 
     // Verify env is passed to child spawn
-    assert.ok(
-      source.includes('env: childEnv'),
-      'Windows spawn must use childEnv (which contains profile env vars)',
-    );
+    assert.ok(source.includes('env: childEnv'), 'Windows spawn must use childEnv (which contains profile env vars)');
   });
 
   it('start-windows.ps1 propagates env vars to child processes via Start-Job', () => {
@@ -164,14 +161,8 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
 
     // PS1 loads .env into current process env (line ~57-68)
     // Then Start-Job inherits parent env, and also explicitly re-loads .env + runtimeEnvOverrides
-    assert.ok(
-      ps1.includes('$runtimeEnvOverrides'),
-      'start-windows.ps1 must define runtimeEnvOverrides for child jobs',
-    );
-    assert.ok(
-      ps1.includes('Start-Job'),
-      'start-windows.ps1 must use Start-Job (which inherits parent process env)',
-    );
+    assert.ok(ps1.includes('$runtimeEnvOverrides'), 'start-windows.ps1 must define runtimeEnvOverrides for child jobs');
+    assert.ok(ps1.includes('Start-Job'), 'start-windows.ps1 must use Start-Job (which inherits parent process env)');
   });
 });
 
