@@ -148,8 +148,8 @@ if ($ARGV =~ m{api-client-resolve\.test\.(ts|js)$}) {
   s#3001→3002#3003→3004#g;
 }
 
-# ── security-headers test: Host header port assertions ──
-if ($ARGV =~ m{security-headers\.test\.(ts|js)$}) {
+# ── security-headers (source + test): Host header port references ──
+if ($ARGV =~ m{security-headers[^/]*\.(ts|js)$}) {
   # Host headers use various hostnames with internal ports (IPv6 loopback, evil.com, etc.)
   s#:3002\b#:3004#g;
   s#:3001\b#:3003#g;
