@@ -1,21 +1,28 @@
 #!/usr/bin/env bash
 # check-skills-mount.sh — Cat Café Skills 挂载看板
-# 检查 cat-cafe-skills/ 下所有 skill 是否正确 symlink 到三猫的 skills 目录
+# 检查 cat-cafe-skills/ 下所有 skill 是否按 project-level-first 口径挂载：
+# 1. 目录级 symlink（<project>/.{claude,codex,gemini,kimi}/skills -> cat-cafe-skills）
+# 2. per-skill symlink（<project>/.xxx/skills/<skill> 或 ~/.xxx/skills/<skill>）
 # 注：OpenCode（金渐层）读取 ~/.claude/ 配置，Claude 挂了 = OpenCode 也挂了
 # 并校验 BOOTSTRAP.md 注册一致性
 # 用法: pnpm check:skills
 
 set -euo pipefail
 
-# Resolve canonical SKILLS_SRC via git main worktree (not script location).
-# This ensures correct symlink comparison even when run from a worktree.
 MAIN_REPO="$(git worktree list --porcelain | head -1 | sed 's/^worktree //')"
 WORKTREE_REPO="$(git rev-parse --show-toplevel)"
-SKILLS_SRC="$MAIN_REPO/cat-cafe-skills"
+SKILLS_SRC="$WORKTREE_REPO/cat-cafe-skills"
+[ -f "$SKILLS_SRC/manifest.yaml" ] || SKILLS_SRC="$MAIN_REPO/cat-cafe-skills"
+FALLBACK_SKILLS_SRC="$MAIN_REPO/cat-cafe-skills"
 BOOTSTRAP="$SKILLS_SRC/BOOTSTRAP.md"
 CLAUDE_SKILLS="$HOME/.claude/skills"
 CODEX_SKILLS="$HOME/.codex/skills"
 GEMINI_SKILLS="$HOME/.gemini/skills"
+KIMI_SKILLS="$HOME/.kimi/skills"
+PROJECT_CLAUDE_SKILLS="$WORKTREE_REPO/.claude/skills"
+PROJECT_CODEX_SKILLS="$WORKTREE_REPO/.codex/skills"
+PROJECT_GEMINI_SKILLS="$WORKTREE_REPO/.gemini/skills"
+PROJECT_KIMI_SKILLS="$WORKTREE_REPO/.kimi/skills"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -28,12 +35,59 @@ missing=0
 reg_warnings=0
 manifest_failures=0
 
+canon_path() {
+  python3 - "$1" <<'PY'
+import os, sys
+path = sys.argv[1]
+try:
+    print(os.path.realpath(path))
+except Exception:
+    pass
+PY
+}
+
+is_correct_symlink() {
+  local link_path="$1"
+  local expected_target="$2"
+  [ -L "$link_path" ] || return 1
+
+  local resolved_link resolved_expected
+  resolved_link="$(canon_path "$link_path")"
+  resolved_expected="$(canon_path "$expected_target")"
+  [ -n "$resolved_link" ] && [ -n "$resolved_expected" ] && [ "$resolved_link" = "$resolved_expected" ]
+}
+
+is_skill_mounted_for_provider() {
+  local skill_name="$1"
+  local expected_root="$2"
+  local fallback_root="$3"
+  shift 3
+
+  local base_dir
+  for base_dir in "$@"; do
+    [ -n "$base_dir" ] || continue
+    if is_correct_symlink "$base_dir" "$expected_root"; then
+      return 0
+    fi
+    if [ -n "$fallback_root" ] && is_correct_symlink "$base_dir" "$fallback_root"; then
+      return 0
+    fi
+    if is_correct_symlink "$base_dir/$skill_name" "$expected_root/$skill_name"; then
+      return 0
+    fi
+    if [ -n "$fallback_root" ] && is_correct_symlink "$base_dir/$skill_name" "$fallback_root/$skill_name"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # ─── Part 1: Symlink Mount Check ───
 
 printf "\n${BOLD}Cat Café Skills 挂载看板${NC}\n"
 printf "源目录: %s\n\n" "$SKILLS_SRC"
-printf "%-35s  %-8s  %-8s  %-8s\n" "Skill" "Claude*" "Codex" "Gemini"
-printf "%-35s  %-8s  %-8s  %-8s\n" "-----------------------------------" "--------" "--------" "--------"
+printf "%-35s  %-8s  %-8s  %-8s  %-8s\n" "Skill" "Claude*" "Codex" "Gemini" "Kimi"
+printf "%-35s  %-8s  %-8s  %-8s  %-8s\n" "-----------------------------------" "--------" "--------" "--------" "--------"
 
 # Collect all source skill names
 source_skills=()
@@ -46,27 +100,33 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   total=$((total + 1))
   row=""
 
-  for cat_dir in "$CLAUDE_SKILLS" "$CODEX_SKILLS" "$GEMINI_SKILLS"; do
-    target="$cat_dir/$skill_name"
-    if [ -L "$target" ]; then
-      link_dest="$(readlink "$target")"
-      # Normalize: strip trailing slash for comparison
-      link_norm="${link_dest%/}"
-      expected="$SKILLS_SRC/$skill_name"
-      if [ "$link_norm" = "$expected" ]; then
-        row="$row  ${GREEN}✓${NC}       "
-      else
-        row="$row  ${YELLOW}→ other${NC} "
-        missing=$((missing + 1))
-      fi
-    elif [ -d "$target" ]; then
-      row="$row  ${YELLOW}dir${NC}     "
-      missing=$((missing + 1))
-    else
-      row="$row  ${RED}✗${NC}       "
-      missing=$((missing + 1))
-    fi
-  done
+  if is_skill_mounted_for_provider "$skill_name" "$SKILLS_SRC" "$FALLBACK_SKILLS_SRC" "$PROJECT_CLAUDE_SKILLS" "$CLAUDE_SKILLS"; then
+    row="$row  ${GREEN}✓${NC}       "
+  else
+    row="$row  ${RED}✗${NC}       "
+    missing=$((missing + 1))
+  fi
+
+  if is_skill_mounted_for_provider "$skill_name" "$SKILLS_SRC" "$FALLBACK_SKILLS_SRC" "$PROJECT_CODEX_SKILLS" "$CODEX_SKILLS"; then
+    row="$row  ${GREEN}✓${NC}       "
+  else
+    row="$row  ${RED}✗${NC}       "
+    missing=$((missing + 1))
+  fi
+
+  if is_skill_mounted_for_provider "$skill_name" "$SKILLS_SRC" "$FALLBACK_SKILLS_SRC" "$PROJECT_GEMINI_SKILLS" "$GEMINI_SKILLS"; then
+    row="$row  ${GREEN}✓${NC}       "
+  else
+    row="$row  ${RED}✗${NC}       "
+    missing=$((missing + 1))
+  fi
+
+  if is_skill_mounted_for_provider "$skill_name" "$SKILLS_SRC" "$FALLBACK_SKILLS_SRC" "$PROJECT_KIMI_SKILLS" "$KIMI_SKILLS"; then
+    row="$row  ${GREEN}✓${NC}       "
+  else
+    row="$row  ${RED}✗${NC}       "
+    missing=$((missing + 1))
+  fi
 
   printf "%-35s %b\n" "$skill_name" "$row"
 done
@@ -142,9 +202,15 @@ else
   printf "\n\n"
   if [ "$missing" -gt 0 ]; then
     printf "修复挂载:\n"
+    printf "  ln -s %s %s/.claude/skills\n" "$SKILLS_SRC" "$WORKTREE_REPO"
+    printf "  ln -s %s %s/.codex/skills\n" "$SKILLS_SRC" "$WORKTREE_REPO"
+    printf "  ln -s %s %s/.gemini/skills\n" "$SKILLS_SRC" "$WORKTREE_REPO"
+    printf "  ln -s %s %s/.kimi/skills\n" "$SKILLS_SRC" "$WORKTREE_REPO"
+    printf "  # 或使用 HOME 级 per-skill fallback（兼容旧口径）\n"
     printf "  ln -s %s/{skill-name} ~/.claude/skills/{skill-name}\n" "$SKILLS_SRC"
     printf "  ln -s %s/{skill-name} ~/.codex/skills/{skill-name}\n" "$SKILLS_SRC"
-    printf "  ln -s %s/{skill-name} ~/.gemini/skills/{skill-name}\n\n" "$SKILLS_SRC"
+    printf "  ln -s %s/{skill-name} ~/.gemini/skills/{skill-name}\n" "$SKILLS_SRC"
+    printf "  ln -s %s/{skill-name} ~/.kimi/skills/{skill-name}\n\n" "$SKILLS_SRC"
     printf "  * Claude 列同时覆盖 OpenCode（金渐层读取 ~/.claude/ 配置）\n\n"
   fi
   if [ "$reg_warnings" -gt 0 ]; then
