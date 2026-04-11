@@ -173,6 +173,13 @@ created: 2026-04-10
 | 2026-04-10 | Phase C（OfficeClaw）拆出 F156，铲屎官决定"外出务工"不属于自家 feat |
 | 2026-04-10 | 砚砚(GPT-5.4) 主干实测验证：Socket.IO / terminal WS / preview-gateway 三条入口全绿 |
 
+## Follow-up（铲屎官拍板 2026-04-11）
+
+| # | 内容 | 来源 |
+|---|------|------|
+| FU-1 | **精确 IP/域名 allowlist** — 替代粗放的 `CORS_ALLOW_PRIVATE_NETWORK=true`（放开整个私网段），支持用户指定精确的 Tailscale IP 或 MagicDNS 域名 | 砚砚 R3 建议 + 铲屎官确认 |
+| FU-2 | **开源社区 setup 文档** — 在手机/平板猫猫章节写清 Tailscale/局域网访问的场景、配置指南、安全注意事项 | 铲屎官："开源社区的 setup 用手机猫猫的章节也写上" |
+
 ## Links
 
 | 类型 | 路径 | 说明 |
