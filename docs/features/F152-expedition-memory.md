@@ -189,11 +189,11 @@ interface ScannedEvidence {
 - [x] AC-B11: **摘要卡交互**：扫描完成后推结构化摘要（仓库画像 + tier 覆盖率 + 关键文档 Top N + 风险提示）+ CTA 按钮（搜索 / MemoryHub / 补文档建议）
 - [x] AC-B12: **安全护栏**：禁止 symlink 越界扫描、排除 secrets 路径和二进制大文件、大仓自动 skipSoftClues + 文件数/字节预算超时
 
-### Phase C（Global Lesson Distillation）
-- [ ] AC-C1: 外部项目的 lesson/decision 可以被标记 `generalizable: true/false`
-- [ ] AC-C2: 默认 `generalizable: false`（fail-closed）
-- [ ] AC-C3: `generalizable: true` 的 candidate 走审核流程后才能写入 `global_knowledge.sqlite`
-- [ ] AC-C4: 回流内容自动脱敏（移除项目私有标识）
+### Phase C（Global Lesson Distillation）✅
+- [x] AC-C1: 外部项目的 lesson/decision 可以被标记 `generalizable: true/false`
+- [x] AC-C2: 默认 `generalizable: false`（fail-closed）
+- [x] AC-C3: `generalizable: true` 的 candidate 走审核流程后才能写入 `global_knowledge.sqlite`
+- [x] AC-C4: 回流内容自动脱敏（移除项目私有标识）
 - [ ] AC-C5: 铲屎官亲手体验一轮完整的"出征→冷启动→干活→经验回流"链路
 
 ## 需求点 Checklist
@@ -273,6 +273,7 @@ interface ScannedEvidence {
 | 2026-04-10 | Phase B Design Gate 通过（铲屎官审核）：组件结构+交互 OK，配色实现时换 coral 色系，衔接 PR #299 画风。设计稿 `designs/F152-expedition-bootstrap.pen` |
 | 2026-04-10 | Phase B merged (PR #1067)：IndexStateManager 五态状态机 + ExpeditionBootstrapService + API endpoints + WebSocket 进度 + 前端组件 + F070 治理链串联 |
 | 2026-04-10 | Phase B design alignment merged (PR #1070)：12 项 .pen→code 偏差修复 + cloud review P1（auto-notice scope）/P2（ref reset）修复 |
+| 2026-04-11 | Phase C merged (PR #1073)：DistillationService + DeidentificationService + 4 API endpoints + 3 MCP tools + kind whitelist + dynamic projectPath deidentification |
 
 ## Review Gate
 
