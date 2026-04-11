@@ -11,6 +11,8 @@ interface CallbackMemoryRoutesDeps {
   evidenceStore: IEvidenceStore;
   markerQueue: IMarkerQueue;
   reflectionService: IReflectionService;
+  /** F157: Growth XP service — awards insight XP on evidence usage */
+  growthService?: import('../domains/cats/services/growth/GrowthService.js').GrowthService;
 }
 
 const searchEvidenceQuerySchema = callbackAuthSchema.extend({
@@ -79,6 +81,8 @@ export async function registerCallbackMemoryRoutes(
 
     try {
       const reflection = await deps.reflectionService.reflect(query);
+      // F157: Award insight XP for evidence-based reflection (fire-and-forget)
+      deps.growthService?.awardXp(record.catId, 'evidence_cite');
       return { reflection, degraded: false, dispositionMode: 'off' as const };
     } catch {
       return {

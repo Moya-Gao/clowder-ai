@@ -1128,6 +1128,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Buffer the block — consumed at append time in route-serial/route-parallel
     const isNew = getRichBlockBuffer().add(record.threadId, record.catId as string, resolvedBlock, invocationId);
 
+    // F157: Award aesthetics XP for rich block creation (fire-and-forget, only for new blocks)
+    if (isNew) growthService?.awardXp(record.catId, 'rich_block_create');
+
     // Only broadcast new blocks (dedup retries at server to prevent frontend duplicates)
     if (isNew) {
       socketManager.broadcastAgentMessage(
@@ -1309,6 +1312,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     evidenceStore: opts.evidenceStore,
     markerQueue: opts.markerQueue,
     reflectionService: opts.reflectionService,
+    ...(growthService ? { growthService } : {}),
   });
 
   // F126: Limb node callback routes

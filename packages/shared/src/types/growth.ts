@@ -100,4 +100,7 @@ export type XpSource =
   | 'discussion'
   | 'pr_merged'
   | 'bug_caught'
-  | 'design_feedback';
+  | 'design_feedback'
+  | 'rich_block_create'
+  | 'evidence_cite'
+  | 'pr_feedback_processed';
