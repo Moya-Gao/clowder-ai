@@ -129,6 +129,52 @@ describe('start-dev strict profile isolation', () => {
   });
 });
 
+describe('cross-platform pnpm-start profile propagation (#421)', () => {
+  it('package.json scripts.start routes through start-entry.mjs with --profile=opensource', () => {
+    const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
+    assert.match(
+      pkg.scripts.start,
+      /start-entry\.mjs start\b.*--profile=opensource/,
+      'pnpm start must route through start-entry.mjs with --profile=opensource',
+    );
+  });
+
+  it('start-entry.mjs sets CAT_CAFE_PROFILE and CAT_CAFE_STRICT_PROFILE_DEFAULTS for Windows when --profile is present', () => {
+    const source = readFileSync(resolve(ROOT, 'scripts/start-entry.mjs'), 'utf8');
+
+    // Windows branch must extract --profile=* and convert to env vars
+    assert.ok(
+      source.includes("childEnv.CAT_CAFE_PROFILE = profileName"),
+      'Windows path must set CAT_CAFE_PROFILE from --profile arg',
+    );
+    assert.ok(
+      source.includes("childEnv.CAT_CAFE_STRICT_PROFILE_DEFAULTS = '1'"),
+      'Windows path must set CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 when profile is present',
+    );
+
+    // Verify env is passed to child spawn
+    assert.ok(
+      source.includes('env: childEnv'),
+      'Windows spawn must use childEnv (which contains profile env vars)',
+    );
+  });
+
+  it('start-windows.ps1 propagates env vars to child processes via Start-Job', () => {
+    const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
+
+    // PS1 loads .env into current process env (line ~57-68)
+    // Then Start-Job inherits parent env, and also explicitly re-loads .env + runtimeEnvOverrides
+    assert.ok(
+      ps1.includes('$runtimeEnvOverrides'),
+      'start-windows.ps1 must define runtimeEnvOverrides for child jobs',
+    );
+    assert.ok(
+      ps1.includes('Start-Job'),
+      'start-windows.ps1 must use Start-Job (which inherits parent process env)',
+    );
+  });
+});
+
 describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC_SCRIPT) }, () => {
   it('exports opensource-pinned direct launch wrappers and runtime startup', () => {
     const result = spawnSync('bash', [SYNC_SCRIPT, '--dry-run', '--yes'], {
