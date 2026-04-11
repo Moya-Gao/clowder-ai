@@ -51,6 +51,22 @@ Write-Host "Cat Cafe - Windows Startup" -ForegroundColor Cyan
 Write-Host "=========================="
 if ($Profile_) { Write-Host "  Profile: $Profile_" -ForegroundColor Cyan }
 
+# -- Clear inherited profile env (mirrors start-dev.sh clear_inherited_profile_env) --
+# When strict mode is on, clear ambient profile-controlled vars before loading .env,
+# so only .env overrides and profile defaults take effect — not leaked shell exports.
+$profileControlledVars = @(
+    'ANTHROPIC_PROXY_ENABLED', 'ASR_ENABLED', 'TTS_ENABLED',
+    'LLM_POSTPROCESS_ENABLED', 'EMBED_ENABLED',
+    'MESSAGE_TTL_SECONDS', 'THREAD_TTL_SECONDS',
+    'TASK_TTL_SECONDS', 'SUMMARY_TTL_SECONDS',
+    'REDIS_PROFILE'
+)
+if ($env:CAT_CAFE_STRICT_PROFILE_DEFAULTS -eq "1" -and $Profile_) {
+    foreach ($var in $profileControlledVars) {
+        [System.Environment]::SetEnvironmentVariable($var, $null, "Process")
+    }
+}
+
 # -- Load .env -----------------------------------------------
 $envFile = Join-Path $ProjectRoot ".env"
 if (Test-Path $envFile) {
@@ -68,6 +84,49 @@ if (Test-Path $envFile) {
     Write-Ok ".env loaded"
 } else {
     Write-Warn ".env not found - using defaults"
+}
+
+# -- Apply profile defaults (mirrors start-dev.sh apply_profile_defaults) --
+# Profile defaults are fallbacks: .env value wins if set, otherwise profile default applies.
+$profileDefaults = @{}
+switch ($Profile_) {
+    'opensource' {
+        $profileDefaults = @{
+            ANTHROPIC_PROXY_ENABLED = '0'; ASR_ENABLED = '0'
+            TTS_ENABLED = '0'; LLM_POSTPROCESS_ENABLED = '0'
+            MESSAGE_TTL_SECONDS = '86400'; THREAD_TTL_SECONDS = '86400'
+            TASK_TTL_SECONDS = '86400'; SUMMARY_TTL_SECONDS = '86400'
+            REDIS_PROFILE = 'opensource'
+        }
+    }
+    'production' {
+        $profileDefaults = @{
+            ANTHROPIC_PROXY_ENABLED = '0'; ASR_ENABLED = '0'
+            TTS_ENABLED = '0'; LLM_POSTPROCESS_ENABLED = '0'
+            MESSAGE_TTL_SECONDS = '0'; THREAD_TTL_SECONDS = '0'
+            TASK_TTL_SECONDS = '0'; SUMMARY_TTL_SECONDS = '0'
+            REDIS_PROFILE = 'opensource'
+        }
+    }
+    'dev' {
+        $profileDefaults = @{
+            ANTHROPIC_PROXY_ENABLED = '1'; ASR_ENABLED = '1'
+            TTS_ENABLED = '1'; LLM_POSTPROCESS_ENABLED = '1'
+            MESSAGE_TTL_SECONDS = '0'; THREAD_TTL_SECONDS = '0'
+            TASK_TTL_SECONDS = '0'; SUMMARY_TTL_SECONDS = '0'
+            REDIS_PROFILE = 'dev'
+        }
+    }
+}
+# resolve_config: env override > profile default
+foreach ($entry in $profileDefaults.GetEnumerator()) {
+    $current = [System.Environment]::GetEnvironmentVariable($entry.Key, "Process")
+    if (-not $current) {
+        [System.Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
+    }
+}
+if ($Profile_ -and $profileDefaults.Count -gt 0) {
+    Write-Ok "Profile defaults applied ($Profile_)"
 }
 
 $pnpmCommand = Resolve-ToolCommand -Name "pnpm"

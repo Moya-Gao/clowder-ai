@@ -156,12 +156,46 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
     assert.ok(source.includes('env: childEnv'), 'Windows spawn must use childEnv (which contains profile env vars)');
   });
 
-  it('start-windows.ps1 does not clobber profile env vars inherited from start-entry.mjs', () => {
+  it('start-windows.ps1 clears inherited profile vars when strict mode is on', () => {
     const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
 
-    // start-entry.mjs sets CAT_CAFE_PROFILE + CAT_CAFE_STRICT_PROFILE_DEFAULTS in childEnv,
-    // which becomes the PS1 process env. Start-Job inherits parent env by default.
-    // Verify: runtimeEnvOverrides must NOT contain profile keys (they flow via inheritance).
+    // Mirrors start-dev.sh clear_inherited_profile_env: must clear profile-controlled
+    // vars BEFORE .env loading when CAT_CAFE_STRICT_PROFILE_DEFAULTS=1
+    assert.ok(
+      ps1.includes('CAT_CAFE_STRICT_PROFILE_DEFAULTS'),
+      'start-windows.ps1 must check CAT_CAFE_STRICT_PROFILE_DEFAULTS for strict mode',
+    );
+
+    // Must clear the same vars as start-dev.sh
+    for (const v of [
+      'ANTHROPIC_PROXY_ENABLED',
+      'ASR_ENABLED',
+      'TTS_ENABLED',
+      'LLM_POSTPROCESS_ENABLED',
+      'REDIS_PROFILE',
+    ]) {
+      assert.ok(ps1.includes(v), `start-windows.ps1 must reference profile var ${v}`);
+    }
+  });
+
+  it('start-windows.ps1 applies profile defaults matching start-dev.sh opensource profile', () => {
+    const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
+
+    // Must define opensource profile defaults that match start-dev.sh apply_profile_defaults
+    assert.match(ps1, /'opensource'/, 'start-windows.ps1 must define opensource profile');
+    assert.match(ps1, /'production'/, 'start-windows.ps1 must define production profile');
+    assert.match(ps1, /'dev'/, 'start-windows.ps1 must define dev profile');
+
+    // Verify resolve_config pattern: env override > profile default
+    assert.ok(
+      ps1.includes('GetEnvironmentVariable'),
+      'start-windows.ps1 must check existing env before applying profile default',
+    );
+  });
+
+  it('start-windows.ps1 runtimeEnvOverrides does not clobber profile vars', () => {
+    const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
+
     const overridesMatch = ps1.match(/\$runtimeEnvOverrides\s*=\s*@\{([^}]+)\}/s);
     assert.ok(overridesMatch, 'start-windows.ps1 must define $runtimeEnvOverrides');
     const overridesBlock = overridesMatch[1];
