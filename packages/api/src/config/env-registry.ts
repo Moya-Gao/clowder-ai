@@ -1272,7 +1272,13 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'telemetry',
     sensitive: false,
   },
-  { name: 'OTEL_SDK_DISABLED', defaultValue: '(未设置 → 启用)', description: '设为 true 完全禁用 OTel SDK', category: 'telemetry', sensitive: false },
+  {
+    name: 'OTEL_SDK_DISABLED',
+    defaultValue: '(未设置 → 启用)',
+    description: '设为 true 完全禁用 OTel SDK',
+    category: 'telemetry',
+    sensitive: false,
+  },
 ];
 
 /** Mask credentials in a URL while preserving host/port/db for debugging. */
