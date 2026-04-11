@@ -324,7 +324,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                         <button
                           type="button"
                           className="text-[10px] px-2 py-0.5 rounded border border-cafe text-cafe-secondary hover:bg-cafe-surface-elevated"
-                          onClick={() => onViewSession(session.id)}
+                          onClick={() => onViewSession(session.id, session.catId)}
                         >
                           查看
                         </button>

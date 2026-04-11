@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 // Phase C: embedding metadata (model/dim version anchor)
 export const SCHEMA_V2 = `
@@ -350,6 +350,16 @@ export function applyMigrations(db: Database.Database): void {
       CREATE INDEX IF NOT EXISTS idx_index_state_project ON index_state(project_path);
     `);
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(11, new Date().toISOString());
+  }
+
+  if (currentVersion < 12) {
+    // F152 Phase C: generalizable flag for global lesson distillation
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN generalizable INTEGER DEFAULT NULL');
+    } catch {
+      // Column may already exist from a partial migration
+    }
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(12, new Date().toISOString());
   }
 }
 

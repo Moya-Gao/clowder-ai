@@ -128,6 +128,7 @@ import {
   configRoutes,
   connectorHubRoutes,
   connectorMediaRoutes,
+  distillationRoutes,
   evidenceRoutes,
   executionDigestRoutes,
   exportRoutes,
@@ -1389,6 +1390,17 @@ async function main(): Promise<void> {
     indexBuilder: memoryServices.indexBuilder,
     knowledgeResolver: memoryServices.knowledgeResolver,
   });
+
+  // F152 Phase C: Distillation routes (global lesson reflow)
+  if (memoryServices.globalStore) {
+    const { DistillationService } = await import('./domains/memory/distillation-service.js');
+    const distillationService = new DistillationService(memoryServices.store, memoryServices.globalStore);
+    await distillationService.initialize();
+    await app.register(distillationRoutes, {
+      evidenceStore: memoryServices.evidenceStore,
+      distillationService,
+    });
+  }
 
   // F129: Pack system routes (reuse shared packStore from above)
   {

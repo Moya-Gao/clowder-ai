@@ -14,6 +14,7 @@ export { commandsRoutes } from './commands.js';
 export { configRoutes } from './config.js';
 export { connectorHubRoutes } from './connector-hub.js';
 export { connectorMediaRoutes } from './connector-media.js';
+export { distillationRoutes } from './distillation-routes.js';
 export { evidenceRoutes } from './evidence.js';
 export { executionDigestRoutes } from './execution-digests.js';
 export { exportRoutes } from './export.js';
