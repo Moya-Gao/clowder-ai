@@ -410,7 +410,7 @@ try {
     # No --env-file needed - avoids depending on Node's --env-file support here.
     Write-Host "  Starting API Server (port $ApiPort)..."
     $apiJob = Start-Job -Name "api" -ScriptBlock {
-        param($root, $envFile, $runtimeEnvOverrides, $apiEntry, $debugFlag)
+        param($root, $envFile, $runtimeEnvOverrides, $profileDefaults, $apiEntry, $debugFlag)
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         $OutputEncoding = [System.Text.Encoding]::UTF8
         Set-Location (Join-Path $root "packages/api")
@@ -436,13 +436,23 @@ try {
                 [System.Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, "Process")
             }
         }
+        # Reapply profile defaults after .env reload (mirrors start-dev.sh resolve_config:
+        # env override > profile default — only apply if current value is empty/null)
+        if ($profileDefaults) {
+            foreach ($entry in $profileDefaults.GetEnumerator()) {
+                $current = [System.Environment]::GetEnvironmentVariable($entry.Key, "Process")
+                if (-not $current) {
+                    [System.Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, "Process")
+                }
+            }
+        }
         if ($debugFlag) {
             $env:LOG_LEVEL = "debug"
             & node $apiEntry --debug 2>&1
         } else {
             & node $apiEntry 2>&1
         }
-    } -ArgumentList $ProjectRoot, $envFile, $runtimeEnvOverrides, $apiEntry, $Debug.IsPresent
+    } -ArgumentList $ProjectRoot, $envFile, $runtimeEnvOverrides, $profileDefaults, $apiEntry, $Debug.IsPresent
     $jobs += $apiJob
 
     Start-Sleep -Seconds 2

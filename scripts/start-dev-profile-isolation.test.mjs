@@ -193,6 +193,24 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
     );
   });
 
+  it('start-windows.ps1 reapplies profile defaults inside Start-Job after .env reload', () => {
+    const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
+
+    // API job receives $profileDefaults param and reapplies after .env reload
+    // (mirrors start-dev.sh resolve_config: env override > profile default)
+    assert.ok(ps1.includes('$profileDefaults'), 'start-windows.ps1 must pass $profileDefaults to Start-Job');
+
+    // The job must check if value is empty before applying default (resolve_config pattern)
+    // Look for the pattern inside a ScriptBlock (Start-Job context)
+    const jobBlocks = ps1.match(/Start-Job[\s\S]*?-ScriptBlock\s*\{([\s\S]*?)\}\s*-ArgumentList/g);
+    assert.ok(jobBlocks && jobBlocks.length > 0, 'start-windows.ps1 must have Start-Job blocks');
+    const apiJobBlock = jobBlocks[0];
+    assert.ok(
+      apiJobBlock.includes('profileDefaults') && apiJobBlock.includes('GetEnvironmentVariable'),
+      'API job must reapply profileDefaults with env-check after .env reload',
+    );
+  });
+
   it('start-windows.ps1 runtimeEnvOverrides does not clobber profile vars', () => {
     const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
 
