@@ -113,16 +113,22 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                 newComments,
                 newDecisions,
                 commitCursor: async () => {
-                  // #406: Persist first — if store fails, memory stays behind so gate retries
-                  await opts.taskStore.patchAutomationState(task.id, {
-                    review: {
-                      lastCommentCursor: maxCommentId,
-                      lastDecisionCursor: maxReviewId,
-                      lastNotifiedAt: Date.now(),
-                    },
-                  });
+                  // #406: Always advance in-memory cursor after successful delivery
+                  // to prevent duplicate notifications within the same process.
+                  // Persist failure only affects restart recovery (much smaller blast radius).
                   commentCursors.set(prKey, maxCommentId);
                   reviewCursors.set(prKey, maxReviewId);
+                  try {
+                    await opts.taskStore.patchAutomationState(task.id, {
+                      review: {
+                        lastCommentCursor: maxCommentId,
+                        lastDecisionCursor: maxReviewId,
+                        lastNotifiedAt: Date.now(),
+                      },
+                    });
+                  } catch (e) {
+                    opts.log.warn(`[review-feedback] cursor persist failed for ${prKey}, restart may replay`, e);
+                  }
                 },
               },
               // #320 KD-15: unified subject_key format

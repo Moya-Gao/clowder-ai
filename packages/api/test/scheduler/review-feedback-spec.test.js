@@ -757,6 +757,44 @@ describe('ReviewFeedbackTaskSpec', () => {
     assert.ok(warnings.length > 0, 'retry also attempts persist and logs');
   });
 
+  it('commitCursor persist failure after delivery still advances memory cursor (no duplicate spam)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const warnings = [];
+    const failingStore = {
+      listByKind: async () => [mockTaskItem],
+      patchAutomationState: async () => {
+        throw new Error('Redis unavailable');
+      },
+      _patchCalls: [],
+    };
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: failingStore,
+      fetchComments: async () => [
+        { id: 7, author: 'alice', body: 'new review', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: {
+        async route() {
+          return { kind: 'notified', threadId: 'th-1', catId: 'opus', messageId: 'm1', content: 'fb' };
+        },
+      },
+      log: { ...noopLog, warn: (...args) => warnings.push(args) },
+    });
+
+    // Gate + execute: delivery succeeds, persist fails
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
+
+    // Persist failed → warn logged
+    assert.ok(warnings.length > 0, 'should log warning on persist failure');
+    assert.ok(warnings[0][0].includes('cursor persist failed'), 'warning identifies cursor persist');
+
+    // But memory cursor advanced → next gate does NOT re-deliver (no duplicate spam)
+    const r2 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 2 });
+    assert.equal(r2.run, false, 'memory cursor prevents duplicate delivery');
+  });
+
   it('non-authoritative bot comment is NOT filtered (Rule B negative)', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const { router } = stubRouter();
