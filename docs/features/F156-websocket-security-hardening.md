@@ -172,6 +172,7 @@ created: 2026-04-10
 | 2026-04-10 | Phase D-3/D-5/D-6 merged (PR #1072) — XSS baseline + preview-gateway Origin + DNS rebinding defense |
 | 2026-04-10 | Phase C（OfficeClaw）拆出 F156，铲屎官决定"外出务工"不属于自家 feat |
 | 2026-04-10 | 砚砚(GPT-5.4) 主干实测验证：Socket.IO / terminal WS / preview-gateway 三条入口全绿 |
+| 2026-04-11 | Private network UX optimization merged (PR #1087) — env-registry 注册 + 启动提示 + 描述优化 |
 
 ## Follow-up（铲屎官拍板 2026-04-11）
 
