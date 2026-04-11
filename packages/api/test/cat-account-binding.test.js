@@ -28,7 +28,7 @@ describe('cat account binding', () => {
       bootstrapCatCatalog(projectRoot, join(projectRoot, 'cat-template.json'));
       const catConfig = toAllCatConfigs(loadCatConfig(resolveCatCatalogPath(projectRoot))).codex;
       assert.ok(catConfig, 'codex should be present in bootstrapped runtime catalog');
-      assert.equal(resolveBoundAccountRefForCat(projectRoot, 'codex', catConfig), undefined);
+      assert.equal(resolveBoundAccountRefForCat(projectRoot, 'codex', catConfig), 'codex');
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
@@ -153,7 +153,8 @@ describe('cat account binding', () => {
       const migratedCatalog = readCatCatalog(projectRoot);
       const allCats = toAllCatConfigs(migratedCatalog);
       assert.equal(resolveBoundAccountRefForCat(projectRoot, 'codex', allCats.codex), 'codex-sponsor');
-      assert.equal(resolveBoundAccountRefForCat(projectRoot, 'spark', allCats.spark), undefined);
+      // Authoritative model: spark's explicit 'codex' binding is returned directly
+      assert.equal(resolveBoundAccountRefForCat(projectRoot, 'spark', allCats.spark), 'codex');
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
@@ -163,12 +164,10 @@ describe('cat account binding', () => {
     }
   });
 
-  it('resolves default Anthropic seed cats back to builtin claude when installer account coexists', async () => {
+  it('resolves seed cat accountRef authoritatively — bootstrap stamps builtin binding', async () => {
     const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/cat-catalog-store.js');
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-    const { resolveBoundAccountRefForCat, resolveEffectiveAccountRefForCat } = await import(
-      '../dist/config/cat-account-binding.js'
-    );
+    const { resolveBoundAccountRefForCat } = await import('../dist/config/cat-account-binding.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-anthropic-seed-'));
     const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
@@ -207,8 +206,8 @@ describe('cat account binding', () => {
 
       const opus = toAllCatConfigs(loadCatConfig(resolveCatCatalogPath(projectRoot))).opus;
       assert.ok(opus, 'opus should be present in bootstrapped runtime catalog');
-      assert.equal(resolveBoundAccountRefForCat(projectRoot, 'opus', opus), undefined);
-      assert.equal(resolveEffectiveAccountRefForCat(projectRoot, 'opus', opus), 'claude');
+      // Authoritative model: bootstrap stamps 'claude' as accountRef → returned directly
+      assert.equal(resolveBoundAccountRefForCat(projectRoot, 'opus', opus), 'claude');
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;

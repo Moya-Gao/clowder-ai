@@ -41,6 +41,7 @@ export interface CatConfig {
   readonly avatar: string;
   readonly color: CatColor;
   readonly mentionPatterns: readonly string[];
+  readonly source?: 'seed' | 'runtime';
   readonly accountRef?: string;
   /** F340 P5: CLI client identity (renamed from `provider`). */
   readonly clientId: ClientId;

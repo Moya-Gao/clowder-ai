@@ -62,6 +62,8 @@ export interface CatVariant {
   /** Independent mention patterns for this variant (F32-b).
    *  Default variant inherits breed mentionPatterns; non-default variants fallback to @catId when unspecified. */
   readonly mentionPatterns?: readonly string[];
+  /** Bootstrap-stamped origin: 'seed' (from template) or 'runtime' (user-created). */
+  readonly source?: 'seed' | 'runtime';
   /** F127: member-side binding to a concrete account config (built-in or API key). */
   readonly accountRef?: string;
   /** F340 P5: CLI client identity (renamed from `provider`). */
