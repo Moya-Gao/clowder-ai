@@ -695,16 +695,44 @@ describe('cat-catalog-store', () => {
     assert.ok(catalog.roster?.opus, 'existing v2 metadata must stay intact');
   });
 
-  it('blocks seed deletion even when CAT_TEMPLATE_PATH points to an unreadable in-project file', () => {
+  it('allows deleting bootstrapped members without consulting CAT_TEMPLATE_PATH', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-stale-template-'));
     const templatePath = join(projectRoot, 'cat-template.json');
-    writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
+    const config = validConfig();
+    config.breeds.push({
+      id: 'maine-coon',
+      catId: 'codex',
+      name: '缅因猫',
+      displayName: '缅因猫',
+      avatar: '/avatars/codex.png',
+      color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
+      mentionPatterns: ['@codex'],
+      roleDescription: 'review',
+      defaultVariantId: 'codex-default',
+      variants: [
+        {
+          id: 'codex-default',
+          provider: 'openai',
+          defaultModel: 'gpt-5.4',
+          mcpSupport: false,
+          cli: { command: 'codex', outputFormat: 'json' },
+        },
+      ],
+    });
+    config.roster.codex = {
+      family: 'maine-coon',
+      roles: ['peer-reviewer'],
+      lead: false,
+      available: true,
+      evaluation: 'secondary',
+    };
+    writeFileSync(templatePath, JSON.stringify(config, null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'missing-template.json');
     try {
-      assert.throws(() => deleteRuntimeCat(projectRoot, 'opus'), /cannot delete seed cat/i);
+      assert.doesNotThrow(() => deleteRuntimeCat(projectRoot, 'opus'));
     } finally {
       if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
@@ -713,7 +741,7 @@ describe('cat-catalog-store', () => {
     const catalog = readRuntimeCatCatalog(projectRoot);
     assert.equal(
       catalog.breeds.some((breed) => breed.catId === 'opus'),
-      true,
+      false,
     );
   });
 
