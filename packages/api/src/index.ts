@@ -513,6 +513,22 @@ async function main(): Promise<void> {
         return '';
       }
     },
+    getTierCoverage: async (projectPath: string) => {
+      // Guard: only overlay store tiers for our own repo (Phase D: project isolation)
+      if (resolve(projectPath) !== resolve(repoRoot)) return {};
+
+      const db = memoryServices.store.getDb();
+      const rows = db
+        .prepare(
+          `SELECT provenance_tier, COUNT(*) as cnt FROM evidence_docs WHERE provenance_tier IS NOT NULL AND source_path NOT LIKE 'archive/%' GROUP BY provenance_tier`,
+        )
+        .all() as Array<{ provenance_tier: string; cnt: number }>;
+      const result: Record<string, number> = {};
+      for (const row of rows) {
+        result[row.provenance_tier] = row.cnt;
+      }
+      return result;
+    },
   });
 
   // F102 D-2: Auto-rebuild evidence index on startup (AC-D4)
