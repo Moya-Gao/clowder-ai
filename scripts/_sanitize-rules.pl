@@ -148,6 +148,13 @@ if ($ARGV =~ m{api-client-resolve\.test\.(ts|js)$}) {
   s#3001→3002#3003→3004#g;
 }
 
+# ── security-headers test: Host header port assertions ──
+if ($ARGV =~ m{security-headers\.test\.(ts|js)$}) {
+  # Host headers use various hostnames with internal ports (IPv6 loopback, evil.com, etc.)
+  s#:3002\b#:3004#g;
+  s#:3001\b#:3003#g;
+}
+
 # ── Governance-pack test: port assertions align with sync'd source ──
 if ($ARGV =~ m{governance-pack\.test\.(js|ts)$}) {
   s/block\.includes\('3001'\)/block.includes('3003')/g;
