@@ -50,10 +50,10 @@ created: 2026-03-28
 | `REDIS_URL` | (未设置 → 内存模式) | Redis 连接地址 |  |
 | `REDIS_KEY_PREFIX` | cat-cafe: | Redis key 命名空间前缀，用于多实例隔离 |  |
 | `MEMORY_STORE` | (未设置) | 设为 1 显式允许内存模式 |  |
-| `MESSAGE_TTL_SECONDS` | 604800 (7天) | 消息过期时间 |  |
-| `THREAD_TTL_SECONDS` | 604800 (7天) | 对话过期时间 |  |
-| `TASK_TTL_SECONDS` | 604800 (7天) | 任务过期时间 |  |
-| `SUMMARY_TTL_SECONDS` | 604800 (7天) | 摘要过期时间 |  |
+| `MESSAGE_TTL_SECONDS` | 0 (永久) | 消息过期时间（>0 启用自动过期，单位秒） |  |
+| `THREAD_TTL_SECONDS` | 0 (永久) | 对话过期时间（>0 启用自动过期，单位秒） |  |
+| `TASK_TTL_SECONDS` | 0 (永久) | 任务过期时间（>0 启用自动过期，单位秒） |  |
+| `SUMMARY_TTL_SECONDS` | 0 (永久) | 摘要过期时间（>0 启用自动过期，单位秒） |  |
 | `BACKLOG_TTL_SECONDS` | (无过期) | Backlog 过期时间 |  |
 | `DRAFT_TTL_SECONDS` | (无过期) | 草稿过期时间 |  |
 | `TRANSCRIPT_DATA_DIR` | ./data/transcripts | Session transcript 存储目录 |  |
