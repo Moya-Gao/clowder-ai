@@ -9,7 +9,7 @@ community_issue: "zts212653/clowder-ai#388"
 
 # F153: Observability Infrastructure — 运行时可观测基础设施
 
-> **Status**: spec | **Owner**: Community (PR author) + 布偶猫 | **Priority**: P2
+> **Status**: in-progress | **Owner**: Community + 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -42,17 +42,17 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 
 ## Acceptance Criteria
 
-### Phase A（OTel SDK + Metrics + Health Check）
-- [ ] AC-A1: TelemetryRedactor 四级分类正确脱敏（Class A/B/C/D 各有测试）
-- [ ] AC-A2: Prometheus `/metrics` 端点可用，5 个 instruments 有数据
-- [ ] AC-A3: `/ready` 端点返回 Redis 健康状态
-- [ ] AC-A4: cli-spawn debug 日志不含 prompt 明文（回归测试）
-- [ ] AC-A5: HMAC salt 缺失时启动阶段校验并 graceful degradation（禁用 OTel + warning log，服务继续运行）
-- [ ] AC-A6: Prometheus exporter 端口可通过 env 配置（不硬编码 9464）
-- [ ] AC-A7: `activeInvocations` 计数器在 generator early abort 时正确递减
-- [ ] AC-A8: yielded-error 路径（`hadError = true`）的 span 正确标记为 ERROR 并补 OTel error log
-- [ ] AC-A9: `agent.liveness` gauge 有实际调用点（或从 scope 移除，instruments 数量与 PR 描述一致）
-- [ ] AC-A10: aborted invocation（generator `.return()`）的 OTel span/log 与审计日志信号一致
+### Phase A（OTel SDK + Metrics + Health Check）✅
+- [x] AC-A1: TelemetryRedactor 四级分类正确脱敏（Class A/B/C/D 各有测试）
+- [x] AC-A2: Prometheus `/metrics` 端点可用，5 个 instruments 有数据
+- [x] AC-A3: `/ready` 端点返回 Redis 健康状态
+- [x] AC-A4: cli-spawn debug 日志不含 prompt 明文（回归测试）
+- [x] AC-A5: HMAC salt 缺失时启动阶段校验并 graceful degradation（禁用 OTel + warning log，服务继续运行）
+- [x] AC-A6: Prometheus exporter 端口可通过 env 配置（不硬编码 9464）
+- [x] AC-A7: `activeInvocations` 计数器在 generator early abort 时正确递减
+- [x] AC-A8: yielded-error 路径（`hadError = true`）的 span 正确标记为 ERROR 并补 OTel error log
+- [x] AC-A9: `agent.liveness` gauge 有实际调用点（或从 scope 移除，instruments 数量与 PR 描述一致）
+- [x] AC-A10: aborted invocation（generator `.return()`）的 OTel span/log 与审计日志信号一致
 
 ## Dependencies
 
@@ -93,6 +93,7 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | 2026-04-11 | Round 2: 旧 P1 全修，新增 P2（yielded-error span + salt 语义）|
 | 2026-04-12 | Round 3: yielded-error 修了，liveness 空转 P1 + aborted 信号 P2 |
 | 2026-04-13 | Round 4 (Final): 全部 P1 绿灯，批准 intake。pane 状态不一致为 known limitation |
+| 2026-04-13 | Phase A merged (PR #1086)。Intake from clowder-ai#393，18/18 tests pass |
 
 ## Links
 
