@@ -190,7 +190,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 
 - **ISSUE-1**: Connector 消息不走统一管道 — **✅ Phase A+B+C 已解决**。详见 [架构归一设计](assets/F088/architecture-unification.md)
 - **ISSUE-2**: Cloudflare Access 与 webhook 路径冲突 — 临时用 `api.clowder-ai.com`。详见 [架构归一设计](assets/F088/architecture-unification.md#issue-2-cloudflare-access-与-tunnel-ingress-路径冲突)
-- **ISSUE-3**: 排队路径丢失媒体上下文 — 猫忙时，connector 图片消息排队后重放为 text-only（contentBlocks 未持久化到 messageStore）。直接调用路径正常。需改 messageStore schema + QueueProcessor 恢复链路。**愿景层高优 gap**（"共享记忆"）。
+- **ISSUE-3**: 排队路径丢失媒体上下文 — **✅ 已修复**。根因：`ConnectorRouter.route()` 的 `messageStore.append()` 漏传 `contentBlocks`，直达路径正常但排队重放时 QueueProcessor 从 messageStore 回捞为空。修复：append 调用补 `contentBlocks` spread。回归测试覆盖。
 - **ISSUE-4**: Connector 媒体文件是本地缓存，非持久 artifact — MediaCleanupJob 24h TTL 后删除，历史消息中的本地 URL 会失效。原件仍在 Feishu/Telegram 平台。如需持久化，应存 platform key 而非本地 URL。
 
 - **ISSUE-5**: 飞书多猫回复气泡合并无区分度 — 所有猫共用同一 Feishu Bot，plain text 回复被飞书 UI 合并成连续气泡，不同猫的回复视觉上混在一起。**Phase E 修复**：统一走 interactive card，每条消息独立卡片 + 猫名头部。
