@@ -102,5 +102,4 @@ export type XpSource =
   | 'bug_caught'
   | 'design_feedback'
   | 'rich_block_create'
-  | 'evidence_cite'
-  | 'pr_feedback_processed';
+  | 'evidence_cite';

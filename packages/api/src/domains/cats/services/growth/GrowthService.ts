@@ -36,7 +36,6 @@ const XP_RULES: Record<XpSource, { dimension: GrowthDimension; xp: number }> = {
   design_feedback: { dimension: 'aesthetics', xp: 30 },
   rich_block_create: { dimension: 'aesthetics', xp: 20 },
   evidence_cite: { dimension: 'insight', xp: 25 },
-  pr_feedback_processed: { dimension: 'review', xp: 30 },
 };
 
 function levelFromXp(xp: number): number {

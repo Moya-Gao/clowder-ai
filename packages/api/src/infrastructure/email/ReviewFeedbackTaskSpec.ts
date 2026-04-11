@@ -38,8 +38,6 @@ export interface ReviewFeedbackTaskSpecOptions {
   readonly pollIntervalMs?: number;
   readonly isEchoComment?: (comment: PrFeedbackComment) => boolean;
   readonly isEchoReview?: (review: PrReviewDecision) => boolean;
-  /** F157: Growth XP service — awards review XP on PR feedback delivery */
-  readonly growthService?: import('../../domains/cats/services/growth/GrowthService.js').GrowthService;
 }
 
 export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions): TaskSpec_P1<ReviewFeedbackSignal> {
@@ -145,9 +143,6 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
         );
 
         if (routeResult.kind !== 'notified') return;
-
-        // F157: Award review XP when PR feedback is delivered to the owning cat (fire-and-forget)
-        if (task.ownerCatId) opts.growthService?.awardXp(task.ownerCatId, 'pr_feedback_processed');
 
         signal.commitCursor();
 

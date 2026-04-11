@@ -60,6 +60,8 @@ export async function registerCallbackMemoryRoutes(
           | 'phase'
           | 'discussion',
       }));
+      // F157: Award insight XP for evidence search (fire-and-forget)
+      if (results.length > 0) deps.growthService?.awardXp(record.catId, 'evidence_cite');
       return { results, degraded: false };
     } catch {
       return { results: [], degraded: true, degradeReason: 'evidence_store_error' };

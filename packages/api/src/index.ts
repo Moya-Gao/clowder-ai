@@ -1830,7 +1830,6 @@ async function main(): Promise<void> {
         // Unified feedback filter (Rule A: self-authored, Rule B: authoritative review bot)
         isEchoComment: (c) => feedbackFilter.shouldSkipComment(c),
         isEchoReview: (r) => feedbackFilter.shouldSkipReview(r),
-        ...(growthService ? { growthService } : {}),
       }),
     );
     app.log.info('[api] F139/F140: cicd-check, conflict-check, review-feedback specs registered');
