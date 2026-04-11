@@ -88,11 +88,10 @@ created: 2026-04-10
 1. 校验 HTTP `Host` header，allowlist 从 CORS origins + API base URL 动态派生
 2. 自定义 FRONTEND_URL 和 split-host 部署自动覆盖
 
-### Phase C: OfficeClaw 修复（Phase D 完成后）
+### ~~Phase C: OfficeClaw 修复~~ → 已拆出
 
-1. 分析 OfficeClaw（我们魔改的 OpenClaw）的 WebSocket 端点（端口 8357、`/ws`、JSON-RPC 协议）安全状况
-2. 参考 Phase A/B/D 的修复模式，适配 OfficeClaw 的协议差异
-3. 向上游提 PR 或在我们的 fork 中修复
+> **2026-04-10 铲屎官决定**：OfficeClaw 安全加固是"外出务工"，不属于我们家的 feat，拆为独立 feature/任务。
+> 参考 F156 Phase A/B/D 的修复模式适配 OfficeClaw 协议差异。
 
 ## Acceptance Criteria
 
@@ -139,9 +138,7 @@ created: 2026-04-10
 ### Phase D-6（DNS Rebinding） ✅
 - [x] AC-D6: HTTP 请求校验 Host header，allowlist 从 CORS origins + API base URL 动态派生
 
-### Phase C（OfficeClaw）
-- [ ] AC-C1: OfficeClaw WebSocket 端点完成安全评估
-- [ ] AC-C2: 修复方案实施并验证
+### ~~Phase C（OfficeClaw）~~ → 已拆出为独立任务
 
 ## Dependencies
 
@@ -154,7 +151,6 @@ created: 2026-04-10
 |------|------|
 | Origin 校验过严导致合法场景被拦 | 保留 `.env` 配置口子（CORS_ALLOW_PRIVATE_NETWORK）；回归测试覆盖现有连接场景 |
 | 禁止自报 userId 影响现有前端逻辑 | 单用户模式下服务端统一赋 `default-user`，前端不需要改 userId 传递逻辑（只是服务端忽略） |
-| OfficeClaw 协议差异大 | Phase C 独立，不 block Phase A/B 的交付 |
 
 ## Key Decisions
 
@@ -163,6 +159,7 @@ created: 2026-04-10
 | KD-1 | 独立 hotfix，不并入 F077 | P0 漏洞不能等大 feature；hotfix 是 F077 的前置基础设施，不浪费 | 2026-04-10 |
 | KD-2 | 用 `allowRequest` 而非依赖 `cors` 配置 | Socket.IO 的 cors 不管 WebSocket upgrade（官方文档明确）| 2026-04-10 |
 | KD-3 | 先修自家 Hub，验证后再修 OfficeClaw | 铲屎官拍板 | 2026-04-10 |
+| KD-4 | Phase C（OfficeClaw）从 F156 拆出 | 铲屎官："和我们家无关是外出务工的事情"，不污染自家 feat 真相源 | 2026-04-10 |
 
 ## Timeline
 
@@ -173,6 +170,8 @@ created: 2026-04-10
 | 2026-04-10 | Phase B merged (PR #1045) — terminal WS origin guard + cancelAll auth + global room guard + 13 tests |
 | 2026-04-10 | Phase D-1+D-2 merged (PR #1054) — session auth + anti-clickjacking + 20+ route identity收口 + 57 files |
 | 2026-04-10 | Phase D-3/D-5/D-6 merged (PR #1072) — XSS baseline + preview-gateway Origin + DNS rebinding defense |
+| 2026-04-10 | Phase C（OfficeClaw）拆出 F156，铲屎官决定"外出务工"不属于自家 feat |
+| 2026-04-10 | 砚砚(GPT-5.4) 主干实测验证：Socket.IO / terminal WS / preview-gateway 三条入口全绿 |
 
 ## Links
 
