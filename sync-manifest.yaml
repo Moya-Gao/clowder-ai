@@ -17,6 +17,7 @@ managed_roots:
   - packages/mcp-server
   - cat-cafe-skills        # 运行时依赖 + 核心差异化
   - docs/architecture      # 架构文档（直出）
+  - docs/setup             # SETUP 配置截图（直出）
   # 注：猫猫头像在 packages/web/public/avatars/ 中，已被 packages/web 整包包含
 
 # ── 单文件导出（managed_files）────────────────────────────────
