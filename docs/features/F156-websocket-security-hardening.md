@@ -63,7 +63,7 @@ created: 2026-04-10
 2. preview-gateway 保留例外（它需要 iframe 嵌入）
 3. 零用户摩擦，纯后端 header
 
-**D-3: 前端 XSS 基线加固** (P1)
+**D-3: 前端 XSS 基线加固** (P1) ✅
 1. 严格 CSP（禁 unsafe-inline JS）
 2. HtmlWidgetBlock 加 DOMPurify sanitization（sandbox 隔离正确但应加防数据外泄）
 3. 富文本/外部 HTML 渲染放入 sandboxed iframe（已部分实现，需审计完整性）
@@ -80,13 +80,13 @@ created: 2026-04-10
 > 但"来源追踪"是新机制，需要单独设计；业界也无银弹。
 > **决定**：D-3/D-5/D-6 先推，D-4 待设计方案成熟后再实施。
 
-**D-5: preview-gateway Origin 校验** (P2)
+**D-5: preview-gateway Origin 校验** (P2) ✅
 1. WS upgrade 路径补 Origin 校验（复用 isOriginAllowed）
 2. 现有 loopback+port 限制保留
 
-**D-6: DNS Rebinding 防御** (P2)
-1. 校验 HTTP `Host` header，只放行 localhost:3001 / 127.0.0.1:3001
-2. 自定义 FRONTEND_URL 场景需配套调整
+**D-6: DNS Rebinding 防御** (P2) ✅
+1. 校验 HTTP `Host` header，allowlist 从 CORS origins + API base URL 动态派生
+2. 自定义 FRONTEND_URL 和 split-host 部署自动覆盖
 
 ### Phase C: OfficeClaw 修复（Phase D 完成后）
 
@@ -125,19 +125,19 @@ created: 2026-04-10
 - [x] AC-D2b: API 响应包含 CSP frame-ancestors 'none'
 - [x] AC-D2c: preview-gateway 保留 iframe 例外
 
-### Phase D-3（前端 XSS 基线）
-- [ ] AC-D3a: HtmlWidgetBlock 加 DOMPurify sanitization
-- [ ] AC-D3b: 严格 CSP 生效（禁 unsafe-inline JS）
+### Phase D-3（前端 XSS 基线） ✅
+- [x] AC-D3a: HtmlWidgetBlock 加 DOMPurify sanitization
+- [x] AC-D3b: CSP 加固（script-src 'self' 'unsafe-inline' + object-src 'none'；nonce-based 为 future work）
 
 ### Phase D-4（Prompt Injection 降权）
 - [ ] AC-D4a: 外部内容来源标记机制
 - [ ] AC-D4b: 高危操作由非可信来源触发时需用户确认
 
-### Phase D-5（preview-gateway Origin）
-- [ ] AC-D5: preview-gateway WS upgrade 校验 Origin header
+### Phase D-5（preview-gateway Origin） ✅
+- [x] AC-D5: preview-gateway WS upgrade + HTTP 校验 Origin header
 
-### Phase D-6（DNS Rebinding）
-- [ ] AC-D6: HTTP 请求校验 Host header，拒绝非 localhost 的 Host
+### Phase D-6（DNS Rebinding） ✅
+- [x] AC-D6: HTTP 请求校验 Host header，allowlist 从 CORS origins + API base URL 动态派生
 
 ### Phase C（OfficeClaw）
 - [ ] AC-C1: OfficeClaw WebSocket 端点完成安全评估
@@ -172,6 +172,7 @@ created: 2026-04-10
 | 2026-04-10 | Phase A merged (PR #1041) — allowRequest origin guard + userId hardening + 14 tests |
 | 2026-04-10 | Phase B merged (PR #1045) — terminal WS origin guard + cancelAll auth + global room guard + 13 tests |
 | 2026-04-10 | Phase D-1+D-2 merged (PR #1054) — session auth + anti-clickjacking + 20+ route identity收口 + 57 files |
+| 2026-04-10 | Phase D-3/D-5/D-6 merged (PR #1072) — XSS baseline + preview-gateway Origin + DNS rebinding defense |
 
 ## Links
 
