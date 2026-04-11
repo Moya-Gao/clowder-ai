@@ -8,9 +8,9 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> **Status**: Phase 1-6+A+B+C+D+E+G(8A)+8 done | **Owner**: 布偶猫
+> **Status**: done | **Completed**: 2026-04-10 | **Owner**: 布偶猫
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
-> Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
+> Reflection: [2026-03-09-f088-chat-gateway-capsule.md](../reflections/2026-03-09-f088-chat-gateway-capsule.md) · [2026-04-10-f088-issue3-completion-capsule.md](../reflections/2026-04-10-f088-issue3-completion-capsule.md)
 
 ## Why
 
