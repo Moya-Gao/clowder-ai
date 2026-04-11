@@ -971,7 +971,13 @@
       "name": "Kimi CLI First-Class Cat",
       "status": "done | **Owner**: 社区 (ZephaniaCN) + 布偶猫 | **Priority**: P2",
       "file": "F158-kimi-cli-first-class-cat.md"
+    },
+    {
+      "id": "F159",
+      "name": "CatAgent Native Provider — Opt-in API Path",
+      "status": "spec | **Owner**: 社区 (bouillipx) + 布偶猫 + 缅因猫 | **Priority**: P1",
+      "file": "F159-catagent-native-provider.md"
     }
   ],
-  "generated_at": "2026-04-11T11:33:31.917Z"
+  "generated_at": "2026-04-11T12:15:56.468Z"
 }
