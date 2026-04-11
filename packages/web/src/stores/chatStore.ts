@@ -1627,15 +1627,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!existing) return state;
       const rest = Object.fromEntries(Object.entries(existing.activeInvocations).filter(([k]) => k !== invocationId));
       return {
-        threadStates: {
-          ...state.threadStates,
-          [threadId]: {
-            ...existing,
-            activeInvocations: rest,
-            hasActiveInvocation: Object.keys(rest).length > 0,
-            lastActivity: Date.now(),
-          },
-        },
+        threadStates: stampThreadCompletion(state.threadStates, threadId, {
+          activeInvocations: rest,
+          hasActiveInvocation: Object.keys(rest).length > 0,
+        }),
       };
     }),
 
