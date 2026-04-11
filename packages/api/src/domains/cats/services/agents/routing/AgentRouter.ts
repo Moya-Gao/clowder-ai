@@ -168,6 +168,8 @@ export interface AgentRouterOptions {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F157: Growth XP service */
+  growthService?: import('../../growth/GrowthService.js').GrowthService;
 }
 
 /**
@@ -210,6 +212,8 @@ export class AgentRouter {
   private evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150 */
   private toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F157 */
+  private growthService?: import('../../growth/GrowthService.js').GrowthService;
   private speechMentionRe: RegExp;
 
   private rebuildRuntimeCaches(agentRegistry: AgentRegistry): void {
@@ -248,6 +252,7 @@ export class AgentRouter {
     this.packStore = options.packStore;
     this.evidenceStore = options.evidenceStore;
     this.toolUsageCounter = options.toolUsageCounter;
+    this.growthService = options.growthService;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -674,6 +679,7 @@ export class AgentRouter {
       ...(this.packStore ? { packStore: this.packStore } : {}),
       ...(this.evidenceStore ? { evidenceStore: this.evidenceStore } : {}),
       ...(this.toolUsageCounter ? { toolUsageCounter: this.toolUsageCounter } : {}),
+      ...(this.growthService ? { growthService: this.growthService } : {}),
     };
   }
 

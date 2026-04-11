@@ -122,6 +122,9 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, o
       return { error: 'Invalid request body', details: result.error.issues };
     }
 
+    // F157: Read old status before update to detect actual state transition
+    const oldTask = result.data.status === 'done' ? await taskStore.get(id) : undefined;
+
     const updated = await taskStore.update(id, toUpdateInput(result.data));
     if (!updated) {
       reply.status(404);
@@ -130,8 +133,8 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, o
 
     socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'task_updated', updated);
 
-    // F157: Award XP when task is marked done
-    if (result.data.status === 'done' && updated.ownerCatId && growthService) {
+    // F157: Award XP only on actual transition to 'done' (idempotent)
+    if (result.data.status === 'done' && oldTask && oldTask.status !== 'done' && updated.ownerCatId && growthService) {
       growthService.awardXp(updated.ownerCatId, 'task_complete');
     }
 

@@ -85,6 +85,8 @@ export interface CallbackRoutesOptions {
   limbRegistry?: import('../domains/limb/LimbRegistry.js').LimbRegistry;
   /** F126 Phase C: Limb pairing store for remote device approval */
   limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
+  /** F157: Growth XP service — awards discussion XP on cat messages */
+  growthService?: import('../domains/cats/services/growth/GrowthService.js').GrowthService;
   /** F088: Outbound delivery hook for connector-bound threads (late-bound after gateway bootstrap). */
   outboundHook?: {
     deliver(
@@ -291,6 +293,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     validateRepo,
     featIndexProvider,
     queueProcessor,
+    growthService,
   } = opts;
 
   app.post('/api/callbacks/post-message', async (request, reply) => {
@@ -500,6 +503,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
       ...(willEnqueueToQueue ? { deliveryStatus: 'queued' as const } : {}),
     });
+
+    // F157: Award discussion XP (fire-and-forget)
+    growthService?.awardXp(record.catId, 'discussion');
 
     // F121: Hydrate reply preview for broadcast
     const replyPreview = validatedReplyTo ? await hydrateReplyPreview(messageStore, validatedReplyTo) : undefined;
@@ -1325,6 +1331,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       ...(invocationTracker ? { invocationTracker } : {}),
       ...(opts.invocationQueue ? { invocationQueue: opts.invocationQueue } : {}),
       ...(queueProcessor ? { queueProcessor } : {}),
+      ...(growthService ? { growthService } : {}),
     });
     // Wire orchestrator into SocketManager for cancel propagation (P1-1 fix)
     if (typeof socketManager.setMultiMentionOrchestrator === 'function') {

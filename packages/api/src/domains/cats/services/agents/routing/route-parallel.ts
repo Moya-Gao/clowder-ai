@@ -456,6 +456,8 @@ export async function* routeParallel(
         msg.toolName ?? 'unknown',
         msg.toolInput as Record<string, unknown> | undefined,
       );
+      // F157: 1 XP execution per tool call
+      deps.growthService?.awardXp(msg.catId as string, 'tool_use');
     }
     if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
       catMeta.set(msg.catId, msg.metadata);

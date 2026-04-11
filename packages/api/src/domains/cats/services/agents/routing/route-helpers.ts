@@ -52,6 +52,8 @@ export interface RouteStrategyDeps {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter (fire-and-forget INCR on tool_use events) */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F157: Growth XP service (fire-and-forget INCRBY on XP-worthy events) */
+  growthService?: import('../../growth/GrowthService.js').GrowthService;
 }
 
 /** Mutable context for tracking persistence failures across the generator boundary.

@@ -942,6 +942,11 @@ async function main(): Promise<void> {
     dailyTimer.unref();
   }
 
+  // F157: Cat Growth RPG — XP attributes + profiles (created early for AgentRouter injection)
+  const growthService = redis
+    ? new (await import('./domains/cats/services/growth/GrowthService.js')).GrowthService(redis)
+    : undefined;
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -966,6 +971,7 @@ async function main(): Promise<void> {
     packStore,
     evidenceStore: memoryServices.evidenceStore,
     ...(toolUsageCounter ? { toolUsageCounter } : {}),
+    ...(growthService ? { growthService } : {}),
   });
 
   // F39: Message queue delivery
@@ -1085,10 +1091,6 @@ async function main(): Promise<void> {
   if (toolUsageCounter) {
     await app.register(toolUsageRoutes, { toolUsageCounter });
   }
-  // F157: Cat Growth RPG — XP attributes + profiles
-  const growthService = redis
-    ? new (await import('./domains/cats/services/growth/GrowthService.js')).GrowthService(redis)
-    : undefined;
   if (growthService) {
     await app.register(growthRoutes, { growthService });
   }
@@ -1190,6 +1192,7 @@ async function main(): Promise<void> {
     reflectionService: memoryServices.reflectionService,
     limbRegistry,
     limbPairingStore,
+    ...(growthService ? { growthService } : {}),
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
 
@@ -1325,6 +1328,7 @@ async function main(): Promise<void> {
     sessionSealer,
     transcriptReader,
     ...(hookToken ? { hookToken } : {}),
+    ...(growthService ? { growthService } : {}),
   });
 
   // F33 Phase 3: Session strategy config (runtime overrides via Redis)
