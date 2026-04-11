@@ -597,9 +597,9 @@ async function main(): Promise<void> {
           if (process.env.F102_API_BASE && process.env.F102_API_KEY) {
             return { mode: 'api_key' as const, baseUrl: process.env.F102_API_BASE, apiKey: process.env.F102_API_KEY };
           }
-          // Priority 2: resolve via full discovery chain (#340: system callers use resolveForClient)
-          const profile = resolveForClient(process.cwd(), 'anthropic');
-          const apiKey = profile?.apiKey;
+          // Priority 2: deterministic binding with installer-only fallback (502 regression)
+          const runtimeProfile = resolveAnthropicRuntimeProfile(process.cwd());
+          const apiKey = runtimeProfile.apiKey;
           if (!apiKey) return null;
           const proxyPort = process.env.ANTHROPIC_PROXY_PORT || '9877';
           // Read first upstream slug from proxy-upstreams.json
