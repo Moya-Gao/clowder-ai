@@ -51,4 +51,5 @@ Other open bugs (#440, #427, #386, #338, #263, #260, #236, #234, #200, #181, #16
 
 ## CVO Sign-off
 
-- Pending @lysander approval
+- Approved by @lysander on 2026-04-11
+- Release tag `v0.6.1` → `7687701e6ec7f5111875c2bca22051a3ca326c04` published to clowder-ai
