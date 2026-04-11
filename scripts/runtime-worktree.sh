@@ -260,6 +260,15 @@ ensure_runtime_clean() {
   local dirty
   dirty=$(git -C "$RUNTIME_DIR" status --short -uno 2>/dev/null || true)
   if [ -n "$dirty" ] && [ "$FORCE" != "true" ]; then
+    # Auto-stash isolated pnpm-lock.yaml drift (common after pnpm install on
+    # a previous run). Only the lock file dirty → safe to stash and proceed.
+    local drift_files
+    drift_files=$(git -C "$RUNTIME_DIR" diff --name-only 2>/dev/null || true)
+    if [ "$drift_files" = "pnpm-lock.yaml" ]; then
+      info "lock drift detected — stashing before sync"
+      git -C "$RUNTIME_DIR" stash push -m "lock-drift-pre-sync-stash" -- pnpm-lock.yaml
+      return 0
+    fi
     die "runtime worktree has local changes. Commit/stash first, or re-run with --force."
   fi
 }
