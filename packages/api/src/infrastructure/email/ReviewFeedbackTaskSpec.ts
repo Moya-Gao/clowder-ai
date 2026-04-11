@@ -45,6 +45,48 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
   const commentCursors = new Map<string, number>();
   const reviewCursors = new Map<string, number>();
 
+  /**
+   * Advance cursor: persist to store + update in-memory map.
+   *
+   * Two policies (matching blast radius of each failure mode):
+   * - persistFirst (echo-skip): no delivery happened → persist first, skip memory on failure → safe retry
+   * - memoryFirst  (post-delivery): notification sent → advance memory first → prevent duplicate spam
+   */
+  async function advanceCursor(
+    taskId: string,
+    prKey: string,
+    cursors: { comment: number; decision: number },
+    policy: 'persistFirst' | 'memoryFirst',
+  ): Promise<void> {
+    const patch = {
+      review: {
+        lastCommentCursor: cursors.comment,
+        lastDecisionCursor: cursors.decision,
+        ...(policy === 'memoryFirst' ? { lastNotifiedAt: Date.now() } : {}),
+      },
+    };
+    const setMemory = () => {
+      commentCursors.set(prKey, cursors.comment);
+      reviewCursors.set(prKey, cursors.decision);
+    };
+
+    if (policy === 'memoryFirst') {
+      setMemory();
+      try {
+        await opts.taskStore.patchAutomationState(taskId, patch);
+      } catch (e) {
+        opts.log.warn(`[review-feedback] cursor persist failed for ${prKey}, restart may replay`, e);
+      }
+    } else {
+      try {
+        await opts.taskStore.patchAutomationState(taskId, patch);
+        setMemory();
+      } catch (e) {
+        opts.log.warn(`[review-feedback] echo-skip persist failed for ${prKey}, will retry next tick`, e);
+      }
+    }
+  }
+
   return {
     id: 'review-feedback',
     profile: 'poller',
@@ -90,16 +132,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const allSkipped = newComments.length === 0 && newDecisions.length === 0;
             const hadNewItems = allNewComments.length > 0 || allNewReviews.length > 0;
             if (hadNewItems && allSkipped) {
-              // #406: Persist echo-skip cursor; isolated try so fetch-fail catch doesn't swallow it
-              try {
-                await opts.taskStore.patchAutomationState(task.id, {
-                  review: { lastCommentCursor: maxCommentId, lastDecisionCursor: maxReviewId },
-                });
-                commentCursors.set(prKey, maxCommentId);
-                reviewCursors.set(prKey, maxReviewId);
-              } catch (e) {
-                opts.log.warn(`[review-feedback] echo-skip persist failed for ${prKey}, will retry next tick`, e);
-              }
+              await advanceCursor(task.id, prKey, { comment: maxCommentId, decision: maxReviewId }, 'persistFirst');
               continue;
             }
 
@@ -112,24 +145,8 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                 prNumber,
                 newComments,
                 newDecisions,
-                commitCursor: async () => {
-                  // #406: Always advance in-memory cursor after successful delivery
-                  // to prevent duplicate notifications within the same process.
-                  // Persist failure only affects restart recovery (much smaller blast radius).
-                  commentCursors.set(prKey, maxCommentId);
-                  reviewCursors.set(prKey, maxReviewId);
-                  try {
-                    await opts.taskStore.patchAutomationState(task.id, {
-                      review: {
-                        lastCommentCursor: maxCommentId,
-                        lastDecisionCursor: maxReviewId,
-                        lastNotifiedAt: Date.now(),
-                      },
-                    });
-                  } catch (e) {
-                    opts.log.warn(`[review-feedback] cursor persist failed for ${prKey}, restart may replay`, e);
-                  }
-                },
+                commitCursor: () =>
+                  advanceCursor(task.id, prKey, { comment: maxCommentId, decision: maxReviewId }, 'memoryFirst'),
               },
               // #320 KD-15: unified subject_key format
               subjectKey: task.subjectKey!,
