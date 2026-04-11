@@ -156,12 +156,25 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
     assert.ok(source.includes('env: childEnv'), 'Windows spawn must use childEnv (which contains profile env vars)');
   });
 
-  it('start-windows.ps1 propagates env vars to child processes via Start-Job', () => {
+  it('start-windows.ps1 does not clobber profile env vars inherited from start-entry.mjs', () => {
     const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
 
-    // PS1 loads .env into current process env (line ~57-68)
-    // Then Start-Job inherits parent env, and also explicitly re-loads .env + runtimeEnvOverrides
-    assert.ok(ps1.includes('$runtimeEnvOverrides'), 'start-windows.ps1 must define runtimeEnvOverrides for child jobs');
+    // start-entry.mjs sets CAT_CAFE_PROFILE + CAT_CAFE_STRICT_PROFILE_DEFAULTS in childEnv,
+    // which becomes the PS1 process env. Start-Job inherits parent env by default.
+    // Verify: runtimeEnvOverrides must NOT contain profile keys (they flow via inheritance).
+    const overridesMatch = ps1.match(/\$runtimeEnvOverrides\s*=\s*@\{([^}]+)\}/s);
+    assert.ok(overridesMatch, 'start-windows.ps1 must define $runtimeEnvOverrides');
+    const overridesBlock = overridesMatch[1];
+    assert.ok(
+      !overridesBlock.includes('CAT_CAFE_PROFILE'),
+      'runtimeEnvOverrides must not override CAT_CAFE_PROFILE (it flows via env inheritance)',
+    );
+    assert.ok(
+      !overridesBlock.includes('CAT_CAFE_STRICT_PROFILE'),
+      'runtimeEnvOverrides must not override CAT_CAFE_STRICT_PROFILE_DEFAULTS (it flows via env inheritance)',
+    );
+
+    // Verify Start-Job is used (PS Start-Job inherits parent process env by default)
     assert.ok(ps1.includes('Start-Job'), 'start-windows.ps1 must use Start-Job (which inherits parent process env)');
   });
 });
