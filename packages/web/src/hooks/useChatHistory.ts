@@ -18,6 +18,7 @@ type SavedScrollState = {
 const scrollPositionsByThread = new Map<string, SavedScrollState>();
 const SCROLL_BOTTOM_THRESHOLD_PX = 24;
 const MAX_RESTORE_FRAMES = 90;
+const CHAT_LAYOUT_CHANGED_EVENT = 'catcafe:chat-layout-changed';
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.clientHeight - el.scrollTop <= SCROLL_BOTTOM_THRESHOLD_PX;
@@ -222,6 +223,21 @@ export function useChatHistory(threadId: string) {
       cancelAnimationFrame(restoreFrameRef.current);
       restoreFrameRef.current = null;
     }
+  }, []);
+
+  const followBottomAnchor = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const currentThread = threadIdRef.current;
+    const el = scrollContainerRef.current;
+    if (!el || useChatStore.getState().currentThreadId !== currentThread) return;
+
+    const saved = scrollPositionsByThread.get(currentThread);
+    if (saved?.anchor !== 'bottom') return;
+
+    messagesEndRef.current?.scrollIntoView({ behavior });
+    scrollPositionsByThread.set(currentThread, {
+      top: Math.max(0, el.scrollHeight - el.clientHeight),
+      anchor: 'bottom',
+    });
   }, []);
 
   const scheduleRestore = useCallback(
@@ -719,6 +735,23 @@ export function useChatHistory(threadId: string) {
       }
     }
   }, [messages, scheduleRestore, threadId]);
+
+  useEffect(() => {
+    let rafId: number | null = null;
+    const handler = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        followBottomAnchor('auto');
+      });
+    };
+
+    window.addEventListener(CHAT_LAYOUT_CHANGED_EVENT, handler);
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      window.removeEventListener(CHAT_LAYOUT_CHANGED_EVENT, handler);
+    };
+  }, [followBottomAnchor]);
 
   // Load more when scrolled to top + clowder-ai#27 continuous scroll save
   const handleScroll = useCallback(() => {
