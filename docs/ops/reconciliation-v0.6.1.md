@@ -42,6 +42,13 @@ Other open bugs (#440, #427, #386, #338, #263, #260, #236, #234, #200, #181, #16
 - No issues closed (no direct coverage)
 - No labels added (no partial coverage to annotate)
 
+## Deferred to Next Sync
+
+- `6c338c563` fix(sync): ensure_runtime_clean checks staged+unstaged files before lock drift stash
+  - Dev tooling guard fix (not user-facing application change)
+  - Reviewed by 砚砚, merged to main after sync snapshot cutoff (`b07d6705b`)
+  - Will be included in next outbound sync cycle
+
 ## CVO Sign-off
 
 - Pending @lysander approval
