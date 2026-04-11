@@ -1605,6 +1605,15 @@ async function main(): Promise<void> {
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
 
+  // F156: Friendly hint for private network access
+  if (HOST === '0.0.0.0' && process.env.CORS_ALLOW_PRIVATE_NETWORK !== 'true') {
+    app.log.warn(
+      '[network] 检测到监听所有网络 (0.0.0.0)，但私网设备访问未开启。' +
+        '手机/平板通过局域网或 Tailscale 访问可能被拦截。' +
+        '在 .env 中添加 CORS_ALLOW_PRIVATE_NETWORK=true 并重启服务（参考 .env.example）',
+    );
+  }
+
   // F048 Phase A: Sweep orphaned invocations from previous process crash.
   // Runs only after the API has both:
   // 1) acquired the Redis namespace lease, and
