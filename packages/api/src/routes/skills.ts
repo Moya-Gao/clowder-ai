@@ -15,12 +15,12 @@ import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
 import { readCapabilitiesConfig, resolveRequiredMcpStatus } from '../config/capabilities/capability-orchestrator.js';
 import { validateProjectPath } from '../utils/project-path.js';
+import { resolveUserId } from '../utils/request-identity.js';
 import {
   buildProviderSkillDirCandidates,
   isSkillMountedForProvider,
   resolveMainRepoPath,
 } from '../utils/skill-mount.js';
-import { resolveUserId } from '../utils/request-identity.js';
 
 interface SkillMount {
   claude: boolean;

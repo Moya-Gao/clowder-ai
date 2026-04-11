@@ -73,7 +73,9 @@ export async function isSkillMountedForProvider(
   for (const dir of dirCandidates) {
     if (await isCorrectSymlink(dir, expectedSkillsRoot)) return true;
     if (fallbackSkillsRoot && (await isCorrectSymlink(dir, fallbackSkillsRoot))) return true;
-    if (await isCorrectSymlink(join(dir, skillName), join(expectedSkillsRoot, skillName), skillName, fallbackSkillsRoot)) {
+    if (
+      await isCorrectSymlink(join(dir, skillName), join(expectedSkillsRoot, skillName), skillName, fallbackSkillsRoot)
+    ) {
       return true;
     }
   }
