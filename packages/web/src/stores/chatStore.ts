@@ -86,6 +86,25 @@ function snapshotActive(s: ChatState): ThreadState {
   };
 }
 
+/** Stamp completion time into threadStates for a given thread.
+ *  Centralizes the "real activity just ended" semantic so all invocation-clearing
+ *  paths share one definition. Optional `patch` merges extra fields before stamping. */
+function stampThreadCompletion(
+  threadStates: Record<string, ThreadState>,
+  threadId: string,
+  patch?: Partial<ThreadState>,
+): Record<string, ThreadState> {
+  const existing = threadStates[threadId];
+  return {
+    ...threadStates,
+    [threadId]: {
+      ...(existing ?? { ...DEFAULT_THREAD_STATE }),
+      ...patch,
+      lastActivity: Date.now(),
+    },
+  };
+}
+
 /** Flatten a ThreadState into partial ChatState fields */
 function flattenThread(ts: ThreadState): Partial<ChatState> {
   const result: Partial<ChatState> = {
@@ -1064,16 +1083,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Stamp completion time when transitioning active → inactive on the current thread,
       // so snapshotActive sees real completion time instead of stale message timestamps.
       if (!v && state.hasActiveInvocation) {
-        const existingTs = state.threadStates[state.currentThreadId];
         return {
           hasActiveInvocation: false,
-          threadStates: {
-            ...state.threadStates,
-            [state.currentThreadId]: {
-              ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
-              lastActivity: Date.now(),
-            },
-          },
+          threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
         };
       }
       return { hasActiveInvocation: v };
@@ -1093,16 +1105,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!(invocationId in state.activeInvocations)) {
         const hasActive = Object.keys(state.activeInvocations).length > 0;
         if (!hasActive && state.hasActiveInvocation) {
-          const existingTs = state.threadStates[state.currentThreadId];
           return {
             hasActiveInvocation: false,
-            threadStates: {
-              ...state.threadStates,
-              [state.currentThreadId]: {
-                ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
-                lastActivity: Date.now(),
-              },
-            },
+            threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
           };
         }
         return { hasActiveInvocation: hasActive };
@@ -1111,40 +1116,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const hasActive = Object.keys(rest).length > 0;
       // When the last invocation ends, stamp the completion time into threadStates
       // so snapshotActive's idle branch picks up the real "just finished streaming" time.
-      const existingTs = state.threadStates[state.currentThreadId];
       return {
         activeInvocations: rest,
         hasActiveInvocation: hasActive,
-        ...(!hasActive
-          ? {
-              threadStates: {
-                ...state.threadStates,
-                [state.currentThreadId]: {
-                  ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
-                  lastActivity: Date.now(),
-                },
-              },
-            }
-          : {}),
+        ...(!hasActive ? { threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId) } : {}),
       };
     }),
   /** F108: Clear all active invocations (timeout/error/stop recovery) */
   clearAllActiveInvocations: () =>
-    set((state) => {
-      const existingTs = state.threadStates[state.currentThreadId];
-      return {
-        activeInvocations: {},
-        hasActiveInvocation: false,
-        // Stamp completion time (same as removeActiveInvocation) for stop/timeout/reconnect paths
-        threadStates: {
-          ...state.threadStates,
-          [state.currentThreadId]: {
-            ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
-            lastActivity: Date.now(),
-          },
-        },
-      };
-    }),
+    set((state) => ({
+      activeInvocations: {},
+      hasActiveInvocation: false,
+      threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
+    })),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
   setIntentMode: (mode) => set({ intentMode: mode }),
 
@@ -1659,31 +1643,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearAllThreadActiveInvocations: (threadId) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        const existingTs = state.threadStates[state.currentThreadId];
         return {
           activeInvocations: {},
           hasActiveInvocation: false,
-          threadStates: {
-            ...state.threadStates,
-            [state.currentThreadId]: {
-              ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
-              lastActivity: Date.now(),
-            },
-          },
+          threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
         };
       }
       const existing = state.threadStates[threadId];
       if (!existing) return state;
       return {
-        threadStates: {
-          ...state.threadStates,
-          [threadId]: {
-            ...existing,
-            activeInvocations: {},
-            hasActiveInvocation: false,
-            lastActivity: Date.now(),
-          },
-        },
+        threadStates: stampThreadCompletion(state.threadStates, threadId, {
+          activeInvocations: {},
+          hasActiveInvocation: false,
+        }),
       };
     }),
 
@@ -1990,16 +1962,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       // Active thread — clear flat state + stamp completion time
       if (threadId === state.currentThreadId) {
-        const existingTs = state.threadStates[state.currentThreadId];
         return {
           ...resetPatch,
-          threadStates: {
-            ...state.threadStates,
-            [state.currentThreadId]: {
-              ...(existingTs ?? { ...DEFAULT_THREAD_STATE }),
-              lastActivity: Date.now(),
-            },
-          },
+          threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
         };
       }
 
@@ -2007,14 +1972,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const ts = state.threadStates[threadId];
       if (!ts) return state;
       return {
-        threadStates: {
-          ...state.threadStates,
-          [threadId]: {
-            ...ts,
-            ...resetPatch,
-            lastActivity: Date.now(),
-          },
-        },
+        threadStates: stampThreadCompletion(state.threadStates, threadId, resetPatch),
       };
     }),
 
