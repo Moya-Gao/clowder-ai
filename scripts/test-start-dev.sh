@@ -230,7 +230,48 @@ guard_runtime_redis_sanctuary 2>/dev/null
 PROD_WEB=false
 echo "PASS: runtime 6399 is allowed"
 
-# Test 13f: managed port cleanup includes preview gateway
+# Test 13f: kill_port blocks cross-worktree process by default
+orig_port_listen_pids_def="$(declare -f port_listen_pids)"
+orig_pid_cwd_def="$(declare -f pid_cwd)"
+port_listen_pids() { echo "4242"; }
+pid_cwd() { echo "/tmp/cat-cafe-runtime"; }
+CAT_CAFE_RUNTIME_RESTART_OK=0
+set +e
+kill_output=$(kill_port 3002 "API" 2>&1)
+rc=$?
+set -e
+[ "$rc" -ne 0 ] || { echo "FAIL: cross-worktree kill should be blocked by default"; exit 1; }
+echo "$kill_output" | grep -q "跨 worktree" || { echo "FAIL: should explain cross-worktree guard"; exit 1; }
+echo "$kill_output" | grep -q "正在终止进程" && { echo "FAIL: should not reach kill stage when ownership guard blocks"; exit 1; }
+echo "PASS: kill_port blocks cross-worktree process by default"
+
+# Test 13g: explicit restart auth allows cross-worktree kill
+port_probe_state="$(mktemp)"
+echo "0" > "$port_probe_state"
+port_listen_pids() {
+    local count
+    count=$(cat "$port_probe_state")
+    if [ "$count" -eq 0 ]; then
+        echo "4242"
+    fi
+    echo $((count + 1)) > "$port_probe_state"
+}
+CAT_CAFE_RUNTIME_RESTART_OK=1
+set +e
+kill_output=$(kill_port 3002 "API" 2>&1)
+rc=$?
+set -e
+rm -f "$port_probe_state"
+[ "$rc" -eq 0 ] || { echo "FAIL: explicit restart auth should allow cross-worktree cleanup"; exit 1; }
+echo "$kill_output" | grep -q "CAT_CAFE_RUNTIME_RESTART_OK=1" || { echo "FAIL: should print explicit auth warning"; exit 1; }
+echo "$kill_output" | grep -q "端口 3002 已释放" || { echo "FAIL: should report port released after explicit auth"; exit 1; }
+echo "PASS: explicit restart auth allows cross-worktree cleanup"
+
+unset CAT_CAFE_RUNTIME_RESTART_OK
+eval "$orig_port_listen_pids_def"
+eval "$orig_pid_cwd_def"
+
+# Test 13h: managed port cleanup includes preview gateway
 kill_port_calls=""
 kill_port() { kill_port_calls="${kill_port_calls}|$1:$2"; }
 API_PORT=3002

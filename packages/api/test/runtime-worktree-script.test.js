@@ -431,7 +431,11 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
       },
     });
 
-    assert.notEqual(result.status, 0, `should reject but exited 0\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+    assert.notEqual(
+      result.status,
+      0,
+      `should reject but exited 0\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+    );
     assert.match(result.stderr, /runtime worktree has local changes/);
   });
 });
