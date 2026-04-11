@@ -709,7 +709,9 @@ export const catsRoutes: FastifyPluginAsync = async (app) => {
       return { deleted: true, id: request.params.id, updatedBy: operator };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (/not found/i.test(message)) {
+      if (/cannot delete seed cat/i.test(message)) {
+        reply.status(409);
+      } else if (/not found/i.test(message)) {
         reply.status(404);
       } else {
         reply.status(400);

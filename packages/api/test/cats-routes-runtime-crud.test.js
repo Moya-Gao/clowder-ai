@@ -1765,7 +1765,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     );
   });
 
-  it('DELETE /api/cats/:id allows deleting bootstrapped members from the runtime catalog', async () => {
+  it('DELETE /api/cats/:id rejects deleting seed members with 409', async () => {
     const projectRoot = createProjectRootFromRepoTemplate();
 
     const Fastify = (await import('fastify')).default;
@@ -1781,17 +1781,17 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         'x-cat-cafe-user': 'codex',
       },
     });
-    assert.equal(deleteRes.statusCode, 200);
+    assert.equal(deleteRes.statusCode, 409);
     const deleteBody = JSON.parse(deleteRes.body);
-    assert.equal(deleteBody.deleted, true);
-    assert.equal(deleteBody.id, 'opus');
+    assert.match(deleteBody.error, /cannot delete seed cat/i);
 
+    // Verify opus is still present
     const listRes = await app.inject({ method: 'GET', url: '/api/cats' });
     assert.equal(listRes.statusCode, 200);
     const listBody = JSON.parse(listRes.body);
     assert.equal(
       listBody.cats.some((cat) => cat.id === 'opus'),
-      false,
+      true,
     );
   });
 });
