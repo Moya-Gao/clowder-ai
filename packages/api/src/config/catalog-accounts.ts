@@ -220,7 +220,7 @@ function migrateLegacyFrom(root: string, projectRoot?: string): void {
       ...(models ? { models } : {}),
     };
   }
-  const { merged } = mergeIntoGlobal(accounts, projectRoot);
+  const { merged } = mergeIntoGlobal(accounts, projectRoot, { skipConflicts: true });
   const mergedSet = new Set(merged);
   // Read global state after merge for retry-safe credential import
   const globalAfterMerge = readAllGlobal(projectRoot);
