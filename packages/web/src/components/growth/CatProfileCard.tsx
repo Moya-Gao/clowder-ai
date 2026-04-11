@@ -1,8 +1,12 @@
 'use client';
 
 import type { CatGrowthProfile, GrowthDimension } from '@cat-cafe/shared';
+import { useCallback, useState } from 'react';
+import { DownloadIcon } from '@/components/icons/DownloadIcon';
 import { useCatData } from '@/hooks/useCatData';
+import { apiFetch } from '@/utils/api-client';
 import { GrowthRadarChart } from './GrowthRadarChart';
+import { XpAuditLog } from './XpAuditLog';
 
 const DIM_LABELS: Record<GrowthDimension, string> = {
   architecture: '架构力',
@@ -25,9 +29,33 @@ export function CatProfileCard({ profile, cardId }: Props) {
   const { getCatById } = useCatData();
   const catData = getCatById(profile.catId);
   const primaryColor = catData?.color?.primary ?? '#9B7EBD';
+  const [exporting, setExporting] = useState(false);
 
   const { attributes } = profile;
   const { stats, overallLevel, totalXp } = attributes;
+
+  /** AC-A3: Download profile card as PNG */
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const res = await apiFetch(`/api/growth/${profile.catId}/export-image`, { method: 'POST' });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+        throw new Error(body.message || body.error || '导出失败');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${profile.nickname ?? profile.displayName}-growth-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Growth card export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  }, [profile.catId, profile.nickname, profile.displayName]);
 
   return (
     <div
@@ -63,6 +91,29 @@ export function CatProfileCard({ profile, cardId }: Props) {
             {totalXp.toLocaleString()} XP
           </span>
         </div>
+        {/* AC-A3: Export PNG button */}
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="rounded-lg p-1.5 transition-colors hover:bg-cafe-surface-elevated disabled:cursor-not-allowed disabled:opacity-50"
+          title="导出名片 PNG"
+          aria-label="导出名片 PNG"
+        >
+          {exporting ? (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              className="h-4 w-4 animate-spin text-cafe-secondary"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+              <path d="M12 2a10 10 0 019.8 8" />
+            </svg>
+          ) : (
+            <DownloadIcon className="h-4 w-4 text-cafe-secondary" />
+          )}
+        </button>
       </div>
 
       {/* Radar chart */}
@@ -98,6 +149,9 @@ export function CatProfileCard({ profile, cardId }: Props) {
           );
         })}
       </div>
+
+      {/* AC-A5: XP audit trail */}
+      <XpAuditLog catId={profile.catId} color={primaryColor} />
     </div>
   );
 }

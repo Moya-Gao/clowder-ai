@@ -13,12 +13,13 @@ import type {
   DimensionStat,
   GrowthDimension,
   GrowthOverview,
+  XpEvent,
   XpSource,
 } from '@cat-cafe/shared';
 import { catRegistry, GROWTH_DIMENSIONS } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
-import { growthXpKey } from '../stores/redis-keys/growth-keys.js';
+import { growthAuditKey, growthXpKey } from '../stores/redis-keys/growth-keys.js';
 
 const log = createModuleLogger('growth');
 
@@ -59,16 +60,28 @@ export class GrowthService {
     return (this.redis as { options?: { keyPrefix?: string } }).options?.keyPrefix ?? '';
   }
 
-  /** Award XP. Fire-and-forget — caller should not await. */
+  /** Award XP + record audit event. Fire-and-forget — caller should not await. */
   awardXp(catId: string, source: XpSource, multiplier = 1): void {
     const rule = XP_RULES[source];
     if (!rule) return;
     const amount = Math.max(1, Math.round(rule.xp * multiplier));
     const key = growthXpKey(catId, rule.dimension);
+    const ts = Date.now();
 
-    this.redis.incrby(key, amount).catch((err: unknown) => {
+    // Increment total + append audit entry (pipelined, single RTT)
+    const pipeline = this.redis.pipeline();
+    pipeline.incrby(key, amount);
+    const event: XpEvent = { catId, dimension: rule.dimension, xp: amount, source, timestamp: ts };
+    pipeline.zadd(growthAuditKey(catId), ts, JSON.stringify(event));
+    pipeline.exec().catch((err: unknown) => {
       log.warn({ err, catId, source }, 'Failed to award XP');
     });
+  }
+
+  /** AC-A5: Fetch recent XP events for a cat, newest first. */
+  async getXpEvents(catId: string, limit = 50, offset = 0): Promise<XpEvent[]> {
+    const raw = await this.redis.zrevrange(growthAuditKey(catId), offset, offset + limit - 1);
+    return raw.map((s) => JSON.parse(s) as XpEvent);
   }
 
   /** Read one cat's attributes from Redis. */
