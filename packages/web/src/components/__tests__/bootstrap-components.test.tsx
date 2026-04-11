@@ -269,6 +269,49 @@ describe('BootstrapSummaryCard', () => {
     expect(html).toContain('green-200');
     expect(html).toContain('green-50');
   });
+
+  it('renders SVG icons instead of emoji', () => {
+    const html = renderToStaticMarkup(
+      <BootstrapSummaryCard summary={mockSummary} docsIndexed={42} durationMs={5000} />,
+    );
+    expect(html).toContain('<svg');
+    expect(html).not.toContain('✅');
+    expect(html).not.toContain('📁');
+    expect(html).not.toContain('📄');
+    expect(html).not.toContain('⏱');
+  });
+
+  it('enables buttons when handlers are provided', () => {
+    const html = renderToStaticMarkup(
+      <BootstrapSummaryCard
+        summary={mockSummary}
+        docsIndexed={10}
+        onDismiss={() => {}}
+        onSearchKnowledge={() => {}}
+        onGoToMemoryHub={() => {}}
+      />,
+    );
+    expect(html).toContain('搜索知识');
+    expect(html).toContain('前往记忆中心');
+    expect(html).not.toContain('disabled');
+    expect(html).not.toContain('cursor-not-allowed');
+  });
+
+  it('uses SVG icons in button labels instead of emoji', () => {
+    const html = renderToStaticMarkup(
+      <BootstrapSummaryCard
+        summary={mockSummary}
+        docsIndexed={10}
+        onSearchKnowledge={() => {}}
+        onGoToMemoryHub={() => {}}
+      />,
+    );
+    expect(html).not.toContain('🔍');
+    expect(html).not.toContain('🧠');
+    // Buttons should contain SVG icons
+    const svgCount = (html.match(/<svg/g) ?? []).length;
+    expect(svgCount).toBeGreaterThanOrEqual(2);
+  });
 });
 
 describe('BootstrapAutoNotice', () => {

@@ -1,4 +1,7 @@
 import type { IndexState } from '@/hooks/useIndexState';
+import { HubIcon } from './hub-icons';
+import { MemoryIcon } from './icons/MemoryIcon';
+import { PawIcon } from './icons/PawIcon';
 
 interface BootstrapPromptCardProps {
   indexState: IndexState;
@@ -6,6 +9,23 @@ interface BootstrapPromptCardProps {
   projectPath: string;
   onStartScan: () => void;
   onSnooze: () => void;
+}
+
+function LockIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
 }
 
 export function BootstrapPromptCard({
@@ -27,7 +47,7 @@ export function BootstrapPromptCard({
       <div className="max-w-[85%] w-full rounded-lg border border-cocreator-primary/20 bg-cocreator-bg/30 p-5">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-12 h-12 rounded-full bg-cocreator-primary/10 flex items-center justify-center flex-shrink-0">
-            <span className="text-2xl">🧠</span>
+            <MemoryIcon className="w-6 h-6 text-cocreator-primary" />
           </div>
           <div>
             <p className="text-sm font-medium text-cafe-black">
@@ -45,16 +65,16 @@ export function BootstrapPromptCard({
 
         {!isFailed && (
           <div className="ml-16 mb-4 space-y-1.5 text-xs text-gray-500">
-            <p>
-              <span className="text-cocreator-primary mr-1.5">📂</span>
+            <p className="inline-flex items-center gap-1.5">
+              <HubIcon name="folder" className="w-3.5 h-3.5 text-cocreator-primary flex-shrink-0" />
               扫描范围 &nbsp;docs/ 下文档（specs · ADRs · plans · lessons）
             </p>
-            <p>
-              <span className="text-cocreator-primary mr-1.5">⏱</span>
+            <p className="inline-flex items-center gap-1.5">
+              <HubIcon name="timer" className="w-3.5 h-3.5 text-cocreator-primary flex-shrink-0" />
               预计耗时 &nbsp;~30 秒（后台运行，不影响对话）
             </p>
-            <p>
-              <span className="text-cocreator-primary mr-1.5">🔒</span>
+            <p className="inline-flex items-center gap-1.5">
+              <LockIcon className="w-3.5 h-3.5 text-cocreator-primary flex-shrink-0" />
               数据安全 &nbsp;所有索引数据保留在本地，不上传任何内容
             </p>
           </div>
@@ -71,9 +91,10 @@ export function BootstrapPromptCard({
           <button
             type="button"
             onClick={onStartScan}
-            className="px-4 py-2 rounded-lg bg-cocreator-primary hover:bg-cocreator-dark text-white text-xs font-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-cocreator-primary hover:bg-cocreator-dark text-white text-xs font-medium transition-colors inline-flex items-center gap-1.5"
           >
-            🐾 {isFailed ? '重试扫描' : isStale ? '更新索引' : '开始扫描'}
+            <PawIcon className="w-3.5 h-3.5" />
+            {isFailed ? '重试扫描' : isStale ? '更新索引' : '开始扫描'}
           </button>
         </div>
 

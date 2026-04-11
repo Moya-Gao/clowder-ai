@@ -427,6 +427,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     [setViewMode, router],
   );
 
+  const handleSearchKnowledge = useCallback(() => {
+    const fromParam = threadId ? `?from=${encodeURIComponent(threadId)}` : '';
+    router.push(`/memory/search${fromParam}`);
+  }, [router, threadId]);
+
+  const handleGoToMemoryHub = useCallback(() => {
+    const fromParam = threadId ? `?from=${encodeURIComponent(threadId)}` : '';
+    router.push(`/memory${fromParam}`);
+  }, [router, threadId]);
+
   if (viewMode === 'split') {
     return (
       <>
@@ -554,6 +564,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                         }
                         onStartBootstrap={startBootstrap}
                         onSnooze={snoozeBootstrap}
+                        onSearchKnowledge={handleSearchKnowledge}
+                        onGoToMemoryHub={handleGoToMemoryHub}
                       />
                     </div>
                   )}

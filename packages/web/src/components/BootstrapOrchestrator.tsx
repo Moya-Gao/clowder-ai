@@ -16,6 +16,8 @@ interface BootstrapOrchestratorProps {
   governanceDone?: boolean;
   onStartBootstrap: () => void;
   onSnooze: () => void;
+  onSearchKnowledge?: () => void;
+  onGoToMemoryHub?: () => void;
 }
 
 export function BootstrapOrchestrator({
@@ -29,6 +31,8 @@ export function BootstrapOrchestrator({
   governanceDone,
   onStartBootstrap,
   onSnooze,
+  onSearchKnowledge,
+  onGoToMemoryHub,
 }: BootstrapOrchestratorProps) {
   const [dismissed, setDismissed] = useState(false);
   const autoStartedRef = useRef(false);
@@ -71,6 +75,8 @@ export function BootstrapOrchestrator({
         docsIndexed={indexState.docs_indexed}
         durationMs={durationMs ?? undefined}
         onDismiss={() => setDismissed(true)}
+        onSearchKnowledge={onSearchKnowledge}
+        onGoToMemoryHub={onGoToMemoryHub}
       />
     );
   }
