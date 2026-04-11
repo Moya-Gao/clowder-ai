@@ -64,7 +64,7 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 
 | 风险 | 缓解 |
 |------|------|
-| 社区 PR 有 2 个 P1（counter 泄漏 + 端口硬编码）| AC-A6/A7 明确要求修复，intake 前必须验证 |
+| 社区 PR 有 2 个 P1（counter 泄漏 + 端口硬编码）| ✅ 已修复（4 轮 review 后全部 P1 绿灯）|
 | OTel SDK 增加启动依赖和包体积 | Phase A 保持可选（env 开关），不强制 |
 | Prometheus 端口与 alpha/runtime 端口冲突 | 必须走 env 配置，不允许硬编码 |
 
@@ -81,12 +81,18 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 |---|------|------|------|
 | KD-1 | 社区 PR 先不放行，P1 修完再 intake | 砚砚 review 发现 counter 泄漏 + 端口硬编码 | 2026-04-09 |
 | KD-2 | 分配 F153（cat-cafe F152 = Expedition Memory 已占） | 铲屎官确认 | 2026-04-09 |
+| KD-3 | AC-A5 改为 graceful degradation（缺 salt → 禁用 OTel，不崩溃）| 生产稳定性优先 | 2026-04-11 |
+| KD-4 | Pane registry abort 状态不一致接受为 known limitation，不阻塞 intake | pre-existing 行为，属 F089 terminal 域 | 2026-04-13 |
+| KD-5 | 4 轮 review 后放行 intake | 所有 P1 已修，核心 P2 已修，剩余 P2 non-blocking | 2026-04-13 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-09 | 立项。社区 PR clowder-ai#393 → 砚砚 review 发现 2P1+1P2 → 铲屎官确认开 F153 |
+| 2026-04-11 | Round 2: 旧 P1 全修，新增 P2（yielded-error span + salt 语义）|
+| 2026-04-12 | Round 3: yielded-error 修了，liveness 空转 P1 + aborted 信号 P2 |
+| 2026-04-13 | Round 4 (Final): 全部 P1 绿灯，批准 intake。pane 状态不一致为 known limitation |
 
 ## Links
 
