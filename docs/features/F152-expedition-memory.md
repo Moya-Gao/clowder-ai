@@ -274,6 +274,7 @@ interface ScannedEvidence {
 | 2026-04-10 | Phase B merged (PR #1067)：IndexStateManager 五态状态机 + ExpeditionBootstrapService + API endpoints + WebSocket 进度 + 前端组件 + F070 治理链串联 |
 | 2026-04-10 | Phase B design alignment merged (PR #1070)：12 项 .pen→code 偏差修复 + cloud review P1（auto-notice scope）/P2（ref reset）修复 |
 | 2026-04-11 | Phase C merged (PR #1073)：DistillationService + DeidentificationService + 4 API endpoints + 3 MCP tools + kind whitelist + dynamic projectPath deidentification |
+| 2026-04-11 | Hotfix merged (PR #1088)：tier classifier alignment — classifyDoc path-aware + getTierCoverage overlay from evidence store + project path guard. 修复"444 Plans/56 Specs"显示 bug |
 
 ## Review Gate
 
