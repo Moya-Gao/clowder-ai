@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { BootcampIcon } from '../icons/BootcampIcon';
@@ -154,7 +155,11 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     (threadId: string) => {
       pushThreadRouteWithFallback({
         threadId,
-        routerPush: (href) => router.push(href),
+        routerPush: (href) => {
+          startTransition(() => {
+            router.push(href);
+          });
+        },
         windowObj: typeof window !== 'undefined' ? window : undefined,
         pendingTimerId: navigationFallbackTimerRef.current,
         setPendingTimerId: (id) => {
