@@ -150,6 +150,7 @@ export const useGuideStore = create<GuideState>((set, get) => ({
         break;
       case 'control_exit':
         if (session && session.flow.id === event.guideId) exitGuide();
+        if (get().pendingStart?.guideId === event.guideId) set({ pendingStart: null });
         break;
       case 'complete':
         if (session && session.flow.id === event.guideId) setPhase('complete');
