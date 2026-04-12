@@ -697,8 +697,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
       );
       if (!isActiveThread) return;
-      const action = data.action === 'exit' ? 'control_exit' : data.action === 'skip' ? 'control_skip' : 'control_next';
-      useGuideStore.getState().reduceServerEvent({ action, guideId: data.guideId, threadId: data.threadId });
+      const action =
+        data.action === 'exit' ? 'control_exit' : data.action === 'skip' ? 'control_skip' : data.action === 'next' ? 'control_next' : undefined;
+      if (action) {
+        useGuideStore.getState().reduceServerEvent({ action, guideId: data.guideId, threadId: data.threadId });
+      }
     });
 
     socket.on('guide_complete', (data: { guideId: string; threadId: string; timestamp: number }) => {

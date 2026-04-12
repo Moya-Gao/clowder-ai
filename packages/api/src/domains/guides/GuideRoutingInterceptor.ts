@@ -194,14 +194,14 @@ export async function prepareGuideContext(params: {
   const targetCatIds = new Set(targetCats);
   const ctx: GuideRoutingContext = { hiddenForeign: false };
 
-  if (!thread) return ctx;
+  if (thread) {
+    const threadGuideState = thread.guideState;
+    ctx.hiddenForeign = hasHiddenForeignNonTerminalGuideState(thread, threadGuideState, userId);
+    const guideState = canAccessGuideState(thread, threadGuideState, userId) ? threadGuideState : undefined;
 
-  const threadGuideState = thread.guideState;
-  ctx.hiddenForeign = hasHiddenForeignNonTerminalGuideState(thread, threadGuideState, userId);
-  const guideState = canAccessGuideState(thread, threadGuideState, userId) ? threadGuideState : undefined;
-
-  if (guideState) {
-    await resolveExistingCandidate(guideState, message, targetCats, targetCatIds, ctx);
+    if (guideState) {
+      await resolveExistingCandidate(guideState, message, targetCats, targetCatIds, ctx);
+    }
   }
 
   if (!ctx.candidate && !ctx.hiddenForeign) {
