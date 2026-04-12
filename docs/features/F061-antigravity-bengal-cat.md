@@ -2,13 +2,13 @@
 feature_ids: [F061]
 related_features: [F050, F032, F041, F043, F045, F060]
 topics: [antigravity, bengal-cat, cdp, external-agent, image-generation, evidence-chain, multi-model]
-doc_kind: phase-1-done
+doc_kind: phase-2-bridge
 created: 2026-03-04
 ---
 
 # F061: Antigravity 接入 — 孟加拉猫（混血家族）
 
-> **Status**: phase-1-done | **Owner**: 布偶猫 Opus 4.6
+> **Status**: phase-2-bridge | **Owner**: 布偶猫 Opus 4.6
 > **Created**: 2026-03-04
 
 ---
@@ -71,11 +71,19 @@ Cat Cafe AgentRouter
 - [x] AC-2: 桥服务能通过 CDP 注入消息并获取回复 DOM
 - [x] AC-3: 回复内容可解析为纯文本/markdown（从 HTML DOM）
 
-### Phase 1: Cat Cafe L1 接入 ✅ COMPLETE
+### Phase 1: Cat Cafe L1 接入 ✅ COMPLETE (CDP)
 - [x] AC-4: `cat-config.json` 可注册孟加拉猫（provider: `antigravity`）— CatProvider 类型 + Zod enum + switch case
 - [x] AC-5: `AntigravityAgentService` 实现 `AgentService` 接口 — mock CDP 注入 + 6 tests
 - [x] AC-6: AgentRouter 可路由消息到 Antigravity 并获取流式回复 — registration test 验证通过
 - [ ] AC-7: 图片生成结果可在 Hub 前端展示（F060 rich block 联动）
+
+### Phase 1.5: ConnectRPC Bridge 架构替换 ✅ COMPLETE
+- [x] AC-B1: 用 ConnectRPC/gRPC 协议替换 CDP DOM hack（LanguageServerService RPC）
+- [x] AC-B2: Bridge-owned writeback（方案 D）：Bridge 读回响应并写入 thread，Antigravity MCP 只读
+- [x] AC-B3: CAT_CAFE_READONLY 白名单（11 tools）过滤所有写操作工具
+- [x] AC-B4: cat-config 移除 antigravity variants 的 `cli` 块（bridge 不需要）
+- [x] AC-B5: 删除全部 CDP 代码（AntigravityCdpClient、cdp-dom-scripts、cdp-target-selection）
+- [x] AC-B6: 20 tests 覆盖（event-transformer 7 + agent-service 9 + registration 1 + whitelist 3）
 
 ### Phase 2: 证据链 + 高级能力
 - [ ] AC-8: Antigravity 截图/录屏可作为证据附件回传
@@ -283,9 +291,10 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 
 ### 修正后的推荐策略
 
-~~双通道混合~~ → **CDP 桥是唯一安全可行路线**（已端到端验证）
+~~双通道混合~~ → ~~CDP 桥~~ → **ConnectRPC Bridge**（2026-04-12 替换）
 
-- **Phase 1**: CDP 桥接入 — `execCommand` 注入 + DOM polling 回复 → AgentService 适配
+- **Phase 1**: ~~CDP 桥接入~~ ✅ 已完成但被 Phase 1.5 替换
+- **Phase 1.5**: ConnectRPC Bridge — `POST /exa.language_server_pb.LanguageServerService/{Method}` + CSRF token + Bridge writeback
 - **Phase 1+**: MCP browser tools 组合 — 端口 62051 的 25 个浏览器工具同时可用
 - **Phase 2**: 图片生成回传 + 截图/录屏证据链
 
@@ -402,6 +411,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-03-06 | 会话管理验证 — 新建对话✅ / 历史面板✅ / 恢复旧对话✅ / 模型切换⚠️ / 6 模型枚举 |
 | 2026-03-08 | PR #313 合入 — idle timeout + thinking 分离（37 tests, codex R2 放行 + 云端 0 P1/P2）|
 | 2026-03-08 | **Phase 3 bug 发现** — 实际 @ 孟加拉猫后发现两个问题，见下方 Known Bugs |
+| 2026-04-12 | **Phase 1.5 ConnectRPC Bridge** — 用 ConnectRPC/gRPC 替换 CDP DOM hack（PR #1127, 砚砚 R2 放行 + 云端 0 P1/P2）|
 
 ---
 

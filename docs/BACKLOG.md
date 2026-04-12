@@ -21,7 +21,7 @@ created: 2026-02-26
 | F051 | 猫粮看板 v2 — Quota Board (glanceable + scheduling) | in-progress | 布偶猫 | internal | [F051](features/F051-real-quota-dashboard.md) |
 | F055 | A2A MCP Structured Routing — targetCats 结构化路由 | spec | 布偶猫 | internal | [F055](features/F055-a2a-mcp-structured-routing.md) |
 | F056 | Cat Café 设计语言 — 猫猫化不是猫化 | doing | 三猫 | internal | [F056](features/F056-cat-cafe-design-language.md) |
-| F061 | Antigravity 接入 — 孟加拉猫（混血家族） | phase-1-done | 布偶猫 | internal | [F061](features/F061-antigravity-bengal-cat.md) |
+| F061 | Antigravity 接入 — 孟加拉猫（混血家族） | phase-2-bridge | 布偶猫 | internal | [F061](features/F061-antigravity-bengal-cat.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | internal | [F069](features/F069-thread-read-state.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | internal | [F077](features/F077-multi-user-secure-collab.md) |
 | F089 | Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性 | in-progress | 布偶猫 | internal | [F089](features/F089-hub-terminal-tmux.md) |
