@@ -698,7 +698,13 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       );
       if (!isActiveThread) return;
       const action =
-        data.action === 'exit' ? 'control_exit' : data.action === 'skip' ? 'control_skip' : data.action === 'next' ? 'control_next' : undefined;
+        data.action === 'exit'
+          ? 'control_exit'
+          : data.action === 'skip'
+            ? 'control_skip'
+            : data.action === 'next'
+              ? 'control_next'
+              : undefined;
       if (action) {
         useGuideStore.getState().reduceServerEvent({ action, guideId: data.guideId, threadId: data.threadId });
       }
