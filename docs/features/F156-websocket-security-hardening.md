@@ -68,7 +68,7 @@ created: 2026-04-10
 2. HtmlWidgetBlock 加 DOMPurify sanitization（sandbox 隔离正确但应加防数据外泄）
 3. 富文本/外部 HTML 渲染放入 sandboxed iframe（已部分实现，需审计完整性）
 
-**~~D-4: Prompt Injection 降权~~** → 已拆出为独立课题（BACKLOG TD），不属于 WS 安全加固 scope
+**~~D-4: Prompt Injection 降权~~** → 已拆出为独立课题，不属于 WS 安全加固 scope
 
 > 2026-04-12 闭环决定：Prompt Injection 是独立设计课题（需要来源追踪新机制），
 > 不是"WebSocket 安全加固"的一部分。拆出后 F156 核心 scope 全部完成。
@@ -164,15 +164,15 @@ created: 2026-04-10
 | 2026-04-10 | Phase C（OfficeClaw）拆出 F156，铲屎官决定"外出务工"不属于自家 feat |
 | 2026-04-10 | 砚砚(GPT-5.4) 主干实测验证：Socket.IO / terminal WS / preview-gateway 三条入口全绿 |
 | 2026-04-11 | Private network UX optimization merged (PR #1087) — env-registry 注册 + 启动提示 + 描述优化 |
-| 2026-04-12 | **Feature closed** — D-4/FU-1/FU-2 拆出为独立 BACKLOG 条目，核心 scope 全部完成 |
+| 2026-04-12 | **Feature closed** — D-4/FU-1/FU-2 拆出为独立任务，核心 scope 全部完成 |
 
 ## Spun-off Items（闭环时拆出，不留尾巴）
 
 | 原编号 | 内容 | 去向 |
 |--------|------|------|
-| D-4 | Prompt Injection 降权（独立设计课题） | BACKLOG TD 条目 |
-| FU-1 | 精确 IP/域名 allowlist | BACKLOG TD 条目 |
-| FU-2 | 开源社区 setup 文档（手机/Tailscale 章节） | BACKLOG TD 条目 |
+| D-4 | Prompt Injection 降权（独立设计课题） | 独立立项时再分配 F 编号（需设计方案成熟） |
+| FU-1 | 精确 IP/域名 allowlist | 独立增强，铲屎官确认需要时立项 |
+| FU-2 | 开源社区 setup 文档（手机/Tailscale 章节） | 独立文档任务，铲屎官确认需要时执行 |
 
 ## Links
 
