@@ -164,7 +164,8 @@ created: 2026-04-10
 | 2026-04-10 | Phase C（OfficeClaw）拆出 F156，铲屎官决定"外出务工"不属于自家 feat |
 | 2026-04-10 | 砚砚(GPT-5.4) 主干实测验证：Socket.IO / terminal WS / preview-gateway 三条入口全绿 |
 | 2026-04-11 | Private network UX optimization merged (PR #1087) — env-registry 注册 + 启动提示 + 描述优化 |
-| 2026-04-12 | **Feature closed** — D-4/FU-1/FU-2 拆出为独立任务，核心 scope 全部完成 |
+| 2026-04-12 | Host guard fix merged (PR #1114) — private network IPs now pass Host validation |
+| 2026-04-12 | **Feature closed** — 愿景守护(codex) 放行，D-4/FU-1/FU-2 拆出为独立任务 |
 
 ## Spun-off Items（闭环时拆出，不留尾巴）
 
