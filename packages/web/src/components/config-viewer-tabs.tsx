@@ -1,8 +1,9 @@
-import { type ReactNode, useCallback, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { CatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import type { ConfigData } from './config-viewer-types';
+import { DefaultCatSelector } from './DefaultCatSelector';
 import { HubCoCreatorOverviewCard, HubMemberOverviewCard, HubOverviewToolbar } from './HubMemberOverviewCard';
 
 export type { Capabilities, CatConfig, ConfigData, ContextBudget } from './config-viewer-types';
@@ -44,9 +45,62 @@ export function CatOverviewTab({
   onToggleAvailability?: (cat: CatData) => void;
   togglingCatId?: string | null;
 }) {
+  // F154 Phase B (AC-B2): Fetch and manage global default cat
+  const [defaultCatId, setDefaultCatId] = useState<string | null>(null);
+  const [defaultCatLoading, setDefaultCatLoading] = useState(false);
+  const [defaultCatFetchError, setDefaultCatFetchError] = useState(false);
+  const [defaultCatSaveError, setDefaultCatSaveError] = useState<string | null>(null);
+
+  const fetchDefaultCat = useCallback(() => {
+    setDefaultCatFetchError(false);
+    apiFetch('/api/config/default-cat')
+      .then((r) => r.json())
+      .then((data: { catId: string }) => setDefaultCatId(data.catId))
+      .catch(() => setDefaultCatFetchError(true));
+  }, []);
+
+  useEffect(() => {
+    fetchDefaultCat();
+  }, [fetchDefaultCat]);
+
+  const handleDefaultCatSelect = useCallback(
+    async (catId: string) => {
+      if (catId === defaultCatId) return;
+      setDefaultCatLoading(true);
+      setDefaultCatSaveError(null);
+      try {
+        const res = await apiFetch('/api/config/default-cat', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ catId }),
+        });
+        if (res.ok) {
+          setDefaultCatId(catId);
+        } else {
+          setDefaultCatSaveError('保存失败，请重试');
+        }
+      } catch {
+        setDefaultCatSaveError('网络错误，请重试');
+      } finally {
+        setDefaultCatLoading(false);
+      }
+    },
+    [defaultCatId],
+  );
+
   return (
     <div className="space-y-4">
       <HubOverviewToolbar onAddMember={onAddMember} />
+      {/* F154 Phase B: Global default cat selector (AC-B2: always visible, even on error) */}
+      <DefaultCatSelector
+        cats={cats}
+        currentDefaultCatId={defaultCatId ?? ''}
+        onSelect={handleDefaultCatSelect}
+        isLoading={defaultCatLoading}
+        fetchError={defaultCatFetchError}
+        saveError={defaultCatSaveError}
+        onRetry={fetchDefaultCat}
+      />
       {config.coCreator ? <HubCoCreatorOverviewCard coCreator={config.coCreator} onEdit={onEditCoCreator} /> : null}
       <div className="space-y-3">
         {cats.map((catData) => (

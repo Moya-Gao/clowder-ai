@@ -4,6 +4,7 @@ import { ExportButton } from './ExportButton';
 import { HubButton } from './HubButton';
 import { CatCafeLogo } from './icons/CatCafeLogo';
 import { ThemeToggle } from './ThemeToggle';
+import { ThreadCatPill } from './ThreadCatPill';
 import { VoiceCompanionButton } from './VoiceCompanionButton';
 
 interface ChatContainerHeaderProps {
@@ -55,7 +56,13 @@ export function ChatContainerHeader({
         <CatCafeLogo className="h-16 w-auto -my-3" />
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-cafe-black">Cat Café</h1>
-          <ThreadIndicator threadId={threadId} />
+          <div className="flex items-center gap-2 min-w-0">
+            <ThreadIndicator threadId={threadId} />
+            {/* F154 Phase B: Preferred cat pill — desktop only (KD-10) */}
+            <div className="hidden lg:block flex-shrink-0">
+              <ThreadCatPill threadId={threadId} />
+            </div>
+          </div>
         </div>
         <ExportButton threadId={threadId} />
         <VoiceCompanionButton threadId={threadId} defaultCatId={defaultCatId} />
@@ -126,7 +133,10 @@ function ThreadIndicator({ threadId }: { threadId: string }) {
   const projectName = INTERNAL_BASENAMES.includes(rawBasename) && brandName ? brandName : rawBasename;
 
   return (
-    <p className="text-xs text-cafe-secondary truncate" title={`${title}${projectName ? ` · ${projectName}` : ''}`}>
+    <p
+      className="text-xs text-cafe-secondary truncate min-w-0"
+      title={`${title}${projectName ? ` · ${projectName}` : ''}`}
+    >
       <span className="font-medium text-cafe-secondary">{title}</span>
       {projectName && <span className="text-cafe-muted"> · {projectName}</span>}
     </p>
