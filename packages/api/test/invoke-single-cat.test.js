@@ -3795,6 +3795,109 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await assert.rejects(readFile(seenConfigPath, 'utf-8'));
   });
 
+  it('known model with mcpServerPath enters F189 gate for deterministic MCP injection', async () => {
+    // When a model IS in the known-models set (so !knownModels.has(model) is false)
+    // but resolveDefaultClaudeMcpServerPath() returns a path (mcpServerPath exists),
+    // the || mcpServerPath branch should trigger F189 config generation.
+    // This ensures known models get deterministic MCP in game sessions.
+    const mod = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
+    mod._resetOpenCodeKnownModels(new Set(['anthropic/claude-opus-4-6']));
+    const { createProviderProfile } = await import('./helpers/create-test-account.js');
+    const root = await mkdtemp(join(tmpdir(), 'mcp-known-model-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+
+    // Create fake mcp-server/dist/index.js so resolveDefaultClaudeMcpServerPath() finds it
+    const mcpDir = join(root, 'packages', 'mcp-server', 'dist');
+    await mkdir(mcpDir, { recursive: true });
+    await writeFile(join(mcpDir, 'index.js'), '// stub mcp server', 'utf-8');
+
+    const anthropicProfile = await createProviderProfile(root, {
+      provider: 'anthropic',
+      name: 'claude-api-mcp',
+      mode: 'api_key',
+      authType: 'api_key',
+      protocol: 'anthropic',
+      baseUrl: 'https://api.anthropic.com',
+      apiKey: 'sk-ant-mcp-key',
+      models: ['claude-opus-4-6'],
+      setActive: false,
+    });
+
+    const registrySnapshot = catRegistry.getAllConfigs();
+    const originalConfig = catRegistry.tryGet('opencode')?.config;
+    assert.ok(originalConfig, 'opencode config should exist in registry');
+    const boundCatId = 'opencode-mcp-known-model-test';
+    catRegistry.register(boundCatId, {
+      ...originalConfig,
+      id: boundCatId,
+      mentionPatterns: [`@${boundCatId}`],
+      clientId: 'opencode',
+      accountRef: anthropicProfile.id,
+      defaultModel: 'anthropic/claude-opus-4-6',
+      // Deliberately NO provider field — so hasExplicitOcProvider is false.
+      // The test verifies the || mcpServerPath branch alone triggers config generation.
+    });
+
+    let seenConfigPath;
+    let seenRuntimeConfig;
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        seenConfigPath = options?.callbackEnv?.OPENCODE_CONFIG;
+        assert.ok(seenConfigPath, 'known model must still receive OPENCODE_CONFIG when mcpServerPath exists');
+        try {
+          seenRuntimeConfig = JSON.parse(await readFile(seenConfigPath, 'utf-8'));
+        } catch {
+          /* will be checked below */
+        }
+        yield { type: 'done', catId: 'opencode', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(apiDir);
+      await collect(
+        invokeSingleCat(deps, {
+          catId: boundCatId,
+          service,
+          prompt: 'test known model with mcp injection',
+          userId: 'user-mcp-known-model',
+          threadId: 'thread-mcp-known-model',
+          isLastCat: true,
+        }),
+      );
+    } finally {
+      process.chdir(previousCwd);
+      mod._resetOpenCodeKnownModels(null);
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
+      await rm(root, { recursive: true, force: true });
+    }
+
+    const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    assert.ok(callbackEnv.OPENCODE_CONFIG, 'OPENCODE_CONFIG must be set when mcpServerPath exists for known model');
+    assert.equal(callbackEnv.CAT_CAFE_OC_API_KEY, 'sk-ant-mcp-key');
+    assert.ok(seenRuntimeConfig, 'runtime config must be parseable');
+    assert.ok(seenRuntimeConfig.mcp, 'runtime config must contain mcp section');
+    const mcpCafe = seenRuntimeConfig.mcp['cat-cafe'];
+    assert.equal(mcpCafe.type, 'local');
+    assert.equal(mcpCafe.command.length, 2);
+    assert.equal(mcpCafe.command[0], 'node');
+    assert.ok(
+      mcpCafe.command[1].endsWith('/packages/mcp-server/dist/index.js'),
+      `mcp command[1] must point to mcp-server entry: ${mcpCafe.command[1]}`,
+    );
+    // Config file should be cleaned up after invocation
+    await assert.rejects(readFile(seenConfigPath, 'utf-8'));
+  });
+
   it('fix(#280): known legacy model without provider skips runtime config', async () => {
     const mod = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
     mod._resetOpenCodeKnownModels(new Set(['anthropic/claude-opus-4-6']));

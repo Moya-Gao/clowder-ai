@@ -50,6 +50,7 @@ import type { AgentPaneRegistry } from '../../../../terminal/agent-pane-registry
 import type { TmuxGateway } from '../../../../terminal/tmux-gateway.js';
 import { createPromptDigest } from '../../context/prompt-digest.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
+import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import {
   deriveOpenCodeApiType,
   OC_API_KEY_ENV,
@@ -922,14 +923,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // effective "provider/model" string is injected into opencode, even for builtin
     // providers. For legacy members without provider name, only synthesize runtime
     // config when the fully-qualified model is not already routable by `opencode models`.
+    //
+    // MCP injection: even known models need a runtime config to get deterministic
+    // Cat Café MCP server access (especially in game threads where projectPath is
+    // virtual and project-level opencode.json may not be found).
     const hasExplicitOcProvider = Boolean(modelProviderName);
+    const mcpServerPath = resolveDefaultClaudeMcpServerPath();
     if (
       provider === 'opencode' &&
       resolvedAccount != null &&
       resolvedAccount.authType === 'api_key' &&
       effectiveModel &&
       effectiveProviderName &&
-      (hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel))
+      (hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel) || mcpServerPath)
     ) {
       // Remap model prefix when provider name collides with OpenCode builtins
       // (e.g. 'openai/gpt-4o' → 'openai-compat/gpt-4o') so the CLI -m arg
@@ -948,6 +954,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         defaultModel: effectiveModel,
         apiType,
         hasBaseUrl: Boolean(resolvedAccount.baseUrl),
+        mcpServerPath,
       } as const;
       openCodeRuntimeConfigPath = writeOpenCodeRuntimeConfig(
         projectRoot,
