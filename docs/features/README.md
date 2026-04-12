@@ -116,3 +116,16 @@
 | F132 | F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | done | [F132-dingtalk-wecom-gateway.md](./F132-dingtalk-wecom-gateway.md) |
 | F157 | F157: Feishu Receipt Ack — 猫猫即时接住替代"思考中→撤回" | done | [F157-feishu-receipt-ack.md](./F157-feishu-receipt-ack.md) |
 | F154 | F154: Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向 | done | [F154-cat-routing-personalization.md](./F154-cat-routing-personalization.md) |
+| F010 | F010: 手机端猫猫 | done | [F010-mobile-cat.md](./F010-mobile-cat.md) |
+| F014 | F014: SVG 猫猫状态动画 | done | [F014-svg-cat-animation.md](./F014-svg-cat-animation.md) |
+| F036 | F036: Logo 一笔画动画（Stroke Drawing Animation） | done | [F036-logo-stroke-animation.md](./F036-logo-stroke-animation.md) |
+| F059 | F059: Cat Café 开源计划 | done | [F059-open-source-plan.md](./F059-open-source-plan.md) |
+| F076 | F076: Mission Hub 跨项目作战面板 + 甲方项目治理引擎 | done (superseded by F152) | [F076-mission-hub-cross-project.md](./F076-mission-hub-cross-project.md) |
+
+## 已搁置/已归档 Feature
+| ID | 名称 | Status | 聚合文件 |
+|----|------|--------|----------|
+| F037 | F037: Agent Swarm 协同模式 | done (archived — spawned F049) | [F037-agent-swarm.md](./F037-agent-swarm.md) |
+| F038 | F038: Skills 梳理 + 按需发现机制 | parked | [F038-skills-discovery.md](./F038-skills-discovery.md) |
+| F054 | F054: HCI 预热基础设施 — Social Media MCP + 内容管线 | parked (superseded by open-source) | [F054-hci-preheat-infra.md](./F054-hci-preheat-infra.md) |
+| F067 | F067: Cold-start Verifier — 无历史污染的交付物验证 | parked | [F067-cold-start-verifier.md](./F067-cold-start-verifier.md) |
