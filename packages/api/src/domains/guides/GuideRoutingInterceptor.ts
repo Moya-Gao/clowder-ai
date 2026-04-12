@@ -259,14 +259,19 @@ export async function ackGuideCompletion(params: {
   catProducedOutput: boolean;
   targetCatIds: ReadonlySet<string>;
   threadId: string;
+  userId: string;
   guideStore: GuideStateBridge;
+  threadStore: { get(id: string): Promise<GuideThread | null | undefined> };
 }): Promise<void> {
-  const { ctx, catId, catProducedOutput, targetCatIds, threadId, guideStore } = params;
+  const { ctx, catId, catProducedOutput, targetCatIds, threadId, userId, guideStore, threadStore } = params;
   if (!catProducedOutput) return;
   if (ctx.candidate?.status !== 'completed') return;
   if (!shouldHandleCompleted(ctx.completionOwner, targetCatIds, ctx.completionFallback, catId)) return;
 
   try {
+    const thread = await threadStore.get(threadId);
+    if (!thread || !canAccessGuideState(thread, thread.guideState, userId)) return;
+
     const gs = await guideStore.get(threadId);
     if (gs && gs.guideId === ctx.candidate.id && gs.status === 'completed' && !gs.completionAcked) {
       await guideStore.set(threadId, { ...gs, completionAcked: true });

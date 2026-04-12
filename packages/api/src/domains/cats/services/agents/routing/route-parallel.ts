@@ -933,7 +933,9 @@ export async function* routeParallel(
           catProducedOutput,
           targetCatIds,
           threadId,
+          userId,
           guideStore: createGuideStoreBridge(deps.invocationDeps.threadStore),
+          threadStore: deps.invocationDeps.threadStore,
         });
       }
 

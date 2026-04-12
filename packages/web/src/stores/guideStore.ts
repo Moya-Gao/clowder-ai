@@ -140,20 +140,24 @@ export const useGuideStore = create<GuideState>((set, get) => ({
   reduceServerEvent: (event) => {
     const { session, advanceStep, exitGuide, setPhase } = get();
 
+    const sessionMatch = session && session.flow.id === event.guideId && session.threadId === event.threadId;
+
     switch (event.action) {
       case 'start':
         set({ pendingStart: { guideId: event.guideId, threadId: event.threadId } });
         break;
       case 'control_next':
       case 'control_skip':
-        if (session && session.flow.id === event.guideId) advanceStep();
+        if (sessionMatch) advanceStep();
         break;
       case 'control_exit':
-        if (session && session.flow.id === event.guideId) exitGuide();
-        if (get().pendingStart?.guideId === event.guideId) set({ pendingStart: null });
+        if (sessionMatch) exitGuide();
+        if (get().pendingStart?.guideId === event.guideId && get().pendingStart?.threadId === event.threadId) {
+          set({ pendingStart: null });
+        }
         break;
       case 'complete':
-        if (session && session.flow.id === event.guideId) setPhase('complete');
+        if (sessionMatch) setPhase('complete');
         break;
     }
   },
