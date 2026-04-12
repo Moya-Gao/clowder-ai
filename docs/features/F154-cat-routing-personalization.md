@@ -50,7 +50,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 - **权限**：修改全局默认猫需 owner 权限（与 member overview 页面现有权限一致），非 owner 调用返回 403
 - **MVP 路径**：Phase A 仅通过 Hub API（member overview 入口）修改，不提供 connector `/config set` 命令（避免群聊权限篡改风险）。Connector 端全局配置入口视需求放入后续 Phase（KD-7）
 
-### Phase B: Hub 可见性 + UX 统一
+### Phase B: Hub 可见性 + UX 统一 ✅
 
 **B1 — Thread Header 首选猫 Pill 指示器**（烁烁 UX 设计）：
 - Thread header 右侧显示 Pill 组件：`[🐱 猫头像 猫名 ▾]`，点击展开 CatSelector popover（复用 `ThreadCatSettings`）
@@ -83,10 +83,10 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 - [x] AC-A7: 猫名解析冲突时返回候选列表并拒绝执行，禁止猜测命中；exact alias match 优先于 partial displayName match
 
 ### Phase B（Hub 可见性 + UX）
-- [ ] AC-B1: Thread header 显示当前首选猫（头像 + 名字），无首选猫时不显示
-- [ ] AC-B2: Member overview 有全局默认猫选择器
-- [ ] AC-B3: `/status` 输出包含首选猫信息
-- [ ] AC-B4: Hub 和 Connector 设置的 preferredCats 实时同步（同一个 thread model）
+- [x] AC-B1: Thread header 显示当前首选猫（头像 + 名字），无首选猫时不显示
+- [x] AC-B2: Member overview 有全局默认猫选择器
+- [x] AC-B3: `/status` 输出包含首选猫信息
+- [x] AC-B4: Hub 和 Connector 设置的 preferredCats 实时同步（同一个 thread model）
 
 ## 需求点 Checklist
 
@@ -152,6 +152,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | 2026-04-09 | Spec review R2（Design Gate）：砚砚 1P1+2P2（权限边界 + 实现路径歧义 + 猫名冲突策略）→ KD-7~8 + AC-A7；烁烁 UX 确认无补充 |
 | 2026-04-09 | **Design Gate 放行**（砚砚）— R2 三项全部落盘，无新增 P1/P2；烁烁 UX 已确认 |
 | 2026-04-09 | Phase A merged (PR #1020) — 95 tests, 0 failures; codex local review 放行 + cloud review 0 P1/P2 |
+| 2026-04-12 | Phase B merged (PR #1121) — codex local review 放行 + cloud review R4 0 P1/P2 |
 
 ## Review Gate
 
