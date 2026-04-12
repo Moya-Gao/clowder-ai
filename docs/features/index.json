@@ -219,13 +219,13 @@
     {
       "id": "F037",
       "name": "Agent Swarm 协同模式",
-      "status": "in-progress | **Owner**: 三猫",
+      "status": "done (archived — spawned F049, core concepts landed) | **Owner**: 三猫",
       "file": "F037-agent-swarm.md"
     },
     {
       "id": "F038",
       "name": "Skills 梳理 + 按需发现机制",
-      "status": "in-progress | **Owner**: 三猫",
+      "status": "parked (方向 A 已落地，方向 B 待 skill 数量增长后再做) | **Owner**: 三猫",
       "file": "F038-skills-discovery.md"
     },
     {
@@ -945,7 +945,7 @@
     {
       "id": "F154",
       "name": "Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P2",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P2",
       "file": "F154-cat-routing-personalization.md"
     },
     {
@@ -963,7 +963,7 @@
     {
       "id": "F155",
       "name": "Scene-Based Guidance Engine — 场景式交互引导",
-      "status": "in-progress (clowder-ai#398 merged; intake issue #1119 open) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
+      "status": "in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B pending) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
       "file": "F155-scene-guidance-engine.md"
     },
     {
@@ -1003,5 +1003,5 @@
       "file": "F160-task-board-upgrade.md"
     }
   ],
-  "generated_at": "2026-04-12T12:47:15.495Z"
+  "generated_at": "2026-04-12T15:00:55.870Z"
 }

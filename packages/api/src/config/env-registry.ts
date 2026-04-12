@@ -33,7 +33,8 @@ export type EnvCategory =
   | 'github_review'
   | 'evidence'
   | 'quota'
-  | 'telemetry';
+  | 'telemetry'
+  | 'antigravity';
 
 export interface EnvDefinition {
   /** The env var name, e.g. 'REDIS_URL' */
@@ -76,6 +77,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   evidence: 'F102 记忆系统',
   quota: '额度监控',
   telemetry: '可观测性 (OTel)',
+  antigravity: '孟加拉猫 (Antigravity)',
 };
 
 export const ENV_VARS: EnvDefinition[] = [
@@ -1288,6 +1290,35 @@ export const ENV_VARS: EnvDefinition[] = [
     defaultValue: '(未设置 → 启用)',
     description: '设为 true 完全禁用 OTel SDK',
     category: 'telemetry',
+    sensitive: false,
+  },
+  // --- antigravity (F061 Bridge) ---
+  {
+    name: 'ANTIGRAVITY_PORT',
+    defaultValue: '(未设置 → 自动发现)',
+    description: 'Antigravity Language Server ConnectRPC 端口（覆盖自动发现）',
+    category: 'antigravity',
+    sensitive: false,
+  },
+  {
+    name: 'ANTIGRAVITY_CSRF_TOKEN',
+    defaultValue: '(未设置 → 自动发现)',
+    description: 'Antigravity Language Server CSRF Token（覆盖自动发现）',
+    category: 'antigravity',
+    sensitive: true,
+  },
+  {
+    name: 'ANTIGRAVITY_TLS',
+    defaultValue: 'true',
+    description: 'Antigravity ConnectRPC 是否使用 TLS（默认 true）',
+    category: 'antigravity',
+    sensitive: false,
+  },
+  {
+    name: 'CAT_CAFE_READONLY',
+    defaultValue: '(未设置 → 全量注册)',
+    description: 'MCP Server 只读模式：跳过 post_message 等写操作工具注册（Antigravity 持久 MCP 用）',
+    category: 'antigravity',
     sensitive: false,
   },
 ];

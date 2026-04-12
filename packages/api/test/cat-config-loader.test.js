@@ -877,6 +877,14 @@ describe('getCatEffort', () => {
     assert.equal(getCatEffort('opus', config), 'xhigh');
   });
 
+  it('does not throw for variants without cli config (F061 bridge providers)', () => {
+    const config = loadCatConfig();
+    // antigravity has no cli — should not throw, returns provider default
+    const result = getCatEffort('antigravity', config);
+    assert.equal(typeof result, 'string', 'should return a string effort level');
+    assert.ok(result, 'should return a truthy default effort');
+  });
+
   it('rejects stale cross-provider effort from historical data (defense-in-depth)', () => {
     // Simulates a catalog written before the PATCH write-time cleanup was added:
     // an openai cat still carrying anthropic-only effort 'max'.
@@ -945,11 +953,12 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(all.opencode); // F105: OpenCode external agent
   });
 
-  it('projects antigravity commandArgs from cli.defaultArgs when variant.commandArgs is absent', () => {
+  it('antigravity variants have no cli config (F061 Bridge replaces CDP)', () => {
     const config = loadCatConfig();
     const all = toAllCatConfigs(config);
-    assert.deepEqual(all.antigravity.commandArgs, ['.', '--remote-debugging-port=9000']);
-    assert.deepEqual(all['antig-opus'].commandArgs, ['.', '--remote-debugging-port=9000']);
+    // F061 Phase 2: CLI/CDP removed, Bridge handles communication
+    assert.equal(all.antigravity.cli, undefined);
+    assert.equal(all['antig-opus'].cli, undefined);
   });
 });
 
