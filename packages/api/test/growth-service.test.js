@@ -15,11 +15,15 @@ const { detectInvocationPurpose } = await import('../dist/routes/callback-a2a-tr
 
 // Close pino transport worker threads so the test runner exits cleanly.
 // GrowthService imports logger.ts which creates pino-roll file transport threads.
+// Must await the 'close' event — end() alone is non-blocking.
 const { logger } = await import('../dist/infrastructure/logger.js');
-after(() => {
+after(async () => {
   const transport = logger[Symbol.for('pino.stream')];
   if (transport && typeof transport.end === 'function') {
-    transport.end();
+    await new Promise((resolve) => {
+      transport.on('close', resolve);
+      transport.end();
+    });
   }
 });
 
