@@ -3,7 +3,10 @@
 # Usage:
 #   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --reconciliation-report=docs/ops/reconciliation-v0.3.0.md
 #   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --target-sha=<clowder-ai-main-commit> --reconciliation-report=docs/ops/reconciliation-v0.3.0.md
-#   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --target-sha=<sha> --reconciliation-report=docs/ops/reconciliation-v0.3.0.md --push
+#   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --target-sha=<sha> --reconciliation-report=docs/ops/reconciliation-v0.3.0.md --release-notes=release-notes-v0.3.0.md --push
+#
+# --release-notes: bilingual (EN + 中文) release notes file. Required when --push is set.
+#                  The script creates a GitHub Release with the file content after pushing the tag.
 
 set -euo pipefail
 
@@ -16,6 +19,7 @@ PUSH=false
 RELEASE_TAG=""
 TARGET_SHA=""
 RECONCILIATION_REPORT=""
+RELEASE_NOTES=""
 
 for arg in "$@"; do
   case "$arg" in
@@ -23,6 +27,7 @@ for arg in "$@"; do
     --release-tag=*) RELEASE_TAG="${arg#--release-tag=}" ;;
     --target-sha=*) TARGET_SHA="${arg#--target-sha=}" ;;
     --reconciliation-report=*) RECONCILIATION_REPORT="${arg#--reconciliation-report=}" ;;
+    --release-notes=*) RELEASE_NOTES="${arg#--release-notes=}" ;;
     *)
       echo -e "${RED}Unknown flag: $arg${NC}"
       echo "Usage: $0 --release-tag=<vX.Y.Z> [--target-sha=<clowder-ai-main-commit>] --reconciliation-report=<path> [--push]"
@@ -268,8 +273,37 @@ echo "Provenance commit:  $PROVENANCE_COMMIT"
 
 ensure_release_tag_points_to "$TARGET_SHA"
 
+TARGET_REPO="${TARGET_REPO:-zts212653/clowder-ai}"
+
 if [ "$PUSH" = true ]; then
   ensure_remote_release_tag_matches_or_absent "$TARGET_SHA"
+
+  # --- GitHub Release Gate ---
+  if [ -z "$RELEASE_NOTES" ]; then
+    echo -e "${RED}Error: --release-notes=<path> is required when --push is set.${NC}"
+    echo -e "${RED}Write bilingual (EN + 中文) release notes, then pass the file path here.${NC}"
+    exit 1
+  fi
+  if [ ! -f "$RELEASE_NOTES" ]; then
+    echo -e "${RED}Error: release notes file not found: ${RELEASE_NOTES}${NC}"
+    exit 1
+  fi
+  if [ ! -s "$RELEASE_NOTES" ]; then
+    echo -e "${RED}Error: release notes file is empty: ${RELEASE_NOTES}${NC}"
+    exit 1
+  fi
+
+  if [ "${GH_RELEASE_MOCK:-}" = "1" ]; then
+    echo -e "  ${GREEN}✓${NC} [mock] Would create GitHub Release $RELEASE_TAG on $TARGET_REPO"
+  elif gh release view "$RELEASE_TAG" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✓${NC} GitHub Release $RELEASE_TAG already exists on $TARGET_REPO"
+  else
+    gh release create "$RELEASE_TAG" \
+      --repo "$TARGET_REPO" \
+      --title "$RELEASE_TAG" \
+      --notes-file "$RELEASE_NOTES"
+    echo -e "  ${GREEN}✓${NC} Created GitHub Release $RELEASE_TAG on $TARGET_REPO"
+  fi
 else
   echo -e "  ${YELLOW}⚠${NC} Local release tag created only. Re-run with --push to publish to origin."
 fi

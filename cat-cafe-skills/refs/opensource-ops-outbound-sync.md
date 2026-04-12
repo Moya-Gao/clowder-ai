@@ -422,3 +422,52 @@ bash scripts/publish-release-tag.sh \
 **违反后果**：脚本会拒绝发布。没有 reconciliation report，或者报告里的 `closed` issue 实际还没关掉 = 没有 release tag。
 
 > 事故教训（v0.5.0）：sync PR #384 merge 后直接打 release tag，Step 8 完全跳过，导致 #341 等 issue 漏关。
+
+### Step 10: GitHub Release with Bilingual Notes 🔴
+
+**`publish-release-tag.sh --push` 已强制要求 `--release-notes`**。没有双语 release notes 文件 = 无法发布。
+
+**为什么是硬门禁**：v0.7.0 事故——tag 发了但 GitHub Release 没创建，社区用户看不到 changelog，每次都漏（铲屎官原话："好像每次都会漏"）。
+
+**操作流程：**
+
+1. 根据 reconciliation report 内容，写一份双语 release notes 文件（EN 在上，中文在下，用 `---` 分隔）：
+
+```markdown
+## Bug Fixes
+- **fix(xxx)**: description
+
+## Features
+- **feat(Fxxx)**: description
+
+## Community
+- Closes #NNN — description
+- Reviewed all N open bugs; full reconciliation report: `docs/ops/reconciliation-vX.Y.Z.md`
+
+---
+
+## 缺陷修复
+- **fix(xxx)**：中文描述
+
+## 新功能
+- **feat(Fxxx)**：中文描述
+
+## 社区
+- 关闭 #NNN — 中文描述
+- 审查全部 N 个未关闭 bug；完整对账报告：`docs/ops/reconciliation-vX.Y.Z.md`
+```
+
+2. 传给 `publish-release-tag.sh`：
+
+```bash
+bash scripts/publish-release-tag.sh \
+  --release-tag=vX.Y.Z \
+  --target-sha={sha} \
+  --reconciliation-report=docs/ops/reconciliation-vX.Y.Z.md \
+  --release-notes=release-notes-vX.Y.Z.md \
+  --push
+```
+
+3. 脚本会在 tag push 后自动调用 `gh release create`，创建带双语 notes 的 GitHub Release。
+
+> 事故教训（v0.7.0）：tag 和 reconciliation 都完成了，但 GitHub Release 没创建——脚本没有这步，SOP 也没写。社区用户在 Releases 页面看到的最新版本停留在 v0.6.1。
