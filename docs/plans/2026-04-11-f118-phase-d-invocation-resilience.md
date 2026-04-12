@@ -38,8 +38,8 @@ created: 2026-04-11
 
 2. **spawn 后到首帧之间的 UX 盲区**
    - `messages.ts:772`：`intent_mode` 推迟到 CLI 首帧 NDJSON（#768 fix）
-   - CLI 挂住时前端 0 反馈 — 无 spinner、无状态、无"正在唤醒"提示
-   - F118 Phase C 的 liveness warning UI 已实装，但只有 `alive_but_silent`（2min）和 `suspected_stall`（5min）才触发；0-2min 窗口是盲区
+   - 发送后有全局 `loading` 状态，但缺少显式的 per-cat `spawning` 阶段 — 用户无法区分"消息已发送"和"猫在启动中"
+   - F118 Phase C 的 liveness warning UI 已实装，但只有 `alive_but_silent`（2min）和 `suspected_stall`（5min）才触发；0-2min 窗口缺少 per-cat 反馈
 
 3. **InvocationTracker 无 TTL 防护**（宪宪发现，本次非根因但是防御性缺口）
    - 纯内存 `Map`，如果 `finally` 块未执行（Node 崩溃等极端场景），slot 永久泄漏
@@ -59,44 +59,65 @@ created: 2026-04-11
 ### D1 — Circuit Breaker Fix：failure count 跨 session 继承
 
 **问题**：`cli_session_replaced` 时新 session 的 `consecutiveRestoreFailures` 从 0 开始。
-**修法**：`invoke-single-cat.ts:1109` 的 `create()` 调用传入继承的 failure count。
 
+**注意**：`CreateSessionInput` 接口（`SessionChainStore.ts:11-16`）不含 `consecutiveRestoreFailures`，`create()` 无法直接传入。
+
+**修法（create + immediate update）**：
 ```typescript
 // invoke-single-cat.ts:1109 附近
-await deps.sessionChainStore.create({
+const inheritedFailures = existing.consecutiveRestoreFailures ?? 0;
+const newRec = await deps.sessionChainStore.create({
   cliSessionId: msg.sessionId,
   threadId,
   catId,
   userId,
-+ consecutiveRestoreFailures: existing.consecutiveRestoreFailures ?? 0,
 });
+// 继承 failure count — create 后立即 update
+if (inheritedFailures > 0) {
+  await deps.sessionChainStore.update(newRec.id, {
+    consecutiveRestoreFailures: inheritedFailures,
+  });
+}
 ```
+
+`SessionRecordPatch` 已包含 `consecutiveRestoreFailures`（`SessionChainStore.ts:30`），所以 `update()` 路径无需改契约。
+
+**排除路径**：`ephemeralSession`（ACP transport）走 `invoke-single-cat.ts:1070-1076` 的 `update(cliSessionId)` 分支，不经过 `create()` → 不继承 failure count。这是正确的——ephemeral session 每次都是独立的，不存在 restore failure 语义。
 
 同时：fresh retry（`shouldRetryWithoutSession`）也产生 `session_init` → `cli_session_replaced` → `create()` 路径。确保该路径也继承 count。
 
 ### D2 — Spawn Acknowledgment：秒级反馈
 
-**问题**：CLI spawn 后到首帧之间用户看不到任何反馈。
-**修法**：在 CLI spawn 后（`cli-spawn.ts` 产出第一个事件前）或 `invoke-single-cat.ts` 开始执行时，立即发一个轻量 `spawn_started` 事件。
+**问题**：CLI spawn 后到首帧之间缺少 per-cat spawning 状态。发送后有全局 `loading`，但 `ThinkingIndicator` 依赖 `intentMode + targetCats`（来自 `intent_mode` socket 事件），而 `intent_mode` 推迟到 CLI 首帧（#768）。
 
-两种候选路径：
-- **A（后端 → 前端 socket）**：`invoke-single-cat.ts` 在进入 `service.invoke()` 前 yield 一个 `{ type: 'spawn_started', catId }` → `messages.ts` broadcast → 前端展示"正在唤醒..."
-- **B（纯前端）**：收到 HTTP 202 `{ status: 'processing' }` 后立即展示"正在唤醒..."，不等 socket 事件
+**修法：A-lite（后端 yield `spawn_started`，不改 `intent_mode` 语义）**
 
-推荐 B（纯前端），改动最小且不依赖后端新事件。如果走 A，需要 `AgentMessage` type 扩展。
+- `invoke-single-cat.ts`：在进入 `service.invoke()` 前 yield `{ type: 'spawn_started', catId, targetCats }`
+- `messages.ts` background coroutine：broadcast 这个事件
+- 前端 `useChatSocketCallbacks`：监听 `spawn_started`，设置 per-cat `spawning` 状态
+- `ThinkingIndicator`：响应 `spawning` 状态，展示"正在唤醒..."
+- `intent_mode` 保持现有语义不变（"CLI 有首帧"才发），#768 不受影响
+
+**为什么不选 B（纯前端 202）**：HTTP 202 响应不含 `targetCats`/`mode`（砚砚 review P2），前端无法知道是哪只猫在启动，只能做全局 loading（已有），无法做 per-cat 反馈。
 
 ### D3 — InvocationTracker TTL Guard（防御性）
 
 **问题**：`InvocationTracker.active` 是纯内存 `Map`，无 TTL。
 **修法**：
 - `ActiveInvocation` 已有 `startedAt` 字段
-- `has()` 方法加 TTL check：如果 `Date.now() - startedAt > MAX_SLOT_TTL_MS`（默认 35 分钟 > 30 分钟 CLI 超时），自动 delete 并返回 false
+- `has()` 方法加 TTL check：如果 `Date.now() - startedAt > MAX_SLOT_TTL_MS`，自动 delete 并返回 false
+- **TTL 计算**：必须 > invocation hard timeout（`2 * CLI_TIMEOUT_MS`，默认 60min）+ 安全余量。默认值 `75 * 60 * 1000`（75min），或动态绑定 `2.5 * resolveCliTimeoutMs()`
 - 同时在 `tryAutoExecute` 的 tracker 检查处也加 TTL check
+- 多猫并发场景：TTL sweep 只清理目标 slot，不影响同 thread 其他 cat 的 slot
 
 ### D4 — QueueProcessor.processingSlots Zombie Defense（防御性）
 
 **问题**：`processingSlots` 是纯 `Set<string>`，无 timestamp。
-**修法**：改为 `Map<string, number>`（value = processingStartedAt），在 `tryAutoExecute` 和 `tryExecuteNextAcrossUsers` 中加 zombie check：超过 `STALE_PROCESSING_THRESHOLD_MS`（对齐 InvocationQueue 的 600_000）的 slot 自动释放。
+**修法**：改为 `Map<string, number>`（value = processingStartedAt），在 `tryAutoExecute` 和 `tryExecuteNextAcrossUsers` 入口加 zombie sweep。
+
+**安全阈值**：与 D3 联动，建议同样使用 `75min` 或 `2.5 * resolveCliTimeoutMs()`。
+
+**额外安全守卫**（砚砚 review）：sweep 前先检查 `invocationTracker.has(threadId, catId)` — 如果 tracker 仍有活跃 slot，说明 invocation 确实还在跑（只是慢），不释放 processingSlot。只有 tracker 也没有对应 slot 时才判定为 zombie 并释放。
 
 ## Acceptance Criteria
 
@@ -106,49 +127,60 @@ await deps.sessionChainStore.create({
 - AC-D3: 回归测试：模拟连续失败的 replace 链，验证熔断器在第 N 次触发
 
 ### Phase D2（Spawn Feedback）— 必须
-- AC-D4: 用户发送 @mention 后 < 1s 内前端展示"正在唤醒"状态（不等 CLI 首帧）
-- AC-D5: CLI 产出首帧后过渡到正常 thinking/streaming 动画
+- AC-D4: 后端在 CLI spawn 前 yield `spawn_started` 事件（含 catId + targetCats）
+- AC-D5: 前端收到 `spawn_started` 后展示 per-cat "正在唤醒" 状态，CLI 首帧到达后过渡到 thinking/streaming
+- AC-D5b: `intent_mode` 语义不变（仍在 CLI 首帧后才 broadcast），#768 不回归
 
 ### Phase D3（Tracker TTL）— 推荐
-- AC-D6: `InvocationTracker.has()` 对超过 TTL 的 slot 返回 false 并自动清理
-- AC-D7: TTL 清理有单元测试
+- AC-D6: `InvocationTracker.has()` 对超过 TTL（默认 75min）的 slot 返回 false 并自动清理
+- AC-D7: TTL 清理有单元测试（含长工具调用 >10min 的回归测试，确认不误清理）
+- AC-D7b: 多猫并发场景：清理只影响超时的特定 slot，不波及同 thread 其他 cat
 
 ### Phase D4（Processing Slots Zombie）— 推荐
-- AC-D8: `QueueProcessor.processingSlots` 超过 10 分钟的条目自动清理
-- AC-D9: zombie 清理有单元测试
+- AC-D8: `QueueProcessor.processingSlots` 超过阈值（与 D3 联动，默认 75min）且 `invocationTracker.has()` 为 false 时自动清理
+- AC-D9: zombie 清理有单元测试（含 tracker 仍活跃时不误清理的回归测试）
 
 ## Implementation Steps
 
-### Step 1: D1 — Circuit Breaker Fix（~20 行，先红后绿）
+### Step 1: D1 — Circuit Breaker Fix（~30 行，先红后绿）
 1. 写红测：模拟 resume→timeout→cli_session_replaced→create 链，断言 failure count 被继承
-2. 修 `invoke-single-cat.ts:1109`：create 时传入 `consecutiveRestoreFailures`
+2. 修 `invoke-single-cat.ts:1109`：create 后 immediate update 继承 `consecutiveRestoreFailures`
 3. 写红测：连续 3 次 replace 后断言 overflow breaker 触发
-4. 验证绿灯
+4. 写红测：ephemeralSession 路径不继承 failure count（不污染 ACP transport）
+5. 验证绿灯
 
-### Step 2: D2 — Spawn Feedback（~30 行）
-1. 前端：`messages.ts` POST 返回 `{ status: 'processing' }` 后立即在 store 中设置 cat 状态为 `spawning`
-2. 前端：ThinkingIndicator 响应 `spawning` 状态，展示"正在唤醒..."
-3. 验证：@mention 后立即可见反馈
+### Step 2: D2 — Spawn Feedback（~50 行 后端 + ~30 行前端）
+1. 后端：`invoke-single-cat.ts` 在进入 `service.invoke()` 前 yield `{ type: 'spawn_started', catId, targetCats }`
+2. 后端：`messages.ts` background coroutine broadcast `spawn_started`
+3. 前端：`useChatSocketCallbacks` 监听 `spawn_started`，设置 per-cat `spawning` 状态
+4. 前端：`ThinkingIndicator` 响应 `spawning`，展示"正在唤醒..."
+5. 验证：`intent_mode` 仍在 CLI 首帧才发（#768 不回归）
+6. 验证：split-pane 场景的 `spawn_started` 状态同步
 
-### Step 3: D3 — Tracker TTL（~30 行）
+### Step 3: D3 — Tracker TTL（~40 行）
 1. 红测：slot 超过 TTL 后 `has()` 返回 false
-2. 修 `InvocationTracker.has()` 和 `complete()` 加 TTL check
-3. 绿灯
+2. 红测：slot 未超 TTL 时 `has()` 正常返回 true（长工具回归）
+3. 红测：多猫并发 — 清理 catA 不影响 catB 的 slot
+4. 修 `InvocationTracker.has()` 加 TTL check，TTL 默认 `75 * 60_000`（> 2x CLI timeout + 安全余量）
+5. 绿灯
 
-### Step 4: D4 — Processing Slots Zombie（~20 行）
-1. 红测：processingSlot 超过阈值后被自动清理
-2. 改 `processingSlots` 从 `Set` 到 `Map<string, number>`
-3. 在 `tryAutoExecute` 入口加 zombie sweep
-4. 绿灯
+### Step 4: D4 — Processing Slots Zombie（~30 行）
+1. 红测：processingSlot 超过阈值 + tracker 无对应 slot → 自动清理
+2. 红测：processingSlot 超过阈值但 tracker 仍有对应 slot → 不清理
+3. 改 `processingSlots` 从 `Set` 到 `Map<string, number>`
+4. 在 `tryAutoExecute` 入口加 zombie sweep（先查 tracker 再决定是否释放）
+5. 绿灯
 
 ## Risk
 
 | 风险 | 缓解 |
 |------|------|
 | D1 failure count 继承可能让正常的 session 升级也累积 count | `consecutiveRestoreFailures` 在有 substantive output 时重置为 0（line 1628），正常 session 不受影响 |
+| D1 ephemeralSession 路径不该继承 | ephemeralSession 走不同分支（line 1070-1076），不经过 `create()` 路径，天然隔离 |
 | D2 前端"正在唤醒"可能在极快响应时闪烁 | 加最小显示时间（如 500ms）或用 transition 过渡 |
-| D3 TTL 误杀长时间运行但正常的 invocation | TTL 设为 35min > 30min CLI 超时 + busy-silent extension，正常 invocation 不会超过 |
-| D4 zombie sweep 误删正在执行的 slot | 阈值 10min >> 正常 invocation 时间；且只在 tryAutoExecute 入口 sweep |
+| D2 `spawn_started` 新事件类型需要 AgentMessage 扩展 | 只加一个新 type，不修改现有 type 语义 |
+| D3 TTL 误杀长时间运行但正常的 invocation | TTL=75min > invocation hard timeout（2x CLI timeout = 60min）+ 15min 余量；busy-silent 扩展不会超过 hard cap |
+| D4 zombie sweep 误删正在执行的 slot | 先查 invocationTracker.has() — tracker 有活跃 slot 则不释放（砚砚 review 双重守卫） |
 
 ## Dependencies
 
