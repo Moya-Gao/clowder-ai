@@ -72,7 +72,9 @@ export class GrowthService {
     const pipeline = this.redis.pipeline();
     pipeline.incrby(key, amount);
     const event: XpEvent = { catId, dimension: rule.dimension, xp: amount, source, timestamp: ts };
-    pipeline.zadd(growthAuditKey(catId), ts, JSON.stringify(event));
+    // Nonce ensures uniqueness when identical events fire in the same millisecond (e.g. tool_use bursts)
+    const member = JSON.stringify({ ...event, _seq: Math.random().toString(36).slice(2, 8) });
+    pipeline.zadd(growthAuditKey(catId), ts, member);
     pipeline.exec().catch((err: unknown) => {
       log.warn({ err, catId, source }, 'Failed to award XP');
     });
@@ -92,6 +94,7 @@ export class GrowthService {
     const stats = {} as Record<GrowthDimension, DimensionStat>;
     let totalXp = 0;
     let levelSum = 0;
+    let activeDimensions = 0;
 
     for (let i = 0; i < GROWTH_DIMENSIONS.length; i++) {
       const dim = GROWTH_DIMENSIONS[i]!;
@@ -99,12 +102,14 @@ export class GrowthService {
       stats[dim] = buildDimensionStat(dim, xp);
       totalXp += xp;
       levelSum += stats[dim].level;
+      if (xp > 0) activeDimensions++;
     }
 
     return {
       catId,
       stats,
-      overallLevel: Math.floor(levelSum / GROWTH_DIMENSIONS.length),
+      // Only average over dimensions that have XP — avoids inactive review dragging level down
+      overallLevel: activeDimensions > 0 ? Math.floor(levelSum / activeDimensions) : 0,
       totalXp,
       updatedAt: Date.now(),
     };

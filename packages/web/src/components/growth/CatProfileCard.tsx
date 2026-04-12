@@ -30,6 +30,7 @@ export function CatProfileCard({ profile, cardId }: Props) {
   const catData = getCatById(profile.catId);
   const primaryColor = catData?.color?.primary ?? '#9B7EBD';
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const { attributes } = profile;
   const { stats, overallLevel, totalXp } = attributes;
@@ -37,6 +38,7 @@ export function CatProfileCard({ profile, cardId }: Props) {
   /** AC-A3: Download profile card as PNG */
   const handleExport = useCallback(async () => {
     setExporting(true);
+    setExportError(null);
     try {
       const res = await apiFetch(`/api/growth/${profile.catId}/export-image`, { method: 'POST' });
       if (!res.ok) {
@@ -51,7 +53,9 @@ export function CatProfileCard({ profile, cardId }: Props) {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Growth card export failed:', err);
+      const msg = err instanceof Error ? err.message : '导出失败';
+      setExportError(msg);
+      setTimeout(() => setExportError(null), 4000);
     } finally {
       setExporting(false);
     }
@@ -115,6 +119,9 @@ export function CatProfileCard({ profile, cardId }: Props) {
           )}
         </button>
       </div>
+
+      {/* Export error feedback */}
+      {exportError ? <div className="mb-2 rounded bg-red-50 px-2 py-1 text-xs text-red-500">{exportError}</div> : null}
 
       {/* Radar chart */}
       <div className="flex justify-center">

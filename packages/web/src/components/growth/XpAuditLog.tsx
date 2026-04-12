@@ -49,26 +49,32 @@ interface Props {
 export function XpAuditLog({ catId, color = '#9B7EBD' }: Props) {
   const [events, setEvents] = useState<XpEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
+  const [fetched, setFetched] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
+    setFetchError(false);
     try {
       const res = await apiFetch(`/api/growth/${catId}/events?limit=30`);
       if (res.ok) {
         const data = (await res.json()) as { events: XpEvent[] };
         setEvents(data.events);
+      } else {
+        setFetchError(true);
       }
     } catch {
-      /* swallow — audit is non-critical */
+      setFetchError(true);
     } finally {
       setLoading(false);
+      setFetched(true);
     }
   }, [catId]);
 
   useEffect(() => {
-    if (expanded && events.length === 0) fetchEvents();
-  }, [expanded, events.length, fetchEvents]);
+    if (expanded && !fetched) fetchEvents();
+  }, [expanded, fetched, fetchEvents]);
 
   return (
     <div className="mt-3 border-t border-cafe-surface-elevated pt-2">
@@ -94,6 +100,8 @@ export function XpAuditLog({ catId, color = '#9B7EBD' }: Props) {
         <div className="mt-2 max-h-48 overflow-y-auto">
           {loading ? (
             <div className="py-2 text-center text-xs text-cafe-muted">加载中...</div>
+          ) : fetchError ? (
+            <div className="py-2 text-center text-xs text-red-400">加载失败，请稍后重试</div>
           ) : events.length === 0 ? (
             <div className="py-2 text-center text-xs text-cafe-muted">暂无结算记录</div>
           ) : (
