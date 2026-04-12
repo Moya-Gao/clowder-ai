@@ -220,19 +220,19 @@ function GuideOverlayInner() {
       <div style={cutoutStyle} aria-hidden="true" />
       {targetRect && <div style={ringStyle} aria-hidden="true" />}
 
-      {/* Four-panel click shield with genuine hole over target */}
+      {/* Visual shield only: keep unrelated UI reachable so thread switching and recovery stay possible. */}
       {panels ? (
         <>
           <div
             data-guide-click-shield="panel"
             className="fixed top-0 left-0 right-0"
-            style={{ height: panels.top.height, zIndex: shieldZ, pointerEvents: 'auto' }}
+            style={{ height: panels.top.height, zIndex: shieldZ, pointerEvents: 'none' }}
             aria-hidden="true"
           />
           <div
             data-guide-click-shield="panel"
             className="fixed bottom-0 left-0 right-0"
-            style={{ top: panels.bottom.top, zIndex: shieldZ, pointerEvents: 'auto' }}
+            style={{ top: panels.bottom.top, zIndex: shieldZ, pointerEvents: 'none' }}
             aria-hidden="true"
           />
           <div
@@ -244,7 +244,7 @@ function GuideOverlayInner() {
               width: panels.left.width,
               height: panels.left.height,
               zIndex: shieldZ,
-              pointerEvents: 'auto',
+              pointerEvents: 'none',
             }}
             aria-hidden="true"
           />
@@ -257,7 +257,7 @@ function GuideOverlayInner() {
               right: 0,
               height: panels.right.height,
               zIndex: shieldZ,
-              pointerEvents: 'auto',
+              pointerEvents: 'none',
             }}
             aria-hidden="true"
           />

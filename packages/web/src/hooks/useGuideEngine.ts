@@ -15,6 +15,7 @@ import { apiFetch } from '@/utils/api-client';
  * - Exposes window.__startGuide for dev testing
  */
 export function useGuideEngine() {
+  const currentThreadId = useChatStore((s) => s.currentThreadId);
   const startGuide = useGuideStore((s) => s.startGuide);
   const advanceStep = useGuideStore((s) => s.advanceStep);
   const exitGuide = useGuideStore((s) => s.exitGuide);
@@ -140,6 +141,13 @@ export function useGuideEngine() {
   const session = useGuideStore((s) => s.session);
   const markCompletionPersisted = useGuideStore((s) => s.markCompletionPersisted);
   const markCompletionFailed = useGuideStore((s) => s.markCompletionFailed);
+
+  useEffect(() => {
+    if (!session?.threadId) return;
+    if (currentThreadId === session.threadId) return;
+    exitGuide();
+  }, [currentThreadId, exitGuide, session?.threadId]);
+
   useEffect(() => {
     if (!session || session.phase !== 'complete') return;
     const { sessionId, threadId } = session;
