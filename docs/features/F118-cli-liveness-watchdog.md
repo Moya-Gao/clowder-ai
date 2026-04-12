@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复
 
-> **Status**: done (GAP-2 D1 merged, D2-D4 open) | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16) | **GAP-2**: Phase D — D1 merged (PR #1105, 2026-04-12), D2-D4 pending
+> **Status**: done (GAP-2 D1+D2 merged, D3-D4 open) | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16) | **GAP-2**: Phase D — D1 merged (PR #1105, 2026-04-12), D2 merged (PR #1108, 2026-04-12), D3-D4 pending
 
 ## Why
 
@@ -252,7 +252,9 @@ CLI 挂了 (liveness, Phase A+B ✅)
 
 **计划**：`docs/plans/2026-04-11-f118-phase-d-invocation-resilience.md`（Phase D: Circuit Breaker Fix + Spawn Feedback + Tracker TTL + Processing Slots Zombie Defense）
 
-**D1 已合入**（PR #1105, 2026-04-12）：`create()` + immediate `update()` 继承 `consecutiveRestoreFailures`，熔断器现在能正确触发。D2-D4 待后续。
+**D1 已合入**（PR #1105, 2026-04-12）：`create()` + immediate `update()` 继承 `consecutiveRestoreFailures`，熔断器现在能正确触发。
+
+**D2 已合入**（PR #1108, 2026-04-12）：`spawn_started` socket event + per-cat spawning UI + D1 P3 多轮替换回归测试。填补 intent_mode 盲区（0-2min），ThinkingIndicator 显示"启动中..."。D3-D4 待后续。
 
 ## Key Decisions
 
