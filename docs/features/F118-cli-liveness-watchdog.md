@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复
 
-> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16)
+> **Status**: done (GAP-2 open) | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16) | **GAP-2**: Phase D plan (2026-04-11)
 
 ## Why
 
@@ -241,6 +241,16 @@ CLI 挂了 (liveness, Phase A+B ✅)
 - **第三刀**：`IncrementalContextResult.degradation` 字段 + route-serial/route-parallel 的 `system_info` yield
 
 **测试覆盖**：14 个测试（10 count-cap + 4 token-budget），覆盖 cursor=undefined、stale cursor 大批量、fallback 注入不回归、极端 token 压力（200 条长消息 ~500K tokens >> 160K budget）
+
+### GAP-2: Circuit Breaker failure count 在 `cli_session_replaced` 时被洗掉（2026-04-11）
+
+**现象**：两个线程的 `@gpt52` mention 5+ 分钟无响应。session chain 显示 `seq0` sealed（`cli_session_replaced`），`seq1` active 但 `messageCount=0`。
+
+**根因**：AC-C6 的 overflow circuit breaker 实现有 loophole。`invoke-single-cat.ts:1109` 在收到新 `session_init`（CLI 换了 session）时，通过 `sessionChainStore.create()` 创建新 active record，但**不继承** `consecutiveRestoreFailures`。新 record 从 0 开始 → 熔断阈值（3）永远达不到 → 循环卡死无限重复。
+
+**发现者**：砚砚(GPT-5.4) 在侦探猫猫调查中定位，宪宪(Opus) 代码验证确认。
+
+**计划**：`docs/plans/2026-04-11-f118-phase-d-invocation-resilience.md`（Phase D: Circuit Breaker Fix + Spawn Feedback + Tracker TTL + Processing Slots Zombie Defense）
 
 ## Key Decisions
 
