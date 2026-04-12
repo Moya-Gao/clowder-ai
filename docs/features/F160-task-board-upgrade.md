@@ -8,7 +8,7 @@ created: 2026-04-12
 
 # F160: 毛线球升级 — Thread-Level Persistent Task Board
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -40,7 +40,7 @@ created: 2026-04-12
 
 ## What
 
-### Phase A: Protocol Closure — 让猫知道、让猫能用
+### Phase A: Protocol Closure — 让猫知道、让猫能用 ✅
 
 **目标**：补齐协议层，让猫猫能发现和创建任务，不改 UI。
 
@@ -169,11 +169,11 @@ created: 2026-04-12
 
 ## Acceptance Criteria
 
-### Phase A（Protocol Closure）
-- [ ] AC-A1: `cat_cafe_create_task` MCP tool 可用，创建的任务 `kind=work`，出现在 TaskPanel
-- [ ] AC-A2: SystemPromptBuilder 包含毛线球能力描述，猫猫知道如何创建/查看/更新任务
-- [ ] AC-A3: `cat_cafe_list_tasks` 在 MCP 中可用，支持 `threadId` + `kind` 过滤
-- [ ] AC-A4: 回归测试：PR tracking 任务仍然不出现在毛线球（PR #958 守护）
+### Phase A（Protocol Closure）✅
+- [x] AC-A1: `cat_cafe_create_task` MCP tool 可用，创建的任务 `kind=work`，出现在 TaskPanel
+- [x] AC-A2: SystemPromptBuilder 包含毛线球能力描述，猫猫知道如何创建/查看/更新任务
+- [x] AC-A3: `cat_cafe_list_tasks` 在 MCP 中可用，支持 `threadId` + `kind` 过滤
+- [x] AC-A4: 回归测试：PR tracking 任务仍然不出现在毛线球（PR #958 守护）
 
 ### Phase B（UI Upgrade）
 - [ ] AC-B1: 毛线球从 ThreadSidebar 底部移至 Workspace 右面板独立 Tab
@@ -246,6 +246,7 @@ created: 2026-04-12
 | 2026-04-11 | PR tracking 泄漏 bug 修复（PR #958），触发毛线球定位讨论 |
 | 2026-04-11 | 三猫头脑风暴（宪宪+砚砚+烁烁），达成三层架构共识 |
 | 2026-04-12 | 铲屎官确认方向，F160 立项 |
+| 2026-04-12 | Phase A merged (PR #1116) |
 
 ## Review Gate
 
