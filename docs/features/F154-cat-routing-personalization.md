@@ -63,6 +63,9 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 - 当前默认猫卡片高亮 + "默认" badge；点击其他卡片切换（二次确认）
 - 卡片含：猫头像 + 名字 + 品种色带 + 在线状态
 - 清晰标注影响范围："新 thread 没有历史时，默认由这只猫回复"
+- **实现参考**：社区 PR `clowder-ai#419`（评估结论：问题 welcome，PR as-is 不 merge，但以下设计可参考）
+  - Resolver 分离：考虑将 `getDefaultResponderCatId()` 从通用 `getDefaultCatId()` 拆出，避免"默认回复猫"配置影响 reviewer-matcher / invocation 等其他 fallback 场景
+  - Config 持久化：Phase A 的 `setRuntimeDefaultCatId()` 是内存变量（重启丢失），B2 必须解决。参考 PR 的 config schema + PATCH endpoint + 3-tier fallback 路径
 
 **B3 — Connector 可见性**：
 - `/status` 输出增加"首选猫"信息
