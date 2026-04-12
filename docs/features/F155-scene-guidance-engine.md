@@ -6,11 +6,12 @@ doc_kind: spec
 created: 2026-04-09
 community_issue: "clowder-ai#409"
 community_pr: "clowder-ai#398"
+intake_issue: "cat-cafe#1119"
 ---
 
 # F155: Scene-Based Guidance Engine — 场景式交互引导
 
-> **Status**: needs-discussion | **Source**: Community (mindfn) | **Priority**: TBD
+> **Status**: in-progress (clowder-ai#398 merged; intake issue #1119 open) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
 
 ## Why
 
@@ -69,10 +70,17 @@ TBD — 待 intake 讨论后确定。
 | Q4 | 维护能力？ | **UNKNOWN / NEEDS-OWNER** — 72 commits 证明社区持续迭代，但不等于我们有长期 owner + 支持能力 |
 | Q5 | 技术负债？ | **HIGH** — 深度修改 routing core（route-parallel/serial/invoke-single-cat/SystemPromptBuilder），非隔离模块 |
 
-### Blockers（merge 前必须解决）
+### Merge Gate（已关闭）
 
-1. **Accepted issue 未过门禁** — clowder-ai#409 只有 `feature:F150`，缺 `triaged` 标签，不满足 inbound merge gate。且 `feature:F150` label 描述指向的是另一个 feature（tool-usage-stats），upstream 编号真相源已漂移
-2. **冲突标记残留** — PR 中 `docs/ROADMAP.md` 带着 `<<<<<<< HEAD` 冲突标记，即使 CI 绿也不是干净的 merge-ready 状态
+- [x] Accepted issue 已补齐：`clowder-ai#409` 当前为 `triaged` + `feature:F155`
+- [x] 历史冲突标记已清理
+- [x] `clowder-ai#398` 已于 2026-04-12 squash merge（commit `2e1d5e2c2bfb8cb95753d1c6a8cd0e9aab7c8a17`）
+
+### Intake 现状（进行中）
+
+- Intake Intent Issue：`cat-cafe#1119`
+- 机械分类：67 `safe-cherry-pick` / 1 `brand-guard` / 14 `manual-port`
+- 当前 intake 策略：吸收 Phase A 已验证实现；保留 thread-scoped `guideState` 与 routing core 耦合为后续 Phase B 架构重构债
 
 ### Intake Shape
 

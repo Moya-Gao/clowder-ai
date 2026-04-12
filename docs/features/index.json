@@ -951,7 +951,7 @@
     {
       "id": "F155",
       "name": "Scene-Based Guidance Engine — 场景式交互引导",
-      "status": "needs-discussion | **Source**: Community (mindfn) | **Priority**: TBD",
+      "status": "in-progress (clowder-ai#398 merged; intake issue #1119 open) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
       "file": "F155-scene-guidance-engine.md"
     },
     {
