@@ -509,6 +509,8 @@ GameView 的 `SeatView` 只需携带 `actorId`（= catId），前端直接用 `<
 | 2026-04-06 | Phase I witch fix merged (PR #982) — P0 non-wolf fallback→skip (no random potion use) + P0 witch briefing (kill target/potion state/heal-poison-skip) + P1 game composition in all briefings + P2 stop button feedback + e2e narrator test fix. 砚砚(codex) 1-round local review + Codex cloud 2-round review (P1 fix + re-review) |
 | 2026-04-06 | Game thread UX fix merged (PR #983) — thread title with Asia/Shanghai timestamp + auto-pin on creation. 砚砚(codex) 1-round local review + Codex cloud review |
 | 2026-04-06 | Phase I callback + witch fix merged (PR #985) — P0 non-Claude cats missing `cat_cafe_submit_game_action` (new `/api/callbacks/submit-game-action` route) + P0 witch heal missing target (healed player still died) + P1 cross-game thread isolation. 砚砚(codex) 2-round local review + Codex cloud review |
+| 2026-04-12 | Callback route comment corrected (`cad7c89d7`) — "non-Claude cats lack MCP" was wrong; all major cats have `mcpSupport: true`. Callback route re-positioned as fallback safety net |
+| 2026-04-12 | Game action observability merged (PR #1120) — three-layer evidence chain (wakeCat log + MCP stderr trace + API route structured logging) with `x-callback-invocation-id` correlation header. 砚砚(gpt52) implemented, 布偶猫 reviewed + Codex cloud review |
 
 ### Phase I Runtime Bugs（2026-03-26 铲屎官实测）
 
