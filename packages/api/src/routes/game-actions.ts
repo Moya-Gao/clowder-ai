@@ -111,7 +111,10 @@ export const gameActionRoutes: FastifyPluginAsync<GameActionRoutesOptions> = asy
     // P0: Verify the caller owns the thread this game belongs to
     const thread = await threadStore.get(runtime.threadId);
     if (!thread || thread.createdBy !== userId) {
-      request.log.warn({ ...logCtx, threadId: runtime.threadId }, '[F101] game action rejected: thread ownership mismatch');
+      request.log.warn(
+        { ...logCtx, threadId: runtime.threadId },
+        '[F101] game action rejected: thread ownership mismatch',
+      );
       reply.status(403);
       return { error: 'Access denied: you do not own this game thread' };
     }

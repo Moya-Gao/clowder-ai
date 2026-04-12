@@ -10,8 +10,8 @@
     "start": "node ./scripts/start-entry.mjs start",
     "stop": "./scripts/start-dev.sh --stop",
     "start:status": "./scripts/start-dev.sh --status",
-    "start:direct": "node ./scripts/start-entry.mjs start:direct",
-    "dev:direct": "node ./scripts/start-entry.mjs dev:direct",
+    "start:direct": "node ./scripts/start-entry.mjs start:direct --profile=opensource",
+    "dev:direct": "node ./scripts/start-entry.mjs dev:direct --profile=opensource",
     "review:start": "bash ./scripts/review-start.sh",
     "alpha:init": "./scripts/alpha-worktree.sh init",
     "alpha:sync": "./scripts/alpha-worktree.sh sync",
@@ -44,7 +44,8 @@
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
-    "check": "pnpm biome check . --diagnostic-level=error && pnpm check:features && pnpm check:env-ports && pnpm check:env-registry && pnpm check:env-example",
+    "check": "pnpm biome check . --diagnostic-level=error && pnpm check:features && pnpm check:env-ports && pnpm check:env-registry && pnpm check:env-example && pnpm check:start-profile-isolation && pnpm check:guides",
+    "check:guides": "node scripts/gen-guide-catalog.mjs",
     "check:fix": "pnpm biome check --write .",
     "test": "pnpm -r --if-present run test",
     "test:api:redis": "pnpm --filter @cat-cafe/api run test:redis",
@@ -64,7 +65,8 @@
     "rescue:claude:thinking": "node ./scripts/rescue-claude-thinking-signature.mjs",
     "proxy:anthropic": "node ./scripts/anthropic-proxy.mjs",
     "logs:health": "bash ./scripts/logs-health.sh",
-    "clean": "pnpm -r run clean && rm -rf node_modules"
+    "clean": "pnpm -r run clean && rm -rf node_modules",
+    "check:start-profile-isolation": "node --test scripts/start-dev-profile-isolation.test.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.1",

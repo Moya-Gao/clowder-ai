@@ -21,7 +21,7 @@ triggers:
 **硬规则**：cross-post 是**通知层**，不是真相源。阻塞信息必须双写到可追溯状态（feature doc / workflow / task）。
 
 > **⚠️ 路由铁律**：cross-post 消息如果**没有 @mention 也没有 targetCats**，消息会到达目标 thread 但**不会触发任何猫 session**——消息静默躺在那里，直到铲屎官手动 @ 某只猫。**必须**用以下任一方式触发目标猫：
-> 1. 在 content 末尾另起一行写 `@句柄`（如 `@opus`）
+> 1. 在 content 末尾另起一行写 `@句柄`（如 `@目标猫句柄`）
 > 2. 传 `targetCats` 参数（如 `targetCats: ["opus"]`）
 
 **Announce at start:** "I'm using the cross-thread-sync skill to coordinate with parallel sessions."

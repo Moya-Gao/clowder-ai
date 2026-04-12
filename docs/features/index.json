@@ -950,9 +950,27 @@
     },
     {
       "id": "F155",
+      "name": "Add-Member Internal Guide UI Spec (Phase A)",
+      "status": "spec | **Owner**: 缅因猫/砚砚 (codex) | **Scope**: 内部场景（添加成员）",
+      "file": "F155-add-member-guide-ui-spec.md"
+    },
+    {
+      "id": "F155",
+      "name": "引导场景清单",
+      "status": "note | **Scope**: F155 当前 intake 仅覆盖平台内场景；跨系统条目保留为延期探索草案",
+      "file": "F155-scene-catalog.md"
+    },
+    {
+      "id": "F155",
       "name": "Scene-Based Guidance Engine — 场景式交互引导",
       "status": "in-progress (clowder-ai#398 merged; intake issue #1119 open) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
       "file": "F155-scene-guidance-engine.md"
+    },
+    {
+      "id": "F155",
+      "name": "Scene-Based Bidirectional Guidance Engine",
+      "status": "Phase A accepted / frozen — 基础引导引擎已验收冻结，可开 PR 合入 | **Owner**: 布偶猫/宪宪 | **Priority**: P1",
+      "file": "F155-scene-guidance-phase-a-spec.md"
     },
     {
       "id": "F156",

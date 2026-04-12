@@ -575,7 +575,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     //   L2 this check = see below
     //   L3 CI guard = hard block (prevents merging PRs with shared-state changes)
     //
-    // Scope: only check the host Cat Café repo (or its worktrees). External projects /
+    // Scope: only check the host Clowder AI repo (or its worktrees). External projects /
     // fork playgrounds may be routed by this runtime, but they must not inherit
     // shared-state warnings from the repo that launched the API process.
     if (
@@ -995,10 +995,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Prepend staticIdentity to prompt when injection is needed
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
     const promptWithMission = missionPrefix ? `${missionPrefix}\n\n${prompt}` : prompt;
+
     const effectivePrompt =
       injectSystemPrompt && params.systemPrompt
         ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
-        : promptWithMission;
+        : `${promptWithMission}`;
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];

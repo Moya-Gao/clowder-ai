@@ -84,11 +84,19 @@ const mockStoreState = {
   addThreadActiveInvocation: vi.fn(),
 };
 
+(globalThis as { __mockUseSocketStoreState?: typeof mockStoreState }).__mockUseSocketStoreState = mockStoreState;
+
 vi.mock('@/stores/chatStore', () => {
-  const store = {
-    getState: () => mockStoreState,
-  };
-  return { useChatStore: store };
+  const useChatStore = Object.assign(
+    <T>(selector?: (state: typeof mockStoreState) => T) => {
+      const state = (globalThis as { __mockUseSocketStoreState?: typeof mockStoreState }).__mockUseSocketStoreState!;
+      return selector ? selector(state) : state;
+    },
+    {
+      getState: () => (globalThis as { __mockUseSocketStoreState?: typeof mockStoreState }).__mockUseSocketStoreState!,
+    },
+  );
+  return { useChatStore };
 });
 
 vi.mock('@/stores/toastStore', () => ({
@@ -137,6 +145,7 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     vi.useRealTimers();
     delete (globalThis as { React?: typeof React }).React;
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    delete (globalThis as { __mockUseSocketStoreState?: typeof mockStoreState }).__mockUseSocketStoreState;
   });
 
   beforeEach(() => {

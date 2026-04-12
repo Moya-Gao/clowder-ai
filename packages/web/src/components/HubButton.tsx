@@ -8,8 +8,9 @@ export function HubButton() {
     <button
       onClick={() => openHub()}
       className="p-1 rounded-lg hover:bg-cocreator-light transition-colors"
-      aria-label="Cat Café Hub"
-      title="Cat Café Hub"
+      aria-label="Clowder AI Hub"
+      title="Clowder AI Hub"
+      data-guide-id="hub.trigger"
     >
       <svg
         className="w-5 h-5 text-cafe-secondary"

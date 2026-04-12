@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
 
-## Skills 列表（30 个）
+## Skills 列表（32 个）
 
 ### 开发流程链
 ```
@@ -15,6 +15,8 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | Skill | 触发场景 | SOP Step |
 |-------|----------|----------|
 | `feat-lifecycle` | 新功能立项/讨论/完成 | — |
+| `guide-authoring` | 编排场景引导 YAML / registry / 标签契约 | — |
+| `guide-interaction` | 命中 Guide Available 后发交互卡片并启动引导 | — |
 | `collaborative-thinking` | brainstorm/多猫讨论/收敛 | — |
 | `expert-panel` | 专家辩论团/竞品分析/技术趋势/showcase | — |
 | `writing-plans` | 写实施计划 | — |

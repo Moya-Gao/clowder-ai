@@ -41,6 +41,11 @@ const EXPECTED_TOOLS = [
   // Bootcamp tools (F087)
   'cat_cafe_update_bootcamp_state',
   'cat_cafe_bootcamp_env_check',
+  // F155 Guide Engine
+  'cat_cafe_update_guide_state',
+  'cat_cafe_guide_resolve',
+  'cat_cafe_start_guide',
+  'cat_cafe_guide_control',
   // Callback-scoped memory tools
   'cat_cafe_retain_memory_callback',
   // Direct evidence/reflect tools
@@ -105,6 +110,10 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_start_vote',
   'cat_cafe_update_bootcamp_state',
   'cat_cafe_bootcamp_env_check',
+  'cat_cafe_update_guide_state',
+  'cat_cafe_guide_resolve',
+  'cat_cafe_start_guide',
+  'cat_cafe_guide_control',
   'cat_cafe_submit_game_action',
   // F139 Phase 3A: Schedule tools
   'cat_cafe_list_schedule_templates',
