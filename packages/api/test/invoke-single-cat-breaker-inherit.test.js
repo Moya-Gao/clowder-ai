@@ -245,6 +245,66 @@ describe('F118 D1: failure count inheritance across cli_session_replaced', () =>
     );
   });
 
+  it('P3: multi-round cli_session_replaced inherits failure count cumulatively', async () => {
+    const store = new SessionChainStore();
+
+    // Round 0: Session A starts with failures=1
+    const sessionA = store.create({
+      cliSessionId: 'cli-round-0',
+      threadId: 'thread-multi-replace',
+      catId: 'codex',
+      userId: 'user1',
+    });
+    store.update(sessionA.id, { consecutiveRestoreFailures: 1 });
+
+    const deps = makeDeps({
+      sessionChainStore: store,
+      sessionSealer: makeSealer(store),
+    });
+
+    // Round 1: cli_session_replaced → Session B should inherit failures=1
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'codex',
+        service: makeServiceWithSessionInit('cli-round-1'),
+        prompt: 'test',
+        userId: 'user1',
+        threadId: 'thread-multi-replace',
+        isLastCat: true,
+      }),
+    );
+
+    const sessionB = store.getActive('codex', 'thread-multi-replace');
+    assert.ok(sessionB, 'Session B should exist');
+    assert.equal(sessionB.cliSessionId, 'cli-round-1');
+    assert.equal(sessionB.consecutiveRestoreFailures, 1, 'Session B inherits failures=1 from A');
+
+    // Simulate another retry failure bumping B's count to 2
+    store.update(sessionB.id, { consecutiveRestoreFailures: 2 });
+
+    // Round 2: cli_session_replaced again → Session C should inherit failures=2
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'codex',
+        service: makeServiceWithSessionInit('cli-round-2'),
+        prompt: 'test',
+        userId: 'user1',
+        threadId: 'thread-multi-replace',
+        isLastCat: true,
+      }),
+    );
+
+    const sessionC = store.getActive('codex', 'thread-multi-replace');
+    assert.ok(sessionC, 'Session C should exist');
+    assert.notEqual(sessionC.id, sessionB.id, 'Session C is a new record');
+    assert.equal(sessionC.cliSessionId, 'cli-round-2');
+    assert.equal(
+      sessionC.consecutiveRestoreFailures,
+      2,
+      'Session C inherits failures=2 from B — cumulative across multiple replacements',
+    );
+  });
+
   it('AC-D3: ephemeral session does NOT inherit failure count', async () => {
     const store = new SessionChainStore();
 
