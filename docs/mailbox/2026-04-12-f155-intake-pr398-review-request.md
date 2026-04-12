@@ -99,7 +99,7 @@ bash scripts/intake-from-opensource.sh --validate-inbound
 ```
 
 ### 前端证据
-- 页面截图：`f155-intake-home.png`
+- 页面截图：`docs/features/assets/F155/f155-intake-home.png`
 - 真实页面已跑在 `http://localhost:3201`
 - 真实 DOM 侦察确认：页面存在 `data-guide-id="hub.trigger"`
 - 说明：overlay 视觉链路的本地验证目前只有“事件尝试 + DOM/endpoint 侦察”，没有形成我愿意称为“全绿”的浏览器证据

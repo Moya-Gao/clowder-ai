@@ -11,7 +11,7 @@ intake_issue: "cat-cafe#1119"
 
 # F155: Scene-Based Guidance Engine — 场景式交互引导
 
-> **Status**: in-progress (clowder-ai#398 merged; intake issue #1119 open) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
+> **Status**: in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B pending) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
 
 ## Why
 
@@ -21,7 +21,7 @@ intake_issue: "cat-cafe#1119"
 
 ## What
 
-### Phase A（clowder-ai#398 已实现）
+### Phase A（已 merged 到 cat-cafe main）
 
 1. **YAML 驱动的引导流程定义** — `guides/flows/*.yaml` + `guides/registry.yaml`
 2. **引导状态机** — `offered → awaiting_choice → active → completed/cancelled`（前向 DAG）
@@ -75,12 +75,14 @@ TBD — 待 intake 讨论后确定。
 - [x] Accepted issue 已补齐：`clowder-ai#409` 当前为 `triaged` + `feature:F155`
 - [x] 历史冲突标记已清理
 - [x] `clowder-ai#398` 已于 2026-04-12 squash merge（commit `2e1d5e2c2bfb8cb95753d1c6a8cd0e9aab7c8a17`）
+- [x] `cat-cafe#1122` 已于 2026-04-12 squash merge（commit `e4e05c79881dfd4d0c35e8ddb4eb32cf5025493e`）
 
-### Intake 现状（进行中）
+### Intake 现状（已完成）
 
-- Intake Intent Issue：`cat-cafe#1119`
+- Intake Intent Issue：`cat-cafe#1119`（已关闭）
 - 机械分类：67 `safe-cherry-pick` / 1 `brand-guard` / 14 `manual-port`
 - 当前 intake 策略：吸收 Phase A 已验证实现；保留 thread-scoped `guideState` 与 routing core 耦合为后续 Phase B 架构重构债
+- Phase A intake 已于 2026-04-12 merge 到 cat-cafe main（PR #1122）
 
 ### Intake Shape
 
@@ -110,7 +112,17 @@ PR 后半段（04-09 的 20+ commits）连续修了以下问题，说明 `guideS
 - [ ] `guides/` 顶层目录是否符合我们的目录结构？
 - [ ] 谁是家里的长期 owner？（Q4 needs-owner）
 
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-04-09 | F155 立项，预留编号并建立 feature doc |
+| 2026-04-12 | `clowder-ai#398` upstream squash merged（commit `2e1d5e2c2bfb8cb95753d1c6a8cd0e9aab7c8a17`） |
+| 2026-04-12 | Phase A intake merged (PR #1122) — guide runtime/API/web + guide skills/docs/manual-port，`pnpm gate` 全绿，金渐层 review 放行，Codex cloud review 0 P1/P2 |
+
 ## Upstream Links
 
 - Issue: [clowder-ai#409](https://github.com/zts212653/clowder-ai/issues/409)
 - PR: [clowder-ai#398](https://github.com/zts212653/clowder-ai/pull/398)
+- Intake Issue: [cat-cafe#1119](https://github.com/zts212653/cat-cafe/issues/1119)
+- Intake PR: [cat-cafe#1122](https://github.com/zts212653/cat-cafe/pull/1122)
