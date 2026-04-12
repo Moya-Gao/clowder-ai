@@ -164,6 +164,12 @@ export const featIndexInputSchema = {
     .describe('Optional fuzzy substring search over featId/name/status (case-insensitive).'),
 };
 
+export const createTaskInputSchema = {
+  title: z.string().min(1).max(200).describe('Task title — what needs to be done'),
+  why: z.string().max(1000).optional().describe('Why this task matters (context for whoever picks it up)'),
+  ownerCatId: z.string().min(1).optional().describe('Cat ID to assign the task to (optional, defaults to unassigned)'),
+};
+
 export const updateTaskInputSchema = {
   taskId: z.string().min(1).describe('The ID of the task to update'),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional().describe('New task status'),
@@ -311,6 +317,18 @@ export async function handleUpdateTask(input: {
     taskId: input.taskId,
     ...(input.status ? { status: input.status } : {}),
     ...(input.why ? { why: input.why } : {}),
+  });
+}
+
+export async function handleCreateTask(input: {
+  title: string;
+  why?: string | undefined;
+  ownerCatId?: string | undefined;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/create-task', {
+    title: input.title,
+    ...(input.why ? { why: input.why } : {}),
+    ...(input.ownerCatId ? { ownerCatId: input.ownerCatId } : {}),
   });
 }
 
@@ -815,6 +833,17 @@ export const callbackTools = [
       'TIP: Include a "why" note when marking as blocked — it helps others understand the situation.',
     inputSchema: updateTaskInputSchema,
     handler: handleUpdateTask,
+  },
+  {
+    name: 'cat_cafe_create_task',
+    description:
+      'Create a new 🧶 毛线球 (yarn ball) task in the current thread. ' +
+      'Use for persistent work items that need tracking across sessions — ' +
+      'e.g. "fix login timeout", "update API docs", "review F160 spec". ' +
+      'NOT for temporary execution steps (use PlanBoard/TodoWrite for those). ' +
+      'TIP: Include a "why" to give context to whoever picks up the task.',
+    inputSchema: createTaskInputSchema,
+    handler: handleCreateTask,
   },
   {
     name: 'cat_cafe_create_rich_block',

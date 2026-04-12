@@ -2,6 +2,7 @@
  * Callback task routes — MCP post_message 回传的任务更新端点
  */
 
+import type { CatId } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -16,6 +17,12 @@ const updateTaskSchema = callbackAuthSchema.extend({
   taskId: z.string().min(1),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
   why: z.string().max(1000).optional(),
+});
+
+const createTaskSchema = callbackAuthSchema.extend({
+  title: z.string().min(1).max(200),
+  why: z.string().max(1000).optional().default(''),
+  ownerCatId: z.string().min(1).optional(),
 });
 
 const listTasksQuerySchema = callbackAuthSchema.extend({
@@ -76,6 +83,42 @@ export function registerCallbackTaskRoutes(
 
     socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'task_updated', updated);
     return { status: 'ok', task: updated };
+  });
+
+  // F160: create-task — kind forced to 'work' (KD-4)
+  app.post('/api/callbacks/create-task', async (request, reply) => {
+    const parsed = createTaskSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    const { invocationId, callbackToken, title, why, ownerCatId } = parsed.data;
+    const record = registry.verify(invocationId, callbackToken);
+    if (!record) {
+      reply.status(401);
+      return EXPIRED_CREDENTIALS_ERROR;
+    }
+
+    if (ownerCatId && !catRegistry.has(ownerCatId)) {
+      reply.status(400);
+      return { error: `Unknown catId: ${ownerCatId}` };
+    }
+
+    const task = await taskStore.create({
+      threadId: record.threadId,
+      title,
+      why: why ?? '',
+      createdBy: record.catId,
+      kind: 'work',
+      subjectKey: null,
+      ownerCatId: (ownerCatId ?? null) as CatId | null,
+      userId: record.userId,
+    });
+
+    socketManager.broadcastToRoom(`thread:${task.threadId}`, 'task_created', task);
+    reply.status(201);
+    return { status: 'ok', task };
   });
 
   app.get('/api/callbacks/list-tasks', async (request, reply) => {

@@ -219,11 +219,20 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 - cat_cafe_get_pending_mentions: 获取 @提及
 - cat_cafe_get_thread_context: 获取对话上下文
 - cat_cafe_list_threads: 列出 thread 摘要
-- cat_cafe_update_task: 更新任务状态
+- cat_cafe_create_task: 创建🧶毛线球任务（当前 thread 持久化工作项）
+- cat_cafe_list_tasks: 列出任务（支持 threadId/catId/status/kind 过滤）
+- cat_cafe_update_task: 更新任务状态（todo/doing/blocked/done）
 - cat_cafe_create_rich_block: 创建 rich block
 - cat_cafe_generate_document: 生成文档并投递到 IM（MD→DOCX/PDF）— 用户说"生成报告/导出文档/发PDF"时用这个，不要手动 pandoc + create_rich_block（那不会投递到飞书）
 - cat_cafe_get_rich_block_rules: 获取 rich block 规则（fallback）
 - cat_cafe_multi_mention: 并行拉1-3只猫讨论同一问题（先搜后问：必须带searchEvidenceRefs或overrideReason）
+
+🧶 **毛线球（Thread Tasks）使用指南：**
+- 铲屎官提了需要跟踪的事项 → cat_cafe_create_task
+- 多猫协作分工 → cat_cafe_create_task + 指定 ownerCatId
+- 长期追踪项 → cat_cafe_create_task
+- 临时执行步骤 → 不要用毛线球（那是猫猫祟祟 PlanBoard 的职责）
+- 进入 thread 时 → cat_cafe_list_tasks 看看有没有 blocked 任务需要关注
 
 ${RICH_BLOCK_SHORT}
 When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.
