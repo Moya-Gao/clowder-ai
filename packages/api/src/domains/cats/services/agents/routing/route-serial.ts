@@ -777,6 +777,8 @@ export async function* routeSerial(
             },
           });
           storedMsgId = storedMsg.id;
+          // F157: Award discussion XP for every cat response (fire-and-forget)
+          deps.growthService?.awardXp(catId as string, 'discussion');
           // F088-P3: Stash rich blocks for outbound delivery
           if (options.persistenceContext && allRichBlocks.length > 0) {
             options.persistenceContext.richBlocks = allRichBlocks;

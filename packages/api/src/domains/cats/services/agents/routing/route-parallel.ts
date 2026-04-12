@@ -685,6 +685,8 @@ export async function* routeParallel(
               ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
             },
           });
+          // F157: Award discussion XP for every cat response (fire-and-forget)
+          deps.growthService?.awardXp(msg.catId as string, 'discussion');
           // F088-P3: Stash rich blocks for outbound delivery
           if (options.persistenceContext && allRichBlocks.length > 0) {
             options.persistenceContext.richBlocks = [
