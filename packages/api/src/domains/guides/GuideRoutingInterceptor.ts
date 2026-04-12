@@ -83,7 +83,9 @@ function shouldHandleOffered(
 async function resolveRegistryEntry(guideId: string): Promise<{ name: string; estimatedTime: string } | undefined> {
   try {
     const { getRegistryEntries } = await import('./guide-registry-loader.js');
-    return getRegistryEntries().find((e) => e.id === guideId);
+    const entry = getRegistryEntries().find((e) => e.id === guideId);
+    if (!entry) return undefined;
+    return { name: entry.name, estimatedTime: entry.estimated_time };
   } catch {
     return undefined;
   }
