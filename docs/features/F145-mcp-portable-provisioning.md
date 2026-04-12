@@ -80,7 +80,7 @@ created: 2026-03-27
 3. **capabilities.json bootstrap 补齐**：`cat-cafe` 主 server 加入 bootstrap/migration（当前只有 split 三件套）
 4. **mcp:doctor 对齐**：确认 doctor 报告包含 `cat-cafe` 主 server 状态
 
-### Phase E: Per-Project MCP for ACP Sessions
+### Phase E: Per-Project MCP for ACP Sessions ✅
 
 **痛点**：社区用户用 Cat Café 开发自己的项目。不同项目目录下有不同的 `.mcp.json`（database MCP、docker MCP、figma MCP 等）。当前各猫猫对用户项目 `.mcp.json` 的支持情况：
 
@@ -135,12 +135,12 @@ created: 2026-03-27
 - [x] AC-C4: 新机器 clone + `pnpm install` 后，Gemini ACP session 自动获得内置 MCP servers（无需手写 `.mcp.json`）
 - [x] AC-C5: 现有 ACP adapter + resolver 测试全绿 + 新增 auto-provision 回归测试
 
-### Phase E（Per-Project MCP for ACP）
-- [ ] AC-E1: `resolveAcpMcpServers` 接受 `userProjectRoot` 参数，读取用户项目目录的 `.mcp.json`
-- [ ] AC-E2: 用户项目 `.mcp.json` 的 server 自动 merge 到 ACP session MCP 列表
-- [ ] AC-E3: 同名 server 优先级：内建 cat-cafe-* > whitelist 外部 > 用户项目
-- [ ] AC-E4: 用户项目没有 `.mcp.json` 时不报错（graceful degrade，仅内建 + whitelist）
-- [ ] AC-E5: 不同 `userProjectRoot` 的 ACP session 拿到不同的 MCP server 集合
+### Phase E（Per-Project MCP for ACP）✅
+- [x] AC-E1: `resolveAcpMcpServers` 接受 `userProjectRoot` 参数，读取用户项目目录的 `.mcp.json`
+- [x] AC-E2: 用户项目 `.mcp.json` 的 server 自动 merge 到 ACP session MCP 列表
+- [x] AC-E3: 同名 server 优先级：内建 cat-cafe-* > whitelist 外部 > 用户项目
+- [x] AC-E4: 用户项目没有 `.mcp.json` 时不报错（graceful degrade，仅内建 + whitelist）
+- [x] AC-E5: 不同 `userProjectRoot` 的 ACP session 拿到不同的 MCP server 集合
 
 ## Dependencies
 
@@ -209,7 +209,8 @@ Claude Code 读配置时 per-project override > `.mcp.json` > global，拿到不
 | 2026-04-08 | Bug 发现：~/.claude.json stale per-project override 遮蔽 resolver 输出，Pencil 三猫均不可用 |
 | 2026-04-08 | 紧急修复：手动清理 ~/.claude.json stale entries + Phase D 立项 |
 | 2026-04-08 | Phase D merged (PR #1017, `b527aac0`)：`generateCliConfigs()` auto-clean per-project overrides |
-| 2026-04-14 | Phase E 立项：铲屎官提出社区用户 per-project MCP 需求。梳理三猫 MCP 读取现状：Claude Code ✅ / Codex ✅ / Gemini ACP ❌ |
+| 2026-04-12 | Phase E 立项：铲屎官提出社区用户 per-project MCP 需求。梳理三猫 MCP 读取现状：Claude Code ✅ / Codex ✅ / Gemini ACP ❌ |
+| 2026-04-12 | Phase E merged (PR #1113)：`resolveAcpMcpServers` + `resolveUserProjectMcpServers` per-invoke helper + GeminiAcpAdapter per-invocation merge |
 
 ## Review Gate
 
