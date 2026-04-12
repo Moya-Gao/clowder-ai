@@ -2412,6 +2412,1438 @@
           "fontWeight": "normal"
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "pHjml",
+      "x": 0,
+      "y": 4100,
+      "name": "宪宪版 v2 ① Thread — Pill 在顶栏",
+      "width": 960,
+      "height": 640,
+      "fill": "#EDEAE5",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "apVfh",
+          "name": "Top Bar",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#8D6E63",
+          "gap": 8,
+          "padding": [
+            0,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "2sBK2",
+              "name": "logo",
+              "fill": "#fdf8f3",
+              "content": "☕ Cat Café",
+              "fontFamily": "Outfit",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "a6mFP",
+              "name": "topnav",
+              "fill": "#fdf8f3AA",
+              "content": "架构重构讨论",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "YW4nu",
+              "x": 881,
+              "y": 14,
+              "name": "topnav2",
+              "enabled": false,
+              "fill": "#fdf8f3CC",
+              "content": "Members",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "2gE2S",
+              "name": "✨ Pill 桌牌 — 首选猫指示器",
+              "height": 24,
+              "fill": "#FFAB9122",
+              "cornerRadius": 100,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FFAB9144"
+              },
+              "gap": 4,
+              "padding": [
+                0,
+                6
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "58TjP",
+                  "name": "pillAvatar",
+                  "fill": "#FFAB91",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "T8Yzp",
+                  "layoutPosition": "absolute",
+                  "x": 7,
+                  "y": 3,
+                  "name": "pillAvatarInit",
+                  "fill": "#fdf8f3",
+                  "content": "O",
+                  "fontFamily": "Inter",
+                  "fontSize": 9,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "sGg3N",
+                  "name": "pillName",
+                  "fill": "#8D6E63",
+                  "content": "opus",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "PYgtt",
+                  "name": "pillChevron",
+                  "fill": "#8D6E6399",
+                  "content": "▾",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ZQSiT",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "v9qtb",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "#f7f2ed",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "owcAY",
+                  "name": "sideTitle",
+                  "fill": "#8D6E6399",
+                  "content": "对话",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "xZhfc",
+                  "name": "Thread Item Active",
+                  "width": "fill_container",
+                  "fill": "#fdf8f3",
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ddvOi",
+                      "name": "t1name",
+                      "fill": "#8D6E63",
+                      "content": "# 架构重构讨论",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "HgKu4",
+                      "name": "t1preview",
+                      "fill": "#8D6E6399",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "opus: 路由模块需要重新设计…",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "F8bqZ",
+                  "name": "Thread Item",
+                  "width": "fill_container",
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "HwcAm",
+                      "name": "t2name",
+                      "fill": "#8D6E63",
+                      "content": "# 前端组件库",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "SI152",
+                      "name": "t2preview",
+                      "fill": "#8D6E6366",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "sonnet: Button 组件已更新…",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "NKGUw",
+                  "name": "Thread Item",
+                  "width": "fill_container",
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "qpDDG",
+                      "name": "t3name",
+                      "fill": "#8D6E63",
+                      "content": "# Bug 追踪",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vMj2L",
+                      "name": "t3preview",
+                      "fill": "#8D6E6366",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "codex: Redis 连接问题已修…",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "2oynz",
+              "name": "Main Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#fdf8f3",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "6NvGq",
+                  "name": "Thread Header",
+                  "width": "fill_container",
+                  "height": 56,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": {
+                      "bottom": 1
+                    },
+                    "fill": "#8D6E6318"
+                  },
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    20
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ChQl7",
+                      "name": "hTitle",
+                      "fill": "#8D6E63",
+                      "content": "# 架构重构讨论",
+                      "fontFamily": "Outfit",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "oTDna",
+                  "name": "Chat Area",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ErqMy",
+                      "name": "Message — opus",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "zN3rK",
+                          "name": "msg1avatar",
+                          "fill": "#FFAB91",
+                          "width": 32,
+                          "height": 32
+                        },
+                        {
+                          "type": "text",
+                          "id": "1ss6y",
+                          "layoutPosition": "absolute",
+                          "x": 9,
+                          "y": 7,
+                          "name": "msg1init",
+                          "fill": "#fdf8f3",
+                          "content": "O",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "GNIJr",
+                          "name": "msg1body",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "vjm6W",
+                              "name": "msg1name",
+                              "fill": "#FFAB91",
+                              "content": "opus",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "t5n8J",
+                              "name": "msg1text",
+                              "fill": "#fdf8f3",
+                              "cornerRadius": 16,
+                              "stroke": {
+                                "align": "inside",
+                                "thickness": 1,
+                                "fill": "#8D6E6312"
+                              },
+                              "effect": {
+                                "type": "shadow",
+                                "shadowType": "outer",
+                                "color": "#8D6E630A",
+                                "offset": {
+                                  "x": 0,
+                                  "y": 1
+                                },
+                                "blur": 3
+                              },
+                              "layout": "vertical",
+                              "padding": [
+                                10,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Cr9r3",
+                                  "name": "msg1content",
+                                  "fill": "#8D6E63",
+                                  "textGrowth": "fixed-width",
+                                  "width": 420,
+                                  "content": "路由模块的 preferredCats 逻辑需要重构，当前实现和 F078 的优先级链有冲突。",
+                                  "lineHeight": 1.5,
+                                  "fontFamily": "Inter",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tFf55",
+                      "name": "Message — codex",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "UApOv",
+                          "name": "msg2avatar",
+                          "fill": "#81D4FA",
+                          "width": 32,
+                          "height": 32
+                        },
+                        {
+                          "type": "frame",
+                          "id": "G4KCs",
+                          "name": "msg2body",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MzH3P",
+                              "name": "msg2name",
+                              "fill": "#81D4FA",
+                              "content": "codex",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "DazcR",
+                              "name": "msg2text",
+                              "fill": "#fdf8f3",
+                              "cornerRadius": 16,
+                              "stroke": {
+                                "align": "inside",
+                                "thickness": 1,
+                                "fill": "#8D6E6312"
+                              },
+                              "effect": {
+                                "type": "shadow",
+                                "shadowType": "outer",
+                                "color": "#8D6E630A",
+                                "offset": {
+                                  "x": 0,
+                                  "y": 1
+                                },
+                                "blur": 3
+                              },
+                              "layout": "vertical",
+                              "padding": [
+                                10,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "UHRqu",
+                                  "name": "msg2content",
+                                  "fill": "#8D6E63",
+                                  "textGrowth": "fixed-width",
+                                  "width": 380,
+                                  "content": "同意，我来审一下安全边界。/ask 不能旁路 invokeTrigger。",
+                                  "lineHeight": 1.5,
+                                  "fontFamily": "Inter",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "n0YKl",
+      "x": 0,
+      "y": 4800,
+      "name": "宪宪版 v2 ② Thread — Popover 展开",
+      "width": 960,
+      "height": 740,
+      "fill": "#EDEAE5",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "YEvDx",
+          "name": "Top Bar",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#8D6E63",
+          "gap": 8,
+          "padding": [
+            0,
+            16
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "5utJW",
+              "name": "logo2",
+              "fill": "#fdf8f3",
+              "content": "☕ Cat Café",
+              "fontFamily": "Outfit",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "ydJeh",
+              "name": "nav2a",
+              "fill": "#fdf8f3AA",
+              "content": "架构重构讨论",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "p4I1C",
+              "x": 881,
+              "y": 14,
+              "name": "nav2b",
+              "enabled": false,
+              "fill": "#fdf8f3CC",
+              "content": "Members",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "Cvqvg",
+              "name": "Pill — Active (pressed)",
+              "height": 24,
+              "fill": "#FFAB9133",
+              "cornerRadius": 100,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FFAB9166"
+              },
+              "gap": 4,
+              "padding": [
+                0,
+                6
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "NA40N",
+                  "name": "pillAv2",
+                  "fill": "#FFAB91",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "lQoSH",
+                  "name": "pillNm2",
+                  "fill": "#8D6E63",
+                  "content": "opus",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "O8sDK",
+                  "name": "pillCh2",
+                  "fill": "#8D6E6399",
+                  "content": "▴",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "HW6fU",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "n9iDp",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "#f7f2ed",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "1sZOG",
+                  "name": "sideT2",
+                  "fill": "#8D6E6399",
+                  "content": "对话",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "5onmh",
+                  "name": "st2a",
+                  "width": "fill_container",
+                  "fill": "#fdf8f3",
+                  "cornerRadius": 10,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "r99Z0",
+                      "name": "st2aName",
+                      "fill": "#8D6E63",
+                      "content": "# 架构重构讨论",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "rfL0R",
+                      "name": "st2aDesc",
+                      "fill": "#8D6E6399",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "opus: 路由模块需要重新设计…",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "pNUAf",
+              "name": "Main Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#fdf8f3",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "bYacS",
+                  "layoutPosition": "absolute",
+                  "x": 0,
+                  "y": 0,
+                  "name": "Thread Header",
+                  "width": 740,
+                  "height": 56,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": {
+                      "bottom": 1
+                    },
+                    "fill": "#8D6E6318"
+                  },
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    20
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "9pLpX",
+                      "name": "hTitle2",
+                      "fill": "#8D6E63",
+                      "content": "# 架构重构讨论",
+                      "fontFamily": "Outfit",
+                      "fontSize": 16,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "cyPj6",
+                  "layoutPosition": "absolute",
+                  "x": 280,
+                  "y": 48,
+                  "name": "✨ Popover 名片薄 — Cat Selector",
+                  "width": 300,
+                  "fill": "#fdf8f3",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#8D6E6318"
+                  },
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#8D6E6322",
+                    "offset": {
+                      "x": 0,
+                      "y": 4
+                    },
+                    "blur": 16
+                  },
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "gFLxb",
+                      "name": "popTitle",
+                      "fill": "#8D6E6399",
+                      "content": "选择首选猫 — 仅对当前对话有效",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "WNOV8",
+                      "name": "Cat Card — opus (selected)",
+                      "width": "fill_container",
+                      "fill": "#FFAB9118",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1.5,
+                        "fill": "#FFAB9144"
+                      },
+                      "gap": 10,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "yfRCa",
+                          "name": "c1avatar",
+                          "fill": "#FFAB91",
+                          "width": 36,
+                          "height": 36
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Nqz42",
+                          "name": "c1info",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "TZCr8",
+                              "name": "c1name",
+                              "fill": "#8D6E63",
+                              "content": "opus — 布偶猫",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "NAEu9",
+                              "name": "c1role",
+                              "fill": "#8D6E6399",
+                              "content": "架构师 · 核心开发 · 在线",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "iIfBv",
+                          "name": "c1check",
+                          "fill": "#FFAB91",
+                          "content": "✓",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "FRd4X",
+                      "name": "Cat Card — codex",
+                      "width": "fill_container",
+                      "fill": "#fdf8f3",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#8D6E6312"
+                      },
+                      "gap": 10,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "fZHVq",
+                          "name": "c2avatar",
+                          "fill": "#81D4FA",
+                          "width": 36,
+                          "height": 36
+                        },
+                        {
+                          "type": "frame",
+                          "id": "NfRN4",
+                          "name": "c2info",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "7j0BU",
+                              "name": "c2name",
+                              "fill": "#8D6E63",
+                              "content": "codex — 缅因猫",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "zS0YD",
+                              "name": "c2role",
+                              "fill": "#8D6E6399",
+                              "content": "Review · 安全 · 在线",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "oeXu5",
+                      "name": "Cat Card — gemini",
+                      "width": "fill_container",
+                      "fill": "#fdf8f3",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#8D6E6312"
+                      },
+                      "gap": 10,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "yg4Ga",
+                          "name": "c3avatar",
+                          "fill": "#FFC107",
+                          "width": 36,
+                          "height": 36
+                        },
+                        {
+                          "type": "frame",
+                          "id": "QmND8",
+                          "name": "c3info",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "DFUnc",
+                              "name": "c3name",
+                              "fill": "#8D6E63",
+                              "content": "gemini — 暹罗猫",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "ofHSz",
+                              "name": "c3role",
+                              "fill": "#8D6E6399",
+                              "content": "视觉设计 · 创意 · 在线",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ByBOg",
+                      "name": "Clear Button",
+                      "width": "fill_container",
+                      "height": 36,
+                      "fill": "#8D6E630A",
+                      "cornerRadius": 10,
+                      "gap": 6,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "0913r",
+                          "name": "clearIcon",
+                          "fill": "#8D6E6366",
+                          "content": "✕",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "4bQIP",
+                          "name": "clearText",
+                          "fill": "#8D6E6399",
+                          "content": "让猫猫们自由发挥",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "QxXn6",
+      "x": 0,
+      "y": 5600,
+      "name": "宪宪版 v2 ③ Hub — 全局默认猫",
+      "width": 960,
+      "height": 580,
+      "fill": "#EDEAE5",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "vK0po",
+          "name": "Top Bar",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#8D6E63",
+          "gap": 12,
+          "padding": [
+            0,
+            20
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "awjLl",
+              "name": "logo3",
+              "fill": "#fdf8f3",
+              "content": "☕ Cat Café",
+              "fontFamily": "Outfit",
+              "fontSize": 15,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "M6Xjd",
+              "name": "spacer3",
+              "width": "fill_container",
+              "height": 1
+            },
+            {
+              "type": "text",
+              "id": "DuVmU",
+              "name": "nav3a",
+              "fill": "#fdf8f3CC",
+              "content": "Threads",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "dldBY",
+              "name": "nav3b",
+              "fill": "#fdf8f3",
+              "content": "Members",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Tf9Iy",
+          "name": "Member Overview Content",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "#fdf8f3",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": [
+            28,
+            40
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "S605Z",
+              "name": "pageTitle",
+              "fill": "#8D6E63",
+              "content": "猫猫管理",
+              "fontFamily": "Outfit",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "GjgrG",
+              "name": "sectionTitle",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 6,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Ksha7",
+                  "name": "secLabel",
+                  "fill": "#8D6E63",
+                  "content": "🏠 前台大堂经理 — 全局默认猫",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "GAFdC",
+                  "name": "secDesc",
+                  "fill": "#8D6E6399",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "新 thread 没有历史时，默认由这只猫回复第一棒。修改需 owner 权限。",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "U4uv4",
+              "name": "Cat Card Grid",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "J3f3W",
+                  "name": "Default Cat Card — opus (current)",
+                  "width": "fill_container",
+                  "fill": "#FFAB9118",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 2,
+                    "fill": "#FFAB9155"
+                  },
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 16,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "gflu0",
+                      "name": "gc1avatar",
+                      "fill": "#FFAB91",
+                      "width": 48,
+                      "height": 48
+                    },
+                    {
+                      "type": "text",
+                      "id": "XETbK",
+                      "name": "gc1name",
+                      "fill": "#8D6E63",
+                      "content": "opus",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Xq7xl",
+                      "name": "gc1role",
+                      "fill": "#8D6E6399",
+                      "content": "布偶猫 · 架构师",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "oYryb",
+                      "name": "gc1badge",
+                      "fill": "#FFAB91",
+                      "cornerRadius": 100,
+                      "padding": [
+                        3,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "eCxoy",
+                          "name": "gc1badgeText",
+                          "fill": "#fdf8f3",
+                          "content": "默认",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "5pPfA",
+                  "name": "Cat Card — codex",
+                  "width": "fill_container",
+                  "fill": "#fdf8f3",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#8D6E6318"
+                  },
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 16,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "B1snW",
+                      "name": "gc2avatar",
+                      "fill": "#81D4FA",
+                      "width": 48,
+                      "height": 48
+                    },
+                    {
+                      "type": "text",
+                      "id": "k5BaE",
+                      "name": "gc2name",
+                      "fill": "#8D6E63",
+                      "content": "codex",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PeGQV",
+                      "name": "gc2role",
+                      "fill": "#8D6E6399",
+                      "content": "缅因猫 · Review",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "eMnxf",
+                  "name": "Cat Card — gemini",
+                  "width": "fill_container",
+                  "fill": "#fdf8f3",
+                  "cornerRadius": 16,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#8D6E6318"
+                  },
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 16,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "Srg5J",
+                      "name": "gc3avatar",
+                      "fill": "#FFC107",
+                      "width": 48,
+                      "height": 48
+                    },
+                    {
+                      "type": "text",
+                      "id": "B2Xjy",
+                      "name": "gc3name",
+                      "fill": "#8D6E63",
+                      "content": "gemini",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "IDpXD",
+                      "name": "gc3role",
+                      "fill": "#8D6E6399",
+                      "content": "暹罗猫 · 设计",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "K0231",
+      "x": 0,
+      "y": 4060,
+      "name": "v2 Section Title",
+      "fill": "#8D6E63",
+      "content": "宪宪版 v2 — 基于 ChatContainerHeader.tsx 真实布局",
+      "fontFamily": "Outfit",
+      "fontSize": 18,
+      "fontWeight": "700"
+    },
+    {
+      "type": "frame",
+      "id": "ygVbA",
+      "x": 970,
+      "y": 4100,
+      "name": "v2 注释 ①",
+      "width": 250,
+      "fill": "#FFAB9112",
+      "cornerRadius": 8,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#FFAB9133"
+      },
+      "layout": "vertical",
+      "gap": 6,
+      "padding": 12,
+      "children": [
+        {
+          "type": "text",
+          "id": "eG29c",
+          "name": "t1",
+          "fill": "#8D6E63",
+          "content": "v2 关键改动：Pill → 顶栏",
+          "fontFamily": "Outfit",
+          "fontSize": 12,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "efnKM",
+          "name": "d1",
+          "fill": "#8D6E63CC",
+          "textGrowth": "fixed-width",
+          "width": 226,
+          "content": "Pill 从内容区标题行移到顶栏 ThreadIndicator 位，紧跟 thread 名称。不占右侧按钮空间（真实 header 有 7-8 个按钮）。有首选猫才显示。",
+          "lineHeight": 1.5,
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Gg0Hd",
+      "x": 970,
+      "y": 4800,
+      "name": "v2 注释 ②",
+      "width": 250,
+      "fill": "#81D4FA12",
+      "cornerRadius": 8,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#81D4FA33"
+      },
+      "layout": "vertical",
+      "gap": 6,
+      "padding": 12,
+      "children": [
+        {
+          "type": "text",
+          "id": "C7mcm",
+          "name": "t2",
+          "fill": "#8D6E63",
+          "content": "Popover 从顶栏 Pill 展开",
+          "fontFamily": "Outfit",
+          "fontSize": 12,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "YdIGM",
+          "name": "d2",
+          "fill": "#8D6E63CC",
+          "textGrowth": "fixed-width",
+          "width": 226,
+          "content": "复用 CatSelector.tsx 的 breed-grouped chip 布局。fixed 定位从 Pill 下方展开。替代 ThreadCatSettings 的 3px 齿轮入口。",
+          "lineHeight": 1.5,
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Z09fb",
+      "x": 970,
+      "y": 5600,
+      "name": "v2 注释 ③",
+      "width": 250,
+      "fill": "#81D4FA12",
+      "cornerRadius": 8,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#81D4FA33"
+      },
+      "layout": "vertical",
+      "gap": 6,
+      "padding": 12,
+      "children": [
+        {
+          "type": "text",
+          "id": "ohF7u",
+          "name": "t3",
+          "fill": "#8D6E63",
+          "content": "Hub 全局默认猫（不变）",
+          "fontFamily": "Outfit",
+          "fontSize": 12,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "Pd4TP",
+          "name": "d3",
+          "fill": "#8D6E63CC",
+          "textGrowth": "fixed-width",
+          "width": 226,
+          "content": "CatOverviewTab 顶部新增区块。与 thread Pill 视觉亲缘但语义独立——「新客进门谁先招呼」。",
+          "lineHeight": 1.5,
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "normal"
+        }
+      ]
     }
   ]
 }
