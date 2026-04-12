@@ -120,12 +120,12 @@ Clowder AI 的猫猫已经有持久身份、记忆和协作记录，但这些"�
 
 ## Acceptance Criteria
 
-### Phase A (Attribute System + Profile Card)
-- [ ] AC-A1: 五维属性自动结算（审查力降级至 Phase B，需 invocation intent tracking）
-- [ ] AC-A2: 每只猫的 Hub 详情页展示六维雷达图和等级
-- [ ] AC-A3: 猫猫名片可导出为 PNG 图片
-- [ ] AC-A4: 团队总览页展示所有猫的站位图和属性概览
-- [ ] AC-A5: 经验值结算逻辑透明、可审计（可查看结算明细）
+### Phase A (Attribute System + Profile Card) ✅
+- [x] AC-A1: 五维属性自动结算（审查力降级至 Phase B，需 invocation intent tracking）
+- [x] AC-A2: 每只猫的 Hub 详情页展示六维雷达图和等级
+- [x] AC-A3: 猫猫名片可导出为 PNG 图片
+- [x] AC-A4: 团队总览页展示所有猫的站位图和属性概览
+- [x] AC-A5: 经验值结算逻辑透明、可审计（可查看结算明细）
 
 ### Phase B (Skill Tree + Title System + Review Activation)
 - [ ] AC-B0: 审查力维度激活 — invocation intent tracking 落地，`review_given` / `bug_caught` 有真实调用方
