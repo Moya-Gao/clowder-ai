@@ -53,6 +53,9 @@ type ReplaceHydrationMergeResult = {
   stats: ReplaceHydrationMergeStats;
 };
 
+type MessageExtra = NonNullable<ChatMessageData['extra']>;
+type MessageRichPayload = MessageExtra['rich'];
+
 function getHistoryInvocationId(msg: ChatMessageData): string | undefined {
   return getBubbleInvocationId(msg);
 }
@@ -84,6 +87,57 @@ function getMessagePhasePriority(msg: ChatMessageData): number {
   return 0;
 }
 
+function pickLongerText(a: string | undefined, b: string | undefined): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return a.length >= b.length ? a : b;
+}
+
+function pickRicherToolEvents(
+  a: ChatMessageData['toolEvents'],
+  b: ChatMessageData['toolEvents'],
+): ChatMessageData['toolEvents'] {
+  if (!a?.length) return b;
+  if (!b?.length) return a;
+  return a.length >= b.length ? a : b;
+}
+
+function mergeRichPayload(
+  preferred: MessageRichPayload | undefined,
+  fallback: MessageRichPayload | undefined,
+): MessageRichPayload | undefined {
+  if (!preferred && !fallback) return undefined;
+  const blocks = [...(preferred?.blocks ?? [])];
+  const seen = new Set(blocks.map((block) => block.id));
+  for (const block of fallback?.blocks ?? []) {
+    if (seen.has(block.id)) continue;
+    seen.add(block.id);
+    blocks.push(block);
+  }
+  return { v: 1 as const, blocks };
+}
+
+function mergeMessageExtra(
+  preferred: ChatMessageData['extra'],
+  fallback: ChatMessageData['extra'],
+): ChatMessageData['extra'] | undefined {
+  const rich = mergeRichPayload(preferred?.rich, fallback?.rich);
+  const crossPost = preferred?.crossPost ?? fallback?.crossPost;
+  const stream = preferred?.stream ?? fallback?.stream;
+  const targetCats = preferred?.targetCats ?? fallback?.targetCats;
+  const timeoutDiagnostics = preferred?.timeoutDiagnostics ?? fallback?.timeoutDiagnostics;
+  const governanceBlocked = preferred?.governanceBlocked ?? fallback?.governanceBlocked;
+  if (!rich && !crossPost && !stream && !targetCats && !timeoutDiagnostics && !governanceBlocked) return undefined;
+  return {
+    ...(rich ? { rich } : {}),
+    ...(crossPost ? { crossPost } : {}),
+    ...(stream ? { stream } : {}),
+    ...(targetCats ? { targetCats } : {}),
+    ...(timeoutDiagnostics ? { timeoutDiagnostics } : {}),
+    ...(governanceBlocked ? { governanceBlocked } : {}),
+  };
+}
+
 function getMessageOrderTimestamp(msg: ChatMessageData): number {
   return msg.deliveredAt ?? msg.timestamp;
 }
@@ -109,6 +163,46 @@ function shouldPreferCurrentMessage(current: ChatMessageData, history: ChatMessa
     return currentRichness[i]! > historyRichness[i]!;
   }
   return false;
+}
+
+function mergeSameIdHydrationMessage(history: ChatMessageData, current: ChatMessageData): ChatMessageData {
+  const preferCurrent = shouldPreferCurrentMessage(current, history);
+  const preferred = preferCurrent ? current : history;
+  const fallback = preferCurrent ? history : current;
+  const toolEvents = pickRicherToolEvents(preferred.toolEvents, fallback.toolEvents);
+  const thinking = pickLongerText(preferred.thinking, fallback.thinking);
+  const extra = mergeMessageExtra(preferred.extra, fallback.extra);
+
+  return {
+    ...fallback,
+    ...preferred,
+    content: preferred.content || fallback.content,
+    ...((preferred.contentBlocks ?? fallback.contentBlocks)
+      ? { contentBlocks: preferred.contentBlocks ?? fallback.contentBlocks }
+      : {}),
+    ...(toolEvents ? { toolEvents } : {}),
+    ...((preferred.metadata ?? fallback.metadata) ? { metadata: preferred.metadata ?? fallback.metadata } : {}),
+    ...(thinking ? { thinking } : {}),
+    ...(extra ? { extra } : {}),
+    ...((preferred.summary ?? fallback.summary) ? { summary: preferred.summary ?? fallback.summary } : {}),
+    ...((preferred.source ?? fallback.source) ? { source: preferred.source ?? fallback.source } : {}),
+    ...((preferred.visibility ?? fallback.visibility)
+      ? { visibility: preferred.visibility ?? fallback.visibility }
+      : {}),
+    ...((preferred.whisperTo ?? fallback.whisperTo) ? { whisperTo: preferred.whisperTo ?? fallback.whisperTo } : {}),
+    ...((preferred.revealedAt ?? fallback.revealedAt)
+      ? { revealedAt: preferred.revealedAt ?? fallback.revealedAt }
+      : {}),
+    ...((preferred.deliveredAt ?? fallback.deliveredAt)
+      ? { deliveredAt: preferred.deliveredAt ?? fallback.deliveredAt }
+      : {}),
+    ...((preferred.replyTo ?? fallback.replyTo) ? { replyTo: preferred.replyTo ?? fallback.replyTo } : {}),
+    ...((preferred.replyPreview ?? fallback.replyPreview)
+      ? { replyPreview: preferred.replyPreview ?? fallback.replyPreview }
+      : {}),
+    ...(preferred.mentionsUser || fallback.mentionsUser ? { mentionsUser: true } : {}),
+    ...(preferred.isStreaming !== undefined ? { isStreaming: preferred.isStreaming } : {}),
+  };
 }
 
 function mergeReplaceHydrationMessages(
@@ -139,7 +233,13 @@ function mergeReplaceHydrationMessages(
   let replacedHistoryCount = 0;
 
   for (const msg of currentMsgs) {
-    if (historyIds.has(msg.id)) continue;
+    if (historyIds.has(msg.id)) {
+      const historyIndex = mergedMsgs.findIndex((candidate) => candidate.id === msg.id);
+      if (historyIndex !== -1) {
+        mergedMsgs[historyIndex] = mergeSameIdHydrationMessage(mergedMsgs[historyIndex]!, msg);
+      }
+      continue;
+    }
 
     const invocationId = msg.catId ? getLocalPlaceholderInvocationId(msg, currentCatInvocations) : undefined;
     const streamKey = msg.catId && invocationId ? `${msg.catId}:${invocationId}` : undefined;

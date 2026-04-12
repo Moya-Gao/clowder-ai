@@ -98,6 +98,7 @@ class MockResizeObserver {
   unobserve = vi.fn();
 
   constructor(_callback: ResizeObserverCallback) {
+    void _callback;
     resizeObserverInstances.push(this);
   }
 }
