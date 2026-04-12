@@ -1,8 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { startTransition } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { BootcampIcon } from '../icons/BootcampIcon';
@@ -13,7 +11,7 @@ import { readProjectNames, writeProjectNames } from './active-workspace';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
 import { ThreadItem } from './ThreadItem';
-import { pushThreadRouteWithFallback } from './thread-navigation';
+import { pushThreadRouteWithHistory } from './thread-navigation';
 import {
   getProjectPaths,
   mergeLiveActivityIntoThreads,
@@ -33,7 +31,6 @@ interface ThreadSidebarProps {
 }
 
 export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick }: ThreadSidebarProps) {
-  const router = useRouter();
   const {
     threads,
     currentThreadId,
@@ -60,7 +57,6 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
 
   // F095 Phase E: scroll anchor for reorder stability
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const navigationFallbackTimerRef = useRef<number | null>(null);
   // F095 Phase F: custom project display names
   const [projectNames, setProjectNames] = useState(() =>
     readProjectNames(typeof localStorage !== 'undefined' ? localStorage : { getItem: () => null, setItem: () => {} }),
@@ -142,32 +138,11 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     })();
   }, []);
 
-  useEffect(
-    () => () => {
-      if (typeof window !== 'undefined' && navigationFallbackTimerRef.current !== null) {
-        window.clearTimeout(navigationFallbackTimerRef.current);
-      }
-    },
-    [],
-  );
-
   const navigateToThread = useCallback(
     (threadId: string) => {
-      pushThreadRouteWithFallback({
-        threadId,
-        routerPush: (href) => {
-          startTransition(() => {
-            router.push(href);
-          });
-        },
-        windowObj: typeof window !== 'undefined' ? window : undefined,
-        pendingTimerId: navigationFallbackTimerRef.current,
-        setPendingTimerId: (id) => {
-          navigationFallbackTimerRef.current = id;
-        },
-      });
+      pushThreadRouteWithHistory(threadId, typeof window !== 'undefined' ? window : undefined);
     },
-    [router],
+    [],
   );
 
   const createInProject = useCallback(
@@ -503,7 +478,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
               type="button"
               onClick={() => {
                 const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-                router.push(`/memory${fromParam}`);
+                window.location.assign(`/memory${fromParam}`);
                 if (typeof window !== 'undefined' && window.innerWidth < 768) {
                   onClose?.();
                 }
@@ -541,7 +516,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
             type="button"
             onClick={() => {
               const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-              router.push(`/mission-hub${fromParam}`);
+              window.location.assign(`/mission-hub${fromParam}`);
               if (typeof window !== 'undefined' && window.innerWidth < 768) {
                 onClose?.();
               }

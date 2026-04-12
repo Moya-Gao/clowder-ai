@@ -1,133 +1,58 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  CHAT_THREAD_ROUTE_EVENT,
   getThreadHref,
-  pushThreadRouteWithFallback,
+  getThreadIdFromPathname,
+  pushThreadRouteWithHistory,
   type ThreadNavigationWindow,
 } from '../ThreadSidebar/thread-navigation';
 
-function createFakeWindow(pathname: string): ThreadNavigationWindow & { assigned: string[] } {
-  const assigned: string[] = [];
-  const location = {
-    pathname,
-    assign: (url: string) => {
-      assigned.push(url);
-      location.pathname = url;
-    },
-  };
-
+function createFakeWindow(pathname: string): ThreadNavigationWindow & { dispatched: string[] } {
+  const dispatched: string[] = [];
+  const location = { pathname };
   return {
-    assigned,
-    clearTimeout: (id) => clearTimeout(id),
+    dispatched,
+    dispatchEvent: (event) => {
+      dispatched.push(event.type);
+      return true;
+    },
+    history: {
+      pushState: (_data, _unused, url) => {
+        location.pathname = typeof url === 'string' ? url : url?.toString() ?? location.pathname;
+      },
+    },
     location,
-    setTimeout: (handler, timeout) => window.setTimeout(handler, timeout),
   };
 }
 
-describe('thread navigation fallback', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
+describe('thread navigation history bridge', () => {
 
   it('builds the expected href for default and regular threads', () => {
     expect(getThreadHref('default')).toBe('/');
     expect(getThreadHref('thread-123')).toBe('/thread/thread-123');
   });
 
-  it('forces hard navigation when router.push does not change the pathname', () => {
-    vi.useFakeTimers();
-    const routerPush = vi.fn();
-    const logger = { warn: vi.fn() };
-    const fakeWindow = createFakeWindow('/thread/thread-a');
-    let timerId: number | null = null;
-
-    pushThreadRouteWithFallback({
-      threadId: 'thread-b',
-      routerPush,
-      windowObj: fakeWindow,
-      pendingTimerId: timerId,
-      setPendingTimerId: (id) => {
-        timerId = id;
-      },
-      logger,
-    });
-
-    expect(routerPush).toHaveBeenCalledWith('/thread/thread-b');
-    expect(fakeWindow.assigned).toEqual([]);
-
-    vi.advanceTimersByTime(181);
-
-    expect(fakeWindow.assigned).toEqual(['/thread/thread-b']);
-    expect(logger.warn).toHaveBeenCalledWith('[ThreadSidebar] router.push stalled, forcing hard navigation', {
-      href: '/thread/thread-b',
-      startPath: '/thread/thread-a',
-    });
-    expect(timerId).toBeNull();
+  it('derives the active thread id from the pathname', () => {
+    expect(getThreadIdFromPathname('/')).toBe('default');
+    expect(getThreadIdFromPathname('/thread/thread-123')).toBe('thread-123');
+    expect(getThreadIdFromPathname('/memory')).toBe('default');
   });
 
-  it('skips hard navigation when the pathname changes before the fallback fires', () => {
-    vi.useFakeTimers();
-    const routerPush = vi.fn((href: string) => {
-      fakeWindow.location.pathname = href;
-    });
-    const logger = { warn: vi.fn() };
+  it('pushes the new thread URL into history and emits a route event', () => {
     const fakeWindow = createFakeWindow('/thread/thread-a');
-    let timerId: number | null = null;
+    const href = pushThreadRouteWithHistory('thread-b', fakeWindow);
 
-    pushThreadRouteWithFallback({
-      threadId: 'thread-b',
-      routerPush,
-      windowObj: fakeWindow,
-      pendingTimerId: timerId,
-      setPendingTimerId: (id) => {
-        timerId = id;
-      },
-      logger,
-    });
-
-    vi.advanceTimersByTime(181);
-
-    expect(fakeWindow.assigned).toEqual([]);
-    expect(logger.warn).not.toHaveBeenCalled();
-    expect(timerId).toBeNull();
+    expect(href).toBe('/thread/thread-b');
+    expect(fakeWindow.location.pathname).toBe('/thread/thread-b');
+    expect(fakeWindow.dispatched).toEqual([CHAT_THREAD_ROUTE_EVENT]);
   });
 
-  it('clears an older pending fallback before arming a new one', () => {
-    vi.useFakeTimers();
-    const routerPush = vi.fn();
-    const logger = { warn: vi.fn() };
-    const fakeWindow = createFakeWindow('/thread/thread-a');
-    let timerId: number | null = null;
+  it('is idempotent when already on the target thread', () => {
+    const fakeWindow = createFakeWindow('/thread/thread-b');
+    const href = pushThreadRouteWithHistory('thread-b', fakeWindow);
 
-    pushThreadRouteWithFallback({
-      threadId: 'thread-b',
-      routerPush,
-      windowObj: fakeWindow,
-      pendingTimerId: timerId,
-      setPendingTimerId: (id) => {
-        timerId = id;
-      },
-      logger,
-    });
-
-    const firstTimer = timerId;
-    fakeWindow.location.pathname = '/thread/thread-a';
-
-    pushThreadRouteWithFallback({
-      threadId: 'thread-c',
-      routerPush,
-      windowObj: fakeWindow,
-      pendingTimerId: timerId,
-      setPendingTimerId: (id) => {
-        timerId = id;
-      },
-      logger,
-    });
-
-    vi.advanceTimersByTime(181);
-
-    expect(fakeWindow.assigned).toEqual(['/thread/thread-c']);
-    expect(firstTimer).not.toBe(timerId);
-    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(href).toBe('/thread/thread-b');
+    expect(fakeWindow.location.pathname).toBe('/thread/thread-b');
+    expect(fakeWindow.dispatched).toEqual([]);
   });
 });

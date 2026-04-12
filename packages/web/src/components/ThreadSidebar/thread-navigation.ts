@@ -1,57 +1,33 @@
+export const CHAT_THREAD_ROUTE_EVENT = 'catcafe:thread-route-change';
+
 export interface ThreadNavigationWindow {
-  clearTimeout: (id: number) => void;
+  dispatchEvent: (event: Event) => boolean;
+  history: {
+    pushState: (data: unknown, unused: string, url?: string | URL | null) => void;
+  };
   location: {
     pathname: string;
-    assign: (url: string) => void;
   };
-  setTimeout: (handler: () => void, timeout?: number) => number;
-}
-
-interface PushThreadRouteWithFallbackOptions {
-  threadId: string;
-  routerPush: (href: string) => void;
-  windowObj?: ThreadNavigationWindow;
-  pendingTimerId: number | null;
-  setPendingTimerId: (id: number | null) => void;
-  fallbackDelayMs?: number;
-  logger?: Pick<Console, 'warn'>;
 }
 
 export function getThreadHref(threadId: string): string {
   return threadId === 'default' ? '/' : `/thread/${threadId}`;
 }
 
-export function pushThreadRouteWithFallback({
-  threadId,
-  routerPush,
-  windowObj,
-  pendingTimerId,
-  setPendingTimerId,
-  fallbackDelayMs = 180,
-  logger = console,
-}: PushThreadRouteWithFallbackOptions): string {
+export function getThreadIdFromPathname(pathname: string): string {
+  if (!pathname || pathname === '/') return 'default';
+  const match = pathname.match(/^\/thread\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : 'default';
+}
+
+export function pushThreadRouteWithHistory(
+  threadId: string,
+  windowObj: ThreadNavigationWindow | undefined,
+): string {
   const href = getThreadHref(threadId);
-  routerPush(href);
-
   if (!windowObj) return href;
-
-  const startPath = windowObj.location.pathname;
-
-  if (pendingTimerId !== null) {
-    windowObj.clearTimeout(pendingTimerId);
-    setPendingTimerId(null);
-  }
-
-  if (startPath === href) return href;
-
-  const timerId = windowObj.setTimeout(() => {
-    setPendingTimerId(null);
-    if (windowObj.location.pathname === startPath) {
-      logger.warn('[ThreadSidebar] router.push stalled, forcing hard navigation', { href, startPath });
-      windowObj.location.assign(href);
-    }
-  }, fallbackDelayMs);
-
-  setPendingTimerId(timerId);
+  if (windowObj.location.pathname === href) return href;
+  windowObj.history.pushState({}, '', href);
+  windowObj.dispatchEvent(new Event(CHAT_THREAD_ROUTE_EVENT));
   return href;
 }
