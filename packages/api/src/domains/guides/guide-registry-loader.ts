@@ -95,6 +95,7 @@ export interface OrchestrationStep {
 }
 
 export interface OrchestrationFlow {
+  schemaVersion: 1;
   id: string;
   name: string;
   description?: string;
@@ -102,6 +103,7 @@ export interface OrchestrationFlow {
 }
 
 interface RawFlowFile {
+  schemaVersion?: number;
   id: string;
   name: string;
   description?: string;
@@ -118,6 +120,7 @@ interface RawFlowFile {
 const flowCache = new Map<string, OrchestrationFlow>();
 const MIN_ASCII_REVERSE_MATCH_LENGTH = 3;
 const MIN_NON_ASCII_REVERSE_MATCH_LENGTH = 2;
+const SUPPORTED_FLOW_SCHEMA_VERSION = 1;
 
 function normalizeGuideIntent(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -129,6 +132,16 @@ function canUseReverseSubstringMatch(query: string): boolean {
   return /^[a-z0-9._-]+$/i.test(compact)
     ? compact.length >= MIN_ASCII_REVERSE_MATCH_LENGTH
     : compact.length >= MIN_NON_ASCII_REVERSE_MATCH_LENGTH;
+}
+
+function normalizeFlowSchemaVersion(guideId: string, schemaVersion?: number): 1 {
+  if (schemaVersion == null) {
+    return SUPPORTED_FLOW_SCHEMA_VERSION;
+  }
+  if (schemaVersion !== SUPPORTED_FLOW_SCHEMA_VERSION) {
+    throw new Error(`[F155] Unsupported flow schemaVersion "${schemaVersion}" for "${guideId}"`);
+  }
+  return SUPPORTED_FLOW_SCHEMA_VERSION;
 }
 
 /**
@@ -160,6 +173,7 @@ export function loadGuideFlow(guideId: string): OrchestrationFlow {
 
   const validAdvance = new Set(['click', 'visible', 'input', 'confirm']);
   const flow: OrchestrationFlow = {
+    schemaVersion: normalizeFlowSchemaVersion(guideId, parsed.schemaVersion),
     id: parsed.id,
     name: parsed.name,
     description: parsed.description,

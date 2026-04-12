@@ -622,15 +622,16 @@ export function InteractiveBlock({
             return;
           }
 
-          // F155: Trigger guide overlay directly — don't rely on socket round-trip
+          // B-5: Trigger guide start via Zustand reducer (no CustomEvent bridge)
           if (safeEndpoint === GUIDE_START_CALLBACK_PATH && payload && 'guideId' in payload) {
             const p = payload as Record<string, unknown>;
             if (shouldDispatchLocalGuideStart(p)) {
-              window.dispatchEvent(
-                new CustomEvent('guide:start', {
-                  detail: { flowId: p.guideId, threadId: p.threadId },
-                }),
-              );
+              const { useGuideStore } = await import('@/stores/guideStore');
+              useGuideStore.getState().reduceServerEvent({
+                action: 'start',
+                guideId: p.guideId as string,
+                threadId: p.threadId as string,
+              });
             }
           }
 
