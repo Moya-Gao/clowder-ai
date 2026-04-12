@@ -34,13 +34,32 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 5. **`/ready` 端点** — Redis ping probe，返回 `ready`/`degraded`
 6. **cli-spawn 参数脱敏** — debug 日志不再打 prompt 明文
 
-### Phase B: 后续增强（视 Phase A 落地情况决定）
+### Phase B: OTel 全链路追踪（社区 PR intake）✅
 
-- OpenTelemetry 全链路追踪
+从 clowder-ai#450 intake 以下模块：
+
+1. **parentSpan 全链路穿透** — invocationSpan → AgentServiceOptions → 6 providers → CliSpawnOptions → spawnCli
+2. **`cat_cafe.cli_session` child span** — CLI 子进程生命周期追踪（4 路状态：timeout/error/signal/ok）
+3. **`cat_cafe.llm_call` retrospective span** — 从 done-event 的 `durationApiMs` 反推 startTime（仅 Claude 等有计时数据的 provider）
+4. **`tool_use` span events** — 通过 `addEvent()` 记录工具调用（点标记，非零时长 span）
+5. **28 个结构测试** — source-level 验证 span 创建、线程化、属性、脱敏安全
+
+### Phase C: 后续增强
+
 - Grafana 统一看板
 - burn-rate 告警规则
+- MCP call spans + tool execution duration spans（真实执行边界）
+- Runtime exporter 级 tracing tests（in-memory exporter 验证父子关系）
 
 ## Acceptance Criteria
+
+### Phase B（OTel 全链路追踪）✅
+- [x] AC-B1: invocationSpan 作为 parentSpan 穿透到 spawnCli（全部 6 个 provider）
+- [x] AC-B2: `cat_cafe.cli_session` child span 在 spawnCli 创建，finally 块中按退出原因设 status
+- [x] AC-B3: `cat_cafe.llm_call` retrospective span 从 done-event durationApiMs 创建（有计时数据时）
+- [x] AC-B4: `tool_use` 通过 `addEvent()` 记录（非零时长 span 反模式）
+- [x] AC-B5: span attribute keys 使用 redactor 可识别的 key（`invocationId`/`sessionId`，不用 snake_case）
+- [x] AC-B6: 28/28 结构测试通过
 
 ### Phase A（OTel SDK + Metrics + Health Check）✅
 - [x] AC-A1: TelemetryRedactor 四级分类正确脱敏（Class A/B/C/D 各有测试）
@@ -73,7 +92,7 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 基础设施选型：自托管 vs Grafana Cloud？ | :white_large_square: 未定 |
-| OQ-2 | Phase B 全链路追踪的优先级？ | :white_large_square: 未定 |
+| OQ-2 | Phase B 全链路追踪的优先级？ | ✅ 已完成（clowder-ai#450 intake） |
 
 ## Key Decisions
 
@@ -84,6 +103,8 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | KD-3 | AC-A5 改为 graceful degradation（缺 salt → 禁用 OTel，不崩溃）| 生产稳定性优先 | 2026-04-11 |
 | KD-4 | Pane registry abort 状态不一致接受为 known limitation，不阻塞 intake | pre-existing 行为，属 F089 terminal 域 | 2026-04-13 |
 | KD-5 | 4 轮 review 后放行 intake | 所有 P1 已修，核心 P2 已修，剩余 P2 non-blocking | 2026-04-13 |
+| KD-6 | Phase B review: tool_use 改 addEvent + redactor-safe keys | 布偶猫+缅因猫双猫 review 发现零时长 span 反模式 + 脱敏穿透 | 2026-04-12 |
+| KD-7 | Phase B 2 轮 review 后放行 intake | P1（脱敏）+ P2（tool_use + scope）全部修完 | 2026-04-12 |
 
 ## Timeline
 
@@ -94,6 +115,8 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | 2026-04-12 | Round 3: yielded-error 修了，liveness 空转 P1 + aborted 信号 P2 |
 | 2026-04-13 | Round 4 (Final): 全部 P1 绿灯，批准 intake。pane 状态不一致为 known limitation |
 | 2026-04-13 | Phase A merged (PR #1086)。Intake from clowder-ai#393，18/18 tests pass |
+| 2026-04-12 | Phase B: clowder-ai#450 → R1 review 发现 1P1+2P2+1P3 |
+| 2026-04-12 | Phase B: R2 全部修完 → approve → merge → intake (PR #1128)，28/28 tests pass |
 
 ## Links
 
