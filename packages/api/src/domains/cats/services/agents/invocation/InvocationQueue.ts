@@ -132,6 +132,7 @@ export class InvocationQueue {
       autoExecute: input.autoExecute ?? false,
       callerCatId: input.callerCatId,
       senderMeta: input.senderMeta,
+      a2aPurpose: input.a2aPurpose,
     };
     q.push(entry);
     this.originalContents.set(entry.id, input.content);

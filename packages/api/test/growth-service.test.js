@@ -41,39 +41,18 @@ describe('Level formula', () => {
 // ── overallLevel excludes zero-XP dimensions ───────────────────
 
 describe('overallLevel active-dimension averaging', () => {
-  /** Minimal Redis mock that stores values in a Map. */
+  /**
+   * Minimal Redis mock — stores XP values directly in a Map.
+   * Tests set store values directly (bypassing awardXp) to avoid
+   * fire-and-forget title check chains that leak async activity.
+   */
   function createMockRedis() {
     const store = new Map();
     return {
+      store,
       options: { keyPrefix: '' },
       async mget(...keys) {
         return keys.map((k) => store.get(k) ?? null);
-      },
-      pipeline() {
-        const ops = [];
-        const self = {
-          incrby(key, amount) {
-            const cur = parseInt(store.get(key) ?? '0', 10);
-            store.set(key, String(cur + amount));
-            ops.push(['incrby', key, amount]);
-            return self;
-          },
-          zadd(key, score, member) {
-            // Just accumulate — no need to implement sorted set
-            ops.push(['zadd', key, score, member]);
-            return self;
-          },
-          async exec() {
-            return ops.map(() => [null, 'OK']);
-          },
-        };
-        return self;
-      },
-      async zadd() {
-        return 1;
-      },
-      async zrevrange() {
-        return [];
       },
     };
   }
@@ -82,21 +61,15 @@ describe('overallLevel active-dimension averaging', () => {
     const redis = createMockRedis();
     const svc = new GrowthService(redis);
 
-    // Award XP to only execution (tool_use → execution, 1 XP)
-    svc.awardXp('testcat', 'tool_use');
-    // Wait for pipeline to settle
-    await new Promise((r) => setTimeout(r, 50));
+    // Set execution XP to 1 directly — bypasses awardXp fire-and-forget chain
+    redis.store.set('growth:testcat:execution', '1');
 
     const attrs = await svc.getAttributes('testcat');
-    // Only execution has XP → activeDimensions=1, levelSum includes only execution's level
-    // 1 XP → level 0, so overallLevel = 0
+    // Only execution has XP → activeDimensions=1, 1 XP → level 0, so overallLevel = 0
     assert.equal(attrs.overallLevel, 0);
 
-    // Now give 100 XP to execution (level 1)
-    for (let i = 0; i < 99; i++) {
-      svc.awardXp('testcat', 'tool_use');
-    }
-    await new Promise((r) => setTimeout(r, 50));
+    // Set execution XP to 100 (level 1)
+    redis.store.set('growth:testcat:execution', '100');
 
     const attrs2 = await svc.getAttributes('testcat');
     // 100 XP in execution → level 1. Only 1 active dimension → overallLevel = 1/1 = 1
