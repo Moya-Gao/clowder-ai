@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # publish-release-tag.sh — 在 clowder-ai main 上发布 release tag，并校验 source snapshot/provenance 对齐
 # Usage:
-#   bash scripts/publish-release-tag.sh --release-tag=v0.3.0
-#   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --target-sha=<clowder-ai-main-commit>
-#   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --target-sha=<sha> --push
+#   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --reconciliation-report=docs/ops/reconciliation-v0.3.0.md
+#   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --target-sha=<clowder-ai-main-commit> --reconciliation-report=docs/ops/reconciliation-v0.3.0.md
+#   bash scripts/publish-release-tag.sh --release-tag=v0.3.0 --target-sha=<sha> --reconciliation-report=docs/ops/reconciliation-v0.3.0.md --push
 
 set -euo pipefail
 
@@ -25,7 +25,7 @@ for arg in "$@"; do
     --reconciliation-report=*) RECONCILIATION_REPORT="${arg#--reconciliation-report=}" ;;
     *)
       echo -e "${RED}Unknown flag: $arg${NC}"
-      echo "Usage: $0 --release-tag=<vX.Y.Z> [--target-sha=<clowder-ai-main-commit>] [--reconciliation-report=<path>] [--push]"
+      echo "Usage: $0 --release-tag=<vX.Y.Z> [--target-sha=<clowder-ai-main-commit>] --reconciliation-report=<path> [--push]"
       exit 1
       ;;
   esac
@@ -256,6 +256,9 @@ if [ ! -s "$RECONCILIATION_REPORT" ]; then
   exit 1
 fi
 echo -e "  ${GREEN}✓${NC} Reconciliation report: $RECONCILIATION_REPORT"
+node "$SOURCE_DIR/scripts/verify-reconciliation-report.mjs" \
+  --report="$RECONCILIATION_REPORT" \
+  --repo="${RECONCILIATION_REPO:-zts212653/clowder-ai}"
 
 echo -e "${GREEN}=== Publish Release Tag ===${NC}"
 echo "Release:            $RELEASE_TAG"

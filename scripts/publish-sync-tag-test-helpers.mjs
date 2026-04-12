@@ -7,6 +7,7 @@ import { afterEach } from 'node:test';
 
 const SOURCE_SYNC_TAG_SCRIPT = resolve(process.cwd(), 'scripts/publish-sync-tag.sh');
 const SOURCE_RELEASE_TAG_SCRIPT = resolve(process.cwd(), 'scripts/publish-release-tag.sh');
+const SOURCE_VERIFY_RECONCILIATION_SCRIPT = resolve(process.cwd(), 'scripts/verify-reconciliation-report.mjs');
 
 export function createFixtureTracker() {
   const fixtures = [];
@@ -91,6 +92,8 @@ export function makeFixture() {
   chmodSync(join(sourceRoot, 'scripts/publish-sync-tag.sh'), 0o755);
   cpSync(SOURCE_RELEASE_TAG_SCRIPT, join(sourceRoot, 'scripts/publish-release-tag.sh'));
   chmodSync(join(sourceRoot, 'scripts/publish-release-tag.sh'), 0o755);
+  cpSync(SOURCE_VERIFY_RECONCILIATION_SCRIPT, join(sourceRoot, 'scripts/verify-reconciliation-report.mjs'));
+  chmodSync(join(sourceRoot, 'scripts/verify-reconciliation-report.mjs'), 0o755);
 
   commitFile(sourceRoot, 'README.md', 'source base\n', 'chore: source base');
   git(sourceRoot, 'push', '-u', 'origin', 'main');

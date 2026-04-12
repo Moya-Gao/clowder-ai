@@ -384,7 +384,7 @@ gh issue comment {N} --repo zts212653/clowder-ai \
 
 ### Step 9: Release Tag Gate（release-intended sync 专用）🔴
 
-**Release tag 不许在 Step 8 完成前打。** `publish-release-tag.sh` 已加入技术性门禁：必须传 `--reconciliation-report=<path>` 指向一份非空的 reconciliation 报告文件，否则脚本直接 exit 1。
+**Release tag 不许在 Step 8 完成前打。** `publish-release-tag.sh` 已加入技术性门禁：必须传 `--reconciliation-report=<path>` 指向一份非空的 reconciliation 报告文件；如果报告里把任何 issue 标成 `closed`，脚本还会回查 GitHub，确认这些 issue 真实状态已经是 `CLOSED`，否则直接 exit 1。
 
 **执行顺序铁律：**
 
@@ -419,6 +419,6 @@ bash scripts/publish-release-tag.sh \
   --push
 ```
 
-**违反后果**：脚本会拒绝发布。没有 reconciliation report = 没有 release tag。
+**违反后果**：脚本会拒绝发布。没有 reconciliation report，或者报告里的 `closed` issue 实际还没关掉 = 没有 release tag。
 
 > 事故教训（v0.5.0）：sync PR #384 merge 后直接打 release tag，Step 8 完全跳过，导致 #341 等 issue 漏关。
