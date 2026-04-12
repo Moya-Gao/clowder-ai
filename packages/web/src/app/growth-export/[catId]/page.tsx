@@ -5,6 +5,7 @@
  *
  * Standalone page that renders a single CatProfileCard for Puppeteer screenshot.
  * ImageExporter navigates here, waits for data-export-ready="true", then captures.
+ * Designed for tight 480px viewport — no centering, card fills width.
  *
  * URL: /growth-export/:catId?export=true&userId=...
  */
@@ -37,16 +38,15 @@ export default function GrowthExportPage() {
   const ready = profile !== null;
 
   return (
-    <div
-      className="flex min-h-screen items-center justify-center bg-cafe-surface-elevated p-8"
-      {...(ready ? { 'data-export-ready': 'true' } : {})}
-    >
+    <div className="bg-cafe-surface-elevated p-5" {...(ready ? { 'data-export-ready': 'true' } : {})}>
       {error ? (
         <div className="text-sm text-red-500">{error}</div>
       ) : profile ? (
-        <div className="w-[400px]">
+        <>
           <CatProfileCard profile={profile} />
-        </div>
+          {/* Brand footer for shared images */}
+          <div className="mt-3 text-center text-[10px] text-cafe-muted">Clowder AI · Cat Growth RPG</div>
+        </>
       ) : (
         <div className="text-sm text-cafe-muted">Loading...</div>
       )}

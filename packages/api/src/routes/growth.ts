@@ -85,7 +85,7 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
       app.log.info({ catId, url }, 'Exporting growth card to PNG');
 
       const exporter = sharedExporter ?? (sharedExporter = new ImageExporter());
-      const imageBuffer = await exporter.capture(url, userId);
+      const imageBuffer = await exporter.capture(url, userId, 480);
 
       return reply.type('image/png').send(imageBuffer);
     } catch (error) {
