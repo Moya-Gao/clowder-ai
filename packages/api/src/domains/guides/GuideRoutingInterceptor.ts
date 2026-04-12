@@ -261,7 +261,7 @@ export async function ackGuideCompletion(params: {
   threadId: string;
   userId: string;
   guideStore: GuideStateBridge;
-  threadStore: { get(id: string): Promise<GuideThread | null | undefined> };
+  threadStore: { get(id: string): GuideThread | null | Promise<GuideThread | null> };
 }): Promise<void> {
   const { ctx, catId, catProducedOutput, targetCatIds, threadId, userId, guideStore, threadStore } = params;
   if (!catProducedOutput) return;
