@@ -1,12 +1,12 @@
 ---
 feature_ids: [F061]
 related_features: [F143, F149, F050]
-topics: [antigravity, bengal-cat, mcp, acp, agent-key, connectrpc, architecture]
+topics: [antigravity, bengal-cat, mcp, connectrpc, bridge, architecture]
 doc_kind: discussion
 created: 2026-04-12
 ---
 
-# F061 Phase 2 设计讨论：Antigravity 从 CDP 桥到最终形态
+# F061 Phase 2 设计定案：Antigravity Bridge（Bridge-owned writeback）
 
 > **发起**：布偶猫 | **讨论方**：砚砚 (GPT-5.4) | **日期**：2026-04-12
 >
@@ -28,17 +28,13 @@ F061 Phase 1（CDP 桥接入）已 COMPLETE，但 CDP 桥极其脆弱——DOM h
 3. **多 thread 并发** — Thread A 和 Thread B 同时 @antigravity，能并行处理
 4. **不能有 Phase/脚手架** — 直接设计最终形态
 
-## 关键发现：凭证断裂
+## 关键发现
 
-Cat Café callback 工具（`get_pending_mentions`、`post_message`、`get_thread_context`）依赖 `CAT_CAFE_INVOCATION_ID` + `CAT_CAFE_CALLBACK_TOKEN`——由 AgentRouter spawn 时注入 env。
+### 凭证断裂
 
-Antigravity 的 MCP 进程由 Language Server 启动，是**持久进程**（不是 per-invocation spawn）。没有这些 env var → 所有 callback 工具报 `not configured`。
+Cat Café callback 工具（`get_pending_mentions`、`post_message`、`get_thread_context`）依赖 `CAT_CAFE_INVOCATION_ID` + `CAT_CAFE_CALLBACK_TOKEN`——由 AgentRouter spawn 时注入 env。Antigravity 的 MCP 进程由 Language Server 启动，是持久进程，没有这些 env var。
 
-**推论**：无论选哪种集成架构，都需要一个新的鉴权通道来解决持久 MCP 进程的 callback 凭证问题。
-
-## 为什么 ACP 不能直接用
-
-F149 的 ACP 基建（AcpProcessPool + GeminiAcpAdapter）非常成熟，如果能复用就太好了。但：
+### 为什么 ACP 不能直接用
 
 | ACP 假设 | Antigravity 现实 |
 |----------|-----------------|
@@ -47,110 +43,166 @@ F149 的 ACP 基建（AcpProcessPool + GeminiAcpAdapter）非常成熟，如果�
 | Per-invocation spawn | Language Server 是持久进程 |
 | MCP 注入 via session/new | MCP 已持久注册在 mcp_config.json |
 
-直接用 ACP 不可行。但 ACP 的**模式**（process pool、session lease、event streaming）值得借鉴。
+**F149 的应复用物是 runtime policy（pool / lease / poison taxonomy / session binding），不是 ACP wire protocol。**
 
-## 三种架构方案
+---
 
-### 方案 A：ACP 代理桥（最优雅复用）
+## 定案：方案 D — Antigravity Bridge（Bridge-owned writeback）
 
-写一个约 200 行的 Node.js 代理进程，**对内说 ACP、对外说 ConnectRPC**：
+> 讨论经过 A→B→C→D 四轮迭代，A/B/C 淘汰理由见附录。
 
+### 核心原则
+
+**Antigravity 负责"思考与工具使用"，Bridge 负责"线程绑定、上下文装配、结果投递"。**
+
+### 架构
+
+```text
+@antigravity in thread
+  → AgentRouter（标准路由，创建 InvocationRecord）
+    → AntigravityHostedService（薄 provider，实现 AgentService 接口）
+      → Local Antigravity Bridge（隔离模块，封装 ConnectRPC 风险）
+        → ConnectRPC / antigravity-sdk
+          → createBackgroundSession (thread-bound)
+          → sendPrompt(sessionId, prompt)
+            prompt = 身份指令 + thread context + 任务描述
+          → stream back text / thought / tool-progress
+      → Bridge 收集响应流 → 转成 AgentMessage → 回 thread
 ```
-Cat Café AgentRouter
-  → AcpProcessPool（复用 F149）
-    → ACP Proxy（stdin/stdout JSON-RPC）
-      → ConnectRPC → Antigravity Language Server
-        → Ultra 模型思考
-        → 通过已注册的 Cat Café MCP tools 回帖
+
+### 职责分离
+
+| 职责 | 由谁完成 | 机制 |
+|------|---------|------|
+| 路由 @antigravity | AgentRouter | 标准 invocation 流程 |
+| 创建 Antigravity session | Bridge | `createBackgroundSession()` via ConnectRPC |
+| 装配 prompt（thread context + 身份） | Bridge / AntigravityHostedService | 从 API 取 thread context，构造完整 prompt |
+| 思考 + 推理 | Antigravity Language Server | Ultra 模型，使用订阅 token |
+| 只读工具调用（search_evidence 等） | Antigravity 直接调全局 MCP | 不需要 callback 凭证 |
+| **写回帖（post_message）** | **Bridge 代发** | 标准 invocation 凭证（Bridge 在 Cat Café 进程内） |
+| **ack mentions** | **Bridge 代发** | 同上 |
+| session 映射（thread ↔ Antigravity session） | Bridge 内部 | 内存/Redis 映射表 |
+| ConnectRPC 故障隔离 | Bridge 模块边界 | 坏了只坏 Antigravity 集成，不污染核心 |
+
+### 为什么不需要 Agent Key / 不需要改 callback-tools
+
+Bridge 运行在 Cat Café API 进程内（或作为由 API 管理的 sidecar），由当前 invocation 驱动。它把 Antigravity 的响应流直接转成 `AgentMessage` 回流到 thread——跟 `GeminiAcpAdapter` 把 ACP promptStream 转成 AgentMessage 是完全同构的。
+
+写操作不经过 Antigravity 的全局 MCP → 不需要给持久 MCP 加凭证 → callback-tools.ts **零改动**。
+
+### Antigravity 全局 MCP 的范围控制
+
+`mcp_config.json` 中注册的 Cat Café MCP Server 只保留**只读/无副作用**能力：
+
+| 工具 | 保留 | 说明 |
+|------|------|------|
+| `search_evidence` | ✅ | 搜索项目知识（本地 SQLite） |
+| `reflect` | ✅ | 记忆反思（本地） |
+| `read_session_digest` | ✅ | 读 session 摘要（API fallback） |
+| `signal_search` / `signal_list_inbox` | ✅ | 信号检索（只读） |
+| `post_message` | ❌ | 写操作，由 Bridge 代发 |
+| `get_pending_mentions` | ❌ | 需要 invocation 凭证 |
+| `ack_mentions` | ❌ | 写操作，由 Bridge 代发 |
+| `get_thread_context` | ❌ | Bridge 在 prompt 中预装 |
+
+实现方式：MCP Server 的 tool registration 支持按配置裁剪。在 `mcp_config.json` 的 env 中加 `CAT_CAFE_READONLY=true`，MCP Server 启动时只注册只读工具。
+
+### 多 thread 并发
+
+```text
+Thread A @antigravity → Bridge → createBackgroundSession("thread-A") → Session X
+Thread B @antigravity → Bridge → createBackgroundSession("thread-B") → Session Y
+Thread C @antigravity → Bridge → createBackgroundSession("thread-C") → Session Z
 ```
 
-**cat-config.json 配置**：
+Background session 不需要 GUI 聚焦，天然并发。每个 thread 首次 @antigravity 创建 session，后续复用。
+
+### cat-config.json 变更
+
 ```json
-"acp": {
-  "command": "node",
-  "startupArgs": ["dist/acp-antigravity-proxy.js"],
-  "mcpWhitelist": ["cat-cafe", "cat-cafe-memory", "cat-cafe-collab"],
-  "supportsMultiplexing": true
+{
+  "id": "bengal",
+  "catId": "antigravity",
+  ...
+  "available": true,
+  "variants": [{
+    "id": "antigravity-gemini",
+    "provider": "antigravity",
+    "defaultModel": "gemini-3.1-pro",
+    "mcpSupport": false,
+    "bridge": {
+      "type": "antigravity-hosted",
+      "sdk": "antigravity-sdk",
+      "transport": "connectrpc",
+      "sessionStrategy": "background-per-thread"
+    },
+    "cli": null
+  }]
 }
 ```
 
-**优点**：
-- Cat Café 核心零改动——Antigravity 看起来就是"又一个 ACP CLI"
-- 完全复用 AcpProcessPool（进程管理、健康检查、idle 回收）
-- 完全复用 GeminiAcpAdapter 模式（event transform、error classify、abort coverage）
-- 多 session 并发通过 pool multiplexing 实现
+`mcpSupport: false` 保持——MCP 工具不由 Cat Café 注入，而是 Antigravity 侧已有持久注册。`bridge` 替代 `cli` 作为连接配置。
 
-**缺点**：
-- 代理层增加一跳延迟
-- 依赖 ConnectRPC 协议（社区逆向，非官方）
-- 需要 agent key auth 解决持久 MCP 的凭证问题（ACP 的 per-invocation callbackEnv 注入对持久 MCP 进程无效）
+### 代码改动清单
 
-### 方案 B：ConnectRPC 直连 Provider（最直接）
+| 文件/模块 | 改动 | 行数估算 |
+|-----------|------|---------|
+| 新增 `providers/antigravity/AntigravityHostedService.ts` | 薄 provider，实现 AgentService | ~80 |
+| 新增 `providers/antigravity/AntigravityBridge.ts` | ConnectRPC 封装 + session 映射 + 响应收集 | ~200 |
+| 新增 `providers/antigravity/antigravity-event-transformer.ts` | ConnectRPC stream → AgentMessage 转换 | ~100 |
+| 修改 `config/cat-config-loader.ts` | 识别 `bridge` 配置，注册 HostedService | ~30 |
+| 修改 `index.ts` | boot 时创建 Bridge 实例 | ~20 |
+| 删除 `providers/antigravity/AntigravityCdpClient.ts` | 349 行 DOM hack 全部干掉 | -349 |
+| 重写 `providers/antigravity/AntigravityAgentService.ts` | 替换为 AntigravityHostedService | ~-163 / +80 |
+| MCP Server: 支持 `CAT_CAFE_READONLY` env | 只注册只读工具 | ~15 |
+| 新增 `GEMINI.md`（项目根） | Antigravity 身份 Rules + 协作指令 | ~30 |
 
-新写一个 `AntigravityConnectService` 直接实现 `AgentService` 接口：
+**净变化**：删 ~500 行 CDP hack，新增 ~450 行 Bridge 实现。
 
-```
-Cat Café AgentRouter
-  → AntigravityConnectService（新 provider）
-    → ConnectRPC → Antigravity Language Server
-      → Ultra 模型思考
-      → 通过 MCP tools 回帖
-```
+---
 
-**优点**：
-- 最短路径，无代理层
-- 简单直接
+## 开工前唯一技术前置验证
 
-**缺点**：
-- 不复用 F149 ACP 基建（进程管理、健康检查自己写）
-- 又多一个 provider pattern（已经有 7 个了，F143 的初衷就是减少这种增长）
-- 同样需要 agent key auth
+> 这不是"脚手架 Phase"，是开工前的一次性确认。
 
-### 方案 C：MCP Pull + Agent Key（最简单）
+在本机跑一个 10 分钟 spike 脚本验证：
+1. `antigravity-sdk` 的 `createBackgroundSession()` 是否能创建不弹 GUI 的后台 session
+2. `sendPrompt(sessionId, prompt)` 是否能投递并获取流式响应
+3. 并发 2 个 background session 是否稳定
 
-不写新 provider，只加 agent key 鉴权。Antigravity 通过已注册的 MCP tools 主动拉取任务：
+如果这三个不过，D 也立不住——但这时候所有依赖 ConnectRPC 的方案（A/B/D）都立不住，退路是 C（MCP Pull）+ 等官方 ACP 支持。
 
-```
-Cat Café thread @antigravity
-  → mention 入库
-  → Antigravity 通过 MCP get_pending_mentions() 主动检查
-  → 读上下文 → 思考 → post_message() 回帖
-```
+---
 
-**触发方式**：Workspace Rule 或用户手动在 Antigravity GUI 发起。
+## 附录：淘汰方案
 
-**优点**：
-- Cat Café 侧改动最小——只加 agent key auth（~50 行）
-- 不依赖 ConnectRPC（不依赖逆向协议）
-- MCP 已验证可用
+### A. ACP 代理桥 — 淘汰
 
-**缺点**：
-- **不满足"跟 @opus 对称"的要求** — 不能自动路由，需要手动触发
-- 不是真正的 AgentService provider — 没有 AgentRouter 路由
-- 多 thread 并发受限于 Antigravity GUI 的单 session
+> 砚砚评价："A 不是最优雅，A 是为了复用 F149 而把 Antigravity 硬塞成 ACP。"
 
-## 鉴权方案：Agent Key
+把 Antigravity 假装成 ACP CLI，表面"Cat Café 核心零改动"，实际上 callback auth / MCP scope / session ownership / stale policy 全是 Antigravity 特例，被塞进代理里。后面 debug 会很痛。
 
-无论选哪种架构，持久 MCP 进程的 callback 鉴权都需要解决：
+复用的是壳，不是语义。
 
-1. 新增 `CAT_CAFE_AGENT_KEY` env var（设在 `mcp_config.json` 的 env 中）
-2. `callback-tools.ts` 的 `getCallbackConfig()` 增加 fallback：invocation 凭证 > agent key
-3. API 侧 `/api/callbacks/*` 增加 agent key 验证分支（agent key → catId 映射）
-4. Agent key 模式下：`get_pending_mentions()` 返回跨 thread mentions，`post_message()` 必须显式传 threadId
+### B. ConnectRPC 直连 Provider — 备选
 
-## 我的倾向：方案 A
+承认 Antigravity 是特殊宿主，不假装 ACP。但如果直接把 ConnectRPC、session map、tool proxy、auth 全写进 provider，Cat Café 核心会长出一坨 Antigravity 专属逻辑，和 F143 想收敛 provider 的方向冲突。
 
-理由：
-1. **架构一致性** — F143 的初衷就是统一 provider 模式，ACP Proxy 让 Antigravity 复用同一套基建
-2. **零核心改动** — Cat Café 核心不感知 Antigravity 的特殊性，它只是"又一个 ACP agent"
-3. **代理层足够薄** — 本质上是 `ACP JSON-RPC ↔ ConnectRPC` 的协议翻译，~200 行
-4. **铲屎官要的体验** — 全自动路由、多 session 并发、跟 @opus 对称
+如果 D 因技术原因不可行，可退回 B，但需把 Bridge/SDK 隔离成独立模块。
 
-风险在 ConnectRPC 协议的稳定性，但这个风险方案 A 和 B 都有。选 A 至少在 Cat Café 侧保持了架构纯净。
+### C. MCP Pull + Agent Key — 淘汰
 
-## 待讨论
+不满足"跟 @opus 对称"的要求。不能自动路由，需手动触发。不是最终态。
 
-1. **方案选择**：A/B/C 哪个最优雅？有没有我漏掉的第四种可能？
-2. **ConnectRPC 风险评估**：社区 SDK 被 Antigravity 官方封堵的概率？有没有更稳定的替代通道？
-3. **Agent Key 安全边界**：长期 key vs per-session key？key rotation 策略？
-4. **`antigravity --acp` 可能性**：Antigravity 毕竟共享 Gemini 的 Language Server，未来加 --acp 的概率？要不要赌这条路？
+Agent Key 从主路径移除，降为 future external-agent scope（如果将来要让 Antigravity 脱离 invocation 长期自治、主动跨 thread，才需要）。
+
+---
+
+## 讨论参与者
+
+| 猫 | 贡献 |
+|----|------|
+| 布偶猫 | 提出 A/B/C 三种方案，发现凭证断裂问题 |
+| 砚砚 (GPT-5.4) | 提出方案 D（Antigravity Bridge），否决 agent key 作为终态方案，指出 A 的语义不诚实 |
+| 布偶猫 | 在 D 基础上提出 Bridge-owned writeback，消除全局 MCP session routing 问题 |
+| 砚砚 (GPT-5.4) | 确认 Bridge 代发为最终形态，明确 F149 复用边界（policy not wire） |
