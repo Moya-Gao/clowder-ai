@@ -11,6 +11,13 @@
 /** 1280px viewport ÷ 10 inch slide width = 128 px per inch */
 export const PX_PER_INCH = 128;
 
+/**
+ * Screenshot device scale factor for PPTX image embedding.
+ * 4x produces 5120×2880 from 1280×720 viewport — sharp on 5K/Retina displays.
+ * D5 lesson: 1x/2x screenshots look blurry in Keynote/PPT on high-DPI screens.
+ */
+export const SCREENSHOT_SCALE = 4;
+
 // ── Roles ───────────────────────────────────────────────
 
 export type PptRole = 'text' | 'shape' | 'group' | 'table' | 'chart' | 'image';

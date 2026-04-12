@@ -192,6 +192,13 @@ Layer Header
 9. **单一证据源约束**：页面上所有数字必须可追溯到声明的证据源（砚砚 D1 审查 P1 教训）
 10. **观看模式自洽**：7-8px 字号 = document 模式，不要声明 presentation（砚砚 P1 教训）
 
+### D5 HTML→PPTX 转换教训 (2026-04-12)
+
+11. **Screenshot-first > flat extraction**：CSS 布局（flexbox/grid/overflow/absolute）无法用独立 text box 还原。截图做背景 + 关键元素（表格）原生 overlay = 视觉保真 + 局部可编辑
+12. **SCREENSHOT_SCALE = 4**（`types.ts`）：1x/2x 截图在 Retina/5K 屏上模糊。4x（5120×2880）才清晰。这是产线常量，不是临时参数
+13. **截图前隐藏 overlay 元素**：截图背景 + 原生 overlay 同位叠加 = 重影。截图前 `visibility:hidden` 隐藏 overlay 区域，保持占位不影响布局
+14. **XML 通过 ≠ 视觉通过**：PPT 场景渲染结果是唯一裁决标准，文本拆分正确不代表视觉正确（砚砚 D5 R2 教训）
+
 ## 待补充
 
 - [ ] 华为真实 PPT 样本学习（铲屎官后续提供）

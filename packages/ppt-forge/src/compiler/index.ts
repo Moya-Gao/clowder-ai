@@ -34,4 +34,4 @@ export type {
   PptRole,
   TextRun,
 } from './types.js';
-export { PX_PER_INCH } from './types.js';
+export { PX_PER_INCH, SCREENSHOT_SCALE } from './types.js';
