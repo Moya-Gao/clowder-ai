@@ -7,6 +7,7 @@
  * - processNext（用户级）：铲屎官手动触发处理自己的下一条
  */
 
+import { resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
 import type { IMessageStore } from '../../stores/ports/MessageStore.js';
 import type { InvocationQueue, QueueEntry } from './InvocationQueue.js';
 
@@ -110,15 +111,19 @@ export type EntryCompleteHook = (
 
 export class QueueProcessor {
   private deps: QueueProcessorDeps;
-  /** F108: Per-slot mutex — prevents concurrent double-start per (thread, cat) pair */
-  private processingSlots = new Set<string>();
+  /** F108: Per-slot mutex — prevents concurrent double-start per (thread, cat) pair.
+   *  F118 D4: Map value = processingStartedAt for zombie detection. */
+  private processingSlots = new Map<string, number>();
   /** F108: Per-slot pause tracking (set on canceled/failed, cleared on next execution) */
   private pausedSlots = new Map<string, 'canceled' | 'failed'>();
   /** F122B B6: Per-entry completion hooks (for multi-mention response aggregation). */
   private entryCompleteHooks = new Map<string, EntryCompleteHook>();
+  /** F118 D4: max age before a processingSlot is considered zombie (default 2.5× CLI timeout = 75min) */
+  private processingSlotTtlMs: number;
 
-  constructor(deps: QueueProcessorDeps) {
+  constructor(deps: QueueProcessorDeps, opts?: { processingSlotTtlMs?: number }) {
     this.deps = deps;
+    this.processingSlotTtlMs = opts?.processingSlotTtlMs ?? 2.5 * resolveCliTimeoutMs(undefined);
   }
 
   /** F088 fix: Late-bind outbound hook (set after gateway bootstrap). */
@@ -154,6 +159,28 @@ export class QueueProcessor {
 
   private static slotKey(threadId: string, catId: string): string {
     return `${threadId}:${catId}`;
+  }
+
+  /**
+   * F118 D4: Sweep zombie processingSlots.
+   * A slot is zombie when: age > TTL AND invocationTracker has no active slot for the same key.
+   * The tracker check prevents false-positive cleanup of genuinely slow invocations.
+   */
+  private sweepZombieSlots(threadId: string): void {
+    const prefix = `${threadId}:`;
+    const now = Date.now();
+    const ttl = this.processingSlotTtlMs;
+    for (const [key, startedAt] of this.processingSlots) {
+      if (!key.startsWith(prefix)) continue;
+      if (now - startedAt <= ttl) continue;
+      // Only release if tracker also has no active invocation — double-confirm zombie
+      const parts = key.split(':');
+      const catId = parts.slice(1).join(':');
+      if (!this.deps.invocationTracker.has(threadId, catId)) {
+        this.processingSlots.delete(key);
+        this.deps.log.warn({ threadId, catId, ageMs: now - startedAt }, '[F118 D4] zombie processingSlot released');
+      }
+    }
   }
 
   /** Check if a slot's queue is paused (canceled/failed AND has queued entries). */
@@ -195,7 +222,7 @@ export class QueueProcessor {
   isThreadBusy(threadId: string): boolean {
     if (this.deps.queue.hasQueuedForThread(threadId)) return true;
     const prefix = `${threadId}:`;
-    for (const key of this.processingSlots) {
+    for (const key of this.processingSlots.keys()) {
       if (key.startsWith(prefix)) return true;
     }
     return false;
@@ -309,6 +336,7 @@ export class QueueProcessor {
    * Per-cat slot mutex (processingSlots + invocationTracker) prevents conflicts.
    */
   async tryAutoExecute(threadId: string): Promise<void> {
+    this.sweepZombieSlots(threadId);
     const entries = (this.deps.queue.listAutoExecute?.(threadId) ?? []).sort((a, b) => a.createdAt - b.createdAt);
     if (entries.length > 0) {
       const now = Date.now();
@@ -336,7 +364,7 @@ export class QueueProcessor {
 
       // Guard: markProcessingById may fail if entry was consumed between snapshot and now
       if (!this.deps.queue.markProcessingById(threadId, entry.id)) continue;
-      this.processingSlots.add(sk);
+      this.processingSlots.set(sk, Date.now());
       void this.executeEntry(entry).then(
         (status) => {
           this.processingSlots.delete(sk);
@@ -359,6 +387,7 @@ export class QueueProcessor {
     threadId: string,
     catId: string,
   ): Promise<{ started: boolean; entry?: QueueEntry }> {
+    this.sweepZombieSlots(threadId);
     const sk = QueueProcessor.slotKey(threadId, catId);
     // Mutex check — per-slot
     if (this.processingSlots.has(sk)) {
@@ -385,7 +414,7 @@ export class QueueProcessor {
       return { started: false };
     }
 
-    this.processingSlots.add(entrySk);
+    this.processingSlots.set(entrySk, Date.now());
     // Fire-and-forget execution — chain onInvocationComplete AFTER mutex release
     void this.executeEntry(entry).then(
       (status) => {
@@ -407,6 +436,7 @@ export class QueueProcessor {
     threadId: string,
     userId: string,
   ): Promise<{ started: boolean; entry?: QueueEntry }> {
+    this.sweepZombieSlots(threadId);
     // F108 P1-3 fix: peek at next entry's target cat to check slot mutex BEFORE marking processing.
     // This prevents entries from getting stuck as 'processing' when the slot is busy.
     const nextEntry = this.deps.queue.peekNextQueued(threadId, userId);
@@ -428,7 +458,7 @@ export class QueueProcessor {
     const entry = this.deps.queue.markProcessing(threadId, userId);
     if (!entry) return { started: false };
 
-    this.processingSlots.add(sk);
+    this.processingSlots.set(sk, Date.now());
     // Fire-and-forget execution — chain onInvocationComplete AFTER mutex release
     void this.executeEntry(entry).then(
       (status) => {
