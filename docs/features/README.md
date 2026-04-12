@@ -110,6 +110,7 @@
 | F141 | F141: GitHub Repo Inbox — 仓库事件自动发现 | done | [F141-github-repo-inbox.md](./F141-github-repo-inbox.md) |
 | F142 | F142: Connector Slash Commands — 跨平台 /slash 扩展框架 | done | [F142-connector-slash-commands.md](./F142-connector-slash-commands.md) |
 | F108 | F108: Side-Dispatch — 同一 Thread 多猫并发执行 | done | [F108-side-dispatch-concurrent-invocation.md](./F108-side-dispatch-concurrent-invocation.md) |
+| F145 | F145: MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析 | done | [F145-mcp-portable-provisioning.md](./F145-mcp-portable-provisioning.md) |
 | F148 | F148: Hierarchical Context Transport — 分层上下文传输 | done | [F148-hierarchical-context-transport.md](./F148-hierarchical-context-transport.md) |
 | F150 | F150: Tool/Skill/MCP Usage Statistics — 工具使用可观测看板 | done | [F150-tool-usage-stats.md](./F150-tool-usage-stats.md) |
 | F132 | F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | done | [F132-dingtalk-wecom-gateway.md](./F132-dingtalk-wecom-gateway.md) |

@@ -48,7 +48,6 @@ created: 2026-02-26
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | 布偶猫 | internal | [F143](features/F143-hostable-agent-runtime.md) |
 | F144 | PPT Forge — AI 演示文稿生成引擎 | in-progress | 三猫 | internal | [F144](features/F144-ppt-forge.md) |
-| F145 | MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析 | in-progress | 布偶猫 + 缅因猫 | internal | [F145](features/F145-mcp-portable-provisioning.md) |
 | F146 | MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | spec | 缅因猫 + 布偶猫 | internal | [F146](features/F146-mcp-marketplace-control-plane.md) |
 | F147 | i18n — Hub 界面中英文切换 | idea | 待定 | internal | — |
 | F149 | ACP Runtime Operations — 项目级进程池 + Session Lease | spec | 缅因猫 | internal | [F149](features/F149-acp-runtime-operations.md) |

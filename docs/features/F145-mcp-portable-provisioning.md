@@ -8,7 +8,7 @@ created: 2026-03-27
 
 # F145: MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析
 
-> **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1 | **Completed**: 2026-04-12
 
 ## Why
 
@@ -211,6 +211,7 @@ Claude Code 读配置时 per-project override > `.mcp.json` > global，拿到不
 | 2026-04-08 | Phase D merged (PR #1017, `b527aac0`)：`generateCliConfigs()` auto-clean per-project overrides |
 | 2026-04-12 | Phase E 立项：铲屎官提出社区用户 per-project MCP 需求。梳理三猫 MCP 读取现状：Claude Code ✅ / Codex ✅ / Gemini ACP ❌ |
 | 2026-04-12 | Phase E merged (PR #1113)：`resolveAcpMcpServers` + `resolveUserProjectMcpServers` per-invoke helper + GeminiAcpAdapter per-invocation merge |
+| 2026-04-12 | 愿景守护通过并正式关闭：新机器无需手挂 MCP、Pencil 双宿主解析、Gemini ACP per-project `.mcp.json` merge 三条主痛点均已有代码与测试证据 |
 
 ## Review Gate
 
@@ -223,6 +224,7 @@ Claude Code 读配置时 per-project override > `.mcp.json` > global，拿到不
 |------|------|------|
 | **Evolved from** | `docs/features/F041-capability-dashboard.md` | 能力编排器基础设施 |
 | **Related** | `docs/features/F043-mcp-unification.md` | MCP server 拆分 |
+| **Reflection** | `docs/reflections/2026-04-12-f145-portable-provisioning-capsule.md` | Feature 完成反思胶囊 |
 | **讨论** | 2026-03-27 铲屎官 + 宪宪 + 砚砚对话 | 根因分析 + 方案收敛 |
 | **Bug 现场** | `capability-orchestrator.ts:31,101` | Pencil 硬编码 Antigravity 路径 |
 | **Bug 现场** | `.cat-cafe/capabilities.json:228` | 机器态绝对路径混入真相源 |
