@@ -977,7 +977,13 @@
       "name": "CatAgent Native Provider — Opt-in API Path",
       "status": "spec | **Owner**: 社区 (bouillipx) + 布偶猫 + 缅因猫 | **Priority**: P1",
       "file": "F159-catagent-native-provider.md"
+    },
+    {
+      "id": "F160",
+      "name": "毛线球升级 — Thread-Level Persistent Task Board",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F160-task-board-upgrade.md"
     }
   ],
-  "generated_at": "2026-04-12T10:56:14.412Z"
+  "generated_at": "2026-04-12T11:02:13.159Z"
 }
