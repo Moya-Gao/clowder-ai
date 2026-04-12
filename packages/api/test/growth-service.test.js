@@ -7,11 +7,21 @@
 
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { after, describe, test } from 'node:test';
 
 /** Import pure helpers directly (they don't depend on Redis). */
 const { GrowthService } = await import('../dist/domains/cats/services/growth/GrowthService.js');
 const { detectInvocationPurpose } = await import('../dist/routes/callback-a2a-trigger.js');
+
+// Close pino transport worker threads so the test runner exits cleanly.
+// GrowthService imports logger.ts which creates pino-roll file transport threads.
+const { logger } = await import('../dist/infrastructure/logger.js');
+after(() => {
+  const transport = logger[Symbol.for('pino.stream')];
+  if (transport && typeof transport.end === 'function') {
+    transport.end();
+  }
+});
 
 // ── level formula ──────────────────────────────────────────────
 
