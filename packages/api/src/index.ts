@@ -529,6 +529,24 @@ async function main(): Promise<void> {
       }
       return result;
     },
+    getKindCoverage: async (projectPath: string) => {
+      // Guard: only overlay store kinds for our own repo (Phase D: project isolation)
+      if (resolve(projectPath) !== resolve(repoRoot)) return {};
+
+      const { mapKindToSourceType } = await import('./routes/evidence-helpers.js');
+      const db = memoryServices.store.getDb();
+      const rows = db
+        .prepare(
+          `SELECT kind, COUNT(*) as cnt FROM evidence_docs WHERE kind IS NOT NULL AND source_path NOT LIKE 'archive/%' GROUP BY kind`,
+        )
+        .all() as Array<{ kind: string; cnt: number }>;
+      const result: Record<string, number> = {};
+      for (const row of rows) {
+        const sourceType = mapKindToSourceType(row.kind);
+        result[sourceType] = (result[sourceType] || 0) + row.cnt;
+      }
+      return result;
+    },
   });
 
   // F102 D-2: Auto-rebuild evidence index on startup (AC-D4)
