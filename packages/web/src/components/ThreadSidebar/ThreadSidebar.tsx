@@ -12,6 +12,7 @@ import { readProjectNames, writeProjectNames } from './active-workspace';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
 import { ThreadItem } from './ThreadItem';
+import { pushThreadRouteWithFallback } from './thread-navigation';
 import {
   getProjectPaths,
   mergeLiveActivityIntoThreads,
@@ -58,6 +59,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
 
   // F095 Phase E: scroll anchor for reorder stability
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const navigationFallbackTimerRef = useRef<number | null>(null);
   // F095 Phase F: custom project display names
   const [projectNames, setProjectNames] = useState(() =>
     readProjectNames(typeof localStorage !== 'undefined' ? localStorage : { getItem: () => null, setItem: () => {} }),
@@ -139,9 +141,26 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     })();
   }, []);
 
+  useEffect(
+    () => () => {
+      if (typeof window !== 'undefined' && navigationFallbackTimerRef.current !== null) {
+        window.clearTimeout(navigationFallbackTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const navigateToThread = useCallback(
     (threadId: string) => {
-      router.push(threadId === 'default' ? '/' : `/thread/${threadId}`);
+      pushThreadRouteWithFallback({
+        threadId,
+        routerPush: (href) => router.push(href),
+        windowObj: typeof window !== 'undefined' ? window : undefined,
+        pendingTimerId: navigationFallbackTimerRef.current,
+        setPendingTimerId: (id) => {
+          navigationFallbackTimerRef.current = id;
+        },
+      });
     },
     [router],
   );
