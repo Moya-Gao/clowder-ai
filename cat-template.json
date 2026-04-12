@@ -132,7 +132,7 @@
             "maxPromptTokens": 180000,
             "maxContextTokens": 160000,
             "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -172,7 +172,7 @@
             "maxPromptTokens": 180000,
             "maxContextTokens": 160000,
             "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -212,7 +212,7 @@
             "maxPromptTokens": 180000,
             "maxContextTokens": 160000,
             "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -264,7 +264,7 @@
             "maxPromptTokens": 240000,
             "maxContextTokens": 216000,
             "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -315,7 +315,7 @@
             "maxPromptTokens": 240000,
             "maxContextTokens": 216000,
             "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -355,7 +355,7 @@
             "maxPromptTokens": 64000,
             "maxContextTokens": 40000,
             "maxMessages": 100,
-            "maxContentLengthPerMsg": 8000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -411,7 +411,7 @@
             "maxPromptTokens": 350000,
             "maxContextTokens": 300000,
             "maxMessages": 300,
-            "maxContentLengthPerMsg": 15000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -454,7 +454,7 @@
             "maxPromptTokens": 350000,
             "maxContextTokens": 300000,
             "maxMessages": 300,
-            "maxContentLengthPerMsg": 15000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -503,7 +503,7 @@
             "maxPromptTokens": 120000,
             "maxContextTokens": 100000,
             "maxMessages": 100,
-            "maxContentLengthPerMsg": 8000
+            "maxContentLengthPerMsg": 100000
           }
         }
       ]
@@ -545,7 +545,7 @@
             "maxPromptTokens": 350000,
             "maxContextTokens": 300000,
             "maxMessages": 300,
-            "maxContentLengthPerMsg": 15000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -582,7 +582,7 @@
             "maxPromptTokens": 180000,
             "maxContextTokens": 160000,
             "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -632,7 +632,7 @@
             "maxPromptTokens": 180000,
             "maxContextTokens": 160000,
             "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
+            "maxContentLengthPerMsg": 100000
           },
           "voiceConfig": {
             "voice": "zm_yunjian",
@@ -678,7 +678,7 @@
             "maxPromptTokens": 240000,
             "maxContextTokens": 216000,
             "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
+            "maxContentLengthPerMsg": 100000
           }
         }
       ]

@@ -9,6 +9,7 @@ import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { parseDirection } from '@/lib/parse-direction';
 import { type ChatMessage as ChatMessageType, resolveBubbleExpanded, useChatStore } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
+import { CollapsibleMarkdown } from './CollapsibleMarkdown';
 import { ConnectorBubble } from './ConnectorBubble';
 import { ContentBlocks } from './ContentBlocks';
 import { CliOutputBlock } from './cli-output/CliOutputBlock';
@@ -16,7 +17,6 @@ import { toCliEvents } from './cli-output/toCliEvents';
 import { DirectionPill } from './DirectionPill';
 import { EvidencePanel } from './EvidencePanel';
 import { GovernanceBlockedCard } from './GovernanceBlockedCard';
-import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { ReplyPill } from './ReplyPill';
 import { BriefingCard } from './rich/BriefingCard';
@@ -212,7 +212,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             {hasBlocks ? (
               <ContentBlocks blocks={message.contentBlocks!} />
             ) : (
-              <MarkdownContent content={message.content} />
+              <CollapsibleMarkdown content={message.content} />
             )}
           </div>
         </div>
@@ -343,7 +343,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
-            <MarkdownContent content={message.content} className={catStyle?.font} />
+            <CollapsibleMarkdown content={message.content} className={catStyle?.font} />
           ) : message.isStreaming ? (
             <span className="text-xs text-cafe-secondary">Thinking...</span>
           ) : null}
