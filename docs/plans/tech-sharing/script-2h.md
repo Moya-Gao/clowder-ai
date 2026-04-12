@@ -18,7 +18,7 @@ participants: [opus, gpt52, gemini]
 1h 版准备清单全部适用，额外增加：
 
 - [ ] Workshop 环节的观众互动方式确定（举手 / 扫码提问 / 现场出题）
-- [ ] 如果有"观众出题"环节：demo thread 已准备好接受任意话题
+- [ ] 如果有"观众出题"环节：demo thread 已准备好，题目限白名单（分析/比较/检索/inspect），Landy 现场收敛超范围题目
 - [ ] Deep Dive 素材确认（ADR 文档、真实 PR review、lessons-learned 可投影）
 - [ ] 2h 活动通常有茶歇——确认中场休息时机
 

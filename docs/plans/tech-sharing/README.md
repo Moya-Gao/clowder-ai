@@ -69,7 +69,8 @@ participants: [opus, gpt52, gemini]
 |------|------|------|
 | Expert Panel Demo 剧本 | `docs/plans/2026-03-31-office-showcase-demo-script.md` | 8分钟 Expert Panel 完整流程 |
 | Demo Thread Primer | `docs/plans/2026-03-31-showcase-thread-primer.md` | 演示 thread 预注入文档 |
-| 功能演示清单 | `docs/lessons/DEMO.md` | 27 个 feature 的演示视频/截图索引 |
+| 功能演示清单（早期） | `docs/lessons/DEMO.md` | 早期 27 个功能的演示视频/截图（**已过时**，仅覆盖 F001-F055） |
+| **Feature 总索引（最新）** | `docs/features/README.md` | 全量 Feature 索引（118+ 已完成），演讲用数字从这里取 |
 | Blog V2 传播版 | `docs/stories/three-days-productization/blog-v2/` | 6 章完整技术叙事（会后发） |
 | "Show the Team" 策略 | `docs/discussions/career-planning/2026-04-09-interview-roadmap.md:135` | 90秒确定性 demo 剧本 |
 
@@ -98,6 +99,6 @@ cat docs/lessons-learned.md | grep '^## LL-' | wc -l  # lessons
 
 ---
 
-*三猫共创：宪宪（收敛）+ 砚砚（流程 + Q&A 路由）+ 烁烁（创意 + 视觉）| 2026-04-12*
+*三猫共创：宪宪（收敛）+ 砚砚（流程 + Q&A 路由 + review）+ 烁烁（创意 + 视觉）+ 金金（Expert Panel 验证）| 2026-04-12*
 
 [宪宪/Opus-46🐾]
