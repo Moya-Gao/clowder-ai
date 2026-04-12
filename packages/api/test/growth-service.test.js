@@ -5,27 +5,17 @@
  * audit event uniqueness (nonce), and XP award pipeline.
  */
 
+// Disable pino transport worker threads BEFORE any module import.
+// Without this, pino.transport() spawns threads that outlive tests.
+process.env.PINO_DISABLE_TRANSPORT = '1';
+
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
-import { after, describe, test } from 'node:test';
+import { describe, test } from 'node:test';
 
 /** Import pure helpers directly (they don't depend on Redis). */
 const { GrowthService } = await import('../dist/domains/cats/services/growth/GrowthService.js');
 const { detectInvocationPurpose } = await import('../dist/routes/callback-a2a-trigger.js');
-
-// Close pino transport worker threads so the test runner exits cleanly.
-// GrowthService imports logger.ts which creates pino-roll file transport threads.
-// Must await the 'close' event — end() alone is non-blocking.
-const { logger } = await import('../dist/infrastructure/logger.js');
-after(async () => {
-  const transport = logger[Symbol.for('pino.stream')];
-  if (transport && typeof transport.end === 'function') {
-    await new Promise((resolve) => {
-      transport.on('close', resolve);
-      transport.end();
-    });
-  }
-});
 
 // ── level formula ──────────────────────────────────────────────
 
