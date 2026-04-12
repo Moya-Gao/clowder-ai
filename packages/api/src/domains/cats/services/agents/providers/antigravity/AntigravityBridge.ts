@@ -215,7 +215,7 @@ export class AntigravityBridge {
       const extPort = extPortMatch ? Number(extPortMatch[1]) : 0;
 
       // Find ConnectRPC port via lsof (excluding extension_server_port)
-      const lsofOutput = execSync(`lsof -iTCP -sTCP:LISTEN -P -n -p ${pid} 2>/dev/null | grep LISTEN`, {
+      const lsofOutput = execSync(`lsof -a -iTCP -sTCP:LISTEN -P -n -p ${pid} 2>/dev/null | grep LISTEN`, {
         encoding: 'utf8',
         timeout: 5000,
       }).trim();
