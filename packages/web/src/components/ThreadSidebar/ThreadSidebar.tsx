@@ -363,16 +363,15 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
   const handleSelect = useCallback(
     (threadId: string) => {
       if (threadId === currentThreadId) return;
-      // B1.1: Restore projectPath from thread metadata on switch
-      const target = threads.find((t) => t.id === threadId);
-      setCurrentProject(target?.projectPath ?? 'default');
+      // Let the new thread restore projectPath after the route switch.
+      // Pre-navigation global store writes can stall SPA thread navigation.
       navigateToThread(threadId);
       // Auto-close sidebar on mobile after selecting a thread
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         onClose?.();
       }
     },
-    [currentThreadId, threads, setCurrentProject, navigateToThread, onClose],
+    [currentThreadId, navigateToThread, onClose],
   );
 
   // F095 Phase F: Project action handlers

@@ -1234,7 +1234,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // ── Thread management ──
 
   setThreads: (threads) => set({ threads }),
-  setCurrentProject: (projectPath) => set({ currentProjectPath: projectPath }),
+  setCurrentProject: (projectPath) =>
+    set((state) => (state.currentProjectPath === projectPath ? state : { currentProjectPath: projectPath })),
   setLoadingThreads: (loading) => set({ isLoadingThreads: loading }),
 
   updateThreadTitle: (threadId, title) =>
