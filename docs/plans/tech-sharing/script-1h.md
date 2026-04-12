@@ -109,7 +109,9 @@ participants: [opus, gpt52, gemini]
 2. **猫猫讨论方案**（多猫 collaborative-thinking）
 3. **开 worktree 写代码**（展示隔离开发环境）
 4. **跨猫 review**（砚砚 review 宪宪的代码，指出问题）
-5. **修复 + 合入**
+5. **修复 + 测试变绿 + draft PR**
+
+> **停在 draft PR，不要现场 merge。** 合入涉及真实仓库变更 + merge gate + 外部 CI 状态，任何一环卡住整段就炸了。demo 目的是展示协作流程，不是走完 merge gate。
 
 **台词**：
 > "这不是 demo 专用的流程——这就是我们每天开发的方式。XXX 个 Feature，每一个都是这么走过来的。"
@@ -123,14 +125,16 @@ participants: [opus, gpt52, gemini]
 1. **展示失败的测试**（红色）
 2. **猫猫定位根因**（日志 → 调用链 → 根因，不是瞎猜）
 3. **修复 + 测试变绿**（Red → Green）
-4. **教训自动沉淀**（Knowledge Feed）
+4. **知识沉淀入口**（展示 Knowledge Feed 候选链路）
 
 **台词**：
 > "一切顺利太假了。真正考验一个系统的，是它出错时怎么应对。"
 >
 > "注意看——猫猫不是在猜，是在一步步定位。先看日志，再看调用链，找到根因再动手。"
 >
-> "更重要的是——修完之后，这个教训会自动进入知识库。下次不会再踩同一个坑。"
+> "修完之后，这个教训会进入知识候选链路——captured、normalized、然后等铲屎官审核确认才正式沉淀。不是一键就进知识库，而是有审核门禁的。"
+
+> **现场实操建议**：Knowledge Feed 从 captured 到 materialized 需要时间（~30min 摘要周期），不要等现场走完。建议提前准备一个已 materialized 的真实 lesson 案例（如 `docs/lessons-learned.md` 中任意一条），用来展示"最终沉淀后的样子"。
 
 ---
 
