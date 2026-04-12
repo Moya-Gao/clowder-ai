@@ -152,6 +152,8 @@ function dispatchViaQueue(
         const newStatus = orch.recordResponse(requestId, catId, finalResponse);
         // F157: Award mention_collab XP (fire-and-forget)
         deps.growthService?.awardXp(catId, 'mention_collab');
+        // F157 Phase B: Record bond event between initiator and responder
+        deps.growthService?.recordBondEvent(initiator, catId);
         log.info(
           { requestId, catId, newStatus, responseLength: finalResponse.length },
           '[F122B B6] multi-mention queue response recorded',
@@ -302,6 +304,8 @@ async function dispatchToTarget(
     const newStatus = orch.recordResponse(requestId, targetCatId, finalResponse);
     // F157: Award mention_collab XP (fire-and-forget)
     deps.growthService?.awardXp(targetCatId, 'mention_collab');
+    // F157 Phase B: Record bond event between initiator and responder
+    deps.growthService?.recordBondEvent(initiator, targetCatId);
     log.info(
       { requestId, targetCatId, newStatus, responseLength: finalResponse.length, toolsUsed: toolsUsed.length },
       '[F086] Multi-mention response recorded',

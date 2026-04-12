@@ -3,6 +3,8 @@
  * GET  /api/growth/overview             — team-wide growth overview
  * GET  /api/growth/:catId               — single cat growth profile
  * GET  /api/growth/:catId/events        — XP event audit trail (AC-A5)
+ * GET  /api/growth/:catId/titles        — unlocked titles (AC-B1)
+ * GET  /api/growth/:catId/bonds         — bond relationships (AC-B2)
  * POST /api/growth/:catId/export-image  — PNG screenshot of profile card (AC-A3)
  */
 
@@ -65,6 +67,26 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
       return { catId, events, limit, offset };
     },
   );
+
+  /** AC-B1: Unlocked titles for a cat — includes all definitions with unlock status. */
+  app.get<{ Params: { catId: string } }>('/api/growth/:catId/titles', async (request, reply) => {
+    const userId = resolveHeaderUserId(request);
+    if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
+
+    const { catId } = request.params;
+    const unlocked = await growthService.getUnlockedTitles(catId);
+    return { catId, unlocked };
+  });
+
+  /** AC-B2: Bond relationships for a cat. */
+  app.get<{ Params: { catId: string } }>('/api/growth/:catId/bonds', async (request, reply) => {
+    const userId = resolveHeaderUserId(request);
+    if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
+
+    const { catId } = request.params;
+    const bonds = await growthService.getBonds(catId);
+    return { catId, bonds };
+  });
 
   /** AC-A3: Export cat profile card as PNG image */
   app.post<{ Params: { catId: string } }>('/api/growth/:catId/export-image', async (request, reply) => {

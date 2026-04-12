@@ -187,13 +187,20 @@ export {
 } from './game.js';
 // Growth RPG types (F157 Cat Growth RPG)
 export type {
+  BondLevel,
   CatAttributes,
+  CatBond,
   CatGrowthProfile,
   CatTitle,
   DimensionStat,
   GrowthDimension,
   GrowthOverview,
   HighlightMoment,
+  InvocationPurpose,
+  TitleCondition,
+  TitleDefinition,
+  TitleRarity,
+  UnlockedTitle,
   XpEvent,
   XpSource,
 } from './growth.js';
@@ -413,6 +420,7 @@ export type {
   TaskStatus,
   UpdateTaskInput,
 } from './task.js';
+export { TITLE_DEFINITIONS } from './title-definitions.js';
 // TTS types (F34 TTS Provider)
 export type {
   ITtsProvider,

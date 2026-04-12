@@ -956,10 +956,16 @@
     },
     {
       "id": "F157",
+      "name": "Cat Growth RPG -- AI Agent Growth & Achievement System",
+      "status": "spec | **Owner**: Ragdoll | **Priority**: P1",
+      "file": "F157-cat-growth-rpg.md"
+    },
+    {
+      "id": "F157",
       "name": "Feishu Receipt Ack — 猫猫即时接住替代\"思考中→撤回\"",
       "status": "done | **Completed**: 2026-04-10 | **Owner**: Ragdoll | **Priority**: P1",
       "file": "F157-feishu-receipt-ack.md"
     }
   ],
-  "generated_at": "2026-04-10T11:52:59.639Z"
+  "generated_at": "2026-04-12T16:45:08.953Z"
 }

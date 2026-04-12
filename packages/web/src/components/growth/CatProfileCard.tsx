@@ -6,6 +6,7 @@ import { DownloadIcon } from '@/components/icons/DownloadIcon';
 import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import { GrowthRadarChart } from './GrowthRadarChart';
+import { SkillTreePanel } from './SkillTreePanel';
 import { XpAuditLog } from './XpAuditLog';
 
 const DIM_LABELS: Record<GrowthDimension, string> = {
@@ -31,6 +32,7 @@ export function CatProfileCard({ profile, cardId }: Props) {
   const primaryColor = catData?.color?.primary ?? '#9B7EBD';
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [skillTreeOpen, setSkillTreeOpen] = useState(false);
 
   const { attributes } = profile;
   const { stats, overallLevel, totalXp } = attributes;
@@ -159,6 +161,27 @@ export function CatProfileCard({ profile, cardId }: Props) {
 
       {/* AC-A5: XP audit trail */}
       <XpAuditLog catId={profile.catId} color={primaryColor} />
+
+      {/* AC-B3: Skill tree + bond relationships */}
+      <div className="mt-3 border-t border-cafe-surface-elevated pt-2">
+        <button
+          onClick={() => setSkillTreeOpen((v) => !v)}
+          className="flex w-full items-center gap-1.5 text-xs text-cafe-secondary transition-colors hover:text-cafe"
+        >
+          <span
+            className="text-[10px]"
+            style={{
+              transform: skillTreeOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+              display: 'inline-block',
+              transition: 'transform 0.15s',
+            }}
+          >
+            &#9654;
+          </span>
+          <span>称号 &amp; 羁绊</span>
+        </button>
+        {skillTreeOpen && <SkillTreePanel profile={profile} />}
+      </div>
     </div>
   );
 }

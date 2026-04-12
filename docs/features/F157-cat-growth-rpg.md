@@ -127,11 +127,11 @@ Clowder AI 的猫猫已经有持久身份、记忆和协作记录，但这些"�
 - [x] AC-A4: 团队总览页展示所有猫的站位图和属性概览
 - [x] AC-A5: 经验值结算逻辑透明、可审计（可查看结算明细）
 
-### Phase B (Skill Tree + Title System + Review Activation)
-- [ ] AC-B0: 审查力维度激活 — invocation intent tracking 落地，`review_given` / `bug_caught` 有真实调用方
-- [ ] AC-B1: 属性达标自动解锁称号，显示在名片和 Hub 中
-- [ ] AC-B2: 羁绊值从协作记录自动计算，展示在双方名片中
-- [ ] AC-B3: 技能树页面展示已解锁/未解锁的称号路径
+### Phase B (Skill Tree + Title System + Review Activation) ✅
+- [x] AC-B0: 审查力维度激活 — invocation intent tracking 落地，`review_given` / `bug_caught` 有真实调用方
+- [x] AC-B1: 属性达标自动解锁称号，显示在名片和 Hub 中
+- [x] AC-B2: 羁绊值从协作记录自动计算，展示在双方名片中
+- [x] AC-B3: 技能树页面展示已解锁/未解锁的称号路径
 
 ### Phase C (Achievement System)
 - [ ] AC-C1: 四类成就（个猫/团队/里程碑/隐藏）覆盖至少 20 个成就

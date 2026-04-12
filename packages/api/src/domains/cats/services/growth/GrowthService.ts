@@ -8,18 +8,24 @@
  */
 
 import type {
+  BondLevel,
   CatAttributes,
+  CatBond,
   CatGrowthProfile,
+  CatTitle,
   DimensionStat,
   GrowthDimension,
   GrowthOverview,
+  TitleCondition,
+  TitleDefinition,
+  UnlockedTitle,
   XpEvent,
   XpSource,
 } from '@cat-cafe/shared';
-import { catRegistry, GROWTH_DIMENSIONS } from '@cat-cafe/shared';
+import { catRegistry, GROWTH_DIMENSIONS, TITLE_DEFINITIONS } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
-import { growthAuditKey, growthXpKey } from '../stores/redis-keys/growth-keys.js';
+import { growthAuditKey, growthBondKey, growthTitleKey, growthXpKey } from '../stores/redis-keys/growth-keys.js';
 
 const log = createModuleLogger('growth');
 
@@ -75,9 +81,17 @@ export class GrowthService {
     // Nonce ensures uniqueness when identical events fire in the same millisecond (e.g. tool_use bursts)
     const member = JSON.stringify({ ...event, _seq: Math.random().toString(36).slice(2, 8) });
     pipeline.zadd(growthAuditKey(catId), ts, member);
-    pipeline.exec().catch((err: unknown) => {
-      log.warn({ err, catId, source }, 'Failed to award XP');
-    });
+    pipeline
+      .exec()
+      .then(() => {
+        // Phase B: Check title unlocks after XP change (fire-and-forget)
+        this.getAttributes(catId)
+          .then((attrs) => this.checkTitleUnlocks(catId, attrs))
+          .catch((err: unknown) => log.warn({ err, catId }, 'Title check failed'));
+      })
+      .catch((err: unknown) => {
+        log.warn({ err, catId, source }, 'Failed to award XP');
+      });
   }
 
   /** AC-A5: Fetch recent XP events for a cat, newest first. */
@@ -115,6 +129,114 @@ export class GrowthService {
     };
   }
 
+  // ── Phase B: Title System ──────────────────────────────────────────
+
+  /** Check if a single title condition is met. */
+  private conditionMet(cond: TitleCondition, attrs: CatAttributes): boolean {
+    switch (cond.type) {
+      case 'dimension_level':
+        return (attrs.stats[cond.dimension]?.level ?? 0) >= cond.minLevel;
+      case 'overall_level':
+        return attrs.overallLevel >= cond.minLevel;
+      case 'total_xp':
+        return attrs.totalXp >= cond.minXp;
+    }
+  }
+
+  /** Check all title definitions against current attributes. Returns newly unlocked titles. */
+  async checkTitleUnlocks(catId: string, attrs: CatAttributes): Promise<UnlockedTitle[]> {
+    const existing = await this.getUnlockedTitles(catId);
+    const existingIds = new Set(existing.map((t) => t.titleId));
+    const newlyUnlocked: UnlockedTitle[] = [];
+
+    for (const def of TITLE_DEFINITIONS) {
+      if (existingIds.has(def.id)) continue;
+      const allMet = def.conditions.every((c) => this.conditionMet(c, attrs));
+      if (!allMet) continue;
+
+      const unlock: UnlockedTitle = { titleId: def.id, catId, unlockedAt: Date.now() };
+      await this.redis.zadd(growthTitleKey(catId), unlock.unlockedAt, JSON.stringify(unlock));
+      newlyUnlocked.push(unlock);
+      log.info({ catId, titleId: def.id }, 'Title unlocked');
+    }
+    return newlyUnlocked;
+  }
+
+  /** Get all unlocked titles for a cat, newest first. */
+  async getUnlockedTitles(catId: string): Promise<UnlockedTitle[]> {
+    const raw = await this.redis.zrevrange(growthTitleKey(catId), 0, -1);
+    return raw.map((s) => JSON.parse(s) as UnlockedTitle);
+  }
+
+  /** Get the highest-rarity title for display in profile card. */
+  async getCurrentTitle(catId: string): Promise<CatTitle | undefined> {
+    const unlocked = await this.getUnlockedTitles(catId);
+    if (unlocked.length === 0) return undefined;
+
+    const RARITY_ORDER: Record<string, number> = { legendary: 4, epic: 3, rare: 2, common: 1 };
+    const defMap = new Map<string, TitleDefinition>();
+    for (const d of TITLE_DEFINITIONS) defMap.set(d.id, d);
+
+    let best: { def: TitleDefinition; unlock: UnlockedTitle } | undefined;
+    for (const u of unlocked) {
+      const def = defMap.get(u.titleId);
+      if (!def) continue;
+      if (!best || (RARITY_ORDER[def.rarity] ?? 0) > (RARITY_ORDER[best.def.rarity] ?? 0)) {
+        best = { def, unlock: u };
+      }
+    }
+    if (!best) return undefined;
+    return { id: best.def.id, label: best.def.label, unlockedAt: best.unlock.unlockedAt };
+  }
+
+  // ── Phase B: Bond System ────────────────────────────────────────────
+
+  /** Record a collaboration event between two cats. Fire-and-forget. */
+  recordBondEvent(catA: string, catB: string): void {
+    if (catA === catB) return;
+    const key = growthBondKey(catA, catB);
+    const pipeline = this.redis.pipeline();
+    pipeline.hincrby(key, 'score', 1);
+    pipeline.hincrby(key, 'interactions', 1);
+    pipeline.hset(key, 'lastInteractionAt', String(Date.now()));
+    pipeline.hset(key, 'catA', catA < catB ? catA : catB);
+    pipeline.hset(key, 'catB', catA < catB ? catB : catA);
+    pipeline.exec().catch((err: unknown) => {
+      log.warn({ err, catA, catB }, 'Failed to record bond event');
+    });
+  }
+
+  /** Get bond level from score. */
+  static bondLevel(score: number): BondLevel {
+    if (score >= 50) return 'soulmate';
+    if (score >= 15) return 'partner';
+    return 'acquaintance';
+  }
+
+  /** Get all bonds for a cat by scanning Redis. */
+  async getBonds(catId: string): Promise<(CatBond & { level: BondLevel })[]> {
+    const allCatIds = catRegistry.getAllIds().map(String);
+    const bonds: (CatBond & { level: BondLevel })[] = [];
+
+    for (const otherId of allCatIds) {
+      if (otherId === catId) continue;
+      const key = growthBondKey(catId, otherId);
+      const data = await this.redis.hgetall(key);
+      if (!data || !data.score) continue;
+      const score = parseInt(data.score, 10) || 0;
+      if (score === 0) continue;
+      bonds.push({
+        catA: data.catA ?? (catId < otherId ? catId : otherId),
+        catB: data.catB ?? (catId < otherId ? otherId : catId),
+        score,
+        interactions: parseInt(data.interactions ?? '0', 10) || 0,
+        lastInteractionAt: parseInt(data.lastInteractionAt ?? '0', 10) || 0,
+        level: GrowthService.bondLevel(score),
+      });
+    }
+    return bonds.sort((a, b) => b.score - a.score);
+  }
+
   /** Build full growth profile for one cat. */
   async getProfile(catId: string): Promise<CatGrowthProfile | null> {
     const entry = catRegistry.tryGet(catId);
@@ -122,11 +244,13 @@ export class GrowthService {
     const config = entry.config;
 
     const attributes = await this.getAttributes(catId);
+    const currentTitle = await this.getCurrentTitle(catId);
     return {
       catId,
       displayName: config.displayName ?? config.id,
       nickname: config.nickname,
       attributes,
+      currentTitle,
       highlights: [],
     };
   }

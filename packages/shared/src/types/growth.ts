@@ -103,3 +103,52 @@ export type XpSource =
   | 'design_feedback'
   | 'rich_block_create'
   | 'evidence_cite';
+
+// ── Phase B: Title System ──────────────────────────────────────────
+
+/** Condition for unlocking a title */
+export type TitleCondition =
+  | { readonly type: 'dimension_level'; readonly dimension: GrowthDimension; readonly minLevel: number }
+  | { readonly type: 'overall_level'; readonly minLevel: number }
+  | { readonly type: 'total_xp'; readonly minXp: number };
+
+export type TitleRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+/** Static definition of a title/badge that can be unlocked */
+export interface TitleDefinition {
+  readonly id: string;
+  readonly label: { readonly zh: string; readonly en: string };
+  readonly description: { readonly zh: string; readonly en: string };
+  readonly rarity: TitleRarity;
+  /** All conditions must be met (AND logic) */
+  readonly conditions: readonly TitleCondition[];
+}
+
+/** A title unlocked by a specific cat */
+export interface UnlockedTitle {
+  readonly titleId: string;
+  readonly catId: string;
+  readonly unlockedAt: number;
+}
+
+// ── Phase B: Bond System ───────────────────────────────────────────
+
+/** Bond record between two cats */
+export interface CatBond {
+  readonly catA: string;
+  readonly catB: string;
+  /** Bond strength score (higher = stronger bond) */
+  readonly score: number;
+  /** Number of collaboration events */
+  readonly interactions: number;
+  /** Most recent interaction timestamp */
+  readonly lastInteractionAt: number;
+}
+
+/** Bond level thresholds */
+export type BondLevel = 'acquaintance' | 'partner' | 'soulmate';
+
+// ── Phase B: Invocation Purpose ────────────────────────────────────
+
+/** Purpose tag for A2A invocations — enables dimension-aware XP routing */
+export type InvocationPurpose = 'discussion' | 'review';

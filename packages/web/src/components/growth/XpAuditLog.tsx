@@ -56,11 +56,13 @@ export function XpAuditLog({ catId, color = '#9B7EBD' }: Props) {
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     setFetchError(false);
+    let ok = false;
     try {
       const res = await apiFetch(`/api/growth/${catId}/events?limit=30`);
       if (res.ok) {
         const data = (await res.json()) as { events: XpEvent[] };
         setEvents(data.events);
+        ok = true;
       } else {
         setFetchError(true);
       }
@@ -68,7 +70,8 @@ export function XpAuditLog({ catId, color = '#9B7EBD' }: Props) {
       setFetchError(true);
     } finally {
       setLoading(false);
-      setFetched(true);
+      // Only mark as fetched on success — error state allows retry on re-expand
+      if (ok) setFetched(true);
     }
   }, [catId]);
 

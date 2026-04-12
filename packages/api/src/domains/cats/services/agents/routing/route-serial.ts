@@ -16,6 +16,7 @@ import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getCatVoice } from '../../../../../config/cat-voices.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { detectInvocationPurpose } from '../../../../../routes/callback-a2a-trigger.js';
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
@@ -777,8 +778,20 @@ export async function* routeSerial(
             },
           });
           storedMsgId = storedMsg.id;
-          // F157: Award discussion XP for every cat response (fire-and-forget)
-          deps.growthService?.awardXp(catId as string, 'discussion');
+          // F157: Award XP based on invocation purpose (review → review_given, default → discussion)
+          {
+            const purpose =
+              worklistEntry.a2aPurpose.get(catId) ?? (directMessageFrom ? detectInvocationPurpose(message) : undefined);
+            if (purpose === 'review') {
+              deps.growthService?.awardXp(catId as string, 'review_given');
+              // Heuristic: scan response for P1/P2 bug findings → award bug_caught
+              if (/\bP[12]\b/.test(textContent)) {
+                deps.growthService?.awardXp(catId as string, 'bug_caught');
+              }
+            } else {
+              deps.growthService?.awardXp(catId as string, 'discussion');
+            }
+          }
           // F088-P3: Stash rich blocks for outbound delivery
           if (options.persistenceContext && allRichBlocks.length > 0) {
             options.persistenceContext.richBlocks = allRichBlocks;
@@ -869,6 +882,8 @@ export async function* routeSerial(
             worklistEntry.a2aFrom.set(nextCat, catId);
             // F121: response-text path — set trigger message for auto-replyTo
             if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
+            // F157 Phase B: Record bond event between mentioning cat and target
+            deps.growthService?.recordBondEvent(catId as string, nextCat as string);
           }
         }
 

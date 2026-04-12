@@ -21,3 +21,21 @@ export function growthCatScan(catId: string): string {
 
 /** SCAN pattern to match all growth keys. */
 export const GROWTH_SCAN_ALL = 'growth:*';
+
+// ── Phase B: Title + Bond keys ─────────────────────────────────────
+
+/** Sorted set of unlocked titles for one cat. Score = unlock timestamp, member = title JSON. */
+export function growthTitleKey(catId: string): string {
+  return `growth:titles:${catId}`;
+}
+
+/** Bond score between two cats. Key is always sorted (catA < catB) to ensure uniqueness. */
+export function growthBondKey(catA: string, catB: string): string {
+  const [a, b] = catA < catB ? [catA, catB] : [catB, catA];
+  return `growth:bond:${a}:${b}`;
+}
+
+/** SCAN pattern to match all bond keys for one cat. */
+export function growthBondScan(catId: string): string {
+  return `growth:bond:*${catId}*`;
+}

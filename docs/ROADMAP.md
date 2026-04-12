@@ -60,5 +60,6 @@ created: 2026-02-26
 | F154 | Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向 | spec | Ragdoll | community [#385](https://github.com/zts212653/clowder-ai/issues/385) [#391](https://github.com/zts212653/clowder-ai/pull/391) | [F154](features/F154-cat-routing-personalization.md) |
 | F155 | Scene-Based Guidance Engine — 场景式交互引导 | needs-discussion | 待定 | internal | [F155](features/F155-scene-guidance-engine.md) |
 | F156 | WebSocket Security Hardening — 实时通道安全加固 | in-progress | Ragdoll | internal | [F156](features/F156-websocket-security-hardening.md) |
+| F157 | Cat Growth RPG — AI Agent 成长养成系统 | in-progress | Ragdoll | internal | [F157](features/F157-cat-growth-rpg.md) |
 
 
