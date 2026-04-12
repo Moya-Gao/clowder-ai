@@ -891,7 +891,7 @@
     {
       "id": "F145",
       "name": "MCP Portable Provisioning — 声明式 MCP 期望态 + 本机解析",
-      "status": "in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1 | **Completed**: 2026-04-12",
       "file": "F145-mcp-portable-provisioning.md"
     },
     {
@@ -957,7 +957,7 @@
     {
       "id": "F156",
       "name": "Security Hardening — 实时通道 + 本机信任边界加固",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P0",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P0 | **Completed**: 2026-04-12",
       "file": "F156-websocket-security-hardening.md"
     },
     {
@@ -979,5 +979,5 @@
       "file": "F159-catagent-native-provider.md"
     }
   ],
-  "generated_at": "2026-04-12T08:30:11.746Z"
+  "generated_at": "2026-04-12T10:56:14.412Z"
 }

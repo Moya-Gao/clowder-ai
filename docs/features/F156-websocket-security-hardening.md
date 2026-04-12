@@ -8,7 +8,7 @@ created: 2026-04-10
 
 # F156: Security Hardening — 实时通道 + 本机信任边界加固
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P0 | **Completed**: 2026-04-12
 
 ## Why
 
@@ -68,17 +68,10 @@ created: 2026-04-10
 2. HtmlWidgetBlock 加 DOMPurify sanitization（sandbox 隔离正确但应加防数据外泄）
 3. 富文本/外部 HTML 渲染放入 sandboxed iframe（已部分实现，需审计完整性）
 
-**D-4: Prompt Injection 降权** (P1) — 需设计讨论，暂不实现
-1. 外部内容（网页、文章、外部 repo）标记为"非可信来源"
-2. 由非可信来源触发的高危操作（命令执行、文件修改、外发消息）需额外确认
-3. 确认 UX：人性化提示（"这条操作来自外部内容"），不堆术语
-4. 研究模式 vs 执行模式分离
+**~~D-4: Prompt Injection 降权~~** → 已拆出为独立课题（BACKLOG TD），不属于 WS 安全加固 scope
 
-> **设计挑战（2026-04-10 讨论）**：Cat Cafe 的猫猫通过 MCP 接入，我们不控制推理过程。
-> Prompt injection 可能在猫猫思考链内部就被执行，绕过所有工具层门禁。
-> 可行路径：MCP server 端做来源追踪（session flag）+ 高危工具分级 + AuthorizationManager 拦截。
-> 但"来源追踪"是新机制，需要单独设计；业界也无银弹。
-> **决定**：D-3/D-5/D-6 先推，D-4 待设计方案成熟后再实施。
+> 2026-04-12 闭环决定：Prompt Injection 是独立设计课题（需要来源追踪新机制），
+> 不是"WebSocket 安全加固"的一部分。拆出后 F156 核心 scope 全部完成。
 
 **D-5: preview-gateway Origin 校验** (P2) ✅
 1. WS upgrade 路径补 Origin 校验（复用 isOriginAllowed）
@@ -128,9 +121,7 @@ created: 2026-04-10
 - [x] AC-D3a: HtmlWidgetBlock 加 DOMPurify sanitization
 - [x] AC-D3b: CSP 加固（script-src 'self' 'unsafe-inline' + object-src 'none'；nonce-based 为 future work）
 
-### Phase D-4（Prompt Injection 降权）
-- [ ] AC-D4a: 外部内容来源标记机制
-- [ ] AC-D4b: 高危操作由非可信来源触发时需用户确认
+### ~~Phase D-4（Prompt Injection 降权）~~ → 已拆出为独立课题
 
 ### Phase D-5（preview-gateway Origin） ✅
 - [x] AC-D5: preview-gateway WS upgrade + HTTP 校验 Origin header
@@ -173,13 +164,15 @@ created: 2026-04-10
 | 2026-04-10 | Phase C（OfficeClaw）拆出 F156，铲屎官决定"外出务工"不属于自家 feat |
 | 2026-04-10 | 砚砚(GPT-5.4) 主干实测验证：Socket.IO / terminal WS / preview-gateway 三条入口全绿 |
 | 2026-04-11 | Private network UX optimization merged (PR #1087) — env-registry 注册 + 启动提示 + 描述优化 |
+| 2026-04-12 | **Feature closed** — D-4/FU-1/FU-2 拆出为独立 BACKLOG 条目，核心 scope 全部完成 |
 
-## Follow-up（铲屎官拍板 2026-04-11）
+## Spun-off Items（闭环时拆出，不留尾巴）
 
-| # | 内容 | 来源 |
-|---|------|------|
-| FU-1 | **精确 IP/域名 allowlist** — 替代粗放的 `CORS_ALLOW_PRIVATE_NETWORK=true`（放开整个私网段），支持用户指定精确的 Tailscale IP 或 MagicDNS 域名 | 砚砚 R3 建议 + 铲屎官确认 |
-| FU-2 | **开源社区 setup 文档** — 在手机/平板猫猫章节写清 Tailscale/局域网访问的场景、配置指南、安全注意事项 | 铲屎官："开源社区的 setup 用手机猫猫的章节也写上" |
+| 原编号 | 内容 | 去向 |
+|--------|------|------|
+| D-4 | Prompt Injection 降权（独立设计课题） | BACKLOG TD 条目 |
+| FU-1 | 精确 IP/域名 allowlist | BACKLOG TD 条目 |
+| FU-2 | 开源社区 setup 文档（手机/Tailscale 章节） | BACKLOG TD 条目 |
 
 ## Links
 
