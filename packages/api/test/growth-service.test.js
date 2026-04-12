@@ -69,6 +69,9 @@ describe('overallLevel active-dimension averaging', () => {
         };
         return self;
       },
+      async zadd() {
+        return 1;
+      },
       async zrevrange() {
         return [];
       },
@@ -259,7 +262,7 @@ describe('Review intent detection', () => {
 // ── audit event uniqueness ─────────────────────────────────────
 
 describe('Audit event uniqueness', () => {
-  test('same-millisecond identical events produce unique ZADD members (fixed clock)', () => {
+  test('same-millisecond identical events produce unique ZADD members (fixed clock)', async () => {
     const members = new Set();
     const mockRedis = {
       options: { keyPrefix: '' },
@@ -278,6 +281,14 @@ describe('Audit event uniqueness', () => {
         };
         return self;
       },
+      // Provide mget/zrevrange so the fire-and-forget title check chain
+      // settles cleanly instead of throwing and leaving dangling promises.
+      async mget(...keys) {
+        return keys.map(() => null);
+      },
+      async zrevrange() {
+        return [];
+      },
     };
 
     // Fix Date.now() to a single timestamp — without _seq nonce, all 10 events
@@ -292,6 +303,8 @@ describe('Audit event uniqueness', () => {
       }
       // All 10 should be unique members despite identical timestamp + source + xp
       assert.equal(members.size, 10, `Expected 10 unique members, got ${members.size}`);
+      // Let fire-and-forget title check chains settle to avoid "async activity after test" warnings
+      await new Promise((r) => setTimeout(r, 50));
     } finally {
       Date.now = origDateNow;
     }

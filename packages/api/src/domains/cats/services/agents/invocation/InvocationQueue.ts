@@ -33,6 +33,8 @@ export interface QueueEntry {
   callerCatId?: string;
   /** F134: sender identity for connector group chat messages (used for UI display) */
   senderMeta?: { id: string; name?: string };
+  /** F157 Phase B: invocation purpose detected at enqueue time (review vs discussion) */
+  a2aPurpose?: 'discussion' | 'review';
 }
 
 export interface EnqueueResult {

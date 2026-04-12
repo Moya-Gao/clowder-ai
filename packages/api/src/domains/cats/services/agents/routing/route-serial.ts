@@ -779,9 +779,12 @@ export async function* routeSerial(
           });
           storedMsgId = storedMsg.id;
           // F157: Award XP based on invocation purpose (review → review_given, default → discussion)
+          // Chain: worklist purpose (legacy F27) → content detection (A2A direct) → queue purpose (F122B queue)
           {
             const purpose =
-              worklistEntry.a2aPurpose.get(catId) ?? (directMessageFrom ? detectInvocationPurpose(message) : undefined);
+              worklistEntry.a2aPurpose.get(catId) ??
+              (directMessageFrom ? detectInvocationPurpose(message) : undefined) ??
+              options.a2aPurpose;
             if (purpose === 'review') {
               deps.growthService?.awardXp(catId as string, 'review_given');
               // Heuristic: scan response for P1/P2 bug findings → award bug_caught

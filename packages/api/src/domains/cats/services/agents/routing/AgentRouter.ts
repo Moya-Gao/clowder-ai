@@ -785,6 +785,8 @@ export class AgentRouter {
       persistenceContext?: PersistenceContext;
       /** F108: parentInvocationId for WorklistRegistry concurrent isolation */
       parentInvocationId?: string;
+      /** F157 Phase B: invocation purpose from queue entry */
+      a2aPurpose?: import('@cat-cafe/shared').InvocationPurpose;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -813,6 +815,7 @@ export class AgentRouter {
       ...(options?.cursorBoundaries ? { cursorBoundaries: options.cursorBoundaries } : {}),
       ...(options?.persistenceContext ? { persistenceContext: options.persistenceContext } : {}),
       ...(options?.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
+      ...(options?.a2aPurpose ? { a2aPurpose: options.a2aPurpose } : {}),
     };
 
     if (intent.intent === 'ideate' && targetCats.length > 1) {

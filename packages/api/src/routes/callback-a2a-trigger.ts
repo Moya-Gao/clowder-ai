@@ -124,6 +124,7 @@ export async function enqueueA2ATargets(
         intent: 'execute',
         autoExecute: true,
         callerCatId: callerCatId ?? undefined,
+        a2aPurpose: detectInvocationPurpose(opts.content),
       });
       queueDiagnostics.push({
         catId,

@@ -3,7 +3,7 @@
  * Shared types, interfaces, and helper functions for route-serial and route-parallel.
  */
 
-import type { CatId, MessageContent, RichBlock, RichBlockBase } from '@cat-cafe/shared';
+import type { CatId, InvocationPurpose, MessageContent, RichBlock, RichBlockBase } from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { DEFAULT_HIERARCHICAL_CONTEXT } from '../../../../../config/hierarchical-context-config.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
@@ -100,6 +100,9 @@ export interface RouteOptions {
   /** F108: Unique invocation ID for WorklistRegistry isolation in concurrent execution.
    *  When provided, worklist is keyed by this ID instead of threadId. */
   parentInvocationId?: string | undefined;
+  /** F157 Phase B: invocation purpose from queue entry (review vs discussion).
+   *  Used by route-serial when worklist a2aPurpose and directMessageFrom are both absent. */
+  a2aPurpose?: InvocationPurpose | undefined;
 }
 
 export interface IncrementalContextResult {
