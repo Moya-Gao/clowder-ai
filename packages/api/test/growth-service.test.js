@@ -7,9 +7,12 @@
 
 // Disable pino transport worker threads BEFORE any module import.
 // Without this, pino.transport() spawns threads that outlive tests.
+// Must run before setup-cat-registry (which transitively loads logger via cat-config-loader),
+// so setup-cat-registry uses dynamic import — ESM hoists static imports before module code.
 process.env.PINO_DISABLE_TRANSPORT = '1';
 
-import './helpers/setup-cat-registry.js';
+await import('./helpers/setup-cat-registry.js');
+
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
