@@ -53,7 +53,6 @@ created: 2026-02-26
 | F149 | ACP Runtime Operations — 项目级进程池 + Session Lease | spec | 缅因猫 | internal | [F149](features/F149-acp-runtime-operations.md) |
 | F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | spec | 布偶猫 | internal | [F152](features/F152-expedition-memory.md) |
 | F153 | Observability Infrastructure — 运行时可观测基础设施 | in-progress | Community + 布偶猫 | community [#388](https://github.com/zts212653/clowder-ai/issues/388) | [F153](features/F153-observability-infra.md) |
-| F154 | Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向 | spec | 布偶猫 | community [#385](https://github.com/zts212653/clowder-ai/issues/385) [#391](https://github.com/zts212653/clowder-ai/pull/391) | [F154](features/F154-cat-routing-personalization.md) |
 | F155 | Scene-Based Guidance Engine — 场景式交互引导 | in-progress | 缅因猫/gpt52 | community [#409](https://github.com/zts212653/clowder-ai/issues/409) [#398](https://github.com/zts212653/clowder-ai/pull/398) | [F155](features/F155-scene-guidance-engine.md) |
 | F159 | CatAgent Native Provider — Opt-in API Path | spec | 社区 + 布偶猫 + 缅因猫 | community [#434](https://github.com/zts212653/clowder-ai/issues/434) | [F159](features/F159-catagent-native-provider.md) |
 | F160 | 毛线球升级 — Thread-Level Persistent Task Board | spec | 布偶猫 | internal | [F160](features/F160-task-board-upgrade.md) |

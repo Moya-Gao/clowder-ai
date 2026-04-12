@@ -9,7 +9,8 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 
 # F154: Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P2
+> **Completed**: 2026-04-12
 
 ## Why
 
@@ -171,3 +172,4 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | **Code** | `packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts` | 路由核心 |
 | **Code** | `packages/web/src/components/ThreadSidebar/ThreadCatSettings.tsx` | Hub 端现有 preferredCats UI |
 | **Code** | `packages/api/src/config/cat-config-loader.ts` | getDefaultCatId() 需改造 |
+| **Capsule** | `docs/reflections/2026-04-12-cat-routing-personalization-capsule.md` | F154 反思胶囊 |
