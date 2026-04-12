@@ -16,12 +16,12 @@ import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('antigravity-bridge');
 
-/** Model name → Language Server numeric ID */
-const MODEL_ID_MAP: Record<string, number> = {
-  'gemini-3.1-pro': 1165,
-  'gemini-3-flash': 1018,
-  'claude-opus-4-6': 1154,
-  'claude-sonnet-4-6': 1153,
+/** Model name → Language Server model enum (from GetUserStatus.cascadeModelConfigData) */
+const MODEL_ID_MAP: Record<string, string> = {
+  'gemini-3.1-pro': 'MODEL_PLACEHOLDER_M37',
+  'gemini-3-flash': 'MODEL_PLACEHOLDER_M47',
+  'claude-opus-4-6': 'MODEL_PLACEHOLDER_M26',
+  'claude-sonnet-4-6': 'MODEL_PLACEHOLDER_M35',
 };
 
 export interface BridgeConnection {
@@ -132,7 +132,7 @@ export class AntigravityBridge {
     return cascadeId;
   }
 
-  resolveModelId(modelName: string): number | undefined {
+  resolveModelId(modelName: string): string | undefined {
     return MODEL_ID_MAP[modelName];
   }
 
