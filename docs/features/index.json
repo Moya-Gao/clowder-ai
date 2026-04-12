@@ -981,9 +981,9 @@
     {
       "id": "F160",
       "name": "毛线球升级 — Thread-Level Persistent Task Board",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F160-task-board-upgrade.md"
     }
   ],
-  "generated_at": "2026-04-12T11:24:25.188Z"
+  "generated_at": "2026-04-12T12:47:15.495Z"
 }

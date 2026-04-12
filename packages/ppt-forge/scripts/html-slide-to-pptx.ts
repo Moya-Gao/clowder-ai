@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+
 /**
  * HTML Slide -> PPTX Converter
  *
@@ -20,9 +21,9 @@
  *   tsx scripts/html-slide-to-pptx.ts [input.html] [output.pptx]
  */
 
+import { resolve } from 'path';
 import { chromium } from 'playwright';
 import PptxGenJSDefault from 'pptxgenjs';
-import { resolve } from 'path';
 import { SCREENSHOT_SCALE } from '../src/compiler/types.js';
 
 // Handle CJS/ESM interop (same pattern as compiled-builder.ts)
@@ -151,7 +152,9 @@ async function main(): Promise<void> {
   console.log('2. Extracting table for editable overlay...');
   const table = (await page.evaluate(TABLE_EXTRACT_SCRIPT)) as ExtractedTable | null;
   if (table) {
-    console.log(`   Table: ${table.headers.length} cols x ${table.rows.length} rows at (${table.rect.x.toFixed(2)}", ${table.rect.y.toFixed(2)}")`);
+    console.log(
+      `   Table: ${table.headers.length} cols x ${table.rows.length} rows at (${table.rect.x.toFixed(2)}", ${table.rect.y.toFixed(2)}")`,
+    );
   } else {
     console.log('   No table found');
   }
