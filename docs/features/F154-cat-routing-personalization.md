@@ -138,6 +138,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | KD-7 | Phase A 全局默认猫仅通过 Hub API（owner 权限）修改，不提供 connector `/config set` 命令 | 群聊 connector 无权限模型，任何成员可执行 = 配置篡改风险；砚砚 P1 review | 2026-04-09 |
 | KD-8 | 猫名解析冲突时拒绝执行 + 返回候选列表，禁止猜测命中 | partial match 歧义会导致误路由，用户应看到候选并精确选择；砚砚 P2 review | 2026-04-09 |
 | KD-9 | Phase B 设计先看现场再画 | 凭想象画设计稿导致与实际 ChatContainerHeader 严重冲突，触发 Design in Context 流程护栏补充 | 2026-04-10 |
+| KD-10 | Phase B 先做桌面端，移动端退化策略记为 known limitation | 顶栏 ThreadIndicator 在手机上已很长（thread 标题 + 项目名），加 Pill 会挤爆。退化方案：窄屏隐藏 Pill（用 sidebar ThreadCatSettings 操作）、中屏只显色点不显猫名 | 2026-04-12 |
 
 ## Timeline
 
