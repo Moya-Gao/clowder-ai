@@ -289,9 +289,9 @@ describe('routeSerial', () => {
   });
 
   it('keeps legitimate tool-use JSON examples when prose continues afterwards', async () => {
-    const {
-      stripLeakedToolCallPayload,
-    } = await import('../dist/domains/cats/services/agents/routing/route-helpers.js');
+    const { stripLeakedToolCallPayload } = await import(
+      '../dist/domains/cats/services/agents/routing/route-helpers.js'
+    );
 
     const example = `示例 payload：
 
