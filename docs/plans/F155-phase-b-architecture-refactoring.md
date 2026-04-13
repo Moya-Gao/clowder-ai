@@ -150,11 +150,14 @@ interface GuideSession {
 - B-1/B-2/B-3 adapters updated to use repository instead of `thread.guideState`
 
 **Acceptance criteria**:
-- [ ] `ThreadStore` interface has no `guideState` field or `updateGuideState` method
-- [ ] `GuideSessionRepository` is the single source of truth for guide state
+- [x] `GuideSessionRepository` is the single source of truth for guide state (write path)
+- [x] All new writes go through `GuideSessionStore`, not `thread.guideState`
+- [x] `guideState` / `updateGuideState` on ThreadStore marked `@deprecated`
+- [x] Migration path: existing `thread.guideState` auto-migrated on first read via `RedisGuideSessionStore`
+- [x] Thread list/detail endpoints still sanitize via `canAccessGuideState`
 - [ ] Multi-tab binding via `clientId` supported (gemini: prevent ghosting)
-- [ ] Thread list/detail endpoints no longer leak foreign guide state
-- [ ] Migration path: existing `thread.guideState` auto-migrated on first read
+- [ ] **Phase B+**: Remove deprecated `guideState` field + `updateGuideState` from ThreadStore interface (requires confirming all active threads migrated)
+- [ ] **Phase B+**: Remove `legacyThreadStore` fallback from `RedisGuideSessionStore`
 
 **Owner**: opus | **Reviewer**: gpt52
 

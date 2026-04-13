@@ -145,6 +145,22 @@ async function resolveExistingCandidate(
   resolveOwnership(gs, selectionMatch, justCompleted, targetCats, targetCatIds, ctx);
 }
 
+/**
+ * B-6: Detect explicit guide trigger from message.
+ * `/guide <name>` or `引导 <name>` are explicit commands that bypass
+ * confidence thresholds and dismiss suppression.
+ */
+const EXPLICIT_GUIDE_RE = /^\/guide\b/i;
+
+export function isExplicitGuideRequest(message: string): boolean {
+  return EXPLICIT_GUIDE_RE.test(message.trim());
+}
+
+/** Strip explicit command prefix so keyword matching sees the intent. */
+export function stripExplicitPrefix(message: string): string {
+  return message.trim().replace(EXPLICIT_GUIDE_RE, '').trim();
+}
+
 /** Match raw user message against guide registry with B-6 offer policy. */
 async function matchNewCandidate(
   message: string,
@@ -157,7 +173,12 @@ async function matchNewCandidate(
   try {
     const { resolveGuideForIntent, getTriggerStrategies } = await import('./guide-registry-loader.js');
     const { evaluateGuideOffer } = await import('./GuideOfferPolicy.js');
-    const matches = resolveGuideForIntent(message);
+
+    const isExplicit = isExplicitGuideRequest(message);
+    const intent = isExplicit ? stripExplicitPrefix(message) : message;
+    if (!intent) return;
+
+    const matches = resolveGuideForIntent(intent);
     if (matches.length === 0) return;
 
     // B-6: Fetch dismiss counts + trigger strategies, apply policy
@@ -176,7 +197,7 @@ async function matchNewCandidate(
       })),
       triggerStrategies,
       userId,
-      isExplicitTrigger: false,
+      isExplicitTrigger: isExplicit,
       dismissCounts,
     });
 

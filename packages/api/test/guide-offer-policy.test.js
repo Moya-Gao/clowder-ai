@@ -188,3 +188,41 @@ describe('GuideOfferPolicy', async () => {
     assert.equal(result.id, 'available');
   });
 });
+
+describe('Explicit trigger detection', async () => {
+  const { isExplicitGuideRequest, stripExplicitPrefix } = await import(
+    '../dist/domains/guides/GuideRoutingInterceptor.js'
+  );
+
+  test('/guide prefix triggers explicit mode', () => {
+    assert.equal(isExplicitGuideRequest('/guide add-member'), true);
+  });
+
+  test('/guide alone triggers explicit mode', () => {
+    assert.equal(isExplicitGuideRequest('/guide'), true);
+  });
+
+  test('case insensitive', () => {
+    assert.equal(isExplicitGuideRequest('/Guide 添加成员'), true);
+  });
+
+  test('normal message does not trigger', () => {
+    assert.equal(isExplicitGuideRequest('添加成员'), false);
+  });
+
+  test('mid-sentence /guide does not trigger', () => {
+    assert.equal(isExplicitGuideRequest('请用 /guide 命令'), false);
+  });
+
+  test('stripExplicitPrefix extracts intent', () => {
+    assert.equal(stripExplicitPrefix('/guide add-member'), 'add-member');
+  });
+
+  test('stripExplicitPrefix handles bare /guide', () => {
+    assert.equal(stripExplicitPrefix('/guide'), '');
+  });
+
+  test('stripExplicitPrefix handles Chinese intent', () => {
+    assert.equal(stripExplicitPrefix('/guide 添加成员'), '添加成员');
+  });
+});
