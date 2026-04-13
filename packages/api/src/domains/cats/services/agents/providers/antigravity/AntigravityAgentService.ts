@@ -20,7 +20,7 @@ export interface AntigravityAgentServiceOptions {
   connection?: Partial<BridgeConnection>;
   /** Inject bridge for testing */
   bridge?: AntigravityBridge;
-  /** Poll timeout in ms (default: 90s) */
+  /** Poll timeout in ms (default: 180s) */
   pollTimeoutMs?: number;
 }
 
@@ -38,7 +38,7 @@ export class AntigravityAgentService implements AgentService {
       : createCatId('antigravity');
     this.model = options?.model ?? getCatModel(this.catId as string);
     this.bridge = options?.bridge ?? new AntigravityBridge(options?.connection);
-    this.pollTimeoutMs = options?.pollTimeoutMs ?? 90_000;
+    this.pollTimeoutMs = options?.pollTimeoutMs ?? 180_000;
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
@@ -73,7 +73,7 @@ export class AntigravityAgentService implements AgentService {
         timestamp: Date.now(),
       };
 
-      await this.bridge.sendMessage(cascadeId, effectivePrompt, this.model);
+      const stepsBefore = await this.bridge.sendMessage(cascadeId, effectivePrompt, this.model);
 
       // Abort check after send
       if (options?.signal?.aborted) {
@@ -82,8 +82,8 @@ export class AntigravityAgentService implements AgentService {
         return;
       }
 
-      // Poll for response
-      const steps = await this.bridge.pollForResponse(cascadeId, this.pollTimeoutMs);
+      // Poll for new steps only
+      const steps = await this.bridge.pollForResponse(cascadeId, stepsBefore, this.pollTimeoutMs);
       const messages = transformTrajectorySteps(steps, this.catId, metadata);
 
       for (const msg of messages) {

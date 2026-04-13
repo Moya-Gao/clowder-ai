@@ -23,7 +23,7 @@ function createMockBridge({
   return {
     ensureConnected: mock.fn(async () => ({ port: 1234, csrfToken: 'test', useTls: false })),
     startCascade: mock.fn(async () => cascadeId),
-    sendMessage: mock.fn(async () => {}),
+    sendMessage: mock.fn(async () => 0),
     getTrajectorySteps: mock.fn(async () => steps),
     getTrajectory: mock.fn(async () => ({ status: 'CASCADE_RUN_STATUS_IDLE', numTotalSteps: steps.length })),
     pollForResponse: pollError

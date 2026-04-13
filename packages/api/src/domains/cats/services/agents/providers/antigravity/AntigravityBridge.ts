@@ -80,8 +80,11 @@ export class AntigravityBridge {
     return resp.cascadeId;
   }
 
-  async sendMessage(cascadeId: string, text: string, modelName?: string): Promise<void> {
+  /** Send message and return the step count before sending (for poll baseline). */
+  async sendMessage(cascadeId: string, text: string, modelName?: string): Promise<number> {
     const conn = await this.ensureConnected();
+    const traj = await this.getTrajectory(cascadeId);
+    const stepsBefore = traj.numTotalSteps ?? 0;
     const modelId = modelName ? MODEL_ID_MAP[modelName] : undefined;
     const payload: Record<string, unknown> = {
       cascadeId,
@@ -94,6 +97,7 @@ export class AntigravityBridge {
       },
     };
     await this.rpc(conn, 'SendUserCascadeMessage', payload);
+    return stepsBefore;
   }
 
   async getTrajectorySteps(cascadeId: string): Promise<TrajectoryStep[]> {
@@ -108,15 +112,21 @@ export class AntigravityBridge {
   }
 
   /**
-   * Poll until PLANNER_RESPONSE appears or timeout.
-   * Returns the completed trajectory steps, or throws on timeout.
+   * Poll until new steps appear after `stepsBefore` or timeout.
+   * Returns only the NEW trajectory steps (after stepsBefore).
    */
-  async pollForResponse(cascadeId: string, timeoutMs = 60_000, pollIntervalMs = 1_500): Promise<TrajectoryStep[]> {
+  async pollForResponse(
+    cascadeId: string,
+    stepsBefore = 0,
+    timeoutMs = 180_000,
+    pollIntervalMs = 2_000,
+  ): Promise<TrajectoryStep[]> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const traj = await this.getTrajectory(cascadeId);
-      if (traj.status === 'CASCADE_RUN_STATUS_IDLE' && traj.numTotalSteps > 1) {
-        return traj.trajectory?.steps ?? (await this.getTrajectorySteps(cascadeId));
+      if (traj.status === 'CASCADE_RUN_STATUS_IDLE' && traj.numTotalSteps > stepsBefore) {
+        const allSteps = traj.trajectory?.steps ?? (await this.getTrajectorySteps(cascadeId));
+        return allSteps.slice(stepsBefore);
       }
       await new Promise((r) => setTimeout(r, pollIntervalMs));
     }
