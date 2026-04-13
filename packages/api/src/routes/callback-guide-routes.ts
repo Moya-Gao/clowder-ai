@@ -13,7 +13,11 @@ import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { GuideLifecycleService } from '../domains/guides/GuideLifecycleService.js';
-import { createGuideStoreBridge } from '../domains/guides/GuideSessionRepository.js';
+import {
+  createGuideStoreBridge,
+  type IGuideSessionStore,
+  ThreadBackedGuideSessionStore,
+} from '../domains/guides/GuideSessionRepository.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
@@ -51,6 +55,7 @@ export async function registerCallbackGuideRoutes(
     registry: InvocationRegistry;
     threadStore: IThreadStore;
     socketManager: SocketManager;
+    guideSessionStore?: IGuideSessionStore;
     loadGuideFlow?: (guideId: string) => unknown;
   },
 ): Promise<void> {
@@ -63,9 +68,10 @@ export async function registerCallbackGuideRoutes(
     resolveGuideForIntent,
   } = await import('../domains/guides/guide-registry-loader.js');
 
+  const sessionStore = deps.guideSessionStore ?? new ThreadBackedGuideSessionStore(deps.threadStore);
   const lifecycle = new GuideLifecycleService({
     threadStore: deps.threadStore,
-    guideStore: createGuideStoreBridge(deps.threadStore),
+    guideStore: createGuideStoreBridge(sessionStore),
     socketManager: deps.socketManager,
     log: app.log,
     isValidGuideId,

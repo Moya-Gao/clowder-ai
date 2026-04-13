@@ -148,7 +148,15 @@ export async function* routeSerial(
   }
 
   // F155: Guide interceptor — resolve existing state + match new candidates
-  const guideCtx = await prepareGuideContext({ thread: routeThread, targetCats, message, userId, log });
+  const guideCtx = await prepareGuideContext({
+    thread: routeThread,
+    guideSessionStore: deps.invocationDeps.guideSessionStore,
+    targetCats,
+    message,
+    userId,
+    threadId,
+    log,
+  });
 
   try {
     while (index < worklist.length) {
@@ -1196,7 +1204,11 @@ export async function* routeSerial(
 
       // F155: Ack guide completion only after cat produced visible output.
       if (deps.invocationDeps.threadStore) {
-        const { createGuideStoreBridge } = await import('../../../../guides/GuideSessionRepository.js');
+        const { createGuideStoreBridge, ThreadBackedGuideSessionStore } = await import(
+          '../../../../guides/GuideSessionRepository.js'
+        );
+        const sessionStore =
+          deps.invocationDeps.guideSessionStore ?? new ThreadBackedGuideSessionStore(deps.invocationDeps.threadStore!);
         await ackGuideCompletion({
           ctx: guideCtx,
           catId,
@@ -1204,8 +1216,8 @@ export async function* routeSerial(
           targetCatIds,
           threadId,
           userId,
-          guideStore: createGuideStoreBridge(deps.invocationDeps.threadStore),
-          threadStore: deps.invocationDeps.threadStore,
+          guideStore: createGuideStoreBridge(sessionStore),
+          threadStore: deps.invocationDeps.threadStore!,
         });
       }
 

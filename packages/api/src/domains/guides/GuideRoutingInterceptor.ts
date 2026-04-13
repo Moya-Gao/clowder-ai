@@ -10,7 +10,8 @@
  */
 
 import type { GuideStateV1 } from '../cats/services/stores/ports/ThreadStore.js';
-import type { GuideStateBridge } from './GuideSessionRepository.js';
+import type { GuideStateBridge, IGuideSessionStore } from './GuideSessionRepository.js';
+import { sessionToLegacyState } from './GuideSessionRepository.js';
 import { canAccessGuideState, hasHiddenForeignNonTerminalGuideState } from './guide-state-access.js';
 
 // ---------------------------------------------------------------------------
@@ -185,23 +186,34 @@ async function matchNewCandidate(
  */
 export async function prepareGuideContext(params: {
   thread: GuideThread | null | undefined;
+  guideSessionStore?: IGuideSessionStore;
   targetCats: readonly string[];
   message: string;
   userId: string;
+  threadId: string;
   log?: { info: (...args: unknown[]) => void };
 }): Promise<GuideRoutingContext> {
-  const { thread, targetCats, message, userId, log } = params;
+  const { thread, guideSessionStore, targetCats, message, userId, threadId, log } = params;
   const targetCatIds = new Set(targetCats);
   const ctx: GuideRoutingContext = { hiddenForeign: false };
 
-  if (thread) {
+  // Read guide state from independent store (B-4) or fallback to thread.guideState
+  let guideState: GuideStateV1 | undefined;
+  if (guideSessionStore) {
+    const session = await guideSessionStore.getByThread(threadId).catch(() => null);
+    if (session) {
+      const legacy = sessionToLegacyState(session);
+      ctx.hiddenForeign = hasHiddenForeignNonTerminalGuideState(thread, legacy, userId);
+      guideState = canAccessGuideState(thread, legacy, userId) ? legacy : undefined;
+    }
+  } else if (thread) {
     const threadGuideState = thread.guideState;
     ctx.hiddenForeign = hasHiddenForeignNonTerminalGuideState(thread, threadGuideState, userId);
-    const guideState = canAccessGuideState(thread, threadGuideState, userId) ? threadGuideState : undefined;
+    guideState = canAccessGuideState(thread, threadGuideState, userId) ? threadGuideState : undefined;
+  }
 
-    if (guideState) {
-      await resolveExistingCandidate(guideState, message, targetCats, targetCatIds, ctx);
-    }
+  if (guideState) {
+    await resolveExistingCandidate(guideState, message, targetCats, targetCatIds, ctx);
   }
 
   if (!ctx.candidate && !ctx.hiddenForeign) {
@@ -269,11 +281,11 @@ export async function ackGuideCompletion(params: {
   if (!shouldHandleCompleted(ctx.completionOwner, targetCatIds, ctx.completionFallback, catId)) return;
 
   try {
-    const thread = await threadStore.get(threadId);
-    if (!thread || !canAccessGuideState(thread, thread.guideState, userId)) return;
-
-    const gs = await guideStore.get(threadId);
-    if (gs && gs.guideId === ctx.candidate.id && gs.status === 'completed' && !gs.completionAcked) {
+    // Re-verify access at ack time (thread for ownership, guideStore for state)
+    const [thread, gs] = await Promise.all([threadStore.get(threadId), guideStore.get(threadId)]);
+    if (!thread || !gs) return;
+    if (!canAccessGuideState(thread, gs, userId)) return;
+    if (gs.guideId === ctx.candidate.id && gs.status === 'completed' && !gs.completionAcked) {
       await guideStore.set(threadId, { ...gs, completionAcked: true });
     }
   } catch {

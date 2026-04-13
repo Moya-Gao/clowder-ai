@@ -351,6 +351,12 @@ async function main(): Promise<void> {
   const sessionStore = redis ? new SessionStore(redis) : undefined;
   const deliveryCursorStore = new DeliveryCursorStore(sessionStore);
   const threadStore = createThreadStore(redis);
+  // F155 B-4: Independent guide session store
+  let guideSessionStore: import('./domains/guides/GuideSessionRepository.js').IGuideSessionStore | undefined;
+  if (redis && threadStore) {
+    const { RedisGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
+    guideSessionStore = new RedisGuideSessionStore(redis, { legacyThreadStore: threadStore });
+  }
   const taskStore = createTaskStore(redis);
   if (redis) {
     const { RedisPrTrackingStore } = await import('./infrastructure/email/RedisPrTrackingStore.js');
@@ -1060,6 +1066,7 @@ async function main(): Promise<void> {
     packStore,
     evidenceStore: memoryServices.evidenceStore,
     ...(toolUsageCounter ? { toolUsageCounter } : {}),
+    ...(guideSessionStore ? { guideSessionStore } : {}),
   });
 
   // F39: Message queue delivery
@@ -1160,7 +1167,11 @@ async function main(): Promise<void> {
   });
   // F155: Frontend-facing guide actions (no MCP auth, uses userId header)
   if (threadStore) {
-    await app.register(guideActionRoutes, { threadStore, socketManager });
+    await app.register(guideActionRoutes, {
+      threadStore,
+      socketManager,
+      ...(guideSessionStore ? { guideSessionStore } : {}),
+    });
   }
   await app.register(catsRoutes);
 
@@ -1282,6 +1293,7 @@ async function main(): Promise<void> {
     reflectionService: memoryServices.reflectionService,
     limbRegistry,
     limbPairingStore,
+    ...(guideSessionStore ? { guideSessionStore } : {}),
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
 

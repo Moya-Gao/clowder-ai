@@ -168,6 +168,8 @@ export interface AgentRouterOptions {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F155 B-4: Independent guide session store */
+  guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
 }
 
 /**
@@ -210,6 +212,8 @@ export class AgentRouter {
   private evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150 */
   private toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F155 B-4 */
+  private guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
   private speechMentionRe: RegExp;
 
   private rebuildRuntimeCaches(agentRegistry: AgentRegistry): void {
@@ -248,6 +252,7 @@ export class AgentRouter {
     this.packStore = options.packStore;
     this.evidenceStore = options.evidenceStore;
     this.toolUsageCounter = options.toolUsageCounter;
+    this.guideSessionStore = options.guideSessionStore;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -666,6 +671,7 @@ export class AgentRouter {
         ...(this.tmuxGateway ? { tmuxGateway: this.tmuxGateway } : {}),
         ...(this.agentPaneRegistry ? { agentPaneRegistry: this.agentPaneRegistry } : {}),
         ...(this.signalArticleLookup ? { signalArticleLookup: this.signalArticleLookup } : {}),
+        ...(this.guideSessionStore ? { guideSessionStore: this.guideSessionStore } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

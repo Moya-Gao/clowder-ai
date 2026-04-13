@@ -215,9 +215,10 @@ export class ThreadBackedGuideSessionStore implements IGuideSessionStore {
 }
 
 /**
- * Convenience: create a GuideStateBridge backed by the existing ThreadStore.
- * One-liner for route wiring during migration.
+ * Create a GuideStateBridge from an independent session store.
+ * Services call bridge.get/set (GuideStateV1 interface) while the
+ * store persists GuideSession entities independently from ThreadStore.
  */
-export function createGuideStoreBridge(threadStore: IThreadStore): GuideStateBridge {
-  return new GuideStateBridge(new ThreadBackedGuideSessionStore(threadStore));
+export function createGuideStoreBridge(store: IGuideSessionStore): GuideStateBridge {
+  return new GuideStateBridge(store);
 }
