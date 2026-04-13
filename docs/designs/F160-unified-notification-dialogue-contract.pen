@@ -1,0 +1,969 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "fill": "#F3F4F6",
+      "layout": "vertical",
+      "gap": 60,
+      "padding": 60,
+      "children": [
+        {
+          "type": "text",
+          "id": "EdDpR",
+          "name": "header",
+          "fill": "#111827",
+          "content": "F160: Notification & Dialogue Contract",
+          "fontFamily": "Inter",
+          "fontSize": 32,
+          "fontWeight": "bold"
+        },
+        {
+          "type": "frame",
+          "id": "VEoeX",
+          "name": "sec1",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "cornerRadius": 16,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#0000001A",
+            "offset": {
+              "x": 0,
+              "y": 4
+            },
+            "blur": 10
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": 32,
+          "children": [
+            {
+              "type": "text",
+              "id": "myyrf",
+              "name": "title1",
+              "fill": "#374151",
+              "content": "1. Timeline Hierarchy",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "frame",
+              "id": "aiXFt",
+              "name": "chatContainer",
+              "width": "fill_container",
+              "fill": "#F9FAFB",
+              "cornerRadius": 12,
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "XyxK2",
+                  "name": "sysNotice",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "padding": [
+                    8,
+                    16
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "aPfVZ",
+                      "name": "sysText",
+                      "fill": "#6B7280",
+                      "content": "System Notice: 弱存在感，不抢视线，只提供元信息",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "TgZcI",
+                  "name": "connNotice",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "SU7Cb",
+                      "name": "connAvatar",
+                      "width": 32,
+                      "height": 32,
+                      "fill": "#FEF3C7",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "DaHf3",
+                          "name": "cAvatarText",
+                          "fill": "#D97706",
+                          "content": "C",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "bold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "JZaqb",
+                      "name": "connBubble",
+                      "width": 500,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#FDE68A"
+                      },
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 16,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "SpOxP",
+                          "name": "connTitle",
+                          "fill": "#92400E",
+                          "content": "Connector Notice",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "bold"
+                        },
+                        {
+                          "type": "text",
+                          "id": "BWDN5",
+                          "name": "connDesc",
+                          "fill": "#4B5563",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "结构化卡片，比 System 强，但仍弱于 Agent 对话。适用于 GitHub PR、投票结果等外部/系统强信号。",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Mkz0E",
+                  "name": "agentNotice",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "w53UI",
+                      "name": "agentAvatar",
+                      "width": 32,
+                      "height": 32,
+                      "fill": "#DBEAFE",
+                      "cornerRadius": 16,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "OSwUD",
+                          "name": "aAvatarText",
+                          "content": "🐱",
+                          "fontFamily": "Inter",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "K1glx",
+                      "name": "agentBubble",
+                      "width": 500,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#BFDBFE"
+                      },
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#0000000D",
+                        "offset": {
+                          "x": 0,
+                          "y": 2
+                        },
+                        "blur": 4
+                      },
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 16,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "pt0fA",
+                          "name": "agentTitle",
+                          "fill": "#1E40AF",
+                          "content": "Agent Dialogue (Gemini)",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "bold"
+                        },
+                        {
+                          "type": "text",
+                          "id": "qbhpB",
+                          "name": "agentDesc",
+                          "fill": "#1F2937",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "最高层级的视觉焦点。猫真正给用户的回复，用于交流、解答、和实质性提醒（例如提醒喝水）。",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "OiZdl",
+          "name": "sec2",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "cornerRadius": 16,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#0000001A",
+            "offset": {
+              "x": 0,
+              "y": 4
+            },
+            "blur": 10
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": 32,
+          "children": [
+            {
+              "type": "text",
+              "id": "fP9XG",
+              "name": "title2",
+              "fill": "#374151",
+              "content": "2. Scheduler Scenes (Life Cycle vs Delivery)",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "frame",
+              "id": "hx3Np",
+              "name": "sceneGrid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 32,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "HIwIX",
+                  "name": "sceneA",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "TJtMf",
+                      "name": "sATitle",
+                      "fill": "#4B5563",
+                      "content": "A. 任务注册成功 (Lifecycle Policy: System Notice)",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "bold"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Wj1O6",
+                      "name": "sysNoticeA",
+                      "width": "fill_container",
+                      "fill": "#F9FAFB",
+                      "cornerRadius": 8,
+                      "gap": 8,
+                      "padding": 12,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ak0G8",
+                          "name": "sAText",
+                          "fill": "#6B7280",
+                          "content": "⏱️ 定时任务「提醒喝水」已创建 (每天 15:00)",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "KsbhK",
+                  "name": "sceneB",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "JrWgh",
+                      "name": "sBTitle",
+                      "fill": "#4B5563",
+                      "content": "B. 任务触发时 (Delivery Mode: Agent Triggered)",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "bold"
+                    },
+                    {
+                      "type": "text",
+                      "id": "5SWwc",
+                      "name": "sBDesc",
+                      "fill": "#9CA3AF",
+                      "content": "(Hidden Trigger 在底层唤醒猫，时间线上不显示 raw text)",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal",
+                      "fontStyle": "italic"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Xbz9h",
+                      "name": "agentNoticeB",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "padding": [
+                        16,
+                        0,
+                        0,
+                        0
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "tD0Wl",
+                          "name": "agentAvatarB",
+                          "width": 32,
+                          "height": 32,
+                          "fill": "#DBEAFE",
+                          "cornerRadius": 16,
+                          "layout": "vertical",
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "AErTP",
+                              "name": "aAvatarTextB",
+                              "content": "🐱",
+                              "fontFamily": "Inter",
+                              "fontSize": 16,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fQIYu",
+                          "name": "agentBubbleB",
+                          "width": 500,
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 12,
+                          "stroke": {
+                            "thickness": 1,
+                            "fill": "#BFDBFE"
+                          },
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#0000000D",
+                            "offset": {
+                              "x": 0,
+                              "y": 2
+                            },
+                            "blur": 4
+                          },
+                          "layout": "vertical",
+                          "gap": 8,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "sgWmo",
+                              "name": "agentTitleB",
+                              "fill": "#1E40AF",
+                              "content": "Agent",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "bold"
+                            },
+                            {
+                              "type": "text",
+                              "id": "YFuUp",
+                              "name": "agentDescB",
+                              "fill": "#1F2937",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "铲屎官，下午三点啦！该起来走动一下，喝杯水了哦~ 💧",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "jTAt8",
+                  "name": "sceneC",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Sa2SS",
+                      "name": "sCTitle",
+                      "fill": "#4B5563",
+                      "content": "C. 周期任务本次执行完成 (Lifecycle Policy: System Notice)",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "bold"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "u0mwp",
+                      "name": "sysNoticeC",
+                      "width": "fill_container",
+                      "fill": "#F9FAFB",
+                      "cornerRadius": 8,
+                      "gap": 8,
+                      "padding": 12,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Pzm9x",
+                          "name": "sCText",
+                          "fill": "#6B7280",
+                          "content": "✔️ 周期任务「检查 GitHub Inbox」本次执行完成",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "wwfCk",
+          "name": "sec3",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "cornerRadius": 16,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#0000001A",
+            "offset": {
+              "x": 0,
+              "y": 4
+            },
+            "blur": 10
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": 32,
+          "children": [
+            {
+              "type": "text",
+              "id": "tKysX",
+              "name": "title3",
+              "fill": "#374151",
+              "content": "3. Toast / Banner (Ephemeral Feedback)",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "text",
+              "id": "h1Z0r",
+              "name": "desc3",
+              "fill": "#6B7280",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "脱离聊天流，浮动在界面顶部或底部，用于不适合进入时间线真相源的临时反馈。",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "zbXfV",
+              "name": "toastContainer",
+              "width": "fill_container",
+              "fill": "#F9FAFB",
+              "cornerRadius": 12,
+              "layout": "vertical",
+              "padding": 40,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "C53HL",
+                  "name": "toast",
+                  "fill": "#1F2937",
+                  "cornerRadius": 30,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#00000033",
+                    "offset": {
+                      "x": 0,
+                      "y": 6
+                    },
+                    "blur": 12
+                  },
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    24
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ToXvb",
+                      "name": "tIcon",
+                      "content": "✨",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "6Nt4W",
+                      "name": "tMsg",
+                      "fill": "#FFFFFF",
+                      "content": "设置已保存",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "bold"
+                    },
+                    {
+                      "type": "text",
+                      "id": "EBxqp",
+                      "name": "tAct",
+                      "fill": "#60A5FA",
+                      "content": "撤销",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "bold"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "yxzN4",
+      "x": 0,
+      "y": 0,
+      "name": "chatContainer",
+      "width": 800,
+      "fill": "#FFFFFF",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 32,
+      "children": [
+        {
+          "type": "frame",
+          "id": "z6Xi1",
+          "name": "bannerWrap",
+          "width": "fill_container",
+          "justifyContent": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "eCryH",
+              "name": "banner",
+              "fill": "#1F2937",
+              "cornerRadius": 8,
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#00000033",
+                "offset": {
+                  "x": 0,
+                  "y": 4
+                },
+                "blur": 12
+              },
+              "gap": 8,
+              "padding": [
+                12,
+                24
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "WmDzU",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "info",
+                  "iconFontFamily": "lucide",
+                  "fill": "#3B82F6"
+                },
+                {
+                  "type": "text",
+                  "id": "7adKw",
+                  "fill": "#FFFFFF",
+                  "content": "Toast/Banner: Task successfully registered (Ephemeral)",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "FeY36",
+          "name": "userMsgWrapper",
+          "width": "fill_container",
+          "padding": [
+            16,
+            0
+          ],
+          "justifyContent": "end",
+          "children": [
+            {
+              "type": "frame",
+              "id": "xlBtj",
+              "name": "userMsg",
+              "fill": "#111827",
+              "cornerRadius": [
+                16,
+                16,
+                4,
+                16
+              ],
+              "layout": "vertical",
+              "padding": [
+                12,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "8K3fu",
+                  "fill": "#FFFFFF",
+                  "content": "Remind me to review PR 123 tomorrow at 10 AM",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "acEUK",
+          "name": "sysNoticeReg",
+          "width": "fill_container",
+          "padding": [
+            8,
+            0
+          ],
+          "justifyContent": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Rk4YR",
+              "name": "sysNoticeBox",
+              "fill": "#F3F4F6",
+              "cornerRadius": 16,
+              "gap": 6,
+              "padding": [
+                6,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "ji60M",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "clock",
+                  "iconFontFamily": "lucide",
+                  "fill": "#9CA3AF"
+                },
+                {
+                  "type": "text",
+                  "id": "Ojnnv",
+                  "fill": "#6B7280",
+                  "content": "System Notice: Reminder registered for tomorrow 10:00 AM",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "0dMRZ",
+          "name": "connNoticeWrap",
+          "width": "fill_container",
+          "padding": [
+            8,
+            0
+          ],
+          "justifyContent": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "bcZRS",
+              "name": "connNotice",
+              "width": 500,
+              "fill": "#FFFBEB",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FDE68A"
+              },
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "oQe0P",
+                  "name": "connHeader",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "FSePa",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "github",
+                      "iconFontFamily": "lucide",
+                      "fill": "#D97706"
+                    },
+                    {
+                      "type": "text",
+                      "id": "1Uvsb",
+                      "fill": "#92400E",
+                      "content": "Connector Notice: PR 123 Updated",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "XQbov",
+                  "fill": "#B45309",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "@gpt52 pushed 3 new commits to main.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qpibt",
+          "name": "sysNoticeDone",
+          "width": "fill_container",
+          "padding": [
+            8,
+            0
+          ],
+          "justifyContent": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "bAY1H",
+              "name": "sysNoticeBox2",
+              "fill": "#F3F4F6",
+              "cornerRadius": 16,
+              "gap": 6,
+              "padding": [
+                6,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "03Zhx",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "check-circle",
+                  "iconFontFamily": "lucide",
+                  "fill": "#9CA3AF"
+                },
+                {
+                  "type": "text",
+                  "id": "T3hmF",
+                  "fill": "#6B7280",
+                  "content": "System Notice: Periodic digest collected (Run 42)",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "TUUfS",
+          "name": "agentMsgWrap",
+          "width": "fill_container",
+          "gap": 12,
+          "padding": [
+            16,
+            0
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "pfVqS",
+              "name": "avatar",
+              "width": 36,
+              "height": 36,
+              "fill": "#E5E7EB",
+              "cornerRadius": 18,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "KixKy",
+                  "fill": "#000000",
+                  "content": "🐱",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "z4saT",
+              "name": "agentMsg",
+              "width": 460,
+              "fill": "#EFF6FF",
+              "cornerRadius": [
+                16,
+                16,
+                16,
+                4
+              ],
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#BFDBFE"
+              },
+              "layout": "vertical",
+              "gap": 12,
+              "padding": [
+                16,
+                20
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vTP3B",
+                  "fill": "#1E3A8A",
+                  "content": "Agent Dialogue: It's 10:00 AM!",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "NQXic",
+                  "fill": "#1E40AF",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Here is your reminder: Please review PR 123. I've already fetched the latest status for you, and it's passing CI.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
