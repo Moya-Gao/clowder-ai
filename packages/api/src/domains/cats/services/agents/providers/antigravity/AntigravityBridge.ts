@@ -211,7 +211,11 @@ export class AntigravityBridge {
     for (const cascadeId of candidates) {
       if (!cascadeId) continue;
       try {
-        await this.getTrajectory(cascadeId);
+        const traj = await this.getTrajectory(cascadeId);
+        if (traj.status !== 'CASCADE_RUN_STATUS_IDLE') {
+          log.info(`cascade ${cascadeId} stuck in ${traj.status} for ${key}, creating new`);
+          continue;
+        }
         if (this.sessionMap.get(key) !== cascadeId) {
           this.sessionMap.set(key, cascadeId);
           this.sessionMap.delete(threadId);

@@ -77,6 +77,42 @@ describe('G6: connection invalidation and reconnect', () => {
     assert.ok(conn2.port);
   });
 
+  test('getOrCreateSession rejects RUNNING cascade and creates new', async () => {
+    const bridge = createBridge();
+    const startCalls = [];
+    mock.method(bridge, 'getTrajectory', async (cascadeId) => {
+      if (cascadeId === 'stuck-cascade') {
+        return { status: 'CASCADE_RUN_STATUS_RUNNING', numTotalSteps: 7 };
+      }
+      return { status: 'CASCADE_RUN_STATUS_IDLE', numTotalSteps: 0 };
+    });
+    mock.method(bridge, 'startCascade', async () => {
+      startCalls.push(1);
+      return 'fresh-cascade';
+    });
+    // Pre-seed the session map with a stuck cascade
+    bridge.sessionMap.set('thread-1:cat-1', 'stuck-cascade');
+    bridge.sessionMapLoaded = true;
+
+    const result = await bridge.getOrCreateSession('thread-1', 'cat-1');
+
+    assert.equal(result, 'fresh-cascade', 'should create new cascade, not reuse stuck one');
+    assert.equal(startCalls.length, 1, 'should have called startCascade');
+  });
+
+  test('getOrCreateSession reuses IDLE cascade', async () => {
+    const bridge = createBridge();
+    mock.method(bridge, 'getTrajectory', async () => {
+      return { status: 'CASCADE_RUN_STATUS_IDLE', numTotalSteps: 5 };
+    });
+    bridge.sessionMap.set('thread-2:cat-2', 'idle-cascade');
+    bridge.sessionMapLoaded = true;
+
+    const result = await bridge.getOrCreateSession('thread-2', 'cat-2');
+
+    assert.equal(result, 'idle-cascade', 'should reuse IDLE cascade');
+  });
+
   test('pollForSteps invalidates connection on RPC error then retries', async () => {
     const bridge = createBridge();
     let callCount = 0;
