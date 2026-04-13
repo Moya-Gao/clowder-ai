@@ -50,6 +50,7 @@ import {
   isUserFacingSystemInfoContent,
   routeContentBlocksForCat,
   sanitizeInjectedContent,
+  stripLeakedToolCallPayload,
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
@@ -571,11 +572,14 @@ export async function* routeSerial(
         // F39 bugfix: stop yielding after cancel (pipe buffer may still drain)
         if (signal?.aborted) break;
 
+        const effectiveMsg =
+          msg.type === 'text' && msg.content ? { ...msg, content: stripLeakedToolCallPayload(msg.content) } : msg;
+
         // F22 R2 P1-1: Capture invocationId from the initial system_info.
         // Keep forwarding this boundary event so frontend can reset stale task progress.
-        if (msg.type === 'system_info' && msg.content && !ownInvocationId) {
+        if (effectiveMsg.type === 'system_info' && effectiveMsg.content && !ownInvocationId) {
           try {
-            const parsed = JSON.parse(msg.content);
+            const parsed = JSON.parse(effectiveMsg.content);
             if (parsed.type === 'invocation_created') {
               ownInvocationId = parsed.invocationId;
               // F111 Phase B: Start streaming TTS when we have an invocationId
@@ -606,17 +610,17 @@ export async function* routeSerial(
             /* ignore parse errors */
           }
         }
-        if (msg.type === 'text' && msg.content) {
-          textContent += msg.content;
-          voiceChunker?.feed(msg.content);
+        if (effectiveMsg.type === 'text' && effectiveMsg.content) {
+          textContent += effectiveMsg.content;
+          voiceChunker?.feed(effectiveMsg.content);
         }
         // F045: Accumulate thinking blocks for persistence (F5 recovery)
-        if (msg.type === 'system_info' && msg.content) {
-          if (isUserFacingSystemInfoContent(msg.content)) {
+        if (effectiveMsg.type === 'system_info' && effectiveMsg.content) {
+          if (isUserFacingSystemInfoContent(effectiveMsg.content)) {
             sawUserFacingSystemInfo = true;
           }
           try {
-            const parsed = JSON.parse(msg.content);
+            const parsed = JSON.parse(effectiveMsg.content);
             if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
               thinkingContent += (thinkingContent ? '\n\n---\n\n' : '') + parsed.text;
             }
@@ -629,22 +633,22 @@ export async function* routeSerial(
           }
         }
         // Accumulate tool events for persistence (before draft flush so current event is available)
-        const toolEvt = toStoredToolEvent(msg);
+        const toolEvt = toStoredToolEvent(effectiveMsg);
         if (toolEvt) {
           collectedToolEvents.push(toolEvt);
         }
 
         // F148 OQ-2: Collect tool names for context eval
-        if (msg.type === 'tool_use' && msg.toolName) {
-          collectedToolNames.push(msg.toolName);
+        if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
+          collectedToolNames.push(effectiveMsg.toolName);
         }
 
         // F150: Fire-and-forget tool usage counter
-        if (msg.type === 'tool_use' && deps.toolUsageCounter && msg.catId) {
+        if (effectiveMsg.type === 'tool_use' && deps.toolUsageCounter && effectiveMsg.catId) {
           deps.toolUsageCounter.recordToolUse(
-            msg.catId as string,
-            msg.toolName ?? 'unknown',
-            msg.toolInput as Record<string, unknown> | undefined,
+            effectiveMsg.catId as string,
+            effectiveMsg.toolName ?? 'unknown',
+            effectiveMsg.toolInput as Record<string, unknown> | undefined,
           );
         }
 
@@ -654,7 +658,7 @@ export async function* routeSerial(
           const charDelta = textContent.length - lastFlushLen;
           const neverFlushed = lastFlushLen === 0 && lastFlushToolLen === 0;
           if (
-            msg.type === 'text' &&
+            effectiveMsg.type === 'text' &&
             charDelta > 0 &&
             (neverFlushed || now - lastFlushTime >= FLUSH_INTERVAL_MS || charDelta >= FLUSH_CHAR_DELTA)
           ) {
@@ -704,29 +708,32 @@ export async function* routeSerial(
           }
         }
 
-        if (msg.type === 'error') {
+        if (effectiveMsg.type === 'error') {
           hadError = true;
           // #267: errors before abort are real provider failures; errors after abort are cleanup
           if (!signal?.aborted) hadProviderError = true;
-          if (msg.error) {
-            collectedErrorText += `${collectedErrorText ? '\n' : ''}${msg.error}`;
+          if (effectiveMsg.error) {
+            collectedErrorText += `${collectedErrorText ? '\n' : ''}${effectiveMsg.error}`;
           }
         }
-        if (msg.metadata && !firstMetadata) {
-          firstMetadata = msg.metadata;
+        if (effectiveMsg.metadata && !firstMetadata) {
+          firstMetadata = effectiveMsg.metadata;
         }
-        if (msg.type === 'done') {
-          doneMsg = msg; // Buffer — yield after A2A detection
+        if (effectiveMsg.type === 'done') {
+          doneMsg = effectiveMsg; // Buffer — yield after A2A detection
         } else {
+          if (effectiveMsg.type === 'text' && !effectiveMsg.content) {
+            continue;
+          }
           // Tag CLI stdout text with origin: 'stream' (thinking/internal)
-          yield msg.type === 'text'
+          yield effectiveMsg.type === 'text'
             ? {
-                ...msg,
+                ...effectiveMsg,
                 origin: 'stream' as const,
                 ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
                 ...(streamReplyPreview ? { replyPreview: streamReplyPreview } : {}),
               }
-            : msg;
+            : effectiveMsg;
         }
       }
 
