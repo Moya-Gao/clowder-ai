@@ -9,7 +9,7 @@ updated: 2026-04-02
 
 # F149: ACP Runtime Operations — 项目级进程池 + Session Lease
 
-> **Status**: in-progress | **Owner**: 缅因猫/gpt52 | **Priority**: P1
+> **Status**: done | **Owner**: 缅因猫/gpt52 | **Priority**: P1
 
 ## Why
 
@@ -72,13 +72,11 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 4. 加 admission / eviction / LRU / max live process count，避免 20 个 thread 把机器撑爆
 5. 明确取消、崩溃、模型容量错误、MCP 污染、僵尸进程等 recovery 语义
 
-### Phase D: ACP Carrier 泛化（后续）
+### Phase D: ACP Carrier 泛化 → 拆出到 F158
 
-在 Gemini 路径稳定后，再验证这套运行时运营层是否能服务其他 ACP-style local agent：
+> **Scope 收窄决策（2026-04-13 铲屎官拍板）**：F149 的愿景是 ACP runtime operations（池化/lease/lifecycle），Phase A~C 已完整兑现 Gemini 载体。Carrier 泛化是独立愿景，拆到 F158，Gemini 作为第一个已有实现，有需求时再继续。
 
-1. Codex / Claude Code / OpenCode 等 ACP carrier 是否能共用同一池化与 lease 语义
-2. 哪些字段应该留在 provider profile，哪些属于通用 ACP runtime policy
-3. 不为“未来也许支持”提前抽象；只有第二个 carrier 落地时再收敛共性
+~~在 Gemini 路径稳定后，再验证这套运行时运营层是否能服务其他 ACP-style local agent。~~ → **See [F158](F158-acp-carrier-generalization.md)**
 
 ## Acceptance Criteria
 
@@ -102,9 +100,9 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 - [x] AC-C4: cancel / crash / timeout 后不会残留僵尸进程或悬挂 lease
 - [x] AC-C5: 并发 10 个活跃 thread 时，live process 数和 warm hit rate 都有可观测指标而非靠体感判断
 
-### Phase D（ACP Carrier 泛化）
-- [ ] AC-D1: 至少一个非 Gemini 的 ACP carrier 可映射到相同 runtime policy，而不需要重写池化/lease 模型
-- [ ] AC-D2: provider-specific 配置与通用 ACP runtime policy 的边界有明文文档
+### Phase D（ACP Carrier 泛化）→ 拆出到 [F158](F158-acp-carrier-generalization.md)
+- ~~AC-D1: 至少一个非 Gemini 的 ACP carrier 可映射到相同 runtime policy~~ → F158 AC-A1
+- ~~AC-D2: provider-specific 配置与通用 ACP runtime policy 的边界有明文文档~~ → F158 AC-A2
 
 ## Dependencies
 
@@ -161,7 +159,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | OQ-2 | session 的拥有者是 thread 还是 lease？`loadSession` 的粒度怎么定？ | ✅ 已定（KD-6/KD-8）：thread 持有 logical session binding；lease 只在 prompt 执行期短暂存在；`loadSession` 是 recovery primitive |
 | OQ-3 | idle TTL / LRU / max live process count 的默认值如何定，才能既省资源又不伤体感？ | ⬜ 待定 |
 | OQ-4 | warm process 上的并发策略是 queue、single-flight，还是允许多 session 并行？ | ✅ 已定：cross-session multiplex 已验证可用（OQ-6），same-session 仍为 single-flight |
-| OQ-5 | 什么时候再让第二个 ACP carrier（Codex/Claude Code/OpenCode）进入 F149 scope？ | ⬜ 待定 |
+| OQ-5 | 什么时候再让第二个 ACP carrier（Codex/Claude Code/OpenCode）进入 F149 scope？ | ✅ 已定：拆到 F158，有需求时再做 |
 | OQ-6 | ACP stdio 单通道是否支持多 session 并发 prompt（多路复用），还是 single-flight？直接决定 pool sizing 策略 | ✅ 已验证：**MULTIPLEX**。单进程双 session 并发 prompt 正确完成，无 cross-contamination（A="DELTA" B="ECHO"，执行窗口重叠）。Gemini carrier `supportsMultiplexing=true` |
 
 ## Key Decisions
@@ -203,6 +201,7 @@ F143 已经回答了“宿主抽象怎么分层”这个问题，但它的 Phase
 | 2026-04-04 | **Feature**: stream idle watchdog merged (PR #950) — `AcpStreamIdleError` + idle timer in `promptStream` + `liveness_signal` type + `stream_idle_stall` error classification + invoke-single-cat guards。砚砚 local review (R1: 2 P1 — cancel upstream + stall timing → R2 放行) + 云端 review clean。49 ACP tests。squash merge `642aa1ac` |
 | 2026-04-08 | **Hotfix**: permission stall 止血（`--approval-mode yolo` + `permission_pending` stall suppression + Premature close retry）— 三种故障模式诊断后止血。upstream #21783 确认 Gemini CLI 不发 MCP tool_call 事件；#21951 社区修复未合入。`yolo` 运行时验证通过。26 ACP tests |
 | 2026-04-08 | **Design**: 喵约反思 — 铲屎官触发 Magic Word，opus+gpt52 联合反思 idle watchdog 设计。根因：stdout timer 混用健康/进度/资源三层判定。调研 gemini-cli 上游 5 条 issue/PR（#21783, #21951, #4230, #13561, #24029）。收敛：KD-12 turn budget 降级 + 三层 watchdog 终态模型 |
+| 2026-04-13 | **Scope 收窄**: Phase D 拆出到 F158（铲屎官拍板）；F149 以 Gemini ACP runtime operations 为止，Status → done |
 | 2026-04-07 | **Hotfix**: MCP passthrough to ACP sessions (PR #993) — `GeminiAcpAdapter` was calling `newSession(cwd)` without MCP servers, causing Gemini tool-call stalls (`{}` in Thinking + `stream_idle_stall`). New `acp-mcp-resolver.ts` reads `.mcp.json` + `mcpWhitelist`, fail-fast on zero resolution. 37 ACP tests。砚砚 local review (R1: P1 silent failure + P2 missing tests → R2: Biome format → R3 放行) + 云端 review (P1 false positive dismissed with evidence) |
 
 ## Review Gate

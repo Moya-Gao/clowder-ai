@@ -116,6 +116,7 @@
 | F132 | F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | done | [F132-dingtalk-wecom-gateway.md](./F132-dingtalk-wecom-gateway.md) |
 | F157 | F157: Feishu Receipt Ack — 猫猫即时接住替代"思考中→撤回" | done | [F157-feishu-receipt-ack.md](./F157-feishu-receipt-ack.md) |
 | F154 | F154: Cat Routing Personalization — 全局默认猫 + 首选猫入口 + 单次定向 | done | [F154-cat-routing-personalization.md](./F154-cat-routing-personalization.md) |
+| F149 | F149: ACP Runtime Operations — 项目级进程池 + Session Lease | done | [F149-acp-runtime-operations.md](./F149-acp-runtime-operations.md) |
 | F010 | F010: 手机端猫猫 | done | [F010-mobile-cat.md](./F010-mobile-cat.md) |
 | F014 | F014: SVG 猫猫状态动画 | done | [F014-svg-cat-animation.md](./F014-svg-cat-animation.md) |
 | F036 | F036: Logo 一笔画动画（Stroke Drawing Animation） | done | [F036-logo-stroke-animation.md](./F036-logo-stroke-animation.md) |
