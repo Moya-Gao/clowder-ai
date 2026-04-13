@@ -20,7 +20,7 @@ export interface AntigravityAgentServiceOptions {
   connection?: Partial<BridgeConnection>;
   /** Inject bridge for testing */
   bridge?: AntigravityBridge;
-  /** Poll timeout in ms (default: 180s) */
+  /** Idle stall timeout in ms — resets on each new step (default: 60s) */
   pollTimeoutMs?: number;
 }
 
@@ -38,7 +38,7 @@ export class AntigravityAgentService implements AgentService {
       : createCatId('antigravity');
     this.model = options?.model ?? getCatModel(this.catId as string);
     this.bridge = options?.bridge ?? new AntigravityBridge(options?.connection);
-    this.pollTimeoutMs = options?.pollTimeoutMs ?? 180_000;
+    this.pollTimeoutMs = options?.pollTimeoutMs ?? 60_000;
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {

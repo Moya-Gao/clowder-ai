@@ -112,25 +112,42 @@ export class AntigravityBridge {
   }
 
   /**
-   * Poll until new steps appear after `stepsBefore` or timeout.
-   * Returns only the NEW trajectory steps (after stepsBefore).
+   * Poll until cascade completes, with activity-based timeout (F149 pattern).
+   * Each new step resets the idle deadline — only times out on genuine stall.
    */
   async pollForResponse(
     cascadeId: string,
     stepsBefore = 0,
-    timeoutMs = 180_000,
+    idleTimeoutMs = 60_000,
     pollIntervalMs = 2_000,
   ): Promise<TrajectoryStep[]> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
+    let lastSeenSteps = stepsBefore;
+    let lastActivityAt = Date.now();
+
+    while (true) {
       const traj = await this.getTrajectory(cascadeId);
-      if (traj.status === 'CASCADE_RUN_STATUS_IDLE' && traj.numTotalSteps > stepsBefore) {
+      const currentSteps = traj.numTotalSteps ?? 0;
+
+      if (currentSteps > lastSeenSteps) {
+        lastSeenSteps = currentSteps;
+        lastActivityAt = Date.now();
+        log.debug(`cascade activity: ${currentSteps} steps (status=${traj.status})`);
+      }
+
+      if (traj.status === 'CASCADE_RUN_STATUS_IDLE' && currentSteps > stepsBefore) {
         const allSteps = traj.trajectory?.steps ?? (await this.getTrajectorySteps(cascadeId));
         return allSteps.slice(stepsBefore);
       }
+
+      const idleMs = Date.now() - lastActivityAt;
+      if (idleMs > idleTimeoutMs) {
+        throw new Error(
+          `Antigravity stall: no activity for ${idleMs}ms (steps=${currentSteps}, status=${traj.status})`,
+        );
+      }
+
       await new Promise((r) => setTimeout(r, pollIntervalMs));
     }
-    throw new Error(`Antigravity response timeout after ${timeoutMs}ms`);
   }
 
   /** Get or create a cascade session bound to a thread. */
