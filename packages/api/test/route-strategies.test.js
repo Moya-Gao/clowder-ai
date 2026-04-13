@@ -212,6 +212,218 @@ describe('routeSerial', () => {
     assert.ok(stored.toolEvents[0].label.includes('Read'));
     assert.equal(stored.toolEvents[1].type, 'tool_result');
   });
+
+  it('strips leaked tool-call payloads from streamed text before yielding and persisting', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const contaminatedService = {
+      async *invoke() {
+        yield { type: 'tool_use', catId: 'opus', toolName: 'Read', toolInput: { path: '/a.ts' }, timestamp: 1000 };
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `先看实现，再补测试。
+
+{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"sed -n '1,220p' foo.ts"}}]}`,
+          timestamp: 1001,
+        };
+        yield { type: 'done', catId: 'opus', timestamp: 1002 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: contaminatedService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'read a.ts', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 1, 'should still yield one text message');
+    assert.equal(textMsgs[0].content, '先看实现，再补测试。');
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.equal(appendCalls[0].content, '先看实现，再补测试。');
+  });
+
+  it('strips leaked tool-call payloads split across streamed text chunks', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const contaminatedService = {
+      async *invoke() {
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `先看实现，再补测试。
+
+{`,
+          timestamp: 1000,
+        };
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"echo leaked"}}]}`,
+          timestamp: 1001,
+        };
+        yield { type: 'done', catId: 'opus', timestamp: 1002 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: contaminatedService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'read a.ts', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 1, 'should yield only the prose chunk');
+    assert.equal(textMsgs[0].content, '先看实现，再补测试。');
+    assert.ok(textMsgs.every((m) => !m.content.includes('tool_uses')));
+    assert.ok(textMsgs.every((m) => !m.content.includes('recipient_name')));
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.equal(appendCalls[0].content, '先看实现，再补测试。');
+  });
+
+  it('strips leaked tool-call payloads when the first chunk already extends past the signature prefix', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const contaminatedService = {
+      async *invoke() {
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `先看实现，再补测试。
+
+{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"sed`,
+          timestamp: 1000,
+        };
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: ` -n '1,220p' foo.ts"}}]}`,
+          timestamp: 1001,
+        };
+        yield { type: 'done', catId: 'opus', timestamp: 1002 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: contaminatedService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'read a.ts', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 1, 'should yield only the prose chunk');
+    assert.equal(textMsgs[0].content, '先看实现，再补测试。');
+    assert.ok(textMsgs.every((m) => !m.content.includes('tool_uses')));
+    assert.ok(textMsgs.every((m) => !m.content.includes('recipient_name')));
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.equal(appendCalls[0].content, '先看实现，再补测试。');
+  });
+
+  it('preserves split legitimate tool-use JSON examples when the response ends there', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const exampleService = {
+      async *invoke() {
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `文档示例：
+
+{"tool_uses":[{"recipient_name":"functions.exec_command",`,
+          timestamp: 1000,
+        };
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `"parameters":{"cmd":"pwd"}}]}`,
+          timestamp: 1001,
+        };
+        yield { type: 'done', catId: 'opus', timestamp: 1002 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: exampleService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'show example', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 2, 'should yield prefix text and buffered JSON remainder');
+    assert.equal(textMsgs[0].content, '文档示例：');
+    assert.equal(
+      textMsgs[1].content,
+      '\n\n{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"pwd"}}]}',
+    );
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.equal(
+      appendCalls[0].content,
+      `文档示例：
+
+{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"pwd"}}]}`,
+    );
+  });
+
+  it('preserves unlabeled English tool-use JSON example headers without colon in streaming mode', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const exampleService = {
+      async *invoke() {
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `Example
+
+{"tool_uses":[{"recipient_name":"functions.exec_command",`,
+          timestamp: 1000,
+        };
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `"parameters":{"cmd":"pwd"}}]}`,
+          timestamp: 1001,
+        };
+        yield { type: 'done', catId: 'opus', timestamp: 1002 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: exampleService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'show example', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 2, 'should yield header text and buffered JSON remainder');
+    assert.equal(textMsgs[0].content, 'Example');
+    assert.equal(
+      textMsgs[1].content,
+      '\n\n{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"pwd"}}]}',
+    );
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.equal(
+      appendCalls[0].content,
+      `Example
+
+{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"pwd"}}]}`,
+    );
+  });
 });
 
 describe('routeSerial A2A worklist', () => {
@@ -768,6 +980,154 @@ describe('routeParallel resilience', () => {
       doneMsgs.some((m) => m.isFinal),
       'one done should be isFinal',
     );
+  });
+
+  it('strips leaked tool-call payloads from parallel text before yielding and persisting', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    const contaminatedService = {
+      async *invoke() {
+        yield { type: 'tool_use', catId: 'opus', toolName: 'Read', toolInput: { path: '/a.ts' }, timestamp: 1000 };
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `继续落实现，别把内部参数露出去。
+
+{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"sed -n '1,220p' foo.ts"}}]}`,
+          timestamp: 1001,
+        };
+        yield { type: 'done', catId: 'opus', timestamp: 1002 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: contaminatedService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus'], 'read a.ts', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 1, 'should still yield one text message');
+    assert.equal(textMsgs[0].content, '继续落实现，别把内部参数露出去。');
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.equal(appendCalls[0].content, '继续落实现，别把内部参数露出去。');
+  });
+
+  it('strips leaked tool-call payloads split across parallel text chunks', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    const contaminatedService = {
+      async *invoke() {
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `继续落实现，别把内部参数露出去。
+
+{`,
+          timestamp: 1000,
+        };
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"echo leaked"}}]}`,
+          timestamp: 1001,
+        };
+        yield { type: 'done', catId: 'opus', timestamp: 1002 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: contaminatedService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus'], 'read a.ts', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 1, 'should yield only the prose chunk');
+    assert.equal(textMsgs[0].content, '继续落实现，别把内部参数露出去。');
+    assert.ok(textMsgs.every((m) => !m.content.includes('tool_uses')));
+    assert.ok(textMsgs.every((m) => !m.content.includes('recipient_name')));
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.equal(appendCalls[0].content, '继续落实现，别把内部参数露出去。');
+  });
+
+  it('preserves split legitimate tool-use JSON examples in parallel mode when the response ends there', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    const exampleService = {
+      async *invoke() {
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `文档示例：
+
+{"tool_uses":[{"recipient_name":"functions.exec_command",`,
+          timestamp: 1000,
+        };
+        yield {
+          type: 'text',
+          catId: 'opus',
+          content: `"parameters":{"cmd":"pwd"}}]}`,
+          timestamp: 1001,
+        };
+        yield { type: 'done', catId: 'opus', timestamp: 1002 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: exampleService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus'], 'show example', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 2, 'should yield prefix text and buffered JSON remainder');
+    assert.equal(textMsgs[0].content, '文档示例：');
+    assert.equal(
+      textMsgs[1].content,
+      '\n\n{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"pwd"}}]}',
+    );
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.equal(
+      appendCalls[0].content,
+      `文档示例：
+
+{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"pwd"}}]}`,
+    );
+  });
+
+  it('preserves metadata when parallel provider only attaches it to done', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    const doneMetadata = {
+      model: 'codex-test',
+      usage: { inputTokens: 12, outputTokens: 7 },
+    };
+
+    const metadataOnDoneService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'metadata should survive', timestamp: 1000 };
+        yield { type: 'done', catId: 'opus', metadata: doneMetadata, timestamp: 1001 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: metadataOnDoneService }, appendCalls);
+
+    for await (const _ of routeParallel(deps, ['opus'], 'test metadata', 'user1', 'thread1')) {
+    }
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.deepEqual(appendCalls[0].metadata, doneMetadata);
   });
 });
 

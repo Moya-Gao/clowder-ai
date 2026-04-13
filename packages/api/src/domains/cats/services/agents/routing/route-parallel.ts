@@ -34,6 +34,7 @@ import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
   assembleIncrementalContext,
+  createRoutingMessageTransform,
   detectContextDegradation,
   getService,
   isUserFacingSystemInfoContent,
@@ -184,6 +185,15 @@ export async function* routeParallel(
   // F148 OQ-2: Collect tool names and coverage maps per cat for context eval
   const catToolNames = new Map<string, string[]>();
   const catCoverageMap = new Map<string, ContextEvalInput['coverageMap']>();
+  const catMessageTransforms = new Map<string, ReturnType<typeof createRoutingMessageTransform>>();
+  const getMessageTransform = (catId: string) => {
+    let transform = catMessageTransforms.get(catId);
+    if (!transform) {
+      transform = createRoutingMessageTransform(catId as CatId);
+      catMessageTransforms.set(catId, transform);
+    }
+    return transform;
+  };
 
   // F155: Match raw user message against guide registry (only if no existing guide state)
   if (!guideCandidate && !hiddenForeignNonTerminalGuideState) {
@@ -478,152 +488,166 @@ export async function* routeParallel(
   for await (const msg of mergeStreams(streams, (idx, err) => {
     log.error({ streamIndex: idx, err }, 'Parallel stream error');
   })) {
-    // F22 R2 P1-1: Capture invocationId from the initial system_info per cat.
-    // Keep forwarding this boundary event so frontend can reset stale task progress.
-    if (msg.type === 'system_info' && msg.content && msg.catId && !catInvocationId.has(msg.catId)) {
-      try {
-        const parsed = JSON.parse(msg.content);
-        if (parsed.type === 'invocation_created') {
-          catInvocationId.set(msg.catId, parsed.invocationId);
-          // #80 fix: seed flush baseline so interval triggers after FLUSH_INTERVAL_MS
-          catFlushTime.set(msg.catId, Date.now());
-          // Issue #83: Start a single keepalive timer that touches all active drafts.
-          if (deps.draftStore && !keepaliveStarted) {
-            keepaliveStarted = true;
-            keepaliveTimer = setInterval(() => {
-              for (const [, invId] of catInvocationId) {
-                deps.draftStore!.touch(userId, threadId, invId)?.catch?.(noop);
-              }
-            }, KEEPALIVE_INTERVAL_MS);
-          }
-        }
-      } catch {
-        /* ignore parse errors */
-      }
-    }
-    if (msg.type === 'text' && msg.content && msg.catId) {
-      catText.set(msg.catId, (catText.get(msg.catId) ?? '') + msg.content);
-    }
-    // F045: Accumulate thinking blocks per cat for persistence (F5 recovery)
-    if (msg.type === 'system_info' && msg.content && msg.catId) {
-      if (isUserFacingSystemInfoContent(msg.content)) {
-        catSawUserFacingSystemInfo.set(msg.catId, true);
-      }
-      try {
-        const parsed = JSON.parse(msg.content);
-        if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
-          const prev = catThinking.get(msg.catId) ?? '';
-          catThinking.set(msg.catId, prev ? `${prev}\n\n---\n\n${parsed.text}` : parsed.text);
-        }
-        // F060: Collect inline rich_block for persistence (P1 fix)
-        if (parsed.type === 'rich_block' && parsed.block && isValidRichBlock(parsed.block)) {
-          const arr = catStreamRichBlocks.get(msg.catId) ?? [];
-          arr.push(parsed.block);
-          catStreamRichBlocks.set(msg.catId, arr);
-        }
-      } catch {
-        /* ignore parse errors */
-      }
-    }
-    if (msg.type === 'error' && msg.catId) {
-      catHadError.add(msg.catId);
-      // #267: errors before abort are real provider failures; errors after abort are cleanup
-      if (!signal?.aborted) catHadProviderError.add(msg.catId);
-      if (msg.error) {
-        const prev = catErrorText.get(msg.catId) ?? '';
-        catErrorText.set(msg.catId, `${prev}${prev ? '\n' : ''}${msg.error}`);
-      }
-    }
-    // Accumulate tool events per cat
-    const toolEvt = toStoredToolEvent(msg);
-    if (toolEvt && msg.catId) {
-      const arr = catToolEvents.get(msg.catId) ?? [];
-      arr.push(toolEvt);
-      catToolEvents.set(msg.catId, arr);
-    }
+    const effectiveMsgs = msg.catId ? getMessageTransform(msg.catId).transform(msg) : [msg];
 
-    // F148 OQ-2: Collect tool names for context eval
-    if (msg.type === 'tool_use' && msg.toolName && msg.catId) {
-      const names = catToolNames.get(msg.catId) ?? [];
-      names.push(msg.toolName);
-      catToolNames.set(msg.catId, names);
-    }
-
-    // F150: Fire-and-forget tool usage counter
-    if (msg.type === 'tool_use' && deps.toolUsageCounter && msg.catId) {
-      deps.toolUsageCounter.recordToolUse(
-        msg.catId as string,
-        msg.toolName ?? 'unknown',
-        msg.toolInput as Record<string, unknown> | undefined,
-      );
-    }
-    if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
-      catMeta.set(msg.catId, msg.metadata);
-    }
-
-    // #80: Draft flush — fire-and-forget periodic persistence per cat
-    if (deps.draftStore && msg.catId && catInvocationId.has(msg.catId)) {
-      const invId = catInvocationId.get(msg.catId)!;
-      const now = Date.now();
-      const lastFlush = catFlushTime.get(msg.catId) ?? now;
-      const lastLen = catFlushLen.get(msg.catId) ?? 0;
-      const curText = catText.get(msg.catId) ?? '';
-      const charDelta = curText.length - lastLen;
-
-      const lastToolLen = catFlushToolLen.get(msg.catId) ?? 0;
-      const curTools = catToolEvents.get(msg.catId);
-      const curToolLen = curTools?.length ?? 0;
-
-      const neverFlushedCat = lastLen === 0 && lastToolLen === 0;
+    for (const effectiveMsg of effectiveMsgs) {
+      // F22 R2 P1-1: Capture invocationId from the initial system_info per cat.
+      // Keep forwarding this boundary event so frontend can reset stale task progress.
       if (
-        msg.type === 'text' &&
-        charDelta > 0 &&
-        (neverFlushedCat || now - lastFlush >= FLUSH_INTERVAL_MS || charDelta >= FLUSH_CHAR_DELTA)
+        effectiveMsg.type === 'system_info' &&
+        effectiveMsg.content &&
+        effectiveMsg.catId &&
+        !catInvocationId.has(effectiveMsg.catId)
       ) {
-        const curThinking = catThinking.get(msg.catId);
-        deps.draftStore
-          .upsert({
-            userId,
-            threadId,
-            invocationId: invId,
-            catId: msg.catId as CatId,
-            content: curText,
-            ...(curTools && curToolLen > 0 ? { toolEvents: curTools } : {}),
-            ...(curThinking ? { thinking: curThinking } : {}),
-            updatedAt: now,
-          })
-          ?.catch?.(noop);
-        catFlushTime.set(msg.catId, now);
-        catFlushLen.set(msg.catId, curText.length);
-        catFlushToolLen.set(msg.catId, curToolLen);
-      } else if (
-        (msg.type === 'tool_use' || msg.type === 'tool_result') &&
-        // Cloud R7 P1: bypass interval for the very first flush — tool-first invocations
-        // must create a draft immediately, not wait 2s for the interval gate.
-        (neverFlushedCat || now - lastFlush >= FLUSH_INTERVAL_MS)
-      ) {
-        // Cloud R6 P1: upsert when there's unsaved text OR new tool events —
-        // tool-first invocations (no text yet) must still create a draft record.
-        if (curText.length > lastLen || curToolLen > lastToolLen) {
-          const curThinkingTool = catThinking.get(msg.catId);
+        try {
+          const parsed = JSON.parse(effectiveMsg.content);
+          if (parsed.type === 'invocation_created') {
+            catInvocationId.set(effectiveMsg.catId, parsed.invocationId);
+            // #80 fix: seed flush baseline so interval triggers after FLUSH_INTERVAL_MS
+            catFlushTime.set(effectiveMsg.catId, Date.now());
+            // Issue #83: Start a single keepalive timer that touches all active drafts.
+            if (deps.draftStore && !keepaliveStarted) {
+              keepaliveStarted = true;
+              keepaliveTimer = setInterval(() => {
+                for (const [, invId] of catInvocationId) {
+                  deps.draftStore!.touch(userId, threadId, invId)?.catch?.(noop);
+                }
+              }, KEEPALIVE_INTERVAL_MS);
+            }
+          }
+        } catch {
+          /* ignore parse errors */
+        }
+      }
+
+      if (effectiveMsg.type === 'text' && effectiveMsg.content && effectiveMsg.catId) {
+        catText.set(effectiveMsg.catId, (catText.get(effectiveMsg.catId) ?? '') + effectiveMsg.content);
+      }
+      // F045: Accumulate thinking blocks per cat for persistence (F5 recovery)
+      if (effectiveMsg.type === 'system_info' && effectiveMsg.content && effectiveMsg.catId) {
+        if (isUserFacingSystemInfoContent(effectiveMsg.content)) {
+          catSawUserFacingSystemInfo.set(effectiveMsg.catId, true);
+        }
+        try {
+          const parsed = JSON.parse(effectiveMsg.content);
+          if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
+            const prev = catThinking.get(effectiveMsg.catId) ?? '';
+            catThinking.set(effectiveMsg.catId, prev ? `${prev}\n\n---\n\n${parsed.text}` : parsed.text);
+          }
+          // F060: Collect inline rich_block for persistence (P1 fix)
+          if (parsed.type === 'rich_block' && parsed.block && isValidRichBlock(parsed.block)) {
+            const arr = catStreamRichBlocks.get(effectiveMsg.catId) ?? [];
+            arr.push(parsed.block);
+            catStreamRichBlocks.set(effectiveMsg.catId, arr);
+          }
+        } catch {
+          /* ignore parse errors */
+        }
+      }
+      if (effectiveMsg.type === 'error' && effectiveMsg.catId) {
+        catHadError.add(effectiveMsg.catId);
+        // #267: errors before abort are real provider failures; errors after abort are cleanup
+        if (!signal?.aborted) catHadProviderError.add(effectiveMsg.catId);
+        if (effectiveMsg.error) {
+          const prev = catErrorText.get(effectiveMsg.catId) ?? '';
+          catErrorText.set(effectiveMsg.catId, `${prev}${prev ? '\n' : ''}${effectiveMsg.error}`);
+        }
+      }
+      // Accumulate tool events per cat
+      const toolEvt = toStoredToolEvent(effectiveMsg);
+      if (toolEvt && effectiveMsg.catId) {
+        const arr = catToolEvents.get(effectiveMsg.catId) ?? [];
+        arr.push(toolEvt);
+        catToolEvents.set(effectiveMsg.catId, arr);
+      }
+
+      // F148 OQ-2: Collect tool names for context eval
+      if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName && effectiveMsg.catId) {
+        const names = catToolNames.get(effectiveMsg.catId) ?? [];
+        names.push(effectiveMsg.toolName);
+        catToolNames.set(effectiveMsg.catId, names);
+      }
+
+      // F150: Fire-and-forget tool usage counter
+      if (effectiveMsg.type === 'tool_use' && deps.toolUsageCounter && effectiveMsg.catId) {
+        deps.toolUsageCounter.recordToolUse(
+          effectiveMsg.catId as string,
+          effectiveMsg.toolName ?? 'unknown',
+          effectiveMsg.toolInput as Record<string, unknown> | undefined,
+        );
+      }
+      if (effectiveMsg.metadata && effectiveMsg.catId && !catMeta.has(effectiveMsg.catId)) {
+        catMeta.set(effectiveMsg.catId, effectiveMsg.metadata);
+      }
+
+      // #80: Draft flush — fire-and-forget periodic persistence per cat
+      if (deps.draftStore && effectiveMsg.catId && catInvocationId.has(effectiveMsg.catId)) {
+        const invId = catInvocationId.get(effectiveMsg.catId)!;
+        const now = Date.now();
+        const lastFlush = catFlushTime.get(effectiveMsg.catId) ?? now;
+        const lastLen = catFlushLen.get(effectiveMsg.catId) ?? 0;
+        const curText = catText.get(effectiveMsg.catId) ?? '';
+        const charDelta = curText.length - lastLen;
+
+        const lastToolLen = catFlushToolLen.get(effectiveMsg.catId) ?? 0;
+        const curTools = catToolEvents.get(effectiveMsg.catId);
+        const curToolLen = curTools?.length ?? 0;
+
+        const neverFlushedCat = lastLen === 0 && lastToolLen === 0;
+        if (
+          effectiveMsg.type === 'text' &&
+          charDelta > 0 &&
+          (neverFlushedCat || now - lastFlush >= FLUSH_INTERVAL_MS || charDelta >= FLUSH_CHAR_DELTA)
+        ) {
+          const curThinking = catThinking.get(effectiveMsg.catId);
           deps.draftStore
             .upsert({
               userId,
               threadId,
               invocationId: invId,
-              catId: msg.catId as CatId,
+              catId: effectiveMsg.catId as CatId,
               content: curText,
               ...(curTools && curToolLen > 0 ? { toolEvents: curTools } : {}),
-              ...(curThinkingTool ? { thinking: curThinkingTool } : {}),
+              ...(curThinking ? { thinking: curThinking } : {}),
               updatedAt: now,
             })
             ?.catch?.(noop);
-          catFlushLen.set(msg.catId, curText.length);
-          catFlushToolLen.set(msg.catId, curToolLen);
-        } else {
-          deps.draftStore.touch(userId, threadId, invId)?.catch?.(noop);
+          catFlushTime.set(effectiveMsg.catId, now);
+          catFlushLen.set(effectiveMsg.catId, curText.length);
+          catFlushToolLen.set(effectiveMsg.catId, curToolLen);
+        } else if (
+          (effectiveMsg.type === 'tool_use' || effectiveMsg.type === 'tool_result') &&
+          // Cloud R7 P1: bypass interval for the very first flush — tool-first invocations
+          // must create a draft immediately, not wait 2s for the interval gate.
+          (neverFlushedCat || now - lastFlush >= FLUSH_INTERVAL_MS)
+        ) {
+          // Cloud R6 P1: upsert when there's unsaved text OR new tool events —
+          // tool-first invocations (no text yet) must still create a draft record.
+          if (curText.length > lastLen || curToolLen > lastToolLen) {
+            const curThinkingTool = catThinking.get(effectiveMsg.catId);
+            deps.draftStore
+              .upsert({
+                userId,
+                threadId,
+                invocationId: invId,
+                catId: effectiveMsg.catId as CatId,
+                content: curText,
+                ...(curTools && curToolLen > 0 ? { toolEvents: curTools } : {}),
+                ...(curThinkingTool ? { thinking: curThinkingTool } : {}),
+                updatedAt: now,
+              })
+              ?.catch?.(noop);
+            catFlushLen.set(effectiveMsg.catId, curText.length);
+            catFlushToolLen.set(effectiveMsg.catId, curToolLen);
+          } else {
+            deps.draftStore.touch(userId, threadId, invId)?.catch?.(noop);
+          }
+          catFlushTime.set(effectiveMsg.catId, now);
         }
-        catFlushTime.set(msg.catId, now);
+      }
+
+      if (effectiveMsg.type !== 'done') {
+        yield effectiveMsg;
       }
     }
 
@@ -1069,8 +1093,6 @@ export async function* routeParallel(
 
       yield { ...msg, isFinal };
       if (isFinal) yieldedFinalDone = true;
-    } else {
-      yield msg;
     }
   }
 

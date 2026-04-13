@@ -256,6 +256,183 @@ export function isUserFacingSystemInfoContent(content: string): boolean {
   }
 }
 
+function isInternalToolRecipientName(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    (value.startsWith('functions.') || value.startsWith('mcp__') || value.startsWith('multi_tool_use.'))
+  );
+}
+
+function looksLikeLeakedToolCallPayload(candidate: string): boolean {
+  const trimmed = candidate.trim();
+  if (!trimmed.startsWith('{')) return false;
+
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      tool_uses?: Array<{ recipient_name?: unknown }>;
+      recipient_name?: unknown;
+    };
+    if (Array.isArray(parsed.tool_uses)) {
+      return parsed.tool_uses.some((item) => isInternalToolRecipientName(item?.recipient_name));
+    }
+    return isInternalToolRecipientName(parsed.recipient_name);
+  } catch {
+    return false;
+  }
+}
+
+const LEAKED_TOOL_CALL_SIGNATURES = [
+  '{"tool_uses":[{"recipient_name":"functions.',
+  '{"tool_uses":[{"recipient_name":"mcp__',
+  '{"tool_uses":[{"recipient_name":"multi_tool_use.',
+  '{"recipient_name":"functions.',
+  '{"recipient_name":"mcp__',
+  '{"recipient_name":"multi_tool_use.',
+];
+
+const INTENTIONAL_JSON_EXAMPLE_LINE_RE =
+  /^(?:(?:(?:文档|JSON)\s*)?示例|for\s+example|example|json\s+example|例如|比如)\s*(?:[:：]\s*)?$/i;
+
+function looksLikePotentialLeakedToolCallPayloadPrefix(candidate: string): boolean {
+  const trimmed = candidate.trim();
+  if (!trimmed.startsWith('{')) return false;
+
+  const compact = trimmed.replace(/\s+/g, '');
+  return LEAKED_TOOL_CALL_SIGNATURES.some(
+    (signature) => signature.startsWith(compact) || compact.startsWith(signature),
+  );
+}
+
+function findLineStartPayloadIndex(
+  content: string,
+  predicate: (candidate: string) => boolean,
+): { index: number; candidate: string } | null {
+  const lines = content.split('\n');
+  let offset = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    const trimmed = line.trimStart();
+    if (!trimmed.startsWith('{')) {
+      offset += line.length + 1;
+      continue;
+    }
+
+    const leadingWhitespace = line.length - trimmed.length;
+    const candidate = lines.slice(i).join('\n');
+    if (predicate(candidate)) {
+      return { index: offset + leadingWhitespace, candidate };
+    }
+    offset += line.length + 1;
+  }
+
+  return null;
+}
+
+function isIntentionalJsonExamplePrefix(prefix: string): boolean {
+  const trimmed = prefix.trimEnd();
+  if (!trimmed) return false;
+
+  const lines = trimmed.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = (lines[i] ?? '').trim();
+    if (!line) continue;
+    if (/^```(?:json)?$/i.test(line)) return true;
+    return INTENTIONAL_JSON_EXAMPLE_LINE_RE.test(line);
+  }
+
+  return false;
+}
+
+export function stripLeakedToolCallPayload(content: string): string {
+  if (!content) return content;
+
+  const match = findLineStartPayloadIndex(content, looksLikeLeakedToolCallPayload);
+  if (match) {
+    const prefix = content.slice(0, match.index);
+    if (isIntentionalJsonExamplePrefix(prefix)) {
+      return content;
+    }
+    return prefix.replace(/\s+$/, '');
+  }
+
+  return content;
+}
+
+export interface RoutedMessageTransform {
+  transform(msg: AgentMessage): AgentMessage[];
+}
+
+function createLeakedToolCallStreamStripper() {
+  let pending = '';
+  let pendingEmittedLength = 0;
+
+  return {
+    push(content: string): string {
+      if (!content) return content;
+
+      const combined = pending + content;
+      const alreadyEmittedLength = pendingEmittedLength;
+      pending = '';
+      pendingEmittedLength = 0;
+
+      const stripped = stripLeakedToolCallPayload(combined);
+      if (stripped !== combined) {
+        return stripped.slice(alreadyEmittedLength);
+      }
+
+      const match = findLineStartPayloadIndex(combined, looksLikePotentialLeakedToolCallPayloadPrefix);
+      if (!match) {
+        return combined.slice(alreadyEmittedLength);
+      }
+
+      const emittedPrefix = combined.slice(0, match.index).replace(/\s+$/, '');
+      pending = combined;
+      pendingEmittedLength = emittedPrefix.length;
+      return emittedPrefix.slice(alreadyEmittedLength);
+    },
+    flush(): string {
+      if (!pending) return '';
+
+      const remaining = pending;
+      const alreadyEmittedLength = pendingEmittedLength;
+      pending = '';
+      pendingEmittedLength = 0;
+      return stripLeakedToolCallPayload(remaining).slice(alreadyEmittedLength);
+    },
+  };
+}
+
+export function createRoutingMessageTransform(explicitCatId?: CatId): RoutedMessageTransform {
+  const leakedPayloadStripper = createLeakedToolCallStreamStripper();
+
+  return {
+    transform(msg: AgentMessage): AgentMessage[] {
+      if (msg.type === 'text') {
+        const content = msg.content ? leakedPayloadStripper.push(msg.content) : msg.content;
+        return content ? [{ ...msg, content }] : [];
+      }
+
+      if (msg.type === 'done') {
+        const transformed: AgentMessage[] = [];
+        const flushedText = leakedPayloadStripper.flush();
+        if (flushedText) {
+          transformed.push({
+            type: 'text',
+            catId: msg.catId ?? explicitCatId,
+            content: flushedText,
+            timestamp: msg.timestamp,
+          });
+        }
+        transformed.push(msg);
+        return transformed;
+      }
+
+      return [msg];
+    },
+  };
+}
+
 export function sanitizeInjectedContent(content: string): string {
   const lines = content.split('\n');
   const kept: string[] = [];
@@ -285,7 +462,7 @@ export function sanitizeInjectedContent(content: string): string {
     kept.push(line);
   }
 
-  return kept.join('\n').trim();
+  return stripLeakedToolCallPayload(kept.join('\n')).trim();
 }
 
 /**
