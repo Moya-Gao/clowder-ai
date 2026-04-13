@@ -446,6 +446,9 @@ async function main(): Promise<void> {
       ? resolve(process.cwd(), '..', '..')
       : process.cwd();
 
+  const { initRepoIdentity, isSameRepo } = await import('./utils/is-same-repo.js');
+  initRepoIdentity(repoRoot);
+
   const { createMemoryServices } = await import('./domains/memory/factory.js');
   const memoryServices = await createMemoryServices({
     type: 'sqlite',
@@ -515,8 +518,7 @@ async function main(): Promise<void> {
       }
     },
     getTierCoverage: async (projectPath: string) => {
-      // Guard: only overlay store tiers for our own repo (Phase D: project isolation)
-      if (resolve(projectPath) !== resolve(repoRoot)) return {};
+      if (!isSameRepo(projectPath, repoRoot)) return {};
 
       const db = memoryServices.store.getDb();
       const rows = db
@@ -531,8 +533,7 @@ async function main(): Promise<void> {
       return result;
     },
     getKindCoverage: async (projectPath: string) => {
-      // Guard: only overlay store kinds for our own repo (Phase D: project isolation)
-      if (resolve(projectPath) !== resolve(repoRoot)) return {};
+      if (!isSameRepo(projectPath, repoRoot)) return {};
 
       const { mapKindToSourceType } = await import('./routes/evidence-helpers.js');
       const db = memoryServices.store.getDb();
