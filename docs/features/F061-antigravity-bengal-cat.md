@@ -134,7 +134,7 @@ G9 LS 选择策略
 ### Phase 2: Bridge 演进 + 证据链 + 高级能力
 
 #### Phase 2a: Bridge 健壮性（架构 Gap 驱动）
-- [ ] AC-C0: 持久化 threadId → cascadeId 映射，`getOrCreateSession` 优先 resume 已有 cascade 而非新建（G0）
+- [x] AC-C0: 持久化 threadId → cascadeId 映射，`getOrCreateSession` 优先 resume 已有 cascade 而非新建（G0）
 - [ ] AC-C1: v1 Step taxonomy — 4 类 trajectory 采样 → 6 桶分类框架 + unknown_activity 观测闭环（记录、计数、可回放）（G1）
 - [ ] AC-C2: pollForResponse 改为 async generator，新 step 立即 yield（G2）
 - [ ] AC-C2b: DeliveryCursor 正式化 — baseline/delivered/terminal/lastActivity 四字段（G8a，与 G2 同波）
@@ -472,6 +472,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-03-08 | PR #313 合入 — idle timeout + thinking 分离（37 tests, codex R2 放行 + 云端 0 P1/P2）|
 | 2026-03-08 | **Phase 3 bug 发现** — 实际 @ 孟加拉猫后发现两个问题，见下方 Known Bugs |
 | 2026-04-12 | **Phase 1.5 ConnectRPC Bridge** — 用 ConnectRPC/gRPC 替换 CDP DOM hack（PR #1127, 砚砚 R2 放行 + 云端 0 P1/P2）|
+| 2026-04-13 | **G0 Resume** — 持久化 cascade session 映射，支持跨重启 resume + catId 隔离（PR #1135, 砚砚 R1 放行 + 云端 5 轮 0 P1/P2）|
 
 ---
 
