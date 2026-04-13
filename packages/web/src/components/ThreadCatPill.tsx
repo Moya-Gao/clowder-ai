@@ -129,14 +129,8 @@ export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
     return { position: 'fixed', ...pos };
   };
 
-  // No preferred cats → render nothing (zero space)
-  if (preferredCats.length === 0 && !isOpen) return null;
-
   const catId = preferredCats[0];
   const cat = catId ? getCatById(catId) : undefined;
-
-  // Cat not found in registry (stale/removed) — don't render broken pill
-  if (!cat && !isOpen) return null;
 
   const hasChanged = JSON.stringify([...selectedCats].sort()) !== JSON.stringify([...preferredCats].sort());
 
@@ -146,17 +140,25 @@ export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
         ref={pillRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-cocreator-light hover:bg-cocreator-light transition-colors text-xs"
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors text-xs ${
+          cat
+            ? 'border-cocreator-light hover:bg-cocreator-light'
+            : 'border-dashed border-cafe-muted hover:border-cocreator-light hover:bg-cocreator-light'
+        }`}
         data-testid="thread-cat-pill"
       >
-        {cat && (
-          <span
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: cat.color.primary }}
-            data-testid="pill-dot"
-          />
+        {cat ? (
+          <>
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: cat.color.primary }}
+              data-testid="pill-dot"
+            />
+            <span className="text-cafe-secondary font-medium">{formatCatName(cat)}</span>
+          </>
+        ) : (
+          <span className="text-cafe-muted">首选猫</span>
         )}
-        <span className="text-cafe-secondary font-medium">{cat ? formatCatName(cat) : '选择猫猫'}</span>
         <span className="text-cafe-muted">▾</span>
       </button>
       {isOpen && (

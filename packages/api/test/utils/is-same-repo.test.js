@@ -1,11 +1,11 @@
-import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, before, describe, it } from 'node:test';
 
-import { isSameRepo, initRepoIdentity } from '../../dist/utils/is-same-repo.js';
+import { initRepoIdentity, isSameRepo } from '../../dist/utils/is-same-repo.js';
 
 describe('isSameRepo', () => {
   let mainRepo;
@@ -26,7 +26,9 @@ describe('isSameRepo', () => {
   after(() => {
     try {
       execFileSync('git', ['worktree', 'remove', worktreeDir, '--force'], { cwd: mainRepo });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     const base = join(mainRepo, '..');
     rmSync(base, { recursive: true, force: true });
   });

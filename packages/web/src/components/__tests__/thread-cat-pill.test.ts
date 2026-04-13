@@ -101,14 +101,17 @@ describe('ThreadCatPill (F154 Phase B)', () => {
     expect(renderPill('thread_pill_test').textContent).toContain('opus');
   });
 
-  it('renders nothing when preferredCats is empty', () => {
+  it('renders ghost pill when preferredCats is empty', () => {
     mockStore.threads = [{ ...TEST_THREAD, preferredCats: [] }];
-    expect(renderPill('thread_pill_test').innerHTML).toBe('');
+    const el = renderPill('thread_pill_test');
+    expect(el.textContent).toContain('首选猫');
+    expect(el.querySelector('[data-testid="pill-dot"]')).toBeNull();
   });
 
-  it('renders nothing when preferredCats is undefined', () => {
+  it('renders ghost pill when preferredCats is undefined', () => {
     mockStore.threads = [{ ...TEST_THREAD, preferredCats: undefined }];
-    expect(renderPill('thread_pill_test').innerHTML).toBe('');
+    const el = renderPill('thread_pill_test');
+    expect(el.textContent).toContain('首选猫');
   });
 
   it('shows persona color dot matching the cat', () => {
@@ -117,8 +120,9 @@ describe('ThreadCatPill (F154 Phase B)', () => {
     expect(dot?.getAttribute('style')).toContain('background-color:#FFAB91');
   });
 
-  it('renders nothing for unknown threadId', () => {
-    expect(renderPill('thread_nonexistent').innerHTML).toBe('');
+  it('renders ghost pill for unknown threadId', () => {
+    const el = renderPill('thread_nonexistent');
+    expect(el.textContent).toContain('首选猫');
   });
 
   it('shows chevron indicating expandable', () => {
