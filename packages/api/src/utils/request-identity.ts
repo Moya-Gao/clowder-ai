@@ -1,12 +1,11 @@
 /**
  * Unified request identity resolver.
  *
- * Priority (F156 D-1): session cookie > X-Cat-Cafe-User header > body fallback > defaultUserId
+ * Browser path (Origin header present): session cookie only.
+ * Non-browser path (no Origin): session cookie > X-Cat-Cafe-User header > fallback.
  *
- * The userId query param path is removed to prevent identity self-reporting via
- * URL. Session cookies are HttpOnly and server-issued, making them resistant to
- * CSWSH and XSS. Body fallback is retained for legacy compatibility (POST body
- * requires same-origin, unlike query params).
+ * This prevents cross-origin pages from exploiting the X-Cat-Cafe-User header
+ * or default-user fallback, even when CORS_ALLOW_PRIVATE_NETWORK is enabled.
  */
 
 import type { FastifyRequest } from 'fastify';
@@ -24,15 +23,10 @@ function nonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/**
- * Trusted request identity source — session cookie first, header fallback.
- *
- * F156 D-1: session cookie (HttpOnly, server-issued) is the primary source.
- * Header is retained as opt-in for non-browser callers (scripts, MCP tools).
- */
 export function resolveHeaderUserId(request: FastifyRequest): string | null {
   const fromSession = nonEmptyString((request as FastifyRequest & { sessionUserId?: string }).sessionUserId);
   if (fromSession) return fromSession;
+  if (request.headers.origin) return null;
   return nonEmptyString(request.headers['x-cat-cafe-user']);
 }
 
@@ -44,7 +38,8 @@ export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOp
   const fromHeader = resolveHeaderUserId(request);
   if (fromHeader) return fromHeader;
 
-  // Legacy body field fallback (requires same-origin POST, not an attack vector)
+  if (request.headers.origin) return null;
+
   const fromFallback = nonEmptyString(options?.fallbackUserId);
   if (fromFallback) return fromFallback;
 
