@@ -55,6 +55,8 @@ export interface ThreadsRoutesOptions {
   readStateStore?: IThreadReadStateStore;
   /** F095 Phase C: validate backlogItemId on thread creation */
   backlogStore?: IBacklogStore;
+  /** B-4: Cascade delete guide session when thread is deleted */
+  guideSessionStore?: import('../domains/guides/GuideSessionRepository.js').IGuideSessionStore;
 }
 
 /** F087: Bootcamp state Zod schema */
@@ -500,6 +502,9 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
         reply.status(400);
         return { error: 'Cannot delete this thread' };
       }
+
+      // B-4: Cascade delete guide session to prevent stale sessions on deleted threads
+      void opts.guideSessionStore?.delete(id).catch(() => {});
 
       // I-2: Audit thread deletion for traceability (best-effort, don't block response)
       const userId = resolveUserId(request, {});

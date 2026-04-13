@@ -226,3 +226,43 @@ describe('Explicit trigger detection', async () => {
     assert.equal(stripExplicitPrefix('/guide 添加成员'), '添加成员');
   });
 });
+
+describe('Explicit trigger end-to-end: /guide resolves by ID', async () => {
+  const { prepareGuideContext } = await import('../dist/domains/guides/GuideRoutingInterceptor.js');
+
+  test('/guide add-member resolves via direct ID lookup (not keyword match)', async () => {
+    const ctx = await prepareGuideContext({
+      thread: null,
+      targetCats: ['opus'],
+      message: '/guide add-member',
+      userId: 'test-user',
+      threadId: 'test-thread',
+    });
+    assert.ok(ctx.candidate, 'should resolve candidate from /guide add-member');
+    assert.equal(ctx.candidate.id, 'add-member');
+    assert.equal(ctx.candidate.isNewOffer, true);
+  });
+
+  test('/guide 添加成员 resolves via keyword match', async () => {
+    const ctx = await prepareGuideContext({
+      thread: null,
+      targetCats: ['opus'],
+      message: '/guide 添加成员',
+      userId: 'test-user',
+      threadId: 'test-thread',
+    });
+    assert.ok(ctx.candidate, 'should resolve candidate from /guide 添加成员');
+    assert.equal(ctx.candidate.id, 'add-member');
+  });
+
+  test('bare /guide does not crash or match', async () => {
+    const ctx = await prepareGuideContext({
+      thread: null,
+      targetCats: ['opus'],
+      message: '/guide',
+      userId: 'test-user',
+      threadId: 'test-thread',
+    });
+    assert.equal(ctx.candidate, undefined);
+  });
+});

@@ -171,14 +171,35 @@ async function matchNewCandidate(
   dismissTracker?: import('./GuideDismissTracker.js').IGuideDismissTracker,
 ): Promise<void> {
   try {
-    const { resolveGuideForIntent, getTriggerStrategies } = await import('./guide-registry-loader.js');
+    const { resolveGuideForIntent, getTriggerStrategies, getRegistryEntries } = await import(
+      './guide-registry-loader.js'
+    );
     const { evaluateGuideOffer } = await import('./GuideOfferPolicy.js');
 
     const isExplicit = isExplicitGuideRequest(message);
     const intent = isExplicit ? stripExplicitPrefix(message) : message;
     if (!intent) return;
 
-    const matches = resolveGuideForIntent(intent);
+    // B-6: Explicit triggers try direct ID/name match first, then keyword fallback
+    let matches = resolveGuideForIntent(intent);
+    if (matches.length === 0 && isExplicit) {
+      const normalized = intent.toLowerCase().replace(/[-_]/g, ' ').trim();
+      const entry = getRegistryEntries().find(
+        (e) => e.id.toLowerCase() === intent.toLowerCase() || e.name.toLowerCase() === normalized,
+      );
+      if (entry) {
+        matches = [
+          {
+            id: entry.id,
+            name: entry.name,
+            description: entry.description,
+            estimatedTime: entry.estimated_time,
+            score: entry.keywords.length,
+            totalKeywords: entry.keywords.length,
+          },
+        ];
+      }
+    }
     if (matches.length === 0) return;
 
     // B-6: Fetch dismiss counts + trigger strategies, apply policy

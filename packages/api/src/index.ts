@@ -1331,6 +1331,7 @@ async function main(): Promise<void> {
     taskProgressStore,
     backlogStore,
     ...(readStateStore ? { readStateStore } : {}),
+    ...(guideSessionStore ? { guideSessionStore } : {}),
   });
   await app.register(threadBranchRoutes, {
     threadStore,
