@@ -117,14 +117,17 @@ export class GuideActionService {
       return { ok: true, guideState: gs };
     }
 
+    const wasOfferStage = gs.status === 'offered' || gs.status === 'awaiting_choice';
     const updated = transitionToCancelled(gs);
     await this.guideStore.set(threadId, updated);
     this.socket.emitToUser(userId, 'guide_control', { action: 'exit', guideId, threadId, timestamp: Date.now() });
     guideTransitions.add(1, { 'operation.name': 'guide_cancel', status: 'success' });
     this.log.info({ guideId, threadId, userId }, '[F155] guide cancelled via frontend action');
 
-    // B-6: Track dismissal for re-offer suppression
-    this.dismissTracker?.incrementDismiss(userId, guideId).catch(() => {});
+    // B-6: Track dismissal only for offer-stage cancels (not active guide exits)
+    if (wasOfferStage) {
+      this.dismissTracker?.incrementDismiss(userId, guideId).catch(() => {});
+    }
 
     return { ok: true, guideState: updated };
   }
