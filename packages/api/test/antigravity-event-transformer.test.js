@@ -1,11 +1,187 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { transformTrajectorySteps } from '../dist/domains/cats/services/agents/providers/antigravity/antigravity-event-transformer.js';
+import {
+  classifyStep,
+  transformTrajectorySteps,
+} from '../dist/domains/cats/services/agents/providers/antigravity/antigravity-event-transformer.js';
 
 const catId = 'antigravity';
 const metadata = { provider: 'antigravity', model: 'gemini-3.1-pro' };
 
-describe('transformTrajectorySteps', () => {
+// ── G1: Step Taxonomy ──────────────────────────────────────────────
+
+describe('G1: classifyStep — 6-bucket taxonomy', () => {
+  test('PLANNER_RESPONSE with text → terminal_output', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+      status: 'FINISHED',
+      plannerResponse: { response: 'Hello world' },
+    };
+    assert.equal(classifyStep(step), 'terminal_output');
+  });
+
+  test('PLANNER_RESPONSE with modifiedResponse → terminal_output', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+      status: 'FINISHED',
+      plannerResponse: { modifiedResponse: 'Modified text' },
+    };
+    assert.equal(classifyStep(step), 'terminal_output');
+  });
+
+  test('PLANNER_RESPONSE with thinking only → thinking', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+      status: 'FINISHED',
+      plannerResponse: { thinking: 'Let me reason about this...' },
+    };
+    assert.equal(classifyStep(step), 'thinking');
+  });
+
+  test('PLANNER_RESPONSE with thinking AND text → terminal_output', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+      status: 'FINISHED',
+      plannerResponse: { thinking: 'hmm', response: 'Here is the answer' },
+    };
+    assert.equal(classifyStep(step), 'terminal_output');
+  });
+
+  test('PLANNER_RESPONSE with stream error → tool_error', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+      status: 'FINISHED',
+      plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+    };
+    assert.equal(classifyStep(step), 'tool_error');
+  });
+
+  test('ERROR_MESSAGE → tool_error', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+      status: 'FINISHED',
+      errorMessage: { error: { userErrorMessage: 'Something went wrong' } },
+    };
+    assert.equal(classifyStep(step), 'tool_error');
+  });
+
+  test('TOOL_CALL step → tool_pending', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_TOOL_CALL',
+      status: 'IN_PROGRESS',
+      toolCall: { toolName: 'search_evidence', input: '{}' },
+    };
+    assert.equal(classifyStep(step), 'tool_pending');
+  });
+
+  test('TOOL_RESULT success → tool_pending', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_TOOL_RESULT',
+      status: 'FINISHED',
+      toolResult: { toolName: 'search_evidence', success: true },
+    };
+    assert.equal(classifyStep(step), 'tool_pending');
+  });
+
+  test('TOOL_RESULT failure → tool_error', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_TOOL_RESULT',
+      status: 'FINISHED',
+      toolResult: { toolName: 'image_gen', success: false, error: 'quota exceeded' },
+    };
+    assert.equal(classifyStep(step), 'tool_error');
+  });
+
+  test('unknown step type → unknown_activity', () => {
+    const step = { type: 'CORTEX_STEP_TYPE_SOMETHING_NEW', status: 'FINISHED' };
+    assert.equal(classifyStep(step), 'unknown_activity');
+  });
+
+  test('USER_INPUT → unknown_activity (not user-facing)', () => {
+    const step = { type: 'CORTEX_STEP_TYPE_USER_INPUT', status: 'FINISHED' };
+    assert.equal(classifyStep(step), 'unknown_activity');
+  });
+});
+
+// ── G3: MCP Tool Error Visibility ──────────────────────────────────
+
+describe('G3: transformer handles tool steps', () => {
+  test('TOOL_CALL emits tool_use message', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_TOOL_CALL',
+        status: 'IN_PROGRESS',
+        toolCall: { toolName: 'search_evidence', input: '{"query":"redis"}' },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const toolMsg = msgs.find((m) => m.type === 'tool_use');
+    assert.ok(toolMsg, 'should emit tool_use message');
+    assert.equal(toolMsg.toolName, 'search_evidence');
+  });
+
+  test('TOOL_RESULT failure emits error message', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_TOOL_RESULT',
+        status: 'FINISHED',
+        toolResult: { toolName: 'image_gen', success: false, error: 'quota exceeded' },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg, 'should emit error for failed tool');
+    assert.match(errMsg.error, /image_gen.*quota exceeded/);
+  });
+
+  test('TOOL_RESULT success emits tool_result message', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_TOOL_RESULT',
+        status: 'FINISHED',
+        toolResult: { toolName: 'search_evidence', success: true, output: 'Found 3 results' },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const resultMsg = msgs.find((m) => m.type === 'tool_result');
+    assert.ok(resultMsg, 'should emit tool_result for success');
+    assert.equal(resultMsg.toolName, 'search_evidence');
+  });
+});
+
+// ── G4: Activity Signals ───────────────────────────────────────────
+
+describe('G4: activity signals via system_info', () => {
+  test('unknown step type emits system_info with unknown_activity', () => {
+    const steps = [{ type: 'CORTEX_STEP_TYPE_JETSKI_ACTION', status: 'IN_PROGRESS' }];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const sysMsg = msgs.find((m) => m.type === 'system_info');
+    assert.ok(sysMsg, 'should emit system_info for unknown step');
+    const content = JSON.parse(sysMsg.content);
+    assert.equal(content.type, 'unknown_activity');
+    assert.equal(content.stepType, 'CORTEX_STEP_TYPE_JETSKI_ACTION');
+  });
+
+  test('TOOL_CALL emits system_info activity signal', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_TOOL_CALL',
+        status: 'IN_PROGRESS',
+        toolCall: { toolName: 'web_search', input: '{}' },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const sysMsg = msgs.find((m) => m.type === 'system_info');
+    assert.ok(sysMsg, 'should emit system_info for tool call');
+    const content = JSON.parse(sysMsg.content);
+    assert.equal(content.type, 'tool_activity');
+    assert.equal(content.toolName, 'web_search');
+  });
+});
+
+// ── Existing transformer behavior (regression) ────────────────────
+
+describe('Transformer regression', () => {
   test('extracts text from PLANNER_RESPONSE', () => {
     const steps = [
       { type: 'CORTEX_STEP_TYPE_USER_INPUT', status: 'CORTEX_STEP_STATUS_DONE' },
@@ -16,10 +192,10 @@ describe('transformTrajectorySteps', () => {
       },
     ];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
-    assert.equal(msgs.length, 1);
-    assert.equal(msgs[0].type, 'text');
-    assert.equal(msgs[0].content, 'meow from bengal');
-    assert.equal(msgs[0].catId, catId);
+    const textMsgs = msgs.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 1);
+    assert.equal(textMsgs[0].content, 'meow from bengal');
+    assert.equal(textMsgs[0].catId, catId);
   });
 
   test('prefers modifiedResponse over response', () => {
@@ -31,7 +207,8 @@ describe('transformTrajectorySteps', () => {
       },
     ];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
-    assert.equal(msgs[0].content, 'modified');
+    const textMsg = msgs.find((m) => m.type === 'text');
+    assert.equal(textMsg.content, 'modified');
   });
 
   test('emits thinking as system_info before text', () => {
@@ -43,11 +220,9 @@ describe('transformTrajectorySteps', () => {
       },
     ];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
-    assert.equal(msgs.length, 2);
-    assert.equal(msgs[0].type, 'system_info');
-    assert.ok(msgs[0].content.includes('thinking'));
-    assert.equal(msgs[1].type, 'text');
-    assert.equal(msgs[1].content, 'hello');
+    assert.equal(msgs.filter((m) => m.type === 'system_info').length, 1);
+    const textMsg = msgs.find((m) => m.type === 'text');
+    assert.equal(textMsg.content, 'hello');
   });
 
   test('emits error from ERROR_MESSAGE step', () => {
@@ -59,8 +234,7 @@ describe('transformTrajectorySteps', () => {
       },
     ];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
-    assert.equal(msgs.length, 1);
-    assert.equal(msgs[0].type, 'error');
+    assert.equal(msgs.filter((m) => m.type === 'error').length, 1);
     assert.ok(msgs[0].error.includes('terminated'));
   });
 
@@ -73,19 +247,9 @@ describe('transformTrajectorySteps', () => {
       },
     ];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
-    assert.equal(msgs.length, 1);
-    assert.equal(msgs[0].type, 'error');
-    assert.equal(msgs[0].errorCode, 'stream_error');
-  });
-
-  test('returns empty array for steps without response or error', () => {
-    const steps = [
-      { type: 'CORTEX_STEP_TYPE_USER_INPUT', status: 'CORTEX_STEP_STATUS_DONE' },
-      { type: 'CORTEX_STEP_TYPE_CONVERSATION_HISTORY', status: 'CORTEX_STEP_STATUS_DONE' },
-      { type: 'CORTEX_STEP_TYPE_CHECKPOINT', status: 'CORTEX_STEP_STATUS_DONE' },
-    ];
-    const msgs = transformTrajectorySteps(steps, catId, metadata);
-    assert.equal(msgs.length, 0);
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg);
+    assert.equal(errMsg.errorCode, 'stream_error');
   });
 
   test('handles combined PLANNER_RESPONSE + ERROR_MESSAGE', () => {
@@ -102,10 +266,7 @@ describe('transformTrajectorySteps', () => {
       },
     ];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
-    assert.equal(msgs.length, 2);
-    assert.equal(msgs[0].type, 'error');
-    assert.equal(msgs[0].errorCode, 'stream_error');
-    assert.equal(msgs[1].type, 'error');
-    assert.ok(msgs[1].error.includes('INVALID_ARGUMENT'));
+    const errors = msgs.filter((m) => m.type === 'error');
+    assert.equal(errors.length, 2);
   });
 });

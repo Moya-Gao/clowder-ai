@@ -1,25 +1,13 @@
-/**
- * AntigravityBridge — ConnectRPC wrapper for Antigravity Language Server.
- *
- * Encapsulates all gRPC/HTTP communication, session mapping, and port discovery.
- * Designed to isolate ConnectRPC risk: if Antigravity changes wire format,
- * only this module breaks.
- *
- * Protocol: POST https://127.0.0.1:{port}/exa.language_server_pb.LanguageServerService/{Method}
- * Auth: x-codeium-csrf-token header
- */
-
-import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import { dirname, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
+import { discoverAntigravityLS } from './antigravity-ls-discovery.js';
 
 const log = createModuleLogger('antigravity-bridge');
 
-/** Model name → Language Server model enum (from GetUserStatus.cascadeModelConfigData) */
-const MODEL_ID_MAP: Record<string, string> = {
+const HARDCODED_MODEL_MAP: Record<string, string> = {
   'gemini-3.1-pro': 'MODEL_PLACEHOLDER_M37',
   'gemini-3-flash': 'MODEL_PLACEHOLDER_M47',
   'claude-opus-4-6': 'MODEL_PLACEHOLDER_M26',
@@ -45,12 +33,26 @@ export interface TrajectoryStep {
     error?: { userErrorMessage?: string; modelErrorMessage?: string };
   };
   userInput?: { items?: Array<{ text?: string }> };
+  toolCall?: { toolName?: string; input?: string };
+  toolResult?: { toolName?: string; success?: boolean; output?: string; error?: string };
 }
 
 export interface CascadeTrajectory {
   status: string;
   numTotalSteps: number;
   trajectory?: { steps: TrajectoryStep[] };
+}
+
+export interface DeliveryCursor {
+  baselineStepCount: number;
+  lastDeliveredStepCount: number;
+  terminalSeen: boolean;
+  lastActivityAt: number;
+}
+
+export interface StepBatch {
+  steps: TrajectoryStep[];
+  cursor: DeliveryCursor;
 }
 
 export interface BridgeOptions {
@@ -61,11 +63,12 @@ const DEFAULT_SESSION_STORE = join(process.cwd(), 'data', 'antigravity-sessions.
 
 export class AntigravityBridge {
   private conn: BridgeConnection | null = null;
-  /** threadId → cascadeId (file-backed for persistence across restarts) */
   private sessionMap = new Map<string, string>();
   private deletedKeys = new Set<string>();
   private sessionMapLoaded = false;
   private readonly sessionStorePath: string;
+  private modelMap: Record<string, string> = { ...HARDCODED_MODEL_MAP };
+  private modelMapRefreshed = false;
 
   constructor(
     private readonly connection?: Partial<BridgeConnection>,
@@ -82,12 +85,15 @@ export class AntigravityBridge {
         csrfToken: this.connection.csrfToken,
         useTls: this.connection.useTls ?? true,
       };
-      return this.conn;
+    } else {
+      this.conn = await this.discoverFromProcess();
     }
-    this.conn = await this.discoverFromProcess();
+    if (!this.modelMapRefreshed) {
+      this.modelMapRefreshed = true;
+      await this.refreshModelMap();
+    }
     return this.conn;
   }
-
   async startCascade(): Promise<string> {
     const conn = await this.ensureConnected();
     const resp = await this.rpc<{ cascadeId?: string }>(conn, 'StartCascade', { source: 0 });
@@ -95,13 +101,11 @@ export class AntigravityBridge {
     log.debug(`cascade created: ${resp.cascadeId}`);
     return resp.cascadeId;
   }
-
-  /** Send message and return the step count before sending (for poll baseline). */
   async sendMessage(cascadeId: string, text: string, modelName?: string): Promise<number> {
     const conn = await this.ensureConnected();
     const traj = await this.getTrajectory(cascadeId);
     const stepsBefore = traj.numTotalSteps ?? 0;
-    const modelId = modelName ? MODEL_ID_MAP[modelName] : undefined;
+    const modelId = modelName ? this.modelMap[modelName] : undefined;
     const payload: Record<string, unknown> = {
       cascadeId,
       items: [{ text }],
@@ -115,7 +119,6 @@ export class AntigravityBridge {
     await this.rpc(conn, 'SendUserCascadeMessage', payload);
     return stepsBefore;
   }
-
   async getTrajectorySteps(cascadeId: string): Promise<TrajectoryStep[]> {
     const conn = await this.ensureConnected();
     const resp = await this.rpc<{ steps?: TrajectoryStep[] }>(conn, 'GetCascadeTrajectorySteps', { cascadeId });
@@ -127,52 +130,82 @@ export class AntigravityBridge {
     return this.rpc<CascadeTrajectory>(conn, 'GetCascadeTrajectory', { cascadeId });
   }
 
-  /**
-   * Poll until cascade completes, with activity-based timeout (F149 pattern).
-   * Each new step resets the idle deadline — only times out on genuine stall.
-   */
-  async pollForResponse(
+  async *pollForSteps(
     cascadeId: string,
     stepsBefore = 0,
     idleTimeoutMs = 60_000,
     pollIntervalMs = 2_000,
-  ): Promise<TrajectoryStep[]> {
-    let lastSeenSteps = stepsBefore;
+    signal?: AbortSignal,
+  ): AsyncGenerator<StepBatch> {
+    let delivered = stepsBefore;
     let lastActivityAt = Date.now();
+    let rpcRetries = 0;
+    const maxRpcRetries = 3;
 
     while (true) {
-      const traj = await this.getTrajectory(cascadeId);
+      if (signal?.aborted) throw new Error('Aborted');
+
+      let traj: CascadeTrajectory;
+      try {
+        traj = await this.getTrajectory(cascadeId);
+        rpcRetries = 0;
+      } catch (err) {
+        rpcRetries++;
+        if (rpcRetries > maxRpcRetries) throw err;
+        log.warn(`poll RPC error (retry ${rpcRetries}/${maxRpcRetries}): ${err}`);
+        this.invalidateConnection();
+        await new Promise((r) => setTimeout(r, pollIntervalMs * rpcRetries));
+        continue;
+      }
       const currentSteps = traj.numTotalSteps ?? 0;
+      const isTerminal = traj.status === 'CASCADE_RUN_STATUS_IDLE';
 
-      if (currentSteps > lastSeenSteps) {
-        lastSeenSteps = currentSteps;
+      if (currentSteps > delivered) {
         lastActivityAt = Date.now();
-        log.debug(`cascade activity: ${currentSteps} steps (status=${traj.status})`);
-      }
-
-      if (traj.status === 'CASCADE_RUN_STATUS_IDLE' && currentSteps > stepsBefore) {
         const allSteps = traj.trajectory?.steps ?? (await this.getTrajectorySteps(cascadeId));
-        return allSteps.slice(stepsBefore);
-      }
-
-      const idleMs = Date.now() - lastActivityAt;
-      if (idleMs > idleTimeoutMs) {
-        throw new Error(
-          `Antigravity stall: no activity for ${idleMs}ms (steps=${currentSteps}, status=${traj.status})`,
-        );
+        const newSteps = allSteps.slice(delivered, currentSteps);
+        delivered = currentSteps;
+        log.debug(`cascade delivery: ${newSteps.length} new steps (total=${currentSteps}, terminal=${isTerminal})`);
+        yield {
+          steps: newSteps,
+          cursor: {
+            baselineStepCount: stepsBefore,
+            lastDeliveredStepCount: delivered,
+            terminalSeen: isTerminal,
+            lastActivityAt,
+          },
+        };
+        if (isTerminal) return;
+      } else {
+        const idleMs = Date.now() - lastActivityAt;
+        if (isTerminal && (delivered > stepsBefore || idleMs > idleTimeoutMs)) {
+          yield {
+            steps: [],
+            cursor: {
+              baselineStepCount: stepsBefore,
+              lastDeliveredStepCount: delivered,
+              terminalSeen: true,
+              lastActivityAt,
+            },
+          };
+          return;
+        }
+        if (idleMs > idleTimeoutMs) {
+          throw new Error(
+            `Antigravity stall: no activity for ${idleMs}ms (steps=${currentSteps}, status=${traj.status})`,
+          );
+        }
       }
 
       await new Promise((r) => setTimeout(r, pollIntervalMs));
     }
   }
 
-  /** Get or create a cascade session bound to a thread+cat pair (file-backed, G0). */
   async getOrCreateSession(threadId: string, catId?: string): Promise<string> {
     this.loadSessionMap();
 
     const key = catId ? `${threadId}:${catId}` : threadId;
     const candidates = [this.sessionMap.get(key)];
-    // Legacy fallback: pre-catId entries stored under threadId only
     if (catId && !candidates[0]) candidates.push(this.sessionMap.get(threadId));
 
     for (const cascadeId of candidates) {
@@ -180,7 +213,6 @@ export class AntigravityBridge {
       try {
         await this.getTrajectory(cascadeId);
         if (this.sessionMap.get(key) !== cascadeId) {
-          // Migrate legacy key to new format and delete old to prevent cross-cat leak
           this.sessionMap.set(key, cascadeId);
           this.sessionMap.delete(threadId);
           this.deletedKeys.add(threadId);
@@ -202,11 +234,28 @@ export class AntigravityBridge {
   }
 
   resolveModelId(modelName: string): string | undefined {
-    return MODEL_ID_MAP[modelName];
+    return this.modelMap[modelName];
   }
-
-  // ── Private ──────────────────────────────────────────────────────
-
+  async refreshModelMap(): Promise<void> {
+    try {
+      const conn = await this.ensureConnected();
+      const resp = await this.rpc<{ cascadeModelConfigData?: { modelId?: string; displayName?: string }[] }>(
+        conn,
+        'GetUserStatus',
+        {},
+      );
+      const configs = resp.cascadeModelConfigData ?? [];
+      for (const c of configs) {
+        if (c.displayName && c.modelId) this.modelMap[c.displayName] = c.modelId;
+      }
+      if (configs.length) log.info(`model map refreshed: ${configs.length} entries from GetUserStatus`);
+    } catch (err) {
+      log.warn(`failed to refresh model map, using hardcoded fallback: ${err}`);
+    }
+  }
+  invalidateConnection(): void {
+    this.conn = null;
+  }
   private loadSessionMap(): void {
     if (this.sessionMapLoaded) return;
     this.sessionMapLoaded = true;
@@ -227,14 +276,13 @@ export class AntigravityBridge {
     try {
       const dir = dirname(this.sessionStorePath);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-      // Read-merge-write: preserve entries from other bridge instances
       let existing: Record<string, string> = {};
       try {
         if (existsSync(this.sessionStorePath)) {
           existing = JSON.parse(readFileSync(this.sessionStorePath, 'utf8')) as Record<string, string>;
         }
       } catch {
-        /* start fresh if corrupt */
+        /* corrupt — start fresh */
       }
       const merged = { ...existing, ...Object.fromEntries(this.sessionMap) };
       for (const key of this.deletedKeys) delete merged[key];
@@ -291,59 +339,7 @@ export class AntigravityBridge {
     });
   }
 
-  private async discoverFromProcess(): Promise<BridgeConnection> {
-    // Allow env var override
-    const envPort = process.env['ANTIGRAVITY_PORT'];
-    const envCsrf = process.env['ANTIGRAVITY_CSRF_TOKEN'];
-    if (envPort && envCsrf) {
-      const useTls = process.env['ANTIGRAVITY_TLS'] !== 'false';
-      log.info(`using env config: port=${envPort}, tls=${useTls}`);
-      return { port: Number(envPort), csrfToken: envCsrf, useTls };
-    }
-
-    // Auto-discover from running Language Server process
-    const psOutput = execSync('ps -eo pid,args 2>/dev/null | grep language_server | grep csrf_token | grep -v grep', {
-      encoding: 'utf8',
-      timeout: 5000,
-    }).trim();
-
-    if (!psOutput) throw new Error('No Antigravity Language Server process found');
-
-    const lines = psOutput.split('\n');
-    for (const line of lines) {
-      const csrfMatch = line.match(/--csrf_token\s+(\S+)/);
-      const extPortMatch = line.match(/--extension_server_port\s+(\d+)/);
-      const pidMatch = line.match(/^\s*(\d+)/);
-      if (!csrfMatch || !pidMatch) continue;
-
-      const csrf = csrfMatch[1];
-      const pid = pidMatch[1];
-      const extPort = extPortMatch ? Number(extPortMatch[1]) : 0;
-
-      // Find ConnectRPC port via lsof (excluding extension_server_port)
-      const lsofOutput = execSync(`lsof -a -iTCP -sTCP:LISTEN -P -n -p ${pid} 2>/dev/null | grep LISTEN`, {
-        encoding: 'utf8',
-        timeout: 5000,
-      }).trim();
-
-      for (const lsofLine of lsofOutput.split('\n')) {
-        const portMatch = lsofLine.match(/:(\d+)\s/);
-        if (!portMatch) continue;
-        const port = Number(portMatch[1]);
-        if (port === extPort) continue;
-
-        // Probe with GetUserStatus
-        for (const useTls of [true, false]) {
-          try {
-            await this.rpc({ port, csrfToken: csrf, useTls }, 'GetUserStatus', {});
-            log.info(`discovered LS: port=${port}, tls=${useTls}, pid=${pid}`);
-            return { port, csrfToken: csrf, useTls };
-          } catch {
-            /* try next */
-          }
-        }
-      }
-    }
-    throw new Error('Could not discover Antigravity Language Server ConnectRPC port');
+  private discoverFromProcess(): Promise<BridgeConnection> {
+    return discoverAntigravityLS();
   }
 }

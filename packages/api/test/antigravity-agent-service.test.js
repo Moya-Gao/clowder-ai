@@ -26,11 +26,21 @@ function createMockBridge({
     sendMessage: mock.fn(async () => 0),
     getTrajectorySteps: mock.fn(async () => steps),
     getTrajectory: mock.fn(async () => ({ status: 'CASCADE_RUN_STATUS_IDLE', numTotalSteps: steps.length })),
-    pollForResponse: pollError
-      ? mock.fn(async () => {
+    pollForSteps: pollError
+      ? mock.fn(async function* () {
           throw new Error(pollError);
         })
-      : mock.fn(async () => steps),
+      : mock.fn(async function* () {
+          yield {
+            steps,
+            cursor: {
+              baselineStepCount: 0,
+              lastDeliveredStepCount: steps.length,
+              terminalSeen: true,
+              lastActivityAt: Date.now(),
+            },
+          };
+        }),
     getOrCreateSession: mock.fn(async () => cascadeId),
     resolveModelId: mock.fn(
       (name) => ({ 'gemini-3.1-pro': 'MODEL_PLACEHOLDER_M37', 'claude-opus-4-6': 'MODEL_PLACEHOLDER_M26' })[name],
@@ -54,7 +64,7 @@ describe('AntigravityAgentService (Bridge)', () => {
 
     assert.equal(bridge.getOrCreateSession.mock.callCount(), 1);
     assert.equal(bridge.sendMessage.mock.callCount(), 1);
-    assert.equal(bridge.pollForResponse.mock.callCount(), 1);
+    assert.equal(bridge.pollForSteps.mock.callCount(), 1);
 
     // Message sequence: session_init → text → done
     assert.equal(messages.length, 3);

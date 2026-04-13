@@ -82,15 +82,24 @@ export class AntigravityAgentService implements AgentService {
         return;
       }
 
-      // Poll for new steps only
-      const steps = await this.bridge.pollForResponse(cascadeId, stepsBefore, this.pollTimeoutMs);
-      const messages = transformTrajectorySteps(steps, this.catId, metadata);
-
-      for (const msg of messages) {
-        yield msg;
+      let hasText = false;
+      for await (const batch of this.bridge.pollForSteps(
+        cascadeId,
+        stepsBefore,
+        this.pollTimeoutMs,
+        2_000,
+        options?.signal,
+      )) {
+        if (batch.steps.length > 0) {
+          const messages = transformTrajectorySteps(batch.steps, this.catId, metadata);
+          for (const msg of messages) {
+            if (msg.type === 'text') hasText = true;
+            yield msg;
+          }
+        }
       }
 
-      if (!messages.some((m) => m.type === 'text')) {
+      if (!hasText) {
         yield {
           type: 'error',
           catId: this.catId,
