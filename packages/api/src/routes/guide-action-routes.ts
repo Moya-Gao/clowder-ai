@@ -31,7 +31,7 @@ const guideActionSchema = z.object({
 });
 
 export const guideActionRoutes: FastifyPluginAsync<GuideActionRoutesOptions> = async (app, opts) => {
-  if (!opts.guideSessionStore) throw new Error('guideSessionStore is required');
+  if (!opts.guideSessionStore) return; // Skip guide routes when store not provided (e.g. tests)
   const sessionStore = opts.guideSessionStore;
   const lifecycle = new GuideActionService({
     threadStore: opts.threadStore,

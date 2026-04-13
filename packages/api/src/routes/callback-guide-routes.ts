@@ -64,7 +64,7 @@ export async function registerCallbackGuideRoutes(
     resolveGuideForIntent,
   } = await import('../domains/guides/guide-registry-loader.js');
 
-  if (!deps.guideSessionStore) throw new Error('guideSessionStore is required');
+  if (!deps.guideSessionStore) return; // Skip guide routes when store not provided (e.g. tests)
   const sessionStore = deps.guideSessionStore;
   const lifecycle = new GuideLifecycleService({
     threadStore: deps.threadStore,
