@@ -351,15 +351,18 @@ async function main(): Promise<void> {
   const sessionStore = redis ? new SessionStore(redis) : undefined;
   const deliveryCursorStore = new DeliveryCursorStore(sessionStore);
   const threadStore = createThreadStore(redis);
-  // F155 B-4: Independent guide session store
-  let guideSessionStore: import('./domains/guides/GuideSessionRepository.js').IGuideSessionStore | undefined;
+  // F155 B-4: Independent guide session store (Redis or in-memory)
+  let guideSessionStore: import('./domains/guides/GuideSessionRepository.js').IGuideSessionStore;
   // F155 B-6: Dismiss tracker for guide offer suppression
   let dismissTracker: import('./domains/guides/GuideDismissTracker.js').IGuideDismissTracker | undefined;
-  if (redis && threadStore) {
+  if (redis) {
     const { RedisGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
     guideSessionStore = new RedisGuideSessionStore(redis);
     const { RedisGuideDismissTracker } = await import('./domains/guides/GuideDismissTracker.js');
     dismissTracker = new RedisGuideDismissTracker(redis);
+  } else {
+    const { InMemoryGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
+    guideSessionStore = new InMemoryGuideSessionStore();
   }
   const taskStore = createTaskStore(redis);
   if (redis) {
@@ -1070,7 +1073,7 @@ async function main(): Promise<void> {
     packStore,
     evidenceStore: memoryServices.evidenceStore,
     ...(toolUsageCounter ? { toolUsageCounter } : {}),
-    ...(guideSessionStore ? { guideSessionStore } : {}),
+    guideSessionStore,
     ...(dismissTracker ? { dismissTracker } : {}),
   });
 
@@ -1175,7 +1178,7 @@ async function main(): Promise<void> {
     await app.register(guideActionRoutes, {
       threadStore,
       socketManager,
-      ...(guideSessionStore ? { guideSessionStore } : {}),
+      guideSessionStore,
       ...(dismissTracker ? { dismissTracker } : {}),
     });
   }
@@ -1299,7 +1302,7 @@ async function main(): Promise<void> {
     reflectionService: memoryServices.reflectionService,
     limbRegistry,
     limbPairingStore,
-    ...(guideSessionStore ? { guideSessionStore } : {}),
+    guideSessionStore,
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
 
@@ -1331,7 +1334,7 @@ async function main(): Promise<void> {
     taskProgressStore,
     backlogStore,
     ...(readStateStore ? { readStateStore } : {}),
-    ...(guideSessionStore ? { guideSessionStore } : {}),
+    guideSessionStore,
   });
   await app.register(threadBranchRoutes, {
     threadStore,

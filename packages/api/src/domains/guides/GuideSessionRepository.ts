@@ -72,6 +72,26 @@ export class RedisGuideSessionStore implements IGuideSessionStore {
 }
 
 // ---------------------------------------------------------------------------
+// In-Memory Implementation (MEMORY_STORE=1 / no-Redis mode)
+// ---------------------------------------------------------------------------
+
+export class InMemoryGuideSessionStore implements IGuideSessionStore {
+  private readonly sessions = new Map<string, GuideSession>();
+
+  async getByThread(threadId: string): Promise<GuideSession | null> {
+    return this.sessions.get(threadId) ?? null;
+  }
+
+  async save(session: GuideSession): Promise<void> {
+    this.sessions.set(session.threadId, session);
+  }
+
+  async delete(threadId: string): Promise<void> {
+    this.sessions.delete(threadId);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Conversion helpers (service layer uses these to update sessions)
 // ---------------------------------------------------------------------------
 
