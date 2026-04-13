@@ -131,7 +131,7 @@ G9 LS 选择策略
 ### Phase 2: Bridge 演进 + 证据链 + 高级能力
 
 #### Phase 2a: Bridge 健壮性（架构 Gap 驱动）
-- [ ] AC-C1: v1 Step taxonomy — 4 类 trajectory 采样 → 6 桶分类框架（G1）
+- [ ] AC-C1: v1 Step taxonomy — 4 类 trajectory 采样 → 6 桶分类框架 + unknown_activity 观测闭环（记录、计数、可回放）（G1）
 - [ ] AC-C2: pollForResponse 改为 async generator，新 step 立即 yield（G2）
 - [ ] AC-C2b: DeliveryCursor 正式化 — baseline/delivered/terminal/lastActivity 四字段（G8a，与 G2 同波）
 - [ ] AC-C3: transformer 处理 MCP_TOOL 类 step，工具失败可见（G3）
@@ -140,10 +140,11 @@ G9 LS 选择策略
 - [ ] AC-C6: LS 断连后指数退避重连（G6）
 - [ ] AC-C7: poll 循环内检查 AbortSignal（G7）
 
-#### Phase 2b: 证据链 + 高级能力
+#### Phase 2b: 证据链 + 高级能力 + 长期演进
 - [ ] AC-8: Antigravity 截图/录屏可作为证据附件回传
 - [ ] AC-9: 多模型切换可通过 Cat Cafe 配置控制（由 AC-C5 动态发现支撑）
 - [ ] AC-10: 与现有三猫回归测试共跑通过
+- [ ] AC-C8: Durable TurnLedger — 跨重启持久化 turn 状态 + 补偿恢复 + 审计回放（G8b，G8a 稳定后）
 
 ---
 
