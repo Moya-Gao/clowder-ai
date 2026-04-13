@@ -48,7 +48,9 @@ export function createDeliverFn(deps: DeliveryDeps): (opts: DeliverOpts) => Prom
   };
 }
 
-export function createLifecycleToastFn(deps: Pick<DeliveryDeps, 'socketManager'>): (notice: ScheduleLifecycleNotice) => void {
+export function createLifecycleToastFn(
+  deps: Pick<DeliveryDeps, 'socketManager'>,
+): (notice: ScheduleLifecycleNotice) => void {
   return (notice: ScheduleLifecycleNotice): void => {
     deps.socketManager.emitToUser(notice.userId, 'connector_message', {
       threadId: notice.threadId,

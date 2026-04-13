@@ -256,10 +256,7 @@ describe('schedule-notify: notifyTaskSucceeded', () => {
     const { notifyTaskSucceeded } = await import('../../dist/infrastructure/scheduler/schedule-notify.js');
     const calls = [];
     const mockNotify = (opts) => calls.push(opts);
-    notifyTaskSucceeded(
-      mockNotify,
-      makeDef2({ templateId: 'web-digest', trigger: { type: 'interval', ms: 60000 } }),
-    );
+    notifyTaskSucceeded(mockNotify, makeDef2({ templateId: 'web-digest', trigger: { type: 'interval', ms: 60000 } }));
     assert.equal(calls.length, 1);
     assert.equal(calls[0].toast.title, '定时任务执行完成');
     assert.ok(calls[0].toast.message.includes('下次执行时间'));

@@ -63,14 +63,7 @@ export interface StoredMessage {
         title: string;
         message: string;
         duration: number;
-        lifecycleEvent:
-          | 'registered'
-          | 'paused'
-          | 'resumed'
-          | 'deleted'
-          | 'succeeded'
-          | 'failed'
-          | 'missed_window';
+        lifecycleEvent: 'registered' | 'paused' | 'resumed' | 'deleted' | 'succeeded' | 'failed' | 'missed_window';
       };
     };
   };

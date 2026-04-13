@@ -374,7 +374,8 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                     backgroundColor: '#FFFDF7',
                     borderColor: '#E9C56B',
                     boxShadow: 'inset 0 0 0 1px rgba(233, 197, 107, 0.95), 0 10px 24px rgba(233, 197, 107, 0.16)',
-                    backgroundImage: 'linear-gradient(180deg, rgba(255, 247, 214, 0.58) 0%, rgba(255, 247, 214, 0) 56%)',
+                    backgroundImage:
+                      'linear-gradient(180deg, rgba(255, 247, 214, 0.58) 0%, rgba(255, 247, 214, 0) 56%)',
                   }
                 : undefined
           }

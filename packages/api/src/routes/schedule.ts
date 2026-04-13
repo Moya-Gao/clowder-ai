@@ -81,8 +81,15 @@ function addSubjectKeyWithAliases(target: Set<string>, subjectKey: string): void
 }
 
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore, taskStore, notifyLifecycle } =
-    opts;
+  const {
+    taskRunner,
+    dynamicTaskStore,
+    templateRegistry,
+    globalControlStore,
+    packTemplateStore,
+    taskStore,
+    notifyLifecycle,
+  } = opts;
 
   // GET /api/schedule/tasks
   // #320: Optional ?threadId= filter — resolves thread's task subjectKeys for cross-match

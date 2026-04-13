@@ -7,7 +7,12 @@
 
 import { getNextCronMs } from './cron-utils.js';
 import type { DynamicTaskDef } from './DynamicTaskStore.js';
-import type { SchedulerLifecycleEvent, ScheduleLifecycleNotifier, SchedulerToastPayload, TriggerSpec } from './types.js';
+import type {
+  ScheduleLifecycleNotifier,
+  SchedulerLifecycleEvent,
+  SchedulerToastPayload,
+  TriggerSpec,
+} from './types.js';
 
 /** Compute epoch ms of next fire time for a trigger */
 export function computeNextFireTime(trigger: TriggerSpec): number | null {
