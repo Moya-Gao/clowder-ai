@@ -369,7 +369,7 @@
     {
       "id": "F061",
       "name": "Antigravity 接入 — 孟加拉猫（混血家族）",
-      "status": "phase-1-done | **Owner**: 布偶猫 Opus 4.6",
+      "status": "phase-2-bridge | **Owner**: 布偶猫 Opus 4.6",
       "file": "F061-antigravity-bengal-cat.md"
     },
     {
@@ -1003,5 +1003,5 @@
       "file": "F160-task-board-upgrade.md"
     }
   ],
-  "generated_at": "2026-04-12T15:00:55.870Z"
+  "generated_at": "2026-04-13T02:16:10.287Z"
 }

@@ -20,10 +20,7 @@ export function getThreadIdFromPathname(pathname: string): string {
   return match ? decodeURIComponent(match[1]) : 'default';
 }
 
-export function pushThreadRouteWithHistory(
-  threadId: string,
-  windowObj: ThreadNavigationWindow | undefined,
-): string {
+export function pushThreadRouteWithHistory(threadId: string, windowObj: ThreadNavigationWindow | undefined): string {
   const href = getThreadHref(threadId);
   if (!windowObj) return href;
   if (windowObj.location.pathname === href) return href;

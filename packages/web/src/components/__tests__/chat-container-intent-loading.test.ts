@@ -127,7 +127,9 @@ vi.mock('../ProjectSetupCard', () => ({ ProjectSetupCard: () => null }));
 vi.mock('../QueuePanel', () => ({ QueuePanel: () => null }));
 vi.mock('../RightStatusPanel', () => ({ RightStatusPanel: () => null }));
 vi.mock('../ScrollToBottomButton', () => ({ ScrollToBottomButton: () => null }));
-vi.mock('../SplitPaneView', () => ({ SplitPaneView: ({ children }: { children?: React.ReactNode }) => children ?? null }));
+vi.mock('../SplitPaneView', () => ({
+  SplitPaneView: ({ children }: { children?: React.ReactNode }) => children ?? null,
+}));
 vi.mock('../ThinkingIndicator', () => ({ ThinkingIndicator: () => null }));
 vi.mock('../ThreadExecutionBar', () => ({ ThreadExecutionBar: () => null }));
 vi.mock('../ThreadSidebar', () => ({ ThreadSidebar: () => null }));

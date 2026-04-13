@@ -32,7 +32,9 @@ function createMockBridge({
         })
       : mock.fn(async () => steps),
     getOrCreateSession: mock.fn(async () => cascadeId),
-    resolveModelId: mock.fn((name) => ({ 'gemini-3.1-pro': 'MODEL_PLACEHOLDER_M37', 'claude-opus-4-6': 'MODEL_PLACEHOLDER_M26' })[name]),
+    resolveModelId: mock.fn(
+      (name) => ({ 'gemini-3.1-pro': 'MODEL_PLACEHOLDER_M37', 'claude-opus-4-6': 'MODEL_PLACEHOLDER_M26' })[name],
+    ),
   };
 }
 

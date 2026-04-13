@@ -2,10 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { ChatContainer } from '@/components/ChatContainer';
-import {
-  CHAT_THREAD_ROUTE_EVENT,
-  getThreadIdFromPathname,
-} from '@/components/ThreadSidebar/thread-navigation';
+import { CHAT_THREAD_ROUTE_EVENT, getThreadIdFromPathname } from '@/components/ThreadSidebar/thread-navigation';
 
 function subscribeToThreadRoute(onStoreChange: () => void): () => void {
   if (typeof window === 'undefined') return () => {};

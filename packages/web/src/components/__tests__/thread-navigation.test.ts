@@ -18,7 +18,7 @@ function createFakeWindow(pathname: string): ThreadNavigationWindow & { dispatch
     },
     history: {
       pushState: (_data, _unused, url) => {
-        location.pathname = typeof url === 'string' ? url : url?.toString() ?? location.pathname;
+        location.pathname = typeof url === 'string' ? url : (url?.toString() ?? location.pathname);
       },
     },
     location,
@@ -26,7 +26,6 @@ function createFakeWindow(pathname: string): ThreadNavigationWindow & { dispatch
 }
 
 describe('thread navigation history bridge', () => {
-
   it('builds the expected href for default and regular threads', () => {
     expect(getThreadHref('default')).toBe('/');
     expect(getThreadHref('thread-123')).toBe('/thread/thread-123');
