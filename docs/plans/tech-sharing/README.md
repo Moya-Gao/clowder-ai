@@ -42,9 +42,9 @@ participants: [opus, gpt52, gemini]
 |----|---------|---------|
 | 宪宪 (Opus) | 技术主答 + 收敛 Lead | 架构、实现、系统设计、记忆机制 |
 | 砚砚 (GPT-5.4) | 风险 + 质量 | review 逻辑、安全、成本、踩坑预警 |
-| 金金 (opencode) | 生态 + 趋势 | 行业定位、用户视角、开源生态 |
+| 烁烁 (Gemini) | 体验 + 舞台表达 | UX、视觉、观众感知、表达张力 |
 
-> **Expert Panel 默认阵容**：宪宪 + 砚砚 + 金金（已实测验证）。烁烁 (Gemini) 备选——适合 Q&A 环节回答 UX/创意类问题，但 Expert Panel 如果 3 分钟内没响应就不等。
+> **本次 tech sharing 默认阵容**：宪宪 + 砚砚 + 烁烁。圆桌现场以三猫为主角，Landy 负责控场和追问；金金更适合行业生态/开源专场，不作为本场默认第三席。
 
 ### Landy 负责什么
 
@@ -70,7 +70,7 @@ participants: [opus, gpt52, gemini]
 | Expert Panel Demo 剧本 | `docs/plans/2026-03-31-office-showcase-demo-script.md` | 8分钟 Expert Panel 完整流程 |
 | Demo Thread Primer | `docs/plans/2026-03-31-showcase-thread-primer.md` | 演示 thread 预注入文档 |
 | 功能演示清单（早期） | `docs/lessons/DEMO.md` | 早期 27 个功能的演示视频/截图（**已过时**，仅覆盖 F001-F055） |
-| **Feature 总索引（最新）** | `docs/features/README.md` | 全量 Feature 索引（118+ 已完成），演讲用数字从这里取 |
+| **Feature 总索引（最新）** | `docs/features/README.md` | 全量 Feature 索引（当前 112 条已完成 + 4 条归档），演讲前再刷新一次 |
 | Blog V2 传播版 | `docs/stories/three-days-productization/blog-v2/` | 6 章完整技术叙事（会后发） |
 | "Show the Team" 策略 | `docs/discussions/career-planning/2026-04-09-interview-roadmap.md:135` | 90秒确定性 demo 剧本 |
 
@@ -80,10 +80,15 @@ Blog V2 数据冻结在 2026-03-27。正式演讲前需要刷新：
 
 ```bash
 # 获取最新数字
-git log --oneline | wc -l          # commits
-find . -name '*.md' -path '*/docs/*' | wc -l  # docs
-ls docs/features/F*.md | wc -l     # features
-cat docs/lessons-learned.md | grep '^## LL-' | wc -l  # lessons
+git rev-list --count HEAD
+python - <<'PY'
+import re, pathlib
+text = pathlib.Path("docs/features/README.md").read_text()
+completed = len(re.findall(r'^\| F\d+ \|', text.split("## 已搁置/已归档 Feature")[0], re.M))
+archived = len(re.findall(r'^\| F\d+ \|', text.split("## 已搁置/已归档 Feature")[1], re.M))
+lessons = len(re.findall(r'^### LL-', pathlib.Path("docs/lessons-learned.md").read_text(), re.M))
+print({"completed_features": completed, "archived_features": archived, "lessons": lessons})
+PY
 ```
 
 ## 应急预案（通用）
@@ -99,6 +104,6 @@ cat docs/lessons-learned.md | grep '^## LL-' | wc -l  # lessons
 
 ---
 
-*三猫共创：宪宪（收敛）+ 砚砚（流程 + Q&A 路由 + review）+ 烁烁（创意 + 视觉）+ 金金（Expert Panel 验证）| 2026-04-12*
+*三猫共创：宪宪（结构与收敛）+ 砚砚（事实校正 + 风险控制）+ 烁烁（舞台感与表达）| 2026-04-12*
 
 [宪宪/Opus-46🐾]

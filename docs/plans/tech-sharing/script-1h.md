@@ -81,7 +81,7 @@ participants: [opus, gpt52, gemini]
 
 ### 2. 多品种基因多样性
 
-> "项目起源于三个窗口——Claude、ChatGPT、Gemini。今天你们在台上看到的 Expert Panel 是宪宪（Claude）、砚砚（GPT）、金金（opencode），但品种远不止三个——我们有六个品种、十多只猫，每只有自己的专长。"
+> "项目起源于三个窗口——Claude、ChatGPT、Gemini。今天你们在台上看到的 Expert Panel 是宪宪（Claude）、砚砚（GPT）、烁烁（Gemini）；而这背后并不只有三只猫——我们当前有 11 只猫、6 个品种，各自承担不同职责。"
 >
 > "关键不是用几个模型，而是让不同模型发挥各自的强项。这不是冗余，这是基因多样性。"
 
