@@ -5,10 +5,9 @@
  * guide offer. The GuideOfferPolicy uses this count to suppress
  * re-offers after too many dismissals.
  *
- * Port interface + Redis implementation.
+ * Guide state is runtime-only — dismiss counts reset on restart.
+ * Port interface + in-memory implementation.
  */
-
-import type { RedisClient } from '@cat-cafe/shared/utils';
 
 // ---------------------------------------------------------------------------
 // Port
@@ -22,36 +21,27 @@ export interface IGuideDismissTracker {
 }
 
 // ---------------------------------------------------------------------------
-// Redis Implementation
+// In-Memory Implementation (guide state is runtime-only)
 // ---------------------------------------------------------------------------
 
-const DISMISS_KEY_PREFIX = 'cat-cafe:guide-dismiss:';
-const DISMISS_TTL = 90 * 24 * 3600; // 90 days
+export class InMemoryGuideDismissTracker implements IGuideDismissTracker {
+  private readonly counts = new Map<string, number>();
 
-function dismissKey(userId: string, guideId: string): string {
-  return `${DISMISS_KEY_PREFIX}${userId}:${guideId}`;
-}
-
-export class RedisGuideDismissTracker implements IGuideDismissTracker {
-  constructor(private readonly redis: RedisClient) {}
+  private key(userId: string, guideId: string): string {
+    return `${userId}:${guideId}`;
+  }
 
   async getDismissCounts(userId: string, guideIds: string[]): Promise<Record<string, number>> {
-    if (guideIds.length === 0) return {};
-
-    const keys = guideIds.map((id) => dismissKey(userId, id));
-    const values = await this.redis.mget(...keys);
-
     const result: Record<string, number> = {};
-    for (let i = 0; i < guideIds.length; i++) {
-      const raw = values[i];
-      if (raw) result[guideIds[i]] = Number.parseInt(raw, 10) || 0;
+    for (const guideId of guideIds) {
+      const count = this.counts.get(this.key(userId, guideId));
+      if (count) result[guideId] = count;
     }
     return result;
   }
 
   async incrementDismiss(userId: string, guideId: string): Promise<void> {
-    const key = dismissKey(userId, guideId);
-    await this.redis.incr(key);
-    await this.redis.expire(key, DISMISS_TTL);
+    const k = this.key(userId, guideId);
+    this.counts.set(k, (this.counts.get(k) ?? 0) + 1);
   }
 }

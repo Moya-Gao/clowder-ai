@@ -351,19 +351,11 @@ async function main(): Promise<void> {
   const sessionStore = redis ? new SessionStore(redis) : undefined;
   const deliveryCursorStore = new DeliveryCursorStore(sessionStore);
   const threadStore = createThreadStore(redis);
-  // F155 B-4: Independent guide session store (Redis or in-memory)
-  let guideSessionStore: import('./domains/guides/GuideSessionRepository.js').IGuideSessionStore;
-  // F155 B-6: Dismiss tracker for guide offer suppression
-  let dismissTracker: import('./domains/guides/GuideDismissTracker.js').IGuideDismissTracker | undefined;
-  if (redis) {
-    const { RedisGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
-    guideSessionStore = new RedisGuideSessionStore(redis);
-    const { RedisGuideDismissTracker } = await import('./domains/guides/GuideDismissTracker.js');
-    dismissTracker = new RedisGuideDismissTracker(redis);
-  } else {
-    const { InMemoryGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
-    guideSessionStore = new InMemoryGuideSessionStore();
-  }
+  // F155 B-4/B-6: Guide state is runtime-only (in-memory, resets on restart)
+  const { InMemoryGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
+  const guideSessionStore = new InMemoryGuideSessionStore();
+  const { InMemoryGuideDismissTracker } = await import('./domains/guides/GuideDismissTracker.js');
+  const dismissTracker = new InMemoryGuideDismissTracker();
   const taskStore = createTaskStore(redis);
   if (redis) {
     const { RedisPrTrackingStore } = await import('./infrastructure/email/RedisPrTrackingStore.js');
@@ -1074,7 +1066,7 @@ async function main(): Promise<void> {
     evidenceStore: memoryServices.evidenceStore,
     ...(toolUsageCounter ? { toolUsageCounter } : {}),
     guideSessionStore,
-    ...(dismissTracker ? { dismissTracker } : {}),
+    dismissTracker,
   });
 
   // F39: Message queue delivery
@@ -1179,7 +1171,7 @@ async function main(): Promise<void> {
       threadStore,
       socketManager,
       guideSessionStore,
-      ...(dismissTracker ? { dismissTracker } : {}),
+      dismissTracker,
     });
   }
   await app.register(catsRoutes);

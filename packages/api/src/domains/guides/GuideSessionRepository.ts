@@ -1,10 +1,10 @@
 /**
  * B-4: GuideSession Repository — independent guide state storage.
  *
- * Port interface + Redis implementation.
+ * Guide state is runtime-only (no persistence across restarts).
+ * Port interface + in-memory implementation.
  */
 
-import type { RedisClient } from '@cat-cafe/shared/utils';
 import type { GuideStateV1, GuideStatus } from '../cats/services/stores/ports/ThreadStore.js';
 import { createSessionFromState, type GuideSession, generateSessionId } from './GuideSession.js';
 
@@ -19,60 +19,7 @@ export interface IGuideSessionStore {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const KEY_PREFIX = 'cat-cafe:guide-session:';
-const DEFAULT_TTL = 30 * 24 * 3600; // 30 days
-
-function sessionKey(threadId: string): string {
-  return `${KEY_PREFIX}${threadId}`;
-}
-
-function parseSession(raw: string): GuideSession | null {
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && parsed.sessionId) {
-      return parsed as GuideSession;
-    }
-  } catch {
-    /* ignore malformed */
-  }
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// Redis Implementation
-// ---------------------------------------------------------------------------
-
-export class RedisGuideSessionStore implements IGuideSessionStore {
-  private readonly redis: RedisClient;
-  private readonly ttlSeconds: number;
-
-  constructor(redis: RedisClient, options?: { ttlSeconds?: number }) {
-    this.redis = redis;
-    this.ttlSeconds = options?.ttlSeconds ?? DEFAULT_TTL;
-  }
-
-  async getByThread(threadId: string): Promise<GuideSession | null> {
-    const key = sessionKey(threadId);
-    const raw = await this.redis.get(key);
-    if (raw) return parseSession(raw);
-    return null;
-  }
-
-  async save(session: GuideSession): Promise<void> {
-    const key = sessionKey(session.threadId);
-    await this.redis.set(key, JSON.stringify(session), 'EX', this.ttlSeconds);
-  }
-
-  async delete(threadId: string): Promise<void> {
-    await this.redis.del(sessionKey(threadId));
-  }
-}
-
-// ---------------------------------------------------------------------------
-// In-Memory Implementation (MEMORY_STORE=1 / no-Redis mode)
+// In-Memory Implementation (guide state is runtime-only)
 // ---------------------------------------------------------------------------
 
 export class InMemoryGuideSessionStore implements IGuideSessionStore {
