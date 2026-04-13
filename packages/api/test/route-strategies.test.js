@@ -919,6 +919,31 @@ describe('routeParallel resilience', () => {
     assert.equal(appendCalls.length, 1, 'should persist one final message');
     assert.equal(appendCalls[0].content, '继续落实现，别把内部参数露出去。');
   });
+
+  it('preserves metadata when parallel provider only attaches it to done', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    const doneMetadata = {
+      model: 'codex-test',
+      usage: { inputTokens: 12, outputTokens: 7 },
+    };
+
+    const metadataOnDoneService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'metadata should survive', timestamp: 1000 };
+        yield { type: 'done', catId: 'opus', metadata: doneMetadata, timestamp: 1001 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: metadataOnDoneService }, appendCalls);
+
+    for await (const _ of routeParallel(deps, ['opus'], 'test metadata', 'user1', 'thread1')) {
+    }
+
+    assert.equal(appendCalls.length, 1, 'should persist one final message');
+    assert.deepEqual(appendCalls[0].metadata, doneMetadata);
+  });
 });
 
 describe('routeParallel abort marks healthy (#267)', () => {

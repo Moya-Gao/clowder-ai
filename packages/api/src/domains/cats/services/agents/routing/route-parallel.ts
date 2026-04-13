@@ -519,6 +519,9 @@ export async function* routeParallel(
     if (msg.type === 'text' && msg.content && msg.catId) {
       effectiveMsgs.push({ ...msg, content: getPayloadStripper(msg.catId).push(msg.content) });
     } else if (msg.type === 'done' && msg.catId) {
+      if (msg.metadata && !catMeta.has(msg.catId)) {
+        catMeta.set(msg.catId, msg.metadata);
+      }
       const flushedText = getPayloadStripper(msg.catId).flush();
       if (flushedText) {
         effectiveMsgs.push({
