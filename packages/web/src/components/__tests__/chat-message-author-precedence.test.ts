@@ -121,4 +121,50 @@ describe('ChatMessage author precedence', () => {
     const avatar = container.querySelector('img[alt="始皇帝"]') as HTMLImageElement | null;
     expect(avatar?.getAttribute('src')).toBe('/uploads/qin-owner.png');
   });
+
+  it('hides raw scheduler trigger preview and shows scheduler accent on first reply', async () => {
+    const { ChatMessage } = await import('@/components/ChatMessage');
+    const getCatById = vi.fn((id: string) => {
+      if (id !== 'gpt52') return undefined;
+      return {
+        id: 'gpt52',
+        displayName: '缅因猫',
+        nickname: '砚砚',
+        variantLabel: 'GPT-5.4',
+        color: { primary: '#5B8C5A', secondary: '#E6F2E6' },
+        mentionPatterns: [],
+        breedId: 'maine-coon',
+        clientId: 'openai',
+        defaultModel: 'gpt-5.4',
+        avatar: '/avatars/gpt52.png',
+        roleDescription: '',
+        personality: '',
+      };
+    });
+
+    const msg = {
+      id: 'm-scheduler-reply',
+      type: 'assistant' as const,
+      catId: 'gpt52',
+      content: '该喝水了，去接一杯温水。',
+      timestamp: Date.now(),
+      contentBlocks: [],
+      replyTo: 'scheduler-trigger-1',
+      replyPreview: { senderCatId: 'system', content: '内部 trigger', kind: 'scheduler_trigger' as const },
+    };
+
+    act(() => {
+      root.render(
+        React.createElement(ChatMessage, {
+          message: msg as never,
+          getCatById: getCatById as never,
+        }),
+      );
+    });
+
+    expect(container.textContent).toContain('⏰');
+    expect(container.textContent).toContain('定时提醒');
+    expect(container.textContent).toContain('该喝水了，去接一杯温水。');
+    expect(container.textContent).not.toContain('内部 trigger');
+  });
 });

@@ -623,9 +623,10 @@ async function main(): Promise<void> {
   const packTemplateStore = new PackTemplateStore(schedulerDb);
 
   // Phase 4: delivery + content fetch for template execution
-  const { createDeliverFn } = await import('./infrastructure/scheduler/delivery.js');
+  const { createDeliverFn, createLifecycleToastFn } = await import('./infrastructure/scheduler/delivery.js');
   const { createFetchContentFn } = await import('./infrastructure/scheduler/content-fetcher.js');
   const schedulerDeliver = createDeliverFn({ messageStore, socketManager });
+  const schedulerLifecycleToast = createLifecycleToastFn({ socketManager });
   const schedulerFetchContent = createFetchContentFn();
 
   const taskRunnerV2 = new TaskRunnerV2({
@@ -635,6 +636,7 @@ async function main(): Promise<void> {
     globalControlStore,
     emissionStore,
     deliver: schedulerDeliver,
+    notifyLifecycle: schedulerLifecycleToast,
     fetchContent: schedulerFetchContent,
   });
 
@@ -653,7 +655,7 @@ async function main(): Promise<void> {
     globalControlStore,
     packTemplateStore,
     taskStore,
-    deliver: schedulerDeliver,
+    notifyLifecycle: schedulerLifecycleToast,
   });
 
   // ── Phase G: Summary Compaction (registers into unified scheduler) ──

@@ -33,6 +33,10 @@ const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
   'dragon-li': { radius: 'rounded-lg rounded-tl-sm', font: 'font-mono' },
 };
 const DEFAULT_BREED_STYLE = { radius: 'rounded-2xl' };
+const SCHEDULER_ACCENT_BADGE_CLASS =
+  'inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 shadow-sm';
+const SCHEDULER_ACCENT_BUBBLE_CLASS =
+  'border-amber-300 bg-amber-50/70 ring-1 ring-amber-200 shadow-[0_10px_24px_rgba(217,119,6,0.16)] bg-gradient-to-b from-amber-50/60 to-transparent';
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -48,6 +52,10 @@ function formatDualTime(timestamp: number, deliveredAt?: number): string {
   return `发送 ${formatTime(timestamp)} · 收到 ${formatTime(deliveredAt)}`;
 }
 
+function isSchedulerReplyPreview(replyPreview?: ChatMessageType['replyPreview']): boolean {
+  return replyPreview?.senderCatId === 'system' && replyPreview.kind === 'scheduler_trigger';
+}
+
 interface ChatMessageProps {
   message: ChatMessageType;
   getCatById: (id: string) => CatData | undefined;
@@ -58,6 +66,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const router = useRouter();
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
   const threads = useChatStore((s) => s.threads);
+  const threadMessages = useChatStore((s) => s.messages);
   const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
   const isUser = message.type === 'user' && !message.catId;
   const isSystem = message.type === 'system';
@@ -87,6 +96,19 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const hasTextContent = message.content.trim().length > 0;
   const isWhisper = message.visibility === 'whisper';
   const isRevealed = isWhisper && !!message.revealedAt;
+  const isSchedulerReply = isSchedulerReplyPreview(message.replyPreview);
+  const showSchedulerAccent =
+    isSchedulerReply &&
+    !threadMessages.some((candidate) => {
+      if (candidate.id === message.id) return false;
+      if (candidate.replyTo !== message.replyTo) return false;
+      if (candidate.catId !== message.catId) return false;
+      if (!isSchedulerReplyPreview(candidate.replyPreview)) return false;
+      if (candidate.timestamp !== message.timestamp) {
+        return candidate.timestamp < message.timestamp;
+      }
+      return candidate.id < message.id;
+    });
 
   const direction = catData ? parseDirection(message, () => ({ toCat: getMentionToCat(), re: getMentionRe() })) : null;
 
@@ -188,7 +210,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 {isRevealed ? '已揭秘' : `悄悄话 → ${message.whisperTo?.join(', ') ?? ''}`}
               </span>
             )}
-            {message.replyTo && message.replyPreview && (
+            {message.replyTo && message.replyPreview && !isSchedulerReply && (
               <ReplyPill replyPreview={message.replyPreview} replyToId={message.replyTo} getCatById={getCatById} />
             )}
             <span className="text-xs text-cafe-muted">{formatDualTime(message.timestamp, message.deliveredAt)}</span>
@@ -283,7 +305,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 </span>
               )}
               {!isWhisper && direction && <DirectionPill direction={direction} getCatById={getCatById} />}
-              {message.replyTo && message.replyPreview && (
+              {message.replyTo && message.replyPreview && !isSchedulerReply && (
                 <ReplyPill replyPreview={message.replyPreview} replyToId={message.replyTo} getCatById={getCatById} />
               )}
               {hasTextContent && !message.isStreaming && (
@@ -297,6 +319,12 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 />
               )}
             </div>
+            {showSchedulerAccent && (
+              <div className={SCHEDULER_ACCENT_BADGE_CLASS}>
+                <span aria-hidden>⏰</span>
+                <span>定时提醒</span>
+              </div>
+            )}
             {message.extra?.crossPost &&
               (() => {
                 const sourceId = message.extra.crossPost?.sourceThreadId;
@@ -330,12 +358,12 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         <div
           className={`border px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
             catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-cafe-surface border-cafe rounded-2xl'
-          }`}
+          } ${showSchedulerAccent ? SCHEDULER_ACCENT_BUBBLE_CLASS : ''}`}
           style={
             catStyle
               ? {
                   backgroundColor: catStyle.bgColor,
-                  borderColor: catStyle.borderColor,
+                  ...(!showSchedulerAccent ? { borderColor: catStyle.borderColor } : {}),
                 }
               : undefined
           }

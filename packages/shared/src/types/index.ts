@@ -139,10 +139,16 @@ export type {
   ConnectorTailwindTheme,
   ConnectorThreadBinding,
   OutboundDeliveryTarget,
+  ReplyPreview,
+  ReplyPreviewKind,
+  SchedulerLifecycleEvent,
+  SchedulerMessageExtra,
+  SchedulerToastPayload,
 } from './connector.js';
 export {
   getAllConnectorDefinitions,
   getConnectorDefinition,
+  SCHEDULER_TRIGGER_PREFIX,
 } from './connector.js';
 // Deliberate types (4-E 两轮制 - 类型预埋)
 export type {

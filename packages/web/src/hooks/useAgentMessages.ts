@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReplyPreview } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
@@ -33,7 +34,7 @@ interface AgentMsg {
   /** F121: Reply-to message ID */
   replyTo?: string;
   /** F121: Server-hydrated reply preview */
-  replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
+  replyPreview?: ReplyPreview;
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
 }

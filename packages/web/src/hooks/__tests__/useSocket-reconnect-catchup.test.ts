@@ -87,13 +87,15 @@ const mockStoreState = {
 (globalThis as { __mockUseSocketStoreState?: typeof mockStoreState }).__mockUseSocketStoreState = mockStoreState;
 
 vi.mock('@/stores/chatStore', () => {
+  const getState = () =>
+    (globalThis as { __mockUseSocketStoreState?: typeof mockStoreState }).__mockUseSocketStoreState!;
   const useChatStore = Object.assign(
     <T>(selector?: (state: typeof mockStoreState) => T) => {
-      const state = (globalThis as { __mockUseSocketStoreState?: typeof mockStoreState }).__mockUseSocketStoreState!;
+      const state = getState();
       return selector ? selector(state) : state;
     },
     {
-      getState: () => (globalThis as { __mockUseSocketStoreState?: typeof mockStoreState }).__mockUseSocketStoreState!,
+      getState,
     },
   );
   return { useChatStore };

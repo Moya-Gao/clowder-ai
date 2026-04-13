@@ -1,3 +1,7 @@
+import type { SchedulerLifecycleEvent, SchedulerMessageExtra, SchedulerToastPayload } from '@cat-cafe/shared';
+
+export type { SchedulerLifecycleEvent, SchedulerMessageExtra, SchedulerToastPayload } from '@cat-cafe/shared';
+
 // ─── F139: Unified Schedule Abstraction ────────────────────
 
 /** Single work item returned by gate — one per subject */
@@ -76,8 +80,8 @@ export interface TaskDisplayMeta {
 export interface DeliverOpts {
   threadId: string;
   content: string;
-  catId: string;
   userId: string;
+  extra?: SchedulerMessageExtra;
 }
 
 /** Phase 4: result of fetching web content */
@@ -95,6 +99,14 @@ export interface ScheduleTriggerPolicy {
   readonly reason?: string;
   readonly suggestedSkill?: string;
 }
+
+export interface ScheduleLifecycleNotice {
+  threadId: string;
+  userId: string;
+  toast: SchedulerToastPayload;
+}
+
+export type ScheduleLifecycleNotifier = (notice: ScheduleLifecycleNotice) => void;
 
 /** Fire-and-forget cat invocation trigger — subset of ConnectorInvokeTrigger */
 export interface ScheduleInvokeTrigger {
