@@ -95,10 +95,11 @@ Cat Cafe AgentRouter
 | 第二条消息挂起 | pollForResponse 用 `numTotalSteps > 1` 判断完成，复用 cascade 时旧 steps 满足条件 | 引入 `stepsBefore` baseline，每轮 slice 新 steps | `98eeaaaa0` |
 | 固定超时不够 | 90s 固定 deadline，工具链长的 cascade 必超时 | F149 活动式空闲超时：每个新 step 重置 60s idle deadline | `eba94450c` |
 
-#### Gap Analysis（布偶猫 6 项 + 缅因猫 5 项，去重合并 → 讨论后定稿 10 项）
+#### Gap Analysis（讨论后定稿 11 项，含铲屎官 2026-04-12 21:52 追加 G0）
 
 | # | Gap | 优先级 | 说明 |
 |---|-----|--------|------|
+| **G0** | **无 Resume / 上下文连续性** | **P-1 最高** | 孟加拉猫每次被 @ 都是裸启动：(1) `sessionMap` 是内存 Map，runtime 重启丢失 cascade session；(2) systemPrompt 未注入 thread 历史摘要（其他猫通过 SystemPromptBuilder 拿到的对话增量 + session digest + 身份上下文）。**其他 Gap 都以"猫能持续工作"为前提，G0 不解决则一切无意义** |
 | G1 | Step 类型未编目 | **P0 前置** | transformer 只处理 PLANNER_RESPONSE / ERROR_MESSAGE 两种。**v1 scope**：采 4 类真实 trajectory（纯文本/search_evidence/图片生成/长工具链），分 6 桶（terminal_output / partial_output / thinking / tool_pending / tool_error / unknown_activity）。unknown_activity 允许存在，只要求被记录、被计数、能回放 |
 | G2 | 批量交付 → 流式交付 | P1 | pollForResponse 等 IDLE 后一次返回所有 steps。长 cascade 延迟用户反馈。应改为 async generator 逐步 yield |
 | G3 | MCP 工具错误静默吞没 | P1 | transformer 忽略 MCP_TOOL_CALL 类 step，工具失败对用户不可见 |
@@ -117,6 +118,9 @@ Cat Cafe AgentRouter
 #### 演进依赖图
 
 ```
+G0 Resume / 上下文连续性（最高优先）
+  ├→ cascade session 持久化（Redis/文件）
+  └→ systemPrompt 注入 thread 历史摘要
 G1 Step taxonomy v1（前置）
   ├→ G2 流式交付 + G8a DeliveryCursor（必须同波）
   ├→ G3 工具错误可见化
@@ -131,6 +135,8 @@ G9 LS 选择策略
 ### Phase 2: Bridge 演进 + 证据链 + 高级能力
 
 #### Phase 2a: Bridge 健壮性（架构 Gap 驱动）
+- [ ] AC-C0a: cascade session 持久化 — sessionMap 从内存 Map 改为持久存储，runtime 重启不丢失（G0）
+- [ ] AC-C0b: systemPrompt 注入 thread 历史摘要 — 对齐其他猫的 SystemPromptBuilder 上下文注入（对话增量 + session digest + 身份）（G0）
 - [ ] AC-C1: v1 Step taxonomy — 4 类 trajectory 采样 → 6 桶分类框架 + unknown_activity 观测闭环（记录、计数、可回放）（G1）
 - [ ] AC-C2: pollForResponse 改为 async generator，新 step 立即 yield（G2）
 - [ ] AC-C2b: DeliveryCursor 正式化 — baseline/delivered/terminal/lastActivity 四字段（G8a，与 G2 同波）
