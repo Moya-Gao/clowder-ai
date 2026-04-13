@@ -144,6 +144,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
 
   const createInProject = useCallback(
     async (opts: NewThreadOptions) => {
+      console.log('[createInProject] called with opts=', JSON.stringify(opts));
       setIsCreating(true);
       setShowPicker(false);
       try {
@@ -158,7 +159,11 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
             ...(opts.backlogItemId ? { backlogItemId: opts.backlogItemId } : {}),
           }),
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => '(no body)');
+          console.error('[createInProject] POST /api/threads failed:', res.status, errBody);
+          return;
+        }
         const thread: Thread = await res.json();
 
         // F33: Bind external sessions after thread creation (best-effort, parallel)
@@ -186,8 +191,8 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
           onClose?.();
         }
         await loadThreads();
-      } catch {
-        // Silently ignore
+      } catch (err) {
+        console.error('[createInProject] exception:', err);
       } finally {
         setIsCreating(false);
       }

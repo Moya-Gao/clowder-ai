@@ -104,7 +104,11 @@ export function DirectoryPickerModal({
 
   // F068-R7: Confirm creation with currently selected project
   const confirmCreate = useCallback(() => {
-    if (selectedPath === null) return;
+    console.log('[DirectoryPicker] confirmCreate called, selectedPath=', selectedPath);
+    if (selectedPath === null) {
+      console.warn('[DirectoryPicker] selectedPath is null — button should be disabled');
+      return;
+    }
     selectWithOptions(selectedPath === 'lobby' ? undefined : selectedPath);
   }, [selectedPath, selectWithOptions]);
 
