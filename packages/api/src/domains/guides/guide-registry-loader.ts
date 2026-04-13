@@ -19,6 +19,12 @@ export interface GuideRegistryEntry {
   cross_system: boolean;
   estimated_time: string;
   flow_file: string;
+  /** B-6: Optional trigger strategy. Defaults to { mode: 'keyword' }. */
+  trigger_strategy?: {
+    mode: 'keyword' | 'explicit' | 'hybrid';
+    confidence?: number;
+    max_dismissals?: number;
+  };
 }
 
 interface RegistryFile {
@@ -70,12 +76,26 @@ export function isValidGuideId(guideId: string): boolean {
   return getValidGuideIds().has(guideId);
 }
 
+/** B-6: Get trigger strategies for all registered guides. */
+export function getTriggerStrategies(): Record<string, NonNullable<GuideRegistryEntry['trigger_strategy']>> {
+  const entries = getRegistryEntries();
+  const result: Record<string, NonNullable<GuideRegistryEntry['trigger_strategy']>> = {};
+  for (const entry of entries) {
+    if (entry.trigger_strategy) {
+      result[entry.id] = entry.trigger_strategy;
+    }
+  }
+  return result;
+}
+
 export interface GuideMatch {
   id: string;
   name: string;
   description: string;
   estimatedTime: string;
   score: number;
+  /** B-6: Total keyword count for confidence normalization. */
+  totalKeywords: number;
 }
 
 /**
@@ -216,6 +236,7 @@ export function resolveGuideForIntent(intent: string): GuideMatch[] {
         description: entry.description,
         estimatedTime: entry.estimated_time,
         score,
+        totalKeywords: entry.keywords.length,
       };
     })
     .filter((e) => e.score > 0)

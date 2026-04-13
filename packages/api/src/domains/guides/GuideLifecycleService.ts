@@ -45,6 +45,8 @@ export interface GuideLifecycleDeps {
   log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void };
   isValidGuideId: (id: string) => boolean;
   loadGuideFlow: (id: string) => unknown;
+  /** B-6: Optional dismiss tracker for suppressing re-offers. */
+  dismissTracker?: import('./GuideDismissTracker.js').IGuideDismissTracker;
 }
 
 /** Structured result from lifecycle operations. Routes map this to HTTP responses. */

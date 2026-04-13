@@ -27,6 +27,7 @@ export class GuideActionService {
   private readonly socket: GuideLifecycleDeps['socketManager'];
   private readonly log: GuideLifecycleDeps['log'];
   private readonly loadGuideFlow: (id: string) => unknown;
+  private readonly dismissTracker: GuideLifecycleDeps['dismissTracker'];
 
   constructor(deps: GuideLifecycleDeps) {
     this.store = deps.threadStore;
@@ -34,6 +35,7 @@ export class GuideActionService {
     this.socket = deps.socketManager;
     this.log = deps.log;
     this.loadGuideFlow = deps.loadGuideFlow;
+    this.dismissTracker = deps.dismissTracker;
   }
 
   // ── start (with self-heal) ──
@@ -120,6 +122,10 @@ export class GuideActionService {
     this.socket.emitToUser(userId, 'guide_control', { action: 'exit', guideId, threadId, timestamp: Date.now() });
     guideTransitions.add(1, { 'operation.name': 'guide_cancel', status: 'success' });
     this.log.info({ guideId, threadId, userId }, '[F155] guide cancelled via frontend action');
+
+    // B-6: Track dismissal for re-offer suppression
+    this.dismissTracker?.incrementDismiss(userId, guideId).catch(() => {});
+
     return { ok: true, guideState: updated };
   }
 

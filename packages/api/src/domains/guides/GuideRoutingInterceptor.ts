@@ -145,18 +145,43 @@ async function resolveExistingCandidate(
   resolveOwnership(gs, selectionMatch, justCompleted, targetCats, targetCatIds, ctx);
 }
 
-/** Match raw user message against guide registry (new offers only). */
+/** Match raw user message against guide registry with B-6 offer policy. */
 async function matchNewCandidate(
   message: string,
   targetCats: readonly string[],
+  userId: string,
   log: { info: (...args: unknown[]) => void } | undefined,
   ctx: GuideRoutingContext,
+  dismissTracker?: import('./GuideDismissTracker.js').IGuideDismissTracker,
 ): Promise<void> {
   try {
-    const { resolveGuideForIntent } = await import('./guide-registry-loader.js');
+    const { resolveGuideForIntent, getTriggerStrategies } = await import('./guide-registry-loader.js');
+    const { evaluateGuideOffer } = await import('./GuideOfferPolicy.js');
     const matches = resolveGuideForIntent(message);
-    if (matches.length > 0) {
-      const top = matches[0];
+    if (matches.length === 0) return;
+
+    // B-6: Fetch dismiss counts + trigger strategies, apply policy
+    const guideIds = matches.map((m) => m.id);
+    const dismissCounts = dismissTracker
+      ? await dismissTracker.getDismissCounts(userId, guideIds).catch(() => ({}))
+      : {};
+    const triggerStrategies = getTriggerStrategies();
+
+    const result = evaluateGuideOffer({
+      candidates: matches.map((m) => ({
+        id: m.id,
+        name: m.name,
+        score: m.score,
+        totalKeywords: m.totalKeywords,
+      })),
+      triggerStrategies,
+      userId,
+      isExplicitTrigger: false,
+      dismissCounts,
+    });
+
+    if (result) {
+      const top = matches.find((m) => m.id === result.id)!;
       ctx.candidate = {
         id: top.id,
         name: top.name,
@@ -166,8 +191,8 @@ async function matchNewCandidate(
       };
       ctx.offerOwner = targetCats[0];
       log?.info(
-        { guideId: top.id, guideName: top.name, score: top.score },
-        '[F155] guide candidate matched at routing layer',
+        { guideId: top.id, guideName: top.name, confidence: result.confidence },
+        '[F155] guide candidate accepted by offer policy',
       );
     }
   } catch {
@@ -192,8 +217,10 @@ export async function prepareGuideContext(params: {
   userId: string;
   threadId: string;
   log?: { info: (...args: unknown[]) => void };
+  /** B-6: Optional dismiss tracker for offer policy. */
+  dismissTracker?: import('./GuideDismissTracker.js').IGuideDismissTracker;
 }): Promise<GuideRoutingContext> {
-  const { thread, guideSessionStore, targetCats, message, userId, threadId, log } = params;
+  const { thread, guideSessionStore, targetCats, message, userId, threadId, log, dismissTracker } = params;
   const targetCatIds = new Set(targetCats);
   const ctx: GuideRoutingContext = { hiddenForeign: false };
 
@@ -217,7 +244,7 @@ export async function prepareGuideContext(params: {
   }
 
   if (!ctx.candidate && !ctx.hiddenForeign) {
-    await matchNewCandidate(message, targetCats, log, ctx);
+    await matchNewCandidate(message, targetCats, userId, log, ctx, dismissTracker);
   }
 
   return ctx;

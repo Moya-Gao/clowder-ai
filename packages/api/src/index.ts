@@ -353,9 +353,13 @@ async function main(): Promise<void> {
   const threadStore = createThreadStore(redis);
   // F155 B-4: Independent guide session store
   let guideSessionStore: import('./domains/guides/GuideSessionRepository.js').IGuideSessionStore | undefined;
+  // F155 B-6: Dismiss tracker for guide offer suppression
+  let dismissTracker: import('./domains/guides/GuideDismissTracker.js').IGuideDismissTracker | undefined;
   if (redis && threadStore) {
     const { RedisGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
     guideSessionStore = new RedisGuideSessionStore(redis, { legacyThreadStore: threadStore });
+    const { RedisGuideDismissTracker } = await import('./domains/guides/GuideDismissTracker.js');
+    dismissTracker = new RedisGuideDismissTracker(redis);
   }
   const taskStore = createTaskStore(redis);
   if (redis) {
@@ -1067,6 +1071,7 @@ async function main(): Promise<void> {
     evidenceStore: memoryServices.evidenceStore,
     ...(toolUsageCounter ? { toolUsageCounter } : {}),
     ...(guideSessionStore ? { guideSessionStore } : {}),
+    ...(dismissTracker ? { dismissTracker } : {}),
   });
 
   // F39: Message queue delivery
@@ -1171,6 +1176,7 @@ async function main(): Promise<void> {
       threadStore,
       socketManager,
       ...(guideSessionStore ? { guideSessionStore } : {}),
+      ...(dismissTracker ? { dismissTracker } : {}),
     });
   }
   await app.register(catsRoutes);

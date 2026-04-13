@@ -25,6 +25,8 @@ export interface GuideActionRoutesOptions {
   threadStore: IThreadStore;
   socketManager: SocketManager;
   guideSessionStore?: IGuideSessionStore;
+  /** B-6: Dismiss tracker for re-offer suppression */
+  dismissTracker?: import('../domains/guides/GuideDismissTracker.js').IGuideDismissTracker;
 }
 
 const guideActionSchema = z.object({
@@ -41,6 +43,7 @@ export const guideActionRoutes: FastifyPluginAsync<GuideActionRoutesOptions> = a
     log: app.log,
     isValidGuideId,
     loadGuideFlow,
+    dismissTracker: opts.dismissTracker,
   });
 
   // POST /api/guide-actions/start
