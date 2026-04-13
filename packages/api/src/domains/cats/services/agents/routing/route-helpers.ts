@@ -232,16 +232,6 @@ function looksLikeLeakedToolCallPayload(candidate: string): boolean {
   const trimmed = candidate.trim();
   if (!trimmed.startsWith('{')) return false;
 
-  const compact = trimmed.replace(/\s+/g, '');
-  if (
-    (compact.startsWith('{"tool_uses":[') && compact.includes('"recipient_name":"functions.')) ||
-    compact.startsWith('{"recipient_name":"functions.') ||
-    compact.startsWith('{"recipient_name":"mcp__') ||
-    compact.startsWith('{"recipient_name":"multi_tool_use.')
-  ) {
-    return true;
-  }
-
   try {
     const parsed = JSON.parse(trimmed) as {
       tool_uses?: Array<{ recipient_name?: unknown }>;

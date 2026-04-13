@@ -287,6 +287,19 @@ describe('routeSerial', () => {
     assert.equal(appendCalls.length, 1, 'should persist one final message');
     assert.equal(appendCalls[0].content, '先看实现，再补测试。');
   });
+
+  it('keeps legitimate tool-use JSON examples when prose continues afterwards', async () => {
+    const {
+      stripLeakedToolCallPayload,
+    } = await import('../dist/domains/cats/services/agents/routing/route-helpers.js');
+
+    const example = `示例 payload：
+
+{"tool_uses":[{"recipient_name":"functions.exec_command","parameters":{"cmd":"echo hi"}}]}
+上面只是文档示例，不是泄漏。`;
+
+    assert.equal(stripLeakedToolCallPayload(example), example);
+  });
 });
 
 describe('routeSerial A2A worklist', () => {
