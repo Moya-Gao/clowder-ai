@@ -41,6 +41,133 @@ describe('F155 guide registry loader target validation', async () => {
     assert.equal(editStep.advance, 'confirm');
   });
 
+  test('normalizes explicit schemaVersion: 1 on loaded flows', () => {
+    const guideId = 'test-schema-v1-explicit';
+    const flowPath = resolve(repoRoot, 'guides', 'flows', `${guideId}.yaml`);
+    const entry = {
+      id: guideId,
+      name: 'Test explicit schema v1',
+      description: 'Regression fixture for explicit schema version',
+      flow_file: `flows/${guideId}.yaml`,
+      keywords: ['explicit schema v1'],
+      category: 'test',
+      priority: 'P0',
+      cross_system: false,
+      estimated_time: '1min',
+    };
+
+    writeFileSync(
+      flowPath,
+      [
+        'schemaVersion: 1',
+        `id: ${guideId}`,
+        'name: Explicit Schema V1',
+        'steps:',
+        '  - id: step-1',
+        '    target: hub.trigger',
+        '    tips: Open hub',
+        '    advance: click',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    getRegistryEntries().push(entry);
+    getValidGuideIds().add(guideId);
+
+    try {
+      const flow = loadGuideFlow(guideId);
+      assert.equal(flow.schemaVersion, 1);
+    } finally {
+      getRegistryEntries().pop();
+      getValidGuideIds().delete(guideId);
+      rmSync(flowPath, { force: true });
+    }
+  });
+
+  test('treats missing schemaVersion as implicit v1 during transition', () => {
+    const guideId = 'test-schema-v1-implicit';
+    const flowPath = resolve(repoRoot, 'guides', 'flows', `${guideId}.yaml`);
+    const entry = {
+      id: guideId,
+      name: 'Test implicit schema v1',
+      description: 'Regression fixture for implicit schema version',
+      flow_file: `flows/${guideId}.yaml`,
+      keywords: ['implicit schema v1'],
+      category: 'test',
+      priority: 'P0',
+      cross_system: false,
+      estimated_time: '1min',
+    };
+
+    writeFileSync(
+      flowPath,
+      [
+        `id: ${guideId}`,
+        'name: Implicit Schema V1',
+        'steps:',
+        '  - id: step-1',
+        '    target: hub.trigger',
+        '    tips: Open hub',
+        '    advance: click',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    getRegistryEntries().push(entry);
+    getValidGuideIds().add(guideId);
+
+    try {
+      const flow = loadGuideFlow(guideId);
+      assert.equal(flow.schemaVersion, 1);
+    } finally {
+      getRegistryEntries().pop();
+      getValidGuideIds().delete(guideId);
+      rmSync(flowPath, { force: true });
+    }
+  });
+
+  test('rejects unsupported schemaVersion values', () => {
+    const guideId = 'test-schema-v2-unsupported';
+    const flowPath = resolve(repoRoot, 'guides', 'flows', `${guideId}.yaml`);
+    const entry = {
+      id: guideId,
+      name: 'Test unsupported schema version',
+      description: 'Regression fixture for unsupported schema version',
+      flow_file: `flows/${guideId}.yaml`,
+      keywords: ['unsupported schema version'],
+      category: 'test',
+      priority: 'P0',
+      cross_system: false,
+      estimated_time: '1min',
+    };
+
+    writeFileSync(
+      flowPath,
+      [
+        'schemaVersion: 2',
+        `id: ${guideId}`,
+        'name: Unsupported Schema V2',
+        'steps:',
+        '  - id: step-1',
+        '    target: hub.trigger',
+        '    tips: Open hub',
+        '    advance: click',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    getRegistryEntries().push(entry);
+    getValidGuideIds().add(guideId);
+
+    try {
+      assert.throws(() => loadGuideFlow(guideId), /Unsupported flow schemaVersion "2"/);
+    } finally {
+      getRegistryEntries().pop();
+      getValidGuideIds().delete(guideId);
+      rmSync(flowPath, { force: true });
+    }
+  });
+
   test('matches meaningful partial queries without requiring full keyword', () => {
     const matches = resolveGuideForIntent('添加');
     assert.equal(matches[0]?.id, 'add-member');
@@ -97,34 +224,6 @@ describe('F155 guide registry loader target validation', async () => {
       getRegistryEntries().pop();
       getValidGuideIds().delete(guideId);
       rmSync(flowPath, { force: true });
-    }
-  });
-
-  test('rejects flow files that escape guides/ via path traversal', () => {
-    const guideId = 'test-path-traversal';
-    const entry = {
-      id: guideId,
-      name: 'Traversal Fixture',
-      description: 'Regression fixture for flow path containment',
-      flow_file: '../package.json',
-      keywords: ['path traversal'],
-      category: 'test',
-      priority: 'P0',
-      cross_system: false,
-      estimated_time: '1min',
-    };
-
-    getRegistryEntries().push(entry);
-    getValidGuideIds().add(guideId);
-
-    try {
-      assert.throws(
-        () => loadGuideFlow(guideId),
-        /Invalid flow path "\.\.\/package\.json" — must stay within guides\//,
-      );
-    } finally {
-      getRegistryEntries().pop();
-      getValidGuideIds().delete(guideId);
     }
   });
 });

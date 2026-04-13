@@ -363,7 +363,12 @@ export interface RoutedMessageTransform {
   transform(msg: AgentMessage): AgentMessage[];
 }
 
-function createLeakedToolCallStreamStripper() {
+export interface LeakedToolCallStreamStripper {
+  push(content: string): string;
+  flush(): string;
+}
+
+export function createLeakedToolCallStreamStripper(): LeakedToolCallStreamStripper {
   let pending = '';
   let pendingEmittedLength = 0;
 

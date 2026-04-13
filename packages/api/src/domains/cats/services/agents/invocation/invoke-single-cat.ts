@@ -217,6 +217,10 @@ export interface InvocationDeps {
   readonly tmuxGateway?: TmuxGateway;
   /** F089 Phase 2: agent pane registry for observability */
   readonly agentPaneRegistry?: AgentPaneRegistry;
+  /** F155 B-4: Independent guide session store (optional, fallback to threadStore-backed bridge) */
+  readonly guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
+  /** F155 B-6: Dismiss tracker for guide offer suppression */
+  readonly dismissTracker?: import('../../../../guides/GuideDismissTracker.js').IGuideDismissTracker;
   /** F091: Lookup signal articles linked to a thread for context injection */
   readonly signalArticleLookup?: (threadId: string) => Promise<
     readonly {
@@ -925,10 +929,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // config when the fully-qualified model is not already routable by `opencode models`.
     //
     // MCP injection: even known models need a runtime config to get deterministic
-    // Cat Café MCP server access (especially in game threads where projectPath is
-    // virtual and project-level opencode.json may not be found).
+    // Cat Cafe MCP server access (especially in game threads where project-level
+    // opencode.json may not be discoverable).
     const hasExplicitOcProvider = Boolean(modelProviderName);
-    const mcpServerPath = resolveDefaultClaudeMcpServerPath();
+    const configuredMcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH?.trim();
+    const mcpServerPath = configuredMcpServerPath
+      ? resolve(process.cwd(), configuredMcpServerPath)
+      : resolveDefaultClaudeMcpServerPath();
     if (
       provider === 'opencode' &&
       resolvedAccount != null &&

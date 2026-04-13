@@ -268,7 +268,7 @@ describe('GuideOverlay auto-advance lifecycle', () => {
     expect((fallbackShield as HTMLDivElement).style.pointerEvents).toBe('none');
   });
 
-  it('does not block unrelated UI interaction after the guide target is resolved', () => {
+  it('blocks unrelated UI interaction after the guide target is resolved', () => {
     act(() => {
       useGuideStore.getState().startGuide(FLOW);
       useGuideStore.getState().setPhase('active');
@@ -280,7 +280,7 @@ describe('GuideOverlay auto-advance lifecycle', () => {
     const panels = Array.from(container.querySelectorAll('[data-guide-click-shield="panel"]'));
     expect(panels.length).toBeGreaterThan(0);
     for (const panel of panels) {
-      expect((panel as HTMLDivElement).style.pointerEvents).toBe('none');
+      expect((panel as HTMLDivElement).style.pointerEvents).toBe('auto');
     }
   });
 

@@ -35,15 +35,22 @@ function Harness() {
 }
 
 function dispatchGuideStart(flowId: string, threadId = 'thread-1') {
-  window.dispatchEvent(new CustomEvent('guide:start', { detail: { flowId, threadId } }));
+  useGuideStore.getState().reduceServerEvent({ action: 'start', guideId: flowId, threadId });
 }
 
 function dispatchGuideControl(action: 'next' | 'skip' | 'exit', detail: { guideId?: string; threadId?: string } = {}) {
-  window.dispatchEvent(new CustomEvent('guide:control', { detail: { action, ...detail } }));
+  const { guideId = 'add-member', threadId = 'thread-1' } = detail;
+  const controlAction =
+    action === 'next' ? 'control_next' : action === 'skip' ? 'control_skip' : ('control_exit' as const);
+  useGuideStore.getState().reduceServerEvent({ action: controlAction, guideId, threadId });
 }
 
 function dispatchGuideComplete(detail: { guideId?: string; threadId?: string } = {}) {
-  window.dispatchEvent(new CustomEvent('guide:complete', { detail }));
+  useGuideStore.getState().reduceServerEvent({
+    action: 'complete',
+    guideId: detail.guideId ?? 'add-member',
+    threadId: detail.threadId ?? 'thread-1',
+  });
 }
 
 function deferred<T>() {
@@ -74,7 +81,7 @@ describe('useGuideEngine duplicate start protection', () => {
   beforeEach(() => {
     apiFetchMock.mockReset();
     useChatStore.setState({ currentThreadId: 'thread-1' });
-    useGuideStore.setState({ session: null });
+    useGuideStore.setState({ session: null, completionPersisted: false, completionFailed: false, pendingStart: null });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -86,7 +93,7 @@ describe('useGuideEngine duplicate start protection', () => {
     });
     container.remove();
     useChatStore.setState({ currentThreadId: 'default' });
-    useGuideStore.setState({ session: null });
+    useGuideStore.setState({ session: null, completionPersisted: false, completionFailed: false, pendingStart: null });
   });
 
   it('does not fetch the same flow twice while the first start is still in flight', async () => {
@@ -114,7 +121,7 @@ describe('useGuideEngine duplicate start protection', () => {
     expect(useGuideStore.getState().session?.flow.id).toBe('add-member');
   });
 
-  it('retries a duplicate guide:start after the in-flight fetch fails', async () => {
+  it('retries only after a new guide:start arrives when the in-flight fetch fails', async () => {
     const firstFetch = deferred<{ ok: boolean; json: () => Promise<OrchestrationFlow> }>();
     apiFetchMock.mockReturnValueOnce(firstFetch.promise).mockResolvedValueOnce({ ok: true, json: async () => FLOW });
 
@@ -133,6 +140,12 @@ describe('useGuideEngine duplicate start protection', () => {
     await act(async () => {
       firstFetch.reject(new Error('temporary failure'));
       await Promise.resolve();
+    });
+
+    expect(apiFetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      dispatchGuideStart('add-member');
       await Promise.resolve();
       await Promise.resolve();
     });

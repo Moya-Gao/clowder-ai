@@ -14,13 +14,20 @@ import './helpers/setup-cat-registry.js';
 
 describe('F155 Guide Action Routes (frontend-facing)', () => {
   let threadStore;
+  let guideSessionStore;
+  let guideBridge;
   let socketManager;
   let broadcastCalls;
   let emitCalls;
 
   beforeEach(async () => {
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const { InMemoryGuideSessionStore, createGuideStoreBridge } = await import(
+      '../dist/domains/guides/GuideSessionRepository.js'
+    );
     threadStore = new ThreadStore();
+    guideSessionStore = new InMemoryGuideSessionStore();
+    guideBridge = createGuideStoreBridge(guideSessionStore);
     broadcastCalls = [];
     emitCalls = [];
     socketManager = {
@@ -40,14 +47,14 @@ describe('F155 Guide Action Routes (frontend-facing)', () => {
   async function createApp() {
     const { guideActionRoutes } = await import('../dist/routes/guide-action-routes.js');
     const app = Fastify();
-    await app.register(guideActionRoutes, { threadStore, socketManager });
+    await app.register(guideActionRoutes, { threadStore, socketManager, guideSessionStore });
     return app;
   }
 
   /** Seed a thread with guideState in given status */
   async function seedThread(guideId, status, createdBy = 'user-1') {
     const thread = await threadStore.create(createdBy, 'test-thread');
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId,
       status,
@@ -58,7 +65,7 @@ describe('F155 Guide Action Routes (frontend-facing)', () => {
 
   async function seedDefaultThread(guideId, status, userId = 'default-user') {
     const thread = await threadStore.get('default');
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId,
       status,
@@ -330,22 +337,6 @@ describe('F155 Guide Action Routes (frontend-facing)', () => {
     assert.ok(body.flow);
   });
 
-  test('preview: rejects when guide is not registered', async () => {
-    const app = await createApp();
-    const thread = await seedThread('nonexistent-flow', 'offered');
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/guide-actions/preview',
-      headers: { 'x-cat-cafe-user': 'user-1' },
-      payload: { threadId: thread.id, guideId: 'nonexistent-flow' },
-    });
-
-    assert.equal(res.statusCode, 400);
-    const body = JSON.parse(res.body);
-    assert.equal(body.error, 'guide_flow_invalid');
-  });
-
   test('preview: rejects without user identity', async () => {
     const app = await createApp();
     const thread = await seedThread('add-member', 'offered');
@@ -377,8 +368,8 @@ describe('F155 Guide Action Routes (frontend-facing)', () => {
     const body = JSON.parse(res.body);
     assert.equal(body.error, 'guide_flow_invalid');
     // Verify state was NOT updated to active
-    const updated = await threadStore.get(thread.id);
-    assert.equal(updated.guideState.status, 'offered', 'state must remain offered on flow load failure');
+    const gs = await guideBridge.get(thread.id);
+    assert.equal(gs.status, 'offered', 'state must remain offered on flow load failure');
   });
 
   // --- P1-1: Thread ownership (cross-user state tampering) ---

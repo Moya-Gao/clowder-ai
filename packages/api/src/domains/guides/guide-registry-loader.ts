@@ -5,7 +5,7 @@
  * and the full registry entries for the resolve MCP tool.
  */
 import { readFileSync } from 'node:fs';
-import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 
@@ -19,6 +19,12 @@ export interface GuideRegistryEntry {
   cross_system: boolean;
   estimated_time: string;
   flow_file: string;
+  /** B-6: Optional trigger strategy. Defaults to { mode: 'keyword' }. */
+  trigger_strategy?: {
+    mode: 'keyword' | 'explicit' | 'hybrid';
+    confidence?: number;
+    max_dismissals?: number;
+  };
 }
 
 interface RegistryFile {
@@ -70,12 +76,26 @@ export function isValidGuideId(guideId: string): boolean {
   return getValidGuideIds().has(guideId);
 }
 
+/** B-6: Get trigger strategies for all registered guides. */
+export function getTriggerStrategies(): Record<string, NonNullable<GuideRegistryEntry['trigger_strategy']>> {
+  const entries = getRegistryEntries();
+  const result: Record<string, NonNullable<GuideRegistryEntry['trigger_strategy']>> = {};
+  for (const entry of entries) {
+    if (entry.trigger_strategy) {
+      result[entry.id] = entry.trigger_strategy;
+    }
+  }
+  return result;
+}
+
 export interface GuideMatch {
   id: string;
   name: string;
   description: string;
   estimatedTime: string;
   score: number;
+  /** B-6: Total keyword count for confidence normalization. */
+  totalKeywords: number;
 }
 
 /**
@@ -95,6 +115,7 @@ export interface OrchestrationStep {
 }
 
 export interface OrchestrationFlow {
+  schemaVersion: 1;
   id: string;
   name: string;
   description?: string;
@@ -102,6 +123,7 @@ export interface OrchestrationFlow {
 }
 
 interface RawFlowFile {
+  schemaVersion?: number;
   id: string;
   name: string;
   description?: string;
@@ -118,6 +140,7 @@ interface RawFlowFile {
 const flowCache = new Map<string, OrchestrationFlow>();
 const MIN_ASCII_REVERSE_MATCH_LENGTH = 3;
 const MIN_NON_ASCII_REVERSE_MATCH_LENGTH = 2;
+const SUPPORTED_FLOW_SCHEMA_VERSION = 1;
 
 function normalizeGuideIntent(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -131,14 +154,14 @@ function canUseReverseSubstringMatch(query: string): boolean {
     : compact.length >= MIN_NON_ASCII_REVERSE_MATCH_LENGTH;
 }
 
-function resolveGuideFlowPath(root: string, flowFile: string): string {
-  const guidesDir = resolve(root, 'guides');
-  const flowPath = resolve(guidesDir, flowFile);
-  const relativePath = relative(guidesDir, flowPath);
-  if (!relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)) {
-    throw new Error(`[F155] Invalid flow path "${flowFile}" — must stay within guides/`);
+function normalizeFlowSchemaVersion(guideId: string, schemaVersion?: number): 1 {
+  if (schemaVersion == null) {
+    return SUPPORTED_FLOW_SCHEMA_VERSION;
   }
-  return flowPath;
+  if (schemaVersion !== SUPPORTED_FLOW_SCHEMA_VERSION) {
+    throw new Error(`[F155] Unsupported flow schemaVersion "${schemaVersion}" for "${guideId}"`);
+  }
+  return SUPPORTED_FLOW_SCHEMA_VERSION;
 }
 
 /**
@@ -154,7 +177,7 @@ export function loadGuideFlow(guideId: string): OrchestrationFlow {
   if (!entry) throw new Error(`[F155] Unknown guide: ${guideId}`);
 
   const root = findProjectRoot();
-  const flowPath = resolveGuideFlowPath(root, entry.flow_file);
+  const flowPath = resolve(root, 'guides', entry.flow_file);
   const raw = readFileSync(flowPath, 'utf-8');
   const parsed = YAML.parse(raw) as RawFlowFile;
 
@@ -170,6 +193,7 @@ export function loadGuideFlow(guideId: string): OrchestrationFlow {
 
   const validAdvance = new Set(['click', 'visible', 'input', 'confirm']);
   const flow: OrchestrationFlow = {
+    schemaVersion: normalizeFlowSchemaVersion(guideId, parsed.schemaVersion),
     id: parsed.id,
     name: parsed.name,
     description: parsed.description,
@@ -212,6 +236,7 @@ export function resolveGuideForIntent(intent: string): GuideMatch[] {
         description: entry.description,
         estimatedTime: entry.estimated_time,
         score,
+        totalKeywords: entry.keywords.length,
       };
     })
     .filter((e) => e.score > 0)

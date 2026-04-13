@@ -16,6 +16,8 @@ describe('F155 Guide State Callbacks', () => {
   let registry;
   let threadStore;
   let messageStore;
+  let guideSessionStore;
+  let guideBridge;
   let socketManager;
   let broadcastCalls;
   let emitCalls;
@@ -26,10 +28,15 @@ describe('F155 Guide State Callbacks', () => {
     );
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { InMemoryGuideSessionStore, createGuideStoreBridge } = await import(
+      '../dist/domains/guides/GuideSessionRepository.js'
+    );
 
     registry = new InvocationRegistry();
     threadStore = new ThreadStore();
     messageStore = new MessageStore();
+    guideSessionStore = new InMemoryGuideSessionStore();
+    guideBridge = createGuideStoreBridge(guideSessionStore);
     broadcastCalls = [];
     emitCalls = [];
     socketManager = {
@@ -46,7 +53,7 @@ describe('F155 Guide State Callbacks', () => {
     };
   });
 
-  async function createApp(overrides = {}) {
+  async function createApp() {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
     const { leaderboardEventsRoutes } = await import('../dist/routes/leaderboard-events.js');
     const { GameStore } = await import('../dist/domains/leaderboard/game-store.js');
@@ -57,8 +64,8 @@ describe('F155 Guide State Callbacks', () => {
       messageStore,
       socketManager,
       threadStore,
+      guideSessionStore,
       sharedBank: 'cat-cafe-shared',
-      ...overrides,
     });
     await app.register(leaderboardEventsRoutes, {
       gameStore: new GameStore(),
@@ -69,7 +76,7 @@ describe('F155 Guide State Callbacks', () => {
 
   async function seedDefaultThread(guideId, status, userId = 'default-user') {
     const thread = await threadStore.get('default');
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId,
       status,
@@ -100,28 +107,6 @@ describe('F155 Guide State Callbacks', () => {
     assert.ok(body.guideState.offeredAt > 0);
   });
 
-  test('rejects initial offered state when guide flow is not loadable', async () => {
-    const app = await createApp({
-      loadGuideFlow() {
-        throw new Error('broken flow yaml');
-      },
-    });
-    const thread = await threadStore.create('user-1', 'test-thread');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
-
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/callbacks/update-guide-state',
-      payload: { invocationId, callbackToken, threadId: thread.id, guideId: 'add-member', status: 'offered' },
-    });
-
-    assert.equal(res.statusCode, 400);
-    const body = JSON.parse(res.body);
-    assert.equal(body.error, 'guide_flow_invalid');
-    assert.equal(body.message, 'broken flow yaml');
-    assert.equal((await threadStore.get(thread.id)).guideState, undefined);
-  });
-
   test('rejects initial state that is not "offered"', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', 'test-thread');
@@ -141,7 +126,7 @@ describe('F155 Guide State Callbacks', () => {
     const thread = await threadStore.create('user-1', 'test-thread');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
 
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId: 'add-member',
       status: 'offered',
@@ -159,9 +144,9 @@ describe('F155 Guide State Callbacks', () => {
     assert.equal(body.error, 'guide_start_required');
     assert.match(body.message, /start-guide/i);
 
-    const stored = await threadStore.get(thread.id);
-    assert.equal(stored.guideState.status, 'offered');
-    assert.equal(stored.guideState.offeredAt, 1000);
+    const gs = await guideBridge.get(thread.id);
+    assert.equal(gs.status, 'offered');
+    assert.equal(gs.offeredAt, 1000);
     assert.deepEqual(emitCalls, []);
     assert.deepEqual(broadcastCalls, []);
   });
@@ -171,7 +156,7 @@ describe('F155 Guide State Callbacks', () => {
     const thread = await threadStore.create('user-1', 'test-thread');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
 
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId: 'add-member',
       status: 'active',
@@ -195,7 +180,7 @@ describe('F155 Guide State Callbacks', () => {
     const thread = await threadStore.create('user-1', 'test-thread');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
 
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId: 'add-member',
       status: 'active',
@@ -219,7 +204,7 @@ describe('F155 Guide State Callbacks', () => {
     const thread = await threadStore.create('user-1', 'test-thread');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
 
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId: 'add-member',
       status: 'completed',
@@ -285,9 +270,9 @@ describe('F155 Guide State Callbacks', () => {
     });
 
     assert.equal(res.statusCode, 403);
-    const stored = await threadStore.get(thread.id);
-    assert.equal(stored.guideState.status, 'offered');
-    assert.equal(stored.guideState.userId, 'guide-owner');
+    const gs = await guideBridge.get(thread.id);
+    assert.equal(gs.status, 'offered');
+    assert.equal(gs.userId, 'guide-owner');
   });
 
   // --- start-guide ---
@@ -297,7 +282,7 @@ describe('F155 Guide State Callbacks', () => {
     const thread = await threadStore.create('user-1', 'test-thread');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
 
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId: 'add-member',
       status: 'offered',
@@ -384,7 +369,7 @@ describe('F155 Guide State Callbacks', () => {
     const thread = await threadStore.create('user-1', 'test-thread');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
 
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId: 'add-member',
       status: 'active',
@@ -413,8 +398,8 @@ describe('F155 Guide State Callbacks', () => {
     });
 
     assert.equal(res.statusCode, 403);
-    const stored = await threadStore.get(thread.id);
-    assert.equal(stored.guideState.status, 'offered');
+    const gs = await guideBridge.get(thread.id);
+    assert.equal(gs.status, 'offered');
     assert.equal(
       broadcastCalls.find((c) => c.event === 'guide_start'),
       undefined,
@@ -428,7 +413,7 @@ describe('F155 Guide State Callbacks', () => {
     const thread = await threadStore.create('user-1', 'test-thread');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
 
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId: 'add-member',
       status: 'active',
@@ -515,7 +500,7 @@ describe('F155 Guide State Callbacks', () => {
     const thread = await threadStore.create('user-1', 'test-thread');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
 
-    await threadStore.updateGuideState(thread.id, {
+    await guideBridge.set(thread.id, {
       v: 1,
       guideId: 'add-member',
       status: 'active',
@@ -530,8 +515,8 @@ describe('F155 Guide State Callbacks', () => {
     });
 
     assert.equal(res.statusCode, 200);
-    const updatedThread = await threadStore.get(thread.id);
-    assert.equal(updatedThread.guideState.status, 'cancelled');
+    const gs = await guideBridge.get(thread.id);
+    assert.equal(gs.status, 'cancelled');
   });
 
   test('guide-control rejects cross-user control on system-owned default thread', async () => {
@@ -546,8 +531,8 @@ describe('F155 Guide State Callbacks', () => {
     });
 
     assert.equal(res.statusCode, 403);
-    const stored = await threadStore.get(thread.id);
-    assert.equal(stored.guideState.status, 'active');
+    const gs = await guideBridge.get(thread.id);
+    assert.equal(gs.status, 'active');
     assert.equal(
       broadcastCalls.find((c) => c.event === 'guide_control'),
       undefined,

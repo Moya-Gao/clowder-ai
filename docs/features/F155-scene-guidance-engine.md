@@ -11,7 +11,7 @@ intake_issue: "cat-cafe#1119"
 
 # F155: Scene-Based Guidance Engine — 场景式交互引导
 
-> **Status**: in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B pending) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
+> **Status**: in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B upstream merged in clowder-ai and intake pending) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
 
 ## Why
 
@@ -34,11 +34,11 @@ intake_issue: "cat-cafe#1119"
 9. **Esc Guard** — 引导期间阻止误关 Hub
 10. **Guide Authoring Skill** — 编写新引导流程的 SOP
 
-### Phase B（社区规划，未实现）
+### Phase B（社区规划，upstream 已 merge，cat-cafe intake pending）
 
 - 更多平台内场景（Provider 配置、Hub 设置等）
 - Guide Catalog UI
-- 进度持久化
+- 预留持久化扩展点（当前默认不持久化）
 
 ## Key Decisions（社区侧）
 
@@ -48,6 +48,7 @@ intake_issue: "cat-cafe#1119"
 | KD-13 | Phase B 聚焦平台内引导，外部平台配置改独立页签 |
 | KD-14 | 引导期间禁用 Esc 退出，仅保留 HUD 退出按钮 |
 | KD-15 | Observe substrate 拆分为独立 feature，不入 F155 Phase B |
+| KD-16 | Guide session is ephemeral by design. `IGuideSessionStore` 是扩展点，默认实现为 in-memory；语义：重启清空、不承诺 cross-restart resume、不承诺多实例一致性，若未来需要断点续引导则补 `PersistentGuideSessionStore` 实现 |
 
 ## Acceptance Criteria
 
@@ -58,7 +59,7 @@ TBD — 待 intake 讨论后确定。
 - **HIGH**: 深度修改 routing core（route-parallel/serial/invoke-single-cat/SystemPromptBuilder）
 - 社区方案 Q4 UNKNOWN — 缺长期 owner
 
-## Intake 评估（待完成）
+## Intake 评估（Phase B 进行中）
 
 ### 主人翁五问初判
 
@@ -75,13 +76,15 @@ TBD — 待 intake 讨论后确定。
 - [x] Accepted issue 已补齐：`clowder-ai#409` 当前为 `triaged` + `feature:F155`
 - [x] 历史冲突标记已清理
 - [x] `clowder-ai#398` 已于 2026-04-12 squash merge（commit `2e1d5e2c2bfb8cb95753d1c6a8cd0e9aab7c8a17`）
+- [x] `clowder-ai#457` 已于 2026-04-13 squash merge（commit `517c076d23e9b7ab07b082cc63d81052e4ce9931`）
 - [x] `cat-cafe#1122` 已于 2026-04-12 squash merge（commit `e4e05c79881dfd4d0c35e8ddb4eb32cf5025493e`）
 
-### Intake 现状（已完成）
+### Intake 现状
 
 - Intake Intent Issue：`cat-cafe#1119`（已关闭）
+- Phase B Intake Intent Issue：`cat-cafe#1144`（进行中）
 - 机械分类：67 `safe-cherry-pick` / 1 `brand-guard` / 14 `manual-port`
-- 当前 intake 策略：吸收 Phase A 已验证实现；保留 thread-scoped `guideState` 与 routing core 耦合为后续 Phase B 架构重构债
+- 当前 intake 策略：Phase A 已完成吸收；Phase B 接受 `ephemeral guide session` 分层与 extraction seams 方向，但按 file-level selective absorb 回流，不整包 cherry-pick
 - Phase A intake 已于 2026-04-12 merge 到 cat-cafe main（PR #1122）
 
 ### Intake Shape
@@ -119,10 +122,14 @@ PR 后半段（04-09 的 20+ commits）连续修了以下问题，说明 `guideS
 | 2026-04-09 | F155 立项，预留编号并建立 feature doc |
 | 2026-04-12 | `clowder-ai#398` upstream squash merged（commit `2e1d5e2c2bfb8cb95753d1c6a8cd0e9aab7c8a17`） |
 | 2026-04-12 | Phase A intake merged (PR #1122) — guide runtime/API/web + guide skills/docs/manual-port，`pnpm gate` 全绿，金渐层 review 放行，Codex cloud review 0 P1/P2 |
+| 2026-04-13 | `clowder-ai#457` upstream squash merged（commit `517c076d23e9b7ab07b082cc63d81052e4ce9931`），并在 upstream F155 doc 写入 KD-16（ephemeral guide session） |
+| 2026-04-13 | cat-cafe 为 `clowder-ai#457` 建立 Intake Intent Issue `#1144`，开始 Phase B selective intake |
 
 ## Upstream Links
 
 - Issue: [clowder-ai#409](https://github.com/zts212653/clowder-ai/issues/409)
 - PR: [clowder-ai#398](https://github.com/zts212653/clowder-ai/pull/398)
+- PR: [clowder-ai#457](https://github.com/zts212653/clowder-ai/pull/457)
 - Intake Issue: [cat-cafe#1119](https://github.com/zts212653/cat-cafe/issues/1119)
+- Intake Issue: [cat-cafe#1144](https://github.com/zts212653/cat-cafe/issues/1144)
 - Intake PR: [cat-cafe#1122](https://github.com/zts212653/cat-cafe/pull/1122)

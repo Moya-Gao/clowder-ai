@@ -351,6 +351,11 @@ async function main(): Promise<void> {
   const sessionStore = redis ? new SessionStore(redis) : undefined;
   const deliveryCursorStore = new DeliveryCursorStore(sessionStore);
   const threadStore = createThreadStore(redis);
+  // F155 B-4/B-6: Guide state is runtime-only (in-memory, resets on restart)
+  const { InMemoryGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
+  const guideSessionStore = new InMemoryGuideSessionStore();
+  const { InMemoryGuideDismissTracker } = await import('./domains/guides/GuideDismissTracker.js');
+  const dismissTracker = new InMemoryGuideDismissTracker();
   const taskStore = createTaskStore(redis);
   if (redis) {
     const { RedisPrTrackingStore } = await import('./infrastructure/email/RedisPrTrackingStore.js');
@@ -446,9 +451,6 @@ async function main(): Promise<void> {
       ? resolve(process.cwd(), '..', '..')
       : process.cwd();
 
-  const { initRepoIdentity, isSameRepo } = await import('./utils/is-same-repo.js');
-  initRepoIdentity(repoRoot);
-
   const { createMemoryServices } = await import('./domains/memory/factory.js');
   const memoryServices = await createMemoryServices({
     type: 'sqlite',
@@ -519,7 +521,8 @@ async function main(): Promise<void> {
     },
     getFingerprint,
     getTierCoverage: async (projectPath: string) => {
-      if (!isSameRepo(projectPath, repoRoot)) return {};
+      // Guard: only overlay store tiers for our own repo (Phase D: project isolation)
+      if (resolve(projectPath) !== resolve(repoRoot)) return {};
 
       const db = memoryServices.store.getDb();
       const rows = db
@@ -530,23 +533,6 @@ async function main(): Promise<void> {
       const result: Record<string, number> = {};
       for (const row of rows) {
         result[row.provenance_tier] = row.cnt;
-      }
-      return result;
-    },
-    getKindCoverage: async (projectPath: string) => {
-      if (!isSameRepo(projectPath, repoRoot)) return {};
-
-      const { mapKindToSourceType } = await import('./routes/evidence-helpers.js');
-      const db = memoryServices.store.getDb();
-      const rows = db
-        .prepare(
-          `SELECT kind, COUNT(*) as cnt FROM evidence_docs WHERE kind IS NOT NULL AND source_path NOT LIKE 'archive/%' GROUP BY kind`,
-        )
-        .all() as Array<{ kind: string; cnt: number }>;
-      const result: Record<string, number> = {};
-      for (const row of rows) {
-        const sourceType = mapKindToSourceType(row.kind);
-        result[sourceType] = (result[sourceType] || 0) + row.cnt;
       }
       return result;
     },
@@ -911,7 +897,9 @@ async function main(): Promise<void> {
           service = new DareAgentService({ catId });
           break;
         case 'antigravity':
-          service = new AntigravityAgentService({ catId });
+          service = new AntigravityAgentService({
+            catId,
+          });
           break;
         case 'opencode':
           service = new OpenCodeAgentService({ catId });
@@ -1079,6 +1067,8 @@ async function main(): Promise<void> {
     packStore,
     evidenceStore: memoryServices.evidenceStore,
     ...(toolUsageCounter ? { toolUsageCounter } : {}),
+    guideSessionStore,
+    dismissTracker,
   });
 
   // F39: Message queue delivery
@@ -1179,7 +1169,12 @@ async function main(): Promise<void> {
   });
   // F155: Frontend-facing guide actions (no MCP auth, uses userId header)
   if (threadStore) {
-    await app.register(guideActionRoutes, { threadStore, socketManager });
+    await app.register(guideActionRoutes, {
+      threadStore,
+      socketManager,
+      guideSessionStore,
+      dismissTracker,
+    });
   }
   await app.register(catsRoutes);
 
@@ -1301,6 +1296,7 @@ async function main(): Promise<void> {
     reflectionService: memoryServices.reflectionService,
     limbRegistry,
     limbPairingStore,
+    guideSessionStore,
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
 
@@ -1332,6 +1328,7 @@ async function main(): Promise<void> {
     taskProgressStore,
     backlogStore,
     ...(readStateStore ? { readStateStore } : {}),
+    guideSessionStore,
   });
   await app.register(threadBranchRoutes, {
     threadStore,
