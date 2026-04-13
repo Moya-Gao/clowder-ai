@@ -963,7 +963,7 @@
     {
       "id": "F155",
       "name": "Scene-Based Guidance Engine — 场景式交互引导",
-      "status": "in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B upstream merged in clowder-ai and intake pending) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
+      "status": "in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B selective intake merged in cat-cafe main via PR #1147) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
       "file": "F155-scene-guidance-engine.md"
     },
     {
@@ -1009,5 +1009,5 @@
       "file": "F161-acp-carrier-generalization.md"
     }
   ],
-  "generated_at": "2026-04-13T16:26:54.827Z"
+  "generated_at": "2026-04-13T17:43:19.842Z"
 }

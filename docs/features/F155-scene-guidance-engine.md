@@ -11,7 +11,7 @@ intake_issue: "cat-cafe#1119"
 
 # F155: Scene-Based Guidance Engine — 场景式交互引导
 
-> **Status**: in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B upstream merged in clowder-ai and intake pending) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
+> **Status**: in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B selective intake merged in cat-cafe main via PR #1147) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
 
 ## Why
 
@@ -34,7 +34,7 @@ intake_issue: "cat-cafe#1119"
 9. **Esc Guard** — 引导期间阻止误关 Hub
 10. **Guide Authoring Skill** — 编写新引导流程的 SOP
 
-### Phase B（社区规划，upstream 已 merge，cat-cafe intake pending）
+### Phase B（已 selective intake 到 cat-cafe main）
 
 - 更多平台内场景（Provider 配置、Hub 设置等）
 - Guide Catalog UI
@@ -59,7 +59,7 @@ TBD — 待 intake 讨论后确定。
 - **HIGH**: 深度修改 routing core（route-parallel/serial/invoke-single-cat/SystemPromptBuilder）
 - 社区方案 Q4 UNKNOWN — 缺长期 owner
 
-## Intake 评估（Phase B 进行中）
+## Intake 评估（Phase B 已 merged）
 
 ### 主人翁五问初判
 
@@ -82,9 +82,9 @@ TBD — 待 intake 讨论后确定。
 ### Intake 现状
 
 - Intake Intent Issue：`cat-cafe#1119`（已关闭）
-- Phase B Intake Intent Issue：`cat-cafe#1144`（进行中）
+- Phase B selective intake 已于 2026-04-13 merge 到 cat-cafe main（PR #1147）
 - 机械分类：67 `safe-cherry-pick` / 1 `brand-guard` / 14 `manual-port`
-- 当前 intake 策略：Phase A 已完成吸收；Phase B 接受 `ephemeral guide session` 分层与 extraction seams 方向，但按 file-level selective absorb 回流，不整包 cherry-pick
+- 当前 intake 策略：Phase A / Phase B 均按 selective absorb 回流；Phase B 已完成 `ephemeral guide session` 分层与 extraction seams 的 file-level intake，不做 upstream 全量 replay
 - Phase A intake 已于 2026-04-12 merge 到 cat-cafe main（PR #1122）
 
 ### Intake Shape
@@ -124,6 +124,7 @@ PR 后半段（04-09 的 20+ commits）连续修了以下问题，说明 `guideS
 | 2026-04-12 | Phase A intake merged (PR #1122) — guide runtime/API/web + guide skills/docs/manual-port，`pnpm gate` 全绿，金渐层 review 放行，Codex cloud review 0 P1/P2 |
 | 2026-04-13 | `clowder-ai#457` upstream squash merged（commit `517c076d23e9b7ab07b082cc63d81052e4ce9931`），并在 upstream F155 doc 写入 KD-16（ephemeral guide session） |
 | 2026-04-13 | cat-cafe 为 `clowder-ai#457` 建立 Intake Intent Issue `#1144`，开始 Phase B selective intake |
+| 2026-04-13 | Phase B selective intake merged (PR #1147) — extraction seams + ephemeral guide session contract intake，cloud review 0 P1/P2 |
 
 ## Upstream Links
 
