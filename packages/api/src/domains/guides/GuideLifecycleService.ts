@@ -216,6 +216,9 @@ export class GuideLifecycleService {
     }
 
     const thread = await this.store.get(threadId);
+    if (!thread) {
+      return { ok: false, code: 404, error: 'thread_not_found', message: `Thread "${threadId}" does not exist` };
+    }
     const gs = await this.guideStore.get(threadId);
     if (!gs || gs.guideId !== guideId) {
       return {
@@ -225,7 +228,7 @@ export class GuideLifecycleService {
         message: `Guide "${guideId}" has not been offered in this thread — call update-guide-state first`,
       };
     }
-    if (thread && !canAccessGuideState(thread, gs, userId)) {
+    if (!canAccessGuideState(thread, gs, userId)) {
       return { ok: false, code: 403, error: 'Guide access denied' };
     }
     if (gs.status !== 'offered' && gs.status !== 'awaiting_choice') {
@@ -261,6 +264,9 @@ export class GuideLifecycleService {
     const { threadId, userId, action } = params;
 
     const thread = await this.store.get(threadId);
+    if (!thread) {
+      return { ok: false, code: 404, error: 'thread_not_found', message: `Thread "${threadId}" does not exist` };
+    }
     const gs = await this.guideStore.get(threadId);
     if (!gs || gs.status !== 'active') {
       return {
@@ -270,7 +276,7 @@ export class GuideLifecycleService {
         message: `No active guide in thread — current status: ${gs?.status ?? 'none'}`,
       };
     }
-    if (thread && !canAccessGuideState(thread, gs, userId)) {
+    if (!canAccessGuideState(thread, gs, userId)) {
       return { ok: false, code: 403, error: 'Guide access denied' };
     }
 
