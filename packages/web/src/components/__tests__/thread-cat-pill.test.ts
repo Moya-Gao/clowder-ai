@@ -1,9 +1,9 @@
 /**
  * F154 Phase B — ThreadCatPill: shows preferred cat in header, opens CatSelector popover.
  */
-import React, { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock next/link
 vi.mock('next/link', () => ({
@@ -81,73 +81,47 @@ const { ThreadCatPill } = await import('@/components/ThreadCatPill');
 
 describe('ThreadCatPill (F154 Phase B)', () => {
   let container: HTMLDivElement;
-  let root: Root;
-
-  beforeAll(() => {
-    (globalThis as { React?: typeof React }).React = React;
-    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  });
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
-    root = createRoot(container);
     mockStore.threads = [{ ...TEST_THREAD, preferredCats: ['opus'] }];
   });
 
   afterEach(() => {
-    act(() => root.unmount());
     container.remove();
   });
 
-  afterAll(() => {
-    delete (globalThis as { React?: typeof React }).React;
-    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
-  });
+  const renderPill = (threadId: string) => {
+    container.innerHTML = renderToStaticMarkup(React.createElement(ThreadCatPill, { threadId }));
+    return container;
+  };
 
   it('renders pill with cat name when preferredCats is set', () => {
-    act(() => {
-      root.render(React.createElement(ThreadCatPill, { threadId: 'thread_pill_test' }));
-    });
-    expect(container.textContent).toContain('opus');
+    expect(renderPill('thread_pill_test').textContent).toContain('opus');
   });
 
   it('renders nothing when preferredCats is empty', () => {
     mockStore.threads = [{ ...TEST_THREAD, preferredCats: [] }];
-    act(() => {
-      root.render(React.createElement(ThreadCatPill, { threadId: 'thread_pill_test' }));
-    });
-    expect(container.innerHTML).toBe('');
+    expect(renderPill('thread_pill_test').innerHTML).toBe('');
   });
 
   it('renders nothing when preferredCats is undefined', () => {
     mockStore.threads = [{ ...TEST_THREAD, preferredCats: undefined }];
-    act(() => {
-      root.render(React.createElement(ThreadCatPill, { threadId: 'thread_pill_test' }));
-    });
-    expect(container.innerHTML).toBe('');
+    expect(renderPill('thread_pill_test').innerHTML).toBe('');
   });
 
   it('shows persona color dot matching the cat', () => {
-    act(() => {
-      root.render(React.createElement(ThreadCatPill, { threadId: 'thread_pill_test' }));
-    });
-    const dot = container.querySelector('[data-testid="pill-dot"]');
+    const dot = renderPill('thread_pill_test').querySelector('[data-testid="pill-dot"]');
     expect(dot).not.toBeNull();
-    expect((dot as HTMLElement).style.backgroundColor).toBe('rgb(255, 171, 145)'); // #FFAB91
+    expect(dot?.getAttribute('style')).toContain('background-color:#FFAB91');
   });
 
   it('renders nothing for unknown threadId', () => {
-    act(() => {
-      root.render(React.createElement(ThreadCatPill, { threadId: 'thread_nonexistent' }));
-    });
-    expect(container.innerHTML).toBe('');
+    expect(renderPill('thread_nonexistent').innerHTML).toBe('');
   });
 
   it('shows chevron indicating expandable', () => {
-    act(() => {
-      root.render(React.createElement(ThreadCatPill, { threadId: 'thread_pill_test' }));
-    });
-    expect(container.textContent).toContain('▾');
+    expect(renderPill('thread_pill_test').textContent).toContain('▾');
   });
 });

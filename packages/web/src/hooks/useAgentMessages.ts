@@ -87,6 +87,7 @@ export function useAgentMessages() {
     setLoading,
     setHasActiveInvocation,
     removeActiveInvocation,
+    addActiveInvocation,
     clearAllActiveInvocations,
     setIntentMode,
     setCatStatus,
@@ -97,6 +98,7 @@ export function useAgentMessages() {
     setMessageThinking,
     setMessageStreamInvocation,
     requestStreamCatchUp,
+    replaceThreadTargetCats,
   } = useChatStore();
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
@@ -229,6 +231,35 @@ export function useAgentMessages() {
       return getCurrentInvocationStateForCat(catId).invocationId;
     },
     [getCurrentInvocationStateForCat],
+  );
+
+  const maybeMigrateSequentialInvocationOwnership = useCallback(
+    (nextCatId: string, invocationId: string) => {
+      const store = useChatStore.getState();
+
+      const activeInvocations = store.activeInvocations ?? {};
+      const primarySlot = activeInvocations[invocationId];
+      if (!primarySlot || primarySlot.catId === nextCatId) return;
+
+      const hasExplicitNextCatSlot =
+        Boolean(activeInvocations[`${invocationId}-${nextCatId}`]) ||
+        Object.values(activeInvocations).some((slot) => slot.catId === nextCatId);
+      if (hasExplicitNextCatSlot) return;
+
+      // Serial handoff reuses the parent invocationId for follow-up cats. If the
+      // previous cat's done(isFinal=false) is lost, the old primary slot would
+      // stay pinned to the first cat forever. Rebind the slot at the moment the
+      // next cat announces its invocation boundary so the eventual final done can
+      // still clear the UI state.
+      removeActiveInvocation(invocationId);
+      addActiveInvocation(invocationId, nextCatId, primarySlot.mode, primarySlot.startedAt);
+
+      const currentTargets = Array.isArray(store.targetCats) ? store.targetCats : [];
+      if (store.currentThreadId && currentTargets.length === 1 && currentTargets[0] === primarySlot.catId) {
+        replaceThreadTargetCats(store.currentThreadId, [nextCatId]);
+      }
+    },
+    [addActiveInvocation, removeActiveInvocation, replaceThreadTargetCats],
   );
 
   const findRecoverableAssistantMessage = useCallback(
@@ -706,6 +737,7 @@ export function useAgentMessages() {
               if (targetId) {
                 setMessageStreamInvocation(targetId, invocationId);
               }
+              maybeMigrateSequentialInvocationOwnership(targetCatId, invocationId);
               consumed = true;
             }
           } else if (parsed?.type === 'invocation_metrics') {
