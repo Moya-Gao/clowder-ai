@@ -30,10 +30,10 @@ export function generateSessionId(threadId: string): string {
 }
 
 /**
- * Migrate legacy `GuideStateV1` (thread-embedded) to `GuideSession`.
- * Used by the session repository when reading from thread fallback.
+ * Create a `GuideSession` from a `GuideStateV1` payload.
+ * Used by `GuideStateBridge.set()` when no existing session is found.
  */
-export function fromLegacyState(
+export function createSessionFromState(
   threadId: string,
   legacy: {
     guideId: string;

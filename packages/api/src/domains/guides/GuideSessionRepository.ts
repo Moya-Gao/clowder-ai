@@ -2,13 +2,11 @@
  * B-4: GuideSession Repository — independent guide state storage.
  *
  * Port interface + Redis implementation.
- * Includes migration fallback: when no independent session exists,
- * reads legacy `thread.guideState` and auto-migrates on first access.
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import type { GuideStateV1, GuideStatus, IThreadStore } from '../cats/services/stores/ports/ThreadStore.js';
-import { fromLegacyState, type GuideSession, generateSessionId } from './GuideSession.js';
+import type { GuideStateV1, GuideStatus } from '../cats/services/stores/ports/ThreadStore.js';
+import { createSessionFromState, type GuideSession, generateSessionId } from './GuideSession.js';
 
 // ---------------------------------------------------------------------------
 // Port
@@ -50,21 +48,17 @@ function parseSession(raw: string): GuideSession | null {
 export class RedisGuideSessionStore implements IGuideSessionStore {
   private readonly redis: RedisClient;
   private readonly ttlSeconds: number;
-  private readonly legacyStore: IThreadStore | null;
 
-  constructor(redis: RedisClient, options?: { ttlSeconds?: number; legacyThreadStore?: IThreadStore }) {
+  constructor(redis: RedisClient, options?: { ttlSeconds?: number }) {
     this.redis = redis;
     this.ttlSeconds = options?.ttlSeconds ?? DEFAULT_TTL;
-    this.legacyStore = options?.legacyThreadStore ?? null;
   }
 
   async getByThread(threadId: string): Promise<GuideSession | null> {
     const key = sessionKey(threadId);
     const raw = await this.redis.get(key);
     if (raw) return parseSession(raw);
-
-    // Migration fallback: read from legacy thread.guideState
-    return this.migrateFromLegacy(threadId);
+    return null;
   }
 
   async save(session: GuideSession): Promise<void> {
@@ -74,20 +68,6 @@ export class RedisGuideSessionStore implements IGuideSessionStore {
 
   async delete(threadId: string): Promise<void> {
     await this.redis.del(sessionKey(threadId));
-  }
-
-  private async migrateFromLegacy(threadId: string): Promise<GuideSession | null> {
-    if (!this.legacyStore) return null;
-    try {
-      const thread = await this.legacyStore.get(threadId);
-      if (!thread?.guideState) return null;
-
-      const session = fromLegacyState(threadId, thread.guideState);
-      await this.save(session);
-      return session;
-    } catch {
-      return null;
-    }
   }
 }
 
@@ -180,37 +160,12 @@ export class GuideStateBridge {
 
   async set(threadId: string, state: GuideStateV1): Promise<void> {
     const existing = await this.store.getByThread(threadId);
-    const session = existing ? updateSessionFromState(existing, state) : fromLegacyState(threadId, state);
+    const session = existing ? updateSessionFromState(existing, state) : createSessionFromState(threadId, state);
     await this.store.save(session);
   }
 
   async delete(threadId: string): Promise<void> {
     await this.store.delete(threadId);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Thread-backed adapter (migration bridge: same Redis keys, new interface)
-// ---------------------------------------------------------------------------
-
-/**
- * Wraps IThreadStore as an IGuideSessionStore, delegating to thread.guideState.
- * Zero behavior change — use during migration before switching to RedisGuideSessionStore.
- */
-export class ThreadBackedGuideSessionStore implements IGuideSessionStore {
-  constructor(private readonly threadStore: IThreadStore) {}
-
-  async getByThread(threadId: string): Promise<GuideSession | null> {
-    const thread = await this.threadStore.get(threadId);
-    return thread?.guideState ? fromLegacyState(threadId, thread.guideState) : null;
-  }
-
-  async save(session: GuideSession): Promise<void> {
-    await this.threadStore.updateGuideState(session.threadId, sessionToLegacyState(session));
-  }
-
-  async delete(threadId: string): Promise<void> {
-    await this.threadStore.updateGuideState(threadId, null);
   }
 }
 

@@ -12,11 +12,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { GuideActionService } from '../domains/guides/GuideActionService.js';
-import {
-  createGuideStoreBridge,
-  type IGuideSessionStore,
-  ThreadBackedGuideSessionStore,
-} from '../domains/guides/GuideSessionRepository.js';
+import { createGuideStoreBridge, type IGuideSessionStore } from '../domains/guides/GuideSessionRepository.js';
 import { isValidGuideId, loadGuideFlow } from '../domains/guides/guide-registry-loader.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
@@ -35,7 +31,8 @@ const guideActionSchema = z.object({
 });
 
 export const guideActionRoutes: FastifyPluginAsync<GuideActionRoutesOptions> = async (app, opts) => {
-  const sessionStore = opts.guideSessionStore ?? new ThreadBackedGuideSessionStore(opts.threadStore);
+  if (!opts.guideSessionStore) throw new Error('guideSessionStore is required');
+  const sessionStore = opts.guideSessionStore;
   const lifecycle = new GuideActionService({
     threadStore: opts.threadStore,
     guideStore: createGuideStoreBridge(sessionStore),

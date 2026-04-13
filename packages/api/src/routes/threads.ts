@@ -27,7 +27,6 @@ import type {
   Thread,
   ThreadRoutingPolicyV1,
 } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { canAccessGuideState } from '../domains/guides/guide-state-access.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -127,11 +126,8 @@ function parseOptionalBooleanQuery(value: string | boolean | undefined): boolean
   return undefined;
 }
 
-function sanitizeThreadForResponse(thread: Thread, userId: string): Thread {
-  if (!thread.guideState) return thread;
-  if (canAccessGuideState(thread, thread.guideState, userId)) return thread;
-  const { guideState: _guideState, ...rest } = thread;
-  return rest;
+function sanitizeThreadForResponse(thread: Thread, _userId: string): Thread {
+  return thread;
 }
 
 const threadRoutingRuleSchema = z

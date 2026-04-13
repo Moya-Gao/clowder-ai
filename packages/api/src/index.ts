@@ -357,7 +357,7 @@ async function main(): Promise<void> {
   let dismissTracker: import('./domains/guides/GuideDismissTracker.js').IGuideDismissTracker | undefined;
   if (redis && threadStore) {
     const { RedisGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
-    guideSessionStore = new RedisGuideSessionStore(redis, { legacyThreadStore: threadStore });
+    guideSessionStore = new RedisGuideSessionStore(redis);
     const { RedisGuideDismissTracker } = await import('./domains/guides/GuideDismissTracker.js');
     dismissTracker = new RedisGuideDismissTracker(redis);
   }

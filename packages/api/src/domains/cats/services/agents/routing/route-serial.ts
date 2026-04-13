@@ -1205,11 +1205,8 @@ export async function* routeSerial(
 
       // F155: Ack guide completion only after cat produced visible output.
       if (deps.invocationDeps.threadStore) {
-        const { createGuideStoreBridge, ThreadBackedGuideSessionStore } = await import(
-          '../../../../guides/GuideSessionRepository.js'
-        );
-        const sessionStore =
-          deps.invocationDeps.guideSessionStore ?? new ThreadBackedGuideSessionStore(deps.invocationDeps.threadStore!);
+        const { createGuideStoreBridge } = await import('../../../../guides/GuideSessionRepository.js');
+        const sessionStore = deps.invocationDeps.guideSessionStore!;
         await ackGuideCompletion({
           ctx: guideCtx,
           catId,

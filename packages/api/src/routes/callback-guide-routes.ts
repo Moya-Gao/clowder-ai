@@ -13,11 +13,7 @@ import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { GuideLifecycleService } from '../domains/guides/GuideLifecycleService.js';
-import {
-  createGuideStoreBridge,
-  type IGuideSessionStore,
-  ThreadBackedGuideSessionStore,
-} from '../domains/guides/GuideSessionRepository.js';
+import { createGuideStoreBridge, type IGuideSessionStore } from '../domains/guides/GuideSessionRepository.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
@@ -68,7 +64,8 @@ export async function registerCallbackGuideRoutes(
     resolveGuideForIntent,
   } = await import('../domains/guides/guide-registry-loader.js');
 
-  const sessionStore = deps.guideSessionStore ?? new ThreadBackedGuideSessionStore(deps.threadStore);
+  if (!deps.guideSessionStore) throw new Error('guideSessionStore is required');
+  const sessionStore = deps.guideSessionStore;
   const lifecycle = new GuideLifecycleService({
     threadStore: deps.threadStore,
     guideStore: createGuideStoreBridge(sessionStore),
