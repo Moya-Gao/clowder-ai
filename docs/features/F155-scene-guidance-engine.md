@@ -102,6 +102,7 @@ The default thread (`threadId: 'default'`) is shared by all users. This creates 
 | KD-13 | Phase B 聚焦平台内引导，外部平台配置改独立页签 |
 | KD-14 | 引导期间禁用 Esc 退出，仅保留 HUD 退出按钮 |
 | KD-15 | Observe substrate 拆分为独立 feature，不入 F155 Phase B |
+| KD-16 | Guide session 是 ephemeral 的：`IGuideSessionStore` 提供扩展点，`InMemoryGuideSessionStore` 为默认实现。重启清空所有 session，不承诺 cross-restart resume / 多实例一致性 / dismiss 计数持久化。如需 reconnect-resume，实现 `PersistentGuideSessionStore`，routing/lifecycle/prompt 层无需改动 |
 
 ## Acceptance Criteria
 
