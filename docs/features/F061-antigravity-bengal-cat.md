@@ -133,16 +133,16 @@ G9 LS 选择策略
 
 ### Phase 2: Bridge 演进 + 证据链 + 高级能力
 
-#### Phase 2a: Bridge 健壮性（架构 Gap 驱动）
+#### Phase 2a: Bridge 健壮性（架构 Gap 驱动） ✅ COMPLETE (2026-04-13, PR #1137)
 - [x] AC-C0: 持久化 threadId → cascadeId 映射，`getOrCreateSession` 优先 resume 已有 cascade 而非新建（G0）
-- [ ] AC-C1: v1 Step taxonomy — 4 类 trajectory 采样 → 6 桶分类框架 + unknown_activity 观测闭环（记录、计数、可回放）（G1）
-- [ ] AC-C2: pollForResponse 改为 async generator，新 step 立即 yield（G2）
-- [ ] AC-C2b: DeliveryCursor 正式化 — baseline/delivered/terminal/lastActivity 四字段（G8a，与 G2 同波）
-- [ ] AC-C3: transformer 处理 MCP_TOOL 类 step，工具失败可见（G3）
-- [ ] AC-C4: 中间 step 映射为 system_info 活跃度信号（G4）
-- [ ] AC-C5: 连接时从 GetUserStatus 动态发现 model → enum 映射（G5）
-- [ ] AC-C6: LS 断连后指数退避重连（G6）
-- [ ] AC-C7: poll 循环内检查 AbortSignal（G7）
+- [x] AC-C1: v1 Step taxonomy — 4 类 trajectory 采样 → 6 桶分类框架 + unknown_activity 观测闭环（记录、计数、可回放）（G1）
+- [x] AC-C2: pollForResponse 改为 async generator `pollForSteps`，新 step 立即 yield（G2）
+- [x] AC-C2b: DeliveryCursor 正式化 — baseline/delivered/terminal/lastActivity 四字段（G8a，与 G2 同波）
+- [x] AC-C3: transformer 处理 MCP_TOOL 类 step，工具失败可见（G3）
+- [x] AC-C4: 中间 step 映射为 system_info 活跃度信号（G4）
+- [x] AC-C5: 连接时从 GetUserStatus 动态发现 model → enum 映射（G5）
+- [x] AC-C6: LS 断连后指数退避重连（G6）
+- [x] AC-C7: poll 循环内检查 AbortSignal（G7）
 
 #### Phase 2b: 证据链 + 高级能力 + 长期演进
 - [ ] AC-8: Antigravity 截图/录屏可作为证据附件回传
