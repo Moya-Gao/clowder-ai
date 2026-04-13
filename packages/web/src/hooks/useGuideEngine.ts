@@ -24,9 +24,11 @@ export function useGuideEngine() {
   useEffect(() => {
     if (!pendingStart) return;
     const { guideId, threadId } = pendingStart;
-    clearPendingStart();
 
     const isActiveThread = () => useChatStore.getState().currentThreadId === threadId;
+    // Check thread BEFORE clearing to prevent race-drop during thread switch
+    if (!isActiveThread()) return;
+    clearPendingStart();
 
     const hasActiveSession = () => {
       const session = useGuideStore.getState().session;
