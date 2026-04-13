@@ -216,7 +216,7 @@ export class GuideLifecycleService {
     }
 
     const thread = await this.store.get(threadId);
-    if (!thread) {
+    if (!thread || thread.deletedAt) {
       return { ok: false, code: 404, error: 'thread_not_found', message: `Thread "${threadId}" does not exist` };
     }
     const gs = await this.guideStore.get(threadId);
@@ -264,7 +264,7 @@ export class GuideLifecycleService {
     const { threadId, userId, action } = params;
 
     const thread = await this.store.get(threadId);
-    if (!thread) {
+    if (!thread || thread.deletedAt) {
       return { ok: false, code: 404, error: 'thread_not_found', message: `Thread "${threadId}" does not exist` };
     }
     const gs = await this.guideStore.get(threadId);
