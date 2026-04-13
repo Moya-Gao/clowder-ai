@@ -82,6 +82,43 @@ We use a semantic variable system defined in `assets/themes/variables.css`.
 
 ---
 
+### System Notifications (`.system-notice-bar` / notice pill / toast)
+
+Non-conversational state updates, alerts, and lightweight automation meta should not be rendered like cat chat bubbles.
+
+| Notification Type | Surface | Persistence | Visual Treatment |
+|-------------------|---------|-------------|------------------|
+| **System Event** | Neutral gray / light blue | Persisted | Full-width `.system-notice-bar` |
+| **Scheduler Lifecycle** | Warm neutral / pale amber | Ephemeral | Top toast or centered notice pill |
+| **Warning / Error** | Soft red / coral | Persisted | `.system-notice-bar--alert` |
+
+#### Scheduled Task Hierarchy
+
+Scheduled task UX is intentionally split by intent:
+
+1. **Management state** (`created / paused / resumed / deleted / completed`)
+   Render as ephemeral toast or notice pill. These receipts are intentionally quiet and should not compete with the actual reminder payload.
+2. **Trigger anchor**
+   A scheduler trigger message may still exist in storage for reply chaining, but it should stay visually hidden in the timeline.
+3. **Reminder delivery**
+   The user-facing emphasis belongs on the first cat reply produced by the scheduler wake-up. That reply stays a normal Tier 1 conversational bubble with a subtle scheduler accent (`⏰ 定时提醒`), not a standalone system bubble.
+
+### Notification Example
+```html
+<!-- Scheduler lifecycle toast -->
+<div class="notice-pill notice-pill--scheduler">
+  <span class="icon">✅</span> Daily reminder created
+</div>
+
+<!-- Scheduler-triggered cat reply -->
+<div class="message-bubble message-bubble--opus" data-accent="scheduler">
+  <div class="message-meta-pill">⏰ 定时提醒</div>
+  Daily backlog summary is ready.
+</div>
+```
+
+---
+
 ## 4. Assets & Sticker Guidelines
 
 ### Avatars
