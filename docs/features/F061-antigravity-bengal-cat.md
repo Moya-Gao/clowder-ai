@@ -99,7 +99,7 @@ Cat Cafe AgentRouter
 
 | # | Gap | 优先级 | 说明 |
 |---|-----|--------|------|
-| **G0** | **无 Resume / 上下文连续性** | **P-1 最高** | 孟加拉猫每次被 @ 都是裸启动：(1) `sessionMap` 是内存 Map，runtime 重启丢失 cascade session；(2) systemPrompt 未注入 thread 历史摘要（其他猫通过 SystemPromptBuilder 拿到的对话增量 + session digest + 身份上下文）。**其他 Gap 都以"猫能持续工作"为前提，G0 不解决则一切无意义** |
+| **G0** | **无 Resume / 上下文连续性** | **P-1 最高** | 孟加拉猫每次被 @ 都新建 cascade，丢失所有对话历史。根因：`sessionMap`（threadId → cascadeId）是内存 Map，runtime 重启即丢失 → 每次 `startCascade()` 新建。Antigravity cascade 自身维护完整对话历史，**正确做法是 resume 已有 cascade（类比 Claude Code 用 session ID resume）而非重建上下文**。修复：持久化 threadId → cascadeId 映射（Redis/文件），`getOrCreateSession` 优先复用已有 cascade |
 | G1 | Step 类型未编目 | **P0 前置** | transformer 只处理 PLANNER_RESPONSE / ERROR_MESSAGE 两种。**v1 scope**：采 4 类真实 trajectory（纯文本/search_evidence/图片生成/长工具链），分 6 桶（terminal_output / partial_output / thinking / tool_pending / tool_error / unknown_activity）。unknown_activity 允许存在，只要求被记录、被计数、能回放 |
 | G2 | 批量交付 → 流式交付 | P1 | pollForResponse 等 IDLE 后一次返回所有 steps。长 cascade 延迟用户反馈。应改为 async generator 逐步 yield |
 | G3 | MCP 工具错误静默吞没 | P1 | transformer 忽略 MCP_TOOL_CALL 类 step，工具失败对用户不可见 |
@@ -118,9 +118,8 @@ Cat Cafe AgentRouter
 #### 演进依赖图
 
 ```
-G0 Resume / 上下文连续性（最高优先）
-  ├→ cascade session 持久化（Redis/文件）
-  └→ systemPrompt 注入 thread 历史摘要
+G0 Resume（最高优先）
+  └→ 持久化 threadId → cascadeId 映射，复用已有 cascade session
 G1 Step taxonomy v1（前置）
   ├→ G2 流式交付 + G8a DeliveryCursor（必须同波）
   ├→ G3 工具错误可见化
@@ -135,8 +134,7 @@ G9 LS 选择策略
 ### Phase 2: Bridge 演进 + 证据链 + 高级能力
 
 #### Phase 2a: Bridge 健壮性（架构 Gap 驱动）
-- [ ] AC-C0a: cascade session 持久化 — sessionMap 从内存 Map 改为持久存储，runtime 重启不丢失（G0）
-- [ ] AC-C0b: systemPrompt 注入 thread 历史摘要 — 对齐其他猫的 SystemPromptBuilder 上下文注入（对话增量 + session digest + 身份）（G0）
+- [ ] AC-C0: 持久化 threadId → cascadeId 映射，`getOrCreateSession` 优先 resume 已有 cascade 而非新建（G0）
 - [ ] AC-C1: v1 Step taxonomy — 4 类 trajectory 采样 → 6 桶分类框架 + unknown_activity 观测闭环（记录、计数、可回放）（G1）
 - [ ] AC-C2: pollForResponse 改为 async generator，新 step 立即 yield（G2）
 - [ ] AC-C2b: DeliveryCursor 正式化 — baseline/delivered/terminal/lastActivity 四字段（G8a，与 G2 同波）
