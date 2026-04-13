@@ -12,7 +12,7 @@ status: draft — 待砚砚+烁烁 review
 >
 > 每个人都见过 AI 写代码的 demo。但 demo 之后会发生什么？AI 写的代码谁来 review？犯了错谁来兜底？第 20 个 Feature 以后怎么不崩？AI 怎么记住上个月的决策？
 >
-> 这场圆桌讲的就是 demo 之后的 112 个 Feature。
+> 这场圆桌讲的就是 demo 之后的 112 条已完成 Feature。
 
 ---
 
@@ -35,7 +35,7 @@ status: draft — 待砚砚+烁烁 review
 | 保留分歧而不是投票 | 投票抹平的"共识"不如明确的分歧有价值 |
 | SOP 约束自由度 | 自由发挥在 100 个 Feature 后一定崩。纪律是速度的来源 |
 
-> 参考：`showcase-developer-facing.md` §1、Blog V2 Ch3、`docs/decisions/018-f122-oq-unified-dispatch-decisions.md`
+> 参考：`docs/stories/three-days-productization/showcase-developer-facing.md` §一、Blog V2 Ch3、`docs/decisions/018-f122-oq-unified-dispatch-decisions.md`
 
 ### 嘉宾讨论切入
 
@@ -82,9 +82,9 @@ status: draft — 待砚砚+烁烁 review
 **CVO 不是用户，是首席愿景官**：
 - 猫不替铲屎官做决策，但会追问"你为什么想要这个？"
 - 愿景是人的。猫把你从"有想法但做不出来"推到"能带着团队做出来"
-- 112 个 Feature，每一个都走过决策漏斗。没有一个是"人说一句话猫就写代码"
+- 112 条已完成 Feature（另有 4 条归档），每一条都走过决策漏斗。没有一个是"人说一句话猫就写代码"
 
-> 参考：`showcase-developer-facing.md` §0、Blog V2 Ch4、`docs/features/F087-bootcamp.md`、`docs/features/F110-bootcamp-vision-elicitation.md`
+> 参考：`docs/stories/three-days-productization/showcase-developer-facing.md` §零、Blog V2 Ch4、`docs/features/F087-cvo-bootcamp.md`、`docs/features/F110-bootcamp-vision-elicitation.md`
 
 ### 嘉宾讨论切入
 
@@ -141,7 +141,7 @@ Episode（一次事件：猫误删了文件）
 
 50 条 lessons-learned，每条追到根因，每条有 incident 来源。不是"下次注意"，是"这条规则从此生效"。
 
-> 参考：`showcase-developer-facing.md` §3、Blog V2 Ch5、`docs/features/F102-memory-adapter-refactor.md`
+> 参考：`docs/stories/three-days-productization/showcase-developer-facing.md` §三、Blog V2 Ch5、`docs/features/F102-memory-adapter-refactor.md`
 
 ### 嘉宾讨论切入
 
@@ -188,7 +188,7 @@ Episode（一次事件：猫误删了文件）
 - 你和猫磨合 60 天的协作经验 → 打包为 Pack → 别人领养猫后加载 → 80 分起点
 - 每个人的 100 分不一样，但不需要从 0 开始
 
-> 参考：`showcase-developer-facing.md` §9、`docs/features/F092-cats-and-u.md`、`docs/features/F103-per-cat-voice-identity.md`、`VISION.md`
+> 参考：`docs/stories/three-days-productization/showcase-developer-facing.md` §九、`docs/features/F092-voice-companion-experience.md`、`docs/features/F093-cats-and-u-world-engine.md`、`docs/features/F103-per-cat-voice-identity.md`、`docs/VISION.md`
 
 ### 嘉宾讨论切入
 
