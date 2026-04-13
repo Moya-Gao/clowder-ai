@@ -137,7 +137,9 @@ export function DirectoryPickerModal({
     }
   }, [pathInput, handleSelectPath]);
 
-  // Fetch cwd for "推荐" badge
+  // Fetch cwd for "推荐" badge + auto-select as default project.
+  // cwdPath is the true default; existingProjects[0] is fallback only when cwd fails.
+  // `prev ??` ensures user's explicit click is never overwritten.
   useEffect(() => {
     (async () => {
       try {
@@ -145,12 +147,15 @@ export function DirectoryPickerModal({
         if (res.ok) {
           const data = await res.json();
           setCwdPath(data.path);
+          setSelectedPath((prev) => prev ?? data.path);
+          return;
         }
       } catch {
-        // ignore — cwd is optional
+        // cwd unavailable — fall through to existingProjects fallback
       }
+      setSelectedPath((prev) => prev ?? (existingProjects.length > 0 ? existingProjects[0] : null));
     })();
-  }, []);
+  }, [existingProjects]);
 
   // Escape to close
   useEffect(() => {
@@ -213,7 +218,7 @@ export function DirectoryPickerModal({
             <button
               type="button"
               onClick={() => handleSelectPath(cwdPath)}
-              className={`w-full text-left px-3 py-2.5 text-sm text-cafe-secondary hover:bg-cocreator-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === cwdPath ? 'ring-2 ring-cocreator-primary bg-cocreator-bg' : 'ring-1 ring-cocreator-primary/30 bg-cocreator-bg/50'}`}
+              className={`w-full text-left px-3 py-2.5 text-sm text-cafe-secondary hover:bg-cocreator-bg rounded-lg transition-colors flex items-center gap-2 ${selectedPath === cwdPath ? 'ring-2 ring-cocreator-primary bg-cocreator-bg' : ''}`}
               title={cwdPath}
             >
               <FolderIcon />

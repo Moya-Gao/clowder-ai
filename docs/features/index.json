@@ -915,7 +915,7 @@
     {
       "id": "F149",
       "name": "ACP Runtime Operations — 项目级进程池 + Session Lease",
-      "status": "in-progress | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
+      "status": "done | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
       "file": "F149-acp-runtime-operations.md"
     },
     {
@@ -1001,7 +1001,13 @@
       "name": "毛线球升级 — Thread-Level Persistent Task Board",
       "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F160-task-board-upgrade.md"
+    },
+    {
+      "id": "F161",
+      "name": "ACP Carrier Generalization — 多载体复用同一 Runtime Policy",
+      "status": "spec | **Owner**: TBD | **Priority**: P2",
+      "file": "F161-acp-carrier-generalization.md"
     }
   ],
-  "generated_at": "2026-04-13T02:16:10.287Z"
+  "generated_at": "2026-04-13T10:29:29.315Z"
 }
