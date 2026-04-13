@@ -57,3 +57,4 @@ created: 2026-02-26
 | F155 | Scene-Based Guidance Engine — 场景式交互引导 | needs-discussion | 待定 | internal | [F155](features/F155-scene-guidance-engine.md) |
 | F156 | WebSocket Security Hardening — 实时通道安全加固 | in-progress | Ragdoll | internal | [F156](features/F156-websocket-security-hardening.md) |
 | F159 | CatAgent Native Provider — Opt-in API Path | spec | 社区 + Ragdoll + Maine Coon | community [#434](https://github.com/zts212653/clowder-ai/issues/434) | [F159](features/F159-catagent-native-provider.md) |
+| F160 | Unified Notification & Dialogue Contract — 聊天通知与对话形态统一契约 | spec | Maine Coon | internal | [F160](features/F160-unified-notification-dialogue-contract.md) |
