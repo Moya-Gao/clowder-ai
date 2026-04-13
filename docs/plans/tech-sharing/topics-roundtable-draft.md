@@ -12,7 +12,7 @@ status: draft — 待砚砚+烁烁 review
 >
 > 每个人都见过 AI 写代码的 demo。但 demo 之后会发生什么？AI 写的代码谁来 review？犯了错谁来兜底？第 20 个 Feature 以后怎么不崩？AI 怎么记住上个月的决策？
 >
-> 这场圆桌讲的就是 demo 之后的 112 条已完成 Feature。
+> 这场圆桌讲的就是 demo 之后的 100+ 个 Feature（演讲当天实时刷新数字）。
 
 ---
 
@@ -82,7 +82,7 @@ status: draft — 待砚砚+烁烁 review
 **CVO 不是用户，是首席愿景官**：
 - 猫不替铲屎官做决策，但会追问"你为什么想要这个？"
 - 愿景是人的。猫把你从"有想法但做不出来"推到"能带着团队做出来"
-- 112 条已完成 Feature（另有 4 条归档），每一条都走过决策漏斗。没有一个是"人说一句话猫就写代码"
+- 100+ 条已完成 Feature（演讲当天实时刷新），每一条都走过决策漏斗。没有一个是"人说一句话猫就写代码"
 
 > 参考：`docs/stories/three-days-productization/showcase-developer-facing.md` §零、Blog V2 Ch4、`docs/features/F087-cvo-bootcamp.md`、`docs/features/F110-bootcamp-vision-elicitation.md`
 
@@ -95,7 +95,7 @@ status: draft — 待砚砚+烁烁 review
 ### 可 Demo
 
 - 现场触发一次 CVO 采访：给猫一个模糊需求，展示猫如何追问、挖掘隐藏需求、收敛为 spec 骨架
-- 展示 Feature 索引（112 条，每条都有 spec + ADR）
+- 展示 Feature 索引（100+ 条，每条有可追溯文档，关键决策进入 ADR）
 
 ### 建议讨论问题
 
@@ -139,7 +139,7 @@ Episode（一次事件：猫误删了文件）
         → SOP（写入团队流程：shared-rules.md）
 ```
 
-50 条 lessons-learned，每条追到根因，每条有 incident 来源。不是"下次注意"，是"这条规则从此生效"。
+50 条 lessons-learned，统一模板与锚点机制，核心条目可追溯到 incident/decision。不是"下次注意"，是"这条规则从此生效"。
 
 > 参考：`docs/stories/three-days-productization/showcase-developer-facing.md` §三、Blog V2 Ch5、`docs/features/F102-memory-adapter-refactor.md`
 
