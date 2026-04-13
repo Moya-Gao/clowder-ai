@@ -503,6 +503,13 @@ async function main(): Promise<void> {
   const { ExpeditionBootstrapService } = await import('./domains/memory/ExpeditionBootstrapService.js');
   const indexStateManager = new IndexStateManager(memoryServices.store.getDb());
   const { execFileSync } = await import('node:child_process');
+  const getFingerprint = (projectPath: string) => {
+    try {
+      return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: projectPath, encoding: 'utf-8' }).trim();
+    } catch {
+      return '';
+    }
+  };
   const expeditionBootstrapService = new ExpeditionBootstrapService(indexStateManager, {
     rebuildIndex: async (projectPath: string) => {
       const startMs = Date.now();
@@ -510,13 +517,7 @@ async function main(): Promise<void> {
       const summary = buildStructuralSummary(projectPath);
       return { docsIndexed: summary.docsList.length, durationMs: Date.now() - startMs };
     },
-    getFingerprint: (projectPath: string) => {
-      try {
-        return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: projectPath, encoding: 'utf-8' }).trim();
-      } catch {
-        return '';
-      }
-    },
+    getFingerprint,
     getTierCoverage: async (projectPath: string) => {
       if (!isSameRepo(projectPath, repoRoot)) return {};
 
@@ -1396,6 +1397,7 @@ async function main(): Promise<void> {
     stateManager: indexStateManager,
     bootstrapService: expeditionBootstrapService,
     socketManager: socketManager!,
+    getFingerprint,
   });
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
