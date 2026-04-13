@@ -85,9 +85,58 @@ Cat Cafe AgentRouter
 - [x] AC-B5: 删除全部 CDP 代码（AntigravityCdpClient、cdp-dom-scripts、cdp-target-selection）
 - [x] AC-B6: 20 tests 覆盖（event-transformer 7 + agent-service 9 + registration 1 + whitelist 3）
 
-### Phase 2: 证据链 + 高级能力
+### Architecture Review — 布偶猫 × 缅因猫联合诊断 (2026-04-12)
+
+#### 当日修复（3 commits）
+
+| Bug | 根因 | 修复 | Commit |
+|-----|------|------|--------|
+| @antig-opus 无回复 | LS proto 期望 string enum (`MODEL_PLACEHOLDER_M26`)，numeric ID 被静默丢弃 → plannerConfig 空 → planner 不启动 | MODEL_ID_MAP 改为 string enum | `de2a2b84f` |
+| 第二条消息挂起 | pollForResponse 用 `numTotalSteps > 1` 判断完成，复用 cascade 时旧 steps 满足条件 | 引入 `stepsBefore` baseline，每轮 slice 新 steps | `98eeaaaa0` |
+| 固定超时不够 | 90s 固定 deadline，工具链长的 cascade 必超时 | F149 活动式空闲超时：每个新 step 重置 60s idle deadline | `eba94450c` |
+
+#### Gap Analysis（布偶猫 6 项 + 缅因猫 5 项，去重合并 9 项）
+
+| # | Gap | 优先级 | 说明 |
+|---|-----|--------|------|
+| G1 | Step 类型未编目 | **P0 前置** | transformer 只处理 PLANNER_RESPONSE / ERROR_MESSAGE 两种，实际 cascade 产出 N 种。需从生产 trajectory 采集全量 step type 才能推进 G2/G4/G5 |
+| G2 | 批量交付 → 流式交付 | P1 | pollForResponse 等 IDLE 后一次返回所有 steps。长 cascade 延迟用户反馈。应改为 async generator 逐步 yield |
+| G3 | MCP 工具错误静默吞没 | P1 | transformer 忽略 MCP_TOOL_CALL 类 step，工具失败对用户不可见 |
+| G4 | 无活跃度信号 | P1 | cascade 执行期间用户无进度提示。中间 step 应映射为 system_info（"在查知识库"、"在等工具返回"） |
+| G5 | MODEL_ID_MAP 硬编码 | P2 | 4 模型 string enum 写死。应从 GetUserStatus.cascadeModelConfigData 动态发现 |
+| G6 | 无连接自愈 | P2 | LS 重启 → bridge 永久失效。需指数退避重连 + session 恢复 |
+| G7 | AbortSignal 不穿透 poll | P2 | signal 仅在 send 前后检查，polling 期间无法取消 |
+| G8 | 无 TurnCursor | P3 | session 复用靠 stepsBefore 差值，无正式 turn 分隔。多轮状态脆弱 |
+| G9 | 无 LS 选择策略 | P3 | 双 LS 进程（workspace / non-workspace），当前取首个发现的 |
+
+#### 演进依赖图
+
+```
+G1 Step 编目（前置）
+  ├→ G2 流式交付（async generator）
+  ├→ G3 工具错误可见化
+  └→ G4 活跃度信号
+G5 动态模型发现
+G6 连接自愈
+G7 AbortSignal 穿透
+G8 TurnCursor ← G2 完成后自然需要
+G9 LS 选择策略
+```
+
+### Phase 2: Bridge 演进 + 证据链 + 高级能力
+
+#### Phase 2a: Bridge 健壮性（架构 Gap 驱动）
+- [ ] AC-C1: 采集并编目所有 CORTEX_STEP_TYPE_* 及出现频率（G1 前置）
+- [ ] AC-C2: pollForResponse 改为 async generator，新 step 立即 yield（G2）
+- [ ] AC-C3: transformer 处理 MCP_TOOL 类 step，工具失败可见（G3）
+- [ ] AC-C4: 中间 step 映射为 system_info 活跃度信号（G4）
+- [ ] AC-C5: 连接时从 GetUserStatus 动态发现 model → enum 映射（G5）
+- [ ] AC-C6: LS 断连后指数退避重连（G6）
+- [ ] AC-C7: poll 循环内检查 AbortSignal（G7）
+
+#### Phase 2b: 证据链 + 高级能力
 - [ ] AC-8: Antigravity 截图/录屏可作为证据附件回传
-- [ ] AC-9: 多模型切换可通过 Cat Cafe 配置控制
+- [ ] AC-9: 多模型切换可通过 Cat Cafe 配置控制（由 AC-C5 动态发现支撑）
 - [ ] AC-10: 与现有三猫回归测试共跑通过
 
 ---
