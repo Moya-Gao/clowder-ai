@@ -150,7 +150,7 @@ async function resolveExistingCandidate(
  * `/guide <name>` or `引导 <name>` are explicit commands that bypass
  * confidence thresholds and dismiss suppression.
  */
-const EXPLICIT_GUIDE_RE = /^\/guide\b/i;
+const EXPLICIT_GUIDE_RE = /^(?:\/guide\b|引导(?=\s|$))/i;
 
 export function isExplicitGuideRequest(message: string): boolean {
   return EXPLICIT_GUIDE_RE.test(message.trim());

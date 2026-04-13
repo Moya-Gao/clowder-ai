@@ -206,6 +206,14 @@ describe('Explicit trigger detection', async () => {
     assert.equal(isExplicitGuideRequest('/Guide 添加成员'), true);
   });
 
+  test('引导 prefix triggers explicit mode', () => {
+    assert.equal(isExplicitGuideRequest('引导 添加成员'), true);
+  });
+
+  test('引导 alone triggers explicit mode', () => {
+    assert.equal(isExplicitGuideRequest('引导'), true);
+  });
+
   test('normal message does not trigger', () => {
     assert.equal(isExplicitGuideRequest('添加成员'), false);
   });
@@ -222,8 +230,12 @@ describe('Explicit trigger detection', async () => {
     assert.equal(stripExplicitPrefix('/guide'), '');
   });
 
-  test('stripExplicitPrefix handles Chinese intent', () => {
+  test('stripExplicitPrefix handles Chinese intent from /guide', () => {
     assert.equal(stripExplicitPrefix('/guide 添加成员'), '添加成员');
+  });
+
+  test('stripExplicitPrefix handles Chinese prefix 引导', () => {
+    assert.equal(stripExplicitPrefix('引导 添加成员'), '添加成员');
   });
 });
 
