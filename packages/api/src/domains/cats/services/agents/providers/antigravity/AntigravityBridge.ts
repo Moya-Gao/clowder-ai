@@ -10,8 +10,10 @@
  */
 
 import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
+import { dirname, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('antigravity-bridge');
@@ -51,12 +53,26 @@ export interface CascadeTrajectory {
   trajectory?: { steps: TrajectoryStep[] };
 }
 
+export interface BridgeOptions {
+  sessionStorePath?: string;
+}
+
+const DEFAULT_SESSION_STORE = join(process.cwd(), 'data', 'antigravity-sessions.json');
+
 export class AntigravityBridge {
   private conn: BridgeConnection | null = null;
-  /** threadId → cascadeId */
+  /** threadId → cascadeId (file-backed for persistence across restarts) */
   private sessionMap = new Map<string, string>();
+  private deletedKeys = new Set<string>();
+  private sessionMapLoaded = false;
+  private readonly sessionStorePath: string;
 
-  constructor(private readonly connection?: Partial<BridgeConnection>) {}
+  constructor(
+    private readonly connection?: Partial<BridgeConnection>,
+    options?: BridgeOptions,
+  ) {
+    this.sessionStorePath = options?.sessionStorePath ?? DEFAULT_SESSION_STORE;
+  }
 
   async ensureConnected(): Promise<BridgeConnection> {
     if (this.conn) return this.conn;
@@ -150,13 +166,39 @@ export class AntigravityBridge {
     }
   }
 
-  /** Get or create a cascade session bound to a thread. */
-  async getOrCreateSession(threadId: string): Promise<string> {
-    const existing = this.sessionMap.get(threadId);
-    if (existing) return existing;
-    const cascadeId = await this.startCascade();
-    this.sessionMap.set(threadId, cascadeId);
-    return cascadeId;
+  /** Get or create a cascade session bound to a thread+cat pair (file-backed, G0). */
+  async getOrCreateSession(threadId: string, catId?: string): Promise<string> {
+    this.loadSessionMap();
+
+    const key = catId ? `${threadId}:${catId}` : threadId;
+    const candidates = [this.sessionMap.get(key)];
+    // Legacy fallback: pre-catId entries stored under threadId only
+    if (catId && !candidates[0]) candidates.push(this.sessionMap.get(threadId));
+
+    for (const cascadeId of candidates) {
+      if (!cascadeId) continue;
+      try {
+        await this.getTrajectory(cascadeId);
+        if (this.sessionMap.get(key) !== cascadeId) {
+          // Migrate legacy key to new format and delete old to prevent cross-cat leak
+          this.sessionMap.set(key, cascadeId);
+          this.sessionMap.delete(threadId);
+          this.deletedKeys.add(threadId);
+          this.persistSessionMap();
+          log.info(`migrated legacy key ${threadId} → ${key}`);
+        }
+        log.debug(`reusing cascade ${cascadeId} for ${key}`);
+        return cascadeId;
+      } catch {
+        log.info(`cascade ${cascadeId} dead for ${key}, creating new`);
+      }
+    }
+
+    const newCascadeId = await this.startCascade();
+    this.sessionMap.set(key, newCascadeId);
+    this.deletedKeys.delete(key);
+    this.persistSessionMap();
+    return newCascadeId;
   }
 
   resolveModelId(modelName: string): string | undefined {
@@ -164,6 +206,43 @@ export class AntigravityBridge {
   }
 
   // ── Private ──────────────────────────────────────────────────────
+
+  private loadSessionMap(): void {
+    if (this.sessionMapLoaded) return;
+    this.sessionMapLoaded = true;
+    try {
+      if (existsSync(this.sessionStorePath)) {
+        const raw = JSON.parse(readFileSync(this.sessionStorePath, 'utf8')) as Record<string, string>;
+        for (const [k, v] of Object.entries(raw)) {
+          this.sessionMap.set(k, v);
+        }
+        log.info(`loaded ${this.sessionMap.size} session(s) from ${this.sessionStorePath}`);
+      }
+    } catch (err) {
+      log.warn(`failed to load session store: ${err}`);
+    }
+  }
+
+  private persistSessionMap(): void {
+    try {
+      const dir = dirname(this.sessionStorePath);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      // Read-merge-write: preserve entries from other bridge instances
+      let existing: Record<string, string> = {};
+      try {
+        if (existsSync(this.sessionStorePath)) {
+          existing = JSON.parse(readFileSync(this.sessionStorePath, 'utf8')) as Record<string, string>;
+        }
+      } catch {
+        /* start fresh if corrupt */
+      }
+      const merged = { ...existing, ...Object.fromEntries(this.sessionMap) };
+      for (const key of this.deletedKeys) delete merged[key];
+      writeFileSync(this.sessionStorePath, JSON.stringify(merged, null, 2));
+    } catch (err) {
+      log.warn(`failed to persist session store: ${err}`);
+    }
+  }
 
   private rpc<T = Record<string, unknown>>(conn: BridgeConnection, method: string, payload: unknown): Promise<T> {
     const mod = conn.useTls ? https : http;

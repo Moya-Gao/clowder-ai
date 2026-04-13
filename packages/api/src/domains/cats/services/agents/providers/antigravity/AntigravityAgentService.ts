@@ -61,7 +61,7 @@ export class AntigravityAgentService implements AgentService {
 
       // Create cascade and send message
       const threadId = options?.auditContext?.threadId ?? `ephemeral-${Date.now()}`;
-      const cascadeId = await this.bridge.getOrCreateSession(threadId);
+      const cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
       log.info(`invoke: cascade=${cascadeId}, thread=${threadId}, model=${this.model}`);
 
       yield {
