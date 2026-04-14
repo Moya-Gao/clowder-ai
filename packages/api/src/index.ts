@@ -451,6 +451,9 @@ async function main(): Promise<void> {
       ? resolve(process.cwd(), '..', '..')
       : process.cwd();
 
+  const { initRepoIdentity, isSameRepo } = await import('./utils/is-same-repo.js');
+  initRepoIdentity(repoRoot);
+
   const { createMemoryServices } = await import('./domains/memory/factory.js');
   const memoryServices = await createMemoryServices({
     type: 'sqlite',
@@ -521,8 +524,7 @@ async function main(): Promise<void> {
     },
     getFingerprint,
     getTierCoverage: async (projectPath: string) => {
-      // Guard: only overlay store tiers for our own repo (Phase D: project isolation)
-      if (resolve(projectPath) !== resolve(repoRoot)) return {};
+      if (!isSameRepo(projectPath, repoRoot)) return {};
 
       const db = memoryServices.store.getDb();
       const rows = db
@@ -533,6 +535,23 @@ async function main(): Promise<void> {
       const result: Record<string, number> = {};
       for (const row of rows) {
         result[row.provenance_tier] = row.cnt;
+      }
+      return result;
+    },
+    getKindCoverage: async (projectPath: string) => {
+      if (!isSameRepo(projectPath, repoRoot)) return {};
+
+      const { mapKindToSourceType } = await import('./routes/evidence-helpers.js');
+      const db = memoryServices.store.getDb();
+      const rows = db
+        .prepare(
+          `SELECT kind, COUNT(*) as cnt FROM evidence_docs WHERE kind IS NOT NULL AND source_path NOT LIKE 'archive/%' GROUP BY kind`,
+        )
+        .all() as Array<{ kind: string; cnt: number }>;
+      const result: Record<string, number> = {};
+      for (const row of rows) {
+        const sourceType = mapKindToSourceType(row.kind);
+        result[sourceType] = (result[sourceType] || 0) + row.cnt;
       }
       return result;
     },
