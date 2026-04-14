@@ -166,6 +166,7 @@
 <script>
 const chart = echarts.init(document.getElementById('chart-{n}'));
 chart.setOption({
+  animation: false, // 必须关闭！导出截图不等动画
   // 颜色规范：
   // 坐标轴标签：#252525 或 #000（禁止浅灰 #a6a6a6）
   // 图例文字：#252525

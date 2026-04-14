@@ -19,7 +19,7 @@
 |------|--------|--------|--------|
 | 空白率 | < 30% | ✅ `densityGate` | `whitespaceRatio` |
 | 溢出 | 0 个 | ✅ `densityGate` | `overflowCount` |
-| 元素数 | ≥ 阈值 | ✅ `densityGate` | `elementCount` |
+| 元素数 | — | 📊 报告字段 | `elementCount`（仅输出，不参与 gate 判定） |
 | 数据可视化 | ≥ 1 图表 或 ≥ 3 数据卡片 | ❌ 人工 | 数 `<canvas>` + 数据卡片 |
 | 核心要点 | 6-10 个列表项或卡片 | ❌ 人工 | 数主要信息单元 |
 | 视觉图标 | ≥ 3 个 emoji/SVG | ❌ 人工 | 数图标元素 |
@@ -97,6 +97,7 @@
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <script>
 echarts.init(document.getElementById('chart-1')).setOption({
+  animation: false, // 必须关闭！导出截图不等动画
   color: ['#C7020E','#FF6B6B','#FFA940','#FADB14','#52C41A','#1890FF'],
   xAxis: { type: 'category', data: ['Q1','Q2','Q3','Q4'],
     axisLabel: { color: '#252525' } },
