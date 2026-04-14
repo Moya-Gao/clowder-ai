@@ -94,6 +94,7 @@ export class AntigravityAgentService implements AgentService {
       }
 
       let hasText = false;
+      let fatalSeen = false;
       for await (const batch of this.bridge.pollForSteps(
         cascadeId,
         stepsBefore,
@@ -106,11 +107,18 @@ export class AntigravityAgentService implements AgentService {
           for (const msg of messages) {
             if (msg.type === 'text') hasText = true;
             yield msg;
+            if (msg.type === 'error' && msg.errorCode && msg.errorCode !== 'tool_error') {
+              fatalSeen = true;
+            }
           }
+        }
+        if (fatalSeen) {
+          log.info('fatal error detected (upstream_error/stream_error), aborting poll loop');
+          break;
         }
       }
 
-      if (!hasText) {
+      if (!hasText && !fatalSeen) {
         yield {
           type: 'error',
           catId: this.catId,

@@ -199,6 +199,98 @@ describe('AntigravityAgentService (Bridge)', () => {
     assert.ok(thinkingMsg.content.includes('thinking'));
   });
 
+  // ── Bug-5: Fatal error early abort ──────────────────────────────
+
+  test('stops after upstream_error — no ghost text from later batches', async () => {
+    const bridge = createMockBridge();
+    // Override pollForSteps to yield two batches: fatal error then ghost text
+    bridge.pollForSteps = mock.fn(async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'Model crashed' } },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      // This batch should NEVER be consumed — service should have aborted
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'ghost text after fatal' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 0, 'ghost text after fatal should NOT be yielded');
+    const errors = messages.filter((m) => m.type === 'error');
+    assert.ok(
+      errors.some((e) => e.errorCode === 'upstream_error'),
+      'must have upstream_error',
+    );
+  });
+
+  test('does NOT emit empty_response when fatalSeen', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = mock.fn(async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { modelErrorMessage: 'INVALID_ARGUMENT (code 400)' } },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('hello'));
+
+    const emptyErrs = messages.filter((m) => m.type === 'error' && m.errorCode === 'empty_response');
+    assert.equal(emptyErrs.length, 0, 'should NOT add empty_response when fatal already reported');
+  });
+
+  test('tool_error does NOT trigger early abort', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = mock.fn(async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_TOOL_RESULT',
+            status: 'FINISHED',
+            toolResult: { toolName: 'image_gen', success: false, error: 'quota exceeded' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Sorry, image generation failed.' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 1, 'text after tool_error should still be yielded');
+  });
+
   test('aborted signal prevents execution', async () => {
     const bridge = createMockBridge();
     const controller = new AbortController();

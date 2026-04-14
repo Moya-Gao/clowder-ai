@@ -151,6 +151,7 @@ export function transformTrajectorySteps(
             type: 'error',
             catId,
             error: err.userErrorMessage || err.modelErrorMessage || 'Unknown Antigravity error',
+            errorCode: 'upstream_error',
             metadata,
             timestamp: Date.now(),
           });

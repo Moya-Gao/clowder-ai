@@ -216,7 +216,7 @@ describe('Transformer regression', () => {
     assert.equal(textMsg.content, 'hello');
   });
 
-  test('emits error from ERROR_MESSAGE step', () => {
+  test('emits error from ERROR_MESSAGE step with upstream_error code', () => {
     const steps = [
       {
         type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
@@ -227,6 +227,7 @@ describe('Transformer regression', () => {
     const msgs = transformTrajectorySteps(steps, catId, metadata);
     assert.equal(msgs.filter((m) => m.type === 'error').length, 1);
     assert.ok(msgs[0].error.includes('terminated'));
+    assert.equal(msgs[0].errorCode, 'upstream_error', 'ERROR_MESSAGE must have errorCode for fatal detection');
   });
 
   test('emits stream_error when stopReason is CLIENT_STREAM_ERROR and no text', () => {
