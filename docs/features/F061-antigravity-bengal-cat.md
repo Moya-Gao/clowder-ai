@@ -479,27 +479,30 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-14 | **P1-2 workspace path fix** — LS 路径校验感知 + prompt injection 防护（PR #1149, 砚砚 2 轮放行 + 云端 P1→fix→0 P1/P2）|
 | 2026-04-14 | **P2 event mapping fix** — MCP_TOOL/CHECKPOINT/EPHEMERAL_MESSAGE step 正确分类 + 静默跳过噪音（PR #1150, 砚砚放行 + 云端 P1→fix→0 P1/P2）|
 | 2026-04-14 | **Bug-4 taxonomy v2 fix** — 消除前端 raw JSON 泄漏 + 保留 unknown_activity 观测链 log.debug（PR #1154, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
+| 2026-04-14 | **Bug-5 fatal early abort fix** — 上游 fatal error 立即中断 poll loop，不再傻等 60s stall（PR #1157, 砚砚放行 + 云端 0 P1/P2）|
 
 ---
 
 ## Known Bugs（活跃）
 
-### Bug-5: Live-run stall — 上游 fatal error 后 bridge 傻等 60s
+（当前无活跃 bug。Layer 2 RUNNING heartbeat / Layer 3 stall error dedupe 为增强项，非 bug。）
+
+## Known Bugs（已修复）
+
+### Bug-5: Live-run stall — 上游 fatal error 后 bridge 傻等 60s ✅
 
 **现象**（2026-04-14 铲屎官报告）：重启后新线程的孟加拉猫仍报 `Antigravity stall: no activity`，且同一条红错出现两次。
 
 **根因**（3 层）：
 1. **error-aware early abort 缺失** — `pollForSteps` 只检查 `IDLE` 和 idle timeout。上游已出 ERROR_MESSAGE 但 status 仍 RUNNING 时，bridge 继续傻等到 60s timeout，把真实错误升级成 stall
-2. **RUNNING 态无 heartbeat** — 长 thinking / 长工具阶段没有 step 增长时，前端无"还活着"信号
-3. **stall error dedupe 缺失** — 同一 stall 错误被重复端出两次（待定位是后端 append 还是前端渲染）
+2. **RUNNING 态无 heartbeat** — 长 thinking / 长工具阶段没有 step 增长时，前端无"还活着"信号（增强项，未来工作）
+3. **stall error dedupe 缺失** — 同一 stall 错误被重复端出两次（增强项，未来工作）
 
-**修复方向**（砚砚 + 宪宪对齐）：
-- fatal 判定在 transformer（`ERROR_MESSAGE` 加 `errorCode: 'upstream_error'`）
-- abort 决策在 service（`for await` 循环 yield 完本批后 `break`）
-- bridge 不背业务语义，保持 transport 层纯净
+**修复**（PR #1157, `fa5c9383`）：
+- Layer 1 fixed: ERROR_MESSAGE → `errorCode: 'upstream_error'`（transformer 层）
+- Service `fatalSeen` flag：upstream_error/stream_error 触发 poll loop `break`，不再傻等
 - `fatalSeen` 时跳过 `empty_response` 兜底（避免双报错）
-
-## Known Bugs（已修复）
+- 架构（砚砚提议）：fatal 判定在 transformer，abort 决策在 service，bridge 不背业务语义
 
 ### Bug-4: Step taxonomy v2 — 3 类 step 泄漏原始 JSON 到前端 ✅
 
