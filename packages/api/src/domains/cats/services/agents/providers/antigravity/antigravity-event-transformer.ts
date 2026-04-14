@@ -8,6 +8,7 @@ export type StepBucket =
   | 'thinking'
   | 'tool_pending'
   | 'tool_error'
+  | 'checkpoint'
   | 'unknown_activity';
 
 export function classifyStep(step: TrajectoryStep): StepBucket {
@@ -21,6 +22,12 @@ export function classifyStep(step: TrajectoryStep): StepBucket {
   if (step.type === 'CORTEX_STEP_TYPE_TOOL_CALL') return 'tool_pending';
   if (step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT') {
     return step.toolResult?.success === false ? 'tool_error' : 'tool_pending';
+  }
+  if (step.type === 'CORTEX_STEP_TYPE_MCP_TOOL') {
+    return step.toolResult?.success === false ? 'tool_error' : 'tool_pending';
+  }
+  if (step.type === 'CORTEX_STEP_TYPE_CHECKPOINT' || step.type === 'CORTEX_STEP_TYPE_EPHEMERAL_MESSAGE') {
+    return 'checkpoint';
   }
   return 'unknown_activity';
 }
@@ -69,8 +76,13 @@ export function transformTrajectorySteps(
         break;
       }
 
+      case 'checkpoint':
+        break;
+
       case 'tool_pending': {
-        if (step.type === 'CORTEX_STEP_TYPE_TOOL_CALL' && step.toolCall) {
+        const isToolCall = step.type === 'CORTEX_STEP_TYPE_TOOL_CALL' || step.type === 'CORTEX_STEP_TYPE_MCP_TOOL';
+        const isToolResult = step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT' || step.type === 'CORTEX_STEP_TYPE_MCP_TOOL';
+        if (isToolCall && step.toolCall) {
           messages.push({
             type: 'system_info',
             catId,
@@ -93,7 +105,7 @@ export function transformTrajectorySteps(
             timestamp: Date.now(),
           });
         }
-        if (step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT' && step.toolResult) {
+        if (isToolResult && step.toolResult) {
           messages.push({
             type: 'tool_result',
             catId,
@@ -125,7 +137,7 @@ export function transformTrajectorySteps(
             metadata,
             timestamp: Date.now(),
           });
-        } else if (step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT' && step.toolResult) {
+        } else if ((step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT' || step.type === 'CORTEX_STEP_TYPE_MCP_TOOL') && step.toolResult) {
           const tr = step.toolResult;
           messages.push({
             type: 'error',
