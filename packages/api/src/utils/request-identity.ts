@@ -41,7 +41,16 @@ function nonEmptyString(value: unknown): string | null {
 export function resolveHeaderUserId(request: FastifyRequest): string | null {
   const fromSession = nonEmptyString((request as FastifyRequest & { sessionUserId?: string }).sessionUserId);
   if (fromSession) return fromSession;
-  if (request.headers.origin) return null;
+  if (request.headers.origin) {
+    // Trusted browser origins get default-user fallback when session is missing.
+    // This prevents 28+ browser-facing routes from returning 401 on session loss
+    // (API restart, cookie expiry) while still blocking untrusted origins.
+    const origin = String(request.headers.origin);
+    if (isOriginAllowed(origin, getTrustedOrigins())) {
+      return 'default-user';
+    }
+    return null;
+  }
   return nonEmptyString(request.headers['x-cat-cafe-user']);
 }
 

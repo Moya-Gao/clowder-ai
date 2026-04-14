@@ -52,13 +52,28 @@ function ensureSession(): Promise<void> {
 
 /**
  * Fetch wrapper with session-cookie identity.
+ *
+ * On 401, re-establishes the session cookie and retries once.
+ * This handles API restarts (in-memory session store cleared)
+ * without requiring a manual page refresh.
+ *
  * @param path - API path starting with '/' (e.g. '/api/messages')
  * @param init - Standard RequestInit options
  */
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   await ensureSession();
-  return fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',
   });
+  if (res.status === 401) {
+    // Session expired (API restart, cookie cleared). Re-establish and retry once.
+    sessionGate = null;
+    await ensureSession();
+    return fetch(`${API_URL}${path}`, {
+      ...init,
+      credentials: 'include',
+    });
+  }
+  return res;
 }

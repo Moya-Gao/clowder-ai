@@ -42,6 +42,20 @@ describe('resolveHeaderUserId', () => {
     });
     assert.equal(resolveHeaderUserId(req), 'default-user');
   });
+
+  it('returns default-user for trusted origin without session (browser fallback)', () => {
+    const req = fakeRequest({
+      headers: { origin: 'http://localhost:3001' },
+    });
+    assert.equal(resolveHeaderUserId(req), 'default-user');
+  });
+
+  it('returns null for untrusted origin without session (no fallback)', () => {
+    const req = fakeRequest({
+      headers: { origin: 'http://192.168.1.200:8080' },
+    });
+    assert.equal(resolveHeaderUserId(req), null);
+  });
 });
 
 describe('resolveUserId', () => {
@@ -79,12 +93,13 @@ describe('resolveUserId', () => {
     assert.equal(resolveUserId(req, { defaultUserId: 'default-user' }), 'default-user');
   });
 
-  it('returns null for trusted origin without explicit defaultUserId (opt-in per route)', () => {
-    // Routes must explicitly pass defaultUserId to enable the fallback.
+  it('returns default-user for trusted origin even without explicit defaultUserId', () => {
+    // resolveHeaderUserId now handles trusted-origin fallback,
+    // so all browser-facing routes get default-user without opt-in.
     const req = fakeRequest({
       headers: { origin: 'http://localhost:3001' },
     });
-    assert.equal(resolveUserId(req), null);
+    assert.equal(resolveUserId(req), 'default-user');
   });
 
   it('rejects defaultUserId for untrusted private network origin', () => {
