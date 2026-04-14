@@ -478,12 +478,17 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-13 | **P1-1 callback injection fix** — Antigravity LS 不注入 HTTP callback 指令（PR #1145, 砚砚放行 + 云端 0 P1/P2）|
 | 2026-04-14 | **P1-2 workspace path fix** — LS 路径校验感知 + prompt injection 防护（PR #1149, 砚砚 2 轮放行 + 云端 P1→fix→0 P1/P2）|
 | 2026-04-14 | **P2 event mapping fix** — MCP_TOOL/CHECKPOINT/EPHEMERAL_MESSAGE step 正确分类 + 静默跳过噪音（PR #1150, 砚砚放行 + 云端 P1→fix→0 P1/P2）|
+| 2026-04-14 | **Bug-4 taxonomy v2 fix** — 消除前端 raw JSON 泄漏 + 保留 unknown_activity 观测链 log.debug（PR #1154, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
 
 ---
 
 ## Known Bugs（活跃）
 
-### Bug-4: Step taxonomy v2 — 3 类 step 泄漏原始 JSON 到前端
+（暂无）
+
+## Known Bugs（已修复）
+
+### Bug-4: Step taxonomy v2 — 3 类 step 泄漏原始 JSON 到前端 ✅
 
 **现象**（2026-04-13 线上截图）：孟加拉猫对话中出现蓝底 raw JSON：
 - `{"type":"unknown_activity","stepType":"CORTEX_STEP_TYPE_USER_INPUT",...}`
@@ -495,12 +500,10 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 2. **PLANNER_RESPONSE 空响应穿透** — `classifyStep` 要求 `step.plannerResponse` 存在且含 response/thinking/stopReason，否则穿透到 unknown_activity。线上证明空 plannerResponse 存在
 3. **GREP_SEARCH 等原生工具类型未映射** — LS 内置 grep/file_edit/terminal 等工具，type 前缀都是 `CORTEX_STEP_TYPE_*` 但不在我们枚举里
 
-**修复方向**：
-- USER_INPUT/空 PLANNER_RESPONSE → 加入 checkpoint 静默分支
-- 原生工具类型 → 基于 step 数据形状做 fallback（有 toolCall/toolResult → tool_pending，否则 → checkpoint）
-- unknown_activity 仅写日志，不再发 system_info 到前端
-
-## Known Bugs（已修复）
+**修复**（PR #1154, `b9c83136`）：
+- USER_INPUT/空 PLANNER_RESPONSE → checkpoint 静默分支
+- 原生工具类型 → 基于 step 数据形状 fallback（有 toolCall/toolResult → tool_pending，否则 → unknown_activity）
+- unknown_activity 保留分类（AC-C1 观测链）+ `log.debug` 留痕，不再发 system_info 到前端
 
 ### Bug-1: pollResponse 稳定性误判 — 模型暂停时提前截断 ✅
 
