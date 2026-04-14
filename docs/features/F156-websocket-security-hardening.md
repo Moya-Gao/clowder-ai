@@ -168,6 +168,7 @@ created: 2026-04-10
 | 2026-04-12 | **Feature closed** — 愿景守护(codex) 放行，D-4/FU-1/FU-2 拆出为独立任务 |
 | 2026-04-14 | Fallout fix merged (PR #1159) — trusted-origin fallback + 401 retry (author: opus, reviewer: codex cloud) |
 | 2026-04-14 | Fallout perf merged (PR #1164) — trim thread-switch fan-out + per-thread caches (author: gpt52, reviewer: opus + codex cloud) |
+| 2026-04-14 | Fallout self-heal merged (PR #1165) — failed `sessionGate` no longer poisons future bootstrap attempts; `ThreadSidebar` now reloads on `online` after network blips (author: gpt52, reviewer: opus; cloud review unavailable, downgraded per merge-gate Q4) |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
@@ -252,6 +253,9 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 - [x] **AC-F156-FALLOUT-5**：同项目切 thread 不再额外 refetch `governance/status` 这类 project 级状态 — PR #1164 removed redundant govRefetch
 - [x] **AC-F156-FALLOUT-6**：`sessions` / `queue` / `task-progress` 至少满足其一：per-thread cache、聚合为一个 sidebar-state 接口、或明确延后到首屏之后再拉 — PR #1164 added per-thread cache for sessions, tasks, auth pending (stale-while-revalidate)
 - [x] **AC-F156-FALLOUT-7**：review 流程补上红蓝对抗视角，不只检查代码正确性，还必须检查"恢复链 / 失败路径 / 体验退化"；本轮作者与 reviewer 都要显式过这一关 — PR #1164 reviewed with red-blue adversarial perspective (opus, two rounds)
+
+> 2026-04-14 追加状态：PR #1165 已经止住 AC-3 中最危险的一条链路：`sessionGate` bootstrap 失败后不再卡死，且网络恢复后 `ThreadSidebar` 会自动重拉，不必靠 F5 自救。  
+> 但 AC-3 **仍未完全关闭**：其他前端 surface 还没有统一的显式错误态 / `online` 自愈策略，暂时不能宣称"401 静默吞错"问题彻底解决。
 
 ### 守护说明
 
