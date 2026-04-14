@@ -34,6 +34,12 @@ interface SessionSummary {
   };
 }
 
+const sessionCache = new Map<string, SessionSummary[]>();
+
+export function __resetSessionChainCacheForTest() {
+  sessionCache.clear();
+}
+
 export interface SessionChainPanelProps {
   threadId: string;
   catInvocations: Record<string, CatInvocationInfo>;
@@ -113,6 +119,11 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
   // biome-ignore lint/correctness/useExhaustiveDependencies: sealSignal+refreshKey intentionally trigger re-fetch
   useEffect(() => {
     let cancelled = false;
+    const cached = sessionCache.get(threadId);
+    if (cached) {
+      setSessions(cached);
+      setLoadedThreadId(threadId);
+    }
     setLoading(true);
     apiFetch(`/api/threads/${threadId}/sessions`)
       .then(async (res) => {
@@ -120,6 +131,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
         if (!res.ok) return;
         const data = (await res.json()) as { sessions: SessionSummary[] };
         if (!cancelled) {
+          sessionCache.set(threadId, data.sessions);
           setSessions(data.sessions);
           setLoadedThreadId(threadId);
         }

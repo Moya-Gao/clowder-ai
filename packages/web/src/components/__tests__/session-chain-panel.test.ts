@@ -8,7 +8,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CatInvocationInfo } from '@/stores/chat-types';
-import { SessionChainPanel } from '../SessionChainPanel';
+import { __resetSessionChainCacheForTest, SessionChainPanel } from '../SessionChainPanel';
 
 beforeAll(() => {
   (globalThis as { React?: typeof React }).React = React;
@@ -65,6 +65,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   mockApiFetch = vi.fn();
+  __resetSessionChainCacheForTest();
 });
 
 afterEach(() => {
@@ -535,6 +536,55 @@ describe('F24: SessionChainPanel', () => {
     // New data visible, old data gone
     expect(container.textContent).toContain('codex');
     expect(container.textContent).toContain('1 session');
+  });
+
+  it('reuses per-thread session cache immediately when revisiting a thread during revalidate', async () => {
+    let resolveThread1Revisit!: (value: unknown) => void;
+    const thread1Revisit = new Promise((resolve) => {
+      resolveThread1Revisit = resolve;
+    });
+
+    mockApiFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          sessions: [{ id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 5, createdAt: Date.now() }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          sessions: [{ id: 's2', catId: 'codex', seq: 5, status: 'active', messageCount: 3, createdAt: Date.now() }],
+        }),
+      })
+      .mockImplementationOnce(() => thread1Revisit);
+
+    renderPanel('thread-1');
+    await flushFetch();
+    expect(container.textContent).toContain('Session #1');
+
+    renderPanel('thread-2');
+    await flushFetch();
+    expect(container.textContent).toContain('Session #6');
+    expect(container.textContent).toContain('codex');
+
+    renderPanel('thread-1');
+    await flushFetch();
+
+    // Cache should win immediately while revalidate is still in flight.
+    expect(container.textContent).toContain('Session #1');
+    expect(container.textContent).not.toContain('Session #6');
+
+    resolveThread1Revisit({
+      ok: true,
+      json: async () => ({
+        sessions: [{ id: 's1b', catId: 'opus', seq: 1, status: 'active', messageCount: 6, createdAt: Date.now() }],
+      }),
+    });
+    await flushFetch();
+
+    expect(container.textContent).toContain('Session #2');
+    expect(container.textContent).not.toContain('Session #6');
   });
 
   it('applies codex green colors to active session border and badge', async () => {

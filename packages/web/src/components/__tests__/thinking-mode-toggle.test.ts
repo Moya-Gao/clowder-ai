@@ -30,7 +30,8 @@ vi.mock('@/components/MetadataBadge', () => ({ MetadataBadge: () => null }));
 vi.mock('@/components/SummaryCard', () => ({ SummaryCard: () => null }));
 vi.mock('@/components/rich/RichBlocks', () => ({ RichBlocks: () => null }));
 
-const THINKING_TEXT = 'I am thinking about the meaning of cats and coffee.';
+const THINKING_TEXT =
+  'I am thinking about the meaning of cats and coffee, and why a refresh should still respect thread-specific bubble preferences.';
 
 describe('F045: ThinkingContent thinkingMode toggle', () => {
   let container: HTMLDivElement;
@@ -134,6 +135,47 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     });
 
     expect(container.querySelectorAll('.cli-output-md').length).toBe(0);
+  });
+
+  it('thread-level bubble override loaded async beats initial global default after refresh-like hydration', async () => {
+    const { ChatMessage } = await import('@/components/ChatMessage');
+
+    act(() => {
+      useChatStore.setState({
+        currentThreadId: 'thread-a',
+        threads: [],
+        globalBubbleDefaults: { thinking: 'expanded', cliOutput: 'collapsed' },
+      });
+      root.render(
+        React.createElement(ChatMessage, {
+          message: thinkingMsg as never,
+          getCatById: getCatById as never,
+        }),
+      );
+    });
+
+    expect(container.textContent).toContain(THINKING_TEXT);
+    expect(container.querySelectorAll('.cli-output-md').length).toBeGreaterThanOrEqual(1);
+
+    act(() => {
+      useChatStore.setState({
+        threads: [
+          {
+            id: 'thread-a',
+            projectPath: 'default',
+            title: 'Thread A',
+            createdBy: 'default-user',
+            participants: [],
+            lastActiveAt: Date.now(),
+            createdAt: Date.now(),
+            bubbleThinking: 'collapsed',
+          },
+        ],
+      });
+    });
+
+    expect(container.querySelectorAll('.cli-output-md').length).toBe(0);
+    expect(container.textContent).not.toContain(THINKING_TEXT);
   });
 
   it('stream-origin messages render via CliOutputBlock (F097)', async () => {

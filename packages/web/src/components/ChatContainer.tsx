@@ -315,15 +315,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     (govStatus?.needsBootstrap || govStatus?.needsConfirmation || setupDone) &&
     messages.length === 0
   );
-  // Reset setupDone + refetch governance on thread switch (same project may have stale status)
+  // Reset setupDone on thread switch. Governance status already auto-refetches
+  // when projectPath changes inside useGovernanceStatus; same-project thread switches
+  // should not trigger an extra network round-trip.
   const prevThreadSetup = useRef(threadId);
   useEffect(() => {
     if (prevThreadSetup.current !== threadId) {
       prevThreadSetup.current = threadId;
       setSetupDone(false);
-      govRefetch();
     }
-  }, [threadId, govRefetch]);
+  }, [threadId]);
 
   // F152 Phase B: memory bootstrap state
   const {

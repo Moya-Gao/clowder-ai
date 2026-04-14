@@ -1,11 +1,12 @@
 'use client';
 
 import type { ReplyPreview, SchedulerMessageExtra } from '@cat-cafe/shared';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { getBubbleInvocationId, shouldForceReplaceHydrationForCachedMessages } from '@/debug/bubbleIdentity';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type { QueueEntry, TaskProgressItem } from '@/stores/chat-types';
 import { type CatInvocationInfo, type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
+import type { TaskItem } from '@/stores/taskStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 
@@ -17,9 +18,14 @@ type SavedScrollState = {
 // clowder-ai#27: route navigation remounts the page, so scroll memory must live
 // outside React refs to survive /thread/A → /thread/B → /thread/A.
 const scrollPositionsByThread = new Map<string, SavedScrollState>();
+const taskCacheByThread = new Map<string, TaskItem[]>();
 const SCROLL_BOTTOM_THRESHOLD_PX = 24;
 const MAX_RESTORE_FRAMES = 90;
 const CHAT_LAYOUT_CHANGED_EVENT = 'catcafe:chat-layout-changed';
+
+export function __resetTaskCacheForTest() {
+  taskCacheByThread.clear();
+}
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.clientHeight - el.scrollTop <= SCROLL_BOTTOM_THRESHOLD_PX;
@@ -547,7 +553,9 @@ export function useChatHistory(threadId: string) {
       if (abortRef.current !== controller) return;
       if (threadIdRef.current !== fetchForThread) return;
       const data = await res.json();
-      setTasks(data.tasks ?? []);
+      const tasks = data.tasks ?? [];
+      taskCacheByThread.set(fetchForThread, tasks);
+      setTasks(tasks);
     } catch (err) {
       if (isAbortError(err)) return;
     }
@@ -680,6 +688,12 @@ export function useChatHistory(threadId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, setQueue, setQueuePaused, updateThreadCatStatus]);
 
+  // Restore per-thread tasks before paint so revisiting a thread does not show
+  // an empty secondary panel while revalidation is still in flight.
+  useLayoutEffect(() => {
+    setTasks(taskCacheByThread.get(threadId) ?? []);
+  }, [threadId, setTasks]);
+
   // Load history + tasks when threadId changes (handles initial mount and navigation)
   useEffect(() => {
     // PR #794: ChatContainer no longer unmounts on thread switch, so tracking
@@ -706,7 +720,6 @@ export function useChatHistory(threadId: string) {
     const cached = state.threadStates[threadId];
     const hasCachedMessages = cached && cached.messages.length > 0;
     const isThreadSynced = state.currentThreadId === threadId;
-
     // #80 fix-A: If the thread has an active invocation, force-refresh from API
     // so that DraftStore drafts are merged into the response. Without this,
     // switching away and back shows stale cached messages (no streaming draft).
