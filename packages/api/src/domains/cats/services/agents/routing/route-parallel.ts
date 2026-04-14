@@ -158,7 +158,7 @@ export async function* routeParallel(
       }
       const staticIdentity = buildStaticIdentity(catId, { mcpAvailable, packBlocks });
       // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
-      const mcpInstructions = needsMcpInjection(mcpAvailable)
+      const mcpInstructions = needsMcpInjection(mcpAvailable, catConfig?.clientId)
         ? buildMcpCallbackInstructions({
             currentCatId: catId as string,
             teammates: teammates.map((id) => id as string),

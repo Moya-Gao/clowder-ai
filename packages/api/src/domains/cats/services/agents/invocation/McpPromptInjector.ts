@@ -35,8 +35,10 @@ export interface McpCallbackOptions {
  * fallback when native MCP is unavailable for any reason.
  *
  * @param mcpAvailable - true when native MCP is configured AND server path exists
+ * @param clientId - provider clientId; 'antigravity' skips injection (LS persistent process can't receive callback env)
  */
-export function needsMcpInjection(mcpAvailable: boolean): boolean {
+export function needsMcpInjection(mcpAvailable: boolean, clientId?: string): boolean {
+  if (clientId === 'antigravity') return false;
   return !mcpAvailable;
 }
 
