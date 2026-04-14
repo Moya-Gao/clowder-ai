@@ -1,6 +1,6 @@
 ---
 feature_ids: []
-topics: [skills, governance, mount, symlink, distribution]
+topics: [skills, governance, mount, symlink, distribution, ux]
 doc_kind: decision
 created: 2026-04-07
 status: draft
@@ -8,133 +8,186 @@ supersedes: ADR-009
 related: [F070, F041, F038]
 ---
 
-# ADR-025: Skills Canonical Mount Policy — 项目级优先 + 用户级 Personal Fallback
+# ADR-025: Skills Canonical Mount Policy — 受管 Symlinks + 外部生态共存
 
-> 状态：草稿（待 review）
-> 日期：2026-04-07
-> 决策者：铲屎官 + 布偶猫 + 缅因猫(GPT-5.4)
+> 状态：草稿（待铲屎官终审）
+> 日期：2026-04-07（R3 修订：2026-04-15）
+> 决策者：铲屎官 + 布偶猫 + 缅因猫(GPT-5.4) + 暹罗猫(Gemini)
 > Supersedes：[ADR-009](009-cat-cafe-skills-distribution.md)
 > 触发：[clowder-ai#386](https://github.com/zts212653/clowder-ai/issues/386)
 
 ## 背景
 
-ADR-009（2026-02-10）选择了"用户级 symlink 分发"作为 Cat Café Skills 的唯一 runtime mount 策略，并显式否决了项目级。
+ADR-009（2026-02-10）选择了"用户级 symlink 分发"，F070（2026-03-08）又加了项目级 governance bootstrap。两层同时存在，无一致性校验。ADR-009 已标注 `drifted`。
 
-F070（2026-03-08）引入了 Portable Governance，为外部项目 bootstrap 项目级 `.claude/.codex/.gemini/skills` symlinks。这在 ADR-009 之后独立演进，未更新 ADR-009。
-
-结果：系统同时存在两层 skill mount，且无一致性校验。runtime skill discovery、preflight、capabilities board、installer 各自一套口径。ADR-009 已于 2026-04-07 标注为 `drifted`。
-
-详细分析见 [clowder-ai#386](https://github.com/zts212653/clowder-ai/issues/386)。
+**R3 新增背景**：Claude Code 已有外部 skills 生态（`skills.sh` / `npx skills add`），用户可下载第三方 skills 到 `.claude/skills/`。原草稿的"目录级 symlink"方案会劫持整个安装目录，导致外部 skill 安装穿透到 git-tracked 源树。此外，Claude Code 的 skill 优先级为 **enterprise → personal → project**，项目级不一定赢用户级。
 
 ## 决策
 
-### 1. Canonical Mount：项目级
+### 1. 项目级 Skills 目录：真实目录，非 symlink
 
-Cat Café 官方 skills 的 **canonical runtime mount** 是项目级：
+`.claude/skills/`（及其他 provider 目录）保持为**真实目录**，内含两类内容：
 
+| 类型 | 形式 | 管理者 | 示例 |
+|------|------|--------|------|
+| **官方受管 skills** | per-skill symlink → `cat-cafe-skills/<name>` | governance sync | `worktree → ../../cat-cafe-skills/worktree` |
+| **外部 skills** | 真实目录（用户安装的） | 用户自己 | `react-best-practices/SKILL.md` |
+
+- **不使用目录级 symlink**——避免劫持整个安装目录，让外部 skills 生态正常工作
+- 官方 skills 的**内容更新**仍然零操作（symlink 指向源目录，`git pull` 自动生效）
+- 官方 skills 的**名称增减**需要一次 sync（Hub 一键 / 猫主动帮忙 / 命令行 fallback）
+
+### 2. 受管状态文件：`skills-state.json`
+
+在 `.cat-cafe/governance/skills-state.json` 记录受管状态：
+
+```json
+{
+  "managedSkillNames": ["worktree", "tdd", "quality-gate", "..."],
+  "sourceRoot": "../../cat-cafe-skills",
+  "sourceManifestHash": "sha256:abc123...",
+  "lastSyncedAt": "2026-04-15T12:00:00Z"
+}
 ```
-<project>/.claude/skills  →  <cat-cafe>/cat-cafe-skills/    # 目录级 symlink
-<project>/.codex/skills   →  <cat-cafe>/cat-cafe-skills/
-<project>/.gemini/skills  →  <cat-cafe>/cat-cafe-skills/
-```
 
-- 使用**目录级 symlink**（非 per-skill），确保新增/删除 skill 自动生效
-- Governance bootstrap 已在做这件事（`governance-bootstrap.ts:165-203`），本决策将其从"外部项目的 workaround"提升为"所有项目的 canonical 策略"
-- Cat Café 自身的 `.claude/skills` 也从 per-skill 历史遗留迁移为目录级 symlink
+- Hub / preflight / sync 逻辑只操作 `managedSkillNames` 里的 skills
+- 非受管目录（用户安装的外部 skills）一律不动
+- Manifest hash = 源目录的目录列表 + 内容摘要，检测新增/删除/变更
 
-### 2. 用户级：Personal / External Skills Only
+### 3. 用户级：Personal / External Skills Only
 
-`~/.claude/skills/`、`~/.codex/skills/`、`~/.gemini/skills/` **不再承载 Cat Café 官方 skills**。
+`~/.claude/skills/` 等用户级目录不再默认承载官方 skills。用途：
+- 个人 skills、第三方 skills
+- `pnpm sync:skills --user` 可 opt-in 写入（适用于未 bootstrap 的临时项目）
 
-用户级目录的用途：
-- 个人 skills（用户自己写的、不属于 Cat Café 的）
-- 第三方 skills（社区提供的、非 Cat Café 官方的）
+### 4. 冲突检测：阻塞 + 选择，不是静默覆盖
 
-**Opt-in fallback**：`setup.sh` / `install.sh` 默认不再将官方 skills 写入用户级。用户可显式执行 `pnpm sync:skills --user` 手动开启用户级官方 skills 降级体验（适用于未 bootstrap 的临时项目）。这是 opt-in 行为，不是默认行为。
+**重要**：Claude Code 的优先级是 enterprise → personal → project。用户级同名 skill 会 shadow 项目级。
 
-### 3. 一致性守卫
+同名冲突处理：
+- 系统自动检测同名 skill 跨层存在且 realpath 不一致
+- **不是红灯报错**，而是给用户**选择卡片**：
+  - "官方的 `xxx` 和你安装的 `xxx` 撞名了，目前用户级会覆盖项目级。你想保留哪个？"
+  - `[用官方版本]` → 移除用户级同名 skill
+  - `[用我的版本]` → 从受管列表中排除该 skill
+- Preflight 日志里仍记录冲突（可审计），但面向用户的体验是选择而非报错
 
-同名 skill 同时出现在项目级和用户级时：
+### 5. 更新机制
 
-- 系统自动比对两层的 `realpath`
-- **一致** → 正常，项目级优先（符合 Claude/Gemini 官方优先级规则）
-- **不一致** → preflight 红灯 + Hub 告警，明确报告来源差异，不静默按名字去重
+#### 5a. 传输层：per-skill symlinks + git pull
 
-### 4. 更新机制
+官方 skills 的内容变更通过 symlink 自动传播。只有名称增减需要 sync。
 
-#### 4a. 传输层：symlink + git pull
+#### 5b. 感知层：Manifest Hash + Hub Toast
 
-目录级 symlink 指向 `cat-cafe-skills/` 源目录。`git pull` 后所有变化（内容修改、新增 skill、删除 skill）**自动生效**，无需额外操作。
+- Preflight 比对 `skills-state.json` 的 hash vs 源目录实际 hash
+- Stale 时 Hub **不弹红色警告**，而是显示温和的上新通知：
+  - "咖啡馆上新啦！有 N 个新 skill 可用" + 一键同步按钮
+- 猫在工作中发现 stale 时主动提醒并可直接帮忙 sync
 
-#### 4b. 感知层：Skills Manifest Hash
+#### 5c. 操作层：Hub Skills 面板
 
-Governance pack 新增 skills manifest hash（目录列表 + 内容摘要）：
+面板视觉分区：
 
-- Preflight 比对本地 hash vs source hash
-- Stale → Hub 治理面板展示"Skills 有更新"
-- 猫派遣到外部项目前自动检测
+- **【官方 Skills】**：Cat Café 官方受管 skills，带状态标识（fresh / stale / conflict）
+  - 一键同步按钮
+  - 新 skill 到来时高亮展示
+- **【已安装 Skills】**：用户通过 `npx skills add` 等安装的外部 skills
+  - 显示来源、安装方式
+  - Worktree 间差异时，提供可选的"从 main 同步"按钮（显式操作，非自动）
+- **【用户级 Skills】**：`~/.claude/skills/` 里的跨项目 skills
 
-#### 4c. 操作层：Hub 一键同步
+#### 5d. 派遣时自动同步
 
-- Hub 治理 tab 展示 skills 健康状态（fresh / stale / new available）
-- **一键同步按钮**：调 `POST /api/governance/sync-skills` 触发 re-bootstrap
-- 猫主动提醒："你的项目 skills 有 N 个更新了，要帮你同步吗？"
-- 命令行 `pnpm sync:skills` 作为 CI / 高级用户的 fallback
+已有机制确认为正式策略。派遣到外部项目时：
+1. 检测 manifest hash → stale 则自动 sync 受管 skills
+2. 不触碰外部 skills
 
-#### 4d. 派遣时自动同步
+#### 5e. Worktree 生命周期集成
 
-已有机制（`capability-orchestrator.ts:790`）：猫被派遣到已确认项目前自动 re-bootstrap。本决策确认此行为为正式策略，并扩展为包含 manifest hash 校验。
+- 创建 worktree 时自动 bootstrap per-skill symlinks（通过 worktree skill 的生命周期 hook）
+- 切分支时后台检测 skill 名称变化，有则提示
 
-### 5. 安装脚本迁移
+### 6. Worktree 外部 Skills：可见但不强制一致
 
-- `setup.sh` / `install.sh` **停止**将 Cat Café 官方 skills 写入用户级目录
-- 改为：在当前 repo 创建项目级目录级 symlink
-- 已有旧用户级 symlinks → 提供清理提示（不自动删除，避免误删个人 skills）
-- `pnpm sync:skills --user` 保留为 **opt-in** 命令，仅在用户显式执行时写入用户级官方 skills（与 §2 口径一致）
+不同 worktree 的外部 skills 不一致是**合理的实验隔离**（和 `node_modules` 类似）。
+
+- **官方受管 skills**：必须一致，sync 保证
+- **外部 skills**：只做可见 + 可选复制
+  - Hub 展示"本 worktree 外部 skills"列表
+  - 提供"与 main worktree 的差异"视图
+  - 可选操作："把 main 的外部 skills 集合同步到当前 worktree"（显式按钮）
+
+### 7. Provider 路径差异
+
+外部生态（`skills.sh`）的 provider 路径映射不完全等于我们的：
+
+| Provider | Cat Café 受管路径 | 外部生态路径 |
+|----------|------------------|-------------|
+| Claude | `.claude/skills/` | `.claude/skills/` |
+| Codex | `.codex/skills/` | `.agents/skills/`（skills CLI） |
+| Gemini | `.gemini/skills/` | `.gemini/skills/` |
+
+Hub 扫描时需分两层：
+- Cat Café 官方受管路径：按 governance bootstrap 口径
+- 外部生态路径：按各 provider 原生口径
+
+### 8. 安装脚本迁移
+
+- `setup.sh` / `install.sh` 停止将官方 skills 写入用户级目录
+- 改为：在当前 repo 创建项目级 per-skill symlinks + 写入 `skills-state.json`
+- 旧用户级 symlinks → 清理提示（不自动删除）
+- `pnpm sync:skills --user` 保留为 opt-in
 
 ## 否决理由
 
-- **方案 B（干掉用户级）**：不选。未 bootstrap 的临时项目完全无 skills，对开源用户不友好。
-- **方案 C（保留双层只加守卫）**：不选。只做检测不定义 canonical = 止血不治本，长期仍困惑。
-- **原 ADR-009 策略（纯用户级）**：不选。已被 F070 事实性推翻，不适合多项目治理场景。
+- **目录级 symlink**：不选。劫持整个安装目录，外部 `npx skills add` 会穿透到 git-tracked 源树，与外部 skills 生态冲突。
+- **方案 B（干掉用户级）**：不选。临时项目无 skills。
+- **方案 C（保留双层只加守卫）**：不选。不定义 canonical = 止血不治本。
+- **原 ADR-009（纯用户级）**：不选。已被 F070 推翻。
 
 ## Tradeoff
 
 ### 选择了
-- 项目级 canonical + 用户级 fallback（兼顾治本和兼容）
-- 目录级 symlink（新 skill 自动生效）
-- Hub UI 一键同步（面向普通用户，不依赖命令行）
+- 受管 per-skill symlinks + 外部真实目录共存（兼容外部生态）
+- `skills-state.json` 受管状态（精确区分官方 vs 外部）
+- Hub 分区展示 + 上新通知 + 选择卡片（丝滑 UX）
+- Worktree 外部 skills 可见不强制（尊重用户）
 
 ### 放弃了
-- 纯用户级分发（ADR-009 路线，已 drifted）
-- 纯项目级（无 fallback，对临时项目不友好）
-- 复杂的推送/分发系统（symlink + git pull 已是最简洁管道）
+- 目录级 symlink（污染源树）
+- 纯用户级分发（ADR-009，已 drifted）
+- 新增 skill 零操作自动出现（用 Hub 通知 + 一键同步补偿）
+- Worktree 外部 skills 强制一致（侵入性太强）
 
 ## 验收标准
 
-来自 clowder-ai#386 + CVO 要求：
-
-1. 同一 project/session 内，每个 skill 只有一个 canonical source 参与解析
-2. User/project 同名 skill 双挂载时，系统检测并报告 realpath 不一致
-3. 所有 skill surface（`/api/skills` / `/api/capabilities` / preflight / bootstrap）对 skill source 判断一致，三家 provider（claude/codex/gemini）的项目级目录均被扫描
-4. A/B checkout 切换后，不会让旧项目静默混用两棵 skill tree
-5. Hub 治理面板展示 skills 版本状态 + 一键同步按钮
-6. 猫主动提醒 skill 更新，可帮用户一键修复
-7. 覆盖测试：A checkout → A1 bootstrap → B repoint → 回 A1 漂移链
+1. 同一 project/session 内，每个官方 skill 通过受管 symlink 只有一个 canonical source
+2. 外部 skills（`npx skills add`）可正常安装到 `.claude/skills/`，不被阻断或污染源树
+3. 同名冲突时 Hub 给出选择卡片，用户可一键决定保留哪个
+4. 所有 skill surface 对 skill source 判断一致，三家 provider 均被扫描
+5. A/B checkout 切换后，不会让旧项目静默混用两棵 skill tree
+6. Hub skills 面板视觉分区展示官方 / 外部 / 用户级 skills
+7. 新增官方 skill 时 Hub 展示上新通知 + 一键同步
+8. 猫主动提醒 skill 更新，可帮用户一键修复
+9. Worktree 间外部 skills 差异可见，可选复制
+10. 覆盖测试：worktree 创建 → 受管 symlinks 自动补齐
 
 ## 实施路线
 
 | 阶段 | 内容 | 依赖 |
 |------|------|------|
-| Phase 1 | 一致性守卫：**所有 skill surface**（`/api/skills` + `/api/capabilities` + preflight + bootstrap）统一为同一套 realpath 校验逻辑。`/api/skills` 从只看用户级改为项目级优先；`/api/capabilities` 扩展为扫描 `.codex/skills` / `.gemini/skills` 项目级（当前只扫 `.claude/skills`）。不一致报红灯 | 无 |
-| Phase 2 | Skills manifest hash 进 governance pack + Hub 展示 stale 状态 | Phase 1 |
-| Phase 3 | Hub 一键同步按钮 + `POST /api/governance/sync-skills` | Phase 2 |
-| Phase 4 | 安装脚本迁移 + 旧用户级 symlinks 清理提示 | Phase 3 |
-| Phase 5 | 猫主动提醒 + 派遣时 manifest hash 校验 | Phase 2 |
+| Phase 1 | 受管状态基础：`skills-state.json` + sync 逻辑只操作受管集合。所有 skill surface（`/api/skills` + `/api/capabilities` + preflight + bootstrap）统一校验逻辑。governance bootstrap 从目录级改为 per-skill symlinks | 无 |
+| Phase 2 | Manifest hash 检测 + Hub 上新通知（stale toast） + 同名冲突选择卡片 | Phase 1 |
+| Phase 3 | Hub skills 面板分区展示（官方 / 外部 / 用户级）+ 一键同步按钮 | Phase 2 |
+| Phase 4 | Worktree 生命周期集成（创建时自动 bootstrap）+ 外部 skills diff 视图 | Phase 1 |
+| Phase 5 | 安装脚本迁移 + 旧用户级 symlinks 清理提示 + 猫主动提醒 | Phase 3 |
 
 ## 相关文档
 
 - [ADR-009: Cat Café Skills 分发策略](009-cat-cafe-skills-distribution.md)（superseded，保留为历史记录）
 - [F070: Portable Governance](../features/F070-portable-governance.md)
 - [F041: Capability Dashboard](../features/F041-capability-dashboard.md)
-- [clowder-ai#386: user-level and project-level skill mounts can drift and conflict](https://github.com/zts212653/clowder-ai/issues/386)
+- [clowder-ai#386](https://github.com/zts212653/clowder-ai/issues/386)
+- [skills.sh / Skills CLI](https://skills.sh/)（外部 skills 生态）
+- [Claude Code Skills Docs](https://docs.anthropic.com/en/docs/claude-code/common-workflows#use-skills)（优先级：enterprise → personal → project）
