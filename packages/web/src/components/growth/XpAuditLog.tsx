@@ -44,14 +44,16 @@ function relativeTime(ts: number): string {
 interface Props {
   catId: string;
   color?: string;
+  /** When true, expand and fetch immediately (used inside detail modal). */
+  defaultOpen?: boolean;
 }
 
-export function XpAuditLog({ catId, color = '#9B7EBD' }: Props) {
+export function XpAuditLog({ catId, color = '#9B7EBD', defaultOpen = false }: Props) {
   const [events, setEvents] = useState<XpEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [fetched, setFetched] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultOpen);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);

@@ -96,7 +96,10 @@ export type XpSource =
   | 'review_given'
   | 'review_received'
   | 'tool_use'
+  | 'tool_use_mcp'
+  | 'tool_use_skill'
   | 'mention_collab'
+  | 'deep_collab'
   | 'discussion'
   | 'pr_merged'
   | 'bug_caught'
@@ -152,3 +155,43 @@ export type BondLevel = 'acquaintance' | 'partner' | 'soulmate';
 
 /** Purpose tag for A2A invocations — enables dimension-aware XP routing */
 export type InvocationPurpose = 'discussion' | 'review';
+
+// ── Phase C: Achievement System ──────────────────────────────────
+
+export type AchievementCategory = 'individual' | 'team' | 'milestone' | 'hidden';
+
+export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+/** Condition type for auto-triggering achievements */
+export type AchievementCondition =
+  | { readonly type: 'total_xp'; readonly minXp: number }
+  | { readonly type: 'overall_level'; readonly minLevel: number }
+  | { readonly type: 'dimension_level'; readonly dimension: GrowthDimension; readonly minLevel: number }
+  | { readonly type: 'title_count'; readonly minCount: number }
+  | { readonly type: 'bond_count'; readonly minCount: number }
+  | { readonly type: 'bond_level'; readonly minLevel: BondLevel }
+  | { readonly type: 'task_count'; readonly minCount: number }
+  | { readonly type: 'review_count'; readonly minCount: number }
+  | { readonly type: 'session_count'; readonly minCount: number };
+
+/** Static definition of an achievement */
+export interface AchievementDefinition {
+  readonly id: string;
+  readonly label: { readonly zh: string; readonly en: string };
+  readonly description: { readonly zh: string; readonly en: string };
+  readonly category: AchievementCategory;
+  readonly rarity: AchievementRarity;
+  /** All conditions must be met (AND logic). Empty = manual trigger only. */
+  readonly conditions: readonly AchievementCondition[];
+  /** Optional icon hint for UI */
+  readonly icon?: string;
+}
+
+/** An achievement unlocked by a specific member (cat or co-creator) */
+export interface UnlockedAchievement {
+  readonly achievementId: string;
+  readonly memberId: string;
+  readonly unlockedAt: number;
+  /** Session/thread that triggered the unlock */
+  readonly triggerRef?: string;
+}

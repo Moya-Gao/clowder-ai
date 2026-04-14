@@ -44,8 +44,6 @@ export function GrowthRadarChart({ stats, size = 200, color = '#9B7EBD' }: Props
     const level = stats[d]?.level ?? 0;
     return point(i, Math.min(level / maxLevel, 1));
   });
-  const dataPath = dataPoints.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(' ') + 'Z';
-
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="select-none">
       {/* Grid rings */}

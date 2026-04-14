@@ -19,6 +19,7 @@ import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
 import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import { classifyTool } from '../../tool-usage/classify.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
@@ -451,13 +452,14 @@ export async function* routeParallel(
 
     // F150: Fire-and-forget tool usage counter
     if (msg.type === 'tool_use' && deps.toolUsageCounter && msg.catId) {
-      deps.toolUsageCounter.recordToolUse(
-        msg.catId as string,
-        msg.toolName ?? 'unknown',
-        msg.toolInput as Record<string, unknown> | undefined,
-      );
-      // F157: 1 XP execution per tool call
-      deps.growthService?.awardXp(msg.catId as string, 'tool_use');
+      const toolInput = msg.toolInput as Record<string, unknown> | undefined;
+      deps.toolUsageCounter.recordToolUse(msg.catId as string, msg.toolName ?? 'unknown', toolInput);
+      // F157: Differentiated XP by tool category (native→execution, mcp→insight, skill→aesthetics)
+      if (deps.growthService) {
+        const { category } = classifyTool(msg.toolName ?? 'unknown', toolInput);
+        const source = category === 'mcp' ? 'tool_use_mcp' : category === 'skill' ? 'tool_use_skill' : 'tool_use';
+        deps.growthService.awardXp(msg.catId as string, source);
+      }
     }
     if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
       catMeta.set(msg.catId, msg.metadata);

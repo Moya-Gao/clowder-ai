@@ -1,13 +1,8 @@
 'use client';
 
 import type { CatGrowthProfile, GrowthDimension } from '@cat-cafe/shared';
-import { useCallback, useState } from 'react';
-import { DownloadIcon } from '@/components/icons/DownloadIcon';
 import { useCatData } from '@/hooks/useCatData';
-import { apiFetch } from '@/utils/api-client';
 import { GrowthRadarChart } from './GrowthRadarChart';
-import { SkillTreePanel } from './SkillTreePanel';
-import { XpAuditLog } from './XpAuditLog';
 
 const DIM_LABELS: Record<GrowthDimension, string> = {
   architecture: '架构力',
@@ -22,166 +17,75 @@ const DIMENSIONS: GrowthDimension[] = ['architecture', 'review', 'aesthetics', '
 
 interface Props {
   profile: CatGrowthProfile;
-  /** ID for PNG export via html2canvas */
-  cardId?: string;
+  onClick?: () => void;
 }
 
-export function CatProfileCard({ profile, cardId }: Props) {
+/** Compact summary card — click to open detail modal. */
+export function CatProfileCard({ profile, onClick }: Props) {
   const { getCatById } = useCatData();
   const catData = getCatById(profile.catId);
   const primaryColor = catData?.color?.primary ?? '#9B7EBD';
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [skillTreeOpen, setSkillTreeOpen] = useState(false);
-
   const { attributes } = profile;
   const { stats, overallLevel, totalXp } = attributes;
 
-  /** AC-A3: Download profile card as PNG */
-  const handleExport = useCallback(async () => {
-    setExporting(true);
-    setExportError(null);
-    try {
-      const res = await apiFetch(`/api/growth/${profile.catId}/export-image`, { method: 'POST' });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
-        throw new Error(body.message || body.error || '导出失败');
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${profile.nickname ?? profile.displayName}-growth-${Date.now()}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '导出失败';
-      setExportError(msg);
-      setTimeout(() => setExportError(null), 4000);
-    } finally {
-      setExporting(false);
-    }
-  }, [profile.catId, profile.nickname, profile.displayName]);
+  // Find top 2 dimensions by XP
+  const ranked = DIMENSIONS.map((d) => ({ dim: d, xp: stats[d]?.xp ?? 0 }))
+    .filter((d) => d.xp > 0)
+    .sort((a, b) => b.xp - a.xp)
+    .slice(0, 2);
 
   return (
-    <div
-      id={cardId}
-      className="rounded-xl bg-cafe-surface shadow-[0_1px_8px_rgba(0,0,0,0.03)] p-5"
+    <button
+      onClick={onClick}
+      className="w-full rounded-xl bg-cafe-surface p-4 text-left shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_2px_16px_rgba(0,0,0,0.07)] active:scale-[0.98]"
       style={{ borderTop: `3px solid ${primaryColor}` }}
     >
-      {/* Header: avatar + name + level */}
-      <div className="mb-4 flex items-center gap-3">
+      {/* Header */}
+      <div className="mb-3 flex items-center gap-3">
         {catData?.avatar ? (
-          <img src={catData.avatar} alt="" className="h-10 w-10 rounded-full" />
+          <img src={catData.avatar} alt="" className="h-9 w-9 rounded-full" />
         ) : (
           <div
-            className="flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white"
             style={{ backgroundColor: primaryColor }}
           >
             {profile.displayName.charAt(0)}
           </div>
         )}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="text-base font-semibold text-cafe">{profile.nickname ?? profile.displayName}</span>
+            <span className="truncate text-sm font-semibold text-cafe">{profile.nickname ?? profile.displayName}</span>
             <span
-              className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
+              className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
               style={{ backgroundColor: primaryColor }}
             >
               Lv.{overallLevel}
             </span>
           </div>
-          <span className="text-xs text-cafe-muted">
+          <span className="text-[11px] text-cafe-muted">
             {profile.currentTitle?.label.zh ?? profile.displayName}
             {' · '}
             {totalXp.toLocaleString()} XP
           </span>
         </div>
-        {/* AC-A3: Export PNG button */}
-        <button
-          onClick={handleExport}
-          disabled={exporting}
-          className="rounded-lg p-1.5 transition-colors hover:bg-cafe-surface-elevated disabled:cursor-not-allowed disabled:opacity-50"
-          title="导出名片 PNG"
-          aria-label="导出名片 PNG"
-        >
-          {exporting ? (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              className="h-4 w-4 animate-spin text-cafe-secondary"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-              <path d="M12 2a10 10 0 019.8 8" />
-            </svg>
-          ) : (
-            <DownloadIcon className="h-4 w-4 text-cafe-secondary" />
-          )}
-        </button>
       </div>
 
-      {/* Export error feedback */}
-      {exportError ? <div className="mb-2 rounded bg-red-50 px-2 py-1 text-xs text-red-500">{exportError}</div> : null}
-
-      {/* Radar chart */}
+      {/* Compact radar */}
       <div className="flex justify-center">
-        <GrowthRadarChart stats={stats} size={200} color={primaryColor} />
+        <GrowthRadarChart stats={stats} size={150} color={primaryColor} />
       </div>
 
-      {/* Dimension bars */}
-      <div className="mt-4 space-y-2">
-        {DIMENSIONS.map((d) => {
-          const s = stats[d];
-          if (!s) return null;
-          const progress =
-            s.xpToNext > 0 ? (s.xp - s.level * s.level * 100) / (s.xpToNext + s.xp - s.level * s.level * 100) : 1;
-          return (
-            <div key={d} className="flex items-center gap-2 text-xs">
-              <span className="w-14 text-right text-cafe-secondary">{DIM_LABELS[d]}</span>
-              <span className="w-8 font-medium" style={{ color: primaryColor }}>
-                Lv.{s.level}
-              </span>
-              <div className="h-1.5 flex-1 rounded-full bg-cafe-surface-elevated">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${Math.min(progress * 100, 100)}%`,
-                    backgroundColor: primaryColor,
-                    opacity: 0.7,
-                  }}
-                />
-              </div>
-              <span className="w-12 text-right text-cafe-muted">{s.xp} XP</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* AC-A5: XP audit trail */}
-      <XpAuditLog catId={profile.catId} color={primaryColor} />
-
-      {/* AC-B3: Skill tree + bond relationships */}
-      <div className="mt-3 border-t border-cafe-surface-elevated pt-2">
-        <button
-          onClick={() => setSkillTreeOpen((v) => !v)}
-          className="flex w-full items-center gap-1.5 text-xs text-cafe-secondary transition-colors hover:text-cafe"
-        >
-          <span
-            className="text-[10px]"
-            style={{
-              transform: skillTreeOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-              display: 'inline-block',
-              transition: 'transform 0.15s',
-            }}
-          >
-            &#9654;
-          </span>
-          <span>称号 &amp; 羁绊</span>
-        </button>
-        {skillTreeOpen && <SkillTreePanel profile={profile} />}
-      </div>
-    </div>
+      {/* Top dimensions highlight */}
+      {ranked.length > 0 && (
+        <div className="mt-2 flex items-center justify-center gap-3">
+          {ranked.map(({ dim, xp }) => (
+            <span key={dim} className="text-[11px] text-cafe-secondary">
+              {DIM_LABELS[dim]} Lv.{stats[dim]?.level ?? 0}
+              <span className="ml-0.5 text-cafe-muted">({xp})</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </button>
   );
 }

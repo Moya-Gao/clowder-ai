@@ -141,6 +141,8 @@ export async function sessionHooksRoutes(app: FastifyInstance, opts: SessionHook
 
     // F157: Award session_seal XP (fire-and-forget)
     if (record.catId) growthService?.awardXp(record.catId, 'session_seal');
+    // AC-C6: Co-creator was part of this session
+    growthService?.awardXp('co-creator', 'session_seal');
 
     // Slow path: async transcript flush (fire-and-forget)
     sessionSealer.finalize({ sessionId: record.id }).catch(() => {

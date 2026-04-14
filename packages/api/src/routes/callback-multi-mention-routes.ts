@@ -152,6 +152,8 @@ function dispatchViaQueue(
         const newStatus = orch.recordResponse(requestId, catId, finalResponse);
         // F157: Award mention_collab XP (fire-and-forget)
         deps.growthService?.awardXp(catId, 'mention_collab');
+        // AC-C6: Co-creator earns collaboration XP for @mentioning cats
+        deps.growthService?.awardXp('co-creator', 'mention_collab');
         // F157 Phase B: Record bond event between initiator and responder
         deps.growthService?.recordBondEvent(initiator, catId);
         log.info(
@@ -304,6 +306,8 @@ async function dispatchToTarget(
     const newStatus = orch.recordResponse(requestId, targetCatId, finalResponse);
     // F157: Award mention_collab XP (fire-and-forget)
     deps.growthService?.awardXp(targetCatId, 'mention_collab');
+    // AC-C6: Co-creator earns collaboration XP for @mentioning cats
+    deps.growthService?.awardXp('co-creator', 'mention_collab');
     // F157 Phase B: Record bond event between initiator and responder
     deps.growthService?.recordBondEvent(initiator, targetCatId);
     log.info(
@@ -416,12 +420,21 @@ async function flushResult(
     },
   });
 
+  // F157: deep_collab bonus — award all successful responders + co-creator when 3+ cats participated
+  const successfulCats = result.responses.filter((r) => r.status === 'received');
+  if (successfulCats.length >= 3 && deps.growthService) {
+    for (const resp of successfulCats) {
+      deps.growthService.awardXp(resp.catId, 'deep_collab');
+    }
+    deps.growthService.awardXp('co-creator', 'deep_collab');
+  }
+
   log.info(
     {
       requestId,
       threadId,
       status: result.request.status,
-      responseCount: result.responses.filter((r) => r.status === 'received').length,
+      responseCount: successfulCats.length,
       totalTargets: result.request.targets.length,
     },
     '[F086] Multi-mention result flushed',

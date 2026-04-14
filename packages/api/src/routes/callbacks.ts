@@ -506,6 +506,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     // F157: Award discussion XP (fire-and-forget)
     growthService?.awardXp(record.catId, 'discussion');
+    // AC-C6: Co-creator earns collaboration XP for triggering this interaction
+    growthService?.awardXp('co-creator', 'mention_collab');
 
     // F121: Hydrate reply preview for broadcast
     const replyPreview = validatedReplyTo ? await hydrateReplyPreview(messageStore, validatedReplyTo) : undefined;

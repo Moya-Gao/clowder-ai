@@ -1,14 +1,19 @@
 'use client';
 
-import type { GrowthOverview } from '@cat-cafe/shared';
+import type { CatGrowthProfile, GrowthOverview } from '@cat-cafe/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { CatProfileCard } from './CatProfileCard';
+import { CoCreatorCard } from './CoCreatorCard';
+import { GrowthDetailModal } from './GrowthDetailModal';
+
+const CO_CREATOR_ID = 'co-creator';
 
 export function HubGrowthTab() {
   const [overview, setOverview] = useState<GrowthOverview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<CatGrowthProfile | null>(null);
 
   const fetchOverview = useCallback(async () => {
     setLoading(true);
@@ -32,8 +37,11 @@ export function HubGrowthTab() {
     fetchOverview();
   }, [fetchOverview]);
 
+  const coCreator = overview?.profiles.find((p) => p.catId === CO_CREATOR_ID);
+  const catProfiles = overview?.profiles.filter((p) => p.catId !== CO_CREATOR_ID) ?? [];
+
   return (
-    <div className="flex flex-col gap-6 overflow-y-auto p-6">
+    <div className="flex flex-col gap-8 overflow-y-auto p-6">
       {/* Header */}
       <div className="flex items-baseline justify-between">
         <div>
@@ -50,28 +58,44 @@ export function HubGrowthTab() {
         ) : null}
       </div>
 
-      {/* Loading / Error */}
       {loading && !overview ? (
         <div className="flex items-center justify-center py-12 text-sm text-cafe-muted">加载中...</div>
       ) : null}
       {error ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{error}</div> : null}
 
-      {/* Cat cards grid */}
       {overview ? (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {overview.profiles.map((profile) => (
-            <CatProfileCard key={profile.catId} profile={profile} cardId={`growth-card-${profile.catId}`} />
-          ))}
-        </div>
+        <>
+          {/* Co-Creator section — distinct from cats */}
+          {coCreator && (
+            <section>
+              <h3 className="mb-3 text-sm font-medium text-cafe-secondary">铲屎官</h3>
+              <CoCreatorCard profile={coCreator} onClick={() => setSelectedProfile(coCreator)} />
+            </section>
+          )}
+
+          {/* Cat grid — more breathing room */}
+          {catProfiles.length > 0 && (
+            <section>
+              <h3 className="mb-3 text-sm font-medium text-cafe-secondary">猫猫团队</h3>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {catProfiles.map((profile) => (
+                  <CatProfileCard key={profile.catId} profile={profile} onClick={() => setSelectedProfile(profile)} />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       ) : null}
 
-      {/* Empty state */}
       {overview && overview.profiles.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-cafe-muted">
           <p className="text-sm">还没有猫猫成长数据</p>
           <p className="mt-1 text-xs">猫猫完成任务、review 代码后会自动积累经验值</p>
         </div>
       ) : null}
+
+      {/* Detail modal */}
+      {selectedProfile && <GrowthDetailModal profile={selectedProfile} onClose={() => setSelectedProfile(null)} />}
     </div>
   );
 }

@@ -1093,6 +1093,29 @@ async function main(): Promise<void> {
   }
   if (growthService) {
     await app.register(growthRoutes, { growthService });
+    // F157 Phase C: Achievement system — wire up bidirectional reference
+    const { AchievementService } = await import('./domains/cats/services/growth/AchievementService.js');
+    const achievementSvc = new AchievementService(redis!, growthService);
+    growthService.achievementService = achievementSvc;
+    // AC-C5: Broadcast achievement unlock events via WebSocket
+    if (socketManager) {
+      const sm = socketManager;
+      achievementSvc.onUnlock = (_memberId, unlocked, defs) => {
+        for (const u of unlocked) {
+          const def = defs.find((d) => d.id === u.achievementId);
+          sm.broadcastToRoom('thread:default', 'achievement_unlocked', {
+            memberId: u.memberId,
+            achievementId: u.achievementId,
+            label: def?.label,
+            rarity: def?.rarity,
+            unlockedAt: u.unlockedAt,
+          });
+        }
+      };
+    }
+    await app.register((await import('./routes/achievements.js')).achievementRoutes, {
+      achievementService: achievementSvc,
+    });
   }
   // F075 Phase B+C: Game + Achievement stores
   const { GameStore } = await import('./domains/leaderboard/game-store.js');

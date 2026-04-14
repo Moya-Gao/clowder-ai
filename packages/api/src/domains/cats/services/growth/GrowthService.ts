@@ -36,7 +36,10 @@ const XP_RULES: Record<XpSource, { dimension: GrowthDimension; xp: number }> = {
   review_given: { dimension: 'review', xp: 40 },
   review_received: { dimension: 'collaboration', xp: 15 },
   tool_use: { dimension: 'execution', xp: 1 },
+  tool_use_mcp: { dimension: 'insight', xp: 3 },
+  tool_use_skill: { dimension: 'aesthetics', xp: 3 },
   mention_collab: { dimension: 'collaboration', xp: 10 },
+  deep_collab: { dimension: 'collaboration', xp: 20 },
   discussion: { dimension: 'architecture', xp: 15 },
   pr_merged: { dimension: 'execution', xp: 80 },
   bug_caught: { dimension: 'review', xp: 60 },
@@ -58,7 +61,17 @@ function buildDimensionStat(dimension: GrowthDimension, xp: number): DimensionSt
   return { dimension, xp, level, xpToNext: xpForLevel(level + 1) - xp };
 }
 
+/** XP sources that map to achievement counters. */
+const SOURCE_TO_COUNTER: Partial<Record<XpSource, string>> = {
+  task_complete: 'tasks',
+  review_given: 'reviews',
+  session_seal: 'sessions',
+};
+
 export class GrowthService {
+  /** Phase C: Optional AchievementService — set after construction to avoid circular deps. */
+  achievementService?: { incrementCounter(memberId: string, counter: string): void };
+
   constructor(private readonly redis: RedisClient) {}
 
   /** Resolve ioredis keyPrefix for SCAN operations. */
@@ -92,6 +105,12 @@ export class GrowthService {
       .catch((err: unknown) => {
         log.warn({ err, catId, source }, 'Failed to award XP');
       });
+
+    // Phase C: Increment achievement counter if applicable (fire-and-forget)
+    const counter = SOURCE_TO_COUNTER[source];
+    if (counter && this.achievementService) {
+      this.achievementService.incrementCounter(catId, counter);
+    }
   }
 
   /** AC-A5: Fetch recent XP events for a cat, newest first. */
@@ -237,8 +256,14 @@ export class GrowthService {
     return bonds.sort((a, b) => b.score - a.score);
   }
 
-  /** Build full growth profile for one cat. */
+  /** AC-C6: Co-creator identity for growth tracking. */
+  static readonly CO_CREATOR_ID = 'co-creator';
+
+  /** Build full growth profile for a cat or the co-creator. */
   async getProfile(catId: string): Promise<CatGrowthProfile | null> {
+    if (catId === GrowthService.CO_CREATOR_ID) {
+      return this.getCoCreatorProfile();
+    }
     const entry = catRegistry.tryGet(catId);
     if (!entry) return null;
     const config = entry.config;
@@ -255,12 +280,32 @@ export class GrowthService {
     };
   }
 
-  /** Build team overview across all registered cats. */
+  /** AC-C6: Build growth profile for the co-creator (not in catRegistry). */
+  private async getCoCreatorProfile(): Promise<CatGrowthProfile> {
+    const attributes = await this.getAttributes(GrowthService.CO_CREATOR_ID);
+    const currentTitle = await this.getCurrentTitle(GrowthService.CO_CREATOR_ID);
+    return {
+      catId: GrowthService.CO_CREATOR_ID,
+      displayName: '铲屎官',
+      nickname: 'CVO',
+      attributes,
+      currentTitle,
+      highlights: [],
+    };
+  }
+
+  /** Build team overview across all registered cats + co-creator. */
   async getOverview(): Promise<GrowthOverview> {
     const catIds = catRegistry.getAllIds().map(String);
 
     const profiles = await Promise.all(catIds.map((id) => this.getProfile(id)));
     const valid = profiles.filter((p): p is CatGrowthProfile => p !== null);
+
+    // AC-C6: Include co-creator if they have any XP
+    const coCreatorProfile = await this.getCoCreatorProfile();
+    if (coCreatorProfile.attributes.totalXp > 0) {
+      valid.unshift(coCreatorProfile);
+    }
 
     const teamTotalXp = valid.reduce((s, p) => s + p.attributes.totalXp, 0);
     const teamLevel =

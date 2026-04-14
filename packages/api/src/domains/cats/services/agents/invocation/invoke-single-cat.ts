@@ -15,6 +15,7 @@ import { rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent } from '@cat-cafe/shared';
 import {
+  builtinAccountIdForClient,
   resolveBuiltinClientForProvider,
   resolveForClient,
   validateRuntimeProviderBinding,
@@ -674,13 +675,21 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // workingProjectRoot is still used for shared-state preflight + cat cwd.
     const projectRoot = resolveActiveProjectRoot(process.cwd());
     const boundAccountRef = resolveBoundAccountRefForCat(projectRoot, catId, catConfig);
+    const seedDefaultAccountRef =
+      !boundAccountRef &&
+      builtinClient &&
+      typeof catConfig?.accountRef === 'string' &&
+      catConfig.accountRef.trim() === builtinAccountIdForClient(builtinClient)
+        ? builtinAccountIdForClient(builtinClient)
+        : undefined;
+    const runtimeAccountRef = boundAccountRef ?? seedDefaultAccountRef;
     const resolveRuntimeAccount = async () => {
       if (!builtinClient) return null;
       // Yield to event loop so preflight warnings are delivered before account resolution.
       await Promise.resolve();
-      const runtime = resolveForClient(projectRoot, builtinClient, boundAccountRef);
-      if (boundAccountRef && !runtime) {
-        throw new Error(`bound account "${boundAccountRef}" not found`);
+      const runtime = resolveForClient(projectRoot, builtinClient, runtimeAccountRef);
+      if (runtimeAccountRef && !runtime) {
+        throw new Error(`bound account "${runtimeAccountRef}" not found`);
       }
       return runtime;
     };
@@ -708,8 +717,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       if (isExplicitBindingCompatibilityError(err)) {
         throw err;
       }
-      if (boundAccountRef) {
-        throw new Error(`failed to resolve bound account "${boundAccountRef}"`);
+      if (runtimeAccountRef) {
+        throw new Error(`failed to resolve bound account "${runtimeAccountRef}"`);
       }
     }
 
@@ -798,7 +807,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           callbackEnv.OPENAI_BASE_URL = resolvedAccount.baseUrl;
           callbackEnv.OPENAI_API_BASE = resolvedAccount.baseUrl;
         }
-      } else if (boundAccountRef) {
+      } else if (runtimeAccountRef) {
         callbackEnv.CODEX_AUTH_MODE = 'oauth';
       }
     } else if (effectiveProtocol === 'google') {

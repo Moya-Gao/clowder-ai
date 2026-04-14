@@ -14,6 +14,7 @@ export type {
   A2ATask,
   A2ATaskStatus,
 } from './a2a.js';
+export { ACHIEVEMENT_DEFINITIONS } from './achievement-definitions.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
@@ -187,6 +188,10 @@ export {
 } from './game.js';
 // Growth RPG types (F157 Cat Growth RPG)
 export type {
+  AchievementCategory,
+  AchievementCondition,
+  AchievementDefinition,
+  AchievementRarity,
   BondLevel,
   CatAttributes,
   CatBond,
@@ -200,6 +205,7 @@ export type {
   TitleCondition,
   TitleDefinition,
   TitleRarity,
+  UnlockedAchievement,
   UnlockedTitle,
   XpEvent,
   XpSource,
