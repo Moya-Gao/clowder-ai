@@ -24,6 +24,7 @@ import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
+import { assertSafeTestConfigRoot } from '../../../../../config/test-config-write-guard.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import {
   AGENT_ID,
@@ -155,6 +156,7 @@ function deriveProxySlug(profileId: string): string {
 
 /** Register/update upstream mapping in .cat-cafe/proxy-upstreams.json (hot-reloaded by proxy). */
 function registerProxyUpstream(projectRoot: string, slug: string, targetUrl: string): void {
+  assertSafeTestConfigRoot(projectRoot, 'invoke-single-cat.registerProxyUpstream');
   const dir = resolve(projectRoot, '.cat-cafe');
   const filePath = resolve(dir, 'proxy-upstreams.json');
   let upstreams: Record<string, string> = {};

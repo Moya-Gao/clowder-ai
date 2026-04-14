@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   runHelper,
   runHelperNoGlobalOverride,
   runHelperResult,
   runHelperWithEnv,
 } from './install-auth-config-test-helpers.js';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 // F340: installer now writes to accounts.json + credentials.json (global)
 function readInstallerState(projectRoot) {
@@ -829,5 +832,49 @@ test('client-auth remove --force fails closed when the runtime catalog cannot be
     );
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('test sandbox blocks installer writes to the real repo root', () => {
+  const accountsPath = join(REPO_ROOT, '.cat-cafe', 'accounts.json');
+  const credentialsPath = join(REPO_ROOT, '.cat-cafe', 'credentials.json');
+  const beforeAccounts = existsSync(accountsPath) ? readFileSync(accountsPath, 'utf8') : null;
+  const beforeCredentials = existsSync(credentialsPath) ? readFileSync(credentialsPath, 'utf8') : null;
+  const helperScript = join(REPO_ROOT, 'scripts', 'install-auth-config.mjs');
+  const result = spawnSync(
+    'node',
+    [
+      helperScript,
+      'client-auth',
+      'set',
+      '--project-dir',
+      REPO_ROOT,
+      '--client',
+      'openai',
+      '--mode',
+      'api_key',
+      '--api-key',
+      'should-not-write',
+    ],
+    {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CAT_CAFE_TEST_SANDBOX: '1',
+        CAT_CAFE_GLOBAL_CONFIG_ROOT: REPO_ROOT,
+        HOME: REPO_ROOT,
+      },
+    },
+  );
+
+  assert.notEqual(result.status, 0, 'script must fail closed when test sandbox targets repo root');
+  assert.match(String(result.stderr), /test sandbox|repo root|unsafe/i);
+  if (beforeAccounts === null) assert.equal(existsSync(accountsPath), false, 'repo accounts.json must stay absent');
+  else assert.equal(readFileSync(accountsPath, 'utf8'), beforeAccounts, 'repo accounts.json must stay unchanged');
+  if (beforeCredentials === null) {
+    assert.equal(existsSync(credentialsPath), false, 'repo credentials.json must stay absent');
+  } else {
+    assert.equal(readFileSync(credentialsPath, 'utf8'), beforeCredentials, 'repo credentials.json must stay unchanged');
   }
 });

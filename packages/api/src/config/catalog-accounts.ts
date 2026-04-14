@@ -12,6 +12,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSy
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import type { AccountConfig } from '@cat-cafe/shared';
+import { assertSafeTestConfigRoot } from './test-config-write-guard.js';
 
 const CONFIG_SUBDIR = '.cat-cafe';
 const ACCOUNTS_FILENAME = 'accounts.json';
@@ -21,6 +22,10 @@ function resolveGlobalRoot(projectRoot?: string): string {
   if (envRoot) return resolve(envRoot);
   if (projectRoot) return resolve(projectRoot);
   return homedir();
+}
+
+function assertSafeCatalogWrite(projectRoot: string | undefined, source: string): void {
+  assertSafeTestConfigRoot(resolveGlobalRoot(projectRoot), source);
 }
 
 export function resolveAccountsPath(projectRoot?: string): string {
@@ -54,6 +59,7 @@ function readAllGlobal(projectRoot?: string): Record<string, AccountConfig> {
     // Fix P1-3: corrupt file → backup + warn, not silent swallow
     const backupPath = `${accountsPath}.bak`;
     try {
+      assertSafeCatalogWrite(projectRoot, 'catalog-accounts.readAllGlobal.backup');
       copyFileSync(accountsPath, backupPath);
     } catch {
       /* best-effort backup */
@@ -64,6 +70,7 @@ function readAllGlobal(projectRoot?: string): Record<string, AccountConfig> {
 }
 
 function writeAllGlobal(accounts: Record<string, AccountConfig>, projectRoot?: string): void {
+  assertSafeCatalogWrite(projectRoot, 'catalog-accounts.writeAllGlobal');
   const accountsPath = resolveAccountsPath(projectRoot);
   mkdirSync(resolve(resolveGlobalRoot(projectRoot), CONFIG_SUBDIR), { recursive: true });
   writeFileAtomic(accountsPath, `${JSON.stringify(accounts, null, 2)}\n`);
@@ -272,6 +279,7 @@ function migrateLegacyFrom(root: string, projectRoot?: string): void {
     }
   }
   if (credCount > 0) {
+    assertSafeCatalogWrite(projectRoot, 'catalog-accounts.migrateLegacyFrom.credentials');
     mkdirSync(resolve(globalRoot, CONFIG_SUBDIR), { recursive: true });
     writeFileAtomic(credPath, `${JSON.stringify(existing, null, 2)}\n`, 0o600);
   }
@@ -412,6 +420,7 @@ function migrateHomedirCredentials(projectRoot?: string): void {
       }
     }
     if (imported > 0) {
+      assertSafeCatalogWrite(projectRoot, 'catalog-accounts.migrateHomedirCredentials');
       mkdirSync(resolve(globalRoot, CONFIG_SUBDIR), { recursive: true });
       writeFileAtomic(targetCredPath, `${JSON.stringify(targetCreds, null, 2)}\n`, 0o600);
       console.error(

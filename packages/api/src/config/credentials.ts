@@ -8,6 +8,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync,
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import type { CredentialEntry } from '@cat-cafe/shared';
+import { assertSafeTestConfigRoot } from './test-config-write-guard.js';
 
 const CONFIG_SUBDIR = '.cat-cafe';
 const CREDENTIALS_FILENAME = 'credentials.json';
@@ -78,12 +79,14 @@ export function readCredential(ref: string, projectRoot?: string): CredentialEnt
 }
 
 export function writeCredential(ref: string, entry: CredentialEntry, projectRoot?: string): void {
+  assertSafeTestConfigRoot(resolveGlobalRoot(projectRoot), 'credentials.writeCredential');
   const creds = readAll(projectRoot);
   creds[ref] = entry;
   writeAll(creds, projectRoot);
 }
 
 export function deleteCredential(ref: string, projectRoot?: string): void {
+  assertSafeTestConfigRoot(resolveGlobalRoot(projectRoot), 'credentials.deleteCredential');
   const creds = readAll(projectRoot);
   if (!(ref in creds)) return;
   delete creds[ref];

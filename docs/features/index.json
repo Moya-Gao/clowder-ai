@@ -627,7 +627,7 @@
     {
       "id": "F102",
       "name": "记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04 (Phase A~J) | **Reopened**: 2026-04-13 (Phase K)",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04 (Phase A~J) | **Reopened**: 2026-04-13 (Phase K) | **Re-closed**: 2026-04-14 (Phase K done, AC-K3/K4 deferred)",
       "file": "F102-memory-adapter-refactor.md"
     },
     {
@@ -1009,5 +1009,5 @@
       "file": "F161-acp-carrier-generalization.md"
     }
   ],
-  "generated_at": "2026-04-14T06:28:53.060Z"
+  "generated_at": "2026-04-14T07:11:52.160Z"
 }
