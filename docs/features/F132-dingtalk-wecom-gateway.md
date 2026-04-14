@@ -8,7 +8,7 @@ created: 2026-03-22
 
 # F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入
 
-> **Status**: active (Phase E) | **Phase A-D Completed**: 2026-04-09 | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: active (Phase E merged, pending vision guard) | **Phase A-E Completed**: 2026-04-14 | **Owner**: 布偶猫 | **Priority**: P1
 >
 > **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
 > 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
@@ -276,12 +276,12 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 - [x] AC-D4: IM 接入指南文档覆盖钉钉 + 企微 Bot + 企微 Agent 配置步骤
 - [x] AC-D5: 现有飞书/Telegram 功能无回归
 
-### Phase E（WeCom Bot Guided Setup — 快速接入向导）
-- [ ] AC-E1: Hub UI 展示 WeCom Bot 步骤向导（3 步：创建 bot → 复制凭证 → 粘贴验证）
-- [ ] AC-E2: "测试并连接"按钮真正验证 WebSocket 连接（不是 stub），3s 超时返回结果
-- [ ] AC-E3: 验证通过后自动保存凭证并激活 adapter（不需要重启服务）
-- [ ] AC-E4: 已连接状态显示绿色标记 + 断开连接按钮（清凭证 + 停 adapter）
-- [ ] AC-E5: 公共层零改动
+### Phase E（WeCom Bot Guided Setup — 快速接入向导） ✅
+- [x] AC-E1: Hub UI 展示 WeCom Bot 步骤向导（3 步：创建 bot → 复制凭证 → 粘贴验证）
+- [x] AC-E2: "测试并连接"按钮真正验证 WebSocket 连接（不是 stub），3s 超时返回结果
+- [x] AC-E3: 验证通过后自动保存凭证并激活 adapter（不需要重启服务）
+- [x] AC-E4: 已连接状态显示绿色标记 + 断开连接按钮（清凭证 + 停 adapter）
+- [x] AC-E5: 公共层零改动
 
 ## 需求点 Checklist
 
@@ -358,6 +358,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | 2026-03-28 | Phase C merged (PR #808) — WeCom Agent adapter: HTTP callback + AES-256-CBC/SHA1 crypto + XML parsing (fast-xml-parser), echostr challenge, message/send API (text+markdown+TextCard+News), temp media upload/download, byte-aware chunking (2048 byte limit), final-only delivery (no streaming). 95 adapter tests. Cloud review found P1 (query param arg order) — fixed before merge |
 | 2026-04-09 | Phase D merged (PR #1018) — Bootstrap + 富文本映射 + 文档: .env.example DingTalk vars, IM setup guides (DingTalk/WeCom Bot/WeCom Agent 3 sections + 5-platform comparison table), im-usage-guide updates, connector-bubble-theme tests (dingtalk cyan + wecom-agent violet). 砚砚 local review APPROVED + cloud review clean. F132 完成 — 全部 Phase merged |
 | 2026-04-14 | Phase E 立项 — WeCom Bot Guided Setup: 铲屎官反馈企微接入太麻烦导致一直没验证，决定走引导式设置（路线 A），不走 ISV 扫码授权。布偶猫实现 |
+| 2026-04-14 | Phase E merged (PR #1162) — WeCom Bot guided setup: validate route (WebSocket probe + P1 rollback on start failure), disconnect route, WeComBotSetupPanel.tsx frontend, dynamic adapter lifecycle (startWeComBotStream/stopWeComBot). 7 new test cases. Spark local review APPROVED + cloud review clean |
 
 ## 新 IM 接入清单（KD-7 — Adapter-Only Extension）
 
