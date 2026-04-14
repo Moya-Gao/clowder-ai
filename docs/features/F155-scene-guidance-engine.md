@@ -5,7 +5,7 @@ topics: [guidance, onboarding, ux, interactive]
 doc_kind: spec
 created: 2026-04-09
 community_issue: "clowder-ai#409"
-community_pr: "clowder-ai#398"
+community_pr: ["clowder-ai#398", "clowder-ai#457"]
 intake_issue: "cat-cafe#1119"
 ---
 

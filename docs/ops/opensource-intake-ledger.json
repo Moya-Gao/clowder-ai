@@ -666,7 +666,10 @@
       "pr_number": 457,
       "target_merge_commit": "517c076d23e9b7ab07b082cc63d81052e4ce9931",
       "decision": "absorbed",
-      "timestamp": "2026-04-14T01:14:02.696Z"
+      "timestamp": "2026-04-14T01:14:02.696Z",
+      "absorb_pr": 1147,
+      "intake_intent_issue": 1144,
+      "note": "F155 Phase B selective intake: GuideStateMachine, GuideLifecycleService, GuidePromptSection, GuideRoutingInterceptor, GuideSessionRepository, GuideOfferPolicy, GuideDismissTracker + frontend Zustand event flow."
     }
   ]
 }
