@@ -192,9 +192,21 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 1. **前端（最小改动，堵住体验坑）**：`apiFetch` 收到 401 时清掉 `sessionGate`，自动重调 `/api/session` 拿新 cookie 后重试一次原请求
 2. **后端（可选增强）**：SessionStore 持久化到 Redis（而非内存 Map），API 重启不丢 session
 
+### 追加发现：刷新页面后 Session 再次失效（Race Condition）
+
+铲屎官实测：刷新页面后 thread 又消失了，只有回到首页再进才恢复。
+
+根因：**两套 session 初始化存在竞争**：
+1. `SessionBootstrap.tsx`：`useEffect` 中调 `fetch('/api/session')`（模块级 `established` 标志）
+2. `api-client.ts`：`ensureSession()` 在首次 `apiFetch` 时也调 `fetch('/api/session')`
+
+两个并发请求各拿到不同的 session token，后写入 cookie 的覆盖先写入的，导致其中一个 token 在服务端有效但在浏览器被覆盖 → 后续请求携带的是"被覆盖方"的 token → 401。
+
+**建议**：统一为一个入口点，`SessionBootstrap` 和 `ensureSession` 共享同一个 Promise，避免并发签发。
+
 ### 临时 Workaround
 
-用户手动刷新页面（前端 `SessionBootstrap` 组件会重调 `/api/session`），或在控制台执行 `fetch('/api/session')` 后刷新。
+回到首页 `localhost:3001/` 再进入 thread（首页请求少，不容易触发竞争），或在控制台执行 `fetch('/api/session')` 后刷新。
 
 ---
 
