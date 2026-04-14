@@ -44,6 +44,8 @@ export interface EvidenceSearchResponse {
   results: EvidenceResult[];
   degraded: boolean;
   degradeReason?: string;
+  /** AC-K1: actual retrieval mode when depth=raw forces lexical */
+  effectiveMode?: 'lexical' | 'semantic' | 'hybrid';
   freshness?: EvidenceFreshness;
   reimportTrigger?: EvidenceReimportTrigger;
 }
@@ -69,6 +71,9 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
     const { q, limit, scope, mode, depth, dateFrom, dateTo, contextWindow, threadId, dimension } = parseResult.data;
 
     const effectiveLimit = limit ?? 5;
+    // AC-K1: depth=raw forces lexical-only (passage-level vectors not yet available)
+    const requestedMode = mode ?? 'lexical';
+    const isRawDegraded = depth === 'raw' && requestedMode !== 'lexical';
     try {
       const searchOpts = {
         limit: effectiveLimit,
@@ -96,7 +101,11 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         ...(singleSource ? { source: singleSource } : {}),
         ...(item.passages ? { passages: item.passages } : {}),
       }));
-      return { results, degraded: false } satisfies Partial<EvidenceSearchResponse>;
+      return {
+        results,
+        degraded: isRawDegraded,
+        ...(isRawDegraded ? { degradeReason: 'raw_lexical_only', effectiveMode: 'lexical' as const } : {}),
+      } satisfies Partial<EvidenceSearchResponse>;
     } catch {
       return {
         results: [],

@@ -137,7 +137,10 @@ export function transformTrajectorySteps(
             metadata,
             timestamp: Date.now(),
           });
-        } else if ((step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT' || step.type === 'CORTEX_STEP_TYPE_MCP_TOOL') && step.toolResult) {
+        } else if (
+          (step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT' || step.type === 'CORTEX_STEP_TYPE_MCP_TOOL') &&
+          step.toolResult
+        ) {
           const tr = step.toolResult;
           messages.push({
             type: 'error',
