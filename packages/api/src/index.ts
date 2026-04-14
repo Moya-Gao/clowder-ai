@@ -2142,6 +2142,11 @@ async function main(): Promise<void> {
     }
     (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = handle.weixinAdapter;
     (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling = handle.startWeixinPolling;
+    // F132 Phase E: WeCom Bot dynamic start/stop
+    (
+      connectorHubOpts as { startWeComBotStream?: (botId: string, secret: string) => Promise<void> }
+    ).startWeComBotStream = handle.startWeComBotStream;
+    (connectorHubOpts as { stopWeComBot?: () => Promise<void> }).stopWeComBot = handle.stopWeComBot;
     (connectorHubOpts as { permissionStore?: unknown }).permissionStore = handle.permissionStore;
   }
 

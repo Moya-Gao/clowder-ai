@@ -116,6 +116,61 @@ export class WeComBotAdapter implements IStreamableOutboundAdapter {
     this.redis = options.redis;
   }
 
+  // ── F132 Phase E: Credential validation ──
+
+  /**
+   * Validate WeCom Bot credentials by attempting a WebSocket connection.
+   * Creates a temporary WSClient, waits for 'authenticated' or 'error', then disconnects.
+   * Returns within `timeoutMs` (default 5s).
+   *
+   * AC-E2: Real WebSocket validation (not stub)
+   */
+  static async validateCredentials(
+    botId: string,
+    secret: string,
+    timeoutMs = 5000,
+  ): Promise<{ valid: boolean; error?: string }> {
+    const { default: AiBot } = await import('@wecom/aibot-node-sdk');
+    const client = new AiBot.WSClient({
+      botId,
+      secret,
+      maxReconnectAttempts: 0,
+    });
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        try {
+          client.disconnect();
+        } catch {
+          /* ignore */
+        }
+        resolve({ valid: false, error: 'Connection timeout — check Bot ID and Secret' });
+      }, timeoutMs);
+
+      client.on('authenticated', () => {
+        clearTimeout(timer);
+        try {
+          client.disconnect();
+        } catch {
+          /* ignore */
+        }
+        resolve({ valid: true });
+      });
+
+      client.on('error', (err: Error) => {
+        clearTimeout(timer);
+        try {
+          client.disconnect();
+        } catch {
+          /* ignore */
+        }
+        resolve({ valid: false, error: err.message || 'Connection failed' });
+      });
+
+      client.connect();
+    });
+  }
+
   // ── Inbound: Parse WsFrame Body ──
 
   /**

@@ -16,6 +16,10 @@ export interface ConnectorHubRoutesOptions {
   weixinAdapter?: WeixinAdapter | null;
   /** Called after successful QR login to start the WeChat polling loop */
   startWeixinPolling?: () => void;
+  /** F132 Phase E: dynamically start WeCom Bot adapter after credential validation */
+  startWeComBotStream?: (botId: string, secret: string) => Promise<void>;
+  /** F132 Phase E: stop running WeCom Bot adapter (for disconnect) */
+  stopWeComBot?: () => Promise<void>;
   /** F134 Phase D: Permission store for group whitelist + admin management */
   permissionStore?: IConnectorPermissionStore | null;
   envFilePath?: string;
@@ -130,9 +134,9 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     ],
     docsUrl: 'https://developer.work.weixin.qq.com/document/path/105120',
     steps: [
-      { text: '在企业微信管理后台创建智能机器人，获取 Bot ID 和 Bot Secret' },
-      { text: '启用「长连接」模式（WebSocket），无需公网 URL' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
+      { text: '登录企业微信管理后台 → 应用管理 → 创建「智能机器人」' },
+      { text: '复制 Bot ID 和 Bot Secret' },
+      { text: '粘贴到下方并点击「测试并连接」，验证成功后自动生效' },
     ],
   },
   {
@@ -454,6 +458,84 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       envFilePath: opts.envFilePath,
     });
     app.log.info({ userId }, '[WeChat] Disconnected by user — token cleared from .env');
+
+    return { ok: true };
+  });
+
+  // ── F132 Phase E: WeCom Bot guided setup — validate + connect + disconnect ──
+
+  app.post('/api/connector/wecom-bot/validate', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const { botId, secret } = (request.body ?? {}) as { botId?: string; secret?: string };
+    if (!botId || !secret) {
+      reply.status(400);
+      return { error: 'botId and secret are required' };
+    }
+
+    try {
+      const { WeComBotAdapter } = await import('../infrastructure/connectors/adapters/WeComBotAdapter.js');
+      const result = await WeComBotAdapter.validateCredentials(botId, secret);
+
+      if (!result.valid) {
+        reply.status(422);
+        return { valid: false, error: result.error };
+      }
+
+      // AC-E3: Save credentials and activate adapter without restart
+      // P1 fix: save → start → if start fails, rollback credentials
+      await applyConnectorSecretUpdates(
+        [
+          { name: 'WECOM_BOT_ID', value: botId },
+          { name: 'WECOM_BOT_SECRET', value: secret },
+        ],
+        { envFilePath: opts.envFilePath },
+      );
+
+      if (opts.startWeComBotStream) {
+        try {
+          await opts.startWeComBotStream(botId, secret);
+        } catch (startErr) {
+          // Rollback: credentials saved but adapter failed to start
+          await applyConnectorSecretUpdates(
+            [
+              { name: 'WECOM_BOT_ID', value: null },
+              { name: 'WECOM_BOT_SECRET', value: null },
+            ],
+            { envFilePath: opts.envFilePath },
+          );
+          app.log.error({ err: startErr }, '[WeCom Bot] Adapter start failed — credentials rolled back');
+          reply.status(502);
+          return { valid: false, error: 'Credentials valid but adapter failed to start' };
+        }
+      }
+
+      app.log.info({ userId }, '[WeCom Bot] Validated + activated via guided setup');
+      return { valid: true };
+    } catch (err) {
+      app.log.error({ err }, '[WeCom Bot] Validation failed');
+      reply.status(502);
+      return { valid: false, error: 'Failed to validate WeCom Bot credentials' };
+    }
+  });
+
+  app.post('/api/connector/wecom-bot/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    if (opts.stopWeComBot) {
+      await opts.stopWeComBot();
+    }
+
+    await applyConnectorSecretUpdates(
+      [
+        { name: 'WECOM_BOT_ID', value: null },
+        { name: 'WECOM_BOT_SECRET', value: null },
+      ],
+      { envFilePath: opts.envFilePath },
+    );
+    app.log.info({ userId }, '[WeCom Bot] Disconnected by user — credentials cleared');
 
     return { ok: true };
   });

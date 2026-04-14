@@ -26,7 +26,6 @@ created: 2026-02-26
 | F061 | Antigravity 接入 — 孟加拉猫（混血家族） | phase-2-bridge | 布偶猫 | internal | [F061](features/F061-antigravity-bengal-cat.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | internal | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | internal | [F069](features/F069-thread-read-state.md) |
-| F075 | Cat Leaderboard Phase D — Co-creator Growth & Deep Collab | spec | 布偶猫 | community | [F075](features/F075-cat-leaderboard.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | internal | [F077](features/F077-multi-user-secure-collab.md) |
 | F089 | Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性 | in-progress | 布偶猫 | internal | [F089](features/F089-hub-terminal-tmux.md) |
 | F090 | Pixel Cat Brawl — 像素猫猫大作战：即时格斗 demo game | phase-1-done | 布偶猫 | internal | [F090](features/F090-pixel-cat-brawl.md) |
@@ -44,6 +43,7 @@ created: 2026-02-26
 | F127 | 猫猫管理重构 — 账户配置与猫猫实例分离，动态创建猫 + 自定义别名 @ 路由 | in-progress | 金渐层 + 砚砚 | community [#109](https://github.com/zts212653/clowder-ai/issues/109) | [F127](features/F127-cat-instance-management.md) |
 | F128 | Cat-Initiated Thread Creation — 猫程序化创建 Thread | spec | 待定 | community [#82](https://github.com/zts212653/clowder-ai/issues/82) | [F128](features/F128-cat-create-thread.md) |
 | F129 | Pack System — Multi-Agent 共创世界的 Mod 生态 | in-progress | 布偶猫 | internal | [F129](features/F129-pack-system-multi-agent-mod.md) |
+| F132 | DingTalk + WeCom Chat Gateway — 钉钉/企微接入 | in-progress (Phase E) | 布偶猫 | internal | [F132](features/F132-dingtalk-wecom-gateway.md) |
 | F135 | 狸花猫开箱即用 — DARE Out-of-the-Box | spec | bouillipx | community [#195](https://github.com/zts212653/clowder-ai/issues/195) | [F135](features/F135-dare-ootb.md) |
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | 布偶猫 | internal | [F143](features/F143-hostable-agent-runtime.md) |
