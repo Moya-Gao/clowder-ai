@@ -9,7 +9,24 @@
 
 每页至少混合 **3 种以上**填充手段。底部空白 > 20% 时必须加内容。
 
-## 填充手段清单（8 种）
+## 量化密度门禁（每页必须达标）
+
+> 从 relay-claw pptx-craft 对标学来，结合我们的实战经验
+
+| 指标 | 门禁值 | 怎么测 |
+|------|--------|--------|
+| 数据可视化 | ≥ 1 个 ECharts 图表 或 ≥ 3 个数据卡片 | 数 `<canvas>` + 数据卡片 |
+| 核心要点 | 6-10 个列表项或卡片 | 数主要信息单元 |
+| 视觉图标 | ≥ 3 个 emoji/SVG 图标 | 数图标元素 |
+| 空白率 | < 30% | density-analyzer 或 grid-sampling |
+| 大段文字 | 无连续 > 100 字段落 | 扫描文本节点 |
+| 数据来源 | 页脚有标注 | 检查 footer |
+| 填充手段 | ≥ 3 种混合使用 | 对照下方清单 |
+
+**不满足 → 执行密度补充循环**（搜索真实数据 → 转换为可视化 → 重新生成）。
+详见 `ppt-slide-authoring.md` "密度补充循环"。
+
+## 填充手段清单（9 种）
 
 ### 1. KPI 数字块
 大号数字 + 小号标签。放页面顶部做概括性数据。
@@ -62,6 +79,29 @@
 | L3 正文 | 详细内容 | 11-12px |
 | L4 辅助 | 灰色描述 | 9-10px |
 | L5 脚注 | 来源/时间 | 8-9px gray |
+
+### 9. ECharts 数据图表 ★★
+**从 relay-claw 学来的杀手级手段。** 一个图表 = 几十行文字的信息密度。
+- 数据/对比/趋势 → 必须用 ECharts，不用纯文字
+- 柱状图、折线图、饼图、雷达图、散点图等
+- 颜色用品牌色板，坐标轴文字用深色（禁止浅灰）
+
+```html
+<div class="border border-[#d4d4d4] bg-white p-2 overflow-hidden">
+  <div id="chart-1" style="width:100%;min-height:200px;"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+echarts.init(document.getElementById('chart-1')).setOption({
+  color: ['#C7020E','#FF6B6B','#FFA940','#FADB14','#52C41A','#1890FF'],
+  xAxis: { type: 'category', data: ['Q1','Q2','Q3','Q4'],
+    axisLabel: { color: '#252525' } },
+  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#d4d4d4' } },
+    axisLabel: { color: '#252525' } },
+  series: [{ type: 'bar', data: [120, 200, 150, 280] }]
+});
+</script>
+```
 
 ## 间距规则
 
