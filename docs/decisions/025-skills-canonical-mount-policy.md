@@ -126,7 +126,7 @@ ADR-009（2026-02-10）选择了"用户级 symlink 分发"，F070（2026-03-08�
 |----------|------------------|-------------|
 | Claude | `.claude/skills/` | `.claude/skills/` |
 | Codex | `.codex/skills/` | `.agents/skills/`（skills CLI） |
-| Gemini | `.gemini/skills/` | `.gemini/skills/` |
+| Gemini | `.gemini/skills/` | `.agents/skills/`（skills CLI） |
 
 Hub 扫描时需分两层：
 - Cat Café 官方受管路径：按 governance bootstrap 口径
