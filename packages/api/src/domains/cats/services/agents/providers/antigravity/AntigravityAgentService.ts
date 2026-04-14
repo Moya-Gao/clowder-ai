@@ -56,8 +56,19 @@ export class AntigravityAgentService implements AgentService {
         return;
       }
 
-      // Prepend system prompt if provided (bridge providers don't have system prompt flags)
-      const effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n---\n\n${prompt}` : prompt;
+      // Antigravity LS validates file paths against its workspace root.
+      // Without this hint, the model generates absolute paths that LS rejects.
+      // Sanitize path to prevent control-character prompt injection.
+      const sanitizedDir = options?.workingDirectory?.split(/[\n\r\x00-\x1f]/)[0]?.trim() ?? '';
+      const workspaceHint = sanitizedDir
+        ? `\n[Workspace: ${sanitizedDir}]\nAll file paths must be relative to this workspace root. Do not use absolute paths.`
+        : '';
+
+      const effectivePrompt = options?.systemPrompt
+        ? `${options.systemPrompt}${workspaceHint}\n\n---\n\n${prompt}`
+        : workspaceHint
+          ? `${workspaceHint.trimStart()}\n\n---\n\n${prompt}`
+          : prompt;
 
       // Create cascade and send message
       const threadId = options?.auditContext?.threadId ?? `ephemeral-${Date.now()}`;
