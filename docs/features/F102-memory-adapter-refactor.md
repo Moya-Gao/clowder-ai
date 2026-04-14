@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F102: 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04 (Phase A~J) | **Reopened**: 2026-04-13 (Phase K)
 > **Reflection**: [`docs/reflections/2026-04-04-f102-memory-adapter-capsule.md`](../reflections/2026-04-04-f102-memory-adapter-capsule.md)
 
 ## Why
@@ -1466,7 +1466,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅。F102 已进入 feature close。
+> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅。**Phase K (Contract Closure) in-progress**（2026-04-13 重新打开）。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 收尾三批次（2026-04-01 三方收敛：布偶猫+砚砚 GPT-5.4+铲屎官）
@@ -1564,11 +1564,57 @@ Batch 3: /memory 体验层收口 ✅ PR #915
 
 **Phase A~E 的全部功能（FTS5 + 向量检索 + thread passages + session chain drill-down）在 flag off 时照常工作。增强功能是 additive，不影响基础能力。**
 
+## Phase K: Contract Closure — 对外契约闭环（2026-04-13 重新打开）
+
+> **起因**：其他线程的猫猫投诉"F102 没做完"。砚砚(GPT-5.4) 审计后定位到 4 项未闭环，
+> 其中 2 项是契约缺口（P1），2 项是能力增强（P3 deferred）。
+> **铲屎官指示**：不做脚手架，完整挂在 F102 issue 里实现。
+
+### P1: 契约缺口修复
+
+**AC-K1: `depth=raw` 强制降级必须告知调用方**
+
+当前状态：`SqliteEvidenceStore.ts:299` 在 `depth=raw` 时短路返回，跳过 mode 分支。
+API route `evidence.ts:99` 始终返回 `degraded: false`。前端仍允许选择 `semantic/hybrid`。
+
+- [ ] 后端：当 `depth=raw && mode !== 'lexical'` 时，在返回中设 `degraded: true`，`degradeReason: 'raw_lexical_only'`，附 `effectiveMode: 'lexical'`
+- [ ] 前端：当 `depth=raw` 时，mode 下拉锁定为"精确"并显示提示（"消息级检索仅支持精确匹配"）
+- [ ] `SearchOptions` / `EvidenceSearchResponse` 补 `effectiveMode` 字段
+
+**AC-K2: passage 字段类型对齐**
+
+当前状态：后端返回 `{ passageId, content, speaker, createdAt, context }`（evidence-helpers.ts:26），
+前端期望 `{ text, score }`（EvidenceSearch.tsx:22）。`p.text` 渲染为 undefined。
+
+- [ ] 前端 `SearchResultItem.passages` 类型改为匹配后端实际返回
+- [ ] passage 渲染展示 `content`、`speaker`、`createdAt`，不再渲染不存在的 `text/score`
+- [ ] context passages（上下文窗口）也正确渲染
+
+### P3: 能力增强（Deferred — 等场景倒逼再开）
+
+**AC-K3: passage-level vector path**（`depth=raw` 支持 `semantic/hybrid`）
+
+- ADR-020 已记录为 deferred
+- Phase I follow-up plan 已明确排除
+- 开启条件：有跨语言 raw 消息定位的真实场景
+
+**AC-K4: L2 Rollup**（多 L1 segment 凝结为更高层摘要）
+
+- ADR-020 KD-42 已记录为 deferred
+- segment ledger 已就绪，升级只改读路径
+- 开启条件：session chain 长度达到 L1 瓶颈
+
+### Phase K 验收标准
+
+- AC-K1/K2 全部打勾 → Phase K done → F102 re-close
+- AC-K3/K4 保持 deferred 状态，不阻塞 K close
+
 ## Review Gate
 
 - Phase A: 跨 family review（缅因猫优先）— 接口设计需要多方确认
 - Phase B: 同 family review（布偶猫 Sonnet 可）— 实现层面
 - Phase G foundation: 砚砚(GPT-5.4) review 4 轮放行 — 8 findings 全部闭环（PR #604）
+- Phase K: 跨 family review（缅因猫优先）— 对外契约改动
 
 ## Links
 

@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-04-12
+> 维护者：三猫 | 最后更新：2026-04-13
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -17,6 +17,7 @@ created: 2026-02-26
 | ID | 名称 | Status | Owner | Source | Link |
 |----|------|--------|-------|--------|------|
 | F038 | Skills 梳理 + 按需发现机制 | parked | 三猫 | internal | [F038](features/F038-skills-discovery.md) |
+| F102 | 记忆组件 Adapter 化重构 — Phase K 契约闭环 | in-progress | 布偶猫 | internal | [F102](features/F102-memory-adapter-refactor.md) |
 | F044 | Channel & Activity System — 战队频道 + 游戏活动 | spec | 布偶猫 | internal | [F044](features/F044-channel-activity-system.md) |
 | F048 | Restart Recovery — 重启自愈（Phase B: 队列持久化） | phase-a-done | 布偶猫 | internal | [F048](features/F048-restart-recovery.md) |
 | F051 | 猫粮看板 v2 — Quota Board (glanceable + scheduling) | in-progress | 布偶猫 | internal | [F051](features/F051-real-quota-dashboard.md) |
