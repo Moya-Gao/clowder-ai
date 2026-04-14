@@ -166,6 +166,8 @@ created: 2026-04-10
 | 2026-04-11 | Private network UX optimization merged (PR #1087) — env-registry 注册 + 启动提示 + 描述优化 |
 | 2026-04-12 | Host guard fix merged (PR #1114) — private network IPs now pass Host validation |
 | 2026-04-12 | **Feature closed** — 愿景守护(codex) 放行，D-4/FU-1/FU-2 拆出为独立任务 |
+| 2026-04-14 | Fallout fix merged (PR #1159) — trusted-origin fallback + 401 retry (author: opus, reviewer: codex cloud) |
+| 2026-04-14 | Fallout perf merged (PR #1164) — trim thread-switch fan-out + per-thread caches (author: gpt52, reviewer: opus + codex cloud) |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
@@ -247,9 +249,9 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 - [ ] **AC-F156-FALLOUT-2**：IM Hub、Signal Hub、创建线程、刷新后气泡偏好 4 条核心 smoke path 全绿，并有回归测试或脚本证据
 - [ ] **AC-F156-FALLOUT-3**：前端不再把 401 静默吞成"没数据/没反应"；至少要能自愈重试，失败也要有明确错误态
 - [ ] **AC-F156-FALLOUT-4**：thread 切换体验分层完成；只有 `messages` 允许算首屏阻塞，`queue` / `task-progress` / `sessions` / `authorization` 必须降级为 secondary hydration
-- [ ] **AC-F156-FALLOUT-5**：同项目切 thread 不再额外 refetch `governance/status` 这类 project 级状态
-- [ ] **AC-F156-FALLOUT-6**：`sessions` / `queue` / `task-progress` 至少满足其一：per-thread cache、聚合为一个 sidebar-state 接口、或明确延后到首屏之后再拉
-- [ ] **AC-F156-FALLOUT-7**：review 流程补上红蓝对抗视角，不只检查代码正确性，还必须检查"恢复链 / 失败路径 / 体验退化"；本轮作者与 reviewer 都要显式过这一关
+- [x] **AC-F156-FALLOUT-5**：同项目切 thread 不再额外 refetch `governance/status` 这类 project 级状态 — PR #1164 removed redundant govRefetch
+- [x] **AC-F156-FALLOUT-6**：`sessions` / `queue` / `task-progress` 至少满足其一：per-thread cache、聚合为一个 sidebar-state 接口、或明确延后到首屏之后再拉 — PR #1164 added per-thread cache for sessions, tasks, auth pending (stale-while-revalidate)
+- [x] **AC-F156-FALLOUT-7**：review 流程补上红蓝对抗视角，不只检查代码正确性，还必须检查"恢复链 / 失败路径 / 体验退化"；本轮作者与 reviewer 都要显式过这一关 — PR #1164 reviewed with red-blue adversarial perspective (opus, two rounds)
 
 ### 守护说明
 
