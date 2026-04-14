@@ -42,9 +42,6 @@ const HISTORY_PAGE_SIZE = 50;
 // In export mode (?export=true), load all messages in one request for screenshot capture.
 // Normal browsing still uses 50-per-page pagination.
 const EXPORT_LIMIT = 10000;
-// Keep first-screen message priority, but don't let secondary hydration stall indefinitely.
-const SECONDARY_HYDRATION_FALLBACK_MS = 300;
-
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError';
 }
@@ -736,44 +733,37 @@ export function useChatHistory(threadId: string) {
       void fetchQueue();
     };
 
-    const secondaryFallbackTimer: ReturnType<typeof setTimeout> = setTimeout(() => {
-      hydrateSecondaryPanels();
-    }, SECONDARY_HYDRATION_FALLBACK_MS);
-
     const bootstrap = async () => {
-      try {
-        if (!hasCachedMessages) {
-          // During route thread switches, this effect can run before setCurrentThread.
-          // Clearing too early would wipe the previous thread snapshot in the store.
-          if (isThreadSynced) {
-            clearMessages();
-          }
-          await fetchHistory();
-        } else if (hasActiveInvocation || (cached && cached.unreadCount > 0) || hasUnstableBubbleIdentity) {
-          // #80 fix-A P1: Force-refresh with replace mode — the async response handler
-          // will clear stale cache after setCurrentThread has run, then set fresh data
-          // including DraftStore drafts in correct timestamp order.
-          // F069-R4: Also force-refresh when the thread has unread messages. Without this,
-          // the cached message list may lack the server's latest real messages, causing
-          // the read-ack in ChatContainer to send an old sortable ID — the server still
-          // counts messages after that ID as unread, and the badge reappears.
-          // F123: If the cached snapshot already contains unstable bubble identity
-          // (duplicate same-invocation bubbles or local-only draft/stream state),
-          // thread switch must reconcile against authoritative history instead of
-          // trusting the cached timeline until a later F5.
-          await fetchHistory(undefined, { replace: true });
+      if (!hasCachedMessages) {
+        // During route thread switches, this effect can run before setCurrentThread.
+        // Clearing too early would wipe the previous thread snapshot in the store.
+        if (isThreadSynced) {
+          clearMessages();
         }
-      } finally {
-        // Prioritize first-screen messages, then hydrate secondary panels.
-        hydrateSecondaryPanels();
+        await fetchHistory();
+      } else if (hasActiveInvocation || (cached && cached.unreadCount > 0) || hasUnstableBubbleIdentity) {
+        // #80 fix-A P1: Force-refresh with replace mode — the async response handler
+        // will clear stale cache after setCurrentThread has run, then set fresh data
+        // including DraftStore drafts in correct timestamp order.
+        // F069-R4: Also force-refresh when the thread has unread messages. Without this,
+        // the cached message list may lack the server's latest real messages, causing
+        // the read-ack in ChatContainer to send an old sortable ID — the server still
+        // counts messages after that ID as unread, and the badge reappears.
+        // F123: If the cached snapshot already contains unstable bubble identity
+        // (duplicate same-invocation bubbles or local-only draft/stream state),
+        // thread switch must reconcile against authoritative history instead of
+        // trusting the cached timeline until a later F5.
+        await fetchHistory(undefined, { replace: true });
       }
     };
 
+    // AC-4: secondary panels should hydrate in parallel with message history,
+    // not wait for fetchHistory() to settle before the first request starts.
+    hydrateSecondaryPanels();
     void bootstrap();
 
     return () => {
       // Scroll save is now done during render (before DOM commit), not here.
-      clearTimeout(secondaryFallbackTimer);
       cancelPendingRestore();
       abortRef.current?.abort();
     };

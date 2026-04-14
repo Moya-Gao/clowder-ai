@@ -401,6 +401,65 @@ describe('Thread API', () => {
     assert.equal(body.title, 'New Title');
   });
 
+  it('PATCH /api/threads/:id persists bubble display overrides via detail and list reads', async () => {
+    const thread = threadStore.create('default-user', 'Bubble Override Test');
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { bubbleThinking: 'collapsed', bubbleCli: 'expanded' },
+    });
+    assert.equal(patchRes.statusCode, 200);
+    const patched = JSON.parse(patchRes.body);
+    assert.equal(patched.bubbleThinking, 'collapsed');
+    assert.equal(patched.bubbleCli, 'expanded');
+
+    const detailRes = await app.inject({
+      method: 'GET',
+      url: `/api/threads/${thread.id}`,
+    });
+    assert.equal(detailRes.statusCode, 200);
+    const detail = JSON.parse(detailRes.body);
+    assert.equal(detail.bubbleThinking, 'collapsed');
+    assert.equal(detail.bubbleCli, 'expanded');
+
+    const listRes = await app.inject({
+      method: 'GET',
+      url: '/api/threads',
+    });
+    assert.equal(listRes.statusCode, 200);
+    const listBody = JSON.parse(listRes.body);
+    const listed = listBody.threads.find((item) => item.id === thread.id);
+    assert.ok(listed, 'thread should be present in list');
+    assert.equal(listed.bubbleThinking, 'collapsed');
+    assert.equal(listed.bubbleCli, 'expanded');
+  });
+
+  it('PATCH /api/threads/:id clears bubble display overrides when set back to global', async () => {
+    const thread = threadStore.create('default-user', 'Bubble Clear Test');
+    threadStore.updateBubbleDisplay(thread.id, 'bubbleThinking', 'collapsed');
+    threadStore.updateBubbleDisplay(thread.id, 'bubbleCli', 'expanded');
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { bubbleThinking: 'global', bubbleCli: 'global' },
+    });
+    assert.equal(patchRes.statusCode, 200);
+    const patched = JSON.parse(patchRes.body);
+    assert.equal(patched.bubbleThinking, undefined);
+    assert.equal(patched.bubbleCli, undefined);
+
+    const detailRes = await app.inject({
+      method: 'GET',
+      url: `/api/threads/${thread.id}`,
+    });
+    assert.equal(detailRes.statusCode, 200);
+    const detail = JSON.parse(detailRes.body);
+    assert.equal(detail.bubbleThinking, undefined);
+    assert.equal(detail.bubbleCli, undefined);
+  });
+
   it('PATCH /api/threads/:id persists via threadStore.updateTitle (regression: Redis)', async () => {
     const persisted = {
       id: 'thread-1',

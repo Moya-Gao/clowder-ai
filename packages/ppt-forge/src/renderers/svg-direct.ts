@@ -81,7 +81,10 @@ export function renderDirectSvg(slide: PptxSlide, input: DirectSvgInput): Direct
   const unrenderable = safeSvg.match(/<(circle|ellipse|line|path|polygon|polyline)[\s/>]/gi);
   if (unrenderable) {
     for (const m of unrenderable) {
-      const tag = m.slice(1).split(/[\s/>]/)[0].toLowerCase();
+      const tag = m
+        .slice(1)
+        .split(/[\s/>]/)[0]
+        .toLowerCase();
       if (!stripped.includes(tag)) stripped.push(tag);
     }
     modified = true;

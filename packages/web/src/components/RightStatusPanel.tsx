@@ -147,13 +147,23 @@ function BubbleDisplayToggle({
 }) {
   const thread = useChatStore((s) => s.threads.find((t) => t.id === threadId));
   const updateLocal = useChatStore((s) => s.updateThreadBubbleDisplay);
+  const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
   const current = thread?.[field] ?? 'global';
+  const currentEffective =
+    current === 'global'
+      ? field === 'bubbleThinking'
+        ? globalBubbleDefaults.thinking
+        : globalBubbleDefaults.cliOutput
+      : current;
+  const next =
+    current === 'global' ? (currentEffective === 'expanded' ? 'collapsed' : 'expanded') : BUBBLE_CYCLE[current];
+  const currentLabel =
+    current === 'global' ? `${BUBBLE_LABELS.global}（当前${BUBBLE_LABELS[currentEffective]}）` : BUBBLE_LABELS[current];
   const pendingRef = useRef(false);
 
   const cycle = useCallback(async () => {
     if (pendingRef.current) return;
     pendingRef.current = true;
-    const next = BUBBLE_CYCLE[current] ?? 'global';
     updateLocal(threadId, field, next);
     try {
       const res = await apiFetch(`/api/threads/${threadId}`, {
@@ -167,18 +177,18 @@ function BubbleDisplayToggle({
     } finally {
       pendingRef.current = false;
     }
-  }, [threadId, field, current, updateLocal]);
+  }, [threadId, field, next, current, updateLocal]);
 
   return (
     <div className="flex items-center justify-between">
       <span>
-        {label}: <span className="font-medium">{BUBBLE_LABELS[current]}</span>
+        {label}: <span className="font-medium">{currentLabel}</span>
       </span>
       <button
         onClick={cycle}
         className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
       >
-        {BUBBLE_LABELS[BUBBLE_CYCLE[current] ?? 'global']}
+        {BUBBLE_LABELS[next]}
       </button>
     </div>
   );
