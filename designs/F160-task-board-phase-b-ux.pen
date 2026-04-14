@@ -1,0 +1,1860 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "text",
+      "id": "9hSeq",
+      "x": 0,
+      "y": 0,
+      "name": "hero",
+      "fill": "#2D2926",
+      "content": "F160 毛线球 Phase B — Workspace 任务板 UX",
+      "fontFamily": "Outfit",
+      "fontSize": 28,
+      "fontWeight": "700"
+    },
+    {
+      "type": "text",
+      "id": "Ht8hu",
+      "x": 0,
+      "y": 36,
+      "name": "sub",
+      "fill": "#8C8782",
+      "textGrowth": "fixed-width",
+      "width": 980,
+      "content": "Workspace 右栏延续 F102 结构：总标题 → mode pills → 任务分段面板。设计语言遵循 F056 Cozy Swiss + Cafe Metaphors。",
+      "lineHeight": 1.5,
+      "fontFamily": "Inter",
+      "fontSize": 12,
+      "fontWeight": "normal"
+    },
+    {
+      "type": "frame",
+      "id": "QfG0B",
+      "x": 0,
+      "y": 92,
+      "name": "State A — 主视图",
+      "width": 340,
+      "height": 820,
+      "fill": "#FAFAF8",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#E8E7E4"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Uw00L",
+          "x": 0,
+          "y": 0,
+          "width": 340,
+          "height": 44,
+          "fill": "#FFFFFF",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "#E8E7E4"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "YWfft",
+              "x": 16,
+              "y": 14,
+              "width": 16,
+              "height": 16,
+              "iconFontName": "folder",
+              "iconFontFamily": "lucide",
+              "fill": "#6D6C6A"
+            },
+            {
+              "type": "text",
+              "id": "7ynpu",
+              "x": 118,
+              "y": 11,
+              "fill": "#1A1918",
+              "content": "Workspace",
+              "fontFamily": "Outfit",
+              "fontSize": 15,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "5kC9E",
+              "x": 296,
+              "y": 11,
+              "fill": "#9C9B99",
+              "content": "×",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "1NUF7",
+          "x": 0,
+          "y": 44,
+          "width": 340,
+          "height": 42,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "ohazl",
+              "x": 16,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nx6zc",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "开发",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "V5PHH",
+              "x": 70,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RQbWQ",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "记忆",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "pLx9V",
+              "x": 124,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nVFqB",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "调度",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XRvMl",
+              "x": 178,
+              "y": 8,
+              "width": 54,
+              "height": 26,
+              "fill": "#FFF1EA",
+              "cornerRadius": 9999,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FFAB9166"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "qhwsS",
+                  "x": 16,
+                  "y": 6,
+                  "fill": "#A95A3D",
+                  "content": "任务",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "YUtgj",
+          "x": 16,
+          "y": 101,
+          "fill": "#2D2926",
+          "content": "毛线球 · 当前对话任务",
+          "fontFamily": "Outfit",
+          "fontSize": 18,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "X7HuE",
+          "x": 252,
+          "y": 96,
+          "width": 72,
+          "height": 34,
+          "fill": "#8D6E63",
+          "cornerRadius": 9999,
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "otYNz",
+              "x": 14,
+              "y": 9,
+              "fill": "#FFFDF8",
+              "content": "+ 新任务",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hv4km",
+          "x": 16,
+          "y": 144,
+          "width": 308,
+          "height": 28,
+          "fill": "#FFF5EF",
+          "cornerRadius": 10,
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "Hk2Jy",
+              "x": 12,
+              "y": 8,
+              "fill": "#8C8782",
+              "content": "8 项任务",
+              "fontFamily": "Outfit",
+              "fontSize": 10,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "GQmrn",
+              "x": 88,
+              "y": 8,
+              "fill": "#D97757",
+              "content": "1 blocked",
+              "fontFamily": "Outfit",
+              "fontSize": 10,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "O9LjJ",
+              "x": 170,
+              "y": 8,
+              "fill": "#4F7FA8",
+              "content": "2 doing",
+              "fontFamily": "Outfit",
+              "fontSize": 10,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "eFOAW",
+              "x": 238,
+              "y": 8,
+              "fill": "#4E8A61",
+              "content": "5 done",
+              "fontFamily": "Outfit",
+              "fontSize": 10,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "WbU0n",
+          "x": 16,
+          "y": 190,
+          "fill": "#4F7FA8",
+          "content": "◉ 进行中",
+          "fontFamily": "Outfit",
+          "fontSize": 13,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "LAytU",
+          "x": 310,
+          "y": 190,
+          "fill": "#8C8782",
+          "content": "2",
+          "fontFamily": "Outfit",
+          "fontSize": 11,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "68gSb",
+          "x": 12,
+          "y": 214,
+          "width": 316,
+          "height": 106,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1,
+              "right": 1,
+              "bottom": 1,
+              "left": 4
+            },
+            "fill": "#D9E6F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "F0yLP",
+              "x": 14,
+              "y": 12,
+              "fill": "#1A1918",
+              "textGrowth": "fixed-width",
+              "width": 288,
+              "content": "修复 rich block diff 预览错位",
+              "lineHeight": 1.3,
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "Ozuti",
+              "x": 14,
+              "y": 38,
+              "fill": "#8C8782",
+              "content": "Owner · 砚砚    来源 · review thread",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "500"
+            },
+            {
+              "type": "frame",
+              "id": "uqkL4",
+              "x": 12,
+              "y": 56,
+              "width": 288,
+              "height": 24,
+              "fill": "#F5F8FC",
+              "cornerRadius": 8,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Ph1T1",
+                  "x": 8,
+                  "y": 5,
+                  "fill": "#55738F",
+                  "textGrowth": "fixed-width",
+                  "width": 272,
+                  "content": "Why: 让 review 反馈可以一眼核对，不再在聊天里来回翻。",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "pHpsN",
+              "x": 14,
+              "y": 88,
+              "fill": "#8C8782",
+              "content": "状态 · doing    更新时间 · 4m ago",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "rGj7s",
+          "x": 12,
+          "y": 330,
+          "width": 316,
+          "height": 82,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1,
+              "right": 1,
+              "bottom": 1,
+              "left": 4
+            },
+            "fill": "#D9E6F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "WCtuZ",
+              "x": 14,
+              "y": 12,
+              "fill": "#1A1918",
+              "textGrowth": "fixed-width",
+              "width": 288,
+              "content": "把 F160 Phase B wireframe 落盘",
+              "lineHeight": 1.3,
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "FoXEA",
+              "x": 14,
+              "y": 38,
+              "fill": "#8C8782",
+              "content": "Owner · 宪宪    协作 · Design Gate",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "500"
+            },
+            {
+              "type": "text",
+              "id": "EVDcK",
+              "x": 14,
+              "y": 58,
+              "fill": "#8C8782",
+              "content": "状态 · doing    预计 · 今天",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "xK743",
+          "x": 16,
+          "y": 440,
+          "fill": "#C46649",
+          "content": "⊘ 阻塞中",
+          "fontFamily": "Outfit",
+          "fontSize": 13,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "ONgwy",
+          "x": 310,
+          "y": 440,
+          "fill": "#8C8782",
+          "content": "1",
+          "fontFamily": "Outfit",
+          "fontSize": 11,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "e6ljz",
+          "x": 12,
+          "y": 464,
+          "width": 316,
+          "height": 88,
+          "fill": "#FFF6F2",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1,
+              "right": 1,
+              "bottom": 1,
+              "left": 4
+            },
+            "fill": "#F1C8B8"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "BvP5N",
+              "x": 14,
+              "y": 12,
+              "fill": "#1A1918",
+              "textGrowth": "fixed-width",
+              "width": 288,
+              "content": "等 Design Gate 通过再进实现",
+              "lineHeight": 1.3,
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "LQsGf",
+              "x": 14,
+              "y": 38,
+              "fill": "#B36A52",
+              "content": "Blocked by · Landy 确认交互方向",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "500"
+            },
+            {
+              "type": "text",
+              "id": "vTvuF",
+              "x": 14,
+              "y": 58,
+              "fill": "#8C8782",
+              "content": "下一步 · 定稿后进入 worktree + tdd",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qkYiF",
+          "x": 12,
+          "y": 578,
+          "width": 316,
+          "height": 42,
+          "fill": "#F5F2ED",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E6DED5"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "h73qr",
+              "x": 14,
+              "y": 12,
+              "fill": "#8C8782",
+              "content": "○ 待办   3 项已折叠",
+              "fontFamily": "Outfit",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "TjdA4",
+              "x": 286,
+              "y": 12,
+              "fill": "#B0AAA4",
+              "content": "⌄",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "gMEmR",
+          "x": 12,
+          "y": 632,
+          "width": 316,
+          "height": 42,
+          "fill": "#F3FAF4",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#D8E8DA"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "melop",
+              "x": 14,
+              "y": 12,
+              "fill": "#5C8A67",
+              "content": "● 已完成   5 项已折叠",
+              "fontFamily": "Outfit",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "L9tz7",
+              "x": 286,
+              "y": 12,
+              "fill": "#A6BBAA",
+              "content": "⌄",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "NyH32",
+      "x": 388,
+      "y": 92,
+      "name": "State B — 新建任务展开",
+      "width": 340,
+      "height": 900,
+      "fill": "#FAFAF8",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#E8E7E4"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "e5vUd",
+          "x": 0,
+          "y": 0,
+          "width": 340,
+          "height": 44,
+          "fill": "#FFFFFF",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "#E8E7E4"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "d4EcO",
+              "x": 16,
+              "y": 14,
+              "width": 16,
+              "height": 16,
+              "iconFontName": "folder",
+              "iconFontFamily": "lucide",
+              "fill": "#6D6C6A"
+            },
+            {
+              "type": "text",
+              "id": "Io1Il",
+              "x": 118,
+              "y": 11,
+              "fill": "#1A1918",
+              "content": "Workspace",
+              "fontFamily": "Outfit",
+              "fontSize": 15,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "OHSp3",
+              "x": 296,
+              "y": 11,
+              "fill": "#9C9B99",
+              "content": "×",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "n0ZWW",
+          "x": 0,
+          "y": 44,
+          "width": 340,
+          "height": 42,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "7ZgAZ",
+              "x": 16,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "J6o2Q",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "开发",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fJJAk",
+              "x": 70,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "BDlxy",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "记忆",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "dHvJy",
+              "x": 124,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "IjL86",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "调度",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "NGZF0",
+              "x": 178,
+              "y": 8,
+              "width": 54,
+              "height": 26,
+              "fill": "#FFF1EA",
+              "cornerRadius": 9999,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FFAB9166"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hQNhm",
+                  "x": 16,
+                  "y": 6,
+                  "fill": "#A95A3D",
+                  "content": "任务",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "P3O6G",
+          "x": 16,
+          "y": 101,
+          "fill": "#2D2926",
+          "content": "毛线球 · 新建 thread 任务",
+          "fontFamily": "Outfit",
+          "fontSize": 18,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "RtCwC",
+          "x": 16,
+          "y": 128,
+          "fill": "#8C8782",
+          "textGrowth": "fixed-width",
+          "width": 290,
+          "content": "铲屎官可手动创建；猫猫也会在需要长期跟踪时把事项挂上来。",
+          "lineHeight": 1.5,
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "500"
+        },
+        {
+          "type": "frame",
+          "id": "kIxu0",
+          "x": 12,
+          "y": 162,
+          "width": 316,
+          "height": 320,
+          "fill": "#FFF8F2",
+          "cornerRadius": 14,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#F0D8C8"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "dnb4Y",
+              "x": 14,
+              "y": 14,
+              "fill": "#2D2926",
+              "content": "新任务",
+              "fontFamily": "Outfit",
+              "fontSize": 14,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "zlsUc",
+              "x": 14,
+              "y": 42,
+              "fill": "#8C8782",
+              "content": "标题",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "lyMxs",
+              "x": 14,
+              "y": 58,
+              "width": 288,
+              "height": 42,
+              "fill": "#FFFFFF",
+              "cornerRadius": 10,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E8E7E4"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mOPa8",
+                  "x": 12,
+                  "y": 12,
+                  "fill": "#2D2926",
+                  "content": "修复任务卡展开后 why 被截断",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "AYBmu",
+              "x": 14,
+              "y": 116,
+              "fill": "#8C8782",
+              "content": "Why",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "H7Qfj",
+              "x": 14,
+              "y": 132,
+              "width": 288,
+              "height": 92,
+              "fill": "#FFFFFF",
+              "cornerRadius": 10,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E8E7E4"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "gP57p",
+                  "x": 12,
+                  "y": 12,
+                  "fill": "#5A514A",
+                  "textGrowth": "fixed-width",
+                  "width": 264,
+                  "content": "让 thread 级长期项不再埋进聊天；后续 review 可以直接改状态，不用再从消息里抄一遍。",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "bcCQG",
+              "x": 14,
+              "y": 240,
+              "fill": "#8C8782",
+              "content": "负责猫",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "Ha2pl",
+              "x": 14,
+              "y": 256,
+              "width": 288,
+              "height": 28,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uSVMT",
+                  "x": 0,
+                  "y": 0,
+                  "width": 62,
+                  "height": 28,
+                  "fill": "#EEF6EE",
+                  "cornerRadius": 9999,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#BFD7BF"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "0gzk7",
+                      "x": 16,
+                      "y": 7,
+                      "fill": "#4F7A53",
+                      "content": "砚砚",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "o1Fnt",
+                  "x": 70,
+                  "y": 0,
+                  "width": 62,
+                  "height": 28,
+                  "fill": "#F5F2ED",
+                  "cornerRadius": 9999,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#E6DED5"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "o3QbI",
+                      "x": 16,
+                      "y": 7,
+                      "fill": "#8C8782",
+                      "content": "宪宪",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "iSLoI",
+                  "x": 140,
+                  "y": 0,
+                  "width": 86,
+                  "height": 28,
+                  "fill": "#F5F2ED",
+                  "cornerRadius": 9999,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#E6DED5"
+                  },
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "mJVFJ",
+                      "x": 16,
+                      "y": 7,
+                      "fill": "#8C8782",
+                      "content": "暂不分配",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "NVf2U",
+              "x": 14,
+              "y": 294,
+              "width": 288,
+              "height": 1,
+              "fill": "#EBDDD0",
+              "layout": "none"
+            },
+            {
+              "type": "frame",
+              "id": "azp2Z",
+              "x": 166,
+              "y": 276,
+              "width": 64,
+              "height": 32,
+              "fill": "#FFFFFF",
+              "cornerRadius": 9999,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#E6DED5"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "bIil3",
+                  "x": 18,
+                  "y": 9,
+                  "fill": "#8C8782",
+                  "content": "取消",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "0CQHJ",
+              "x": 236,
+              "y": 276,
+              "width": 66,
+              "height": 32,
+              "fill": "#8D6E63",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Dcsip",
+                  "x": 14,
+                  "y": 9,
+                  "fill": "#FFFDF8",
+                  "content": "创建任务",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "4fbOf",
+          "x": 16,
+          "y": 512,
+          "fill": "#8D6E63",
+          "content": "保存后会进入当前对话的任务板",
+          "fontFamily": "Outfit",
+          "fontSize": 12,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "Wkwsx",
+          "x": 12,
+          "y": 538,
+          "width": 316,
+          "height": 90,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1,
+              "right": 1,
+              "bottom": 1,
+              "left": 4
+            },
+            "fill": "#D9E6F2"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "J0ijV",
+              "x": 14,
+              "y": 12,
+              "fill": "#1A1918",
+              "textGrowth": "fixed-width",
+              "width": 286,
+              "content": "修复任务卡展开后 why 被截断",
+              "lineHeight": 1.3,
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "llmFn",
+              "x": 14,
+              "y": 38,
+              "fill": "#8C8782",
+              "content": "状态 · todo    Owner · 砚砚",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "500"
+            },
+            {
+              "type": "frame",
+              "id": "sftGv",
+              "x": 12,
+              "y": 56,
+              "width": 206,
+              "height": 22,
+              "fill": "#F5F8FC",
+              "cornerRadius": 8,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "9g8C9",
+                  "x": 8,
+                  "y": 5,
+                  "fill": "#55738F",
+                  "content": "创建后可一键切到 doing / blocked / done",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DfT0w",
+          "x": 12,
+          "y": 650,
+          "width": 316,
+          "height": 42,
+          "fill": "#F5F2ED",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E6DED5"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "u4Gl1",
+              "x": 14,
+              "y": 12,
+              "fill": "#8C8782",
+              "content": "○ 待办   4 项已折叠",
+              "fontFamily": "Outfit",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "iT9Ft",
+              "x": 286,
+              "y": 12,
+              "fill": "#B0AAA4",
+              "content": "⌄",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jyq7A",
+          "x": 12,
+          "y": 704,
+          "width": 316,
+          "height": 42,
+          "fill": "#FFF6F2",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#F1C8B8"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "KrYUY",
+              "x": 14,
+              "y": 12,
+              "fill": "#C46649",
+              "content": "⊘ 阻塞中   1 项",
+              "fontFamily": "Outfit",
+              "fontSize": 12,
+              "fontWeight": "600"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "3dOJn",
+      "x": 776,
+      "y": 92,
+      "name": "State C — 空状态",
+      "width": 340,
+      "height": 700,
+      "fill": "#FAFAF8",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#E8E7E4"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "fUHRY",
+          "x": 0,
+          "y": 0,
+          "width": 340,
+          "height": 44,
+          "fill": "#FFFFFF",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "#E8E7E4"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "StC1Q",
+              "x": 16,
+              "y": 14,
+              "width": 16,
+              "height": 16,
+              "iconFontName": "folder",
+              "iconFontFamily": "lucide",
+              "fill": "#6D6C6A"
+            },
+            {
+              "type": "text",
+              "id": "PFHbY",
+              "x": 118,
+              "y": 11,
+              "fill": "#1A1918",
+              "content": "Workspace",
+              "fontFamily": "Outfit",
+              "fontSize": 15,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "X12pP",
+              "x": 296,
+              "y": 11,
+              "fill": "#9C9B99",
+              "content": "×",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "saVIB",
+          "x": 0,
+          "y": 44,
+          "width": 340,
+          "height": 42,
+          "fill": "#FFFFFF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "PyK5a",
+              "x": 16,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "3iJfa",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "开发",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hiLTv",
+              "x": 70,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dsE8O",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "记忆",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "dbUaW",
+              "x": 124,
+              "y": 8,
+              "width": 46,
+              "height": 26,
+              "fill": "#F5F4F1",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "4KPHp",
+                  "x": 12,
+                  "y": 6,
+                  "fill": "#9C9B99",
+                  "content": "调度",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nOcvw",
+              "x": 178,
+              "y": 8,
+              "width": 54,
+              "height": 26,
+              "fill": "#FFF1EA",
+              "cornerRadius": 9999,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FFAB9166"
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "bdhJm",
+                  "x": 16,
+                  "y": 6,
+                  "fill": "#A95A3D",
+                  "content": "任务",
+                  "fontFamily": "Outfit",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "ne2ez",
+          "x": 16,
+          "y": 101,
+          "fill": "#2D2926",
+          "content": "毛线球 · 暂无任务",
+          "fontFamily": "Outfit",
+          "fontSize": 18,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "FJdp9",
+          "x": 12,
+          "y": 154,
+          "width": 316,
+          "height": 338,
+          "fill": "#FFF8F2",
+          "cornerRadius": 18,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#F0D8C8"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "MxIXW",
+              "x": 118,
+              "y": 36,
+              "fill": "#FFF1EA",
+              "width": 80,
+              "height": 80,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#FFCFBE"
+              }
+            },
+            {
+              "type": "line",
+              "id": "hsRki",
+              "x": 134,
+              "y": 54,
+              "width": 48,
+              "height": 0,
+              "stroke": {
+                "align": "center",
+                "thickness": 2,
+                "fill": "#D98B6A"
+              }
+            },
+            {
+              "type": "line",
+              "id": "5OUkp",
+              "x": 134,
+              "y": 74,
+              "width": 48,
+              "height": 0,
+              "stroke": {
+                "align": "center",
+                "thickness": 2,
+                "fill": "#D98B6A"
+              }
+            },
+            {
+              "type": "line",
+              "id": "bUtl8",
+              "x": 134,
+              "y": 94,
+              "width": 48,
+              "height": 0,
+              "stroke": {
+                "align": "center",
+                "thickness": 2,
+                "fill": "#D98B6A"
+              }
+            },
+            {
+              "type": "text",
+              "id": "mM1By",
+              "x": 57,
+              "y": 144,
+              "fill": "#2D2926",
+              "textGrowth": "fixed-width",
+              "width": 202,
+              "content": "把长期事项挂在线上，不埋回聊天里",
+              "lineHeight": 1.25,
+              "textAlign": "center",
+              "fontFamily": "Outfit",
+              "fontSize": 18,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "uzl38",
+              "x": 34,
+              "y": 198,
+              "fill": "#8C8782",
+              "textGrowth": "fixed-width",
+              "width": 248,
+              "content": "铲屎官可手动创建，猫猫也会在需要长期跟踪时挂上来；临时执行步骤仍然放在猫猫祟祟。",
+              "lineHeight": 1.55,
+              "textAlign": "center",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "500"
+            },
+            {
+              "type": "frame",
+              "id": "1l7Ls",
+              "x": 84,
+              "y": 274,
+              "width": 148,
+              "height": 38,
+              "fill": "#8D6E63",
+              "cornerRadius": 9999,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "9pVyR",
+                  "x": 28,
+                  "y": 11,
+                  "fill": "#FFFDF8",
+                  "content": "创建第一颗毛线球",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "fEPxC",
+          "x": 12,
+          "y": 518,
+          "width": 316,
+          "height": 86,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E8E7E4"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "Y6zIg",
+              "x": 14,
+              "y": 14,
+              "fill": "#8D6E63",
+              "content": "何时该用毛线球？",
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "x7Urf",
+              "x": 14,
+              "y": 38,
+              "fill": "#5A514A",
+              "textGrowth": "fixed-width",
+              "width": 280,
+              "content": "• 铲屎官要留长期待办\n• 猫猫需要跨 session 跟踪\n• 需要把 blocked / done 状态外化",
+              "lineHeight": 1.5,
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "pfbQA",
+          "x": 12,
+          "y": 620,
+          "width": 316,
+          "height": 42,
+          "fill": "#F5F2ED",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E6DED5"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "U7IDv",
+              "x": 14,
+              "y": 12,
+              "fill": "#8C8782",
+              "content": "临时步骤继续留给猫猫祟祟",
+              "fontFamily": "Outfit",
+              "fontSize": 12,
+              "fontWeight": "600"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "MDS5N",
+      "x": 1164,
+      "y": 92,
+      "name": "Design Gate 注释",
+      "width": 320,
+      "height": 436,
+      "fill": "#FFF8F2",
+      "cornerRadius": 14,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#F0D8C8"
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "text",
+          "id": "4rgmR",
+          "x": 18,
+          "y": 18,
+          "fill": "#2D2926",
+          "content": "Design Gate 摘要",
+          "fontFamily": "Outfit",
+          "fontSize": 20,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "oWVYY",
+          "x": 18,
+          "y": 50,
+          "fill": "#8C8782",
+          "textGrowth": "fixed-width",
+          "width": 268,
+          "content": "F160 毛线球在 Workspace 右栏的定位与交互边界",
+          "lineHeight": 1.5,
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "500"
+        },
+        {
+          "type": "frame",
+          "id": "DXI8k",
+          "x": 16,
+          "y": 92,
+          "width": 288,
+          "height": 92,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E8E7E4"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "Y7Hhn",
+              "x": 14,
+              "y": 14,
+              "fill": "#8D6E63",
+              "content": "1. 放在 Workspace mode pill 层",
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "XpD5q",
+              "x": 14,
+              "y": 38,
+              "fill": "#5A514A",
+              "textGrowth": "fixed-width",
+              "width": 256,
+              "content": "和“记忆 / 调度”同级，因为它也是 thread 级持久面板；不要塞进开发 tabs 里。",
+              "lineHeight": 1.5,
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "fzGUn",
+          "x": 16,
+          "y": 196,
+          "width": 288,
+          "height": 92,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E8E7E4"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "eIInU",
+              "x": 14,
+              "y": 14,
+              "fill": "#8D6E63",
+              "content": "2. 先看 doing / blocked",
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "otrra",
+              "x": 14,
+              "y": 38,
+              "fill": "#5A514A",
+              "textGrowth": "fixed-width",
+              "width": 256,
+              "content": "进行中与阻塞默认展开；待办与已完成折叠，减少右栏噪音，同时保留状态感知。",
+              "lineHeight": 1.5,
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Vl9QC",
+          "x": 16,
+          "y": 300,
+          "width": 288,
+          "height": 92,
+          "fill": "#FFFFFF",
+          "cornerRadius": 12,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#E8E7E4"
+          },
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "XdZiP",
+              "x": 14,
+              "y": 14,
+              "fill": "#8D6E63",
+              "content": "3. Inline composer，不开 modal",
+              "fontFamily": "Outfit",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "zDVkl",
+              "x": 14,
+              "y": 38,
+              "fill": "#5A514A",
+              "textGrowth": "fixed-width",
+              "width": 256,
+              "content": "新任务直接在面板里创建，保持上下文连续；保存后立刻回到同一块任务板里继续看。",
+              "lineHeight": 1.5,
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "C1rDI",
+          "x": 18,
+          "y": 406,
+          "fill": "#C46649",
+          "textGrowth": "fixed-width",
+          "width": 268,
+          "content": "OQ: 毛线球 tab 图标最终 SVG 还可以再精修一轮。",
+          "lineHeight": 1.4,
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "600"
+        }
+      ]
+    }
+  ]
+}
