@@ -1,6 +1,6 @@
 import type { CatId } from '@cat-cafe/shared';
-import type { AgentMessage, MessageMetadata } from '../../../types.js';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
+import type { AgentMessage, MessageMetadata } from '../../../types.js';
 import type { TrajectoryStep } from './AntigravityBridge.js';
 
 const log = createModuleLogger('antigravity-event-transformer');
@@ -36,7 +36,11 @@ export function classifyStep(step: TrajectoryStep): StepBucket {
   }
 
   // Known silent types (no user-facing output)
-  if (step.type === 'CORTEX_STEP_TYPE_CHECKPOINT' || step.type === 'CORTEX_STEP_TYPE_EPHEMERAL_MESSAGE' || step.type === 'CORTEX_STEP_TYPE_USER_INPUT') {
+  if (
+    step.type === 'CORTEX_STEP_TYPE_CHECKPOINT' ||
+    step.type === 'CORTEX_STEP_TYPE_EPHEMERAL_MESSAGE' ||
+    step.type === 'CORTEX_STEP_TYPE_USER_INPUT'
+  ) {
     return 'checkpoint';
   }
 
