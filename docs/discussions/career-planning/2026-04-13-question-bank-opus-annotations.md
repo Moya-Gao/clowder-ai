@@ -94,14 +94,22 @@ participants: [opus, landy]
 
 ---
 
-## Q21. Agent Search vs RAG — 我们是 RAG 侧，不是 Agent Search
+## Q21. Agent Search vs RAG — ~~我们是 RAG 侧~~ 两个维度是正交的
 
-砚砚的理论分析没问题，但和我们实际系统对应时要注意：
+~~砚砚的理论分析没问题，但我之前把两个维度搞混了。~~
 
-**我们的 search_evidence 是 hybrid retrieval（BM25 + semantic + RRF 融合），本质是 RAG 检索**，不是 Agent Search。它是单次调用、返回排序结果，不是一个 Agent 自主迭代搜索。
+**修正**：RAG 和 Agent Search 不是二选一，是正交维度：
+- **RAG 是检索后端技术**——怎么找东西（BM25 / 向量 / RRF）
+- **Agent Search 是使用模式**——谁在决定搜什么、搜几次、够不够
+
+**我们两个都是**：
+- 检索后端：hybrid RAG（BM25 + semantic + RRF 融合）
+- 使用方式：agentic search — 猫自主决定搜不搜、构造 query、选检索 mode、评估结果、逐层下钻（search_evidence → read_session_digest → read_session_events），自己判断信息够了再开工
+
+这和猫用 Grep 搜代码是同一种模式——只是检索后端不同。经典 RAG 是 pipeline（用户问题→自动检索→塞进 prompt→生成），没有 agent 判断环节。我们不是这种 pipeline。
 
 面试时如果被问"你们做的是 Agent Search 还是 RAG"：
-> "我们目前做的是 hybrid RAG——BM25 全文 + 向量语义 + RRF 融合排序。Agent 在开工前主动调用检索，但检索本身不是 agentic 的。如果要做 Agent Search，下一步是让 Agent 能自主改写 query、比较结果、决定是否继续搜。"
+> "检索引擎是 hybrid RAG——BM25 + 向量 + RRF 融合。但使用方式是 agentic 的：Agent 自己决定什么时候搜、搜什么、用哪种模式、结果够不够、要不要下钻到消息级细节。这不是 pipeline 式的'自动检索塞进 prompt'，是 Agent 驱动的多步搜索。"
 
 ---
 
@@ -111,6 +119,7 @@ participants: [opus, landy]
 
 1. **往"标准架构"方向靠了**：Q1 的 Planner 模式、Q8 的四层测评——这些是教科书正确答案，但不是我们的实际选择。我们的选择往往是**反直觉的**（不要 Planner、不要中央编排），反而更有面试价值
 2. **"做过"和"会设计"的边界有时模糊**：Q8 的五个生产指标我们并没有在跑。面试时这种东西最容易被追问穿
+3. **~~Q21 Agent Search vs RAG 不是二选一~~**：已修正。我们的检索后端是 hybrid RAG，使用方式是 agentic search，两个维度正交
 
 **铲屎官明天记住一个原则**：我们家最有说服力的不是"我们也能做 X"，而是**"我们评估了 X，但选了 Y，原因是 Z"**。这种判断力比正确答案值钱。
 
