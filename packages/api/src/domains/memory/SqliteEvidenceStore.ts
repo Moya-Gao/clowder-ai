@@ -18,6 +18,8 @@ export interface PassageResult {
   content: string;
   speaker?: string;
   position?: number;
+  /** BM25 relevance score from passage_fts (lower = more relevant) */
+  rank?: number;
   /** AC-I7: ISO8601 timestamp of when the passage was created */
   createdAt?: string;
   /** AC-I8: surrounding passages within the context window */
@@ -299,6 +301,13 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     // P1 fix (砚砚 review): depth=raw must stay lexical-only — no passage vectors yet.
     // Short-circuit BEFORE mode split to prevent semantic/hybrid from eating raw results.
     if (options?.depth === 'raw') {
+      // Passage ranking fix: results with passage matches must rank before
+      // doc-only hits so low-limit queries surface message-level content.
+      results.sort((a, b) => {
+        const aHas = a.passages?.length ? 1 : 0;
+        const bHas = b.passages?.length ? 1 : 0;
+        return bHas - aHas; // passage-bearing first, stable within each group
+      });
       return this.enrichWithDrillDown(results.slice(0, limit));
     }
 
@@ -681,6 +690,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         content: r.content,
         speaker: r.speaker ?? undefined,
         position: r.position ?? undefined,
+        rank: r.rank,
         createdAt: r.created_at ?? undefined,
       }));
 
