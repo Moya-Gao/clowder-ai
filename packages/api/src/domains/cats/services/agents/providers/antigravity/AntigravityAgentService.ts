@@ -102,6 +102,20 @@ export class AntigravityAgentService implements AgentService {
         2_000,
         options?.signal,
       )) {
+        if (batch.cursor.awaitingUserInput) {
+          yield {
+            type: 'liveness_signal',
+            catId: this.catId,
+            content: JSON.stringify({
+              type: 'info',
+              message: 'Antigravity 正在等待权限批准',
+            }),
+            metadata,
+            errorCode: 'waiting_approval',
+            timestamp: Date.now(),
+          };
+          continue;
+        }
         if (batch.steps.length > 0) {
           const messages = transformTrajectorySteps(batch.steps, this.catId, metadata);
           for (const msg of messages) {

@@ -40,6 +40,7 @@ export interface TrajectoryStep {
 export interface CascadeTrajectory {
   status: string;
   numTotalSteps: number;
+  awaitingUserInput?: boolean;
   trajectory?: { steps: TrajectoryStep[] };
 }
 
@@ -48,6 +49,7 @@ export interface DeliveryCursor {
   lastDeliveredStepCount: number;
   terminalSeen: boolean;
   lastActivityAt: number;
+  awaitingUserInput?: boolean;
 }
 
 export interface StepBatch {
@@ -139,6 +141,7 @@ export class AntigravityBridge {
   ): AsyncGenerator<StepBatch> {
     let delivered = stepsBefore;
     let lastActivityAt = Date.now();
+    let waitingApprovalSignaled = false;
     let rpcRetries = 0;
     const maxRpcRetries = 3;
 
@@ -159,8 +162,10 @@ export class AntigravityBridge {
       }
       const currentSteps = traj.numTotalSteps ?? 0;
       const isTerminal = traj.status === 'CASCADE_RUN_STATUS_IDLE';
+      const awaitingUserInput = traj.awaitingUserInput === true;
 
       if (currentSteps > delivered) {
+        waitingApprovalSignaled = false;
         lastActivityAt = Date.now();
         const allSteps = traj.trajectory?.steps ?? (await this.getTrajectorySteps(cascadeId));
         const newSteps = allSteps.slice(delivered, currentSteps);
@@ -173,11 +178,31 @@ export class AntigravityBridge {
             lastDeliveredStepCount: delivered,
             terminalSeen: isTerminal,
             lastActivityAt,
+            awaitingUserInput,
           },
         };
         if (isTerminal) return;
       } else {
         const idleMs = Date.now() - lastActivityAt;
+        if (awaitingUserInput) {
+          if (!waitingApprovalSignaled) {
+            waitingApprovalSignaled = true;
+            log.info(`cascade ${cascadeId} awaiting user input; suppressing stall timeout`);
+            yield {
+              steps: [],
+              cursor: {
+                baselineStepCount: stepsBefore,
+                lastDeliveredStepCount: delivered,
+                terminalSeen: false,
+                lastActivityAt,
+                awaitingUserInput: true,
+              },
+            };
+          }
+          await new Promise((r) => setTimeout(r, pollIntervalMs));
+          continue;
+        }
+        waitingApprovalSignaled = false;
         if (isTerminal && (delivered > stepsBefore || idleMs > idleTimeoutMs)) {
           yield {
             steps: [],
@@ -186,6 +211,7 @@ export class AntigravityBridge {
               lastDeliveredStepCount: delivered,
               terminalSeen: true,
               lastActivityAt,
+              awaitingUserInput: false,
             },
           };
           return;
