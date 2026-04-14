@@ -100,7 +100,7 @@ export function aggregateUsage(
 export function ParallelStatusBar({ onStop }: { onStop?: () => void }) {
   const { targetCats, activeInvocations, catStatuses, catInvocations } = useChatStore();
 
-  const displayCats = deriveActiveCats(targetCats, activeInvocations);
+  const displayCats = deriveActiveCats(targetCats, activeInvocations, catStatuses);
 
   if (displayCats.length === 0) return null;
 

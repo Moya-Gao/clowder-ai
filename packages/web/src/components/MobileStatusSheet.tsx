@@ -38,9 +38,9 @@ export function MobileStatusSheet({
         return taskProgress.snapshotStatus !== 'completed';
       })
       .map(([catId]) => catId);
-    const slotCats = deriveActiveCats(targetCats, activeInvocations);
+    const slotCats = deriveActiveCats(targetCats, activeInvocations, catStatuses);
     return Array.from(new Set([...slotCats, ...snapshotCats]));
-  }, [targetCats, catInvocations, activeInvocations]);
+  }, [targetCats, catStatuses, catInvocations, activeInvocations]);
 
   const allParticipants = useMemo(() => {
     return [...new Set([...activeCats, ...Object.keys(catInvocations)])];

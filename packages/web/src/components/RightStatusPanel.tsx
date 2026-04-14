@@ -334,12 +334,12 @@ export function RightStatusPanel({
         return taskProgress.snapshotStatus !== 'completed';
       })
       .map(([catId]) => catId);
-    const slotCats = deriveActiveCats(targetCats, activeInvocations);
+    const slotCats = deriveActiveCats(targetCats, activeInvocations, catStatuses);
     const active = Array.from(new Set([...slotCats, ...snapshotCats]));
     const allParticipants = new Set([...active, ...Object.keys(catInvocations)]);
     const history = [...allParticipants].filter((c) => !active.includes(c));
     return { activeCats: active, historyCats: history };
-  }, [targetCats, catInvocations, activeInvocations]);
+  }, [targetCats, catStatuses, catInvocations, activeInvocations]);
 
   const { getCatById } = useCatData();
   const [historyOpen, setHistoryOpen] = useState(false);
