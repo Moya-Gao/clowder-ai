@@ -394,6 +394,8 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-04 | **A8 gate chain merged** (PR #955) — gateCompiledDeck + gateTwoPhaseDeck + compileAndBuild overload。密度门禁接入 pipeline，190 tests。砚砚 2 轮 review 放行 + 云端 0 P1/P2 |
 | 2026-04-04 | **AC-D4 对比完成** — 同一主题（华为 AI 差异化）Phase D vs pptx-craft（同底色公平对比）：我们 4.1% 白空间 vs 对方 43.9%，83 元素 vs 12 元素，45 文本 vs 10 文本。密度门禁 PASS vs FAIL。数据点密度 4.5x。baseline 为竞品报告模拟（非实测）。196 tests |
 | 2026-04-05 | **KD-17/KD-18 决策落定** — 宪宪+砚砚共识：AI 画 HTML 是唯一创作路径（编译器降级为基础设施）；D4 口径有效但 baseline 是模拟非实测。铲屎官反馈沉淀华为级密度填充技巧（8 种手段）。下一步：D5 垂直切片验证（先 1 页再扩页） |
+| 2026-04-14 | **relay-claw pptx-craft 学习落地** — 铲屎官看到 GLM5.1 出品 PPT 超强，要求学习 relay-claw skills 更新。三份成果：(1) `ppt-css-whitelist.md` 新建（designer↔converter CSS 合约）(2) `ppt-density-playbook.md` 升级（ECharts 为第 9 种填充手段 + 量化门禁标注）(3) `ppt-slide-authoring.md` 升级（弹性布局约束 + ECharts 指南 + 密度补充循环）。砚砚两轮 review 放行（R1: 3 P1/P2 + 2 noise; R2: 1 P2 + 1 consistency 全收口）。converter 新增 `.ppt-slide` fallback selector |
+| 2026-04-14 | **Phase C 收敛启动** — 铲屎官指示收敛 AC-C3/C4/C5/C6 四个剩余 AC |
 
 ## Review Gate
 
@@ -416,3 +418,6 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | **GPT Pro 审阅** | `docs/research/2026-03-27-f144-ppt-forge-gpt-pro-consult.md` | 架构审阅 Part 1-3（含砚砚确认） |
 | **pptx-craft 源码** | WeChat 归档 `pptx-craft/` (2026-03-27) | svg_to_shapes.py(70k) + svg_to_pptx.py(41k) — 真正的 SVG→DrawingML 转换器，不是之前认为的 HTML 截图 |
 | **OfficeCLI** | `github.com/iOfficeAI/OfficeCLI` | .NET CLI (Apache 2.0)，全格式支持，评估结论：不适合我们 Node.js 管线 |
+| **CSS 白名单合约** | `cat-cafe-skills/refs/ppt-css-whitelist.md` | Designer↔converter CSS 转换合约（relay-claw 学习产物） |
+| **密度 Playbook** | `cat-cafe-skills/refs/ppt-density-playbook.md` | 9 种密度填充手段 + 量化门禁（relay-claw 学习升级） |
+| **Slide 制作规范** | `cat-cafe-skills/refs/ppt-slide-authoring.md` | 弹性布局约束 + ECharts + 密度循环（relay-claw 学习升级） |
