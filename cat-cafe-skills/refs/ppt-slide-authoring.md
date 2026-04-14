@@ -53,7 +53,7 @@
 每页必须使用以下结构，从代码层面预防溢出/空白/遮挡：
 
 ```html
-<div class="ppt-slide flex flex-col" style="width:1280px;height:720px;overflow:hidden;">
+<div class="slide flex flex-col" style="width:1280px;height:720px;overflow:hidden;">
   <!-- 页头：固定高度，禁止压缩 -->
   <header class="flex-shrink-0" style="height:60px;">
     <h1>页面标题</h1>
@@ -85,17 +85,20 @@
 
 **画完每页 HTML 后，交活前必须逐条自检。不满足 = 不许交活。**
 
-### 密度检查（量化门禁）
+### 密度检查（自动 + 人工）
 
-- [ ] 用了 **≥ 3 种**填充手段？（KPI/截图/表格/SmartArt/总结条/色块/图标/图表/多级字号）
-- [ ] **数据可视化**：至少 1 个 ECharts 图表 或 3 个数据卡片？
-- [ ] **核心要点**：6-10 个列表项或卡片？
-- [ ] **图标**：至少 3 个视觉图标/emoji？
-- [ ] **空白率** < 30%？（用 density-analyzer 测量）
-- [ ] **数据来源**：页脚有标注？
-- [ ] 无连续 > 100 字的大段文字？
-- [ ] 有**真实截图或图片**？（纯文字页 = 必须说明理由）
-- [ ] 有 **SmartArt/流程图**？（纯表格+文字 = 必须说明理由）
+> ✅ = density-analyzer 自动检测 | 👁️ = 人工自检
+
+- [ ] ✅ **空白率** < 30%？（density-analyzer `whitespaceRatio`）
+- [ ] ✅ **0 overflow**？（density-analyzer `overflowCount`）
+- [ ] 👁️ 用了 **≥ 3 种**填充手段？（KPI/截图/表格/SmartArt/总结条/色块/图标/图表/多级字号）
+- [ ] 👁️ **数据可视化**：至少 1 个 ECharts 图表 或 3 个数据卡片？
+- [ ] 👁️ **核心要点**：6-10 个列表项或卡片？
+- [ ] 👁️ **图标**：至少 3 个视觉图标/emoji？
+- [ ] 👁️ **数据来源**：页脚有标注？
+- [ ] 👁️ 无连续 > 100 字的大段文字？
+- [ ] 👁️ 有**真实截图或图片**？（纯文字页 = 必须说明理由）
+- [ ] 👁️ 有 **SmartArt/流程图**？（纯表格+文字 = 必须说明理由）
 
 ### 自洽检查
 
@@ -162,9 +165,15 @@
 
 **数据可视化是信息密度的杀手级手段。** 一个图表顶 20 行文字。
 
-- 数据/对比/趋势 → 必须用 ECharts 绘制图表，禁止纯文字描述数据
+- 数据/对比/趋势 → 优先用 ECharts 绘制图表，避免纯文字描述数据
 - 引入方式：`<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>`
 - 图表容器：`overflow-hidden` + `min-height` 防止溢出
+
+**⚠️ 导出注意事项**：
+- 当前导出脚本 (`html-slide-to-pptx.ts`) 只做 `waitUntil: 'load'`，ECharts 动画可能还没渲染完就截图
+- **必须**在 ECharts init 时关闭动画：`chart.setOption({ animation: false, ... })`
+- CDN 依赖意味着离线环境无法导出。后续需要 vendor 到本地（TODO）
+- ECharts `<canvas>` 走截图保真路径，不可编辑
 - 颜色规范（华为风格）：
   - 坐标轴/图例文字：`#252525` 或 `#000`（**禁止浅灰**）
   - 数据标签：`#252525` 或 `#C7020E`

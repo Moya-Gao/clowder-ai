@@ -96,18 +96,22 @@
 
 ---
 
-## 7. 禁止使用的 CSS（会导致转换异常）
+## 7. 不支持原生转换的 CSS
 
-| 禁止 CSS | 替代方案 | 原因 |
-|----------|---------|------|
-| `display: grid` | **可以用**（截图保真） | relay-claw 禁止因为 DOM 遍历转不了；我们 screenshot-first 无此限制 |
-| `radial-gradient()`, `conic-gradient()` | `linear-gradient()` 或纯色 | 原生转换不支持 |
-| CSS 动画 (`animation`, `transition`) | 静态样式 | PPT 无动画支持 |
-| `clip-path` | `overflow: hidden` + 容器 | 无原生映射 |
-| `writing-mode: vertical-rl` | flexbox column 模拟 | 无原生映射 |
-| 太淡的灰色文字 (`#a6a6a6`+) | 用 `#8c8c8c` 或更深 | 可读性差 |
+> 以下 CSS 无法转为原生 PPTX 元素，但 **screenshot-first 会兜底**。
+> 标注 ✅截图安全 = 截图保真可用；❌禁止 = 连截图都会出问题。
 
-**和 relay-claw 的关键区别**：我们 screenshot-first 策略下 Grid 是安全的（截图保真），他们的 DOM 遍历方案必须禁止 Grid。
+| CSS | 截图 | 原生 | 说明 |
+|-----|------|------|------|
+| `display: grid` | ✅ 安全 | ❌ 不转 | relay-claw 禁止（DOM 遍历转不了），我们截图兜底可以用 |
+| `radial-gradient()`, `conic-gradient()` | ✅ 安全 | ❌ 不转 | 原生只支持 linear-gradient |
+| CSS 动画 (`animation`, `transition`) | ❌ 禁止 | ❌ 不转 | 截图只抓一帧，动画中间态不确定 |
+| `clip-path` | ✅ 安全 | ❌ 不转 | 截图保真 |
+| `writing-mode: vertical-rl` | ✅ 安全 | ❌ 不转 | 截图保真 |
+| `overflow-auto/scroll` | ❌ 禁止 | ❌ 不转 | 会出滚动条，用 `overflow-hidden` |
+| 太淡的灰色文字 (`#a6a6a6`+) | ✅ 技术安全 | — | 可读性差，品牌规范禁止 |
+
+**和 relay-claw 的关键区别**：我们 screenshot-first 策略下 Grid/clip-path 等是安全的，他们的 DOM 遍历方案必须禁止。
 
 ---
 

@@ -142,9 +142,10 @@ async function main(): Promise<void> {
   });
   await page.goto(`file://${htmlPath}`, { waitUntil: 'load', timeout: 15000 });
 
-  const slideEl = await page.$('.slide');
+  // Support both .slide (legacy) and .ppt-slide (relay-claw convention)
+  const slideEl = await page.$('.slide') ?? await page.$('.ppt-slide');
   if (!slideEl) {
-    console.error('ERROR: No .slide element found in HTML');
+    console.error('ERROR: No .slide or .ppt-slide element found in HTML');
     process.exit(1);
   }
 
