@@ -813,7 +813,7 @@
     {
       "id": "F132",
       "name": "DingTalk + WeCom Chat Gateway — 钉钉/企微接入",
-      "status": "active (Phase E) | **Phase A-D Completed**: 2026-04-09 | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Phase A-E Completed**: 2026-04-14 | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F132-dingtalk-wecom-gateway.md"
     },
     {
@@ -1009,5 +1009,5 @@
       "file": "F161-acp-carrier-generalization.md"
     }
   ],
-  "generated_at": "2026-04-14T14:17:02.382Z"
+  "generated_at": "2026-04-14T14:55:48.491Z"
 }

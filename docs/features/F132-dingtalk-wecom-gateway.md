@@ -8,7 +8,7 @@ created: 2026-03-22
 
 # F132: DingTalk + WeCom Chat Gateway — 钉钉/企微接入
 
-> **Status**: active (Phase E merged, pending vision guard) | **Phase A-E Completed**: 2026-04-14 | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Phase A-E Completed**: 2026-04-14 | **Owner**: 布偶猫 | **Priority**: P1
 >
 > **分工**：金渐层（@opencode）实现 → 砚砚（@codex）review → 布偶猫（@opus）愿景守护
 > 实现过程中不 @ 布偶猫，保持 owner 上下文干净。每个 Phase PR merge 后触发愿景守护。
@@ -207,7 +207,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 **方案**（路线 A — 无需 WeCom ISV 注册）：
 
 **后端**：
-- `POST /api/connector/wecom-bot/validate` — 拿用户填的 `botId` + `secret` 试连 WebSocket，3s 超时返回 success/fail
+- `POST /api/connector/wecom-bot/validate` — 拿用户填的 `botId` + `secret` 试连 WebSocket，5s 超时返回 success/fail
 - `POST /api/connector/wecom-bot/disconnect` — 清除凭证 + 停止 adapter
 - **动态激活**：validate 成功后自动保存凭证 + 启动 adapter（不需要重启服务），参照微信 `startWeixinPolling()` 模式
 
@@ -278,7 +278,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 
 ### Phase E（WeCom Bot Guided Setup — 快速接入向导） ✅
 - [x] AC-E1: Hub UI 展示 WeCom Bot 步骤向导（3 步：创建 bot → 复制凭证 → 粘贴验证）
-- [x] AC-E2: "测试并连接"按钮真正验证 WebSocket 连接（不是 stub），3s 超时返回结果
+- [x] AC-E2: "测试并连接"按钮真正验证 WebSocket 连接（不是 stub），5s 超时返回结果
 - [x] AC-E3: 验证通过后自动保存凭证并激活 adapter（不需要重启服务）
 - [x] AC-E4: 已连接状态显示绿色标记 + 断开连接按钮（清凭证 + 停 adapter）
 - [x] AC-E5: 公共层零改动
