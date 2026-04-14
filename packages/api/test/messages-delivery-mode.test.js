@@ -253,6 +253,41 @@ describe('POST /api/messages deliveryMode', () => {
     assert.equal(deps.invocationQueue.list('thread-1', 'user-1').length, 0);
   });
 
+  it('aborted invocation does not emit spawn_started after stop wins the race', async () => {
+    const controller = new AbortController();
+    let releaseRunningUpdate;
+    const runningUpdateGate = new Promise((resolve) => {
+      releaseRunningUpdate = resolve;
+    });
+
+    deps.invocationTracker.tryStartThreadAll.mock.mockImplementation(() => controller);
+    deps.invocationRecordStore.update.mock.mockImplementation(async (_id, data) => {
+      if (data?.status === 'running') {
+        await runningUpdateGate;
+      }
+    });
+    deps.router.routeExecution.mock.mockImplementation(async function* () {
+      yield { type: 'text', catId: 'opus', content: 'late', timestamp: Date.now() };
+      yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      payload: { content: '先发再停', threadId: 'thread-1', deliveryMode: 'immediate' },
+    });
+
+    assert.equal(res.statusCode, 200);
+
+    controller.abort('user_stop');
+    releaseRunningUpdate();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const spawnStarted = deps.socketManager.broadcastToRoom.mock.calls.find((c) => c.arguments[1] === 'spawn_started');
+    assert.equal(spawnStarted, undefined);
+  });
+
   it('immediate execution passes queueHasQueuedMessages fairness callback to routeExecution', async () => {
     deps.invocationTracker.has.mock.mockImplementation(() => false);
     deps.invocationQueue.enqueue({

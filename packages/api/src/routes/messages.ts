@@ -744,6 +744,17 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               });
           }
 
+          // User stop can win the race before CLI produces the first event.
+          // Do not re-arm frontend state with spawn_started/intent_mode after abort.
+          if (controller?.signal.aborted) {
+            finalStatus = 'canceled';
+            await opts.invocationRecordStore?.update(createResult.invocationId, {
+              status: 'canceled',
+            });
+            await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
+            return;
+          }
+
           // F118 D2: Broadcast spawn_started immediately — fills the intent_mode blind spot.
           // intent_mode only fires after the first CLI NDJSON event (0–2 min delay).
           // spawn_started fires here, before routeExecution, so the UI can show
@@ -778,6 +789,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               parentInvocationId: createResult.invocationId,
             },
           )) {
+            if (controller?.signal.aborted) {
+              break;
+            }
             // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
             if (!intentModeBroadcast) {
               opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {

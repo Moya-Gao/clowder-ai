@@ -21,6 +21,21 @@ async function collect(iterable) {
   return msgs;
 }
 
+// Bun/npm child processes can briefly keep cache directories busy on macOS.
+async function rmWithRetry(path, attempts = 5) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await rm(path, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (!['ENOTEMPTY', 'EBUSY', 'EPERM'].includes(error?.code) || attempt === attempts) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, attempt * 50));
+    }
+  }
+}
+
 // Shared temp dir — singleton EventAuditLog only initializes once
 let tempDir;
 let invokeSingleCat;
@@ -46,7 +61,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   if (testGlobalConfigRoot) {
-    await rm(testGlobalConfigRoot, { recursive: true, force: true });
+    await rmWithRetry(testGlobalConfigRoot);
     testGlobalConfigRoot = undefined;
   }
   if (originalGlobalConfigRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
@@ -2727,7 +2742,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(templateRoot, { recursive: true, force: true });
+      await rmWithRetry(templateRoot);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -2788,8 +2803,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
       if (prevGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
-      await rm(staleTemplateRoot, { recursive: true, force: true });
-      await rm(isolatedRepoRoot, { recursive: true, force: true });
+      await rmWithRetry(staleTemplateRoot);
+      await rmWithRetry(isolatedRepoRoot);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -2870,7 +2885,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       }
       if (prevGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -2966,7 +2981,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3048,7 +3063,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3131,7 +3146,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       else process.env.OPENAI_BASE_URL = originalOpenAIBaseUrl;
       if (originalOpenAIApiBase === undefined) delete process.env.OPENAI_API_BASE;
       else process.env.OPENAI_API_BASE = originalOpenAIApiBase;
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3191,7 +3206,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       }
       if (prevGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3259,7 +3274,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
   });
 
@@ -3329,7 +3344,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
   });
 
@@ -3397,7 +3412,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
   });
 
@@ -3462,7 +3477,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3542,7 +3557,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3623,7 +3638,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3705,7 +3720,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3785,7 +3800,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3880,7 +3895,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -3986,7 +4001,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         for (const [id, config] of Object.entries(registrySnapshot)) {
           catRegistry.register(id, config);
         }
-        await rm(root, { recursive: true, force: true });
+        await rmWithRetry(root);
       }
 
       const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -4073,7 +4088,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -4150,7 +4165,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -4228,7 +4243,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
@@ -4355,7 +4370,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       process.chdir(previousCwd);
       if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
       else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
   });
 
@@ -4482,7 +4497,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
       else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
       _clearTestStrategyOverrides();
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
   });
 
@@ -4595,7 +4610,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
       else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
       _clearTestStrategyOverrides();
-      await rm(root, { recursive: true, force: true });
+      await rmWithRetry(root);
     }
   });
 
@@ -4733,8 +4748,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      await rm(runtimeRoot, { recursive: true, force: true });
-      await rm(devRoot, { recursive: true, force: true });
+      await rmWithRetry(runtimeRoot);
+      await rmWithRetry(devRoot);
     }
   });
 });

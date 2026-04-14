@@ -1101,6 +1101,7 @@ async function main(): Promise<void> {
     messageStore,
     log: app.log,
   });
+  socketManager.setQueueProcessor(queueProcessor);
 
   // F101: Game engine store (created early so messages route can intercept /game commands)
   const { RedisGameStore } = await import('./domains/cats/services/stores/redis/RedisGameStore.js');
