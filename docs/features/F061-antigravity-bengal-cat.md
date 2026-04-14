@@ -481,6 +481,25 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 
 ---
 
+## Known Bugs（活跃）
+
+### Bug-4: Step taxonomy v2 — 3 类 step 泄漏原始 JSON 到前端
+
+**现象**（2026-04-13 线上截图）：孟加拉猫对话中出现蓝底 raw JSON：
+- `{"type":"unknown_activity","stepType":"CORTEX_STEP_TYPE_USER_INPUT",...}`
+- `{"type":"unknown_activity","stepType":"CORTEX_STEP_TYPE_PLANNER_RESPONSE",...}`
+- `{"type":"unknown_activity","stepType":"CORTEX_STEP_TYPE_GREP_SEARCH",...}`
+
+**根因**（3 层）：
+1. **USER_INPUT 未映射** — 用户输入回声，应静默跳过（当前掉进 unknown_activity）
+2. **PLANNER_RESPONSE 空响应穿透** — `classifyStep` 要求 `step.plannerResponse` 存在且含 response/thinking/stopReason，否则穿透到 unknown_activity。线上证明空 plannerResponse 存在
+3. **GREP_SEARCH 等原生工具类型未映射** — LS 内置 grep/file_edit/terminal 等工具，type 前缀都是 `CORTEX_STEP_TYPE_*` 但不在我们枚举里
+
+**修复方向**：
+- USER_INPUT/空 PLANNER_RESPONSE → 加入 checkpoint 静默分支
+- 原生工具类型 → 基于 step 数据形状做 fallback（有 toolCall/toolResult → tool_pending，否则 → checkpoint）
+- unknown_activity 仅写日志，不再发 system_info 到前端
+
 ## Known Bugs（已修复）
 
 ### Bug-1: pollResponse 稳定性误判 — 模型暂停时提前截断 ✅
