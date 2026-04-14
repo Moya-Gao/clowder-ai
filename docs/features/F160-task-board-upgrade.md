@@ -84,9 +84,15 @@ created: 2026-04-12
 - `cat_cafe_list_tasks`：确认支持 `threadId` + `kind=work` 过滤（已有 API，需确认 MCP tool 暴露）
 - `cat_cafe_update_task`：已存在，确认输入参数完备
 
-### Phase B: UI Upgrade — 从隐藏列表到 Workspace Tab
+### Phase B: UI Upgrade — 从隐藏列表到 Workspace Tab 🚧
 
 **目标**：毛线球从 ThreadSidebar 底部的隐藏列表升级为 Workspace 右面板的独立 Tab。
+
+**Design Gate 结论**（2026-04-14 通过）：
+- `任务` 放在 Workspace mode pill 层，和 开发/记忆/调度 同级
+- doing/blocked 默认展开，todo/done 默认折叠（折叠偏好用 localStorage 记忆）
+- 新建入口用 inline composer，不开 modal
+- 设计稿：`designs/F160-task-board-phase-b-ux.pen`
 
 #### B1: Workspace Tab 接入
 
@@ -236,8 +242,9 @@ created: 2026-04-12
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 毛线球 Tab 图标用什么？毛线球 SVG 还是其他 cafe 隐喻？ | ⬜ Design Gate 讨论 |
+| OQ-1 | 毛线球 Tab 图标用什么？毛线球 SVG 还是其他 cafe 隐喻？ | ✅ 先用 Lucide `circle-dot` 或简单毛线球 path 占位，不阻塞实现（铲屎官 2026-04-14 确认） |
 | OQ-2 | Phase C 自动创建的任务是否需要猫猫确认？还是静默创建？ | ⬜ 待讨论 |
+| OQ-3 | todo/done 折叠是否记忆用户偏好？ | ✅ Phase B 直接做（localStorage），不推迟（铲屎官 2026-04-14 纠正"先不做"的偷懒倾向） |
 
 ## Timeline
 
@@ -247,6 +254,7 @@ created: 2026-04-12
 | 2026-04-11 | 三猫头脑风暴（宪宪+砚砚+烁烁），达成三层架构共识 |
 | 2026-04-12 | 铲屎官确认方向，F160 立项 |
 | 2026-04-12 | Phase A merged (PR #1116) |
+| 2026-04-14 | Phase B Design Gate 通过（砚砚/GPT-5.4 出设计稿，宪宪/Opus review，铲屎官确认） |
 
 ## Review Gate
 
@@ -263,5 +271,6 @@ created: 2026-04-12
 | **Feature** | `docs/features/F131-workspace-navigator.md` | Workspace Tab 机制 |
 | **Feature** | `docs/features/F056-cat-cafe-design-language.md` | 设计语言规范 |
 | **Design** | `DESIGN.md` | Agent 设计系统速查 |
+| **Design** | `designs/F160-task-board-phase-b-ux.pen` | Phase B UX 设计稿（砚砚/GPT-5.4） |
 | **PR** | PR #958 | PR tracking 泄漏修复（Phase A 回归守护） |
 | **Discussion** | Thread `thread_mnhd0mogj78h14vl` | 毛线球三猫头脑风暴 |
