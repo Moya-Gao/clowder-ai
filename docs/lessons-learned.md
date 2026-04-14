@@ -1000,6 +1000,34 @@ created: 2026-02-26
 
 ---
 
+### LL-050: ADR 漂移 2 个月无人发现——Feature 完成不扫知识影响
+- 状态：draft
+- 更新时间：2026-04-13
+
+- 坑：ADR-009（2026-02-10）选择"仅用户级 skill 分发"，F070（2026-03-08）引入项目级 governance bootstrap，事实性推翻 ADR-009 的核心假设。但 F070 完成时未触发任何 ADR/spec 影响检查，导致 ADR-009 以 `active` 状态存续 2 个月，直到社区 issue clowder-ai#386（2026-04-08）才暴露。
+- 根因：
+  1. **Feature 完成无"知识影响扫描"**：feat-lifecycle close step 不检查新 Feature 是否推翻了现有 ADR/spec 的前提
+  2. **ADR 缺 machine-readable 状态**：无 `drifted`/`superseded` 状态字段，`search_evidence` 无法区分过时文档和当前真相
+  3. **双层挂载无一致性校验**：preflight 只检查项目级 symlink 存在，不校验跨层一致性
+- 触发条件：任何 Feature 改变了现有 ADR 的核心假设，但 Feature 完成时无人检查
+- 修复：
+  1. ADR-009 已标注 `status: drifted`（2026-04-07）
+  2. ADR-025 作为 successor ADR 已完成三猫 review（2026-04-13 收敛）
+  3. ADR/spec frontmatter 新增 `status: active|drifted|superseded|historical` + `drifted_by` + `last_reviewed` 字段
+- 防护（待落地）：
+  1. feat-lifecycle close step 增加"知识影响扫描"：新 Feature 是否改变了现有 ADR/spec 的假设？
+  2. `search_evidence` 检索排序降权 drifted/historical 文档
+  3. 定期 ADR 巡检（半年一次 `last_reviewed` 刷新）
+- 来源锚点：
+  - 社区 issue：[clowder-ai#386](https://github.com/zts212653/clowder-ai/issues/386)
+  - ADR-009 drift 标注：`docs/decisions/009-cat-cafe-skills-distribution.md`
+  - Successor ADR：`docs/decisions/025-skills-canonical-mount-policy.md`
+- 原理：**知识也有保质期**。ADR 记录的是某个时间点的决策假设，后续架构演进可能悄悄推翻这些假设。如果只靠猫的记忆发现漂移，检测延迟 = Feature 交付频率的倒数。必须在 Feature completion 工具层面做"知识影响扫描"，才能把漂移窗口从月级压到天级。
+
+- 关联：ADR-009 | ADR-025 | F070 | clowder-ai#386 | `project_knowledge_lifecycle_gap.md`
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
