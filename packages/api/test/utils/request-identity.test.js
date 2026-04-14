@@ -65,20 +65,43 @@ describe('resolveUserId', () => {
     assert.equal(resolveUserId(req, { defaultUserId: 'default-user' }), 'default-user');
   });
 
-  it('rejects defaultUserId fallback when Origin is present (browser path)', () => {
+  it('allows defaultUserId for trusted origin (localhost)', () => {
+    const req = fakeRequest({
+      headers: { origin: 'http://localhost:3001' },
+    });
+    assert.equal(resolveUserId(req, { defaultUserId: 'default-user' }), 'default-user');
+  });
+
+  it('allows defaultUserId for trusted origin (loopback)', () => {
+    const req = fakeRequest({
+      headers: { origin: 'http://127.0.0.1:3001' },
+    });
+    assert.equal(resolveUserId(req, { defaultUserId: 'default-user' }), 'default-user');
+  });
+
+  it('rejects defaultUserId for untrusted private network origin', () => {
     const req = fakeRequest({
       headers: { origin: 'http://192.168.1.200:8080' },
     });
+    // Private network origin must NOT auto-authenticate as default-user
     assert.equal(resolveUserId(req, { defaultUserId: 'default-user' }), null);
   });
 
-  it('rejects header + defaultUserId when Origin present (cross-origin attack)', () => {
+  it('returns null when Origin present, no session, no defaultUserId', () => {
+    const req = fakeRequest({
+      headers: { origin: 'http://192.168.1.200:8080' },
+    });
+    assert.equal(resolveUserId(req), null);
+  });
+
+  it('blocks header spoofing for untrusted origin, no defaultUserId fallback', () => {
     const req = fakeRequest({
       headers: {
         'x-cat-cafe-user': 'spoofed',
         origin: 'http://10.0.0.50:9999',
       },
     });
+    // Both header AND defaultUserId blocked for untrusted origin
     assert.equal(resolveUserId(req, { defaultUserId: 'default-user' }), null);
   });
 
@@ -90,11 +113,20 @@ describe('resolveUserId', () => {
     assert.equal(resolveUserId(req, { defaultUserId: 'default-user' }), 'default-user');
   });
 
-  it('rejects body fallback when Origin is present', () => {
+  it('skips body fallback and defaultUserId for untrusted origin', () => {
     const req = fakeRequest({
       headers: { origin: 'http://192.168.1.100:3000' },
     });
+    // Untrusted origin: body AND defaultUserId both blocked
     assert.equal(resolveUserId(req, { fallbackUserId: 'body-user', defaultUserId: 'default-user' }), null);
+  });
+
+  it('skips body fallback but allows defaultUserId for trusted origin', () => {
+    const req = fakeRequest({
+      headers: { origin: 'http://localhost:3001' },
+    });
+    // Trusted origin: body blocked, but defaultUserId allowed
+    assert.equal(resolveUserId(req, { fallbackUserId: 'body-user', defaultUserId: 'default-user' }), 'default-user');
   });
 
   it('allows body fallback when no Origin (legacy CLI path)', () => {
