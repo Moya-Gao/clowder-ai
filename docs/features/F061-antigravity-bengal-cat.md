@@ -480,6 +480,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-14 | **P2 event mapping fix** — MCP_TOOL/CHECKPOINT/EPHEMERAL_MESSAGE step 正确分类 + 静默跳过噪音（PR #1150, 砚砚放行 + 云端 P1→fix→0 P1/P2）|
 | 2026-04-14 | **Bug-4 taxonomy v2 fix** — 消除前端 raw JSON 泄漏 + 保留 unknown_activity 观测链 log.debug（PR #1154, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-14 | **Bug-5 fatal early abort fix** — 上游 fatal error 立即中断 poll loop，不再傻等 60s stall（PR #1157, 砚砚放行 + 云端 0 P1/P2）|
+| 2026-04-14 | **Bug-6 waiting approval ≠ stall** — `awaitingUserInput` 的 RUNNING 态不再误报为 60s stall，前端改显示等待批准信号（PR #1163, opencode 放行 + 云端超时未接单）|
 
 ---
 
@@ -488,6 +489,20 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 （当前无活跃 bug。Layer 2 RUNNING heartbeat / Layer 3 stall error dedupe 为增强项，非 bug。）
 
 ## Known Bugs（已修复）
+
+### Bug-6: Waiting approval 被误判成 stall ✅
+
+**现象**（2026-04-14 铲屎官报告）：孟加拉猫触发浏览器权限审批后，cascade 仍是 `CASCADE_RUN_STATUS_RUNNING`，但 bridge 在 60 秒后报 `Antigravity stall: no activity`；重启 runtime 后仍可稳定复现。
+
+**根因**：
+1. **Bridge 不识别 `awaitingUserInput`** — `pollForSteps` 只区分「有新 step」「terminal idle」「idle timeout」，没有把“等待权限批准”的 RUNNING 态单独翻译出来
+2. **等待批准被落进 stall 分支** — 审批暂停期间 step 数不增长，于是被误判成「RUNNING 但无活动」，60 秒后抛假性 stall
+
+**修复**（PR #1163, `26f1300de`）：
+- `CascadeTrajectory` / `DeliveryCursor` 增加 `awaitingUserInput` 语义
+- Bridge 在 `awaitingUserInput === true` 时抑制 stall timeout，并只发一次等待批准游标
+- Service 将等待批准游标翻译成 `liveness_signal`，前端显示“Antigravity 正在等待权限批准”
+- 真正的 stall / fatal error 路径保持不变；这次只修假性 stall，不包含 auto-approve / permission mediation
 
 ### Bug-5: Live-run stall — 上游 fatal error 后 bridge 傻等 60s ✅
 
