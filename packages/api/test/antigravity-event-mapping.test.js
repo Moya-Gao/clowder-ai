@@ -8,6 +8,101 @@ import {
 const catId = 'antigravity';
 const metadata = { provider: 'antigravity', model: 'gemini-3.1-pro' };
 
+// ── Bug-4: Step taxonomy v2 — silent skip + shape-based fallback ──
+
+describe('classifyStep: USER_INPUT / empty PLANNER_RESPONSE → checkpoint', () => {
+  test('USER_INPUT → checkpoint (silently skipped)', () => {
+    const step = { type: 'CORTEX_STEP_TYPE_USER_INPUT', status: 'CORTEX_STEP_STATUS_DONE' };
+    assert.equal(classifyStep(step), 'checkpoint');
+  });
+
+  test('PLANNER_RESPONSE with no plannerResponse → checkpoint', () => {
+    const step = { type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE', status: 'CORTEX_STEP_STATUS_DONE' };
+    assert.equal(classifyStep(step), 'checkpoint');
+  });
+
+  test('PLANNER_RESPONSE with empty plannerResponse → checkpoint', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+      status: 'CORTEX_STEP_STATUS_DONE',
+      plannerResponse: {},
+    };
+    assert.equal(classifyStep(step), 'checkpoint');
+  });
+});
+
+describe('classifyStep: native tool types via shape-based fallback', () => {
+  test('GREP_SEARCH with toolCall → tool_pending', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_GREP_SEARCH',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      toolCall: { toolName: 'grep_search', input: '{"query":"foo"}' },
+    };
+    assert.equal(classifyStep(step), 'tool_pending');
+  });
+
+  test('FILE_EDIT with toolResult success → tool_pending', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_FILE_EDIT',
+      status: 'FINISHED',
+      toolResult: { toolName: 'file_edit', success: true, output: 'done' },
+    };
+    assert.equal(classifyStep(step), 'tool_pending');
+  });
+
+  test('TERMINAL_COMMAND with toolResult failure → tool_error', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_TERMINAL_COMMAND',
+      status: 'FINISHED',
+      toolResult: { toolName: 'terminal', success: false, error: 'exit 1' },
+    };
+    assert.equal(classifyStep(step), 'tool_error');
+  });
+
+  test('unknown type without toolCall/toolResult → unknown_activity', () => {
+    const step = { type: 'CORTEX_STEP_TYPE_JETSKI_ACTION', status: 'IN_PROGRESS' };
+    assert.equal(classifyStep(step), 'unknown_activity');
+  });
+});
+
+describe('transformer: USER_INPUT and empty PLANNER_RESPONSE emit nothing', () => {
+  test('USER_INPUT emits no messages', () => {
+    const steps = [{ type: 'CORTEX_STEP_TYPE_USER_INPUT', status: 'CORTEX_STEP_STATUS_DONE' }];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    assert.equal(msgs.length, 0, 'USER_INPUT should produce no output');
+  });
+
+  test('empty PLANNER_RESPONSE emits no messages', () => {
+    const steps = [
+      { type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE', status: 'CORTEX_STEP_STATUS_DONE', plannerResponse: {} },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    assert.equal(msgs.length, 0, 'empty PLANNER_RESPONSE should produce no output');
+  });
+
+  test('unknown step type without data emits no messages (no JSON leak)', () => {
+    const steps = [{ type: 'CORTEX_STEP_TYPE_JETSKI_ACTION', status: 'IN_PROGRESS' }];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    assert.equal(msgs.length, 0, 'unknown step without data should not leak JSON');
+  });
+});
+
+describe('transformer: native tool fallback emits tool messages', () => {
+  test('GREP_SEARCH with toolCall emits tool_use', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_GREP_SEARCH',
+        status: 'IN_PROGRESS',
+        toolCall: { toolName: 'grep_search', input: '{"query":"hello"}' },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const toolMsg = msgs.find((m) => m.type === 'tool_use');
+    assert.ok(toolMsg, 'should emit tool_use for GREP_SEARCH');
+    assert.equal(toolMsg.toolName, 'grep_search');
+  });
+});
+
 // ── P2: MCP_TOOL / CHECKPOINT / EPHEMERAL_MESSAGE mapping ─────────
 
 describe('classifyStep: MCP_TOOL / CHECKPOINT / EPHEMERAL_MESSAGE', () => {

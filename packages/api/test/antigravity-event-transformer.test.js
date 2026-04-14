@@ -92,14 +92,9 @@ describe('G1: classifyStep — 6-bucket taxonomy', () => {
     assert.equal(classifyStep(step), 'tool_error');
   });
 
-  test('unknown step type → unknown_activity', () => {
-    const step = { type: 'CORTEX_STEP_TYPE_SOMETHING_NEW', status: 'FINISHED' };
-    assert.equal(classifyStep(step), 'unknown_activity');
-  });
-
-  test('USER_INPUT → unknown_activity (not user-facing)', () => {
+  test('USER_INPUT → checkpoint (silently skipped)', () => {
     const step = { type: 'CORTEX_STEP_TYPE_USER_INPUT', status: 'FINISHED' };
-    assert.equal(classifyStep(step), 'unknown_activity');
+    assert.equal(classifyStep(step), 'checkpoint');
   });
 });
 
@@ -152,14 +147,10 @@ describe('G3: transformer handles tool steps', () => {
 // ── G4: Activity Signals ───────────────────────────────────────────
 
 describe('G4: activity signals via system_info', () => {
-  test('unknown step type emits system_info with unknown_activity', () => {
+  test('unknown step type without tool data emits nothing (silent skip)', () => {
     const steps = [{ type: 'CORTEX_STEP_TYPE_JETSKI_ACTION', status: 'IN_PROGRESS' }];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
-    const sysMsg = msgs.find((m) => m.type === 'system_info');
-    assert.ok(sysMsg, 'should emit system_info for unknown step');
-    const content = JSON.parse(sysMsg.content);
-    assert.equal(content.type, 'unknown_activity');
-    assert.equal(content.stepType, 'CORTEX_STEP_TYPE_JETSKI_ACTION');
+    assert.equal(msgs.length, 0, 'unknown step without tool data should be silently skipped');
   });
 
   test('TOOL_CALL emits system_info activity signal', () => {

@@ -1,6 +1,9 @@
 import type { CatId } from '@cat-cafe/shared';
 import type { AgentMessage, MessageMetadata } from '../../../types.js';
+import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import type { TrajectoryStep } from './AntigravityBridge.js';
+
+const log = createModuleLogger('antigravity-event-transformer');
 
 export type StepBucket =
   | 'terminal_output'
@@ -12,13 +15,18 @@ export type StepBucket =
   | 'unknown_activity';
 
 export function classifyStep(step: TrajectoryStep): StepBucket {
-  if (step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE' && step.plannerResponse) {
+  // Known content-bearing types
+  if (step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') {
     const pr = step.plannerResponse;
+    if (!pr) return 'checkpoint';
     if (pr.stopReason === 'STOP_REASON_CLIENT_STREAM_ERROR') return 'tool_error';
     if (pr.modifiedResponse || pr.response) return 'terminal_output';
     if (pr.thinking) return 'thinking';
+    return 'checkpoint'; // empty plannerResponse — nothing to show
   }
   if (step.type === 'CORTEX_STEP_TYPE_ERROR_MESSAGE') return 'tool_error';
+
+  // Known tool types
   if (step.type === 'CORTEX_STEP_TYPE_TOOL_CALL') return 'tool_pending';
   if (step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT') {
     return step.toolResult?.success === false ? 'tool_error' : 'tool_pending';
@@ -26,10 +34,17 @@ export function classifyStep(step: TrajectoryStep): StepBucket {
   if (step.type === 'CORTEX_STEP_TYPE_MCP_TOOL') {
     return step.toolResult?.success === false ? 'tool_error' : 'tool_pending';
   }
-  if (step.type === 'CORTEX_STEP_TYPE_CHECKPOINT' || step.type === 'CORTEX_STEP_TYPE_EPHEMERAL_MESSAGE') {
+
+  // Known silent types (no user-facing output)
+  if (step.type === 'CORTEX_STEP_TYPE_CHECKPOINT' || step.type === 'CORTEX_STEP_TYPE_EPHEMERAL_MESSAGE' || step.type === 'CORTEX_STEP_TYPE_USER_INPUT') {
     return 'checkpoint';
   }
-  return 'unknown_activity';
+
+  // Shape-based fallback for unknown types (e.g. GREP_SEARCH, FILE_EDIT, TERMINAL_COMMAND)
+  if (step.toolResult?.success === false) return 'tool_error';
+  if (step.toolCall || step.toolResult) return 'tool_pending';
+
+  return 'unknown_activity'; // unknown type, no tool data — logged but not sent to frontend
 }
 
 export function transformTrajectorySteps(
@@ -80,9 +95,7 @@ export function transformTrajectorySteps(
         break;
 
       case 'tool_pending': {
-        const isToolCall = step.type === 'CORTEX_STEP_TYPE_TOOL_CALL' || step.type === 'CORTEX_STEP_TYPE_MCP_TOOL';
-        const isToolResult = step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT' || step.type === 'CORTEX_STEP_TYPE_MCP_TOOL';
-        if (isToolCall && step.toolCall) {
+        if (step.toolCall) {
           messages.push({
             type: 'system_info',
             catId,
@@ -105,7 +118,7 @@ export function transformTrajectorySteps(
             timestamp: Date.now(),
           });
         }
-        if (isToolResult && step.toolResult) {
+        if (step.toolResult) {
           messages.push({
             type: 'tool_result',
             catId,
@@ -137,10 +150,7 @@ export function transformTrajectorySteps(
             metadata,
             timestamp: Date.now(),
           });
-        } else if (
-          (step.type === 'CORTEX_STEP_TYPE_TOOL_RESULT' || step.type === 'CORTEX_STEP_TYPE_MCP_TOOL') &&
-          step.toolResult
-        ) {
+        } else if (step.toolResult) {
           const tr = step.toolResult;
           messages.push({
             type: 'error',
@@ -154,16 +164,9 @@ export function transformTrajectorySteps(
         break;
       }
 
-      case 'unknown_activity': {
-        messages.push({
-          type: 'system_info',
-          catId,
-          content: JSON.stringify({ type: 'unknown_activity', stepType: step.type, status: step.status }),
-          metadata,
-          timestamp: Date.now(),
-        });
+      case 'unknown_activity':
+        log.debug('unknown step type %s (status=%s), skipping frontend emission', step.type, step.status);
         break;
-      }
     }
   }
 
