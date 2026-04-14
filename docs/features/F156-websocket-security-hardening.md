@@ -169,6 +169,7 @@ created: 2026-04-10
 | 2026-04-14 | Fallout fix merged (PR #1159) — trusted-origin fallback + 401 retry (author: opus, reviewer: codex cloud) |
 | 2026-04-14 | Fallout perf merged (PR #1164) — trim thread-switch fan-out + per-thread caches (author: gpt52, reviewer: opus + codex cloud) |
 | 2026-04-14 | Fallout self-heal merged (PR #1165) — failed `sessionGate` no longer poisons future bootstrap attempts; `ThreadSidebar` now reloads on `online` after network blips (author: gpt52, reviewer: opus; cloud review unavailable, downgraded per merge-gate Q4) |
+| 2026-04-14 | Fallout hydration+bubble merged (PR #1167) — secondary thread hydration now starts in parallel with `messages`; bubble toggle no longer no-ops on first click when following an already-expanded global default (author: gpt52, reviewer: opus + codex cloud) |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
@@ -249,13 +250,16 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 - [ ] **AC-F156-FALLOUT-1**：browser-facing API 全量审计完成；每条路由明确标注是 `trusted browser fallback` 还是 `strict session`，不再存在"同类页面有的能打开、有的直接 401"的分裂态
 - [ ] **AC-F156-FALLOUT-2**：IM Hub、Signal Hub、创建线程、刷新后气泡偏好 4 条核心 smoke path 全绿，并有回归测试或脚本证据
 - [ ] **AC-F156-FALLOUT-3**：前端不再把 401 静默吞成"没数据/没反应"；至少要能自愈重试，失败也要有明确错误态
-- [ ] **AC-F156-FALLOUT-4**：thread 切换体验分层完成；只有 `messages` 允许算首屏阻塞，`queue` / `task-progress` / `sessions` / `authorization` 必须降级为 secondary hydration
+- [x] **AC-F156-FALLOUT-4**：thread 切换体验分层完成；只有 `messages` 允许算首屏阻塞，`queue` / `task-progress` / `sessions` / `authorization` 必须降级为 secondary hydration — PR #1167 makes secondary hydration start in parallel with `messages`, removing the old history-first serial dependency on cold thread switches
 - [x] **AC-F156-FALLOUT-5**：同项目切 thread 不再额外 refetch `governance/status` 这类 project 级状态 — PR #1164 removed redundant govRefetch
 - [x] **AC-F156-FALLOUT-6**：`sessions` / `queue` / `task-progress` 至少满足其一：per-thread cache、聚合为一个 sidebar-state 接口、或明确延后到首屏之后再拉 — PR #1164 added per-thread cache for sessions, tasks, auth pending (stale-while-revalidate)
 - [x] **AC-F156-FALLOUT-7**：review 流程补上红蓝对抗视角，不只检查代码正确性，还必须检查"恢复链 / 失败路径 / 体验退化"；本轮作者与 reviewer 都要显式过这一关 — PR #1164 reviewed with red-blue adversarial perspective (opus, two rounds)
 
 > 2026-04-14 追加状态：PR #1165 已经止住 AC-3 中最危险的一条链路：`sessionGate` bootstrap 失败后不再卡死，且网络恢复后 `ThreadSidebar` 会自动重拉，不必靠 F5 自救。  
 > 但 AC-3 **仍未完全关闭**：其他前端 surface 还没有统一的显式错误态 / `online` 自愈策略，暂时不能宣称"401 静默吞错"问题彻底解决。
+>
+> 2026-04-14 再追加状态：PR #1167 已关闭 AC-4，并确认 bubble 的 `PATCH /api/threads/:id` 落盘链当前是通的；同时修掉了一个真实前端交互陷阱：当 thread 仍跟随全局且全局默认已展开时，第一次点击 bubble toggle 不再是 no-op。  
+> 但 AC-2 **仍未完全关闭**：如果 runtime 上仍复现“刷新后 bubble 又跑出来”，剩余嫌疑点已经收缩到 thread metadata 的刷新恢复时序，而不是普通点击交互或 PATCH 路由本身。
 
 ### 守护说明
 
