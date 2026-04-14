@@ -167,6 +167,37 @@ created: 2026-04-10
 | 2026-04-12 | Host guard fix merged (PR #1114) — private network IPs now pass Host validation |
 | 2026-04-12 | **Feature closed** — 愿景守护(codex) 放行，D-4/FU-1/FU-2 拆出为独立任务 |
 
+## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
+
+> **Reporter**: 铲屎官（2026-04-13，从 Claude Code CLI 环境发现）
+
+### 症状
+
+API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401，**第一反应是"数据丢了"**。实际 Redis 数据完好（52838 key、1803 thread key），但用户体验等同数据丢失。
+
+### 根因
+
+1. `SessionStore`（`session-auth.ts`）是**纯内存 `Map`**，API 重启即清空所有 session
+2. 浏览器仍携带旧的 `cat_cafe_session` cookie → `globalStore.validate()` 返回 null → `sessionUserId` 为空
+3. F156 D-1 的 `resolveUserId()`（`request-identity.ts:41`）：浏览器请求带 `Origin` header 时，**不 fallback 到 `default-user`**（这是正确的安全设计）
+4. → 所有浏览器请求返回 401
+5. 前端 `api-client.ts` 的 `ensureSession()` **只在页面首次加载调一次**（`sessionGate` 已 resolved 就不会重试），收到 401 后不会自动重新签发 session
+
+### 铲屎官担忧
+
+**如果推送到社区（clowder-ai），所有用户都会遭遇同样的惊吓**。社区小伙伴不像铲屎官知道可以查 Redis，他们只会看到"thread 全没了 + 401"→ 以为数据丢失 → 提 issue / 放弃使用。
+
+### 建议修复
+
+1. **前端（最小改动，堵住体验坑）**：`apiFetch` 收到 401 时清掉 `sessionGate`，自动重调 `/api/session` 拿新 cookie 后重试一次原请求
+2. **后端（可选增强）**：SessionStore 持久化到 Redis（而非内存 Map），API 重启不丢 session
+
+### 临时 Workaround
+
+用户手动刷新页面（前端 `SessionBootstrap` 组件会重调 `/api/session`），或在控制台执行 `fetch('/api/session')` 后刷新。
+
+---
+
 ## Spun-off Items（闭环时拆出，不留尾巴）
 
 | 原编号 | 内容 | 去向 |
