@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F102: 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04 (Phase A~J) | **Reopened**: 2026-04-13 (Phase K)
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04 (Phase A~J) | **Reopened**: 2026-04-13 (Phase K) | **Re-closed**: 2026-04-14 (Phase K done, AC-K3/K4 deferred)
 > **Reflection**: [`docs/reflections/2026-04-04-f102-memory-adapter-capsule.md`](../reflections/2026-04-04-f102-memory-adapter-capsule.md)
 
 ## Why
@@ -1404,6 +1404,8 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-03 | **PR #939 squash merged** — Recall Feed source link: anchorToHref mapping + clickable anchor links in RecallCard |
 | 2026-04-03 | PR #945 merged + direct sync commits — 完整配置参考面板 + Hub tab 整合，Memory Status 页收口 |
 | 2026-04-04 | **Feature close** — 愿景守护复核通过，铲屎官 runtime 反馈闭环完成，移出 BACKLOG + completed index + 反思胶囊落盘 |
+| 2026-04-13 | **Reopen (Phase K)** — 砚砚(GPT-5.4) 审计定位契约缺口：depth=raw 静默降级 + passage 类型不匹配 |
+| 2026-04-14 | **PR #1155 squash merged** — Phase K ✅ AC-K1（degradation signal + effectiveMode）+ AC-K2（passage type alignment）|
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
@@ -1466,7 +1468,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅。**Phase K (Contract Closure) in-progress**（2026-04-13 重新打开）。
+> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅ + **Phase K ✅**（AC-K1/K2 闭环，PR #1155）。AC-K3/K4 deferred。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 收尾三批次（2026-04-01 三方收敛：布偶猫+砚砚 GPT-5.4+铲屎官）
@@ -1577,18 +1579,18 @@ Batch 3: /memory 体验层收口 ✅ PR #915
 当前状态：`SqliteEvidenceStore.ts:299` 在 `depth=raw` 时短路返回，跳过 mode 分支。
 API route `evidence.ts:99` 始终返回 `degraded: false`。前端仍允许选择 `semantic/hybrid`。
 
-- [ ] 后端：当 `depth=raw && mode !== 'lexical'` 时，在返回中设 `degraded: true`，`degradeReason: 'raw_lexical_only'`，附 `effectiveMode: 'lexical'`
-- [ ] 前端：当 `depth=raw` 时，mode 下拉锁定为"精确"并显示提示（"消息级检索仅支持精确匹配"）
-- [ ] `SearchOptions` / `EvidenceSearchResponse` 补 `effectiveMode` 字段
+- [x] 后端：当 `depth=raw && mode !== 'lexical'` 时，在返回中设 `degraded: true`，`degradeReason: 'raw_lexical_only'`，附 `effectiveMode: 'lexical'`
+- [x] 前端：当 `depth=raw` 时，mode 下拉锁定为"精确"并显示提示（"消息级检索仅支持精确匹配"）
+- [x] `SearchOptions` / `EvidenceSearchResponse` 补 `effectiveMode` 字段
 
 **AC-K2: passage 字段类型对齐**
 
 当前状态：后端返回 `{ passageId, content, speaker, createdAt, context }`（evidence-helpers.ts:26），
 前端期望 `{ text, score }`（EvidenceSearch.tsx:22）。`p.text` 渲染为 undefined。
 
-- [ ] 前端 `SearchResultItem.passages` 类型改为匹配后端实际返回
-- [ ] passage 渲染展示 `content`、`speaker`、`createdAt`，不再渲染不存在的 `text/score`
-- [ ] context passages（上下文窗口）也正确渲染
+- [x] 前端 `SearchResultItem.passages` 类型改为匹配后端实际返回
+- [x] passage 渲染展示 `content`、`speaker`、`createdAt`，不再渲染不存在的 `text/score`
+- [x] context passages（上下文窗口）也正确渲染
 
 ### P3: 能力增强（Deferred — 等场景倒逼再开）
 
