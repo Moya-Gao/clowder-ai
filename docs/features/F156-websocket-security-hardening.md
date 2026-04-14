@@ -210,6 +210,55 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 
 ---
 
+## Incident Follow-up: 事故后续关闭条件（必须回挂 F156）
+
+> **来源**：2026-04-14 铲屎官连续反馈。"IM Hub/Signal Hub 打不开"、"创建线程点击无事发生"、"刷新后气泡又跑出来"、"thread 切换仍有约 1s 卡顿"。
+>
+> **原则**：这不是"以后有空再优化"。这是 F156 改动后的事故后续，必须作为关闭条件挂回 F156 真相源，直到体验和恢复链重新达标。
+
+### A. 安全改动直接造成（今天必须清零）
+
+1. **browser-facing API 身份语义分裂**
+   - 部分路由走 trusted browser fallback，部分路由仍严格依赖 live session
+   - 直接表现：IM Hub / Signal Hub / thread create / 其他 Hub 页面出现 401、空白或点击无反应
+
+2. **session 失效恢复链不完整**
+   - API 重启或 cookie 失效后，前端没有统一自愈路径
+   - 直接表现：刷新后页面像"数据全没了"，用户感知接近数据丢失
+
+3. **thread 级 UI 偏好恢复链脆弱**
+   - 线程级 bubble override 写入后，刷新场景会掉回 global 默认
+   - 直接表现：thinking / CLI 气泡开关刷新后重新冒出来
+
+### B. 原来就糟、这次被放大（今天必须定死方案并开始收敛）
+
+1. **thread 切换 fan-out 过重**
+   - `messages`、`tasks`、`task-progress`、`queue`、`sessions`、`authorization`、`governance` 在 thread 切换体验里混合收敛
+
+2. **secondary hydration 设计过重**
+   - 右侧状态、Session Chain、权限卡片等辅助面板仍在影响"thread 是否已经切好"的主观感受
+
+3. **project 级状态与 thread 级状态耦合**
+   - 同项目切 thread 仍会额外触发 `governance/status`、`index-state` 等 project 级读取，放大抖动
+
+### 关闭条件（全部完成前，不得宣称 F156 体验层面真正闭环）
+
+- [ ] **AC-F156-FALLOUT-1**：browser-facing API 全量审计完成；每条路由明确标注是 `trusted browser fallback` 还是 `strict session`，不再存在"同类页面有的能打开、有的直接 401"的分裂态
+- [ ] **AC-F156-FALLOUT-2**：IM Hub、Signal Hub、创建线程、刷新后气泡偏好 4 条核心 smoke path 全绿，并有回归测试或脚本证据
+- [ ] **AC-F156-FALLOUT-3**：前端不再把 401 静默吞成"没数据/没反应"；至少要能自愈重试，失败也要有明确错误态
+- [ ] **AC-F156-FALLOUT-4**：thread 切换体验分层完成；只有 `messages` 允许算首屏阻塞，`queue` / `task-progress` / `sessions` / `authorization` 必须降级为 secondary hydration
+- [ ] **AC-F156-FALLOUT-5**：同项目切 thread 不再额外 refetch `governance/status` 这类 project 级状态
+- [ ] **AC-F156-FALLOUT-6**：`sessions` / `queue` / `task-progress` 至少满足其一：per-thread cache、聚合为一个 sidebar-state 接口、或明确延后到首屏之后再拉
+- [ ] **AC-F156-FALLOUT-7**：review 流程补上红蓝对抗视角，不只检查代码正确性，还必须检查"恢复链 / 失败路径 / 体验退化"；本轮作者与 reviewer 都要显式过这一关
+
+### 守护说明
+
+- 这是 **F156 fallout**，不是独立 enhancement，也不是松散的 tech debt
+- 后续 PR 若声称"修完 F156 后遗症"，必须逐条对照本节 closure conditions
+- 若只修了可用性止血、没修体验分层，只能算"事故止血完成"，不能算"F156 体验闭环"
+
+---
+
 ## Spun-off Items（闭环时拆出，不留尾巴）
 
 | 原编号 | 内容 | 去向 |
