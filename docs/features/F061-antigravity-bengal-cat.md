@@ -484,7 +484,20 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 
 ## Known Bugs（活跃）
 
-（暂无）
+### Bug-5: Live-run stall — 上游 fatal error 后 bridge 傻等 60s
+
+**现象**（2026-04-14 铲屎官报告）：重启后新线程的孟加拉猫仍报 `Antigravity stall: no activity`，且同一条红错出现两次。
+
+**根因**（3 层）：
+1. **error-aware early abort 缺失** — `pollForSteps` 只检查 `IDLE` 和 idle timeout。上游已出 ERROR_MESSAGE 但 status 仍 RUNNING 时，bridge 继续傻等到 60s timeout，把真实错误升级成 stall
+2. **RUNNING 态无 heartbeat** — 长 thinking / 长工具阶段没有 step 增长时，前端无"还活着"信号
+3. **stall error dedupe 缺失** — 同一 stall 错误被重复端出两次（待定位是后端 append 还是前端渲染）
+
+**修复方向**（砚砚 + 宪宪对齐）：
+- fatal 判定在 transformer（`ERROR_MESSAGE` 加 `errorCode: 'upstream_error'`）
+- abort 决策在 service（`for await` 循环 yield 完本批后 `break`）
+- bridge 不背业务语义，保持 transport 层纯净
+- `fatalSeen` 时跳过 `empty_response` 兜底（避免双报错）
 
 ## Known Bugs（已修复）
 
