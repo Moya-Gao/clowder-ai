@@ -79,6 +79,14 @@ describe('resolveUserId', () => {
     assert.equal(resolveUserId(req, { defaultUserId: 'default-user' }), 'default-user');
   });
 
+  it('returns null for trusted origin without explicit defaultUserId (opt-in per route)', () => {
+    // Routes must explicitly pass defaultUserId to enable the fallback.
+    const req = fakeRequest({
+      headers: { origin: 'http://localhost:3001' },
+    });
+    assert.equal(resolveUserId(req), null);
+  });
+
   it('rejects defaultUserId for untrusted private network origin', () => {
     const req = fakeRequest({
       headers: { origin: 'http://192.168.1.200:8080' },
