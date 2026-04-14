@@ -45,8 +45,15 @@ let sessionGate: Promise<void> | null = null;
 function ensureSession(): Promise<void> {
   if (sessionGate) return sessionGate;
   sessionGate = fetch(`${API_URL}/api/session`, { credentials: 'include' })
-    .then(() => {})
-    .catch(() => {});
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`session bootstrap failed (${res.status})`);
+      }
+    })
+    .catch((err) => {
+      sessionGate = null;
+      throw err;
+    });
   return sessionGate;
 }
 

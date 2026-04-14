@@ -89,4 +89,32 @@ describe('apiFetch 401 retry', () => {
       expect(init?.credentials).toBe('include');
     }
   });
+
+  it('retries session bootstrap on the next call after a bootstrap network failure', async () => {
+    const calls: string[] = [];
+    let sessionAttempts = 0;
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      calls.push(url);
+      if (url.includes('/api/session')) {
+        sessionAttempts += 1;
+        if (sessionAttempts === 1) {
+          return Promise.reject(new Error('offline'));
+        }
+        return Promise.resolve({ ok: true, status: 200 });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) });
+    });
+    globalThis.fetch = mockFetch;
+
+    const apiFetch = await loadApiFetch();
+
+    await expect(apiFetch('/api/messages')).rejects.toThrow('offline');
+    const res = await apiFetch('/api/messages');
+
+    expect(res.status).toBe(200);
+    const sessionCalls = calls.filter((c) => c.includes('/api/session'));
+    const messageCalls = calls.filter((c) => c.includes('/api/messages'));
+    expect(sessionCalls.length).toBe(2);
+    expect(messageCalls.length).toBe(1);
+  });
 });

@@ -120,6 +120,15 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     void useChatStore.getState().fetchGlobalBubbleDefaults();
   }, [loadThreads]);
 
+  useEffect(() => {
+    const handleOnline = () => {
+      void loadThreads();
+      void useChatStore.getState().fetchGlobalBubbleDefaults();
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [loadThreads]);
+
   // F070: Fetch governance health for all registered external projects
   useEffect(() => {
     (async () => {
