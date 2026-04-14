@@ -476,6 +476,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-13 | **Phase 2a merged** — Bridge 健壮性全部 G0-G7+G8a（PR #1137）|
 | 2026-04-13 | **Cascade resume gate fix** — 卡在 RUNNING 的 cascade 不再被复用（PR #1143）|
 | 2026-04-13 | **P1-1 callback injection fix** — Antigravity LS 不注入 HTTP callback 指令（PR #1145, 砚砚放行 + 云端 0 P1/P2）|
+| 2026-04-14 | **P1-2 workspace path fix** — LS 路径校验感知 + prompt injection 防护（PR #1149, 砚砚 2 轮放行 + 云端 P1→fix→0 P1/P2）|
 
 ---
 
