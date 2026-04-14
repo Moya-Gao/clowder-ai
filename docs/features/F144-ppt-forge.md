@@ -289,10 +289,10 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 ### Phase C（SVG 渲染后端 — 确定性 SVG 编译器）
 - [x] AC-C1: TS SVG 编译器 — DiagramElement → 确定性 1280×720 SVG string（含 CJK 字宽预设表）
 - [x] AC-C2: TS svg-to-shapes 转换器 — SVG(rect/text/line/circle/g) → pptxgenjs shapes，原生可编辑
-- [ ] AC-C3: 同一 DiagramElement 对比 V1 renderer vs Phase C SVG 编译器，中文不再竖排/溢出
-- [ ] AC-C4: SVG 安全白名单 — 只允许 Phase C 核心子集元素，拒绝外链/filter/foreignObject
-- [ ] AC-C5: 性能 gate — 50+ box diagram 编译 < 5s，单 slide 体积 < 2MB
-- [ ] AC-C6: （可选）C2-Assist 通道 — AI-direct SVG + 人工验收 gate 可用
+- [x] AC-C3: 同一 DiagramElement 对比 V1 renderer vs Phase C SVG 编译器，中文不再竖排/溢出
+- [x] AC-C4: SVG 安全白名单 — 只允许 Phase C 核心子集元素，拒绝外链/filter/foreignObject
+- [x] AC-C5: 性能 gate — 50+ box diagram 编译 < 5s，单 slide 体积 < 2MB
+- [x] AC-C6: （可选）C2-Assist 通道 — AI-direct SVG + 人工验收 gate 可用
 
 ### Phase D（AI 猫猫画 HTML — 学 pptx-craft 超越 pptx-craft）
 - [x] AC-D1: AI 猫猫直接写 HTML+Tailwind 页面（拿 storyline.md + theme tokens 画布局，不走确定性编译器）
