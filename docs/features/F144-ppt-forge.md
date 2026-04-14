@@ -396,6 +396,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-05 | **KD-17/KD-18 决策落定** — 宪宪+砚砚共识：AI 画 HTML 是唯一创作路径（编译器降级为基础设施）；D4 口径有效但 baseline 是模拟非实测。铲屎官反馈沉淀华为级密度填充技巧（8 种手段）。下一步：D5 垂直切片验证（先 1 页再扩页） |
 | 2026-04-14 | **relay-claw pptx-craft 学习落地** — 铲屎官看到 GLM5.1 出品 PPT 超强，要求学习 relay-claw skills 更新。三份成果：(1) `ppt-css-whitelist.md` 新建（designer↔converter CSS 合约）(2) `ppt-density-playbook.md` 升级（ECharts 为第 9 种填充手段 + 量化门禁标注）(3) `ppt-slide-authoring.md` 升级（弹性布局约束 + ECharts 指南 + 密度补充循环）。砚砚两轮 review 放行（R1: 3 P1/P2 + 2 noise; R2: 1 P2 + 1 consistency 全收口）。converter 新增 `.ppt-slide` fallback selector |
 | 2026-04-14 | **Phase C 收敛启动** — 铲屎官指示收敛 AC-C3/C4/C5/C6 四个剩余 AC |
+| 2026-04-14 | **Phase C 收敛 merged** (PR #1166) — svg-sanitizer.ts (AC-C4 安全白名单) + svg-direct.ts (AC-C6 AI-direct SVG path) + phase-c-comparison.test.ts (AC-C3 V1 vs Phase C 对比) + svg-perf.test.ts (AC-C5 性能 gate)。239 tests。砚砚 3 轮 review 放行 (2P1+1P2+1P1 全闭环) + 云端 R1 1P2 修复后 R2 clean |
 
 ## Review Gate
 
