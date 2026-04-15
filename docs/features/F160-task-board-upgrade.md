@@ -144,7 +144,7 @@ created: 2026-04-12
 
 标题栏右侧 `[+]` 按钮，点击展开 inline 创建表单：
 - 标题输入框 + "为什么"输入框（可选）
-- 负责猫下拉选择（从 thread 猫列表取）
+- ~~负责猫下拉选择（从 thread 猫列表取）~~ → Phase B 实际交付：不含 owner 选择器，任务默认 unassigned，猫可通过 `cat_cafe_update_task` 自行领取。后续如需 owner 选择器另开 Feature。
 - 提交调用 `POST /api/tasks`（复用现有 API）
 
 #### B4: 任务卡片交互
@@ -161,17 +161,17 @@ created: 2026-04-12
 
 在以下 Skill 流程中加入任务自动化钩子：
 
-| Skill | 触发点 | 自动行为 |
-|-------|--------|---------|
-| `feat-lifecycle` Kickoff | Feature 立项后 | 创建"完成 Fxxx" work 任务 |
-| `receive-review` | 收到 review 反馈 | 为每个 P1/P2 创建修复任务 |
-| `debugging` | Bug 诊断完成 | 创建修复任务（含根因 why） |
-| `cross-cat-handoff` | 交接时 | 创建交接任务给目标猫 |
+| Skill | 触发点 | 自动行为 | 状态 |
+|-------|--------|---------|------|
+| `feat-lifecycle` Kickoff | Feature 立项后 | 创建"完成 Fxxx" work 任务 | ✅ AC-C1 |
+| `receive-review` | 收到 review 反馈 | 为每个 P1/P2 创建修复任务 | ✅ AC-C2 |
+| `debugging` | Bug 诊断完成 | 创建修复任务（含根因 why） | ➖ 未纳入 AC，后续按需补 |
+| `cross-cat-handoff` | 交接时 | 创建交接任务给目标猫 | ➖ 未纳入 AC，后续按需补 |
 
 #### C2: 任务提醒
 
-- 猫猫进入 thread 时，如果有 `blocked` 任务，system prompt 附加提醒
-- 定期检查：如果任务 `doing` 超过 3 天无更新，在 thread 内提醒负责猫
+- 猫猫进入 thread 时，如果有 `blocked` 任务，system prompt 附加提醒 ✅ AC-C3
+- ~~定期检查：如果任务 `doing` 超过 3 天无更新，在 thread 内提醒负责猫~~ → 未纳入 AC，后续按需补
 
 ## Acceptance Criteria
 
@@ -198,11 +198,11 @@ created: 2026-04-12
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "为什么毛线球从来没有被任何猫用过？" | AC-A1, AC-A2 | MCP tool 测试 + prompt 检查 | [ ] |
-| R2 | "为什么一个东西有两个展示的地方？" | AC-B1, AC-B6 | 截图：毛线球只在 Workspace Tab | [ ] |
-| R3 | 三猫共识：协议先行，先让猫能用再改 UI | AC-A1~A4 | Phase A 独立验收 | [ ] |
-| R4 | 三猫共识：四段式布局，blocked 高亮 | AC-B2 | 截图对比 | [ ] |
-| R5 | 三猫共识：Skill 自动编排形成闭环 | AC-C1~C3 | Skill 流程测试 | [ ] |
+| R1 | "为什么毛线球从来没有被任何猫用过？" | AC-A1, AC-A2, AC-C1~C3 | MCP tool 测试 + prompt 检查 + skill 自动化 | [x] |
+| R2 | "为什么一个东西有两个展示的地方？" | AC-B1, AC-B6 | 毛线球只在 Workspace Tab，旧 ThreadSidebar 入口已移除 | [x] |
+| R3 | 三猫共识：协议先行，先让猫能用再改 UI | AC-A1~A4 | Phase A 独立验收通过 (PR #1116) | [x] |
+| R4 | 三猫共识：四段式布局，blocked 高亮 | AC-B2 | Phase B 实现 + Design Gate 通过 | [x] |
+| R5 | 三猫共识：Skill 自动编排形成闭环 | AC-C1~C3 | feat-lifecycle + receive-review 自动创建 + blocked 提醒 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -243,7 +243,7 @@ created: 2026-04-12
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 毛线球 Tab 图标用什么？毛线球 SVG 还是其他 cafe 隐喻？ | ✅ 先用 Lucide `circle-dot` 或简单毛线球 path 占位，不阻塞实现（铲屎官 2026-04-14 确认） |
-| OQ-2 | Phase C 自动创建的任务是否需要猫猫确认？还是静默创建？ | ⬜ 待讨论 |
+| OQ-2 | Phase C 自动创建的任务是否需要猫猫确认？还是静默创建？ | ✅ 静默创建（Phase C reviewer codex 确认可接受，2026-04-15） |
 | OQ-3 | todo/done 折叠是否记忆用户偏好？ | ✅ Phase B 直接做（localStorage），不推迟（铲屎官 2026-04-14 纠正"先不做"的偷懒倾向） |
 
 ## Timeline
