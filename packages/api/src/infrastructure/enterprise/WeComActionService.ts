@@ -138,12 +138,17 @@ export class WeComActionService {
         });
       }
 
-      // Step 5: Add records
+      // Step 5: Add records (convert plain values to API-specific formats per field type)
       if (opts.records.length > 0) {
+        const fieldTypeMap = new Map(opts.fields.map((f) => [f.fieldTitle, f.fieldType]));
         await this.executor.exec<WeComSmartTableRecordsResponse>('doc', 'smartsheet_add_records', {
           docid: res.docid,
           sheet_id: sheetId,
-          records: opts.records.map((r) => ({ values: r })),
+          records: opts.records.map((r) => ({
+            values: Object.fromEntries(
+              Object.entries(r).map(([key, val]) => [key, toCellValue(fieldTypeMap.get(key), val)]),
+            ),
+          })),
         });
       }
     }
@@ -242,5 +247,23 @@ export class WeComActionService {
 
   private audit(method: string, params: unknown): void {
     this.log.info({ service: 'WeComAction', method, params }, '[WeComAction] audit');
+  }
+}
+
+/**
+ * Convert a plain record value to the format expected by wecom-cli smartsheet API.
+ * - FIELD_TYPE_TEXT → CellTextValue[]: [{text, type: "text"}]
+ * - FIELD_TYPE_SINGLE_SELECT → Option[]: [{text}]
+ * - Other types (DATE_TIME, NUMBER, etc.) → pass through as-is
+ */
+function toCellValue(fieldType: string | undefined, value: unknown): unknown {
+  if (typeof value !== 'string' || !value) return value;
+  switch (fieldType) {
+    case 'FIELD_TYPE_TEXT':
+      return [{ text: value, type: 'text' }];
+    case 'FIELD_TYPE_SINGLE_SELECT':
+      return [{ text: value }];
+    default:
+      return value;
   }
 }

@@ -174,6 +174,52 @@ describe('WeComActionService', () => {
     });
   });
 
+  describe('createSmartTable() — CellTextValue conversion', () => {
+    it('converts plain string values to CellTextValue[] for text fields', async () => {
+      mockExec.setResponse('doc', 'create_doc', {
+        errcode: 0,
+        errmsg: 'ok',
+        docid: 'TBL_CV',
+        url: 'https://doc.weixin.qq.com/TBL_CV',
+      });
+      mockExec.setResponse('doc', 'smartsheet_get_sheet', {
+        errcode: 0,
+        errmsg: 'ok',
+        sheet_list: [{ sheet_id: 'SH1', title: '默认子表' }],
+      });
+      mockExec.setResponse('doc', 'smartsheet_get_fields', {
+        errcode: 0,
+        errmsg: 'ok',
+        fields: [{ field_id: 'DF1', field_title: '文本', field_type: 'text' }],
+      });
+      mockExec.setResponse('doc', 'smartsheet_update_fields', { errcode: 0, errmsg: 'ok' });
+      mockExec.setResponse('doc', 'smartsheet_add_fields', { errcode: 0, errmsg: 'ok', fields: [] });
+      mockExec.setResponse('doc', 'smartsheet_add_records', { errcode: 0, errmsg: 'ok', records: [] });
+
+      await service.createSmartTable({
+        tableName: 'CellText Test',
+        fields: [
+          { fieldTitle: '任务', fieldType: 'FIELD_TYPE_TEXT' },
+          { fieldTitle: '状态', fieldType: 'FIELD_TYPE_SINGLE_SELECT' },
+          { fieldTitle: '截止时间', fieldType: 'FIELD_TYPE_DATE_TIME' },
+        ],
+        records: [{ 任务: '写测试', 状态: '待处理', 截止时间: '2026-04-20' }],
+      });
+
+      // Find the smartsheet_add_records call
+      const addRecordsCall = mockExec.calls.find((c) => c.method === 'smartsheet_add_records');
+      assert.ok(addRecordsCall, 'smartsheet_add_records should be called');
+
+      const values = addRecordsCall.params.records[0].values;
+      // FIELD_TYPE_TEXT → wrapped in CellTextValue[]
+      assert.deepEqual(values['任务'], [{ text: '写测试', type: 'text' }]);
+      // FIELD_TYPE_SINGLE_SELECT → wrapped in Option[]
+      assert.deepEqual(values['状态'], [{ text: '待处理' }]);
+      // FIELD_TYPE_DATE_TIME → passed through as-is
+      assert.equal(values['截止时间'], '2026-04-20');
+    });
+  });
+
   describe('createSmartTable() — empty sheet_list guard', () => {
     it('throws when API returns no default sheet', async () => {
       mockExec.setResponse('doc', 'create_doc', {

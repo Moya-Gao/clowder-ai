@@ -87,7 +87,7 @@ describe('F162 E2E: Golden Chain (real CLI calls)', async () => {
     console.log(`  ✓ Meeting created: ${meeting.meetingLink}`);
   });
 
-  it('creates a smart table', async () => {
+  it('creates a smart table with populated text fields (read-back verification)', async () => {
     const table = await service.createSmartTable({
       tableName: 'F162 E2E Test - 表格',
       fields: [
@@ -98,7 +98,22 @@ describe('F162 E2E: Golden Chain (real CLI calls)', async () => {
     });
     assert.ok(table.docId, 'docId must exist');
     assert.ok(table.url.startsWith('https://'), 'url must be https');
-    console.log(`  ✓ Smart table created: ${table.url}`);
+
+    // Read-back: verify text field values are actually populated (not silently dropped)
+    const sheets = await executor.exec('doc', 'smartsheet_get_sheet', { docid: table.docId });
+    const sheetId = sheets.sheet_list[0].sheet_id;
+    const records = await executor.exec('doc', 'smartsheet_get_records', { docid: table.docId, sheet_id: sheetId });
+    assert.ok(records.records.length >= 1, 'should have at least 1 record');
+    const firstRecord = records.records[0].values;
+    // Text field values come back as CellTextValue[] — extract text content
+    const taskValue = Array.isArray(firstRecord['任务'])
+      ? firstRecord['任务'].map((v) => v.text).join('')
+      : firstRecord['任务'];
+    assert.ok(
+      taskValue && taskValue.includes('端到端测试'),
+      `text field "任务" must contain "端到端测试", got: ${taskValue}`,
+    );
+    console.log(`  ✓ Smart table created + read-back verified: ${table.url}`);
   });
 
   it('executes golden chain (all 4 in sequence)', async () => {
