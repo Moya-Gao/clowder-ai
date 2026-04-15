@@ -176,6 +176,7 @@ created: 2026-04-10
 | 2026-04-15 | ThinkingContent toggle fix merged (PR #1184) — added `userInteracted` ref guard matching CliOutputBlock pattern; inline thinking bubble click-to-collapse no longer reverts on prop updates (author: opus, reviewer: codex cloud) |
 | 2026-04-15 | Unread badge dismiss fix merged (PR #1190) — `handleSelect` now calls `clearUnread` before the `currentThreadId` early-return guard; clicking a thread always dismisses its unread badge (author: opus, reviewer: codex cloud) |
 | 2026-04-15 | Bare POST 415 fix merged (PR #1194) — `apiFetch` auto-adds content-type + body for mutating requests with no body; fixes read cursor ack and mark-all through Cloudflare Tunnel (root cause: gpt52, systemic fix: opus, reviewer: codex cloud) |
+| 2026-04-15 | Fallout closure baseline synced to spec — remaining blocker narrowed to 3 closure items (route ledger, smoke evidence, unified session-loss UX); GitHub issue #1064 marked as related non-blocker |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
@@ -273,6 +274,25 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 > 2026-04-14 再追加状态：PR #1177 修复 Signal Hub 入口导航。ChatContainerHeader 里的 Signal Inbox `<Link>` 被 Next.js router 吞掉 click 但不完成跳转，改为 `button + window.location.assign`（和 Memory/Mission Hub 同路数）。AC-2 的 4 条核心 smoke path 现已全部有对应修复进入 main。
 >
 > 2026-04-15 再追加状态：PR #1178 修复 bubble F5 flash 的第二层根因。PR #1174 的 `isLoadingThreads` guard 只覆盖 thread 加载窗口；当 threads 先于 config 加载完成时，guard 释放但 `globalBubbleDefaults.thinking` 仍持有 localStorage 的 stale `'expanded'` 值，导致所有 `null` bubbleThinking 的 thread 闪烁展开。修复：初始值改为 `'collapsed'`，server config 到达后覆盖。AC-2 的 bubble 刷新恢复链现已双层加固（thread 加载 guard + 安全初始值）。
+
+### 2026-04-15 最小收尾清单（这 3 项清完才算 F156 真正闭环）
+
+- [ ] **收口 1: browser-facing route ledger**  
+  在 F156 真相源或其直接链接附件中列出 browser-facing API 清单；每条路由必须明确写明是 `trusted browser fallback` 还是 `strict session`，并标出对应 handler / 测试。  
+  **关闭口径**：不存在“同类页面一部分靠 fallback 能开、一部分直接 401”的分裂态；AC-F156-FALLOUT-1 才能打勾。
+
+- [ ] **收口 2: 4 条核心 smoke path 证据归档**  
+  把 IM Hub、Signal Hub、创建线程、刷新后 bubble 偏好恢复 4 条路径跑成一份集中证据（测试、脚本或录屏都可以，但必须可追溯），并把链接挂回本 spec。  
+  **关闭口径**：不是“修复 PR 已 merge”就算，而是“当前 main 上验证全绿且证据可回放”；AC-F156-FALLOUT-2 才能打勾。
+
+- [ ] **收口 3: 统一 session-loss UX**  
+  `apiFetch` 的 401 自愈已在位，但剩余 surface 还要统一做到两件事：成功时自动恢复，失败时给出显式错误态，不能继续表现成“空白 / 无反应 / 像数据没了”。  
+  **关闭口径**：至少有 1 组共享回归覆盖 `401 -> retry success` 与 `401 -> retry failed but visible error` 两条链；AC-F156-FALLOUT-3 才能打勾。
+
+### 不阻塞 F156 关单，但必须从这里分流出去的尾巴
+
+- GitHub issue `#1064`（brand guard 仍检查已被 F156 废弃的 `X-Cat-Cafe-User` 头）属于 **相关清理项**，不是 runtime fallout blocker；应单独关闭，不要继续混进 F156 体验闭环口径里。
+- D-4 / FU-1 / FU-2 已在本 spec 的 Spun-off Items 里正式拆出；后续若再做，必须走独立立项或独立文档任务，不得把它们重新塞回 F156 completion gate。
 
 ### 守护说明
 
