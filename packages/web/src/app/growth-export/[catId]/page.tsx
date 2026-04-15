@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * F157 AC-A3: Growth Card Export Page
+ * F157 AC-A3: Journey Card Export Page
  *
  * Standalone page that renders a single CatProfileCard for Puppeteer screenshot.
  * ImageExporter navigates here, waits for data-export-ready="true", then captures.
@@ -45,7 +45,7 @@ export default function GrowthExportPage() {
         <>
           <CatProfileCard profile={profile} />
           {/* Brand footer for shared images */}
-          <div className="mt-3 text-center text-[10px] text-cafe-muted">Clowder AI · Cat Growth RPG</div>
+          <div className="mt-3 text-center text-[10px] text-cafe-muted">Clowder AI · Cat Journey</div>
         </>
       ) : (
         <div className="text-sm text-cafe-muted">Loading...</div>

@@ -45,15 +45,15 @@ export function HubGrowthTab() {
       {/* Header */}
       <div className="flex items-baseline justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-cafe">猫猫成长</h2>
-          <p className="mt-0.5 text-xs text-cafe-muted">真实协作数据结晶 · 六维属性 · AI Agent 养成</p>
+          <h2 className="text-xl font-semibold text-cafe">猫猫足迹</h2>
+          <p className="mt-0.5 text-xs text-cafe-muted">真实协作数据结晶 · 六维特质 · AI Agent 历练之旅</p>
         </div>
         {overview ? (
           <div className="text-right">
             <span className="text-2xl font-bold" style={{ color: '#9B7EBD' }}>
               Lv.{overview.teamLevel}
             </span>
-            <p className="text-xs text-cafe-muted">团队等级 · {overview.teamTotalXp.toLocaleString()} XP</p>
+            <p className="text-xs text-cafe-muted">团队历练 · {overview.teamTotalXp.toLocaleString()} 足迹点</p>
           </div>
         ) : null}
       </div>
@@ -89,8 +89,8 @@ export function HubGrowthTab() {
 
       {overview && overview.profiles.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-cafe-muted">
-          <p className="text-sm">还没有猫猫成长数据</p>
-          <p className="mt-1 text-xs">猫猫完成任务、review 代码后会自动积累经验值</p>
+          <p className="text-sm">还没有猫猫足迹数据</p>
+          <p className="mt-1 text-xs">猫猫完成任务、review 代码后会自动积累足迹点</p>
         </div>
       ) : null}
 

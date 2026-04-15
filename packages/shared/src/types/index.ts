@@ -186,31 +186,6 @@ export {
   isValidActionStatus,
   isValidScope,
 } from './game.js';
-// Growth RPG types (F157 Cat Growth RPG)
-export type {
-  AchievementCategory,
-  AchievementCondition,
-  AchievementDefinition,
-  AchievementRarity,
-  BondLevel,
-  CatAttributes,
-  CatBond,
-  CatGrowthProfile,
-  CatTitle,
-  DimensionStat,
-  GrowthDimension,
-  GrowthOverview,
-  HighlightMoment,
-  InvocationPurpose,
-  TitleCondition,
-  TitleDefinition,
-  TitleRarity,
-  UnlockedAchievement,
-  UnlockedTitle,
-  XpEvent,
-  XpSource,
-} from './growth.js';
-export { DIMENSION_LABELS, GROWTH_DIMENSIONS } from './growth.js';
 // ID types
 export type {
   CatId,
@@ -245,6 +220,46 @@ export type {
   TriageIntentCardInput,
   TriageResult,
 } from './intent-card.js';
+// Journey types (F157 Cat Journey 猫猫足迹 — renamed from Growth RPG, ADR-023)
+export type {
+  // Backward-compat aliases (deprecated)
+  AchievementCategory,
+  AchievementCondition,
+  AchievementDefinition,
+  AchievementRarity,
+  // New canonical names
+  ActivityEvent,
+  ActivityEventType,
+  // Shared (unchanged)
+  BondLevel,
+  CatAttributes,
+  CatBond,
+  CatGrowthProfile,
+  CatJourneyProfile,
+  CatTitle,
+  DimensionStat,
+  FootfallEvent,
+  FootfallSource,
+  GrowthDimension,
+  GrowthOverview,
+  HighlightMoment,
+  InvocationPurpose,
+  JourneyOverview,
+  MomentCategory,
+  MomentCondition,
+  MomentDefinition,
+  MomentRarity,
+  TitleCondition,
+  TitleDefinition,
+  TitleRarity,
+  TraitDimension,
+  UnlockedAchievement,
+  UnlockedMoment,
+  UnlockedTitle,
+  XpEvent,
+  XpSource,
+} from './journey.js';
+export { DIMENSION_LABELS, GROWTH_DIMENSIONS, TRAIT_DIMENSIONS } from './journey.js';
 // Leaderboard types (F075 排行榜)
 export type {
   Achievement,

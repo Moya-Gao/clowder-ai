@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * F157 Phase B AC-B3: Skill tree panel — shows title unlock paths
+ * F157 Phase B AC-B3: Skill tree panel — shows title (珍贵瞬间/Moments) unlock paths
  * and bond relationships for a single cat.
  */
 

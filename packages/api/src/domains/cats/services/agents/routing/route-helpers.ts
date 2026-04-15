@@ -54,6 +54,8 @@ export interface RouteStrategyDeps {
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
   /** F157: Growth XP service (fire-and-forget INCRBY on XP-worthy events) */
   growthService?: import('../../growth/GrowthService.js').GrowthService;
+  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
 }
 
 /** Mutable context for tracking persistence failures across the generator boundary.

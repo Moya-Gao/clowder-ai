@@ -131,9 +131,9 @@ import {
   externalProjectRoutes,
   featureDocDetailRoutes,
   governanceStatusRoute,
-  growthRoutes,
   intentCardRoutes,
   invocationsRoutes,
+  journeyRoutes,
   leaderboardEventsRoutes,
   leaderboardRoutes,
   memoryPublishRoutes,
@@ -942,10 +942,19 @@ async function main(): Promise<void> {
     dailyTimer.unref();
   }
 
-  // F157: Cat Growth RPG — XP attributes + profiles (created early for AgentRouter injection)
+  // F157: Cat Journey RPG — XP attributes + profiles (created early for AgentRouter injection)
   const growthService = redis
     ? new (await import('./domains/cats/services/growth/GrowthService.js')).GrowthService(redis)
     : undefined;
+
+  // ADR-023: Activity Event Spine
+  const { ActivityEventBus } = await import('./domains/activity/ActivityEventBus.js');
+  const activityBus = new ActivityEventBus();
+
+  if (growthService) {
+    const { JourneyProjector } = await import('./domains/activity/JourneyProjector.js');
+    new JourneyProjector(activityBus, growthService);
+  }
 
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
@@ -972,6 +981,7 @@ async function main(): Promise<void> {
     evidenceStore: memoryServices.evidenceStore,
     ...(toolUsageCounter ? { toolUsageCounter } : {}),
     ...(growthService ? { growthService } : {}),
+    activityBus,
   });
 
   // F39: Message queue delivery
@@ -1092,7 +1102,7 @@ async function main(): Promise<void> {
     await app.register(toolUsageRoutes, { toolUsageCounter });
   }
   if (growthService) {
-    await app.register(growthRoutes, { growthService });
+    await app.register(journeyRoutes, { growthService });
     // F157 Phase C: Achievement system — wire up bidirectional reference
     const { AchievementService } = await import('./domains/cats/services/growth/AchievementService.js');
     const achievementSvc = new AchievementService(redis!, growthService);
@@ -1216,6 +1226,7 @@ async function main(): Promise<void> {
     limbRegistry,
     limbPairingStore,
     ...(growthService ? { growthService } : {}),
+    activityBus,
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
 
@@ -1275,7 +1286,7 @@ async function main(): Promise<void> {
       isCatAvailable: (catId: string) => isCatAvailable(catId),
     });
   }
-  await app.register(tasksRoutes, { taskStore, socketManager, growthService });
+  await app.register(tasksRoutes, { taskStore, socketManager, growthService, activityBus });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
   // F076: External projects + Need Audit
@@ -1352,6 +1363,7 @@ async function main(): Promise<void> {
     transcriptReader,
     ...(hookToken ? { hookToken } : {}),
     ...(growthService ? { growthService } : {}),
+    activityBus,
   });
 
   // F33 Phase 3: Session strategy config (runtime overrides via Redis)

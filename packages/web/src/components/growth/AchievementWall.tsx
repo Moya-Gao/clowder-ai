@@ -30,10 +30,10 @@ interface WallResponse {
 
 const CATEGORY_ORDER = ['individual', 'team', 'milestone', 'hidden'];
 const CATEGORY_LABELS: Record<string, string> = {
-  individual: '个人成就',
-  team: '团队成就',
+  individual: '个人瞬间',
+  team: '团队瞬间',
   milestone: '里程碑',
-  hidden: '隐藏成就',
+  hidden: '隐藏瞬间',
 };
 
 interface Props {
@@ -88,7 +88,7 @@ export function AchievementWall({ memberId }: Props) {
   }, [memberId]);
 
   if (loading) return <div className="py-4 text-center text-xs text-cafe-muted">加载中...</div>;
-  if (error) return <div className="py-4 text-center text-xs text-red-400">成就数据加载失败</div>;
+  if (error) return <div className="py-4 text-center text-xs text-red-400">珍贵瞬间数据加载失败</div>;
   if (!wall) return null;
 
   // Group by category
@@ -103,7 +103,7 @@ export function AchievementWall({ memberId }: Props) {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold text-cafe">成就墙</h3>
+        <h3 className="text-sm font-semibold text-cafe">珍贵瞬间</h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-cafe-muted">
             已解锁 {wall.totalUnlocked} / {wall.totalDefined}
@@ -113,7 +113,7 @@ export function AchievementWall({ memberId }: Props) {
               onClick={handleExport}
               disabled={exporting}
               className="rounded p-1 transition-colors hover:bg-cafe-surface-elevated disabled:opacity-50"
-              title="导出成就墙"
+              title="导出珍贵瞬间"
             >
               <DownloadIcon className="h-3.5 w-3.5 text-cafe-muted" />
             </button>

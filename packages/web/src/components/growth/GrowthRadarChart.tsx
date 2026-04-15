@@ -19,7 +19,7 @@ interface Props {
   color?: string;
 }
 
-/** Pure SVG radar chart — no external dependency. */
+/** Pure SVG traits portrait (特质画像) radar chart — no external dependency. */
 export function GrowthRadarChart({ stats, size = 200, color = '#9B7EBD' }: Props) {
   const cx = size / 2;
   const cy = size / 2;

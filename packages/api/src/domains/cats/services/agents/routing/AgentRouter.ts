@@ -170,6 +170,8 @@ export interface AgentRouterOptions {
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
   /** F157: Growth XP service */
   growthService?: import('../../growth/GrowthService.js').GrowthService;
+  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
 }
 
 /**
@@ -214,6 +216,8 @@ export class AgentRouter {
   private toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
   /** F157 */
   private growthService?: import('../../growth/GrowthService.js').GrowthService;
+  /** F157 Phase C */
+  private activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
   private speechMentionRe: RegExp;
 
   private rebuildRuntimeCaches(agentRegistry: AgentRegistry): void {
@@ -253,6 +257,7 @@ export class AgentRouter {
     this.evidenceStore = options.evidenceStore;
     this.toolUsageCounter = options.toolUsageCounter;
     this.growthService = options.growthService;
+    this.activityBus = options.activityBus;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -680,6 +685,7 @@ export class AgentRouter {
       ...(this.evidenceStore ? { evidenceStore: this.evidenceStore } : {}),
       ...(this.toolUsageCounter ? { toolUsageCounter: this.toolUsageCounter } : {}),
       ...(this.growthService ? { growthService: this.growthService } : {}),
+      ...(this.activityBus ? { activityBus: this.activityBus } : {}),
     };
   }
 

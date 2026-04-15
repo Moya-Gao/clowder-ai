@@ -1,11 +1,11 @@
 /**
- * Growth Routes — F157 Cat Growth RPG
- * GET  /api/growth/overview             — team-wide growth overview
- * GET  /api/growth/:catId               — single cat growth profile
- * GET  /api/growth/:catId/events        — XP event audit trail (AC-A5)
- * GET  /api/growth/:catId/titles        — unlocked titles (AC-B1)
- * GET  /api/growth/:catId/bonds         — bond relationships (AC-B2)
- * POST /api/growth/:catId/export-image  — PNG screenshot of profile card (AC-A3)
+ * Journey Routes — F157 Cat Journey RPG
+ * GET  /api/journey/overview             — team-wide journey overview
+ * GET  /api/journey/:catId               — single cat journey profile
+ * GET  /api/journey/:catId/events        — XP event audit trail (AC-A5)
+ * GET  /api/journey/:catId/titles        — unlocked titles (AC-B1)
+ * GET  /api/journey/:catId/bonds         — bond relationships (AC-B2)
+ * POST /api/journey/:catId/export-image  — PNG screenshot of profile card (AC-A3)
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -18,7 +18,7 @@ export interface GrowthRoutesOptions {
   growthService: GrowthService;
 }
 
-export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app, opts) => {
+export const journeyRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app, opts) => {
   const { growthService } = opts;
 
   // Plugin-scoped singleton ImageExporter (browser reuse across requests)
@@ -30,8 +30,8 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
     }
   });
 
-  /** Team overview — all cats' growth profiles */
-  app.get('/api/growth/overview', async (request, reply) => {
+  /** Team overview — all cats' journey profiles */
+  app.get('/api/journey/overview', async (request, reply) => {
     const userId = resolveHeaderUserId(request);
     if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
 
@@ -39,8 +39,8 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
     return overview;
   });
 
-  /** Single cat growth profile */
-  app.get<{ Params: { catId: string } }>('/api/growth/:catId', async (request, reply) => {
+  /** Single cat journey profile */
+  app.get<{ Params: { catId: string } }>('/api/journey/:catId', async (request, reply) => {
     const userId = resolveHeaderUserId(request);
     if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
 
@@ -54,7 +54,7 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
 
   /** AC-A5: XP event audit trail — newest first, with pagination. */
   app.get<{ Params: { catId: string }; Querystring: { limit?: string; offset?: string } }>(
-    '/api/growth/:catId/events',
+    '/api/journey/:catId/events',
     async (request, reply) => {
       const userId = resolveHeaderUserId(request);
       if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
@@ -69,7 +69,7 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
   );
 
   /** AC-B1: Unlocked titles for a cat — includes all definitions with unlock status. */
-  app.get<{ Params: { catId: string } }>('/api/growth/:catId/titles', async (request, reply) => {
+  app.get<{ Params: { catId: string } }>('/api/journey/:catId/titles', async (request, reply) => {
     const userId = resolveHeaderUserId(request);
     if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
 
@@ -79,7 +79,7 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
   });
 
   /** AC-B2: Bond relationships for a cat. */
-  app.get<{ Params: { catId: string } }>('/api/growth/:catId/bonds', async (request, reply) => {
+  app.get<{ Params: { catId: string } }>('/api/journey/:catId/bonds', async (request, reply) => {
     const userId = resolveHeaderUserId(request);
     if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
 
@@ -89,7 +89,7 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
   });
 
   /** AC-A3: Export cat profile card as PNG image */
-  app.post<{ Params: { catId: string } }>('/api/growth/:catId/export-image', async (request, reply) => {
+  app.post<{ Params: { catId: string } }>('/api/journey/:catId/export-image', async (request, reply) => {
     const userId = resolveHeaderUserId(request);
     if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
 
@@ -104,7 +104,7 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
     try {
       const frontendUrl = resolveFrontendBaseUrl(process.env, app.log);
       const url = `${frontendUrl}/growth-export/${catId}`;
-      app.log.info({ catId, url }, 'Exporting growth card to PNG');
+      app.log.info({ catId, url }, 'Exporting journey card to PNG');
 
       const exporter = sharedExporter ?? (sharedExporter = new ImageExporter());
       const imageBuffer = await exporter.capture(url, userId, 480);
@@ -112,7 +112,7 @@ export const growthRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app,
       return reply.type('image/png').send(imageBuffer);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      app.log.error({ error: msg, catId }, 'Growth card export failed');
+      app.log.error({ error: msg, catId }, 'Journey card export failed');
       return reply.status(500).send({ error: 'Export failed', message: msg });
     }
   });

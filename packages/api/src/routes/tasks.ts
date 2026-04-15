@@ -21,6 +21,8 @@ export interface TasksRoutesOptions {
   socketManager: SocketManager;
   /** F157: Optional growth service for XP awards on task completion */
   growthService?: GrowthService;
+  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 
 const VALID_STATUSES = ['todo', 'doing', 'blocked', 'done'] as const;
@@ -72,7 +74,7 @@ function toUpdateInput(data: z.infer<typeof updateSchema>): UpdateTaskInput {
 }
 
 export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, opts) => {
-  const { taskStore, socketManager, growthService } = opts;
+  const { taskStore, socketManager, growthService, activityBus } = opts;
 
   // POST /api/tasks
   app.post('/api/tasks', async (request, reply) => {
@@ -134,8 +136,8 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, o
     socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'task_updated', updated);
 
     // F157: Award XP only on actual transition to 'done' (idempotent)
-    if (result.data.status === 'done' && oldTask && oldTask.status !== 'done' && updated.ownerCatId && growthService) {
-      growthService.awardXp(updated.ownerCatId, 'task_complete');
+    if (result.data.status === 'done' && oldTask && oldTask.status !== 'done' && updated.ownerCatId) {
+      activityBus?.record('task_completed', updated.ownerCatId);
     }
 
     return updated;

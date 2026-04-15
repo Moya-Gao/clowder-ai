@@ -454,12 +454,10 @@ export async function* routeParallel(
     if (msg.type === 'tool_use' && deps.toolUsageCounter && msg.catId) {
       const toolInput = msg.toolInput as Record<string, unknown> | undefined;
       deps.toolUsageCounter.recordToolUse(msg.catId as string, msg.toolName ?? 'unknown', toolInput);
-      // F157: Differentiated XP by tool category (native→execution, mcp→insight, skill→aesthetics)
-      if (deps.growthService) {
-        const { category } = classifyTool(msg.toolName ?? 'unknown', toolInput);
-        const source = category === 'mcp' ? 'tool_use_mcp' : category === 'skill' ? 'tool_use_skill' : 'tool_use';
-        deps.growthService.awardXp(msg.catId as string, source);
-      }
+      // F157 Phase C: Record tool usage via activity bus
+      const toolName = msg.toolName ?? 'unknown';
+      const { category } = classifyTool(toolName, toolInput);
+      deps.activityBus?.record('tool_used', msg.catId as string, { toolName, category });
     }
     if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
       catMeta.set(msg.catId, msg.metadata);
@@ -687,8 +685,8 @@ export async function* routeParallel(
               ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
             },
           });
-          // F157: Award discussion XP for every cat response (fire-and-forget)
-          deps.growthService?.awardXp(msg.catId as string, 'discussion');
+          // F157 Phase C: Record message_sent via activity bus (fire-and-forget)
+          deps.activityBus?.record('message_sent', msg.catId as string);
           // F088-P3: Stash rich blocks for outbound delivery
           if (options.persistenceContext && allRichBlocks.length > 0) {
             options.persistenceContext.richBlocks = [

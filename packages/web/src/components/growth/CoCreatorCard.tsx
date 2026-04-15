@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * F157 AC-C6: Co-Creator (铲屎官) growth card — distinct from cat cards.
+ * F157 AC-C6: Co-Creator (铲屎官) journey card — distinct from cat cards.
  * Shows human-specific metrics: contribution style, cat interaction overview.
  */
 
@@ -114,6 +114,7 @@ export function CoCreatorCard({ profile, onClick }: Props) {
           <div className="flex items-baseline gap-2">
             <span className="text-base font-semibold text-cafe">铲屎官</span>
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+              {/* Lv. maps to 历练 (Seasoning) */}
               Lv.{overallLevel}
             </span>
             <span className="rounded px-1.5 py-0.5 text-[10px] text-cafe-muted" style={{ background: '#FFF8F0' }}>
@@ -123,7 +124,7 @@ export function CoCreatorCard({ profile, onClick }: Props) {
           <p className="mt-0.5 text-xs text-cafe-muted">
             {profile.currentTitle?.label.zh ?? 'CVO'}
             {' · '}
-            {totalXp.toLocaleString()} XP
+            {totalXp.toLocaleString()} 足迹点
           </p>
 
           {/* Top dimensions */}

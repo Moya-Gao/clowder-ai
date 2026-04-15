@@ -59,13 +59,14 @@ export function CatProfileCard({ profile, onClick }: Props) {
               className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
               style={{ backgroundColor: primaryColor }}
             >
+              {/* Lv. maps to 历练 (Seasoning) */}
               Lv.{overallLevel}
             </span>
           </div>
           <span className="text-[11px] text-cafe-muted">
             {profile.currentTitle?.label.zh ?? profile.displayName}
             {' · '}
-            {totalXp.toLocaleString()} XP
+            {totalXp.toLocaleString()} 足迹点
           </span>
         </div>
       </div>
@@ -80,6 +81,7 @@ export function CatProfileCard({ profile, onClick }: Props) {
         <div className="mt-2 flex items-center justify-center gap-3">
           {ranked.map(({ dim, xp }) => (
             <span key={dim} className="text-[11px] text-cafe-secondary">
+              {/* Lv. maps to 历练 (Seasoning) */}
               {DIM_LABELS[dim]} Lv.{stats[dim]?.level ?? 0}
               <span className="ml-0.5 text-cafe-muted">({xp})</span>
             </span>

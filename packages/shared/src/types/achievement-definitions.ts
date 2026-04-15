@@ -10,7 +10,7 @@
  * Conditions use AND logic. Empty conditions = manual/event-driven trigger.
  */
 
-import type { AchievementDefinition } from './growth.js';
+import type { AchievementDefinition } from './journey.js';
 
 export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
   // ── Individual: Common ─────────────────────────────────────────────

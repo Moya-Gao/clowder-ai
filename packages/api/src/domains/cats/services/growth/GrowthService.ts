@@ -1,5 +1,5 @@
 /**
- * F157 Cat Growth RPG — Growth Service
+ * F157 Cat Journey RPG — Journey Service
  * Reads/writes XP counters in Redis, computes attributes and profiles.
  *
  * XP is stored as simple Redis integers: growth:{catId}:{dimension} → total XP.
@@ -259,7 +259,7 @@ export class GrowthService {
   /** AC-C6: Co-creator identity for growth tracking. */
   static readonly CO_CREATOR_ID = 'co-creator';
 
-  /** Build full growth profile for a cat or the co-creator. */
+  /** Build full journey profile for a cat or the co-creator. */
   async getProfile(catId: string): Promise<CatGrowthProfile | null> {
     if (catId === GrowthService.CO_CREATOR_ID) {
       return this.getCoCreatorProfile();
@@ -280,7 +280,7 @@ export class GrowthService {
     };
   }
 
-  /** AC-C6: Build growth profile for the co-creator (not in catRegistry). */
+  /** AC-C6: Build journey profile for the co-creator (not in catRegistry). */
   private async getCoCreatorProfile(): Promise<CatGrowthProfile> {
     const attributes = await this.getAttributes(GrowthService.CO_CREATOR_ID);
     const currentTitle = await this.getCurrentTitle(GrowthService.CO_CREATOR_ID);
@@ -294,7 +294,7 @@ export class GrowthService {
     };
   }
 
-  /** Build team overview across all registered cats + co-creator. */
+  /** Build team journey overview across all registered cats + co-creator. */
   async getOverview(): Promise<GrowthOverview> {
     const catIds = catRegistry.getAllIds().map(String);
 

@@ -511,12 +511,10 @@ export async function* routeSerial(
         if (msg.type === 'tool_use' && deps.toolUsageCounter && msg.catId) {
           const toolInput = msg.toolInput as Record<string, unknown> | undefined;
           deps.toolUsageCounter.recordToolUse(msg.catId as string, msg.toolName ?? 'unknown', toolInput);
-          // F157: Differentiated XP by tool category (native→execution, mcp→insight, skill→aesthetics)
-          if (deps.growthService) {
-            const { category } = classifyTool(msg.toolName ?? 'unknown', toolInput);
-            const source = category === 'mcp' ? 'tool_use_mcp' : category === 'skill' ? 'tool_use_skill' : 'tool_use';
-            deps.growthService.awardXp(msg.catId as string, source);
-          }
+          // F157 Phase C: Record tool usage via activity bus
+          const toolName = msg.toolName ?? 'unknown';
+          const { category } = classifyTool(toolName, toolInput);
+          deps.activityBus?.record('tool_used', msg.catId as string, { toolName, category });
         }
 
         // #80: Draft flush — fire-and-forget periodic persistence for F5 recovery
@@ -780,7 +778,7 @@ export async function* routeSerial(
             },
           });
           storedMsgId = storedMsg.id;
-          // F157: Award XP based on invocation purpose (review → review_given, default → discussion)
+          // F157 Phase C: Record activity based on invocation purpose
           // Chain: worklist purpose (legacy F27) → content detection (A2A direct) → queue purpose (F122B queue)
           {
             const purpose =
@@ -788,13 +786,13 @@ export async function* routeSerial(
               (directMessageFrom ? detectInvocationPurpose(message) : undefined) ??
               options.a2aPurpose;
             if (purpose === 'review') {
-              deps.growthService?.awardXp(catId as string, 'review_given');
+              deps.activityBus?.record('review_submitted', catId as string);
               // Heuristic: scan response for P1/P2 bug findings → award bug_caught
               if (/\bP[12]\b/.test(textContent)) {
-                deps.growthService?.awardXp(catId as string, 'bug_caught');
+                deps.activityBus?.record('bug_caught', catId as string);
               }
             } else {
-              deps.growthService?.awardXp(catId as string, 'discussion');
+              deps.activityBus?.record('message_sent', catId as string);
             }
           }
           // F088-P3: Stash rich blocks for outbound delivery

@@ -75,11 +75,11 @@ export function TitleCard({ definition, unlock, dimensionLevels, overallLevel, t
             current = dimensionLevels?.[cond.dimension] ?? 0;
             target = cond.minLevel;
           } else if (cond.type === 'overall_level') {
-            label = `总等级 Lv.${cond.minLevel}`;
+            label = `总历练 Lv.${cond.minLevel}`;
             current = overallLevel ?? 0;
             target = cond.minLevel;
           } else if (cond.type === 'total_xp') {
-            label = `总经验 ${cond.minXp} XP`;
+            label = `总足迹点 ${cond.minXp}`;
             current = totalXp ?? 0;
             target = cond.minXp;
           }

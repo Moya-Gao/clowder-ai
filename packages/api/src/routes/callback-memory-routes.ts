@@ -13,6 +13,8 @@ interface CallbackMemoryRoutesDeps {
   reflectionService: IReflectionService;
   /** F157: Growth XP service — awards insight XP on evidence usage */
   growthService?: import('../domains/cats/services/growth/GrowthService.js').GrowthService;
+  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 
 const searchEvidenceQuerySchema = callbackAuthSchema.extend({
@@ -61,7 +63,7 @@ export async function registerCallbackMemoryRoutes(
           | 'discussion',
       }));
       // F157: Award insight XP for evidence search (fire-and-forget)
-      if (results.length > 0) deps.growthService?.awardXp(record.catId, 'evidence_cite');
+      if (results.length > 0) deps.activityBus?.record('evidence_cited', record.catId);
       return { results, degraded: false };
     } catch {
       return { results: [], degraded: true, degradeReason: 'evidence_store_error' };
@@ -84,7 +86,7 @@ export async function registerCallbackMemoryRoutes(
     try {
       const reflection = await deps.reflectionService.reflect(query);
       // F157: Award insight XP for evidence-based reflection (fire-and-forget)
-      deps.growthService?.awardXp(record.catId, 'evidence_cite');
+      deps.activityBus?.record('evidence_cited', record.catId);
       return { reflection, degraded: false, dispositionMode: 'off' as const };
     } catch {
       return {

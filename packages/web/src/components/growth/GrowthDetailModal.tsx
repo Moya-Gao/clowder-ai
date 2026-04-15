@@ -58,7 +58,7 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${profile.nickname ?? profile.displayName}-growth.png`;
+      a.download = `${profile.nickname ?? profile.displayName}-journey.png`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -94,13 +94,14 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
                 className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
                 style={{ backgroundColor: primaryColor }}
               >
+                {/* Lv. maps to 历练 (Seasoning) */}
                 Lv.{overallLevel}
               </span>
             </div>
             <span className="text-xs text-cafe-muted">
               {profile.currentTitle?.label.zh ?? profile.displayName}
               {' · '}
-              {totalXp.toLocaleString()} XP
+              {totalXp.toLocaleString()} 足迹点
             </span>
           </div>
           <ExportButton exporting={exporting} error={exportError} onClick={handleExport} />
@@ -143,7 +144,7 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
                         }}
                       />
                     </div>
-                    <span className="w-16 text-right text-cafe-muted">{s.xp.toLocaleString()} XP</span>
+                    <span className="w-16 text-right text-cafe-muted">{s.xp.toLocaleString()} 足迹点</span>
                   </div>
                 );
               })}
@@ -160,7 +161,7 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
             <SkillTreePanel profile={profile} />
           </div>
 
-          {/* Phase C: Achievement wall */}
+          {/* Phase C: Moments (珍贵瞬间) wall */}
           <div className="mt-6">
             <AchievementWall memberId={profile.catId} />
           </div>
@@ -185,7 +186,7 @@ function ExportButton({
         onClick={onClick}
         disabled={exporting}
         className="rounded-lg p-1.5 transition-colors hover:bg-cafe-surface-elevated disabled:cursor-not-allowed disabled:opacity-50"
-        title="导出名片 PNG"
+        title="导出足迹名片 PNG"
       >
         {exporting ? (
           <svg

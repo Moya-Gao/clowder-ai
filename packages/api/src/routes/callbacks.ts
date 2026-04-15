@@ -87,6 +87,8 @@ export interface CallbackRoutesOptions {
   limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
   /** F157: Growth XP service — awards discussion XP on cat messages */
   growthService?: import('../domains/cats/services/growth/GrowthService.js').GrowthService;
+  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
   /** F088: Outbound delivery hook for connector-bound threads (late-bound after gateway bootstrap). */
   outboundHook?: {
     deliver(
@@ -294,6 +296,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     featIndexProvider,
     queueProcessor,
     growthService,
+    activityBus,
   } = opts;
 
   app.post('/api/callbacks/post-message', async (request, reply) => {
@@ -504,10 +507,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       ...(willEnqueueToQueue ? { deliveryStatus: 'queued' as const } : {}),
     });
 
-    // F157: Award discussion XP (fire-and-forget)
-    growthService?.awardXp(record.catId, 'discussion');
-    // AC-C6: Co-creator earns collaboration XP for triggering this interaction
-    growthService?.awardXp('co-creator', 'mention_collab');
+    // F157 Phase C: Record message_sent via activity bus (JourneyProjector handles co-creator)
+    activityBus?.record('message_sent', record.catId);
 
     // F121: Hydrate reply preview for broadcast
     const replyPreview = validatedReplyTo ? await hydrateReplyPreview(messageStore, validatedReplyTo) : undefined;
@@ -1130,8 +1131,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Buffer the block — consumed at append time in route-serial/route-parallel
     const isNew = getRichBlockBuffer().add(record.threadId, record.catId as string, resolvedBlock, invocationId);
 
-    // F157: Award aesthetics XP for rich block creation (fire-and-forget, only for new blocks)
-    if (isNew) growthService?.awardXp(record.catId, 'rich_block_create');
+    // F157 Phase C: Record rich block creation via activity bus (fire-and-forget, only for new blocks)
+    if (isNew) activityBus?.record('rich_block_created', record.catId);
 
     // Only broadcast new blocks (dedup retries at server to prevent frontend duplicates)
     if (isNew) {
@@ -1315,6 +1316,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     markerQueue: opts.markerQueue,
     reflectionService: opts.reflectionService,
     ...(growthService ? { growthService } : {}),
+    ...(activityBus ? { activityBus } : {}),
   });
 
   // F126: Limb node callback routes
@@ -1338,6 +1340,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       ...(opts.invocationQueue ? { invocationQueue: opts.invocationQueue } : {}),
       ...(queueProcessor ? { queueProcessor } : {}),
       ...(growthService ? { growthService } : {}),
+      ...(activityBus ? { activityBus } : {}),
     });
     // Wire orchestrator into SocketManager for cancel propagation (P1-1 fix)
     if (typeof socketManager.setMultiMentionOrchestrator === 'function') {

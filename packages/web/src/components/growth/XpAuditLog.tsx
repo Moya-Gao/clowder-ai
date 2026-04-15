@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * F157 AC-A5: XP Audit Log — shows recent XP events for a cat.
+ * F157 AC-A5: Footfall Audit Log — shows recent footfall (足迹点) events for a cat.
  * Renders as an expandable section within the profile card.
  */
 
@@ -97,7 +97,7 @@ export function XpAuditLog({ catId, color = '#9B7EBD', defaultOpen = false }: Pr
         >
           &#9654;
         </span>
-        <span>结算明细</span>
+        <span>足迹记录</span>
         {events.length > 0 && <span className="text-cafe-muted">({events.length})</span>}
       </button>
 
@@ -108,7 +108,7 @@ export function XpAuditLog({ catId, color = '#9B7EBD', defaultOpen = false }: Pr
           ) : fetchError ? (
             <div className="py-2 text-center text-xs text-red-400">加载失败，请稍后重试</div>
           ) : events.length === 0 ? (
-            <div className="py-2 text-center text-xs text-cafe-muted">暂无结算记录</div>
+            <div className="py-2 text-center text-xs text-cafe-muted">暂无足迹记录</div>
           ) : (
             <div className="space-y-1">
               {events.map((ev, i) => (

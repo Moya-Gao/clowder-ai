@@ -6,20 +6,26 @@ doc_kind: spec
 created: 2026-04-10
 ---
 
-# F157: Cat Growth RPG -- AI Agent Growth & Achievement System
+# F157: Cat Journey (猫猫足迹) — Activity Footprint Visualization
 
 > **Status**: spec | **Owner**: Ragdoll | **Priority**: P1
+>
+> **Naming pivot (ADR-023):** Renamed from "Cat Growth RPG". XP→足迹点,
+> Level→历练, Achievement→珍贵瞬间, Radar→特质画像. See ADR-023 for rationale.
 
 ## Why
 
-Clowder AI 的猫猫已经有持久身份、记忆和协作记录，但这些"成长"对用户是不可见的。用户无法感知自己的猫团队在变强、在积累、在进化。
+Clowder AI 的猫猫已经有持久身份、记忆和协作记录，但这些协作足迹对用户是不可见的。用户无法感知自己的猫团队在积累、在协作、在留下印记。
 
-养成 RPG 系统把猫猫的真实协作数据"结晶"成可见、可感、可分享的成长轨迹。这不是模拟数据，而是从真实 session events、task tracking、PR review 中自动结算的量化投影。
+Cat Journey 系统把猫猫的真实协作数据"结晶"成可见、可感、可分享的足迹轨迹。这不是模拟数据，而是从真实 session events、task tracking、PR review 中自动结算的量化投影。
+
+**重要区分**：Cat Journey 是活动投影/观测层（温度计），不是能力涌现层（体温）。
+真正的 Agent 成长（知识涌现、记忆沉淀）属于 F102/F152 的职责。
 
 核心价值：
-- **留存**：用户舍不得丢弃有成长数据的猫团队
-- **传播**：可分享的角色卡和成就天然驱动社交传播
-- **差异化**：没有任何 AI 平台把 agent 成长做成可见的 RPG 存档
+- **留存**：用户舍不得丢弃有丰富足迹的猫团队
+- **传播**：可分享的足迹卡和珍贵瞬间天然驱动社交传播
+- **差异化**：没有任何 AI 平台把 agent 协作足迹做成可见的存档
 
 ## What
 

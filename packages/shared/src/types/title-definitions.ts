@@ -11,7 +11,7 @@
  *   legendary — extreme achievement
  */
 
-import type { TitleDefinition } from './growth.js';
+import type { TitleDefinition } from './journey.js';
 
 export const TITLE_DEFINITIONS: readonly TitleDefinition[] = [
   // ── Common (single dimension low level) ──────────────────────────
