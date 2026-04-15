@@ -140,7 +140,7 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | wecom-cli 智能表格命令是否已上线？不支持则降级为文档内嵌表格 | ✅ 已验证：doc_type=10 创建 + smartsheet_* 字段/记录管理全可用。注意：默认子表自带"文本"字段，需先 get_fields → update_fields 重命名再 add_fields |
+| OQ-1 | wecom-cli 智能表格命令是否已上线？不支持则降级为文档内嵌表格 | ✅ 已验证：doc_type=10 创建 + smartsheet_* 字段/记录管理全可用。注意：默认子表自带"文本"字段，需先 get_fields → update_fields 重命名再 add_fields。⚠️ 追加：FIELD_TYPE_TEXT 的 record values 必须用 `[{text, type:"text"}]` 格式，裸字符串被静默丢弃（PR #1186 修复） |
 | OQ-2 | ~~面试入口~~ → Hub + 企微群双入口 | ✅ 铲屎官 2026-04-14 |
 | OQ-3 | ~~联系人~~ → 用铲屎官自己的企微账号 | ✅ 铲屎官 2026-04-14 |
 
@@ -160,6 +160,7 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 | 2026-04-14 | 立项 + ADR-029 通过 review |
 | 2026-04-15 | Day 1: wecom-cli 环境搭建 + 四命令可用性验证 + WeComActionService 骨架 — AC-A1~A4 merged (PR #1180) |
 | 2026-04-15 | Day 1 续: demo 脚本 + skill symlink — AC-A7 merged (PR #1182) + E2E golden chain 5/5 pass |
+| 2026-04-15 | Day 1 bugfix: CellTextValue 格式修复 + E2E read-back 验证 — PR #1186 merged |
 | 2026-04-16 | Day 2: runtime 同步 + 端到端串联 (AC-A5/A6) + 备录视频 (AC-A8) |
 | 2026-04-17 | Day 3: demo 打磨 + 面试 |
 
@@ -168,6 +169,7 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 - Phase A: 面试展示性质，快速迭代。自检 → 铲屎官验收 → 面试实战验证。
 - AC-A1~A4: codex review + 云端 review 通过，PR #1180 merged 2026-04-15。
 - AC-A7: 云端 review 通过，PR #1182 merged 2026-04-15。
+- CellTextValue fix: 云端 review 通过，PR #1186 merged 2026-04-15。
 
 ## 需求点 Checklist
 
