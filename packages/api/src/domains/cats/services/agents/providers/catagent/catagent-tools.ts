@@ -8,10 +8,7 @@
  * ADR-001 F159 boundary: no write/edit/delete, no shell/exec, no network tools.
  */
 
-import {
-  resolveWorkspacePath,
-  WorkspaceSecurityError,
-} from '../../../../../../domains/workspace/workspace-security.js';
+import { resolveWorkspacePath } from '../../../../../../domains/workspace/workspace-security.js';
 
 /** Anthropic tool schema shape (inline to avoid SDK dependency in this slice) */
 export interface ToolSchema {
@@ -32,20 +29,9 @@ export interface CatAgentTool {
 
 /**
  * Resolve and validate a path within the working directory.
- * Delegates to shared resolveWorkspacePath (AC-B2: single implementation).
- *
- * Translates WorkspaceSecurityError to plain Error with catagent-prefixed
- * messages so provider-internal callers don't need to import workspace types.
+ * Pure delegation to resolveWorkspacePath — no error translation,
+ * so upstream WorkspaceSecurityError propagates with stable error codes.
  */
 export async function resolveSecurePath(workingDirectory: string, filePath: string): Promise<string> {
-  try {
-    return await resolveWorkspacePath(workingDirectory, filePath);
-  } catch (e) {
-    if (e instanceof WorkspaceSecurityError) {
-      if (e.message.includes('Symlink')) throw new Error(`Symlink escape blocked: ${filePath}`);
-      if (e.code === 'TRAVERSAL') throw new Error(`Path traversal blocked: ${filePath}`);
-      if (e.code === 'DENIED') throw new Error(`Access denied: ${filePath}`);
-    }
-    throw e;
-  }
+  return resolveWorkspacePath(workingDirectory, filePath);
 }

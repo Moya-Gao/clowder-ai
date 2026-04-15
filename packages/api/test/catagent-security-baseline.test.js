@@ -14,11 +14,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-// ── Credentials (account-binding fail-closed) ──
-
 const { resolveApiCredentials } = await import(
   '../dist/domains/cats/services/agents/providers/catagent/catagent-credentials.js'
 );
+
+// ── Credentials (account-binding fail-closed) ──
 
 test('resolveApiCredentials returns null when catConfig is null', () => {
   const result = resolveApiCredentials('/tmp', 'opus', null);
@@ -31,13 +31,11 @@ test('resolveApiCredentials returns null when catConfig has no accountRef', () =
 });
 
 test('resolveApiCredentials returns null when bound account does not resolve', () => {
-  // Use a fake accountRef that won't exist in any catalog
   const result = resolveApiCredentials('/tmp', 'opus', { accountRef: 'nonexistent-account-xyz' });
   assert.equal(result, null, 'should return null for unresolvable bound account');
 });
 
 test('resolveApiCredentials ignores env var — only bound account is authoritative', () => {
-  // Even with env var set, resolver must not use it (AC-B1: single source of truth)
   process.env.CATAGENT_ANTHROPIC_API_KEY = 'sk-ant-should-be-ignored';
   try {
     const result = resolveApiCredentials('/tmp', 'opus', null);
@@ -47,13 +45,27 @@ test('resolveApiCredentials ignores env var — only bound account is authoritat
   }
 });
 
-test('resolveApiCredentials does not scan credentials.json as fallback', () => {
-  // Empty accountRef should fail closed, not scan for any key
-  const result = resolveApiCredentials('/tmp', 'opus', { accountRef: '' });
-  assert.equal(result, null, 'should not fallback to credential scanning');
+test('resolveApiCredentials does not scan credentials.json even when key exists nearby', () => {
+  // Seed a real credential file so a wildcard scanner would find it
+  const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-cred-')));
+  const configDir = join(tmpDir, '.cat-cafe');
+  mkdirSync(configDir, { recursive: true });
+  writeFileSync(
+    join(configDir, 'credentials.json'),
+    JSON.stringify({ 'stray-anthropic-key': { apiKey: 'sk-ant-scannable-key' } }),
+    { mode: 0o600 },
+  );
+  try {
+    // Empty accountRef with a scannable key on disk — must still fail closed
+    const result = resolveApiCredentials(tmpDir, 'opus', { accountRef: '' });
+    assert.equal(result, null, 'should not fallback to credential scanning even with key on disk');
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 // ── Sandbox (delegates to shared resolveWorkspacePath) ──
+// Error patterns match upstream WorkspaceSecurityError directly (no translation layer).
 
 const { resolveSecurePath } = await import('../dist/domains/cats/services/agents/providers/catagent/catagent-tools.js');
 
@@ -71,7 +83,7 @@ test('resolveSecurePath allows paths within working directory', async () => {
 test('resolveSecurePath blocks ../etc/passwd traversal', async () => {
   const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
   try {
-    await assert.rejects(() => resolveSecurePath(tmpDir, '../../../etc/passwd'), /Path traversal blocked/);
+    await assert.rejects(() => resolveSecurePath(tmpDir, '../../../etc/passwd'), /Path outside workspace root/);
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -85,7 +97,7 @@ test('resolveSecurePath blocks sibling prefix traversal', async () => {
   try {
     await assert.rejects(
       () => resolveSecurePath(tmpDir, `../${tmpDir.split('/').pop()}2/secret.txt`),
-      /Path traversal blocked/,
+      /Path outside workspace root/,
     );
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
@@ -99,7 +111,7 @@ test('resolveSecurePath blocks symlink escape', async () => {
   writeFileSync(join(outsideDir, 'secret.txt'), 'leaked');
   try {
     symlinkSync(outsideDir, join(tmpDir, 'escape-link'));
-    await assert.rejects(() => resolveSecurePath(tmpDir, 'escape-link/secret.txt'), /Symlink escape blocked/);
+    await assert.rejects(() => resolveSecurePath(tmpDir, 'escape-link/secret.txt'), /Symlink escapes workspace root/);
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
     rmSync(outsideDir, { recursive: true, force: true });
@@ -113,7 +125,7 @@ test('resolveSecurePath blocks symlink to file outside workspace', async () => {
   writeFileSync(secretFile, 'leaked');
   try {
     symlinkSync(secretFile, join(tmpDir, 'escape-file'));
-    await assert.rejects(() => resolveSecurePath(tmpDir, 'escape-file'), /Symlink escape blocked/);
+    await assert.rejects(() => resolveSecurePath(tmpDir, 'escape-file'), /Symlink escapes workspace root/);
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
     rmSync(outsideDir, { recursive: true, force: true });
