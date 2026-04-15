@@ -488,7 +488,20 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 
 ## Known Bugs（活跃）
 
-（当前无活跃 bug。Layer 2 RUNNING heartbeat / Layer 3 stall error dedupe 为增强项，非 bug。）
+### Bug-7: Invalid tool call 无诊断 + 双红条重复展示
+
+**现象**（2026-04-15 铲屎官报告）：孟加拉猫在 F160 线程执行任务时，直接报 `The model produced an invalid tool call.`，且**同一条红错出现两次**。
+
+**根因**（2 层）：
+1. **诊断缺失** — transformer 只产出人类可读的 `userErrorMessage`，没有把 `modelErrorMessage` / step type / tool name / payload 写入服务端日志。缺乏定位 invalid tool call 具体原因的证据
+2. **同 batch 去重缺失** — 同一个 batch 内如果 LS 连发两个 `CORTEX_STEP_TYPE_ERROR_MESSAGE`，service 层会把两条都 yield 给前端（`fatalSeen` 在 batch 结束后才退出循环），导致用户看到双红条
+
+**与 stall/approval 的关系**：完全不同的失败类型。这次是模型生成了非法 tool call payload，根本没到工具执行阶段，更没到审批链。
+
+**修复计划**：
+- P1：补 `upstream_error` 的服务端诊断日志（step type / tool name / modelErrorMessage / 本轮 tool_use 计数）
+- P2：同 batch 内 `upstream_error` 去重（只 yield 第一条，后续同类 error 合并到日志）
+- 自动重试单开下一张票（需要日志证据确认 invalid tool call 发生时确实无 side effect）
 
 ## Known Bugs（已修复）
 
