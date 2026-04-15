@@ -173,7 +173,7 @@ describe('G4: activity signals via system_info', () => {
 // ── G10: Model Capacity Classification ───────────────────────────
 
 describe('G10: model_capacity error classification', () => {
-  test('ERROR_MESSAGE with "high traffic" → errorCode model_capacity', () => {
+  test('ERROR_MESSAGE with "high traffic" → provider_signal warning + model_capacity error', () => {
     const steps = [
       {
         type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
@@ -186,12 +186,27 @@ describe('G10: model_capacity error classification', () => {
       },
     ];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
+
+    // Must emit provider_signal BEFORE error
+    const warnMsg = msgs.find((m) => m.type === 'provider_signal');
+    assert.ok(warnMsg, 'should emit provider_signal warning for capacity error');
+    const warnContent = JSON.parse(warnMsg.content);
+    assert.equal(warnContent.type, 'warning');
+    assert.match(warnContent.message, /上游模型服务端繁忙/);
+
+    // Error must have model_capacity code and attribution text
     const errMsg = msgs.find((m) => m.type === 'error');
     assert.ok(errMsg, 'should emit error');
-    assert.equal(errMsg.errorCode, 'model_capacity', 'high traffic must be classified as model_capacity');
+    assert.equal(errMsg.errorCode, 'model_capacity');
+    assert.match(errMsg.error, /非 Cat Café/);
+
+    // Warning must come before error
+    const warnIdx = msgs.indexOf(warnMsg);
+    const errIdx = msgs.indexOf(errMsg);
+    assert.ok(warnIdx < errIdx, 'provider_signal must precede error');
   });
 
-  test('ERROR_MESSAGE with "rate limit" → errorCode model_capacity', () => {
+  test('ERROR_MESSAGE with "rate limit" → provider_signal + model_capacity', () => {
     const steps = [
       {
         type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
@@ -200,9 +215,12 @@ describe('G10: model_capacity error classification', () => {
       },
     ];
     const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const warnMsg = msgs.find((m) => m.type === 'provider_signal');
+    assert.ok(warnMsg, 'should emit provider_signal for rate limit');
     const errMsg = msgs.find((m) => m.type === 'error');
     assert.ok(errMsg);
     assert.equal(errMsg.errorCode, 'model_capacity');
+    assert.match(errMsg.error, /非 Cat Café/);
   });
 
   test('ERROR_MESSAGE with non-capacity error → errorCode upstream_error (unchanged)', () => {

@@ -154,8 +154,8 @@ export function transformTrajectorySteps(
           });
         } else if (step.type === 'CORTEX_STEP_TYPE_ERROR_MESSAGE' && step.errorMessage?.error) {
           const err = step.errorMessage.error;
-          const errorText = err.userErrorMessage || err.modelErrorMessage || 'Unknown Antigravity error';
-          const errorCode = isCapacityError(errorText) ? 'model_capacity' : 'upstream_error';
+          const rawText = err.userErrorMessage || err.modelErrorMessage || 'Unknown Antigravity error';
+          const errorCode = isCapacityError(rawText) ? 'model_capacity' : 'upstream_error';
           log.warn(
             '%s: user=%s model=%s stepType=%s',
             errorCode,
@@ -163,6 +163,22 @@ export function transformTrajectorySteps(
             err.modelErrorMessage,
             step.type,
           );
+          if (errorCode === 'model_capacity') {
+            messages.push({
+              type: 'provider_signal',
+              catId,
+              content: JSON.stringify({
+                type: 'warning',
+                message: `上游模型服务端繁忙（容量不足），非 Cat Café 系统故障。(${rawText.slice(0, 100)})`,
+              }),
+              metadata,
+              timestamp: Date.now(),
+            });
+          }
+          const errorText =
+            errorCode === 'model_capacity'
+              ? `⚠️ 上游模型服务端容量不足（服务器繁忙），非 Cat Café 系统故障。原始信息：${rawText}`
+              : rawText;
           messages.push({
             type: 'error',
             catId,
