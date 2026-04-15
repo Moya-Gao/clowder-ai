@@ -348,6 +348,8 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
 
   const handleSelect = useCallback(
     (threadId: string) => {
+      // Always clear unread badge — user clicking the thread = "I've seen it"
+      useChatStore.getState().clearUnread(threadId);
       if (threadId === currentThreadId) return;
       // Let the new thread restore projectPath after the route switch.
       // Pre-navigation global store writes can stall SPA thread navigation.
