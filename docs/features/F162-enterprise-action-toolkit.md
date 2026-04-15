@@ -110,10 +110,10 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 
 ### Phase A（WeCom Golden Chain Showcase）
 
-- [ ] AC-A1: `wecom-cli` 安装配置完成，基本命令可在本机执行
-- [ ] AC-A2: WeComActionService 实现 `createDoc` / `createSmartTable` / `createTodo` / `createMeeting` 四个方法
-- [ ] AC-A3: 每个方法有 audit log 记录（谁调了什么、参数、结果）
-- [ ] AC-A4: callback route `/api/callbacks/wecom-action` 可被猫调用
+- [x] AC-A1: `wecom-cli` 安装配置完成，基本命令可在本机执行（v0.1.5, 四命令全通）
+- [x] AC-A2: WeComActionService 实现 `createDoc` / `createSmartTable` / `createTodo` / `createMeeting` 四个方法
+- [x] AC-A3: 每个方法有 audit log 记录（谁调了什么、参数、结果）
+- [x] AC-A4: callback route `/api/callbacks/wecom-action` 可被猫调用
 - [ ] AC-A5: 端到端：一句话 → 文档 + 表格 + 待办 + 会议 → 链接回贴
 - [ ] AC-A6: 企微 App 中可看到猫创建的文档/表格/待办/会议
 - [ ] AC-A7: 面试 demo 脚本编写完成，可在 60 秒内完成展示
@@ -140,7 +140,7 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | wecom-cli 智能表格命令是否已上线？不支持则降级为文档内嵌表格 | ⬜ Day 1 验证 |
+| OQ-1 | wecom-cli 智能表格命令是否已上线？不支持则降级为文档内嵌表格 | ✅ 已验证：doc_type=10 创建 + smartsheet_* 字段/记录管理全可用。注意：默认子表自带"文本"字段，需先 get_fields → update_fields 重命名再 add_fields |
 | OQ-2 | ~~面试入口~~ → Hub + 企微群双入口 | ✅ 铲屎官 2026-04-14 |
 | OQ-3 | ~~联系人~~ → 用铲屎官自己的企微账号 | ✅ 铲屎官 2026-04-14 |
 
@@ -171,10 +171,10 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 
 | 需求点 | 来源 | 状态 |
 |--------|------|------|
-| 企微文档创建 | 铲屎官 2026-04-14 | ⬜ |
-| 企微智能表格创建 | 铲屎官 2026-04-14 | ⬜ |
-| 企微待办分发 | 砚砚(GPT-5.4) 黄金链路提案 | ⬜ |
-| 企微会议创建 | 铲屎官 "meeting 才够打" | ⬜ |
+| 企微文档创建 | 铲屎官 2026-04-14 | ✅ CLI 验证 + ActionService 实现 |
+| 企微智能表格创建 | 铲屎官 2026-04-14 | ✅ CLI 验证 + 默认字段处理 |
+| 企微待办分发 | 砚砚(GPT-5.4) 黄金链路提案 | ✅ CLI 验证 + follower_id 字段修正 |
+| 企微会议创建 | 铲屎官 "meeting 才够打" | ✅ CLI 验证 + 会议链接获取 |
 | 结果链接回贴群聊 | 砚砚(GPT-5.4) 黄金链路提案 | ⬜ |
 | 面试 demo 脚本 | 铲屎官 deadline 需求 | ⬜ |
 | 备录视频 fallback | 风险缓解 | ⬜ |
