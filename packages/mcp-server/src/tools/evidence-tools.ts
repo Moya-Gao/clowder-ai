@@ -96,16 +96,22 @@ export async function handleSearchEvidence(input: {
       }>;
       degraded: boolean;
       degradeReason?: string;
+      effectiveMode?: 'lexical' | 'semantic' | 'hybrid';
     };
 
+    const degradedBanner = formatDegradedBanner(data.degraded, data.degradeReason, data.effectiveMode);
+
     if (data.results.length === 0) {
-      const prefix = data.degraded ? '[DEGRADED] ' : '';
-      return successResult(`${prefix}No results found for: ${input.query}`);
+      return successResult(
+        degradedBanner
+          ? `${degradedBanner}\n\nNo results found for: ${input.query}`
+          : `No results found for: ${input.query}`,
+      );
     }
 
     const lines: string[] = [];
-    if (data.degraded) {
-      lines.push('[DEGRADED] Evidence store error — results may be incomplete');
+    if (degradedBanner) {
+      lines.push(degradedBanner);
       lines.push('');
     }
 
@@ -144,6 +150,19 @@ export async function handleSearchEvidence(input: {
     const message = err instanceof Error ? err.message : String(err);
     return errorResult(`Evidence search request failed: ${message}`);
   }
+}
+
+function formatDegradedBanner(
+  degraded: boolean,
+  degradeReason?: string,
+  effectiveMode?: 'lexical' | 'semantic' | 'hybrid',
+): string | null {
+  if (!degraded) return null;
+  if (degradeReason === 'raw_lexical_only') {
+    const modeNote = effectiveMode ? ` (effectiveMode=${effectiveMode})` : '';
+    return `[DEGRADED] depth=raw currently uses lexical retrieval only${modeNote}`;
+  }
+  return '[DEGRADED] Evidence store error — results may be incomplete';
 }
 
 export const evidenceTools = [
