@@ -116,6 +116,8 @@ pptxgenjs 原生对象输出 (文字可编辑、图表可编辑、字体嵌入)
 deck.pptx
 ```
 
+> **Spec Reconciliation（2026-04-14）**：KD-16 / KD-17 落定后，**Phase B 不再是默认产品路径**，而是保留为可复用的编译基础设施。核心页面创作走 **Phase D（AI 直接画 HTML）**，diagram/复杂结构 fallback 走 **Phase C（SVG→shapes）**。因此 B3/B5/B6 不再作为 feature 完成的阻塞项，B4/B7 保留为跨 Phase 能力项。
+
 **五条硬边界**（砚砚定义，不可退让）：
 1. `layout-engine` — Playwright 做确定性布局求值（固定 viewport 1280×720 / 字体 / 样式）
 2. `semantic-compiler` — 按 `data-ppt-role` 编译为原生 pptxgenjs 对象，不做像素级截图
@@ -123,12 +125,11 @@ deck.pptx
 4. `font-embed` — 字体嵌入能力并入导出链
 5. `browser-backend` — 生产链只用 Playwright（可重复、可测试），其他浏览器能力用于调研/采样
 
-**Phase B 交付项**：
-1. `html-layout-compiler` 子模块 — Blueprint → HTML+CSS → DOM 坐标 → pptxgenjs 调用
-2. 全量 renderer 迁移 — 现有 5 个 renderer (text/chart/table/kpi/diagram) 改为吃 compiler output
-3. 字体嵌入 — 借鉴对方 dom-to-pptx 的 opentype.js + fonteditor-core 方案
-4. Skill 化 — 铲屎官一句话触发全流程
-5. 企业风格模板库 — nvidia-like/IBM/Apple（HTML+Tailwind 模板，比 JSON token 表达力强 10 倍）
+**Phase B 保留交付项（经 2026-04-14 对账后）**：
+1. `html-layout-compiler` 子模块 — Blueprint → HTML+CSS → DOM 坐标 → pptxgenjs 调用（B1/B2，已完成）
+2. 字体嵌入 — 借鉴对方 dom-to-pptx 的 opentype.js + fonteditor-core 方案（B4，仍保留）
+3. 企业风格模板库 — ≥3 种 HTML+Tailwind authoring kit，服务 D 路径而非 compiler-only 路径（B7，仍保留）
+4. **不再单独推进**：全量 renderer 迁移 / compiler-only 视觉验收 / compiler-only skill 化，已并入 Phase D 主路径或 Phase C fallback
 
 ### Phase C: SVG 渲染后端 — 确定性 SVG 编译器
 
@@ -271,20 +272,20 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 - [x] AC-A5: Style 层产出 `theme.tokens.json`，Design Token 三层体系（品牌→语义→Slide Master）
 - [x] AC-A6: Export 层产出原生 .pptx，文字可编辑、可搜索、布局无溢出
 - [x] AC-A7: 企业风格模板（**huawei-like**）可用，信息密度达到华为参考图水平 — 单页 52 boxes（≥50 门槛），`countBoxes()` 自动统计，砚砚复审通过
-- [ ] AC-A8: 五道门禁全部嵌入管线（Research/Narrative/Blueprint/Export/Vision Gate）
+- [ ] AC-A8: 五道门禁全部嵌入管线（Research/Narrative/Blueprint/Export 已有；**Vision Gate 仍未收进统一执行链**）
 - [x] AC-A9: 密排状态矩阵表格 — 单元格级颜色编码，可编辑
 - [x] AC-A10: （Level 2 stretch / non-blocking）嵌套盒子架构图 — nested-box renderer，只矩形/圆角矩形/侧栏标签，最大 3 层，输入必须是树不是图，不做 connector/自动布线
 - [x] AC-A11: CJK 图表字体 POC 通过（release-gate P1，不过则收紧支持矩阵）
 - [ ] AC-A12: 生成的 .pptx 在 PPT 365 Win/Mac 打开无 repair 弹窗 — **BLOCKED(owner: @lysander, action: 用 PPT 365 打开 ~/Desktop/cat-cafe-architecture.pptx 验证无 repair)**
 
-### Phase B（HTML Layout Compiler — 终态渲染引擎）
+### Phase B（HTML Layout Compiler — 共享编译基础设施，见 KD-19）
 - [x] AC-B1: `html-layout-compiler` 子模块可用 — Blueprint → HTML+Tailwind → Playwright 布局求值 → DOM 坐标提取
 - [x] AC-B2: DOM Semantic Compiler — `data-ppt-role` 标注 → pptxgenjs 原生对象（text/table/chart/shape/group），零截图
-- [ ] AC-B3: 5 个 renderer（text/chart/table/kpi/diagram）全部迁移为吃 compiler output，手算坐标代码清零
+- [x] AC-B3: ~~5 个 renderer（text/chart/table/kpi/diagram）全部迁移为吃 compiler output，手算坐标代码清零~~ → **Superseded by KD-16/KD-17**：核心页面默认走 D 路径（AI 直接画 HTML），diagram 走 Phase C SVG fallback，不再追求“所有页面都经 compiler-output renderer 迁移”
 - [ ] AC-B4: 字体嵌入 — opentype.js 解析 + fonteditor-core 子集化，嵌入 .pptx 的 `ppt/fonts/`
-- [ ] AC-B5: 华为级复杂布局视觉验收 — 同一 Blueprint 对比 Phase A vs Phase B 渲染，Phase B 视觉品质 ≥ 对手 pptx-craft
-- [ ] AC-B6: Skill 化 — 铲屎官一句话触发全流程（research → storyline → blueprint → HTML → compile → .pptx）
-- [ ] AC-B7: ≥3 种企业风格 HTML+Tailwind 模板可用（huawei-like/nvidia-like/Apple）
+- [x] AC-B5: ~~华为级复杂布局视觉验收 — 同一 Blueprint 对比 Phase A vs Phase B 渲染，Phase B 视觉品质 ≥ 对手 pptx-craft~~ → **Superseded by AC-D6**：视觉验收对象已改为 AI 直画 HTML 的主路径页面，而不是 compiler-only 输出
+- [x] AC-B6: ~~Skill 化 — 铲屎官一句话触发全流程（research → storyline → blueprint → HTML → compile → .pptx）~~ → **Superseded by AC-D7**：一键触发现在指向 Research → Narrative → AI 画 HTML → Playwright → PPTX 的主路径
+- [ ] AC-B7: ≥3 种企业风格 HTML+Tailwind 模板可用（huawei-like/nvidia-like/Apple）— **保留需求，但已从 compiler blocker 改为 D 路径 authoring kit backlog**
 
 ### Phase C（SVG 渲染后端 — 确定性 SVG 编译器）
 - [x] AC-C1: TS SVG 编译器 — DiagramElement → 确定性 1280×720 SVG string（含 CJK 字宽预设表）
@@ -302,6 +303,30 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 - [ ] AC-D5: 垂直切片验证 — 1 页高密页走完 HTML→截图→density 报告→PPTX 全链路。输入六件套（品牌/受众/页型/观看模式/页目的/证据源），输出四件套（HTML/截图/density/PPTX）。砚砚 D1 结构审 + 烁烁 D2 美学审
 - [ ] AC-D6: 华为级视觉验收 — 铲屎官确认"一两页讲清楚重点"，信息密度达华为参考图水平，运用密度填充技巧（SmartArt/多区块混排/极小间距/全版面利用）
 - [ ] AC-D7: 集成进管线 — Research → Narrative → AI 画 HTML → Playwright → dom-to-pptx → .pptx，铲屎官一句话触发
+
+## Phase B Reconciliation（2026-04-14）
+
+| AC | 结论 | 说明 |
+|----|------|------|
+| AC-B1 | ✅ 已完成 | 仍是 D 路径 / C 路径共用基础设施 |
+| AC-B2 | ✅ 已完成 | 仍是 D 路径 / C 路径共用基础设施 |
+| AC-B3 | ✅ 关闭（Superseded） | 被 KD-16/KD-17 改写：不再要求“所有页面都经 compiler-output renderer 迁移” |
+| AC-B4 | ⏳ 保留 | 字体嵌入仍是跨平台保真能力，继续保留为真实剩余项 |
+| AC-B5 | ✅ 关闭（Superseded） | 视觉验收职责迁移到 AC-D6（AI 直画 HTML 主路径） |
+| AC-B6 | ✅ 关闭（Superseded） | 一句话触发职责迁移到 AC-D7（端到端主路径集成） |
+| AC-B7 | ⏳ 保留（重定义） | 仍需要 ≥3 套企业风格模板，但现在是 D 路径 authoring kit，不是 compiler-only blocker |
+
+## Unified Remaining Checklist（2026-04-14）
+
+| 类别 | 剩余项 | 对应 AC | 状态 | 说明 |
+|------|--------|---------|------|------|
+| 主路径 | 垂直切片签收 | AC-D5 | 进行中 | 一页高密页 HTML→截图→density→PPTX 已有实现与 contract，仍缺 feature-level 收尾签收 |
+| 主路径 | 华为级视觉验收 | AC-D6 | 待做 | 这是当前默认产品路径的真正验收门 |
+| 主路径 | 一句话触发全流程 | AC-D7 | 待做 | 这条承接了旧 AC-B6 的“一键触发”诉求 |
+| 共享能力 | 字体嵌入 | AC-B4 | 待做 | 同时服务 D 路径导出保真与 C 路径 SVG 文字保真 |
+| 共享能力 | 企业风格 authoring kit ≥3 | AC-B7 | 待做 | 保留需求，但执行口径改为 D 路径 HTML+Tailwind 模板库 |
+| 共享能力 | Vision Gate 并入统一 gate chain | AC-A8 | 待做 | Research/Narrative/Blueprint/Export 已有，Vision Gate 仍未收进统一执行链 |
+| 外部阻塞 | PPT 365 repair 验证 | AC-A12 | BLOCKED on @lysander | 需要用真实 PPT 365 Win/Mac 打开产物验收 |
 
 ## Dependencies
 
@@ -367,6 +392,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | KD-16 | **Phase D 方向转变：AI 猫猫直接画 HTML，不靠确定性编译器排版** | 铲屎官拍板：确定性编译器/规则自动生成布局效果不够好，密度不够华为级。学习 pptx-craft 的 "AI 直接写 HTML+CSS" 路线——让猫猫（Opus）直接画布局，而不是用算法算。Phase C SVG 编译器保留为 diagram fallback。核心差异化：我们的 research pipeline（deep-research + 多猫讨论）内容质量碾压对方 web fetch，配合 AI 画 HTML 实现"高质量内容 × 高密度布局" | 2026-04-03 |
 | KD-17 | **默认主路径：AI 猫猫画 HTML 是唯一创作路径** | 编译器（Phase B/C）不替猫猫做版式决策。猫猫拿 storyline + theme tokens 直接画 1280×720 HTML+CSS。编译器降级为基础设施：只负责 HTML→可编辑 PPTX 的转换 + 密度/溢出门禁检测。chart/table/KPI 保留语义 emitter（原生可编辑对象），但版式由猫猫在 HTML 中决定。猫猫画的 D4 华为高密战略页密度远超编译器自动布局，铲屎官直接确认。宪宪+砚砚共识 | 2026-04-05 |
 | KD-18 | **D4 对比口径：密度结论有效，baseline 是模拟非实测** | AC-D4 的 4.1% vs 43.9% 白空间对比有效证明方向正确，但 pptx-craft baseline 是竞品报告模拟生成、非实际 pptx-craft 跑出来的。后续需对方实际输出作为对拍基准集。不影响 Phase D 默认路径决策 | 2026-04-05 |
+| KD-19 | **Phase B 角色重定义：从“终态主路径”降级为“共享编译基础设施”** | KD-16/KD-17 落定后，Phase B 不再拥有核心页面创作权。B1/B2 保留为基础设施，B3/B5/B6 关闭为 superseded，B4/B7 保留为跨 Phase 能力 backlog。以后判断 F144 剩余工作，以 D5/D6/D7 + B4/B7 + A8/A12 为准 | 2026-04-14 |
 
 ## Timeline
 
@@ -397,6 +423,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-14 | **relay-claw pptx-craft 学习落地** — 铲屎官看到 GLM5.1 出品 PPT 超强，要求学习 relay-claw skills 更新。三份成果：(1) `ppt-css-whitelist.md` 新建（designer↔converter CSS 合约）(2) `ppt-density-playbook.md` 升级（ECharts 为第 9 种填充手段 + 量化门禁标注）(3) `ppt-slide-authoring.md` 升级（弹性布局约束 + ECharts 指南 + 密度补充循环）。砚砚两轮 review 放行（R1: 3 P1/P2 + 2 noise; R2: 1 P2 + 1 consistency 全收口）。converter 新增 `.ppt-slide` fallback selector |
 | 2026-04-14 | **Phase C 收敛启动** — 铲屎官指示收敛 AC-C3/C4/C5/C6 四个剩余 AC |
 | 2026-04-14 | **Phase C 收敛 merged** (PR #1166) — svg-sanitizer.ts (AC-C4 安全白名单) + svg-direct.ts (AC-C6 AI-direct SVG path) + phase-c-comparison.test.ts (AC-C3 V1 vs Phase C 对比) + svg-perf.test.ts (AC-C5 性能 gate)。239 tests。砚砚 3 轮 review 放行 (2P1+1P2+1P1 全闭环) + 云端 R1 1P2 修复后 R2 clean |
+| 2026-04-14 | **Spec reconciliation after KD-16/KD-17** — 按当前实现与决策对账：B3/B5/B6 标记为 superseded；B4/B7 保留；真正剩余项收敛为 D5/D6/D7 + B4/B7 + A8/A12，一张表可读，不再靠 thread 口头同步 |
 
 ## Review Gate
 
