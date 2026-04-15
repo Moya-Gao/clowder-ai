@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { useChatStore } from '@/stores/chatStore';
 import { ExportButton } from './ExportButton';
 import { HubButton } from './HubButton';
@@ -36,6 +35,8 @@ export function ChatContainerHeader({
   onToggleStatusPanel,
   defaultCatId,
 }: ChatContainerHeaderProps) {
+  const signalInboxHref = `/signals?from=${encodeURIComponent(threadId)}`;
+
   return (
     <header className="border-b border-cocreator-light bg-cocreator-bg safe-area-top">
       <div className="px-5 py-3 flex items-center gap-2">
@@ -66,8 +67,11 @@ export function ChatContainerHeader({
         </div>
         <ExportButton threadId={threadId} />
         <VoiceCompanionButton threadId={threadId} defaultCatId={defaultCatId} />
-        <Link
-          href={`/signals?from=${encodeURIComponent(threadId)}`}
+        <button
+          type="button"
+          onClick={() => {
+            window.location.assign(signalInboxHref);
+          }}
           className="p-1 rounded-lg hover:bg-cocreator-light transition-colors"
           title="Signal Inbox"
           aria-label="Signal Inbox"
@@ -79,7 +83,7 @@ export function ChatContainerHeader({
               clipRule="evenodd"
             />
           </svg>
-        </Link>
+        </button>
         {authPendingCount > 0 && (
           <span
             className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse-subtle"
