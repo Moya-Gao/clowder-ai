@@ -23,6 +23,17 @@ import type { SqliteEvidenceStore } from './SqliteEvidenceStore.js';
 import { SIGNAL_FLAGS } from './summary-config.js';
 import type { VectorStore } from './VectorStore.js';
 
+/**
+ * Bump when scanner extraction logic changes (e.g., new fields derived from
+ * the same source files). A version mismatch triggers an automatic full
+ * re-index on the next rebuild(), so users only need to restart the API.
+ *
+ * History:
+ *   1 — initial (implicit, pre-versioning)
+ *   2 — CatCafeScanner: section headings → keywords (PR #1179)
+ */
+export const INDEXING_VERSION = 2;
+
 /** Higher number = higher priority for anchor ownership */
 const KIND_PRIORITY: Record<EvidenceKind, number> = {
   feature: 4,
@@ -153,10 +164,38 @@ export class IndexBuilder implements IIndexBuilder {
     }
   }
 
+  /** Returns true when scanner logic has changed since last index build. */
+  private hasIndexingVersionChanged(): boolean {
+    try {
+      const db = this.store.getDb();
+      const row = db.prepare("SELECT value FROM embedding_meta WHERE key = 'indexing_version'").get() as
+        | { value: string }
+        | undefined;
+      return row?.value !== String(INDEXING_VERSION);
+    } catch {
+      return true; // table missing or error → treat as version mismatch
+    }
+  }
+
+  private storeIndexingVersion(): void {
+    try {
+      const db = this.store.getDb();
+      db.prepare("INSERT OR REPLACE INTO embedding_meta (key, value) VALUES ('indexing_version', ?)").run(
+        String(INDEXING_VERSION),
+      );
+    } catch {
+      // fail-open: version not persisted → next restart will re-index (safe)
+    }
+  }
+
   async rebuild(options?: { force?: boolean }): Promise<RebuildResult> {
     const start = Date.now();
     let indexed = 0;
     let skipped = 0;
+
+    // Auto-force when scanner logic has changed since last rebuild
+    const versionChanged = this.hasIndexingVersionChanged();
+    const effectiveForce = options?.force || versionChanged;
 
     // F152 Phase A: delegate to pluggable scanner (KD-5)
     const scannedItems = this.scanner.discover(this.scanRoot, this.buildScanOptions());
@@ -177,9 +216,9 @@ export class IndexBuilder implements IIndexBuilder {
 
       currentAnchors.add(item.anchor);
 
-      // Skip if hash unchanged AND provenance already populated (unless force)
+      // Skip if hash unchanged AND provenance already populated (unless force/version bump)
       // P1-2 fix: don't skip when existing doc lacks provenance but new scan provides it
-      if (!options?.force) {
+      if (!effectiveForce) {
         const existing = await this.store.getByAnchor(item.anchor);
         if (existing?.sourceHash === item.sourceHash) {
           const needsProvenanceBackfill = !existing?.provenance?.tier && item.provenance?.tier;
@@ -348,6 +387,9 @@ export class IndexBuilder implements IIndexBuilder {
 
     // Phase C: generate embeddings for indexed items
     await this.embedIndexedItems(indexedItems);
+
+    // Persist current indexing version so next startup can detect changes
+    this.storeIndexingVersion();
 
     return { docsIndexed: indexed, docsSkipped: skipped, durationMs: Date.now() - start };
   }

@@ -1953,3 +1953,86 @@ describe('F152 Phase A: Provenance', () => {
     assert.equal(item.provenance, undefined);
   });
 });
+
+// ── Indexing version auto-rebuild ─────────────────────────────────────
+describe('IndexBuilder indexing version auto-rebuild', () => {
+  let tmpDir;
+  let docsDir;
+  let store;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `f102-ver-${randomUUID().slice(0, 8)}`);
+    docsDir = join(tmpDir, 'docs');
+    mkdirSync(join(docsDir, 'features'), { recursive: true });
+
+    const { SqliteEvidenceStore } = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
+    store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+  });
+
+  afterEach(() => {
+    store.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('re-indexes unchanged files when INDEXING_VERSION increases', async () => {
+    const { IndexBuilder, INDEXING_VERSION } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    writeFileSync(
+      join(docsDir, 'features', 'F001.md'),
+      `---
+feature_ids: [F001]
+doc_kind: spec
+---
+
+# F001: Test Feature
+
+## Section Alpha
+Content here.
+`,
+    );
+
+    const builder = new IndexBuilder(store, docsDir);
+
+    // First rebuild — indexes file and stores version
+    const r1 = await builder.rebuild();
+    assert.equal(r1.docsIndexed, 1);
+
+    // Second rebuild — file unchanged, should skip
+    const r2 = await builder.rebuild();
+    assert.equal(r2.docsSkipped, 1, 'same version + same hash → skip');
+
+    // Simulate version bump by writing a lower version into embedding_meta
+    const db = store.getDb();
+    db.prepare("INSERT OR REPLACE INTO embedding_meta (key, value) VALUES ('indexing_version', ?)").run(
+      String(INDEXING_VERSION - 1),
+    );
+
+    // Third rebuild — version mismatch should force re-index
+    const r3 = await builder.rebuild();
+    assert.equal(r3.docsIndexed, 1, 'version mismatch → force re-index despite same hash');
+  });
+
+  it('stores INDEXING_VERSION after successful rebuild', async () => {
+    const { IndexBuilder, INDEXING_VERSION } = await import('../../dist/domains/memory/IndexBuilder.js');
+
+    writeFileSync(
+      join(docsDir, 'features', 'F001.md'),
+      `---
+feature_ids: [F001]
+doc_kind: spec
+---
+
+# F001: Test
+`,
+    );
+
+    const builder = new IndexBuilder(store, docsDir);
+    await builder.rebuild();
+
+    const db = store.getDb();
+    const row = db.prepare("SELECT value FROM embedding_meta WHERE key = 'indexing_version'").get();
+    assert.ok(row, 'indexing_version should be stored in embedding_meta');
+    assert.equal(row.value, String(INDEXING_VERSION), 'stored version should match current INDEXING_VERSION');
+  });
+});
