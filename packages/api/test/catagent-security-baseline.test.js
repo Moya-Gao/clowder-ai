@@ -1,9 +1,11 @@
 /**
- * CatAgent Security Baseline Tests — F159
+ * CatAgent Security Baseline Tests — F159 Phase B
  *
  * Tests for the two security hard gates:
  * 1. Account-binding fail-closed credential resolution
- * 2. Symlink-safe sandbox (fs.realpath double-check)
+ * 2. Symlink-safe sandbox (delegates to resolveWorkspacePath)
+ *
+ * Tool registry tests (read_file / list_files / search_content) ship in Phase D.
  */
 
 import assert from 'node:assert/strict';
@@ -56,11 +58,9 @@ test('resolveApiCredentials does not scan credentials.json as fallback', () => {
   assert.equal(result, null, 'should not fallback to credential scanning');
 });
 
-// ── Sandbox (symlink-safe path validation) ──
+// ── Sandbox (delegates to shared resolveWorkspacePath) ──
 
-const { resolveSecurePath, createToolRegistry, getToolSchemas } = await import(
-  '../dist/domains/cats/services/agents/providers/catagent/catagent-tools.js'
-);
+const { resolveSecurePath } = await import('../dist/domains/cats/services/agents/providers/catagent/catagent-tools.js');
 
 test('resolveSecurePath allows paths within working directory', async () => {
   const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
@@ -103,7 +103,6 @@ test('resolveSecurePath blocks symlink escape', async () => {
   const outsideDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-outside-')));
   writeFileSync(join(outsideDir, 'secret.txt'), 'leaked');
   try {
-    // Create symlink inside workspace pointing to outside directory
     symlinkSync(outsideDir, join(tmpDir, 'escape-link'));
     await assert.rejects(() => resolveSecurePath(tmpDir, 'escape-link/secret.txt'), /Symlink escape blocked/);
   } finally {
@@ -118,7 +117,6 @@ test('resolveSecurePath blocks symlink to file outside workspace', async () => {
   const secretFile = join(outsideDir, 'secret.txt');
   writeFileSync(secretFile, 'leaked');
   try {
-    // Create file symlink inside workspace pointing to outside file
     symlinkSync(secretFile, join(tmpDir, 'escape-file'));
     await assert.rejects(() => resolveSecurePath(tmpDir, 'escape-file'), /Symlink escape blocked/);
   } finally {
@@ -137,7 +135,7 @@ test('resolveSecurePath allows ENOENT (file does not exist yet)', async () => {
   }
 });
 
-// ── Denylist (aligned with workspace-security.ts) ──
+// ── Denylist (shared with workspace-security.ts via delegation) ──
 
 test('resolveSecurePath blocks .env files', async () => {
   const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
@@ -196,134 +194,6 @@ test('resolveSecurePath blocks secrets directory', async () => {
     mkdirSync(join(tmpDir, 'secrets'));
     writeFileSync(join(tmpDir, 'secrets', 'api-key.txt'), 'leaked');
     await assert.rejects(() => resolveSecurePath(tmpDir, 'secrets/api-key.txt'), /Access denied/);
-  } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-// ── Tool Registry ──
-
-test('createToolRegistry returns 3 read-only tools', () => {
-  const registry = createToolRegistry('/tmp');
-  assert.equal(registry.size, 3, 'should have 3 tools');
-  assert.ok(registry.has('read_file'));
-  assert.ok(registry.has('list_files'));
-  assert.ok(registry.has('search_content'));
-  for (const [, tool] of registry) {
-    assert.equal(tool.permission, 'allow', 'all tools should be allowed (read-only)');
-  }
-});
-
-test('getToolSchemas returns valid Anthropic tool schemas', () => {
-  const registry = createToolRegistry('/tmp');
-  const schemas = getToolSchemas(registry);
-  assert.equal(schemas.length, 3);
-  for (const schema of schemas) {
-    assert.ok(schema.name, 'each schema should have a name');
-    assert.ok(schema.input_schema, 'each schema should have input_schema');
-  }
-});
-
-test('read_file tool reads a file correctly via secure path', async () => {
-  const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
-  try {
-    writeFileSync(join(tmpDir, 'hello.txt'), 'line1\nline2\nline3\n');
-    const registry = createToolRegistry(tmpDir);
-    const result = await registry.get('read_file').execute({ path: 'hello.txt' });
-    assert.ok(result.includes('line1'));
-    assert.ok(result.includes('line2'));
-  } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test('read_file tool blocks symlink escape', async () => {
-  const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
-  const outsideDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-outside-')));
-  writeFileSync(join(outsideDir, 'secret.txt'), 'leaked');
-  try {
-    symlinkSync(join(outsideDir, 'secret.txt'), join(tmpDir, 'link-to-secret'));
-    const registry = createToolRegistry(tmpDir);
-    await assert.rejects(() => registry.get('read_file').execute({ path: 'link-to-secret' }), /Symlink escape blocked/);
-  } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
-    rmSync(outsideDir, { recursive: true, force: true });
-  }
-});
-
-test('list_files does not expose denylisted entries', async () => {
-  const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
-  try {
-    writeFileSync(join(tmpDir, 'visible.txt'), 'ok');
-    writeFileSync(join(tmpDir, '.env'), 'SECRET=leaked');
-    writeFileSync(join(tmpDir, '.env.local'), 'SECRET=leaked');
-    writeFileSync(join(tmpDir, 'server.pem'), 'CERT');
-    mkdirSync(join(tmpDir, '.git'));
-    writeFileSync(join(tmpDir, '.git', 'config'), 'leaked');
-    mkdirSync(join(tmpDir, 'secrets'));
-    writeFileSync(join(tmpDir, 'secrets', 'key.txt'), 'leaked');
-    const registry = createToolRegistry(tmpDir);
-    const result = await registry.get('list_files').execute({ path: '.' });
-    assert.ok(result.includes('visible.txt'), 'should include visible files');
-    assert.ok(!result.includes('.env'), 'should not expose .env');
-    assert.ok(!result.includes('.git'), 'should not expose .git');
-    assert.ok(!result.includes('secrets'), 'should not expose secrets');
-    assert.ok(!result.includes('server.pem'), 'should not expose .pem files');
-  } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test('search_content does not return denylisted descendants', async () => {
-  const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
-  try {
-    writeFileSync(join(tmpDir, 'visible.txt'), 'findme');
-    writeFileSync(join(tmpDir, '.env'), 'findme');
-    mkdirSync(join(tmpDir, 'secrets'));
-    writeFileSync(join(tmpDir, 'secrets', 'key.txt'), 'findme');
-    mkdirSync(join(tmpDir, '.git'));
-    writeFileSync(join(tmpDir, '.git', 'config'), 'findme');
-    const registry = createToolRegistry(tmpDir);
-    const result = await registry.get('search_content').execute({ pattern: 'findme' });
-    // Security-critical: denylisted paths must never appear regardless of rg availability
-    assert.ok(!result.includes('.env'), 'should not return .env');
-    assert.ok(!result.includes('secrets'), 'should not return secrets/');
-    assert.ok(!result.includes('.git'), 'should not return .git/');
-    // Positive assertion only when rg is available (CI may lack rg)
-    if (!result.startsWith('(no matches')) {
-      assert.ok(result.includes('visible.txt'), 'should find visible file');
-    }
-  } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test('search_content with glob filter returns matching files', async () => {
-  const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
-  try {
-    writeFileSync(join(tmpDir, 'app.ts'), 'export const greeting = "hello";');
-    writeFileSync(join(tmpDir, 'readme.md'), 'hello world');
-    const registry = createToolRegistry(tmpDir);
-    const result = await registry.get('search_content').execute({ pattern: 'hello', glob: '*.ts' });
-    // Only assert when rg is available (CI may lack rg)
-    if (!result.startsWith('(no matches')) {
-      assert.ok(result.includes('app.ts'), 'should find app.ts');
-      assert.ok(!result.includes('readme.md'), 'should not find readme.md');
-    }
-  } finally {
-    rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test('search_content uses -- separator to prevent rg injection', async () => {
-  const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'catagent-sec-')));
-  try {
-    writeFileSync(join(tmpDir, 'test.txt'), 'hello world');
-    const registry = createToolRegistry(tmpDir);
-    // Pattern starting with - should not be interpreted as rg flag
-    const result = await registry.get('search_content').execute({ pattern: '-help' });
-    // Should not crash — either returns no matches or the file if it matches
-    assert.ok(typeof result === 'string');
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
