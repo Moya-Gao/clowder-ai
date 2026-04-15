@@ -272,6 +272,38 @@ test('B4: mapAnthropicResponse emits done for max_tokens (terminal)', () => {
   assert.equal(msgs[1].type, 'done');
 });
 
+test('B4: mapAnthropicResponse does NOT emit done for pause_turn (server tools)', () => {
+  const msgs = mapAnthropicResponse(
+    {
+      id: 'msg_pause',
+      model: 'claude-opus-4-20250514',
+      stop_reason: 'pause_turn',
+      content: [{ type: 'text', text: 'Thinking...' }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    },
+    'ragdoll',
+    'catagent',
+  );
+  assert.equal(msgs.length, 1, 'text only — no done for pause_turn');
+  assert.equal(msgs[0].type, 'text');
+});
+
+test('B4: mapAnthropicResponse does NOT emit done for null stop_reason (streaming initial)', () => {
+  const msgs = mapAnthropicResponse(
+    {
+      id: 'msg_null',
+      model: 'claude-opus-4-20250514',
+      stop_reason: null,
+      content: [{ type: 'text', text: 'streaming...' }],
+      usage: { input_tokens: 5, output_tokens: 2 },
+    },
+    'ragdoll',
+    'catagent',
+  );
+  assert.equal(msgs.length, 1, 'text only — no done for null stop_reason');
+  assert.equal(msgs[0].type, 'text');
+});
+
 test('B4: mapAnthropicResponse handles empty content', () => {
   const msgs = mapAnthropicResponse(
     {

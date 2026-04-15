@@ -38,10 +38,18 @@ export type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock;
 export interface AnthropicMessageResponse {
   id: string;
   model: string;
-  stop_reason: 'end_turn' | 'tool_use' | 'max_tokens' | null;
+  stop_reason: string | null;
   content: AnthropicContentBlock[];
   usage?: AnthropicUsage;
 }
+
+/**
+ * Terminal stop reasons — whitelist, not blacklist.
+ * Only these trigger a `done` event. Everything else (tool_use, pause_turn,
+ * null from streaming message_start, or future new reasons) is NOT terminal.
+ * Ref: https://docs.anthropic.com/en/api/handling-stop-reasons
+ */
+const TERMINAL_STOP_REASONS: ReadonlySet<string> = new Set(['end_turn', 'max_tokens']);
 
 // ── Usage mapping ──
 
@@ -109,8 +117,9 @@ export function mapAnthropicResponse(
     }
   }
 
-  // Only emit done for terminal stop reasons — tool_use is a turn boundary, not terminal
-  if (response.stop_reason !== 'tool_use') {
+  // Only emit done for whitelisted terminal stop reasons (end_turn, max_tokens).
+  // Everything else (tool_use, pause_turn, null, future reasons) is NOT terminal.
+  if (response.stop_reason != null && TERMINAL_STOP_REASONS.has(response.stop_reason)) {
     messages.push({
       type: 'done',
       catId,
