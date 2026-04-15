@@ -4,8 +4,8 @@
  * Resolves Anthropic API key for direct API calls using the
  * account-binding fail-closed pattern from invoke-single-cat.
  *
- * Priority: env override → bound account (via catConfig.accountRef).
- * No fallback scan — if the bound account doesn't resolve, it fails closed.
+ * Single source of truth: catConfig.accountRef → resolveForClient.
+ * No env override, no fallback scan — fail closed if binding is missing.
  */
 
 import type { CatConfig } from '@cat-cafe/shared';
@@ -14,9 +14,6 @@ import { resolveBoundAccountRefForCat } from '../../../../../../config/cat-accou
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('catagent-creds');
-
-const CATAGENT_API_KEY_ENV = 'CATAGENT_ANTHROPIC_API_KEY';
-const CATAGENT_BASE_URL_ENV = 'CATAGENT_ANTHROPIC_BASE_URL';
 
 export interface ApiCredentials {
   apiKey: string;
@@ -27,9 +24,8 @@ export interface ApiCredentials {
 /**
  * Resolve API credentials using account-binding (fail-closed).
  *
- * 1. Explicit env var override (for testing / manual opt-in)
- * 2. Bound account: catConfig.accountRef → resolveForClient (same as invoke-single-cat)
- *
+ * Single resolution path: catConfig.accountRef → resolveBoundAccountRefForCat → resolveForClient.
+ * No env override — account binding is the sole source of truth (AC-B1).
  * No wildcard credential scan — if the bound account doesn't resolve, returns null.
  */
 export function resolveApiCredentials(
@@ -37,14 +33,6 @@ export function resolveApiCredentials(
   catId: string,
   catConfig: CatConfig | null | undefined,
 ): ApiCredentials | null {
-  // Priority 1: explicit env var override (testing, manual deployment)
-  const envKey = process.env[CATAGENT_API_KEY_ENV];
-  if (envKey) {
-    log.info(`[${catId}] Using env var override`);
-    return { apiKey: envKey, baseURL: process.env[CATAGENT_BASE_URL_ENV], source: 'env' };
-  }
-
-  // Priority 2: bound account (fail-closed)
   const boundRef = resolveBoundAccountRefForCat(projectRoot, catId, catConfig);
   if (!boundRef) {
     log.warn(`[${catId}] No bound accountRef in catConfig — cannot resolve credentials`);

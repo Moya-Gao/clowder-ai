@@ -36,24 +36,19 @@ test('resolveApiCredentials returns null when bound account does not resolve', (
   assert.equal(result, null, 'should return null for unresolvable bound account');
 });
 
-test('resolveApiCredentials uses env var override when set', () => {
-  const key = 'sk-ant-test-key-' + Date.now();
-  process.env.CATAGENT_ANTHROPIC_API_KEY = key;
-  process.env.CATAGENT_ANTHROPIC_BASE_URL = 'https://test.example.com';
+test('resolveApiCredentials ignores env var — only bound account is authoritative', () => {
+  // Even with env var set, resolver must not use it (AC-B1: single source of truth)
+  process.env.CATAGENT_ANTHROPIC_API_KEY = 'sk-ant-should-be-ignored';
   try {
     const result = resolveApiCredentials('/tmp', 'opus', null);
-    assert.ok(result, 'should return credentials from env');
-    assert.equal(result.apiKey, key);
-    assert.equal(result.baseURL, 'https://test.example.com');
-    assert.equal(result.source, 'env');
+    assert.equal(result, null, 'should return null — env override must not bypass account binding');
   } finally {
     delete process.env.CATAGENT_ANTHROPIC_API_KEY;
-    delete process.env.CATAGENT_ANTHROPIC_BASE_URL;
   }
 });
 
 test('resolveApiCredentials does not scan credentials.json as fallback', () => {
-  // With no env var and no bound account, should return null — not scan for any key
+  // Empty accountRef should fail closed, not scan for any key
   const result = resolveApiCredentials('/tmp', 'opus', { accountRef: '' });
   assert.equal(result, null, 'should not fallback to credential scanning');
 });
