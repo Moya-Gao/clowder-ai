@@ -86,7 +86,14 @@ search_evidence("{topic}", scope="all")  # 找历史讨论 + thread
 
 5. **Commit**：`docs(F042): kickoff {名称} [{猫猫签名}]`，body 含 What/Why
 
-**检查**：聚合文件创建 ✓ frontmatter 完整 ✓ BACKLOG 索引 ✓ 关联文档双向链接 ✓ 已 commit ✓
+6. **创建毛线球任务**（F160 Phase C）：立项 commit 后，调用 `cat_cafe_create_task` 为当前 thread 创建跟踪任务：
+   - title: `完成 F{NNN}: {Feature 名称}`
+   - why: 从 spec Why 节摘 1 句核心痛点
+   - 不要为 trivial feature（≤1 file 改动、无 Phase 拆分）创建任务
+
+   **Gotcha**: 只在有 threadId 的会话中创建。铲屎官在非 thread 环境立项（如 BACKLOG 批量整理）时跳过此步。
+
+**检查**：聚合文件创建 ✓ frontmatter 完整 ✓ BACKLOG 索引 ✓ 关联文档双向链接 ✓ 已 commit ✓ 毛线球任务创建 ✓
 
 ## 讨论 (Discussion)
 
