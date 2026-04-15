@@ -148,6 +148,7 @@ __pycache__/
 .claude/skills/browser-preview
 .claude/skills/video-forge
 .claude/skills/knowledge-engineering
+.claude/skills/enterprise-workflow
 
 # Design exports (generated from .pen, regeneratable)
 designs/exports/

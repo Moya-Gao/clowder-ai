@@ -16,7 +16,15 @@ const CONNECTOR_LABELS: Record<string, string> = {
   discord: 'Discord',
   'wecom-bot': '企业微信',
   'wecom-agent': '企微自建应用',
+  dingtalk: '钉钉',
 };
+
+/** Connectors that support group chat and thus need permission management. */
+const GROUP_CONNECTORS: { id: string; label: string }[] = [
+  { id: 'feishu', label: '飞书' },
+  { id: 'wecom-bot', label: '企业微信' },
+  { id: 'dingtalk', label: '钉钉' },
+];
 
 type HubTab = 'threads' | 'config' | 'permissions';
 
@@ -40,6 +48,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
   const [hubThreads, setHubThreads] = useState<HubThreadSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<HubTab>('threads');
+  const [permConnector, setPermConnector] = useState(GROUP_CONNECTORS[0].id);
 
   const fetchHubThreads = useCallback(async () => {
     setIsLoading(true);
@@ -146,7 +155,30 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {activeTab === 'permissions' ? (
-            <HubPermissionsTab />
+            <div className="space-y-3">
+              <div className="flex gap-1.5" data-testid="perm-connector-selector">
+                {GROUP_CONNECTORS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setPermConnector(c.id)}
+                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                      permConnector === c.id
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-cafe-surface-elevated text-cafe-secondary hover:bg-cafe-surface-elevated'
+                    }`}
+                    data-testid={`perm-connector-${c.id}`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <HubPermissionsTab
+                key={permConnector}
+                connectorId={permConnector}
+                connectorLabel={GROUP_CONNECTORS.find((c) => c.id === permConnector)?.label ?? permConnector}
+              />
+            </div>
           ) : activeTab === 'threads' ? (
             <div className="space-y-4">
               {isLoading ? (
