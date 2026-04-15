@@ -153,7 +153,7 @@ created: 2026-04-12
 - 状态切换：卡片内 status pill 点击切换（todo→doing→blocked/done）
 - 拖拽排序：Phase B 暂不做（三猫共识：先做好基础，拖拽是锦上添花）
 
-### Phase C: Skill Automation — 让猫主动用起来
+### Phase C: Skill Automation — 让猫主动用起来 ✅
 
 **目标**：在关键 Skill 节点自动提示/创建任务，形成闭环。
 
@@ -189,10 +189,10 @@ created: 2026-04-12
 - [x] AC-B5: 遵循 F056 设计语言（semantic token / 8px grid / warm radius / dark mode）
 - [x] AC-B6: 无视觉回归（ThreadSidebar 移除 TaskPanel 后布局正常）
 
-### Phase C（Skill Automation）
-- [ ] AC-C1: feat-lifecycle kickoff 自动创建 thread 任务
-- [ ] AC-C2: receive-review 为 P1/P2 自动创建修复任务
-- [ ] AC-C3: blocked 任务在猫进入 thread 时触发 system prompt 提醒
+### Phase C（Skill Automation）✅
+- [x] AC-C1: feat-lifecycle kickoff 自动创建 thread 任务
+- [x] AC-C2: receive-review 为 P1/P2 自动创建修复任务
+- [x] AC-C3: blocked 任务在猫进入 thread 时触发 system prompt 提醒
 
 ## 需求点 Checklist
 
@@ -256,6 +256,7 @@ created: 2026-04-12
 | 2026-04-12 | Phase A merged (PR #1116) |
 | 2026-04-14 | Phase B Design Gate 通过（砚砚/GPT-5.4 出设计稿，宪宪/Opus review，铲屎官确认） |
 | 2026-04-15 | Phase B merged (PR #1171) |
+| 2026-04-15 | Phase C merged (PR #1173) |
 
 ## Review Gate
 
