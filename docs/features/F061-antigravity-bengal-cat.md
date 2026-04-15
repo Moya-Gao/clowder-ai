@@ -489,6 +489,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-15 | **YOLO probe-on-stall** — LS 不总是设 `awaitingUserInput`，stall 时主动 probe `ResolveOutstandingSteps`；cursor 续传防重复投递（PR #1170, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-15 | **Bug-7 fix** — diagnostic logging + content-aware fatal dedup（同文案去重 + upstream_error 优先于 stream_error）（PR #1175, 砚砚 P1→fix→放行 + 云端 P1(旧SHA)→fix→0 P1/P2）|
 | 2026-04-15 | **G10 model_capacity classification** — capacity error 独立分类（`high traffic`/`rate limit`/`overloaded` 等）+ dedup 支持 model_capacity；same-cascade retry 被砚砚 P1 退回（无幂等保证），仅保留分类半边（PR #1181, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
+| 2026-04-15 | **G10 capacity UX** — `model_capacity` 错误前插 `provider_signal` warning + provider-neutral 归因文案（"上游模型服务端繁忙，非 Cat Café 系统故障"），对齐 Gemini ACP 模式（PR #1185, 砚砚 P1(Gemini硬编码)→fix→放行 + 云端 0 P1/P2）|
 
 ---
 
