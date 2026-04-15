@@ -278,7 +278,7 @@ Closes #<IntakeIntentIssue>
 
 **不过这个 gate = 不能 Record + Advance。** Reviewer 放行后才能执行 Step 3 (Record)。
 
-**Reviewer 必须在 GitHub PR 上留 formal review**：聊天里口头放行不算闭环。Reviewer 本人必须在 absorb PR 页面留 Approve 或至少一条 review comment，author 不得代记。（教训：cat-cafe#941 reviewer 只在 thread 里放行，PR `reviews=[]`，事后由 author 补 comment 才补救审计留痕。）
+**Reviewer 必须在 GitHub PR 上留 formal review comment**：聊天里口头放行不算闭环。Reviewer 本人必须在 absorb PR 页面留一条包含完整 checklist 的 review comment（`gh pr comment`），author 不得代记。**不要用 `gh pr review --approve`**——所有猫猫共享同一个 GitHub 账号，self-approve 永远会报错，白费 token。review comment 就是标准路径，不是降级方案。（教训：cat-cafe#941 reviewer 只在 thread 里放行，PR `reviews=[]`，事后由 author 补 comment 才补救审计留痕。）
 
 **Reviewer 匹配**：和内部 PR 一样，跨 family 优先、同一个体不能 review 自己的 intake。
 
