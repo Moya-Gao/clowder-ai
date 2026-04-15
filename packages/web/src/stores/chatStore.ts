@@ -687,8 +687,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoadingThreads: true,
   uiThinkingExpandedByDefault: loadUiThinkingExpandedByDefault(),
   globalBubbleDefaults: {
-    // Use old localStorage value as initial fallback for thinking; CLI defaults to collapsed
-    thinking: loadUiThinkingExpandedByDefault() ? 'expanded' : 'collapsed',
+    // Always start collapsed — server config overwrites via fetchGlobalBubbleDefaults().
+    // Previously used localStorage as initial fallback, but this races with thread loading:
+    // threads can finish before config, causing a flash of expanded bubbles from stale localStorage.
+    thinking: 'collapsed',
     cliOutput: 'collapsed',
   },
 
