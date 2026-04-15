@@ -6,7 +6,7 @@ import { apiFetch } from '@/utils/api-client';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
 import { MemoryIcon } from '../icons/MemoryIcon';
-import { TaskPanel } from '../TaskPanel';
+
 import { readProjectNames, writeProjectNames } from './active-workspace';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
@@ -813,8 +813,6 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
             </div>
           )}
         </div>
-
-        <TaskPanel />
       </aside>
 
       {showPicker && (
