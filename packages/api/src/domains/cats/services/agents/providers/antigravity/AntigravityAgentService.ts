@@ -99,6 +99,7 @@ export class AntigravityAgentService implements AgentService {
 
       let hasText = false;
       let fatalSeen = false;
+      let terminalAbort = false;
       let autoApproveAttempted = false;
       let stallProbed = false;
       let lastDelivered = stepsBefore;
@@ -158,6 +159,17 @@ export class AntigravityAgentService implements AgentService {
               const hasSpecificError = fatalErrors.some(
                 (e) => e.errorCode === 'upstream_error' || e.errorCode === 'model_capacity',
               );
+              // Bug-A: upstream_error is recoverable — model self-corrects in Antigravity LS.
+              // model_capacity is always terminal (server overload trumps everything).
+              // stream_error is terminal only when upstream_error is absent — when both
+              // co-occur, stream_error is noise (suppressed below) and the model can
+              // still self-correct.
+              const hasModelCapacity = fatalErrors.some((e) => e.errorCode === 'model_capacity');
+              const hasStreamError = fatalErrors.some((e) => e.errorCode === 'stream_error');
+              const hasUpstreamError = fatalErrors.some((e) => e.errorCode === 'upstream_error');
+              if (hasModelCapacity || (hasStreamError && !hasUpstreamError)) {
+                terminalAbort = true;
+              }
               for (const err of fatalErrors) {
                 if (hasSpecificError && err.errorCode === 'stream_error') {
                   log.info('suppressed stream_error in favor of upstream_error: %s', err.error);
@@ -167,8 +179,8 @@ export class AntigravityAgentService implements AgentService {
               }
             }
           }
-          if (fatalSeen) {
-            log.info('fatal error detected (upstream_error/stream_error), aborting poll loop');
+          if (terminalAbort) {
+            log.info('terminal error detected (model_capacity/stream_error), aborting poll loop');
             return;
           }
         }

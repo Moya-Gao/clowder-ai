@@ -201,27 +201,27 @@ describe('AntigravityAgentService (Bridge)', () => {
 
   // ── Bug-5: Fatal error early abort ──────────────────────────────
 
-  test('stops after upstream_error — no ghost text from later batches', async () => {
+  // Bug-A: upstream_error is recoverable — model self-corrects in Antigravity LS
+  test('upstream_error does NOT abort poll — model self-corrects in next batch', async () => {
     const bridge = createMockBridge();
-    // Override pollForSteps to yield two batches: fatal error then ghost text
     bridge.pollForSteps = mock.fn(async function* () {
       yield {
         steps: [
           {
             type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
             status: 'FINISHED',
-            errorMessage: { error: { userErrorMessage: 'Model crashed' } },
+            errorMessage: { error: { userErrorMessage: 'The model produced an invalid tool call.' } },
           },
         ],
         cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
       };
-      // This batch should NEVER be consumed — service should have aborted
+      // Model self-corrects and produces text — must NOT be truncated
       yield {
         steps: [
           {
             type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
             status: 'FINISHED',
-            plannerResponse: { response: 'ghost text after fatal' },
+            plannerResponse: { response: 'Here is the corrected answer.' },
           },
         ],
         cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
@@ -231,12 +231,175 @@ describe('AntigravityAgentService (Bridge)', () => {
     const messages = await collect(service.invoke('hello'));
 
     const texts = messages.filter((m) => m.type === 'text');
-    assert.equal(texts.length, 0, 'ghost text after fatal should NOT be yielded');
+    assert.equal(texts.length, 1, 'self-corrected text must be yielded after upstream_error');
+    assert.equal(texts[0].content, 'Here is the corrected answer.');
     const errors = messages.filter((m) => m.type === 'error');
     assert.ok(
       errors.some((e) => e.errorCode === 'upstream_error'),
-      'must have upstream_error',
+      'upstream_error still emitted',
     );
+  });
+
+  test('model_capacity still triggers early abort — no ghost text', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = mock.fn(async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      // This batch should NOT be consumed — model_capacity is terminal
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'ghost text after capacity error' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 0, 'ghost text after model_capacity should NOT be yielded');
+    const errors = messages.filter((m) => m.type === 'error');
+    assert.ok(
+      errors.some((e) => e.errorCode === 'model_capacity'),
+      'must have model_capacity',
+    );
+  });
+
+  test('model_capacity aborts even when upstream_error co-occurs in same batch', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = mock.fn(async function* () {
+      // Mixed batch: model_capacity + upstream_error in same batch
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'The model produced an invalid tool call.' } },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      // This batch should NOT be consumed — model_capacity is terminal
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'ghost text after mixed errors' },
+          },
+        ],
+        cursor: { baselineStepCount: 2, lastDeliveredStepCount: 3, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 0, 'model_capacity must abort even with co-occurring upstream_error');
+    const errors = messages.filter((m) => m.type === 'error');
+    assert.ok(
+      errors.some((e) => e.errorCode === 'model_capacity'),
+      'model_capacity error must be emitted',
+    );
+  });
+
+  test('stream_error alone still triggers early abort', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = mock.fn(async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'ghost text after stream error' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 0, 'ghost text after stream_error should NOT be yielded');
+    const errors = messages.filter((m) => m.type === 'error');
+    assert.ok(
+      errors.some((e) => e.errorCode === 'stream_error'),
+      'must have stream_error',
+    );
+  });
+
+  test('stream_error does NOT abort when upstream_error co-occurs — stream_error is noise', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = mock.fn(async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'The model produced an invalid tool call.' } },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      // Model self-corrects — must NOT be truncated
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Self-corrected after mixed errors.' },
+          },
+        ],
+        cursor: { baselineStepCount: 2, lastDeliveredStepCount: 3, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 1, 'self-corrected text must survive when stream_error is noise');
+    assert.equal(texts[0].content, 'Self-corrected after mixed errors.');
   });
 
   test('does NOT emit empty_response when fatalSeen', async () => {
