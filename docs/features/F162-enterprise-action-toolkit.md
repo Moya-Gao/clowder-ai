@@ -116,7 +116,7 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 - [x] AC-A4: callback route `/api/callbacks/wecom-action` 可被猫调用
 - [ ] AC-A5: 端到端：一句话 → 文档 + 表格 + 待办 + 会议 → 链接回贴
 - [ ] AC-A6: 企微 App 中可看到猫创建的文档/表格/待办/会议
-- [ ] AC-A7: 面试 demo 脚本编写完成，可在 60 秒内完成展示
+- [x] AC-A7: 面试 demo 脚本编写完成，可在 60 秒内完成展示（PR #1182, `docs/plans/2026-04-15-f162-demo-script.md`）
 - [ ] AC-A8: 备选方案：预录 demo 视频/GIF 一份
 
 ## Dependencies
@@ -159,13 +159,15 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 |------|------|
 | 2026-04-14 | 立项 + ADR-029 通过 review |
 | 2026-04-15 | Day 1: wecom-cli 环境搭建 + 四命令可用性验证 + WeComActionService 骨架 — AC-A1~A4 merged (PR #1180) |
-| 2026-04-16 | Day 2: callback route + skill + 端到端串联 |
-| 2026-04-17 | Day 3: demo 打磨 + 备录视频 + 面试 |
+| 2026-04-15 | Day 1 续: demo 脚本 + skill symlink — AC-A7 merged (PR #1182) + E2E golden chain 5/5 pass |
+| 2026-04-16 | Day 2: runtime 同步 + 端到端串联 (AC-A5/A6) + 备录视频 (AC-A8) |
+| 2026-04-17 | Day 3: demo 打磨 + 面试 |
 
 ## Review Gate
 
 - Phase A: 面试展示性质，快速迭代。自检 → 铲屎官验收 → 面试实战验证。
 - AC-A1~A4: codex review + 云端 review 通过，PR #1180 merged 2026-04-15。
+- AC-A7: 云端 review 通过，PR #1182 merged 2026-04-15。
 
 ## 需求点 Checklist
 
@@ -176,5 +178,5 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 | 企微待办分发 | 砚砚(GPT-5.4) 黄金链路提案 | ✅ CLI 验证 + follower_id 字段修正 |
 | 企微会议创建 | 铲屎官 "meeting 才够打" | ✅ CLI 验证 + 会议链接获取 |
 | 结果链接回贴群聊 | 砚砚(GPT-5.4) 黄金链路提案 | ⬜ |
-| 面试 demo 脚本 | 铲屎官 deadline 需求 | ⬜ |
+| 面试 demo 脚本 | 铲屎官 deadline 需求 | ✅ PR #1182, 5-phase 60s 脚本 |
 | 备录视频 fallback | 风险缓解 | ⬜ |
