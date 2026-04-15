@@ -337,6 +337,7 @@ if (connectionMode === 'websocket') {
 | 2026-03-30 | 复核 clowder-ai#287：review 已收敛、CI 全绿，maintainer comment 更新为“可以 merge”；手工接入计划落盘 `docs/plans/2026-03-30-f134-feishu-qr-bind-follow-up.md` |
 | 2026-03-30 | F134 follow-up 手工接入完成，PR #871 squash merged → `96e87b13`，IM Hub 支持 Feishu QR bind |
 | 2026-04-05 | PR #973 squash merged → `ac1e28e63`，Feishu disconnect 按钮 + 路由（与 WeChat 对齐） |
+| 2026-04-15 | Bug-9 立项 — HubPermissionsTab 硬编码 `feishu`，API 路径 + UI 标题写死，不支持 wecom-bot/dingtalk 等多 connector 切换。后端 PermissionStore 已 connector-agnostic（F134 Phase D），仅前端写死 |
 
 ## Design Gate Results（2026-03-25）
 
