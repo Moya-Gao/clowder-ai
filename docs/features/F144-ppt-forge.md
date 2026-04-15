@@ -300,7 +300,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 - [x] AC-D2: 两阶段密度控制 — Draft(640×360) 强制高密度 → Final(1280×720) 只增强不减密
 - [x] AC-D3: Playwright 白空间检测 — 渲染后自动检测白空间占比 < 30%，溢出检测，不达标退回
 - [x] AC-D4: 同一主题对比 pptx-craft vs Phase D 输出，信息密度 ≥ 对方，内容准确性 > 对方（research 质量差异）
-- [ ] AC-D5: 垂直切片验证 — 1 页高密页走完 HTML→截图→density 报告→PPTX 全链路。输入六件套（品牌/受众/页型/观看模式/页目的/证据源），输出四件套（HTML/截图/density/PPTX）。砚砚 D1 结构审 + 烁烁 D2 美学审
+- [x] AC-D5: 垂直切片验证 — 1 页高密页走完 HTML→截图→density 报告→PPTX 全链路。输入六件套（品牌/受众/页型/观看模式/页目的/证据源），输出四件套（HTML/截图/density/PPTX）。砚砚 D1 结构审 + 烁烁 D2 美学审
 - [ ] AC-D6: 华为级视觉验收 — 铲屎官确认"一两页讲清楚重点"，信息密度达华为参考图水平，运用密度填充技巧（SmartArt/多区块混排/极小间距/全版面利用）
 - [ ] AC-D7: 集成进管线 — Research → Narrative → AI 画 HTML → Playwright → dom-to-pptx → .pptx，铲屎官一句话触发
 
@@ -320,7 +320,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 
 | 类别 | 剩余项 | 对应 AC | 状态 | 说明 |
 |------|--------|---------|------|------|
-| 主路径 | 垂直切片签收 | AC-D5 | 进行中 | 一页高密页 HTML→截图→density→PPTX 已有实现与 contract，仍缺 feature-level 收尾签收 |
+| 主路径 | 垂直切片签收 | AC-D5 | ✅ 已交付 | `htmlToSlide` 编排器 + 4 e2e tests (PR #1172)，砚砚 2 轮 review + 云端 2 轮 clean |
 | 主路径 | 华为级视觉验收 | AC-D6 | 待做 | 这是当前默认产品路径的真正验收门 |
 | 主路径 | 一句话触发全流程 | AC-D7 | 待做 | 这条承接了旧 AC-B6 的“一键触发”诉求 |
 | 共享能力 | 字体嵌入 | AC-B4 | 待做 | 同时服务 D 路径导出保真与 C 路径 SVG 文字保真 |
@@ -424,6 +424,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-14 | **Phase C 收敛启动** — 铲屎官指示收敛 AC-C3/C4/C5/C6 四个剩余 AC |
 | 2026-04-14 | **Phase C 收敛 merged** (PR #1166) — svg-sanitizer.ts (AC-C4 安全白名单) + svg-direct.ts (AC-C6 AI-direct SVG path) + phase-c-comparison.test.ts (AC-C3 V1 vs Phase C 对比) + svg-perf.test.ts (AC-C5 性能 gate)。239 tests。砚砚 3 轮 review 放行 (2P1+1P2+1P1 全闭环) + 云端 R1 1P2 修复后 R2 clean |
 | 2026-04-14 | **Spec reconciliation after KD-16/KD-17** — 按当前实现与决策对账：B3/B5/B6 标记为 superseded；B4/B7 保留；真正剩余项收敛为 D5/D6/D7 + B4/B7 + A8/A12，一张表可读，不再靠 thread 口头同步 |
+| 2026-04-15 | **AC-D5 垂直切片 merged** (PR #1172) — `htmlToSlide` 编排器串通 flatExtract→densityGate→screenshot(4x)→routeElements→buildCompiledDeck→PPTX buffer。四件套交付（HTML/截图/density/PPTX）。砚砚 2 轮 review（R1: 1P1 密度门禁拦截 + R2 放行）+ 云端 2 轮（R1: 1P2 fail-fast 顺序 + R2 clean）。242 tests |
 
 ## Review Gate
 
