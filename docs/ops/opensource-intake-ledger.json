@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "517c076d23e9b7ab07b082cc63d81052e4ce9931",
+  "last_reviewed_target_head": "f4271018e478fcf484f32291d38d48fd3892b4d9",
   "entries": [
     {
       "pr_number": 90,
@@ -670,6 +670,12 @@
       "absorb_pr": 1147,
       "intake_intent_issue": 1144,
       "note": "F155 Phase B selective intake: GuideStateMachine, GuideLifecycleService, GuidePromptSection, GuideRoutingInterceptor, GuideSessionRepository, GuideOfferPolicy, GuideDismissTracker + frontend Zustand event flow."
+    },
+    {
+      "pr_number": 458,
+      "target_merge_commit": "f4271018e478fcf484f32291d38d48fd3892b4d9",
+      "decision": "absorbed",
+      "timestamp": "2026-04-15T09:38:30.060Z"
     }
   ]
 }
