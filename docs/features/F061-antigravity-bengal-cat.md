@@ -110,7 +110,7 @@ Cat Cafe AgentRouter
 | G8a | DeliveryCursor | **P1** | `stepsBefore` 已是隐形 cursor，G2 async generator 不配正式 cursor → duplicate/missing events 立刻复现。定义 `baselineStepCount / lastDeliveredStepCount / terminalSeen / lastActivityAt` |
 | G8b | Durable TurnLedger | P3 | 跨重启持久化、补偿恢复、审计回放。G8a 上线稳定后再做 |
 | G9 | 无 LS 选择策略 | P3 | 双 LS 进程（workspace / non-workspace），当前取首个发现的 |
-| **G10** | **Model Capacity Resilience** | **P1** | IDE 天然低并发+人工节奏+可能有内建重试，bridge 三件事都没有。铲屎官 @ 孟加拉猫连续 high traffic 但 IDE 直接用正常。P1-1: `model_capacity` error classification（不混在 stream_error 里）。P1-2: 无副作用 fatal turn 一次 backoff retry（条件：已拿到 fatal + 本 turn 无 tool_use/text）。P2: 观测增强（活跃 cascade 数/retry 次数/model variant）。P2: per-cat 并发闸门（需单独设计） |
+| **G10** | **Model Capacity Resilience** | **P1** | IDE 天然低并发+人工节奏+可能有内建重试，bridge 三件事都没有。铲屎官 @ 孟加拉猫连续 high traffic 但 IDE 直接用正常。**P1-1 ✅**: `model_capacity` error classification（PR #1181）。**P1-2 ❌ rejected**: same-cascade retry 无幂等保证，砚砚 review 退回（需 LS idempotency 证据或新 cascade 路径）。P2: 观测增强。P2: per-cat 并发闸门 |
 
 > **讨论记录**：G1 scope 和 G8 拆分由缅因猫(GPT-5.4) 2026-04-12 review 提出，布偶猫同意采纳。
 > G1 原版"采集全量 step type"过宽，收窄为 v1 分类框架。
@@ -488,6 +488,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-14 | **YOLO auto-approve** — `awaitingUserInput` 时自动调 `ResolveOutstandingSteps` 批量批准，失败 fallback 到 liveness_signal；env kill switch `ANTIGRAVITY_AUTO_APPROVE`（PR #1168, 砚砚 2P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-15 | **YOLO probe-on-stall** — LS 不总是设 `awaitingUserInput`，stall 时主动 probe `ResolveOutstandingSteps`；cursor 续传防重复投递（PR #1170, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-15 | **Bug-7 fix** — diagnostic logging + content-aware fatal dedup（同文案去重 + upstream_error 优先于 stream_error）（PR #1175, 砚砚 P1→fix→放行 + 云端 P1(旧SHA)→fix→0 P1/P2）|
+| 2026-04-15 | **G10 model_capacity classification** — capacity error 独立分类（`high traffic`/`rate limit`/`overloaded` 等）+ dedup 支持 model_capacity；same-cascade retry 被砚砚 P1 退回（无幂等保证），仅保留分类半边（PR #1181, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
 
 ---
 
