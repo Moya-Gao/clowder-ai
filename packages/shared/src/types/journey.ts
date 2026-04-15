@@ -212,6 +212,7 @@ export type ActivityEventType =
   | 'bug_caught'
   | 'multi_mention_completed'
   | 'deep_collab_completed'
+  | 'a2a_handoff_completed'
   | 'evidence_cited'
   | 'session_sealed'
   | 'rich_block_created'

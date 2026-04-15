@@ -885,8 +885,8 @@ export async function* routeSerial(
             worklistEntry.a2aFrom.set(nextCat, catId);
             // F121: response-text path — set trigger message for auto-replyTo
             if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
-            // F157 Phase B: Record bond event between mentioning cat and target
-            deps.growthService?.recordBondEvent(catId as string, nextCat as string);
+            // F157 ADR-023: A2A bond via event bus — JourneyProjector is sole bond recorder
+            deps.activityBus?.record('a2a_handoff_completed', catId as string, { participants: [catId, nextCat] });
           }
         }
 

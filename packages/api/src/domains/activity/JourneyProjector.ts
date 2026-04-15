@@ -48,6 +48,19 @@ export class JourneyProjector {
 
   private handleEvent = (event: ActivityEvent): void => {
     try {
+      // Bond recording FIRST — runs for events that may not carry XP (e.g. a2a_handoff_completed)
+      if (isBondEvent(event.type)) {
+        const participants = event.metadata.participants as string[] | undefined;
+        if (participants && this.growthService.recordBondEvent) {
+          for (let i = 0; i < participants.length; i++) {
+            for (let j = i + 1; j < participants.length; j++) {
+              this.growthService.recordBondEvent(participants[i], participants[j]);
+            }
+          }
+        }
+      }
+
+      // XP / footfall — events not in the mapping are silently skipped
       const mapping = EVENT_TO_FOOTFALL[event.type];
       if (!mapping) return;
 
@@ -65,18 +78,6 @@ export class JourneyProjector {
       if (event.actorId !== 'co-creator' && isCollabEvent(event.type)) {
         this.growthService.awardXp('co-creator', source, mapping.multiplier);
       }
-
-      // Bond recording for multi-cat events
-      if (event.type === 'multi_mention_completed' || event.type === 'deep_collab_completed') {
-        const participants = event.metadata.participants as string[] | undefined;
-        if (participants && this.growthService.recordBondEvent) {
-          for (let i = 0; i < participants.length; i++) {
-            for (let j = i + 1; j < participants.length; j++) {
-              this.growthService.recordBondEvent(participants[i], participants[j]);
-            }
-          }
-        }
-      }
     } catch (err: unknown) {
       log.warn({ err, type: event.type, actorId: event.actorId }, 'JourneyProjector error');
     }
@@ -85,6 +86,10 @@ export class JourneyProjector {
   dispose(): void {
     this.bus.off(this.handleEvent);
   }
+}
+
+function isBondEvent(type: ActivityEventType): boolean {
+  return type === 'multi_mention_completed' || type === 'deep_collab_completed' || type === 'a2a_handoff_completed';
 }
 
 function isCollabEvent(type: ActivityEventType): boolean {
