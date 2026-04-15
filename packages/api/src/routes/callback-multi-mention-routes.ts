@@ -349,16 +349,17 @@ async function dispatchToTarget(
         );
       }
     }
-    // Record failure response in orchestrator (status: 'failed' — won't count as success)
-    const failStatus = orch.recordFailure(
-      requestId,
-      targetCatId,
-      `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`,
-    );
-    // If this was the last target, flush result (same as success path)
-    if (failStatus === 'done') {
-      cancelTimeout(requestId);
-      void flushResult(deps, requestId, threadId, userId, log);
+    // Aborted dispatches are intentional cancels — don't record as failure or flush
+    if (!controller.signal.aborted) {
+      const failStatus = orch.recordFailure(
+        requestId,
+        targetCatId,
+        `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`,
+      );
+      if (failStatus === 'done') {
+        cancelTimeout(requestId);
+        void flushResult(deps, requestId, threadId, userId, log);
+      }
     }
   } finally {
     // F122 AC-A7: unconditional slot release — covers early return, registerDispatch
