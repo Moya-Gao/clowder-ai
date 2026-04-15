@@ -55,3 +55,4 @@ created: 2026-02-26
 | F159 | CatAgent Native Provider — Opt-in API Path | spec | 社区 + 布偶猫 + 缅因猫 | community [#434](https://github.com/zts212653/clowder-ai/issues/434) | [F159](features/F159-catagent-native-provider.md) |
 | F160 | 毛线球升级 — Thread-Level Persistent Task Board | spec | 布偶猫 | internal | [F160](features/F160-task-board-upgrade.md) |
 | F161 | ACP Carrier Generalization — 多载体复用同一 Runtime Policy | spec | TBD | internal | [F161](features/F161-acp-carrier-generalization.md) |
+| F162 | Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流 | spec | 布偶猫 | internal | [F162](features/F162-enterprise-action-toolkit.md) |

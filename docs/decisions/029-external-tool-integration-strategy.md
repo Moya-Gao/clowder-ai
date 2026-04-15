@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F162]
 related_features: [F088, F132, F137, F142, F145]
 related_decisions: [ADR-023, ADR-025, ADR-026]
 topics: [cli, mcp, skills, tool-integration, enterprise-action, wecom, lark]
