@@ -143,6 +143,8 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 | OQ-1 | wecom-cli 智能表格命令是否已上线？不支持则降级为文档内嵌表格 | ✅ 已验证：doc_type=10 创建 + smartsheet_* 字段/记录管理全可用。注意：默认子表自带"文本"字段，需先 get_fields → update_fields 重命名再 add_fields。⚠️ 追加：FIELD_TYPE_TEXT 的 record values 必须用 `[{text, type:"text"}]` 格式，裸字符串被静默丢弃（PR #1186 修复） |
 | OQ-2 | ~~面试入口~~ → Hub + 企微群双入口 | ✅ 铲屎官 2026-04-14 |
 | OQ-3 | ~~联系人~~ → 用铲屎官自己的企微账号 | ✅ 铲屎官 2026-04-14 |
+| OQ-4 | `smartsheet_update_fields` 不能改字段类型（只能改标题），默认字段是 TEXT，如果用户第一个字段不是 TEXT 会报 `2022010 invalid field type` | 🐛 已发现 2026-04-15，待修：`createSmartTable` 需跳过类型不匹配的默认字段重命名，改为删除默认字段 + 全量 add_fields |
+| OQ-5 | wecom-cli 是否支持文件上传 / PPT / 云盘？ | ❌ v0.1.5 不支持。CLI 只覆盖 doc/table/todo/meeting/schedule/msg(纯文本)。无 file upload / drive / PPT 命令 |
 
 ## Key Decisions
 
