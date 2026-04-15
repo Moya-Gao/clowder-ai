@@ -164,6 +164,19 @@ describe('Thread API', () => {
     assert.equal(res.statusCode, 401);
   });
 
+  it('POST /api/threads trusts localhost origin fallback and creates thread as default-user', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads',
+      headers: { origin: 'http://localhost:3001' },
+      payload: { title: 'Trusted Browser Create' },
+    });
+    assert.equal(res.statusCode, 201);
+    const body = JSON.parse(res.body);
+    assert.equal(body.title, 'Trusted Browser Create');
+    assert.equal(body.createdBy, 'default-user');
+  });
+
   it('GET /api/threads lists user threads', async () => {
     threadStore.create('alice', 'Thread A');
     threadStore.create('alice', 'Thread B');
@@ -180,6 +193,23 @@ describe('Thread API', () => {
     assert.ok(titles.includes('Thread A'));
     assert.ok(titles.includes('Thread B'));
     assert.ok(!titles.includes('Thread C'));
+  });
+
+  it('GET /api/threads trusts localhost origin fallback and lists default-user threads', async () => {
+    threadStore.create('default-user', 'Browser Thread');
+    threadStore.create('bob', 'Bob Thread');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads',
+      headers: { origin: 'http://localhost:3001' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    const titles = body.threads.map((t) => t.title);
+    assert.ok(titles.includes('Browser Thread'));
+    assert.ok(!titles.includes('Bob Thread'));
   });
 
   // [F155 Phase B] guideState removed from Thread — redaction test no longer applicable

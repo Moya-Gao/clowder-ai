@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
@@ -28,6 +29,15 @@ interface ThreadSidebarProps {
   className?: string;
   onBootcampClick?: () => void;
   onHubClick?: () => void;
+}
+
+function notifyThreadCreateFailure(message: string) {
+  useToastStore.getState().addToast({
+    type: 'error',
+    title: '创建线程失败',
+    message,
+    duration: 6000,
+  });
 }
 
 export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick }: ThreadSidebarProps) {
@@ -171,6 +181,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
         if (!res.ok) {
           const errBody = await res.text().catch(() => '(no body)');
           console.error('[createInProject] POST /api/threads failed:', res.status, errBody);
+          notifyThreadCreateFailure('这次创建对话没有成功，请稍后重试。');
           return;
         }
         const thread: Thread = await res.json();
@@ -202,6 +213,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
         await loadThreads();
       } catch (err) {
         console.error('[createInProject] exception:', err);
+        notifyThreadCreateFailure('网络请求没有完成，创建对话失败。请稍后重试。');
       } finally {
         setIsCreating(false);
       }
@@ -262,15 +274,21 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
           },
         }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '(no body)');
+        console.error('[createBootcampThread] POST /api/threads failed:', res.status, errBody);
+        notifyThreadCreateFailure('训练营线程没有创建成功，请稍后重试。');
+        return;
+      }
       const thread: Thread = await res.json();
       navigateToThread(thread.id);
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         onClose?.();
       }
       await loadThreads();
-    } catch {
-      // Silently ignore
+    } catch (err) {
+      console.error('[createBootcampThread] exception:', err);
+      notifyThreadCreateFailure('训练营线程创建失败，请检查网络后重试。');
     } finally {
       setIsCreating(false);
     }

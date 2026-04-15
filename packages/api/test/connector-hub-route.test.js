@@ -486,6 +486,30 @@ describe('GET /api/connector/hub-threads', () => {
     assert.match(JSON.parse(res.body).error, /Identity required/i);
   });
 
+  it('trusts localhost origin fallback and serves default-user hub threads', async () => {
+    const { app, listCalls } = await buildApp({
+      threads: [
+        {
+          id: 'thread-hub-browser',
+          title: 'Browser IM Hub',
+          connectorHubState: { connectorId: 'telegram', externalChatId: 'chat-browser', createdAt: 30 },
+        },
+      ],
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connector/hub-threads',
+      headers: { origin: 'http://localhost:3001' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(listCalls, ['default-user']);
+    const body = JSON.parse(res.body);
+    assert.equal(body.threads.length, 1);
+    assert.equal(body.threads[0].id, 'thread-hub-browser');
+    await app.close();
+  });
+
   it('uses the trusted header identity and returns hub threads sorted by createdAt desc', async () => {
     const { app, listCalls } = await buildApp();
     const res = await app.inject({

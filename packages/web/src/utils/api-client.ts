@@ -6,6 +6,8 @@
  * - First call lazily establishes session, subsequent calls reuse the cookie
  */
 
+import { useToastStore } from '../stores/toastStore';
+
 function getBrowserLocation(): Location | null {
   if (typeof globalThis !== 'object' || globalThis === null) return null;
   const candidate = (globalThis as { location?: Location }).location;
@@ -41,6 +43,19 @@ export function resolveApiUrl(): string {
 export const API_URL = resolveApiUrl();
 
 let sessionGate: Promise<void> | null = null;
+let lastSessionFailureToastAt = 0;
+
+function notifySessionFailure() {
+  const now = Date.now();
+  if (now - lastSessionFailureToastAt < 3000) return;
+  lastSessionFailureToastAt = now;
+  useToastStore.getState().addToast({
+    type: 'error',
+    title: '会话恢复失败',
+    message: '登录态没有自动恢复成功。请稍后重试；如果仍无响应，再刷新页面。',
+    duration: 6000,
+  });
+}
 
 function ensureSession(): Promise<void> {
   if (sessionGate) return sessionGate;
@@ -97,10 +112,14 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     // Session expired (API restart, cookie cleared). Re-establish and retry once.
     sessionGate = null;
     await ensureSession();
-    return fetch(`${API_URL}${path}`, {
+    const retryRes = await fetch(`${API_URL}${path}`, {
       ...normalized,
       credentials: 'include',
     });
+    if (retryRes.status === 401) {
+      notifySessionFailure();
+    }
+    return retryRes;
   }
   return res;
 }

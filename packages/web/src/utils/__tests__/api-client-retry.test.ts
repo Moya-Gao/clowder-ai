@@ -12,7 +12,7 @@ describe('apiFetch 401 retry', () => {
     vi.unstubAllGlobals();
   });
 
-  async function loadApiFetch() {
+  async function loadApiModules() {
     vi.resetModules();
     // Stub location so resolveApiUrl picks a deterministic base
     vi.stubGlobal('location', {
@@ -20,8 +20,15 @@ describe('apiFetch 401 retry', () => {
       port: '3001',
       protocol: 'http:',
     });
-    const mod = await import('../api-client');
-    return mod.apiFetch;
+    const [apiClientMod, toastStoreMod] = await Promise.all([
+      import('../api-client'),
+      import('../../stores/toastStore'),
+    ]);
+    toastStoreMod.useToastStore.setState({ toasts: [] });
+    return {
+      apiFetch: apiClientMod.apiFetch,
+      useToastStore: toastStoreMod.useToastStore,
+    };
   }
 
   it('retries once after 401 by re-establishing session', async () => {
@@ -40,7 +47,7 @@ describe('apiFetch 401 retry', () => {
     });
     globalThis.fetch = mockFetch;
 
-    const apiFetch = await loadApiFetch();
+    const { apiFetch } = await loadApiModules();
     const res = await apiFetch('/api/messages');
 
     expect(res.status).toBe(200);
@@ -62,7 +69,7 @@ describe('apiFetch 401 retry', () => {
     });
     globalThis.fetch = mockFetch;
 
-    const apiFetch = await loadApiFetch();
+    const { apiFetch } = await loadApiModules();
     const res = await apiFetch('/api/messages');
 
     expect(res.status).toBe(500);
@@ -80,7 +87,7 @@ describe('apiFetch 401 retry', () => {
     });
     globalThis.fetch = mockFetch;
 
-    const apiFetch = await loadApiFetch();
+    const { apiFetch } = await loadApiModules();
     await apiFetch('/api/test');
 
     // Every call should have credentials: 'include'
@@ -88,6 +95,46 @@ describe('apiFetch 401 retry', () => {
       const init = call[1] as RequestInit | undefined;
       expect(init?.credentials).toBe('include');
     }
+  });
+
+  it('does not show an error toast when 401 self-heals on retry', async () => {
+    const calls: string[] = [];
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      calls.push(url);
+      if (url.includes('/api/session')) {
+        return Promise.resolve({ ok: true, status: 200 });
+      }
+      if (calls.filter((c) => c.includes('/api/messages')).length === 1) {
+        return Promise.resolve({ ok: false, status: 401 });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) });
+    });
+    globalThis.fetch = mockFetch;
+
+    const { apiFetch, useToastStore } = await loadApiModules();
+    const res = await apiFetch('/api/messages');
+
+    expect(res.status).toBe(200);
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
+  it('shows a visible error toast when 401 persists after retry', async () => {
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/api/session')) {
+        return Promise.resolve({ ok: true, status: 200 });
+      }
+      return Promise.resolve({ ok: false, status: 401 });
+    });
+    globalThis.fetch = mockFetch;
+
+    const { apiFetch, useToastStore } = await loadApiModules();
+    const res = await apiFetch('/api/messages');
+
+    expect(res.status).toBe(401);
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]?.type).toBe('error');
+    expect(toasts[0]?.title).toContain('会话');
   });
 
   it('retries session bootstrap on the next call after a bootstrap network failure', async () => {
@@ -106,7 +153,7 @@ describe('apiFetch 401 retry', () => {
     });
     globalThis.fetch = mockFetch;
 
-    const apiFetch = await loadApiFetch();
+    const { apiFetch } = await loadApiModules();
 
     await expect(apiFetch('/api/messages')).rejects.toThrow('offline');
     const res = await apiFetch('/api/messages');

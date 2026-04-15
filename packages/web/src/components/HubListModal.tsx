@@ -47,18 +47,23 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
   const router = useRouter();
   const [hubThreads, setHubThreads] = useState<HubThreadSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<HubTab>('threads');
   const [permConnector, setPermConnector] = useState(GROUP_CONNECTORS[0].id);
 
   const fetchHubThreads = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await apiFetch('/api/connector/hub-threads');
-      if (!res.ok) return;
+      if (!res.ok) {
+        setLoadError('加载 IM Hub 失败，请稍后重试。');
+        return;
+      }
       const data = await res.json();
       setHubThreads(data.threads ?? []);
     } catch {
-      // fall through
+      setLoadError('加载 IM Hub 失败，请稍后重试。');
     } finally {
       setIsLoading(false);
     }
@@ -183,6 +188,14 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
             <div className="space-y-4">
               {isLoading ? (
                 <p className="text-center text-cafe-muted py-8 text-sm">加载中...</p>
+              ) : loadError ? (
+                <div
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  role="alert"
+                  data-testid="hub-list-error"
+                >
+                  {loadError}
+                </div>
               ) : hubThreads.length === 0 ? (
                 <p className="text-center text-cafe-muted py-8 text-sm">
                   还没有 IM Hub。从飞书/Telegram 发送消息建立绑定后，命令将自动路由到专用 Hub thread。

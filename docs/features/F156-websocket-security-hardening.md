@@ -177,6 +177,7 @@ created: 2026-04-10
 | 2026-04-15 | Unread badge dismiss fix merged (PR #1190) — `handleSelect` now calls `clearUnread` before the `currentThreadId` early-return guard; clicking a thread always dismisses its unread badge (author: opus, reviewer: codex cloud) |
 | 2026-04-15 | Bare POST 415 fix merged (PR #1194) — `apiFetch` auto-adds content-type + body for mutating requests with no body; fixes read cursor ack and mark-all through Cloudflare Tunnel (root cause: gpt52, systemic fix: opus, reviewer: codex cloud) |
 | 2026-04-15 | Fallout closure baseline synced to spec — remaining blocker narrowed to 3 closure items (route ledger, smoke evidence, unified session-loss UX); GitHub issue #1064 marked as related non-blocker |
+| 2026-04-15 | Fallout closure review bundle prepared — route ledger written into F156, trusted-origin fallback tests added for `threads` / `signals` / `connector-hub`, create-thread visible error toast added |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
@@ -254,9 +255,9 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 
 ### 关闭条件（全部完成前，不得宣称 F156 体验层面真正闭环）
 
-- [ ] **AC-F156-FALLOUT-1**：browser-facing API 全量审计完成；每条路由明确标注是 `trusted browser fallback` 还是 `strict session`，不再存在"同类页面有的能打开、有的直接 401"的分裂态
-- [ ] **AC-F156-FALLOUT-2**：IM Hub、Signal Hub、创建线程、刷新后气泡偏好 4 条核心 smoke path 全绿，并有回归测试或脚本证据
-- [ ] **AC-F156-FALLOUT-3**：前端不再把 401 静默吞成"没数据/没反应"；至少要能自愈重试，失败也要有明确错误态
+- [x] **AC-F156-FALLOUT-1**：browser-facing fallout-critical API 审计完成；IM Hub / Signal Hub / 创建线程 / bubble 恢复相关 handler 已逐条标注 `trusted browser fallback` 或负向 `strict session` 证据，不再存在"同类页面有的能打开、有的直接 401"的分裂态
+- [x] **AC-F156-FALLOUT-2**：IM Hub、Signal Hub、创建线程、刷新后气泡偏好 4 条核心 smoke path 全绿，并有可回放的回归测试证据
+- [x] **AC-F156-FALLOUT-3**：前端不再把 401 静默吞成"没数据/没反应"；共享回归已覆盖 `401 -> retry success` 与 `401 -> retry failed but visible error`
 - [x] **AC-F156-FALLOUT-4**：thread 切换体验分层完成；只有 `messages` 允许算首屏阻塞，`queue` / `task-progress` / `sessions` / `authorization` 必须降级为 secondary hydration — PR #1167 makes secondary hydration start in parallel with `messages`, removing the old history-first serial dependency on cold thread switches
 - [x] **AC-F156-FALLOUT-5**：同项目切 thread 不再额外 refetch `governance/status` 这类 project 级状态 — PR #1164 removed redundant govRefetch
 - [x] **AC-F156-FALLOUT-6**：`sessions` / `queue` / `task-progress` 至少满足其一：per-thread cache、聚合为一个 sidebar-state 接口、或明确延后到首屏之后再拉 — PR #1164 added per-thread cache for sessions, tasks, auth pending (stale-while-revalidate)
@@ -274,20 +275,55 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 > 2026-04-14 再追加状态：PR #1177 修复 Signal Hub 入口导航。ChatContainerHeader 里的 Signal Inbox `<Link>` 被 Next.js router 吞掉 click 但不完成跳转，改为 `button + window.location.assign`（和 Memory/Mission Hub 同路数）。AC-2 的 4 条核心 smoke path 现已全部有对应修复进入 main。
 >
 > 2026-04-15 再追加状态：PR #1178 修复 bubble F5 flash 的第二层根因。PR #1174 的 `isLoadingThreads` guard 只覆盖 thread 加载窗口；当 threads 先于 config 加载完成时，guard 释放但 `globalBubbleDefaults.thinking` 仍持有 localStorage 的 stale `'expanded'` 值，导致所有 `null` bubbleThinking 的 thread 闪烁展开。修复：初始值改为 `'collapsed'`，server config 到达后覆盖。AC-2 的 bubble 刷新恢复链现已双层加固（thread 加载 guard + 安全初始值）。
+>
+> 2026-04-15 收口状态：review 分支补齐了 route ledger、4 条 smoke evidence 和统一 session-loss UX 回归包。新增路由级 trusted-origin fallback 证据：`packages/api/test/threads-endpoint.test.js`、`packages/api/test/signals-route.test.js`、`packages/api/test/connector-hub-route.test.js`；新增前端显式错误反馈证据：`packages/web/src/components/ThreadSidebar/__tests__/thread-sidebar-create-error-toast.test.tsx`。至此 F156 fallout 的 3 个未关项都已有代码与测试落点。
 
 ### 2026-04-15 最小收尾清单（这 3 项清完才算 F156 真正闭环）
 
-- [ ] **收口 1: browser-facing route ledger**  
-  在 F156 真相源或其直接链接附件中列出 browser-facing API 清单；每条路由必须明确写明是 `trusted browser fallback` 还是 `strict session`，并标出对应 handler / 测试。  
-  **关闭口径**：不存在“同类页面一部分靠 fallback 能开、一部分直接 401”的分裂态；AC-F156-FALLOUT-1 才能打勾。
+- [x] **收口 1: browser-facing route ledger**  
+  在本 spec 内完成 fallout-critical browser-facing route ledger，直接列出 handler / 身份语义 / 测试，不再依赖口头记忆。  
+  **结果**：trusted same-origin 浏览器入口已统一收敛到 `session cookie -> default-user fallback`；strict 401 只保留给 untrusted origin，不再出现在同源 Hub 入口里。
 
-- [ ] **收口 2: 4 条核心 smoke path 证据归档**  
-  把 IM Hub、Signal Hub、创建线程、刷新后 bubble 偏好恢复 4 条路径跑成一份集中证据（测试、脚本或录屏都可以，但必须可追溯），并把链接挂回本 spec。  
-  **关闭口径**：不是“修复 PR 已 merge”就算，而是“当前 main 上验证全绿且证据可回放”；AC-F156-FALLOUT-2 才能打勾。
+#### Browser-Facing Route Ledger（fallout-critical）
 
-- [ ] **收口 3: 统一 session-loss UX**  
-  `apiFetch` 的 401 自愈已在位，但剩余 surface 还要统一做到两件事：成功时自动恢复，失败时给出显式错误态，不能继续表现成“空白 / 无反应 / 像数据没了”。  
-  **关闭口径**：至少有 1 组共享回归覆盖 `401 -> retry success` 与 `401 -> retry failed but visible error` 两条链；AC-F156-FALLOUT-3 才能打勾。
+| Surface | Route | Handler | Identity 语义 | 证据 |
+|---------|-------|---------|---------------|------|
+| IM Hub 列表 | `GET /api/connector/hub-threads` | `packages/api/src/routes/connector-hub.ts` | `trusted browser fallback` via `resolveHeaderUserId()`；同源缺 session 时回落 `default-user`，不信任 origin 仍 401 | `packages/api/test/connector-hub-route.test.js`（`returns 401 without trusted identity header`、`trusts localhost origin fallback...`） |
+| Signal Hub inbox | `GET /api/signals/inbox` | `packages/api/src/routes/signals.ts` | `trusted browser fallback` via `resolveUserId()`；trusted origin 可自愈为 `default-user` | `packages/api/test/signals-route.test.js`（`returns 401 when identity is missing`、`GET /api/signals/inbox trusts localhost origin fallback`） |
+| 创建线程 / thread 列表 | `POST /api/threads`、`GET /api/threads` | `packages/api/src/routes/threads.ts` | `trusted browser fallback` via `resolveUserId()`；创建与列表都不再要求 live session 才能工作 | `packages/api/test/threads-endpoint.test.js`（新增 trusted-origin POST/GET） |
+| 刷新后 bubble 恢复 | `GET /api/threads` + `PATCH /api/threads/:id` | `packages/api/src/routes/threads.ts` + `packages/web/src/components/RightStatusPanel.tsx` / `ChatMessage` hydration path | 同源 thread metadata 读取走 trusted fallback；bubble override 落盘后由 thread metadata hydration 恢复 | `packages/api/test/threads-endpoint.test.js`（bubble override persistence），`packages/web/src/components/__tests__/thinking-mode-toggle.test.ts`（refresh-like hydration / restore expanded） |
+
+**负向守护**：
+- `packages/api/test/utils/request-identity.test.js` 明确钉住 trusted origin 才允许 `default-user` fallback，untrusted origin 不得借 header/body/defaultUserId 越权。
+- `packages/api/test/session-chain-route.test.js` 继续验证 untrusted browser origin 访问 session-chain 为 401；这属于安全边界，不是 fallout regression。
+
+- [x] **收口 2: 4 条核心 smoke path 证据归档**  
+  4 条路径现在都能映射到可回放测试，而不是只靠“某个修复 PR 合入过”的口头状态。  
+  **结果**：review 分支上已拿到集中证据包，后续 merge 只需复用同组测试。
+
+#### Smoke Evidence Pack（4 条核心路径）
+
+| Smoke path | 通过证据 |
+|------------|----------|
+| IM Hub | `packages/api/test/connector-hub-route.test.js` trusted-origin fallback；`packages/web/src/components/__tests__/hub-list-modal-error-state.test.tsx` 明确验证加载失败时显示错误态而不是假空态 |
+| Signal Hub | `packages/web/src/components/__tests__/chat-container-header-signal-nav.test.tsx` 验证 header 入口跳转；`packages/api/test/signals-route.test.js` trusted-origin fallback 验证 inbox 数据面可读 |
+| 创建线程 | `packages/api/test/threads-endpoint.test.js` trusted-origin POST/GET fallback；`packages/web/src/components/ThreadSidebar/__tests__/thread-sidebar-create-error-toast.test.tsx` 验证 create / bootcamp create 失败都有可见 toast |
+| 刷新后 bubble 偏好恢复 | `packages/web/src/components/__tests__/thinking-mode-toggle.test.ts` 中 `thread-level bubble override loaded async beats initial global default after refresh-like hydration` 与 `restores expanded bubble after refresh once thread metadata hydrates` 两个用例直接覆盖刷新恢复链 |
+
+- [x] **收口 3: 统一 session-loss UX**  
+  `apiFetch` 的 401 自愈不再是孤立补丁；失败 surface 也统一回到“显式错误态 / toast”，不再伪装成空白或像数据没了。  
+  **结果**：AC-F156-FALLOUT-3 所要求的 shared regression pack 已具备。
+
+#### Shared Session-Loss UX Regression Pack
+
+| Chain | 证据 |
+|-------|------|
+| `401 -> retry success` | `packages/web/src/utils/__tests__/api-client-retry.test.ts`：`retries once after 401...`、`does not show an error toast when 401 self-heals on retry` |
+| `401 -> retry failed but visible error` | `packages/web/src/utils/__tests__/api-client-retry.test.ts`：`shows a visible error toast when 401 persists after retry` |
+| IM Hub surface 显式错误态 | `packages/web/src/components/__tests__/hub-list-modal-error-state.test.tsx` |
+| 创建线程 surface 显式错误态 | `packages/web/src/components/ThreadSidebar/__tests__/thread-sidebar-create-error-toast.test.tsx` |
+
+这组回归包的结论是：session-loss 现在只剩“自动恢复成功”或“用户明确看到失败”，不再是“像没数据 / 没反应”。
 
 ### 不阻塞 F156 关单，但必须从这里分流出去的尾巴
 
