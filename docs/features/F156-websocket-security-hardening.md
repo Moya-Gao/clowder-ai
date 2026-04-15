@@ -175,6 +175,7 @@ created: 2026-04-10
 | 2026-04-15 | Bubble initial default race fix merged (PR #1178) — globalBubbleDefaults.thinking changed from localStorage-dependent to always 'collapsed'; eliminates race where threads load before config causing stale expanded flash (author: opus, reviewer: codex cloud) |
 | 2026-04-15 | ThinkingContent toggle fix merged (PR #1184) — added `userInteracted` ref guard matching CliOutputBlock pattern; inline thinking bubble click-to-collapse no longer reverts on prop updates (author: opus, reviewer: codex cloud) |
 | 2026-04-15 | Unread badge dismiss fix merged (PR #1190) — `handleSelect` now calls `clearUnread` before the `currentThreadId` early-return guard; clicking a thread always dismisses its unread badge (author: opus, reviewer: codex cloud) |
+| 2026-04-15 | Bare POST 415 fix merged (PR #1194) — `apiFetch` auto-adds content-type + body for mutating requests with no body; fixes read cursor ack and mark-all through Cloudflare Tunnel (root cause: gpt52, systemic fix: opus, reviewer: codex cloud) |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
