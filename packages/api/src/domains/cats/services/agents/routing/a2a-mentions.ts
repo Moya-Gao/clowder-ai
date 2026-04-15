@@ -11,6 +11,7 @@
  * 6. 只在猫回复完整结束后解析 (由调用方保证)
  */
 
+import { createHash } from 'node:crypto';
 import type { CatId } from '@cat-cafe/shared';
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import { isCatAvailable } from '../../../../../config/cat-config-loader.js';
@@ -236,4 +237,100 @@ export function detectInlineActionMentions(
   }
 
   return found;
+}
+
+// --- F479: Shadow detection (in-process, metadata-only) ---
+
+/** Shadow miss metadata — no raw text, per data minimization (mindfn #479). */
+export interface ShadowMiss {
+  readonly catId: CatId;
+  /** SHA-256 of the line context, truncated to 16 hex chars. */
+  readonly contextHash: string;
+  /** Length of the raw line. */
+  readonly contextLength: number;
+}
+
+export interface ShadowDetectionResult {
+  readonly strictHits: InlineActionMention[];
+  readonly shadowMisses: ShadowMiss[];
+  /** Count of mentions skipped because routedSet already covered them. */
+  readonly routedSetSkips: number;
+}
+
+function hashContext(line: string): string {
+  return createHash('sha256').update(line).digest('hex').slice(0, 16);
+}
+
+/**
+ * F479: Run strict detection + relaxed shadow detection in one pass.
+ *
+ * Shadow detection = "any inline @mention not caught by strict detection and
+ * not in routedSet". These are vocab gap candidates where the action keyword
+ * is present but not in our regex.
+ */
+export function detectInlineActionMentionsWithShadow(
+  text: string,
+  currentCatId?: CatId,
+  routedMentions?: CatId[],
+): ShadowDetectionResult {
+  if (!text) return { strictHits: [], shadowMisses: [], routedSetSkips: 0 };
+
+  const strictHits = detectInlineActionMentions(text, currentCatId, routedMentions);
+  const strictCatIds = new Set(strictHits.map((h) => h.catId));
+
+  // Relaxed pass: find ALL inline @mentions (no action keyword required)
+  const stripped = text.replace(/```[\s\S]*?```/g, '');
+  const allConfigs = Object.keys(catRegistry.getAllConfigs()).length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
+
+  const entries: MentionPatternEntry[] = [];
+  for (const [id, config] of Object.entries(allConfigs)) {
+    if (currentCatId && id === currentCatId) continue;
+    if (!isCatAvailable(id)) continue;
+    for (const pattern of config.mentionPatterns) {
+      entries.push({ catId: id as CatId, pattern: pattern.toLowerCase() });
+    }
+  }
+  entries.sort((a, b) => b.pattern.length - a.pattern.length);
+
+  const routedSet = new Set(routedMentions ?? []);
+  const shadowMisses: ShadowMiss[] = [];
+  const seenShadow = new Set<string>();
+  let routedSetSkips = 0;
+
+  for (const rawLine of stripped.split(/\r?\n/)) {
+    const trimmed = rawLine.trimStart();
+    const normalized = trimmed.toLowerCase();
+    if (normalized.startsWith('>')) continue;
+
+    for (const entry of entries) {
+      let searchFrom = 0;
+      while (searchFrom < normalized.length) {
+        const idx = normalized.indexOf(entry.pattern, searchFrom);
+        if (idx < 0) break;
+        searchFrom = idx + 1;
+        if (idx === 0) continue; // line-start → handled by parseA2AMentions
+        if (HANDLE_CONTINUATION_RE.test(normalized[idx - 1]!)) continue;
+        const charAfter = normalized[idx + entry.pattern.length];
+        const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
+        if (!isBoundary) continue;
+
+        if (routedSet.has(entry.catId)) {
+          routedSetSkips++;
+          break;
+        }
+        // Not a strict hit and not already seen → shadow miss
+        if (!strictCatIds.has(entry.catId) && !seenShadow.has(entry.catId)) {
+          seenShadow.add(entry.catId);
+          shadowMisses.push({
+            catId: entry.catId,
+            contextHash: hashContext(rawLine.trim()),
+            contextLength: rawLine.trim().length,
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  return { strictHits, shadowMisses, routedSetSkips };
 }
