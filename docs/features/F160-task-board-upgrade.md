@@ -8,7 +8,7 @@ created: 2026-04-12
 
 # F160: 毛线球升级 — Thread-Level Persistent Task Board
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -257,6 +257,7 @@ created: 2026-04-12
 | 2026-04-14 | Phase B Design Gate 通过（砚砚/GPT-5.4 出设计稿，宪宪/Opus review，铲屎官确认） |
 | 2026-04-15 | Phase B merged (PR #1171) |
 | 2026-04-15 | Phase C merged (PR #1173) |
+| 2026-04-15 | 愿景守护通过（砚砚/GPT-5.4），F160 closed |
 
 ## Review Gate
 
