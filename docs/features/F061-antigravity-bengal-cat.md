@@ -483,27 +483,29 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-14 | **Bug-6 waiting approval ≠ stall** — `awaitingUserInput` 的 RUNNING 态不再误报为 60s stall，前端改显示等待批准信号（PR #1163, opencode 放行 + 云端超时未接单）|
 | 2026-04-14 | **YOLO auto-approve** — `awaitingUserInput` 时自动调 `ResolveOutstandingSteps` 批量批准，失败 fallback 到 liveness_signal；env kill switch `ANTIGRAVITY_AUTO_APPROVE`（PR #1168, 砚砚 2P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-15 | **YOLO probe-on-stall** — LS 不总是设 `awaitingUserInput`，stall 时主动 probe `ResolveOutstandingSteps`；cursor 续传防重复投递（PR #1170, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
+| 2026-04-15 | **Bug-7 fix** — diagnostic logging + content-aware fatal dedup（同文案去重 + upstream_error 优先于 stream_error）（PR #1175, 砚砚 P1→fix→放行 + 云端 P1(旧SHA)→fix→0 P1/P2）|
 
 ---
 
 ## Known Bugs（活跃）
 
-### Bug-7: Invalid tool call 无诊断 + 双红条重复展示
+（暂无活跃 bug）
+
+## Known Bugs（已修复）
+
+### Bug-7: Invalid tool call 无诊断 + 双红条重复展示 ✅
 
 **现象**（2026-04-15 铲屎官报告）：孟加拉猫在 F160 线程执行任务时，直接报 `The model produced an invalid tool call.`，且**同一条红错出现两次**。
 
 **根因**（2 层）：
-1. **诊断缺失** — transformer 只产出人类可读的 `userErrorMessage`，没有把 `modelErrorMessage` / step type / tool name / payload 写入服务端日志。缺乏定位 invalid tool call 具体原因的证据
-2. **同 batch 去重缺失** — 同一个 batch 内如果 LS 连发两个 `CORTEX_STEP_TYPE_ERROR_MESSAGE`，service 层会把两条都 yield 给前端（`fatalSeen` 在 batch 结束后才退出循环），导致用户看到双红条
+1. **诊断缺失** — transformer 只产出人类可读的 `userErrorMessage`，没有把 `modelErrorMessage` / step type / tool name / payload 写入服务端日志
+2. **同 batch 去重缺失** — 同一个 batch 内如果 LS 连发两个 `CORTEX_STEP_TYPE_ERROR_MESSAGE`，service 层会把两条都 yield 给前端
 
-**与 stall/approval 的关系**：完全不同的失败类型。这次是模型生成了非法 tool call payload，根本没到工具执行阶段，更没到审批链。
-
-**修复计划**：
-- P1：补 `upstream_error` 的服务端诊断日志（step type / tool name / modelErrorMessage / 本轮 tool_use 计数）
-- P2：同 batch 内 `upstream_error` 去重（只 yield 第一条，后续同类 error 合并到日志）
+**修复**（PR #1175, `af5322d88`）：
+- P1 诊断日志：transformer `tool_error` 分支新增 `log.warn`（stepType + userErrorMessage + modelErrorMessage）
+- P2 同批次去重：改为 `(errorCode, error)` 元组去重（同 code + 同文案才压）+ `upstream_error` 优先于 `stream_error`
+- 砚砚 review：首轮 P1（位置敏感去重会吞更具体的 upstream_error）→ 改为 content-aware dedup → 放行
 - 自动重试单开下一张票（需要日志证据确认 invalid tool call 发生时确实无 side effect）
-
-## Known Bugs（已修复）
 
 ### Bug-6: Waiting approval 被误判成 stall ✅
 
