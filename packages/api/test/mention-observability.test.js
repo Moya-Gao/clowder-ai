@@ -158,6 +158,33 @@ describe('F479: shadow detection', () => {
     assert.equal(result.shadowMisses.length, 0, 'already-routed mention should be excluded from shadow');
   });
 
+  // --- P2-3 regression: narrative inline mention must NOT count as shadow miss ---
+
+  it('pure narrative inline mention is not a shadow miss', async () => {
+    const { detectInlineActionMentionsWithShadow } = await import(
+      '../dist/domains/cats/services/agents/routing/a2a-mentions.js'
+    );
+
+    // "之前 @codex 提出的方案不错" — pure narrative, no action-like context
+    const result = detectInlineActionMentionsWithShadow('之前 @缅因猫 提出的方案不错', 'opus', []);
+
+    assert.equal(result.strictHits.length, 0, 'no strict hits (narrative)');
+    assert.equal(result.shadowMisses.length, 0, 'narrative mention must not be shadow miss');
+  });
+
+  it('relaxed action context still triggers shadow miss (vocab gap candidate)', async () => {
+    const { detectInlineActionMentionsWithShadow } = await import(
+      '../dist/domains/cats/services/agents/routing/a2a-mentions.js'
+    );
+
+    // "麻烦 @codex 过目一下" — relaxed action ("麻烦") but not in strict regex
+    const result = detectInlineActionMentionsWithShadow('麻烦 @缅因猫 验证一下', 'opus', []);
+
+    assert.equal(result.strictHits.length, 0, 'not caught by strict regex');
+    assert.equal(result.shadowMisses.length, 1, 'relaxed action context → shadow miss');
+    assert.equal(result.shadowMisses[0].catId, 'codex');
+  });
+
   // --- P2-1 regression: mixed strict + shadow same cat across lines ---
 
   it('shadow detection reports shadow miss even when same cat has strict hit on another line', async () => {
