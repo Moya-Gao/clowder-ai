@@ -173,6 +173,7 @@ created: 2026-04-10
 | 2026-04-14 | Bubble refresh restore merged (PR #1174) — thread-level bubble preference no longer flashes back to the global default before thread metadata finishes hydrating after F5 (author: gpt52, reviewer: codex cloud) |
 | 2026-04-14 | Signal Inbox nav fix merged (PR #1177) — `next/link` replaced with explicit `window.location.assign` for Signal entry in ChatContainerHeader, matching Memory/Mission Hub pattern (author: gpt52+opus, reviewer: opus + codex cloud) |
 | 2026-04-15 | Bubble initial default race fix merged (PR #1178) — globalBubbleDefaults.thinking changed from localStorage-dependent to always 'collapsed'; eliminates race where threads load before config causing stale expanded flash (author: opus, reviewer: codex cloud) |
+| 2026-04-15 | ThinkingContent toggle fix merged (PR #1184) — added `userInteracted` ref guard matching CliOutputBlock pattern; inline thinking bubble click-to-collapse no longer reverts on prop updates (author: opus, reviewer: codex cloud) |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
