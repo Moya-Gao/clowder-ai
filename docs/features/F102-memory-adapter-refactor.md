@@ -1409,6 +1409,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-14 | **PR #1160 squash merged** — depth=raw passage ranking fix: passage-bearing results prioritized before doc-only hits at low limit + PassageResult.rank preserved |
 | 2026-04-15 | **PR #1179 squash merged** — dogfooding follow-up: heading→keywords lexical raw recall fix + MCP `raw_lexical_only` degrade banner corrected |
 | 2026-04-15 | **PR #1192 squash merged** — root cause fix: `INDEXING_VERSION` auto-rebuild mechanism so scanner logic changes take effect on restart without manual `--force` |
+| 2026-04-15 | **PR #1195 squash merged** — lexical recall gate strengthened with title/summary/keywords backfill; stale signal-noise kind assertion aligned to exported `EvidenceKind` set |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
