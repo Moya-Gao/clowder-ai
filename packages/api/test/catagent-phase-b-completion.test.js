@@ -200,7 +200,7 @@ test('B4: mapAnthropicResponse maps text content to text message', () => {
   assert.equal(msgs[1].metadata.usage.inputTokens, 10);
 });
 
-test('B4: mapAnthropicResponse maps tool_use content', () => {
+test('B4: mapAnthropicResponse does NOT emit done for stop_reason tool_use (turn boundary)', () => {
   const msgs = mapAnthropicResponse(
     {
       id: 'msg_2',
@@ -212,14 +212,13 @@ test('B4: mapAnthropicResponse maps tool_use content', () => {
     'ragdoll',
     'catagent',
   );
-  assert.equal(msgs.length, 2, 'tool_use + done');
+  assert.equal(msgs.length, 1, 'tool_use only — no done for turn boundary');
   assert.equal(msgs[0].type, 'tool_use');
   assert.equal(msgs[0].toolName, 'read_file');
   assert.deepEqual(msgs[0].toolInput, { path: 'index.ts' });
-  assert.equal(msgs[1].type, 'done');
 });
 
-test('B4: mapAnthropicResponse maps mixed content (text + tool_use)', () => {
+test('B4: mapAnthropicResponse omits done for mixed content with tool_use stop', () => {
   const msgs = mapAnthropicResponse(
     {
       id: 'msg_3',
@@ -234,10 +233,43 @@ test('B4: mapAnthropicResponse maps mixed content (text + tool_use)', () => {
     'ragdoll',
     'catagent',
   );
-  assert.equal(msgs.length, 3, 'text + tool_use + done');
+  assert.equal(msgs.length, 2, 'text + tool_use — no done for turn boundary');
   assert.equal(msgs[0].type, 'text');
   assert.equal(msgs[1].type, 'tool_use');
-  assert.equal(msgs[2].type, 'done');
+});
+
+test('B4: mapAnthropicResponse emits done for end_turn (terminal)', () => {
+  const msgs = mapAnthropicResponse(
+    {
+      id: 'msg_term',
+      model: 'claude-opus-4-20250514',
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'Done.' }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    },
+    'ragdoll',
+    'catagent',
+  );
+  assert.equal(msgs.length, 2, 'text + done for terminal');
+  assert.equal(msgs[0].type, 'text');
+  assert.equal(msgs[1].type, 'done');
+  assert.equal(msgs[1].metadata.usage.inputTokens, 10);
+});
+
+test('B4: mapAnthropicResponse emits done for max_tokens (terminal)', () => {
+  const msgs = mapAnthropicResponse(
+    {
+      id: 'msg_max',
+      model: 'claude-opus-4-20250514',
+      stop_reason: 'max_tokens',
+      content: [{ type: 'text', text: 'Truncat' }],
+      usage: { input_tokens: 50, output_tokens: 4096 },
+    },
+    'ragdoll',
+    'catagent',
+  );
+  assert.equal(msgs.length, 2, 'text + done for max_tokens');
+  assert.equal(msgs[1].type, 'done');
 });
 
 test('B4: mapAnthropicResponse handles empty content', () => {

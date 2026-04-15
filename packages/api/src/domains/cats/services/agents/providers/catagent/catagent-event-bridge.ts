@@ -78,7 +78,10 @@ export function mapAnthropicUsage(usage: AnthropicUsage | undefined): TokenUsage
  *
  * Produces:
  * - One AgentMessage per content block (text / tool_use)
- * - A final `done` message with usage metadata
+ * - A terminal `done` message with usage ONLY when stop_reason is terminal
+ *   (end_turn / max_tokens / null). NOT for tool_use — that is a turn boundary,
+ *   not a terminal state. Emitting done on tool_use would prematurely trigger
+ *   CAT_RESPONDED audit in invoke-single-cat.ts before the tool loop finishes.
  *
  * The caller (Phase C provider) yields these into the invocation stream,
  * where invoke-single-cat.ts routes them to audit/OTel/metrics automatically.
@@ -106,12 +109,15 @@ export function mapAnthropicResponse(
     }
   }
 
-  messages.push({
-    type: 'done',
-    catId,
-    metadata: { provider, model: response.model, usage },
-    timestamp: now,
-  });
+  // Only emit done for terminal stop reasons — tool_use is a turn boundary, not terminal
+  if (response.stop_reason !== 'tool_use') {
+    messages.push({
+      type: 'done',
+      catId,
+      metadata: { provider, model: response.model, usage },
+      timestamp: now,
+    });
+  }
 
   return messages;
 }
