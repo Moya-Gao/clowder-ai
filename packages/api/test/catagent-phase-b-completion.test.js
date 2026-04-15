@@ -272,6 +272,54 @@ test('B4: mapAnthropicResponse emits done for max_tokens (terminal)', () => {
   assert.equal(msgs[1].type, 'done');
 });
 
+test('B4: mapAnthropicResponse emits done for stop_sequence (terminal)', () => {
+  const msgs = mapAnthropicResponse(
+    {
+      id: 'msg_stop_seq',
+      model: 'claude-opus-4-20250514',
+      stop_reason: 'stop_sequence',
+      content: [{ type: 'text', text: 'Output until stop' }],
+      usage: { input_tokens: 15, output_tokens: 8 },
+    },
+    'ragdoll',
+    'catagent',
+  );
+  assert.equal(msgs.length, 2, 'text + done for stop_sequence');
+  assert.equal(msgs[1].type, 'done');
+});
+
+test('B4: mapAnthropicResponse emits done for refusal (terminal)', () => {
+  const msgs = mapAnthropicResponse(
+    {
+      id: 'msg_refuse',
+      model: 'claude-opus-4-20250514',
+      stop_reason: 'refusal',
+      content: [],
+      usage: { input_tokens: 20, output_tokens: 0 },
+    },
+    'ragdoll',
+    'catagent',
+  );
+  assert.equal(msgs.length, 1, 'done only for refusal');
+  assert.equal(msgs[0].type, 'done');
+});
+
+test('B4: mapAnthropicResponse emits done for model_context_window_exceeded (terminal)', () => {
+  const msgs = mapAnthropicResponse(
+    {
+      id: 'msg_ctx',
+      model: 'claude-opus-4-20250514',
+      stop_reason: 'model_context_window_exceeded',
+      content: [],
+      usage: { input_tokens: 200000, output_tokens: 0 },
+    },
+    'ragdoll',
+    'catagent',
+  );
+  assert.equal(msgs.length, 1, 'done only for context window exceeded');
+  assert.equal(msgs[0].type, 'done');
+});
+
 test('B4: mapAnthropicResponse does NOT emit done for pause_turn (server tools)', () => {
   const msgs = mapAnthropicResponse(
     {

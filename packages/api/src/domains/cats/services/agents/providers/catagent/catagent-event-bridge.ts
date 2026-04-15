@@ -47,9 +47,23 @@ export interface AnthropicMessageResponse {
  * Terminal stop reasons — whitelist, not blacklist.
  * Only these trigger a `done` event. Everything else (tool_use, pause_turn,
  * null from streaming message_start, or future new reasons) is NOT terminal.
+ *
+ * Complete set per Anthropic docs:
+ * - end_turn: model finished naturally
+ * - max_tokens: output length limit hit
+ * - stop_sequence: custom stop sequence matched
+ * - refusal: model refused to respond (safety)
+ * - model_context_window_exceeded: input too large
+ *
  * Ref: https://docs.anthropic.com/en/api/handling-stop-reasons
  */
-const TERMINAL_STOP_REASONS: ReadonlySet<string> = new Set(['end_turn', 'max_tokens']);
+const TERMINAL_STOP_REASONS: ReadonlySet<string> = new Set([
+  'end_turn',
+  'max_tokens',
+  'stop_sequence',
+  'refusal',
+  'model_context_window_exceeded',
+]);
 
 // ── Usage mapping ──
 
@@ -86,10 +100,10 @@ export function mapAnthropicUsage(usage: AnthropicUsage | undefined): TokenUsage
  *
  * Produces:
  * - One AgentMessage per content block (text / tool_use)
- * - A terminal `done` message with usage ONLY when stop_reason is terminal
- *   (end_turn / max_tokens / null). NOT for tool_use — that is a turn boundary,
- *   not a terminal state. Emitting done on tool_use would prematurely trigger
- *   CAT_RESPONDED audit in invoke-single-cat.ts before the tool loop finishes.
+ * - A terminal `done` message with usage ONLY when stop_reason is in the
+ *   TERMINAL_STOP_REASONS whitelist (end_turn, max_tokens, stop_sequence,
+ *   refusal, model_context_window_exceeded). NOT for tool_use, pause_turn,
+ *   null (streaming initial), or future non-terminal reasons.
  *
  * The caller (Phase C provider) yields these into the invocation stream,
  * where invoke-single-cat.ts routes them to audit/OTel/metrics automatically.
