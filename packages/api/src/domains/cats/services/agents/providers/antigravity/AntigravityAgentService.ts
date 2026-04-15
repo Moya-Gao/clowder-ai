@@ -22,6 +22,8 @@ export interface AntigravityAgentServiceOptions {
   bridge?: AntigravityBridge;
   /** Idle stall timeout in ms — resets on each new step (default: 60s) */
   pollTimeoutMs?: number;
+  /** Auto-approve pending Antigravity interactions — YOLO mode (default: true) */
+  autoApprove?: boolean;
 }
 
 export class AntigravityAgentService implements AgentService {
@@ -29,6 +31,7 @@ export class AntigravityAgentService implements AgentService {
   private readonly model: string;
   private readonly bridge: AntigravityBridge;
   private readonly pollTimeoutMs: number;
+  private readonly autoApprove: boolean;
 
   constructor(options?: AntigravityAgentServiceOptions) {
     this.catId = options?.catId
@@ -39,6 +42,7 @@ export class AntigravityAgentService implements AgentService {
     this.model = options?.model ?? getCatModel(this.catId as string);
     this.bridge = options?.bridge ?? new AntigravityBridge(options?.connection);
     this.pollTimeoutMs = options?.pollTimeoutMs ?? 60_000;
+    this.autoApprove = options?.autoApprove ?? process.env['ANTIGRAVITY_AUTO_APPROVE'] !== 'false';
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
@@ -95,6 +99,7 @@ export class AntigravityAgentService implements AgentService {
 
       let hasText = false;
       let fatalSeen = false;
+      let autoApproveAttempted = false;
       for await (const batch of this.bridge.pollForSteps(
         cascadeId,
         stepsBefore,
@@ -103,6 +108,16 @@ export class AntigravityAgentService implements AgentService {
         options?.signal,
       )) {
         if (batch.cursor.awaitingUserInput) {
+          if (this.autoApprove && !autoApproveAttempted) {
+            autoApproveAttempted = true;
+            try {
+              await this.bridge.resolveOutstandingSteps(cascadeId);
+              log.info(`auto-approved pending interaction for cascade ${cascadeId}`);
+              continue;
+            } catch (err) {
+              log.warn(`auto-approve failed: ${err}`);
+            }
+          }
           yield {
             type: 'liveness_signal',
             catId: this.catId,
@@ -117,6 +132,7 @@ export class AntigravityAgentService implements AgentService {
           continue;
         }
         if (batch.steps.length > 0) {
+          autoApproveAttempted = false;
           const messages = transformTrajectorySteps(batch.steps, this.catId, metadata);
           for (const msg of messages) {
             if (msg.type === 'text') hasText = true;

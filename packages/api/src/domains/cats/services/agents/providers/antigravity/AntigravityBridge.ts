@@ -263,6 +263,18 @@ export class AntigravityBridge {
     return newCascadeId;
   }
 
+  async resolveOutstandingSteps(cascadeId: string): Promise<void> {
+    const conn = await this.ensureConnected();
+    await this.rpc(conn, 'ResolveOutstandingSteps', { cascadeId });
+    log.info(`resolved outstanding steps for cascade ${cascadeId}`);
+  }
+
+  async approveInteraction(cascadeId: string, interaction: Record<string, unknown>): Promise<void> {
+    const conn = await this.ensureConnected();
+    await this.rpc(conn, 'HandleCascadeUserInteraction', { cascadeId, interaction });
+    log.info(`approved interaction for cascade ${cascadeId}`);
+  }
+
   resolveModelId(modelName: string): string | undefined {
     return this.modelMap[modelName];
   }
