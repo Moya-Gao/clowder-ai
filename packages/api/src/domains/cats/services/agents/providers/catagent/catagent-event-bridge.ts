@@ -131,8 +131,8 @@ export function mapAnthropicResponse(
     }
   }
 
-  // Only emit done for whitelisted terminal stop reasons (end_turn, max_tokens).
-  // Everything else (tool_use, pause_turn, null, future reasons) is NOT terminal.
+  // Only emit done for whitelisted terminal stop reasons (see TERMINAL_STOP_REASONS).
+  // Non-terminal (tool_use, pause_turn, null, future reasons) must NOT trigger done.
   if (response.stop_reason != null && TERMINAL_STOP_REASONS.has(response.stop_reason)) {
     messages.push({
       type: 'done',
