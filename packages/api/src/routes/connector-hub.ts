@@ -132,12 +132,10 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { envName: 'WECOM_BOT_ID', label: 'Bot ID', sensitive: false },
       { envName: 'WECOM_BOT_SECRET', label: 'Bot Secret', sensitive: true },
     ],
-    docsUrl: 'https://developer.work.weixin.qq.com/document/path/101463',
+    docsUrl: 'https://work.weixin.qq.com/wework_admin/frame#/aiHelper/create',
     steps: [
-      {
-        text: '登录企微管理后台 → 安全与管理 → 管理工具 → 智能机器人 → 创建机器人 → 选「API 模式」',
-      },
-      { text: '连接方式选「使用长连接」，填写名称和可见范围，保存后获取 Bot ID 和 Secret' },
+      { text: '点击上方链接直接进入创建页 → 选「API 模式」→ 连接方式选「使用长连接」' },
+      { text: '填写名称和可见范围，保存后获取 Bot ID 和 Secret' },
       { text: '粘贴到下方并点击「测试并连接」，验证成功后自动生效' },
     ],
   },
