@@ -136,6 +136,7 @@ import {
   journeyRoutes,
   leaderboardEventsRoutes,
   leaderboardRoutes,
+  leadershipRoutes,
   memoryPublishRoutes,
   memoryRoutes,
   messageActionsRoutes,
@@ -951,9 +952,19 @@ async function main(): Promise<void> {
   const { ActivityEventBus } = await import('./domains/activity/ActivityEventBus.js');
   const activityBus = new ActivityEventBus();
 
+  // Phase D: Co-Creator Leadership Service (铲屎官六维)
+  const leadershipService = redis
+    ? new (await import('./domains/cats/services/growth/LeadershipService.js')).LeadershipService(redis)
+    : undefined;
+
   if (growthService) {
     const { JourneyProjector } = await import('./domains/activity/JourneyProjector.js');
     new JourneyProjector(activityBus, growthService);
+  }
+
+  if (leadershipService) {
+    const { LeadershipProjector } = await import('./domains/activity/LeadershipProjector.js');
+    new LeadershipProjector(activityBus, leadershipService);
   }
 
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
@@ -1100,6 +1111,10 @@ async function main(): Promise<void> {
   // F150: Tool/Skill/MCP usage statistics
   if (toolUsageCounter) {
     await app.register(toolUsageRoutes, { toolUsageCounter });
+  }
+  // Phase D: Leadership routes BEFORE journey routes (avoid :catId collision)
+  if (leadershipService) {
+    await app.register(leadershipRoutes, { leadershipService });
   }
   if (growthService) {
     await app.register(journeyRoutes, { growthService });

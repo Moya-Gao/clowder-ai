@@ -210,6 +210,7 @@ export type ActivityEventType =
   | 'message_sent'
   | 'review_submitted'
   | 'bug_caught'
+  | 'multi_mention_dispatched'
   | 'multi_mention_completed'
   | 'deep_collab_completed'
   | 'a2a_handoff_completed'
@@ -217,6 +218,79 @@ export type ActivityEventType =
   | 'session_sealed'
   | 'rich_block_created'
   | 'design_feedback_given';
+
+// ── Phase D: Co-Creator Leadership (铲屎官六维) ──────────────────
+
+/** Six leadership dimensions for the co-creator (铲屎官), independent from cat trait dimensions */
+export type LeadershipDimension =
+  | 'coordination' // 协调力 — 知猫善任，多猫调度
+  | 'delegation' // 授权力 — 放手让猫猫自主完成
+  | 'exploration' // 开拓力 — 推动边界的有效探索
+  | 'guidance' // 引导力 — 给猫猫的指令清晰度
+  | 'decision' // 决策力 — 拍板方向的速度和质量 (v1: shadow)
+  | 'feedback'; // 反馈力 — 纠偏和正向反馈质量 (v1: shadow)
+
+export const LEADERSHIP_DIMENSIONS: readonly LeadershipDimension[] = [
+  'coordination',
+  'delegation',
+  'exploration',
+  'guidance',
+  'decision',
+  'feedback',
+] as const;
+
+/** v1 scores 4 dimensions live; decision + feedback are shadow scores (recorded but not displayed) */
+export const LEADERSHIP_LIVE_DIMS: readonly LeadershipDimension[] = [
+  'coordination',
+  'delegation',
+  'exploration',
+  'guidance',
+] as const;
+
+export const LEADERSHIP_SHADOW_DIMS: readonly LeadershipDimension[] = ['decision', 'feedback'] as const;
+
+export const LEADERSHIP_LABELS: Record<LeadershipDimension, { zh: string; en: string }> = {
+  coordination: { zh: '协调力', en: 'Coordination' },
+  delegation: { zh: '授权力', en: 'Delegation' },
+  exploration: { zh: '开拓力', en: 'Exploration' },
+  guidance: { zh: '引导力', en: 'Guidance' },
+  decision: { zh: '决策力', en: 'Decision' },
+  feedback: { zh: '反馈力', en: 'Feedback' },
+};
+
+/** Footfall and seasoning for a single leadership dimension */
+export interface LeadershipStat {
+  readonly dimension: LeadershipDimension;
+  readonly xp: number;
+  readonly level: number;
+  readonly xpToNext: number;
+  /** v1: shadow dimensions are recorded but flagged */
+  readonly shadow: boolean;
+}
+
+/** Co-creator leadership profile snapshot */
+export interface LeadershipProfile {
+  readonly stats: Record<LeadershipDimension, LeadershipStat>;
+  readonly leadershipLevel: number;
+  readonly totalXp: number;
+  readonly currentTitle?: CatTitle;
+  readonly updatedAt: number;
+}
+
+/** Leadership footfall source — events that drive co-creator leadership XP */
+export type LeadershipFootfallSource =
+  | 'multi_mention_dispatch' // 协调力: dispatched a multi-mention
+  | 'multi_mention_success' // 协调力: multi-mention completed successfully
+  | 'target_diversity' // 协调力: used diverse set of cats
+  | 'task_no_intervention' // 授权力: task completed without co-creator intervention
+  | 'deep_collab_initiated' // 授权力: initiated deep collab (3+ cats)
+  | 'tool_category_breadth' // 开拓力: used tools across categories
+  | 'new_skill_first_use' // 开拓力: first use of a new skill
+  | 'feature_initiated' // 开拓力: initiated a new feature discussion
+  | 'one_shot_completion' // 引导力: cat completed task on first try
+  | 'low_clarification' // 引导力: session with few clarification rounds
+  | 'direction_confirmed' // 决策力 (shadow): confirmed direction quickly
+  | 'feedback_applied'; // 反馈力 (shadow): feedback led to improvement
 
 // ── Backward-compat aliases (remove after full migration) ─────────
 

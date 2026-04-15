@@ -531,6 +531,13 @@ export function registerMultiMentionRoutes(app: FastifyInstance, deps: MultiMent
       }
     }
 
+    // Phase D: Leadership — coordination footfall for dispatching
+    deps.activityBus?.record('multi_mention_dispatched', 'co-creator', {
+      requestId: mmRequest.id,
+      targets: body.targets,
+      targetCount: targetCatIds.length,
+    });
+
     request.log.info(
       {
         requestId: mmRequest.id,

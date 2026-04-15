@@ -39,3 +39,18 @@ export function growthBondKey(catA: string, catB: string): string {
 export function growthBondScan(catId: string): string {
   return `growth:bond:*${catId}*`;
 }
+
+// ── Phase D: Leadership keys (铲屎官六维) ────────────────────────
+
+/** Persistent XP counter per leadership dimension. */
+export function leadershipXpKey(dimension: string): string {
+  return `leadership:${dimension}`;
+}
+
+/** Sorted set holding leadership XP audit trail. Score = epoch ms. */
+export function leadershipAuditKey(): string {
+  return 'leadership:audit';
+}
+
+/** SCAN pattern to match all leadership keys. */
+export const LEADERSHIP_SCAN_ALL = 'leadership:*';

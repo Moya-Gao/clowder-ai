@@ -245,6 +245,11 @@ export type {
   HighlightMoment,
   InvocationPurpose,
   JourneyOverview,
+  // Phase D: Co-Creator Leadership (铲屎官六维)
+  LeadershipDimension,
+  LeadershipFootfallSource,
+  LeadershipProfile,
+  LeadershipStat,
   MomentCategory,
   MomentCondition,
   MomentDefinition,
@@ -259,7 +264,15 @@ export type {
   XpEvent,
   XpSource,
 } from './journey.js';
-export { DIMENSION_LABELS, GROWTH_DIMENSIONS, TRAIT_DIMENSIONS } from './journey.js';
+export {
+  DIMENSION_LABELS,
+  GROWTH_DIMENSIONS,
+  LEADERSHIP_DIMENSIONS,
+  LEADERSHIP_LABELS,
+  LEADERSHIP_LIVE_DIMS,
+  LEADERSHIP_SHADOW_DIMS,
+  TRAIT_DIMENSIONS,
+} from './journey.js';
 // Leaderboard types (F075 排行榜)
 export type {
   Achievement,
