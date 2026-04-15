@@ -170,6 +170,56 @@ describe('G4: activity signals via system_info', () => {
   });
 });
 
+// ── G10: Model Capacity Classification ───────────────────────────
+
+describe('G10: model_capacity error classification', () => {
+  test('ERROR_MESSAGE with "high traffic" → errorCode model_capacity', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+        status: 'DONE',
+        errorMessage: {
+          error: {
+            userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+          },
+        },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg, 'should emit error');
+    assert.equal(errMsg.errorCode, 'model_capacity', 'high traffic must be classified as model_capacity');
+  });
+
+  test('ERROR_MESSAGE with "rate limit" → errorCode model_capacity', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+        status: 'DONE',
+        errorMessage: { error: { modelErrorMessage: 'Rate limit exceeded for model gemini-3.1-pro' } },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg);
+    assert.equal(errMsg.errorCode, 'model_capacity');
+  });
+
+  test('ERROR_MESSAGE with non-capacity error → errorCode upstream_error (unchanged)', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+        status: 'DONE',
+        errorMessage: { error: { userErrorMessage: 'The model produced an invalid tool call.' } },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg);
+    assert.equal(errMsg.errorCode, 'upstream_error', 'non-capacity errors stay upstream_error');
+  });
+});
+
 // ── Existing transformer behavior (regression) ────────────────────
 
 describe('Transformer regression', () => {

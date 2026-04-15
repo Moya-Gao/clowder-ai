@@ -155,9 +155,11 @@ export class AntigravityAgentService implements AgentService {
             }
             if (fatalErrors.length > 0) {
               fatalSeen = true;
-              const hasUpstreamError = fatalErrors.some((e) => e.errorCode === 'upstream_error');
+              const hasSpecificError = fatalErrors.some(
+                (e) => e.errorCode === 'upstream_error' || e.errorCode === 'model_capacity',
+              );
               for (const err of fatalErrors) {
-                if (hasUpstreamError && err.errorCode === 'stream_error') {
+                if (hasSpecificError && err.errorCode === 'stream_error') {
                   log.info('suppressed stream_error in favor of upstream_error: %s', err.error);
                   continue;
                 }

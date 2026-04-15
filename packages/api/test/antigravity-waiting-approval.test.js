@@ -356,6 +356,90 @@ describe('Antigravity waiting approval', () => {
     assert.equal(hasStream, false, 'stream_error should be suppressed when upstream_error provides more detail');
   });
 
+  test('G10: model_capacity error emitted correctly at service level', async () => {
+    const bridge = {
+      ...createMockServiceBridge(),
+      pollForSteps: mock.fn(async function* () {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'DONE',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'claude-opus-4-6',
+      bridge,
+    });
+
+    const messages = await collect(service.invoke('test'));
+
+    const errors = messages.filter((m) => m.type === 'error');
+    assert.equal(errors.length, 1, 'should emit exactly one error');
+    assert.equal(errors[0].errorCode, 'model_capacity', 'high traffic must be classified as model_capacity');
+    assert.match(errors[0].error, /high traffic/i);
+  });
+
+  test('G10: model_capacity with tool activity still classifies correctly', async () => {
+    const bridge = {
+      ...createMockServiceBridge(),
+      pollForSteps: mock.fn(async function* () {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_TOOL_CALL',
+              status: 'DONE',
+              toolCall: { toolName: 'web_search', input: '{}' },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'DONE',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 2,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'claude-opus-4-6',
+      bridge,
+    });
+
+    const messages = await collect(service.invoke('test'));
+
+    const errors = messages.filter((m) => m.type === 'error');
+    assert.ok(errors.length >= 1, 'should emit error');
+    assert.equal(errors[0].errorCode, 'model_capacity');
+  });
+
   test('Bug-7: deduplicates consecutive upstream_error in same batch', async () => {
     const bridge = {
       ...createMockServiceBridge(),

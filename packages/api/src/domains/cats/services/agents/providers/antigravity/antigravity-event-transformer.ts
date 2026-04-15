@@ -5,6 +5,12 @@ import type { TrajectoryStep } from './AntigravityBridge.js';
 
 const log = createModuleLogger('antigravity-event-transformer');
 
+const CAPACITY_PATTERNS = [/high traffic/i, /rate limit/i, /too many requests/i, /try again/i, /overloaded/i];
+
+export function isCapacityError(message: string): boolean {
+  return CAPACITY_PATTERNS.some((p) => p.test(message));
+}
+
 export type StepBucket =
   | 'terminal_output'
   | 'partial_output'
@@ -148,8 +154,11 @@ export function transformTrajectorySteps(
           });
         } else if (step.type === 'CORTEX_STEP_TYPE_ERROR_MESSAGE' && step.errorMessage?.error) {
           const err = step.errorMessage.error;
+          const errorText = err.userErrorMessage || err.modelErrorMessage || 'Unknown Antigravity error';
+          const errorCode = isCapacityError(errorText) ? 'model_capacity' : 'upstream_error';
           log.warn(
-            'upstream_error: user=%s model=%s stepType=%s',
+            '%s: user=%s model=%s stepType=%s',
+            errorCode,
             err.userErrorMessage,
             err.modelErrorMessage,
             step.type,
@@ -157,8 +166,8 @@ export function transformTrajectorySteps(
           messages.push({
             type: 'error',
             catId,
-            error: err.userErrorMessage || err.modelErrorMessage || 'Unknown Antigravity error',
-            errorCode: 'upstream_error',
+            error: errorText,
+            errorCode,
             metadata,
             timestamp: Date.now(),
           });
