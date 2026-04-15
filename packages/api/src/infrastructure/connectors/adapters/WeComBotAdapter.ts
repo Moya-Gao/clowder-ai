@@ -212,12 +212,19 @@ export class WeComBotAdapter implements IStreamableOutboundAdapter {
 
     const base = { chatId, messageId, senderId, chatType: chatTypeNorm };
 
+    // Strip leading @mention in group chats — WeCom SDK includes raw `@botName ` prefix
+    // unlike Feishu (structured mention tokens) and DingTalk (SDK strips automatically)
+    const stripGroupMention = (text: string): string => {
+      if (!isGroup) return text;
+      return text.replace(/^@[^\s/]+\s*/, '');
+    };
+
     switch (msgtype) {
       case 'text': {
         const textObj = body.text as { content?: string } | undefined;
         const text = textObj?.content;
         if (!text) return null;
-        return { ...base, text: text.trim() };
+        return { ...base, text: stripGroupMention(text.trim()) };
       }
       case 'image': {
         const imageObj = body.image as { url?: string; aeskey?: string } | undefined;
@@ -250,7 +257,7 @@ export class WeComBotAdapter implements IStreamableOutboundAdapter {
           }
         }
 
-        const text = textParts.join('') || '[图文混排]';
+        const text = stripGroupMention(textParts.join('') || '[图文混排]');
         return { ...base, text, ...(attachments.length > 0 ? { attachments } : {}) };
       }
       case 'voice': {

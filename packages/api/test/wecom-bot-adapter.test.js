@@ -258,6 +258,84 @@ describe('WeComBotAdapter', () => {
       assert.equal(result.senderId, 'user_grp');
     });
 
+    // ── Bug-8: @mention stripping in group chats ──
+
+    it('strips leading @mention from group text (Bug-8)', () => {
+      const frame = makeTextFrame({
+        chattype: 'group',
+        chatid: 'grp_001',
+        content: '@宪宪 /threads',
+      });
+      const result = makeAdapter().parseEvent(frame);
+      assert.ok(result);
+      assert.equal(result.text, '/threads');
+    });
+
+    it('strips @mention with Chinese bot name in group (Bug-8)', () => {
+      const frame = makeTextFrame({
+        chattype: 'group',
+        chatid: 'grp_002',
+        content: '@布偶猫 hello world',
+      });
+      const result = makeAdapter().parseEvent(frame);
+      assert.ok(result);
+      assert.equal(result.text, 'hello world');
+    });
+
+    it('strips @mention without space before / command (Bug-8 P2)', () => {
+      const frame = makeTextFrame({
+        chattype: 'group',
+        chatid: 'grp_nospace',
+        content: '@宪宪/threads',
+      });
+      const result = makeAdapter().parseEvent(frame);
+      assert.ok(result);
+      assert.equal(result.text, '/threads');
+    });
+
+    it('does NOT strip @mention from DM text (Bug-8)', () => {
+      const frame = makeTextFrame({
+        chattype: 'single',
+        content: '@宪宪 /threads',
+      });
+      const result = makeAdapter().parseEvent(frame);
+      assert.ok(result);
+      assert.equal(result.text, '@宪宪 /threads');
+    });
+
+    it('strips @mention from group mixed message text (Bug-8)', () => {
+      const frame = {
+        headers: { req_id: 'req_mix_grp' },
+        body: {
+          msgtype: 'mixed',
+          chattype: 'group',
+          from: { userid: 'user_mix_grp' },
+          chatid: 'grp_mix_001',
+          msgid: 'msg_mix_grp',
+          mixed: {
+            msg_item: [
+              { msgtype: 'text', text: { content: '@宪宪 看这张图' } },
+              { msgtype: 'image', image: { url: 'https://img.jpg' } },
+            ],
+          },
+        },
+      };
+      const result = makeAdapter().parseEvent(frame);
+      assert.ok(result);
+      assert.equal(result.text, '看这张图');
+    });
+
+    it('returns empty string after stripping @mention-only text in group (Bug-8)', () => {
+      const frame = makeTextFrame({
+        chattype: 'group',
+        chatid: 'grp_empty',
+        content: '@宪宪',
+      });
+      const result = makeAdapter().parseEvent(frame);
+      assert.ok(result);
+      assert.equal(result.text, '');
+    });
+
     it('returns null for unsupported message type', () => {
       const frame = {
         headers: { req_id: 'req_unsupported' },
