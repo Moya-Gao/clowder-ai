@@ -185,6 +185,20 @@ describe('F479: shadow detection', () => {
     assert.equal(result.shadowMisses[0].catId, 'codex');
   });
 
+  // --- P2-4 regression: same-line dual mention — narrative then shadow miss ---
+
+  it('same-line: narrative first, relaxed-action second → shadow miss found', async () => {
+    const { detectInlineActionMentionsWithShadow } = await import(
+      '../dist/domains/cats/services/agents/routing/a2a-mentions.js'
+    );
+
+    // First @缅因猫 is narrative ("提过"); second has relaxed action ("麻烦") but not strict
+    const result = detectInlineActionMentionsWithShadow('之前 @缅因猫 提过，麻烦 @缅因猫 验证一下', 'opus', []);
+
+    assert.equal(result.shadowMisses.length, 1, 'second occurrence should be shadow miss');
+    assert.equal(result.shadowMisses[0].catId, 'codex');
+  });
+
   // --- P2-1 regression: mixed strict + shadow same cat across lines ---
 
   it('shadow detection reports shadow miss even when same cat has strict hit on another line', async () => {
@@ -219,6 +233,21 @@ describe('F479: routedSet skip tracking', () => {
     );
 
     assert.ok(result.routedSetSkips >= 1, 'should report routedSet skip count');
+  });
+
+  // --- P2-4 regression: same-line dual mention — narrative then actionable ---
+
+  it('same-line: narrative first, actionable second → routedSetSkip counted', async () => {
+    const { detectInlineActionMentionsWithShadow } = await import(
+      '../dist/domains/cats/services/agents/routing/a2a-mentions.js'
+    );
+
+    // First @缅因猫 is narrative (no action); second has "Ready for" → actionable but routed
+    const result = detectInlineActionMentionsWithShadow('之前 @缅因猫 提过，Ready for @缅因猫 review', 'opus', [
+      'codex',
+    ]);
+
+    assert.equal(result.routedSetSkips, 1, 'second occurrence is actionable + routed → skip');
   });
 
   // --- P2-2 regression: narrative mention must not inflate routedSetSkips ---

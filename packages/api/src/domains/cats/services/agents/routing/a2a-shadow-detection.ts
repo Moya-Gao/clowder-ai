@@ -118,8 +118,9 @@ export function detectInlineActionMentionsWithShadow(
           if (hasActionKeyword && !lineRoutedSkipSeen.has(entry.catId)) {
             lineRoutedSkipSeen.add(entry.catId);
             routedSetSkips++;
+            break; // classified — stop scanning this pattern
           }
-          break;
+          continue; // narrative routed mention — keep scanning for actionable occurrence
         }
         const hasRelaxedAction = RELAXED_BEFORE_ACTION_RE.test(before) || RELAXED_AFTER_ACTION_RE.test(after);
         if (!hasActionKeyword && hasRelaxedAction && !lineShadowSeen.has(entry.catId)) {
@@ -130,7 +131,9 @@ export function detectInlineActionMentionsWithShadow(
             contextLength: rawLine.trim().length,
           });
         }
-        break;
+        // Stop scanning only if this occurrence was classified (strict/relaxed/shadow).
+        // Narrative occurrences (no action signal at all) should not block later occurrences.
+        if (hasActionKeyword || hasRelaxedAction) break;
       }
     }
   }
