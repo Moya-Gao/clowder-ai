@@ -9,7 +9,7 @@ created: 2026-04-14
 
 # F162: Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 > **Deadline**: 2026-04-17（WXG 面试 showcase）
 > **Architecture**: [ADR-029](../decisions/029-external-tool-integration-strategy.md)
 
@@ -158,14 +158,14 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 | 日期 | 事件 |
 |------|------|
 | 2026-04-14 | 立项 + ADR-029 通过 review |
-| 2026-04-15 | Day 1: wecom-cli 环境搭建 + 四命令可用性验证 + WeComActionService 骨架 |
+| 2026-04-15 | Day 1: wecom-cli 环境搭建 + 四命令可用性验证 + WeComActionService 骨架 — AC-A1~A4 merged (PR #1180) |
 | 2026-04-16 | Day 2: callback route + skill + 端到端串联 |
 | 2026-04-17 | Day 3: demo 打磨 + 备录视频 + 面试 |
 
 ## Review Gate
 
 - Phase A: 面试展示性质，快速迭代。自检 → 铲屎官验收 → 面试实战验证。
-- 正式 code review 在面试后补。
+- AC-A1~A4: codex review + 云端 review 通过，PR #1180 merged 2026-04-15。
 
 ## 需求点 Checklist
 
