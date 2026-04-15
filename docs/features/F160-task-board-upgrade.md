@@ -84,7 +84,7 @@ created: 2026-04-12
 - `cat_cafe_list_tasks`：确认支持 `threadId` + `kind=work` 过滤（已有 API，需确认 MCP tool 暴露）
 - `cat_cafe_update_task`：已存在，确认输入参数完备
 
-### Phase B: UI Upgrade — 从隐藏列表到 Workspace Tab 🚧
+### Phase B: UI Upgrade — 从隐藏列表到 Workspace Tab ✅
 
 **目标**：毛线球从 ThreadSidebar 底部的隐藏列表升级为 Workspace 右面板的独立 Tab。
 
@@ -181,13 +181,13 @@ created: 2026-04-12
 - [x] AC-A3: `cat_cafe_list_tasks` 在 MCP 中可用，支持 `threadId` + `kind` 过滤
 - [x] AC-A4: 回归测试：PR tracking 任务仍然不出现在毛线球（PR #958 守护）
 
-### Phase B（UI Upgrade）
-- [ ] AC-B1: 毛线球从 ThreadSidebar 底部移至 Workspace 右面板独立 Tab
-- [ ] AC-B2: 四段式布局（doing/blocked/todo/done），blocked 高亮，todo/done 默认折叠
-- [ ] AC-B3: 人工创建入口（`[+]` 按钮 + inline 表单）可用
-- [ ] AC-B4: 任务卡片展开详情 + 状态切换可用
-- [ ] AC-B5: 遵循 F056 设计语言（semantic token / 8px grid / warm radius / dark mode）
-- [ ] AC-B6: 无视觉回归（ThreadSidebar 移除 TaskPanel 后布局正常）
+### Phase B（UI Upgrade）✅
+- [x] AC-B1: 毛线球从 ThreadSidebar 底部移至 Workspace 右面板独立 Tab
+- [x] AC-B2: 四段式布局（doing/blocked/todo/done），blocked 高亮，todo/done 默认折叠
+- [x] AC-B3: 人工创建入口（`[+]` 按钮 + inline 表单）可用
+- [x] AC-B4: 任务卡片展开详情 + 状态切换可用
+- [x] AC-B5: 遵循 F056 设计语言（semantic token / 8px grid / warm radius / dark mode）
+- [x] AC-B6: 无视觉回归（ThreadSidebar 移除 TaskPanel 后布局正常）
 
 ### Phase C（Skill Automation）
 - [ ] AC-C1: feat-lifecycle kickoff 自动创建 thread 任务
@@ -255,6 +255,7 @@ created: 2026-04-12
 | 2026-04-12 | 铲屎官确认方向，F160 立项 |
 | 2026-04-12 | Phase A merged (PR #1116) |
 | 2026-04-14 | Phase B Design Gate 通过（砚砚/GPT-5.4 出设计稿，宪宪/Opus review，铲屎官确认） |
+| 2026-04-15 | Phase B merged (PR #1171) |
 
 ## Review Gate
 
