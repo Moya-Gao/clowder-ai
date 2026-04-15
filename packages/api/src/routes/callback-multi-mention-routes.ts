@@ -162,7 +162,10 @@ function dispatchViaQueue(
             ? orch.recordFailure(requestId, catId, finalResponse)
             : orch.recordResponse(requestId, catId, finalResponse);
         // F157 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles bond + co-creator)
-        deps.activityBus?.record('multi_mention_completed', catId, { participants: [initiator, catId] });
+        // Only record for actual successes — failed dispatches should not earn collab XP or bond
+        if (status !== 'failed') {
+          deps.activityBus?.record('multi_mention_completed', catId, { participants: [initiator, catId] });
+        }
         log.info(
           { requestId, catId, newStatus, responseLength: finalResponse.length },
           '[F122B B6] multi-mention queue response recorded',
@@ -347,7 +350,16 @@ async function dispatchToTarget(
       }
     }
     // Record failure response in orchestrator (status: 'failed' — won't count as success)
-    orch.recordFailure(requestId, targetCatId, `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`);
+    const failStatus = orch.recordFailure(
+      requestId,
+      targetCatId,
+      `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`,
+    );
+    // If this was the last target, flush result (same as success path)
+    if (failStatus === 'done') {
+      cancelTimeout(requestId);
+      void flushResult(deps, requestId, threadId, userId, log);
+    }
   } finally {
     // F122 AC-A7: unconditional slot release — covers early return, registerDispatch
     // throw, routeExecution crash, and normal completion. InvocationTracker.complete()
