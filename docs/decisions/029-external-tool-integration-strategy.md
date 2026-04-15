@@ -53,7 +53,7 @@ decision_id: ADR-029
 ### 关键洞察
 
 1. **CLI 改变的是入口形态，不是能力分层。** CLI 是执行器，Skills 是描述，MCP 是协议——三者正交。
-2. **F088 的 adapter 模式（parseEvent / formatMessage / sendMessage）专为消息传输设计**，不适合企业操作（创建文档/待办/会议）。这是 Transport Plane 和 Action Plane 的区别。
+2. **F088 的 adapter 模式专为消息传输设计**（`IOutboundAdapter`：`sendReply / sendFormattedReply / sendMedia`；入站：`parseEvent`），不适合企业操作（创建文档/待办/会议）。这是 Transport Plane 和 Action Plane 的区别。
 3. **MCP wrapper 对外部 CLI 工具是净负债。** 上游 CLI 变更时，MCP wrapper 成为额外故障点和维护瓶颈。
 4. **ActionService（TypeScript module）已足够作为治理边界**——权限、审计、幂等、dry-run 在 service 层实现，不需要 MCP 进程来提供集中治理。
 
@@ -90,7 +90,7 @@ ActionService 职责：
 | 调用者场景 | 暴露方式 | 说明 |
 |-----------|---------|------|
 | Hub server 内部逻辑（定时任务、webhook handler） | TypeScript `import` | 直接调方法，零开销 |
-| 本机猫通过 Skill 触发 | Skill → CLI 直调 或 callback route → ActionService | 猫读 upstream Skills 知道怎么用，直接执行 |
+| 本机猫通过 Skill 触发 | Skill → callback route → ActionService | 猫读 upstream Skills 了解能力，通过 callback route 调用 ActionService 执行 |
 | Hub 有状态服务（threads, messages, memory） | MCP（现有 `cat_cafe_*` 模式） | 需要 session、auth、discovery |
 | 跨进程 / 跨语言 / 远程 agent | MCP tool | 调用者无法 import TypeScript module |
 
@@ -99,7 +99,7 @@ ActionService 职责：
 以下情况**不**构成上 MCP 的理由：
 
 - **仅为集中治理**：ActionService 已是治理边界，不需要独立 MCP 进程来提供权限/审计
-- **仅为能力发现**：upstream Agent Skills 文件已提供 LLM 可读的能力描述
+- **仅为能力发现**：upstream Agent Skills 文件已提供 LLM 可读的能力描述（但见下方"能力发现真相源"注记）
 - **仅因为"MCP 是标准"**：标准是工具，不是目的
 - **仅为未来可能**：当前所有猫均有 shell 执行能力，不存在必须通过 MCP 访问外部工具的场景
 
@@ -111,6 +111,18 @@ ActionService 职责：
 - 调用者确实无法通过 import、callback route 或 shell 访问
 
 届时 ActionService 的 typed 接口已就绪，包装为 MCP tool 为增量工作，不需要架构重写。
+
+### 注记：能力发现真相源
+
+外部 CLI 的能力发现涉及两层：
+
+- **Vendor 真相源**：CLI 自身的 `--help` / `--schema` / version-locked 官方文档。这是能力的权威定义。
+- **Skill 文件**：对 vendor 能力的 LLM 友好描述，方便猫理解和调用。这是便利层，不是权威层。
+
+注意 ADR-025 的 shadow 机制——用户级同名 skill 会覆盖项目级。因此：
+- ActionService 的方法签名以 **vendor CLI 实际行为**为准，不以本地 skill 文件为准
+- Skill 文件仅用于 LLM prompt 中的能力描述和调用指导
+- 如果 skill 文件描述与 CLI 实际行为不一致，以 CLI 为准并更新 skill 文件
 
 ### Decision 5: F088 Adapter 体系的边界
 
@@ -124,7 +136,7 @@ F088 adapter（`IOutboundAdapter`：`sendReply / sendFormattedReply / sendMedia`
 
 ### A1: CliBackedAdapter — 将 CLI 能力纳入 F088 adapter 体系
 
-**拒绝原因**：F088 adapter 接口（`parseEvent / formatMessage / sendMessage`）语义上是消息传输，无法表达"创建文档""派发待办"等企业操作。强行扩展 adapter 接口会污染 F088 已验证的架构。
+**拒绝原因**：F088 adapter 接口（入站 `parseEvent`、出站 `IOutboundAdapter`：`sendReply / sendFormattedReply / sendMedia`）语义上是消息传输，无法表达"创建文档""派发待办"等企业操作。强行扩展 adapter 接口会污染 F088 已验证的架构。
 
 ### A2: 全走 MCP — 为每个外部 CLI 建 MCP server
 
@@ -144,7 +156,7 @@ F088 adapter（`IOutboundAdapter`：`sendReply / sendFormattedReply / sendMedia`
 |------|------|
 | Feature 关系 | `Uses: F088`（触发+回贴），`Related: F132, F142`（同生态）。不是 `Evolved from F088` |
 | Execution Backend | `WeComActionService` + `CliExecutor`（调用 `wecom-cli`） |
-| Exposure Surface | 猫通过 upstream Agent Skills 直调 CLI；Hub 通过 import WeComActionService |
+| Exposure Surface | 猫通过 upstream Agent Skills 了解能力，经 callback route 调 WeComActionService；Hub 通过 import |
 | MCP | Phase A 不上。未来按 Decision 4 条件评估 |
 | Cross-cutting | 权限、审计、幂等、dry-run、resource handle 在 ActionService 实现 |
 
@@ -159,9 +171,10 @@ F088 adapter（`IOutboundAdapter`：`sendReply / sendFormattedReply / sendMedia`
 **负面 / 风险**：
 - 上游 CLI 的输出格式变更仍会影响 CliExecutor 的解析逻辑
 - 如果未来大量远程 agent 需要接入，需要批量将 ActionService 暴露为 MCP（但为增量工作）
-- 猫直调 CLI 的审计依赖 ActionService 被正确使用——如果猫绕过 ActionService 直接 shell 调 CLI，审计链断裂
+- 猫绕过 callback route 直接 shell 调 CLI 的风险——审计链断裂（缓解：skill 明确指导走 callback route，不鼓励裸 shell）
 
 **缓解措施**：
 - CliExecutor 输出解析优先用 JSON mode（`--format json`），降低格式变更影响
 - ActionService 方法签名与 CLI 命令解耦，保持稳定的编程接口
-- Skill 中明确指导猫通过 ActionService 路径调用，不鼓励裸 shell
+- Skill 中明确指导猫通过 callback route → ActionService 路径调用，不鼓励裸 shell
+- 能力发现以 vendor CLI 实际行为为权威，skill 文件为便利层（防 ADR-025 shadow 歧义）
