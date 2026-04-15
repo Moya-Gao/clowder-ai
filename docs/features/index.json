@@ -956,7 +956,7 @@
     },
     {
       "id": "F157",
-      "name": "Cat Growth RPG -- AI Agent Growth & Achievement System",
+      "name": "Cat Journey (猫猫足迹) — Activity Footprint Visualization",
       "status": "spec | **Owner**: Ragdoll | **Priority**: P1",
       "file": "F157-cat-growth-rpg.md"
     },
@@ -967,5 +967,5 @@
       "file": "F157-feishu-receipt-ack.md"
     }
   ],
-  "generated_at": "2026-04-12T16:45:08.953Z"
+  "generated_at": "2026-04-15T15:06:50.323Z"
 }
