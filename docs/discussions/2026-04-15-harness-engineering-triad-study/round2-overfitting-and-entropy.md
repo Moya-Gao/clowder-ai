@@ -1,6 +1,6 @@
 ---
 topics: [harness-engineering, memory-entropy, overfitting, knowledge-lifecycle, context-engineering]
-related_features: [F102, F152]
+related_features: [F102, F152, F163]
 related_decisions: [ADR-026]
 doc_kind: discussion
 created: 2026-04-15
