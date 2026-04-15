@@ -490,6 +490,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-15 | **Bug-7 fix** — diagnostic logging + content-aware fatal dedup（同文案去重 + upstream_error 优先于 stream_error）（PR #1175, 砚砚 P1→fix→放行 + 云端 P1(旧SHA)→fix→0 P1/P2）|
 | 2026-04-15 | **G10 model_capacity classification** — capacity error 独立分类（`high traffic`/`rate limit`/`overloaded` 等）+ dedup 支持 model_capacity；same-cascade retry 被砚砚 P1 退回（无幂等保证），仅保留分类半边（PR #1181, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-15 | **G10 capacity UX** — `model_capacity` 错误前插 `provider_signal` warning + provider-neutral 归因文案（"上游模型服务端繁忙，非 Cat Café 系统故障"），对齐 Gemini ACP 模式（PR #1185, 砚砚 P1(Gemini硬编码)→fix→放行 + 云端 0 P1/P2）|
+| 2026-04-15 | **Bug-A fix** — `upstream_error` 不再中断 poll loop（模型可自我纠正）；5-case 终止矩阵：model_capacity 始终终止，stream_error 仅单独出现时终止，upstream_error 从不终止（PR #1196, 砚砚 0P1/0P2 放行 + 云端 2P1→fix→0 P1/P2）|
 
 ---
 
@@ -498,6 +499,23 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 （暂无活跃 bug）
 
 ## Known Bugs（已修复）
+
+### Bug-A: upstream_error 误中断 poll loop — 模型无法自我纠正 ✅
+
+**现象**（2026-04-15 铲屎官报告）：孟加拉猫"说五个字就出问题"，`The model produced an invalid tool call` 后直接中断，在 Antigravity IDE 里从不发生。
+
+**根因**：PR #1157（Bug-5 fix）的 `fatalSeen → break` 把 `upstream_error`（包括 invalid tool call）当成终止条件。但在 Antigravity LS 中，这类错误是可恢复的——模型会在后续 step 自我纠正。Bridge 的激进 abort 切断了自我纠正路径。
+
+**修复**（PR #1196, `1c86939fe`）：
+- 将 `fatalSeen` 拆为两个独立信号：`fatalSeen`（抑制 empty_response）+ `terminalAbort`（终止 poll loop）
+- 5-case 终止矩阵：
+  - `model_capacity` → 始终终止（服务端过载，无法自我纠正）
+  - `stream_error` alone → 终止（连接断开）
+  - `stream_error + upstream_error` → 不终止（stream_error 是噪音，已被抑制）
+  - `upstream_error` alone → 不终止（模型可自我纠正）
+  - `model_capacity + upstream_error` → 终止（model_capacity 优先级高于自我纠正）
+- 砚砚 review：0 P1 / 0 P2 放行
+- 云端 review：2 轮 P1（mixed-batch 边界条件）→ fix → 0 P1/P2
 
 ### Bug-7: Invalid tool call 无诊断 + 双红条重复展示 ✅
 
@@ -541,6 +559,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 - Service `fatalSeen` flag：upstream_error/stream_error 触发 poll loop `break`，不再傻等
 - `fatalSeen` 时跳过 `empty_response` 兜底（避免双报错）
 - 架构（砚砚提议）：fatal 判定在 transformer，abort 决策在 service，bridge 不背业务语义
+- ⚠️ **后续修正（Bug-A, PR #1196）**：此 PR 的 `fatalSeen → break` 过于激进，upstream_error 也触发了 abort，导致模型无法自我纠正。Bug-A 将 `fatalSeen` 拆为 `fatalSeen`（仅抑制 empty_response）+ `terminalAbort`（仅 model_capacity / stream_error-alone 终止 poll loop）
 
 ### Bug-4: Step taxonomy v2 — 3 类 step 泄漏原始 JSON 到前端 ✅
 
