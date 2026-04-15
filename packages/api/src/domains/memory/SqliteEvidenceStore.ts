@@ -9,6 +9,11 @@ import type {
   IEvidenceStore,
   SearchOptions,
 } from './interfaces.js';
+import {
+  compareEvidenceItemsByLexicalBackfill,
+  rankLexicalBackfillRows,
+  splitLexicalBackfillWords,
+} from './lexical-backfill.js';
 import { applyMigrations } from './schema.js';
 import type { VectorStore } from './VectorStore.js';
 
@@ -63,6 +68,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     const bm25Pool = options?.mode === 'hybrid' ? Math.min(Math.max(limit * 4, 20), 100) : limit;
     const trimmed = query.trim();
     if (!trimmed) return [];
+    const lexicalBackfillWords = splitLexicalBackfillWords(trimmed);
 
     // Phase D: resolve scope → kind filter
     // scope='threads' → kind='thread' (P1 fix: was incorrectly mapped to 'session')
@@ -194,54 +200,64 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       }
     }
 
-    // ── Keyword fallback: search keywords/topics JSON when FTS5 misses ──
-    if (results.length <= 1) {
-      const words = trimmed.split(/\s+/).filter(Boolean);
-      if (words.length > 0) {
-        const kwConditions = words.map(() => 'keywords LIKE ?');
-        let kwSql = `SELECT * FROM evidence_docs WHERE (${kwConditions.join(' OR ')})`;
-        const kwParams: unknown[] = words.map((w) => `%${w.toLowerCase()}%`);
-        if (effectiveKind) {
-          kwSql += ' AND kind = ?';
-          kwParams.push(effectiveKind);
-        }
-        if (excludeSession) {
-          kwSql += " AND kind != 'session'";
-        }
-        if (excludePackKnowledge) {
-          kwSql += " AND kind != 'pack-knowledge'";
-        }
-        if (options?.status) {
-          kwSql += ' AND status = ?';
-          kwParams.push(options.status);
-        }
-        if (options?.keywords?.length) {
-          kwSql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
-          kwParams.push(...options.keywords.map((kw) => `%"${kw}"%`));
-        }
-        if (threadAnchor) {
-          kwSql += ' AND anchor = ?';
-          kwParams.push(threadAnchor);
-        }
-        // F152 AC-A6: provenance tier filter
-        if (options?.provenanceTier) {
-          kwSql += ' AND provenance_tier = ?';
-          kwParams.push(options.provenanceTier);
-        }
-        kwSql +=
-          " ORDER BY (superseded_by IS NOT NULL), (source_path LIKE 'archive/%'), (CASE WHEN provenance_tier = 'authoritative' THEN 0 WHEN provenance_tier IS NOT NULL THEN 1 ELSE 2 END), updated_at DESC LIMIT ?";
-        kwParams.push(bm25Pool);
-        try {
-          const kwRows = this.db?.prepare(kwSql).all(...kwParams) as RowShape[];
-          for (const row of kwRows) {
-            if (!seenAnchors.has(row.anchor)) {
-              results.push(rowToItem(row));
-              seenAnchors.add(row.anchor);
-            }
+    // ── Lexical contains backfill: recover substring hits that unicode61 FTS misses ──
+    if (lexicalBackfillWords.length > 0) {
+      const containsConditions = lexicalBackfillWords.map(
+        () => "(LOWER(title) LIKE ? OR LOWER(COALESCE(summary, '')) LIKE ? OR LOWER(COALESCE(keywords, '')) LIKE ?)",
+      );
+      let containsSql = `SELECT * FROM evidence_docs WHERE (${containsConditions.join(' OR ')})`;
+      const containsParams: unknown[] = lexicalBackfillWords.flatMap((word) => {
+        const pattern = `%${word}%`;
+        return [pattern, pattern, pattern];
+      });
+      if (effectiveKind) {
+        containsSql += ' AND kind = ?';
+        containsParams.push(effectiveKind);
+      }
+      if (excludeSession) {
+        containsSql += " AND kind != 'session'";
+      }
+      if (excludePackKnowledge) {
+        containsSql += " AND kind != 'pack-knowledge'";
+      }
+      if (options?.status) {
+        containsSql += ' AND status = ?';
+        containsParams.push(options.status);
+      }
+      if (options?.keywords?.length) {
+        containsSql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
+        containsParams.push(...options.keywords.map((kw) => `%"${kw}"%`));
+      }
+      if (threadAnchor) {
+        containsSql += ' AND anchor = ?';
+        containsParams.push(threadAnchor);
+      }
+      if (options?.dateFrom) {
+        containsSql += ' AND updated_at >= ?';
+        containsParams.push(options.dateFrom);
+      }
+      if (options?.dateTo) {
+        containsSql += ' AND updated_at <= ?';
+        containsParams.push(options.dateTo.length === 10 ? `${options.dateTo}T23:59:59` : options.dateTo);
+      }
+      if (options?.provenanceTier) {
+        containsSql += ' AND provenance_tier = ?';
+        containsParams.push(options.provenanceTier);
+      }
+      try {
+        const containsRows = this.db?.prepare(containsSql).all(...containsParams) as RowShape[];
+        const { rows: rankedRows, signals } = rankLexicalBackfillRows(containsRows, lexicalBackfillWords);
+        for (const row of rankedRows) {
+          if (!seenAnchors.has(row.anchor)) {
+            results.push(rowToItem(row));
+            seenAnchors.add(row.anchor);
           }
-        } catch {
-          // keyword search failed — continue with existing results
         }
+        if (signals.size > 0) {
+          results.sort((a, b) => compareEvidenceItemsByLexicalBackfill(a, b, signals, exactRow?.anchor));
+        }
+      } catch {
+        // substring backfill failed — continue with existing results
       }
     }
 
