@@ -4,9 +4,10 @@
  * Subscribes to ActivityEventBus and translates co-creator-relevant events
  * into leadership footfall via LeadershipService.awardXp().
  *
- * Straightforward mappings are handled here. Stateful/session-level sources
- * (tool_category_breadth, new_skill_first_use, feature_initiated) are wired in AC-D2.
- * Shadow sources (direction_confirmed, feedback_applied) are wired in AC-D3.
+ * IMPORTANT: Uses request-level events for multi-mention scoring (not per-responder).
+ * - multi_mention_dispatched  → fires ONCE when co-creator dispatches
+ * - multi_mention_request_completed → fires ONCE when all responders finish (from flushResult)
+ * - Per-responder events (multi_mention_completed, deep_collab_completed) are for cat XP only.
  */
 
 import type { ActivityEvent, LeadershipFootfallSource } from '@cat-cafe/shared';
@@ -19,7 +20,7 @@ interface LeadershipServiceLike {
   awardXp(source: LeadershipFootfallSource, multiplier?: number): void;
 }
 
-/** Minimum participants count to earn target_diversity bonus. */
+/** Minimum target count to earn target_diversity bonus. */
 const DIVERSITY_THRESHOLD = 3;
 
 export class LeadershipProjector {
@@ -34,25 +35,25 @@ export class LeadershipProjector {
   private handleEvent = (event: ActivityEvent): void => {
     try {
       switch (event.type) {
+        // ── Coordination (协调力) ────────────────────────
         case 'multi_mention_dispatched':
           this.leadershipService.awardXp('multi_mention_dispatch');
           break;
-        case 'multi_mention_completed':
-          this.onMultiMention(event);
+        case 'multi_mention_request_completed':
+          this.onRequestCompleted(event);
           break;
-        case 'deep_collab_completed':
-          this.leadershipService.awardXp('deep_collab_initiated');
-          break;
+        // ── Delegation + Guidance (授权力 + 引导力) ──────
         case 'task_completed':
           this.onTaskCompleted(event);
           break;
         case 'session_sealed':
           this.onSessionSealed(event);
           break;
+        // ── Exploration (开拓力) ─────────────────────────
         case 'tool_used':
           this.onToolUsed(event);
           break;
-        // Shadow dimensions (AC-D3): recorded but not displayed in v1
+        // ── Shadow (AC-D3) ───────────────────────────────
         case 'review_submitted':
           this.leadershipService.awardXp('feedback_applied');
           break;
@@ -62,20 +63,33 @@ export class LeadershipProjector {
     }
   };
 
-  private onMultiMention(event: ActivityEvent): void {
+  /** Request-level: fires ONCE per multi-mention request from flushResult(). */
+  private onRequestCompleted(event: ActivityEvent): void {
+    const successCount = (event.metadata.successCount as number) ?? 0;
+    if (successCount === 0) return; // No successful responses — skip
+
     this.leadershipService.awardXp('multi_mention_success');
-    // Diversity bonus when dispatching to 3+ different cats
-    const participants = event.metadata.participants as string[] | undefined;
-    if (participants && participants.length >= DIVERSITY_THRESHOLD) {
+
+    // Diversity bonus based on total target count (not per-responder participants)
+    const targetCount = (event.metadata.targetCount as number) ?? 0;
+    if (targetCount >= DIVERSITY_THRESHOLD) {
       this.leadershipService.awardXp('target_diversity');
+    }
+
+    // Deep collab bonus (3+ cats collaborated successfully)
+    if (event.metadata.isDeepCollab) {
+      this.leadershipService.awardXp('deep_collab_initiated');
     }
   }
 
   private onTaskCompleted(event: ActivityEvent): void {
+    // Baseline: every task completion gives a small guidance signal
+    this.leadershipService.awardXp('one_shot_completion', 0.2);
+
     const clarifications = (event.metadata.clarificationCount as number) ?? -1;
-    // 引导力: cat completed on first try (zero clarification rounds)
+    // 引导力 bonus: cat completed on first try (zero clarification rounds)
     if (clarifications === 0) {
-      this.leadershipService.awardXp('one_shot_completion');
+      this.leadershipService.awardXp('one_shot_completion', 0.8);
     }
     // 授权力: task finished without co-creator intervention
     const interventions = (event.metadata.interventionCount as number) ?? -1;

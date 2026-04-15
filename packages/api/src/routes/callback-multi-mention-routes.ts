@@ -425,6 +425,18 @@ async function flushResult(
     }
   }
 
+  // Phase D: Request-level completion event (fires ONCE per multi-mention, for LeadershipProjector)
+  if (deps.activityBus) {
+    const allTargets = result.request.targets;
+    deps.activityBus.record('multi_mention_request_completed', 'co-creator', {
+      requestId,
+      targets: allTargets,
+      targetCount: allTargets.length,
+      successCount: successfulCats.length,
+      isDeepCollab: successfulCats.length >= 3,
+    });
+  }
+
   log.info(
     {
       requestId,
