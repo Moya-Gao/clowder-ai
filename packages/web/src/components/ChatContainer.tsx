@@ -443,6 +443,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     armUnreadSuppression(threadId);
     apiFetch(`/api/threads/${encodeURIComponent(threadId)}/read/latest`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
     })
       .then((res) => {
         if (res.ok) {

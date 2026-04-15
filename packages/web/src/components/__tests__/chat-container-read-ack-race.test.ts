@@ -187,8 +187,11 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     );
     expect(ackCalls.length).toBe(1);
     expect(ackCalls[0][0]).toContain('thread-A');
-    // POST with no body — server finds latest message
-    expect((ackCalls[0]?.[1] as { method: string }).method).toBe('POST');
+    expect(ackCalls[0]?.[1]).toMatchObject({
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
   });
 
   it('fires new POST /read/latest when threadId changes', async () => {

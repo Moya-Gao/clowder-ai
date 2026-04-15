@@ -58,6 +58,25 @@ function ensureSession(): Promise<void> {
 }
 
 /**
+ * Ensure mutating requests (POST/PUT/PATCH/DELETE) carry a Content-Type
+ * header and body. Bare POSTs with no body receive 415 Unsupported Media
+ * Type through reverse proxies (Cloudflare Tunnel → Fastify).
+ *
+ * Callers that already set a body (including FormData) are left untouched.
+ */
+function ensureBodyForMutation(init?: RequestInit): RequestInit | undefined {
+  if (!init?.method) return init;
+  const method = init.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD') return init;
+  if (init.body != null) return init;
+  return {
+    ...init,
+    headers: { 'content-type': 'application/json', ...(init.headers as Record<string, string>) },
+    body: '{}',
+  };
+}
+
+/**
  * Fetch wrapper with session-cookie identity.
  *
  * On 401, re-establishes the session cookie and retries once.
@@ -69,8 +88,9 @@ function ensureSession(): Promise<void> {
  */
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   await ensureSession();
+  const normalized = ensureBodyForMutation(init);
   const res = await fetch(`${API_URL}${path}`, {
-    ...init,
+    ...normalized,
     credentials: 'include',
   });
   if (res.status === 401) {
@@ -78,7 +98,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     sessionGate = null;
     await ensureSession();
     return fetch(`${API_URL}${path}`, {
-      ...init,
+      ...normalized,
       credentials: 'include',
     });
   }
