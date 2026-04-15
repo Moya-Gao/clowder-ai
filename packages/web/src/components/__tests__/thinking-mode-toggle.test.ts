@@ -121,6 +121,10 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
 
     act(() => {
+      useChatStore.getState().setLoadingThreads(false);
+    });
+
+    act(() => {
       root.render(
         React.createElement(ChatMessage, {
           message: thinkingMsg as never,
@@ -149,26 +153,43 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
 
   it('thread-level bubble override loaded async beats initial global default after refresh-like hydration', async () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
+    const { RightStatusPanel } = await import('@/components/RightStatusPanel');
 
     act(() => {
       useChatStore.setState({
         currentThreadId: 'thread-a',
         threads: [],
+        isLoadingThreads: true,
         globalBubbleDefaults: { thinking: 'expanded', cliOutput: 'collapsed' },
       });
       root.render(
-        React.createElement(ChatMessage, {
-          message: thinkingMsg as never,
-          getCatById: getCatById as never,
-        }),
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(RightStatusPanel, {
+            intentMode: null,
+            targetCats: [],
+            catStatuses: {},
+            catInvocations: {},
+            threadId: 'thread-a',
+            messageSummary: { total: 1, assistant: 1, system: 0, evidence: 0, followup: 0 },
+          }),
+          React.createElement(ChatMessage, {
+            message: thinkingMsg as never,
+            getCatById: getCatById as never,
+          }),
+        ),
       );
     });
 
-    expect(container.textContent).toContain(THINKING_TEXT);
-    expect(container.querySelectorAll('.cli-output-md').length).toBeGreaterThanOrEqual(1);
+    expect(container.querySelectorAll('.cli-output-md').length).toBe(0);
+    expect(container.textContent).not.toContain(THINKING_TEXT);
+    expect(container.textContent).toContain('Thinking: 恢复中');
+    expect(container.textContent).toContain('恢复中...');
 
     act(() => {
       useChatStore.setState({
+        isLoadingThreads: false,
         threads: [
           {
             id: 'thread-a',
@@ -186,6 +207,49 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
 
     expect(container.querySelectorAll('.cli-output-md').length).toBe(0);
     expect(container.textContent).not.toContain(THINKING_TEXT);
+  });
+
+  it('restores expanded bubble after refresh once thread metadata hydrates', async () => {
+    const { ChatMessage } = await import('@/components/ChatMessage');
+
+    act(() => {
+      useChatStore.setState({
+        currentThreadId: 'thread-expanded',
+        threads: [],
+        isLoadingThreads: true,
+        globalBubbleDefaults: { thinking: 'collapsed', cliOutput: 'collapsed' },
+      });
+      root.render(
+        React.createElement(ChatMessage, {
+          message: thinkingMsg as never,
+          getCatById: getCatById as never,
+        }),
+      );
+    });
+
+    expect(container.querySelectorAll('.cli-output-md').length).toBe(0);
+    expect(container.textContent).not.toContain(THINKING_TEXT);
+
+    act(() => {
+      useChatStore.setState({
+        isLoadingThreads: false,
+        threads: [
+          {
+            id: 'thread-expanded',
+            projectPath: 'default',
+            title: 'Thread Expanded',
+            createdBy: 'default-user',
+            participants: [],
+            lastActiveAt: Date.now(),
+            createdAt: Date.now(),
+            bubbleThinking: 'expanded',
+          },
+        ],
+      });
+    });
+
+    expect(container.querySelectorAll('.cli-output-md').length).toBeGreaterThanOrEqual(1);
+    expect(container.textContent).toContain(THINKING_TEXT);
   });
 
   it('stream-origin messages render via CliOutputBlock (F097)', async () => {

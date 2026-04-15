@@ -999,7 +999,7 @@
     {
       "id": "F160",
       "name": "毛线球升级 — Thread-Level Persistent Task Board",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F160-task-board-upgrade.md"
     },
     {
@@ -1007,7 +1007,13 @@
       "name": "ACP Carrier Generalization — 多载体复用同一 Runtime Policy",
       "status": "spec | **Owner**: TBD | **Priority**: P2",
       "file": "F161-acp-carrier-generalization.md"
+    },
+    {
+      "id": "F162",
+      "name": "Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F162-enterprise-action-toolkit.md"
     }
   ],
-  "generated_at": "2026-04-14T14:55:48.491Z"
+  "generated_at": "2026-04-15T05:12:57.050Z"
 }

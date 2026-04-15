@@ -146,8 +146,10 @@ function BubbleDisplayToggle({
   field: 'bubbleThinking' | 'bubbleCli';
 }) {
   const thread = useChatStore((s) => s.threads.find((t) => t.id === threadId));
+  const isLoadingThreads = useChatStore((s) => s.isLoadingThreads);
   const updateLocal = useChatStore((s) => s.updateThreadBubbleDisplay);
   const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
+  const bubbleRestorePending = isLoadingThreads && !thread;
   const current = thread?.[field] ?? 'global';
   const currentEffective =
     current === 'global'
@@ -155,14 +157,22 @@ function BubbleDisplayToggle({
         ? globalBubbleDefaults.thinking
         : globalBubbleDefaults.cliOutput
       : current;
-  const next =
-    current === 'global' ? (currentEffective === 'expanded' ? 'collapsed' : 'expanded') : BUBBLE_CYCLE[current];
-  const currentLabel =
-    current === 'global' ? `${BUBBLE_LABELS.global}（当前${BUBBLE_LABELS[currentEffective]}）` : BUBBLE_LABELS[current];
+  const next = bubbleRestorePending
+    ? null
+    : current === 'global'
+      ? currentEffective === 'expanded'
+        ? 'collapsed'
+        : 'expanded'
+      : BUBBLE_CYCLE[current];
+  const currentLabel = bubbleRestorePending
+    ? '恢复中'
+    : current === 'global'
+      ? `${BUBBLE_LABELS.global}（当前${BUBBLE_LABELS[currentEffective]}）`
+      : BUBBLE_LABELS[current];
   const pendingRef = useRef(false);
 
   const cycle = useCallback(async () => {
-    if (pendingRef.current) return;
+    if (pendingRef.current || bubbleRestorePending || !next) return;
     pendingRef.current = true;
     updateLocal(threadId, field, next);
     try {
@@ -177,7 +187,7 @@ function BubbleDisplayToggle({
     } finally {
       pendingRef.current = false;
     }
-  }, [threadId, field, next, current, updateLocal]);
+  }, [threadId, field, next, current, updateLocal, bubbleRestorePending]);
 
   return (
     <div className="flex items-center justify-between">
@@ -186,9 +196,10 @@ function BubbleDisplayToggle({
       </span>
       <button
         onClick={cycle}
+        disabled={bubbleRestorePending}
         className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
       >
-        {BUBBLE_LABELS[next]}
+        {bubbleRestorePending ? '恢复中...' : BUBBLE_LABELS[next as keyof typeof BUBBLE_LABELS]}
       </button>
     </div>
   );

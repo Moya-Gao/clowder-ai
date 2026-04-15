@@ -684,7 +684,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   _unreadSuppressedUntil: {},
   _pendingAckCount: {},
   threads: [],
-  isLoadingThreads: false,
+  isLoadingThreads: true,
   uiThinkingExpandedByDefault: loadUiThinkingExpandedByDefault(),
   globalBubbleDefaults: {
     // Use old localStorage value as initial fallback for thinking; CLI defaults to collapsed

@@ -65,6 +65,8 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const coCreator = useCoCreatorConfig();
   const router = useRouter();
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
+  const currentThreadId = useChatStore((s) => s.currentThreadId);
+  const isLoadingThreads = useChatStore((s) => s.isLoadingThreads);
   const threads = useChatStore((s) => s.threads);
   const threadMessages = useChatStore((s) => s.messages);
   const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
@@ -92,6 +94,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
       })()
     : null;
   const currentThread = useChatStore((s) => s.threads.find((t) => t.id === s.currentThreadId));
+  const bubbleRestorePending = isLoadingThreads && !!currentThreadId && !currentThread;
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
   const hasTextContent = message.content.trim().length > 0;
   const isWhisper = message.visibility === 'whisper';
@@ -380,7 +383,11 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               content={message.thinking}
               className={catStyle?.font}
               label="Thinking"
-              defaultExpanded={resolveBubbleExpanded(currentThread?.bubbleThinking, globalBubbleDefaults.thinking)}
+              defaultExpanded={
+                bubbleRestorePending
+                  ? false
+                  : resolveBubbleExpanded(currentThread?.bubbleThinking, globalBubbleDefaults.thinking)
+              }
               expandInExport={false}
               breedColor={catData?.color.primary}
             />
@@ -390,7 +397,11 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               events={cliEvents}
               status={cliStatus}
               thinkingMode={currentThread?.thinkingMode}
-              defaultExpanded={resolveBubbleExpanded(currentThread?.bubbleCli, globalBubbleDefaults.cliOutput)}
+              defaultExpanded={
+                bubbleRestorePending
+                  ? false
+                  : resolveBubbleExpanded(currentThread?.bubbleCli, globalBubbleDefaults.cliOutput)
+              }
               breedColor={catData?.color.primary}
             />
           )}
