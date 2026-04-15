@@ -172,6 +172,7 @@ created: 2026-04-10
 | 2026-04-14 | Fallout hydration+bubble merged (PR #1167) — secondary thread hydration now starts in parallel with `messages`; bubble toggle no longer no-ops on first click when following an already-expanded global default (author: gpt52, reviewer: opus + codex cloud) |
 | 2026-04-14 | Bubble refresh restore merged (PR #1174) — thread-level bubble preference no longer flashes back to the global default before thread metadata finishes hydrating after F5 (author: gpt52, reviewer: codex cloud) |
 | 2026-04-14 | Signal Inbox nav fix merged (PR #1177) — `next/link` replaced with explicit `window.location.assign` for Signal entry in ChatContainerHeader, matching Memory/Mission Hub pattern (author: gpt52+opus, reviewer: opus + codex cloud) |
+| 2026-04-15 | Bubble initial default race fix merged (PR #1178) — globalBubbleDefaults.thinking changed from localStorage-dependent to always 'collapsed'; eliminates race where threads load before config causing stale expanded flash (author: opus, reviewer: codex cloud) |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
@@ -267,6 +268,8 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 > 因此 AC-2 剩余未闭环项进一步收缩为其他 smoke path（尤其 Signal Hub 入口）是否全绿，而不是 bubble 刷新恢复链本身。
 >
 > 2026-04-14 再追加状态：PR #1177 修复 Signal Hub 入口导航。ChatContainerHeader 里的 Signal Inbox `<Link>` 被 Next.js router 吞掉 click 但不完成跳转，改为 `button + window.location.assign`（和 Memory/Mission Hub 同路数）。AC-2 的 4 条核心 smoke path 现已全部有对应修复进入 main。
+>
+> 2026-04-15 再追加状态：PR #1178 修复 bubble F5 flash 的第二层根因。PR #1174 的 `isLoadingThreads` guard 只覆盖 thread 加载窗口；当 threads 先于 config 加载完成时，guard 释放但 `globalBubbleDefaults.thinking` 仍持有 localStorage 的 stale `'expanded'` 值，导致所有 `null` bubbleThinking 的 thread 闪烁展开。修复：初始值改为 `'collapsed'`，server config 到达后覆盖。AC-2 的 bubble 刷新恢复链现已双层加固（thread 加载 guard + 安全初始值）。
 
 ### 守护说明
 
