@@ -136,11 +136,32 @@ export class AntigravityAgentService implements AgentService {
             stallProbed = false;
             lastDelivered = batch.cursor.lastDeliveredStepCount;
             const messages = transformTrajectorySteps(batch.steps, self.catId, metadata);
+            const fatalErrors: AgentMessage[] = [];
+            const seenFatalKeys = new Set<string>();
             for (const msg of messages) {
               if (msg.type === 'text') hasText = true;
-              yield msg;
-              if (msg.type === 'error' && msg.errorCode && msg.errorCode !== 'tool_error') {
-                fatalSeen = true;
+              const isFatal = msg.type === 'error' && msg.errorCode && msg.errorCode !== 'tool_error';
+              if (isFatal) {
+                const key = `${msg.errorCode}:${msg.error}`;
+                if (seenFatalKeys.has(key)) {
+                  log.info('suppressed duplicate fatal error in same batch: %s', msg.error);
+                } else {
+                  seenFatalKeys.add(key);
+                  fatalErrors.push(msg);
+                }
+              } else {
+                yield msg;
+              }
+            }
+            if (fatalErrors.length > 0) {
+              fatalSeen = true;
+              const hasUpstreamError = fatalErrors.some((e) => e.errorCode === 'upstream_error');
+              for (const err of fatalErrors) {
+                if (hasUpstreamError && err.errorCode === 'stream_error') {
+                  log.info('suppressed stream_error in favor of upstream_error: %s', err.error);
+                  continue;
+                }
+                yield err;
               }
             }
           }

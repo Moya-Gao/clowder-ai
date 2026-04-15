@@ -314,4 +314,82 @@ describe('Antigravity waiting approval', () => {
     assert.equal(parsed.type, 'info');
     assert.match(parsed.message, /等待权限批准/);
   });
+
+  test('Bug-7 P1: keeps upstream_error when stream_error also present in same batch', async () => {
+    const bridge = {
+      ...createMockServiceBridge(),
+      pollForSteps: mock.fn(async function* () {
+        // LS sends generic stream_error THEN specific upstream_error in one batch
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'DONE',
+              errorMessage: { error: { userErrorMessage: 'The model produced an invalid tool call.' } },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 2,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('test'));
+
+    const errors = messages.filter((msg) => msg.type === 'error');
+    // Must keep the more specific upstream_error, not swallow it behind stream_error
+    const hasUpstream = errors.some((e) => e.errorCode === 'upstream_error');
+    assert.ok(hasUpstream, 'upstream_error must NOT be suppressed when stream_error also present');
+    assert.match(errors.find((e) => e.errorCode === 'upstream_error').error, /invalid tool call/i);
+    // stream_error should be suppressed in favor of upstream_error
+    const hasStream = errors.some((e) => e.errorCode === 'stream_error');
+    assert.equal(hasStream, false, 'stream_error should be suppressed when upstream_error provides more detail');
+  });
+
+  test('Bug-7: deduplicates consecutive upstream_error in same batch', async () => {
+    const bridge = {
+      ...createMockServiceBridge(),
+      pollForSteps: mock.fn(async function* () {
+        // LS sends two identical ERROR_MESSAGE steps in one batch
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'DONE',
+              errorMessage: { error: { userErrorMessage: 'The model produced an invalid tool call.' } },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'DONE',
+              errorMessage: { error: { userErrorMessage: 'The model produced an invalid tool call.' } },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 2,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('test'));
+
+    const errors = messages.filter((msg) => msg.type === 'error');
+    // Must yield only ONE error to the user, not two identical red bars
+    assert.equal(errors.length, 1, 'duplicate upstream_error must be deduplicated to single error');
+    assert.match(errors[0].error, /invalid tool call/i);
+  });
 });

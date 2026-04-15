@@ -137,6 +137,7 @@ export function transformTrajectorySteps(
 
       case 'tool_error': {
         if (step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') {
+          log.warn('stream_error: stopReason=%s', step.plannerResponse?.stopReason);
           messages.push({
             type: 'error',
             catId,
@@ -147,6 +148,12 @@ export function transformTrajectorySteps(
           });
         } else if (step.type === 'CORTEX_STEP_TYPE_ERROR_MESSAGE' && step.errorMessage?.error) {
           const err = step.errorMessage.error;
+          log.warn(
+            'upstream_error: user=%s model=%s stepType=%s',
+            err.userErrorMessage,
+            err.modelErrorMessage,
+            step.type,
+          );
           messages.push({
             type: 'error',
             catId,
