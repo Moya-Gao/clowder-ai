@@ -276,9 +276,10 @@ export function detectInlineActionMentionsWithShadow(
   if (!text) return { strictHits: [], shadowMisses: [], routedSetSkips: 0 };
 
   const strictHits = detectInlineActionMentions(text, currentCatId, routedMentions);
-  const strictCatIds = new Set(strictHits.map((h) => h.catId));
 
-  // Relaxed pass: find ALL inline @mentions (no action keyword required)
+  // Relaxed pass: find ALL inline @mentions, classify per occurrence.
+  // P2-1 fix: check action keywords per occurrence instead of global catId diff.
+  // P2-2 fix: only count routedSetSkip when action keyword present, dedup per (catId, line).
   const stripped = text.replace(/```[\s\S]*?```/g, '');
   const allConfigs = Object.keys(catRegistry.getAllConfigs()).length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
 
@@ -294,13 +295,16 @@ export function detectInlineActionMentionsWithShadow(
 
   const routedSet = new Set(routedMentions ?? []);
   const shadowMisses: ShadowMiss[] = [];
-  const seenShadow = new Set<string>();
   let routedSetSkips = 0;
 
   for (const rawLine of stripped.split(/\r?\n/)) {
     const trimmed = rawLine.trimStart();
     const normalized = trimmed.toLowerCase();
     if (normalized.startsWith('>')) continue;
+
+    // Per-line dedup: same cat on same line only counted once per category
+    const lineShadowSeen = new Set<string>();
+    const lineRoutedSkipSeen = new Set<string>();
 
     for (const entry of entries) {
       let searchFrom = 0;
@@ -314,13 +318,22 @@ export function detectInlineActionMentionsWithShadow(
         const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
         if (!isBoundary) continue;
 
+        // Per-occurrence action keyword check
+        const before = normalized.slice(0, idx);
+        const after = normalized.slice(idx + entry.pattern.length);
+        const hasActionKeyword = BEFORE_HANDOFF_RE.test(before) || AFTER_HANDOFF_RE.test(after);
+
         if (routedSet.has(entry.catId)) {
-          routedSetSkips++;
+          // P2-2: only count skip when action keyword present (genuine overlap)
+          if (hasActionKeyword && !lineRoutedSkipSeen.has(entry.catId)) {
+            lineRoutedSkipSeen.add(entry.catId);
+            routedSetSkips++;
+          }
           break;
         }
-        // Not a strict hit and not already seen → shadow miss
-        if (!strictCatIds.has(entry.catId) && !seenShadow.has(entry.catId)) {
-          seenShadow.add(entry.catId);
+        // Shadow miss = inline @mention WITHOUT action keyword (vocab gap candidate)
+        if (!hasActionKeyword && !lineShadowSeen.has(entry.catId)) {
+          lineShadowSeen.add(entry.catId);
           shadowMisses.push({
             catId: entry.catId,
             contextHash: hashContext(rawLine.trim()),

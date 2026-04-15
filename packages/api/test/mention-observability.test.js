@@ -157,6 +157,23 @@ describe('F479: shadow detection', () => {
 
     assert.equal(result.shadowMisses.length, 0, 'already-routed mention should be excluded from shadow');
   });
+
+  // --- P2-1 regression: mixed strict + shadow same cat across lines ---
+
+  it('shadow detection reports shadow miss even when same cat has strict hit on another line', async () => {
+    const { detectInlineActionMentionsWithShadow } = await import(
+      '../dist/domains/cats/services/agents/routing/a2a-mentions.js'
+    );
+
+    // Line 1: strict hit (action keyword "review")
+    // Line 2: shadow miss (no action keyword — vocab gap candidate)
+    const text = 'Ready for @缅因猫 review\n我问一下 @缅因猫 这个问题';
+    const result = detectInlineActionMentionsWithShadow(text, 'opus', []);
+
+    assert.ok(result.strictHits.length > 0, 'line 1 should be strict hit');
+    assert.equal(result.shadowMisses.length, 1, 'line 2 should be shadow miss (per-occurrence, not per-catId)');
+    assert.equal(result.shadowMisses[0].catId, 'codex');
+  });
 });
 
 // --- 3. routedSet skip detection ---
@@ -175,5 +192,19 @@ describe('F479: routedSet skip tracking', () => {
     );
 
     assert.ok(result.routedSetSkips >= 1, 'should report routedSet skip count');
+  });
+
+  // --- P2-2 regression: narrative mention must not inflate routedSetSkips ---
+
+  it('narrative routed mention without action keyword must not increment routedSetSkips', async () => {
+    const { detectInlineActionMentionsWithShadow } = await import(
+      '../dist/domains/cats/services/agents/routing/a2a-mentions.js'
+    );
+
+    // "这里 @codex 也提到了" — no action keyword, pure narrative
+    const result = detectInlineActionMentionsWithShadow('这里 @缅因猫 也提到了', 'opus', ['codex']);
+
+    assert.equal(result.routedSetSkips, 0, 'narrative mention must not count as routed overlap');
+    assert.equal(result.shadowMisses.length, 0, 'routed cat still excluded from shadow');
   });
 });
