@@ -44,8 +44,8 @@ export function SkillTreePanel({ profile }: Props) {
     setTitleError(false);
     setBondError(false);
     const [titlesRes, bondsRes] = await Promise.allSettled([
-      apiFetch(`/api/growth/${profile.catId}/titles`),
-      apiFetch(`/api/growth/${profile.catId}/bonds`),
+      apiFetch(`/api/journey/${profile.catId}/titles`),
+      apiFetch(`/api/journey/${profile.catId}/bonds`),
     ]);
     if (titlesRes.status === 'fulfilled' && titlesRes.value.ok) {
       const data = (await titlesRes.value.json()) as { unlocked: UnlockedTitle[] };

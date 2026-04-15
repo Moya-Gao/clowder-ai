@@ -49,7 +49,7 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
     setExporting(true);
     setExportError(null);
     try {
-      const res = await apiFetch(`/api/growth/${profile.catId}/export-image`, { method: 'POST' });
+      const res = await apiFetch(`/api/journey/${profile.catId}/export-image`, { method: 'POST' });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
         throw new Error(body.message || body.error || '导出失败');

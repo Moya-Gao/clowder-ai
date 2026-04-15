@@ -52,7 +52,7 @@ export function CoCreatorCard({ profile, onClick }: Props) {
   const [bonds, setBonds] = useState<BondEntry[]>([]);
 
   useEffect(() => {
-    apiFetch(`/api/growth/${profile.catId}/bonds`)
+    apiFetch(`/api/journey/${profile.catId}/bonds`)
       .then(async (res) => {
         if (res.ok) {
           const data = (await res.json()) as { bonds: BondEntry[] };

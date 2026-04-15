@@ -23,7 +23,7 @@ export default function GrowthExportPage() {
 
   useEffect(() => {
     if (!catId) return;
-    apiFetch(`/api/growth/${catId}`)
+    apiFetch(`/api/journey/${catId}`)
       .then(async (res) => {
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };

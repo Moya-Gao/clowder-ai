@@ -19,7 +19,7 @@ export function HubGrowthTab() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch('/api/growth/overview');
+      const res = await apiFetch('/api/journey/overview');
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setError((body as { error?: string }).error ?? '加载失败');

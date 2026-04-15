@@ -60,7 +60,7 @@ export function XpAuditLog({ catId, color = '#9B7EBD', defaultOpen = false }: Pr
     setFetchError(false);
     let ok = false;
     try {
-      const res = await apiFetch(`/api/growth/${catId}/events?limit=30`);
+      const res = await apiFetch(`/api/journey/${catId}/events?limit=30`);
       if (res.ok) {
         const data = (await res.json()) as { events: XpEvent[] };
         setEvents(data.events);

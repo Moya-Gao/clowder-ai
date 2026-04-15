@@ -152,10 +152,8 @@ function dispatchViaQueue(
         }
         const finalResponse = responseText || (status === 'failed' ? '[dispatch error]' : '');
         const newStatus = orch.recordResponse(requestId, catId, finalResponse);
-        // F157 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles co-creator)
+        // F157 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles bond + co-creator)
         deps.activityBus?.record('multi_mention_completed', catId, { participants: [initiator, catId] });
-        // F157 Phase B: Record bond event between initiator and responder
-        deps.growthService?.recordBondEvent(initiator, catId);
         log.info(
           { requestId, catId, newStatus, responseLength: finalResponse.length },
           '[F122B B6] multi-mention queue response recorded',
@@ -304,10 +302,8 @@ async function dispatchToTarget(
 
     // Record response in orchestrator
     const newStatus = orch.recordResponse(requestId, targetCatId, finalResponse);
-    // F157 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles co-creator)
+    // F157 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles bond + co-creator)
     deps.activityBus?.record('multi_mention_completed', targetCatId, { participants: [initiator, targetCatId] });
-    // F157 Phase B: Record bond event between initiator and responder
-    deps.growthService?.recordBondEvent(initiator, targetCatId);
     log.info(
       { requestId, targetCatId, newStatus, responseLength: finalResponse.length, toolsUsed: toolsUsed.length },
       '[F086] Multi-mention response recorded',
