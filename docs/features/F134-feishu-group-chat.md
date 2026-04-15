@@ -338,6 +338,7 @@ if (connectionMode === 'websocket') {
 | 2026-03-30 | F134 follow-up 手工接入完成，PR #871 squash merged → `96e87b13`，IM Hub 支持 Feishu QR bind |
 | 2026-04-05 | PR #973 squash merged → `ac1e28e63`，Feishu disconnect 按钮 + 路由（与 WeChat 对齐） |
 | 2026-04-15 | Bug-9 立项 — HubPermissionsTab 硬编码 `feishu`，API 路径 + UI 标题写死，不支持 wecom-bot/dingtalk 等多 connector 切换。后端 PermissionStore 已 connector-agnostic（F134 Phase D），仅前端写死 |
+| 2026-04-15 | Bug-9 修复：参数化 HubPermissionsTab connectorId + connector pill 选择器 + key-based remount P1 fix + 5 新测试。缅因猫 local review + 云端 review 均通过。PR #1183 squash merged → `48e750d2` |
 
 ## Design Gate Results（2026-03-25）
 
