@@ -482,6 +482,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-14 | **Bug-5 fatal early abort fix** — 上游 fatal error 立即中断 poll loop，不再傻等 60s stall（PR #1157, 砚砚放行 + 云端 0 P1/P2）|
 | 2026-04-14 | **Bug-6 waiting approval ≠ stall** — `awaitingUserInput` 的 RUNNING 态不再误报为 60s stall，前端改显示等待批准信号（PR #1163, opencode 放行 + 云端超时未接单）|
 | 2026-04-14 | **YOLO auto-approve** — `awaitingUserInput` 时自动调 `ResolveOutstandingSteps` 批量批准，失败 fallback 到 liveness_signal；env kill switch `ANTIGRAVITY_AUTO_APPROVE`（PR #1168, 砚砚 2P1→fix→放行 + 云端 0 P1/P2）|
+| 2026-04-15 | **YOLO probe-on-stall** — LS 不总是设 `awaitingUserInput`，stall 时主动 probe `ResolveOutstandingSteps`；cursor 续传防重复投递（PR #1170, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
 
 ---
 
