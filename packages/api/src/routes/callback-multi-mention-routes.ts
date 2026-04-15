@@ -80,13 +80,19 @@ export interface MultiMentionRouteDeps {
 // ── Timeout tracking ────────────────────────────────────────────────
 const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-function scheduleTimeout(requestId: string, timeoutMinutes: number, log: FastifyBaseLogger): void {
+function scheduleTimeout(
+  requestId: string,
+  timeoutMinutes: number,
+  log: FastifyBaseLogger,
+  onTimeout?: () => void,
+): void {
   const ms = timeoutMinutes * 60_000;
   const timer = setTimeout(() => {
     const orch = getMultiMentionOrchestrator();
     log.info({ requestId, timeoutMinutes }, '[F086] Multi-mention timeout fired');
     orch.handleTimeout(requestId);
     activeTimers.delete(requestId);
+    onTimeout?.();
   }, ms);
   // Unref so it doesn't keep the process alive
   timer.unref();
@@ -151,7 +157,10 @@ function dispatchViaQueue(
           return;
         }
         const finalResponse = responseText || (status === 'failed' ? '[dispatch error]' : '');
-        const newStatus = orch.recordResponse(requestId, catId, finalResponse);
+        const newStatus =
+          status === 'failed'
+            ? orch.recordFailure(requestId, catId, finalResponse)
+            : orch.recordResponse(requestId, catId, finalResponse);
         // F157 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles bond + co-creator)
         deps.activityBus?.record('multi_mention_completed', catId, { participants: [initiator, catId] });
         log.info(
@@ -337,12 +346,8 @@ async function dispatchToTarget(
         );
       }
     }
-    // Record failure response in orchestrator
-    orch.recordResponse(
-      requestId,
-      targetCatId,
-      `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`,
-    );
+    // Record failure response in orchestrator (status: 'failed' — won't count as success)
+    orch.recordFailure(requestId, targetCatId, `[dispatch error: ${err instanceof Error ? err.message : String(err)}]`);
   } finally {
     // F122 AC-A7: unconditional slot release — covers early return, registerDispatch
     // throw, routeExecution crash, and normal completion. InvocationTracker.complete()
@@ -509,9 +514,14 @@ export function registerMultiMentionRoutes(app: FastifyInstance, deps: MultiMent
       return reply.send({ requestId: mmRequest.id, status: mmRequest.status });
     }
 
-    // Start + schedule timeout
+    // Start + schedule timeout (with flushResult on timeout for leadership scoring)
     orch.start(mmRequest.id);
-    scheduleTimeout(mmRequest.id, mmRequest.timeoutMinutes, request.log);
+    scheduleTimeout(mmRequest.id, mmRequest.timeoutMinutes, request.log, () => {
+      // Only flush on timeout — if already done, flushResult was called by the response handler
+      if (orch.getStatus(mmRequest.id) === 'timeout') {
+        void flushResult(deps, mmRequest.id, record.threadId, record.userId, request.log);
+      }
+    });
 
     // Dispatch to all targets in parallel (fire and forget)
     // F122B B6: Use InvocationQueue when available, legacy direct dispatch as fallback
