@@ -170,6 +170,7 @@ created: 2026-04-10
 | 2026-04-14 | Fallout perf merged (PR #1164) — trim thread-switch fan-out + per-thread caches (author: gpt52, reviewer: opus + codex cloud) |
 | 2026-04-14 | Fallout self-heal merged (PR #1165) — failed `sessionGate` no longer poisons future bootstrap attempts; `ThreadSidebar` now reloads on `online` after network blips (author: gpt52, reviewer: opus; cloud review unavailable, downgraded per merge-gate Q4) |
 | 2026-04-14 | Fallout hydration+bubble merged (PR #1167) — secondary thread hydration now starts in parallel with `messages`; bubble toggle no longer no-ops on first click when following an already-expanded global default (author: gpt52, reviewer: opus + codex cloud) |
+| 2026-04-14 | Bubble refresh restore merged (PR #1174) — thread-level bubble preference no longer flashes back to the global default before thread metadata finishes hydrating after F5 (author: gpt52, reviewer: codex cloud) |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
@@ -260,6 +261,9 @@ API 重启后，用户在浏览器中看到所有 thread 消失、发消息 401�
 >
 > 2026-04-14 再追加状态：PR #1167 已关闭 AC-4，并确认 bubble 的 `PATCH /api/threads/:id` 落盘链当前是通的；同时修掉了一个真实前端交互陷阱：当 thread 仍跟随全局且全局默认已展开时，第一次点击 bubble toggle 不再是 no-op。  
 > 但 AC-2 **仍未完全关闭**：如果 runtime 上仍复现“刷新后 bubble 又跑出来”，剩余嫌疑点已经收缩到 thread metadata 的刷新恢复时序，而不是普通点击交互或 PATCH 路由本身。
+>
+> 2026-04-14 再追加状态：PR #1174 已补上这条刷新恢复时序缺口。`isLoadingThreads` 初始态改为真实 loading，thread 元数据未到前不再抢先按 global 默认渲染 bubble；恢复期间 UI 选择保守隐藏而不是错误闪烁。  
+> 因此 AC-2 剩余未闭环项进一步收缩为其他 smoke path（尤其 Signal Hub 入口）是否全绿，而不是 bubble 刷新恢复链本身。
 
 ### 守护说明
 
