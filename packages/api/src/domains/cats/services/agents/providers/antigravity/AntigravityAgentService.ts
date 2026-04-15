@@ -100,51 +100,80 @@ export class AntigravityAgentService implements AgentService {
       let hasText = false;
       let fatalSeen = false;
       let autoApproveAttempted = false;
-      for await (const batch of this.bridge.pollForSteps(
-        cascadeId,
-        stepsBefore,
-        this.pollTimeoutMs,
-        2_000,
-        options?.signal,
-      )) {
-        if (batch.cursor.awaitingUserInput) {
-          if (this.autoApprove && !autoApproveAttempted) {
-            autoApproveAttempted = true;
+      let stallProbed = false;
+      let lastDelivered = stepsBefore;
+      const pollOnce = async function* (self: AntigravityAgentService, fromStep: number) {
+        for await (const batch of self.bridge.pollForSteps(
+          cascadeId,
+          fromStep,
+          self.pollTimeoutMs,
+          2_000,
+          options?.signal,
+        )) {
+          if (batch.cursor.awaitingUserInput) {
+            if (self.autoApprove && !autoApproveAttempted) {
+              autoApproveAttempted = true;
+              try {
+                await self.bridge.resolveOutstandingSteps(cascadeId);
+                log.info(`auto-approved pending interaction for cascade ${cascadeId}`);
+                continue;
+              } catch (err) {
+                log.warn(`auto-approve failed: ${err}`);
+              }
+            }
+            yield {
+              type: 'liveness_signal' as const,
+              catId: self.catId,
+              content: JSON.stringify({ type: 'info', message: 'Antigravity 正在等待权限批准' }),
+              metadata,
+              errorCode: 'waiting_approval',
+              timestamp: Date.now(),
+            };
+            continue;
+          }
+          if (batch.steps.length > 0) {
+            autoApproveAttempted = false;
+            stallProbed = false;
+            lastDelivered = batch.cursor.lastDeliveredStepCount;
+            const messages = transformTrajectorySteps(batch.steps, self.catId, metadata);
+            for (const msg of messages) {
+              if (msg.type === 'text') hasText = true;
+              yield msg;
+              if (msg.type === 'error' && msg.errorCode && msg.errorCode !== 'tool_error') {
+                fatalSeen = true;
+              }
+            }
+          }
+          if (fatalSeen) {
+            log.info('fatal error detected (upstream_error/stream_error), aborting poll loop');
+            return;
+          }
+        }
+      };
+
+      // Poll with stall-probe retry: if stall occurs and autoApprove is on,
+      // try resolveOutstandingSteps as a probe (LS may not set awaitingUserInput).
+      let retry = true;
+      while (retry) {
+        retry = false;
+        try {
+          for await (const msg of pollOnce(this, lastDelivered)) {
+            yield msg;
+          }
+        } catch (err) {
+          const isStall = err instanceof Error && err.message.includes('stall');
+          if (isStall && this.autoApprove && !stallProbed) {
+            stallProbed = true;
             try {
               await this.bridge.resolveOutstandingSteps(cascadeId);
-              log.info(`auto-approved pending interaction for cascade ${cascadeId}`);
+              log.info(`probe-approved on stall for cascade ${cascadeId}, retrying poll from step ${lastDelivered}`);
+              retry = true;
               continue;
-            } catch (err) {
-              log.warn(`auto-approve failed: ${err}`);
+            } catch (probeErr) {
+              log.warn(`stall probe failed: ${probeErr}`);
             }
           }
-          yield {
-            type: 'liveness_signal',
-            catId: this.catId,
-            content: JSON.stringify({
-              type: 'info',
-              message: 'Antigravity 正在等待权限批准',
-            }),
-            metadata,
-            errorCode: 'waiting_approval',
-            timestamp: Date.now(),
-          };
-          continue;
-        }
-        if (batch.steps.length > 0) {
-          autoApproveAttempted = false;
-          const messages = transformTrajectorySteps(batch.steps, this.catId, metadata);
-          for (const msg of messages) {
-            if (msg.type === 'text') hasText = true;
-            yield msg;
-            if (msg.type === 'error' && msg.errorCode && msg.errorCode !== 'tool_error') {
-              fatalSeen = true;
-            }
-          }
-        }
-        if (fatalSeen) {
-          log.info('fatal error detected (upstream_error/stream_error), aborting poll loop');
-          break;
+          throw err;
         }
       }
 

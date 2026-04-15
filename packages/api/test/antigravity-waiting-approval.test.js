@@ -177,6 +177,123 @@ describe('Antigravity waiting approval', () => {
     }
   });
 
+  test('service probes resolveOutstandingSteps on stall when autoApprove=true (no awaitingUserInput)', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps }),
+      pollForSteps: mock.fn(async function* () {
+        // Simulate stall: RUNNING but no awaitingUserInput flag, bridge throws stall
+        throw new Error('Antigravity stall: no activity for 60213ms (steps=5, status=CASCADE_RUN_STATUS_RUNNING)');
+      }),
+    };
+    let callCount = 0;
+    // Replace pollForSteps: first call throws stall, second call succeeds after probe
+    bridge.pollForSteps = mock.fn(async function* () {
+      callCount++;
+      if (callCount === 1) {
+        throw new Error('Antigravity stall: no activity for 60213ms (steps=5, status=CASCADE_RUN_STATUS_RUNNING)');
+      }
+      // After probe-approve, cascade unblocks
+      yield {
+        steps: [
+          { type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE', status: 'DONE', plannerResponse: { response: 'probed ok' } },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('open browser'));
+
+    assert.equal(resolveOutstandingSteps.mock.calls.length, 1, 'should probe resolveOutstandingSteps on stall');
+    const texts = messages.filter((msg) => msg.type === 'text');
+    assert.equal(texts.length, 1, 'should get response after probe unblocks cascade');
+    assert.equal(texts[0].content, 'probed ok');
+  });
+
+  test('P1: probe retry resumes from last delivered cursor, not from stepsBefore', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    let callCount = 0;
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps }),
+      pollForSteps: mock.fn(async function* () {
+        callCount++;
+        if (callCount === 1) {
+          // First poll: deliver one step, then stall
+          yield {
+            steps: [
+              {
+                type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+                status: 'DONE',
+                plannerResponse: { response: 'first chunk' },
+              },
+            ],
+            cursor: {
+              baselineStepCount: 0,
+              lastDeliveredStepCount: 1,
+              terminalSeen: false,
+              lastActivityAt: Date.now(),
+            },
+          };
+          throw new Error('Antigravity stall: no activity for 60213ms (steps=1, status=CASCADE_RUN_STATUS_RUNNING)');
+        }
+        // Second poll (after probe): only the NEW step, not the old one
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { response: 'second chunk' },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 1,
+            lastDeliveredStepCount: 2,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('open browser'));
+
+    const texts = messages.filter((msg) => msg.type === 'text');
+    // Must be exactly 2 text messages, no duplicates
+    assert.equal(texts.length, 2, 'must not replay already-delivered steps');
+    assert.equal(texts[0].content, 'first chunk');
+    assert.equal(texts[1].content, 'second chunk');
+
+    // pollForSteps must have been called with updated cursor on retry
+    assert.equal(bridge.pollForSteps.mock.calls.length, 2);
+    // Second call should start from step 1 (last delivered), not 0 (original stepsBefore)
+    assert.equal(bridge.pollForSteps.mock.calls[1].arguments[1], 1, 'retry must resume from lastDeliveredStepCount=1');
+  });
+
+  test('service does not probe on stall when autoApprove=false', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps }),
+      pollForSteps: mock.fn(async function* () {
+        throw new Error('Antigravity stall: no activity for 60213ms (steps=5, status=CASCADE_RUN_STATUS_RUNNING)');
+      }),
+    };
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'claude-opus-4-6',
+      bridge,
+      autoApprove: false,
+    });
+
+    const messages = await collect(service.invoke('open browser'));
+
+    assert.equal(resolveOutstandingSteps.mock.calls.length, 0, 'should NOT probe when autoApprove=false');
+    const errors = messages.filter((msg) => msg.type === 'error');
+    assert.ok(errors.length >= 1, 'should emit error on stall');
+    assert.match(errors[0].error, /stall/i);
+  });
+
   test('service emits liveness_signal when autoApprove=false', async () => {
     const resolveOutstandingSteps = mock.fn(async () => {});
     const bridge = createMockServiceBridge({ resolveOutstandingSteps });
