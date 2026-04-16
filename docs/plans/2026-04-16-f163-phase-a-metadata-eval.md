@@ -142,7 +142,7 @@ if (currentVersion < 13) {
 
 **Step 3: Run existing tests to verify migration doesn't break**
 
-Run: `pnpm --filter @cat-cafe/api test -- --grep evidence`
+Run: `pnpm --filter @cat-cafe/api test` (全量，确认 migration 不破坏现有测试)
 Expected: All existing tests pass (migration is additive, no breaking changes)
 
 **Step 4: Commit**
@@ -283,7 +283,7 @@ test('F163: upsert persists authority/activation/verifiedAt and search returns t
 
 **Step 2: Run test — expect FAIL**
 
-Run: `pnpm --filter @cat-cafe/api test -- --grep F163`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern="F163"`
 Expected: FAIL (fields not read/written yet)
 
 **Step 3: Update upsert() to include new columns**
@@ -296,7 +296,7 @@ Map `row.authority` → `item.authority`, `row.activation` → `item.activation`
 
 **Step 5: Run test — expect PASS**
 
-Run: `pnpm --filter @cat-cafe/api test -- --grep F163`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern="F163"`
 Expected: PASS
 
 **Step 6: Commit**
@@ -701,7 +701,7 @@ test('F163: all flags off = identical behavior to pre-F163', async () => {
 
 **Step 2: Run test — expect PASS (zero-behavior guarantee)**
 
-Run: `pnpm --filter @cat-cafe/api test -- --grep "zero-behavior"`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern="zero-behavior"`
 Expected: PASS — confirms F163 is invisible when flags are off
 
 **Step 3: Commit**
@@ -717,10 +717,22 @@ test(F163): zero-behavior regression — all flags off = no side effects [布偶
 **Files:**
 - Create: `packages/api/src/domains/memory/evidence-write-queue.ts`
 - Modify: `packages/api/src/domains/memory/SqliteEvidenceStore.ts` (wrap write methods)
-- Modify: `packages/api/src/domains/memory/IndexBuilder.ts` (wrap direct DB writes at lines 182, 250, 772)
+- Modify: `packages/api/src/domains/memory/IndexBuilder.ts` (wrap ALL direct DB writes — see full inventory below)
 - Test: new test for serialized write ordering
 
 **Why standalone task:** Design Gate 契约 3 要求 ALL evidence.sqlite mutations 走单一写入调度器，包括 IndexBuilder 绕过 store 的直写。这不是 store 内部重构——是架构层约束。
+
+**IndexBuilder 直写路径完整清单（5 处）：**
+
+| # | 行号 | 方法 | SQL 操作 | 目标表 |
+|---|------|------|---------|--------|
+| 1 | L183 | `storeIndexingVersion()` | INSERT OR REPLACE | `embedding_meta` |
+| 2 | L250 | `rebuild()` — edge cleanup | DELETE | `edges` |
+| 3 | L672-679 | `accumulateSummaryDelta()` | INSERT … ON CONFLICT UPDATE | `summary_state` |
+| 4 | L776-793 | `indexPassages()` | INSERT OR IGNORE (transaction) | `evidence_passages` |
+| 5 | L826-885 | `backfillPassagesFromTranscript()` | INSERT OR IGNORE (transaction) | `evidence_passages` |
+
+注：L244 `this.store.upsert()` 和 L263 `this.store.addEdge()` 走 store 方法，不在此清单（store 方法在 Step 4 统一 wrap）。
 
 **Step 1: Write failing test — concurrent writes are serialized**
 
@@ -762,9 +774,9 @@ Global singleton — all SqliteEvidenceStore write methods (`upsert`, `delete`, 
 
 In `upsert()`, `delete()`, etc.: wrap the DB mutation in `writeQueue.enqueue(() => { ... })`.
 
-**Step 5: Wrap IndexBuilder direct writes**
+**Step 5: Wrap IndexBuilder direct writes (全部 5 处)**
 
-IndexBuilder lines 182 (batch insert), 250 (update), 772 (delete) — each wrapped in `writeQueue.enqueue()`. IndexBuilder gets write queue via constructor injection.
+上表 5 处直写全部 wrap 进 `writeQueue.enqueue()`。IndexBuilder 通过 constructor injection 获取 write queue 实例。特别注意 #3 `accumulateSummaryDelta()` 是高频调用（每条消息触发），#4/#5 的 transaction 整体作为一个 enqueue 单元。
 
 **Step 6: Write-path fail-open**
 
@@ -812,14 +824,20 @@ test('F163: always_on docs NOT injected when flag=off', async () => {
 **Step 3: Add `queryAlwaysOn()` to SqliteEvidenceStore**
 
 ```typescript
-queryAlwaysOn(): EvidenceItem[] {
-  return this.db.prepare(
-    "SELECT * FROM evidence_docs WHERE activation = 'always_on' AND authority = 'constitutional' AND status = 'active'"
-  ).all().map(row => this.rowToItem(row));
+queryAlwaysOn(): Array<{ anchor: string; title: string; ftsContent: string }> {
+  return this.db.prepare(`
+    SELECT d.anchor, d.title, f.content AS fts_content
+    FROM evidence_docs d
+    JOIN evidence_fts f ON f.anchor = d.anchor
+    WHERE d.activation = 'always_on'
+      AND d.authority = 'constitutional'
+      AND d.status = 'active'
+  `).all() as Array<{ anchor: string; title: string; fts_content: string }>;
 }
 ```
 
 约束：`always_on` 仅限 `constitutional` authority（spec KD-2 + AC-A3 guard）。
+注意：`EvidenceItem` 没有 `content` 字段——全文内容在 `evidence_fts.content`，因此 JOIN FTS 表取。
 
 **Step 4: Wire into SystemPromptBuilder**
 
@@ -830,7 +848,7 @@ In `buildInvocationContext()` (`SystemPromptBuilder.ts:461`):
 if (getEnv('F163_ALWAYS_ON_INJECTION') !== 'off') {
   const alwaysOnDocs = evidenceStore.queryAlwaysOn();
   if (alwaysOnDocs.length > 0) {
-    const section = alwaysOnDocs.map(d => d.content).join('\n---\n');
+    const section = alwaysOnDocs.map(d => d.fts_content).join('\n---\n');
     if (getEnv('F163_ALWAYS_ON_INJECTION') === 'on') {
       // Physically inject into prompt
       parts.push(`## Constitutional Knowledge (always_on)\n\n${section}`);
@@ -849,7 +867,7 @@ When always_on injection fires, `injectionSources` in `EvidenceSearchResponse` c
 
 **Step 7: Run full test suite**
 
-Run: `pnpm --filter @cat-cafe/api test -- --grep F163`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern="F163"`
 Expected: All F163 tests pass including zero-behavior (flag=off → no injection)
 
 **Step 8: Commit**
