@@ -425,6 +425,7 @@ pptx-craft 的关键技术：**AI (Opus) 直接生成 HTML+Tailwind (1280×720) 
 | 2026-04-14 | **Phase C 收敛 merged** (PR #1166) — svg-sanitizer.ts (AC-C4 安全白名单) + svg-direct.ts (AC-C6 AI-direct SVG path) + phase-c-comparison.test.ts (AC-C3 V1 vs Phase C 对比) + svg-perf.test.ts (AC-C5 性能 gate)。239 tests。砚砚 3 轮 review 放行 (2P1+1P2+1P1 全闭环) + 云端 R1 1P2 修复后 R2 clean |
 | 2026-04-14 | **Spec reconciliation after KD-16/KD-17** — 按当前实现与决策对账：B3/B5/B6 标记为 superseded；B4/B7 保留；真正剩余项收敛为 D5/D6/D7 + B4/B7 + A8/A12，一张表可读，不再靠 thread 口头同步 |
 | 2026-04-15 | **AC-D5 垂直切片 merged** (PR #1172) — `htmlToSlide` 编排器串通 flatExtract→densityGate→screenshot(4x)→routeElements→buildCompiledDeck→PPTX buffer。四件套交付（HTML/截图/density/PPTX）。砚砚 2 轮 review（R1: 1P1 密度门禁拦截 + R2 放行）+ 云端 2 轮（R1: 1P2 fail-fast 顺序 + R2 clean）。242 tests |
+| 2026-04-15 | **D6 gate hardening + compressed showcase merged** (PR #1189) — border-shell density filter + case-insensitive html-asset-inliner + compressed showcase generator (3-file split: shell/slides/generator)。砚砚 3 轮 review (R1: 1P1+1P2; R2: 1P1+1P2; R3 放行) + 云端 4 轮 clean。251 tests |
 
 ## Review Gate
 
