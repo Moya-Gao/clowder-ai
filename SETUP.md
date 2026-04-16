@@ -214,11 +214,15 @@ There are two types of accounts:
 2. Choose a provider or add a custom one
 3. For built-in providers: select OAuth/subscription mode (no key needed if CLI is authenticated)
 4. For API key providers: enter your API key and (optionally) a custom base URL
-5. Click **Test** to verify connectivity
+5. Click **Save**
 
 **Adding Chinese / third-party providers (Kimi, GLM, MiniMax, Qwen, OpenRouter):**
 
-These providers are configured as API key accounts with a custom base URL. In the **Account Configuration** UI, add a new account, choose the provider, enter your API key, and set the base URL to the provider's OpenAI-compatible endpoint. Select the appropriate protocol and click **Test** to verify connectivity.
+These providers are configured as API key accounts with a custom base URL. In the **Account Configuration** UI, add a new account, choose the provider, enter your API key, and set the base URL to the provider's OpenAI-compatible endpoint. Select the appropriate protocol and click **Save**.
+
+**Example — Alibaba Bailian (Qwen):**
+
+![Provider account configuration for Bailian](docs/setup/setup-provider-bailian.png)
 
 > **Legacy `.env` fallback:** The system still reads `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY` from `.env` as a fallback, but this path is deprecated. Use the UI for all new setups.
 
@@ -229,6 +233,8 @@ To add team members (cats) that use specific providers:
 1. Go to **Hub → Member Collaboration → Overview**
 2. Each member can be bound to a provider account from your Account Configuration
 3. Built-in providers support OAuth; third-party providers use API key accounts
+
+![Member bound to Bailian provider](docs/setup/setup-member-binding.png)
 
 ## Optional Features
 
@@ -564,11 +570,16 @@ NEXT_PUBLIC_LLM_POSTPROCESS_URL=http://your-llm-host:9878
 
 The API automatically accepts requests from:
 - `localhost` / `127.0.0.1` (any port)
-- RFC 1918 private networks (`10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`)
-- Tailscale IPs (`100.x.x.x`)
 - The `FRONTEND_URL` you set
 
-No additional CORS configuration is needed for most LAN / VPN setups.
+If you open Cat Cafe directly from a LAN / Tailscale IP (for example `http://192.168.x.x:3003` or `http://100.x.x.x:3003`), also set:
+
+```bash
+API_SERVER_HOST=0.0.0.0
+CORS_ALLOW_PRIVATE_NETWORK=true
+```
+
+This opt-in trusts browsers from RFC 1918 private networks (`10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`) and Tailscale IPs (`100.x.x.x`). If you use a reverse proxy or a fixed `FRONTEND_URL`, you usually do not need the extra flag.
 
 ## Troubleshooting
 
@@ -591,4 +602,3 @@ No additional CORS configuration is needed for most LAN / VPN setups.
 - For local dev, `NEXT_PUBLIC_API_URL=http://localhost:3004` should be in `.env`
 - Behind a reverse proxy, the frontend auto-detects the API at the same origin — make sure Nginx proxies `/api/` and `/socket.io/` to port 3004
 - API must be running before frontend loads
-

@@ -235,7 +235,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
     }
 
     // Default to 'default' thread for lobby (prevents global broadcast)
@@ -746,6 +746,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               });
           }
 
+          // F118 D2: Broadcast spawn_started immediately — fills the intent_mode blind spot.
+          // intent_mode only fires after the first CLI NDJSON event (0–2 min delay).
+          // spawn_started fires here, before routeExecution, so the UI can show
+          // per-cat "spawning" indicators without waiting for CLI to come alive.
+          opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'spawn_started', {
+            threadId: resolvedThreadId,
+            targetCats,
+            invocationId: createResult.invocationId,
+          });
+
           for await (const msg of router.routeExecution(
             userId,
             content,
@@ -1171,13 +1181,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       ...(m.metadata ? { metadata: m.metadata } : {}),
       ...(m.origin ? { origin: m.origin } : {}),
       ...(m.thinking ? { thinking: m.thinking } : {}),
-      ...(m.extra?.rich || m.extra?.crossPost || m.extra?.stream || m.extra?.targetCats
+      ...(m.extra?.rich || m.extra?.crossPost || m.extra?.stream || m.extra?.targetCats || m.extra?.scheduler
         ? {
             extra: {
               ...(m.extra.rich ? { rich: m.extra.rich } : {}),
               ...(m.extra.crossPost ? { crossPost: m.extra.crossPost } : {}),
               ...(m.extra.stream ? { stream: m.extra.stream } : {}),
               ...(m.extra.targetCats ? { targetCats: m.extra.targetCats } : {}),
+              ...(m.extra.scheduler ? { scheduler: m.extra.scheduler } : {}),
             },
           }
         : {}),

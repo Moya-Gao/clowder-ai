@@ -14,6 +14,7 @@ interface ExternalDeps {
   handleAuthRequest: NonNullable<SocketCallbacks['onAuthorizationRequest']>;
   handleAuthResponse: NonNullable<SocketCallbacks['onAuthorizationResponse']>;
   onNavigateToThread?: (threadId: string) => void;
+  onIndexEvent?: SocketCallbacks['onIndexEvent'];
 }
 
 /**
@@ -29,6 +30,7 @@ export function useChatSocketCallbacks({
   handleAuthRequest,
   handleAuthResponse,
   onNavigateToThread,
+  onIndexEvent,
 }: ExternalDeps): SocketCallbacks {
   const {
     updateThreadTitle,
@@ -60,6 +62,13 @@ export function useChatSocketCallbacks({
         setHasActiveInvocation(true);
         setIntentMode(data.mode as 'ideate' | 'execute');
         setTargetCats((data as { targetCats?: string[] }).targetCats ?? []);
+      },
+      onSpawnStarted: (data) => {
+        // F118 D2: Earliest signal — fires before intent_mode.
+        // Per-cat setCatStatus('spawning') is handled by the socket layer.
+        setLoading(true);
+        setHasActiveInvocation(true);
+        setTargetCats(data.targetCats ?? []);
       },
       onTaskCreated: (task) => {
         const t = task as Record<string, unknown>;
@@ -97,6 +106,9 @@ export function useChatSocketCallbacks({
           onNavigateToThread?.(data.gameThreadId);
         }
       },
+      // B-5: Guide events now flow directly from useSocket → guideStore.reduceServerEvent
+      // (CustomEvent bridge removed — no onGuideStart/onGuideControl/onGuideComplete needed)
+      onIndexEvent,
     }),
     [
       handleAgentMessage,
@@ -115,6 +127,7 @@ export function useChatSocketCallbacks({
       handleAuthRequest,
       handleAuthResponse,
       onNavigateToThread,
+      onIndexEvent,
       threadId,
       userId,
     ],

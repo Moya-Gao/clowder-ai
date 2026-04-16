@@ -15,14 +15,39 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { GlobalControlStore } from '../infrastructure/scheduler/GlobalControlStore.js';
 import type { PackTemplateStore } from '../infrastructure/scheduler/PackTemplateStore.js';
+import {
+  notifyTaskDeleted,
+  notifyTaskPaused,
+  notifyTaskRegistered,
+  notifyTaskResumed,
+} from '../infrastructure/scheduler/schedule-notify.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
-import type { TriggerSpec } from '../infrastructure/scheduler/types.js';
+import type { ScheduleLifecycleNotifier, TriggerSpec } from '../infrastructure/scheduler/types.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { governanceRoutes } from './schedule-governance.js';
+
+/** #415: Normalize once-trigger input — accepts delayMs (relative) or fireAt (absolute) */
+function normalizeOnceTrigger(trigger: Record<string, unknown>): TriggerSpec | { error: string } {
+  if (trigger.type !== 'once') return trigger as TriggerSpec;
+  const delayMs = typeof trigger.delayMs === 'number' ? trigger.delayMs : undefined;
+  const fireAt = typeof trigger.fireAt === 'number' ? trigger.fireAt : undefined;
+  if (delayMs != null) {
+    if (!Number.isFinite(delayMs) || delayMs < 0) return { error: 'once trigger delayMs must be a finite number >= 0' };
+    return { type: 'once', fireAt: Date.now() + delayMs };
+  }
+  if (fireAt != null) {
+    if (!Number.isFinite(fireAt) || fireAt < 0) {
+      return { error: 'once trigger fireAt must be a finite positive epoch ms' };
+    }
+    return { type: 'once', fireAt };
+  }
+  return { error: 'once trigger requires either delayMs or fireAt' };
+}
 
 export interface ScheduleRoutesOptions {
   taskRunner: TaskRunnerV2;
@@ -39,6 +64,10 @@ export interface ScheduleRoutesOptions {
   packTemplateStore?: PackTemplateStore;
   /** #320: Unified task store for thread→subjectKey resolution */
   taskStore?: ITaskStore;
+  /** Ephemeral lifecycle notifications for scheduler management actions */
+  notifyLifecycle?: ScheduleLifecycleNotifier;
+  /** Optional callback registry for inferring current thread from callback auth. */
+  registry?: InvocationRegistry;
 }
 
 /** Extract threadId from subjectKey — handles both thread-xxx (real tasks) and thread:xxx formats */
@@ -54,8 +83,44 @@ function addSubjectKeyWithAliases(target: Set<string>, subjectKey: string): void
   if (subjectKey.startsWith('pr-')) target.add(`pr:${subjectKey.slice(3)}`);
 }
 
+function firstHeaderValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+type DeliveryThreadResolutionCode = 'STALE_INVOCATION' | 'INVALID_CALLBACK_CREDENTIALS';
+
+function resolveDeliveryThreadId(
+  request: { headers: Record<string, string | string[] | undefined> },
+  body: { deliveryThreadId?: string; invocationId?: string; callbackToken?: string },
+  registry?: InvocationRegistry,
+): { deliveryThreadId: string | null; code: DeliveryThreadResolutionCode | null } {
+  const invocationId = body.invocationId ?? firstHeaderValue(request.headers['x-invocation-id']);
+  const callbackToken = body.callbackToken ?? firstHeaderValue(request.headers['x-callback-token']);
+  const hasAnyCallbackCredential = Boolean(invocationId || callbackToken);
+  if (!hasAnyCallbackCredential) {
+    return { deliveryThreadId: body.deliveryThreadId ?? null, code: null };
+  }
+  if (!registry) return { deliveryThreadId: null, code: 'INVALID_CALLBACK_CREDENTIALS' };
+  if (!invocationId || !callbackToken) return { deliveryThreadId: null, code: 'INVALID_CALLBACK_CREDENTIALS' };
+
+  const record = registry.verify(invocationId, callbackToken);
+  if (!record) return { deliveryThreadId: null, code: 'INVALID_CALLBACK_CREDENTIALS' };
+  if (!registry.isLatest(invocationId)) return { deliveryThreadId: null, code: 'STALE_INVOCATION' };
+  if (body.deliveryThreadId) return { deliveryThreadId: body.deliveryThreadId, code: null };
+  return { deliveryThreadId: record.threadId, code: null };
+}
+
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore, taskStore } = opts;
+  const {
+    taskRunner,
+    dynamicTaskStore,
+    templateRegistry,
+    globalControlStore,
+    packTemplateStore,
+    taskStore,
+    notifyLifecycle,
+    registry,
+  } = opts;
 
   // GET /api/schedule/tasks
   // #320: Optional ?threadId= filter — resolves thread's task subjectKeys for cross-match
@@ -192,6 +257,8 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       params?: Record<string, unknown>;
       display?: { label: string; category: string; description?: string };
       deliveryThreadId?: string;
+      invocationId?: string;
+      callbackToken?: string;
     };
 
     if (!body.templateId) {
@@ -205,7 +272,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    const trigger = body.trigger ?? template.defaultTrigger;
+    // #415: normalize once trigger (delayMs → fireAt)
+    let trigger: TriggerSpec;
+    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
+      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
+      if ('error' in result) {
+        reply.status(400);
+        return { error: result.error };
+      }
+      trigger = result;
+    } else {
+      trigger = body.trigger ?? template.defaultTrigger;
+    }
     const params = body.params ?? {};
     const display = body.display
       ? {
@@ -215,6 +293,22 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
         }
       : { label: template.label, category: template.category, description: template.description };
 
+    const resolution = resolveDeliveryThreadId(request, body, registry);
+    if (resolution.code === 'STALE_INVOCATION') {
+      reply.status(409);
+      return {
+        error: 'Stale callback invocation superseded by a newer invocation',
+        code: 'STALE_INVOCATION',
+      };
+    }
+    if (resolution.code === 'INVALID_CALLBACK_CREDENTIALS') {
+      reply.status(401);
+      return {
+        error: 'Invalid callback credentials',
+        code: 'INVALID_CALLBACK_CREDENTIALS',
+      };
+    }
+
     return {
       draft: {
         templateId: body.templateId,
@@ -222,7 +316,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
         trigger,
         params,
         display,
-        deliveryThreadId: body.deliveryThreadId ?? null,
+        deliveryThreadId: resolution.deliveryThreadId,
         paramSchema: template.paramSchema,
       },
     };
@@ -242,6 +336,8 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       display?: { label: string; category: string; description?: string };
       deliveryThreadId?: string;
       createdBy?: string;
+      invocationId?: string;
+      callbackToken?: string;
     };
 
     if (!body.templateId) {
@@ -255,7 +351,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    const trigger = body.trigger ?? template.defaultTrigger;
+    // #415: normalize once trigger (delayMs → fireAt)
+    let trigger: TriggerSpec;
+    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
+      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
+      if ('error' in result) {
+        reply.status(400);
+        return { error: result.error };
+      }
+      trigger = result;
+    } else {
+      trigger = body.trigger ?? template.defaultTrigger;
+    }
     const params = body.params ?? {};
 
     if (typeof params !== 'object' || params === null || Array.isArray(params)) {
@@ -276,13 +383,29 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
         }
       : { label: template.label, category: template.category, description: template.description };
 
+    const resolution = resolveDeliveryThreadId(request, body, registry);
+    if (resolution.code === 'STALE_INVOCATION') {
+      reply.status(409);
+      return {
+        error: 'Stale callback invocation superseded by a newer invocation',
+        code: 'STALE_INVOCATION',
+      };
+    }
+    if (resolution.code === 'INVALID_CALLBACK_CREDENTIALS') {
+      reply.status(401);
+      return {
+        error: 'Invalid callback credentials',
+        code: 'INVALID_CALLBACK_CREDENTIALS',
+      };
+    }
+
     const def = {
       id,
       templateId: body.templateId,
       trigger,
       params,
       display,
-      deliveryThreadId: body.deliveryThreadId ?? null,
+      deliveryThreadId: resolution.deliveryThreadId,
       enabled: true,
       createdBy: body.createdBy ?? 'unknown',
       createdAt: new Date().toISOString(),
@@ -295,6 +418,9 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     spec.display = display;
     taskRunner.registerDynamic(spec, id);
 
+    // #415: lifecycle notification — task registered
+    notifyTaskRegistered(notifyLifecycle, def);
+
     return { success: true, task: { id, ...display, trigger } };
   });
 
@@ -306,6 +432,8 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     const { id } = request.params as { id: string };
+    // Read def before deletion for notification
+    const defForNotify = dynamicTaskStore.getById(id);
     const removed = dynamicTaskStore.remove(id);
     if (!removed) {
       reply.status(404);
@@ -313,6 +441,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     taskRunner.unregister(id);
+
+    // #415: lifecycle notification — task deleted
+    if (defForNotify) notifyTaskDeleted(notifyLifecycle, defForNotify);
+
     return { success: true };
   });
 
@@ -337,12 +469,13 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: 'Dynamic task not found' };
     }
 
+    const def = dynamicTaskStore.getById(id);
     if (!body.enabled) {
       // Pause: unregister from runtime
       taskRunner.unregister(id);
+      if (def) notifyTaskPaused(notifyLifecycle, def);
     } else {
       // Resume: re-register in runtime
-      const def = dynamicTaskStore.getById(id);
       if (def) {
         const template = templateRegistry.get(def.templateId);
         if (template) {
@@ -357,6 +490,11 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
           } catch {
             // Already registered — ignore
           }
+          notifyTaskResumed(notifyLifecycle, def);
+        } else {
+          dynamicTaskStore.setEnabled(id, false); // roll back — resume failed
+          reply.status(500);
+          return { error: `Template ${def.templateId} not found — task cannot resume` };
         }
       }
     }

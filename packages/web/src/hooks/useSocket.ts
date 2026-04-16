@@ -10,6 +10,7 @@ import {
 } from '@/debug/invocationEventDebug';
 import { useBrakeStore } from '@/stores/brakeStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useGuideStore } from '@/stores/guideStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
@@ -51,7 +52,7 @@ interface ConnectorMessageEvent {
     type: 'connector';
     content: string;
     source?: import('../stores/chat-types').ConnectorSourceData;
-    extra?: Record<string, unknown>;
+    extra?: import('../stores/chat-types').ChatMessage['extra'];
     timestamp: number;
   };
 }
@@ -72,6 +73,8 @@ export interface SocketCallbacks {
   onMessage: (msg: AgentMessage) => void;
   onThreadUpdated?: (data: { threadId: string; title?: string; participants?: string[] }) => void;
   onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
+  /** F118 D2: Earliest signal that cats are being spawned (before intent_mode) */
+  onSpawnStarted?: (data: { threadId: string; targetCats: string[]; invocationId: string }) => void;
   onTaskCreated?: (task: Record<string, unknown>) => void;
   onTaskUpdated?: (task: Record<string, unknown>) => void;
   onHeartbeat?: (data: { threadId: string; timestamp: number }) => void;
@@ -111,6 +114,9 @@ export interface SocketCallbacks {
     reason: 'canceled' | 'failed';
     queue: import('../stores/chat-types').QueueEntry[];
   }) => void;
+  // B-5: Guide events removed from callbacks — now go directly to guideStore.reduceServerEvent
+  /** F152 Phase B: Memory bootstrap index events */
+  onIndexEvent?: (event: string, data: Record<string, unknown>) => void;
 }
 
 const RECONNECT_RECONCILE_DELAY_MS = 2000;
@@ -185,7 +191,9 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
         }
 
         if (isActiveThread && store.hasActiveInvocation) {
-          store.clearAllActiveInvocations();
+          // Reconnect reconciliation is stale-state repair, not a real completion event.
+          // Use the non-stamping clear so idle-thread recency is not artificially bumped.
+          store.clearThreadActiveInvocation(threadId);
           store.setLoading(false);
           store.setIntentMode(null);
           store.clearCatStatuses();
@@ -223,6 +231,9 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
+  const pendingGuideStartsRef = useRef<Map<string, { guideId: string; threadId: string; timestamp: number }>>(
+    new Map(),
+  );
   const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
   const bgReplacedInvocationsRef = useRef<Map<string, string>>(new Map());
   const bgFinalizedRefsRef = useRef<Map<string, string>>(new Map());
@@ -462,6 +473,34 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       },
     );
 
+    // F118 D2: spawn_started — earliest per-cat spawning signal (fires before intent_mode).
+    socket.on('spawn_started', (data: { threadId: string; targetCats: string[]; invocationId: string }) => {
+      const routeThread = threadIdRef.current;
+      const storeThread = useChatStore.getState().currentThreadId;
+
+      const isActiveThread = Boolean(
+        data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
+      );
+
+      if (isActiveThread) {
+        callbacksRef.current.onSpawnStarted?.(data);
+        // Set per-cat spawning status for ThinkingIndicator
+        const cats = data.targetCats ?? [];
+        for (const catId of cats) {
+          useChatStore.getState().setCatStatus(catId, 'spawning');
+        }
+        return;
+      }
+
+      // Background thread (split-pane): write thread-scoped state
+      if (data.threadId) {
+        const store = useChatStore.getState();
+        store.setThreadLoading(data.threadId, true);
+        store.setThreadHasActiveInvocation(data.threadId, true);
+        store.setThreadTargetCats(data.threadId, data.targetCats ?? []);
+      }
+    });
+
     socket.on('task_created', (task: Record<string, unknown>) => {
       callbacksRef.current.onTaskCreated?.(task);
     });
@@ -587,6 +626,17 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     socket.on('connector_message', (data: ConnectorMessageEvent) => {
       if (!data?.threadId || !data?.message?.id) return;
+      const toast = data.message.extra?.scheduler?.toast;
+      if (data.message.source?.connector === 'scheduler' && toast) {
+        useToastStore.getState().addToast({
+          type: toast.type,
+          title: toast.title,
+          message: toast.message,
+          threadId: data.threadId,
+          duration: toast.duration,
+        });
+        return;
+      }
       const store = useChatStore.getState();
       store.addMessageToThread(data.threadId, {
         id: data.message.id,
@@ -632,6 +682,68 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         callbacksRef.current.onGameThreadCreated?.(data);
       },
     );
+
+    // F155/B-5: Guide events → Zustand reducer (no CustomEvent bridge)
+    socket.on('guide_start', (data: { guideId: string; threadId: string; timestamp: number }) => {
+      const routeThread = threadIdRef.current;
+      const storeThread = useChatStore.getState().currentThreadId;
+      const isActiveThread = Boolean(
+        data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
+      );
+      if (!isActiveThread) {
+        pendingGuideStartsRef.current.set(data.threadId, data);
+        return;
+      }
+      pendingGuideStartsRef.current.delete(data.threadId);
+      useGuideStore.getState().reduceServerEvent({ action: 'start', guideId: data.guideId, threadId: data.threadId });
+    });
+
+    socket.on('guide_control', (data: { action: string; guideId: string; threadId: string; timestamp: number }) => {
+      if (data.action === 'exit') {
+        pendingGuideStartsRef.current.delete(data.threadId);
+      }
+      const routeThread = threadIdRef.current;
+      const storeThread = useChatStore.getState().currentThreadId;
+      const isActiveThread = Boolean(
+        data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
+      );
+      if (!isActiveThread) return;
+      const action =
+        data.action === 'exit'
+          ? 'control_exit'
+          : data.action === 'skip'
+            ? 'control_skip'
+            : data.action === 'next'
+              ? 'control_next'
+              : undefined;
+      if (action) {
+        useGuideStore.getState().reduceServerEvent({ action, guideId: data.guideId, threadId: data.threadId });
+      }
+    });
+
+    socket.on('guide_complete', (data: { guideId: string; threadId: string; timestamp: number }) => {
+      pendingGuideStartsRef.current.delete(data.threadId);
+      const routeThread = threadIdRef.current;
+      const storeThread = useChatStore.getState().currentThreadId;
+      const isActiveThread = Boolean(
+        data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
+      );
+      if (!isActiveThread) return;
+      useGuideStore
+        .getState()
+        .reduceServerEvent({ action: 'complete', guideId: data.guideId, threadId: data.threadId });
+    });
+
+    // F152 Phase B: Memory bootstrap progress events
+    socket.on('index:progress', (data: Record<string, unknown>) => {
+      callbacksRef.current.onIndexEvent?.('index:progress', data);
+    });
+    socket.on('index:complete', (data: Record<string, unknown>) => {
+      callbacksRef.current.onIndexEvent?.('index:complete', data);
+    });
+    socket.on('index:failed', (data: Record<string, unknown>) => {
+      callbacksRef.current.onIndexEvent?.('index:failed', data);
+    });
 
     // F111 Phase B + F112 Phase A: Real-time voice stream events
     socket.on('voice_stream_start', handleVoiceStreamStart);
@@ -751,6 +863,20 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       joinRoom(threadId);
     }
   }, [threadId, joinRoom]);
+
+  const storeThreadId = useChatStore((s) => s.currentThreadId);
+  useEffect(() => {
+    if (!threadId) return;
+    if (storeThreadId !== threadId) return;
+    const pendingStart = pendingGuideStartsRef.current.get(threadId);
+    if (!pendingStart) return;
+    pendingGuideStartsRef.current.delete(threadId);
+    useGuideStore.getState().reduceServerEvent({
+      action: 'start',
+      guideId: pendingStart.guideId,
+      threadId: pendingStart.threadId,
+    });
+  }, [threadId, storeThreadId]);
 
   const cancelInvocation = useCallback((tid: string) => {
     socketRef.current?.emit('cancel_invocation', { threadId: tid });

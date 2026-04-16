@@ -16,6 +16,7 @@ import {
   isCatLead,
 } from '../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../config/cat-models.js';
+import { buildGuidePromptLines } from '../../../guides/GuidePromptSection.js';
 import type {
   BootcampStateV1,
   ThreadMentionRoutingFeedback,
@@ -102,6 +103,20 @@ export interface InvocationContext {
    * When present, cats inject bootcamp-guide behavior per phase.
    */
   bootcampState?: BootcampStateV1;
+  /**
+   * F155: Matched guide candidate from routing-layer keyword match.
+   * When present, cats load guide-interaction skill and offer the guide.
+   */
+  guideCandidate?: {
+    id: string;
+    name: string;
+    estimatedTime: string;
+    status: 'offered' | 'awaiting_choice' | 'active' | 'completed';
+    /** True only on the first routing-layer match before any guideState has been persisted. */
+    isNewOffer?: boolean;
+    /** When user clicked an interactive selection, carries the chosen label. */
+    userSelection?: string;
+  };
   /**
    * F129: Compiled pack blocks from active packs.
    * Injected into static identity via buildStaticIdentity → packBlocks.
@@ -599,6 +614,11 @@ export function buildInvocationContext(context: InvocationContext): string {
       '→ Load bootcamp-guide skill and act per current phase.',
       '',
     );
+  }
+
+  // F155: Guide candidate — inline protocol (cats don't have /Skill tool at runtime)
+  if (context.guideCandidate) {
+    lines.push(...buildGuidePromptLines(context.guideCandidate, context.threadId));
   }
 
   // F091: Active Signal articles in discussion context

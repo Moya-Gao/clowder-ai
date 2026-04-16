@@ -2672,6 +2672,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   it('F127 P1: falls back to CAT_TEMPLATE_PATH project when thread projectPath is absent', async () => {
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const templateRoot = await mkdtemp(join(tmpdir(), 'f127-active-template-'));
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = templateRoot;
     await writeFile(join(templateRoot, 'cat-template.json'), '{}', 'utf-8');
     const boundProfile = await createProviderProfile(templateRoot, {
       provider: 'openai',
@@ -2879,9 +2880,105 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.OPENAI_API_BASE, 'https://api.activated.example');
   });
 
+  it('keeps default Anthropic seed cats on builtin claude subscription when installer account coexists', async () => {
+    const { bootstrapCatCatalog, resolveCatCatalogPath } = await import('../dist/config/cat-catalog-store.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const root = await mkdtemp(join(tmpdir(), 'anthropic-seed-binding-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+    const templateRaw = await readFile(join(__dirname, '..', '..', '..', 'cat-template.json'), 'utf-8');
+    await writeFile(join(root, 'cat-template.json'), templateRaw, 'utf-8');
+    await writeFile(
+      join(root, '.cat-cafe', 'accounts.json'),
+      JSON.stringify(
+        {
+          claude: { authType: 'oauth', models: ['claude-opus-4-6'] },
+          'installer-anthropic': {
+            authType: 'api_key',
+            displayName: 'Installer Anthropic',
+            baseUrl: 'https://proxy.example.dev',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+    await writeFile(
+      join(root, '.cat-cafe', 'credentials.json'),
+      JSON.stringify(
+        {
+          'installer-anthropic': { apiKey: 'sk-installer-anthropic' },
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+
+    const prevGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const prevHome = process.env.HOME;
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    process.env.HOME = root;
+    bootstrapCatCatalog(root, join(root, 'cat-template.json'));
+
+    const registrySnapshot = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    for (const [id, config] of Object.entries(toAllCatConfigs(loadCatConfig(resolveCatCatalogPath(root))))) {
+      catRegistry.register(id, config);
+    }
+
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    const previousCwd = process.cwd();
+    const previousProxyEnabled = process.env.ANTHROPIC_PROXY_ENABLED;
+    try {
+      process.env.ANTHROPIC_PROXY_ENABLED = '0';
+      process.chdir(apiDir);
+      await collect(
+        invokeSingleCat(deps, {
+          catId: 'opus',
+          service,
+          prompt: 'test anthropic seed binding',
+          userId: 'user-anthropic-seed-binding',
+          threadId: 'thread-anthropic-seed-binding',
+          isLastCat: true,
+        }),
+      );
+    } finally {
+      process.chdir(previousCwd);
+      if (previousProxyEnabled === undefined) delete process.env.ANTHROPIC_PROXY_ENABLED;
+      else process.env.ANTHROPIC_PROXY_ENABLED = previousProxyEnabled;
+      if (prevGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
+      await rm(root, { recursive: true, force: true });
+    }
+
+    const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE, 'subscription');
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_API_KEY, undefined);
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL, undefined);
+  });
+
   it('F127 P1: prefers member-bound openai profile over protocol active profile', async () => {
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-openai-profile-'));
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
@@ -3102,9 +3199,72 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.OPENAI_API_BASE, undefined);
   });
 
+  it('F127 P1: preserves explicit bound-account failures instead of masking them as generic resolution errors', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'f127-bound-account-missing-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+
+    const registrySnapshot = catRegistry.getAllConfigs();
+    const originalConfig = catRegistry.tryGet('codex')?.config;
+    assert.ok(originalConfig, 'codex config should exist in registry');
+    const boundCatId = 'codex-missing-bound-account-test';
+    catRegistry.register(boundCatId, {
+      ...originalConfig,
+      id: boundCatId,
+      mentionPatterns: [`@${boundCatId}`],
+      clientId: 'openai',
+      accountRef: 'missing-openai-account',
+      defaultModel: 'gpt-5.4',
+    });
+
+    let invokeCount = 0;
+    const service = {
+      async *invoke() {
+        invokeCount++;
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(apiDir);
+      const messages = await collect(
+        invokeSingleCat(deps, {
+          catId: boundCatId,
+          service,
+          prompt: 'test missing bound account',
+          userId: 'user-f127-bound-account-missing',
+          threadId: 'thread-f127-bound-account-missing',
+          isLastCat: true,
+        }),
+      );
+
+      assert.equal(invokeCount, 0, 'service.invoke should not run when the explicitly bound account is missing');
+      assert.ok(messages.some((m) => m.type === 'done'));
+      assert.ok(
+        messages.some((m) => m.type === 'error' && m.error === 'bound account "missing-openai-account" not found'),
+        'should preserve the specific bound-account failure',
+      );
+      assert.equal(
+        messages.some((m) => m.type === 'error' && /failed to resolve bound account/i.test(String(m.error))),
+        false,
+      );
+    } finally {
+      process.chdir(previousCwd);
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        catRegistry.register(id, config);
+      }
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('F127: ignores legacy api_key protocol metadata when the member explicitly selected the client', async () => {
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-bound-mismatch-'));
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
@@ -3242,6 +3402,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   it('F127: injects OPENROUTER_API_KEY for opencode members bound to openai api_key profiles', async () => {
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-openrouter-key-injection-'));
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
@@ -3314,6 +3475,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     mod._resetOpenCodeKnownModels(new Set(['anthropic/claude-opus-4-6']));
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f189-opencode-custom-provider-'));
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
@@ -3394,6 +3556,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   it('F189: bare model + provider assembles composite model for custom provider routing', async () => {
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f189-oc-bare-model-'));
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
@@ -4361,3 +4524,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 });
+
+// F155: Old pre-invocation guide routing hook tests removed.
+// Guide matching now happens at routing layer (route-serial/route-parallel)
+// and is injected via SystemPromptBuilder + guide-interaction skill.
+// New tests for the routing-layer matching should be added separately.

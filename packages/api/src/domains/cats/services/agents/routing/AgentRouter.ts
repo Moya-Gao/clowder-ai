@@ -172,6 +172,10 @@ export interface AgentRouterOptions {
   growthService?: import('../../growth/GrowthService.js').GrowthService;
   /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
+  /** F155 B-4: Independent guide session store */
+  guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
+  /** F155 B-6: Dismiss tracker for guide offer suppression */
+  dismissTracker?: import('../../../../guides/GuideDismissTracker.js').IGuideDismissTracker;
 }
 
 /**
@@ -218,6 +222,10 @@ export class AgentRouter {
   private growthService?: import('../../growth/GrowthService.js').GrowthService;
   /** F157 Phase C */
   private activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
+  /** F155 B-4 */
+  private guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
+  /** F155 B-6 */
+  private dismissTracker?: import('../../../../guides/GuideDismissTracker.js').IGuideDismissTracker;
   private speechMentionRe: RegExp;
 
   private rebuildRuntimeCaches(agentRegistry: AgentRegistry): void {
@@ -258,6 +266,8 @@ export class AgentRouter {
     this.toolUsageCounter = options.toolUsageCounter;
     this.growthService = options.growthService;
     this.activityBus = options.activityBus;
+    this.guideSessionStore = options.guideSessionStore;
+    this.dismissTracker = options.dismissTracker;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -676,6 +686,8 @@ export class AgentRouter {
         ...(this.tmuxGateway ? { tmuxGateway: this.tmuxGateway } : {}),
         ...(this.agentPaneRegistry ? { agentPaneRegistry: this.agentPaneRegistry } : {}),
         ...(this.signalArticleLookup ? { signalArticleLookup: this.signalArticleLookup } : {}),
+        ...(this.guideSessionStore ? { guideSessionStore: this.guideSessionStore } : {}),
+        ...(this.dismissTracker ? { dismissTracker: this.dismissTracker } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

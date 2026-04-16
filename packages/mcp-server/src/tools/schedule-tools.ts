@@ -57,7 +57,7 @@ export const registerScheduledTaskInputSchema = {
   trigger: z
     .string()
     .describe(
-      'Trigger config as JSON string. Examples: {"type":"cron","expression":"0 9 * * *"} or {"type":"interval","ms":3600000}',
+      'Trigger config as JSON string. Examples: {"type":"cron","expression":"0 9 * * *"} or {"type":"interval","ms":3600000} or {"type":"once","delayMs":120000} (fire once after 2min) or {"type":"once","fireAt":1712345678000} (fire once at epoch ms)',
     ),
   params: z
     .string()
@@ -66,7 +66,9 @@ export const registerScheduledTaskInputSchema = {
   deliveryThreadId: z
     .string()
     .optional()
-    .describe('Thread ID to deliver results to. If omitted, results go to the default channel'),
+    .describe(
+      'Thread ID to deliver results to. If omitted on callback-origin requests, the current invocation thread is used',
+    ),
   label: z.string().optional().describe('Human-readable task label (defaults to template label)'),
   category: z.string().optional().describe('Display category: pr | repo | thread | system | external'),
   description: z.string().optional().describe('Short description of this task instance'),
@@ -133,7 +135,12 @@ export const previewScheduledTaskInputSchema = {
   templateId: z.string().min(1).describe('Template ID from list_schedule_templates'),
   trigger: z.string().describe('Trigger config as JSON string'),
   params: z.string().optional().describe('Template-specific parameters as JSON string'),
-  deliveryThreadId: z.string().optional().describe('Thread ID to deliver results to'),
+  deliveryThreadId: z
+    .string()
+    .optional()
+    .describe(
+      'Thread ID to deliver results to. If omitted on callback-origin requests, the current invocation thread is used',
+    ),
 };
 
 export async function handlePreviewScheduledTask(input: {
@@ -203,6 +210,7 @@ export const scheduleTools = [
     name: 'cat_cafe_register_scheduled_task',
     description:
       'Create a new scheduled task from a template (confirm step). The task will be persisted and run automatically on schedule. ' +
+      'Supports recurring (cron/interval) and one-shot (once) triggers. Once tasks auto-retire after execution. ' +
       'When the task fires, a cat is woken with full capabilities — it can send rich blocks (images, audio, cards), search the web, generate content, etc. ' +
       'IMPORTANT: You MUST call preview_scheduled_task first and get user confirmation before calling this. ' +
       'trigger and params must be JSON strings, not objects.',

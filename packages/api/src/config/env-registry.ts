@@ -24,6 +24,7 @@ export type EnvCategory =
   | 'codex'
   | 'dare'
   | 'gemini'
+  | 'kimi'
   | 'tts'
   | 'stt'
   | 'frontend'
@@ -31,7 +32,8 @@ export type EnvCategory =
   | 'signal'
   | 'github_review'
   | 'evidence'
-  | 'quota';
+  | 'quota'
+  | 'telemetry';
 
 export interface EnvDefinition {
   /** The env var name, e.g. 'REDIS_URL' */
@@ -64,6 +66,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   codex: '缅因猫 (Codex)',
   dare: '狸花猫 (Dare)',
   gemini: '暹罗猫 (Gemini)',
+  kimi: 'Kimi',
   tts: '语音合成 (TTS)',
   stt: '语音识别 (STT)',
   frontend: '前端',
@@ -72,6 +75,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   github_review: 'GitHub Review 监控',
   evidence: 'F102 记忆系统',
   quota: '额度监控',
+  telemetry: '可观测性 (OTel)',
 };
 
 export const ENV_VARS: EnvDefinition[] = [
@@ -96,9 +100,19 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'API_SERVER_HOST',
     defaultValue: '127.0.0.1',
-    description: 'API 监听地址',
+    description: 'API 监听地址（改为 0.0.0.0 可让手机/平板通过局域网或 Tailscale 访问）',
     category: 'server',
     sensitive: false,
+  },
+  {
+    name: 'CORS_ALLOW_PRIVATE_NETWORK',
+    defaultValue: 'false',
+    description:
+      '允许局域网/Tailscale 设备访问（手机、平板等）。开启后，来自 192.168.x.x / 10.x.x.x / Tailscale 100.x.x.x 的浏览器可以正常连接。注意：会信任整个私网内的所有设备。修改后需重启服务生效',
+    category: 'server',
+    sensitive: false,
+    runtimeEditable: false,
+    exampleRecommended: true,
   },
   { name: 'UPLOAD_DIR', defaultValue: './uploads', description: '文件上传目录', category: 'server', sensitive: false },
   {
@@ -127,14 +141,15 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'FRONTEND_URL',
     defaultValue: '(自动检测)',
-    description: '前端 URL（导出长图用）',
+    description:
+      '前端固定地址（有反向代理或固定域名时设置，如 https://cafe.example.com）。本机和局域网直连通常不需要改',
     category: 'server',
     sensitive: false,
   },
   {
     name: 'FRONTEND_PORT',
     defaultValue: '3003',
-    description: '前端端口（导出长图用）',
+    description: '前端端口',
     category: 'server',
     sensitive: false,
   },
@@ -923,6 +938,50 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
 
+  // --- kimi ---
+  {
+    name: 'MOONSHOT_API_KEY',
+    defaultValue: '(未设置)',
+    description: 'Kimi / Moonshot API Key（官方 kimi-cli API Key 模式用）',
+    category: 'kimi',
+    sensitive: true,
+    hubVisible: false,
+  },
+  {
+    name: 'KIMI_SHARE_DIR',
+    defaultValue: '~/.kimi',
+    description: '官方 kimi-cli 共享目录（session / mcp / logs）',
+    category: 'kimi',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'KIMI_CONFIG_FILE',
+    defaultValue: '~/.kimi/config.toml',
+    description: '官方 kimi-cli 配置文件路径（覆盖默认 ~/.kimi/config.toml）',
+    category: 'kimi',
+    sensitive: false,
+    hubVisible: false,
+    runtimeEditable: false,
+  },
+  {
+    name: 'KIMI_AUTH_TOKEN',
+    defaultValue: '(未设置)',
+    description: 'Kimi 官方额度抓取用的 kimi-auth token（来自 kimi.com）',
+    category: 'quota',
+    sensitive: true,
+    hubVisible: false,
+  },
+  {
+    name: 'KIMI_QUOTA_API_FALLBACK_ENABLED',
+    defaultValue: '0（默认关闭）',
+    description: '设为 1 允许 Kimi 额度在 CLI /usage 失败时降级到 API（仍需 KIMI_AUTH_TOKEN）',
+    category: 'quota',
+    sensitive: false,
+    hubVisible: false,
+    runtimeEditable: false,
+  },
+
   // --- tts ---
   {
     name: 'TTS_URL',
@@ -1181,7 +1240,7 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'QUOTA_OFFICIAL_REFRESH_ENABLED',
     defaultValue: '0（默认关闭）',
-    description: '设为 1 允许官方额度抓取（需要 Chrome OAuth cookie）',
+    description: '设为 1 允许官方额度抓取（Claude/Codex OAuth + Kimi auth token）',
     category: 'quota',
     sensitive: false,
   },
@@ -1200,6 +1259,43 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'quota',
     sensitive: false,
     hubVisible: false,
+  },
+
+  // --- telemetry (F153) ---
+  {
+    name: 'TELEMETRY_HMAC_SALT',
+    defaultValue: '(dev/test 自动 fallback)',
+    description: 'HMAC salt — 遥测系统 ID 伪名化用。生产环境必设，缺失则禁用 OTel',
+    category: 'telemetry',
+    sensitive: true,
+  },
+  {
+    name: 'TELEMETRY_EXPORT_RAW_SYSTEM_IDS',
+    defaultValue: '(未设置 → HMAC 伪名化)',
+    description: '设为 1 跳过 HMAC，导出原始系统 ID（仅限自托管受控环境）',
+    category: 'telemetry',
+    sensitive: false,
+  },
+  {
+    name: 'PROMETHEUS_PORT',
+    defaultValue: '9464',
+    description: 'Prometheus /metrics 抓取端口',
+    category: 'telemetry',
+    sensitive: false,
+  },
+  {
+    name: 'OTEL_EXPORTER_OTLP_ENDPOINT',
+    defaultValue: '(未设置 → 仅 Prometheus)',
+    description: 'OTLP 导出端点（设置后同时推送 traces/metrics/logs 到该端点）',
+    category: 'telemetry',
+    sensitive: false,
+  },
+  {
+    name: 'OTEL_SDK_DISABLED',
+    defaultValue: '(未设置 → 启用)',
+    description: '设为 true 完全禁用 OTel SDK',
+    category: 'telemetry',
+    sensitive: false,
   },
 ];
 

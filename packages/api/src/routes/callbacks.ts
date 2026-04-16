@@ -34,10 +34,12 @@ import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackGameRoutes } from './callback-game-routes.js';
+import { registerCallbackGuideRoutes } from './callback-guide-routes.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
+import { registerCallbackThreadCatsRoutes } from './callback-thread-cats-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
 import { detectUserMention } from './user-mention.js';
@@ -49,10 +51,16 @@ export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
+  /** F155 review fix: allow tests to inject a failing guide flow loader. */
+  loadGuideFlow?: (guideId: string) => unknown;
   taskStore?: ITaskStore;
   backlogStore?: IBacklogStore;
-  /** For thinking mode filtering in thread-context */
+  /** For thinking mode filtering in thread-context + thread-cats discovery */
   threadStore?: IThreadStore;
+  /** F155 B-4: Independent guide session store */
+  guideSessionStore?: import('../domains/guides/GuideSessionRepository.js').IGuideSessionStore;
+  /** AgentRegistry for thread-cats MCP callback */
+  agentRegistry?: { getAllEntries(): Map<string, unknown> };
   /** For post_message @mention → invocation triggering */
   router?: AgentRouter;
   invocationRecordStore?: IInvocationRecordStore;
@@ -203,6 +211,13 @@ const richBlockSchema = z.discriminatedUnion('kind', [
           group: z.string().optional(),
           customInput: z.boolean().optional(),
           customInputPlaceholder: z.string().optional(),
+          action: z
+            .object({
+              type: z.literal('callback'),
+              endpoint: z.string().min(1),
+              payload: z.record(z.unknown()).optional(),
+            })
+            .optional(),
         }),
       )
       .min(1),
@@ -526,7 +541,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         content: storedContent,
         origin: 'callback',
         messageId: storedMsg.id,
-        ...(invocationId ? { invocationId } : {}),
+        invocationId, // #454: always propagate — required by callback auth
         // F52+F098-C1: Include crossPost + targetCats in real-time broadcast
         ...(isCrossThread || validExplicitTargets.length
           ? {
@@ -548,12 +563,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     // #83: Broadcast each extracted rich block as SSE event for live rendering
     // P2 cloud-review: include messageId for frontend correlation
+    // #454: include invocationId so frontend can exact-match callback to stream bubble
     for (const block of richBlocks) {
       socketManager.broadcastAgentMessage(
         {
           type: 'system_info' as const,
           catId: record.catId,
           content: JSON.stringify({ type: 'rich_block', block, messageId: storedMsg.id }),
+          invocationId,
           timestamp: Date.now(),
         },
         effectiveThreadId,
@@ -1141,12 +1158,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     if (isNew) activityBus?.record('rich_block_created', record.catId);
 
     // Only broadcast new blocks (dedup retries at server to prevent frontend duplicates)
+    // #454: include invocationId so frontend can exact-match callback to stream bubble
     if (isNew) {
       socketManager.broadcastAgentMessage(
         {
           type: 'system_info' as const,
           catId: record.catId,
           content: JSON.stringify({ type: 'rich_block', block: resolvedBlock }),
+          invocationId,
           timestamp: Date.now(),
         },
         record.threadId,
@@ -1316,6 +1335,15 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     registerCallbackBootcampRoutes(app, { registry, threadStore: opts.threadStore });
   }
 
+  // Thread cats discovery for MCP
+  if (opts.threadStore && opts.agentRegistry) {
+    registerCallbackThreadCatsRoutes(app, {
+      registry,
+      threadStore: opts.threadStore,
+      agentRegistry: opts.agentRegistry,
+    });
+  }
+
   await registerCallbackMemoryRoutes(app, {
     registry,
     evidenceStore: opts.evidenceStore,
@@ -1359,4 +1387,15 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
   // F101: Game action callback for non-Claude cats (OpenCode/Codex/Gemini)
   registerCallbackGameRoutes(app, { registry });
+
+  // F155: Guide engine — state-validated routes with ThreadStore authority
+  if (opts.threadStore) {
+    await registerCallbackGuideRoutes(app, {
+      registry,
+      threadStore: opts.threadStore,
+      socketManager,
+      ...(opts.guideSessionStore ? { guideSessionStore: opts.guideSessionStore } : {}),
+      ...(opts.loadGuideFlow ? { loadGuideFlow: opts.loadGuideFlow } : {}),
+    });
+  }
 };

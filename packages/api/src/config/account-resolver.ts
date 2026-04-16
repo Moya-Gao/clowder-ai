@@ -10,7 +10,7 @@ import { readCredential } from './credentials.js';
 
 // ── Types surviving from provider-profiles.types.ts (F136 Phase 4d) ──
 
-export type BuiltinAccountClient = Extract<ClientId, 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode'>;
+export type BuiltinAccountClient = Extract<ClientId, 'anthropic' | 'openai' | 'google' | 'kimi' | 'dare' | 'opencode'>;
 export type ProviderProfileKind = 'builtin' | 'api_key';
 
 export interface RuntimeProviderProfile {
@@ -37,6 +37,7 @@ export function resolveBuiltinClientForProvider(provider: ClientId): BuiltinAcco
     case 'anthropic':
     case 'openai':
     case 'google':
+    case 'kimi':
     case 'dare':
     case 'opencode':
       return provider;
@@ -51,6 +52,7 @@ const LEGACY_BUILTIN_IDS: Record<BuiltinAccountClient, string> = {
   anthropic: 'claude',
   openai: 'codex',
   google: 'gemini',
+  kimi: 'kimi',
   dare: 'dare',
   opencode: 'opencode',
 };
@@ -59,9 +61,14 @@ export function builtinAccountIdForClient(client: BuiltinAccountClient): string 
   return LEGACY_BUILTIN_IDS[client];
 }
 
-export function resolveAnthropicRuntimeProfile(projectRoot: string): AnthropicRuntimeProfile {
-  // F340: Use full discovery chain (claude → builtin_anthropic → installer-anthropic).
-  const runtime = resolveForClient(projectRoot, 'anthropic');
+export function resolveAnthropicRuntimeProfile(
+  projectRoot: string,
+  preferredAccountRef?: string,
+): AnthropicRuntimeProfile {
+  // Deterministic binding: use explicit ref or well-known builtin.
+  // Never walk the discovery chain — prevents installer-* credential hijack (502 regression).
+  const accountRef = preferredAccountRef ?? builtinAccountIdForClient('anthropic');
+  const runtime = resolveForClient(projectRoot, 'anthropic', accountRef);
   if (runtime?.apiKey) {
     return {
       id: runtime.id,
@@ -70,7 +77,28 @@ export function resolveAnthropicRuntimeProfile(projectRoot: string): AnthropicRu
       apiKey: runtime.apiKey,
     };
   }
-  return { id: 'builtin_anthropic', mode: 'subscription' };
+  // Controlled fallback for installer-only setups (self-hosted, no Anthropic OAuth builtin):
+  // Only when no explicit preferredAccountRef AND no Anthropic builtin alias exists in catalog.
+  // Checks all known aliases (claude, builtin_anthropic) — not just the default accountRef.
+  // Single deterministic ref — NOT the discovery chain.
+  if (!preferredAccountRef) {
+    const accounts = readCatalogAccounts(projectRoot);
+    const hasRealAnthropicBuiltin = Object.entries(BUILTIN_ACCOUNT_MAP).some(
+      ([id, info]) => info.client === 'anthropic' && id in accounts,
+    );
+    if (!hasRealAnthropicBuiltin) {
+      const installer = resolveForClient(projectRoot, 'anthropic', 'installer-anthropic');
+      if (installer?.apiKey) {
+        return {
+          id: installer.id,
+          mode: 'api_key',
+          ...(installer.baseUrl ? { baseUrl: installer.baseUrl } : {}),
+          apiKey: installer.apiKey,
+        };
+      }
+    }
+  }
+  return { id: runtime?.id ?? 'builtin_anthropic', mode: 'subscription' };
 }
 
 // Known builtin OAuth account refs — both legacy names and new naming convention.
@@ -82,6 +110,8 @@ const BUILTIN_ACCOUNT_MAP: Record<string, { client: BuiltinAccountClient; protoc
   builtin_openai: { client: 'openai', protocol: 'openai' },
   gemini: { client: 'google', protocol: 'google' },
   builtin_google: { client: 'google', protocol: 'google' },
+  kimi: { client: 'kimi', protocol: 'kimi' },
+  builtin_kimi: { client: 'kimi', protocol: 'kimi' },
   dare: { client: 'dare', protocol: 'openai' },
   builtin_dare: { client: 'dare', protocol: 'openai' },
   opencode: { client: 'opencode', protocol: 'anthropic' },
@@ -188,6 +218,7 @@ function normalizeToClient(clientOrProtocol: string): BuiltinAccountClient | nul
     case 'anthropic':
     case 'openai':
     case 'google':
+    case 'kimi':
     case 'dare':
     case 'opencode':
       return clientOrProtocol;

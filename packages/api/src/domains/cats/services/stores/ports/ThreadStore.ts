@@ -68,7 +68,7 @@ export interface ThreadMemoryV1 {
   artifacts?: string[];
 }
 
-export type MentionRoutingSuppressionReason = 'no_action' | 'cross_paragraph';
+export type MentionRoutingSuppressionReason = 'no_action' | 'cross_paragraph' | 'inline_action';
 export type MentionActionabilityMode = 'strict' | 'relaxed';
 
 export interface ThreadMentionRoutingFeedbackItem {
@@ -172,6 +172,26 @@ export interface BootcampStateV1 {
   advancedFeatures?: Record<string, 'available' | 'unavailable' | 'skipped'>;
   startedAt: number;
   completedAt?: number;
+}
+
+/** F155: Guide session status */
+export type GuideStatus = 'offered' | 'awaiting_choice' | 'active' | 'completed' | 'cancelled';
+
+/** F155: Scene-based bidirectional guide state — thread-level authority */
+export interface GuideStateV1 {
+  v: 1;
+  guideId: string;
+  status: GuideStatus;
+  /** Owning user for default-thread guide state. */
+  userId?: string;
+  currentStep?: number;
+  offeredAt: number;
+  startedAt?: number;
+  completedAt?: number;
+  /** True after the first agent turn has seen the completion (one-shot consumption). */
+  completionAcked?: boolean;
+  /** catId that offered this guide (prevents multi-cat duplicate offers). */
+  offeredBy?: string;
 }
 
 /** F079: Voting state stored in thread metadata */

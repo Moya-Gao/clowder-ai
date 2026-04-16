@@ -44,7 +44,7 @@ export function createMonthlyReviewTemplate(reviewService: MonthlyReviewService)
             const catId = signal as string;
             const review = await reviewService.generate(catId);
             if (!review) return;
-            await ctx.deliver({ threadId: threadId!, content: review, catId: 'system', userId: 'scheduler' });
+            await ctx.deliver({ threadId: threadId!, content: review, userId: 'scheduler' });
           },
         },
         state: { runLedger: 'sqlite' },

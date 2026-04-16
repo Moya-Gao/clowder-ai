@@ -10,6 +10,7 @@ import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
 import { godAction, submitAction } from '@/hooks/useGameApi';
 import { reconnectGame } from '@/hooks/useGameReconnect';
 import { useGovernanceStatus } from '@/hooks/useGovernanceStatus';
+import { useIndexState } from '@/hooks/useIndexState';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
 import { useSendMessage } from '@/hooks/useSendMessage';
@@ -27,6 +28,7 @@ import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId } from '@/utils/userId';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
+import { BootstrapOrchestrator } from './BootstrapOrchestrator';
 import { CatCafeHub } from './CatCafeHub';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatInput } from './ChatInput';
@@ -57,6 +59,9 @@ interface ChatContainerProps {
 }
 
 export function ChatContainer({ threadId }: ChatContainerProps) {
+  const bottomChromeRef = useRef<HTMLDivElement | null>(null);
+  const bottomChromeObserverRef = useRef<ResizeObserver | null>(null);
+  const bottomChromeObserverRafRef = useRef<number | null>(null);
   const {
     messages,
     hasActiveInvocation,
@@ -320,6 +325,18 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     }
   }, [threadId, govRefetch]);
 
+  // F152 Phase B: memory bootstrap state
+  const {
+    state: indexState,
+    progress: bootstrapProgress,
+    summary: bootstrapSummary,
+    durationMs: bootstrapDurationMs,
+    isSnoozed,
+    startBootstrap,
+    snooze: snoozeBootstrap,
+    handleSocketEvent: handleIndexSocketEvent,
+  } = useIndexState(currentProjectPath);
+
   const socketCallbacks = useChatSocketCallbacks({
     threadId,
     userId: getUserId(),
@@ -329,6 +346,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     handleAuthRequest,
     handleAuthResponse,
     onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
+    onIndexEvent: handleIndexSocketEvent,
   });
 
   const renderSingleMessage = useCallback(
@@ -369,6 +387,47 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   useEffect(() => {
     clearUnread(threadId);
   }, [threadId, clearUnread]);
+
+  const disconnectBottomChromeObserver = useCallback(() => {
+    bottomChromeObserverRef.current?.disconnect();
+    bottomChromeObserverRef.current = null;
+    if (bottomChromeObserverRafRef.current !== null) {
+      cancelAnimationFrame(bottomChromeObserverRafRef.current);
+      bottomChromeObserverRafRef.current = null;
+    }
+  }, []);
+
+  const attachBottomChromeRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      bottomChromeRef.current = node;
+      disconnectBottomChromeObserver();
+
+      if (typeof window === 'undefined' || typeof window.ResizeObserver !== 'function' || !node) return;
+
+      let lastHeight = node.getBoundingClientRect().height;
+      const observer = new window.ResizeObserver(([entry]) => {
+        const nextHeight = entry?.contentRect.height ?? node.getBoundingClientRect().height;
+        if (Math.abs(nextHeight - lastHeight) <= 1) return;
+        lastHeight = nextHeight;
+
+        if (bottomChromeObserverRafRef.current !== null) {
+          cancelAnimationFrame(bottomChromeObserverRafRef.current);
+        }
+        bottomChromeObserverRafRef.current = requestAnimationFrame(() => {
+          bottomChromeObserverRafRef.current = null;
+          window.dispatchEvent(new Event('catcafe:chat-layout-changed'));
+        });
+      });
+
+      observer.observe(node);
+      bottomChromeObserverRef.current = observer;
+    },
+    [disconnectBottomChromeObserver],
+  );
+
+  useEffect(() => {
+    return disconnectBottomChromeObserver;
+  }, [disconnectBottomChromeObserver]);
 
   // F069-R5: Ack read cursor server-side. The backend finds the latest real message
   // and acks it atomically — no frontend ID guessing, no timing races with fetchHistory.
@@ -411,6 +470,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     },
     [setViewMode, router],
   );
+
+  const handleSearchKnowledge = useCallback(() => {
+    const fromParam = threadId ? `?from=${encodeURIComponent(threadId)}` : '';
+    router.push(`/memory/search${fromParam}`);
+  }, [router, threadId]);
+
+  const handleGoToMemoryHub = useCallback(() => {
+    const fromParam = threadId ? `?from=${encodeURIComponent(threadId)}` : '';
+    router.push(`/memory${fromParam}`);
+  }, [router, threadId]);
 
   if (viewMode === 'split') {
     return (
@@ -520,6 +589,30 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                     />
                   </div>
                 )}
+                {/* F152 Phase B: memory bootstrap orchestrator */}
+                {!showSetupCard &&
+                  currentProjectPath &&
+                  currentProjectPath !== 'default' &&
+                  currentProjectPath !== 'lobby' && (
+                    <div className="mt-4 text-left">
+                      <BootstrapOrchestrator
+                        projectPath={currentProjectPath}
+                        indexState={indexState}
+                        isSnoozed={isSnoozed}
+                        progress={bootstrapProgress}
+                        summary={bootstrapSummary}
+                        durationMs={bootstrapDurationMs}
+                        isNewProject={setupDone}
+                        governanceDone={
+                          setupDone || !!(govStatus && !govStatus.needsBootstrap && !govStatus.needsConfirmation)
+                        }
+                        onStartBootstrap={startBootstrap}
+                        onSnooze={snoozeBootstrap}
+                        onSearchKnowledge={handleSearchKnowledge}
+                        onGoToMemoryHub={handleGoToMemoryHub}
+                      />
+                    </div>
+                  )}
                 {(() => {
                   const isCurrentBootcamp = storeThreads.find((t) => t.id === threadId)?.bootcampState;
                   if (isCurrentBootcamp) return null; // already in bootcamp thread
@@ -563,45 +656,47 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           {messages.length > 5 && <MessageNavigator messages={messages} scrollContainerRef={scrollContainerRef} />}
         </div>
 
-        {authPending.length > 0 && (
-          <div className="border-t border-amber-200 bg-amber-50/40 py-2">
-            {authPending.map((req) => (
-              <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
-            ))}
-          </div>
-        )}
+        <div ref={attachBottomChromeRef}>
+          {authPending.length > 0 && (
+            <div className="border-t border-amber-200 bg-amber-50/40 py-2">
+              {authPending.map((req) => (
+                <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
+              ))}
+            </div>
+          )}
 
-        <ThreadExecutionBar />
-        <QueuePanel threadId={threadId} />
-        <VoteActiveBar threadId={threadId} onEnd={() => {}} />
+          <ThreadExecutionBar />
+          <QueuePanel threadId={threadId} />
+          <VoteActiveBar threadId={threadId} onEnd={() => {}} />
 
-        {isResearchMode && (
-          <div className="mx-4 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            多猫研究模式 — 文章上下文已注入。请输入研究问题，猫猫会自动调用 multi_mention 邀请其他猫参与分析。
-          </div>
-        )}
-        <ChatInput
-          key={threadId}
-          threadId={threadId}
-          onSend={(content, images, whisper, deliveryMode) =>
-            handleSend(content, images, undefined, whisper, deliveryMode)
-          }
-          onStop={handleStop}
-          disabled={false}
-          hasActiveInvocation={hasActiveInvocation}
-          uploadStatus={uploadStatus}
-          uploadError={uploadError}
-        />
+          {isResearchMode && (
+            <div className="mx-4 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              多猫研究模式 — 文章上下文已注入。请输入研究问题，猫猫会自动调用 multi_mention 邀请其他猫参与分析。
+            </div>
+          )}
+          <ChatInput
+            key={threadId}
+            threadId={threadId}
+            onSend={(content, images, whisper, deliveryMode) =>
+              handleSend(content, images, undefined, whisper, deliveryMode)
+            }
+            onStop={handleStop}
+            disabled={false}
+            hasActiveInvocation={hasActiveInvocation}
+            uploadStatus={uploadStatus}
+            uploadError={uploadError}
+          />
 
-        {/* F101: "Return to game" banner when overlay is minimized */}
-        {isGameActive && overlayMinimized && gameView?.threadId === threadId && (
-          <button
-            onClick={() => useGameStore.getState().restoreOverlay()}
-            className="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg border border-purple-300 bg-purple-50 px-3 py-2 text-sm text-purple-700 hover:bg-purple-100 transition-colors"
-          >
-            🎮 返回游戏
-          </button>
-        )}
+          {/* F101: "Return to game" banner when overlay is minimized */}
+          {isGameActive && overlayMinimized && gameView?.threadId === threadId && (
+            <button
+              onClick={() => useGameStore.getState().restoreOverlay()}
+              className="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg border border-purple-300 bg-purple-50 px-3 py-2 text-sm text-purple-700 hover:bg-purple-100 transition-colors"
+            >
+              🎮 返回游戏
+            </button>
+          )}
+        </div>
 
         {/* F101: Game overlay — renders when a game is active */}
         <GameOverlayConnector

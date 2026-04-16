@@ -61,8 +61,10 @@ const catVariantSchema = z.object({
   displayName: z.string().min(1).optional(), // F32-b: variant-level displayName
   variantLabel: z.string().min(1).optional(), // F32-b P4: disambiguation label
   mentionPatterns: z.array(mentionPatternSchema).optional(), // F32-b: variant-level mentions
+  source: z.enum(['seed', 'runtime']).optional(), // #441: bootstrap-stamped origin
   accountRef: z.string().min(1).optional(), // F127: concrete account binding
-  clientId: z.enum(['anthropic', 'openai', 'google', 'dare', 'antigravity', 'opencode', 'a2a']),
+  clientId: z.enum(['anthropic', 'openai', 'google', 'kimi', 'dare', 'antigravity', 'opencode', 'a2a']),
+
   defaultModel: z.string().min(1),
   mcpSupport: z.boolean(),
   cli: cliConfigSchema,
@@ -421,6 +423,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         avatar: variant.avatar ?? breed.avatar, // F32-b P4c: variant can override
         color: variant.color ?? breed.color, // F32-b P4c: variant can override
         mentionPatterns,
+        ...(variant.source != null ? { source: variant.source } : {}),
         ...(variant.accountRef != null ? { accountRef: variant.accountRef } : {}),
         clientId: variant.clientId,
         defaultModel: variant.defaultModel,
