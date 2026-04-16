@@ -79,6 +79,8 @@ export interface MessageMetadata {
   usage?: TokenUsage;
   /** F061: false when provider cannot verify which model actually ran (e.g. CDP bridge) */
   modelVerified?: boolean;
+  /** F061: diagnostic context attached when empty_response is triggered */
+  diagnostics?: Record<string, unknown>;
 }
 
 /**

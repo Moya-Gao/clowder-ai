@@ -9,7 +9,7 @@ import { getCatModel } from '../../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
 import { AntigravityBridge, type BridgeConnection } from './AntigravityBridge.js';
-import { transformTrajectorySteps } from './antigravity-event-transformer.js';
+import { classifyStep, transformTrajectorySteps } from './antigravity-event-transformer.js';
 
 const log = createModuleLogger('antigravity-service');
 
@@ -103,6 +103,13 @@ export class AntigravityAgentService implements AgentService {
       let autoApproveAttempted = false;
       let stallProbed = false;
       let lastDelivered = stepsBefore;
+
+      // Diagnostic counters for empty_response observability
+      let totalStepsSeen = 0;
+      const rawStepTypeCounts: Record<string, number> = {};
+      const transformedMessageTypeCounts: Record<string, number> = {};
+      let lastBatchStepTypes: string[] = [];
+      const seenUnknownKeys = new Set<string>();
       const pollOnce = async function* (self: AntigravityAgentService, fromStep: number) {
         for await (const batch of self.bridge.pollForSteps(
           cascadeId,
@@ -136,7 +143,39 @@ export class AntigravityAgentService implements AgentService {
             autoApproveAttempted = false;
             stallProbed = false;
             lastDelivered = batch.cursor.lastDeliveredStepCount;
+
+            // Diagnostic: track raw step types per batch
+            totalStepsSeen += batch.steps.length;
+            lastBatchStepTypes = batch.steps.map((s) => s.type);
+            for (const step of batch.steps) {
+              rawStepTypeCounts[step.type] = (rawStepTypeCounts[step.type] ?? 0) + 1;
+              // Log unknown_activity at info level, deduped by (type, status)
+              const unknownKey = `${step.type}:${step.status}`;
+              if (classifyStep(step) === 'unknown_activity' && !seenUnknownKeys.has(unknownKey)) {
+                seenUnknownKeys.add(unknownKey);
+                log.info('unknown step type %s (status=%s) in cascade %s', step.type, step.status, cascadeId);
+              }
+            }
+
             const messages = transformTrajectorySteps(batch.steps, self.catId, metadata);
+
+            // Diagnostic: track transformed message types
+            const batchMsgTypeCounts: Record<string, number> = {};
+            for (const msg of messages) {
+              transformedMessageTypeCounts[msg.type] = (transformedMessageTypeCounts[msg.type] ?? 0) + 1;
+              batchMsgTypeCounts[msg.type] = (batchMsgTypeCounts[msg.type] ?? 0) + 1;
+            }
+            log.info(
+              {
+                cascadeId,
+                batchSize: batch.steps.length,
+                lastDelivered,
+                rawStepTypes: lastBatchStepTypes,
+                msgTypeCounts: batchMsgTypeCounts,
+                totalStepsSeen,
+              },
+              'batch processed',
+            );
             const fatalErrors: AgentMessage[] = [];
             const seenFatalKeys = new Set<string>();
             for (const msg of messages) {
@@ -213,12 +252,23 @@ export class AntigravityAgentService implements AgentService {
       }
 
       if (!hasText && !fatalSeen) {
+        const diagnostics = {
+          totalStepsSeen,
+          rawStepTypeCounts,
+          transformedMessageTypeCounts,
+          lastBatchStepTypes,
+          lastDelivered,
+          hasText,
+          fatalSeen,
+          cascadeId,
+        };
+        log.warn(diagnostics, 'empty_response triggered — no text received from Antigravity');
         yield {
           type: 'error',
           catId: this.catId,
           error: 'Antigravity returned no text response',
           errorCode: 'empty_response',
-          metadata,
+          metadata: { ...metadata, diagnostics },
           timestamp: Date.now(),
         };
       }
