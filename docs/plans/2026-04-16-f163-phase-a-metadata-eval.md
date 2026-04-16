@@ -41,6 +41,15 @@ ALTER TABLE evidence_docs ADD COLUMN verified_at TEXT;
 -- ISO8601 最后验证日期
 ```
 
+### evidence_docs.status 轴扩展
+
+现有 `EvidenceStatus = 'active' | 'done' | 'archived'`。F163 lifecycle status 需要新增 `'review'` 和 `'invalidated'`：
+
+- `review`：猫发现过时或冲突，等待 CVO 裁决
+- `invalidated`：已被确认失效（由 `contradicts[]` / `replaced_by` 驱动）
+
+不加新列——复用现有 `status` 列，扩展枚举值。`done` 保留（feature 完成态），不与 lifecycle status 冲突。
+
 ### 新增表
 
 ```sql
@@ -105,7 +114,6 @@ interface F163FlagSnapshot {
 - No contradiction detection (Phase C)
 - No review queue UI (Phase C)
 - No `scoped` activation glob matching (OQ-5, deferred)
-- No always_on physical injection in Phase A — spec says AC-A3 but injection is a system prompt builder change that needs careful testing. Phase A delivers the **metadata and flag infrastructure** so that `always_on` documents can be tagged and the injection path can be built. The actual injection wiring into SystemPromptBuilder is a separate task within Phase A.
 
 ---
 
@@ -191,7 +199,7 @@ export function computeVariantId(flags: F163FlagSnapshot): string {
 }
 ```
 
-**Step 2: Add authority/activation/verifiedAt to EvidenceItem**
+**Step 2: Add authority/activation/verifiedAt to EvidenceItem + extend EvidenceStatus**
 
 In `interfaces.ts`, add to EvidenceItem:
 ```typescript
@@ -202,6 +210,13 @@ activation?: F163Activation;
 /** F163 Phase A: last verification date (ISO8601) */
 verifiedAt?: string;
 ```
+
+Extend EvidenceStatus to include F163 lifecycle states:
+```typescript
+export type EvidenceStatus = 'active' | 'done' | 'archived' | 'review' | 'invalidated';
+```
+
+Update `CatCafeScanner.ts` 中对 status 的硬编码映射（如有）以兼容新值。
 
 **Step 3: Verify type compilation**
 
@@ -228,13 +243,13 @@ After existing `F102_TOPIC_SEGMENTS` block, add:
 
 ```typescript
 // --- F163 记忆熵减实验框架 ---
-{ name: 'F163_AUTHORITY_BOOST',         defaultValue: 'off', description: 'F163 authority 加权 rerank (off/shadow/on)', category: 'evidence', sensitive: false },
-{ name: 'F163_ALWAYS_ON_INJECTION',     defaultValue: 'off', description: 'F163 constitutional 物理注入 (off/shadow/on)', category: 'evidence', sensitive: false },
-{ name: 'F163_RETRIEVAL_RERANK',        defaultValue: 'off', description: 'F163 多轴元数据 rerank (off/shadow/on)', category: 'evidence', sensitive: false },
-{ name: 'F163_COMPRESSION',             defaultValue: 'off', description: 'F163 非替代式压缩 (off/suggest/apply)', category: 'evidence', sensitive: false },
-{ name: 'F163_PROMOTION_GATE',          defaultValue: 'off', description: 'F163 晋升门禁 (off/suggest/apply)', category: 'evidence', sensitive: false },
-{ name: 'F163_CONTRADICTION_DETECTION', defaultValue: 'off', description: 'F163 矛盾检测 (off/suggest/apply)', category: 'evidence', sensitive: false },
-{ name: 'F163_REVIEW_QUEUE',            defaultValue: 'off', description: 'F163 审计 review queue (off/suggest/apply)', category: 'evidence', sensitive: false },
+{ name: 'F163_AUTHORITY_BOOST',         defaultValue: 'off', description: 'F163 authority 加权 rerank (off/shadow/on)', category: 'evidence', sensitive: false, runtimeEditable: true },
+{ name: 'F163_ALWAYS_ON_INJECTION',     defaultValue: 'off', description: 'F163 constitutional 物理注入 (off/shadow/on)', category: 'evidence', sensitive: false, runtimeEditable: true },
+{ name: 'F163_RETRIEVAL_RERANK',        defaultValue: 'off', description: 'F163 多轴元数据 rerank (off/shadow/on)', category: 'evidence', sensitive: false, runtimeEditable: true },
+{ name: 'F163_COMPRESSION',             defaultValue: 'off', description: 'F163 非替代式压缩 (off/suggest/apply)', category: 'evidence', sensitive: false, runtimeEditable: true },
+{ name: 'F163_PROMOTION_GATE',          defaultValue: 'off', description: 'F163 晋升门禁 (off/suggest/apply)', category: 'evidence', sensitive: false, runtimeEditable: true },
+{ name: 'F163_CONTRADICTION_DETECTION', defaultValue: 'off', description: 'F163 矛盾检测 (off/suggest/apply)', category: 'evidence', sensitive: false, runtimeEditable: true },
+{ name: 'F163_REVIEW_QUEUE',            defaultValue: 'off', description: 'F163 审计 review queue (off/suggest/apply)', category: 'evidence', sensitive: false, runtimeEditable: true },
 ```
 
 **Step 2: Verify compilation**
@@ -500,7 +515,7 @@ Script that:
 
 **Step 3: Populate initial gold set**
 
-Extract 30-50 queries from real usage (search_evidence call logs / session history). Mark gold relevance manually. This is the minimum viable gold set for Phase A; expand to 100 in Phase B.
+Extract 50-100 queries from real usage (search_evidence call logs / session history). Mark gold relevance manually. AC-A1 要求 50-100，不能少于 50。
 
 **Step 4: Run eval, record baseline**
 
@@ -697,10 +712,161 @@ test(F163): zero-behavior regression — all flags off = no side effects [布偶
 
 ---
 
+## Task 14: EvidenceWriteQueue — single-writer scheduler (Design Gate 契约 3 硬约束)
+
+**Files:**
+- Create: `packages/api/src/domains/memory/evidence-write-queue.ts`
+- Modify: `packages/api/src/domains/memory/SqliteEvidenceStore.ts` (wrap write methods)
+- Modify: `packages/api/src/domains/memory/IndexBuilder.ts` (wrap direct DB writes at lines 182, 250, 772)
+- Test: new test for serialized write ordering
+
+**Why standalone task:** Design Gate 契约 3 要求 ALL evidence.sqlite mutations 走单一写入调度器，包括 IndexBuilder 绕过 store 的直写。这不是 store 内部重构——是架构层约束。
+
+**Step 1: Write failing test — concurrent writes are serialized**
+
+```typescript
+test('F163: EvidenceWriteQueue serializes concurrent writes', async () => {
+  const order: number[] = [];
+  // Enqueue 3 writes that each push their index
+  await Promise.all([
+    queue.enqueue(() => { order.push(1); }),
+    queue.enqueue(() => { order.push(2); }),
+    queue.enqueue(() => { order.push(3); }),
+  ]);
+  // Assert: order is [1, 2, 3] (FIFO, not interleaved)
+});
+```
+
+**Step 2: Run test — expect FAIL**
+
+**Step 3: Implement EvidenceWriteQueue**
+
+```typescript
+export class EvidenceWriteQueue {
+  private queue: Promise<void> = Promise.resolve();
+
+  enqueue<T>(fn: () => T | Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue = this.queue.then(async () => {
+        try { resolve(await fn()); }
+        catch (e) { reject(e); }
+      });
+    });
+  }
+}
+```
+
+Global singleton — all SqliteEvidenceStore write methods (`upsert`, `delete`, `updateStatus`) and IndexBuilder direct DB writes route through `enqueue()`.
+
+**Step 4: Wrap SqliteEvidenceStore write methods**
+
+In `upsert()`, `delete()`, etc.: wrap the DB mutation in `writeQueue.enqueue(() => { ... })`.
+
+**Step 5: Wrap IndexBuilder direct writes**
+
+IndexBuilder lines 182 (batch insert), 250 (update), 772 (delete) — each wrapped in `writeQueue.enqueue()`. IndexBuilder gets write queue via constructor injection.
+
+**Step 6: Write-path fail-open**
+
+If queue errors on a write-path operation, degrade to `suggest` mode (log the intended mutation to f163_suggestions instead of applying). Read path is unaffected.
+
+**Step 7: Run test — expect PASS**
+
+**Step 8: Commit**
+
+```
+feat(F163): EvidenceWriteQueue — single-writer for all evidence.sqlite mutations [布偶猫🐾]
+```
+
+---
+
+## Task 15: always_on injection into SystemPromptBuilder (AC-A3)
+
+**Files:**
+- Modify: `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` (inject always_on docs)
+- Modify: `packages/api/src/domains/memory/SqliteEvidenceStore.ts` (add `queryAlwaysOn()` method)
+- Modify: `packages/api/src/routes/evidence.ts` (add `injectionSources` to response envelope)
+- Test: new test for injection path
+
+**Why standalone task:** AC-A3 明确要求 `always_on` 文档走物理注入路径（不走检索管道）。这是独立于 boost/rerank 的注入通道。
+
+**Step 1: Write failing test — always_on docs injected into system prompt**
+
+```typescript
+test('F163: always_on docs appear in system prompt when flag=on', async () => {
+  // Insert doc with activation='always_on', authority='constitutional'
+  // Set F163_ALWAYS_ON_INJECTION=on
+  // Build system prompt
+  // Assert: doc content appears in prompt output
+});
+
+test('F163: always_on docs NOT injected when flag=off', async () => {
+  // Same setup, flag=off
+  // Build system prompt
+  // Assert: doc content NOT in prompt
+});
+```
+
+**Step 2: Run test — expect FAIL**
+
+**Step 3: Add `queryAlwaysOn()` to SqliteEvidenceStore**
+
+```typescript
+queryAlwaysOn(): EvidenceItem[] {
+  return this.db.prepare(
+    "SELECT * FROM evidence_docs WHERE activation = 'always_on' AND authority = 'constitutional' AND status = 'active'"
+  ).all().map(row => this.rowToItem(row));
+}
+```
+
+约束：`always_on` 仅限 `constitutional` authority（spec KD-2 + AC-A3 guard）。
+
+**Step 4: Wire into SystemPromptBuilder**
+
+In `buildInvocationContext()` (`SystemPromptBuilder.ts:461`):
+
+```typescript
+// F163: always_on knowledge injection
+if (getEnv('F163_ALWAYS_ON_INJECTION') !== 'off') {
+  const alwaysOnDocs = evidenceStore.queryAlwaysOn();
+  if (alwaysOnDocs.length > 0) {
+    const section = alwaysOnDocs.map(d => d.content).join('\n---\n');
+    if (getEnv('F163_ALWAYS_ON_INJECTION') === 'on') {
+      // Physically inject into prompt
+      parts.push(`## Constitutional Knowledge (always_on)\n\n${section}`);
+    }
+    // shadow: log injection candidates but don't add to prompt
+    injectionSources = alwaysOnDocs.map(d => d.anchor);
+  }
+}
+```
+
+**Step 5: Add `injectionSources` to search response**
+
+When always_on injection fires, `injectionSources` in `EvidenceSearchResponse` carries the list of injected anchors (separate from `boostSource` — injection is not a search operation).
+
+**Step 6: Run test — expect PASS**
+
+**Step 7: Run full test suite**
+
+Run: `pnpm --filter @cat-cafe/api test -- --grep F163`
+Expected: All F163 tests pass including zero-behavior (flag=off → no injection)
+
+**Step 8: Commit**
+
+```
+feat(F163): always_on injection into SystemPromptBuilder [布偶猫🐾]
+```
+
+---
+
 ## Task Dependency Graph
 
 ```
 Task 1 (schema) ──→ Task 2 (types) ──→ Task 3 (env flags)
+                         │
+                         ▼
+                    Task 14 (write queue) ←── Design Gate 契約 3 硬約束
                          │
                          ▼
                     Task 4 (store persist)
@@ -723,9 +889,12 @@ Task 1 (schema) ──→ Task 2 (types) ──→ Task 3 (env flags)
                          ▼
                     Task 9 (tag constitutional)
                          │
-                         ▼
-                    Task 11 (kill-switch)
-                         │
+                    ┌────┴────┐
+                    ▼         ▼
+              Task 11      Task 15
+          (kill-switch)  (always_on injection)
+                    │         │
+                    └────┬────┘
                          ▼
                     Task 12 (promotion API)
                          │
@@ -739,10 +908,11 @@ Task 1 (schema) ──→ Task 2 (types) ──→ Task 3 (env flags)
 |----|----------------|
 | AC-A1 | Task 8 (gold set + baseline) |
 | AC-A2 | Task 1 (schema) + Task 4 (store) |
-| AC-A3 | Task 9 (tag constitutional) — injection wiring deferred to separate sub-task |
+| AC-A3 | Task 9 (tag constitutional) + **Task 15 (always_on injection into SystemPromptBuilder)** |
 | AC-A4 | Task 5 (boost) + Task 8 (eval) |
 | AC-A5 | Task 9 (tag constitutional) |
 | AC-A6 | Task 12 (promotion API) |
 | AC-A7 | Task 6 (response fields) |
 | Zero-behavior | Task 13 |
+| DG 契约 3 (write queue) | **Task 14 (EvidenceWriteQueue — all mutations serialized)** |
 | DG-4.1/4.2 (砚砚 残余风险) | Task 7 (logging) + Task 8 (eval) |
