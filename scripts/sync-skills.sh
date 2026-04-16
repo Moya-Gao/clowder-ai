@@ -140,6 +140,38 @@ for skill_name in "${skill_names[@]}"; do
   sync_link "$skill_name" "$HOME_GEMINI" "$SKILLS_SRC/$skill_name"
 done
 
+# ─── Part 3: Write skills-state.json (ADR-025 Phase 1) ───
+
+if ! $DRY_RUN; then
+  STATE_DIR="$MAIN_REPO/.cat-cafe"
+  STATE_FILE="$STATE_DIR/skills-state.json"
+  mkdir -p "$STATE_DIR"
+
+  # Compute manifest hash: SHA-256 of sorted skill names
+  # Must match computeSourceManifestHash() in skills-state.ts
+  MANIFEST_HASH="sha256:$(printf '%s\n' "${skill_names[@]}" | sort | shasum -a 256 | cut -c1-16)"
+  SYNCED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  # sourceRoot: relative path from project root to skills source
+  # For main repo: SKILLS_SRC is $MAIN_REPO/cat-cafe-skills → relative = "cat-cafe-skills"
+  SOURCE_ROOT="${SKILLS_SRC#"$MAIN_REPO"/}"
+
+  # Build JSON (sorted names for deterministic output)
+  SORTED_NAMES=$(printf '%s\n' "${skill_names[@]}" | sort | awk '{printf "    \"%s\"", $0; if (NR<TOTAL) printf ","; printf "\n"}' TOTAL="${#skill_names[@]}")
+  cat > "$STATE_FILE" <<EOJSON
+{
+  "managedSkillNames": [
+${SORTED_NAMES}
+  ],
+  "sourceRoot": "${SOURCE_ROOT}",
+  "sourceManifestHash": "${MANIFEST_HASH}",
+  "lastSyncedAt": "${SYNCED_AT}"
+}
+EOJSON
+
+  printf "${BOLD}[State]${NC} ${GREEN}✓${NC} %s (hash: %s)\n" "$STATE_FILE" "$MANIFEST_HASH"
+fi
+
 # ─── Summary ───
 
 printf "\n${BOLD}结果${NC}: "

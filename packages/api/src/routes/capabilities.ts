@@ -40,6 +40,7 @@ import {
   toCapabilityEntry,
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
+import { isManagedSkill, readSkillsState } from '../config/governance/skills-state.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import {
@@ -464,10 +465,12 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const geminiProjectSkills = scanResults['gemini-project'];
     const projectKimiSkills = scanResults['kimi-project'];
 
+    // ADR-025: Use skills-state.json + catCafeOwnSkills as source for managed vs external.
+    // Merges both: skills-state.json may be stale (missing newly added official skills),
+    // so catCafeOwnSkills (filesystem scan of cat-cafe-skills/) covers new additions.
+    const skillsState = await readSkillsState(projectRoot);
+
     // F041 bug fix: Also scan cat-cafe-skills/ for project-level skill detection.
-    // User-level skills (e.g. ~/.claude/skills/feat-completion) are symlinks to
-    // {projectRoot}/cat-cafe-skills/feat-completion — listing cat-cafe-skills/
-    // captures them as project-owned regardless of symlink target.
     const catCafeSkillsDir = CAT_CAFE_SKILLS_SRC;
     const catCafeOwnSkills = await listSkillSubdirs(catCafeSkillsDir);
     const hasProjectCatCafeSkillsDir = existsSync(catCafeSkillsDir);
@@ -496,8 +499,13 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     for (const skillName of allSkillNames) {
       const exists = config.capabilities.some((c) => c.type === 'skill' && c.id === skillName);
       if (!exists) {
-        // F041 re-open fix: project-level skills → 'cat-cafe', user-level → 'external'
-        const source = projectSkillNames.has(skillName) ? ('cat-cafe' as const) : ('external' as const);
+        // ADR-025: merge skills-state.json with catCafeOwnSkills to handle stale state.
+        // A skill is cat-cafe if it's in the managed set OR found in cat-cafe-skills/.
+        const isCatCafe =
+          isManagedSkill(skillsState, skillName) ||
+          (catCafeOwnSkills !== null && catCafeOwnSkills.includes(skillName)) ||
+          (!skillsState && projectSkillNames.has(skillName));
+        const source = isCatCafe ? ('cat-cafe' as const) : ('external' as const);
         config.capabilities.push({
           id: skillName,
           type: 'skill',
@@ -510,8 +518,12 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // Also fix source for existing skills that were incorrectly classified
     for (const cap of config.capabilities) {
       if (cap.type !== 'skill') continue;
-      const shouldBeCatCafe = projectSkillNames.has(cap.id);
-      // Upgrade is safe when we have evidence; downgrade is only safe when cat-cafe-skills scan succeeded.
+      // ADR-025: merge skills-state.json with catCafeOwnSkills (handles stale state)
+      const shouldBeCatCafe =
+        isManagedSkill(skillsState, cap.id) ||
+        (catCafeOwnSkills !== null && catCafeOwnSkills.includes(cap.id)) ||
+        (!skillsState && projectSkillNames.has(cap.id));
+      // Upgrade is safe when we have evidence; downgrade is only safe when scans succeeded.
       if (shouldBeCatCafe && cap.source !== 'cat-cafe') {
         cap.source = 'cat-cafe';
         configDirty = true;

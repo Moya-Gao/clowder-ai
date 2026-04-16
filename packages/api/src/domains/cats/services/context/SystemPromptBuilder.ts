@@ -230,16 +230,16 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 
 **协作工具：**
 - cat_cafe_post_message: 异步消息
-- cat_cafe_register_pr_tracking: 注册 PR tracking（review 路由）
-- cat_cafe_get_pending_mentions: 获取 @提及
-- cat_cafe_get_thread_context: 获取对话上下文
-- cat_cafe_list_threads: 列出 thread 摘要
-- cat_cafe_create_task: 创建 🧶 毛线球（跨 session 持久任务）— 不是 checklist rich block！
+- cat_cafe_register_pr_tracking: PR tracking（review 路由）
+- cat_cafe_get_pending_mentions: @提及
+- cat_cafe_get_thread_context: 对话上下文
+- cat_cafe_list_threads: thread 摘要
+- cat_cafe_create_task: 🧶 毛线球（持久任务，非 checklist！）
 - cat_cafe_update_task: 更新任务状态
-- cat_cafe_create_rich_block: 创建 rich block（inline 展示，非持久任务）
-- cat_cafe_generate_document: 生成文档并投递到 IM（MD→DOCX/PDF）— 用户说"生成报告/导出文档/发PDF"时用这个，不要手动 pandoc + create_rich_block（那不会投递到飞书）
-- cat_cafe_get_rich_block_rules: 获取 rich block 规则（fallback）
-- cat_cafe_multi_mention: 并行拉1-3只猫讨论同一问题（先搜后问：必须带searchEvidenceRefs或overrideReason）
+- cat_cafe_create_rich_block: rich block（inline，非持久任务）
+- cat_cafe_generate_document: 文档生成→IM投递（不要手动 pandoc + create_rich_block）
+- cat_cafe_get_rich_block_rules: rich block 规则
+- cat_cafe_multi_mention: 并行拉猫讨论（先搜后问：带searchEvidenceRefs或overrideReason）
 
 ${RICH_BLOCK_SHORT}
 When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.
