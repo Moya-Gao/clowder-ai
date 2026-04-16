@@ -53,58 +53,115 @@ F163（本 feature）：记忆怎么保持精准 — 生命周期治理
 
 ## What
 
-### Phase A: 知识分层与加权
+> **核心转型（2026-04-16 调研收敛）**：从"记忆减法"转为"知识证明链治理"。
+> 不是调检索权重参数，而是让每条知识都能回答"谁能证明它现在还成立"。
 
-当前 `search_evidence` 对所有文档等权检索。引入知识层级，让搜索结果反映权重：
+### 知识元数据骨架
 
-| 层级 | 包含 | 搜索权重（示例） |
-|------|------|---------------|
-| **铁律 (iron)** | shared-rules 铁律、P0 教训 | 3.0x |
-| **规则 (rule)** | ADR 决策、validated LL、feedback 记忆 | 2.0x |
-| **参考 (reference)** | Feature spec、discussion、research | 1.0x |
-| **历史 (archive)** | archived LL、过期 discussion | 0.5x |
+所有知识载体（LL、ADR、feedback、shared-rules 条目）的 frontmatter 引入多轴元数据：
 
-具体权重需要实验校准。核心思路：不是所有知识等价，搜索引擎应该知道哪些更重要。
+```yaml
+authority: constitutional | validated | candidate | observed  # 权威性
+activation: always_on | scoped | query | backstop            # 检索/注入模式
+status: active | review | invalidated | archived             # 生命周期状态
+owner: <human>                       # DRI（知识的责任人）
+verified_at: <date>                  # 上次验证日期
+review_cycle_days: <int>             # 复核周期
+valid_from: <date>
+invalid_at: <date|null>              # 失效日期（冲突触发，非时间触发）
+criticality: normal | high           # 高 = 低频高代价，禁止自动降级
+rationale: <string>                  # 为什么有这条知识
+source_ids: []                       # 压缩溯源
+supersedes: []                       # 替代了哪些旧知识
+replaced_by: <id|null>               # 被谁替代
+contradicts: []                      # 与哪些知识冲突
+```
 
-### Phase B: 知识压缩与合并
+**设计原则**：`authority` × `activation` × `status` 三轴正交，不再用单维 iron/rule/reference/archive 一根尺子量所有。解决"高权威但已失效"和"低权威但当前急需"的打架场景。
 
-多条同根因的教训/规则合并为更精准的条目，减少检索噪声：
+### 知识晋升路径
 
-- **LL 合并**：扫描 lessons-learned 中根因相同的多条 LL，提议合并为 1 条精炼规则
-- **Feedback 去重**：扫描 MEMORY.md feedback 记忆，识别重复或互相包含的条目
-- **Rules 浓缩**：shared-rules 中同类规则聚类，提议合并
+```
+observed → candidate → validated → constitutional
+   │          │           │              │
+   │          │           │              └─ 仅 CVO 手动提升（铁律级）
+   │          │           └─ 双证据 + 猫提议 + CVO 确认
+   │          └─ 多次验证 / 猫建议晋升
+   └─ 猫创建/提取的新知识默认状态（隔离态：落地但不晋升、不加权、不扩散）
+```
+
+### activation 约束（防 prompt 肥胖）
+
+| activation | 谁能进 | 注入方式 |
+|------------|--------|---------|
+| `always_on` | **仅** constitutional 红线 + 当前 feature/任务的激活约束 | 物理注入 system prompt，不走检索 |
+| `scoped` | 特定目录/文件类型相关的 validated 知识 | 路径匹配时注入（类似 Cursor .mdc globs） |
+| `query` | 一般 validated/candidate 知识 | 正常参与 search_evidence 检索 |
+| `backstop` | observed / archived | 仅在高相关度时浮出，默认不进 top-K |
+
+### Phase A: 多轴元数据 + 评测基础设施
+
+**前置：建立评测基础设施**——没有 baseline 就没法证明改善。
+- 从真实对话中提取 50-100 个 query，标注 gold relevance
+- 记录当前 NDCG@10、MRR、置信度分布作为 baseline
+
+**核心改造**：
+1. 所有知识载体 frontmatter 引入多轴元数据（上述骨架）
+2. `search_evidence` 支持按 `authority` / `activation` / `status` 过滤和 boost
+3. `always_on` 文档走物理注入路径，不走检索管道
+4. `query` 文档支持窄幅 post-retrieval boost（`1.0 ~ 1.3`），用 gold set 校准，不写死倍率
+5. 现有 shared-rules 铁律、P0 LL 标记为 `authority=constitutional, activation=always_on`
+
+### Phase B: 非替代式压缩 + 源头回链
+
+**核心原则**：压缩 = 生成更好的索引层摘要，不是删除原件。
+
+- **Canonical Summary 生成**：扫描 LL / feedback 中根因相同的多条记录，生成 1 条精炼摘要
+- **源头回链**：摘要必须带 `source_ids[]` 指向原始条目，`rationale` 记录合并理由
+- **原件保留**：被摘要覆盖的原始条目标记 `activation=backstop`，不删除，降低检索优先级
+- **禁止级联压缩**：summary 只允许一层，严禁 summary-of-summary（60% 事实召回损失风险）
+- **shared-rules 浓缩**：同类规则聚类 → 提议合并 → 铲屎官确认 → 浓缩后保留 `source_ids` 可追溯
 
 猫不自主执行合并——产出 pruning 建议，铲屎官拍板。
 
-### Phase C: 过期审计与健康报告
+### Phase C: 三触发知识审计
 
-定期或被动触发的知识健康检查：
+知识过期由冲突/变更驱动，不由时间流逝自动触发。三种触发机制缺一不可：
 
-- **被动触发**：猫搜到一条知识并发现它和现状矛盾时，标记 `stale`（需要基础设施支持）
-- **主动扫描**（scheduled task 或 skill）：
-  - shared-rules 膨胀率（行数增长趋势）
-  - LL 引用频率（哪些从未被搜索命中）
-  - 记忆矛盾检测（两条 feedback 说法冲突）
-  - ADR 漂移（ADR 引用的文件/API 已改名或删除）
-- **产出**：Harness 健康报告，给铲屎官的 pruning/archive 建议清单
+| 触发类型 | 时机 | 机制 |
+|---------|------|------|
+| **Write-time** | 新 LL/ADR/feedback 写入时 | 反向查重：`search_evidence` 检索相关旧知识，发现冲突则标记 `contradicts[]`，附带在 PR 中 |
+| **Retrieval-time** | 猫使用知识时发现与当前事实矛盾 | 猫标记 `status=review`，记录矛盾原因，进入 review queue |
+| **Review-time** | `verified_at` 超过 `review_cycle_days` 阈值 | 进入复核队列（时间触发审查，不触发行动——"时间是陪审员不是法官"） |
+
+**审计产出**：
+- Harness 健康报告：规则膨胀率、冲突检测、ADR 断链、未验证知识清单
+- Review queue：猫只标记和建议，CVO 确认 invalidation / archive / merge
+- `invalid_at` + `replaced_by` + `contradicts[]` 构成冲突图谱
 
 ## Acceptance Criteria
 
-### Phase A（知识分层与加权）
-- [ ] AC-A1: `search_evidence` 支持 `tier` 元数据，文档可标记层级（iron/rule/reference/archive）
-- [ ] AC-A2: 搜索结果的 rerank 考虑层级权重，iron 层级文档在同等相关度下排序更高
-- [ ] AC-A3: 现有 shared-rules 铁律、P0 LL 已标记为 iron 层级
-- [ ] AC-A4: 搜索结果置信度分布改善：iron/rule 层级匹配应显示 high 而非 mid
+### Phase A（多轴元数据 + 评测基础设施）
+- [ ] AC-A1: 50-100 query gold set 建立，baseline NDCG@10 和 MRR 记录在案
+- [ ] AC-A2: `search_evidence` 支持多轴元数据（authority / activation / status），文档可标记
+- [ ] AC-A3: `always_on` 文档走物理注入路径，不走检索管道；`always_on` 仅限 constitutional + 当前任务约束
+- [ ] AC-A4: `query` 文档支持窄幅 post-retrieval boost，NDCG@10 对比实验通过（优于 baseline）
+- [ ] AC-A5: 现有 shared-rules 铁律、P0 LL 已标记为 `authority=constitutional`
+- [ ] AC-A6: 知识晋升路径（observed → candidate → validated → constitutional）可操作
 
-### Phase B（知识压缩与合并）
+### Phase B（非替代式压缩 + 源头回链）
 - [ ] AC-B1: 有工具/脚本可扫描 LL 和 feedback 记忆，输出"疑似重复/可合并"的建议列表
-- [ ] AC-B2: 至少完成一轮实际合并操作（铲屎官确认后），LL 条目数下降 ≥10%
-- [ ] AC-B3: shared-rules 至少完成一轮浓缩，行数下降 ≥15% 且无功能损失
+- [ ] AC-B2: 生成 canonical summary 层，原件保留为 `activation=backstop`，summary 带 `source_ids[]` 回链
+- [ ] AC-B3: 检索时 summary 优先展示，按需可展开到源条目（非替代式验证）
+- [ ] AC-B4: shared-rules 至少完成一轮浓缩，行数下降 ≥15% 且 `source_ids` 可追溯、无功能损失
+- [ ] AC-B5: 级联压缩被架构层面阻止（summary-of-summary 不可创建）
 
-### Phase C（过期审计与健康报告）
-- [ ] AC-C1: 有 skill 或 scheduled task 可生成"Harness 健康报告"
-- [ ] AC-C2: 报告包含：规则膨胀率、LL 引用频率、矛盾检测、ADR 断链检测
-- [ ] AC-C3: 铲屎官确认报告的 pruning 建议 actionable（不是无用的噪声）
+### Phase C（三触发知识审计）
+- [ ] AC-C1: Write-time 矛盾检测：新知识写入时自动检索相关旧知识，冲突标记 `contradicts[]`
+- [ ] AC-C2: Retrieval-time 标记：猫可将使用中发现过时的知识标记为 `status=review`
+- [ ] AC-C3: Review-time 队列：`verified_at` 超阈值的知识自动进入复核队列
+- [ ] AC-C4: 有 skill 或 scheduled task 可生成 Harness 健康报告（膨胀率、冲突检测、ADR 断链、未验证清单）
+- [ ] AC-C5: 铲屎官确认报告的 pruning 建议 actionable（不是无用的噪声）
 
 ## Dependencies
 
@@ -116,18 +173,21 @@ F163（本 feature）：记忆怎么保持精准 — 生命周期治理
 
 | 风险 | 缓解 |
 |------|------|
-| 分层权重错误导致重要知识被降级 | 权重可调；pruning 操作必须铲屎官确认，猫不自主删除 |
-| 合并过程丢失重要细节 | 合并产出 diff 供铲屎官 review；原始条目保留在 git 历史中 |
-| 过期检测误判（实际仍有效的知识被标 stale） | stale 标记不等于删除；需要铲屎官确认才执行归档 |
+| **always_on 层撑爆 context（prompt 肥胖）** | always_on 仅限 constitutional + 当前任务约束；其他高权威走检索 |
+| **窄幅 boost 对不同引擎效果不同** | gold set 分引擎测试；boost 值可配置，不写死 |
+| **非替代式压缩未实际改善信噪比** | 先试 LL 子集，用 NDCG@10 量化 before/after |
+| **冲突检测假阳性导致审批疲劳** | 冲突标记只进 review queue，不自动行动；监控假阳性率 |
+| **低频高代价知识被忽视** | `criticality: high` 标签 + 禁止自动降级（ADR-009 教训） |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 分层权重的最佳数值怎么确定？靠经验设初值 + 观测调整？还是需要 eval？ | ⬜ 未定 |
-| OQ-2 | 健康报告的触发频率：按月？按 LL 条目数增长？还是每次 feature close？ | ⬜ 未定 |
+| OQ-1 | ~~权重数值怎么确定~~ → 改为 Phase A 评测实验设计 | ✅ 已解决（gold set + A/B 对比） |
+| OQ-2 | Review-time 的 `review_cycle_days` 默认值设多少？按知识类型区分？ | ⬜ 未定 |
 | OQ-3 | shared-rules 浓缩后，怎么确保所有猫（包括不同 provider）都 consume 到了新版本？ | ⬜ 未定 |
-| OQ-4 | 被动 stale 标记需要什么基础设施？search_evidence 返回时带 flag？还是单独的 feedback 接口？ | ⬜ 未定 |
+| OQ-4 | Write-time 矛盾检测的性能成本：每次写入都跑 search_evidence + 判断冲突，是否可接受？ | ⬜ 未定 |
+| OQ-5 | `scoped` activation 的 glob 匹配语法怎么设计？直接复用 Cursor .mdc 还是自定义？ | ⬜ 未定 |
 
 ## Key Decisions
 
@@ -135,12 +195,21 @@ F163（本 feature）：记忆怎么保持精准 — 生命周期治理
 |---|------|------|------|
 | KD-1 | 猫不自主删除/合并知识，只产出建议 | 知识是铲屎官思维的结晶，删错了不可逆 | 2026-04-15 |
 | KD-2 | 先做分层加权（Phase A），再做压缩和审计 | 分层是最小 invasive 的改动，不删不改只加权 | 2026-04-15 |
+| KD-3 | 单维四层改为多轴元数据（authority × activation × status） | 五方调研共识：单维层级无法表达"高权威但已失效"等正交状态 | 2026-04-16 |
+| KD-4 | 压缩为非替代式：生成 summary + source_ids 回链，原件保留 | 两份云端调研 + 三只本地猫全票：替代式压缩丢失触发锚点 | 2026-04-16 |
+| KD-5 | 知识过期由冲突驱动，不由时间驱动（时间仅触发审查，不触发行动） | 五方共识 + ADR-009 教训：软件知识没有自然半衰期 | 2026-04-16 |
+| KD-6 | 晋升四级：observed → candidate → validated → constitutional（最后一级仅 CVO） | 保留 observed 隔离态（防偶然偏好过早晋升），砍掉无行为差异的 provisional | 2026-04-16 |
+| KD-7 | always_on 仅限 constitutional 红线 + 当前任务激活约束 | 防 prompt 肥胖：高权威 ≠ 常驻 prompt | 2026-04-16 |
+| KD-8 | 禁止级联压缩（summary-of-summary） | 云端调研引用：级联压缩导致 ~60% 事实召回损失 | 2026-04-16 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-15 | 立项。来源：Harness Engineering 三猫讨论 Round 2（过拟合 × 熵减） |
+| 2026-04-16 | 调研：8 槽位 research brief → GPT Pro Deep Research + Gemini Deep Think |
+| 2026-04-16 | 三只本地猫独立评估云端报告 → 五方综合分析收敛 |
+| 2026-04-16 | Spec 修正回填：单维四层 → 多轴元数据 + 非替代式压缩 + 三触发审计 |
 
 ## Review Gate
 
@@ -153,7 +222,10 @@ F163（本 feature）：记忆怎么保持精准 — 生命周期治理
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Discussion** | `docs/discussions/2026-04-15-harness-engineering-triad-study/round2-overfitting-and-entropy.md` | 过拟合命题 + 熵减讨论收敛 |
+| **Discussion** | `docs/discussions/2026-04-15-harness-engineering-triad-study/round3-research-prompt-and-guided-overfitting.md` | Research prompt 设计 + 养猫路径 |
 | **Discussion** | `docs/discussions/2026-04-15-harness-engineering-triad-study/README.md` | Harness Engineering 三篇套读 |
+| **Research** | `docs/research/2026-04-16-f163-knowledge-lifecycle/research-brief.md` | 8 槽位调研 brief（发给云端的 prompt） |
+| **Research** | `docs/research/2026-04-16-f163-knowledge-lifecycle/cloud-consult.md` | 云端调研 + 五方综合分析 |
 | **Feature** | `docs/features/F102-memory-adapter-refactor.md` | 记忆基础设施（前驱） |
 | **Feature** | `docs/features/F152-expedition-memory.md` | 记忆可移植性（前驱） |
 | **Decision** | `docs/decisions/026-agent-runtime-operational-boundaries.md` | Runtime 运行边界（相关） |
