@@ -150,8 +150,11 @@ export class LeadershipService {
       if (existingIds.has(def.id)) continue;
       if (!def.conditions.every((c) => this.conditionMet(c, profile))) continue;
 
-      const unlock: UnlockedTitle = { titleId: def.id, catId: 'co-creator', unlockedAt: Date.now() };
-      await this.redis.zadd(leadershipTitleKey(), unlock.unlockedAt, JSON.stringify(unlock));
+      const ts = Date.now();
+      // Use titleId as member — ZADD is idempotent per member, so concurrent
+      // fire-and-forget calls cannot create duplicate unlock records.
+      await this.redis.zadd(leadershipTitleKey(), ts, def.id);
+      const unlock: UnlockedTitle = { titleId: def.id, catId: 'co-creator', unlockedAt: ts };
       newlyUnlocked.push(unlock);
       log.info({ titleId: def.id }, 'Leadership title unlocked');
     }
@@ -159,8 +162,13 @@ export class LeadershipService {
   }
 
   async getUnlockedTitles(): Promise<UnlockedTitle[]> {
-    const raw = await this.redis.zrevrange(leadershipTitleKey(), 0, -1);
-    return raw.map((s) => JSON.parse(s) as UnlockedTitle);
+    // Members are titleId strings, scores are unlock timestamps
+    const raw = await this.redis.zrevrange(leadershipTitleKey(), 0, -1, 'WITHSCORES');
+    const titles: UnlockedTitle[] = [];
+    for (let i = 0; i < raw.length; i += 2) {
+      titles.push({ titleId: raw[i]!, catId: 'co-creator', unlockedAt: parseInt(raw[i + 1]!, 10) });
+    }
+    return titles;
   }
 
   async getCurrentTitle(): Promise<CatTitle | undefined> {

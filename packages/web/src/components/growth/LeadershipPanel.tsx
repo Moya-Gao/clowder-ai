@@ -79,6 +79,8 @@ export function LeadershipPanel() {
   const [error, setError] = useState<string | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineFetched, setTimelineFetched] = useState(false);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -99,15 +101,23 @@ export function LeadershipPanel() {
   }, []);
 
   const fetchTimeline = useCallback(async () => {
+    setTimelineLoading(true);
+    setTimelineError(false);
+    let ok = false;
     try {
       const res = await apiFetch('/api/journey/leadership/events?limit=30');
       if (res.ok) {
         const data = (await res.json()) as { events: AuditEvent[] };
         setEvents(data.events);
-        setTimelineFetched(true);
+        ok = true;
+      } else {
+        setTimelineError(true);
       }
     } catch {
-      /* swallow */
+      setTimelineError(true);
+    } finally {
+      setTimelineLoading(false);
+      if (ok) setTimelineFetched(true);
     }
   }, []);
 
@@ -186,7 +196,11 @@ export function LeadershipPanel() {
         </button>
         {timelineOpen && (
           <div className="mt-2 max-h-48 overflow-y-auto">
-            {events.length === 0 ? (
+            {timelineLoading ? (
+              <div className="py-2 text-center text-xs text-cafe-muted">加载中...</div>
+            ) : timelineError ? (
+              <div className="py-2 text-center text-xs text-red-400">加载失败，请稍后重试</div>
+            ) : events.length === 0 ? (
               <div className="py-2 text-center text-xs text-cafe-muted">暂无领导时刻记录</div>
             ) : (
               <div className="space-y-1">
