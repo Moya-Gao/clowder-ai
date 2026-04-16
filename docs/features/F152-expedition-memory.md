@@ -8,7 +8,7 @@ created: 2026-04-08
 
 # F152: Expedition Memory — 外部项目记忆冷启动 + 经验回流
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Close Gate**: 代码链已闭环，等待 AC-C5 铲屎官全链路终验
 
 ## Why
 
@@ -186,7 +186,7 @@ interface ScannedEvidence {
 - [x] AC-B8: **老用户路径（场景 B）**：已做过治理 bootstrap 但无记忆索引的项目，猫进入时主动提示确认卡（含扫描范围、预计耗时、本地索引说明）；用户可选"稍后"并 snooze（7 天冷却，不反复打扰）
 - [x] AC-B9: **新项目路径（场景 A）**：ProjectSetupCard 治理 bootstrap 完成后，自动串联记忆 bootstrap 步骤
 - [x] AC-B10: **非阻塞扫描 + 进度可见**：扫描过程通过 WebSocket 推送阶段化进度（发现文件→解析文档→建立索引→完成），前端可折叠为悬浮药丸，不阻塞对话
-- [x] AC-B11: **摘要卡交互**：扫描完成后推结构化摘要（仓库画像 + tier 覆盖率 + 关键文档 Top N + 风险提示）+ CTA 按钮（搜索 / MemoryHub / 补文档建议）
+- [x] AC-B11: **摘要卡交互**：扫描完成后推结构化摘要（仓库画像 + 知识覆盖 `kindCoverage` 优先，缺失时 fallback 到 `tierCoverage` + 关键文档 Top N + 风险提示）+ CTA 按钮（搜索 / MemoryHub / 补文档建议）
 - [x] AC-B12: **安全护栏**：禁止 symlink 越界扫描、排除 secrets 路径和二进制大文件、大仓自动 skipSoftClues + 文件数/字节预算超时
 
 ### Phase C（Global Lesson Distillation）✅
@@ -213,6 +213,21 @@ interface ScannedEvidence {
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
 - [x] 前端需求已准备需求→证据映射表（若适用）
+
+## 当前进度（2026-04-15 愿景守护）
+
+### 已确认闭环
+
+- **主功能链已全部合入 main**：Phase 0 / A / B / C 均已 merge，且 F152 相关 hotfix 链已补齐显示层、freshness 读路径、worktree guard 与 intake 回归守护。
+- **当前真相是一套记忆，不是两套记忆**：F102 evidence store 是唯一知识底座；bootstrap summary 只是其上的项目摘要 / 缓存层，不是独立第二套知识系统。
+- **显示层已经与 F102 对齐**：`BootstrapSummaryCard` 现为 `kindCoverage` 优先、`tierCoverage` fallback；只有拿不到 kind 数据时才退回 provenance 分层展示。
+- **freshness 读路径已闭环**：GET `/api/projects/index-state` 现在会在服务端计算 fingerprint，对比存储态后可把旧 summary 正确翻成 `stale`，驱动重建。
+- **重复删代码的回归已加守护**：`getKindCoverage` / `isSameRepo` 因 intake/merge 冲突被删过多次；现在已有 wiring guard 测试，后续再删应直接在测试阶段报红。
+
+### 当前不允许宣布 done 的原因
+
+- **AC-C5 仍未完成**：我们还没有拿到铲屎官亲手走完一轮“出征 → 冷启动 → 干活 → 经验回流”的终验记录。
+- **因此本 feature 现在的真实状态是**：代码完成度已达到 close 前夜，但产品级 feat close 仍 blocked by AC-C5；在 AC-C5 完成前，F152 继续保留在 BACKLOG，不迁入 `docs/features/README.md` 的 done 表。
 
 ## Dependencies
 
@@ -275,6 +290,11 @@ interface ScannedEvidence {
 | 2026-04-10 | Phase B design alignment merged (PR #1070)：12 项 .pen→code 偏差修复 + cloud review P1（auto-notice scope）/P2（ref reset）修复 |
 | 2026-04-11 | Phase C merged (PR #1073)：DistillationService + DeidentificationService + 4 API endpoints + 3 MCP tools + kind whitelist + dynamic projectPath deidentification |
 | 2026-04-11 | Hotfix merged (PR #1088)：tier classifier alignment — classifyDoc path-aware + getTierCoverage overlay from evidence store + project path guard. 修复"444 Plans/56 Specs"显示 bug |
+| 2026-04-12 | Hotfix merged (PR #1115)：BootstrapSummaryCard 改为 `kindCoverage` 优先显示，和 F102 内容类型对齐；无 kind 数据时保留 `tierCoverage` fallback |
+| 2026-04-12 | Hotfix merged (PR #1125)：恢复被 PR #1122 误删的 `getKindCoverage` wiring，修复卡片重回 provenance 标签的问题 |
+| 2026-04-13 | Hotfix merged (PR #1131)：coverage guard 改为 worktree-aware，避免主仓 / worktree 路径比较错误导致同仓判断漂移 |
+| 2026-04-14 | Hotfix merged (PR #1146)：GET 读路径改为服务端计算 fingerprint，旧 summary 可被正确标记为 `stale` 并触发重建 |
+| 2026-04-14 | Hotfix merged (PR #1152)：恢复被 intake PR #1147 再次误删的 `getKindCoverage` + `isSameRepo`，并补 regression guard test 防止第四次复发 |
 
 ## Review Gate
 
