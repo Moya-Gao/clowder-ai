@@ -90,12 +90,7 @@ describe('route-serial notice contract', () => {
     const appendCalls = [];
     const feedbackWrites = [];
     const broadcasts = [];
-    const deps = createMockDeps(
-      { opus: createInlineMentionService('opus') },
-      appendCalls,
-      feedbackWrites,
-      broadcasts,
-    );
+    const deps = createMockDeps({ opus: createInlineMentionService('opus') }, appendCalls, feedbackWrites, broadcasts);
 
     for await (const _msg of routeSerial(deps, ['opus'], 'review this', 'user1', 'thread-1')) {
     }
