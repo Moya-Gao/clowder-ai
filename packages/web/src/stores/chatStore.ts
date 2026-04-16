@@ -2,6 +2,7 @@ import { CAT_CONFIGS } from '@cat-cafe/shared';
 import { create } from 'zustand';
 import { getBubbleInvocationId } from '@/debug/bubbleIdentity';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
+import { saveThreadMessages as saveMessagesSnapshot, saveThreads as saveThreadsSnapshot } from '../utils/offline-store';
 import type {
   CatInvocationInfo,
   CatStatusType,
@@ -461,6 +462,8 @@ interface ChatState {
   _pendingAckCount: Record<string, number>;
   threads: Thread[];
   isLoadingThreads: boolean;
+  /** F164: True when messages are from offline snapshot, not fresh API data */
+  isOfflineSnapshot: boolean;
   /** UI: Whether Thinking blocks should be expanded by default (global preference). */
   uiThinkingExpandedByDefault: boolean;
   /** Global bubble display defaults from Config Hub (server-side). */
@@ -515,6 +518,7 @@ interface ChatState {
   setCurrentThread: (threadId: string) => void;
   setCurrentProject: (projectPath: string) => void;
   setLoadingThreads: (loading: boolean) => void;
+  setOfflineSnapshot: (v: boolean) => void;
   updateThreadTitle: (threadId: string, title: string) => void;
   updateThreadParticipants: (threadId: string, participants: string[]) => void;
   updateThreadPin: (threadId: string, pinned: boolean) => void;
@@ -685,6 +689,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   _pendingAckCount: {},
   threads: [],
   isLoadingThreads: true,
+  isOfflineSnapshot: false,
   uiThinkingExpandedByDefault: loadUiThinkingExpandedByDefault(),
   globalBubbleDefaults: {
     // Always start collapsed — server config overwrites via fetchGlobalBubbleDefaults().
@@ -1235,10 +1240,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // ── Thread management ──
 
-  setThreads: (threads) => set({ threads }),
+  setThreads: (threads) => {
+    set({ threads });
+    // F164: Write-through to IndexedDB (fire-and-forget)
+    void saveThreadsSnapshot(threads).catch(() => {});
+  },
   setCurrentProject: (projectPath) =>
     set((state) => (state.currentProjectPath === projectPath ? state : { currentProjectPath: projectPath })),
   setLoadingThreads: (loading) => set({ isLoadingThreads: loading }),
+  setOfflineSnapshot: (v) => set({ isOfflineSnapshot: v }),
 
   updateThreadTitle: (threadId, title) =>
     set((state) => ({
@@ -1287,6 +1297,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       // Save current flat state to map
       const saved = snapshotActive(state);
+      // F164: Write-through outgoing thread's messages to IndexedDB (fire-and-forget)
+      // Always write — even empty arrays — so server-cleared threads don't leave stale snapshots
+      void saveMessagesSnapshot(state.currentThreadId, saved.messages, saved.hasMore).catch(() => {});
       // Load target thread state (or defaults for first visit)
       const loaded = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
 

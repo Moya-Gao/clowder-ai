@@ -78,6 +78,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     rightPanelMode,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
+  const isOfflineSnapshot = useChatStore((s) => s.isOfflineSnapshot);
 
   // F101: Game state from Zustand store
   const gameView = useGameStore((s) => s.gameView);
@@ -569,6 +570,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             data-chat-container
           >
             {isLoadingHistory && <div className="text-center py-3 text-sm text-cafe-muted">加载历史消息...</div>}
+            {isOfflineSnapshot && (
+              <div className="text-center py-2 text-xs text-cafe-muted bg-surface-secondary rounded-md mx-auto max-w-xs">
+                离线快照 · 显示的是上次缓存的内容
+              </div>
+            )}
             {!hasMore && messages.length > 0 && (
               <div className="text-center py-3 text-xs text-cafe-muted">没有更多消息了</div>
             )}

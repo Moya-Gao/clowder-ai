@@ -1013,7 +1013,19 @@
       "name": "Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流",
       "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F162-enterprise-action-toolkit.md"
+    },
+    {
+      "id": "F163",
+      "name": "Memory Entropy Reduction — 记忆熵减与知识生命周期治理",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F163-memory-entropy-reduction.md"
+    },
+    {
+      "id": "F164",
+      "name": "Thread Snapshot Persistence — 刷新不失忆",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F164-thread-snapshot-persistence.md"
     }
   ],
-  "generated_at": "2026-04-15T09:16:55.006Z"
+  "generated_at": "2026-04-16T01:29:41.460Z"
 }

@@ -10,6 +10,16 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
 }));
 
+// F164: Mock offline-store so IDB calls resolve immediately (this test is about
+// thread-switch ordering, not IndexedDB behavior).
+vi.mock('@/utils/offline-store', () => ({
+  loadThreadMessages: vi.fn().mockResolvedValue(null),
+  saveThreadMessages: vi.fn().mockResolvedValue(undefined),
+  loadThreads: vi.fn().mockResolvedValue(null),
+  saveThreads: vi.fn().mockResolvedValue(undefined),
+  clearAll: vi.fn().mockResolvedValue(undefined),
+}));
+
 function HookHost({ threadId }: { threadId: string }) {
   useChatHistory(threadId);
   return null;
@@ -81,8 +91,10 @@ describe('useChatHistory thread switch ordering', () => {
     expect(state.messages.map((m) => m.id)).toEqual(['a1']);
   });
 
-  it('clears messages when thread is already synced with no cache', () => {
-    act(() => {
+  it('clears messages when thread is already synced with no cache', async () => {
+    // F164: bootstrap is now async (IDB lookup before clear), so we need
+    // await act() to flush the microtask before asserting.
+    await act(async () => {
       root.render(React.createElement(HookHost, { threadId: 'thread-a' }));
     });
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { loadThreads as loadCachedThreads } from '@/utils/offline-store';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
 import { MemoryIcon } from '../icons/MemoryIcon';
@@ -104,13 +105,24 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
 
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
+
+    // F164: Cache-first — show IndexedDB snapshot immediately (skip unread init; API refresh will handle)
+    try {
+      const cached = await loadCachedThreads();
+      if (cached && cached.length > 0) {
+        setThreads(cached);
+      }
+    } catch {
+      // IDB read failure — continue to API
+    }
+
+    // Then fetch fresh data from API (replace snapshot if successful)
     try {
       const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
       const threads = data.threads ?? [];
-      setThreads(threads);
-      // F069: Restore unread state from API
+      setThreads(threads); // Also triggers IDB write-through via chatStore
       const { initThreadUnread } = useChatStore.getState();
       for (const thread of threads) {
         if (thread.unreadCount > 0 || thread.hasUserMention) {
@@ -118,7 +130,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
         }
       }
     } catch {
-      // Silently ignore
+      // API failed — IDB snapshot already displayed (if available)
     } finally {
       setLoadingThreads(false);
     }

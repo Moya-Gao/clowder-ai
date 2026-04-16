@@ -9,6 +9,10 @@ import { type CatInvocationInfo, type ChatMessage as ChatMessageData, useChatSto
 import type { TaskItem } from '@/stores/taskStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
+import {
+  loadThreadMessages as loadCachedMessages,
+  saveThreadMessages as saveMessagesSnapshot,
+} from '@/utils/offline-store';
 
 type SavedScrollState = {
   top: number;
@@ -520,12 +524,23 @@ export function useChatHistory(threadId: string) {
             ].join(','),
           });
           replaceMessages(mergedMsgs, data.hasMore ?? false);
-          return;
+          // F164: Snapshot merged messages to IndexedDB (fire-and-forget)
+          if (useChatStore.getState().currentThreadId === fetchForThread) {
+            void saveMessagesSnapshot(fetchForThread, mergedMsgs, data.hasMore ?? false).catch(() => {});
+          }
+          return true;
         }
         prependHistory(historyMsgs, data.hasMore ?? false);
+        // F164: Snapshot fetched messages to IndexedDB (fire-and-forget)
+        const snapshotState = useChatStore.getState();
+        if (snapshotState.currentThreadId === fetchForThread) {
+          void saveMessagesSnapshot(fetchForThread, snapshotState.messages, data.hasMore ?? false).catch(() => {});
+        }
+        return true;
       } catch (err) {
         // AbortError is expected during thread switch — ignore silently
-        if (isAbortError(err)) return;
+        if (isAbortError(err)) return false;
+        return false;
       } finally {
         // Do not let stale/aborted request clear loading state for a newer thread request.
         if (abortRef.current === controller && threadIdRef.current === fetchForThread) {
@@ -733,14 +748,32 @@ export function useChatHistory(threadId: string) {
       void fetchQueue();
     };
 
+    // F164: Reset offline badge on every thread switch so stale state from
+    // a previous thread's aborted fetch never leaks to the new thread.
+    useChatStore.getState().setOfflineSnapshot(false);
+
     const bootstrap = async () => {
       if (!hasCachedMessages) {
-        // During route thread switches, this effect can run before setCurrentThread.
-        // Clearing too early would wipe the previous thread snapshot in the store.
-        if (isThreadSynced) {
-          clearMessages();
+        // F164: Try IndexedDB snapshot before API fetch
+        let restoredFromIdb = false;
+        try {
+          const idbSnapshot = await loadCachedMessages(threadId);
+          if (idbSnapshot && idbSnapshot.messages.length > 0) {
+            replaceMessages(idbSnapshot.messages, idbSnapshot.hasMore);
+            useChatStore.getState().setOfflineSnapshot(true);
+            restoredFromIdb = true;
+          } else if (isThreadSynced) {
+            clearMessages();
+          }
+        } catch {
+          if (isThreadSynced) clearMessages();
         }
-        await fetchHistory();
+        // Always fetch fresh data from API (replace snapshot)
+        const fetchOk = await fetchHistory(undefined, { replace: true });
+        // F164: Clear offline badge only after successful API fetch
+        if (restoredFromIdb && fetchOk) {
+          useChatStore.getState().setOfflineSnapshot(false);
+        }
       } else if (hasActiveInvocation || (cached && cached.unreadCount > 0) || hasUnstableBubbleIdentity) {
         // #80 fix-A P1: Force-refresh with replace mode — the async response handler
         // will clear stale cache after setCurrentThread has run, then set fresh data
