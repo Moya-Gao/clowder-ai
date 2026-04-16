@@ -10,6 +10,12 @@ created: 2026-03-11
 
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04 (Phase A~J) | **Reopened**: 2026-04-13 (Phase K) | **Re-closed**: 2026-04-14 (Phase K done, AC-K3/K4 deferred)
 > **Reflection**: [`docs/reflections/2026-04-04-f102-memory-adapter-capsule.md`](../reflections/2026-04-04-f102-memory-adapter-capsule.md)
+>
+> ### 给其他猫的快速现状（2026-04-15 更新）
+>
+> **Message 级别检索已上线运行。** 用 `search_evidence(scope="threads", depth="raw")` 可搜到具体消息（speaker + timestamp + passageId）。当前限制：`depth=raw` 仅走 lexical 模式（会显示 `[DEGRADED]` 提示），passage 向量路径（AC-K3）deferred。日常用 `mode="hybrid"` 搜 thread 时 depth 默认 summary 级别，已包含消息摘要；需要定位具体消息时切 `depth="raw"`。
+>
+> 近期修复链（2026-04-14~15，PR #1155/#1160/#1179/#1192/#1195）：depth=raw 降级信号 → passage 排序 → heading→keywords 索引 → auto-rebuild 机制 → lexical recall backfill。核心检索能力已经过三轮 dogfood 验证。
 
 ## Why
 
@@ -1472,7 +1478,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅ + **Phase K ✅**（AC-K1/K2 闭环，PR #1155）。AC-K3/K4 deferred。
+> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅ + **Phase K ✅**（AC-K1/K2 闭环，PR #1155）+ **post-K dogfood fixes ✅**（PR #1160/#1179/#1192/#1195 — passage ranking + heading keywords + auto-rebuild + recall backfill）。AC-K3/K4 deferred。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 收尾三批次（2026-04-01 三方收敛：布偶猫+砚砚 GPT-5.4+铲屎官）
