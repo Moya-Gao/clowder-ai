@@ -130,6 +130,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 2. **双轨度量**：离线 gold set（NDCG@10、MRR、铁律命中率、冲突假阳性率）+ 在线代理指标（回滚率、review queue actionable rate、被人工否决率、权重误导率）
 3. **Cohort sticky routing**：同 thread 固定走同一实验桶，不混搭，避免感知混乱和数据污染
 4. **归因透明**：`search_evidence` 返回结果携带 `boost_source` 字段，标明排序受哪些子能力影响
+5. **Per-request flag snapshot**：每次请求冻结当前 flag 快照，处理过程中禁止热切换，避免同请求跨 variant 数据污染
+6. **Kill-switch / fail-open**：任一 F163 子能力异常时自动降级到 legacy 检索链路，不允许 F163 故障拖垮整条搜索路径
 
 ### Phase A: 多轴元数据 + 评测基础设施
 
