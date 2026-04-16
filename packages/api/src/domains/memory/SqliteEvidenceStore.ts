@@ -73,7 +73,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     // Phase D: resolve scope → kind filter
     // scope='threads' → kind='thread' (P1 fix: was incorrectly mapped to 'session')
     // scope='sessions' → kind='session'
-    // scope='docs'/'memory' → exclude sessions + threads
+    // scope='docs'/'memory' → exclude session/thread digests, keep doc-backed discussions
     // scope='all' → no filter
     const effectiveKind =
       options?.kind ??
@@ -82,7 +82,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         : options?.scope === 'sessions'
           ? ('session' as EvidenceKind)
           : undefined);
-    const excludeSession = options?.scope === 'docs' || options?.scope === 'memory';
+    const excludeSessionAndThread = options?.scope === 'docs' || options?.scope === 'memory';
     // F129 AC-A10: exclude pack-knowledge from global search unless explicitly requested
     const excludePackKnowledge = effectiveKind !== 'pack-knowledge';
     // F148 Phase B (AC-B1): threadId filter — scope to a specific thread's evidence
@@ -100,8 +100,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       anchorSql += ' AND kind = ?';
       anchorParams.push(effectiveKind);
     }
-    if (excludeSession) {
-      anchorSql += " AND kind != 'session'";
+    if (excludeSessionAndThread) {
+      anchorSql += " AND kind != 'session' AND kind != 'thread'";
     }
     if (excludePackKnowledge) {
       anchorSql += " AND kind != 'pack-knowledge'";
@@ -150,8 +150,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
           sql += ' AND d.kind = ?';
           params.push(effectiveKind);
         }
-        if (excludeSession) {
-          sql += " AND d.kind != 'session'";
+        if (excludeSessionAndThread) {
+          sql += " AND d.kind != 'session' AND d.kind != 'thread'";
         }
         if (excludePackKnowledge) {
           sql += " AND d.kind != 'pack-knowledge'";
@@ -214,8 +214,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         containsSql += ' AND kind = ?';
         containsParams.push(effectiveKind);
       }
-      if (excludeSession) {
-        containsSql += " AND kind != 'session'";
+      if (excludeSessionAndThread) {
+        containsSql += " AND kind != 'session' AND kind != 'thread'";
       }
       if (excludePackKnowledge) {
         containsSql += " AND kind != 'pack-knowledge'";
@@ -412,14 +412,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     const effectiveKind =
       options?.kind ??
       (options?.scope === 'threads' ? 'thread' : options?.scope === 'sessions' ? 'session' : undefined);
-    const excludeSession = options?.scope === 'docs' || options?.scope === 'memory';
+    const excludeSessionAndThread = options?.scope === 'docs' || options?.scope === 'memory';
     const excludePackKnowledge = effectiveKind !== 'pack-knowledge';
     if (effectiveKind) {
       sql += ' AND kind = ?';
       params.push(effectiveKind);
     }
-    if (excludeSession) {
-      sql += " AND kind != 'session'";
+    if (excludeSessionAndThread) {
+      sql += " AND kind != 'session' AND kind != 'thread'";
     }
     if (excludePackKnowledge) {
       sql += " AND kind != 'pack-knowledge'";
@@ -499,14 +499,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       const effectiveKind =
         options?.kind ??
         (options?.scope === 'threads' ? 'thread' : options?.scope === 'sessions' ? 'session' : undefined);
-      const excludeSession = options?.scope === 'docs' || options?.scope === 'memory';
+      const excludeSessionAndThread = options?.scope === 'docs' || options?.scope === 'memory';
       const excludePackKnowledge = effectiveKind !== 'pack-knowledge';
       if (effectiveKind) {
         sql += ' AND kind = ?';
         params.push(effectiveKind);
       }
-      if (excludeSession) {
-        sql += " AND kind != 'session'";
+      if (excludeSessionAndThread) {
+        sql += " AND kind != 'session' AND kind != 'thread'";
       }
       if (excludePackKnowledge) {
         sql += " AND kind != 'pack-knowledge'";

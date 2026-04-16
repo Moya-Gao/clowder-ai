@@ -933,7 +933,7 @@
     {
       "id": "F152",
       "name": "Expedition Memory — 外部项目记忆冷启动 + 经验回流",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Close Gate**: 代码链已闭环，等待 AC-C5 铲屎官全链路终验",
       "file": "F152-expedition-memory.md"
     },
     {
@@ -1027,5 +1027,5 @@
       "file": "F164-thread-snapshot-persistence.md"
     }
   ],
-  "generated_at": "2026-04-16T02:26:35.342Z"
+  "generated_at": "2026-04-16T03:21:28.916Z"
 }

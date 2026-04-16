@@ -192,7 +192,76 @@ describe('Search Mode Split (KD-44)', () => {
     const results = await store.search('naming', { mode: 'semantic', scope: 'docs', limit: 5 });
     for (const r of results) {
       assert.notEqual(r.kind, 'session', 'scope=docs should exclude sessions');
+      assert.notEqual(r.kind, 'thread', 'scope=docs should exclude thread digests');
     }
+  });
+
+  it('semantic mode scope=docs keeps discussion docs but excludes thread digests', async () => {
+    if (!vectorStore) return;
+    store.upsert([
+      {
+        anchor: 'doc-f148-discussion',
+        kind: 'discussion',
+        status: 'active',
+        title: 'F148 design discussion',
+        summary: 'vector-only-zebra discussion doc',
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        anchor: 'thread-thread_f148',
+        kind: 'thread',
+        status: 'active',
+        title: 'F148 thread digest',
+        summary: 'vector-only-zebra thread digest',
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+    vectorStore.upsert('doc-f148-discussion', new Float32Array([0.56, 0.56, 0.56]));
+    vectorStore.upsert('thread-thread_f148', new Float32Array([0.57, 0.57, 0.57]));
+    const mockEmbed = createMockEmbedding(new Float32Array([0.58, 0.58, 0.58]));
+    store.setEmbedDeps({ embedding: mockEmbed, vectorStore, mode: 'on' });
+
+    const results = await store.search('vector-only-zebra', { mode: 'semantic', scope: 'docs', limit: 3 });
+    const anchors = results.map((r) => r.anchor);
+
+    assert.ok(anchors.includes('doc-f148-discussion'), 'scope=docs should keep discussion documents');
+    assert.ok(!anchors.includes('thread-thread_f148'), 'scope=docs should exclude thread digests');
+  });
+
+  it('hybrid mode scope=docs keeps discussion docs but excludes thread digests', async () => {
+    if (!vectorStore) return;
+    store.upsert([
+      {
+        anchor: 'doc-f148-discussion-hybrid',
+        kind: 'discussion',
+        status: 'active',
+        title: 'F148 hybrid discussion',
+        summary: 'vector-only-zebra hybrid discussion doc',
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        anchor: 'thread-thread_f148_hybrid',
+        kind: 'thread',
+        status: 'active',
+        title: 'F148 hybrid thread digest',
+        summary: 'vector-only-zebra hybrid thread digest',
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+    vectorStore.upsert('doc-f148-discussion-hybrid', new Float32Array([0.56, 0.56, 0.56]));
+    vectorStore.upsert('thread-thread_f148_hybrid', new Float32Array([0.57, 0.57, 0.57]));
+    const mockEmbed = createMockEmbedding(new Float32Array([0.58, 0.58, 0.58]));
+    store.setEmbedDeps({ embedding: mockEmbed, vectorStore, mode: 'on' });
+
+    const results = await store.search('vector-only-zebra', {
+      mode: 'hybrid',
+      scope: 'docs',
+      limit: 3,
+    });
+    const anchors = results.map((r) => r.anchor);
+
+    assert.ok(anchors.includes('doc-f148-discussion-hybrid'), 'hybrid docs search should keep discussion docs');
+    assert.ok(!anchors.includes('thread-thread_f148_hybrid'), 'hybrid docs search should exclude thread digests');
   });
 
   it('semantic mode filters by provenanceTier (P1-3 fix)', async () => {
