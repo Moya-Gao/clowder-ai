@@ -1406,6 +1406,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'ANTIGRAVITY_TRACE_RAW',
+    defaultValue: '(未设置 → 关闭)',
+    description: '设为 1 启用 Antigravity 原始轨迹 dump（rpc raw response + step shape snapshot）',
+    category: 'antigravity',
+    sensitive: false,
+  },
+  {
     name: 'CAT_CAFE_READONLY',
     defaultValue: '(未设置 → 全量注册)',
     description: 'MCP Server 只读模式：跳过 post_message 等写操作工具注册（Antigravity 持久 MCP 用）',

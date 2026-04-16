@@ -10,6 +10,7 @@ import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
 import { AntigravityBridge, type BridgeConnection } from './AntigravityBridge.js';
 import { classifyStep, transformTrajectorySteps } from './antigravity-event-transformer.js';
+import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
 
 const log = createModuleLogger('antigravity-service');
 
@@ -176,6 +177,12 @@ export class AntigravityAgentService implements AgentService {
               },
               'batch processed',
             );
+            if (TRACE_ENABLED) {
+              traceLog.info(
+                { cascadeId, stepShapes: batch.steps.map((s) => summarizeStepShape(s)) },
+                'step structure snapshot',
+              );
+            }
             const fatalErrors: AgentMessage[] = [];
             const seenFatalKeys = new Set<string>();
             for (const msg of messages) {

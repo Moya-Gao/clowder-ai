@@ -1017,7 +1017,7 @@
     {
       "id": "F163",
       "name": "Memory Entropy Reduction — 记忆熵减与知识生命周期治理",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F163-memory-entropy-reduction.md"
     },
     {
@@ -1033,5 +1033,5 @@
       "file": "F165-guided-overfitting.md"
     }
   ],
-  "generated_at": "2026-04-16T13:20:42.762Z"
+  "generated_at": "2026-04-16T15:07:58.061Z"
 }

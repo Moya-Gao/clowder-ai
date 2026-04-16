@@ -4,6 +4,7 @@ import https from 'node:https';
 import { dirname, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import { discoverAntigravityLS } from './antigravity-ls-discovery.js';
+import { RAW_RESPONSE_CAP, TRACE_ENABLED, TRACED_METHODS, traceLog } from './antigravity-trace.js';
 
 const log = createModuleLogger('antigravity-bridge');
 
@@ -360,6 +361,12 @@ export class AntigravityBridge {
           });
           res.on('end', () => {
             if (res.statusCode === 200) {
+              if (TRACE_ENABLED && TRACED_METHODS.has(method)) {
+                traceLog.info(
+                  { method, rawLength: data.length, raw: data.substring(0, RAW_RESPONSE_CAP) },
+                  'rpc raw response',
+                );
+              }
               try {
                 resolve(JSON.parse(data) as T);
               } catch {
