@@ -8,7 +8,7 @@ created: 2026-04-10
 
 # F157: Cat Journey (猫猫足迹) — Activity Footprint Visualization
 
-> **Status**: spec | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: Phase A-C complete, Phase D 6/7, Phase E 3/7 | **Owner**: Ragdoll | **Priority**: P1
 >
 > **Naming pivot (ADR-023):** Renamed from "Cat Growth RPG". XP→足迹点,
 > Level→历练, Achievement→珍贵瞬间, Radar→特质画像. See ADR-023 for rationale.
@@ -193,23 +193,23 @@ Cat Journey 系统把猫猫的真实协作数据"结晶"成可见、可感、可
 - [x] AC-C7: 工具调用 XP 分级 — native→execution(+1), mcp→insight(+3), skill→aesthetics(+3)
 - [x] AC-C8: 深度协作奖励 — 3+ 猫参与 multi-mention 时所有成功响应者 + 铲屎官获 deep_collab XP(+20)
 
-### Phase D (Co-Creator Leadership Growth)
-- [ ] AC-D1: 铲屎官专属六维类型定义（LeadershipDimension）+ 独立 XP 存储
-- [ ] AC-D2: v1 四维实分引擎 — 协调力 / 授权力 / 开拓力 / 引导力(proxy)
-- [ ] AC-D3: 决策力 + 反馈力 shadow score（记录但不展示，待数据校准）
-- [ ] AC-D4: Leadership Level 独立等级体系 + 铲屎官称号路径
-- [ ] AC-D5: Mission Control 前端面板 — KPI 仪表盘 + 领导时刻时间线
-- [ ] AC-D6: 补齐事件采集 — `decision_confirmed` / `clarification_requested` / `feedback_applied`
-- [ ] AC-D7: v2 六维转正 — shadow score 校准后升级为正式维度
+### Phase D (Co-Creator Leadership Growth) ✅ (6/7, D7 awaiting calibration)
+- [x] AC-D1: 铲屎官专属六维类型定义（LeadershipDimension）+ 独立 XP 存储
+- [x] AC-D2: v1 四维实分引擎 — 协调力 / 授权力 / 开拓力 / 引导力(proxy)
+- [x] AC-D3: 决策力 + 反馈力 shadow score（记录但不展示，待数据校准）
+- [x] AC-D4: Leadership Level 独立等级体系 + 铲屎官称号路径
+- [x] AC-D5: Mission Control 前端面板 — KPI 仪表盘 + 领导时刻时间线
+- [x] AC-D6: 补齐事件采集 — `decision_confirmed` / `clarification_requested` / `feedback_applied`
+- [ ] AC-D7: v2 六维转正 — shadow score 校准后升级为正式维度（⏳ 等 2-3 周自然使用积累校准数据）
 
-### Phase E (Evolution Events + Growth Timeline + Observability Integration)
-- [ ] AC-E1: 关键里程碑触发叙事事件并记录
-- [ ] AC-E2: 成长时间线可视化展示
-- [ ] AC-E3: 猫猫自我回顾报告自动生成（月度）
-- [ ] AC-E4: Token 效率奖励 — session 结算时按 cacheReadTokens/inputTokens 比率奖励 insight XP（依赖 F128 UsageAggregator）
-- [ ] AC-E5: 调用意图区分 — ideate 意图 discussion 提升至 architecture +25（依赖 InvocationRecord.intent）
-- [ ] AC-E6: 错误恢复韧性 — invocation failed → 同 thread 后续 succeeded 时奖励 execution XP
-- [ ] AC-E7: 调用延迟表现 — invocation duration < P50 时额外 execution XP（依赖 F153 OTel metrics 落地）
+### Phase E (Evolution Events + Growth Timeline + Observability Integration) (3/7, E4-E7 awaiting upstream)
+- [x] AC-E1: 关键里程碑触发叙事事件并记录
+- [x] AC-E2: 成长时间线可视化展示
+- [x] AC-E3: 猫猫自我回顾报告自动生成（月度）
+- [ ] AC-E4: Token 效率奖励 — session 结算时按 cacheReadTokens/inputTokens 比率奖励 insight XP（🔌 投影器就绪，等 F128 UsageAggregator 上游数据）
+- [ ] AC-E5: 调用意图区分 — ideate 意图 discussion 提升至 architecture +25（🔌 投影器就绪，等 InvocationRecord.intent 填充）
+- [ ] AC-E6: 错误恢复韧性 — invocation failed → 同 thread 后续 succeeded 时奖励 execution XP（🔌 投影器就绪，等 recoveredFromFailure 元数据）
+- [ ] AC-E7: 调用延迟表现 — invocation duration < P50 时额外 execution XP（🔌 投影器就绪，等 F153 OTel metrics 落地）
 
 ## Dependencies
 
@@ -230,7 +230,7 @@ Cat Journey 系统把猫猫的真实协作数据"结晶"成可见、可感、可
 
 | # | Question | Status |
 |---|----------|--------|
-| OQ-1 | 经验值是否跨 session 持久化到 Redis 还是独立 SQLite? | open |
+| OQ-1 | 经验值是否跨 session 持久化到 Redis 还是独立 SQLite? | **resolved** — Redis INCRBY + sorted set audit trail |
 | OQ-2 | 多实例场景下成就是否全球排名? | open |
 | OQ-3 | 猫猫名片的视觉风格——像素风 vs 手绘风 vs 扁平风? | open |
 
@@ -241,12 +241,19 @@ Cat Journey 系统把猫猫的真实协作数据"结晶"成可见、可感、可
 | KD-1 | 数据全部从已有系统自动结算，不新增人工打标环节 | 降低使用摩擦，保证数据真实性 | 2026-04-10 |
 | KD-2 | 成长系统只展示不干预工作流 | 避免游戏化污染严肃协作 | 2026-04-10 |
 | KD-3 | Phase A 最小切片：属性 + 名片，先证明价值再扩展 | P1 先做终态基座，不做脚手架 | 2026-04-10 |
+| KD-4 | 铲屎官六维独立于猫猫六维，不复用 TraitDimension | 衡量对象不同（领导力 vs 执行力），混在一起无意义 | 2026-04-14 |
+| KD-5 | 决策力/反馈力 v1 做 shadow score，proxy 共存待 D7 校准 | 显式信号覆盖面窄，需积累数据验证 proxy 精度后再转正 | 2026-04-14 |
+| KD-6 | E4-E7 投影器先行实现，数据源就位即激活 | 避免上游就绪后还要改 F157 代码 | 2026-04-15 |
 
 ## Timeline
 
 | Date | Event |
 |------|-------|
 | 2026-04-10 | Kickoff: brainstorm + spec |
+| 2026-04-12 | Phase A-C complete: attribute system, titles, bonds, achievements, co-creator growth |
+| 2026-04-14 | Phase D design: opus + gpt52 joint review of leadership dimensions |
+| 2026-04-15 | Phase D1-D5 complete + Phase E1-E3 complete |
+| 2026-04-16 | Phase D6 complete: leadership event detection (clarification/decision/feedback) |
 
 ## Review Gate
 
