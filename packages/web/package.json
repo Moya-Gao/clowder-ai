@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync:vendor-assets": "node scripts/sync-vendor-assets.mjs",
+    "predev": "pnpm run sync:vendor-assets",
     "dev": "next dev",
+    "prebuild": "pnpm run sync:vendor-assets",
     "build": "next build",
+    "prestart": "pnpm run sync:vendor-assets",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run && node --test test/next-config.test.cjs && node eslint-plugins/no-hardcoded-colors.test.js",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
   bootstrapDebugFromStorage,
@@ -230,6 +230,7 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const socketRef = useRef<Socket | null>(null);
+  const [socketConnected, setSocketConnected] = useState<boolean | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const pendingGuideStartsRef = useRef<Map<string, { guideId: string; threadId: string; timestamp: number }>>(
     new Map(),
@@ -305,6 +306,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     };
 
     socket.on('connect', () => {
+      setSocketConnected(true);
       console.log('[ws] Connected', {
         socketId: socket.id,
         transport: getTransportName(),
@@ -751,6 +753,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     socket.on('voice_stream_end', handleVoiceStreamEnd);
 
     socket.on('connect_error', (error: Error & { description?: unknown; context?: unknown }) => {
+      setSocketConnected(false);
       console.error('[ws] connect_error', {
         message: error.message,
         name: error.name,
@@ -761,6 +764,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     socket.on('disconnect', (...args: unknown[]) => {
+      setSocketConnected(false);
       const [reason, details] = args;
       console.warn('[ws] Disconnected', {
         reason: typeof reason === 'string' ? reason : String(reason),
@@ -882,5 +886,5 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     socketRef.current?.emit('cancel_invocation', { threadId: tid });
   }, []);
 
-  return { socketRef, joinRoom, leaveRoom, syncRooms, cancelInvocation };
+  return { socketRef, joinRoom, leaveRoom, syncRooms, cancelInvocation, socketConnected };
 }

@@ -7,6 +7,7 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
+import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { godAction, submitAction } from '@/hooks/useGameApi';
 import { reconnectGame } from '@/hooks/useGameReconnect';
 import { useGovernanceStatus } from '@/hooks/useGovernanceStatus';
@@ -33,6 +34,7 @@ import { CatCafeHub } from './CatCafeHub';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
+import { ConnectionStatusBar } from './ConnectionStatusBar';
 import { GameOverlayConnector } from './game/GameOverlayConnector';
 import { HubListModal } from './HubListModal';
 import { BootcampIcon } from './icons/BootcampIcon';
@@ -360,7 +362,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     [threadId, getCatById],
   );
 
-  const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
+  const { cancelInvocation, syncRooms, socketConnected } = useSocket(socketCallbacks, threadId);
+  const connectionStatus = useConnectionStatus(socketConnected);
 
   useVoiceAutoPlay();
   useVoiceStream();
@@ -570,11 +573,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             data-chat-container
           >
             {isLoadingHistory && <div className="text-center py-3 text-sm text-cafe-muted">加载历史消息...</div>}
-            {isOfflineSnapshot && (
-              <div className="text-center py-2 text-xs text-cafe-muted bg-surface-secondary rounded-md mx-auto max-w-xs">
-                离线快照 · 显示的是上次缓存的内容
-              </div>
-            )}
+            <ConnectionStatusBar
+              api={connectionStatus.api}
+              socket={connectionStatus.socket}
+              upstream={connectionStatus.upstream}
+              isReadonly={connectionStatus.isReadonly}
+              checkedAt={connectionStatus.checkedAt}
+              isOfflineSnapshot={isOfflineSnapshot}
+            />
             {!hasMore && messages.length > 0 && (
               <div className="text-center py-3 text-xs text-cafe-muted">没有更多消息了</div>
             )}
@@ -690,7 +696,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
               handleSend(content, images, undefined, whisper, deliveryMode)
             }
             onStop={handleStop}
-            disabled={false}
+            disabled={connectionStatus.isReadonly}
             hasActiveInvocation={hasActiveInvocation}
             uploadStatus={uploadStatus}
             uploadError={uploadError}

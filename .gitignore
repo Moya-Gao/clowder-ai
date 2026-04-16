@@ -14,6 +14,7 @@ packages/web/public/workbox-*.js
 packages/web/public/workbox-*.js.map
 packages/web/public/swe-worker-*.js
 packages/web/public/worker-*.js
+packages/web/public/vendor/
 
 # Environment files
 .env
