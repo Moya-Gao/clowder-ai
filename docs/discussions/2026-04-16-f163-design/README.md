@@ -100,11 +100,11 @@ interface EvidenceSearchResponse {
 | `always_on_injection` 不在 `boostSource` 枚举里 | 它走物理注入不走检索管道，不属于"排序归因"；独立到信封级 `injectionSources` |
 | `confidence` 不改（继续 'mid'） | confidence 语义不同于 boost，不混淆；Phase A 评测成熟后再重新标定 |
 
-### 开放问题
+### 问题收口
 
 | # | 问题 |
 |---|------|
-| DG-1.1 | `boostSource` 是否也需要携带分值（如 `{ source: 'authority_boost', weight: 1.2 }`）？还是只标识参与？ |
+| ~~DG-1.1~~ | ~~`boostSource` 是否也需要携带分值（如 `{ source: 'authority_boost', weight: 1.2 }`）？~~ → **已定：先只标识子能力名称，不携带分值；分值进入日志字段** |
 | ~~DG-1.2~~ | ~~`always_on_injection` 的结果是否也出现在 `results[]` 里？~~ → **已决：不在 results[] 里，走 `injectionSources` 独立通道** |
 
 ---
@@ -171,12 +171,12 @@ Thread-level sticky routing：
 - flag 变更时：新 thread 走新 variant，旧 thread 保持原 variant 直到显式 reset
 - 后续扩展 user-level sticky（多铲屎官场景）可在此表加 `userId` 列
 
-### 开放问题
+### 问题收口
 
 | # | 问题 |
 |---|------|
 | ~~DG-2.1~~ | ~~Cohort routing 是否现在做？~~ → **已定：Phase A 必做 thread-level sticky（spec 硬约束）** |
-| DG-2.2 | Hub UI 的环境变量面板需要为 F163 flags 做分组展示吗？还是混在 evidence category 里？ |
+| ~~DG-2.2~~ | ~~Hub UI 的环境变量面板需要为 F163 flags 做分组展示吗？还是混在 evidence category 里？~~ → **已定：混在 evidence category，不单独建分组** |
 
 ---
 
@@ -256,13 +256,13 @@ CREATE TABLE IF NOT EXISTS f163_suggestions (
 
 具体：try-catch 包裹 F163 的 boost/rerank 逻辑，catch 时直接返回原始 BM25/hybrid 结果，并在响应中标记 `degraded: true, degradeReason: 'f163_read_failopen'`。
 
-### 开放问题
+### 问题收口
 
 | # | 问题 |
 |---|------|
-| DG-3.1 | `f163_suggestions` 是否也放在 evidence.sqlite 里？还是单独的 experiment.sqlite？ |
+| ~~DG-3.1~~ | ~~`f163_suggestions` 是否也放在 evidence.sqlite 里？还是单独的 experiment.sqlite？~~ → **已定：放在 evidence.sqlite（与主知识写路径同一 WAL）** |
 | ~~DG-3.2~~ | ~~IndexBuilder 是否经写队列？~~ → **已定：所有 evidence.sqlite mutation 统一经 EvidenceWriteQueue（砚砚 review P1-2）** |
-| DG-3.3 | apply 模式异常降级到 suggest 后，是否需要铲屎官手动恢复到 apply？还是下次请求自动重试 apply？ |
+| ~~DG-3.3~~ | ~~apply 模式异常降级到 suggest 后，是否需要铲屎官手动恢复到 apply？还是下次请求自动重试 apply？~~ → **已定：自动重试；连续 3 次失败锁定 suggest，需手动恢复** |
 
 ---
 
@@ -328,25 +328,25 @@ interface F163WriteLog {
 - **对账产出**：Harness 健康报告（AC-C4 的一部分）
 - **最小样本量**：NDCG 对比至少 30 个 query 的 gold set 结果；在线指标至少 7 天数据
 
-### 开放问题
+### 问题收口
 
 | # | 问题 |
 |---|------|
-| DG-4.1 | 日志写到哪里？evidence.sqlite？单独文件？structured logging to stdout？ |
-| DG-4.2 | 权重误导率的计算需要 shadow 模式同时跑新旧排序——性能可接受吗？ |
+| ~~DG-4.1~~ | ~~日志写到哪里？evidence.sqlite？单独文件？structured logging to stdout？~~ → **已定：实验日志落 evidence.sqlite 的 `f163_logs` 表** |
+| ~~DG-4.2~~ | ~~权重误导率的计算需要 shadow 模式同时跑新旧排序——性能可接受吗？~~ → **已定：Phase A 实测验证，性能是否可接受以实测数据裁决** |
 
 ---
 
-## 汇总：所有开放问题
+## 汇总：问题收口状态
 
 | # | 问题 | 状态 |
 |---|------|------|
-| DG-1.1 | boostSource 是否携带分值？ | **开放** — 倾向先只标识，分值在 log 里 |
+| ~~DG-1.1~~ | boostSource 是否携带分值？ | **已定** — 仅标识子能力名称；分值写入 log |
 | ~~DG-1.2~~ | always_on_injection 结果是否在 results[] 里？ | **已定** — 不在 results[]，走 `injectionSources` 独立通道（砚砚 review P2-2） |
 | ~~DG-2.1~~ | Cohort routing 现在做？ | **已定** — Phase A 必做 thread-level sticky（spec 硬约束，砚砚 review P1-1） |
-| DG-2.2 | Hub UI 分组展示？ | **开放** — 倾向混在 evidence category |
-| DG-3.1 | f163_suggestions 放哪？ | **开放** — 倾向放 evidence.sqlite |
+| ~~DG-2.2~~ | Hub UI 分组展示？ | **已定** — 混在 evidence category，不单独建分组 |
+| ~~DG-3.1~~ | f163_suggestions 放哪？ | **已定** — 放 evidence.sqlite |
 | ~~DG-3.2~~ | IndexBuilder 是否经写队列？ | **已定** — 所有 evidence.sqlite mutation 统一经写调度器（砚砚 review P1-2） |
-| DG-3.3 | apply 降级后恢复策略？ | **开放** — 倾向自动重试，连续 3 次失败锁定 suggest |
-| DG-4.1 | 日志写到哪？ | **开放** — 倾向 evidence.sqlite 的 f163_logs 表 |
-| DG-4.2 | shadow 双跑性能？ | **开放** — Phase A 实测，预计可接受 |
+| ~~DG-3.3~~ | apply 降级后恢复策略？ | **已定** — 自动重试，连续 3 次失败锁定 suggest（手动恢复） |
+| ~~DG-4.1~~ | 日志写到哪？ | **已定** — evidence.sqlite 的 `f163_logs` 表 |
+| ~~DG-4.2~~ | shadow 双跑性能？ | **已定** — Phase A 实测验证后定论 |
