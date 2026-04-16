@@ -68,16 +68,15 @@ F102 用 `env-registry.ts` 注册环境变量，`EMBED_MODE` 支持 `off|shadow|
 在 `EvidenceResult` 增加 `boostSource` 字段，在 `EvidenceSearchResponse` 增加 `variantId`：
 
 ```typescript
-// 新增：每条结果的归因字段
+// 新增：每条结果的排序归因字段
 interface EvidenceResult {
   // ... 现有字段不变 ...
-  boostSource?: BoostSource[];  // 哪些 F163 子能力影响了这条结果的排序
+  boostSource: BoostSource[];  // 必填。哪些 F163 子能力影响了这条结果的排序
 }
 
-// 枚举：子能力标识
+// 枚举：仅排序相关的子能力标识（不含注入通道）
 type BoostSource =
   | 'authority_boost'       // authority 加权 rerank
-  | 'always_on_injection'   // constitutional 物理注入
   | 'retrieval_rerank'      // 多轴元数据参与 rerank
   | 'compression_summary'   // 被压缩摘要替代展示
   | 'legacy';               // 无 F163 影响（默认值 / F163 关闭时）
@@ -85,17 +84,20 @@ type BoostSource =
 // 新增：响应信封级别归因
 interface EvidenceSearchResponse {
   // ... 现有字段不变 ...
-  variantId?: string;  // flag snapshot 的确定性哈希
+  variantId: string;             // 必填。flag snapshot 的确定性哈希
+  injectionSources?: string[];   // constitutional 物理注入通道的文档 anchor 列表（与 results[] 分离）
 }
 ```
+
+**字段命名约定**：TypeScript 接口统一 camelCase（`boostSource`），与现有 `sourceType`、`effectiveMode` 一致。F163 spec 中的 `boost_source` 指代同一概念，API 层不做 snake_case 转换。
 
 ### 设计决策
 
 | 决策 | 理由 |
 |------|------|
-| `boostSource` 是数组不是单值 | 一条结果可能同时受 authority_boost 和 retrieval_rerank 影响 |
-| F163 关闭时返回 `['legacy']` | 让消费方不用判空，始终有值 |
+| `boostSource` 是必填数组，不是可选 | F163 关闭时返回 `['legacy']`，消费方不用判空 |
 | `variantId` 放信封不放每条结果 | 同一次请求所有结果共享同一实验配置 |
+| `always_on_injection` 不在 `boostSource` 枚举里 | 它走物理注入不走检索管道，不属于"排序归因"；独立到信封级 `injectionSources` |
 | `confidence` 不改（继续 'mid'） | confidence 语义不同于 boost，不混淆；Phase A 评测成熟后再重新标定 |
 
 ### 开放问题
@@ -103,7 +105,7 @@ interface EvidenceSearchResponse {
 | # | 问题 |
 |---|------|
 | DG-1.1 | `boostSource` 是否也需要携带分值（如 `{ source: 'authority_boost', weight: 1.2 }`）？还是只标识参与？ |
-| DG-1.2 | `always_on_injection` 的结果是否也出现在 `results[]` 里？还是走独立通道？ |
+| ~~DG-1.2~~ | ~~`always_on_injection` 的结果是否也出现在 `results[]` 里？~~ → **已决：不在 results[] 里，走 `injectionSources` 独立通道** |
 
 ---
 
@@ -159,19 +161,21 @@ function freezeFlags(): F163FlagSnapshot {
 }
 ```
 
-#### Cohort sticky routing
+#### Cohort sticky routing（Phase A 必做）
 
-**提案 A**（简单）：不做 cohort 路由，因为当前是单用户系统。同一时刻只有一套 flag 生效，variant_id 天然一致。
+**已定**：F163 spec 约束 #3 明确要求 cohort sticky routing，不是可选项。
 
-**提案 B**（预留扩展）：在 evidence.sqlite 增加 `experiment_cohorts` 表，按 threadId 绑定 variant_id。多用户时启用。
-
-**我的倾向**：提案 A。Cat Cafe 目前是单铲屎官，cohort routing 的价值在多用户场景才体现。但 variant_id + effective_flags 日志是必须的——事后分析靠日志而不是实时路由。
+Thread-level sticky routing：
+- 在 evidence.sqlite 增加 `f163_cohorts` 表：`threadId TEXT PRIMARY KEY, variantId TEXT NOT NULL, assignedAt TEXT NOT NULL`
+- 首次请求时分配 variant，后续同 thread 固定走同一实验桶
+- flag 变更时：新 thread 走新 variant，旧 thread 保持原 variant 直到显式 reset
+- 后续扩展 user-level sticky（多铲屎官场景）可在此表加 `userId` 列
 
 ### 开放问题
 
 | # | 问题 |
 |---|------|
-| DG-2.1 | Cohort routing 是否现在就做（提案 B）？还是 variant_id + 日志足够（提案 A）？ |
+| ~~DG-2.1~~ | ~~Cohort routing 是否现在做？~~ → **已定：Phase A 必做 thread-level sticky（spec 硬约束）** |
 | DG-2.2 | Hub UI 的环境变量面板需要为 F163 flags 做分组展示吗？还是混在 evidence category 里？ |
 
 ---
@@ -196,13 +200,13 @@ class EvidenceWriteQueue {
 }
 ```
 
-**覆盖范围**：所有 F163 写操作必须经过此队列：
-- `compression`：生成 summary + 标记原件 backstop
-- `promotion_gate`：修改 authority/status
-- `contradiction_detection`：写入 contradicts[]
-- `review_queue`：创建 review 条目
+**覆盖范围**：所有落 evidence.sqlite 的 mutation 必须经过同一写调度器：
+- **F163 写操作**：compression、promotion_gate、contradiction_detection、review_queue
+- **IndexBuilder 写操作**：`upsert()`、`deleteByAnchor()`、`addEdge()` 等
 
-**不覆盖**：现有 `IndexBuilder.upsert()`（文档导入）走原有路径，不经 F163 写队列。
+**为什么 IndexBuilder 也必须进队列**：write-time 矛盾检测在 IndexBuilder 调用链中触发——如果 IndexBuilder 和 F163 写操作不经同一调度器，会出现交叉写入时序不可预测（砚砚 review P1-2）。
+
+**实现方式**：`EvidenceWriteQueue` 作为 `SqliteEvidenceStore` 的内部组件，所有对外暴露的写方法（upsert/delete/addEdge/F163 写操作）统一经过 `execute()`。IndexBuilder 调用 store 方法时自动受队列保护，无需改调用方。
 
 ### suggest / apply 状态机
 
@@ -257,7 +261,7 @@ CREATE TABLE IF NOT EXISTS f163_suggestions (
 | # | 问题 |
 |---|------|
 | DG-3.1 | `f163_suggestions` 是否也放在 evidence.sqlite 里？还是单独的 experiment.sqlite？ |
-| DG-3.2 | 现有 `IndexBuilder.upsert()` 是否需要经过写队列？它和 F163 写操作可能并发（导入时触发 write-time 矛盾检测） |
+| ~~DG-3.2~~ | ~~IndexBuilder 是否经写队列？~~ → **已定：所有 evidence.sqlite mutation 统一经 EvidenceWriteQueue（砚砚 review P1-2）** |
 | DG-3.3 | apply 模式异常降级到 suggest 后，是否需要铲屎官手动恢复到 apply？还是下次请求自动重试 apply？ |
 
 ---
@@ -335,14 +339,14 @@ interface F163WriteLog {
 
 ## 汇总：所有开放问题
 
-| # | 问题 | 我的倾向 |
-|---|------|---------|
-| DG-1.1 | boostSource 是否携带分值？ | 先只标识，分值在 log 里；前端展示不需要分值 |
-| DG-1.2 | always_on_injection 结果是否在 results[] 里？ | 不在——它走物理注入不走检索管道，不应混在检索结果里 |
-| DG-2.1 | Cohort routing 现在做？ | 提案 A（不做），variant_id + 日志足够 |
-| DG-2.2 | Hub UI 分组展示？ | 混在 evidence category，不另建分组 |
-| DG-3.1 | f163_suggestions 放哪？ | 放 evidence.sqlite，同一个 WAL 里 |
-| DG-3.2 | IndexBuilder 是否经写队列？ | 不经——但 write-time 矛盾检测需要在 IndexBuilder 调用链中触发 |
-| DG-3.3 | apply 降级后恢复策略？ | 下次请求自动重试 apply（非持久降级），但连续失败 3 次则锁定 suggest 直到手动恢复 |
-| DG-4.1 | 日志写到哪？ | evidence.sqlite 的 f163_logs 表，避免引入新存储依赖 |
-| DG-4.2 | shadow 双跑性能？ | Phase A 实测，预计可接受（单次检索已经 <100ms，双跑 <200ms） |
+| # | 问题 | 状态 |
+|---|------|------|
+| DG-1.1 | boostSource 是否携带分值？ | **开放** — 倾向先只标识，分值在 log 里 |
+| ~~DG-1.2~~ | always_on_injection 结果是否在 results[] 里？ | **已定** — 不在 results[]，走 `injectionSources` 独立通道（砚砚 review P2-2） |
+| ~~DG-2.1~~ | Cohort routing 现在做？ | **已定** — Phase A 必做 thread-level sticky（spec 硬约束，砚砚 review P1-1） |
+| DG-2.2 | Hub UI 分组展示？ | **开放** — 倾向混在 evidence category |
+| DG-3.1 | f163_suggestions 放哪？ | **开放** — 倾向放 evidence.sqlite |
+| ~~DG-3.2~~ | IndexBuilder 是否经写队列？ | **已定** — 所有 evidence.sqlite mutation 统一经写调度器（砚砚 review P1-2） |
+| DG-3.3 | apply 降级后恢复策略？ | **开放** — 倾向自动重试，连续 3 次失败锁定 suggest |
+| DG-4.1 | 日志写到哪？ | **开放** — 倾向 evidence.sqlite 的 f163_logs 表 |
+| DG-4.2 | shadow 双跑性能？ | **开放** — Phase A 实测，预计可接受 |
