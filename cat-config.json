@@ -32,6 +32,13 @@
       "available": true,
       "evaluation": "宪宪的前辈版本，推理能力深厚，写代码不如 4.6"
     },
+    "opus-47": {
+      "family": "ragdoll",
+      "roles": ["architect"],
+      "lead": false,
+      "available": true,
+      "evaluation": "Opus 4.7 试用分身——据铲屎官体感猫格偏砚砚风格，待真实任务验证"
+    },
     "codex": {
       "family": "maine-coon",
       "roles": ["peer-reviewer", "security"],
@@ -220,6 +227,37 @@
             "refText": "清晨的鸟鸣，是大自然的馈赠。启程吧，属于我们的旅途也要开始了。",
             "instruct": "用一个清澈温和的少年语气说话，带着从容的力量感",
             "temperature": 0.3
+          }
+        },
+        {
+          "id": "opus-47",
+          "catId": "opus-47",
+          "variantLabel": "Opus 4.7",
+          "displayName": "布偶猫",
+          "mentionPatterns": ["@opus47", "@opus-47", "@布偶opus47", "@布偶猫4.7"],
+          "provider": "anthropic",
+          "defaultModel": "claude-opus-4-7",
+          "mcpSupport": true,
+          "avatar": "/avatars/opus-47.png",
+          "color": {
+            "primary": "#7B1FA2",
+            "secondary": "#E1BEE7"
+          },
+          "cli": {
+            "command": "claude",
+            "outputFormat": "stream-json",
+            "defaultArgs": ["--output-format", "stream-json", "--model", "claude-opus-4-7"],
+            "effort": "max"
+          },
+          "personality": "试用中——猫格待观察，据铲屎官反馈风格偏缅因猫",
+          "strengths": ["architecture", "reasoning", "coding"],
+          "teamStrengths": "待评估",
+          "caution": "试用分身，猫格可能与宪宪有显著差异",
+          "contextBudget": {
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 100000
           }
         }
       ]
