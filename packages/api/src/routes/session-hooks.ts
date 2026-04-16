@@ -142,7 +142,9 @@ export async function sessionHooksRoutes(app: FastifyInstance, opts: SessionHook
     }
 
     // F157: Award session_seal XP (fire-and-forget)
-    if (record.catId) activityBus?.record('session_sealed', record.catId);
+    // Phase E: Include lastUsage for cache efficiency bonus (AC-E4)
+    if (record.catId)
+      activityBus?.record('session_sealed', record.catId, record.lastUsage ? { lastUsage: record.lastUsage } : {});
 
     // Slow path: async transcript flush (fire-and-forget)
     sessionSealer.finalize({ sessionId: record.id }).catch(() => {

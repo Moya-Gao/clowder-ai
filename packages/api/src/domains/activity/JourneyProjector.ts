@@ -72,7 +72,33 @@ export class JourneyProjector {
         else if (cat === 'skill') source = 'tool_use_skill';
       }
 
+      // AC-E5: Ideate intent → architecture bonus (overrides discussion → ideate_discussion)
+      if (event.type === 'message_sent' && event.metadata.intent === 'ideate') {
+        source = 'ideate_discussion';
+      }
+
       this.growthService.awardXp(event.actorId, source, mapping.multiplier);
+
+      // AC-E6: Error recovery — retry succeeded after prior failure → bonus execution XP
+      if (event.type === 'task_completed' && event.metadata.recoveredFromFailure) {
+        this.growthService.awardXp(event.actorId, 'error_recovery');
+      }
+
+      // AC-E7: Fast execution — invocation completed quickly → bonus execution XP
+      if (event.type === 'task_completed' && event.metadata.fastExecution) {
+        this.growthService.awardXp(event.actorId, 'fast_execution');
+      }
+
+      // AC-E4: Cache efficiency bonus — award insight XP when cache hit ratio ≥ 30%
+      if (event.type === 'session_sealed') {
+        const usage = event.metadata.lastUsage as { cacheReadTokens?: number; inputTokens?: number } | undefined;
+        if (usage && usage.inputTokens && usage.inputTokens > 0) {
+          const ratio = (usage.cacheReadTokens ?? 0) / usage.inputTokens;
+          if (ratio >= 0.3) {
+            this.growthService.awardXp(event.actorId, 'cache_efficiency');
+          }
+        }
+      }
 
       // Co-creator also gets footfall for collaborative events
       if (event.actorId !== 'co-creator' && isCollabEvent(event.type)) {

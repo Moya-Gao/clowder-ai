@@ -59,3 +59,10 @@ export function leadershipTitleKey(): string {
 
 /** SCAN pattern to match all leadership keys. */
 export const LEADERSHIP_SCAN_ALL = 'leadership:*';
+
+// ── Phase E: Evolution event keys ────────────────────────────────
+
+/** Sorted set holding evolution events for one cat. Score = epoch ms. */
+export function evolutionEventKey(catId: string): string {
+  return `evolution:${catId}`;
+}

@@ -6,6 +6,7 @@ import { DownloadIcon } from '@/components/icons/DownloadIcon';
 import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import { AchievementWall } from './AchievementWall';
+import { EvolutionTimeline } from './EvolutionTimeline';
 import { GrowthRadarChart } from './GrowthRadarChart';
 import { SkillTreePanel } from './SkillTreePanel';
 import { XpAuditLog } from './XpAuditLog';
@@ -149,6 +150,11 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
                 );
               })}
             </div>
+          </div>
+
+          {/* Evolution timeline (AC-E2) */}
+          <div className="mt-6">
+            <EvolutionTimeline catId={profile.catId} color={primaryColor} />
           </div>
 
           {/* XP audit log */}

@@ -90,6 +90,25 @@ export interface JourneyOverview {
   readonly fetchedAt: string;
 }
 
+// ── Phase E: Evolution Events (AC-E1) ─────────────────────────────
+
+/** Types of evolution milestones that generate narrative events */
+export type EvolutionEventType =
+  | 'level_up' // Dimension or overall level increased
+  | 'first_dim' // First XP earned in a dimension
+  | 'achievement_unlocked' // Achievement/moment unlocked
+  | 'title_unlocked' // Title unlocked
+  | 'bond_milestone'; // Bond level increased
+
+/** Recorded narrative event for the growth timeline */
+export interface EvolutionEvent {
+  readonly type: EvolutionEventType;
+  readonly catId: string;
+  readonly narrative: { readonly zh: string; readonly en: string };
+  readonly details: Record<string, unknown>;
+  readonly timestamp: number;
+}
+
 /** Granular footfall event for audit trail */
 export interface FootfallEvent {
   readonly catId: string;
@@ -115,7 +134,11 @@ export type FootfallSource =
   | 'bug_caught'
   | 'design_feedback'
   | 'rich_block_create'
-  | 'evidence_cite';
+  | 'evidence_cite'
+  | 'cache_efficiency' // Phase E: bonus for high cache hit ratio
+  | 'ideate_discussion' // Phase E: ideate intent → architecture bonus
+  | 'error_recovery' // Phase E: retry succeeded after failure
+  | 'fast_execution'; // Phase E: invocation completed quickly
 
 // ── Titles ────────────────────────────────────────────────────────
 

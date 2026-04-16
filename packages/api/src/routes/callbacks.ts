@@ -508,7 +508,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     });
 
     // F157 Phase C: Record message_sent via activity bus (JourneyProjector handles co-creator)
-    activityBus?.record('message_sent', record.catId);
+    // Phase E (AC-E5): Enrich with intent for ideate distinction
+    let messageSentMeta: Record<string, unknown> = {};
+    if (record.parentInvocationId && invocationRecordStore) {
+      const invRec = await invocationRecordStore.get(record.parentInvocationId);
+      if (invRec && 'intent' in invRec) messageSentMeta = { intent: invRec.intent };
+    }
+    activityBus?.record('message_sent', record.catId, messageSentMeta);
 
     // F121: Hydrate reply preview for broadcast
     const replyPreview = validatedReplyTo ? await hydrateReplyPreview(messageStore, validatedReplyTo) : undefined;

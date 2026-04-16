@@ -1068,6 +1068,7 @@ async function main(): Promise<void> {
     queueProcessor,
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
+    activityBus,
   };
   await app.register(messagesRoutes, messagesOpts);
   await app.register(queueRoutes, {
@@ -1085,6 +1086,7 @@ async function main(): Promise<void> {
     router,
     invocationTracker,
     queueProcessor,
+    activityBus,
   });
   await app.register(messageActionsRoutes, {
     messageStore,
@@ -1117,7 +1119,11 @@ async function main(): Promise<void> {
     await app.register(leadershipRoutes, { leadershipService });
   }
   if (growthService) {
-    await app.register(journeyRoutes, { growthService });
+    // F157 Phase E (AC-E1): Evolution event service — records milestone narrative events
+    const { EvolutionService } = await import('./domains/cats/services/growth/EvolutionService.js');
+    const evolutionSvc = new EvolutionService(redis!);
+    growthService.evolutionService = evolutionSvc;
+    await app.register(journeyRoutes, { growthService, evolutionService: evolutionSvc });
     // F157 Phase C: Achievement system — wire up bidirectional reference
     const { AchievementService } = await import('./domains/cats/services/growth/AchievementService.js');
     const achievementSvc = new AchievementService(redis!, growthService);
@@ -1135,12 +1141,19 @@ async function main(): Promise<void> {
             rarity: def?.rarity,
             unlockedAt: u.unlockedAt,
           });
+          // AC-E1: Record achievement unlock as evolution event
+          if (def?.label) evolutionSvc.recordAchievement(u.memberId, u.achievementId, def.label);
         }
       };
     }
     await app.register((await import('./routes/achievements.js')).achievementRoutes, {
       achievementService: achievementSvc,
     });
+    // F157 AC-E3: Monthly review template — requires both growth + evolution services
+    const { MonthlyReviewService } = await import('./domains/cats/services/growth/MonthlyReviewService.js');
+    const { createMonthlyReviewTemplate } = await import('./infrastructure/scheduler/templates/monthly-review.js');
+    const reviewSvc = new MonthlyReviewService(growthService, evolutionSvc);
+    templateRegistry.register(createMonthlyReviewTemplate(reviewSvc));
   }
   // F075 Phase B+C: Game + Achievement stores
   const { GameStore } = await import('./domains/leaderboard/game-store.js');

@@ -16,6 +16,8 @@ import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 export interface GrowthRoutesOptions {
   growthService: GrowthService;
+  /** Phase E (AC-E1): Evolution event service for milestone timeline */
+  evolutionService?: import('../domains/cats/services/growth/EvolutionService.js').EvolutionService;
 }
 
 export const journeyRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app, opts) => {
@@ -87,6 +89,25 @@ export const journeyRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app
     const bonds = await growthService.getBonds(catId);
     return { catId, bonds };
   });
+
+  /** AC-E1: Evolution milestone events — newest first, with pagination. */
+  if (opts.evolutionService) {
+    const evoSvc = opts.evolutionService;
+    app.get<{ Params: { catId: string }; Querystring: { limit?: string; offset?: string } }>(
+      '/api/journey/:catId/evolution',
+      async (request, reply) => {
+        const userId = resolveHeaderUserId(request);
+        if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
+
+        const { catId } = request.params;
+        const limit = Math.min(Math.max(parseInt(request.query.limit ?? '50', 10) || 50, 1), 200);
+        const offset = Math.max(parseInt(request.query.offset ?? '0', 10) || 0, 0);
+
+        const events = await evoSvc.getEvents(catId, limit, offset);
+        return { catId, events, limit, offset };
+      },
+    );
+  }
 
   /** AC-A3: Export cat profile card as PNG image */
   app.post<{ Params: { catId: string } }>('/api/journey/:catId/export-image', async (request, reply) => {

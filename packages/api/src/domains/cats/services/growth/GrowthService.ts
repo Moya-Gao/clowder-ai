@@ -46,6 +46,10 @@ const XP_RULES: Record<XpSource, { dimension: GrowthDimension; xp: number }> = {
   design_feedback: { dimension: 'aesthetics', xp: 30 },
   rich_block_create: { dimension: 'aesthetics', xp: 20 },
   evidence_cite: { dimension: 'insight', xp: 25 },
+  cache_efficiency: { dimension: 'insight', xp: 15 },
+  ideate_discussion: { dimension: 'architecture', xp: 25 },
+  error_recovery: { dimension: 'execution', xp: 30 },
+  fast_execution: { dimension: 'execution', xp: 20 },
 };
 
 function levelFromXp(xp: number): number {
@@ -71,6 +75,8 @@ const SOURCE_TO_COUNTER: Partial<Record<XpSource, string>> = {
 export class GrowthService {
   /** Phase C: Optional AchievementService — set after construction to avoid circular deps. */
   achievementService?: { incrementCounter(memberId: string, counter: string): void };
+  /** Phase E: Optional EvolutionService — records milestone narrative events. */
+  evolutionService?: import('./EvolutionService.js').EvolutionService;
 
   constructor(private readonly redis: RedisClient) {}
 
@@ -96,7 +102,19 @@ export class GrowthService {
     pipeline.zadd(growthAuditKey(catId), ts, member);
     pipeline
       .exec()
-      .then(() => {
+      .then((results) => {
+        // Phase E (AC-E1): Detect level transitions from INCRBY result
+        if (this.evolutionService && results) {
+          const newXp = results[0]?.[1] as number | undefined;
+          if (newXp != null) {
+            const oldXp = newXp - amount;
+            if (oldXp === 0) this.evolutionService.recordFirstDimension(catId, rule.dimension);
+            const oldLevel = levelFromXp(oldXp);
+            const newLevel = levelFromXp(newXp);
+            if (newLevel > oldLevel) this.evolutionService.recordLevelUp(catId, rule.dimension, oldLevel, newLevel);
+          }
+        }
+
         // Phase B: Check title unlocks after XP change (fire-and-forget)
         this.getAttributes(catId)
           .then((attrs) => this.checkTitleUnlocks(catId, attrs))

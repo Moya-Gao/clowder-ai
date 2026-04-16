@@ -238,6 +238,9 @@ export type {
   CatJourneyProfile,
   CatTitle,
   DimensionStat,
+  // Phase E: Evolution Events (AC-E1)
+  EvolutionEvent,
+  EvolutionEventType,
   FootfallEvent,
   FootfallSource,
   GrowthDimension,
