@@ -16,6 +16,10 @@ created: 2026-03-11
 > **Message 级别检索已上线运行。** 用 `search_evidence(scope="threads", depth="raw")` 可搜到具体消息（speaker + timestamp + passageId）。当前限制：`depth=raw` 仅走 lexical 模式（会显示 `[DEGRADED]` 提示），passage 向量路径（AC-K3）deferred。日常用 `mode="hybrid"` 搜 thread 时 depth 默认 summary 级别，已包含消息摘要；需要定位具体消息时切 `depth="raw"`。
 >
 > 近期修复链（2026-04-14~15，PR #1155/#1160/#1179/#1192/#1195）：depth=raw 降级信号 → passage 排序 → heading→keywords 索引 → auto-rebuild 机制 → lexical recall backfill。核心检索能力已经过三轮 dogfood 验证。
+>
+> 晚间复测（2026-04-15，`F148` 深术语样本）显示：`scope="threads", depth="raw"` 对 `briefing→invocation link telemetry`、`B+A AutoSummarizer + regex` 这类 query 已能命中具体 passage；但 `scope="docs", depth="summary"` 对 `DecisionSignals`、`buildThreadMemory`、`coverageMap.searchSuggestions`、`scoreImportance` 这类埋得较深的实现名词仍不稳，且出现过 `scope=docs` 混入 discussion 结果的异常。
+>
+> **后续优化方向**：评测基准从手挑 query 升级为“固定回归集 + seeded 随机 feature 抽样 + query 扰动变体”，避免 recall dogfood 对已知样例过拟合。
 
 ## Why
 
@@ -1260,6 +1264,8 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | OQ-1 | 索引自动更新的触发点：git hook vs feat-lifecycle skill vs 两者都要？ | ⬜ 倾向 feat-lifecycle（零成本集成） |
 | OQ-2 | ~~evidence.sqlite 要不要 .gitignore？~~ | ✅ **已决（KD-8）**：gitignore + rebuild，真相源是 .md |
 | OQ-3 | ~~markers 审批流~~ | ✅ **已决（KD-9）**：分层审批，见下 |
+| OQ-4 | `scope=docs` 的 summary 检索对深实现术语的召回/过滤链是否还有缺口？ | ⬜ 2026-04-15 晚间 `F148` 猫粮暴露：`coverageMap.searchSuggestions` / `scoreImportance` 等 query 未稳定命中 F148，且曾混入 discussion 结果 |
+| OQ-5 | recall dogfood benchmark 如何防对已知 query 过拟合？ | ⬜ 倾向固定回归集 + seeded 随机抽样 + query 扰动变体 |
 
 ## Key Decisions
 
@@ -1416,6 +1422,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-15 | **PR #1179 squash merged** — dogfooding follow-up: heading→keywords lexical raw recall fix + MCP `raw_lexical_only` degrade banner corrected |
 | 2026-04-15 | **PR #1192 squash merged** — root cause fix: `INDEXING_VERSION` auto-rebuild mechanism so scanner logic changes take effect on restart without manual `--force` |
 | 2026-04-15 | **PR #1195 squash merged** — lexical recall gate strengthened with title/summary/keywords backfill; stale signal-noise kind assertion aligned to exported `EvidenceKind` set |
+| 2026-04-15 | 晚间猫粮复测（`F148` 深术语样本）—— message-level raw 表现好；docs summary 对深实现名词仍弱。后续 benchmark 调整为固定回归 + seeded 随机 feature 抽样 + query 扰动，防 query 过拟合 |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
