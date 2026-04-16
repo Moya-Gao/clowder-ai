@@ -178,6 +178,32 @@ revision: v2（宪宪收敛两轮 review 意见）
 - Knowledge Evolution
 - 为什么“从错误里学”不够，还要“从高价值经验里长”
 
+核心要讲清楚的一句话是：**我们家的“自我进化”不是模型偷偷改自己，而是把“提醒、提案、沉淀、验证”做成受治理的生产线。**  
+F100 最初就是为了解决三个非常具体的缺口：铲屎官聊 feat 时会发散、猫会重复犯同类错误、猫只能从失败里学不会从高价值经验里长。这三个缺口分别对应三种模式：
+
+- **Mode A / Scope Guard**：识别“现在正在偏航”，不是等事故发生后复盘。Phase 2 里已经把它对象化成 `Scope Guard Log`，记录 `signal_type / action_taken / outcome`，并统计 guardian 成功率。也就是说，猫不是“感觉你在发散”，而是能追踪“哪些信号组合最有效，提醒后是否真的收敛”。
+- **Mode B / Process Evolution**：识别“这不是一次性失误，而是 SOP/skill/rule 本身该升级了”。每个提案都有独立日志、状态机和落地闭环；`accepted` 的提案必须能回到具体 commit/PR，30 天后还要 replay check，看同类问题是否真的下降。
+- **Mode C / Knowledge Evolution**：把一次 case 提升成可复用方法，而不是永远困在聊天记录里。这里关键不是“存下来”，而是**知识对象化 + 分级治理**：episode 先成 raw material，再往 method / skill / eval 这条链上晋升。
+
+这一讲里最好直接给社区看一眼，我们所谓“知识不是飘在空气里的经验”，而是有契约的数据结构：
+
+```yaml
+knowledge:
+  artifact_type: episode | method | skill | proposal | eval | lesson | log
+  domain: development | medical | legal | product | ops | general
+  knowledge_type: declarative | procedural | analytical | metacognitive
+  scope: agent-local | team-shared
+  trust_level: experimental | tested | validated | production
+  lifecycle: draft | active | deprecated
+  provenance:
+    author_type: agent | human | collaborative
+  source_refs: []
+```
+
+这段 frontmatter 很适合拿来做分享里的“硬核一页”。它说明我们所谓“成长”不是一句抽象口号，而是要回答清楚：这是什么知识、适用于什么领域、当前可信度多高、处于什么生命周期、来源是谁、有没有证据锚点。**没有这些字段，所谓自我进化最后只会退化成知识野生藤蔓。**
+
+另一个必须讲的点是：F100 目前已经完成了“行为层 + 知识对象化”，但**可观测层还 blocked on F102**。这反而是个很有价值的工程判断：我们没有为了讲故事硬说“已经全闭环”，而是老老实实承认，只有当 F102 把这些 Episode / Method / Eval 索引进去之后，“猫到底学会了什么”才真正能被搜索、被复核、被复用。换句话说，我们的自我进化不是 autonomous self-rewrite，而是**受基础设施约束的受控增长**。
+
 ### P1：记忆系统的完整链
 
 这一讲不能只讲 F102，还要连着 F152 和 F163：
@@ -191,6 +217,38 @@ revision: v2（宪宪收敛两轮 review 意见）
 1. **索引层**：SQLite + BM25 全文 + 向量语义（evidence.sqlite），按相关性检索不按时间排
 2. **文档层**：按主题域组织（features/ decisions/ lessons/），不是按日期排列
 3. **记忆层**：按类型组织（feedback/project/user/reference），猫的个体经验跨 session 持久
+
+这里最值得对外讲透的，是我们把“记忆”拆成了**执行层的临时记忆**和**编排层的持久记忆**。CLI 自带的 context window 只负责当前 session 的工作记忆，进程一退出就没了；真正跨 session 的 continuity，是编排层自己维护的 ThreadMemory 和 evidence 索引。这个区分很重要，因为很多系统默认“模型记住了”，而我们默认**CLI 会忘，所以必须自己管跨 session 记忆**。
+
+最适合展示的代码级例子，是 ThreadMemory 的结构。它能非常直观地解释“我们不是把整段历史硬塞回 prompt，而是做了滚动摘要 + 结构化信号提取”：
+
+```ts
+ThreadMemoryV1 {
+  v: 1
+  summary: string
+  sessionsIncorporated: number
+  updatedAt: number
+  decisions?: string[]
+  openQuestions?: string[]
+  artifacts?: string[]
+}
+```
+
+这个结构背后的关键设计有三点：
+- **新的排前面，旧的裁末尾**：最近的 session 最重要，超出预算时裁掉最远历史，而不是平均截断。
+- **决策/问题/文档引用用正则提取，不默认走 LLM**：能用确定性手段提出来的，就不要先上生成式模型。
+- **原始事件全量落盘，摘要只是 read model**：digest 可以压缩，但永远可以 drill-down 回去，不会因为“方便检索”就丢掉 provenance。
+
+F102 这条线真正的价值，不只是把 Hindsight 换成 SQLite，而是把**检索入口、存储边界、项目隔离和可见性**一起收敛了。这里有几条非常适合讲给社区听的关键决策：
+- `search_evidence` 成为统一入口，`search_messages/session_search` 收敛为内部实现，避免工具面越来越碎。
+- 检索默认是 **BM25-first、summary-first、raw-on-demand**，也就是先用便宜稳健的 lexical 路径定位，再按需下钻 raw transcript，避免聊天噪音把文档真相源淹掉。
+- **全局记忆跟猫走，项目记忆留在项目**；每个项目一个 `evidence.sqlite`，猫出征新项目时不会把旧项目的 feat 细节混进来。
+- Recall Feed 把“猫搜到了什么”实时展示给人，这不是 UI 花活，而是把 recall 从黑盒动作变成可审计动作。
+
+如果再往前走一步，就会进入 F152 和 F163：前者解决“猫去外部项目怎么冷启动”，后者解决“记忆越来越多之后怎么不腐烂”。F152 的关键不是多扫几个目录，而是**provenance 分层**：`authoritative / derived / soft_clue` 必须被存储和检索层理解，不能混成同一种“知识”。F163 的关键则是承认一个长期被忽略的问题：**记忆系统只有增量，没有减量**。所以它一上来先做的不是删除，而是分层加权、stale 标记、健康报告和人工确认。
+
+这部分最值得对外强调的不是“我们已经解决了记忆问题”，而是：**我们已经把记忆问题拆成了基础设施、可移植性、生命周期治理三层。**  
+F102 解决“怎么存和搜”，F152 解决“怎么带着知识去新项目”，F163 才解决“怎么让知识长期保持精准”。社区一般只看到第一层，我们家比较有价值的地方在于，后两层也已经被显式立项，而不是继续假装“多塞点上下文就等于有记忆”。
 
 ### P1：增量 spec 约束（小伙伴 D 的深水区问题）
 
