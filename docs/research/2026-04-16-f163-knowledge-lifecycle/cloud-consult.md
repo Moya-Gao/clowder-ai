@@ -234,30 +234,139 @@ contradicts: []
 1.  **“铁律层”撑爆上下文导致遗忘（Core Memory Bloat）**
     我们将最重要的知识（Tier 0）物理隔离并强插进入 Prompt。考虑到我们已有 \~450 行 shared-rules 和 28+ ADR，如果我们在 Markdown 文件元数据里没把 `globs`（文件路径匹配规则）写好，导致在聊纯前端 UI 时把数据库的铁律也加载了，Context Window 会迅速膨胀。这不仅浪费 Token，还会引发大模型的 "Lost in the Middle"（中间注意力丢失），导致真正的规则被 AI 无视。
 2.  **冲突检测引发的“假阳性”与审批疲劳（False Positives in Conflict Detection）**
-    我们在 Phase C 引入了“生成新规则前，由大模型检测是否与旧规则冲突”。由于 Opus / Gemini 对文本语义过度敏感，它们有较高概率会将“补充边缘场景的新教训”误判为“推翻了系统旧规则”。这将导致 PR 中频繁出现不必要的 `建议 Archive 旧规则` 提示。如果人类 CVO 长时间看到这类提示产生脱敏（Review Fatigue）并盲目点 Approve，会导致核心防护知识库被意外拆毁。
-[待回填]
+    我们在 Phase C 引入了”生成新规则前，由大模型检测是否与旧规则冲突”。由于 Opus / Gemini 对文本语义过度敏感，它们有较高概率会将”补充边缘场景的新教训”误判为”推翻了系统旧规则”。这将导致 PR 中频繁出现不必要的 `建议 Archive 旧规则` 提示。如果人类 CVO 长时间看到这类提示产生脱敏（Review Fatigue）并盲目点 Approve，会导致核心防护知识库被意外拆毁。
 
-## Part 4: 综合分析（待撰写）
+## Part 4: 综合分析
 
-> 两份报告回填后，本地猫综合撰写
+> 综合 5 份独立判断：2 份云端调研（GPT Pro Deep Research / Gemini Deep Think）+ 3 份本地猫评估（opus / gemini / gpt52）
 
-### 两路共识
+### 方法论
 
-[待撰写]
+三只本地猫分别独立阅读两份云端报告，按照 deep-research skill 家规"参考、独立判断、结合实际"原则出具评估。本综合取五方交集为共识，分歧处逐项决议。
 
-### 两路分歧
+### 五方共识（高置信度，直接采纳）
 
-[待撰写]
+**1. 多轴元数据取代单维层级**
+
+GPT Pro 首提 `authority × activation × status` 三轴；Gemini 虽然术语不同（"物理隔离"≈ activation 轴），实质一致。三只本地猫全票认同：把 iron/rule/reference/archive 的单一维度拆成正交轴，解决"高权威但已失效"和"低权威但当前急需"的打架场景。
+
+**采纳的元数据骨架**：
+```yaml
+authority: constitutional | validated | candidate | history
+activation: always_on | scoped | query | backstop
+status: active | review | invalidated | archived
+owner: <human>
+verified_at: <date>
+review_cycle_days: <int>
+valid_from: <date>
+invalid_at: <date|null>
+criticality: normal | high
+source_ids: []       # 压缩溯源
+supersedes: []       # 替代链
+contradicts: []      # 冲突标记
+```
+
+**2. 非替代式压缩 + 源头回链**
+
+GPT Pro 说"summary 不替代原件，带 `source_ids[]`"；Gemini 说"基因链接，保留叶子节点"；gpt52 说"proof chain 优先于 tier level"。五方无异议：压缩只生成索引层摘要，原始 LL/feedback/ADR 永不删除；严禁级联压缩（summary-of-summary）。
+
+**3. Review Queue 取代时间衰减**
+
+GPT Pro 推荐 `valid_at / invalid_at` + 审计队列；Gemini 强烈反对任何时间衰减（"知识没有自然半衰期"）；gpt52 稍有保留但同意核心方向。共识：知识过期由矛盾/被取代/事实变更触发，不由时间流逝或使用频率自动触发。猫标记 `review` 状态，人类 CVO 确认归档或失效。
+
+**4. 简化晋升层级**
+
+原 spec 提议 observed → candidate → provisional → validated 四级。GPT Pro 建议三级（candidate → validated → constitutional）；Gemini 建议极简二态（draft → active）；gpt52 建议三级（observed → candidate → validated）+ constitutional 作为人工特权层。本地三猫共识：**三级 + constitutional 特权层**。
+
+采纳方案：
+| 层级 | 进入方式 | 说明 |
+|------|---------|------|
+| `candidate` | 猫提取/创建 | 新知识的默认状态 |
+| `validated` | 双证据 + 猫提议 + CVO 确认 | 经过验证的可靠知识 |
+| `constitutional` | 仅 CVO 手动提升 | 铁律级，猫无权修改 |
+
+省掉 `provisional` 层——对冷启动 agent 来说中间态没有行为差异，只增加审批负担。
+
+**5. F164 独立于 F163**
+
+"养猫路径"/ 用户个性化偏好适配 是独立课题，不塞入 F163 scope。三只本地猫一致判断 scope 已经够大。
+
+### 关键分歧与决议
+
+**分歧 1：标量加权是否可接受？**
+
+| 立场 | 持有者 | 论据 |
+|------|--------|------|
+| **零标量，纯物理隔离** | Gemini Deep Think, 本地 gemini | "标量乘子破坏向量空间概率分布" |
+| **保守软 pilot** | GPT Pro, 本地 opus, 本地 gpt52 | "post-retrieval boost 是成熟做法，Azure/Elastic 都在用" |
+
+**决议：保守试点，但须理解技术前提。**
+
+Gemini 的"破坏向量空间"论断基于一个前提：标量乘子直接作用于 embedding cosine similarity。但我们的实际检索管道是 **BM25 全文 + 向量语义 + RRF fusion → post-retrieval rerank**。boost 作用在 RRF 融合后的归一化分数上，不触碰原始向量空间。因此 Gemini 的致命性判断**在我们系统中不成立**。
+
+但 GPT Pro 的警告仍然有效："固定大倍率可能让无关高权威文档霸榜"。
+
+**落地**：Phase A 先用 `1.0 ~ 1.3` 窄幅 boost 做 pilot，建立 50-100 query gold set 做 NDCG@10 对比实验，数据说了算。不写死任何倍率到 spec 里。同时，`activation=always_on` 的文档（铁律/活跃 feature spec）走物理注入，不走加权检索——这是 Gemini 物理隔离思路中完全正确的部分。
+
+**分歧 2：时间是否应作为任何信号？**
+
+| 立场 | 持有者 | 论据 |
+|------|--------|------|
+| **纯冲突驱动，时间零权重** | Gemini Deep Think, 本地 gemini, 本地 opus | "软件知识没有半衰期" |
+| **时间作陪审员** | 本地 gpt52 | "时间不是法官但可以是陪审员——加入 review queue 的考量因素" |
+
+**决议：gpt52 的 nuance 被采纳。**
+
+"冲突驱动"是主引擎——知识过期的首要原因是被更高权威的新知识取代或推翻。但 `verified_at` 超过阈值（如 90 天未验证）可以作为进入 review queue 的辅助信号，不是自动降级/删除信号。这和 GPT Pro 报告的 `review_cycle_days` 字段设计一致。区别：**时间触发审查，不触发行动**。
+
+**分歧 3：可观测性的形态**
+
+| 立场 | 持有者 | 论据 |
+|------|--------|------|
+| **情感化可视化（记忆花园）** | 本地 gemini | 直觉、美学、铲屎官体验 |
+| **行为化指标（NDCG/冲突率）** | 本地 gpt52 | 可量化、可迭代、数据驱动 |
+
+**决议：Phase A 先做行为指标，可视化留给后续 Feature。**
+
+F163 的核心交付是改善检索信噪比，需要可量化的 before/after 对比。"记忆花园"是好的 UX 愿景，但属于展示层，不影响底层治理逻辑——标记为 F163 的"后续可选增强"或独立 Feature 候选。
 
 ### 对 F163 spec 的修正建议
 
-[待撰写]
+| 原 spec 内容 | 修正 | 理由 |
+|-------------|------|------|
+| Phase A 四层 + 3.0/2.0/1.0/0.5x 固定乘子 | **多轴元数据 + 窄幅 boost pilot + always_on 物理注入** | 五方共识：单维层级是错误抽象；固定大倍率缺乏先例 |
+| Phase B "合并为 1 条精炼规则" | **非替代式压缩：生成 canonical summary，原件保留，`source_ids[]` 回链，禁止级联压缩** | 五方共识：替代式压缩丢失触发锚点，60% 事实召回损失 |
+| Phase C "时间/频率驱动衰减" | **冲突驱动 review queue + 时间辅助触发审查（不触发行动）** | 五方共识方向；时间作陪审员是 gpt52 的有效补充 |
+| 晋升四级 observed→candidate→provisional→validated | **三级 candidate→validated→constitutional（最后一级仅 CVO 手动）** | 省掉无行为差异的 provisional，降低审批负担 |
+| AC-A2 "iron 层级同等相关度下排序更高" | 改为"always_on 文档物理注入 + query 文档窄幅 boost，NDCG@10 对比实验通过" | 实验驱动，不拍脑袋定权重 |
+| AC-B2 "LL 条目数下降 ≥10%" | 改为"生成 summary 层，original 保留，检索时 summary 优先展示 + 按需展开源条目" | 条目数不下降，噪声通过抽象层降低 |
+| AC-B3 "shared-rules 行数下降 ≥15%" | 保留，但强调"浓缩产出 diff 必须保留 `source_ids` 可追溯" | 行数优化有价值，但溯源是硬约束 |
+| Open Question OQ-1 权重数值 | 不再是 open question——**改为 Phase A 的实验设计** | gold set + A/B 对比替代拍脑袋 |
+| Risk "合并过程丢失细节" | 升级为"**非替代式压缩**是 Phase B 的架构约束，不是风险缓解" | 从"可能丢失"到"架构层面保证不丢失" |
+
+### 新增建议（两份云端报告共同提出、本地猫验证有效的维度）
+
+| 新增项 | 落地 Phase | 说明 |
+|--------|-----------|------|
+| `contradicts[]` / `supersedes[]` 冲突图谱 | Phase C | 让审计围绕冲突触发，不围绕时间 |
+| `criticality: high` / `never_archive` 标签 | Phase A | 保护低频高代价知识（ADR-009 教训） |
+| `owner` + `verified_at` + `review_cycle_days` | Phase C | 知识有 DRI 和验证周期，不是无主之物 |
+| 写入时矛盾检测（write-time contradiction check） | Phase C | 新 LL/ADR 写入前反向查重，发现冲突自动触发 review |
+| 50-100 query gold set 评测基础设施 | Phase A 前置 | 没有 baseline 就没法证明改善 |
 
 ### 置信度变化
 
 | 假设 | 调研前 | 调研后 | 变化原因 |
 |------|--------|--------|---------|
-| 1. 分层加权 | 中（拍脑袋） | | |
-| 2. 知识压缩 | 中（逻辑推导） | | |
-| 3. 生命周期衰减 | 中（逻辑推导） | | |
-| 4. 晋升门禁 | 中（三猫共识） | | |
+| 1. 分层加权 | 中（拍脑袋） | **高（方向对，形态改）** | 五方共识：分层必要，但从单维层级改为多轴元数据 + 窄幅 boost + 物理注入 |
+| 2. 知识压缩 | 中（逻辑推导） | **高（形态改）** | 五方共识：压缩有价值，但必须非替代式 + 源头回链 + 禁止级联 |
+| 3. 生命周期衰减 | 中（逻辑推导） | **高（机制改）** | 五方共识：从时间衰减改为冲突驱动 review queue + 时间辅助审查 |
+| 4. 晋升门禁 | 中（三猫共识） | **中高（简化）** | 四级→三级 + constitutional 特权层；门禁必要但复杂度要控制 |
+
+### 总结论
+
+**F163 该做，方向正确，但三个 Phase 的实现形态都需要修正。**
+
+核心转变：从"四层乘权 + 合并删减 + 定时过期"转向"多轴元数据 + 非替代式压缩 + 冲突驱动审计"。用 GPT Pro 的话说：**知识园艺，不是记忆碎纸机**。用 Gemini 的话说：**物理隔离优于数学干预**（在 always_on 层面成立）。用 gpt52 的话说：**proof chain 优于 tier level**。
+
+下一步：铲屎官确认后，回填修正到 F163 spec → Design Gate → writing-plans。
