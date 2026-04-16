@@ -487,11 +487,12 @@ skills:
   # ── Skill 编写 ──
   writing-skills:
     description: >
-      创建或修改 Cat Café skill 的元技能（含 CSO、测试、发布）。
-      Use when: 写新 skill、修改现有 skill、验证 skill 质量；
+      创建或修改 Cat Café skill / MCP tool description 的元技能（含质量标准、范本、发布）。
+      Use when: 写新 skill、修改现有 skill、写/改 MCP tool description、验证 skill 质量；
       或者功能实现中产出了 SKILL.md / cat-cafe-skills/ 新目录 / manifest.yaml skill 条目。
       Not for: 使用 skill（直接触发对应 skill）。
       Output: 新/更新的 SKILL.md + manifest 条目 + symlinks。
+      GOTCHA: 软硬同重——skill/MCP 质量 = 代码质量，写之前先看范本。
     triggers:
       - "写 skill"
       - "新 skill"
@@ -501,6 +502,9 @@ skills:
       - "manifest.yaml skill"
       - "创建 hook"
       - "新增 hook"
+      - "写 MCP"
+      - "MCP description"
+      - "tool description"
     not_for:
       - "使用 skill"
     output: "SKILL.md + manifest entry + symlinks"
