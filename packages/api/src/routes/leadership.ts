@@ -1,6 +1,7 @@
 /**
  * Leadership Routes — F157 Phase D (铲屎官六维)
  * GET  /api/journey/leadership         — co-creator leadership profile
+ * GET  /api/journey/leadership/titles   — unlocked leadership titles
  * GET  /api/journey/leadership/events   — leadership footfall audit trail
  */
 
@@ -22,6 +23,15 @@ export const leadershipRoutes: FastifyPluginAsync<LeadershipRoutesOptions> = asy
 
     const profile = await leadershipService.getProfile();
     return profile;
+  });
+
+  /** Unlocked leadership titles, newest first. */
+  app.get('/api/journey/leadership/titles', async (request, reply) => {
+    const userId = resolveHeaderUserId(request);
+    if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
+
+    const titles = await leadershipService.getUnlockedTitles();
+    return { titles };
   });
 
   /** Leadership footfall audit trail — newest first, with pagination. */

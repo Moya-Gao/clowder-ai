@@ -52,5 +52,10 @@ export function leadershipAuditKey(): string {
   return 'leadership:audit';
 }
 
+/** Sorted set of unlocked leadership titles. Score = unlock timestamp, member = JSON. */
+export function leadershipTitleKey(): string {
+  return 'leadership:titles';
+}
+
 /** SCAN pattern to match all leadership keys. */
 export const LEADERSHIP_SCAN_ALL = 'leadership:*';

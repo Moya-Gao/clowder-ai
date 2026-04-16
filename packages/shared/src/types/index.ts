@@ -250,6 +250,8 @@ export type {
   LeadershipFootfallSource,
   LeadershipProfile,
   LeadershipStat,
+  LeadershipTitleCondition,
+  LeadershipTitleDefinition,
   MomentCategory,
   MomentCondition,
   MomentDefinition,
@@ -290,6 +292,7 @@ export type {
   StreakCat,
   WorkStats,
 } from './leaderboard.js';
+export { LEADERSHIP_TITLE_DEFINITIONS } from './leadership-title-definitions.js';
 // Limb types (F126 四肢控制面)
 export type {
   ILimbNode,

@@ -293,6 +293,22 @@ export type LeadershipFootfallSource =
   | 'direction_confirmed' // 决策力 (shadow): confirmed direction quickly
   | 'feedback_applied'; // 反馈力 (shadow): feedback led to improvement
 
+// ── Phase D: Leadership Titles (AC-D4) ───────────────────────────
+
+/** Condition for unlocking a leadership title */
+export type LeadershipTitleCondition =
+  | { readonly type: 'leadership_dim_level'; readonly dimension: LeadershipDimension; readonly minLevel: number }
+  | { readonly type: 'leadership_level'; readonly minLevel: number }
+  | { readonly type: 'leadership_total_xp'; readonly minXp: number };
+
+export interface LeadershipTitleDefinition {
+  readonly id: string;
+  readonly label: { readonly zh: string; readonly en: string };
+  readonly description: { readonly zh: string; readonly en: string };
+  readonly rarity: TitleRarity;
+  readonly conditions: readonly LeadershipTitleCondition[];
+}
+
 // ── Backward-compat aliases (remove after full migration) ─────────
 
 /** @deprecated Use TraitDimension */
