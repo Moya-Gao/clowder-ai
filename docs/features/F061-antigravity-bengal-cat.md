@@ -492,6 +492,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-15 | **G10 capacity UX** — `model_capacity` 错误前插 `provider_signal` warning + provider-neutral 归因文案（"上游模型服务端繁忙，非 Cat Café 系统故障"），对齐 Gemini ACP 模式（PR #1185, 砚砚 P1(Gemini硬编码)→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-15 | **Bug-A fix** — `upstream_error` 不再中断 poll loop（模型可自我纠正）；5-case 终止矩阵：model_capacity 始终终止，stream_error 仅单独出现时终止，upstream_error 从不终止（PR #1196, 砚砚 0P1/0P2 放行 + 云端 2P1→fix→0 P1/P2）|
 | 2026-04-16 | **Bug-C fix** — MCP 信号工具 `tier` 参数从数值 enum 改为字符串 enum（Gemini function declaration 只允许 STRING 类型 enum），消除 `INVALID_ARGUMENT 400`（PR #1198, 砚砚 0P1/0P2 放行 + 云端 0 P1/P2）|
+| 2026-04-16 | **Diag stub** — `empty_response` 诊断桩：batch 级 info 日志 + 聚合 warn + unknown_activity 去重 info + 诊断 metadata 附到错误消息。下次 empty_response 可立即区分"上游没字/taxonomy 漏映射/non-text only"（PR #1208, 砚砚 1P2→fix→放行 + 云端 0 P1/P2）|
 
 ---
 
