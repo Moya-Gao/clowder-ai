@@ -6,6 +6,7 @@ import { apiFetch } from '@/utils/api-client';
 import { CatProfileCard } from './CatProfileCard';
 import { CoCreatorCard } from './CoCreatorCard';
 import { GrowthDetailModal } from './GrowthDetailModal';
+import { LeadershipPanel } from './LeadershipPanel';
 
 const CO_CREATOR_ID = 'co-creator';
 
@@ -65,6 +66,12 @@ export function HubGrowthTab() {
 
       {overview ? (
         <>
+          {/* Leadership panel — co-creator leadership dimensions */}
+          <section>
+            <h3 className="mb-3 text-sm font-medium text-cafe-secondary">铲屎官领导力</h3>
+            <LeadershipPanel />
+          </section>
+
           {/* Co-Creator section — distinct from cats */}
           {coCreator && (
             <section>
