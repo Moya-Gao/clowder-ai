@@ -783,6 +783,7 @@ export const callbackTools = [
       'Post a proactive async message to YOUR CURRENT thread mid-task (e.g. progress updates, sharing results). ' +
       'Always posts to the thread your invocation belongs to. To post to a DIFFERENT thread, use cat_cafe_cross_post_message instead. ' +
       'To hand off to another cat, write @猫名 on its own line at the START of the line (sentence-internal @mention does NOT route — it is treated as narrative only). ' +
+      'Output: message appears in your current thread as a new message (separate from your invocation response). ' +
       'GOTCHA: This tool uses callback credentials that expire — if it fails with 401, fall back to line-start @mention in your response text. ' +
       'GOTCHA: Do NOT use this for routine replies — only for mid-task proactive messages when you need to share something before your response completes.',
     inputSchema: postMessageInputSchema,
@@ -848,6 +849,8 @@ export const callbackTools = [
     description:
       'Post a message to a specific thread by threadId (cross-thread notification). ' +
       'Use when you need to notify a different thread about something relevant. ' +
+      'NOT for: posting to your own current thread (use post_message instead). ' +
+      'Output: message appears in the target thread as a new message visible to all participants. ' +
       'GOTCHA: Requires threadId — use list_threads or feat_index to find the right thread first.',
     inputSchema: crossPostMessageInputSchema,
     handler: handleCrossPostMessage,
@@ -874,9 +877,11 @@ export const callbackTools = [
     name: 'cat_cafe_create_task',
     description:
       'Create a new 🧶 毛线球 (yarn ball) task in the current thread. ' +
-      'Use for persistent work items that need tracking across sessions — ' +
+      'Use when: user says "建个毛线球", "记一下任务", "track this", or you identify persistent work items across sessions — ' +
       'e.g. "fix login timeout", "update API docs", "review F160 spec". ' +
-      'NOT for temporary execution steps (use PlanBoard/TodoWrite for those). ' +
+      'NOT for: temporary execution steps (use PlanBoard/TodoWrite), NOT for inline checklists in a message (use create_rich_block with kind:"checklist"). ' +
+      'Output: task appears in the thread 🧶 毛线球 panel, persists across sessions, visible to all cats and 铲屎官. ' +
+      'GOTCHA: 毛线球 ≠ checklist rich block. 毛线球 lives in the task panel and survives session boundaries; checklist is ephemeral inline content in one message. ' +
       'TIP: Include a "why" to give context to whoever picks up the task.',
     inputSchema: createTaskInputSchema,
     handler: handleCreateTask,
@@ -885,9 +890,12 @@ export const callbackTools = [
     name: 'cat_cafe_create_rich_block',
     description:
       'Create a rich block (card, diff, checklist, media_gallery, audio, or interactive) attached to the current message. ' +
-      'Use card for status/decisions, diff for code changes, checklist for todos, media_gallery for images, audio for voice, interactive for user selection/confirmation. ' +
+      'Use card for status/decisions, diff for code changes, checklist for inline todos, media_gallery for images, audio for voice, interactive for user selection/confirmation. ' +
+      'NOT for: persistent task tracking across sessions (use create_task for 🧶 毛线球). NOT for: document generation/export (use generate_document). ' +
+      'Output: block rendered inline in the current message. ' +
       'GOTCHA: The block JSON must use "kind" (NOT "type") and include "v": 1 and a unique "id". ' +
       "GOTCHA: Call get_rich_block_rules first if you haven't loaded the full schema yet in this session. " +
+      'GOTCHA: checklist kind is ephemeral inline content — for persistent cross-session work items, use create_task (毛线球) instead. ' +
       'If callback auth fails, falls back to cc_rich text encoding automatically.',
     inputSchema: createRichBlockInputSchema,
     handler: handleCreateRichBlock,
