@@ -123,6 +123,7 @@
 | F059 | F059: Cat Café 开源计划 | done | [F059-open-source-plan.md](./F059-open-source-plan.md) |
 | F076 | F076: Mission Hub 跨项目作战面板 + 甲方项目治理引擎 | done (superseded by F152) | [F076-mission-hub-cross-project.md](./F076-mission-hub-cross-project.md) |
 | F160 | F160: 毛线球升级 — Thread-Level Persistent Task Board | done | [F160-task-board-upgrade.md](./F160-task-board-upgrade.md) |
+| F164 | F164: Thread Snapshot Persistence — 刷新不失忆 | done | [F164-thread-snapshot-persistence.md](./F164-thread-snapshot-persistence.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

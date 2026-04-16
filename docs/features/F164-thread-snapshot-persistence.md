@@ -10,6 +10,8 @@ created: 2026-04-15
 
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 
+**Completed: 2026-04-16**
+
 ## Why
 
 铲屎官发现断网后按 F5，前端页面完全空白——thread 列表、聊天内容全部消失。原因是前端 `chatStore` 零持久化：`messages: []`、`threads: []` 是冷启动态，`threadStates`（thread 级缓存）纯内存 F5 即死，PWA 对 `/api/*` 是 NetworkOnly。我们从来没设计过离线恢复路径。
@@ -114,6 +116,7 @@ F080 当时明确写了"不做前端本地缓存"，当时的决策是合理的�
 | **Feature** | `docs/features/F048-restart-recovery.md` | Related — 后端恢复（正交互补） |
 | **Plan** | `docs/plans/2026-02-20-f80-streaming-draft-persistence.md` | Related — 当时明确不做前端缓存 |
 | **Plan** | `docs/plans/2026-03-14-issue83-draft-keepalive-and-invocation-recovery.md` | Related — draft/invocation 恢复 |
+| **Capsule** | `docs/reflections/2026-04-16-f164-thread-snapshot-persistence-capsule.md` | 反思胶囊 |
 
 ## 需求点 Checklist
 
