@@ -8,7 +8,7 @@ created: 2026-04-15
 
 # F164: Thread Snapshot Persistence — 刷新不失忆
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -47,13 +47,13 @@ F080 当时明确写了"不做前端本地缓存"，当时的决策是合理的�
 
 ## Acceptance Criteria
 
-### Phase A（IndexedDB 快照 + Cache-First Hydration）
-- [ ] AC-A1: F5 后断网环境下，thread 列表能从 IndexedDB 快照恢复显示
-- [ ] AC-A2: F5 后断网环境下，当前 thread 的最近消息能从 IndexedDB 快照恢复显示
-- [ ] AC-A3: 联网状态下 F5，先显示快照再异步替换为最新数据，用户无感
-- [ ] AC-A4: 离线快照数据显示时有明确的"离线快照"标记，用户知道看到的不是最新数据
-- [ ] AC-A5: 实时态（activeInvocations、streaming draft、queue）不被持久化，不会恢复出过期中间态
-- [ ] AC-A6: IndexedDB 写入异步执行，不阻塞消息渲染主路径（write-through 延迟 < 50ms p99）
+### Phase A（IndexedDB 快照 + Cache-First Hydration）✅
+- [x] AC-A1: F5 后断网环境下，thread 列表能从 IndexedDB 快照恢复显示
+- [x] AC-A2: F5 后断网环境下，当前 thread 的最近消息能从 IndexedDB 快照恢复显示
+- [x] AC-A3: 联网状态下 F5，先显示快照再异步替换为最新数据，用户无感
+- [x] AC-A4: 离线快照数据显示时有明确的"离线快照"标记，用户知道看到的不是最新数据
+- [x] AC-A5: 实时态（activeInvocations、streaming draft、queue）不被持久化，不会恢复出过期中间态
+- [x] AC-A6: IndexedDB 写入异步执行，不阻塞消息渲染主路径（write-through 延迟 < 50ms p99）
 
 ### Phase B（连接状态 + 体验打磨）
 - [ ] AC-B1: UI 能区分并显示三种连接状态：本地 API 可达 / Socket 连接 / 上游模型可达
@@ -98,6 +98,7 @@ F080 当时明确写了"不做前端本地缓存"，当时的决策是合理的�
 | 2026-04-15 | 铲屎官报告断网 F5 空白问题，砚砚根因分析 |
 | 2026-04-15 | 宪宪架构方案 + 烁烁 UX 建议，三猫共识独立立项 |
 | 2026-04-15 | 立项 F164 |
+| 2026-04-16 | Phase A merged (PR #1199) |
 
 ## Review Gate
 
@@ -117,10 +118,10 @@ F080 当时明确写了"不做前端本地缓存"，当时的决策是合理的�
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "断网了，我按 F5 我们的前端页面都刷不出来" | AC-A1, AC-A2 | 断网 + F5 手动测试 | [ ] |
-| R2 | "就是有多少 thread 啊我们的聊天内容啊就都没了" | AC-A1, AC-A2 | 断网 + F5 验证 thread 列表和消息可见 | [ ] |
-| R3 | 联网时 F5 体验无退化 | AC-A3 | 联网 F5 测试，确认先显示再替换 | [ ] |
-| R4 | 用户能区分离线快照和实时数据 | AC-A4 | 截图验证离线标记 | [ ] |
+| R1 | "断网了，我按 F5 我们的前端页面都刷不出来" | AC-A1, AC-A2 | 断网 + F5 手动测试 | [x] |
+| R2 | "就是有多少 thread 啊我们的聊天内容啊就都没了" | AC-A1, AC-A2 | 断网 + F5 验证 thread 列表和消息可见 | [x] |
+| R3 | 联网时 F5 体验无退化 | AC-A3 | 联网 F5 测试，确认先显示再替换 | [x] |
+| R4 | 用户能区分离线快照和实时数据 | AC-A4 | 截图验证离线标记 | [x] |
 | R5 | 连接状态可区分（砚砚+烁烁提议） | AC-B1 | 截图验证三态指示器 | [ ] |
 
 ### 覆盖检查
