@@ -540,6 +540,43 @@ describe('GET /api/connector/hub-threads', () => {
 
 const { WeComBotAdapter } = await import('../dist/infrastructure/connectors/adapters/WeComBotAdapter.js');
 
+describe('GET /api/connector/status — WeCom Bot live health', () => {
+  it('P1: shows configured=false when adapter getter returns null (not false green from env)', async () => {
+    const savedBotId = process.env.WECOM_BOT_ID;
+    const savedSecret = process.env.WECOM_BOT_SECRET;
+    process.env.WECOM_BOT_ID = 'some-bot';
+    process.env.WECOM_BOT_SECRET = 'some-secret';
+
+    const app = Fastify();
+    await app.register(connectorHubRoutes, {
+      threadStore: {
+        async list() {
+          return [];
+        },
+      },
+      getWeComBotAdapter: () => null, // adapter stopped/not started
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/connector/status',
+      headers: AUTH_HEADERS,
+    });
+    const body = JSON.parse(res.body);
+    const wecomBot = body.platforms.find((p) => p.id === 'wecom-bot');
+
+    assert.ok(wecomBot, 'wecom-bot platform must exist in status');
+    assert.equal(wecomBot.configured, false, 'configured must be false when adapter is null, even with env vars set');
+
+    process.env.WECOM_BOT_ID = savedBotId;
+    process.env.WECOM_BOT_SECRET = savedSecret;
+    if (!savedBotId) delete process.env.WECOM_BOT_ID;
+    if (!savedSecret) delete process.env.WECOM_BOT_SECRET;
+    await app.close();
+  });
+});
+
 describe('POST /api/connector/wecom-bot/validate', () => {
   it('returns 401 without auth header', async () => {
     const { app } = await buildApp();
@@ -682,6 +719,41 @@ describe('POST /api/connector/wecom-bot/validate', () => {
     assert.equal(res.statusCode, 422);
     assert.equal(body.valid, false);
     assert.equal(body.error, 'Bad credentials');
+
+    WeComBotAdapter.validateCredentials = original;
+    await app.close();
+  });
+
+  it('P1: does not stop existing adapter when validation fails (no live-connection kill)', async () => {
+    const original = WeComBotAdapter.validateCredentials;
+    WeComBotAdapter.validateCredentials = async () => ({ valid: false, error: 'Bad credentials' });
+
+    let stopCalled = false;
+    const app = Fastify();
+    await app.register(connectorHubRoutes, {
+      threadStore: {
+        async list() {
+          return [];
+        },
+      },
+      stopWeComBot: async () => {
+        stopCalled = true;
+      },
+    });
+    await app.ready();
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/connector/wecom-bot/validate',
+      headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+      payload: JSON.stringify({ botId: 'bad', secret: 'bad' }),
+    });
+
+    assert.equal(
+      stopCalled,
+      false,
+      'stopWeComBot must NOT be called when validation fails — it kills the live connection',
+    );
 
     WeComBotAdapter.validateCredentials = original;
     await app.close();

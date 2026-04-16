@@ -1375,4 +1375,76 @@ describe('WeComBotAdapter', () => {
       assert.equal(result.messageId, '');
     });
   });
+
+  // ── Connection health state (F132 bugfix: disconnected_event recovery) ──
+  describe('connection health state', () => {
+    it('getConnectionState() returns "disconnected" before startStream', () => {
+      const adapter = makeAdapter();
+      assert.equal(adapter.getConnectionState(), 'disconnected');
+    });
+
+    it('getConnectionState() returns "connected" after authenticated event', async () => {
+      const adapter = makeAdapter();
+      // Simulate authenticated via _setConnectionState test helper
+      adapter._setConnectionState('connected');
+      assert.equal(adapter.getConnectionState(), 'connected');
+    });
+
+    it('getConnectionState() returns "disconnected" after disconnect', () => {
+      const adapter = makeAdapter();
+      adapter._setConnectionState('connected');
+      adapter._setConnectionState('disconnected');
+      assert.equal(adapter.getConnectionState(), 'disconnected');
+    });
+
+    it('getConnectionState() returns "reconnecting" during reconnect', () => {
+      const adapter = makeAdapter();
+      adapter._setConnectionState('reconnecting');
+      assert.equal(adapter.getConnectionState(), 'reconnecting');
+    });
+  });
+
+  // ── Stale state cleanup on disconnect ──
+  describe('stale state cleanup on disconnect', () => {
+    it('clearStaleState() clears activeStreams', async () => {
+      const adapter = makeAdapter();
+      seedChat(adapter);
+      adapter._injectReplyStream(async () => {});
+      adapter._injectGenerateReqId(() => 'stale_stream');
+
+      await adapter.sendPlaceholder('user_001', 'test');
+      assert.equal(adapter._getActiveStreams().size, 1);
+
+      adapter._clearStaleState();
+      assert.equal(adapter._getActiveStreams().size, 0);
+    });
+
+    it('clearStaleState() clears lastFrameByChat cache', async () => {
+      const adapter = makeAdapter();
+      adapter._setLastFrame('chat_a', makeFrame('r1'));
+      adapter._setLastFrame('chat_b', makeFrame('r2'));
+
+      adapter._clearStaleState();
+      // After clearing, sendPlaceholder should fall back (no cached frame)
+      const streamCalls = [];
+      adapter._injectReplyStream(async () => {
+        streamCalls.push(true);
+      });
+      adapter._injectSendMessage(async () => {});
+      // This would use cached frame if it existed, but should fall back
+      const result = await adapter.sendPlaceholder('chat_a', 'test');
+      assert.equal(result, '');
+    });
+  });
+
+  // ── Outbound fail-fast when disconnected ──
+  describe('outbound fail-fast when disconnected', () => {
+    it('sendReply throws when connection state is disconnected (no DI override)', async () => {
+      const adapter = makeAdapter();
+      // No injection = uses real wsClient which is null
+      await assert.rejects(() => adapter.sendReply('user_001', 'test'), {
+        message: /wsClient not connected/,
+      });
+    });
+  });
 });

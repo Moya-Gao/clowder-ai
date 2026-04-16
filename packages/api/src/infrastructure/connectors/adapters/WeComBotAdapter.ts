@@ -71,6 +71,13 @@ export class WeComBotAdapter implements IStreamableOutboundAdapter {
   private wsClient: unknown = null;
   private stopFn: (() => Promise<void>) | null = null;
 
+  // Connection health state — exposed via getConnectionState() for status endpoint
+  private connectionState: 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
+
+  // Delayed reconnect timer for disconnected_event recovery
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly RECONNECT_DELAY_MS = 10_000;
+
   // Active streaming sessions (keyed by streamId = platformMessageId)
   private readonly activeStreams = new Map<string, ActiveStream>();
 
@@ -114,6 +121,21 @@ export class WeComBotAdapter implements IStreamableOutboundAdapter {
     this.botId = options.botId;
     this.secret = options.secret;
     this.redis = options.redis;
+  }
+
+  // ── Connection Health ──
+
+  getConnectionState(): 'connected' | 'disconnected' | 'reconnecting' {
+    return this.connectionState;
+  }
+
+  /**
+   * Clear stale state after a disconnect — orphaned activeStreams and lastFrameByChat
+   * entries carry stale req_id values that the WeCom server will reject after reconnect.
+   */
+  private clearStaleState(): void {
+    this.activeStreams.clear();
+    this.lastFrameByChat.clear();
   }
 
   // ── F132 Phase E: Credential validation ──
@@ -620,14 +642,27 @@ export class WeComBotAdapter implements IStreamableOutboundAdapter {
         },
       );
 
-      // Lifecycle events
+      // Lifecycle events — maintain connection health state
       client.on('authenticated', () => {
+        this.connectionState = 'connected';
         this.log.info('[WeComBotAdapter] WebSocket authenticated');
       });
       client.on('disconnected', (reason: string) => {
+        this.connectionState = 'disconnected';
+        this.clearStaleState();
         this.log.warn({ reason }, '[WeComBotAdapter] WebSocket disconnected');
+
+        // SDK sets isManualClose=true on disconnected_event (server kicked us
+        // because "a new connection has been established"), which prevents
+        // automatic reconnection. Schedule our own delayed reconnect — the
+        // competing connection (e.g. validateCredentials) is typically transient
+        // and will have disconnected by the time we retry.
+        if (reason.includes('New connection established')) {
+          this.scheduleReconnect(client);
+        }
       });
       client.on('reconnecting', (attempt: number) => {
+        this.connectionState = 'reconnecting';
         this.log.info({ attempt }, '[WeComBotAdapter] WebSocket reconnecting');
       });
       client.on('error', (error: Error) => {
@@ -653,13 +688,43 @@ export class WeComBotAdapter implements IStreamableOutboundAdapter {
   }
 
   /**
+   * Schedule a delayed reconnect after the SDK refuses to auto-reconnect
+   * (disconnected_event sets isManualClose=true in the SDK).
+   * We call client.connect() directly to bypass the isManualClose flag.
+   */
+  private scheduleReconnect(client: { connect(): void }): void {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+
+    this.connectionState = 'reconnecting';
+    this.log.info(
+      { delayMs: WeComBotAdapter.RECONNECT_DELAY_MS },
+      '[WeComBotAdapter] Scheduling delayed reconnect after server disconnect',
+    );
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.log.info('[WeComBotAdapter] Attempting delayed reconnect');
+      try {
+        client.connect();
+      } catch (err) {
+        this.log.error({ err }, '[WeComBotAdapter] Delayed reconnect failed');
+      }
+    }, WeComBotAdapter.RECONNECT_DELAY_MS);
+  }
+
+  /**
    * Stop the WebSocket connection.
    */
   async stopStream(): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.stopFn) {
       await this.stopFn();
       this.stopFn = null;
       this.wsClient = null;
+      this.connectionState = 'disconnected';
       this.log.info('[WeComBotAdapter] WebSocket connection stopped');
     }
   }
@@ -876,5 +941,15 @@ export class WeComBotAdapter implements IStreamableOutboundAdapter {
   /** @internal — expose active streams for testing */
   _getActiveStreams(): Map<string, ActiveStream> {
     return this.activeStreams;
+  }
+
+  /** @internal — set connection state for testing */
+  _setConnectionState(state: 'connected' | 'disconnected' | 'reconnecting'): void {
+    this.connectionState = state;
+  }
+
+  /** @internal — clear stale state for testing */
+  _clearStaleState(): void {
+    this.clearStaleState();
   }
 }

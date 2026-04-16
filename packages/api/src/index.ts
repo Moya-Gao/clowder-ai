@@ -2148,6 +2148,8 @@ async function main(): Promise<void> {
       connectorHubOpts as { startWeComBotStream?: (botId: string, secret: string) => Promise<void> }
     ).startWeComBotStream = handle.startWeComBotStream;
     (connectorHubOpts as { stopWeComBot?: () => Promise<void> }).stopWeComBot = handle.stopWeComBot;
+    // F132 bugfix: live health getter for status endpoint
+    (connectorHubOpts as { getWeComBotAdapter?: () => unknown }).getWeComBotAdapter = handle.getWeComBotAdapter;
     (connectorHubOpts as { permissionStore?: unknown }).permissionStore = handle.permissionStore;
   }
 

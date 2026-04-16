@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { applyConnectorSecretUpdates } from '../config/connector-secret-updater.js';
 import { DEFAULT_THREAD_ID, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { WeComBotAdapter } from '../infrastructure/connectors/adapters/WeComBotAdapter.js';
 import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
 import type { IConnectorPermissionStore } from '../infrastructure/connectors/ConnectorPermissionStore.js';
 import { DefaultFeishuQrBindClient, type FeishuQrBindClient } from '../infrastructure/connectors/FeishuQrBindClient.js';
@@ -20,6 +21,8 @@ export interface ConnectorHubRoutesOptions {
   startWeComBotStream?: (botId: string, secret: string) => Promise<void>;
   /** F132 Phase E: stop running WeCom Bot adapter (for disconnect) */
   stopWeComBot?: () => Promise<void>;
+  /** Live WeCom Bot adapter getter for health reporting (instance changes on reconnect) */
+  getWeComBotAdapter?: () => WeComBotAdapter | null;
   /** F134 Phase D: Permission store for group whitelist + admin management */
   permissionStore?: IConnectorPermissionStore | null;
   envFilePath?: string;
@@ -296,6 +299,14 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       const adapter = opts.weixinAdapter;
       weixinStatus.configured = adapter != null && adapter.hasBotToken() && adapter.isPolling();
     }
+    // F132 bugfix: WeCom Bot live health — override "configured" with actual connection state.
+    // When getter is wired (gateway started) but returns null (adapter stopped/not started),
+    // force configured=false to avoid false green light from env var check.
+    const wecomBotStatus = status.find((p) => p.id === 'wecom-bot');
+    if (wecomBotStatus && opts.getWeComBotAdapter) {
+      const adapter = opts.getWeComBotAdapter();
+      wecomBotStatus.configured = adapter?.getConnectionState() === 'connected';
+    }
     return { platforms: status };
   });
 
@@ -475,6 +486,11 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     }
 
     try {
+      // Note: we intentionally do NOT stop the existing adapter before validation.
+      // The validate probe may kick the running WS via disconnected_event, but the
+      // adapter's scheduleReconnect() handles recovery. Stopping here would kill
+      // a working connection on validation failure with no way to restore it.
+      // On success, startWeComBotStream() stops the old adapter before starting new.
       const { WeComBotAdapter } = await import('../infrastructure/connectors/adapters/WeComBotAdapter.js');
       const result = await WeComBotAdapter.validateCredentials(botId, secret);
 

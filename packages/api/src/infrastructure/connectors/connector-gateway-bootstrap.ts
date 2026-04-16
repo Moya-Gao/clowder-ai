@@ -187,6 +187,8 @@ export interface ConnectorGatewayHandle {
   readonly startWeComBotStream: (botId: string, secret: string) => Promise<void>;
   /** F132 Phase E: stop running WeCom Bot adapter (for disconnect) */
   readonly stopWeComBot: () => Promise<void>;
+  /** F132 bugfix: live adapter getter for health reporting (instance changes on restart) */
+  readonly getWeComBotAdapter: () => WeComBotAdapter | null;
   stop(): Promise<void>;
 }
 
@@ -935,6 +937,7 @@ export async function startConnectorGateway(
     startWeixinPolling,
     startWeComBotStream,
     stopWeComBot,
+    getWeComBotAdapter: () => (adapters.get('wecom-bot') as WeComBotAdapter) ?? null,
     async stop() {
       cleanupJob.stop();
       await Promise.allSettled(stopFns.map((fn) => fn()));
