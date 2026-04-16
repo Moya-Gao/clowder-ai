@@ -824,20 +824,19 @@ test('F163: always_on docs NOT injected when flag=off', async () => {
 **Step 3: Add `queryAlwaysOn()` to SqliteEvidenceStore**
 
 ```typescript
-queryAlwaysOn(): Array<{ anchor: string; title: string; ftsContent: string }> {
+queryAlwaysOn(): Array<{ anchor: string; title: string; summary: string }> {
   return this.db.prepare(`
-    SELECT d.anchor, d.title, f.content AS fts_content
-    FROM evidence_docs d
-    JOIN evidence_fts f ON f.anchor = d.anchor
-    WHERE d.activation = 'always_on'
-      AND d.authority = 'constitutional'
-      AND d.status = 'active'
-  `).all() as Array<{ anchor: string; title: string; fts_content: string }>;
+    SELECT anchor, title, summary
+    FROM evidence_docs
+    WHERE activation = 'always_on'
+      AND authority = 'constitutional'
+      AND status = 'active'
+  `).all() as Array<{ anchor: string; title: string; summary: string }>;
 }
 ```
 
 约束：`always_on` 仅限 `constitutional` authority（spec KD-2 + AC-A3 guard）。
-注意：`EvidenceItem` 没有 `content` 字段——全文内容在 `evidence_fts.content`，因此 JOIN FTS 表取。
+数据来源：直接查 `evidence_docs`（`title` + `summary` 列），无需 JOIN FTS。FTS5 是 external-content 表（`content=evidence_docs, content_rowid=rowid`），只有 `title, summary` 两列且无 `anchor`，不适合直接 JOIN。
 
 **Step 4: Wire into SystemPromptBuilder**
 
@@ -848,7 +847,7 @@ In `buildInvocationContext()` (`SystemPromptBuilder.ts:461`):
 if (getEnv('F163_ALWAYS_ON_INJECTION') !== 'off') {
   const alwaysOnDocs = evidenceStore.queryAlwaysOn();
   if (alwaysOnDocs.length > 0) {
-    const section = alwaysOnDocs.map(d => d.fts_content).join('\n---\n');
+    const section = alwaysOnDocs.map(d => `### ${d.title}\n\n${d.summary}`).join('\n\n---\n\n');
     if (getEnv('F163_ALWAYS_ON_INJECTION') === 'on') {
       // Physically inject into prompt
       parts.push(`## Constitutional Knowledge (always_on)\n\n${section}`);
