@@ -1,6 +1,6 @@
 ---
 topics: [harness-engineering, research-prompt, overfitting, guided-personalization, memory-lifecycle]
-related_features: [F102, F152, F163]
+related_features: [F102, F152, F163, F165]
 related_decisions: []
 doc_kind: discussion
 created: 2026-04-15

@@ -1,6 +1,6 @@
 ---
 topics: [harness-engineering, agent-runtime, context-engineering, managed-agents, multi-agent, coding-agents]
-related_features: [F050, F070, F086, F102, F143, F149, F163]
+related_features: [F050, F070, F086, F102, F143, F149, F163, F165]
 related_decisions: [ADR-023, ADR-026]
 doc_kind: discussion
 created: 2026-04-15
