@@ -11,13 +11,13 @@ created: 2026-03-11
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04 (Phase A~J) | **Reopened**: 2026-04-13 (Phase K) | **Re-closed**: 2026-04-14 (Phase K done, AC-K3/K4 deferred)
 > **Reflection**: [`docs/reflections/2026-04-04-f102-memory-adapter-capsule.md`](../reflections/2026-04-04-f102-memory-adapter-capsule.md)
 >
-> ### 给其他猫的快速现状（2026-04-15 更新）
+> ### 给其他猫的快速现状（2026-04-16 更新）
 >
 > **Message 级别检索已上线运行。** 用 `search_evidence(scope="threads", depth="raw")` 可搜到具体消息（speaker + timestamp + passageId）。当前限制：`depth=raw` 仅走 lexical 模式（会显示 `[DEGRADED]` 提示），passage 向量路径（AC-K3）deferred。日常用 `mode="hybrid"` 搜 thread 时 depth 默认 summary 级别，已包含消息摘要；需要定位具体消息时切 `depth="raw"`。
 >
-> 近期修复链（2026-04-14~15，PR #1155/#1160/#1179/#1192/#1195）：depth=raw 降级信号 → passage 排序 → heading→keywords 索引 → auto-rebuild 机制 → lexical recall backfill。核心检索能力已经过三轮 dogfood 验证。
+> 近期修复链（2026-04-14~16，PR #1155/#1160/#1179/#1192/#1195/#1204）：depth=raw 降级信号 → passage 排序 → heading→keywords 索引 → auto-rebuild 机制 → lexical recall backfill → docs scope filter 修正。核心检索能力已经过三轮 dogfood 验证。
 >
-> 晚间复测（2026-04-15，`F148` 深术语样本）显示：`scope="threads", depth="raw"` 对 `briefing→invocation link telemetry`、`B+A AutoSummarizer + regex` 这类 query 已能命中具体 passage；但 `scope="docs", depth="summary"` 对 `DecisionSignals`、`buildThreadMemory`、`coverageMap.searchSuggestions`、`scoreImportance` 这类埋得较深的实现名词仍不稳，且出现过 `scope=docs` 混入 discussion 结果的异常。
+> 晚间复测（2026-04-15，`F148` 深术语样本）显示：`scope="threads", depth="raw"` 对 `briefing→invocation link telemetry`、`B+A AutoSummarizer + regex` 这类 query 已能命中具体 passage；`scope="docs", depth="summary"` 暴露出的 `scope=docs` 混入 thread digest 异常已由 PR #1204 修复（排 `thread/session`，保留 file-backed `discussion` 文档）。下一步按同一组 `F148` 样本 re-dogfood，确认 docs summary 对深实现名词的残余短板到底是过滤还是排序。
 >
 > **后续优化方向**：评测基准从手挑 query 升级为“固定回归集 + seeded 随机 feature 抽样 + query 扰动变体”，避免 recall dogfood 对已知样例过拟合。
 
@@ -1423,6 +1423,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-15 | **PR #1192 squash merged** — root cause fix: `INDEXING_VERSION` auto-rebuild mechanism so scanner logic changes take effect on restart without manual `--force` |
 | 2026-04-15 | **PR #1195 squash merged** — lexical recall gate strengthened with title/summary/keywords backfill; stale signal-noise kind assertion aligned to exported `EvidenceKind` set |
 | 2026-04-15 | 晚间猫粮复测（`F148` 深术语样本）—— message-level raw 表现好；docs summary 对深实现名词仍弱。后续 benchmark 调整为固定回归 + seeded 随机 feature 抽样 + query 扰动，防 query 过拟合 |
+| 2026-04-16 | **PR #1204 squash merged** — docs scope filter tightened: exclude `thread/session` digests while keeping file-backed `discussion` docs |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
@@ -1485,7 +1486,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 
 ## 实现路线图（F/G/Gap 整体规划）
 
-> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅ + **Phase K ✅**（AC-K1/K2 闭环，PR #1155）+ **post-K dogfood fixes ✅**（PR #1160/#1179/#1192/#1195 — passage ranking + heading keywords + auto-rebuild + recall backfill）。AC-K3/K4 deferred。
+> **当前状态**：Phase A~E ✅ + G foundation ✅ + H ✅ + I ✅ + F-4 ✅ + J ✅ + F-1/2/3 ✅ + Known Issues fix ✅ (PR #908) + Batch 1/2/3 ✅ + follow-up ✅ + **Phase K ✅**（AC-K1/K2 闭环，PR #1155）+ **post-K dogfood fixes ✅**（PR #1160/#1179/#1192/#1195/#1204 — passage ranking + heading keywords + auto-rebuild + recall backfill + docs scope filter）。AC-K3/K4 deferred。
 > **铲屎官指示**：开源同步时增强功能需要开关，默认 off。
 
 ### 收尾三批次（2026-04-01 三方收敛：布偶猫+砚砚 GPT-5.4+铲屎官）
