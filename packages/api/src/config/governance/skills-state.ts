@@ -108,6 +108,58 @@ export async function computeSourceManifestHash(sourceRoot: string): Promise<str
 }
 
 /**
+ * List skill directory names from source root (sorted).
+ * Only includes directories containing SKILL.md.
+ */
+export async function listSourceSkillNames(sourceRoot: string): Promise<string[]> {
+  try {
+    const entries = await readdir(sourceRoot, { withFileTypes: true });
+    const names: string[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const s = await stat(join(sourceRoot, entry.name, 'SKILL.md'));
+        if (s.isFile()) names.push(entry.name);
+      } catch {
+        // No SKILL.md — not a skill directory
+      }
+    }
+    return names.sort();
+  } catch {
+    return [];
+  }
+}
+
+// --- ADR-025 Phase 2: Stale Detection ---
+
+export interface SkillsStaleness {
+  stale: boolean;
+  currentHash: string;
+  recordedHash: string | null;
+  newSkills: string[];
+  removedSkills: string[];
+}
+
+/**
+ * Compare recorded manifest hash against current source directory.
+ * Detects when skills have been added or removed since last sync.
+ */
+export async function checkStaleness(projectRoot: string, sourceRoot: string): Promise<SkillsStaleness> {
+  const state = await readSkillsState(projectRoot);
+  const currentHash = await computeSourceManifestHash(sourceRoot);
+  const currentNames = await listSourceSkillNames(sourceRoot);
+  const managedNames = state?.managedSkillNames ?? [];
+
+  return {
+    stale: state === null || state.sourceManifestHash !== currentHash,
+    currentHash,
+    recordedHash: state?.sourceManifestHash ?? null,
+    newSkills: currentNames.filter((n) => !managedNames.includes(n)),
+    removedSkills: managedNames.filter((n) => !currentNames.includes(n)),
+  };
+}
+
+/**
  * Check if a skill name is in the managed set.
  * Returns false if state is null (backward compat: treat all as unmanaged).
  */

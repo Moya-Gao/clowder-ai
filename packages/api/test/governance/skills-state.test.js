@@ -11,10 +11,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 
-// Module under test — will fail until implemented (RED phase)
+// Module under test
 import {
+  checkStaleness,
   computeSourceManifestHash,
   isManagedSkill,
+  listSourceSkillNames,
   readSkillsState,
   writeSkillsState,
 } from '../../dist/config/governance/skills-state.js';
@@ -195,5 +197,103 @@ describe('SkillsState (ADR-025 Phase 1)', () => {
 
   test('isManagedSkill returns false when state is null', () => {
     assert.equal(isManagedSkill(null, 'tdd'), false);
+  });
+
+  // --- listSourceSkillNames (ADR-025 Phase 2) ---
+
+  test('listSourceSkillNames returns sorted skill names', async () => {
+    const skillsRoot = join(tempDir, 'cat-cafe-skills');
+    await mkdir(join(skillsRoot, 'worktree'), { recursive: true });
+    await writeFile(join(skillsRoot, 'worktree', 'SKILL.md'), '# Worktree');
+    await mkdir(join(skillsRoot, 'tdd'));
+    await writeFile(join(skillsRoot, 'tdd', 'SKILL.md'), '# TDD');
+    await mkdir(join(skillsRoot, 'refs')); // no SKILL.md
+
+    const names = await listSourceSkillNames(skillsRoot);
+    assert.deepStrictEqual(names, ['tdd', 'worktree']);
+  });
+
+  test('listSourceSkillNames returns empty for missing dir', async () => {
+    const names = await listSourceSkillNames(join(tempDir, 'nonexistent'));
+    assert.deepStrictEqual(names, []);
+  });
+
+  // --- checkStaleness (ADR-025 Phase 2) ---
+
+  test('checkStaleness reports fresh when hashes match', async () => {
+    const skillsRoot = join(tempDir, 'cat-cafe-skills');
+    await mkdir(join(skillsRoot, 'tdd'), { recursive: true });
+    await writeFile(join(skillsRoot, 'tdd', 'SKILL.md'), '# TDD');
+
+    const hash = await computeSourceManifestHash(skillsRoot);
+    await writeSkillsState(tempDir, {
+      managedSkillNames: ['tdd'],
+      sourceRoot: 'cat-cafe-skills',
+      sourceManifestHash: hash,
+      lastSyncedAt: '2026-04-16T00:00:00Z',
+    });
+
+    const result = await checkStaleness(tempDir, skillsRoot);
+    assert.equal(result.stale, false);
+    assert.deepStrictEqual(result.newSkills, []);
+    assert.deepStrictEqual(result.removedSkills, []);
+  });
+
+  test('checkStaleness reports stale when skill added', async () => {
+    const skillsRoot = join(tempDir, 'cat-cafe-skills');
+    await mkdir(join(skillsRoot, 'tdd'), { recursive: true });
+    await writeFile(join(skillsRoot, 'tdd', 'SKILL.md'), '# TDD');
+
+    const hash = await computeSourceManifestHash(skillsRoot);
+    await writeSkillsState(tempDir, {
+      managedSkillNames: ['tdd'],
+      sourceRoot: 'cat-cafe-skills',
+      sourceManifestHash: hash,
+      lastSyncedAt: '2026-04-16T00:00:00Z',
+    });
+
+    // Add a new skill to source
+    await mkdir(join(skillsRoot, 'debugging'));
+    await writeFile(join(skillsRoot, 'debugging', 'SKILL.md'), '# Debugging');
+
+    const result = await checkStaleness(tempDir, skillsRoot);
+    assert.equal(result.stale, true);
+    assert.deepStrictEqual(result.newSkills, ['debugging']);
+    assert.deepStrictEqual(result.removedSkills, []);
+  });
+
+  test('checkStaleness reports stale when skill removed from source', async () => {
+    const skillsRoot = join(tempDir, 'cat-cafe-skills');
+    await mkdir(join(skillsRoot, 'tdd'), { recursive: true });
+    await writeFile(join(skillsRoot, 'tdd', 'SKILL.md'), '# TDD');
+    await mkdir(join(skillsRoot, 'debugging'));
+    await writeFile(join(skillsRoot, 'debugging', 'SKILL.md'), '# Debugging');
+
+    const hash = await computeSourceManifestHash(skillsRoot);
+    await writeSkillsState(tempDir, {
+      managedSkillNames: ['debugging', 'tdd'],
+      sourceRoot: 'cat-cafe-skills',
+      sourceManifestHash: hash,
+      lastSyncedAt: '2026-04-16T00:00:00Z',
+    });
+
+    // Remove a skill from source
+    await rm(join(skillsRoot, 'debugging'), { recursive: true });
+
+    const result = await checkStaleness(tempDir, skillsRoot);
+    assert.equal(result.stale, true);
+    assert.deepStrictEqual(result.newSkills, []);
+    assert.deepStrictEqual(result.removedSkills, ['debugging']);
+  });
+
+  test('checkStaleness reports stale when no state file exists', async () => {
+    const skillsRoot = join(tempDir, 'cat-cafe-skills');
+    await mkdir(join(skillsRoot, 'tdd'), { recursive: true });
+    await writeFile(join(skillsRoot, 'tdd', 'SKILL.md'), '# TDD');
+
+    const result = await checkStaleness(tempDir, skillsRoot);
+    assert.equal(result.stale, true);
+    assert.equal(result.recordedHash, null);
+    assert.deepStrictEqual(result.newSkills, ['tdd']);
   });
 });
