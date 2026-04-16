@@ -184,6 +184,32 @@ export async function* routeParallel(
           /* best-effort: signal lookup failure does not block invocation */
         }
       }
+
+      // F163 AC-A3: always_on constitutional docs injection (fail-open, flag-gated)
+      // shadow: query but do NOT inject into prompt (record-only for experiment diff)
+      // on: query AND inject into prompt
+      // off: skip entirely
+      let alwaysOnDocs: readonly { anchor: string; title: string; summary: string }[] | undefined;
+      let alwaysOnInjectionMode: 'off' | 'shadow' | 'on' = 'off';
+      if (deps.evidenceStore) {
+        try {
+          const { freezeFlags } = await import('../../../../../domains/memory/f163-types.js');
+          const f163Flags = freezeFlags();
+          alwaysOnInjectionMode = f163Flags.alwaysOnInjection;
+          if (alwaysOnInjectionMode !== 'off') {
+            const queryAlwaysOn = (
+              deps.evidenceStore as { queryAlwaysOn?: () => Array<{ anchor: string; title: string; summary: string }> }
+            ).queryAlwaysOn;
+            if (queryAlwaysOn) {
+              const docs = queryAlwaysOn();
+              if (docs.length > 0) alwaysOnDocs = docs;
+            }
+          }
+        } catch {
+          /* fail-open: always_on lookup failure does not block invocation */
+        }
+      }
+
       const invocationContext = buildInvocationContext({
         catId,
         mode: 'parallel',
@@ -196,6 +222,7 @@ export async function* routeParallel(
         ...(activeSignals ? { activeSignals } : {}),
         ...(voiceMode ? { voiceMode } : {}),
         ...(bootcampState ? { bootcampState, threadId } : {}),
+        ...(alwaysOnDocs && alwaysOnInjectionMode === 'on' ? { alwaysOnDocs } : {}),
         ...guideContextForCat(guideCtx, catId, targetCatIds, threadId),
       });
 

@@ -1025,7 +1025,13 @@
       "name": "Thread Snapshot Persistence — 刷新不失忆",
       "status": "done | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F164-thread-snapshot-persistence.md"
+    },
+    {
+      "id": "F165",
+      "name": "Guided Overfitting — 引导式过拟合 / 养猫路径",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P2",
+      "file": "F165-guided-overfitting.md"
     }
   ],
-  "generated_at": "2026-04-16T06:50:12.995Z"
+  "generated_at": "2026-04-16T13:20:42.762Z"
 }

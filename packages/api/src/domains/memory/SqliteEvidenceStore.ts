@@ -1,6 +1,8 @@
 // F102: SQLite implementation of IEvidenceStore
 
 import Database from 'better-sqlite3';
+import { EvidenceWriteQueue } from './evidence-write-queue.js';
+import { type F163Authority, freezeFlags } from './f163-types.js';
 import type {
   Edge,
   EvidenceItem,
@@ -41,6 +43,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   private db: Database.Database | null = null;
   private readonly dbPath: string;
   private embedDeps?: EmbedDeps;
+  /** F163: single-writer queue serializes all evidence.sqlite mutations */
+  private readonly writeQueue = new EvidenceWriteQueue();
 
   constructor(dbPath: string, embedDeps?: EmbedDeps) {
     this.dbPath = dbPath;
@@ -327,6 +331,13 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       return this.enrichWithDrillDown(results.slice(0, limit));
     }
 
+    // ── F163: Post-retrieval authority boost (fail-open: Task 11) ──
+    try {
+      applyAuthorityBoost(results);
+    } catch {
+      // Kill-switch: boost failure → continue with original ranking
+    }
+
     // P2 R2 fix (砚砚): keep full BM25 candidate pool for hybrid RRF,
     // only slice to limit for lexical/fallback returns
     const lexicalCandidates = results.slice(0, bm25Pool);
@@ -546,54 +557,64 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   }
 
   async upsert(items: EvidenceItem[]): Promise<void> {
-    this.ensureOpen();
-    const db = this.db;
-    if (!db) {
-      throw new Error('Evidence store is closed');
-    }
+    return this.writeQueue.enqueue(() => {
+      this.ensureOpen();
+      const db = this.db;
+      if (!db) {
+        throw new Error('Evidence store is closed');
+      }
 
-    const stmt = db.prepare(`
+      const stmt = db.prepare(`
 				INSERT OR REPLACE INTO evidence_docs
 				(anchor, kind, status, title, summary, keywords, source_path, source_hash,
-				 superseded_by, materialized_from, updated_at, pack_id, provenance_tier, provenance_source, generalizable)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 superseded_by, materialized_from, updated_at, pack_id, provenance_tier, provenance_source, generalizable,
+				 authority, activation, verified_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`);
 
-    const tx = db.transaction((items: EvidenceItem[]) => {
-      for (const item of items) {
-        stmt.run(
-          item.anchor,
-          item.kind,
-          item.status,
-          item.title,
-          item.summary ?? null,
-          item.keywords ? JSON.stringify(item.keywords) : null,
-          item.sourcePath ?? null,
-          item.sourceHash ?? null,
-          item.supersededBy ?? null,
-          item.materializedFrom ?? null,
-          item.updatedAt,
-          item.packId ?? null,
-          item.provenance?.tier ?? null,
-          item.provenance?.source ?? null,
-          item.generalizable == null ? null : item.generalizable ? 1 : 0,
-        );
-      }
-    });
+      const tx = db.transaction((items: EvidenceItem[]) => {
+        for (const item of items) {
+          stmt.run(
+            item.anchor,
+            item.kind,
+            item.status,
+            item.title,
+            item.summary ?? null,
+            item.keywords ? JSON.stringify(item.keywords) : null,
+            item.sourcePath ?? null,
+            item.sourceHash ?? null,
+            item.supersededBy ?? null,
+            item.materializedFrom ?? null,
+            item.updatedAt,
+            item.packId ?? null,
+            item.provenance?.tier ?? null,
+            item.provenance?.source ?? null,
+            item.generalizable == null ? null : item.generalizable ? 1 : 0,
+            item.authority ?? 'observed',
+            item.activation ?? 'query',
+            item.verifiedAt ?? null,
+          );
+        }
+      });
 
-    tx(items);
+      tx(items);
+    });
   }
 
   async deleteByAnchor(anchor: string): Promise<void> {
-    this.ensureOpen();
-    this.db?.prepare('DELETE FROM evidence_docs WHERE anchor = ?').run(anchor);
+    return this.writeQueue.enqueue(() => {
+      this.ensureOpen();
+      this.db?.prepare('DELETE FROM evidence_docs WHERE anchor = ?').run(anchor);
+    });
   }
 
   /** F129: Delete all evidence entries for a given pack_id */
   async deleteByPackId(packId: string): Promise<number> {
-    this.ensureOpen();
-    const result = this.db?.prepare('DELETE FROM evidence_docs WHERE pack_id = ?').run(packId);
-    return result?.changes ?? 0;
+    return this.writeQueue.enqueue(() => {
+      this.ensureOpen();
+      const result = this.db?.prepare('DELETE FROM evidence_docs WHERE pack_id = ?').run(packId);
+      return result?.changes ?? 0;
+    });
   }
 
   async getByAnchor(anchor: string): Promise<EvidenceItem | null> {
@@ -620,13 +641,40 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     return this.db!;
   }
 
+  /** Serialize an arbitrary write through the single-writer queue (F163 AC-A5). */
+  runExclusive<T>(fn: () => T | Promise<T>): Promise<T> {
+    return this.writeQueue.enqueue(fn);
+  }
+
+  /**
+   * F163 AC-A3: Query always_on + constitutional docs for physical injection.
+   * Guard: activation=always_on AND authority=constitutional AND status=active.
+   * Synchronous — used at prompt build time, not in search pipeline.
+   */
+  queryAlwaysOn(): Array<{ anchor: string; title: string; summary: string }> {
+    this.ensureOpen();
+    return (
+      (this.db
+        ?.prepare(
+          `SELECT anchor, title, summary
+         FROM evidence_docs
+         WHERE activation = 'always_on'
+           AND authority = 'constitutional'
+           AND status = 'active'`,
+        )
+        .all() as Array<{ anchor: string; title: string; summary: string }>) ?? []
+    );
+  }
+
   // ── Edge operations ─────────────────────────────────────────────────
 
   async addEdge(edge: Edge): Promise<void> {
-    this.ensureOpen();
-    this.db
-      ?.prepare('INSERT OR IGNORE INTO edges (from_anchor, to_anchor, relation) VALUES (?, ?, ?)')
-      .run(edge.fromAnchor, edge.toAnchor, edge.relation);
+    return this.writeQueue.enqueue(() => {
+      this.ensureOpen();
+      this.db
+        ?.prepare('INSERT OR IGNORE INTO edges (from_anchor, to_anchor, relation) VALUES (?, ?, ?)')
+        .run(edge.fromAnchor, edge.toAnchor, edge.relation);
+    });
   }
 
   async getRelated(anchor: string): Promise<Array<{ anchor: string; relation: string }>> {
@@ -642,10 +690,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   }
 
   async removeEdge(edge: Edge): Promise<void> {
-    this.ensureOpen();
-    this.db
-      ?.prepare('DELETE FROM edges WHERE from_anchor = ? AND to_anchor = ? AND relation = ?')
-      .run(edge.fromAnchor, edge.toAnchor, edge.relation);
+    return this.writeQueue.enqueue(() => {
+      this.ensureOpen();
+      this.db
+        ?.prepare('DELETE FROM edges WHERE from_anchor = ? AND to_anchor = ? AND relation = ?')
+        .run(edge.fromAnchor, edge.toAnchor, edge.relation);
+    });
   }
 
   // ── Passage operations ─────────────────────────────────────────────
@@ -780,6 +830,9 @@ interface RowShape {
   provenance_tier: string | null;
   provenance_source: string | null;
   generalizable: number | null;
+  authority: string | null;
+  activation: string | null;
+  verified_at: string | null;
 }
 
 function rowToItem(row: RowShape): EvidenceItem {
@@ -804,5 +857,45 @@ function rowToItem(row: RowShape): EvidenceItem {
     };
   }
   if (row.generalizable != null) item.generalizable = row.generalizable === 1;
+  if (row.authority != null) item.authority = row.authority as EvidenceItem['authority'];
+  if (row.activation != null) item.activation = row.activation as EvidenceItem['activation'];
+  if (row.verified_at != null) item.verifiedAt = row.verified_at;
   return item;
+}
+
+// ── F163: Authority boost weights (1.0–1.3 range, spec constraint) ──
+
+const AUTHORITY_WEIGHTS: Record<F163Authority, number> = {
+  constitutional: 1.3,
+  validated: 1.2,
+  candidate: 1.1,
+  observed: 1.0,
+};
+
+/**
+ * F163: Post-retrieval authority boost. Reranks results in-place when
+ * F163_AUTHORITY_BOOST is 'on'. In 'shadow' mode, the boost is computed
+ * but the original order is preserved. In 'off' mode, this is a no-op.
+ */
+function applyAuthorityBoost(results: EvidenceItem[]): void {
+  const flags = freezeFlags();
+  if (flags.authorityBoost === 'off' || results.length < 2) return;
+
+  // RRF-style positional score: 1/(rank+k) keeps adjacent positions close
+  // so the 1.0–1.3 authority weight can meaningfully reorder near-tied items.
+  const K = 60;
+  const scored = results.map((item, i) => ({
+    item,
+    score: (1 / (i + K)) * AUTHORITY_WEIGHTS[(item.authority as F163Authority) ?? 'observed'],
+  }));
+
+  scored.sort((a, b) => b.score - a.score);
+
+  if (flags.authorityBoost === 'on') {
+    // Rewrite results array in-place
+    for (let i = 0; i < results.length; i++) {
+      results[i] = scored[i].item;
+    }
+  }
+  // shadow: order unchanged, but boost was computed (logging in Task 7)
 }

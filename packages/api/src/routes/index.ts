@@ -19,6 +19,7 @@ export { evidenceRoutes } from './evidence.js';
 export { executionDigestRoutes } from './execution-digests.js';
 export { exportRoutes } from './export.js';
 export { externalProjectRoutes } from './external-projects.js';
+export { f163AdminRoutes } from './f163-admin.js';
 export { featureDocDetailRoutes } from './feature-doc-detail.js';
 export { gameRoutes } from './games.js';
 export { governanceStatusRoute } from './governance-status.js';

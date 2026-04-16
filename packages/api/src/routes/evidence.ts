@@ -7,8 +7,10 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { F163ExperimentLogger } from '../domains/memory/f163-experiment-logger.js';
+import { computeVariantId, freezeFlags, getOrAssignCohort } from '../domains/memory/f163-types.js';
 import type { IEvidenceStore, IIndexBuilder, IKnowledgeResolver } from '../domains/memory/interfaces.js';
-import { type EvidenceResult, mapKindToSourceType } from './evidence-helpers.js';
+import { type BoostSource, type EvidenceResult, mapKindToSourceType } from './evidence-helpers.js';
 
 /** Accepted query parameters — Phase D: scope/mode/depth added */
 const searchSchema = z.object({
@@ -48,6 +50,10 @@ export interface EvidenceSearchResponse {
   effectiveMode?: 'lexical' | 'semantic' | 'hybrid';
   freshness?: EvidenceFreshness;
   reimportTrigger?: EvidenceReimportTrigger;
+  /** F163: deterministic variant ID from frozen flag snapshot */
+  variantId: string;
+  /** F163: anchors of always_on docs injected into system prompt (not search results) */
+  injectionSources?: string[];
 }
 
 export interface EvidenceRoutesOptions {
@@ -74,6 +80,18 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
     // AC-K1: depth=raw forces lexical-only (passage-level vectors not yet available)
     const requestedMode = mode ?? 'lexical';
     const isRawDegraded = depth === 'raw' && requestedMode !== 'lexical';
+    // F163: freeze flags once per request, compute variant ID
+    const f163Flags = freezeFlags();
+    const rawVariantId = computeVariantId(f163Flags);
+    const anyF163Active = Object.values(f163Flags).some((v) => v !== 'off');
+    // P1-4: cohort sticky routing — same thread keeps same variant across flag changes
+    const db = (opts.evidenceStore as { getDb?: () => import('better-sqlite3').Database }).getDb?.();
+    const variantId = db && threadId ? getOrAssignCohort(db, threadId, rawVariantId) : rawVariantId;
+    const boostSource: BoostSource[] = anyF163Active
+      ? f163Flags.authorityBoost !== 'off'
+        ? ['authority_boost']
+        : ['legacy']
+      : ['legacy'];
     try {
       const searchOpts = {
         limit: effectiveLimit,
@@ -98,19 +116,41 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         snippet: item.summary ?? '',
         confidence: 'mid' as const,
         sourceType: mapKindToSourceType(item.kind),
+        boostSource,
         ...(singleSource ? { source: singleSource } : {}),
         ...(item.passages ? { passages: item.passages } : {}),
       }));
+      // F163 AC-A3: report always_on injection sources in response envelope
+      let injectionSources: string[] | undefined;
+      if (f163Flags.alwaysOnInjection !== 'off') {
+        const queryAlwaysOn = (opts.evidenceStore as { queryAlwaysOn?: () => Array<{ anchor: string }> }).queryAlwaysOn;
+        if (queryAlwaysOn) {
+          injectionSources = queryAlwaysOn().map((d) => d.anchor);
+        }
+      }
+
+      // P1-5: log search to f163_logs for experiment evidence chain
+      if (anyF163Active && db) {
+        try {
+          new F163ExperimentLogger(db).logSearch(variantId, f163Flags, { query: q, resultCount: results.length });
+        } catch {
+          /* fail-open: logging failure does not block search */
+        }
+      }
+
       return {
         results,
         degraded: isRawDegraded,
+        variantId,
         ...(isRawDegraded ? { degradeReason: 'raw_lexical_only', effectiveMode: 'lexical' as const } : {}),
+        ...(injectionSources && injectionSources.length > 0 ? { injectionSources } : {}),
       } satisfies Partial<EvidenceSearchResponse>;
     } catch {
       return {
         results: [],
         degraded: true,
         degradeReason: 'evidence_store_error',
+        variantId,
       } satisfies Partial<EvidenceSearchResponse>;
     }
   });

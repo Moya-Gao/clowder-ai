@@ -177,12 +177,14 @@ export class IndexBuilder implements IIndexBuilder {
     }
   }
 
-  private storeIndexingVersion(): void {
+  private async storeIndexingVersion(): Promise<void> {
     try {
-      const db = this.store.getDb();
-      db.prepare("INSERT OR REPLACE INTO embedding_meta (key, value) VALUES ('indexing_version', ?)").run(
-        String(INDEXING_VERSION),
-      );
+      await this.store.runExclusive(() => {
+        const db = this.store.getDb();
+        db.prepare("INSERT OR REPLACE INTO embedding_meta (key, value) VALUES ('indexing_version', ?)").run(
+          String(INDEXING_VERSION),
+        );
+      });
     } catch {
       // fail-open: version not persisted → next restart will re-index (safe)
     }
@@ -247,7 +249,9 @@ export class IndexBuilder implements IIndexBuilder {
     }
 
     // Phase D: auto-extract edges from frontmatter cross-references (AC-D18, KD-29)
-    this.store.getDb().prepare("DELETE FROM edges WHERE relation = 'related'").run();
+    await this.store.runExclusive(() => {
+      this.store.getDb().prepare("DELETE FROM edges WHERE relation = 'related'").run();
+    });
 
     for (const scanned of scannedItems) {
       if (!scanned.rawContent) continue;
@@ -367,7 +371,7 @@ export class IndexBuilder implements IIndexBuilder {
     // Phase I (AC-I1/I3): Backfill from JSONL transcripts for threads with expired Redis messages
     if (this.transcriptDataDir && threads.length > 0) {
       for (const thread of threads) {
-        this.backfillPassagesFromTranscript(thread.id);
+        await this.backfillPassagesFromTranscript(thread.id);
       }
     }
 
@@ -389,7 +393,7 @@ export class IndexBuilder implements IIndexBuilder {
     await this.embedIndexedItems(indexedItems);
 
     // Persist current indexing version so next startup can detect changes
-    this.storeIndexingVersion();
+    await this.storeIndexingVersion();
 
     return { docsIndexed: indexed, docsSkipped: skipped, durationMs: Date.now() - start };
   }
@@ -659,17 +663,19 @@ export class IndexBuilder implements IIndexBuilder {
    * P1 fix (砚砚 review): accumulate from delta, not from flushed summary snapshot.
    */
   accumulateSummaryDelta(threadId: string, messageContent: string): void {
-    try {
-      const db = this.store.getDb();
-      const tokenEstimate = Math.ceil(messageContent.length / 4);
+    const tokenEstimate = Math.ceil(messageContent.length / 4);
 
-      let signalFlags = 0;
-      const lower = messageContent.toLowerCase();
-      if (/(?:决定|agreed|kd-|decided|confirmed)/i.test(lower)) signalFlags |= SIGNAL_FLAGS.DECISION;
-      if (/(?:\.ts|\.js|\.tsx|pr\s*#|commit|merge|diff)/i.test(lower)) signalFlags |= SIGNAL_FLAGS.CODE;
-      if (/(?:fix|bug|error|修复|报错)/i.test(lower)) signalFlags |= SIGNAL_FLAGS.ERROR_FIX;
+    let signalFlags = 0;
+    const lower = messageContent.toLowerCase();
+    if (/(?:决定|agreed|kd-|decided|confirmed)/i.test(lower)) signalFlags |= SIGNAL_FLAGS.DECISION;
+    if (/(?:\.ts|\.js|\.tsx|pr\s*#|commit|merge|diff)/i.test(lower)) signalFlags |= SIGNAL_FLAGS.CODE;
+    if (/(?:fix|bug|error|修复|报错)/i.test(lower)) signalFlags |= SIGNAL_FLAGS.ERROR_FIX;
 
-      db.prepare(`
+    // Fire-and-forget through write queue (F163 AC-A5 single-writer contract)
+    void this.store
+      .runExclusive(() => {
+        const db = this.store.getDb();
+        db.prepare(`
         INSERT INTO summary_state (thread_id, pending_message_count, pending_token_count, pending_signal_flags, summary_type)
         VALUES (?, 1, ?, ?, 'concat')
         ON CONFLICT(thread_id) DO UPDATE SET
@@ -677,9 +683,10 @@ export class IndexBuilder implements IIndexBuilder {
           pending_token_count = pending_token_count + ?,
           pending_signal_flags = pending_signal_flags | ?
       `).run(threadId, tokenEstimate, signalFlags, tokenEstimate, signalFlags);
-    } catch {
-      // fail-open
-    }
+      })
+      .catch(() => {
+        /* fail-open */
+      });
   }
 
   /** Flush dirty threads: re-index only the threads that have been marked dirty. */
@@ -801,7 +808,8 @@ export class IndexBuilder implements IIndexBuilder {
         }
       });
 
-      tx(messages);
+      // Route batch insert through single-writer queue (F163 AC-A5)
+      await this.store.runExclusive(() => tx(messages));
     }
   }
 
@@ -811,7 +819,7 @@ export class IndexBuilder implements IIndexBuilder {
    * and inserts as passages with INSERT OR IGNORE (idempotent).
    * Returns count of newly added passages.
    */
-  backfillPassagesFromTranscript(threadId: string): number {
+  async backfillPassagesFromTranscript(threadId: string): Promise<number> {
     if (!this.transcriptDataDir) return 0;
     const db = this.store.getDb();
     const threadDir = join(this.transcriptDataDir, 'threads', threadId);
@@ -875,7 +883,7 @@ export class IndexBuilder implements IIndexBuilder {
           }
         }
 
-        // Insert accumulated text per invocation as passages
+        // Insert accumulated text per invocation — routed through single-writer queue (F163 AC-A5)
         const tx = db.transaction(() => {
           for (const [invId, data] of invocationTexts) {
             if (!data.text.trim()) continue;
@@ -893,7 +901,7 @@ export class IndexBuilder implements IIndexBuilder {
             if (result.changes > 0) added++;
           }
         });
-        tx();
+        await this.store.runExclusive(() => tx());
       }
     }
     return added;

@@ -1183,7 +1183,7 @@ describe('IndexBuilder passage indexing (E3/E4/E5)', () => {
     // Create builder with transcriptDataDir but no messageListFn
     const builder = new IndexBuilder(store, docsDir, undefined, transcriptDir);
 
-    const added = builder.backfillPassagesFromTranscript(threadId);
+    const added = await builder.backfillPassagesFromTranscript(threadId);
     assert.equal(added, 2, 'should add 2 passages (one per invocation with text)');
 
     const db = store.getDb();
@@ -1198,7 +1198,7 @@ describe('IndexBuilder passage indexing (E3/E4/E5)', () => {
     assert.equal(passages[1].content, 'Second invocation response.');
 
     // Idempotent: running again adds nothing
-    const addedAgain = builder.backfillPassagesFromTranscript(threadId);
+    const addedAgain = await builder.backfillPassagesFromTranscript(threadId);
     assert.equal(addedAgain, 0, 'second run should add 0 (INSERT OR IGNORE)');
   });
 

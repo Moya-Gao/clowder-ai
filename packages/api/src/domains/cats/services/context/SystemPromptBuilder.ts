@@ -122,6 +122,11 @@ export interface InvocationContext {
    * Injected into static identity via buildStaticIdentity → packBlocks.
    */
   packBlocks?: CompiledPackBlocks | null;
+  /**
+   * F163 AC-A3: Pre-fetched always_on + constitutional docs for physical injection.
+   * Populated from SqliteEvidenceStore.queryAlwaysOn() at bootstrap time.
+   */
+  alwaysOnDocs?: readonly { anchor: string; title: string; summary: string }[];
 }
 
 /** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
@@ -620,6 +625,19 @@ export function buildInvocationContext(context: InvocationContext): string {
   // F155: Guide candidate — inline protocol (cats don't have /Skill tool at runtime)
   if (context.guideCandidate) {
     lines.push(...buildGuidePromptLines(context.guideCandidate, context.threadId));
+  }
+
+  // F163 AC-A3: always_on constitutional knowledge injection (physical, not retrieval)
+  if (context.alwaysOnDocs && context.alwaysOnDocs.length > 0) {
+    lines.push('');
+    lines.push('## Constitutional Knowledge (always_on)');
+    lines.push('');
+    for (const doc of context.alwaysOnDocs) {
+      lines.push(`### ${doc.title}`);
+      lines.push('');
+      lines.push(doc.summary);
+      lines.push('');
+    }
   }
 
   // F091: Active Signal articles in discussion context

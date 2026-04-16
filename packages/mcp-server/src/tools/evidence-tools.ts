@@ -81,6 +81,7 @@ export async function handleSearchEvidence(input: {
         snippet: string;
         confidence: string;
         sourceType: string;
+        boostSource?: string[];
         passages?: Array<{
           passageId: string;
           content: string;
@@ -97,6 +98,7 @@ export async function handleSearchEvidence(input: {
       degraded: boolean;
       degradeReason?: string;
       effectiveMode?: 'lexical' | 'semantic' | 'hybrid';
+      variantId?: string;
     };
 
     const degradedBanner = formatDegradedBanner(data.degraded, data.degradeReason, data.effectiveMode);
@@ -115,13 +117,16 @@ export async function handleSearchEvidence(input: {
       lines.push('');
     }
 
-    lines.push(`Found ${data.results.length} result(s):`);
+    lines.push(`Found ${data.results.length} result(s)${data.variantId ? ` [variant=${data.variantId}]` : ''}:`);
     lines.push('');
 
     for (const r of data.results) {
       lines.push(`[${r.confidence}] ${r.title}`);
       lines.push(`  anchor: ${r.anchor}`);
       lines.push(`  type: ${r.sourceType}`);
+      if (r.boostSource && r.boostSource.length > 0 && !r.boostSource.every((s) => s === 'legacy')) {
+        lines.push(`  boost: ${r.boostSource.join(', ')}`);
+      }
       const snippet = r.snippet.length > 200 ? `${r.snippet.slice(0, 200)}...` : r.snippet;
       lines.push(`  > ${snippet.replace(/\n/g, ' ')}`);
       // AC-I9: show passage-level detail when depth=raw

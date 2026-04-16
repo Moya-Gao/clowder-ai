@@ -1489,6 +1489,12 @@ async function main(): Promise<void> {
     knowledgeResolver: memoryServices.knowledgeResolver,
   });
 
+  // F163: Knowledge promotion admin API (localhost-only)
+  const { f163AdminRoutes } = await import('./routes/f163-admin.js');
+  await app.register(f163AdminRoutes, {
+    evidenceStore: memoryServices.evidenceStore as unknown as Parameters<typeof f163AdminRoutes>[1]['evidenceStore'],
+  });
+
   // F152 Phase C: Distillation routes (global lesson reflow)
   if (memoryServices.globalStore) {
     const { DistillationService } = await import('./domains/memory/distillation-service.js');

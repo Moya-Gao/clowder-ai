@@ -1,6 +1,8 @@
 // F102: Memory component interfaces — 6 pluggable adapters
 // See docs/features/F102-memory-adapter-refactor.md for architecture
 
+import type { F163Activation, F163Authority } from './f163-types.js';
+
 // ── Runtime guard symbols (TypeScript interfaces erase at runtime) ────
 
 export const IEvidenceStoreSymbol = Symbol.for('IEvidenceStore');
@@ -39,7 +41,7 @@ export const EVIDENCE_KINDS = [
 
 export type EvidenceKind = (typeof EVIDENCE_KINDS)[number];
 
-export type EvidenceStatus = 'active' | 'done' | 'archived';
+export type EvidenceStatus = 'active' | 'done' | 'archived' | 'review' | 'invalidated';
 
 // ── F152 Phase A: Provenance + Scanner types ────────────────────────
 
@@ -84,6 +86,12 @@ export interface EvidenceItem {
     params: Record<string, string>;
     hint: string;
   };
+  /** F163 Phase A: knowledge authority level */
+  authority?: F163Authority;
+  /** F163 Phase A: knowledge activation mode */
+  activation?: F163Activation;
+  /** F163 Phase A: last verification date (ISO8601) */
+  verifiedAt?: string;
   /** F152 Phase A: provenance tracking for scanner-produced evidence */
   provenance?: Provenance;
   /** F152 Phase C: null = unmarked, false = project-private, true = candidate for global reflow */

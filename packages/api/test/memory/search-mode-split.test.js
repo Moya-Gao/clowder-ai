@@ -12,9 +12,9 @@ import { VectorStore } from '../../dist/domains/memory/VectorStore.js';
  * - hybrid = BM25 + NN → RRF fusion
  */
 
-function setupStore() {
+async function setupStore() {
   const store = new SqliteEvidenceStore(':memory:');
-  store.initialize();
+  await store.initialize();
 
   const db = store.getDb();
 
@@ -33,8 +33,8 @@ function setupStore() {
   return { store, vectorStore, db };
 }
 
-function seedDocs(store) {
-  store.upsert([
+async function seedDocs(store) {
+  await store.upsert([
     {
       anchor: 'doc-cat-names',
       kind: 'lesson',
@@ -92,15 +92,15 @@ function createMockEmbedding(queryResponse) {
 describe('Search Mode Split (KD-44)', () => {
   let store, vectorStore, db;
 
-  beforeEach(() => {
-    const setup = setupStore();
+  beforeEach(async () => {
+    const setup = await setupStore();
     store = setup.store;
     vectorStore = setup.vectorStore;
     db = setup.db;
 
     if (!vectorStore) return; // skip if no sqlite-vec
 
-    seedDocs(store);
+    await seedDocs(store);
     seedVectors(vectorStore);
 
     // Wire embedding deps — query for "naming" is close to doc-cat-names vector
@@ -198,7 +198,7 @@ describe('Search Mode Split (KD-44)', () => {
 
   it('semantic mode scope=docs keeps discussion docs but excludes thread digests', async () => {
     if (!vectorStore) return;
-    store.upsert([
+    await store.upsert([
       {
         anchor: 'doc-f148-discussion',
         kind: 'discussion',
@@ -230,7 +230,7 @@ describe('Search Mode Split (KD-44)', () => {
 
   it('hybrid mode scope=docs keeps discussion docs but excludes thread digests', async () => {
     if (!vectorStore) return;
-    store.upsert([
+    await store.upsert([
       {
         anchor: 'doc-f148-discussion-hybrid',
         kind: 'discussion',
@@ -267,7 +267,7 @@ describe('Search Mode Split (KD-44)', () => {
   it('semantic mode filters by provenanceTier (P1-3 fix)', async () => {
     if (!vectorStore) return;
     // Add provenance to existing docs
-    store.upsert([
+    await store.upsert([
       {
         anchor: 'doc-cat-names',
         kind: 'lesson',
@@ -309,7 +309,7 @@ describe('Search Mode Split (KD-44)', () => {
   it('hybrid mode filters by provenanceTier (P1-3 fix)', async () => {
     if (!vectorStore) return;
     // Add provenance to existing docs
-    store.upsert([
+    await store.upsert([
       {
         anchor: 'doc-cat-names',
         kind: 'lesson',
@@ -350,9 +350,9 @@ describe('Search Mode Split (KD-44)', () => {
 describe('G-4: drillDown hints', () => {
   it('thread results get drillDown hint', async () => {
     const store = new SqliteEvidenceStore(':memory:');
-    store.initialize();
+    await store.initialize();
 
-    store.upsert([
+    await store.upsert([
       {
         anchor: 'thread-abc123',
         kind: 'thread',
@@ -390,9 +390,9 @@ describe('G-4: drillDown hints', () => {
 
   it('session results get drillDown hint', async () => {
     const store = new SqliteEvidenceStore(':memory:');
-    store.initialize();
+    await store.initialize();
 
-    store.upsert([
+    await store.upsert([
       {
         anchor: 'session-xyz789',
         kind: 'session',
@@ -415,9 +415,9 @@ describe('G-4: drillDown hints', () => {
 
   it('scope=threads returns kind=thread (not session) with drillDown', async () => {
     const store = new SqliteEvidenceStore(':memory:');
-    store.initialize();
+    await store.initialize();
 
-    store.upsert([
+    await store.upsert([
       {
         anchor: 'thread-t1',
         kind: 'thread',
