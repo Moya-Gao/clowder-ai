@@ -96,6 +96,12 @@ export interface EvidenceItem {
   provenance?: Provenance;
   /** F152 Phase C: null = unmarked, false = project-private, true = candidate for global reflow */
   generalizable?: boolean;
+  /** F163 Phase B: JSON array of source anchors this summary covers */
+  sourceIds?: string[];
+  /** F163 Phase B: summary group ID — non-null means this doc IS a canonical summary */
+  summaryOfAnchor?: string;
+  /** F163 Phase B: why these sources were merged */
+  compressionRationale?: string;
   /** AC-I9: passage-level detail when depth=raw */
   passages?: Array<{
     passageId: string;
@@ -150,6 +156,8 @@ export interface SearchOptions {
   dimension?: 'project' | 'global' | 'all';
   /** F152 Phase A (AC-A6): filter by provenance tier */
   provenanceTier?: ProvenanceTier;
+  /** F163 Phase B (AC-B3): include backstop docs in results (for drill-down) */
+  includeBackstop?: boolean;
 }
 
 export interface MarkerFilter {

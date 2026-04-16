@@ -80,6 +80,6 @@ describe('Schema V2 migration', () => {
 
   it('CURRENT_SCHEMA_VERSION matches expected value', async () => {
     const { CURRENT_SCHEMA_VERSION } = await import('../../dist/domains/memory/schema.js');
-    assert.equal(CURRENT_SCHEMA_VERSION, 13, `expected 13, got ${CURRENT_SCHEMA_VERSION}`);
+    assert.equal(CURRENT_SCHEMA_VERSION, 14, `expected 14, got ${CURRENT_SCHEMA_VERSION}`);
   });
 });

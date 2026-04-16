@@ -16,13 +16,13 @@ describe('Schema V13: F163 multi-axis metadata + experiment tables', () => {
     applyMigrations(db);
   });
 
-  it('schema version is 13 after migration', () => {
+  it('schema version is at least 13 after migration', () => {
     const { v } = db.prepare('SELECT MAX(version) as v FROM schema_version').get();
-    assert.equal(v, 13, `schema version should be 13, got ${v}`);
+    assert.ok(v >= 13, `schema version should be >=13, got ${v}`);
   });
 
-  it('CURRENT_SCHEMA_VERSION constant is 13', () => {
-    assert.equal(CURRENT_SCHEMA_VERSION, 13);
+  it('CURRENT_SCHEMA_VERSION constant is at least 13', () => {
+    assert.ok(CURRENT_SCHEMA_VERSION >= 13, `expected >=13, got ${CURRENT_SCHEMA_VERSION}`);
   });
 
   it('evidence_docs has authority column with default observed', () => {
@@ -83,7 +83,7 @@ describe('Schema V13: F163 multi-axis metadata + experiment tables', () => {
     // applyMigrations was already called in beforeEach
     assert.doesNotThrow(() => applyMigrations(db));
     const { v } = db.prepare('SELECT MAX(version) as v FROM schema_version').get();
-    assert.equal(v, 13);
+    assert.ok(v >= 13, `expected >=13, got ${v}`);
   });
 
   it('existing data survives migration (additive, no breaking changes)', () => {

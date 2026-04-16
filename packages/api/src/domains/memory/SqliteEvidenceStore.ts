@@ -92,6 +92,16 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     // F148 Phase B (AC-B1): threadId filter — scope to a specific thread's evidence
     // Anchor convention: thread-{threadId} (e.g. thread-thread_abc for threadId="thread_abc")
     const threadAnchor = options?.threadId ? `thread-${options.threadId}` : undefined;
+    // F163 Phase B (AC-B3): suppress backstop docs when compression is active
+    let suppressBackstop = false;
+    if (!options?.includeBackstop) {
+      try {
+        const { freezeFlags } = await import('./f163-types.js');
+        suppressBackstop = freezeFlags().compression !== 'off';
+      } catch {
+        // f163-types not available — no suppression
+      }
+    }
     // ── Exact-anchor bypass ──────────────────────────────────────────
     // FTS5 unicode61 tokenizer splits "F042" → "F"+"042" and "ADR-005" → "ADR"+"005".
     // For anchor-shaped queries, do a direct lookup so precision isn't lost.
@@ -126,6 +136,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (options?.provenanceTier) {
       anchorSql += ' AND provenance_tier = ?';
       anchorParams.push(options.provenanceTier);
+    }
+    if (suppressBackstop) {
+      anchorSql += " AND activation != 'backstop'";
     }
     const exactRow = this.db?.prepare(anchorSql).get(...anchorParams) as RowShape | undefined;
     if (exactRow) {
@@ -184,6 +197,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         if (options?.provenanceTier) {
           sql += ' AND d.provenance_tier = ?';
           params.push(options.provenanceTier);
+        }
+        // F163 Phase B (AC-B3): backstop suppression
+        if (suppressBackstop) {
+          sql += " AND d.activation != 'backstop'";
         }
 
         // Superseded items sort last (KD-16), archive results deprioritized (P2 fix), authoritative first (F152 AC-A6, P1-2 NULL-safe)
@@ -247,6 +264,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       if (options?.provenanceTier) {
         containsSql += ' AND provenance_tier = ?';
         containsParams.push(options.provenanceTier);
+      }
+      // F163 Phase B (AC-B3): backstop suppression
+      if (suppressBackstop) {
+        containsSql += " AND activation != 'backstop'";
       }
       try {
         const containsRows = this.db?.prepare(containsSql).all(...containsParams) as RowShape[];
@@ -357,7 +378,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         return this.enrichWithDrillDown(lexicalResults);
       }
       try {
-        return this.enrichWithDrillDown(await this.semanticNNSearch(query, limit, options));
+        return this.enrichWithDrillDown(await this.semanticNNSearch(query, limit, options, suppressBackstop));
       } catch {
         return this.enrichWithDrillDown(lexicalResults);
       }
@@ -368,7 +389,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         return this.enrichWithDrillDown(lexicalResults);
       }
       try {
-        return this.enrichWithDrillDown(await this.hybridRRFSearch(query, lexicalCandidates, limit, options));
+        return this.enrichWithDrillDown(
+          await this.hybridRRFSearch(query, lexicalCandidates, limit, options, suppressBackstop),
+        );
       } catch {
         return this.enrichWithDrillDown(lexicalResults);
       }
@@ -407,7 +430,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
    * Skips BM25 entirely — queries evidence_vectors directly.
    * Hydrates results from evidence_docs in a single IN(...) query (砚砚: no N+1).
    */
-  private async semanticNNSearch(query: string, limit: number, options?: SearchOptions): Promise<EvidenceItem[]> {
+  private async semanticNNSearch(
+    query: string,
+    limit: number,
+    options?: SearchOptions,
+    suppressBackstop?: boolean,
+  ): Promise<EvidenceItem[]> {
     const pool = Math.min(Math.max(limit * 4, 20), 100); // 砚砚: generous pool, cap 100
     const queryVec = await this.embedDeps!.embedding.embed([query]);
     const nnResults = this.embedDeps!.vectorStore.search(queryVec[0], pool);
@@ -454,6 +482,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       sql += ' AND provenance_tier = ?';
       params.push(options.provenanceTier);
     }
+    if (suppressBackstop) {
+      sql += " AND activation != 'backstop'";
+    }
 
     const rows = this.db?.prepare(sql).all(...params) as RowShape[];
     const docMap = new Map(rows.map((r) => [r.anchor, rowToItem(r)]));
@@ -474,6 +505,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     lexicalResults: EvidenceItem[],
     limit: number,
     options?: SearchOptions,
+    suppressBackstop?: boolean,
   ): Promise<EvidenceItem[]> {
     const pool = Math.min(Math.max(limit * 4, 20), 100);
     const queryVec = await this.embedDeps!.embedding.embed([query]);
@@ -541,6 +573,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         sql += ' AND provenance_tier = ?';
         params.push(options.provenanceTier);
       }
+      if (suppressBackstop) {
+        sql += " AND activation != 'backstop'";
+      }
 
       const rows = this.db.prepare(sql).all(...params) as RowShape[];
       for (const row of rows) {
@@ -564,12 +599,32 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         throw new Error('Evidence store is closed');
       }
 
+      // F163 Phase B (AC-B5): cascade compression guard
+      // If any item is a summary (summaryOfAnchor set), verify none of its
+      // sourceIds reference docs that are themselves summaries.
+      for (const item of items) {
+        if (item.summaryOfAnchor && item.sourceIds?.length) {
+          const placeholders = item.sourceIds.map(() => '?').join(',');
+          const cascadeHits = db
+            .prepare(
+              `SELECT anchor FROM evidence_docs
+               WHERE anchor IN (${placeholders}) AND summary_of_anchor IS NOT NULL`,
+            )
+            .all(...item.sourceIds) as { anchor: string }[];
+          if (cascadeHits.length > 0) {
+            const hitAnchors = cascadeHits.map((r) => r.anchor).join(', ');
+            throw new Error(`cascade compression prohibited: source(s) [${hitAnchors}] are already summaries`);
+          }
+        }
+      }
+
       const stmt = db.prepare(`
 				INSERT OR REPLACE INTO evidence_docs
 				(anchor, kind, status, title, summary, keywords, source_path, source_hash,
 				 superseded_by, materialized_from, updated_at, pack_id, provenance_tier, provenance_source, generalizable,
-				 authority, activation, verified_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 authority, activation, verified_at,
+				 source_ids, summary_of_anchor, compression_rationale)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`);
 
       const tx = db.transaction((items: EvidenceItem[]) => {
@@ -593,6 +648,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
             item.authority ?? 'observed',
             item.activation ?? 'query',
             item.verifiedAt ?? null,
+            item.sourceIds ? JSON.stringify(item.sourceIds) : null,
+            item.summaryOfAnchor ?? null,
+            item.compressionRationale ?? null,
           );
         }
       });
@@ -644,6 +702,95 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   /** Serialize an arbitrary write through the single-writer queue (F163 AC-A5). */
   runExclusive<T>(fn: () => T | Promise<T>): Promise<T> {
     return this.writeQueue.enqueue(fn);
+  }
+
+  /**
+   * F163 Phase B (AC-B2): Create a canonical summary and demote originals to backstop.
+   * Validates: all source anchors exist, no cascade (source is not itself a summary).
+   * Returns the generated summary anchor.
+   */
+  async createSummary(params: {
+    sourceAnchors: string[];
+    title: string;
+    summary: string;
+    rationale: string;
+    kind?: EvidenceItem['kind'];
+  }): Promise<string> {
+    return this.writeQueue.enqueue(() => {
+      this.ensureOpen();
+      const db = this.db;
+      if (!db) throw new Error('Evidence store is closed');
+
+      // Validate all source anchors exist
+      const placeholders = params.sourceAnchors.map(() => '?').join(',');
+      const existing = db
+        .prepare(`SELECT anchor, kind, summary_of_anchor FROM evidence_docs WHERE anchor IN (${placeholders})`)
+        .all(...params.sourceAnchors) as { anchor: string; kind: string; summary_of_anchor: string | null }[];
+
+      const foundAnchors = new Set(existing.map((r) => r.anchor));
+      const missing = params.sourceAnchors.filter((a) => !foundAnchors.has(a));
+      if (missing.length > 0) {
+        throw new Error(`Source anchors not found: ${missing.join(', ')}`);
+      }
+
+      // Cascade guard: none of the sources can be summaries
+      const cascadeHits = existing.filter((r) => r.summary_of_anchor != null);
+      if (cascadeHits.length > 0) {
+        throw new Error(
+          `cascade compression prohibited: source(s) [${cascadeHits.map((r) => r.anchor).join(', ')}] are already summaries`,
+        );
+      }
+
+      // Determine kind: use param override, or majority kind from sources, default 'lesson'
+      const kind = params.kind ?? this.majorityKind(existing.map((r) => r.kind));
+
+      // Generate summary anchor
+      const summaryAnchor = `CS-${Date.now().toString(36)}`;
+      const groupId = `sg-${Date.now().toString(36)}`;
+      const now = new Date().toISOString();
+
+      const tx = db.transaction(() => {
+        // Insert summary doc
+        db.prepare(`
+          INSERT INTO evidence_docs
+          (anchor, kind, status, title, summary, updated_at, authority, activation,
+           source_ids, summary_of_anchor, compression_rationale)
+          VALUES (?, ?, 'active', ?, ?, ?, 'validated', 'query', ?, ?, ?)
+        `).run(
+          summaryAnchor,
+          kind,
+          params.title,
+          params.summary,
+          now,
+          JSON.stringify(params.sourceAnchors),
+          groupId,
+          params.rationale,
+        );
+
+        // Demote originals to backstop
+        db.prepare(`UPDATE evidence_docs SET activation = 'backstop' WHERE anchor IN (${placeholders})`).run(
+          ...params.sourceAnchors,
+        );
+      });
+
+      tx();
+      return summaryAnchor;
+    });
+  }
+
+  /** Pick the most common kind from a list, defaulting to 'lesson' */
+  private majorityKind(kinds: string[]): EvidenceItem['kind'] {
+    const counts = new Map<string, number>();
+    for (const k of kinds) counts.set(k, (counts.get(k) ?? 0) + 1);
+    let best = 'lesson';
+    let bestCount = 0;
+    for (const [k, c] of counts) {
+      if (c > bestCount) {
+        best = k;
+        bestCount = c;
+      }
+    }
+    return best as EvidenceItem['kind'];
   }
 
   /**
@@ -833,6 +980,9 @@ interface RowShape {
   authority: string | null;
   activation: string | null;
   verified_at: string | null;
+  source_ids: string | null;
+  summary_of_anchor: string | null;
+  compression_rationale: string | null;
 }
 
 function rowToItem(row: RowShape): EvidenceItem {
@@ -860,6 +1010,9 @@ function rowToItem(row: RowShape): EvidenceItem {
   if (row.authority != null) item.authority = row.authority as EvidenceItem['authority'];
   if (row.activation != null) item.activation = row.activation as EvidenceItem['activation'];
   if (row.verified_at != null) item.verifiedAt = row.verified_at;
+  if (row.source_ids != null) item.sourceIds = JSON.parse(row.source_ids);
+  if (row.summary_of_anchor != null) item.summaryOfAnchor = row.summary_of_anchor;
+  if (row.compression_rationale != null) item.compressionRationale = row.compression_rationale;
   return item;
 }
 

@@ -148,4 +148,84 @@ describe('F163 Zero-behavior regression', () => {
     const count = db.prepare('SELECT count(*) AS c FROM f163_logs').get();
     assert.equal(count.c, 0, 'f163_logs should be empty when flags are off');
   });
+
+  // ── Phase B: compression-specific zero-behavior assertions ─────────
+
+  it('backstop suppression does NOT activate when compression=off', async () => {
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith('F163_')) delete process.env[key];
+    }
+
+    const store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+
+    // Insert a backstop doc
+    await store.upsert([
+      {
+        anchor: 'backstop-doc',
+        kind: 'lesson',
+        status: 'active',
+        title: 'Backstop test doc',
+        summary: 'This doc has backstop activation',
+        updatedAt: '2026-01-01',
+        activation: 'backstop',
+      },
+    ]);
+
+    // Search should return it when compression=off
+    const results = await store.search('Backstop test');
+    const found = results.some((r) => r.anchor === 'backstop-doc');
+    assert.ok(found, 'backstop doc should be returned when compression=off');
+  });
+
+  it('compression scan API returns 403 when compression=off', async () => {
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith('F163_')) delete process.env[key];
+    }
+
+    const store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+
+    const { f163AdminRoutes } = await import('../dist/routes/f163-admin.js');
+    const app = Fastify();
+    await app.register(f163AdminRoutes, { evidenceStore: store });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/f163/compress/scan',
+      headers: { 'x-forwarded-for': '127.0.0.1' },
+    });
+    assert.equal(res.statusCode, 403, 'scan should be blocked when compression=off');
+  });
+
+  it('no summary docs can be created through normal upsert when compression=off', async () => {
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith('F163_')) delete process.env[key];
+    }
+
+    const store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+
+    // Upsert a doc with summaryOfAnchor should still work at store level
+    // (the flag gate is at API level, not store level — store is the internal tool)
+    // But the API level should block it
+    const { f163AdminRoutes } = await import('../dist/routes/f163-admin.js');
+    const app = Fastify();
+    await app.register(f163AdminRoutes, { evidenceStore: store });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/f163/compress/apply',
+      headers: { 'x-forwarded-for': '127.0.0.1' },
+      payload: {
+        sourceAnchors: ['nonexistent'],
+        summaryTitle: 'Test',
+        summarySummary: 'Test',
+        rationale: 'Test',
+      },
+    });
+    assert.equal(res.statusCode, 403, 'apply should be blocked when compression=off');
+  });
 });
