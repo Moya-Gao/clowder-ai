@@ -445,7 +445,11 @@ describe('accounts routes', () => {
       assert.equal(claude.clientId, 'anthropic', 'mapped account should have correct clientId');
 
       const claude2 = providers.find((p) => p.id === 'claude-2');
-      assert.equal(claude2.clientId, undefined, 'unmapped oauth account must not have clientId (let frontend heuristic work)');
+      assert.equal(
+        claude2.clientId,
+        undefined,
+        'unmapped oauth account must not have clientId (let frontend heuristic work)',
+      );
       assert.equal(claude2.builtin, true, 'unmapped oauth account should still be builtin');
 
       const glm = providers.find((p) => p.id === 'glm');
