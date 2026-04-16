@@ -491,6 +491,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-15 | **G10 model_capacity classification** — capacity error 独立分类（`high traffic`/`rate limit`/`overloaded` 等）+ dedup 支持 model_capacity；same-cascade retry 被砚砚 P1 退回（无幂等保证），仅保留分类半边（PR #1181, 砚砚 P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-15 | **G10 capacity UX** — `model_capacity` 错误前插 `provider_signal` warning + provider-neutral 归因文案（"上游模型服务端繁忙，非 Cat Café 系统故障"），对齐 Gemini ACP 模式（PR #1185, 砚砚 P1(Gemini硬编码)→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-15 | **Bug-A fix** — `upstream_error` 不再中断 poll loop（模型可自我纠正）；5-case 终止矩阵：model_capacity 始终终止，stream_error 仅单独出现时终止，upstream_error 从不终止（PR #1196, 砚砚 0P1/0P2 放行 + 云端 2P1→fix→0 P1/P2）|
+| 2026-04-16 | **Bug-C fix** — MCP 信号工具 `tier` 参数从数值 enum 改为字符串 enum（Gemini function declaration 只允许 STRING 类型 enum），消除 `INVALID_ARGUMENT 400`（PR #1198, 砚砚 0P1/0P2 放行 + 云端 0 P1/P2）|
 
 ---
 
@@ -499,6 +500,18 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 （暂无活跃 bug）
 
 ## Known Bugs（已修复）
+
+### Bug-C: Gemini 拒绝数值 enum 的 tier 参数 — INVALID_ARGUMENT 400 ✅
+
+**现象**（2026-04-15 砚砚从 runtime 日志发现）：孟加拉猫切换到 Gemini 模型时，MCP 信号工具（`signal_list_inbox`、`signal_search`）的 `tier` 参数使用数值 enum（`1|2|3|4`），Gemini function declaration schema 只允许 `STRING` 类型的 enum，导致 `INVALID_ARGUMENT 400` 拒绝。
+
+**根因**：`signals-tools.ts` 的 Zod schema 用 `z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])` 生成了 `type: number + enum: [1,2,3,4]` 的 JSON Schema，Gemini 只接受 `type: string + enum: ["1","2","3","4"]`。
+
+**修复**（PR #1198, `9dfeb81b5`）：
+- `tier` 改为 `z.enum(['1', '2', '3', '4'])`（字符串 enum）
+- Handler 类型签名同步更新：`tier?: 1 | 2 | 3 | 4` → `tier?: '1' | '2' | '3' | '4'`
+- URL param 构造无需改动（`String(input.tier)` 对字符串和数值结果一致）
+- 新增 2 个测试：string tier URL param 验证 + Zod schema 拒绝无效值（"5"/"0"/"high"）
 
 ### Bug-A: upstream_error 误中断 poll loop — 模型无法自我纠正 ✅
 
