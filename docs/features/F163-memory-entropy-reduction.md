@@ -99,19 +99,37 @@ observed → candidate → validated → constitutional
 | `query` | 一般 validated/candidate 知识 | 正常参与 search_evidence 检索 |
 | `backstop` | observed / archived | 仅在高相关度时浮出，默认不进 top-K |
 
-### 架构约束：可开关 + 可灰度 + 可 A/B（KD-9）
+### 架构约束：实验框架（KD-9）
 
-所有 F163 能力必须用 feature flag 包裹，默认关闭，逐个打开验证。
+**F163 不能直接"上线"，只能"入实验场"。** 所有能力默认关闭，按读/写路径分两类灰度模式。
 
-| Feature Flag | 控制范围 | A/B 度量指标 |
-|-------------|---------|-------------|
-| `f163.enabled` | 全局总开关（默认 `false`） | — |
-| `f163.authority_boost` | authority 加权 rerank | NDCG@10 对比（boost vs 不 boost） |
-| `f163.always_on_injection` | constitutional 物理注入旁路 | 铁律命中率 |
-| `f163.compression` | 非替代式压缩 summary 层 | 检索精度 before/after |
-| `f163.audit_triggers` | 三触发审计 | 假阳性率、review queue actionability |
+#### 读路径能力：`off | shadow | on`
 
-参照 F102 的灰度开关模式：可开、可关、可度量两种表现。
+Shadow 模式下用户看到旧结果，后台并行跑新策略，记录差异但不影响当前行为。
+
+| Feature Flag | 控制范围 | 灰度模式 | 度量指标 |
+|-------------|---------|---------|---------|
+| `f163.authority_boost` | authority 加权 rerank | `off → shadow → on` | NDCG@10、MRR、权重误导率 |
+| `f163.always_on_injection` | constitutional 物理注入旁路 | `off → shadow → on` | 铁律命中率 |
+| `f163.retrieval_rerank` | 多轴元数据参与 rerank | `off → shadow → on` | 检索精度 before/after |
+
+#### 写路径 / 治理能力：`off | suggest | apply`
+
+Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply 才真正生效。
+
+| Feature Flag | 控制范围 | 灰度模式 | 度量指标 |
+|-------------|---------|---------|---------|
+| `f163.compression` | 非替代式压缩 summary 层 | `off → suggest → apply` | 压缩率、检索精度 |
+| `f163.promotion_gate` | 晋升门禁 | `off → suggest → apply` | 晋升率、被否决率 |
+| `f163.contradiction_detection` | 矛盾检测 | `off → suggest → apply` | 假阳性率 |
+| `f163.review_queue` | 审计 review queue | `off → suggest → apply` | actionable rate |
+
+#### 实验基础设施约束
+
+1. **`effective_flags` 落日志**：每次检索/写入/审计都记录当前开了哪些子能力及其模式，否则无法归因
+2. **双轨度量**：离线 gold set（NDCG@10、MRR、铁律命中率、冲突假阳性率）+ 在线代理指标（回滚率、review queue actionable rate、被人工否决率、权重误导率）
+3. **Cohort sticky routing**：同 thread 固定走同一实验桶，不混搭，避免感知混乱和数据污染
+4. **归因透明**：`search_evidence` 返回结果携带 `boost_source` 字段，标明排序受哪些子能力影响
 
 ### Phase A: 多轴元数据 + 评测基础设施
 
@@ -162,6 +180,7 @@ observed → candidate → validated → constitutional
 - [ ] AC-A4: `query` 文档支持窄幅 post-retrieval boost，NDCG@10 对比实验通过（优于 baseline）
 - [ ] AC-A5: 现有 shared-rules 铁律、P0 LL 已标记为 `authority=constitutional`
 - [ ] AC-A6: 知识晋升路径（observed → candidate → validated → constitutional）可操作
+- [ ] AC-A7: `search_evidence` 返回结果携带 `boost_source` 归因字段，标明排序受哪些子能力影响
 
 ### Phase B（非替代式压缩 + 源头回链）
 - [ ] AC-B1: 有工具/脚本可扫描 LL 和 feedback 记忆，输出"疑似重复/可合并"的建议列表
