@@ -186,12 +186,12 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 - [x] AC-A6: 知识晋升路径（observed → candidate → validated → constitutional）可操作
 - [x] AC-A7: `search_evidence` 返回结果携带 `boost_source` 归因字段，标明排序受哪些子能力影响
 
-### Phase B（非替代式压缩 + 源头回链）
-- [ ] AC-B1: 有工具/脚本可扫描 LL 和 feedback 记忆，输出"疑似重复/可合并"的建议列表
-- [ ] AC-B2: 生成 canonical summary 层，原件保留为 `activation=backstop`，summary 带 `source_ids[]` 回链
-- [ ] AC-B3: 检索时 summary 优先展示，按需可展开到源条目（非替代式验证）
-- [ ] AC-B4: shared-rules 至少完成一轮浓缩，行数下降 ≥15% 且 `source_ids` 可追溯、无功能损失
-- [ ] AC-B5: 级联压缩被架构层面阻止（summary-of-summary 不可创建）
+### Phase B（非替代式压缩 + 源头回链）✅
+- [x] AC-B1: 有工具/脚本可扫描 LL 和 feedback 记忆，输出"疑似重复/可合并"的建议列表
+- [x] AC-B2: 生成 canonical summary 层，原件保留为 `activation=backstop`，summary 带 `source_ids[]` 回链
+- [x] AC-B3: 检索时 summary 优先展示，按需可展开到源条目（非替代式验证）
+- [x] AC-B4: shared-rules 至少完成一轮浓缩，行数下降 ≥15% 且 `source_ids` 可追溯、无功能损失
+- [x] AC-B5: 级联压缩被架构层面阻止（summary-of-summary 不可创建）
 
 ### Phase C（三触发知识审计）
 - [ ] AC-C1: Write-time 矛盾检测：新知识写入时自动检索相关旧知识，冲突标记 `contradicts[]`
@@ -251,6 +251,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-16 | Design Gate 收口：4 个 API 契约 + 9 个问题全部已定 |
 | 2026-04-16 | Phase A 实施计划完成：13 tasks，AC-A1~A7 全覆盖 |
 | 2026-04-16 | Phase A merged (PR #1214) — 15 tasks, 91 new tests, 3 rounds codex review |
+| 2026-04-16 | Phase B merged (PR #1219) — Schema V14, DuplicateScanner, compression APIs, backstop suppression, 2 rounds codex review |
 
 ## Review Gate
 
