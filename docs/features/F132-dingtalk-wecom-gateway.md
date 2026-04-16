@@ -360,6 +360,7 @@ F088 已验证的三层架构（Principal Link / Session Binding / Command Layer
 | 2026-04-14 | Phase E 立项 — WeCom Bot Guided Setup: 铲屎官反馈企微接入太麻烦导致一直没验证，决定走引导式设置（路线 A），不走 ISV 扫码授权。布偶猫实现 |
 | 2026-04-14 | Phase E merged (PR #1162) — WeCom Bot guided setup: validate route (WebSocket probe + P1 rollback on start failure), disconnect route, WeComBotSetupPanel.tsx frontend, dynamic adapter lifecycle (startWeComBotStream/stopWeComBot). 7 new test cases. Spark local review APPROVED + cloud review clean |
 | 2026-04-15 | Bug-8 fix merged (PR #1176) — WeCom Bot group @mention bypass + hardcoded 飞书群聊 title: stripGroupMention in WeComBotAdapter, platform-specific group titles via getConnectorDefinition().displayName. 9 new tests. Spark local review (2 rounds, P2 regex tightened) + cloud review clean |
+| 2026-04-16 | Bug-9 fix merged (PR #1201) — WeCom Bot disconnected_event recovery: scheduleReconnect bypasses SDK isManualClose, live getConnectionState() for status endpoint (no false green), validate no longer kills live connection on failure. 9 new tests. codex local review (2 rounds, P1 validate/status fixed) + cloud review clean |
 
 ## 新 IM 接入清单（KD-7 — Adapter-Only Extension）
 
