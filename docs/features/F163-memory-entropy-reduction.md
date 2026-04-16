@@ -99,6 +99,20 @@ observed → candidate → validated → constitutional
 | `query` | 一般 validated/candidate 知识 | 正常参与 search_evidence 检索 |
 | `backstop` | observed / archived | 仅在高相关度时浮出，默认不进 top-K |
 
+### 架构约束：可开关 + 可灰度 + 可 A/B（KD-9）
+
+所有 F163 能力必须用 feature flag 包裹，默认关闭，逐个打开验证。
+
+| Feature Flag | 控制范围 | A/B 度量指标 |
+|-------------|---------|-------------|
+| `f163.enabled` | 全局总开关（默认 `false`） | — |
+| `f163.authority_boost` | authority 加权 rerank | NDCG@10 对比（boost vs 不 boost） |
+| `f163.always_on_injection` | constitutional 物理注入旁路 | 铁律命中率 |
+| `f163.compression` | 非替代式压缩 summary 层 | 检索精度 before/after |
+| `f163.audit_triggers` | 三触发审计 | 假阳性率、review queue actionability |
+
+参照 F102 的灰度开关模式：可开、可关、可度量两种表现。
+
 ### Phase A: 多轴元数据 + 评测基础设施
 
 **前置：建立评测基础设施**——没有 baseline 就没法证明改善。
@@ -201,6 +215,7 @@ observed → candidate → validated → constitutional
 | KD-6 | 晋升四级：observed → candidate → validated → constitutional（最后一级仅 CVO） | 保留 observed 隔离态（防偶然偏好过早晋升），砍掉无行为差异的 provisional | 2026-04-16 |
 | KD-7 | always_on 仅限 constitutional 红线 + 当前任务激活约束 | 防 prompt 肥胖：高权威 ≠ 常驻 prompt | 2026-04-16 |
 | KD-8 | 禁止级联压缩（summary-of-summary） | 云端调研引用：级联压缩导致 ~60% 事实召回损失 | 2026-04-16 |
+| KD-9 | 所有能力必须可开关、可灰度、可 A/B 对比，默认关闭 | 铲屎官要求：花里胡哨的功能未必带来提升，必须像 F102 一样可度量可回滚 | 2026-04-16 |
 
 ## Timeline
 
