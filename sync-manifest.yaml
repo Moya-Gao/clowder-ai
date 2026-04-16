@@ -75,6 +75,9 @@ managed_scripts:
   - scripts/tts-api.py
   - scripts/llm-postprocess-server.sh
   - scripts/llm-postprocess-api.py
+  - scripts/embed-server.sh
+  - scripts/embed-server.ps1
+  - scripts/embed-api.py
   # 安装向导
   - scripts/install.sh
   - scripts/setup.sh

@@ -261,7 +261,12 @@ def main():
             fallback_model = model_name.replace("mlx-community/", "").replace("-4bit-DWQ", "").replace("-4bit", "")
             if "Qwen3-Embedding" in fallback_model:
                 fallback_model = "Qwen/" + fallback_model
-            device = "mps" if torch.backends.mps.is_available() else "cpu"
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
             log.info("Loading model via sentence-transformers (device: %s)...", device)
             _st_model = SentenceTransformer(fallback_model, device=device)
             model_name = fallback_model  # update displayed model name

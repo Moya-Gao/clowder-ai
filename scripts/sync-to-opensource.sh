@@ -804,8 +804,9 @@ STAGING_DIR=$(mktemp -d)
 trap 'cleanup_source_sync_tree; cleanup_validation_target; rm -rf "${STAGING_DIR:-}" "${FILTERED_DIR:-}"' EXIT
 
 if [ "$DRY_RUN" = true ] || [ "$VALIDATE" = true ]; then
-  # 工作目录导出（含未提交改动，用于验证）
-  git -C "$SOURCE_DIR" ls-files | while IFS= read -r f; do
+  # 工作目录导出（含未提交改动和 allowlist 新文件，用于验证 manifest / transform）。
+  # 真实 sync 仍然只同步 clean source tree，不会把未提交内容带到目标仓。
+  git -C "$SOURCE_DIR" ls-files --cached --others --exclude-standard | while IFS= read -r f; do
     mkdir -p "$STAGING_DIR/$(dirname "$f")"
     cp "$SOURCE_DIR/$f" "$STAGING_DIR/$f" 2>/dev/null || true
   done
