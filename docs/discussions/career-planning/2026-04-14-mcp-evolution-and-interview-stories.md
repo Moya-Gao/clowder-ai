@@ -3,7 +3,7 @@ feature_ids: []
 topics: [career, interview, mcp, claude-code, openclaw, skills, toolsearch, knowledge]
 doc_kind: discussion
 created: 2026-04-14
-updated: 2026-04-14
+updated: 2026-04-16
 participants: [opus, landy]
 thread_ids: []
 ---
@@ -209,6 +209,48 @@ Skills = 指令 + 脚本 + 资源的文件夹
 - 很多面试官对 Agent 的理解还停留在"调 API"阶段
 - 能解释 CLI agent vs API call 的区别本身就是加分项
 - 结合 ADR-001（CLI subprocess 模式选型决策）可以展开为完整架构故事
+
+---
+
+### 故事 #3：WXG 二面 — "workflow 和 agent 的区别"
+
+- **日期**：2026-04-16
+- **公司**：腾讯 WXG（微信事业群）— 企业微信
+- **轮次**：二面
+- **面试官画像**：迟到、沟通姿态差、对 agent 架构理解浅
+
+**问题清单（铲屎官原话吐槽版）**：
+
+1. "你这是啥语言写的" — 开场第一个问题。2026 年了。
+2. "你的 agent 是 ReAct 还是..." — 铲屎官直接打断：这是 multi-agent，不是单 agent 的 reasoning pattern 选型题
+3. "workflow 和 agent 的区别？什么场景用 workflow 什么场景用 agent？" — 见下
+4. "你晚上睡觉关了电脑，猫猫的定时任务怎么办？" — 把本地开发环境和生产部署混为一谈
+5. 把 Cat Cafe 的五层记忆系统理解成"简单的 RAG"
+
+**铲屎官的核心洞察（值得面试复用的金句）**：
+
+> "难道不都是可以结合吗？Agent 是主，workflow 承载在 Skills 里。如果是严肃流程比如转账——和用户接触的是 agent，发起转账是 agent 调用 workflow！"
+
+翻译成架构语言：
+- **Agent** = 自主决策层，处理模糊性、路由、上下文理解
+- **Workflow** = 确定性执行层，处理需要审计、可回溯、步骤固定的严肃流程
+- 两者不是二选一，是**分层协作**：agent 决定"做什么"和"什么时候做"，workflow 保证"怎么做"的可靠性
+- Cat Cafe 的实现：Skills = workflow 的载体，agent 根据上下文动态加载对应 skill
+
+**为什么这个问题暴露了面试官的认知水平**：
+
+把 workflow 和 agent 当成互斥选项，说明还停留在 2024-2025 的 Dify / LangGraph 时代思维——那时候确实是"用 workflow 编排还是用 agent 自主决策"二选一。但到 2026 年，行业共识已经是 agent 为主、workflow 为辅、两者嵌套。面试官如果还在问"你选哪个"，说明他没跟上。
+
+**面试体验总结**：
+
+铲屎官原话："最好这家伙给我挂了，这样我们可以去面 tx 别的。"
+
+二面面试官的问题质量和一面形成断崖式落差（一面至少还聊到了 MCP vs CLI 的深度话题）。如果这位是未来汇报线 / TL / PL，这个岗位的优先级应大幅下调。
+
+**可复用点**：
+- "Agent vs Workflow" 不是二选一题，是分层架构题——以后被问到直接用铲屎官的金句
+- 面试官的问题质量 = 团队的技术天花板，二面踩雷比一面踩雷严重得多
+- 面试是双向的：对方连基本概念都在 2024 年，你去了能学到什么？
 
 ---
 
