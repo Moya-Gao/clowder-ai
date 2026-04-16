@@ -178,7 +178,7 @@ Hub 扫描时需分两层：
 | 阶段 | 内容 | 依赖 |
 |------|------|------|
 | Phase 1 ✅ | 受管状态基础：`skills-state.json` + sync 逻辑只操作受管集合。所有 skill surface（`/api/skills` + `/api/capabilities` + preflight + bootstrap）统一校验逻辑。governance bootstrap 从目录级改为 per-skill symlinks | 无 |
-| Phase 2 | Manifest hash 检测 + Hub 上新通知（stale toast） + 同名冲突选择卡片 | Phase 1 |
+| Phase 2 ✅ | Manifest hash 检测 + Hub 上新通知（stale toast） + 同名冲突选择卡片 | Phase 1 |
 | Phase 3 | Hub skills 面板分区展示（官方 / 外部 / 用户级）+ 一键同步按钮 | Phase 2 |
 | Phase 4 | Worktree 生命周期集成（创建时自动 bootstrap）+ 外部 skills diff 视图 | Phase 1 |
 | Phase 5 | 安装脚本迁移 + 旧用户级 symlinks 清理提示 + 猫主动提醒 | Phase 3 |
