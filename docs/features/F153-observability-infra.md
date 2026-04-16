@@ -44,7 +44,17 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 4. **`tool_use` span events** — 通过 `addEvent()` 记录工具调用（点标记，非零时长 span）
 5. **28 个结构测试** — source-level 验证 span 创建、线程化、属性、脱敏安全
 
-### Phase C: 后续增强
+### Phase C: Inline @mention observability（社区 PR intake）✅
+
+从 clowder-ai#489 intake 以下模块：
+
+1. **8+1 A2A counters** — `inline_action.checked/detected/shadow_miss/feedback_written/feedback_write_failed/hint_emitted/hint_emit_failed/routed_set_skip` + `line_start.detected`
+2. **Shadow detection** — strict/relaxed 双层启发式，区分 `strict hit / shadow miss / narrative mention`
+3. **Data minimization** — shadow miss 只保留 `contextHash + contextLength`，不写 raw text
+4. **主链路接入** — `route-serial` 在 feedback 持久化、hint 发射、routedSet overlap 处补 metrics
+5. **18 个回归测试** — narrative 过滤、same-line dual mention、routedSet skip、strict/shadow coexistence
+
+### Phase D: 后续增强
 
 - Grafana 统一看板
 - burn-rate 告警规则
@@ -72,6 +82,14 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 - [x] AC-A8: yielded-error 路径（`hadError = true`）的 span 正确标记为 ERROR 并补 OTel error log
 - [x] AC-A9: `agent.liveness` gauge 有实际调用点（或从 scope 移除，instruments 数量与 PR 描述一致）
 - [x] AC-A10: aborted invocation（generator `.return()`）的 OTel span/log 与审计日志信号一致
+
+### Phase C（Inline @mention observability）✅
+- [x] AC-C1: line-start @mention baseline 和 inline-action 检测 counters 已接入 `route-serial`
+- [x] AC-C2: shadow detection 只把 relaxed-action vocab gap 记为 miss，纯 narrative mention 不污染计数
+- [x] AC-C3: routedSet overlap 单独计数，且 narrative routed mention 不得误计 skip
+- [x] AC-C4: feedback 写入失败 / hint 发射失败从 silent catch 变为可观测 counter
+- [x] AC-C5: shadow miss metadata 只含 hash + length，不含 raw text
+- [x] AC-C6: regressions 覆盖 strict/shadow 同猫跨行、same-line dual mention、code block / blockquote 排除
 
 ## Dependencies
 
@@ -105,6 +123,7 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | KD-5 | 4 轮 review 后放行 intake | 所有 P1 已修，核心 P2 已修，剩余 P2 non-blocking | 2026-04-13 |
 | KD-6 | Phase B review: tool_use 改 addEvent + redactor-safe keys | 布偶猫+缅因猫双猫 review 发现零时长 span 反模式 + 脱敏穿透 | 2026-04-12 |
 | KD-7 | Phase B 2 轮 review 后放行 intake | P1（脱敏）+ P2（tool_use + scope）全部修完 | 2026-04-12 |
+| KD-8 | clowder-ai#489 双猫重审后放行 merge + absorb | strict/shadow/narrative 三级模型成立；剩余架构偏好降为 non-blocking | 2026-04-15 |
 
 ## Timeline
 
@@ -117,6 +136,8 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | 2026-04-13 | Phase A merged (PR #1086)。Intake from clowder-ai#393，18/18 tests pass |
 | 2026-04-12 | Phase B: clowder-ai#450 → R1 review 发现 1P1+2P2+1P3 |
 | 2026-04-12 | Phase B: R2 全部修完 → approve → merge → intake (PR #1128)，28/28 tests pass |
+| 2026-04-15 | Phase C: clowder-ai#489 / clowder-ai#479 经双猫重审后放行 merge；maintainer 结论从 hold 改为 approve |
+| 2026-04-15 | Phase C intake 启动：cat-cafe#1200 建立逐文件 Intake Intent Issue，吸收 inline @mention observability 5 个文件 |
 
 ## Links
 
@@ -124,4 +145,7 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 |------|------|------|
 | **PR** | `zts212653/clowder-ai#393` | 社区 PR（待修复 P1 后 intake） |
 | **Issue** | `zts212653/clowder-ai#388` | 对应 issue |
+| **PR** | `zts212653/clowder-ai#489` | Phase C 社区 PR（inline @mention observability） |
+| **Issue** | `zts212653/clowder-ai#479` | Phase C 对应 issue |
+| **Issue** | `zts212653/cat-cafe#1200` | Intake Intent Issue（逐文件 absorb spec） |
 | **Feature** | `docs/features/F130-api-log-governance.md` | 日志治理（logging 层） |
