@@ -52,6 +52,7 @@ created: 2026-02-26
 | F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | spec | 布偶猫 | internal | [F152](features/F152-expedition-memory.md) |
 | F153 | Observability Infrastructure — 运行时可观测基础设施 | in-progress | Community + 布偶猫 | community [#388](https://github.com/zts212653/clowder-ai/issues/388) | [F153](features/F153-observability-infra.md) |
 | F155 | Scene-Based Guidance Engine — 场景式交互引导 | in-progress | 缅因猫/gpt52 | community [#409](https://github.com/zts212653/clowder-ai/issues/409) [#398](https://github.com/zts212653/clowder-ai/pull/398) | [F155](features/F155-scene-guidance-engine.md) |
+| F156 | Security Hardening — 实时通道 + 本机信任边界加固（Phase E） | spec | 布偶猫 | internal | [F156](features/F156-websocket-security-hardening.md) |
 | F159 | CatAgent Native Provider — Opt-in API Path | spec | 社区 + 布偶猫 + 缅因猫 | community [#434](https://github.com/zts212653/clowder-ai/issues/434) | [F159](features/F159-catagent-native-provider.md) |
 | F161 | ACP Carrier Generalization — 多载体复用同一 Runtime Policy | spec | TBD | internal | [F161](features/F161-acp-carrier-generalization.md) |
 | F162 | Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流 | spec | 布偶猫 | internal | [F162](features/F162-enterprise-action-toolkit.md) |

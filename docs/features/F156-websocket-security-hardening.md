@@ -4,11 +4,15 @@ related_features: [F077]
 topics: [security, websocket, cswsh, origin-validation, auth]
 doc_kind: spec
 created: 2026-04-10
+reopened: 2026-04-16
+updated: 2026-04-16
 ---
 
 # F156: Security Hardening — 实时通道 + 本机信任边界加固
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P0 | **Completed**: 2026-04-12
+> **Status**: spec (Phase E planned) | **Owner**: 布偶猫 | **Priority**: P0 | **Completed**: 2026-04-12 (Phase A~D) | **Reopened**: 2026-04-16 (Phase E)
+
+**重新打开原因**：2026-04-16 对 relay-claw `issue #20` 做反向审计时确认：我们家已经没有 F156 A/B/D 修掉的那条“恶意网页直连 WebSocket/terminal → 后台 shell”攻击链，但同一条本机信任边界下，`resolveUserId()` 的 non-browser header/body fallback 仍留下了一批 **敏感 API 身份入口残余债**。按 feat 归属，这不是新 feature，而是 F156 的后续 Phase E。
 
 ## Why
 
@@ -81,6 +85,29 @@ created: 2026-04-10
 1. 校验 HTTP `Host` header，allowlist 从 CORS origins + API base URL 动态派生
 2. 自定义 FRONTEND_URL 和 split-host 部署自动覆盖
 
+### Phase E: 非浏览器身份入口收口（relay-claw 反向审计 follow-up） 🔲
+
+> **定位**：这不是把 F156 重新定义成“全站认证重构”。Phase E 只处理同一条本机信任边界里、会把浏览器/本地 API 安全面重新撕开的那批 **敏感身份入口**。
+
+**E-1: 反向审计清单落盘**
+1. 基于 relay-claw `issue #20` 的发现，整理 Cat Cafe 当前 sensitive route ledger
+2. 明确区分三类身份语义：`session-only`、`trusted browser fallback`、`non-browser automation`
+3. 不再允许“同一个 `resolveUserId()` 默认同时承担交互式浏览器身份 + 自动化 header 身份 + fallbackUserId”而没有证据区分
+
+**E-2: 敏感路由不再把 header/fallback 当充分身份**
+1. `/api/authorization/*` 这类高影响审批/规则写接口，补 session/显式受控入口约束
+2. terminal 的非 WebSocket 敏感 REST 入口（create/list/delete/agent panes）重新检查是否仍可被 non-browser header 伪造穿透
+3. 任何能导向“执行、审批、配置写入、跨线程高权限动作”的路由，都不能只靠 `X-Cat-Cafe-User` 或 body fallback 认人
+
+**E-3: helper 语义拆分**
+1. 保留 `resolveUserId()` 仅用于已证明安全的兼容路径
+2. 为敏感入口提供更窄的 helper（例如 session-first / trusted-header-only）
+3. 例外必须在 route ledger 里显式声明“为什么还能保留 header 身份”
+
+**E-4: 负向回归包**
+1. 新增负向测试，证明 header/query/body spoof 不能在 Cat Cafe 重现 relay-claw #20 那类攻击链
+2. 重点覆盖：authorization、terminal、配置写入口，以及所有保留 `X-Cat-Cafe-User` 的敏感 API
+
 ### ~~Phase C: OfficeClaw 修复~~ → 已拆出
 
 > **2026-04-10 铲屎官决定**：OfficeClaw 安全加固是"外出务工"，不属于我们家的 feat，拆为独立 feature/任务。
@@ -128,6 +155,13 @@ created: 2026-04-10
 
 ### Phase D-6（DNS Rebinding） ✅
 - [x] AC-D6: HTTP 请求校验 Host header，allowlist 从 CORS origins + API base URL 动态派生
+
+### Phase E（非浏览器身份入口收口） 🔲
+- [ ] AC-E1: relay-claw 反向审计清单落盘到本 spec，明确 sensitive route ledger（session-only / trusted browser fallback / non-browser automation）
+- [ ] AC-E2: `/api/authorization/*` 不再把 `X-Cat-Cafe-User` / fallback 作为充分身份来源；敏感审批与规则写入必须走更窄的身份语义
+- [ ] AC-E3: terminal 非 WS 敏感 REST 入口完成复核并收口，不再留下“先伪造身份拿 session 列表/创建，再走别的入口扩大影响”的残余链
+- [ ] AC-E4: 新增负向回归测试，证明 header/query/body spoof 不能在 Cat Cafe 的 sensitive routes 上复现 relay-claw #20 同类问题
+- [ ] AC-E5: 对仍保留 `X-Cat-Cafe-User` 的 automation-only route 建立显式 allowlist + 注释证据，不再靠隐式约定
 
 ### ~~Phase C（OfficeClaw）~~ → 已拆出为独立任务
 
@@ -178,6 +212,7 @@ created: 2026-04-10
 | 2026-04-15 | Bare POST 415 fix merged (PR #1194) — `apiFetch` auto-adds content-type + body for mutating requests with no body; fixes read cursor ack and mark-all through Cloudflare Tunnel (root cause: gpt52, systemic fix: opus, reviewer: codex cloud) |
 | 2026-04-15 | Fallout closure baseline synced to spec — remaining blocker narrowed to 3 closure items (route ledger, smoke evidence, unified session-loss UX); GitHub issue #1064 marked as related non-blocker |
 | 2026-04-15 | Fallout closure review bundle prepared — route ledger written into F156, trusted-origin fallback tests added for `threads` / `signals` / `connector-hub`, create-thread visible error toast added |
+| 2026-04-16 | **Feature reopened**：relay-claw `issue #20` 反向审计确认我们家 Phase A~D 主链已修，但 non-browser `resolveUserId()` / `X-Cat-Cafe-User` 残余语义仍需作为 F156 Phase E 收口 |
 
 ## Known Issue: API 重启后 Session 丢失导致用户惊吓（P1）
 
