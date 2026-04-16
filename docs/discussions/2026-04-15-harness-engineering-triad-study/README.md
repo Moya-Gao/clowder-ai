@@ -240,12 +240,25 @@ ADR-026 已经开始补 Event API、typed body、causal parents、authority/effe
 
 详见 → [round2-overfitting-and-entropy.md](./round2-overfitting-and-entropy.md)
 
-潜在 Feature 方向：F102（记忆基础设施）→ F152（记忆可移植性）→ **F???（记忆熵减 / 知识生命周期治理）**
+潜在 Feature 方向：F102（记忆基础设施）→ F152（记忆可移植性）→ **F163（记忆熵减 / 知识生命周期治理）**（已立项）
+
+## 8.5 Round 3: Research Prompt 设计 × 引导式过拟合
+
+铲屎官在 F163 立项后指出"讨论完不能少了 research pipeline"，并追问两个更深层的问题：
+1. 如何设计 research agent 的提示词来激发调研潜能？
+2. 记忆系统如何引导新铲屎官"养好自己的猫"？
+
+铲屎官确认了三段式主战场框架：
+
+> 记忆怎么减（F163）→ 记忆怎么长对（过拟合精度）→ 过拟合怎么引导（养猫路径）
+
+详见 → [round3-research-prompt-and-guided-overfitting.md](./round3-research-prompt-and-guided-overfitting.md)
 
 ## 9. 附：本目录包含的文件
 
 - `README.md`：三篇套读总览 + 我们的判断（Round 1）
 - `round2-overfitting-and-entropy.md`：过拟合命题 + 记忆熵减讨论收敛（Round 2）
+- `round3-research-prompt-and-guided-overfitting.md`：Research Prompt 设计 + 引导式过拟合（Round 3）
 - `sources/openai-harness-engineering.md`：OpenAI 文章 source note
 - `sources/anthropic-harness-design-long-running-apps.md`：Anthropic 文章 source note
 - `sources/anthropic-scaling-managed-agents.md`：Managed Agents 套读入口 note
