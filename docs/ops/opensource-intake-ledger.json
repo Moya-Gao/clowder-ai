@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "62bff43f314878d29f806b2ca795a6e994a496ae",
+  "last_reviewed_target_head": "588b3ee73d189d47151d9d02170643e6cf6eb996",
   "entries": [
     {
       "pr_number": 90,
@@ -694,6 +694,12 @@
       "target_merge_commit": "62bff43f314878d29f806b2ca795a6e994a496ae",
       "decision": "absorbed",
       "timestamp": "2026-04-16T04:07:00.654Z"
+    },
+    {
+      "pr_number": 494,
+      "target_merge_commit": "588b3ee73d189d47151d9d02170643e6cf6eb996",
+      "decision": "absorbed",
+      "timestamp": "2026-04-16T07:19:49.364Z"
     }
   ]
 }
