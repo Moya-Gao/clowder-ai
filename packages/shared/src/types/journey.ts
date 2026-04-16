@@ -241,7 +241,11 @@ export type ActivityEventType =
   | 'evidence_cited'
   | 'session_sealed'
   | 'rich_block_created'
-  | 'design_feedback_given';
+  | 'design_feedback_given'
+  // Phase D6: Leadership event sources (decision + feedback dimensions)
+  | 'clarification_requested' // Cat asked co-creator for missing info (explicit: AskUserQuestion tool)
+  | 'decision_confirmed' // Co-creator confirmed direction (explicit: interactive block / implicit: text)
+  | 'feedback_applied'; // Co-creator feedback adopted in code (future: task sourceMessageId chain)
 
 // ── Phase D: Co-Creator Leadership (铲屎官六维) ──────────────────
 
@@ -313,8 +317,10 @@ export type LeadershipFootfallSource =
   | 'feature_initiated' // 开拓力: initiated a new feature discussion
   | 'one_shot_completion' // 引导力: cat completed task on first try
   | 'low_clarification' // 引导力: session with few clarification rounds
-  | 'direction_confirmed' // 决策力 (shadow): confirmed direction quickly
-  | 'feedback_applied'; // 反馈力 (shadow): feedback led to improvement
+  | 'direction_confirmed' // 决策力 (shadow/proxy): inferred from low clarification count
+  | 'direction_confirmed_explicit' // 决策力 (D6): explicit UI confirm / text confirmation
+  | 'feedback_applied' // 反馈力 (shadow): feedback led to improvement
+  | 'clarification_observed'; // 决策力 (D6 shadow): cat asked for clarification — D7 calibration data
 
 // ── Phase D: Leadership Titles (AC-D4) ───────────────────────────
 

@@ -43,7 +43,9 @@ const LEADERSHIP_XP_RULES: Record<LeadershipFootfallSource, { dimension: Leaders
   one_shot_completion: { dimension: 'guidance', xp: 25 },
   low_clarification: { dimension: 'guidance', xp: 15 },
   direction_confirmed: { dimension: 'decision', xp: 20 },
+  direction_confirmed_explicit: { dimension: 'decision', xp: 20 },
   feedback_applied: { dimension: 'feedback', xp: 20 },
+  clarification_observed: { dimension: 'decision', xp: 1 },
 };
 
 // ── Level Math ───────────────────────────────────────────────────

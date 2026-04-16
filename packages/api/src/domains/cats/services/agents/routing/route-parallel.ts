@@ -458,6 +458,13 @@ export async function* routeParallel(
       const toolName = msg.toolName ?? 'unknown';
       const { category } = classifyTool(toolName, toolInput);
       deps.activityBus?.record('tool_used', msg.catId as string, { toolName, category });
+      // AC-D6: AskUserQuestion → clarification_requested (L1 explicit detection)
+      if (toolName === 'AskUserQuestion') {
+        deps.activityBus?.record('clarification_requested', msg.catId as string, {
+          source: 'explicit',
+          confidence: 1.0,
+        });
+      }
     }
     if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
       catMeta.set(msg.catId, msg.metadata);

@@ -1092,6 +1092,7 @@ async function main(): Promise<void> {
     messageStore,
     socketManager,
     threadStore,
+    activityBus,
   });
   await app.register(catsRoutes);
 

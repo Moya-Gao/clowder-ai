@@ -53,9 +53,18 @@ export class LeadershipProjector {
         case 'tool_used':
           this.onToolUsed(event);
           break;
-        // ── Shadow (AC-D3) ───────────────────────────────
+        // ── Shadow (AC-D3) → AC-D6 real events ─────────────
         case 'review_submitted':
+          // D6 TODO: Replace with real feedback_applied event chain (proxy P1)
           this.leadershipService.awardXp('feedback_applied');
+          break;
+        case 'decision_confirmed':
+          // D6: Explicit decision — separate source from proxy for D7 calibration
+          this.leadershipService.awardXp('direction_confirmed_explicit');
+          break;
+        case 'clarification_requested':
+          // D6: Record to audit trail via shadow dim (1 XP) for D7 calibration data.
+          this.leadershipService.awardXp('clarification_observed');
           break;
       }
     } catch (err: unknown) {

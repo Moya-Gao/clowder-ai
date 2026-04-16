@@ -515,6 +515,13 @@ export async function* routeSerial(
           const toolName = msg.toolName ?? 'unknown';
           const { category } = classifyTool(toolName, toolInput);
           deps.activityBus?.record('tool_used', msg.catId as string, { toolName, category });
+          // AC-D6: AskUserQuestion → clarification_requested (L1 explicit detection)
+          if (toolName === 'AskUserQuestion') {
+            deps.activityBus?.record('clarification_requested', msg.catId as string, {
+              source: 'explicit',
+              confidence: 1.0,
+            });
+          }
         }
 
         // #80: Draft flush — fire-and-forget periodic persistence for F5 recovery
