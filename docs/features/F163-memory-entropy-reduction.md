@@ -248,6 +248,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-16 | 调研：8 槽位 research brief → GPT Pro Deep Research + Gemini Deep Think |
 | 2026-04-16 | 三只本地猫独立评估云端报告 → 五方综合分析收敛 |
 | 2026-04-16 | Spec 修正回填：单维四层 → 多轴元数据 + 非替代式压缩 + 三触发审计 |
+| 2026-04-16 | Design Gate 收口：4 个 API 契约 + 9 个问题全部已定 |
+| 2026-04-16 | Phase A 实施计划完成：13 tasks，AC-A1~A7 全覆盖 |
 
 ## Review Gate
 
@@ -264,6 +266,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | **Discussion** | `docs/discussions/2026-04-15-harness-engineering-triad-study/README.md` | Harness Engineering 三篇套读 |
 | **Research** | `docs/research/2026-04-16-f163-knowledge-lifecycle/research-brief.md` | 8 槽位调研 brief（发给云端的 prompt） |
 | **Research** | `docs/research/2026-04-16-f163-knowledge-lifecycle/cloud-consult.md` | 云端调研 + 五方综合分析 |
+| **Design Gate** | `docs/discussions/2026-04-16-f163-design/README.md` | Design Gate 4 契约收口 |
+| **Plan** | `docs/plans/2026-04-16-f163-phase-a-metadata-eval.md` | Phase A 实施计划（13 tasks） |
 | **Feature** | `docs/features/F102-memory-adapter-refactor.md` | 记忆基础设施（前驱） |
 | **Feature** | `docs/features/F152-expedition-memory.md` | 记忆可移植性（前驱） |
 | **Decision** | `docs/decisions/026-agent-runtime-operational-boundaries.md` | Runtime 运行边界（相关） |
