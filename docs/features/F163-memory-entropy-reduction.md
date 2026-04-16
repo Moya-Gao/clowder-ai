@@ -8,7 +8,7 @@ created: 2026-04-15
 
 # F163: Memory Entropy Reduction — 记忆熵减与知识生命周期治理
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -135,7 +135,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 7. **写路径串行化**：所有 F163 写操作（压缩、晋升、冲突标记）收敛到单写者队列，禁止并发写产生竞争或半写入状态
 8. **Variant ID 归因**：每次请求基于 flag snapshot 生成确定性 `variant_id`，结果和日志统一携带，确保评估时可追溯到完整策略组合
 
-### Phase A: 多轴元数据 + 评测基础设施
+### Phase A: 多轴元数据 + 评测基础设施 ✅
 
 **前置：建立评测基础设施**——没有 baseline 就没法证明改善。
 - 从真实对话中提取 50-100 个 query，标注 gold relevance
@@ -177,14 +177,14 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 
 ## Acceptance Criteria
 
-### Phase A（多轴元数据 + 评测基础设施）
-- [ ] AC-A1: 50-100 query gold set 建立，baseline NDCG@10 和 MRR 记录在案
-- [ ] AC-A2: `search_evidence` 支持多轴元数据（authority / activation / status），文档可标记
-- [ ] AC-A3: `always_on` 文档走物理注入路径，不走检索管道；`always_on` 仅限 constitutional + 当前任务约束
-- [ ] AC-A4: `query` 文档支持窄幅 post-retrieval boost，NDCG@10 对比实验通过（优于 baseline）
-- [ ] AC-A5: 现有 shared-rules 铁律、P0 LL 已标记为 `authority=constitutional`
-- [ ] AC-A6: 知识晋升路径（observed → candidate → validated → constitutional）可操作
-- [ ] AC-A7: `search_evidence` 返回结果携带 `boost_source` 归因字段，标明排序受哪些子能力影响
+### Phase A（多轴元数据 + 评测基础设施）✅
+- [x] AC-A1: 50-100 query gold set 建立，baseline NDCG@10 和 MRR 记录在案
+- [x] AC-A2: `search_evidence` 支持多轴元数据（authority / activation / status），文档可标记
+- [x] AC-A3: `always_on` 文档走物理注入路径，不走检索管道；`always_on` 仅限 constitutional + 当前任务约束
+- [x] AC-A4: `query` 文档支持窄幅 post-retrieval boost，NDCG@10 对比实验通过（优于 baseline）
+- [x] AC-A5: 现有 shared-rules 铁律、P0 LL 已标记为 `authority=constitutional`
+- [x] AC-A6: 知识晋升路径（observed → candidate → validated → constitutional）可操作
+- [x] AC-A7: `search_evidence` 返回结果携带 `boost_source` 归因字段，标明排序受哪些子能力影响
 
 ### Phase B（非替代式压缩 + 源头回链）
 - [ ] AC-B1: 有工具/脚本可扫描 LL 和 feedback 记忆，输出"疑似重复/可合并"的建议列表
@@ -250,6 +250,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-16 | Spec 修正回填：单维四层 → 多轴元数据 + 非替代式压缩 + 三触发审计 |
 | 2026-04-16 | Design Gate 收口：4 个 API 契约 + 9 个问题全部已定 |
 | 2026-04-16 | Phase A 实施计划完成：13 tasks，AC-A1~A7 全覆盖 |
+| 2026-04-16 | Phase A merged (PR #1214) — 15 tasks, 91 new tests, 3 rounds codex review |
 
 ## Review Gate
 
