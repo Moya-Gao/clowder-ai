@@ -43,6 +43,27 @@ export interface DensityGateResult {
 // ── Grid-based coverage ──
 
 const GRID = 100; // 100×100 grid ≈ 10,000 cells, fast enough
+const SLIDE_AREA = SLIDE_W * SLIDE_H;
+const DECORATIVE_ROOT_FILLS = new Set(['FAFAFA', 'F9FAFB', 'F5F5F5', 'FEF2F2', 'FFF7E6']);
+
+function isDecorativeBackground(el: CompiledElement): boolean {
+  if (el.role !== 'shape' || el.content.type !== 'shape') return false;
+  if (el.style.borderColor || (el.content.line && el.content.line.width > 0)) return false;
+  if (!DECORATIVE_ROOT_FILLS.has(el.content.fill)) return false;
+
+  const area = el.rect.w * el.rect.h;
+  return area >= SLIDE_AREA * 0.95;
+}
+
+function isBorderShell(el: CompiledElement): boolean {
+  if (el.role !== 'shape' || el.content.type !== 'shape') return false;
+  const hasBorder = Boolean(el.style.borderColor) || (el.content.line != null && el.content.line.width > 0);
+  if (!hasBorder) return false;
+  const fill = el.content.fill;
+  if (fill && fill !== 'none' && !DECORATIVE_ROOT_FILLS.has(fill)) return false;
+  const area = el.rect.w * el.rect.h;
+  return area >= SLIDE_AREA * 0.95;
+}
 
 /**
  * Compute whitespace ratio using a low-res grid.
@@ -54,6 +75,8 @@ function computeCoverage(elements: CompiledElement[], slideW: number, slideH: nu
   const scaleY = GRID / slideH;
 
   for (const el of elements) {
+    if (isDecorativeBackground(el) || isBorderShell(el)) continue;
+
     const x0 = Math.max(0, Math.floor(el.rect.x * scaleX));
     const y0 = Math.max(0, Math.floor(el.rect.y * scaleY));
     const x1 = Math.min(GRID, Math.ceil((el.rect.x + el.rect.w) * scaleX));

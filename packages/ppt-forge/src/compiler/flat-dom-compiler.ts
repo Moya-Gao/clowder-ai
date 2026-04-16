@@ -11,6 +11,7 @@
 
 import { type Browser, chromium } from 'playwright';
 
+import { inlineLocalAssetUrls } from './html-asset-inliner.js';
 import type { CompiledElement, CompiledSlide, CompiledStyle, TextRun } from './types.js';
 
 export interface SemanticZone {
@@ -216,7 +217,7 @@ export async function flatExtract(html: string, options?: FlatExtractOptions): P
   const vh = options?.viewportHeight ?? 720;
   const browser = await getBrowser();
   const page = await browser.newPage({ viewport: { width: vw, height: vh } });
-  await page.setContent(html, { waitUntil: 'networkidle' });
+  await page.setContent(inlineLocalAssetUrls(html), { waitUntil: 'networkidle' });
   const raw = (await page.evaluate(FLAT_EXTRACT_SCRIPT)) as RawResult;
   await page.close();
 

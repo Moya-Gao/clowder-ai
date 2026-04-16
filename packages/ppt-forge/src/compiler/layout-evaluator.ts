@@ -10,6 +10,8 @@
 
 import { type Browser, chromium } from 'playwright';
 
+import { inlineLocalAssetUrls } from './html-asset-inliner.js';
+
 export interface EvaluatedNode {
   role: string;
   slotName?: string;
@@ -154,7 +156,7 @@ const EXTRACT_SCRIPT = `
 export async function evaluateLayout(html: string): Promise<EvaluatedNode[]> {
   const browser = await getBrowser();
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  await page.setContent(html, { waitUntil: 'load' });
+  await page.setContent(inlineLocalAssetUrls(html), { waitUntil: 'load' });
   const nodes = (await page.evaluate(EXTRACT_SCRIPT)) as EvaluatedNode[];
   await page.close();
   return nodes;
@@ -166,7 +168,7 @@ export async function evaluateDeck(slideHtmls: string[]): Promise<EvaluatedNode[
   const results: EvaluatedNode[][] = [];
   for (const html of slideHtmls) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-    await page.setContent(html, { waitUntil: 'load' });
+    await page.setContent(inlineLocalAssetUrls(html), { waitUntil: 'load' });
     const nodes = (await page.evaluate(EXTRACT_SCRIPT)) as EvaluatedNode[];
     results.push(nodes);
     await page.close();

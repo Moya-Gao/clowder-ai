@@ -96,6 +96,45 @@ describe('density-analyzer — densityGate (D3)', () => {
     assert.ok(!strict.passed, 'strict threshold should fail');
     assert.ok(relaxed.passed, 'relaxed threshold should pass');
   });
+
+  it('ignores full-slide border shells from coverage (P1 — border bypass)', () => {
+    // A border-only shell covering the full slide should be treated as decoration,
+    // not as real content that inflates coverage.
+    const bg: CompiledElement = {
+      role: 'shape',
+      rect: { x: 0, y: 0, w: 13.333, h: 7.5 },
+      content: { type: 'shape', shapeType: 'rect', fill: 'FAFAFA' },
+      style: {},
+    };
+    const borderShell: CompiledElement = {
+      role: 'shape',
+      rect: { x: 0, y: 0, w: 13.333, h: 7.5 },
+      content: { type: 'shape', shapeType: 'rect', fill: '' },
+      style: { borderColor: 'C7020E', borderWidth: 1 },
+    };
+    const topContent: CompiledElement = {
+      role: 'shape',
+      rect: { x: 0, y: 0, w: 13.333, h: 2.5 },
+      content: { type: 'shape', shapeType: 'rect', fill: 'FFFFFF' },
+      style: {},
+    };
+    const result = densityGate([bg, borderShell, topContent]);
+    assert.ok(
+      !result.passed,
+      `border shell should not inflate coverage: whitespace=${(result.report.whitespaceRatio * 100).toFixed(1)}%`,
+    );
+  });
+
+  it('ignores full-slide decorative background fills', () => {
+    const rootBg = makeElement(0, 0, 13.333, 7.5);
+    rootBg.content = { type: 'shape', shapeType: 'rect', fill: 'FAFAFA' };
+
+    const contentBand = makeElement(0, 0, 13.333, 3.0);
+    const result = densityGate([rootBg, contentBand]);
+
+    assert.ok(!result.passed, 'root background should not make a sparse slide pass');
+    assert.ok(result.reason?.includes('exceeds'), result.reason);
+  });
 });
 
 describe('density-analyzer — compareTwoPhase (D2)', () => {
@@ -190,5 +229,27 @@ describe('density-analyzer — E2E with flat extract', () => {
     // Flat-only extraction skips semantic zones → high whitespace is expected
     assert.ok(!gate.passed, 'flat-only hybrid should NOT pass 30% gate (semantic zones are empty)');
     assert.equal(gate.report.overflowCount, 0, 'no overflows expected');
+  });
+
+  it('D6 E2E: top-loaded page with full-slide root background must fail density gate', async () => {
+    const html = `
+      <html><body>
+        <div class="ppt-slide" style="width:1280px;height:720px;background:#fafafa;overflow:hidden;">
+          <div style="height:280px;background:#fff;border-top:3px solid #C7020E;padding:24px;">
+            <div style="font-size:28px;font-weight:700;">Top-loaded strategic page</div>
+            <div style="margin-top:12px;font-size:16px;">All content sits in the upper band.</div>
+          </div>
+        </div>
+      </body></html>
+    `;
+
+    const result = await flatExtract(html);
+    const gate = densityGate(result.elements);
+
+    assert.ok(!gate.passed, 'full-slide root background should not hide lower-half whitespace');
+    assert.ok(
+      gate.report.whitespaceRatio > 0.3,
+      `expected sparse layout, got ${(gate.report.whitespaceRatio * 100).toFixed(1)}% whitespace`,
+    );
   });
 });

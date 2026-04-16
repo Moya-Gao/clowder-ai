@@ -19,6 +19,7 @@ import { buildCompiledDeck } from './compiled-builder.js';
 import { type DensityGateResult, densityGate } from './density-analyzer.js';
 import { buildRoutedSlide, routeElements } from './element-router.js';
 import { flatExtract } from './flat-dom-compiler.js';
+import { inlineLocalAssetUrls } from './html-asset-inliner.js';
 import { type CompiledDeck, SCREENSHOT_SCALE } from './types.js';
 
 // ── Default theme (huawei-like) ──
@@ -67,7 +68,7 @@ async function captureScreenshot(html: string): Promise<Buffer> {
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: SCREENSHOT_SCALE,
   });
-  await page.setContent(html, { waitUntil: 'networkidle' });
+  await page.setContent(inlineLocalAssetUrls(html), { waitUntil: 'networkidle' });
   const shot = await page.screenshot({ type: 'png', fullPage: false });
   await page.close();
   return Buffer.from(shot);
