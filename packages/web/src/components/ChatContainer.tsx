@@ -51,6 +51,7 @@ import { SplitPaneView } from './SplitPaneView';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { ThreadSidebar } from './ThreadSidebar';
+import { pushThreadRouteWithHistory } from './ThreadSidebar/thread-navigation';
 import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
 import { WorkspacePanel } from './WorkspacePanel';
@@ -79,6 +80,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     armUnreadSuppression,
     rightPanelMode,
   } = useChatStore();
+  const navigateToThread = useCallback((tid: string) => {
+    pushThreadRouteWithHistory(tid, typeof window !== 'undefined' ? window : undefined);
+  }, []);
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
   const isOfflineSnapshot = useChatStore((s) => s.isOfflineSnapshot);
 
@@ -349,7 +353,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     clearDoneTimeout,
     handleAuthRequest,
     handleAuthResponse,
-    onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
+    onNavigateToThread: navigateToThread,
     onIndexEvent: handleIndexSocketEvent,
   });
 
@@ -473,9 +477,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const handleZoomToThread = useCallback(
     (tid: string) => {
       setViewMode('single');
-      router.push(`/thread/${tid}`);
+      navigateToThread(tid);
     },
-    [setViewMode, router],
+    [setViewMode, navigateToThread],
   );
 
   const handleSearchKnowledge = useCallback(() => {

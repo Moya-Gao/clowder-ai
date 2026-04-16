@@ -1,11 +1,11 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { HubConnectorConfigTab } from './HubConnectorConfigTab';
 import HubPermissionsTab from './HubPermissionsTab';
 import { HubIcon } from './icons/HubIcon';
+import { pushThreadRouteWithHistory } from './ThreadSidebar/thread-navigation';
 import { formatRelativeTime } from './ThreadSidebar/thread-utils';
 
 const CONNECTOR_LABELS: Record<string, string> = {
@@ -44,7 +44,6 @@ interface HubListModalProps {
 }
 
 export function HubListModal({ open, onClose, currentThreadId }: HubListModalProps) {
-  const router = useRouter();
   const [hubThreads, setHubThreads] = useState<HubThreadSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -79,7 +78,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
   if (!open) return null;
 
   const handleNavigate = (threadId: string) => {
-    router.push(`/thread/${threadId}`);
+    pushThreadRouteWithHistory(threadId, typeof window !== 'undefined' ? window : undefined);
     onClose();
   };
 
