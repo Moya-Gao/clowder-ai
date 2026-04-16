@@ -131,7 +131,9 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 3. **Cohort sticky routing**：同 thread 固定走同一实验桶，不混搭，避免感知混乱和数据污染
 4. **归因透明**：`search_evidence` 返回结果携带 `boost_source` 字段，标明排序受哪些子能力影响
 5. **Per-request flag snapshot**：每次请求冻结当前 flag 快照，处理过程中禁止热切换，避免同请求跨 variant 数据污染
-6. **Kill-switch / fail-open**：任一 F163 子能力异常时自动降级到 legacy 检索链路，不允许 F163 故障拖垮整条搜索路径
+6. **Kill-switch / fail-open（读写分治）**：读路径异常时自动降级到 legacy 检索链路；写路径异常时降级到 `suggest`（只产日志/建议，不改状态），禁止半写入
+7. **写路径串行化**：所有 F163 写操作（压缩、晋升、冲突标记）收敛到单写者队列，禁止并发写产生竞争或半写入状态
+8. **Variant ID 归因**：每次请求基于 flag snapshot 生成确定性 `variant_id`，结果和日志统一携带，确保评估时可追溯到完整策略组合
 
 ### Phase A: 多轴元数据 + 评测基础设施
 
