@@ -1,0 +1,260 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "frame",
+      "id": "ORuDN",
+      "x": 80,
+      "y": 80,
+      "name": "F164 Phase B - IM Sync States",
+      "fill": "#0B1220",
+      "cornerRadius": 16,
+      "gap": 24,
+      "padding": 24,
+      "children": [
+        {
+          "type": "frame",
+          "id": "59oyM",
+          "name": "Default",
+          "width": 320,
+          "height": 240,
+          "fill": "#0F172A",
+          "cornerRadius": 12,
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "KWEhU",
+              "name": "defaultTitle",
+              "fill": "#E2E8F0",
+              "content": "Default",
+              "fontFamily": "Inter",
+              "fontSize": 24,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "dB3Jv",
+              "name": "Pill",
+              "fill": "#334155",
+              "cornerRadius": 999,
+              "gap": 8,
+              "padding": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "R6m8A",
+                  "name": "defaultPillText",
+                  "fill": "#CBD5E1",
+                  "content": "Idle",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "lG8AX",
+              "name": "defaultBody",
+              "fill": "#94A3B8",
+              "content": "Waiting for connection...",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dnCpu",
+          "name": "Online",
+          "width": 320,
+          "height": 240,
+          "fill": "#0F172A",
+          "cornerRadius": 12,
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "XC8VZ",
+              "name": "onlineTitle",
+              "fill": "#E2E8F0",
+              "content": "Online",
+              "fontFamily": "Inter",
+              "fontSize": 24,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "770nM",
+              "name": "Pill",
+              "fill": "#14532D",
+              "cornerRadius": 999,
+              "gap": 8,
+              "padding": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "1VqPi",
+                  "name": "onlinePillText",
+                  "fill": "#86EFAC",
+                  "content": "Online",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "QgEx3",
+              "name": "onlineBody",
+              "fill": "#94A3B8",
+              "content": "Live updates are flowing.",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "AwhbM",
+          "name": "Syncing",
+          "width": 320,
+          "height": 240,
+          "fill": "#0F172A",
+          "cornerRadius": 12,
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "Zw1f5",
+              "name": "syncTitle",
+              "fill": "#E2E8F0",
+              "content": "Syncing",
+              "fontFamily": "Inter",
+              "fontSize": 24,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "M8ztg",
+              "name": "Pill",
+              "fill": "#1E3A8A",
+              "cornerRadius": 999,
+              "gap": 8,
+              "padding": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "S9Sw2",
+                  "name": "syncPillText",
+                  "fill": "#93C5FD",
+                  "content": "Syncing...",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "80xJu",
+              "name": "syncBody",
+              "fill": "#94A3B8",
+              "content": "Applying latest messages.",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "RmWxh",
+          "name": "Offline",
+          "width": 320,
+          "height": 240,
+          "fill": "#0F172A",
+          "cornerRadius": 12,
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "U6Pml",
+              "name": "offlineTitle",
+              "fill": "#E2E8F0",
+              "content": "Offline",
+              "fontFamily": "Inter",
+              "fontSize": 24,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "SCL9T",
+              "name": "Pill",
+              "fill": "#374151",
+              "cornerRadius": 999,
+              "gap": 8,
+              "padding": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "qyxsA",
+                  "name": "offlinePillText",
+                  "fill": "#D1D5DB",
+                  "content": "Offline",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "OQwl9",
+              "name": "offlineBody",
+              "fill": "#94A3B8",
+              "content": "Last seen: 2 hours ago",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "2JvMb",
+              "name": "旧时光提示",
+              "fill": "#F4EFE6",
+              "cornerRadius": 10,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": 10,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "xtFJn",
+                  "name": "nostalgiaText",
+                  "fill": "#8C8782",
+                  "content": "旧时光提示：消息快照模式已启用",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

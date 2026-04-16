@@ -1,0 +1,289 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "tCJl4",
+      "x": 0,
+      "y": 0,
+      "name": "card",
+      "width": 320,
+      "fill": "#FFFAF5",
+      "cornerRadius": 16,
+      "effect": {
+        "type": "shadow",
+        "shadowType": "outer",
+        "color": "#0000000D",
+        "blur": 10
+      },
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 32,
+      "children": [
+        {
+          "type": "frame",
+          "id": "toRDX",
+          "name": "header",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "XukHf",
+              "name": "titleGroup",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "h8f0p",
+                  "width": 20,
+                  "height": 20,
+                  "iconFontName": "shield",
+                  "iconFontFamily": "lucide",
+                  "fill": "#A95A3D"
+                },
+                {
+                  "type": "text",
+                  "id": "sI2QY",
+                  "fill": "#1A1918",
+                  "content": "即时作战室",
+                  "fontFamily": "Outfit",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "7pjeZ",
+              "name": "statusBadge",
+              "fill": "#E8F5E9",
+              "cornerRadius": 4,
+              "padding": [
+                4,
+                8
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "OVDoQ",
+                  "fill": "#4E8A61",
+                  "content": "运行中",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "HaYNB",
+          "name": "divider1",
+          "fill": "#F5F4F1",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "cC8aw",
+          "name": "missionSection",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "QbP8R",
+              "fill": "#8C8782",
+              "content": "任务分析：创建 WXG 面试全要素环境",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "q01nm",
+              "name": "step1",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "doHwp",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "circle-check",
+                  "iconFontFamily": "lucide",
+                  "fill": "#4E8A61"
+                },
+                {
+                  "type": "text",
+                  "id": "DMDSM",
+                  "fill": "#1A1918",
+                  "content": "1. 生成《架构方案》文档",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "9bURz",
+              "name": "step2",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "aJLHx",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "refresh-cw",
+                  "iconFontFamily": "lucide",
+                  "fill": "#4F7FA8"
+                },
+                {
+                  "type": "text",
+                  "id": "jHDdT",
+                  "fill": "#1A1918",
+                  "content": "2. 部署《面试日程》智能表格",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WRtHT",
+              "name": "step3",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "YDqve",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "calendar",
+                  "iconFontFamily": "lucide",
+                  "fill": "#9C9B99"
+                },
+                {
+                  "type": "text",
+                  "id": "9uEQz",
+                  "fill": "#1A1918",
+                  "content": "3. 预约《方案评审》企微会议",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "k2VgN",
+          "name": "avatarGroup",
+          "gap": -8,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "Y9Cn0",
+              "name": "avatar1",
+              "fill": {
+                "type": "image",
+                "enabled": true,
+                "url": "./images/generated-1776272806365.png",
+                "mode": "fill"
+              },
+              "width": 24,
+              "height": 24
+            },
+            {
+              "type": "ellipse",
+              "id": "Yx23s",
+              "name": "avatar2",
+              "fill": {
+                "type": "image",
+                "enabled": true,
+                "url": "./images/generated-1776272824270.png",
+                "mode": "fill"
+              },
+              "width": 24,
+              "height": 24
+            },
+            {
+              "type": "ellipse",
+              "id": "vZO7P",
+              "name": "avatar3",
+              "fill": {
+                "type": "image",
+                "enabled": true,
+                "url": "./images/generated-1776272848751.png",
+                "mode": "fill"
+              },
+              "width": 24,
+              "height": 24
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "FiP85",
+          "name": "btn",
+          "width": "fill_container",
+          "fill": "#8D6E63",
+          "cornerRadius": 8,
+          "padding": [
+            12,
+            0
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "CNPKP",
+              "fill": "#FFFFFF",
+              "content": "进入作战中心",
+              "fontFamily": "Outfit",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "bYL3y",
+          "name": "footer",
+          "fill": "#B0AAA4",
+          "content": "由 Cat Café 深度驱动 · 烁烁设计",
+          "textAlign": "center",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "normal"
+        }
+      ]
+    }
+  ]
+}

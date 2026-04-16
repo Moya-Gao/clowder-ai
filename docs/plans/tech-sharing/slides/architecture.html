@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Cat Café 技术架构总览</title>
+<style>
+  :root {
+    --hw-red: #cf0a2c;
+    --hw-dark: #1a1a1a;
+    --hw-gray: #f5f5f5;
+    --hw-text: #444;
+    --hw-light-text: #888;
+    --hw-border: #e0e0e0;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Noto Sans SC','Microsoft YaHei','Helvetica Neue',sans-serif; }
+
+  .ppt-slide {
+    width:1280px; height:720px; overflow:hidden; background:#fff;
+    display:grid; grid-template-rows: auto auto 1fr auto auto auto;
+    position: relative;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(90deg, var(--hw-red) 0%, #a00016 100%);
+    color:#fff; padding:12px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .header h1 { font-size:22px; font-weight:600; letter-spacing:1px; }
+  .header .badge { font-size:10px; background:rgba(255,255,255,.15); padding:3px 10px; border-radius:2px;}
+
+  /* ── Vision Control Rail ── */
+  .vision-rail {
+    background:var(--hw-gray); padding:8px 24px;
+    display:flex; align-items:center; gap:8px;
+    border-bottom:1px solid var(--hw-border);
+    position: relative;
+  }
+  .vr-label {
+    font-size:12px; font-weight:700; color:var(--hw-red);
+    white-space:nowrap; margin-right:12px;
+    letter-spacing:1px;
+  }
+  .vr-step {
+    font-size:11px; color:var(--hw-text); padding:3px 12px;
+    background:#fff; border:1px solid #d0d0d0;
+  }
+  .vr-arrow { font-size:12px; color:#aaa; }
+  .vr-note {
+    margin-left:auto; font-size:10px; color:var(--hw-light-text);
+    white-space:nowrap;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* ── Control Drop Lines ── */
+  .control-drops {
+    position: absolute;
+    top: 100px; /* Adjust based on header+rail height */
+    left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+  /* Draw 3 thin lines dropping down to the bottom rails */
+  .drop-line {
+    position: absolute;
+    width: 1px;
+    background: dashed 1px #ccc;
+    border-left: 1px dashed #ccc;
+    top: 0;
+  }
+  .drop-line::after {
+    content: '▼';
+    position: absolute;
+    bottom: -6px; left: -4px;
+    color: #ccc; font-size: 10px;
+  }
+  /* Positions approximated for the 3 target zones */
+  .drop-1 { left: 160px; bottom: 230px; } /* Skill / Pack */
+  .drop-2 { left: 660px; bottom: 230px; } /* Memory System */
+  .drop-3 { left: 900px; bottom: 50px; } /* Quality Loop */
+
+  /* ── Main Flow Area ── */
+  .main-flow {
+    padding: 16px 24px 8px;
+    display:flex;
+    align-items:center;
+    gap:0;
+    z-index: 2; /* above control lines */
+  }
+  .main-flow > .flow-col { flex:0 0 30px; }
+  .main-flow > .card-col { flex:1; min-width:0; }
+  .main-flow > .core-col { flex:2.5; min-width:0; }
+
+  /* ── Card base ── */
+  .card-col { display:flex; flex-direction:column; gap:6px; }
+  .card {
+    background:var(--hw-gray); border-left:3px solid var(--hw-red);
+    padding:12px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .card-label { font-size:10px; font-weight:600; color:var(--hw-light-text); letter-spacing:1px; margin-bottom:4px; text-transform: uppercase; }
+  .card-title { font-size:15px; font-weight:700; color:var(--hw-dark); line-height:1.3; }
+  .card-sub { font-size:11px; color:var(--hw-text); line-height:1.6; margin-top:6px; }
+  .card-sub strong { color:var(--hw-red); }
+
+  .tag {
+    display:inline-block; font-size:10px; padding:2px 8px;
+    background:#fff; border:1px solid #d0d0d0; margin:4px 2px 0 0;
+    color:#555;
+  }
+
+  /* ── Flow arrow between cards ── */
+  .flow-col {
+    display:flex; align-items:center; justify-content:center;
+    width:30px;
+  }
+  .flow-arrow {
+    font-size:16px; color:#aaa; font-weight:400; /* Softer arrows */
+  }
+
+  /* ── Core Hub ── */
+  .core-area {
+    display:grid;
+    grid-template-rows: auto auto auto;
+    gap:6px;
+    background:var(--hw-gray); border-top:3px solid var(--hw-red);
+    padding:12px 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .core-header {
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .core-header h2 { font-size:16px; font-weight:700; color:var(--hw-dark); }
+  .core-header .core-sub { font-size:11px; color:var(--hw-text); margin-top:4px; }
+
+  .breed-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:6px;
+    padding:6px 0;
+  }
+  .breed-cell {
+    background:#fff;
+    border:1px solid var(--hw-border);
+    padding:10px 4px;
+    text-align:center;
+    height:56px;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+  }
+  .breed-name { font-size:12px; font-weight:700; color:var(--hw-dark); }
+  .breed-model { font-size:10px; color:var(--hw-light-text); margin-top:2px; }
+  .breed-cell.highlight {
+    border-color: #fca5a5;
+    box-shadow: inset 0 2px 0 var(--hw-red);
+  }
+
+  .core-footer {
+    font-size:10px; color:var(--hw-light-text); text-align:center; padding-top:4px;
+  }
+
+  /* ── Support strip ── */
+  .support-strip {
+    padding:8px 24px 16px;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:16px;
+    z-index: 2;
+  }
+
+  .mem-layer {
+    font-size:11px; padding:5px 10px;
+    background:#fff; border-left:2px solid #ccc;
+    margin-top:6px; color:#333;
+  }
+  .mem-layer span { color:#999; font-size:10px; margin-left: 4px; }
+
+  /* ── Quality Rail ── */
+  .quality-rail {
+    background:#fff; padding:10px 24px;
+    display:flex; align-items:center; gap:8px;
+    border-top:1px solid var(--hw-border);
+    z-index: 2;
+  }
+  .qr-label {
+    font-size:11px; font-weight:700; color:var(--hw-text);
+    white-space:nowrap; margin-right:12px;
+    letter-spacing:1px;
+  }
+  .qr-step {
+    font-size:11px; color:#222; padding:4px 14px;
+    background:var(--hw-gray); border:1px solid #d0d0d0;
+  }
+  .qr-arrow { font-size:12px; color:#bbb; }
+
+  /* ── Footer ── */
+  .footer {
+    background:#333; padding:8px 24px;
+    display:flex; justify-content:space-between;
+    font-size:10px; color:#aaa;
+  }
+  .footer span { letter-spacing: 0.5px; }
+
+</style>
+</head>
+<body>
+
+<div class="ppt-slide">
+
+  <!-- Control Lines (Subtle visual hint of top-down constraints) -->
+  <div class="control-drops">
+    <div class="drop-line drop-1"></div>
+    <div class="drop-line drop-2"></div>
+    <div class="drop-line drop-3"></div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Cat Café 技术架构总览</h1>
+    <span class="badge">技术分享 · 架构页 · 2026</span>
+  </div>
+
+  <!-- Vision Control Rail -->
+  <div class="vision-rail">
+    <span class="vr-label">VISION-DRIVEN</span>
+    <span class="vr-step">Signal</span>
+    <span class="vr-arrow">›</span>
+    <span class="vr-step">CVO Interview</span>
+    <span class="vr-arrow">›</span>
+    <span class="vr-step">Research</span>
+    <span class="vr-arrow">›</span>
+    <span class="vr-step">Convergence</span>
+    <span class="vr-arrow">›</span>
+    <span class="vr-step">Spec / ADR</span>
+    <span class="vr-arrow">›</span>
+    <span class="vr-step">Delivery</span>
+    <span class="vr-note">
+      <span style="color:var(--hw-red);">↓</span> 下发约束至: Skill · Knowledge · Quality
+    </span>
+  </div>
+
+  <!-- Main Flow -->
+  <div class="main-flow">
+
+    <!-- Entry -->
+    <div class="card-col" style="flex:0 0 130px;">
+      <div class="card">
+        <div class="card-label">ENTRY</div>
+        <div class="card-title">User<br>Surfaces</div>
+        <div style="margin-top:8px;">
+          <span class="tag">Hub</span>
+          <span class="tag">Feishu</span>
+          <span class="tag">Telegram</span>
+          <span class="tag">WeChat</span>
+          <span class="tag">XiaoYi</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-col"><span class="flow-arrow">→</span></div>
+
+    <!-- Gateway -->
+    <div class="card-col" style="flex:0 0 160px;">
+      <div class="card">
+        <div class="card-label">NORMALIZE</div>
+        <div class="card-title">Gateway</div>
+        <div class="card-sub">Connector Adapters<br>Message Normalization<br>Bidirectional Sync</div>
+      </div>
+    </div>
+
+    <div class="flow-col"><span class="flow-arrow">→</span></div>
+
+    <!-- Core Hub -->
+    <div class="core-col">
+      <div class="core-area">
+        <div class="core-header">
+          <h2>Thread / Dispatch / A2A Core</h2>
+          <div class="core-sub">@mention 路由 · Side-Dispatch · Queue Steer · 自愈</div>
+        </div>
+        <div class="breed-grid">
+          <div class="breed-cell highlight">
+            <div class="breed-name">布偶猫</div>
+            <div class="breed-model">Claude</div>
+          </div>
+          <div class="breed-cell highlight">
+            <div class="breed-name">缅因猫</div>
+            <div class="breed-model">GPT</div>
+          </div>
+          <div class="breed-cell">
+            <div class="breed-name">暹罗猫</div>
+            <div class="breed-model">Gemini</div>
+          </div>
+          <div class="breed-cell">
+            <div class="breed-name">狸花猫</div>
+            <div class="breed-model">DARE</div>
+          </div>
+          <div class="breed-cell">
+            <div class="breed-name">孟加拉猫</div>
+            <div class="breed-model">Multi-model</div>
+          </div>
+          <div class="breed-cell">
+            <div class="breed-name">金渐层</div>
+            <div class="breed-model">opencode</div>
+          </div>
+        </div>
+        <div class="core-footer">ICliAdapter 统一接口 — spawn · send · abort · status</div>
+      </div>
+    </div>
+
+    <div class="flow-col"><span class="flow-arrow">→</span></div>
+
+    <!-- Deliver -->
+    <div class="card-col" style="flex:0 0 160px;">
+      <div class="card">
+        <div class="card-label">DELIVER</div>
+        <div class="card-title">Response</div>
+        <div class="card-sub">Stream / Rich Block<br>Voice / DOCX<br>Cards / HTML</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Support Strip: Skill + Memory -->
+  <div class="support-strip">
+    <div class="card" style="border-left-color:#888;">
+      <div class="card-label">CONTROL PLANE</div>
+      <div class="card-title">Skill / Pack</div>
+      <div class="card-sub"><strong>32</strong> Skills (behavior protocols) · Pack = compiled bundle</div>
+      <div style="margin-top:8px;">
+        <span class="tag">TDD</span>
+        <span class="tag">Review</span>
+        <span class="tag">Merge Gate</span>
+        <span class="tag">Worktree</span>
+        <span class="tag">Research</span>
+        <span class="tag">Feat Lifecycle</span>
+      </div>
+    </div>
+    <div class="card" style="border-left-color:#888;">
+      <div class="card-label">KNOWLEDGE PLANE</div>
+      <div class="card-title">Memory System</div>
+      <div class="mem-layer">Docs / ADR / Lessons <span>— truth source (git versioned)</span></div>
+      <div class="mem-layer">evidence.sqlite <span>— BM25 + vector + RRF</span></div>
+      <div class="mem-layer">Knowledge Feed <span>— candidate → approve → materialize</span></div>
+    </div>
+  </div>
+
+  <!-- Quality Rail -->
+  <div class="quality-rail">
+    <span class="qr-label">QUALITY LOOP</span>
+    <span class="qr-step">TDD</span>
+    <span class="qr-arrow">›</span>
+    <span class="qr-step">Quality Gate</span>
+    <span class="qr-arrow">›</span>
+    <span class="qr-step">Cross-Cat Review</span>
+    <span class="qr-arrow">›</span>
+    <span class="qr-step">Vision Guard</span>
+    <span class="qr-arrow">›</span>
+    <span class="qr-step">Merge</span>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>Cat Café — 领养团队，一起长出世界 · 66 天 · 167 Features · 32 Skills · 6 Breeds</span>
+    <span>github.com/zts212653/clowder-ai</span>
+  </div>
+
+</div>
+
+</body>
+</html>
