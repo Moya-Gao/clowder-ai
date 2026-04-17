@@ -225,6 +225,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | OQ-3 | shared-rules 浓缩后，怎么确保所有猫（包括不同 provider）都 consume 到了新版本？ | ⬜ 未定 |
 | OQ-4 | Write-time 矛盾检测的性能成本：每次写入都跑 search_evidence + 判断冲突，是否可接受？ | ⬜ 未定 |
 | OQ-5 | `scoped` activation 的 glob 匹配语法怎么设计？直接复用 Cursor .mdc 还是自定义？ | ⬜ 未定 |
+| OQ-6 | F163 flags 应走 Hub config store（数据库）而非 process.env，支持动态更新 + 多实例一致性。当前临时方案：改 .env + 重启。 | ⬜ 需实现 |
 
 ## Key Decisions
 
