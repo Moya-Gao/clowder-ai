@@ -8,7 +8,7 @@ created: 2026-03-28
 
 # F146: MCP Marketplace Control Plane — 一键接入 + 多生态聚合
 
-> **Status**: spec | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1
 
 ## 铲屎官愿景
 
@@ -82,7 +82,7 @@ L3 不直接写入 L1，内部拆成三个状态面：
 - Phase A-B 的实现边界收敛稿
 - F129 Pack ↔ Marketplace 条目映射契约（字段与 installPlan 对齐）
 
-### Phase A: 能力中心写路径（One-click Add/Remove MCP）
+### Phase A: 能力中心写路径（One-click Add/Remove MCP） ✅
 
 在 Hub 能力中心新增 MCP 管理能力：
 
@@ -207,13 +207,13 @@ Skill 内容安全（防下毒）：
 - [ ] AC-R5: 外部文档 URL 逐条验真（可访问 + 内容匹配），形成证据表
 - [ ] AC-R6: 形成 F129 Pack ↔ Marketplace 条目映射契约（kind/metadata/installPlan 对齐）
 
-### Phase A（能力中心写路径）
-- [ ] AC-A1: Hub 可通过 UI 新增 MCP（无需手改 `capabilities.json`）
-- [ ] AC-A2: Hub 可通过 UI 删除 MCP，并触发配置重编排
-- [ ] AC-A3: 新增 MCP 后自动触发 `generateCliConfigs` + `mcp:doctor` 探测
-- [ ] AC-A4: 所有 MCP 写操作有审计日志（用户、时间、变更 diff）
-- [ ] AC-A5: 并发写入安全（锁或 CAS）可验证，双写场景不丢配置
-- [ ] AC-A6: `install preview` 可显示“将写入项 + 将触发探测 + 风险提示”，用户确认后才执行
+### Phase A（能力中心写路径）✅
+- [x] AC-A1: Hub 可通过 UI 新增 MCP（无需手改 `capabilities.json`）
+- [x] AC-A2: Hub 可通过 UI 删除 MCP，并触发配置重编排
+- [x] AC-A3: 新增 MCP 后自动触发 `generateCliConfigs` + `mcp:doctor` 探测
+- [x] AC-A4: 所有 MCP 写操作有审计日志（用户、时间、变更 diff）
+- [x] AC-A5: 并发写入安全（锁或 CAS）可验证，双写场景不丢配置
+- [x] AC-A6: `install preview` 可显示”将写入项 + 将触发探测 + 风险提示”，用户确认后才执行
 
 ### Phase B（Marketplace 聚合）
 - [ ] AC-B1: 支持统一搜索接口返回 Codex/Claude/OpenClaw/Antigravity 四方结果
@@ -291,6 +291,7 @@ Skill 内容安全（防下毒）：
 |------|------|
 | 2026-03-28 | 立项（基于铲屎官新诉求与 F145 完成态） |
 | 2026-04-04 | 与 F129 scope 对齐：F146 承接 Marketplace owner，Pack 纳入 L3 `kind=pack` |
+| 2026-04-16 | Phase A merged (PR #1220) — 能力中心写路径 + install preview + audit log + 并发安全 |
 
 ## Review Gate
 
