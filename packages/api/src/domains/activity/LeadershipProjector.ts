@@ -34,12 +34,18 @@ export class LeadershipProjector {
 
   private handleEvent = (event: ActivityEvent): void => {
     try {
+      // Leadership measures co-creator behaviour. Cat-originated coordination
+      // events (e.g. cat-initiated multi-mention) must not inflate leadership scores.
+      const isCoCreator = event.actorId === 'co-creator';
+
       switch (event.type) {
         // ── Coordination (协调力) ────────────────────────
         case 'multi_mention_dispatched':
+          if (!isCoCreator) break;
           this.leadershipService.awardXp('multi_mention_dispatch');
           break;
         case 'multi_mention_request_completed':
+          if (!isCoCreator) break;
           this.onRequestCompleted(event);
           break;
         // ── Delegation + Guidance (授权力 + 引导力) ──────

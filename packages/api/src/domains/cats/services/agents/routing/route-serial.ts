@@ -930,9 +930,15 @@ export async function* routeSerial(
               (directMessageFrom ? detectInvocationPurpose(message) : undefined) ??
               options.a2aPurpose;
             if (purpose === 'review') {
-              deps.activityBus?.record('review_submitted', catId as string);
+              // P2 fix: include finding metadata so MemoryProjector can promote reviews
+              const findingMatches = textContent.match(/\bP[12]\b/g);
+              const findingCount = findingMatches?.length ?? 0;
+              deps.activityBus?.record('review_submitted', catId as string, {
+                hasFindings: findingCount > 0,
+                findingCount,
+              });
               // Heuristic: scan response for P1/P2 bug findings → award bug_caught
-              if (/\bP[12]\b/.test(textContent)) {
+              if (findingCount > 0) {
                 deps.activityBus?.record('bug_caught', catId as string);
               }
             } else {

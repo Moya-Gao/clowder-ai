@@ -446,7 +446,7 @@ async function flushResult(
   // Phase D: Request-level completion event (fires ONCE per multi-mention, for LeadershipProjector)
   if (deps.activityBus) {
     const allTargets = result.request.targets;
-    deps.activityBus.record('multi_mention_request_completed', 'co-creator', {
+    deps.activityBus.record('multi_mention_request_completed', result.request.initiator, {
       requestId,
       targets: allTargets,
       targetCount: allTargets.length,
@@ -566,8 +566,8 @@ export function registerMultiMentionRoutes(app: FastifyInstance, deps: MultiMent
       }
     }
 
-    // Phase D: Leadership — coordination footfall for dispatching
-    deps.activityBus?.record('multi_mention_dispatched', 'co-creator', {
+    // Phase D: Coordination footfall — attribute to actual caller, not hardcoded co-creator
+    deps.activityBus?.record('multi_mention_dispatched', callerCatId, {
       requestId: mmRequest.id,
       targets: body.targets,
       targetCount: targetCatIds.length,
