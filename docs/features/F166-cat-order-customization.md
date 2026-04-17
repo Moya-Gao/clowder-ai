@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F166: Cat Order Customization — 猫猫排序自定义
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -36,12 +36,19 @@ created: 2026-04-17
 
 ## Acceptance Criteria
 
-### Phase A（拖拽排序 + 持久化 + 联动）
-- [ ] AC-A1: 总揽页面猫卡片可拖拽重新排序
-- [ ] AC-A2: 排序结果通过 `/api/config` 持久化，刷新后保持
-- [ ] AC-A3: @ mention picker 排序与总揽页面一致
-- [ ] AC-A4: 新增猫（catOrder 中不存在的 catId）自动追加到末尾
-- [ ] AC-A5: 无 catOrder 配置时保持现有 cat-template.json 顺序
+### Phase A（拖拽排序 + 持久化 + 联动）✅
+- [x] AC-A1: 总揽页面猫卡片可拖拽重新排序
+- [x] AC-A2: 排序结果通过 `/api/config` 持久化，刷新后保持
+- [x] AC-A3: @ mention picker 排序与总揽页面一致
+- [x] AC-A4: 新增猫（catOrder 中不存在的 catId）自动追加到末尾
+- [x] AC-A5: 无 catOrder 配置时保持现有 cat-template.json 顺序
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-04-17 | 立项 |
+| 2026-04-17 | Phase A merged (PR #1232) |
 
 ## Dependencies
 
