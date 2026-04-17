@@ -1037,7 +1037,13 @@
       "name": "Cat Order Customization — 猫猫排序自定义",
       "status": "done | **Owner**: 布偶猫 | **Priority**: P2 | **Completed**: 2026-04-17",
       "file": "F166-cat-order-customization.md"
+    },
+    {
+      "id": "F167",
+      "name": "A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P0",
+      "file": "F167-a2a-chain-quality.md"
     }
   ],
-  "generated_at": "2026-04-17T11:58:54.423Z"
+  "generated_at": "2026-04-17T22:56:18.509Z"
 }
