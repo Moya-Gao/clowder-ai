@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "ecf5a05505f988e4a0d3d743b39265c71c46a675",
+  "last_reviewed_target_head": "7fe637bdd9cb82fc09e23541002f78b5a390073f",
   "entries": [
     {
       "pr_number": 90,
@@ -624,94 +624,7 @@
       "pr_number": 425,
       "target_merge_commit": "7fe637bdd9cb82fc09e23541002f78b5a390073f",
       "decision": "absorbed",
-      "timestamp": "2026-04-12T05:33:54.902Z"
-    },
-    {
-      "pr_number": 455,
-      "target_merge_commit": "ac1f5a7c87703aa2361518e17cb98660d151a1e4",
-      "decision": "absorbed",
-      "timestamp": "2026-04-12T12:29:18.023Z"
-    },
-    {
-      "pr_number": 398,
-      "target_merge_commit": "2e1d5e2c2bfb8cb95753d1c6a8cd0e9aab7c8a17",
-      "decision": "outbound-sync",
-      "timestamp": "2026-04-12T13:09:12.916Z"
-    },
-    {
-      "pr_number": 452,
-      "target_merge_commit": "50c0ef62ab0bc1c585e7cac95213203b7f7aa1e5",
-      "decision": "absorbed",
-      "timestamp": "2026-04-12T14:13:03.083Z"
-    },
-    {
-      "pr_number": 450,
-      "target_merge_commit": "85f22a0e67ef3dfd65bd7e5f53e7fe3c01c1cb1d",
-      "decision": "absorbed",
-      "timestamp": "2026-04-12T16:27:03.642Z"
-    },
-    {
-      "pr_number": 464,
-      "target_merge_commit": "6ec12613a1b2f98c88da1b6ef49ce13b5703a283",
-      "decision": "absorbed",
-      "timestamp": "2026-04-13T12:45:06.094Z"
-    },
-    {
-      "pr_number": 463,
-      "target_merge_commit": "755cd1f5c02934de9e0bb9c72cd96493c4a525d9",
-      "decision": "absorbed",
-      "timestamp": "2026-04-13T12:46:51.654Z"
-    },
-    {
-      "pr_number": 457,
-      "target_merge_commit": "517c076d23e9b7ab07b082cc63d81052e4ce9931",
-      "decision": "absorbed",
-      "timestamp": "2026-04-14T01:14:02.696Z",
-      "absorb_pr": 1147,
-      "intake_intent_issue": 1144,
-      "note": "F155 Phase B selective intake: GuideStateMachine, GuideLifecycleService, GuidePromptSection, GuideRoutingInterceptor, GuideSessionRepository, GuideOfferPolicy, GuideDismissTracker + frontend Zustand event flow."
-    },
-    {
-      "pr_number": 458,
-      "target_merge_commit": "f4271018e478fcf484f32291d38d48fd3892b4d9",
-      "decision": "absorbed",
-      "timestamp": "2026-04-15T09:38:30.060Z"
-    },
-    {
-      "pr_number": 460,
-      "target_merge_commit": "3b4a6dece107f2d4d194b31b9b77d8c30cf16207",
-      "decision": "absorbed",
-      "timestamp": "2026-04-15T13:30:59.679Z"
-    },
-    {
-      "pr_number": 489,
-      "target_merge_commit": "dcf980df6b0dfa7156ebf5263a6585ce3917e834",
-      "decision": "absorbed",
-      "timestamp": "2026-04-16T03:09:56.190Z"
-    },
-    {
-      "pr_number": 474,
-      "target_merge_commit": "62bff43f314878d29f806b2ca795a6e994a496ae",
-      "decision": "absorbed",
-      "timestamp": "2026-04-16T04:07:00.654Z"
-    },
-    {
-      "pr_number": 494,
-      "target_merge_commit": "588b3ee73d189d47151d9d02170643e6cf6eb996",
-      "decision": "absorbed",
-      "timestamp": "2026-04-16T07:19:49.364Z"
-    },
-    {
-      "pr_number": 497,
-      "target_merge_commit": "b3e2d516106f31d9c6085276b23936049aeb66c8",
-      "decision": "absorbed",
-      "timestamp": "2026-04-16T15:38:53.751Z"
-    },
-    {
-      "pr_number": 500,
-      "target_merge_commit": "ecf5a05505f988e4a0d3d743b39265c71c46a675",
-      "decision": "absorbed",
-      "timestamp": "2026-04-17T02:30:46.961Z"
+      "timestamp": "2026-04-11T22:24:51.529Z"
     }
   ]
 }

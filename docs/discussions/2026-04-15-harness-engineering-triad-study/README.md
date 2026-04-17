@@ -254,7 +254,19 @@ ADR-026 已经开始补 Event API、typed body、causal parents、authority/effe
 
 详见 → [round3-research-prompt-and-guided-overfitting.md](./round3-research-prompt-and-guided-overfitting.md)
 
-## 9. 附：本目录包含的文件
+## 9. Round 4: 数学美学、小模型路由、与猫猫-First 架构
+
+铲屎官在一个 subagent 价格误报事故引发的圆桌讨论中，提出了跨域洞察：数学的极简美学是第一性原理，对应到 agent 架构就是"猫猫 First"——不是给猫加框架，而是让环境本身成为猫自然会这么走的地形。
+
+五只猫（opus/opus-47/codex/gpt52/gemini）+ 铲屎官的圆桌收敛到北极星公式：
+
+> **Agent Quality = Model Capability × Environment Fit**
+
+详见 → [round4-mathematical-elegance-and-cat-first-architecture.md](./round4-mathematical-elegance-and-cat-first-architecture.md)
+
+可执行产出：小模型路由决策表、安全区四条件、认知路径工程清单、脚手架分类规则。
+
+## 10. 附：本目录包含的文件
 
 - `README.md`：三篇套读总览 + 我们的判断（Round 1）
 - `round2-overfitting-and-entropy.md`：过拟合命题 + 记忆熵减讨论收敛（Round 2）
@@ -263,4 +275,5 @@ ADR-026 已经开始补 Event API、typed body、causal parents、authority/effe
 - `sources/anthropic-harness-design-long-running-apps.md`：Anthropic 文章 source note
 - `sources/anthropic-scaling-managed-agents.md`：Managed Agents 套读入口 note
 - `sources/*.full.md`：烁烁抓取的文章详细摘要
+- `round4-mathematical-elegance-and-cat-first-architecture.md`：数学美学 + 小模型路由 + 猫猫-First 架构圆桌收敛（Round 4）
 - `docs/discussions/2026-04-08-managed-agents-study/README.md`：既有 managed agents 深读，不重复搬运
