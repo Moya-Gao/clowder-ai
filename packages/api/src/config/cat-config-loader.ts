@@ -665,6 +665,11 @@ export function hasRuntimeDefaultCatOverride(): boolean {
   return _runtimeDefaultCatId !== null;
 }
 
+/** Unified owner userId: configured env or single-user fallback. */
+export function getOwnerUserId(): string {
+  return process.env.DEFAULT_OWNER_USER_ID?.trim() || 'default-user';
+}
+
 // ── Variant CLI effort accessor ──────────────────────────────────────
 
 /** catId → variant index (lazy, rebuilt on config change) */

@@ -2070,7 +2070,8 @@ async function main(): Promise<void> {
           .map((line: string) => JSON.parse(line));
       };
 
-      const effectiveUserId = process.env.DEFAULT_OWNER_USER_ID || 'default-user';
+      const { getOwnerUserId } = await import('./config/cat-config-loader.js');
+      const effectiveUserId = getOwnerUserId();
 
       taskRunnerV2.register(
         createRepoScanTaskSpec({

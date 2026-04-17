@@ -16,6 +16,7 @@ import { configStore } from '../config/ConfigStore.js';
 import {
   clearRuntimeDefaultCatId,
   getDefaultCatId,
+  getOwnerUserId,
   hasRuntimeDefaultCatOverride,
   setRuntimeDefaultCatId,
 } from '../config/cat-config-loader.js';
@@ -284,7 +285,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       updates.set(update.name, update.value);
     }
 
-    // Owner gate: sensitive-editable vars require configured owner identity
+    // Owner gate: sensitive-editable vars require EXPLICIT owner config (F136 trust anchor)
     const touchesSensitive = hasSensitiveEditableVars(updates.keys());
     if (touchesSensitive) {
       const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
@@ -371,8 +372,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
 
-    const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-    if (!ownerId || operator !== ownerId) {
+    if (operator !== getOwnerUserId()) {
       reply.status(403);
       return { error: 'Only the owner can change the default cat' };
     }

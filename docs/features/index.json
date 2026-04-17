@@ -897,7 +897,7 @@
     {
       "id": "F146",
       "name": "MCP Marketplace Control Plane — 一键接入 + 多生态聚合",
-      "status": "spec | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1",
       "file": "F146-mcp-marketplace-control-plane.md"
     },
     {
@@ -1033,5 +1033,5 @@
       "file": "F165-guided-overfitting.md"
     }
   ],
-  "generated_at": "2026-04-16T17:19:56.033Z"
+  "generated_at": "2026-04-17T05:40:08.104Z"
 }
