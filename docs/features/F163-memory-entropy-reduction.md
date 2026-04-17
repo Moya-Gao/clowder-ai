@@ -160,7 +160,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 
 猫不自主执行合并——产出 pruning 建议，铲屎官拍板。
 
-### Phase C: 三触发知识审计
+### Phase C: 三触发知识审计 ✅
 
 知识过期由冲突/变更驱动，不由时间流逝自动触发。三种触发机制缺一不可：
 
@@ -193,12 +193,12 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 - [x] AC-B4: shared-rules 至少完成一轮浓缩，行数下降 ≥15% 且 `source_ids` 可追溯、无功能损失
 - [x] AC-B5: 级联压缩被架构层面阻止（summary-of-summary 不可创建）
 
-### Phase C（三触发知识审计）
-- [ ] AC-C1: Write-time 矛盾检测：新知识写入时自动检索相关旧知识，冲突标记 `contradicts[]`
-- [ ] AC-C2: Retrieval-time 标记：猫可将使用中发现过时的知识标记为 `status=review`
-- [ ] AC-C3: Review-time 队列：`verified_at` 超阈值的知识自动进入复核队列
-- [ ] AC-C4: 有 skill 或 scheduled task 可生成 Harness 健康报告（膨胀率、冲突检测、ADR 断链、未验证清单）
-- [ ] AC-C5: 铲屎官确认报告的 pruning 建议 actionable（不是无用的噪声）
+### Phase C（三触发知识审计）✅
+- [x] AC-C1: Write-time 矛盾检测：新知识写入时自动检索相关旧知识，冲突标记 `contradicts[]`
+- [x] AC-C2: Retrieval-time 标记：猫可将使用中发现过时的知识标记为 `status=review`
+- [x] AC-C3: Review-time 队列：`verified_at` 超阈值的知识自动进入复核队列
+- [x] AC-C4: 有 skill 或 scheduled task 可生成 Harness 健康报告（膨胀率、冲突检测、ADR 断链、未验证清单）
+- [x] AC-C5: 铲屎官确认报告的 pruning 建议 actionable（不是无用的噪声）
 
 ## Dependencies
 
@@ -253,6 +253,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-16 | Phase A 实施计划完成：13 tasks，AC-A1~A7 全覆盖 |
 | 2026-04-16 | Phase A merged (PR #1214) — 15 tasks, 91 new tests, 3 rounds codex review |
 | 2026-04-16 | Phase B merged (PR #1219) — Schema V14, DuplicateScanner, compression APIs, backstop suppression, 2 rounds codex review |
+| 2026-04-17 | Phase C merged (PR #1225) — Schema V15, contradiction detection, review queue, health report, 2 rounds codex review |
 
 ## Review Gate
 
