@@ -33,6 +33,7 @@ import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
+import { configCatOrderRoutes } from './config-cat-order.js';
 
 const patchSchema = z.object({
   key: z.string().min(1),
@@ -135,6 +136,8 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
   const auditLog = opts.auditLog ?? getEventAuditLog();
   const projectRoot = opts.projectRoot ?? resolveActiveProjectRoot();
   const envFilePath = opts.envFilePath ?? resolve(projectRoot, '.env');
+
+  await app.register(configCatOrderRoutes, { projectRoot });
 
   app.get('/api/config', async () => ({
     config: collectConfigSnapshot(),

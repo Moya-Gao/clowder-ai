@@ -447,6 +447,8 @@ export type {
   VoiceStreamEvent,
   VoiceStreamStartEvent,
 } from './tts.js';
+// User preferences types (F166 猫猫排序自定义)
+export type { UserPreferences } from './user-preferences.js';
 // Workflow SOP types (F073 告示牌)
 export type {
   CheckStatus,
