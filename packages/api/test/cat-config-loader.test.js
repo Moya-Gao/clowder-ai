@@ -2,8 +2,9 @@ import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const {
   loadCatConfig,
@@ -935,7 +936,11 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
   });
 
   it('total cat count is 13 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25 + kimi + dare + antigravity + antig-opus + opencode)', () => {
-    const config = loadCatConfig();
+    // Use template directly to avoid catalog overlay pollution from earlier tests
+    const templatePath =
+      process.env.CAT_TEMPLATE_PATH ??
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
+    const config = loadCatConfig(templatePath);
     const all = toAllCatConfigs(config);
     assert.equal(Object.keys(all).length, 13);
     assert.ok(all.opus);

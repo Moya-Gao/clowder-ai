@@ -3,6 +3,10 @@
  *
  * GET  /api/capabilities — 返回看板聚合视图 (CapabilityBoardResponse)
  * PATCH /api/capabilities — 开关单个能力 (global or per-cat override)
+ * POST /api/capabilities/mcp/preview — 安装预览 (dry-run)
+ * POST /api/capabilities/mcp/install — 新增/覆盖 MCP
+ * DELETE /api/capabilities/mcp/:id — 软删除/硬删除 MCP
+ * GET /api/capabilities/audit — 审计日志
  *
  * F041 Re-open fixes:
  * - Skill descriptions from SKILL.md frontmatter
@@ -27,6 +31,7 @@ import type {
 import { catRegistry } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
+import { appendAuditEntry } from '../config/capabilities/capability-audit.js';
 import {
   bootstrapCapabilities,
   type DiscoveryPaths,
@@ -38,6 +43,7 @@ import {
   readCapabilitiesConfig,
   resolveServersForCat,
   toCapabilityEntry,
+  withCapabilityLock,
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
 import { isManagedSkill, readSkillsState } from '../config/governance/skills-state.js';
@@ -800,44 +806,60 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       projectRoot = validated;
     }
 
-    const config = await readCapabilitiesConfig(projectRoot);
-    if (!config) {
-      reply.status(404);
-      return { error: 'capabilities.json not found. Run GET first to bootstrap.' };
-    }
+    return withCapabilityLock(projectRoot, async () => {
+      const config = await readCapabilitiesConfig(projectRoot);
+      if (!config) {
+        reply.status(404);
+        return { error: 'capabilities.json not found. Run GET first to bootstrap.' };
+      }
 
-    // Compound lookup: id + type disambiguates same-name MCP/skill entries
-    const capIndex = config.capabilities.findIndex((c) => c.id === body.capabilityId && c.type === body.capabilityType);
-    if (capIndex === -1) {
-      reply.status(404);
-      return { error: `Capability "${body.capabilityId}" (type=${body.capabilityType}) not found` };
-    }
+      const capIndex = config.capabilities.findIndex(
+        (c) => c.id === body.capabilityId && c.type === body.capabilityType,
+      );
+      if (capIndex === -1) {
+        reply.status(404);
+        return { error: `Capability "${body.capabilityId}" (type=${body.capabilityType}) not found` };
+      }
 
-    const cap = config.capabilities[capIndex]!;
+      const cap = config.capabilities[capIndex]!;
+      const beforeSnapshot = structuredClone(cap);
 
-    if (body.scope === 'global') {
-      cap.enabled = body.enabled;
-    } else {
-      // Per-cat override
-      if (!cap.overrides) cap.overrides = [];
-      const existing = cap.overrides.find((o) => o.catId === body.catId!);
-      if (existing) {
-        existing.enabled = body.enabled;
+      if (body.scope === 'global') {
+        cap.enabled = body.enabled;
       } else {
-        cap.overrides.push({ catId: body.catId!, enabled: body.enabled });
+        if (!cap.overrides) cap.overrides = [];
+        const existing = cap.overrides.find((o) => o.catId === body.catId!);
+        if (existing) {
+          existing.enabled = body.enabled;
+        } else {
+          cap.overrides.push({ catId: body.catId!, enabled: body.enabled });
+        }
+        if (body.enabled === cap.enabled) {
+          cap.overrides = cap.overrides.filter((o) => o.catId !== body.catId!);
+          if (cap.overrides.length === 0) delete cap.overrides;
+        }
       }
-      // Clean up: remove override if it matches global (no-op override)
-      if (body.enabled === cap.enabled) {
-        cap.overrides = cap.overrides.filter((o) => o.catId !== body.catId!);
-        if (cap.overrides.length === 0) delete cap.overrides;
-      }
-    }
 
-    // Persist and regenerate CLI configs
-    await writeCapabilitiesConfig(projectRoot, config);
-    await generateCliConfigs(config, getCliConfigPaths(projectRoot));
+      await writeCapabilitiesConfig(projectRoot, config);
+      await generateCliConfigs(config, getCliConfigPaths(projectRoot));
 
-    return { ok: true, capability: cap };
+      await appendAuditEntry(projectRoot, {
+        timestamp: new Date().toISOString(),
+        userId,
+        action: 'toggle',
+        capabilityId: body.capabilityId,
+        before: beforeSnapshot,
+        after: cap,
+      });
+
+      return { ok: true, capability: cap };
+    });
+  });
+
+  // ── F146: MCP write-path routes (preview/install/delete/audit) ──
+  await app.register((await import('./capabilities-mcp-write.js')).capabilitiesMcpWriteRoutes, {
+    getProjectRoot,
+    getCliConfigPaths,
   });
 
   // ── POST /api/governance/confirm — F070: First-time confirmation ──

@@ -4,8 +4,13 @@
  */
 
 import assert from 'node:assert/strict';
+import { dirname, resolve } from 'node:path';
 import { describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { catRegistry } from '@cat-cafe/shared';
+
+const CAT_TEMPLATE_PATH =
+  process.env.CAT_TEMPLATE_PATH ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
 
 describe('SystemPromptBuilder', () => {
   // Dynamic import after build
@@ -307,7 +312,7 @@ describe('SystemPromptBuilder', () => {
     const originalConfigs = catRegistry.getAllConfigs();
     catRegistry.reset();
     try {
-      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
       for (const [id, config] of Object.entries(runtimeConfigs)) {
         catRegistry.register(id, config);
       }
@@ -336,7 +341,7 @@ describe('SystemPromptBuilder', () => {
     const originalConfigs = catRegistry.getAllConfigs();
     catRegistry.reset();
     try {
-      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
       for (const [id, config] of Object.entries(runtimeConfigs)) {
         catRegistry.register(id, config);
       }
@@ -380,7 +385,7 @@ describe('SystemPromptBuilder', () => {
     const originalConfigs = catRegistry.getAllConfigs();
     catRegistry.reset();
     try {
-      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
       for (const [id, config] of Object.entries(runtimeConfigs)) {
         catRegistry.register(id, config);
       }
@@ -406,7 +411,7 @@ describe('SystemPromptBuilder', () => {
     const originalConfigs = catRegistry.getAllConfigs();
     catRegistry.reset();
     try {
-      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
       for (const [id, config] of Object.entries(runtimeConfigs)) {
         catRegistry.register(id, config);
       }
@@ -431,11 +436,10 @@ describe('SystemPromptBuilder', () => {
   test('buildStaticIdentity roster size with full runtime config is under 4100 (raised for F102-D17 MCP tools section)', async () => {
     const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-
     const originalConfigs = catRegistry.getAllConfigs();
     catRegistry.reset();
     try {
-      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
       for (const [id, config] of Object.entries(runtimeConfigs)) {
         catRegistry.register(id, config);
       }
@@ -773,7 +777,7 @@ describe('SystemPromptBuilder', () => {
     const originalConfigs = catRegistry.getAllConfigs();
     catRegistry.reset();
     try {
-      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
       for (const [id, config] of Object.entries(runtimeConfigs)) {
         catRegistry.register(id, config);
       }

@@ -220,6 +220,45 @@ export interface DispatchExecutionDigest {
   readonly nextSteps: readonly string[];
 }
 
+// ─── F146: MCP Marketplace Write-Path Types ─────────────────────────
+
+/** POST /api/capabilities/mcp/install request body */
+export interface McpInstallRequest {
+  id: string;
+  transport?: McpTransport;
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
+  env?: Record<string, string>;
+  resolver?: string;
+  projectPath?: string;
+}
+
+/** POST /api/capabilities/mcp/preview response */
+export interface McpInstallPreview {
+  entry: CapabilityEntry;
+  cliConfigsAffected: string[];
+  willProbe: boolean;
+  risks: string[];
+}
+
+/** DELETE /api/capabilities/mcp/:id query params */
+export interface McpDeleteParams {
+  hard?: boolean;
+  projectPath?: string;
+}
+
+/** Audit log entry (.cat-cafe/audit.jsonl) */
+export interface CapabilityAuditEntry {
+  timestamp: string;
+  userId: string;
+  action: 'install' | 'delete' | 'update' | 'toggle';
+  capabilityId: string;
+  before: CapabilityEntry | null;
+  after: CapabilityEntry | null;
+}
+
 /** PATCH request body for toggling capabilities */
 export interface CapabilityPatchRequest {
   /** Capability ID to modify */

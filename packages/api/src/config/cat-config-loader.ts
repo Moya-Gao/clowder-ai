@@ -67,7 +67,7 @@ const catVariantSchema = z.object({
 
   defaultModel: z.string().min(1),
   mcpSupport: z.boolean(),
-  cli: cliConfigSchema,
+  cli: cliConfigSchema.optional(),
   commandArgs: z.array(z.string().min(1)).optional(), // F127: explicit bridge args (e.g. Antigravity)
   cliConfigArgs: z.array(z.string().min(1)).optional(), // F127: extra CLI args per member
   /** F340 P5: Model provider name (renamed from ocProviderName). */
@@ -705,7 +705,7 @@ export function getCatEffort(catId: string, config?: CatCafeConfig, fallbackProv
   }
 
   const variant = _catIdToVariant.get(catId);
-  if (variant?.cli.effort) {
+  if (variant?.cli?.effort) {
     // Defense-in-depth: validate persisted effort against current provider.
     // Stale cross-provider values (e.g. 'max' on openai) are cleaned at write
     // time, but historical data may still contain them.
