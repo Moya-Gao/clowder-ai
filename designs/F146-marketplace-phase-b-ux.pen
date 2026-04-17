@@ -1,0 +1,3275 @@
+{
+  "version": "2.11",
+  "children": [
+    {
+      "type": "frame",
+      "id": "SQSlS",
+      "x": 0,
+      "y": 1000,
+      "name": "Component/EcosystemBadge-Claude",
+      "reusable": true,
+      "fill": "#F3EAFF",
+      "cornerRadius": 100,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$ecoClaude"
+      },
+      "gap": 4,
+      "padding": [
+        2,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "NbMPj",
+          "name": "Dot",
+          "fill": "$ecoClaude",
+          "width": 6,
+          "height": 6
+        },
+        {
+          "type": "text",
+          "id": "8D6Oa",
+          "name": "Label",
+          "fill": "$ecoClaude",
+          "content": "Claude",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "IS7OG",
+      "x": 120,
+      "y": 1000,
+      "name": "Component/EcosystemBadge-Codex",
+      "reusable": true,
+      "fill": "#ECFDF5",
+      "cornerRadius": 100,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$ecoCodex"
+      },
+      "gap": 4,
+      "padding": [
+        2,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "KzqGC",
+          "name": "Dot",
+          "fill": "$ecoCodex",
+          "width": 6,
+          "height": 6
+        },
+        {
+          "type": "text",
+          "id": "3CKCw",
+          "name": "Label",
+          "fill": "$ecoCodex",
+          "content": "Codex",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "FGYf6",
+      "x": 240,
+      "y": 1000,
+      "name": "Component/EcosystemBadge-OpenClaw",
+      "reusable": true,
+      "fill": "#FEF2F2",
+      "cornerRadius": 100,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$ecoOpenClaw"
+      },
+      "gap": 4,
+      "padding": [
+        2,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "YtGeD",
+          "name": "Dot",
+          "fill": "$ecoOpenClaw",
+          "width": 6,
+          "height": 6
+        },
+        {
+          "type": "text",
+          "id": "hQnN8",
+          "name": "Label",
+          "fill": "$ecoOpenClaw",
+          "content": "OpenClaw",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "jFvJz",
+      "x": 380,
+      "y": 1000,
+      "name": "Component/EcosystemBadge-Antigravity",
+      "reusable": true,
+      "fill": "#EFF6FF",
+      "cornerRadius": 100,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$ecoAntigravity"
+      },
+      "gap": 4,
+      "padding": [
+        2,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "k7NfQ",
+          "name": "Dot",
+          "fill": "$ecoAntigravity",
+          "width": 6,
+          "height": 6
+        },
+        {
+          "type": "text",
+          "id": "qiyCY",
+          "name": "Label",
+          "fill": "$ecoAntigravity",
+          "content": "Antigravity",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "gP0uJ",
+      "x": 0,
+      "y": 1060,
+      "name": "Component/TrustBadge-Verified",
+      "reusable": true,
+      "fill": "#ECFDF5",
+      "cornerRadius": 4,
+      "gap": 4,
+      "padding": [
+        2,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "4mh22",
+          "name": "Icon",
+          "width": 12,
+          "height": 12,
+          "iconFontName": "shield-check",
+          "iconFontFamily": "lucide",
+          "fill": "$trustVerified"
+        },
+        {
+          "type": "text",
+          "id": "Qy0O6",
+          "name": "Label",
+          "fill": "$trustVerified",
+          "content": "verified",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "EgYK5",
+      "x": 120,
+      "y": 1060,
+      "name": "Component/TrustBadge-Community",
+      "reusable": true,
+      "fill": "#EFF6FF",
+      "cornerRadius": 4,
+      "gap": 4,
+      "padding": [
+        2,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "UDj4X",
+          "name": "Icon",
+          "width": 12,
+          "height": 12,
+          "iconFontName": "users",
+          "iconFontFamily": "lucide",
+          "fill": "$trustCommunity"
+        },
+        {
+          "type": "text",
+          "id": "OlnZr",
+          "name": "Label",
+          "fill": "$trustCommunity",
+          "content": "community",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "vdsEa",
+      "x": 240,
+      "y": 1060,
+      "name": "Component/TrustBadge-Unknown",
+      "reusable": true,
+      "fill": "$bgSecondary",
+      "cornerRadius": 4,
+      "gap": 4,
+      "padding": [
+        2,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "Wb35A",
+          "name": "Icon",
+          "width": 12,
+          "height": 12,
+          "iconFontName": "info",
+          "iconFontFamily": "lucide",
+          "fill": "$trustUnknown"
+        },
+        {
+          "type": "text",
+          "id": "9dbW7",
+          "name": "Label",
+          "fill": "$trustUnknown",
+          "content": "unknown",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "zbtP9",
+      "x": 0,
+      "y": 1120,
+      "name": "Component/InstallMode-Direct",
+      "reusable": true,
+      "fill": "#ECFDF5",
+      "cornerRadius": 4,
+      "gap": 4,
+      "padding": [
+        3,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "GEY1f",
+          "name": "Icon",
+          "width": 12,
+          "height": 12,
+          "iconFontName": "zap",
+          "iconFontFamily": "lucide",
+          "fill": "$installDirect"
+        },
+        {
+          "type": "text",
+          "id": "O8gGx",
+          "name": "Label",
+          "fill": "$installDirect",
+          "content": "一键安装",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "g0hhe",
+      "x": 120,
+      "y": 1120,
+      "name": "Component/InstallMode-CLI",
+      "reusable": true,
+      "fill": "#EFF6FF",
+      "cornerRadius": 4,
+      "gap": 4,
+      "padding": [
+        3,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "djQAa",
+          "name": "Icon",
+          "width": 12,
+          "height": 12,
+          "iconFontName": "terminal",
+          "iconFontFamily": "lucide",
+          "fill": "$installDelegated"
+        },
+        {
+          "type": "text",
+          "id": "b5DBz",
+          "name": "Label",
+          "fill": "$installDelegated",
+          "content": "CLI 安装",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "03lKF",
+      "x": 240,
+      "y": 1120,
+      "name": "Component/InstallMode-Manual",
+      "reusable": true,
+      "fill": "#FFF5EB",
+      "cornerRadius": 4,
+      "gap": 4,
+      "padding": [
+        3,
+        8
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "6lMxE",
+          "name": "Icon",
+          "width": 12,
+          "height": 12,
+          "iconFontName": "file-text",
+          "iconFontFamily": "lucide",
+          "fill": "$installManual"
+        },
+        {
+          "type": "text",
+          "id": "bwSbW",
+          "name": "Label",
+          "fill": "$installManual",
+          "content": "手动配置",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "medium"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "xDH6W",
+      "x": 0,
+      "y": 1180,
+      "name": "Component/SearchInput",
+      "reusable": true,
+      "width": 343,
+      "fill": "$bgSecondary",
+      "cornerRadius": 10,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$colorBorder"
+      },
+      "gap": 8,
+      "padding": [
+        10,
+        14
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "UU2L3",
+          "name": "SearchIcon",
+          "width": 18,
+          "height": 18,
+          "iconFontName": "search",
+          "iconFontFamily": "lucide",
+          "fill": "$textSecondary"
+        },
+        {
+          "type": "text",
+          "id": "DqKXD",
+          "name": "Placeholder",
+          "fill": "$textSecondary",
+          "content": "搜索 MCP 服务...",
+          "fontFamily": "Inter",
+          "fontSize": 14,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "V3iS0",
+      "x": 0,
+      "y": 1240,
+      "name": "Component/EcosystemFilter",
+      "reusable": true,
+      "gap": 8,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "wN5za",
+          "name": "FilterPill-All",
+          "fill": "$textPrimary",
+          "cornerRadius": 100,
+          "padding": [
+            6,
+            14
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "CgX5D",
+              "name": "Label",
+              "fill": "$bgPrimary",
+              "content": "全部",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "medium"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "gK7Yx",
+          "name": "FilterPill-Claude",
+          "fill": "$bgSecondary",
+          "cornerRadius": 100,
+          "stroke": {
+            "thickness": 1,
+            "fill": "$colorBorder"
+          },
+          "padding": [
+            6,
+            14
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "X8cgo",
+              "name": "Label",
+              "fill": "$textSecondary",
+              "content": "Claude",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "9x1CK",
+          "name": "FilterPill-Codex",
+          "fill": "$bgSecondary",
+          "cornerRadius": 100,
+          "stroke": {
+            "thickness": 1,
+            "fill": "$colorBorder"
+          },
+          "padding": [
+            6,
+            14
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "CqLct",
+              "name": "Label",
+              "fill": "$textSecondary",
+              "content": "Codex",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "WlLmV",
+          "name": "FilterPill-OpenClaw",
+          "fill": "$bgSecondary",
+          "cornerRadius": 100,
+          "stroke": {
+            "thickness": 1,
+            "fill": "$colorBorder"
+          },
+          "padding": [
+            6,
+            14
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "aMrm4",
+              "name": "Label",
+              "fill": "$textSecondary",
+              "content": "OpenClaw",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jL2FU",
+          "name": "FilterPill-Antigravity",
+          "fill": "$bgSecondary",
+          "cornerRadius": 100,
+          "stroke": {
+            "thickness": 1,
+            "fill": "$colorBorder"
+          },
+          "padding": [
+            6,
+            14
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "EjrCZ",
+              "name": "Label",
+              "fill": "$textSecondary",
+              "content": "Antigravity",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "epZpv",
+      "x": 0,
+      "y": 1300,
+      "name": "Component/ResultCard",
+      "reusable": true,
+      "width": 343,
+      "fill": "$bgPrimary",
+      "cornerRadius": 10,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$colorBorder"
+      },
+      "layout": "vertical",
+      "gap": 8,
+      "padding": 14,
+      "children": [
+        {
+          "type": "frame",
+          "id": "q80Cj",
+          "name": "TopRow",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "QC1lX",
+              "name": "NameGroup",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "w8nlx",
+                  "name": "ServerIcon",
+                  "width": 18,
+                  "height": 18,
+                  "iconFontName": "box",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textPrimary"
+                },
+                {
+                  "type": "text",
+                  "id": "MJ4BE",
+                  "name": "ArtifactName",
+                  "fill": "$textPrimary",
+                  "content": "mcp-memory",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "semibold"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "R5R9k",
+              "name": "Badges",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "bpIjg",
+                  "type": "ref",
+                  "ref": "SQSlS",
+                  "name": "EcoBadge"
+                },
+                {
+                  "id": "C2VUd",
+                  "type": "ref",
+                  "ref": "gP0uJ",
+                  "name": "TrustBadge"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "EukIh",
+          "name": "Description",
+          "fill": "$textSecondary",
+          "content": "Persistent memory for Claude using local knowledge graph. Enables long-term context retention across sessions.",
+          "lineHeight": 1.5,
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "9thBm",
+          "name": "BottomRow",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "JgJIX",
+              "type": "ref",
+              "ref": "zbtP9",
+              "name": "InstallMode"
+            },
+            {
+              "type": "text",
+              "id": "3SZnf",
+              "name": "Author",
+              "fill": "$textSecondary",
+              "content": "by modelcontextprotocol",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "B9zoW",
+      "x": 0,
+      "y": 0,
+      "name": "F146: Marketplace Search",
+      "width": 375,
+      "height": 812,
+      "fill": "$bgSecondary",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$colorBorder"
+      },
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "kHpqo",
+          "name": "Header",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "padding": 16,
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "08bcy",
+              "name": "TitleGroup",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "CBnoQ",
+                  "name": "BackIcon",
+                  "width": 20,
+                  "height": 20,
+                  "iconFontName": "chevron-left",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textPrimary"
+                },
+                {
+                  "type": "text",
+                  "id": "ooMhX",
+                  "name": "Title",
+                  "fill": "$textPrimary",
+                  "content": "MCP Marketplace",
+                  "fontFamily": "Inter",
+                  "fontSize": 17,
+                  "fontWeight": "bold"
+                }
+              ]
+            },
+            {
+              "type": "icon_font",
+              "id": "suiH5",
+              "name": "SettingsIcon",
+              "width": 20,
+              "height": 20,
+              "iconFontName": "sliders-horizontal",
+              "iconFontFamily": "lucide",
+              "fill": "$textSecondary"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dnGzV",
+          "name": "SearchArea",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            12,
+            16
+          ],
+          "children": [
+            {
+              "id": "QQIZA",
+              "type": "ref",
+              "ref": "xDH6W",
+              "name": "SearchInput"
+            },
+            {
+              "id": "JMhFh",
+              "type": "ref",
+              "ref": "V3iS0",
+              "name": "EcosystemFilter"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "KNud1",
+          "name": "Divider",
+          "fill": "$colorBorder",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "6XQFE",
+          "name": "ResultInfo",
+          "width": "fill_container",
+          "padding": [
+            10,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "Vjwe1",
+              "name": "Count",
+              "fill": "$textSecondary",
+              "content": "12 个结果",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "medium"
+            },
+            {
+              "type": "frame",
+              "id": "GfPpl",
+              "name": "SortGroup",
+              "gap": 4,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hecYD",
+                  "name": "SortLabel",
+                  "fill": "$textSecondary",
+                  "content": "相关度",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "icon_font",
+                  "id": "JTDul",
+                  "name": "SortIcon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "chevron-down",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textSecondary"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "be7dZ",
+          "name": "ResultsList",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            4,
+            16,
+            16,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "vBOWk",
+              "name": "Card-Memory",
+              "width": "fill_container",
+              "fill": "$bgPrimary",
+              "cornerRadius": 10,
+              "stroke": {
+                "thickness": 1,
+                "fill": "$colorBorder"
+              },
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#0000000A",
+                "offset": {
+                  "x": 0,
+                  "y": 1
+                },
+                "blur": 3
+              },
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EbrvY",
+                  "name": "TopRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "z14BB",
+                      "name": "NameGroup",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "3mULY",
+                          "name": "Icon",
+                          "width": 18,
+                          "height": 18,
+                          "iconFontName": "brain",
+                          "iconFontFamily": "lucide",
+                          "fill": "$ecoClaude"
+                        },
+                        {
+                          "type": "text",
+                          "id": "PIQxE",
+                          "name": "Name",
+                          "fill": "$textPrimary",
+                          "content": "mcp-memory",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "semibold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "cdKkc",
+                      "name": "Badges",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "VbmDQ",
+                          "type": "ref",
+                          "ref": "SQSlS",
+                          "name": "Eco"
+                        },
+                        {
+                          "id": "k33NC",
+                          "type": "ref",
+                          "ref": "gP0uJ",
+                          "name": "Trust"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "7YhZB",
+                  "name": "Desc",
+                  "fill": "$textSecondary",
+                  "content": "Persistent memory using local knowledge graph — long-term context retention across sessions.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "VRQWy",
+                  "name": "BottomRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "Jr60v",
+                      "type": "ref",
+                      "ref": "zbtP9",
+                      "name": "Mode"
+                    },
+                    {
+                      "type": "text",
+                      "id": "iITcT",
+                      "name": "Author",
+                      "fill": "$textSecondary",
+                      "content": "modelcontextprotocol",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "FT6Mq",
+              "name": "Card-Filesystem",
+              "width": "fill_container",
+              "fill": "$bgPrimary",
+              "cornerRadius": 10,
+              "stroke": {
+                "thickness": 1,
+                "fill": "$colorBorder"
+              },
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#0000000A",
+                "offset": {
+                  "x": 0,
+                  "y": 1
+                },
+                "blur": 3
+              },
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "k2bgh",
+                  "name": "TopRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "KFeqr",
+                      "name": "NameGroup",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "Pj21l",
+                          "name": "Icon",
+                          "width": 18,
+                          "height": 18,
+                          "iconFontName": "folder",
+                          "iconFontFamily": "lucide",
+                          "fill": "$ecoCodex"
+                        },
+                        {
+                          "type": "text",
+                          "id": "8H4PG",
+                          "name": "Name",
+                          "fill": "$textPrimary",
+                          "content": "codex-filesystem",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "semibold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ivPt4",
+                      "name": "Badges",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "kxnqe",
+                          "type": "ref",
+                          "ref": "IS7OG",
+                          "name": "Eco"
+                        },
+                        {
+                          "id": "hpM4d",
+                          "type": "ref",
+                          "ref": "EgYK5",
+                          "name": "Trust"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "uT9Tx",
+                  "name": "Desc",
+                  "fill": "$textSecondary",
+                  "content": "Secure filesystem access with sandboxed read/write. Supports project-scoped file operations.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "GdCrZ",
+                  "name": "BottomRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "Mcxa2",
+                      "type": "ref",
+                      "ref": "g0hhe",
+                      "name": "Mode"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ac5CZ",
+                      "name": "Author",
+                      "fill": "$textSecondary",
+                      "content": "openai",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Puv0U",
+              "name": "Card-WebSearch",
+              "width": "fill_container",
+              "fill": "$bgPrimary",
+              "cornerRadius": 10,
+              "stroke": {
+                "thickness": 1,
+                "fill": "$colorBorder"
+              },
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#0000000A",
+                "offset": {
+                  "x": 0,
+                  "y": 1
+                },
+                "blur": 3
+              },
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "IBlAw",
+                  "name": "TopRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "OaXRi",
+                      "name": "NameGroup",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "fXS3f",
+                          "name": "Icon",
+                          "width": 18,
+                          "height": 18,
+                          "iconFontName": "globe",
+                          "iconFontFamily": "lucide",
+                          "fill": "$ecoOpenClaw"
+                        },
+                        {
+                          "type": "text",
+                          "id": "np9Lq",
+                          "name": "Name",
+                          "fill": "$textPrimary",
+                          "content": "openclaw-web-search",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "semibold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eV8qe",
+                      "name": "Badges",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "46WUo",
+                          "type": "ref",
+                          "ref": "FGYf6",
+                          "name": "Eco"
+                        },
+                        {
+                          "id": "637Mk",
+                          "type": "ref",
+                          "ref": "gP0uJ",
+                          "name": "Trust"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "wA1rC",
+                  "name": "Desc",
+                  "fill": "$textSecondary",
+                  "content": "Real-time web search with source attribution. Supports multiple search engines and result filtering.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "b9ngb",
+                  "name": "BottomRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "3LqI0",
+                      "type": "ref",
+                      "ref": "03lKF",
+                      "name": "Mode"
+                    },
+                    {
+                      "type": "text",
+                      "id": "v0P1W",
+                      "name": "Author",
+                      "fill": "$textSecondary",
+                      "content": "openclaw-team",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "6Mbc2",
+              "name": "Card-AntigravityExt",
+              "width": "fill_container",
+              "fill": "$bgPrimary",
+              "cornerRadius": 10,
+              "stroke": {
+                "thickness": 1,
+                "fill": "$colorBorder"
+              },
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#0000000A",
+                "offset": {
+                  "x": 0,
+                  "y": 1
+                },
+                "blur": 3
+              },
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "baU7M",
+                  "name": "TopRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ZYP71",
+                      "name": "NameGroup",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "2CFVY",
+                          "name": "Icon",
+                          "width": 18,
+                          "height": 18,
+                          "iconFontName": "rocket",
+                          "iconFontFamily": "lucide",
+                          "fill": "$ecoAntigravity"
+                        },
+                        {
+                          "type": "text",
+                          "id": "wROYD",
+                          "name": "Name",
+                          "fill": "$textPrimary",
+                          "content": "ag-database-explorer",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "semibold"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "K8XRI",
+                      "name": "Badges",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "AVgUw",
+                          "type": "ref",
+                          "ref": "jFvJz",
+                          "name": "Eco"
+                        },
+                        {
+                          "id": "24z7D",
+                          "type": "ref",
+                          "ref": "EgYK5",
+                          "name": "Trust"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "t9BMa",
+                  "name": "Desc",
+                  "fill": "$textSecondary",
+                  "content": "Database schema exploration and query builder. Connect to PostgreSQL, MySQL, SQLite with read-only safety.",
+                  "lineHeight": 1.4,
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "f5FbD",
+                  "name": "BottomRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "HLeh5",
+                      "type": "ref",
+                      "ref": "03lKF",
+                      "name": "Mode"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Zlkgk",
+                      "name": "Author",
+                      "fill": "$textSecondary",
+                      "content": "antigravity-labs",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "TbL8T",
+      "x": 420,
+      "y": 0,
+      "name": "F146: Install Plan — Direct MCP",
+      "width": 375,
+      "height": 812,
+      "fill": "#F8F9FA",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$colorBorder"
+      },
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "sWuU0",
+          "name": "Header",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "padding": 16,
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "3Cgq5",
+              "name": "TitleGroup",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "vb7k1",
+                  "name": "BackIcon",
+                  "width": 20,
+                  "height": 20,
+                  "iconFontName": "chevron-left",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textPrimary"
+                },
+                {
+                  "type": "text",
+                  "id": "JN91A",
+                  "name": "Title",
+                  "fill": "$textPrimary",
+                  "content": "安装详情",
+                  "fontFamily": "Inter",
+                  "fontSize": 17,
+                  "fontWeight": "bold"
+                }
+              ]
+            },
+            {
+              "type": "icon_font",
+              "id": "UcvD7",
+              "name": "SettingsIcon",
+              "width": 18,
+              "height": 18,
+              "iconFontName": "external-link",
+              "iconFontFamily": "lucide",
+              "fill": "$textSecondary"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "446cw",
+          "name": "HeroSection",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            20,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "HsHOl",
+              "name": "NameRow",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "V33U8",
+                  "name": "Icon",
+                  "width": 28,
+                  "height": 28,
+                  "iconFontName": "brain",
+                  "iconFontFamily": "lucide",
+                  "fill": "$ecoClaude"
+                },
+                {
+                  "type": "frame",
+                  "id": "v5lFn",
+                  "name": "TitleCol",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "2ZQXS",
+                      "name": "Name",
+                      "fill": "$textPrimary",
+                      "content": "mcp-memory",
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": "bold"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dfgia",
+                      "name": "Author",
+                      "fill": "$textSecondary",
+                      "content": "by modelcontextprotocol",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "2K1b7",
+              "name": "BadgeRow",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "RehCe",
+                  "type": "ref",
+                  "ref": "SQSlS",
+                  "name": "Eco"
+                },
+                {
+                  "id": "ga6am",
+                  "type": "ref",
+                  "ref": "gP0uJ",
+                  "name": "Trust"
+                },
+                {
+                  "id": "Ce466",
+                  "type": "ref",
+                  "ref": "zbtP9",
+                  "name": "Mode"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "4nd2a",
+              "name": "FullDesc",
+              "fill": "$textSecondary",
+              "content": "Persistent memory for Claude using a local knowledge graph. Enables long-term context retention across sessions with structured entity-relationship storage.",
+              "lineHeight": 1.5,
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "nlPFT",
+          "name": "Divider",
+          "fill": "$colorBorder",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "KwgNn",
+          "name": "InstallPlanSection",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "layout": "vertical",
+          "gap": 14,
+          "padding": 16,
+          "children": [
+            {
+              "type": "frame",
+              "id": "8hcW2",
+              "name": "SectionHeader",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "dQ0tg",
+                  "name": "Icon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "settings",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textPrimary"
+                },
+                {
+                  "type": "text",
+                  "id": "o0lYB",
+                  "name": "Label",
+                  "fill": "$textPrimary",
+                  "content": "安装配置",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "semibold"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RkQ2i",
+              "name": "ConfigCard",
+              "width": "fill_container",
+              "fill": "$bgSecondary",
+              "cornerRadius": 8,
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "N6xWo",
+                  "name": "Row-Transport",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "vL5lC",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "传输协议",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "fMmf1",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "stdio",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "niNsS",
+                  "name": "Row-Command",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "jDoi3",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "启动命令",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "YewTt",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "npx @anthropic/mcp-memory",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "MEsYM",
+                  "name": "Row-Scope",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "AGj3k",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "安装范围",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "qGFB6",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "当前猫猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Y4QkH",
+                  "name": "Row-Mode",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ZsnmM",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "安装方式",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "b8d82",
+                      "name": "ModeValue",
+                      "gap": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "dzBoG",
+                          "name": "ZapIcon",
+                          "width": 12,
+                          "height": 12,
+                          "iconFontName": "zap",
+                          "iconFontFamily": "lucide",
+                          "fill": "$installDirect"
+                        },
+                        {
+                          "type": "text",
+                          "id": "o0ZZp",
+                          "name": "Value",
+                          "fill": "$installDirect",
+                          "content": "direct_mcp — 一键安装",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "semibold"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "CTJsM",
+          "name": "BottomContent",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "JUzIz",
+              "name": "EnvVarsSection",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vs5UU",
+                  "name": "EnvHeader",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "i0d9G",
+                      "name": "KeyIcon",
+                      "width": 14,
+                      "height": 14,
+                      "iconFontName": "key",
+                      "iconFontFamily": "lucide",
+                      "fill": "$textSecondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "H7JKQ",
+                      "name": "Label",
+                      "fill": "$textSecondary",
+                      "content": "环境变量（可选）",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "medium"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "QaeSX",
+                  "name": "EnvCard",
+                  "width": "fill_container",
+                  "fill": "$bgSecondary",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "gAMLx",
+                      "name": "VarName",
+                      "fill": "$textPrimary",
+                      "content": "MEMORY_DB_PATH",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 11,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "HGbyP",
+                      "name": "Input",
+                      "width": "fill_container",
+                      "fill": "$bgPrimary",
+                      "cornerRadius": 6,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "$colorBorder"
+                      },
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Bnyf7",
+                          "name": "Placeholder",
+                          "fill": "#ADB5BD",
+                          "content": "~/memory.db（默认）",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "TinFv",
+              "name": "SafetyNote",
+              "width": "fill_container",
+              "fill": "#ECFDF5",
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "$trustVerified"
+              },
+              "gap": 8,
+              "padding": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "ug7r2",
+                  "name": "ShieldIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "shield-check",
+                  "iconFontFamily": "lucide",
+                  "fill": "$trustVerified"
+                },
+                {
+                  "type": "text",
+                  "id": "pd9fK",
+                  "name": "Text",
+                  "fill": "#166534",
+                  "content": "已通过安全审查 — stdio 传输，无网络暴露",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "medium"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "3Fl2w",
+              "name": "Spacer",
+              "width": "fill_container",
+              "height": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "EQ6cY",
+              "name": "ButtonArea",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": [
+                12,
+                0,
+                16,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "nuneD",
+                  "name": "InstallButton",
+                  "width": "fill_container",
+                  "fill": "$colorSync",
+                  "cornerRadius": 12,
+                  "gap": 8,
+                  "padding": [
+                    14,
+                    0
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "icIdw",
+                      "name": "DlIcon",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "download",
+                      "iconFontFamily": "lucide",
+                      "fill": "#FFFFFF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "SuUeM",
+                      "name": "BtnLabel",
+                      "fill": "#FFFFFF",
+                      "content": "安装到当前猫猫",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "sGAlO",
+                  "name": "Hint",
+                  "fill": "$textSecondary",
+                  "content": "安装后可在 MCP 设置中管理",
+                  "textAlign": "center",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "QnWz1",
+      "x": 840,
+      "y": 0,
+      "name": "F146: Install Plan — CLI Delegated",
+      "width": 375,
+      "height": 812,
+      "fill": "#F8F9FA",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$colorBorder"
+      },
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "b5qZu",
+          "name": "Header",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "padding": 16,
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "OdWp6",
+              "name": "TitleGroup",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "r8mFW",
+                  "name": "BackIcon",
+                  "width": 20,
+                  "height": 20,
+                  "iconFontName": "chevron-left",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textPrimary"
+                },
+                {
+                  "type": "text",
+                  "id": "M05hW",
+                  "name": "Title",
+                  "fill": "$textPrimary",
+                  "content": "安装详情",
+                  "fontFamily": "Inter",
+                  "fontSize": 17,
+                  "fontWeight": "bold"
+                }
+              ]
+            },
+            {
+              "type": "icon_font",
+              "id": "9dtzi",
+              "name": "SettingsIcon",
+              "width": 18,
+              "height": 18,
+              "iconFontName": "external-link",
+              "iconFontFamily": "lucide",
+              "fill": "$textSecondary"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "gEDJE",
+          "name": "HeroSection",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            20,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "NySYL",
+              "name": "NameRow",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "LmHjk",
+                  "name": "Icon",
+                  "width": 28,
+                  "height": 28,
+                  "iconFontName": "folder",
+                  "iconFontFamily": "lucide",
+                  "fill": "$ecoCodex"
+                },
+                {
+                  "type": "frame",
+                  "id": "uMaJ0",
+                  "name": "TitleCol",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lVMrl",
+                      "name": "Name",
+                      "fill": "$textPrimary",
+                      "content": "codex-filesystem",
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": "bold"
+                    },
+                    {
+                      "type": "text",
+                      "id": "c49qJ",
+                      "name": "Author",
+                      "fill": "$textSecondary",
+                      "content": "by openai",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "0eEBW",
+              "name": "BadgeRow",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "X3iaD",
+                  "type": "ref",
+                  "ref": "SQSlS",
+                  "name": "Eco",
+                  "fill": "#ECFDF5",
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "$ecoCodex"
+                  },
+                  "descendants": {
+                    "NbMPj": {
+                      "fill": "$ecoCodex"
+                    },
+                    "8D6Oa": {
+                      "content": "Codex",
+                      "fill": "$ecoCodex"
+                    }
+                  }
+                },
+                {
+                  "id": "yqYPj",
+                  "type": "ref",
+                  "ref": "gP0uJ",
+                  "name": "Trust",
+                  "fill": "#EFF6FF",
+                  "descendants": {
+                    "4mh22": {
+                      "fill": "$trustCommunity"
+                    },
+                    "Qy0O6": {
+                      "content": "community",
+                      "fill": "$trustCommunity"
+                    }
+                  }
+                },
+                {
+                  "id": "UbyXz",
+                  "type": "ref",
+                  "ref": "zbtP9",
+                  "name": "Mode",
+                  "fill": "#EFF6FF",
+                  "descendants": {
+                    "GEY1f": {
+                      "iconFontName": "terminal",
+                      "fill": "$installDelegated"
+                    },
+                    "O8gGx": {
+                      "content": "CLI 安装",
+                      "fill": "$installDelegated"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "JdcPc",
+              "name": "FullDesc",
+              "fill": "$textSecondary",
+              "content": "Secure filesystem access with sandboxed read/write operations. Supports project-scoped file access with configurable permission boundaries.",
+              "lineHeight": 1.5,
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "vyQaG",
+          "name": "Divider",
+          "fill": "$colorBorder",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "6jyhc",
+          "name": "InstallPlanSection",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "layout": "vertical",
+          "gap": 14,
+          "padding": 16,
+          "children": [
+            {
+              "type": "frame",
+              "id": "myAVs",
+              "name": "SectionHeader",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "uL56V",
+                  "name": "Icon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "settings",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textPrimary"
+                },
+                {
+                  "type": "text",
+                  "id": "3YVSV",
+                  "name": "Label",
+                  "fill": "$textPrimary",
+                  "content": "安装配置",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "semibold"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "2dyCA",
+              "name": "ConfigCard",
+              "width": "fill_container",
+              "fill": "$bgSecondary",
+              "cornerRadius": 8,
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "e9EU7",
+                  "name": "Row-Transport",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "EPqQ8",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "传输协议",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "1eNrs",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "streamable-http",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "P80ZI",
+                  "name": "Row-Command",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "r6lu6",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "启动命令",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "8Esiq",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "codex mcp add filesystem",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "uwgCn",
+                  "name": "Row-Scope",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Dg352",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "安装范围",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "93i4X",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "全局",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Qfyo0",
+                  "name": "Row-Mode",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "nglzT",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "安装方式",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "6vj3n",
+                      "name": "ModeValue",
+                      "gap": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "odz5R",
+                          "name": "ZapIcon",
+                          "width": 12,
+                          "height": 12,
+                          "iconFontName": "terminal",
+                          "iconFontFamily": "lucide",
+                          "fill": "$installDelegated"
+                        },
+                        {
+                          "type": "text",
+                          "id": "PAV4A",
+                          "name": "Value",
+                          "fill": "$installDelegated",
+                          "content": "delegated_cli — CLI 安装",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "semibold"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "T9Qlt",
+          "name": "BottomContent",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "7dMLw",
+              "name": "EnvVarsSection",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "o5TAT",
+                  "name": "EnvHeader",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "6CSUG",
+                      "name": "KeyIcon",
+                      "width": 14,
+                      "height": 14,
+                      "iconFontName": "key",
+                      "iconFontFamily": "lucide",
+                      "fill": "$textSecondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "yjVZK",
+                      "name": "Label",
+                      "fill": "$textSecondary",
+                      "content": "环境变量（可选）",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "medium"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "aX8du",
+                  "name": "EnvCard",
+                  "width": "fill_container",
+                  "fill": "$bgSecondary",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "dYnZ3",
+                      "name": "VarName",
+                      "fill": "$textPrimary",
+                      "content": "MEMORY_DB_PATH",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 11,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "iXBOt",
+                      "name": "Input",
+                      "width": "fill_container",
+                      "fill": "$bgPrimary",
+                      "cornerRadius": 6,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "$colorBorder"
+                      },
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "A2zAD",
+                          "name": "Placeholder",
+                          "fill": "#ADB5BD",
+                          "content": "~/memory.db（默认）",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KLw8f",
+              "name": "SafetyNote",
+              "width": "fill_container",
+              "fill": "#FFF8E1",
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#F59E0B"
+              },
+              "gap": 8,
+              "padding": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "tdpA5",
+                  "name": "ShieldIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "triangle-alert",
+                  "iconFontFamily": "lucide",
+                  "fill": "#F59E0B"
+                },
+                {
+                  "type": "text",
+                  "id": "y14iK",
+                  "name": "Text",
+                  "fill": "#92400E",
+                  "content": "社区维护 — 建议检查 CLI 输出确认配置",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "medium"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OIkAx",
+              "name": "Spacer",
+              "width": "fill_container",
+              "height": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "Qk6Vc",
+              "name": "ButtonArea",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": [
+                12,
+                0,
+                16,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "MsYVt",
+                  "name": "InstallButton",
+                  "width": "fill_container",
+                  "fill": "$colorSync",
+                  "cornerRadius": 12,
+                  "gap": 8,
+                  "padding": [
+                    14,
+                    0
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "P3I21",
+                      "name": "DlIcon",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "terminal",
+                      "iconFontFamily": "lucide",
+                      "fill": "#FFFFFF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "1NcbE",
+                      "name": "BtnLabel",
+                      "fill": "#FFFFFF",
+                      "content": "复制 CLI 命令",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "cgML6",
+                  "name": "Hint",
+                  "fill": "$textSecondary",
+                  "content": "粘贴到终端执行安装",
+                  "textAlign": "center",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "GCu8u",
+      "x": 1260,
+      "y": 0,
+      "name": "F146: Install Plan — Manual UI",
+      "width": 375,
+      "height": 812,
+      "fill": "#F8F9FA",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$colorBorder"
+      },
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "crENm",
+          "name": "Header",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "padding": 16,
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "DKa8v",
+              "name": "TitleGroup",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "cuAD6",
+                  "name": "BackIcon",
+                  "width": 20,
+                  "height": 20,
+                  "iconFontName": "chevron-left",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textPrimary"
+                },
+                {
+                  "type": "text",
+                  "id": "wgTKR",
+                  "name": "Title",
+                  "fill": "$textPrimary",
+                  "content": "安装详情",
+                  "fontFamily": "Inter",
+                  "fontSize": 17,
+                  "fontWeight": "bold"
+                }
+              ]
+            },
+            {
+              "type": "icon_font",
+              "id": "BieOc",
+              "name": "SettingsIcon",
+              "width": 18,
+              "height": 18,
+              "iconFontName": "external-link",
+              "iconFontFamily": "lucide",
+              "fill": "$textSecondary"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "uHSjh",
+          "name": "HeroSection",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            20,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "z7hLb",
+              "name": "NameRow",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "q8TTF",
+                  "name": "Icon",
+                  "width": 28,
+                  "height": 28,
+                  "iconFontName": "rocket",
+                  "iconFontFamily": "lucide",
+                  "fill": "$ecoAntigravity"
+                },
+                {
+                  "type": "frame",
+                  "id": "yzC7s",
+                  "name": "TitleCol",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "OAgB2",
+                      "name": "Name",
+                      "fill": "$textPrimary",
+                      "content": "ag-database-explorer",
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": "bold"
+                    },
+                    {
+                      "type": "text",
+                      "id": "F2sPS",
+                      "name": "Author",
+                      "fill": "$textSecondary",
+                      "content": "by antigravity-labs",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "dOCiN",
+              "name": "BadgeRow",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "ju5gD",
+                  "type": "ref",
+                  "ref": "SQSlS",
+                  "name": "Eco",
+                  "fill": "#EFF6FF",
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "$ecoAntigravity"
+                  },
+                  "descendants": {
+                    "NbMPj": {
+                      "fill": "$ecoAntigravity"
+                    },
+                    "8D6Oa": {
+                      "content": "Antigravity",
+                      "fill": "$ecoAntigravity"
+                    }
+                  }
+                },
+                {
+                  "id": "rcdZC",
+                  "type": "ref",
+                  "ref": "gP0uJ",
+                  "name": "Trust",
+                  "fill": "#EFF6FF",
+                  "descendants": {
+                    "4mh22": {
+                      "fill": "$trustCommunity",
+                      "iconFontName": "shield-check"
+                    },
+                    "Qy0O6": {
+                      "content": "community",
+                      "fill": "$trustCommunity"
+                    }
+                  }
+                },
+                {
+                  "id": "cwQ82",
+                  "type": "ref",
+                  "ref": "zbtP9",
+                  "name": "Mode",
+                  "fill": "#FFF5EB",
+                  "descendants": {
+                    "GEY1f": {
+                      "iconFontName": "file-text",
+                      "fill": "$installManual"
+                    },
+                    "O8gGx": {
+                      "content": "手动配置",
+                      "fill": "$installManual"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "xDJqw",
+              "name": "FullDesc",
+              "fill": "$textSecondary",
+              "content": "Database schema exploration and query builder for PostgreSQL, MySQL, SQLite. Read-only safety mode with connection pooling.",
+              "lineHeight": 1.5,
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "i3tUk",
+          "name": "Divider",
+          "fill": "$colorBorder",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "iSOLf",
+          "name": "InstallPlanSection",
+          "width": "fill_container",
+          "fill": "$bgPrimary",
+          "layout": "vertical",
+          "gap": 14,
+          "padding": 16,
+          "children": [
+            {
+              "type": "frame",
+              "id": "ovh2y",
+              "name": "SectionHeader",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "2mmNj",
+                  "name": "Icon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "settings",
+                  "iconFontFamily": "lucide",
+                  "fill": "$textPrimary"
+                },
+                {
+                  "type": "text",
+                  "id": "8oAui",
+                  "name": "Label",
+                  "fill": "$textPrimary",
+                  "content": "安装配置",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "semibold"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Y2RWF",
+              "name": "ConfigCard",
+              "width": "fill_container",
+              "fill": "$bgSecondary",
+              "cornerRadius": 8,
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "TNfFi",
+                  "name": "Row-Transport",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Au6bq",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "传输协议",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "2LBt8",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "extension",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "2KhfF",
+                  "name": "Row-Command",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "HSELG",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "安装入口",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "c2kad",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "Antigravity Extensions",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "M5IpS",
+                  "name": "Row-Scope",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "WTrHa",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "安装范围",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "text",
+                      "id": "fCQGQ",
+                      "name": "Value",
+                      "fill": "$textPrimary",
+                      "content": "IDE 全局",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "7HZRN",
+                  "name": "Row-Mode",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "8x17i",
+                      "name": "Key",
+                      "fill": "$textSecondary",
+                      "content": "安装方式",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "j6jyT",
+                      "name": "ModeValue",
+                      "gap": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "6A3l2",
+                          "name": "ZapIcon",
+                          "width": 12,
+                          "height": 12,
+                          "iconFontName": "file-text",
+                          "iconFontFamily": "lucide",
+                          "fill": "$installManual"
+                        },
+                        {
+                          "type": "text",
+                          "id": "nrLm0",
+                          "name": "Value",
+                          "fill": "$installManual",
+                          "content": "manual_ui — 手动配置",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "semibold"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "GEnKK",
+          "name": "BottomContent",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            0,
+            16
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "IPRZ2",
+              "name": "EnvVarsSection",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "KYGL3",
+                  "name": "EnvHeader",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "DJHmb",
+                      "name": "KeyIcon",
+                      "width": 14,
+                      "height": 14,
+                      "iconFontName": "key",
+                      "iconFontFamily": "lucide",
+                      "fill": "$textSecondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "eepNV",
+                      "name": "Label",
+                      "fill": "$textSecondary",
+                      "content": "环境变量（可选）",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "medium"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "2GHm5",
+                  "name": "EnvCard",
+                  "width": "fill_container",
+                  "fill": "$bgSecondary",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "iXtmh",
+                      "name": "VarName",
+                      "fill": "$textPrimary",
+                      "content": "MEMORY_DB_PATH",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 11,
+                      "fontWeight": "medium"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "yHjsS",
+                      "name": "Input",
+                      "width": "fill_container",
+                      "fill": "$bgPrimary",
+                      "cornerRadius": 6,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "$colorBorder"
+                      },
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "wQM2M",
+                          "name": "Placeholder",
+                          "fill": "#ADB5BD",
+                          "content": "~/memory.db（默认）",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XHspL",
+              "name": "SafetyNote",
+              "width": "fill_container",
+              "fill": "#EFF6FF",
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "$ecoAntigravity"
+              },
+              "gap": 8,
+              "padding": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "ACC44",
+                  "name": "ShieldIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "monitor",
+                  "iconFontFamily": "lucide",
+                  "fill": "$ecoAntigravity"
+                },
+                {
+                  "type": "text",
+                  "id": "wCaj9",
+                  "name": "Text",
+                  "fill": "#1E40AF",
+                  "content": "需在 Antigravity IDE 设置中手动添加",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "medium"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ALryp",
+              "name": "Spacer",
+              "width": "fill_container",
+              "height": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "qNyQQ",
+              "name": "ButtonArea",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": [
+                12,
+                0,
+                16,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GRJ2G",
+                  "name": "InstallButton",
+                  "width": "fill_container",
+                  "fill": "$colorSync",
+                  "cornerRadius": 12,
+                  "gap": 8,
+                  "padding": [
+                    14,
+                    0
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "Ph0Cz",
+                      "name": "DlIcon",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "external-link",
+                      "iconFontFamily": "lucide",
+                      "fill": "#FFFFFF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "OsgWe",
+                      "name": "BtnLabel",
+                      "fill": "#FFFFFF",
+                      "content": "打开 Antigravity 设置",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "semibold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "Yw826",
+                  "name": "Hint",
+                  "fill": "$textSecondary",
+                  "content": "将在 IDE 中打开扩展管理页面",
+                  "textAlign": "center",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "bgPrimary": {
+      "type": "color",
+      "value": "#FFFFFF"
+    },
+    "bgSecondary": {
+      "type": "color",
+      "value": "#F8F9FA"
+    },
+    "bgTertiary": {
+      "type": "color",
+      "value": "#F1F3F5"
+    },
+    "colorBorder": {
+      "type": "color",
+      "value": "#DEE2E6"
+    },
+    "colorOffline": {
+      "type": "color",
+      "value": "#FD7E14"
+    },
+    "colorOnline": {
+      "type": "color",
+      "value": "#28A745"
+    },
+    "colorSync": {
+      "type": "color",
+      "value": "#007BFF"
+    },
+    "ecoAntigravity": {
+      "type": "color",
+      "value": "#2563EB"
+    },
+    "ecoClaude": {
+      "type": "color",
+      "value": "#7C3AED"
+    },
+    "ecoCodex": {
+      "type": "color",
+      "value": "#059669"
+    },
+    "ecoOpenClaw": {
+      "type": "color",
+      "value": "#DC2626"
+    },
+    "installDelegated": {
+      "type": "color",
+      "value": "#007BFF"
+    },
+    "installDirect": {
+      "type": "color",
+      "value": "#28A745"
+    },
+    "installManual": {
+      "type": "color",
+      "value": "#FD7E14"
+    },
+    "textPrimary": {
+      "type": "color",
+      "value": "#212529"
+    },
+    "textSecondary": {
+      "type": "color",
+      "value": "#6C757D"
+    },
+    "trustCommunity": {
+      "type": "color",
+      "value": "#007BFF"
+    },
+    "trustUnknown": {
+      "type": "color",
+      "value": "#6C757D"
+    },
+    "trustVerified": {
+      "type": "color",
+      "value": "#28A745"
+    }
+  }
+}
