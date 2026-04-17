@@ -369,7 +369,7 @@
     {
       "id": "F061",
       "name": "Antigravity 接入 — 孟加拉猫（混血家族）",
-      "status": "phase-2-bridge | **Owner**: 布偶猫 Opus 4.6",
+      "status": "phase-2-bridge | **Owner**: 布偶猫 Opus 4.6（Phase 2a/2b） · 布偶猫 Opus 4.7 试用分身（Phase 2c · 猫猫工具平权）",
       "file": "F061-antigravity-bengal-cat.md"
     },
     {
@@ -1035,9 +1035,9 @@
     {
       "id": "F166",
       "name": "Cat Order Customization — 猫猫排序自定义",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P2",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P2 | **Completed**: 2026-04-17",
       "file": "F166-cat-order-customization.md"
     }
   ],
-  "generated_at": "2026-04-17T07:21:49.256Z"
+  "generated_at": "2026-04-17T11:25:07.605Z"
 }

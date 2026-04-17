@@ -98,9 +98,30 @@ CliExecutor → wecom-cli doc/todo/meeting/...
    - 固定场景脚本，面试现场可复现
    - 备选：预录视频 fallback
 
-### Phase B: 飞书 CLI 接入（面试后）
+### Phase B: 飞书 CLI 接入（in-progress，2026-04-17）
 
-复用 Phase A 的 ActionService 模式，接入 `lark-cli`。
+复用 Phase A 的 ActionService 模式接入 `lark-cli`（@larksuite/cli，Go 二进制）。Lark 的厂商能力比企微多一条"Slides"腿，黄金链路因此可以展示**比企微 demo 多一层幻灯片输出**。
+
+```
+铲屎官: "把今天讨论整理成 PRD + 多维表 + 任务 + 日程 + Slides"
+  ↓
+猫解析意图（enterprise workflow skill，新增 Lark 分支）
+  ↓
+POST /api/callbacks/lark-action   { action: "golden_chain", ... }
+  ↓
+LarkActionService（auth / audit）
+  ↓
+LarkCliExecutor → lark-cli docs/base/task/calendar/slides +...
+  ↓
+返回 { doc, base, tasks, calendarEvent, slides, summary }
+```
+
+关键差异点（vs Phase A）：
+- lark-cli 命令是 cobra 风格（`--flag value`），不是企微的单 JSON blob
+- Lark Open API 响应用 `{code, msg, data}`，不是企微的 `{errcode, errmsg, ...}`
+- Slides 是飞书专属，企微 v0.1.5 不支持
+- Task v2 的 assignee 用 `open_id`（`ou_xxx`）
+- Calendar 事件自带 VC 会议链接（不用额外建会议）
 
 ### Phase C: 跨平台统一与 Hub 集成（面试后）
 
@@ -118,6 +139,17 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 - [ ] AC-A6: 企微 App 中可看到猫创建的文档/表格/待办/会议
 - [x] AC-A7: 面试 demo 脚本编写完成，可在 60 秒内完成展示（PR #1182, `docs/plans/2026-04-15-f162-demo-script.md`）
 - [ ] AC-A8: 备选方案：预录 demo 视频/GIF 一份
+
+### Phase B（Lark Golden Chain Showcase + Slides 增量）
+
+- [x] AC-B1: `lark-cli`（@larksuite/cli）安装 + 命令 schema 探查完成（docs/base/task/calendar/slides/contact 可用）
+- [x] AC-B2: LarkActionService 实现 `createDoc` / `createBase` / `createTask` / `createCalendarEvent` / `createSlides` / `searchUsers` / `goldenChain`
+- [x] AC-B3: 每个方法有 audit log 记录
+- [x] AC-B4: callback route `/api/callbacks/lark-action` 支持全部 action + `golden_chain`（zod discriminatedUnion）
+- [x] AC-B5: 单元测试全绿（LarkCliExecutor + LarkActionService，29/29 pass）
+- [x] AC-B6: 端到端真实调用：一句话 → 飞书文档 + 多维表 + 任务 + 日程（+ Slides）→ 链接回贴（2026-04-17 真实 E2E 通过，见 Timeline）
+- [ ] AC-B7: 飞书 App 内可见全部资源（E2E 产出链接已生成，留给铲屎官点开目测）
+- [x] AC-B8: `enterprise-workflow` skill 扩展到双平台（WeCom + Lark）
 
 ## Dependencies
 
@@ -154,6 +186,9 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 | KD-2 | Transport Plane (F088/F132) 和 Action Plane (F162) 明确分离 | ADR-029 Decision 5 | 2026-04-14 |
 | KD-3 | Phase A 只做企微，飞书留 Phase B | 三天 deadline，聚焦一个平台 | 2026-04-14 |
 | KD-4 | 黄金链路含 Doc + Table + Todo + Meeting 四步 | 铲屎官拍板"meeting/table 才够打" | 2026-04-14 |
+| KD-5 | Phase B 全量接入飞书能力（含 Slides），不只是 WeCom 的对等翻译 | 铲屎官原话"对他们有什么就接什么就好了"——飞书生态比 WeCom 多 Slides/Mail/Minutes/Whiteboard，demo 可强调"多一层" | 2026-04-17 |
+| KD-6 | LarkCliExecutor 用 cobra-style flags（key-value 对），不复用 WeCom 的单 JSON blob | lark-cli 本身是 cobra 框架，CLI 原生就是 `--flag value` 形式，强行 JSON 化会增加包装层 | 2026-04-17 |
+| KD-7 | lark-cli 响应用扁平包络 `{ok, identity, data, error?}`，字段扁平（`data.doc_id` 而非嵌套 `data.document.document_id`），且 exit code 恒为 0（成功/失败由 `ok` 判断） | 预编码阶段按 Feishu Open API 文档猜的嵌套形状与真实 CLI 输出不匹配，探测后重写 types/service/tests | 2026-04-17 |
 
 ## Timeline
 
@@ -165,6 +200,8 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 | 2026-04-15 | Day 1 bugfix: CellTextValue 格式修复 + E2E read-back 验证 — PR #1186 merged |
 | 2026-04-16 | Day 2: runtime 同步 + 端到端串联 (AC-A5/A6) + 备录视频 (AC-A8) |
 | 2026-04-17 | Day 3: demo 打磨 + 面试 |
+| 2026-04-17 | Phase B kickoff: lark-cli 接入，骨架 + 双平台 skill + 单元测试 29/29 pass（AC-B1~B5, B8） |
+| 2026-04-17 | Phase B 真实 E2E: `LARK_E2E=1` Golden Chain 通过 — doc/base/task/calendar/slides 全绿。产出链接：<br>　📄 https://www.feishu.cn/docx/OeoRdvOetox1jxxWF9McNCg5nKf<br>　📊 https://icnzjwzqfxa8.feishu.cn/base/SvNQbgdARaUrxFsVgZdcbAKdnQc<br>　🎞 https://icnzjwzqfxa8.feishu.cn/slides/MVRrs1nFPlx2ITdbxfBcOD8Cn8d<br>AC-B6 达成。探测过程修正了 types/service/tests 里若干字段形状（KD-7） |
 
 ## Review Gate
 
@@ -184,3 +221,9 @@ CliExecutor → wecom-cli doc/todo/meeting/...
 | 结果链接回贴群聊 | 砚砚(GPT-5.4) 黄金链路提案 | ⬜ |
 | 面试 demo 脚本 | 铲屎官 deadline 需求 | ✅ PR #1182, 5-phase 60s 脚本 |
 | 备录视频 fallback | 风险缓解 | ⬜ |
+| 飞书文档（docx） | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
+| 飞书多维表（Bitable） | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
+| 飞书任务 v2 | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
+| 飞书日程 + VC 链接 | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
+| 飞书幻灯片（专属） | 铲屎官"对他们有什么就接什么" | ✅ 骨架 + 单测 + goldenChain 可选分支 |
+| 飞书 Lark golden chain | 铲屎官"今天下午都能干完" | ⬜ 骨架 OK，真实调用待 lark-cli 登录 |

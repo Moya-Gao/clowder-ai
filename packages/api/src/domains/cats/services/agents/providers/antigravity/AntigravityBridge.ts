@@ -158,7 +158,9 @@ export class AntigravityBridge {
     const trajectoryId = step.metadata?.sourceTrajectoryStepInfo?.trajectoryId ?? '';
     const stepIndex = step.metadata?.sourceTrajectoryStepInfo?.stepIndex;
     if (stepIndex == null) {
-      log.warn('nativeExecuteAndPush: stepIndex missing from sourceTrajectoryStepInfo, skipping to avoid cancelling wrong step');
+      log.warn(
+        'nativeExecuteAndPush: stepIndex missing from sourceTrajectoryStepInfo, skipping to avoid cancelling wrong step',
+      );
       return false;
     }
 

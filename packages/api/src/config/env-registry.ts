@@ -1413,6 +1413,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'ANTIGRAVITY_NATIVE_EXECUTOR',
+    defaultValue: '(未设置 → 开启)',
+    description: '设为 0 关闭 Antigravity 原生 executeAndPush（回落到通用 submit 路径）',
+    category: 'antigravity',
+    sensitive: false,
+  },
+  {
     name: 'CAT_CAFE_READONLY',
     defaultValue: '(未设置 → 全量注册)',
     description: 'MCP Server 只读模式：跳过 post_message 等写操作工具注册（Antigravity 持久 MCP 用）',

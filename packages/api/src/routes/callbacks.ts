@@ -35,6 +35,7 @@ import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackGameRoutes } from './callback-game-routes.js';
 import { registerCallbackGuideRoutes } from './callback-guide-routes.js';
+import { registerCallbackLarkActionRoutes } from './callback-lark-action-routes.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
@@ -1366,6 +1367,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
   // F162: WeChat Work enterprise action callback routes
   registerCallbackWeComActionRoutes(app, { registry });
+
+  // F162 Phase B: Lark/Feishu enterprise action callback routes
+  registerCallbackLarkActionRoutes(app, { registry });
 
   // F101: Game action callback for non-Claude cats (OpenCode/Codex/Gemini)
   registerCallbackGameRoutes(app, { registry });

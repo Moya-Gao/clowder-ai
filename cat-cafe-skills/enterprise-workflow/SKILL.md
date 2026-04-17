@@ -1,10 +1,10 @@
 ---
 name: enterprise-workflow
 description: >
-  企业微信工作流自动化：文档、表格、待办、会议一键创建。
-  Use when: 铲屎官要求创建企微文档/表格/待办/会议，或要求一句话生成完整工作流。
+  企业 IM 工作流自动化：文档、表格、待办/任务、会议/日程一键创建。
+  Use when: 铲屎官要求创建企微/飞书的文档/表格/待办/会议/日程/幻灯片，或"一句话生成完整工作流"。
   Not for: 普通聊天、消息收发（那是 F088 Transport Plane 的活）。
-  Output: 企微资源链接（文档 URL、会议链接等）通过 callback 返回。
+  Output: 资源链接（文档 URL、企微会议链接、日程 summary 等）通过 callback 返回。
 triggers:
   - "创建文档"
   - "写个文档"
@@ -12,40 +12,56 @@ triggers:
   - "建个表格"
   - "创建表格"
   - "smart table"
+  - "多维表"
+  - "bitable"
   - "建个待办"
   - "创建待办"
   - "todo"
+  - "创建任务"
+  - "task"
   - "约个会"
   - "创建会议"
   - "create meeting"
+  - "创建日程"
+  - "calendar event"
+  - "幻灯片"
+  - "slides"
+  - "deck"
   - "整理成文档"
   - "拆成任务"
   - "golden chain"
+  - "黄金链路"
   - "工作流"
   - "enterprise workflow"
+  - "飞书"
+  - "feishu"
+  - "lark"
+  - "企微"
+  - "wecom"
+  - "企业微信"
 ---
 
-# Enterprise Workflow — 企微工作流自动化
+# Enterprise Workflow — 企业 IM 工作流自动化
 
-F162: 通过企微官方 CLI (`wecom-cli`) 驱动企业操作。
+F162：通过厂商官方 CLI 驱动企业操作。
 架构决策：ADR-029 — ActionService + CliExecutor + callback route。
 
-## 能力总览
+两条腿并行：
+- **Phase A（企业微信）**：`wecom-cli`（Rust）→ callback `/api/callbacks/wecom-action`
+- **Phase B（飞书/Lark）**：`lark-cli`（Go，@larksuite/cli）→ callback `/api/callbacks/lark-action`
 
-| 操作 | Callback action | 说明 |
-|------|----------------|------|
-| 创建文档 | `create_doc` | Markdown 文档，可带内容 |
-| 创建智能表格 | `create_smart_table` | 自定义字段 + 数据行 |
-| 创建待办 | `create_todo` | 分发给指定人员 |
-| 创建会议 | `create_meeting` | 预约会议，自动邀请 |
-| **黄金链路** | `golden_chain` | 一句话 → 文档 + 表格 + 待办 + 会议 |
+## 如何选平台
 
-## 调用方式
+| 铲屎官提到 | 用哪边 |
+|-----------|--------|
+| 企微 / wecom / 企业微信 / 腾讯 IM | **WeCom** (`/api/callbacks/wecom-action`) |
+| 飞书 / feishu / lark / 字节 IM | **Lark** (`/api/callbacks/lark-action`) |
+| 只说"企业 IM"没指定 | **先问一句**哪个平台；demo 场景默认 WeCom |
 
-**所有操作必须通过 callback route，不要裸调 CLI。**（ADR-029 Decision 2）
+**所有操作都必须走 callback route，不要裸调 CLI**（ADR-029 Decision 2）。
 
 ```
-POST /api/callbacks/wecom-action
+POST /api/callbacks/{wecom|lark}-action
 Content-Type: application/json
 
 {
@@ -56,37 +72,126 @@ Content-Type: application/json
 }
 ```
 
-## 黄金链路（Golden Chain）
+---
 
-铲屎官说一句话，你做这些事：
+## 🟩 WeCom（企业微信）能力
 
-1. **解析意图**：从铲屎官的话中提取文档名、任务列表、会议时间、参与人
-2. **调 callback**：用 `golden_chain` action 一次搞定
-3. **回贴结果**：把文档/表格/待办/会议的链接整理好发回去
+| 操作 | action | 说明 |
+|------|--------|------|
+| 创建文档 | `create_doc` | Markdown 文档 |
+| 创建智能表格 | `create_smart_table` | 自定义字段 + 数据行 |
+| 创建待办 | `create_todo` | 分发给指定人员 |
+| 创建会议 | `create_meeting` | 预约会议，自动邀请 |
+| **黄金链路** | `golden_chain` | 一句话 → 文档 + 表格 + 待办 + 会议 |
 
-### golden_chain 参数示例
+### WeCom golden_chain 示例
 
 ```json
 {
   "action": "golden_chain",
   "docName": "Q2 产品 PRD",
-  "docContent": "# Q2 产品规划\n\n## 目标\n...",
+  "docContent": "# Q2 产品规划\n...",
   "tableName": "Q2 任务跟踪表",
   "tasks": [
-    { "content": "完成 API 设计", "assigneeUserId": "zhangsan", "remindTime": "2026-04-20 09:00:00" },
-    { "content": "前端 UI 实现", "assigneeUserId": "lisi" }
+    { "content": "完成 API 设计", "assigneeUserId": "zhangsan", "remindTime": "2026-04-20 09:00:00" }
   ],
   "meetingTitle": "Q2 PRD 评审会",
   "meetingStart": "2026-04-20 14:00",
   "meetingDurationSeconds": 3600,
-  "meetingInviteeUserIds": ["zhangsan", "lisi", "wangwu"]
+  "meetingInviteeUserIds": ["zhangsan", "lisi"]
 }
 ```
 
-### 回贴格式
+### WeCom 单独操作
 
-拿到结果后，组织成简洁的回复：
+```json
+// create_doc
+{ "action": "create_doc", "docName": "会议纪要", "content": "..." }
 
+// create_smart_table
+{
+  "action": "create_smart_table",
+  "tableName": "Bug 跟踪表",
+  "fields": [
+    { "fieldTitle": "Bug", "fieldType": "FIELD_TYPE_TEXT" },
+    { "fieldTitle": "优先级", "fieldType": "FIELD_TYPE_SINGLE_SELECT" }
+  ],
+  "records": [{ "Bug": "登录超时", "优先级": "P1" }]
+}
+
+// create_todo
+{ "action": "create_todo", "content": "Review PRD", "followerUserIds": ["zhangsan"], "remindTime": "2026-04-20 09:00:00" }
+
+// create_meeting
+{ "action": "create_meeting", "title": "评审", "startDatetime": "2026-04-20 14:00", "durationSeconds": 3600, "inviteeUserIds": ["zhangsan"] }
+```
+
+---
+
+## 🟦 Lark（飞书）能力
+
+| 操作 | action | 说明 |
+|------|--------|------|
+| 创建文档 | `create_doc` | Markdown 飞书文档（docx） |
+| 创建多维表 | `create_base` | Bitable 多维表格 app |
+| 创建任务 | `create_task` | 任务 v2，支持 assignee + due |
+| 创建日程 | `create_calendar_event` | Calendar 事件（lark-cli v1.x 不暴露 VC/meeting URL；需要会议链接时另用 `vc +create`） |
+| 创建幻灯片 | `create_slides` | 飞书专属 — 企微 demo 没有 |
+| **黄金链路** | `golden_chain` | 一句话 → 文档 + 多维表 + 任务 + 日程（+ 可选幻灯片） |
+
+> Lark 的 assignee 用 `open_id`（`ou_xxx`），日历参会人支持 `ou_xxx`（用户）、`oc_xxx`（群）、`omm_xxx`（会议室）。
+
+### Lark golden_chain 示例
+
+```json
+{
+  "action": "golden_chain",
+  "docTitle": "Q2 产品 PRD",
+  "docMarkdown": "# Q2 产品规划\n...",
+  "baseName": "Q2 任务跟踪表",
+  "tasks": [
+    { "summary": "完成 API 设计", "assigneeOpenId": "ou_xxx", "due": "+3d" }
+  ],
+  "calendarSummary": "Q2 PRD 评审会",
+  "calendarStart": "2026-04-20T14:00:00+08:00",
+  "calendarEnd": "2026-04-20T15:00:00+08:00",
+  "calendarAttendeeOpenIds": ["ou_xxx", "ou_yyy"],
+  "includeSlides": true
+}
+```
+
+### Lark 单独操作
+
+```json
+// create_doc
+{ "action": "create_doc", "title": "会议纪要", "markdown": "# 纪要\n..." }
+
+// create_base（多维表）
+{ "action": "create_base", "name": "Bug 跟踪表", "timeZone": "Asia/Shanghai" }
+
+// create_task
+{ "action": "create_task", "summary": "Review PRD", "assigneeOpenId": "ou_xxx", "due": "2026-04-20" }
+
+// create_calendar_event
+{
+  "action": "create_calendar_event",
+  "summary": "评审",
+  "start": "2026-04-20T14:00:00+08:00",
+  "end": "2026-04-20T15:00:00+08:00",
+  "attendeeOpenIds": ["ou_xxx"]
+}
+
+// create_slides（飞书专属）
+{ "action": "create_slides", "title": "Q2 Deck" }
+```
+
+---
+
+## 回贴格式（两边通用）
+
+拿到 callback 返回的链接后，组织成简洁回复：
+
+**WeCom**：
 ```
 已完成工作流创建：
 
@@ -96,66 +201,28 @@ Content-Type: application/json
 🎥 会议: Q2 PRD 评审会 — https://meeting.tencent.com/dm/zzz
 ```
 
-## 单独操作
+**Lark**：
+```
+已完成工作流创建：
 
-### create_doc
-
-```json
-{
-  "action": "create_doc",
-  "docName": "会议纪要",
-  "content": "# 会议纪要\n\n## 讨论内容\n..."
-}
+📄 文档: Q2 产品 PRD — https://feishu.cn/docx/xxx
+📊 多维表: Q2 任务跟踪表 — https://feishu.cn/base/yyy
+✅ 任务: 2 条已分发
+🗓 日程: Q2 PRD 评审会（开始 2026-04-20 14:00）
+🎞 幻灯片: Q2 Deck — https://feishu.cn/slides/www
 ```
 
-### create_smart_table
+## 取用户 ID
 
-```json
-{
-  "action": "create_smart_table",
-  "tableName": "Bug 跟踪表",
-  "fields": [
-    { "fieldTitle": "Bug", "fieldType": "FIELD_TYPE_TEXT" },
-    { "fieldTitle": "优先级", "fieldType": "FIELD_TYPE_SINGLE_SELECT" },
-    { "fieldTitle": "负责人", "fieldType": "FIELD_TYPE_TEXT" }
-  ],
-  "records": [
-    { "Bug": "登录超时", "优先级": "P1", "负责人": "张三" }
-  ]
-}
-```
-
-### create_todo
-
-```json
-{
-  "action": "create_todo",
-  "content": "Review Q2 PRD",
-  "followerUserIds": ["zhangsan", "lisi"],
-  "remindTime": "2026-04-20 09:00:00"
-}
-```
-
-### create_meeting
-
-```json
-{
-  "action": "create_meeting",
-  "title": "PRD 评审",
-  "startDatetime": "2026-04-20 14:00",
-  "durationSeconds": 3600,
-  "inviteeUserIds": ["zhangsan", "lisi"]
-}
-```
-
-## 获取用户列表
-
-如果不知道 userId，先让 Hub 查通讯录（这个走 TypeScript import，不走 callback）。
-面试 demo 场景下，用铲屎官自己的 userId。
+- **WeCom**：如果不知道 `userId`，先让 Hub 查通讯录（走 TypeScript import，不走 callback）。demo 场景下用铲屎官自己的 userId。
+- **Lark**：`searchUsers` 需要 `contact:contact.search` 授权；没授权就优先拿已知 `open_id`，或铲屎官自己的。
 
 ## 注意事项
 
-- **权限**：需要企微应用有对应 API 权限（文档/待办/会议/通讯录）
-- **≤10 人企业限制**：部分功能可能受限，遇到时降级处理
-- **错误码**：502 = 企微 API 报错，503 = wecom-cli 不可用
+- **权限**：需要对应应用有 API 权限（文档/表格/待办/会议/通讯录）
+- **≤10 人企业限制**（WeCom）：部分功能可能受限，遇到降级处理
+- **错误码**：
+  - `502 { error: "..., code, msg }`：厂商 API 报错
+  - `503 { error: "<cli> unavailable" }`：CLI 未安装或未登录
 - **不要裸调 CLI**：审计链会断裂（ADR-029 Decision 2）
+- **飞书黄金链路比企微多一层 Slides**（飞书专属），展示时可强调此差异
