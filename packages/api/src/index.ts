@@ -181,6 +181,7 @@ import {
   workspaceRoutes,
 } from './routes/index.js';
 import { knowledgeFeedRoutes } from './routes/knowledge-feed.js';
+import { marketplaceRoutes } from './routes/marketplace.js';
 import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
@@ -1432,6 +1433,19 @@ async function main(): Promise<void> {
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
   await app.register(capabilitiesRoutes);
+
+  // F146 Phase B: Marketplace adapter — stub loaders, real catalog fetchers in Phase C
+  {
+    const { createAdapterRegistry } = await import('./marketplace/index.js');
+    const registry = createAdapterRegistry({
+      claude: { catalogLoader: async () => [] },
+      codex: { catalogLoader: async () => [] },
+      openclaw: { catalogLoader: async () => [] },
+      antigravity: { catalogLoader: async () => [] },
+    });
+    await app.register(marketplaceRoutes, { registry });
+  }
+
   await app.register(workspaceRoutes, {
     socketEmit: (event, data, room) => {
       socketManager?.broadcastToRoom(room, event, data);

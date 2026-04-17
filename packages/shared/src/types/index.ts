@@ -90,6 +90,7 @@ export type {
   McpInstallRequest,
   McpServerDescriptor,
   McpToolInfo,
+  McpTransport,
   SkillHealthSummary,
 } from './capability.js';
 // Cat types
@@ -264,6 +265,23 @@ export type {
   LimbNodeRecord,
   LimbNodeStatus,
 } from './limb.js';
+// Marketplace types (F146 MCP Marketplace Control Plane)
+export type {
+  InstallMode,
+  InstallPlan,
+  MarketplaceAdapter,
+  MarketplaceArtifactKind,
+  MarketplaceEcosystem,
+  MarketplaceSearchQuery,
+  MarketplaceSearchResult,
+  TrustLevel,
+} from './marketplace.js';
+export {
+  INSTALL_MODES,
+  MARKETPLACE_ARTIFACT_KINDS,
+  MARKETPLACE_ECOSYSTEMS,
+  TRUST_LEVELS,
+} from './marketplace.js';
 // Memory types (F3-lite 显式记忆)
 export type {
   MemoryEntry,
