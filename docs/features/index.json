@@ -1031,7 +1031,13 @@
       "name": "Guided Overfitting — 引导式过拟合 / 养猫路径",
       "status": "spec | **Owner**: 布偶猫 | **Priority**: P2",
       "file": "F165-guided-overfitting.md"
+    },
+    {
+      "id": "F166",
+      "name": "Cat Order Customization — 猫猫排序自定义",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P2",
+      "file": "F166-cat-order-customization.md"
     }
   ],
-  "generated_at": "2026-04-17T05:40:08.104Z"
+  "generated_at": "2026-04-17T07:21:49.256Z"
 }
