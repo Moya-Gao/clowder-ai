@@ -14,7 +14,11 @@ created: 2026-04-17
 
 F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题群：乒乓球（同一对猫反复 @ 无产出）、虚空传球（说"我来做"但 @ 了对方导致球在地上）、角色不适配 handoff（让 designer 写代码）。
 
-铲屎官定期审视 harness engineering 的结论（2026-04-17）：现有 A2A 出口检查只覆盖"漏传球"，没覆盖"过度/假/错误传球"。**Benchmark 高的模型在 agent 环境表现差**（Opus 4.7 benchmark > 4.6 但 agent 行为和小笨猫一样），说明 prompt 层护栏不够，必须补 harness 硬护栏。
+铲屎官定期审视 harness engineering 的结论（2026-04-17）：现有 A2A 出口检查只覆盖"漏传球"，没覆盖"过度/假/错误传球"。
+
+**工作假说：Benchmark 高 ≠ Agent 环境好用**。Opus 4.7 benchmark > 4.6 但 agent 行为和小笨猫一样。Anthropic 官方确认 4.7 "follows instructions more literally"、"calls tools less often"、"will not silently generalize"（[官方 best practices](https://claude.com/blog/best-practices-for-using-claude-opus-4-7-with-claude-code)）。社区出现集中"serious regression"抱怨潮（Reddit r/ClaudeAI 2026-04-16~17）。核心错配：我们的 CLAUDE.md/SOP 是给 Spirit Interpreter 写的（大量隐含约束），4.7 是 Literal Follower（不脑补）。但这仍是工作假说——需要 Phase C 系统研究验证。
+
+结论：prompt 层护栏对 literal 型模型效果有限，必须补 harness 硬护栏。
 
 铲屎官原话：
 > "你们两！！没完没了互相at半天！特么不干活！！！！"
@@ -29,9 +33,9 @@ F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题�
 
 **L1 — 乒乓球熔断**：WorklistRegistry canonical enqueue 点追踪连续 same-pair streak。streak=2 警告，streak=4 熔断。覆盖 serial + callback 双路径。
 
-**L2 — Parallel @ mention 降噪**：prompt 层禁止 parallel 模式 @句柄 + harness 层 route-parallel 的 mentions 标记 `suppressedInParallel` 不写入 routedMentions。
+**L2 — Parallel @ mention 降噪**：prompt 层禁止 parallel 模式 @句柄 + harness 层 route-parallel 的 mentions 标记 `suppressedInParallel`，不写入 routedMentions，且 parallel 结束时的 `followupMentions` 路径同步抑制（GPT-5.4 P1：否则噪声从 followup 出口漏出）。
 
-**L3 — 角色适配门禁**：A2A handoff 时检查目标猫角色能力。coding/fix/test/merge 类动作不允许 handoff 给 designer 角色。fail-closed + 明确报错。
+**L3 — 角色适配门禁**：A2A handoff 时检查目标猫角色能力。动作判定 MVP：复用 `a2a-mentions.ts` 的 AFTER_HANDOFF_RE 模式，在 @mention 邻近文本中扫描 action 关键词（coding/fix/test/merge/review-code vs design/visual/ux），匹配目标猫的 `roleTag`（从 cat-config 的 roleDescription 提取或新增 `capabilityTags` 字段）。fail-closed + 明确报错 "⛔ @{cat} 不接受 {action} 任务"。
 
 ### Phase B: 语义检测（P1）
 
@@ -39,11 +43,13 @@ F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题�
 
 **L5 — feedback_always_at_back 降级**：从"必须 @ 回"降级为"有产出才 @ 回"。必须在 L4 之后做。
 
+**L7 — Prompt Positive Rewrite**（4.7 + 全网反馈驱动）：Anthropic 明确推荐 "positive examples > negative 'Don't do this'"。对 CLAUDE.md/SOP/shared-rules 做批量正面化扫描，把"禁止 X" → "做 X'"（例："不碰 runtime" → "禁止 rm/kill/restart/edit runtime 文件；读日志 OK"）。benefit 不止 4.7，所有 literal 型小笨猫都受益。
+
 ### Phase C: 高级 + 研究（P2）
 
 **L6 — 协调废话熔断**：连续 2 轮 A2A 无 tool_use/code block → 注入收尾提示。
 
-**R1 — Benchmark ≠ Agent 研究**：为什么 benchmark 高的模型在 agent 环境表现差？构建 Agent Readiness Evaluation 框架，新模型进家门前先跑评估。
+**R1 — Benchmark ≠ Agent 研究**：工作假说（4.6 = Spirit Interpreter, 4.7 = Literal Follower）已有初步证据链（Anthropic 官方 + Reddit 抱怨潮 + 家内活体演示）。Phase C 交付物：投诉样本集分析、harness 回放验证、Agent Readiness Eval 框架。
 
 ## Acceptance Criteria
 
@@ -52,20 +58,22 @@ F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题�
 - [ ] AC-A2: streak≥2 时向当前猫注入"乒乓球警告"提示
 - [ ] AC-A3: 正常 review 循环 A→B→A→B (streak=3) 不受影响；中间插入第三只猫或 user 消息 reset streak
 - [ ] AC-A4: callback-a2a-trigger 路径与 serial 文本路径走同一个 bounce 检测（无旁路）
-- [ ] AC-A5: parallel 模式 @mentions 标记 suppressedInParallel，不写入 routedMentions
+- [ ] AC-A5: parallel 模式 @mentions 标记 suppressedInParallel，不写入 routedMentions；followupMentions 路径同步抑制
 - [ ] AC-A6: parallel 模式 SystemPrompt 注入"独立思考禁止 @句柄"
-- [ ] AC-A7: A2A handoff 目标猫为 designer 角色且动作为 coding/fix/test/merge 时 → fail-closed 报错
+- [ ] AC-A7: A2A handoff 目标猫为 designer 角色且邻近文本含 coding/fix/test/merge 关键词 → fail-closed 报错。action 判定复用 AFTER_HANDOFF_RE 模式 + capabilityTags 匹配
 - [ ] AC-A8: 所有现有 A2A 相关测试通过（route-strategies / connector-invoke-trigger / system-prompt-builder）
 - [ ] AC-A9: 新增测试覆盖 L1 乒乓球场景（误杀保护 + 正常熔断）、L2 parallel 抑制、L3 角色门禁
 
-### Phase B（语义检测）
+### Phase B（语义检测 + Prompt 正面化）
 - [ ] AC-B1: 行首 @mention + 否定动作模式共现 → emit 虚空传球警告
 - [ ] AC-B2: feedback_always_at_back 降级为"有产出才 @ 回"
 - [ ] AC-B3: 降级后 F064 出口检查仍正常工作（不回退漏传球问题）
+- [ ] AC-B4: CLAUDE.md/SOP/shared-rules 正面化扫描完成，"禁止 X" 改为显式正面指令
 
 ### Phase C（高级 + 研究）
 - [ ] AC-C1: 协调废话熔断：连续无产出 A2A 检测 + 收尾提示注入
-- [ ] AC-C2: Agent Readiness Eval 框架文档（维度定义 + 测试方法）
+- [ ] AC-C2: Agent Readiness Eval 框架文档（维度定义 + 测试方法），必须包含 Literal vs Inferential 评估维度（场景："不碰 X" 能否推出 "读 X OK"；"必须 @ 回" 能否推出 "有产出才 @ 回"）
+- [ ] AC-C3: 投诉样本集分析 + harness 回放验证报告
 
 ## Dependencies
 
@@ -87,7 +95,7 @@ F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题�
 |---|------|------|
 | OQ-1 | L1 streak threshold 最终值：4（当前）还是更宽松？ | ⬜ 需实测 |
 | OQ-2 | L3 角色能力矩阵是否需要超越 designer 做更通用的映射？ | ⬜ MVP 后评估 |
-| OQ-3 | Benchmark ≠ Agent 的根因是蒸馏丢失元认知、过度对齐、还是长上下文优先级能力？ | ⬜ Phase C 研究 |
+| OQ-3 | Benchmark ≠ Agent 根因？ | ✅ 工作假说确立：Anthropic 官方确认 4.7 = Literal Follower + 我们 CLAUDE.md = Spirit Interpreter 风格 → 错配。Phase C 做系统验证 |
 | OQ-4 | Agent Readiness Eval 是否应在模型 onboarding 流程中成为硬门禁？ | ⬜ 待铲屎官拍板 |
 
 ## Key Decisions
@@ -99,6 +107,9 @@ F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题�
 | KD-3 | L2 做 prompt + harness 双层 | prompt-only 不可靠，parallel 仍会持久化 mention | 2026-04-17 |
 | KD-4 | L1 落点在 WorklistRegistry canonical push | 覆盖 serial + callback 双路径，无旁路 | 2026-04-17 |
 | KD-5 | 先立项不写代码，先研究 benchmark ≠ agent 根因 | 铲屎官要求深入分析再动手 | 2026-04-17 |
+| KD-6 | 根因工作假说：4.7 = Literal Follower, CLAUDE.md = Spirit Interpreter 风格错配 | Anthropic 官方确认 + Reddit 抱怨潮 + 家内 6 个活体 case | 2026-04-17 |
+| KD-7 | 新增 L7 Prompt Positive Rewrite 归入 Phase B | Anthropic 推荐 positive > negative；benefit 所有 literal 型猫 | 2026-04-17 |
+| KD-8 | L3 action 判定 MVP：复用 AFTER_HANDOFF_RE + capabilityTags | GPT-5.4 P1：路由契约无结构化 action 字段，需 MVP 判定方式 | 2026-04-17 |
 
 ## Timeline
 
@@ -107,6 +118,7 @@ F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题�
 | 2026-04-17 | 铲屎官审视 harness → 发现六大问题 → 三猫讨论 → 提案 |
 | 2026-04-17 | GPT-5.4 review (3 P1 修正) + Codex review (3 P1 同源收敛) |
 | 2026-04-17 | 立项 F167 |
+| 2026-04-17 | 4.7 + gemini + gpt52 二轮 review：L2 补 followupMentions、L3 补 action MVP、新增 L7、OQ-3 工作假说确立 |
 
 ## Review Gate
 
@@ -133,4 +145,8 @@ F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题�
 | 铲屎官 2026-04-17 | 虚空传球 | AC-B1 | ⬜ |
 | 铲屎官 2026-04-17 | always_at_back 补丁反噬 | AC-B2~B3 | ⬜ |
 | 铲屎官 2026-04-17 | 协调废话熔断 | AC-C1 | ⬜ |
-| 铲屎官 2026-04-17 | benchmark ≠ agent 根因 + eval 框架 | AC-C2 | ⬜ |
+| 铲屎官 2026-04-17 | benchmark ≠ agent 根因 + eval 框架 | AC-C2~C3 | ⬜ |
+| 4.7 自搜 + Anthropic 官方 | Prompt 正面化（positive > negative） | AC-B4 | ⬜ |
+| GPT-5.4 P1 | L2 followupMentions 路径抑制 | AC-A5 | ⬜ |
+| GPT-5.4 P1 | L3 action MVP 判定方式 | AC-A7 | ⬜ |
+| 烁烁建议 | capabilityTags 角色能力标签 | AC-A7 | ⬜ |
