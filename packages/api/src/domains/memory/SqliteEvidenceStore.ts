@@ -2,6 +2,7 @@
 
 import Database from 'better-sqlite3';
 import { EvidenceWriteQueue } from './evidence-write-queue.js';
+import { ContradictionDetector } from './f163-contradiction-detector.js';
 import { type F163Authority, freezeFlags } from './f163-types.js';
 import type {
   Edge,
@@ -592,11 +593,30 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   }
 
   async upsert(items: EvidenceItem[]): Promise<void> {
-    return this.writeQueue.enqueue(() => {
+    return this.writeQueue.enqueue(async () => {
       this.ensureOpen();
       const db = this.db;
       if (!db) {
         throw new Error('Evidence store is closed');
+      }
+
+      // F163 Phase C (AC-C1): write-time contradiction detection
+      const flags = freezeFlags();
+      if (flags.contradictionDetection !== 'off') {
+        const detector = new ContradictionDetector(this);
+        for (const item of items) {
+          if (!item.contradicts) {
+            const hits = await detector.check({
+              title: item.title,
+              summary: item.summary,
+              kind: item.kind,
+            });
+            const filtered = hits.filter((h) => h.anchor !== item.anchor);
+            if (filtered.length > 0) {
+              item.contradicts = filtered.map((h) => h.anchor);
+            }
+          }
+        }
       }
 
       // F163 Phase B (AC-B5): cascade compression guard
@@ -623,8 +643,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 				(anchor, kind, status, title, summary, keywords, source_path, source_hash,
 				 superseded_by, materialized_from, updated_at, pack_id, provenance_tier, provenance_source, generalizable,
 				 authority, activation, verified_at,
-				 source_ids, summary_of_anchor, compression_rationale)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 source_ids, summary_of_anchor, compression_rationale,
+				 contradicts, invalid_at, review_cycle_days)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`);
 
       const tx = db.transaction((items: EvidenceItem[]) => {
@@ -651,6 +672,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
             item.sourceIds ? JSON.stringify(item.sourceIds) : null,
             item.summaryOfAnchor ?? null,
             item.compressionRationale ?? null,
+            item.contradicts ? JSON.stringify(item.contradicts) : null,
+            item.invalidAt ?? null,
+            item.reviewCycleDays ?? null,
           );
         }
       });
@@ -983,6 +1007,9 @@ interface RowShape {
   source_ids: string | null;
   summary_of_anchor: string | null;
   compression_rationale: string | null;
+  contradicts: string | null;
+  invalid_at: string | null;
+  review_cycle_days: number | null;
 }
 
 function rowToItem(row: RowShape): EvidenceItem {
@@ -1013,6 +1040,9 @@ function rowToItem(row: RowShape): EvidenceItem {
   if (row.source_ids != null) item.sourceIds = JSON.parse(row.source_ids);
   if (row.summary_of_anchor != null) item.summaryOfAnchor = row.summary_of_anchor;
   if (row.compression_rationale != null) item.compressionRationale = row.compression_rationale;
+  if (row.contradicts != null) item.contradicts = JSON.parse(row.contradicts);
+  if (row.invalid_at != null) item.invalidAt = row.invalid_at;
+  if (row.review_cycle_days != null) item.reviewCycleDays = row.review_cycle_days;
   return item;
 }
 

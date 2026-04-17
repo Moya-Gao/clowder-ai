@@ -1502,6 +1502,12 @@ async function main(): Promise<void> {
     evidenceStore: memoryServices.evidenceStore as unknown as Parameters<typeof f163AdminRoutes>[1]['evidenceStore'],
   });
 
+  // F163 Phase C: Knowledge audit routes (contradiction check, flag-review, review-queue, health-report)
+  const { f163AuditRoutes } = await import('./routes/f163-audit-routes.js');
+  await app.register(f163AuditRoutes, {
+    evidenceStore: memoryServices.evidenceStore as unknown as Parameters<typeof f163AuditRoutes>[1]['evidenceStore'],
+  });
+
   // F152 Phase C: Distillation routes (global lesson reflow)
   if (memoryServices.globalStore) {
     const { DistillationService } = await import('./domains/memory/distillation-service.js');

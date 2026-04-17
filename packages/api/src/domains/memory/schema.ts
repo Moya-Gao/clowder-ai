@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -431,6 +431,25 @@ export function applyMigrations(db: Database.Database): void {
       // Column may already exist from a partial migration
     }
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(14, new Date().toISOString());
+  }
+
+  if (currentVersion < 15) {
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN contradicts TEXT');
+    } catch {
+      // Column may already exist from a partial migration
+    }
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN invalid_at TEXT');
+    } catch {
+      // Column may already exist from a partial migration
+    }
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN review_cycle_days INTEGER');
+    } catch {
+      // Column may already exist from a partial migration
+    }
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(15, new Date().toISOString());
   }
 }
 

@@ -102,6 +102,12 @@ export interface EvidenceItem {
   summaryOfAnchor?: string;
   /** F163 Phase B: why these sources were merged */
   compressionRationale?: string;
+  /** F163 Phase C: JSON array of anchor IDs this item contradicts */
+  contradicts?: string[];
+  /** F163 Phase C: when contradiction/invalidity was detected (ISO8601) */
+  invalidAt?: string;
+  /** F163 Phase C: days between review cycles */
+  reviewCycleDays?: number;
   /** AC-I9: passage-level detail when depth=raw */
   passages?: Array<{
     passageId: string;
