@@ -76,7 +76,7 @@ ActivityEventBus (in-process EventEmitter, no persistence)
     ├─→ LeadershipProjector   → co-creator leadership footfall + shadow calibration (Phase D)
     ├─→ LeaderboardProjector  → rankings, badges, stats (F075)
     ├─→ ToolUsageProjector    → tool analytics (F150)
-    └─→ MemoryProjector       → high-value events → F102 evidence (interface only)
+    └─→ MemoryProjector       → high-value events → F102 evidence
 ```
 
 ### ActivityEvent schema
@@ -153,6 +153,12 @@ Events are emitted by routes/hooks as **facts** (what happened), not interpretat
 - Guidance: `task_completed` with zero clarifications → one-shot XP, `session_sealed` with low clarifications → guidance XP
 - Decision (shadow): `decision_confirmed` → explicit direction XP, `task_completed` with low clarifications → proxy direction XP
 - Feedback (shadow): `review_submitted` → proxy feedback XP, `clarification_requested` → audit trail only (1 XP for D7 calibration)
+
+**MemoryProjector** — forwards high-value activity events to F102 EvidenceStore:
+- Always promote: `deep_collab_completed` → discussion, `bug_caught` → lesson, `evidence_cited` → research
+- Conditionally promote: `review_submitted` (when `hasFindings`), `decision_confirmed` (when `threadId` present), `feedback_applied` (always when emitted)
+- Uses semantic anchor keys for upsert idempotency (e.g. `activity-decision-{blockId}`, `activity-collab-{threadId}-{sessionId}`)
+- Template-based summaries; emitter-supplied `metadata.summary` overrides default
 
 ### Shadow dimension calibration (D7 gate)
 
@@ -236,7 +242,7 @@ Not all events merit memory crystallization. Rules:
 | `multi_mention_*` | No | Coordination mechanics, not knowledge |
 
 MemoryProjector applies these filters before forwarding to F102 EvidenceStore.
-Exact implementation deferred — this ADR defines the interface contract only.
+Implemented in `packages/api/src/domains/activity/MemoryProjector.ts`.
 
 ## Consequences
 

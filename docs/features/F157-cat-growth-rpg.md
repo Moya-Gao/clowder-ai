@@ -244,6 +244,7 @@ Cat Journey 系统把猫猫的真实协作数据"结晶"成可见、可感、可
 | KD-4 | 铲屎官六维独立于猫猫六维，不复用 TraitDimension | 衡量对象不同（领导力 vs 执行力），混在一起无意义 | 2026-04-14 |
 | KD-5 | 决策力/反馈力 v1 做 shadow score，proxy 共存待 D7 校准 | 显式信号覆盖面窄，需积累数据验证 proxy 精度后再转正 | 2026-04-14 |
 | KD-6 | E4-E7 投影器先行实现，数据源就位即激活 | 避免上游就绪后还要改 F157 代码 | 2026-04-15 |
+| KD-7 | MemoryProjector 用语义 anchor + 模板 summary，规则硬编码不配置化 | upsert 幂等性需语义 key；推送规则是产品决策应版本化；同步 handler 不引 LLM | 2026-04-17 |
 
 ## Timeline
 
@@ -254,6 +255,7 @@ Cat Journey 系统把猫猫的真实协作数据"结晶"成可见、可感、可
 | 2026-04-14 | Phase D design: opus + gpt52 joint review of leadership dimensions |
 | 2026-04-15 | Phase D1-D5 complete + Phase E1-E3 complete |
 | 2026-04-16 | Phase D6 complete: leadership event detection (clarification/decision/feedback) |
+| 2026-04-17 | MemoryProjector implemented: F157→F102 high-value event promotion bridge |
 
 ## Review Gate
 

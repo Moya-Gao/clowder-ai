@@ -1077,6 +1077,12 @@ async function main(): Promise<void> {
     new LeadershipProjector(activityBus, leadershipService);
   }
 
+  // F157 → F102: Promote high-value activity events to memory (ADR-023 MemoryProjector)
+  if (memoryServices.evidenceStore) {
+    const { MemoryProjector } = await import('./domains/activity/MemoryProjector.js');
+    new MemoryProjector(activityBus, memoryServices.evidenceStore);
+  }
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
