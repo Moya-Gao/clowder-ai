@@ -110,12 +110,25 @@ L3 不直接写入 L1，内部拆成三个状态面：
 
 ### Phase B: Marketplace 聚合（4 生态）
 
-新增 Marketplace Adapter 层，首期即覆盖四家：
+**核心原则（Phase R 结论）**：搜索统一，安装分流。
 
-1. **Codex plugin directory adapter**
-2. **Claude plugin marketplace adapter**
-3. **OpenClaw / ClawHub adapter**
-4. **Antigravity adapter（首期至少完成 discovery + 与 pencil resolver 一致性约束）**
+- **L1 搜索层**统一返回四家 catalog 元数据
+- **L2 安装层**按 `installPlan.mode` 四条通道分流：`direct_mcp | delegated_cli | manual_file | manual_ui`
+- **L3 绑定层**按需加载安全字段（hash/policy/secret_refs）
+
+**接入顺序（修正）**：Claude → Codex → OpenClaw → Antigravity(read-only)
+- Codex 已确认 CLI + JSON-RPC 双通道，字段格式与 Claude 最接近
+- OpenClaw bundle 一词多义需额外 adapter 逻辑，排在 Codex 后
+- Antigravity 仍在 preview，先做 read-only adapter + manual handoff
+
+**三层字段递增**：
+- L1（搜索卡片）：artifact_kind, display_name, ecosystem, source_locator, trust_level, component_summary, transport, artifact_id — 8 个展示字段
+- L2（安装）：+ version_ref, install_scope, tool_policy, installPlan — 加安装字段
+- L3（绑定）：+ binding_snapshot_hash, policy_verdict, secret_refs, publisher_identity — 加安全字段
+
+**Auth 不碰**——遇到需动态授权的包，生成带占位符的配置，Auth 交给引擎原生流。
+
+**字段级映射不可行**——同名不同义（OpenClaw `mcp` 一词两义）、同厂不统一（`serverUrl` vs `httpUrl`）、字段拓扑不同（Codex 拆四份 env）。Adapter 必须按 `host_schema_family` 分模板。
 
 统一输出模型：
 - `packageId`
@@ -138,13 +151,17 @@ L3 不直接写入 L1，内部拆成三个状态面：
 3. 全部安装写审计日志（who/when/what/from）
 4. 所有新增 MCP 必须经过 `mcp:doctor` 验证后才标 ready
 
-供应链硬门禁（首期必须）：
+供应链硬门禁（首期必须，Phase R 调研补充）：
 
 1. 版本不可变 pin（禁止默认漂移到 `@latest`）
 2. 安装来源路径边界校验（白名单源 + 禁止危险 spec）
 3. 禁止 install-time scripts 自动执行（默认 deny）
 4. schema validation 先于执行（manifest/entry 校验不过不安装）
 5. 声明态 vs 实测态 diff gate（声明可用但 probe 失败不得标 ready）
+6. `buildInstallPreview` 红字展示完整 command + args（防 STDIO 注入）— Phase R 发现
+7. `secret_refs` 分离：env 只存 schema `{"API_KEY": "required"}`，运行时从 .env.local 注入（env 值不进 git）— Phase R 发现
+8. Change detection + re-approval：工具描述变更触发重审 — Phase R 两路共识
+9. 环境预检（Pre-flight check：目标节点是否有 node/python/uvx）— Phase R 补充
 
 Skill 内容安全（防下毒）：
 
@@ -199,13 +216,13 @@ Skill 内容安全（防下毒）：
 
 ## Acceptance Criteria
 
-### Phase R（Research Mode B）
-- [ ] AC-R1: 形成 Claude/Codex/OpenClaw/Antigravity 四方 schema 对照表
-- [ ] AC-R2: 明确三类能力边界：可自动安装 / 需人工确认 / 仅可发现
-- [ ] AC-R3: 给出统一 adapter 最小字段集（必填）+ 各生态扩展字段（可选）
-- [ ] AC-R4: 形成“先做什么、不做什么”的实施收敛结论并回写 F146
-- [ ] AC-R5: 外部文档 URL 逐条验真（可访问 + 内容匹配），形成证据表
-- [ ] AC-R6: 形成 F129 Pack ↔ Marketplace 条目映射契约（kind/metadata/installPlan 对齐）
+### Phase R（Research Mode B）✅
+- [x] AC-R1: 形成 Claude/Codex/OpenClaw/Antigravity 四方 schema 对照表
+- [x] AC-R2: 明确三类能力边界：可自动安装 / 需人工确认 / 仅可发现
+- [x] AC-R3: 给出统一 adapter 最小字段集（必填）+ 各生态扩展字段（可选）
+- [x] AC-R4: 形成”先做什么、不做什么”的实施收敛结论并回写 F146
+- [x] AC-R5: 外部文档 URL 逐条验真（可访问 + 内容匹配），形成证据表
+- [x] AC-R6: 形成 F129 Pack ↔ Marketplace 条目映射契约（kind/metadata/installPlan 对齐）
 
 ### Phase A（能力中心写路径）✅
 - [x] AC-A1: Hub 可通过 UI 新增 MCP（无需手改 `capabilities.json`）
@@ -268,10 +285,11 @@ Skill 内容安全（防下毒）：
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Codex 官方公共 Plugin Directory 发布 API 是否开放给第三方编程接入（不只是 App/CLI 交互） | ⬜ 待确认 |
-| OQ-2 | Claude marketplace 在 Team/Enterprise 下的组织级限制策略是否需要映射到我们的权限模型 | ⬜ 待确认 |
-| OQ-3 | Antigravity 生态是否存在稳定公开 market API，还是只支持本地/手工模式（若无公开 API 的降级策略） | ⬜ 待确认 |
+| OQ-1 | Codex 官方公共 Plugin Directory 发布 API 是否开放给第三方编程接入（不只是 App/CLI 交互） | ✅ Phase R 确认：CLI + JSON-RPC 双通道可用 |
+| OQ-2 | Claude marketplace 在 Team/Enterprise 下的组织级限制策略是否需要映射到我们的权限模型 | ⬜ 待确认（Phase B 实现时验证） |
+| OQ-3 | Antigravity 生态是否存在稳定公开 market API，还是只支持本地/手工模式（若无公开 API 的降级策略） | ✅ Phase R 确认：仍在 preview，先做 read-only adapter + manual handoff |
 | OQ-4 | 是否把 MCP 安装审批接入现有 permission center（统一审批轨） | ⬜ 待确认 |
+| OQ-5 | `secret_refs` 分离对 Phase A 写路径的影响范围（env 值从 capabilities.json 迁出） | ⬜ Phase C 前需验证 |
 
 ## Key Decisions
 
@@ -284,6 +302,11 @@ Skill 内容安全（防下毒）：
 | KD-5 | Antigravity 不是“可选”，首期必须纳入 discovery 与一致性约束 | 我们已有活跃 `pencil` 生态，不能与 F145 resolver 脱节 | 2026-03-28 |
 | KD-6 | Runtime Connect / OpenAI connectors 在本 feature 里降为 P2 | 对我们当前主路径不是首要堵点，避免 Phase A 扩 scope | 2026-03-28 |
 | KD-7 | 承接 F129 的 Marketplace/Registry owner 职责，Pack 纳入 L3 分发统一模型 | 避免双 Feature 重复建设分发层，明确 owner/consumer 边界 | 2026-04-04 |
+| KD-8 | 字段级直接映射不可行，Adapter 按 `host_schema_family` 分模板 | Phase R 发现同名不同义、同厂不统一、字段拓扑不同 | 2026-04-17 |
+| KD-9 | 接入顺序修正：Claude → Codex → OpenClaw → Antigravity(read-only) | Codex CLI+JSON-RPC 双通道确认，字段与 Claude 最接近；OpenClaw bundle 语义歧义需额外 adapter | 2026-04-17 |
+| KD-10 | Phase B 只做 MCP Server 类能力，Plugin/Skill 做 delegated 降级展示，Apps/Connectors 搁置 | Phase R 两路共识：四家仅 MCP 是公共交集 | 2026-04-17 |
+| KD-11 | trust_level 分级不够用，必须加 version pin + hash + change detection + re-approval | Phase R 假设 5 被反对，两路+规范一致 | 2026-04-17 |
+| KD-12 | 统一 Auth 握手明确搁置，交给各引擎原生流 | 鉴权生命周期异构，Phase R 两路共识 | 2026-04-17 |
 
 ## Timeline
 
@@ -292,6 +315,7 @@ Skill 内容安全（防下毒）：
 | 2026-03-28 | 立项（基于铲屎官新诉求与 F145 完成态） |
 | 2026-04-04 | 与 F129 scope 对齐：F146 承接 Marketplace owner，Pack 纳入 L3 `kind=pack` |
 | 2026-04-16 | Phase A merged (PR #1220) — 能力中心写路径 + install preview + audit log + 并发安全 |
+| 2026-04-17 | Phase R complete — GPT Pro + Gemini Deep Think 两路咨询 + codebase 验证综合（`docs/research/2026-04-17-f146-phase-r-marketplace-ecosystem/synthesis.md`） |
 
 ## Review Gate
 
@@ -305,6 +329,10 @@ Skill 内容安全（防下毒）：
 | **Feature** | `docs/features/F145-mcp-portable-provisioning.md` | 当前 MCP 可移植基础能力 |
 | **Feature** | `docs/features/F041-capability-dashboard.md` | 能力中心看板基础 |
 | **Feature** | `docs/features/F129-pack-system-multi-agent-mod.md` | plugin/pack 生态边界 |
+| **Research** | `docs/research/2026-04-17-f146-phase-r-marketplace-ecosystem/synthesis.md` | Phase R 综合（四家 schema 交集 + adapter 可行性） |
+| **Research** | `docs/research/2026-04-17-f146-phase-r-marketplace-ecosystem/gpt-pro-consult.md` | GPT Pro 咨询报告 |
+| **Research** | `docs/research/2026-04-17-f146-phase-r-marketplace-ecosystem/gemini-deepthink-consult.md` | Gemini Deep Think 咨询报告 |
+| **Prompt** | `docs/prompts/2026-04-17-f146-phase-r-marketplace-ecosystem-research-prompt.md` | Phase R 调研 prompt |
 | **External** | https://developers.openai.com/codex/plugins | Codex plugin directory + 安装流程 |
 | **External** | https://developers.openai.com/codex/plugins/build | Codex plugin 结构与发布状态 |
 | **External** | https://developers.openai.com/api/docs/guides/tools-connectors-mcp | OpenAI MCP/Connectors 工具层 |
