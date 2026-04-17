@@ -317,6 +317,7 @@ Skill 内容安全（防下毒）：
 | 2026-04-16 | Phase A merged (PR #1220) — 能力中心写路径 + install preview + audit log + 并发安全 |
 | 2026-04-17 | Phase R complete — GPT Pro + Gemini Deep Think 两路咨询 + codebase 验证综合（`docs/research/2026-04-17-f146-phase-r-marketplace-ecosystem/synthesis.md`） |
 | 2026-04-17 | Phase B merged (PR #1231) — 4-ecosystem adapter backend, unified search API, install plan bridge, 60 tests |
+| 2026-04-17 | Phase B frontend merged (PR #1235) — marketplace search UI, result cards, install plan detail, trust filter, Hub integration |
 
 ## Review Gate
 
