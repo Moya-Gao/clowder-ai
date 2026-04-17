@@ -148,7 +148,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 4. `query` 文档支持窄幅 post-retrieval boost（`1.0 ~ 1.3`），用 gold set 校准，不写死倍率
 5. 现有 shared-rules 铁律、P0 LL 标记为 `authority=constitutional, activation=always_on`
 
-### Phase B: 非替代式压缩 + 源头回链
+### Phase B: 非替代式压缩 + 源头回链 ✅
 
 **核心原则**：压缩 = 生成更好的索引层摘要，不是删除原件。
 
