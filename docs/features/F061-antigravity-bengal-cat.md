@@ -533,30 +533,23 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-16 | **Diag stub** — `empty_response` 诊断桩：batch 级 info 日志 + 聚合 warn + unknown_activity 去重 info + 诊断 metadata 附到错误消息。下次 empty_response 可立即区分"上游没字/taxonomy 漏映射/non-text only"（PR #1208, 砚砚 1P2→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-16 | **Raw trace** — `ANTIGRAVITY_TRACE_RAW=1` env-gated 原始轨迹 dump + `summarizeStepShape()` step 结构快照 + `extract-step-catalog.mjs` 日志→catalog 提取脚本。揭示 TypeScript interface 未覆盖的上游字段（PR #1215, 砚砚 1P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-16 | **Bug-8 诊断 + Phase 2c 立项** — opus-47（Opus 4.7 试用分身）接手 4.6/gpt-5.4 苦战一周的 "@antig-opus 卡死" 根因：`CORTEX_STEP_TYPE_RUN_COMMAND` 冻在 WAITING，Bridge 无原生工具执行器。铲屎官纠偏"你都是全工具为什么 你要限制其他猫猫"，订入 feedback_agent_tool_parity 记忆。Phase 2c "猫猫工具平权" 立项（R → D → I）|
+| 2026-04-17 | **Phase 2c v1 merged** — 原生工具执行器 `RunCommandExecutor` + Bridge writeback + kill switch + 审计日志。152/152 tests。砚砚 2 轮 review（4 P1→fix→放行）+ 云端 2 轮 0 P1/P2（PR #1230）|
 
 ---
 
 ## Known Bugs（活跃）
 
-### Bug-8: `CORTEX_STEP_TYPE_RUN_COMMAND` 永卡 `WAITING` — Bridge 无原生工具执行器 🔴
+（暂无活跃 bug）
+
+## Known Bugs（已修复）
+
+### Bug-8: `CORTEX_STEP_TYPE_RUN_COMMAND` 永卡 `WAITING` — Bridge 无原生工具执行器 ✅ FIXED (v1, PR #1230)
 
 **现象**（2026-04-16 夜，opus-47 诊断，4.6 + gpt-5.4 此前尝试一周未解）：铲屎官 @ 孟加拉猫做任意需要命令行的任务（示例：`grep 'z.enum' packages/mcp-server/src/tools/signals-tools.ts`），@antig-opus 规划后发出一个 `CORTEX_STEP_TYPE_RUN_COMMAND` step，前端显示"思考中"后冻死；18 秒后 `rawLength` 稳定在 658,407 字节不再增长，60 秒 idle stall 超时触发。
 
-**根因**（从今晚 `ANTIGRAVITY_TRACE_RAW=1` 采的 77 条 trace + stepShapes 定位）：
-1. 今晚实际命中的 cascade `2a4de399-60f2-4e8c-a025-b2aa6f0626c8` step 23 是 `CORTEX_STEP_TYPE_RUN_COMMAND`，`runCommand = { commandLine, cwd, shouldAutoRun: true, blocking: true }`，`requestedInteraction.permission.resource = { action: "command", target }`
-2. Status 从 `PENDING` → `WAITING`（见 `internalMetadata.statusTransitions`），但 Bridge 从不回推 tool result → cascade 永远停在 WAITING
-3. `AntigravityBridge` 目前只知道 7 个 RPC 方法（StartCascade / SendUserCascadeMessage / GetCascadeTrajectory / GetCascadeTrajectorySteps / ResolveOutstandingSteps / HandleCascadeUserInteraction / GetUserStatus），**零**`runCommand` / `toolResult` 相关代码路径
-4. `antigravity-event-transformer` 只识别 8 种 step 类型（CHECKPOINT / EPHEMERAL_MESSAGE / ERROR_MESSAGE / MCP_TOOL / PLANNER_RESPONSE / TOOL_CALL / TOOL_RESULT / USER_INPUT），**不包含** RUN_COMMAND
+**根因**：Bridge 无原生工具执行器 → WAITING step 永远不被回推 → cascade 卡死。
 
-**设计教训**（feedback_agent_tool_parity）：这一 bug 的存在本身说明历史设计以"限制其他猫工具面"为默认路径——只开了 MCP 通道，没为原生工具规划执行器。应反过来：**默认全开、有具体 P0 风险才限制**。
-
-**修复计划**：Phase 2c（Tool Parity），上方 Acceptance Criteria 完整列出。不走"关闭 RUN_COMMAND"的短路，走"Bridge 加原生执行器"的长路。
-
-**Workaround（未修前）**：铲屎官若必须让 @antig-opus 跑命令，可在 Antigravity IDE 内直接让她跑（IDE 原生有执行器），或改让 @antig-opus 用 MCP 里的 shell 工具（如果 MCP 服务器暴露了的话）。但这两条都是绕路。
-
-## Known Bugs（已修复）
-
-## Known Bugs（已修复）
+**修复**：Phase 2c `RunCommandExecutor` + Bridge-owned writeback（`CancelCascadeSteps` + synthetic user message）。152/152 tests，4 P1 修复（terminalAbort gate / stepIndex guard / SafeToAutoRun / Redis 6399 全覆盖）。
 
 ### Bug-C: Gemini 拒绝数值 enum 的 tier 参数 — INVALID_ARGUMENT 400 ✅
 
