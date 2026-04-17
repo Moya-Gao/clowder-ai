@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F166: Cat Order Customization — 猫猫排序自定义
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P2 | **Completed**: 2026-04-17
 
 ## Why
 
@@ -49,6 +49,7 @@ created: 2026-04-17
 |------|------|
 | 2026-04-17 | 立项 |
 | 2026-04-17 | Phase A merged (PR #1232) |
+| 2026-04-17 | Feature closed (愿景守护 gpt52 ✅) |
 
 ## Dependencies
 
@@ -68,3 +69,6 @@ created: 2026-04-17
 | KD-1 | 原生 HTML5 DnD，不引入 @dnd-kit | ~30 行实现，避免新依赖 | 2026-04-17 |
 | KD-2 | 整张列表自由排序，非 pin-top 机制 | 铲屎官明确要"拖到最上面"的自由度 | 2026-04-17 |
 | KD-3 | 复用 `/api/config` 偏好框架 | 已有持久化基础设施，不造新轮子 | 2026-04-17 |
+
+## Reflection
+- [反思胶囊](../reflections/2026-04-17-f166-cat-order-capsule.md)
