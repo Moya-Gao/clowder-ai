@@ -121,7 +121,7 @@ LarkCliExecutor → lark-cli docs/base/task/calendar/slides +...
 - Lark Open API 响应用 `{code, msg, data}`，不是企微的 `{errcode, errmsg, ...}`
 - Slides 是飞书专属，企微 v0.1.5 不支持
 - Task v2 的 assignee 用 `open_id`（`ou_xxx`）
-- Calendar 事件自带 VC 会议链接（不用额外建会议）
+- Calendar 事件本体通过 `calendar +create-event`；lark-cli v1.x **不暴露** VC/meeting URL，需要会议链接时另用 `vc +create`
 
 ### Phase C: 跨平台统一与 Hub 集成（面试后）
 
@@ -202,6 +202,7 @@ LarkCliExecutor → lark-cli docs/base/task/calendar/slides +...
 | 2026-04-17 | Day 3: demo 打磨 + 面试 |
 | 2026-04-17 | Phase B kickoff: lark-cli 接入，骨架 + 双平台 skill + 单元测试 29/29 pass（AC-B1~B5, B8） |
 | 2026-04-17 | Phase B 真实 E2E: `LARK_E2E=1` Golden Chain 通过 — doc/base/task/calendar/slides 全绿。产出链接：<br>　📄 https://www.feishu.cn/docx/OeoRdvOetox1jxxWF9McNCg5nKf<br>　📊 https://icnzjwzqfxa8.feishu.cn/base/SvNQbgdARaUrxFsVgZdcbAKdnQc<br>　🎞 https://icnzjwzqfxa8.feishu.cn/slides/MVRrs1nFPlx2ITdbxfBcOD8Cn8d<br>AC-B6 达成。探测过程修正了 types/service/tests 里若干字段形状（KD-7） |
+| 2026-04-17 | Phase B merged (PR #1233): Lark golden chain + 5 tier error classification（`LarkApiError` 502 / `LarkCliUnavailableError` 503 / `LarkCliProtocolError` 500）+ SKILL 双平台扩展。35/35 unit tests pass，@codex 本地 review + 云端 review 均放行。 |
 
 ## Review Gate
 
@@ -209,6 +210,7 @@ LarkCliExecutor → lark-cli docs/base/task/calendar/slides +...
 - AC-A1~A4: codex review + 云端 review 通过，PR #1180 merged 2026-04-15。
 - AC-A7: 云端 review 通过，PR #1182 merged 2026-04-15。
 - CellTextValue fix: 云端 review 通过，PR #1186 merged 2026-04-15。
+- Phase B Round 1: codex local review（1 P1 + 3 P2 → Red→Green 全修）+ 云端 review 放行，PR #1233 merged 2026-04-17。
 
 ## 需求点 Checklist
 
@@ -224,6 +226,6 @@ LarkCliExecutor → lark-cli docs/base/task/calendar/slides +...
 | 飞书文档（docx） | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
 | 飞书多维表（Bitable） | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
 | 飞书任务 v2 | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
-| 飞书日程 + VC 链接 | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
+| 飞书日程（event v4） | 铲屎官 2026-04-17 | ✅ 骨架 + 单测；VC 链接 lark-cli v1.x 不暴露，需要时另用 `vc +create` |
 | 飞书幻灯片（专属） | 铲屎官"对他们有什么就接什么" | ✅ 骨架 + 单测 + goldenChain 可选分支 |
-| 飞书 Lark golden chain | 铲屎官"今天下午都能干完" | ⬜ 骨架 OK，真实调用待 lark-cli 登录 |
+| 飞书 Lark golden chain | 铲屎官"今天下午都能干完" | ✅ 真实 E2E 通过 2026-04-17（PR #1233 merged），doc/base/task/calendar/slides 全绿 |
