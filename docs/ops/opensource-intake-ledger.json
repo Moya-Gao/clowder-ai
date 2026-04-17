@@ -631,6 +631,12 @@
       "target_merge_commit": "be4ee8f2e2769be7f428d1e48dd6eca865d29dd4",
       "decision": "absorbed",
       "timestamp": "2026-04-17T05:29:15.377Z"
+    },
+    {
+      "pr_number": 500,
+      "target_merge_commit": "ecf5a05505f988e4a0d3d743b39265c71c46a675",
+      "decision": "absorbed",
+      "timestamp": "2026-04-17T05:15:13.852Z"
     }
   ]
 }
