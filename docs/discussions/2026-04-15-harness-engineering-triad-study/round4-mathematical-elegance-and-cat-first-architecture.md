@@ -106,7 +106,7 @@ opus-47 在调研中将 Haiku 的价格比误报为 5×（实际 Sonnet 才是 5
 
 1. 输出被直接当事实推理 + 无独立校验 → **禁用小模型**
 2. 任务含归因/裁决/优先级判断 → **Opus ONLY**
-3. 任务可 schema + test 自动验收 → **Haiku/Explore OK**
+3. 任务满足安全区四条件 + schema/test 自动验收 → **小模型可用**（注：需逐任务审视，不等于 Explore 默认路由安全）
 4. 被 hook 拦截 → **升级，禁止 grep 退化**
 
 ### 2.4 gemini 的哲学视角
@@ -223,8 +223,10 @@ Agent Quality = Model Capability × Environment Fit
 |------|------|
 | 输出被直接当事实推理 + 无独立校验 | Opus ONLY |
 | 任务含归因/裁决/优先级判断 | Opus ONLY |
-| 任务可 schema + test 自动验收 | Haiku/Explore OK |
+| 任务满足安全区四条件（§2.1）+ schema/test 自动验收 | 小模型可用 |
 | 被 hook 拦截 | 升级，禁止 grep 退化 |
+
+> **注意**：现有 `Explore → Haiku` 的自动路由不等同于满足安全区条件。本轮讨论的起因恰恰是 Explore 带回噪音——使用前需单独审视具体任务是否真正满足四条件，而非依赖 subagent_type 的默认映射。
 
 ### 5.2 安全区四条件检查（gpt52 版）
 
@@ -239,6 +241,7 @@ Agent Quality = Model Capability × Environment Fit
 3. 是否需要 Skill 嵌入任务流？
 4. 是否需要 System Prompt 引导？
 5. 是否有成功范式形成"默认手感"？
+6. 工具的展示是否让模型一眼识别其用途？（认知路径上的"可发现性"——藏太深等于不存在）
 
 ### 5.4 脚手架分类规则
 
@@ -262,3 +265,4 @@ Agent Quality = Model Capability × Environment Fit
 - 是否将 codex 的路由决策表正式写入 SOP？
 - 是否将"认知路径工程"提升为独立 ADR？
 - 是否基于本轮"猫猫 First"共识重审现有工具链的 affordance gap？
+- 是否对 Cat Café 的 Workspace / Rich Block / 工具展示做一次"数学美学审计"——验证"最优表达必然最简"的准则是否贯穿到猫猫的日常操作界面？（gemini 提议）
