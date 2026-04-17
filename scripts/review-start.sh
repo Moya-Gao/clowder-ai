@@ -25,7 +25,7 @@ Defaults:
   storage=memory (--memory)
 
 Safety:
-  - Must run inside /tmp/cat-cafe-review/... by default.
+  - Must run inside /tmp/cat-cafe-review/... (or /private/tmp/... on macOS) by default.
   - Refuses runtime/alpha reserved ports (3001/3002/3011/3012/4111).
 EOF
 }
@@ -97,6 +97,9 @@ validate_port() {
 
 has_profile_arg() {
     local arg
+    if [ "${#EXTRA_ARGS[@]}" -eq 0 ]; then
+        return 1
+    fi
     for arg in "${EXTRA_ARGS[@]}"; do
         case "$arg" in
             --profile=*) return 0 ;;
@@ -109,7 +112,7 @@ enforce_review_sandbox() {
     local pwd_real
     pwd_real="$(pwd -P)"
     case "$pwd_real" in
-        /tmp/cat-cafe-review/*) return 0 ;;
+        /tmp/cat-cafe-review/*|/private/tmp/cat-cafe-review/*) return 0 ;;
     esac
 
     if [ "${CAT_CAFE_ALLOW_NON_SANDBOX_REVIEW:-0}" = "1" ]; then
@@ -119,6 +122,7 @@ enforce_review_sandbox() {
 
     echo "✗ review:start 只允许在 review 沙盒运行：" >&2
     echo "  /tmp/cat-cafe-review/{review-target-id}/{reviewer-handle}" >&2
+    echo "  /private/tmp/cat-cafe-review/{review-target-id}/{reviewer-handle} (macOS realpath)" >&2
     echo "  当前目录: $pwd_real" >&2
     echo "  如需临时绕过: CAT_CAFE_ALLOW_NON_SANDBOX_REVIEW=1 pnpm review:start" >&2
     exit 1
@@ -197,7 +201,11 @@ if [ "$WEB_PORT" = "$API_PORT" ]; then
 fi
 
 if ! has_profile_arg; then
-    EXTRA_ARGS=(--profile=opensource "${EXTRA_ARGS[@]}")
+    if [ "${#EXTRA_ARGS[@]}" -eq 0 ]; then
+        EXTRA_ARGS=(--profile=opensource)
+    else
+        EXTRA_ARGS=(--profile=opensource "${EXTRA_ARGS[@]}")
+    fi
 fi
 
 echo "🐱 Review 沙盒启动"
@@ -214,9 +222,16 @@ if [ "$DRY_RUN" = "1" ]; then
 fi
 
 cd "$PROJECT_DIR"
+# Review sandboxes should not inherit local sidecar/proxy toggles from .env or shell.
+# Keep the default deterministic for reviewers, while still allowing explicit overrides.
 FRONTEND_PORT="$WEB_PORT" \
 API_SERVER_PORT="$API_PORT" \
 NEXT_PUBLIC_API_URL="http://localhost:$API_PORT" \
 PREVIEW_GATEWAY_PORT=0 \
 CAT_CAFE_RESPECT_DOTENV_PORTS=0 \
+ANTHROPIC_PROXY_ENABLED=0 \
+ASR_ENABLED=0 \
+TTS_ENABLED=0 \
+LLM_POSTPROCESS_ENABLED=0 \
+EMBED_ENABLED=0 \
 bash ./scripts/start-dev.sh --memory "${EXTRA_ARGS[@]}"

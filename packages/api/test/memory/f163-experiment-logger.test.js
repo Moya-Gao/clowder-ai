@@ -12,8 +12,16 @@ import { applyMigrations } from '../../dist/domains/memory/schema.js';
 describe('F163 ExperimentLogger', () => {
   let db;
   let logger;
+  let previousF163Env;
 
   beforeEach(() => {
+    previousF163Env = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (key.startsWith('F163_')) {
+        previousF163Env[key] = value;
+        delete process.env[key];
+      }
+    }
     db = new Database(':memory:');
     applyMigrations(db);
     logger = new F163ExperimentLogger(db);
@@ -23,6 +31,7 @@ describe('F163 ExperimentLogger', () => {
     for (const key of Object.keys(process.env)) {
       if (key.startsWith('F163_')) delete process.env[key];
     }
+    Object.assign(process.env, previousF163Env);
   });
 
   it('logSearch inserts a search log entry', () => {
